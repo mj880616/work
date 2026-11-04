@@ -8,6 +8,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 //   ③ [완전히 지우기 · n장]: 폰 휴지통 + 짝 원드라이브 사본까지 Web2 휴지통(photo-delete) + 비운 기록 지우기.
 // - PC 1280: 원드라이브 사진 [지우기]는 예전처럼 바로 빠지고 [되돌리기](고르기 창 없음).
 // 네트워크 없음(지어낸 서버·지어낸 앱), 사진은 1×1 그림.
+const barPick = async (page, trigger, name) => { await trigger.click(); await page.locator('#photoBarMenu').getByRole('button', { name, exact: true }).click(); }; // S49-34 PHOTO-아래줄정돈: 더보기·편집 ▾ 안 글자 항목
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const CDN = 'https://od-thumb.example.test';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
@@ -169,9 +170,7 @@ test.describe('폰 앱 412', () => {
     const { state } = await fixture(page, { app: true });
     await phoneOnly(page);
     await hold(page, cellOf(page, 'K9'));
-    const back = root(page).locator('[data-photos-act-restore]');
-    await expect(back).toBeVisible();
-    await back.click();
+    await barPick(page, root(page).locator('[data-photos-act-more]'), '폰으로 되돌리기');
     await expect.poll(() => sentOf(page, /^photos:save:/)).toEqual([
       `photos:save:begin:{"name":"IMG_9.jpg","mime":"image/png","size":${PNG.length},"dir":"DCIM/Camera/","taken":${Date.parse('2026-10-20T03:00:00Z')}}`,
       'photos:save:part', 'photos:save:end']);
@@ -180,7 +179,9 @@ test.describe('폰 앱 412', () => {
     await expect.poll(() => ids(page)).toEqual(['ph:2', 'ph:1']);
     // 폰 사진만 고르면 [폰으로 되돌리기]는 없다.
     await hold(page, cellOf(page, 'ph:2'));
-    await expect(back).toBeHidden();
+    await root(page).locator('[data-photos-act-more]').click();
+    await expect(page.locator('#photoBarMenu').getByRole('button', { name: '폰으로 되돌리기' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
     expect(state.errors).toEqual([]);
   });
 
@@ -306,7 +307,9 @@ test.describe('PC 1280', () => {
     await expect(choice(page)).toHaveCount(0);
     await expect.poll(() => ids(page)).toEqual(['K9']);
     await expect(page.locator('.kptu-notice')).toContainText('휴지통으로 옮겼어요');
-    await expect(root(page).locator('[data-photos-act-restore]')).toBeHidden();
+    // 되돌릴 사진이 없으면 [더보기] 안에 [폰으로 되돌리기]가 없다.
+    const more = root(page).locator('[data-photos-act-more]');
+    if (await more.isVisible()) { await more.click(); await expect(page.locator('#photoBarMenu').getByRole('button', { name: '폰으로 되돌리기' })).toHaveCount(0); await page.keyboard.press('Escape'); }
     expect(state.edge).not.toContain('kept-list');
     expect(state.errors).toEqual([]);
   });

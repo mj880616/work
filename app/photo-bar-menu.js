@@ -10,7 +10,7 @@ function ensure() {
     parent:trigger => trigger.closest('[role="dialog"]') || document.body,
     key:() => 'photo-bar',
     render:() => (ctx?.rows || []).map(r => `<button type="button" data-bar-item="${esc(r.id)}"${r.disabled ? ' disabled' : ''}>${esc(barItemText(r.id))}</button>`).join(''),
-    onAction:button => ctx?.run(button.dataset.barItem)});
+    onAction:(button, previous) => { ctx?.run(button.dataset.barItem); previous?.trigger?.focus?.({preventScroll:true}); }}); // 닫힌 뒤 눌렀던 칸으로 포커스(S 키 별표·키보드 이어서 쓰기)
   return menu;
 }
 // rows = [{id, disabled?}] (이미 걸러진 것), run(id)가 항목을 처리. 보일 항목이 없으면 열지 않고 false.

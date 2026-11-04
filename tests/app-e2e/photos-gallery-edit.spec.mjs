@@ -87,7 +87,8 @@ async function openPhotos(page, width) {
 }
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));
 const viewer = page => page.locator('[data-diary-viewer]');
-const editBtn = page => viewer(page).locator('[data-strip-edit]');
+const editBtn = page => viewer(page).locator('[data-strip-act="edit"]'); // S49-34: [편집 ▾] 칸
+const editClick = async page => { await editBtn(page).click(); await page.locator('#photoBarMenu').getByRole('button', { name: '사진 편집', exact: true }).click(); };
 const sent = page => page.evaluate(() => window.__photoSent.filter(m => /^photos:(edit|save)/.test(m)));
 
 test.describe('PC 1280', () => {
@@ -114,9 +115,9 @@ test.describe('폰 앱 412', () => {
     await page.locator('#photosRoot [data-photos-id="ph:1"]').click();
     await expect(viewer(page)).toBeVisible();
     await expect(editBtn(page)).toBeVisible();
-    await expect(editBtn(page)).toHaveText('편집');
+    await expect(editBtn(page)).toContainText('편집');
     const pages = state.phoneReads.filter(p => p.startsWith(`${KEY}/page?`)).length;
-    await editBtn(page).click();
+    await editClick(page);
     await expect.poll(() => sent(page)).toEqual(['photos:edit:{"id":"1"}']);
     await expect(viewer(page)).toHaveCount(0);
     await expect(page.locator('.kptu-notice')).toContainText('편집한 사진을 반영했어요');
@@ -131,11 +132,11 @@ test.describe('폰 앱 412', () => {
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
     await page.locator('#photosRoot [data-photos-id="O1"]').click();
     await expect(viewer(page)).toBeVisible();
-    await editBtn(page).click();
+    await editClick(page);
     await expect(viewer(page).locator('[data-diary-viewer-note]')).toContainText('폰에 없는 사진이에요');
     expect(await sent(page)).toEqual(['photos:edit:{"name":"a.png","size":111,"taken":1793329200000}']);
     expect(state.edge.filter(a => a === 'media-url:download')).toEqual([]);
-    await editBtn(page).click();
+    await editClick(page);
     await expect.poll(() => sent(page)).toEqual([
       'photos:edit:{"name":"a.png","size":111,"taken":1793329200000}',
       `photos:save:begin:{"name":"a.png","mime":"image/png","size":${PNG.length}}`,

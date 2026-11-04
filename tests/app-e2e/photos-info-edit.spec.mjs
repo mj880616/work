@@ -100,10 +100,9 @@ test("12장 '모두 −8시간' → 앱에 한 번, 순서 바뀜, 기록 12줄 
   for (const id of SONY.slice(1)) await cellOf(page, id).click();
   await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('12개 골랐음');
   // PHOTO-정보수정버튼(S49-18): ⋯ 없이 아래 줄 [정보수정] 한 번에 창이 열린다.
-  await expect(root(page).locator('[data-photos-act-more]')).toHaveCount(0);
-  const infoBtn = root(page).locator('[data-photos-act-info]');
-  await expect(infoBtn).toBeVisible();
-  await expect(infoBtn).toContainText('정보수정');
+  // PHOTO-아래줄정돈(S49-34): 정보수정은 아래 줄 [더보기] 안 글자 항목.
+  const moreBtn = root(page).locator('[data-photos-act-more]');
+  await expect(moreBtn).toBeVisible();
   // 폰 폭에서 버튼이 한 줄에 다 들어가거나(글자 안 잘림) 줄이 옆으로 밀린다(칸이 찌그러지지 않음).
   const fit = await root(page).locator('[data-photos-act]').evaluate(bar => {
     const btns = [...bar.querySelectorAll('button.kptu-act')].filter(b => !b.hidden && getComputedStyle(b).display !== 'none');
@@ -112,7 +111,8 @@ test("12장 '모두 −8시간' → 앱에 한 번, 순서 바뀜, 기록 12줄 
   expect(fit.clipped).toBe(0);
   expect(fit.onePerRow).toBe(1);
   console.log('act-bar fit', JSON.stringify(fit));
-  await infoBtn.click();
+  await moreBtn.click();
+  await page.locator('#photoBarMenu').getByRole('button', { name: '정보수정', exact: true }).click();
   const dlg = page.locator('#photoInfoDialog');
   await expect(dlg).toBeVisible();
   await expect(dlg.locator('[data-pi-count]')).toHaveText('12장');

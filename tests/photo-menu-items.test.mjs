@@ -91,6 +91,7 @@ test('아래 줄은 다섯 칸까지: 고르기 줄·크게 보기 줄 모두, �
   assert.equal((html.match(/kptu-act-caret/g) || []).length, 2);
   assert.match(photoActButton('delete', 'data-x'), /class="kptu-act kptu-act-danger"/);
   const photos = read('app/photos.js'), strip = read('app/photo-strip.js');
+  assert.ok(read('app/photo-strip.js').includes("const STRIP_BASIC_BAR = Object.freeze(['star', 'share', 'edit', 'delete', 'detail'])") && PHOTO_ACT_DEF.detail, '일기 기본 줄도 다섯 칸'); // 사진 화면이 아닌 곳의 크게 보기
   assert.match(photos, /photoActButtons\(PHOTO_MENUS\.selectBar/);
   assert.match(strip, /photoActButtons\(barIds, barAttr\)/);
   assert.doesNotMatch(strip, /actInner\(/);

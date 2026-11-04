@@ -13,12 +13,14 @@ export const PHOTO_ACT_DEF = Object.freeze({
   move: {icon: ACT_ICON.move, popup: true},
   delete: {icon: ACT_ICON.delete, danger: true},
   more: {icon: ACT_ICON.more, menu: true, hidden: true},
+  // 일기 등 사진 화면이 아닌 곳의 크게 보기 기본 줄([별표][공유][편집][지우기][정보], 다섯 칸)의 [정보] — 정보 판 펼치기.
+  detail: {icon: ACT_ICON.info, expand: true},
 });
 
 // 버튼 하나. attr = 그 화면이 이 버튼을 찾는 속성(예: data-photos-act-move).
 export function photoActButton(id, attr) {
   const d = PHOTO_ACT_DEF[id], text = PHOTO_ACT_TEXT[id];
-  const extra = `${d.popup || d.menu ? ' aria-haspopup="true" aria-expanded="false"' : ''}${d.hidden ? ' hidden' : ''}`;
+  const extra = `${d.popup || d.menu ? ' aria-haspopup="true" aria-expanded="false"' : ''}${d.expand ? ' aria-expanded="false"' : ''}${d.hidden ? ' hidden' : ''}`;
   const tx = d.caret ? `${text}<span class="kptu-act-caret" aria-hidden="true">▾</span>` : text;
   return `<button type="button" class="kptu-act${d.danger ? ' kptu-act-danger' : ''}" ${attr}${extra}>${actInner(d.icon, tx)}</button>`;
 }

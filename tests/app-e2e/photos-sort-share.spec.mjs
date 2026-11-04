@@ -150,7 +150,7 @@ test('PC 공유: 넓은 화면 [공유] → Web2 메뉴 5줄(일기에 넣기 �
   const shareMenu = page.locator('#shareMenu');
   await viewer.locator('[data-diary-share]').click();
   await expect(shareMenu).toBeVisible();
-  await expect(shareMenu.locator('button')).toHaveText(['사진 복사', '일기에 넣기', '업데이트로 보내기', '다운로드', '다른 앱으로 공유…']);
+  await expect(shareMenu.locator('button')).toHaveText(['사진 복사', '일기에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
   expect(await page.evaluate(() => window.__shared)).toBe(0);
   await shareMenu.getByRole('button', { name: '사진 복사' }).click();
   await expect.poll(() => page.evaluate(() => window.__clip)).toEqual([{ types: ['image/png'], type: 'image/png', size: PNG.length }]);
@@ -160,7 +160,7 @@ test('PC 공유: 넓은 화면 [공유] → Web2 메뉴 5줄(일기에 넣기 �
   await viewer.locator('[data-diary-share]').click();
   await shareMenu.getByRole('button', { name: '업데이트로 보내기' }).click();
   await expect.poll(() => f.uploads).toEqual(['POST']);
-  await expect(viewer.locator('[data-diary-viewer-note-text]')).toHaveText('업데이트로 보냈어요');
+  await expect(page.locator('.kptu-notice-text')).toHaveText('업데이트로 보냈어요'); // S49-34: 아래 줄 보내기 알림은 공용 작은 알림(+[정리함 보기])
   // [다른 앱으로 공유…] = 지금의 기기 공유 창.
   await viewer.locator('[data-diary-share]').click();
   await shareMenu.getByRole('button', { name: '다른 앱으로 공유…' }).click();
@@ -169,13 +169,13 @@ test('PC 공유: 넓은 화면 [공유] → Web2 메뉴 5줄(일기에 넣기 �
   await viewer.locator('[data-diary-viewer-strip]').focus();
   for (let k = 2; k <= 5; k++) { await page.keyboard.press('ArrowRight'); await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText(`${k} / 7`); }
   await viewer.locator('[data-diary-share]').click();
-  await expect(shareMenu.locator('button')).toHaveText(['다운로드', '다른 앱으로 공유…']);
+  await expect(shareMenu.locator('button')).toHaveText(['받기', '다른 앱으로 공유…']);
   await page.keyboard.press('Escape');
   await expect(shareMenu).toBeHidden();
   await expect(viewer).toBeVisible();
 });
 
-test('폰 공유: 좁은 화면(412) [공유]는 메뉴 없이 기기 공유 창 그대로', async ({ page }) => {
+test('폰 공유: 좁은 화면(412)도 [공유 ▾] 작은 메뉴 → [다른 앱으로 공유…]가 기기 공유 창', async ({ page }) => {
   await fixture(page, 412);
   await openPhotos(page, 412);
   await expect.poll(() => order(page)).toEqual(EXPECT.taken_desc);
@@ -183,6 +183,7 @@ test('폰 공유: 좁은 화면(412) [공유]는 메뉴 없이 기기 공유 창
   const viewer = root(page).locator('[data-diary-viewer]');
   await expect(viewer.locator('.diary-photo img:not(.img-slot-preview)').first()).toBeVisible();
   await viewer.locator('[data-diary-share]').click();
+  await page.locator('#shareMenu').getByRole('button', { name: '다른 앱으로 공유…' }).click();
   await expect.poll(() => page.evaluate(() => window.__shared)).toBe(1);
   await expect(page.locator('#shareMenu')).toBeHidden();
   expect(await page.evaluate(() => window.__clip.length)).toBe(0);
@@ -205,12 +206,11 @@ test('고른 사진 업데이트로 보내기 → 고르기 풀림·알림 한 �
   await item('A2').click();
   const sel = root(page).locator('[data-photos-sel]'), bar = root(page).locator('[data-photos-act]');
   await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
-  // 고르기 줄 이름(PC 1440 = 온이름).
-  await expect(bar.locator('[data-photos-act-diary]')).toHaveAccessibleName('일기에 넣기');
-  await expect(bar.locator('[data-photos-act-basket]')).toHaveAccessibleName('업데이트로 보내기');
+  // 고르기 줄은 다섯 칸([별표][공유 ▾][옮기기][지우기][더보기]) — 일기·업데이트는 [공유 ▾] 안(S49-34).
+  await expect(bar.locator('button:visible')).toHaveCount(5);
   // 여러 장 [공유] 메뉴: 복사 없이 일기에 넣기 · 업데이트로 보내기 · 다운로드 · 다른 앱으로 공유….
   await bar.locator('[data-photos-act-share]').click();
-  await expect(page.locator('#shareMenu button')).toHaveText(['일기에 넣기', '업데이트로 보내기', '다운로드', '다른 앱으로 공유…']);
+  await expect(page.locator('#shareMenu button')).toHaveText(['일기에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
   await page.keyboard.press('Escape');
   // [별표]: 고른 채 둔다.
   await bar.locator('[data-photos-act-star]').click();
@@ -218,7 +218,8 @@ test('고른 사진 업데이트로 보내기 → 고르기 풀림·알림 한 �
   await expect(sel).toBeVisible();
   await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
   // [업데이트로 보내기]: 기존 저장 길(basket-files) → 다 들어가면 고르기가 풀린다.
-  await bar.locator('[data-photos-act-basket]').click();
+  await bar.locator('[data-photos-act-share]').click();
+  await page.locator('#shareMenu').getByRole('button', { name: '업데이트로 보내기', exact: true }).click();
   await expect.poll(() => f.uploads.length).toBeGreaterThan(0);
   await expect(page.locator('.kptu-notice-text')).toHaveText('업데이트로 보냈어요(2장)');
   await expect(sel).toBeHidden();
