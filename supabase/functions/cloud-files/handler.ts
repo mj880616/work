@@ -18,9 +18,13 @@ import { GRAPH, normalizeScopes, safeDownloadUrl, SCOPE as OD_SCOPE, scopeAllowe
 import { DRIVE_WORKSPACE_SLUG, scopeHas } from "../gdrive-photos/handler.ts";
 import { checkFileBase, numberedName } from "../_shared/file-rename-name.mjs";
 import { Md5, Sha1 } from "./hash.ts";
+import {
+  ACTIVE as JOB_ACTIVE, BIG_BYTES, BIG_MAX_BYTES, JOB_ADD_MAX, JOB_COLUMNS, JOB_LIST_HOURS, JOB_LIST_MAX, JOB_STEP_MS, LEASE_MS, MAX_ATTEMPTS,
+  TICK_HEADER, TICK_TTL_MS, gdOffset, jobCode, jobView, needsKick, nextRange, odOffset, parseAdd, parseIds, rangeOk, tickCheck, tickSign,
+} from "./jobs.mjs";
 
 type Env = (name: string) => string | undefined;
-export type CloudFilesOptions = { fetch?: typeof fetch; env: Env; now?: () => number };
+export type CloudFilesOptions = { fetch?: typeof fetch; env: Env; now?: () => number; background?: (p: Promise<unknown>) => void };
 export type Source = "od" | "gd";
 
 export const FEATURE = "files";
@@ -280,7 +284,7 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     });
     const features = fr.ok ? await body(fr) : null;
     if (!Array.isArray(features) || !features.includes(FEATURE)) throw new Fail(403, "feature_required");
-    return { workspaceId: members[0].workspace_id as string };
+    return { workspaceId: members[0].workspace_id as string, userId: user.id as string };
   }
   // 구글: 그 작업공간이 files 허용 단 하나 + Drive 연결 작업공간일 때만(토큰이 프로젝트 전체 1개라서).
   async function gdOwner(workspaceId: string) {
@@ -754,6 +758,27 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     }
     if (fill) yield buf.subarray(0, fill);
   }
+  // 이어 올리기 자리를 연다(원드라이브 upload session·구글 resumable). 주소 자체가 쓰기 권한이라 응답·로그에 싣지 않는다.
+  async function openUpload(dest: Source, token: string, parent: string | null, name: string, size: number, mime: string): Promise<string> {
+    let upUrl: string | null;
+    if (dest === "od") {
+      const where = parent ? `items/${encodeURIComponent(parent)}` : "root";
+      const d = await cloudWrite("od_session", token, `${GRAPH}/me/drive/${where}:/${encodeURIComponent(name)}:/createUploadSession`, "POST",
+        { item: { "@microsoft.graph.conflictBehavior": "rename", name } });
+      upUrl = safeUploadUrl("od", d.uploadUrl);
+    } else {
+      const r = await cloud("gd_session", token, `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=${GD_FIELDS}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Length": String(size), "X-Upload-Content-Type": mime || "application/octet-stream" },
+        body: JSON.stringify({ name, parents: [parent ?? "root"] }),
+      });
+      upUrl = r.ok ? safeUploadUrl("gd", r.headers.get("location")) : null;
+      if (!r.ok) log("gd_session_" + r.status);
+      await drop(r);
+    }
+    if (!upUrl) throw new Fail(502, "upload_failed");
+    return upUrl;
+  }
   async function sendAcross(dest: Source, token: string, parent: string | null, name: string, size: number, mime: string, src: Response): Promise<Sent> {
     const md5 = new Md5(), sha1 = new Sha1();
     let sent = 0, result: Record<string, unknown> | null = null;
@@ -776,23 +801,7 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
       result = await body(r);
       return { bytes: sent, md5: md5.hex(), sha1: sha1.hex(), result: result || {} };
     }
-    let upUrl: string | null;
-    if (dest === "od") {
-      const where = parent ? `items/${encodeURIComponent(parent)}` : "root";
-      const d = await cloudWrite("od_session", token, `${GRAPH}/me/drive/${where}:/${encodeURIComponent(name)}:/createUploadSession`, "POST",
-        { item: { "@microsoft.graph.conflictBehavior": "rename", name } });
-      upUrl = safeUploadUrl("od", d.uploadUrl);
-    } else {
-      const r = await cloud("gd_session", token, `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=${GD_FIELDS}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Length": String(size), "X-Upload-Content-Type": mime || "application/octet-stream" },
-        body: JSON.stringify({ name, parents: [parent ?? "root"] }),
-      });
-      upUrl = r.ok ? safeUploadUrl("gd", r.headers.get("location")) : null;
-      if (!r.ok) log("gd_session_" + r.status);
-      await drop(r);
-    }
-    if (!upUrl) throw new Fail(502, "upload_failed");
+    const upUrl = await openUpload(dest, token, parent, name, size, mime);
     const put = async (part: Uint8Array<ArrayBuffer> | null) => {
       const range = part ? `bytes ${sent}-${sent + part.length - 1}/${size}` : `bytes */${size}`;
       // 이어 올리기 주소는 그 자체가 권한이라 토큰을 붙이지 않는다.
@@ -990,7 +999,280 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     return { ok: true, changed: first ? [pickRow(first)] : [], removed: [], copied: made.length, partial };
   }
 
-  type Ctx = { workspaceId: string; body: Record<string, unknown>; req: Request };
+  // 같은 클라우드 안 복사 한 건(copy action과 작업표 공용). 받을 곳에 같은 이름이 있으면 번호를 붙인다(H-3).
+  async function copySame(ws: string, source: Source, id: string, toRaw: unknown) {
+    const item = (await manyIndexed(ws, source, [id]))[0];
+    const to = await folderOrRoot(ws, source, toRaw);
+    if (item.is_folder === true && to && (await ancestors(ws, source, to)).includes(id)) throw new Fail(400, "copy_into_self");
+    const name = uniqueName(String(item.name), (await siblingNames(ws, source, to)).map((r) => String(r.name)));
+    const token = await tokenFor(ws, source);
+    const root = await rootId(source, token);
+    return source === "od" ? await odCopy(ws, token, root, id, to, name, item.is_folder === true) : await gdCopy(ws, token, root, item, to, name);
+  }
+
+  // ---- 전송 작업표(FILES-통합 2-②, app_cloud_jobs) ----
+  // 사람이 누른 job_add(confirm:true)·job_resume만 줄을 '기다림'으로 만든다. 서버 실행(runJobs)은 '기다림·보내는 중'인 줄만 이어 가고,
+  //   '일시 정지'·'끝'·'실패'·'건너뜀'은 건드리지 않는다. 한 번 실행은 JOB_STEP_MS만 일하고, 남으면 같은 함수의 job_tick을 다시 부른다
+  //   (서버 키 HMAC 열쇠 — 화면은 받지 않음, meeting-transcribe와 같은 방식). 화면이 열려 있으면 job_list가 멈춘 실행을 다시 깨운다.
+  // 200MB 넘는 클라우드 사이 파일(big): 원본에서 10MB씩 Range로 받아 이어 올리기 자리에 붙이고, 조각마다 '보낸 바이트'와 해시 중간값을 적는다.
+  //   다음 실행은 받을 클라우드에 '어디까지 받았나'를 물어 끊긴 조각부터 잇는다. 다 붙이면 크기·지문(해시)을 맞춘다(sendBetween과 같은 규칙).
+  // 이어 올리기 자리 주소는 app_cloud_job_uploads(서버만 읽음)에만 두고 응답·로그에 싣지 않는다.
+  const JOBS = "app_cloud_jobs", UPLOADS = "app_cloud_job_uploads";
+  class Paused extends Error {}
+  const background = options.background ?? ((p: Promise<unknown>) => {
+    // deno-lint-ignore no-explicit-any
+    const rt = (globalThis as any).EdgeRuntime as { waitUntil?: (p: Promise<unknown>) => void } | undefined;
+    if (rt?.waitUntil) rt.waitUntil(p);
+  });
+  async function patchJob(stage: string, id: string, guard: string, patch: Record<string, unknown>) {
+    const v = await db(stage, `${JOBS}?id=eq.${id}${guard}`, { method: "PATCH", body: JSON.stringify({ ...patch, updated_at: at() }) }, "return=representation");
+    return Array.isArray(v) && v.length ? v[0] as Record<string, unknown> : null;
+  }
+  async function kickTick(ws: string) {
+    if (!ANON) return;
+    const exp = now() + TICK_TTL_MS;
+    try {
+      const sig = await tickSign(SERVICE, ws, exp);
+      const r = await request(`${SB}/functions/v1/cloud-files`, {
+        method: "POST", redirect: "error", signal: AbortSignal.timeout(20000),
+        headers: { Authorization: `Bearer ${ANON}`, apikey: ANON, "Content-Type": "application/json", [TICK_HEADER]: sig },
+        body: JSON.stringify({ workspace_id: ws, exp }),
+      });
+      if (!r.ok) log("job_tick_" + r.status);
+      await drop(r);
+    } catch {
+      log("job_tick_unsent"); // 화면이 열려 있으면 job_list가 다시 깨운다
+    }
+  }
+  // 이어 올리기 자리에 '어디까지 받았나'. gone = 자리가 없어짐(기한 지남) → 처음부터.
+  async function remoteOffset(dest: Source, url: string, size: number): Promise<{ gone: boolean; offset: number; result: Record<string, unknown> | null }> {
+    const r = dest === "od"
+      ? await call("od_up_status", url, { method: "GET" }, 25000)
+      : await call("gd_up_status", url, { method: "PUT", headers: { "Content-Range": `bytes */${size}`, "Content-Length": "0" }, body: new Uint8Array() }, 25000);
+    if (r.status === 404 || r.status === 410) {
+      await drop(r);
+      return { gone: true, offset: 0, result: null };
+    }
+    if (dest === "gd" && r.status === 308) {
+      const off = gdOffset(r.headers.get("range"));
+      await drop(r);
+      if (off === null) throw new Fail(502, "upload_failed");
+      return { gone: false, offset: off, result: null };
+    }
+    if (dest === "gd" && (r.status === 200 || r.status === 201)) return { gone: false, offset: size, result: (await body(r)) as Record<string, unknown> | null };
+    if (dest === "od" && r.status === 200) {
+      const off = odOffset(await body(r));
+      return off === null ? { gone: true, offset: 0, result: null } : { gone: false, offset: off, result: null };
+    }
+    log("up_status_" + r.status);
+    await drop(r);
+    throw new Fail(502, "cloud_unavailable");
+  }
+  // 원본에서 조각 하나(끝 포함). 원본 크기가 그사이 바뀌었으면 changed_since_index.
+  async function readRange(src: Source, token: string, id: string, start: number, end: number, size: number) {
+    const headers = { Range: `bytes=${start}-${end}` };
+    const r = src === "od"
+      ? await odRedirect("od_job_get", token, `${GRAPH}/me/drive/items/${encodeURIComponent(id)}/content`, headers, 120000)
+      : await cloud("gd_job_get", token, `${DRIVE}/files/${encodeURIComponent(id)}?alt=media`, { headers }, 120000);
+    const whole = r.status === 200 && start === 0 && end === size - 1 && Number(r.headers.get("content-length")) === size;
+    if (!(r.status === 206 && rangeOk(r.headers.get("content-range"), start, end, size)) && !whole) {
+      log("job_get_" + r.status);
+      await drop(r);
+      throw new Fail(409, "changed_since_index");
+    }
+    const part = new Uint8Array(await r.arrayBuffer());
+    if (part.length !== end - start + 1) throw new Fail(409, "changed_since_index");
+    return part;
+  }
+  // 조각 하나를 이어 올리기 자리에(토큰 없이). 끝 조각이면 새 파일 정보를 돌려준다.
+  async function putPart(dest: Source, url: string, part: Uint8Array, start: number, size: number) {
+    const r = await call(dest + "_job_chunk", url, {
+      method: "PUT", headers: { "Content-Range": `bytes ${start}-${start + part.length - 1}/${size}`, "Content-Length": String(part.length) },
+      body: part as Uint8Array<ArrayBuffer>,
+    }, 120000);
+    if (r.status === 308 || r.status === 202) {
+      await drop(r);
+      return null;
+    }
+    if (r.status === 200 || r.status === 201) return ((await body(r)) || null) as Record<string, unknown> | null;
+    log(dest + "_job_chunk_" + r.status);
+    await drop(r);
+    if (r.status === 404 || r.status === 410) throw new Fail(410, "session_expired");
+    if (r.status === 507) throw new Fail(507, "no_space");
+    if (r.status === 429 || r.status === 503) throw new Fail(503, "cloud_throttled");
+    throw new Fail(502, "upload_failed");
+  }
+  // 받은 파일 맞추기(sendBetween과 같은 규칙): 크기, 원본 해시, 새 파일 해시. 다르면 새로 만든 것을 휴지통으로.
+  async function verifyNew(ws: string, dest: Source, dstToken: string, result: Record<string, unknown>, size: number, srcHash: string,
+    sent: { bytes: number; md5: string; sha1: string }) {
+    const row = rowOf(ws, dest, await rootId(dest, dstToken), result);
+    const dstHash = String(row.hash || "");
+    const mine = (h: string) => h.startsWith("md5:") ? h === "md5:" + sent.md5 : h.startsWith("sha1:") ? h === "sha1:" + sent.sha1 : true;
+    if (!(sent.bytes === size && row.size_bytes === size && mine(srcHash) && mine(dstHash))) {
+      log("job_verify_failed");
+      await toTrash(dest, dstToken, String(row.item_id)).catch(() => log("job_cleanup_failed"));
+      throw new Fail(502, "verify_failed");
+    }
+    await upsertRows("write_upsert", [row]);
+    return row;
+  }
+  // 옮기기면 원본을 휴지통으로(맞춘 뒤에만). 못 보내면 원본을 남기고 kept_original.
+  async function trashOriginal(ws: string, src: Source, token: string, id: string) {
+    try {
+      await toTrash(src, token, id);
+    } catch {
+      return true;
+    }
+    await deleteTree(ws, src, [id]);
+    return false;
+  }
+  // 큰 파일 한 번 실행분. 'more'면 다음 실행이 잇는다.
+  async function bigStep(ws: string, job: Record<string, unknown>, until: number): Promise<"more" | Record<string, unknown>> {
+    const id = String(job.id), size = Number(job.size_bytes), src = job.src_source as Source, dest = job.dest_source as Source;
+    const srcId = String(job.src_id);
+    const srcToken = await tokenFor(ws, src), dstToken = await tokenFor(ws, dest);
+    const saved = (await rows("job_upload", `${UPLOADS}?job_id=eq.${id}&select=upload_url,hash_state&limit=1`))[0];
+    let url = saved ? safeUploadUrl(dest, saved.upload_url) : null;
+    let md5 = new Md5(), sha1 = new Sha1(), hashed = 0, remote = 0;
+    let result: Record<string, unknown> | null = null;
+    if (url) {
+      try {
+        const st = saved.hash_state as { sent: number; md5: unknown; sha1: unknown };
+        md5 = Md5.from(st.md5);
+        sha1 = Sha1.from(st.sha1);
+        hashed = st.sent;
+        if (!Number.isSafeInteger(hashed) || hashed < 0 || hashed > size || hashed !== (st.md5 as { total: number }).total) throw new Error("state");
+      } catch {
+        url = null;
+      }
+    }
+    if (url) {
+      const q = await remoteOffset(dest, url, size);
+      // 받을 쪽이 우리가 센 것보다 덜 받았거나, 조각 경계가 아니면 처음부터(이름이 같은 반쪽 파일은 생기지 않는다 — 자리는 끝나기 전엔 파일이 아님).
+      if (q.gone || q.offset < hashed || q.offset > size || (q.offset !== size && q.offset % UPLOAD_CHUNK)) url = null;
+      else {
+        remote = q.offset;
+        result = q.result;
+      }
+    }
+    if (!url) {
+      const item = (await manyIndexed(ws, src, [srcId]))[0];
+      if (Number(item.size_bytes) !== size) throw new Fail(409, "changed_since_index");
+      const to = await folderOrRoot(ws, dest, job.dest_parent);
+      const name = uniqueName(String(job.name), (await siblingNames(ws, dest, to)).map((r) => String(r.name)));
+      url = await openUpload(dest, dstToken, to, name, size, String(job.mime || ""));
+      md5 = new Md5();
+      sha1 = new Sha1();
+      hashed = 0;
+      remote = 0;
+      result = null;
+      await db("job_upload_open", `${UPLOADS}?on_conflict=job_id`, {
+        method: "POST", body: JSON.stringify({ job_id: id, upload_url: url, hash_state: { sent: 0, md5: md5.state(), sha1: sha1.state() }, updated_at: at() }),
+      }, "resolution=merge-duplicates,return=minimal");
+      if (!(await patchJob("job_progress", id, "&status=eq.running", { sent_bytes: 0 }))) throw new Paused();
+    }
+    while (!result && hashed < size) {
+      if (now() > until) {
+        await patchJob("job_release", id, "&status=eq.running", { lease_until: null });
+        return "more";
+      }
+      const rg = nextRange(hashed, size, UPLOAD_CHUNK) as { start: number; end: number };
+      const part = await readRange(src, srcToken, srcId, rg.start, rg.end, size);
+      md5.update(part);
+      sha1.update(part);
+      // 받을 쪽이 이미 받은 조각(앞 실행이 붙이고 적기 전에 끊긴 것)은 해시만 다시 센다.
+      if (rg.start >= remote) result = await putPart(dest, url, part, rg.start, size);
+      hashed = rg.end + 1;
+      if (!result && hashed < size) {
+        await db("job_upload_save", `${UPLOADS}?job_id=eq.${id}`, {
+          method: "PATCH", body: JSON.stringify({ hash_state: { sent: hashed, md5: md5.state(), sha1: sha1.state() }, updated_at: at() }),
+        }, "return=minimal");
+        if (!(await patchJob("job_progress", id, "&status=eq.running", { sent_bytes: hashed }))) throw new Paused();
+      }
+    }
+    if (!result && dest === "gd") result = (await remoteOffset(dest, url, size)).result;
+    if (!result) throw new Fail(502, "upload_failed");
+    const row = await verifyNew(ws, dest, dstToken, result, size, String(job.src_hash || ""), { bytes: hashed, md5: md5.hex(), sha1: sha1.hex() });
+    const kept = job.kind === "move" ? await trashOriginal(ws, src, srcToken, srcId) : false;
+    await db("job_upload_drop", `${UPLOADS}?job_id=eq.${id}`, { method: "DELETE" }, "return=minimal").catch(() => log("job_upload_drop_failed"));
+    return { result_item_id: row.item_id, result_name: row.name, kept_original: kept, sent_bytes: size };
+  }
+  // 작은 것(200MB 이하·같은 클라우드)은 지금 길 그대로 한 번에.
+  async function smallStep(ws: string, job: Record<string, unknown>) {
+    const src = job.src_source as Source, dest = job.dest_source as Source, srcId = String(job.src_id);
+    if (src !== dest) {
+      const { row, srcToken } = await sendBetween(ws, src, srcId, dest, job.dest_parent);
+      const kept = job.kind === "move" ? await trashOriginal(ws, src, srcToken, srcId) : false;
+      return { result_item_id: row.item_id, result_name: row.name, kept_original: kept, sent_bytes: job.size_bytes ?? 0 };
+    }
+    const d = await copySame(ws, src, srcId, job.dest_parent) as { changed?: Record<string, unknown>[] };
+    const first = d.changed?.[0];
+    return { result_item_id: first?.item_id ?? null, result_name: first?.name ?? null, sent_bytes: job.size_bytes ?? 0 };
+  }
+  async function stepJob(ws: string, job: Record<string, unknown>, until: number) {
+    const id = String(job.id);
+    try {
+      if (Number(job.attempts) > MAX_ATTEMPTS) throw new Fail(500, "too_many_steps");
+      const out = job.big === true ? await bigStep(ws, job, until) : await smallStep(ws, job);
+      if (out === "more") return "more";
+      // 끝: 마지막 조각 뒤에 멈춤을 눌렀어도 파일은 이미 옮겨졌으므로 '끝'으로 적는다.
+      await patchJob("job_done", id, "&status=in.(running,paused)", { ...out, status: "done", error_code: null, lease_until: null, finished_at: at() });
+    } catch (e) {
+      if (e instanceof Paused) return "stop";
+      if (!(e instanceof Fail)) log("job_unexpected");
+      await patchJob("job_failed", id, "&status=eq.running", {
+        status: "failed", error_code: jobCode(e instanceof Fail ? e.code : ""), lease_until: null, finished_at: at(),
+      }).catch(() => log("job_fail_save_failed"));
+    }
+    return "next";
+  }
+  // 한 번 실행: 그 작업공간의 가장 오래된 '기다림·보내는 중' 줄부터 차례로(한 번에 한 줄씩 — 조금씩 차례로).
+  async function runJobs(ws: string) {
+    const until = now() + JOB_STEP_MS;
+    // 서버가 이어 가는 동안에도 기능(files)이 꺼졌거나 만든 사람이 주인이 아니게 됐으면 이어 가지 않는다(사람 없는 실행이라 매번 다시 본다).
+    const allowed = await db("job_feature", "rpc/app_operator_feature_workspace", { method: "POST", body: JSON.stringify({ p_feature: FEATURE }) });
+    if (allowed !== ws) {
+      log("job_feature_off");
+      return;
+    }
+    for (let n = 0; n <= JOB_ADD_MAX; n++) {
+      const next = (await rows("job_next", `${JOBS}?workspace_id=eq.${ws}&origin=eq.cloud&status=in.(queued,running)&select=${JOB_COLUMNS}&order=created_at.asc&limit=1`))[0];
+      if (!next) return;
+      if (now() > until) break;
+      const stamp = at();
+      const job = await patchJob("job_lease", String(next.id), `&status=in.(queued,running)&or=(lease_until.is.null,lease_until.lt.${stamp})`, {
+        status: "running", lease_until: new Date(now() + LEASE_MS).toISOString(), attempts: Number(next.attempts) + 1, started_at: next.started_at ?? stamp,
+      });
+      if (!job) return; // 다른 실행이 잡고 있다 — 그쪽이 이어 부른다.
+      const owner = await rows("job_owner", `app_workspace_members?user_id=eq.${encodeURIComponent(String(job.created_by))}&workspace_id=eq.${ws}&role=eq.owner&select=workspace_id`);
+      if (owner.length !== 1) {
+        await patchJob("job_failed", String(job.id), "&status=eq.running", { status: "failed", error_code: "feature_required", lease_until: null, finished_at: at() });
+        continue;
+      }
+      const r = await stepJob(ws, job, until);
+      if (r === "more") break;
+    }
+    await kickTick(ws);
+  }
+  // 서버 안 입구(다음 실행): 사용자 로그인이 아니라 서버 키 HMAC으로만 받는다. 바로 202를 주고 뒤에서 돈다.
+  async function jobTick(req: Request) {
+    const raw = req.method === "POST" ? await req.text() : "";
+    if (raw.length > 512) return json({ ok: false }, 401);
+    let b: Record<string, unknown> | null = null;
+    try {
+      b = JSON.parse(raw);
+    } catch {
+      b = null;
+    }
+    if (!SERVICE || !b || !(await tickCheck(SERVICE, b, req.headers.get(TICK_HEADER), now()))) return json({ ok: false }, 401);
+    background(runJobs(String(b.workspace_id)).catch(() => log("job_run_failed")));
+    return json({ ok: true }, 202);
+  }
+  function jobsIn(ws: string, ids: { all: boolean; ids: string[] }) {
+    return `${JOBS}?workspace_id=eq.${ws}` + (ids.all ? "" : `&id=${inList(ids.ids)}`);
+  }
+
+  type Ctx = { workspaceId: string; userId: string; body: Record<string, unknown>; req: Request };
   const actions: Record<string, (c: Ctx) => Promise<Response>> = {
     // 맞춘 상태(두 출처). 클라우드를 부르지 않는다(연결 여부는 저장된 값만).
     async status({ workspaceId }) {
@@ -1346,19 +1628,86 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
         const { row } = await sendBetween(ws, source, id, dest, b.to);
         return json({ ok: true, changed: [pickRow(row)], removed: [] });
       }
-      const item = (await manyIndexed(ws, source, [id]))[0];
-      const to = await folderOrRoot(ws, source, b.to);
-      if (item.is_folder === true && to && (await ancestors(ws, source, to)).includes(id)) throw new Fail(400, "copy_into_self");
-      const name = uniqueName(String(item.name), (await siblingNames(ws, source, to)).map((r) => String(r.name)));
-      const token = await tokenFor(ws, source);
-      const root = await rootId(source, token);
-      return json(source === "od" ? await odCopy(ws, token, root, id, to, name, item.is_folder === true) : await gdCopy(ws, token, root, item, to, name));
+      return json(await copySame(ws, source, id, b.to));
+    },
+    // ---- 전송 작업표(2-②) ----
+    // 넣기: 사람이 고른 복사·옮기기(다른 저장소로 옮기기)를 한 건 = 한 줄로. 같은 저장소 안 옮기기는 move가 맡는다(작업표로 받지 않음).
+    //   items[].skip = 같은 이름 [건너뛰기](줄은 '건너뜀'으로만), numbered = [그래도 하기](번호 붙임), big = 200MB 넘는 것 [그래도 보내기].
+    //   못 보내는 것(다른 저장소로 폴더·구글 문서·크기 모름·2GB 넘음·200MB 넘는데 묻지 않음)은 '실패'와 까닭으로 남긴다.
+    async job_add({ workspaceId: ws, userId, body: b }) {
+      mustConfirm(b);
+      const p = parseAdd(b);
+      if (!p) throw new Fail(400, "jobs_invalid");
+      const to = await folderOrRoot(ws, p.toSource, p.to);
+      const found = new Map<string, Record<string, unknown>>();
+      for (const source of ["od", "gd"] as Source[]) {
+        const ids = p.items.filter((it) => it.source === source).map((it) => it.id);
+        if (ids.length) for (const r of await manyIndexed(ws, source, ids)) found.set(source + ":" + r.item_id, r);
+      }
+      const up = to ? await ancestors(ws, p.toSource, to) : [];
+      const stamp = at();
+      const list = p.items.map((it) => {
+        const r = found.get(it.source + ":" + it.id) as Record<string, unknown>;
+        const across = it.source !== p.toSource, folder = r.is_folder === true, mime = typeof r.mime === "string" ? r.mime : null;
+        const size = r.size_bytes === null || r.size_bytes === undefined ? null : Number(r.size_bytes);
+        const hash = typeof r.hash === "string" && /^(md5|sha1|sha256|qx):[A-Za-z0-9+/=]{1,100}$/.test(r.hash) ? r.hash : null;
+        let error: string | null = null;
+        if (across && folder) error = "across_folder";
+        else if (across && it.source === "gd" && String(mime || "").startsWith("application/vnd.google-apps.")) error = "across_unsupported";
+        else if (across && (size === null || !Number.isSafeInteger(size) || size < 0)) error = "size_unknown";
+        else if (across && (size as number) > BIG_MAX_BYTES) error = "too_large";
+        else if (across && (size as number) > BIG_BYTES && !it.big) error = "big_not_confirmed";
+        else if (!across && folder && up.includes(it.id)) error = "copy_into_self";
+        const status = it.skip ? "skipped" : error ? "failed" : "queued";
+        return {
+          workspace_id: ws, created_by: userId, kind: p.kind, origin: "cloud", src_source: it.source, src_id: it.id, dest_source: p.toSource,
+          dest_parent: to, name: String(r.name), result_name: null, same_name: it.skip ? "skipped" : it.numbered ? "numbered" : null,
+          is_folder: folder, size_bytes: size !== null && Number.isSafeInteger(size) && size >= 0 ? size : null, mime, src_hash: hash,
+          big: status === "queued" && across && (size as number) > BIG_BYTES, status, error_code: it.skip ? null : error,
+          finished_at: status === "queued" ? null : stamp,
+        };
+      });
+      const made = await db("job_add", `${JOBS}?select=${JOB_COLUMNS}`, { method: "POST", body: JSON.stringify(list) }, "return=representation");
+      const jobs = Array.isArray(made) ? made as Record<string, unknown>[] : [];
+      if (jobs.some((j) => j.status === "queued")) await kickTick(ws);
+      return json({ ok: true, jobs: jobs.map(jobView) });
+    },
+    // 목록: 기다림·보내는 중·일시 정지 전부 + 하루 안에 끝난 것. 멈춘 실행이 있으면 다시 깨운다(화면이 열려 있는 동안).
+    async job_list({ workspaceId: ws }) {
+      const since = new Date(now() - JOB_LIST_HOURS * 3600 * 1000).toISOString();
+      const list = await rows("job_list", `${JOBS}?workspace_id=eq.${ws}&or=(status.in.(queued,running,paused),created_at.gt.${since})` +
+        `&select=${JOB_COLUMNS}&order=created_at.desc&limit=${JOB_LIST_MAX}`);
+      if (needsKick(list, now())) await kickTick(ws);
+      return json({ ok: true, jobs: list.map(jobView) });
+    },
+    // 멈춤: 기다림·보내는 중 → 일시 정지. 보내는 중인 큰 파일은 조각 하나를 마친 뒤 멈춘다(받은 조각은 자리에 남아 이어 하기에 씀).
+    async job_pause({ workspaceId: ws, body: b }) {
+      mustConfirm(b);
+      const ids = parseIds(b);
+      if (!ids) throw new Fail(400, "jobs_invalid");
+      const v = await db("job_pause", `${jobsIn(ws, ids)}&status=in.(${JOB_ACTIVE.join(",")})&select=${JOB_COLUMNS}`,
+        { method: "PATCH", body: JSON.stringify({ status: "paused", lease_until: null, updated_at: at() }) }, "return=representation");
+      return json({ ok: true, jobs: (Array.isArray(v) ? v : []).map(jobView) });
+    },
+    // 이어 하기·다시: 일시 정지·실패 → 기다림(서버가 잇는 것만, origin cloud). 큰 파일은 끊긴 조각부터.
+    async job_resume({ workspaceId: ws, body: b }) {
+      mustConfirm(b);
+      const ids = parseIds(b);
+      if (!ids) throw new Fail(400, "jobs_invalid");
+      const v = await db("job_resume", `${jobsIn(ws, ids)}&origin=eq.cloud&status=in.(paused,failed)&select=${JOB_COLUMNS}`,
+        { method: "PATCH", body: JSON.stringify({ status: "queued", error_code: null, finished_at: null, lease_until: null, updated_at: at() }) },
+        "return=representation");
+      const jobs = Array.isArray(v) ? v as Record<string, unknown>[] : [];
+      if (jobs.length) await kickTick(ws);
+      return json({ ok: true, jobs: jobs.map(jobView) });
     },
   };
 
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
     try {
+      // 서버 안 입구(작업표 다음 실행)는 열쇠 머리가 있을 때만, 맨 앞에서 가른다(사용자 문을 거치지 않고 HMAC만 본다).
+      if (req.headers.has(TICK_HEADER)) return await jobTick(req);
       if (!SB || !SERVICE) throw new Fail(503, "not_ready");
       const m = (req.headers.get("Authorization") || "").match(/^Bearer\s+(\S+)$/i);
       if (!m) throw new Fail(401, "session_required");
@@ -1376,7 +1725,7 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
       if (!b || typeof b !== "object" || Array.isArray(b)) throw new Fail(400, "json_invalid");
       const action = b.action;
       if (typeof action !== "string" || !Object.hasOwn(actions, action)) throw new Fail(400, "action_invalid");
-      return await actions[action]({ workspaceId: who.workspaceId, body: b, req });
+      return await actions[action]({ workspaceId: who.workspaceId, userId: who.userId, body: b, req });
     } catch (e) {
       if (e instanceof Fail) return json({ ok: false, error: e.code }, e.status);
       log("unexpected");
