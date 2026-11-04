@@ -97,14 +97,16 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
   // 이어 올리기 조각(토큰 없이).
   if(method==='PUT'&&(u.host==='sn1.up.1drv.com'||(u.host==='www.googleapis.com'&&u.searchParams.get('upload_id')))){
    assert.equal(h.Authorization,undefined,'upload URL gets no token');
-   const up=uploads[url];const m=/^bytes (\d+)-(\d+)\/(\d+)$|^bytes \*\/(\d+)$/.exec(h['Content-Range']);assert.ok(m,h['Content-Range']);
+   const up=uploads[url];if(!up||up.gone)return new Response(null,{status:404});const m=/^bytes (\d+)-(\d+)\/(\d+)$|^bytes \*\/(\d+)$/.exec(h['Content-Range']);assert.ok(m,h['Content-Range']);
    if(m[1]!==undefined){assert.equal(Number(m[1]),up.bytes.length);up.bytes=Buffer.concat([up.bytes,Buffer.from(init.body)]);}
    const total=Number(m[3]??m[4]);
    if(up.failNext){up.failNext--;return new Response(null,{status:503});}
    if(up.bytes.length<total)return new Response(null,{status:up.dest==='gd'?308:202,headers:up.dest==='gd'&&up.bytes.length?{range:'bytes=0-'+(up.bytes.length-1)}:{}});
    const bytes=up.corrupt?Buffer.concat([up.bytes.subarray(1),Buffer.from([0])]):up.bytes;
-   if(up.dest==='gd')return ok({id:'GUP',name:up.name,mimeType:'application/pdf',parents:up.parents,size:String(bytes.length),md5Checksum:hashOf('md5',bytes),ownedByMe:true},200);
-   return ok({id:'OUP!7',name:up.name,size:bytes.length,file:{mimeType:'application/octet-stream',hashes:{sha1Hash:hashOf('sha1',bytes).toUpperCase()}},parentReference:{id:up.parent}},201);
+   const born=new Date(clock).toISOString();
+   if(up.dest==='gd'){const f={id:'GUP',name:up.name,mimeType:'application/pdf',parents:up.parents,size:String(bytes.length),md5Checksum:hashOf('md5',bytes),ownedByMe:true,createdTime:born};(gd.uploaded||={})[f.id]=f;return ok(f,200);}
+   const it={id:'OUP!7',name:up.name,size:bytes.length,file:{mimeType:'application/octet-stream',hashes:{sha1Hash:hashOf('sha1',bytes).toUpperCase()}},parentReference:{id:up.parent},createdDateTime:born};(od.copies||={})[it.id]=it;
+   return ok(it,201);
   }
   if(u.host==='www.googleapis.com'){
    assert.equal(h.Authorization,'Bearer '+GD_ACCESS);
@@ -113,7 +115,7 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
    if(P==='/changes/startPageToken')return ok({startPageToken:gd.start});
    if(u.pathname==='/upload/drive/v3/files'&&method==='POST'){assert.equal(u.searchParams.get('uploadType'),'resumable');const b=JSON.parse(init.body);
     const loc='https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=U'+(Object.keys(uploads).length+1);
-    uploads[loc]={dest:'gd',name:b.name,parents:b.parents,bytes:Buffer.alloc(0),corrupt:gd.corrupt};return new Response(null,{status:200,headers:{location:loc}});}
+    uploads[loc]={dest:'gd',name:b.name,parents:b.parents,bytes:Buffer.alloc(0),corrupt:gd.corrupt,origin:h.Origin};return new Response(null,{status:200,headers:{location:loc}});}
    if(P==='/files'&&method==='POST'){const b=JSON.parse(init.body);assert.equal(b.mimeType,'application/vnd.google-apps.folder');
     gd.mk=(gd.mk||0)+1;const f={id:gd.mk===1?'GNEW':'GNEW'+gd.mk,name:b.name,mimeType:b.mimeType,parents:b.parents,ownedByMe:true};(gd.made||=[]).push(f);return ok(f);}
    const cp=/^\/files\/([A-Za-z0-9_-]+)\/copy$/.exec(P);
@@ -137,6 +139,7 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
     if(h.Range){const [a,z]=h.Range.slice(6).split('-').map(Number);gd.rangeMs&&(clock+=gd.rangeMs);gd.ranges=(gd.ranges||0)+1;const part=b.subarray(a,z+1);
      return new Response(part,{status:206,headers:{'content-type':'application/octet-stream','content-length':String(part.length),'content-range':`bytes ${a}-${a+part.length-1}/${b.length}`}});}
     return new Response(b,{headers:{'content-type':'application/pdf','content-length':String(b.length)}});}
+   if(m&&gd.uploaded?.[m[1]]&&method==='GET')return ok(gd.uploaded[m[1]]);
    if(m)return ok({id:m[1],webViewLink:'https://drive.google.com/file/d/'+m[1]+'/view',thumbnailLink:'https://lh3.googleusercontent.com/t=s220',trashed:false});
   }
   if(u.host==='api.onedrive.com'&&u.pathname.startsWith('/v1.0/monitor/')){assert.equal(h.Authorization,undefined,'monitor URL gets no token');
@@ -156,7 +159,9 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
     return ok({value:od.pages[0],'@odata.deltaLink':'https://graph.microsoft.com/v1.0/me/drive/root/delta?token='+(od.gone410?'expired':'later')});
    }
    if(method==='PUT'&&/:\/content$/.test(P)){const nm=decodeURIComponent(P.split(':/')[1]);const par=/items\/([^/:]+)/.exec(P)?.[1];
-    const bytes=Buffer.from(init.body);return ok({id:'OUP!7',name:nm,size:bytes.length,file:{mimeType:'application/octet-stream',hashes:{sha1Hash:hashOf('sha1',bytes)}},parentReference:{id:par?decodeURIComponent(par):od.root}},201);}
+    const bytes=Buffer.from(init.body);return ok({id:'OUP!7',name:nm,size:bytes.length,file:{mimeType:'application/octet-stream',hashes:{sha1Hash:hashOf('sha1',bytes)}},parentReference:{id:par?decodeURIComponent(par):od.root},createdDateTime:new Date(clock).toISOString()},201);}
+   // 받을 폴더의 이름으로 찾기(올리기 끝, 새 id를 화면이 못 받았을 때).
+   if(method==='GET'&&/:\/[^/]+$/.test(P)&&!/:\/content$/.test(P)){const nm=decodeURIComponent(P.split(':/')[1]);const hit=Object.values(od.copies||{}).find(x=>x.name===nm);return hit?ok(hit):ok({error:{}},404);}
    if(method==='POST'&&/:\/createUploadSession$/.test(P)){const par=/items\/([^/:]+)/.exec(P)?.[1];const loc='https://sn1.up.1drv.com/up/'+(Object.keys(uploads).length+1);
     uploads[loc]={dest:'od',name:JSON.parse(init.body).item.name,parent:par?decodeURIComponent(par):od.root,bytes:Buffer.alloc(0),corrupt:od.corrupt};return ok({uploadUrl:loc});}
    if(method==='POST'&&/\/children$/.test(P)){const b=JSON.parse(init.body);assert.equal(b['@microsoft.graph.conflictBehavior'],'fail');
@@ -885,4 +890,176 @@ test('cron: leaves paused, finished, device, fresh, other-workspace and feature-
  two.db.jobs.push({...base,src_id:'GB',name:'회의.docx',size_bytes:smallBytes.length,src_hash:'md5:'+createHash('md5').update(smallBytes).digest('hex'),updated_at:old,created_at:old});
  const a=two.runCron(),b=two.runCron();await Promise.all([a,b]);
  assert.equal(two.db.jobs[0].status,'done');assert.equal(two.db.jobs[0].attempts,1,'only one run held the job');
+});
+
+// ---- S49-33 FILES-통합 2-④ 올리기(기기 → 클라우드)·별표 ----
+const WEB='https://desk.bokdoong.com';
+const upOpen=(w,b={},jwt=JWT,headers={Origin:WEB})=>w.post({action:'upload_open',confirm:true,to_source:'gd',to:'GF1',name:'가상 올림.pdf',size:12,mime:'application/pdf',...b},jwt,headers);
+// 브라우저가 자리에 조각을 다 보낸 것처럼(이 시험은 Edge만 본다 — 파일은 Edge를 거치지 않는다).
+const browserSends=(w,url,bytes)=>{w.uploads[url].bytes=Buffer.from(bytes);};
+
+test('upload gate: confirm, login, owner, files feature, Web2 origin only, size rules, indexed folder; nothing opened or written',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ assert.deepEqual(await j(await w.post({action:'upload_open',to_source:'gd',to:'GF1',name:'a.pdf',size:1})),{status:400,body:{ok:false,error:'confirm_required'}});
+ assert.equal((await upOpen(w,{},'nope')).status,401);
+ assert.equal((await upOpen(w,{},JWT2)).status,403,'other workspace (no files feature)');
+ const nf=world({features:['calls']});
+ assert.equal((await upOpen(nf)).status,403,'files feature required');
+ assert.deepEqual(await j(await upOpen(w,{},JWT,{Origin:'https://evil.example'})),{status:403,body:{ok:false,error:'origin_invalid'}});
+ assert.deepEqual(await j(await upOpen(w,{size:2*1024*1024*1024+1,big:true})),{status:413,body:{ok:false,error:'too_large'}});
+ assert.deepEqual(await j(await upOpen(w,{size:BIG_BYTES+1})),{status:400,body:{ok:false,error:'big_not_confirmed'}},'over 200MB needs the H-4 answer');
+ for(const bad of [{size:-1},{size:1.5},{size:'12'},{name:''},{to_source:'dev'},{to:'../x'},{big:'yes'},{extra:1}])
+  assert.equal((await upOpen(w,bad)).status,400,JSON.stringify(bad));
+ assert.deepEqual(await j(await upOpen(w,{name:'a/b.pdf'})),{status:400,body:{ok:false,error:'name_invalid'}});
+ assert.equal((await upOpen(w,{to:'NOPE'})).status,404,'destination folder must be indexed');
+ assert.equal((await upOpen(w,{to:'GA'})).status,400,'destination must be a folder');
+ for(const a of ['upload_resume','upload_progress','upload_done']){
+  assert.deepEqual(await j(await w.post({action:a,id:'b0000000-0000-4000-8000-000000000001'})),{status:400,body:{ok:false,error:'confirm_required'}});
+  assert.equal((await w.post({action:a,confirm:true,id:'not-a-uuid',name:'x',size:1,sent:0})).status,400);
+  assert.equal((await w.post({action:a,confirm:true,id:'b0000000-0000-4000-8000-000000000001',name:'x',size:1,sent:0})).status,404,'no such device job');
+ }
+ assert.equal(w.db.jobs.length,0);assert.equal(w.db.jobup.length,0);assert.equal(Object.keys(w.uploads).length,0);assert.equal(w.writes.length,0);
+});
+
+test('upload to Google: one slot per job, opened with the Web2 origin; slot address only in that reply (never in job_list); browser bytes verified by the cloud',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ const bytes=Buffer.from('가상 PDF 12');
+ const r=await j(await upOpen(w,{size:bytes.length}));
+ assert.equal(r.status,200);
+ const {job,upload}=r.body;
+ assert.equal(job.origin,'device');assert.equal(job.src_source,'dev');assert.equal(job.status,'queued');assert.equal(job.dest_parent,'GF1');
+ assert.equal(Object.keys(w.uploads).length,1);
+ const url=Object.keys(w.uploads)[0];
+ assert.equal(upload.url,url);assert.equal(upload.offset,0);assert.equal(upload.chunk%(256*1024),0);assert.equal(upload.chunk%(320*1024),0);
+ assert.equal(w.uploads[url].origin,WEB,'Google session is opened for the Web2 origin (CORS)');
+ assert.equal(w.db.jobup.length,1);assert.equal(w.db.jobup[0].upload_url,url);
+ assert.ok(!w.writes.some(x=>x.path.includes('/upload/')&&x.method==='PUT'),'server sends no file bytes');
+ // 작업표 목록(화면)에는 자리 주소·만든 사람·작업공간이 없다.
+ const l=await j(await w.post({action:'job_list'}));
+ const text=JSON.stringify(l.body);
+ assert.ok(!text.includes('upload_id')&&!text.includes(url)&&!text.includes('upload_url')&&!text.includes(USER)&&!text.includes(WS),'list carries no slot address');
+ // 차례가 오면 화면이 '보내는 중'으로(같은 자리·0부터).
+ const go=await j(await w.post({action:'upload_resume',confirm:true,id:job.id,name:'가상 올림.pdf',size:bytes.length},JWT,{Origin:WEB}));
+ assert.equal(go.body.job.status,'running');assert.equal(go.body.upload.url,url);assert.equal(go.body.upload.offset,0);
+ // 진행: 보낸 바이트(크기보다 크면 거절).
+ assert.equal((await w.post({action:'upload_progress',confirm:true,id:job.id,sent:bytes.length+1})).status,400);
+ assert.equal((await j(await w.post({action:'upload_progress',confirm:true,id:job.id,sent:5}))).body.job.sent_bytes,5);
+ // 다른 작업공간 사람은 이 줄을 못 건드린다.
+ assert.equal((await w.post({action:'upload_done',confirm:true,id:job.id},JWT2)).status,403);
+ browserSends(w,url,bytes);
+ const d=await j(await w.post({action:'upload_done',confirm:true,id:job.id}));
+ assert.equal(d.status,200);assert.equal(d.body.job.status,'done');assert.equal(d.body.job.result_item_id,'GUP');
+ assert.equal(d.body.changed[0].item_id,'GUP');assert.equal(d.body.changed[0].parent_id,'GF1');
+ assert.ok(w.db.items.some(x=>x.item_id==='GUP'&&x.source==='gd'),'indexed in the same request');
+ assert.equal(w.db.jobup.length,0,'slot address dropped when done');
+ // 서버 이어 실행·예약은 기기 줄을 잇지 않는다.
+ assert.equal(await w.runTick(),202);assert.equal((await w.runCron()).status,200);
+});
+
+test('upload to OneDrive: same name gets a number; done checks folder, size and creation time with the cloud (screen ids are not trusted)',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ const bytes=Buffer.alloc(900,7);
+ const r=await j(await upOpen(w,{to_source:'od',to:'OF!2',name:'회의.docx',size:bytes.length}));
+ assert.equal(r.status,200);
+ const url=r.body.upload.url;assert.match(url,/^https:\/\/sn1\.up\.1drv\.com\//);
+ assert.equal(w.uploads[url].name,'회의 (2).docx','H-3: number, never overwrite');
+ assert.equal(r.body.job.result_name,'회의 (2).docx');assert.equal(r.body.job.same_name,'numbered');
+ // 화면이 엉뚱한 id(이미 있던 파일)를 대면 거절.
+ assert.notEqual((await w.post({action:'upload_done',confirm:true,id:r.body.job.id,item_id:'OX!3'})).status,200,'an id the cloud does not confirm is refused');
+ assert.equal(w.db.jobs[0].status,'queued');
+ browserSends(w,url,bytes.subarray(0,500));
+ // 다 보내지 않은 채 끝이라고 하면(자리가 아직 파일이 아님) 이름으로 찾아도 없다 → 끝이 아니다.
+ assert.notEqual((await w.post({action:'upload_done',confirm:true,id:r.body.job.id})).status,200);
+ // 마지막 조각: 클라우드가 새 파일을 만든다(흉내: 남은 바이트를 붙이는 PUT).
+ await fetchPut(w,url,bytes.subarray(500),500,bytes.length);
+ const d=await j(await w.post({action:'upload_done',confirm:true,id:r.body.job.id,item_id:'OUP!7'}));
+ assert.equal(d.status,200);assert.equal(d.body.job.status,'done');assert.equal(d.body.job.result_name,'회의 (2).docx');
+ assert.equal(d.body.changed[0].parent_id,'OF!2');
+ // 크기가 다른 것은 끝으로 보지 않는다.
+ const w2=world();await w2.post({action:'sync'});
+ const r2=await j(await upOpen(w2,{to_source:'od',to:null,name:'b.bin',size:10}));
+ w2.od.copies={'OZ!1':{id:'OZ!1',name:'b.bin',size:9,file:{},parentReference:{id:w2.od.root},createdDateTime:new Date(w2.now()).toISOString()}};
+ assert.deepEqual(await j(await w2.post({action:'upload_done',confirm:true,id:r2.body.job.id,item_id:'OZ!1'})),{status:409,body:{ok:false,error:'upload_mismatch'}});
+ // 줄을 열기 전부터 있던 파일도 끝으로 보지 않는다.
+ w2.od.copies['OZ!1']={...w2.od.copies['OZ!1'],size:10,createdDateTime:'2026-01-01T00:00:00Z'};
+ assert.equal((await w2.post({action:'upload_done',confirm:true,id:r2.body.job.id,item_id:'OZ!1'})).status,409);
+});
+// 브라우저 조각 하나(흉내 클라우드의 자리에 그대로).
+async function fetchPut(w,url,part,start,size){
+ const up=w.uploads[url];assert.equal(up.bytes.length,start);
+ up.bytes=Buffer.concat([up.bytes,Buffer.from(part)]);
+ if(up.bytes.length===size){const it={id:'OUP!7',name:up.name,size,file:{mimeType:'application/octet-stream'},parentReference:{id:up.parent},createdDateTime:new Date(w.now()).toISOString()};(w.od.copies||={})[it.id]=it;}
+}
+
+test('upload H-6: closed screen → stale row paused by job_list; resume needs the same file, continues from the cloud offset; expired slot reopens from 0',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ const bytes=Buffer.alloc(12,3);
+ const r=await j(await upOpen(w,{size:bytes.length}));
+ const id=r.body.job.id,url=r.body.upload.url;
+ // 둘째 파일은 기다림: 첫 줄이 소식을 보내는 동안은 그대로 둔다.
+ const r2=await j(await upOpen(w,{name:'둘째.pdf',size:5}));
+ await w.post({action:'upload_resume',confirm:true,id,name:'가상 올림.pdf',size:12},JWT,{Origin:WEB});
+ browserSends(w,url,bytes.subarray(0,4));
+ await w.post({action:'upload_progress',confirm:true,id,sent:4});
+ // 소식이 3분 넘게 없으면(화면 닫힘) 목록이 '일시 정지'로 바꾼다.
+ w.tick(2*60*1000);
+ await w.post({action:'upload_progress',confirm:true,id,sent:4});
+ w.tick(2*60*1000);
+ const st=id2=>w.db.jobs.find(x=>x.id===id2).status;
+ await w.post({action:'job_list'});
+ assert.equal(st(id),'running','fresh row stays');assert.equal(st(r2.body.job.id),'queued','waiting row behind a live upload stays');
+ w.tick(4*60*1000);
+ await w.post({action:'job_list'});
+ assert.equal(st(id),'paused');assert.equal(st(r2.body.job.id),'paused','screen closed: waiting rows pause too');
+ // 멈춘 줄에 진행을 보내도 바뀌지 않고 지금 줄(멈춤)을 돌려준다 → 화면은 보내기를 멈춘다.
+ assert.equal((await j(await w.post({action:'upload_progress',confirm:true,id,sent:8}))).body.job.status,'paused');
+ assert.equal(w.db.jobs[0].sent_bytes,4);
+ // 서버 이어 실행도 기기 줄은 '모두 이어 하기'로 깨우지 않는다(파일이 이 기기에만 있음).
+ await w.post({action:'job_resume',confirm:true,all:true});assert.equal(st(id),'paused');
+ // 다른 파일(이름·크기가 다름)이면 거절.
+ assert.deepEqual(await j(await w.post({action:'upload_resume',confirm:true,id,name:'가상 올림.pdf',size:13},JWT,{Origin:WEB})),{status:409,body:{ok:false,error:'file_mismatch'}});
+ assert.equal((await w.post({action:'upload_resume',confirm:true,id,name:'다른.pdf',size:12},JWT,{Origin:WEB})).status,409);
+ const s=await j(await w.post({action:'upload_resume',confirm:true,id,name:'가상 올림.pdf',size:12},JWT,{Origin:WEB}));
+ assert.equal(s.status,200);assert.equal(s.body.upload.url,url,'same slot');assert.equal(s.body.upload.offset,4,'from the piece the cloud already has');
+ assert.equal(s.body.job.status,'running');
+ // 자리가 끝났으면(기한 지남) 새 자리, 처음부터.
+ w.uploads[url].gone=true;
+ await w.post({action:'job_pause',confirm:true,ids:[id]});
+ const t=await j(await w.post({action:'upload_resume',confirm:true,id,name:'가상 올림.pdf',size:12},JWT,{Origin:WEB}));
+ assert.equal(t.status,200);assert.notEqual(t.body.upload.url,url);assert.equal(t.body.upload.offset,0);
+ assert.equal(w.db.jobup.filter(x=>x.job_id===id).length,1);assert.equal(w.db.jobup.find(x=>x.job_id===id).upload_url,t.body.upload.url);
+ // 실패 까닭은 정해 둔 말만.
+ assert.equal((await w.post({action:'upload_progress',confirm:true,id,error:'rm -rf'})).status,400);
+ assert.equal((await j(await w.post({action:'upload_progress',confirm:true,id,error:'upload_failed'}))).body.job.status,'failed');
+});
+
+test('upload: zero-byte file is made by the server right away (no slot to the browser)',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ const r=await j(await upOpen(w,{size:0}));
+ assert.equal(r.status,200);assert.equal(r.body.upload,null);assert.equal(r.body.job.status,'done');
+ assert.equal(w.db.jobup.length,0);
+});
+
+test('star: confirm, owner, files feature, indexed items only; on/off are idempotent and only touch this workspace',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ assert.deepEqual(await j(await w.post({action:'star',source:'gd',ids:['GA'],on:true})),{status:400,body:{ok:false,error:'confirm_required'}});
+ assert.equal((await w.post({action:'star',confirm:true,source:'gd',ids:['GA'],on:true},JWT2)).status,403);
+ const nf=world({features:['calls']});
+ assert.equal((await nf.post({action:'star',confirm:true,source:'gd',ids:['GA'],on:true})).status,403);
+ for(const bad of [{ids:[]},{ids:['GA','GA']},{on:'yes'},{source:'dev'},{ids:['a/b']},{ids:Array.from({length:201},(_,i)=>'G'+i)}])
+  assert.equal((await w.post({action:'star',confirm:true,source:'gd',ids:['GA'],on:true,...bad})).status,400,JSON.stringify(bad).slice(0,40));
+ assert.equal((await w.post({action:'star',confirm:true,source:'gd',ids:['NOPE'],on:true})).status,404,'only indexed items');
+ assert.equal(w.db.stars.length,0);
+ w.db.stars.push({workspace_id:WS2,source:'gd',item_id:'GA'});
+ for(let i=0;i<2;i++)assert.deepEqual((await j(await w.post({action:'star',confirm:true,source:'gd',ids:['GA','GF1'],on:true}))).body,{ok:true,source:'gd',ids:['GA','GF1'],starred:true});
+ assert.equal(w.db.stars.filter(x=>x.workspace_id===WS).length,2);
+ await w.post({action:'star',confirm:true,source:'gd',ids:['GA'],on:false});
+ assert.deepEqual(w.db.stars.map(x=>x.workspace_id+x.item_id).sort(),[WS+'GF1',WS2+'GA'].sort(),'other workspace star untouched');
+ assert.equal(w.writes.length,0,'no cloud writes');
 });
