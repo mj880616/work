@@ -353,6 +353,12 @@ export function writeErrorText(code) {
   if (c === 'copy_into_self') return '폴더를 자기 안으로 복사할 수 없습니다';
   if (c === 'copy_failed') return '복사하지 못했습니다. 원본은 그대로입니다';
   if (c === 'folder_too_big') return '폴더 안이 200개가 넘어 통째로 복사하지 않습니다. 안을 열어 골라 주세요';
+  // 올리기(2-④)
+  if (c === 'file_mismatch') return '같은 파일이 아니에요(이름·크기가 달라요). 처음 올리던 파일을 골라 주세요';
+  if (c === 'upload_mismatch') return '올린 파일을 클라우드에서 확인하지 못했어요. [다시]로 이어 올려 주세요';
+  if (c === 'origin_invalid') return '이 주소에서는 올릴 수 없어요';
+  if (c === 'job_not_resumable' || c === 'job_not_found') return '이 전송은 이어 올릴 수 없어요';
+  if (c === 'big_not_confirmed') return '200MB가 넘어 묻지 않고는 올리지 않아요';
   return errorText(c);
 }
 // ⑦ 같은 파일 보기: 같은 해시(같은 클라우드 안 — 원드라이브 sha1·구글 md5라 클라우드 사이는 비교하지 않음)인 다른 줄. 자기 자신·휴지통 뺌.
@@ -402,10 +408,10 @@ export function sameNameRows(rows, destRows) {
 }
 // 같은 이름 묻는 한 줄(H-3). mode copy·move·down(받기).
 export function sameNameAsk(mode) {
-  return `같은 이름이 있어요. 그래도 ${mode === 'move' ? '옮길까요' : mode === 'down' ? '받을까요' : '복사할까요'}?`;
+  return `같은 이름이 있어요. 그래도 ${mode === 'move' ? '옮길까요' : mode === 'down' ? '받을까요' : mode === 'up' ? '올릴까요' : '복사할까요'}?`;
 }
-// 200MB 넘는 파일 묻는 한 줄(H-4).
-export const bigAsk = r => `200MB가 넘어요(${sizeText(r?.size_bytes)}). 그래도 보낼까요?`;
+// 200MB 넘는 파일 묻는 한 줄(H-4). mode 'up' = 올리기.
+export const bigAsk = (r, mode = '') => `200MB가 넘어요(${sizeText(r?.size_bytes)}). 그래도 ${mode === 'up' ? '올릴까요' : '보낼까요'}?`;
 // 받을 곳 창 제목·버튼.
 export const destTitle = (n, mode) => `${n}개 ${mode === 'move' ? '옮길' : '복사할'} 곳`;
 export const destButton = mode => `여기에 ${mode === 'move' ? '옮기기' : '복사'}`;
@@ -462,7 +468,7 @@ export const jobPercent = j => {
 // 줄 오른쪽 한 낱말.
 export function jobStatusText(j) {
   if (!j) return '';
-  if (j.status === 'running') return j.big ? `${jobPercent(j)}%` : '보내는 중';
+  if (j.status === 'running') return j.big || j.origin === 'device' ? `${jobPercent(j)}%` : '보내는 중';
   return {queued: '기다림', paused: '멈춤', done: '끝', failed: '실패', skipped: '건너뜀'}[j.status] || '';
 }
 // 줄 아래 작은 글: '원드라이브 → 구글 드라이브 · 240MB' + (같은 이름이면 '이름 (2)로'·실패면 까닭).
@@ -505,7 +511,8 @@ export function jobsTitle(jobs) {
 export function jobAction(j) {
   if (!j) return '';
   if (jobActive(j)) return 'pause';
-  if (j.origin === 'device') return '';
+  // 올리기(2-④): 멈춤·실패는 이 기기가 같은 파일로 잇는다([이어 올리기]).
+  if (j.origin === 'device') return j.status === 'paused' || j.status === 'failed' ? 'reup' : '';
   if (j.status === 'paused') return 'resume';
   if (j.status === 'failed') return 'retry';
   return '';
@@ -523,4 +530,67 @@ export function mergeJobs(old, fresh) {
 export function newlyDone(old, fresh) {
   const was = new Map((old || []).map(j => [j.id, j.status]));
   return (fresh || []).filter(j => j?.status === 'done' && was.has(j.id) && was.get(j.id) !== 'done');
+}
+
+// ---------- FILES-통합 2-④ 올리기(기기 → 클라우드, S49-33, 설계 docs/design/files-unified-plan.md J절 H-3·H-4·H-6) ----------
+// PC: 목록 칸에 바탕화면 파일을 끌어 놓기(시안 ⑦ 점선 '여기 놓으면 ○○에 올리기'), 폰·폴드: 위 줄 [올리기] → 고르기 창.
+// 서버(Edge upload_open)가 받을 클라우드의 이어 올리기 자리를 열어 주고 브라우저가 그 자리로 5MB씩 직접 보낸다(파일이 서버를 거치지 않음).
+export const UPLOAD_MAX = 200;                              // 한 번에 올리는 파일 수(고르기 상한과 같음)
+export const UPLOAD_MAX_BYTES = 2 * 1024 * 1024 * 1024;     // 한 파일 2GB까지(H-4 추천 상한, 서버도 같음)
+export const UPLOAD_BIG_HOW = '이 기기가 5MB씩 올려요. 화면을 닫으면 멈추고, 다시 열어 같은 파일을 고르면 남은 조각부터 올려요.';
+// 브라우저 제약(H-6): 다시 연 화면은 파일을 기억하지 못한다.
+export const UPLOAD_REOPEN_TEXT = '브라우저는 화면을 닫으면 파일을 잊어요. 같은 파일을 다시 고르면 남은 조각부터 올려요.';
+export const upDropText = name => `여기 놓으면 ${name || '이 폴더'}에 올리기`;
+export const upStartText = n => `${n}개 올리기 시작 · 아래 전송 줄을 누르면 목록`;
+// 고른 파일({name,size}) 거르기: 이름 규칙(공용 checkFileBase는 화면이 넘김)·2GB·수 상한. {ok, blocked:[{file, reason}], reason}.
+export function uploadPlan(files, nameOk = () => true) {
+  const list = [...(files || [])].filter(Boolean), ok = [], blocked = [];
+  for (const f of list) {
+    const size = Number(f.size);
+    if (!Number.isSafeInteger(size) || size < 0) blocked.push({file: f, reason: '크기를 모르는 파일은 올리지 않아요'});
+    else if (size > UPLOAD_MAX_BYTES) blocked.push({file: f, reason: `${f.name}: 2GB까지 올려요`});
+    else if (!nameOk(String(f.name || ''))) blocked.push({file: f, reason: `${f.name}: 쓸 수 없는 이름이에요`});
+    else if (ok.length >= UPLOAD_MAX) blocked.push({file: f, reason: `한 번에 ${UPLOAD_MAX}개까지 올려요`});
+    else ok.push(f);
+  }
+  return {ok, blocked, reason: ok.length ? '' : blocked[0]?.reason || '고른 파일이 없어요'};
+}
+// 200MB 넘는 파일(H-4: 한 번 묻기).
+export const upBig = f => Number(f?.size) > XFER_BIG_BYTES;
+// 받을 폴더에 같은 이름(대소문자 무시)이 있는 파일.
+export function upSameName(files, destRows) {
+  const names = new Set((destRows || []).filter(d => d && !d.trashed).map(d => String(d.name).toLowerCase()));
+  return (files || []).filter(f => f && names.has(String(f.name).toLowerCase()));
+}
+// 이어 올리기: 다시 고른 파일이 그 줄과 같은가(이름·크기 — 서버도 다시 본다).
+export const sameUpFile = (j, f) => !!j && !!f && String(f.name) === String(j.name) && Number(f.size) === Number(j.size_bytes);
+// 이어 올릴 조각: [start, end) — 끝 조각은 짧다. size 0이면 없음.
+export function upPiece(offset, size, chunk) {
+  if (!(size > offset) || !(chunk > 0)) return null;
+  return {start: offset, end: Math.min(size, offset + chunk)};
+}
+// 기기 줄 아래 작은 글 덧붙임: 이 화면이 그 파일을 쥐고 있지 않으면 다시 고르라는 한 줄.
+export function deviceHint(j, hasFile) {
+  if (!j || j.origin !== 'device' || hasFile) return '';
+  return j.status === 'paused' || j.status === 'failed' ? '이어 올리려면 같은 파일을 다시 골라 주세요' : '';
+}
+// 클라우드가 마지막 조각 응답으로 준 새 파일 id(원드라이브 id·구글 id). 모양이 다르면 null(서버가 이름으로 찾음).
+export function upResultId(d) {
+  const id = d && typeof d === 'object' ? d.id : null;
+  return typeof id === 'string' && /^[A-Za-z0-9!_.-]{1,200}$/.test(id) ? id : null;
+}
+
+// ---------- 별표(2-④): 고른 것이 모두 별표면 빼기, 아니면 넣기 ----------
+export const starWant = rows => !(rows || []).filter(Boolean).every(r => r.starred);
+export const starLabel = rows => (starWant(rows) ? '☆ 별표' : '★ 별표 빼기');
+// 서버가 바꾼 별표를 줄 목록에 입힌다(같은 줄이면 같은 배열을 돌려준다).
+export function applyStars(rows, source, ids, on) {
+  const set = new Set(ids || []);
+  let hit = false;
+  const next = (rows || []).map(r => {
+    if (r?.source !== source || !set.has(r.item_id) || !!r.starred === on) return r;
+    hit = true;
+    return {...r, starred: on};
+  });
+  return hit ? next : rows;
 }

@@ -158,19 +158,26 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   for (const [name, src] of [['files.js', js], ['files-model.mjs', model]]) assert.doesNotMatch(src, deviceStores, name);
   // 읽기: 색인 읽기 함수 3개 + Edge 읽기 동작. 쓰기(S48-45): Edge write()로 다섯 가지만(confirm:true를 붙임). 표에 직접 쓰지 않는다.
   assert.deepEqual([...new Set([...js.matchAll(/rpc\('(\w+)'/g)].map(m => m[1]))].sort(), ['app_cloud_find_in', 'app_cloud_list', 'app_cloud_trail']);
-  assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['folder', 'job_add', 'job_list', 'media', 'open-url', 'preview', 'status', 'sync', 'thumb']);
+  assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['folder', 'job_add', 'job_list', 'job_pause', 'media', 'open-url', 'preview', 'status', 'sync', 'thumb',
+    'upload_done', 'upload_open', 'upload_progress', 'upload_resume']);
+  // 올리기(2-④): 네 동작 모두 confirm:true, 화면을 숨기거나 닫을 때 멈춤(job_pause)은 keepalive 한 번.
+  for (const a of ['upload_open', 'upload_resume', 'upload_progress', 'upload_done']) assert.match(js, new RegExp(`action: '${a}', confirm: true`), a);
+  assert.match(js, /keepalive: true[^]*action: 'job_pause', confirm: true, ids:/);
   // FILES-통합 2-②: 복사·다른 저장소로 옮기기는 서버 작업표(job_add, confirm:true)로, 화면이 직접 보내는 것은 같은 저장소 안 move만.
   //   멈춤·이어 하기(job_pause·job_resume)도 confirm:true. 작업표는 Edge로만(표 직접 읽기·쓰기 없음).
   assert.match(js, /action: 'job_add', confirm: true, kind: mode/);
   assert.match(js, /body: \{action, confirm: true, \.\.\.\(ids \? \{ids\} : \{all: true\}\)\}/);
   assert.deepEqual([...new Set([...js.matchAll(/jobsDo\((b\.dataset[^,)]+)/g)].map(m => m[1]))].sort(), ["b.dataset.fxJobAct === 'pause' ? 'job_pause' : 'job_resume'", "b.dataset.fxJobsAll === 'pause' ? 'job_pause' : 'job_resume'"]);
-  assert.deepEqual([...new Set([...js.matchAll(/await write\('(\w+)'/g)].map(m => m[1]))].sort(), ['mkdir', 'rename', 'trash']);
+  assert.deepEqual([...new Set([...js.matchAll(/await write\('(\w+)'/g)].map(m => m[1]))].sort(), ['mkdir', 'rename', 'star', 'trash']);
   assert.deepEqual([...new Set([...js.matchAll(/await call\('(\w+)'/g), ...js.matchAll(/await call\(mode === 'move' \? '(\w+)' : '(\w+)'/g)].flatMap(m => m.slice(1)))].sort(), ['move']);
   assert.equal([...js.matchAll(/body: \{action, \.\.\.body, confirm: true\}/g)].length, 2);
   assert.match(js, /action: kind === 'office' \? 'preview' : 'media'/);
   // 표 직접 읽기는 같은 파일 보기(app_cloud_items GET) 하나뿐, 직접 쓰기 없음.
   assert.deepEqual([...js.matchAll(/\/rest\/v1\/(app_cloud_\w+)/g)].map(m => m[1]), ['app_cloud_items']);
-  assert.doesNotMatch(js, /method: '(PATCH|DELETE|PUT)'/);
+  assert.doesNotMatch(js, /method: '(PATCH|DELETE)'/);
+  // PUT은 올리기 조각 하나뿐: 서버가 열어 준 이어 올리기 자리(slot.url)로, 토큰·쿠키 없이(credentials omit, Authorization 없음).
+  assert.deepEqual([...js.matchAll(/fetch\(([\w.]+), \{method: 'PUT'[^}]*headers: \{([^}]*)\}/g)].map(m => [m[1], m[2]]), [['slot.url', "'Content-Range': `bytes ${piece.start"]]);
+  assert.match(js, /method: 'PUT', cache: 'no-store', credentials: 'omit'/);
 });
 
 // ---------- S48-45 쓰기 ----------
@@ -337,7 +344,7 @@ test('전송 목록(2-②): 상태 글·까닭·줄 아래 글·전송 줄 묶�
   assert.equal(m.jobStrip([j({status: 'done'})]), null, 'all done: strip hidden');
   assert.equal(m.jobsTitle([]), '전송');
   assert.deepEqual(['queued', 'running', 'paused', 'failed', 'done', 'skipped'].map(s => m.jobAction(j({status: s}))), ['pause', 'pause', 'resume', 'retry', '', '']);
-  assert.equal(m.jobAction(j({origin: 'device', status: 'paused'})), '', 'device rows are resumed by that device');
+  assert.equal(m.jobAction(j({origin: 'device', status: 'paused'})), 'reup', 'device rows are resumed by that device with the same file (2-④)');
   // 노트북(H-6): 기기가 낀 줄은 다시 열면 멈춤으로, 클라우드끼리는 그대로(서버가 계속).
   assert.equal(m.deviceJobOnReopen(j({origin: 'device', status: 'running'})).status, 'paused');
   assert.equal(m.deviceJobOnReopen(j({status: 'running'})).status, 'running');
@@ -346,4 +353,53 @@ test('전송 목록(2-②): 상태 글·까닭·줄 아래 글·전송 줄 묶�
   assert.deepEqual(m.newlyDone([j({id: 'a', status: 'running'}), j({id: 'b', status: 'done'})], [j({id: 'a', status: 'done'}), j({id: 'b', status: 'done'}), j({id: 'n', status: 'done'})]).map(x => x.id), ['a']);
   assert.equal(m.jobsActive([j({status: 'paused'})]), false); assert.equal(m.jobsActive([j({status: 'running'})]), true);
   assert.equal(m.jobPercent(j({status: 'done', sent_bytes: 0})), 100);
+});
+
+// S49-33 FILES-통합 2-④ 올리기·별표
+test('upload plan: name rule, 2GB cap, count cap; same name; big; resume match; pieces', async () => {
+  const m = await import('../app/files-model.mjs');
+  const ok = n => !/[\/\\:*?"<>|]/.test(n) && n.length > 0;
+  const p = m.uploadPlan([{name: 'a.txt', size: 3}, {name: 'b/c.txt', size: 1}, {name: 'big.iso', size: m.UPLOAD_MAX_BYTES + 1}, {name: 'x', size: NaN}], ok);
+  assert.deepEqual(p.ok.map(f => f.name), ['a.txt']);
+  assert.equal(p.blocked.length, 3);
+  assert.match(p.blocked.find(b => b.file.name === 'big.iso').reason, /2GB까지/);
+  assert.equal(m.uploadPlan(Array.from({length: 201}, (_, i) => ({name: `f${i}`, size: 1})), ok).ok.length, 200);
+  assert.equal(m.uploadPlan([], ok).reason, '고른 파일이 없어요');
+  assert.deepEqual(m.upSameName([{name: 'A.TXT', size: 1}, {name: 'b', size: 1}], [{name: 'a.txt'}, {name: 'b', trashed: true}]).map(f => f.name), ['A.TXT']);
+  assert.equal(m.upBig({size: m.XFER_BIG_BYTES}), false);
+  assert.equal(m.upBig({size: m.XFER_BIG_BYTES + 1}), true);
+  assert.equal(m.bigAsk({size_bytes: m.XFER_BIG_BYTES + 1}, 'up').endsWith('그래도 올릴까요?'), true);
+  assert.equal(m.sameNameAsk('up'), '같은 이름이 있어요. 그래도 올릴까요?');
+  assert.equal(m.sameUpFile({name: 'a.txt', size_bytes: 3}, {name: 'a.txt', size: 3}), true);
+  assert.equal(m.sameUpFile({name: 'a.txt', size_bytes: 3}, {name: 'a.txt', size: 4}), false);
+  assert.deepEqual(m.upPiece(0, 10, 4), {start: 0, end: 4});
+  assert.deepEqual(m.upPiece(8, 10, 4), {start: 8, end: 10});
+  assert.equal(m.upPiece(10, 10, 4), null);
+  assert.equal(m.upResultId({id: 'OD!7'}), 'OD!7');
+  assert.equal(m.upResultId({id: '../x'}), null);
+  assert.equal(m.upDropText('가짜 문서함'), '여기 놓으면 가짜 문서함에 올리기');
+});
+test('upload rows in the transfer list: device rows show %, [이어 올리기], re-pick hint only without the file', async () => {
+  const m = await import('../app/files-model.mjs');
+  const j = {origin: 'device', status: 'running', size_bytes: 10, sent_bytes: 4, src_source: 'dev', dest_source: 'od', name: 'a.txt'};
+  assert.equal(m.jobStatusText(j), '40%');
+  assert.equal(m.jobAction(j), 'pause');
+  assert.equal(m.jobAction({...j, status: 'paused'}), 'reup');
+  assert.equal(m.jobAction({...j, status: 'failed'}), 'reup');
+  assert.equal(m.jobAction({...j, status: 'done'}), '');
+  assert.equal(m.deviceHint({...j, status: 'paused'}, false), '이어 올리려면 같은 파일을 다시 골라 주세요');
+  assert.equal(m.deviceHint({...j, status: 'paused'}, true), '');
+  assert.equal(m.deviceHint({...j, origin: 'cloud', status: 'paused'}, false), '');
+  assert.match(m.jobLine(j), /^이 기기 → 원드라이브/);
+  assert.equal(m.deviceJobOnReopen(j).status, 'paused');
+});
+test('stars: want/label and apply', async () => {
+  const m = await import('../app/files-model.mjs');
+  assert.equal(m.starWant([{starred: true}, {starred: false}]), true);
+  assert.equal(m.starLabel([{starred: true}]), '★ 별표 빼기');
+  assert.equal(m.starLabel([{starred: false}]), '☆ 별표');
+  const rows = [{source: 'od', item_id: 'A', starred: false}, {source: 'gd', item_id: 'A', starred: false}];
+  const next = m.applyStars(rows, 'od', ['A'], true);
+  assert.deepEqual(next.map(r => r.starred), [true, false]);
+  assert.equal(m.applyStars(next, 'od', ['A'], true), next, 'no change keeps the same array');
 });
