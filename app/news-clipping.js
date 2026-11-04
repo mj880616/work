@@ -18,7 +18,7 @@ import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, 
 // - 줄: '꼬리표 · 매체 · 시각' / 제목 / 한 문장 요약(늘 보임) / 본문 접기(<details>, 펼칠 때 서버 줄에서 읽고 없으면 [본문 열기]=news-feed open)
 //   / 외국어 제목은 서버가 미리 번역한 한국어 제목 + 원제 작게. 본문은 [번역](news-feed translate, 본문 번역 저장본이 있으면 다시 부르지 않고
 //   [원문 보기]와 오감) / [원문](새 창). 유료 기사는 공개 요약만 + 원문.
-// - ⋯: [지금 채우기](news-feed fill_now) · [키워드 고치기](app_news_keywords) · [매체 켜고 끄기](app_outside_sources의 news- 키).
+// - ⋯: [지금 채우기](news-feed fill_now) · [키워드 고치기](app_news_keywords) · [매체 고르기](app_outside_sources의 news- 키).
 //   키워드·매체 칸은 같은 화면 안 한 칸이고 뒤로가기 한 번 = 목록(KPTURouter.layer).
 // - 저장은 모두 서버(작업공간 소유자 RLS · Edge는 사용자 로그인 확인). 기기 저장 없음. 하루 횟수는 서버 상수가 정하고 catalog limits로 받는다.
 // C2(같은 화면): 줄마다 ☆(별표, app_news_items.starred_at) → 폴더 고르기(노트·자료실과 같은 폴더 고르기 창 library-move-picker.js,
@@ -192,7 +192,7 @@ function keywordsHtml() {
 
 function sourcesHtml() {
   const on = [...state.sources.values()].filter(r => r.enabled === true).length;
-  const head = panelHead('매체 켜고 끄기', state.catalog && state.sourcesLoaded ? `켬 ${on}` : '');
+  const head = panelHead('매체 고르기', state.catalog && state.sourcesLoaded ? `켬 ${on}` : '');
   if (!state.catalog || !state.sourcesLoaded) return head + (state.catalogFailed || state.sourcesFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 6}));
   const groups = REGIONS.map(g => {
     const members = state.catalog.filter(s => s.region === g.key);
@@ -592,7 +592,7 @@ function openMemoNote(noteId) {
 
 // ---------- 누르기·밀기 ----------
 const menu = createAnchoredMenu({id: 'ncMenu', className: 'topline-add-menu nc-menu', label: '뉴스 메뉴', historyKey: 'kptuNewsMenu', key: () => 'head',
-  render: () => `<button type="button" data-nc-act="fill"${state.filling ? ' disabled' : ''}>지금 채우기 <span class="nc-faint">하루 ${state.limits.fill}번</span></button><button type="button" data-nc-act="keywords">키워드 고치기</button><button type="button" data-nc-act="sources">매체 켜고 끄기</button><button type="button" data-nc-act="interests">관심 주제</button>`,
+  render: () => `<button type="button" data-nc-act="fill"${state.filling ? ' disabled' : ''}>지금 채우기 <span class="nc-faint">하루 ${state.limits.fill}번</span></button><button type="button" data-nc-act="keywords">키워드 고치기</button><button type="button" data-nc-act="sources">매체 고르기</button><button type="button" data-nc-act="interests">관심 주제</button>`,
   onAction: button => { const a = button.dataset.ncAct; if (a === 'fill') fillNow(); else if (a === 'keywords' || a === 'sources') openPanel(a); else if (a === 'interests') now()?.openInterests?.(); }});
 
 function setTab(tab) {

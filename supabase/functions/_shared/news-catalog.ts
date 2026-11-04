@@ -50,3 +50,14 @@ export function googleNewsUrl(word: string): string {
   const q = `"${word.replace(/"/g, " ").trim()}" when:1d`;
   return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
 }
+
+// take=keywords 매체(종합지·방송사)의 글 거르기: 제목+소개에 키워드 낱말이 글자 그대로 들어 있으면 통과(AI 없이 글자 일치, 대소문자·앞뒤 공백 무시).
+export function matchedKeywords(text: string, words: readonly string[]): string[] {
+  const hay = text.toLowerCase();
+  const out: string[] = [];
+  for (const w of words) {
+    const k = w.trim().toLowerCase();
+    if (k && hay.includes(k) && !out.includes(w)) out.push(w);
+  }
+  return out;
+}
