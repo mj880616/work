@@ -8,6 +8,7 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
+import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {reportFilterButton,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
@@ -311,6 +312,9 @@ const neutral=page=>page.evaluate(()=>{const probe=document.createElement('i');p
 // MEET-결과정리 ②: 회의 종류 색은 theme-tokens.css의 --ds-meeting-1~16(밝은 화면 값·어두운 화면 값). 시험 화면은 밝은 화면.
 const tokenPalette=dark=>{const css=read('app/theme-tokens.css'),at=css.indexOf('@media (prefers-color-scheme:dark)'),part=dark?css.slice(at):css.slice(0,at);return Array.from({length:16},(_,i)=>part.match(new RegExp(`--ds-meeting-${i+1}:(#[0-9a-f]{6})`))?.[1])};
 const palette=()=>tokenPalette(false);
+// STAB-E2E간헐1104: 앱을 막 연 뒤 한동안 도는 시작 작업(원드라이브 사진 미리 데우기, 녹음 서버 작업 목록 읽기 — 작업공간이 준비될 때까지 1초 간격으로 다시 시도)의 요청은
+// 회의 입력과 무관하다. 느린 실행에서는 이것이 '요청 0건' 세는 구간에 늦게 걸렸다. 세기에서 이 두 가지만 뺀다(회의 자료·회의 기록 요청은 그대로 센다).
+const startupRequest=url=>/\/functions\/v1\/(onedrive-photos|meeting-transcribe\?action=job_list)/.test(url);
 async function showMeetings(page,rows,docs=[]){
   await page.route(`${SB}/rest/v1/app_meetings**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rows)}));
   await page.route(`${SB}/rest/v1/app_documents**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(docs)}));
@@ -397,9 +401,11 @@ test('new meeting suggests the next round from loaded names without extra reques
     {...meeting,id:'round-none',series_name:'ALPHA TEAM',round_no:null},
     {...meeting,id:'other',series_name:'다른 회의',round_no:null}
   ];
+  // STAB-E2E간헐1104: showMeetings가 누르는 [전체]는 화면 선택(view_prefs)을 0.4초 뒤에 서버로 저장한다. 느린 실행에서는 그 저장(읽기+쓰기 2건)이 아래 '요청 0건' 세는 구간에 늦게 걸렸다. 화면 선택 저장은 회의 입력과 무관하니 흉내 서버로 받아 네트워크 요청으로 보이지 않게 한다.
+  await installViewPrefsServer(page);
   await showMeetings(page,rows);
   let requests=0;const seen=[];
-  page.on('request',request=>{if(request.url().startsWith(SB)){requests++;seen.push(request.method()+' '+request.url().slice(SB.length,SB.length+80))}});
+  page.on('request',request=>{if(request.url().startsWith(SB)&&!startupRequest(request.url())){requests++;seen.push(request.method()+' '+request.url().slice(SB.length,SB.length+80))}});
   await page.locator('#newMeetingBtn').click();
   expect(requests,seen.join(' | ')).toBe(0);
   const title=page.locator('#meetingTitle'),round=page.locator('#meetingRoundNo'),select=page.locator('#meetingNameSelect');
@@ -435,9 +441,10 @@ test('name choices group whitespace variants by latest spelling and suggest thei
     {...meeting,id:'second',series_name:'월간회의',round_no:2,meeting_at:'2026-10-01T01:00:00Z'},
     {...meeting,id:'old',series_name:'주간회의',round_no:7,meeting_at:'2026-09-01T01:00:00Z'}
   ];
+  await installViewPrefsServer(page);// STAB-E2E간헐1104: 위 시험과 같은 이유(화면 선택 저장은 요청 세기에서 뺀다)
   await showMeetings(page,rows);
   expect(await stripe(page.locator('[data-mrd-meeting="recent"]'))).toBe(await stripe(page.locator('[data-mrd-meeting="old"]')));
-  let requests=0;page.on('request',request=>{if(request.url().startsWith(SB))requests++});
+  let requests=0;page.on('request',request=>{if(request.url().startsWith(SB)&&!startupRequest(request.url()))requests++});
   await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#meetingNameSelect option')).toHaveText(['이름 선택','주간 회의','월간회의','기타(직접 입력)']);
   await page.locator('#meetingNameSelect').selectOption({label:'주간 회의'});

@@ -126,7 +126,7 @@ for(const width of [390,1280])test.describe(`native library transport ${width}px
     }
     await page.close();
    }
-   expect(results[1]).toEqual(results[0]);
+   expect(results[1],`${failure} ${width}px: 지금 화면(results[1])과 옛 화면(results[0]) 비교`).toEqual(results[0]);// STAB-E2E간헐1104: 간헐 실패 때 어느 경우인지 바로 보이게 이름을 붙인다
   });
  }
  test(`library keeps the existing one-time 401 refresh recovery at ${width}px`,async({page})=>{
