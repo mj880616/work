@@ -144,6 +144,7 @@ import {
   packStatusRecords, parseStatusRows, dropExisting, type ExistingRow, type StatusRecord, STATUS_ROWS_DAYS, STATUS_ROWS_INSTRUCTIONS, STATUS_ROWS_MAX_OUTPUT_TOKENS, STATUS_ROWS_SCHEMA,
   statusRowsMaterial,
 } from "./org-status-rows.ts";
+import { ORG_WEEK_DAILY_AI, ORG_WEEK_INSTRUCTIONS, ORG_WEEK_MAX_ORGS, ORG_WEEK_MAX_OUTPUT_TOKENS, ORG_WEEK_BODY_MAX, ORG_WEEK_LINE_MAX, ORG_WEEK_SCHEMA, SOURCE_COLUMN, SOURCE_KINDS, mondayOf, nextOrder, oneLine, orgWeekMaterial, parseOrgWeek, plainLine, planFor, sameEvent, sourceHash, validDay as validWeekDay, withSource, type SourceKind, type WeekLine } from "./org-week-lines.ts";
 import {
   addDays as addDayKeys, packScheduleRecords, parseScheduleRequest, parseScheduleTitles, SCHEDULE_BODY_BYTES, SCHEDULE_MAX_OUTPUT_TOKENS,
   SCHEDULE_MAX_NAMES, SCHEDULE_TITLES_INSTRUCTIONS, SCHEDULE_TITLES_SCHEMA, scheduleMaterial, type ScheduleEvent, type ScheduleRecord,
@@ -194,7 +195,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, journal_memorable: 24, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, journal_memorable: 24, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, org_week_lines: ORG_WEEK_DAILY_AI, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -516,6 +517,7 @@ type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_i
 type OrgPeopleBriefInput = { kind: "org_people_brief"; organization_id: string };
 // DESK-현황표: 조직 ID 하나만. 서버는 저장하지 않고 줄 후보만 돌려준다(화면이 표에 넣음).
 type OrgStatusRowsInput = { kind: "org_status_rows"; organization_id: string };
+type OrgWeekLinesInput = { kind: "org_week_lines"; source_kind: SourceKind; source_id: string };
 type ScheduleTitlesInput = { kind: "schedule_titles"; week_start: string; events: ScheduleEvent[] };
 // WEEKLY-환류학습(weekly-learn.ts): AI 초안(칸 글 + 이번 주 기록)과 [확정] 뒤 환류 보고(주만).
 type WeeklyDraftInput = { kind: "weekly_draft" } & WeeklyDraftRequest;
@@ -588,7 +590,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | JournalMemorableInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput | NowInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | OrgWeekLinesInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | JournalMemorableInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput | NowInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -709,6 +711,14 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
       throw new Fail(400, "invalid_request");
     }
     return { kind: "org_status_rows", organization_id: b.organization_id.toLowerCase() };
+  }
+  // WEEKLY-메뉴짝짓기 주별 조직보고 제안: 기록 종류와 번호 하나만 받는다(글·조직·날짜는 서버가 다시 읽는다).
+  if (b.kind === "org_week_lines") {
+    if (Object.keys(b).sort().join(",") !== "kind,source_id,source_kind" || !(SOURCE_KINDS as readonly unknown[]).includes(b.source_kind)
+        || typeof b.source_id !== "string" || !UUID.test(b.source_id)) {
+      throw new Fail(400, "invalid_request");
+    }
+    return { kind: "org_week_lines", source_kind: b.source_kind as SourceKind, source_id: b.source_id.toLowerCase() };
   }
   // 사업영역 AI(business-area.ts): 추천은 쓰기 창의 제목·글만. (한 줄 요약 area_week_summary 는 S49-39 에서 없앴다.)
   if (b.kind === "area_suggest") {
@@ -3274,6 +3284,198 @@ async function runOrgStatusRows(ctx: Ctx, input: OrgStatusRowsInput, deps: Radar
   return json({ ...base, rows, partial });
 }
 
+// ---- 쓰임: 주별 조직보고 제안 줄(org_week_lines, WEEKLY-메뉴짝짓기 P2 — docs/design/weekly-menu-pairing.md 4.2) ----------------------
+// 화면은 기록 종류와 번호만 보낸다. 서버가 내 로그인(RLS)으로 그 기록·조직·날짜를 다시 읽고(화면 값을 믿지 않음), 그 주 그 조직 표에
+// 제안 줄을 넣거나(같은 사건 줄이 있으면 번호만 더함) 그 기록에서 나온 줄을 다시 정돈한다. 쓰기도 내 로그인 그대로(서비스 키 없음).
+// AI는 긴 글일 때만 1번. 하루 AI 줄 상한·이번 달 상한을 넘거나 AI가 실패하면 AI 없이 앞 ORG_WEEK_LINE_MAX자로 제안한다(제안은 막지 않음).
+// 기록에는 숫자·결과 종류만 남긴다(글·조직 이름 없음).
+type WeekSource = { orgs: string[]; text: string; day: string | null; end: string | null; plainOnly: boolean };
+const WEEK_LINE_SELECT = "id,body,day,end_day,sort_order,state,edited,source_update_ids,source_note_ids,source_status_ids,source_hash,updated_at";
+
+async function restRows(ctx: Ctx, path: string, method: "POST" | "PATCH", body: unknown): Promise<Record<string, unknown>[]> {
+  const r = await ctx.doFetch(`${ctx.sb}/rest/v1/${path}`, {
+    method,
+    headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, Accept: "application/json", "Content-Type": "application/json", Prefer: "return=representation" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    try { await r.body?.cancel(); } catch { /* ignore */ }
+    throw new Error(`rest_${r.status}`);
+  }
+  const rows = await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
+  return Array.isArray(rows) ? rows as Record<string, unknown>[] : [];
+}
+
+async function readWeekSource(ctx: Ctx, input: OrgWeekLinesInput): Promise<WeekSource | null> {
+  const ws = encodeURIComponent(ctx.workspaceId), id = input.source_id;
+  let orgs: string[] = [], text = "", day: string | null = null, end: string | null = null, plainOnly = false;
+  if (input.source_kind === "org_update") {
+    const rows = await readList(ctx, `app_suborganization_updates?id=eq.${id}&select=id,organization_id,occurred_at,raw_text,detail_text&limit=2`);
+    const u = rows.find((r) => String(r.id).toLowerCase() === id);
+    if (!u || !isUuid(u.organization_id)) return null;
+    const at = timeOf(u.occurred_at);
+    orgs = [String(u.organization_id).toLowerCase()];
+    text = [u.raw_text, u.detail_text].filter((v) => typeof v === "string" && v.trim()).join("\n");
+    day = Number.isFinite(at) ? kstDay(at) : null;
+  } else if (input.source_kind === "note") {
+    // 정리함 업데이트: 일기·보관·AI 내보내기 비허용은 재료가 아니다(조직 요약과 같은 기준). 조직에 확정 연결된 것만(분류 안 된 업데이트는 '미분류'에 남음).
+    const rows = await readList(ctx, `app_notes?workspace_id=eq.${ws}&id=eq.${id}&select=id,workspace_id,kind,raw_text,occurred_at,archived_at,ai_export_allowed&limit=2`);
+    const n = rows.find((r) => String(r.id).toLowerCase() === id && String(r.workspace_id).toLowerCase() === ctx.workspaceId);
+    if (!n || n.kind !== "basket" || n.archived_at != null || n.ai_export_allowed !== true) return null;
+    const links = await readList(ctx, `app_record_links?workspace_id=eq.${ws}&note_id=eq.${id}&status=eq.confirmed&select=note_id,organization_id,status&limit=50`);
+    orgs = [...new Set(links.filter((l) => l.status === "confirmed" && String(l.note_id).toLowerCase() === id && isUuid(l.organization_id)).map((l) => String(l.organization_id).toLowerCase()))];
+    const at = timeOf(n.occurred_at);
+    text = typeof n.raw_text === "string" ? n.raw_text : "";
+    day = Number.isFinite(at) ? kstDay(at) : null;
+  } else {
+    const rows = await readList(ctx, `app_org_status_rows?workspace_id=eq.${ws}&id=eq.${id}&select=id,workspace_id,organization_id,day,end_day,body&limit=2`);
+    const r = rows.find((x) => String(x.id).toLowerCase() === id && String(x.workspace_id).toLowerCase() === ctx.workspaceId);
+    if (!r || !isUuid(r.organization_id)) return null;
+    orgs = [String(r.organization_id).toLowerCase()];
+    text = typeof r.body === "string" ? r.body : "";
+    day = validWeekDay(r.day) ? r.day : null;
+    end = day && validWeekDay(r.end_day) && r.end_day > day ? r.end_day : null;
+    plainOnly = true; // 현황 표 줄은 이미 짧은 한 줄 — AI 없이 그대로(설계 2.1)
+  }
+  if (!orgs.length) return { orgs, text, day, end, plainOnly };
+  // 조직은 내 작업공간 것만(화면·기록 값을 믿지 않고 다시 확인).
+  const mine = await readList(ctx, `app_suborganizations?workspace_id=eq.${ws}&id=in.(${orgs.slice(0, ORG_WEEK_MAX_ORGS).join(",")})&select=id,workspace_id&limit=${ORG_WEEK_MAX_ORGS}`);
+  const ok = new Set(mine.filter((o) => String(o.workspace_id).toLowerCase() === ctx.workspaceId).map((o) => String(o.id).toLowerCase()));
+  return { orgs: orgs.slice(0, ORG_WEEK_MAX_ORGS).filter((o) => ok.has(o)), text, day, end, plainOnly };
+}
+
+const asWeekLine = (r: Record<string, unknown>): WeekLine => ({
+  id: String(r.id).toLowerCase(), body: String(r.body ?? ""), day: validWeekDay(r.day) ? r.day : null, end_day: validWeekDay(r.end_day) ? r.end_day : null,
+  sort_order: Number(r.sort_order) || 0, state: String(r.state ?? ""), edited: r.edited === true,
+  source_update_ids: Array.isArray(r.source_update_ids) ? r.source_update_ids.map(String) : [],
+  source_note_ids: Array.isArray(r.source_note_ids) ? r.source_note_ids.map(String) : [],
+  source_status_ids: Array.isArray(r.source_status_ids) ? r.source_status_ids.map(String) : [],
+  source_hash: typeof r.source_hash === "string" ? r.source_hash : null, updated_at: String(r.updated_at ?? ""),
+});
+
+async function runOrgWeekLines(ctx: Ctx, input: OrgWeekLinesInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now(), today = kstDay(started);
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const base = { ok: true, kind: "org_week_lines", source_kind: input.source_kind, source_id: input.source_id };
+  const src = await readWeekSource(ctx, input);
+  if (!src) throw new Fail(404, "not_found");
+  if (!src.orgs.length) return json({ ...base, results: [], unlinked: true });
+  if (!src.text.trim()) return json({ ...base, results: [], empty: true });
+  const week = mondayOf(src.day ?? today), hash = await sourceHash(src.text, src.day, src.end);
+  const col = SOURCE_COLUMN[input.source_kind];
+
+  // 조직마다 그 주 줄을 읽고 할 일을 정한다.
+  type Job = { org: string; lines: WeekLine[]; plan: ReturnType<typeof planFor> };
+  const jobs: Job[] = [];
+  for (const org of src.orgs) {
+    let rows: Record<string, unknown>[];
+    try {
+      rows = await readList(ctx, `app_weekly_org_lines?workspace_id=eq.${ws}&week_start=eq.${week}&organization_id=eq.${org}&select=${WEEK_LINE_SELECT}&order=sort_order.asc&limit=40`);
+    } catch {
+      throw new Fail(503, "org_week_lines_unavailable"); // 표가 아직 없음(적용 전) 또는 읽기 실패
+    }
+    const lines = rows.map(asWeekLine);
+    jobs.push({ org, lines, plan: planFor(lines, input.source_kind, input.source_id, hash) });
+  }
+  const work = jobs.filter((j) => j.plan.act === "rewrite" || j.plan.act === "new");
+  if (!work.length) return json({ ...base, week_start: week, results: jobs.map((j) => ({ organization_id: j.org, result: j.plan.act })) });
+
+  // 글 정돈: 짧은 한 줄·현황 표 줄은 그대로, 긴 글은 AI 1번(새 제안 조직들의 기존 줄을 같이 주고 같은 사건 번호를 받음).
+  const groupsFor = work.filter((j) => j.plan.act === "new").map((j) => j.lines.filter((l) => l.state !== "dropped"));
+  let body = src.plainOnly ? oneLine(src.text, ORG_WEEK_BODY_MAX) : plainLine(src.text);
+  let origin = "plain", sameAs: number[] | null = null;
+  if (!body) {
+    body = oneLine(src.text, ORG_WEEK_LINE_MAX);
+    const ai = await tidyOrgWeek(ctx, deps, src.text, groupsFor, started, today);
+    if (ai) { body = ai.text; sameAs = ai.sameAs; origin = "ai"; }
+  }
+  if (!body) return json({ ...base, results: [], empty: true });
+
+  const results: { organization_id: string; result: string; id?: string }[] = [];
+  let g = 0;
+  for (const j of jobs) {
+    const plan = j.plan;
+    if (plan.act !== "rewrite" && plan.act !== "new") { results.push({ organization_id: j.org, result: plan.act }); continue; }
+    try {
+      if (plan.act === "rewrite") {
+        // 그 기록 하나에서 나온, 사람이 고치지 않은 줄: 글·날짜·지문만 고친다(읽은 뒤 다른 화면이 고쳤으면 0행 → 그대로 둠).
+        const rows = await restRows(ctx, `app_weekly_org_lines?id=eq.${plan.line.id}&workspace_id=eq.${ws}&edited=is.false&updated_at=eq.${encodeURIComponent(plan.line.updated_at)}`, "PATCH",
+          { body, day: src.day, end_day: src.end, source_hash: hash });
+        results.push({ organization_id: j.org, result: rows.length ? "rewritten" : "changed_elsewhere", id: plan.line.id });
+        continue;
+      }
+      const group = groupsFor[g++] ?? [];
+      const n = sameAs?.[g - 1] ?? 0;
+      const target = n ? group[n - 1] : (origin === "ai" ? null : sameEvent(j.lines, body, src.day));
+      const merged = target ? withSource(target[col], input.source_id) : null;
+      if (target && merged) {
+        const rows = await restRows(ctx, `app_weekly_org_lines?id=eq.${target.id}&workspace_id=eq.${ws}&updated_at=eq.${encodeURIComponent(target.updated_at)}`, "PATCH", { [col]: merged });
+        results.push({ organization_id: j.org, result: rows.length ? "merged" : "changed_elsewhere", id: target.id });
+        continue;
+      }
+      const rows = await restRows(ctx, "app_weekly_org_lines?select=id", "POST", {
+        workspace_id: ctx.workspaceId, week_start: week, organization_id: j.org, day: src.day, end_day: src.end, body,
+        sort_order: nextOrder(j.lines), state: "suggested", origin, edited: false,
+        source_update_ids: input.source_kind === "org_update" ? [input.source_id] : [],
+        source_note_ids: input.source_kind === "note" ? [input.source_id] : [],
+        source_status_ids: input.source_kind === "status_row" ? [input.source_id] : [],
+        source_hash: hash,
+      });
+      results.push({ organization_id: j.org, result: "added", id: isUuid(rows[0]?.id) ? String(rows[0].id).toLowerCase() : undefined });
+    } catch {
+      deps.log("org_week_lines_write_failed");
+      results.push({ organization_id: j.org, result: "failed" });
+    }
+  }
+  deps.log("org_week_lines_done", { orgs: jobs.length, ai: origin === "ai", added: results.filter((r) => r.result === "added").length, merged: results.filter((r) => r.result === "merged").length });
+  return json({ ...base, week_start: week, results });
+}
+
+// AI 1번. 쓸 수 없으면(설정 없음·하루 AI 줄 상한·이번 달·하루 전체 상한·실패·이상한 답) null → 앞 ORG_WEEK_LINE_MAX자로 제안.
+async function tidyOrgWeek(ctx: Ctx, deps: RadarDeps, text: string, groups: WeekLine[][], started: number, today: string): Promise<{ text: string; sameAs: number[] } | null> {
+  const config = aiConfig(deps.env);
+  if (!config) { deps.log("ai_not_configured"); return null; }
+  try {
+    const ws = encodeURIComponent(ctx.workspaceId), from = encodeURIComponent(new Date(Date.parse(today + "T00:00:00Z") - 9 * 3600 * 1000).toISOString());
+    const made = await readList(ctx, `app_weekly_org_lines?workspace_id=eq.${ws}&origin=eq.ai&created_at=gte.${from}&select=id&limit=${ORG_WEEK_DAILY_AI}`);
+    if (made.length >= ORG_WEEK_DAILY_AI) { deps.log("org_week_lines_daily_ai"); return null; }
+  } catch {
+    return null;
+  }
+  let budget: Awaited<ReturnType<typeof checkBudget>>;
+  try {
+    budget = await checkBudget(ctx, "org_week_lines", started, config.price);
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    deps.log("org_week_lines_budget");
+    return null;
+  }
+  const lineTexts = groups.map((ls) => ls.map((l) => l.body));
+  const material = orgWeekMaterial(text, lineTexts);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: ORG_WEEK_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: ORG_WEEK_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "org_week_lines", strict: true, schema: ORG_WEEK_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: ORG_WEEK_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) { deps.log(result.code); return null; }
+  const parsed = parseOrgWeek(result.raw, lineTexts);
+  if (!parsed) deps.log("ai_invalid_response");
+  return parsed;
+}
+
 // ---- 쓰임: 성명·보도자료 초안(press_draft, FEAT-1029묶음 ④, press-draft.ts) ----------------------------------------
 // 화면이 고른 사업 보고 ID(1~5)를 호출한 사람의 로그인으로 다시 읽어(owner RLS + 작업공간 확인) 근거로 쓴다. 근거는 사업 보고만(4-①).
 // 서버는 아무것도 저장하지 않는다(사용량 숫자만). 미리보기를 돌려주고, 저장은 화면에서 명진이 [노트로 저장]을 누를 때만.
@@ -5196,6 +5398,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "org_summary") return await runOrgSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_people_brief") return await runOrgPeopleBrief(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_status_rows") return await runOrgStatusRows(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "org_week_lines") return await runOrgWeekLines(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "schedule_titles") return await runScheduleTitles(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "weekly_draft") return await runWeeklyDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "weekly_review") return await runWeeklyReview(ctx, input, { env: deps.env, now, sleep, log, doFetch });
