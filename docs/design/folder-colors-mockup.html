@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>폴더 색 시안</title>
+<style>
+/* 폴더 색 시안 (FOLDER-순서·색, S49-37). 이름·내용은 모두 가짜. 저장소 밖 주소·글꼴 없음. */
+*{box-sizing:border-box}
+body{margin:0;font:13px/1.45 system-ui,-apple-system,"Malgun Gothic",sans-serif;background:#eceff1;color:#1f2933}
+h1{font-size:16px;margin:14px 16px 2px}
+.lead{margin:0 16px 10px;color:#66727f;font-size:12px}
+.themes{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;padding:0 12px 20px}
+.theme{border-radius:8px;padding:12px;border:1px solid var(--bd);background:var(--bg);color:var(--ink)}
+.theme.light{--bg:#f5f6f7;--sf:#fff;--ink:#1f2933;--mute:#66727f;--bd:#dfe4e8;--hi:#eef2f6;
+ --d-ico:#e0b43c;--d-tag:#f3e8c4;--d-paper:#eceae4;--tagink:#2f2f2a}
+.theme.dark{--bg:#161a1e;--sf:#1f252b;--ink:#e3e7ea;--mute:#98a2ab;--bd:#323a42;--hi:#2a323a;
+ --d-ico:#c9a23b;--d-tag:#4a4122;--d-paper:#c3c1bb;--tagink:#e3e7ea}
+/* 8가지 + 기본. ico = 폴더 아이콘, tag = 목록 꼬리표 바탕, paper = 포스트잇 종이 */
+.theme.light{--c1-ico:#b45a52;--c1-tag:#f0d9d5;--c1-paper:#f2d9d4;
+ --c2-ico:#b87f3e;--c2-tag:#f1e0c9;--c2-paper:#f2e0cb;
+ --c3-ico:#7d8f45;--c3-tag:#e2e8cf;--c3-paper:#e3e6d6;
+ --c4-ico:#3f9486;--c4-tag:#cfe7e2;--c4-paper:#d4ebe6;
+ --c5-ico:#4a84ad;--c5-tag:#d3e3ee;--c5-paper:#d8e6f0;
+ --c6-ico:#6a68b0;--c6-tag:#dcdaf0;--c6-paper:#dddff0;
+ --c7-ico:#a45f8f;--c7-tag:#ecd7e6;--c7-paper:#f0dbe4;
+ --c8-ico:#7b8791;--c8-tag:#dde1e5;--c8-paper:#e2e5e8}
+.theme.dark{--c1-ico:#c27a72;--c1-tag:#4b2f2c;--c1-paper:#cab0ab;
+ --c2-ico:#c79a62;--c2-tag:#4a3925;--c2-paper:#cbb8a0;
+ --c3-ico:#9aad66;--c3-tag:#393f26;--c3-paper:#bec1b1;
+ --c4-ico:#62b3a5;--c4-tag:#214440;--c4-paper:#b0c6c1;
+ --c5-ico:#6ba0c8;--c5-tag:#23394a;--c5-paper:#b3c1cb;
+ --c6-ico:#8f8dcc;--c6-tag:#34335a;--c6-paper:#b8bbc7;
+ --c7-ico:#c283ae;--c7-tag:#482c3f;--c7-paper:#cab6bf;
+ --c8-ico:#9aa5ae;--c8-tag:#363d44;--c8-paper:#bcc0c4}
+.theme h2{font-size:12px;margin:0 0 8px;color:var(--mute);font-weight:600}
+.theme h3{font-size:11.5px;margin:12px 0 5px;color:var(--mute);font-weight:600}
+.f{--ico:var(--d-ico);--tag:var(--d-tag);--paper:var(--d-paper)}
+[data-c="1"]{--ico:var(--c1-ico);--tag:var(--c1-tag);--paper:var(--c1-paper)}
+[data-c="2"]{--ico:var(--c2-ico);--tag:var(--c2-tag);--paper:var(--c2-paper)}
+[data-c="3"]{--ico:var(--c3-ico);--tag:var(--c3-tag);--paper:var(--c3-paper)}
+[data-c="4"]{--ico:var(--c4-ico);--tag:var(--c4-tag);--paper:var(--c4-paper)}
+[data-c="5"]{--ico:var(--c5-ico);--tag:var(--c5-tag);--paper:var(--c5-paper)}
+[data-c="6"]{--ico:var(--c6-ico);--tag:var(--c6-tag);--paper:var(--c6-paper)}
+[data-c="7"]{--ico:var(--c7-ico);--tag:var(--c7-tag);--paper:var(--c7-paper)}
+[data-c="8"]{--ico:var(--c8-ico);--tag:var(--c8-tag);--paper:var(--c8-paper)}
+.fi{display:inline-block;width:15px;height:11px;border-radius:2px 2px 2px 2px;background:var(--ico);position:relative;vertical-align:-1px;margin-right:6px;flex:none}
+.fi:before{content:"";position:absolute;left:0;top:-3px;width:7px;height:4px;border-radius:2px 2px 0 0;background:var(--ico)}
+.swatches{display:flex;flex-wrap:wrap;gap:6px}
+.sw{display:flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--sf);font-size:12px}
+.sw b{font-weight:500}
+.panel{background:var(--sf);border:1px solid var(--bd);border-radius:6px;overflow:hidden}
+.row{display:flex;align-items:center;gap:4px;padding:5px 10px;min-height:30px;border-bottom:1px solid var(--bd)}
+.row:last-child{border-bottom:0}
+.row.sel{background:var(--hi)}
+.row .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .cnt{color:var(--mute);font-size:11px}
+.row.in1{padding-left:26px}
+.tag{padding:1px 6px;border-radius:10px;background:var(--tag);color:var(--tagink);font-size:11px}
+.line{height:0;border-top:2px solid #4a84ad;margin:-1px 10px}
+.hint{font-size:11px;color:var(--mute);padding:4px 10px}
+.menu{width:170px;background:var(--sf);border:1px solid var(--bd);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);padding:3px 0}
+.menu div{padding:6px 12px}
+.menu div.hl{background:var(--hi)}
+.dots{display:grid;grid-template-columns:repeat(5,22px);gap:8px;padding:6px 12px 8px}
+.dot{width:22px;height:22px;border-radius:50%;background:var(--ico);border:2px solid transparent}
+.dot.on{border-color:var(--ink)}
+.dot.def{background:var(--d-ico)}
+.cols{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}
+.dlg{width:230px}
+.dlg .ttl{padding:7px 10px;font-weight:600;border-bottom:1px solid var(--bd)}
+.cards{display:flex;gap:8px;flex-wrap:wrap}
+.card{width:112px;height:104px;background:var(--paper);color:#2f2f2a;padding:7px 8px;font-size:11px;display:flex;flex-direction:column;gap:3px;transform:rotate(var(--r,0deg));box-shadow:0 1px 2px rgba(0,0,0,.18);clip-path:polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%)}
+.card b{font-size:11.5px}
+.card span{flex:1;color:#4a4a44;overflow:hidden}
+.card i{font-style:normal;color:#6b6b63;font-size:10px}
+.note{font-size:11.5px;color:var(--mute);margin:10px 16px 0}
+</style>
+</head>
+<body>
+<h1>폴더 색 시안 — 톤다운 8가지 + 기본</h1>
+<p class="lead">같은 폴더 색이 ① 폴더 아이콘 ② 목록 꼬리표 ③ 포스트잇 종이 ④ 폴더 고르기 창에 그대로 따라갑니다. 안 고른 폴더는 지금처럼(노란 아이콘, 포스트잇은 지금의 폴더별 자동 색). 이름은 모두 가짜. 왼쪽 밝은 테마 · 오른쪽 어두운 테마.</p>
+<div class="themes" id="themes"></div>
+<p class="note">시안의 색 값은 설계 문서(folder-color-order.md) 4절 표와 같습니다. 고르면 구현 PR에서 이 값을 theme-tokens.css 한 곳에 넣습니다.</p>
+<script>
+const NAMES=['벽돌','황토','올리브','청록','강청','남보라','자주','회색'];
+const FOLDERS=[['기획 문서',2,4],['회의록',5,12],['현장 메모',3,7],['읽을거리',0,3],['보관',8,21],['아이디어',7,5]];
+const TRIES=[2,5,3,0,8,7];
+const dot=c=>`<span class="fi" ${c?`data-c="${c}"`:''}></span>`;
+function theme(cls,title){
+  const sw=[0,1,2,3,4,5,6,7,8].map(i=>`<span class="sw f" ${i?`data-c="${i}"`:''}>${dot(i)}<b>${i?NAMES[i-1]:'기본'}</b></span>`).join('');
+  const list=FOLDERS.map((f,i)=>`<div class="row f${i===1?' sel':''}" ${f[1]?`data-c="${f[1]}"`:''}>${dot(f[1])}<span class="n">${f[0]}</span><span class="cnt">${f[2]}</span></div>${i===2?'<div class="line"></div>':''}`).join('');
+  const kids=`<div class="row f in1" data-c="2">${dot(2)}<span class="n">분기 계획</span><span class="cnt">2</span></div>`;
+  const notes=[['주간 점검 정리',2,'10.30'],['현장 방문 메모',3,'10.29'],['읽은 글 요약',0,'10.27']].map(n=>`<div class="row f" ${n[1]?`data-c="${n[1]}"`:''}><span class="n">${n[0]}</span><span class="tag">${FOLDERS.find(f=>f[1]===n[1])?.[0]||'폴더 없음'}</span><span class="cnt">${n[2]}</span></div>`).join('');
+  const pick=FOLDERS.slice(0,5).map((f,i)=>`<div class="row f${i===0?' sel':''}" ${f[1]?`data-c="${f[1]}"`:''}>${dot(f[1])}<span class="n">${f[0]}</span></div>`).join('')+`<div class="row"><span class="n" style="color:var(--mute)">폴더 없음</span></div>`;
+  const cards=[['주간 점검 정리',2,'기획 문서','-2deg'],['현장 방문 메모',3,'현장 메모','1.5deg'],['읽은 글 요약',0,'읽을거리','-1deg'],['회의 안건',5,'회의록','2deg'],['보관 메모',8,'보관','-1.5deg']].map(c=>`<div class="card f" ${c[1]?`data-c="${c[1]}"`:''} style="--r:${c[3]}"><b>${c[0]}</b><span>가짜 내용입니다. 폴더 색이 종이에 입혀집니다.</span><i>${c[2]}</i></div>`).join('');
+  const menu=`<div class="menu"><div>이름 바꾸기</div><div>위로</div><div>아래로</div><div class="hl">색 고르기</div><div>지우기</div></div>`;
+  const dots=`<div class="menu"><div style="color:var(--mute);font-size:11px;padding-bottom:0">색 고르기</div><div class="dots">${[1,2,3,4,5,6,7,8].map(i=>`<span class="dot f${i===2?' on':''}" data-c="${i}" title="${NAMES[i-1]}"></span>`).join('')}<span class="dot def" title="기본"></span></div></div>`;
+  return `<section class="theme ${cls}"><h2>${title}</h2>
+  <h3>고를 수 있는 색</h3><div class="swatches">${sw}</div>
+  <h3>노트 왼쪽 목록 (줄 사이 파란 선 = 순서, 줄 가운데 = 안으로 넣기)</h3><div class="panel">${list}${kids}</div>
+  <h3>노트 목록 꼬리표</h3><div class="panel">${notes}</div>
+  <h3>폴더 ⋯ 메뉴 → 색 고르기</h3><div class="cols">${menu}${dots}</div>
+  <h3>폴더 고르기 창 (노트 옮기기)</h3><div class="panel dlg"><div class="ttl">폴더로 옮기기</div>${pick}</div>
+  <h3>포스트잇 칸</h3><div class="cards">${cards}</div></section>`;
+}
+document.getElementById('themes').innerHTML=theme('light','밝은 테마')+theme('dark','어두운 테마');
+</script>
+</body>
+</html>
