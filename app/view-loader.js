@@ -37,11 +37,11 @@ const routeStyles={
   reference:['./reference-bundles.css','./ui-standard.css'],
   calls:['./choice-sheet.css','./feed.css','./ui-standard.css'],
   telegram:['./choice-sheet.css','./feed.css','./ui-standard.css'],
-  photos:['./diary.css','./od-link.css','./photos.css','./folder-tree.css','./ui-standard.css'],
+  photos:['./diary.css','./od-link.css','./source-chips.css','./photos.css','./folder-tree.css','./ui-standard.css'],
   arsenal:['./arsenal.css','./ui-standard.css'],
   // OUTSIDE-글상세·관심환류 ③: Now 한 메뉴(사회운동·뉴스·보관·문장 찾기 탭 + 글 상세). 옛 news 화면은 Now [뉴스] 탭.
-  outside:['./outside-statements.css','./news-clipping.css','./library-upload.css','./now.css','./ui-standard.css'],
-  files:['./folder-tree.css','./files.css','./ui-standard.css'],
+  outside:['./outside-statements.css','./news-clipping.css','./row-swipe.css','./library-upload.css','./now.css','./ui-standard.css'],
+  files:['./od-link.css','./folder-tree.css','./source-chips.css','./files.css','./ui-standard.css'],
   updates:['./release-notes.css','./ui-standard.css']
 };
 // PERF-첫로딩 P4: 화면 프로그램을 처음 부를 때(첫 화면은 이 도구가 실행되는 즉시 — loader-v2.js) 그 화면 첫 프로그램의 정적 사슬 전체를

@@ -272,6 +272,8 @@ object PhoneMediaRules {
         sb.append(",\"edit\":true")
         // S48-17 PHOTO-폰으로되돌리기(0.4.11): restore = 원래 폴더·찍은 시각으로 되돌려 넣기(photos:save:begin의 dir·taken)를 안다.
         sb.append(",\"restore\":true")
+        // S48-60 PHOTO-정보고치기(0.4.15): meta = 찍은 시각·위치 읽기·고치기(photos:meta:read·write)를 안다.
+        sb.append(",\"meta\":true")
         return sb.append('}').toString()
     }
 

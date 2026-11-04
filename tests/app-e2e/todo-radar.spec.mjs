@@ -242,3 +242,40 @@ for(const width of [412,884,1440])test(`정리함 telegram candidate: room in th
  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('telegram');
  expect(f.errors.filter(e=>!/telegram|feed/i.test(e))).toEqual([]);
 });
+
+// S49-19 TODO-이미할일읽기실패: 할 일 모듈(google-tasks.js)은 첫 화면 뒤에 불러온다. 앱을 막 열어 아직 안 불린 상태에서
+// 정리함 ⋯ [이미 할 일에 있음]을 눌러도 '읽지 못함'이 아니라 그 자리에서 불러와 비슷한 할 일이 떠야 한다. 정말 못 읽으면 [다시].
+for(const width of [412,1280])test(`정리함: 할 일 모듈이 아직 안 불린 채 ⋯ [이미 할 일에 있음] → 그 자리에서 불러와 비슷한 할 일이 나온다 ${width}`,async({page})=>{
+ let release;const held=new Promise(r=>{release=r;});
+ const f=await fixture(page,{width,rows:[cand(1,{summary:'오늘 항목 정리'})],routes:async()=>{
+  await page.route(/\/google-tasks(\.[0-9a-f]+)?\.js(\?.*)?$/,async route=>{await held;await route.continue();});
+ }});
+ await openInbox(page);
+ expect(await page.evaluate(()=>typeof window.KPTUGoogleTasks)).toBe('undefined');
+ const row=inbox(page).locator(`[data-inbox-todo-row="${id(1)}"]`);
+ await tap(page,row.locator('[data-inbox-todo-more]'),width);
+ await page.locator('#inboxTodoRowMenu [data-inbox-todo-menu="already"]').click();
+ const box=inbox(page).locator(`[data-inbox-todo-link="${id(1)}"]`);
+ await expect(box).toBeVisible();
+ await expect(box).not.toContainText('읽지 못했어요');
+ release();
+ await expect(box.locator('[data-inbox-todo-link-task]').first()).toHaveText('오늘 항목');
+ await expect(box).not.toContainText('못 읽었어요');
+ expect(await noWideScroll(page)).toBe(true);
+ expect(f.errors).toEqual([]);
+});
+
+test('정리함: 할 일을 정말 못 읽으면 "할 일을 못 읽었어요 [다시]"가 뜨고 [다시]로 다시 읽는다',async({page})=>{
+ const f=await fixture(page,{width:412,rows:[cand(1,{summary:'오늘 항목 정리'})]});
+ await openInbox(page);
+ await page.evaluate(()=>{window.__gtReal=window.KPTUGoogleTasks;window.KPTUGoogleTasks={peekTasks:()=>null,listTasks:async()=>window.__gtFail?{status:'error',tasks:[]}:window.__gtReal.listTasks()};window.__gtFail=true;});
+ const row=inbox(page).locator(`[data-inbox-todo-row="${id(1)}"]`);
+ await tap(page,row.locator('[data-inbox-todo-more]'),412);
+ await page.locator('#inboxTodoRowMenu [data-inbox-todo-menu="already"]').click();
+ const box=inbox(page).locator(`[data-inbox-todo-link="${id(1)}"]`);
+ await expect(box).toContainText('할 일을 못 읽었어요');
+ await page.evaluate(()=>{window.__gtFail=false;});
+ await box.getByRole('button',{name:'다시',exact:true}).click();
+ await expect(box.locator('[data-inbox-todo-link-task]').first()).toHaveText('오늘 항목');
+ expect(f.errors).toEqual([]);
+});

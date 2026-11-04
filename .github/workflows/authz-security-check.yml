@@ -42,6 +42,11 @@ on:
       - 'docs/main-pr-gate-ruleset.json'
   workflow_dispatch:
 
+# 같은 PR에 다시 push하면 옛 시험 실행을 취소한다(PR 밖 이벤트는 취소하지 않음).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 

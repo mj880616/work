@@ -3,7 +3,7 @@ import { readBoundedJson } from '../_shared/bounded-json.mjs';
 import { createHwpEdit, HwpEditError } from '../_shared/hwp-edit.ts';
 import { createDocumentText } from '../_shared/document-text.ts';
 import { renameFile } from './file-rename.ts';
-import { sendDevInbox } from './dev-inbox.ts';
+import { sendDevInbox, readDevMade } from './dev-inbox.ts';
 import { withWebCors } from "../_shared/web-cors.ts";
 import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
 
@@ -361,6 +361,19 @@ Deno.serve(withWebCors(async (req: Request) => {
         const status = known && typeof (e as { status?: unknown })?.status === 'number' ? (e as { status: number }).status : 503;
         console.error('document-actions dev-inbox failed', { code: known ? code : 'RESULT_UNKNOWN' });
         return json({ error: known && e instanceof Error ? e.message : '요청함에 더했는지 확인하지 못했습니다.', code: known ? code : 'RESULT_UNKNOWN' }, status);
+      }
+    }
+    if (action === 'dev-made') {
+      // WEEKLY-개발후보CC 2단계(S48-57): 요청함 덩어리 아래 CC가 적은 '완료 #NNN'을 서버가 읽어 그 주 만들기 제안에 made 번호를 남긴다(./dev-inbox.ts readDevMade — 같은 로그인·owner·운영자 기능 확인).
+      const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+      try {
+        return json(await readDevMade(body, { userId: user.id, db: (path, opts = {}) => db(path, opts), userDb: userDbFor(token), driveToken: driveAccessToken, fetch, now: Date.now, docId: Deno.env.get('WEB2_DEV_INBOX_DOC_ID') }));
+      } catch (e) {
+        const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'RESULT_UNKNOWN';
+        const known = ['INVALID_REQUEST', 'FORBIDDEN', 'FEATURE_REQUIRED', 'NOT_FOUND', 'READ_FAILED', 'DOC_UNAVAILABLE', 'WRITE_FAILED', 'CONFIG_MISSING'].includes(code);
+        const status = known && typeof (e as { status?: unknown })?.status === 'number' ? (e as { status: number }).status : 503;
+        console.error('document-actions dev-made failed', { code: known ? code : 'RESULT_UNKNOWN' });
+        return json({ error: known && e instanceof Error ? e.message : '번호를 읽지 못했습니다.', code: known ? code : 'RESULT_UNKNOWN' }, status);
       }
     }
     if (action === 'register-basket-attachment') {

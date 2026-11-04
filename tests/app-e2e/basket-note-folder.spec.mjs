@@ -21,7 +21,7 @@ async function answerText(page, value) {
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const U = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-async function fixture(page, width, {table = true, more = []} = {}) {
+async function fixture(page, width, {table = true, more = [], longRow = false} = {}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [], writes = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -32,6 +32,7 @@ async function fixture(page, width, {table = true, more = []} = {}) {
     row('n2', '나 노트', '2026-10-12T01:00:00Z', { folder: '회의' }),
     row('n3', '다 노트', '2026-10-10T01:00:00Z'),
   ];
+  if (longRow) rows[0] = row('n1', '아주 긴 제목의 노트입니다 '.repeat(10), '2026-10-16T01:00:00Z', { folder: '회의' });
   const folders = [{ id: U(1), workspace_id: 'w', parent_id: null, name: '회의', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }, ...more];
   let seq = 10;
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
@@ -112,7 +113,7 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
   await showOutside(page, width);
   // Row ⋯: [선택] first, [복사] in the menu, then [폴더로 옮기기] opens the shared folder list; the note gets the folder id and name, nothing else changes.
   await press(page, page.locator('[data-note-row-more="n1"]'), width);
-  await expect(page.locator('#noteDocMenu button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', 'AI에 보내지 않기', '삭제']);
+  await expect(page.locator('#noteDocMenu button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', '일기로 보내기', 'AI에 보내지 않기', '삭제']);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
   await expect(picker(page)).toBeVisible();
   await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);
@@ -202,18 +203,19 @@ for (const width of [390, 1280]) test(`before the folder table exists: folders b
 
 // NOTE-탐색기 후속 ②: 마우스로 노트·폴더 끌어 놓기(PC). 폰은 17:55부터 끌지 않고 꾹 누르기 메뉴·선택 모드로 옮긴다.
 const extra = [{ id: U(2), workspace_id: 'w', parent_id: null, name: '기록', sort_order: 2048, created_at: '2026-10-01T00:00:00Z' }];
-async function mouseDrop(page, from, to) {
-  await page.evaluate(([a, b]) => {
-    const src = document.querySelector(a), dst = document.querySelector(b), dt = new DataTransfer();
-    src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
-    dst.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
-    dst.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
-    src.dispatchEvent(new DragEvent('dragend', { bubbles: true }));
-  }, [from, to]);
+// 진짜 마우스로 끌기: from 줄을 잡아 to 줄의 zone 자리(before 위 25% 안 / inside 가운데 / after 아래 25% 안)에 놓는다. (S49-38: 공용 끌기 부품 reorder-drag.js)
+async function mouseDrop(page, from, to, zone = 'inside') {
+  const a = await page.locator(from).first().boundingBox(), b = await page.locator(to).first().boundingBox();
+  const ty = zone === 'before' ? b.y + b.height * 0.1 : zone === 'after' ? b.y + b.height * 0.9 : b.y + b.height * 0.5;
+  await page.mouse.move(a.x + 30, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + 40, a.y + a.height / 2 + 6, { steps: 3 });
+  await page.mouse.move(b.x + 30, ty, { steps: 8 });
+  await page.mouse.up();
 }
 test('PC 1280: drag a note onto a folder in the left tree, then drag a folder into another folder; both undo', async ({ page }) => {
   const f = await fixture(page, 1280, { more: extra });
-  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveAttribute('draggable', 'true');
+  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveAttribute('data-reorder-id', 'n:n1');
   await mouseDrop(page, '#noteRows [data-nx-note="n1"]', `[data-nx-tree] [data-nx-folder="${U(1)}"]`);
   await expect.poll(() => f.rows.find(r => r.id === 'n1').metadata).toEqual({ tasks: [{ task_id: 't1' }], folder_id: U(1), folder: '회의' });
   await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');
@@ -241,13 +243,13 @@ test.describe('PC mouse (no touch)', () => { test.use({ hasTouch: false }); test
   expect(f.errors).toEqual([]);
 }); });
 
-test('phone 390: long-press a note opens its menu (no dragging); [폴더로 옮기기] moves it', async ({ page }) => {
+test('phone 390: long-press a note and let go without moving opens its menu; [폴더로 옮기기] moves it', async ({ page }) => {
   const f = await fixture(page, 390);
   await showOutside(page, 390);
   const cdp = await page.context().newCDPSession(page);
   const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i })) });
   const from = await page.locator('#noteRows [data-nx-note="n1"] .basket-title-text').evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
-  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveAttribute('draggable', 'false');
+  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveAttribute('data-reorder-id', 'n:n1');
   await touch('touchStart', [from]); await page.waitForTimeout(700);
   await touch('touchEnd', []);
   await expect(page.locator('#noteDocMenu')).toBeVisible();
@@ -298,3 +300,45 @@ test('PC 1280: 폴더 나무 | 노트 경계 끌기·키보드·새로고침 유
   await checkSplit(page, { container: '[data-note-list] [data-nx-body]', left: ':scope>[data-nx-tree]', right: ':scope>.nx-pane', name: 'notes', share: 0.3, server, reopen: open });
   expect(errors).toEqual([]);
 });
+
+// UI-고르기줄(S48-54, 요청함 11/03 07:44 ③): 노트 고르기 줄도 사진과 같은 공용 부품(.kptu-actbar-text) — 칸 같은 너비·같은 간격·최대 120px·글자 잘림 없음, 지우기 글자 빨강.
+for (const width of [412, 768, 1280]) test(`UI-고르기줄: 노트 고르기 줄 같은 칸·같은 간격 ${width}`, async ({ page }) => {
+  const { measureActBar, checkActBar } = await import('./helpers/act-bar-measure.mjs');
+  const { mkdirSync } = await import('node:fs');
+  const DIR = 'test-results/ui-audit'; mkdirSync(DIR, { recursive: true });
+  const f = await fixture(page, width);
+  await showOutside(page, width);
+  await press(page, page.locator('[data-note-row-more="n1"]'), width);
+  await press(page, page.locator('#noteDocMenu [data-nx-select]'), width);
+  await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
+  const m = await measureActBar(page, '[data-nx-select-bar] .nx-sel-acts');
+  checkActBar(m, (a, e, l) => expect(a, l).toEqual(e), `노트 고르기 줄 ${width}`);
+  expect(m.n).toBe(3);
+  expect(m.dangerText, '지우기 글자도 다른 버튼과 같은 색').toBe(await page.locator('[data-nx-sel-move]').evaluate(b => getComputedStyle(b).color));
+  for (const b of await page.locator('[data-nx-select-bar] .kptu-act').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(26);
+  await page.screenshot({ path: `${DIR}/s48-54-notes-select-${width}.png` });
+  process.stdout.write(`::notice title=s48-54 notes ${width}::${JSON.stringify({n: m.n, widths: m.widths, rows: m.rows, bar: m.barWidth})}\n`);
+  await page.keyboard.press('Escape');
+  expect(f.errors).toEqual([]);
+});
+
+// UI-줄꼬리표(요청함 11/04 00:17): '최근' 노트 줄 오른쪽 폴더 이름은 제목이 아주 길어도 줄어들지 않고 온전히 보이며, 제목만 …로 줄어든다.
+for (const width of [412, 840, 1280]) {
+  test(`노트 최근 줄: 긴 제목에서도 오른쪽 폴더 이름이 다 보인다 (${width}px)`, async ({ page }) => {
+    const { errors } = await fixture(page, width, { longRow: true });
+    await chooseBasketKind(page, 'note');
+    const scope = width < 761 ? '[data-nx-recent]' : '#noteRows';
+    const tail = page.locator(`${scope} [data-nx-note="n1"] [data-nx-recent-folder]`);
+    await expect(tail).toBeVisible({ timeout: 15000 });
+    const m = await page.evaluate(() => {
+      const row = document.querySelector('[data-nx-recent] [data-nx-note="n1"], #noteRows [data-nx-note="n1"]');
+      const path = row.querySelector('[data-nx-recent-folder]'), title = row.querySelector('.basket-title-text'), time = row.querySelector('time');
+      return { pathFull: path.scrollWidth <= path.clientWidth, pathW: path.getBoundingClientRect().width, timeFull: time.scrollWidth <= time.clientWidth,
+        titleCut: title.scrollWidth > title.clientWidth || getComputedStyle(title).textOverflow === 'ellipsis', over: document.documentElement.scrollWidth > innerWidth };
+    });
+    expect(m.pathFull).toBe(true); expect(m.pathW).toBeGreaterThan(20); expect(m.timeFull).toBe(true); expect(m.over).toBe(false);
+    await expect(tail).toContainText('회의');
+    await page.locator(scope).first().screenshot({ path: `test-results/note-recent-tail-${width}.png` });
+    expect(errors).toEqual([]);
+  });
+}

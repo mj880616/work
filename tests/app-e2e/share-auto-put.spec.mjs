@@ -3,7 +3,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import {noteTrash} from './helpers/note-trash.mjs';
 
 // SHARE-바로넣기(2026-10-30 명진 결정): 폰 앱에서 공유하면 확인 줄·[넣기] 없이 바로 정리함에 들어가고,
-// 위쪽 작은 알림 "정리함에 넣었어요 [메모 달기] [되돌리기]", 실패하면 "넣지 못했어요 [다시]". 앱 다리·파일은 시험용 흉내(서버 키 없음).
+// 위쪽 작은 알림 "업데이트로 보냈어요(S49-9, 옛 정리함에 넣었어요) [메모 달기] [되돌리기]", 실패하면 "넣지 못했어요 [다시]". 앱 다리·파일은 시험용 흉내(서버 키 없음).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36 KPTUAndroid/0.3.3';
 const ID = 'ShareTestId_0123456789abcd';
@@ -68,7 +68,7 @@ const sent = page => page.evaluate(() => window.__shareSent.filter(m => m.starts
 
 test('사진 여러 장·파일을 공유하면 버튼 없이 한 번에 정리함에 들어가고, [메모 달기]로 한 줄을 붙인다 412', async ({page}, info) => {
   const {state, errors} = await fixture(page);
-  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('정리함에 넣었어요');
+  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('업데이트로 보냈어요');
   // 알림은 화면 위쪽(하단바에 가리지 않음).
   expect((await notice(page).boundingBox()).y).toBeLessThan(200);
   // 확인 줄·메모 칸·[넣기]·[취소]는 없다.
@@ -106,7 +106,7 @@ test('사진 여러 장·파일을 공유하면 버튼 없이 한 번에 정리�
 
 test('[되돌리기]는 묻지 않고 정리함 [지우기]와 같은 휴지통 길로 바로 뺀다 412', async ({page}) => {
   const {state, errors, trash} = await fixture(page, {list:listOf([PHOTOS[0]])});
-  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('정리함에 넣었어요');
+  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('업데이트로 보냈어요');
   let dialogs = 0; page.on('dialog', d => { dialogs++; void d.dismiss(); });
   await notice(page).getByRole('button', {name:'되돌리기'}).tap();
   await expect.poll(() => state.deletes).toEqual([NOTE]);
@@ -120,7 +120,7 @@ test('[되돌리기]는 묻지 않고 정리함 [지우기]와 같은 휴지통 
 
 test('글만 공유해도 바로 넣는다 412', async ({page}) => {
   const {state, errors} = await fixture(page, {list:{id:ID, subject:'제목 줄', text:'본문 글', items:[]}});
-  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('정리함에 넣었어요');
+  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('업데이트로 보냈어요');
   expect(state.posts.map(b => b.raw_text)).toEqual(['제목 줄\n본문 글']);
   expect(state.uploads).toEqual([]);
   await expect(notice(page).getByRole('button', {name:'메모 달기'})).toBeVisible();
@@ -136,7 +136,7 @@ test('올리다 실패하면 같은 자리 "넣지 못했어요 [다시]", 다�
   expect(state.uploads).toHaveLength(1);
   state.uploadStatus = 200;
   await notice(page).getByRole('button', {name:'다시'}).tap();
-  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('정리함에 넣었어요');
+  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('업데이트로 보냈어요');
   expect(state.uploads.map(u => u.file)).toEqual(['사진1.gif', '사진1.gif', '사진2.gif']);
   // 파일은 이 화면 메모리의 것을 다시 쓴다(앱에 다시 묻지 않음).
   expect(state.shareReads).toHaveLength(2);

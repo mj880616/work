@@ -116,7 +116,7 @@ for (const width of [412, 1440]) {
       await expect(viewer(page).locator('[data-strip-starfx]')).toHaveAttribute('data-anim', 'drag');
     });
     await expect(starBtn).toHaveAttribute('aria-pressed', 'true');
-    await expect(starBtn.locator('span').first()).toHaveText('★');
+    await expect(starBtn.locator('svg').first()).toBeVisible();
     await expect.poll(() => f.starWrites).toEqual([{ method: 'POST', key: 'P005' }]);
     await expect.poll(() => viewer(page).locator('[data-strip-starfx]').getAttribute('data-anim'), { timeout: 3000 }).toBeNull();
     await expect.poll(() => transformOf(slide(page))).toBe('');
@@ -186,7 +186,7 @@ for (const width of [412, 1440]) {
     // [ⓘ 정보]: '불러오기 1.4초 (주소 0.5 · 사진 0.9)' 모양, 정보를 열 때만.
     const line = viewer(page).locator('[data-strip-load-time]');
     await expect(line).toHaveCount(0);
-    await viewer(page).locator('[data-diary-info]').click();
+    await viewer(page).locator('[data-strip-act="more"]').click(); await page.locator('#photoBarMenu').getByRole('button', { name: '정보', exact: true }).click();
     await expect(line).toHaveText(/^\d+\.\d초 \(주소 \d+\.\d · 사진 \d+\.\d\)$/);
     const secs = Number((await line.textContent()).match(/^(\d+\.\d)/)[1]);
     expect(secs).toBeGreaterThanOrEqual(1.4);

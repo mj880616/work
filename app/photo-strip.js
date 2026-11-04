@@ -1,6 +1,6 @@
 // OD-크게보기 공용 부품(PHOTO-사진메뉴 1차, 2026-10-28): 원드라이브 사진 크게 보기 하나. 일기(diary.js)와 사진 메뉴(photos.js)가 함께 쓴다.
 // 일기에 있던 크게 보기를 그대로 옮겨 왔다(모양·손동작·버튼줄 같음). 상태(목록·별표·지우기)는 부르는 화면이 갖고, 여기는 그리기와 손동작만 한다.
-// 위 줄 [✕] '6 / 256' … 찍은 날짜·시각, 아래 버튼줄 [☆ 별표] [⇪ 공유] [🗑 지우기] [ⓘ 정보](명진 결정 2026-10-28 07:45).
+// 위 줄 [✕] '6 / 256' … 찍은 날짜·시각, 아래 버튼줄 [☆ 별표] [⇪ 공유] [지우기] [ⓘ 정보](명진 결정 2026-10-28 07:45, 지우기는 선 아이콘·공용 .kptu-actbar S48-54).
 // 손동작: 좌우 넘기기 = 앞뒤 사진, 위로 밀기 = 별표 토글, 아래로 밀기 = 닫기(× 버튼·뒤로가기도 닫기, router layer). S 키 = 별표.
 // PHOTO-스와이프안내(2026-10-30 명진 결정 "스와이프 모션 좋아"): 세로로 밀면 사진이 손가락을 따라 움직이고, 위로 정해진 거리(STAR_DIST)를 넘기면
 // 가운데 별이 차오른다. 덜 밀고 놓으면 제자리(별표 안 됨). 별표 순간 큰 노란 별이 '톡' 커졌다가 아래 [별표] 버튼으로 들어가고(폰은 짧은 진동),
@@ -17,7 +17,12 @@ import {swipeKind, shareFileName, UNDO_MS, dragAxis, dragEnd, dragOffset, starFi
 import {slotTimingOf} from './img-slot.js';
 import {viewPrefs} from './view-prefs.js';
 import {preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quietNote, PHOTO_WAIT} from './photo-share.js';
+import {attachPhotoLongPress, pointAnchor} from './photo-longpress.js';
 import {shareFrom} from './share-menu.js';
+import {ACT_ICON} from './action-bar.mjs'; // UI-고르기줄(S48-54): 아래 줄 공용 부품
+import {PHOTO_MENUS, PHOTO_BAR_MENUS} from './photo-menu-items.mjs';
+import {openBarMenu} from './photo-bar-menu.js'; // PHOTO-아래줄정돈(S49-34): [편집 ▾]·[더보기] 글자 메뉴
+import {photoActButtons} from './photo-act-bar.mjs'; // PHOTO-크게보기메뉴통일(S49-23): 아래 버튼줄 그리기는 고르기 줄과 같은 코드 하나
 
 let viewer = null, pending = null;
 
@@ -53,6 +58,9 @@ export const photoStripOpen = () => !!viewer;
 export const photoStripNote = text => viewer?.note(text);
 export const photoStripRefresh = () => viewer?.refresh();
 export const photoStripReload = id => viewer?.reload(id);
+export const photoStripDrop = id => viewer?.dropById(id);
+export const photoStripPaintBar = () => viewer?.paintBar();
+export const photoStripItem = () => viewer?.current?.() || null;
 export const photoStripCommit = () => commitPending();
 
 // opts:
@@ -68,22 +76,31 @@ export const photoStripCommit = () => commitPending();
 //  (S48-32, 선택) choose(item, 단추, plain) → true면 부르는 쪽이 지우기를 맡는다(두 갈래 창 등). 두 갈래가 아니면 plain()으로 예전 지우기.
 //   original(item)이 {download:true}를 돌려주면 [ⓘ] 판 맨 아래가 [⤓ 원본 받기] 단추가 되고 download(item)을 부른다. badge(item): 칸 위 작은 글('▶ 0:42').
 // 크게 보기 받는 순서(작을수록 먼저): 보는 장 -2, 바로 앞뒤 -1, 두 장 건너 0. 격자 칸은 보이는 것 0·곧 보일 것 1(od-thumb-loader.js)이라 크게 보기가 앞선다.
+// 크게 보기 아래 줄의 기본 목록(부르는 화면이 acts를 안 줄 때: 일기). 속성은 예전 이름 그대로(시험·손동작이 찾는다).
+const STRIP_BASIC_BAR = Object.freeze(['star', 'share', 'edit', 'delete', 'detail']);
+const STRIP_ACT_ATTR = Object.freeze({star:'data-diary-star aria-pressed="false"', share:'data-diary-share', edit:'data-strip-edit', delete:'data-od-delete', detail:'data-diary-info'});
+// acts를 받은 화면(사진)의 [편집 ▾]·[더보기]는 글자 메뉴를 연다(data-strip-act). [정보]는 '더보기' 안 항목이라 정보 판 단추가 줄에 없다.
+const STRIP_MENU_ATTR = Object.freeze({edit:'data-strip-act="edit"', more:'data-strip-act="more"'});
 export const stripPrio = d => (d === 0 ? -2 : Math.abs(d) === 1 ? -1 : 0);
 export function openPhotoStrip(opts) {
   const {host, list, index, title, layerName = 'diary-photo', element, label, when, caption = () => '', info, original, isStarred, toggleStar,
     deletable, take, restore, commit, errorText = () => '지우지 못했어요.', onError, onClose, play = null, download = null, badge = () => '', hires = null,
-    editable = null, edit = null, choose = null} = opts;
+    editable = null, edit = null, choose = null, diary = null, acts = null} = opts;
   const first = list();
   if (!first[index] || viewer) return null;
   let items = first.slice(), at = index, noteTimer = null;
+  // PHOTO-크게보기메뉴통일(S49-23): 부르는 화면이 acts({avail, run})를 주면 고르기 아래 줄과 같은 버튼 목록(PHOTO_MENUS.viewBar)을 그리고, 안 주면(일기) 기본 다섯 개.
+  const barIds = acts ? PHOTO_MENUS.viewBar : STRIP_BASIC_BAR;
+  const barAttr = id => ((acts && STRIP_MENU_ATTR[id]) || STRIP_ACT_ATTR[id] || `data-strip-act="${id}"`);
   const trigger = document.activeElement, box = document.createElement('div');
   box.className = 'diary-viewer'; box.dataset.diaryViewer = '';
   box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', title);
-  box.innerHTML = `<div class="diary-viewer-bar"><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">✕</button><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><span class="diary-viewer-when" data-diary-viewer-when></span></div><div class="diary-viewer-stage"><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><span class="diary-viewer-starfx" data-strip-starfx aria-hidden="true">★</span><span class="diary-viewer-finger" data-strip-finger aria-hidden="true" hidden></span></div><p class="diary-viewer-hint" data-diary-viewer-hint hidden>${HINT_TEXT}</p><p class="diary-viewer-caption" data-diary-viewer-caption></p><dl class="diary-viewer-info" data-diary-viewer-info hidden></dl><p class="diary-viewer-note" data-diary-viewer-note role="status"><span data-diary-viewer-note-text></span><button type="button" class="diary-viewer-undo" data-diary-undo hidden>되돌리기</button></p><div class="diary-viewer-actions" role="group" aria-label="사진 동작"><button type="button" data-diary-star aria-pressed="false"><span aria-hidden="true">☆</span> 별표</button><button type="button" data-diary-share><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-strip-edit hidden><span aria-hidden="true">✎</span> 편집</button><button type="button" data-od-delete><span aria-hidden="true">🗑</span> 지우기</button><button type="button" data-diary-info aria-expanded="false"><span aria-hidden="true">ⓘ</span> 정보</button></div>`;
+  box.innerHTML = `<div class="diary-viewer-bar"><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">✕</button><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><span class="diary-viewer-when" data-diary-viewer-when></span></div><div class="diary-viewer-stage"><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><span class="diary-viewer-starfx" data-strip-starfx aria-hidden="true">★</span><span class="diary-viewer-finger" data-strip-finger aria-hidden="true" hidden></span></div><p class="diary-viewer-hint" data-diary-viewer-hint hidden>${HINT_TEXT}</p><p class="diary-viewer-caption" data-diary-viewer-caption></p><dl class="diary-viewer-info" data-diary-viewer-info hidden></dl><p class="diary-viewer-note" data-diary-viewer-note role="status"><span data-diary-viewer-note-text></span><button type="button" class="diary-viewer-undo" data-diary-undo hidden>되돌리기</button></p><div class="diary-viewer-actions kptu-actbar kptu-actbar-icon" role="group" aria-label="사진 동작">${photoActButtons(barIds, barAttr)}</div>`;
   const strip = box.querySelector('[data-diary-viewer-strip]'), count = box.querySelector('[data-diary-viewer-count]'), captionEl = box.querySelector('[data-diary-viewer-caption]');
   const whenEl = box.querySelector('[data-diary-viewer-when]'), infoEl = box.querySelector('[data-diary-viewer-info]'), infoBtn = box.querySelector('[data-diary-info]');
   const starBtn = box.querySelector('[data-diary-star]'), delBtn = box.querySelector('[data-od-delete]'), undoBtn = box.querySelector('[data-diary-undo]');
   const editBtn = box.querySelector('[data-strip-edit]');
+  const actBtn = id => box.querySelector(`[${barAttr(id).split(' ')[0]}]`);
   const noteText = text => paintPhotoNote(box.querySelector('[data-diary-viewer-note-text]'), text);
   // PHOTO-폰앱공유(요청함 11/01 21:26): 알림 줄(공유 기다림 회색 칸·안내 글)을 눌러도 아무 일 없게. 줄 안 [되돌리기]만 받는다.
   // 예전에는 줄이 누름을 받지 않아 폰이 바로 아래 [🗑 지우기]로 옮겨 눌렀다(누르는 곳 보정) → '휴지통으로 옮겼어요'.
@@ -121,7 +138,7 @@ export function openPhotoStrip(opts) {
   const refresh = () => {
     const item = items[at]; if (!item) return;
     const on = isStarred(item);
-    starBtn.firstElementChild.textContent = on ? '★' : '☆'; starBtn.setAttribute('aria-pressed', String(on)); starBtn.setAttribute('aria-label', on ? '별표 풀기' : '별표');
+    starBtn.firstElementChild.innerHTML = on ? ACT_ICON.starOn : ACT_ICON.star; starBtn.setAttribute('aria-pressed', String(on)); starBtn.setAttribute('aria-label', on ? '별표 풀기' : '별표');
   };
   const paintInfo = () => {
     const item = items[at]; if (!item || infoEl.hidden) return;
@@ -140,14 +157,39 @@ export function openPhotoStrip(opts) {
   };
   const slidePhoto = i => strip.children[i]?.querySelector('.diary-photo') || null;
   const prepareShown = () => { const el = slidePhoto(at); if (el) preparePhotoBlob(el); };
+  // 버튼마다 보일지·눌릴지: 별표·공유(안 되는 기기는 누르면 안내)·정보 판은 늘 보이고, 지우기·편집은 이 화면 규칙(deletable·editable), 나머지는 부르는 화면의 고르기 줄과 같은 규칙(acts.avail).
+  // [편집 ▾]·[더보기] 안 항목: 표(PHOTO_BAR_MENUS.viewBar)의 순서대로, 지금 쓸 수 있는 것만(보이는 규칙은 부르는 화면의 acts.avail 한 곳, 사진 편집은 이 화면 규칙 editable).
+  const menuRows = (menuId, item) => (PHOTO_BAR_MENUS.viewBar[menuId] || []).flatMap(id => {
+    if (id === 'detail') return [{id}];
+    if (id === 'edit') return editable && edit && editable(item) ? [{id}] : [];
+    const a = acts.avail(id, item);
+    return a.hidden ? [] : [{id, disabled:!!a.disabled}];
+  });
+  const toggleInfo = () => { infoEl.hidden = !infoEl.hidden; infoBtn?.setAttribute('aria-expanded', String(!infoEl.hidden)); paintInfo(); };
+  const runMenuItem = (id, btn) => {
+    const item = items[at]; if (!item) return;
+    if (id === 'detail') { toggleInfo(); return; }
+    if (id === 'edit') { if (editable?.(item)) edit?.(item, btn); return; }
+    return Promise.resolve(acts.run(id, item, btn)).finally(() => { if (viewer?.box === box) paintBar(); });
+  };
+  // 버튼마다 보일지·눌릴지: 별표·공유는 늘 보이고, 지우기는 이 화면 규칙(deletable), [편집 ▾]·[더보기]는 안에 쓸 항목이 있을 때만(acts 없는 화면=일기는 예전 다섯 개).
+  const paintBar = () => {
+    const item = items[at]; if (!item) return;
+    for (const id of barIds) {
+      const b = actBtn(id); if (!b) continue;
+      let a = {hidden:false};
+      if (id === 'delete') { const d = deletable(item); a = {hidden:false, disabled:!d.ok}; b.title = d.title; }
+      else if (id === 'edit' && !acts) a = {hidden:!(editable && edit && editable(item))};
+      else if (acts && (id === 'edit' || id === 'more')) { const rows = menuRows(id, item); a = {hidden:!rows.length, disabled:!rows.some(r => !r.disabled)}; }
+      b.hidden = !!a.hidden; b.disabled = !!a.disabled;
+    }
+  };
   const show = () => {
     const item = items[at];
     count.textContent = `${at + 1} / ${items.length}`;
     whenEl.textContent = when(item);
     captionEl.textContent = caption(item) || '';
-    const d = deletable(item);
-    delBtn.disabled = !d.ok; delBtn.title = d.title;
-    editBtn.hidden = !(editable && edit && editable(item));
+    paintBar();
     for (const step of [0, 1, -1, 2, -2]) {
       // 이미 받기 시작한 장(앞서 앞뒤 장으로 미리 받던 것)은 지금 자리에 맞게 순서만 당긴다(PHOTO-속도). 그림 칸이 'photo-prio'를 듣는다.
       if (strip.children[at + step]?.dataset.filled) slidePhoto(at + step)?.dispatchEvent(new CustomEvent('photo-prio', {detail:stripPrio(step)}));
@@ -171,6 +213,15 @@ export function openPhotoStrip(opts) {
     at = found >= 0 ? found : Math.min(at, items.length - 1);
     resetZoom(); dropHires(); buildSlides(); strip.scrollLeft = at * strip.clientWidth; show();
   };
+  // 크게 보기 밖에서 이 사진이 이 목록에서 빠졌다(옮기기·앨범에서 빼기·구글 지우기 뒤): 이 화면의 사본에서만 빼고 다음 사진으로 넘어간다. 마지막 장이면 닫는다.
+  const dropById = id => {
+    if (viewer?.box !== box) return;
+    const k = items.findIndex(x => x.id === id); if (k < 0) return;
+    items = items.filter((_, i) => i !== k);
+    if (!items.length) { closePhotoStrip(); return; }
+    at = Math.min(k < at ? at - 1 : at, items.length - 1);
+    resetZoom(); dropHires(); buildSlides(); strip.scrollLeft = at * strip.clientWidth; show();
+  };
   function deleteCurrent() {
     const item = items[at];
     const d = item ? deletable(item) : {ok:false, title:''};
@@ -190,13 +241,17 @@ export function openPhotoStrip(opts) {
   // OD-공유고침: [공유]는 화면에 이미 뜬 그림의 바이트를 바로 넘긴다(photo-share.js). 아직 안 떴을 때만 '사진 받는 중…'을 띄우고 뜨면 넘긴다.
   // 원드라이브 그림 주소는 로그인 없이 열리는 임시 주소라 링크로 넘기지 않는다.
   // PC공유메뉴: 넓은 화면은 누른 자리 작은 메뉴(share-menu.js), 좁은 화면은 지금처럼 바로 기기 공유 창.
-  function shareCurrent(trigger) {
+  function shareCurrent(trigger, {menu = false} = {}) {
     const item = items[at], el = slidePhoto(at); if (!item || !el) return;
     const nameOf = blob => shareFileName(item, blob.type), alive = () => viewer?.box === box && items[at] === item;
     shareFrom(trigger, {video:!!item.video, count:1, note,
       getFiles:() => photoFilesFor(el, nameOf, {alive, note}),
       native:() => sharePhotoElement(el, nameOf, {alive, note}),
-      download:item.video && download ? () => download(item) : null});
+      // PHOTO-아래줄정돈(S49-34): 사진 화면(acts)의 [받기]·[업데이트로 보내기]는 아래 줄이 예전에 부르던 같은 동작(앱 받기·알림 위치·[정리함 보기])으로.
+      download:acts && !item.video ? () => acts.run('down', item, trigger) : item.video && download ? () => download(item) : null,
+      basket:acts && !item.video ? () => acts.run('basket', item, trigger) : undefined,
+      // S49-9 PHOTO-메뉴항목통일: 부르는 화면이 diary(item, trigger)를 주면 [일기에 넣기](그 사진 찍은 날 일기)도 보인다.
+      diary:diary && !item.video ? () => diary(item, trigger) : undefined}, menu ? {wide:true} : {});
   }
   const star = item => { if (!item) return; if (viewer) viewer.starChanged = true; return toggleStar(item); };
   // 별 움직임: on = 지금 별표됨. 큰 별이 '톡' 커졌다가 [별표] 버튼 자리로 날아가 작아지며 사라진다 / 풀면 빈 별이 흐려진다.
@@ -273,6 +328,11 @@ export function openPhotoStrip(opts) {
     }
   }, {passive:true});
   strip.addEventListener('touchcancel', () => { touch = null; settle(); }, {passive:true});
+  // PHOTO-꾹누르기메뉴(S49-18): 사진을 꾹 누르면(PC는 우클릭) 기본 이미지 메뉴 대신 Web2 작은 메뉴 하나([사진 복사][공유][다운로드][일기에 넣기][업데이트로 보내기]).
+  // 세로 밀기·넘기기·두 손가락 확대는 손가락이 움직이면 꾹 누르기를 취소하므로 겹치지 않는다. 동영상은 메뉴 없음(바이트가 이 화면에 없음).
+  attachPhotoLongPress(box, {
+    photoAt:target => !!items[at] && !items[at].video && !!target?.closest?.('.diary-slide .diary-photo') && !onControl(target) && !pinch,
+    open:(x, y) => { if (viewer?.box === box && items[at] && !items[at].video) shareCurrent(pointAnchor(box, x, y), {menu:true}); }});
   // ---- PHOTO-전체화면확대: 사진 안 확대·축소 ----
   // zoom = 보는 장의 배율·옮긴 거리(메모리만). 변형은 그 장의 .diary-photo(그림 칸)에 건다(세로 밀기는 바깥 .diary-slide라 서로 겹치지 않음).
   let zoom = {...ZOOM_ONE}, zoomEl = null, pinch = null, pan = null, tapStart = null, lastTap = null, lastTouchAt = -Infinity, mouse = null;
@@ -394,16 +454,20 @@ export function openPhotoStrip(opts) {
   box.addEventListener('click', event => {
     if (event.target.closest('[data-diary-viewer-close]')) closePhotoStrip();
     else if (event.target.closest('[data-diary-star]')) toggleHere();
-    else if (event.target.closest('[data-diary-share]')) shareCurrent(event.target.closest('[data-diary-share]'));
+    else if (event.target.closest('[data-diary-share]')) shareCurrent(event.target.closest('[data-diary-share]'), {menu:!!acts});
     else if (event.target.closest('[data-strip-edit]')) { if (items[at] && editable?.(items[at])) edit?.(items[at], editBtn); }
     else if (event.target.closest('[data-diary-undo]')) undoPending();
     else if (event.target.closest('[data-od-delete]')) deleteCurrent();
     else if (event.target.closest('[data-strip-play]')) playAt(Number(event.target.closest('[data-strip-play]').dataset.stripPlay));
     else if (event.target.closest('[data-strip-original]')) download?.(items[at]);
-    else if (event.target.closest('[data-diary-info]')) { infoEl.hidden = !infoEl.hidden; infoBtn.setAttribute('aria-expanded', String(!infoEl.hidden)); paintInfo(); }
+    else if (event.target.closest('[data-strip-act]')) {
+      const b = event.target.closest('[data-strip-act]'), item = items[at];
+      if (item && !b.disabled) openBarMenu(b, menuRows(b.dataset.stripAct, item), id => runMenuItem(id, b));
+    }
+    else if (event.target.closest('[data-diary-info]')) toggleInfo();
   });
   buildSlides(); host.append(box);
-  viewer = {box, trigger, refresh, reload, note, onClose, dispose:() => { resetZoom(); dropHires(); }, starChanged:false, undoShown:on => { undoBtn.hidden = !on; if (!on && !pending) noteText(''); },
+  viewer = {box, trigger, refresh, reload, dropById, paintBar, current:() => items[at] || null, note, onClose, dispose:() => { resetZoom(); dropHires(); }, starChanged:false, undoShown:on => { undoBtn.hidden = !on; if (!on && !pending) noteText(''); },
     layer:window.KPTURouter?.layer?.open(layerName, {close:() => { closePhotoStrip({fromBack:true}); return true; }}) || null};
   document.documentElement.classList.add('diary-viewer-open');
   strip.scrollLeft = index * strip.clientWidth; show();

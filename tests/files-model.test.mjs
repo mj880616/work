@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {SOURCES, SHELVES, PHONE_TABS, SYNC_EVERY_MS, MOVE_ACROSS_MAX_BYTES, MOVE_SAME_MAX, kindOf, previewKind, sizeText, dayText, recentGroups,
   syncText, sortRows, applyChanges, touchesCounts, moveCheck, trailNames, trailIds, pathText, treeRows, folderKey, placeOf, whereOf, tabAt,
-  cleanQuery, findSummary, errorText, OD_PDF_EXT, GD_EXPORT_MIME} from '../app/files-model.mjs';
+  cleanQuery, findSummary, errorText, failReason, OD_PDF_EXT, GD_EXPORT_MIME} from '../app/files-model.mjs';
 import {ITEMS, defaultLayout} from '../app/menu-model.mjs';
 // FILES-클라우드탐색기 ④ 화면 모델(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02). 이름은 모두 가짜.
 const read = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
@@ -150,21 +150,34 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   const rest = defaultLayout().rest;
   assert.equal(rest[rest.indexOf('library') + 1], 'files');
   assert.match(read('app/index.html'), /data-view="library" type="button">자료실<\/button>\n\s*<button class="nav-btn" data-view="files" type="button">파일<\/button>/);
-  assert.match(read('app/view-loader.js'), /files:\['\.\/folder-tree\.css','\.\/files\.css'/);
+  assert.match(read('app/view-loader.js'), /files:\['\.\/od-link\.css','\.\/folder-tree\.css','\.\/source-chips\.css','\.\/files\.css'/);
   assert.match(read('app/view-loader.js'), /async function files\(\)\{ await module\('\.\/files\.js'\)/);
   assert.match(read('app/app-router.js'), /files:\['at','shelf'\]/);
   const js = read('app/files.js'), model = read('app/files-model.mjs');
   const deviceStores = new RegExp([['local', 'Storage'], ['session', 'Storage'], ['indexed', 'DB'], ['caches', '\\.open']].map(p => p.join('')).join('|'));
   for (const [name, src] of [['files.js', js], ['files-model.mjs', model]]) assert.doesNotMatch(src, deviceStores, name);
   // 읽기: 색인 읽기 함수 3개 + Edge 읽기 동작. 쓰기(S48-45): Edge write()로 다섯 가지만(confirm:true를 붙임). 표에 직접 쓰지 않는다.
-  assert.deepEqual([...new Set([...js.matchAll(/rpc\('(\w+)'/g)].map(m => m[1]))].sort(), ['app_cloud_find', 'app_cloud_list', 'app_cloud_trail']);
-  assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['media', 'open-url', 'preview', 'status', 'sync', 'thumb']);
-  assert.deepEqual([...new Set([...js.matchAll(/await write\('(\w+)'/g)].map(m => m[1]))].sort(), ['across', 'mkdir', 'move', 'rename', 'trash']);
-  assert.match(js, /body: \{action, \.\.\.body, confirm: true\}/);
+  assert.deepEqual([...new Set([...js.matchAll(/rpc\('(\w+)'/g)].map(m => m[1]))].sort(), ['app_cloud_find_in', 'app_cloud_list', 'app_cloud_trail']);
+  assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['folder', 'job_add', 'job_list', 'job_pause', 'media', 'open-url', 'preview', 'status', 'sync', 'thumb',
+    'upload_done', 'upload_open', 'upload_progress', 'upload_resume']);
+  // 올리기(2-④): 네 동작 모두 confirm:true, 화면을 숨기거나 닫을 때 멈춤(job_pause)은 keepalive 한 번.
+  for (const a of ['upload_open', 'upload_resume', 'upload_progress', 'upload_done']) assert.match(js, new RegExp(`action: '${a}', confirm: true`), a);
+  assert.match(js, /keepalive: true[^]*action: 'job_pause', confirm: true, ids:/);
+  // FILES-통합 2-②: 복사·다른 저장소로 옮기기는 서버 작업표(job_add, confirm:true)로, 화면이 직접 보내는 것은 같은 저장소 안 move만.
+  //   멈춤·이어 하기(job_pause·job_resume)도 confirm:true. 작업표는 Edge로만(표 직접 읽기·쓰기 없음).
+  assert.match(js, /action: 'job_add', confirm: true, kind: mode/);
+  assert.match(js, /body: \{action, confirm: true, \.\.\.\(ids \? \{ids\} : \{all: true\}\)\}/);
+  assert.deepEqual([...new Set([...js.matchAll(/jobsDo\((b\.dataset[^,)]+)/g)].map(m => m[1]))].sort(), ["b.dataset.fxJobAct === 'pause' ? 'job_pause' : 'job_resume'", "b.dataset.fxJobsAll === 'pause' ? 'job_pause' : 'job_resume'"]);
+  assert.deepEqual([...new Set([...js.matchAll(/await write\('(\w+)'/g)].map(m => m[1]))].sort(), ['mkdir', 'rename', 'star', 'trash']);
+  assert.deepEqual([...new Set([...js.matchAll(/await call\('(\w+)'/g), ...js.matchAll(/await call\(mode === 'move' \? '(\w+)' : '(\w+)'/g)].flatMap(m => m.slice(1)))].sort(), ['move']);
+  assert.equal([...js.matchAll(/body: \{action, \.\.\.body, confirm: true\}/g)].length, 2);
   assert.match(js, /action: kind === 'office' \? 'preview' : 'media'/);
   // 표 직접 읽기는 같은 파일 보기(app_cloud_items GET) 하나뿐, 직접 쓰기 없음.
   assert.deepEqual([...js.matchAll(/\/rest\/v1\/(app_cloud_\w+)/g)].map(m => m[1]), ['app_cloud_items']);
-  assert.doesNotMatch(js, /method: '(PATCH|DELETE|PUT)'/);
+  assert.doesNotMatch(js, /method: '(PATCH|DELETE)'/);
+  // PUT은 올리기 조각 하나뿐: 서버가 열어 준 이어 올리기 자리(slot.url)로, 토큰·쿠키 없이(credentials omit, Authorization 없음).
+  assert.deepEqual([...js.matchAll(/fetch\(([\w.]+), \{method: 'PUT'[^}]*headers: \{([^}]*)\}/g)].map(m => [m[1], m[2]]), [['slot.url', "'Content-Range': `bytes ${piece.start"]]);
+  assert.match(js, /method: 'PUT', cache: 'no-store', credentials: 'omit'/);
 });
 
 // ---------- S48-45 쓰기 ----------
@@ -215,4 +228,178 @@ test('twins: same hash only, not itself, not trashed', async () => {
   const rows = [me, {source: 'od', item_id: 'B', hash: 'sha1:x', name: '나'}, {source: 'od', item_id: 'C', hash: 'sha1:x', name: '가', trashed: true}, {source: 'od', item_id: 'D', hash: 'sha1:y', name: '다'}];
   assert.deepEqual(m.twinRows(rows, me).map(r => r.item_id), ['B']);
   assert.deepEqual(m.twinRows(rows, {...me, hash: null}), []);
+});
+
+test('S49-17 폴더 개수: 읽은 값이 있을 때만 글, 모르면 빈 글 · 잠긴 보관소(종류 없는 0B)만 걸러 낸다', async () => {
+  const {folderCountText, isLockedItem} = await import('../app/files-model.mjs');
+  assert.equal(folderCountText(undefined), '');
+  assert.equal(folderCountText({folders: 0, files: 0}), '0개');
+  assert.equal(folderCountText({folders: 0, files: 3}), '3개');
+  assert.equal(folderCountText({folders: 1, files: 3}), '폴더 1 · 파일 3');
+  assert.equal(folderCountText({folders: 2, files: 0}), '폴더 2');
+  assert.equal(isLockedItem(row({mime: null, size_bytes: 0})), true);
+  assert.equal(isLockedItem(row({mime: 'text/plain', size_bytes: 0})), false);
+  assert.equal(isLockedItem(row({mime: null, size_bytes: 12})), false);
+  assert.equal(isLockedItem(row({is_folder: true, mime: null, size_bytes: 0})), false);
+  assert.equal(isLockedItem(row({source: 'gd', mime: null, size_bytes: 0})), false);
+});
+
+// ---------- FILES-통합 2-① 복사(S49-27, 명진 결정 H-3·H-4·H-5) ----------
+test('복사·옮기기 거르기: 다른 저장소로 폴더·구글 문서·크기 모름은 막고 안내, 같은 저장소 폴더째 복사는 됨', async () => {
+  const m = await import('../app/files-model.mjs');
+  const f = {source: 'od', item_id: 'F1', parent_id: null, name: '폴더', is_folder: true, size_bytes: null};
+  const a = {source: 'od', item_id: 'A', parent_id: 'F1', name: 'a.pdf', is_folder: false, size_bytes: 10};
+  const g = {source: 'gd', item_id: 'G', parent_id: null, name: '문서', is_folder: false, mime: 'application/vnd.google-apps.document', size_bytes: null};
+  const across = m.xferPlan([f, a, g], {source: 'gd', parent: null}, 'copy');
+  assert.deepEqual(across.ok.map(r => r.item_id), ['A', 'G'], 'file across, Google doc stays in Google (same cloud)');
+  assert.match(across.blocked.find(b => b.row === f).reason, /폴더는 같은 저장소 안에서만 통째로 복사돼요/);
+  const toOd = m.xferPlan([g], {source: 'od', parent: null}, 'copy');
+  assert.equal(toOd.ok.length, 0); assert.match(toOd.reason, /구글 문서/);
+  const same = m.xferPlan([f, a], {source: 'od', parent: null}, 'copy');
+  assert.deepEqual(same.ok.map(r => r.item_id), ['F1', 'A'], 'same cloud: folder and file both go');
+  assert.match(m.xferPlan([f], {source: 'od', parent: 'F1'}, 'copy').reason, /자기 안으로 복사할 수 없습니다/);
+  assert.match(m.xferPlan([a], {source: 'od', parent: 'F1'}, 'move').reason, /이미 이 폴더에 있습니다/);
+  assert.deepEqual(m.xferPlan([a], {source: 'od', parent: 'F1'}, 'copy').ok, [a], 'copy into the same folder is allowed (gets a number)');
+  assert.match(m.xferPlan([f], {source: 'gd', parent: null}, 'move').reason, /통째로 옮겨요/);
+  assert.equal(m.xferPlan([a], null).reason, '받을 곳을 고르세요');
+});
+test('같은 이름·큰 파일 묻는 글(H-3·H-4), 전송 줄·끝 한 줄', async () => {
+  const m = await import('../app/files-model.mjs');
+  assert.equal(m.sameNameAsk('move'), '같은 이름이 있어요. 그래도 옮길까요?');
+  assert.equal(m.sameNameAsk('copy'), '같은 이름이 있어요. 그래도 복사할까요?');
+  assert.equal(m.sameNameAsk('down'), '같은 이름이 있어요. 그래도 받을까요?');
+  const big = {source: 'od', item_id: 'B', size_bytes: Math.round(1.2 * 1024 ** 3)};
+  assert.equal(m.bigAsk(big), '200MB가 넘어요(1.2GB). 그래도 보낼까요?');
+  assert.equal(m.XFER_BIG_HOW, '서버가 10MB씩 나눠 이어 보내요. 화면을 닫아도 계속되고, 끊기면 끊긴 곳부터 다시. 폰 데이터는 쓰지 않아요.');
+  assert.equal(m.XFER_BIG_LATER, undefined, '2-②: 다음 판 안내는 없어짐');
+  assert.equal(m.xferBig(big, {source: 'gd'}), true); assert.equal(m.xferBig(big, {source: 'od'}), false, 'same cloud is not limited');
+  assert.equal(m.xferBig({...big, size_bytes: 200 * 1024 * 1024}, {source: 'gd'}), false, '200MB exactly is fine');
+  const rows = [{source: 'od', item_id: 'A', name: '가짜.PDF'}, {source: 'od', item_id: 'B', name: 'b.txt'}];
+  assert.deepEqual(m.sameNameRows(rows, [{source: 'gd', item_id: 'X', name: '가짜.pdf'}, {source: 'gd', item_id: 'Y', name: 'c', trashed: true}]).map(r => r.item_id), ['A'], 'case-insensitive');
+  assert.deepEqual(m.sameNameRows(rows, [{source: 'od', item_id: 'A', name: '가짜.PDF'}]).map(r => r.item_id), ['A'], 'copy into its own folder: same name too');
+  assert.equal(m.xferLine(2, 5), '2/5 보내는 중'); assert.equal(m.xferPercent(1, 4), 25);
+  assert.equal(m.xferDoneText('copy', {done: 4, failed: 1}), '4개 복사함 · 1개 못 함');
+  assert.equal(m.xferDoneText('move', {done: 2, skipped: 1}), '2개 옮김 · 1개 건너뜀');
+  assert.equal(m.destTitle(2, 'copy'), '2개 복사할 곳'); assert.equal(m.destButton('copy'), '여기에 복사'); assert.equal(m.destButton('move'), '여기에 옮기기');
+});
+test('최근 보낸 곳: 맨 앞에, 같은 곳은 하나만, 3개까지, 이름 40자, 서버 화면 기억 모양과 같음', async () => {
+  const m = await import('../app/files-model.mjs');
+  const {validValue} = await import('../app/view-prefs.js');
+  let l = m.pushRecentDest([], {source: 'gd', parent: 'g1'}, '연습 자료');
+  l = m.pushRecentDest(l, {source: 'od', parent: null});
+  l = m.pushRecentDest(l, {source: 'od', parent: 'O!2'}, '가'.repeat(50));
+  l = m.pushRecentDest(l, {source: 'gd', parent: 'g1'}, '연습 자료');
+  assert.deepEqual(l.map(d => d.id), ['g1', 'O!2', '']);
+  assert.equal(l[1].name.length, 40); assert.equal(l[2].name, '원드라이브');
+  assert.equal(m.pushRecentDest(l, {source: 'gd', parent: 'g2'}, 'x').length, 3);
+  assert.equal(validValue('files_dest_recent', l), true);
+  assert.deepEqual(m.recentDestOf(l[2]), {source: 'od', parent: null});
+  for (const bad of [[{source: 'ph', id: '', name: 'x'}], [{source: 'od', id: '', name: ''}], [{source: 'od', name: 'x'}], [{source: 'od', id: 'a/b', name: 'x'}],
+    [{source: 'od', id: '', name: 'x', extra: 1}], [1, 2], 'od', Array(4).fill({source: 'od', id: '', name: 'x'})]) assert.equal(validValue('files_dest_recent', bad), false, JSON.stringify(bad));
+});
+test('번호 붙이기 규칙은 공용 함수 하나(화면·Edge 같은 numberedName)', async () => {
+  const {numberedName} = await import('../app/file-rename-name.mjs');
+  assert.equal(numberedName('보고서.hwp', ['보고서.hwp']), '보고서 (2).hwp');
+  assert.equal(numberedName('보고서.hwp', ['보고서.HWP', '보고서 (2).hwp']), '보고서 (3).hwp');
+  assert.equal(numberedName('보고서 (2).hwp', ['보고서 (2).hwp']), '보고서 (3).hwp');
+  assert.equal(numberedName('폴더', ['폴더']), '폴더 (2)');
+  assert.equal(numberedName('새.pdf', []), '새.pdf');
+  const edge = read('supabase/functions/cloud-files/handler.ts');
+  assert.match(edge, /return numberedName\(name, taken\);/);
+  assert.match(read('app/files.js'), /sameNameAsk\(mode\)/);
+});
+test('실패 까닭 한 줄(S49-26): 정해 둔 말만, 서버 글자는 그대로 보이지 않음', () => {
+  assert.equal(failReason({code: 'timeout', message: '요청 시간이 초과되었습니다.'}), '시간 초과');
+  assert.equal(failReason({status: 500, code: 'http_500', message: 'canceling statement due to statement timeout'}), '서버 시간 초과');
+  assert.equal(failReason({status: 504, code: 'http_504'}), '서버 시간 초과');
+  assert.equal(failReason({code: 'network_error'}), '연결 끊김');
+  assert.equal(failReason({status: 503, code: 'http_503', message: 'internal detail x'}), '서버 오류 503');
+  assert.equal(failReason({status: 404, code: 'http_404', message: 'Could not find the function'}), '요청 오류 404');
+  assert.equal(failReason(null), '');
+  assert.equal(failReason({message: 'something'}), '');
+  const js = read('app/files.js');
+  // S49-30 두 칸: 목록·찾기 까닭은 칸마다(p.failedWhy·p.findWhy), 연결 상태 까닭은 화면 하나(state.statusWhy).
+  for (const k of ['p.failedWhy', 'p.findWhy', 'state.statusWhy']) assert.match(js, new RegExp(`reason: ${k.replace('.', '\\.')}`), k);
+});
+
+test('전송 목록(2-②): 상태 글·까닭·줄 아래 글·전송 줄 묶음·단추·기기 줄 다시 열기·합치기', async () => {
+  const m = await import('../app/files-model.mjs');
+  const MB = 1024 * 1024;
+  const j = o => ({id: 'x', kind: 'copy', origin: 'cloud', src_source: 'od', dest_source: 'gd', name: '가짜.mp4', size_bytes: 400 * MB, sent_bytes: 0, status: 'queued', big: false, created_at: '2026-11-04T01:00:00Z', ...o});
+  assert.equal(m.jobStatusText(j({status: 'running', big: true, sent_bytes: 100 * MB})), '25%');
+  assert.equal(m.jobStatusText(j({status: 'running'})), '보내는 중');
+  assert.deepEqual(['queued', 'paused', 'done', 'failed', 'skipped'].map(s => m.jobStatusText(j({status: s}))), ['기다림', '멈춤', '끝', '실패', '건너뜀']);
+  assert.equal(m.jobLine(j({status: 'failed', error_code: 'no_space'})), '원드라이브 → 구글 드라이브 · 400MB · 받을 곳 공간이 부족해요');
+  assert.equal(m.jobLine(j({status: 'failed', error_code: 'weird_thing'})), '원드라이브 → 구글 드라이브 · 400MB · 연결이 끊겼어요', 'unknown code → fixed word');
+  assert.equal(m.jobLine(j({kind: 'move', status: 'done', result_name: '가짜 (2).mp4', size_bytes: null})), "원드라이브 → 구글 드라이브 옮기기 · '가짜 (2).mp4'로");
+  assert.equal(m.jobLine(j({status: 'skipped'})), '원드라이브 → 구글 드라이브 · 400MB · 같은 이름이라 건너뜀');
+  assert.equal(m.jobLine(j({origin: 'device', src_source: 'dev'})), '이 기기 → 구글 드라이브 · 400MB');
+  // 전송 줄: 지금 묶음(가장 오래된 열린 줄 이후) 기준, 바이트로 몫.
+  const list = [j({id: 'a', status: 'done', created_at: '2026-11-04T00:00:00Z'}), j({id: 'b', status: 'done', created_at: '2026-11-04T01:00:01Z', size_bytes: 100}),
+    j({id: 'c', status: 'running', big: true, created_at: '2026-11-04T01:00:01Z', size_bytes: 300, sent_bytes: 100}), j({id: 'd', status: 'queued', created_at: '2026-11-04T01:00:02Z', size_bytes: 100})];
+  assert.deepEqual(m.jobStrip(list), {text: '2/3 보내는 중', percent: 40, failed: 0, name: '가짜.mp4'});
+  assert.equal(m.jobsTitle(list), '전송 · 2/3');
+  assert.deepEqual(m.jobStrip([j({status: 'paused'})]), {text: '1개 멈춤', percent: 0, failed: 0, name: '', paused: true});
+  assert.deepEqual(m.jobStrip([j({status: 'failed'}), j({id: 'y', status: 'done'})]), {text: '1개 못 보냄', percent: 0, failed: 1, name: ''});
+  assert.equal(m.jobStrip([j({status: 'done'})]), null, 'all done: strip hidden');
+  assert.equal(m.jobsTitle([]), '전송');
+  assert.deepEqual(['queued', 'running', 'paused', 'failed', 'done', 'skipped'].map(s => m.jobAction(j({status: s}))), ['pause', 'pause', 'resume', 'retry', '', '']);
+  assert.equal(m.jobAction(j({origin: 'device', status: 'paused'})), 'reup', 'device rows are resumed by that device with the same file (2-④)');
+  // 노트북(H-6): 기기가 낀 줄은 다시 열면 멈춤으로, 클라우드끼리는 그대로(서버가 계속).
+  assert.equal(m.deviceJobOnReopen(j({origin: 'device', status: 'running'})).status, 'paused');
+  assert.equal(m.deviceJobOnReopen(j({status: 'running'})).status, 'running');
+  const merged = m.mergeJobs([j({id: 'a', status: 'running'}), j({id: 'b', created_at: '2026-11-04T02:00:00Z'})], [j({id: 'a', status: 'done'})]);
+  assert.deepEqual(merged.map(x => x.id + ':' + x.status), ['b:queued', 'a:done']);
+  assert.deepEqual(m.newlyDone([j({id: 'a', status: 'running'}), j({id: 'b', status: 'done'})], [j({id: 'a', status: 'done'}), j({id: 'b', status: 'done'}), j({id: 'n', status: 'done'})]).map(x => x.id), ['a']);
+  assert.equal(m.jobsActive([j({status: 'paused'})]), false); assert.equal(m.jobsActive([j({status: 'running'})]), true);
+  assert.equal(m.jobPercent(j({status: 'done', sent_bytes: 0})), 100);
+});
+
+// S49-33 FILES-통합 2-④ 올리기·별표
+test('upload plan: name rule, 2GB cap, count cap; same name; big; resume match; pieces', async () => {
+  const m = await import('../app/files-model.mjs');
+  const ok = n => !/[\/\\:*?"<>|]/.test(n) && n.length > 0;
+  const p = m.uploadPlan([{name: 'a.txt', size: 3}, {name: 'b/c.txt', size: 1}, {name: 'big.iso', size: m.UPLOAD_MAX_BYTES + 1}, {name: 'x', size: NaN}], ok);
+  assert.deepEqual(p.ok.map(f => f.name), ['a.txt']);
+  assert.equal(p.blocked.length, 3);
+  assert.match(p.blocked.find(b => b.file.name === 'big.iso').reason, /2GB까지/);
+  assert.equal(m.uploadPlan(Array.from({length: 201}, (_, i) => ({name: `f${i}`, size: 1})), ok).ok.length, 200);
+  assert.equal(m.uploadPlan([], ok).reason, '고른 파일이 없어요');
+  assert.deepEqual(m.upSameName([{name: 'A.TXT', size: 1}, {name: 'b', size: 1}], [{name: 'a.txt'}, {name: 'b', trashed: true}]).map(f => f.name), ['A.TXT']);
+  assert.equal(m.upBig({size: m.XFER_BIG_BYTES}), false);
+  assert.equal(m.upBig({size: m.XFER_BIG_BYTES + 1}), true);
+  assert.equal(m.bigAsk({size_bytes: m.XFER_BIG_BYTES + 1}, 'up').endsWith('그래도 올릴까요?'), true);
+  assert.equal(m.sameNameAsk('up'), '같은 이름이 있어요. 그래도 올릴까요?');
+  assert.equal(m.sameUpFile({name: 'a.txt', size_bytes: 3}, {name: 'a.txt', size: 3}), true);
+  assert.equal(m.sameUpFile({name: 'a.txt', size_bytes: 3}, {name: 'a.txt', size: 4}), false);
+  assert.deepEqual(m.upPiece(0, 10, 4), {start: 0, end: 4});
+  assert.deepEqual(m.upPiece(8, 10, 4), {start: 8, end: 10});
+  assert.equal(m.upPiece(10, 10, 4), null);
+  assert.equal(m.upResultId({id: 'OD!7'}), 'OD!7');
+  assert.equal(m.upResultId({id: '../x'}), null);
+  assert.equal(m.upDropText('가짜 문서함'), '여기 놓으면 가짜 문서함에 올리기');
+});
+test('upload rows in the transfer list: device rows show %, [이어 올리기], re-pick hint only without the file', async () => {
+  const m = await import('../app/files-model.mjs');
+  const j = {origin: 'device', status: 'running', size_bytes: 10, sent_bytes: 4, src_source: 'dev', dest_source: 'od', name: 'a.txt'};
+  assert.equal(m.jobStatusText(j), '40%');
+  assert.equal(m.jobAction(j), 'pause');
+  assert.equal(m.jobAction({...j, status: 'paused'}), 'reup');
+  assert.equal(m.jobAction({...j, status: 'failed'}), 'reup');
+  assert.equal(m.jobAction({...j, status: 'done'}), '');
+  assert.equal(m.deviceHint({...j, status: 'paused'}, false), '이어 올리려면 같은 파일을 다시 골라 주세요');
+  assert.equal(m.deviceHint({...j, status: 'paused'}, true), '');
+  assert.equal(m.deviceHint({...j, origin: 'cloud', status: 'paused'}, false), '');
+  assert.match(m.jobLine(j), /^이 기기 → 원드라이브/);
+  assert.equal(m.deviceJobOnReopen(j).status, 'paused');
+});
+test('stars: want/label and apply', async () => {
+  const m = await import('../app/files-model.mjs');
+  assert.equal(m.starWant([{starred: true}, {starred: false}]), true);
+  assert.equal(m.starLabel([{starred: true}]), '★ 별표 빼기');
+  assert.equal(m.starLabel([{starred: false}]), '☆ 별표');
+  const rows = [{source: 'od', item_id: 'A', starred: false}, {source: 'gd', item_id: 'A', starred: false}];
+  const next = m.applyStars(rows, 'od', ['A'], true);
+  assert.deepEqual(next.map(r => r.starred), [true, false]);
+  assert.equal(m.applyStars(next, 'od', ['A'], true), next, 'no change keeps the same array');
 });

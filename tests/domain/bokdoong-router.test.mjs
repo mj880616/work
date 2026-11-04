@@ -69,8 +69,7 @@ test('portal icon files contain PNG and ICO image data', async () => {
 
 test('service roots stay on their vanity hosts and retain deployed base paths', async () => {
   for (const [host, path] of [
-    ['work', '/work/'],
-    ['arsenal', '/work/personal/arsenal-match-archive/']
+    ['work', '/work/']
   ]) {
     const { response, calls } = await request(`https://${host}.bokdoong.com/`);
     assert.equal(response.status, 302);
@@ -83,14 +82,14 @@ test('only the selected GitHub Pages trees are proxied', async () => {
   const cases = [
     ['https://work.bokdoong.com/work/assets/web1-design-lite.css?v=1', 'https://mj880616.github.io/work/assets/web1-design-lite.css?v=1'],
     ['https://bokdoong.com/work/app/sw.js?v=2', 'https://mj880616.github.io/work/app/sw.js?v=2'],
-    ['https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js', 'https://mj880616.github.io/work/personal/arsenal-match-archive/matches.js']
+    ['https://work.bokdoong.com/work/p/index.html', 'https://mj880616.github.io/work/p/index.html']
   ];
   for (const [vanity, origin] of cases) {
     const { response, calls } = await request(vanity);
     assert.equal(response.status, 200);
     assert.equal(calls[0].url, origin);
   }
-  const denied = await request('https://arsenal.bokdoong.com/work/app/');
+  const denied = await request('https://work.bokdoong.com/other/');
   assert.equal(denied.response.status, 404);
   assert.equal(denied.calls.length, 0);
 });
@@ -99,7 +98,7 @@ test('unversioned proxied pages and assets bypass Cloudflare cache and revalidat
   for (const url of [
     'https://work.bokdoong.com/work/',
     'https://work.bokdoong.com/work/assets/web1-design-lite.css',
-    'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js'
+    'https://work.bokdoong.com/work/p/index.html'
   ]) {
     const { response, calls } = await request(url, {
       upstream: new Response('current version', {
@@ -266,7 +265,7 @@ test('range requests bypass the edge cache; conditional versioned requests get t
 });
 
 test('conditional and range requests retain HTTP semantics while revalidating', async () => {
-  const conditional = await request('https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js', {
+  const conditional = await request('https://work.bokdoong.com/work/assets/web1-design-lite.css', {
     headers: { 'If-None-Match': '"old"' },
     upstream: new Response(null, { status: 304, headers: { ETag: '"current"' } })
   });
@@ -424,7 +423,7 @@ test('desk HTML and the version check skip the GitHub Pages copy with a 15-secon
   assert.equal(nextWindow.calls[0].url, `https://mj880616.github.io/work/app/index.html?__fresh=${bucket + 1}`);
 });
 
-test('assets, Web1, arsenal and the favicon are forwarded without the freshness value', async () => {
+test('assets, Web1 and the favicon are forwarded without the freshness value', async () => {
   for (const [url, origin] of [
     ['https://bokdoong.com/work/app/app.js?v=abc', 'https://mj880616.github.io/work/app/app.js?v=abc'],
     ['https://bokdoong.com/work/app/project-system-v3.css?v=29', 'https://mj880616.github.io/work/app/project-system-v3.css?v=29'],
@@ -433,7 +432,6 @@ test('assets, Web1, arsenal and the favicon are forwarded without the freshness 
     ['https://bokdoong.com/work/app/?v=58', 'https://mj880616.github.io/work/app/?v=58'],
     ['https://work.bokdoong.com/work/', 'https://mj880616.github.io/work/'],
     ['https://work.bokdoong.com/work/p/index.html', 'https://mj880616.github.io/work/p/index.html'],
-    ['https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/', 'https://mj880616.github.io/work/personal/arsenal-match-archive/'],
     ['https://bokdoong.com/favicon.png', 'https://mj880616.github.io/work/personal/portal/favicon.png']
   ]) {
     const { calls } = await request(url);
@@ -780,7 +778,7 @@ test('desk / and /work/app/** go to the same path and ?query on bokdoong.com wit
   assert.equal(other.calls.length, 0);
 });
 
-test('work /work/app/** goes to bokdoong.com; Web1, the share page and arsenal stay as they were', async () => {
+test('work /work/app/** goes to bokdoong.com; Web1 and the share page stay as they were', async () => {
   for (const [url, location] of [
     ['https://work.bokdoong.com/work/app', 'https://bokdoong.com/work/app/'],
     ['https://work.bokdoong.com/work/app/', 'https://bokdoong.com/work/app/'],
@@ -804,10 +802,61 @@ test('work /work/app/** goes to bokdoong.com; Web1, the share page and arsenal s
   const share = await request('https://work.bokdoong.com/work/share/');
   assert.equal(share.response.status, 200);
   assert.equal(share.calls[0].url, 'https://mj880616.github.io/work/share/');
-  const arsenalRoot = await request('https://arsenal.bokdoong.com/');
-  assert.equal(arsenalRoot.response.headers.get('Location'), 'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/');
-  const arsenalApp = await request('https://arsenal.bokdoong.com/work/app/');
-  assert.equal(arsenalApp.response.status, 404);
+});
+
+// DOMAIN-아스날주소 (주소 이전 ②-D1): every arsenal.bokdoong.com address goes to the Web2 아스날 menu.
+const ARSENAL_MENU = 'https://bokdoong.com/work/app/?view=arsenal';
+test('every arsenal.bokdoong.com address goes to the Web2 아스날 menu with 302, nothing is fetched', async () => {
+  for (const url of [
+    'https://arsenal.bokdoong.com/',
+    'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/',
+    'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/index.html',
+    'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js',
+    'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/app.js',
+    'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/favicon.svg?v=20260920',
+    'https://arsenal.bokdoong.com/work/app/',
+    'https://arsenal.bokdoong.com/work/',
+    'https://arsenal.bokdoong.com/anything/else',
+    'https://ARSENAL.bokdoong.com/'
+  ]) {
+    for (const method of ['GET', 'HEAD']) {
+      const { response, calls } = await request(url, { method });
+      assert.equal(response.status, 302, `${method} ${url}`);
+      assert.equal(response.headers.get('Location'), ARSENAL_MENU, `${method} ${url}`);
+      assert.equal(response.headers.get('Cache-Control'), 'no-store', `${method} ${url}`);
+      assert.equal(calls.length, 0, `${method} ${url}`);
+    }
+  }
+});
+
+test('the old ?query never reaches Web2: it cannot choose another view or add values', async () => {
+  for (const url of [
+    'https://arsenal.bokdoong.com/?view=calendar',
+    'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/?season=2025-26&view=ledger&project=x',
+    'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/?return=https://example.com/'
+  ]) {
+    const { response, calls } = await request(url);
+    assert.equal(response.status, 302, url);
+    assert.equal(response.headers.get('Location'), ARSENAL_MENU, url);
+    assert.equal(calls.length, 0, url);
+  }
+});
+
+test('arsenal keeps http→https, the method rule and the favicon; the Web2 login gate is untouched', async () => {
+  const insecure = await request('http://arsenal.bokdoong.com/work/personal/arsenal-match-archive/');
+  assert.equal(insecure.response.status, 301);
+  assert.equal(insecure.response.headers.get('Location'), 'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/');
+  const post = await request('https://arsenal.bokdoong.com/', { method: 'POST' });
+  assert.equal(post.response.status, 405);
+  assert.equal(post.calls.length, 0);
+  const icon = await request('https://arsenal.bokdoong.com/favicon.ico');
+  assert.equal(icon.response.status, 200);
+  assert.equal(icon.calls.length, 0);
+  // The target is the ordinary Web2 page: proxied with the Web2 rules, no session check skipped or added here.
+  const menu = await request(ARSENAL_MENU);
+  assert.equal(menu.response.status, 200);
+  assert.equal(menu.calls.length, 1);
+  assert.match(menu.calls[0].url, /^https:\/\/mj880616\.github\.io\/work\/app\/\?view=arsenal&__fresh=\d+$/);
 });
 
 // SHARE-보관함·HTML공유: bokdoong.com/s/<name>-<8 letters>.

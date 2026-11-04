@@ -15,11 +15,12 @@ const APP = fileURLToPath(new URL('../app/', import.meta.url));
 const read = path => readFileSync(join(APP, path), 'utf8');
 const text = html => html.replace(/<[^>]*>/g, '');
 
-test('기다림은 글자 없이 가는 줄 + 회색 빈 줄, 화면 읽기에는 불러오는 중으로 알린다', () => {
+test('기다림은 칸 안에 막대 없이 회색 빈 줄만, 화면 읽기에는 불러오는 중으로 알린다(UI-로딩맨위)', () => {
   const html = waitHtml();
   assert.equal(text(html), '', '보이는 글자 없음');
-  assert.match(html, /^<div class="wait" data-wait role="status" aria-label="불러오는 중">/);
-  assert.equal(html.match(/class="wait-bar"/g).length, 1);
+  assert.match(html, /^<kptu-wait class="wait" data-wait role="status" aria-label="불러오는 중">/);
+  assert.equal(html.match(/class="wait-bar"/g), null, '칸 안 막대 0개');
+  assert.doesNotMatch(waitInlineHtml() + barHtml() + html, /wait-bar/);
   assert.equal(html.match(/class="wait-row"/g).length, 3);
   assert.equal(waitHtml({rows: 6}).match(/class="wait-row"/g).length, 6);
   assert.equal(waitHtml({rows: 99}).match(/class="wait-row"/g).length, 8, '너무 많이 그리지 않음');
@@ -27,6 +28,7 @@ test('기다림은 글자 없이 가는 줄 + 회색 빈 줄, 화면 읽기에�
   assert.match(waitHtml({h: 34}), /style="--wait-h:34px"/, '실제 줄 높이');
   assert.doesNotMatch(waitHtml({h: 'x;color:red'}), /style=/);
   assert.equal(text(waitInlineHtml()), '');
+  assert.match(read('base-ui.css'), /\.wait\.wait-inline::after\{content:"…"\}/, '글줄 안은 움직임 없이 … 한 글자(CSS)');
   assert.match(waitInlineHtml(), /aria-label="불러오는 중"/);
   assert.equal(text(barHtml()), '');
   assert.equal(WAIT_LABEL, '불러오는 중');
@@ -51,7 +53,9 @@ test('모양: 0.4초 늦은 표시, 회색 빈 줄은 그림 칸과 같은 색, 
   assert.match(css, /\.wait-fail\{[^}]*color:var\(--kptu-danger\)/);
   assert.match(css, /\.wait-empty\{[^}]*color:var\(--kptu-muted\)/);
   assert.match(css, /\.notice\{[^}]*var\(--kptu-success-soft\)/);
-  assert.match(css, /prefers-reduced-motion:reduce\)\{\.wait-bar::after\{animation:none/);
+  assert.match(css, /prefers-reduced-motion:reduce\)\{\.top-wait-run\{animation:none/);
+  assert.match(css, /\.top-wait\{position:fixed;top:0;left:0;right:0;[^}]*pointer-events:none;animation:wait-show 0s linear \.4s both\}/, '맨 위 한 곳 고정 막대, 0.4초 늦은 표시, 눌림 막지 않음');
+  assert.doesNotMatch(css, /\.wait-bar/, '칸 안 막대 모양 없음');
 });
 
 test('메뉴 화면 처음 열기: 민트 상자 없이 가는 줄, 실패는 공용 부품, 쉬는 틈에 미리 받기(기기 저장 없음)', () => {
@@ -217,4 +221,47 @@ test('3차로 옮긴 화면은 공용 없음 부품을 쓴다', () => {
   for (const rel of ['library-upload.js', 'profile-settings.js', 'suborganizations.js', 'task-layout.js', 'workplace-report.js']) {
     assert.match(read(rel), /globalThis\.KPTUWait\?\.emptyHtml\?\.\(/, rel);
   }
+});
+
+// UI-로딩자리전수(S49-15 A, 명진 요청 11/03 10:37): 로딩 표시는 불러오는 칸의 맨 위·칸 폭 가득 한 줄. 전수 표는 docs/design/loading-places.md.
+test('로딩 줄 자리 규칙: 칸 폭 가득(글줄 안 한 칸만 예외), 칸 한가운데·구석에 뜨지 않는다', () => {
+  const css = read('base-ui.css');
+  assert.match(css, /\.wait:not\(\.wait-inline\)\{[^}]*width:100%[^}]*align-self:stretch[^}]*justify-self:stretch/);
+  // UI-로딩맨위: 칸 안에는 막대가 없다. 칸 자리의 기다림은 회색 빈 줄(waitHtml)·보이는 것 없는 시작 알림(barHtml)이고, 글줄 안 표시(waitInline)가 아니다.
+  for (const rel of ['files.js', 'phone-push-settings.js']) assert.doesNotMatch(read(rel), /waitInline(Html|El)\(/, `${rel}: 칸 자리에 글줄용 작은 막대를 쓰지 않는다`);
+  assert.match(read('files.js'), /view = barHtml\(\)/, '[파일] 미리보기 기다림은 보이는 것 없이 맨 위 막대에 알림');
+});
+
+test('[파일]: 두 번째 로딩 글자(맞추는 중) 없음, 불러오는 동안 빈 결과 글 없음', () => {
+  const src = read('files.js');
+  assert.doesNotMatch(src.split('\n').filter(l => !/^\s*(\/\/|\/\*|\*)/.test(l.replace(/\/\/ UI-로딩자리전수.*$/, ''))).join('\n').replace(/\/\/[^\n]*/g, ''), /맞추는 중/);
+  assert.match(src, /if \(!rows\.length && scanningNow\(\)\) \{ list\.innerHTML = waitHtml/, '맞추는 중에는 빈 폴더·최근 없음 대신 기다림');
+  assert.ok(src.indexOf('scanningNow()') < src.indexOf("emptyHtml(w.shelf ?"), '기다림 판정이 빈 결과 글보다 먼저');
+});
+
+test('전수 도구: 로딩 확인 없이 빈 결과 글을 그리는 곳은 기준표(검토 끝난 곳)보다 늘지 않는다', async () => {
+  const {audit} = await import('../scripts/ops/loading-audit.mjs');
+  // 검토 끝: 모두 읽은 뒤에만 부르는 그리기 함수(호출한 쪽이 기다림·실패를 먼저 처리). 새 곳이 생기면 호출하는 쪽의 로딩 처리를 확인하고 여기에 올린다.
+  const REVIEWED = {'calendar-tasks.js': 1, 'google-tasks.js': 1, 'library-folders.js': 1, 'meeting-columns.js': 2, 'note-boards.js': 1, 'project-system-v3.js': 1, 'report-views.js': 3, 'team.js': 1};
+  const over = [];
+  for (const r of audit()) if (r.suspects.length > (REVIEWED[r.file] || 0)) over.push(`${r.file}: 로딩 확인 없는 빈 결과 글 ${r.suspects.length}곳(줄 ${r.suspects.join(', ')}) — 불러오는 동안 '없음'이 뜨지 않는지 확인하세요.`);
+  assert.deepEqual(over, []);
+});
+
+// UI-로딩맨위(2026-11-04 명진 결정): 공용 카운터. 요소가 붙으면 시작, 떼어지면 끝 — 막대 하나가 모두 끝날 때까지 이어진다.
+test('맨 위 막대 하나: 여러 칸이 동시에 불러와도 하나, 모두 떼어지면 사라진다(실패·이동으로 떼어져도)', async () => {
+  const {JSDOM} = await import('jsdom').catch(() => ({}));
+  if (!JSDOM) return; // jsdom 없는 환경은 브라우저 E2E(tests/app-e2e/loading-top.spec.mjs)가 같은 것을 확인한다.
+  const dom = new JSDOM('<body></body>', {pretendToBeVisual: true});
+  Object.assign(globalThis, {window: dom.window, document: dom.window.document, customElements: dom.window.customElements, HTMLElement: dom.window.HTMLElement});
+  const mod = await import('../app/wait-state.js?counter');
+  const host = document.createElement('div');
+  document.body.append(host);
+  host.innerHTML = mod.waitHtml() + mod.waitHtml() + mod.barHtml();
+  assert.equal(mod.waitCount(), 3);
+  assert.equal(document.querySelectorAll('.top-wait').length, 1, '막대는 하나');
+  host.innerHTML = mod.failHtml();
+  assert.equal(mod.waitCount(), 0, '실패로 바뀌면 끝');
+  await new Promise(r => setTimeout(r, 200));
+  assert.equal(document.querySelectorAll('.top-wait').length, 0, '모두 끝나면 사라짐');
 });

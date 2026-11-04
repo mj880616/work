@@ -47,10 +47,15 @@ export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어
 // 지금까지 보이던 모양 그대로 옮겨 담는다. 'bottom'은 메뉴 항목 이름이 아니라서 옛 화면은 그냥 버리고 읽는다.
 export const TAIL_MARK = 'bottom';
+// MENU-숨김(명진 요청 2026-11-03 10:38): 메뉴를 '숨겨 두기'. 숨긴 메뉴는 폰 하단바·[메뉴] 창·PC 왼쪽 메뉴 어디에도 그리지 않고, 메뉴 편집의 '숨긴 메뉴' 칸에서만 꺼낸다(2026-11-04 접힌 '숨긴 메뉴 n' 줄 없앰).
+// 기능·주소·데이터는 그대로(다른 화면 링크·전체 검색으로는 계속 열림). 메뉴 모델에서 빠지는 것이라 화면에서 가리는 땜질이 아니다.
+// 저장은 같은 방식: DB 검사는 bar·rest 둘만 받으므로 rest = [...위 메뉴, 'bottom', ...아래 칸, 'hidden', ...숨긴 메뉴]. 'hidden'도 항목 이름이 아니라 표시다.
+// 이 표시를 모르는 옛 화면은 표시를 버리고 숨긴 메뉴를 아래 칸으로 읽어 지금처럼 보인다(DB 변경 없음).
+export const HIDDEN_MARK = 'hidden';
 const KNOWN = new Map(ITEMS.map(item => [item.id, item]));
 export const itemOf = id => KNOWN.get(id) || null;
 export const labelOf = id => KNOWN.get(id)?.label || '';
-export const defaultLayout = () => ({bar: [...DEFAULT_BAR], rest: [...DEFAULT_REST], tail: [...DEFAULT_TAIL]});
+export const defaultLayout = () => ({bar: [...DEFAULT_BAR], rest: [...DEFAULT_REST], tail: [...DEFAULT_TAIL], hidden: []});
 
 // 저장된 순서에 없는 새 항목(예: 파일)은 기본 순서에서 바로 앞 항목 뒤에 넣는다(그 앞 항목이 같은 칸에 있을 때). 없으면 칸 끝.
 // 그래서 메뉴를 처음대로 쓰지 않던 사람도 새 메뉴를 정해진 자리(파일 = 자료실 바로 아래)에서 본다.
@@ -74,50 +79,57 @@ const unique = list => [...new Set(list)];
 // 모르는 이름·겹친 이름은 버리고 빠진 항목은 기본 자리의 칸(위 메뉴 또는 아래 칸) 끝에 붙인다.
 export function normalizeLayout(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return defaultLayout();
-  let rawRest = Array.isArray(raw.rest) ? raw.rest : [], rawTail = Array.isArray(raw.tail) ? raw.tail : null;
+  let rawRest = Array.isArray(raw.rest) ? raw.rest : [], rawTail = Array.isArray(raw.tail) ? raw.tail : null, rawHidden = Array.isArray(raw.hidden) ? raw.hidden : [];
+  const hmark = rawRest.indexOf(HIDDEN_MARK);
+  if (hmark >= 0) { rawHidden = [...rawRest.slice(hmark + 1), ...rawHidden]; rawRest = rawRest.slice(0, hmark); }
   const mark = rawRest.indexOf(TAIL_MARK);
   if (!rawTail && mark >= 0) { rawTail = rawRest.slice(mark + 1); rawRest = rawRest.slice(0, mark); }
-  if (!known(raw.bar).length && !known(rawRest).length && !known(rawTail).length) return defaultLayout();
+  if (!known(raw.bar).length && !known(rawRest).length && !known(rawTail).length && !known(rawHidden).length) return defaultLayout();
   let bar = unique(known(raw.bar)).filter(id => id !== FIXED_ID);
   const inBar = new Set(bar);
   const rest = unique(known(rawRest)).filter(id => id !== FIXED_ID && !inBar.has(id));
+  // 숨긴 메뉴: 홈은 숨길 수 없고, 다른 칸에 이미 있는 이름은 그 칸이 이긴다.
+  const placed = new Set([...bar, ...rest, ...unique(known(rawTail || []))]);
+  const hidden = unique(known(rawHidden)).filter(id => id !== FIXED_ID && !placed.has(id));
   const room = BAR_MAX - 1;
   const spill = bar.slice(room);
   bar = bar.slice(0, room);
   if (!rawTail) {
     // 옛 저장값({bar, rest}만): 지금까지처럼 빠진 항목을 rest 끝에 붙이고, 끝에 이어진 feed 메뉴를 아래 칸으로 읽는다.
     // 그때 없던 항목은 기본 자리 칸으로: 아래 칸 기본(feed) 메뉴는 끝에 이어진 feed 묶음 뒤, 나머지(예: 바깥 성명)는 그 앞 위 메뉴 끝.
-    const have = new Set([FIXED_ID, ...bar, ...spill, ...rest]);
+    const have = new Set([FIXED_ID, ...bar, ...spill, ...rest, ...hidden]);
     const listed = [...spill, ...rest], missing = ITEMS.map(item => item.id).filter(id => !have.has(id));
     let end = listed.length;
     while (end > 0 && KNOWN.get(listed[end - 1])?.feed) end--;
-    return {bar: [FIXED_ID, ...bar], rest: placeMissing(listed.slice(0, end), missing.filter(id => !DEFAULT_TAIL.includes(id)), DEFAULT_REST), tail: [...listed.slice(end), ...missing.filter(id => DEFAULT_TAIL.includes(id))]};
+    return {bar: [FIXED_ID, ...bar], rest: placeMissing(listed.slice(0, end), missing.filter(id => !DEFAULT_TAIL.includes(id)), DEFAULT_REST), tail: [...listed.slice(end), ...missing.filter(id => DEFAULT_TAIL.includes(id))], hidden};
   }
   const inRest = new Set(rest);
-  const tail = unique(known(rawTail)).filter(id => id !== FIXED_ID && !inBar.has(id) && !inRest.has(id));
-  const have = new Set([FIXED_ID, ...bar, ...spill, ...rest, ...tail]);
+  const tail = unique(known(rawTail)).filter(id => id !== FIXED_ID && !inBar.has(id) && !inRest.has(id) && !hidden.includes(id));
+  const have = new Set([FIXED_ID, ...bar, ...spill, ...rest, ...tail, ...hidden]);
   const missing = ITEMS.map(item => item.id).filter(id => !have.has(id));
   // 빠진 항목은 기본에서 하단바 칸이던 것도 위 메뉴에 둔다: 사용자가 고른 하단바를 새 항목이 밀어내지 않게.
-  return {bar: [FIXED_ID, ...bar], rest: placeMissing([...spill, ...rest], missing.filter(id => !DEFAULT_TAIL.includes(id)), DEFAULT_REST), tail: [...tail, ...missing.filter(id => DEFAULT_TAIL.includes(id))]};
+  return {bar: [FIXED_ID, ...bar], rest: placeMissing([...spill, ...rest], missing.filter(id => !DEFAULT_TAIL.includes(id)), DEFAULT_REST), tail: [...tail, ...missing.filter(id => DEFAULT_TAIL.includes(id))], hidden};
 }
 const sameList = (a, b) => a.length === b.length && a.every((id, i) => id === b[i]);
-export const sameLayout = (a, b) => sameList(a.bar, b.bar) && sameList(a.rest, b.rest) && sameList(a.tail || [], b.tail || []);
+export const sameLayout = (a, b) => sameList(a.bar, b.bar) && sameList(a.rest, b.rest) && sameList(a.tail || [], b.tail || []) && sameList(a.hidden || [], b.hidden || []);
 export const isDefaultLayout = layout => sameLayout(normalizeLayout(layout), defaultLayout());
 // 서버에 둘 값: 기본과 같으면 null(칸을 비운다 = 처음대로), 아니면 {bar, rest: [...위 메뉴, 'bottom', ...아래 칸]}.
-// 아래 칸이 비어도 표시는 남겨 '아래 칸 없음'을 그대로 저장한다.
+// 아래 칸이 비어도 표시는 남겨 '아래 칸 없음'을 그대로 저장한다. 숨긴 메뉴가 있을 때만 그 뒤에 'hidden' 표시와 이름들을 잇는다(MENU-숨김).
 export const layoutToPrefs = layout => {
   const next = normalizeLayout(layout);
-  return sameLayout(next, defaultLayout()) ? null : {bar: [...next.bar], rest: [...next.rest, TAIL_MARK, ...next.tail]};
+  return sameLayout(next, defaultLayout()) ? null : {bar: [...next.bar], rest: [...next.rest, TAIL_MARK, ...next.tail, ...(next.hidden.length ? [HIDDEN_MARK, ...next.hidden] : [])]};
 };
 
 export const LISTS = Object.freeze(['bar', 'rest', 'tail']);
+// 옮기기가 받는 칸은 숨긴 메뉴까지 넷. 키보드 한 칸 옮기기(stepItem)는 보이는 세 칸만 오간다(숨기기·꺼내기는 따로 hideItem·showItem).
+export const MOVE_LISTS = Object.freeze([...LISTS, 'hidden']);
 // id를 to('bar'|'rest'|'tail')의 index 자리로 옮긴다. 홈은 옮길 수 없고, 하단바가 가득 차면 거절한다(reason 'full').
 // index는 그 칸 안에서의 자리(옮기는 항목을 뺀 목록 기준). 하단바의 0번은 홈 자리라 1 아래로는 못 들어간다.
 export function moveItem(layout, id, to, index) {
   const base = normalizeLayout(layout);
-  if (!KNOWN.has(id) || !LISTS.includes(to)) return {ok: false, reason: 'unknown', layout: base};
+  if (!KNOWN.has(id) || !MOVE_LISTS.includes(to)) return {ok: false, reason: 'unknown', layout: base};
   if (id === FIXED_ID) return {ok: false, reason: 'fixed', layout: base};
-  const next = {bar: base.bar.filter(x => x !== id), rest: base.rest.filter(x => x !== id), tail: base.tail.filter(x => x !== id)};
+  const next = {bar: base.bar.filter(x => x !== id), rest: base.rest.filter(x => x !== id), tail: base.tail.filter(x => x !== id), hidden: base.hidden.filter(x => x !== id)};
   const target = next[to];
   if (to === 'bar' && target.length >= BAR_MAX) return {ok: false, reason: 'full', layout: base};
   const floor = to === 'bar' ? 1 : 0;
@@ -125,6 +137,9 @@ export function moveItem(layout, id, to, index) {
   target.splice(at, 0, id);
   return {ok: true, reason: '', layout: next, changed: !sameLayout(next, base)};
 }
+// 숨기기: 숨긴 메뉴 맨 끝으로. 꺼내기: 위 메뉴 맨 끝으로(어디로 돌아갈지는 끌어서 다시 정한다). 홈은 둘 다 안 된다.
+export const hideItem = (layout, id) => moveItem(layout, id, 'hidden', Infinity);
+export const showItem = (layout, id) => moveItem(layout, id, 'rest', Infinity);
 // 키보드: 위(-1)·아래(+1) 한 칸. 칸 끝에서는 다음 칸 맨 위(아래로) 또는 앞 칸 맨 아래(위로)로 넘어간다: 하단바 ↔ 위 메뉴 ↔ 아래 칸.
 export function stepItem(layout, id, dir) {
   const base = normalizeLayout(layout);
@@ -142,8 +157,8 @@ export function stepItem(layout, id, dir) {
 
 // PC 왼쪽 메뉴 순서: 하단바 칸 메뉴가 위, 그 아래 위 메뉴, 맨 아래 묶음은 아래 칸.
 // 한 번도 바꾸지 않았으면(기본) 지금까지의 PC 순서(ITEMS 순서)를 그대로 둔다. 바꾼 뒤부터 하단바 칸이 위로 올라온다.
-export const pcOrder = layout => { const next = normalizeLayout(layout); return sameLayout(next, defaultLayout()) ? ITEMS.map(item => item.id) : [...next.bar, ...next.rest, ...next.tail]; };
-// PC 왼쪽 메뉴의 위 줄(main)과 빈 공간 아래 맨 아래 묶음(tail). 맨 아래 묶음은 저장된 아래 칸 그대로이고, 비면 묶음도 없다.
+export const pcOrder = layout => { const next = normalizeLayout(layout); return sameLayout(next, defaultLayout()) ? ITEMS.map(item => item.id) : [...next.bar, ...next.rest, ...next.tail, ...next.hidden]; };
+// PC 왼쪽 메뉴의 위 줄(main)과 빈 공간 아래 맨 아래 묶음(tail), 숨긴 메뉴는 여기에 없다. 맨 아래 묶음은 저장된 아래 칸 그대로이고, 비면 묶음도 없다.
 export function pcSplit(layout) {
   const next = normalizeLayout(layout), tail = [...next.tail];
   const main = sameLayout(next, defaultLayout()) ? ITEMS.map(item => item.id).filter(id => !tail.includes(id)) : [...next.bar, ...next.rest];

@@ -46,7 +46,7 @@ export function createOutsideSearch({box, nameOf, chipsOf, keysOf, workspaceOf})
     built = true;
     box.innerHTML = `<form class="osq-form" data-osq-form role="search" aria-label="문장 찾기">
 <input type="search" class="osq-input" data-osq-input maxlength="100" enterkeyhint="search" placeholder="찾을 낱말·문장" aria-label="찾을 낱말·문장" autocomplete="off">
-<button type="submit" class="osq-go">찾기</button></form>
+<button type="submit" class="osq-go secondary">찾기</button></form>
 <div class="osq-filters" data-osq-filters></div>
 <p class="osq-note" data-osq-note role="status" aria-live="polite"></p>
 <div class="osq-tray" data-osq-tray hidden></div>
@@ -79,7 +79,7 @@ export function createOutsideSearch({box, nameOf, chipsOf, keysOf, workspaceOf})
     return `<section class="osq-mine" aria-label="내 성명">${head}${state.mine.map(m => `<article class="osq-hit is-mine"><p class="osq-ctx">${m.snippet ? marked(m.snippet) : ''}</p><p class="osq-foot"><button type="button" class="osq-doc" data-osq-doc="${esc(m.id)}">${esc(m.title)}</button> · ${esc(m.day)}</p></article>`).join('')}</section>`;
   }
   function resultsHtml() {
-    if (!state.query) return emptyHtml('낱말이나 문장을 넣고 찾기', {attrs: 'data-osq-empty="start"'});
+    if (!state.query) return ''; // 안내 문구는 입력칸 흐린 글자(placeholder)와 같아 뺐다(UI-Now PC정돈)
     let outside;
     if (!state.loaded) outside = state.failed ? failHtml({retry: 'data-osq-retry'}) : waitHtml({rows: 5, h: 56});
     else if (!state.hits.length) outside = emptyHtml('찾은 문장 없음', {attrs: 'data-osq-empty="hits"'});

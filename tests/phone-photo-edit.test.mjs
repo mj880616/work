@@ -72,7 +72,8 @@ test('그림 종류·base64', () => {
 
 test('[편집] 단추: 크게 보기 공용 부품에 숨겨 두고 사진 메뉴만 켠다(일기는 그대로), 웹2 자체 편집기 없음', () => {
   const strip = read('app/photo-strip.js'), photos = read('app/photos.js'), diary = read('app/diary.js');
-  assert.match(strip, /data-strip-edit hidden/);
+  assert.match(strip, /edit:'data-strip-edit'/);
+  assert.match(read('app/photo-act-bar.mjs'), /edit: \{icon: ACT_ICON\.edit, menu: true, caret: true, hidden: true\}/);
   assert.match(photos, /editable, edit:item => editOne\(item\)/);
   assert.doesNotMatch(diary, /editable/);
   assert.doesNotMatch(photos, /<canvas|getContext\(/, '편집은 갤러리 앱에 맡긴다');

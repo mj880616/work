@@ -77,7 +77,7 @@ label{display:flex;flex-direction:column;gap:var(--kptu-space-2);font-size:12px;
 input,select,textarea{width:100%;min-height:var(--kptu-control-height);border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);padding:8px var(--kptu-space-3);outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--kptu-primary-ink);box-shadow:0 0 0 3px var(--kptu-primary-soft)}
 textarea{resize:vertical}
-.primary,.secondary,.ghost,.danger,.mini{min-height:var(--kptu-control-height);border:1px solid transparent;border-radius:var(--kptu-radius-md);padding:0 var(--kptu-space-3);display:inline-flex;align-items:center;justify-content:center;gap:var(--kptu-space-1);font-size:12px;font-weight:700;line-height:1;white-space:nowrap;text-decoration:none}
+.primary,.secondary,.ghost,.danger,.mini{min-height:var(--kptu-control-height);border:1px solid transparent;border-radius:var(--kptu-radius-md);padding:0 var(--kptu-space-3);display:inline-flex;align-items:center;justify-content:center;gap:var(--kptu-space-1);font-size:var(--ds-text-button,13px);font-weight:var(--ds-weight-medium,500);line-height:1;white-space:nowrap;text-decoration:none}
 .mini{min-height:var(--kptu-action-compact-height);font-size:11px;padding:0 var(--kptu-space-2);background:var(--kptu-surface);color:var(--kptu-muted);border-color:var(--kptu-border)}
 .primary{background:var(--kptu-primary);color:var(--kptu-on-primary)}
 .primary:hover{background:var(--kptu-primary-hover)}
@@ -248,8 +248,6 @@ body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-
 .data-freshness[hidden]{display:none}
 .data-freshness.data-freshness-warn{color:var(--kptu-danger)}
 .data-freshness .data-freshness-retry{min-height:28px}
-/* UI-기다림표시통일 2차: 읽는 중·새로 읽는 중은 글자 대신 가는 줄 하나(wait-state.js barHtml)가 줄 너비를 다 쓴다. */
-.data-freshness>.wait-only-bar{flex:1 1 100%}
 /* JOURNAL-하루개편 ⑥: 업무일지에서 누른 기록이 조직·프로젝트 화면에서 열리면 그 기록을 잠깐(1.6초) 강조한다. journal.js가 붙였다 뗀다. */
 [data-journal-flash]{ animation:kptu-journal-flash 1.6s ease-out 1; border-radius:var(--kptu-radius-md); }
 @keyframes kptu-journal-flash{ 0%,35%{ background-color:var(--ds-kind-journal-soft); box-shadow:0 0 0 2px var(--ds-kind-journal-ink); } 100%{ background-color:transparent; box-shadow:0 0 0 0 transparent; } }
@@ -285,6 +283,27 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-notice-undo,.kptu-notice-close{border:0;background:transparent;color:inherit;font:inherit;font-weight:700;padding:2px 4px;min-height:24px;cursor:pointer}
 .kptu-notice-undo{text-decoration:underline;text-underline-offset:2px}
 .kptu-notice-close{opacity:.7;font-weight:400}
+/* UI-고르기줄 (S48-54, 요청함 11/03 07:43·07:44): 여러 개 고르기 줄·크게 보기 아래 줄의 공용 부품(app/action-bar.mjs). 이 화면들은 이 규칙 하나를 쓴다:
+   사진 여러 장 고르기·휴지통 고르기(.photos-act), 크게 보기(.diary-viewer-actions, 사진·일기), 노트 고르기(.nx-select-bar), 자료실 고르기(.lu-select-bar).
+   ① 버튼(.kptu-act)은 줄 폭을 같은 너비 칸으로 나눠 쓰고 칸 사이 간격이 같다. 넓은 화면(폴드 펼침·PC)은 칸 최대 120px이라 너무 벌어지지 않는다.
+   ② 칸은 가장 긴 낱말보다 좁아지지 않는다(낱말 단위 줄바꿈 keep-all) — 폴드 접음 폭에서도 글자가 잘리지 않고, 모자라면 다음 줄(위쪽 글자 줄만).
+   ③ 아이콘 줄(-icon, 한 줄): 폰은 아이콘 위·글자 아래, 761px~는 한 줄 나란히. 아이콘은 글자와 같은 색의 글자 모양·선 아이콘.
+     글자 줄(-text, 위쪽 고르기 줄 안의 버튼 묶음): 테두리 없는 작은 글자, 같은 너비 칸(최소 56px)으로 나누고 모자라면 다음 줄도 같은 칸.
+   ④ 지우기(.kptu-act-danger)도 다른 버튼과 같은 색·같은 선 아이콘(S49-5: 빨강은 되돌릴 수 없는 마지막 확인 버튼에만). 누르는 범위는 늘 44px(::after). 줄의 자리(아래 붙기·위 붙기)·바탕은 화면 CSS가 맡는다. */
+.kptu-actbar{display:flex;align-items:center;justify-content:space-evenly;min-width:0}
+#appView .kptu-actbar>button.kptu-act{position:relative;box-sizing:border-box;flex:1 1 0;min-width:min-content;max-width:120px;justify-content:center;margin:0;border:0;border-radius:var(--ds-radius-control,6px);background:transparent;box-shadow:none;font-weight:400;text-align:center;white-space:normal;word-break:keep-all;-webkit-tap-highlight-color:transparent}
+#appView .kptu-actbar>button.kptu-act::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView .kptu-actbar>button.kptu-act[hidden]{display:none}
+#appView .kptu-actbar>button.kptu-act:disabled{opacity:.45;cursor:default}
+#appView .kptu-actbar>button.kptu-act:focus-visible{outline:2px solid currentColor;outline-offset:-2px}
+#appView .kptu-actbar-icon>button.kptu-act{display:flex;flex-direction:column;align-items:center;gap:1px;height:auto;min-height:40px;padding:2px;color:inherit;font-size:11px;line-height:1.2}
+#appView .kptu-actbar-icon .kptu-act-ic{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;font-size:16px;line-height:1}
+#appView .kptu-actbar-icon .kptu-act-ic svg{display:block;width:16px;height:16px}
+/* PHOTO-아래줄정돈(S49-34): [공유 ▾]·[편집 ▾] 글자 옆 작은 ▾ */
+#appView .kptu-actbar-icon .kptu-act-caret{font-size:9px;margin-left:2px;opacity:.7}
+.kptu-actbar-text{display:grid;grid-template-columns:repeat(auto-fit,minmax(var(--kptu-act-min,56px),1fr));justify-items:center;align-items:center;flex:1 1 auto;min-width:0}
+#appView .kptu-actbar-text>button.kptu-act{display:inline-flex;align-items:center;width:100%;height:auto;min-height:var(--ds-compact-height-sm,28px);padding:2px;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);line-height:1.25}
+@media(min-width:761px){#appView .kptu-actbar-icon>button.kptu-act{flex-direction:row;gap:4px;min-height:var(--ds-compact-height,32px);padding:0 4px;font-size:var(--ds-compact-text,13px)}}
 .kptu-notice-note{flex:1 0 100%;order:5;font-size:11px;opacity:.75}
 /* SHARE-바로넣기: 알림 안 한 줄 입력칸([메모 달기]). 알림 글처럼 촘촘하게, 눌러서 쓸 수 있게(바탕 알림은 누르기를 통과시킴). */
 .kptu-notice input.kptu-notice-input{pointer-events:auto;flex:1 1 160px;min-width:0;height:28px;box-sizing:border-box;margin:0;padding:0 8px;font:inherit;font-size:13px;color:var(--kptu-ink);background:var(--kptu-surface);border:0;border-radius:var(--kptu-radius-sm,6px)}
@@ -334,23 +353,26 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
 /* UI-기다림표시통일(2026-10-29 명진 A안): 기다림·실패·없음 공용 부품(wait-state.js) 하나. 기다림 = 위쪽 가는 줄 + 실제 줄 높이 회색 빈 줄, 글자 없음.
    0.4초 안에 끝나면 아무것도 보이지 않는다(늦은 표시). 회색 빈 줄은 그림 칸(.img-slot 받는 중)과 같은 색. 민트(.notice)는 완료 알림에만. */
 .wait{display:grid;gap:6px;padding:4px 0;animation:wait-show 0s linear .4s both}
+/* UI-로딩맨위: 칸 안에는 회색 빈 줄만(막대 없음). 칸 폭 가득, 글줄 안 한 칸(.wait-inline)만 예외. */
+.wait:not(.wait-inline){box-sizing:border-box;width:100%;align-self:stretch;justify-self:stretch;margin:0}
 @keyframes wait-show{from{visibility:hidden}to{visibility:visible}}
-.wait-bar{position:relative;display:block;height:2px;overflow:hidden;border-radius:1px}
-.wait-bar::after{content:"";position:absolute;top:0;bottom:0;left:0;width:30%;background:var(--kptu-muted);opacity:.4;animation:wait-run 1.2s ease-in-out infinite}
+.wait-only-bar{display:block}
+/* UI-로딩맨위(2026-11-04 명진 결정): 움직이는 로딩 막대는 화면 맨 위 끝 한 곳뿐(wait-state.js 공용 카운터). 아래로 내려도 보이게 fixed, 눌림은 막지 않는다. */
+.top-wait{position:fixed;top:0;left:0;right:0;height:3px;z-index:120;overflow:hidden;pointer-events:none;animation:wait-show 0s linear .4s both}
+.top-wait-run{position:absolute;top:0;bottom:0;left:0;width:30%;background:var(--kptu-muted);opacity:.75;animation:wait-run 1.2s ease-in-out infinite}
 @keyframes wait-run{from{transform:translateX(-100%)}to{transform:translateX(340%)}}
 .wait-row{display:block;height:var(--wait-h,20px);border-radius:4px;background:color-mix(in srgb,var(--kptu-border) 55%,transparent)}
 .wait-row:nth-child(3n+3){width:72%}
-.wait.wait-inline{display:inline-block;vertical-align:middle;padding:0;width:3.5em}
-.wait.wait-inline .wait-row{height:.9em;width:100%}
-.wait.wait-only-bar{padding:0;gap:0}
+.wait.wait-inline{display:inline;padding:0;color:var(--kptu-muted)}
+.wait.wait-inline::after{content:"…"}
+.wait.wait-only-bar{padding:0;gap:0;display:block;height:0}
 .wait-fail{margin:4px 0;font-size:var(--kptu-text-meta,12px);color:var(--kptu-danger);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .wait-fail .wait-retry{min-height:24px;padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta,12px);font-weight:400;cursor:pointer}
 .wait-fail .wait-retry:hover{background:var(--kptu-surface-subtle)}
 .wait-fail .wait-retry:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .wait-empty{margin:4px 0;font-size:var(--kptu-text-meta,12px);color:var(--kptu-muted)}
 .wait-empty[hidden]{display:none}
-#deferredFeatureStatus.wait-only-bar{position:sticky;top:0;z-index:5;margin:0}
-@media (prefers-reduced-motion:reduce){.wait-bar::after{animation:none;width:100%;opacity:.25}}
+@media (prefers-reduced-motion:reduce){.top-wait-run{animation:none;width:100%;opacity:.25}}
 /* UI-창잘림·끌어옮기기: 넓은 화면(761px~)에서 버튼 옆에 뜬 작은 창(data-anchor-side, anchored-popup.js)은 제목 줄을 잡고 끌어 옮긴다.
    제목 왼쪽 작은 손잡이(∷)와 손 모양 커서. 폰 아래 창에는 data-anchor-side가 없어 보이지 않는다. 제목 없는 ⋯ 메뉴 판은 손잡이 없음. */
 @media (min-width:761px){

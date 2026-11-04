@@ -40,9 +40,19 @@ export function mountBigWrite(box, {title = '크게 쓰기', placeholder = '', l
   button.type = 'button'; button.className = 'ghost record-big-write';
   button.setAttribute('aria-haspopup', 'dialog'); button.setAttribute('aria-label', '크게 쓰기'); button.title = '큰 창에서 쓰기';
   button.innerHTML = BIG_SVG;
+  // 큰 창 버튼(HOTFIX2-회의칸깨짐): 모든 글 칸에서 칸 이름 줄 맨 끝에 글자 높이의 작은 아이콘 하나로 둔다(한 곳).
+  // 칸 이름 줄 = 글 칸 앞의 이름 글자들을 한 줄(span.record-big-head)로 묶은 것. 라벨이 격자라 단추가 따로 놓여 폭 가득 막대가 되던 것을 막는다.
   // Inside the label heading (before the box): a press on a button inside a label does not move focus to the box.
-  const head = label.firstElementChild && label.firstElementChild !== box ? label.firstElementChild : null;
-  if (head?.classList.contains('optional')) head.after(button); else if (head) head.append(button); else label.insertBefore(button, box);
+  const kids = [];
+  for (let n = label.firstChild; n && n !== box; n = n.nextSibling) kids.push(n);
+  let head = kids[0]?.nodeType === 1 && kids[0].tagName === 'SPAN' && kids.slice(1).every(n => n.nodeType === 3 && !n.textContent.trim()) ? kids[0] : null;
+  if (!head) {
+    head = document.createElement('span');
+    label.insertBefore(head, label.firstChild);
+    for (const n of kids) head.append(n);
+  }
+  head.classList.add('record-big-head');
+  head.append(button);
   button.addEventListener('click', event => {
     event.preventDefault();
     void openBig(box, {title, placeholder, limit, trigger: button}).catch(() => { button.title = '큰 창을 열지 못했어요. 다시 눌러 주세요.'; });

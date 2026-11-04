@@ -5,6 +5,7 @@
 // - 같은 사진이 폰과 원드라이브에 다 있으면(파일 이름·크기·찍은 시각) 한 장만 보인다(원드라이브 것을 남김).
 // S46-24 ④: 구글 드라이브(Edge gdrive-photos, 운영자 기능 gdrive_photos가 있는 작업공간만). 같은 사진 규칙은 원드라이브 > 구글 드라이브 > 폰 사진 순서로 남긴다.
 import {sortCompare} from './photos-model.mjs';
+import {parseFlags, toggleFlag} from './source-flags.mjs';
 
 export const SOURCES = Object.freeze(['onedrive', 'gdrive', 'phone']);
 export const SOURCE_DEFAULT = Object.freeze({onedrive:true, gdrive:false, phone:true});
@@ -15,20 +16,20 @@ export const GDRIVE_FEATURE = 'gdrive_photos';
 // app_my_features() 답(기능 키 목록) → 구글 드라이브 칩을 보일지. 모양이 틀리면 안 보인다(서버가 어차피 403).
 export const gdriveAllowed = features => GDRIVE_READY && Array.isArray(features) && features.includes(GDRIVE_FEATURE);
 
-// 서버 값 → {onedrive, gdrive, phone}. 모양이 틀린 칸은 기본값.
-export function parseSources(value) {
-  const v = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const out = {};
-  for (const name of SOURCES) out[name] = typeof v[name] === 'boolean' ? v[name] : SOURCE_DEFAULT[name];
-  return out;
-}
+// PHOTO-기기별출처(S49-5, 요청함 11/03 10:44): 출처 켜기·끄기를 폰 앱과 그 밖(PC·브라우저)이 따로 서버에 기억한다
+// (view_prefs.photo_sources_phone / photo_sources_pc, migration 20261103190000). 옛 photo_sources 한 칸은 두 쪽 시작값으로 복사하지 않고 더는 읽지 않는다.
+// 처음 기본값: PC = 원드라이브만, 폰 앱 = 폰 폴더만. 그 뒤는 각자 기억한다.
+export const DEVICE_SOURCE_KEY = Object.freeze({phone:'photo_sources_phone', pc:'photo_sources_pc'});
+export const DEVICE_SOURCE_DEFAULT = Object.freeze({
+  phone:Object.freeze({onedrive:false, gdrive:false, phone:true}),
+  pc:Object.freeze({onedrive:true, gdrive:false, phone:false}),
+});
+export const deviceSourcesKey = isPhoneApp => (isPhoneApp ? DEVICE_SOURCE_KEY.phone : DEVICE_SOURCE_KEY.pc);
+export const deviceSourcesDefault = isPhoneApp => (isPhoneApp ? DEVICE_SOURCE_DEFAULT.phone : DEVICE_SOURCE_DEFAULT.pc);
+// 서버 값 → {onedrive, gdrive, phone}. 모양이 틀린 칸은 기본값(defaults, 없으면 SOURCE_DEFAULT).
+export function parseSources(value, defaults = SOURCE_DEFAULT) { return parseFlags(value, SOURCES, defaults); }
 export const sourcesValue = state => Object.fromEntries(SOURCES.map(name => [name, parseSources(state)[name]]));
-export function toggleSource(state, name) {
-  const next = parseSources(state);
-  if (!SOURCES.includes(name)) return next;
-  next[name] = !next[name];
-  return next;
-}
+export function toggleSource(state, name) { return toggleFlag(state, SOURCES, SOURCE_DEFAULT, name); }
 // 아이콘 줄: 폰 사진은 폰 앱에서만(PC·폰 브라우저는 없음), 구글 드라이브는 운영자 기능이 있는 작업공간에서만(gdrive:true).
 // gdriveProblem: 권한이 없거나(scope_missing) 연결이 풀렸으면(drive_auth_expired) 그 이유 — 칩은 '권한 없음'이고 누르면 [Drive 다시 연결].
 export function sourceButtons(state, {phone = false, gdrive = false, gdriveProblem = ''} = {}) {
@@ -36,7 +37,7 @@ export function sourceButtons(state, {phone = false, gdrive = false, gdriveProbl
   const out = [{name:'onedrive', on:s.onedrive, ready:true}];
   if (gdrive && GDRIVE_READY) out.push({name:'gdrive', on:s.gdrive, ready:!gdriveProblem, problem:gdriveProblem || ''});
   if (phone) out.push({name:'phone', on:s.phone, ready:true});
-  return out.map(b => ({...b, label:`${SOURCE_TEXT[b.name]}${b.problem ? (GDRIVE_RECONNECT.includes(b.problem) ? ' · 권한 없음' : ' · 못 읽음') : b.on ? ' 켜짐' : ' 꺼짐'}`}));
+  return out.map(b => ({...b, label:`${b.name === 'phone' ? '폰 폴더' : SOURCE_TEXT[b.name]}${b.problem ? (GDRIVE_RECONNECT.includes(b.problem) ? ' · 권한 없음' : ' · 못 읽음') : b.on ? ' 켜짐' : ' 꺼짐'}`}));
 }
 // 이번 화면에서 실제로 읽을 출처. gdrive = 칩이 보이고 권한이 있음.
 export function activeSources(state, {onedrive = false, phone = false, gdrive = false} = {}) {

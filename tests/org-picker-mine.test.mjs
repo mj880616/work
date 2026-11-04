@@ -38,7 +38,6 @@ const PICKERS = Object.freeze({
   'app/suborganizations.js': '일정 등록·Google 일정 수정의 관련 담당조직 체크',
   'app/library-upload.js': '자료실 일괄 바꾸기 담당조직',
   'app/basket-manual-link.js': '정리함 [연결하기]',
-  'app/calendar-ref-settings.js': '내 프로필 조직 참고 캘린더의 담당조직 고르기',
   'app/weekly-discuss-table.js': '주간보고 3) 상집 논의 요청 줄의 관련 조직 고르기',
 });
 

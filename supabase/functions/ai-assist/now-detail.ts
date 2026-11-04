@@ -345,7 +345,7 @@ function parseJson(raw: unknown): Record<string, unknown> | null {
 
 export function cleanCore(v: Record<string, unknown>, material: string, foreign: boolean): DetailCore | null {
   const summary = cut(clean(v.summary), 1500);
-  if (!summary) return null;
+  if (!summary || isNoContentSummary(summary)) return null;
   const hay = squash(material);
   const sentences: DetailCore["key_sentences"] = [];
   for (const s of Array.isArray(v.key_sentences) ? v.key_sentences as Record<string, unknown>[] : []) {
@@ -357,6 +357,10 @@ export function cleanCore(v: Record<string, unknown>, material: string, foreign:
   }
   return { summary, key_sentences: sentences };
 }
+
+// AI가 재료가 없을 때 쓰는 '내용 없음' 문장(S48-66, 11/03). 요약으로 저장하거나 보이지 않는다.
+const NO_CONTENT = /(요약할\s*(내용|수)|내용(이|을)?\s*(없|제공되지|확인할\s*수\s*없)|제공되지\s*않아|본문(이|을)?\s*(없|제공되지)|no\s+(content|text|article)\s+(was\s+)?(provided|available))/i;
+export const isNoContentSummary = (v: unknown): boolean => typeof v === "string" && NO_CONTENT.test(v);
 
 export function cleanContext(v: Record<string, unknown>, allowed: string[], candidates: Candidate[]): DetailContext {
   const rel = v.relevance as Record<string, unknown> | undefined;
@@ -461,6 +465,10 @@ export async function runNowDetail(kit: NowKit, input: Extract<NowInput, { kind:
     // 상세 표가 아직 없으면(DB 적용 전) 404 → now_not_ready.
     throw e instanceof Error && e.message === "rest_404" ? kit.fail(409, "now_not_ready") : kit.fail(503, "read_unavailable");
   }
+  // 읽은 재료가 하나도 없는 뉴스 기사(제목 읽기 전·본문 읽기 실패)는 AI를 부르지 않는다. 이전에 저장된 '내용 없음' 요약도 버린다.
+  const hasMaterial = item.type !== "news" || !!(item.body || item.summary);
+  if (existing && isNoContentSummary(existing.summary)) existing = null;
+  if (!existing && !hasMaterial) throw kit.fail(422, "no_material");
   const topics = await confirmedTopics(kit);
   const key = await interestsKey(topics);
   const { startIso } = seoulDayStart(nowMs);

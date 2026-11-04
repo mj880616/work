@@ -20,7 +20,7 @@ async function fixture(page, width) {
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width, height: 900 });
   await page.addInitScript(() => { window.KPTUOdWarm = { run: () => null }; });
-  const server = await installViewPrefsServer(page, { photo_sources: { onedrive: true } });
+  const server = await installViewPrefsServer(page, { photo_sources_pc: { onedrive: true } });
   await openHome(page, { beforeLoad: async () => {
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_diary_stars', r => r.fulfill({ json: [] }));
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_photo_tags', r => {

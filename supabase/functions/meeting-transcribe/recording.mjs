@@ -208,6 +208,34 @@ export function pendingSessions(rows, jobs, now) {
   return out.sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)));
 }
 
+// 지금 열려 있는 녹음(열린 구간이 아직 조용하지 않음). 창을 새로고침한 직후에는 7분이 지나기 전이라 pendingSessions에 안 보이므로,
+// 화면이 '방금 끊긴 녹음'을 바로 이어 녹음·정리할 수 있게 따로 준다(REC-새로고침, S49-7). idle_sec = 마지막 조각 뒤 흐른 초.
+export function liveSessions(rows, now) {
+  const by = new Map();
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!r?.session_id) continue;
+    if (!by.has(r.session_id)) by.set(r.session_id, []);
+    by.get(r.session_id).push(r);
+  }
+  const out = [];
+  for (const [session, list] of by) {
+    list.sort((a, b) => a.segment_no - b.segment_no);
+    const open = list.find(r => r.status === 'recording' && !isQuiet(r, now));
+    if (!open) continue;
+    const last = Date.parse(open.updated_at || open.created_at || '');
+    out.push({
+      session_id: session,
+      started_at: list[0].created_at,
+      duration_sec: list.reduce((s, r) => s + (Number(r.duration_sec) || 0), 0),
+      idle_sec: Number.isFinite(last) ? Math.max(0, Math.round((now.getTime() - last) / 1000)) : null,
+      segments: list.filter(r => r.status !== 'empty').map(r => ({
+        segment_no: r.segment_no, status: r.status, job_id: r.job_id ?? null, job_status: null, duration_sec: r.duration_sec ?? null,
+      })),
+    });
+  }
+  return out.sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)));
+}
+
 export function pendingSince(now) { return new Date(now.getTime() - REC_PENDING_DAYS * 86400000).toISOString(); }
 
 // ---- 버리기·되돌리기(rec_discard·rec_restore, 요청함 10/30 10:01) ----

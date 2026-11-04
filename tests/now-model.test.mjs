@@ -79,3 +79,15 @@ test('상세 날짜: 서울 시각, 자정이면 날짜만', () => {
   assert.equal(dateText('2026-10-05T15:00:00Z'), '2026. 10. 6.');
   assert.equal(dateText(''), '');
 });
+
+// S48-66: 뉴스 기사를 상세 전에 먼저 읽기 — 재료 판정.
+import {needsRead, hasMaterial, unreadReason} from '../app/now-model.mjs';
+test('뉴스 상세: 요약·본문이 없으면 먼저 읽고, 유료는 읽지 않는다', () => {
+  assert.equal(hasMaterial({summary: '요약'}), true);
+  assert.equal(hasMaterial({body_kind: 'full'}), true);
+  assert.equal(needsRead({state: 'pending', summary: null, body_kind: null}), true);
+  assert.equal(needsRead({state: 'paywall'}), false);
+  assert.equal(needsRead({state: 'ok', summary: '있음'}), false);
+  assert.match(unreadReason('robots', ''), /막아/);
+  assert.equal(unreadReason('', 'paywall'), '유료 기사');
+});

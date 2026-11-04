@@ -6,6 +6,7 @@
 import {folderIndent} from './folder-limits.mjs';
 import {folderSiblings, folderSubtree, folderDepth} from './library-tree.js';
 import {plainInline} from './note-preview.mjs';
+import {colorOf} from './folder-look-model.mjs';
 import {noteMasked, looksSecret, SECRET_TITLE} from './note-secret.mjs';
 
 const plain = v => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -87,7 +88,7 @@ export function treeRows({folders, notes, folderOf, root = null, isOpen = () => 
     for (const f of folderSiblings(folders, {free: true, parentId: parent})) {
       if (hits && !hits.has(f.id)) continue;
       const open = hits ? true : isOpen(f.id);
-      rows.push({type: 'folder', id: f.id, name: f.name, depth, indent: folderIndent(depth), count: total.get(f.id) || 0, open, hasChildren: folderSiblings(folders, {free: true, parentId: f.id}).length > 0});
+      rows.push({type: 'folder', id: f.id, name: f.name, depth, indent: folderIndent(depth), count: total.get(f.id) || 0, color: colorOf(f), open, hasChildren: folderSiblings(folders, {free: true, parentId: f.id}).length > 0});
       if (open) walk(f.id, depth + 1);
     }
     if (foldersOnly) return;
@@ -113,7 +114,7 @@ export function folderContents({folders, notes, folderOf, at = null, matches = n
     // 찾는 중이면 폴더와 상관없이 맞는 노트 전부(줄마다 폴더 경로).
     return sort(notes.filter(matches)).map(n => ({type: 'note', id: n.id, note: n, depth: 0, indent: 0, path: folderPath(folders, folderOf(n)).map(f => f.name).join(' › ')}));
   }
-  const rows = folderSiblings(folders, {free: true, parentId: at}).map(f => ({type: 'folder', id: f.id, name: f.name, depth: 0, indent: 0, count: total.get(f.id) || 0, open: false}));
+  const rows = folderSiblings(folders, {free: true, parentId: at}).map(f => ({type: 'folder', id: f.id, name: f.name, depth: 0, indent: 0, count: total.get(f.id) || 0, color: colorOf(f), open: false}));
   for (const n of sort(byFolder.get(at) || [])) rows.push({type: 'note', id: n.id, note: n, depth: 0, indent: 0});
   return rows;
 }
@@ -126,7 +127,7 @@ export function paneRows({folders, notes, folderOf, at = null, matches = null, p
   if (matches) return folderContents({folders, notes, folderOf, at, matches, sort});
   const {byFolder, total} = placeNotes(notes, folders, folderOf);
   const noteRows = list => sort(list).map(n => ({type: 'note', id: n.id, note: n, depth: 0, indent: 0}));
-  const folderRows = parent => folderSiblings(folders, {free: true, parentId: parent}).map(f => ({type: 'folder', id: f.id, name: f.name, depth: 0, indent: 0, count: total.get(f.id) || 0, open: false}));
+  const folderRows = parent => folderSiblings(folders, {free: true, parentId: parent}).map(f => ({type: 'folder', id: f.id, name: f.name, depth: 0, indent: 0, count: total.get(f.id) || 0, color: colorOf(f), open: false}));
   const inFolder = at && at !== OUTSIDE && folders.some(f => f.id === at) ? at : null;
   if (!phone) return noteRows(byFolder.get(inFolder) || []);
   if (inFolder) return [...folderRows(inFolder), ...noteRows(byFolder.get(inFolder) || [])];
@@ -171,5 +172,5 @@ export function recentNotes(notes, count = RECENT_COUNT) {
 }
 // 줄로: 오른쪽에 작은 폴더 이름(폴더에 안 든 노트는 비움).
 export function recentRows({folders, notes, folderOf, count = RECENT_COUNT}) {
-  return recentNotes(notes, count).map(n => { const f = folders.find(x => x.id === folderOf(n)); return {type: 'note', id: n.id, note: n, depth: 0, indent: 0, path: f ? f.name : '', recent: true}; });
+  return recentNotes(notes, count).map(n => { const f = folders.find(x => x.id === folderOf(n)); return {type: 'note', id: n.id, note: n, depth: 0, indent: 0, path: f ? f.name : '', fc: f ? colorOf(f) : null, recent: true}; });
 }

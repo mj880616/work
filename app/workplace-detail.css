@@ -11,7 +11,7 @@
 /* UI-화면점검 ②: 프로젝트 상세 할 일 머리(ps3-text-btn + ps3-add-plus)와 같은 짜임. [기존 할 일 연결]은 글자 버튼(32px), [할 일 추가]는 작은 + 버튼(누르는 범위 44px). */
 .wd-text-btn{flex:0 0 auto;min-height:var(--ds-compact-height);margin:0;padding:0 var(--kptu-space-1);border:0;background:transparent;box-shadow:none;color:var(--kptu-link);font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);line-height:1;cursor:pointer}
 .wd-add-plus{flex:0 0 auto;display:inline-grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-width:0;min-height:var(--kptu-touch-target);margin:-6px 0;padding:0;border:0;border-radius:var(--kptu-radius-pill);background:transparent;box-shadow:none;color:var(--kptu-link);font-size:22px;font-weight:var(--ds-weight-regular);line-height:1;cursor:pointer}
-.wd-add-plus:hover{background:var(--kptu-surface-subtle)}
+@media(hover:hover){.wd-add-plus:hover{background:var(--kptu-surface-subtle)}}
 .wd-text-btn:focus-visible,.wd-add-plus:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px;border-radius:var(--kptu-radius-md)}#wdTasks .wd-head{align-items:center}#wdTasks .wd-head>div:first-child{flex:0 0 auto}
 .wd-sec summary{display:flex;justify-content:space-between;cursor:pointer;list-style:none}.wd-right{text-align:right;margin:8px 0}.wd-year{margin:10px 0 3px;font-size:11px;color:var(--kptu-ink)}.wd-time{display:grid;grid-template-columns:90px minmax(0,1fr) auto;gap:7px;padding:7px 0;border-top:1px solid var(--kptu-border)}.wd-time small{font-size:9.5px;color:var(--kptu-muted)}.wd-time p{margin:3px 0 0;white-space:pre-wrap;font-size:10.5px;color:var(--kptu-muted)}.wd-count{font-size:9px;background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-pill);padding:1px 5px;margin-left:4px}
 .wd-aff-chips{display:flex;flex-wrap:wrap;gap:6px}.wd-aff-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:var(--kptu-radius-pill);background:var(--kptu-info-soft);color:var(--kptu-info);font-size:10px;font-weight:800}.wd-aff-chip.taskforce{background:var(--kptu-warning-soft);color:var(--kptu-warning)}
@@ -35,7 +35,6 @@
 .basket-link-menu[hidden]{display:none}
 .basket-link-menu button{display:block;width:100%;height:44px;min-height:44px;padding:0 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:400;cursor:pointer}/* BIZ-버튼줄정리 4번: 메뉴 항목은 다른 화면 메뉴와 같은 보통 굵기 글자 줄 */
 .basket-link-menu button:hover{background:var(--kptu-surface-subtle)}
-.basket-link-menu .basket-link-danger{color:var(--kptu-danger)}
 .basket-link-menu button:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 /* UI-버튼통일(2026-10-28): 담당조직 창의 연결·수정 줄 버튼은 작은 버튼(32px), 누르는 범위 44px은 ::after. */
 #wdUpdates .basket-link-actions :is(button,a),#wdUpdates [data-link-summary-current],#wdUpdates [data-wd-link-retry]{position:relative;min-height:var(--ds-compact-height,32px);display:inline-flex;align-items:center;padding:0 10px;box-sizing:border-box}
@@ -131,7 +130,7 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 .wd-stage:empty{display:none}
 .wd-stage-k{flex:0 0 auto;color:var(--kptu-muted)}
 .wd-stage-note,.wd-stage-now{color:var(--kptu-muted)}.wd-stage-now{color:var(--kptu-ink);font-size:var(--ds-text-row)}
-.wd-stage-select{flex:1 1 7em;min-width:0;height:var(--ds-compact-height);padding:0 6px;font-size:var(--ds-text-button)}
+.wd-stage-select{flex:1 1 6em;min-width:0;height:var(--ds-compact-height);padding:0 6px;font-size:var(--ds-text-button)}
 .wd-stage-date{flex:0 0 auto;width:9.5em;height:var(--ds-compact-height);padding:0 6px;font-size:var(--ds-text-button)}
 .wd-stage-btn{position:relative;flex:0 0 auto;height:var(--ds-compact-height);min-height:0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-text-button)}
 .wd-stage-btn::after{content:"";position:absolute;inset:-6px 0}
@@ -139,7 +138,7 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 .wd-stage-hist{flex:1 0 100%;color:var(--kptu-muted)}.wd-stage-hist summary{cursor:pointer}.wd-stage-hist div{padding:1px 0 0 10px}
 /* ORG-쟁의단계 다듬기(2026-10-24 11:05): 저장 줄의 작은 [~ 끝 날짜]와 끝 날짜 칸, 이력 줄 ⋯ → 고치기·지우기. 새 요소만, 크기는 기존 토큰. */
 .wd-stage-tilde{flex:0 0 auto;color:var(--kptu-muted)}
-.wd-stage-end-btn{position:relative;flex:0 0 auto;height:var(--ds-compact-height-sm);min-height:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font-size:var(--ds-text-meta);cursor:pointer}
+.wd-stage-end-btn{position:relative;flex:0 0 auto;white-space:nowrap;height:var(--ds-compact-height-sm);min-height:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font-size:var(--ds-text-meta);cursor:pointer}
 .wd-stage-end-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 .wd-stage-hist .wd-stage-hrow{padding:0 0 0 10px}
 .wd-stage-hline{display:flex;align-items:center;gap:6px;min-height:var(--ds-compact-height-sm)}
@@ -213,28 +212,37 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 /* DESK-현황표: 쟁의 단계 줄 아래 소탭 [기록 | 현황 표](.wd-tabs 모양 그대로)와 현황 표. 작고 낮은 버튼, 톤다운 */
 .wd-subtabs{margin:0 0 10px}
 .wd-st{font-size:var(--ds-text-row)}
+.wd-st{--st-w-day:6.4em;position:relative}
 .wd-st-table{width:100%;border-collapse:collapse;table-layout:fixed}
 .wd-st-table th,.wd-st-table td{padding:6px 4px;border-bottom:1px solid var(--kptu-border);text-align:left;vertical-align:top;font-weight:400;line-height:1.45}
-.wd-st-table thead th{padding-top:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-.wd-st-day{width:6.2em;white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+.wd-st-table thead th{position:relative;padding-top:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+/* 일 칸: 폭을 끌어 바꾼다(col_widths.orgst, 서버 기억). 날짜('10.29.(목)')는 한 줄. 줄 손잡이 역할이라 PC에서 잡으면 끌린다. */
+.wd-st-day{width:var(--st-w-day);white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+.wd-st-day-text{display:inline-block}
 .wd-st-body{overflow-wrap:anywhere;color:var(--kptu-ink)}
-.wd-st-tools,.wd-st-table .wd-st-tools{width:6.6em;text-align:right;white-space:nowrap}
-.wd-st-btn{position:relative;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:none;color:var(--kptu-ink);font-size:var(--ds-text-meta);font-weight:500}
+.wd-st-text{display:inline;cursor:text}
+.wd-st-text[role="button"]:hover{background:var(--kptu-surface-subtle)}
+.wd-st-text[role="button"]:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+/* 버튼 크기 통일(요청함 11/03 07:49): 빼기·취소·저장·+ 줄 추가·다시 채우기가 모두 같은 높이·같은 글자. 저장만 색으로 구분한다. */
+.wd-st-btn,.wd-st-btn.primary{box-sizing:border-box;position:relative;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:none;color:var(--kptu-ink);font-size:var(--ds-text-meta);font-weight:500;line-height:1}
 .wd-st-btn::after{content:"";position:absolute;inset:-8px -2px}
+/* 화면 공용 채운 버튼 규칙(ui-standard.css '#appView :is(#teamView,…) button.primary')이 [저장]만 더 키우므로, 담당조직 안에서는 이 표의 버튼 높이로 맞춘다. */
+#appView #teamView .wd-st button.wd-st-btn,#appView #teamView .wd-st button.wd-st-btn.primary{box-sizing:border-box;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;line-height:1}
 .wd-st-btn.primary{background:var(--kptu-ink);border-color:var(--kptu-ink);color:var(--kptu-on-primary)}
-.wd-st-grip{padding:0 6px;border-color:transparent;color:var(--kptu-muted);cursor:grab;touch-action:none}
-.wd-st-tools .wd-st-btn+.wd-st-btn{margin-left:2px}
 .wd-st-tag{margin-left:6px;padding:0 4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);color:var(--kptu-muted);font-size:10.5px;vertical-align:1px}
 .wd-st-ev{margin-top:2px;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
 .wd-st-ev>summary{cursor:pointer;width:max-content}
 .wd-st-ev ul{margin:2px 0 0;padding-left:14px}
 .wd-st-older{margin-top:4px}.wd-st-older>summary{cursor:pointer;padding:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-.wd-st-bar{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.wd-st-bar{margin-top:8px}
 .wd-st-note{margin:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .wd-st-status{margin:2px 0 0;min-height:1em;color:var(--kptu-muted);font-size:var(--ds-text-meta)}.wd-st-status:empty{display:none}.wd-st-status.is-error{color:var(--kptu-danger)}
-.wd-st-form{display:grid;grid-template-columns:9.5em minmax(0,1fr);gap:6px 8px;align-items:end}
+/* 고치기 칸: 일 + 여러 줄 글 칸(글 길이만큼 늘어남). 키보드가 올라와도 칸·[저장]이 가려지지 않게 아래 여백(scroll-margin). */
+.wd-st-form{display:grid;grid-template-columns:minmax(0,1fr);gap:6px 8px;align-items:start;scroll-margin-bottom:45vh}
+.wd-st-edit{scroll-margin-bottom:45vh}
 .wd-st-form label{display:grid;gap:2px;min-width:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
 .wd-st-form input{width:100%;min-width:0;height:var(--ds-compact-height);padding:0 6px;font-size:var(--ds-text-row)}
-.wd-st-actions{grid-column:1/-1;display:flex;gap:6px;justify-content:flex-end}.wd-st-del{margin-right:auto}
-.wd-st-table tr.re-dragging{opacity:.5}.wd-st-table tr.re-drop-before>td{border-top:2px solid var(--kptu-ink)}
-@media(max-width:650px){.wd-st-form{grid-template-columns:minmax(0,1fr)}.wd-st-day{width:5.6em}}
+.wd-st-form textarea{box-sizing:border-box;width:100%;min-width:0;min-height:calc(2 * 1.45em + 10px);padding:4px 6px;font:inherit;font-size:var(--ds-text-row);line-height:1.45;resize:none;overflow:hidden}
+.wd-st-f-days{display:flex;align-items:flex-end;gap:6px;min-width:0}.wd-st-f-days .wd-st-f-day{flex:1 1 0;min-width:0;max-width:11em}.wd-st-f-tilde{padding-bottom:6px;color:var(--kptu-muted)}
+.wd-st-actions{grid-column:1/-1;justify-content:flex-end}.wd-st-del{margin-right:auto}
+@media(max-width:650px){.wd-st{--st-w-day:5.6em}}

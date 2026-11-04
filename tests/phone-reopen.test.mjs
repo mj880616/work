@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {navTarget, parseReopenList, entryText, startReopen, mountReopenBook, KIND_LABEL} from '../app/phone-reopen.js';
+import {navTarget, parseReopenList, entryText, startReopen, KIND_LABEL} from '../app/phone-reopen.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -81,29 +81,6 @@ test('다시 연 기록 글: 종류·시각만, 모르는 종류는 버리고 �
   const kinds = [...kt.matchAll(/^\s+"([a-z]+)",\s+\/\//gm)].map(m => m[1]);
   assert.ok(kinds.length >= 10);
   for (const kind of [...kinds, 'web', 'login']) assert.ok(kind in KIND_LABEL, kind);
-});
-
-test('다시 연 기록 칸: 앱에서만, 펼칠 때 묻고 답을 그린다', () => {
-  assert.equal(mountReopenBook({}, {navigator: {userAgent: 'Chrome'}}), null);
-  const sent = [], listeners = [];
-  const items = [];
-  const list = {replaceChildren: (...xs) => { items.splice(0, items.length, ...xs.map(x => x.textContent)); }, set innerHTML(v) { items.splice(0, items.length, v); }};
-  let toggle = null;
-  const details = {addEventListener: (t, fn) => { toggle = fn; }};
-  const host = {set innerHTML(v) { this.html = v; }, querySelector: sel => (sel === 'details' ? details : list)};
-  const win = {
-    navigator: {userAgent: 'KPTUAndroid/0.4.5'},
-    document: {createElement: () => ({textContent: ''})},
-    KPTUAppShell: {postMessage: m => sent.push(m), addEventListener: (t, fn) => listeners.push(fn)},
-  };
-  assert.ok(mountReopenBook(host, win));
-  assert.match(host.html, /<details class="ps-reopen">/);
-  assert.deepEqual(sent, [], '접힌 채로는 묻지 않는다');
-  toggle({target: {open: true}});
-  assert.deepEqual(sent, ['reopen:list']);
-  listeners.forEach(fn => fn({data: 'reopen:list:restore@1761955200000'}));
-  assert.equal(items.length, 1);
-  assert.match(items[0], /밖에서 꺼졌다 복원$/);
 });
 
 test('웹이 스스로 다시 열 때는 까닭을 앱에 먼저 알린다(로그인 확인·잠금 순서는 그대로)', () => {

@@ -73,7 +73,7 @@ async function openPhotos(page) {
 }
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));
 const sw = (page, path) => page.locator(`#photosRoot [data-photos-pf-sw="ph:${path}"]`);
-const BASE = { photo_sources: { onedrive: false, phone: true } };
+const BASE = { photo_sources_phone: { onedrive: false, phone: true } };
 
 test.describe('폰 앱 412', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });

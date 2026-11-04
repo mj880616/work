@@ -1,7 +1,7 @@
 // TODO-이미함·환류 5절: 챙길 것 결과 기록(app_todo_feedback)으로 만드는 '주 1회 비율' 한 줄. 순수 함수만 둔다(읽기는 todo-radar-data.js).
 // 주는 한국 날짜 월~일. 지난주와 그 전 주를 세고, 가장 많이 바뀐 결과 하나만 '+n%p / −n%p'로 비교한다(5%p 미만이면 '비슷').
-export const OUTCOME_ORDER = Object.freeze(['tasked', 'done', 'dismissed', 'not_mine']);
-export const OUTCOME_LABEL = Object.freeze({tasked:'할 일로', done:'이미 함', dismissed:'무시', not_mine:'내 일 아님'});
+export const OUTCOME_ORDER = Object.freeze(['tasked', 'already_tasked', 'done', 'dismissed', 'not_mine']);
+export const OUTCOME_LABEL = Object.freeze({tasked:'할 일로', already_tasked:'이미 할 일에 있음', done:'이미 함', dismissed:'무시', not_mine:'내 일 아님'});
 export const CHANGE_MIN = 5;
 const DAY_MS = 86400000, KST_MS = 9 * 3600000;
 
@@ -15,7 +15,7 @@ export function weekBounds(now = new Date()) {
 }
 
 export function countWeek(rows, from, to) {
-  const counts = {tasked:0, done:0, dismissed:0, not_mine:0}, a = Date.parse(from), b = Date.parse(to);
+  const counts = Object.fromEntries(OUTCOME_ORDER.map(k => [k, 0])), a = Date.parse(from), b = Date.parse(to);
   for (const r of rows || []) {
     const at = Date.parse(r?.created_at);
     if (Object.hasOwn(counts, r?.outcome) && at >= a && at < b) counts[r.outcome]++;

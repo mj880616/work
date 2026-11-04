@@ -1,9 +1,11 @@
 // FILES-클라우드탐색기 ④ E2E 공용 흉내 서버(파일 화면). 파일·폴더 이름과 id는 모두 가짜.
-// 색인 읽기 함수(app_cloud_list·app_cloud_trail·app_cloud_find)와 Edge cloud-files(status·sync·thumb·media·preview·open-url,
-// S48-45 쓰기 rename·mkdir·move·trash·across)를 흉내 낸다.
+// 색인 읽기 함수(app_cloud_list·app_cloud_trail·app_cloud_find_in(켜진 출처만, S49-26)·옛 app_cloud_find)와 Edge cloud-files(status·sync·folder·thumb·media·preview·open-url,
+// S48-45 쓰기 rename·mkdir·move·trash·across, S49-27 copy, S49-28 전송 작업표 job_add·job_list·job_pause·job_resume)를 흉내 낸다.
+// 작업표: job_list를 부를 때마다 가장 오래된 줄이 한 걸음 나아간다(작은 것은 끝, 큰 것(big)은 40%씩). jobsHold면 멈춰 있고, jobFail이면 첫 줄이 그 까닭으로 한 번 실패.
 import { expect } from '@playwright/test';
 import { openHome } from './home-entry.mjs';
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+export const UPLOAD_HOST = 'https://upload.example.test';
 // 시계는 2026-10-06 10:00 서울(home-entry.mjs).
 const item = o => ({ parent_id: null, is_folder: false, mime: null, size_bytes: 1000, modified_at: '2026-10-01T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null, ...o });
 export const ITEMS = () => [
@@ -36,7 +38,25 @@ export function fakePdf() {
 }
 
 export async function filesServer(page, { connected = { od: true, gd: true } } = {}) {
-  const server = { items: ITEMS(), calls: [], pendingSync: null };
+  // findFail: {status, message} — 찾기·묶음 읽기를 그 오류로 실패시킨다(서버 시간 초과 흉내 등).
+  const server = { items: ITEMS(), calls: [], pendingSync: null, directItems: [], findFail: null, jobs: [], jobSeq: 0, jobsHold: false, jobFail: '',
+    slots: {}, upChunk: 4, slotHold: false, puts: [] };
+  // 흉내 클라우드 이어 올리기 자리(브라우저가 조각을 직접 보냄, CORS 머리 포함). slotHold면 조각 응답을 붙잡아 둔다(멈춤·숨김 시험).
+  await page.route(UPLOAD_HOST + '/**', async route => {
+    const req = route.request(), cors = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'PUT', 'access-control-allow-headers': 'content-range' };
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    const slot = server.slots[req.url()];
+    const range = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(req.headers()['content-range'] || '');
+    server.puts.push({ url: req.url(), range: req.headers()['content-range'] || '', auth: req.headers().authorization || '' });
+    if (!slot || !range) return route.fulfill({ status: 404, headers: cors });
+    while (server.slotHold) await new Promise(r => setTimeout(r, 50));
+    if (Number(range[1]) !== slot.bytes) return route.fulfill({ status: 400, headers: cors });
+    slot.bytes = Number(range[2]) + 1;
+    // 화면이 조각을 멈춰(abort) 응답을 받을 곳이 없으면 그대로 둔다(클라우드는 받은 만큼 기억).
+    const reply = o => route.fulfill(o).catch(() => {});
+    if (slot.bytes < slot.size) return reply({ status: 308, headers: cors });
+    return reply({ status: 201, headers: cors, contentType: 'application/json', body: JSON.stringify({ id: 'cloudNew' + (Object.keys(server.slots).indexOf(req.url()) + 1) }) });
+  });
   const trail = (source, id) => {
     const out = [];
     let cur = server.items.find(i => i.source === source && i.item_id === id), depth = 0;
@@ -54,6 +74,13 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
       const a = body?.action;
       if (a === 'status') return ok({ ok: true, od: { connected: connected.od, scanning: false, synced_at: '2026-10-06T00:59:00Z', index_done_at: '2026-10-01T00:00:00Z', error: null }, gd: { connected: connected.gd, scanning: false, synced_at: '2026-10-06T00:58:00Z', index_done_at: '2026-10-01T00:00:00Z', error: null } });
       if (a === 'sync') { const d = server.pendingSync || { changed: [], removed: [] }; server.pendingSync = null; return ok({ ok: true, od: { fresh: true }, gd: { fresh: true }, reload: false, ...d }); }
+      // S48-65 폴더 바로 읽기: 색인에 없는 줄(server.directItems 중 그 폴더 것)을 색인에 합치고 새로 찾은 수를 돌려준다.
+      if (a === 'folder') {
+        const here = server.directItems.filter(i => i.source === body.source && (i.parent_id ?? null) === (body.id ?? null));
+        const fresh = here.filter(i => !server.items.some(x => x.source === i.source && x.item_id === i.item_id));
+        server.items.push(...fresh);
+        return ok({ ok: true, found: here.length, added: fresh.length, truncated: false, changed: fresh.map(view), reload: false });
+      }
       if (a === 'thumb') return route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
       if (a === 'preview') return route.fulfill({ status: 200, contentType: 'application/pdf', body: fakePdf() });
       if (a === 'media') {
@@ -62,13 +89,111 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
         return route.fulfill({ status: 200, contentType: 'application/pdf', body: fakePdf() });
       }
       if (a === 'open-url') return ok({ ok: true, url: 'https://example.org/fake-open' });
+      if (['job_add', 'job_list', 'job_pause', 'job_resume'].includes(a)) {
+        if (a !== 'job_list' && body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);
+        const find = (src, id) => server.items.find(i => i.source === src && i.item_id === id && !i.trashed);
+        const taken = (src, parent) => server.items.filter(i => i.source === src && (i.parent_id ?? null) === (parent ?? null) && !i.trashed).map(i => i.name);
+        const numbered = (name, list) => { if (!list.some(n => n.toLowerCase() === name.toLowerCase())) return name; const m = /^(.*?)(\.[A-Za-z0-9]{1,10})?$/.exec(name); for (let i = 2; ; i++) { const n = `${m[1]} (${i})${m[2] || ''}`; if (!list.some(x => x.toLowerCase() === n.toLowerCase())) return n; } };
+        const view = j => { const { _failed, ...v } = j; return v; };
+        const list = () => [...server.jobs].reverse().map(view);
+        if (a === 'job_add') {
+          const made = body.items.map(it => {
+            const src = find(it.source, it.id), seq = ++server.jobSeq;
+            const big = it.source !== body.to_source && src.size_bytes > 200 * 1024 * 1024;
+            const j = { id: `b0000000-0000-4000-8000-${String(seq).padStart(12, '0')}`, kind: body.kind, origin: 'cloud', src_source: it.source, src_id: it.id, dest_source: body.to_source, dest_parent: body.to ?? null,
+              name: src.name, result_name: null, same_name: it.skip ? 'skipped' : it.numbered ? 'numbered' : null, is_folder: !!src.is_folder, size_bytes: src.size_bytes, big: big && !!it.big,
+              status: it.skip ? 'skipped' : big && !it.big ? 'failed' : 'queued', sent_bytes: 0, result_item_id: null, kept_original: false, error_code: big && !it.big ? 'big_not_confirmed' : null,
+              created_at: `2026-10-06T01:00:${String(seq).padStart(2, '0')}Z`, finished_at: null };
+            server.jobs.push(j); return view(j);
+          });
+          return ok({ ok: true, jobs: made.reverse() });
+        }
+        if (a === 'job_list') {
+          const j = server.jobsHold ? null : server.jobs.find(x => x.origin !== 'device' && (x.status === 'queued' || x.status === 'running'));
+          if (j && server.jobFail && !j._failed) { j._failed = true; j.status = 'failed'; j.error_code = server.jobFail; }
+          else if (j) {
+            j.status = 'running';
+            if (j.big) j.sent_bytes = Math.min(j.size_bytes, j.sent_bytes + Math.ceil(j.size_bytes * 0.4));
+            if (!j.big || j.sent_bytes >= j.size_bytes) {
+              const it = find(j.src_source, j.src_id), seq = ++server.copySeqJ || (server.copySeqJ = 1);
+              const copy = item({ ...view(it), source: j.dest_source, item_id: j.dest_source === 'od' ? 'OD!J' + server.jobSeq + j.id.slice(-2) : 'gdJob' + j.id.slice(-2), parent_id: j.dest_parent, name: numbered(it.name, taken(j.dest_source, j.dest_parent)), trashed: false, starred: false });
+              server.items.push(copy);
+              if (j.kind === 'move') it.trashed = true;
+              Object.assign(j, { status: 'done', sent_bytes: j.size_bytes ?? 0, result_item_id: copy.item_id, result_name: copy.name, finished_at: '2026-10-06T01:01:00Z' });
+              void seq;
+            }
+          }
+          return ok({ ok: true, jobs: list() });
+        }
+        const pick = x => body.all === true || (body.ids || []).includes(x.id);
+        const changed = [];
+        for (const x of server.jobs) {
+          if (!pick(x)) continue;
+          if (a === 'job_pause' && ['queued', 'running'].includes(x.status)) { x.status = 'paused'; changed.push(view(x)); }
+          if (a === 'job_resume' && ['paused', 'failed'].includes(x.status)) { x.status = 'queued'; x.error_code = null; changed.push(view(x)); }
+        }
+        return ok({ ok: true, jobs: changed });
+      }
+      // S49-33 올리기(기기 → 클라우드): 서버는 자리(흉내 주소 UPLOAD_HOST/slot/N)만 열어 주고 화면이 조각을 직접 보낸다. 별표 켜고 끄기.
+      if (['upload_open', 'upload_resume', 'upload_progress', 'upload_done', 'star'].includes(a)) {
+        if (body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);
+        const view = j => { const { _slot, ...v } = j; return v; };
+        const taken = (src, parent) => server.items.filter(i => i.source === src && (i.parent_id ?? null) === (parent ?? null) && !i.trashed).map(i => i.name);
+        const numbered = (name, list) => { if (!list.some(n => n.toLowerCase() === name.toLowerCase())) return name; const m = /^(.*?)(\.[A-Za-z0-9]{1,10})?$/.exec(name); for (let i = 2; ; i++) { const n = `${m[1]} (${i})${m[2] || ''}`; if (!list.some(x => x.toLowerCase() === n.toLowerCase())) return n; } };
+        if (a === 'star') {
+          for (const id of body.ids) { const it = server.items.find(i => i.source === body.source && i.item_id === id); if (it) it.starred = body.on; }
+          return ok({ ok: true, source: body.source, ids: body.ids, starred: body.on });
+        }
+        if (a === 'upload_open') {
+          if (body.size > 200 * 1024 * 1024 && !body.big) return ok({ ok: false, error: 'big_not_confirmed' }, 400);
+          const seq = ++server.jobSeq, nm = numbered(body.name, taken(body.to_source, body.to));
+          const url = `${UPLOAD_HOST}/slot/${seq}`;
+          server.slots[url] = { bytes: 0, size: body.size, puts: 0 };
+          const j = { id: `b0000000-0000-4000-8000-${String(seq).padStart(12, '0')}`, kind: 'copy', origin: 'device', src_source: 'dev', src_id: null, dest_source: body.to_source, dest_parent: body.to ?? null,
+            name: body.name, result_name: nm, same_name: nm !== body.name ? 'numbered' : null, is_folder: false, size_bytes: body.size, big: body.size > 200 * 1024 * 1024,
+            status: 'queued', sent_bytes: 0, result_item_id: null, kept_original: false, error_code: null, created_at: `2026-10-06T01:00:${String(seq).padStart(2, '0')}Z`, finished_at: null, _slot: url };
+          server.jobs.push(j);
+          return ok({ ok: true, job: view(j), upload: { url, offset: 0, chunk: server.upChunk } });
+        }
+        const j = server.jobs.find(x => x.id === body.id && x.origin === 'device');
+        if (!j) return ok({ ok: false, error: 'job_not_found' }, 404);
+        if (a === 'upload_resume') {
+          if (body.name !== j.name || body.size !== j.size_bytes) return ok({ ok: false, error: 'file_mismatch' }, 409);
+          j.status = 'running'; j.error_code = null;
+          const slot = server.slots[j._slot];
+          j.sent_bytes = slot.bytes;
+          return ok({ ok: true, job: view(j), upload: { url: j._slot, offset: slot.bytes, chunk: server.upChunk } });
+        }
+        if (a === 'upload_progress') {
+          if (j.status !== 'running') return ok({ ok: true, job: view(j) });
+          if (body.error) Object.assign(j, { status: 'failed', error_code: body.error }); else j.sent_bytes = body.sent;
+          return ok({ ok: true, job: view(j) });
+        }
+        if (a === 'upload_done') {
+          const it = item({ source: j.dest_source, item_id: j.dest_source === 'od' ? 'OD!U' + j.id.slice(-2) : 'gdUp' + j.id.slice(-2), parent_id: j.dest_parent, name: j.result_name, size_bytes: j.size_bytes, modified_at: '2026-10-06T01:00:00Z' });
+          server.items.push(it);
+          Object.assign(j, { status: 'done', sent_bytes: j.size_bytes, result_item_id: it.item_id, finished_at: '2026-10-06T01:01:00Z' });
+          server.doneBody = body;
+          return ok({ ok: true, job: view(j), changed: [it] });
+        }
+      }
       // S48-45 쓰기: confirm:true 없으면 거절(서버와 같음). 결과는 바뀐 줄·지운 줄.
-      if (['rename', 'mkdir', 'move', 'trash', 'across'].includes(a)) {
+      if (['rename', 'mkdir', 'move', 'trash', 'across', 'copy'].includes(a)) {
         if (body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);
         const find = (src, id) => server.items.find(i => i.source === src && i.item_id === id && !i.trashed);
         if (a === 'rename') { const it = find(body.source, body.id); if (server.items.some(i => i !== it && i.source === it.source && i.parent_id === it.parent_id && i.name === body.name)) return ok({ ok: false, error: 'name_taken' }, 409); it.name = body.name; return ok({ ok: true, changed: [view(it)], removed: [] }); }
         if (a === 'mkdir') { const it = item({ source: body.source, item_id: body.source === 'od' ? 'OD!90' : 'gdNew90', parent_id: body.parent ?? null, name: body.name, is_folder: true, size_bytes: null }); server.items.push(it); return ok({ ok: true, changed: [view(it)], removed: [] }); }
-        if (a === 'move') { const changed = body.ids.map(id => { const it = find(body.source, id); it.parent_id = body.to ?? null; return view(it); }); return ok({ ok: true, changed, removed: [], failed: [], left: [] }); }
+        // 같은 이름: copy·across는 늘, move는 numbered:true일 때 번호를 붙인다(Edge와 같은 규칙, 공용 numberedName).
+        const taken = (src, parent) => server.items.filter(i => i.source === src && (i.parent_id ?? null) === (parent ?? null) && !i.trashed).map(i => i.name);
+        const numbered = (name, list) => { if (!list.some(n => n.toLowerCase() === name.toLowerCase())) return name; const m = /^(.*?)(\.[A-Za-z0-9]{1,10})?$/.exec(name); for (let i = 2; ; i++) { const n = `${m[1]} (${i})${m[2] || ''}`; if (!list.some(x => x.toLowerCase() === n.toLowerCase())) return n; } };
+        if (a === 'move') { const changed = body.ids.map(id => { const it = find(body.source, id); if (body.numbered && (it.parent_id ?? null) !== (body.to ?? null)) it.name = numbered(it.name, taken(body.source, body.to)); it.parent_id = body.to ?? null; return view(it); }); return ok({ ok: true, changed, removed: [], failed: [], left: [] }); }
+        if (a === 'copy') {
+          if (server.copyDelayMs) await new Promise(r => setTimeout(r, server.copyDelayMs));
+          const it = find(body.source, body.id), dest = body.to_source || body.source;
+          server.copySeq = (server.copySeq || 0) + 1;
+          const copy = item({ ...view(it), source: dest, item_id: dest === 'od' ? 'OD!C' + server.copySeq : 'gdCopy' + server.copySeq, parent_id: body.to ?? null, name: numbered(it.name, taken(dest, body.to)), trashed: false, starred: false });
+          server.items.push(copy); return ok({ ok: true, changed: [view(copy)], removed: [] });
+        }
         if (a === 'trash') { for (const id of body.ids) find(body.source, id).trashed = true; return ok({ ok: true, changed: [], removed: body.ids.map(id => ({ source: body.source, id })), failed: [], left: [] }); }
         if (a === 'across') { const it = find(body.source, body.id); it.trashed = true; const copy = item({ ...view(it), source: body.to_source, item_id: body.to_source === 'od' ? 'OD!91' : 'gdNew91', parent_id: body.to ?? null, trashed: false }); server.items.push(copy); return ok({ ok: true, changed: [view(copy)], removed: [{ source: body.source, id: body.id }], kept_original: false }); }
       }
@@ -89,7 +214,12 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
         .map(i => ({ ...view(i), child_count: i.is_folder ? live.filter(c => c.source === i.source && c.parent_id === i.item_id && !c.is_folder).length : null })));
     }
     if (name === 'app_cloud_trail') return ok(trail(body.p_source, body.p_item_id));
-    if (name === 'app_cloud_find') {
+    if (name === 'app_cloud_find' || name === 'app_cloud_find_in') {
+      if (server.findFail) return ok({ code: '57014', message: server.findFail.message }, server.findFail.status);
+      // 새 함수는 켜진 출처(p_sources)만 서버가 거른다. 옛 함수는 두 출처 모두.
+      const srcs = name === 'app_cloud_find_in' ? body.p_sources : ['od', 'gd'];
+      if (!Array.isArray(srcs) || srcs.some(x => !['od', 'gd'].includes(x))) return ok({ code: '22023', message: 'CLOUD_FIND_BAD_SOURCES' }, 400);
+      const live = server.items.filter(i => !i.trashed && srcs.includes(i.source));
       let rows;
       if (body.p_query) {
         const words = body.p_query.split(' ');
@@ -112,11 +242,20 @@ export async function start(page, width, opts) {
   const server = await filesServer(page, opts);
   return { errors, server };
 }
-export async function openFiles(page, width) {
+// S49-30: 폴드 펼침(761~1199)은 기본이 두 칸(명진 결정 H-2). 한 칸 화면을 보는 시험은 위 줄 [두 칸]을 눌러 끈 뒤 시작한다({two: true}면 두 칸 그대로).
+export async function openFiles(page, width, { two = false } = {}) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav button:visible', { hasText: '파일' }).click();
   } else await page.locator('#appView>.app-nav').getByRole('button', { name: '파일', exact: true }).click();
   await expect(page.locator('#filesView')).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('files');
+  if (width > 760 && width < 1200 && !two) {
+    const btn = page.locator('#filesRoot [data-fx-two]');
+    await expect(btn).toBeVisible();
+    // 서버에 '끔'이 이미 기억돼 있으면(다시 열기) 그대로 둔다.
+    if (await btn.getAttribute('aria-pressed') === 'true') await btn.click();
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(0);
+  }
 }

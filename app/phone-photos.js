@@ -11,12 +11,14 @@
 // - PHOTO-갤러리편집(앱 0.4.6+, 상태에 edit): 'photos:edit:{id}|{name,size,taken}' = 삼성 갤러리 편집기(없으면 고르기 창)로 넘김
 //   → 'photos:edited:{ok,changed,error}'. 폰에 없는 사진은 'photos:save:begin|part|end'로 원본 바이트를 Pictures/웹2에 한 장 저장한 뒤 그 번호로 편집.
 // - S48-17 [폰으로 되돌리기](앱 0.4.11+, 상태에 restore): 같은 save 길의 begin에 dir(원래 폰 폴더)·taken(원래 찍은 시각 ms)을 붙인다(동영상도).
+// - S48-60 PHOTO-정보고치기(앱 0.4.15+, 상태에 meta): 'photos:meta:read:[번호]' → 'photos:meta:{ok,items,error}'(찍은 시각·위치·카메라·렌즈),
+//   'photos:meta:write:{items:[{id,taken?,loc?}]}' → 수정 허락 창 한 번 → 'photos:metadone:{ok,count,failed,error}'(파일 EXIF + 사진첩 DATE_TAKEN).
 import {phoneToItem, phoneFailure} from './photo-sources-model.mjs';
 import {slotImg} from './img-slot.js';
 import {holdPhotoMaker} from './photo-share.js';
 
 const BRIDGE = 'KPTUAppShell';
-const HELLO_MS = 1500, TRASH_MS = 120000, OP_MS = 180000, HIDE_MAX = 80;
+const HELLO_MS = 1500, TRASH_MS = 120000, OP_MS = 180000, HIDE_MAX = 80, META_READ_MS = 30000, META_WRITE_MS = 180000, META_MAX = 200;
 // 편집기에 머무는 시간(넉넉히 2시간), 받기 한 걸음 대기, 한 조각 바이트(base64로 512KB — 앱 한도 안), 받는 사진 한도(앱과 같게).
 const EDIT_MS = 2 * 60 * 60 * 1000, SAVE_STEP_MS = 30000, SAVE_PART = 384 * 1024, SAVE_MAX = 60 * 1024 * 1024;
 const SAVE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'];
@@ -27,8 +29,8 @@ export function createPhonePhotos(win = globalThis.window) {
   const ua = /KPTUAndroid/i.test(win?.navigator?.userAgent || '');
   const bridge = win?.[BRIDGE];
   const usable = ua && !!bridge && typeof bridge.postMessage === 'function' && typeof bridge.addEventListener === 'function';
-  let state = {known:false, access:'none', key:'', trash:false, hide:false, ops:false, manage:false, edit:false, restore:false};
-  let helloWait = null, trashWait = null, opWait = null, editWait = null, saveWait = null;
+  let state = {known:false, access:'none', key:'', trash:false, hide:false, ops:false, manage:false, edit:false, restore:false, meta:false};
+  let helloWait = null, trashWait = null, opWait = null, editWait = null, saveWait = null, metaWait = null, metaDoneWait = null;
   const listeners = new Set();
   const send = t => { try { bridge.postMessage(t); return true; } catch { return false; } };
   if (usable) {
@@ -39,7 +41,7 @@ export function createPhonePhotos(win = globalThis.window) {
         const access = ['full', 'partial', 'none'].includes(v?.access) ? v.access : 'none';
         const key = access !== 'none' && /^[A-Za-z0-9_-]{22,64}$/.test(v?.key || '') ? v.key : '';
         const changed = !state.known || state.access !== access || state.key !== key || state.manage !== (v?.manage === true);
-        state = {known:true, access:key ? access : 'none', key, trash:v?.trash === true, hide:v?.hide === true, ops:v?.hide === true && v?.ops === true, manage:v?.manage === true, edit:v?.edit === true, restore:v?.restore === true};
+        state = {known:true, access:key ? access : 'none', key, trash:v?.trash === true, hide:v?.hide === true, ops:v?.hide === true && v?.ops === true, manage:v?.manage === true, edit:v?.edit === true, restore:v?.restore === true, meta:v?.meta === true};
         helloWait?.(state); helloWait = null;
         if (changed) listeners.forEach(fn => { try { fn(state); } catch { /* 한 곳 실패가 다른 곳을 막지 않게 */ } });
       } else if (d.startsWith('photos:trashed:')) {
@@ -54,6 +56,15 @@ export function createPhonePhotos(win = globalThis.window) {
         let v = null; try { v = JSON.parse(d.slice('photos:save:'.length)); } catch { v = null; }
         const w = saveWait; saveWait = null;
         w?.({ok:v?.ok === true, step:String(v?.step || ''), id:/^\d{1,18}$/.test(v?.id || '') ? v.id : '', error:typeof v?.error === 'string' ? v.error.slice(0, 20) : 'failed'});
+      } else if (d.startsWith('photos:meta:')) {
+        let v = null; try { v = JSON.parse(d.slice('photos:meta:'.length)); } catch { v = null; }
+        const w = metaWait; metaWait = null;
+        w?.({ok:v?.ok === true, items:metaItems(v?.items), error:typeof v?.error === 'string' ? v.error.slice(0, 20) : 'failed'});
+      } else if (d.startsWith('photos:metadone:')) {
+        let v = null; try { v = JSON.parse(d.slice('photos:metadone:'.length)); } catch { v = null; }
+        const w = metaDoneWait; metaDoneWait = null;
+        w?.({ok:v?.ok === true, count:Number.isInteger(v?.count) ? v.count : 0, failed:(Array.isArray(v?.failed) ? v.failed : []).map(String).filter(x => /^\d{1,18}$/.test(x)).slice(0, META_MAX),
+          error:typeof v?.error === 'string' ? v.error.slice(0, 20) : ''});
       } else if (d.startsWith('photos:done:')) {
         let v = null; try { v = JSON.parse(d.slice('photos:done:'.length)); } catch { v = null; }
         const w = opWait; opWait = null;
@@ -107,6 +118,17 @@ export function createPhonePhotos(win = globalThis.window) {
     }
     r = await step('photos:save:end');
     return r.ok && r.id ? {ok:true, id:r.id, error:''} : {ok:false, id:'', error:r.error || 'failed'};
+  }
+  // 답 하나 기다리기(앞 기다림은 busy로 끝낸다). 시간이 지나거나 보내지 못하면 fail.
+  function waitOne(get, set, text, ms, fail, busy) {
+    get()?.(busy);
+    return new Promise(resolve => {
+      let timer = null;
+      const ok = v => { clearTimeout(timer); resolve(v); };
+      set(ok);
+      timer = setTimeout(() => { if (get() === ok) { set(null); ok(fail); } }, ms);
+      if (!send(text)) { set(null); ok(fail); }
+    });
   }
   const api = {
     get usable() { return usable; },
@@ -232,6 +254,21 @@ export function createPhonePhotos(win = globalThis.window) {
       const t = Date.parse(taken || '');
       return saveBytes(blob, {name:String(name || '').slice(0, 255), mime:type, size:blob.size, dir:String(dir || '').slice(0, 255), ...(Number.isFinite(t) && t > 0 ? {taken:t} : {})});
     },
+    // S48-60: 이 앱이 [정보 고치기]를 안다(0.4.15+). PC·브라우저·옛 앱은 false.
+    canMeta: () => usable && state.known && state.meta,
+    // 찍은 시각·위치·카메라·렌즈 읽기(200장까지) → {ok, items:[{id, taken, lat, lon, make, model, lens, can}], error}.
+    metaRead(ids) {
+      const want = [...new Set((ids || []).map(String).filter(id => /^\d{1,18}$/.test(id)))].slice(0, META_MAX);
+      if (!api.canMeta() || !want.length) return Promise.resolve({ok:false, items:[], error:'old'});
+      return waitOne(() => metaWait, f => { metaWait = f; }, 'photos:meta:read:' + JSON.stringify(want), META_READ_MS, {ok:false, items:[], error:'failed'}, {ok:false, items:[], error:'busy'});
+    },
+    // 고치기(파일 EXIF + 사진첩 DATE_TAKEN). items = [{id, taken?(ms), loc?:{lat,lon}|null}] → {ok, count, failed:[번호], error}.
+    metaWrite(items) {
+      const list = (items || []).filter(x => /^\d{1,18}$/.test(String(x?.id || ''))).slice(0, META_MAX).map(x => ({id:String(x.id),
+        ...(Number.isFinite(x.taken) ? {taken:Math.round(x.taken)} : {}), ...('loc' in x ? {loc:x.loc ? {lat:x.loc.lat, lon:x.loc.lon} : null} : {})}));
+      if (!api.canMeta() || !list.length) return Promise.resolve({ok:false, count:0, failed:[], error:'old'});
+      return waitOne(() => metaDoneWait, f => { metaDoneWait = f; }, 'photos:meta:write:' + JSON.stringify({items:list}), META_WRITE_MS, {ok:false, count:0, failed:[], error:'failed'}, {ok:false, count:0, failed:[], error:'busy'});
+    },
     // '미디어 관리 허용' 설정 화면 열기(돌아오면 앱이 상태를 다시 알린다).
     manage: () => (usable && state.ops ? send('photos:manage') : false),
     // 사진 칸 하나(odPhotoElement와 같은 모양: span.diary-photo > img, 회색 칸 → 그림 → 못 받으면 ↻).
@@ -251,6 +288,17 @@ export function createPhonePhotos(win = globalThis.window) {
     },
   };
   return api;
+}
+// S48-60: 앱 정보 답 한 장씩 모양 맞추기(번호·시각 없거나 이상하면 버림, 글은 80자).
+const metaText = v => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, '').slice(0, 80) : '');
+const metaNum = (v, lim) => (Number.isFinite(v) && Math.abs(v) <= lim ? v : null);
+export function metaItems(list) {
+  return (Array.isArray(list) ? list : []).map(x => {
+    if (!/^\d{1,18}$/.test(String(x?.id || '')) || !Number.isFinite(x?.taken)) return null;
+    const lat = metaNum(x.lat, 90), lon = metaNum(x.lon, 180);
+    return {id:String(x.id), taken:x.taken, lat:lat !== null && lon !== null ? lat : null, lon:lat !== null && lon !== null ? lon : null,
+      make:metaText(x.make), model:metaText(x.model), lens:metaText(x.lens), can:x.can === true};
+  }).filter(Boolean).slice(0, 200);
 }
 // 받을 그림 종류: Blob 종류가 그림이 아니면(서버 중계가 octet-stream 등) 이름 끝으로 고른다.
 const EXT_MIME = {jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', heic:'image/heic', heif:'image/heif', gif:'image/gif'};

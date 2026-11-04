@@ -44,7 +44,7 @@ export const KIND = Object.freeze({
   audio: {label: '소리', icon: '♪'}, pdf: {label: 'PDF', icon: 'P'}, hwp: {label: '한글', icon: '한'},
   word: {label: '워드', icon: 'W'}, excel: {label: '표', icon: '표'}, slide: {label: '발표', icon: '슬'},
   text: {label: '글', icon: '글'}, web: {label: '웹', icon: '<>'}, zip: {label: '압축', icon: '압'},
-  gdoc: {label: '구글 문서', icon: 'G'}, file: {label: '파일', icon: '·'},
+  gdoc: {label: '구글 문서', icon: 'G'}, file: {label: '파일', icon: '📄'},
 });
 // 종류: 폴더 → 구글 문서류(mime) → 확장자 → mime 앞부분 → 파일.
 export function kindOf(row) {
@@ -85,6 +85,14 @@ export function sizeText(bytes) {
   let v = n / 1024, i = 0;
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
   return `${v >= 10 || i === 0 ? Math.round(v) : Math.round(v * 10) / 10}${units[i]}`;
+}
+// 원드라이브 개인 중요 보관소처럼 폴더도 파일도 아닌 잠긴 항목이 옛 색인에 '종류 없는 0B 파일'로 남아 있다. 서버는 이제 넣지 않고(Edge odRow),
+// 화면은 옛 줄도 목록에서 뺀다(열어서 읽지 않음). 진짜 파일은 원드라이브가 늘 종류(mime)를 준다.
+export const isLockedItem = r => !!r && r.source === 'od' && !r.is_folder && !r.mime && Number(r.size_bytes) === 0;
+// 폴더 줄 개수: 그 폴더를 실제로 읽어 센 값(counts)이 있을 때만 글을 준다. 모르면 빈 글(색인 장수는 아직 안 읽은 폴더에서 0으로 나와 틀린다).
+export function folderCountText(c) {
+  if (!c || !Number.isFinite(c.files) || !Number.isFinite(c.folders)) return '';
+  return c.folders > 0 ? (c.files > 0 ? `폴더 ${countText(c.folders)} · 파일 ${countText(c.files)}` : `폴더 ${countText(c.folders)}`) : `${countText(c.files)}개`;
 }
 export const countText = n => Number.isFinite(Number(n)) ? Number(n).toLocaleString('ko-KR') : '';
 
@@ -270,6 +278,17 @@ export function errorText(code) {
   return '불러오지 못했습니다';
 }
 
+// 실패 까닭 한 줄(작은 글자, '불러오지 못했습니다' 옆). 서버 글자를 그대로 보이지 않고 정해 둔 말만 쓴다(S49-26).
+export function failReason(err) {
+  const code = String(err?.code || ''), status = Number(err?.status) || 0, msg = String(err?.message || '');
+  if (code === 'timeout') return '시간 초과';
+  if (/statement timeout|canceling statement|57014/i.test(msg) || status === 408 || status === 504) return '서버 시간 초과';
+  if (code === 'network_error') return '연결 끊김';
+  if (status >= 500) return `서버 오류 ${status}`;
+  if (status >= 400) return `요청 오류 ${status}`;
+  return '';
+}
+
 // ---------- 쓰기(S48-45 ⑤·⑦) ----------
 // 여러 개 고르기: Shift 누르고 고르면 보이는 순서에서 앞에 고른 줄부터 이 줄까지.
 export function pickRange(keys, fromKey, toKey) {
@@ -331,6 +350,15 @@ export function writeErrorText(code) {
   if (c === 'verify_failed') return '옮긴 파일이 원본과 달라 원본을 그대로 두었습니다';
   if (c === 'upload_failed') return '보내지 못했습니다. 원본은 그대로입니다';
   if (c === 'not_owner') return '내 파일이 아니라 옮길 수 없습니다';
+  if (c === 'copy_into_self') return '폴더를 자기 안으로 복사할 수 없습니다';
+  if (c === 'copy_failed') return '복사하지 못했습니다. 원본은 그대로입니다';
+  if (c === 'folder_too_big') return '폴더 안이 200개가 넘어 통째로 복사하지 않습니다. 안을 열어 골라 주세요';
+  // 올리기(2-④)
+  if (c === 'file_mismatch') return '같은 파일이 아니에요(이름·크기가 달라요). 처음 올리던 파일을 골라 주세요';
+  if (c === 'upload_mismatch') return '올린 파일을 클라우드에서 확인하지 못했어요. [다시]로 이어 올려 주세요';
+  if (c === 'origin_invalid') return '이 주소에서는 올릴 수 없어요';
+  if (c === 'job_not_resumable' || c === 'job_not_found') return '이 전송은 이어 올릴 수 없어요';
+  if (c === 'big_not_confirmed') return '200MB가 넘어 묻지 않고는 올리지 않아요';
   return errorText(c);
 }
 // ⑦ 같은 파일 보기: 같은 해시(같은 클라우드 안 — 원드라이브 sha1·구글 md5라 클라우드 사이는 비교하지 않음)인 다른 줄. 자기 자신·휴지통 뺌.
@@ -339,4 +367,230 @@ export function twinRows(rows, self) {
   if (!self?.hash) return [];
   return (rows || []).filter(r => r && r.hash === self.hash && !r.trashed && !(r.source === self.source && r.item_id === self.item_id))
     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko') || String(a.item_id).localeCompare(String(b.item_id)));
+}
+
+// ---------- FILES-통합 2-① 복사·옮기기(받을 곳 창, 명진 결정 H-3·H-4·H-5, 11/04) ----------
+export const XFER_MODES = Object.freeze(['copy', 'move']);
+export const XFER_VERB = Object.freeze({copy: '복사', move: '옮기기'});
+// 클라우드 사이 한 파일 기본 상한(H-4). 넘는 파일은 묻고, 이 판에서는 '다음 판(2-②)에서 됩니다'로 멈춘다.
+export const XFER_BIG_BYTES = MOVE_ACROSS_MAX_BYTES;
+export const XFER_BIG_HOW = '서버가 10MB씩 나눠 이어 보내요. 화면을 닫아도 계속되고, 끊기면 끊긴 곳부터 다시. 폰 데이터는 쓰지 않아요.';
+export const RECENT_DEST_MAX = 3;
+export const RECENT_DEST_NAME_MAX = 40;
+const gdDoc = r => r?.source === 'gd' && /^application\/vnd\.google-apps\./.test(String(r?.mime || ''));
+// 받을 곳으로 보낼 수 있는지 줄마다 가른다. {ok: 보낼 줄, blocked: [{row, reason}], reason: 하나도 못 보낼 때 한 줄}.
+//   같은 저장소: 복사는 파일·폴더(폴더째, H-5), 옮기기는 지금 규칙(같은 자리·자기 안 빼고 200개까지는 move가 나눠 보냄).
+//   다른 저장소: 파일만(폴더는 막고 안내), 크기를 모르는 것·구글 문서는 막음. 200MB 넘는 것은 여기서 막지 않는다(묻는 창이 따로, big()).
+export function xferPlan(rows, dest, mode = 'copy') {
+  const list = (rows || []).filter(Boolean), ok = [], blocked = [];
+  if (!dest?.source) return {ok, blocked, reason: '받을 곳을 고르세요'};
+  const verb = mode === 'move' ? '옮겨요' : '복사돼요';
+  for (const r of list) {
+    const across = r.source !== dest.source;
+    if (across && r.is_folder) blocked.push({row: r, reason: `폴더는 같은 저장소 안에서만 통째로 ${verb}. 다른 저장소로는 폴더를 열어 파일을 골라 주세요`});
+    else if (across && gdDoc(r)) blocked.push({row: r, reason: '구글 문서는 다른 저장소로 보내지 않습니다'});
+    else if (across && (r.size_bytes === null || r.size_bytes === undefined || !Number.isFinite(Number(r.size_bytes)))) blocked.push({row: r, reason: '크기를 모르는 파일은 다른 저장소로 보내지 않습니다'});
+    else if (!across && r.is_folder && r.item_id === (dest.parent ?? null)) blocked.push({row: r, reason: `폴더를 자기 안으로 ${mode === 'move' ? '옮길' : '복사할'} 수 없습니다`});
+    else if (mode === 'move' && !across && (r.parent_id ?? null) === (dest.parent ?? null)) blocked.push({row: r, reason: '이미 이 폴더에 있습니다'});
+    else ok.push(r);
+  }
+  const reason = ok.length ? '' : blocked[0]?.reason || '고른 것이 없습니다';
+  return {ok, blocked, reason};
+}
+// 200MB 넘는 클라우드 사이 파일인가(H-4).
+export const xferBig = (r, dest) => !!r && !!dest && r.source !== dest.source && Number(r.size_bytes) > XFER_BIG_BYTES;
+// 같은 이름(대소문자 무시 — 원드라이브 규칙)이 받을 곳에 있는 줄. destRows = 받을 폴더의 색인 줄.
+//   같은 폴더로 복사하면 자기 자신도 같은 이름이다(옮기기는 같은 폴더로 가는 것을 xferPlan이 먼저 막는다).
+export function sameNameRows(rows, destRows) {
+  const names = new Set();
+  for (const d of destRows || []) if (d && !d.trashed) names.add(String(d.name).toLowerCase());
+  return (rows || []).filter(r => r && names.has(String(r.name).toLowerCase()));
+}
+// 같은 이름 묻는 한 줄(H-3). mode copy·move·down(받기).
+export function sameNameAsk(mode) {
+  return `같은 이름이 있어요. 그래도 ${mode === 'move' ? '옮길까요' : mode === 'down' ? '받을까요' : mode === 'up' ? '올릴까요' : '복사할까요'}?`;
+}
+// 200MB 넘는 파일 묻는 한 줄(H-4). mode 'up' = 올리기.
+export const bigAsk = (r, mode = '') => `200MB가 넘어요(${sizeText(r?.size_bytes)}). 그래도 ${mode === 'up' ? '올릴까요' : '보낼까요'}?`;
+// 받을 곳 창 제목·버튼.
+export const destTitle = (n, mode) => `${n}개 ${mode === 'move' ? '옮길' : '복사할'} 곳`;
+export const destButton = mode => `여기에 ${mode === 'move' ? '옮기기' : '복사'}`;
+// 받을 곳 이름(칩·창 아래 줄): 맨 위면 저장소 이름, 아니면 폴더 이름(40자로 자름).
+export function destName(dest, folderName = '') {
+  const n = dest?.parent ? String(folderName || '').trim() : SOURCE_NAME[dest?.source] || '';
+  return [...(n || SOURCE_NAME[dest?.source] || '')].slice(0, RECENT_DEST_NAME_MAX).join('');
+}
+// 최근 보낸 곳(서버 view_prefs.files_dest_recent, 모든 기기 같게): 방금 보낸 곳을 맨 앞에, 같은 곳은 하나만, 3개까지.
+export function pushRecentDest(list, dest, name) {
+  if (!dest?.source || !SOURCES.includes(dest.source)) return Array.isArray(list) ? list.slice(0, RECENT_DEST_MAX) : [];
+  const id = dest.parent || '';
+  if (!/^[A-Za-z0-9!_.-]{0,120}$/.test(id)) return Array.isArray(list) ? list.slice(0, RECENT_DEST_MAX) : [];
+  const nm = destName(dest, name) || SOURCE_NAME[dest.source];
+  const rest = (Array.isArray(list) ? list : []).filter(d => d && !(d.source === dest.source && d.id === id));
+  return [{source: dest.source, id, name: nm}, ...rest].slice(0, RECENT_DEST_MAX);
+}
+export const recentDestOf = d => d && SOURCES.includes(d.source) ? {source: d.source, parent: d.id || null} : null;
+// 전송 줄(하단바 위 얇은 줄, 시안 ⑤ 아래 줄): '2/5 보내는 중'. 가는 막대 폭은 끝난 몫.
+export const xferLine = (at, total) => `${Math.min(at, total)}/${total} 보내는 중`;
+export const xferPercent = (done, total) => total > 0 ? Math.max(0, Math.min(100, Math.round(done / total * 100))) : 0;
+// 끝 한 줄.
+export function xferDoneText(mode, {done = 0, failed = 0, skipped = 0} = {}) {
+  const verb = mode === 'move' ? '옮김' : '복사함';
+  const parts = [done ? `${done}개 ${verb}` : '', skipped ? `${skipped}개 건너뜀` : '', failed ? `${failed}개 못 함` : ''].filter(Boolean);
+  return parts.join(' · ') || `${mode === 'move' ? '옮긴' : '복사한'} 것 없음`;
+}
+
+// ---- 전송 목록(FILES-통합 2-②, 서버 작업표 app_cloud_jobs — 시안 ⑤⑧) ----
+// 한 줄 = 사람이 시작한 복사·옮기기 한 건. 서버(Edge cloud-files job_list)가 준 줄을 그대로 그린다(화면은 기억하지 않음, 다시 열면 서버에서 다시 읽음).
+export const JOB_ACTIVE = Object.freeze(['queued', 'running']);
+export const jobActive = j => !!j && JOB_ACTIVE.includes(j.status);
+export const jobsActive = list => (list || []).some(jobActive);
+// 실패 까닭: 서버가 정해 둔 말(code)만 받아 한 줄 글로. 모르는 말은 '연결이 끊겼어요'.
+const JOB_REASON = Object.freeze({
+  cloud_unavailable: '연결이 끊겼어요', cloud_throttled: '클라우드가 잠시 바빠요', no_space: '받을 곳 공간이 부족해요',
+  name_invalid: '이름 규칙에 맞지 않아요', too_large: '너무 커요(2GB까지)', verify_failed: '받은 것이 원본과 달라 지웠어요',
+  changed_since_index: '원본이 그사이 바뀌었어요', not_in_index: '원본을 찾지 못했어요', not_found: '원본을 찾지 못했어요',
+  size_unknown: '크기를 모르는 파일이에요', across_unsupported: '구글 문서는 다른 저장소로 보내지 않아요',
+  across_folder: '폴더는 같은 저장소 안에서만 통째로 보내요', folder_too_big: '폴더 안이 너무 많아요(200개까지)',
+  copy_into_self: '폴더를 자기 안으로 보낼 수 없어요', dest_invalid: '받을 곳을 찾지 못했어요', name_taken: '같은 이름이 있어요',
+  upload_failed: '받을 곳에 올리지 못했어요', copy_failed: '클라우드가 복사하지 못했어요', session_expired: '이어 올리기 자리가 끝났어요. [다시]는 처음부터',
+  od_not_connected: '원드라이브 연결이 필요해요', od_auth_expired: '원드라이브를 다시 연결해 주세요', gd_not_connected: '구글 드라이브 연결이 필요해요',
+  cloud_denied: '클라우드가 허락하지 않았어요', drive_owner_mismatch: '이 드라이브는 쓸 수 없어요', feature_required: '파일 기능이 꺼졌어요',
+  too_many_steps: '너무 오래 걸려 멈췄어요', big_not_confirmed: '200MB가 넘어 묻지 않고는 보내지 않아요',
+});
+export const jobReason = code => JOB_REASON[code] || JOB_REASON.cloud_unavailable;
+export const jobPercent = j => {
+  if (!j) return 0;
+  if (j.status === 'done') return 100;
+  const size = Number(j.size_bytes);
+  return size > 0 ? Math.max(0, Math.min(100, Math.floor(Number(j.sent_bytes || 0) / size * 100))) : 0;
+};
+// 줄 오른쪽 한 낱말.
+export function jobStatusText(j) {
+  if (!j) return '';
+  if (j.status === 'running') return j.big || j.origin === 'device' ? `${jobPercent(j)}%` : '보내는 중';
+  return {queued: '기다림', paused: '멈춤', done: '끝', failed: '실패', skipped: '건너뜀'}[j.status] || '';
+}
+// 줄 아래 작은 글: '원드라이브 → 구글 드라이브 · 240MB' + (같은 이름이면 '이름 (2)로'·실패면 까닭).
+export function jobLine(j) {
+  if (!j) return '';
+  const from = j.origin === 'device' ? '이 기기' : SOURCE_NAME[j.src_source] || '';
+  const to = SOURCE_NAME[j.dest_source] || '';
+  const parts = [`${from} → ${to}${j.kind === 'move' ? ' 옮기기' : ''}`];
+  if (j.size_bytes) parts.push(sizeText(j.size_bytes));
+  if (j.status === 'failed') parts.push(jobReason(j.error_code));
+  else if (j.status === 'skipped') parts.push('같은 이름이라 건너뜀');
+  else if (j.status === 'done' && j.result_name && j.result_name !== j.name) parts.push(`'${j.result_name}'로`);
+  else if (j.status === 'done' && j.kept_original) parts.push('원본은 남겼어요');
+  return parts.join(' · ');
+}
+// 하단바 위 전송 줄: 지금 묶음(가장 오래된 기다림·보내는 중·멈춤 줄 이후에 시작한 것) 기준 'n/N 보내는 중 · 48%'.
+//   보내는 것이 없고 멈춘 것만 있으면 'N개 멈춤', 실패만 남았으면 'N개 못 보냄'. 아무것도 없으면 null(줄 숨김).
+export function jobStrip(jobs) {
+  const list = (jobs || []).filter(Boolean);
+  const open = list.filter(j => jobActive(j) || j.status === 'paused');
+  const failed = list.filter(j => j.status === 'failed').length;
+  if (!open.length) return failed ? {text: `${failed}개 못 보냄`, percent: 0, failed, name: ''} : null;
+  const since = open.map(j => String(j.created_at || '')).sort()[0];
+  const batch = list.filter(j => String(j.created_at || '') >= since);
+  const ended = batch.filter(j => ['done', 'failed', 'skipped'].includes(j.status)).length;
+  const running = batch.find(j => j.status === 'running') || batch.find(jobActive);
+  const bytes = batch.reduce((n, j) => n + (Number(j.size_bytes) || 0), 0);
+  const sent = batch.reduce((n, j) => n + (j.status === 'done' ? Number(j.size_bytes) || 0 : Number(j.sent_bytes) || 0), 0);
+  const percent = bytes > 0 ? Math.min(100, Math.floor(sent / bytes * 100)) : xferPercent(ended, batch.length);
+  if (!running) return {text: `${open.length}개 멈춤`, percent, failed, name: '', paused: true};
+  return {text: `${Math.min(batch.length, ended + 1)}/${batch.length} 보내는 중`, percent, failed, name: running.name};
+}
+// 목록 머리: '전송 · 2/5'.
+export function jobsTitle(jobs) {
+  const s = jobStrip(jobs);
+  const m = s && /^(\d+\/\d+)/.exec(s.text);
+  return m ? `전송 · ${m[1]}` : '전송';
+}
+// 줄 단추: 기다림·보내는 중 = [멈춤], 멈춤 = [이어 하기], 실패 = [다시]. 기기가 낀 줄(origin device)은 그 기기 화면이 잇는다(서버는 잇지 않음).
+export function jobAction(j) {
+  if (!j) return '';
+  if (jobActive(j)) return 'pause';
+  // 올리기(2-④): 멈춤·실패는 이 기기가 같은 파일로 잇는다([이어 올리기]).
+  if (j.origin === 'device') return j.status === 'paused' || j.status === 'failed' ? 'reup' : '';
+  if (j.status === 'paused') return 'resume';
+  if (j.status === 'failed') return 'retry';
+  return '';
+}
+// 노트북·PC(H-6): 기기가 낀 전송(origin device — PC에서 올리기, 2-④)은 화면을 닫으면 '일시 정지'로 남고 다시 열면 남은 조각부터.
+//   다시 열었을 때 그 줄을 어떻게 볼지: 보내는 중이었던 것은 멈춤으로(이 기기가 다시 시작해야 함), 나머지는 그대로.
+export const deviceJobOnReopen = j => j && j.origin === 'device' && jobActive(j) ? {...j, status: 'paused'} : j;
+// 서버 목록을 새것 → 옛것 순서로(서버도 같은 순서로 준다). 같은 id는 새 줄이 이긴다.
+export function mergeJobs(old, fresh) {
+  const m = new Map((old || []).map(j => [j.id, j]));
+  for (const j of fresh || []) if (j?.id) m.set(j.id, j);
+  return [...m.values()].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')) || String(b.id).localeCompare(String(a.id)));
+}
+// 서버 목록이 바뀌며 '끝'이 된 줄(이번에 끝난 것)만.
+export function newlyDone(old, fresh) {
+  const was = new Map((old || []).map(j => [j.id, j.status]));
+  return (fresh || []).filter(j => j?.status === 'done' && was.has(j.id) && was.get(j.id) !== 'done');
+}
+
+// ---------- FILES-통합 2-④ 올리기(기기 → 클라우드, S49-33, 설계 docs/design/files-unified-plan.md J절 H-3·H-4·H-6) ----------
+// PC: 목록 칸에 바탕화면 파일을 끌어 놓기(시안 ⑦ 점선 '여기 놓으면 ○○에 올리기'), 폰·폴드: 위 줄 [올리기] → 고르기 창.
+// 서버(Edge upload_open)가 받을 클라우드의 이어 올리기 자리를 열어 주고 브라우저가 그 자리로 5MB씩 직접 보낸다(파일이 서버를 거치지 않음).
+export const UPLOAD_MAX = 200;                              // 한 번에 올리는 파일 수(고르기 상한과 같음)
+export const UPLOAD_MAX_BYTES = 2 * 1024 * 1024 * 1024;     // 한 파일 2GB까지(H-4 추천 상한, 서버도 같음)
+export const UPLOAD_BIG_HOW = '이 기기가 5MB씩 올려요. 화면을 닫으면 멈추고, 다시 열어 같은 파일을 고르면 남은 조각부터 올려요.';
+// 브라우저 제약(H-6): 다시 연 화면은 파일을 기억하지 못한다.
+export const UPLOAD_REOPEN_TEXT = '브라우저는 화면을 닫으면 파일을 잊어요. 같은 파일을 다시 고르면 남은 조각부터 올려요.';
+export const upDropText = name => `여기 놓으면 ${name || '이 폴더'}에 올리기`;
+export const upStartText = n => `${n}개 올리기 시작 · 아래 전송 줄을 누르면 목록`;
+// 고른 파일({name,size}) 거르기: 이름 규칙(공용 checkFileBase는 화면이 넘김)·2GB·수 상한. {ok, blocked:[{file, reason}], reason}.
+export function uploadPlan(files, nameOk = () => true) {
+  const list = [...(files || [])].filter(Boolean), ok = [], blocked = [];
+  for (const f of list) {
+    const size = Number(f.size);
+    if (!Number.isSafeInteger(size) || size < 0) blocked.push({file: f, reason: '크기를 모르는 파일은 올리지 않아요'});
+    else if (size > UPLOAD_MAX_BYTES) blocked.push({file: f, reason: `${f.name}: 2GB까지 올려요`});
+    else if (!nameOk(String(f.name || ''))) blocked.push({file: f, reason: `${f.name}: 쓸 수 없는 이름이에요`});
+    else if (ok.length >= UPLOAD_MAX) blocked.push({file: f, reason: `한 번에 ${UPLOAD_MAX}개까지 올려요`});
+    else ok.push(f);
+  }
+  return {ok, blocked, reason: ok.length ? '' : blocked[0]?.reason || '고른 파일이 없어요'};
+}
+// 200MB 넘는 파일(H-4: 한 번 묻기).
+export const upBig = f => Number(f?.size) > XFER_BIG_BYTES;
+// 받을 폴더에 같은 이름(대소문자 무시)이 있는 파일.
+export function upSameName(files, destRows) {
+  const names = new Set((destRows || []).filter(d => d && !d.trashed).map(d => String(d.name).toLowerCase()));
+  return (files || []).filter(f => f && names.has(String(f.name).toLowerCase()));
+}
+// 이어 올리기: 다시 고른 파일이 그 줄과 같은가(이름·크기 — 서버도 다시 본다).
+export const sameUpFile = (j, f) => !!j && !!f && String(f.name) === String(j.name) && Number(f.size) === Number(j.size_bytes);
+// 이어 올릴 조각: [start, end) — 끝 조각은 짧다. size 0이면 없음.
+export function upPiece(offset, size, chunk) {
+  if (!(size > offset) || !(chunk > 0)) return null;
+  return {start: offset, end: Math.min(size, offset + chunk)};
+}
+// 기기 줄 아래 작은 글 덧붙임: 이 화면이 그 파일을 쥐고 있지 않으면 다시 고르라는 한 줄.
+export function deviceHint(j, hasFile) {
+  if (!j || j.origin !== 'device' || hasFile) return '';
+  return j.status === 'paused' || j.status === 'failed' ? '이어 올리려면 같은 파일을 다시 골라 주세요' : '';
+}
+// 클라우드가 마지막 조각 응답으로 준 새 파일 id(원드라이브 id·구글 id). 모양이 다르면 null(서버가 이름으로 찾음).
+export function upResultId(d) {
+  const id = d && typeof d === 'object' ? d.id : null;
+  return typeof id === 'string' && /^[A-Za-z0-9!_.-]{1,200}$/.test(id) ? id : null;
+}
+
+// ---------- 별표(2-④): 고른 것이 모두 별표면 빼기, 아니면 넣기 ----------
+export const starWant = rows => !(rows || []).filter(Boolean).every(r => r.starred);
+export const starLabel = rows => (starWant(rows) ? '☆ 별표' : '★ 별표 빼기');
+// 서버가 바꾼 별표를 줄 목록에 입힌다(같은 줄이면 같은 배열을 돌려준다).
+export function applyStars(rows, source, ids, on) {
+  const set = new Set(ids || []);
+  let hit = false;
+  const next = (rows || []).map(r => {
+    if (r?.source !== source || !set.has(r.item_id) || !!r.starred === on) return r;
+    hit = true;
+    return {...r, starred: on};
+  });
+  return hit ? next : rows;
 }

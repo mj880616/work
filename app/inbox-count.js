@@ -13,10 +13,14 @@ export function inboxCount({notes, links, docs, candidates, taskTitles} = {}) {
   const update = unsortedUpdates(notes, links, docs), todo = openTodos(candidates, taskTitles);
   return {update, todo, total: update + todo, asks: openAsks(candidates, taskTitles)};
 }
+// The two reads behind the count (정리함 업데이트 + 챙길 것 후보). PERF-첫로딩 요청 합치기(S48-59): the home starts them together with the
+// journal's own basket read, so the runtime's single flight sends each basket page/link read once (same paths) instead of twice.
+export const readInboxParts = (rt = window.KPTURuntime) => Promise.all([readBasket(rt), readOpenCandidates(rt)]);
 // One read of both (a candidate table that is not deployed counts as 0). {ok:false} when either read fails.
-export async function readInboxCount(rt = window.KPTURuntime, {taskTitles = []} = {}) {
+// parts: reads already started with readInboxParts (the task titles that are subtracted are known only later).
+export async function readInboxCount(rt = window.KPTURuntime, {taskTitles = [], parts = null} = {}) {
   try {
-    const [basket, open] = await Promise.all([readBasket(rt), readOpenCandidates(rt)]);
+    const [basket, open] = await (parts || readInboxParts(rt));
     if (!open.missing && !open.ok) return {ok: false};
     return {ok: true, ...inboxCount({notes: basket.notes, links: basket.links, docs: basket.docs, candidates: open.missing ? [] : open.rows, taskTitles})};
   } catch { return {ok: false}; }

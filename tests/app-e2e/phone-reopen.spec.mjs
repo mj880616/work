@@ -69,17 +69,12 @@ test.describe('폰 앱', () => {
     expect(errors).toEqual([]);
   });
 
-  test("내 프로필 '다시 연 기록': 접힌 채로 있다가 펼치면 종류·시각만 보인다", async ({page}) => {
+  test("내 프로필에는 '다시 연 기록' 칸이 없다(앱에서도)", async ({page}) => {
     await boot(page, {app: true, view: 'profile'});
-    const panel = page.locator('#psReopenPanel');
-    await expect(panel).toBeVisible({timeout: 15000});
-    await expect(panel.locator('summary')).toContainText('다시 연 기록');
+    await expect(page.locator('#profileView')).toBeVisible({timeout: 15000});
+    await page.waitForTimeout(300);
+    await expect(page.locator('#psReopenPanel')).toHaveCount(0);
     expect(await page.evaluate(() => window.__reopenSent.includes('reopen:list'))).toBe(false);
-    await panel.locator('summary').click();
-    await expect(panel.locator('.ps-reopen-list li')).toHaveCount(2);
-    await expect(panel.locator('.ps-reopen-list li').first()).toContainText('당겨서 새로고침');
-    await expect(panel.locator('.ps-reopen-list li').last()).toContainText('앱 켬');
-    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   });
 
   test('새로고침으로 다시 열면 큰 확인 카드 대신 맨 위 가는 줄, 처음 열 때는 카드 그대로', async ({page}) => {

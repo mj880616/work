@@ -17,6 +17,7 @@ const library = await import('../supabase/functions/ai-assist/library-fill.ts');
 const org = await import('../supabase/functions/ai-assist/org-summary.ts');
 const schedule = await import('../supabase/functions/ai-assist/schedule-titles.ts');
 const journal = await import('../supabase/functions/ai-assist/journal-draft.ts');
+const memorable = await import('../supabase/functions/ai-assist/journal-memorable.ts');
 const nextWeek = await import('../supabase/functions/ai-assist/next-week-sheet.ts');
 const preMeeting = await import('../supabase/functions/ai-assist/pre-meeting-sheet.ts');
 const read = file => readFileSync(new URL(file, FUNCTIONS), 'utf8');
@@ -31,10 +32,13 @@ test('the tone rule names the ending style, the forbidden endings and the three 
 });
 
 test('summary-writing instructions carry the one shared rule: telegram news, ledger auto/candidates/fix, meeting draft', () => {
-  for (const [name, text] of [['telegram', telegram.TELEGRAM_INSTRUCTIONS], ['ledger_auto', auto.LEDGER_AUTO_INSTRUCTIONS], ['ledger_candidates', candidates.LEDGER_CANDIDATES_INSTRUCTIONS], ['ledger_fix', fix.LEDGER_FIX_INSTRUCTIONS], ['journal_draft', journal.JOURNAL_DRAFT_INSTRUCTIONS], ['next_week_sheet', nextWeek.NEXT_WEEK_SHEET_INSTRUCTIONS], ['pre_meeting_sheet', preMeeting.PRE_MEETING_INSTRUCTIONS]]) {
+  for (const [name, text] of [['telegram', telegram.TELEGRAM_INSTRUCTIONS], ['ledger_auto', auto.LEDGER_AUTO_INSTRUCTIONS], ['ledger_candidates', candidates.LEDGER_CANDIDATES_INSTRUCTIONS], ['ledger_fix', fix.LEDGER_FIX_INSTRUCTIONS], ['journal_draft', journal.JOURNAL_DRAFT_INSTRUCTIONS], ['journal_memorable', memorable.MEMORABLE_INSTRUCTIONS], ['next_week_sheet', nextWeek.NEXT_WEEK_SHEET_INSTRUCTIONS], ['pre_meeting_sheet', preMeeting.PRE_MEETING_INSTRUCTIONS]]) {
     assert.equal(text.split(RULE).length - 1, 1, `${name}: rule appears exactly once, as the shared text`);
   }
-  assert.ok(read('meeting-ai-draft/index.ts').includes('${AI_TONE_RULE}'), 'meeting draft puts the shared rule into its developer text');
+  // S49-2: 회의 초안 지시문은 _shared/meeting-draft-prompt.mjs 한 곳(화면 요약·서버 정리 공용). 말투 규칙은 부르는 쪽이 넘긴다.
+  assert.ok(read('_shared/meeting-draft-prompt.mjs').includes('${toneRule}'), 'meeting draft puts the shared rule into its developer text');
+  assert.ok(read('meeting-ai-draft/index.ts').includes('meetingDraftDeveloper(AI_TONE_RULE)'), 'meeting draft passes the shared rule');
+  assert.ok(read('meeting-transcribe/index.ts').includes('meetingDraftDeveloper(AI_TONE_RULE)'), 'server summary passes the shared rule');
   assert.match(read('meeting-ai-draft/index.ts'), /import \{[^}]*AI_TONE_RULE[^}]*\} from '\.\.\/_shared\/ai-model\.ts'/);
 });
 
@@ -76,10 +80,12 @@ test('AI 요약 실패 문구 검사 목록: 재료 없음 안내 문장은 잡�
 });
 
 // 새 AI 지시문이 생기면 아래 목록에 '적용' 또는 '제외(이유)'로 올려야 한다. 말투를 빠뜨린 채 새 요약이 생기는 일을 막는다.
-const APPLIED = new Set(['collector-feed/telegram.ts', 'ai-assist/org-people-brief.ts', 'ai-assist/org-status-rows.ts', 'ai-assist/ledger-auto.ts', 'ai-assist/ledger-candidates.ts', 'ai-assist/ledger-fix.ts', 'ai-assist/journal-draft.ts', 'ai-assist/next-week-sheet.ts', 'ai-assist/pre-meeting-sheet.ts', 'ai-assist/web2-ask.ts', 'meeting-ai-draft/index.ts', 'outside-feed/handler.ts', 'ai-assist/now-detail.ts']);
+const APPLIED = new Set(['collector-feed/telegram.ts', 'ai-assist/org-people-brief.ts', 'ai-assist/ledger-auto.ts', 'ai-assist/ledger-candidates.ts', 'ai-assist/ledger-fix.ts', 'ai-assist/journal-draft.ts', 'ai-assist/journal-memorable.ts', 'ai-assist/next-week-sheet.ts', 'ai-assist/pre-meeting-sheet.ts', 'ai-assist/web2-ask.ts', 'meeting-ai-draft/index.ts', 'outside-feed/handler.ts', 'ai-assist/now-detail.ts']);
 const EXCLUDED = new Map([
   ['collector-feed/handler.ts', '부르기만 한다. 텔레그램 지시문은 telegram.ts(적용)에 있다'],
   ['ai-assist/handler.ts', '연결 요약(주간보고 업무보고형)·챙길 것·겹침 판정이 한 파일에 있다. 연결 요약은 주간보고 문체라 제외'],
+  ['ai-assist/org-status-rows.ts', '담당조직 현황 표 줄(주간보고 투쟁 사업장 칸에 그대로 들어가는 보고서 명사형 끝맺음 \'승인\'·\'개최\', DESK-전체현황표 ⑨ 11/03 명진 결정 — \'~함\' 금지)'],
+  ['ai-assist/org-week-lines.ts', '주별 조직보고 제안 한 줄(주간보고 조직보고 칸에 그대로 들어가는 보고서 명사형 끝맺음 — \'~함\' 금지, WEEKLY-메뉴짝짓기)'],
   ['ai-assist/org-summary.ts', '주간보고 산하 조직 현황 요약 칸의 재료(주간보고 문체)'],
   ['ai-assist/library-fill.ts', '자료 한두 줄 요약은 주간보고 줄의 재료(주간보고 문체), 나머지 칸은 제목·값'],
   ['ai-assist/schedule-titles.ts', '주간보고 일정 제목(제목, 문장 아님)'],
@@ -87,7 +93,7 @@ const EXCLUDED = new Map([
   ['ai-assist/todo-rules.ts', '챙길 것 거르기 규칙 후보 한 줄(명사형 규칙 목록, 문장 요약 아님 — TODO-이미함·환류)'],
   ['ai-assist/overlap.ts', '두 기록이 같은 활동인지 가리는 판정 이유 한 문장(요약이 아님)'],
   ['ai-assist/call-refill.ts', '통화 제목·조직·상대 칸 채우기(핵심내용 요약은 쓰지 않음)'],
-  ['ai-assist/business-area.ts', '사업요약표 진행 칸 한 줄(명사형 끝맺음, 주간보고 문체)과 사업영역 추천(참조만 답함) — 문장 말투 규칙과 무관'],
+  ['ai-assist/business-area.ts', '사업영역 추천(참조만 답함) — 문장 말투 규칙과 무관(사업요약표 진행 칸 한 줄은 S49-39에서 없앰)'],
   ['ai-assist/note-title.ts', '노트 목록의 짧은 명사형 제목(제목, 문장 아님 — 10/28 09:24 말투 규칙과 무관)'],
   ['ai-assist/file-name.ts', '첨부 파일 이름 추천(명사형 파일 이름, 문장 아님 — ATT-이름고치기)'],
   ['ai-assist/work-scope.ts', '오늘 한 일 줄마다 업무·개인 판정(ref·work|personal만 답함, 문장 아님 — JOURNAL-오늘한일업무개인)'],

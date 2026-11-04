@@ -75,6 +75,11 @@ export function detailView(detail) {
 export const RELATED_LABEL = Object.freeze({outside: '사회운동', news: '뉴스', update: '업데이트', ledger: '원장', library: '자료실'});
 // '함께 볼 것'을 누르면 갈 곳: 같은 Now 안의 글은 상세로, 내 기록은 그 화면으로(라우터 이름).
 export const relatedTarget = r => (r.kind === 'outside' || r.kind === 'news' ? {detail: {type: r.kind, id: r.id}} : {view: {update: 'home', ledger: 'ledger', library: 'library'}[r.kind]});
+// 뉴스 기사 읽기(S48-66): 본문·요약이 없는 줄은 상세 전에 먼저 읽는다. 읽고도 재료가 없으면 AI를 부르지 않는다.
+const REASONS = {robots: '이 사이트가 읽기를 막아 둠', paywall: '유료 기사', bot_check: '사이트가 자동 읽기를 막음', original_only: '원문에서 보는 기사', daily_limit: '오늘 읽기 한도를 다 씀', error: '잠시 뒤 다시', unavailable: '기사를 열 수 없음'};
+export const hasMaterial = row => !!(row?.summary || row?.body_kind);
+export const needsRead = row => !hasMaterial(row) && row?.state !== 'paywall';
+export const unreadReason = (status, state) => REASONS[status] || REASONS[state] || '본문을 찾지 못함';
 // 상세가 실패했을 때 한 줄.
 export function detailError(e) {
   const code = String(e?.message || '');

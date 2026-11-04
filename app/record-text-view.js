@@ -1,5 +1,5 @@
 // MTG-결과마크다운: the one reader of a stored record text (사업 보고 '회의 결과 원문'·특이사항) — the same markdown view as the
-// basket update and notes (markdown-view.js: markdown-it + DOMPurify, md-body look), and a small [원문 보기] beside the heading
+// basket update and notes (markdown-view.js: markdown-it + DOMPurify, md-body look), and a small [원문] text button beside the heading
 // that shows the stored letters exactly. The stored text is never changed here.
 //  - A text with markdown marks (머리 ##, **굵게**, 표, AI가 붙인 \. 같은 군더더기 역슬래시 — note-preview.mjs markdownSource) is shown
 //    formatted: headings, lists, tables; "2026\." reads "2026.". Until the view is ready (or if it cannot load) the letters stay.
@@ -8,9 +8,9 @@
 // Each paint starts formatted (the choice is not remembered, as in the basket).
 import {markdownSource, writtenText} from './note-preview.mjs';
 
-const RAW_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-// The small icon button HTML for a heading row (aria-pressed: false = formatted, true = the stored letters).
-export const rawToggleHtml = attr => `<button type="button" class="ghost record-raw-toggle" ${attr} aria-pressed="false" aria-label="원문 보기" title="원문 보기" hidden>${RAW_ICON}</button>`;
+// S48-64(명진 11/03 '<> 이거 뭔 기능?'): 아이콘 <> 대신 작은 글자 버튼. [원문] = 저장된 글자 그대로 보기, [서식] = 다시 정리해서 보기.
+// The small text button HTML for a heading row (aria-pressed: false = formatted, true = the stored letters).
+export const rawToggleHtml = attr => `<button type="button" class="ghost record-raw-toggle" ${attr} aria-pressed="false" aria-label="원문 보기" title="원문 보기" hidden>원문</button>`;
 
 let view = null;
 const loadView = () => (view ||= import('./markdown-view.js').catch(error => { view = null; throw error; }));
@@ -23,6 +23,7 @@ function paintToggle(toggle, state) {
   toggle.setAttribute('aria-pressed', String(state.raw));
   const label = state.raw ? '정리해서 보기' : '원문 보기';
   toggle.setAttribute('aria-label', label); toggle.title = label;
+  toggle.textContent = state.raw ? '서식' : '원문';
 }
 
 function draw(el, state) {

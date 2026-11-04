@@ -21,7 +21,7 @@ test('원문은 필수가 아니다: 입력·수정 창 모두 빈 원문 검사
   const team=read('app/team.js'),mrd=read('app/meeting-round-detail.js');
   assert.doesNotMatch(team,/transcript\.trim\(\)\)return/);assert.doesNotMatch(mrd,/transcript\.trim\(\)\)\{/);
   assert.doesNotMatch(team+mrd,/textMissing/);
-  assert.match(read('app/index.html'),/id="meetingTextLabel">회의 결과 원문<\/span> <span class="optional">선택</);
+  assert.match(read('app/index.html'),/id="meetingTextLabel">회의 결과 원문<\/span> <span class="optional">안 써도 됨</);
 });
 test('줄은 숨기지 않고 한 곳(report-entry-rows.js)이 창에서 뺀다',()=>{
   const team=read('app/team.js'),mrd=read('app/meeting-round-detail.js'),rows=read('app/report-entry-rows.js');

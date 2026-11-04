@@ -240,7 +240,7 @@ for(const viewport of [{width:412,height:915},{width:1440,height:900}]){
     expect(state.calls.updates).toEqual([]);
     await expect(row(page,'a').locator('.gt-files a.gt-file')).toHaveText(['새 자료.txt']);
     expect(google.a.notes).toBe(['원래 메모',line('drv1','새 자료.txt')].join('\n'));
-    if(viewport.width<761)await open();
+    await open(); // S49-35: 저장하면 PC 칸도 폰 창처럼 닫힌다 → 다시 연다
     await expect(att.locator('.gt-att-row .gt-att-name')).toHaveText(['새 자료.txt']);
 
     // [빼기] → [저장]: no file left; the row becomes 첨부 [파일 붙이기]. Then [파일 붙이기] → [저장] adds one.
@@ -249,7 +249,7 @@ for(const viewport of [{width:412,height:915},{width:1440,height:900}]){
     await page.locator('#gtSaveBtn').click();
     await expect.poll(()=>state.calls.detach.length).toBe(2);
     await expect(row(page,'a').locator('.gt-files')).toHaveCount(0);
-    if(viewport.width<761)await open();
+    await open(); // S49-35: 저장하면 PC 칸도 폰 창처럼 닫힌다 → 다시 연다
     await expect(att.locator('.gt-att-row')).toHaveCount(0);
     await expect(att.locator('[data-gt-att-add]')).toHaveText('파일 붙이기');
     await att.locator('[data-gt-att-add-input]').setInputFiles([txt('붙인 자료.txt')]);

@@ -183,6 +183,27 @@ export function monthAt(bar, ratio) {
   const r = Math.max(0, Math.min(1, ratio));
   return bar.find(m => r < m.to) || bar.at(-1);
 }
+// PHOTO-연월이동(S49-5, 요청함 11/03 10:47 명진 결정 A+B 둘 다): 화면 없이 시험하는 규칙.
+// A 오른쪽 끝 날짜 막대: 막대 위 연도 눈금(해마다 그 해 가장 최근 달 자리, 사진 많은 쪽이 길다)과 '2025년 3월' 말풍선.
+export const monthLabelKo = key => { const ym = parseMonth(key); return ym ? `${ym.year}년 ${ym.month + 1}월` : ''; };
+export function yearTicks(bar) {
+  const seen = new Set(), out = [];
+  for (const m of bar || []) { const y = String(m.key).slice(0, 4); if (seen.has(y)) continue; seen.add(y); out.push({year:Number(y), from:m.from}); }
+  return out;
+}
+// PHOTO-연도막대겹침(S49-45): 막대 높이(px)에 맞춰 연도 글자를 글자끼리 겹치지 않게 거른다.
+// 위(최신)부터 훑어 앞 글자와 minGap px 이상 떨어진 해만 남기고 나머지는 생략한다. 글자는 막대 안(위·아래 끝 반 글자씩 안쪽)에 들어오게 누른다.
+export const RAIL_YEAR_GAP = 16, RAIL_YEAR_LABEL_H = 12;
+export function yearLabels(bar, heightPx, minGap = RAIL_YEAR_GAP, labelH = RAIL_YEAR_LABEL_H) {
+  if (!(heightPx > labelH)) return [];
+  const half = labelH / 2, out = [];
+  for (const t of yearTicks(bar)) {
+    const pos = Math.max(half, Math.min(heightPx - half, t.from * heightPx));
+    if (out.length && pos - out.at(-1).pos < minGap) continue;
+    out.push({year: t.year, from: t.from, pos});
+  }
+  return out;
+}
 // 그 달 끝(다음 달 1일 0시, 서울)에서 시작하는 cursor. id '!'은 어떤 원드라이브 id보다 앞이라 그 시각 사진은 넘긴다(다음 달 것).
 export function monthCursor(key) {
   const ym = parseMonth(key); if (!ym) return null;

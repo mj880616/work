@@ -8,7 +8,7 @@ const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-not
 // 저장 전까지 흐리게 남음), 그 아래 접힌 '그 외 n'(맨 위 찾기 칸, 초성 포함). 모양은 공용 부품 pick-fold.mjs 하나다.
 const rt=window.KPTURuntime;
 let user=null,workspaceId=null,workplaces=[],legacyWorkplaces=[],organizations=[],assignments=[],profileWorkplaces=[];
-let baseline=new Set(),saved={name:'',title:''},saving=false,bound=false,calRef=null,fold=null,freshFold=true;
+let baseline=new Set(),saved={name:'',title:''},saving=false,bound=false,fold=null,freshFold=true;
 const foldReady=import('./pick-fold.mjs').then(m=>(fold=m));
 // 사용자가 바꾼 체크만 담는다(조직 id → 체크 여부). 서버 값과 같아지면 지운다.
 const want=new Map();
@@ -18,7 +18,7 @@ const $=sel=>document.querySelector(sel);
 function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 function installView(){
   if($('#profileView'))return;
-  $('#appView')?.insertAdjacentHTML('beforeend',`<section id="profileView" class="view-panel hidden" aria-label="내 프로필"><div class="ps-profile-grid"><article class="panel ps-panel"><h3>기본 정보</h3><div class="ps-fields"><input id="psName" type="text" placeholder="이름" aria-label="이름" autocomplete="off"><input id="psTitle" type="text" placeholder="직책 (예: 국장)" aria-label="직책" autocomplete="off"></div></article><article class="panel ps-panel" id="psWorkplacePanel" aria-label="담당 사업장"><div id="psWorkplaceList"></div></article><article class="panel ps-panel" id="psCalRefPanel"></article><article class="panel ps-panel ps-account-panel"><h3>계정</h3><div class="ps-account-actions"><button id="psMySpaceEntry" class="secondary hidden" data-goto="myspace" type="button">내 공간</button></div></article></div><div class="ps-actions save-row save-row-sticky"><span id="psState" class="ps-state" role="status" aria-live="polite"></span><button id="psSave" class="primary ps-save" type="button" disabled>저장</button></div></section>`);
+  $('#appView')?.insertAdjacentHTML('beforeend',`<section id="profileView" class="view-panel hidden" aria-label="내 프로필"><div class="ps-profile-grid"><article class="panel ps-panel"><h3>기본 정보</h3><div class="ps-fields"><input id="psName" type="text" placeholder="이름" aria-label="이름" autocomplete="off"><input id="psTitle" type="text" placeholder="직책 (예: 국장)" aria-label="직책" autocomplete="off"></div></article><article class="panel ps-panel" id="psWorkplacePanel" aria-label="담당 사업장"><div id="psWorkplaceList"></div></article><article class="panel ps-panel ps-account-panel"><h3>계정</h3><div class="ps-account-actions"><button id="psMySpaceEntry" class="secondary hidden" data-goto="myspace" type="button">내 공간</button></div></article></div><div class="ps-actions save-row save-row-sticky"><span id="psState" class="ps-state" role="status" aria-live="polite"></span><button id="psSave" class="primary ps-save" type="button" disabled>저장</button></div></section>`);
 }
 async function context(){if(!rt?.session||!(await rt.session.ensure()))return false;user=await api('/auth/v1/user');const rows=await api(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id&limit=1`);workspaceId=rows?.[0]?.workspace_id||null;return !!workspaceId}
 function buildWorkplaces(){
@@ -89,22 +89,8 @@ async function load(){
   if(title&&title.value.trim()===saved.title)title.value=next.title;
   saved=next;
   renderWorkplaces();
-  void loadCalRef();
-  void loadTodoRules();
   void loadPush();
-  void loadReopen();
   return true;
-}
-// CAL-조직참고캘린더: '조직 참고 캘린더' 칸은 따로 바로 저장한다(calendar-ref-settings.js). 못 불러와도 프로필 화면은 그대로다.
-// TODO-내일만: '챙길 것 기준' 칸(전체 부탁도 올릴 방·쌓인 후보 다시 거르기)은 따로 바로 저장한다(todo-rules-settings.js). 칸 자리는 참고 일정 칸 다음, 한 번만 붙인다.
-let todoRules=null;
-async function loadTodoRules(){
-  try{
-    let host=$('#psTodoRulesPanel');
-    if(!host){const after=$('#psCalRefPanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psTodoRulesPanel" aria-label="챙길 것 기준"></article>');host=$('#psTodoRulesPanel')}
-    if(!todoRules||todoRules.host!==host){const ready=import('./todo-rules-settings.js').then(m=>m.mountTodoRulesSettings(host,{rt}));todoRules={host,ready};ready.catch(()=>{if(todoRules?.ready===ready)todoRules=null})}
-    await (await todoRules.ready).load();
-  }catch(e){console.error('todo rules settings',e?.name||'Error')}
 }
 // APP-폰알림 N4: '폰 알림' 칸(종류별 켜고 끄기·조용한 시간·시험 알림·등록된 폰)은 따로 바로 저장한다(phone-push-settings.js). 칸 자리는 '계정' 칸 앞, 한 번만 붙인다.
 let pushSettings=null;
@@ -115,24 +101,6 @@ async function loadPush(){
     if(!pushSettings||pushSettings.host!==host){const ready=import('./phone-push-settings.js').then(m=>m.mountPhonePushSettings(host,{rt}));pushSettings={host,ready};ready.catch(()=>{if(pushSettings?.ready===ready)pushSettings=null})}
     await (await pushSettings.ready).load();
   }catch(e){console.error('phone push settings',e?.name||'Error')}
-}
-// APP-다시열림: 폰 앱이면 '폰 알림' 칸 뒤에 '다시 연 기록'(앱이 화면을 처음부터 다시 연 때·까닭, 앱 메모리만)을 접힌 채 한 번 붙인다. 앱이 아니면 칸 없음.
-async function loadReopen(){
-  try{
-    if(!/KPTUAndroid/i.test(navigator.userAgent||'')||$('#psReopenPanel'))return;
-    const after=$('#psPushPanel');if(!after)return;
-    after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReopenPanel" aria-label="다시 연 기록"></article>');
-    const m=await import('./phone-reopen.js');
-    if(!m.mountReopenBook($('#psReopenPanel')))$('#psReopenPanel')?.remove();
-  }catch(e){console.error('phone reopen log',e?.name||'Error')}
-}
-async function loadCalRef(){
-  try{
-    const host=$('#psCalRefPanel');if(!host)return;
-    // 한 칸에 한 번만 붙인다: 프로필을 거의 동시에 두 번 읽으면(화면 열기·프로필 갱신) 모듈을 받는 사이 두 번 붙어 바꿀 때마다 두 번 저장·확인하던 경쟁을 막는다.
-    if(!calRef||calRef.host!==host){const ready=import('./calendar-ref-settings.js').then(m=>m.mountCalendarRefSettings(host,{rt,userId:()=>user?.id}));calRef={host,ready};ready.catch(()=>{if(calRef?.ready===ready)calRef=null})}
-    await (await calRef.ready).load();
-  }catch(e){console.error('calendar ref settings',e?.name||'Error')}
 }
 function discardEdits(){want.clear();const name=$('#psName'),title=$('#psTitle');if(name)name.value=saved.name;if(title)title.value=saved.title;if($('#psWorkplaceList'))renderWorkplaces()}
 async function addOrg(org,currentAssignments,currentWorkplaces){let assignmentCreated=false;const existing=currentWorkplaces.find(x=>x.organization_id===org.id);if(!currentAssignments.some(x=>x.organization_id===org.id)){await api('/rest/v1/app_suborganization_assignees',{method:'POST',body:{organization_id:org.id,user_id:user.id,assigned_by:user.id}});assignmentCreated=true}try{if(existing)await api(`/rest/v1/app_profile_workplaces?id=eq.${encodeURIComponent(existing.id)}`,{method:'PATCH',body:{full_name:org.name,aliases:org.aliases||[],updated_at:new Date().toISOString()}});else{const last=currentWorkplaces.reduce((m,x)=>Math.max(m,Number(x.sort_order)||0),-10);await api('/rest/v1/app_profile_workplaces',{method:'POST',body:{user_id:user.id,organization_id:org.id,full_name:org.name,aliases:org.aliases||[],sort_order:last+10}});currentWorkplaces.push({organization_id:org.id,sort_order:last+10})}if(assignmentCreated)currentAssignments.push({organization_id:org.id,user_id:user.id})}catch(e){if(assignmentCreated)try{await api(`/rest/v1/app_suborganization_assignees?organization_id=eq.${encodeURIComponent(org.id)}&user_id=eq.${user.id}`,{method:'DELETE'})}catch{}throw e}}

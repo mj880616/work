@@ -1,4 +1,5 @@
 import {basketOcrFor} from './basket-ocr-runtime.js';
+import {bindPaste} from './paste-files.mjs';
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
 const UNKNOWN = '저장 결과를 확인하지 못했습니다. 정리함에서 확인 후 다시 시도하세요';
@@ -8,6 +9,7 @@ export const fileSize = size => size >= 1048576 ? `${(size / 1048576).toFixed(1)
 export function driveFileUrl(id) {
   return typeof id === 'string' && /^[A-Za-z0-9_-]+$/.test(id) ? `https://drive.google.com/file/d/${id}/view` : null;
 }
+const EAGER_BYTES = 120 * 1048576;
 export function createUploadBatch(note_id = null, attachments = []) {
   return {note_id, attachments, entries:[], blocked:null};
 }
@@ -59,7 +61,8 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
     entry.kind = 'uploading'; entry.label = '업로드 중'; onChange();
     let fd;
     try {
-      const copy = await rt.copyUploadFile(entry.file);
+      // UPD-사진여러장: a file read as soon as it was chosen (mountBasketPicker) is used as is; the rest are read now.
+      const copy = entry.copy || await (entry.read || rt.copyUploadFile(entry.file));
       if (!isCurrent()) throw uploadError('입력 세션이 변경되었습니다.', 'session_changed', 401);
       fd = new FormData(); fd.append('file', copy);
       if (batch.note_id) fd.append('note_id', batch.note_id);
@@ -68,7 +71,7 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
       if (!isCurrent()) throw uploadError('입력 세션이 변경되었습니다.', 'session_changed', 401);
       if (!result?.ok || typeof result.note_id !== 'string' || !result.note_id || !Array.isArray(result.attachments) || (batch.note_id && result.note_id !== batch.note_id)) throw uploadError(UNKNOWN, 'note_save_result_unknown');
       batch.note_id = result.note_id; batch.attachments = result.attachments;
-      entry.kind = 'success'; entry.label = '완료'; entry.file = {name:entry.file.name,size:entry.file.size};
+      entry.kind = 'success'; entry.label = '완료'; entry.file = {name:entry.file.name,size:entry.file.size}; entry.copy = entry.read = null;
       // Multipart uses native fetch, so publish the same safe event as runtime.api
       // only after response, note ID and current input session validation succeed.
       try { globalThis.window?.dispatchEvent(new CustomEvent('kptu:api-saved', {detail:{path:'/functions/v1/basket-files',method:'POST',fields:['attachments'],action:'',projectLinked:false}})); } catch { /* A subscriber cannot turn a saved attachment into a failed upload. */ }
@@ -119,7 +122,8 @@ export async function uploadNoteFiles(noteId, batch, {rt = window.KPTURuntime, i
 }
 // A new note made only of files is titled with the first file's name (one line, 200 characters at most).
 export const fileTitle = name => [...String(name || '').replace(/[\r\n]+/g, ' ').trim()].slice(0, 200).join('').trim();
-export function mountBasketPicker(host, {id, filesHost, dropTarget, getBatch, isBusy, isActive = () => true, onChange = () => {}, onError}) {
+// UPD-그림붙여넣기: pasteTarget (the input where the cursor is, or the box around it) takes Ctrl+V pictures into the same add() as the clip and the drop.
+export function mountBasketPicker(host, {id, filesHost, dropTarget, pasteTarget = null, getBatch, isBusy, isActive = () => true, onChange = () => {}, onError}) {
   host.classList.add('basket-clip-picker');
   host.innerHTML = `<input id="${id}" class="library-file-input" type="file" multiple tabindex="-1" aria-hidden="true"><button type="button" class="basket-clip" data-basket-clip aria-label="파일 첨부" aria-controls="${id}"><svg class="basket-clip-icon" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" focusable="false"><path d="M13.2 7.6 8.1 12.7a3.3 3.3 0 0 1-4.7-4.7l5.4-5.4a2.2 2.2 0 0 1 3.1 3.1L6.6 11a1.1 1.1 0 0 1-1.6-1.6l4.8-4.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="basket-clip-label">첨부</span><span class="basket-clip-count" data-basket-count aria-hidden="true" hidden></span></button>`;
   filesHost.classList.add('basket-file-selection');
@@ -139,14 +143,38 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, getBatch, is
     hint.hidden = !batch.entries.length; filesHost.hidden = !batch.entries.length;
     rows.innerHTML = batch.entries.map((entry, index) => `<div class="library-selected-file ${entry.kind}" data-basket-file="${index}"><div class="library-selected-file-main"><b>${esc(entry.file.name)}</b><small>${esc(fileSize(entry.file.size))}</small></div><span class="library-upload-state">${esc(entry.label || '대기')}</span>${entry.kind === 'success' ? '' : `<button type="button" class="icon-btn" data-basket-remove="${index}" aria-label="${esc(entry.file.name)} 선택 취소"${isBusy() || batch.blocked ? ' disabled' : ''}>×</button>`}</div>`).join('');
   }
+  // UPD-사진여러장: on the phone app a chosen photo is only a pointer the system picker lent for a moment, and the upload used to
+  // read file 2, 3… minutes later, one request after another. Read each one into memory right away (within EAGER_BYTES in all);
+  // one that cannot be read leaves the list at once with a plain line instead of failing in the middle of the upload.
+  function readNow(batch, added) {
+    const rt = window.KPTURuntime;
+    if (typeof rt?.copyUploadFile !== 'function') return;
+    let used = batch.entries.reduce((sum, e) => sum + (e.copy ? e.copy.size : 0), 0);
+    for (const entry of added) {
+      if (used + entry.file.size > EAGER_BYTES) continue;
+      used += entry.file.size;
+      entry.read = rt.copyUploadFile(entry.file).then(copy => { entry.copy = copy; return copy; });
+      entry.read.catch(() => {
+        const at = getBatch().entries.indexOf(entry);
+        if (at < 0 || entry.kind !== 'pending') return;
+        getBatch().entries.splice(at, 1);
+        render(); onChange();
+        onError(`사진을 못 받았어요 · 다시 골라 주세요 (${entry.file.name || '이름 없음'})`);
+      });
+    }
+  }
   function add(files) {
     if (!isActive() || isBusy() || getBatch().blocked) return false;
     const batch = getBatch(), old = batch.entries;
-    batch.entries = [...old, ...Array.from(files || []).map(file => ({file,kind:'pending',label:'대기'}))];
+    const added = Array.from(files || []).map(file => ({file,kind:'pending',label:'대기'}));
+    batch.entries = [...old, ...added];
     try { validateBatch(batch); } catch(e) { batch.entries = old; render(); onError(e.message); return false; }
-    input.value = ''; render(); onChange(); return true;
+    input.value = ''; render(); onChange();
+    readNow(batch, added);
+    return true;
   }
   input.addEventListener('change', () => add(input.files));
+  if (pasteTarget) bindPaste(pasteTarget, files => add(files), {key: id, canTake: () => isActive() && !isBusy() && !getBatch().blocked, taken: () => getBatch().entries.map(e => e.file.name)});
   // Native button activation covers touch, click, Enter and Space.
   clip.addEventListener('click', () => { if (!input.disabled) input.click(); });
   const fileDrag = e => Array.from(e.dataTransfer?.types || []).includes('Files');

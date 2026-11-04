@@ -2,6 +2,7 @@
 // 왼쪽 절반 = 위 칸 "지남·오늘" + 아래 칸 "일주일 안"(높이는 항목 수만큼), 오른쪽 절반 = 상세 칸(왼쪽 위 칸과 같은 줄에서 시작해 맨 아래까지).
 // "나중 N ▸"·"완료 N ▸"는 "일주일 안" 열 맨 아래 접기 줄. 상세 칸의 [저장]은 칸 맨 아래 줄 오른쪽 아래에 있고 스크롤해도 고정(UI-저장자리 2026-10-27, 전에는 제목 줄이었다).
 // 폰·중간 폭은 지금 묶음 목록 그대로. 상세 칸은 지금 수정 창과 같은 요소·같은 저장 경로(google-tasks update/link/unlink)를 쓴다.
+import {noticeText} from './helpers/small-notice.mjs';
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 import {innerScrollers} from './helpers/one-scroll.mjs';
@@ -181,20 +182,22 @@ for(const width of [1280,1440]){
     // 지금 수정 창과 같은 항목: 할 일·기한·메모·프로젝트·조직 연결.
     await expect(page.locator('#gtEditDue')).toHaveValue('2026-10-08');await expect(page.locator('#gtEditNotes')).toHaveValue('첫 메모');
     await expect(pane.locator('[data-gt-link][value="p:p1"]')).toBeChecked();await expect(pane.locator('[data-gt-link][value="o:o1"]')).not.toBeChecked();
-    // 바로 수정 → 저장(같은 update·link·unlink 경로). 칸은 열린 채 "저장했습니다."
+    // 바로 수정 → 저장(같은 update·link·unlink 경로). S49-35: 저장되면 칸이 닫히고 고른 줄이 풀리며 작은 알림 "저장했어요."만 남는다.
     await page.locator('#gtEditDue').fill('2026-10-12');await page.locator('#gtEditNotes').fill('고친 메모');
     await pane.locator('[data-gt-link][value="o:o1"]').check();await pane.locator('[data-gt-link][value="p:p1"]').uncheck();
     await pane.locator('#gtSaveBtn').click();
-    await expect(page.locator('#gtEditStatus')).toHaveText('저장했습니다.');
+    expect(await noticeText(page)).toBe('저장했어요.');
+    await expect(editor).toBeHidden();await expect(page.locator('#gtTaskBody .gt-row.is-selected')).toHaveCount(0);await expect(page.locator('#gtTaskBody [aria-current="true"]')).toHaveCount(0);
     const update=calls.find(c=>c.action==='update');
     expect(update.body).toMatchObject({action:'update',task_id:'a',title:'할 일 a',notes:'고친 메모',due:'2026-10-12'});
     expect(calls.find(c=>c.action==='link').body.links).toEqual([{organization_id:'o1'}]);
     expect(calls.find(c=>c.action==='unlink').body.links).toEqual([{project_id:'p1'}]);
     expect(calls.some(c=>c.action==='create')).toBe(false);
-    // 다시 읽은 목록에서 카드가 "일주일 안"으로 옮겨지고 선택은 유지된다.
-    await expect(col(page,'week').locator('[data-google-task="a"]')).toHaveClass(/is-selected/);
-    await expect(editor).toBeVisible();
-    // 다른 카드를 누르면 그 할 일로 바뀐다.
+    // 다시 읽은 목록에서 카드가 "일주일 안"으로 옮겨지고, 고른 줄은 풀린 채 칸이 닫혀 있다(아무것도 안 고른 목록).
+    await expect(col(page,'week').locator('[data-google-task="a"]')).not.toHaveClass(/is-selected/);
+    await expect(editor).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);
+    // 카드를 다시 누르면 칸이 열리고, 다른 카드를 누르면 그 할 일로 바뀐다.
+    await page.locator('[data-gt-edit="a"]').click();await expect(editor).toBeVisible();
     await page.locator('[data-gt-edit="b"]').click();await expect(page.locator('#gtEditTitle')).toHaveValue('할 일 b');
     await expect(page.locator('[data-google-task="b"]')).toHaveClass(/is-selected/);await expect(page.locator('[data-google-task="a"]')).not.toHaveClass(/is-selected/);
     // Esc로 칸을 닫으면 그 카드로 초점이 돌아간다.
@@ -230,7 +233,7 @@ for(const width of [1280,1440]){
     await expect(save).toBeEnabled();
     // 연결 목록이 길어 칸은 화면보다 길다. UI-칸안스크롤하나로: 칸 안에는 따로 스크롤이 없고(넘침 없음) 화면 스크롤 하나로 읽는다.
     const over=await pane.evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY,h:e.getBoundingClientRect().height,ih:innerHeight}));
-    expect(over.h).toBeGreaterThan(over.ih);expect(over.oy).toBe('visible');expect(over.sh).toBeLessThanOrEqual(over.ch+1);
+    expect(over.h).toBeLessThanOrEqual(over.ih);expect(over.oy).toBe('auto');expect(over.sh).toBeGreaterThan(over.ch+100); // UI-상세칸고정(2026-11-03): 칸은 화면 안에 제자리, 길면 칸만 스크롤
     // UI-저장자리: 저장은 칸 맨 아래 줄 오른쪽 끝에 있고 처음부터 화면 안에 있다. 제목 줄에는 없다.
     await expect(save).toBeInViewport();
     expect(await save.evaluate(e=>e.closest('.modal-action-footer')!==null)).toBe(true);
@@ -241,16 +244,16 @@ for(const width of [1280,1440]){
     expect(vh-(first.save.y+first.save.height)).toBeLessThan(40);
     expect(first.pane.x+first.pane.width-(first.save.x+first.save.width)).toBeLessThan(40);
     // 화면을 맨 아래까지 넘겨도 [저장]과 제목 줄(닫기)은 화면 안에 보인다(제목 줄은 화면 위에 붙음).
-    await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
-    expect(await page.evaluate(()=>window.scrollY)).toBeGreaterThan(200);
+    await pane.evaluate(e=>{e.scrollTop=e.scrollHeight});
+    expect(await pane.evaluate(e=>e.scrollTop)).toBeGreaterThan(200);
     const last=await spot();
-    expect(last.head.y).toBeGreaterThanOrEqual(-1);expect(last.head.y).toBeLessThanOrEqual(2);
+    expect(last.head.y).toBeGreaterThanOrEqual(last.pane.y-1);expect(last.head.y).toBeLessThanOrEqual(last.pane.y+4);
     await expect(save).toBeInViewport();await expect(close).toBeInViewport();
     // 스크롤한 채로 저장 → 같은 update 경로, 안내("저장했습니다.")도 아래 줄 안에서 보인다.
     await pane.locator('#gtEditTitle').evaluate(e=>{e.value='고친 제목';e.dispatchEvent(new Event('input',{bubbles:true}))});
     await save.click();
-    await expect(status).toHaveText('저장했습니다.');await expect(status).toBeInViewport();
-    expect(await status.evaluate(e=>e.parentElement.classList.contains('modal-action-footer'))).toBe(true);
+    // S49-35: 성공하면 칸이 닫힌다(안내는 작은 알림). 오류 안내가 아래 줄에 보이는 것은 아래 오류 시험이 본다.
+    expect(await noticeText(page)).toBe('저장했어요.');await expect(pane.locator('#gtTaskModal')).toBeHidden();
     expect(calls.find(c=>c.action==='update').body).toMatchObject({task_id:'a',title:'고친 제목'});
     expect(errors).toEqual([]);
   });
@@ -269,7 +272,7 @@ for(const width of [1280,1440]){
     await pane.locator('#gtEditTitle').evaluate(e=>{e.value='바꾼 제목';e.dispatchEvent(new Event('input',{bubbles:true}))});
     await pane.locator('#gtSaveBtn').click();
     const status=pane.locator('#gtEditStatus');
-    await expect(status).not.toBeEmpty();await expect(status).not.toHaveText('저장했습니다.');await expect(status).toBeInViewport();
+    await expect(status).not.toBeEmpty();await expect(status).not.toHaveText('저장했어요.');await expect(status).toBeInViewport();
     const [p,st]=[await pane.boundingBox(),await status.boundingBox()];expect(p.y+p.height-(st.y+st.height)).toBeLessThan(120);
     await expect(pane.locator('#gtEditTitle')).toHaveValue('바꾼 제목');await expect(pane.locator('#gtSaveBtn')).toBeEnabled();
   });

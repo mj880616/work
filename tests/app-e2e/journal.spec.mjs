@@ -76,7 +76,7 @@ const others=()=>({
 });
 // ORG-담당13기준: the organization read also asks for my assignment rows; o1·o2 are mine. outside:true adds two organizations
 // that are not mine (one active and unassigned, one assigned but inactive), each with a Tuesday record (fake names only).
-async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServer='old',outside=false,extraEvents=[]}={}){
+async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServer='old',outside=false,extraEvents=[],beforeLoad=null}={}){
  const rows=store(),writes=[],reads=[],errors=[],taskCalls=[],calendarReads=[],more=others();
  more.assignees=['o1','o2'].map(organization_id=>({organization_id,user_id:'home-test'}));
  if(outside){
@@ -88,7 +88,7 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
  page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width,height});
- await openHome(page);
+ await openHome(page,{beforeLoad});
  // PostgREST or=(and(col.op.val,…),…) — only the shape the journal sends (WEEKLY-자료날짜: put in the library in the week, or dated in the week).
  const orSplit=v=>{const out=[];let depth=0,cur='';for(const ch of v){if(ch==='(')depth++;if(ch===')')depth--;if(ch===','&&depth===0){out.push(cur);cur='';continue}cur+=ch}if(cur)out.push(cur);return out};
  const orCond=(row,c)=>{const [col,...rest]=c.split('.');if(row[col]==null)return false;const one=new URLSearchParams([[col,rest.join('.')]]);return match(instants(row,one),one)};
@@ -342,11 +342,8 @@ for(const width of [390,1280]){
   await expectTodo(page,['남은 할 일']);
   // 다음 주 월요일 0시(한국 시간)에 올린 자료는 이번 주 일요일에 오지 않는다.
   await date(page,'2026-10-11').click();await expect(group(page,'docs')).toHaveCount(0);
-  // app_notes 읽기는 모두 종류를 가린다(일지 한 줄은 kind=work, 업데이트는 basket). 노트(note)는 '노트로 옮긴 업데이트' 표시가 있는 것만,
-  // id·제목·날·표시만 읽는다(본문 raw_text·다른 metadata 없음).
-  const noteReads=f.reads.filter(q=>!q.table&&q.kind==='eq.note');
-  expect(noteReads).toHaveLength(1);
-  expect(noteReads[0]).toMatchObject({'metadata->>moved_from_update_at':'not.is.null',select:'id,title,occurred_at,moved_at:metadata->>moved_from_update_at'});
+  // app_notes 읽기는 모두 종류를 가린다(일지 한 줄은 kind=work, 업데이트는 basket). S49-12: 하루 카드는 노트(note)를 더 읽지 않는다.
+  expect(f.reads.filter(q=>!q.table&&q.kind==='eq.note')).toHaveLength(0);
   expect(f.reads.filter(q=>!q.table&&q.kind!=='eq.note').every(q=>/^eq\.(work|basket)$/.test(q.kind||''))).toBe(true);
   // 조직·회의 읽기는 이 업무 공간·이번 주(한국 시간)로 가린다.
   expect(f.reads.find(q=>q.table==='app_suborganization_updates')).toMatchObject({organization_id:'in.(o1,o2)',occurred_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z'});
@@ -621,9 +618,11 @@ test('[주간보고 초안 복사]: 양식 순서(1 → 2 → 4 → 5 → 참고
  const input=page.locator('#journalRoot [data-journal-input]');
  await input.fill('화요일 첫 줄');await input.press('Enter');await expect(items(page)).toHaveCount(1);
  await input.fill('화요일 둘째 줄');await input.press('Enter');await expect(items(page)).toHaveCount(2);
- // 5. 주요 일정은 다음 주 월요일부터 2주(10/12~10/25)를 따로 읽는다.
- await expect.poll(()=>f.calendarReads.some(([min,max])=>min===new Date('2026-10-12T00:00:00+09:00').toISOString()&&max===new Date('2026-10-26T00:00:00+09:00').toISOString())).toBe(true);
+ // 5. 주요 일정은 다음 주 월요일부터 2주(10/12~10/25)를 따로 읽는다 — 하루 화면에서는 읽지 않고 [주간 정리]를 열 때(PERF-첫로딩 요청 합치기, S48-59).
+ const upcomingRead=()=>f.calendarReads.some(([min,max])=>min===new Date('2026-10-12T00:00:00+09:00').toISOString()&&max===new Date('2026-10-26T00:00:00+09:00').toISOString());
+ expect(upcomingRead()).toBe(false);
  await copyDraft(page);
+ expect(upcomingRead()).toBe(true);
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  const lines=text.split('\n');
@@ -971,7 +970,7 @@ async function weeklyFixture(page,options={}){
   {id:'p4',project_id:'wa1',summary:'가-1 목요일 기록',effective_on:'2026-10-08',created_at:'2026-10-08T03:00:00Z'},
   {id:'p5',project_id:'wa2',summary:'가-2 화요일 기록',effective_on:'2026-10-06',created_at:'2026-10-06T04:00:00Z'},
  );
- // A note moved from the basket ([노트로 옮기기]) shows on the day card but is not weekly material.
+ // A note moved from the basket ([노트로 옮기기]) is neither on the day card (S49-12) nor weekly material.
  f.rows.push({id:'n-moved',workspace_id:'w',kind:'note',title:'옮긴 합성 노트',journal_day:null,raw_text:'본문',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],moved_at:'2026-10-07T00:00:00.000Z',metadata:{moved_from_update_at:'2026-10-07T00:00:00.000Z'}});
  const catalog={fail:!!options.failCatalog};
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_spaces',async r=>{
@@ -1001,8 +1000,8 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-mode]')).toHaveText(['하루','주간 정리']);
  await expect(page.locator('#journalRoot [data-journal-mode="day"]')).toHaveAttribute('aria-pressed','true');
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeHidden();
- // 하루 카드에는 옮긴 노트가 보인다(주간 정리에는 없다).
- await expect(page.locator('#journalRoot')).toContainText('옮긴 합성 노트');
+ // S49-12: 하루 카드에도 옮긴 노트가 없다(주간 정리에도 없다).
+ await expect(page.locator('#journalRoot')).not.toContainText('옮긴 합성 노트');
  await openWeekly(page);
  // HOME-업무일지홈: [주간 정리]면 머리줄 제목은 그 주 범위(하루면 고른 날).
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
@@ -3848,4 +3847,69 @@ test('[업무일지] 연 화면 유지: 탭을 갔다 오면 기다림 표시 �
  expect(await waits.count()).toBe(0);
  await page.unroute(rest,hold);
  expect(f.errors).toEqual([]);
+});
+
+// S49-13 JOURNAL-기억할통화텔레그램: 하루 카드 주간보고 재료의 네 번째 묶음. 서버가 고른 줄(표 app_journal_memorable)이 보이고,
+// 넣기·고쳐서 넣기·빼기(이유 선택)는 서버 표에 저장되며, 운영자 기능이 없으면 묶음이 없고, 화면을 열 때마다 AI를 부르는 것은 서버가 1시간으로 막는다.
+test('[하루] 기억할 통화·텔레그램: 줄·"10:00 기준"이 보이고, 넣기·고쳐서 넣기·빼기가 서버 표에 저장된다',async({page})=>{
+ const table=[
+  {id:'m1',source:'call',feed_item_id:'f1',org_name:'가상지부',line:'교섭 일정 확정함.',status:'suggested',final_line:null},
+  {id:'m2',source:'telegram',feed_item_id:'f2',org_name:null,line:'파업 찬반투표 일정 공유됨.',status:'suggested',final_line:null},
+ ];
+ const patches=[],asked=[];
+ const routes=async()=>{
+ await page.route(SB+'/rest/v1/rpc/app_my_features',r=>r.fulfill({json:['calls','telegram']}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_journal_memorable',async r=>{
+  if(r.request().method()==='PATCH'){
+   const id=new URL(r.request().url()).searchParams.get('id').replace(/^eq\./,''),body=r.request().postDataJSON();
+   patches.push({id,body});Object.assign(table.find(x=>x.id===id),body);
+   return r.fulfill({json:[]});
+  }
+  return r.fulfill({json:table});
+ });
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_journal_memorable_runs',r=>r.fulfill({json:[{last_run_at:'2026-10-06T01:00:00Z'}]}));
+ await page.route(SB+'/functions/v1/ai-assist',async r=>{
+  const body=r.request().postDataJSON();if(body.kind!=='journal_memorable')return r.fallback();
+  asked.push(body);return r.fulfill({json:{ok:true,kind:'journal_memorable',day:body.day,skipped:'fresh'}});
+ });
+ };
+ await fixture(page,{width:1280,beforeLoad:routes});
+ await openJournal(page,1280);
+ const box=group(page,'memorable');
+ await expect(box).toBeVisible();
+ await expect(box.locator('h5')).toContainText('기억할 통화·텔레그램');
+ await expect(box.locator('[data-journal-memorable-asof]')).toHaveText('10:00 기준');
+ await expect(box.locator('[data-journal-memorable]')).toHaveCount(2);
+ await expect(box.locator('[data-journal-memorable="m1"]')).toContainText('가상지부 교섭 일정 확정함.');
+ expect(asked).toEqual([{kind:'journal_memorable',day:'2026-10-06'}]);
+ // 넣기 → 서버 표 status=kept.
+ await box.locator('[data-memorable-keep="m1"]').click();
+ await expect.poll(()=>patches.length).toBe(1);
+ expect(patches[0]).toMatchObject({id:'m1',body:{status:'kept',final_line:null,drop_reason:null}});
+ await expect(box.locator('[data-journal-memorable="m1"] [data-memorable-kept]')).toBeVisible();
+ // 고쳐서 넣기 → 고친 글이 final_line.
+ await box.locator('[data-memorable-fix="m2"]').click();
+ await box.locator('[data-memorable-input]').fill('파업 찬반투표 일정 공유함.');
+ await box.locator('[data-memorable-edit] button[type="submit"]').click();
+ await expect.poll(()=>patches.length).toBe(2);
+ expect(patches[1]).toMatchObject({id:'m2',body:{status:'kept',final_line:'파업 찬반투표 일정 공유함.'}});
+ await expect(box.locator('[data-journal-memorable="m2"]')).toContainText('파업 찬반투표 일정 공유함.');
+ // 빼기(이유 선택) → 그 줄이 사라진다.
+ await box.locator('[data-journal-memorable="m1"] summary').click();
+ await box.locator('[data-memorable-drop="m1"][data-reason="중복"]').click();
+ await expect.poll(()=>patches.length).toBe(3);
+ expect(patches[2]).toMatchObject({id:'m1',body:{status:'dropped',drop_reason:'중복'}});
+ await expect(box.locator('[data-journal-memorable]')).toHaveCount(1);
+});
+test('[하루] 기억할 통화·텔레그램: 운영자 기능이 없는 작업공간에는 묶음도 AI 요청도 없다',async({page})=>{
+ const asked=[];
+ const routes=async()=>{
+ await page.route(SB+'/rest/v1/rpc/app_my_features',r=>r.fulfill({json:[]}));
+ await page.route(SB+'/functions/v1/ai-assist',async r=>{const body=r.request().postDataJSON();if(body.kind!=='journal_memorable')return r.fallback();asked.push(body);return r.fulfill({json:{ok:true,kind:'journal_memorable',day:body.day,skipped:'not_allowed'}});});
+ };
+ await fixture(page,{width:1280,beforeLoad:routes});
+ await openJournal(page,1280);
+ await expect(page.locator('#journalRoot [data-journal-report]')).toBeVisible();
+ await expect(group(page,'memorable')).toHaveCount(0);
+ expect(asked).toEqual([]);
 });

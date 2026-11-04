@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>그 장소 사진 시안</title>
+<style>
+/* Web2 스타일 변수(app/base-ui.css --kptu-*, 기본 테마 olive 톤). 가짜 자료. */
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px 16px}
+h1{font-size:14px;font-weight:500;margin:0 0 4px;color:var(--kptu-muted)}
+h2{font-size:13px;font-weight:500;margin:0 0 6px;color:var(--kptu-primary-ink)}
+.lead{font-size:12px;color:var(--kptu-faint);margin:0 0 12px;max-width:780px}
+.section{margin-bottom:24px}
+.phone{width:412px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--kptu-border-strong);border-radius:12px;overflow:hidden;padding:10px}
+.row{font-size:12px;color:var(--kptu-muted);margin:2px 0}
+.line{display:flex;align-items:center;gap:6px;min-height:28px;font-size:12px;color:var(--kptu-muted)}
+.mini{font:inherit;font-size:12px;padding:1px 8px;border:1px solid var(--kptu-border-strong);border-radius:6px;background:var(--kptu-surface);color:var(--kptu-ink)}
+.strip{display:flex;gap:4px;overflow-x:auto;padding:2px 0}
+.it{position:relative;flex:none;width:56px;height:56px;border:1px solid var(--kptu-border);border-radius:3px;background:var(--kptu-surface-subtle)}
+.it i{position:absolute;inset:0;background:linear-gradient(135deg,#b9c29a,#8e9a6b)}
+.it.far i{background:linear-gradient(135deg,#c9c3b2,#a8a190)}
+.t{position:absolute;left:0;right:0;bottom:0;font-size:10px;line-height:14px;text-align:center;background:color-mix(in srgb,var(--kptu-surface) 80%,transparent);color:var(--kptu-muted)}
+.pin{position:absolute;top:2px;left:2px;font-size:10px;line-height:14px;padding:0 3px;border-radius:7px;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.foot{display:flex;align-items:center;gap:6px;min-height:28px}
+.note{flex:1;font-size:12px;color:var(--kptu-muted)}
+.rec{border-left:3px solid var(--kptu-primary);padding:4px 8px;background:var(--kptu-primary-soft);font-size:12px;max-width:780px}
+</style>
+</head>
+<body>
+<h1>사진 정리 ⑥ 남은 일 — '그 장소에서 찍은' 사진도 추천 (사업 보고 쓰기·상세 창 사진 줄)</h1>
+<p class="lead">지금 줄 '그 시각 사진 [골라 붙이기]'를 그대로 두고, 같은 날 같은 장소에서 찍은 사진(앞뒤 3시간 밖이어도)을 더한다. 장소는 사진 자체의 위치(원드라이브 색인에 이미 있는 찍은 곳)로만 판단하고, 지도 서비스는 부르지 않는다.</p>
+
+<div class="section">
+<h2>추천안 A — 한 줄 안에 섞고 '📍' 표시 (추천)</h2>
+<div class="phone">
+  <div class="row">일시 11.3.(화) 14:00 · 장소 용산철도회관 6층</div>
+  <div class="line"><span>그 시각 사진 6장 · 📍그 장소 3장</span><button class="mini">닫기</button></div>
+  <div class="strip">
+    <div class="it"><i></i><span class="pin">📍</span><span class="t">09:40</span></div>
+    <div class="it"><i></i><span class="pin">📍</span><span class="t">10:05</span></div>
+    <div class="it far"><i></i><span class="t">12:20</span></div>
+    <div class="it"><i></i><span class="pin">📍</span><span class="t">13:55</span></div>
+    <div class="it"><i></i><span class="pin">📍</span><span class="t">14:10</span></div>
+    <div class="it"><i></i><span class="t">15:30</span></div>
+    <div class="it"><i></i><span class="pin">📍</span><span class="t">18:40</span></div>
+  </div>
+  <div class="foot"><span class="note"></span><button class="mini">닫기</button><button class="mini">붙이기 2</button></div>
+</div>
+<p class="lead">· 📍 = 보고 시각 앞뒤 3시간 사진들이 찍힌 곳에서 300m 안. 09:40·18:40처럼 3시간 밖이어도 그날 그 장소면 들어온다.<br>· 12:20(흐림)은 3시간 안이지만 다른 곳(이동 중)에서 찍은 사진 — 그대로 보이되 📍 없음.<br>· 위치가 없는 사진(폰에만 있고 원드라이브에 짝이 없는 사진)은 지금처럼 시각으로만 추천된다.</p>
+</div>
+
+<div class="section">
+<h2>B안 — 줄 위에 [그 시각][그 장소] 두 칩으로 나눠 보기</h2>
+<div class="phone">
+  <div class="line"><span class="mini">그 시각 6</span><span class="mini">📍그 장소 5</span><button class="mini">닫기</button></div>
+  <div class="strip">
+    <div class="it"><i></i><span class="t">09:40</span></div><div class="it"><i></i><span class="t">10:05</span></div><div class="it"><i></i><span class="t">13:55</span></div><div class="it"><i></i><span class="t">14:10</span></div><div class="it"><i></i><span class="t">18:40</span></div>
+  </div>
+</div>
+<p class="lead">칩 하나가 더 생겨 한 번 더 눌러야 함. 콤팩트 취향과 맞지 않아 추천하지 않음.</p>
+</div>
+
+<p class="rec">추천: A안. 버튼·칸을 새로 늘리지 않고 지금 한 줄에 '📍' 표시와 머리 글자 '· 📍그 장소 n장'만 더한다.</p>
+</body>
+</html>

@@ -115,8 +115,8 @@ for (const width of [390, 1280]) {
     const viewer = root(page).locator('[data-diary-viewer]');
     await expect(viewer).toBeVisible();
     await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('1 / 7');
-    await expect(viewer.locator('.diary-viewer-actions button:not([hidden])')).toHaveText(['☆ 별표', '⇪ 공유', '🗑 지우기', 'ⓘ 정보']);
-    await viewer.locator('[data-diary-info]').click();
+    await expect(viewer.locator('.diary-viewer-actions button:not([hidden])')).toHaveText(['별표', '공유▾', '지우기', '더보기']); // S49-34 PHOTO-아래줄정돈: 다섯 칸까지(이 흉내는 앱이 아니라 [편집 ▾] 없음)
+    await viewer.locator('[data-strip-act="more"]').click(); await page.locator('#photoBarMenu').getByRole('button', { name: '정보', exact: true }).click();
     await expect(viewer.locator('[data-strip-original]')).toHaveText('⤓ 원본 받기');
     await page.keyboard.press('s');
     await expect.poll(() => f.starWrites.length).toBe(1);
@@ -154,6 +154,56 @@ for (const width of [390, 1280]) {
   });
 }
 
+// PHOTO-연월보기(S49-48): [사진] 탭 일별 격자 → [－] → 월 보기 → [－] → 연 보기. 줄을 누르면 한 단계 크게, 뒤로가기는 이전 단계, 단계는 서버(photo_zoom, 기기 종류 칸). 달력 탭에는 연·월 단계가 없다.
+for (const width of [412, 884, 1440]) {
+  test(`사진 메뉴: 연도 눈금(일별만) · [－]로 월 → 연 보기 · 줄 누르기 · 뒤로가기 = 이전 단계 · 서버 기억 ${width}`, async ({ page }) => {
+    const f = await fixture(page, { width });
+    await openPhotos(page, width);
+    await expect(items(page)).toHaveCount(7);
+    await expect(root(page).locator('[data-photos-rail] .photos-rail-year')).toHaveText(['2026']);
+    const kind = width <= 760 ? 'phone' : 'pc';
+    const minus = root(page).locator('[data-photo-size="-1"]'), plus = root(page).locator('[data-photo-size="1"]');
+    // 칸 수 단계 끝까지 작게 → 월 보기
+    for (let k = 0; k < 8 && !(await root(page).locator('[data-photos-zoom]').count()); k++) await minus.click();
+    const zoom = root(page).locator('[data-photos-zoom]');
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'month');
+    await expect.poll(() => f.prefs.value?.photo_zoom?.[kind]).toBe('month');
+    await expect(root(page).locator('[data-photos-rail]')).toBeHidden();
+    await expect(root(page).locator('[data-photos-zgo^="month:"]')).toHaveCount(3);
+    await expect(root(page).locator('[data-photos-zgo="month:2026-08"]')).toHaveAttribute('aria-label', '2026년 8월, 사진 2장');
+    await expect(root(page).locator('[data-photos-zgo="month:2026-10"] .photos-zph.has-photo')).toHaveCount(2);
+    // 연 보기: 해 줄 하나, [－]는 끝
+    await minus.click();
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'year');
+    await expect(root(page).locator('[data-photos-zgo="year:2026"]')).toHaveAttribute('aria-label', '2026년, 사진 7장');
+    await expect(minus).toBeDisabled();
+    await expect.poll(() => f.prefs.value?.photo_zoom?.[kind]).toBe('year');
+    // 해 줄 → 그 해 월 보기 → 달 줄 → 그 달 일별
+    await root(page).locator('[data-photos-zgo="year:2026"]').click();
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'month');
+    await root(page).locator('[data-photos-zgo="month:2026-08"]').click();
+    await expect(root(page).locator('[data-photos-zoom]')).toHaveCount(0);
+    await expect(root(page).locator('[data-photos-day^="2026-08"]').first()).toBeVisible();
+    await expect.poll(() => f.prefs.value?.photo_zoom?.[kind]).toBe('day');
+    // 뒤로가기 = 이전 단계 (일별 → 월 → 연)
+    await page.goBack();
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'month');
+    await page.goBack();
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'year');
+    // [＋]: 연 → 월 → 일별
+    await plus.click();
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'month');
+    await plus.click();
+    await expect(root(page).locator('[data-photos-zoom]')).toHaveCount(0);
+    await expect(items(page).first()).toBeVisible();
+    // 달력 탭에는 연·월 단계가 없다(날짜 칸만)
+    await root(page).locator('[data-photos-tab="calendar"]').click();
+    await expect(root(page).locator('.photos-cal-head b')).toBeVisible();
+    await expect(root(page).locator('[data-photos-lv], [data-photos-lv-go]')).toHaveCount(0);
+    expect(f.errors).toEqual([]);
+  });
+}
+
 test('사진 메뉴: 길게 눌러 여러 장 고르기 → [☆ 별표]·[🗑 지우기](묻지 않음, 되돌리기 뒤 한 번에) → [휴지통]에서 되살리기 390', async ({ page }) => {
   const f = await fixture(page, { width: 390 });
   await openPhotos(page, 390);
@@ -171,6 +221,9 @@ test('사진 메뉴: 길게 눌러 여러 장 고르기 → [☆ 별표]·[🗑 
   await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('3개 골랐음');
   await root(page).locator('[data-photos-act-star]').click();
   await expect.poll(() => f.stars.map(s => s.item_key).sort()).toEqual(['A1', 'A2', 'A3']);
+  // S49-9 PHOTO-보낸뒤선택풀기: 별표는 그 자리 표시만 바뀌어 고른 채 둔다. 풀기는 ✕.
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('3개 골랐음');
+  await root(page).locator('[data-photos-sel-off]').click();
   await expect(root(page).locator('[data-photos-sel]')).toBeHidden();
   // 다시 고르고 지우기: 바로 목록에서 빠지고, 되돌리기 시간(5초) 뒤 한 번에(ids) 서버로 간다.
   await hold(items(page).nth(3));
@@ -396,5 +449,55 @@ test('사진 메뉴: 달력 → 날짜 → 뒤로가기 = 같은 달 달력(폴�
   await page.goBack();
   await expect(root(page).locator('[data-photos-tab="all"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#photosView')).toBeVisible();
+  expect(f.errors).toEqual([]);
+});
+
+// UI-고르기줄(S48-54, 요청함 11/03 07:43·07:44 ②③④): 여러 장 고르기 아래 줄·크게 보기 아래 줄은 공용 부품(.kptu-actbar) 하나.
+// 칸은 같은 너비로 줄 폭을 나누고(넓은 화면은 칸 최대 120px), 간격이 같고, 글자가 잘리지 않는다. 버튼마다 선 아이콘(📁·🗑 없음), 지우기도 다른 버튼과 같은 색.
+// 세 폭(폰 412·폴드 펼침 768·PC 1280) 사진은 test-results/ui-audit/s48-54-*.png, 잰 값은 '::notice title=s48-54'.
+for (const width of [412, 768, 1280]) test(`UI-고르기줄: 사진 고르기 줄·크게 보기 줄 같은 칸·같은 간격 ${width}`, async ({ page }) => {
+  const { measureActBar, checkActBar } = await import('./helpers/act-bar-measure.mjs');
+  const { mkdirSync } = await import('node:fs');
+  const DIR = 'test-results/ui-audit'; mkdirSync(DIR, { recursive: true });
+  const check = (a, e, l) => expect(a, l).toEqual(e);
+  const f = await fixture(page, { width });
+  await openPhotos(page, width);
+  await expect(items(page)).toHaveCount(7);
+  const b = await items(page).nth(0).boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up();
+  await expect(root(page).locator('[data-photos-sel]')).toBeVisible();
+  const bar = root(page).locator('[data-photos-act]');
+  await expect(bar).toBeVisible();
+  const sel = await measureActBar(page, '#photosRoot [data-photos-act]');
+  checkActBar(sel, check, `고르기 줄 ${width}`);
+  // 폭을 꽉 쓴다: 칸이 120px보다 좁으면 양 끝 여백은 줄 안쪽 여백(4px)뿐, 120px이면 양 끝 여백이 같다(가운데 정렬·같은 간격).
+  if (sel.maxWidth < 119.5) { expect(sel.leftGap, '왼쪽 여백').toBeLessThanOrEqual(2); expect(sel.rightGap, '오른쪽 여백').toBeLessThanOrEqual(2); }
+  else expect(Math.abs(sel.leftGap - sel.rightGap), '양 끝 여백 같음').toBeLessThanOrEqual(2);
+  expect(sel.rows, '한 줄').toBe(1);
+  expect(sel.minHeight, '누르는 높이').toBeGreaterThanOrEqual(32);
+  expect(sel.svgCount, '선 아이콘 버튼(옮기기·지우기 포함)').toBeGreaterThanOrEqual(2);
+  await expect(bar.locator('[data-photos-act-delete] .kptu-act-ic svg')).toHaveCount(1);
+  expect(sel.iconColors.length, '아이콘 색 하나').toBe(1);
+  expect(sel.dangerText, '지우기 글자도 다른 버튼과 같은 색(빨강 아님)').toBe(sel.dangerIcon);
+  await expect(bar.locator('[data-photos-act-delete] .kptu-act-tx')).toHaveText('지우기');
+  await page.screenshot({ path: `${DIR}/s48-54-photos-select-${width}.png` });
+  await root(page).locator('[data-photos-sel-off]').click();
+  await expect(bar).toBeHidden();
+  // 크게 보기 아래 줄
+  await items(page).first().click();
+  const viewer = root(page).locator('[data-diary-viewer]');
+  await expect(viewer).toBeVisible();
+  const act = await measureActBar(page, '#photosRoot [data-diary-viewer] .diary-viewer-actions');
+  // S49-23: 크게 보기 줄도 고르기 줄 목록(9개 안팎)이라 폭 412에서는 칸 몫(≈44px)보다 긴 이름([업데이트])의 칸만 글자 폭만큼 넓다(공용 규칙 min-width:min-content).
+  // 그 한 칸 말고는 같은 폭이고, 칸이 더 많아지면 줄이 옆으로 밀린다(overflow-x:auto) — 폭이 넉넉한 폭에서는 예전처럼 모두 같다.
+  const viewerCheck = (a, e, l) => { if (/칸 폭 같음/.test(l) && act.n >= 9) { expect(act.widthSpread, l).toBeLessThanOrEqual(6); return; } check(a, e, l); };
+  checkActBar(act, viewerCheck, `크게 보기 줄 ${width}`);
+  if (act.maxWidth < 119.5) { expect(act.leftGap).toBeLessThanOrEqual(6); expect(act.rightGap).toBeLessThanOrEqual(6); }
+  else expect(Math.abs(act.leftGap - act.rightGap)).toBeLessThanOrEqual(2);
+  expect(act.n, '크게 보기 줄은 다섯 칸까지').toBeLessThanOrEqual(5);
+  expect(act.svgCount, '모든 칸이 같은 선 아이콘').toBe(act.n);
+  await page.screenshot({ path: `${DIR}/s48-54-photos-viewer-${width}.png` });
+  const esc = t => t.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+  process.stdout.write(`::notice title=s48-54 photos ${width}::${esc(JSON.stringify({select: {n: sel.n, widths: sel.widths, left: Math.round(sel.leftGap), right: Math.round(sel.rightGap), bar: sel.barWidth}, viewer: {n: act.n, widths: act.widths, left: Math.round(act.leftGap), right: Math.round(act.rightGap)}}))}\n`);
   expect(f.errors).toEqual([]);
 });

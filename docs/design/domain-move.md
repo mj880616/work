@@ -126,7 +126,7 @@ D1 PR은 이 표를 다시 `grep`(`bokdoong.com`, `github.io`)으로 전수 확�
 | --- | --- | --- |
 | E1 화면 | Web2에 `?view=arsenal` 화면 추가. 자료는 지금 `personal/arsenal-match-archive/matches.js`를 `app/arsenal/`로 옮겨 **그 화면을 열 때만** 불러옴(첫 화면 속도 영향 없음). 모양은 Web2 기준(콤팩트·톤다운). 메뉴 창 맨 아래(메뉴 편집 요청이 들어오면 옮길 수 있게). 검사(`arsenal-archive-check.yml`, `validate-archive.mjs`) 경로도 함께 | ⏸ (①의 E5 뒤) |
 | V1 | 새 주소·옛 desk에서 메뉴 열기, 경기 거르기·검색, 폴드·PC | ⏸ |
-| D1 | Worker: `arsenal.bokdoong.com/**` → `bokdoong.com/work/app/?view=arsenal`(302). ①의 D1 Worker PR에 함께 넣어 Cloudflare 변경 한 번 | ⏸ |
+| D1 | Worker: `arsenal.bokdoong.com/**` → `bokdoong.com/work/app/?view=arsenal`(302). 옛 아카이브는 한 페이지뿐이고 경기별 주소·쿼리 의미가 없어 모든 주소가 메뉴 첫 화면으로 간다. 옛 `?쿼리`는 버림(다른 화면을 고르지 못하게), `#`은 브라우저가 유지. 로그인 안 된 사람은 Web2 로그인 화면을 거쳐 돌아온다 | S48-62 PR |
 | C1 | `personal/arsenal-match-archive/`·Worker 아스날 분기(favicon 포함) 삭제. `arsenal.bokdoong.com` 연결은 넘김용으로 유지 | ⏸ (30일 뒤) |
 
 - 자료 저장 방식 추천: **화면 파일 그대로**(지금처럼 새 경기는 PR로 `matches.js`에 추가, 검사가 형식 확인). 서버 저장은 DB 새 표·화면 입력이 필요하고 하루 몇 건 수준이라 이득이 적다(질문 Q4).

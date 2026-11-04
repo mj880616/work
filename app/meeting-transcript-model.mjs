@@ -8,8 +8,15 @@ const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
 const TEXT_EXT=['txt','md','text','srt','vtt'];
 const AUDIO_EXT=['m4a','mp3','wav','aac','amr','3gp','ogg','oga','opus','flac','webm','wma','mp4','mpeg','mpga'];
 export const MAX_TRANSCRIPT_FILE=5*1024*1024;
-// meeting-ai-draft가 원문을 70,000자에서 자른다. 화면이 먼저 알려 준다.
-export const MAX_TRANSCRIPT_CHARS=70000;
+// MTG-긴전사요약(S48-64): 긴 전사본은 나눠 요약한 뒤 합친다(서버 meeting-ai-draft stage 'part' → 'merge').
+// 한 번에 보내는 글은 DRAFT_ONE_CHARS까지(서버가 70,000자에서 자르기 전, 한 번 호출이 오래 걸리지 않게).
+// 넘으면 DRAFT_PART_CHARS 안팎으로 줄 경계에서 나눈다. 전체 상한 MAX_TRANSCRIPT_CHARS(2시간 녹음 넉넉히) 뒤는 요약하지 않는다.
+export const DRAFT_ONE_CHARS=30000;
+export const DRAFT_PART_CHARS=24000;
+export const MAX_DRAFT_PARTS=12;
+export const MAX_TRANSCRIPT_CHARS=DRAFT_PART_CHARS*MAX_DRAFT_PARTS;
+// 요약 한 번(서버 호출 하나)을 기다리는 시간. 화면 기본 15초로는 긴 글 요약이 끊겼다(S48-64 원인).
+export const DRAFT_TIMEOUT_MS=240000;
 
 export function extOf(name){const m=String(name||'').toLowerCase().match(/\.([a-z0-9]+)$/);return m?m[1]:''}
 export function isAudioFile(name,type=''){return /^(audio|video)\//.test(String(type||''))||AUDIO_EXT.includes(extOf(name))}
@@ -162,4 +169,55 @@ export function transcribeFailText(failure){
   if(disconnected(failure))return TRANSCRIBE_DISCONNECTED;
   const m=String((failure&&typeof failure==='object'?failure.message:failure)||'');
   return TRANSCRIBE_FAIL[m]||(KNOWN_FAIL.has(m)?m:'전사하지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.');
+}
+
+// MTG-긴전사요약: 글 → 요약할 조각들. 줄 경계에서 자르고, 한 줄이 너무 길면 그 줄만 글자 수로 자른다. 상한 뒤는 버린다.
+export function splitTranscript(text,size=DRAFT_PART_CHARS,maxParts=MAX_DRAFT_PARTS){
+  const all=String(text||'').trim();
+  if(!all)return [];
+  if(all.length<=DRAFT_ONE_CHARS)return [all];
+  const parts=[];let cur='';
+  const push=()=>{const t=cur.trim();if(t)parts.push(t);cur=''};
+  for(const line of all.split('\n')){
+    let rest=line;
+    while(rest.length>size){if(cur)push();parts.push(rest.slice(0,size));rest=rest.slice(size)}
+    if(cur&&cur.length+1+rest.length>size)push();
+    cur=cur?cur+'\n'+rest:rest;
+  }
+  push();
+  return parts.slice(0,maxParts);
+}
+// 조각 요약들 → 합치기 요청에 넣을 글(서버 stage 'merge'의 재료). 조각 번호·참석·결정·공유·할 일.
+export function partsText(drafts){
+  const n=drafts.length;
+  return drafts.map((d,i)=>{
+    const lines=[`[부분 ${i+1}/${n}]`];
+    if(d?.attendees?.length)lines.push('참석: '+d.attendees.join(', '));
+    const dec=bullets(d?.decisions);if(dec.length)lines.push('결정',...dec);
+    const inf=bullets(d?.information);if(inf.length)lines.push('공유',...inf);
+    const acts=(d?.actions||[]).map(a=>`- ${a.task}${a.assignee?` (담당 ${a.assignee})`:''}${a.due?` (기한 ${a.due})`:''}`);
+    if(acts.length)lines.push('할 일',...acts);
+    if(d?.meetingDate)lines.push('날짜: '+d.meetingDate);
+    return lines.join('\n');
+  }).join('\n\n');
+}
+// 회의록 전문 칸(app_meetings.notes, [회의] 칸 이름 '회의록 전문')에 전사 글을 넣는다. 이미 쓴 글은 지우지 않고 아래에 덧붙인다.
+export const keepTranscript=(existing,text)=>mergeText(existing,text);
+// 요약 실패 → 화면 한 줄(이유별). 넣은 글은 그대로 남는다.
+export const DRAFT_FAIL=Object.freeze({
+  session:'로그인이 만료됐어요. 다시 로그인해 주세요.',
+  timeout:'요약이 오래 걸려 연결이 끊겼어요. 넣은 글은 그대로 있어요. 다시 눌러 주세요.',
+  network:'인터넷 연결이 끊겨 요약하지 못했어요. 넣은 글은 그대로 있어요.',
+  generic:'요약하지 못했어요. 넣은 글은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
+});
+const HANGUL=/[가-힣]/;
+export function draftFailText(e){
+  if(!e||typeof e!=='object')return DRAFT_FAIL.generic;
+  if(e.code==='session_required')return DRAFT_FAIL.session;
+  if(e.code==='timeout'||e.status===504||e.status===546)return DRAFT_FAIL.timeout;
+  if(e.code==='network_error')return DRAFT_FAIL.network;
+  const m=String(e.message||'').trim();
+  // 서버가 준 한국어 한 줄(한도·권한·AI 응답 중단 등)은 그대로 보여 준다.
+  if(e.status>=400&&e.status<500&&m&&m.length<=120&&HANGUL.test(m))return /그대로|유지/.test(m)?m:`${m} 넣은 글은 그대로 있어요.`;
+  return DRAFT_FAIL.generic;
 }

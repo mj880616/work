@@ -27,7 +27,7 @@
 /* 버튼(8-9c2): 높이 하나(--ds-control-height = 홈 빠른 입력 [추가] 높이)·모서리 8px·13px·굵기 500, 그림자·그라데이션 없음.
    종류는 넷만: ① 채운 버튼(계정 테마색, 화면당 1개) ② 종류 색(연한 바탕 + 진한 글자) ③ 흰 바탕 + 0.5px 테두리(기본) ④ 빨간 테두리(삭제).
    목록 행·첨부 클립·× 아이콘·글자 링크·글 본문 안 요소·고르기 시트의 칩은 버튼 모양이 아니므로 뺀다. */
-#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
+#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.kptu-act,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
 #appView #homeView .home-quick :is(.home-quick-modes button,.home-quick-save,.home-quick-new-note,[data-quick-options] button):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
   height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
@@ -486,6 +486,8 @@
 .account-panel{ border-radius:var(--ds-radius-box); box-shadow:var(--kptu-shadow-float); }
 .account-panel .account-action{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
 .account-panel [data-kptu-logout]{ color:var(--kptu-danger); }
+/* S49-8 UI-로그아웃자리: PC 계정 메뉴에서도 [로그아웃]은 맨 끝·오른쪽·작게(폭 가득 줄 아님). */
+.account-panel > [data-kptu-logout]{ width:fit-content; margin-left:auto; padding:4px 10px; }
 
 /* 메뉴 판(폰 [메뉴] 탭): 제목 18px, 항목은 메뉴 줄(44px·13px·400, 줄 사이 0.5px), "계정"은 섹션 이름. */
 #appView .mobile-menu-panel .mobile-menu-head b{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
@@ -598,6 +600,8 @@
   #appView .mobile-menu-panel #mobileAccountGroup{ display:flex; flex-wrap:wrap; align-items:center; gap:12px 4px; margin-top:10px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
   #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button.account-action{ position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:32px; min-height:32px; padding:0 6px; border:0; border-radius:var(--ds-radius-control); background:transparent; white-space:nowrap; }
   #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button.account-action::after{ content:""; position:absolute; left:0; right:0; top:-6px; bottom:-6px; }
+  /* S49-8 UI-로그아웃자리(2026-11-03 명진): [로그아웃]은 계정 줄 맨 오른쪽 끝(하단바 [메뉴] 칸 바로 위). 줄이 넘치면 다음 줄 오른쪽에 혼자 선다. */
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button[data-kptu-logout]{ margin-left:auto; }
 }
 @media(max-width:760px) and (prefers-reduced-motion:reduce){ #appView .mobile-menu-panel{ animation:none; transition:none; } }
 
@@ -611,7 +615,6 @@
 #appView #basketView .basket-note-more{ position:relative; }
 #appView #basketView .basket-note-more[hidden]{ display:none; }
 #appView #basketView button:is([data-basket-note-more],[data-note-more]){ width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); min-height:var(--kptu-touch-target,44px); padding:0; border:0; background:transparent; color:var(--kptu-muted); font-size:22px; line-height:1; }
-#appView #basketView .basket-more-menu button.basket-menu-danger{ color:var(--kptu-danger); }
 #appView #basketView .basket-note-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin:0 0 12px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #basketView .basket-note-meta time{ margin-left:auto; }
 #appView #basketView .basket-note-state{ display:contents; }
@@ -991,6 +994,7 @@
   box-sizing:border-box; display:grid; place-items:center; width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); height:var(--kptu-touch-target,44px); min-height:var(--kptu-touch-target,44px);
   margin:0; padding:0; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); box-shadow:none; cursor:pointer;
 }
+#appView #basketView button.basket-icon-button[data-basket-read-raw]{ font-size:12px; font-weight:500; line-height:1; } /* S48-64: [원문]/[서식] 글자 */
 #appView #basketView button.basket-icon-button:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
 #appView #basketView button.basket-icon-button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
 #appView #basketView button.basket-icon-button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
@@ -1032,16 +1036,18 @@
 #appView #basketView .note-row-item > .basket-row{ padding-right:calc(var(--kptu-touch-target,44px) * 2 + 4px); }
 #appView #basketView .note-row-item:has(> button.basket-row-copy[hidden]) > .basket-row{ padding-right:48px; }
 #appView #basketView button:is([data-note-row-more],[data-basket-row-more]){ font-size:22px; line-height:1; }
-/* UI-업데이트목록메뉴: 업데이트 줄도 오른쪽 위에 [복사]·[⋯](각 44px). 복사할 글이 없으면 [복사]만 빠지고 [⋯]는 그 자리 그대로. */
-#appView #basketView .basket-row-item:has(> [data-basket-row-more]) > button.basket-row-copy{ right:var(--kptu-touch-target,44px); }
-#appView #basketView .basket-row-item:has(> [data-basket-row-more]) > .basket-row{ padding-right:calc(var(--kptu-touch-target,44px) * 2 + 4px); }
-#appView #basketView .basket-row-item:has(> [data-basket-row-more]):has(> button.basket-row-copy[hidden]) > .basket-row{ padding-right:48px; }
+/* UI-업데이트목록메뉴 → UI-화면정리 C4(S48-46): 업데이트 줄은 오른쪽 위 [⋯](44px) 하나. 줄의 [복사] 아이콘은 없고 [복사]는 ⋯·우클릭 메뉴 맨 위(노트 줄과 같음),
+   줄 글은 ⋯ 바로 왼쪽까지(위 .basket-row-item > .basket-row 48px). PC(마우스)는 노트 줄처럼 마우스를 올리거나 키보드로 갔을 때만 ⋯가 보인다(누르는 자리는 그대로). */
+@media (hover:hover) and (pointer:fine){
+  #appView #basketView #basketRows .basket-row-item > button.basket-row-more{ opacity:0; transition:opacity .12s; }
+  #appView #basketView #basketRows .basket-row-item:is(:hover,:focus-within) > button.basket-row-more,
+  #appView #basketView #basketRows .basket-row-item > button.basket-row-more[aria-expanded="true"]{ opacity:1; }
+}
 /* UI-모바일노트복사메뉴: 폰(760px 이하)에서는 목록 줄의 [복사] 버튼을 없애고(⋯ 메뉴 맨 위 [복사]로 이동), 줄 글은 ⋯ 바로 왼쪽까지 넓게 쓴다. ⋯ 아래 세로 줄은 비워 둔다. PC는 그대로. */
 @media(max-width:760px){
   #appView #basketView .basket-row-item > button.basket-row-copy{ display:none; }
   #appView #basketView .basket-row-item > .basket-row,
-  #appView #basketView .note-row-item > .basket-row,
-  #appView #basketView .basket-row-item:has(> [data-basket-row-more]) > .basket-row{ padding-right:48px; }
+  #appView #basketView .note-row-item > .basket-row{ padding-right:48px; }
 }
 #appView #basketView .note-row-item + .note-row-item{ border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #basketView .note-row .basket-title{ display:flex; align-items:center; gap:6px; min-width:0; }
@@ -1082,6 +1088,8 @@
   #appView #basketView .note-list-head .note-search input{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* SHARE-현장공유 PR 2: 공유 페이지 화면의 큰 버튼([새 공유 페이지]·[저장]·[링크 만들기]·[다시 불러오기])도 같은 36px. 작은 보조 버튼(.sp-tool)은 그대로. */
   #appView #pagesView .sp-root button.primary:not(.icon-btn){ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  /* UI-버튼크기전수: 머리줄의 [+ HTML]과 [+ 새 공유 페이지]는 한 줄이라 같은 작은 버튼 높이(.btn-row). 이 묶음은 PC 폭(761px~)이고 폰은 동그란 [+](FAB 규칙). */
+  #appView #pagesView .sp-root .sp-head-actions.btn-row > button.primary:not(.icon-btn){ height:var(--ds-compact-height); min-height:var(--ds-compact-height); }
   #appView #pagesView .sp-root button.secondary:not(.icon-btn){ position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); }
   #appView #pagesView .sp-root :is(button.primary,button.secondary):not(.icon-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
   #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save::after,
@@ -1276,9 +1284,8 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 /* ⑤ HWP 편집: [파일 선택]·[자료실에 올리기]는 보조(32px), [내 기기에 저장]은 주 동작(36px). */
 #appView #hwpView :is(#hwpLabPick,#hwpLabUpload,#hwpLabTemplate){ height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
 #appView #hwpView #hwpLabSave{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
-/* ⑥ 업무일지 [저장]·공유 페이지 [새 공유 페이지]: PC와 같이 폰도 36px. */
-#appView #homeView .journal-line-row button[data-journal-save],
-#appView #pagesView .sp-root button[data-sp-new]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+/* ⑥ 업무일지 [저장]: PC와 같이 폰도 36px. (공유 페이지 [새 공유 페이지]는 [+ HTML]과 같은 줄이라 .btn-row의 32px, UI-버튼크기전수) */
+#appView #homeView .journal-line-row button[data-journal-save]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
 /* ⑦ 폰 빠른 입력 [추가] 46 → 36px(입력칸 첫 줄 가운데), 입력칸 안 [큰 창에서 쓰기]는 보이는 32px. 누르는 범위 44px. */
 @media(max-width:760px){
   #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save{
@@ -1372,6 +1379,7 @@ html .cc-sub-row button.cc-sub-add{ color:var(--kptu-primary-ink,var(--kptu-prim
 .tp-item[aria-pressed="true"]{outline:2px solid var(--ds-select-line);outline-offset:-2px}
 .tp-item[aria-pressed="true"]::after{content:"✓";position:absolute;top:2px;right:2px;z-index:2;display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--ds-select-bg);border:1px solid var(--ds-select-line);color:var(--ds-select-ink);font-size:11px;line-height:1}
 .tp-time{position:absolute;left:0;right:0;bottom:0;z-index:1;padding:0 2px;background:color-mix(in srgb,var(--kptu-surface) 80%,transparent);color:var(--kptu-muted);font-size:10px;line-height:14px;text-align:center}
+.tp-here{position:absolute;top:2px;left:2px;z-index:1;padding:0 2px;border-radius:7px;background:color-mix(in srgb,var(--kptu-surface) 80%,transparent);font-size:10px;line-height:14px}
 .tp-item:focus-visible{outline:2px solid var(--kptu-focus,currentColor);outline-offset:1px}
 .tp-foot{display:flex;align-items:center;gap:6px;min-height:28px}
 .tp-note{flex:1 1 auto;min-width:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
@@ -1490,6 +1498,11 @@ button:is(.secondary,.ghost,.danger):not(.icon-btn){
   border-width:var(--ds-line-width); border-radius:var(--ds-radius-control);
 }
 button.secondary:not(.icon-btn){ border-color:var(--ds-line); }
+/* UI-버튼크기전수(S49-16, 요청함 11/03 10:38): 같은 줄의 버튼은 높이·글자 크기·굵기가 하나다. 주 버튼도 크기·굵기는 같고 색으로만 구분한다.
+   공용 버튼 줄 .btn-row 안의 버튼은 모두 작은 버튼(--ds-compact-height, 13px/500). 한 줄에 주 버튼과 보조 버튼이 함께 놓이는 곳은 이 클래스를 붙인다.
+   (.primary·.mini의 기본 글자도 base-ui.css에서 13px/500으로 맞췄다. 재발 방지: tests/button-unify.test.mjs, tests/app-e2e/button-census.spec.mjs) */
+.btn-row{ display:flex; align-items:center; gap:var(--ds-button-gap,8px); flex-wrap:wrap; } /* UI-버튼간격: 간격은 --ds-button-gap 하나 */
+:root .btn-row > button:not(.icon-btn){ box-sizing:border-box; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; border-radius:var(--ds-radius-control); }
 :where(button:not([class])){
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
   background:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-text-button); line-height:1.3;
@@ -1621,7 +1634,7 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
    폰에서 자판이 열리면(accessibility-dialog.js 공용 감지 하나: body.kptu-mobile-keyboard, 쓰는 칸에 data-keyboard-field)
    화면 아래에 붙은 줄은 모두 숨는다. 그 줄 안의 칸에 쓰는 중일 때만 그 줄이 남는다(홈 빠른 입력에 쓰면 빠른 입력은 자판 위에).
    자판을 내리면 돌아온다. 아래에 붙는 줄을 새로 만들면 이 목록에 더한다(tests/ui-keyboard-cover.test.mjs가 CSS 전체를 보고 막는다).
-   목록: 아래 탭, 동그란 [+], 빠른 입력(홈·정리함·할 일), 전환 줄([달력·할 일·업무일지·일기]), 긴 글 저장 줄, 사진 도구줄·빠른 넘김 막대, 되돌리기 알림. */
+   목록: 아래 탭, 동그란 [+], 빠른 입력(홈·정리함·할 일), 전환 줄([달력·할 일·업무일지·일기]), 긴 글 저장 줄, 사진 도구줄·빠른 넘김 막대, 되돌리기 알림, [파일] 전송 줄. */
 body.kptu-mobile-keyboard :is(
   .mobile-tabs,
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new]),
@@ -1630,7 +1643,9 @@ body.kptu-mobile-keyboard :is(
   .save-row-sticky,
   #appView #photosView .photos-act,
   #appView #photosView .photos-rail,
-  .feed-view .feed-undo
+  .feed-view .feed-undo,
+  #appView #filesView .fx-xfer,
+  #appView #filesView .fx-jobs
 ):not(:has([data-keyboard-field])){ display:none !important; }
 /* 팝업·시트 아래 버튼 줄은 숨기지 않고 글 끝에 붙여(제자리 흐름) 칸을 덮지 않게 한다. 팝업 창은 자판 위에서 끝난다(자판이 화면만 덮는 브라우저). */
 body.kptu-mobile-keyboard :is(.modal-foot,#reportAreaTagSheet .area-tag-foot,#gtDetailPane #gtTaskModal.gt-docked .modal-action-footer){ position:static; }
@@ -1650,3 +1665,15 @@ body.kptu-mobile-keyboard .modal:not(.ed-window) > .modal-card{ max-height:100% 
    글자로 ▾를 쓴 버튼(사업영역 ▾·폴더 ▾ 등)과 같은 자리이며, 이름(글자·읽어 주는 이름)은 그대로 두고 그림 글자만 더한다(`/ ""`).
    ::after는 누르는 범위(44px)가 쓰는 버튼이 많아 ::before에 둔다(flex 버튼은 order, 그 밖은 float로 글자 뒤). */
 :is(#libraryListCard .lu-select-act[aria-haspopup], button[data-quick-day="week"], button[data-manual-task-day="week"], button[data-task-due-quick="week"], button[data-gt-due-quick="week"])::before{ content:"▾"; content:"▾" / ""; float:right; order:2; margin-left:4px; font-size:.85em; opacity:.7; }
+
+/* UI-줄버튼(S49-20, 요청함 11/04 00:10): 목록 줄 안의 작은 동작 버튼(숨기기·꺼내기·빼기·끊기 등)은 테두리·바탕 없는 작은 회색 글자 한 규칙.
+   보이는 글자는 '고정' 꼬리표와 같은 크기이고, 누르는 범위는 줄 높이만큼(::after) 둔다. 새 줄 버튼은 class="row-act"만 붙인다(docs/design-decisions.md UI-버튼기준 '줄 안 동작 버튼'). */
+button.row-act,.modal button.row-act,#profileView button.row-act{ position:relative; flex:none; box-sizing:border-box; height:auto; min-height:0; padding:0 4px; border:0; border-radius:var(--kptu-radius-sm,4px); background:none; color:var(--kptu-muted); font-size:11px; font-weight:var(--ds-weight-regular,400); line-height:1.4; cursor:pointer; }
+button.row-act::after{ content:""; position:absolute; left:-4px; right:-4px; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+button.row-act:is(:hover,:focus-visible){ color:var(--kptu-ink); }
+button.row-act:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:1px; }
+button.row-act:disabled{ opacity:.5; cursor:default; }
+
+/* UI-줄꼬리표(S49-20, 요청함 11/04 00:17): '제목 + 오른쪽 작은 꼬리표(폴더 이름·날짜 등)' 줄의 꼬리표는 줄어들지 않고 온전히 보인다.
+   제목만 남은 폭에서 …로 줄고, 꼬리표 자신이 아주 길 때만 8글자(8em)까지 보인 뒤 …로 줄인다. 새 꼬리표는 class="row-tail"만 붙인다. */
+.row-tail{ flex:none; min-width:0; max-width:var(--ds-row-tail-max,8em); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

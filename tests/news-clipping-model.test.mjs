@@ -5,22 +5,29 @@ import * as M from '../app/news-clipping-model.mjs';
 
 const NOW = Date.parse('2026-11-01T03:00:00Z'); // 서울 12:00
 
-test('한 목록: 꼬리표는 채널/자동 두 가지, 칩 걸러내기 조건', () => {
-  assert.equal(M.tagOf({lane: 'channel'}), '채널');
-  assert.equal(M.tagOf({lane: 'keyword'}), '자동');
-  assert.equal(M.tagOf({lane: 'media'}), '자동');
+test('한 목록: 채널/자동 구분 없음 — 칩은 [전체][별표]뿐, 걸러내기 조건', () => {
+  assert.equal(M.tagOf, undefined); assert.equal(M.CHANNEL, undefined); assert.equal(M.AUTO, undefined);
   assert.equal(M.laneFilter(M.ALL), '');
-  assert.equal(M.laneFilter(M.CHANNEL), '&lane=eq.channel');
-  assert.equal(M.laneFilter(M.AUTO), '&lane=in.(keyword,media)');
-  assert.deepEqual(M.TABS.map(t => t.label), ['전체', '채널', '자동', '별표']);
+  assert.deepEqual(M.TABS.map(t => t.label), ['전체', '별표']);
   assert.equal(M.laneFilter(M.STAR), '&starred_at=not.is.null');
   assert.equal(M.orderOf(M.STAR), 'starred_at.desc,id.desc');
   assert.equal(M.orderOf(M.ALL), 'created_at.desc,id.desc');
-  assert.equal(M.tabAt(M.ALL, 1), M.CHANNEL);
+  assert.equal(M.tabAt(M.ALL, 1), M.STAR);
   assert.equal(M.tabAt(M.ALL, -1), null);
-  assert.equal(M.tabAt(M.AUTO, 1), M.STAR);
   assert.equal(M.tabAt(M.STAR, 1), null);
   assert.equal(M.keepTab('x'), M.ALL);
+  assert.equal(M.keepTab('channel'), M.ALL, '예전에 기억한 칩 값은 전체로');
+  assert.equal(M.keepTab('auto'), M.ALL);
+  assert.equal(M.itemView({id: '1', lane: 'channel', lang: 'ko', title: 'T', url: 'https://example.org/a'}).tag, undefined);
+});
+
+test('글자만: 저장된 글에 남은 태그·&nbsp;를 화면에서 걷는다(ITF 모양, 가짜 글)', () => {
+  const raw = '<span class="field-title">Fake heading</span> <div class="field-body x"><p><span lang="EN-GB"><strong>Lead&nbsp;</strong>second part &amp; more</span></p></div>';
+  assert.equal(M.plainText(raw), 'Fake heading Lead second part & more');
+  assert.equal(M.plainText('이미 깨끗한 글'), '이미 깨끗한 글');
+  assert.equal(M.plainText('&lt;p&gt;Esc&amp;nbsp;aped&lt;/p&gt;'), 'Esc aped');
+  const v = M.itemView({id: '9', lane: 'media', lang: 'en', title: 'Plain', title_ko: '가짜 제목', summary: raw, state: 'ok', url: 'https://example.org/i'});
+  assert.ok(!/[<>]|&nbsp;/.test(v.summary), v.summary);
 });
 
 test('줄 보임: 요약 늘 보임, 외국어 제목은 미리 번역한 한국어 + 원제 작게, 본문 번역은 고를 때만, 유료는 공개 요약 표시', () => {

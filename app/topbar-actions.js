@@ -81,7 +81,7 @@ function placeSidebar(){
   // 한 번도 바꾸지 않았으면 index.html의 처음 모양을 그대로 둔다(다시 끼우지 않음).
   if(!sidebarMoved&&(!layout||isDefaultLayout(layout)))return;
   sidebarMoved=true;
-  const {main,tail}=pcSplit(layout);
+  const {main,tail}=pcSplit(layout),{hidden}=layout;
   const spacer=appNav.querySelector('.sidebar-spacer'),links=appNav.querySelector('.nav-quick-links');
   const unit=id=>{
     const head=buttonByKey.get(id);if(!head)return [];
@@ -91,6 +91,8 @@ function placeSidebar(){
   };
   const place=(ids,before)=>ids.map(unit).forEach(nodes=>nodes.forEach(node=>appNav.insertBefore(node,before)));
   place(main,spacer);place(tail,links);
+  // MENU-숨김: 숨긴 메뉴는 왼쪽 메뉴에서 뺀다(접힌 줄도 없음, 2026-11-04). 메뉴 편집에서 꺼내면 위 자리에 다시 끼운다.
+  hidden.forEach(id=>unit(id).forEach(node=>node.remove()));
   // MENU-세칸: 맨 아래 묶음은 저장된 아래 칸(tail) 그대로라 어느 메뉴든 들어올 수 있다. 비면 묶음(위쪽 선)도 없다.
   buttonByKey.forEach((button,id)=>{
     button.classList.toggle('nav-feed',tail.includes(id));

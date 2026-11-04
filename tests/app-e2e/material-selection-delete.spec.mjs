@@ -199,7 +199,7 @@ for(const width of [390,1280]){
     await modal.locator('#mrdMore').click();
     await modal.locator('#mrdMoreMenu [data-mrd-more="edit"]').click();
     await expect(modal.locator('#mrdEditor')).toBeVisible();await expect(modal.locator('#mrdView')).toBeHidden();
-    const attach=modal.locator('#mrdEditor #mrdEditAttach');
+    const attach=modal.locator('#mrdAttach');
     await expect(attach).toBeVisible();
     await expect(attach.locator('#mrdPickFiles')).toBeVisible();await expect(attach.locator('#mrdPickPhotos')).toBeVisible();
     await expect(attach.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
@@ -216,9 +216,9 @@ for(const width of [390,1280]){
     await modal.locator('#mrdSaveEdit').click();
     await expect.poll(()=>state.meetingPatches.length).toBe(1);
     await expect(modal.locator('#mrdEditor')).toBeHidden();await expect(modal.locator('#mrdView')).toBeVisible();
-    await expect(modal.locator('#mrdView #mrdMaterials .mrd-file-row')).toHaveCount(3);
-    await expect(modal.locator('#mrdView #mrdMaterials')).toContainText('edit-added.pdf');
-    await expect(modal.locator('#mrdEditAttach #mrdMaterials')).toHaveCount(0);
+    await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(3);
+    await expect(modal.locator('#mrdAttach #mrdMaterials')).toContainText('edit-added.pdf');
+    await expect(modal.locator('#mrdEditAttach')).toHaveCount(0);
     expect(state.errors).toEqual([]);
   });
 

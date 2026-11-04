@@ -29,9 +29,10 @@ import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
 // screen (one history entry, so one back or the top line's ← returns here); on the phone it opens over this screen as the app's
 // usual window (its own history entry), so one back also returns. Coming back by back/← keeps this card as it was (no re-read)
 // and the same scroll and focus.
+import {createMemorable} from './journal-memorable.js';
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
-  workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, readOrgUpdates, readProjectUpdates,
+  workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
   readWeekMeetings, readWeekDocuments, readWeekSharePages, readScheduleEvents, DONE_TASK_DAYS, WEEK_READ_CAP,
   dayCard, othersCount, DAY_SOURCES, dueDay, dayRangeNote, readWeekDrafts, requestDayDraft, readWeekCalls, readTaskMeetingNames, readUpcomingMilestones} from './journal-data.js';
 import {dueLabel} from './task-due.mjs';
@@ -43,7 +44,6 @@ import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
-import {recordMark} from './basket-link-records.js';
 import {requestBasketNoteFrom, requestNoteDocFrom, requestTaskOpen, takeBasketReturn} from './basket-note-tasks.js';
 import {scopeKey, hasLines, keepLines} from './work-scope-model.mjs';
 import {requestLibraryDocument} from './basket-library-send.js';
@@ -283,8 +283,7 @@ function itemRow(item) {
   const main = document.createElement(key ? 'button' : 'span');
   main.className = 'journal-item-open';
   if (key) { main.type = 'button'; main.dataset.journalOpen = key; main.setAttribute('aria-label', `${item.text} (원본 열기)`); }
-  if (item.noteMark) main.innerHTML = recordMark({note_kind:'note'}, 'journal-note-mark');
-  else main.innerHTML = requestTagsHtml(item.requests, esc);
+  main.innerHTML = requestTagsHtml(item.requests, esc);
   main.append(item.text);
   if (normalizeRequests(item.requests).length) li.dataset.journalRequests = normalizeRequests(item.requests).join(' ');
   const body = document.createElement('div'); body.className = 'journal-item-body'; body.append(main);
@@ -412,24 +411,38 @@ function renderSchedule(card) {
   const head = document.createElement('div'); head.className = 'journal-schedule-head';
   head.innerHTML = `<span class="journal-head-name"><h4 class="journal-heading">그날 일정</h4><small class="journal-head-count" data-journal-events-count>${part.loading ? '' : part.items.length}</small></span><button type="button" class="journal-schedule-cal" data-journal-calendar aria-label="이 날 달력 보기">달력 ›</button>`;
   host.replaceChildren(head);
-  const dday = ddayLine();
-  if (dday) host.append(dday);
   if (part.loading) { host.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return; }
   if (part.items.length) { const ul = document.createElement('ul'); ul.className = 'journal-events'; ul.append(...part.items.map(eventRow)); host.append(ul); }
   else if (!part.failed) host.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-events-empty'}));
   partNotes(host, part);
+  // S49-12: 앞으로 다가오는 큰 일(D-n)은 그날 일정이 아니므로 일정 목록·'없음' 아래에 '다가오는 일' 작은 이름표와 따로 둔다.
+  const dday = ddayLine();
+  if (dday) host.append(dday);
 }
 // HOME-업무일지홈: 옛 홈 '주요 일정' D-day 칩(사업영역 주요 일정, 오늘부터 3개)은 오늘을 볼 때 그날 일정 칸 맨 위 한 줄. 3일 안은 진한 테두리.
 // 달력에 이어진 것은 그 일정 수정 창(event-open.js), 아니면 그 사업영역 창. 못 읽거나 없으면 줄 없음.
 function ddayLine() {
   const read = materials.milestones;
   if (selected !== todayKey() || read?.status !== 'ok' || !read.items?.length) return null;
-  const line = document.createElement('div'); line.className = 'journal-dday'; line.dataset.journalDday = ''; line.setAttribute('aria-label', '주요 일정');
-  line.innerHTML = read.items.map(m => `<button type="button" class="journal-dday-chip${m.days <= 3 ? ' is-soon' : ''}" data-journal-dday-project="${esc(m.project_id)}" ${m.google_event_id ? eventAttrs(m.google_event_id, m.google_calendar_id) : ''}>${m.days === 0 ? 'D-day' : 'D-' + m.days} ${esc(m.title)}</button>`).join('');
+  const line = document.createElement('div'); line.className = 'journal-dday'; line.dataset.journalDday = ''; line.setAttribute('aria-label', '다가오는 일');
+  line.innerHTML = '<small class="journal-dday-label">다가오는 일</small>' + read.items.map(m => `<button type="button" class="journal-dday-chip${m.days <= 3 ? ' is-soon' : ''}" data-journal-dday-project="${esc(m.project_id)}" ${m.google_event_id ? eventAttrs(m.google_event_id, m.google_calendar_id) : ''}>${m.days === 0 ? 'D-day' : 'D-' + m.days} ${esc(m.title)}</button>`).join('');
   return line;
+}
+// S49-13 기억할 통화·텔레그램(journal-memorable.js): 이 묶음의 상태는 그 모듈이 갖고, 여기서는 자리만 준다.
+const memorable = createMemorable({onChange: () => { if (mode !== 'week') renderDay(); }});
+// 원본 열기: 통화는 통화 화면에서 그 통화를, 텔레그램은 그 방·날짜를 연다(방 구분값은 눌렀을 때 읽는다).
+async function openMemorable(row) {
+  try {
+    if (row.source === 'call') { goView('calls'); await window.KPTUCallFeed?.open?.(row.feedItemId); return; }
+    const found = await rt.api(`/rest/v1/app_feed_items?id=eq.${encodeURIComponent(row.feedItemId)}&select=room_key,day&limit=1`);
+    const item = Array.isArray(found) ? found[0] : null;
+    if (!item) return;
+    goView('telegram'); await window.KPTUTelegramFeed?.show?.(item.room_key, item.day, row.feedItemId);
+  } catch { status.textContent = '원본을 열지 못했어요. 다시 시도해 주세요.'; }
 }
 function renderDay() {
   opens = new Map(); openSeq = 0;
+  void memorable.ensure(selected, rt);
   const card = dayCard(materials, selected, {kinds, tree:materials.catalog?.status === 'ok' ? materials.catalog.items : null});
   renderSchedule(card);
   renderTasks(card);
@@ -439,7 +452,8 @@ function renderDay() {
   report.className = 'journal-report'; report.dataset.journalReport = '';
   report.innerHTML = '<h4 class="journal-heading journal-report-title">주간보고 재료</h4>';
   const parts = card.report.filter(part => part.loading || part.failed || part.items.length);
-  if (parts.length) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'}))); report.append(grid); }
+  const memorableBox = memorable.render(selected, rt, {open: openMemorable});
+  if (parts.length || memorableBox) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'})), ...(memorableBox ? [memorableBox] : [])); report.append(grid); }
   else report.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-report-empty'}));
   // ⑤ 그 밖의 기록: folded by default; the summary line counts what is inside.
   const shown = card.others.filter(part => part.loading || part.failed || part.items.length);
@@ -448,9 +462,11 @@ function renderDay() {
   const loading = card.others.some(part => part.loading), count = othersCount(card.others), failed = card.others.some(part => part.failed);
   // Folded, the summary still says when a part could not be read (its [다시 시도] is inside).
   others.innerHTML = `<summary><span class="journal-heading">그 밖의 기록</span> <small class="journal-others-count" data-journal-others-count>${count ? esc(count) : loading ? waitInlineHtml() : '없음'}</small>${failed ? '<small class="journal-failed" data-journal-others-failed>· 못 읽은 묶음 있음</small>' : ''}</summary>`;
-  const body = document.createElement('div'); body.className = 'journal-others-parts';
+  // S49-12: 묶음 칸(flex·grid)을 <details>의 바로 아래 자식으로 두면 일부 브라우저에서 접어도 안쪽 제목이 보여, 꾸밈 없는 껍데기 하나를 사이에 둔다.
+  const shell = document.createElement('div'), body = document.createElement('div'); body.className = 'journal-others-parts';
   body.append(...shown.map(part => partBox(part, {heading:'h5'})));
-  others.append(body);
+  shell.append(body);
+  others.append(shell);
   others.addEventListener('toggle', () => { othersOpen = others.open; });
   // LEDGER-자동기록: 그날 원장에 자동으로 기록된 약속이 있을 때만 한 줄(누르면 원장 화면의 약속 목록). 0건·못 읽음은 줄 없음.
   const promises = materials.ledgerPromises?.status === 'ok' ? materials.ledgerPromises.items.get(selected) || 0 : 0;
@@ -595,6 +611,7 @@ function renderMode() {
 function setMode(next) {
   if (next === mode || !['day', 'week'].includes(next)) return;
   mode = next; editing = null;
+  startWeekReads();
   writePlace(); renderMode();
   if (mode === 'week') { renderWeek(); renderWeekly_(); void checkOverlaps(); maybeNextWeek(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); }
 }
@@ -679,7 +696,6 @@ const readers = {
   // HOME-업무일지홈: 그날 일정 칸 안 D-day 주요 일정(오늘을 볼 때만 그린다).
   milestones: () => readUpcomingMilestones(rt),
   basket: () => readBasketUpdates(rt),
-  movedNotes: () => readMovedNotes(rt),
   orgUpdates: () => readOrgUpdates(start, rt),
   projectUpdates: () => readProjectUpdates(start, rt),
   meetings: () => readWeekMeetings(start, rt),
@@ -717,7 +733,7 @@ async function loadTaskMeetings(run, scope) {
     taskMeetings = names; renderDay();
   } catch { /* 이름 없이 그대로 */ }
 }
-const SHARED_KEYS = new Set(['tasks', 'basket', 'movedNotes', 'catalog', 'milestones']);
+const SHARED_KEYS = new Set(['tasks', 'basket', 'catalog', 'milestones']);
 const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch && scope === ownerScope(rt) : current(run, scope);
 // PERF-첫로딩 P2: [주간 정리]에만 쓰는 읽기(묶음을 받은 뒤에 끝남)는 하루 카드를 다시 그리지 않는다 — 늦게 끝나도 열어 둔 ⋯·고치던 줄이 닫히지 않게.
 const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft', 'orgSummaries', 'execRequests', 'orgRefs']);
@@ -764,6 +780,22 @@ async function loadMemory(run, scope, quiet = false) {
   if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
   memory = read; renderWeekly_(); hwpx?.refresh();
 }
+// PERF-첫로딩 요청 합치기(S48-59, docs/design/first-load.md 14절): [주간 정리]에만 쓰는 읽기(다음 주 장·5. 주요 일정 두 주·조직 요약·
+// 임원 요청·임시저장·조직 참고 캘린더·주간보고 기억)는 하루 화면에서는 보내지 않고, 그 주 [주간 정리]를 처음 열 때 보낸다.
+// 묶음 프로그램은 전처럼 앱이 보인 뒤 미리 받아 두므로(맨 아래 weeklyKit), 열 때는 읽기만 기다린다(칸마다 기다림 표시 → 채움).
+const WEEK_READS = ['nextWeek', 'upcoming', 'orgSummaries', 'execRequests', 'weekDraft', 'orgRefs'];
+let weekReads = null; // 미룬 읽기 {run, sharedRun, scope, quiet, memory}; 탭 메모리만
+let weekReadsFlight = Promise.resolve(); // 그 읽기들이 다 끝나면 풀림([주간보고 초안 복사]가 기다림)
+function startWeekReads() {
+  const wait = weekReads;
+  if (!wait || mode !== 'week') return;
+  weekReads = null;
+  if (wait.run !== epoch || wait.scope !== ownerScope(rt)) return;
+  const reads = wait.memory ? [loadMemory(wait.sharedRun, wait.scope, wait.quiet)] : [];
+  if (wait.quiet) { for (const key of WEEK_READS) refreshing.add(key); markRefreshing(); }
+  for (const key of WEEK_READS) reads.push(loadGroup(key, SHARED_KEYS.has(key) ? wait.sharedRun : wait.run, wait.scope, wait.quiet));
+  weekReadsFlight = Promise.allSettled(reads);
+}
 // quiet = 연 화면 유지(같은 주인·같은 주를 다 그린 뒤 다시 열 때만): 보던 자료·펼침 상태를 그대로 그리고, 칸마다 새 자료가 오면 그 칸만 다시 그린다.
 function loadWeek({shared = false, quiet = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
@@ -775,13 +807,21 @@ function loadWeek({shared = false, quiet = false} = {}) {
     lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
   }
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const keys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'orgRefs'];
+  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'orgRefs'];
+  // 하루 화면: [주간 정리] 전용 읽기는 미뤄 둔다(startWeekReads). 주를 넘겨도 기억 읽기는 방문(sharedEpoch)에 묶여 있으므로 함께 넘긴다.
+  const defer = mode !== 'week', memoryRead = shared || changedOwner || (!!weekReads?.memory && weekReads.sharedRun === sharedRun);
+  const keys = defer ? allKeys.filter(key => !WEEK_READS.includes(key)) : allKeys;
+  weekReads = defer ? {run, sharedRun, scope, quiet, memory:memoryRead} : null;
   refreshing = quiet ? new Set([...keys, 'lines', ...(shared ? ['kinds'] : [])]) : new Set(); markRefreshing();
   if (!quiet) {
-    for (const key of keys) materials[key] = {status:'loading'};
+    for (const key of allKeys) materials[key] = {status:'loading'};
     delete materials.overlaps;
   }
-  if (shared || changedOwner) { loadKinds(sharedRun, scope, quiet); loadMemory(sharedRun, scope, quiet); if (!quiet) memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; }
+  if (shared || changedOwner) {
+    loadKinds(sharedRun, scope, quiet);
+    if (!defer) loadMemory(sharedRun, scope, quiet); else if (!quiet) memory = {status:'loading'};
+    if (!quiet) memoryUi = {open:false, busy:false, status:'', error:false, undo:null};
+  }
   render();
   loadLines(run, scope, quiet);
   for (const key of keys) loadGroup(key, SHARED_KEYS.has(key) ? sharedRun : run, scope, quiet);
@@ -1098,10 +1138,12 @@ window.addEventListener('kptu:google-tasks-changed', () => { if (!selfBusy && wi
 
 async function copyDraft() {
   await scopeSettled();
+  // [주간 정리]를 막 열어 미룬 읽기(5. 주요 일정 등)가 오는 중이면 끝날 때까지(길어도 5초) 기다린 뒤 복사한다.
+  await Promise.race([weekReadsFlight, new Promise(ok => setTimeout(ok, 5000))]);
   const text = W.weeklyReportText(W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}));
   const ok = await copyText(text);
-  // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
-  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
+  // catalog (the project order) and this week's events (the day card's 일정) are not draft material.
+  const missing = Object.entries(materials).some(([key, state]) => !['catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
   return ok;
 }

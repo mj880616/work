@@ -24,6 +24,8 @@ for round in $(seq 1 "$ROUNDS"); do
   # line 보고기는 줄 앞에 커서 이동 글자(ESC[1A ESC[2K)를 붙여 덮어 쓴다 → 걷어 낸 뒤 줄 머리로 고른다(안 걷으면 측정 줄 일부가 빠짐).
   cat "$OUT/load-$round.log" "$OUT/switch-$round.log" | sed -E 's/\x1b\[[0-9;]*[A-Za-z]//g' | grep -E '^(PERF|PERF_SHELL|PERF_SWITCH) \{' >> "$OUT/perf.jsonl" || true
 done
+# 자료 요청 종류별 수(회차 1, 첫 측정, 경로 이름만). 요청 합치기 전후 비교용(S48-59).
+sed -E 's/\x1b\[[0-9;]*[A-Za-z]//g' "$OUT/load-1.log" | grep '^PERF_DATA ' || true
 # 화면 바꾸기 때 클릭 뒤 새로 받은 JS 파일 이름(회차 1, 첫 측정). 회귀 원인 찾기용.
 sed -E 's/\x1b\[[0-9;]*[A-Za-z]//g' "$OUT/switch-1.log" | grep '^PERF_SWITCH_FILES ' || true
 # 화면 바꾸기 시험이 끝난 모양(통과·실패 줄, 오류 첫 줄). 표에 화면 바꾸기 칸이 빠졌을 때 까닭을 본다.

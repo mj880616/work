@@ -111,6 +111,36 @@ export function pendingText(session){
   const minutes=Math.round((Number(session?.duration_sec)||0)/60);
   return [day?`${day} 녹음`:'녹음',minutes?minuteText(minutes):''].filter(Boolean).join(' · ');
 }
+// REC-새로고침(S49-7): 맨 위 띠에 보일 '끝나지 않은 녹음' 목록.
+// pending = 서버 rec_pending sessions(열린 구간이 7분 넘게 조용하거나 닫힌 것), live = 같은 답의 live(열린 구간이 아직 조용하지 않음 = 방금 새로고침·창 닫기로 끊겼거나 다른 곳에서 녹음 중).
+// 띠에는 하루 안쪽 녹음만 보이고(새로고침 직후 이어 녹음하려는 것), 더 오래된 것은 사업 보고 위 한 줄에만 남긴다.
+export const LIVE_FRESH_SEC=100;            // 마지막 조각 뒤 이 초 안쪽이면 다른 곳에서 지금 녹음 중일 수 있다(조각 1분 + 여유).
+export const BAND_RECENT_MS=24*3600*1000;
+export function resumables(pending,live,activeSessionId='',nowMs=Date.now()){
+  const seen=new Set(activeSessionId?[activeSessionId]:[]),all=[];
+  for(const [list,isLive] of [[live,true],[pending,false]]){
+    for(const s of Array.isArray(list)?list:[]){
+      if(!s?.session_id||seen.has(s.session_id))continue;
+      seen.add(s.session_id);all.push({...s,live:isLive});
+    }
+  }
+  const recent=s=>{
+    if(s.live)return true;
+    const t=Date.parse(s.started_at||'');
+    return Number.isFinite(t)&&nowMs-(t+(Number(s.duration_sec)||0)*1000)<BAND_RECENT_MS;
+  };
+  const byStart=(a,b)=>String(b.started_at).localeCompare(String(a.started_at));
+  return {top:all.filter(recent).sort(byStart),old:all.filter(s=>!recent(s)).sort(byStart)};
+}
+// 이 녹음을 이어받으면 다른 곳의 지금 녹음이 멈출 수 있는지(확인창을 띄울지).
+export function takeOverRisk(item,nowMs=Date.now()){
+  if(!item?.live)return false;
+  const idle=Number(item.idle_sec);
+  if(!Number.isFinite(idle))return true;
+  const waited=Number.isFinite(item.fetched)?Math.max(0,(nowMs-item.fetched)/1000):0;
+  return idle+waited<LIVE_FRESH_SEC;
+}
+
 // 이어서 정리할 녹음 중 지금 이 창이 녹음 중인 것은 뺀다.
 export const pendingOthers=(sessions,activeSessionId)=>(Array.isArray(sessions)?sessions:[]).filter(s=>s?.session_id&&s.session_id!==activeSessionId);
 

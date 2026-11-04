@@ -45,19 +45,25 @@ import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, 
 //   사진 이름 바꾸기·옮기기·지우기(드라이브 휴지통)는 사진 ⋯(PC 우클릭)·고른 사진 아래 줄에서, 지우기는 확인 창 한 번. 권한이 없으면 칩·목록 위에 '권한 없음 · [Drive 다시 연결]'.
 import {myFeatures, gdStatus, gdFolders, gdFolderToggle, gdSync, gdList, gdRename, gdMove, gdTrash, gdFolderCreate, gdFolderRename, gdFolderTrash, gdReconnect,
   gdThumbBlob, gdMediaBlob, gdPhotoElement, gdForget, gdClear} from './gdrive-photos.js';
-import {ownerScope} from './diary-data.js';
+import {ownerScope, requestDiaryDay} from './diary-data.js';
 import {seoulParts, seoulDateKey} from './meeting-time.js';
-import {SIZE_BUTTONS, WIDE_QUERY, attachPinch, createGridSizer, multiTouchActive, onMultiTouch} from './photo-grid-size.js';
-import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh, photoStripReload} from './photo-strip.js';
+import {SIZE_BUTTONS, WIDE_QUERY, attachPinch, createGridSizer, isWide, multiTouchActive, onMultiTouch} from './photo-grid-size.js';
+import {filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
+import {zoomOf, stepZoom, canStep, groupMonths, pickReps, yearSampleMonths, stripCount} from './photo-zoom-model.mjs';
+import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh, photoStripReload, photoStripDrop, photoStripPaintBar} from './photo-strip.js';
 import {UNDO_MS, shareFileName} from './photo-viewer-model.mjs';
 import {photoFile} from './photo-share.js';
 import {shareFrom, wideShare} from './share-menu.js';
+import {PHOTO_ACT_TEXT, PHOTO_MENUS, PHOTO_BAR_MENUS, SEND_NOTE, diaryDoneText, basketDoneText, releaseAfter} from './photo-menu-items.mjs';
+import {openBarMenu} from './photo-bar-menu.js'; // PHOTO-아래줄정돈(S49-34): [더보기] 글자 메뉴
+import {photoActButtons} from './photo-act-bar.mjs'; // PHOTO-크게보기메뉴통일(S49-23): 아래 버튼줄 그리기 하나(고르기·크게 보기)
 import {appShare} from './app-share.js';
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
 import {brandIconSvg} from './brand-icons.js';
 import {createOdSettings} from './od-settings.js';
 import {createSelectMode} from './select-mode.js';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {ACT_ICON, actInner} from './action-bar.mjs'; // UI-고르기줄(S48-54): 아래 고르기 줄 공용 부품
 import {folderPathHtml} from './folder-path.mjs';
 import {odFolderTree, odFolderCreate, odFolderRename, odFolderMove, odFolderDelete, odPhotosMove, odFolderToggle} from './diary-onedrive.js';
 import {readPhotoTags, createPhotoTag, renamePhotoTag, deletePhotoTag, addPhotoTagItems, removePhotoTagItems} from './photo-tags.js';
@@ -65,11 +71,12 @@ import {photoFolderRows, photoFolderTrail, photoSubfolders, photoFolderById, pho
   cleanTagName, sameTag, albumCards, albumForSources, folderPlaceLabels, odFolderPlace, phoneFolderPlace,
   validAlbumView, stepAlbumView, albumPeriod, ALBUM_VIEW_TEXT, gdriveFolderTree, folderCountText, GDRIVE_TOP} from './photos-model.mjs';
 import {notify, askConfirm, askChoice} from './small-notice.js';
-import {viewPrefs} from './view-prefs.js';
+import {viewPrefs, validValue} from './view-prefs.js';
+import {readDeviceSources, deviceSourcesPref} from './photo-sources-device.js';
 import {followPane} from './follow-pane.js';
 import {mountSplitResize} from './split-resize.js';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
-  colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
+  colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, parseMonth, monthLabelKo, yearTicks, yearLabels, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
   takeItems, putItems, DEFAULT_SORT, SORT_TEXT, SORT_SHORT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
 
 (() => {
@@ -92,7 +99,7 @@ const MARK_SVG = {onedrive:brandIconSvg('onedrive', {size:11}),
   phone:'<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false"><path d="M2 4.5A1 1 0 0 1 3 3.5h3l1.3 1.3H13a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" fill="currentColor"/></svg>',
   gdrive:brandIconSvg('gdrive', {size:10})};
 const filterOptions = Object.entries(FILTER_TEXT).map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
-root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="folders" aria-pressed="false">폴더</button><button type="button" class="photos-chip" data-photos-tab="albums" aria-pressed="false">앨범</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><div class="photos-tools" data-photos-tools><button type="button" class="photos-chip photos-tidy-chip" data-photos-tidy-chip aria-expanded="false" aria-controls="photosTidy" hidden>정리</button><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><button type="button" class="photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false"></button>${SIZE_BUTTONS}<span class="photos-sp"></span><span class="photos-srcs" role="group" aria-label="사진 출처">${odLinkButtonHtml('data-photos-src="onedrive" aria-pressed="true"')}<button type="button" class="mini photos-src-btn" data-photos-src="gdrive" aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini photos-src-btn" data-photos-src="phone" aria-pressed="true" aria-label="폰 사진" title="폰 사진" hidden>${PHONE_SVG}</button></span><button type="button" class="secondary photos-al-new" data-photos-al-new hidden>+ 새 앨범</button></div></div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><form class="photos-name" data-photos-name hidden><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"><button type="submit" class="mini" data-photos-name-ok>만들기</button><button type="button" class="mini photos-name-x" data-photos-name-cancel aria-label="닫기">×</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-tidy" id="photosTidy" data-photos-tidy hidden></div><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act" data-photos-act role="group" aria-label="고른 사진" hidden><button type="button" data-photos-act-star><span aria-hidden="true">☆</span> 별표</button><button type="button" data-photos-act-share hidden><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-photos-act-down><span aria-hidden="true">⤓</span> 받기</button><button type="button" data-photos-act-rename hidden><span aria-hidden="true">✎</span> 이름</button><button type="button" data-photos-act-move aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">📁</span> 옮기기</button><button type="button" data-photos-act-tag aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">#</span> 앨범</button><button type="button" data-photos-act-untag hidden><span aria-hidden="true">−</span> 앨범에서 빼기</button><button type="button" data-photos-act-restore hidden><span aria-hidden="true">↩</span> 폰으로 되돌리기</button><button type="button" class="photos-danger" data-photos-act-delete><span aria-hidden="true">🗑</span> 지우기</button></div><div class="photos-act" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" data-photos-restore><span aria-hidden="true">↺</span> 되살리기</button><button type="button" class="photos-danger" data-photos-purge><span aria-hidden="true">🗑</span> 바로 지우기</button></div>`;
+root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="folders" aria-pressed="false">폴더</button><button type="button" class="photos-chip" data-photos-tab="albums" aria-pressed="false">앨범</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><div class="photos-tools" data-photos-tools><button type="button" class="photos-chip photos-tidy-chip" data-photos-tidy-chip aria-expanded="false" aria-controls="photosTidy" hidden>정리</button><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><button type="button" class="photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false"></button>${SIZE_BUTTONS}<span class="photos-sp"></span><span class="photos-srcs src-chips" role="group" aria-label="사진 출처">${odLinkButtonHtml('data-photos-src="onedrive" data-src-chip aria-pressed="true"')}<button type="button" class="mini photos-src-btn" data-photos-src="gdrive" data-src-chip aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini photos-src-btn" data-photos-src="phone" data-src-chip aria-pressed="true" aria-label="폰 폴더" title="폰 폴더" hidden>${PHONE_SVG}</button></span><button type="button" class="secondary photos-al-new" data-photos-al-new hidden>+ 새 앨범</button></div></div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><form class="photos-name" data-photos-name hidden><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"><button type="submit" class="mini" data-photos-name-ok>만들기</button><button type="button" class="mini photos-name-x" data-photos-name-cancel aria-label="닫기">×</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-tidy" id="photosTidy" data-photos-tidy hidden></div><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-act role="group" aria-label="고른 사진" hidden>${photoActButtons(PHOTO_MENUS.selectBar, id => `data-photos-act-${id}`)}</div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" class="kptu-act" data-photos-restore>${actInner(ACT_ICON.restore,'되살리기')}</button><button type="button" class="kptu-act kptu-act-danger" data-photos-purge>${actInner(ACT_ICON.delete,'바로 지우기')}</button></div>`;
 const $ = sel => root.querySelector(sel);
 const body = $('[data-photos-body]'), noteEl = $('[data-photos-note]'), linkBtn = $('[data-od-link]'), odHost = $('[data-photos-od]');
 const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), thumb = $('[data-photos-rail-thumb]');
@@ -116,7 +123,7 @@ let gdAt = null, gdFFor = null, gdFItems = [], gdFLoading = null, gdFFailed = ''
 // PHOTO-폴더스위치: 끈 폰 폴더(view_prefs.phone_folders_off, 서버). 앱 0.4.1+만 스위치·바꾸기(phone.state().hide·ops). 새 폴더(사진을 옮겨 넣기 전)는 이 화면 메모리에만.
 let phoneOff = new Set(), pPending = [], manageAsked = false;
 const phone = phonePhotos();
-let bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, dayLayer = null, syncing = false, syncAt = 0;
+let level = 'day', bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, dayLayer = null, syncing = false, syncAt = 0;
 let trash = null, trashFailed = '', trashBusy = false;
 // S48-17 PHOTO-지우기두갈래: '폰 공간만 비우기'로 비운 사진(서버 kept-list → 원드라이브 칸 + kept 표시). null = 아직 안 읽음. 폰 앱 + 원드라이브 연결일 때만.
 let kept = null, keptLoading = null;
@@ -376,7 +383,8 @@ function readPrefs() {
   prefsRead = true;
   const v = parsePhotoView(viewPrefs.get('photo_view'));
   filter = v.filter; colsSaved = v.cols; sort = v.sort;
-  sources = parseSources(viewPrefs.get('photo_sources'));
+  sources = readDeviceSources();
+  level = zoomOf(viewPrefs.getPhotoZoom?.(zoomDevice()));
   phoneOff = parsePhoneOff(viewPrefs.get('phone_folders_off'));
   $('[data-photos-filter]').value = filter; paintSortButton();
 }
@@ -650,7 +658,7 @@ function cell(item, i) {
 function newGrid() {
   const grid = document.createElement('div');
   grid.className = 'diary-grid photos-grid'; grid.dataset.diaryGrid = '';
-  sizer.paintGrid(grid); sizer.attachPinch(grid, sizeChanged);
+  sizer.paintGrid(grid); attachPinch(grid, stageChanged, dir => changeStage(dir), {onEnd: stageEnd});
   return grid;
 }
 function dayHeadEl(day, n) {
@@ -661,6 +669,7 @@ function dayHeadEl(day, n) {
 }
 // [사진] 목록 그리기. 처음이거나 목록이 줄었으면 통째로, 늘었으면 뒤에 이어 붙인다(받은 그림 그대로).
 function paintList({full = false} = {}) {
+  if (tab === 'all' && level !== 'day') return; // 월·연 보기는 renderZoom이 그린다(한 화면 한 그리기)
   const g = listGate();
   if (g) { rendered = 0; renderedIds = []; body.innerHTML = g; paintRail(); return; }
   let list = body.querySelector('[data-photos-list]');
@@ -705,6 +714,26 @@ function watchFoot(foot) {
   io = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) loadMore(); }, {rootMargin:'600px 0px'});
   io.observe(foot);
 }
+// 한 달의 날별 장수·대표 사진(달력·월 칸 대표 사진이 같이 쓴다). 같은 달·거르기·출처는 한 번만 받는다.
+async function monthDays(key, want, r) {
+  const u = useSrc(), cacheKey = `${want}:${key}:${u.onedrive ? 'o' : ''}${u.phone ? 'p' : ''}`;
+  let days = calData.get(cacheKey);
+  if (days) return days;
+  await ensureStars(r);
+  // 대표 사진은 별표한 것 먼저: 그 달 별표 id만 보낸다(500개까지).
+  let odD = {}, phD = {};
+  if (u.onedrive) {
+    const ids = starIds().filter(id => (starDay.get(id) || '').startsWith(key + '-')).slice(0, STAR_CHUNK);
+    if (!(want === 'star' && !ids.length)) odD = (await odDays(rt, key, {filter:want, starIds:ids.length || want === 'star' ? ids : null})).days;
+  }
+  if (u.phone) {
+    if (want === 'star') phD = daysFromItems(await phoneStarList(r), key);
+    else phD = await phone.days(key, {filter:want, prefer:phoneStarIds(), ...(await hideArg())});
+  }
+  days = mergeDays(odD, phD);
+  calData.set(cacheKey, days);
+  return days;
+}
 async function renderCalendar() {
   io?.disconnect();
   const g = listGate();
@@ -713,25 +742,11 @@ async function renderCalendar() {
   const ym = calCursor, r = run, key = monthKey(ym.year, ym.month), want = filter;
   const headHtml = `<div class="photos-cal-head"><button type="button" class="mini" data-photos-cal="-1" aria-label="이전 달">‹</button><b>${ym.year}년 ${ym.month + 1}월</b><button type="button" class="mini" data-photos-cal="1" aria-label="다음 달">›</button></div>`
     + (useSrc().gdrive ? '<p class="photos-muted photos-top" data-photos-gd-cal>구글 드라이브 사진은 달력에 아직 안 나와요</p>' : '');
-  const u = useSrc(), cacheKey = `${want}:${key}:${u.onedrive ? 'o' : ''}${u.phone ? 'p' : ''}`;
-  let days = calData.get(cacheKey);
+  let days = calData.get(`${want}:${key}:${useSrc().onedrive ? 'o' : ''}${useSrc().phone ? 'p' : ''}`);
   if (!days) {
     body.innerHTML = `${headHtml}${waitHtml({rows:4, h:72})}`;
-    try {
-      await ensureStars(r);
-      // 대표 사진은 별표한 것 먼저: 그 달 별표 id만 보낸다(500개까지).
-      let odD = {}, phD = {};
-      if (u.onedrive) {
-        const ids = starIds().filter(id => (starDay.get(id) || '').startsWith(key + '-')).slice(0, STAR_CHUNK);
-        if (!(want === 'star' && !ids.length)) odD = (await odDays(rt, key, {filter:want, starIds:ids.length || want === 'star' ? ids : null})).days;
-      }
-      if (u.phone) {
-        if (want === 'star') phD = daysFromItems(await phoneStarList(r), key);
-        else phD = await phone.days(key, {filter:want, prefer:phoneStarIds(), ...(await hideArg())});
-      }
-      days = mergeDays(odD, phD);
-      calData.set(cacheKey, days);
-    } catch (error) { if (current(r) && tab === 'calendar' && calCursor === ym) body.innerHTML = `${headHtml}<p class="photos-muted">사진을 읽지 못했어요: ${esc(readErrorText(error))}</p>`; return; }
+    try { days = await monthDays(key, want, r); }
+    catch (error) { if (current(r) && tab === 'calendar' && calCursor === ym) body.innerHTML = `${headHtml}<p class="photos-muted">사진을 읽지 못했어요: ${esc(readErrorText(error))}</p>`; return; }
     if (!current(r) || tab !== 'calendar' || calCursor !== ym || filter !== want) return;
   }
   const {lead, cells} = calendarFromDays(ym, days), today = seoulDateKey(new Date());
@@ -748,6 +763,104 @@ async function renderCalendar() {
     grid.append(el);
   }
   body.innerHTML = headHtml; body.append(grid);
+}
+// PHOTO-연월보기(S49-48): [사진] 탭의 월 보기·연 보기. 칸 수 단계 끝에서 [－]·오므리기로 넘어온다(계산은 photo-zoom-model.mjs).
+// 한 화면 소유자·최종 그리기는 이 함수 하나: 해 머리 + 월 줄(월 보기) 또는 해 줄(연 보기). 줄이 보일 때 그 달의 날 대표 사진을 받아(달력과 같은 monthDays 읽기, 새 AI·새 큰 요청 없음) 작은 칸에 끼운다.
+// 대표는 별표 먼저, 그다음 이른 날. 줄을 누르면 한 단계 크게(연 → 그 해 월 보기, 월 → 그 달 일별). 뒤로가기는 이전 단계(라우터 겹 하나).
+const zoomDevice = () => filesDeviceKind({ua: navigator.userAgent || '', narrow: !!globalThis.matchMedia?.(PHONE_WIDTH_QUERY)?.matches});
+let zio = null;
+async function renderZoom({focusYear = 0} = {}) {
+  io?.disconnect(); zio?.disconnect(); zio = null;
+  const g = listGate();
+  if (g) { body.innerHTML = g; return; }
+  const r = run, want = filter, lv = level;
+  body.innerHTML = waitHtml({rows:3, h:72});
+  await loadBar(r);
+  if (!current(r) || tab !== 'all' || level !== lv || filter !== want) return;
+  const groups = groupMonths(bar);
+  if (!groups.length) { body.innerHTML = emptyHtml(); return; }
+  const wide = isWide(), per = stripCount(lv, wide);
+  const wrap = document.createElement('div');
+  wrap.className = 'photos-zoom'; wrap.dataset.photosZoom = lv; wrap.style.setProperty('--zn', String(per));
+  const row = (title, n, go, label, keys) => {
+    const el = document.createElement('button');
+    el.type = 'button'; el.className = 'photos-zrow'; el.dataset.photosZgo = go; el.setAttribute('aria-label', `${label}, 사진 ${n}장`);
+    el.innerHTML = `<span class="photos-zt"><b>${esc(title)}</b><span>${n}장</span></span>`;
+    const strip = document.createElement('span');
+    strip.className = 'photos-zstrip';
+    for (let k = 0; k < Math.min(per, n); k++) strip.append(Object.assign(document.createElement('span'), {className:'photos-zph'}));
+    el.append(strip);
+    el._zkeys = keys;
+    return el;
+  };
+  for (const gr of groups) {
+    if (lv === 'month') {
+      wrap.append(Object.assign(document.createElement('h3'), {className:'photos-zy', innerHTML:`${gr.year}<span>${gr.n}장</span>`, id:`photosZy${gr.year}`}));
+      for (const m of gr.months) wrap.append(row(`${m.month + 1}월`, m.n, `month:${m.key}`, monthLabelKo(m.key), [m.key]));
+    } else {
+      wrap.append(row(String(gr.year), gr.n, `year:${gr.year}`, `${gr.year}년`, yearSampleMonths(gr.months, per).map(m => m.key)));
+    }
+  }
+  body.innerHTML = ''; body.append(wrap);
+  const fill = async el => {
+    if (el._zdone) return;
+    el._zdone = true;
+    const slots = [...el.querySelectorAll('.photos-zph')], keys = el._zkeys || [], each = Math.ceil(slots.length / Math.max(1, keys.length));
+    const reps = [];
+    for (const key of keys) {
+      try {
+        const days = await monthDays(key, want, r);
+        if (!current(r) || tab !== 'all' || level !== lv || !el.isConnected) return;
+        reps.push(...pickReps(calendarFromDays(parseMonth(key), days).cells, each, isStarred));
+      } catch { /* 대표를 못 받아도 줄(이름·장수)은 그대로 눌러서 갈 수 있다 */ }
+    }
+    reps.slice(0, slots.length).forEach((rep, k) => { slots[k].replaceChildren(photoEl(rep, 'small', {label:'', retry:false})); slots[k].classList.add('has-photo'); });
+  };
+  const rows = [...wrap.querySelectorAll('.photos-zrow')];
+  if (globalThis.IntersectionObserver) {
+    zio = new IntersectionObserver(entries => { for (const e of entries) if (e.isIntersecting) { zio?.unobserve(e.target); fill(e.target); } }, {rootMargin:'300px 0px'});
+    rows.forEach(el => zio.observe(el));
+  } else rows.forEach(fill);
+  if (focusYear) requestAnimationFrame(() => document.getElementById(`photosZy${focusYear}`)?.scrollIntoView({block:'start'}));
+}
+// 보기 단계를 옮긴다(저장은 서버 view_prefs.photo_zoom, 이 기기 종류 칸). 라우터 겹(뒤로가기 = 이전 단계)은 줄을 눌러 들어갈 때만 쌓는다.
+let zoomLayers = [], stageDirty = false;
+function closeZoomLayer() { // 겹을 조용히 모두 닫는다(단계는 그대로)
+  const list = zoomLayers; zoomLayers = [];
+  for (const e of list.reverse()) { e.dead = true; e.layer?.close(); }
+}
+function zoomSave(next) { level = next; viewPrefs.setPhotoZoom?.(zoomDevice(), next); }
+// 줄을 눌러 한 단계 크게 들어갈 때 겹 하나를 쌓는다: 뒤로가기 = 그 겹만 닫고 이전 단계(연 → 월 → 일 순서로 쌓이면 일 → 월 → 연으로 돌아온다).
+function openZoomLayer(prev) {
+  if (!window.KPTURouter?.layer?.open) return;
+  const e = {prev, dead: false, layer: null};
+  e.layer = window.KPTURouter.layer.open(`photos-zoom-${zoomLayers.length + 1}`, {reopen:() => {}, close:() => {
+    if (e.dead) return true;
+    zoomLayers = zoomLayers.filter(x => x !== e);
+    if (tab === 'all' && level !== e.prev) { zoomSave(e.prev); render(); }
+    return true;
+  }}) || null;
+  if (e.layer) zoomLayers.push(e);
+}
+// [－][＋]·두 손가락: 일별 칸 수 → 월 → 연. 바뀌었으면 true. 단계가 바뀌면 stageDirty — 손동작 중에는 닿은 칸을 지우지 않고 끝나고 다시 그린다.
+function changeStage(dir) {
+  if (tab !== 'all') return sizer.changeCols(dir);
+  const res = stepZoom(level, dir, d => sizer.changeCols(d));
+  if (!res.moved) return false;
+  if (!res.cols) { closeZoomLayer(); zoomSave(res.level); stageDirty = true; }
+  return true;
+}
+const stageChanged = () => { if (!stageDirty) sizeChanged(); };
+const stageEnd = () => { if (stageDirty) { stageDirty = false; render(); } };
+// 줄 누르기: 'month:2026-10' → 그 달 일별로, 'year:2026' → 그 해 월 보기로.
+function zoomGo(go) {
+  const [kind, key] = String(go).split(':');
+  if (kind === 'month' && parseMonth(key)) {
+    openZoomLayer('month'); zoomSave('day'); zio?.disconnect(); select.stop();
+    jumpMonth(key); paintTools(); paintRail();
+  } else if (kind === 'year' && /^\d{4}$/.test(key || '')) {
+    openZoomLayer('year'); zoomSave('month'); paintTools(); renderZoom({focusYear:Number(key)});
+  }
 }
 // [휴지통]: Web2에서 지운 사진. 열 때마다 서버가 30일 지난 것을 조금씩 원드라이브 휴지통으로 보낸다.
 async function renderTrash({reload = false} = {}) {
@@ -781,6 +894,7 @@ function render() {
   if (tab === 'trash') { paintRail(); renderTrash(); return; }
   if (tab === 'folders') { paintRail(); renderFolders(); return; }
   if (tab === 'albums') { paintRail(); renderAlbums(); return; }
+  if (level !== 'day') { select.stop(); paintSelect(); paintRail(); renderZoom(); return; }
   paintList({full:true});
   if (!listGate() && !items.length && !ended) loadMore();
 }
@@ -799,7 +913,10 @@ const SIZE_LABEL = {'-1':['사진 작게(한 줄 칸 늘리기)', '앨범 작게
 function paintSize() {
   if (!albumSizing()) {
     root.querySelectorAll('[data-photo-size]').forEach(b => b.setAttribute('aria-label', SIZE_LABEL[b.dataset.photoSize]?.[0] || ''));
-    sizer.paintButtons(root); return;
+    sizer.paintButtons(root);
+    if (tab === 'all' && level !== 'day') root.querySelectorAll('[data-photo-size]').forEach(b => { b.disabled = !canStep(level, Number(b.dataset.photoSize), true); b.title = level === 'year' ? '연 보기' : '월 보기'; });
+    else if (tab === 'all') root.querySelector('[data-photo-size="-1"]')?.removeAttribute('disabled');
+    return;
   }
   const v = albumView();
   root.querySelectorAll('[data-photo-size]').forEach(b => {
@@ -826,17 +943,17 @@ function changeAlbumView(dir, {paint = true} = {}) {
 const bodyPinch = () => (albumSizing() ? 'album' : tab !== 'calendar' ? 'grid' : '');
 let albumPinched = false;
 attachPinch(body, () => {
-  if (bodyPinch() === 'grid') { sizeChanged(); return; }
+  if (bodyPinch() === 'grid') { stageChanged(); return; }
   const list = body.querySelector('[data-photos-albums]');
   if (list) list.dataset.view = albumView();
   paintSize();
 }, dir => {
   const m = bodyPinch();
-  if (m === 'grid') return sizer.changeCols(dir);
+  if (m === 'grid') return changeStage(dir);
   return m === 'album' && changeAlbumView(dir, {paint:false}) ? (albumPinched = true) : false;
 }, {
   when: event => !!bodyPinch() && !event.target?.closest?.('[data-diary-grid]'),
-  onEnd: () => { if (albumPinched) { albumPinched = false; if (albumSizing()) renderAlbums(); } },
+  onEnd: () => { stageEnd(); if (albumPinched) { albumPinched = false; if (albumSizing()) renderAlbums(); } },
 });
 // 본문이 짧아도 화면 아래까지 손가락을 받도록 본문 칸 높이를 채우고(CSS), 그 탭에서는 두 손가락을 화면 확대 대신 보기 크기로 쓴다.
 const paintBodyPinch = () => { if (bodyPinch()) body.dataset.photosPinch = ''; else delete body.dataset.photosPinch; };
@@ -866,36 +983,78 @@ function paintStars() {
 }
 
 // ---- 빠른 이동 막대(오른쪽 끝, [사진]에서 달이 둘 이상일 때) ----
+// PHOTO-연도막대겹침(S49-45): 막대는 위 두 줄(보기 칩·출처 버튼 줄) 아래부터 시작하고, 연도 글자는 겹치지 않는 해만 보인다.
+// 삼성·아이폰 갤러리처럼 스크롤하면 손잡이가 나타나 잠시 뒤 사라지고(PC는 마우스를 대면), 끌면 옆에 '2025년 10월' 말풍선이 뜨며 놓으면 그 달로 간다.
+// 손잡이·막대는 누르는 폭 44px 이상(CSS), 이 막대 위에서는 아래 사진이 열리지 않는다(막대가 위에서 받는다).
+const RAIL_THUMB_H = 44, RAIL_AWAKE_MS = 1800;
+let railSleepT = 0, railHover = false;
+function railWake(ms = RAIL_AWAKE_MS) {
+  if (rail.hidden) return;
+  rail.classList.add('is-awake'); clearTimeout(railSleepT);
+  if (!railDrag && !railHover) railSleepT = setTimeout(() => rail.classList.remove('is-awake'), ms);
+}
+function placeRail() {
+  const barEl = root.querySelector('[data-photos-bar]');
+  if (barEl) rail.style.top = `${Math.round(barEl.getBoundingClientRect().bottom + 4)}px`;
+}
 function paintRail() {
-  const on = tab === 'all' && anyUse() && bar.length > 1 && !select.active && listSort() === DEFAULT_SORT;
+  const on = tab === 'all' && level === 'day' && anyUse() && bar.length > 1 && !select.active && listSort() === DEFAULT_SORT;
   rail.hidden = !on;
-  if (!on) return;
+  rail.querySelectorAll('.photos-rail-year').forEach(el => el.remove());
+  if (!on) { rail.classList.remove('is-awake'); return; }
+  placeRail();
+  // PHOTO-연월이동 A: 막대 옆 연도 눈금(해마다 한 번, 그 해 가장 최근 달 자리). 눈금은 읽어 주는 말에서 뺀다. 겹치는 해는 생략(yearLabels).
+  const h = rail.getBoundingClientRect().height;
+  for (const t of yearLabels(bar, h)) rail.append(Object.assign(document.createElement('span'), {className:'photos-rail-year', textContent:String(t.year), style:`top:${Math.round(t.pos)}px`}));
   const top = items.length ? items[0].day.slice(0, 7) : (from ? from.cursor.t.slice(0, 7) : '');
   const at = bar.find(m => m.key === top) || bar[0];
   railAt(bar.indexOf(at));
+  railWake(RAIL_AWAKE_MS + 700);
 }
+// 손잡이를 막대 위 y(px)에 둔다(위·아래 끝에서 삐져나오지 않게).
+const thumbTo = px => { const h = rail.getBoundingClientRect().height; thumb.style.top = `${Math.round(Math.max(0, Math.min(Math.max(0, h - RAIL_THUMB_H), px - RAIL_THUMB_H / 2)))}px`; };
 // 막대 손잡이 자리와 읽어 주는 값(달 순서 0 = 최신 달).
 function railAt(k) {
   const m = bar[k]; if (!m) return;
-  thumb.style.top = `${Math.round(m.from * 1000) / 10}%`;
-  rail.setAttribute('aria-valuemax', String(bar.length - 1)); rail.setAttribute('aria-valuenow', String(k)); rail.setAttribute('aria-valuetext', m.label);
+  thumbTo(m.from * rail.getBoundingClientRect().height);
+  rail.setAttribute('aria-valuemax', String(bar.length - 1)); rail.setAttribute('aria-valuenow', String(k)); rail.setAttribute('aria-valuetext', monthLabelKo(m.key));
 }
 let railDrag = null;
 const railMonth = y => { const r = rail.getBoundingClientRect(); return monthAt(bar, (y - r.top) / Math.max(1, r.height)); };
 function showBubble(m, y) {
   if (!m) return;
   const r = rail.getBoundingClientRect();
-  bubble.hidden = false; bubble.textContent = m.label; bubble.style.top = `${Math.max(0, Math.min(r.height - 20, y - r.top - 10))}px`;
-  rail.setAttribute('aria-valuetext', m.label);
+  bubble.hidden = false; bubble.textContent = monthLabelKo(m.key); bubble.style.top = `${Math.max(0, Math.min(r.height - 32, y - r.top - 16))}px`;
+  thumbTo(y - r.top);
+  rail.setAttribute('aria-valuetext', monthLabelKo(m.key));
 }
-rail.addEventListener('pointerdown', e => { e.preventDefault(); rail.setPointerCapture?.(e.pointerId); railDrag = railMonth(e.clientY); showBubble(railDrag, e.clientY); });
-rail.addEventListener('pointermove', e => { if (!railDrag) return; railDrag = railMonth(e.clientY); showBubble(railDrag, e.clientY); });
-const railEnd = () => { const m = railDrag; railDrag = null; bubble.hidden = true; if (m) jumpMonth(m.key); };
+const railPoint = e => { const m = railMonth(e.clientY); if (m && railDrag && m.key !== railDrag.key) navigator.vibrate?.(6); railDrag = m; showBubble(m, e.clientY); };
+rail.addEventListener('pointerdown', e => { e.preventDefault(); rail.setPointerCapture?.(e.pointerId); rail.classList.add('is-drag'); railWake(); railPoint(e); });
+rail.addEventListener('pointermove', e => { if (railDrag) railPoint(e); });
+const railEnd = () => { const m = railDrag; railDrag = null; bubble.hidden = true; rail.classList.remove('is-drag'); if (m) jumpMonth(m.key); railWake(); };
 rail.addEventListener('pointerup', railEnd);
-rail.addEventListener('pointercancel', () => { railDrag = null; bubble.hidden = true; });
+rail.addEventListener('pointercancel', () => { railDrag = null; bubble.hidden = true; rail.classList.remove('is-drag'); railWake(); });
+rail.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); }); // 막대 위 누르기는 아래 사진을 열지 않는다
+rail.addEventListener('pointerenter', e => { if (e.pointerType !== 'mouse') return; railHover = true; railWake(); });
+rail.addEventListener('pointerleave', () => { railHover = false; railWake(); });
+rail.addEventListener('focus', () => railWake(6000));
+// 스크롤하면 손잡이가 나타나고 지금 보는 달 자리로 간다.
+let railScrollRaf = 0;
+function railSync() {
+  railScrollRaf = 0;
+  if (rail.hidden || railDrag || !bar.length) return;
+  const barEl = root.querySelector('[data-photos-bar]'), edge = barEl ? barEl.getBoundingClientRect().bottom : 0;
+  const days = body.querySelectorAll('[data-photos-day]');
+  let key = '';
+  for (const d of days) { if (d.getBoundingClientRect().bottom > edge + 1) { key = String(d.dataset.photosDay).slice(0, 7); break; } }
+  const k = bar.findIndex(m => m.key === key);
+  if (k >= 0) railAt(k);
+}
+window.addEventListener('scroll', () => { if (rail.hidden || railDrag) return; railWake(); if (!railScrollRaf) railScrollRaf = requestAnimationFrame(railSync); }, {passive:true, capture:true});
+window.addEventListener('resize', () => { if (!rail.hidden) paintRail(); });
 rail.addEventListener('keydown', e => {
   if (!['ArrowUp', 'ArrowDown', 'Enter'].includes(e.key) || !bar.length) return;
-  e.preventDefault();
+  e.preventDefault(); railWake(6000);
   let k = Math.max(0, Math.min(bar.length - 1, Number(rail.getAttribute('aria-valuenow')) || 0));
   if (e.key === 'Enter') return jumpMonth(bar[k].key);
   k = Math.max(0, Math.min(bar.length - 1, k + (e.key === 'ArrowDown' ? 1 : -1)));
@@ -1028,6 +1187,21 @@ function phoneEdited() {
   if (window.KPTURouter?.current === 'photos') render();
   notify('편집한 사진을 반영했어요');
 }
+// PHOTO-크게보기메뉴통일(S49-23): 크게 보기 아래 줄 버튼 → 고르기 줄과 같은 함수를 '지금 보는 사진 1장'으로 부른다(별표·공유·지우기·정보 판은 크게 보기 부품이 직접).
+// 보내기·받기·옮기기·앨범·이름·정보수정은 사진 목록이 바뀌지 않아 크게 보기를 그대로 두고, 목록에서 빠지는 일(옮기기·앨범에서 빼기)은 각 함수가 photoStripDrop으로 다음 사진으로 넘긴다.
+function runStripAct(id, item, btn) {
+  switch (id) {
+    case 'down': return downloadOne(item);
+    case 'diary': case 'basket': return sendItemsTo(id, [item], btn);
+    case 'move': return openPick(btn, {kind:'photos', ids:[item.id]});
+    case 'tag': return openPick(btn, {kind:'tag', items:[item]});
+    case 'untag': return untagPicked([item]);
+    case 'restore': return restorePicked([item]);
+    case 'rename': return gdRenamePhoto(item);
+    case 'info': return openInfo(btn, [item]);
+    default: return undefined;
+  }
+}
 // own = 다른 목록(정리 펼친 칸)의 크게 보기 {list, take, restore, commit}.
 function openViewer(index, own = null) {
   if (photoStripOpen()) return;
@@ -1039,14 +1213,22 @@ function openViewer(index, own = null) {
     // PHOTO-전체화면확대: 확대할 때 원본 해상도(폰 = 앱 다리 원본, 구글 = 서버 중계 원본, 원드라이브 = 받기 주소). 못 받으면 큰 그림 그대로.
     hires:hiresOf,
     editable, edit:item => editOne(item),
+    // S49-9 PHOTO-메뉴항목통일: 크게 보기 [공유] 메뉴에도 [일기에 넣기](그 사진 찍은 날 일기). 고르기와 상관없이 그 한 장.
+    diary:(item, trigger) => sendItemsTo('diary', [item], trigger),
     play:async item => (item.kind === 'phone' ? phone.mediaUrl(item) : item.kind === 'gdrive' ? gdPlay(item) : (await odMediaUrl(rt, item.id, 'play')).url), badge:item => durationLabel(item.duration_ms),
     isStarred, toggleStar:item => { starsChanged(); return toggleStar(item); },
     deletable:item => (item?.kind === 'phone' ? {ok:phone.state().trash, title:phone.state().trash ? '폰 휴지통으로' : '이 폰은 여기서 지우지 못해요'}
-      : item?.kind === 'gdrive' ? {ok:false, title:'구글 드라이브 사진은 길게 눌러 고른 뒤 [지우기]로(확인 한 번)'}
+      : item?.kind === 'gdrive' ? {ok:gdUsable() && !busy, title:gdUsable() ? '구글 드라이브 휴지통으로(확인 한 번)' : '구글 드라이브 · 권한 없음'}
       : {ok:od.canDelete, title:od.canDelete ? 'Web2 휴지통으로' : '지우려면 원드라이브를 다시 연결해 주세요'}),
     take:own?.take || takeOne, restore:own?.restore || restoreTaken, commit:own?.commit || commitOne,
     // S48-32: 폰 앱 크게 보기 한 장 [지우기]도 고른 사진 [지우기]와 같은 판단(두 갈래 창). 두 갈래가 아니면 plain(예전 5초 되돌리기).
-    choose:own ? null : (item, anchor, plain) => { if (!needTwoWay([item])) return false; chooseDelete(anchor, [item], () => plain()); return true; },
+    choose:own ? null : (item, anchor, plain) => {
+      // 구글 드라이브 사진은 고르기 [지우기]와 같은 확인 한 번 뒤 드라이브 휴지통으로(빠지면 다음 사진으로).
+      if (item.kind === 'gdrive') { void gdTrashPicked(anchor, [item]).then(() => { if (!listFor(shown).some(x => x.id === item.id)) photoStripDrop(item.id); }); return true; }
+      if (!needTwoWay([item])) return false; chooseDelete(anchor, [item], () => plain()); return true;
+    },
+    // PHOTO-크게보기메뉴통일(S49-23): 아래 줄 버튼은 고르기 줄과 같은 목록·같은 보이는 규칙(actAvail). 크게 보기에서는 지금 보는 1장을 고른 것으로 같은 동작을 부른다.
+    acts:{avail:(id, item) => actAvail(id, [item]), run:(id, item, btn) => runStripAct(id, item, btn)},
     errorText:error => (error?.message === 'phone_trash_refused' ? '폰에서 지우지 않았어요.' : `지우지 못했어요: ${odErrorText(error)}`), onError:note,
     onClose:({starChanged, restore}) => { if (!own && starChanged && filter === 'star' && restore && shown === 'all') { setListFor('all', items.filter(isStarred)); paintList({full:true}); } }});
 }
@@ -1071,6 +1253,40 @@ async function gdPlay(item) {
 // ---- 여러 장 고르기 ----
 // PHOTO-폰앱공유: 폰 앱(0.4.7+)은 navigator.share가 없어도 앱 다리로 안드로이드 공유 창을 띄운다(app-share.js).
 const canShare = () => (typeof navigator.share === 'function' && typeof navigator.canShare === 'function') || appShare().known();
+// PHOTO-크게보기메뉴통일(S49-23): 아래 버튼줄(고르기·크게 보기)의 버튼이 보일지·눌릴지 규칙 한 곳.
+// group = 대상 사진들(고르기 = 고른 사진들, 크게 보기 = 지금 보는 1장), on = 줄이 열려 있음. {hidden?, disabled?}를 준다(없는 값은 건드리지 않음).
+function actAvail(id, group, on = true) {
+  const none = !group.length, inTrash = tab === 'trash', canGd = x => x.kind === 'gdrive' && gdUsable();
+  const ownable = x => (x.kind === 'phone' ? phoneOps() : x.kind === 'gdrive' ? canGd(x) : od.canDelete);
+  switch (id) {
+    case 'delete': return {disabled: none || busy || !group.some(x => (x.kind === 'phone' ? phone.state().trash : ownable(x)))};
+    case 'restore': return {hidden: !(on && !inTrash && phone.canRestore() && group.some(x => x.kept)), disabled: busy || restoring};
+    case 'rename': return {hidden: !(on && group.length === 1 && group[0].kind === 'gdrive'), disabled: busy || !gdUsable()};
+    case 'star': case 'down': return {disabled: none};
+    case 'share': return {disabled: none}; // PHOTO-아래줄정돈: [공유 ▾] 메뉴에 받기·일기·업데이트가 있어 늘 보인다
+    case 'move': return {disabled: none || busy || !group.some(ownable)};
+    case 'tag': return {disabled: none || busy};
+    case 'info': return {hidden: !(on && canInfo(group)), disabled: none || busy};
+    case 'untag': return {hidden: !(tab === 'albums' && album), disabled: none || busy};
+    case 'edit': return {hidden: !(on && group.length === 1 && editable(group[0])), disabled: busy};
+    default: return {};
+  }
+}
+// [더보기] 안 항목(PHOTO_BAR_MENUS.selectBar.more 순서, 쓸 수 있는 것만). 보이는 규칙은 actAvail 한 곳.
+// [더보기] 항목 → 고른 사진들에 같은 동작(예전 아래 줄 버튼이 하던 일).
+function runBarItem(id, btn) {
+  switch (id) {
+    case 'tag': return openPick(btn, {kind:'tag', items:pickedItems()});
+    case 'untag': return untagPicked();
+    case 'restore': return restorePicked();
+    case 'rename': { const one = pickedItems(); if (one.length === 1) gdRenamePhoto(one[0]); return undefined; }
+    case 'info': return openInfo(btn, pickedItems());
+    default: return undefined;
+  }
+}
+function selectMoreRows(group, on = true) {
+  return PHOTO_BAR_MENUS.selectBar.more.flatMap(id => { const a = actAvail(id, group, on); return a.hidden ? [] : [{id, disabled:!!a.disabled}]; });
+}
 function paintSelect() {
   const on = select.active && tab !== 'calendar', inTrash = tab === 'trash';
   $('[data-photos-sel]').hidden = !on; $('[data-photos-act]').hidden = !on || inTrash; $('[data-photos-trash-act]').hidden = !on || !inTrash;
@@ -1088,19 +1304,15 @@ function paintSelect() {
     const ids = items.filter(x => x.day === b.dataset.photosDayPick).map(x => x.id);
     b.setAttribute('aria-pressed', String(on && ids.length > 0 && ids.every(id => select.has(id))));
   });
-  const none = !select.size;
-  const canGd = x => x.kind === 'gdrive' && gdUsable();
-  $('[data-photos-act-delete]').disabled = none || busy || !pickedItems().some(x => (x.kind === 'phone' ? phone.state().trash : x.kind === 'gdrive' ? canGd(x) : od.canDelete));
-  const keptBtn = $('[data-photos-act-restore]');
-  keptBtn.hidden = !(on && !inTrash && phone.canRestore() && pickedItems().some(x => x.kept)); keptBtn.disabled = busy || restoring;
-  const one = pickedItems(), ren = $('[data-photos-act-rename]');
-  ren.hidden = !(on && one.length === 1 && one[0].kind === 'gdrive'); ren.disabled = busy || !gdUsable();
-  $('[data-photos-act-star]').disabled = none; $('[data-photos-act-down]').disabled = none;
-  // PC공유메뉴: 넓은 화면은 기기 공유 창이 없어도 [⇪ 공유] 메뉴(복사·정리함·다운로드)를 쓴다.
-  const share = $('[data-photos-act-share]'); share.hidden = !canShare() && !wideShare(); share.disabled = none;
-  $('[data-photos-act-move]').disabled = none || busy || !pickedItems().some(x => (x.kind === 'phone' ? phoneOps() : x.kind === 'gdrive' ? canGd(x) : od.canDelete)); $('[data-photos-act-tag]').disabled = none || busy;
-  const untag = $('[data-photos-act-untag]'); untag.hidden = !(tab === 'albums' && album); untag.disabled = none || busy;
+  const none = !select.size, group = pickedItems();
+  for (const id of PHOTO_MENUS.selectBar) {
+    const b = $(`[data-photos-act-${id}]`); if (!b) continue;
+    const a = id === 'more' ? (() => { const rows = selectMoreRows(group, on); return {hidden:!rows.length, disabled:!rows.some(r => !r.disabled)}; })() : actAvail(id, group, on);
+    if ('hidden' in a) b.hidden = a.hidden;
+    b.disabled = !!a.disabled;
+  }
   $('[data-photos-restore]').disabled = none || !od.canDelete; $('[data-photos-purge]').disabled = none || !od.canDelete;
+  photoStripPaintBar(); // 크게 보기가 열려 있으면 그 아래 줄도 같은 규칙으로 다시 칠한다(busy 같은 상태가 바뀔 때)
   if (rail) paintRail();
 }
 const pickedItems = () => shownList().filter(x => select.has(x.id));
@@ -1114,7 +1326,9 @@ async function starPicked() {
   paintStars(); starsChanged();
   const bad = results.filter(ok => !ok).length;
   notify(bad ? `별표를 ${bad}장 저장하지 못했어요.` : plan.on ? `${plan.items.length}장 별표했어요` : `${plan.items.length}장 별표를 풀었어요`, {error:!!bad});
-  select.stop(); paintSelect();
+  // S49-9 PHOTO-보낸뒤선택풀기 규칙: 별표는 그 자리 표시만 바뀌므로 고른 채 둔다(이어서 보내기·옮기기 가능). 풀기는 ✕·Esc.
+  if (releaseAfter('star', !bad)) select.stop();
+  paintSelect();
   if (filter === 'star') { setListFor('all', items.filter(isStarred)); paintList({full:true}); }
 }
 // 여러 장 받기: 원본 주소를 하나씩 받아 차례로(한 번에 20장까지).
@@ -1135,17 +1349,84 @@ async function pickedFiles(list) {
     notify('사진 받는 중…', {ms:30000});
     const files = [];
     for (const item of list) {
-      try { const blob = item.kind === 'phone' ? await phone.blob(item, 'large') : item.kind === 'gdrive' ? await gdThumbBlob(rt, item.gdId, 'large') : await odPhotoBlob(rt, item.id, 'large'); const f = blob && photoFile(blob, shareFileName(item, blob.type)); if (f) files.push(f); } catch { /* 빠진 장은 아래에서 센다 */ }
+      try { const f = await itemFile(item); if (f) files.push(f); } catch { /* 빠진 장은 아래에서 센다 */ }
     }
     shareReady = {key, files};
   }
   return shareReady.files;
 }
+// 사진 한 장의 큰 그림 파일(공유·일기·업데이트가 같이 쓴다). 받지 못하면 null.
+async function itemFile(item) {
+  const blob = item.kind === 'phone' ? await phone.blob(item, 'large') : item.kind === 'gdrive' ? await gdThumbBlob(rt, item.gdId, 'large') : await odPhotoBlob(rt, item.id, 'large');
+  return blob ? photoFile(blob, shareFileName(item, blob.type)) : null;
+}
+// S48-56 PHOTO-업데이트·일기로(요청함 11/03 00:36·10:46): 사진(동영상 빼고 20장까지) → [일기에 넣기] 찍은 날 일기(여러 날이면 날별로, 먼저 표로 묻기)
+// 또는 [업데이트로 보내기] 사진만 든 업데이트 하나. 사진 원본·이 화면은 그대로(복사). 저장 길은 일기(diary-send.js)·정리함(share-menu.js putInBasket) 것 그대로.
+// S49-9 PHOTO-보낸뒤선택풀기(요청함 11/03 17:07): 고른 사진에서 보냈으면(fromPick) 다 들어간 뒤 고르기를 끝내고 알림 한 줄
+// ('11.3 일기에 넣었어요 [일기 보기]' / '업데이트로 보냈어요'). 하나라도 못 넣으면 고른 것을 그대로 두고 [다시](못 넣은 장만 다시).
+// 크게 보기 한 장의 [공유] 메뉴도 같은 함수(그 한 장, 고르기와 상관없음).
+let sendBusy = false;
+const sendablePicked = () => pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
+function sendPickedTo(where, trigger) { return sendItemsTo(where, sendablePicked(), trigger, {fromPick:true}); }
+function openBasketView() {
+  if (photoStripOpen()) closePhotoStrip({restore:false});
+  window.KPTURouter?.go?.('basket', {source:'delegated'});
+}
+function openDiaryDay(day) {
+  if (!day) return;
+  requestDiaryDay(day);
+  if (photoStripOpen()) closePhotoStrip({restore:false});
+  window.KPTURouter?.go?.('diary', {source:'delegated'});
+}
+async function sendItemsTo(where, list, trigger, {fromPick = false, ask = true} = {}) {
+  list = (list || []).filter(x => x && !x.video).slice(0, SHARE_MAX);
+  if (!list.length) { notify('보낼 사진이 없어요(동영상은 보낼 수 없어요).'); return; }
+  if (sendBusy) { notify('앞에서 보내는 중이에요. 잠시 뒤 다시 눌러 주세요.'); return; }
+  const {putPhotosInDiary, dayLabel, diaryDayGroups} = await import('./diary-send.js');
+  const groups = where === 'diary' ? diaryDayGroups(list, seoulDateKey(new Date())) : [];
+  if (where === 'diary' && ask && !(await askConfirm(trigger, {text:`사진 ${list.length}장을 찍은 날 일기에 넣을까요?`, note:groups.map(g => `${dayLabel(g.day)} ${g.items.length}장`).join(' · '), ok:'넣기'}))) return;
+  const retry = missedItems => ({label:SEND_NOTE.retry, run:({close}) => { close(); sendItemsTo(where, missedItems, trigger, {fromPick, ask:false}); }});
+  const release = () => { if (fromPick && releaseAfter(where, true) && select.active) { select.stop(); paintSelect(); } };
+  sendBusy = true;
+  try {
+    notify('사진 받는 중…', {ms:30000});
+    if (where === 'basket') {
+      const got = await Promise.all(list.map(item => itemFile(item).catch(() => null)));
+      const files = got.filter(Boolean), missed = list.filter((_, i) => !got[i]);
+      if (!files.length) { notify('사진을 받지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true, actions:[retry(list)]}); return; }
+      notify(SEND_NOTE.basketBusy, {ms:30000});
+      const {putInBasket} = await import('./share-menu.js');
+      try { await putInBasket(files); }
+      catch (error) { notify(error?.message || SEND_NOTE.basketFail, {error:true, ms:8000, actions:[retry(list)]}); return; }
+      if (missed.length) { notify(basketDoneText(files.length, list.length), {error:true, ms:8000, actions:[retry(missed)]}); return; }
+      release();
+      notify(basketDoneText(files.length), {ms:6000, actions:[{label:SEND_NOTE.basketOpen, run:({close}) => { close(); openBasketView(); }}]});
+      return;
+    }
+    const done = [], missed = [], failedItems = [];
+    for (const g of groups) {
+      const got = await Promise.all(g.items.map(item => itemFile(item).catch(() => null)));
+      const files = got.filter(Boolean);
+      if (files.length < g.items.length) { missed.push(`${dayLabel(g.day)} ${g.items.length - files.length}장(받지 못함)`); failedItems.push(...g.items.filter((_, i) => !got[i])); }
+      if (!files.length) continue;
+      notify(`${dayLabel(g.day)} ${SEND_NOTE.diaryBusy}`, {ms:30000});
+      const r = await putPhotosInDiary(files, {rt, day:g.day});
+      if (r.count) done.push(g.day);
+      if (!r.ok) { missed.push(`${dayLabel(g.day)}: ${r.message || '넣지 못함'}`); failedItems.push(...g.items.filter((_, i) => got[i])); }
+    }
+    const openDay = done.length ? [{label:SEND_NOTE.diaryOpen, run:({close}) => { close(); openDiaryDay(done[0]); }}] : [];
+    if (missed.length) notify(`${done.length ? `${diaryDoneText(done)}. ` : ''}못 넣은 것: ${missed.join(' · ')}`, {error:true, ms:8000, actions:[...openDay, retry(failedItems)]});
+    else { release(); notify(diaryDoneText(done), {ms:5000, actions:openDay}); }
+  } catch (error) { notify(error?.message || '보내지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true, actions:[retry(list)]}); }
+  finally { sendBusy = false; }
+}
 // [⇪ 공유]: 넓은 화면은 누른 자리 작은 메뉴(share-menu.js — 한 장이면 [사진 복사]도), 좁은 화면은 지금처럼 기기 공유 창.
 function shareButton(trigger) {
-  const list = pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
-  if (!list.length) { notify('공유할 사진이 없어요(동영상은 [⤓ 받기]로).'); return; }
-  shareFrom(trigger, {count:list.length, getFiles:() => pickedFiles(list), native:canShare() ? sharePicked : null, download:downloadPicked});
+  const list = sendablePicked();
+  // PHOTO-아래줄정돈: [공유 ▾]는 좁은 화면(폰)도 항상 작은 메뉴(받기·일기에 넣기·업데이트로 보내기·다른 앱으로 공유). 동영상만 골랐으면 받기만.
+  if (!list.length) { if (pickedItems().length) shareFrom(trigger, {video:true, count:0, download:downloadPicked}, {wide:true}); return; }
+  shareFrom(trigger, {count:list.length, getFiles:() => pickedFiles(list), native:canShare() ? sharePicked : null, download:downloadPicked,
+    diary:() => sendItemsTo('diary', list, trigger, {fromPick:true}), basket:() => sendItemsTo('basket', list, trigger, {fromPick:true})}, {wide:true});
 }
 async function sharePicked() {
   const list = pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
@@ -1341,8 +1622,8 @@ async function fullDelete(plan, anchor) {
 // 먼저 한 장씩 시험(요청함: 날짜 자리·동기화 앱 중복 확인 뒤 여러 장).
 const RESTORE_ERROR = {big:'파일이 너무 커서 폰에 넣지 못했어요(사진 60MB·동영상 500MB까지).', type:'이 형식은 폰에 되돌리지 못해요. [⤓ 받기]로 받아 주세요.', busy:'앞 작업이 아직 끝나지 않았어요. 잠시 뒤 다시 눌러 주세요.'};
 let restoring = false;
-async function restorePicked() {
-  const list = pickedItems().filter(x => x.kept);
+async function restorePicked(from = pickedItems()) {
+  const list = from.filter(x => x.kept);
   if (!list.length || restoring) return;
   if (!phone.canRestore()) { notify('이 앱 판은 되돌리기를 못 해요. 앱을 업데이트해 주세요.'); return; }
   if (list.length > 1) { notify('지금은 한 장씩 되돌려요. 한 장만 골라 주세요.'); return; }
@@ -1864,7 +2145,8 @@ async function trashPhoneFolder(anchor, id) {
 async function movePhonePhotos(anchor, list, to) {
   const ids = list.map(x => x.phoneId).filter(Boolean); if (!ids.length || !to) return;
   select.stop();
-  await phoneOpGo(anchor, {op:'move', ids, to}, r => `${r.count}장을 옮겼어요`, () => { pPending = pPending.filter(x => x.id !== to); const k = knownWith(currentPhoneKnown(), to, phoneOff); if (k) savePhoneKnown(k); });
+  const r = await phoneOpGo(anchor, {op:'move', ids, to}, r => `${r.count}장을 옮겼어요`, () => { pPending = pPending.filter(x => x.id !== to); const k = knownWith(currentPhoneKnown(), to, phoneOff); if (k) savePhoneKnown(k); });
+  if (r?.ok && tab === 'folders' && pAt !== to) for (const x of list) photoStripDrop(x.id); // 크게 보기에서 옮겼으면 다음 사진으로
 }
 async function newFolder(parentId) {
   if (busy || !tree) return;
@@ -1941,7 +2223,7 @@ async function movePhotos(allIds, target) {
 }
 // 옮긴 뒤: 지금 폴더 목록에서 뺀다(옮긴 곳이 지금 폴더가 아니면). 나무 장수·[사진]·달력·앨범은 다시 받는다.
 function afterMove(ids, target) {
-  if (ids && target !== at) { const gone = new Set(ids); fItems = fItems.filter(x => !gone.has(x.id)); }
+  if (ids && target !== at) { const gone = new Set(ids); fItems = fItems.filter(x => !gone.has(x.id)); if (tab === 'folders') ids.forEach(photoStripDrop); }
   else { fFor = null; fItems = []; }
   resetList(); calData.clear(); aFor = null;
   loadTree(true).then(() => { if (tab === 'folders') renderFolders(); });
@@ -2023,6 +2305,7 @@ async function gdMovePicked(list, to) {
   if (target?.enabled) for (const id of moved) gdPatch(gdriveKey(id), {folder:to}); else gdDrop(new Set(moved.map(gdriveKey)));
   if (gdAt !== null && gdAt !== to) gdFItems = gdFItems.filter(x => !moved.includes(x.gdId));
   select.stop(); resetList(); gdFFor = null; repaintShown();
+  if (tab === 'folders') for (const x of some) if (moved.includes(x.gdId)) photoStripDrop(x.id);
   const off = target?.enabled ? '' : ' · 그 폴더는 꺼져 있어 사진에 안 보여요';
   notify(bad ? `${moved.length}장을 옮겼어요 · ${bad}장은 못 옮겼어요` : `${moved.length}장을 '${target?.name || '폴더'}'(으)로 옮겼어요${off}`, {error:!!bad});
 }
@@ -2361,8 +2644,8 @@ async function tagItems(tag, all, {quiet = false} = {}) {
   } catch { notify('앨범에 넣지 못했어요.', {error:true}); }
   if (!quiet && tab === 'albums') renderAlbums();
 }
-async function untagPicked() {
-  const c = cardOf(album), list = pickedItems(); if (!c || !list.length || busy) return;
+async function untagPicked(from = pickedItems()) {
+  const c = cardOf(album), list = from; if (!c || !list.length || busy) return;
   busy = true;
   try {
     const keys = list.map(x => x.key), phoneKeys = list.filter(x => x.kind === 'phone').map(x => x.key), odKeys = list.filter(x => x.kind !== 'phone').map(x => x.key);
@@ -2370,7 +2653,7 @@ async function untagPicked() {
     if (phoneKeys.length) await removePhotoTagItems(c.id, phoneKeys, rt, 'phone');
     const gone = new Set(keys);
     links = links.filter(l => !(l.tag_id === c.id && gone.has(l.item_key))); aItems = aItems.filter(x => !gone.has(x.key));
-    select.stop();
+    select.stop(); for (const it of list) photoStripDrop(it.id);
     notify(`${keys.length}장을 #${c.name} 앨범에서 뺐어요`, {ms:UNDO_MS, record:false, undo:() => tagItems({id:c.id, name:c.name}, list)});
   } catch { notify('앨범에서 빼지 못했어요.', {error:true}); }
   finally { busy = false; renderAlbums(); }
@@ -2451,20 +2734,44 @@ const gdMenu = createAnchoredMenu({id:'photosGdMenu', className:'od-link-menu', 
     if (b.matches('[data-gdm-retry]')) return gdRetry();
     if (b.matches('[data-gdm-off]')) return toggleSourceName('gdrive');
   }});
+// S48-56: 사진 우클릭 메뉴의 [별표]·[공유]·[일기에 넣기]·[업데이트로 보내기](휴지통·동영상은 없음). 이름은 공용 목록(photo-menu-items.mjs) 하나.
+function sendMenuBtns(id) {
+  const it = (shownList() || []).find(x => x.id === id);
+  if (tab === 'trash' || !it || it.video) return [];
+  return [String(id).startsWith('gd:') ? '' : menuBtn('data-pm-star', PHOTO_ACT_TEXT.star), canShare() || wideShare() ? menuBtn('data-pm-share', PHOTO_ACT_TEXT.share) : '', menuBtn('data-pm-diary', PHOTO_ACT_TEXT.diary), menuBtn('data-pm-basket', PHOTO_ACT_TEXT.basket)];
+}
 const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-menu', label:'사진 메뉴', historyKey:'kptuPhotosPhotoMenu',
   key:t => t.dataset.photosId || '',
-  render:id => String(id).startsWith('gd:') ? [menuBtn('data-pm-select', '선택'), gdUsable() && tab !== 'trash' ? [menuBtn('data-pm-rename', '이름 바꾸기…'), menuBtn('data-pm-move', '폴더로 옮기기…'), menuBtn('data-pm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>'].join('') : [menuBtn('data-pm-select', '선택'), (String(id).startsWith('ph:') ? phoneOps() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'),
+  render:id => String(id).startsWith('gd:') ? [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), gdUsable() && tab !== 'trash' ? [menuBtn('data-pm-rename', '이름 바꾸기…'), menuBtn('data-pm-move', '폴더로 옮기기…'), menuBtn('data-pm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>'].join('') : [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), (String(id).startsWith('ph:') ? phoneOps() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'), String(id).startsWith('ph:') && phone.canMeta() && tab !== 'trash' ? menuBtn('data-pm-info', PHOTO_ACT_TEXT.info) : '',
     od.canDelete || phone.state().trash ? menuBtn('data-pm-delete', '지우기', 'od-link-danger') : ''].join(''),
   onAction:(b, {trigger}) => {
     const it = itemOf(trigger); if (!it) return;
     // 고른 사진 위에서 연 메뉴는 고른 것 모두, 아니면 그 사진 하나.
     const group = select.active && select.has(it.id) ? pickedItems() : [it];
     if (b.matches('[data-pm-select]')) { if (!select.active) startSelect(it); else { select.add(it.id); paintSelect(); } return; }
+    // S48-56: 우클릭 [별표]·[공유]·[일기에 넣기]·[업데이트로 보내기] = 고른 사진 아래 줄과 같은 동작(고르지 않은 사진이면 그 한 장만 골라서).
+    if (b.matches('[data-pm-star],[data-pm-share],[data-pm-diary],[data-pm-basket]')) {
+      if (!select.active || !select.has(it.id)) { select.stop(); select.start([it.id], it.id); paintSelect(); }
+      if (b.matches('[data-pm-star]')) return starPicked();
+      if (b.matches('[data-pm-share]')) return shareButton(trigger);
+      return sendPickedTo(b.matches('[data-pm-diary]') ? 'diary' : 'basket', trigger);
+    }
     if (b.matches('[data-pm-rename]')) return gdRenamePhoto(it);
     if (b.matches('[data-pm-move]')) return openPick(trigger, {kind:'photos', ids:group.map(x => x.id)});
     if (b.matches('[data-pm-tag]')) return openPick(trigger, {kind:'tag', items:group});
+    // S48-60 PHOTO-정보고치기: 찍은 시각·위치(폰 사진, 앱 0.4.15+). 고친 뒤 폰 목록을 새로 읽는다(순서가 바뀜).
+    if (b.matches('[data-pm-info]')) return openInfo(trigger, group);
     if (b.matches('[data-pm-delete]')) { if (!select.active || !select.has(it.id)) { select.stop(); select.start([it.id], it.id); } return deletePicked(trigger); }
   }});
+// S48-60 PHOTO-정보고치기 → S49-18 PHOTO-정보수정버튼: 고른 사진 아래 줄 [정보수정](폰 사진, 앱 0.4.15+; ⋯ 메뉴는 없앰). PC 우클릭 사진 메뉴에도 같은 항목.
+// 고친 뒤 폰 목록을 새로 읽는다(찍은 시각이 바뀌면 순서가 바뀜).
+const canInfo = list => phone.canMeta() && tab !== 'trash' && list.some(x => x.kind === 'phone');
+function openInfo(trigger, group) {
+  return void import('./photo-info-edit.js').then(m => m.openPhotoInfo(trigger, group, {phone, rt, onDone:() => {
+    closePhotoStrip({restore:false}); // 크게 보기에서 고쳤으면 찍은 시각이 바뀌어 목록이 다시 읽히므로 닫는다(그림 편집과 같은 길)
+    select.stop(); pFor = null; pItems = []; tidy.stale(); resetList(); calData.clear(); phStarItems = null; aFor = null; if (tab === 'folders') renderFolders(); else render();
+  }}));
+}
 const albumMenu = createAnchoredMenu({id:'photosAlbumMenu', className:'od-link-menu', label:'앨범 메뉴', historyKey:'kptuPhotosAlbumMenu',
   key:t => t.dataset.photosAlMore || '',
   render:() => [menuBtn('data-am-rename', '이름 바꾸기'), menuBtn('data-am-delete', '지우기(사진은 그대로)', 'od-link-danger')].join(''),
@@ -2600,7 +2907,7 @@ function closeSubLayers() {
 function setTab(nextTab, {fromBack = false} = {}) {
   nextTab = validTab(nextTab);
   if (nextTab === tab) return;
-  select.stop(); nameDone(null);
+  select.stop(); nameDone(null); closeZoomLayer();
   if (!fromBack) closeSubLayers(); else { folderLayer = null; albumLayer = null; }
   // [달력] → 날짜로 들어간 '그날 사진' 겹이 열린 채 다른 칩으로 가면 그 겹부터 닫는다(남은 기록 없이 [달력] 겹 위로).
   if (dayLayer && !fromBack) { const l = dayLayer; dayLayer = null; l.close(); }
@@ -2616,7 +2923,7 @@ function setTab(nextTab, {fromBack = false} = {}) {
 function openDay(day) {
   const from = {y:window.scrollY || 0};
   select.stop(); nameDone(null);
-  tab = 'all';
+  tab = 'all'; if (level !== 'day') zoomSave('day'); // 날짜로 들어가면 일별 격자(월·연 보기는 [사진] 탭 것)
   dayLayer = window.KPTURouter.layer.open('photos-day', {reopen:() => { if (tab === 'calendar' && tabLayer && !dayLayer) openDay(day); }, close:() => {
     dayLayer = null;
     if (tab === 'calendar') return true;
@@ -2635,6 +2942,7 @@ function goDay(day) {
   if (tab === 'calendar' && tabLayer && window.KPTURouter?.layer?.open) return openDay(day);
   // 라우터 겹이 없을 때(겹 없이 [달력]을 연 경우)만: [사진]으로 바꾼 뒤 그날로 간다.
   const settled = tabLayer ? new Promise(ok => { const t = setTimeout(ok, 400); window.addEventListener('popstate', () => { clearTimeout(t); setTimeout(ok, 0); }, {once:true}); }) : Promise.resolve();
+  if (level !== 'day') zoomSave('day');
   setTab('all');
   settled.then(() => { if (tab === 'all') jumpTo(day, dayCursor(day), dayHead(day)); });
 }
@@ -2654,7 +2962,7 @@ root.addEventListener('click', event => {
   }
   if (odHost.contains(b) && settings.click(b, odHost)) return;
   if (b.matches('[data-photos-tab]')) return setTab(b.dataset.photosTab);
-  if (b.matches('[data-photo-size]')) { if (albumSizing()) { changeAlbumView(Number(b.dataset.photoSize)); return; } if (sizer.changeCols(Number(b.dataset.photoSize))) sizeChanged(); return; }
+  if (b.matches('[data-photo-size]')) { if (albumSizing()) { changeAlbumView(Number(b.dataset.photoSize)); return; } if (changeStage(Number(b.dataset.photoSize))) { if (stageDirty) stageEnd(); else sizeChanged(); } return; }
   if (b.matches('[data-photos-src]')) return sourceClick(b);
   if (b.matches('[data-photos-phone-ask]')) return phone.ask();
   if (b.matches('[data-od-link]')) return linkMenu.open(b);
@@ -2663,13 +2971,9 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-act-star]')) return starPicked();
   if (b.matches('[data-photos-sort]')) return sortMenu.open(b);
   if (b.matches('[data-photos-act-share]')) return shareButton(b);
-  if (b.matches('[data-photos-act-down]')) return downloadPicked();
   if (b.matches('[data-photos-act-delete]')) return deletePicked(b);
-  if (b.matches('[data-photos-act-restore]')) return restorePicked();
-  if (b.matches('[data-photos-act-rename]')) { const one = pickedItems(); if (one.length === 1) gdRenamePhoto(one[0]); return; }
   if (b.matches('[data-photos-act-move]')) return openPick(b, {kind:'photos', ids:pickedItems().map(x => x.id)});
-  if (b.matches('[data-photos-act-tag]')) return openPick(b, {kind:'tag', items:pickedItems()});
-  if (b.matches('[data-photos-act-untag]')) return untagPicked();
+  if (b.matches('[data-photos-act-more]')) { openBarMenu(b, selectMoreRows(pickedItems()), id => runBarItem(id, b)); return; }
   if (tidyClick(b)) return;
   if (folderClick(b)) return;
   if (albumClick(b)) return;
@@ -2679,6 +2983,7 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-trash-retry]')) return renderTrash({reload:true});
   if (b.matches('[data-photos-cal]')) { calCursor = Number(b.dataset.photosCal) < 0 ? prevMonth(calCursor) : nextMonth(calCursor); return renderCalendar(); }
   if (b.matches('[data-photos-cal-day]')) return goDay(b.dataset.photosCalDay);
+  if (b.matches('[data-photos-zgo]')) return zoomGo(b.dataset.photosZgo);
   if (b.matches('[data-photos-name-cancel]')) return nameDone(null);
   if (b.matches('[data-photos-newest]')) { resetList(); render(); return window.scrollTo?.(0, 0); }
   if (b.matches('[data-photos-more]')) { failed = ''; paintList(); return loadMore(); }
@@ -2726,7 +3031,7 @@ function sourceClick(b) {
 }
 function toggleSourceName(name) {
   sources = toggleSource(sources, name);
-  viewPrefs.set('photo_sources', sourcesValue(sources), {rejectable:true});
+  viewPrefs.set(deviceSourcesPref(), sourcesValue(sources), {rejectable:true});
   if (name === 'phone' && sources.phone && !phoneUsable()) phone.ask();
   sourcesChanged();
   if (name === 'gdrive' && sources.gdrive) startGdSync(run);
@@ -2748,8 +3053,8 @@ root.addEventListener('pointermove', e => { if (srcHold && Math.hypot(e.clientX 
 for (const t of ['pointerup', 'pointercancel']) root.addEventListener(t, () => { if (srcHold) { clearTimeout(srcHold.timer); srcHold = null; } });
 root.addEventListener('click', e => { if (srcAte && e.target.closest?.('[data-photos-src]')) { srcAte = false; e.preventDefault(); e.stopPropagation(); } }, true);
 window.addEventListener('kptu:view-prefs-rejected', e => {
-  if (!(e.detail?.paths || []).includes('photo_sources')) return;
-  sources = parseSources(viewPrefs.get('photo_sources'));
+  if (!(e.detail?.paths || []).includes(deviceSourcesPref())) return;
+  sources = readDeviceSources();
   notify('출처 켜기/끄기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true});
   if (window.KPTURouter?.current === 'photos') sourcesChanged();
 });

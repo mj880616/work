@@ -1,6 +1,7 @@
 import {waitHtml, failHtml} from './wait-state.js';
+import {sendSignal, setMark} from './now-marks.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
-import {detailBody, detailView, detailError, itemKey, signalBody, RELATED_LABEL, interestHit} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason} from './now-model.mjs';
 // OUTSIDE-글상세·관심환류 ③(설계 docs/design/outside-statements.md 12.3·12.4·12.5·12.6절): 글 상세 공용 부품.
 // 사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다(두 벌 안 만듦). 상세 칸(box)의 유일한 그리기 주인이다.
 // - 위: 꼬리 줄(단체·매체 · 국내/외국 · 종류 · 글쓴이 · 날짜) + 오른쪽 [원문 ↗] / 제목(외국어면 원제 작게)
@@ -20,7 +21,7 @@ const MEMO_COLS = 'id,title,raw_text,metadata,updated_at,doc_type:doc->>type';
 const saveFailNote = e => (e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시');
 
 // head: {meta: [글자…], title, origTitle, lang, url}. item: {type:'outside'|'news', id}.
-export function createNowDetail({box, topics = () => [], onClose, onChanged, onSignal, onRelated} = {}) {
+export function createNowDetail({box, topics = () => [], onClose, onChanged, onSignal, onRelated, onRead} = {}) {
   let cur = null; // {item, head, detail, failed, note, marks, memo, memoOpen, memoBusy, memoNote, busy}
   const details = new Map(); // itemKey → 서버 답(이 탭 메모리만)
   let seq = 0;
@@ -39,28 +40,12 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     return {star: !!r?.starred_at, archive: !!r?.archived_at, dismiss: !!r?.dismissed_at, has: !!r};
   }
   const readMemo = item => rt().api(`/rest/v1/app_notes?workspace_id=eq.${q(workspaceOf())}&kind=eq.note&archived_at=is.null&metadata->>${item.type === 'news' ? 'news_item_id' : 'outside_post_id'}=eq.${q(item.id)}&select=${MEMO_COLS}&order=updated_at.desc&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
-  // 사회운동 글 표시: 줄이 있으면 그 칸만 고치고, 없으면 넣는다(화면 권한: 넣기 post_id·workspace_id·세 시각, 고치기 세 시각·updated_at).
-  async function writeMark(item, field, on) {
-    const w = workspaceOf(), at = new Date().toISOString(), value = on ? at : null;
-    const rows = await rt().api(`/rest/v1/app_outside_marks?workspace_id=eq.${q(w)}&post_id=eq.${q(item.id)}&select=post_id`, {method: 'PATCH', body: {[field]: value, updated_at: at}, prefer: 'return=representation', singleFlight: false});
-    if (Array.isArray(rows) && rows.length) return;
-    if (!on) return;
-    await rt().api('/rest/v1/app_outside_marks', {method: 'POST', body: {post_id: item.id, workspace_id: w, [field]: value}, prefer: 'return=minimal', singleFlight: false});
-  }
-  async function writeNews(item, body) {
-    const rows = await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=id`, {method: 'PATCH', body: {...body, updated_at: new Date().toISOString()}, prefer: 'return=representation', singleFlight: false});
-    if (!Array.isArray(rows) || !rows.length) throw new Error('save');
-  }
-  // 환류 기록 한 줄. 실패해도 누른 일은 그대로(기록은 관심 주제 후보 재료일 뿐).
-  function signal(item, action) {
-    const w = workspaceOf();
-    if (!w) return;
-    rt().api('/rest/v1/app_now_signals', {method: 'POST', body: signalBody(w, item, action), prefer: 'return=minimal', singleFlight: false})
-      .then(() => onSignal?.(action)).catch(() => {});
-  }
+  const signal = (item, action) => sendSignal(item, action, onSignal);
 
   // ---------- 그리기 ----------
   function aiHtml() {
+    if (cur.unread) return `<div class="nd-unread" data-nd-unread role="status"><p class="nd-reason">기사를 읽지 못했어요 · ${esc(cur.unread)}</p><p class="nd-unread-acts"><button type="button" class="secondary" data-nd-retry>다시</button>${cur.head.url ? `<a class="nd-link" data-nd-link href="${esc(cur.head.url)}" target="_blank" rel="noopener noreferrer" aria-label="원문 (새 창)">원문 ↗</a>` : ''}</p></div>`;
+    if (!cur.detail && cur.reading) return '<div class="nd-wait" data-nd-wait><p class="nd-faint">기사 가져오는 중 · 처음 한 번만</p>' + waitHtml({rows: 3}) + '</div>';
     if (!cur.detail) return cur.failed ? `${failHtml({text: cur.failed, retry: 'data-nd-retry'})}` : `<div class="nd-wait" data-nd-wait><p class="nd-faint">상세를 만드는 중 · 처음 한 번만</p>${waitHtml({rows: 5})}</div>`;
     const v = detailView(cur.detail);
     const sec = (title, inner, attr) => (inner ? `<section class="nd-sec"${attr ? ` ${attr}` : ''}><h4 class="nd-h">${title}</h4>${inner}</section>` : '');
@@ -104,6 +89,23 @@ ${actsHtml()}${memoHtml()}</article>`;
   }
 
   // ---------- 열기 ----------
+  // 뉴스 기사: 본문·요약이 아직 없으면(제목 읽기 전·대기) 상세 전에 그 기사 하나를 먼저 읽는다(news-feed open, 하루 한도는 서버).
+  // 읽지 못하면 AI를 부르지 않고 이유와 [다시]·[원문]만 보인다(S48-66, 11/03).
+  async function readFirst(item, my) {
+    const w = workspaceOf();
+    const row0 = (await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(item.id)}&select=state,body_kind,summary,title,title_ko,publisher,published_at,url,lang&limit=1`, {singleFlight: false}))?.[0];
+    if (!row0) return {ok: true};
+    if (!needsRead(row0)) return {ok: true};
+    cur.reading = true; paint();
+    let status = '';
+    try { status = (await rt().api('/functions/v1/news-feed?action=open', {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 60000}))?.status || ''; } catch (e) { status = e?.status === 429 ? 'daily_limit' : 'error'; }
+    if (my !== seq) return {ok: true, stale: true};
+    cur.reading = false;
+    const row = (await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(item.id)}&select=state,body_kind,summary,title,title_ko,publisher,published_at,url,lang&limit=1`, {singleFlight: false}))?.[0] || row0;
+    if (my !== seq) return {ok: true, stale: true};
+    onRead?.(item, row);
+    return hasMaterial(row) ? {ok: true} : {ok: false, why: unreadReason(status, row.state)};
+  }
   async function load(item) {
     const my = ++seq, key = itemKey(item);
     const tasks = [readMarks(item), readMemo(item)];
@@ -116,6 +118,12 @@ ${actsHtml()}${memoHtml()}</article>`;
     paint();
     if (have) return;
     try {
+      if (item.type === 'news') {
+        const pre = await readFirst(item, my).catch(() => ({ok: true}));
+        if (my !== seq || pre.stale) return;
+        if (!pre.ok) { cur.unread = pre.why; cur.reading = false; paint(); return; }
+        cur.unread = ''; cur.reading = false;
+      }
       const r = await askDetail(item);
       if (my !== seq) return;
       if (!r?.detail) throw new Error('shape');
@@ -123,18 +131,20 @@ ${actsHtml()}${memoHtml()}</article>`;
       cur.detail = r.detail; cur.failed = '';
     } catch (e) {
       if (my !== seq) return;
-      cur.failed = detailError(e);
+      cur.reading = false;
+      if (e?.status === 422 && String(e?.message || '').includes('no_material')) cur.unread = unreadReason('', 'pending');
+      else cur.failed = detailError(e);
     }
     paint();
   }
   function open(item, head) {
     if (!item || !head) return;
     const same = cur && itemKey(cur.item) === itemKey(item);
-    if (!same) cur = {item, head, detail: null, failed: '', note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false};
+    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false};
     else cur.head = head;
     paint();
     box?.querySelector('.nd-title')?.focus({preventScroll: true});
-    if (!same || cur.failed) { cur.failed = ''; load(item); }
+    if (!same || cur.failed || cur.unread) { cur.failed = ''; cur.unread = ''; load(item); }
   }
   function close() { seq++; cur = null; paint(); }
 
@@ -144,10 +154,7 @@ ${actsHtml()}${memoHtml()}</article>`;
     const c = cur, item = c.item, m = c.marks || {}, on = !m[act];
     c.busy = true; c.note = ''; paint();
     try {
-      if (item.type === 'news') {
-        if (act === 'star') await writeNews(item, on ? {starred_at: new Date().toISOString()} : {starred_at: null, folder_id: null});
-        else if (act === 'dismiss') await writeNews(item, {hidden_at: on ? new Date().toISOString() : null});
-      } else await writeMark(item, {star: 'starred_at', archive: 'archived_at', dismiss: 'dismissed_at'}[act], on);
+      await setMark(item, act, on);
       c.marks = {...m, [act]: on, ...(item.type === 'news' && act === 'star' && !on ? {archive: false} : {})};
       signal(item, on ? act : 'un' + act);
       onChanged?.(item, act, on);
@@ -179,7 +186,7 @@ ${actsHtml()}${memoHtml()}</article>`;
     const b = event.target.closest('button');
     if (!b || !box.contains(b) || !cur) return;
     if (b.matches('[data-nd-close]')) { onClose?.(); return; }
-    if (b.matches('[data-nd-retry]')) { cur.failed = ''; paint(); load(cur.item); return; }
+    if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paint(); load(cur.item); return; }
     if (b.matches('[data-nd-act="memo"]')) { cur.memoOpen = true; cur.memoNote = ''; paint(); box.querySelector('[data-nd-memo-input],[data-nd-memo-cancel]')?.focus({preventScroll: true}); return; }
     if (b.matches('[data-nd-act]')) { toggle(b.dataset.ndAct); return; }
     if (b.matches('[data-nd-memo-cancel]')) { cur.memoOpen = false; cur.memoNote = ''; paint(); return; }
@@ -191,5 +198,5 @@ ${actsHtml()}${memoHtml()}</article>`;
     saveMemo(event.target.querySelector('[data-nd-memo-input]')?.value);
   });
   paint();
-  return {open, close, paint, current: () => (cur ? cur.item : null), reset: () => { details.clear(); close(); }};
+  return {open, close, paint, setHead: head => { if (cur && head) { cur.head = head; paint(); } }, current: () => (cur ? cur.item : null), reset: () => { details.clear(); close(); }};
 }

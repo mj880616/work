@@ -82,10 +82,10 @@
 #appView #outsideView .os-tabs > [role="tab"]:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
 
 /* [문장 찾기]: 찾기 칸 한 줄 + 거르기 칩 줄 + 결과(문장 하나씩, 앞뒤 문장 흐리게, 칠하기) + 아래 '초안에 쓸 문장 n/5' 줄. */
-#appView #outsideView .osq{ display:flex; flex-direction:column; gap:4px; min-width:0; padding-top:4px; }
+#appView #outsideView .osq{ display:flex; flex-direction:column; gap:4px; min-width:0; padding-top:2px; }
 #appView #outsideView .osq-form{ display:flex; gap:6px; min-width:0; }
-#appView #outsideView .osq-input{ flex:1 1 auto; min-width:0; height:var(--ds-compact-height,32px); padding:0 8px; font:inherit; font-size:14px; }
-#appView #outsideView .osq-go{ flex:none; height:var(--ds-compact-height,32px); min-height:0; padding:0 12px; font:inherit; font-size:13px; }
+#appView #outsideView .osq-input{ flex:1 1 auto; min-width:0; box-sizing:border-box; height:var(--ds-compact-height,32px); padding:0 8px; font:inherit; font-size:14px; }
+#appView #outsideView .osq-go{ flex:none; box-sizing:border-box; height:var(--ds-compact-height,32px); min-height:0; padding:0 12px; font:inherit; font-size:13px; }
 #appView #outsideView .osq-row{ display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap,4px); min-width:0; }
 #appView #outsideView .osq-pick{ display:inline-flex; align-items:center; gap:4px; font-size:var(--ds-text-meta,12px); }
 #appView #outsideView .osq-date{ height:var(--ds-chip-row-height,26px); min-height:0; padding:0 4px; font:inherit; font-size:var(--ds-text-meta,12px); }

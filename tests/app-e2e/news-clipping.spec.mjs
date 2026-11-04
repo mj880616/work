@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
 // NEWS-클리핑 C1(docs/design/news-clipping.md, 명진 11/01 22:34): '뉴스 클리핑' 메뉴(?view=news).
 // 한 목록(꼬리표 채널/자동) · 한 문장 요약 늘 보임 · 본문 접기([본문 열기]=news-feed open) · 외국어 [번역](저장본 재사용) · 유료는 공개 요약만 + 원문
-// · ⋯ [지금 채우기]·[키워드 고치기]·[매체 켜고 끄기](서버 저장, 뒤로가기 한 번 = 목록) · 폰 좌우 밀기로 칩 이동. 사회운동 Now ⋯에도 [지금 채우기](read_now 재사용).
+// · ⋯ [지금 채우기]·[키워드 고치기]·[매체 고르기](서버 저장, 뒤로가기 한 번 = 목록) · 폰 좌우 밀기로 칩 이동. 사회운동 Now ⋯에도 [지금 채우기](read_now 재사용).
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 기사·매체·주소는 모두 가짜(example.org).
 const root = page => page.locator('#newsRoot');
 const items = page => root(page).locator('[data-nc-item]');
@@ -20,9 +20,12 @@ for (const width of [412, 884, 1440]) {
     expect(server.calls.find(c => c.what === 'edge')).toMatchObject({ action: 'catalog', method: 'POST', auth: expect.stringMatching(/^Bearer /) });
     const listQuery = server.calls.find(c => c.what === 'app_news_items').query;
     expect(listQuery).toContain('workspace_id=eq.w'); expect(listQuery).toContain('hidden_at=is.null'); expect(listQuery).not.toMatch(/[,=]body(,|&|$)/);
-    // 날짜 묶음 + 꼬리표 채널/자동만('명진이 고른' 같은 말 없음).
+    // 날짜 묶음. 채널/자동 꼬리표·칩은 없다(11/04 명진: 굳이 구분 안 해도 됨) — 기사는 전과 같이 다 보임.
     await expect(root(page).locator('.nc-day-head')).toHaveText(['오늘', '어제', '10. 4. (일)']);
-    await expect(root(page).locator('.nc-tag')).toHaveText(['채널', '자동', '자동', '채널', '채널']);
+    await expect(root(page).locator('.nc-tag')).toHaveCount(0);
+    await expect(root(page).locator('[data-nc-tab]')).toHaveText(['전체', '별표']);
+    await expect(root(page).locator('[data-nc-tab="channel"], [data-nc-tab="auto"]')).toHaveCount(0);
+    await expect(root(page).locator('.nc-meta').first()).not.toContainText(/채널|자동/);
     await expect(root(page)).not.toContainText('명진');
     const c1 = item(page, 'c1');
     await expect(c1.locator('.nc-title')).toHaveText('가짜 채널 기사');
@@ -68,13 +71,6 @@ for (const width of [412, 884, 1440]) {
     expect(server.calls.filter(c => c.action === 'translate')).toHaveLength(1);
     expect(server.calls.find(c => c.action === 'translate').body).toEqual({ id: 'e1' });
 
-    // 칩: 채널만 · 자동만(서버 조건).
-    await root(page).locator('[data-nc-tab="channel"]').click();
-    await expect(items(page)).toHaveCount(3);
-    expect(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'GET').at(-1).query).toContain('lane=eq.channel');
-    await root(page).locator('[data-nc-tab="auto"]').click();
-    await expect(items(page)).toHaveCount(2);
-    expect(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'GET').at(-1).query).toContain('lane=in.(keyword,media)');
     await root(page).locator('[data-nc-tab="all"]').click();
     await expect(items(page)).toHaveCount(5);
 
@@ -102,9 +98,9 @@ for (const width of [412, 884, 1440]) {
     await page.goBack();
     await expect(items(page)).toHaveCount(5);
 
-    // ⋯ → 매체 켜고 끄기: news- 키만, 국내·해외 묶음, 켜기 = 새 줄 넣기.
+    // ⋯ → 매체 고르기: news- 키만, 국내·해외 묶음, 켜기 = 새 줄 넣기.
     await root(page).locator('[data-nc-more]').click();
-    await page.locator('#ncMenu').getByRole('button', { name: '매체 켜고 끄기' }).click();
+    await page.locator('#ncMenu').getByRole('button', { name: '매체 고르기' }).click();
     await expect(root(page).locator('.nc-group-head')).toHaveText(['국내', '해외']);
     expect(server.calls.filter(c => c.what === 'app_outside_sources' && c.method === 'GET').at(-1).query).toContain('source_key=like.news-*');
     await expect(root(page).locator('[data-nc-source="news-fake-a"]')).toHaveAttribute('aria-checked', 'true');
@@ -124,8 +120,8 @@ test('뉴스 클리핑 폰 412: 좌우로 밀면 Now 탭 이동(칩은 누르기
   await openNews(page, 412);
   await expect(items(page)).toHaveCount(5);
   const swipe = async dx => page.evaluate(async d => {
-    const el = document.querySelector('#newsRoot [data-nc-list]'), r = el.getBoundingClientRect();
-    const x = r.left + r.width / 2, y = r.top + 40;
+    const el = document.querySelector('#outsideRoot [data-os-tabs]'), r = el.getBoundingClientRect(); // 탭 이동 밀기는 탭 줄 위에서만(NOW-줄밀기: 글 줄 밀기는 숨기기·보관)
+    const x = r.left + r.width / 2, y = r.top + 12;
     const t = (cx) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
     el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t(x)], changedTouches: [t(x)] }));
     el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [t(x + d)] }));
@@ -134,14 +130,12 @@ test('뉴스 클리핑 폰 412: 좌우로 밀면 Now 탭 이동(칩은 누르기
   await swipe(-120);
   await expect(page.locator('#outsideRoot [data-os-tab="saved"]')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#nowPanelNews')).toBeHidden();
-  await page.evaluate(() => { const el = document.querySelector('#nowPanelSaved'), r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + 60;
+  await page.evaluate(() => { const el = document.querySelector('#outsideRoot [data-os-tabs]'), r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + 12;
     const t = cx => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
     el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t(x)], changedTouches: [t(x)] }));
     el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [t(x + 120)] })); });
   await expect(page.locator('#outsideRoot [data-os-tab="news"]')).toHaveAttribute('aria-selected', 'true');
-  await root(page).locator('[data-nc-tab="channel"]').click();
-  await expect(root(page).locator('[data-nc-tab="channel"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(items(page)).toHaveCount(3);
+  await expect(items(page)).toHaveCount(5);
   await root(page).locator('[data-nc-more]').click();
   const menu = page.locator('#ncMenu');
   await expect(menu).toBeVisible();
@@ -162,3 +156,38 @@ test('Now [사회운동] ⋯ [지금 채우기]: 켠 단체만 read_now로 하�
   expect(server.calls.find(c => c.action === 'read_now').body).toEqual({ source: 'kctu' });
   expect(errors).toEqual([]);
 });
+
+// S48-66 NOW-뉴스상세: 아직 안 읽은 기사는 상세 전에 그 기사 하나를 먼저 읽는다(news-feed open → ai-assist now_detail 순서).
+// 읽지 못하면 AI를 부르지 않고 이유·[다시]·[원문]만 보인다.
+const NOW_DETAIL = { ok: true, kind: 'now_detail', detail: { level: 'full', summary: '가짜 기사 한 줄 요약입니다.', key_sentences: [{ orig: '가짜 본문 첫 문단.', ko: null }], relevance: null, implications: null, related: [], generated_at: '2026-10-06T01:00:00Z', context_at: null }, stale: false };
+for (const width of [412, 1440]) {
+  test(`뉴스 상세 ${width}: 제목 읽기 전 기사를 누르면 먼저 읽고 요약 상세가 뜬다`, async ({ page }) => {
+    test.setTimeout(60000);
+    const { errors, server } = await start(page, width);
+    const order = [];
+    await page.route('**/functions/v1/ai-assist', async route => { if (route.request().postDataJSON()?.kind !== 'now_detail') return route.fallback(); if (route.request().postDataJSON()?.news_item_id === 'w1') order.push('detail'); await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
+    page.on('request', r => { if (/news-feed\?action=open/.test(r.url()) && r.postDataJSON()?.id === 'w1') order.push('open'); });
+    await openNews(page, width);
+    await item(page, 'w1').locator('[data-nc-open="w1"]').click();
+    await expect(page.locator('[data-nd-summary]')).toContainText('가짜 기사 한 줄 요약입니다.');
+    expect(order.slice(0, 2)).toEqual(['open', 'detail']);
+    expect(server.calls.find(c => c.action === 'open')).toMatchObject({ body: { id: 'w1' } });
+    await expect(page.locator('[data-nd-unread]')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+  test(`뉴스 상세 ${width}: 읽지 못한 기사는 AI를 부르지 않고 이유·다시·원문`, async ({ page }) => {
+    test.setTimeout(60000);
+    const { errors } = await start(page, width);
+    let detailCalls = 0;
+    await page.route('**/functions/v1/ai-assist', async route => { if (route.request().postDataJSON()?.kind !== 'now_detail') return route.fallback(); if (route.request().postDataJSON()?.news_item_id === 'w1') detailCalls++; await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
+    await page.route('**/functions/v1/news-feed?action=open', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: 'robots' }) }));
+    await openNews(page, width);
+    await item(page, 'w1').locator('[data-nc-open="w1"]').click();
+    const bad = page.locator('[data-nd-unread]');
+    await expect(bad).toContainText('기사를 읽지 못했어요');
+    await expect(bad.getByRole('button', { name: '다시' })).toBeVisible();
+    await expect(bad.getByRole('link', { name: /원문/ })).toBeVisible();
+    expect(detailCalls).toBe(0);
+    expect(errors).toEqual([]);
+  });
+}

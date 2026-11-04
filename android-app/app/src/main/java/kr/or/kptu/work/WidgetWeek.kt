@@ -28,7 +28,7 @@ object WidgetWeek {
     /** '가장 큰 일' 낱말(설계 14절). 명진이 고칠 낱말을 주면 여기만 바꾼다. */
     val BIG_WORDS = listOf("파업", "집회", "기자회견", "결의대회", "선포", "총회", "대의원", "대표자회의", "교섭", "투쟁", "출범", "토론회", "공청회", "간담회", "면담", "대회")
 
-    data class Day(val day: LocalDate, val week: String, val date: Int, val count: Int, val hot: Boolean, val busy: Boolean)
+    data class Day(val day: LocalDate, val week: String, val date: Int, val count: Int, val busy: Boolean)
 
     /** 아래 줄 하나: 앞 표(D-2·월·금)와 글, 누르면 열 날. */
     data class Pick(val day: LocalDate, val tag: String, val text: String)
@@ -182,14 +182,14 @@ object WidgetWeek {
         val title = header(nowMs, zone)
         val monday = start(nowMs, zone)
         val today = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
-        val empty = (0 until 7).map { i -> monday.plusDays(i.toLong()).let { Day(it, weekday(it), it.dayOfMonth, 0, false, false) } }
+        val empty = (0 until 7).map { i -> monday.plusDays(i.toLong()).let { Day(it, weekday(it), it.dayOfMonth, 0, false) } }
         if (status != 200) return Content(title, 0, empty, null, null, null, "일정 연결을 확인해 주세요")
         val evs = inWeek(WidgetNow.events(body, zone), monday, zone)
         val counts = evs.groupingBy { it.day }.eachCount()
         val big = big(evs, nowMs, zone)
         val days = empty.map { d ->
             val n = counts[d.day] ?: 0
-            d.copy(count = n, hot = big?.day == d.day, busy = n >= BUSY)
+            d.copy(count = n, busy = n >= BUSY)
         }
         val bigPick = big?.let { Pick(it.day, dTag(today, it.day), "${weekday(it.day)} ${clock(it, zone)} ${it.title}") }
         // 상집 보고일: 주간보고 기준일 규칙(journal-data.js reportDay, 월요일). 오늘 이후의 가장 가까운 월요일(오늘이 월요일이면 오늘).

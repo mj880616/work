@@ -5,6 +5,7 @@ const SERVICES = Object.freeze({
   'work.bokdoong.com': { root: '/work/', prefix: '/work/' },
   // Redirect-only since DOMAIN-주소이전 ①-D1: movesToWeb2() sends / and /work/app/** to bokdoong.com first.
   'desk.bokdoong.com': { root: '/work/app/', prefix: '/work/app/' },
+  // Redirect-only since DOMAIN-아스날주소 (주소 이전 ②-D1): arsenalRedirect() sends every path to the Web2 아스날 menu.
   'arsenal.bokdoong.com': {
     root: '/work/personal/arsenal-match-archive/',
     prefix: '/work/personal/arsenal-match-archive/'
@@ -14,8 +15,8 @@ const SERVICES = Object.freeze({
 // DOMAIN-주소이전 ①-D1: Web2 (/work/app/**) is served on bokdoong.com only, with the Web2 rules (HTML freshness,
 // verified immutable ?v= assets, once-per-epoch cache clearing). bokdoong.com/ (the old portal) sends visitors
 // to Web2. desk.bokdoong.com (/ and /work/app/**) and work.bokdoong.com/work/app/** send visitors to the same path
-// and ?query on bokdoong.com with 302; the browser keeps the #fragment. Web1 on work, the share page and arsenal
-// are unchanged. The portal favicon stays until the C1 clean-up.
+// and ?query on bokdoong.com with 302; the browser keeps the #fragment. Web1 on work and the share page are
+// unchanged; arsenal goes to the Web2 아스날 menu (arsenalRedirect). The portal favicon stays until the C1 clean-up.
 const WEB2_HOST = 'bokdoong.com';
 const WEB2_ORIGIN = `https://${WEB2_HOST}`;
 const WEB2_PREFIX = '/work/app/';
@@ -41,6 +42,18 @@ function web2Redirect(incoming) {
   target.pathname = incoming.pathname.startsWith(WEB2_PREFIX) ? incoming.pathname : WEB2_PREFIX;
   target.search = incoming.search;
   return Response.redirect(target.href, 302);
+}
+
+// DOMAIN-아스날주소 (주소 이전 ②-D1): every arsenal.bokdoong.com address (/, the old archive page and its files) goes
+// with 302 to the Web2 아스날 menu, bokdoong.com/work/app/?view=arsenal. The old archive had one page and no per-match
+// addresses or ?query meaning, so there is no closer screen to map to and the old ?query is dropped (it must not choose a
+// different Web2 view). The browser keeps the #fragment. Web2 handles sign-in as for any address: a visitor without a
+// session goes through the Web2 login screen and comes back to this menu. The favicon above stays until C1.
+const ARSENAL_HOST = 'arsenal.bokdoong.com';
+const ARSENAL_TARGET = `${WEB2_ORIGIN}${WEB2_PREFIX}?view=arsenal`;
+
+function arsenalRedirect() {
+  return new Response(null, { status: 302, headers: { Location: ARSENAL_TARGET, 'Cache-Control': 'no-store' } });
 }
 
 function allowedPath(host, path) {
@@ -227,12 +240,13 @@ export default {
       incoming.protocol = 'https:';
       return Response.redirect(incoming.href, 301);
     }
-    if (incoming.pathname === '/favicon.ico' && host === 'arsenal.bokdoong.com') {
+    if (incoming.pathname === '/favicon.ico' && host === ARSENAL_HOST) {
       const icon = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#a5232a"/><text x="16" y="23" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="22" font-weight="700">A</text></svg>';
       return new Response(request.method === 'HEAD' ? null : icon, {
         headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=86400' }
       });
     }
+    if (host === ARSENAL_HOST) return arsenalRedirect();
     if (movesToWeb2(host, incoming.pathname)) return web2Redirect(incoming);
     if (incoming.pathname === '/' && SERVICES[host]) {
       incoming.pathname = SERVICES[host].root;

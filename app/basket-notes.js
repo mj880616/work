@@ -11,11 +11,15 @@ import { formatSeoulTime } from './meeting-time.js';
 // note window (note-window.js, ED③ 노트).
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
-import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteAiOff, setNoteBoard } from './basket-data.js';
+import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder, setNoteAiOff, setNoteBoard } from './basket-data.js';
 // NOTE-비밀메모(17:23 결정): 비밀 모양 글이 든 노트는 줄 제목을 '비밀 메모'로(note-tree.mjs noteLineTitle), 메뉴 [AI에 보내지 않기]/[AI 제외 풀기](metadata.ai_off).
 import { noteAiOff } from './note-secret.mjs';
 // NOTE-탐색기(2026-10-28 09:24·10:34·11:01): 폴더 안 폴더(app_note_folders, 100단), 한 줄 노트, 끌어 옮기기·선택 모드·되돌리기.
-import { readNoteFolders, createNoteFolder, updateNoteFolder, deleteNoteFolder } from './note-folders-data.js';
+import { readNoteFolders, createNoteFolder, updateNoteFolder, deleteNoteFolder, setNoteFolderColor } from './note-folders-data.js';
+// FOLDER-순서·색 ②(S49-38): 폴더 색·끌기 순서 공용 부품(folder-look-model.mjs 계산, folder-look.js 그림, reorder-drag.js 끌기).
+import { mountReorder } from './reorder-drag.js';
+import { folderIconHtml, colorChoiceHtml, colorFromButton } from './folder-look.js';
+import { colorOf, sortNotesManual, placeAt, stepPlan, noteOrderOf, isSamePlace, NOTE_SORT_NAMES, isNoteSort } from './folder-look-model.mjs';
 import { noteFolderId, noteFolderIdLegacy, foldersFromNames, noteLineTitle, noteLineDate, treeRows, paneRows, paneHead, folderPath, canMoveFolder, noteFolderErrorText, OUTSIDE, OUTSIDE_NAME, RECENT, RECENT_NAME, recentRows } from './note-tree.mjs';
 import { FOLDER_DEPTH_LIMIT } from './folder-limits.mjs';
 import { folderSiblings, nextSortOrder, cleanFolderName } from './library-tree.js';
@@ -91,6 +95,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const ALL_VIEWS = [...VIEWS, 'tag', 'comment'];
   const savedView = () => { const v = viewPrefs.get('note_view'); return VIEWS.includes(v) ? v : 'folder'; };
   let view = savedView(), viewChosen = false, board = null;
+  // FOLDER-순서·색 ②: 노트 정렬 기준 changed(고친 날, 기본) | manual(내가 정한 순서, 이때만 노트를 끌어 순서를 바꾼다). 서버 화면 설정 note_sort(기기 저장 없음).
+  const savedSort = () => { const v = viewPrefs.get('note_sort'); return isNoteSort(v) ? v : 'changed'; };
+  let noteSort = savedSort();
   // ATT-이름고치기: 첨부 이름을 고치면 들고 있는 노트 값을 고치고, 열린 노트의 첨부 줄을 다시 그린다.
   window.addEventListener('kptu:file-renamed', e => {
     const d = e.detail; if (!d?.drive_file_id) return;
@@ -99,9 +106,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (selected && !notes.includes(selected) && applyRenamedNote(selected, d)) hit = true;
     if (hit && selected) paintMeta();
   });
-  window.addEventListener('kptu:view-prefs-ready', () => { if (viewChosen || view === savedView()) return; view = savedView(); if (loaded && !selected) renderList(); });
+  window.addEventListener('kptu:view-prefs-ready', () => {
+    const sort = savedSort(); if (sort !== noteSort) { noteSort = sort; if (loaded && !selected) renderList(); }
+    if (viewChosen || view === savedView()) return; view = savedView(); if (loaded && !selected) renderList();
+  });
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-  host.innerHTML = `<div data-note-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="note-list-head"><label class="note-search"><span class="a11y-only">노트 검색</span><input type="search" data-note-search placeholder="노트 검색" autocomplete="off" enterkeyhint="search"></label><span class="nv-switch" role="group" aria-label="노트 보기"><button type="button" data-note-view="folder" aria-pressed="true">폴더</button><button type="button" data-note-view="list" aria-pressed="false">목록</button><button type="button" data-note-view="board" aria-pressed="false">포스트잇</button><button type="button" data-note-view="tag" aria-pressed="false">태그</button><button type="button" data-note-view="comment" aria-pressed="false">댓글</button></span><span class="a11y-only" data-nx-count aria-live="polite"></span><button type="button" class="basket-icon-button note-folder-more" data-note-folder-more data-ctx="off" aria-label="노트 목록 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div><div class="nx-select-bar" data-nx-select-bar role="toolbar" aria-label="고른 노트" hidden><span data-nx-select-count></span><button type="button" data-nx-sel-move>폴더로 옮기기</button><button type="button" data-nx-sel-delete>지우기</button><button type="button" data-nx-sel-all>전체 고르기</button><button type="button" class="nx-sel-close" data-nx-sel-close aria-label="선택 끝내기">✕</button></div><nav class="fp-path nx-where" data-nx-where aria-label="지금 위치" hidden></nav><p class="note-folder-status" data-note-folder-status role="status" hidden></p><div data-note-list-status role="status"></div><button type="button" data-note-retry hidden>다시 시도</button><div class="nx-body" data-nx-body><div class="nx-tree" data-nx-tree role="tree" aria-label="노트 폴더" hidden></div><div class="nx-pane"><div class="filter-chips nt-chips" data-nt-chips role="group" hidden></div><div class="nx-here" data-nx-here hidden></div><div class="nx-recent" data-nx-recent role="group" aria-label="최근 노트" hidden></div><div data-note-rows id="noteRows" class="nx-rows"></div></div></div><div class="nbw" data-note-board-wrap hidden><div class="nbb" data-nbb role="toolbar" aria-label="보드"></div><div class="nbw-body"><div class="nbb-side" data-nbb-side hidden></div><div class="nb" data-note-board></div></div></div></div><div data-note-detail hidden></div><div id="noteDocMenu" class="basket-more-menu note-pop-menu" role="group" aria-label="노트 메뉴" hidden></div>`;
+  host.innerHTML = `<div data-note-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="note-list-head"><label class="note-search"><span class="a11y-only">노트 검색</span><input type="search" data-note-search placeholder="노트 검색" autocomplete="off" enterkeyhint="search"></label><span class="nv-switch" role="group" aria-label="노트 보기"><button type="button" data-note-view="folder" aria-pressed="true">폴더</button><button type="button" data-note-view="list" aria-pressed="false">목록</button><button type="button" data-note-view="board" aria-pressed="false">포스트잇</button><button type="button" data-note-view="tag" aria-pressed="false">태그</button><button type="button" data-note-view="comment" aria-pressed="false">댓글</button></span><span class="a11y-only" data-nx-count aria-live="polite"></span><button type="button" class="basket-icon-button note-folder-more" data-note-folder-more data-ctx="off" aria-label="노트 목록 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div><div class="nx-select-bar" data-nx-select-bar role="toolbar" aria-label="고른 노트" hidden><span data-nx-select-count></span><span class="kptu-actbar kptu-actbar-text nx-sel-acts"><button type="button" class="kptu-act" data-nx-sel-move>폴더로 옮기기</button><button type="button" class="kptu-act kptu-act-danger" data-nx-sel-delete>지우기</button><button type="button" class="kptu-act" data-nx-sel-all>전체 고르기</button></span><button type="button" class="nx-sel-close" data-nx-sel-close aria-label="선택 끝내기">✕</button></div><nav class="fp-path nx-where" data-nx-where aria-label="지금 위치" hidden></nav><p class="note-folder-status" data-note-folder-status role="status" hidden></p><div data-note-list-status role="status"></div><button type="button" data-note-retry hidden>다시 시도</button><div class="nx-body" data-nx-body><div class="nx-tree" data-nx-tree data-reorder-list="tree" role="tree" aria-label="노트 폴더" hidden></div><div class="nx-pane"><div class="filter-chips nt-chips" data-nt-chips role="group" hidden></div><div class="nx-here" data-nx-here hidden></div><div class="nx-recent" data-nx-recent data-reorder-list="recent" role="group" aria-label="최근 노트" hidden></div><div data-note-rows id="noteRows" data-reorder-list="rows" class="nx-rows"></div></div></div><div class="nbw" data-note-board-wrap hidden><div class="nbb" data-nbb role="toolbar" aria-label="보드"></div><div class="nbw-body"><div class="nbb-side" data-nbb-side hidden></div><div class="nb" data-note-board></div></div></div></div><div data-note-detail hidden></div><div id="noteDocMenu" class="basket-more-menu note-pop-menu" role="group" aria-label="노트 메뉴" hidden></div>`;
   // BASKET-노트입력창 (2026-10-22 사용자 결정): notes are added like updates — the same input box at the top of the list on a PC
   // and docked above the tabs on a phone — instead of the old [+ 노트] (phone: floating ⊕).
   const quick = mountQuick({root:host.querySelector('[data-note-list]'), esc, noteOnly:true, view:'basket', idPrefix:'basketNote',
@@ -109,7 +119,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const list = host.querySelector('[data-note-list]'), detail = host.querySelector('[data-note-detail]'), status = host.querySelector('[data-note-list-status]');
   const boards = createNoteBoards({esc, rt, wide:window.matchMedia('(min-width:761px)'), bar:host.querySelector('[data-nbb]'), side:host.querySelector('[data-nbb-side]'),
     notes:{get:() => notes, set:fn => { notes = fn(notes); }}, folderOf:note => folderOf(note), folders:() => folders, matches:() => (query ? matches : null),
-    rerender:() => { if (loaded && !selected && view === 'board') renderList(); }, toast:showToast, refresh:() => refresh(), scope:() => scope()});
+    rerender:() => { if (loaded && !selected && view === 'board') renderList(); }, toast:showToast, refresh:() => refresh(), scope:() => scope(),
+    // UI-우클릭전수(2026-11-03): 포스트잇 왼쪽 노트 목록 우클릭 = 폴더·목록 보기와 같은 노트·폴더 메뉴(보드 메뉴 항목 포함).
+    openNoteMenu:(anchor, id, x, y) => { const n = notes.find(row => row.id === id); if (busy || selected || !n) return; window.KPTUContextMenu?.pinAt?.(anchor, x, y); openMenu(anchor, n, 'list'); },
+    openFolderMenu:(anchor, id, x, y) => { if (busy || selected) return; window.KPTUContextMenu?.pinAt?.(anchor, x, y); if (id) openMenu(anchor, null, 'folder', null, id); else openMenu(anchor, null, 'head'); }});
   // NOTE-읽생기아이디어 ①: 열린 노트의 댓글 칸(note-comments-ui.js가 그 칸의 유일한 renderer). 저장·지우기 뒤 목록 쪽 수만 다시 맞춘다.
   const noteComments = createNoteComments({esc, rt, list:{get:() => comments, set:fn => { comments = fn(comments); }},
     state:() => ({ready:commentsReady, missing:commentsMissing}), scope:() => scope()});
@@ -130,24 +143,25 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const showRecent = () => folders.length > 0;
   const folderAt = () => at && at !== OUTSIDE && folderById(at) ? at : null;
   const wideList = window.matchMedia('(min-width:761px)');
-  const sortList = list => sortNotes(list);
+  const sortList = list => (noteSort === 'manual' ? sortNotesManual(list, notePinnedAt) : sortNotes(list));
   const isPicked = key => !!pick.has(key);
   const pickBox = key => `<span class="nx-pick" aria-hidden="true">${isPicked(key) ? '✓' : ''}</span>`;
   function folderRowHtml(r, {tree = false} = {}) {
     const key = 'f:' + r.id, current = tree && at === r.id;
-    return `<div class="nx-row nx-folder${isPicked(key) ? ' nx-picked' : ''}${current ? ' nx-current' : ''}" data-nx-folder="${esc(r.id)}" draggable="${canDrag() ? 'true' : 'false'}" style="--nx-indent:${r.indent}"${tree ? ' role="treeitem"' : ''}><button type="button" class="nx-main" data-nx-open="${esc(r.id)}"${tree ? ` aria-expanded="${r.open}"` : ''}${current ? ' aria-current="true"' : ''}>${pick.active ? pickBox(key) : ''}<span class="nx-ico" aria-hidden="true">${r.open || current ? '\u{1F4C2}' : '\u{1F4C1}'}</span><span class="nx-name">${esc(r.name)}</span><span class="nx-num" aria-label="노트 ${r.count}개">${r.count}</span></button><button type="button" class="basket-row-more nx-more" data-nx-folder-more="${esc(r.id)}" aria-label="${esc(r.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div>`;
+    return `<div class="nx-row nx-folder${isPicked(key) ? ' nx-picked' : ''}${current ? ' nx-current' : ''}" data-nx-folder="${esc(r.id)}" data-reorder-id="f:${esc(r.id)}" style="--nx-indent:${r.indent}"${tree ? ' role="treeitem"' : ''}><button type="button" class="nx-main" data-nx-open="${esc(r.id)}"${tree ? ` aria-expanded="${r.open}"` : ''}${current ? ' aria-current="true"' : ''}>${pick.active ? pickBox(key) : ''}${folderIconHtml(r, {open:r.open || current})}<span class="nx-name">${esc(r.name)}</span><span class="nx-num" aria-label="노트 ${r.count}개">${r.count}</span></button><button type="button" class="basket-row-more nx-more" data-nx-folder-more="${esc(r.id)}" aria-label="${esc(r.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div>`;
   }
   // '폴더 없음'(17:45 ④, 옛 '폴더 밖'): 나무·폴더 목록 맨 아래, 바로 밑에 [+ 새 폴더](폴더 표가 있을 때).
   const outsideHere = () => at === OUTSIDE || (at === null && !showRecent());
-  const outsideRowHtml = (r, {tree = false} = {}) => `<div class="nx-row nx-outside${tree && outsideHere() ? ' nx-current' : ''}" data-nx-outside style="--nx-indent:0"${tree ? ' role="treeitem"' : ''}><button type="button" class="nx-main" data-nx-open="${OUTSIDE}"${tree && outsideHere() ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">\u{1F5C2}</span><span class="nx-name">${OUTSIDE_NAME}</span><span class="nx-num" aria-label="노트 ${r.count}개">${r.count}</span></button></div>`;
+  const outsideRowHtml = (r, {tree = false} = {}) => `<div class="nx-row nx-outside${tree && outsideHere() ? ' nx-current' : ''}" data-nx-outside data-reorder-id="o" style="--nx-indent:0"${tree ? ' role="treeitem"' : ''}><button type="button" class="nx-main" data-nx-open="${OUTSIDE}"${tree && outsideHere() ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">\u{1F5C2}</span><span class="nx-name">${OUTSIDE_NAME}</span><span class="nx-num" aria-label="노트 ${r.count}개">${r.count}</span></button></div>`;
   // PC 왼쪽 나무 맨 위 '최근'(누르면 오른쪽에 최근 5개). 끌어 놓을 곳이 아니다(폴더가 아님).
   const recentTreeRowHtml = () => `<div class="nx-row nx-recent-item${at === null ? ' nx-current' : ''}" data-nx-recent-item style="--nx-indent:0" role="treeitem"><button type="button" class="nx-main" data-nx-open="${RECENT}"${at === null ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">\u{1F552}</span><span class="nx-name">${RECENT_NAME}</span></button></div>`;
   const newFolderRowHtml = () => canEditFolders() && !pick.active ? '<button type="button" class="nx-new-folder" data-nx-new-top>+ 새 폴더</button>' : '';
-  const canDrag = () => view === 'folder' && foldersReady && !query && wideList.matches;
+  // 끌기(순서·넣기)는 폴더 보기에서만, 찾는 중이 아닐 때(PC 마우스·폰 꾹 누르기 모두).
+  const canReorder = () => view === 'folder' && foldersReady && !query && !selected;
   // ② one line: title (own → AI title → first line) + 📎 when files + date. No preview, no link chips.
   function noteRowHtml(r) {
     const note = r.note, title = noteLineTitle(note), name = [...title].slice(0, 40).join(''), key = 'n:' + note.id;
-    return `<div class="basket-row-item note-row-item nx-row nx-note${isPicked(key) ? ' nx-picked' : ''}" data-nx-note="${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''} draggable="${canDrag() ? 'true' : 'false'}" style="--nx-indent:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}>${pick.active ? pickBox(key) : ''}<b class="basket-title">${notePinnedAt(note) ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${r.path ? `<span class="nx-path"${r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">\u{1F4CE}</span>` : ''}<time datetime="${esc(note.updated_at || '')}" title="고친 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time></button></div>`;
+    return `<div class="basket-row-item note-row-item nx-row nx-note${isPicked(key) ? ' nx-picked' : ''}" data-nx-note="${esc(note.id)}" data-reorder-id="n:${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''} style="--nx-indent:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}>${pick.active ? pickBox(key) : ''}<b class="basket-title">${notePinnedAt(note) ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">\u{1F4CE}</span>` : ''}<time datetime="${esc(note.updated_at || '')}" title="고친 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time></button></div>`;
   }
   const rowHtml = (r, opts) => r.type === 'folder' ? folderRowHtml(r, opts) : r.type === 'outside' ? outsideRowHtml(r, opts) : noteRowHtml(r);
   function paintWhere() {
@@ -172,7 +186,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
 
   // NOTE-보기3가지 ③ 목록 보기: 모든 노트를 최근에 고친 순서로 한 줄씩, 오른쪽에 폴더 이름 꼬리표(폴더 색)와 날짜. 찾는 중이면 맞는 노트만.
   const byChange = (a, b) => (Date.parse(b.updated_at || '') || 0) - (Date.parse(a.updated_at || '') || 0) || String(b.id).localeCompare(String(a.id));
-  const listViewRows = m => notes.filter(n => !m || m(n)).sort(byChange).map(note => { const fid = folderOf(note), name = fid ? folderName(fid) : null; return {type:'note', note, indent:0, path:name || '', tone:name ? folderTone(fid) : ''}; });
+  const listViewRows = m => notes.filter(n => !m || m(n)).sort(byChange).map(note => { const fid = folderOf(note), name = fid ? folderName(fid) : null; const fc = fid ? colorOf(folderById(fid)) : null; return {type:'note', note, indent:0, path:name || '', fc, tone:name && !fc ? folderTone(fid) : ''}; });
   // ④ 포스트잇 칸 글: 제목 + 앞 2~3줄 + 폴더 이름. 비밀 모양 노트(note-secret.mjs)는 본문 줄을 보이지 않는다(줄 제목과 같은 규칙).
   function boardText(note, fid) {
     const title = [...noteLineTitle(note)].slice(0, 60).join('');
@@ -202,10 +216,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     board ??= mountNoteBoard(box, {esc, cardText:boardText, moreIcon:MORE_ICON,
       onMove:(id, next, before) => { if (boards.isNamed()) boards.move(id, next); else void saveBoard(id, next, before); },
       onDrop:(id, point, places) => boards.attach([id], point, places),
-      onMenu:(btn, x, y) => { window.KPTUContextMenu?.pinAt?.(btn, x, y); rowMenu(btn); }});
+      onMenu:(btn, x, y) => { window.KPTUContextMenu?.pinAt?.(btn, x, y); rowMenu(btn); },
+      onBackgroundMenu:(x, y) => { if (busy || selected) return; window.KPTUContextMenu?.pinAt?.(box, x, y); openMenu(box, null, 'board'); }});
     boards.paint();
     const named = boards.boardView(), shown = named ? named.notes : notes;
-    board.paint({notes:shown, folderOf, visible:m ? new Set(shown.filter(m).map(n => n.id)) : null, pickActive:!!pick.active, isPicked:id => isPicked('n:' + id),
+    board.paint({notes:shown, folderOf, colorOfFolder:id => colorOf(folderById(id)), visible:m ? new Set(shown.filter(m).map(n => n.id)) : null, pickActive:!!pick.active, isPicked:id => isPicked('n:' + id),
       ...(named ? {placeOf:named.placeOf, removable:true, emptyText:named.emptyText} : {})});
   }
   function paintViewSwitch() {
@@ -297,7 +312,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const byId = new Map(notes.map(n => [n.id, n]));
     const rows = commentRows(comments, {kind:cmKind, query, noteById:id => byId.get(id)});
     rowsBox.innerHTML = rows.length ? rows.map(c => { const note = byId.get(c.note_id), title = [...noteLineTitle(note)].slice(0, 60).join('');
-      return `<div class="nx-row nt-cm-row" data-nt-cm="${esc(c.id)}"><button type="button" class="nt-cm-open" data-nt-cm-open="${esc(c.note_id)}"><span class="note-cm-kind" data-kind="${esc(c.kind)}">${esc(kindName(c.kind))}</span><span class="nt-cm-text">${c.quote ? `<q>${esc([...c.quote].slice(0, 80).join(''))}</q> ` : ''}${esc([...c.body].slice(0, 200).join(''))}</span><span class="nx-path"><span class="a11y-only">노트: </span>${esc(title)}</span><time datetime="${esc(c.created_at || '')}">${esc(noteLineDate(c.created_at))}</time></button></div>`; }).join('') : emptyHtml(query ? '맞는 댓글 없음' : '댓글 없음');
+      return `<div class="nx-row nt-cm-row" data-nt-cm="${esc(c.id)}"><button type="button" class="nt-cm-open" data-nt-cm-open="${esc(c.note_id)}"><span class="note-cm-kind" data-kind="${esc(c.kind)}">${esc(kindName(c.kind))}</span><span class="nt-cm-text">${c.quote ? `<q>${esc([...c.quote].slice(0, 80).join(''))}</q> ` : ''}${esc([...c.body].slice(0, 200).join(''))}</span><span class="row-tail nx-path"><span class="a11y-only">노트: </span>${esc(title)}</span><time class="row-tail" datetime="${esc(c.created_at || '')}">${esc(noteLineDate(c.created_at))}</time></button></div>`; }).join('') : emptyHtml(query ? '맞는 댓글 없음' : '댓글 없음');
   }
   wideList.addEventListener?.('change', () => { if (loaded && !selected) renderList(); });
   async function refresh() {
@@ -344,20 +359,32 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // UI-모바일노트복사메뉴: on a phone a list row has no [복사] button; [복사] is in its ⋯ menu (PC keeps the button).
   // NOTE-파일붙이기: a file card's ⋯ has one item, [빼기] (the link only; the Drive file stays).
   const canEditFolders = () => foldersReady;
-  const menuItems = (note, from) => {
+  const menuItems = (note, from, folderId = null) => {
     if (from === 'file') return [['data-note-file-detach', '빼기']];
+    // UI-우클릭전수(2026-11-03): 빈 보드 우클릭 메뉴. 새 노트는 목록 맨 위 입력칸에서 쓴다(입력칸으로 초점).
+    if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기']];
     if (from === 'picked') return [['data-nx-sel-move', `${pick.size}개 — 폴더로 옮기기`], ['data-nx-sel-delete', '지우기', 'basket-menu-danger'], ['data-nx-sel-close', '선택 끝내기']];
-    if (from === 'folder') return [['data-nx-select', '선택'], ['data-nx-enter', '이 폴더로 들어가기'], ...(canEditFolders() ? [['data-nx-new-in', '새 폴더'], ['data-nx-rename', '이름 바꾸기'], ['data-nx-move-folder', '옮기기…'], ['data-nx-delete-folder', '폴더 지우기', 'basket-menu-danger']] : [])];
+    if (from === 'folder') {
+      const step = folderStepState(folderId);
+      return [['data-nx-select', '선택'], ['data-nx-enter', '이 폴더로 들어가기'], ...(canEditFolders() ? [['data-nx-new-in', '새 폴더'], ['data-nx-rename', '이름 바꾸기'], ['data-nx-color', '색 고르기…'],
+        ...(step.up ? [['data-nx-folder-up', '위로']] : []), ...(step.down ? [['data-nx-folder-down', '아래로']] : []),
+        ['data-nx-move-folder', '옮기기…'], ['data-nx-delete-folder', '폴더 지우기', 'basket-menu-danger']] : [])];
+    }
     // FEAT-1029 ④: [성명·보도자료 초안] opens the draft window (press-draft.js); it saves a note only when [노트로 저장] is pressed.
-    if (from === 'head') return [...(canEditFolders() ? [['data-nx-new-in', folderAt() ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(folderAt() ? [['data-nx-up', '위 폴더로']] : []), ['data-press-draft-open', '성명·보도자료 초안']];
+    if (from === 'head') return [...(canEditFolders() ? [['data-nx-new-in', folderAt() ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(folderAt() ? [['data-nx-up', '위 폴더로']] : []),
+      ...(view === 'folder' && canEditFolders() ? [['data-nx-sort', noteSort === 'manual' ? `노트 정렬: ${NOTE_SORT_NAMES.changed} 순으로` : `노트 정렬: ${NOTE_SORT_NAMES.manual}로`]] : []), ['data-press-draft-open', '성명·보도자료 초안']];
     return [
       ...(from === 'list' ? [['data-nx-select', '선택']] : []),
       // 17:45 ③: 줄의 복사 아이콘은 없앴다 — 복사는 PC·폰 모두 이 메뉴(⋯·우클릭·꾹 누르기) 안.
       ...(from === 'list' && noteCopyPayload(note) ? [['data-note-copy', '복사']] : []),
+      // FOLDER-순서·색 ②: '내가 정한 순서'일 때만 한 칸 위·아래(끌기가 어려울 때의 같은 동작).
+      ...(from === 'list' && noteStepState(note).up ? [['data-note-up', '위로']] : []), ...(from === 'list' && noteStepState(note).down ? [['data-note-down', '아래로']] : []),
       // NOTE-보드여러개 ③: 이름 붙은 보드의 칸 메뉴 맨 위 [보드에서 빼기](노트는 그대로).
       ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-detach', '보드에서 빼기']] : []),
+      ...(from === 'list' && view === 'board' && boards.isNamed() && !onBoard(note, boards.current()) ? [['data-nbb-attach', '보드에 붙이기']] : []),
       ['data-note-pin', notePinnedAt(note) ? '고정 풀기' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
       ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '정리함으로 돌리기']] : []),
+      ['data-note-to-diary', '일기로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
       ['data-note-ai-off', noteAiOff(note) ? 'AI 제외 풀기' : 'AI에 보내지 않기'],
       ['data-note-delete', '삭제', 'basket-menu-danger']];
   };
@@ -369,6 +396,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     void pressFile(file, {viewPhoto: () => openPhotoView({row: selected, file: selected.attachments.find(x => x.drive_file_id === file.driveId), trigger: el}), onError: fileFail});
   }
   host.addEventListener('keydown', e => { const el = e.target.closest?.('[data-note-file] .file-line-main'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pressNoteFile(el); } });
+  function showColorChoice() {
+    const el = menuEl(), f = folderById(menu.folderId); if (!f) return;
+    el.setAttribute('aria-label', '폴더 색 고르기');
+    el.innerHTML = colorChoiceHtml(colorOf(f));
+    placeAnchored(el, menu.trigger, {maxWidth:220, maxHeight:window.innerHeight});
+    (el.querySelector('[aria-pressed="true"]') || el.querySelector('button'))?.focus({preventScroll:true});
+  }
   function closeMenu({focus = false} = {}) {
     if (!menu) return null;
     const closed = menu, el = menuEl(); menu = null; closed.stop();
@@ -379,12 +413,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     return closed;
   }
   function openMenu(trigger, note, from, fileId = null, folderId = null) {
-    if (!note && !['folder', 'head', 'picked'].includes(from)) return;
+    if (!note && !['folder', 'head', 'picked', 'board'].includes(from)) return;
     if (menu?.trigger === trigger) { closeMenu({focus: true}); return; }
     closeMenu();
     const el = menuEl();
-    el.setAttribute('aria-label', from === 'folder' || from === 'head' ? '폴더 메뉴' : from === 'file' ? '첨부 파일 메뉴' : from === 'picked' ? '고른 것 메뉴' : '노트 메뉴');
-    el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + menuItems(note, from).map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
+    el.setAttribute('aria-label', from === 'folder' || from === 'head' ? '폴더 메뉴' : from === 'board' ? '보드 메뉴' : from === 'file' ? '첨부 파일 메뉴' : from === 'picked' ? '고른 것 메뉴' : '노트 메뉴');
+    el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + menuItems(note, from, folderId).map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
     el.hidden = false;
     // UI-메뉴잘림: 높이를 묶지 않는다(창 높이까지 다 보임, 정말 길 때만 스크롤 + 아래 흐림 — anchored-popup.js).
     const place = () => placeAnchored(el, trigger, {maxWidth: 220, maxHeight: window.innerHeight});
@@ -923,71 +957,168 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (pick.active && !pick.size) endSelect(); else renderList();
     notify(ok === items.notes.length ? `노트 ${ok}개를 지웠어요.` : `노트 ${ok}개를 지웠고 ${items.notes.length - ok}개는 지우지 못했어요.`);
   }
-  // ---- 끌어 놓기: 노트·폴더 줄을 폴더 줄(또는 그 폴더의 노트 줄, '폴더 밖')에 놓으면 그 폴더로. 고른 것을 끌면 고른 것 모두. ----
-  let drag = null;
-  const dragItems = el => {
-    const key = el.dataset.nxNote ? 'n:' + el.dataset.nxNote : 'f:' + el.dataset.nxFolder;
+  // ---- 끌어 놓기·순서 바꾸기 (S49-38 FOLDER-순서·색 ②, 공용 끌기 부품 reorder-drag.js의 zones 모드) ----
+  // 줄 높이 위 25% = 이 줄 앞에 놓기 / 가운데 50% = 이 폴더 안으로 넣기 / 아래 25% = 뒤에 놓기. 선(순서)과 바탕(넣기)은 동시에 나오지 않는다.
+  // 폴더를 폴더 줄 위·아래에 놓으면 그 줄의 형제로 순서를 바꾸고(상위가 다르면 상위도 바뀜), 노트는 '내가 정한 순서'일 때만 노트 줄 위·아래에서 순서를 바꾼다.
+  // 노트를 폴더 줄에 놓으면 어느 자리여도 그 폴더로 옮긴다(지금과 같음). 고른 것을 끌면 고른 것 모두 옮긴다. 폰은 줄을 꾹 눌러 끌고, 끌지 않고 떼면 ⋯ 메뉴.
+  const keyEls = key => key === 'o' ? [...host.querySelectorAll('[data-nx-outside]')]
+    : [...host.querySelectorAll(key.startsWith('f:') ? `[data-nx-folder="${CSS.escape(key.slice(2))}"]` : `[data-nx-note="${CSS.escape(key.slice(2))}"]`)];
+  const dragItems = key => {
     if (pick.has(key) && pick.size > 1) return pickedItems();
-    return el.dataset.nxNote ? {notes:[el.dataset.nxNote], folders:[]} : {notes:[], folders:[el.dataset.nxFolder]};
+    return key.startsWith('n:') ? {notes:[key.slice(2)], folders:[]} : {notes:[], folders:[key.slice(2)]};
   };
-  function dropTarget(el) {
-    const row = el?.closest?.('[data-nx-folder],[data-nx-outside],[data-nx-note]'); if (!row || !host.contains(row)) return undefined;
-    if (row.dataset.nxFolder) return row.dataset.nxFolder;
-    if (row.hasAttribute('data-nx-outside')) return null;
-    if (row.hasAttribute('data-nx-recent-row')) return undefined; // '최근' 줄은 폴더가 섞여 있어 놓을 곳이 아니다
-    const note = notes.find(n => n.id === row.dataset.nxNote); return note ? folderOf(note) : undefined;
+  // 놓을 자리 판정(보이기와 놓기가 같은 함수): {kind:'move'|'reorder-folder'|'reorder-note'|'hint', mark:{keys, inside|line}} 또는 null(놓을 수 없음).
+  function dropPlan(dragKey, overKey, zone) {
+    const items = dragItems(dragKey), onlyFolder = items.folders.length === 1 && !items.notes.length, onlyNote = items.notes.length === 1 && !items.folders.length;
+    if (overKey === 'o') return {kind:'move', target:null, items, mark:{keys:['o'], inside:true}};
+    if (overKey.startsWith('f:')) {
+      const target = folderById(overKey.slice(2)); if (!target) return null;
+      if (zone !== 'inside' && onlyFolder) {
+        const f = folderById(items.folders[0]); if (!f || f.id === target.id) return null;
+        const parent = target.parent_id || null;
+        if ((f.parent_id || null) !== parent && !canMoveFolder(folders, f.id, parent, FOLDER_DEPTH_LIMIT)) return null;
+        return {kind:'reorder-folder', id:f.id, parent, over:target.id, after:zone === 'after', mark:{keys:[overKey], line:zone}};
+      }
+      if (items.folders.some(id => !canMoveFolder(folders, id, target.id, FOLDER_DEPTH_LIMIT) || folderById(id)?.parent_id === target.id) && !items.notes.length) return null;
+      return {kind:'move', target:target.id, items, mark:{keys:[overKey], inside:true}};
+    }
+    const over = notes.find(n => n.id === overKey.slice(2)); if (!over) return null;
+    const folderId = folderOf(over), here = folderId === null ? 'o' : 'f:' + folderId;
+    const mine = onlyNote ? notes.find(n => n.id === items.notes[0]) : null;
+    if (mine && folderOf(mine) === folderId) {
+      if (noteSort === 'manual' && !notePinnedAt(mine) && !notePinnedAt(over)) return {kind:'reorder-note', id:mine.id, folder:folderId, over:over.id, after:zone === 'after', mark:{keys:[overKey], line:zone}};
+      return {kind:'hint', mark:{keys:[]}}; // 같은 폴더 안: 순서는 '내가 정한 순서'에서만
+    }
+    return {kind:'move', target:folderId, items, mark:{keys:[here], inside:true}};
   }
-  const clearDrop = () => host.querySelectorAll('.nx-drop').forEach(el => el.classList.remove('nx-drop'));
-  function showDrop(target) {
-    clearDrop(); if (target === undefined) return;
-    host.querySelectorAll(target === null ? '[data-nx-outside]' : `[data-nx-folder="${CSS.escape(target)}"]`).forEach(el => el.classList.add('nx-drop'));
-  }
-  let hoverTimer = null, hoverId = null;
+  const resolveOver = (dragKey, overKey) => {
+    if (overKey === 'o') return {ok:true, canInside:true};
+    if (keyEls(overKey).some(el => el.hasAttribute('data-nx-recent-row'))) return {ok:false}; // '최근' 줄은 폴더가 섞여 있어 놓을 곳이 아니다
+    const items = dragItems(dragKey);
+    if (overKey.startsWith('f:')) return {ok:!items.folders.includes(overKey.slice(2)), canInside:true};
+    return {ok:!items.notes.includes(overKey.slice(2)), canInside:false};
+  };
+  let hoverTimer = null, hoverId = null, dragPointer = '', suppressUntil = 0, dragging = false;
+  const clearDrop = () => host.querySelectorAll('.nx-drop,.nx-line-before,.nx-line-after').forEach(el => el.classList.remove('nx-drop', 'nx-line-before', 'nx-line-after'));
   function hoverOpen(target) {
     if (target === hoverId) return; clearTimeout(hoverTimer); hoverId = target;
-    if (target && !openSet.has(target) && wideList.matches) hoverTimer = setTimeout(() => { if (drag && hoverId === target) { openSet.add(target); renderList(); showDrop(target); } }, 900); // PC: 끄는 동안 닫힌 왼쪽 나무 폴더 위에 머물면 열림
+    // PC 마우스: 끄는 동안 닫힌 왼쪽 나무 폴더 위에 머물면 열림(폰 손가락 끌기는 목록을 다시 그리면 잡은 줄이 사라져 열지 않는다)
+    if (target && dragPointer !== 'touch' && !openSet.has(target) && wideList.matches) hoverTimer = setTimeout(() => { if (dragging && hoverId === target) { openSet.add(target); renderList(); } }, 900);
   }
-  function edgeScroll(y) { const edge = 56; if (y < edge) window.scrollBy(0, -12); else if (y > innerHeight - edge) window.scrollBy(0, 12); }
-  host.addEventListener('dragstart', e => {
-    const row = e.target.closest?.('[data-nx-note],[data-nx-folder]'); if (!row || !host.contains(row) || !foldersReady || query || selected) return;
-    drag = dragItems(row); row.classList.add('nx-dragging');
-    try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); } catch {}
-  });
-  host.addEventListener('dragover', e => { if (!drag) return; const t = dropTarget(e.target); showDrop(t); hoverOpen(t); edgeScroll(e.clientY); if (t !== undefined) e.preventDefault(); });
-  host.addEventListener('drop', e => { if (!drag) return; const t = dropTarget(e.target), d = drag; drag = null; clearDrop(); if (t === undefined) return; e.preventDefault(); void moveItems(d, t); });
-  host.addEventListener('dragend', () => { drag = null; clearDrop(); clearTimeout(hoverTimer); hoverId = null; host.querySelectorAll('.nx-dragging').forEach(el => el.classList.remove('nx-dragging')); });
-  // 폰: 줄을 꾹 눌렀다 떼면 우클릭과 같은 메뉴(맨 위 [선택]), 꾹 누른 채 움직이면 끌기. 잡기 전에 움직이면 그대로 스크롤.
-  const LONG_MS = 450, SLOP = 8, MOVED = 12;
-  let touch = null, suppressUntil = 0;
-  // 끄는 동안 닫힌 폴더가 열리면(목록을 다시 그림) 잡은 줄은 화면에서 빠지지만 손가락 사건은 그 줄로 계속 온다(터치 대상은 처음 누른 요소).
-  // 그래서 움직임·뗌은 목록(host)이 아니라 잡은 줄 자체에서 듣는다(빠진 줄의 사건은 목록까지 올라오지 않음).
-  const cancelTouch = () => { if (touch?.timer) clearTimeout(touch.timer); const row = touch?.row; touch = null; row?.removeEventListener('touchmove', onTouchMove); row?.removeEventListener('touchend', onTouchEnd); row?.removeEventListener('touchcancel', onTouchCancel); };
-  const onTouchMove = e => {
-    if (!touch?.grabbed) return; if (e.cancelable) e.preventDefault();
-    const p = e.touches[0]; if (!p) return;
-    if (Math.hypot(p.clientX - touch.x, p.clientY - touch.y) > MOVED) touch.moved = true;
-    // 17:55: 폰에서는 끌어 옮기지 않는다(꾹 누르기 메뉴·선택 모드의 [폴더로 옮기기]). 잡은 뒤 움직이면 메뉴 없이 놓는다.
-  };
-  const onTouchEnd = e => {
-    if (!touch) return; if (!touch.grabbed) { cancelTouch(); return; }
-    if (e.cancelable) e.preventDefault();
-    const {row, moved} = touch; row.classList.remove('nx-grabbed'); clearDrop(); cancelTouch(); suppressUntil = Date.now() + 600;
-    if (moved) return;
+  function showHover(info) {
+    clearDrop();
+    if (!info) { dragging = false; hoverOpen(null); return; }
+    dragging = true;
+    const plan = dropPlan(info.id, info.over, info.zone);
+    hoverOpen(plan?.kind === 'move' ? plan.target : null);
+    if (!plan) return;
+    const cls = plan.mark.inside ? 'nx-drop' : plan.mark.line === 'before' ? 'nx-line-before' : plan.mark.line === 'after' ? 'nx-line-after' : '';
+    if (cls) for (const key of plan.mark.keys) keyEls(key).forEach(el => el.classList.add(cls));
+  }
+  const reorderHint = () => notify('노트 순서를 바꾸려면 목록 ⋯ 메뉴에서 정렬을 [내가 정한 순서]로 바꿔 주세요.');
+  function handleDrop({id, over, zone}) {
+    suppressUntil = Date.now() + 600;
+    const plan = dropPlan(id, over, zone); if (!plan) return;
+    if (plan.kind === 'move') void moveItems(plan.items, plan.target);
+    else if (plan.kind === 'reorder-folder') void reorderFolder(plan);
+    else if (plan.kind === 'reorder-note') void reorderNote(plan);
+    else if (plan.kind === 'hint') reorderHint();
+  }
+  // 폰: 줄을 꾹 눌렀다 움직이지 않고 떼면 우클릭과 같은 메뉴(맨 위 [선택]).
+  function handleHold(row) {
+    suppressUntil = Date.now() + 600;
     const btn = row.querySelector(':scope > .basket-row-more, :scope > .nx-more');
     if (btn) { const r = row.getBoundingClientRect(); window.KPTUContextMenu?.pinAt?.(btn, r.left + Math.min(r.width / 2, 48), r.top + r.height / 2); rowMenu(btn); }
-  };
-  const onTouchCancel = () => { if (touch?.grabbed) { touch.row.classList.remove('nx-grabbed'); clearDrop(); } cancelTouch(); };
-  host.addEventListener('pointerdown', e => {
-    if (e.pointerType !== 'touch' || !e.isPrimary || selected) return;
-    const row = e.target.closest?.('[data-nx-note],[data-nx-folder]'); if (!row || !host.contains(row) || e.target.closest('.basket-row-more,.basket-row-copy')) return;
-    cancelTouch();
-    row.addEventListener('touchmove', onTouchMove, {passive:false}); row.addEventListener('touchend', onTouchEnd); row.addEventListener('touchcancel', onTouchCancel);
-    touch = {row, x:e.clientX, y:e.clientY, grabbed:false, moved:false, target:undefined, timer:setTimeout(() => { if (!touch || touch.row !== row) return; touch.grabbed = true; row.classList.add('nx-grabbed'); try { navigator.vibrate?.(12); } catch {} }, LONG_MS)};
-  });
-  host.addEventListener('pointermove', e => { if (touch && !touch.grabbed && e.pointerType === 'touch' && Math.hypot(e.clientX - touch.x, e.clientY - touch.y) > SLOP) cancelTouch(); });
-  host.addEventListener('pointercancel', e => { if (e.pointerType === 'touch' && touch && !touch.grabbed) cancelTouch(); });
-  host.addEventListener('contextmenu', e => { if (touch || Date.now() < suppressUntil) e.preventDefault(); }, true);
+  }
+  const pageScroller = {getBoundingClientRect: () => ({top:0, bottom:window.innerHeight}), scrollBy: (x, y) => window.scrollBy(x, y)};
+  host.addEventListener('pointerdown', e => { dragPointer = e.pointerType || ''; }, true);
+  mountReorder(host, {whole:true, zones:{resolve:resolveOver}, onHover:showHover, onDrop:handleDrop, onHold:handleHold, scroller:() => pageScroller,
+    canDrag:key => (key.startsWith('n:') || key.startsWith('f:')) && canReorder() && !busy});
+  host.addEventListener('contextmenu', e => { if (Date.now() < suppressUntil) e.preventDefault(); }, true);
   host.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nx-note],[data-nx-folder]')) { e.preventDefault(); e.stopPropagation(); } }, true);
+  // ---- 순서 쓰기: 폴더(sort_order)·노트(metadata.order). 바꾼 줄만 저장하고, 실패하면 서버에서 다시 읽는다. 알림의 [되돌리기]가 이전 값으로 돌린다. ----
+  const folderSibs = parent => folderSiblings(folders, {free:true, parentId:parent || null});
+  async function applyFolderOrder(id, parent, changes) {
+    if (busy || !canEditFolders() || !changes.length) return;
+    const f = folderById(id); if (!f) return;
+    const owner = scope(), before = changes.map(c => { const x = folderById(c.id); return {id:c.id, parent_id:x?.parent_id || null, sort_order:x?.sort_order}; });
+    busy = true; paintSelectBar();
+    try {
+      if (!f.parent_id) await adopt(id);
+      for (const c of changes) {
+        const row = await updateNoteFolder(c.id, c.id === id ? {parent_id:parent || null, sort_order:c.order} : {sort_order:c.order}, rt);
+        if (owner !== scope()) return; folders = folders.map(x => x.id === c.id ? {...x, ...row} : x);
+      }
+      if (parent) openSet.add(parent);
+    } catch (error) { folderSay(noteFolderErrorText(error)); busy = false; renderList(); void refresh(); return; }
+    finally { busy = false; }
+    folderSay(''); renderList(); flash({notes:[], folders:[{id}]});
+    notify('폴더 순서를 바꿨어요.', {label:'폴더 순서 바꾸기', undo:async () => {
+      for (const d of before) { const row = await updateNoteFolder(d.id, {parent_id:d.parent_id, sort_order:d.sort_order}, rt); folders = folders.map(x => x.id === d.id ? {...x, ...row} : x); }
+      renderList(); return true;
+    }});
+  }
+  async function reorderFolder({id, parent, over, after}) {
+    const sibs = folderSibs(parent), others = sibs.filter(x => x.id !== id), at = others.findIndex(x => x.id === over) + (after ? 1 : 0);
+    const f = folderById(id); if (!f) return;
+    if ((f.parent_id || null) === (parent || null) && isSamePlace(sibs, id, at)) return;
+    const changes = placeAt(sibs, id, at);
+    // 상위가 달라지고 순서 값이 이미 맞아도 옮기는 폴더 줄은 항상 쓴다(placeAt이 옮기는 줄을 포함).
+    await applyFolderOrder(id, parent, changes);
+  }
+  async function stepFolder(id, dir) {
+    const f = folderById(id); if (!f) return;
+    const changes = stepPlan(folderSibs(f.parent_id), id, dir);
+    await applyFolderOrder(id, f.parent_id || null, changes);
+  }
+  // 노트: 한 폴더 안(고정 노트 제외)에서 보이는 순서
+  const manualList = folderId => sortNotesManual(notes.filter(n => folderOf(n) === folderId && !notePinnedAt(n)), notePinnedAt);
+  async function applyNoteOrder(changes) {
+    if (busy || !changes.length) return;
+    const owner = scope(), before = changes.map(c => ({id:c.id, order:noteOrderOf(notes.find(n => n.id === c.id))}));
+    busy = true; paintSelectBar(); let failed = 0;
+    try {
+      for (const c of changes) {
+        const note = notes.find(n => n.id === c.id); if (!note) continue;
+        try { const saved = await setNoteOrder(note, c.order, rt); if (owner !== scope()) return; applySaved(c.id, saved); } catch { failed++; }
+      }
+    } finally { busy = false; }
+    if (failed) { folderSay('순서를 저장하지 못한 노트가 있어요. 다시 불러올게요.'); renderList(); void refresh(); return; }
+    folderSay(''); renderList(); flash({notes:[{id:changes[0].id}], folders:[]});
+    notify('노트 순서를 바꿨어요.', {label:'노트 순서 바꾸기', undo:async () => {
+      for (const d of before) { const note = notes.find(n => n.id === d.id); if (note) applySaved(d.id, await setNoteOrder(note, d.order, rt)); }
+      renderList(); return true;
+    }});
+  }
+  async function reorderNote({id, folder, over, after}) {
+    const list = manualList(folder), others = list.filter(n => n.id !== id), at = others.findIndex(n => n.id === over) + (after ? 1 : 0);
+    if (isSamePlace(list, id, at)) return;
+    await applyNoteOrder(placeAt(list, id, at, noteOrderOf));
+  }
+  async function stepNote(id, dir) {
+    const note = notes.find(n => n.id === id); if (!note) return;
+    await applyNoteOrder(stepPlan(manualList(folderOf(note)), id, dir, noteOrderOf));
+  }
+  // 메뉴 [위로][아래로]를 보일지: 폴더는 형제 안 자리, 노트는 '내가 정한 순서'이고 고정이 아닌 노트의 자리.
+  const folderStepState = id => { const f = folderById(id); if (!f || !canEditFolders()) return {up:false, down:false}; const s = folderSibs(f.parent_id), i = s.findIndex(x => x.id === id); return {up:i > 0, down:i >= 0 && i < s.length - 1}; };
+  const noteStepState = note => {
+    if (!note || noteSort !== 'manual' || view !== 'folder' || notePinnedAt(note) || query) return {up:false, down:false};
+    const s = manualList(folderOf(note)), i = s.findIndex(x => x.id === note.id); return {up:i > 0, down:i >= 0 && i < s.length - 1};
+  };
+  // ---- 폴더 색 (1~8, 기본 = null): 바로 저장, 실패하면 되돌리고 알린다. 같은 폴더를 보이는 곳(나무·꼬리표·포스트잇·고르기 창)이 모두 이 값 하나를 읽는다. ----
+  async function applyFolderColor(id, color) {
+    const f = folderById(id); if (!f || !canEditFolders() || (colorOf(f) ?? null) === color) return;
+    const owner = scope(), was = colorOf(f);
+    const paint = value => { folders = folders.map(x => x.id === id ? {...x, color:value} : x); renderList(); };
+    paint(color);
+    try { await setNoteFolderColor(id, color, rt); }
+    catch { if (owner === scope()) { paint(was); notify('폴더 색을 저장하지 못했어요. 잠시 뒤 다시 해 주세요.'); } }
+  }
+  function setNoteSort(next) {
+    if (!isNoteSort(next) || next === noteSort) return;
+    noteSort = next; viewPrefs.set('note_sort', next, {rejectable:true}); renderList();
+    notify(next === 'manual' ? '노트를 끌어서 순서를 바꿀 수 있어요.' : '노트를 고친 날 순서로 보여요.');
+  }
   // A row's ⋯ (pressed, right-clicked or long-pressed): in select mode a picked row's menu is for all picked ones.
   function rowMenu(b) {
     if (busy || selected) return;
@@ -1011,6 +1142,23 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (run !== epoch || owner !== scope()) return;
       say(/정리함/.test(error?.message || '') ? error.message : '정리함으로 돌리지 못했어요. 다시 시도해 주세요.');
     } finally { if (run === epoch && selected) lock(false); else busy = false; }
+  }
+  // S48-56 [일기로 보내기]: 날짜를 묻고(기본 = 노트를 만든 날) 그날 일기에 글·사진을 더한 뒤 노트는 휴지통(알림의 [되돌리기]). diary-send.js 한 곳.
+  async function toDiary(id, anchor) {
+    if (!id || editing || busy) return;
+    const fromList = !selected, run = ++epoch, owner = scope(); lock(true); report('');
+    const current = () => run === epoch && owner === scope() && (fromList ? !selected : selected?.id === id);
+    let result;
+    try { const {askSendToDiary} = await import('./diary-send.js'); result = await askSendToDiary(anchor?.isConnected ? anchor : document.activeElement, id, {rt, isCurrent:current}); }
+    catch { result = {status:'failed'}; }
+    finally { busy = false; }
+    if (!current()) return;
+    if (result.status === 'sent' && result.trash === 'deleted') {
+      notes = notes.filter(n => n.id !== id); links = links.filter(l => l.note_id !== id);
+      if (fromList) renderList(); else close({force:true});
+      return;
+    }
+    lock(false);
   }
   // [삭제] from the open note or from a list row: the same confirmation (what goes with it) and the same delete path.
   async function remove(id = selected?.id, {confirmed = false} = {}) {
@@ -1052,6 +1200,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else if (b.hasAttribute('data-nx-sel-close')) endSelect();
       return;
     }
+    if (from.from === 'board') { if (b.hasAttribute('data-nbb-newnote')) { const input = host.querySelector('[data-note-list] textarea[data-quick-input]'); input?.scrollIntoView({block:'nearest'}); input?.focus({preventScroll:true}); } return; }
     if (from.from === 'folder' || from.from === 'head') {
       const id = from.from === 'folder' ? from.folderId : at === OUTSIDE ? null : at;
       if (b.hasAttribute('data-press-draft-open')) { const trigger = from.trigger; void import('./press-draft.js').then(m => m.openPressDraft({trigger})); return; }
@@ -1060,6 +1209,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else if (b.hasAttribute('data-nx-up')) enter(folderById(at)?.parent_id || null);
       else if (b.hasAttribute('data-nx-new-in')) void newFolder(id);
       else if (b.hasAttribute('data-nx-rename')) void renameFolder(id);
+      else if (b.hasAttribute('data-nx-folder-up')) void stepFolder(id, -1);
+      else if (b.hasAttribute('data-nx-folder-down')) void stepFolder(id, 1);
+      else if (b.hasAttribute('data-nx-sort')) setNoteSort(noteSort === 'manual' ? 'changed' : 'manual');
       else if (b.hasAttribute('data-nx-move-folder')) openMovePicker(from.trigger, {notes:[], folders:[id]});
       else if (b.hasAttribute('data-nx-delete-folder')) void deleteFolder(id, from.trigger);
       return;
@@ -1068,20 +1220,30 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.dataset.fileMenu) { const file = noteFile(note, from.fileId); if (file) { if (b.dataset.fileMenu === 'open') openInDrive(file, {onError: fileFail}); else void downloadFile(file, {onError: fileFail}); } return; }
     if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
     else if (b.hasAttribute('data-nbb-detach')) boards.detach(note.id);
+    else if (b.hasAttribute('data-nbb-attach')) boards.attach([note.id]);
     else if (b.hasAttribute('data-note-copy')) void telegram(note, from.trigger); // UI-눌림느낌: the menu is closed, so the row's ⋯ shows the ✓
     else if (b.hasAttribute('data-note-ai-off')) void toggleAiOff(note);
+    else if (b.hasAttribute('data-note-up')) void stepNote(note.id, -1);
+    else if (b.hasAttribute('data-note-down')) void stepNote(note.id, 1);
     else if (b.hasAttribute('data-note-pin')) void pin(note);
     else if (b.hasAttribute('data-nx-select')) startSelect('n:' + note.id);
     else if (b.hasAttribute('data-note-folder-move')) openMovePicker(from.trigger, {notes:[note.id], folders:[]});
     else if (b.hasAttribute('data-note-edit')) { if (selected?.id !== note.id) open(note.id, {focus:false}); startEdit(); }
     else if (b.hasAttribute('data-basket-link-open')) { const id = selected?.id; void manual.open('link', b).then(message => { if (selected?.id === id) say(message || ''); }); }
     else if (b.hasAttribute('data-note-to-basket')) void toBasket();
+    else if (b.hasAttribute('data-note-to-diary')) void toDiary(note.id, from.trigger);
     else if (b.hasAttribute('data-note-delete')) void remove(note.id);
   }
   host.addEventListener('click', e => {
     const line = e.target.closest('[data-note-file] .file-line-main'); if (line && host.contains(line)) { closeMenu(); pressNoteFile(line); return; }
     const b = e.target.closest('button'); if (!b || b.disabled || !host.contains(b)) return;
-    if (b.closest('#noteDocMenu')) { const from = closeMenu({focus:true}); if (from && !busy) menuAction(b, from); return; }
+    if (b.closest('#noteDocMenu')) {
+      // 폴더 ⋯ [색 고르기…]: 메뉴를 닫지 않고 같은 자리에 동그라미 8개 + [기본]을 보인다. 하나 고르면 바로 저장하고 닫는다.
+      if (b.hasAttribute('data-nx-color') && menu?.from === 'folder') { showColorChoice(); return; }
+      const picked = colorFromButton(b);
+      if (picked !== undefined) { const from = closeMenu({focus:true}); if (from?.folderId && !busy) void applyFolderColor(from.folderId, picked); return; }
+      const from = closeMenu({focus:true}); if (from && !busy) menuAction(b, from); return;
+    }
     if (b.hasAttribute('data-note-more')) { if (!busy && selected && !editing) openMenu(b, selected, 'detail'); return; }
     if (b.hasAttribute('data-note-file-more')) { if (!busy && selected) openMenu(b, selected, 'file', b.dataset.noteFileMore); return; }
     if (b.hasAttribute('data-note-folder-more')) { if (!busy && !selected) openMenu(b, null, pick.active ? 'picked' : 'head'); return; }
@@ -1160,7 +1322,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }, {passive:true});
   list.addEventListener('touchend', e => {
     const s = swipe; swipe = null;
-    if (!s || touch?.grabbed || !e.changedTouches.length || claimedSince(s.t)) return; // UI-목록밀기: 줄 위에서 민 것은 줄 밀기(보기 전환 아님)
+    if (!s || dragging || Date.now() < suppressUntil || !e.changedTouches.length || claimedSince(s.t)) return; // UI-목록밀기: 줄 위에서 민 것은 줄 밀기(보기 전환 아님)
     const p = e.changedTouches[0], dx = p.clientX - s.x, dy = p.clientY - s.y;
     if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - s.t > 800) return;
     const i = ALL_VIEWS.indexOf(view) + (dx < 0 ? 1 : -1);
@@ -1174,7 +1336,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     run:(key, el) => { const note = notes.find(n => n.id === el.dataset.nxNote); if (!note || busy || selected) return; if (key === 'delete') void remove(note.id, {confirmed:true}); else void pin(note); }});
   // Leaving the menu by keyboard, or pressing anywhere outside it and its ⋯, closes it.
   host.addEventListener('focusout', e => { const el = menuEl(); if (menu && e.relatedTarget && !el.contains(e.relatedTarget) && e.relatedTarget !== menu.trigger) closeMenu(); });
-  document.addEventListener('click', e => { if (menu && !menuEl().contains(e.target) && !menu.trigger.contains(e.target)) closeMenu(); });
+  // composedPath: [색 고르기…]가 메뉴 안 내용을 바꾸면 눌린 단추는 이미 떼어져 있어도 "메뉴 안에서 누름"으로 본다.
+  document.addEventListener('click', e => { if (menu && !e.composedPath().includes(menuEl()) && !menu.trigger.contains(e.target)) closeMenu(); });
 
   return {
     // openId: a note just moved here from the basket opens once the list is read.

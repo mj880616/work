@@ -11,13 +11,14 @@ import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {takeNewsItem} from './news-request.mjs';
 import {interestHit, signalBody} from './now-model.mjs';
-import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, keepTab, groupItems, itemView, openResult, errorNote, fillResult, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, itemFolderId, memoTitle, memoIndex} from './news-clipping-model.mjs';
+import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
+import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, keepTab, groupItems, itemView, openResult, plainText, errorNote, fillResult, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, itemFolderId, memoTitle, memoIndex} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1(설계 docs/design/news-clipping.md, 명진 11/01 22:34): '뉴스 클리핑'(지금은 Now [뉴스] 탭, #nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
-// - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩(꼬리표 '채널'/'자동'). 칩 [전체·채널·자동], 폰은 좌우로 밀어 칩 이동.
+// - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩(출처 구분 칩·꼬리표 없음). 칩 [전체·별표], 폰은 좌우로 밀어 칩 이동.
 // - 줄: '꼬리표 · 매체 · 시각' / 제목 / 한 문장 요약(늘 보임) / 본문 접기(<details>, 펼칠 때 서버 줄에서 읽고 없으면 [본문 열기]=news-feed open)
 //   / 외국어 제목은 서버가 미리 번역한 한국어 제목 + 원제 작게. 본문은 [번역](news-feed translate, 본문 번역 저장본이 있으면 다시 부르지 않고
 //   [원문 보기]와 오감) / [원문](새 창). 유료 기사는 공개 요약만 + 원문.
-// - ⋯: [지금 채우기](news-feed fill_now) · [키워드 고치기](app_news_keywords) · [매체 켜고 끄기](app_outside_sources의 news- 키).
+// - ⋯: [지금 채우기](news-feed fill_now) · [키워드 고치기](app_news_keywords) · [매체 고르기](app_outside_sources의 news- 키).
 //   키워드·매체 칸은 같은 화면 안 한 칸이고 뒤로가기 한 번 = 목록(KPTURouter.layer).
 // - 저장은 모두 서버(작업공간 소유자 RLS · Edge는 사용자 로그인 확인). 기기 저장 없음. 하루 횟수는 서버 상수가 정하고 catalog limits로 받는다.
 // C2(같은 화면): 줄마다 ☆(별표, app_news_items.starred_at) → 폴더 고르기(노트·자료실과 같은 폴더 고르기 창 library-move-picker.js,
@@ -110,7 +111,7 @@ function bodyHtml(it, v) {
   if (!b || b.loading) return waitHtml({rows: 3});
   if (b.failed) return failHtml({retry: 'data-nc-body-retry'});
   const ko = v.showingKo && b.body_ko;
-  const text = ko ? b.body_ko : b.body;
+  const text = plainText(ko ? b.body_ko : b.body);
   const note = state.notes.get(it.id) || '';
   const lead = b.body_kind === 'lead' ? '<p class="nc-faint">공개된 앞부분만</p>' : '';
   if (text) return `${lead}<p class="nc-text"${v.foreign && !ko ? ` lang="${esc(it.lang)}"` : ''}>${esc(text)}</p>`;
@@ -119,7 +120,7 @@ function bodyHtml(it, v) {
 
 function itemHtml(it) {
   const v = itemView(it, {showKo: state.ko.has(it.id)});
-  const meta = `<p class="nc-meta"><span class="nc-tag" data-tag="${it.lane === 'channel' ? 'channel' : 'auto'}">${esc(v.tag)}</span>${v.publisher ? `<span class="nc-src">${esc(v.publisher)}</span>` : ''}${v.time ? `<span class="nc-time">${esc(v.time)}</span>` : ''}${v.keywords.map(k => `<span class="nc-kw">${esc(k)}</span>`).join('')}</p>`;
+  const meta = `<p class="nc-meta">${v.publisher ? `<span class="nc-src">${esc(v.publisher)}</span>` : ''}${v.time ? `<span class="nc-time">${esc(v.time)}</span>` : ''}${v.keywords.map(k => `<span class="nc-kw">${esc(k)}</span>`).join('')}</p>`;
   const sum = v.summary ? `<p class="nc-sum">${esc(v.summary)}</p>` : '';
   const note = v.note ? `<p class="nc-note" data-state="${esc(it.state)}">${esc(v.note)}</p>` : '';
   const open = v.canOpen && state.open.has(it.id);
@@ -136,7 +137,7 @@ function itemHtml(it) {
   // 확정 관심 주제에 걸린 기사만 작은 표시(Now 12.2, 시간순 그대로). 줄 전체 = 제목 단추(공용 상세 열기).
   const hit = interestHit([v.title, v.origTitle, v.summary], now()?.topics?.() || []);
   const open_ = now()?.selected?.() === `news:${it.id}`;
-  return `<article class="nc-item now-row${it.id === state.focus ? ' is-focus' : ''}${open_ ? ' is-open' : ''}" data-nc-item="${esc(it.id)}"><div class="nc-head">${meta}${star}</div><h4 class="nc-title"${v.titleLang ? ` lang="${esc(v.titleLang)}"` : ''}><button type="button" class="now-open" data-nc-open="${esc(it.id)}">${esc(v.title)}</button></h4>${v.origTitle ? `<p class="nc-orig" lang="${esc(it.lang)}">${esc(v.origTitle)}</p>` : ''}${sum}${note}${memoHtml(it, memo)}<div class="nc-foot">${fold}${tr}${folder}${memoBtn}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}${actNote}</div></article>`;
+  return `<article class="nc-item now-row${it.id === state.focus ? ' is-focus' : ''}${open_ ? ' is-open' : ''}" data-nc-item="${esc(it.id)}"><div class="nc-head">${meta}${star}</div><h4 class="nc-title"${v.titleLang ? ` lang="${esc(v.titleLang)}"` : ''}><button type="button" class="now-open" data-nc-open="${esc(it.id)}">${esc(v.title)}</button></h4>${v.origTitle ? `<p class="nc-orig" lang="${esc(it.lang)}">${esc(v.origTitle)}</p>` : ''}${sum}${note}${memoHtml(it, memo)}<div class="nc-foot">${fold}${tr}${folder}${memoBtn}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}${actNote}</div>${hoverActsHtml({isSaved: starred})}</article>`;
 }
 // 내 메모(= 노트). 고치는 중이면 글 칸 + [취소][저장]. 새 서식(doc)으로 고친 메모는 여기서 글자만 보이고 노트에서 고친다.
 function memoHtml(it, memo) {
@@ -191,7 +192,7 @@ function keywordsHtml() {
 
 function sourcesHtml() {
   const on = [...state.sources.values()].filter(r => r.enabled === true).length;
-  const head = panelHead('매체 켜고 끄기', state.catalog && state.sourcesLoaded ? `켬 ${on}` : '');
+  const head = panelHead('매체 고르기', state.catalog && state.sourcesLoaded ? `켬 ${on}` : '');
   if (!state.catalog || !state.sourcesLoaded) return head + (state.catalogFailed || state.sourcesFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 6}));
   const groups = REGIONS.map(g => {
     const members = state.catalog.filter(s => s.region === g.key);
@@ -223,7 +224,7 @@ function paint() {
   const list = $('[data-nc-list]'), panel = $('[data-nc-panel]');
   if (state.mode === 'keywords') { panel.innerHTML = keywordsHtml(); list.replaceChildren(); }
   else if (state.mode === 'sources') { panel.innerHTML = sourcesHtml(); list.replaceChildren(); }
-  else { list.innerHTML = listHtml(); panel.replaceChildren(); }
+  else { list.innerHTML = listHtml(); panel.replaceChildren(); now()?.listed?.(); }
 }
 // 기사 한 줄만 다시 그린다(다른 줄의 펼침·스크롤은 그대로).
 function paintItem(id) {
@@ -492,6 +493,17 @@ async function toggleStar(id, trigger) {
   if (on && it.starred_at) { await ensureFolders(); if (scope === state.scope) pickFolder(id, root?.querySelector(`[data-nc-star="${CSS.escape(id)}"]`) || trigger); }
   else root?.querySelector(`[data-nc-star="${CSS.escape(id)}"]`)?.focus({preventScroll: true});
 }
+// 글 줄 밀기·마우스 단추(NOW-줄밀기): 왼쪽 = 숨기기(hidden_at), 오른쪽 = 보관(= 별표, 다시 밀면 풀기). 사회운동·[보관] 탭과 같은 부품(now-row-acts.js).
+bindNowRows(root?.querySelector('[data-nc-list]'), {row: '[data-nc-item]', itemOf: el => (el.dataset.ncItem ? {type: 'news', id: el.dataset.ncItem} : null),
+  enabled: () => state.mode === 'list',
+  isSaved: item => !!state.items.find(x => x.id === item.id)?.starred_at,
+  changed: (item, kind, on) => {
+    const it = state.items.find(x => x.id === item.id);
+    if (kind === 'hide') { if (on) state.items = state.items.filter(x => x.id !== item.id); else load().catch(() => {}); }
+    else if (it) { it.starred_at = on ? new Date().toISOString() : null; if (!on) it.folder_id = null; if (state.tab === STAR && !on) state.items = state.items.filter(x => x.id !== item.id); }
+    else load().catch(() => {});
+    paint();
+  }});
 async function putInFolder(id, folderId) {
   const w = workspaceOf(), it = state.items.find(x => x.id === id), scope = state.scope;
   if (!w || !it || !it.starred_at) return;
@@ -580,7 +592,7 @@ function openMemoNote(noteId) {
 
 // ---------- 누르기·밀기 ----------
 const menu = createAnchoredMenu({id: 'ncMenu', className: 'topline-add-menu nc-menu', label: '뉴스 메뉴', historyKey: 'kptuNewsMenu', key: () => 'head',
-  render: () => `<button type="button" data-nc-act="fill"${state.filling ? ' disabled' : ''}>지금 채우기 <span class="nc-faint">하루 ${state.limits.fill}번</span></button><button type="button" data-nc-act="keywords">키워드 고치기</button><button type="button" data-nc-act="sources">매체 켜고 끄기</button><button type="button" data-nc-act="interests">관심 주제</button>`,
+  render: () => `<button type="button" data-nc-act="fill"${state.filling ? ' disabled' : ''}>지금 채우기 <span class="nc-faint">하루 ${state.limits.fill}번</span></button><button type="button" data-nc-act="keywords">키워드 고치기</button><button type="button" data-nc-act="sources">매체 고르기</button><button type="button" data-nc-act="interests">관심 주제</button>`,
   onAction: button => { const a = button.dataset.ncAct; if (a === 'fill') fillNow(); else if (a === 'keywords' || a === 'sources') openPanel(a); else if (a === 'interests') now()?.openInterests?.(); }});
 
 function setTab(tab) {

@@ -11,8 +11,8 @@ const edgeCalls = (server, action) => server.calls.filter(c => c.what === 'edge'
 
 async function intoDocs(page, width) {
   await openFiles(page, width);
-  if (width >= 761) await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
-  else await root(page).locator('[data-fx-tab="folders"]').click();
+  if (width < 761) await root(page).locator('[data-fx-tab="folders"]').click(); // S49-21: 폰 [폴더] 탭 첫 화면은 나무
+  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
   await row(page, 'od:OD!1').click();
   await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
 }
@@ -43,10 +43,11 @@ test('PC 1440: 이름 바꾸기(확장자 그대로)·새 폴더·여러 개 골
   await ask(page).getByRole('button', { name: '만들기' }).click();
   await expect(row(page, 'od:OD!90')).toBeVisible();
   expect(edgeCalls(server, 'mkdir')[0].body).toEqual({ action: 'mkdir', source: 'od', parent: 'OD!1', name: '가짜 새 폴더', confirm: true });
-  // Ctrl 누르고 두 개 고르기 → 막대 '2개 골라짐' → Esc로 풀기 → 다시 골라 휴지통.
+  // Ctrl 누르고 두 개 고르기 → 막대 '2개 · [복사][옮기기]…'(시안 ③) → Esc로 풀기 → 다시 골라 휴지통.
   await row(page, 'od:OD!11').click({ modifiers: ['Control'] });
   await row(page, 'od:OD!12').click({ modifiers: ['Control'] });
-  await expect(bar(page)).toContainText('2개 골라짐');
+  await expect(bar(page).locator('.fx-bar-t')).toHaveText('2개');
+  await expect(bar(page).locator('button')).toHaveText(['복사', '옮기기', '☆ 별표', '휴지통', '✕']);
   await page.keyboard.press('Escape');
   await expect(bar(page)).toBeHidden();
   await row(page, 'od:OD!11').click({ modifiers: ['Control'] });
@@ -65,7 +66,7 @@ test('PC 1440: 이름 바꾸기(확장자 그대로)·새 폴더·여러 개 골
   expect(errors).toEqual([]);
 });
 
-test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드로는 확인 뒤 1개', async ({ page }) => {
+test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드로는 확인 한 번 뒤 차례로', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 1440);
   await intoDocs(page, 1440);
@@ -85,9 +86,9 @@ test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드
   await row(page, 'od:OD!14').dragTo(tree.locator('[data-fx-drop="od:"]'));
   await expect.poll(() => names(page)).toEqual(['가짜 메모.txt']);
   expect(edgeCalls(server, 'move')[1].body).toMatchObject({ source: 'od', ids: ['OD!14'], to: null });
-  // 다른 클라우드: 원드라이브 파일을 잘라 구글 드라이브 폴더에 붙이기 → 확인 창 → across.
+  // 다른 클라우드: 원드라이브 파일을 잘라(Ctrl+X) 구글 드라이브 폴더에 붙이기 → 확인 창 → 서버 작업표(job_add kind move, S49-28).
   await row(page, 'od:OD!13').click({ modifiers: ['Control'] });
-  await bar(page).locator('[data-fx-cut]').click();
+  await page.keyboard.press('Control+x');
   await tree.locator('[data-fx-go="gd"][data-fx-id=""]').click();
   await row(page, 'gd:gdFolder1').click();
   await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 업무 공간');
@@ -95,16 +96,20 @@ test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드
   await expect(ask(page)).toContainText('구글 드라이브로 옮길까요?');
   await expect(ask(page).locator('.kptu-ask-note')).toContainText('원본은 원드라이브 휴지통으로');
   await ask(page).getByRole('button', { name: '옮기기' }).click();
-  await expect(row(page, 'gd:gdNew91')).toBeVisible();
-  expect(edgeCalls(server, 'across')[0].body).toEqual({ action: 'across', source: 'od', id: 'OD!13', to_source: 'gd', to: 'gdFolder1', confirm: true });
-  // 다른 클라우드로 여러 개는 보내기 전에 막는다(F8).
+  await expect(row(page, 'gd:gdJob01')).toBeVisible({ timeout: 15000 });
+  expect(edgeCalls(server, 'job_add')[0].body).toEqual({ action: 'job_add', confirm: true, kind: 'move', to_source: 'gd', to: 'gdFolder1', items: [{ source: 'od', id: 'OD!13' }] });
+  expect(edgeCalls(server, 'across')).toHaveLength(0);
+  // 다른 클라우드로 여러 개도 확인 한 번 → 한 번에 작업표로, 서버가 차례로.
   await row(page, 'gd:gdDoc1').click({ modifiers: ['Control'] });
-  await row(page, 'gd:gdNew91').click({ modifiers: ['Control'] });
-  await bar(page).locator('[data-fx-cut]').click();
+  await row(page, 'gd:gdJob01').click({ modifiers: ['Control'] });
+  await page.keyboard.press('Control+x');
   await tree.locator('[data-fx-go="od"][data-fx-id=""]').click();
   await bar(page).locator('[data-fx-paste]').click();
-  await expect(page.locator('body')).toContainText('다른 클라우드로는 한 번에 1개만 옮깁니다');
-  expect(edgeCalls(server, 'across')).toHaveLength(1);
+  await expect(ask(page)).toContainText('2개를 원드라이브로 옮길까요?');
+  await ask(page).getByRole('button', { name: '옮기기' }).click();
+  await expect.poll(() => edgeCalls(server, 'job_add').length).toBe(2);
+  expect(edgeCalls(server, 'job_add')[1].body.items.map(i => i.id)).toEqual(['gdDoc1', 'gdJob01']);
+  await expect(page.locator('body')).toContainText('2개 보냄', { timeout: 15000 });
   expect(errors).toEqual([]);
 });
 
@@ -113,10 +118,10 @@ test('폰 412: 꾹 눌러 고르기 → 막대에서 휴지통, 미리보기에�
   const { errors, server } = await start(page, 412);
   await intoDocs(page, 412);
   await row(page, 'od:OD!11').dispatchEvent('contextmenu');
-  await expect(bar(page)).toContainText('1개 골라짐');
+  await expect(bar(page).locator('.fx-bar-t')).toHaveText('1개');
   // 고르는 중에는 누르면 고르기(미리보기 아님).
   await row(page, 'od:OD!12').click();
-  await expect(bar(page)).toContainText('2개 골라짐');
+  await expect(bar(page).locator('.fx-bar-t')).toHaveText('2개');
   await expect(root(page).locator('[data-fx-prev]')).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await bar(page).locator('[data-fx-trash]').click();

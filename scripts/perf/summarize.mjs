@@ -69,6 +69,10 @@ export function render({ load, shell, switch: sw }) {
   table('로그인 뒤 화면 새로 열기', ['조건', '화면', '회차', '보임(ms)', '보이기 전 JS 파일', '보이기 전 JS KB', '시작 단계 수', '쉬는 틈까지 JS 파일', '쉬는 틈까지 JS KB'],
     group(load, r => [r.profile, r.view].join('\u0000'), ['ready', 'jsBeforeReady', 'jsKBBeforeReady', 'jsStages', 'jsTotal', 'jsKBTotal']),
     [['ready'], ['jsBeforeReady'], ['jsKBBeforeReady'], ['jsStages'], ['jsTotal'], ['jsKBTotal']]);
+  // 자료 요청 수(S48-59 요청 합치기). 옛 기록 줄에는 칸이 없어 표가 빠진다.
+  table('로그인 뒤 화면 새로 열기 — 자료 요청 수', ['조건', '화면', '회차', '보이기 전 자료 요청', '보이기 전 겹친 요청', '쉬는 틈까지 자료 요청', '쉬는 틈까지 겹친 요청'],
+    group(load.filter(r => Number.isFinite(r.dataTotal)), r => [r.profile, r.view].join('\u0000'), ['dataBeforeReady', 'dataDupBeforeReady', 'dataTotal', 'dataDupTotal']),
+    [['dataBeforeReady'], ['dataDupBeforeReady'], ['dataTotal'], ['dataDupTotal']]);
   table('메뉴 눌러 화면 바꾸기', ['조건', '단계·화면', '회차', '바뀜(ms)', '기다림 끝(ms)', '보일 때까지 새 JS 파일', '다음 클릭 전까지 새 JS 파일', '다음 클릭 전까지 새 JS KB'],
     group(sw, r => [r.profile, `${r.step} ${r.view}`].join('\u0000'), ['shownMs', 'settledMs', 'newJsFiles', 'newJsFilesIdle', 'newJsKBIdle']),
     // 보이는 순간의 KB는 받는 중인 파일이 반쯤 잡혀 흔들린다 → 크기는 다음 클릭 전(받기 끝난 뒤) 값만 쓴다.

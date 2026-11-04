@@ -21,7 +21,8 @@ test('real meeting-transcribe graph checks/bundles with functions-only sources',
    assert.ok(path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path),'import outside deployment artifact');
    local.push(relative(functions,file).split(sep).join('/'));
   }
-  assert.deepEqual(local.sort(),['_shared/ai-prices.mjs','_shared/drive-trash.ts','_shared/safe-error.ts','_shared/web-cors.ts','meeting-transcribe/index.ts','meeting-transcribe/model.mjs','meeting-transcribe/ogg.mjs','meeting-transcribe/recording.mjs']);
+  // S49-2 서버 정리: 요약 지시문(_shared/meeting-draft-prompt.mjs)·답 읽기(meeting-ai-draft/parse.mjs)·폰 알림(_shared/fcm-send.ts)을 같이 쓴다.
+  assert.deepEqual(local.sort(),['_shared/ai-model.ts','_shared/ai-prices.mjs','_shared/bounded-json.mjs','_shared/drive-trash.ts','_shared/fcm-send.ts','_shared/meeting-draft-prompt.mjs','_shared/openai-responses.ts','_shared/safe-error.ts','_shared/web-cors.ts','meeting-ai-draft/parse.mjs','meeting-transcribe/index.ts','meeting-transcribe/model.mjs','meeting-transcribe/ogg.mjs','meeting-transcribe/recording.mjs','meeting-transcribe/server-job.mjs']);
   run(['check','--no-config',entry]);const bundle=join(isolated,'meeting-transcribe.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}
 });

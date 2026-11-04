@@ -79,3 +79,26 @@ test('sendDevInbox·devInboxNotice: 저장 성공 뒤 한 건만, 결과별 알�
   assert.equal(await devInboxNotice({...yes, answer:'no', done:'뺐어요.'}, rt({ok:true, result:'sent'})), '뺐어요.');
   assert.equal(calls.length, before, "'no' 답은 부르지 않는다");
 });
+
+// WEEKLY-개발후보CC 2단계(S48-57): '만듦 #PR' 번호 읽기 — 화면은 {week_start}만 보내고 번호는 쓰지 않는다.
+test('madePendingWeeks·askDevMade: 보냈고 번호 없는 만들기 제안이 있는 주만(최근 4주), 실패·배포 전은 0', async () => {
+  const {madePendingWeeks, askDevMade} = await import('../app/weekly-learn-panel.js');
+  const row = (week_start, suggestions) => ({week_start, feedback:{review:{suggestions}}});
+  const rows = [
+    row('2026-10-05', [{id:'s1', answer:'yes', sent:'2026-10-05T00:00:00Z'}]),
+    row('2026-10-12', [{id:'s1', answer:'yes', sent:'2026-10-12T00:00:00Z', made:1790}]),
+    row('2026-10-19', [{id:'s1', answer:'yes'}, {id:'s2', answer:'no', sent:'2026-10-19T00:00:00Z'}]),
+    row('2026-10-26', [{id:'s2', answer:'yes', sent:'2026-10-26T00:00:00Z'}]),
+    row('2026-11-02', [{id:'s3', answer:'yes', sent:'2026-11-02T00:00:00Z', made:0}]),
+    {week_start:'2026-09-28', feedback:null},
+  ];
+  assert.deepEqual(madePendingWeeks(rows), ['2026-11-02', '2026-10-26', '2026-10-05']);
+  assert.deepEqual(madePendingWeeks(rows, 1), ['2026-11-02']);
+  const calls = [];
+  const rt = reply => ({api: async (path, opts) => { calls.push({path, opts}); if (reply instanceof Error) throw reply; return reply; }});
+  assert.equal(await askDevMade('2026-11-02', rt({ok:true, result:'ok', updated:2})), 2);
+  assert.deepEqual(calls[0], {path:'/functions/v1/document-actions', opts:{method:'POST', body:{action:'dev-made', week_start:'2026-11-02'}, refreshSession:false, singleFlight:false}});
+  assert.equal(await askDevMade('2026-11-02', rt({ok:true, result:'not_ready', updated:0})), 0);
+  assert.equal(await askDevMade('2026-11-02', rt({ok:true, updated:'3'})), 0);
+  for (const s of [403, 404, 503]) assert.equal(await askDevMade('2026-11-02', rt(Object.assign(new Error('x'), {status:s}))), 0);
+});

@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>파일 한곳 모아 보기 시안</title>
+<style>
+/* 색·글꼴: app/base-ui.css·theme-tokens.css 토큰 그대로 */
+:root{
+  --kptu-bg:#f5f6f7;--kptu-surface:#fff;--kptu-surface-subtle:#fafbfc;--kptu-ink:#1f2933;--kptu-muted:#66727f;--kptu-faint:#8a949e;
+  --kptu-border:#dfe4e8;--kptu-border-strong:#cfd6dc;--kptu-primary:#263f5f;--kptu-primary-soft:#eef2f6;--kptu-link:#355f86;
+  --kptu-success:#2f6b4f;--kptu-success-soft:#eef6f1;--kptu-warning:#8a6218;--kptu-warning-soft:#faf4e7;--kptu-danger:#9a4048;--kptu-danger-soft:#faeeee;
+  --kptu-info:#496b8c;--kptu-info-soft:#eef4f8;--kptu-radius-sm:6px;--kptu-radius-md:8px;--kptu-shadow-float:0 8px 24px rgba(20,33,48,.08);
+  --ds-text-row:13px;--ds-text-meta:12px;--ds-text-title:18px;--ds-compact-height:32px;--ds-compact-height-sm:28px;
+  --c-od:#2f6fb0;--c-gd:#2f8a57;--c-ph:#8a6218;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#e9ecef;color:var(--kptu-ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;font-size:13px}
+.page-head{padding:16px 20px 4px}
+.page-head h1{font-size:18px;margin:0 0 4px}
+.page-head p{margin:0;color:var(--kptu-muted);font-size:12px}
+.row-frames{display:flex;gap:20px;padding:16px 20px;align-items:flex-start;flex-wrap:wrap}
+.fr{flex:none}
+.fr-cap{font-size:12px;color:var(--kptu-muted);margin:0 0 6px}
+.fr-cap b{color:var(--kptu-ink)}
+.dev{background:var(--kptu-bg);border:1px solid var(--kptu-border-strong);border-radius:14px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.phone{width:412px;height:860px}
+.fold{width:884px;height:860px}
+.pc{width:1440px;height:820px;border-radius:8px}
+/* 앱 머리줄·하단바 */
+.ah{height:44px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border);font-weight:600;font-size:15px}
+.ah .sp{flex:1}
+.bb{height:52px;display:flex;border-top:1px solid var(--kptu-border);background:var(--kptu-surface);flex:none}
+.bb span{flex:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--kptu-muted)}
+.bb span.on{color:var(--kptu-primary);font-weight:600}
+/* 위 줄 */
+.top{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border)}
+.crumb{display:flex;align-items:center;gap:4px;min-width:0;flex:1;font-size:13px;white-space:nowrap;overflow:hidden}
+.crumb .st{color:var(--kptu-link)}
+.crumb .sep{color:var(--kptu-faint)}
+.search{flex:1;height:30px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);padding:0 8px;font:inherit;font-size:13px;background:var(--kptu-surface-subtle);color:var(--kptu-faint);display:flex;align-items:center}
+.srcs{display:flex;gap:2px;flex:none}
+.src{width:30px;height:28px;border:1px solid transparent;border-radius:var(--kptu-radius-sm);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.src[aria-pressed=true]{background:var(--kptu-primary-soft);border-color:var(--kptu-border-strong)}
+.src[aria-pressed=false] .ic{opacity:.35;filter:grayscale(1)}
+.ic{display:inline-flex;width:16px;height:16px;border-radius:4px;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex:none}
+.ic.od{background:var(--c-od)}.ic.gd{background:var(--c-gd)}.ic.ph{background:var(--c-ph)}
+.mini{height:28px;padding:0 8px;border:0;background:transparent;color:var(--kptu-link);font:inherit;font-size:12px;cursor:pointer;border-radius:var(--kptu-radius-sm);white-space:nowrap}
+.mini.line{border:1px solid var(--kptu-border)}
+.mini.on{background:var(--kptu-primary-soft);color:var(--kptu-primary);font-weight:600}
+.tabs{display:flex;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border)}
+.tabs span{flex:1;text-align:center;padding:8px 0;font-size:13px;color:var(--kptu-muted);border-bottom:2px solid transparent}
+.tabs span.on{color:var(--kptu-primary);border-color:var(--kptu-primary);font-weight:600}
+.chips{display:flex;gap:6px;padding:6px 10px;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border);overflow:hidden}
+.chip{height:26px;padding:0 10px;border:1px solid var(--kptu-border);border-radius:999px;font-size:12px;display:flex;align-items:center;color:var(--kptu-muted);background:transparent;white-space:nowrap}
+.chip.on{background:var(--kptu-primary-soft);border-color:var(--kptu-border-strong);color:var(--kptu-primary)}
+.sync{font-size:11px;color:var(--kptu-faint);white-space:nowrap}
+/* 목록 */
+.body{flex:1;overflow:hidden;position:relative;background:var(--kptu-surface)}
+.day{padding:8px 12px 2px;font-size:11px;color:var(--kptu-faint);background:var(--kptu-surface-subtle)}
+.r{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-bottom:1px solid #eef1f3;cursor:default}
+.pc .r,.fold .r{height:30px}
+.r .k{width:18px;height:18px;border-radius:3px;font-size:9px;display:flex;align-items:center;justify-content:center;flex:none;color:#fff;font-weight:700}
+.k.pdf{background:#b5545c}.k.hwp{background:#4f7ab0}.k.doc{background:#3d6aa8}.k.xls{background:#3f8a5c}.k.img{background:#8b6db3}.k.dir{background:#c9a24a}.k.txt{background:#7d8791}.k.vid{background:#5d6f80}
+.r .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--ds-text-row)}
+.r .nm small{display:block;font-size:11px;color:var(--kptu-faint);overflow:hidden;text-overflow:ellipsis}
+.r .mt{font-size:var(--ds-text-meta);color:var(--kptu-muted);white-space:nowrap;flex:none}
+.r .dot{width:6px;height:6px;border-radius:50%;flex:none}
+.dot.od{background:var(--c-od)}.dot.gd{background:var(--c-gd)}.dot.ph{background:var(--c-ph)}
+.r.pick{background:var(--kptu-info-soft)}
+.r .cb{width:16px;height:16px;border:1px solid var(--kptu-border-strong);border-radius:3px;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff}
+.r.pick .cb{background:var(--kptu-primary);border-color:var(--kptu-primary)}
+.r.fold-row .nm{color:var(--kptu-ink)}
+.r.hide{display:none}
+.hd{display:flex;gap:8px;height:26px;align-items:center;padding:0 12px;font-size:11px;color:var(--kptu-faint);border-bottom:1px solid var(--kptu-border);background:var(--kptu-surface-subtle)}
+.hd .nm{flex:1}
+/* 나무 */
+.tree{font-size:13px}
+.t{display:flex;align-items:center;gap:6px;height:32px;padding-right:10px;cursor:pointer;white-space:nowrap}
+.pc .t,.fold .t{height:26px}
+.t .tw{width:16px;text-align:center;color:var(--kptu-faint);font-size:10px;flex:none}
+.t .nm{flex:1;overflow:hidden;text-overflow:ellipsis}
+.t .ct{font-size:11px;color:var(--kptu-faint)}
+.t.root{font-weight:600}
+.t.cur{background:var(--kptu-primary-soft);color:var(--kptu-primary)}
+.t.add{color:var(--kptu-link);font-size:12px}
+.t.shelf{color:var(--kptu-ink)}
+.tsep{height:1px;background:var(--kptu-border);margin:4px 10px}
+.kids{display:block}.kids.closed{display:none}
+/* 고른 것 막대 */
+.selbar{display:flex;align-items:center;gap:2px;padding:6px 6px 6px 12px;background:var(--kptu-primary-soft);border-bottom:1px solid var(--kptu-border-strong)}
+.selbar b{font-size:13px;margin-right:auto;color:var(--kptu-primary)}
+.selbar .mini{color:var(--kptu-primary)}
+/* 아래 창(하단바 위) */
+.dim{position:absolute;left:0;right:0;top:0;bottom:52px;background:rgba(20,33,48,.28)}
+.sheet{position:absolute;left:0;right:0;bottom:52px;background:var(--kptu-surface);border-radius:12px 12px 0 0;box-shadow:var(--kptu-shadow-float);display:flex;flex-direction:column}
+.sh-h{display:flex;align-items:center;gap:6px;padding:10px 12px 6px;font-size:14px;font-weight:600}
+.sh-h .sp{flex:1}
+.sh-sub{padding:0 12px 6px;font-size:12px;color:var(--kptu-muted)}
+.sh-f{display:flex;gap:6px;justify-content:flex-end;padding:8px 12px;border-top:1px solid var(--kptu-border)}
+.btn{height:32px;padding:0 12px;border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface);font:inherit;font-size:13px;color:var(--kptu-ink)}
+.btn.pri{background:var(--kptu-primary);border-color:var(--kptu-primary);color:#fff}
+.recentdst{display:flex;gap:6px;padding:0 12px 8px;flex-wrap:wrap}
+/* 전송 줄 */
+.xfer{height:30px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--kptu-surface);border-top:1px solid var(--kptu-border);font-size:12px;color:var(--kptu-muted);flex:none;position:relative}
+.xfer .bar{position:absolute;left:0;top:-1px;height:2px;background:var(--kptu-primary)}
+.xfer b{color:var(--kptu-ink);font-weight:600}
+.xfer .sp{flex:1}
+.xl .r{height:44px}
+.xl .pg{height:3px;background:var(--kptu-border);border-radius:2px;margin-top:3px;overflow:hidden}
+.xl .pg i{display:block;height:100%;background:var(--kptu-primary)}
+.xl .fail .mt{color:var(--kptu-danger)}
+.ask{margin:8px 12px;border:1px solid var(--kptu-warning);background:var(--kptu-warning-soft);border-radius:var(--kptu-radius-md);padding:8px 10px;font-size:12px}
+.ask p{margin:0 0 6px;color:var(--kptu-ink)}
+.ask .opts{display:flex;gap:4px;flex-wrap:wrap}
+.ask label{font-size:12px;color:var(--kptu-muted);display:flex;gap:4px;align-items:center;margin-top:6px}
+/* 칸 */
+.cols{display:flex;flex:1;min-height:0}
+.col{display:flex;flex-direction:column;min-width:0;background:var(--kptu-surface);position:relative}
+.col+.col{border-left:1px solid var(--kptu-border)}
+.pane-top{display:flex;align-items:center;gap:6px;height:34px;padding:0 10px;border-bottom:2px solid var(--kptu-border);background:var(--kptu-surface-subtle);font-size:13px}
+.pane-top.cur{border-bottom-color:var(--kptu-primary)}
+.pane-top .crumb .st{cursor:pointer}
+.prev{width:320px;background:var(--kptu-surface);border-left:1px solid var(--kptu-border);display:flex;flex-direction:column;flex:none}
+.pv-img{margin:12px;height:300px;border:1px solid var(--kptu-border);border-radius:6px;background:repeating-linear-gradient(0deg,#fff 0 18px,#f1f3f5 18px 19px);padding:18px;font-size:11px;color:var(--kptu-faint)}
+.pv-img i{display:block;height:8px;background:#e3e7eb;margin:8px 0;border-radius:2px}
+.pv-meta{padding:0 12px;font-size:12px;color:var(--kptu-muted);line-height:1.8}
+.pv-act{display:flex;gap:2px;padding:6px 8px;border-top:1px solid var(--kptu-border);margin-top:auto}
+.drop-hint{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);border:1px dashed var(--kptu-primary);background:rgba(238,242,246,.94);color:var(--kptu-primary);padding:10px 16px;border-radius:8px;font-size:12px;white-space:nowrap}
+.dragghost{position:absolute;background:var(--kptu-surface);border:1px solid var(--kptu-border-strong);box-shadow:var(--kptu-shadow-float);padding:4px 8px;border-radius:6px;font-size:12px}
+.xpanel{position:absolute;right:12px;bottom:12px;width:340px;background:var(--kptu-surface);border:1px solid var(--kptu-border-strong);border-radius:8px;box-shadow:var(--kptu-shadow-float)}
+.note{padding:12px 20px 30px;color:var(--kptu-muted);font-size:12px;line-height:1.7;max-width:1100px}
+.note b{color:var(--kptu-ink)}
+.pcbar{height:40px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--kptu-border);background:var(--kptu-surface);font-size:13px}
+.pcbar .side{width:220px;font-weight:600}
+.mnu{display:flex;flex-direction:column;width:180px;border-right:1px solid var(--kptu-border);background:var(--kptu-surface);padding:8px 0;font-size:13px;flex:none}
+.mnu span{padding:6px 16px;color:var(--kptu-muted)}
+.mnu span.on{color:var(--kptu-primary);background:var(--kptu-primary-soft);font-weight:600}
+</style>
+</head>
+<body>
+<div class="page-head">
+  <h1>[파일] 한곳 모아 보기 — 시안 (FILES-통합기획 S49-25)</h1>
+  <p>원드라이브 <span class="ic od" style="vertical-align:-3px">O</span> · 구글 드라이브 <span class="ic gd" style="vertical-align:-3px">G</span> · 이 폰 <span class="ic ph" style="vertical-align:-3px">폰</span>. 파일 이름은 모두 가짜. 위 줄 아이콘을 누르면 켜고 끄기, 나무 ▸를 누르면 펼치기, ③의 줄을 누르면 고르기가 움직입니다.</p>
+</div>
+
+<!-- ============ 폰 412 ============ -->
+<section class="row-frames" id="phones">
+
+<div class="fr" id="p1"><p class="fr-cap"><b>① 폰 · 최근</b> — 첫 화면. 세 저장소 섞임, 줄 끝 색 점이 출처</p>
+<div class="dev phone" data-frame>
+  <div class="ah">파일<span class="sp"></span><span class="sync">맞춤 2분 전</span></div>
+  <div class="top"><div class="search">이름·글자 찾기</div>
+    <div class="srcs" role="group" aria-label="저장소">
+      <button class="src" data-src="od" aria-pressed="true" title="원드라이브"><span class="ic od">O</span></button>
+      <button class="src" data-src="gd" aria-pressed="true" title="구글 드라이브"><span class="ic gd">G</span></button>
+      <button class="src" data-src="ph" aria-pressed="true" title="이 폰"><span class="ic ph">폰</span></button>
+    </div></div>
+  <div class="tabs"><span class="on">최근</span><span>폴더</span><span>별표</span></div>
+  <div class="chips"><span class="chip on">전체</span><span class="chip">문서</span><span class="chip">PDF</span><span class="chip">한글</span><span class="chip">그림</span></div>
+  <div class="body">
+    <div class="day">오늘</div>
+    <div class="r" data-s="ph"><span class="k pdf">PDF</span><span class="nm">견적서_예시_A.pdf<small>이 폰 › 문서</small></span><span class="dot ph"></span><span class="mt">09:12 · 1.2MB</span></div>
+    <div class="r" data-s="od"><span class="k hwp">한</span><span class="nm">회의자료_샘플_3차.hwpx<small>원드라이브 › 시험 폴더 › 2026</small></span><span class="dot od"></span><span class="mt">08:40 · 220KB</span></div>
+    <div class="r" data-s="gd"><span class="k xls">X</span><span class="nm">예산표_연습.xlsx<small>구글 드라이브 › 연습 자료</small></span><span class="dot gd"></span><span class="mt">08:05 · 48KB</span></div>
+    <div class="day">어제</div>
+    <div class="r" data-s="od"><span class="k doc">W</span><span class="nm">보고서_초안_가나다.docx<small>원드라이브 › 시험 폴더</small></span><span class="dot od"></span><span class="mt">17:22 · 96KB</span></div>
+    <div class="r" data-s="ph"><span class="k img">그</span><span class="nm">화면캡처_예시_0412.png<small>이 폰 › 사진첩 › 캡처</small></span><span class="dot ph"></span><span class="mt">15:10 · 640KB</span></div>
+    <div class="r" data-s="gd"><span class="k pdf">PDF</span><span class="nm">안내문_샘플_B.pdf<small>구글 드라이브 › 연습 자료 › 받은 것</small></span><span class="dot gd"></span><span class="mt">11:03 · 3.4MB</span></div>
+    <div class="day">이번 주</div>
+    <div class="r" data-s="od"><span class="k txt">글</span><span class="nm">메모_시험용.txt<small>원드라이브 › 메모</small></span><span class="dot od"></span><span class="mt">월 · 2KB</span></div>
+    <div class="r" data-s="ph"><span class="k hwp">한</span><span class="nm">신청서_양식_예시.hwp<small>이 폰 › 받은 파일 › 메신저</small></span><span class="dot ph"></span><span class="mt">월 · 150KB</span></div>
+    <div class="r" data-s="gd"><span class="k doc">W</span><span class="nm">계획_연습본_v2.docx<small>구글 드라이브 › 연습 자료</small></span><span class="dot gd"></span><span class="mt">일 · 61KB</span></div>
+    <div class="r" data-s="od"><span class="k img">그</span><span class="nm">도면_샘플_01.jpg<small>원드라이브 › 시험 폴더 › 그림</small></span><span class="dot od"></span><span class="mt">일 · 2.1MB</span></div>
+    <div class="r" data-s="ph"><span class="k vid">동</span><span class="nm">녹화_예시_짧은것.mp4<small>이 폰 › 사진첩 › 동영상</small></span><span class="dot ph"></span><span class="mt">토 · 18MB</span></div>
+  </div>
+  <div class="bb"><span>홈</span><span>일정</span><span class="on">파일</span><span>사진</span><span>메뉴</span></div>
+</div></div>
+
+<div class="fr" id="p2"><p class="fr-cap"><b>② 폰 · 폴더</b> — 탐색기처럼 세 저장소를 맨 위 줄로</p>
+<div class="dev phone" data-frame>
+  <div class="ah">파일<span class="sp"></span><span class="sync">맞춤 2분 전</span></div>
+  <div class="top"><div class="search">이름·글자 찾기</div>
+    <div class="srcs"><button class="src" data-src="od" aria-pressed="true"><span class="ic od">O</span></button><button class="src" data-src="gd" aria-pressed="true"><span class="ic gd">G</span></button><button class="src" data-src="ph" aria-pressed="true"><span class="ic ph">폰</span></button></div></div>
+  <div class="tabs"><span>최근</span><span class="on">폴더</span><span>별표</span></div>
+  <div class="body tree" style="padding-top:4px">
+    <div data-s="od">
+      <div class="t root" data-tw><span class="tw">▾</span><span class="ic od">O</span><span class="nm">원드라이브</span><span class="ct">맞춤 2분 전</span></div>
+      <div class="kids">
+        <div class="t" style="padding-left:22px" data-tw><span class="tw">▾</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">시험 폴더</span><span class="ct">12</span></div>
+        <div class="kids">
+          <div class="t" style="padding-left:44px"><span class="tw"></span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">2026</span><span class="ct">31</span></div>
+          <div class="t cur" style="padding-left:44px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">그림</span><span class="ct">8</span></div>
+        </div>
+        <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">메모</span><span class="ct">5</span></div>
+        <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">보관</span><span class="ct"></span></div>
+      </div>
+    </div>
+    <div data-s="gd">
+      <div class="t root" data-tw><span class="tw">▾</span><span class="ic gd">G</span><span class="nm">구글 드라이브</span><span class="ct">맞춤 5분 전</span></div>
+      <div class="kids">
+        <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">연습 자료</span><span class="ct">24</span></div>
+        <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">공용 양식(예시)</span><span class="ct">9</span></div>
+      </div>
+    </div>
+    <div data-s="ph">
+      <div class="t root" data-tw><span class="tw">▾</span><span class="ic ph">폰</span><span class="nm">이 폰</span><span class="ct">허락한 폴더만</span></div>
+      <div class="kids">
+        <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k img" style="width:16px;height:14px"></span><span class="nm">사진첩</span><span class="ct"></span></div>
+        <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">문서</span><span class="ct">14</span></div>
+        <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">받은 파일 › 메신저</span><span class="ct">40</span></div>
+        <div class="t add" style="padding-left:22px"><span class="tw">＋</span><span class="nm">폴더 허락하기</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="bb"><span>홈</span><span>일정</span><span class="on">파일</span><span>사진</span><span>메뉴</span></div>
+</div></div>
+
+<div class="fr" id="p3"><p class="fr-cap"><b>③ 폰 · 고르기</b> — 꾹 눌러 시작, 위 줄이 동작 막대로</p>
+<div class="dev phone" data-frame>
+  <div class="ah">파일<span class="sp"></span></div>
+  <div class="selbar"><b data-selcount>2개</b><button class="mini">복사</button><button class="mini">옮기기</button><button class="mini">이름</button><button class="mini">휴지통</button><button class="mini">⋯</button><button class="mini" aria-label="고르기 끝">✕</button></div>
+  <div class="top" style="border-top:0"><div class="crumb"><span class="st">‹</span><span class="ic od">O</span><span class="st">원드라이브</span><span class="sep">›</span><span class="st">시험 폴더</span><span class="sep">›</span><b>그림</b></div></div>
+  <div class="body" data-pickable>
+    <div class="r"><span class="cb">✓</span><span class="k img">그</span><span class="nm">도면_샘플_01.jpg</span><span class="mt">일 · 2.1MB</span></div>
+    <div class="r pick"><span class="cb">✓</span><span class="k img">그</span><span class="nm">도면_샘플_02.jpg</span><span class="mt">일 · 1.8MB</span></div>
+    <div class="r pick"><span class="cb">✓</span><span class="k pdf">PDF</span><span class="nm">도면_묶음_예시.pdf</span><span class="mt">토 · 12MB</span></div>
+    <div class="r"><span class="cb">✓</span><span class="k img">그</span><span class="nm">현장사진_예시_a.jpg</span><span class="mt">10/30 · 3.3MB</span></div>
+    <div class="r"><span class="cb">✓</span><span class="k img">그</span><span class="nm">현장사진_예시_b.jpg</span><span class="mt">10/30 · 3.1MB</span></div>
+    <div class="r"><span class="cb">✓</span><span class="k vid">동</span><span class="nm">설명영상_샘플.mp4</span><span class="mt">10/28 · 240MB</span></div>
+    <div class="r"><span class="cb">✓</span><span class="k txt">글</span><span class="nm">설명_시험.txt</span><span class="mt">10/20 · 1KB</span></div>
+    <div class="r"><span class="cb">✓</span><span class="k img">그</span><span class="nm">스케치_예시.png</span><span class="mt">10/12 · 400KB</span></div>
+  </div>
+  <div class="bb"><span>홈</span><span>일정</span><span class="on">파일</span><span>사진</span><span>메뉴</span></div>
+</div></div>
+
+<div class="fr" id="p4"><p class="fr-cap"><b>④ 폰 · 받을 곳 고르기</b> — [복사] 뒤, 하단바 위로 열리는 창</p>
+<div class="dev phone" data-frame>
+  <div class="ah">파일<span class="sp"></span></div>
+  <div class="selbar"><b>2개</b><button class="mini">복사</button><button class="mini">옮기기</button><button class="mini">이름</button><button class="mini">휴지통</button><button class="mini">⋯</button><button class="mini">✕</button></div>
+  <div class="body">
+    <div class="r pick"><span class="cb">✓</span><span class="k img">그</span><span class="nm">도면_샘플_02.jpg</span><span class="mt">1.8MB</span></div>
+    <div class="r pick"><span class="cb">✓</span><span class="k pdf">PDF</span><span class="nm">도면_묶음_예시.pdf</span><span class="mt">12MB</span></div>
+  </div>
+  <div class="dim"></div>
+  <div class="sheet" style="height:560px">
+    <div class="sh-h">2개 복사할 곳<span class="sp"></span><button class="mini">✕</button></div>
+    <div class="sh-sub">최근 보낸 곳</div>
+    <div class="recentdst"><span class="chip"><span class="ic gd" style="width:12px;height:12px;margin-right:4px;font-size:7px">G</span>연습 자료</span><span class="chip"><span class="ic ph" style="width:12px;height:12px;margin-right:4px;font-size:7px">폰</span>문서</span><span class="chip"><span class="ic od" style="width:12px;height:12px;margin-right:4px;font-size:7px">O</span>보관</span></div>
+    <div class="tree" style="flex:1;overflow:hidden;border-top:1px solid var(--kptu-border)">
+      <div class="t root"><span class="tw">▸</span><span class="ic od">O</span><span class="nm">원드라이브</span></div>
+      <div class="t root"><span class="tw">▾</span><span class="ic gd">G</span><span class="nm">구글 드라이브</span></div>
+      <div class="t" style="padding-left:22px"><span class="tw">▾</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">연습 자료</span></div>
+      <div class="t cur" style="padding-left:44px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">받은 것</span></div>
+      <div class="t" style="padding-left:44px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">정리 전</span></div>
+      <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">공용 양식(예시)</span></div>
+      <div class="t root"><span class="tw">▸</span><span class="ic ph">폰</span><span class="nm">이 폰</span></div>
+    </div>
+    <div class="sh-f"><button class="btn">새 폴더</button><button class="btn pri">여기에 복사</button></div>
+  </div>
+  <div class="bb"><span>홈</span><span>일정</span><span class="on">파일</span><span>사진</span><span>메뉴</span></div>
+</div></div>
+
+<div class="fr" id="p5"><p class="fr-cap"><b>⑤ 폰 · 전송 목록</b> — 같은 이름은 한 번만 묻기, 실패는 줄마다 까닭</p>
+<div class="dev phone" data-frame>
+  <div class="ah">파일<span class="sp"></span></div>
+  <div class="top"><div class="crumb"><span class="st">‹</span><span class="ic gd">G</span><span class="st">구글 드라이브</span><span class="sep">›</span><span class="st">연습 자료</span><span class="sep">›</span><b>받은 것</b></div></div>
+  <div class="body">
+    <div class="r"><span class="k pdf">PDF</span><span class="nm">안내문_샘플_B.pdf</span><span class="mt">어제 · 3.4MB</span></div>
+    <div class="r"><span class="k img">그</span><span class="nm">도면_샘플_02.jpg</span><span class="mt">지금 · 1.8MB</span></div>
+  </div>
+  <div class="dim" style="bottom:82px"></div>
+  <div class="sheet xl" style="bottom:82px;height:470px">
+    <div class="sh-h">전송 · 2/5<span class="sp"></span><button class="mini">모두 멈춤</button><button class="mini">✕</button></div>
+    <div class="ask"><p><b>도면_묶음_예시.pdf</b> — 받을 곳에 같은 이름이 있어요.</p>
+      <div class="opts"><button class="btn pri">둘 다 두기</button><button class="btn">건너뛰기</button><button class="btn">바꾸기</button></div>
+      <label><input type="checkbox" checked> 남은 것도 모두 같게</label></div>
+    <div class="r"><span class="k img">그</span><span class="nm">도면_샘플_02.jpg<small>원드라이브 → 구글 드라이브 › 받은 것</small></span><span class="mt" style="color:var(--kptu-success)">끝</span></div>
+    <div class="r"><span class="k vid">동</span><span class="nm">설명영상_샘플.mp4<small>원드라이브 → 이 폰 › 문서 · 240MB</small><span class="pg"><i style="width:48%"></i></span></span><span class="mt">48%</span></div>
+    <div class="r"><span class="k hwp">한</span><span class="nm">신청서_양식_예시.hwp<small>이 폰 → 원드라이브 › 보관</small></span><span class="mt">기다림</span></div>
+    <div class="r fail"><span class="k doc">W</span><span class="nm">계획_연습본_v2.docx<small>구글 → 원드라이브 · 연결이 끊겼어요</small></span><span class="mt">실패 <button class="mini">다시</button></span></div>
+  </div>
+  <div class="xfer"><span class="bar" style="width:46%"></span><span>↗</span><b>2/5 보내는 중</b><span>· 48%</span><span class="sp"></span><span>열기 ▸</span></div>
+  <div class="bb"><span>홈</span><span>일정</span><span class="on">파일</span><span>사진</span><span>메뉴</span></div>
+</div></div>
+
+</section>
+
+<!-- ============ 폴드 884 ============ -->
+<section class="row-frames" id="fold">
+<div class="fr" id="f1"><p class="fr-cap"><b>⑥ 폴드 펼침 884 · 두 칸</b> — 왼쪽 원드라이브, 오른쪽 이 폰. 고르면 막대가 [→ 오른쪽에 복사]로. 끌어 놓아도 됨</p>
+<div class="dev fold" data-frame>
+  <div class="ah">파일<span class="sp"></span><span class="srcs"><button class="src" data-src="od" aria-pressed="true"><span class="ic od">O</span></button><button class="src" data-src="gd" aria-pressed="true"><span class="ic gd">G</span></button><button class="src" data-src="ph" aria-pressed="true"><span class="ic ph">폰</span></button></span><button class="mini on">두 칸</button><span class="sync">맞춤 2분 전</span></div>
+  <div class="selbar"><b>3개 (왼쪽)</b><button class="mini">→ 오른쪽에 복사</button><button class="mini">→ 옮기기</button><button class="mini">이름</button><button class="mini">휴지통</button><button class="mini">✕</button></div>
+  <div class="cols">
+    <div class="col" style="flex:1">
+      <div class="pane-top cur"><span class="mini line" style="height:24px;display:flex;align-items:center">▾</span><div class="crumb"><span class="ic od">O</span><span class="st">원드라이브</span><span class="sep">›</span><span class="st">시험 폴더</span><span class="sep">›</span><b>2026</b></div></div>
+      <div class="hd"><span style="width:16px"></span><span class="nm">이름</span><span>바뀐 날</span><span style="width:52px;text-align:right">크기</span></div>
+      <div class="body" data-pickable>
+        <div class="r fold-row"><span class="cb">✓</span><span class="k dir"></span><span class="nm">1분기</span><span class="mt">10/02</span><span class="mt" style="width:52px;text-align:right">7개</span></div>
+        <div class="r fold-row"><span class="cb">✓</span><span class="k dir"></span><span class="nm">2분기</span><span class="mt">10/02</span><span class="mt" style="width:52px;text-align:right">4개</span></div>
+        <div class="r pick"><span class="cb">✓</span><span class="k hwp">한</span><span class="nm">회의자료_샘플_3차.hwpx</span><span class="mt">08:40</span><span class="mt" style="width:52px;text-align:right">220KB</span></div>
+        <div class="r pick"><span class="cb">✓</span><span class="k pdf">PDF</span><span class="nm">참고자료_예시_가.pdf</span><span class="mt">어제</span><span class="mt" style="width:52px;text-align:right">2.2MB</span></div>
+        <div class="r pick"><span class="cb">✓</span><span class="k xls">X</span><span class="nm">명단_양식_시험.xlsx</span><span class="mt">월</span><span class="mt" style="width:52px;text-align:right">31KB</span></div>
+        <div class="r"><span class="cb">✓</span><span class="k doc">W</span><span class="nm">보고서_초안_가나다.docx</span><span class="mt">어제</span><span class="mt" style="width:52px;text-align:right">96KB</span></div>
+        <div class="r"><span class="cb">✓</span><span class="k txt">글</span><span class="nm">메모_시험용.txt</span><span class="mt">월</span><span class="mt" style="width:52px;text-align:right">2KB</span></div>
+        <div class="r"><span class="cb">✓</span><span class="k img">그</span><span class="nm">표지_예시.png</span><span class="mt">10/29</span><span class="mt" style="width:52px;text-align:right">330KB</span></div>
+        <div class="r"><span class="cb">✓</span><span class="k pdf">PDF</span><span class="nm">안내_연습_최종.pdf</span><span class="mt">10/27</span><span class="mt" style="width:52px;text-align:right">5.1MB</span></div>
+      </div>
+    </div>
+    <div class="col" style="flex:1">
+      <div class="pane-top"><span class="mini line" style="height:24px;display:flex;align-items:center">▾</span><div class="crumb"><span class="ic ph">폰</span><span class="st">이 폰</span><span class="sep">›</span><b>문서</b></div></div>
+      <div class="hd"><span class="nm">이름</span><span>바뀐 날</span><span style="width:52px;text-align:right">크기</span></div>
+      <div class="body">
+        <div class="r"><span class="k pdf">PDF</span><span class="nm">견적서_예시_A.pdf</span><span class="mt">09:12</span><span class="mt" style="width:52px;text-align:right">1.2MB</span></div>
+        <div class="r"><span class="k hwp">한</span><span class="nm">신청서_양식_예시.hwp</span><span class="mt">월</span><span class="mt" style="width:52px;text-align:right">150KB</span></div>
+        <div class="r"><span class="k doc">W</span><span class="nm">연습문서_하나.docx</span><span class="mt">10/25</span><span class="mt" style="width:52px;text-align:right">40KB</span></div>
+        <div class="r"><span class="k txt">글</span><span class="nm">할말_메모_예시.txt</span><span class="mt">10/20</span><span class="mt" style="width:52px;text-align:right">1KB</span></div>
+      </div>
+      <div class="drop-hint" style="top:62%">여기에 놓으면 → <b>복사</b> · 옮기기</div>
+    </div>
+  </div>
+  <div class="dragghost" style="left:560px;top:560px">3개 · 2.5MB</div>
+  <div class="xfer"><span class="bar" style="width:0"></span><span>↗</span><span>전송 없음 · 최근: 2개 보냄 (5분 전)</span><span class="sp"></span><span>전송 목록 ▸</span></div>
+  <div class="bb"><span>홈</span><span>일정</span><span class="on">파일</span><span>사진</span><span>메뉴</span></div>
+</div></div>
+</section>
+
+<!-- ============ PC 1440 ============ -->
+<section class="row-frames" id="pcs">
+<div class="fr" id="c1"><p class="fr-cap"><b>⑦ PC 1440 · 기본</b> — 나무(세 저장소) · 목록 · 미리보기. 바탕화면에서 끌어 놓으면 올리기</p>
+<div class="dev pc" data-frame>
+  <div class="pcbar"><span class="side">Web2</span><span style="color:var(--kptu-muted)">파일</span><span class="sp" style="flex:1"></span><span class="srcs"><button class="src" data-src="od" aria-pressed="true"><span class="ic od">O</span></button><button class="src" data-src="gd" aria-pressed="true"><span class="ic gd">G</span></button></span><button class="mini line">두 칸</button><span class="sync">맞춤 2분 전</span></div>
+  <div class="cols">
+    <div class="mnu"><span>홈</span><span>일정</span><span>할 일</span><span>자료실</span><span class="on">파일</span><span>사진</span><span>노트</span></div>
+    <div class="col tree" style="width:240px;flex:none;padding-top:6px">
+      <div class="t shelf"><span class="tw">◷</span><span class="nm">최근</span></div>
+      <div class="t shelf"><span class="tw">☆</span><span class="nm">별표</span></div>
+      <div class="t shelf"><span class="tw">▤</span><span class="nm">큰 파일</span></div>
+      <div class="tsep"></div>
+      <div data-s="od"><div class="t root" data-tw><span class="tw">▾</span><span class="ic od">O</span><span class="nm">원드라이브</span></div>
+        <div class="kids">
+          <div class="t" style="padding-left:22px" data-tw><span class="tw">▾</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">시험 폴더</span><span class="ct">12</span></div>
+          <div class="kids"><div class="t cur" style="padding-left:44px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">2026</span><span class="ct">31</span></div>
+          <div class="t" style="padding-left:44px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">그림</span><span class="ct">8</span></div></div>
+          <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">메모</span><span class="ct">5</span></div>
+          <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">보관</span></div>
+        </div></div>
+      <div data-s="gd"><div class="t root" data-tw><span class="tw">▾</span><span class="ic gd">G</span><span class="nm">구글 드라이브</span></div>
+        <div class="kids">
+          <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">연습 자료</span><span class="ct">24</span></div>
+          <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">공용 양식(예시)</span><span class="ct">9</span></div>
+        </div></div>
+      <div class="tsep"></div>
+      <div class="t" style="color:var(--kptu-faint);font-size:12px"><span class="tw"></span><span class="nm">이 폰은 폰 앱에서만 보여요</span></div>
+    </div>
+    <div class="col" style="flex:1;position:relative">
+      <div class="top"><div class="crumb"><span class="st">‹</span><span class="ic od">O</span><span class="st">원드라이브</span><span class="sep">›</span><span class="st">시험 폴더</span><span class="sep">›</span><b>2026</b></div><div class="search" style="max-width:260px">이름·글자 찾기 ( / )</div><button class="mini line">정렬: 이름 ▾</button><button class="mini line">새 폴더</button><button class="mini line">올리기</button></div>
+      <div class="hd"><span class="nm">이름</span><span style="width:110px">바뀐 날</span><span style="width:70px;text-align:right">크기</span><span style="width:60px">종류</span></div>
+      <div class="body">
+        <div class="r"><span class="k dir"></span><span class="nm">1분기</span><span class="mt" style="width:110px">2026-10-02</span><span class="mt" style="width:70px;text-align:right">7개</span><span class="mt" style="width:60px">폴더</span></div>
+        <div class="r"><span class="k dir"></span><span class="nm">2분기</span><span class="mt" style="width:110px">2026-10-02</span><span class="mt" style="width:70px;text-align:right">4개</span><span class="mt" style="width:60px">폴더</span></div>
+        <div class="r pick"><span class="k hwp">한</span><span class="nm">회의자료_샘플_3차.hwpx</span><span class="mt" style="width:110px">오늘 08:40</span><span class="mt" style="width:70px;text-align:right">220KB</span><span class="mt" style="width:60px">한글</span></div>
+        <div class="r"><span class="k pdf">PDF</span><span class="nm">참고자료_예시_가.pdf</span><span class="mt" style="width:110px">어제 14:02</span><span class="mt" style="width:70px;text-align:right">2.2MB</span><span class="mt" style="width:60px">PDF</span></div>
+        <div class="r"><span class="k xls">X</span><span class="nm">명단_양식_시험.xlsx</span><span class="mt" style="width:110px">11/02</span><span class="mt" style="width:70px;text-align:right">31KB</span><span class="mt" style="width:60px">엑셀</span></div>
+        <div class="r"><span class="k doc">W</span><span class="nm">보고서_초안_가나다.docx</span><span class="mt" style="width:110px">어제 17:22</span><span class="mt" style="width:70px;text-align:right">96KB</span><span class="mt" style="width:60px">워드</span></div>
+        <div class="r"><span class="k txt">글</span><span class="nm">메모_시험용.txt</span><span class="mt" style="width:110px">11/02</span><span class="mt" style="width:70px;text-align:right">2KB</span><span class="mt" style="width:60px">글</span></div>
+        <div class="r"><span class="k img">그</span><span class="nm">표지_예시.png</span><span class="mt" style="width:110px">10/29</span><span class="mt" style="width:70px;text-align:right">330KB</span><span class="mt" style="width:60px">그림</span></div>
+        <div class="r"><span class="k pdf">PDF</span><span class="nm">안내_연습_최종.pdf</span><span class="mt" style="width:110px">10/27</span><span class="mt" style="width:70px;text-align:right">5.1MB</span><span class="mt" style="width:60px">PDF</span></div>
+        <div class="r"><span class="k vid">동</span><span class="nm">설명영상_샘플.mp4</span><span class="mt" style="width:110px">10/28</span><span class="mt" style="width:70px;text-align:right">240MB</span><span class="mt" style="width:60px">동영상</span></div>
+      </div>
+      <div class="drop-hint" style="top:80%">바탕화면 파일 2개 — 여기 놓으면 <b>원드라이브 › 2026</b>에 올리기</div>
+    </div>
+    <div class="prev">
+      <div class="sh-h" style="font-size:13px">회의자료_샘플_3차.hwpx<span class="sp"></span><button class="mini">✕</button></div>
+      <div class="pv-img">미리보기(한글 보기)<i style="width:60%"></i><i></i><i style="width:85%"></i><i></i><i style="width:40%"></i><i></i><i style="width:70%"></i></div>
+      <div class="pv-meta">원드라이브 › 시험 폴더 › 2026<br>220KB · 오늘 08:40 · 한글</div>
+      <div class="pv-act"><button class="mini">열기</button><button class="mini">받기</button><button class="mini">복사</button><button class="mini">옮기기</button><button class="mini">이름</button><button class="mini">휴지통</button><button class="mini">☆</button></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="fr" id="c2"><p class="fr-cap"><b>⑧ PC 1440 · 두 칸</b> — 왼쪽 구글, 오른쪽 원드라이브. F5 반대 칸에 복사 · F6 옮기기 · Tab 칸 바꾸기. 오른쪽 아래 전송 목록</p>
+<div class="dev pc" data-frame>
+  <div class="pcbar"><span class="side">Web2</span><span style="color:var(--kptu-muted)">파일</span><span style="flex:1"></span><span class="srcs"><button class="src" data-src="od" aria-pressed="true"><span class="ic od">O</span></button><button class="src" data-src="gd" aria-pressed="true"><span class="ic gd">G</span></button></span><button class="mini on">두 칸</button><span class="sync">맞춤 1분 전</span></div>
+  <div class="selbar"><b>2개 (왼쪽)</b><button class="mini">→ 오른쪽에 복사 (F5)</button><button class="mini">→ 옮기기 (F6)</button><button class="mini">이름 (F2)</button><button class="mini">휴지통 (Del)</button><button class="mini">✕</button></div>
+  <div class="cols" style="position:relative">
+    <div class="mnu"><span>홈</span><span>일정</span><span>할 일</span><span>자료실</span><span class="on">파일</span><span>사진</span><span>노트</span></div>
+    <div class="col tree" style="width:220px;flex:none;padding-top:6px">
+      <div class="t shelf"><span class="tw">◷</span><span class="nm">최근</span></div>
+      <div class="t shelf"><span class="tw">☆</span><span class="nm">별표</span></div>
+      <div class="tsep"></div>
+      <div class="t root"><span class="tw">▸</span><span class="ic od">O</span><span class="nm">원드라이브</span></div>
+      <div class="t root"><span class="tw">▾</span><span class="ic gd">G</span><span class="nm">구글 드라이브</span></div>
+      <div class="t cur" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">연습 자료</span><span class="ct">24</span></div>
+      <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">공용 양식(예시)</span><span class="ct">9</span></div>
+    </div>
+    <div class="col" style="flex:1">
+      <div class="pane-top cur"><div class="crumb"><span class="ic gd">G</span><span class="st">구글 드라이브</span><span class="sep">›</span><b>연습 자료</b></div></div>
+      <div class="hd"><span class="nm">이름</span><span style="width:90px">바뀐 날</span><span style="width:60px;text-align:right">크기</span></div>
+      <div class="body">
+        <div class="r fold-row"><span class="k dir"></span><span class="nm">받은 것</span><span class="mt" style="width:90px">10/30</span><span class="mt" style="width:60px;text-align:right">12개</span></div>
+        <div class="r fold-row"><span class="k dir"></span><span class="nm">정리 전</span><span class="mt" style="width:90px">10/21</span><span class="mt" style="width:60px;text-align:right">6개</span></div>
+        <div class="r pick"><span class="k xls">X</span><span class="nm">예산표_연습.xlsx</span><span class="mt" style="width:90px">오늘 08:05</span><span class="mt" style="width:60px;text-align:right">48KB</span></div>
+        <div class="r pick"><span class="k doc">W</span><span class="nm">계획_연습본_v2.docx</span><span class="mt" style="width:90px">11/01</span><span class="mt" style="width:60px;text-align:right">61KB</span></div>
+        <div class="r"><span class="k pdf">PDF</span><span class="nm">안내문_샘플_B.pdf</span><span class="mt" style="width:90px">어제</span><span class="mt" style="width:60px;text-align:right">3.4MB</span></div>
+        <div class="r"><span class="k img">그</span><span class="nm">배치도_예시.png</span><span class="mt" style="width:90px">10/26</span><span class="mt" style="width:60px;text-align:right">780KB</span></div>
+        <div class="r"><span class="k hwp">한</span><span class="nm">공문_양식_연습.hwp</span><span class="mt" style="width:90px">10/20</span><span class="mt" style="width:60px;text-align:right">90KB</span></div>
+      </div>
+    </div>
+    <div class="col" style="flex:1">
+      <div class="pane-top"><div class="crumb"><span class="ic od">O</span><span class="st">원드라이브</span><span class="sep">›</span><b>보관</b></div></div>
+      <div class="hd"><span class="nm">이름</span><span style="width:90px">바뀐 날</span><span style="width:60px;text-align:right">크기</span></div>
+      <div class="body">
+        <div class="r fold-row"><span class="k dir"></span><span class="nm">2025</span><span class="mt" style="width:90px">2025-12-30</span><span class="mt" style="width:60px;text-align:right">40개</span></div>
+        <div class="r"><span class="k xls">X</span><span class="nm">예산표_연습.xlsx</span><span class="mt" style="width:90px">10/15</span><span class="mt" style="width:60px;text-align:right">44KB</span></div>
+        <div class="r"><span class="k pdf">PDF</span><span class="nm">지난자료_예시.pdf</span><span class="mt" style="width:90px">09/30</span><span class="mt" style="width:60px;text-align:right">1.1MB</span></div>
+      </div>
+    </div>
+    <div class="xpanel xl">
+      <div class="sh-h" style="font-size:13px">전송 · 1/2<span class="sp"></span><button class="mini">접기</button></div>
+      <div class="ask" style="margin-top:0"><p><b>예산표_연습.xlsx</b> — 오른쪽 칸에 같은 이름이 있어요.</p><div class="opts"><button class="btn pri">둘 다 두기</button><button class="btn">건너뛰기</button><button class="btn">바꾸기</button></div></div>
+      <div class="r"><span class="k doc">W</span><span class="nm">계획_연습본_v2.docx<small>구글 → 원드라이브 › 보관</small><span class="pg"><i style="width:70%"></i></span></span><span class="mt">70%</span></div>
+    </div>
+  </div>
+</div></div>
+</section>
+
+<div class="note">
+<b>시안에서 볼 것</b><br>
+· 저장소 아이콘(맨 위 오른쪽 작은 칸 3개)은 사진 화면과 같은 부품. 끄면 그 저장소 줄·나무가 빠지고(보기만, 연결은 그대로), 연결 안 된 것은 흐리게.<br>
+· 폴더 나무는 세 저장소가 맨 위 줄. '이 폰'은 폰 앱에서만, 명진이 허락한 폴더만 보이고 맨 끝 '＋ 폴더 허락하기'.<br>
+· 복사·옮기기: 고르기 → [복사] → (한 칸이면 받을 곳 창 / 두 칸이면 반대 칸) → 하단바 위 전송 줄 → 전송 목록에서 같은 이름·실패 처리.<br>
+· 크고 굵은 버튼·카드 없음: 동작은 막대 안 글자 버튼, 주 동작 [여기에 복사] 하나만 채운 버튼. 줄 높이 폰 40px·PC 30px.
+</div>
+
+<script>
+// 저장소 켜고 끄기: 같은 화면 안에서 그 저장소 줄·나무를 빼고 넣는다(시안용, 저장 없음).
+document.querySelectorAll('[data-frame]').forEach(frame => {
+  frame.addEventListener('click', e => {
+    const src = e.target.closest('.src');
+    if (src) {
+      const on = src.getAttribute('aria-pressed') !== 'true';
+      src.setAttribute('aria-pressed', String(on));
+      frame.querySelectorAll(`[data-s="${src.dataset.src}"]`).forEach(el => el.classList.toggle('hide', !on));
+      frame.querySelectorAll(`[data-s="${src.dataset.src}"]`).forEach(el => { el.style.display = on ? '' : 'none'; });
+      return;
+    }
+    const tw = e.target.closest('[data-tw]');
+    if (tw) {
+      const kids = tw.nextElementSibling;
+      if (kids && kids.classList.contains('kids')) {
+        const closed = kids.classList.toggle('closed');
+        tw.querySelector('.tw').textContent = closed ? '▸' : '▾';
+      }
+      return;
+    }
+    const row = e.target.closest('[data-pickable] .r');
+    if (row) {
+      row.classList.toggle('pick');
+      const n = frame.querySelectorAll('[data-pickable] .r.pick').length;
+      const c = frame.querySelector('[data-selcount]');
+      if (c) c.textContent = n + '개';
+    }
+  });
+});
+</script>
+</body>
+</html>

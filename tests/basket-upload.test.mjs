@@ -115,3 +115,27 @@ test('complete multipart phase precedes real enabled controller fresh CAS for ea
  const result=await m.uploadBatch(b,{rt:runtime,ocr,request:async()=>{calls.push('multipart');files=[...files,photo('file_'+files.length)];return {ok:true,note_id:noteId,attachments:structuredClone(files)};}});
  assert.deepEqual(calls,['multipart','multipart','ocr-capabilities','ocr-status','ocr-read','ocr-status','ocr-read']);assert.deepEqual(result.attachments.map(f=>f.ocr.text),['photo 1','photo 2']);assert.ok(b.entries.every(e=>e.kind==='success'));
 });
+
+test('UPD-사진여러장: picked files are read at once; an unreadable one leaves the list with a line; uploads reuse the copies', async () => {
+ const m = await mod;
+ const reads = []; const errors = [];
+ const bad = new File(['x'], 'bad.jpg', {type:'image/jpeg'});
+ const prev = globalThis.window;
+ globalThis.window = {KPTURuntime:{copyUploadFile:async f => { reads.push(f.name); if (f === bad) throw Object.assign(Error('read'), {code:'file_read_failed'}); return new File([await f.arrayBuffer()], f.name, {type:f.type}); }}};
+ try {
+  const classList = {add() {}, remove() {}};
+  const fakeEl = () => ({classList, addEventListener() {}, querySelector: () => fakeEl(), innerHTML: '', style: {}, dataset: {}, hidden: false, textContent: '', focus() {}});
+  const batch = m.createUploadBatch();
+  const picker = m.mountBasketPicker(fakeEl(), {id: 'x', filesHost: fakeEl(), dropTarget: fakeEl(), getBatch: () => batch, isBusy: () => false, onError: e => errors.push(e)});
+  const ok1 = new File(['aa'], 'a.jpg', {type: 'image/jpeg' }), ok2 = new File(['bb'], 'b.jpg', {type: 'image/jpeg' });
+  picker.add([ok1, bad, ok2]);
+  await new Promise(r => setTimeout(r, 20));
+  assert.deepEqual(reads.sort(), ['a.jpg', 'b.jpg', 'bad.jpg']);
+  assert.deepEqual(batch.entries.map(e => e.file.name), ['a.jpg', 'b.jpg']);
+  assert.ok(errors.some(e => e.startsWith('사진을 못 받았어요')));
+  assert.ok(batch.entries.every(e => e.copy));
+  const seen = [];
+  await m.uploadBatch(batch, {rt: {copyUploadFile: async () => assert.fail('already read')}, request: async fd => { seen.push(fd.get('file').name); return {ok: true, note_id: 'n', attachments: seen.map(n => ({drive_file_id: n}))}; }});
+  assert.deepEqual(seen, ['a.jpg', 'b.jpg']);
+ } finally { globalThis.window = prev; }
+});

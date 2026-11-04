@@ -48,7 +48,6 @@
 .rb-menu button{display:block;width:100%;height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);padding:0 12px;text-align:left;border:0;border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text);cursor:pointer}
 .rb-menu button:hover{background:var(--kptu-surface-subtle)}
 .rb-menu button:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
-.rb-menu .rb-menu-danger{color:var(--kptu-danger)}
 @media(min-width:761px){
   /* UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): 스크롤은 화면 전체 하나. 목록은 화면과 같이 내려가고, 상세 칸은
      follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 화면에 붙여 따라오게 한다. */

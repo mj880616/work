@@ -16,7 +16,7 @@ const EDGE = 40, KEY_STEP = 10;
 export const NOTE_DRAG = 'application/x-kptu-note';
 
 // moreIcon: 노트 줄과 같은 ⋯ 그림(basket-notes.js의 것을 받아 같은 메뉴 단추 모양을 쓴다).
-export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {}, onMove = () => {}, onDrop = null}) {
+export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {}, onBackgroundMenu = null, onMove = () => {}, onDrop = null}) {
   box.innerHTML = `<div class="nb-tools" role="group" aria-label="보드 크기"><button type="button" data-nb-zoom="-1" aria-label="작게">－</button><button type="button" data-nb-zoom="1" aria-label="크게">＋</button></div><div class="nb-scroll" data-nb-scroll><div class="nb-sizer" data-nb-sizer><div class="nb-board" data-nb-board role="group" aria-label="포스트잇 보드"></div></div><p class="nb-empty" data-nb-empty hidden></p></div>`;
   const empty = box.querySelector('[data-nb-empty]'), scroll = box.querySelector('[data-nb-scroll]'), sizer = box.querySelector('[data-nb-sizer]'), board = box.querySelector('[data-nb-board]');
   let zoom = globalThis.matchMedia?.('(min-width:761px)')?.matches ? 1 : 0.8;
@@ -34,14 +34,14 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     scroll.scrollLeft = cx * zoom - scroll.clientWidth / 2; scroll.scrollTop = cy * zoom - scroll.clientHeight / 2;
     return true;
   }
-  const cardHtml = (note, p, info) => `<div class="nb-card${info.picked ? ' nb-picked' : ''}" data-nb-card="${esc(note.id)}" data-tone="${folderTone(info.folderId)}" style="left:${p.x}px;top:${p.y}px;z-index:${p.z + 1};--nb-r:${p.r}deg"><button type="button" class="nb-open" data-note-row="${esc(note.id)}"${info.pickActive ? ` aria-pressed="${!!info.picked}"` : ''} aria-roledescription="포스트잇"><b class="nb-title">${esc(info.title)}</b>${info.text ? `<span class="nb-text">${esc(info.text)}</span>` : ''}${info.folder ? `<span class="nb-folder">${esc(info.folder)}</span>` : ''}</button>${info.removable ? `<button type="button" class="nb-x" data-nb-remove="${esc(note.id)}" aria-label="${esc(info.title)} 보드에서 빼기" title="보드에서 빼기">×</button>` : ''}<button type="button" class="basket-row-more nb-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(info.title)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${moreIcon}</button></div>`;
+  const cardHtml = (note, p, info) => `<div class="nb-card${info.picked ? ' nb-picked' : ''}" data-nb-card="${esc(note.id)}" data-tone="${folderTone(info.folderId)}"${info.color ? ` data-fc="${info.color}"` : ''} style="left:${p.x}px;top:${p.y}px;z-index:${p.z + 1};--nb-r:${p.r}deg"><button type="button" class="nb-open" data-note-row="${esc(note.id)}"${info.pickActive ? ` aria-pressed="${!!info.picked}"` : ''} aria-roledescription="포스트잇"><b class="nb-title">${esc(info.title)}</b>${info.text ? `<span class="nb-text">${esc(info.text)}</span>` : ''}${info.folder ? `<span class="nb-folder">${esc(info.folder)}</span>` : ''}</button>${info.removable ? `<button type="button" class="nb-x" data-nb-remove="${esc(note.id)}" aria-label="${esc(info.title)} 보드에서 빼기" title="보드에서 빼기">×</button>` : ''}<button type="button" class="basket-row-more nb-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(info.title)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${moreIcon}</button></div>`;
   // notes: 모든 노트(자리 계산은 전체로), visible: 그릴 노트 id(찾는 중이면 맞는 것만). folderOf(note) → 폴더 id 또는 null.
-  function paint({notes, folderOf, visible = null, pickActive = false, isPicked = () => false, placeOf = undefined, removable = false, emptyText = ''}) {
+  function paint({notes, folderOf, colorOfFolder = () => null, visible = null, pickActive = false, isPicked = () => false, placeOf = undefined, removable = false, emptyText = ''}) {
     if (drag) cancelDrag();
     places = layoutBoard(notes, folderOf, placeOf); extent = boardExtent(places);
     empty.textContent = emptyText; empty.hidden = !emptyText || notes.length > 0;
     const focused = document.activeElement?.closest?.('[data-nb-card]')?.dataset.nbCard;
-    board.innerHTML = notes.filter(n => !visible || visible.has(n.id)).map(n => { const fid = folderOf(n); return cardHtml(n, places.get(n.id), {...cardText(n, fid), folderId:fid, pickActive, picked:isPicked(n.id), removable}); }).join('');
+    board.innerHTML = notes.filter(n => !visible || visible.has(n.id)).map(n => { const fid = folderOf(n); return cardHtml(n, places.get(n.id), {...cardText(n, fid), folderId:fid, color:fid ? colorOfFolder(fid) : null, pickActive, picked:isPicked(n.id), removable}); }).join('');
     paintZoom();
     if (focused) board.querySelector(`[data-nb-card="${CSS.escape(focused)}"] .nb-open`)?.focus({preventScroll:true});
   }
@@ -141,6 +141,13 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   // 막는 것은 칸 열기(.nb-open)뿐: 칸의 ×(보드에서 빼기)·⋯(메뉴)는 끈 바로 뒤에도 누를 수 있다.
   box.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nb-card] .nb-open')) { e.preventDefault(); e.stopPropagation(); } }, true);
   box.addEventListener('contextmenu', e => { if (drag?.touch || Date.now() < suppressUntil) e.preventDefault(); }, true);
+  // UI-우클릭전수(2026-11-03): PC에서 빈 보드(칸·도구 줄·글자 칸 밖)를 우클릭하면 브라우저 메뉴 대신 웹2 메뉴(onBackgroundMenu). 칸 위는 공용 context-menu.js가 칸의 ⋯를 연다.
+  box.addEventListener('contextmenu', e => {
+    if (!onBackgroundMenu || e.defaultPrevented || e.pointerType === 'touch' || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    const t = e.target instanceof Element ? e.target : null;
+    if (!t || t.closest('[data-nb-card],.nb-tools,input,textarea,select,[contenteditable],a[href]')) return;
+    e.preventDefault(); onBackgroundMenu(e.clientX, e.clientY);
+  });
   box.addEventListener('click', e => { const b = e.target.closest?.('[data-nb-zoom]'); if (b && !b.disabled) setZoom(stepZoom(zoom, Number(b.dataset.nbZoom))); });
   // 키보드: 칸에 초점을 두고 화살표로 옮긴다(Shift = 4배). 0.5초 멈추면 저장.
   box.addEventListener('keydown', e => {

@@ -1,4 +1,5 @@
 import { markRenameHost, renameButtonHtml } from './file-rename.js'; // ATT-이름고치기
+import {announceUploaded} from './upload-done.js';
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {notify,askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 알림창 대신 공용 작은 알림
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
@@ -22,6 +23,8 @@ import {mountAreaFields,paintAreaView} from './business-area-fields.js'; // MTG-
 import {mountMeetingTodos} from './meeting-todo-candidates.js'; // MTG-후속할일후보: [후속 할 일 만들기] + 후보 줄(정리함 챙길 것과 같은 부품)
 import {paintRecordText,rawToggleHtml} from './record-text-view.js'; // MTG-결과마크다운: 결과 원문·특이사항을 노트·정리함과 같은 마크다운 보기로 + [원문 보기]
 import {mountBigWrite} from './record-text-write.js'; // MTG-결과마크다운: 고치기 칸 [⤢] = 노트와 같은 쓰기 창
+import {dropZoneOf,resultBodyFor,appendResult,bindDropZones} from './meeting-drop-attach.js';
+import {isAudioFile,keepTranscript,normalizeDraft,draftText,actionRows,mergeText} from './meeting-transcript-model.mjs'; // MTG-첨부녹음전사(S49-2) // HOTFIX-회의첨부칸 ②: 끌어 놓기(놓은 자리·결과 본문 묻기)
 let mrdTodos=null,mrdUser=null,mrdWorkspace=null,mrdRole=null,mrdProjects=[],mrdCurrent=null,mrdTasks=[],mrdEditingTask=null,mrdRequestEpoch=0,mrdSavingTask=false,mrdSavingEdit=false;const mrdTaskToggleSeq=new Map();
 let mrdEditSequence=0,mrdEditor=null,mrdEditObservedScope=null;const mrdEditAttempts=new Map();
 // These tokens own only the lifetime of in-flight UI work, not deletion authority.
@@ -45,7 +48,8 @@ function mrdMeetingName(m){return String(m?.series_name||m?.title||'').trim()}
 function mrdShortNameStart(m){const r=m?.round_no;return r!=null&&r!==''&&Number.isFinite(Number(r))?'':mrdLegacyTitle(m)}
 function mrdLegacyTitle(m){const name=mrdMeetingName(m),title=String(m?.title||'').trim();return title&&name&&title!==name?title:''}
 function mrdResultText(m){if(m?.transcript_text!=null&&String(m.transcript_text).length)return String(m.transcript_text);if(String(m?.decisions||'').trim())return `[기존 회의결과 기록]\n${m.decisions}`;return ''}
-function mrdInstallModal(){if(document.querySelector('#meetingRoundDetailModal'))return;document.body.insertAdjacentHTML('beforeend',`<div id="meetingRoundDetailModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="mrdTitle"><div class="modal-card medium-card meeting-round-detail-card"><div class="modal-head"><div><h2 id="mrdTitle">사업 보고</h2><p id="mrdMeta" class="muted"></p></div><div class="mrd-head-ends"><button id="mrdMore" class="icon-btn" type="button" data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-label="사업 보고 관리"><span class="more-dots" aria-hidden="true">⋯</span></button><button class="icon-btn" id="mrdClose" type="button" aria-label="닫기">×</button></div></div><div id="mrdLoading" class="mtg-note hidden" aria-live="polite"></div><div id="mrdLeave" class="mrd-leave hidden" role="alert"><span>고친 내용을 저장할까요?</span><button id="mrdLeaveSave" class="mini" type="button">저장</button><button id="mrdLeaveDiscard" class="mini" type="button">버리기</button></div><div id="mrdView"><section id="mrdResultSection" class="mrd-result-section hidden"><div class="mrd-text-head"><h3 id="mrdTextHead">회의 결과 원문</h3>${rawToggleHtml('id="mrdResultRaw"')}</div><div id="mrdResult" class="mrd-text mrd-result-text"></div></section><div id="mrdAreaView" class="mrd-area-view" hidden></div><section id="mrdSpecialSection" class="mrd-special-section hidden"><div class="mrd-text-head"><h3>특이사항</h3>${rawToggleHtml('id="mrdSpecialRaw"')}</div><div id="mrdSpecial" class="mrd-text mrd-special-text"></div></section><section class="mrd-followup-section mtg-group" aria-labelledby="mrdTasksHead"><div class="mtg-group-head"><h3 id="mrdTasksHead">후속 할 일</h3><button id="mrdAddTask" class="mtg-add-plus" type="button" aria-label="후속 할 일 추가" aria-expanded="false" aria-controls="mrdTaskForm">+</button></div><div id="mrdTaskForm" class="mtg-task-line hidden" data-enter-save><input id="mrdTaskTitle" type="text" placeholder="후속 할 일" aria-label="후속 할 일"><span class="due-chip"><input id="mrdTaskDue" class="due-chip-input" type="date" aria-label="기한"><span class="due-chip-label" aria-hidden="true">기한 ▾</span></span><button id="mrdTaskSave" data-enter-save-submit class="mtg-line-add" type="button">추가</button><button id="mrdTaskCancel" class="mtg-line-cancel hidden" type="button">취소</button><button id="mrdMakeTodos" class="mrd-make-todos" type="button" title="이 사업 보고에서 내 후속 할 일 후보를 AI가 찾아요">AI로 후보 찾기</button><div id="mrdTaskStatus" class="status"></div></div><p id="mrdTodoLine" class="mtg-note" role="status" aria-live="polite"></p><div id="mrdTodoCand" class="inbox-todo-host mrd-todo-cand" hidden></div><div id="mrdTasks" class="gt-linked gt-list mtg-task-list"></div></section><section class="mrd-photo-section mtg-group" id="mrdPhotoSection" aria-labelledby="mrdPhotosHead"><div class="mtg-group-head"><h3 id="mrdPhotosHead">사진</h3><button id="mrdPickPhotos" class="mtg-add-plus" type="button" aria-label="사진 고르기">+</button><input id="mrdPhotoInput" type="file" accept="image/*" multiple hidden></div><div id="mrdTimePhotos" hidden></div><div id="mrdPhotos" class="act-photo-grid" hidden></div><div id="mrdPhotoStatus" class="status" role="status" aria-live="polite"></div></section><section class="mrd-material-section mtg-group" aria-labelledby="mrdMaterialsHead"><div class="mtg-group-head"><h3 id="mrdMaterialsHead">회의자료</h3><button id="mrdPickFiles" class="mtg-add-plus" type="button" aria-label="회의자료 파일 고르기">+</button></div><div id="mrdMaterials" class="mtg-file-list"></div><div id="mrdStatus" class="status"></div></section></div><div id="mrdEditor" class="hidden" data-enter-save="#mrdSaveEdit"><fieldset class="meeting-entry-section"><legend>기본정보</legend><label><span id="mrdEditTitleLabel">회의명</span><input id="mrdEditTitle" type="text"></label><div class="two-col"><label>차수<input id="mrdEditRound" type="number" min="1" placeholder="예: 8"></label><label><span>짧은 이름 <span class="optional">차수가 없을 때</span></span><input id="mrdEditShortName" type="text" maxlength="40" placeholder="예: 파생 간담회"></label></div><div class="two-col"><label>일시<input id="mrdEditAt" type="hidden" data-datetime-input="일시"></label><label id="mrdEditLocationRow" hidden><span>장소 <span class="optional">선택</span></span><input id="mrdEditLocation" type="text" maxlength="200"></label></div><label><span>연결할 곳 <span class="optional">선택</span></span><button id="mrdEditPlaces" class="secondary field-btn" type="button" aria-haspopup="dialog">연결 안 함</button></label><select id="mrdEditProject" hidden aria-hidden="true" tabindex="-1"></select><div id="mrdEditArea" hidden></div><div id="mrdEditSummaries" class="report-link-summaries" hidden></div></fieldset><fieldset class="meeting-entry-section"><legend data-rw="mrdEditLegend">회의 결과</legend><label><span><span id="mrdEditTextLabel">회의 결과 원문</span> <span class="optional">선택</span></span><textarea id="mrdEditTranscript" rows="10"></textarea></label><label>특이사항 <span class="optional">선택</span><textarea id="mrdEditNotes" rows="4"></textarea></label></fieldset><fieldset id="mrdEditAttach" class="meeting-entry-section"><legend>첨부</legend></fieldset><div id="mrdEditFoot" class="modal-action-footer"><div id="mrdEditStatus" class="status"></div><div id="mrdEditActions" class="mrd-editor-actions"><button id="mrdCancelEdit" class="secondary" type="button">취소</button><button id="mrdSaveEdit" data-enter-save-submit class="primary" type="button">수정 저장</button></div></div></div></div></div>`);bindDateTimeFields(document.querySelector('#meetingRoundDetailModal'));mrdRoundRows=createFieldRows(['mrdEditRound','mrdEditShortName']);document.querySelector('#mrdClose').onclick=mrdClose;document.querySelector('#mrdMore').onclick=e=>mrdEnsureMoreMenu().open(e.currentTarget);document.querySelector('#mrdPickFiles').onclick=()=>void mrdAddFiles([]);document.querySelector('#mrdPickPhotos').onclick=()=>document.querySelector('#mrdPhotoInput').click();document.querySelector('#mrdPhotoInput').onchange=e=>{const input=e.currentTarget,files=Array.from(input.files||[]);input.value='';void mrdAddPhotos(files)};document.querySelector('#mrdEditPlaces').onclick=e=>void mrdChoosePlaces(e.currentTarget);document.querySelector('#mrdCancelEdit').onclick=()=>mrdSetEdit(false);document.querySelector('#mrdSaveEdit').onclick=mrdSaveEdit;document.querySelector('#mrdLeaveSave').onclick=async()=>{const next=mrdLeaveNext;mrdLeaveClear();await mrdSaveEdit();if(!mrdEditor&&next)next()};document.querySelector('#mrdLeaveDiscard').onclick=()=>{const next=mrdLeaveNext;mrdLeaveClear();mrdSetEdit(false);if(next)next()};document.querySelector('#mrdAddTask').onclick=mrdToggleTaskForm;bindDue(document.querySelector('#mrdTaskDue'));bindDropTarget(document.querySelector('#meetingRoundDetailModal .meeting-round-detail-card'),files=>mrdAddFiles(files),()=>!!mrdCurrent&&!document.querySelector('#mrdView')?.classList.contains('hidden'));document.querySelector('#mrdTaskCancel').onclick=mrdResetTaskForm;document.querySelector('#mrdTaskSave').onclick=mrdSaveTask;document.querySelector('#mrdTasks').addEventListener('click',mrdTaskClick);mrdTodos=mountMeetingTodos({button:document.querySelector('#mrdMakeTodos'),host:document.querySelector('#mrdTodoCand'),line:document.querySelector('#mrdTodoLine'),meetingId:()=>mrdCurrent?.id||'',onTasksChanged:mrdRefreshTasks});mountBigWrite(document.querySelector('#mrdEditTranscript'),{title:'결과 원문 크게 쓰기'});mountBigWrite(document.querySelector('#mrdEditNotes'),{title:'특이사항 크게 쓰기'})}
+function mrdInstallModal(){if(document.querySelector('#meetingRoundDetailModal'))return;document.body.insertAdjacentHTML('beforeend',`<div id="meetingRoundDetailModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="mrdTitle"><div class="modal-card medium-card meeting-round-detail-card"><div class="modal-head"><div><h2 id="mrdTitle">사업 보고</h2><p id="mrdMeta" class="muted"></p></div><div class="mrd-head-ends"><button id="mrdMore" class="icon-btn" type="button" data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-label="사업 보고 관리"><span class="more-dots" aria-hidden="true">⋯</span></button><button class="icon-btn" id="mrdClose" type="button" aria-label="닫기">×</button></div></div><div id="mrdLoading" class="mtg-note hidden" aria-live="polite"></div><div id="mrdLeave" class="mrd-leave hidden" role="alert"><span>고친 내용을 저장할까요?</span><button id="mrdLeaveSave" class="mini" type="button">저장</button><button id="mrdLeaveDiscard" class="mini" type="button">버리기</button></div><div id="mrdView"><section id="mrdResultSection" class="mrd-result-section hidden" data-drop-zone="result"><div class="mrd-text-head"><h3 id="mrdTextHead">회의 결과 원문</h3>${rawToggleHtml('id="mrdResultRaw"')}</div><div id="mrdResult" class="mrd-text mrd-result-text"></div></section><div id="mrdAreaView" class="mrd-area-view" hidden></div><section id="mrdSpecialSection" class="mrd-special-section hidden"><details id="mrdSpecialFold" class="mrd-special-fold" open><summary class="mrd-text-head"><h3 id="mrdSpecialHead">특이사항</h3><span id="mrdSpecialSize" class="mrd-special-size"></span>${rawToggleHtml('id="mrdSpecialRaw"')}</summary><div id="mrdSpecial" class="mrd-text mrd-special-text"></div></details></section><section class="mrd-followup-section mtg-group" aria-labelledby="mrdTasksHead"><div class="mtg-group-head"><h3 id="mrdTasksHead">후속 할 일</h3><button id="mrdAddTask" class="mtg-add-plus" type="button" aria-label="후속 할 일 추가" aria-expanded="false" aria-controls="mrdTaskForm">+</button></div><div id="mrdTaskForm" class="mtg-task-line hidden" data-enter-save><input id="mrdTaskTitle" type="text" placeholder="후속 할 일" aria-label="후속 할 일"><span class="due-chip"><input id="mrdTaskDue" class="due-chip-input" type="date" aria-label="기한"><span class="due-chip-label" aria-hidden="true">기한 ▾</span></span><button id="mrdTaskSave" data-enter-save-submit class="mtg-line-add" type="button">추가</button><button id="mrdTaskCancel" class="mtg-line-cancel hidden" type="button">취소</button><button id="mrdMakeTodos" class="mrd-make-todos" type="button" title="이 사업 보고에서 내 후속 할 일 후보를 AI가 찾아요">AI로 후보 찾기</button><div id="mrdTaskStatus" class="status"></div></div><p id="mrdTodoLine" class="mtg-note" role="status" aria-live="polite"></p><div id="mrdTodoCand" class="inbox-todo-host mrd-todo-cand" hidden></div><div id="mrdTasks" class="gt-linked gt-list mtg-task-list"></div></section></div><div id="mrdEditor" class="hidden" data-enter-save="#mrdSaveEdit"><fieldset class="meeting-entry-section"><legend>기본정보</legend><label><span id="mrdEditTitleLabel">회의명</span><input id="mrdEditTitle" type="text"></label><div class="two-col"><label>차수<input id="mrdEditRound" type="number" min="1" placeholder="예: 8"></label><label><span>짧은 이름 <span class="optional">차수가 없을 때</span></span><input id="mrdEditShortName" type="text" maxlength="40" placeholder="예: 파생 간담회"></label></div><div class="two-col"><label>일시<input id="mrdEditAt" type="hidden" data-datetime-input="일시"></label><label id="mrdEditLocationRow" hidden><span>장소 <span class="optional">안 써도 됨</span></span><input id="mrdEditLocation" type="text" maxlength="200"></label></div><label><span>연결할 곳 <span class="optional">안 써도 됨</span></span><button id="mrdEditPlaces" class="secondary field-btn" type="button" aria-haspopup="dialog">연결 안 함</button></label><select id="mrdEditProject" hidden aria-hidden="true" tabindex="-1"></select><div id="mrdEditArea" hidden></div><div id="mrdEditSummaries" class="report-link-summaries" hidden></div></fieldset><fieldset class="meeting-entry-section"><legend data-rw="mrdEditLegend">회의 결과</legend><label data-drop-zone="result"><span><span id="mrdEditTextLabel">회의 결과 원문</span> <span class="optional">안 써도 됨</span></span><textarea id="mrdEditTranscript" rows="10"></textarea></label>
+<label><span><span id="mrdEditNotesLabel">특이사항</span> <span class="optional">안 써도 됨</span></span><textarea id="mrdEditNotes" rows="4"></textarea></label></fieldset><div id="mrdEditFoot" class="modal-action-footer"><div id="mrdEditStatus" class="status"></div><div id="mrdEditActions" class="mrd-editor-actions"><button id="mrdCancelEdit" class="secondary" type="button">취소</button><button id="mrdSaveEdit" data-enter-save-submit class="primary" type="button">수정 저장</button></div></div></div><div id="mrdAttach" class="mrd-attach"><section class="mrd-photo-section mtg-group" id="mrdPhotoSection" data-drop-zone="photo" aria-labelledby="mrdPhotosHead"><div class="mtg-group-head"><h3 id="mrdPhotosHead">사진</h3><button id="mrdPickPhotos" class="mtg-add-plus" type="button" aria-label="사진 고르기">+</button><input id="mrdPhotoInput" type="file" accept="image/*" multiple hidden></div><div id="mrdTimePhotos" hidden></div><div id="mrdPhotos" class="act-photo-grid" hidden></div><div id="mrdPhotoStatus" class="status" role="status" aria-live="polite"></div></section><section class="mrd-material-section mtg-group" data-drop-zone="material" aria-labelledby="mrdMaterialsHead"><div class="mtg-group-head"><h3 id="mrdMaterialsHead">회의자료</h3><button id="mrdPickFiles" class="mtg-add-plus" type="button" aria-label="회의자료 파일 고르기">+</button></div><div id="mrdMaterials" class="mtg-file-list"></div><div id="mrdStatus" class="status"></div></section></div></div></div>`);bindDateTimeFields(document.querySelector('#meetingRoundDetailModal'));mrdRoundRows=createFieldRows(['mrdEditRound','mrdEditShortName']);document.querySelector('#mrdClose').onclick=mrdClose;document.querySelector('#mrdMore').onclick=e=>mrdEnsureMoreMenu().open(e.currentTarget);document.querySelector('#mrdPickFiles').onclick=()=>void mrdAddFiles([]);document.querySelector('#mrdPickPhotos').onclick=()=>document.querySelector('#mrdPhotoInput').click();document.querySelector('#mrdPhotoInput').onchange=e=>{const input=e.currentTarget,files=Array.from(input.files||[]);input.value='';void mrdAddPhotos(files)};document.querySelector('#mrdEditPlaces').onclick=e=>void mrdChoosePlaces(e.currentTarget);document.querySelector('#mrdCancelEdit').onclick=()=>mrdSetEdit(false);document.querySelector('#mrdSaveEdit').onclick=mrdSaveEdit;document.querySelector('#mrdLeaveSave').onclick=async()=>{const next=mrdLeaveNext;mrdLeaveClear();await mrdSaveEdit();if(!mrdEditor&&next)next()};document.querySelector('#mrdLeaveDiscard').onclick=()=>{const next=mrdLeaveNext;mrdLeaveClear();mrdSetEdit(false);if(next)next()};document.querySelector('#mrdAddTask').onclick=mrdToggleTaskForm;bindDue(document.querySelector('#mrdTaskDue'));{const card=document.querySelector('#meetingRoundDetailModal .meeting-round-detail-card');bindDropTarget(card,(files,e)=>void mrdDropFiles(files,e),()=>!!mrdCurrent&&mrdCanEdit(mrdCurrent));bindDropZones(card,{face:mrdDropFace})}document.querySelector('#mrdTaskCancel').onclick=mrdResetTaskForm;document.querySelector('#mrdTaskSave').onclick=mrdSaveTask;document.querySelector('#mrdTasks').addEventListener('click',mrdTaskClick);mrdTodos=mountMeetingTodos({button:document.querySelector('#mrdMakeTodos'),host:document.querySelector('#mrdTodoCand'),line:document.querySelector('#mrdTodoLine'),meetingId:()=>mrdCurrent?.id||'',onTasksChanged:mrdRefreshTasks});mountBigWrite(document.querySelector('#mrdEditTranscript'),{title:'결과 원문 크게 쓰기'});mountBigWrite(document.querySelector('#mrdEditNotes'),{title:'특이사항 크게 쓰기'})}
 // MTG-프로젝트합치기 3단계: 창은 이 모듈을 불러올 때 body 끝에 붙는다. 사업 보고 화면을 먼저 열고 사업영역 관리로 가면 프로젝트 창(같은 z-index)이 뒤에 붙어
 // 그 위에서 연 이 창을 덮었다. 팝업으로 새로 열 때 body 끝으로 옮겨, 연 순서대로 위에 오게 한다(칸에 앉은 상태는 mrdOpenMeeting이 먼저 mrdUndock으로 내린다).
 function mrdOpen(){const m=document.querySelector('#meetingRoundDetailModal'),wasHidden=m.classList.contains('hidden'),trigger=document.activeElement;if(wasHidden&&!mrdDocked&&m.parentElement===document.body&&m!==document.body.lastElementChild)document.body.append(m);m.classList.remove('hidden');m.setAttribute('aria-hidden','false');if(wasHidden)window.KPTUA11y?.dialog.activate(m,{trigger,initialFocus:'#mrdClose',onRequestClose:mrdClose})}
@@ -69,17 +73,9 @@ function mrdEnsureMoreMenu(){
     onAction:(button,active)=>{const act=button.dataset.mrdMore;if(act==='edit')mrdStartEdit();else if(act==='kind')mrdChangeKind(active.trigger);else if(act==='press'){const id=mrdCurrent?.id,trigger=active.trigger;if(id)void import('./press-draft.js').then(m=>m.openPressDraft({trigger,preselect:id}))}else if(act==='delete')mrdDeleteMeeting()}});
   return mrdMoreMenu;
 }
-function mrdSetEdit(on){if(!on){mrdEditSequence++;mrdEditor=null;mrdSummaries?.clear();mrdLeaveClear();mrdEditHistoryEnd()}document.querySelector('#mrdView')?.classList.toggle('hidden',on);document.querySelector('#mrdEditor')?.classList.toggle('hidden',!on);mrdPaintMore(on);mrdPlaceActions(on);mrdPlaceAttach(on)}
-// HOTFIX-회의첨부칸(S48-51): 사진·회의자료 줄(+ 올리기·목록)은 보는 화면(#mrdView) 안에만 있어서, [수정]으로 보는 화면이 고치는 화면(#mrdEditor)으로
-// 바뀌면 첨부 칸이 통째로 안 보였다(PR 1351 MTG-고치기바로 이후 PC 칸에서 그 자리 고치기). 요소 한 벌을 고치는 동안만 #mrdEditAttach로 옮기고 끝나면 제자리(#mrdView 끝)로 돌린다.
-// 그리는 곳·올리는 길(mrdAddFiles·mrdAddPhotos)·저장은 그대로이며, 옮길 때만 건드린다(mrdPlaceActions와 같은 방식).
-let mrdAttachInEditor=false;
-function mrdPlaceAttach(on){
-  const want=!!on;if(want===mrdAttachInEditor)return;
-  const view=document.querySelector('#mrdView'),box=document.querySelector('#mrdEditAttach'),parts=['#mrdPhotoSection','#meetingRoundDetailModal .mrd-material-section'].map(q=>document.querySelector(q));
-  if(!view||!box||parts.some(x=>!x))return;
-  mrdAttachInEditor=want;(want?box:view).append(...parts);
-}
+function mrdSetEdit(on){if(!on){mrdEditSequence++;mrdEditor=null;mrdSummaries?.clear();mrdLeaveClear();mrdEditHistoryEnd()}document.querySelector('#mrdView')?.classList.toggle('hidden',on);document.querySelector('#mrdEditor')?.classList.toggle('hidden',!on);mrdPaintMore(on);mrdPlaceActions(on)}
+// HOTFIX2-회의칸깨짐(S48-63): 사진·회의자료(첨부) 칸은 보기(#mrdView)·고치기(#mrdEditor) 옆의 #mrdAttach 한 곳에 항상 있다(한 영역 한 주인).
+// 예전(HOTFIX-회의첨부칸)에는 [수정]을 누를 때마다 요소를 #mrdEditAttach 틀로 옮겨 틀이 빈 채 어긋났다. 이제 옮기지 않고, 불러오는 중에만 감춘다.
 function mrdResetTaskForm(){mrdEditingTask=null;const f=document.querySelector('#mrdTaskForm');f?.classList.add('hidden');document.querySelector('#mrdAddTask')?.setAttribute('aria-expanded','false');const title=document.querySelector('#mrdTaskTitle'),due=document.querySelector('#mrdTaskDue'),save=document.querySelector('#mrdTaskSave'),st=document.querySelector('#mrdTaskStatus');if(title)title.value='';if(due){due.value='';paintDue(due)}if(save){save.textContent='추가';save.disabled=mrdSavingTask}document.querySelector('#mrdTaskCancel')?.classList.add('hidden');document.querySelector('#mrdMakeTodos')?.removeAttribute('hidden');if(st){st.textContent='';st.className='status'}}
 function mrdOpenTaskForm(task=null){if(!mrdCurrent||!mrdCanEdit(mrdCurrent))return;mrdEditingTask=task;const f=document.querySelector('#mrdTaskForm');f?.classList.remove('hidden');document.querySelector('#mrdAddTask')?.setAttribute('aria-expanded','true');document.querySelector('#mrdTaskTitle').value=task?.title||'';const due=document.querySelector('#mrdTaskDue');due.value=mrdDueDateValue(task?.due);paintDue(due);document.querySelector('#mrdTaskSave').textContent=task?'저장':'추가';document.querySelector('#mrdTaskCancel')?.classList.toggle('hidden',!task);document.querySelector('#mrdMakeTodos')?.toggleAttribute('hidden',!!task);const st=document.querySelector('#mrdTaskStatus');st.textContent='';st.className='status';queueMicrotask(()=>document.querySelector('#mrdTaskTitle')?.focus())}
 // UI-회의결과창정리: 제목 옆 작은 +는 입력 한 줄을 열고 닫는다(수정 중이면 새 할 일 입력으로 바꾼다).
@@ -125,11 +121,12 @@ function mrdRenderMaterials(allDocs){
     // ACT-사진 3단계: 그림은 '사진' 줄(작은 그림), 나머지는 아래 자료 줄. 같은 자료 목록을 그리는 곳만 둘로 나눈다.
     const {photos,files:docs}=splitPhotoDocs(allDocs);mrdRenderPhotos(photos,allDocs);
     // UI-회의결과창정리: 파일 한 줄(종류·이름·크기). 이름을 누르면 종류별 동작, ⋯는 [Drive에서 열기]·[내려받기](FILE-사업보고⋯), ×는 기존 삭제 확인을 거친다.
-    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`${mrdRename(d)}<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name)}<button class="icon-btn file-line-x" type="button" data-mrd-delete-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 삭제">×</button>`})}).join(''):emptyHtml();
+    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`${mrdRename(d)}<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name,mrdTranscribeItem(d))}<button class="icon-btn file-line-x" type="button" data-mrd-delete-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 삭제">×</button>`})}).join(''):emptyHtml();
     // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ✎로 파일 이름을 그 자리에서 고친다(file-rename.js). 자료는 고친 뒤 kptu:documents-changed로 다시 읽는다.
     document.querySelectorAll('#mrdMaterials [data-mrd-doc-row]').forEach(row=>{const d=(docs||[]).find(x=>x.id===row.dataset.mrdDocRow);if(d?.file_id&&d.file_name)markRenameHost(row.querySelector('.file-line-main b'),{target:'document',id:d.id,driveId:d.file_id,name:d.file_name})});
     document.querySelectorAll('[data-mrd-delete-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();return mrdDeleteMaterial(b,allDocs)});
     document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload,docs)});
+    document.querySelectorAll('[data-mrd-transcribe]').forEach(b=>b.onclick=e=>{e.stopPropagation();b.closest('details')?.removeAttribute('open');mrdTranscribeAttached(b.dataset.mrdTranscribe)});
 }
 async function mrdDeleteMaterial(button,docs){
   if(button.disabled)return false;
@@ -198,6 +195,7 @@ async function mrdAddPhotos(files){
       catch(err){failed++;why=err?.message||why;console.warn('report photo upload failed',file.name,err)}
     }
     if(done){if(m.project_id)window.KPTUDriveSummary?.saved?.();window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:m.project_id||null,meeting_id:m.id}}))}
+    announceUploaded({done,failed,names:done===1?['사진 1장']:[]});
     say(failed?`사진 ${done}장 올림 · ${failed}장 실패${why?' · '+why:''}`:`사진 ${done}장을 올렸어요.`,failed?'status error':'status ok');
   }finally{mrdPhotoBusy=false}
 }
@@ -242,7 +240,7 @@ async function mrdChoosePlaces(trigger){
 function mrdPaintWords(m){
   const kind=reportKindOf(m),w=reportWords(kind),set=(sel,text)=>{const el=document.querySelector(sel);if(el)el.textContent=text};
   const modal=document.querySelector('#meetingRoundDetailModal');if(modal)modal.dataset.reportKind=kind;
-  set('#mrdTextHead',w.textLabel);set('#mrdMaterialsHead',w.materials);set('#mrdEditTitleLabel',w.nameLabel);set('[data-rw="mrdEditLegend"]',w.resultLegend);set('#mrdEditTextLabel',w.textLabel);
+  set('#mrdTextHead',w.textLabel);set('#mrdMaterialsHead',w.materials);set('#mrdEditTitleLabel',w.nameLabel);set('[data-rw="mrdEditLegend"]',w.resultLegend);set('#mrdEditTextLabel',w.textLabel);set('#mrdSpecialHead',w.notesLabel);set('#mrdEditNotesLabel',w.notesLabel);
   document.querySelector('#mrdPickFiles')?.setAttribute('aria-label',w.pickFiles);
 }
 function mrdRenderMeetingInfo(m){
@@ -252,7 +250,9 @@ function mrdRenderMeetingInfo(m){
     if(!mrdLinkRefreshed.has(m.id)){mrdLinkRefreshed.add(m.id);Promise.resolve(window.KPTUTeamData?.refreshReportLinks?.()).then(()=>{if(mrdCurrent?.id===m.id)mrdRenderMeetingInfo(mrdCurrent)},()=>{})}
     {const text=mrdResultText(m),same=()=>mrdCurrent?.id===m.id;document.querySelector('#mrdResultSection').classList.toggle('hidden',!text);paintRecordText(document.querySelector('#mrdResult'),text,{toggle:document.querySelector('#mrdResultRaw'),isCurrent:same})}
     paintAreaView(document.querySelector('#mrdAreaView'),m,{tasks:mrdTasks,onMessage:msg=>notify(msg,{error:true})});
-    const special=String(m.notes||''),specialSection=document.querySelector('#mrdSpecialSection');specialSection.classList.toggle('hidden',!special.trim());paintRecordText(document.querySelector('#mrdSpecial'),special,{toggle:document.querySelector('#mrdSpecialRaw'),isCurrent:()=>mrdCurrent?.id===m.id});
+    const special=String(m.notes||''),specialSection=document.querySelector('#mrdSpecialSection');specialSection.classList.toggle('hidden',!special.trim());
+    // S48-64: [회의] 칸은 이 칸이 '회의록 전문'(전사 전문) — 길어서 접어 두고 글자 수만 보인다(펼치면 전문). 다른 칸(특이사항)은 펼친 채.
+    {const fold=document.querySelector('#mrdSpecialFold'),size=document.querySelector('#mrdSpecialSize'),full=isMeetingKind(reportKindOf(m));if(fold)fold.open=!full;if(size)size.textContent=full&&special.trim()?`${special.trim().length.toLocaleString('ko-KR')}자`:''}paintRecordText(document.querySelector('#mrdSpecial'),special,{toggle:document.querySelector('#mrdSpecialRaw'),isCurrent:()=>mrdCurrent?.id===m.id});
 }
 // 사업 보고 한 건을 읽어 창 안(보기 면)에 채운다. 팝업으로 열든 세 번째 칸에 붙이든 같은 길이다.
 async function mrdLoadMeeting(id,epoch){
@@ -363,6 +363,49 @@ async function mrdAddFiles(files){
   st.textContent='';st.className='status';
   if(!window.KPTULibrary?.startUploadForMeeting?.({id:m.id,name:`${mrdMeetingName(m)||m.title||'사업 보고'}${m.round_no?` ${m.round_no}차`:''}`,project_id:m.project_id||''},others))fail('자료 올리기를 열지 못했습니다. 잠시 후 다시 눌러 주세요.');
 }
+// HOTFIX-회의첨부칸 ②(S48-53): PC에서 보기·고치기 면 어디에 파일을 놓아도 이 사업 보고에 붙는다(예전에는 보기 면에서만).
+// 사진은 사진 줄로 바로, 나머지는 [+]와 같은 자료실 올리기 창(library-files, meeting_id)으로. 결과 파일(놓은 자리가 결과 칸이거나 이름이 결과)은
+// '파일·글로 만들기'와 같은 읽기로 본문을 읽어 결과 칸에 넣을지 묻는다 — 고치는 중이면 고치기 칸 글에 더하고(저장은 [수정 저장]), 보는 중이면 바로 저장한다.
+function mrdEditing(){return !document.querySelector('#mrdEditor')?.classList.contains('hidden')}
+function mrdDropFace(){return document.querySelector(mrdEditing()?'#mrdEditor':'#mrdView')}
+let mrdDropBusy=false;
+async function mrdDropFiles(files,e){
+  const m=mrdCurrent;if(!m||!mrdCanEdit(m))return;
+  const editing=mrdEditing(),zone=dropZoneOf(e?.target),{photos,others}=splitPhotoFiles(files);
+  if(photos.length)void mrdAddPhotos(photos);
+  if(!others.length)return;
+  const st=document.querySelector('#mrdStatus');
+  if(mrdDropBusy){st.textContent='앞서 놓은 파일을 처리하는 중이에요. 끝나면 다시 놓아 주세요.';st.className='status error';return}
+  mrdDropBusy=true;
+  try{
+    const anchor=(e?.target?.closest?.('[data-drop-zone]'))||mrdDropFace();
+    st.textContent='파일을 살펴보는 중…';st.className='status';
+    const body=await resultBodyFor(others,{zone:zone==='photo'?'':zone,anchor});
+    st.textContent='';st.className='status';
+    if(mrdCurrent?.id!==m.id)return;
+    if(body){
+      if(editing&&mrdEditing()){const ta=document.querySelector('#mrdEditTranscript');ta.value=appendResult(ta.value,body);ta.dispatchEvent(new Event('input',{bubbles:true}))}
+      else if(!(await mrdAppendResult(m,body)))return;
+    }
+    await mrdAddFiles(others);
+  }finally{mrdDropBusy=false}
+}
+// 보는 중에 놓은 결과 본문: 서버의 지금 글 뒤에 더해 저장한다('파일·글로 만들기'의 기존 회의 더하기와 같은 PATCH, owner RLS).
+async function mrdAppendResult(m,body){
+  const st=document.querySelector('#mrdStatus'),ws=m.workspace_id;
+  try{
+    const cur=(await mrdApi(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(m.id)}&workspace_id=eq.${encodeURIComponent(ws)}&select=*`))?.[0];
+    if(!cur)throw new Error('사업 보고를 찾지 못했습니다.');
+    const next=appendResult(mrdResultText(cur),body);
+    if(next!==mrdResultText(cur)){
+      const rows=await mrdApi(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(m.id)}&workspace_id=eq.${encodeURIComponent(ws)}&select=*`,{method:'PATCH',prefer:'return=representation',body:{transcript_text:next,updated_at:new Date().toISOString()}});
+      if(!Array.isArray(rows)||rows.length!==1)throw new Error('사업 보고 저장을 확인하지 못했습니다.');
+      if(mrdCurrent?.id===m.id){Object.assign(mrdCurrent,rows[0]);mrdRenderMeetingInfo(mrdCurrent)}
+      void mrdRefreshMeetingList();
+    }
+    return true;
+  }catch(err){if(mrdCurrent?.id===m.id){st.textContent='결과 본문을 넣지 못했어요. '+(err?.message||'');st.className='status error'}return false}
+}
 // ---- MTG-고치기바로: 세 번째 칸에 붙이기 · 고친 내용 지키기 · 폰 뒤로가기 ----
 // 붙임 여부에 따른 겉모양: 붙으면 제목(h2)과 닫기(×)는 없다(상단 줄이 이름·차수를 이미 보이고, 칸은 닫지 않는다). 역할은 창(dialog)이 아니라 영역(region).
 function mrdPaintDocked(){
@@ -378,7 +421,7 @@ function mrdPaintDocked(){
 const MRD_LOAD_FAIL='사업 보고를 불러오지 못했습니다.';
 function mrdShowLoading(text,bad=false){
   const line=document.querySelector('#mrdLoading');if(!line)return;
-  if(text===true)line.innerHTML=waitHtml({rows:4});else if(bad)line.innerHTML=failHtml({reason:typeof text==='string'&&text!==MRD_LOAD_FAIL?text:''});else line.textContent=text||'';line.classList.toggle('hidden',!text);line.classList.toggle('error',!!bad);
+  if(text===true)line.innerHTML=waitHtml({rows:4});else if(bad)line.innerHTML=failHtml({reason:typeof text==='string'&&text!==MRD_LOAD_FAIL?text:''});else line.textContent=text||'';line.classList.toggle('hidden',!text);line.classList.toggle('error',!!bad);document.querySelector('#mrdAttach')?.classList.toggle('hidden',!!text);
   if(text){document.querySelector('#mrdView')?.classList.add('hidden');document.querySelector('#mrdEditor')?.classList.add('hidden');const meta=document.querySelector('#mrdMeta');if(meta)meta.textContent='';mrdPaintMore(false)}
 }
 // 고치는 동안 [취소][저장]은 칸에서는 맨 위 오른쪽(제목 줄), 안내 글은 그 아래 줄로 올린다. 팝업과 고치지 않을 때는 아래 줄(footer). 옮길 때만 건드린다.
@@ -472,5 +515,41 @@ window.addEventListener('popstate',e=>{
 window.addEventListener('kptu:tasks-changed',()=>{if(mrdDocked&&mrdCurrent&&!mrdEditor)void mrdRefreshTasks()});
 async function mrdInit(){const shared=window.KPTURuntime?.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id&&shared?.workspace?.id){mrdUser=shared.user;mrdWorkspace=shared.workspace.id;mrdRole=shared.membership?.role||null}else{try{mrdUser=await mrdApi('/auth/v1/user')}catch{return false}const ms=await mrdApi('/rest/v1/app_workspace_members?user_id=eq.'+mrdUser.id+'&select=workspace_id,user_id,role&limit=1');if(!ms?.length)return false;mrdWorkspace=ms[0].workspace_id;mrdRole=ms[0].role}const loadedProjects=window.KPTUTeamData?.spaces?.();mrdProjects=Array.isArray(loadedProjects)&&loadedProjects.length?loadedProjects:await mrdApi('/rest/v1/app_spaces?workspace_id=eq.'+mrdWorkspace+'&select=id,name,status,parent_id');mrdInstallModal();const list=document.querySelector('#meetingList');if(list){list.addEventListener('click',e=>{if(e.target.closest('button,a,input,select,textarea,label'))return;const card=e.target.closest('[data-mrd-meeting]');if(card)mrdOpenMeeting(card.dataset.mrdMeeting)});list.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-mrd-meeting]')){e.preventDefault();mrdOpenMeeting(e.target.dataset.mrdMeeting)}})}return true}
 // PRJ-회의표시: the project detail's 회의 rows open this same meeting result dialog over the projects screen.
-window.KPTUMeetingRoundDetail={open:mrdOpenMeeting,dock:mrdDock,undock:mrdUndock,guardLeave:mrdGuardLeave};
+// MTG-첨부녹음전사(S49-2, 요청함 11/03 11:31): 회의자료에 붙은 소리 파일 ⋯ [전사해서 결과에 넣기].
+// 서버 정리(meeting-recorder.js transcribeAttached → Edge meeting-transcribe job_start kind 'attached')가 Drive의 그 파일을 바로 전사·요약한다.
+// 화면을 닫아도 서버가 끝까지 하고, 끝나면 이 회의 [수정] 창에 회의록 전문·요약을 채운다(mrdFillTranscript). 저장은 명진이 [저장].
+function mrdTranscribeItem(d){
+  if(!d?.id||!d.file_id||!mrdCurrent||!mrdCanEdit(mrdCurrent)||!isAudioFile(d.file_name||d.title||'',d.mime_type||''))return '';
+  return `<button type="button" data-mrd-transcribe="${mrdEsc(d.id)}">전사해서 결과에 넣기</button>`;
+}
+function mrdTranscribeAttached(documentId){
+  const rec=window.KPTUMeetingRecorder;
+  if(!rec?.transcribeAttached){notify('전사를 시작하지 못했어요. 화면을 새로 열어 주세요.',{error:true});return}
+  rec.transcribeAttached({documentId,meetingId:mrdCurrent?.id||''});
+}
+// 서버가 끝낸 결과를 이 회의 [수정] 창에 넣는다. 회의록 전문 = 특이사항 칸(app_meetings.notes, 이미 쓴 글은 지우지 않고 아래에),
+// 요약 = 결과 원문 끝에(참석·결정·공유 + 후속 할 일 줄). 저장은 명진이 [저장](자동 저장 없음). 넣었으면 true.
+async function mrdFillTranscript(meetingId,{text='',draft=null}={}){
+  if(mrdCurrent?.id!==meetingId){
+    await mrdOpenMeeting(meetingId);
+    for(let i=0;i<40&&mrdCurrent?.id!==meetingId;i++)await new Promise(r=>setTimeout(r,150));
+  }
+  if(mrdCurrent?.id!==meetingId||!mrdCanEdit(mrdCurrent))return false;
+  if(!mrdEditing())mrdStartEdit();
+  const notes=document.querySelector('#mrdEditNotes'),ta=document.querySelector('#mrdEditTranscript');
+  if(!notes||!ta)return false;
+  const full=String(text||'').trim();
+  if(full){const next=keepTranscript(notes.value,full);if(next!==notes.value){notes.value=next;notes.dispatchEvent(new Event('input',{bubbles:true}))}}
+  const d=normalizeDraft({draft});
+  if(d){
+    const acts=actionRows(d).map(a=>`- ${a.title}${a.due?` (${a.due})`:''}`);
+    const add=[draftText(d),acts.length?['후속 할 일',...acts].join('\n'):''].filter(Boolean).join('\n\n');
+    const next=mergeText(ta.value,add);
+    if(next!==ta.value){ta.value=next;ta.dispatchEvent(new Event('input',{bubbles:true}))}
+  }
+  const st=document.querySelector('#mrdEditStatus');
+  if(st){st.textContent=d?'전사 전문은 회의록 전문 칸에, 요약은 결과 원문 끝에 넣었어요. 확인한 뒤 [저장]을 누르세요.':'전사 전문을 회의록 전문 칸에 넣었어요(요약은 만들지 못했어요). 확인한 뒤 [저장]을 누르세요.';st.className='status ok'}
+  return true;
+}
+window.KPTUMeetingRoundDetail={open:mrdOpenMeeting,dock:mrdDock,undock:mrdUndock,guardLeave:mrdGuardLeave,fillTranscript:mrdFillTranscript};
 window.__KPTU_MEETING_ROUND_DETAIL_READY__=mrdInit().then(ok=>{if(ok)window.dispatchEvent(new CustomEvent('kptu:report-detail-ready'));return ok}).catch(err=>{console.error('meeting detail init',err);return false});

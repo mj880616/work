@@ -601,3 +601,15 @@ rules:    {v:2, at, week?, lines:[{text, from:'auto'|'edited'|'added'}], candida
 적용 순서: DB(dry-run → apply) → 명진 비밀값 `WEB2_DEV_INBOX_DOC_ID` 등록(없어도 배포 가능 — 그동안 '전달 준비 중') → Edge `document-actions` 배포(verify_jwt=true 그대로, 되돌리기 ref = 배포 전 운영 소스).
 Drive 토큰이 `drive` 전체 권한이 아니면(파일 단위 권한만) Docs 쓰기가 403 → '요청함 전달은 못 했어요.'(아무것도 안 씀). 25.3('만듦 #PR' 번호 읽기)은 아직 만들지 않았다.
 
+
+### 25.5 25.3 '만듦 #PR' 번호 읽기 구현 (S48-57, WEEKLY-개발후보CC 2단계)
+
+| 항목 | 내용 | 파일 |
+| --- | --- | --- |
+| 서버 | `document-actions` action=`dev-made`, 요청은 `{week_start}`만(화면이 번호·id를 보내면 거절). 로그인 → owner 작업공간 하나 → 운영자 기능 `dev_inbox`(25.4와 같은 확인) → 비밀값 `WEB2_DEV_INBOX_DOC_ID`(없으면 `not_ready`) → 그 주 행을 내 로그인 토큰으로 다시 읽어 '보냈고(`sent`) 번호(`made`) 없는 만들기 제안'이 없으면 문서를 읽지 않고 끝 → 요청함 문서를 읽어(Docs API GET, 글 칸만) 그 주 열쇠 `(w:<주>/<id>)` 덩어리마다 `→`로 시작하고 '완료'가 든 줄의 마지막 `#번호`(1~999999) → 그 제안이 지금도 answer='yes'·sent 있음·made 없음일 때만 `made`(draft_saved_at 조건, 판 번호 올림, 그사이 바뀌면 한 번 다시). 응답 `{updated:n}` | `supabase/functions/document-actions/dev-inbox.ts` `readDevMade`·`madeFromInbox`, `index.ts` |
+| 덩어리 끝 | 다음 `[YYYY-MM-DD HH:MM]`·`[MM/DD HH:MM]` 머리줄. `[10/30 14:07 사용자 추가]` 같은 덧붙임 줄은 덩어리 안. 제안 글은 보낼 때 '→'·줄바꿈을 지웠으므로 `→` 줄은 CC가 적은 줄뿐 | 같은 파일 |
+| CC 적는 법 | 지금 습관 그대로 `→ 접수: <과제> — 완료 #NNN` 또는 `→ 대조: 완료 #NNN`. 한 줄에 번호가 여럿이면(`완료 DB #1338·화면 #1347`) 마지막 번호. '진행 중 #NNN'처럼 '완료'가 없는 줄은 보지 않음 | — |
+| 화면 | [주간 정리] '주간보고 규칙·환류'를 읽은 뒤, 보냈고 번호 없는 제안이 있는 주만(최근 4주까지) 이 화면을 연 동안 주마다 한 번 부른다. 하나라도 남겼으면 다시 읽어 '만듦 #NNN' 표시. 운영자 아님·배포 전·실패는 조용히 | `app/weekly-learn-panel.js` `madePendingWeeks`·`askDevMade`·`madeOnOpen` |
+
+25.3 4.와 다른 점: '하루 한 번(부른 시각을 그 주 행에 남김)' 대신 '기다리는 제안이 있을 때만, 화면을 연 동안 주마다 한 번'. 부른 시각을 행에 쓰면 판 번호가 바뀌어 화면 저장과 부딪칠 수 있어 쓰지 않았다. 기다리는 제안이 없으면 문서를 읽지 않는다.
+적용: DB 변경 없음(25.4의 `dev_inbox` 그대로). Edge `document-actions` 재배포 필요(verify_jwt=true 그대로). Drive 토큰이 문서 읽기 권한이 없으면 `DOC_UNAVAILABLE`(아무것도 안 씀, 화면 조용).

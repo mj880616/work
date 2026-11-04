@@ -28,7 +28,7 @@ import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
 import {createOdSettings} from './od-settings.js';
 // S46-20 사진 정리 ⑥(명진 11/01 01:04): 그날 폰 사진도 같은 격자에 '보여 주기만'(앱 다리로 폰 안에서만 읽음, 서버 저장 없음).
 import {phonePhotos} from './phone-photos.js';
-import {parseSources} from './photo-sources-model.mjs';
+import {readDeviceSources} from './photo-sources-device.js';
 import {phoneHideList} from './phone-folders-sync.js';
 import {dayEndMs, phoneDayItems} from './time-photos-model.mjs';
 
@@ -281,7 +281,7 @@ const itemElement = (item, size, opts) => item.kind === 'od' ? odPhotoElement(it
 // 끈 폰 폴더는 빼고, 원드라이브에 같은 사진이 있으면 원드라이브 것만 보인다. 목록·그림은 이 화면 메모리에만 있다.
 const phone = phonePhotos();
 let phoneDay = {day:'', items:[], state:'idle'};
-const phoneOnHere = () => phone.usable && parseSources(viewPrefs.get('photo_sources')).phone;
+const phoneOnHere = () => phone.usable && readDeviceSources().phone;
 async function loadPhoneDay(day) {
   if (phoneDay.day === day && phoneDay.state !== 'idle') return;
   if (!phoneOnHere()) { phoneDay = {day, items:[], state:'off'}; return; }

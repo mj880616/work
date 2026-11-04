@@ -275,7 +275,7 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재�
     ]},
     tasks:{status:'failed'},
     basket:{status:'ok', items:{notes:[{id:'b1', raw_text:'\n  첫 줄 메모\n둘째', occurred_at:'2026-10-06T00:00:00Z'}, {id:'b2', raw_text:'', attachments:[{}, {}], occurred_at:'2026-10-06T01:00:00Z'}, {id:'b3', raw_text:'어제', occurred_at:'2026-10-05T14:59:00Z'}], links:[], docs:[]}},
-    orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}, movedNotes:{status:'ok', items:[]}, documents:{status:'ok', items:[]}, sharePages:{status:'ok', items:[]},
+    orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}, documents:{status:'ok', items:[]}, sharePages:{status:'ok', items:[]},
     meetings:{status:'ok', items:[
       {id:'m1', series_name:'기자회견', round_no:null, meeting_at:'2026-10-06T02:00:00Z', transcript_text:'\n결과 첫 줄\n둘째'},
       {id:'m2', title:'운영위', series_name:'운영위원회', round_no:3, meeting_at:'2026-10-05T23:30:00Z', transcript_text:null, decisions:'옛 결정'},
@@ -284,7 +284,7 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재�
   };
   const card = m.dayCard(materials, '2026-10-06', {kinds:{status:'ok', list:['본부집행위']}});
   assert.deepEqual(card.report.map(g => g.label), ['회의·활동 결과', '사업 소식', '조직 소식']);
-  assert.deepEqual(card.others.map(g => g.label), ['자료실 새 자료', '공유 페이지', '노트로 옮긴 것', '기타 메모', '참고', '어디에도 안 보낸 업데이트', '업무 통화']);
+  assert.deepEqual(card.others.map(g => g.label), ['자료실 새 자료', '공유 페이지', '기타 메모', '참고', '어디에도 안 보낸 업데이트']);
   // 회의·활동 결과: title, the result's first line ('' when none), the weekly-report kind switch as `hidden`, and where it opens.
   assert.deepEqual(card.report[0].items.map(i => [i.text, i.summary, i.hidden, i.open.type, i.open.id]), [
     ['08:30 운영위원회 3차', '옛 결정', false, 'meeting', 'm2'], ['11:00 기자회견', '결과 첫 줄', false, 'meeting', 'm1'], ['14:00 본부 집행위', '', true, 'meeting', 'm4']]);
@@ -297,7 +297,7 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재�
   assert.deepEqual(card.tasks.failed, ['tasks']);
   // 조직 소식 has no '미분류': an update sent nowhere is 어디에도 안 보낸 업데이트, opening the basket update.
   assert.deepEqual(card.report[2].sections, []);
-  assert.deepEqual(card.others[5].items.map(i => [i.text, i.open]), [['첫 줄 메모', {type:'note', note:'b1'}], ['첨부 2개', {type:'note', note:'b2'}]]);
+  assert.deepEqual(card.others[4].items.map(i => [i.text, i.open]), [['첫 줄 메모', {type:'note', note:'b1'}], ['첨부 2개', {type:'note', note:'b2'}]]);
   assert.equal(m.othersCount(card.others), '어디에도 안 보낸 업데이트 2');
   assert.equal(m.dayCard({}, '2026-10-06').tasks.loading, true);
   // 조직 소식 waits for its reads, then shows what it could read and names the failed one.
@@ -553,7 +553,6 @@ const hubMaterials = () => ({
     {id:'d4', title:'다음 날 0시', category:'교육', created_at:'2026-10-06T15:00:00Z'},
   ]},
   sharePages:{status:'ok', items:[{id:'s1', title:'가상 안내 페이지', status:'published', updated_at:'2026-10-06T04:00:00Z'}, {id:'s2', title:'', status:'draft', updated_at:'2026-10-06T05:00:00Z'}]},
-  movedNotes:{status:'ok', items:[]},
 });
 
 test('hub parts on the day card: each day shows its own items (Korea-time day edges), categories named, projects by name', async () => {
@@ -628,35 +627,13 @@ test('조직 소식 sections follow the shared organization order (organization-
   } finally { if (saved === undefined) delete globalThis.window; else globalThis.window = saved; }
 });
 
-// 5-2 A: a note moved from the basket shows as one "노트: (title)" line on the update's day; only marked notes, never the text.
-test('moved notes are read as id, title, day and the mark only, in the signed-in workspace', async () => {
-  const m = await mod, rt = runtime(() => []);
-  await m.readMovedNotes(rt);
-  const p = params(rt.calls[0]);
-  assert.equal(p.get('workspace_id'), 'eq.w'); assert.equal(p.get('kind'), 'eq.note');
-  assert.equal(p.get('metadata->>moved_from_update_at'), 'not.is.null');
-  assert.equal(p.get('select'), 'id,title,occurred_at,moved_at:metadata->>moved_from_update_at');
-  assert.doesNotMatch(p.get('select'), /raw_text/);
-});
-
-test('moved notes of a day: marked ones only, on the update day in Korea time, title line, oldest first', async () => {
+// S49-12: 노트로 옮긴 것은 하루 카드에서 뺐다(노트에 이미 있어 중복). 읽기·묶음이 모두 없어졌는지 확인한다.
+test('S49-12: the day card has no 노트로 옮긴 것 part and no read for it', async () => {
   const m = await mod;
-  const rows = [
-    {id:'b', title:'둘째 노트', occurred_at:'2026-10-06T03:00:00Z', moved_at:'2026-10-07T00:00:00Z'},
-    {id:'a', title:'첫째 노트', occurred_at:'2026-10-05T16:00:00Z', moved_at:'2026-10-07T00:00:00Z'},
-    {id:'c', title:'표시 없음', occurred_at:'2026-10-06T01:00:00Z', moved_at:null},
-    {id:'d', title:'다른 날', occurred_at:'2026-10-07T01:00:00Z', moved_at:'2026-10-07T00:00:00Z'},
-    {id:'e', title:'', occurred_at:'2026-10-06T04:00:00Z', moved_at:'2026-10-07T00:00:00Z'},
-  ];
-  assert.deepEqual(m.movedNotesOn(rows, '2026-10-06'), [{id:'a', line:'노트: 첫째 노트'}, {id:'b', line:'노트: 둘째 노트'}, {id:'e', line:'노트: (제목 없음)'}]);
-  assert.deepEqual(m.movedNotesOn(rows, '2026-10-07'), [{id:'d', line:'노트: 다른 날'}]);
-  assert.deepEqual(m.movedNotesOn(null, '2026-10-06'), []);
-});
-
-test('the weekly draft does not carry moved notes', async () => {
-  const m = await mod;
-  const materials = {movedNotes:{status:'ok', items:[{id:'a', title:'제목', occurred_at:'2026-10-06T01:00:00Z', moved_at:'2026-10-07T00:00:00Z'}]}};
-  assert.doesNotMatch(await draftOf({start:'2026-10-05', lines:new Map(), materials, today:'2026-10-06'}), /노트: 제목/);
+  assert.equal(m.movedNotesOn, undefined);
+  assert.equal(m.readMovedNotes, undefined);
+  assert.equal('movedNotes' in m.DAY_SOURCES, false);
+  assert.equal(m.OTHER_PARTS.some(([key]) => key === 'movedNotes' || key === 'calls'), false);
 });
 
 // REF-참고묶음 화면 1 (docs/design/ref-bundle.md 4절): a reference-bundle link (bundle_id) counts in "where it went" but in no
@@ -700,7 +677,7 @@ test('REF-참고묶음: an update put only in a reference bundle stays out of ev
     ['가상 묶음 을 · 가상 두 묶음 소식', {type:'note', note:'ref2'}], ['가상 묶음 을 · 가상 참고 겸 기타 메모', {type:'note', note:'refmemo'}]]);
   // The day card: 참고 between 기타 메모 and 어디에도 안 보낸 업데이트, nothing of it in the report parts.
   const materials = {basket:{status:'ok', items:basket}, orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}, meetings:{status:'ok', items:[]},
-    tasks:{status:'ok', items:[]}, events:{status:'ok', items:[]}, documents:{status:'ok', items:[]}, sharePages:{status:'ok', items:[]}, movedNotes:{status:'ok', items:[]}};
+    tasks:{status:'ok', items:[]}, events:{status:'ok', items:[]}, documents:{status:'ok', items:[]}, sharePages:{status:'ok', items:[]}};
   const card = m.dayCard(materials, day);
   const refs = card.others.find(part => part.key === 'refs');
   assert.equal(refs.label, '참고'); assert.equal(refs.items.length, 4);
@@ -762,4 +739,16 @@ test('JOURNAL-하루일정다시: 그날 일정 = the calendar read with the cal
   await assert.rejects(m.readWeekScheduleEvents('2026-10-05', runtime(() => ({events:[], warning:'Google Calendar 연결 실패'}))));
   const card = m.dayCard({events:{status:'ok', items:ok}}, '2026-10-06');
   assert.deepEqual(card.events.items.map(i => [i.time, i.title, i.color]), [['10:00', '가', '#445566'], ['12:00', '나', '#112233']]);
+});
+
+// S49-12 JOURNAL-기억할통화텔레그램: migration 짝 파일 5개와 보호 장치(운영자 기능 restrictive 정책, 지우기·anon 권한 없음)가 있다.
+test('S49-12: journal_memorable migration has its 5 pair files and the operator-feature guard', async () => {
+  const {readFileSync, existsSync} = await import('node:fs');
+  const stem = '20261103230000_journal_memorable';
+  for (const kind of ['precheck.sql', 'snapshot.sql', 'postcheck.sql', 'rollback.sql', 'summary.md']) assert.ok(existsSync(new URL(`../docs/${stem}.${kind}`, import.meta.url)), kind);
+  const sql = readFileSync(new URL(`../supabase/migrations/${stem}.sql`, import.meta.url), 'utf8');
+  assert.match(sql, /as restrictive for all to authenticated/);
+  assert.match(sql, /app_workspace_has_feature/);
+  assert.doesNotMatch(sql, /grant[^;]* to [^;]*\b(anon|public|service_role)\b/i);
+  assert.doesNotMatch(sql, /grant\s+[^;]*\bdelete\b/i);
 });

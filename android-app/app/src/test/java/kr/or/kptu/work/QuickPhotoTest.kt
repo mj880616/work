@@ -367,6 +367,7 @@ class QuickPhotoTest {
         val manifest = File("src/main/AndroidManifest.xml").readText()
         assertFalse(manifest.contains("QuickPhoto"))
         assertFalse(manifest.contains("FOREGROUND_SERVICE_DATA_SYNC"))
-        assertEquals(12, Regex("<uses-permission ").findAll(manifest).count())
+        // S48-60(0.4.15): 사진 위치 정보(ACCESS_MEDIA_LOCATION) 하나가 더해져 13.
+        assertEquals(13, Regex("<uses-permission ").findAll(manifest).count())
     }
 }

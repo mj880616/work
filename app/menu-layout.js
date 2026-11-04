@@ -21,6 +21,7 @@ export function itemButtonHtml(item, where) {
   if (where === 'sheet') attrs.push('data-sheet-item');
   return `<button type="button" ${attrs.join(' ')}>${svg(item.icon)}<span>${esc(item.label)}</span></button>`;
 }
+// MENU-숨김: 숨긴 메뉴는 [메뉴] 창에 그리지 않는다(접힌 줄도 없음, 2026-11-04 명진). 메뉴 편집의 '숨긴 메뉴' 칸에서만 꺼낸다.
 export const SHEET_TAIL_LINE = '<span class="mobile-menu-tail-line" role="separator" data-menu-tail-line></span>';
 const toNodes = html => { const tpl = document.createElement('template'); tpl.innerHTML = html; return [...tpl.content.children]; };
 

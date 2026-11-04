@@ -33,7 +33,8 @@ const DIRECTIVES = Object.freeze([
   ['media-src', ["'self'", 'blob:', ...ONEDRIVE_MEDIA]],
   ['font-src', ["'self'", 'data:']],
   // raw.githubusercontent.com: 공유 페이지(Web1 게시판) 원문 읽기(app/web1-board.js RAW). wss: Supabase 실시간(지금은 쓰지 않음, 여유분).
-  ['connect-src', ["'self'", 'blob:', 'data:', SUPABASE_ORIGIN, SUPABASE_ORIGIN.replace('https:', 'wss:'), 'https://raw.githubusercontent.com', ...ONEDRIVE_MEDIA]],
+  // www.googleapis.com: [파일] 올리기(FILES-통합 2-④) — 서버가 연 구글 이어 올리기 자리로 조각을 직접 보낸다. 원드라이브 자리(*.1drv.com·*.sharepoint.com)는 ONEDRIVE_MEDIA에 있다.
+  ['connect-src', ["'self'", 'blob:', 'data:', SUPABASE_ORIGIN, SUPABASE_ORIGIN.replace('https:', 'wss:'), 'https://raw.githubusercontent.com', 'https://www.googleapis.com', ...ONEDRIVE_MEDIA]],
   // pdf.js worker(app/pdf-lib), 서비스워커(app/sw.js).
   ['worker-src', ["'self'", 'blob:']],
   // HWP 편집기(app/hwp-lab, 같은 주소)와 srcdoc 칸막이(HTML 보기·공유 페이지 상세). blob:은 HWP 미리보기 여유분.

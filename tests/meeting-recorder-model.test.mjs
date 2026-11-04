@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,minuteText,joinSegmentTexts,stepParts,seoulLocal,pendingText,pendingOthers,transcribePlan} from '../app/meeting-recorder-model.mjs';
+import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,minuteText,joinSegmentTexts,stepParts,seoulLocal,pendingText,pendingOthers,transcribePlan,resumables,takeOverRisk,LIVE_FRESH_SEC} from '../app/meeting-recorder-model.mjs';
 import {REC_PIECE_SECONDS,REC_SEGMENT_SECONDS,REC_MESSAGES} from '../supabase/functions/meeting-transcribe/recording.mjs';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
@@ -139,7 +139,52 @@ test('화면 연결(정적): 앱 껍데기 한 곳이 주인, 기기 저장 없�
   assert.match(html,/<div class="report-head-actions"><button id="reportRecordBtn" class="secondary" type="button" hidden>녹음<\/button><button id="newMeetingBtn"/);
   assert.match(html,/id="recPendingLine"[^>]*hidden/);
   const draft=read('app/meeting-transcript-draft.js');
-  assert.match(draft,/window\.KPTUMeetingTranscriptDraft=\{fill\}/);
+  assert.match(draft,/window\.KPTUMeetingTranscriptDraft=\{fill,fillResult\}/);
   assert.doesNotMatch(read('app/meeting-recorder-model.mjs'),/document\.|fetch\(/);
   assert.doesNotMatch(read('app/meeting-recorder-model.mjs'),deviceStore);
+});
+
+// REC-새로고침(S49-7): 맨 위 띠에 보일 끝나지 않은 녹음, 이어받기 확인.
+test('resumables: live(방금 끊김)는 늘 띠, 닫힌 것은 하루 안쪽만 띠·나머지는 한 줄, 지금 녹음 중인 session은 뺀다',()=>{
+  const now=Date.parse('2026-11-03T12:00:00Z');
+  const live=[{session_id:'L',started_at:'2026-11-03T11:00:00Z',duration_sec:3000,idle_sec:20}];
+  const pending=[
+    {session_id:'P1',started_at:'2026-11-03T03:00:00Z',duration_sec:600},
+    {session_id:'P2',started_at:'2026-10-30T03:00:00Z',duration_sec:600},
+    {session_id:'ME',started_at:'2026-11-03T11:30:00Z',duration_sec:60},
+    {session_id:'L',started_at:'2026-11-03T11:00:00Z',duration_sec:60},
+  ];
+  const r=resumables(pending,live,'ME',now);
+  assert.deepEqual(r.top.map(s=>s.session_id),['L','P1']);
+  assert.equal(r.top[0].live,true);assert.equal(r.top[1].live,false);
+  assert.deepEqual(r.old.map(s=>s.session_id),['P2']);
+  assert.deepEqual(resumables(null,undefined,'',now),{top:[],old:[]});
+});
+test('takeOverRisk: live이고 마지막 조각 뒤 100초 안쪽이면 묻는다(조회 뒤 흐른 시간 포함)',()=>{
+  assert.equal(LIVE_FRESH_SEC,100);
+  assert.equal(takeOverRisk({live:false,idle_sec:1}),false);
+  assert.equal(takeOverRisk({live:true,idle_sec:20,fetched:1000},1000+30000),true);
+  assert.equal(takeOverRisk({live:true,idle_sec:20,fetched:1000},1000+90000),false);
+  assert.equal(takeOverRisk({live:true,idle_sec:300,fetched:1000},1000),false);
+  assert.equal(takeOverRisk({live:true}),true); // 모르면 묻는다
+});
+test('meeting-recorder.js: 이어서 녹음은 같은 session으로 rec_start, 띠는 어느 화면에서나, 다른 곳에서 녹음 중일 수 있으면 띠에서 한 번 묻는다(확인창 없음)',()=>{
+  const js=readFileSync(new URL('../app/meeting-recorder.js',import.meta.url),'utf8');
+  assert.match(js,/rec_start',\{workspace_id:workspaceId,mime:baseMime\(MIME\),\.\.\.\(from\?\{session_id:from\.session_id\}:\{\}\)\}/);
+  assert.match(js,/data-rec-continue/);
+  assert.match(js,/data-rec-takeover="go">계속/);
+  assert.doesNotMatch(js,/\b(?:alert|confirm)\(/);
+  assert.match(js,/setTimeout\(\(\)=>void loadPending\(\),3500\)/);
+  assert.doesNotMatch(js,new RegExp(['local','session'].map(x=>x+'Storage').join('|')));
+});
+
+// REC-노트북이어하기(S49-29): 마이크가 끊기면 일시 정지됨 → [이어 녹음]은 같은 session_id의 새 구간(자동 재시작 없음).
+test('meeting-recorder.js: 끊김은 일시 정지됨으로, 이어 녹음은 사람이 눌러야 하고 같은 녹음의 새 구간이다',()=>{
+  const js=readFileSync(new URL('../app/meeting-recorder.js',import.meta.url),'utf8');
+  assert.match(js,/state='suspended'/);
+  assert.match(js,/data-rec="resume">이어 녹음/);
+  assert.match(js,/requestData\(\)/);
+  assert.match(js,/visibilitychange/);
+  assert.match(js,/no:\(last\?\.no\|\|0\)\+1/);
+  assert.doesNotMatch(js,/visibilityState==='visible'[^\n]*getUserMedia/);
 });

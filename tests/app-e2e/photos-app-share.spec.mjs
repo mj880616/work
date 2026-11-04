@@ -54,7 +54,8 @@ async function fixture(page, { app = false, edit = true, out = true } = {}) {
       };
     }, { key: KEY, edit, out });
   }
-  await installViewPrefsServer(page);
+  // PHOTO-기기별출처(S49-5): 폰 앱 기본은 폰 폴더만이므로, 원드라이브·폰 사진이 함께 보이는 목록을 쓰는 이 시험은 둘 다 켠 채 시작한다.
+  await installViewPrefsServer(page, { photo_sources_phone: { onedrive: true, gdrive: false, phone: true } });
   await openHome(page, { beforeLoad: async () => {
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_diary_stars', r => r.fulfill({ json: [] }));
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_photo_tags', r => r.fulfill({ json: [] }));
@@ -95,6 +96,7 @@ const viewer = page => page.locator('[data-diary-viewer]');
 const outSent = page => page.evaluate(() => window.__photoSent.filter(m => m.startsWith('out:') && m !== 'out:hello'));
 const trashSent = page => page.evaluate(() => window.__photoSent.filter(m => m.startsWith('photos:trash')));
 
+const shareMenuItem = async (page, name) => { await viewer(page).locator('[data-diary-share]').click(); await page.locator('#shareMenu').getByRole('button', { name, exact: true }).click(); }; // S49-34: [공유 ▾]는 폰에서도 작은 메뉴
 test.describe('폰 앱 412', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
 
@@ -105,7 +107,7 @@ test.describe('폰 앱 412', () => {
     await page.locator('#photosRoot [data-photos-id="ph:1"]').click();
     await expect(viewer(page)).toBeVisible();
     const thumbs = state.phoneReads.length;
-    await viewer(page).locator('[data-diary-share]').click();
+    await shareMenuItem(page, '다른 앱으로 공유…');
     await expect.poll(() => outSent(page)).toEqual(['out:start:{"count":1}', 'out:phone:1', 'out:go']);
     await expect(viewer(page).locator('[data-diary-viewer-note] [data-wait]')).toHaveCount(0);
     expect(state.phoneReads.slice(thumbs).filter(p => p.includes('/thumb/') && p.includes('s=large'))).toEqual([]);
@@ -118,7 +120,7 @@ test.describe('폰 앱 412', () => {
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
     await page.locator('#photosRoot [data-photos-id="O1"]').click();
     await expect(viewer(page)).toBeVisible();
-    await viewer(page).locator('[data-diary-share]').click();
+    await shareMenuItem(page, '다른 앱으로 공유…');
     await expect.poll(() => outSent(page)).toEqual(['out:start:{"count":1}', expect.stringMatching(/^out:begin:\{"name":"[^"]+","mime":"image\/png","size":\d+\}$/), 'out:part', 'out:end', 'out:go']);
     expect(state.errors).toEqual([]);
   });
@@ -131,7 +133,7 @@ test.describe('폰 앱 412', () => {
     await page.route(u => u.pathname.includes('/__phone/') && u.search.includes('s=large'), async r => { await new Promise(ok => setTimeout(ok, 4000)); await r.fallback(); });
     await page.locator('#photosRoot [data-photos-id="ph:1"]').click();
     await expect(viewer(page)).toBeVisible();
-    await viewer(page).locator('[data-diary-share]').click();
+    await shareMenuItem(page, '사진 복사');
     const grey = viewer(page).locator('[data-diary-viewer-note] [data-wait]');
     await expect(grey).toHaveCount(1);
     const del = viewer(page).locator('[data-od-delete]');
@@ -156,8 +158,11 @@ test.describe('폰 앱 412', () => {
     await page.locator('#photosRoot [data-photos-id="ph:1"]').click();
     await expect(viewer(page)).toBeVisible();
     await viewer(page).locator('[data-diary-share]').click();
-    await expect(viewer(page).locator('[data-diary-viewer-note]')).toContainText('앱을 새 판으로 업데이트해 주세요');
+    // 공유 창 길이 없는 옛 앱: 메뉴에 [다른 앱으로 공유…]가 없다(나머지 항목은 그대로).
+    await expect(page.locator('#shareMenu').locator('button:visible')).toHaveText(['사진 복사', '일기에 넣기', '업데이트로 보내기', '받기']);
+    await page.keyboard.press('Escape');
     await expect(viewer(page).locator('[data-diary-viewer-note] [data-wait]')).toHaveCount(0);
+
     expect(await outSent(page)).toEqual([]);
     expect(state.errors).toEqual([]);
   });

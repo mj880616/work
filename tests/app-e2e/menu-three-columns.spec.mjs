@@ -32,7 +32,7 @@ for(const width of [1440,884,412]){
     // 처음 모양: 폰 [메뉴] 창도 선 아래에 통화·텔레그램 소식·아스날.
     expect((await sheetOrder(page)).slice(-4)).toEqual(['LINE','calls','telegram','arsenal']);
     await openEdit(page,width);
-    await expect(modal(page).locator('.me-group h3')).toHaveText([/^폰 하단바/,/^위 메뉴/,/^아래 붙는 메뉴/]);
+    await expect(modal(page).locator('.me-group h3')).toHaveText([/^폰 하단바/,/^위 메뉴/,/^아래 붙는 메뉴/,/^숨긴 메뉴/]);
     expect(await ids(page,'tail')).toEqual(['calls','telegram','arsenal']);
     await expect(modal(page).locator('.me-pv-tail li')).toHaveText(['통화','텔레그램 소식','아스날']);
 

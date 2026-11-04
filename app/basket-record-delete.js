@@ -259,7 +259,7 @@ export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isC
 // 함수가 그 종류를 모르면(DB 적용 전) '준비 중'을 알리고 삭제 요청을 보내지 않는다(예전 note-delete 경로도 쓰지 않는다).
 // 서버 쪽 삭제 가로채기 트리거가 DELETE를 휴지통 표시로 바꾸므로 같은 owner-RLS DELETE 한 번을 보내고, 도착은 목록으로 확인한 뒤에만 알린다.
 // 연결·첨부(Drive)는 건드리지 않는다. 안내는 '휴지통으로 옮겼어요 · 되돌리기' 한 줄(offerUndoNotice)이라 결과 글은 비워 둔다.
-async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false,ask}){
+async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false,ask,movedText=''}){
   const owner=scope(rt);
   return remove('note',noteId,{rt,isCurrent,confirmed,ask,confirmText:async()=>{
     const first=await readTrashKind('note',rt);
@@ -267,7 +267,7 @@ async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false,ask}){
     let info;try{info=await readNoteDeleteInfo(noteId,rt);}catch{return {status:'failed',message:RECORD_DELETE_TEXT.NOTE_READ_FAILED};}
     if(!info)return {status:'missing',message:RECORD_DELETE_TEXT.NOTE_MISSING};
     const words=otherDeleteText('note','',{noteKind:info.noteKind,attachments:info.attachments,links:info.places+info.otherLinks});
-    return {text:words.confirm,info,moved:words.moved};
+    return {text:words.confirm,info,moved:movedText||words.moved};
   },write:async({message:{moved},expectedSessionEpoch,path})=>{
     try{await rt.api(path,{method:'DELETE',prefer:'return=representation',expectedSessionEpoch});}catch{/* 도착 여부는 아래 목록으로 확인한다 */}
     const after=await readTrashKind('note',rt);
@@ -290,8 +290,9 @@ async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false,ask}){
 // keepFiles (a note): the owner-RLS REST delete only; the files stay in Drive (NOTE-파일붙이기).
 // confirmed(NOTE-탐색기 여러 개 지우기): 부른 쪽이 'n개를 지울까요?'를 한 번 물었으면 노트마다 다시 묻지 않는다.
 // 일기(UI-버튼통일 ①)는 묻지 않고 '되돌리기' 알림이 닫힌 뒤 보내므로 휴지통 길이 아닌 note-delete 길에서도 confirmed를 쓴다.
-export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText,keepFiles=false,trash=false,confirmed=false,anchor=globalThis.document?.activeElement,ask=askFor('note',anchor)}={}){
-  if(trash)return deleteNoteToTrash(noteId,{rt,isCurrent,confirmed,ask});
+export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText,keepFiles=false,trash=false,confirmed=false,movedText='',anchor=globalThis.document?.activeElement,ask=askFor('note',anchor)}={}){
+  // movedText(S48-56 일기로 보내기): 휴지통 알림 글을 부른 쪽 글로(예: '6월 1일 일기로 보냈어요'). [되돌리기]는 그대로.
+  if(trash)return deleteNoteToTrash(noteId,{rt,isCurrent,confirmed,ask,movedText});
   return remove('note',noteId,{rt,isCurrent,confirmed,ask,confirmText:async()=>{
     let info;try{info=await readNoteDeleteInfo(noteId,rt);}catch{return {status:'failed',message:RECORD_DELETE_TEXT.NOTE_READ_FAILED};}
     if(!info)return {status:'missing',message:RECORD_DELETE_TEXT.NOTE_MISSING};

@@ -6,6 +6,7 @@ import { checkSplit } from './helpers/split-check.mjs';
 // 사진 메뉴 ②(2026-10-29 08:07 요청): [폴더](원드라이브 폴더 나무·폴더 안 사진·여러 장 옮기기·끌어 놓기·되돌리기·우클릭/⋯ 메뉴·새 폴더)와
 // [앨범](#태그: 새 앨범에 넣기·앨범 카드·앨범 사진·앨범에서 빼기). 지어낸 Supabase: onedrive-photos(Edge)·app_photo_tags·app_photo_tag_items·app_diary_stars.
 // 폭: 폰 412(한 화면씩)·폴드 펼침 884(한 화면씩)·PC 1440(왼쪽 나무 + 오른쪽 격자).
+const barPick = async (page, trigger, name) => { await trigger.click(); await page.locator('#photoBarMenu').getByRole('button', { name, exact: true }).click(); }; // S49-34 PHOTO-아래줄정돈: 더보기·편집 ▾ 안 글자 항목
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
 const media = (id, parent, day, hour) => ({ id, parent, name: id + '.jpg', day, taken_at: `${day}T${String(hour).padStart(2, '0')}:00:00.000Z`, approx: false, kind: 'photo', screenshot: false, duration_ms: null });
@@ -175,11 +176,11 @@ test('사진 메뉴 ② 폴더 PC 1440: 고른 사진을 왼쪽 폴더로 끌어
   const tree = root(page).locator('[data-photos-fx-tree]');
   await tree.locator('[data-photos-fx-open="S1"]').click();
   await expect.poll(() => ids(page)).toEqual(['B1', 'B2', 'B3']);
-  // 사진 우클릭 = [선택] [폴더로 옮기기…] [앨범에 넣기…] [지우기].
+  // 사진 우클릭 = [선택] [별표] [공유] [일기에 넣기] [업데이트로 보내기](S48-56·S49-9) [폴더로 옮기기…] [앨범에 넣기…] [지우기].
   await items(page).nth(2).click({ button: 'right' });
   const pm = page.locator('#photosPhotoMenu');
   await expect(pm).toBeVisible();
-  await expect(pm.locator('button')).toHaveText(['선택', '폴더로 옮기기…', '앨범에 넣기…', '지우기']);
+  await expect(pm.locator('button')).toHaveText(['선택', '별표', '공유', '일기에 넣기', '업데이트로 보내기', '폴더로 옮기기…', '앨범에 넣기…', '지우기']);
   await pm.locator('button', { hasText: '선택' }).click();
   await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
   await items(page).nth(1).click();
@@ -210,7 +211,7 @@ for (const width of [412, 1440]) {
     await hold(page, items(page).nth(0));
     await items(page).nth(2).click();
     await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
-    await root(page).locator('[data-photos-act-tag]').click();
+    await barPick(page, root(page).locator('[data-photos-act-more]'), '앨범에 넣기');
     const pick = page.locator('#photosPickMenu');
     await expect(pick).toBeVisible();
     await pick.locator('[data-pick-newtag]').click();
@@ -231,8 +232,7 @@ for (const width of [412, 1440]) {
     expect(f.edge.filter(b => b.action === 'library').at(-1).star_ids.slice().sort()).toEqual(['A1', 'B1']);
     // 하나 골라 [앨범에서 빼기] → 연결만 지움(사진은 그대로), 되돌리기 있음.
     await hold(page, items(page).nth(1));
-    await expect(root(page).locator('[data-photos-act-untag]')).toBeVisible();
-    await root(page).locator('[data-photos-act-untag]').click();
+    await barPick(page, root(page).locator('[data-photos-act-more]'), '앨범에서 빼기');
     await expect.poll(() => ids(page)).toEqual(['A1']);
     expect(f.rest.find(x => x.table === 'items' && x.method === 'DELETE').keys).toEqual(['B1']);
     await expect(page.locator('.kptu-notice-undo')).toBeVisible();

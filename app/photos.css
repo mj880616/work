@@ -46,11 +46,8 @@
 #appView #photosView .photos-sel{ position:sticky; top:0; z-index:3; display:flex; align-items:center; gap:8px; min-height:40px; padding:0 8px; color:var(--kptu-on-primary); background:var(--kptu-primary); border-radius:var(--kptu-radius-sm,6px); font-size:var(--ds-compact-text,13px); }
 #appView #photosView .photos-sel[hidden],#appView #photosView .photos-act[hidden]{ display:none; }
 #appView #photosView .photos-sel-x{ position:relative; width:32px; min-width:0; height:32px; min-height:0; margin:0; padding:0; color:inherit; background:transparent; border:0; box-shadow:none; font-size:16px; }
-#appView #photosView .photos-act{ position:sticky; bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); z-index:3; display:flex; justify-content:space-around; gap:2px; padding:4px; background:var(--kptu-surface); border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
-#appView #photosView .photos-act button{ position:relative; display:inline-flex; align-items:center; gap:4px; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 10px; color:var(--kptu-ink); background:transparent; border:0; box-shadow:none; font-size:var(--ds-compact-text,13px); }
-#appView #photosView .photos-act button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-#appView #photosView .photos-act button:disabled{ opacity:.45; }
-#appView #photosView .photos-act .photos-danger{ color:var(--kptu-danger); }
+/* UI-고르기줄(S48-54): 버튼 칸 나누기·아이콘·글자 모양은 공용 부품(base-ui.css .kptu-actbar). 여기는 줄 자리(아래 붙기)·바탕만. */
+#appView #photosView .photos-act{ position:sticky; bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); z-index:3; flex-wrap:nowrap; padding:2px 4px; color:var(--kptu-ink); background:var(--kptu-surface); border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
 /* 달력: 일기 달력처럼 7칸. 칸마다 그날 대표 사진 1장(작게)과 장수. */
 #appView #photosView .photos-cal-head{ display:flex; align-items:center; justify-content:center; gap:12px; padding:4px 0; font-size:var(--ds-text-row,14px); }
 #appView #photosView .photos-cal-head b{ font-weight:var(--ds-weight-medium,500); }
@@ -67,11 +64,17 @@
 /* PHOTO-사진메뉴 2차: 동영상 표시·빠른 이동 막대·휴지통 위 줄·설정 창(일기와 같은 공용 부품 od-settings.js, 모양은 diary.css의 :is(#diaryView,#photosView) .diary-od-*). */
 #appView #photosView .photos-dur{ position:absolute; right:3px; bottom:2px; z-index:1; padding:0 3px; border-radius:3px; font-size:10px; line-height:14px; font-variant-numeric:tabular-nums; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); pointer-events:none; }
 #appView #photosView .photos-top{ display:flex; align-items:center; gap:6px; margin:4px 0; }
-#appView #photosView .photos-rail{ position:fixed; right:0; z-index:4; top:calc(var(--kptu-topbar-height,56px) + 56px); bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + 16px); width:22px; touch-action:none; cursor:ns-resize; }
+/* PHOTO-연도막대겹침(S49-45): 막대는 보기 칩·출처 버튼 줄 아래(top은 photos.js가 줄 바닥에 맞춤)부터. 누르는 폭 44px·손잡이 높이 44px(눈에 보이는 것은 가늘게).
+   평소엔 감춰져 있다가 스크롤·끌기·(PC) 마우스를 대면 나타난다. 감췄을 땐 터치를 받지 않아 사진 누르기·꾹 누르기와 겹치지 않는다. */
+#appView #photosView .photos-rail{ position:fixed; right:0; z-index:4; top:calc(var(--kptu-topbar-height,56px) + 72px); bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + 16px); width:44px; touch-action:none; cursor:ns-resize; opacity:0; pointer-events:none; transition:opacity .2s; -webkit-tap-highlight-color:transparent; user-select:none; }
+#appView #photosView .photos-rail.is-awake,#appView #photosView .photos-rail:focus-visible{ opacity:1; pointer-events:auto; }
+@media (hover:hover) and (pointer:fine){ #appView #photosView .photos-rail{ width:16px; pointer-events:auto; } #appView #photosView .photos-rail.is-awake,#appView #photosView .photos-rail:focus-visible{ width:44px; } }
 #appView #photosView .photos-rail[hidden]{ display:none; }
-#appView #photosView .photos-rail::before{ content:""; position:absolute; top:0; bottom:0; right:6px; width:2px; border-radius:1px; background:var(--ds-line); }
-#appView #photosView .photos-rail-thumb{ position:absolute; right:3px; width:8px; height:24px; margin-top:-2px; border-radius:4px; background:var(--kptu-muted); opacity:.6; }
-#appView #photosView .photos-rail-bubble{ position:absolute; right:26px; padding:1px 8px; border-radius:var(--kptu-radius-pill,999px); font-size:var(--ds-compact-text,13px); line-height:20px; white-space:nowrap; font-variant-numeric:tabular-nums; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #photosView .photos-rail::before{ content:""; position:absolute; top:0; bottom:0; right:8px; width:2px; border-radius:1px; background:var(--ds-line); }
+#appView #photosView .photos-rail-thumb{ position:absolute; right:0; left:0; height:44px; }
+#appView #photosView .photos-rail-thumb::after{ content:""; position:absolute; right:3px; top:6px; bottom:6px; width:8px; border-radius:4px; background:var(--kptu-muted); opacity:.7; transition:background .15s,opacity .15s; }
+#appView #photosView .photos-rail.is-drag .photos-rail-thumb::after{ background:var(--kptu-primary); opacity:1; }
+#appView #photosView .photos-rail-bubble{ position:absolute; right:52px; padding:4px 12px; border-radius:var(--kptu-radius-pill,999px); font-size:16px; font-weight:600; line-height:24px; white-space:nowrap; font-variant-numeric:tabular-nums; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); box-shadow:0 1px 6px color-mix(in srgb,var(--kptu-ink) 20%,transparent); pointer-events:none; }
 #appView #photosView .photos-rail-bubble[hidden]{ display:none; }
 #appView #photosView .photos-rail:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
 #appView #photosView .diary-viewer .diary-viewer-video{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:var(--ds-photo-stage); }
@@ -81,10 +84,8 @@
 #appView #photosView .photos-od button.secondary{ align-self:flex-start; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
 #appView #photosView .photos-od .diary-danger{ color:var(--kptu-danger); }
 #appView #photosView .photos-od:empty{ display:none; }
-#appView #photosView .photos-act button[hidden]{ display:none; }
-/* 사진 메뉴 ②: 아래 작업 줄에 [📁 옮기기]·[# 앨범]이 더해져 폰 412px에서는 한 줄 가로 넘김(줄바꿈 없음). */
+/* 사진 메뉴 ②: 아래 작업 줄에 [옮기기]·[앨범]이 더해졌다. 칸은 같은 너비로 줄 폭을 나눈다(공용 .kptu-actbar). 아주 좁아 칸이 모자랄 때만 가로 넘김(잘림 없음). */
 #appView #photosView .photos-act{ overflow-x:auto; scrollbar-width:none; }
-@media (max-width:760px){ #appView #photosView .photos-act{ justify-content:flex-start; } #appView #photosView .photos-act button{ flex:none; padding:0 7px; } }
 /* 이름 넣기 줄(새 폴더·이름 바꾸기·새 앨범) — S47-26: 카드·제목 없이 한 줄 [입력칸][만들기][×]. 입력칸 높이는 앱 입력칸(--kptu-control-height),
    버튼은 작은 버튼(--ds-compact-height), 누르는 범위 44px. 공용 label 기본(세로 쌓기·굵은 글자)을 쓰지 않으려고 label을 없앴다(이름은 엷은 글자·aria-label). */
 #appView #photosView .photos-name{ display:flex; align-items:center; gap:4px; margin:0; padding:0; border:0; background:none; font-size:var(--ds-compact-text,13px); }
@@ -141,17 +142,10 @@
 .photos-pick-menu{ max-height:min(60vh,420px); }
 .photos-pick-menu button:disabled{ opacity:.45; cursor:default; }
 .photos-pick-menu .photos-pick-n{ margin-left:auto; font-size:11px; color:var(--kptu-muted); }
-/* PHOTO-출처 ①: 위 줄 오른쪽 출처 아이콘 — 켜짐은 옅은 강조색 바탕, 꺼짐은 흐린 회색. */
-#appView #photosView .photos-srcs{ display:inline-flex; align-items:center; gap:2px; }
-#appView #photosView .photos-srcs [data-photos-src]{ min-width:32px; padding:0 6px; border-radius:6px; }
-#appView #photosView .photos-src-btn{ display:inline-grid; place-items:center; color:var(--kptu-muted); }
-#appView #photosView .photos-src-btn[hidden]{ display:none; }
-/* PHOTO-실제아이콘(11/03): 원드라이브·구글 드라이브는 공식 아이콘 원래 색 그대로(공식 색을 바탕에 칠하지 않음).
-   꺼짐 = 같은 아이콘을 회색조로 엷게. 바탕색으로 켜짐을 칠하지 않는다(색 아이콘 ↔ 회색 아이콘이 켜고 꺼짐). 폰 폴더 칩은 모양 그대로 글자색만 맞춘다. */
-#appView #photosView .photos-srcs [data-photos-src][aria-pressed="true"]{ background:transparent; color:var(--kptu-ink); }
-#appView #photosView .photos-srcs [data-photos-src][aria-pressed="false"]{ background:transparent; color:var(--kptu-faint); }
-#appView #photosView .photos-srcs [data-photos-src][aria-pressed="false"] svg{ filter:grayscale(1); opacity:.45; }
-#appView #photosView .photos-srcs [data-photos-src][aria-disabled="true"]{ opacity:.45; cursor:default; }
+/* PHOTO-출처 ①·PHOTO-실제아이콘: 출처 아이콘 켜짐/꺼짐 모양은 [파일] 화면과 같이 쓰는 공용 파일 source-chips.css로 옮겼다(S49-21). 이 파일에는 사진 화면만의 규칙(폰 폴더 칩·구글 드라이브 문제 점)이 남는다. */
+/* PHOTO-폴더출처컬러(S49-5, 요청함 11/03 15:02): 폰 폴더 칩도 원드라이브·구글 드라이브와 같은 규칙 — 켜짐 = 색(노란 폴더, 안을 칠함), 꺼짐 = 회색·엷게(위 규칙). */
+#appView #photosView .photos-srcs [data-photos-src="phone"][aria-pressed="true"]{ color:var(--ds-project-yellow); }
+#appView #photosView .photos-srcs [data-photos-src="phone"][aria-pressed="true"] .photos-src-ic path{ fill:currentColor; fill-opacity:.35; }
 /* S46-24 ④: 구글 드라이브 칩이 권한 없음·못 읽음이면 오른쪽 위 작은 빨간 점(원드라이브 아이콘과 같은 모양). 이유는 작은 글자.
    S46-29: 점은 ::before. button.mini의 ::after는 base-ui.css가 누르는 영역(44px)으로 쓰므로 표시를 그리지 않는다. */
 #appView #photosView .photos-srcs [data-photos-src="gdrive"]{ position:relative; }
@@ -229,3 +223,48 @@
 /* PHOTO-드라이브폴더통일: 폴더 줄 장수는 0·모름('—')이면 흐리게(원드라이브·구글 드라이브 같음). 폰 묶음 이름 옆 전체 장수. */
 #appView #photosView .photos-fx-row .nx-num.is-zero{ opacity:.55; }
 #appView #photosView .photos-fx-n{ margin-left:4px; font-variant-numeric:tabular-nums; }
+/* S48-60 PHOTO-정보고치기: 사진 ⋯ [정보 고치기…] 창(촘촘하게, 표는 창 안에서만 내림, 폰 하단바에 가리지 않게 위쪽에). */
+.photo-info-dialog{width:min(560px,calc(100vw - 16px));max-height:calc(100dvh - var(--kptu-mobile-tab-height,56px) - 24px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-ink);display:none;flex-direction:column}
+.photo-info-dialog[open]{display:flex}
+.photo-info-dialog::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transparent)}
+.photo-info-dialog .pi-head,.photo-info-dialog .pi-foot{display:flex;align-items:center;gap:8px;padding:6px 12px}
+.photo-info-dialog .pi-head h2{margin:0;font-size:15px;flex:1}
+.photo-info-dialog .pi-head h2 span{font-weight:400;color:var(--kptu-muted);font-size:13px}
+.photo-info-dialog .pi-body{display:flex;flex-direction:column;gap:6px;padding:0 12px 6px;min-height:0;overflow:auto}
+.photo-info-dialog .pi-cam{margin:0;font-size:12px;color:var(--kptu-muted)}
+.photo-info-dialog .pi-cam:empty{display:none}
+.photo-info-dialog .pi-how{border:0;margin:0;padding:0;display:grid;gap:4px}
+.photo-info-dialog .pi-opt{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:13px}
+.photo-info-dialog .pi-opt input[type=number]{width:4.2em}
+.photo-info-dialog .pi-opt input[type=text]{flex:1;min-width:10em}
+.photo-info-dialog .pi-opt select,.photo-info-dialog .pi-opt input:not([type=radio]){font-size:13px;padding:2px 4px;min-height:28px}
+.photo-info-dialog .pi-table-wrap{overflow:auto;max-height:40vh;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
+.photo-info-dialog .pi-table{width:100%;border-collapse:collapse;font-size:12px}
+.photo-info-dialog .pi-table th,.photo-info-dialog .pi-table td{padding:3px 6px;text-align:left;vertical-align:top;border-bottom:1px solid var(--kptu-border)}
+.photo-info-dialog .pi-table tbody th{font-weight:400;max-width:10em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.photo-info-dialog .pi-table thead th{position:sticky;top:0;background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-weight:500}
+.photo-info-dialog .pi-changed td:last-child{color:var(--kptu-primary-ink,var(--kptu-primary))}
+.photo-info-dialog .pi-no{color:var(--kptu-muted)}
+.photo-info-dialog .pi-last{margin:0;font-size:12px;color:var(--kptu-muted)}
+.photo-info-dialog .pi-foot{justify-content:space-between;border-top:1px solid var(--kptu-border)}
+.photo-info-dialog .pi-foot .status{margin:0;font-size:12px;flex:1;min-width:0}
+@media (max-width:760px){.photo-info-dialog{margin:12px auto auto}}
+
+/* PHOTO-연월이동(S49-5, 명진 결정 A+B 둘 다): A 오른쪽 막대 연도 눈금, B [연·월·일] 보기 단계 줄과 월·연 칸. */
+#appView #photosView .photos-rail-year{ position:absolute; right:16px; margin-top:-6px; padding:0 3px; border-radius:3px; font-size:10px; line-height:12px; color:var(--kptu-ink); background:color-mix(in srgb,var(--kptu-surface) 78%,transparent); font-variant-numeric:tabular-nums; pointer-events:none; }
+/* PHOTO-연월보기(S49-48): [사진] 탭 월 보기·연 보기. 줄 = 이름·장수 + 작은 사진 한 줄(폰 6·PC 10 / 연 폰 2·PC 4, --zn). 연도 막대는 일별에서만(JS가 숨김). */
+#appView #photosView .photos-zoom{ display:block; }
+#appView #photosView .photos-zy{ position:sticky; top:0; z-index:2; margin:0; padding:4px 0; font-size:18px; font-weight:700; background:var(--kptu-bg,var(--bg)); }
+#appView #photosView .photos-zy span{ margin-left:6px; font-size:12px; font-weight:400; color:var(--kptu-faint); }
+#appView #photosView .photos-zrow{ display:block; width:100%; height:auto; min-height:0; margin:0; padding:4px 0 6px; text-align:left; border:0; border-bottom:1px solid var(--kptu-line,var(--line)); border-radius:0; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+#appView #photosView .photos-zt{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
+#appView #photosView .photos-zt b{ font-size:15px; font-weight:600; }
+#appView #photosView .photos-zt span{ font-size:12px; color:var(--kptu-faint); }
+#appView #photosView .photos-zoom[data-photos-zoom="year"] .photos-zt b{ font-size:22px; }
+#appView #photosView .photos-zstrip{ display:grid; gap:2px; grid-template-columns:repeat(var(--zn,6),minmax(0,1fr)); }
+#appView #photosView .photos-zoom[data-photos-zoom="year"] .photos-zstrip{ gap:3px; }
+#appView #photosView .photos-zph{ position:relative; display:block; aspect-ratio:1/1; min-width:0; overflow:hidden; border-radius:2px; background:var(--kptu-surface-subtle); }
+#appView #photosView .photos-zoom[data-photos-zoom="year"] .photos-zph{ aspect-ratio:16/9; }
+#appView #photosView .photos-zph .diary-photo{ position:absolute; inset:0; display:block; }
+#appView #photosView .photos-zph img{ width:100%; height:100%; object-fit:cover; display:block; }
+#appView #photosView .photos-zrow:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }

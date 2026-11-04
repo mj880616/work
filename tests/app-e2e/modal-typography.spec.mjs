@@ -93,7 +93,7 @@ const newStandard=p=>p.evaluate(()=>{
    // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px. UI-버튼전수조사: 채운 버튼은 36px, 나머지 버튼도 32px.
    // UI-칩줄두줄(2026-10-31): 칩 줄의 칩은 26px·12px.
    const chip=e.matches('.filter-chips button');
-   const h=Math.round(e.getBoundingClientRect().height),want=chip?26:e.matches('#manageLibraryBtn')||e.matches('#newMeetingBtn')&&innerWidth>760?32:e.matches('.primary')?36:32;/* BIZ-버튼줄정리: [+ 사업 보고]는 작고 낮게 32px *//* UI-버튼전수조사(2026-10-24): 채운 버튼 36px, 나머지 32px(46px 버튼 없음) */// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
+   const h=Math.round(e.getBoundingClientRect().height),want=chip?26:e.matches('#manageLibraryBtn')||e.matches('#newMeetingBtn')&&innerWidth>760||e.matches('[data-sp-new]')&&innerWidth>760?32:e.matches('.primary')?36:32;/* BIZ-버튼줄정리: [+ 사업 보고]는 작고 낮게 32px *//* UI-버튼전수조사(2026-10-24): 채운 버튼 36px, 나머지 32px(46px 버튼 없음) */// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
    if(h!==want||s.fontSize!==(chip?'12px':'13px'))bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
   }
  }
@@ -141,7 +141,9 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   // UI-필터알약 replaces these list controls; compare their new roles with home below.
   // Every retained list role and the unchanged modal audits still compare in full.
   const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>!(e.id==='gt-week-head'&&el.querySelector('#gt-today-head'))&&!e.closest('#gtTaskSection,.calendar-view-switch,#calendarTodayBtn,.cmv-task-count,[data-calendar-task],#meetingTypeFilter,label[for="meetingTypeFilter"],#documentProject,label[for="documentProject"],#libraryViewFilter')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);const title=e.closest('#monthTitle');if(title)return ['B','',e.id==='monthTitle'&&innerWidth<=760?'20px':s.fontSize,s.color,s.fontWeight,e.id==='monthTitle'&&innerWidth<=760?'24px':s.lineHeight];if(e.id==='prevMonthBtn'||e.id==='nextMonthBtn')return [e.tagName,e.className,'calendar-arrow','muted',s.fontWeight,'1'];return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
-  const expected=await snapshot(original);
+  // STAB-E2E간헐1104: 목록이 아직 그려지는 중에 한 번만 찍으면 어긋난다(#1845 브랜치에서 390 연속 실패, 재실행 통과). 옛 화면은 같은 값이 두 번 연달아 나올 때까지(그려짐이 끝날 때까지), 새 화면은 기대 값과 같아질 때까지 다시 읽는다.
+  let expected=await snapshot(original);
+  await expect.poll(async()=>{const next=await snapshot(original),same=JSON.stringify(next)===JSON.stringify(expected);expected=next;return same}).toBe(true);
   if(name==='projects'){
     // D-project-list changes exactly these retained list roles; other views and all dialog audits remain.
     const muted=await original.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-muted)';document.body.append(e);const color=getComputedStyle(e).color;e.remove();return color});
@@ -170,7 +172,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     // UI-디자인기준 3/3: 묶음 이름 왼쪽, 오른쪽 "N곳".
     await expect(page.locator('#soOrganizationList .so-group-heading > span')).toHaveText(['그 외','1곳']);
   }
-  if(!DS_VIEWS.has(name))expect(await snapshot(page),name).toEqual(expected);
+  if(!DS_VIEWS.has(name))await expect.poll(()=>snapshot(page),{message:name}).toEqual(expected);
   else expect(await newStandard(page),name+' new standard').toEqual([]);
   // UI-PC회의 → MEET-결과정리 ⑤(시안 C): PC(≥1024) 회의는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록. 종류 줄은 목록 글자(13px)·누르는 높이 44px, 고른 종류 하나만 표시.
   if(name==='meetings'&&width>=761){
@@ -181,7 +183,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
   }
   if(name==='library'||name==='meetings'&&width<761){
-    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter)');
+    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter):not(.report-period-chips)');// REPORT-기간고르기: 기간 칩 줄은 report-period.spec이 따로 본다
     // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
     // UI-전수디자인점검 F01: 사업 보고(폰)는 위쪽 칸 칩 줄 하나(사업영역·회의명은 줄 끝 [거르기 ▾] 창으로 접었다).
     await expect(groups).toHaveCount(name==='library'?2:1);
@@ -379,7 +381,7 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // the baseline only. Every other optional tag (특이사항·약칭 etc.) is still compared.
   await original.evaluate(()=>document.querySelectorAll('#meetingRoundNo,#mrdEditRound').forEach(input=>input.closest('label')?.querySelector(':scope > .optional')?.remove()));
   // MTG-보고창정리: 입력·수정 창의 원문 칸 이름 줄에 작은 [선택] 표시가 생겼다(원문은 필수가 아님). 같은 모양을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
-  await original.evaluate(()=>{for(const id of ['meetingTranscript','mrdEditTranscript'])document.getElementById(id)?.closest('label')?.insertAdjacentHTML('afterbegin','<span class="optional">선택</span>')});
+  await original.evaluate(()=>{for(const id of ['meetingTranscript','mrdEditTranscript'])document.getElementById(id)?.closest('label')?.insertAdjacentHTML('afterbegin','<span class="optional">안 써도 됨</span>')});
   // MTG-녹음초안: [회의] 입력 창의 원문 칸 위에 [녹음·전사 넣기] 줄과 접힌 패널(파일 칸·전사 글 칸)이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
   {const html=await page.locator('#mtdBar').evaluate(el=>el.outerHTML+el.nextElementSibling.outerHTML);await original.locator('#meetingTranscript').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('beforebegin',html),html)}
   // PRJ-색 added the project color field (hidden value input + choices); compare it under both style sets too.
@@ -392,9 +394,9 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   await original.locator('#ciGoogleEndTime').evaluate((el,html)=>el.closest('.ci-date-grid').insertAdjacentHTML('afterend',html),placeField);
   // UI-회의결과창정리(2026-10-17 사용자 결정): 회의 결과 창(만들기·수정)의 첨부·후속 묶음과 자료 등록 창 업로드 칸을 작은 묶음으로 바꿨다.
   // 바뀐 부분은 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다. 없어진 두 요소(업로드 상자 글자·회의자료 라벨 설명)의 규칙은 아래에서 뺀다.
-  for(const [from,to] of [['#meetingModal fieldset:has(#meetingActionList)','#meetingModal fieldset:has(#meetingActionList)'],['#mrdView .mrd-followup-section','#mrdView .mrd-followup-section'],['#mrdView .mrd-material-section','#mrdView .mrd-material-section'],['#mrdView .mrd-result-section','#mrdView .mrd-result-section'],['#documentModal .library-file-block','#documentModal .library-file-block']]){const html=await page.locator(from).evaluate(el=>el.outerHTML);await original.locator(to).evaluate((el,html)=>{el.outerHTML=html},html)}
+  for(const [from,to] of [['#meetingModal fieldset:has(#meetingActionList)','#meetingModal fieldset:has(#meetingActionList)'],['#mrdView .mrd-followup-section','#mrdView .mrd-followup-section'],['#mrdAttach .mrd-material-section','#mrdView .mrd-material-section'],['#mrdView .mrd-result-section','#mrdView .mrd-result-section'],['#documentModal .library-file-block','#documentModal .library-file-block']]){const html=await page.locator(from).evaluate(el=>el.outerHTML);await original.locator(to).evaluate((el,html)=>{el.outerHTML=html},html)}
   // ACT-사진 3단계: 사업 보고 상세 창에 '사진' 줄(제목·[+ 사진]·숨은 파일 칸·상태 줄)이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
-  {const html=await page.locator('#mrdView .mrd-photo-section').evaluate(el=>el.outerHTML);await original.locator('#mrdView .mrd-material-section').evaluate((el,html)=>el.insertAdjacentHTML('beforebegin',html),html)}
+  {const html=await page.locator('#mrdAttach .mrd-photo-section').evaluate(el=>el.outerHTML);await original.locator('#mrdView .mrd-material-section').evaluate((el,html)=>el.insertAdjacentHTML('beforebegin',html),html)}
   // MEET-기록보내기 1단계: 회의 결과 원문 줄에 [바구니에 담기] 버튼·안내·상태 줄이 생겼다. 위 묶음 비교에 결과 구역도 함께 넣어 양쪽 스타일로 비교한다.
   // UI-바구니첨부메모(2026-10-18 사용자 결정): 자료 등록·수정 창의 분류는 자유 입력 대신 7개 중 고르기. 현재 칸을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   for(const id of ['docCategory','libraryEditCategory']){const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);await original.locator('#'+id).evaluate((el,html)=>{el.outerHTML=html},html)}

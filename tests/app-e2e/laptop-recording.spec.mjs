@@ -30,8 +30,8 @@ async function fakeRecorder(page){
   });
 }
 
-async function mock(page,{pending=[],pieceFails=1,rec=null}={}){
-  const calls=[];
+async function mock(page,{pending=[],live=[],pieceFails=1,rec=null,server=false}={}){
+  const calls=[],meetingPosts=calls.meetingPosts=[];
   let pendingServed=false;
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method();
@@ -42,13 +42,13 @@ async function mock(page,{pending=[],pieceFails=1,rec=null}={}){
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'rec-ws',user_id:'rec-user',role:'owner',email:'rec@example.org',workspace:{id:'rec-ws',name:'QA Workspace'}}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'rec-ws',name:'QA Workspace'}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:'rec-user',display_name:'녹음 QA'}]);
-    if(path==='/rest/v1/app_meetings'){if(method==='POST')return ok([{id:'meeting-new',workspace_id:'rec-ws',title:'운영위',series_name:'운영위',meeting_at:'2026-10-29T05:30:00Z',activity_kind:'meeting'}]);return ok([])}
+    if(path==='/rest/v1/app_meetings'){if(method==='POST'){try{const b=JSON.parse(req.postData()||'{}');meetingPosts.push(Array.isArray(b)?b[0]:b)}catch{}return ok([{id:'meeting-new',workspace_id:'rec-ws',title:'운영위',series_name:'운영위',meeting_at:'2026-10-29T05:30:00Z',activity_kind:'meeting'}])}return ok([])}
     if(path==='/functions/v1/meeting-transcribe'){
       const action=url.searchParams.get('action');
       const headers=req.headers();
       const body=action==='rec_piece'?null:(()=>{try{return JSON.parse(req.postData()||'{}')}catch{return {}}})();
       calls.push({action,body,seq:headers['x-piece-seq']||'',rid:headers['x-recording-id']||'',type:headers['content-type']||''});
-      if(action==='rec_pending'){const sessions=typeof pending==='function'?pending(calls):pendingServed?[]:pending;pendingServed=true;return ok({ok:true,sessions})}
+      if(action==='rec_pending'){const sessions=typeof pending==='function'?pending(calls):pendingServed?[]:pending;pendingServed=true;return ok({ok:true,sessions,live:typeof live==='function'?live(calls):live})}
       if(action==='rec_discard')return ok({ok:true,session_id:body.session_id,discarded:1,trashed:true});
       if(action==='rec_restore')return ok({ok:true,session_id:body.session_id,restored:1});
       if(action==='rec_start'){
@@ -63,6 +63,13 @@ async function mock(page,{pending=[],pieceFails=1,rec=null}={}){
       if(action==='transcribe')return ok({ok:true,text:'김위원장: 다음 주 화요일 교섭 일정을 확정합니다.\n박간사: 자료는 금요일까지 돌립니다.'});
       if(action==='attach')return ok({ok:true});
       if(action==='config')return ok({ok:true,ready:true});
+      // REC-서버정리(S49-2): server=true면 서버가 정리를 맡는다(job_start → job_read 끝). 아니면 옛 서버처럼 모르는 action에 {ok:true}만.
+      if(server&&action==='job_start')return ok({ok:true,job:{id:'00000000-0000-4000-8000-0000000000b1',kind:'recording',status:'queued',stage:'combine',session_id:body.session_id,parts_done:0,parts_total:0,step_no:0,step_total:0,jobs:[]}});
+      if(server&&action==='job_read')return ok({ok:true,job:{id:body.job_id,kind:'recording',status:'done',stage:'done',session_id:'00000000-0000-4000-8000-0000000000aa',
+        created_at:'2026-10-29T06:10:00Z',seconds:600,jobs:['00000000-0000-4000-8000-0000000000j1'],parts_done:1,parts_total:1,step_no:1,step_total:1,
+        transcript_text:'김위원장: 서버가 정리한 전사 전문입니다.\n박간사: 자료는 금요일까지 돌립니다.',
+        draft:{decisions:'서버 요약 결정',information:'서버 요약 공유',actions:[{task:'자료 돌리기',assignee:'박간사',due:'2026-11-06'}],meeting_date:'',attendees:['김위원장']}}});
+      if(server&&action==='job_list')return ok({ok:true,jobs:[]});
       return ok({ok:true});
     }
     if(path==='/functions/v1/meeting-ai-draft'){calls.push({action:'draft',body:JSON.parse(req.postData()||'{}')});return ok({draft:{decisions:'다음 주 화요일 교섭 일정 확정',information:'자료는 금요일까지 공유',actions:[],attendees:['김위원장','박간사']}})}
@@ -150,6 +157,9 @@ test('PC: [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 �
   const draft=calls.find(c=>c.action==='draft');
   expect(draft.body.transcript_text).toContain('다음 주 화요일 교섭 일정');
   await expect(page.locator('#mtdStatus')).toContainText('초안을 채웠어요');
+  // S48-64: 전사 전문은 '회의록 전문' 칸(notes)에 들어가 저장 때 함께 남는다. 요약 호출은 15초가 아닌 긴 기다림으로.
+  await expect(page.locator('#meetingNotesLabel')).toHaveText('회의록 전문');
+  await expect(page.locator('#meetingNotes')).toHaveValue(/다음 주 화요일 교섭 일정/);
   await expect(band.locator('.rec-note strong')).toHaveText('초안 열림');
   expect(await page.evaluate(()=>window.__fakeRec.track.stopped)).toBe(true);
   await expect(page.locator('#mtdAttach')).toBeChecked();
@@ -160,6 +170,7 @@ test('PC: [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 �
   await page.locator('#meetingTitle').fill('운영위');
   await page.locator('#saveMeetingBtn').click();
   await expect.poll(()=>recCalls(calls,'attach').map(c=>c.body)).toEqual([{job_id:'00000000-0000-4000-8000-0000000000j1',meeting_id:'meeting-new'}]);
+  await expect.poll(()=>calls.meetingPosts.at(-1)?.notes||'').toContain('다음 주 화요일 교섭 일정');
 });
 
 test('PC: 다시 열면 사업 보고 위 \'이어서 정리\' 한 줄 → 전사 → 초안 창',async({page})=>{
@@ -303,4 +314,140 @@ test('PC: \'이어서 정리\' 줄 [버리기] → 줄이 빠지고 서버에 �
   expect(recCalls(calls,'rec_finish').length).toBe(0);
   expect(recCalls(calls,'rec_start').length).toBe(0);
   await expect(page.locator('#recBand')).toBeHidden();
+});
+
+test('PC: 서버 정리(S49-2) — [멈추고 정리] 뒤 서버가 합치기·전사·요약을 맡고, 끝난 결과가 회의 입력 창에 채워진다(화면 전사·요약 호출 없음)',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:1440,height:900});
+  const calls=await signIn(page,{server:true,pieceFails:0});
+  await page.locator('#reportRecordBtn').click();
+  const band=page.locator('#recBand');
+  await expect(band.locator('.rec-label')).toHaveText('녹음 중');
+  await page.evaluate(()=>window.__fakeRec.emit());
+  await expect.poll(()=>recCalls(calls,'rec_piece').length).toBe(1);
+  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await expect.poll(()=>recCalls(calls,'job_start').map(c=>c.body)).toEqual([{workspace_id:'rec-ws',kind:'recording',session_id:'00000000-0000-4000-8000-0000000000aa'}]);
+  await expect(band.locator('.rec-label')).toHaveText('정리 중');
+  await expect(band.locator('.rec-note')).toContainText('화면을 닫아도 서버에서 계속 정리해요');
+  await expect(page.locator('#meetingModal')).toBeVisible({timeout:20000});
+  await expect(page.locator('#meetingTranscript')).toHaveValue(/결정\n- 서버 요약 결정/);
+  await expect(page.locator('#meetingNotes')).toHaveValue(/서버가 정리한 전사 전문입니다/);
+  await expect(page.locator('#mtdStatus')).toContainText('초안을 채웠어요');
+  await expect(page.locator('#mtdAttach')).toBeChecked();
+  expect(recCalls(calls,'rec_finish').length).toBe(0);
+  expect(recCalls(calls,'transcribe').length).toBe(0);
+  expect(calls.some(c=>c.action==='draft')).toBe(false);
+  await expect.poll(()=>recCalls(calls,'job_opened').map(c=>c.body)).toEqual([{job_id:'00000000-0000-4000-8000-0000000000b1'}]);
+});
+
+// REC-새로고침(S49-7): 새로고침·창 닫기로 끊긴 녹음은 서버에 조각이 남아 있고(rec_pending의 live), 어느 화면에서든 맨 위 띠에서 이어 녹음·이어서 정리할 수 있다.
+// 브라우저 한계: 마이크는 새로고침에서 꺼진다. 되살리지 않고 같은 녹음(session)의 다음 구간으로 새 녹음기를 켠다.
+const minutesAgo=m=>new Date(Date.now()-m*60000).toISOString();
+test('PC: 새로고침 직후 어느 화면이든 맨 위 띠에 \'하던 녹음\' → [이어서 녹음]은 같은 녹음의 다음 구간으로, 띠 시간은 앞 길이에서 이어 센다',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:1440,height:900});
+  const live=calls=>recCalls(calls,'rec_start').length?[]:[{session_id:LIVE,started_at:minutesAgo(52),duration_sec:3000,idle_sec:20,
+    segments:[{segment_no:1,status:'recording',job_id:null,job_status:null,duration_sec:3000}]}];
+  const calls=await signIn(page,{live,pieceFails:0,rec:{piece_seconds:60,segment_seconds:3540,max_pieces:60}});
+  // 사업 보고가 아닌 화면에서도 보인다.
+  await clickView(page,'library');
+  await expect(page.locator('#libraryView')).toBeVisible();
+  const band=page.locator('#recBand');
+  await expect(band).toBeVisible();
+  await expect(band.locator('.rec-label')).toHaveText('일시 정지됨');
+  await expect(band).toContainText('50분');
+  const names=await band.getByRole('button').allTextContents();
+  expect(names).toEqual(['이어 녹음','이어서 정리','버리기']);
+  const b=await band.boundingBox();
+  expect(b.y).toBe(0);expect(b.height).toBeLessThanOrEqual(32);
+  // 방금 끊긴 것인지 다른 곳에서 녹음 중인지 모르므로(idle 20초) 이어받기 전에 띠에서 한 번 묻는다(브라우저 확인창 없음). [취소]하면 그대로.
+  let dialogs=0;
+  page.on('dialog',async d=>{dialogs++;await d.dismiss()});
+  await band.getByRole('button',{name:'이어 녹음'}).click();
+  await expect(band.locator('.rec-label')).toHaveText('확인');
+  await expect(band).toContainText('다른 곳에서 지금 녹음 중이면 그쪽 녹음은 멈춰요');
+  expect(recCalls(calls,'rec_start').length).toBe(0);
+  await band.getByRole('button',{name:'취소'}).click();
+  await expect(band.locator('.rec-label')).toHaveText('일시 정지됨');
+  await band.getByRole('button',{name:'이어 녹음'}).click();
+  await band.getByRole('button',{name:'계속'}).click();
+  await expect(band.locator('.rec-label')).toHaveText('녹음 중');
+  expect(dialogs).toBe(0);
+  expect(recCalls(calls,'rec_start')[0].body).toEqual({workspace_id:'rec-ws',mime:'audio/webm',session_id:LIVE});
+  expect(recCalls(calls,'rec_finish').length).toBe(0);
+  await expect(band.locator('.rec-time')).toHaveText(/^50:0\d$/);
+  // 새 구간의 조각은 새 녹음 id로 올라가고, 길이는 구간 시작부터 잰다(앞 녹음 길이를 더하지 않음).
+  await page.evaluate(()=>window.__fakeRec.emit());
+  await expect.poll(()=>recCalls(calls,'rec_piece').length).toBe(1);
+  // 멈추고 정리: 같은 session 전체를 서버 정리로(끊긴 앞 구간 포함).
+  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await expect.poll(()=>recCalls(calls,'rec_finish').map(c=>c.body.session_id)).toEqual([LIVE]);
+});
+
+test('PC: 하던 녹음이 오래 조용하면(idle 5분) [이어서 정리]도 묻지 않고 바로 한다',async({page})=>{
+  test.setTimeout(45000);
+  await page.setViewportSize({width:1440,height:900});
+  const calls=await signIn(page,{live:[{session_id:LIVE,started_at:minutesAgo(10),duration_sec:300,idle_sec:300,
+    segments:[{segment_no:1,status:'recording',job_id:null,job_status:null,duration_sec:300}]}],pieceFails:0});
+  const band=page.locator('#recBand');
+  await expect(band.locator('.rec-label')).toHaveText('일시 정지됨');
+  await band.getByRole('button',{name:'이어서 정리'}).click();
+  await expect.poll(()=>recCalls(calls,'rec_finish').map(c=>c.body.session_id)).toEqual([LIVE]);
+  expect(recCalls(calls,'rec_start').length).toBe(0);
+});
+
+test('PC: 하루가 지난 끝나지 않은 녹음은 맨 위 띠에 없고 사업 보고 위 한 줄에만 있다',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await signIn(page,{pending:[{session_id:'s-old',started_at:minutesAgo(3*24*60),duration_sec:600,segments:[]}]});
+  await expect(page.locator('#recPendingLine')).toBeVisible();
+  await expect(page.locator('#recPendingLine').getByRole('button').allTextContents()).resolves.toEqual(['이어 녹음','이어서 정리','버리기']);
+  await expect(page.locator('#recBand')).toBeHidden();
+});
+
+test('PC: 녹음 중 새로고침·창 닫기는 먼저 \'나가시겠어요?\' 확인(beforeunload)을 요청하고, 녹음 중이 아니면 요청하지 않는다',async({page})=>{
+  test.setTimeout(45000);
+  await page.setViewportSize({width:1440,height:900});
+  await signIn(page,{pieceFails:0});
+  const asks=()=>page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented});
+  expect(await asks()).toBe(false);
+  await page.locator('#reportRecordBtn').click();
+  await expect(page.locator('#recBand .rec-label')).toHaveText('녹음 중');
+  expect(await asks()).toBe(true);
+  await page.locator('#recBand').getByRole('button',{name:'일시정지'}).click();
+  expect(await asks()).toBe(true);
+});
+
+// REC-노트북이어하기(S49-29): 덮개 닫기·탭 숨김·잠자기로 마이크가 끊기면 '일시 정지됨' → [이어 녹음]은 같은 녹음(session)에 다음 구간으로 잇는다. 앞 조각은 잃지 않는다.
+test('PC: 화면 숨김·마이크 끊김 → 일시 정지됨(조각은 서버로) → [이어 녹음]은 같은 녹음에 이어 붙는다(새 녹음 없음)',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:1440,height:900});
+  const calls=await signIn(page,{pieceFails:0,rec:{piece_seconds:60,max_pieces:60,segment_seconds:3540}});
+  await page.locator('#reportRecordBtn').click();
+  const band=page.locator('#recBand');
+  await expect(band.locator('.rec-label')).toHaveText('녹음 중');
+  await page.evaluate(()=>window.__fakeRec.emit()); // 조각 1
+  await expect.poll(()=>recCalls(calls,'rec_piece').map(c=>c.seq)).toEqual(['1']);
+
+  // 화면 숨김: 아직 조각이 안 된 소리를 바로 내보낸다(requestData) → 조각 2가 서버로.
+  await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'hidden'});document.dispatchEvent(new Event('visibilitychange'))});
+  await expect.poll(()=>recCalls(calls,'rec_piece').map(c=>c.seq)).toEqual(['1','2']);
+  // 덮개 닫기·잠자기: 브라우저가 마이크를 끊어 녹음기가 멈춘다(마지막 조각 3 + stop). 돌아오면 일시 정지됨.
+  await page.evaluate(()=>{window.__fakeRec.recs.at(-1).stop()});
+  await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'});document.dispatchEvent(new Event('visibilitychange'))});
+  await expect(band.locator('.rec-label')).toHaveText('일시 정지됨');
+  await expect(band.locator('.rec-note')).toContainText('직접 눌러야');
+  await expect(band.getByRole('button',{name:'이어 녹음'})).toBeVisible();
+  await expect.poll(()=>recCalls(calls,'rec_piece').map(c=>c.seq)).toEqual(['1','2','3']);
+  expect(await page.evaluate(()=>window.__fakeRec.track.stopped)).toBe(true); // 마이크는 놓았다
+  expect(recCalls(calls,'rec_start').length).toBe(1);
+
+  // 자동 재시작은 없다. 사람이 [이어 녹음]을 누르면 새 녹음기 → 같은 session_id로 rec_start.
+  await band.getByRole('button',{name:'이어 녹음'}).click();
+  await expect(band.locator('.rec-label')).toHaveText('녹음 중');
+  expect(await page.evaluate(()=>window.__fakeRec.recs.length)).toBe(2);
+  await page.evaluate(()=>window.__fakeRec.emit());
+  await expect.poll(()=>recCalls(calls,'rec_start').length).toBe(2);
+  const starts=recCalls(calls,'rec_start');
+  expect(starts[1].body.session_id).toBe('00000000-0000-4000-8000-0000000000aa');
+  await expect.poll(()=>recCalls(calls,'rec_piece').map(c=>`${c.rid.slice(-1)}:${c.seq}`)).toEqual(['1:1','1:2','1:3','2:1']);
 });

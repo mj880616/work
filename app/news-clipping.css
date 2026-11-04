@@ -22,15 +22,12 @@
 #appView #nowPanelNews .nc-item{ display:flex; flex-direction:column; gap:1px; min-width:0; padding:6px 2px; border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
 #appView #nowPanelNews .nc-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:0 6px; margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #nowPanelNews .nc-meta > span + span:not(.nc-kw)::before{ content:"·"; margin-right:6px; }
-#appView #nowPanelNews .nc-tag{ display:inline-grid; place-items:center; height:16px; padding:0 4px; font-size:11px; line-height:1; color:var(--kptu-muted); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-control,6px); }
-#appView #nowPanelNews .nc-tag[data-tag="channel"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
-#appView #nowPanelNews .nc-tag + span::before{ content:none !important; }
 #appView #nowPanelNews .nc-time{ font-variant-numeric:tabular-nums; }
 #appView #nowPanelNews .nc-kw{ font-size:11px; color:var(--kptu-muted); }
 #appView #nowPanelNews .nc-kw::before{ content:"#"; }
 #appView #nowPanelNews .nc-title{ margin:0; font-size:14px; line-height:1.45; font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); overflow-wrap:anywhere; }
-#appView #nowPanelNews .nc-orig{ margin:0; font-size:var(--ds-text-meta,12px); line-height:1.4; color:var(--kptu-muted); overflow-wrap:anywhere; }
-#appView #nowPanelNews .nc-sum{ margin:0; font-size:13px; line-height:1.5; color:var(--kptu-ink); opacity:.86; overflow-wrap:anywhere; }
+#appView #nowPanelNews .nc-orig{ margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:var(--ds-text-meta,12px); line-height:1.4; color:var(--kptu-muted); overflow-wrap:anywhere; }
+#appView #nowPanelNews .nc-sum{ margin:0; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; overflow:hidden; font-size:13px; line-height:1.5; color:var(--kptu-ink); opacity:.86; overflow-wrap:anywhere; }
 #appView #nowPanelNews .nc-note,#appView #nowPanelNews .nc-faint{ margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #nowPanelNews .nc-faint.is-bad{ color:var(--kptu-danger); }
 #appView #nowPanelNews .nc-foot{ display:flex; flex-wrap:wrap; align-items:center; gap:0 12px; min-width:0; font-size:var(--ds-text-meta,12px); }

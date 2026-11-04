@@ -7,6 +7,22 @@ abstract class Block64 {
   protected fill = 0;
   protected total = 0;
   protected abstract block(b: Uint8Array): void;
+  protected abstract words(): number[];
+  protected abstract setWords(w: number[]): void;
+  // 큰 파일 이어 보내기(2-②): 조각(10MB = 64의 배수) 사이에서만 중간값을 꺼내 다음 실행에 넘긴다. 남은 바이트가 있으면 꺼내지 않는다.
+  state(): { h: number[]; total: number } {
+    if (this.fill) throw new Error("hash_state_unaligned");
+    return { h: this.words().slice(), total: this.total };
+  }
+  restore(s: unknown, len: number) {
+    const v = s as { h?: unknown; total?: unknown } | null;
+    if (!v || !Array.isArray(v.h) || v.h.length !== len || !v.h.every((x) => Number.isInteger(x) && x >= 0 && x <= 0xffffffff)
+      || !Number.isSafeInteger(v.total) || (v.total as number) < 0 || (v.total as number) % 64) throw new Error("hash_state_invalid");
+    this.setWords(v.h as number[]);
+    this.total = v.total as number;
+    this.fill = 0;
+    return this;
+  }
   update(data: Uint8Array) {
     let i = 0;
     this.total += data.length;
@@ -57,6 +73,9 @@ const MD5_K = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(
 
 export class Md5 extends Block64 {
   private h = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476];
+  protected words() { return this.h; }
+  protected setWords(w: number[]) { this.h = w.slice(); }
+  static from(s: unknown) { return new Md5().restore(s, 4) as Md5; }
   protected block(b: Uint8Array) {
     const v = new DataView(b.buffer, b.byteOffset, 64);
     const m = Array.from({ length: 16 }, (_, i) => v.getUint32(i * 4, true));
@@ -82,6 +101,9 @@ export class Md5 extends Block64 {
 
 export class Sha1 extends Block64 {
   private h = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0];
+  protected words() { return this.h; }
+  protected setWords(w: number[]) { this.h = w.slice(); }
+  static from(s: unknown) { return new Sha1().restore(s, 5) as Sha1; }
   private w = new Uint32Array(80);
   protected block(b: Uint8Array) {
     const v = new DataView(b.buffer, b.byteOffset, 64), w = this.w;

@@ -31,9 +31,19 @@ test('모든 max_output_tokens에 생각 토큰 여유가 더해진다',()=>{
   for(const fn of FUNCTIONS){
     const t=src(fn);
     const at=[...t.matchAll(/max_output_tokens:/g)].map(m=>t.slice(m.index,m.index+110));
+    // S49-2: 회의 초안 요청 몸통은 _shared/meeting-draft-prompt.mjs meetingDraftRequest 한 곳(여유는 headroom으로 받음).
+    if(fn==='meeting-ai-draft'){assert.equal(at.length,0,fn);assert.match(t,/meetingDraftRequest\(\{[^}]*headroom:AI_REASONING_TOKEN_HEADROOM/,fn);continue}
     assert.ok(at.length>0,fn);
     for(const c of at)assert.match(c,/AI_REASONING_TOKEN_HEADROOM/,fn+' '+c);
   }
+  const shared=readFileSync(ROOT+'_shared/meeting-draft-prompt.mjs','utf8');
+  assert.match(shared,/max_output_tokens: Math\.min\(Number\(maxOutput \|\| 3000\), 3500\) \+ headroom/);
+  // 서버 정리(meeting-transcribe, S49-2)도 같은 몸통·여유·생각 수준·공용 outputText를 쓴다.
+  const server=src('meeting-transcribe');
+  assert.match(server,/meetingDraftRequest\(\{[^}]*headroom: AI_REASONING_TOKEN_HEADROOM/);
+  assert.match(server,/JSON\.stringify\(withReasoning\(body\)\)/);
+  assert.match(server,/import \{ outputText \} from '\.\.\/_shared\/openai-responses\.ts'/);
+  assert.match(server,/set\.default_model \|\| DEFAULT_AI_MODEL/);
   assert.ok(AI_REASONING_TOKEN_HEADROOM>=1000);
 });
 
@@ -78,9 +88,9 @@ test('ai-assist: 모든 OpenAI 호출이 여유를 더하는 한 곳(자체 call
   assert.doesNotMatch(h,/fetch\(OPENAI_URL/);
   const calls=[...h.matchAll(/max_output_tokens: [A-Z_]+/g)].length;
   const viaWrapper=[...h.matchAll(/await callOpenAi\(/g)].length;
-  assert.equal(calls,26);assert.equal(viaWrapper,27);assert.match(h,/max_output_tokens: maxTokens,/); // WEEKLY-환류학습 weekly_draft·weekly_review는 한 래퍼(callWeeklyAi, 상한은 WL_*_OUTPUT_TOKENS 인자)로 하나 더, TODO-내일만 todo_recheck, ORG-주요인물 org_people_brief, JOURNAL-다음주준비 next_week_sheet, FEAT-1029묶음 ① ask_web2, FEAT-1029② pre_meeting_sheet, FEAT-1029 ④ press_draft, 빠짐32 share_draft, DESK-현황표 org_status_rows, ATT-이름고치기 file_name, TODO-이미함·환류 todo_rules_review, JOURNAL-오늘한일업무개인 work_scope 하나씩 더
+  assert.equal(calls,27);assert.equal(viaWrapper,28);assert.match(h,/max_output_tokens: maxTokens,/); // WEEKLY-환류학습 weekly_draft·weekly_review는 한 래퍼(callWeeklyAi, 상한은 WL_*_OUTPUT_TOKENS 인자)로 하나 더, TODO-내일만 todo_recheck, ORG-주요인물 org_people_brief, JOURNAL-다음주준비 next_week_sheet, FEAT-1029묶음 ① ask_web2, FEAT-1029② pre_meeting_sheet, FEAT-1029 ④ press_draft, 빠짐32 share_draft, DESK-현황표 org_status_rows, ATT-이름고치기 file_name, TODO-이미함·환류 todo_rules_review, JOURNAL-오늘한일업무개인 work_scope, S49-13 journal_memorable, WEEKLY-메뉴짝짓기 org_week_lines 하나씩 더
   // ai-assist 폴더의 다른 파일이 OpenAI를 직접 부르지 않는다.
-  for(const f of ['call-refill','ledger-auto','ledger-candidates','ledger-fix','library-fill','org-summary','overlap','schedule-titles','todo-radar','note-title','business-area','journal-draft','org-people-brief','next-week-sheet','press-draft','share-draft','press-style','evidence','web2-ask','pre-meeting-sheet','weekly-learn','org-status-rows','file-name','todo-rules','work-scope']){
+  for(const f of ['call-refill','ledger-auto','ledger-candidates','ledger-fix','library-fill','org-summary','overlap','schedule-titles','todo-radar','note-title','business-area','journal-draft','org-people-brief','next-week-sheet','press-draft','share-draft','press-style','evidence','web2-ask','pre-meeting-sheet','weekly-learn','org-status-rows','file-name','todo-rules','work-scope','org-week-lines']){
     assert.doesNotMatch(read(AI_ASSIST_DIR+f+'.ts'),/api\.openai\.com|max_output_tokens:/,f);
   }
 });
@@ -95,7 +105,7 @@ test('collector-feed: 텔레그램 호출 상한에 생각 여유가 더해져 �
 
 test('새 Edge 함수가 OpenAI를 부르면서 여유·공용 길을 빠뜨리지 못한다(전체 함수 폴더 검사)',async()=>{
   const {readdirSync,statSync,existsSync}=await import('node:fs');
-  const known=new Set([...FUNCTIONS,'ai-assist','collector-feed','outside-feed','news-feed']);
+  const known=new Set([...FUNCTIONS,'ai-assist','collector-feed','outside-feed','news-feed','meeting-transcribe']);  // meeting-transcribe: 위 '여유' 시험에서 따로 본다(S49-2)
   const missing=[];
   for(const d of readdirSync(ROOT)){
     if(d.startsWith('_')||!statSync(ROOT+d).isDirectory()||known.has(d))continue;

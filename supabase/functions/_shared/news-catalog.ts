@@ -9,17 +9,21 @@
 // 새 매체는 여기 한 줄 더하는 작은 PR로만 넣는다(Edge 재배포 정지 지점).
 import type { OutsideSource } from "./outside-catalog.ts";
 
-export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean };
+// take: 'all'(그 매체 글을 키워드 상관없이 전부 받음 — 운동·노동 매체) / 'keywords'(키워드 목록에 글자가 맞는 글만 — 종합지·방송사, NEWS-매체늘리기).
+// 없으면 'all'. 지금 카탈로그는 모두 'all'.
+export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords" };
 
 const article = () => "article" as const;
 
 export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
-  { key: "news-labortoday", name: "매일노동뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss",
+  { key: "news-labortoday", name: "매일노동뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
     lists: ["https://www.labortoday.co.kr/rss/allArticle.xml"], hosts: ["www.labortoday.co.kr", "labortoday.co.kr"], kindOf: article },
-  { key: "news-beminor", name: "비마이너", group: "movement", region: "domestic", lang: "ko", mode: "rss",
+  { key: "news-beminor", name: "비마이너", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
     lists: ["https://www.beminor.com/rss/allArticle.xml"], hosts: ["www.beminor.com", "beminor.com"], kindOf: article },
-  { key: "news-pressian", name: "프레시안", group: "movement", region: "domestic", lang: "ko", mode: "rss",
-    lists: ["https://www.pressian.com/rss"], hosts: ["www.pressian.com", "pressian.com"], kindOf: article },
+  { key: "news-pressian", name: "프레시안", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
+    // https://www.pressian.com/rss 는 RSS 안내 HTML 쪽이라 0건이었다(11/04). 실제 피드는 /api/v3/site/rss/news(요청함은 http로 확인).
+    // 카탈로그는 https만 허용(tests/security/news-feed.test.mjs)이라 https로 둔다 — 배포 전 CC가 이 주소가 열리는지 확인하고, 안 열리면 배포하지 말고 명진에게 보고(http 허용은 보안 시험을 바꾸는 결정).
+    lists: ["https://www.pressian.com/api/v3/site/rss/news"], hosts: ["www.pressian.com", "pressian.com"], kindOf: article },
   { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss",
     lists: ["https://publicservices.international/feed.xml"], hosts: ["publicservices.international"], kindOf: article },
   { key: "news-itf", name: "ITF", group: "foreign", region: "foreign", lang: "en", mode: "rss",
@@ -45,4 +49,15 @@ export const GOOGLE_NEWS: OutsideSource = Object.freeze({
 export function googleNewsUrl(word: string): string {
   const q = `"${word.replace(/"/g, " ").trim()}" when:1d`;
   return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
+}
+
+// take=keywords 매체(종합지·방송사)의 글 거르기: 제목+소개에 키워드 낱말이 글자 그대로 들어 있으면 통과(AI 없이 글자 일치, 대소문자·앞뒤 공백 무시).
+export function matchedKeywords(text: string, words: readonly string[]): string[] {
+  const hay = text.toLowerCase();
+  const out: string[] = [];
+  for (const w of words) {
+    const k = w.trim().toLowerCase();
+    if (k && hay.includes(k) && !out.includes(w)) out.push(w);
+  }
+  return out;
 }
