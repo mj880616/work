@@ -112,7 +112,7 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     const ai = l.origin === 'ai' ? '<span class="wl-ai" title="AI가 기록을 한 줄로 줄인 제안">AI</span>' : '';
     const btns = sug ? `<span class="wl-btns btn-row"><button type="button" class="wl-btn is-main" data-wl-in="${esc(l.id)}"${dis ? ' disabled' : ''}>✓ 넣기</button><button type="button" class="wl-btn" data-wl-edit="${esc(l.id)}"${dis ? ' disabled' : ''}>고치기</button><button type="button" class="wl-btn" data-wl-drop="${esc(l.id)}" aria-label="${label} 빼기"${dis ? ' disabled' : ''}>×</button></span>` : '';
     const conf = ctl.conflicts.get(l.id);
-    const confHtml = conf ? `<div class="wl-conf" role="alert" data-wl-conflict="${esc(l.id)}">${conf.gone ? TEXT.gone : `${TEXT.conflict}: '${esc(conf.body)}'`} <span class="btn-row"><button type="button" class="wl-btn" data-wl-keep="${esc(l.id)}">그대로 두기</button>${conf.gone ? '' : `<button type="button" class="wl-btn" data-wl-mine="${esc(l.id)}">내 글로 바꾸기</button>`}</span></div>` : '';
+    const confHtml = conf ? `<div class="wl-conf" role="alert" data-wl-conflict="${esc(l.id)}">${conf.gone ? TEXT.gone : `${TEXT.conflict}: '${esc(conf.body)}'`} <span class="wl-conf-btns btn-row"><button type="button" class="wl-btn" data-wl-keep="${esc(l.id)}">그대로 두기</button>${conf.gone ? '' : `<button type="button" class="wl-btn" data-wl-mine="${esc(l.id)}">내 글로 바꾸기</button>`}</span></div>` : '';
     return `<div class="wl-line${sug ? ' is-sug' : ''}" data-wl-line="${esc(l.id)}" data-wl-state="${esc(l.state)}"><span class="wl-day">- ${esc(day)}</span>${text}${ai}${btns}</div>${confHtml}`;
   };
   const formHtml = (orgId, l) => {
