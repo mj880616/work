@@ -12,6 +12,7 @@ import {missingTable} from './feed-model.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
 import {seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {mountColResize, gripHtml} from './col-resize.js';
+import {suggestOrgWeek} from './weekly-org-suggest.js';
 import {sortRows, splitRows, periodLabel, cleanBody, validDay, validEnd, refillPlan, nextOrder, ROWS_MAX, BODY_MAX} from './org-status-model.mjs';
 
 const TABLE = '/rest/v1/app_org_status_rows';
@@ -162,6 +163,7 @@ function changed(orgId = ui?.orgId) { window.dispatchEvent(new CustomEvent('kptu
 export async function patchStatusRow(c, id, body) {
   const rows = await c.rt.api(`${TABLE}?id=eq.${enc(id)}&${scope(c)}&select=id`, {method: 'PATCH', body, prefer: 'return=representation', singleFlight: false});
   if (!Array.isArray(rows) || rows.length !== 1) throw new Error('patch');
+  suggestOrgWeek('status_row', id, {rt: c.rt}); // WEEKLY-메뉴짝짓기 P4: 그 주 조직보고 제안 줄(AI 없이 그대로, 기다리지 않음)
 }
 export async function deleteStatusRow(c, id) {
   const rows = await c.rt.api(`${TABLE}?id=eq.${enc(id)}&${scope(c)}&select=id`, {method: 'DELETE', prefer: 'return=representation', singleFlight: false});
@@ -169,7 +171,8 @@ export async function deleteStatusRow(c, id) {
 }
 // 내 줄 하나 넣기(순서는 날짜가 정하므로 sort_order는 맨 뒤 번호). rows = 그 조직의 지금 줄들. end_day가 비면 하루 일정.
 export async function createStatusRow(c, rows, {day, end_day = null, body}) {
-  await c.rt.api(`${TABLE}?select=id`, {method: 'POST', body: {workspace_id: c.workspaceId, organization_id: c.orgId, day, ...(end_day ? {end_day} : {}), body, sort_order: nextOrder(rows), source: 'user', evidence: []}, prefer: 'return=representation', singleFlight: false});
+  const made = await c.rt.api(`${TABLE}?select=id`, {method: 'POST', body: {workspace_id: c.workspaceId, organization_id: c.orgId, day, ...(end_day ? {end_day} : {}), body, sort_order: nextOrder(rows), source: 'user', evidence: []}, prefer: 'return=representation', singleFlight: false});
+  if (Array.isArray(made) && made[0]?.id) suggestOrgWeek('status_row', made[0].id, {rt: c.rt}); // WEEKLY-메뉴짝짓기 P4
 }
 // 서버 AI(ai-assist org_status_rows)에게 그 조직 줄 후보를 받는다. 서버는 표에 이미 있는 줄과 같은 일을 걸러서 준다. 반환 {ok, rows}.
 export async function fetchAiRows(c) {
