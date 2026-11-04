@@ -29,7 +29,7 @@
 | ⑥ 담당조직 [전체 표] | `app/org-overview.js`(칸: 조직 \| 쟁의 단계 \| 최근 주요 일정·현황) | `app_org_status_rows`(조직 상세 [현황 표]와 같은 표, 주 구분 없음) | `app_org_status_rows`(migration `20261030234000`) | `org_status_rows`([AI로 채우기]·[모두 다시 채우기 (AI)], `org-status-table.js` 184행) |
 
 - [사실] ③·④·⑤는 이미 한 행(`draft`)을 같이 쓴다(weekly-one-flow.md 2절). 따로 노는 것은 **①(사업 보고 팝업이 자기 재료·자기 AI 칸 `area_summaries`)**와 **⑥(주 구분 없는 현황 줄)**, 그리고 **4.1) 조직 요약이 `draft.rows.orgs`와 `app_weekly_org_summaries` 두 군데**인 점이다.
-- [사실] 내부 정례 회의 빼기: 고정 목록 `app/weekly-major-schedule.mjs` `INTERNAL_MEETINGS`(23행)·`isInternalMeeting`, 사람별 빼기 `app_profiles.weekly_hidden_meeting_kinds`(`journal-meeting-kinds.js`). ③은 `reportsMeeting`으로 빼지만 ①은 따로 읽어서 빠졌다 → S49-39가 한 목록을 모든 길에서 읽게 고친다.
+- [사실] 내부 정례 회의 빼기: 고정 목록 `app/weekly-major-schedule.mjs` `INTERNAL_MEETINGS`(23행)·`isInternalMeeting`, 사람별 빼기 `app_profiles.weekly_hidden_meeting_kinds`(`journal-meeting-kinds.js`). ③은 `reportsMeeting`으로 빼지만 ①은 따로 읽어서 빠졌다 → S49-39가 한 목록을 모든 길에서 읽게 고친다. (S49-39 #1866 뒤 [사실]: ①·③ 모두 `journal-meeting-kinds.js` `reportsMeeting` 한 곳을 부른다.)
 - [사실] 화면 사이 갱신: Supabase Realtime·BroadcastChannel 없음. 같은 탭 안 `window` CustomEvent(`kptu:org-status-changed`, `kptu:suborganization-updated`, `kptu:basket-links-changed`, `kptu:weekly-picks-changed`, `kptu:api-saved` 등)뿐이고, 다른 기기와는 조건부 쓰기(충돌 검출)로 맞춘다.
 - [사실] 조직 순서: 앱 순서는 `app/organization-order.js` 고정 목록. 주간보고 '개인본 순서'는 따로 저장하지 않고 지난 개인본 파일이 바탕인데, `weekly-hwpx/delta.mjs` `reportOrgOrder`(80~85행)는 주석과 달리 가나다순으로 정렬한다 → 10절 범위 밖 발견.
 
@@ -41,7 +41,7 @@
 
 | # | 명진 구성 | 양식 칸 | 쓰는 메뉴(주인) | 같이 고치는 곳(B) | 저장 자리(유일) | 재료·제안 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 사업요약표 업데이트 | 2. 1) 요약 표(사업영역 \| 세부 과제 \| 진행 상황 및 이후 계획 \| 담당) | **사업 보고** '이번 주 주간보고' | 홈 [주간 정리] 2.1) | `draft.rows`(section `summary`, 열쇠 `사업영역›세부 과제`, 칸 `progress`·`owner`) [추정 — S49-39가 정할 자리. 9절] | 수기만. 그 주 사업 보고 제목(사실 기록)을 칸 아래 흐린 참고 줄로. **AI 제안 없음**(16:45 결정) |
+| 1 | 사업요약표 업데이트 | 2. 1) 요약 표(사업영역 \| 세부 과제 \| 진행 상황 및 이후 계획 \| 담당) | **사업 보고** '이번 주 주간보고' | 홈 [주간 정리] 2.1) | 진행 = `draft.rows`(section `summary`, 칸 이름 `사업영역›세부 과제`), 담당 = `draft.owners`(`{칸 이름: 한 줄}`) [사실 — S49-39 #1866, `weekly-summary-hand.mjs`·`weekly-draft-store.js` `changeWeekSummaryText`·`withOwnerEdit`] | 수기만. 그 주 사업 보고 제목(사실 기록)을 칸 아래 흐린 참고 줄로. **AI 제안 없음**(16:45 결정) |
 | 2 | 그 주 주요 사업 | 2. 2) 세부 내용 중 회의가 아닌 활동(토론회·기자회견·집회 결과) + 3. 1) 집회·농성 등 [추정 — 명진 확인 ②] | **사업 보고** | 홈 [주간 정리] | 사업 보고 기록 자체(`app_meetings` — 원본) + 줄 고침·빼기 `draft.hand`(`details_edits`) [사실: weekly-detail-lines.js] | 그 주 사업 보고 기록 |
 | 3 | 주요 회의결과 | 2. 2) 세부 내용 중 회의 결과 상자 | **사업 보고** | 홈 [주간 정리] | 위와 같음(`app_meetings` + `draft.hand`) | 내부 정례 회의는 모든 길에서 조용히 뺌(목록 하나, S49-39) |
 | 4 | 조직보고 | 4. 산하조직 현황 1) 요약(사업장 \| 조직현황) — 내 담당 조직 전부, 개인본 순서, 빈칸 자리 유지, 조직당 3줄 이내 [추정 — 명진 확인 ①] | **담당조직** '이번 주 조직보고'([전체 표]) | 홈 [주간 정리] 4. | **새 표 `app_weekly_org_lines`**(주 × 조직 × 줄, 5절) | 그 주 담당조직 기록·조직에 이어진 업데이트 → 실시간 '제안' 줄 |
@@ -66,7 +66,7 @@
 - 표 위 한 줄: 주 고르기 `[‹ 11.2~11.8 ›]`(홈 [주간 정리]와 같은 부품 `week-pick`, 같은 주 기준 = 월~일).
 - 칸: 조직 \| 쟁의 단계 \| 이번 주 조직보고. 조직 자리는 개인본 순서로 늘 그대로(내용 없으면 빈칸).
 - 조직 칸 안 순서: ① 넣은 줄(진한 글, 날짜 오름차순 `- 11.2.` / `- 11.2.~11.5.`) ② 제안 줄(흐린 글 + `[✓ 넣기] [고치기] [×]`, 끝에 작은 'AI' — AI가 줄인 줄만) ③ `[+ 줄]` 한 자리.
-- 넣은 줄이 3줄을 넘으면 조직 이름 옆에 작게 '주간보고 3줄 넘음'(자르지 않음). 3줄 넘는 칸은 처음 3줄 + `외 n줄 ▾`(S49-40 펼치기 부품 그대로, 펼친 줄도 바로 고치기·빼기).
+- 넣은 줄이 3줄을 넘으면 조직 이름 옆에 작게 '주간보고 3줄 넘음'(자르지 않음). 3줄 넘는 칸은 가장 최근 3줄 + 그 앞 줄을 접은 `외 n줄 ▾`(S49-40 `splitRows` 펼치기 부품 그대로, 펼친 줄도 바로 고치기·빼기).
 - 줄을 누르면 그 자리에서 글 칸(Ctrl+Enter 저장, Esc 취소). 줄 ⋯ = [원래 기록 열기]·[빼기].
 - 지난 주를 고르면 그때 낸 줄이 그대로 보인다(고칠 수 있지만 이번 주와 따로 저장 — 지난 주를 고쳐도 이번 주는 그대로, 반대도 같음).
 - **없어지는 것**: [AI로 채우기]·[모두 다시 채우기 (AI)] 버튼(⑪).
@@ -179,7 +179,7 @@ create index on public.app_weekly_org_lines(workspace_id, week_start, organizati
 
 ### 5.4 짝 파일 (AGENTS.md 7절)
 
-`supabase/migrations/<ts>_weekly_org_lines.sql` + `docs/<ts>_weekly_org_lines.{precheck,snapshot,postcheck,rollback}.sql` + `.summary.md`, `commit;` 앞 `schema_migrations` 1행. 승인형 workflow로 dry-run(tx-probe) → apply → postcheck. rollback = 표·트리거 함수 drop(새 표라 기존 자료 영향 없음).
+`supabase/migrations/20261104211500_weekly_org_lines.sql` + `docs/20261104211500_weekly_org_lines.{precheck,snapshot,postcheck,rollback}.sql` + `.summary.md`(S49-46 #1867, 시험 `tests/auth-handoff/weekly-org-lines-db.test.mjs`), `commit;` 앞 `schema_migrations` 1행. 승인형 workflow로 dry-run(tx-probe) → apply → postcheck. rollback = 표·트리거 함수 drop(새 표라 기존 자료 영향 없음).
 
 ---
 
@@ -245,16 +245,17 @@ create index on public.app_weekly_org_lines(workspace_id, week_start, organizati
 
 ---
 
-## 9. S49-39·S49-40 뒤 바꿀 것
+## 9. S49-39·S49-40 뒤 바꿀 것 — 확인 결과 (S49-46, main `992355c`)
 
-| 앞 PR | 이 문서가 가정한 것 [추정] | 다르면 바꿀 곳 |
-| --- | --- | --- |
-| S49-39 | 사업요약표 수기 '진행'·'담당'은 그 주 `draft.rows`(summary, 열쇠 `사업영역›세부 과제`)에 저장, 내부 회의 목록은 `weekly-major-schedule.mjs` 한 곳 | 2절 1행 저장 자리, 6.1 그림, P5·P6 범위 |
-| S49-39 | `area_week_summary` 서버 쓰임이 지워짐 | 6.2·8절 |
-| S49-40 | `app_org_status_rows`에 끝나는 날 칸(`end_day` 등)이 생김, 펼치기 부품 `외 n줄 ▾` | 4.1 날짜, 5절 `end_day` 이름을 같게, P3에서 펼치기 부품 재사용 |
-| S49-40 | [전체 표]가 날짜 오름차순 | 4.3 정렬 규칙을 같은 정렬 함수(`org-status-model.mjs`)로 |
+두 PR(#1866·#1862)이 main에 들어간 뒤 실제 코드와 대조했다. 다른 곳은 아래처럼 고쳤다.
 
----
+| 앞 PR | 가정했던 것 | 실제 [사실] | 이 문서에서 바꾼 곳 |
+| --- | --- | --- | --- |
+| S49-39 #1866 | 진행·담당 모두 `draft.rows`(summary) | 진행 = `draft.rows` summary 칸(칸 이름 `사업영역›세부 과제`, `summaryCellKey`), **담당 = 따로 `draft.owners`**(`weekly-summary-hand.mjs` `readOwners`·`withOwner`, `weekly-draft-store.js` `withOwnerEdit`). 홈 [주간 정리]에는 담당 칸이 없고 미리보기·한글 파일 요약 표 담당 칸에만 쓰인다 | 2절 1행 저장 자리. P5 `weekly-summary-table.js`는 `weekly-summary-hand.mjs`(순수 규칙)를 그대로 쓰고 그리기만 떼어 낸다. P6에서 홈 [주간 정리] 2.1)에 담당 칸을 보일지는 그때 시안으로 |
+| S49-39 #1866 | 내부 회의 목록은 `weekly-major-schedule.mjs` 한 곳 | 모든 길이 `journal-meeting-kinds.js` `reportsMeeting`(안에서 고정 목록 + 사람별 빼기)을 부른다 | 1절 내부 회의 줄 |
+| S49-39 #1866 | `area_week_summary` 서버 쓰임 지워짐 | 맞음(`ai-assist/handler.ts`·`business-area.ts`에서 지움, 저장된 `draft.area_summaries`는 보존·다시 실어 보내기만) | 바꿀 것 없음 |
+| S49-40 #1862 | `app_org_status_rows`에 끝나는 날 칸 | 맞음 — 이름 `end_day`(date, null 허용, `end_day >= day`, migration `20261104201500`). 단 그 표의 `day`는 **not null** | 5절 `end_day` 이름 같음. 새 표는 날짜 없는 줄을 허용하므로(`day` null) 정렬은 `org-status-model.mjs` `sortRows`를 감싸 '날짜 없는 줄 맨 뒤'만 더한다(P3 `weekly-org-lines-model.mjs`) |
+| S49-40 #1862 | 날짜 오름차순·`외 n줄 ▾` 펼치기 부품 | 정렬 한 곳 `sortRows`(시작일 → `sort_order` → id), 기간 표기 `periodLabel(day,end)`(`11.2.~11.5.`), 보이는 줄 = **가장 최근 3줄**, 그 앞 오래된 줄이 `외 n줄 ▾`(`splitRows`, `org-overview.js` `st.expanded`) | 3.1 '처음 3줄 + 외 n줄'을 '최근 3줄 + 앞의 외 n줄'로 읽는다(P3에서 같은 `splitRows`·`periodLabel` 재사용) |
 
 ## 10. 범위 밖 발견
 
