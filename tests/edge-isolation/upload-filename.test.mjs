@@ -34,12 +34,14 @@ const ROWS={
   app_ai_workspace_settings:null,
 };
 function from(table){
-  let list=false,inserted=null;
+  let list=false,limited=false,inserted=null;
   const result=()=>{
     if(table==='app_documents'){globalThis.__calls.inserts.push(inserted);return {data:{id:'d1',...inserted},error:null}}
+    // limit(): row-list query (e.g. the caller's owner rows in _shared/workspace-drive-token.ts) -> the stub row as a list.
+    if(limited)return {data:ROWS[table]?[ROWS[table]]:[],error:null};
     return {data:list?[]:ROWS[table]??null,error:null};
   };
-  const b={select:()=>b,eq:()=>b,is:()=>b,gt:()=>b,order:()=>b,neq:()=>{list=true;return b},
+  const b={select:()=>b,eq:()=>b,is:()=>b,gt:()=>b,order:()=>b,neq:()=>{list=true;return b},limit:()=>{limited=true;return b},
     insert:p=>{inserted=p;return b},update:()=>b,upsert:async()=>({error:null}),
     maybeSingle:async()=>result(),single:async()=>result(),then:(ok,no)=>Promise.resolve(result()).then(ok,no)};
   return b;
