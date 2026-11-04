@@ -1,4 +1,5 @@
 import {basketOcrFor} from './basket-ocr-runtime.js';
+import {bindPaste} from './paste-files.mjs';
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
 const UNKNOWN = '저장 결과를 확인하지 못했습니다. 정리함에서 확인 후 다시 시도하세요';
@@ -121,7 +122,8 @@ export async function uploadNoteFiles(noteId, batch, {rt = window.KPTURuntime, i
 }
 // A new note made only of files is titled with the first file's name (one line, 200 characters at most).
 export const fileTitle = name => [...String(name || '').replace(/[\r\n]+/g, ' ').trim()].slice(0, 200).join('').trim();
-export function mountBasketPicker(host, {id, filesHost, dropTarget, getBatch, isBusy, isActive = () => true, onChange = () => {}, onError}) {
+// UPD-그림붙여넣기: pasteTarget (the input where the cursor is, or the box around it) takes Ctrl+V pictures into the same add() as the clip and the drop.
+export function mountBasketPicker(host, {id, filesHost, dropTarget, pasteTarget = null, getBatch, isBusy, isActive = () => true, onChange = () => {}, onError}) {
   host.classList.add('basket-clip-picker');
   host.innerHTML = `<input id="${id}" class="library-file-input" type="file" multiple tabindex="-1" aria-hidden="true"><button type="button" class="basket-clip" data-basket-clip aria-label="파일 첨부" aria-controls="${id}"><svg class="basket-clip-icon" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" focusable="false"><path d="M13.2 7.6 8.1 12.7a3.3 3.3 0 0 1-4.7-4.7l5.4-5.4a2.2 2.2 0 0 1 3.1 3.1L6.6 11a1.1 1.1 0 0 1-1.6-1.6l4.8-4.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="basket-clip-label">첨부</span><span class="basket-clip-count" data-basket-count aria-hidden="true" hidden></span></button>`;
   filesHost.classList.add('basket-file-selection');
@@ -172,6 +174,7 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, getBatch, is
     return true;
   }
   input.addEventListener('change', () => add(input.files));
+  if (pasteTarget) bindPaste(pasteTarget, files => add(files), {key: id, canTake: () => isActive() && !isBusy() && !getBatch().blocked, taken: () => getBatch().entries.map(e => e.file.name)});
   // Native button activation covers touch, click, Enter and Space.
   clip.addEventListener('click', () => { if (!input.disabled) input.click(); });
   const fileDrag = e => Array.from(e.dataTransfer?.types || []).includes('Files');

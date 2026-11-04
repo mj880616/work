@@ -1,6 +1,7 @@
 // UI-회의결과창정리: 회의 결과 창(만들기·수정)과 자료 등록 창이 함께 쓰는 작은 묶음 조각.
 // 기한 칸은 FORM-시간입력 규칙대로 기기 날짜 고르기를 그대로 쓰고, 보이는 것만 [기한 ▾] 작은 칩으로 줄인다.
 import {formatSeoulTime} from './meeting-time.js';
+import {bindPaste} from './paste-files.mjs';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateKey=v=>String(v||'').match(/^\d{4}-\d{2}-\d{2}/)?.[0]||'';
@@ -52,4 +53,6 @@ export function bindDropTarget(target,onFiles,canDrop=()=>true){
     e.preventDefault();e.stopPropagation();
     if(canDrop())onFiles(files,e);
   });
+  // UPD-그림붙여넣기: Ctrl+V of a picture while the cursor is anywhere in this window takes the same road as the drop (자료실 등록·회의·업무공간 자료).
+  bindPaste(target,files=>onFiles(files),{key:'drop-target',canTake:canDrop});
 }

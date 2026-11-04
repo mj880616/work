@@ -1,4 +1,5 @@
 import {emptyHtml} from './wait-state.js';
+import {bindPaste} from './paste-files.mjs';
 // TASK-파일붙이기: files attached to a Google task (read: app_task_attachments; change: google-tasks Edge action=attach / detach).
 // The file lives in Google Drive ("자료실/할 일 첨부"); the Edge keeps the task-file link (owner RLS) and one link line per
 // file in the task's notes, so the Google Tasks app shows a link. Detaching or deleting the task never deletes the Drive file.
@@ -270,11 +271,16 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
     host.classList.remove('is-drop');
     if (!takesDrop(e)) return;
     e.preventDefault(); e.stopPropagation();
-    const added = [...(e.dataTransfer.files || [])], problem = pickProblem(chosen, added);
+    take([...(e.dataTransfer.files || [])]);
+  });
+  // UPD-그림붙여넣기: Ctrl+V of a picture (or files) while the cursor is in this add window takes the same road as the drop.
+  const take = added => {
+    const problem = pickProblem(chosen, added);
     if (problem) { onError(problem); return; }
     if (!added.length) return;
     chosen = [...chosen, ...added]; onError(''); render();
-  });
+  };
+  bindPaste(host.closest('.modal-card, .modal, form') || host.parentElement || host, take, {key: 'new-task-files', canTake: () => !host.hidden && !host.hasAttribute('data-gt-pick-wait') && !isBusy(), taken: () => chosen.map(f => f.name)});
   list.onclick = e => {
     const b = e.target.closest('[data-gt-pick-remove]'); if (!b || isBusy()) return;
     chosen.splice(Number(b.dataset.gtPickRemove), 1); render();
@@ -366,6 +372,8 @@ export function mountTaskAttach(host, {isBusy = () => false, onError = () => {},
     const files = [...(e.dataTransfer.files || [])], row = e.target.closest?.('[data-gt-att-id]'), id = row?.dataset.gtAttId;
     if (id && files.length === 1 && edits.get(id)?.kind !== 'remove') swapFile(id, files[0]); else addFiles(files);
   });
+  // UPD-그림붙여넣기: a pasted picture while the cursor is in this edit window is added like a dropped file (never replaces a row).
+  bindPaste(host.closest('.modal-card, .modal, form') || host.parentElement || host, files => addFiles(files), {key: 'task-attach', canTake: () => editable && shown && !isBusy(), taken: () => [...added.map(f => f.name), ...base.map(f => f.file_name)]});
   return {
     // files: the task's current files ({drive_file_id, file_name, inTable}); a new set forgets every held change.
     set(files = [], {editable: canEdit = false, shown: visible = true, taskId: id = ''} = {}) { base = files.map(f => ({...f})); editable = !!canEdit; shown = !!visible; taskId = String(id || ''); edits = new Map(); added = []; swapFor = ''; render(); },
