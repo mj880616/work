@@ -1,4 +1,4 @@
-// UI-로딩자리전수(S49-15 A): 로딩 표시(waitHtml·waitEl·showWait·waitInline·barHtml)와 빈 결과 글(emptyHtml·emptyEl·showEmpty)이 있는 자리를 파일별로 모은다.
+// UI-로딩자리전수(S49-15 A): 맨 위 막대에 시작을 알리는 곳(waitHtml·waitEl·showWait·waitInline·barHtml; UI-로딩맨위)과 빈 결과 글(emptyHtml·emptyEl·showEmpty)이 있는 자리를 파일별로 모은다.
 // 빈 결과 글 앞 25줄 안에 로딩 확인(waitHtml·loading·loaded·settled·status·phase·ready·state 낱말)이 없으면 '확인 필요'로 올린다.
 // 사용: node scripts/ops/loading-audit.mjs [--md]   (읽기 전용, 저장소 파일을 바꾸지 않음)
 import {readdirSync, readFileSync, statSync} from 'node:fs';
