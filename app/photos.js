@@ -67,7 +67,11 @@ import {ACT_ICON, actInner} from './action-bar.mjs'; // UI-고르기줄(S48-54):
 import {folderPathHtml} from './folder-path.mjs';
 import {odFolderTree, odFolderCreate, odFolderRename, odFolderMove, odFolderDelete, odPhotosMove, odFolderToggle} from './diary-onedrive.js';
 import {readPhotoTags, createPhotoTag, renamePhotoTag, deletePhotoTag, addPhotoTagItems, removePhotoTagItems} from './photo-tags.js';
-import {photoFolderRows, photoFolderTrail, photoSubfolders, photoFolderById, photoMoveTargets, cleanPhotoFolderName, moveUndoGroups, folderErrorText,
+import {folderLook} from './folder-prefs.js'; // FOLDER-순서·색 ③-2: 폴더 색·순서 읽기 사본 하나([파일]과 같이 씀)
+import {applyAlbumLook} from './folder-prefs-data.js';
+import {folderIconHtml, colorChoiceHtml, createColorMode} from './folder-look.js';
+import {albumStepPlan, albumOrderOf} from './folder-look-model.mjs';
+import {setFolderOrderLook, photoFolderRows, photoFolderTrail, photoSubfolders, photoFolderById, photoMoveTargets, cleanPhotoFolderName, moveUndoGroups, folderErrorText,
   cleanTagName, sameTag, albumCards, albumForSources, folderPlaceLabels, odFolderPlace, phoneFolderPlace,
   validAlbumView, stepAlbumView, albumPeriod, ALBUM_VIEW_TEXT, gdriveFolderTree, folderCountText, GDRIVE_TOP} from './photos-model.mjs';
 import {notify, askConfirm, askChoice} from './small-notice.js';
@@ -1855,7 +1859,7 @@ function folderRowHtml(r, {wide, a = OD_ATTR, cur = r.id === at && pAt === null 
   const tog = wide && r.kids && !r.top, on = r.enabled !== false, now = cur && wide, x = k => `data-photos-${a[k]}`;
   return `<div class="nx-row nx-folder photos-fx-row${now ? ' nx-current' : ''}${sw && !on ? ' is-off' : ''}" ${x('row')}="${esc(r.id)}" style="--nx-indent:${r.indent}"${wide ? ' role="treeitem"' : ''}${wide && r.kids ? ` aria-expanded="${r.open}"` : ''}>`
     + (wide ? (tog ? `<button type="button" class="photos-fx-tog" ${x('tog')}="${esc(r.id)}" aria-label="${esc(r.name)} ${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="photos-fx-tog" aria-hidden="true"></span>') : '')
-    + `<button type="button" class="nx-main" ${x('open')}="${esc(r.id)}"${now ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">${(r.open && r.kids) || now ? '\u{1F4C2}' : '\u{1F4C1}'}</span><span class="nx-name">${esc(r.name)}${placeHtml(r.id)}</span>${countHtml(r.total)}</button>`
+    + `<button type="button" class="nx-main" ${x('open')}="${esc(r.id)}"${now ? ' aria-current="true"' : ''}>${folderIconHtml({color: r.top ? null : folderLook.color(a === GD_ATTR ? 'gd' : 'od', r.id)}, {open: (r.open && r.kids) || now})}<span class="nx-name">${esc(r.name)}${placeHtml(r.id)}</span>${countHtml(r.total)}</button>`
     + (sw ? switchHtml(r.id, r.name, on).replace('data-photos-fx-sw=', `${x('sw')}=`) : '')
     + (more ? `<button type="button" class="nx-more photos-fx-more" ${x('more')}="${esc(r.id)}" aria-label="${esc(r.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '')
     + '</div>';
@@ -1924,10 +1928,16 @@ const phonePathHtml = f => `<nav class="fp-path photos-fx-path" aria-label="지�
 const phoneHeadHtml = f => (phoneSw() && !f.pending
   ? `<p class="photos-fx-here has-sw"><span><b>${esc(f.name)}</b> · ${f.count}장 · 폰${phoneOff.has(f.id) ? ' · 사진에 안 보임' : ''}</span>${phoneSwHtml(f)}</p>`
   : `<p class="photos-fx-here"><b>${esc(f.name)}</b> · ${f.count}장 · 폰</p>`);
+// FOLDER-순서·색 ③-2: 폴더 색·순서(서버 app_folder_prefs)는 [폴더] 보기를 그릴 때 20초에 한 번만 다시 읽고, 바뀐 것이 있으면 구독이 다시 그린다. 정한 순서는 photoSubfolders가 쓴다.
+setFolderOrderLook((src, key) => folderLook.order(src, key));
+let lookReadAt = 0;
+const lookRefresh = () => { if (Date.now() - lookReadAt < 20000) return; lookReadAt = Date.now(); void folderLook.load(rt); };
+folderLook.onChange(() => { if (tab === 'folders') renderFolders(); });
 function renderFolders() {
   io?.disconnect();
   const g = listGate();
   if (g) { body.innerHTML = g; return; }
+  lookRefresh();
   const u = useSrc(), wide = treeWide();
   if (!u.gdrive) { gdAt = null; }
   if (gdAt !== null && !wide) { renderGdFolder(); return; }
@@ -2332,7 +2342,7 @@ const gdFolderInfo = id => { for (const lv of gdLevels.values()) { const f = lv.
 const gdSetEnabled = (id, on) => { for (const lv of gdLevels.values()) for (const f of lv.folders) if (f.id === id) f.enabled = on; };
 // PHOTO-드라이브폴더통일: 연 층들 → 원드라이브와 같은 나무 모양(맨 위 'root' = '구글 드라이브', 전체 장수는 맨 위 층 응답의 total).
 const gdTotal = () => { const t = gdLevels.get(GDRIVE_TOP)?.total; return Number.isInteger(t) ? t : null; };
-const gdTree = () => gdriveFolderTree(gdLevels, {total:gdTotal()});
+const gdTree = () => ({...gdriveFolderTree(gdLevels, {total:gdTotal()}), src:'gd'});
 const gdParentOf = id => photoFolderById(gdTree(), id)?.parent_id ?? null;
 const gdSwHtml = f => switchHtml(f.id, f.name, f.enabled).replace('data-photos-fx-sw=', 'data-photos-gf-sw=');
 const gdRowHtml = (r, {wide}) => folderRowHtml(r, {wide, a:GD_ATTR, cur:r.id === gdAt, sw:!r.top, more:!r.top});
@@ -2561,10 +2571,12 @@ async function loadAlbum(id) {
   })();
   return aLoading;
 }
+// FOLDER-순서·색 ③-2: 앨범 이름 앞 작은 폴더 그림(색을 고른 앨범만. 안 고른 앨범은 지금 모양 그대로 그림 없음).
+const albumIconHtml = c => (c.color ? folderIconHtml(c, {className:'photos-album-ico'}) : '');
 // 앨범 한 줄(보기 단계마다 모양만 다르고, 여는 버튼·⋯ 메뉴·길게 누르기는 같다).
 // card = 대표 사진 큰 칸 + #이름 장수, thumb = 작은 대표 사진 + #이름 / n장 · 기간, line = #이름 … 장수(그림 없음).
 function albumRowHtml(c, view) {
-  const name = `<span class="photos-album-name">#${esc(c.name)}</span>`, n = `<span class="photos-album-n">${c.count}</span>`;
+  const name = `<span class="photos-album-name">${albumIconHtml(c)}#${esc(c.name)}</span>`, n = `<span class="photos-album-n">${c.count}</span>`;
   const period = albumPeriod(c.from, c.to);
   const inner = view === 'line' ? name + n
     : view === 'thumb' ? `<span class="photos-album-cover" data-photos-al-cover></span><span class="photos-album-txt">${name}<span class="photos-album-meta">${n}장${period ? ` · <span class="photos-album-span">${esc(period)}</span>` : ''}</span></span>`
@@ -2598,7 +2610,7 @@ function renderAlbums() {
   paintTools();
   const c = cardOf(album);
   if (aFor !== album) { body.innerHTML = waitHtml({rows:3, h:72}); loadAlbum(album); return; }
-  body.innerHTML = `<p class="photos-fx-here photos-al-head"><button type="button" class="mini" data-photos-al-back aria-label="앨범 목록으로">‹ 앨범</button><b>#${esc(c.name)}</b> · ${aLoading ? c.count : aItems.length}장<button type="button" class="photos-album-more" data-photos-al-more="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></p>`;
+  body.innerHTML = `<p class="photos-fx-here photos-al-head"><button type="button" class="mini" data-photos-al-back aria-label="앨범 목록으로">‹ 앨범</button><b>${albumIconHtml(c)}#${esc(c.name)}</b> · ${aLoading ? c.count : aItems.length}장<button type="button" class="photos-album-more" data-photos-al-more="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></p>`;
   if (aLoading) { body.insertAdjacentHTML('beforeend', waitHtml({rows:2, h:72})); return; }
   if (aFailed) { body.insertAdjacentHTML('beforeend', `<p class="photos-muted">사진을 읽지 못했어요: ${esc(aFailed)}</p>`); return; }
   if (!aItems.length) { body.insertAdjacentHTML('beforeend', emptyHtml()); paintSelect(); return; }
@@ -2688,14 +2700,34 @@ function albumClick(b) {
 
 // ---- 메뉴(공용 anchored-menu.js, 모양은 원드라이브 아이콘 메뉴와 같은 od-link-menu). PC 우클릭은 context-menu.js가 ⋯를 눌러 누른 자리에 연다. ----
 const menuBtn = (attr, label, cls = '') => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`;
+// FOLDER-순서·색 ③-2: 사진 폴더(원드라이브·구글 드라이브) ⋯ 메뉴의 [색 고르기…][위로][아래로]. 값은 서버 app_folder_prefs에만 적고 클라우드의 실제 폴더는 바뀌지 않는다(이 앱에서만 보임).
+const lookMode = {od: createColorMode(), gd: createColorMode()};
+const sibsOf = (src, id) => { const t = src === 'gd' ? gdTree() : tree, f = photoFolderById(t, id); return f ? photoSubfolders(t, f.parent_id).map(x => x.id) : []; };
+function lookItems(src, id) {
+  const sib = sibsOf(src, id), i = sib.indexOf(id);
+  return menuBtn('data-fl-act="color"', '색 고르기…') + (i > 0 ? menuBtn('data-fl-act="up"', '위로') : '') + (i >= 0 && i < sib.length - 1 ? menuBtn('data-fl-act="down"', '아래로') : '');
+}
+async function lookSave(job, failText) { try { await job(); } catch { notify(`${failText} 잠시 뒤 다시 해 주세요.`, {error:true}); } }
+// 메뉴 항목이 색·순서 것이면 처리하고 true.
+function lookAction(src, b, id, trigger, menu) {
+  const picked = lookMode[src].pick(id, b);
+  if (picked !== undefined) { void lookSave(() => folderLook.setColor(rt, src, id, picked), '폴더 색을 저장하지 못했어요.'); return true; }
+  const act = b.dataset.flAct;
+  if (act === 'color') { lookMode[src].begin(id, trigger, menu); return true; }
+  if (act === 'up' || act === 'down') { void lookSave(() => folderLook.step(rt, src, sibsOf(src, id), id, act === 'up' ? -1 : 1), '폴더 순서를 저장하지 못했어요.'); return true; }
+  return false;
+}
 const folderMenu = createAnchoredMenu({id:'photosFolderMenu', className:'od-link-menu', label:'폴더 메뉴', historyKey:'kptuPhotosFolderMenu',
-  key:t => t.dataset.photosFxMore || '',
+  key:t => t.dataset.photosFxMore || '', onClose:() => lookMode.od.onClose(),
   render:id => {
+    if (lookMode.od.active(id)) return colorChoiceHtml(folderLook.color('od', id));
     const top = id === tree?.top?.id, can = od.canDelete;
     return [can ? menuBtn('data-fm-new', '새 하위 폴더') : '', !top && can ? menuBtn('data-fm-rename', '이름 바꾸기') : '', !top && can ? menuBtn('data-fm-move', '옮기기…') : '',
+      !top ? lookItems('od', id) : '',
       !top && can ? menuBtn('data-fm-delete', '지우기', 'od-link-danger') : '', can ? '' : '<p class="od-link-status">바꾸려면 원드라이브를 다시 연결해 주세요</p>'].join('');
   },
   onAction:(b, {id, trigger}) => {
+    if (lookAction('od', b, id, trigger, folderMenu)) return;
     if (b.matches('[data-fm-new]')) return newFolder(id);
     if (b.matches('[data-fm-rename]')) return renameFolder(id);
     if (b.matches('[data-fm-move]')) return openPick(trigger, {kind:'folder', id});
@@ -2717,9 +2749,10 @@ const phoneFolderMenu = createAnchoredMenu({id:'photosPhoneFolderMenu', classNam
   }});
 // S46-24 ④: 구글 드라이브 폴더 ⋯ = 새 하위 폴더·이름 바꾸기·지우기(드라이브 휴지통, 확인 한 번).
 const gdFolderMenu = createAnchoredMenu({id:'photosGdFolderMenu', className:'od-link-menu', label:'구글 드라이브 폴더 메뉴', historyKey:'kptuPhotosGdFolderMenu',
-  key:t => t.dataset.photosGfMore || '',
-  render:() => (gdUsable() ? [menuBtn('data-gfm-new', '새 하위 폴더'), menuBtn('data-gfm-rename', '이름 바꾸기'), menuBtn('data-gfm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>'),
+  key:t => t.dataset.photosGfMore || '', onClose:() => lookMode.gd.onClose(),
+  render:id => (lookMode.gd.active(id) ? colorChoiceHtml(folderLook.color('gd', id)) : gdUsable() ? [menuBtn('data-gfm-new', '새 하위 폴더'), menuBtn('data-gfm-rename', '이름 바꾸기'), lookItems('gd', id), menuBtn('data-gfm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>' + lookItems('gd', id)),
   onAction:(b, {id, trigger}) => {
+    if (lookAction('gd', b, id, trigger, gdFolderMenu)) return;
     if (b.matches('[data-gfm-new]')) return gdNewFolder(id);
     if (b.matches('[data-gfm-rename]')) return gdRenameFolder(id);
     if (b.matches('[data-gfm-delete]')) return gdTrashFolder(trigger, id);
@@ -2772,10 +2805,35 @@ function openInfo(trigger, group) {
     select.stop(); pFor = null; pItems = []; tidy.stale(); resetList(); calData.clear(); phStarItems = null; aFor = null; if (tab === 'folders') renderFolders(); else render();
   }}));
 }
+// FOLDER-순서·색 ③-2: 앨범 색·순서(app_photo_tags 칸 color·sort_order, 서버 함수로만 씀). 정한 앨범이 앞, 나머지는 이름순.
+const albumColorMode = createColorMode();
+async function albumLook(id, patch, failText) {
+  if (busy) return; busy = true;
+  try {
+    await applyAlbumLook(rt.api, rt.context.read().workspace.id, patch);
+    const by = new Map(patch.map(p => [p.id, p]));
+    tags = (tags || []).map(t => { const p = by.get(t.id); return p ? {...t, ...('c' in p ? {color:p.c} : {}), ...('o' in p ? {sort_order:p.o} : {})} : t; });
+  } catch { notify(`${failText} 잠시 뒤 다시 해 주세요.`, {error:true}); }
+  finally { busy = false; if (tab === 'albums') renderAlbums(); }
+}
 const albumMenu = createAnchoredMenu({id:'photosAlbumMenu', className:'od-link-menu', label:'앨범 메뉴', historyKey:'kptuPhotosAlbumMenu',
-  key:t => t.dataset.photosAlMore || '',
-  render:() => [menuBtn('data-am-rename', '이름 바꾸기'), menuBtn('data-am-delete', '지우기(사진은 그대로)', 'od-link-danger')].join(''),
-  onAction:(b, {id, trigger}) => { if (b.matches('[data-am-rename]')) return renameAlbum(id); if (b.matches('[data-am-delete]')) return deleteAlbum(trigger, id); }});
+  key:t => t.dataset.photosAlMore || '', onClose:() => albumColorMode.onClose(),
+  render:id => {
+    if (albumColorMode.active(id)) return colorChoiceHtml(cardOf(id)?.color ?? null);
+    const ids = cards().map(c => c.id), i = ids.indexOf(id);
+    return [menuBtn('data-am-rename', '이름 바꾸기'), menuBtn('data-am-act="color"', '색 고르기…'), i > 0 ? menuBtn('data-am-act="up"', '위로') : '', i >= 0 && i < ids.length - 1 ? menuBtn('data-am-act="down"', '아래로') : '',
+      menuBtn('data-am-delete', '지우기(사진은 그대로)', 'od-link-danger')].join('');
+  },
+  onAction:(b, {id, trigger}) => {
+    const picked = albumColorMode.pick(id, b);
+    if (picked !== undefined) return void (picked === (cardOf(id)?.color ?? null) || albumLook(id, [{id, c:picked}], '앨범 색을 저장하지 못했어요.'));
+    const act = b.dataset.amAct;
+    if (act === 'color') return void albumColorMode.begin(id, trigger, albumMenu);
+    if (act === 'up' || act === 'down') {
+      const plan = albumStepPlan(cards().map(c => c.id), id, act === 'up' ? -1 : 1, k => albumOrderOf((tags || []).find(t => t.id === k)));
+      return void (plan.length && albumLook(id, plan.map(p => ({id:p.id, o:p.o})), '앨범 순서를 저장하지 못했어요.'));
+    }
+    if (b.matches('[data-am-rename]')) return renameAlbum(id); if (b.matches('[data-am-delete]')) return deleteAlbum(trigger, id); }});
 // [정렬 ▾]: 누른 자리 작은 메뉴(공용 anchored-menu). 고른 줄에 ✓. 동영상 길이는 동영상이 있을 때만.
 const sortMenu = createAnchoredMenu({id:'photosSortMenu', className:'od-link-menu photos-sort-menu', label:'정렬 기준', historyKey:'kptuPhotosSortMenu',
   key:() => 'sort',
@@ -2792,12 +2850,14 @@ function setSort(v) {
 }
 // 고르기 판: 옮길 폴더(나무 순서, 들여쓰기) 또는 넣을 앨범. 무엇을 할지는 pickFor에 둔다.
 let pickFor = null;
+// FOLDER-순서·색 ③-2: 폴더 고르기 창 줄 앞 그림도 같은 색(안 고른 폴더는 지금의 📁 그대로).
+const pickFolderIcon = (src, id) => (folderLook.color(src, id) ? folderIconHtml({color:folderLook.color(src, id)}, {className:'lu-move-ico'}) : '<span aria-hidden="true">\u{1F4C1}</span>');
 const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-menu photos-pick-menu', label:'고르기', historyKey:'kptuPhotosPickMenu',
   key:() => pickFor?.kind || '',
   render:kind => {
     if (kind === 'gdphotos') {
       const here = tab === 'folders' ? gdAt : null;
-      return '<p class="od-link-status">어느 구글 드라이브 폴더로 옮길까요?</p>' + gdTargets().map(r => `<button type="button" data-pick-gd="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.id === here ? ' disabled aria-disabled="true"' : ''}><span aria-hidden="true">\u{1F4C1}</span> ${esc(r.name)}${r.id !== 'root' && !r.enabled ? '<span class="photos-fx-place"> · 꺼짐</span>' : ''}</button>`).join('');
+      return '<p class="od-link-status">어느 구글 드라이브 폴더로 옮길까요?</p>' + gdTargets().map(r => `<button type="button" data-pick-gd="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.id === here ? ' disabled aria-disabled="true"' : ''}>${pickFolderIcon('gd', r.id)} ${esc(r.name)}${r.id !== 'root' && !r.enabled ? '<span class="photos-fx-place"> · 꺼짐</span>' : ''}</button>`).join('');
     }
     if (kind === 'phfolder' || kind === 'phphotos') {
       const rows = phonePickRows(phoneFolderList(), kind === 'phfolder' ? {moving:pickFor.id} : {here:tab === 'folders' ? pAt : null});
@@ -2808,7 +2868,7 @@ const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-men
     const rows = photoMoveTargets(tree, kind === 'folder' ? {moving:pickFor.id} : {here:tab === 'folders' ? at : null});
     // 같은 이름 폴더는 위치 이름(폴더 줄과 같은 규칙).
     const here = folderPlaceLabels([tree.top, ...tree.folders], f => odFolderPlace(tree, f));
-    return '<p class="od-link-status">어느 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-folder="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}><span aria-hidden="true">\u{1F4C1}</span> ${esc(r.name)}${here.has(r.id) ? `<span class="photos-fx-place"> · ${esc(here.get(r.id))}</span>` : ''}</button>`).join('');
+    return '<p class="od-link-status">어느 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-folder="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}>${pickFolderIcon('od', r.id)} ${esc(r.name)}${here.has(r.id) ? `<span class="photos-fx-place"> · ${esc(here.get(r.id))}</span>` : ''}</button>`).join('');
   },
   onAction:b => {
     const p = pickFor; pickFor = null; if (!p) return;

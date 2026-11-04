@@ -1,18 +1,19 @@
 // DESK-현황표(요청함 10/30 13:38, 명진 결정 "모두반영"): 담당조직 상세 [현황 표] 소탭 한 곳의 그리기·읽기·쓰기.
 // 표 '일 | 주요 일정·현황', 날짜 오름차순(DESK-현황오름차순)으로 가장 최근 4줄(그 앞 오래된 줄은 위 '지난 줄 n 펼치기'), [+ 줄 추가], 고치기 줄의 [빼기].
-// 날짜는 공용 날짜 칸 두 개 [시작일] ~ [끝나는 날(선택)](DESK-일정기간, date-field.js가 붙음). 순서는 날짜가 정하므로 손으로 옮기는 기능은 없다. [기록에서 다시 채우기 (AI)]는 서버 AI(ai-assist org_status_rows)가 그 조직 최근 기록에서 뽑은 줄로
-// AI 줄(source=ai)만 바꾸고, 명진이 넣거나 고친 줄(source=user)은 덮어쓰지 않는다(판정은 org-status-model.mjs). 표가 비었고 기록이 있으면 처음 열 때 한 번 채운다.
+// 날짜는 공용 날짜 칸 두 개 [시작일] ~ [끝나는 날(선택)](DESK-일정기간, date-field.js가 붙음). 순서는 날짜가 정하므로 손으로 옮기는 기능은 없다.
+// WEEKLY-메뉴짝짓기 P7(명진 11/04 17:34 ③): [기록에서 다시 채우기 (AI)]·처음 열 때 자동 채우기는 지웠다 — 이 표는 그 조직의 오래 쌓이는 수기 기록,
+// 주간보고 줄은 주별 조직보고 표의 제안(weekly-org-suggest.js)이 맡는다. 예전에 AI가 넣은 줄(source=ai)은 그대로 남고 'AI' 표시만 보인다.
 // 자료는 app_org_status_rows(migration 20261030234000) 한 곳 — 주간보고 '3. 2) 투쟁 사업장 현황' 그 조직 칸이 같은 줄을 읽는다(journal-hwpx.js).
 // 표가 없으면(DB 적용 전) '준비 중' 한 줄. 이 자리(#wdStatusTable)는 이 모듈 하나가 그린다. 브라우저 저장소에 아무것도 두지 않는다.
-// DESK-전체현황표: 줄 쓰기(넣기·고치기·빼기)와 AI 채우기는 아래 export 함수 한 곳이고, 담당조직 [전체 표](org-overview.js)도 같은 함수를 쓴다(새 저장 자리 없음).
+// 줄 쓰기(넣기·고치기·빼기)는 아래 export 함수 한 곳이다. 줄을 넣거나 고치면 그 줄 번호를 주별 조직보고 제안으로 보낸다(P4).
 // 줄 모양: '일 | 주요 일정·현황' 두 칸. 고치기 버튼 칸은 없다 — 줄(글)을 누르면 여러 줄 칸으로 열린다.
 // 일 칸 폭은 끌어 바꾸고 서버에 기억한다(view_prefs.col_widths.orgst, S49-4 공용 col-resize.js).
 import {waitHtml, emptyHtml} from './wait-state.js';
 import {missingTable} from './feed-model.mjs';
-import {callAiAssist} from './basket-ai-summary.js';
 import {seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {mountColResize, gripHtml} from './col-resize.js';
-import {sortRows, splitRows, periodLabel, cleanBody, validDay, validEnd, refillPlan, nextOrder, ROWS_MAX, BODY_MAX} from './org-status-model.mjs';
+import {suggestOrgWeek} from './weekly-org-suggest.js';
+import {sortRows, splitRows, periodLabel, cleanBody, validDay, validEnd, nextOrder, ROWS_MAX, BODY_MAX} from './org-status-model.mjs';
 
 const TABLE = '/rest/v1/app_org_status_rows';
 const COLS = 'id,organization_id,day,end_day,body,sort_order,source,evidence,updated_at';
@@ -21,7 +22,6 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '
 const TEXT = {
   missing: '현황 표는 준비 중이에요.', failed: '현황 표를 불러오지 못했어요.', saveFailed: '저장하지 못했어요. 다시 눌러 주세요.',
   noBody: '내용을 적어 주세요.', noDay: '시작일을 골라 주세요.', badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', full: `줄은 ${ROWS_MAX}개까지예요.`,
-  aiRun: 'AI가 기록에서 주요 일정을 뽑는 중…', aiNone: '기록에서 뽑을 주요 일정이 없었어요.', aiFail: 'AI로 채우지 못했어요. 잠시 뒤 다시 눌러 주세요.',
 };
 
 // 여러 조직의 표 줄(주간보고가 씀). 표가 없으면 {missing:true}, 읽지 못하면 throw. 반환 Map(조직 id → 줄들).
@@ -40,7 +40,6 @@ export async function readStatusRows({rt = window.KPTURuntime, workspaceId, orgI
 }
 
 let ui = null; // {host, orgId, orgName, workspaceId, canEdit, rt, getRecords, rows, status, editing, draft, busy, msg:{text,error}, run, invalid, focus}
-const tried = new Set(); // 처음 채우기를 이번 접속에서 이미 시도한 조직
 
 export function paintStatusTable(opts) {
   const same = ui && ui.orgId === opts.orgId && ui.host === opts.host;
@@ -60,16 +59,7 @@ async function load(run) {
     ui.status = r.missing ? 'missing' : 'ready'; ui.rows = sortRows(r.rows.get(orgId) || []);
   } catch { if (!ui || ui.run !== run) return; ui.status = 'error'; }
   paint();
-  maybeFirstFill(run);
 }
-// 처음: 표가 비었고 조직 기록이 있으면 AI로 한 번 채운다(이번 접속에서 조직마다 한 번).
-function maybeFirstFill(run) {
-  if (!ui || ui.run !== run || ui.status !== 'ready' || !ui.canEdit || ui.rows.length || ui.busy || ui.editing) return;
-  if (tried.has(ui.orgId) || !(ui.getRecords?.() || []).length) return;
-  tried.add(ui.orgId);
-  void refill(true);
-}
-
 function recordText(x) {
   const t = String(x.raw_text ?? x.summary ?? x.note_text ?? x.text ?? '').replace(/\s+/g, ' ').trim();
   return [...t].slice(0, 60).join('') + ([...t].length > 60 ? '…' : '');
@@ -120,7 +110,7 @@ function paint() {
   if (older.length) html += `<details class="wd-st-older" data-st-older${olderOpen ? ' open' : ''}><summary>지난 줄 ${older.length} 펼치기</summary><table class="wd-st-table"><tbody>${body(older)}</tbody></table></details>`;
   html += `<table class="wd-st-table" data-st-table>${head}<tbody>${body(shown)}${editing === 'new' ? editHtml(null) : ''}</tbody></table>`;
   if (!rows.length && editing !== 'new') html += emptyHtml('없음', {attrs: 'data-st-empty'});
-  if (canEdit && !editing) html += `<div class="wd-st-bar btn-row"><button type="button" class="wd-st-btn" data-st-add${busy || rows.length >= ROWS_MAX ? ' disabled' : ''}>+ 줄 추가</button><button type="button" class="wd-st-btn" data-st-refill${busy ? ' disabled' : ''}>기록에서 다시 채우기 (AI)</button></div>`;
+  if (canEdit && !editing) html += `<div class="wd-st-bar btn-row"><button type="button" class="wd-st-btn" data-st-add${busy || rows.length >= ROWS_MAX ? ' disabled' : ''}>+ 줄 추가</button></div>`;
   html += `<p class="wd-st-status${msg.error ? ' is-error' : ''}" role="status" aria-live="polite" data-st-status>${esc(msg.text)}</p>`;
   host.innerHTML = html;
   mountColResize({host, name: 'orgst', vars: {day: '--st-w-day'}, dir: 1, labels: {day: '일'}, fit: key => Math.ceil(Math.max(0, ...[...host.querySelectorAll('.wd-st-day-text')].map(el => el.getBoundingClientRect().width)))});
@@ -149,7 +139,6 @@ function bind(host) {
     else if ('stCancel' in b.dataset) cancel();
     else if ('stSave' in b.dataset) void saveEdit();
     else if (b.dataset.stDelete) void removeRow(b.dataset.stDelete);
-    else if ('stRefill' in b.dataset) void refill(false);
   });
 }
 function cancel() { const id = ui.editing; ui.editing = null; ui.draft = null; ui.invalid = ''; ui.focus = id && id !== 'new' ? `[data-st-edit="${id}"]` : '[data-st-add]'; paint(); }
@@ -158,10 +147,11 @@ const scope = c => `workspace_id=eq.${enc(c.workspaceId)}&organization_id=eq.${e
 const ctxOf = () => ({rt: ui.rt, workspaceId: ui.workspaceId, orgId: ui.orgId});
 function changed(orgId = ui?.orgId) { window.dispatchEvent(new CustomEvent('kptu:org-status-changed', {detail: {organization_id: orgId}})); }
 
-// ---- 줄 쓰기·AI 채우기(상세 표와 담당조직 [전체 표]가 함께 씀). c = {rt, workspaceId, orgId}. 실패하면 throw — 부르는 쪽이 다시 읽어 서버 판을 보인다. ----
+// ---- 줄 쓰기. c = {rt, workspaceId, orgId}. 실패하면 throw — 부르는 쪽이 다시 읽어 서버 판을 보인다. ----
 export async function patchStatusRow(c, id, body) {
   const rows = await c.rt.api(`${TABLE}?id=eq.${enc(id)}&${scope(c)}&select=id`, {method: 'PATCH', body, prefer: 'return=representation', singleFlight: false});
   if (!Array.isArray(rows) || rows.length !== 1) throw new Error('patch');
+  suggestOrgWeek('status_row', id, {rt: c.rt}); // WEEKLY-메뉴짝짓기 P4: 그 주 조직보고 제안 줄(AI 없이 그대로, 기다리지 않음)
 }
 export async function deleteStatusRow(c, id) {
   const rows = await c.rt.api(`${TABLE}?id=eq.${enc(id)}&${scope(c)}&select=id`, {method: 'DELETE', prefer: 'return=representation', singleFlight: false});
@@ -169,22 +159,9 @@ export async function deleteStatusRow(c, id) {
 }
 // 내 줄 하나 넣기(순서는 날짜가 정하므로 sort_order는 맨 뒤 번호). rows = 그 조직의 지금 줄들. end_day가 비면 하루 일정.
 export async function createStatusRow(c, rows, {day, end_day = null, body}) {
-  await c.rt.api(`${TABLE}?select=id`, {method: 'POST', body: {workspace_id: c.workspaceId, organization_id: c.orgId, day, ...(end_day ? {end_day} : {}), body, sort_order: nextOrder(rows), source: 'user', evidence: []}, prefer: 'return=representation', singleFlight: false});
+  const made = await c.rt.api(`${TABLE}?select=id`, {method: 'POST', body: {workspace_id: c.workspaceId, organization_id: c.orgId, day, ...(end_day ? {end_day} : {}), body, sort_order: nextOrder(rows), source: 'user', evidence: []}, prefer: 'return=representation', singleFlight: false});
+  if (Array.isArray(made) && made[0]?.id) suggestOrgWeek('status_row', made[0].id, {rt: c.rt}); // WEEKLY-메뉴짝짓기 P4
 }
-// 서버 AI(ai-assist org_status_rows)에게 그 조직 줄 후보를 받는다. 서버는 표에 이미 있는 줄과 같은 일을 걸러서 준다. 반환 {ok, rows}.
-export async function fetchAiRows(c) {
-  const r = await callAiAssist({kind: 'org_status_rows', organization_id: c.orgId}, {rt: c.rt}).catch(() => ({ok: false}));
-  return r?.ok ? {ok: true, rows: Array.isArray(r.data?.rows) ? r.data.rows : []} : {ok: false, rows: []};
-}
-// 다시 채우기 계획(org-status-model.mjs refillPlan)을 표에 적용: AI 줄만 지우고, 새 줄을 넣는다.
-export async function applyRefillPlan(c, plan) {
-  if (plan.remove.length) {
-    const gone = await c.rt.api(`${TABLE}?id=in.(${plan.remove.map(enc).join(',')})&${scope(c)}&source=eq.ai&select=id`, {method: 'DELETE', prefer: 'return=representation', singleFlight: false});
-    if (!Array.isArray(gone)) throw new Error('delete');
-  }
-  if (plan.add.length) await c.rt.api(`${TABLE}?select=id`, {method: 'POST', body: plan.add.map(a => ({workspace_id: c.workspaceId, organization_id: c.orgId, day: a.day, ...(a.end_day ? {end_day: a.end_day} : {}), body: a.body, sort_order: a.sort_order, source: 'ai', evidence: a.evidence})), prefer: 'return=representation', singleFlight: false});
-}
-
 // 쓰기 하나를 감싼다: 바쁨 표시 → work() → 다시 읽기 → 알림. 실패해도 다시 읽어 서버 판을 보인다.
 async function write(work, done, focus = '') {
   if (!ui || ui.busy) return false;
@@ -220,17 +197,4 @@ async function saveEdit() {
 async function removeRow(id) {
   const c = ctxOf();
   await write(() => deleteStatusRow(c, id), '줄을 뺐어요.', '[data-st-add]');
-}
-// [기록에서 다시 채우기 (AI)] — 서버는 줄 후보만 돌려주고, 표에 넣는 것은 여기(내 로그인, owner RLS).
-async function refill(first) {
-  if (!ui || ui.busy || !ui.canEdit) return;
-  const me = ui, run = ui.run, c = ctxOf();
-  me.busy = true; say(TEXT.aiRun); paint();
-  const r = await fetchAiRows(c);
-  if (ui !== me || ui.run !== run) return;
-  me.busy = false;
-  if (!r.ok) { me.msg = {text: first ? '' : TEXT.aiFail, error: !first}; paint(); return; }
-  const plan = refillPlan(me.rows, r.rows);
-  if (!plan.add.length && !plan.remove.length) { me.msg = {text: first ? '' : TEXT.aiNone, error: false}; paint(); return; }
-  await write(() => applyRefillPlan(c, plan), plan.add.length ? `기록에서 ${plan.add.length}줄을 채웠어요.` : TEXT.aiNone, '[data-st-refill]');
 }

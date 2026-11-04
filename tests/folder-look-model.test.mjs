@@ -77,3 +77,34 @@ test('칠한 폴더 그림 공용: 닫힘·열림 모양이 다르고 색 글자
   assert.match(closed, /^<svg viewBox="0 0 16 16"/);
   assert.doesNotMatch(closed + open, /#[0-9a-f]{3,6}|rgb\(/i);
 });
+
+import {prefKey, prefsMapFrom, orderByPrefs, prefStepPlan, albumOrderOf, albumStepPlan} from '../app/folder-look-model.mjs';
+test('prefs map: valid rows only, color checked, order integer or null', () => {
+  const m = prefsMapFrom([{source: 'od', folder_key: 'a', color: 3, sort_order: 1024}, {source: 'gd', folder_key: 'a', color: 9, sort_order: 1.5}, {source: 'od'}, null, {source: 'od', folder_key: '', color: 1}]);
+  assert.equal(m.size, 2);
+  assert.deepEqual(m.get(prefKey('od', 'a')), {color: 3, sort_order: 1024});
+  assert.deepEqual(m.get(prefKey('gd', 'a')), {color: null, sort_order: null});
+  assert.deepEqual([...prefsMapFrom(null)], []);
+});
+test('orderByPrefs: set order first (by value, stable), the rest keep their name order after', () => {
+  const list = ['가', '나', '다', '라', '마'].map(id => ({id}));
+  const o = {'다': 1, '가': 5, '마': 5};
+  assert.deepEqual(orderByPrefs(list, r => o[r.id] ?? null).map(r => r.id), ['다', '가', '마', '나', '라']);
+  assert.deepEqual(orderByPrefs(list, () => null).map(r => r.id), ['가', '나', '다', '라', '마']);
+});
+test('prefStepPlan: renumbers all siblings when some have no order, one value when there is a gap, nothing at the ends', () => {
+  const none = () => null;
+  const first = prefStepPlan(['a', 'b', 'c'], 'c', -1, none);
+  assert.deepEqual(first, [{k: 'a', o: 1024}, {k: 'c', o: 2048}, {k: 'b', o: 3072}]);
+  const ord = {a: 1024, b: 2048, c: 3072};
+  assert.deepEqual(prefStepPlan(['a', 'b', 'c'], 'c', -1, k => ord[k]), [{k: 'c', o: 1536}]);
+  assert.deepEqual(prefStepPlan(['a', 'b', 'c'], 'a', -1, k => ord[k]), []);
+  assert.deepEqual(prefStepPlan(['a', 'b', 'c'], 'c', 1, k => ord[k]), []);
+  assert.deepEqual(prefStepPlan(['a', 'b', 'c'], 'zz', 1, k => ord[k]), []);
+});
+test('album order: 0 = not set; step plan uses the same renumber rule', () => {
+  assert.equal(albumOrderOf({sort_order: 0}), null);
+  assert.equal(albumOrderOf({sort_order: 2048}), 2048);
+  assert.equal(albumOrderOf({}), null);
+  assert.deepEqual(albumStepPlan(['x', 'y'], 'y', -1, () => null), [{id: 'y', o: 1024}, {id: 'x', o: 2048}]);
+});

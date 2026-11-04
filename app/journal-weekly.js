@@ -321,8 +321,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   });
 
   // JOURNAL-조직현황AI요약: a named organization section (its id found by name in the organization read) carries the week's
-  // saved summary (journal-org-summary.js) when there is one. `summaries`: 'loading' | 'ok' | 'failed' | 'missing' (no table yet —
-  // the part shows the records as before, without the summary button).
+  // (WEEKLY-메뉴짝짓기 P6·P7: 저장된 AI 요약은 읽지 않고 그 모듈은 지웠다 — 4. 1) 칸은 주별 조직보고 표.)
   const orgs = part('orgs', s => {
     const read = {basket:ok(m, 'basket'), orgUpdates:ok(m, 'orgUpdates')};
     const sections = new Map();
@@ -344,18 +343,20 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
       sec[fileBucket(item)].push(item);
     }
     for (const sec of sections.values()) sec.items.sort((a, b) => String(a.day).localeCompare(String(b.day)));
-    const sm = m.orgSummaries, saved = sm?.status === 'ok' && !sm.items?.missing ? sm.items : null;
-    const summaries = !sm || sm.status === 'loading' ? 'loading' : sm.status !== 'ok' ? 'failed' : sm.items?.missing ? 'missing' : 'ok';
+    // WEEKLY-메뉴짝짓기 P6: 조직별 AI 요약([요약 만들기]·[요약 고치기])은 없앴다 — 4. 1) 칸은 주별 조직보고 표(weekly-org-lines.js)가 그린다.
+    // 저장된 요약(app_weekly_org_summaries)은 지우지 않고 읽지도 않는다. 이 주 기록은 제안 재료로 칸 아래 접힌 한 줄에 그대로.
     const ids = new Map();
     for (const org of read.orgUpdates?.orgs || []) if (org?.id && !ids.has(String(org.name || '').trim())) ids.set(String(org.name || '').trim(), String(org.id).toLowerCase());
     for (const section of sections.values()) {
       const id = section.name !== UNSORTED && section.name !== OTHERS ? ids.get(section.name) : null;
       if (!id) continue;
       section.id = id;
-      const row = saved?.get?.(id);
-      if (row) section.summary = {text:row.summary, edited:row.edited};
     }
-    return {sections:[...sections.values()].sort(compareOrgSections), summaries, overlapped:dropped.orgs};
+    // 주별 조직보고 표에 늘 나오는 내 담당조직(앱 조직 순서, 내용 없어도 자리 유지).
+    const all = read.orgUpdates?.orgs || [], mineSet = read.orgUpdates?.mine instanceof Set ? new Set([...read.orgUpdates.mine].map(x => String(x).toLowerCase())) : null;
+    const list = all.filter(o => o?.id && (!mineSet || mineSet.has(String(o.id).toLowerCase()))).map(o => ({id:String(o.id).toLowerCase(), name:String(o.name || '').trim()}));
+    const mine = globalThis.window?.KPTUOrganizationOrder?.sort ? globalThis.window.KPTUOrganizationOrder.sort(list) : list;
+    return {sections:[...sections.values()].sort(compareOrgSections), mine, overlapped:dropped.orgs};
   });
 
   // WEEKLY-주요일정칸: 그 주 임시저장의 칸별 고침(titles — 한글 파일 상자 5번과 [주간 정리] 2)이 같은 항목)을 화면·복사 글에도 넣는다(edit 표시).
@@ -449,7 +450,6 @@ function weekFiles(m, days) {
   return {orgs:placed.orgs, projects:placed.projects, placed:placedIds, attachedOrgs, attachedProjects};
 }
 
-export const orgSummaryLines = text => String(text ?? '').split('\n').map(line => line.trim()).filter(Boolean);
 
 // ---- [주간보고 초안 복사] (2026-10-21 사용자 승인: 날짜순이 아니라 양식 순서) ----
 // The same grouping as the tab, as text in the form's order: 1. 요청사항 → 2. 사업 → 4. 산하 조직 → 5. 주요 일정 → 참고. A part
@@ -484,12 +484,22 @@ export function weeklyReportText(model) {
   out.push('2) 세부 내용 — 회의·활동 결과');
   if (!note('meetings', model.meetings)) { for (const i of model.meetings.items) out.push(i.day ? item(i) : `- ${i.text}`); if (!model.meetings.items.length) out.push('(이 주 회의·활동 없음)'); }
   out.push('', '4. 산하 조직 현황', '1) 요약');
-  // An organization with a summary (JOURNAL-조직현황AI요약) gives its summary lines (no day); the others give their records.
-  if (!note('orgs', model.orgs)) {
+  // WEEKLY-메뉴짝짓기 P6: 주별 조직보고 표를 읽었으면 내 담당조직마다 넣은 줄(model.orgLines: 조직 id → '- 11.2. 글' 줄들), 아니면 예전처럼 이 주 기록.
+  if (model.orgLines) {
+    const mineIds = new Set((model.orgs?.mine ?? []).map(o => o.id));
+    for (const o of model.orgs?.mine ?? []) { out.push(`◦ ${o.name}`); out.push(...(model.orgLines.get(o.id) ?? [])); }
+    // 내 담당조직 표 밖 묶음(미분류·그 외)은 예전처럼 그 주 기록.
+    for (const section of model.orgs?.sections ?? []) {
+      if (section.id && mineIds.has(section.id)) continue;
+      if (!section.items?.length) continue;
+      out.push(`◦ ${section.name}`);
+      for (const i of section.items) out.push(item(i));
+    }
+    if (!(model.orgs?.mine ?? []).length && !(model.orgs?.sections ?? []).length) out.push('(담당조직 없음)');
+  } else if (!note('orgs', model.orgs)) {
     for (const section of model.orgs.sections) {
       out.push(`◦ ${section.name}`);
-      if (section.summary) for (const line of orgSummaryLines(section.summary.text)) out.push(`- ${line}`);
-      else for (const i of section.items) out.push(item(i));
+      for (const i of section.items) out.push(item(i));
     }
     if (!model.orgs.sections.length) out.push('(이 주 조직 소식 없음)');
   }
@@ -525,8 +535,7 @@ export const NOTE_PARTS = Object.freeze([['lines', '한 줄'], ['tasks', '끝낸
 // 1. 2) 주요 일정: 기준은 weekly-major-schedule.mjs 한 곳(WEEKLY-주요일정기준, 명진 11/01 확정). 화면 안내 문구는 두지 않는다 — 적는 칸·기준 제안은
 // 수기 표(weekly-hq-schedule.js)가 그린다.
 const rangeTitle = calendar => `${shortDay(calendar.days[0])} ~ ${shortDay(calendar.days.at(-1))} · 다음 주 월요일부터 2주`;
-// orgUi (JOURNAL-조직현황AI요약, journal.js keeps it): {busy, status, error, editing:{id, value, status, invalid, saving}, open:Set(names)}.
-export const ORG_EDIT_MAX_LINES = 8;
+// orgUi (journal.js keeps it): 4. 산하 조직 현황 화면 상태(P6부터 AI 요약 칸 없음).
 // execUi (WEEKLY-임원요청정리, journal.js keeps it): {editing:null | 'new' | row id, draft:{day, until, time, what, place, who},
 // status, error, invalid (field name), saving}.
 export const EXEC_FIELDS = Object.freeze([['day', '일', 'date'], ['until', '끝 날(여러 날이면)', 'date'], ['time', '시간', 'text'], ['what', '내용', 'text'], ['place', '장소', 'text'], ['who', '참석 요청', 'text']]);
@@ -706,62 +715,16 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const four = chapter('orgs', '4. 산하 조직 현황');
   const orgs = block('orgs', '1) 요약', 'h5', true);
   if (!status(orgs, model.orgs, '조직 소식')) {
-    const o = model.orgs, can = o.summaries === 'ok' && !o.failed.includes('orgUpdates');
-    const named = (o.sections || []).filter(section => section.id);
-    // JOURNAL-조직현황AI요약: one small [요약 만들기] for the shown organizations (only when pressed; edited summaries stay).
-    if (can && named.length) {
-      // WEEKLY-화면디자인정리: [요약 만들기]는 묶음 제목 줄 오른쪽 작은 글자 버튼, 결과 한 줄은 그 아래(빈 줄을 만들지 않게 글이 있을 때만 보임).
-      const run = el('button', 'journal-part-add-button', orgUi.busy ? '요약 만드는 중…' : '요약 만들기'); run.type = 'button'; run.dataset.journalOrgAiRun = '';
-      run.setAttribute('aria-label', '조직별 요약 만들기(AI)');
-      if (orgUi.busy) { run.disabled = true; run.setAttribute('aria-busy', 'true'); }
-      const add = partAdd(doc, [run]); add.dataset.journalOrgAi = '';
-      const say = el('p', 'journal-line-status journal-org-ai-status', orgUi.status || ''); say.dataset.journalOrgAiStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite');
-      if (orgUi.error) say.classList.add('journal-failed');
-      orgs.append(add, say);
-    }
-    if (o.summaries === 'failed' && named.length) orgs.append(muted('저장한 조직 요약을 불러오지 못해 기록만 보여요.'));
+    const o = model.orgs, can = !o.failed.includes('orgUpdates');
     for (const section of o.sections || []) {
       const part = el('div', 'journal-org'); part.dataset.journalOrg = section.name;
       part.append(el('p', 'journal-org-name', section.name));
-      const editing = can && section.id && orgUi.editing?.id === section.id ? orgUi.editing : null;
-      // WEEKLY-화면디자인정리: [요약 고치기]·[요약 쓰기]는 조직 이름 줄 오른쪽 끝 작은 ⋯ 안(따로 한 줄을 차지하지 않게). '고친 요약' 표시도 그 자리.
-      if (can && section.id && !editing) {
-        const tools = el('span', 'journal-org-tools');
-        if (section.summary?.edited) { const tag = el('span', 'journal-org-edited', '고친 요약'); tag.dataset.journalOrgEdited = ''; tools.append(tag); }
-        const label = section.summary ? '요약 고치기' : '요약 쓰기';
-        tools.append(rowMore(doc, {label:`${section.name} 요약 메뉴`, data:{journalOrgMore:section.id}, items:[{text:label, data:{journalOrgEditOpen:section.id}, aria:`${section.name} ${label}`}]}));
-        part.classList.add('journal-org-has-tools'); part.append(tools);
-      }
-      if (editing) {
-        const box = el('div', 'journal-org-edit'); box.dataset.journalOrgEdit = section.id;
-        const id = `journalOrgEdit-${section.id}`;
-        const label = el('label', 'journal-muted', `${section.name} 요약 고치기 (한 줄에 한 사안, ${ORG_EDIT_MAX_LINES}줄까지)`); label.htmlFor = id;
-        const area = el('textarea', 'journal-org-edit-input'); area.id = id; area.rows = Math.min(8, Math.max(3, editing.value.split('\n').length + 1));
-        area.value = editing.value; area.dataset.journalOrgEditInput = section.id; area.disabled = !!editing.saving;
-        if (editing.invalid) area.setAttribute('aria-invalid', 'true');
-        const note = el('p', 'journal-line-status', editing.status || ''); note.dataset.journalOrgEditStatus = ''; note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
-        const actions = el('div', 'journal-edit-actions save-row');
-        const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalOrgEditSave = section.id;
-        const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalOrgEditCancel = section.id;
-        if (editing.saving) { save.disabled = true; cancel.disabled = true; }
-        actions.append(cancel, save); box.append(label, area, note, actions); part.append(box);
-      } else if (section.summary) {
-        const lines = el('ul', 'journal-weekly-list journal-org-summary'); lines.dataset.journalOrgSummary = section.id;
-        for (const line of orgSummaryLines(section.summary.text)) lines.append(el('li', null, line));
-        part.append(lines);
-      }
-      if (section.summary || editing) {
-        // The records the summary came from stay folded underneath (native disclosure, keyboard accessible).
-        const raw = el('details', 'journal-org-raw'); raw.dataset.journalOrgRaw = section.name;
-        if (orgUi.open?.has(section.name)) raw.open = true;
-        raw.append(el('summary', null, `원문 ${section.items.length}건`), itemList(section.items));
-        part.append(raw);
-      } else part.append(itemList(section.items));
+      part.append(itemList(section.items));
       const gone = droppedFiles(section.dropped); if (gone) part.append(gone);
       // CAL-조직참고캘린더: 그 조직 칸에만 조직 참고 캘린더 추천 줄. [+]를 누르면 요약 고치기 칸 끝에 그 줄이 들어가고, [저장]하면 보고에 들어간다.
       // 이미 요약(또는 고치는 칸)에 든 일정은 다시 보이지 않는다.
       const all = can && section.id && section.id === model.orgRefs?.org
-        ? model.orgRefs.items.filter(item => !orgRefIn(editing ? editing.value : section.summary?.text ?? '', item)) : [];
+        ? model.orgRefs.items.filter(item => !orgRefIn((model.orgLines?.get(section.id) ?? []).join('\n'), item)) : [];
       // S46-22: 추천마다 작은 [×](이번 주 제안에서 빠짐 — 한글 파일 상자 그 조직 칸 추천과 같은 열쇠), 뺀 것은 목록에 남기지 않는다(WEEKLY-뺀목록삭제 — 방금 뺀 것만 [되돌리기], 데이터는 picks 에 그대로).
       const picks = model.picks?.ready ? model.picks : null;
       const sorted = picks ? sortPicks(all, item => ({kind:'calendar', from:'calendar', cell:`orgref:${section.id}`, org:section.name, text:item.label}), picks) : {shown:all.map(raw => ({raw})), gone:[]};
@@ -773,7 +736,6 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
           const li = el('li', 'journal-org-ref'); li.dataset.journalOrgRef = item.key;
           li.append(el('span', 'journal-org-ref-mark', '캘린더 추천'), doc.createTextNode(` · ${item.label} `));
           const add = el('button', 'mini', '+'); add.type = 'button'; add.dataset.journalOrgRefAdd = section.id; add.dataset.journalOrgRefText = item.label; // 요약 줄은 글머리 없이(복사·한글 파일이 '- '를 붙임)
-          if (editing?.saving) add.disabled = true;
           add.setAttribute('aria-label', `${section.name} 요약에 넣기: ${item.label}`);
           li.append(add);
           if (pick) {

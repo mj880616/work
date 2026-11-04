@@ -13,7 +13,10 @@ const notice=page=>page.locator('[data-overlap-notice]');
 async function overlap(page,{linkCalls=true}={}){
   const calls={ai:[],verdicts:[],setLinks:[]};
   await page.route(SB+'/functions/v1/ai-assist',async route=>{
-    const body=route.request().postDataJSON();calls.ai.push(body);
+    const body=route.request().postDataJSON();
+    // WEEKLY-메뉴짝짓기 P4: 담당조직 기록 저장 뒤 주별 조직보고 제안 줄 요청(겹침 확인과 별개)은 세지 않는다.
+    if(body.kind==='org_week_lines')return route.fulfill({status:200,json:{ok:true,kind:'org_week_lines',results:[]}});
+    calls.ai.push(body);
     return route.fulfill({status:200,json:{ok:true,kind:'overlap_check',saved:1,kept_user:0,results:body.pairs.map(p=>({...p,state:'judged',verdict:'same'}))}});
   });
   await page.route(SB+'/rest/v1/app_meetings**',route=>{

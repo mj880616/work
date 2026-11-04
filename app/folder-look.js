@@ -29,3 +29,16 @@ export function colorFromButton(button) {
   return n === 0 ? null : (Number.isInteger(n) && n >= 1 && n <= 8 ? n : undefined);
 }
 export {colorName};
+
+// ⋯ 메뉴 안 [색 고르기…] 흐름 하나(자료실·[파일]·사진 폴더·앨범 메뉴가 같이 씀): 누르면 같은 자리에 동그라미 8개 + [기본]을 다시 열고, 고르면 색 번호(기본 = null)를 돌려준다.
+// menu.render가 active(k)이면 colorChoiceHtml을 그리고, onClose는 menu의 onClose에, pick은 menu의 onAction 맨 앞에서 부른다.
+export function createColorMode() {
+  let key = null, reopen = false;
+  return {
+    active: k => key !== null && key === k,
+    begin(k, trigger, menu) { key = k; reopen = true; queueMicrotask(() => { reopen = false; if (trigger?.isConnected) menu.open(trigger); }); },
+    onClose() { if (!reopen) key = null; },
+    // 눌린 단추가 색이면 색 번호(0=기본→null)를, 아니면 undefined를 돌려주고 색 고르기 모드를 끝낸다.
+    pick(k, button) { const picked = key === k ? colorFromButton(button) : undefined; reopen = false; key = null; return picked; }
+  };
+}

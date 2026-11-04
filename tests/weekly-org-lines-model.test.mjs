@@ -1,0 +1,72 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import * as m from '../app/weekly-org-lines-model.mjs';
+
+// WEEKLY-메뉴짝짓기 P3: 주별 조직보고 표 판정(정렬·3줄 넘음·부실·지난주 가져오기·충돌). 자료는 모두 가짜.
+const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+const L = (id, day, body, state = 'in', extra = {}) => ({id, day, end_day: null, body, state, sort_order: 0, ...extra});
+
+test('주 기준(월~일)·주 표기·날짜 표기', () => {
+  assert.equal(m.mondayOf('2026-11-08'), '2026-11-02'); // 일요일 → 그 주 월요일
+  assert.equal(m.mondayOf('2026-11-02'), '2026-11-02');
+  assert.equal(m.shiftWeek('2026-11-02', -1), '2026-10-26');
+  assert.equal(m.weekLabel('2026-11-02'), '11.2~11.8');
+  assert.equal(m.weekLabel('2026-12-28'), '2026.12.28~2027.1.3');
+  assert.equal(m.dayText('2026-11-02'), '11.2.');
+  assert.equal(m.dayText('2026-11-02', '2026-11-05'), '11.2.~11.5.');
+  assert.equal(m.dayText(null), '');
+  assert.equal(m.lineText(L('a', '2026-11-03', ' 가상 교섭 상견례 ')), '- 11.3. 가상 교섭 상견례');
+  assert.equal(m.lineText(L('a', null, '가상 현안 설명회 준비')), '- 가상 현안 설명회 준비');
+});
+
+test('조직 칸: 날짜 오름차순(날짜 없는 줄 맨 뒤)·넣은 줄 최근 3줄 + 외 n줄·제안 줄 따로·3줄 넘음·부실', () => {
+  const lines = [L('n', null, '날짜 없음'), L('d', '2026-11-05', '넷'), L('a', '2026-11-02', '하나'), L('b', '2026-11-03', '둘'), L('c', '2026-11-04', '셋'),
+    L('s', '2026-11-04', '제안', 'suggested'), L('x', '2026-11-04', '뺀 줄', 'dropped')];
+  const p = m.cellParts(lines);
+  assert.deepEqual(p.placed.map(l => l.id), ['a', 'b', 'c', 'd', 'n']);
+  assert.deepEqual(p.shown.map(l => l.id), ['c', 'd', 'n']);
+  assert.deepEqual(p.older.map(l => l.id), ['a', 'b']);
+  assert.deepEqual(p.suggested.map(l => l.id), ['s']);
+  assert.equal(p.dropped, 1);assert.equal(p.over, true);assert.equal(p.thin, false);
+  assert.deepEqual(m.reportLines(lines), ['- 11.2. 하나', '- 11.3. 둘', '- 11.4. 셋', '- 11.5. 넷', '- 날짜 없음'], '주간보고에는 넣은 줄만, 자르지 않음');
+  assert.equal(m.cellParts([L('a', '2026-11-02', '하나'), L('s', null, '제안', 'suggested')]).thin, true, '넣은 줄 1줄 이하 = 부실');
+  assert.equal(m.cellParts([]).thin, true);
+  assert.equal(m.THIN_MAX, 1);
+});
+
+test('수기 줄 검사: 날짜 선택·끝나는 날은 시작일 뒤·글 필수', () => {
+  assert.deepEqual(m.checkDraft({day: '', end_day: '', body: ' 가상 '}), {ok: true, value: {day: null, end_day: null, body: '가상'}});
+  assert.deepEqual(m.checkDraft({day: '2026-11-02', end_day: '2026-11-05', body: 'a'}).value, {day: '2026-11-02', end_day: '2026-11-05', body: 'a'});
+  assert.equal(m.checkDraft({day: '2026-11-05', end_day: '2026-11-02', body: 'a'}).field, 'end_day');
+  assert.equal(m.checkDraft({day: '', end_day: '2026-11-02', body: 'a'}).field, 'end_day');
+  assert.equal(m.checkDraft({day: '2026-13-01', body: 'a'}).field, 'day');
+  assert.equal(m.checkDraft({day: '2026-11-02', body: '  '}).field, 'body');
+});
+
+test('지난주 가져오기: 이번 주(뺀 줄 포함)에 비슷한 글이 있으면 다시 넣지 않고, 40줄을 넘지 않는다', () => {
+  const last = [L('a', '2026-10-27', '가상 요구안 설문 시작'), L('b', '2026-10-30', '가상 대의원 간담회')];
+  const have = [L('h', '2026-11-03', '가상 대의원 간담회', 'dropped', {sort_order: 4})];
+  const plan = m.importPlan(last, have);
+  assert.deepEqual(plan, [{day: '2026-10-27', end_day: null, body: '가상 요구안 설문 시작', sort_order: 5}]);
+  const full = Array.from({length: 40}, (_, i) => L('f' + i, null, '줄 ' + 'abcdefghij'[i % 10] + i, 'in', {sort_order: i}));
+  assert.deepEqual(m.importPlan(last, full), []);
+  assert.equal(m.hasRoom(full), false);assert.equal(m.LINES_MAX, 40);
+});
+
+test('충돌 판정: 다른 화면이 같은 값이면 충돌 아님, 다르면 그 글, 없어졌으면 gone', () => {
+  const mine = {day: '2026-11-02', end_day: null, body: '가상 4개소', state: 'in'};
+  assert.equal(m.conflictOf(mine, {...mine}), null);
+  assert.deepEqual(m.conflictOf(mine, {...mine, body: '가상 3개소'}), {gone: false, body: '가상 3개소', state: 'in'});
+  assert.deepEqual(m.conflictOf(mine, null), {gone: true, body: ''});
+});
+
+test('공용 부품 연결: 조건 쓰기(updated_at)·지우기 없음·같은 탭 이벤트·화면이 다시 보일 때 다시 읽기', () => {
+  const wl = read('app/weekly-org-lines.js');
+  assert.match(wl, /updated_at=eq\.\$\{enc\(line\.updated_at\)\}/);
+  assert.doesNotMatch(wl, /method: 'DELETE'/, '빼기는 state dropped');
+  assert.match(wl, /kptu:weekly-org-lines-changed/);
+  assert.match(wl, /visibilitychange/);
+  assert.match(wl, /state: 'in', origin: l\.origin \|\| 'user'/);
+  for (const f of ['app/weekly-org-lines.js', 'app/week-pick.js', 'app/weekly-org-lines-model.mjs']) assert.doesNotMatch(read(f), /\?v=|\b(?:local|session)Storage\b/);
+});
