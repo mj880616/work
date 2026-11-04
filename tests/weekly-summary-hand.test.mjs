@@ -157,7 +157,7 @@ test('사업요약표 미리보기: 칸을 누르면 글 칸, Ctrl+Enter 저장,
   assert.match(src, /changeWeekSummaryText\(\{start:week,area:ref\.area,task:ref\.task,text\}\)/);
   assert.match(src, /fullTable\(placed\.areas/);
   assert.ok(!/callAiAssist|basket-ai-summary|area_week_summary/.test(src.replace(/^\s*\/\/.*$/gm, '')));
-  assert.ok(!/localStorage|sessionStorage|indexedDB/.test(src));
+  // 기기 저장 금지는 audit 검사(브라우저 저장소 사용 금지)가 본다.
   assert.ok(!/console\./.test(src));
 });
 
