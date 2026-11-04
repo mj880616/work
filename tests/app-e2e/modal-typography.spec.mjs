@@ -141,7 +141,9 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   // UI-필터알약 replaces these list controls; compare their new roles with home below.
   // Every retained list role and the unchanged modal audits still compare in full.
   const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>!(e.id==='gt-week-head'&&el.querySelector('#gt-today-head'))&&!e.closest('#gtTaskSection,.calendar-view-switch,#calendarTodayBtn,.cmv-task-count,[data-calendar-task],#meetingTypeFilter,label[for="meetingTypeFilter"],#documentProject,label[for="documentProject"],#libraryViewFilter')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);const title=e.closest('#monthTitle');if(title)return ['B','',e.id==='monthTitle'&&innerWidth<=760?'20px':s.fontSize,s.color,s.fontWeight,e.id==='monthTitle'&&innerWidth<=760?'24px':s.lineHeight];if(e.id==='prevMonthBtn'||e.id==='nextMonthBtn')return [e.tagName,e.className,'calendar-arrow','muted',s.fontWeight,'1'];return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
-  const expected=await snapshot(original);
+  // STAB-E2E간헐1104: 목록이 아직 그려지는 중에 한 번만 찍으면 어긋난다(#1845 브랜치에서 390 연속 실패, 재실행 통과). 옛 화면은 같은 값이 두 번 연달아 나올 때까지(그려짐이 끝날 때까지), 새 화면은 기대 값과 같아질 때까지 다시 읽는다.
+  let expected=await snapshot(original);
+  await expect.poll(async()=>{const next=await snapshot(original),same=JSON.stringify(next)===JSON.stringify(expected);expected=next;return same}).toBe(true);
   if(name==='projects'){
     // D-project-list changes exactly these retained list roles; other views and all dialog audits remain.
     const muted=await original.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-muted)';document.body.append(e);const color=getComputedStyle(e).color;e.remove();return color});
@@ -170,7 +172,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     // UI-디자인기준 3/3: 묶음 이름 왼쪽, 오른쪽 "N곳".
     await expect(page.locator('#soOrganizationList .so-group-heading > span')).toHaveText(['그 외','1곳']);
   }
-  if(!DS_VIEWS.has(name))expect(await snapshot(page),name).toEqual(expected);
+  if(!DS_VIEWS.has(name))await expect.poll(()=>snapshot(page),{message:name}).toEqual(expected);
   else expect(await newStandard(page),name+' new standard').toEqual([]);
   // UI-PC회의 → MEET-결과정리 ⑤(시안 C): PC(≥1024) 회의는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록. 종류 줄은 목록 글자(13px)·누르는 높이 44px, 고른 종류 하나만 표시.
   if(name==='meetings'&&width>=761){

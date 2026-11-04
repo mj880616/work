@@ -77,7 +77,7 @@ async function open(page,{width,baseline=false,shortTimeout=false}={}){
    if(String(url).includes('/functions/v1/library-files'))window.__completed++;
    return result;
   };
-  window.setTimeout=function(fn,ms,...args){if(ms>=90000&&ms<=600000){window.__deadlines.push(ms);if(shortTimeout)ms=150}return nativeTimer(fn,ms,...args)};
+  window.setTimeout=function(fn,ms,...args){if(ms>=90000&&ms<=600000){window.__deadlines.push(ms);if(shortTimeout&&window.__shortTimeout!==false)ms=150}return nativeTimer(fn,ms,...args)};
  },{shortTimeout});
  await page.goto(origin+'/fixture'+(baseline?'?baseline':''));
  await expect.poll(()=>page.evaluate(()=>window.__KPTU_LIBRARY_UPLOAD_READY__)).toBe(true);
@@ -120,13 +120,15 @@ for(const width of [390,1280])test.describe(`native library transport ${width}px
     results.push(result);
     expect(result.saved).toBe(0);expect(result.changed).toBe(0);
     if(failure!=='401'){
+     // STAB-E2E간헐1104: 시간 초과 시험의 짧은 제한(150ms)이 다시 보내는 성공 요청에도 남아, 느린 실행에서 성공 응답이 150ms를 넘으면 또 시간 초과가 났다(CI shard 5/8, 1280 timeout). 실패 확인이 끝나면 짧은 제한을 끄고 다시 보낸다.
+     await page.evaluate(()=>{window.__shortTimeout=false});
      mode='success';await page.locator('#libraryFileInput').setInputFiles({name:'새 파일.pdf',mimeType:'application/pdf',buffer:Buffer.from('new')});
      await page.locator('#saveDocumentBtn').click();await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
      expect(posts()).toHaveLength(2);
     }
     await page.close();
    }
-   expect(results[1]).toEqual(results[0]);
+   expect(results[1],`${failure} ${width}px: 지금 화면(results[1])과 옛 화면(results[0]) 비교`).toEqual(results[0]);
   });
  }
  test(`library keeps the existing one-time 401 refresh recovery at ${width}px`,async({page})=>{
