@@ -180,26 +180,19 @@ class WeekWidget : AppWidgetProvider() {
         }
 
         /**
-         * 요일 칸 7개. 칸 숫자가 없으면 '·'. 몰린 날·가장 큰 일 날은 옅은 색 바탕, 고른 날은 옅은 테마색. 바탕은 모두 누를 때 물결.
+         * 요일 칸 7개. 칸 숫자가 없으면 '·'. 모든 날 같은 바탕, 고른 날만 옅은 테마색. 바탕은 모두 누를 때 물결.
          * 4×2는 누르면 위젯 안에서 그 날을 펼치고(ACTION_PICK), 4×1은 아래 칸이 없으니 지금처럼 앱 그 날.
          */
         private fun cells(context: Context, views: RemoteViews, c: WidgetWeek.Content, small: Boolean, sel: LocalDate?) {
+            val today = LocalDate.now(WidgetNow.ZONE)
             c.days.take(CELLS.size).forEachIndexed { i, d ->
                 views.setTextViewText(WEEK[i], if (small) d.week + " " + d.date else d.week)
                 views.setTextViewText(DATE[i], d.date.toString())
                 views.setTextViewText(COUNT[i], if (d.count > 0) d.count.toString() else "·")
-                val ink = when {
-                    d.count >= WidgetWeek.BUSY -> R.color.widget_req_ink
-                    d.count > 0 -> R.color.widget_todo_ink
-                    else -> R.color.widget_muted
-                }
-                views.setTextColor(COUNT[i], context.getColor(ink))
-                val bg = when {
-                    d.day == sel -> R.drawable.widget_day_pick
-                    d.hot -> R.drawable.widget_day_hot
-                    d.busy -> R.drawable.widget_day_busy
-                    else -> R.drawable.widget_day_plain
-                }
+                // 모든 날 같은 바탕·같은 건수 색. 고른 날만 표시, 오늘은 요일 글자만 조금 진하게.
+                views.setTextColor(COUNT[i], context.getColor(if (d.count > 0) R.color.widget_todo_ink else R.color.widget_muted))
+                views.setTextColor(WEEK[i], context.getColor(if (d.day == today) R.color.widget_ink else R.color.widget_muted))
+                val bg = if (d.day == sel) R.drawable.widget_day_pick else R.drawable.widget_day_plain
                 views.setInt(CELLS[i], "setBackgroundResource", bg)
                 views.setOnClickPendingIntent(CELLS[i], if (small) day(context, d.day, i + 1) else pickIntent(context, d.day, i))
             }
