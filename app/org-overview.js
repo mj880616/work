@@ -1,5 +1,5 @@
 // DESK-전체현황표(요청함 11/03 07:48): 담당조직 화면 맨 위 작은 소탭 [목록 | 전체 표]. [전체 표] = 내 담당조직 전부를 묶음별 표 하나로
-// (주간보고 '3. 2) 투쟁 사업장 현황'과 같은 모양): 조직 | 쟁의 단계 | 최근 주요 일정·현황(날짜·한 줄, 최신 순 3줄까지).
+// (주간보고 '3. 2) 투쟁 사업장 현황'과 같은 모양): 조직 | 쟁의 단계 | 최근 주요 일정·현황(날짜·한 줄, 가장 최근 3줄을 날짜 오름차순으로. 그 앞 줄은 '외 n줄 ▾'로 그 자리에서 펼침 — DESK-현황오름차순·DESK-주별표 ①).
 // - 내용은 각 조직 [현황 표] 줄을 그대로 읽고 쓴다 — 새 저장 자리 없음. 줄 쓰기·AI 채우기는 org-status-table.js의 같은 함수를 쓴다
 //   (한 곳을 고치면 조직 상세 [현황 표]·주간보고 투쟁 사업장 칸에 같이 보임). 쟁의 단계는 org-dispute-stage.js 읽기만 한다.
 // - 순서·묶음은 담당조직 목록과 같다(organization-order.js). 조직 이름을 누르면 [목록]으로 돌아가 그 조직 상세를 연다.
@@ -7,7 +7,7 @@
 // - 고른 소탭([목록|전체 표])은 이번 접속만 기억한다: 서버에 기억하려면 view_prefs 검사에 새 칸이 필요해(DB 변경) 이 PR에서는 하지 않았다(PR 본문 '남은 일').
 // - 브라우저 저장소에 아무것도 두지 않는다.
 import {readStatusRows, patchStatusRow, deleteStatusRow, createStatusRow, fetchAiRows, applyRefillPlan, editFormHtml, fitTextarea} from './org-status-table.js';
-import {overviewRows, dayLabel, cleanBody, validDay, refillPlan, sortRows, ROWS_MAX} from './org-status-model.mjs';
+import {overviewRows, overviewOlder, periodLabel, cleanBody, validDay, validEnd, refillPlan, sortRows, ROWS_MAX} from './org-status-model.mjs';
 import {loadDisputeState, peekDisputeState} from './org-dispute-stage.js';
 import {stageOfOrg, stageLabel} from './org-dispute-stage-model.mjs';
 import {mountColResize, gripHtml} from './col-resize.js';
@@ -17,17 +17,17 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const TEXT = {
   missing: '현황 표는 준비 중이에요.', failed: '전체 표를 불러오지 못했어요.', saveFailed: '저장하지 못했어요. 다시 눌러 주세요.',
-  noBody: '내용을 적어 주세요.', noDay: '날짜를 골라 주세요.', full: `줄은 ${ROWS_MAX}개까지예요.`,
+  noBody: '내용을 적어 주세요.', noDay: '시작일을 골라 주세요.', badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', full: `줄은 ${ROWS_MAX}개까지예요.`,
   aiNone: '기록에서 뽑을 새 줄이 없었어요.', aiFail: 'AI로 채우지 못했어요. 잠시 뒤 다시 눌러 주세요.', copied: '복사했어요.', copyFail: '복사하지 못했어요.',
 };
-let st = null; // {section, tabs, panel, orgs, workspaceId, rt, view, status, rows: Map(orgId → 줄들), editing:{orgId,id}|null, draft, invalid, busy, msg:{text,error}, run}
+let st = null; // {expanded:Set(펼친 조직 id), section, tabs, panel, orgs, workspaceId, rt, view, status, rows: Map(orgId → 줄들), editing:{orgId,id}|null, draft, invalid, busy, msg:{text,error}, run}
 
 // suborganizations.js가 목록을 다시 그릴 때마다 부른다(같은 목록이면 다시 읽지 않는다).
 export function syncOverview({orgs, workspaceId, rt}) {
   const section = document.querySelector('#soTeamSection');
   if (!section) return;
   if (!st || st.section !== section) {
-    st = {section, orgs: [], workspaceId, rt, view: 'list', status: 'idle', rows: new Map(), editing: null, draft: null, invalid: '', busy: false, msg: {text: '', error: false}, run: 0};
+    st = {section, expanded: new Set(), orgs: [], workspaceId, rt, view: 'list', status: 'idle', rows: new Map(), editing: null, draft: null, invalid: '', busy: false, msg: {text: '', error: false}, run: 0};
     install();
   }
   const same = st.orgs.length === orgs.length && st.orgs.every((o, i) => o.id === orgs[i].id);
@@ -104,16 +104,21 @@ function lineHtml(orgId, r) {
     return `<div class="oa-edit" data-oa-edit-row="${esc(orgId)}">${editFormHtml({key: r.id, draft: st.draft || {}, invalid: st.invalid, busy: st.busy, canDelete: true, deleteId: r.id})}</div>`;
   }
   const dis = st.busy || !!st.editing;
-  return `<div class="oa-line"><span class="oa-day">${esc(dayLabel(r.day) || '—')}</span><span class="oa-text${dis ? '' : ' is-edit'}"${dis ? '' : ` role="button" tabindex="0" data-oa-edit="${esc(r.id)}" data-oa-org="${esc(orgId)}" aria-label="${label} 고치기"`}>${label}</span>${r.source === 'ai' ? '<span class="wd-st-tag" title="AI가 기록에서 뽑은 줄 — 고치면 내 줄이 돼요">AI</span>' : ''}</div>`;
+  return `<div class="oa-line"><span class="oa-day">${esc(periodLabel(r.day, r.end_day) || '—')}</span><span class="oa-text${dis ? '' : ' is-edit'}"${dis ? '' : ` role="button" tabindex="0" data-oa-edit="${esc(r.id)}" data-oa-org="${esc(orgId)}" aria-label="${label} 고치기"`}>${label}</span>${r.source === 'ai' ? '<span class="wd-st-tag" title="AI가 기록에서 뽑은 줄 — 고치면 내 줄이 돼요">AI</span>' : ''}</div>`;
 }
 function cellHtml(o) {
-  const rows = st.rows.get(o.id) || [], shown = overviewRows(rows, 3), dis = st.busy || !!st.editing;
+  const rows = st.rows.get(o.id) || [], shown = overviewRows(rows, 3), older = overviewOlder(rows, 3), dis = st.busy || !!st.editing;
   const adding = st.editing && st.editing.orgId === o.id && st.editing.id === 'new';
-  let html = shown.map(r => lineHtml(o.id, r)).join('');
+  const open = older.length > 0 && (st.expanded.has(o.id) || (st.editing && st.editing.orgId === o.id && older.some(r => r.id === st.editing.id)));
+  let html = '';
+  if (older.length) html += `<button type="button" class="oa-more" data-oa-toggle="${esc(o.id)}" aria-expanded="${open}" aria-label="${esc(o.name)} 지난 ${older.length}줄 ${open ? '접기' : '펼치기'}">외 ${older.length}줄 ${open ? '▴' : '▾'}</button>`;
+  if (open) html += older.map(r => lineHtml(o.id, r)).join('');
+  html += shown.map(r => lineHtml(o.id, r)).join('');
   if (adding) html += `<div class="oa-edit" data-oa-edit-row="${esc(o.id)}">${editFormHtml({key: 'new', draft: st.draft || {}, invalid: st.invalid, busy: st.busy})}</div>`;
-  if (!rows.length && !adding) html += `<span class="oa-empty" data-oa-empty>비어 있음</span><button type="button" class="wd-st-btn" data-oa-fill="${esc(o.id)}"${dis ? ' disabled' : ''}>AI로 채우기</button>`;
-  else if (rows.length > shown.length) html += `<span class="oa-more">외 ${rows.length - shown.length}줄 — 조직 상세에서</span>`;
-  if (!adding) html += `<button type="button" class="wd-st-btn oa-add" data-oa-add="${esc(o.id)}"${dis || rows.length >= ROWS_MAX ? ' disabled' : ''} aria-label="${esc(o.name)} 줄 추가">+ 줄</button>`;
+  else {
+    const empty = !rows.length ? `<span class="oa-empty" data-oa-empty>비어 있음</span><button type="button" class="wd-st-btn" data-oa-fill="${esc(o.id)}"${dis ? ' disabled' : ''}>AI로 채우기</button>` : '';
+    html += `<div class="oa-actions btn-row">${empty}<button type="button" class="wd-st-btn oa-add" data-oa-add="${esc(o.id)}"${dis || rows.length >= ROWS_MAX ? ' disabled' : ''} aria-label="${esc(o.name)} 줄 추가">+ 줄</button></div>`;
+  }
   return html;
 }
 function paint() {
@@ -124,7 +129,7 @@ function paint() {
   if (status === 'error') { panel.innerHTML = `<p class="wd-st-note" role="alert">${TEXT.failed} <button type="button" class="wd-st-btn" data-oa-retry>다시 시도</button></p>`; return; }
   if (!st.orgs.length) { panel.innerHTML = emptyHtml(); return; }
   const dis = st.busy || !!st.editing;
-  const bar = `<div class="oa-bar"><button type="button" class="wd-st-btn" data-oa-refill-all${dis ? ' disabled' : ''}>모두 다시 채우기 (AI)</button><button type="button" class="wd-st-btn" data-oa-copy>복사</button></div>`;
+  const bar = `<div class="oa-bar btn-row"><button type="button" class="wd-st-btn" data-oa-refill-all${dis ? ' disabled' : ''}>모두 다시 채우기 (AI)</button><button type="button" class="wd-st-btn" data-oa-copy>복사</button></div>`;
   const head = `<thead><tr><th scope="col" class="oa-c-org">조직${gripHtml('org', '조직', 1)}</th><th scope="col" class="oa-c-stage">쟁의 단계${gripHtml('stage', '쟁의 단계', 1)}</th><th scope="col">최근 주요 일정·현황</th></tr></thead>`;
   const groups = groupsOf().map(g => `<section class="oa-group" data-oa-group><h3 class="oa-group-h">${esc(g.name)}<small>${g.orgs.length}곳</small></h3><table class="oa-table">${head}<tbody>${g.orgs.map(o => `<tr data-oa-org-row="${esc(o.id)}"><th scope="row" class="oa-c-org"><button type="button" class="oa-name" data-oa-open="${esc(o.id)}">${esc(o.name)}</button></th><td class="oa-c-stage" data-label="쟁의 단계">${esc(stageText(o.id)) || '<span class="oa-none">—</span>'}</td><td class="oa-c-rows">${cellHtml(o)}</td></tr>`).join('')}</tbody></table></section>`).join('');
   panel.innerHTML = `${bar}${groups}<p class="wd-st-status${st.msg.error ? ' is-error' : ''}" role="status" aria-live="polite" data-oa-status>${esc(st.msg.text)}</p>`;
@@ -150,7 +155,7 @@ async function reread(orgIds) {
 
 function bind(panel) {
   panel.addEventListener('input', e => { const t = e.target; if (!st || !t.matches?.('[data-st-field]')) return; if (t.tagName === 'TEXTAREA') fitTextarea(t); st.draft = {...(st.draft || {}), [t.dataset.stField]: t.value}; if (st.invalid === t.dataset.stField) { st.invalid = ''; t.removeAttribute('aria-invalid'); } });
-  panel.addEventListener('change', e => { const t = e.target; if (st && t.matches?.('[data-st-field]')) st.draft = {...(st.draft || {}), [t.dataset.stField]: t.value}; });
+  panel.addEventListener('change', e => { const t = e.target; if (st && t.matches?.('[data-st-field]')) { st.draft = {...(st.draft || {}), [t.dataset.stField]: t.value}; if (t.dataset.stField === 'day') t.closest('.wd-st-form')?.querySelector('[data-st-field="end_day"]')?.setAttribute('min', t.value); } });
   panel.addEventListener('keydown', e => {
     if (!st) return;
     const sp = e.target.closest?.('[data-oa-edit]');
@@ -163,8 +168,9 @@ function bind(panel) {
     const d = b.dataset;
     if ('oaRetry' in d) void load();
     else if (d.oaOpen) openOrg(d.oaOpen);
-    else if (d.oaEdit) { const org = d.oaOrg, r = (st.rows.get(org) || []).find(x => x.id === d.oaEdit); if (!r) return; st.editing = {orgId: org, id: r.id}; st.draft = {day: r.day, body: r.body}; st.invalid = ''; st.focus = '[data-st-field="body"]'; say(''); paint(); }
-    else if (d.oaAdd) { st.editing = {orgId: d.oaAdd, id: 'new'}; st.draft = {day: seoulDateKey(Date.now()), body: ''}; st.invalid = ''; st.focus = '[data-st-field="body"]'; say(''); paint(); }
+    else if (d.oaEdit) { const org = d.oaOrg, r = (st.rows.get(org) || []).find(x => x.id === d.oaEdit); if (!r) return; st.editing = {orgId: org, id: r.id}; st.draft = {day: r.day, end_day: r.end_day || '', body: r.body}; st.invalid = ''; st.focus = '[data-st-field="body"]'; say(''); paint(); }
+    else if (d.oaToggle) { if (st.expanded.has(d.oaToggle)) st.expanded.delete(d.oaToggle); else st.expanded.add(d.oaToggle); st.focus = `[data-oa-toggle="${d.oaToggle}"]`; paint(); }
+    else if (d.oaAdd) { st.editing = {orgId: d.oaAdd, id: 'new'}; st.draft = {day: seoulDateKey(Date.now()), end_day: '', body: ''}; st.invalid = ''; st.focus = '[data-st-field="body"]'; say(''); paint(); }
     else if ('stCancel' in d) cancel();
     else if ('stSave' in d) void save();
     else if (d.stDelete) void remove(d.stDelete);
@@ -197,17 +203,18 @@ async function run(work, done) {
 }
 async function save() {
   if (!st?.editing || st.busy) return;
-  const {orgId, id} = st.editing, d = st.draft || {}, body = cleanBody(d.body), day = d.day;
+  const {orgId, id} = st.editing, d = st.draft || {}, body = cleanBody(d.body), day = d.day, end_day = d.end_day || null;
   if (!validDay(day)) { st.invalid = 'day'; st.msg = {text: TEXT.noDay, error: true}; st.focus = '[data-st-field="day"]'; paint(); return; }
+  if (!validEnd(day, end_day)) { st.invalid = 'end_day'; st.msg = {text: TEXT.badEnd, error: true}; st.focus = '[data-st-field="end_day"]'; paint(); return; }
   if (!body) { st.invalid = 'body'; st.msg = {text: TEXT.noBody, error: true}; st.focus = '[data-st-field="body"]'; paint(); return; }
   const c = ctxFor(orgId);
   if (id === 'new') {
     const prev = st.rows.get(orgId) || [];
     if (prev.length >= ROWS_MAX) { st.msg = {text: TEXT.full, error: true}; paint(); return; }
-    await run(() => createStatusRow(c, prev, {day, body}), '줄을 넣었어요.');
+    await run(() => createStatusRow(c, prev, {day, end_day, body}), '줄을 넣었어요.');
     return;
   }
-  await run(() => patchStatusRow(c, id, {day, body, source: 'user', updated_at: new Date().toISOString()}), '저장했어요.');
+  await run(() => patchStatusRow(c, id, {day, end_day, body, source: 'user', updated_at: new Date().toISOString()}), '저장했어요.');
 }
 async function remove(id) {
   if (!st?.editing) return;
@@ -243,7 +250,7 @@ async function copy() {
     for (const o of g.orgs) {
       const stage = stageText(o.id);
       lines.push(`○ ${o.name}${stage ? ` (${stage})` : ''}`);
-      for (const r of overviewRows(st.rows.get(o.id) || [], 3)) lines.push(`- ${dayLabel(r.day)} ${cleanBody(r.body)}`);
+      for (const r of overviewRows(st.rows.get(o.id) || [], 3)) lines.push(`- ${periodLabel(r.day, r.end_day)} ${cleanBody(r.body)}`);
     }
   }
   try { await navigator.clipboard.writeText(lines.join('\n')); say(TEXT.copied); } catch { say(TEXT.copyFail, true); }
