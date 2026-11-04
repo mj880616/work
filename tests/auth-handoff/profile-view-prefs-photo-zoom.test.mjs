@@ -114,7 +114,7 @@ test('view prefs photo zoom: plan, dry-run, apply, own-row writes, CHECK and gua
    assert.equal((await pool.query("select count(*)::int n from pg_policy where polrelid='public.app_profiles'::regclass")).rows[0].n,2);
   });
   await t.test('the owner saves photo_zoom together with the old keys; other rows, outsiders and anon cannot',async()=>{
-   assert.equal(Object.keys(ALL_OLD).length,37,'all keys of the previous check');
+   assert.equal(Object.keys(ALL_OLD).length,38,'all keys of the previous check');
    assert.equal((await write(OWNER,OWNER,ALL_OLD)).rowCount,1,'every previous key is still accepted');assert.deepEqual(await saved_(OWNER),ALL_OLD);
    for(const v of GOOD){assert.equal((await write(OWNER,OWNER,v)).rowCount,1,JSON.stringify(v));assert.deepEqual(await saved_(OWNER),v);assert.equal((await write(OWNER,OWNER,{...ALL_OLD,...v})).rowCount,1,JSON.stringify(v))}
    assert.equal((await write(OWNER,STRANGER,RANGE)).rowCount,0,'another profile row is not writable');
