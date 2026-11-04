@@ -337,6 +337,9 @@ jobs:
       - name: Check attachment file rename rules (ATT-이름고치기)
         run: node --test tests/file-rename.test.mjs
 
+      - name: Check folder look and order model (FOLDER-순서·색 ②)
+        run: node --test tests/folder-look-model.test.mjs
+
       - name: Check meeting Korea time conversions
         run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs tests/select-menu.test.mjs tests/calendar-week-timeline.test.mjs tests/calendar-drag-model.test.mjs tests/calendar-create-slot.test.mjs
 
