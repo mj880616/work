@@ -177,3 +177,14 @@ test('meeting-recorder.js: 이어서 녹음은 같은 session으로 rec_start, �
   assert.match(js,/setTimeout\(\(\)=>void loadPending\(\),3500\)/);
   assert.doesNotMatch(js,new RegExp(['local','session'].map(x=>x+'Storage').join('|')));
 });
+
+// REC-노트북이어하기(S49-29): 마이크가 끊기면 일시 정지됨 → [이어 녹음]은 같은 session_id의 새 구간(자동 재시작 없음).
+test('meeting-recorder.js: 끊김은 일시 정지됨으로, 이어 녹음은 사람이 눌러야 하고 같은 녹음의 새 구간이다',()=>{
+  const js=readFileSync(new URL('../app/meeting-recorder.js',import.meta.url),'utf8');
+  assert.match(js,/state='suspended'/);
+  assert.match(js,/data-rec="resume">이어 녹음/);
+  assert.match(js,/requestData\(\)/);
+  assert.match(js,/visibilitychange/);
+  assert.match(js,/no:\(last\?\.no\|\|0\)\+1/);
+  assert.doesNotMatch(js,/visibilityState==='visible'[^\n]*getUserMedia/);
+});

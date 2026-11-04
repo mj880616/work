@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 // 비밀값·토큰·계정·파일 이름은 모두 고정 가짜 글자다.
 const {createCloudFilesHandler,odRow,gdRow,safeOpenUrl,servedType,FRESH_MS,cleanName,idList,uniqueName,safeUploadUrl,safeMonitorUrl,ACROSS_MAX_BYTES,COPY_TREE_MAX}=await import('../../supabase/functions/cloud-files/handler.ts');
 const {createHash}=await import('node:crypto');
-const {tickSign,TICK_HEADER,BIG_BYTES,JOB_STEP_MS}=await import('../../supabase/functions/cloud-files/jobs.mjs');
+const {tickSign,TICK_HEADER,BIG_BYTES,JOB_STEP_MS,CRON_HEADER,LEASE_MS,cronSecretMatches}=await import('../../supabase/functions/cloud-files/jobs.mjs');
 const root=new URL('../../',import.meta.url);
 const read=p=>readFileSync(new URL(p,root),'utf8');
 
@@ -14,10 +14,11 @@ const SB='https://sb.example.test',WS='a0000000-0000-4000-8000-000000000001',WS2
 const USER='u0000000-0000-4000-8000-000000000001',OTHER='u0000000-0000-4000-8000-000000000002';
 const JWT='synthetic-user-jwt',JWT2='synthetic-other-jwt',GD_ACCESS='synthetic-gd-access',OD_ACCESS='synthetic-od-access',FULL='https://www.googleapis.com/auth/drive';
 const ENV={SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:'synthetic-service-key',SUPABASE_ANON_KEY:'synthetic-anon-key',
- ONEDRIVE_CLIENT_ID:'synthetic-client',ONEDRIVE_CLIENT_SECRET:'synthetic-secret-0123456789',ONEDRIVE_TENANT:'common'};
+ ONEDRIVE_CLIENT_ID:'synthetic-client',ONEDRIVE_CLIENT_SECRET:'synthetic-secret-0123456789',ONEDRIVE_TENANT:'common',
+ CLOUD_FILES_CRON_SECRET:'synthetic-cron-secret-0123456789abcdef'};
 const DL='https://dl.example-1drv.test/x';
 
-function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS,gdScope=FULL,odScope='Files.ReadWrite offline_access User.Read',odConn=true}={}){
+function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS,gdScope=FULL,odScope='Files.ReadWrite offline_access User.Read',odConn=true,env=ENV}={}){
  let clock=Date.parse('2026-11-02T08:00:00Z');
  const db={items:[],sync:[],stars:[],jobs:[],jobup:[],conn:odConn?[{workspace_id:WS,refresh_token:'synthetic-refresh',scope:odScope}]:[]};
  const gd={root:'ROOTG',start:'100',pages:[
@@ -188,7 +189,7 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
    return new Response('<script>x</script>',{status:h.Range?206:200,headers:{'content-type':'text/html','content-range':h.Range?'bytes 0-1/5':''}});}
   throw new Error('unexpected host '+u.host+u.pathname);
  }
- const handler=createCloudFilesHandler({fetch,env:k=>ENV[k],now:()=>clock,background:p=>pending.push(p)});
+ const handler=createCloudFilesHandler({fetch,env:k=>env[k],now:()=>clock,background:p=>pending.push(p)});
  // 서버 안 입구(다음 실행)를 열쇠로 부르고, 뒤에서 도는 실행이 끝날 때까지 기다린다.
  async function runTick(ws=WS,{sig,body}={}){
   const exp=clock+60000,b=body||{workspace_id:ws,exp};
@@ -196,8 +197,14 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
   while(pending.length)await pending.shift();
   return r.status;
  }
+ // 서버 예약 입구(S49-32): GitHub 예약처럼 게이트용 anon 열쇠 + 비밀 머리로 부르고, 뒤에서 도는 실행이 끝날 때까지 기다린다.
+ async function runCron({secret=ENV.CLOUD_FILES_CRON_SECRET,headers={},body='{}',method='POST'}={}){
+  const r=await handler(new Request('https://fn.example.test/cloud-files',{method,headers:{Authorization:'Bearer '+ENV.SUPABASE_ANON_KEY,'content-type':'application/json',...(secret===null?{}:{[CRON_HEADER]:secret}),...headers},...(method==='POST'?{body}:{})}));
+  while(pending.length)await pending.shift();
+  return {status:r.status,body:await r.json()};
+ }
  const post=(body,jwt=JWT,headers={})=>handler(new Request('https://fn.example.test/cloud-files',{method:'POST',headers:{Authorization:'Bearer '+jwt,'content-type':'application/json',...headers},body:JSON.stringify(body)}));
- return {db,gd,od,calls,writes,uploads,ticks,handler,post,runTick,now:()=>clock,tick:ms=>{clock+=ms;}};
+ return {db,gd,od,calls,writes,uploads,ticks,handler,post,runTick,runCron,now:()=>clock,tick:ms=>{clock+=ms;}};
 }
 const j=async r=>({status:r.status,body:await r.json()});
 
@@ -797,4 +804,85 @@ test('jobs: list wakes a stalled run only when nothing holds the lease; over 2GB
  w.tick(60000);await w.post({action:'job_list'});assert.equal(w.ticks.length,n+1,'stalled: wake once');
  w.db.jobs[1].lease_until=new Date(w.now()+60000).toISOString();w.tick(1);
  await w.post({action:'job_list'});assert.equal(w.ticks.length,n+1,'someone holds it: no wake');
+});
+
+// ---- S49-32 화면을 닫아도 계속: 서버 예약 입구(x-cloud-files-cron-secret) ----
+const smallBytes=Buffer.from(Array.from({length:3000},(_,i)=>(i*7)&255));
+const addSmall=w=>{w.gd.pages[0].push({id:'GB',name:'회의.docx',mimeType:'application/pdf',parents:['GF1'],size:String(smallBytes.length),md5Checksum:createHash('md5').update(smallBytes).digest('hex'),ownedByMe:true});
+ w.gd.media={...(w.gd.media||{}),GB:smallBytes};};
+test('cron gate: only the cron secret header; wrong, short, missing, mixed or foreign keys and bodies do nothing',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ await w.post({action:'job_add',confirm:true,kind:'copy',to_source:'od',to:null,items:[{source:'gd',id:'GA'}]});
+ w.tick(10*60000);
+ const before=w.calls.length,ticks=w.ticks.length;
+ for(const opt of [{secret:'synthetic-cron-secret-0123456789abcdeX'},{secret:''},{secret:'x'.repeat(5000)},
+   {headers:{[TICK_HEADER]:'0'.repeat(64)}},{headers:{'x-phone-push-cron-secret':ENV.CLOUD_FILES_CRON_SECRET}},{headers:{'x-drive-summary-cron-secret':'a'}},
+   {method:'GET'}])
+  assert.equal((await w.runCron(opt)).status,401,JSON.stringify(opt).slice(0,80));
+ assert.equal((await w.runCron({body:'{"workspace_id":"'+WS2+'"}'})).status,400,'workspace is decided by the server, not the caller');
+ // 서버 쪽 비밀값이 없거나 32자보다 짧으면 늘 거절.
+ for(const env of [{...ENV,CLOUD_FILES_CRON_SECRET:undefined},{...ENV,CLOUD_FILES_CRON_SECRET:'short-secret'}]){
+  const z=world({env});assert.equal((await z.runCron({secret:env.CLOUD_FILES_CRON_SECRET||'synthetic-cron-secret-0123456789abcdef'})).status,401);}
+ assert.equal(w.calls.length,before,'rejected before any DB or cloud call');assert.equal(w.ticks.length,ticks);
+ assert.equal(w.db.jobs[0].status,'queued');assert.equal(w.writes.length,0);
+ assert.equal(await cronSecretMatches(null,ENV.CLOUD_FILES_CRON_SECRET),false);
+ assert.equal(await cronSecretMatches(ENV.CLOUD_FILES_CRON_SECRET,ENV.CLOUD_FILES_CRON_SECRET),true);
+ // 사용자 입구는 그대로: 예약 열쇠 없이 로그인 토큰으로 부르면 예전처럼 문을 지난다.
+ assert.equal((await w.post({action:'job_list'})).status,200);
+});
+
+test('cron: a run that died with the screen closed is picked up by the schedule alone and finishes (small and big files)',async()=>{
+ const w=world();
+ const size=BIG_BYTES+2*1024*1024+9,big=bigFile(size,3);
+ w.gd.pages[0].push({id:'GZ',name:'영상.mp4',mimeType:'video/mp4',parents:['GF1'],size:String(size),md5Checksum:createHash('md5').update(big).digest('hex'),ownedByMe:true});
+ w.gd.media={GZ:big};w.gd.rangeMs=20000;addSmall(w);
+ await w.post({action:'sync'});
+ await w.post({action:'job_add',confirm:true,kind:'copy',to_source:'od',to:'OF!2',items:[{source:'gd',id:'GZ',big:true},{source:'gd',id:'GB'}]});
+ const [bigJob,small]=w.db.jobs;
+ // 첫 실행은 조각 몇 개를 보낸 뒤 '조각 도중 강제 종료': 줄은 보내는 중·잡기 기한이 남은 채로, 다음 부름(job_tick)은 닿지 않았다. 화면도 닫혀 있다.
+ assert.equal(await w.runTick(),202);
+ assert.equal(bigJob.status,'running');const first=bigJob.sent_bytes;assert.ok(first>0&&first<size);
+ bigJob.lease_until=new Date(w.now()+LEASE_MS).toISOString();
+ // 잡기 기한 안에는 예약이 깨우지 않는다(누가 잡고 있을 수 있음).
+ w.tick(60000);
+ let c=await w.runCron();
+ assert.deepEqual(c,{status:200,body:{ok:true,active:2,kicked:false}});assert.equal(bigJob.sent_bytes,first);
+ // 기한이 지나면 예약만으로 이어 받는다. 이후 사슬(job_tick)도 끊겼다고 치고 예약만 계속 부른다.
+ w.tick(LEASE_MS);
+ for(let i=0;i<30&&small.status!=='done';i++){c=await w.runCron();assert.equal(c.status,200);w.tick(60000);}
+ assert.equal(bigJob.status,'done',bigJob.error_code);assert.equal(small.status,'done',small.error_code);
+ const up=Object.values(w.uploads).find(u=>u.dest==='od');assert.ok(up.bytes.equals(big),'same bytes, continued without restarting');
+ assert.ok(c.body.kicked===true||c.body.active===0);
+ // 다 끝나면 예약은 아무것도 하지 않는다.
+ const n=w.writes.length;
+ assert.deepEqual(await w.runCron(),{status:200,body:{ok:true,active:0,kicked:false}});assert.equal(w.writes.length,n);
+});
+
+test('cron: leaves paused, finished, device, fresh, other-workspace and feature-off jobs alone',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ await w.post({action:'job_add',confirm:true,kind:'copy',to_source:'od',to:null,items:[{source:'gd',id:'GA'}]});
+ const base={...w.db.jobs[0]};
+ // 막 시작한 줄(멈춘 지 얼마 안 됨)은 깨우지 않는다 — 시작할 때 이미 다음 실행을 불렀다.
+ assert.deepEqual((await w.runCron()).body,{ok:true,active:1,kicked:false});assert.equal(w.writes.length,0);
+ // 사람이 멈춘 줄·끝난 줄·기기 줄(origin device)은 보지도 않는다.
+ const old=new Date(w.now()-3600000).toISOString();
+ for(const row of [{status:'paused'},{status:'done'},{status:'failed'},{status:'skipped'},
+   {origin:'device',src_source:'dev',src_id:null,status:'queued'},{origin:'device',src_source:'dev',src_id:null,status:'running'}]){
+  const z=world();z.db.jobs.push({...base,...row,updated_at:old,created_at:old});
+  const before=JSON.stringify(z.db.jobs);
+  assert.deepEqual((await z.runCron()).body,{ok:true,active:0,kicked:false},JSON.stringify(row));
+  assert.equal(JSON.stringify(z.db.jobs),before);assert.equal(z.writes.length,0);}
+ // 운영자(files) 작업공간이 아닌 곳의 줄은 보지 않는다.
+ const other=world();other.db.jobs.push({...base,workspace_id:WS2,updated_at:old,created_at:old});
+ assert.deepEqual((await other.runCron()).body,{ok:true,active:0,kicked:false});assert.equal(other.db.jobs[0].status,'queued');assert.equal(other.writes.length,0);
+ // 기능이 꺼졌으면(서버 허용 표에 없음) 아무것도 하지 않는다.
+ const off=world({allowed:null});off.db.jobs.push({...base,updated_at:old,created_at:old});
+ assert.deepEqual((await off.runCron()).body,{ok:true,active:0,kicked:false});assert.equal(off.db.jobs[0].status,'queued');assert.equal(off.writes.length,0);
+ // 같은 줄을 둘이 동시에 잡지 않는다: 예약 둘이 겹쳐도 lease를 먼저 잡은 쪽만 일한다.
+ const two=world();addSmall(two);await two.post({action:'sync'});
+ two.db.jobs.push({...base,src_id:'GB',name:'회의.docx',size_bytes:smallBytes.length,src_hash:'md5:'+createHash('md5').update(smallBytes).digest('hex'),updated_at:old,created_at:old});
+ const a=two.runCron(),b=two.runCron();await Promise.all([a,b]);
+ assert.equal(two.db.jobs[0].status,'done');assert.equal(two.db.jobs[0].attempts,1,'only one run held the job');
 });

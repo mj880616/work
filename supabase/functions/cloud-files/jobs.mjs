@@ -16,6 +16,27 @@ export const STALE_MS = 45 * 1000;                 // 잡은 사람 없이 이�
 export const TICK_TTL_MS = 10 * 60 * 1000;         // job_tick 열쇠 기한
 export const MAX_ATTEMPTS = 2000;                  // 한 줄의 실행 횟수 상한(2GB ÷ 10MB ≈ 205조각 + 여유)
 export const TICK_HEADER = 'x-cloud-job-tick';
+// ---- 서버 예약 입구(S49-32, 설계 docs/design/files-unified-plan.md J절 H-6 '화면을 닫아도 전송은 계속') ----
+// GitHub 예약(.github/workflows/cloud-files-jobs-cron.yml, 5분마다)이 이 머리로 부른다. 비밀값 CLOUD_FILES_CRON_SECRET(32자 이상)과
+// SHA-256 고정 길이 비교. 하는 일은 하나뿐: '사람이 시작한(origin cloud) 기다림·보내는 중' 줄이 잡은 사람 없이 멈춰 있으면
+// 그 작업공간의 다음 실행(runJobs) 한 번을 깨운다. 새 줄을 만들거나 '일시 정지'·'끝'·'실패' 줄을 바꾸지 않는다.
+export const CRON_HEADER = 'x-cloud-files-cron-secret';
+export const CRON_SECRET_NAME = 'CLOUD_FILES_CRON_SECRET';
+export const CRON_SECRET_MIN = 32;
+export const CRON_SCAN_MAX = 100;                  // 한 번에 살펴보는 줄 상한(이어 받는 것은 runJobs 한 번 = JOB_STEP_MS 안, 한 줄씩)
+// 다른 기능의 예약 열쇠가 섞여 오면 거절한다.
+export const FOREIGN_SECRET_HEADERS = Object.freeze(['x-drive-summary-cron-secret', 'x-collector-feed-secret', 'x-collector-heartbeat-secret',
+  'x-outside-feed-cron-secret', 'x-news-feed-cron-secret', 'x-phone-push-cron-secret']);
+// SHA-256으로 같은 길이로 만든 뒤 끝까지 비교(phone-push·outside-feed secretMatches와 같음).
+export async function cronSecretMatches(given, expected) {
+  if (typeof expected !== 'string' || expected.length < CRON_SECRET_MIN || typeof given !== 'string' || !given || given.length > 4096) return false;
+  const digest = (v) => crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
+  const [a, b] = await Promise.all([digest(given), digest(expected)]);
+  const aa = new Uint8Array(a), bb = new Uint8Array(b);
+  let diff = 0;
+  for (let i = 0; i < aa.length; i++) diff |= aa[i] ^ bb[i];
+  return diff === 0;
+}
 // 클라우드 사이 한 파일: 200MB 넘으면 사람이 [그래도 보내기]를 눌렀을 때만(H-4), 2GB까지(H-4 추천 상한).
 export const BIG_BYTES = 200 * 1024 * 1024;
 export const BIG_MAX_BYTES = 2 * 1024 * 1024 * 1024;

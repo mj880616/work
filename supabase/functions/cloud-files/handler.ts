@@ -21,6 +21,7 @@ import { Md5, Sha1 } from "./hash.ts";
 import {
   ACTIVE as JOB_ACTIVE, BIG_BYTES, BIG_MAX_BYTES, JOB_ADD_MAX, JOB_COLUMNS, JOB_LIST_HOURS, JOB_LIST_MAX, JOB_STEP_MS, LEASE_MS, MAX_ATTEMPTS,
   TICK_HEADER, TICK_TTL_MS, gdOffset, jobCode, jobView, needsKick, nextRange, odOffset, parseAdd, parseIds, rangeOk, tickCheck, tickSign,
+  CRON_HEADER, CRON_SCAN_MAX, CRON_SECRET_NAME, FOREIGN_SECRET_HEADERS, cronSecretMatches, isUuid,
 } from "./jobs.mjs";
 
 type Env = (name: string) => string | undefined;
@@ -1268,6 +1269,27 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     background(runJobs(String(b.workspace_id)).catch(() => log("job_run_failed")));
     return json({ ok: true }, 202);
   }
+  // 서버 예약 입구(S49-32, H-6 '화면을 닫아도 계속'): 서버 실행이 조각 도중 강제로 끝나 다음 부름(job_tick)이 끊기고 화면도 닫혀 있으면
+  //   멈춘 채로 남는다. GitHub 예약이 5분마다 이 입구를 불러, 멈춘 줄이 있으면 다음 실행 한 번을 깨운다(job_list의 needsKick과 같은 판정).
+  //   열쇠: 비밀 머리(CLOUD_FILES_CRON_SECRET)만. 사용자 문을 거치지 않으므로 할 수 있는 일을 이것 하나로 좁힌다:
+  //   - 작업공간은 서버가 정한다(app_operator_feature_workspace('files') = 운영자 작업공간 하나). 몸통은 빈 {}만.
+  //   - 'origin cloud'(사람이 job_add·job_resume로 시작한 클라우드 사이 줄)의 '기다림·보내는 중'만 본다. 일시 정지·끝·실패·건너뜀·기기 줄은 보지 않는다.
+  //   - 누가 잡고 있으면(lease 기한 안) 깨우지 않는다. 깨운 실행도 줄마다 lease를 다시 잡으므로 두 실행이 한 줄을 동시에 잡지 않는다.
+  //   - 한 번에: 살펴보기 CRON_SCAN_MAX줄, 이어 받기는 runJobs 한 번(JOB_STEP_MS 안, 한 줄씩, 남으면 job_tick 사슬로 이어 감).
+  async function cronSweep(req: Request) {
+    if (req.method !== "POST" || req.headers.has(TICK_HEADER) || FOREIGN_SECRET_HEADERS.some((h) => req.headers.has(h))) return json({ ok: false }, 401);
+    if (!(await cronSecretMatches(req.headers.get(CRON_HEADER), options.env(CRON_SECRET_NAME)))) return json({ ok: false }, 401);
+    const raw = (await req.text()).trim();
+    if (raw !== "" && raw !== "{}") return json({ ok: false, error: "body_invalid" }, 400);
+    if (!SB || !SERVICE) throw new Fail(503, "not_ready");
+    const ws = await db("cron_feature", "rpc/app_operator_feature_workspace", { method: "POST", body: JSON.stringify({ p_feature: FEATURE }) });
+    if (typeof ws !== "string" || !isUuid(ws)) return json({ ok: true, active: 0, kicked: false });
+    const list = await rows("cron_active", `${JOBS}?workspace_id=eq.${ws}&origin=eq.cloud&status=in.(${JOB_ACTIVE.join(",")})` +
+      `&select=${JOB_COLUMNS}&order=created_at.asc&limit=${CRON_SCAN_MAX}`);
+    const kicked = needsKick(list, now());
+    if (kicked) background(runJobs(ws).catch(() => log("cron_run_failed")));
+    return json({ ok: true, active: list.length, kicked });
+  }
   function jobsIn(ws: string, ids: { all: boolean; ids: string[] }) {
     return `${JOBS}?workspace_id=eq.${ws}` + (ids.all ? "" : `&id=${inList(ids.ids)}`);
   }
@@ -1707,6 +1729,8 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
     try {
       // 서버 안 입구(작업표 다음 실행)는 열쇠 머리가 있을 때만, 맨 앞에서 가른다(사용자 문을 거치지 않고 HMAC만 본다).
+      // 서버 예약 입구(S49-32)도 열쇠 머리가 있을 때만 맨 앞에서 가른다(비밀 머리만 본다, 두 열쇠가 함께 오면 거절).
+      if (req.headers.has(CRON_HEADER)) return await cronSweep(req);
       if (req.headers.has(TICK_HEADER)) return await jobTick(req);
       if (!SB || !SERVICE) throw new Fail(503, "not_ready");
       const m = (req.headers.get("Authorization") || "").match(/^Bearer\s+(\S+)$/i);

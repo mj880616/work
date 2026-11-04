@@ -354,22 +354,22 @@ test('PC: 새로고침 직후 어느 화면이든 맨 위 띠에 \'하던 녹음
   await expect(page.locator('#libraryView')).toBeVisible();
   const band=page.locator('#recBand');
   await expect(band).toBeVisible();
-  await expect(band.locator('.rec-label')).toHaveText('하던 녹음');
+  await expect(band.locator('.rec-label')).toHaveText('일시 정지됨');
   await expect(band).toContainText('50분');
   const names=await band.getByRole('button').allTextContents();
-  expect(names).toEqual(['이어서 녹음','이어서 정리','버리기']);
+  expect(names).toEqual(['이어 녹음','이어서 정리','버리기']);
   const b=await band.boundingBox();
   expect(b.y).toBe(0);expect(b.height).toBeLessThanOrEqual(32);
   // 방금 끊긴 것인지 다른 곳에서 녹음 중인지 모르므로(idle 20초) 이어받기 전에 띠에서 한 번 묻는다(브라우저 확인창 없음). [취소]하면 그대로.
   let dialogs=0;
   page.on('dialog',async d=>{dialogs++;await d.dismiss()});
-  await band.getByRole('button',{name:'이어서 녹음'}).click();
+  await band.getByRole('button',{name:'이어 녹음'}).click();
   await expect(band.locator('.rec-label')).toHaveText('확인');
   await expect(band).toContainText('다른 곳에서 지금 녹음 중이면 그쪽 녹음은 멈춰요');
   expect(recCalls(calls,'rec_start').length).toBe(0);
   await band.getByRole('button',{name:'취소'}).click();
-  await expect(band.locator('.rec-label')).toHaveText('하던 녹음');
-  await band.getByRole('button',{name:'이어서 녹음'}).click();
+  await expect(band.locator('.rec-label')).toHaveText('일시 정지됨');
+  await band.getByRole('button',{name:'이어 녹음'}).click();
   await band.getByRole('button',{name:'계속'}).click();
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
   expect(dialogs).toBe(0);
@@ -390,7 +390,7 @@ test('PC: 하던 녹음이 오래 조용하면(idle 5분) [이어서 정리]도 
   const calls=await signIn(page,{live:[{session_id:LIVE,started_at:minutesAgo(10),duration_sec:300,idle_sec:300,
     segments:[{segment_no:1,status:'recording',job_id:null,job_status:null,duration_sec:300}]}],pieceFails:0});
   const band=page.locator('#recBand');
-  await expect(band.locator('.rec-label')).toHaveText('하던 녹음');
+  await expect(band.locator('.rec-label')).toHaveText('일시 정지됨');
   await band.getByRole('button',{name:'이어서 정리'}).click();
   await expect.poll(()=>recCalls(calls,'rec_finish').map(c=>c.body.session_id)).toEqual([LIVE]);
   expect(recCalls(calls,'rec_start').length).toBe(0);
@@ -400,7 +400,7 @@ test('PC: 하루가 지난 끝나지 않은 녹음은 맨 위 띠에 없고 사�
   await page.setViewportSize({width:1440,height:900});
   await signIn(page,{pending:[{session_id:'s-old',started_at:minutesAgo(3*24*60),duration_sec:600,segments:[]}]});
   await expect(page.locator('#recPendingLine')).toBeVisible();
-  await expect(page.locator('#recPendingLine').getByRole('button').allTextContents()).resolves.toEqual(['이어서 녹음','이어서 정리','버리기']);
+  await expect(page.locator('#recPendingLine').getByRole('button').allTextContents()).resolves.toEqual(['이어 녹음','이어서 정리','버리기']);
   await expect(page.locator('#recBand')).toBeHidden();
 });
 
@@ -415,4 +415,39 @@ test('PC: 녹음 중 새로고침·창 닫기는 먼저 \'나가시겠어요?\' 
   expect(await asks()).toBe(true);
   await page.locator('#recBand').getByRole('button',{name:'일시정지'}).click();
   expect(await asks()).toBe(true);
+});
+
+// REC-노트북이어하기(S49-29): 덮개 닫기·탭 숨김·잠자기로 마이크가 끊기면 '일시 정지됨' → [이어 녹음]은 같은 녹음(session)에 다음 구간으로 잇는다. 앞 조각은 잃지 않는다.
+test('PC: 화면 숨김·마이크 끊김 → 일시 정지됨(조각은 서버로) → [이어 녹음]은 같은 녹음에 이어 붙는다(새 녹음 없음)',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:1440,height:900});
+  const calls=await signIn(page,{pieceFails:0,rec:{piece_seconds:60,max_pieces:60,segment_seconds:3540}});
+  await page.locator('#reportRecordBtn').click();
+  const band=page.locator('#recBand');
+  await expect(band.locator('.rec-label')).toHaveText('녹음 중');
+  await page.evaluate(()=>window.__fakeRec.emit()); // 조각 1
+  await expect.poll(()=>recCalls(calls,'rec_piece').map(c=>c.seq)).toEqual(['1']);
+
+  // 화면 숨김: 아직 조각이 안 된 소리를 바로 내보낸다(requestData) → 조각 2가 서버로.
+  await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'hidden'});document.dispatchEvent(new Event('visibilitychange'))});
+  await expect.poll(()=>recCalls(calls,'rec_piece').map(c=>c.seq)).toEqual(['1','2']);
+  // 덮개 닫기·잠자기: 브라우저가 마이크를 끊어 녹음기가 멈춘다(마지막 조각 3 + stop). 돌아오면 일시 정지됨.
+  await page.evaluate(()=>{window.__fakeRec.recs.at(-1).stop()});
+  await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'});document.dispatchEvent(new Event('visibilitychange'))});
+  await expect(band.locator('.rec-label')).toHaveText('일시 정지됨');
+  await expect(band.locator('.rec-note')).toContainText('직접 눌러야');
+  await expect(band.getByRole('button',{name:'이어 녹음'})).toBeVisible();
+  await expect.poll(()=>recCalls(calls,'rec_piece').map(c=>c.seq)).toEqual(['1','2','3']);
+  expect(await page.evaluate(()=>window.__fakeRec.track.stopped)).toBe(true); // 마이크는 놓았다
+  expect(recCalls(calls,'rec_start').length).toBe(1);
+
+  // 자동 재시작은 없다. 사람이 [이어 녹음]을 누르면 새 녹음기 → 같은 session_id로 rec_start.
+  await band.getByRole('button',{name:'이어 녹음'}).click();
+  await expect(band.locator('.rec-label')).toHaveText('녹음 중');
+  expect(await page.evaluate(()=>window.__fakeRec.recs.length)).toBe(2);
+  await page.evaluate(()=>window.__fakeRec.emit());
+  await expect.poll(()=>recCalls(calls,'rec_start').length).toBe(2);
+  const starts=recCalls(calls,'rec_start');
+  expect(starts[1].body.session_id).toBe('00000000-0000-4000-8000-0000000000aa');
+  await expect.poll(()=>recCalls(calls,'rec_piece').map(c=>`${c.rid.slice(-1)}:${c.seq}`)).toEqual(['1:1','1:2','1:3','2:1']);
 });

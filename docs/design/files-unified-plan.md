@@ -296,7 +296,15 @@ CC가 운영에서 확인할 것(읽기만):
 - 화면: 하단바 위 전송 줄 '2/5 보내는 중 · 48%' → 누르면 전송 목록(폰 하단바 위 칸, PC·폴드 오른쪽 아래 작은 칸). 줄마다 진행 막대·[멈춤]/[이어 하기]/[다시], '모두 멈춤'·'모두 이어 하기', 같은 이름 묻기는 목록이 열려 있으면 목록 안. 보내는 것이 있는 동안만 2초마다 서버 목록을 다시 읽는다(화면이 보일 때만).
 - 노트북·PC(H-6): 클라우드끼리는 서버가 계속. 기기가 낀 전송은 `origin='device'` 줄 모양(원본 `dev`)과 규칙(`deviceJobOnReopen`: 다시 열면 멈춤, 서버는 잇지 않음)만 넣었다 — 쓰는 곳은 2-④(올리기).
 
-## M. 2-③ 두 칸 구현 기록 (S49-30, 11/04)
+## M. 2-②b 화면을 닫아도 계속 — 서버 예약으로 끊긴 작업 이어 받기 (S49-32, 11/04)
+
+- 까닭: 서버 실행이 조각 도중 강제로 끝나면 다음 부름(`x-cloud-job-tick`)이 끊긴다. 화면이 열려 있으면 `job_list`가 45초 뒤 다시 깨우지만, 화면을 닫은 채면 다음에 열 때까지 멈춰 있었다(#1846 마감 보고 9번).
+- 방식: 저장소가 이미 쓰는 GitHub 예약 + 함수 코드의 비밀 머리 비교(phone-push·outside-feed와 같음). pg_cron·pg_net은 쓰지 않는다. `.github/workflows/cloud-files-jobs-cron.yml`이 5분마다(GitHub 예약 최소 간격, 분은 흩뜨림) `scripts/ops/cloud-files-cron.mjs`로 `cloud-files`를 `x-cloud-files-cron-secret` 머리로 부른다. 저장소 변수 `CLOUD_FILES_CRON_ENABLED=true`일 때만 돈다.
+- 게이트: `cloud-files`는 `verify_jwt=true` 그대로다. 예약은 프로젝트 anon(legacy JWT) 열쇠(`CLOUD_FILES_GATEWAY_KEY`, GitHub 비밀값)로 게이트만 지나고 — 함수 안 `job_tick`과 같은 방식 — 실제 문은 함수 코드가 `CLOUD_FILES_CRON_SECRET`(32자 이상, GitHub·Supabase 두 곳)과 SHA-256 고정 길이로 비교하는 것이다.
+- 예약 입구가 할 수 있는 일은 하나: 작업공간은 서버가 정하고(`app_operator_feature_workspace('files')`), 그곳의 `origin='cloud'`·'기다림/보내는 중' 줄을 100줄까지 읽어 `job_list`와 같은 판정(`needsKick`: 누가 잡고 있지 않고 45초 넘게 멈춤)이면 다음 실행(`runJobs`) 한 번을 깨운다. 한 번 실행은 60초·한 줄씩, 줄마다 lease를 잡으므로 두 실행이 한 줄을 동시에 잡지 않는다. 일시 정지·끝·실패·건너뜀·기기 줄·다른 작업공간 줄은 보지 않는다. 몸통은 빈 `{}`만(작업공간을 받지 않음), 열쇠가 섞이거나 다른 기능의 예약 열쇠가 붙으면 401.
+- 되돌리기: 변수 `CLOUD_FILES_CRON_ENABLED`를 지우거나 false(또는 workflow 끄기). 함수는 이전 운영 소스 SHA로 같은 승인형 workflow 재배포.
+
+## N. 2-③ 두 칸 구현 기록 (S49-30, 11/04)
 
 - 상태: `files.js`의 `state`를 '칸 2개'(`state.panes[0|1]`)와 화면 하나 몫(연결 상태·나무 펼침·미리보기·잘라 둔 것·받을 곳 창·전송 목록)으로 나눴다. 칸마다 위치·목록·정렬·찾기·고르기·늦은 응답 거르기 번호. 지금 칸 = `state.cur`.
   한 칸 화면(폰·PC 기본·폴드에서 끈 때)은 같은 함수가 칸 0 하나만 그린다(두 벌 코드 없음). 오른쪽 칸 자리(`data-fx-pane-i="1"`)는 두 칸일 때만 있고 끄면 지운다(숨김이 아님).
