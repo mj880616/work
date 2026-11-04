@@ -11,6 +11,7 @@ import {twinPlan,withTwins,pickCountText} from './library-twins.mjs';
 import {reportPhotosHtml,mountReportPhotos} from './report-photos.js';
 import {GROUP_BY,GROUP_LABELS,fileKindOf,buildTree,treeHtml,folderSuggestions,keys as luTreeKeys,walk as luTreeWalk,matchedKeys,pathTo,documentsInTrashedFolders} from './library-tree.js';
 import {mountLibraryFolders} from './library-folders.js';
+import {readLibraryFolders} from './library-folder-data.js';
 import {createSelectMode} from './select-mode.js';
 import {announceUploaded} from './upload-done.js';
 import {folderTrail,folderPathHtml} from './folder-path.mjs';
@@ -417,7 +418,7 @@ let luGroupBy='project',luSessionFolder=false,luFolders_=[],luFolderItems=[],luO
 const luOpened=new Set(),luFilterOpen=new Map(),luShowAll=new Set();
 function luResetTree(){luOpened.clear();luFilterOpen.clear();luShowAll.clear();luFilterSignature=''}
 // 폴더 표(app_library_folders·_items, 소유자 RLS)는 읽기만 한다. 표가 없거나 읽기에 실패하면 폴더 없이 그대로 그린다.
-async function luLoadFolders(){if(!luWorkspace)return;const w=encodeURIComponent(luWorkspace);try{const [folders,items]=await Promise.all([luApi('/rest/v1/app_library_folders?workspace_id=eq.'+w+'&select=id,project_id,parent_id,name,sort_order,created_at&order=sort_order.asc,created_at.asc'),luApi('/rest/v1/app_library_folder_items?workspace_id=eq.'+w+'&select=document_id,folder_id')]);luFolders_=Array.isArray(folders)?folders:[];luFolderItems=Array.isArray(items)?items:[];luFoldersReady=true}catch{luFolders_=[];luFolderItems=[];luFoldersReady=false}}
+async function luLoadFolders(){if(!luWorkspace)return;const w=encodeURIComponent(luWorkspace);try{const [folders,items]=await Promise.all([readLibraryFolders(luApi,luWorkspace),luApi('/rest/v1/app_library_folder_items?workspace_id=eq.'+w+'&select=document_id,folder_id')]);luFolders_=Array.isArray(folders)?folders:[];luFolderItems=Array.isArray(items)?items:[];luFoldersReady=true}catch{luFolders_=[];luFolderItems=[];luFoldersReady=false}}
 async function luLoadAll(){await Promise.all([luLoadDocuments(),luLoadFolders()])}
 // TRASH-다른삭제 3단계: 보관 창 휴지통에서 폴더를 되돌리거나 영구 삭제하면 이미 열려 있는 자료실도 폴더 표를 다시 읽는다(안 열렸으면 처음 열 때 읽는다).
 window.addEventListener('kptu:library-folders-changed',()=>{if(!luWorkspace)return;void luLoadFolders().then(()=>luRenderLibrary()).catch(()=>{})});
