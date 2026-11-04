@@ -48,6 +48,7 @@ import {markdownToDoc, markdownLettersOf} from './ed-markdown.mjs';
 import {toPlain} from './ed-text.mjs';
 import {slotLoading, slotShown, slotFailed} from './img-slot.js';
 import {viewPrefs} from './view-prefs.js';
+import {clipboardFiles, namePasted} from './paste-files.mjs';
 
 const LIB = './editor-lib/pm-ed1-1.2.0/prosemirror.min.mjs';
 const MARKDOWN_IT = './markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
@@ -254,6 +255,7 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // label: the text box's accessible name. head: an optional node put between the button row and the text box (a title).
 // Returns {getValue(), getText(), isEmpty(), focus(), destroy(), view, root}.
 // getText() is the letters for raw_text (ed-text.mjs toPlain): the opener saves structure and letters together (설계 3.1).
+// onFiles: null, or (files) => void — the opener's own attachment row, used when photos/files are not given (UPD-그림붙여넣기).
 // photos: null, or {add(file) -> {src}, url(src) -> address|null, max} (share pages, ED-②).
 // files: null, or {add(file) -> {src, name, size}, open(src)} (S48-21 [파일]; notes).
 // onBox(open): ED③-창 — told (once per change, after the current event) when a small box (a button row panel, the 글자색·표 크기 list, the table cell menu)
@@ -262,7 +264,7 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // line: "## " "### " → 제목 2·3, "- " "* " → 목록, "1. " → 번호 목록, "> " → 인용, and **글자** → 굵게. One undo (Backspace right after, or ↶)
 // puts the typed marks back. The engine does not run a rule while a 한글 composition is going on (it waits for the composed text). Off
 // by default: the share page editor stays as before (결정 2 가 there: no format while typing).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, photos = null, files = null, onBox = null, shortcuts = false} = {}) {
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -775,7 +777,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       const text = data?.getData('text/plain') || '';
       const html = data?.getData('text/html') || '';
       // A copied picture or file (no letters with it): photos go to [사진], other files to [파일] (where the opener gives them).
-      if (isFileTransfer(data) && !text && !html) { void filesFrom(data.files); return true; }
+      if (isFileTransfer(data) && !text && !html) { void filesFrom(onFiles ? namePasted(clipboardFiles(data)) : data.files); return true; }
       if (pastingLetters) return false;
       // Decide after the paste lands: mark its range when the letters look like markdown and no formatted copy came with them,
       // or the formatted copy only wraps the same letters (signs and all; a phone's copy). Then those letters are pasted.
@@ -1220,7 +1222,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const isPicture = f => /^image\//.test(f.type || '');
     const pictures = photos ? all.filter(isPicture) : [];
     const others = files ? all.filter(f => !pictures.includes(f)) : [];
-    if (!pictures.length && !others.length) { notePhotoLater(); return; }
+    // UPD-그림붙여넣기: where the opener has no inline [사진]/[파일] but its own attachment row (new note, update window), a pasted or dropped picture/file goes to that row.
+    if (!pictures.length && !others.length) { if (onFiles && all.length) onFiles(all); else notePhotoLater(); return; }
     if (all.length > pictures.length + others.length) notePhotoLater();
     moveCursorTo(at);
     if (pictures.length) await photosIn(pictures);

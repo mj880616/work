@@ -154,29 +154,55 @@ for (const width of [390, 1280]) {
   });
 }
 
-test('사진 메뉴: 오른쪽 막대 연도 눈금(A)과 [달력] 연·월·일 보기 단계(B, 서버 기억) 390', async ({ page }) => {
-  const f = await fixture(page, { width: 390 });
-  await openPhotos(page, 390);
-  await expect(items(page)).toHaveCount(7);
-  await expect(root(page).locator('[data-photos-rail] .photos-rail-year')).toHaveText(['2026']);
-  await root(page).locator('[data-photos-tab="calendar"]').click();
-  await expect(root(page).locator('[data-photos-lv="day"]')).toHaveAttribute('aria-pressed', 'true');
-  // 연: 사진 있는 해 칸. 누르면 그 해의 월 단계.
-  await root(page).locator('[data-photos-lv="year"]').click();
-  await expect.poll(() => f.prefs.value?.photo_level).toBe('year');
-  await expect(root(page).locator('[data-photos-lv-go]')).toHaveCount(1);
-  await expect(root(page).locator('[data-photos-lv-go]')).toHaveAttribute('aria-label', '2026년, 사진 7장');
-  await root(page).locator('[data-photos-lv-go]').click();
-  await expect(root(page).locator('[data-photos-lv="month"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년');
-  await expect(root(page).locator('[data-photos-lv-go]')).toHaveCount(3);
-  // 월: 달 칸을 누르면 그 달 달력(일 단계).
-  await root(page).locator('[data-photos-lv-go="2026-08"]').click();
-  await expect(root(page).locator('[data-photos-lv="day"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년 8월');
-  await expect.poll(() => f.prefs.value?.photo_level).toBe('day');
-  expect(f.errors).toEqual([]);
-});
+// PHOTO-연월보기(S49-48): [사진] 탭 일별 격자 → [－] → 월 보기 → [－] → 연 보기. 줄을 누르면 한 단계 크게, 뒤로가기는 이전 단계, 단계는 서버(photo_zoom, 기기 종류 칸). 달력 탭에는 연·월 단계가 없다.
+for (const width of [412, 884, 1440]) {
+  test(`사진 메뉴: 연도 눈금(일별만) · [－]로 월 → 연 보기 · 줄 누르기 · 뒤로가기 = 이전 단계 · 서버 기억 ${width}`, async ({ page }) => {
+    const f = await fixture(page, { width });
+    await openPhotos(page, width);
+    await expect(items(page)).toHaveCount(7);
+    await expect(root(page).locator('[data-photos-rail] .photos-rail-year')).toHaveText(['2026']);
+    const kind = width <= 760 ? 'phone' : 'pc';
+    const minus = root(page).locator('[data-photo-size="-1"]'), plus = root(page).locator('[data-photo-size="1"]');
+    // 칸 수 단계 끝까지 작게 → 월 보기
+    for (let k = 0; k < 8 && !(await root(page).locator('[data-photos-zoom]').count()); k++) await minus.click();
+    const zoom = root(page).locator('[data-photos-zoom]');
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'month');
+    await expect.poll(() => f.prefs.value?.photo_zoom?.[kind]).toBe('month');
+    await expect(root(page).locator('[data-photos-rail]')).toBeHidden();
+    await expect(root(page).locator('[data-photos-zgo^="month:"]')).toHaveCount(3);
+    await expect(root(page).locator('[data-photos-zgo="month:2026-08"]')).toHaveAttribute('aria-label', '2026년 8월, 사진 2장');
+    await expect(root(page).locator('[data-photos-zgo="month:2026-10"] .photos-zph.has-photo')).toHaveCount(2);
+    // 연 보기: 해 줄 하나, [－]는 끝
+    await minus.click();
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'year');
+    await expect(root(page).locator('[data-photos-zgo="year:2026"]')).toHaveAttribute('aria-label', '2026년, 사진 7장');
+    await expect(minus).toBeDisabled();
+    await expect.poll(() => f.prefs.value?.photo_zoom?.[kind]).toBe('year');
+    // 해 줄 → 그 해 월 보기 → 달 줄 → 그 달 일별
+    await root(page).locator('[data-photos-zgo="year:2026"]').click();
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'month');
+    await root(page).locator('[data-photos-zgo="month:2026-08"]').click();
+    await expect(root(page).locator('[data-photos-zoom]')).toHaveCount(0);
+    await expect(root(page).locator('[data-photos-day^="2026-08"]').first()).toBeVisible();
+    await expect.poll(() => f.prefs.value?.photo_zoom?.[kind]).toBe('day');
+    // 뒤로가기 = 이전 단계 (일별 → 월 → 연)
+    await page.goBack();
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'month');
+    await page.goBack();
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'year');
+    // [＋]: 연 → 월 → 일별
+    await plus.click();
+    await expect(zoom).toHaveAttribute('data-photos-zoom', 'month');
+    await plus.click();
+    await expect(root(page).locator('[data-photos-zoom]')).toHaveCount(0);
+    await expect(items(page).first()).toBeVisible();
+    // 달력 탭에는 연·월 단계가 없다(날짜 칸만)
+    await root(page).locator('[data-photos-tab="calendar"]').click();
+    await expect(root(page).locator('.photos-cal-head b')).toBeVisible();
+    await expect(root(page).locator('[data-photos-lv], [data-photos-lv-go]')).toHaveCount(0);
+    expect(f.errors).toEqual([]);
+  });
+}
 
 test('사진 메뉴: 길게 눌러 여러 장 고르기 → [☆ 별표]·[🗑 지우기](묻지 않음, 되돌리기 뒤 한 번에) → [휴지통]에서 되살리기 390', async ({ page }) => {
   const f = await fixture(page, { width: 390 });
