@@ -37,6 +37,8 @@ async function fixture(page,{note:over={}}={}){
  const queue=[];let release=null;
  await page.route(SB+'/functions/v1/ai-assist',async route=>{
   if(route.request().method()!=='POST')return route.fulfill({status:204});
+  // WEEKLY-메뉴짝짓기 P4: 조직에 확정 연결하면 그 업데이트를 주별 조직보고 제안 줄로 보낸다(이 시험의 [AI 요약]과 별개라 세지 않음).
+  if(route.request().postDataJSON()?.kind==='org_week_lines')return route.fulfill({status:200,json:{ok:true,kind:'org_week_lines',results:[]}});
   ai.push({body:route.request().postDataJSON(),auth:route.request().headers().authorization});
   const next=queue.shift()||{status:200,json:{ok:true,kind:'link_summary',summary:AI_TEXT}};
   if(next.hold){await new Promise(r=>{release=r;});return route.fulfill({status:200,json:{ok:true,kind:'link_summary',summary:AI_TEXT}});}

@@ -21,15 +21,15 @@ function style(path){
 }
 const routeStyles={
   basket:['./basket.css','./home-quick.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./folder-look.css','./ui-standard.css'],
-  home:['./journal.css','./home-quick.css','./library-upload.css','./row-swipe.css','./basket-picker.css','./choice-sheet.css','./google-tasks.css','./folder-look.css','./ui-standard.css'],
+  home:['./journal.css','./weekly-org-lines.css','./home-quick.css','./library-upload.css','./row-swipe.css','./basket-picker.css','./choice-sheet.css','./google-tasks.css','./folder-look.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./calendar-ui.css','./ui-standard.css'],
   tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./home-quick.css','./library-upload.css','./basket-picker.css','./folder-look.css','./ui-standard.css'],
   diary:['./diary.css','./od-link.css','./ed-doc.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./ui-standard.css'],
   library:['./filter-chips.css','./library-upload.css','./compact-list.css','./markdown-view.css','./folder-look.css','./ui-standard.css'],
-  meetings:['./filter-chips.css','./choice-sheet.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
+  meetings:['./filter-chips.css','./weekly-org-lines.css','./choice-sheet.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
   pages:['./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
-  team:['./suborganizations.css','./workplace-detail.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
+  team:['./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./home-quick.css','./ui-standard.css'],
   ledger:['./ledger-import.css','./ui-standard.css'],

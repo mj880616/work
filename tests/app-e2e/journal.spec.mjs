@@ -89,6 +89,8 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width,height});
  await openHome(page,{beforeLoad});
+ // WEEKLY-메뉴짝짓기 P6: 주별 조직보고 표는 기본으로 '아직 없음'(404) — 4. 1) 칸은 예전 칸 줄 그대로. 표가 있는 경우는 weekLinesFixture가 다시 가로챈다.
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_org_lines',r=>r.fulfill({status:404,json:{code:'PGRST205',message:'Could not find the table'}}));
  // PostgREST or=(and(col.op.val,…),…) — only the shape the journal sends (WEEKLY-자료날짜: put in the library in the week, or dated in the week).
  const orSplit=v=>{const out=[];let depth=0,cur='';for(const ch of v){if(ch==='(')depth++;if(ch===')')depth--;if(ch===','&&depth===0){out.push(cur);cur='';continue}cur+=ch}if(cur)out.push(cur);return out};
  const orCond=(row,c)=>{const [col,...rest]=c.split('.');if(row[col]==null)return false;const one=new URLSearchParams([[col,rest.join('.')]]);return match(instants(row,one),one)};
@@ -2715,123 +2717,86 @@ test('[업무일지] 회의·활동 결과: 보고 안 함 종류는 흐리게, 
  expect(f.errors).toEqual([]);
 });
 
-// JOURNAL-조직현황AI요약: [주간 정리] 4. 산하 조직 현황 > 1) 요약. 작은 [요약 만들기]를 누를 때만 ai-assist(kind=org_summary)에
-// 주와 조직 ID만 보낸다(글 없음). 서버가 저장한 요약을 다시 읽어 조직마다 몇 줄로 보이고, 원문은 접힌다. [요약 고치기]로 고친 요약은
-// edited=true로 저장되고 다시 만들어도 그대로다(서버가 덮어쓰지 않음 — 여기서는 서버 흉내가 edited 행을 건너뜀). 복사도 요약을 쓴다.
+// WEEKLY-메뉴짝짓기 P6(설계 3.3): [주간 정리] 4. 조직보고 = 담당조직 '이번 주 조직보고'와 같은 부품·같은 줄(app_weekly_org_lines).
+// 내 담당조직 전부(앱 순서), 넣은 줄·흐린 제안 줄([✓ 넣기]), 넣은 줄 1줄 이하인 조직은 지난주 줄을 펼쳐 [가져오기]·[지난주 모두 가져오기].
+// AI 요약 버튼([요약 만들기]·[요약 고치기])은 없다. 복사·한글 파일은 넣은 줄을 쓴다. 이 주 = 10.5~10.11, 지난주 = 9.28~10.4. 이름은 모두 합성.
 const OA='aaaaaaaa-0000-4000-8000-00000000000a',OB='bbbbbbbb-0000-4000-8000-00000000000b';
-async function orgSummaryFixture(page,{width,missing=false}={}){
- const f=await fixture(page,{width});
- // The organizations get UUID ids (the server takes UUIDs only); links, records and assignments follow.
+const WL=(id,org,week,day,body,state='in',x={})=>({id,organization_id:org,week_start:week,day,end_day:null,body,sort_order:0,state,origin:'user',edited:false,source_update_ids:[],source_note_ids:[],source_status_ids:[],updated_at:'2026-10-05T00:00:00Z',...x});
+async function weekLinesFixture(page,{width,seed,hwpx=false}={}){
+ const f=hwpx?await hwpxFixture(page,{width}):await fixture(page,{width});
  const ids={o1:OA,o2:OB};
  for(const o of f.more.orgs)o.id=ids[o.id]||o.id;
  for(const l of f.more.links)l.organization_id=ids[l.organization_id]||l.organization_id;
  for(const u of f.more.orgUpdates)u.organization_id=ids[u.organization_id]||u.organization_id;
  for(const a of f.more.assignees)a.organization_id=ids[a.organization_id]||a.organization_id;
- const table=[],ai=[],sums=[];
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_org_summaries',async r=>{
-  const req=r.request(),q=new URL(req.url()).searchParams,method=req.method();
-  if(missing)return r.fulfill({status:404,json:{message:'relation does not exist'}});
-  const hit=()=>table.filter(row=>['workspace_id','week_start','organization_id'].every(k=>!q.has(k)||q.get(k)===`eq.${row[k]}`));
-  if(method==='GET')return r.fulfill({json:hit()});
-  const body=method==='DELETE'?null:req.postDataJSON();sums.push({method,query:Object.fromEntries(q),body});
-  if(method==='PATCH'){const rows=hit();for(const row of rows)Object.assign(row,body);return r.fulfill({json:rows});}
-  if(method==='POST'){const row={id:'s'+table.length,...body};table.push(row);return r.fulfill({status:201,json:[row]});}
-  if(method==='DELETE'){const rows=hit();for(const row of rows)table.splice(table.indexOf(row),1);return r.fulfill({json:rows});}
-  return r.fulfill({status:500,json:{}});
+ const db={rows:(seed??[
+  WL('l1',OA,'2026-10-05','2026-10-06','가상 교섭 상견례'),WL('l2',OA,'2026-10-05','2026-10-07','가상 찬반투표 간담회'),
+  WL('l3',OA,'2026-10-05','2026-10-08','가상 선전전 참가','suggested',{origin:'plain',sort_order:2}),
+  WL('p1',OB,'2026-09-28','2026-09-30','가상 지난주 설명회'),WL('p2',OB,'2026-09-28','2026-10-02','가상 지난주 간담회',undefined,{sort_order:1}),
+ ]).map(r=>({...r})),posts:[],patches:[],seq:0},ai=[];
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_org_lines',async r=>{
+  const req=r.request(),q=new URL(req.url()).searchParams,m=req.method(),eq=k=>{const v=q.get(k);return v&&v.startsWith('eq.')?v.slice(3):null};
+  if(m==='GET'){const id=eq('id'),wk=eq('week_start'),org=q.get('organization_id')||'';return r.fulfill({json:db.rows.filter(x=>id?x.id===id:x.week_start===wk&&org.includes(x.organization_id))})}
+  if(m==='POST'){const list=[].concat(req.postDataJSON());db.posts.push(...list);const made=list.map(b=>({...WL('n'+(++db.seq),b.organization_id,b.week_start,null,''),...b,updated_at:'2026-10-06T0'+db.seq+':00:00Z'}));db.rows.push(...made);return r.fulfill({status:201,json:made})}
+  if(m==='PATCH'){const b=req.postDataJSON(),id=eq('id'),at=eq('updated_at');db.patches.push({id,...b});const hit=db.rows.filter(x=>x.id===id&&(!at||x.updated_at===at));hit.forEach(x=>Object.assign(x,b,{updated_at:'2026-10-06T09:00:0'+db.seq+'Z'}));return r.fulfill({json:hit})}
+  return r.fulfill({status:405,json:{}});
  });
- await page.route(SB+'/functions/v1/ai-assist',async r=>{
-  const body=r.request().postDataJSON();
-  if(body.kind!=='org_summary')return r.fallback();
-  ai.push(body);
-  const kept=[],items=[];
-  for(const id of body.organization_ids){
-   const row=table.find(x=>x.organization_id===id&&x.week_start===body.week_start);
-   if(row?.edited){kept.push(id);continue;}
-   const summary=id===OA?`가상 노동조합 일정 공유.\n${ai.length}차 요약 줄.`:'조직 화면 기록 정리.';
-   if(row)Object.assign(row,{summary});else table.push({id:'s'+table.length,workspace_id:'w',week_start:body.week_start,organization_id:id,summary,edited:false});
-   items.push({organization_id:id,summary});
-  }
-  return r.fulfill({json:{ok:true,kind:'org_summary',week_start:body.week_start,kept,items,empty:[],partial:false}});
- });
- return {...f,table,ai,sums};
+ await page.route(SB+'/functions/v1/ai-assist',r=>{const body=r.request().postDataJSON();if(['org_summary','org_week_lines'].includes(body?.kind))ai.push(body);return r.fallback();});
+ return {...f,db,ai};
 }
-for(const width of [390,1280])test(`[주간 정리] 조직 요약: [요약 만들기]는 누를 때만·ID만, 요약 몇 줄+원문 접기, 고친 요약은 다시 만들어도 그대로, 복사도 요약 ${width}`,async({page},info)=>{
- const f=await orgSummaryFixture(page,{width});
+const orgTable=page=>page.locator('#journalRoot [data-weekly-flow-cells="orgs"]');
+const orgRow=(page,id)=>orgTable(page).locator(`[data-wl-org-row="${id}"]`);
+for(const width of [390,1280])test(`[주간 정리] 4. 조직보고: 담당조직과 같은 표·넣기·지난주 가져오기(1줄 이하 조직만)·복사, AI 요약 버튼 없음 ${width}`,async({page},info)=>{
+ const f=await weekLinesFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
- await openJournal(page,width);await openWeekly(page);await openRecords(page,'orgs');
- const orgs=weekly(page,'orgs'),run=orgs.locator('[data-journal-org-ai-run]');
- await expect(run).toHaveText('요약 만들기');await expect(run).toHaveAccessibleName('조직별 요약 만들기(AI)');
- // 열기만 해서는 AI를 부르지 않는다. 요약이 없으면 원문 그대로.
- await expect(orgs.locator('[data-journal-org="가상 노동조합"] > .journal-weekly-list li')).toHaveCount(1);
- expect(f.ai).toEqual([]);
- // UI-버튼기준: 묶음 제목 줄 오른쪽 작은 버튼(32px) — 큰 primary가 아니다. 누르는 범위는 44px.
- // 늦은 읽기가 이 묶음을 다시 그리면 재던 마디가 바뀔 수 있어, 한 번 재기 대신 지금 보이는 버튼을 다시 잰다(QA-주간정리메뉴간헐).
- await expect.poll(async()=>Math.round((await run.boundingBox())?.height??0)).toBe(32);
- await expect(run).not.toHaveClass(/primary/);
- await run.click();
- await expect(orgs.locator('[data-journal-org-ai-status]')).toHaveText('조직 2곳 요약을 만들었어요.');
- expect(f.ai).toEqual([{kind:'org_summary',week_start:'2026-10-05',organization_ids:[OA,OB]}]);
- const a=orgs.locator('[data-journal-org="가상 노동조합"]');
- await expect(a.locator('[data-journal-org-summary] li')).toHaveText(['가상 노동조합 일정 공유.','1차 요약 줄.']);
- // 원문은 접혀 있고 펼치면 보인다. 미분류는 요약하지 않는다.
- const raw=a.locator('[data-journal-org-raw]');
- await expect(raw.locator('summary')).toHaveText('원문 1건');await expect(raw.locator('li')).toBeHidden();
- await raw.locator('summary').click();await expect(raw.locator('li')).toBeVisible();
- await expect(orgs.locator('[data-journal-org="미분류"] [data-journal-org-ai-run],[data-journal-org="미분류"] [data-journal-org-edit-open]')).toHaveCount(0);
- // 고치기: edited=true로 저장, 빈 줄은 빠진다.
- await pressMore(a,'[data-journal-org-edit-open]');
- const area=a.locator('[data-journal-org-edit-input]');await expect(area).toBeFocused();
- await area.fill('가상 노동조합 고친 첫 줄.\n\n  고친 둘째 줄.  ');
- await a.locator('[data-journal-org-edit-save]').click();
- await expect(a.locator('[data-journal-org-summary] li')).toHaveText(['가상 노동조합 고친 첫 줄.','고친 둘째 줄.']);
- await expect(a.locator('[data-journal-org-edited]')).toHaveText('고친 요약');
- expect(f.sums.at(-1)).toMatchObject({method:'PATCH',body:{summary:'가상 노동조합 고친 첫 줄.\n고친 둘째 줄.',edited:true}});
- // 다시 만들기: 고친 요약은 그대로, 다른 조직만 새로.
- await run.click();
- await expect(orgs.locator('[data-journal-org-ai-status]')).toHaveText('조직 1곳 요약을 만들었어요. 고친 요약 1곳은 그대로 두었어요.');
- await expect(a.locator('[data-journal-org-summary] li')).toHaveText(['가상 노동조합 고친 첫 줄.','고친 둘째 줄.']);
- // 원문 펼침은 다시 그려도 그대로.
- await expect(raw.locator('li')).toBeVisible();
- // 복사: 요약이 있는 조직은 요약 줄.
+ await openJournal(page,width);await openWeekly(page);
+ const orgs=weekly(page,'orgs');
+ await expect(orgTable(page).locator('[data-wl-table]')).toBeVisible();
+ await expect(orgTable(page).locator('.wl-org')).toHaveText(['가상 노동조합','나 지역 모임']);
+ await expect(orgs.locator('[data-journal-org-ai-run],[data-journal-org-edit-open]')).toHaveCount(0);
+ await expect(page.locator('#journalRoot')).not.toContainText('요약 만들기');
+ // 가상 노동조합: 넣은 줄 2(부실 아님 → 지난주 줄은 접힘·없음), 흐린 제안 1.
+ const a=orgRow(page,OA),b=orgRow(page,OB);
+ await expect(a.locator('.wl-line:not(.is-sug):not(.is-last)')).toHaveCount(2);
+ await expect(a.locator('.wl-line.is-sug')).toHaveText(/가상 선전전 참가/);
+ await a.locator('[data-wl-in="l3"]').click();
+ await expect(a.locator('.wl-line.is-sug')).toHaveCount(0);
+ expect(f.db.patches.at(-1)).toMatchObject({id:'l3',state:'in'});
+ // 나 지역 모임: 넣은 줄 0 → 지난주 줄을 펼쳐 보여 주고 [지난주 모두 가져오기].
+ await expect(b.locator('.wl-line.is-last')).toHaveCount(2);
+ await b.locator('[data-wl-take-all]').click();
+ await expect(b.locator('.wl-line:not(.is-last):not(.is-sug)')).toHaveCount(2);
+ expect(f.db.posts.map(p=>[p.organization_id,p.week_start,p.body,p.origin,p.state])).toEqual([[OB,'2026-10-05','가상 지난주 설명회','last_week','in'],[OB,'2026-10-05','가상 지난주 간담회','last_week','in']]);
+ // 넣은 줄이 2줄이 되면 지난주 줄은 접힌 한 줄.
+ await expect(b.locator('[data-wl-last]')).toHaveText('지난주 2줄 ▸');
+ // 복사: 내 담당조직마다 넣은 줄(제안·뺀 줄 없음).
  await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n'),at=lines.indexOf('4. 산하 조직 현황');
- expect(lines.slice(at+2,at+7)).toEqual(['◦ 가상 노동조합','- 가상 노동조합 고친 첫 줄.','- 고친 둘째 줄.','◦ 나 지역 모임','- 조직 화면 기록 정리.']);
- // 인사말·원문은 AI 요청에 실리지 않는다(ID만).
- expect(JSON.stringify(f.ai)).not.toContain('안녕하세요');
+ expect(lines.slice(at+2,at+9)).toEqual(['◦ 가상 노동조합','- 10.6. 가상 교섭 상견례','- 10.7. 가상 찬반투표 간담회','- 10.8. 가상 선전전 참가','◦ 나 지역 모임','- 9.30. 가상 지난주 설명회','- 10.2. 가상 지난주 간담회']);
+ expect(f.ai.filter(x=>x.kind==='org_summary')).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.screenshot({path:info.outputPath(`weekly-org-summary-${width}.png`),fullPage:true});
- expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+ await page.screenshot({path:info.outputPath(`weekly-org-lines-${width}.png`),fullPage:true});
+ expect(f.errors).toEqual([]);
 });
-test('[주간 정리] 조직 요약: 표가 아직 없으면(404) 버튼 없이 원문 그대로',async({page})=>{
- const f=await orgSummaryFixture(page,{width:1280,missing:true});
+test('[주간 정리] 4. 조직보고: 표가 아직 없으면(404) 예전 칸 줄 그대로, AI 요약 버튼 없음',async({page})=>{
+ const f=await fixture(page,{width:1280});
  await openJournal(page,1280);await openWeekly(page);
- const orgs=weekly(page,'orgs');
- await expect(orgs.locator('[data-journal-org] > .journal-org-name')).toHaveText(['가상 노동조합','나 지역 모임','미분류']);
- await expect(orgs.locator('[data-journal-org-ai-run],[data-journal-org-edit-open]')).toHaveCount(0);
- await expect(orgs.locator('[data-journal-org="가상 노동조합"] > .journal-weekly-list li')).toHaveCount(1);
- expect(f.ai).toEqual([]);expect(f.errors).toEqual([]);
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="orgs"] [data-wl-table]')).toHaveCount(0);
+ await expect(weekly(page,'orgs').locator('[data-journal-org-ai-run],[data-journal-org-edit-open]')).toHaveCount(0);
+ await openRecords(page,'orgs');
+ await expect(weekly(page,'orgs').locator('[data-journal-org] > .journal-org-name')).toHaveText(['가상 노동조합','나 지역 모임','미분류']);
+ expect(f.errors).toEqual([]);
 });
-test('[주간 정리] 조직 요약: 직접 쓴 요약은 edited로 새로 저장, Escape는 취소, 비우고 저장하면 지워지고 원문이 다시 보인다',async({page})=>{
- const f=await orgSummaryFixture(page,{width:390});
- await openJournal(page,390);await openWeekly(page);await openRecords(page,'orgs');
- const b=weekly(page,'orgs').locator('[data-journal-org="나 지역 모임"]');
- await pressMore(b,'[data-journal-org-edit-open]');
- await b.locator('[data-journal-org-edit-input]').fill('직접 쓴 요약.');
- await b.locator('[data-journal-org-edit-save]').click();
- await expect(b.locator('[data-journal-org-summary] li')).toHaveText(['직접 쓴 요약.']);
- expect(f.sums.at(-1)).toMatchObject({method:'POST',body:{organization_id:OB,week_start:'2026-10-05',summary:'직접 쓴 요약.',edited:true}});
- await pressMore(b,'[data-journal-org-edit-open]');
- await b.locator('[data-journal-org-edit-input]').fill('  ');
- // Escape는 취소, 다시 열어 저장.
- await b.locator('[data-journal-org-edit-input]').press('Escape');
- await expect(b.locator('[data-journal-org-summary] li')).toHaveText(['직접 쓴 요약.']);
- await pressMore(b,'[data-journal-org-edit-open]');
- await b.locator('[data-journal-org-edit-input]').fill('');
- await b.locator('[data-journal-org-edit-save]').click();
- await expect(b.locator('[data-journal-org-summary]')).toHaveCount(0);
- await expect(b.locator(':scope > .journal-weekly-list li')).toHaveCount(2);
- expect(f.sums.at(-1).method).toBe('DELETE');expect(f.ai).toEqual([]);expect(f.errors).toEqual([]);
+test('[주간 정리] 4. 조직보고: 한글 파일의 4. 산하조직 칸은 넣은 줄(제안 줄은 빠짐)',async({page})=>{
+ const f=await weekLinesFixture(page,{width:1280,hwpx:true});
+ await openJournal(page,1280);await openWeekly(page);
+ await expect(orgRow(page,OA).locator('.wl-line.is-sug')).toHaveCount(1);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ const {report}=await savedReport(download);
+ const org=report.orgs.find(o=>o.org.join(' ')==='가상 노동조합');
+ expect(org.status).toEqual(['- 10.6. 가상 교섭 상견례','- 10.7. 가상 찬반투표 간담회']);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
 // ORG-쟁의단계 ②(2026-10-24 명진 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계로 채운다. 이 주(10.5~10.11): 투쟁 중은 첫 줄 '- 단계(M.D)' + 직전 확정본 줄 그대로,
@@ -3637,8 +3602,8 @@ test('[주간 정리] 투쟁 사업장 현황: 바탕에 없는 담당 조직 [+
 // CAL-조직참고캘린더(요청함 10/30 16:03): 내 프로필에서 고른 조직 참고 캘린더의 주요 일정은 [주간 정리] 4. 산하 조직 현황의 그 조직 칸에만
 // '캘린더 추천 · 날짜 제목 [+]'로 보인다. [+]는 요약 고치기 칸 끝에 그 줄을 넣고 [저장]해야 보고(조직 요약)에 들어간다.
 // 하루 카드·5. 주요 일정·참고 묶음에는 없다. 가상 캘린더·일정만 쓴다(그 주 10/5 + 앞으로 2주).
-for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그 조직 칸에만 추천 줄, [+]로 요약 칸에 넣고 저장, 다른 화면에는 없음 ${width}`,async({page})=>{
- const f=await orgSummaryFixture(page,{width});
+for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그 조직 칸에만 추천 줄, [+]로 그 주 조직보고 표에 넣은 줄, 다른 화면에는 없음 ${width}`,async({page})=>{
+ const f=await weekLinesFixture(page,{width,seed:[]});
  const reads=[];
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',r=>{
   const q=new URL(r.request().url()).searchParams;
@@ -3680,21 +3645,11 @@ for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그
  await a.locator('[data-journal-pick-undo] button').click();
  await expect(recs).toHaveCount(2);
  await expect(a.locator('[data-journal-pick-gone]')).toHaveCount(0);
- // [+] → 요약 고치기 칸 끝에 그 줄(저장 전에는 서버에 쓰지 않음), [저장] → 조직 요약에 들어가고 추천 줄은 사라진다.
- const before=f.sums.length;
+ // [+] → WEEKLY-메뉴짝짓기 P6: 그 주 조직보고 표에 넣은 줄로 바로 들어가고(서버 저장) 추천 줄은 사라진다.
  await recs.first().locator('[data-journal-org-ref-add]').click();
- const area=a.locator('[data-journal-org-edit-input]');
- await expect(area).toHaveValue('10/7(수) 가상 총력결의대회');await expect(area).toBeFocused();
- await expect(a.locator('[data-journal-org-edit-status]')).toContainText('[저장]을 누르면');
+ await expect(orgRow(page,OA).locator('.wl-text')).toHaveText(['10/7(수) 가상 총력결의대회']);
+ expect(f.db.posts.at(-1)).toMatchObject({organization_id:OA,week_start:'2026-10-05',body:'10/7(수) 가상 총력결의대회',state:'in',origin:'user'});
  await expect(recs).toHaveText(['캘린더 추천 · 10/19(월) 가상 농성장 설치 + ×']);
- expect(f.sums.length).toBe(before);
- await recs.first().locator('[data-journal-org-ref-add]').click();
- await expect(area).toHaveValue('10/7(수) 가상 총력결의대회\n10/19(월) 가상 농성장 설치');
- await expect(recs).toHaveCount(0);
- await a.locator('[data-journal-org-edit-save]').click();
- await expect(a.locator('[data-journal-org-summary] li')).toHaveText(['10/7(수) 가상 총력결의대회','10/19(월) 가상 농성장 설치']);
- expect(f.sums.at(-1)).toMatchObject({body:{summary:'10/7(수) 가상 총력결의대회\n10/19(월) 가상 농성장 설치',edited:true}});
- await expect(recs).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 

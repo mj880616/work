@@ -70,6 +70,8 @@ import {matchOrg} from './org-name-match.mjs';
 import {weeklyCategoryFilter} from './document-categories.js'; // LIB-소분류: 옛 이름·새 소분류 이름 모두 찾기
 import {readStatusRows} from './org-status-table.js'; // DESK-현황표: 담당조직 [현황 표] 줄 → 3. 2) 투쟁 사업장 그 조직 칸
 import {siteLinesFromTable} from './org-status-model.mjs';
+import {readWeekLines} from './weekly-org-lines.js'; // WEEKLY-메뉴짝짓기 P6: 주별 조직보고 표 → 4. 1) 산하조직·3. 2) 투쟁 사업장 칸
+import {reportLines as weekReportLines} from './weekly-org-lines-model.mjs';
 import {isStageLine} from './org-dispute-stage-model.mjs';
 import {reportLine as orgRefLine, materialLine as orgRefMaterial, alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {sortPicks, droppedOf, keptOf, withPick, pickKey, reviewDue, withReview} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
@@ -155,7 +157,7 @@ function download(bytes, name, type) {
 }
 
 // Reads for the draft: my profile name, my organizations (my-organizations.js), the latest confirmed team report in the library.
-async function readContext(rt) {
+async function readContext(rt, week = '') {
   const c = rt.context.read(), user = c?.user?.id, workspace = c?.workspace?.id;
   if (!user || !workspace) throw new Error('context');
   const [profile, orgs, assignees] = await Promise.all([
@@ -168,7 +170,21 @@ async function readContext(rt) {
   const stages = await loadDisputeState({rt, workspaceId:workspace, force:true}).catch(() => ({status:'error', stages:[], histories:new Map()}));
   // DESK-현황표: 내 담당 조직의 현황 표 줄. 표가 없거나(DB 적용 전) 읽지 못하면 빈 Map — 투쟁 사업장 칸은 예전처럼 직전 확정본 줄.
   const statusRows = await readStatusRows({rt, workspaceId:workspace, orgIds:mine.organizations.map(o => o.id)}).then(r => r.missing ? new Map() : r.rows).catch(() => new Map());
-  return {stages, statusRows, me:String(profile?.[0]?.display_name || c?.user?.user_metadata?.display_name || '').trim(), organizations:mine.organizations, orgFallback:mine.fallback, orgFailed:!!mine.failed};
+  // WEEKLY-메뉴짝짓기 P6: 그 주 주별 조직보고 줄(넣은 줄만 보고에). 표가 없거나 못 읽으면 null — 칸은 예전 길(현황 표·바탕) 그대로.
+  const weekRows = week ? await readWeekLines({rt, workspaceId:workspace, week, orgIds:mine.organizations.map(o => o.id)}).then(r => r.missing ? null : r.rows).catch(() => null) : null;
+  return {stages, statusRows, weekRows, me:String(profile?.[0]?.display_name || c?.user?.user_metadata?.display_name || '').trim(), organizations:mine.organizations, orgFallback:mine.fallback, orgFailed:!!mine.failed};
+}
+// WEEKLY-메뉴짝짓기 P6: 칸 줄(행 번호 → 줄들)에 그 주 주별 조직보고 줄을 얹는다. rows = Map(조직 id → 그 주 줄들) | null.
+// 4. 1) 산하조직: 넣은 줄이 있는 조직은 그 줄들. 3. 2) 투쟁 사업장: [그 칸의 쟁의 단계 줄] + 같은 줄들. 넣은 줄이 없으면 칸 그대로(바탕·현황 표).
+function applyWeekRows(s, cells, rows) {
+  const orgs = new Map(cells.orgs), sites = new Map(cells.sites);
+  const list = s.context.orgFailed || s.context.orgFallback ? [] : s.context.organizations;
+  if (!rows || !list.length) return {orgs, sites};
+  const st = s.context.stages, stages = st?.status === 'ready' ? st.stages : [];
+  const linesOf = name => { const org = matchOrg(name, list); return org ? weekReportLines(rows.get(org.id) || []) : []; };
+  for (const r of s.orgs) { const lines = linesOf(r.org); if (lines.length) orgs.set(r.index, lines); }
+  for (const r of s.sites) { const lines = linesOf(r.org); if (lines.length) sites.set(r.index, [...(sites.get(r.index) ?? r.lines ?? []).filter(l => isStageLine(l, stages)), ...lines]); }
+  return {orgs, sites};
 }
 // 바탕 고르기는 공용 모듈 weekly-base.js findBase(WEEKLY-한흐름확정 ①: [주간 정리]와 같은 코드).
 const latestBase = findBase;
@@ -361,7 +377,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       const pkg = await draft.openConfirmed(hwpx);
       const {team, template} = draft.prepareConfirmed(pkg);
       const week = getWeek();
-      const [context, saved, carriedLayout] = await Promise.all([readContext(rt).catch(() => ({me:'', organizations:[], orgFallback:true, orgFailed:true})), readDraftFor(week.start), readCarriedLayout(week.start, rt)]);
+      const [context, saved, carriedLayout] = await Promise.all([readContext(rt, week.start).catch(() => ({me:'', organizations:[], orgFallback:true, orgFailed:true})), readDraftFor(week.start), readCarriedLayout(week.start, rt)]);
       if (mine !== run) return;
       const who = draft.resolveMe(team, context.me);
       state = {draft, team, template, source, start:week.start, me:who.me, meFrom:who.from, meResolved:who.me, meResolvedFrom:who.from, date:draft.reportDate(reportDay(week.start)), context,
@@ -445,6 +461,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // 남고(임시저장 칸), 표는 바뀌지 않는다. 다음 주 칸은 다시 표에서 시작한다.
     const table = state.context.statusRows, orgs = state.context.orgFailed || state.context.orgFallback ? [] : state.context.organizations;
     if (table?.size && orgs.length) state.sites = state.sites.map(r => { const org = matchOrg(r.org, orgs), lines = org ? siteLinesFromTable(r.lines, table.get(org.id), t => isStageLine(t, st?.status === 'ready' ? st.stages : [])) : null; return lines ? {...r, lines} : r; });
+    // WEEKLY-메뉴짝짓기 P6(설계 2절 4·5행): 그 주 주별 조직보고 표에 넣은 줄이 있는 조직은 4. 1) 칸 = 그 줄, 3. 2) 칸 = [쟁의 단계 줄] + 그 줄(같은 표 한 벌).
+    const week = applyWeekRows(state, {orgs:state.orgs.map(r => [r.index, r.lines]), sites:state.sites.map(r => [r.index, r.lines])}, state.context.weekRows);
+    state.orgs = state.orgs.map(r => (week.orgs.has(r.index) ? {...r, lines:week.orgs.get(r.index)} : r));
+    state.sites = state.sites.map(r => (week.sites.has(r.index) ? {...r, lines:week.sites.get(r.index)} : r));
     // WEEKLY-한글파일다듬기 ⑤: 바탕 줄 가운데 보고일 기준 지난 날짜의 '…예정'은 '예정'만 뺀 채로 시작한다(바탕과 달라 파란 글씨가 됨).
     // 바뀐 줄은 화면 위쪽 접힌 목록(renderEdit)에서 확인한다. 칸에서 다시 고칠 수 있다.
     const day = reportDay(state.start), plans = [];
@@ -865,8 +885,15 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const {draft} = state;
     // 바탕을 연 뒤에 사업 목록이 읽혔으면 빠진 사업영역 줄을 더하고 칸을 다시 놓는다(그 칸에 쓴 줄이 파일에 들어가게).
     if (needAreas(state)) { const kept = currentDraft(state); rebase(); placeCells(state, kept); }
-    if (state.built) return state.built;
-    const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, {...state.edits, owners:ownerEdits(state)});
+    // WEEKLY-메뉴짝짓기 P6: 만들 때마다 그 주 주별 조직보고 표를 다시 읽어 4. 1)·3. 2) 칸에 넣는다(담당조직·주간 정리에서 고친 것이 바로 들어가게). 줄이 바뀌었으면 다시 만든다.
+    const s0 = state, orgs0 = s0.context.orgFailed || s0.context.orgFallback ? [] : s0.context.organizations;
+    const weekRows = orgs0.length ? await readWeekLines({rt, workspaceId:rt.context.read()?.workspace?.id, week:s0.start, orgIds:orgs0.map(o => o.id)}).then(r => r.missing ? null : r.rows).catch(() => s0.context.weekRows ?? null) : null;
+    if (state !== s0) throw Object.assign(new Error('주가 바뀌었어요. 다시 눌러 주세요.'), {code:'stale'});
+    const weekKey = weekRows ? JSON.stringify([...weekRows].map(([id, rows]) => [id, weekReportLines(rows)])) : '';
+    if (state.built && state.weekKey === weekKey) return state.built;
+    state.weekKey = weekKey;
+    const week = applyWeekRows(state, {orgs:[...state.edits.orgs], sites:[...state.edits.sites]}, weekRows);
+    const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, {...state.edits, orgs:week.orgs, sites:week.sites, owners:ownerEdits(state)});
     // 3. 2) 투쟁 사업장 현황: 들어간 사업장만, 구성 순서로(뺀 사업장의 글은 칸에 남아 있고 파일에만 없다).
     data.sites = layoutSiteData(data.sites ?? [], siteRows(state), state.layout);
     const bytes = await draft.buildHwpx(state.template, data);
