@@ -22,7 +22,9 @@ import {
   ACTIVE as JOB_ACTIVE, BIG_BYTES, BIG_MAX_BYTES, JOB_ADD_MAX, JOB_COLUMNS, JOB_LIST_HOURS, JOB_LIST_MAX, JOB_STEP_MS, LEASE_MS, MAX_ATTEMPTS,
   TICK_HEADER, TICK_TTL_MS, gdOffset, jobCode, jobView, needsKick, nextRange, odOffset, parseAdd, parseIds, rangeOk, tickCheck, tickSign,
   CRON_HEADER, CRON_SCAN_MAX, CRON_SECRET_NAME, FOREIGN_SECRET_HEADERS, cronSecretMatches, isUuid,
+  DEVICE_CHUNK, DEVICE_STALE_MS, deviceStale, parseDeviceRef, parseStar, parseUpload,
 } from "./jobs.mjs";
+import { WEB2_ORIGINS } from "../_shared/web-cors.ts";
 
 type Env = (name: string) => string | undefined;
 export type CloudFilesOptions = { fetch?: typeof fetch; env: Env; now?: () => number; background?: (p: Promise<unknown>) => void };
@@ -760,7 +762,8 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     if (fill) yield buf.subarray(0, fill);
   }
   // 이어 올리기 자리를 연다(원드라이브 upload session·구글 resumable). 주소 자체가 쓰기 권한이라 응답·로그에 싣지 않는다.
-  async function openUpload(dest: Source, token: string, parent: string | null, name: string, size: number, mime: string): Promise<string> {
+  //   origin: 브라우저가 조각을 직접 보낼 때(2-④ 올리기)만 Web2 주소 — 구글은 자리를 연 Origin에서 온 조각만 CORS로 받는다.
+  async function openUpload(dest: Source, token: string, parent: string | null, name: string, size: number, mime: string, origin = ""): Promise<string> {
     let upUrl: string | null;
     if (dest === "od") {
       const where = parent ? `items/${encodeURIComponent(parent)}` : "root";
@@ -770,7 +773,10 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     } else {
       const r = await cloud("gd_session", token, `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=${GD_FIELDS}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Length": String(size), "X-Upload-Content-Type": mime || "application/octet-stream" },
+        headers: {
+          "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Length": String(size), "X-Upload-Content-Type": mime || "application/octet-stream",
+          ...(origin ? { Origin: origin } : {}),
+        },
         body: JSON.stringify({ name, parents: [parent ?? "root"] }),
       });
       upUrl = r.ok ? safeUploadUrl("gd", r.headers.get("location")) : null;
@@ -1294,6 +1300,55 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     return `${JOBS}?workspace_id=eq.${ws}` + (ids.all ? "" : `&id=${inList(ids.ids)}`);
   }
 
+  // ---- 올리기(FILES-통합 2-④, S49-33) ----
+  // 기기 줄(origin device)만. 작업공간은 로그인으로 정해진 것(화면이 보낸 값을 쓰지 않음).
+  async function deviceJob(ws: string, id: string) {
+    const j = (await rows("up_job", `${JOBS}?workspace_id=eq.${ws}&id=eq.${id}&origin=eq.device&select=${JOB_COLUMNS}&limit=1`))[0];
+    if (!j) throw new Fail(404, "job_not_found");
+    return j;
+  }
+  // 조각을 보낼 브라우저 주소. Web2 주소가 아니면 자리를 열지 않는다(머리 없음 = 브라우저 밖 호출, CORS와 무관).
+  function webOrigin(req: Request) {
+    const o = req.headers.get("Origin");
+    if (!o) return "";
+    if (!WEB2_ORIGINS.has(o)) throw new Fail(403, "origin_invalid");
+    return o;
+  }
+  // 올라간 파일 맞추기: 클라우드에 직접 물어(화면이 준 값을 믿지 않음) 받을 폴더·크기가 같고 이 줄을 연 뒤에 만들어진 것만 '끝'.
+  async function finishUpload(ws: string, job: Record<string, unknown>, d: Record<string, unknown>) {
+    const dest = job.dest_source as Source, size = Number(job.size_bytes);
+    const token = await tokenFor(ws, dest);
+    const row = rowOf(ws, dest, await rootId(dest, token), d);
+    const made = Date.parse(String((dest === "od" ? d.createdDateTime : d.createdTime) || ""));
+    const opened = Date.parse(String(job.created_at || ""));
+    if (row.size_bytes !== size || (row.parent_id ?? null) !== (job.dest_parent ?? null) || row.trashed === true ||
+      !Number.isFinite(made) || !Number.isFinite(opened) || made < opened - 5 * 60 * 1000) {
+      log("up_verify_failed");
+      throw new Fail(409, "upload_mismatch");
+    }
+    await upsertRows("write_upsert", [row]);
+    const done = await patchJob("up_done", String(job.id), `&workspace_id=eq.${ws}&origin=eq.device&status=in.(queued,running,paused,failed)`, {
+      status: "done", sent_bytes: size, result_item_id: row.item_id, result_name: row.name, error_code: null, lease_until: null, finished_at: at(),
+    });
+    await db("up_drop", `${UPLOADS}?job_id=eq.${job.id}`, { method: "DELETE" }, "return=minimal").catch(() => log("up_drop_failed"));
+    return { job: done ?? { ...job, status: "done" }, row };
+  }
+  async function cloudItem(dest: Source, token: string, id: string) {
+    return dest === "od"
+      ? await cloudJson("od_up_item", token, `${GRAPH}/me/drive/items/${encodeURIComponent(id)}?$select=${OD_SELECT}`)
+      : await cloudJson("gd_up_item", token, `${DRIVE}/files/${encodeURIComponent(id)}?fields=${GD_FIELDS}`);
+  }
+  // 받을 폴더에 이어 올리기 자리를 열고(이름은 번호를 붙여 비는 이름) 자리 주소를 서버 표에 둔다.
+  async function openDeviceSlot(ws: string, jobId: string, dest: Source, to: string | null, name: string, size: number, mime: string, origin: string) {
+    const token = await tokenFor(ws, dest);
+    const nm = uniqueName(name, (await siblingNames(ws, dest, to)).map((r) => String(r.name)));
+    const url = await openUpload(dest, token, to, nm, size, mime, origin);
+    await db("up_slot", `${UPLOADS}?on_conflict=job_id`, {
+      method: "POST", body: JSON.stringify({ job_id: jobId, upload_url: url, hash_state: null, updated_at: at() }),
+    }, "resolution=merge-duplicates,return=minimal");
+    return { url, name: nm };
+  }
+
   type Ctx = { workspaceId: string; userId: string; body: Record<string, unknown>; req: Request };
   const actions: Record<string, (c: Ctx) => Promise<Response>> = {
     // 맞춘 상태(두 출처). 클라우드를 부르지 않는다(연결 여부는 저장된 값만).
@@ -1699,6 +1754,15 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
       const since = new Date(now() - JOB_LIST_HOURS * 3600 * 1000).toISOString();
       const list = await rows("job_list", `${JOBS}?workspace_id=eq.${ws}&or=(status.in.(queued,running,paused),created_at.gt.${since})` +
         `&select=${JOB_COLUMNS}&order=created_at.desc&limit=${JOB_LIST_MAX}`);
+      // 기기 줄(올리기)이 보내는 중인데 오래 소식이 없으면 화면이 닫힌 것 → 일시 정지로(H-6). 다시 열어 같은 파일을 고르면 남은 조각부터.
+      const stale = deviceStale(list, now());
+      if (stale.length) {
+        const cut = new Date(now() - DEVICE_STALE_MS).toISOString();
+        const v = await db("job_device_pause", `${JOBS}?workspace_id=eq.${ws}&origin=eq.device&status=in.(queued,running)&id=${inList(stale)}&updated_at=lt.${cut}&select=id`,
+          { method: "PATCH", body: JSON.stringify({ status: "paused", lease_until: null, updated_at: at() }) }, "return=representation");
+        const hit = new Set((Array.isArray(v) ? v : []).map((x: Record<string, unknown>) => x.id));
+        for (const x of list) if (hit.has(x.id)) x.status = "paused";
+      }
       if (needsKick(list, now())) await kickTick(ws);
       return json({ ok: true, jobs: list.map(jobView) });
     },
@@ -1722,6 +1786,148 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
       const jobs = Array.isArray(v) ? v as Record<string, unknown>[] : [];
       if (jobs.length) await kickTick(ws);
       return json({ ok: true, jobs: jobs.map(jobView) });
+    },
+    // ---- 올리기(FILES-통합 2-④, S49-33): 기기 → 클라우드. 파일은 Edge를 거치지 않는다. ----
+    // 열기: 받을 폴더(색인 안)·이름 규칙·크기(200MB 넘으면 big:true, 2GB까지)를 본 뒤 작업표 한 줄(origin device)을 만들고
+    //   그 클라우드의 이어 올리기 자리를 연다. 자리 주소는 이 응답(이 한 건)에만 싣는다 — job_list·다른 응답에는 없다.
+    //   같은 이름이 있으면 번호를 붙여 둘 다 둔다(H-3, 덮어쓰기 없음). 0바이트는 서버가 바로 만든다(이어 올리기 자리는 0바이트를 받지 않음).
+    //   줄은 '기다림'으로 만든다 — 화면이 차례가 오면 upload_resume으로 '보내는 중'으로 바꾸고 보낸다(여러 개를 한 번에 열어 목록에 모두 보이게).
+    async upload_open({ workspaceId: ws, userId, body: b, req }) {
+      mustConfirm(b);
+      const p = parseUpload(b);
+      if (!p) throw new Fail(400, "upload_invalid");
+      const base = cleanName(p.name);
+      if (!base) throw new Fail(400, "name_invalid");
+      if (p.size > BIG_MAX_BYTES) throw new Fail(413, "too_large");
+      if (p.size > BIG_BYTES && !p.big) throw new Fail(400, "big_not_confirmed");
+      const origin = webOrigin(req);
+      const to = await folderOrRoot(ws, p.toSource, p.to);
+      const token = await tokenFor(ws, p.toSource);
+      const row = {
+        workspace_id: ws, created_by: userId, kind: "copy", origin: "device", src_source: "dev", src_id: null, dest_source: p.toSource, dest_parent: to,
+        name: base, result_name: null, same_name: null, is_folder: false, size_bytes: p.size, mime: p.mime, src_hash: null,
+        big: p.size > BIG_BYTES, status: "queued", error_code: null, finished_at: null,
+      };
+      const made = await db("up_add", `${JOBS}?select=${JOB_COLUMNS}`, { method: "POST", body: JSON.stringify([row]) }, "return=representation");
+      const job = Array.isArray(made) ? made[0] as Record<string, unknown> : null;
+      if (!job) throw new Fail(503, "store_unavailable");
+      const id = String(job.id);
+      try {
+        if (p.size === 0) {
+          const nm = uniqueName(base, (await siblingNames(ws, p.toSource, to)).map((r) => String(r.name)));
+          let d: Record<string, unknown> | null;
+          if (p.toSource === "od") {
+            const where = to ? `items/${encodeURIComponent(to)}` : "root";
+            const r = await cloud("od_up_empty", token, `${GRAPH}/me/drive/${where}:/${encodeURIComponent(nm)}:/content?@microsoft.graph.conflictBehavior=rename`,
+              { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: new Uint8Array() });
+            d = r.ok ? await body(r) : null;
+            if (!r.ok) { log("od_up_empty_" + r.status); await drop(r); }
+          } else {
+            const url = await openUpload("gd", token, to, nm, 0, p.mime || "", "");
+            d = (await remoteOffset("gd", url, 0)).result;
+          }
+          if (!d) throw new Fail(502, "upload_failed");
+          const out = await finishUpload(ws, job, d);
+          return json({ ok: true, job: jobView(out.job), upload: null, changed: [pickRow(out.row)] });
+        }
+        const slot = await openDeviceSlot(ws, id, p.toSource, to, base, p.size, p.mime || "", origin);
+        const named = base !== slot.name ? await patchJob("up_named", id, `&workspace_id=eq.${ws}`, { result_name: slot.name }) : null;
+        return json({ ok: true, job: jobView({ ...job, ...(named ?? {}), same_name: base !== slot.name ? "numbered" : null }), upload: { url: slot.url, offset: 0, chunk: DEVICE_CHUNK } });
+      } catch (e) {
+        await patchJob("up_open_failed", id, `&workspace_id=eq.${ws}&status=eq.queued`, {
+          status: "failed", error_code: jobCode(e instanceof Fail ? e.code : ""), finished_at: at(),
+        }).catch(() => log("up_fail_save_failed"));
+        throw e;
+      }
+    },
+    // 이어 올리기(H-6): 다시 연 화면에서 사람이 같은 파일을 다시 고른 것만(이름·크기가 줄과 같을 때). 자리에 '어디까지 받았나'를 물어
+    //   남은 조각부터. 자리가 끝났으면 새 자리를 연다(처음부터). 다 받았으면(구글) 바로 끝으로.
+    async upload_resume({ workspaceId: ws, body: b, req }) {
+      mustConfirm(b);
+      const r = parseDeviceRef(b, "resume");
+      if (!r) throw new Fail(400, "upload_invalid");
+      const j = await deviceJob(ws, r.id);
+      if (!["queued", "running", "paused", "failed"].includes(String(j.status))) throw new Fail(409, "job_not_resumable");
+      if (cleanName(r.name) !== j.name || Number(j.size_bytes) !== r.size) throw new Fail(409, "file_mismatch");
+      const origin = webOrigin(req);
+      const dest = j.dest_source as Source, size = Number(j.size_bytes);
+      await folderOrRoot(ws, dest, j.dest_parent);
+      const saved = (await rows("up_saved", `${UPLOADS}?job_id=eq.${r.id}&select=upload_url&limit=1`))[0];
+      let url = saved ? safeUploadUrl(dest, saved.upload_url) : null, offset = 0, name = String(j.result_name || j.name);
+      if (url) {
+        const q = await remoteOffset(dest, url, size);
+        if (q.result) {
+          const out = await finishUpload(ws, j, q.result);
+          return json({ ok: true, job: jobView(out.job), upload: null, changed: [pickRow(out.row)] });
+        }
+        if (q.gone || q.offset > size) url = null;
+        else offset = q.offset;
+      }
+      if (!url) {
+        const slot = await openDeviceSlot(ws, r.id, dest, (j.dest_parent ?? null) as string | null, String(j.name), size, String(j.mime || ""), origin);
+        url = slot.url;
+        name = slot.name;
+        offset = 0;
+      }
+      const v = await patchJob("up_resume", r.id, `&workspace_id=eq.${ws}&origin=eq.device&status=in.(queued,running,paused,failed)`, {
+        status: "running", sent_bytes: offset, result_name: name, error_code: null, finished_at: null, lease_until: null,
+      });
+      if (!v) throw new Fail(409, "job_not_resumable");
+      return json({ ok: true, job: jobView(v), upload: { url, offset, chunk: DEVICE_CHUNK } });
+    },
+    // 진행: 조각 하나를 보낼 때마다 보낸 바이트(또는 정해 둔 실패 까닭). 보내는 중인 줄만 바뀐다 — 다른 곳에서 멈춤을 눌렀으면
+    //   지금 줄을 돌려주고 화면은 보내기를 멈춘다.
+    async upload_progress({ workspaceId: ws, body: b }) {
+      mustConfirm(b);
+      const r = parseDeviceRef(b, "progress");
+      if (!r) throw new Fail(400, "upload_invalid");
+      const j = await deviceJob(ws, r.id);
+      if (r.sent !== undefined && r.sent > Number(j.size_bytes)) throw new Fail(400, "upload_invalid");
+      const patch = r.error ? { status: "failed", error_code: r.error, finished_at: at() } : { sent_bytes: r.sent };
+      const v = await patchJob("up_progress", r.id, `&workspace_id=eq.${ws}&origin=eq.device&status=eq.running`, patch);
+      return json({ ok: true, job: jobView(v ?? j) });
+    },
+    // 끝: 마지막 조각 뒤. 화면이 준 새 파일 id(없으면 구글은 자리에, 원드라이브는 받을 폴더의 그 이름으로)를 클라우드에 직접 물어 맞춘 뒤 색인에 넣는다.
+    async upload_done({ workspaceId: ws, body: b }) {
+      mustConfirm(b);
+      const r = parseDeviceRef(b, "done");
+      if (!r) throw new Fail(400, "upload_invalid");
+      const j = await deviceJob(ws, r.id);
+      if (j.status === "done") return json({ ok: true, job: jobView(j), changed: [] });
+      if (!["queued", "running", "paused", "failed"].includes(String(j.status))) throw new Fail(409, "job_not_resumable");
+      const dest = j.dest_source as Source, size = Number(j.size_bytes);
+      const token = await tokenFor(ws, dest);
+      let d: Record<string, unknown> | null = null;
+      if (r.item && (dest === "od" || isGdId(r.item))) d = await cloudItem(dest, token, r.item);
+      else if (dest === "gd") {
+        const saved = (await rows("up_saved", `${UPLOADS}?job_id=eq.${r.id}&select=upload_url&limit=1`))[0];
+        const url = saved ? safeUploadUrl("gd", saved.upload_url) : null;
+        d = url ? (await remoteOffset("gd", url, size)).result : null;
+      } else {
+        const where = j.dest_parent ? `items/${encodeURIComponent(String(j.dest_parent))}` : "root";
+        d = await cloudJson("od_up_find", token, `${GRAPH}/me/drive/${where}:/${encodeURIComponent(String(j.result_name || j.name))}?$select=${OD_SELECT}`);
+      }
+      if (!d) throw new Fail(409, "upload_mismatch");
+      const out = await finishUpload(ws, j, d);
+      return json({ ok: true, job: jobView(out.job), changed: [pickRow(out.row)] });
+    },
+    // ---- 별표(FILES-통합 2-④): 켜고 끄기. 그 작업공간 색인 안(휴지통 아님) 항목만, 1~200개. 별표 표는 서버(service role)만 쓴다. ----
+    async star({ workspaceId: ws, body: b }) {
+      mustConfirm(b);
+      const p = parseStar(b);
+      if (!p) throw new Fail(400, "ids_invalid");
+      await manyIndexed(ws, p.source, p.ids);
+      if (p.on) {
+        await db("star_add", "app_cloud_stars?on_conflict=workspace_id,source,item_id", {
+          method: "POST", body: JSON.stringify(p.ids.map((id: string) => ({ workspace_id: ws, source: p.source, item_id: id }))),
+        }, "resolution=ignore-duplicates,return=minimal");
+      } else {
+        for (let i = 0; i < p.ids.length; i += IN_CHUNK) {
+          await db("star_drop", `app_cloud_stars?workspace_id=eq.${ws}&source=eq.${p.source}&item_id=${inList(p.ids.slice(i, i + IN_CHUNK))}`,
+            { method: "DELETE" }, "return=minimal");
+        }
+      }
+      return json({ ok: true, source: p.source, ids: p.ids, starred: p.on });
     },
   };
 

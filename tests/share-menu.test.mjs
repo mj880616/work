@@ -9,7 +9,7 @@ const blob = (type = 'image/jpeg') => new Blob([new Uint8Array([1, 2, 3])], {typ
 
 test('메뉴 줄: 사진 4줄, 동영상은 복사·정리함 없음, 여러 장은 복사 없음, 기기 공유 창이 없으면 그 줄 없음', () => {
   assert.deepEqual(shareRows({native: true}), ['copy', 'basket', 'download', 'native']);
-  assert.deepEqual(shareRows({native: true}).map(r => SHARE_ROW_TEXT[r]), ['사진 복사', '업데이트로 보내기', '다운로드', '다른 앱으로 공유…']);
+  assert.deepEqual(shareRows({native: true}).map(r => SHARE_ROW_TEXT[r]), ['사진 복사', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
   assert.deepEqual(shareRows({video: true, native: true}), ['download', 'native']);
   assert.deepEqual(shareRows({count: 3, native: true}), ['basket', 'download', 'native']);
   assert.deepEqual(shareRows({native: false}), ['copy', 'basket', 'download']);
@@ -67,6 +67,6 @@ test('화면 연결: [공유]가 있는 곳 모두(사진 크게 보기·문서 
 
 test('S48-56: [일기에 넣기]는 부르는 쪽이 diary()를 줄 때만, 동영상은 없음', async () => {
   const {shareRows, SHARE_ROW_TEXT} = await import('../app/share-menu.js');
-  assert.deepEqual(shareRows({count:2, diary:true}).map(r => SHARE_ROW_TEXT[r]), ['일기에 넣기', '업데이트로 보내기', '다운로드']);
+  assert.deepEqual(shareRows({count:2, diary:true}).map(r => SHARE_ROW_TEXT[r]), ['일기에 넣기', '업데이트로 보내기', '받기']);
   assert.deepEqual(shareRows({video:true, diary:true}), ['download']);
 });

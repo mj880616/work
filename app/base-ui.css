@@ -299,6 +299,8 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 #appView .kptu-actbar-icon>button.kptu-act{display:flex;flex-direction:column;align-items:center;gap:1px;height:auto;min-height:40px;padding:2px;color:inherit;font-size:11px;line-height:1.2}
 #appView .kptu-actbar-icon .kptu-act-ic{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;font-size:16px;line-height:1}
 #appView .kptu-actbar-icon .kptu-act-ic svg{display:block;width:16px;height:16px}
+/* PHOTO-아래줄정돈(S49-34): [공유 ▾]·[편집 ▾] 글자 옆 작은 ▾ */
+#appView .kptu-actbar-icon .kptu-act-caret{font-size:9px;margin-left:2px;opacity:.7}
 .kptu-actbar-text{display:grid;grid-template-columns:repeat(auto-fit,minmax(var(--kptu-act-min,56px),1fr));justify-items:center;align-items:center;flex:1 1 auto;min-width:0}
 #appView .kptu-actbar-text>button.kptu-act{display:inline-flex;align-items:center;width:100%;height:auto;min-height:var(--ds-compact-height-sm,28px);padding:2px;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);line-height:1.25}
 @media(min-width:761px){#appView .kptu-actbar-icon>button.kptu-act{flex-direction:row;gap:4px;min-height:var(--ds-compact-height,32px);padding:0 4px;font-size:var(--ds-compact-text,13px)}}

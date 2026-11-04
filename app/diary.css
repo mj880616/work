@@ -292,6 +292,7 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-done:empty{ display:none; }
 #appView #diaryView .diary-done > .work-day-done{ padding:0 0 8px; border-top:0; border-bottom:var(--ds-line-width) solid var(--ds-line); }
 /* S48-32: 크게 보기 위에서 연 작은 확인·고르기 창(지우기 두 갈래)은 크게 보기보다 위에. */
-body:has([data-diary-viewer]) > .kptu-ask{ z-index:1001; }
+body:has([data-diary-viewer]) > :is(.kptu-ask,.kptu-notice,.kptu-undo-notice,.toast){ z-index:1001; }
+/* PHOTO-업데이트반응없음(S49-34): 작은 알림(#kptuNotice)은 z-index 110이라 크게 보기(1000) 뒤에 깔려, 아래 줄 [업데이트]·[일기]·[옮기기] 등의 '보내는 중'·결과·[다시]가 안 보였다. 확인창과 같이 크게 보기보다 위에. */
 /* PHOTO-꾹누르기메뉴(S49-18): 크게 보기 사진은 기본 이미지 메뉴(길게 누르기 미리 보기·글자 고르기)가 뜨지 않게 하고, Web2 작은 메뉴(photo-longpress.js)만 쓴다. */
 #appView :is(#diaryView,#photosView) .diary-viewer .diary-slide img{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }

@@ -2121,7 +2121,7 @@ function tgFeedVerdict(code, errorCode) {
 // 채널 기사 보내기 (NEWS-클리핑 D)
 //
 // 하는 일: 명진이 구독하는 텔레그램 채널(다른 사람이 기사를 고름)의 Drive 수집 폴더에서 새 메시지만 읽어,
-//   줄 'YYYY-MM-DD HH:MM:SS URL'의 기사 주소를 Web2 서버(collector-feed ?action=scrap)로 보낸다. Web2 '뉴스 클리핑'에 꼬리표 '채널'로 들어간다.
+//   줄 'YYYY-MM-DD HH:MM:SS URL'의 기사 주소를 Web2 서버(collector-feed ?action=scrap)로 보낸다. Web2 '뉴스 클리핑'에 들어간다(내부 lane은 channel, 화면에 꼬리표는 없음).
 //   - 어느 채널인지는 스크립트 속성 TG_SCRAP_ROOMS에만 적는다(TG_FEED_ROOMS와 같은 적는 법: 방 이름·폴더 이름 전체·맨 앞 방 번호). `*`는 받지 않는다.
 //     코드·저장소·문서에는 채널 이름·번호를 쓰지 않는다.
 //   - 폴더는 텔레그램 보내기와 같은 수집 폴더(TG_FEED_ROOT_FOLDER) → `원문` → `<방 번호>_<방 이름>` → messages → <YYYY-MM>. 읽기만 한다.

@@ -264,3 +264,8 @@ test('pending: 영상(youtu.be)은 기사로 읽지 않고 공개 oEmbed 제목�
  assert.ok(!w2.calls.some(c=>c.url.startsWith('https://www.youtube.com/oembed')),'robots가 막으면 읽지 않음');
  assert.equal(H.videoId('https://www.youtube.com/watch?v=AbCdEf12345'),'AbCdEf12345');assert.equal(H.videoId('https://example.org/watch?v=x'),null);
 });
+
+test('titles step: 소개(summary)는 한국어만 받고, 영어 소개를 한국어로 바꿔 쓴다',()=>{
+ const ok=H.readTitleSums({titles:[{i:1,ko:'',sum_ko:'합성 소개 요약.'},{i:2,ko:'x',sum_ko:'English only'},{i:3,ko:'x',sum_ko:''},{i:9,ko:'x',sum_ko:'범위 밖'}]},3);
+ assert.deepEqual([...ok.entries()],[[1,'합성 소개 요약.']]);
+});

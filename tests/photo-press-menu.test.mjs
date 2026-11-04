@@ -6,7 +6,7 @@ import {attachPhotoLongPress, LONG_PRESS_MS, LONG_PRESS_MOVE} from '../app/photo
 import {createAppShare} from '../app/app-share.js';
 import {copyImage, shareRows} from '../app/share-menu.js';
 import {holdPhotoBlob, holdPhotoMaker, sharePhotoElement, shareBlob, gestureExpired, SHARE_TEXT} from '../app/photo-share.js';
-import {PHOTO_ACT_TEXT, PHOTO_MENUS} from '../app/photo-menu-items.mjs';
+import {PHOTO_ACT_TEXT, PHOTO_MENUS, PHOTO_BAR_MENUS} from '../app/photo-menu-items.mjs';
 import {ACT_ICON} from '../app/action-bar.mjs';
 
 const read = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
@@ -170,10 +170,11 @@ test('메뉴 목록: 꾹 누르기 메뉴는 PC 공유 메뉴와 같은 항목([
 
 test('정보수정: 이름 하나, ⋯ 없음, 선 아이콘 공용 부품에 있음, 보이는 조건 그대로(폰 사진·앱 meta·휴지통 아님)', () => {
   assert.equal(PHOTO_ACT_TEXT.info, '정보수정');
-  assert.ok(PHOTO_MENUS.selectBar.includes('info') && PHOTO_MENUS.context.includes('info'));
-  assert.match(ACT_ICON.infoEdit, /<svg[^>]*stroke="currentColor"/);
+  // PHOTO-아래줄정돈(S49-34): 걸친 아이콘은 버렸다. 정보수정은 아래 줄 [편집 ▾]·[더보기] 안 글자 항목, 우클릭 메뉴는 지금처럼 펼친 목록.
+  assert.ok(PHOTO_BAR_MENUS.selectBar.more.includes('info') && PHOTO_BAR_MENUS.viewBar.edit.includes('info') && PHOTO_MENUS.context.includes('info'));
+  assert.equal(ACT_ICON.infoEdit, undefined);
   const photos = read('app/photos.js');
-  assert.match(read('app/photo-act-bar.mjs'), /info: \{icon: ACT_ICON\.infoEdit, hidden: true\}/);
+  assert.doesNotMatch(read('app/photo-act-bar.mjs'), /infoEdit/);
   assert.match(photos, /case 'info': return \{hidden: !\(on && canInfo\(group\)\)/);
-  assert.doesNotMatch(photos, /photosSelMenu|data-photos-act-more|정보 고치기…/);
+  assert.doesNotMatch(photos, /photosSelMenu|정보 고치기…/);
 });

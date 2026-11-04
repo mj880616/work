@@ -52,7 +52,8 @@ import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoSt
 import {UNDO_MS, shareFileName} from './photo-viewer-model.mjs';
 import {photoFile} from './photo-share.js';
 import {shareFrom, wideShare} from './share-menu.js';
-import {PHOTO_ACT_TEXT, PHOTO_MENUS, SEND_NOTE, diaryDoneText, basketDoneText, releaseAfter} from './photo-menu-items.mjs';
+import {PHOTO_ACT_TEXT, PHOTO_MENUS, PHOTO_BAR_MENUS, SEND_NOTE, diaryDoneText, basketDoneText, releaseAfter} from './photo-menu-items.mjs';
+import {openBarMenu} from './photo-bar-menu.js'; // PHOTO-아래줄정돈(S49-34): [더보기] 글자 메뉴
 import {photoActButtons} from './photo-act-bar.mjs'; // PHOTO-크게보기메뉴통일(S49-23): 아래 버튼줄 그리기 하나(고르기·크게 보기)
 import {appShare} from './app-share.js';
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
@@ -1157,7 +1158,7 @@ function actAvail(id, group, on = true) {
     case 'restore': return {hidden: !(on && !inTrash && phone.canRestore() && group.some(x => x.kept)), disabled: busy || restoring};
     case 'rename': return {hidden: !(on && group.length === 1 && group[0].kind === 'gdrive'), disabled: busy || !gdUsable()};
     case 'star': case 'down': return {disabled: none};
-    case 'share': return {hidden: !canShare() && !wideShare(), disabled: none};
+    case 'share': return {disabled: none}; // PHOTO-아래줄정돈: [공유 ▾] 메뉴에 받기·일기·업데이트가 있어 늘 보인다
     case 'move': return {disabled: none || busy || !group.some(ownable)};
     case 'tag': return {disabled: none || busy};
     case 'info': return {hidden: !(on && canInfo(group)), disabled: none || busy};
@@ -1165,6 +1166,21 @@ function actAvail(id, group, on = true) {
     case 'edit': return {hidden: !(on && group.length === 1 && editable(group[0])), disabled: busy};
     default: return {};
   }
+}
+// [더보기] 안 항목(PHOTO_BAR_MENUS.selectBar.more 순서, 쓸 수 있는 것만). 보이는 규칙은 actAvail 한 곳.
+// [더보기] 항목 → 고른 사진들에 같은 동작(예전 아래 줄 버튼이 하던 일).
+function runBarItem(id, btn) {
+  switch (id) {
+    case 'tag': return openPick(btn, {kind:'tag', items:pickedItems()});
+    case 'untag': return untagPicked();
+    case 'restore': return restorePicked();
+    case 'rename': { const one = pickedItems(); if (one.length === 1) gdRenamePhoto(one[0]); return undefined; }
+    case 'info': return openInfo(btn, pickedItems());
+    default: return undefined;
+  }
+}
+function selectMoreRows(group, on = true) {
+  return PHOTO_BAR_MENUS.selectBar.more.flatMap(id => { const a = actAvail(id, group, on); return a.hidden ? [] : [{id, disabled:!!a.disabled}]; });
 }
 function paintSelect() {
   const on = select.active && tab !== 'calendar', inTrash = tab === 'trash';
@@ -1186,7 +1202,7 @@ function paintSelect() {
   const none = !select.size, group = pickedItems();
   for (const id of PHOTO_MENUS.selectBar) {
     const b = $(`[data-photos-act-${id}]`); if (!b) continue;
-    const a = actAvail(id, group, on);
+    const a = id === 'more' ? (() => { const rows = selectMoreRows(group, on); return {hidden:!rows.length, disabled:!rows.some(r => !r.disabled)}; })() : actAvail(id, group, on);
     if ('hidden' in a) b.hidden = a.hidden;
     b.disabled = !!a.disabled;
   }
@@ -1247,6 +1263,10 @@ async function itemFile(item) {
 let sendBusy = false;
 const sendablePicked = () => pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
 function sendPickedTo(where, trigger) { return sendItemsTo(where, sendablePicked(), trigger, {fromPick:true}); }
+function openBasketView() {
+  if (photoStripOpen()) closePhotoStrip({restore:false});
+  window.KPTURouter?.go?.('basket', {source:'delegated'});
+}
 function openDiaryDay(day) {
   if (!day) return;
   requestDiaryDay(day);
@@ -1275,7 +1295,7 @@ async function sendItemsTo(where, list, trigger, {fromPick = false, ask = true} 
       catch (error) { notify(error?.message || SEND_NOTE.basketFail, {error:true, ms:8000, actions:[retry(list)]}); return; }
       if (missed.length) { notify(basketDoneText(files.length, list.length), {error:true, ms:8000, actions:[retry(missed)]}); return; }
       release();
-      notify(basketDoneText(files.length));
+      notify(basketDoneText(files.length), {ms:6000, actions:[{label:SEND_NOTE.basketOpen, run:({close}) => { close(); openBasketView(); }}]});
       return;
     }
     const done = [], missed = [], failedItems = [];
@@ -1298,9 +1318,10 @@ async function sendItemsTo(where, list, trigger, {fromPick = false, ask = true} 
 // [⇪ 공유]: 넓은 화면은 누른 자리 작은 메뉴(share-menu.js — 한 장이면 [사진 복사]도), 좁은 화면은 지금처럼 기기 공유 창.
 function shareButton(trigger) {
   const list = sendablePicked();
-  if (!list.length) { notify('공유할 사진이 없어요(동영상은 [⤓ 받기]로).'); return; }
+  // PHOTO-아래줄정돈: [공유 ▾]는 좁은 화면(폰)도 항상 작은 메뉴(받기·일기에 넣기·업데이트로 보내기·다른 앱으로 공유). 동영상만 골랐으면 받기만.
+  if (!list.length) { if (pickedItems().length) shareFrom(trigger, {video:true, count:0, download:downloadPicked}, {wide:true}); return; }
   shareFrom(trigger, {count:list.length, getFiles:() => pickedFiles(list), native:canShare() ? sharePicked : null, download:downloadPicked,
-    diary:() => sendItemsTo('diary', list, trigger, {fromPick:true}), basket:() => sendItemsTo('basket', list, trigger, {fromPick:true})});
+    diary:() => sendItemsTo('diary', list, trigger, {fromPick:true}), basket:() => sendItemsTo('basket', list, trigger, {fromPick:true})}, {wide:true});
 }
 async function sharePicked() {
   const list = pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
@@ -2844,16 +2865,9 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-act-star]')) return starPicked();
   if (b.matches('[data-photos-sort]')) return sortMenu.open(b);
   if (b.matches('[data-photos-act-share]')) return shareButton(b);
-  if (b.matches('[data-photos-act-down]')) return downloadPicked();
-  if (b.matches('[data-photos-act-diary]')) return sendPickedTo('diary', b);
-  if (b.matches('[data-photos-act-basket]')) return sendPickedTo('basket', b);
   if (b.matches('[data-photos-act-delete]')) return deletePicked(b);
-  if (b.matches('[data-photos-act-restore]')) return restorePicked();
-  if (b.matches('[data-photos-act-rename]')) { const one = pickedItems(); if (one.length === 1) gdRenamePhoto(one[0]); return; }
   if (b.matches('[data-photos-act-move]')) return openPick(b, {kind:'photos', ids:pickedItems().map(x => x.id)});
-  if (b.matches('[data-photos-act-tag]')) return openPick(b, {kind:'tag', items:pickedItems()});
-  if (b.matches('[data-photos-act-untag]')) return untagPicked();
-  if (b.matches('[data-photos-act-info]')) return openInfo(b, pickedItems());
+  if (b.matches('[data-photos-act-more]')) { openBarMenu(b, selectMoreRows(pickedItems()), id => runBarItem(id, b)); return; }
   if (tidyClick(b)) return;
   if (folderClick(b)) return;
   if (albumClick(b)) return;
