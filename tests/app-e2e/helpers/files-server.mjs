@@ -37,10 +37,10 @@ export function fakePdf() {
   return Buffer.from(out, 'latin1');
 }
 
-export async function filesServer(page, { connected = { od: true, gd: true } } = {}) {
+export async function filesServer(page, { connected = { od: true, gd: true }, prefs = [], prefsFail = false, prefsMissing = false } = {}) {
   // findFail: {status, message} — 찾기·묶음 읽기를 그 오류로 실패시킨다(서버 시간 초과 흉내 등).
   const server = { items: ITEMS(), calls: [], pendingSync: null, directItems: [], findFail: null, jobs: [], jobSeq: 0, jobsHold: false, jobFail: '',
-    slots: {}, upChunk: 4, slotHold: false, puts: [] };
+    slots: {}, upChunk: 4, slotHold: false, puts: [], prefs: prefs.map(x => ({ ...x })), prefCalls: [], prefReads: 0 };
   // 흉내 클라우드 이어 올리기 자리(브라우저가 조각을 직접 보냄, CORS 머리 포함). slotHold면 조각 응답을 붙잡아 둔다(멈춤·숨김 시험).
   await page.route(UPLOAD_HOST + '/**', async route => {
     const req = route.request(), cors = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'PUT', 'access-control-allow-headers': 'content-range' };
@@ -204,6 +204,23 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
       server.calls.push({ what: 'app_cloud_items', search: u.search, auth: req.headers().authorization || '' });
       const hash = (u.searchParams.get('hash') || '').replace(/^eq\./, ''), src = (u.searchParams.get('source') || '').replace(/^eq\./, '');
       return ok(server.items.filter(i => i.hash === hash && i.source === src && !i.trashed).map(i => ({ source: i.source, item_id: i.item_id, parent_id: i.parent_id, name: i.name, hash: i.hash, trashed: false })));
+    }
+    // FOLDER-순서·색 ③-2: 폴더 색·순서 표(app_folder_prefs) 읽기와 서버 함수 app_folder_prefs_apply(owner만, 표를 직접 쓰지 않음) 흉내.
+    if (p === '/rest/v1/app_folder_prefs' && method === 'GET') {
+      server.prefReads++;
+      if (prefsMissing) return ok({ code: 'PGRST205', message: 'Could not find the table public.app_folder_prefs' }, 404);
+      return ok(server.prefs);
+    }
+    if (p === '/rest/v1/rpc/app_folder_prefs_apply' && method === 'POST') {
+      server.prefCalls.push({ source: body.p_source, items: body.p_items, ws: body.p_workspace_id });
+      if (prefsFail || prefsMissing) return ok({ code: prefsMissing ? 'PGRST202' : '42501', message: prefsMissing ? 'function not found' : 'FOLDER_PREFS_FORBIDDEN' }, prefsMissing ? 404 : 403);
+      for (const it of body.p_items) {
+        let row = server.prefs.find(x => x.source === body.p_source && x.folder_key === it.k);
+        if (!row) server.prefs.push(row = { source: body.p_source, folder_key: it.k, color: null, sort_order: null });
+        if ('c' in it) row.color = it.c;
+        if ('o' in it) row.sort_order = it.o;
+      }
+      return ok({ ok: true, count: body.p_items.length });
     }
     if (!p.startsWith('/rest/v1/rpc/app_cloud_')) return route.fallback();
     const name = p.slice('/rest/v1/rpc/'.length);

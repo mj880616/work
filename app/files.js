@@ -12,6 +12,10 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, PHONE_TABS, PHONE_TAB_NAME, S
   UPLOAD_BIG_HOW, UPLOAD_REOPEN_TEXT, upDropText, upStartText, uploadPlan, upBig, upSameName, sameUpFile, upPiece, deviceHint, upResultId,
   starWant, starLabel, applyStars} from './files-model.mjs';
 import {mountSplitResize} from './split-resize.js';
+import {folderLook} from './folder-prefs.js'; // FOLDER-순서·색 ③-2: 폴더 색·순서 읽기 사본([파일]·사진 폴더가 같이 씀)
+import {folderIconHtml, colorChoiceHtml, createColorMode} from './folder-look.js';
+import {folderShapeHtml} from './folder-look-model.mjs';
+import {createAnchoredMenu} from './anchored-menu.js';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
@@ -304,13 +308,23 @@ async function sync({force = false} = {}) {
   } catch { /* 맞추기 실패는 다음 차례에 다시. 목록은 색인 그대로 */ }
   finally { if (state.scope === scope) { state.syncing = false; paintTop(); for (const p of panesOn()) if (!shown(p).length) paintList(p); } }
 }
-function startTimer() { clearInterval(syncTimer); syncTimer = setInterval(() => { if (visible()) sync(); else paintTop(); }, SYNC_EVERY_MS); }
+// FOLDER-순서·색 ③-2: 폴더 색·순서는 들어올 때·2분마다·창으로 돌아올 때 서버에서 다시 읽는다(다른 기기가 바꾼 것도 같아짐). 바뀐 것이 있으면 구독(아래)이 다시 그린다.
+const lookLoad = () => { void folderLook.load(rt()); };
+function startTimer() { clearInterval(syncTimer); syncTimer = setInterval(() => { if (visible()) { sync(); lookLoad(); } else paintTop(); }, SYNC_EVERY_MS); }
 const visible = () => window.KPTURouter?.current === 'files' && document.visibilityState === 'visible';
 
 // ---------- 그리기(이 화면의 유일한 그리기 주인 — 칸 둘도 이 함수들이 칸마다 같은 코드로 그린다) ----------
 // 찾기·묶음 줄은 서버가 켜진 출처만 준다(app_cloud_find_in). 폴더 목록은 한 출처 것이고, 그 출처가 꺼지면 sourcesChanged가 최근으로 옮긴다.
 const foundShown = p => (p.found || []).filter(r => !isLockedItem(r));
-const shown = p => p.query ? foundShown(p) : sortRows(p.rows.filter(r => !isLockedItem(r)), p.sort, p.dir);
+// FOLDER-순서·색 ③-2: 한 폴더 안 목록(찾기·묶음 아님)은 폴더 줄만 직접 정한 순서(없으면 이름순 그대로 뒤)로 앞에 둔다.
+const orderable = p => !!p?.where?.source && !p.where.shelf && !p.query;
+function shown(p) {
+  if (p.query) return foundShown(p);
+  const rows = sortRows(p.rows.filter(r => !isLockedItem(r)), p.sort, p.dir);
+  if (!orderable(p)) return rows;
+  const folders = rows.filter(r => r.is_folder);
+  return folders.length > 1 ? [...folderLook.sort(p.where.source, folders, r => r.item_id), ...rows.filter(r => !r.is_folder)] : rows;
+}
 // 폰 [폴더] 탭의 첫 화면은 나무(pane 'tree'), 폴더 이름을 누르면 목록(pane 'list'). 찾는 중이면 늘 목록. PC·폴드는 CSS가 둘 다 보인다.
 const treePane = () => PHONE.matches && state.tab === 'folders' && state.panes[0].pane === 'tree' && !state.panes[0].query;
 // 칸 1(오른쪽)의 자리는 두 칸일 때만 있다(한 칸이면 지움 — 숨김이 아니라 없음). 그리기 주인은 paint 하나.
@@ -450,8 +464,9 @@ function sourcesChanged() {
   for (const s of on) if (!state.children.has(folderKey(s, null))) loadChildren(s, null);
 }
 // 나무 줄(왼쪽 나무 · 폴드 두 칸의 칸 위 ▾ 나무가 같은 줄): p = 지금 위치를 칠할 칸.
+const lookOrder = (source, rows) => folderLook.sort(source, rows, r => r.item_id);
 function treeHtml(p) {
-  const rows = treeRows({sources: onSources(), children: state.children, open: state.open});
+  const rows = treeRows({sources: onSources(), children: state.children, open: state.open, order: lookOrder});
   const w = p.where, curKey = !p.query && w ? (w.shelf ? 'shelf:' + w.shelf : folderKey(w.source, w.parent)) : '';
   return rows.map(r => {
     const cur = r.key === curKey ? ' nx-current' : '';
@@ -459,7 +474,7 @@ function treeHtml(p) {
     const twist = r.hasKids ? `<button type="button" class="fx-twist" data-fx-twist="${esc(r.key)}" aria-expanded="${r.open}" aria-label="${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="fx-twist" aria-hidden="true"></span>';
     const name = r.type === 'root' ? SOURCE_NAME[r.source] : r.name;
     const cnt = r.type === 'folder' ? countOf(r.source, r.id) : '', num = cnt ? `<span class="nx-num${/^0개$/.test(cnt) ? ' fx-zero' : ''}">${esc(cnt)}</span>` : '';
-    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${cur}" style="--nx-indent:${r.depth}" data-fx-drop="${esc(folderKey(r.source, r.id))}">${twist}<button type="button" class="nx-main" data-fx-go="${esc(r.source)}" data-fx-id="${esc(r.id || '')}"${cur ? ' aria-current="true"' : ''}><span class="nx-name">${esc(name)}</span>${num}</button></div>`;
+    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${cur}" style="--nx-indent:${r.depth}" data-fx-drop="${esc(folderKey(r.source, r.id))}">${twist}<button type="button" class="nx-main" data-fx-go="${esc(r.source)}" data-fx-id="${esc(r.id || '')}"${cur ? ' aria-current="true"' : ''}>${r.type === 'folder' && folderLook.color(r.source, r.id) ? folderIconHtml({color: folderLook.color(r.source, r.id)}, {open: r.open}) : ''}<span class="nx-name">${esc(name)}</span>${num}</button></div>`;
   }).join('');
 }
 function paintTree() {
@@ -487,7 +502,9 @@ function rowHtml(p, r, {withPath = false} = {}) {
   const size = r.is_folder ? countOf(r.source, r.item_id) : sizeText(r.size_bytes);
   const day = dayText(r.modified_at);
   return `<button type="button" class="fx-row${r.is_folder ? ' fx-folder' : ''}${picked}${cut}" data-fx-row="${esc(key)}" aria-selected="${sel}"${drag}${drop}>`
-    + `<span class="fx-ico" data-kind="${kind}" aria-hidden="true">${esc(kindIcon(r))}</span>`
+    + (r.is_folder && folderLook.color(r.source, r.item_id)
+      ? `<span class="fx-ico fl-ico" data-kind="${kind}" data-fc="${folderLook.color(r.source, r.item_id)}" aria-hidden="true">${folderShapeHtml('closed')}</span>`
+      : `<span class="fx-ico" data-kind="${kind}" aria-hidden="true">${esc(kindIcon(r))}</span>`)
     + `<span class="fx-nm"><span class="fx-name">${esc(r.name)}</span>${star}${tag}</span>`
     + (withPath ? `<span class="fx-path">${esc(where)}</span>` : '')
     + `<span class="fx-day">${esc(day)}</span><span class="fx-size">${esc(size)}</span><span class="fx-kind">${esc(kindLabel(r))}</span>`
@@ -720,6 +737,33 @@ const pickedRows = (p = P()) => [...p.picked].map(k => rowByKey(k, p)).filter(Bo
 const actRows = () => { const p = P(), list = pickedRows(p); if (list.length) return list; const r = p.sel && rowByKey(p.sel, p); return r ? [r] : []; };
 // 두 칸: 받을 곳 = 반대 칸의 지금 폴더(찾는 중·묶음이면 없음).
 const oppDest = () => (two() ? paneDest(otherOf(P())) : null);
+// FOLDER-순서·색 ③-2: 폴더 한 개만 골랐을 때 [색] [위로] [아래로]. 값은 서버(app_folder_prefs)에만 적고 클라우드의 실제 폴더는 바뀌지 않는다(이 앱에서만 보임, 아래 메뉴에 한 줄로 알림).
+// 위로·아래로는 한 폴더 안 목록에서만(같은 부모 형제끼리), 끝이면 그 단추는 없다.
+const lookSibs = p => shown(p).filter(r => r.is_folder).map(r => r.item_id);
+function lookButtonsHtml(p) {
+  const rows = pickedRows(p), r = rows[0];
+  if (rows.length !== 1 || !r?.is_folder || !SOURCES.includes(r.source)) return '';
+  const sib = orderable(p) ? lookSibs(p) : [], i = sib.indexOf(r.item_id);
+  return '<button type="button" class="fx-btn" data-fx-look="color" aria-haspopup="true">색</button>'
+    + (i > 0 ? '<button type="button" class="fx-btn" data-fx-look="up">위로</button>' : '') + (i >= 0 && i < sib.length - 1 ? '<button type="button" class="fx-btn" data-fx-look="down">아래로</button>' : '');
+}
+const lookMode = createColorMode();
+const lookMenu = createAnchoredMenu({id: 'fxLookMenu', className: 'od-link-menu', label: '폴더 색', historyKey: 'kptuFilesLookMenu',
+  key: t => t.dataset.fxLookFor || 'x', onClose: () => lookMode.onClose(),
+  render: () => { const r = pickedRows()[0]; return r?.is_folder ? colorChoiceHtml(folderLook.color(r.source, r.item_id)) + '<p class="od-link-status">이 색·순서는 이 앱에서만 보여요</p>' : ''; },
+  onAction: b => {
+    const r = pickedRows()[0];
+    if (!r?.is_folder) return;
+    const picked = lookMode.pick('x', b);
+    if (picked !== undefined) lookSave(() => folderLook.setColor(rt(), r.source, r.item_id, picked), '폴더 색을 저장하지 못했어요.');
+  }});
+function lookSave(job, failText) { return job().catch(() => notify(`${failText} 잠시 뒤 다시 해 주세요.`, {error: true})); }
+function lookDo(act, button) {
+  const p = P(), r = pickedRows(p)[0];
+  if (!r?.is_folder) return;
+  if (act === 'color') { lookMode.begin('x', button, lookMenu); return; }
+  lookSave(() => folderLook.step(rt(), r.source, lookSibs(p), r.item_id, act === 'up' ? -1 : 1), '폴더 순서를 저장하지 못했어요.');
+}
 function paintBar() {
   const bar = $('[data-fx-bar]');
   if (!bar) return;
@@ -746,14 +790,14 @@ function paintBar() {
     bar.innerHTML = `<span class="fx-bar-t">${n}개 (${paneSide(i)})</span>`
       + `<button type="button" class="fx-btn" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy'))}${keys ? ' (F5)' : ''}</button>`
       + `<button type="button" class="fx-btn" data-fx-send="move"${off}>${esc(sendLabel(i, 'move'))}${keys ? ' (F6)' : ''}</button>`
-      + (n === 1 ? `<button type="button" class="fx-btn" data-fx-rename>이름${keys ? ' (F2)' : ''}</button>` : '')
+      + (n === 1 ? `<button type="button" class="fx-btn" data-fx-rename>이름${keys ? ' (F2)' : ''}</button>` : '') + lookButtonsHtml(p)
       + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
       + `<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통${keys ? ' (Del)' : ''}</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>`;
     return;
   }
   // 시안 ③: 'N개 · [복사] [옮기기] [이름] [휴지통] ✕'(쓰지 않는 ⋯는 두지 않는다).
   bar.innerHTML = `<span class="fx-bar-t">${n}개</span><button type="button" class="fx-btn" data-fx-copy>복사</button><button type="button" class="fx-btn" data-fx-cut>옮기기</button>`
-    + (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '')
+    + (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '') + lookButtonsHtml(p)
     + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
     + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
 }
@@ -929,12 +973,12 @@ function paintDest() {
   const chips = recentDests().map(recentDestOf).filter(d => d && on.includes(d.source));
   const recent = chips.length ? `<div class="fx-dest-sub">최근 보낸 곳</div><div class="fx-dest-recent">${recentDests().filter(d => on.includes(d.source)).map(d =>
     `<button type="button" class="fx-dest-chip${destKey(recentDestOf(d)) === cur ? ' on' : ''}" data-fx-dest-pick="${esc(destKey(recentDestOf(d)))}" data-fx-dest-name="${esc(d.name)}">${d.source === 'gd' ? brandIconSvg('gdrive', {size: 12}) : brandIconSvg('onedrive', {size: 12})}<span>${esc(d.name)}</span></button>`).join('')}</div>` : '';
-  const rows = treeRows({sources: on, children: state.children, open: x.open}).filter(r => r.type !== 'shelf');
+  const rows = treeRows({sources: on, children: state.children, open: x.open, order: lookOrder}).filter(r => r.type !== 'shelf');
   const tree = rows.map(r => {
     const key = r.key, sel = key === cur;
     const twist = r.hasKids ? `<button type="button" class="fx-twist" data-fx-dest-twist="${esc(key)}" aria-expanded="${r.open}" aria-label="${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="fx-twist" aria-hidden="true"></span>';
     const name = r.type === 'root' ? SOURCE_NAME[r.source] : r.name;
-    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${sel ? ' nx-current' : ''}" style="--nx-indent:${r.depth}">${twist}<button type="button" class="nx-main" data-fx-dest-pick="${esc(key)}" data-fx-dest-name="${esc(name)}"${sel ? ' aria-current="true"' : ''}><span class="nx-name">${esc(name)}</span></button></div>`;
+    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${sel ? ' nx-current' : ''}" style="--nx-indent:${r.depth}">${twist}<button type="button" class="nx-main" data-fx-dest-pick="${esc(key)}" data-fx-dest-name="${esc(name)}"${sel ? ' aria-current="true"' : ''}>${r.type === 'folder' && folderLook.color(r.source, r.id) ? folderIconHtml({color: folderLook.color(r.source, r.id)}, {open: r.open}) : ''}<span class="nx-name">${esc(name)}</span></button></div>`;
   }).join('');
   const can = !!x.dest && !state.ask;
   box.innerHTML = `<div class="fx-dest-h"><span id="fxDestTitle">${esc(destTitle(x.rows.length, x.mode))}</span><button type="button" class="mini" data-fx-dest-close aria-label="닫기">✕</button></div>`
@@ -1593,6 +1637,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-star-one]') && state.preview) { starRows([state.preview.row]); return; }
   if (b.matches('[data-fx-cut]')) { openDest('move', pickedRows()); return; }
   if (b.matches('[data-fx-rename]')) { renameRow(pickedRows()[0], b); return; }
+  if (b.matches('[data-fx-look]')) { lookDo(b.dataset.fxLook, b); return; }
   if (b.matches('[data-fx-trash]')) { trashRows(pickedRows(), b); return; }
   if (b.matches('[data-fx-unpick]')) { unpick(); return; }
   if (b.matches('[data-fx-paste]')) { const d = hereDest(); if (state.clip && d) pasteClip(d, b); return; }
@@ -1782,13 +1827,15 @@ root?.addEventListener('touchcancel', () => { swipe = null; }, {passive: true});
 document.addEventListener('visibilitychange', () => {
   // 올리는 중 화면을 숨기면 그 자리에서 멈춤(H-6), 다시 보이면 쥐고 있던 파일로 남은 조각부터.
   if (document.visibilityState === 'hidden') upStop(); else upShow();
-  if (visible()) { sync(); loadJobs(); }
+  if (visible()) { sync(); loadJobs(); lookLoad(); }
 });
+folderLook.onChange(() => { if (root && visible()) { paintTree(); paintLists(); paintBar(); } });
 window.addEventListener('pagehide', upStop);
 
 // ---------- 들어오기 ----------
 async function enter(force = false) {
   resetIfOwnerChanged();
+  lookLoad();
   if (entering && !force) return entering;
   entering = (async () => {
     if (!state.status || force) { paint(); await loadStatus(); }

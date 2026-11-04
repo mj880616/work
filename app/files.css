@@ -229,3 +229,6 @@
 .fx-row.fx-drop-up { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:var(--kptu-primary-soft); }
 .fx-star-btn { flex:none; margin-left:auto; color:var(--kptu-muted); font-size:14px; line-height:1; }
 .fx-star-btn.on { color:var(--kptu-warning); }
+/* FOLDER-순서·색 ③-2: 색을 고른 폴더 줄의 그림(folder-look.css의 data-fc가 --fl-ico를 준다). .fx-ico의 흐린 글자색보다 앞서도록 한 번 더 지정. 안 고른 폴더는 지금의 📁 글자 그대로. */
+.fx-ico.fl-ico { color:var(--fl-ico); }
+.fx-ico.fl-ico svg { width:14px; height:14px; }

@@ -268,3 +268,5 @@
 #appView #photosView .photos-zph .diary-photo{ position:absolute; inset:0; display:block; }
 #appView #photosView .photos-zph img{ width:100%; height:100%; object-fit:cover; display:block; }
 #appView #photosView .photos-zrow:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+/* FOLDER-순서·색 ③-2: 색을 고른 앨범의 이름 앞 작은 폴더 그림(안 고른 앨범은 그림 없음). 색은 folder-look.css의 data-fc가 입힌다. */
+#appView #photosView .photos-album-ico{ margin-right:3px; vertical-align:-2px; }
