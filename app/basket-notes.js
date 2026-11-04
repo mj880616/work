@@ -1336,7 +1336,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     run:(key, el) => { const note = notes.find(n => n.id === el.dataset.nxNote); if (!note || busy || selected) return; if (key === 'delete') void remove(note.id, {confirmed:true}); else void pin(note); }});
   // Leaving the menu by keyboard, or pressing anywhere outside it and its ⋯, closes it.
   host.addEventListener('focusout', e => { const el = menuEl(); if (menu && e.relatedTarget && !el.contains(e.relatedTarget) && e.relatedTarget !== menu.trigger) closeMenu(); });
-  document.addEventListener('click', e => { if (menu && !menuEl().contains(e.target) && !menu.trigger.contains(e.target)) closeMenu(); });
+  // composedPath: [색 고르기…]가 메뉴 안 내용을 바꾸면 눌린 단추는 이미 떼어져 있어도 "메뉴 안에서 누름"으로 본다.
+  document.addEventListener('click', e => { if (menu && !e.composedPath().includes(menuEl()) && !menu.trigger.contains(e.target)) closeMenu(); });
 
   return {
     // openId: a note just moved here from the basket opens once the list is read.
