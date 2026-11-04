@@ -744,7 +744,7 @@ function lookButtonsHtml(p) {
   const rows = pickedRows(p), r = rows[0];
   if (rows.length !== 1 || !r?.is_folder || !SOURCES.includes(r.source)) return '';
   const sib = orderable(p) ? lookSibs(p) : [], i = sib.indexOf(r.item_id);
-  return '<button type="button" class="fx-btn" data-fx-look="color" aria-haspopup="true">색</button>'
+  return '<button type="button" class="fx-btn" data-fx-look="tint" aria-haspopup="true">색</button>'
     + (i > 0 ? '<button type="button" class="fx-btn" data-fx-look="up">위로</button>' : '') + (i >= 0 && i < sib.length - 1 ? '<button type="button" class="fx-btn" data-fx-look="down">아래로</button>' : '');
 }
 const lookMode = createColorMode();
@@ -761,7 +761,7 @@ function lookSave(job, failText) { return job().catch(() => notify(`${failText} 
 function lookDo(act, button) {
   const p = P(), r = pickedRows(p)[0];
   if (!r?.is_folder) return;
-  if (act === 'color') { lookMode.begin('x', button, lookMenu); return; }
+  if (act === 'tint') { lookMode.begin('x', button, lookMenu); return; }
   lookSave(() => folderLook.step(rt(), r.source, lookSibs(p), r.item_id, act === 'up' ? -1 : 1), '폴더 순서를 저장하지 못했어요.');
 }
 function paintBar() {

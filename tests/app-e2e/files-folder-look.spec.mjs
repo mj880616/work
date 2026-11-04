@@ -21,7 +21,7 @@ async function pick(page, key) {
   await expect(row(page, key)).toHaveClass(/fx-picked/);
 }
 async function pickColor(page, name) {
-  await root(page).locator('[data-fx-bar] [data-fx-look="color"]').click();
+  await root(page).locator('[data-fx-bar] [data-fx-look="tint"]').click();
   const choice = page.locator('#fxLookMenu .fl-choice');
   await expect(choice).toBeVisible();
   await choice.getByRole('radio', { name, exact: true }).click();
@@ -43,7 +43,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     // 폴더 한 개를 고르면 막대에 [색] [위로](끝이라 [아래로]는 없음). 파일을 고르면 보이지 않는다.
     await pick(page, 'od:OD!2');
     const bar = root(page).locator('[data-fx-bar]');
-    await expect(bar.locator('[data-fx-look="color"]')).toBeVisible();
+    await expect(bar.locator('[data-fx-look="tint"]')).toBeVisible();
     await expect(bar.locator('[data-fx-look="up"]')).toBeVisible();
     await expect(bar.locator('[data-fx-look="down"]')).toHaveCount(0);
     await pick(page, 'od:OD!1');
@@ -53,7 +53,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     expect(server.prefCalls).toEqual([]);
 
     // 메뉴: 동그라미 8개 + [기본], 이 앱에서만 보인다는 한 줄. 화면 안에 들어온다.
-    await bar.locator('[data-fx-look="color"]').click();
+    await bar.locator('[data-fx-look="tint"]').click();
     const choice = page.locator('#fxLookMenu .fl-choice');
     await expect(choice.getByRole('radio')).toHaveCount(9);
     await expect(choice.getByRole('radio', { name: '기본', exact: true })).toHaveAttribute('aria-checked', 'true');
@@ -113,7 +113,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     // [기본]: 지금 모양(📁)으로, 서버에는 null이 간다. (받을 곳 창을 열려고 둘을 골랐으니 풀고 하나만 고른다.)
     if (await root(page).locator('[data-fx-bar] [data-fx-unpick]').count()) await root(page).locator('[data-fx-bar] [data-fx-unpick]').click();
     await pick(page, 'od:OD!2');
-    await expect(bar.locator('[data-fx-look="color"]')).toBeVisible();
+    await expect(bar.locator('[data-fx-look="tint"]')).toBeVisible();
     await pickColor(page, '기본');
     await expect.poll(() => server.prefCalls.length).toBe(3);
     expect(server.prefCalls[2]).toMatchObject({ items: [{ k: 'OD!2', c: null }] });
