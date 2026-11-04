@@ -28,6 +28,7 @@ const supported=()=>!!(MIME&&navigator.mediaDevices?.getUserMedia);
 if(!document.querySelector('link[data-rec-style]')){const l=document.createElement('link');l.rel='stylesheet';l.href='./meeting-recorder.css';l.dataset.recStyle='1';document.head.appendChild(l)}
 
 // 상태: idle → starting → recording ⇄ paused → finishing → done | error
+// suspended = 마이크가 끊겨(덮개 닫기·잠자기·마이크 빠짐) 일시 정지됨. 올린 조각은 그대로, [이어 녹음]을 사람이 눌러야 마이크를 다시 쥔다(브라우저 규칙).
 let state='idle',step='',note='',errorText='',canRetry=false;
 let stream=null,current=null,segments=[],sessionId='',workspaceId='',startedAt='';
 let rollingStops=[],accum=0,runSince=0,ticker=0,pumping=false,fails=0,retryTimer=0,drainWaiters=[],stopReason='';
@@ -36,12 +37,13 @@ let takeover=null,pending=[],live=[],pendingFor='',pendingFlight=null,discarding
 let jobId='',readyJob=null,watchEpoch=0,jobsLoadedFor='';
 let pieceMs=PIECE_SECONDS*1000,rollPieces=rollPiecesOf(null); // 이 녹음의 조각 간격·구간 조각 한도(rec_start 답, 녹음 내내 같음)
 const DISCARD_DRAIN_MS=20000,DISCARD_NOTICE_MS=10000;
+const SUSPEND_NOTE='마이크는 브라우저 규칙상 직접 눌러야 다시 켜져요. 지금까지 녹음은 서버에 있어요.';
 const doneTexts=new Map(); // 이 창에서 전사가 끝난 구간 글(job id → 글). 서버는 전사 글을 저장하지 않으므로 다시 시도할 때 쓴다(메모리에만).
 
 const rt=()=>window.KPTURuntime;
 const ws=()=>rt()?.context?.read?.()?.workspace?.id||'';
 const elapsed=()=>accum+(runSince?performance.now()-runSince:0);
-const active=()=>state==='starting'||state==='recording'||state==='paused';
+const active=()=>state==='starting'||state==='recording'||state==='paused'||state==='suspended';
 const call=(action,body,extra={})=>rt().api(`${FN}?action=${action}`,{method:'POST',body,singleFlight:false,...extra});
 
 // ---- 그리기(이 모듈만) ----
@@ -76,10 +78,17 @@ function paint(){
   }else if(showPending){
     takeover=null;
     const first=list[0],id=escapeText(first.session_id);
-    l=first.live?'하던 녹음':'끝나지 않은 녹음';
+    l='일시 정지됨';
     m=escapeText(`${pendingText(first)}${list.length>1?` 외 ${list.length-1}건`:''}`);
-    a=`<button type="button" class="rec-btn" data-rec-continue="${id}">이어서 녹음</button><button type="button" class="rec-btn" data-rec-resume="${id}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${id}">버리기</button>`;
+    a=`<button type="button" class="rec-btn" data-rec-continue="${id}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${id}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${id}">버리기</button>`;
   }else if(state==='starting'){l='녹음 준비 중';m=escapeText('마이크를 허락해 주세요.')}
+  else if(state==='suspended'){
+    l='일시 정지됨';
+    t=clockText(sec);
+    const q=queuedPieces(segments);
+    m=escapeText(SUSPEND_NOTE+(q?` (조각 ${q}개 올리는 중)`:''));
+    a='<button type="button" class="rec-btn" data-rec="resume">이어 녹음</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 정리</button><button type="button" class="rec-btn rec-discard" data-rec="discard">버리기</button>';
+  }
   else if(state==='recording'||state==='paused'){
     l=state==='paused'?'일시정지':'녹음 중';
     t=clockText(sec);
@@ -119,12 +128,13 @@ function paintOldLine(){
   line.hidden=!list.length;
   if(!list.length){setHtml(line,'');return}
   const first=list[0];
-  setHtml(line,`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어서 녹음</button><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">버리기</button>`);
+  setHtml(line,`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">버리기</button>`);
 }
 function onBandClick(e){
   const b=e.target.closest('[data-rec]');if(!b)return;
   const what=b.dataset.rec;
   if(what==='pause')togglePause();
+  else if(what==='resume')void resumeSuspended();
   else if(what==='stop')void stopAndFinish();
   else if(what==='discard')void discardLive();
   else if(what==='retry')void retryFinish();
@@ -145,16 +155,20 @@ function tick(){
 function makeRecorder(seg){
   const rec=new MR(stream,{mimeType:MIME,audioBitsPerSecond:AUDIO_BITS});
   let done=()=>{};
-  const holder={rec,seg,rolling:false,stopped:new Promise(r=>{done=r})};
+  const holder={rec,seg,rolling:false,wanted:false,stopped:new Promise(r=>{done=r})};
   holder.end=()=>{seg.ended=true;done();void pump()};
+  // 끝낸 적 없는데 녹음기가 멈추면(마이크 끊김·잠자기) 마지막 조각은 stop 직전 dataavailable로 이미 대기열에 들어갔다 → 일시 정지됨.
+  const lost=()=>{holder.end();if(!holder.wanted&&!holder.rolling&&current===holder&&(state==='recording'||state==='paused'))suspend()};
   rec.addEventListener('dataavailable',e=>{
     if(!e.data||!e.data.size)return;
     const seconds=Math.max(1,Math.ceil((elapsed()-seg.base)/1000));
     seg.pieces.push({seq:++seg.seq,blob:e.data,seconds:Math.min(seconds,3600)});
     void pump();
   });
-  rec.addEventListener('stop',holder.end);
-  rec.addEventListener('error',holder.end);
+  rec.addEventListener('stop',lost);
+  rec.addEventListener('error',lost);
+  // 마이크 트랙이 끝나면(잠자기·장치 빠짐) 브라우저가 녹음기를 멈추지만, 안 멈추는 브라우저를 위해 직접 멈춘다.
+  for(const tr of stream?.getTracks?.()||[])tr.addEventListener?.('ended',()=>{if(holder.wanted||rec.state==='inactive')return;try{rec.stop()}catch{lost()}});
   return holder;
 }
 // 59분: 새 녹음기를 먼저 켜고(조각은 메모리 대기열에) 앞 녹음기를 멈춘다. 대기열이 앞 구간 마지막 조각 → rec_start → 새 구간 순서를 지킨다.
@@ -166,6 +180,7 @@ function roll(){
   try{current=makeRecorder(seg);current.rec.start(pieceMs)}
   catch(e){console.warn('recorder roll failed',e?.name||'');segments.pop();current=old;old.rolling=false;return}
   rollingStops.push(old.stopped);
+  old.wanted=true;
   try{old.rec.stop()}catch{old.end()}
 }
 // from = 끝나지 않은 녹음(rec_pending/live 한 건)이면 [이어서 녹음]: 같은 session_id의 다음 구간으로 새로 녹음한다(REC-새로고침, S49-7).
@@ -207,6 +222,47 @@ function togglePause(){
   if(state==='recording'){try{rec.pause()}catch{return}accum=elapsed();runSince=0;state='paused'}
   else if(state==='paused'){try{rec.resume()}catch{return}runSince=performance.now();state='recording'}
   paint();
+}
+// 일시 정지됨: 지금까지 길이를 굳히고 마이크를 놓는다. 대기열의 조각은 그대로 올린다(pump). 같은 녹음(session_id)을 [이어 녹음]으로 잇는다.
+function suspend(){
+  if(state!=='recording'&&state!=='paused')return;
+  accum=elapsed();runSince=0;
+  state='suspended';current=null;releaseStream();paint();
+}
+// 새 구간을 같은 session_id로 연다(59분 넘김과 같은 방식). 앞 조각은 이미 대기열/서버에 있다.
+async function resumeSuspended(){
+  if(state!=='suspended')return;
+  state='starting';errorText='';paint();
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+  }catch(e){
+    console.warn('microphone denied',e?.name||'');
+    state='suspended';
+    notify(e?.name==='NotAllowedError'?'마이크를 쓸 수 없어요. 주소창 왼쪽 표시를 눌러 마이크를 허용해 주세요.':'마이크를 찾지 못했어요.',{error:true});
+    paint();return;
+  }
+  const last=segments[segments.length-1];
+  const seg={no:(last?.no||0)+1,id:null,ended:false,stopped:false,seq:0,pieces:[],base:accum};
+  segments.push(seg);
+  try{
+    current=makeRecorder(seg);current.rec.start(pieceMs);
+  }catch(e){
+    console.warn('recorder resume failed',e?.name||'');
+    segments.pop();current=null;releaseStream();state='suspended';notify('녹음을 다시 켜지 못했어요.',{error:true});paint();return;
+  }
+  state='recording';runSince=performance.now();startTicker();paint();void pump();
+}
+// 화면이 숨겨질 때(탭 숨김·덮개 닫기 직전) 아직 조각이 안 된 소리를 바로 대기열로 내보낸다. 돌아왔을 때 마이크가 죽어 있으면 일시 정지됨.
+function onHiddenFlush(){
+  if(state!=='recording'||!current)return;
+  try{if(current.rec.state==='recording')current.rec.requestData()}catch{}
+}
+function onVisibleCheck(){
+  if(state!=='recording'&&state!=='paused')return;
+  const dead=!current||current.rec.state==='inactive'||(stream&&stream.getTracks().every(t=>t.readyState==='ended'));
+  if(!dead)return;
+  if(current&&current.rec.state!=='inactive'){try{current.rec.stop();return}catch{}} // stop 이벤트가 suspend를 부른다
+  suspend();
 }
 function releaseStream(){try{stream?.getTracks?.().forEach(t=>t.stop())}catch{}stream=null}
 
@@ -253,13 +309,13 @@ const drained=()=>nextStep(segments).kind==='drained'?Promise.resolve():new Prom
 
 // ---- 멈추고 정리 ----
 async function stopAndFinish(){
-  if(!active()||!current)return;
+  if(!active()||(!current&&state!=='suspended'))return;
   accum=elapsed();runSince=0;
   state='finishing';step='올림';note=stopReason;clearInterval(ticker);paint();
   const holder=current;
-  try{if(holder.rec.state!=='inactive')holder.rec.stop();else holder.end()}catch{holder.end()}
+  if(holder){holder.wanted=true;try{if(holder.rec.state!=='inactive')holder.rec.stop();else holder.end()}catch{holder.end()}}
   // 59분 넘김 중이던 앞 녹음기도 끝난 뒤(마지막 조각이 대기열에 들어간 뒤) 마이크를 놓는다.
-  await Promise.all([holder.stopped,...rollingStops]);
+  await Promise.all([holder?.stopped,...rollingStops]);
   rollingStops=[];current=null;releaseStream();
   await drained();
   note='';
@@ -270,11 +326,11 @@ async function stopAndFinish(){
 // 녹음 띠의 [버리기]: 띠는 바로 사라지고 마이크도 바로 끈다. 녹음기가 내놓는 마지막 조각까지 마저 올린 뒤(되돌리기로 살릴 수 있게,
 // 최대 DISCARD_DRAIN_MS) 서버에 버리기를 부른다. 시간 안에 못 올린 조각은 메모리에서 버린다. 전사·요약·초안은 하지 않는다.
 async function discardLive(){
-  if(!active()||!current||discarding)return;
-  const sid=sessionId,holder=current,stops=[holder.stopped,...rollingStops];
+  if(!active()||(!current&&state!=='suspended')||discarding)return;
+  const sid=sessionId,holder=current,stops=[holder?.stopped,...rollingStops];
   discarding=true;clearInterval(ticker);
   state='idle';step='';note='';errorText='';accum=0;runSince=0;sessionId='';
-  try{if(holder.rec.state!=='inactive')holder.rec.stop();else holder.end()}catch{holder.end()}
+  if(holder){holder.wanted=true;try{if(holder.rec.state!=='inactive')holder.rec.stop();else holder.end()}catch{holder.end()}}
   releaseStream();
   paint();
   let timer=0;
@@ -541,14 +597,17 @@ document.addEventListener('click',e=>{
   if(d){e.preventDefault();askTakeOver('discard',d.dataset.recDiscard)}
 });
 // 녹음 중(아직 올리지 못한 조각이 있을 때 포함)에만 창 닫기 경고.
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')onHiddenFlush();else onVisibleCheck()});
+window.addEventListener('pagehide',onHiddenFlush);
 window.addEventListener('beforeunload',e=>{
+  if(state==='suspended'&&!queuedPieces(segments))return;
   if(!(active()||(state==='finishing'&&step==='올림'&&!jobId)))return;
   e.preventDefault();e.returnValue='';
 });
 window.addEventListener('kptu:session-changed',e=>{
   if(e.detail?.session){void loadServerJobs();return}
   // 로그아웃: 녹음을 멈추고 메모리의 조각을 버린다(서버에 올린 것은 다음 로그인 때 '이어서 정리').
-  if(current){try{current.rec.stop()}catch{}}
+  if(current){current.wanted=true;try{current.rec.stop()}catch{}}
   current=null;releaseStream();clearInterval(ticker);clearTimeout(retryTimer);retryTimer=0;segments=[];pending=[];live=[];clearTimeout(livePollTimer);pendingFor='';
   state='idle';sessionId='';jobId='';readyJob=null;watchEpoch++;jobsLoadedFor='';paint();
 });

@@ -162,7 +162,7 @@ test('Edge: 조각 길이를 고정으로 쓰는 곳 없음, 공용 이어 붙�
   // 화면: 녹음기 timeslice는 서버 간격, 구간 넘김은 시간 + 조각 수.
   const js=read('app/meeting-recorder.js');
   assert.match(js,/pieceMs=pieceSecondsOf\(r\)\*1000;rollPieces=rollPiecesOf\(r\);/);
-  assert.equal([...js.matchAll(/rec\.start\(pieceMs\)/g)].length,2);
+  assert.equal([...js.matchAll(/rec\.start\(pieceMs\)/g)].length,3);
   assert.doesNotMatch(js,/rec\.start\(PIECE_SECONDS/);
   assert.match(js,/shouldRoll\(segSec,SEGMENT_SECONDS,current\.seg\.seq,rollPieces\)/);
 });
