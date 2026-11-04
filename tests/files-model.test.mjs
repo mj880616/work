@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {SOURCES, SHELVES, PHONE_TABS, SYNC_EVERY_MS, MOVE_ACROSS_MAX_BYTES, MOVE_SAME_MAX, kindOf, previewKind, sizeText, dayText, recentGroups,
   syncText, sortRows, applyChanges, touchesCounts, moveCheck, trailNames, trailIds, pathText, treeRows, folderKey, placeOf, whereOf, tabAt,
-  cleanQuery, findSummary, errorText, OD_PDF_EXT, GD_EXPORT_MIME} from '../app/files-model.mjs';
+  cleanQuery, findSummary, errorText, failReason, OD_PDF_EXT, GD_EXPORT_MIME} from '../app/files-model.mjs';
 import {ITEMS, defaultLayout} from '../app/menu-model.mjs';
 // FILES-클라우드탐색기 ④ 화면 모델(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02). 이름은 모두 가짜.
 const read = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
@@ -157,7 +157,7 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   const deviceStores = new RegExp([['local', 'Storage'], ['session', 'Storage'], ['indexed', 'DB'], ['caches', '\\.open']].map(p => p.join('')).join('|'));
   for (const [name, src] of [['files.js', js], ['files-model.mjs', model]]) assert.doesNotMatch(src, deviceStores, name);
   // 읽기: 색인 읽기 함수 3개 + Edge 읽기 동작. 쓰기(S48-45): Edge write()로 다섯 가지만(confirm:true를 붙임). 표에 직접 쓰지 않는다.
-  assert.deepEqual([...new Set([...js.matchAll(/rpc\('(\w+)'/g)].map(m => m[1]))].sort(), ['app_cloud_find', 'app_cloud_list', 'app_cloud_trail']);
+  assert.deepEqual([...new Set([...js.matchAll(/rpc\('(\w+)'/g)].map(m => m[1]))].sort(), ['app_cloud_find_in', 'app_cloud_list', 'app_cloud_trail']);
   assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['folder', 'media', 'open-url', 'preview', 'status', 'sync', 'thumb']);
   assert.deepEqual([...new Set([...js.matchAll(/await write\('(\w+)'/g)].map(m => m[1]))].sort(), ['across', 'mkdir', 'move', 'rename', 'trash']);
   assert.match(js, /body: \{action, \.\.\.body, confirm: true\}/);
@@ -229,4 +229,17 @@ test('S49-17 폴더 개수: 읽은 값이 있을 때만 글, 모르면 빈 글 �
   assert.equal(isLockedItem(row({mime: null, size_bytes: 12})), false);
   assert.equal(isLockedItem(row({is_folder: true, mime: null, size_bytes: 0})), false);
   assert.equal(isLockedItem(row({source: 'gd', mime: null, size_bytes: 0})), false);
+});
+
+test('실패 까닭 한 줄(S49-26): 정해 둔 말만, 서버 글자는 그대로 보이지 않음', () => {
+  assert.equal(failReason({code: 'timeout', message: '요청 시간이 초과되었습니다.'}), '시간 초과');
+  assert.equal(failReason({status: 500, code: 'http_500', message: 'canceling statement due to statement timeout'}), '서버 시간 초과');
+  assert.equal(failReason({status: 504, code: 'http_504'}), '서버 시간 초과');
+  assert.equal(failReason({code: 'network_error'}), '연결 끊김');
+  assert.equal(failReason({status: 503, code: 'http_503', message: 'internal detail x'}), '서버 오류 503');
+  assert.equal(failReason({status: 404, code: 'http_404', message: 'Could not find the function'}), '요청 오류 404');
+  assert.equal(failReason(null), '');
+  assert.equal(failReason({message: 'something'}), '');
+  const js = read('app/files.js');
+  for (const k of ['state.failedWhy', 'state.findWhy', 'state.statusWhy']) assert.match(js, new RegExp(`reason: ${k.replace('.', '\\.')}`), k);
 });

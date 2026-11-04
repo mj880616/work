@@ -198,3 +198,48 @@ test('[파일] 같은 계정 두 기기: 폰 앱과 PC의 출처 켜고 끄기�
     expect(p.errors).toEqual([]);
   } finally { await appCtx.close(); await pcCtx.close(); }
 });
+
+// S49-26 FILES-통합 1-②: [최근]은 켜진 출처를 서버(app_cloud_find_in p_sources)로 넘겨 받은 줄만 그린다(화면에서 덮어 거르지 않음).
+for (const width of [412, 884, 1440]) {
+  test(`[파일] ${width}폭: [최근]은 켜진 출처만 서버에 물어 그대로 보이고, 출처를 바꾸면 다시 묻는다`, async ({ page }) => {
+    const { errors, server } = await start(page, width);
+    await installViewPrefsServer(page);
+    await openFiles(page, width);
+    const lastFind = () => server.calls.filter(c => c.what === 'app_cloud_find_in').at(-1)?.body;
+    const list = root(page).locator('[data-fx-list]');
+    await expect.poll(lastFind).toEqual({ p_sources: ['od', 'gd'], p_query: null, p_shelf: 'recent', p_limit: 200 });
+    await expect(list.locator('[data-fx-row^="gd:"]').first()).toBeVisible();
+    await expect(list.locator('[data-fx-row^="od:"]').first()).toBeVisible();
+    await chip(page, 'od').click();
+    await expect.poll(lastFind).toEqual({ p_sources: ['gd'], p_query: null, p_shelf: 'recent', p_limit: 200 });
+    await expect(list.locator('[data-fx-row^="od:"]')).toHaveCount(0);
+    await expect(list.locator('[data-fx-row^="gd:"]').first()).toBeVisible();
+    await chip(page, 'od').click();
+    await chip(page, 'gd').click();
+    await expect.poll(lastFind).toEqual({ p_sources: ['od'], p_query: null, p_shelf: 'recent', p_limit: 200 });
+    await expect(list.locator('[data-fx-row^="gd:"]')).toHaveCount(0);
+    await expect(list.locator('[data-fx-row^="od:"]').first()).toBeVisible();
+    // 찾는 중에 출처를 바꾸면 켜진 출처로 다시 찾는다.
+    await root(page).locator('[data-fx-search]').fill('가짜');
+    await expect.poll(lastFind).toEqual({ p_sources: ['od'], p_query: '가짜', p_shelf: null, p_limit: 200 });
+    await chip(page, 'gd').click();
+    await expect.poll(lastFind).toEqual({ p_sources: ['od', 'gd'], p_query: '가짜', p_shelf: null, p_limit: 200 });
+    expect(errors).toEqual([]);
+  });
+}
+
+test('[파일] 폰 412: [최근]을 못 읽으면 \'불러오지 못했습니다\' 옆에 작은 글자로 까닭 + [다시]', async ({ page }) => {
+  const { errors, server } = await start(page, 412);
+  await installViewPrefsServer(page);
+  server.findFail = { status: 500, message: 'canceling statement due to statement timeout' };
+  await openFiles(page, 412).catch(() => {});
+  const fail = root(page).locator('[data-fx-list] [data-wait-fail]');
+  await expect(fail).toContainText('불러오지 못했습니다');
+  await expect(fail.locator('[data-wait-reason]')).toHaveText('· 서버 시간 초과');
+  expect(await fail.textContent()).not.toContain('canceling');
+  // [다시]를 누르면 다시 읽고, 이번엔 된다.
+  server.findFail = null;
+  await fail.locator('[data-fx-retry]').click();
+  await expect(root(page).locator('[data-fx-list] [data-fx-row]').first()).toBeVisible();
+  expect(errors.filter(e => !/500/.test(e))).toEqual([]);
+});

@@ -182,3 +182,9 @@ F1 원드라이브 자체 휴지통 / F2 열 때 + 2분마다 바뀐 것만 + �
 - 끄기는 보기에서만 빠진다(연결·색인·밤 예약 그대로). [최근]·[별표]·찾기는 서버가 준 줄을 켜진 출처로 거르고, 나무·[폴더]는 켜진 출처만 그린다. 모두 끄면 '위 출처 아이콘을 켜 주세요'.
 - 나무: 켜진 드라이브가 맨 위 줄(▸)로 나란히, 아래로 폴더를 펼친다(기존 `treeRows`·`fx-twist`). 펼친 폴더는 색인에서 하위 폴더를 읽고 그 폴더를 Edge `folder`로 바로 한 번 읽어 채운다(`fillFolder`, 폴더 열기의 `directRead`와 같은 `directDone` 표 — 읽은 폴더는 다시 부르지 않음). 폴더 개수는 읽은 뒤에만(S49-17 규칙 유지).
 - 폰(≤760) [폴더] 탭: 첫 화면이 이 나무(`data-fx-pane="tree"`), 폴더 이름을 누르면 그 폴더 목록(`pane="list"`), 목록 맨 위 ‹ 가 위 폴더 → 맨 위에서 한 번 더 ‹ 면 나무. 줄은 촘촘(32px), 펼치기 단추는 폭 40px.
+
+### 8.x [최근] 빠른 길·출처 서버 거르기 (S49-26, FILES-통합 1-②)
+
+- 원인: `app_cloud_find`(INVOKER)가 작업공간을 칸으로 거르지 않아 RLS가 줄마다 owner·files 함수를 부르고, 정렬이 색인 순서와 맞지 않아 전체를 읽어 정렬한 뒤 200줄을 잘랐다. 자료실 짝(`app_documents`)은 색인 없이 줄마다 찾았다.
+- 고침(migration `20261104120000_cloud_find_sources`): 새 읽기 함수 `app_cloud_find_in(p_sources, p_query, p_shelf, p_limit)` — 주인·files 검사는 처음 한 번(본인 owner 작업공간, 클라이언트 id 안 받음), 그 작업공간 칸으로만 읽고, 묶음은 출처마다 새 색인(`app_cloud_items_recent_src_idx`·`big_src_idx`) 순서로 `p_limit`줄만, 별표·자료실 짝·경로는 고른 줄에만. 자료실 짝 색인 `app_documents_workspace_file_idx`. 옛 `app_cloud_find`는 두 출처 모두를 부르는 INVOKER 얇은 길(DROP은 승인형 workflow가 받지 않음).
+- 화면: 켜진 출처를 `p_sources`로 넘기고 받은 줄을 덮어 거르지 않는다(`filterBySource` 삭제). 출처를 바꾸면 묶음·찾기를 다시 묻는다. 실패하면 '불러오지 못했습니다' 옆 작은 글자로 까닭(`failReason`: 시간 초과·서버 시간 초과·연결 끊김·서버 오류 n·요청 오류 n) + [다시].
