@@ -126,7 +126,7 @@ test.describe('폰 앱 412 — 꾹 누르기 메뉴', () => {
     const state = await openO1(page);
     const p = await press(page, viewer(page).locator('.diary-viewer-stage'));
     await expect(menu(page)).toBeVisible();
-    await expect(menu(page).getByRole('button')).toHaveText(['사진 복사', '일기에 넣기', '업데이트로 보내기', '다운로드', '다른 앱으로 공유…']);
+    await expect(menu(page).getByRole('button')).toHaveText(['사진 복사', '일기에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
     await p.end();
     await page.waitForTimeout(100);
     await expect(menu(page)).toBeVisible(); // 손가락을 뗄 때 따라오는 클릭이 메뉴를 닫지 않는다
@@ -183,7 +183,7 @@ test.describe('삼성 인터넷 흉내 412 — 공유 한 번에', () => {
     await expect(viewer(page)).toBeVisible();
     await expect(viewer(page).locator('.diary-slide .diary-photo[data-state="shown"]').first()).toBeVisible();
     await page.waitForTimeout(300);
-    await viewer(page).locator('[data-diary-share]').click();
+    await viewer(page).locator('[data-diary-share]').click(); await page.locator('#shareMenu').getByRole('button', { name: '다른 앱으로 공유…' }).click();
     await expect.poll(() => shares(page)).toBe(1);
     await expect(viewer(page).locator('[data-diary-viewer-note] [data-wait]')).toHaveCount(0);
     expect(state.errors).toEqual([]);
@@ -193,12 +193,12 @@ test.describe('삼성 인터넷 흉내 412 — 공유 한 번에', () => {
     const state = await setup(page, { slow: 1500 });
     await page.locator('#photosRoot [data-photos-id="O1"]').click();
     await expect(viewer(page)).toBeVisible();
-    await viewer(page).locator('[data-diary-share]').click();
+    await viewer(page).locator('[data-diary-share]').click(); await page.locator('#shareMenu').getByRole('button', { name: '다른 앱으로 공유…' }).click();
     await page.evaluate(() => { window.__act = false; }); // 기다리는 사이 효력이 끝남(삼성 인터넷)
     await expect(viewer(page).locator('[data-diary-viewer-note]')).toContainText('[공유]를 한 번 더 눌러 주세요', { timeout: 15000 });
     expect(await shares(page)).toBe(0);
     await page.evaluate(() => { window.__act = true; });
-    await viewer(page).locator('[data-diary-share]').click();
+    await viewer(page).locator('[data-diary-share]').click(); await page.locator('#shareMenu').getByRole('button', { name: '다른 앱으로 공유…' }).click();
     await expect.poll(() => shares(page)).toBe(1);
     expect(state.errors).toEqual([]);
   });

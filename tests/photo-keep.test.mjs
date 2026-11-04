@@ -1,4 +1,5 @@
 import {test} from 'node:test';
+import {PHOTO_BAR_MENUS} from '../app/photo-menu-items.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {keptItem, keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor, folderKey, twinPairs} from '../app/photo-keep-model.mjs';
@@ -143,7 +144,7 @@ test('화면 연결: [지우기] 두 갈래 창·[폰으로 되돌리기] 단추
   assert.match(src, /const needTwoWay = all => phone\.usable && \(deletePlan\(all, null\)\.twoWay \|\| \(odPlain\(all\)\.length > 0 && ready\(\) && !!phone\.state\(\)\.trash\)\);/);
   assert.match(src, /choose:own \? null : \(item, anchor, plain\) => \{/);
   assert.match(src, /if \(!needTwoWay\(\[item\]\)\) return false; chooseDelete\(anchor, \[item\], \(\) => plain\(\)\); return true;/);
-  assert.match(read('app/photo-act-bar.mjs'), /restore: \{icon: '↩', hidden: true\}/);
+  assert.ok(PHOTO_BAR_MENUS.selectBar.more.includes('restore') && PHOTO_BAR_MENUS.viewBar.more.includes('restore')); // 아래 줄 [더보기] 안 항목
   assert.match(src, /if \(u\.phone && !u\.onedrive && kept\?\.length\)/);
   assert.match(src, /void dropKept\(keptIdsFor\(kept, b\.taken/);
   assert.match(src, /if \(marks\(\) \|\| item\.kept\)/);

@@ -110,65 +110,86 @@ const press = async (page, locator, { hold = 700, move = 0 } = {}) => {
 
 
 const bar = page => page.locator('[data-diary-viewer] .diary-viewer-actions');
-const barNames = page => bar(page).locator('button:visible .kptu-act-tx').allTextContents();
-const SELECT_NAMES = ['별표', '공유', '받기', '일기', '업데이트', '옮기기', '앨범', '편집', '정보수정', '지우기'];
+const barNames = async page => (await bar(page).locator('button:visible .kptu-act-tx').allTextContents()).map(t => t.replace('▾', '').trim());
+// PHOTO-아래줄정돈(S49-34, 명진 결정 11/04 12:06 A안): 아래 줄 다섯 칸, 나머지는 [공유 ▾]·[편집 ▾]·[더보기] 안 글자 항목.
+const BAR_NAMES = ['별표', '공유', '편집', '지우기', '더보기'];
+const barMenu = page => page.locator('#photoBarMenu, #shareMenu').locator('button:visible');
+const menuTexts = async (page, trigger) => { await trigger.click(); const t = await barMenu(page).allTextContents(); await page.keyboard.press('Escape'); await expect(page.locator('#photoBarMenu, #shareMenu').locator('button:visible')).toHaveCount(0); return t; };
+const pickItem = async (page, trigger, text) => { await trigger.click(); await page.locator('#photoBarMenu, #shareMenu').getByRole('button', { name: text, exact: true }).click(); };
 
 for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884, 800], ['PC 1440', 1440, 900]]) {
   test.describe(`${label} — 크게 보기 아래 줄`, () => {
     test.use({ viewport: { width, height }, userAgent: ANDROID, hasTouch: width < 761, isMobile: width < 761 });
 
-    test('크게 보기 줄 = 고르기 줄(같은 목록·이름·순서), 크게 보기에만 [정보]', async ({ page }) => {
+    test('크게 보기 줄 = 다섯 칸, 빠진 기능은 ▾·더보기 안에 있다', async ({ page }) => {
       const state = await fixture(page, { app: true });
       await openPhotos(page, width);
       await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
-      // 고르기 줄: 폰 사진 1장을 고른 줄
-      await page.locator('#photosRoot [data-photos-id="ph:1"]').click({ delay: 700 }).catch(() => {});
-      const sel = await page.evaluate(() => [...document.querySelectorAll('[data-photos-act] button:not([hidden]) .kptu-act-tx')].map(e => e.textContent));
-      // 크게 보기
-      await page.evaluate(() => { document.querySelector('[data-photos-sel-off]')?.click(); });
       await page.locator('#photosRoot [data-photos-id="ph:1"]').click();
       await expect(viewer(page)).toBeVisible();
       await expect(viewer(page).locator('.diary-slide .diary-photo[data-state="shown"]').first()).toBeVisible();
-      const names = await barNames(page);
-      expect(names).toEqual(SELECT_NAMES.slice(0, 7).concat(['편집', '정보수정', '정보', '지우기']).filter(n => names.includes(n)));
-      for (const n of ['별표', '공유', '받기', '일기', '업데이트', '옮기기', '앨범', '지우기']) expect(names).toContain(n);
-      if (sel.length) expect(names.filter(n => n !== '정보')).toEqual(sel);
-      // 한 줄: 넘치면 옆으로 민다(줄 바꿈·잘림 없음)
-      const fit = await bar(page).evaluate(el => ({ wrap: new Set([...el.querySelectorAll('button:not([hidden])')].map(b => Math.round(b.getBoundingClientRect().top))).size, over: el.scrollWidth > el.clientWidth, ox: getComputedStyle(el).overflowX }));
+      expect(await barNames(page)).toEqual(BAR_NAMES);
+      expect(await bar(page).locator('button:visible').count()).toBeLessThanOrEqual(5);
+      const b = bar(page);
+      expect(await menuTexts(page, b.locator('[data-diary-share]'))).toEqual(['사진 복사', '일기에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
+      expect(await menuTexts(page, b.locator('[data-strip-act="edit"]'))).toEqual(['사진 편집']); // 정보수정은 폰 앱 0.4.15(meta)부터라 이 흉내(0.4.7)에는 없다 — photos-info-edit.spec.mjs가 본다
+      const more = await menuTexts(page, b.locator('[data-strip-act="more"]'));
+      expect(more).toEqual(['정보', '폴더로 옮기기', '앨범에 넣기']);
+      // 한 줄: 줄 바꿈·잘림 없음, 아이콘은 모두 선 아이콘(svg)
+      const fit = await b.evaluate(el => ({ wrap: new Set([...el.querySelectorAll('button:not([hidden])')].map(x => Math.round(x.getBoundingClientRect().top))).size, over: el.scrollWidth > el.clientWidth, svg: el.querySelectorAll('button:not([hidden]) .kptu-act-ic svg').length, all: el.querySelectorAll('button:not([hidden])').length }));
       if (process.env.SHOT) await page.screenshot({ path: `${process.env.SHOT}/viewer-${width}.png` });
       expect(fit.wrap).toBe(1);
-      if (fit.over) expect(fit.ox).toBe('auto');
+      expect(fit.over).toBe(false);
+      expect(fit.svg).toBe(fit.all);
       expect(state.errors).toEqual([]);
     });
 
-    test('버튼이 지금 사진 1장에 동작: 별표·받기·업데이트·일기·정보수정·지우기', async ({ page }) => {
+    test('항목이 지금 사진 1장에 동작: 별표·정보·앨범·옮기기·업데이트로 보내기(알림이 보임)·지우기', async ({ page }) => {
       const state = await fixture(page, { app: true });
       await openPhotos(page, width);
       await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
       await page.locator('#photosRoot [data-photos-id="O1"]').click();
       await expect(viewer(page)).toBeVisible();
       await expect(viewer(page).locator('.diary-slide .diary-photo[data-state="shown"]').first()).toBeVisible();
-      // 별표
-      await bar(page).locator('[data-diary-star]').click();
-      await expect(bar(page).locator('[data-diary-star]')).toHaveAttribute('aria-pressed', 'true');
-      // 정보 판 열기
-      await bar(page).locator('[data-diary-info]').click();
+      const b = bar(page), more = b.locator('[data-strip-act="more"]');
+      await b.locator('[data-diary-star]').click();
+      await expect(b.locator('[data-diary-star]')).toHaveAttribute('aria-pressed', 'true');
+      // 정보 판 열기·닫기(더보기 안 [정보])
+      await pickItem(page, more, '정보');
       await expect(viewer(page).locator('[data-diary-viewer-info]')).toBeVisible();
-      await bar(page).locator('[data-diary-info]').click();
-      // 앨범: 작은 메뉴가 사진 위에 뜨고 Esc로 닫힌다
-      await bar(page).locator('[data-strip-act="tag"]').click();
+      await pickItem(page, more, '정보');
+      await expect(viewer(page).locator('[data-diary-viewer-info]')).toBeHidden();
+      // 앨범에 넣기: 작은 메뉴가 사진 위에 뜨고 Esc로 닫힌다
+      await pickItem(page, more, '앨범에 넣기');
       await expect(page.locator('#photosPickMenu')).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(page.locator('#photosPickMenu')).toBeHidden();
-      // 옮기기: 폴더 메뉴 → 폴더를 고르면 지금 보는 사진 1장(O1)만 그 폴더로
-      await bar(page).locator('[data-strip-act="move"]').click();
+      // 폴더로 옮기기: 폴더를 고르면 지금 보는 사진 1장(O1)만 그 폴더로
+      await pickItem(page, more, '폴더로 옮기기');
       await expect(page.locator('#photosPickMenu')).toBeVisible();
       await page.locator('#photosPickMenu [data-pick-folder="F1"]').click();
       await expect.poll(() => state.moves).toEqual([{ ids: ['O1'], to: 'F1' }]);
       // 지우기: 다음 사진으로 넘어간다(2장 → 1장)
       await expect(viewer(page).locator('[data-diary-viewer-count]')).toHaveText(/\/ 2/);
-      await bar(page).locator('[data-od-delete]').click();
+      await b.locator('[data-od-delete]').click();
       await expect(viewer(page).locator('[data-diary-viewer-count]')).toHaveText(/\/ 1/);
+      expect(state.errors).toEqual([]);
+    });
+
+    // PHOTO-업데이트반응없음(S49-34): 누르면 곧바로 '보내는 중'/결과 알림이 크게 보기 위에 보여야 한다(예전에는 크게 보기 뒤에 깔려 반응이 없어 보임).
+    test('[공유 ▾] → 업데이트로 보내기·일기에 넣기: 알림이 크게 보기 위에 보인다', async ({ page }) => {
+      const state = await fixture(page, { app: true });
+      await openPhotos(page, width);
+      await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
+      await page.locator('#photosRoot [data-photos-id="O1"]').click();
+      await expect(viewer(page).locator('.diary-slide .diary-photo[data-state="shown"]').first()).toBeVisible();
+      await pickItem(page, bar(page).locator('[data-diary-share]'), '업데이트로 보내기');
+      const note = page.locator('#kptuNotice');
+      await expect(note).toBeVisible();
+      // 알림은 누름을 받지 않는 칸(pointer-events:none)이라 elementFromPoint로는 못 잡는다 → 겹침 순서(z-index)가 크게 보기보다 위인지 본다.
+      const z = await page.evaluate(() => ({ note: Number(getComputedStyle(document.getElementById('kptuNotice')).zIndex), viewer: Number(getComputedStyle(document.querySelector('[data-diary-viewer]')).zIndex) }));
+      expect(z.note).toBeGreaterThan(z.viewer);
+      await expect(note).toContainText(/업데이트로 보|사진 받는 중|받지 못했|보내지 못했/);
       expect(state.errors).toEqual([]);
     });
   });

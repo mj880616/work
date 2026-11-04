@@ -20,7 +20,8 @@ import {preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quie
 import {attachPhotoLongPress, pointAnchor} from './photo-longpress.js';
 import {shareFrom} from './share-menu.js';
 import {ACT_ICON} from './action-bar.mjs'; // UI-고르기줄(S48-54): 아래 줄 공용 부품
-import {PHOTO_MENUS} from './photo-menu-items.mjs';
+import {PHOTO_MENUS, PHOTO_BAR_MENUS} from './photo-menu-items.mjs';
+import {openBarMenu} from './photo-bar-menu.js'; // PHOTO-아래줄정돈(S49-34): [편집 ▾]·[더보기] 글자 메뉴
 import {photoActButtons} from './photo-act-bar.mjs'; // PHOTO-크게보기메뉴통일(S49-23): 아래 버튼줄 그리기는 고르기 줄과 같은 코드 하나
 
 let viewer = null, pending = null;
@@ -78,6 +79,8 @@ export const photoStripCommit = () => commitPending();
 // 크게 보기 아래 줄의 기본 목록(부르는 화면이 acts를 안 줄 때: 일기). 속성은 예전 이름 그대로(시험·손동작이 찾는다).
 const STRIP_BASIC_BAR = Object.freeze(['star', 'share', 'edit', 'delete', 'detail']);
 const STRIP_ACT_ATTR = Object.freeze({star:'data-diary-star aria-pressed="false"', share:'data-diary-share', edit:'data-strip-edit', delete:'data-od-delete', detail:'data-diary-info'});
+// acts를 받은 화면(사진)의 [편집 ▾]·[더보기]는 글자 메뉴를 연다(data-strip-act). [정보]는 '더보기' 안 항목이라 정보 판 단추가 줄에 없다.
+const STRIP_MENU_ATTR = Object.freeze({edit:'data-strip-act="edit"', more:'data-strip-act="more"'});
 export const stripPrio = d => (d === 0 ? -2 : Math.abs(d) === 1 ? -1 : 0);
 export function openPhotoStrip(opts) {
   const {host, list, index, title, layerName = 'diary-photo', element, label, when, caption = () => '', info, original, isStarred, toggleStar,
@@ -88,7 +91,7 @@ export function openPhotoStrip(opts) {
   let items = first.slice(), at = index, noteTimer = null;
   // PHOTO-크게보기메뉴통일(S49-23): 부르는 화면이 acts({avail, run})를 주면 고르기 아래 줄과 같은 버튼 목록(PHOTO_MENUS.viewBar)을 그리고, 안 주면(일기) 기본 다섯 개.
   const barIds = acts ? PHOTO_MENUS.viewBar : STRIP_BASIC_BAR;
-  const barAttr = id => (STRIP_ACT_ATTR[id] || `data-strip-act="${id}"`);
+  const barAttr = id => ((acts && STRIP_MENU_ATTR[id]) || STRIP_ACT_ATTR[id] || `data-strip-act="${id}"`);
   const trigger = document.activeElement, box = document.createElement('div');
   box.className = 'diary-viewer'; box.dataset.diaryViewer = '';
   box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', title);
@@ -97,7 +100,7 @@ export function openPhotoStrip(opts) {
   const whenEl = box.querySelector('[data-diary-viewer-when]'), infoEl = box.querySelector('[data-diary-viewer-info]'), infoBtn = box.querySelector('[data-diary-info]');
   const starBtn = box.querySelector('[data-diary-star]'), delBtn = box.querySelector('[data-od-delete]'), undoBtn = box.querySelector('[data-diary-undo]');
   const editBtn = box.querySelector('[data-strip-edit]');
-  const actBtn = id => box.querySelector(id === 'star' || id === 'share' || id === 'edit' || id === 'delete' || id === 'detail' ? `[${STRIP_ACT_ATTR[id].split(' ')[0]}]` : `[data-strip-act="${id}"]`);
+  const actBtn = id => box.querySelector(`[${barAttr(id).split(' ')[0]}]`);
   const noteText = text => paintPhotoNote(box.querySelector('[data-diary-viewer-note-text]'), text);
   // PHOTO-폰앱공유(요청함 11/01 21:26): 알림 줄(공유 기다림 회색 칸·안내 글)을 눌러도 아무 일 없게. 줄 안 [되돌리기]만 받는다.
   // 예전에는 줄이 누름을 받지 않아 폰이 바로 아래 [🗑 지우기]로 옮겨 눌렀다(누르는 곳 보정) → '휴지통으로 옮겼어요'.
@@ -155,14 +158,29 @@ export function openPhotoStrip(opts) {
   const slidePhoto = i => strip.children[i]?.querySelector('.diary-photo') || null;
   const prepareShown = () => { const el = slidePhoto(at); if (el) preparePhotoBlob(el); };
   // 버튼마다 보일지·눌릴지: 별표·공유(안 되는 기기는 누르면 안내)·정보 판은 늘 보이고, 지우기·편집은 이 화면 규칙(deletable·editable), 나머지는 부르는 화면의 고르기 줄과 같은 규칙(acts.avail).
+  // [편집 ▾]·[더보기] 안 항목: 표(PHOTO_BAR_MENUS.viewBar)의 순서대로, 지금 쓸 수 있는 것만(보이는 규칙은 부르는 화면의 acts.avail 한 곳, 사진 편집은 이 화면 규칙 editable).
+  const menuRows = (menuId, item) => (PHOTO_BAR_MENUS.viewBar[menuId] || []).flatMap(id => {
+    if (id === 'detail') return [{id}];
+    if (id === 'edit') return editable && edit && editable(item) ? [{id}] : [];
+    const a = acts.avail(id, item);
+    return a.hidden ? [] : [{id, disabled:!!a.disabled}];
+  });
+  const toggleInfo = () => { infoEl.hidden = !infoEl.hidden; infoBtn?.setAttribute('aria-expanded', String(!infoEl.hidden)); paintInfo(); };
+  const runMenuItem = (id, btn) => {
+    const item = items[at]; if (!item) return;
+    if (id === 'detail') { toggleInfo(); return; }
+    if (id === 'edit') { if (editable?.(item)) edit?.(item, btn); return; }
+    return Promise.resolve(acts.run(id, item, btn)).finally(() => { if (viewer?.box === box) paintBar(); });
+  };
+  // 버튼마다 보일지·눌릴지: 별표·공유는 늘 보이고, 지우기는 이 화면 규칙(deletable), [편집 ▾]·[더보기]는 안에 쓸 항목이 있을 때만(acts 없는 화면=일기는 예전 다섯 개).
   const paintBar = () => {
     const item = items[at]; if (!item) return;
     for (const id of barIds) {
       const b = actBtn(id); if (!b) continue;
       let a = {hidden:false};
       if (id === 'delete') { const d = deletable(item); a = {hidden:false, disabled:!d.ok}; b.title = d.title; }
-      else if (id === 'edit') a = {hidden:!(editable && edit && editable(item))};
-      else if (acts && id !== 'star' && id !== 'share' && id !== 'detail') a = {hidden:false, ...acts.avail(id, item)};
+      else if (id === 'edit' && !acts) a = {hidden:!(editable && edit && editable(item))};
+      else if (acts && (id === 'edit' || id === 'more')) { const rows = menuRows(id, item); a = {hidden:!rows.length, disabled:!rows.some(r => !r.disabled)}; }
       b.hidden = !!a.hidden; b.disabled = !!a.disabled;
     }
   };
@@ -229,7 +247,9 @@ export function openPhotoStrip(opts) {
     shareFrom(trigger, {video:!!item.video, count:1, note,
       getFiles:() => photoFilesFor(el, nameOf, {alive, note}),
       native:() => sharePhotoElement(el, nameOf, {alive, note}),
-      download:item.video && download ? () => download(item) : null,
+      // PHOTO-아래줄정돈(S49-34): 사진 화면(acts)의 [받기]·[업데이트로 보내기]는 아래 줄이 예전에 부르던 같은 동작(앱 받기·알림 위치·[정리함 보기])으로.
+      download:acts && !item.video ? () => acts.run('down', item, trigger) : item.video && download ? () => download(item) : null,
+      basket:acts && !item.video ? () => acts.run('basket', item, trigger) : undefined,
       // S49-9 PHOTO-메뉴항목통일: 부르는 화면이 diary(item, trigger)를 주면 [일기에 넣기](그 사진 찍은 날 일기)도 보인다.
       diary:diary && !item.video ? () => diary(item, trigger) : undefined}, menu ? {wide:true} : {});
   }
@@ -434,14 +454,17 @@ export function openPhotoStrip(opts) {
   box.addEventListener('click', event => {
     if (event.target.closest('[data-diary-viewer-close]')) closePhotoStrip();
     else if (event.target.closest('[data-diary-star]')) toggleHere();
-    else if (event.target.closest('[data-diary-share]')) shareCurrent(event.target.closest('[data-diary-share]'));
+    else if (event.target.closest('[data-diary-share]')) shareCurrent(event.target.closest('[data-diary-share]'), {menu:!!acts});
     else if (event.target.closest('[data-strip-edit]')) { if (items[at] && editable?.(items[at])) edit?.(items[at], editBtn); }
     else if (event.target.closest('[data-diary-undo]')) undoPending();
     else if (event.target.closest('[data-od-delete]')) deleteCurrent();
     else if (event.target.closest('[data-strip-play]')) playAt(Number(event.target.closest('[data-strip-play]').dataset.stripPlay));
     else if (event.target.closest('[data-strip-original]')) download?.(items[at]);
-    else if (event.target.closest('[data-strip-act]')) { const b = event.target.closest('[data-strip-act]'); if (items[at] && !b.disabled) Promise.resolve(acts.run(b.dataset.stripAct, items[at], b)).finally(() => { if (viewer?.box === box) paintBar(); }); }
-    else if (event.target.closest('[data-diary-info]')) { infoEl.hidden = !infoEl.hidden; infoBtn.setAttribute('aria-expanded', String(!infoEl.hidden)); paintInfo(); }
+    else if (event.target.closest('[data-strip-act]')) {
+      const b = event.target.closest('[data-strip-act]'), item = items[at];
+      if (item && !b.disabled) openBarMenu(b, menuRows(b.dataset.stripAct, item), id => runMenuItem(id, b));
+    }
+    else if (event.target.closest('[data-diary-info]')) toggleInfo();
   });
   buildSlides(); host.append(box);
   viewer = {box, trigger, refresh, reload, dropById, paintBar, current:() => items[at] || null, note, onClose, dispose:() => { resetZoom(); dropHires(); }, starChanged:false, undoShown:on => { undoBtn.hidden = !on; if (!on && !pending) noteText(''); },
