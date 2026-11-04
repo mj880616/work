@@ -160,9 +160,9 @@ test('family notes: operator-only table, no raw text, owner decides, server inse
    assert.equal((await owner(c=>c.query('select id from public.app_family_notes'))).rows.length,2);
   });
 
-  await t.test('isolation: no other DB function names the table; nobody executes the guard function',async()=>{
+  await t.test('isolation: no DB function names the table; nobody executes the guard function',async()=>{
    const fns=(await pool.query("select p.oid::regprocedure::text f from pg_proc p where p.prosrc ~ 'app_family_notes'")).rows.map(r=>r.f);
-   assert.deepEqual(fns,['private.app_family_feature_guard()']);
+   assert.deepEqual(fns,[],'the guard reads only the operator table (NEW row), so no function body names the notes table');
    for(const role of ['authenticated','anon','service_role'])
     assert.equal((await pool.query("select has_function_privilege($1,'private.app_family_feature_guard()','execute') x",[role])).rows[0].x,false,role);
    assert.equal((await pool.query("select count(*)::int n from pg_views where definition ~ 'app_family_notes'")).rows[0].n,0);
