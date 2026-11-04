@@ -52,7 +52,7 @@ import {scheduleForm, reportDateText} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
-import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftHand, draftSiteLayout, readCarriedLayout, changeWeekDocs, changeWeekCell, withDetailTakes, withRequestTakes} from './weekly-draft-store.js';
+import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftHand, draftOwners, draftSiteLayout, readCarriedLayout, changeWeekDocs, changeWeekCell, withDetailTakes, withRequestTakes} from './weekly-draft-store.js';
 import {timeCell} from './time-input.js';
 import {discussLines} from './weekly-discuss.mjs';
 import {rowMore, partAdd} from './row-more.js';
@@ -373,6 +373,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       state.carriedLayout = carriedLayout; state.layout = ownLayout ?? carriedLayout; state.layoutOwn = !!ownLayout;
       state.hq = draftHq(saved?.row?.draft);
       state.discuss = draftDiscuss(saved?.row?.draft);
+      state.owners = draftOwners(saved?.row?.draft); // 사업요약표 담당 칸 직접 쓴 값(미리보기가 씀) — 이 상자는 읽은 그대로 다시 실어 보내고 파일 담당 칸에 넣음
       state.hand = draftHand(saved?.row?.draft); // 5. 주요 일정·참고 손으로 더한 줄(weekly-hand.mjs) — 이 상자는 읽은 그대로 다시 실어 보냄(파일 표에는 model.calendar 로 들어감)
       rebase();
       await attachDraft(state, baseInfo, saved);
@@ -865,7 +866,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // 바탕을 연 뒤에 사업 목록이 읽혔으면 빠진 사업영역 줄을 더하고 칸을 다시 놓는다(그 칸에 쓴 줄이 파일에 들어가게).
     if (needAreas(state)) { const kept = currentDraft(state); rebase(); placeCells(state, kept); }
     if (state.built) return state.built;
-    const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, state.edits);
+    const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, {...state.edits, owners:ownerEdits(state)});
     // 3. 2) 투쟁 사업장 현황: 들어간 사업장만, 구성 순서로(뺀 사업장의 글은 칸에 남아 있고 파일에만 없다).
     data.sites = layoutSiteData(data.sites ?? [], siteRows(state), state.layout);
     const bytes = await draft.buildHwpx(state.template, data);
@@ -1209,12 +1210,18 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       s.cellOf[section] = map;
     }
   }
+  // 사업요약표 담당 칸 직접 쓴 값 → 요약 표 줄 번호별 글(파일 담당 칸에 넣음). 칸 이름이 같은 줄만.
+  function ownerEdits(s) {
+    const out = new Map(), owners = s.owners ?? {};
+    for (const [id, at] of s.cellAt) if (at.section === 'summary') { const text = owners[parseCellId(id).key]; if (text) out.set(at.index, text); }
+    return out;
+  }
   function currentDraft(s) {
     const cells = new Map([...s.cellAt].map(([id, at]) => [id, s.edits[at.section].get(at.index) ?? []]));
     const typedMe = s.meFrom === 'typed';
     return makeDraft({base:s.baseInfo ? {...s.baseInfo, digest:s.digest} : null, me:typedMe ? s.me : '', meFrom:typedMe ? 'typed' : '', date:s.date === s.defaultDate ? '' : s.date, cells, initial:s.initial,
       keep:s.store?.keep ?? [], titles:s.titles, drops:s.drops, docs:s.docs ?? [], areas:s.areas ?? null, confirmed:s.store?.confirmed ?? null, issued:s.store?.issued ?? null, extras:s.store?.extras ?? null,
-      hq:s.hq ?? [], discuss:s.discuss ?? [], hand:s.hand ?? null, siteLayout:s.layoutOwn ? s.layout : null});
+      hq:s.hq ?? [], discuss:s.discuss ?? [], hand:s.hand ?? null, owners:s.owners ?? null, siteLayout:s.layoutOwn ? s.layout : null});
   }
   // Put a draft's cells into the current base by name; what does not fit is kept aside (shown folded, saved again as it was).
   function placeCells(s, d) {
@@ -1232,6 +1239,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     s.hq = draftHq(d);
     s.discuss = draftDiscuss(d);
     s.hand = draftHand(d);
+    s.owners = draftOwners(d);
     const own = draftSiteLayout(d);
     if (own) { s.layout = own; s.layoutOwn = true; }
     const needSites = missingSites(s.sites ?? [], s.layout, s.context.organizations.map(o => o.name)).length > 0;
@@ -1253,7 +1261,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     s.store.issued = d?.issued ?? null;
     s.store.extras = draftExtras(d); // 처음 초안·고침 기록·규칙 목록: 이 상자는 읽은 그대로 다시 실어 보낸다(처음 초안이 없을 때만 지금 바탕으로 정함)
     s.docs = draftDocs(d);
-    s.areas = draftAreaSummaries(d); // 사업영역 한 줄 요약: 이 상자는 고치지 않고 읽은 그대로 다시 실어 보낸다
+    s.areas = draftAreaSummaries(d); // 사업영역 한 줄 요약(이제 화면에 쓰지 않음, 데이터는 보존): 이 상자는 고치지 않고 읽은 그대로 다시 실어 보낸다
+    s.owners = draftOwners(d);
     s.store.savedAt = saved.row?.saved_at ?? null;
     if (hasContent(d)) {
       applyDraft(s, d);
@@ -1404,6 +1413,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       else if (c.cell === 'hq') s.hq = v ?? [];
       else if (c.cell === 'discuss') s.discuss = v ?? [];
       else if (c.cell === 'hand') s.hand = v ?? null;
+      else if (c.cell.startsWith('owner:')) { const owners = {...(s.owners ?? {})}; if (v) owners[c.cell.slice(6)] = v; else delete owners[c.cell.slice(6)]; s.owners = owners; }
       else if (c.cell === 'sites_layout') { s.layout = v ? readSiteLayout({...v, at:new Date().toISOString()}) : s.carriedLayout; s.layoutOwn = !!v; const kept = currentDraft(s); rebase(); placeCells(s, kept); }
       else if (c.cell.startsWith('area:')) { const id = c.cell.slice(5), areas = {...(s.areas ?? {})}; if (v) areas[id] = {text:v, hash:'', edited:true, at:new Date().toISOString()}; else delete areas[id]; s.areas = areas; }
       else if (c.cell.startsWith('drop:')) { const key = c.cell.slice(5); if (v) s.drops.set(key, v); else s.drops.delete(key); s.titleKeys = ''; }

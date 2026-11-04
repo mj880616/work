@@ -92,7 +92,7 @@ const EXCLUDED = new Map([
   ['ai-assist/todo-rules.ts', '챙길 것 거르기 규칙 후보 한 줄(명사형 규칙 목록, 문장 요약 아님 — TODO-이미함·환류)'],
   ['ai-assist/overlap.ts', '두 기록이 같은 활동인지 가리는 판정 이유 한 문장(요약이 아님)'],
   ['ai-assist/call-refill.ts', '통화 제목·조직·상대 칸 채우기(핵심내용 요약은 쓰지 않음)'],
-  ['ai-assist/business-area.ts', '사업요약표 진행 칸 한 줄(명사형 끝맺음, 주간보고 문체)과 사업영역 추천(참조만 답함) — 문장 말투 규칙과 무관'],
+  ['ai-assist/business-area.ts', '사업영역 추천(참조만 답함) — 문장 말투 규칙과 무관(사업요약표 진행 칸 한 줄은 S49-39에서 없앰)'],
   ['ai-assist/note-title.ts', '노트 목록의 짧은 명사형 제목(제목, 문장 아님 — 10/28 09:24 말투 규칙과 무관)'],
   ['ai-assist/file-name.ts', '첨부 파일 이름 추천(명사형 파일 이름, 문장 아님 — ATT-이름고치기)'],
   ['ai-assist/work-scope.ts', '오늘 한 일 줄마다 업무·개인 판정(ref·work|personal만 답함, 문장 아님 — JOURNAL-오늘한일업무개인)'],

@@ -21,7 +21,7 @@ import {waitHtml, emptyEl} from './wait-state.js';
 // (WEEKLY-한글초안 2단계 builds the .hwpx from this grouping) — except the request rows, which journal.js saves through
 // weekly-exec-requests.js. journal.js stays the only renderer of #journalRoot and calls
 // renderWeekly() into the box it owns.
-import {weeklyAreaRecords, summarizeAreaRecords, isOneline} from './business-area-model.mjs';
+import {weeklyAreaRecords, isOneline} from './business-area-model.mjs';
 import {weekDays, workLines, shortDay, reportDay, tasksOn, pendingOn, meetingsOn, meetingLine, orgNewsOn, projectRecordsOn, scheduleDays,
   compareOrgSections, journalMemosOn, documentLine, docDay, sharePageLine, UNSORTED, OTHERS, DONE_TASK_DAYS, doneCoverFrom, pendingCoverTo, PENDING_DAYS, todayKey, WEEK_READ_CAP} from './journal-data.js';
 import {requestTagsHtml, requestPrefix} from './update-requests.js';
@@ -35,10 +35,9 @@ import {timeCell} from './time-input.js';
 import {scheduleItems} from './weekly-hwpx/schedule.mjs';
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
-import {docEdits, draftAreaSummaries, draftHq, draftDiscuss, draftDrops, draftHand} from './weekly-draft-store.js';
+import {docEdits, draftHq, draftDiscuss, draftDrops, draftHand} from './weekly-draft-store.js';
 import {discussLines, DISCUSS_TITLE} from './weekly-discuss.mjs';
 import {withHandCalendar, handRows, detailEdits, HAND_TAG} from './weekly-hand.mjs';
-import {isInternalMeeting} from './weekly-major-schedule.mjs';
 import {alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {refOfOpen, meetingRef, planOverlaps, reasonOf} from './overlap-weekly.mjs';
@@ -286,11 +285,11 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     // MTG-프로젝트합치기 2단계: 사업영역 꼬리표를 직접 단 사업 보고도 ② 재료(진행 = 보고 한 줄, 이후 계획 = 다음 할 일).
     // 꼬리표가 빈 옛 보고는 넣지 않는다(지난 주 보고서가 달라지지 않게). 옛 진행 기록·바구니 프로젝트 연결은 그대로(결정 ⑦).
     // 사업 보고 읽기는 ③의 재료라 ② 출처 목록(WEEKLY_SOURCES.summary)에는 넣지 않는다: 읽히면 함께 놓이고, 못 읽으면 ③이 실패를 알린다.
-    // 사업영역 AI 한 줄(설계 13절): 그 주 임시저장 area_summaries에 줄이 있는 사업영역은 보고 줄들 대신 그 한 줄(고친 줄 우선 — 서버·화면이 같은 칸에 하나만 둔다).
-    const areaLines = draftRead && !draftRead.missing ? draftAreaSummaries(draftRead.row?.draft) : {};
-    // WEEKLY-주요일정기준 ④: 내부 정례 회의(노조 상집 등)의 사업 보고는 요약 재료에도 넣지 않는다.
-    const areaMeetings = ok(m, 'meetings') ? ok(m, 'meetings').filter(x => !isInternalMeeting(meetingKindName(x))) : null;
-    const areaRecords = areaMeetings ? summarizeAreaRecords(days.flatMap(day => weeklyAreaRecords(areaMeetings, day, areaLine).map(r => ({...r, day}))), areaMeetings, areaLines) : [];
+    // WEEKLY-요약표수기(S49-39 · 명진 11/04 16:45 "아예 지우자"): 사업영역 AI 한 줄(area_summaries)은 쓰지 않는다. 저장된 값은 두되 화면·요약에 쓰지 않는다.
+    // WEEKLY-주요일정기준 ④: 내부 정례 회의(노조 상집 등)와 늘 빼기로 정한 회의 종류의 사업 보고는 요약 재료에도 넣지 않는다(reportsMeeting 한 곳 — 미리보기와 같음).
+    const hiddenKinds = kinds?.status === 'ok' ? kinds.list : null;
+    const areaMeetings = ok(m, 'meetings') ? ok(m, 'meetings').filter(x => reportsMeeting(x, hiddenKinds)) : null;
+    const areaRecords = areaMeetings ? days.flatMap(day => weeklyAreaRecords(areaMeetings, day, areaLine).map(r => ({...r, day}))) : [];
     const all = [...rawRecords, ...areaRecords], records = all.filter(r => keep(r, 'summary'));
     const tree = ok(m, 'catalog');
     // WEEKLY-자료요약: 프로젝트에만 연결된 자료 → 그 프로젝트 줄(placeRecords가 자리를 찾음). 같은 프로젝트의 그 주 기록과 비교한다.
