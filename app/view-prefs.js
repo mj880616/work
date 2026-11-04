@@ -72,6 +72,13 @@ const filesDestOk = d => !!d && typeof d === 'object' && !Array.isArray(d) && Ob
 export const FILES_SOURCE_NAMES = Object.freeze(['od', 'gd']);
 export const FILES_SOURCE_DEVICES = Object.freeze(['app', 'phone', 'pc']);
 const filesFlagsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(name => FILES_SOURCE_NAMES.includes(name) && typeof v[name] === 'boolean');
+// FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2): files_two = [파일] 위 줄 [두 칸] 켬을 기기 종류별(app·phone·pc, files_sources와 같은 모양)로,
+// 기기 칸 안은 화면 폭 종류마다 참·거짓 {fold?: 폴드 펼침 761~1199, wide?: PC 1200~}(없으면 폴드 = 두 칸, PC = 한 칸). migration 20261104190000. 뜻은 files-panes-model.mjs.
+// 쓰기는 'files_two.<기기>' 한 칸씩(files_sources처럼). 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(이번 접속만 기억).
+export const FILES_TWO_LAYOUTS = Object.freeze(['fold', 'wide']);
+const filesTwoOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(name => FILES_TWO_LAYOUTS.includes(name) && typeof v[name] === 'boolean');
+// 기기 칸 객체(files_sources·files_two): 이름 → 기기 칸 하나의 모양 검사.
+const DEVICE_KEYS = Object.freeze({files_sources: filesFlagsOk, files_two: filesTwoOk});
 export const REPORT_PERIOD_MODES = Object.freeze(['all', 'week', 'range']);
 export const PHOTO_LEVELS = Object.freeze(['year', 'month', 'day']);
 export const NOTE_BOARDS_MAX = 12;
@@ -97,7 +104,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -142,8 +149,9 @@ export function validValue(key, value) {
       && Object.keys(value).every(name => name === 'mode' || name === 'from' || name === 'to') && REPORT_PERIOD_MODES.includes(value.mode)
       && (value.mode === 'range' ? DATE_RE.test(String(value.from)) && DATE_RE.test(String(value.to)) && typeof value.from === 'string' && typeof value.to === 'string' && value.from <= value.to : !('from' in value) && !('to' in value));
     case 'files_dest_recent': return Array.isArray(value) && value.length <= FILES_DEST_RECENT_MAX && value.every(filesDestOk);
+    case 'files_two':
     case 'files_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
-      && Object.keys(value).every(dev => FILES_SOURCE_DEVICES.includes(dev) && filesFlagsOk(value[dev]));
+      && Object.keys(value).every(dev => FILES_SOURCE_DEVICES.includes(dev) && DEVICE_KEYS[key](value[dev]));
     case 'photo_sources_phone':
     case 'photo_sources_pc':
     case 'photo_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -183,11 +191,11 @@ export function parsePrefs(value) {
         if (Object.keys(cols).length) kept[name] = cols;
       }
       if (Object.keys(kept).length) out[key] = kept;
-    } else if (key === 'files_sources') {
+    } else if (DEVICE_KEYS[key]) {
       const src = value[key];
       if (!src || typeof src !== 'object' || Array.isArray(src)) continue;
       const kept = {};
-      for (const dev of FILES_SOURCE_DEVICES) if (filesFlagsOk(src[dev])) kept[dev] = src[dev];
+      for (const dev of FILES_SOURCE_DEVICES) if (DEVICE_KEYS[key](src[dev])) kept[dev] = src[dev];
       if (Object.keys(kept).length) out[key] = kept;
     } else if (validValue(key, value[key])) out[key] = value[key];
   }
@@ -205,24 +213,26 @@ export function applyChanges(base, changes) {
       const name = path.slice('col_widths.'.length), next = { ...(out.col_widths || {}) };
       if (value === null) delete next[name]; else next[name] = value;
       if (Object.keys(next).length) out.col_widths = next; else delete out.col_widths;
-    } else if (path.startsWith('files_sources.')) {
-      const dev = path.slice('files_sources.'.length), next = { ...(out.files_sources || {}) };
+    } else if (devKeyOf(path)) {
+      const key = devKeyOf(path), dev = path.slice(key.length + 1), next = { ...(out[key] || {}) };
       if (value === null) delete next[dev]; else next[dev] = value;
-      if (Object.keys(next).length) out.files_sources = next; else delete out.files_sources;
+      if (Object.keys(next).length) out[key] = next; else delete out[key];
     } else if (value === null) delete out[path];
     else out[path] = value;
   }
   return out;
 }
-const NESTED = ['split_ratio', 'col_widths', 'files_sources'];
+const NESTED = ['split_ratio', 'col_widths', 'files_sources', 'files_two'];
 const colScreen = path => path.slice('col_widths.'.length);
-const filesDevice = path => path.slice('files_sources.'.length);
+// 'files_sources.<기기>'·'files_two.<기기>' → 앞 이름(기기 칸 객체가 아니면 '').
+function devKeyOf(path) { const key = String(path).split('.')[0]; return DEVICE_KEYS[key] && String(path).startsWith(key + '.') ? key : ''; }
+const devOf = path => path.slice(devKeyOf(path).length + 1);
 const changeOk = (path, value) => value === null
   ? KEYS.includes(path) && !NESTED.includes(path) || (path.startsWith('split_ratio.') && SPLIT_SCREENS.includes(path.slice(12))) || (path.startsWith('col_widths.') && COL_NAME_RE.test(colScreen(path)))
-    || (path.startsWith('files_sources.') && FILES_SOURCE_DEVICES.includes(filesDevice(path)))
+    || (!!devKeyOf(path) && FILES_SOURCE_DEVICES.includes(devOf(path)))
   : path.startsWith('split_ratio.') ? SPLIT_SCREENS.includes(path.slice(12)) && ratioOk(value)
     : path.startsWith('col_widths.') ? COL_NAME_RE.test(colScreen(path)) && colWidthsOk(value)
-      : path.startsWith('files_sources.') ? FILES_SOURCE_DEVICES.includes(filesDevice(path)) && filesFlagsOk(value)
+      : devKeyOf(path) ? FILES_SOURCE_DEVICES.includes(devOf(path)) && DEVICE_KEYS[devKeyOf(path)](value)
         : KEYS.includes(path) && !NESTED.includes(path) && validValue(path, value);
 // 저장할 값(비어 있으면 null = 기본값으로 돌아감).
 export const serialize = prefs => Object.keys(prefs).length ? prefs : null;
@@ -243,7 +253,7 @@ const LEGACY = [
 const DEFAULTS = { note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list', photo_cols: 4, photo_cols_wide: 6, diary_view: 'calendar', diary_onedrive: true, quiet_weeks: 3, note_view: 'folder', tg_view: 'day', album_view: 'card', ed_more: false, now_tab: 'outside' };
 const defaultStorage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
 const getPath = (prefs, path) => path.startsWith('split_ratio.') ? prefs.split_ratio?.[path.slice(12)] : path.startsWith('col_widths.') ? prefs.col_widths?.[colScreen(path)]
-  : path.startsWith('files_sources.') ? prefs.files_sources?.[filesDevice(path)] : prefs[path];
+  : devKeyOf(path) ? prefs[devKeyOf(path)]?.[devOf(path)] : prefs[path];
 
 export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime, storage = defaultStorage, setTimer = setTimeout, clearTimer = clearTimeout, delay = 400, retryDelay = 5000, loadTimeout = 4000 } = {}) {
   let prefs = {};          // 화면이 쓰는 값(이번 접속). 서버 값 + 옮긴 기기 값 + 이번 접속에서 바꾼 값.
@@ -400,6 +410,8 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
     setCols: (name, widths) => set('col_widths.' + name, widths, {rejectable: true}),
     getFilesSources: device => prefs.files_sources?.[device],
     setFilesSources: (device, flags) => set('files_sources.' + device, flags, {rejectable: true}),
+    getFilesTwo: device => prefs.files_two?.[device],
+    setFilesTwo: (device, value) => set('files_two.' + device, value, {rejectable: true}),
     flush,
     flushHidden,
     status: () => state,

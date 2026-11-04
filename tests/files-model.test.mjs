@@ -311,7 +311,8 @@ test('실패 까닭 한 줄(S49-26): 정해 둔 말만, 서버 글자는 그대�
   assert.equal(failReason(null), '');
   assert.equal(failReason({message: 'something'}), '');
   const js = read('app/files.js');
-  for (const k of ['state.failedWhy', 'state.findWhy', 'state.statusWhy']) assert.match(js, new RegExp(`reason: ${k.replace('.', '\\.')}`), k);
+  // S49-30 두 칸: 목록·찾기 까닭은 칸마다(p.failedWhy·p.findWhy), 연결 상태 까닭은 화면 하나(state.statusWhy).
+  for (const k of ['p.failedWhy', 'p.findWhy', 'state.statusWhy']) assert.match(js, new RegExp(`reason: ${k.replace('.', '\\.')}`), k);
 });
 
 test('전송 목록(2-②): 상태 글·까닭·줄 아래 글·전송 줄 묶음·단추·기기 줄 다시 열기·합치기', async () => {

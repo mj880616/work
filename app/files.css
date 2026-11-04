@@ -189,3 +189,37 @@
 .fx-job-skipped .fx-job-nm { color:var(--kptu-muted); }
 .fx-jobs-none { margin:0; padding:16px 12px; color:var(--kptu-muted); font-size:12px; }
 .fx-dest-tree.nx-tree:not([hidden]) { position:static; border-right:0; padding-right:4px; }
+
+/* FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2, 시안 ⑥ 폴드 884 · ⑧ PC 1440). 칸 둘은 같은 칸 모양(.fx-listcol)을 나란히.
+   칸 위 줄(위치 줄 + 정렬, 폴드는 ▾ 나무)은 밑선 2px, 지금 칸은 강조색 밑선(시안 pane-top.cur). 폴드 두 칸은 왼쪽 나무 대신 칸 위 ▾ 나무.
+   미리보기는 두 칸이면 덮는 칸. 칸 사이로 끌면 받는 칸에 '여기에 놓으면 → 복사 · 옮기기' 점선 안내, 놓으면 작은 고르기(fx-drop-ask). */
+.fx-crumb[hidden], .fx-sort[hidden], .fx-ptop[hidden], .fx-ptree[hidden], .fx-drop-ask[hidden], .fx-two[hidden] { display:none; }
+.fx-two { flex:none; height:24px; padding:0 8px; font-size:11.5px; }
+.fx-two[aria-pressed="true"] { background:var(--kptu-primary-soft); border-color:var(--kptu-border-strong); color:var(--kptu-primary-text); }
+.fx-listcol { position:relative; }
+.fx[data-fx-two] .fx-main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start; }
+.fx[data-fx-two] .fx-listcol + .fx-listcol { border-left:.5px solid var(--kptu-border); }
+.fx-ptop { display:flex; align-items:center; gap:6px; min-height:34px; padding:0 6px 0 8px; border-bottom:2px solid var(--kptu-border); background:var(--kptu-surface-subtle); }
+.fx-cur > .fx-ptop { border-bottom-color:var(--kptu-primary); }
+.fx-ptop .fx-crumb { flex:1 1 auto; }
+.fx-pdrop { flex:none; height:24px; min-width:28px; padding:0 6px; }
+.fx-pdrop[aria-expanded="true"] { background:var(--kptu-primary-soft); }
+.fx-ptree.nx-tree:not([hidden]) { position:static; display:block; max-height:min(50vh, 420px); overflow:auto; border-right:0; border-bottom:.5px solid var(--kptu-border); padding:4px 4px 6px 0; background:var(--kptu-surface); }
+.fx-ptree .nx-main { min-height:30px; font-size:12.5px; padding:0 4px; }
+.fx-ptree .fx-root .nx-main { font-weight:600; }
+.fx[data-fx-two="fold"] .fx-cols { display:block; }
+.fx[data-fx-two="fold"] .fx-tree { display:none; }
+.fx[data-fx-two] .fx-head, .fx[data-fx-two] .fx-row { grid-template-columns:20px minmax(0,1fr) var(--fx-w-day,80px) var(--fx-w-size,64px); }
+.fx[data-fx-two] .fx-kind, .fx[data-fx-two] .fx-head span:last-child { display:none; }
+.fx[data-fx-two] .fx-head span:nth-last-child(2) { text-align:right; }
+.fx[data-fx-two] .fx-with-path .fx-row, .fx[data-fx-two] .fx-list[data-fx-mode="recent"] .fx-head, .fx[data-fx-two] .fx-list[data-fx-mode="starred"] .fx-head, .fx[data-fx-two] .fx-list[data-fx-mode="big"] .fx-head { grid-template-columns:20px minmax(0,1fr) var(--fx-w-path,minmax(0,.7fr)) var(--fx-w-day,80px) var(--fx-w-size,64px); }
+.fx[data-fx-two="wide"] .fx-prev { position:fixed; z-index:40; top:var(--kptu-topbar-height,56px); right:0; left:auto; width:560px; height:calc(100dvh - var(--kptu-topbar-height,56px)); max-height:none; background:var(--kptu-surface); border-left:.5px solid var(--kptu-border); padding:8px 12px; box-shadow:var(--kptu-shadow-float); }
+.fx[data-fx-two] .fx-back { display:inline-block; }
+.fx-listcol.fx-drop-pane { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:none; }
+.fx-listcol.fx-drop-pane::after { content:'여기에 놓으면 → 복사 · 옮기기'; position:absolute; left:50%; top:min(40%, 200px); transform:translate(-50%,-50%); border:1px dashed var(--kptu-primary); background:var(--kptu-primary-soft); color:var(--kptu-primary-text); padding:8px 14px; border-radius:8px; font-size:12px; white-space:nowrap; pointer-events:none; }
+.fx-drop-ask { position:fixed; z-index:58; display:flex; align-items:center; gap:6px; padding:6px 6px 6px 10px; border:1px dashed var(--kptu-primary); background:var(--kptu-surface); color:var(--kptu-ink); border-radius:8px; box-shadow:var(--kptu-shadow-float); font-size:12px; max-width:calc(100vw - 16px); }
+.fx-drop-t { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-muted); }
+.fx-drop-t b { color:var(--kptu-primary-text); }
+.fx-bar:has(> [data-fx-send]) { background:var(--kptu-primary-soft); border-bottom-color:var(--kptu-border-strong); padding:3px 4px 3px 10px; }
+.fx-bar:has(> [data-fx-send]) .fx-bar-t { color:var(--kptu-primary-text); font-weight:600; font-size:13px; }
+.fx-ptop .fx-sort { background:var(--kptu-surface); border-color:var(--kptu-border); }

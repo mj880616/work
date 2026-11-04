@@ -18,6 +18,7 @@ import {odLinkButtonHtml, paintOdLink} from './od-link.js';
 import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
 import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mjs';
+import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest, otherStart, DROP_ASK_TEXT} from './files-panes-model.mjs';
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
 // - 목록은 서버 색인(app_cloud_list·app_cloud_find·app_cloud_trail, owner + 운영자 기능 files일 때만 읽힘)에서 바로 그린다. 클라우드는 부르지 않는다.
 // - 갱신(F2): 들어올 때 + 2분마다 + 창으로 돌아올 때 Edge cloud-files sync(서버가 2분 안이면 클라우드를 부르지 않음). 응답의 바뀐 줄만
@@ -45,6 +46,12 @@ import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mj
 //   서버가 화면을 닫아도 차례로 잇는다(200MB 넘는 것은 [그래도 보내기]를 누른 것만 10MB 조각씩). 같은 저장소 안 옮기기는 지금처럼 move 한 번.
 //   하단바 위 전송 줄을 누르면 전송 목록(폰: 하단바 위 칸, PC: 오른쪽 아래 작은 칸) — 줄마다 진행 막대·[멈춤]/[이어 하기]/[다시], '모두 멈춤'.
 //   목록은 서버(job_list)에서 읽어 그린다. 보내는 것이 있는 동안만 2초마다 다시 읽고(화면이 보일 때만), 다시 열면 서버 목록으로 이어 보인다. 기기 저장 없음.
+// FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2, 시안 ⑥⑧): 폴드 펼침(761~1199)·PC(1200~)에서 위 줄 [두 칸]. 폴드 펼침은 기본 두 칸, PC는 기본 한 칸(나무·목록·미리보기),
+//   폰(≤760)은 늘 한 칸. 켬은 서버 view_prefs.files_two(기기 종류별 · 폭 종류별, files-panes-model.mjs). 상태는 '칸 2개'(state.panes) — 한 칸 화면은 같은 코드로 칸 0 하나만 그린다.
+//   칸마다 따로: 저장소·위치 줄·목록·정렬·고르기·찾기. 지금 칸(state.cur)은 칸 위 줄 밑선(fx-cur). 칸을 누르거나 Tab으로 바꾼다.
+//   고르기 막대는 '→ 오른쪽에 복사 / → 옮기기'(받을 곳 = 반대 칸의 지금 폴더, 받을 곳 창 없이). 같은 이름·200MB 묻기·전송 목록은 2-①·2-② 그대로(xferRun).
+//   칸 사이 끌어 놓기: 놓으면 '복사 · 옮기기' 작은 고르기. PC 키(두 칸일 때): F5 반대 칸에 복사 · F6 옮기기 · Tab 칸 바꾸기(입력 칸 안에서는 안 함). F2·Del은 그대로.
+//   폴드 두 칸은 나무 대신 칸 위 줄 ▾(그 칸 위로 나무가 내려옴). 미리보기는 두 칸이면 덮는 칸(뒤로가기 한 번 = 닫힘).
 // 저장은 서버만: 목록은 이 탭 메모리(열린 동안만), 받은 그림·PDF는 blob: 주소(메모리)로만 두고 화면을 떠나면 놓는다. 기기 저장 없음.
 // 파일 이름은 모두 글자로만 그린다(esc). 로그에 파일 이름·id를 남기지 않는다.
 
@@ -59,18 +66,21 @@ const WIDE = window.matchMedia('(min-width:1200px)');
 const GDRIVE_SVG = brandIconSvg('gdrive', {size: 16, cls: 'fx-src-ic'});
 const PDF_LIB = new URL('./pdf-lib/pdfjs-dist-6.3.289/', import.meta.url);
 
+// 목록 칸 하나(칸 0 = 한 칸 화면의 그 칸 / 두 칸이면 왼쪽, 칸 1 = 두 칸일 때만 있는 오른쪽). 칸 위 줄(fx-ptop)은 두 칸일 때만 보인다.
+const paneHtml = i => `<div class="fx-listcol" data-fx-pane-i="${i}"><div class="fx-ptop" data-fx-ptop hidden></div><nav class="fx-ptree nx-tree" data-fx-ptree aria-label="${i ? '오른쪽' : '왼쪽'} 칸 폴더" hidden></nav>`
+  + `<div class="fx-wait" data-fx-wait hidden></div><section class="fx-list" data-fx-list aria-label="${i ? '오른쪽 칸 파일 목록' : '파일 목록'}"></section></div>`;
 function install() {
   if (document.getElementById('filesView')) return;
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="filesView" class="view-panel hidden" aria-labelledby="fxTitle">
 <h2 id="fxTitle" class="screen-title">파일</h2>
 <div id="filesRoot" class="fx" data-fx-pane="list">
-<div class="fx-top"><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button></span></div>
+<div class="fx-top"><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button></span><button type="button" class="mini fx-two" data-fx-two aria-pressed="false" title="두 칸으로 보기" hidden>두 칸</button></div>
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="고른 것" hidden></div>
 <div class="fx-tabs" data-fx-tabs role="tablist" aria-label="파일 보기">${PHONE_TABS.map(t => `<button type="button" role="tab" data-fx-tab="${t}" aria-selected="false">${PHONE_TAB_NAME[t]}</button>`).join('')}</div>
 <p class="fx-note" data-fx-note role="status" hidden></p>
-<div class="fx-cols" data-fx-cols><nav class="fx-tree nx-tree" data-fx-tree aria-label="폴더"></nav><div class="fx-main" data-fx-main><div class="fx-listcol"><div class="fx-wait" data-fx-wait hidden></div><section class="fx-list" data-fx-list aria-label="파일 목록"></section></div><aside class="fx-prev" data-fx-prev aria-label="미리보기" hidden></aside></div></div>
+<div class="fx-cols" data-fx-cols><nav class="fx-tree nx-tree" data-fx-tree aria-label="폴더"></nav><div class="fx-main" data-fx-main>${paneHtml(0)}<aside class="fx-prev" data-fx-prev aria-label="미리보기" hidden></aside></div></div>
 <div class="fx-dim" data-fx-dim hidden></div><section class="fx-dest" data-fx-dest role="dialog" aria-modal="true" aria-labelledby="fxDestTitle" hidden></section>
-<div class="fx-askbox" data-fx-askbox hidden></div><section class="fx-jobs" data-fx-jobs role="dialog" aria-labelledby="fxJobsTitle" hidden></section><div class="fx-xfer" data-fx-xfer role="status" aria-live="polite" hidden></div>
+<div class="fx-askbox" data-fx-askbox hidden></div><div class="fx-drop-ask" data-fx-dropask role="dialog" aria-label="놓을 때 고르기" hidden></div><section class="fx-jobs" data-fx-jobs role="dialog" aria-labelledby="fxJobsTitle" hidden></section><div class="fx-xfer" data-fx-xfer role="status" aria-live="polite" hidden></div>
 </div></section>`);
 }
 install();
@@ -79,12 +89,24 @@ const root = document.getElementById('filesRoot');
 const $ = sel => root?.querySelector(sel);
 const rt = () => window.KPTURuntime;
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', where: null, rows: [], loaded: false, failed: '', failedWhy: '', trail: [], sort: 'name', dir: 'asc',
-  query: '', found: null, findFailed: '', findWhy: '', children: new Map(), open: new Set(), sel: '', tab: 'recent', syncedAt: null, syncing: false,
-  preview: null, picked: new Set(), anchor: '', clip: null, busy: '', pane: 'list', hint: '', xfer: null, run: null, ask: null,
+// 칸 하나의 상태(S49-30 두 칸): 위치·목록·정렬·찾기·고르기. pane = 폰 [폴더] 탭의 나무/목록, drop = 폴드 두 칸의 ▾ 나무가 내려와 있는가. seq·fseq·ftimer = 늦게 온 응답 거르기.
+const freshPane = () => ({where: null, rows: [], loaded: false, failed: '', failedWhy: '', trail: [], sort: 'name', dir: 'asc',
+  query: '', found: null, findFailed: '', findWhy: '', sel: '', picked: new Set(), anchor: '', pane: 'list', drop: false, seq: 0, fseq: 0, ftimer: 0});
+const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', panes: [freshPane(), freshPane()], cur: 0,
+  children: new Map(), open: new Set(), tab: 'recent', syncedAt: null, syncing: false,
+  preview: null, clip: null, busy: '', hint: '', xfer: null, run: null, ask: null, dropAsk: null,
   jobs: [], jobsOpen: false, jobsBusy: false, jobsWere: false});
 const jobsSeen = new Set();
-let state = fresh(), listSeq = 0, findSeq = 0, findTimer = 0, syncTimer = 0, layer = null, entering = null, jobTimer = 0, jobsLayer = null;
+let state = fresh(), syncTimer = 0, layer = null, entering = null, jobTimer = 0, jobsLayer = null;
+// 지금 칸 · 두 칸인가(폰은 늘 한 칸) · 그려지는 칸들 · 반대 칸 · 칸 번호.
+const P = () => state.panes[state.cur];
+const twoPref = () => twoOn(viewPrefs.getFilesTwo?.(DEVICE), twoLayout(WIDE.matches));
+const two = () => !PHONE.matches && twoPref();
+const panesOn = () => (two() ? state.panes : [state.panes[0]]);
+const idxOf = p => state.panes.indexOf(p);
+const otherOf = p => state.panes[idxOf(p) ^ 1];
+const paneEl = p => root?.querySelector(`[data-fx-pane-i="${idxOf(p)}"]`);
+const inPane = (p, sel) => paneEl(p)?.querySelector(sel) || null;
 const JOB_POLL_MS = 2000;
 
 // ---------- 서버 ----------
@@ -134,22 +156,24 @@ async function loadStatus() {
     state.statusFailed = codeOf(e); state.statusWhy = failReason(e);
   }
 }
-function setWhere(where, {keepPreview = false} = {}) {
-  const fromShelf = !!state.where?.shelf || !state.where;
-  state.where = where; state.rows = []; state.loaded = false; state.failed = ''; state.trail = [];
+function setWhere(p, where, {keepPreview = false} = {}) {
+  const fromShelf = !!p.where?.shelf || !p.where;
+  p.where = where; p.rows = []; p.loaded = false; p.failed = ''; p.trail = []; p.drop = false;
   // 묶음은 저마다 기본 정렬(최근 = 바뀐 날, 큰 파일 = 크기, 그 밖 = 이름). 폴더 안에서 고른 정렬은 폴더를 옮겨도 그대로.
-  if (where?.shelf) [state.sort, state.dir] = where.shelf === 'recent' ? ['modified', 'desc'] : where.shelf === 'big' ? ['size', 'desc'] : ['name', 'asc'];
-  else if (fromShelf) [state.sort, state.dir] = ['name', 'asc'];
-  if (!keepPreview) { state.sel = ''; closePreview(); }
-  state.picked.clear(); state.anchor = ''; state.pane = 'list'; state.hint = '';
-  if (where?.shelf && PHONE_TABS.includes(where.shelf)) state.tab = where.shelf;
-  else if (where?.source) state.tab = 'folders';
-  window.KPTURouter?.setPlace?.('files', placeOf(where));
+  if (where?.shelf) [p.sort, p.dir] = where.shelf === 'recent' ? ['modified', 'desc'] : where.shelf === 'big' ? ['size', 'desc'] : ['name', 'asc'];
+  else if (fromShelf) [p.sort, p.dir] = ['name', 'asc'];
+  if (!keepPreview) { p.sel = ''; closePreview(); }
+  p.picked.clear(); p.anchor = ''; p.pane = 'list'; state.hint = '';
+  if (p === state.panes[0]) {
+    if (where?.shelf && PHONE_TABS.includes(where.shelf)) state.tab = where.shelf;
+    else if (where?.source) state.tab = 'folders';
+    window.KPTURouter?.setPlace?.('files', placeOf(where));
+  }
   paint();
-  return loadList();
+  return loadList(p);
 }
-async function loadList({quiet = false} = {}) {
-  const where = state.where, scope = state.scope, seq = ++listSeq;
+async function loadList(p, {quiet = false} = {}) {
+  const where = p.where, scope = state.scope, seq = ++p.seq;
   if (!where) return;
   try {
     let rows, trail = [];
@@ -160,42 +184,48 @@ async function loadList({quiet = false} = {}) {
         rpc('app_cloud_list', {p_source: where.source, p_parent_id: where.parent}),
         where.parent ? rpc('app_cloud_trail', {p_source: where.source, p_item_id: where.parent}) : Promise.resolve([])]);
     }
-    if (seq !== listSeq || state.scope !== scope) return;
-    state.rows = Array.isArray(rows) ? rows : []; state.trail = Array.isArray(trail) ? trail : []; state.loaded = true; state.failed = ''; state.failedWhy = '';
-    recordCounts(where, scope);
+    if (seq !== p.seq || state.scope !== scope) return;
+    p.rows = Array.isArray(rows) ? rows : []; p.trail = Array.isArray(trail) ? trail : []; p.loaded = true; p.failed = ''; p.failedWhy = '';
+    recordCounts(p, scope);
     if (where.source) {
-      state.children.set(folderKey(where.source, where.parent), state.rows.filter(r => r.is_folder));
-      // 위치 줄의 폴더(맨 위부터 지금 폴더까지)는 나무에서 펼쳐 둔다.
-      for (const id of [null, ...trailIds(state.trail)]) state.open.add(folderKey(where.source, id));
+      state.children.set(folderKey(where.source, where.parent), p.rows.filter(r => r.is_folder));
+      // 위치 줄의 폴더(맨 위부터 지금 폴더까지)는 나무에서 펼쳐 둔다(나무가 칠하는 지금 칸만).
+      if (p === P()) for (const id of [null, ...trailIds(p.trail)]) state.open.add(folderKey(where.source, id));
     }
   } catch (e) {
-    if (seq !== listSeq || state.scope !== scope) return;
-    if (!quiet || !state.loaded) { state.failed = codeOf(e); state.failedWhy = failReason(e); state.loaded = false; }
+    if (seq !== p.seq || state.scope !== scope) return;
+    if (!quiet || !p.loaded) { p.failed = codeOf(e); p.failedWhy = failReason(e); p.loaded = false; }
   }
   paint();
-  if (where.source && !where.shelf) directRead(where, scope);
+  if (where.source && !where.shelf) directRead(p, where, scope);
 }
 // 폴더를 열면 그 폴더만 클라우드에서 바로 읽어 색인에 합친다(폴더마다 이 화면이 열려 있는 동안 한 번). 색인이 덜 찼어도 빈 화면이 되지 않게.
 const directDone = new Set();
 // 폴더 줄 개수: 그 폴더를 클라우드에서 실제로 읽은 뒤(directRead 성공) 보이는 줄로 센 값만 쓴다. 안 읽은 폴더는 비워 둔다(색인 장수는 모름을 0으로 보임).
 const readOk = new Set(), counts = new Map();
 const countKey = (scope, source, id) => scope + '|' + folderKey(source, id);
-function recordCounts(where, scope) {
+function recordCounts(p, scope) {
+  const where = p.where;
   if (!where?.source || where.shelf || !readOk.has(countKey(scope, where.source, where.parent))) return;
-  const rows = state.rows.filter(r => !isLockedItem(r));
+  const rows = p.rows.filter(r => !isLockedItem(r));
   counts.set(countKey(scope, where.source, where.parent), {folders: rows.filter(r => r.is_folder).length, files: rows.filter(r => !r.is_folder).length});
 }
 const countOf = (source, id) => folderCountText(counts.get(countKey(state.scope, source, id)));
-async function directRead(where, scope) {
+async function directRead(p, where, scope) {
   const key = scope + '|' + folderKey(where.source, where.parent);
   if (directDone.has(key) || !connected().includes(where.source)) return;
   directDone.add(key);
   try {
     const d = await edge('folder', {source: where.source, ...(where.parent ? {id: where.parent} : {})});
     readOk.add(key);
-    if (state.scope !== scope || state.where !== where) return;
-    if (d?.added > 0 || d?.reload) await loadList({quiet: true});
-    else { recordCounts(where, scope); paint(); }
+    if (state.scope !== scope) return;
+    // 두 칸이 같은 폴더를 보고 있으면 둘 다 고친다.
+    for (const q of panesOn()) {
+      if (q.where?.source !== where.source || (q.where.parent || null) !== (where.parent || null) || q.where.shelf) continue;
+      if (d?.added > 0 || d?.reload) await loadList(q, {quiet: true});
+      else { recordCounts(q, scope); paintPane(q); }
+    }
+    paintTree();
   } catch { /* 이번엔 색인 그대로. 다음 갱신이 이어 맞춘다 */ }
 }
 async function loadChildren(source, parent) {
@@ -222,83 +252,129 @@ async function fillFolder(source, parent) {
   } catch { /* 이번엔 색인 그대로. 다음 갱신이 이어 맞춘다 */ }
 }
 function recordCountsFor(source, parent, scope) {
-  const w = state.where;
-  if (w?.source === source && (w.parent || null) === (parent || null)) recordCounts(w, scope);
+  for (const p of panesOn()) { const w = p.where; if (w?.source === source && (w.parent || null) === (parent || null)) recordCounts(p, scope); }
 }
 
-// ---------- 찾기(F7: 이름 + 자료실이 이미 읽은 글자) ----------
-function setQuery(raw) {
+// ---------- 찾기(F7: 이름 + 자료실이 이미 읽은 글자) — 칸마다 따로(위 줄 찾기 칸은 지금 칸의 찾기) ----------
+function setQuery(p, raw) {
   const q = cleanQuery(raw);
-  clearTimeout(findTimer);
-  if (q === state.query) return;
-  state.query = q;
-  if (!q) { state.found = null; state.findFailed = ''; findSeq++; paint(); return; }
-  findTimer = setTimeout(() => find(q), FIND_WAIT_MS);
+  clearTimeout(p.ftimer);
+  if (q === p.query) return;
+  p.query = q;
+  if (!q) { p.found = null; p.findFailed = ''; p.fseq++; paint(); return; }
+  p.ftimer = setTimeout(() => find(p, q), FIND_WAIT_MS);
 }
-async function find(q) {
-  const seq = ++findSeq, scope = state.scope;
+async function find(p, q) {
+  const seq = ++p.fseq, scope = state.scope;
   try {
     const on = onSources();
     const rows = on.length ? await rpc('app_cloud_find_in', {p_sources: on, p_query: q, p_shelf: null, p_limit: FIND_LIMIT}) : [];
-    if (seq !== findSeq || state.scope !== scope || state.query !== q) return;
-    state.found = Array.isArray(rows) ? rows : []; state.findFailed = ''; state.findWhy = '';
+    if (seq !== p.fseq || state.scope !== scope || p.query !== q) return;
+    p.found = Array.isArray(rows) ? rows : []; p.findFailed = ''; p.findWhy = '';
   } catch (e) {
-    if (seq !== findSeq || state.scope !== scope) return;
-    state.found = []; state.findFailed = codeOf(e); state.findWhy = failReason(e);
+    if (seq !== p.fseq || state.scope !== scope) return;
+    p.found = []; p.findFailed = codeOf(e); p.findWhy = failReason(e);
   }
   paint();
 }
+const refind = p => { const q = p.query; p.query = ''; setQuery(p, q); };
 
 // ---------- 갱신(F2) ----------
 async function sync({force = false} = {}) {
   if (state.syncing || !state.status || !connected().length) return;
-  const scope = state.scope, where = state.where;
+  const scope = state.scope, seen = panesOn().map(p => [p, p.where]);
   state.syncing = true; paintTop();
   try {
     const d = await edge('sync', force ? {force: true} : {});
     if (state.scope !== scope) return;
     state.syncedAt = Date.now();
     if (SOURCES.some(s => d?.[s]?.more)) setTimeout(() => { if (state.scope === scope) sync(); }, 1500);
-    if (state.where !== where || !state.loaded) return;
     const changed = Array.isArray(d?.changed) ? d.changed : [], removed = Array.isArray(d?.removed) ? d.removed : [];
-    if (d?.reload || where?.shelf) { if (d?.reload || changed.length || removed.length) await loadList({quiet: true}); return; }
-    if (!changed.length && !removed.length) return;
-    if (touchesCounts(state.rows, where, changed, removed)) { await loadList({quiet: true}); return; }
-    const next = applyChanges(state.rows, where, changed, removed);
-    if (next !== state.rows) { state.rows = next; state.children.set(folderKey(where.source, where.parent), next.filter(r => r.is_folder)); recordCounts(where, scope); paintList(); paintTree(); }
+    // 칸마다 같은 규칙으로 입힌다(한 칸 화면은 칸 0 하나).
+    for (const [p, where] of seen) {
+      if (p.where !== where || !p.loaded) continue;
+      if (d?.reload || where?.shelf) { if (d?.reload || changed.length || removed.length) await loadList(p, {quiet: true}); continue; }
+      if (!changed.length && !removed.length) continue;
+      if (touchesCounts(p.rows, where, changed, removed)) { await loadList(p, {quiet: true}); continue; }
+      const next = applyChanges(p.rows, where, changed, removed);
+      if (next !== p.rows) { p.rows = next; state.children.set(folderKey(where.source, where.parent), next.filter(r => r.is_folder)); recordCounts(p, scope); paintList(p); paintTree(); }
+    }
   } catch { /* 맞추기 실패는 다음 차례에 다시. 목록은 색인 그대로 */ }
-  finally { if (state.scope === scope) { state.syncing = false; paintTop(); if (!shown().length) paintList(); } }
+  finally { if (state.scope === scope) { state.syncing = false; paintTop(); for (const p of panesOn()) if (!shown(p).length) paintList(p); } }
 }
 function startTimer() { clearInterval(syncTimer); syncTimer = setInterval(() => { if (visible()) sync(); else paintTop(); }, SYNC_EVERY_MS); }
 const visible = () => window.KPTURouter?.current === 'files' && document.visibilityState === 'visible';
 
-// ---------- 그리기(이 화면의 유일한 그리기 주인) ----------
+// ---------- 그리기(이 화면의 유일한 그리기 주인 — 칸 둘도 이 함수들이 칸마다 같은 코드로 그린다) ----------
 // 찾기·묶음 줄은 서버가 켜진 출처만 준다(app_cloud_find_in). 폴더 목록은 한 출처 것이고, 그 출처가 꺼지면 sourcesChanged가 최근으로 옮긴다.
-const foundShown = () => (state.found || []).filter(r => !isLockedItem(r));
-const shown = () => state.query ? foundShown() : sortRows(state.rows.filter(r => !isLockedItem(r)), state.sort, state.dir);
+const foundShown = p => (p.found || []).filter(r => !isLockedItem(r));
+const shown = p => p.query ? foundShown(p) : sortRows(p.rows.filter(r => !isLockedItem(r)), p.sort, p.dir);
 // 폰 [폴더] 탭의 첫 화면은 나무(pane 'tree'), 폴더 이름을 누르면 목록(pane 'list'). 찾는 중이면 늘 목록. PC·폴드는 CSS가 둘 다 보인다.
-const treePane = () => PHONE.matches && state.tab === 'folders' && state.pane === 'tree' && !state.query;
-function paint() { root.dataset.fxPane = treePane() ? 'tree' : 'list'; paintTop(); paintBar(); paintTree(); paintList(); paintPreview(); paintAsk(); paintXfer(); paintJobs(); }
+const treePane = () => PHONE.matches && state.tab === 'folders' && state.panes[0].pane === 'tree' && !state.panes[0].query;
+// 칸 1(오른쪽)의 자리는 두 칸일 때만 있다(한 칸이면 지움 — 숨김이 아니라 없음). 그리기 주인은 paint 하나.
+function ensurePanes() {
+  const on = two(), main = $('[data-fx-main]');
+  root.dataset.fxTwo = on ? (WIDE.matches ? 'wide' : 'fold') : '';
+  if (!on) delete root.dataset.fxTwo;
+  let el = root.querySelector('[data-fx-pane-i="1"]');
+  if (on && !el && main) { main.querySelector('[data-fx-pane-i="0"]')?.insertAdjacentHTML('afterend', paneHtml(1)); el = root.querySelector('[data-fx-pane-i="1"]'); }
+  if (!on && el) el.remove();
+  markCur();
+}
+function markCur() {
+  const on = two();
+  for (const el of root.querySelectorAll('[data-fx-pane-i]')) el.classList.toggle('fx-cur', on && Number(el.dataset.fxPaneI) === state.cur);
+}
+function paint() {
+  ensurePanes();
+  root.dataset.fxPane = treePane() ? 'tree' : 'list';
+  paintTop(); paintBar(); paintTree();
+  for (const p of panesOn()) paintPane(p);
+  paintPreview(); paintAsk(); paintDropAsk(); paintXfer(); paintJobs();
+}
+function paintPane(p) { paintPaneTop(p); paintList(p); }
+// 위치 줄(빵부스러기): 한 칸 화면은 위 줄, 두 칸이면 칸마다 칸 위 줄에 같은 글자.
+function crumbHtml(p) {
+  const w = p.where;
+  if (p.query) return `<span class="fx-crumb-now">${esc(p.found ? findSummary(foundShown(p)) : `'${p.query}' 찾기`)}</span>`;
+  if (p === state.panes[0] && treePane()) return '<span class="fx-crumb-now">폴더</span>';
+  if (!w) return '<span class="fx-crumb-now">파일</span>';
+  if (w.shelf) return `<span class="fx-crumb-now">${esc(SHELF_NAME[w.shelf])}</span>`;
+  const names = trailNames(w.source, p.trail), ids = [null, ...trailIds(p.trail)];
+  let html = names.map((n, i) => i === names.length - 1
+    ? `<span class="fx-crumb-now" aria-current="location">${esc(n)}</span>`
+    : `<button type="button" class="fx-crumb-step" data-fx-go="${esc(w.source)}" data-fx-id="${esc(ids[i] || '')}">${esc(n)}</button>`).join('<span class="fx-crumb-sep" aria-hidden="true">›</span>');
+  // 폰 [폴더] 탭의 목록은 맨 위 폴더에서도 ‹ 가 나무로 돌아온다.
+  if (names.length > 1 || (PHONE.matches && state.tab === 'folders')) html = `<button type="button" class="fx-up" data-fx-up aria-label="${names.length > 1 ? '위 폴더' : '폴더 나무'}">‹</button>` + html;
+  return html;
+}
+const sortHtml = p => `<select class="fx-sort" data-fx-sort aria-label="${p ? paneSide(idxOf(p)) + ' 칸 ' : ''}정렬">${SORTS.map(k => `<option value="${k}"${p?.sort === k ? ' selected' : ''}>${SORT_NAME[k]}</option>`).join('')}</select>`;
+// 칸 위 줄(두 칸일 때만): 폴드는 ▾(그 칸 위로 나무) + 위치 줄 + 정렬, PC는 위치 줄 + 정렬(나무는 왼쪽 그대로).
+function paintPaneTop(p) {
+  const top = inPane(p, '[data-fx-ptop]'), pt = inPane(p, '[data-fx-ptree]');
+  if (!top) return;
+  if (!two()) { top.hidden = true; top.innerHTML = ''; if (pt) { pt.hidden = true; pt.innerHTML = ''; } return; }
+  top.hidden = false;
+  const fold = !WIDE.matches, i = idxOf(p);
+  top.innerHTML = (fold ? `<button type="button" class="mini fx-pdrop" data-fx-pdrop aria-expanded="${p.drop}" aria-label="${paneSide(i)} 칸 폴더 나무">▾</button>` : '')
+    + `<nav class="fx-crumb" aria-label="${paneSide(i)} 칸 위치">${crumbHtml(p)}</nav>${sortHtml(p)}`;
+  paintPaneTree(p);
+}
+function paintPaneTree(p) {
+  const pt = inPane(p, '[data-fx-ptree]');
+  if (!pt) return;
+  const on = two() && !WIDE.matches && p.drop;
+  pt.hidden = !on; pt.innerHTML = on ? treeHtml(p) : '';
+}
 function paintTop() {
   const crumb = $('[data-fx-crumb]');
-  if (crumb) {
-    const w = state.where;
-    let html;
-    if (state.query) html = `<span class="fx-crumb-now">${esc(state.found ? findSummary(foundShown()) : `'${state.query}' 찾기`)}</span>`;
-    else if (treePane()) html = '<span class="fx-crumb-now">폴더</span>';
-    else if (!w) html = '<span class="fx-crumb-now">파일</span>';
-    else if (w.shelf) html = `<span class="fx-crumb-now">${esc(SHELF_NAME[w.shelf])}</span>`;
-    else {
-      const names = trailNames(w.source, state.trail), ids = [null, ...trailIds(state.trail)];
-      html = names.map((n, i) => i === names.length - 1
-        ? `<span class="fx-crumb-now" aria-current="location">${esc(n)}</span>`
-        : `<button type="button" class="fx-crumb-step" data-fx-go="${esc(w.source)}" data-fx-id="${esc(ids[i] || '')}">${esc(n)}</button>`).join('<span class="fx-crumb-sep" aria-hidden="true">›</span>');
-      // 폰 [폴더] 탭의 목록은 맨 위 폴더에서도 ‹ 가 나무로 돌아온다.
-      if (names.length > 1 || (PHONE.matches && state.tab === 'folders')) html = `<button type="button" class="fx-up" data-fx-up aria-label="${names.length > 1 ? '위 폴더' : '폴더 나무'}">‹</button>` + html;
-    }
-    crumb.innerHTML = html;
-  }
-  const sort = $('[data-fx-sort]'); if (sort && sort.value !== state.sort) sort.value = state.sort;
+  // 두 칸이면 위치 줄·정렬은 칸 위 줄에 있다(위 줄에는 찾기·새 폴더·맞추기·출처·[두 칸]).
+  const twoNow = two(), p = P();
+  if (crumb) { crumb.hidden = twoNow; crumb.innerHTML = twoNow ? '' : crumbHtml(p); }
+  const sort = $('.fx-top [data-fx-sort]');
+  if (sort) { sort.hidden = twoNow; if (sort.value !== p.sort) sort.value = p.sort; }
+  const search = $('[data-fx-search]');
+  if (search && document.activeElement !== search && search.value !== p.query) search.value = p.query;
   const s = $('[data-fx-sync]');
   if (s) {
     const scanning = SOURCES.some(x => state.status?.[x]?.scanning);
@@ -306,12 +382,16 @@ function paintTop() {
     s.textContent = syncText(state.syncedAt) || '맞추기';
     s.disabled = state.syncing;
     s.setAttribute('aria-busy', String(state.syncing || scanning));
-    const bar = $('[data-fx-wait]');
-    if (bar) { const on = (state.syncing || scanning) && state.loaded && !state.failed; if (on && bar.hidden) bar.innerHTML = barHtml(); bar.hidden = !on; if (!on) bar.replaceChildren(); }
+    for (const q of panesOn()) {
+      const bar = inPane(q, '[data-fx-wait]');
+      if (bar) { const on = (state.syncing || scanning) && q.loaded && !q.failed; if (on && bar.hidden) bar.innerHTML = barHtml(); bar.hidden = !on; if (!on) bar.replaceChildren(); }
+    }
     s.hidden = !state.status || !connected().length;
   }
   const mk = $('[data-fx-mkdir]');
-  if (mk) { mk.hidden = !state.where?.source || !!state.query || treePane() || !onSources().includes(state.where.source); mk.disabled = !!state.busy; }
+  if (mk) { mk.hidden = !p.where?.source || !!p.query || treePane() || !onSources().includes(p.where.source); mk.disabled = !!state.busy; }
+  const tw = $('[data-fx-two]');
+  if (tw) { tw.hidden = PHONE.matches; tw.setAttribute('aria-pressed', String(twoNow)); tw.classList.toggle('on', twoNow); }
   paintSrcs();
   for (const b of root?.querySelectorAll('[data-fx-tab]') || []) b.setAttribute('aria-selected', String(b.dataset.fxTab === state.tab));
   const note = $('[data-fx-note]');
@@ -350,23 +430,25 @@ function srcClick(name) {
 // 켜기/끄기가 바뀐 뒤: 보던 출처가 꺼졌으면 최근으로, 새로 켠 출처의 나무 맨 위를 읽고, 다시 그린다. 끄기는 보기에서만 빠진다(색인·연결은 그대로).
 function sourcesChanged() {
   state.hint = '';
-  const on = onSources(), w = state.where;
-  if (state.query || !on.length) closePreview();
-  if (!on.length) { state.picked.clear(); state.clip = null; paint(); return; }
-  if (!w || (w.source && !on.includes(w.source))) { setWhere({shelf: 'recent'}); }
-  else { paint(); if (w.shelf) loadList(); }
-  // 찾는 중이면 켜진 출처로 다시 찾는다(서버가 거름).
-  if (state.query) find(state.query);
+  const on = onSources();
+  if (panesOn().some(p => p.query) || !on.length) closePreview();
+  if (!on.length) { for (const p of state.panes) p.picked.clear(); state.clip = null; paint(); return; }
+  let painted = false;
+  for (const p of panesOn()) {
+    const w = p.where;
+    if (!w || (w.source && !on.includes(w.source))) { setWhere(p, {shelf: 'recent'}); painted = true; }
+    else if (w.shelf) loadList(p);
+    // 찾는 중이면 켜진 출처로 다시 찾는다(서버가 거름).
+    if (p.query) find(p, p.query);
+  }
+  if (!painted) paint();
   for (const s of on) if (!state.children.has(folderKey(s, null))) loadChildren(s, null);
 }
-function paintTree() {
-  const tree = $('[data-fx-tree]');
-  if (!tree) return;
-  // 폰 [폴더] 탭의 나무가 첫 화면인데 켜진 출처가 없으면 빈 칸 대신 안내 한 줄(PC·폴드는 목록 칸이 안내를 보인다).
-  if (nothingOn() && treePane()) { tree.innerHTML = emptyHtml(SOURCES_OFF_TEXT); return; }
+// 나무 줄(왼쪽 나무 · 폴드 두 칸의 칸 위 ▾ 나무가 같은 줄): p = 지금 위치를 칠할 칸.
+function treeHtml(p) {
   const rows = treeRows({sources: onSources(), children: state.children, open: state.open});
-  const w = state.where, curKey = !state.query && w ? (w.shelf ? 'shelf:' + w.shelf : folderKey(w.source, w.parent)) : '';
-  tree.innerHTML = rows.map(r => {
+  const w = p.where, curKey = !p.query && w ? (w.shelf ? 'shelf:' + w.shelf : folderKey(w.source, w.parent)) : '';
+  return rows.map(r => {
     const cur = r.key === curKey ? ' nx-current' : '';
     if (r.type === 'shelf') return `<div class="nx-row fx-shelf${cur}"><button type="button" class="nx-main" data-fx-shelf="${r.shelf}"${cur ? ' aria-current="true"' : ''}><span class="nx-name">${esc(SHELF_NAME[r.shelf])}</span></button></div>`;
     const twist = r.hasKids ? `<button type="button" class="fx-twist" data-fx-twist="${esc(r.key)}" aria-expanded="${r.open}" aria-label="${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="fx-twist" aria-hidden="true"></span>';
@@ -374,12 +456,24 @@ function paintTree() {
     const cnt = r.type === 'folder' ? countOf(r.source, r.id) : '', num = cnt ? `<span class="nx-num${/^0개$/.test(cnt) ? ' fx-zero' : ''}">${esc(cnt)}</span>` : '';
     return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${cur}" style="--nx-indent:${r.depth}" data-fx-drop="${esc(folderKey(r.source, r.id))}">${twist}<button type="button" class="nx-main" data-fx-go="${esc(r.source)}" data-fx-id="${esc(r.id || '')}"${cur ? ' aria-current="true"' : ''}><span class="nx-name">${esc(name)}</span>${num}</button></div>`;
   }).join('');
+}
+function paintTree() {
+  paintMainTree();
+  for (const p of panesOn()) paintPaneTree(p);
   // 받을 곳 창의 나무도 같은 하위 폴더 목록(state.children)을 쓴다: 새로 읽으면 함께 다시 그린다.
   if (state.xfer) paintDest();
 }
-function rowHtml(r, {withPath = false} = {}) {
-  const key = rowKey(r), sel = state.sel === key || state.picked.has(key), kind = kindOf(r);
-  const picked = state.picked.has(key) ? ' fx-picked' : '', cut = state.clip?.keys.includes(key) ? ' fx-cut' : '';
+// 왼쪽 나무(한 칸·PC 두 칸). 지금 칸의 위치를 칠한다. 폴드 두 칸은 CSS가 숨기고 칸 위 ▾ 나무를 쓴다.
+function paintMainTree() {
+  const tree = $('[data-fx-tree]');
+  if (!tree) return;
+  // 폰 [폴더] 탭의 나무가 첫 화면인데 켜진 출처가 없으면 빈 칸 대신 안내 한 줄(PC·폴드는 목록 칸이 안내를 보인다).
+  if (nothingOn() && treePane()) { tree.innerHTML = emptyHtml(SOURCES_OFF_TEXT); return; }
+  tree.innerHTML = treeHtml(P());
+}
+function rowHtml(p, r, {withPath = false} = {}) {
+  const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
+  const picked = p.picked.has(key) ? ' fx-picked' : '', cut = state.clip?.keys.includes(key) ? ' fx-cut' : '';
   const drag = PHONE.matches ? '' : ' draggable="true"', drop = r.is_folder ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
   const tags = [r.library_doc_id ? '자료실' : '', r.match_in === 'text' ? '글자 맞음' : ''].filter(Boolean).join(' · ');
   const tag = tags ? `<span class="fx-tag">${tags}</span>` : '';
@@ -395,6 +489,7 @@ function rowHtml(r, {withPath = false} = {}) {
     + `<span class="fx-sub">${esc([withPath ? where : day, size].filter(Boolean).join(' · '))}</span></button>`;
 }
 // S49-4 FILES-칸폭: 폴더 나무 | 목록 경계(split_ratio.files)와 표 머리 칸(위치·바뀐 날·크기·종류, col_widths.files)을 끌어 조절 — 둘 다 서버에 기억.
+// 나무 | 목록 경계는 나무가 보이는 동안만(폰·폴드 두 칸은 나무 칸이 없다).
 const COL_VARS = {path: '--fx-w-path', day: '--fx-w-day', size: '--fx-w-size', kind: '--fx-w-kind'};
 function mountWidths(list) {
   const cols = $('[data-fx-cols]');
@@ -402,45 +497,46 @@ function mountWidths(list) {
     mountSplitResize({container: cols, name: 'files', label: '폴더와 목록 칸 폭 조절', columns: [
       {el: () => $('[data-fx-tree]'), varName: '--ds-split-files-tree', minVar: '--ds-split-files-tree-min', minFallback: 160, share: 22},
       {el: () => $('[data-fx-main]'), varName: '--ds-split-files-main', minVar: '--ds-split-files-main-min', minFallback: 440, share: 78},
-    ], active: () => !PHONE.matches});
+    ], active: () => !PHONE.matches && !(two() && !WIDE.matches)});
   }
   mountColResize({host: list, name: 'files', vars: COL_VARS,
     fit: key => Math.ceil(Math.max(0, ...[...list.querySelectorAll(`.fx-row .fx-${key}`)].map(el => el.scrollWidth))) });
 }
 const scanningNow = () => state.syncing || SOURCES.some(x => state.status?.[x]?.scanning);
-function paintList() {
-  const list = $('[data-fx-list]');
+function paintList(p) {
+  const list = inPane(p, '[data-fx-list]');
   if (!list) return;
   mountWidths(list);
   if (state.statusFailed && !state.status) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.statusFailed), reason: state.statusWhy}); return; }
   if (nothingOn()) { list.innerHTML = emptyHtml(SOURCES_OFF_TEXT); delete list.dataset.fxMode; return; }
-  if (state.query) {
-    if (state.findFailed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.findFailed), reason: state.findWhy}); return; }
-    if (!state.found) { list.innerHTML = waitHtml({rows: 4}); return; }
-    const found = foundShown();
-    list.innerHTML = found.length ? `<div class="fx-rows fx-with-path" role="list">${found.map(r => rowHtml(r, {withPath: true})).join('')}</div>` : emptyHtml('찾은 것 없음');
+  if (p.query) {
+    if (p.findFailed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(p.findFailed), reason: p.findWhy}); return; }
+    if (!p.found) { list.innerHTML = waitHtml({rows: 4}); return; }
+    const found = foundShown(p);
+    list.innerHTML = found.length ? `<div class="fx-rows fx-with-path" role="list">${found.map(r => rowHtml(p, r, {withPath: true})).join('')}</div>` : emptyHtml('찾은 것 없음');
     list.dataset.fxMode = 'find';
     return;
   }
-  const w = state.where;
+  const w = p.where;
   if (!w) { list.innerHTML = state.status && !connected().length ? emptyHtml('연결된 클라우드 없음') : waitHtml({rows: 4}); return; }
-  if (state.failed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.failed), reason: state.failedWhy}); return; }
-  if (!state.loaded) { list.innerHTML = waitHtml({rows: 4}); return; }
-  const rows = shown();
+  if (p.failed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(p.failed), reason: p.failedWhy}); return; }
+  if (!p.loaded) { list.innerHTML = waitHtml({rows: 4}); return; }
+  const rows = shown(p);
   list.dataset.fxMode = w.shelf || 'folder';
   // 불러오는 동안(처음 목록 맞추는 중 포함)에는 '최근 없음'·'빈 폴더'를 보이지 않는다. 다 읽은 뒤에만.
   if (!rows.length && scanningNow()) { list.innerHTML = waitHtml({rows: 4}); return; }
   if (!rows.length) { list.innerHTML = emptyHtml(w.shelf ? `${SHELF_NAME[w.shelf]} 없음` : '빈 폴더'); return; }
-  if (w.shelf === 'recent' && PHONE.matches && state.sort === 'modified' && state.dir === 'desc') {
-    list.innerHTML = `<div class="fx-rows fx-with-path" role="list">${recentGroups(rows).map(g => `<div class="fx-day-head">${esc(g.label)}</div>${g.rows.map(r => rowHtml(r, {withPath: true})).join('')}`).join('')}</div>`;
+  if (w.shelf === 'recent' && PHONE.matches && p.sort === 'modified' && p.dir === 'desc') {
+    list.innerHTML = `<div class="fx-rows fx-with-path" role="list">${recentGroups(rows).map(g => `<div class="fx-day-head">${esc(g.label)}</div>${g.rows.map(r => rowHtml(p, r, {withPath: true})).join('')}`).join('')}</div>`;
     return;
   }
   list.innerHTML = `<div class="fx-head"><span>이름</span>${w.shelf ? `<span>위치${gripHtml('path', '위치')}</span>` : ''}<span>바뀐 날${gripHtml('day', '바뀐 날')}</span><span>크기${gripHtml('size', '크기')}</span><span>종류${gripHtml('kind', '종류')}</span></div>`
-    + `<div class="fx-rows${w.shelf ? ' fx-with-path' : ''}" role="list">${rows.map(r => rowHtml(r, {withPath: !!w.shelf})).join('')}</div>`;
+    + `<div class="fx-rows${w.shelf ? ' fx-with-path' : ''}" role="list">${rows.map(r => rowHtml(p, r, {withPath: !!w.shelf})).join('')}</div>`;
 }
-
 // ---------- 미리보기 ----------
-const rowByKey = key => (state.query ? state.found || [] : state.rows).find(r => rowKey(r) === key) || null;
+const rowByKey = (key, p = P()) => (p.query ? p.found || [] : p.rows).find(r => rowKey(r) === key) || null;
+// 미리보기가 덮는 칸인가: PC 한 칸만 오른쪽 칸, 폴드·두 칸은 덮는 칸(뒤로가기 한 번 = 닫힘).
+const overlayPreview = () => !WIDE.matches || two();
 function dropPreview() {
   const p = state.preview;
   if (p?.url) URL.revokeObjectURL(p.url);
@@ -451,16 +547,17 @@ function closePreview() { dropPreview(); const l = layer; layer = null; l?.close
 function selectRow(key, {show = true} = {}) {
   const r = rowByKey(key);
   if (!r) return;
-  state.sel = key;
-  for (const b of root.querySelectorAll('[data-fx-row]')) b.setAttribute('aria-selected', String(b.dataset.fxRow === key || state.picked.has(b.dataset.fxRow)));
+  const p = P();
+  p.sel = key;
+  for (const b of paneEl(p)?.querySelectorAll('[data-fx-row]') || []) b.setAttribute('aria-selected', String(b.dataset.fxRow === key || p.picked.has(b.dataset.fxRow)));
   if (show && !r.is_folder) openPreview(r);
 }
 async function openPreview(r) {
-  if (state.preview?.key === rowKey(r)) { if (!WIDE.matches) openLayer(); paintPreview(); return; }
+  if (state.preview?.key === rowKey(r)) { if (overlayPreview()) openLayer(); paintPreview(); return; }
   dropPreview();
   const kind = previewKind(r), p = {key: rowKey(r), row: r, kind, status: kind === 'none' ? 'done' : 'wait', url: '', text: '', pages: 0, shown: 0, err: ''};
   state.preview = p;
-  if (!WIDE.matches) openLayer();
+  if (overlayPreview()) openLayer();
   paintPreview();
   loadTwins(p);
   if (kind === 'none') return;
@@ -537,7 +634,8 @@ function paintPreview() {
   const p = state.preview;
   if (!p) { box.hidden = true; box.innerHTML = ''; delete root.dataset.fxPreview; return; }
   box.hidden = false;
-  const r = p.row, where = state.where?.source === r.source && !state.query && !state.where?.shelf ? trailNames(r.source, state.trail).join(' › ') : pathText(r.source, r.folder_path);
+  const r = p.row, at = state.panes.find(q => q.where?.source === r.source && !q.query && !q.where?.shelf && q.rows.some(x => rowKey(x) === p.key));
+  const where = at ? trailNames(r.source, at.trail).join(' › ') : pathText(r.source, r.folder_path);
   let view = '';
   if (p.kind === 'image') view = '<div class="fx-pv-imgbox" data-fx-img></div>';
   else if (p.status === 'wait') view = barHtml(); // 미리보기 칸 맨 위 가는 줄(칸 한가운데 회색 막대가 아니라)
@@ -611,20 +709,22 @@ async function download(r, {share = false} = {}) {
 }
 
 // ---------- 쓰기(S48-45 ⑤·⑦) ----------
-const pickedRows = () => [...state.picked].map(rowByKey).filter(Boolean);
+const pickedRows = (p = P()) => [...p.picked].map(k => rowByKey(k, p)).filter(Boolean);
 // 지금 손댈 줄: 고른 것이 있으면 그것, 없으면 미리보기·선택한 한 줄.
-const actRows = () => { const p = pickedRows(); if (p.length) return p; const r = state.sel && rowByKey(state.sel); return r ? [r] : []; };
+const actRows = () => { const p = P(), list = pickedRows(p); if (list.length) return list; const r = p.sel && rowByKey(p.sel, p); return r ? [r] : []; };
+// 두 칸: 받을 곳 = 반대 칸의 지금 폴더(찾는 중·묶음이면 없음).
+const oppDest = () => (two() ? paneDest(otherOf(P())) : null);
 function paintBar() {
   const bar = $('[data-fx-bar]');
   if (!bar) return;
-  const n = state.picked.size, clip = state.clip;
+  const p = P(), n = p.picked.size, clip = state.clip;
   if (state.busy) {
     bar.hidden = false;
     bar.innerHTML = `<span class="fx-bar-t" role="status">${esc(state.busy)}</span>`;
     return;
   }
   if (clip) {
-    const here = state.where?.source && !state.query ? {source: state.where.source, parent: state.where.parent} : null;
+    const here = hereDest();
     const copy = clip.mode === 'copy';
     const ok = here && (copy ? xferPlan(clip.rows, here, 'copy').ok.length > 0 : moveTargetOk(clip.rows, here));
     bar.hidden = false;
@@ -634,44 +734,60 @@ function paintBar() {
   }
   bar.hidden = !n;
   if (!n) { bar.innerHTML = ''; return; }
+  if (two()) {
+    // 시안 ⑥⑧: 'N개 (왼쪽) · [→ 오른쪽에 복사] [→ 옮기기] [이름] [휴지통] ✕' — 받을 곳 창 없이 반대 칸으로. PC는 키 이름을 함께.
+    const i = state.cur, dest = oppDest(), keys = WIDE.matches, off = dest ? '' : ` disabled title="${esc(paneSide(i ^ 1))} 칸에서 받을 폴더를 여세요"`;
+    bar.innerHTML = `<span class="fx-bar-t">${n}개 (${paneSide(i)})</span>`
+      + `<button type="button" class="fx-btn" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy'))}${keys ? ' (F5)' : ''}</button>`
+      + `<button type="button" class="fx-btn" data-fx-send="move"${off}>${esc(sendLabel(i, 'move'))}${keys ? ' (F6)' : ''}</button>`
+      + (n === 1 ? `<button type="button" class="fx-btn" data-fx-rename>이름${keys ? ' (F2)' : ''}</button>` : '')
+      + `<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통${keys ? ' (Del)' : ''}</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>`;
+    return;
+  }
   // 시안 ③: 'N개 · [복사] [옮기기] [이름] [휴지통] ✕'(쓰지 않는 ⋯는 두지 않는다).
   bar.innerHTML = `<span class="fx-bar-t">${n}개</span><button type="button" class="fx-btn" data-fx-copy>복사</button><button type="button" class="fx-btn" data-fx-cut>옮기기</button>`
     + (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '')
     + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
 }
-function paintPicks() {
-  for (const b of root.querySelectorAll('[data-fx-row]')) {
-    const on = state.picked.has(b.dataset.fxRow);
+function paintPicks(p = P()) {
+  for (const b of paneEl(p)?.querySelectorAll('[data-fx-row]') || []) {
+    const on = p.picked.has(b.dataset.fxRow);
     b.classList.toggle('fx-picked', on);
-    b.setAttribute('aria-selected', String(on || b.dataset.fxRow === state.sel));
+    b.setAttribute('aria-selected', String(on || b.dataset.fxRow === p.sel));
   }
   paintBar();
 }
 function togglePick(key) {
-  if (state.picked.has(key)) state.picked.delete(key); else state.picked.add(key);
-  state.anchor = key; paintPicks();
+  const p = P();
+  if (p.picked.has(key)) p.picked.delete(key); else p.picked.add(key);
+  p.anchor = key; paintPicks(p);
 }
 function rangePick(key) {
-  const keys = [...root.querySelectorAll('[data-fx-row]')].map(b => b.dataset.fxRow);
-  for (const k of pickRange(keys, state.anchor || state.sel, key)) state.picked.add(k);
-  paintPicks();
+  const p = P(), keys = [...(paneEl(p)?.querySelectorAll('[data-fx-row]') || [])].map(b => b.dataset.fxRow);
+  for (const k of pickRange(keys, p.anchor || p.sel, key)) p.picked.add(k);
+  paintPicks(p);
 }
-function unpick() { state.picked.clear(); state.anchor = ''; paintPicks(); }
-// 서버가 돌려준 바뀐 줄을 지금 목록에 입힌다(sync와 같은 길). 찾기·묶음 화면은 서버에서 다시 읽는다.
+function unpick(p = P()) { p.picked.clear(); p.anchor = ''; paintPicks(p); }
+// 서버가 돌려준 바뀐 줄을 보이는 칸마다 입힌다(sync와 같은 길). 찾기·묶음 화면은 서버에서 다시 읽는다.
 async function applyWrite(d, touched = []) {
   const changed = Array.isArray(d?.changed) ? d.changed : [], removed = Array.isArray(d?.removed) ? d.removed : [];
   const gone = new Set(removed.map(x => `${x.source}:${x.id}`));
-  for (const k of gone) state.picked.delete(k);
+  for (const p of state.panes) for (const k of gone) p.picked.delete(k);
   // 지운 줄은 고른 것에서도 빠진다 → 막대 숫자를 바로 고친다(write()의 마무리 그리기는 이보다 먼저 돈다).
   paintBar();
   if (state.preview && gone.has(state.preview.key)) closePreview();
   else if (state.preview) { const c = changed.find(x => rowKey(x) === state.preview.key); if (c) { state.preview.row = {...state.preview.row, ...c}; paintPreview(); } }
   for (const key of touched) if (state.children.has(key)) { const [source, ...rest] = key.split(':'); loadChildren(source, rest.join(':') || null); }
-  if (state.query) { const q = state.query; state.query = ''; setQuery(q); return; }
-  const w = state.where;
-  if (!w || w.shelf || touchesCounts(state.rows, w, changed, removed)) { await loadList({quiet: true}); return; }
-  const next = applyChanges(state.rows, w, changed, removed);
-  if (next !== state.rows) { state.rows = next; paintList(); }
+  const work = [];
+  for (const p of panesOn()) {
+    if (p.query) { refind(p); continue; }
+    const w = p.where;
+    if (!w) continue;
+    if (w.shelf || touchesCounts(p.rows, w, changed, removed)) { work.push(loadList(p, {quiet: true})); continue; }
+    const next = applyChanges(p.rows, w, changed, removed);
+    if (next !== p.rows) { p.rows = next; paintList(p); }
+  }
+  await Promise.all(work);
 }
 async function write(action, body, label, {timeoutMs = 60000} = {}) {
   if (state.busy || state.run) return null;
@@ -699,7 +815,7 @@ async function renameRow(r, anchor) {
   if (d) { await applyWrite(d, touchedFolders([r])); notify(writeDoneText('rename'), {record: false}); }
 }
 async function makeFolder(anchor) {
-  const w = state.where;
+  const w = P().where;
   if (!w?.source) return;
   const v = await askText(anchor, {text: '새 폴더 이름', value: '', ok: '만들기', max: FILE_BASE_MAX});
   if (v === null) return;
@@ -733,13 +849,15 @@ function cutRows(rows, mode = 'move') {
   if (!list.length) return;
   if (mode === 'move') { const chk = moveCheck(list); if (!chk.ok) { notify(chk.reason, {error: true, record: false}); return; } }
   state.clip = {rows: list, keys: list.map(rowKey), mode};
-  state.picked.clear(); paintList(); paintBar();
+  P().picked.clear(); paintLists(); paintBar();
 }
-function uncut() { state.clip = null; paintList(); paintBar(); }
+function uncut() { state.clip = null; paintLists(); paintBar(); }
+// 잘라 둔 줄(흐리게)은 두 칸 모두에 보일 수 있다.
+function paintLists() { for (const p of panesOn()) paintList(p); }
 function pasteClip(dest, anchor) {
   const c = state.clip;
   if (!c) return;
-  if (c.mode === 'copy') { state.clip = null; paintList(); paintBar(); xferRun('copy', c.rows, dest); }
+  if (c.mode === 'copy') { state.clip = null; paintLists(); paintBar(); xferRun('copy', c.rows, dest); }
   else moveRows(c.rows, dest, anchor);
 }
 // 끌어 놓기·붙여 넣기 옮기기: 받을 곳 창과 같은 길(xferRun)로. 다른 저장소로 옮기는 것은 원본이 휴지통으로 가므로 한 번 묻는다.
@@ -753,7 +871,7 @@ async function moveRows(rows, dest, anchor) {
       note: `똑같이 옮겨졌는지 맞춘 뒤 원본은 ${[...new Set(away.map(x => SOURCE_NAME[x.source]))].join('·')} 휴지통으로 보냅니다`});
     if (!ok) return;
   }
-  state.clip = null; paintList(); paintBar();
+  state.clip = null; paintLists(); paintBar();
   await xferRun('move', list, dest);
 }
 
@@ -769,8 +887,9 @@ function openDest(mode, rows) {
   const on = onSources(), here = hereDest();
   const dest = here && on.includes(here.source) ? here : null;
   const open = new Set(on.map(s => folderKey(s, null)));
-  if (dest) for (const id of [null, ...trailIds(state.trail)]) open.add(folderKey(dest.source, id));
-  state.xfer = {mode, rows: list, dest, open, names: new Map(state.trail.map(t => [folderKey(state.where?.source, t.item_id), t.name]))};
+  const p = P();
+  if (dest) for (const id of [null, ...trailIds(p.trail)]) open.add(folderKey(dest.source, id));
+  state.xfer = {mode, rows: list, dest, open, names: new Map(p.trail.map(t => [folderKey(p.where?.source, t.item_id), t.name]))};
   for (const s of on) if (!state.children.has(folderKey(s, null))) loadChildren(s, null);
   destLayer ||= window.KPTURouter?.layer?.open('files-dest', {reopen: () => paintDest(), close: () => { destLayer = null; dropDest(); return true; }}) || null;
   paintDest();
@@ -788,6 +907,7 @@ function destNameOf(dest) {
   if (!dest?.parent) return destName(dest);
   const known = state.xfer?.names.get(destKey(dest));
   if (known) return destName(dest, known);
+  for (const p of state.panes) { const t = p.where?.source === dest.source && p.trail.find(x => x.item_id === dest.parent); if (t) return destName(dest, t.name); }
   for (const list of state.children.values()) { const f = list.find(r => r.source === dest.source && r.item_id === dest.parent); if (f) return destName(dest, f.name); }
   return destName(dest, '폴더');
 }
@@ -923,7 +1043,7 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
     go.push(r);
   }
   if (inSheet) closeDest();
-  state.picked.clear(); paintPicks();
+  P().picked.clear(); paintPicks();
   if (plan.blocked.length) notify(plan.blocked[0].reason, {error: true, record: false});
   if (!go.length) { if (skipped) notify(xferDoneText(mode, {skipped}), {record: false}); return true; }
   // 복사·다른 저장소로 옮기기는 서버 작업표로(화면을 닫아도 서버가 잇는다). 같은 이름 [건너뛰기]도 '건너뜀' 줄로 남긴다.
@@ -1020,7 +1140,7 @@ async function jobsLanded(list) {
       if (state.children.has(folderKey(source, parent))) loadChildren(source, parent);
     }
   }
-  if (state.loaded && !state.query) await loadList({quiet: true});
+  await Promise.all(panesOn().filter(p => p.loaded && !p.query).map(p => loadList(p, {quiet: true})));
 }
 async function addJobs(mode, dest, items) {
   const scope = state.scope;
@@ -1082,36 +1202,99 @@ function paintJobs() {
     + (list.length ? `<ul class="fx-jobs-list">${list.map(jobRowHtml).join('')}</ul>` : '<p class="fx-jobs-none">보낸 것이 없어요(하루 지난 것은 지워져요).</p>');
   if (keep) (box.querySelector(keep) || box.querySelector('[data-fx-jobs-close]'))?.focus({preventScroll: true});
 }
-const hereDest = () => state.where?.source && !state.query ? {source: state.where.source, parent: state.where.parent ?? null} : null;
+const hereDest = (p = P()) => paneDest(p);
 const destOf = key => { const [source, ...rest] = String(key || '').split(':'); return SOURCES.includes(source) ? {source, parent: rest.join(':') || null} : null; };
 
-// ---------- 움직이기 ----------
-function goFolder(source, id) {
+// ---------- 두 칸: 켜기·지금 칸·반대 칸으로 보내기·끌어 놓기 고르기 ----------
+// 지금 칸 바꾸기: 칸 안 그림은 다시 그리지 않는다(누르던 단추가 바뀌어 누름이 사라지지 않게) — 표시(fx-cur)·위 줄·막대·왼쪽 나무만.
+function setCur(i) {
+  if (!two() || i === state.cur || !state.panes[i]) return;
+  state.cur = i;
+  markCur(); paintTop(); paintBar(); paintMainTree();
+}
+// 한 칸으로 돌아갈 때 지금 쓰던 칸이 그 한 칸이 된다(칸 1이었으면 자리를 바꾼다). 두 칸이 될 때 오른쪽 칸이 비어 있으면 첫 위치를 연다.
+function layoutChanged() {
+  if (!two()) {
+    if (state.cur === 1) { state.panes.reverse(); state.cur = 0; window.KPTURouter?.setPlace?.('files', placeOf(state.panes[0].where)); }
+    state.panes[1].picked.clear(); state.panes[1].drop = false;
+    state.dropAsk = null;
+    paint();
+    return;
+  }
+  const b = state.panes[1];
+  paint();
+  if (!state.status) return;
+  if (b.where) { loadList(b, {quiet: true}); return; }
+  const start = otherStart(state.panes[0].where, onSources());
+  if (start) setWhere(b, start, {keepPreview: true});
+}
+function setTwo(on) {
+  if (PHONE.matches) return;
+  viewPrefs.setFilesTwo?.(DEVICE, twoValue(viewPrefs.getFilesTwo?.(DEVICE), twoLayout(WIDE.matches), on));
+  closePreview();
+  layoutChanged();
+}
+// 고르기 막대·F5·F6: 지금 칸에서 고른 것(없으면 선택한 한 줄)을 반대 칸의 지금 폴더로. 같은 이름·200MB 묻기·전송 목록은 xferRun 그대로.
+function sendOpp(mode, anchor) {
+  const dest = oppDest(), list = actRows();
+  if (!list.length) return;
+  if (!dest) { notify(`${paneSide(state.cur ^ 1)} 칸에서 받을 폴더를 여세요`, {record: false}); return; }
+  if (mode === 'move') moveRows(list, dest, anchor); else xferRun('copy', list, dest);
+}
+// 칸 사이로 끌어 놓았을 때 '복사 · 옮기기' 작은 고르기(시안 ⑥ drop-hint). 놓은 자리 곁에 뜬다.
+function paintDropAsk() {
+  const box = $('[data-fx-dropask]');
+  if (!box) return;
+  const a = state.dropAsk;
+  if (!a) { box.hidden = true; box.innerHTML = ''; return; }
+  const copyOk = xferPlan(a.rows, a.dest, 'copy').ok.length > 0, moveOk = moveTargetOk(a.rows, a.dest);
+  box.hidden = false;
+  box.style.left = `${Math.max(8, Math.min(a.x - 120, window.innerWidth - 268))}px`;
+  box.style.top = `${Math.max(8, Math.min(a.y + 8, window.innerHeight - 120))}px`;
+  box.innerHTML = `<span class="fx-drop-t">${esc(DROP_ASK_TEXT)} → <b>${esc(destNameOf(a.dest))}</b></span>`
+    + `<button type="button" class="fx-btn fx-pri" data-fx-drop-go="copy"${copyOk ? '' : ' disabled'}>복사</button><button type="button" class="fx-btn" data-fx-drop-go="move"${moveOk ? '' : ' disabled'}>옮기기</button>`
+    + '<button type="button" class="mini" data-fx-drop-x aria-label="놓기 그만두기">✕</button>';
+}
+function dropGo(mode, anchor) {
+  const a = state.dropAsk;
+  state.dropAsk = null; paintDropAsk();
+  if (!a) return;
+  if (mode === 'move') moveRows(a.rows, a.dest, anchor); else xferRun('copy', a.rows, a.dest);
+}
+function dropAskClose() { if (state.dropAsk) { state.dropAsk = null; paintDropAsk(); } }
+
+// ---------- 움직이기(지금 칸) ----------
+function clearQuery(p) {
+  if (!p.query) return;
+  clearTimeout(p.ftimer); p.query = ''; p.found = null; p.fseq++;
+  const s = $('[data-fx-search]'); if (s && p === P()) s.value = '';
+}
+function goFolder(source, id, p = P()) {
   if (!SOURCES.includes(source)) return;
-  if (state.query) { state.query = ''; state.found = null; const s = $('[data-fx-search]'); if (s) s.value = ''; }
+  clearQuery(p);
   const parent = id || null;
   state.open.add(folderKey(source, parent));
-  return setWhere({source, parent});
+  return setWhere(p, {source, parent});
 }
-function goShelf(shelf) {
-  if (state.query) { state.query = ''; state.found = null; const s = $('[data-fx-search]'); if (s) s.value = ''; }
-  return setWhere({shelf});
+function goShelf(shelf, p = P()) {
+  clearQuery(p);
+  return setWhere(p, {shelf});
 }
 function goUp() {
-  const w = state.where;
+  const p = P(), w = p.where;
   if (!w?.source) return;
-  if (!w.parent) { if (PHONE.matches && state.tab === 'folders') { state.pane = 'tree'; paint(); } return; }
-  const ids = trailIds(state.trail);
+  if (!w.parent) { if (PHONE.matches && state.tab === 'folders') { p.pane = 'tree'; paint(); } return; }
+  const ids = trailIds(p.trail);
   return goFolder(w.source, ids.length > 1 ? ids[ids.length - 2] : null);
 }
-function toggle(key) {
+function toggle(key, box) {
   if (state.open.has(key)) state.open.delete(key); else {
     state.open.add(key);
     const [source, ...rest] = key.split(':'), id = rest.join(':') || null;
     fillFolder(source, id);
   }
   paintTree();
-  root.querySelector(`[data-fx-twist="${CSS.escape(key)}"]`)?.focus({preventScroll: true});
+  (box?.isConnected ? box : root).querySelector(`[data-fx-twist="${CSS.escape(key)}"]`)?.focus({preventScroll: true});
 }
 function setTab(tab) {
   if (!PHONE_TABS.includes(tab)) return;
@@ -1119,29 +1302,40 @@ function setTab(tab) {
   state.hint = '';
   if (tab === 'folders') {
     // 폰: [폴더] 탭은 두 드라이브 나무가 첫 화면. 켜진 드라이브의 맨 위 폴더를 읽어 둔다.
-    state.pane = 'tree';
+    state.panes[0].pane = 'tree';
     for (const s of onSources()) if (!state.children.has(folderKey(s, null))) loadChildren(s, null);
     paint();
-  } else goShelf(tab);
+  } else goShelf(tab, state.panes[0]);
 }
 function activate(key) {
   const r = rowByKey(key);
   if (!r) return;
   if (r.is_folder) goFolder(r.source, r.item_id); else selectRow(key);
 }
+const paneOfEl = el => { const box = el?.closest?.('[data-fx-pane-i]'); return box && root.contains(box) ? Number(box.dataset.fxPaneI) : -1; };
 
+// 칸을 누르면(또는 칸 안으로 키보드가 들어가면) 그 칸이 지금 칸.
+root?.addEventListener('pointerdown', event => { const i = paneOfEl(event.target); if (i >= 0) setCur(i); }, true);
+root?.addEventListener('focusin', event => { const i = paneOfEl(event.target); if (i >= 0) setCur(i); });
 root?.addEventListener('click', event => {
   const b = event.target.closest('button');
+  if (state.dropAsk && !event.target.closest('[data-fx-dropask]')) dropAskClose();
   if (!b || !root.contains(b)) return;
+  { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   if (b.matches('[data-fx-row]')) {
-    const key = b.dataset.fxRow;
+    const key = b.dataset.fxRow, p = P();
     if (event.ctrlKey || event.metaKey) { event.preventDefault(); togglePick(key); return; }
     if (event.shiftKey) { event.preventDefault(); rangePick(key); return; }
-    if (state.picked.size && PHONE.matches) { togglePick(key); return; }
-    if (state.picked.size) unpick();
-    state.anchor = key;
+    if (p.picked.size && PHONE.matches) { togglePick(key); return; }
+    if (p.picked.size) unpick();
+    p.anchor = key;
     activate(key); return;
   }
+  if (b.matches('[data-fx-two]')) { setTwo(!two()); return; }
+  if (b.matches('[data-fx-pdrop]')) { const p = P(); p.drop = !p.drop; paintPaneTop(p); inPane(p, '[data-fx-pdrop]')?.focus({preventScroll: true}); return; }
+  if (b.matches('[data-fx-send]')) { sendOpp(b.dataset.fxSend === 'move' ? 'move' : 'copy', b); return; }
+  if (b.matches('[data-fx-drop-go]')) { dropGo(b.dataset.fxDropGo === 'move' ? 'move' : 'copy', b); return; }
+  if (b.matches('[data-fx-drop-x]')) { dropAskClose(); return; }
   if (b.matches('[data-fx-mkdir]')) { makeFolder(b); return; }
   if (b.matches('[data-fx-ask]')) { answer(b.dataset.fxAsk === 'go' ? 'go' : 'skip'); return; }
   if (b.matches('[data-fx-dest-close]')) { closeDest(); return; }
@@ -1162,7 +1356,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-uncut]')) { uncut(); return; }
   if (b.matches('[data-fx-go]')) { goFolder(b.dataset.fxGo, b.dataset.fxId || null); return; }
   if (b.matches('[data-fx-shelf]')) { goShelf(b.dataset.fxShelf); return; }
-  if (b.matches('[data-fx-twist]')) { toggle(b.dataset.fxTwist); return; }
+  if (b.matches('[data-fx-twist]')) { toggle(b.dataset.fxTwist, b.closest('.nx-tree')); return; }
   if (b.matches('[data-fx-up]')) { goUp(); return; }
   if (b.matches('[data-fx-tab]')) { setTab(b.dataset.fxTab); return; }
   if (b.matches('[data-fx-src]')) { srcClick(b.dataset.fxSrc); return; }
@@ -1174,48 +1368,81 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-down]') && p) { download(p.row); return; }
   if (b.matches('[data-fx-share]') && p) { download(p.row, {share: true}); return; }
   if (b.matches('[data-fx-rename-one]') && p) { renameRow(p.row, b); return; }
-  if (b.matches('[data-fx-cut-one]') && p) { openDest('move', [p.row]); return; }
-  if (b.matches('[data-fx-copy-one]') && p) { openDest('copy', [p.row]); return; }
+  // 미리보기 [복사]·[옮기기]: 두 칸이고 반대 칸이 폴더를 열었으면 그리로 바로, 아니면 받을 곳 창.
+  if (b.matches('[data-fx-cut-one]') && p) { const d = oppDest(); if (d) { closePreview(); moveRows([p.row], d, b); } else openDest('move', [p.row]); return; }
+  if (b.matches('[data-fx-copy-one]') && p) { const d = oppDest(); if (d) { closePreview(); xferRun('copy', [p.row], d); } else openDest('copy', [p.row]); return; }
   if (b.matches('[data-fx-trash-one]') && p) { trashRows([p.row], b); return; }
   if (b.matches('[data-fx-library]')) { requestLibraryDocument(b.dataset.fxLibrary); window.KPTURouter?.go?.('library', {source: 'delegated'}); return; }
-  if (b.matches('[data-fx-retry]')) { if (!state.status) enter(true); else if (state.query) { const q = state.query; state.query = ''; setQuery(q); } else loadList(); }
+  if (b.matches('[data-fx-retry]')) { const q = P(); if (!state.status) enter(true); else if (q.query) refind(q); else loadList(q); }
 });
 root?.addEventListener('dblclick', event => {
   const b = event.target.closest('[data-fx-row]');
   const r = b && rowByKey(b.dataset.fxRow);
   if (r && !r.is_folder) openCloud(r);
 });
-root?.addEventListener('input', event => { if (event.target.matches('[data-fx-search]')) setQuery(event.target.value); });
-root?.addEventListener('change', event => { if (event.target.matches('[data-fx-sort]')) { state.sort = validSort(event.target.value); state.dir = state.sort === 'name' ? 'asc' : 'desc'; paintList(); } });
+root?.addEventListener('input', event => { if (event.target.matches('[data-fx-search]')) setQuery(P(), event.target.value); });
+root?.addEventListener('change', event => {
+  if (!event.target.matches('[data-fx-sort]')) return;
+  // 칸 위 줄의 정렬은 그 칸, 위 줄의 정렬은 지금 칸.
+  const i = paneOfEl(event.target), p = i >= 0 ? state.panes[i] : P();
+  p.sort = validSort(event.target.value); p.dir = p.sort === 'name' ? 'asc' : 'desc'; paintList(p);
+});
+// 두 칸 키(F5·F6·Tab): 이 화면이 보이고 두 칸일 때, 입력 칸 밖에서만. 포커스가 화면 안이거나 아무 데도 없을 때(body)만 가로챈다(F5 새로고침을 막는 것은 두 칸 동안만).
+function twoKey(event) {
+  if (!two() || !visible() || event.altKey || event.ctrlKey || event.metaKey) return false;
+  const t = event.target;
+  if (t?.matches?.('input,select,textarea,[contenteditable="true"]')) return false;
+  if (!(t === document.body || t === document.documentElement || root.contains(t))) return false;
+  if (state.xfer || state.ask || state.jobsOpen || state.dropAsk) return false;
+  if (event.key === 'F5' || event.key === 'F6') {
+    event.preventDefault();
+    if (!state.busy && !state.run) sendOpp(event.key === 'F6' ? 'move' : 'copy', $('[data-fx-bar]') || root);
+    return true;
+  }
+  // Tab은 목록 줄(또는 아무 데도 없을 때)에서만 칸을 바꾼다 — 위 줄·막대·칸 위 줄 단추 사이의 Tab 이동은 그대로.
+  if (event.key === 'Tab' && (t === document.body || t === document.documentElement || t?.matches?.('[data-fx-row]'))) {
+    event.preventDefault();
+    const next = state.cur ^ 1, q = state.panes[next];
+    setCur(next);
+    const box = paneEl(q), rows = [...(box?.querySelectorAll('[data-fx-row]') || [])];
+    (rows.find(b => b.dataset.fxRow === q.sel) || rows[0] || box?.querySelector('button,select'))?.focus({preventScroll: false});
+    return true;
+  }
+  return false;
+}
+document.addEventListener('keydown', event => { if (!root.contains(event.target)) twoKey(event); });
 // PC 단축키: ↑↓ 고르기 · Enter 열기(폴더는 들어가기) · Backspace 위 폴더 · / 찾기.
 root?.addEventListener('keydown', event => {
   if (event.target.matches('input,select,textarea')) {
-    if (event.key === 'Escape' && event.target.matches('[data-fx-search]') && event.target.value) { event.target.value = ''; setQuery(''); }
+    if (event.key === 'Escape' && event.target.matches('[data-fx-search]') && event.target.value) { event.target.value = ''; setQuery(P(), ''); }
     return;
   }
-  const rows = [...root.querySelectorAll('[data-fx-row]')];
+  if (twoKey(event)) return;
+  const p = P(), rows = [...(paneEl(p)?.querySelectorAll('[data-fx-row]') || [])];
   const mod = event.ctrlKey || event.metaKey, k = String(event.key).toLowerCase();
+  if (event.key === 'Escape' && state.dropAsk) { event.preventDefault(); dropAskClose(); return; }
   if (event.key === 'F2') { const list = actRows(); if (list.length === 1) { event.preventDefault(); renameRow(list[0], event.target.closest('button') || root); } return; }
   if (event.key === 'Delete') { const list = actRows(); if (list.length) { event.preventDefault(); trashRows(list, event.target.closest('button') || root); } return; }
-  if (mod && k === 'a' && rows.length) { event.preventDefault(); for (const b of rows) state.picked.add(b.dataset.fxRow); paintPicks(); return; }
+  if (mod && k === 'a' && rows.length) { event.preventDefault(); for (const b of rows) p.picked.add(b.dataset.fxRow); paintPicks(p); return; }
   if (mod && k === 'x') { const list = actRows(); if (list.length) { event.preventDefault(); cutRows(list); } return; }
   if (mod && k === 'c') { const list = actRows(); if (list.length) { event.preventDefault(); cutRows(list, 'copy'); } return; }
   if (mod && k === 'v') { const d = hereDest(); if (state.clip && d) { event.preventDefault(); pasteClip(d, root.querySelector('[data-fx-bar]') || root); } return; }
   if (event.key === 'Escape' && state.ask) { event.preventDefault(); answer('skip'); return; }
   if (event.key === 'Escape' && state.xfer) { event.preventDefault(); closeDest(); return; }
   if (event.key === 'Escape' && state.jobsOpen) { event.preventDefault(); closeJobs(); return; }
-  if (event.key === 'Escape' && (state.picked.size || state.clip)) { event.preventDefault(); if (state.clip) uncut(); else unpick(); return; }
+  if (event.key === 'Escape' && (p.picked.size || state.clip)) { event.preventDefault(); if (state.clip) uncut(); else unpick(); return; }
+  if (event.key === 'Escape' && p.drop) { event.preventDefault(); p.drop = false; paintPaneTop(p); return; }
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     if (!rows.length) return;
     event.preventDefault();
-    const at = rows.findIndex(b => b.dataset.fxRow === state.sel);
+    const at = rows.findIndex(b => b.dataset.fxRow === p.sel);
     const next = rows[Math.max(0, Math.min(rows.length - 1, at < 0 ? 0 : at + (event.key === 'ArrowDown' ? 1 : -1)))];
-    next.focus(); selectRow(next.dataset.fxRow, {show: WIDE.matches});
+    next.focus(); selectRow(next.dataset.fxRow, {show: WIDE.matches && !two()});
   } else if (event.key === 'Enter' && event.target.matches('[data-fx-row]')) {
     event.preventDefault();
     const r = rowByKey(event.target.dataset.fxRow);
     if (r?.is_folder) goFolder(r.source, r.item_id); else if (r) { selectRow(rowKey(r), {show: false}); openCloud(r); }
-  } else if (event.key === 'Backspace' && !state.query) { event.preventDefault(); goUp(); }
+  } else if (event.key === 'Backspace' && !p.query) { event.preventDefault(); goUp(); }
   else if (event.key === '/') { event.preventDefault(); $('[data-fx-search]')?.focus(); }
 });
 // 폰: 꾹 누르면 고르기(길게 누르면 브라우저가 contextmenu를 보낸다). PC 오른쪽 단추도 같은 고르기.
@@ -1223,41 +1450,51 @@ root?.addEventListener('contextmenu', event => {
   const b = event.target.closest('[data-fx-row]');
   if (!b || state.busy) return;
   event.preventDefault();
+  { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   togglePick(b.dataset.fxRow);
 });
 // PC: 줄을 폴더(목록의 폴더 줄·나무의 폴더)로 끌어 놓아 옮기기. 끈 줄이 고른 것 안이면 고른 것 모두.
-let dragKeys = null;
+// 두 칸: 반대 칸(그 칸의 지금 폴더 또는 그 칸의 폴더 줄)에 놓으면 '복사 · 옮기기' 작은 고르기.
+let drag = null;
 root?.addEventListener('dragstart', event => {
   const b = event.target.closest?.('[data-fx-row]');
   if (!b || state.busy) { event.preventDefault?.(); return; }
-  const key = b.dataset.fxRow;
-  dragKeys = state.picked.has(key) ? [...state.picked] : [key];
+  { const i = paneOfEl(b); if (i >= 0) setCur(i); }
+  const key = b.dataset.fxRow, p = P();
+  drag = {pane: state.cur, rows: (p.picked.has(key) ? [...p.picked] : [key]).map(k => rowByKey(k, p)).filter(Boolean)};
   event.dataTransfer?.setData('text/plain', 'files-move');
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = two() ? 'copyMove' : 'move';
 });
 const dropAt = event => {
-  const t = event.target.closest?.('[data-fx-drop]');
-  if (!t || !dragKeys) return null;
-  const dest = destOf(t.dataset.fxDrop), rows = dragKeys.map(rowByKey).filter(Boolean);
-  return dest && moveTargetOk(rows, dest) ? {t, dest, rows} : null;
+  if (!drag) return null;
+  const i = two() ? paneOfEl(event.target) : -1, cross = i >= 0 && i !== drag.pane;
+  const t = event.target.closest?.('[data-fx-drop]') || (cross ? event.target.closest('[data-fx-pane-i]') : null);
+  if (!t) return null;
+  const dest = t.dataset.fxDrop ? destOf(t.dataset.fxDrop) : paneDest(state.panes[i]);
+  if (!dest) return null;
+  if (cross) return xferPlan(drag.rows, dest, 'copy').ok.length || moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
+  return moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
 };
+const dropOff = keep => { for (const el of root.querySelectorAll('.fx-drop-on')) if (el !== keep) el.classList.remove('fx-drop-on', 'fx-drop-pane'); };
 root?.addEventListener('dragover', event => {
   const hit = dropAt(event);
-  for (const el of root.querySelectorAll('.fx-drop-on')) if (el !== hit?.t) el.classList.remove('fx-drop-on');
+  dropOff(hit?.t);
   if (!hit) return;
   event.preventDefault();
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  if (event.dataTransfer) event.dataTransfer.dropEffect = hit.cross ? 'copy' : 'move';
   hit.t.classList.add('fx-drop-on');
+  hit.t.classList.toggle('fx-drop-pane', hit.t.matches('[data-fx-pane-i]'));
 });
 root?.addEventListener('drop', event => {
   const hit = dropAt(event);
-  for (const el of root.querySelectorAll('.fx-drop-on')) el.classList.remove('fx-drop-on');
-  dragKeys = null;
+  dropOff(null);
+  drag = null;
   if (!hit) return;
   event.preventDefault();
+  if (hit.cross) { state.dropAsk = {rows: hit.rows, dest: hit.dest, x: event.clientX, y: event.clientY}; paintDropAsk(); root.querySelector('[data-fx-drop-go]:not([disabled])')?.focus({preventScroll: true}); return; }
   moveRows(hit.rows, hit.dest, hit.t);
 });
-root?.addEventListener('dragend', () => { dragKeys = null; for (const el of root.querySelectorAll('.fx-drop-on')) el.classList.remove('fx-drop-on'); });
+root?.addEventListener('dragend', () => { drag = null; dropOff(null); });
 // 폰: 좌우로 밀어 탭(최근·폴더·별표) 이동. 미리보기가 열려 있거나 입력 칸이면 하지 않는다.
 let swipe = null;
 root?.addEventListener('touchstart', e => {
@@ -1283,13 +1520,19 @@ async function enter(force = false) {
   entering = (async () => {
     if (!state.status || force) { paint(); await loadStatus(); }
     const place = whereOf(window.KPTURouter?.place?.('files') || {});
-    const first = onSources();
-    if (!state.where && first.length) {
+    const first = onSources(), a = state.panes[0];
+    if (!a.where && first.length) {
       // F9: 폰 첫 화면은 최근 파일. PC·폴드도 같은 첫 화면(최근)이고, 나무에서 클라우드를 고른다.
       const want = place && (place.shelf || first.includes(place.source)) ? place : {shelf: 'recent'};
       if (want.source) state.open.add(folderKey(want.source, null));
-      await setWhere(want);
-    } else if (state.where) await loadList({quiet: true});
+      await setWhere(a, want);
+    } else if (a.where) await loadList(a, {quiet: true});
+    // 두 칸: 오른쪽 칸도 연다(처음이면 왼쪽과 다른 저장소의 맨 위).
+    if (two()) {
+      const b = state.panes[1];
+      if (b.where) await loadList(b, {quiet: true});
+      else { const start = otherStart(a.where, first); if (start) await setWhere(b, start, {keepPreview: true}); }
+    }
     paint();
     for (const s of first) if (!state.children.has(folderKey(s, null))) loadChildren(s, null);
     startTimer();
@@ -1304,13 +1547,21 @@ window.addEventListener('kptu:view-changed', event => {
   layer = null; dropPreview(); delete root?.dataset.fxPreview; clearInterval(syncTimer); clearTimeout(jobTimer);
   if (state.jobsOpen) { jobsLayer = null; state.jobsOpen = false; paintJobs(); }
   if (state.xfer) { destLayer = null; dropDest(); }
+  dropAskClose();
 });
 window.addEventListener('kptu:view-prefs-rejected', e => {
-  if (!(e.detail?.paths || []).includes(`${FILES_SOURCES_KEY}.${DEVICE}`)) return;
+  const paths = e.detail?.paths || [];
+  if (paths.includes(`${FILES_TWO_KEY}.${DEVICE}`)) { notify('두 칸 켜기/끄기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true, record: false}); if (state.status) layoutChanged(); }
+  if (!paths.includes(`${FILES_SOURCES_KEY}.${DEVICE}`)) return;
   notify('출처 켜기/끄기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true, record: false});
   if (state.status) sourcesChanged();
 });
-PHONE.addEventListener?.('change', () => { if (state.status) paint(); });
+// 서버 화면 설정이 늦게 오면(두 칸 켬이 바뀌었을 수 있음) 한 번 맞춘다.
+let twoSeen = null;
+const twoCheck = () => { const now = two(); if (twoSeen !== null && now !== twoSeen && state.status) layoutChanged(); twoSeen = now; };
+window.addEventListener('kptu:view-prefs-ready', () => { if (state.status) twoCheck(); });
+PHONE.addEventListener?.('change', () => { if (state.status) { twoCheck(); paint(); } });
+WIDE.addEventListener?.('change', () => { if (state.status) { twoCheck(); paint(); } });
 window.KPTURouter?.on?.('files', () => { enter(); });
 window.KPTUFiles = {refresh: () => enter(true)};
 if (window.KPTURouter?.current === 'files') enter();
