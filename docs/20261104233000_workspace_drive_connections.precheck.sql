@@ -1,5 +1,5 @@
 -- SELECT only. 20261104233000_workspace_drive_connections 적용 전. 값(토큰·id)은 읽지 않고 개수·참거짓만 본다.
-select 'already applied' as check_name, count(*)::text as value from supabase_migrations.schema_migrations where version = '20261104233000'
+select 'already applied' as item, count(*)::text as value from supabase_migrations.schema_migrations where version = '20261104233000'
 union all select 'operator_features applied', count(*)::text from supabase_migrations.schema_migrations where version = '20261029090000' and name = 'operator_features'
 union all select 'app_drive_connections exists', (to_regclass('public.app_drive_connections') is not null)::text
 union all select 'calls workspaces (must be 1)', count(*)::text from public.app_operator_features where feature = 'calls'

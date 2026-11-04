@@ -1,5 +1,5 @@
 -- SELECT only. 적용 뒤. 토큰 값은 읽지 않고 개수·참거짓만 본다.
-select 'history (must be 1)' as check_name, count(*)::text as value from supabase_migrations.schema_migrations
+select 'history (must be 1)' as item, count(*)::text as value from supabase_migrations.schema_migrations
   where version = '20261104233000' and name = 'workspace_drive_connections'
 union all select 'rls on', relrowsecurity::text from pg_class where oid = 'public.app_drive_connections'::regclass
 union all select 'policies (must be 0)', count(*)::text from pg_policy where polrelid = 'public.app_drive_connections'::regclass
