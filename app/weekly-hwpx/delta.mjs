@@ -78,10 +78,14 @@ function keepOrgRows(rows, myOrgs) {
 // WEEKLY-출력정리 ②(2026-10-23 사용자 요청 12:25): 4. 산하조직 현황 표는 내 담당 조직(약속된 조직) 전부를 늘 둔다.
 // 확정본에 줄이 없는 조직도 조직명만 채우고 현황 칸은 빈 줄로 남긴다(취합 담당이 표를 그대로 복사해 모으므로 줄 수·순서가 매주 같아야 함).
 // WEEKLY-한흐름확정 ④(2026-11-01 요청 01:18): 순서 = 바탕 순서. 바탕(지난주 개인본, 없으면 팀 확정본 = 양식 순서)에 있는 내 조직 줄은
-// 바탕에 놓인 차례 그대로 두고(같은 조직 줄이 여럿이면 각자 제자리), 바탕에 없는 내 담당 조직만 맨 끝에 빈 칸으로 더한다(그 끝 묶음은 가나다순).
+// 바탕에 놓인 차례 그대로 두고(같은 조직 줄이 여럿이면 각자 제자리), 바탕에 없는 내 담당 조직만 맨 끝에 빈 칸으로 더한다(그 끝 묶음은 앱 조직 순서).
 // 기록 건수·AI 판단으로 순서를 바꾸지 않는다. orgList = [{name, aliases}](my-organizations.js 결과).
 // 3. 2) 투쟁 사업장 현황은 투쟁 중인 사업장만 적는 표라 지금처럼 확정본에 있는 내 담당 조직 줄만 둔다.
-export const reportOrgOrder = orgList => [...orgList].sort((a, b) => String(a?.name ?? '').localeCompare(String(b?.name ?? ''), 'ko'));
+// S50-7: 바탕에 없는 조직 묶음의 순서 = 앱 조직 순서(organization-order.js, 화면 모든 곳과 같은 한 곳). 앱 순서 모듈이 없는 환경(시험)에서는 가나다순.
+export const reportOrgOrder = orgList => {
+  const appSort = globalThis.window?.KPTUOrganizationOrder?.sort;
+  return typeof appSort === 'function' ? appSort(orgList) : [...orgList].sort((a, b) => String(a?.name ?? '').localeCompare(String(b?.name ?? ''), 'ko'));
+};
 function allOrgRows(rows, orgList) {
   const list = rows ?? [];
   const orgs = reportOrgOrder(orgList);
