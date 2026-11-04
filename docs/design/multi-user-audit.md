@@ -275,3 +275,22 @@ PC 브라우저가 편하다(폰도 가능).
 4. `public-policy-drive:110`, `meeting-ai-draft:33-38`, `library-files` 회의 등록, `event-media` 지우기, `team-ai` 정밀 모드에 옛 admin/editor 역할 분기가 남아 있다(협업 제거 Task 대상).
 5. `basket-files`·`library-files`·`onedrive-photos`·`task-files`는 '구성원 행 1개'를 가정해 한 사람이 작업공간 둘이면 403/503. 사람당 작업공간 1개 규칙이면 문제 없음.
 6. `app_spaces`는 사람(`owner_id`) 기준, 나머지는 작업공간 기준 판정. 기준이 둘이다.
+
+## 8. 단계 ② PR 표 (S49-53, 2026-11-04 명진 "같이 시작 오늘 밤에")
+
+- 단계 ①(①-0~①-3: 서버 허용 표 `app_operator_features`, 판정 함수, 통화·텔레그램 잠금, `app_my_features()`)은 main·운영에 들어가 있다. 단계 ②는 그 위에서 **가입 문을 닫은 채** 서버·DB·화면 구조를 만든다.
+- D4(구글 앱 프로덕션 게시·인증)는 커맨드센터가 명진에게 따로 묻는다. 아래 PR은 D4 답과 무관하게 만들 수 있는 것만 담는다. 실제 '가입 열기'는 ②-4의 서버 스위치를 커맨드센터가 켤 때다(②-2 운영 반영 + D4 답 뒤).
+- PR은 줄 세운다(앞 PR이 main에 들어간 뒤 다음 PR merge). 브랜치 `s49-53-multi-2-1`, `-2-2`, `-2-3`, `-2-4`.
+
+| 순서 | PR | 내용 | 바꾸는 곳 | 정지 지점·되돌리기 |
+| --- | --- | --- | --- | --- |
+| ②-1 | 규칙 문서 | AGENTS.md 5절 'Other users cannot sign up yet' 문단을 단계 ② 문장으로 교체(가입은 ②-4 스위치 전까지 닫힘), 이 8절 | `AGENTS.md`, 이 문서 | 없음(문서). 되돌리기=문서 PR revert |
+| ②-2 | 사람별 Google Drive 연결 | 새 표 `app_drive_connections`(작업공간당 1행, refresh token은 service_role만, RLS 켬·정책 없음·API 권한 없음). 명진 연결은 같은 트랜잭션에서 운영자 작업공간 행으로 복사(기존 `public_policy_drive_config` id=1은 그대로 둠 — 앱 client id/secret과 운영자 전용 함수·Web1이 계속 읽음). 다른 작업공간이 쓰는 Drive Edge는 공용 도우미 `_shared/workspace-drive.ts`로 '서버가 확인한 자기 작업공간의 연결'만 읽고, 연결이 없으면 409 `drive_not_connected`(연결 안내). `public-policy-drive`의 Drive 연결은 고정 작업공간 대신 '부른 사람이 owner인 작업공간'에 저장(운영자 작업공간이면 id=1도 같이 갱신, Expand) | DB migration 짝 5파일, `supabase/functions/_shared/`, Drive를 쓰는 Edge, 시험 | **DB 적용 직전·Edge 배포 직전 정지**. 순서: DB(표+명진 행 복사) → `public-policy-drive` → 나머지 Edge 하나씩. 되돌리기=rollback SQL(표 삭제, id=1은 손대지 않았으므로 그대로), Edge는 이전 운영 SHA 재배포 |
+| ②-3 | 담당조직·보고 캘린더 사람별 설정(D5) | `app_organization-order.js`의 13곳·묶음 5개와 보고 캘린더 이름('공공운수노조')을 내 프로필 설정(`app_profiles.view_prefs`)으로. 명진 값은 같은 migration에서 명진 프로필로 이전, 다른 사람은 비어 있음(묶음 없이 가나다순, 보고 캘린더 미지정 안내) | DB migration 짝 5파일, `app/organization-order.js`, `app/journal-weekly.js`, 설정 화면, 업데이트 기록 | DB 적용 직전 정지. 화면은 ②-3 DB 적용 뒤 Pages |
+| ②-4 | 가입 때 작업공간 1개 | 새 서버 함수(SECURITY DEFINER, authenticated만): 부른 본인에게 owner 행이 하나도 없을 때만 작업공간 1개 + 본인 owner 행 1개 + 프로필을 만든다. 클라이언트 값(작업공간 이름·역할·user_id)을 받지 않는다. **서버 스위치**(SQL로만 쓰는 행, 기본 꺼짐)가 꺼져 있으면 거절 → 지금처럼 접근 거부 화면. 로그인 화면 흐름(접근 거부 대신 '시작하기' 버튼은 스위치가 켜졌을 때만 서버 답으로 보임). Auth 가입 트리거로 만들지 않음(4절 가: RTW 로그인으로 생기지 않게) | DB migration 짝 5파일, `app/loader-v2.js`·접근 거부 화면, `app/ARCHITECTURE.md` 시작 순서, E2E | DB 적용 직전 정지. 운영 전용 트리거 `trg_app_enforce_workspace_member_role` 정의는 PR 본문의 읽기 SQL로 커맨드센터가 먼저 확인. 스위치 켜기는 별도 SQL(커맨드센터, ②-2 운영 반영·D4 뒤) |
+
+②-2에서 '자기 연결만' 원칙:
+
+- 작업공간은 늘 서버가 정한다(로그인 → 본인 owner 행 정확히 1개, 또는 행의 작업공간 owner 확인). 화면이 보낸 작업공간 값으로 연결을 찾지 않는다.
+- 운영자 전용 기능(`gdrive_photos`·`files`, `drive-summary`)은 이미 허용 표로 운영자 작업공간에만 열려 있어 id=1을 계속 읽어도 다른 작업공간이 명진 Drive에 닿지 않는다. 이들의 새 표 전환은 Contract 단계(id=1 refresh token 비우기)와 함께 뒤로 미룬다.
+- 다른 사람의 Drive 연결은 `drive.file`만 요청한다. 전체 `drive` 권한(제한 등급, 유료 보안 심사 대상)은 `gdrive_photos`·`files`가 허용된 작업공간에서만 요청한다(D4 심사 범위를 민감 등급 이하로 유지).
