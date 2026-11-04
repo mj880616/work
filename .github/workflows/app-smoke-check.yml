@@ -595,6 +595,8 @@ jobs:
 
       - name: Check photo menu (PHOTO-사진메뉴 1차, newest-first list·day heads·calendar cover·multi star·delete undo·shared viewer, synthetic)
         run: node --test tests/photos-model.test.mjs
+      - name: Check photo zoom levels (PHOTO-연월보기, day→month→year steps·group months·representative photos, synthetic)
+        run: node --test tests/photo-zoom-model.test.mjs
       - name: "Photo folder switches (PHOTO-폴더스위치: 폴더 줄 스위치·원드라이브 전체 보기·같은 이름 위치, synthetic)"
         run: node --test tests/photo-folder-switch.test.mjs
       - name: "Obvious hints removed (UI-당연한안내삭제: 화면만 봐도 아는 안내 줄·자동 처리 설명이 다시 생기지 않음, static)"
