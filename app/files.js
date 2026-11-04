@@ -8,7 +8,9 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, PHONE_TABS, PHONE_TAB_NAME, S
   placeOf, whereOf, tabAt, cleanQuery, findSummary, errorText, failReason, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
   trashAsk, writeDoneText, writeErrorText, twinRows, TWIN_LIMIT, xferPlan, xferBig, sameNameRows, sameNameAsk, bigAsk, destTitle, destButton, destName,
   pushRecentDest, recentDestOf, xferLine, xferPercent, xferDoneText, XFER_BIG_HOW,
-  jobsActive, jobStatusText, jobLine, jobPercent, jobStrip, jobsTitle, jobAction, mergeJobs, newlyDone} from './files-model.mjs';
+  jobsActive, jobStatusText, jobLine, jobPercent, jobStrip, jobsTitle, jobAction, mergeJobs, newlyDone, deviceJobOnReopen,
+  UPLOAD_BIG_HOW, UPLOAD_REOPEN_TEXT, upDropText, upStartText, uploadPlan, upBig, upSameName, sameUpFile, upPiece, deviceHint, upResultId,
+  starWant, starLabel, applyStars} from './files-model.mjs';
 import {mountSplitResize} from './split-resize.js';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
@@ -74,7 +76,7 @@ function install() {
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="filesView" class="view-panel hidden" aria-labelledby="fxTitle">
 <h2 id="fxTitle" class="screen-title">파일</h2>
 <div id="filesRoot" class="fx" data-fx-pane="list">
-<div class="fx-top"><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button></span><button type="button" class="mini fx-two" data-fx-two aria-pressed="false" title="두 칸으로 보기" hidden>두 칸</button></div>
+<div class="fx-top"><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button></span><button type="button" class="mini fx-two" data-fx-two aria-pressed="false" title="두 칸으로 보기" hidden>두 칸</button></div>
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="고른 것" hidden></div>
 <div class="fx-tabs" data-fx-tabs role="tablist" aria-label="파일 보기">${PHONE_TABS.map(t => `<button type="button" role="tab" data-fx-tab="${t}" aria-selected="false">${PHONE_TAB_NAME[t]}</button>`).join('')}</div>
 <p class="fx-note" data-fx-note role="status" hidden></p>
@@ -388,8 +390,11 @@ function paintTop() {
     }
     s.hidden = !state.status || !connected().length;
   }
-  const mk = $('[data-fx-mkdir]');
-  if (mk) { mk.hidden = !p.where?.source || !!p.query || treePane() || !onSources().includes(p.where.source); mk.disabled = !!state.busy; }
+  const mk = $('[data-fx-mkdir]'), folderHere = !!p.where?.source && !p.query && !treePane() && onSources().includes(p.where.source);
+  if (mk) { mk.hidden = !folderHere; mk.disabled = !!state.busy; }
+  // 올리기(2-④): 폴더를 연 칸에서만(받을 곳 = 지금 칸의 폴더). PC는 끌어 놓기도 된다.
+  const upb = $('[data-fx-upload]');
+  if (upb) { upb.hidden = !folderHere; upb.disabled = !!state.busy || !!state.ask; }
   const tw = $('[data-fx-two]');
   if (tw) { tw.hidden = PHONE.matches; tw.setAttribute('aria-pressed', String(twoNow)); tw.classList.toggle('on', twoNow); }
   paintSrcs();
@@ -645,7 +650,8 @@ function paintPreview() {
   // 그리고 있는 PDF 칸은 그대로 둔다(다시 그리면 쪽을 처음부터 다시 그려야 함).
   if (p.doc && p.host && p.host.isConnected && box.contains(p.host) && box.dataset.fxKey === p.key) return;
   box.dataset.fxKey = p.key;
-  box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span></div>`
+  box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span>`
+    + `<button type="button" class="mini fx-star-btn${r.starred ? ' on' : ''}" data-fx-star-one aria-pressed="${!!r.starred}" aria-label="${r.starred ? '별표 빼기' : '별표'}" title="${r.starred ? '별표 빼기' : '별표'}">${r.starred ? '★' : '☆'}</button></div>`
     + `<div class="fx-pv-view">${view}</div>`
     + `<dl class="fx-pv-meta"><dt>위치</dt><dd>${esc(where)}</dd><dt>크기</dt><dd>${esc(sizeText(r.size_bytes))}</dd><dt>바뀐 날</dt><dd>${esc(fullTime(r.modified_at))}</dd><dt>종류</dt><dd>${esc(kindLabel(r))}</dd></dl>`
     + '<div class="fx-pv-twins" data-fx-twins hidden></div>'
@@ -741,12 +747,14 @@ function paintBar() {
       + `<button type="button" class="fx-btn" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy'))}${keys ? ' (F5)' : ''}</button>`
       + `<button type="button" class="fx-btn" data-fx-send="move"${off}>${esc(sendLabel(i, 'move'))}${keys ? ' (F6)' : ''}</button>`
       + (n === 1 ? `<button type="button" class="fx-btn" data-fx-rename>이름${keys ? ' (F2)' : ''}</button>` : '')
+      + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
       + `<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통${keys ? ' (Del)' : ''}</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>`;
     return;
   }
   // 시안 ③: 'N개 · [복사] [옮기기] [이름] [휴지통] ✕'(쓰지 않는 ⋯는 두지 않는다).
   bar.innerHTML = `<span class="fx-bar-t">${n}개</span><button type="button" class="fx-btn" data-fx-copy>복사</button><button type="button" class="fx-btn" data-fx-cut>옮기기</button>`
     + (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '')
+    + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
     + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
 }
 function paintPicks(p = P()) {
@@ -1118,6 +1126,8 @@ function scheduleJobs() {
   if (jobsActive(state.jobs) && visible()) jobTimer = setTimeout(loadJobs, JOB_POLL_MS);
 }
 function setJobs(list) {
+  // 기기 줄(올리기)은 이 탭이 보내는 것만 '보내는 중·기다림'. 다른 탭·닫힌 화면 것은 멈춤으로 본다(H-6, 다시 고르면 이어 올림).
+  list = list.map(j => (j?.origin === 'device' && !upOurs(j.id) ? deviceJobOnReopen(j) : j));
   const finished = newlyDone(state.jobs, list), wasActive = state.jobsWere;
   state.jobs = list;
   state.jobsWere = jobsActive(list);
@@ -1162,6 +1172,12 @@ async function addJobs(mode, dest, items) {
 }
 async function jobsDo(action, ids) {
   const scope = state.scope;
+  // 올리기 줄을 멈추면 이 탭이 보내던 조각도 그 자리에서 멈춘다(파일은 쥐고 있어 [이어 올리기]는 다시 고르지 않음).
+  if (action === 'job_pause') {
+    const hit = id => !ids || ids.includes(id);
+    up.queue = up.queue.filter(q => !hit(q.id));
+    if (up.cur && hit(up.cur.id)) up.cur.ctrl.abort();
+  }
   try {
     const d = await rt().api(FN, {method: 'POST', body: {action, confirm: true, ...(ids ? {ids} : {all: true})}, singleFlight: false, timeoutMs: 30000});
     if (state.scope !== scope) return;
@@ -1177,13 +1193,13 @@ function openJobs() {
   $('[data-fx-jobs] [data-fx-jobs-close]')?.focus({preventScroll: true});
 }
 function closeJobs() { const l = jobsLayer; jobsLayer = null; state.jobsOpen = false; paintJobs(); paintXfer(); paintAsk(); l?.close(); }
-const JOB_BTN = {pause: '멈춤', resume: '이어 하기', retry: '다시'};
+const JOB_BTN = {pause: '멈춤', resume: '이어 하기', retry: '다시', reup: '이어 올리기'};
 function jobRowHtml(j) {
-  const act = jobAction(j), pc = jobPercent(j);
+  const act = jobAction(j), pc = jobPercent(j), hint = deviceHint(j, upFiles.has(j.id));
   const bar = j.status === 'running' || (j.status === 'paused' && j.sent_bytes > 0) ? `<span class="fx-job-pg" aria-hidden="true"><i style="width:${pc}%"></i></span>` : '';
   const kr = {is_folder: j.is_folder, name: j.name, mime: ''};
   return `<li class="fx-job fx-job-${esc(j.status)}" data-fx-job="${esc(j.id)}"><span class="fx-ico" data-kind="${kindOf(kr)}" aria-hidden="true">${esc(kindIcon(kr))}</span>`
-    + `<span class="fx-job-t"><span class="fx-job-nm">${esc(j.name)}</span><small>${esc(jobLine(j))}</small>${bar}</span>`
+    + `<span class="fx-job-t"><span class="fx-job-nm">${esc(j.name)}</span><small>${esc([jobLine(j), hint].filter(Boolean).join(' · '))}</small>${bar}</span>`
     + `<span class="fx-job-st">${esc(jobStatusText(j))}</span>`
     + (act ? `<button type="button" class="mini" data-fx-job-act="${act}" data-fx-job-id="${esc(j.id)}">${JOB_BTN[act]}</button>` : '') + '</li>';
 }
@@ -1202,6 +1218,229 @@ function paintJobs() {
     + (list.length ? `<ul class="fx-jobs-list">${list.map(jobRowHtml).join('')}</ul>` : '<p class="fx-jobs-none">보낸 것이 없어요(하루 지난 것은 지워져요).</p>');
   if (keep) (box.querySelector(keep) || box.querySelector('[data-fx-jobs-close]'))?.focus({preventScroll: true});
 }
+// ---------- 올리기(FILES-통합 2-④, S49-33, 명진 결정 H-3·H-4·H-6, 시안 ⑦) ----------
+// PC: 바탕화면 파일을 목록 칸(그 칸의 지금 폴더)이나 폴더 줄에 끌어 놓기 → 점선 '여기 놓으면 ○○에 올리기'. 폰·폴드: 위 줄 [올리기] → 고르기 창.
+// 같은 이름은 한 번 묻기(H-3, [그래도 하기] = 서버가 '이름 (2)'로 둘 다 둠), 200MB 넘으면 한 번 묻기(H-4, 2GB까지).
+// 파일마다 서버(upload_open)가 작업표 줄(기기 줄)과 그 클라우드의 이어 올리기 자리를 열어 주고, 이 화면이 그 자리로 5MB씩 직접 보낸다(파일이 서버를 거치지 않음).
+// 자리 주소는 그 한 건 응답에만 오고 이 탭 메모리에만 둔다. 조각마다 서버에 보낸 바이트를 알리고(전송 목록 진행), 끝나면 서버가 클라우드에 물어 맞춘 뒤 색인에 넣는다.
+// H-6: 올리는 중 화면을 숨기면 그 자리에서 멈추고(작업표 '일시 정지'), 다시 보이면 쥐고 있던 파일로 남은 조각부터. 탭을 닫으면 멈춤으로 남고,
+//   다시 연 화면에서는 [이어 올리기] → 같은 파일(이름·크기)을 다시 고르면 남은 조각부터(브라우저는 닫힌 화면의 파일을 기억하지 못한다).
+// 파일 손잡이(upFiles)는 이 탭 메모리에만 — 기기 저장 없음.
+const upFiles = new Map();
+const up = {queue: [], cur: null, pumping: false, hiddenStop: false};
+let refileFor = '';
+const upOurs = id => up.cur?.id === id || up.queue.some(q => q.id === id);
+async function uploadFiles(files, dest, {skipDirs = 0} = {}) {
+  if (!dest?.source || !SOURCES.includes(dest.source)) return;
+  if (state.ask || state.busy) { notify('다른 일을 묻는 중이에요. 끝난 뒤 다시 해 주세요.', {record: false}); return; }
+  const plan = uploadPlan(files, n => checkFileBase(n).ok);
+  if (skipDirs) notify('폴더는 올리지 않아요(파일만). 폴더를 열어 파일을 골라 주세요.', {record: false});
+  if (!plan.ok.length) { if (plan.blocked.length) notify(plan.reason, {error: true, record: false}); return; }
+  if (plan.blocked.length) notify(plan.blocked[0].reason, {error: true, record: false});
+  const scope = state.scope;
+  let destRows = [];
+  try { const v = await rpc('app_cloud_list', {p_source: dest.source, p_parent_id: dest.parent}); destRows = Array.isArray(v) ? v : []; } catch { /* 모르면 묻지 않고 서버가 번호를 붙인다 */ }
+  const same = new Set(upSameName(plan.ok, destRows));
+  const go = [];
+  let sameAll = null, bigAll = null, skipped = 0;
+  for (const f of plan.ok) {
+    if (same.has(f)) {
+      let c = sameAll;
+      if (!c) {
+        const res = await ask({name: f.name, text: sameNameAsk('up'), go: '그래도 하기', many: plan.ok.filter(y => same.has(y)).length > 1});
+        if (res.closed) return;
+        c = res.choice; if (res.all) sameAll = c;
+      }
+      if (c === 'skip') { skipped++; continue; }
+    }
+    if (upBig(f)) {
+      let c = bigAll;
+      if (!c) {
+        const res = await ask({name: f.name, text: bigAsk({size_bytes: f.size}, 'up'), note: UPLOAD_BIG_HOW, go: '그래도 올리기', many: plan.ok.filter(upBig).length > 1});
+        if (res.closed) return;
+        c = res.choice; if (res.all) bigAll = c;
+      }
+      if (c !== 'go') { skipped++; continue; }
+    }
+    go.push(f);
+  }
+  if (state.scope !== scope) return;
+  if (!go.length) { if (skipped) notify(`${skipped}개 건너뜀`, {record: false}); return; }
+  // 줄을 모두 먼저 연다(전송 목록에 한 줄씩 '기다림'으로 보이게) → 차례로 보낸다.
+  state.jobsBusy = true; paintBar();
+  let opened = 0;
+  try {
+    for (const f of go) {
+      let d;
+      try {
+        d = await rt().api(FN, {method: 'POST', body: {action: 'upload_open', confirm: true, to_source: dest.source, to: dest.parent, name: f.name, size: f.size,
+          ...(f.type ? {mime: f.type} : {}), ...(upBig(f) ? {big: true} : {})}, singleFlight: false, timeoutMs: 60000});
+      } catch (e) { if (state.scope === scope) notify(`${f.name}: ${writeErrorText(codeOf(e))}`, {error: true, record: false}); continue; }
+      if (state.scope !== scope) return;
+      if (!d?.job?.id) continue;
+      opened++;
+      setJobs(mergeJobs(state.jobs, [d.job]));
+      if (d.job.status === 'done') { applyWrite(d); continue; }
+      upFiles.set(d.job.id, f);
+      up.queue.push({id: d.job.id, file: f});
+    }
+  } finally { if (state.scope === scope) { state.jobsBusy = false; paintBar(); } }
+  if (!opened) return;
+  notify(upStartText(opened), {note: skipped ? `${skipped}개 건너뜀` : '', record: false});
+  upPump();
+}
+// 차례로 하나씩: 서버에 '보내는 중'으로 바꾸며 자리·이어 갈 곳을 받고(upload_resume — 처음이면 0), 남은 조각을 보낸다.
+async function upPump() {
+  if (up.pumping) return;
+  up.pumping = true;
+  const scope = state.scope;
+  try {
+    while (up.queue.length && state.scope === scope && !up.hiddenStop) {
+      const item = up.queue[0], file = item.file;
+      let d;
+      try {
+        d = await rt().api(FN, {method: 'POST', body: {action: 'upload_resume', confirm: true, id: item.id, name: file.name, size: file.size}, singleFlight: false, timeoutMs: 60000});
+      } catch (e) {
+        up.queue.shift();
+        notify(`${file.name}: ${writeErrorText(codeOf(e))}`, {error: true, record: false});
+        loadJobs();
+        continue;
+      }
+      if (state.scope !== scope) return;
+      if (d?.job) setJobs(mergeJobs(state.jobs, [d.job]));
+      if (!d?.upload) { up.queue.shift(); if (d?.changed) applyWrite(d); continue; }
+      const out = await upSend(item, d.upload);
+      // 숨김: 줄은 큐에 남겨 다시 보일 때 잇는다. 사람이 멈춤(큐에서 빠짐)·다른 곳에서 멈춤: 다음 줄로.
+      if (out === 'stop' && up.queue[0] === item) break;
+      if (up.queue[0] === item) up.queue.shift();
+    }
+  } finally { up.pumping = false; up.cur = null; }
+}
+// 조각 보내기. 'done'·'failed' = 이 줄 끝, 'stop' = 멈춤(숨김·사람이 멈춤).
+async function upSend(item, slot) {
+  const file = item.file, size = file.size, ctrl = new AbortController();
+  up.cur = {id: item.id, ctrl};
+  let off = Math.max(0, Number(slot.offset) || 0), tries = 0;
+  const fail = async code => {
+    try { const v = await rt().api(FN, {method: 'POST', body: {action: 'upload_progress', confirm: true, id: item.id, error: code}, singleFlight: false, timeoutMs: 30000}); if (v?.job) setJobs(mergeJobs(state.jobs, [v.job])); } catch { loadJobs(); }
+    return 'failed';
+  };
+  for (;;) {
+    const piece = upPiece(off, size, Number(slot.chunk) || 5 * 1024 * 1024);
+    if (!piece) return fail('upload_failed');
+    let res;
+    try {
+      res = await fetch(slot.url, {method: 'PUT', cache: 'no-store', credentials: 'omit', headers: {'Content-Range': `bytes ${piece.start}-${piece.end - 1}/${size}`},
+        body: file.slice(piece.start, piece.end), signal: ctrl.signal});
+    } catch {
+      if (ctrl.signal.aborted) return 'stop';
+      if (++tries <= 2) { await new Promise(r => setTimeout(r, 1500 * tries)); if (ctrl.signal.aborted) return 'stop'; continue; }
+      return fail('upload_failed');
+    }
+    if (ctrl.signal.aborted) return 'stop';
+    if (res.status === 308 || res.status === 202) {
+      off = piece.end; tries = 0;
+      let v = null;
+      try { v = await rt().api(FN, {method: 'POST', body: {action: 'upload_progress', confirm: true, id: item.id, sent: off}, singleFlight: false, timeoutMs: 30000}); } catch { /* 진행 알림은 덧붙임: 다음 조각 때 다시 */ }
+      if (v?.job && v.job.status !== 'running') { up.queue = up.queue.filter(q => q.id !== item.id); up.cur = null; setJobs(mergeJobs(state.jobs, [v.job])); return 'paused'; }
+      if (v?.job) setJobs(mergeJobs(state.jobs, [v.job]));
+      continue;
+    }
+    if (res.status === 200 || res.status === 201) {
+      let r = null; try { r = await res.json(); } catch { /* 몸통을 못 읽으면 서버가 이름·자리로 찾는다 */ }
+      try {
+        const d = await rt().api(FN, {method: 'POST', body: {action: 'upload_done', confirm: true, id: item.id, ...(upResultId(r) ? {item_id: upResultId(r)} : {})}, singleFlight: false, timeoutMs: 60000});
+        if (d?.job) setJobs(mergeJobs(state.jobs, [d.job]));
+        upFiles.delete(item.id);
+        await applyWrite(d);
+        return 'done';
+      } catch { return fail('upload_failed'); }
+    }
+    if ((res.status === 429 || res.status >= 500) && ++tries <= 2) { await new Promise(r => setTimeout(r, 2000 * tries)); continue; }
+    return fail(res.status === 404 || res.status === 410 ? 'session_expired' : res.status === 507 ? 'no_space' : res.status === 429 || res.status === 503 ? 'cloud_throttled' : 'upload_failed');
+  }
+}
+// 화면을 숨기거나 닫을 때: 지금 조각을 멈추고 서버 줄을 '일시 정지'로(닫히는 화면에서도 가도록 keepalive). 큐는 메모리에 남는다.
+function upStop() {
+  const ids = [up.cur?.id, ...up.queue.map(q => q.id)].filter(Boolean);
+  if (!ids.length) return;
+  up.hiddenStop = true;
+  up.cur?.ctrl.abort();
+  const r = rt(), token = r?.session?.read?.()?.access_token;
+  if (!token) return;
+  try {
+    fetch(r.config.url + FN, {method: 'POST', keepalive: true, cache: 'no-store', headers: {apikey: r.config.key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'job_pause', confirm: true, ids: [...new Set(ids)].slice(0, 200)})}).catch(() => {});
+  } catch { /* 닫히는 중: 서버가 3분 뒤 멈춤으로 바꾼다 */ }
+}
+// 다시 보일 때: 쥐고 있던 파일로 남은 조각부터.
+function upShow() {
+  if (!up.hiddenStop) return;
+  up.hiddenStop = false;
+  if (up.queue.length) upPump();
+}
+// [이어 올리기]: 이 탭이 파일을 쥐고 있으면 바로, 아니면 같은 파일을 다시 고르게 한다.
+function reupload(id) {
+  const j = state.jobs.find(x => x.id === id);
+  if (!j || upOurs(id)) return;
+  const f = upFiles.get(id);
+  if (f && sameUpFile(j, f)) { up.queue.push({id, file: f}); upPump(); return; }
+  refileFor = id;
+  const inp = $('[data-fx-refile]');
+  if (!inp) return;
+  inp.value = '';
+  notify(UPLOAD_REOPEN_TEXT, {record: false});
+  inp.click();
+}
+function refilePicked(f) {
+  const id = refileFor; refileFor = '';
+  const j = state.jobs.find(x => x.id === id);
+  if (!j || !f) return;
+  if (!sameUpFile(j, f)) { notify(writeErrorText('file_mismatch'), {error: true, record: false}); return; }
+  upFiles.set(id, f);
+  up.queue.push({id, file: f});
+  upPump();
+}
+// 끌어 놓기 받을 곳: 폴더 줄이면 그 폴더, 아니면 그 칸의 지금 폴더(최근·찾기 칸은 없음).
+const upTarget = event => {
+  if (drag || !Array.from(event.dataTransfer?.types || []).includes('Files')) return null;
+  const row = event.target.closest?.('[data-fx-drop]');
+  const i = paneOfEl(event.target);
+  if (row && i >= 0) { const d = destOf(row.dataset.fxDrop); if (d && onSources().includes(d.source)) return {t: row, dest: d}; }
+  const box = i >= 0 ? paneEl(state.panes[i]) : null;
+  const d = box && paneDest(state.panes[i]);
+  return d && onSources().includes(d.source) ? {t: box, dest: d} : null;
+};
+
+// 미리보기 ☆ 한 개만 고친다(PDF를 그리는 칸은 다시 그리지 않음).
+function paintStarOne() {
+  const b = $('[data-fx-star-one]'), on = !!state.preview?.row?.starred;
+  if (!b) return;
+  b.textContent = on ? '★' : '☆'; b.classList.toggle('on', on);
+  b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', on ? '별표 빼기' : '별표'); b.title = on ? '별표 빼기' : '별표';
+}
+// ---------- 별표(2-④): 고르기 막대·미리보기 ☆. 서버(app_cloud_stars)가 기억, [별표] 탭에 바로 ----------
+async function starRows(rows) {
+  const list = (rows || []).filter(r => r && SOURCES.includes(r.source));
+  if (!list.length) return;
+  const on = starWant(list);
+  for (const g of groupBySource(list)) {
+    const ids = g.rows.map(r => r.item_id);
+    const d = await write('star', {source: g.source, ids, on}, on ? '별표 넣는 중' : '별표 빼는 중', {timeoutMs: 30000});
+    if (!d) return;
+    for (const p of state.panes) {
+      const rs = applyStars(p.rows, g.source, ids, on); if (rs !== p.rows) p.rows = rs;
+      if (p.found) { const f = applyStars(p.found, g.source, ids, on); if (f !== p.found) p.found = f; }
+    }
+    if (state.preview && state.preview.row.source === g.source && ids.includes(state.preview.row.item_id)) { state.preview.row = {...state.preview.row, starred: on}; paintStarOne(); }
+  }
+  const work = [];
+  for (const p of panesOn()) { if (p.where?.shelf === 'starred' && !p.query) work.push(loadList(p, {quiet: true})); else paintList(p); }
+  paintBar();
+  await Promise.all(work);
+  notify(on ? `${list.length}개 별표` : `${list.length}개 별표 뺌`, {record: false});
+}
+
 const hereDest = (p = P()) => paneDest(p);
 const destOf = key => { const [source, ...rest] = String(key || '').split(':'); return SOURCES.includes(source) ? {source, parent: rest.join(':') || null} : null; };
 
@@ -1347,7 +1586,11 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-jobs-open]')) { openJobs(); return; }
   if (b.matches('[data-fx-jobs-close]')) { closeJobs(); return; }
   if (b.matches('[data-fx-jobs-all]')) { jobsDo(b.dataset.fxJobsAll === 'pause' ? 'job_pause' : 'job_resume'); return; }
+  if (b.matches('[data-fx-job-act="reup"]')) { reupload(b.dataset.fxJobId); return; }
   if (b.matches('[data-fx-job-act]')) { jobsDo(b.dataset.fxJobAct === 'pause' ? 'job_pause' : 'job_resume', [b.dataset.fxJobId]); return; }
+  if (b.matches('[data-fx-upload]')) { const inp = $('[data-fx-file]'); if (inp && hereDest()) { inp.value = ''; inp.click(); } return; }
+  if (b.matches('[data-fx-star]')) { starRows(pickedRows()); return; }
+  if (b.matches('[data-fx-star-one]') && state.preview) { starRows([state.preview.row]); return; }
   if (b.matches('[data-fx-cut]')) { openDest('move', pickedRows()); return; }
   if (b.matches('[data-fx-rename]')) { renameRow(pickedRows()[0], b); return; }
   if (b.matches('[data-fx-trash]')) { trashRows(pickedRows(), b); return; }
@@ -1382,6 +1625,8 @@ root?.addEventListener('dblclick', event => {
 });
 root?.addEventListener('input', event => { if (event.target.matches('[data-fx-search]')) setQuery(P(), event.target.value); });
 root?.addEventListener('change', event => {
+  if (event.target.matches('[data-fx-file]')) { const d = hereDest(), files = [...(event.target.files || [])]; event.target.value = ''; if (d && files.length) uploadFiles(files, d); return; }
+  if (event.target.matches('[data-fx-refile]')) { const f = event.target.files?.[0]; event.target.value = ''; refilePicked(f); return; }
   if (!event.target.matches('[data-fx-sort]')) return;
   // 칸 위 줄의 정렬은 그 칸, 위 줄의 정렬은 지금 칸.
   const i = paneOfEl(event.target), p = i >= 0 ? state.panes[i] : P();
@@ -1475,8 +1720,20 @@ const dropAt = event => {
   if (cross) return xferPlan(drag.rows, dest, 'copy').ok.length || moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
   return moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
 };
-const dropOff = keep => { for (const el of root.querySelectorAll('.fx-drop-on')) if (el !== keep) el.classList.remove('fx-drop-on', 'fx-drop-pane'); };
+const dropOff = keep => {
+  for (const el of root.querySelectorAll('.fx-drop-on, .fx-drop-up')) if (el !== keep) { el.classList.remove('fx-drop-on', 'fx-drop-pane', 'fx-drop-up'); delete el.dataset.fxUptext; }
+};
 root?.addEventListener('dragover', event => {
+  // 바탕화면 파일(시안 ⑦): 점선 '여기 놓으면 ○○에 올리기'.
+  const upHit = upTarget(event);
+  if (upHit) {
+    dropOff(upHit.t);
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    upHit.t.classList.add('fx-drop-up');
+    upHit.t.dataset.fxUptext = upDropText(destNameOf(upHit.dest));
+    return;
+  }
   const hit = dropAt(event);
   dropOff(hit?.t);
   if (!hit) return;
@@ -1485,7 +1742,18 @@ root?.addEventListener('dragover', event => {
   hit.t.classList.add('fx-drop-on');
   hit.t.classList.toggle('fx-drop-pane', hit.t.matches('[data-fx-pane-i]'));
 });
+root?.addEventListener('dragleave', event => { if (!event.relatedTarget || !root.contains(event.relatedTarget)) dropOff(null); });
 root?.addEventListener('drop', event => {
+  const upHit = upTarget(event);
+  if (upHit) {
+    event.preventDefault();
+    dropOff(null);
+    const items = [...(event.dataTransfer?.items || [])];
+    const dirs = new Set(items.map((it, i) => (it.webkitGetAsEntry?.()?.isDirectory ? i : -1)).filter(i => i >= 0));
+    const files = [...(event.dataTransfer?.files || [])].filter((_, i) => !dirs.has(i));
+    uploadFiles(files, upHit.dest, {skipDirs: dirs.size});
+    return;
+  }
   const hit = dropAt(event);
   dropOff(null);
   drag = null;
@@ -1511,7 +1779,12 @@ root?.addEventListener('touchend', e => {
   if (next) setTab(next);
 }, {passive: true});
 root?.addEventListener('touchcancel', () => { swipe = null; }, {passive: true});
-document.addEventListener('visibilitychange', () => { if (visible()) { sync(); loadJobs(); } });
+document.addEventListener('visibilitychange', () => {
+  // 올리는 중 화면을 숨기면 그 자리에서 멈춤(H-6), 다시 보이면 쥐고 있던 파일로 남은 조각부터.
+  if (document.visibilityState === 'hidden') upStop(); else upShow();
+  if (visible()) { sync(); loadJobs(); }
+});
+window.addEventListener('pagehide', upStop);
 
 // ---------- 들어오기 ----------
 async function enter(force = false) {

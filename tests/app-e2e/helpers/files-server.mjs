@@ -5,6 +5,7 @@
 import { expect } from '@playwright/test';
 import { openHome } from './home-entry.mjs';
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+export const UPLOAD_HOST = 'https://upload.example.test';
 // 시계는 2026-10-06 10:00 서울(home-entry.mjs).
 const item = o => ({ parent_id: null, is_folder: false, mime: null, size_bytes: 1000, modified_at: '2026-10-01T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null, ...o });
 export const ITEMS = () => [
@@ -38,7 +39,24 @@ export function fakePdf() {
 
 export async function filesServer(page, { connected = { od: true, gd: true } } = {}) {
   // findFail: {status, message} — 찾기·묶음 읽기를 그 오류로 실패시킨다(서버 시간 초과 흉내 등).
-  const server = { items: ITEMS(), calls: [], pendingSync: null, directItems: [], findFail: null, jobs: [], jobSeq: 0, jobsHold: false, jobFail: '' };
+  const server = { items: ITEMS(), calls: [], pendingSync: null, directItems: [], findFail: null, jobs: [], jobSeq: 0, jobsHold: false, jobFail: '',
+    slots: {}, upChunk: 4, slotHold: false, puts: [] };
+  // 흉내 클라우드 이어 올리기 자리(브라우저가 조각을 직접 보냄, CORS 머리 포함). slotHold면 조각 응답을 붙잡아 둔다(멈춤·숨김 시험).
+  await page.route(UPLOAD_HOST + '/**', async route => {
+    const req = route.request(), cors = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'PUT', 'access-control-allow-headers': 'content-range' };
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    const slot = server.slots[req.url()];
+    const range = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(req.headers()['content-range'] || '');
+    server.puts.push({ url: req.url(), range: req.headers()['content-range'] || '', auth: req.headers().authorization || '' });
+    if (!slot || !range) return route.fulfill({ status: 404, headers: cors });
+    while (server.slotHold) await new Promise(r => setTimeout(r, 50));
+    if (Number(range[1]) !== slot.bytes) return route.fulfill({ status: 400, headers: cors });
+    slot.bytes = Number(range[2]) + 1;
+    // 화면이 조각을 멈춰(abort) 응답을 받을 곳이 없으면 그대로 둔다(클라우드는 받은 만큼 기억).
+    const reply = o => route.fulfill(o).catch(() => {});
+    if (slot.bytes < slot.size) return reply({ status: 308, headers: cors });
+    return reply({ status: 201, headers: cors, contentType: 'application/json', body: JSON.stringify({ id: 'cloudNew' + (Object.keys(server.slots).indexOf(req.url()) + 1) }) });
+  });
   const trail = (source, id) => {
     const out = [];
     let cur = server.items.find(i => i.source === source && i.item_id === id), depth = 0;
@@ -91,7 +109,7 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
           return ok({ ok: true, jobs: made.reverse() });
         }
         if (a === 'job_list') {
-          const j = server.jobsHold ? null : server.jobs.find(x => x.status === 'queued' || x.status === 'running');
+          const j = server.jobsHold ? null : server.jobs.find(x => x.origin !== 'device' && (x.status === 'queued' || x.status === 'running'));
           if (j && server.jobFail && !j._failed) { j._failed = true; j.status = 'failed'; j.error_code = server.jobFail; }
           else if (j) {
             j.status = 'running';
@@ -115,6 +133,49 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
           if (a === 'job_resume' && ['paused', 'failed'].includes(x.status)) { x.status = 'queued'; x.error_code = null; changed.push(view(x)); }
         }
         return ok({ ok: true, jobs: changed });
+      }
+      // S49-33 올리기(기기 → 클라우드): 서버는 자리(흉내 주소 UPLOAD_HOST/slot/N)만 열어 주고 화면이 조각을 직접 보낸다. 별표 켜고 끄기.
+      if (['upload_open', 'upload_resume', 'upload_progress', 'upload_done', 'star'].includes(a)) {
+        if (body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);
+        const view = j => { const { _slot, ...v } = j; return v; };
+        const taken = (src, parent) => server.items.filter(i => i.source === src && (i.parent_id ?? null) === (parent ?? null) && !i.trashed).map(i => i.name);
+        const numbered = (name, list) => { if (!list.some(n => n.toLowerCase() === name.toLowerCase())) return name; const m = /^(.*?)(\.[A-Za-z0-9]{1,10})?$/.exec(name); for (let i = 2; ; i++) { const n = `${m[1]} (${i})${m[2] || ''}`; if (!list.some(x => x.toLowerCase() === n.toLowerCase())) return n; } };
+        if (a === 'star') {
+          for (const id of body.ids) { const it = server.items.find(i => i.source === body.source && i.item_id === id); if (it) it.starred = body.on; }
+          return ok({ ok: true, source: body.source, ids: body.ids, starred: body.on });
+        }
+        if (a === 'upload_open') {
+          if (body.size > 200 * 1024 * 1024 && !body.big) return ok({ ok: false, error: 'big_not_confirmed' }, 400);
+          const seq = ++server.jobSeq, nm = numbered(body.name, taken(body.to_source, body.to));
+          const url = `${UPLOAD_HOST}/slot/${seq}`;
+          server.slots[url] = { bytes: 0, size: body.size, puts: 0 };
+          const j = { id: `b0000000-0000-4000-8000-${String(seq).padStart(12, '0')}`, kind: 'copy', origin: 'device', src_source: 'dev', src_id: null, dest_source: body.to_source, dest_parent: body.to ?? null,
+            name: body.name, result_name: nm, same_name: nm !== body.name ? 'numbered' : null, is_folder: false, size_bytes: body.size, big: body.size > 200 * 1024 * 1024,
+            status: 'queued', sent_bytes: 0, result_item_id: null, kept_original: false, error_code: null, created_at: `2026-10-06T01:00:${String(seq).padStart(2, '0')}Z`, finished_at: null, _slot: url };
+          server.jobs.push(j);
+          return ok({ ok: true, job: view(j), upload: { url, offset: 0, chunk: server.upChunk } });
+        }
+        const j = server.jobs.find(x => x.id === body.id && x.origin === 'device');
+        if (!j) return ok({ ok: false, error: 'job_not_found' }, 404);
+        if (a === 'upload_resume') {
+          if (body.name !== j.name || body.size !== j.size_bytes) return ok({ ok: false, error: 'file_mismatch' }, 409);
+          j.status = 'running'; j.error_code = null;
+          const slot = server.slots[j._slot];
+          j.sent_bytes = slot.bytes;
+          return ok({ ok: true, job: view(j), upload: { url: j._slot, offset: slot.bytes, chunk: server.upChunk } });
+        }
+        if (a === 'upload_progress') {
+          if (j.status !== 'running') return ok({ ok: true, job: view(j) });
+          if (body.error) Object.assign(j, { status: 'failed', error_code: body.error }); else j.sent_bytes = body.sent;
+          return ok({ ok: true, job: view(j) });
+        }
+        if (a === 'upload_done') {
+          const it = item({ source: j.dest_source, item_id: j.dest_source === 'od' ? 'OD!U' + j.id.slice(-2) : 'gdUp' + j.id.slice(-2), parent_id: j.dest_parent, name: j.result_name, size_bytes: j.size_bytes, modified_at: '2026-10-06T01:00:00Z' });
+          server.items.push(it);
+          Object.assign(j, { status: 'done', sent_bytes: j.size_bytes, result_item_id: it.item_id, finished_at: '2026-10-06T01:01:00Z' });
+          server.doneBody = body;
+          return ok({ ok: true, job: view(j), changed: [it] });
+        }
       }
       // S48-45 쓰기: confirm:true 없으면 거절(서버와 같음). 결과는 바뀐 줄·지운 줄.
       if (['rename', 'mkdir', 'move', 'trash', 'across', 'copy'].includes(a)) {

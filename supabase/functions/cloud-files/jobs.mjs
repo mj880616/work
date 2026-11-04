@@ -155,3 +155,57 @@ export function rangeOk(header, start, end, size) {
   const m = /^bytes (\d{1,15})-(\d{1,15})\/(\d{1,15})$/.exec(String(header || '').trim());
   return !!m && Number(m[1]) === start && Number(m[2]) === end && Number(m[3]) === size;
 }
+
+// ---- 올리기(FILES-통합 2-④, S49-33, 설계 docs/design/files-unified-plan.md J절 H-4·H-6) ----
+// 기기(노트북·폰 브라우저)에서 클라우드로 올리기 한 건 = 작업표 한 줄(origin 'device', src_source 'dev', src_id 없음).
+// 서버는 그 클라우드의 '이어 올리기 자리'(원드라이브 upload session·구글 resumable)를 열어 그 한 건 응답에만 자리 주소를 싣고,
+// 브라우저가 파일을 조각으로 그 자리에 직접 보낸다(파일이 Edge를 거치지 않음). 서버는 조각을 잇지 않는다(runJobs·예약은 origin cloud만).
+// 조각: 5MiB(원드라이브 320KiB·구글 256KiB의 배수). 200MB 넘으면 사람이 [그래도 올리기]를 눌렀을 때만(big), 2GB까지.
+export const DEVICE_CHUNK = 5 * 1024 * 1024;
+// 보내는 중인 기기 줄이 이만큼 소식(조각 진행)이 없으면 화면이 닫힌 것으로 보고 '일시 정지'로 바꾼다(job_list가).
+export const DEVICE_STALE_MS = 3 * 60 * 1000;
+// 기기가 알려 주는 실패 까닭(정해 둔 말만).
+export const DEVICE_ERRORS = Object.freeze(['upload_failed', 'session_expired', 'no_space', 'cloud_throttled']);
+const MIME = /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,99}\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,99}$/;
+// upload_open 몸통: {confirm, to_source, to, name, size, mime?, big?}. 이름 규칙은 handler가 공용 checkFileBase로 본다.
+export function parseUpload(b) {
+  if (!b || typeof b !== 'object' || Array.isArray(b) || !isSrc(b.to_source)) return null;
+  for (const k of Object.keys(b)) if (!['action', 'confirm', 'to_source', 'to', 'name', 'size', 'mime', 'big'].includes(k)) return null;
+  const to = b.to === undefined || b.to === null || b.to === '' ? null : b.to;
+  if (to !== null && (typeof to !== 'string' || !ITEM.test(to) || (b.to_source === 'gd' && !GD.test(to)))) return null;
+  if (typeof b.name !== 'string' || !b.name || b.name.length > 400) return null;
+  if (!Number.isSafeInteger(b.size) || b.size < 0) return null;
+  if (b.big !== undefined && typeof b.big !== 'boolean') return null;
+  const mime = typeof b.mime === 'string' && MIME.test(b.mime) ? b.mime : null;
+  return { toSource: b.to_source, to, name: b.name, size: b.size, mime, big: b.big === true };
+}
+// 한 줄을 가리키는 몸통({id}) + 이어 올리기({name,size}) · 진행({sent} 또는 {error}) · 끝({item_id?}).
+export function parseDeviceRef(b, kind) {
+  if (!b || typeof b !== 'object' || Array.isArray(b) || !isUuid(b.id)) return null;
+  const id = b.id.toLowerCase();
+  if (kind === 'resume') return typeof b.name === 'string' && b.name.length <= 400 && Number.isSafeInteger(b.size) && b.size >= 0 ? { id, name: b.name, size: b.size } : null;
+  if (kind === 'progress') {
+    if (b.error !== undefined) return DEVICE_ERRORS.includes(b.error) && b.sent === undefined ? { id, error: b.error } : null;
+    return Number.isSafeInteger(b.sent) && b.sent >= 0 ? { id, sent: b.sent } : null;
+  }
+  if (kind === 'done') {
+    const item = b.item_id === undefined || b.item_id === null ? null : b.item_id;
+    return item === null || (typeof item === 'string' && ITEM.test(item)) ? { id, item } : null;
+  }
+  return null;
+}
+// job_list: 오래 소식이 없는 기기 줄(화면이 닫힘) — 일시 정지로 바꿀 줄의 id. 기다림 줄은 같은 작업공간에 소식이 새로운
+//   '보내는 중' 기기 줄이 있으면(그 화면이 차례로 올리는 중) 그대로 둔다.
+export function deviceStale(rows, nowMs) {
+  const dev = (rows || []).filter((r) => r && r.origin === 'device' && ACTIVE.includes(r.status));
+  const old = (r) => nowMs - (Date.parse(r.updated_at || r.created_at || '') || 0) > DEVICE_STALE_MS;
+  const live = dev.some((r) => r.status === 'running' && !old(r));
+  return dev.filter((r) => old(r) && (r.status === 'running' || !live)).map((r) => r.id);
+}
+// 별표 몸통: {confirm, source, ids:[1~200], on}.
+export function parseStar(b) {
+  if (!b || typeof b !== 'object' || Array.isArray(b) || !isSrc(b.source) || typeof b.on !== 'boolean') return null;
+  if (!Array.isArray(b.ids) || !b.ids.length || b.ids.length > JOB_ADD_MAX || new Set(b.ids).size !== b.ids.length) return null;
+  if (!b.ids.every((id) => typeof id === 'string' && ITEM.test(id) && (b.source !== 'gd' || GD.test(id)))) return null;
+  return { source: b.source, ids: b.ids, on: b.on };
+}

@@ -223,3 +223,9 @@
 .fx-bar:has(> [data-fx-send]) { background:var(--kptu-primary-soft); border-bottom-color:var(--kptu-border-strong); padding:3px 4px 3px 10px; }
 .fx-bar:has(> [data-fx-send]) .fx-bar-t { color:var(--kptu-primary-text); font-weight:600; font-size:13px; }
 .fx-ptop .fx-sort { background:var(--kptu-surface); border-color:var(--kptu-border); }
+/* FILES-통합 2-④ 올리기·별표(S49-33, 시안 ⑦ drop-hint). 바탕화면 파일을 칸·폴더 줄에 끌어 오면 점선 + '여기 놓으면 ○○에 올리기'. */
+.fx-listcol.fx-drop-up { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; }
+.fx-listcol.fx-drop-up::after { content:attr(data-fx-uptext); position:absolute; left:50%; top:min(40%, 200px); transform:translate(-50%,-50%); border:1px dashed var(--kptu-primary); background:var(--kptu-primary-soft); color:var(--kptu-primary-text); padding:8px 14px; border-radius:8px; font-size:12px; white-space:nowrap; max-width:calc(100% - 24px); overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
+.fx-row.fx-drop-up { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:var(--kptu-primary-soft); }
+.fx-star-btn { flex:none; margin-left:auto; color:var(--kptu-muted); font-size:14px; line-height:1; }
+.fx-star-btn.on { color:var(--kptu-warning); }
