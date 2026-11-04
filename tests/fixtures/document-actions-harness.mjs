@@ -70,8 +70,13 @@ export function harness(options = {}) {
         return Response.json([{
           google_client_id: "c",
           google_client_secret: "s",
-          google_refresh_token: "r",
         }]);
+      }
+      // MULTI ②-2: 작업공간별 Drive 연결(o.driveConnections로 바꿀 수 있음, 기본은 ws-1만).
+      if (table === "app_drive_connections") {
+        const ws = (u.searchParams.get("workspace_id") || "").replace(/^eq\./, "");
+        const conns = o.driveConnections ?? { "ws-1": "r" };
+        return Response.json(conns[ws] ? [{ workspace_id: ws, google_refresh_token: conns[ws] }] : []);
       }
       if (table === "app_documents") {
         if (method === "GET") {

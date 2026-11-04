@@ -33,7 +33,8 @@ function harness({ tasks = [{ id: 'task-1', title: '자료 준비', notes: '먼�
       adminTables.push(table);
       if (table === 'app_google_calendar_connections') return single(null, { user_id: 'user-a', access_token: 'google-a', refresh_token: 'r', token_expires_at: new Date(NOW + 86400000).toISOString() });
       if (table === 'app_workspace_members') return single(null, member ? { workspace_id: 'ws-a', role: member } : null);
-      if (table === 'public_policy_drive_config') return single(null, { google_client_id: 'cid', google_client_secret: 'secret', google_refresh_token: 'refresh' });
+      if (table === 'public_policy_drive_config') return single(null, { google_client_id: 'cid', google_client_secret: 'secret' });
+      if (table === 'app_drive_connections') return single(null, { google_refresh_token: 'refresh' });
       if (table === 'app_drive_settings') return single(null, { library_folder_id: library });
       throw new Error('service role must not touch ' + table);
     }

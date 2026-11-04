@@ -53,7 +53,8 @@ function harness({ rows = [baseDoc(), baseDoc({ id: OTHER, workspace_id: 'worksp
   const simple = result => { const b = { select: () => b, eq: () => b, neq: () => b, single: async () => result(), maybeSingle: async () => result(), then: (res, rej) => Promise.resolve(result()).then(res, rej) }; return b; };
   const tables = {
     app_workspace_members: () => simple(() => ({ data: role ? { workspace_id: 'workspace-1', role } : null })),
-    public_policy_drive_config: () => simple(() => ({ data: { google_client_id: 'c', google_client_secret: 's', google_refresh_token: 'r' }, error: null })),
+    public_policy_drive_config: () => simple(() => ({ data: { google_client_id: 'c', google_client_secret: 's' }, error: null })),
+    app_drive_connections: () => simple(() => ({ data: { google_refresh_token: 'r' }, error: null })),
     app_drive_settings: () => simple(() => ({ data: { library_folder_id: 'folder-1', root_folder_id: 'root-1' } })),
     app_documents: documents
   };

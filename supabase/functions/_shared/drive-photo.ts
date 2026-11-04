@@ -81,13 +81,14 @@ export function createDrivePhoto(
     fileId: string,
     recordedMime: unknown,
     size: keyof typeof PHOTO_SIZES,
+    workspaceId: string,
   ) => {
     if (!PHOTO_IMAGE.test(String(recordedMime || "").toLowerCase())) {
       throw new PhotoError(415, "photo_not_image");
     }
     let token = "";
     try {
-      token = await upload.driveToken();
+      token = await upload.driveToken(workspaceId);
     } catch {
       throw new PhotoError(503, "photo_unavailable");
     }

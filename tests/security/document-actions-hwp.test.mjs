@@ -35,8 +35,9 @@ function harness(o = {}) {
     if (u.pathname === '/auth/v1/user') return Response.json({ id: 'owner-1' });
     if (u.pathname === '/token') return Response.json({ access_token: 'drive-token' });
     const table = u.pathname.startsWith('/rest/v1/') ? u.pathname.split('/').at(-1) : null;
-    if (table === 'public_policy_drive_config') return Response.json([{ google_client_id: 'c', google_client_secret: 's', google_refresh_token: 'r' }]);
-    if (table === 'app_workspace_members') return Response.json(state.role ? [{ role: state.role }] : []);
+    if (table === 'public_policy_drive_config') return Response.json([{ google_client_id: 'c', google_client_secret: 's' }]);
+    if (table === 'app_drive_connections') return Response.json([{ google_refresh_token: 'r' }]);
+    if (table === 'app_workspace_members') return Response.json(state.role ? [{ role: state.role, workspace_id: 'ws-1' }] : []);
     if (table === 'app_documents') {
       if (u.searchParams.get('id')) return Response.json(state.document && u.searchParams.get('id') === 'eq.' + state.document.id ? [state.document] : []);
       return Response.json(state.libraryRefs);

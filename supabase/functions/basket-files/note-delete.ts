@@ -169,7 +169,7 @@ export function createNoteDeleteHandler(
       if (total) {
         let token = "", folder = "", kept = new Set<string>(), ready = true;
         try {
-          token = await upload.driveToken();
+          token = await upload.driveToken(workspace);
           // Adopt the stored, verified private root only; never create a folder.
           folder = await upload.ensurePrivateRootFolder(workspace, token, {
             existingOnly: true,

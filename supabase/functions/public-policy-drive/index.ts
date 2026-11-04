@@ -1,4 +1,5 @@
 import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
+import { callerOwnerWorkspace } from "../_shared/workspace-drive-token.ts";
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // DOMAIN-주소이전 ①-D1: Google 연결 뒤 돌아갈 Web2 화면은 새 주소(bokdoong.com). 허용 주소(ALLOWED_ORIGINS)는 옛 주소도 그대로 받는다.
@@ -107,20 +108,33 @@ async function getUser(req: Request) {
   return data;
 }
 
-async function assertDriveAdmin(userId: string) {
-  const workspaces = await serviceGet('app_workspaces?slug=eq.kptu-work&select=id&limit=1');
-  const workspaceId = workspaces?.[0]?.id;
-  if (!workspaceId) throw new Error('워크스페이스를 찾을 수 없습니다.');
-  const members = await serviceGet(
-    `app_workspace_members?workspace_id=eq.${encodeURIComponent(workspaceId)}&user_id=eq.${encodeURIComponent(userId)}&select=role&limit=1`
-  );
-  const role = members?.[0]?.role;
-  if (!['owner', 'admin'].includes(role)) throw new Error('Drive 재연결은 관리자만 할 수 있습니다.');
+// MULTI ②-2 (S49-53): Drive 연결은 고정 작업공간 대신 '부른 사람이 owner인 작업공간(정확히 1개)'에 저장한다.
+// 작업공간은 로그인(Auth)과 서버 표로만 정한다(화면 값 없음). 다른 작업공간의 연결을 덮어쓸 길이 없다.
+async function ownWorkspace(userId: string) {
+  const workspaceId = await callerOwnerWorkspace({ rest: serviceGet }, userId);
+  if (!workspaceId) throw new Error('내 작업공간을 확인하지 못했습니다.');
+  return workspaceId;
+}
+
+// 운영자 기능(서버 허용 표)이 이 작업공간에 있는지. service_role 전용 RPC app_operator_feature_workspace(허용된 작업공간이 정확히 하나면 그 id).
+async function operatorFeatureWorkspace(feature: string): Promise<string | null> {
+  const r = await fetch(`${SB}/rest/v1/rpc/app_operator_feature_workspace`, {
+    method: 'POST',
+    headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_feature: feature }),
+  });
+  if (!r.ok) throw await serviceFail(r);
+  const v = await r.json().catch(() => null);
+  return typeof v === 'string' ? v : null;
+}
+async function hasOperatorFeature(workspaceId: string, feature: string) {
+  return (await operatorFeatureWorkspace(feature)) === workspaceId;
 }
 
 // S46-24(명진 G1 2026-10-31): 자료실·바구니가 쓰는 drive.file에 더해, 사진 출처 구글 드라이브(Edge gdrive-photos)용 drive(읽기·쓰기)를 요청한다.
 // 동의 화면에서 drive 칸만 끄고 동의해도 연결은 저장되고(drive.file 기능 그대로), 사진 출처만 '권한 없음'으로 돌려보낸다.
 // 이 함수와 기존 Drive 함수들이 부르는 API는 바뀌지 않는다. 쓰기 동작은 gdrive-photos에만 있다.
+// MULTI ②-2: 전체 drive(제한 등급)는 사진 출처·파일 탐색기 기능이 허용된 운영자 작업공간에서만 요청한다. 다른 사람은 drive.file만.
 const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const DRIVE_FULL_SCOPE = 'https://www.googleapis.com/auth/drive';
 const DRIVE_SCOPES = [DRIVE_FILE_SCOPE, DRIVE_FULL_SCOPE];
@@ -131,7 +145,8 @@ function grantedFullDrive(scope: unknown) {
 
 async function startDriveAuth(req: Request) {
   const user = await getUser(req);
-  await assertDriveAdmin(user.id);
+  const workspaceId = await ownWorkspace(user.id);
+  const full = await hasOperatorFeature(workspaceId, 'gdrive_photos') || await hasOperatorFeature(workspaceId, 'files');
   const cfg = await getOAuthConfig();
   const raw = 'drive.' + crypto.randomUUID() + crypto.randomUUID();
   const stateHash = await sha256(raw);
@@ -145,7 +160,7 @@ async function startDriveAuth(req: Request) {
     client_id: cfg.google_client_id,
     redirect_uri: CALLBACK_URL,
     response_type: 'code',
-    scope: DRIVE_SCOPES.join(' '),
+    scope: (full ? DRIVE_SCOPES : [DRIVE_FILE_SCOPE]).join(' '),
     access_type: 'offline',
     prompt: 'consent',
     state: raw,
@@ -254,8 +269,8 @@ Deno.serve(async (req) => {
         return Response.redirect(driveRedirect('error', 'drive_scope_failed'), 302);
       }
 
-      const workspaces = await serviceGet('app_workspaces?slug=eq.kptu-work&select=id&limit=1');
-      const workspaceId = workspaces?.[0]?.id;
+      // 연결을 시작한 사람(state의 user_id)이 지금도 owner인 작업공간. 화면 값은 쓰지 않는다.
+      const workspaceId = await callerOwnerWorkspace({ rest: serviceGet }, row.user_id).catch(() => null);
       if (!workspaceId) {
         await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
         return Response.redirect(driveRedirect('error', 'workspace_missing'), 302);
@@ -276,10 +291,32 @@ Deno.serve(async (req) => {
         }
       }
 
-      await servicePatch('public_policy_drive_config?id=eq.1', {
+      const now = new Date().toISOString();
+      const fullDrive = grantedFullDrive(tokens.scope);
+      // 있으면 고치고 없으면 넣는다(표 권한이 workspace_id 고치기를 주지 않으므로 upsert 대신 두 단계).
+      const changed = await servicePatch(`app_drive_connections?workspace_id=eq.${encodeURIComponent(workspaceId)}`, {
         google_refresh_token: tokens.refresh_token,
-        updated_at: new Date().toISOString()
-      });
+        full_drive: fullDrive,
+        connected_at: now,
+        updated_at: now
+      }, 'return=representation');
+      if (!Array.isArray(changed) || changed.length !== 1) {
+        await servicePost('app_drive_connections', {
+          workspace_id: workspaceId,
+          google_refresh_token: tokens.refresh_token,
+          full_drive: fullDrive,
+          connected_at: now,
+          updated_at: now
+        });
+      }
+      // Expand(②-2): 운영자 작업공간이면 옛 자리(id=1)도 같이 갱신한다. 운영자 전용 함수(사진 출처·파일 탐색기·drive-summary)와 Web1이 아직 id=1을 읽는다.
+      // 다른 작업공간은 id=1을 절대 쓰지 않는다(명진 Drive 연결을 덮어쓰지 못함).
+      if (await hasOperatorFeature(workspaceId, 'calls')) {
+        await servicePatch('public_policy_drive_config?id=eq.1', {
+          google_refresh_token: tokens.refresh_token,
+          updated_at: now
+        });
+      }
       await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`);
       return Response.redirect(driveRedirect('connected', undefined, grantedFullDrive(tokens.scope) ? undefined : 'scope_missing'), 302);
     }

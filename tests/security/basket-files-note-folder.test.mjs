@@ -56,7 +56,8 @@ function harness({kind = 'note', child = 'none', note = true, attachments = []} 
       upsert: () => { mutation = {kind: 'upsert'}; return b; }, maybeSingle: () => exec(), single: () => exec(), then: (r, e) => exec().then(r, e)};
     async function exec() {
       if (table === 'app_workspace_members') return {data: {workspace_id: WS, role: 'owner'}, error: null};
-      if (table === 'public_policy_drive_config') return {data: {google_client_id: 'c', google_client_secret: 's', google_refresh_token: 'r'}, error: null};
+      if (table === 'public_policy_drive_config') return {data: {google_client_id: 'c', google_client_secret: 's'}, error: null};
+      if (table === 'app_drive_connections') return {data: {google_refresh_token: 'r'}, error: null};
       if (table === 'app_drive_settings') return {data: {workspace_id: WS, basket_folder_id: ROOT}, error: null};
       if (table !== 'app_notes') throw new Error('unexpected table ' + table);
       if (mutation) {

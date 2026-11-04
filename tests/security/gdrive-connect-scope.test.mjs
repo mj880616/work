@@ -10,7 +10,9 @@ test('scope request keeps drive.file and adds full drive; nothing else is reques
   assert.match(source,/const DRIVE_FILE_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/drive\.file';/);
   assert.match(source,/const DRIVE_FULL_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/drive';/);
   assert.match(source,/const DRIVE_SCOPES = \[DRIVE_FILE_SCOPE, DRIVE_FULL_SCOPE\];/);
-  assert.match(source,/scope: DRIVE_SCOPES\.join\(' '\),/);
+  // MULTI ②-2: 전체 drive는 사진 출처·파일 탐색기 허용 작업공간에서만, 다른 사람은 drive.file만.
+  assert.match(source,/scope: \(full \? DRIVE_SCOPES : \[DRIVE_FILE_SCOPE\]\)\.join\(' '\),/);
+  assert.match(source,/const full = await hasOperatorFeature\(workspaceId, 'gdrive_photos'\) \|\| await hasOperatorFeature\(workspaceId, 'files'\);/);
   const scopes=[...source.matchAll(/'https:\/\/www\.googleapis\.com\/auth\/([a-z.]+)'/g)].map(m=>m[1]).sort();
   assert.deepEqual(scopes,['drive','drive.file']);
   assert.match(source,/include_granted_scopes: 'true'/);
@@ -40,4 +42,22 @@ test('callback keeps saving the connection and only flags the photo source when 
   // 쓰기 API(파일 바꾸기·지우기)는 이 함수에 없다.
   assert.doesNotMatch(source,/method:\s*'(PATCH|DELETE)'[\s\S]{0,200}googleapis\.com\/drive/);
   assert.doesNotMatch(source,/trashed|files\.delete|emptyTrash/);
+});
+
+test('MULTI ②-2: Drive 연결은 부른 사람의 owner 작업공간에 저장, id=1은 운영자일 때만',()=>{
+  // 고정 작업공간 이름으로 찾지 않는다.
+  assert.doesNotMatch(source,/slug=eq\./);
+  assert.doesNotMatch(source,/assertDriveAdmin/);
+  // 시작: 로그인 → 본인 owner 작업공간(정확히 1개). 콜백: state에 저장된 user_id로 다시 확인(화면 값 없음).
+  assert.match(source,/const workspaceId = await ownWorkspace\(user\.id\);/);
+  assert.match(source,/const workspaceId = await callerOwnerWorkspace\(\{ rest: serviceGet \}, row\.user_id\)/);
+  // 작업공간별 표에 그 작업공간 행만 쓴다.
+  assert.match(source,/servicePatch\(`app_drive_connections\?workspace_id=eq\.\$\{encodeURIComponent\(workspaceId\)\}`/);
+  assert.match(source,/servicePost\('app_drive_connections', \{\n\s+workspace_id: workspaceId,/);
+  // 옛 자리(id=1)는 calls 허용(운영자) 작업공간일 때만 덮어쓴다.
+  const guard=source.indexOf("if (await hasOperatorFeature(workspaceId, 'calls')) {"),patch=source.indexOf("servicePatch('public_policy_drive_config?id=eq.1'");
+  assert.ok(guard>0&&patch>guard&&patch-guard<120);
+  assert.equal(source.split("servicePatch('public_policy_drive_config?id=eq.1'").length,2);
+  // 운영자 판정은 service_role 전용 RPC(서버 허용 표).
+  assert.match(source,/rest\/v1\/rpc\/app_operator_feature_workspace/);
 });

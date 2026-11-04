@@ -30,7 +30,8 @@ function harness(o = {}) {
     if (u.pathname === '/auth/v1/user') return Response.json({ id: 'owner-1' });
     if (u.pathname === '/token') return Response.json({ access_token: 'drive-token' });
     const table = u.pathname.startsWith('/rest/v1/') ? u.pathname.split('/').at(-1) : null;
-    if (table === 'public_policy_drive_config') return Response.json([{ google_client_id: 'c', google_client_secret: 's', google_refresh_token: 'r' }]);
+    if (table === 'public_policy_drive_config') return Response.json([{ google_client_id: 'c', google_client_secret: 's' }]);
+    if (table === 'app_drive_connections') return Response.json([{ google_refresh_token: 'r' }]);
     if (table === 'app_workspace_members') {
       if (u.searchParams.has('workspace_id')) return Response.json(state.role ? [{ role: state.role }] : []);
       return Response.json([{ workspace_id: 'ws-1', role: 'owner' }], { headers: { 'Content-Range': '0-0/1' } });
