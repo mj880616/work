@@ -1,6 +1,6 @@
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {reportLink} from './link-state.js'; // UI-앱안알림 2단계: Google 연결 끊김을 맨 위 알림 줄로
-import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
+import {holdToast as kptuHoldToast,askConfirm,notify} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {formatSeoulTime} from './meeting-time.js';
 import {dueGroup, dueLabel} from './task-due.mjs'; // TASK-내일칸: 기한 묶음(지남·오늘·내일·일주일 안·나중·기한 없음) 하나
@@ -276,7 +276,7 @@ async function saveEditor(opt){
     if(createAttempt===attempt||(createAttempt?.task?.id===r.task?.id))createAttempt=null;
     const current=chosenLinks(),unchanged=readEditorDraft()===r.text&&(!r.chosen||!!current&&sameKeys(current,r.chosen));
     if(filesNotice)editorNotice(filesNotice);
-    else if(unchanged){if(quick){const saved=r.task;closeEditor();announceQuickDue(saved,quick)}else if(isDocked())editorNotice('저장했어요.');else closeEditor()}else editorNotice('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
+    else if(unchanged){if(quick){const saved=r.task;closeEditor();announceQuickDue(saved,quick)}else{const wasDocked=isDocked();closeEditor();if(wasDocked)notify('저장했어요.')}}else editorNotice('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
     tasksChanged();
   }catch(e){
     if(attempt)attempt.pending=false;
