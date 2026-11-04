@@ -126,6 +126,7 @@ class WidgetActionsTest {
         // 사진·동영상 읽기 넷은 사진 메뉴 '폰 사진'(PHOTO-출처 ①, 0.3.9)용 — 저장소 쓰기·위치·카메라는 없다.
         // MANAGE_MEDIA는 사진 [폴더]의 폰 폴더 바꾸기(PHOTO-폴더스위치, 0.4.1)용 — 사용자가 설정에서 켜야만 쓰인다.
         // ACCESS_MEDIA_LOCATION은 사진 [정보 고치기](S48-60, 0.4.15)용 — 사진 안 위치(EXIF)를 가리지 않고 읽고 고친다(기기 위치 아님).
+        // MANAGE_EXTERNAL_STORAGE는 [파일] '이 폰'(S49-51, 0.5.0, 명진 결정 H-1)용 — 설정에서 명진이 켜야만 쓰인다. 다리는 PhoneFilesRules가 막는다.
         val perms = children(xml("src/main/AndroidManifest.xml"), "uses-permission").map { attr(it, "name") }.toSet()
         assertEquals(
             setOf(
@@ -133,6 +134,7 @@ class WidgetActionsTest {
                 "android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION",
                 "android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO", "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
                 "android.permission.READ_EXTERNAL_STORAGE", "android.permission.MANAGE_MEDIA", "android.permission.ACCESS_MEDIA_LOCATION",
+                "android.permission.MANAGE_EXTERNAL_STORAGE",
             ),
             perms,
         )

@@ -98,6 +98,8 @@ class MainActivity : ComponentActivity() {
 
     /** PHOTO-출처 ①: 사진 메뉴(app/phone-photos.js)가 'photos:hello'로 연 다리. 접근 상태가 바뀌면 여기로 알린다. */
     private var photoReply: JavaScriptReplyProxy? = null
+    /** FILES-통합 3단계(S49-51): [파일] '이 폰'(app/phone-files.js)이 'pfiles:hello'로 연 다리. 설정에서 '모든 파일 접근'을 바꾸고 돌아오면 다시 알린다. */
+    private var filesReply: JavaScriptReplyProxy? = null
     private val photoPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
         PhoneMedia.forget()
         postPhotos(PhoneMedia.stateMessage(this))
@@ -279,6 +281,7 @@ class MainActivity : ComponentActivity() {
                 else if (data.startsWith("widget:")) onWidgetMessage(data, reply)
                 else if (data.startsWith("rec:")) onRecordMessage(data, reply)
                 else if (data.startsWith("photos:")) onPhotoMessage(data, reply)
+                else if (data.startsWith("pfiles:")) onPhoneFilesMessage(data, reply)
                 else if (data.startsWith("out:")) onShareOutMessage(data, reply)
                 else if (data.startsWith("push:")) onPushMessage(data, reply)
                 else if (data == "write:hello") writeReply = reply
@@ -295,6 +298,7 @@ class MainActivity : ComponentActivity() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? =
                     RecordHub.serve(request.url.toString(), request.method)
                         ?: ShareIntake.serve(request.url.toString(), request.method, applicationContext.contentResolver)
+                        ?: PhoneFiles.serve(request.url.toString(), request.method, applicationContext)
                         ?: PhoneMedia.serve(request.url.toString(), request.method, applicationContext)
             })
         }
@@ -324,6 +328,7 @@ class MainActivity : ComponentActivity() {
                 readyReply = null
                 writeReply = null
                 photoReply = null
+                filesReply = null
                 pushReply = null
                 outReply = null
                 // 당겨서 새로고침으로 다시 여는 중이면 동그란 표시를 거둔다. 새 화면의 손가락 판정은 처음부터.
@@ -343,6 +348,7 @@ class MainActivity : ComponentActivity() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 RecordHub.serve(request.url.toString(), request.method)
                     ?: ShareIntake.serve(request.url.toString(), request.method, applicationContext.contentResolver)
+                    ?: PhoneFiles.serve(request.url.toString(), request.method, applicationContext)
                     ?: PhoneMedia.serve(request.url.toString(), request.method, applicationContext)
 
             override fun onPageFinished(view: WebView, url: String?) {
@@ -1190,6 +1196,42 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * FILES-통합 3단계(S49-51, 명진 결정 H-1): [파일] '이 폰' 다리. hello = 지금 상태(켜져 있으면 열쇠), ask = 설정 '모든 파일 접근 허용' 화면.
+     * 목록·원본·작은 그림은 __phone/<열쇠>/files/ 가로채기(PhoneFiles.serve)로만 준다. 이 판은 읽기만.
+     */
+    private fun onPhoneFilesMessage(data: String, reply: JavaScriptReplyProxy) {
+        val m = PhoneFilesRules.message(data) ?: return
+        filesReply = reply
+        when (m) {
+            PhoneFilesRules.Message.Hello -> postFiles(PhoneFiles.stateMessage())
+            PhoneFilesRules.Message.Ask -> {
+                if (!PhoneFiles.can()) {
+                    postFiles(PhoneFiles.stateMessage())
+                    return
+                }
+                try {
+                    startActivity(Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
+                } catch (_: Exception) {
+                    try {
+                        startActivity(Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+                    } catch (_: Exception) {
+                        postFiles(PhoneFiles.stateMessage())
+                    }
+                }
+            }
+        }
+    }
+
+    private fun postFiles(message: String) {
+        val reply = filesReply ?: return
+        try {
+            reply.postMessage(message)
+        } catch (_: Exception) {
+            filesReply = null
+        }
+    }
+
     private fun postPhotos(message: String) {
         val reply = photoReply ?: return
         try {
@@ -1222,6 +1264,8 @@ class MainActivity : ComponentActivity() {
             PhoneMedia.forget()
             postPhotos(PhoneMedia.stateMessage(this))
         }
+        // FILES-통합 3단계: '모든 파일 접근' 설정에서 돌아왔을 수 있다.
+        if (filesReply != null) postFiles(PhoneFiles.stateMessage())
         // FIX-위젯: 앱을 열면 위젯도 바로 새로(마지막 갱신에서 5분이 지났을 때만, 같은 이름 작업은 KEEP).
         WidgetGuard.run { WidgetJobs.refreshOnOpen(applicationContext) }
     }
@@ -1442,6 +1486,7 @@ class MainActivity : ComponentActivity() {
         recReply = null
         writeReply = null
         photoReply = null
+        filesReply = null
         pushReply = null
         outReply = null
         // 받다 만 사진(Pictures/웹2의 숨긴 칸)은 지운다.
