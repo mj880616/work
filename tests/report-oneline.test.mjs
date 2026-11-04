@@ -47,16 +47,14 @@ const meetings = [
 const ok = items => ({status:'ok', items});
 const days = ['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29'];
 
-test('주간보고 ② 재료: 한 줄 업데이트는 문장 그대로(칸 글자·시각 없음) + 이후, AI 한 줄로 바꾸지 않는다', () => {
+test('주간보고 ② 재료: 한 줄 업데이트는 문장 그대로(칸 글자·시각 없음) + 이후', () => {
   const line = x => `[칸] ${x.series_name}`;
   const records = days.flatMap(day => m.weeklyAreaRecords(meetings, day, line).map(r => ({...r, day})));
   assert.deepEqual(records.map(r => r.text), ['[칸] 가상 간담회 → 이후: 후속 면담', '[칸] 나 회의', `${LINE} → 이후: 토론회 날짜 잡기`]);
-  const out = m.summarizeAreaRecords(records, meetings, {[A]:{text:'가 AI 한 줄', edited:false}});
-  // AI 한 줄의 '이후'는 한 줄 업데이트의 다음 할 일을 다시 싣지 않는다(한 줄 업데이트 줄에 이미 있음).
-  assert.deepEqual(out.map(r => r.text), ['가 AI 한 줄 → 이후: 후속 면담', '[칸] 나 회의', `${LINE} → 이후: 토론회 날짜 잡기`]);
-  // 같은 칸이면 한 줄 업데이트가 먼저(날짜가 늦어도).
-  const placed = weekly.placeRecords(out, tree);
-  assert.deepEqual(placed.areas[0].rows[0].items.map(i => i.text), [`${LINE} → 이후: 토론회 날짜 잡기`, '가 AI 한 줄 → 이후: 후속 면담']);
+  // S49-39: 사업영역 AI 한 줄은 없앴다 — 한 줄 업데이트는 그대로 보고 줄과 같은 칸에서 먼저(first).
+  assert.equal(m.summarizeAreaRecords, undefined);
+  const placed = weekly.placeRecords(records, tree);
+  assert.deepEqual(placed.areas[0].rows[0].items.map(i => i.text), [`${LINE} → 이후: 토론회 날짜 잡기`, '[칸] 가상 간담회 → 이후: 후속 면담']);
 });
 
 test('주간보고 화면 모델: ② 사업 요약 표에 문장 그대로, ③ 회의·활동 결과에는 없다', () => {
@@ -88,5 +86,5 @@ test('화면 연결(정적 확인): [+] 메뉴 맨 위 줄, [한 줄] 칩의 [+]
   assert.match(ui, /<details class="biz-next-plan" data-ol-plan-box><summary>\+ 다음 할 일/);
   assert.match(ui, /rt\.api\('\/rest\/v1\/app_meetings',\{method:'POST',body,prefer:'return=representation'\}\)/);
   assert.match(ui, /saveReportTargets\(row,\[\{kind:'project',id:body\.business_area_id\},\.\.\.\(state\?\.orgs\|\|\[\]\)\]\)/);
-  assert.match(preview, /if\(p\.rec\?\.oneline\)\{ones\.push\(p\);continue\}/);
+  assert.match(preview, /const ones=progress\.filter\(p=>p\.rec\?\.oneline\),rest=progress\.filter\(p=>!p\.rec\?\.oneline\)/);
 });
