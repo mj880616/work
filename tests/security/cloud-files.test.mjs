@@ -496,10 +496,10 @@ test('write helpers: names, id lists, unique names, upload hosts',()=>{
  assert.equal(safeUploadUrl('od','http://sn1.up.1drv.com/up/1'),null);
 });
 
-test('deploy table: cloud-files registered once with verify_jwt true, first deploy pending',()=>{
+test('deploy table: cloud-files registered once with verify_jwt true, live in production',()=>{
  const rows=read('docs/web2-env6b-edge-source.md').split('\n').filter(l=>/^\| \d+ \| `cloud-files` \|/.test(l));
  assert.equal(rows.length,1);
- assert.match(rows[0],/\| 배포 대기 \| 없음 \| \*\*true\*\* \|/);
+ assert.match(rows[0],/\| 운영 중\(버전은 functions list\) \| [^|]+ \| \*\*true\*\* \|/);
 });
 
 // S48-65: 쪽이 3개 넘게 이어지는 큰 드라이브(시간 상한으로 끊겨 여러 번 이어 받기)도 끝까지 훑는지.
