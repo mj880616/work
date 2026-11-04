@@ -64,9 +64,14 @@ export function feedText(raw: string): string {
 // ---- 날짜 ----------------------------------------------------------------------------------------------------------
 
 // RSS 날짜(RFC 822·ISO). 미래(하루 넘게)·너무 옛날(1990 전)이면 null.
-export function feedDate(raw: string | null, nowMs: number): string | null {
+// 시간대가 없는 날짜('2026-11-04 10:00:00' 비마이너 꼴)는 서버 시계(UTC)로 읽으면 한국 매체가 9시간 늦게 읽힌다 → localKst가 true(한국어 매체)면 서울 시간으로 읽는다.
+const HAS_ZONE = /(?:Z|[+-]\d{2}:?\d{2}|GMT|UTC|UT|[ECMP][SD]T)$/i;
+export function feedDate(raw: string | null, nowMs: number, localKst = false): string | null {
   if (!raw) return null;
-  const t = Date.parse(raw.trim());
+  let r = raw.trim();
+  if (/\d{1,2}:\d{2}(?::\d{2})?$/.test(r) && !HAS_ZONE.test(r)) r += localKst ? " +09:00" : " Z";
+  let t = Date.parse(r);
+  if (!Number.isFinite(t) && r !== raw.trim()) t = Date.parse(raw.trim().replace(" ", "T") + (localKst ? "+09:00" : "Z"));
   if (!Number.isFinite(t) || t > nowMs + 86400000 || t < Date.UTC(1990, 0, 1)) return null;
   return new Date(t).toISOString();
 }
@@ -162,7 +167,7 @@ export function parseFeed(source: OutsideSource, xml: string, nowMs: number, lim
     const contentRaw = tag(b, ["content:encoded", "content"]);
     out.push({
       url, title, kind, author,
-      published_at: feedDate(tag(b, ["pubDate", "dc:date", "published", "updated"]), nowMs),
+      published_at: feedDate(tag(b, ["pubDate", "dc:date", "published", "updated"]), nowMs, source.lang === "ko"),
       summary: summaryRaw ? cut(feedText(summaryRaw), 4000) || null : null,
       content: contentRaw ? cut(feedText(contentRaw), BODY_MAX_CHARS) || null : null,
     });
