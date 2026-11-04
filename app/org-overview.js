@@ -109,7 +109,7 @@ function lineHtml(orgId, r) {
 function cellHtml(o) {
   const rows = st.rows.get(o.id) || [], shown = overviewRows(rows, 3), older = overviewOlder(rows, 3), dis = st.busy || !!st.editing;
   const adding = st.editing && st.editing.orgId === o.id && st.editing.id === 'new';
-  const open = older.length > 0 && (st.expanded.has(o.id) || (st.editing && st.editing.orgId === o.id && older.some(r => r.id === st.editing.id)));
+  const open = older.length > 0 && (st.expanded.has(o.id) || !!(st.editing && st.editing.orgId === o.id && older.some(r => r.id === st.editing.id)));
   let html = '';
   if (older.length) html += `<button type="button" class="oa-more" data-oa-toggle="${esc(o.id)}" aria-expanded="${open}" aria-label="${esc(o.name)} 지난 ${older.length}줄 ${open ? '접기' : '펼치기'}">외 ${older.length}줄 ${open ? '▴' : '▾'}</button>`;
   if (open) html += older.map(r => lineHtml(o.id, r)).join('');

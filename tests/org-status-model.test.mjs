@@ -121,3 +121,22 @@ test('DESK-전체현황표 화면 연결: 소탭 [목록|전체 표]는 org-over
   assert.doesNotMatch(st, /mountReorder/, '순서는 날짜가 정하므로 손으로 옮기는 기능이 없다');
   assert.match(ov, /data-oa-toggle/);assert.match(ov, /외 \$\{older\.length\}줄/);
 });
+
+test('UI-버튼간격: 공용 간격은 토큰 하나(--ds-button-gap)이고 .btn-row가 쓰며, 나란한 버튼은 .btn-row 줄 안에 둔다(담당조직 표)', () => {
+  assert.match(read('app/theme-tokens.css'), /--ds-button-gap:\s*8px/);
+  assert.match(read('app/ui-standard.css'), /\.btn-row\{[^}]*gap:var\(--ds-button-gap,\s*8px\)/);
+  for (const f of ['app/org-overview.js', 'app/org-status-table.js']) {
+    const src = read(f);
+    // 템플릿 안에서 </button> 바로 뒤에 <button 또는 <span 이 붙는 줄(사이 간격 0): 같은 줄 앞쪽에 btn-row 클래스가 있어야 한다.
+    const all = src.split('\n');
+    for (const [i, line] of all.entries()) {
+      if (/role="tablist"/.test(line)) continue; // 소탭(붙은 세그먼트)은 한 덩어리 부품
+      if (!/<\/button>(?:<button|<span class="oa-empty)/.test(line) && !/<span class="oa-empty"[^>]*>[^<]*<\/span><button/.test(line)) continue;
+      assert.match(all.slice(i, i + 3).join('\n'), /btn-row/, `${f}:${i + 1} 나란한 버튼이 .btn-row 밖에 있다`);
+    }
+  }
+  // 맨 아래 [+ 줄]과 위쪽 [AI로 채우기]·[모두 다시 채우기]·[복사] 줄은 모두 btn-row
+  const ov = read('app/org-overview.js');
+  assert.match(ov, /class="oa-actions btn-row"/);assert.match(ov, /class="oa-bar btn-row"/);
+  assert.match(read('app/org-status-table.js'), /class="wd-st-bar btn-row"/);
+});
