@@ -80,7 +80,10 @@ const filesFlagsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && O
 export const FILES_TWO_LAYOUTS = Object.freeze(['fold', 'wide']);
 const filesTwoOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(name => FILES_TWO_LAYOUTS.includes(name) && typeof v[name] === 'boolean');
 // 기기 칸 객체(files_sources·files_two): 이름 → 기기 칸 하나의 모양 검사.
-const DEVICE_KEYS = Object.freeze({files_sources: filesFlagsOk, files_two: filesTwoOk});
+// S49-48 PHOTO-연월보기: photo_zoom = [사진] 탭 보기 단계를 기기 종류별로 {app?, phone?, pc?: 'year'|'month'|'day'}(없으면 일). migration 20261104221000. 뜻은 photo-zoom-model.mjs.
+// 쓰기는 'photo_zoom.<기기>' 한 칸씩. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(이번 접속만 기억).
+const photoZoomOk = v => PHOTO_LEVELS.includes(v);
+const DEVICE_KEYS = Object.freeze({files_sources: filesFlagsOk, files_two: filesTwoOk, photo_zoom: photoZoomOk});
 export const REPORT_PERIOD_MODES = Object.freeze(['all', 'week', 'range']);
 export const PHOTO_LEVELS = Object.freeze(['year', 'month', 'day']);
 export const NOTE_BOARDS_MAX = 12;
@@ -106,7 +109,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -152,6 +155,7 @@ export function validValue(key, value) {
       && Object.keys(value).every(name => name === 'mode' || name === 'from' || name === 'to') && REPORT_PERIOD_MODES.includes(value.mode)
       && (value.mode === 'range' ? DATE_RE.test(String(value.from)) && DATE_RE.test(String(value.to)) && typeof value.from === 'string' && typeof value.to === 'string' && value.from <= value.to : !('from' in value) && !('to' in value));
     case 'files_dest_recent': return Array.isArray(value) && value.length <= FILES_DEST_RECENT_MAX && value.every(filesDestOk);
+    case 'photo_zoom':
     case 'files_two':
     case 'files_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(dev => FILES_SOURCE_DEVICES.includes(dev) && DEVICE_KEYS[key](value[dev]));
@@ -225,7 +229,7 @@ export function applyChanges(base, changes) {
   }
   return out;
 }
-const NESTED = ['split_ratio', 'col_widths', 'files_sources', 'files_two'];
+const NESTED = ['split_ratio', 'col_widths', 'files_sources', 'files_two', 'photo_zoom'];
 const colScreen = path => path.slice('col_widths.'.length);
 // 'files_sources.<기기>'·'files_two.<기기>' → 앞 이름(기기 칸 객체가 아니면 '').
 function devKeyOf(path) { const key = String(path).split('.')[0]; return DEVICE_KEYS[key] && String(path).startsWith(key + '.') ? key : ''; }
@@ -415,6 +419,8 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
     setFilesSources: (device, flags) => set('files_sources.' + device, flags, {rejectable: true}),
     getFilesTwo: device => prefs.files_two?.[device],
     setFilesTwo: (device, value) => set('files_two.' + device, value, {rejectable: true}),
+    getPhotoZoom: device => prefs.photo_zoom?.[device],
+    setPhotoZoom: (device, level) => set('photo_zoom.' + device, level, {rejectable: true}),
     flush,
     flushHidden,
     status: () => state,

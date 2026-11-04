@@ -235,7 +235,7 @@ test('화면 연결: [폴더]·[앨범] 칩, 폴더 나무는 공용 줄 모양(
 });
 
 // PHOTO-연월이동(S49-5, 명진 결정 A+B 둘 다): 연도 눈금·말풍선 글·연/월 칸.
-import {yearLabels, monthLabelKo, yearTicks, yearCells, monthCells, LEVEL_TEXT, PHOTO_LEVELS_ORDER} from '../app/photos-model.mjs';
+import {yearLabels, monthLabelKo, yearTicks} from '../app/photos-model.mjs';
 test('연월 이동: 말풍선 글, 연도 눈금(해마다 한 번, 가장 최근 달 자리)', () => {
   assert.equal(monthLabelKo('2025-03'), '2025년 3월');
   assert.equal(monthLabelKo('bad'), '');
@@ -246,18 +246,6 @@ test('연월 이동: 말풍선 글, 연도 눈금(해마다 한 번, 가장 최�
   assert.ok(ticks[1].from > ticks[0].from && ticks[2].from > ticks[1].from);
   assert.deepEqual(yearTicks([]), []);
 });
-test('연월 이동: 연 칸(사진 있는 해, 최근 먼저)과 월 칸(열두 달, 빈 달은 0)', () => {
-  const months = {'2026-10': 3, '2026-08': 1, '2025-12': 2, '2025-03': 4, 'bad': 9, '2024-01': 0};
-  assert.deepEqual(yearCells(months), [{year:2026, n:4, latest:'2026-10'}, {year:2025, n:6, latest:'2025-12'}]);
-  const m = monthCells(months, 2025);
-  assert.equal(m.length, 12);
-  assert.deepEqual(m[2], {key:'2025-03', month:2, n:4});
-  assert.deepEqual(m[0], {key:'2025-01', month:0, n:0});
-  assert.equal(m[11].n, 2);
-  assert.deepEqual(PHOTO_LEVELS_ORDER, ['year', 'month', 'day']);
-  assert.deepEqual(LEVEL_TEXT, {year:'연', month:'월', day:'일'});
-});
-
 // PHOTO-연도막대겹침(S49-45): 막대 높이에 맞춰 겹치는 연도 글자는 생략한다.
 test('연도 막대: 글자끼리 최소 간격, 몰린 해는 생략, 막대 안에 들어옴', () => {
   const months = {};
