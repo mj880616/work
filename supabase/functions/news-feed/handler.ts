@@ -16,7 +16,7 @@
 // 저장: 서비스 역할로 app_news_items(넣기·고치기)·app_news_days(넣기·고치기)·app_news_keywords(읽기)·app_outside_sources(news- 키 읽기·상태)·
 //   app_workspace_members(owner 확인 읽기)·rpc app_news_prune만. 로그·응답에는 건수·키·단계 코드만(제목·본문·주소·키워드 없음).
 import { allowedUrl } from "../_shared/outside-catalog.ts";
-import { GOOGLE_NEWS, googleNewsUrl, NEWS_CATALOG, newsSourceByKey, publicNewsCatalog, type NewsSource } from "../_shared/news-catalog.ts";
+import { GOOGLE_NEWS, googleNewsUrl, matchedKeywords, NEWS_CATALOG, newsSourceByKey, publicNewsCatalog, type NewsSource } from "../_shared/news-catalog.ts";
 import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleUrl, urlKey, type FeedLog, type FeedReader } from "../_shared/feed-fetch.ts";
 import { aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount, type Env } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
@@ -368,17 +368,24 @@ async function runMedia(db: Db, readers: Readers, source: NewsSource, nowMs: num
   const reader = readers.catalog(source);
   const nowIso = new Date(nowMs).toISOString();
   let inserted = 0, status = "ok";
+  const wordsByWs = new Map<string, string[]>();
+  if (source.take === "keywords") {
+    const kw = await db.get(`app_news_keywords?enabled=is.true&workspace_id=in.(${ws.join(",")})&select=workspace_id,word&limit=5000`);
+    for (const r of kw) if (typeof r.word === "string") wordsByWs.set(String(r.workspace_id), [...(wordsByWs.get(String(r.workspace_id)) ?? []), r.word]);
+  }
   for (const list of source.lists) {
     const got = await reader.get(list, ACCEPT_FEED);
     if (!got.ok) { status = got.code; continue; }
     const items = parseFeed(source, got.text, nowMs, LIST_LIMIT);
     const rows: NewRow[] = [];
     for (const it of items) {
+      // take=keywords(종합지·방송사)는 작업공간마다 자기 키워드에 글자가 맞는 글만(AI 없이). take=all은 전부.
+      const hit = (w: string) => source.take !== "keywords" || (wordsByWs.get(w) ?? []).length > 0 && matchedKeywords(`${it.title}\n${it.summary ?? ""}`, wordsByWs.get(w) ?? []).length > 0;
       const clean = cleanArticleUrl(it.url);
       if (!clean) continue;
       const full = it.content && chars(it.content) >= 200 ? it.content : null;
       const title = newsTitle(it.title, source.name);
-      for (const w of ws) rows.push({ workspace_id: w, lane: "media", url: clean, url_key: urlKey(clean), title, title_key: titleKey(title),
+      for (const w of ws) if (hit(w)) rows.push({ workspace_id: w, lane: "media", url: clean, url_key: urlKey(clean), title, title_key: titleKey(title),
         lang: source.lang, publisher: source.name, source_key: source.key, keywords: [], published_at: it.published_at, fetched_at: nowIso, state: "ok",
         summary: oneLineLead(it.summary), body: full ?? (it.summary ? cut(it.summary, 1200) : null), body_kind: full ? "full" : it.summary ? "lead" : null });
     }

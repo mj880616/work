@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
 // NEWS-클리핑 C1(docs/design/news-clipping.md, 명진 11/01 22:34): '뉴스 클리핑' 메뉴(?view=news).
 // 한 목록(꼬리표 채널/자동) · 한 문장 요약 늘 보임 · 본문 접기([본문 열기]=news-feed open) · 외국어 [번역](저장본 재사용) · 유료는 공개 요약만 + 원문
-// · ⋯ [지금 채우기]·[키워드 고치기]·[매체 켜고 끄기](서버 저장, 뒤로가기 한 번 = 목록) · 폰 좌우 밀기로 칩 이동. 사회운동 Now ⋯에도 [지금 채우기](read_now 재사용).
+// · ⋯ [지금 채우기]·[키워드 고치기]·[매체 고르기](서버 저장, 뒤로가기 한 번 = 목록) · 폰 좌우 밀기로 칩 이동. 사회운동 Now ⋯에도 [지금 채우기](read_now 재사용).
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 기사·매체·주소는 모두 가짜(example.org).
 const root = page => page.locator('#newsRoot');
 const items = page => root(page).locator('[data-nc-item]');
@@ -98,9 +98,9 @@ for (const width of [412, 884, 1440]) {
     await page.goBack();
     await expect(items(page)).toHaveCount(5);
 
-    // ⋯ → 매체 켜고 끄기: news- 키만, 국내·해외 묶음, 켜기 = 새 줄 넣기.
+    // ⋯ → 매체 고르기: news- 키만, 국내·해외 묶음, 켜기 = 새 줄 넣기.
     await root(page).locator('[data-nc-more]').click();
-    await page.locator('#ncMenu').getByRole('button', { name: '매체 켜고 끄기' }).click();
+    await page.locator('#ncMenu').getByRole('button', { name: '매체 고르기' }).click();
     await expect(root(page).locator('.nc-group-head')).toHaveText(['국내', '해외']);
     expect(server.calls.filter(c => c.what === 'app_outside_sources' && c.method === 'GET').at(-1).query).toContain('source_key=like.news-*');
     await expect(root(page).locator('[data-nc-source="news-fake-a"]')).toHaveAttribute('aria-checked', 'true');
