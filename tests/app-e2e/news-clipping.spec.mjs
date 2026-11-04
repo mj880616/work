@@ -20,9 +20,12 @@ for (const width of [412, 884, 1440]) {
     expect(server.calls.find(c => c.what === 'edge')).toMatchObject({ action: 'catalog', method: 'POST', auth: expect.stringMatching(/^Bearer /) });
     const listQuery = server.calls.find(c => c.what === 'app_news_items').query;
     expect(listQuery).toContain('workspace_id=eq.w'); expect(listQuery).toContain('hidden_at=is.null'); expect(listQuery).not.toMatch(/[,=]body(,|&|$)/);
-    // 날짜 묶음 + 꼬리표 채널/자동만('명진이 고른' 같은 말 없음).
+    // 날짜 묶음. 채널/자동 꼬리표·칩은 없다(11/04 명진: 굳이 구분 안 해도 됨) — 기사는 전과 같이 다 보임.
     await expect(root(page).locator('.nc-day-head')).toHaveText(['오늘', '어제', '10. 4. (일)']);
-    await expect(root(page).locator('.nc-tag')).toHaveText(['채널', '자동', '자동', '채널', '채널']);
+    await expect(root(page).locator('.nc-tag')).toHaveCount(0);
+    await expect(root(page).locator('[data-nc-tab]')).toHaveText(['전체', '별표']);
+    await expect(root(page).locator('[data-nc-tab="channel"], [data-nc-tab="auto"]')).toHaveCount(0);
+    await expect(root(page).locator('.nc-meta').first()).not.toContainText(/채널|자동/);
     await expect(root(page)).not.toContainText('명진');
     const c1 = item(page, 'c1');
     await expect(c1.locator('.nc-title')).toHaveText('가짜 채널 기사');
@@ -68,13 +71,6 @@ for (const width of [412, 884, 1440]) {
     expect(server.calls.filter(c => c.action === 'translate')).toHaveLength(1);
     expect(server.calls.find(c => c.action === 'translate').body).toEqual({ id: 'e1' });
 
-    // 칩: 채널만 · 자동만(서버 조건).
-    await root(page).locator('[data-nc-tab="channel"]').click();
-    await expect(items(page)).toHaveCount(3);
-    expect(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'GET').at(-1).query).toContain('lane=eq.channel');
-    await root(page).locator('[data-nc-tab="auto"]').click();
-    await expect(items(page)).toHaveCount(2);
-    expect(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'GET').at(-1).query).toContain('lane=in.(keyword,media)');
     await root(page).locator('[data-nc-tab="all"]').click();
     await expect(items(page)).toHaveCount(5);
 
@@ -139,9 +135,7 @@ test('뉴스 클리핑 폰 412: 좌우로 밀면 Now 탭 이동(칩은 누르기
     el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t(x)], changedTouches: [t(x)] }));
     el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [t(x + 120)] })); });
   await expect(page.locator('#outsideRoot [data-os-tab="news"]')).toHaveAttribute('aria-selected', 'true');
-  await root(page).locator('[data-nc-tab="channel"]').click();
-  await expect(root(page).locator('[data-nc-tab="channel"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(items(page)).toHaveCount(3);
+  await expect(items(page)).toHaveCount(5);
   await root(page).locator('[data-nc-more]').click();
   const menu = page.locator('#ncMenu');
   await expect(menu).toBeVisible();

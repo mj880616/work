@@ -54,6 +54,13 @@ export function htmlToText(html: string): string {
     .join("\n");
 }
 
+// 피드·미리보기에서 온 글자(요약·본문·소개)를 글자만으로: 제목(cleanTitle)과 같은 순서 — 이스케이프 풀기 → 태그 걷기 → 다시 풀기.
+// ITF 같은 RSS는 description 안 HTML을 한 번 더 이스케이프해 보내서, 풀기 없이 태그만 걷으면 '<span …>'·'&nbsp;'가 글자로 남는다(11/04 명진 캡처).
+// 제목·요약·본문·텔레그램 미리보기가 모두 이 함수 하나를 쓴다. 문단 줄바꿈은 htmlToText가 남긴다.
+export function feedText(raw: string): string {
+  return htmlToText(decodeEntities(raw));
+}
+
 // ---- 날짜 ----------------------------------------------------------------------------------------------------------
 
 // RSS 날짜(RFC 822·ISO). 미래(하루 넘게)·너무 옛날(1990 전)이면 null.
@@ -161,8 +168,8 @@ export function parseFeed(source: OutsideSource, xml: string, nowMs: number, lim
     out.push({
       url, title, kind, author,
       published_at: feedDate(tag(b, ["pubDate", "dc:date", "published", "updated"]), nowMs, source.lang === "ko"),
-      summary: summaryRaw ? cut(htmlToText(summaryRaw), 4000) || null : null,
-      content: contentRaw ? cut(htmlToText(contentRaw), BODY_MAX_CHARS) || null : null,
+      summary: summaryRaw ? cut(feedText(summaryRaw), 4000) || null : null,
+      content: contentRaw ? cut(feedText(contentRaw), BODY_MAX_CHARS) || null : null,
     });
   }
   return out;
@@ -179,7 +186,7 @@ export function telegramPreview(seg: string): { title: string | null; descriptio
   if (!box) return { title: null, description: null };
   const part = (name: string) => {
     const m = new RegExp(`<div\\b[^>]*\\bclass\\s*=\\s*"[^"]*\\b${name}\\b[^"]*"[^>]*>([\\s\\S]*?)<\\/div\\s*>`, "i").exec(box);
-    return m ? htmlToText(m[1]) : "";
+    return m ? feedText(m[1]) : "";
   };
   const title = cleanTitle(cut(part("link_preview_title"), TG_TITLE_MAX));
   const description = cut(part("link_preview_description"), 4000).trim() || null;

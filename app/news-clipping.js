@@ -12,9 +12,9 @@ import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {takeNewsItem} from './news-request.mjs';
 import {interestHit, signalBody} from './now-model.mjs';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
-import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, keepTab, groupItems, itemView, openResult, errorNote, fillResult, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, itemFolderId, memoTitle, memoIndex} from './news-clipping-model.mjs';
+import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, keepTab, groupItems, itemView, openResult, plainText, errorNote, fillResult, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, itemFolderId, memoTitle, memoIndex} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1(설계 docs/design/news-clipping.md, 명진 11/01 22:34): '뉴스 클리핑'(지금은 Now [뉴스] 탭, #nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
-// - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩(꼬리표 '채널'/'자동'). 칩 [전체·채널·자동], 폰은 좌우로 밀어 칩 이동.
+// - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩(출처 구분 칩·꼬리표 없음). 칩 [전체·별표], 폰은 좌우로 밀어 칩 이동.
 // - 줄: '꼬리표 · 매체 · 시각' / 제목 / 한 문장 요약(늘 보임) / 본문 접기(<details>, 펼칠 때 서버 줄에서 읽고 없으면 [본문 열기]=news-feed open)
 //   / 외국어 제목은 서버가 미리 번역한 한국어 제목 + 원제 작게. 본문은 [번역](news-feed translate, 본문 번역 저장본이 있으면 다시 부르지 않고
 //   [원문 보기]와 오감) / [원문](새 창). 유료 기사는 공개 요약만 + 원문.
@@ -111,7 +111,7 @@ function bodyHtml(it, v) {
   if (!b || b.loading) return waitHtml({rows: 3});
   if (b.failed) return failHtml({retry: 'data-nc-body-retry'});
   const ko = v.showingKo && b.body_ko;
-  const text = ko ? b.body_ko : b.body;
+  const text = plainText(ko ? b.body_ko : b.body);
   const note = state.notes.get(it.id) || '';
   const lead = b.body_kind === 'lead' ? '<p class="nc-faint">공개된 앞부분만</p>' : '';
   if (text) return `${lead}<p class="nc-text"${v.foreign && !ko ? ` lang="${esc(it.lang)}"` : ''}>${esc(text)}</p>`;
@@ -120,7 +120,7 @@ function bodyHtml(it, v) {
 
 function itemHtml(it) {
   const v = itemView(it, {showKo: state.ko.has(it.id)});
-  const meta = `<p class="nc-meta"><span class="nc-tag" data-tag="${it.lane === 'channel' ? 'channel' : 'auto'}">${esc(v.tag)}</span>${v.publisher ? `<span class="nc-src">${esc(v.publisher)}</span>` : ''}${v.time ? `<span class="nc-time">${esc(v.time)}</span>` : ''}${v.keywords.map(k => `<span class="nc-kw">${esc(k)}</span>`).join('')}</p>`;
+  const meta = `<p class="nc-meta">${v.publisher ? `<span class="nc-src">${esc(v.publisher)}</span>` : ''}${v.time ? `<span class="nc-time">${esc(v.time)}</span>` : ''}${v.keywords.map(k => `<span class="nc-kw">${esc(k)}</span>`).join('')}</p>`;
   const sum = v.summary ? `<p class="nc-sum">${esc(v.summary)}</p>` : '';
   const note = v.note ? `<p class="nc-note" data-state="${esc(it.state)}">${esc(v.note)}</p>` : '';
   const open = v.canOpen && state.open.has(it.id);
