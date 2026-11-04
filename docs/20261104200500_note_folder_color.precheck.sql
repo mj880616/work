@@ -7,7 +7,7 @@
 -- expect: folders RLS on and no anon privilege = 예
 -- expect: folders rows = 기록
 -- expect: folders grants policies triggers hash = 기록
-select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261104200000') then '예' else '아니오' end as value
+select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261104200500') then '예' else '아니오' end as value
 union all select 'previous step applied',case when (select count(*) from supabase_migrations.schema_migrations where version='20261028170000' and name='note_folders')=1 and to_regclass('public.app_note_folders') is not null then '예' else '아니오' end
 union all select 'color column and function absent',case when not exists(select 1 from pg_attribute where attrelid=to_regclass('public.app_note_folders') and attname='color' and not attisdropped) and to_regprocedure('public.app_note_folder_set_color(uuid,smallint)') is null then '예' else '아니오' end
 union all select 'owner check function present',case when exists(select 1 from pg_proc where oid=to_regprocedure('private.app_is_workspace_owner(uuid)') and prosecdef) then '예' else '아니오' end

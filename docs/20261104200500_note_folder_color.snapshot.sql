@@ -7,5 +7,5 @@ union all select 'function',p.oid::regprocedure::text,p.prosecdef::text||':'||co
 union all select 'table',c.relname::text,c.relrowsecurity::text||':'||coalesce(c.relacl::text,'none') from pg_class c where c.oid=to_regclass('public.app_note_folders')
 union all select 'policy',p.polname::text,p.polcmd::text||':'||p.polpermissive::text||':'||p.polroles::text||':'||coalesce(pg_get_expr(p.polqual,p.polrelid),'') from pg_policy p where p.polrelid=to_regclass('public.app_note_folders')
 union all select 'trigger',t.tgname::text,t.tgenabled::text||':'||t.tgfoid::regproc::text from pg_trigger t where t.tgrelid=to_regclass('public.app_note_folders') and not t.tgisinternal
-union all select 'history',version,name from supabase_migrations.schema_migrations where version in('20261028170000','20261104200000')
+union all select 'history',version,name from supabase_migrations.schema_migrations where version in('20261028170000','20261104200500')
 order by 1,2;

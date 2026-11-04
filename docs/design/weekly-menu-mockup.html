@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>주간보고 메뉴 짝짓기 시안</title>
+<!-- WEEKLY-메뉴짝짓기 시안(S49-41). 혼자 열리는 파일: 외부 주소·글꼴·스크립트 없음. 자료는 모두 가짜. 설계: weekly-menu-pairing.md -->
+<style>
+:root{--bg:#f4f3f0;--panel:#fbfaf8;--line:#dcd9d2;--text:#2b2b2b;--sub:#6d6a64;--faint:#9a968e;--acc:#4f6b8a;--acc-bg:#e6ecf2;--sug:#8a8578;--warn:#9a6a2f;--warn-bg:#f3ebdf;--ok:#4d7356;--chip:#ecebe7}
+:root[data-theme="dark"]{--bg:#1d1e20;--panel:#25272a;--line:#3a3d41;--text:#d9d7d2;--sub:#a29f98;--faint:#77746e;--acc:#8fa8c4;--acc-bg:#2d3540;--sug:#8c887f;--warn:#c9a16a;--warn-bg:#3a3227;--ok:#8cb497;--chip:#303236}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1e20;--panel:#25272a;--line:#3a3d41;--text:#d9d7d2;--sub:#a29f98;--faint:#77746e;--acc:#8fa8c4;--acc-bg:#2d3540;--sug:#8c887f;--warn:#c9a16a;--warn-bg:#3a3227;--ok:#8cb497;--chip:#303236}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.ctl{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.ctl b{font-weight:600;font-size:12px;color:var(--sub)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:none;color:var(--text);font:inherit;font-size:12px;padding:3px 9px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--acc-bg);color:var(--acc);font-weight:600}
+.stage{padding:14px 16px 40px;overflow-x:auto}
+.frame{margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.frame.phone{width:412px;max-width:100%}
+.frame.pc{width:1440px}
+.appbar{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--line);font-size:13px}
+.appbar .t{font-weight:600}
+.appbar .sp{flex:1}
+.wk{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:5px;font-size:12px}
+.wk button{border:0;background:none;color:var(--sub);padding:1px 6px;font:inherit;cursor:pointer}
+.wk span{padding:1px 4px;font-variant-numeric:tabular-nums}
+.body{padding:8px 10px 14px}
+.pc .body{padding:10px 16px 18px}
+.screen{display:none}.screen.on{display:block}
+h3{font-size:13px;margin:12px 0 4px;font-weight:600}
+h4{font-size:12px;margin:10px 0 3px;font-weight:600;color:var(--sub)}
+.note{color:var(--faint);font-size:11px}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{font-size:11px;font-weight:600;color:var(--sub);background:var(--bg)}
+.org{white-space:nowrap;font-weight:600}
+.stage-chip{display:inline-block;font-size:11px;padding:0 5px;border-radius:4px;background:var(--chip);color:var(--sub)}
+.ln{display:flex;gap:6px;align-items:baseline;padding:1px 0}
+.ln .d{font-variant-numeric:tabular-nums;color:var(--sub);white-space:nowrap}
+.ln .x{flex:1}
+.pc .ln .x{flex:0 1 auto;margin-right:8px}
+.ln.sug{color:var(--sug)}
+.ln.sug .x{font-style:italic}
+.ln.last{color:var(--faint)}
+.ai{font-size:10px;color:var(--faint);border:1px solid var(--line);border-radius:3px;padding:0 3px}
+.btns{display:inline-flex;gap:6px;white-space:nowrap}
+.b{border:1px solid var(--line);background:none;color:var(--acc);font:inherit;font-size:11px;padding:0 6px;border-radius:4px;line-height:18px;cursor:pointer}
+.b.q{color:var(--sub)}
+.add{color:var(--acc);font-size:11px;cursor:pointer;padding-top:2px}
+.more{color:var(--acc);font-size:11px;cursor:pointer}
+.warn{font-size:10px;color:var(--warn);background:var(--warn-bg);border-radius:3px;padding:0 4px;font-weight:500}
+.edit{display:flex;gap:6px;align-items:center;margin:2px 0}
+.edit input{flex:1;min-width:0;font:inherit;padding:2px 5px;border:1px solid var(--acc);border-radius:4px;background:var(--panel);color:var(--text)}
+.conf{font-size:11px;color:var(--warn);background:var(--warn-bg);border-radius:4px;padding:3px 6px;margin:3px 0}
+.sec{border-top:1px solid var(--line);margin-top:10px;padding-top:4px}
+.sec>summary{cursor:pointer;font-weight:600;font-size:13px;list-style:none;padding:4px 0}
+.sec>summary::before{content:"▾ ";color:var(--faint)}
+.sec:not([open])>summary::before{content:"▸ "}
+.ref{color:var(--faint);font-size:11px}
+.cell{cursor:text}
+.cell.empty{color:var(--faint)}
+.foot{display:flex;justify-content:flex-end;margin-top:12px}
+.primary{border:1px solid var(--acc);background:var(--acc-bg);color:var(--acc);font:inherit;font-size:12px;padding:3px 10px;border-radius:5px;font-weight:600}
+.lw{border-left:2px solid var(--line);padding-left:6px;margin:2px 0}
+/* 폰: 표를 조직 묶음으로 쌓기 */
+.phone table.orgt thead{display:none}
+.phone table.orgt,.phone table.orgt tbody,.phone table.orgt td{display:block;width:auto}
+.phone table.orgt tr{border-bottom:1px solid var(--line);padding:4px 0;display:grid;grid-template-columns:auto 1fr;gap:0 8px;align-items:center}
+.phone table.orgt td:last-child{grid-column:1/-1}
+.phone table.orgt td{border:0;padding:1px 0}
+.phone table.orgt td.org{display:flex;gap:6px;align-items:center}
+.phone .sumt td,.phone .sumt th{padding:3px 4px}
+.pc .cols{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+.legend{max-width:1440px;margin:10px auto 0;color:var(--sub);font-size:12px}
+.legend li{margin:2px 0}
+</style>
+</head>
+<body>
+<div class="ctl" role="toolbar" aria-label="시안 보기">
+  <b>화면</b>
+  <span class="seg" data-g="scr">
+    <button aria-pressed="true" data-v="org">담당조직 · 이번 주 조직보고</button>
+    <button aria-pressed="false" data-v="biz">사업 보고 · 이번 주 주간보고</button>
+    <button aria-pressed="false" data-v="home">홈 · 주간 정리</button>
+  </span>
+  <b>폭</b>
+  <span class="seg" data-g="w"><button aria-pressed="true" data-v="phone">폰 412</button><button aria-pressed="false" data-v="pc">PC 1440</button></span>
+  <b>색</b>
+  <span class="seg" data-g="th"><button aria-pressed="true" data-v="auto">기기대로</button><button aria-pressed="false" data-v="light">밝게</button><button aria-pressed="false" data-v="dark">어둡게</button></span>
+</div>
+
+<div class="stage">
+<div class="frame phone" id="frame">
+
+<!-- ① 담당조직 · 이번 주 조직보고 -->
+<section class="screen on" data-s="org">
+  <div class="appbar"><span class="t">담당조직</span><span class="note">목록 · <b style="color:var(--acc)">전체 표</b></span><span class="sp"></span>
+    <span class="wk"><button aria-label="지난 주">‹</button><span>11.2~11.8</span><button aria-label="다음 주">›</button></span></div>
+  <div class="body">
+    <table class="orgt">
+      <thead><tr><th style="width:150px">조직</th><th style="width:120px">쟁의 단계</th><th>이번 주 조직보고</th></tr></thead>
+      <tbody>
+      <tr><td class="org">A 지부</td><td><span class="stage-chip">조정 신청(10.28)</span></td>
+        <td>
+          <div class="ln"><span class="d">- 11.2.</span><span class="x">가상 교섭 상견례</span></div>
+          <div class="ln"><span class="d">- 11.3.~11.5.</span><span class="x">파업 찬반투표</span></div>
+          <div class="ln sug"><span class="d">- 11.4.</span><span class="x">찬반투표 중간 투표율 공유 간담회</span><span class="ai">AI</span>
+            <span class="btns"><button class="b">✓ 넣기</button><button class="b q">고치기</button><button class="b q" aria-label="빼기">×</button></span></div>
+          <div class="add">+ 줄</div>
+        </td></tr>
+      <tr><td class="org">B 지회 <span class="warn">주간보고 3줄 넘음</span></td><td></td>
+        <td>
+          <div class="ln"><span class="d">- 11.2.</span><span class="x">가상 현안 설명회</span></div>
+          <div class="ln"><span class="d">- 11.3.</span><span class="x">임원 선거 공고</span></div>
+          <div class="ln"><span class="d">- 11.4.</span><span class="x">현장 순회 3개소</span></div>
+          <div class="more">외 1줄 ▾</div>
+          <div class="conf">다른 화면에서 먼저 고쳤어요: '현장 순회 4개소' <button class="b q">그대로 두기</button> <button class="b q">내 글로 바꾸기</button></div>
+          <div class="add">+ 줄</div>
+        </td></tr>
+      <tr><td class="org">C 지부</td><td></td>
+        <td>
+          <div class="edit"><span class="d note">11.5.</span><input value="가상 단체협약 갱신 요구안 확정" aria-label="줄 고치기"><span class="note">Ctrl+Enter</span></div>
+          <div class="ln sug"><span class="d">- 11.5.</span><span class="x">요구안 설문 마감</span>
+            <span class="btns"><button class="b">✓ 넣기</button><button class="b q">고치기</button><button class="b q" aria-label="빼기">×</button></span></div>
+          <div class="add">+ 줄</div>
+        </td></tr>
+      <tr><td class="org">D 분회</td><td></td>
+        <td><div class="cell empty">—</div><div class="more" style="color:var(--faint)">지난주 2줄 ▸</div><div class="add">+ 줄</div></td></tr>
+      <tr><td class="org">E 지회</td><td><span class="stage-chip">파업(11.1~)</span></td>
+        <td><div class="ln"><span class="d">- 11.1.~</span><span class="x">전면 파업 돌입</span></div><div class="add">+ 줄</div></td></tr>
+      </tbody>
+    </table>
+    <p class="note">흐린 줄 = 이번 주 기록·업데이트에서 올라온 제안. [✓ 넣기]한 줄만 주간보고에 들어감.</p>
+  </div>
+</section>
+
+<!-- ② 사업 보고 · 이번 주 주간보고 -->
+<section class="screen" data-s="biz">
+  <div class="appbar"><span class="t">사업 보고</span><span class="sp"></span>
+    <span class="wk"><button aria-label="지난 주">‹</button><span>11.2~11.8</span><button aria-label="다음 주">›</button></span></div>
+  <div class="body">
+    <details class="sec" open><summary>이번 주 주간보고</summary>
+      <h4>1) 사업요약표</h4>
+      <table class="sumt">
+        <thead><tr><th style="width:16%">사업영역</th><th style="width:18%">세부 과제</th><th>진행 상황 및 이후 계획</th><th style="width:10%">담당</th></tr></thead>
+        <tbody>
+          <tr><td>정책연구</td><td>가상 철도망 연구</td><td><div class="cell">- 가상 토론회 12.3. 추진</div><div class="ref">▸ 보고 1건: 연구 착수 회의</div></td><td class="cell">홍길</td></tr>
+          <tr><td></td><td>가상 안전 기준</td><td><div class="edit"><input value="- 기준안 초안 검토, 11월 말 의견 제출" aria-label="진행 고치기"></div></td><td class="cell">홍길</td></tr>
+          <tr><td>조직확대</td><td>가상 미조직 사업장</td><td><div class="cell empty">눌러서 쓰기</div><div class="ref">▸ 보고 2건</div></td><td class="cell empty">—</td></tr>
+        </tbody>
+      </table>
+      <div class="pc-cols cols">
+        <div>
+          <h4>2) 그 주 주요 사업</h4>
+          <div class="ln"><span class="d">11.3.</span><span class="x">가상 정책 기자회견</span><span class="btns"><button class="b q">⋯</button></span></div>
+          <div class="ln"><span class="d">11.5.</span><span class="x">가상 공동 선전전 참가</span><span class="btns"><button class="b q">⋯</button></span></div>
+        </div>
+        <div>
+          <h4>3) 주요 회의결과</h4>
+          <div class="ln"><span class="d">11.4.</span><span class="x">가상 대표자 간담회 — 공동 대응 합의</span><span class="btns"><button class="b q">⋯</button></span></div>
+          <div class="ln"><span class="d">11.6.</span><span class="x">가상 연구 자문 회의</span><span class="btns"><button class="b q">⋯</button></span></div>
+        </div>
+      </div>
+      <div class="foot"><a class="more">주간 정리에서 보기 ›</a></div>
+    </details>
+    <h3 style="margin-top:16px">보고 목록</h3>
+    <div class="ln"><span class="d">11.6.</span><span class="x">가상 연구 자문 회의</span></div>
+    <div class="ln"><span class="d">11.5.</span><span class="x">가상 공동 선전전 참가</span></div>
+    <div class="ln"><span class="d">11.4.</span><span class="x">가상 대표자 간담회</span></div>
+  </div>
+</section>
+
+<!-- ③ 홈 · 주간 정리 -->
+<section class="screen" data-s="home">
+  <div class="appbar"><span class="t">홈</span><span class="note">하루 · <b style="color:var(--acc)">주간 정리</b></span><span class="sp"></span>
+    <span class="wk"><button aria-label="지난 주">‹</button><span>11.2~11.8</span><button aria-label="다음 주">›</button></span></div>
+  <div class="body">
+    <div class="note">■ 일시 2026.11.9.(월) · 담당 홍길 ⋯</div>
+    <details class="sec" open><summary>1. 요청사항</summary>
+      <h4>1) 임원 배정 요청</h4>
+      <table><thead><tr><th style="width:18%">일</th><th>시간/내용/장소</th><th style="width:22%">참석 요청</th></tr></thead>
+        <tbody><tr><td>11.12.(목)</td><td>14:00 / 가상 결의대회 / 가상 광장</td><td>위원장</td></tr></tbody></table>
+      <div class="add">+ 줄</div>
+    </details>
+    <details class="sec" open><summary>2. 사업 <span class="note">사업 보고와 같은 칸</span></summary>
+      <h4>1) 사업요약표</h4>
+      <table class="sumt"><thead><tr><th style="width:16%">사업영역</th><th style="width:18%">세부 과제</th><th>진행 상황 및 이후 계획</th><th style="width:10%">담당</th></tr></thead>
+        <tbody><tr><td>정책연구</td><td>가상 철도망 연구</td><td class="cell">- 가상 토론회 12.3. 추진</td><td>홍길</td></tr>
+        <tr><td></td><td>가상 안전 기준</td><td class="cell">- 기준안 초안 검토, 11월 말 의견 제출</td><td>홍길</td></tr></tbody></table>
+      <h4>2) 주요 사업 · 회의결과</h4>
+      <div class="ln"><span class="d">11.3.</span><span class="x">가상 정책 기자회견</span></div>
+      <div class="ln"><span class="d">11.4.</span><span class="x">가상 대표자 간담회 — 공동 대응 합의</span></div>
+    </details>
+    <details class="sec" open><summary>4. 조직보고 <span class="note">담당조직과 같은 칸</span></summary>
+      <table class="orgt"><thead><tr><th style="width:150px">조직</th><th>조직현황</th></tr></thead><tbody>
+        <tr><td class="org">A 지부</td><td>
+          <div class="ln"><span class="d">- 11.2.</span><span class="x">가상 교섭 상견례</span></div>
+          <div class="ln"><span class="d">- 11.3.~11.5.</span><span class="x">파업 찬반투표</span></div>
+          <div class="ln sug"><span class="d">- 11.4.</span><span class="x">찬반투표 중간 투표율 공유 간담회</span><span class="ai">AI</span><span class="btns"><button class="b">✓ 넣기</button><button class="b q" aria-label="빼기">×</button></span></div>
+          <div class="more" style="color:var(--faint)">지난주 3줄 ▸</div></td></tr>
+        <tr><td class="org">C 지부 <button class="b q">지난주 모두 가져오기</button></td><td>
+          <div class="ln"><span class="d">- 11.5.</span><span class="x">가상 단체협약 갱신 요구안 확정</span></div>
+          <div class="lw">
+            <div class="ln last"><span class="d">- 10.27.</span><span class="x">요구안 설문 시작</span><span class="btns"><button class="b q">가져오기</button></span></div>
+            <div class="ln last"><span class="d">- 10.30.</span><span class="x">가상 대의원 간담회</span><span class="btns"><button class="b q">가져오기</button></span></div>
+          </div><div class="add">+ 줄</div></td></tr>
+        <tr><td class="org">D 분회 <button class="b q">지난주 모두 가져오기</button></td><td>
+          <div class="cell empty">—</div>
+          <div class="lw">
+            <div class="ln last"><span class="d">- 10.28.</span><span class="x">가상 임금 체불 진정</span><span class="btns"><button class="b q">가져오기</button></span></div>
+            <div class="ln last"><span class="d">- 10.31.</span><span class="x">노동청 조사 출석</span><span class="btns"><button class="b q">가져오기</button></span></div>
+          </div><div class="add">+ 줄</div></td></tr>
+      </tbody></table>
+      <h4>조직보고 상세 · 투쟁 사업장</h4>
+      <div class="ln"><span class="org" style="min-width:60px">E 지회</span><span class="x">- 파업(11.1~) / - 11.1.~ 전면 파업 돌입</span></div>
+    </details>
+    <details class="sec" open><summary>5. 주요 일정</summary>
+      <div class="ln"><span class="d">11.12.(목)</span><span class="x">가상 총력투쟁 결의대회</span><span class="btns"><button class="b q">⋯</button></span></div>
+      <div class="ln sug"><span class="d">11.13.(금)</span><span class="x">가상 집중 선전전</span><span class="btns"><button class="b">+</button><button class="b q" aria-label="빼기">×</button></span></div>
+      <div class="add">+ 줄</div>
+    </details>
+    <div class="foot"><button class="primary">확정하고 한글 파일 받기</button></div>
+  </div>
+</section>
+
+</div>
+<ul class="legend">
+  <li>진한 줄 = 주간보고에 들어가는 줄 · 흐린 기울임 = 제안([✓ 넣기]·[고치기]·[×]) · 왼쪽 선 흐린 줄 = 지난주 줄([가져오기]).</li>
+  <li>같은 칸은 메뉴와 주간 정리에서 같은 부품·같은 저장 자리 — 한쪽에서 고치면 다른 쪽도 같게 보임. 같은 줄을 두 곳에서 동시에 고치면 그 줄에만 노란 안내.</li>
+  <li>모든 이름·내용은 가짜입니다.</li>
+</ul>
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement, frame=document.getElementById('frame');
+  function pick(g,v){
+    document.querySelectorAll('.seg[data-g="'+g+'"] button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===v));});
+    if(g==='scr') document.querySelectorAll('.screen').forEach(function(s){s.classList.toggle('on',s.dataset.s===v);});
+    if(g==='w'){frame.classList.toggle('phone',v==='phone');frame.classList.toggle('pc',v==='pc');}
+    if(g==='th'){ if(v==='auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme',v); }
+  }
+  document.querySelectorAll('.seg').forEach(function(seg){
+    seg.addEventListener('click',function(e){var b=e.target.closest('button'); if(b) pick(seg.dataset.g,b.dataset.v);});
+  });
+})();
+</script>
+</body>
+</html>

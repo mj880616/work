@@ -16,7 +16,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261104200000',name='note_folder_color',stem=version+'_'+name;
+const version='20261104200500',name='note_folder_color',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 const F1='31000000-0000-4000-8000-000000000001',F2='31000000-0000-4000-8000-000000000002',F_OTHER='31000000-0000-4000-8000-000000000003';

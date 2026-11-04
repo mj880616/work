@@ -12,13 +12,13 @@ begin;
 -- 안 하는 것: 기존 정책·표 권한·트리거·함수 변경, 기존 줄 내용 변경, anon·PUBLIC 권한, RLS 약화, rtw_* 객체.
 -- 읽기: 표 단위 select(authenticated)가 이미 있어 새 칸도 owner 정책으로만 읽힌다.
 -- 노트 순서는 새 칸 없이 노트 행의 metadata.order(정수)를 쓴다(설계 3-3 그대로, DB 변경 없음).
--- 짝: docs/20261104200000_note_folder_color.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261104200500_note_folder_color.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261104200000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261104200500')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261028170000' and name = 'note_folders') <> 1
      or to_regclass('public.app_note_folders') is null
      or exists (select 1 from pg_attribute where attrelid = to_regclass('public.app_note_folders') and attname = 'color' and not attisdropped)
@@ -77,5 +77,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261104200000', 'note_folder_color', array['FOLDER color 2: app_note_folders adds nullable smallint color (null or 1..8, check app_note_folders_color_check); SECURITY DEFINER function app_note_folder_set_color(uuid,smallint) (empty search_path, authenticated execute only, owner of the folder workspace only, changes color only); no policy, table grant, trigger or RLS change']);
+values ('20261104200500', 'note_folder_color', array['FOLDER color 2: app_note_folders adds nullable smallint color (null or 1..8, check app_note_folders_color_check); SECURITY DEFINER function app_note_folder_set_color(uuid,smallint) (empty search_path, authenticated execute only, owner of the folder workspace only, changes color only); no policy, table grant, trigger or RLS change']);
 commit;

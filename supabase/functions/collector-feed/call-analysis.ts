@@ -12,7 +12,7 @@
 //   개인 통화함 표 재료(box)를 만든다. 개인은 조직·프로젝트 연결 재료를 만들지 않는다(상대 글만).
 //   요약이 없는 옛 개인 기록(3.2~3.4)·status '애매'가 아닌 구분 없음(옛 3.1·비어 있음)은 box가 null이라 개수만 센다. 모양이 다르면 failed.
 // 순수 함수만 둔다(네트워크·로그 없음). 바깥에서 온 글이므로 제어 문자를 지우고 길이를 자른다.
-import { matchOrg } from "../_shared/org-name-match.mjs";
+import { matchOrg, orgAllNames, orgKey, orgKeys } from "../_shared/org-name-match.mjs";
 
 export const CALL_LIMITS = Object.freeze({
   analysisBytes: 64 * 1024,
@@ -102,6 +102,52 @@ export function transcriptName(value: unknown): { contact: string | null; at: nu
   return { contact, at };
 }
 export const hasPhone = (s: string) => /\d{2,4}[\s-]?\d{3,4}[\s-]?\d{4}/.test(s) || /\d{7,}/.test(s);
+
+// CALL-업무기본: 전사 파일 이름의 연락처(번호든 이름이든) 원본 글. 상대 표기로는 쓰지 않고, 아래 두 가지에만 쓴다.
+// ① 연락처 이름 규칙(contactIsWork) ② 상대별 기억의 열쇠(contactDigest의 재료). 어디에도 저장·기록하지 않는 글이다.
+export function contactRaw(sourceTxtName: unknown): string | null {
+  if (typeof sourceTxtName !== "string" || sourceTxtName.length > 300) return null;
+  const m = /^통화\s+(.+?)_\d{6}_\d{6}(?:\.txt)?$/.exec(sourceTxtName.normalize("NFC").trim());
+  const raw = m ? cleanLine(m[1], CALL_LIMITS.counterpart) : null;
+  return raw;
+}
+export function sourceTxtNameOf(analysisMd: string): string | null {
+  const fm = frontmatter(analysisMd);
+  return fm ? (fm.meta.source_txt_name ?? null) : null;
+}
+// 같은 상대를 같은 열쇠로 묶는 재료: 번호(숫자 7자 이상)는 숫자만, 이름은 띄어쓰기·문장부호를 뺀 소문자. 모르면 null.
+export function contactNorm(raw: string | null): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length >= 7 && /^[\d\s+()-]+$/.test(raw)) return `n:${digits.replace(/^82/, "0").replace(/^0+/, "0")}`;
+  const name = orgKey(raw);
+  return name ? `t:${name}` : null;
+}
+// 열쇠: 작업공간별 SHA-256(소금 = 작업공간 id). DB에는 이 값만 둔다(번호·이름 원문은 저장하지 않는다).
+export async function contactDigest(workspaceId: string, norm: string | null): Promise<string | null> {
+  if (!norm) return null;
+  const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`call-contact:${workspaceId}:${norm}`)));
+  return [...d].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// 업무 꼬리표: 연락처 이름이 두 낱말 이상이고 그중 한 낱말이 이 꼬리표로 끝날 때(예: `가상 의원실 홍길동`). 담당조직 목록에 없는 곳(의원실·기자·부처)을 위한 것.
+const WORK_TAG = /(의원실|보좌관|비서관|기자|노동조합|노조|지부|지회|연맹|협의회|고용노동부|노동부|국회|대통령실|시청|도청|군청|구청|공단|공사)$/;
+const MIN_ORG_KEY = 3;
+// 연락처 이름에 아는 조직 이름·약칭(정식 이름 + 별칭, 쓰지 않음 제외)이 들어 있거나 업무 꼬리표가 있으면 true. 번호만 있는 연락처는 항상 false.
+// 기계 규칙이다(AI 호출 없음). 너무 짧은 이름(3자 미만)은 우연히 겹치기 쉬워 쓰지 않는다.
+export function contactIsWork(raw: string | null, orgs: OrgRow[]): boolean {
+  if (!raw || /^[\d\s+()-]+$/.test(raw) || hasPhone(raw)) return false;
+  const whole = orgKey(raw);
+  if (!whole) return false;
+  for (const o of orgs) {
+    if (!o || o.active === false) continue;
+    for (const name of orgAllNames(o)) {
+      for (const k of orgKeys(name)) if ([...k].length >= MIN_ORG_KEY && whole.includes(k)) return true;
+    }
+  }
+  const tokens = raw.normalize("NFC").split(/[\s_·,/()[\]-]+/).filter(Boolean);
+  return tokens.length >= 2 && tokens.some((t) => WORK_TAG.test(t));
+}
 
 // 앞머리: 맨 앞 `---` 줄 사이의 `key: value`. 따옴표 한 겹은 벗긴다.
 export function frontmatter(md: string): { meta: Record<string, string>; body: string } | null {
@@ -382,7 +428,15 @@ function boxCallOf(kind: "personal" | "unsure", meta: Record<string, string>, bo
   };
 }
 
-export function parseCall(input: { ref: string; analysis_md: string; transcript: string }, orgs: OrgRow[], nowMs: number): CallParsed {
+export type CallResolve = "business" | "personal";
+// CALL-업무기본: 분석이 '애매'로 본 통화를 서버 규칙(상대별 기억·연락처 이름 규칙)으로 다시 갈랐을 때의 구분(resolve).
+// 업무로 갈랐는데 업무 줄을 만들 재료(핵심요약·제목·녹음 시각)가 없으면 원래대로 애매로 둔다(줄 없이 개수만 세는 기존 동작).
+export function parseCall(input: { ref: string; analysis_md: string; transcript: string }, orgs: OrgRow[], nowMs: number, resolve?: CallResolve): CallParsed {
+  const r = parseCallAs(input, orgs, nowMs, resolve);
+  return r.kind === "failed" && resolve === "business" ? parseCallAs(input, orgs, nowMs) : r;
+}
+
+function parseCallAs(input: { ref: string; analysis_md: string; transcript: string }, orgs: OrgRow[], nowMs: number, resolve?: CallResolve): CallParsed {
   const fm = frontmatter(input.analysis_md);
   if (!fm) return { kind: "failed", day: null };
   const meta = fm.meta;
@@ -392,7 +446,8 @@ export function parseCall(input: { ref: string; analysis_md: string; transcript:
   if (!KNOWN_VERSION.test(meta.analysis_version ?? "")) return { kind: "failed", day };
   if (meta.source_txt_id && meta.source_txt_id !== input.ref) return { kind: "failed", day };
   if ((meta.status ?? "").replace(/\s/g, "") === "분석실패") return { kind: "failed", day };
-  const kind = workKind(meta);
+  const kind0 = workKind(meta);
+  const kind = kind0 === "unsure" && resolve && (meta.status ?? "").replace(/\s/g, "") === "애매" ? resolve : kind0;
   if (kind !== "business") return { kind, day, box: boxCallOf(kind, meta, fm.body, input.transcript, at, nowMs) };
   if (at === null || at > nowMs + 86400000) return { kind: "failed", day: null };
   const s = sections(fm.body);

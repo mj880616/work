@@ -2,7 +2,7 @@
 // 표가 아직 없으면(DB 적용 전, PostgREST 404/PGRST205) readNoteFolders가 {ready:false}를 돌려주고 화면은 노트에 적힌 이름 폴더를 읽기 전용으로 보인다.
 // 기기 저장 없음. 노트가 어느 폴더에 있는지는 basket-data.js setNoteFolderRef(노트 metadata)가 적는다.
 const ws = rt => { const id = rt.context.read()?.workspace?.id; if (!id) throw new Error('작업공간을 확인하지 못했어요.'); return encodeURIComponent(id); };
-// color: FOLDER-순서·색 ②(migration 20261104200000, 1~8 또는 null). 적용 전이면 이 칸 읽기가 400이라 color 없이 다시 읽는다(readNoteFolders).
+// color: FOLDER-순서·색 ②(migration 20261104200500, 1~8 또는 null). 적용 전이면 이 칸 읽기가 400이라 color 없이 다시 읽는다(readNoteFolders).
 const FIELDS_BASE = 'id,parent_id,name,sort_order,created_at';
 const FIELDS = FIELDS_BASE + ',color';
 export async function readNoteFolders(rt = window.KPTURuntime) {
