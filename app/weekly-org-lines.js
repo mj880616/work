@@ -10,9 +10,10 @@
 import {missingTable} from './feed-model.mjs';
 import {readStatusRows} from './org-status-table.js';
 import {splitRows} from './org-status-model.mjs';
-import {cellParts, sortLines, dayText, cleanBody, checkDraft, nextOrder, hasRoom, importPlan, conflictOf, mondayOf, shiftWeek, weekLabel, BODY_MAX, SHOWN} from './weekly-org-lines-model.mjs';
+import {cellParts, sortLines, dayText, cleanBody, checkDraft, nextOrder, hasRoom, importPlan, conflictOf, mondayOf, shiftWeek, weekLabel, lineText, BODY_MAX, SHOWN} from './weekly-org-lines-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
 import {fillMissing} from './weekly-org-suggest.js';
+import {waitHtml, emptyHtml} from './wait-state.js';
 
 const TABLE = '/rest/v1/app_weekly_org_lines';
 const COLS = 'id,organization_id,week_start,day,end_day,body,sort_order,state,origin,edited,source_update_ids,source_note_ids,source_status_ids,updated_at';
@@ -26,7 +27,7 @@ export const TEXT = {
   conflict: '다른 화면에서 먼저 고쳤어요', gone: '다른 화면에서 이 줄이 없어졌어요.',
 };
 export const thisWeek = () => mondayOf(seoulDateKey(Date.now()));
-export {mondayOf, shiftWeek, weekLabel};
+export {mondayOf, shiftWeek, weekLabel, lineText};
 
 // 여러 조직의 그 주 줄. 표가 없으면 {missing:true}, 읽지 못하면 throw. 반환 Map(조직 id → 줄들).
 export async function readWeekLines({rt = window.KPTURuntime, workspaceId, week, orgIds = []} = {}) {
@@ -198,6 +199,14 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     const hit = find(id); if (!hit) return;
     await patch(hit.line, {...v.value, state: 'in', edited: true}, TEXT.saved);
   };
+  // 다른 칸(주간 정리 캘린더 추천 [+] 등)에서 줄 하나를 바로 넣는다(넣은 줄, 내 줄). 같은 글이 이미 있으면 넣지 않는다.
+  ctl.addLine = async (orgId, text, {day = null} = {}) => {
+    const list = ctl.lines.get(orgId) || [], v = checkDraft({day: day || '', body: text});
+    if (!v.ok || ctl.busy) return false;
+    if (list.some(l => l.state !== 'dropped' && cleanBody(l.body) === v.value.body)) { say('이미 넣은 줄이에요.'); return false; }
+    if (!hasRoom(list)) { say(TEXT.full, true); return false; }
+    return work(async () => { (await insertLines(c(), orgId, ctl.week, [{...v.value, sort_order: nextOrder(list)}])).forEach(replace); }, TEXT.added, orgId);
+  };
   ctl.cancel = () => { const e = ctl.editing; ctl.editing = null; ctl.draft = null; ctl.invalid = ''; ctl.focus = e ? (e.id === 'new' ? `[data-wl-add="${e.orgId}"]` : `[data-wl-edit="${e.id}"]`) : ''; say(''); repaint(); ctl.afterPaint(); };
   const take = async (orgId, list) => {
     const plan = importPlan(list, ctl.lines.get(orgId) || []);
@@ -248,3 +257,13 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
   return ctl;
 }
 export const WEEK_LINES_EVENT = EVENT;
+// 주간 정리 4. 조직보고 표(조직 | 조직현황): 내 담당조직 전부(앱 순서, 내용 없어도 자리 유지). orgs = [{id, name}].
+export function weekTableHtml(ctl, orgs, {msg = '', error = false} = {}) {
+  if (ctl.status === 'missing') return `<p class="wl-note" data-wl-missing>${TEXT.missing}</p>`;
+  if (ctl.status === 'error') return `<p class="wl-note" role="alert">${TEXT.failed}</p>`;
+  if (ctl.status !== 'ready') return waitHtml({rows: 2});
+  if (!orgs.length) return emptyHtml('담당조직 없음');
+  const rows = orgs.map(o => `<tr data-wl-org-row="${esc(o.id)}"><th scope="row" class="wl-c-org"><span class="wl-org">${esc(o.name)}</span>${ctl.nameHtml(o.id)}</th><td class="wl-c-rows">${ctl.cellHtml(o.id)}</td></tr>`).join('');
+  return `<table class="wl-table" data-wl-table><thead><tr><th scope="col" class="wl-c-org">조직</th><th scope="col">조직현황</th></tr></thead><tbody>${rows}</tbody></table>`
+    + `<p class="wl-status${error ? ' is-error' : ''}" role="status" aria-live="polite" data-wl-status>${esc(msg)}</p>`;
+}

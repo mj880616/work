@@ -93,29 +93,28 @@ const orgUpdates = Object.assign([{id:'u1', organization_id:OB, organization:{na
 const model = summaries => ({start:'2026-10-05', lines:new Map(), linesState:'ok', today:'2026-10-06',
   materials:{basket:ok(basket), orgUpdates:ok(orgUpdates), ...(summaries === undefined ? {} : {orgSummaries:summaries})}});
 
-test('weekly model: sections carry their id and saved summary; copy text uses the summary lines, else the records', async () => {
+// WEEKLY-메뉴짝짓기 P6: [주간 정리] 4. 1)은 저장된 AI 요약을 읽지 않는다(표는 보존). 칸 줄은 주별 조직보고 표(model.orgLines)가 있으면 그것, 없으면 기록.
+test('weekly model: sections carry their id (no saved summary); copy text uses the weekly org lines when given, else the records', async () => {
   const m = await weekly;
-  const saved = new Map([[OA, {summary:'가 조직 임금교섭 진행.\n10.24.(금) 찬반투표 예정.', edited:false}]]);
+  const saved = new Map([[OA, {summary:'가 조직 임금교섭 진행.', edited:false}]]);
   const w = m.weeklySummary(model(ok(saved)));
-  assert.equal(w.orgs.summaries, 'ok');
   const [a, b] = w.orgs.sections;
-  assert.equal(a.id, OA); assert.deepEqual(a.summary, {text:'가 조직 임금교섭 진행.\n10.24.(금) 찬반투표 예정.', edited:false});
+  assert.equal(a.id, OA); assert.equal(a.summary, undefined);
   assert.equal(b.id, OB); assert.equal(b.summary, undefined);
-  const text = m.weeklyReportText(w).split('\n'), at = text.indexOf('4. 산하 조직 현황');
-  assert.deepEqual(text.slice(at + 2, at + 7), ['◦ 가 조직', '- 가 조직 임금교섭 진행.', '- 10.24.(금) 찬반투표 예정.', '◦ 나 조직', '- 10월 7일(수) 나 조직 기록']);
-  // No table yet / still loading / failed: the records as before.
-  assert.equal(m.weeklySummary(model(ok(Object.assign(new Map(), {missing:true})))).orgs.summaries, 'missing');
-  assert.equal(m.weeklySummary(model(undefined)).orgs.summaries, 'loading');
-  assert.equal(m.weeklySummary(model({status:'failed'})).orgs.summaries, 'failed');
-  assert.equal(m.weeklySummary(model({status:'failed'})).orgs.sections[0].summary, undefined);
+  let text = m.weeklyReportText(w).split('\n'), at = text.indexOf('4. 산하 조직 현황');
+  assert.equal(text[at + 2], '◦ 가 조직');
+  assert.ok(!text.includes('- 가 조직 임금교섭 진행.'), '저장된 AI 요약은 쓰지 않는다');
+  text = m.weeklyReportText({...w, orgLines:new Map([[OA, ['- 10.6. 가상 교섭']]])}).split('\n'); at = text.indexOf('4. 산하 조직 현황');
+  assert.deepEqual(w.orgs.mine.map(o => o.id).sort(), [OA, OB].sort());
+  assert.ok(text.includes('- 10.6. 가상 교섭'));
 });
 
-test('한글 파일 후보: an organization with a summary offers its summary lines; the others their records', async () => {
+test('한글 파일 후보: 조직마다 그 주 기록(요약 없음)', async () => {
   const m = await weekly, d = await draft;
   const saved = new Map([[OA, {summary:'가 조직 임금교섭 진행.', edited:true}]]);
   const w = m.weeklySummary(model(ok(saved)));
   const orgs = [{index:0, org:'가 조직', lines:[]}, {index:1, org:'나 조직', lines:[]}];
   const got = d.weekMaterial(w, [], orgs);
-  assert.deepEqual(got.byOrg.get(0).map(l => [l.day, l.text]), [['', '- 가 조직 임금교섭 진행.']]);
+  assert.ok(!(got.byOrg.get(0) ?? []).some(l => l.text.includes('임금교섭 진행')));
   assert.deepEqual(got.byOrg.get(1).map(l => [l.day, l.text]), [['2026-10-07', '- 나 조직 기록']]);
 });
