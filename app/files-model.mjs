@@ -278,6 +278,17 @@ export function errorText(code) {
   return '불러오지 못했습니다';
 }
 
+// 실패 까닭 한 줄(작은 글자, '불러오지 못했습니다' 옆). 서버 글자를 그대로 보이지 않고 정해 둔 말만 쓴다(S49-26).
+export function failReason(err) {
+  const code = String(err?.code || ''), status = Number(err?.status) || 0, msg = String(err?.message || '');
+  if (code === 'timeout') return '시간 초과';
+  if (/statement timeout|canceling statement|57014/i.test(msg) || status === 408 || status === 504) return '서버 시간 초과';
+  if (code === 'network_error') return '연결 끊김';
+  if (status >= 500) return `서버 오류 ${status}`;
+  if (status >= 400) return `요청 오류 ${status}`;
+  return '';
+}
+
 // ---------- 쓰기(S48-45 ⑤·⑦) ----------
 // 여러 개 고르기: Shift 누르고 고르면 보이는 순서에서 앞에 고른 줄부터 이 줄까지.
 export function pickRange(keys, fromKey, toKey) {

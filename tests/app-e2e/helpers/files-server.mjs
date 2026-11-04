@@ -1,5 +1,5 @@
 // FILES-클라우드탐색기 ④ E2E 공용 흉내 서버(파일 화면). 파일·폴더 이름과 id는 모두 가짜.
-// 색인 읽기 함수(app_cloud_list·app_cloud_trail·app_cloud_find)와 Edge cloud-files(status·sync·folder·thumb·media·preview·open-url,
+// 색인 읽기 함수(app_cloud_list·app_cloud_trail·app_cloud_find_in(켜진 출처만, S49-26)·옛 app_cloud_find)와 Edge cloud-files(status·sync·folder·thumb·media·preview·open-url,
 // S48-45 쓰기 rename·mkdir·move·trash·across, S49-27 copy)를 흉내 낸다.
 import { expect } from '@playwright/test';
 import { openHome } from './home-entry.mjs';
@@ -36,7 +36,8 @@ export function fakePdf() {
 }
 
 export async function filesServer(page, { connected = { od: true, gd: true } } = {}) {
-  const server = { items: ITEMS(), calls: [], pendingSync: null, directItems: [] };
+  // findFail: {status, message} — 찾기·묶음 읽기를 그 오류로 실패시킨다(서버 시간 초과 흉내 등).
+  const server = { items: ITEMS(), calls: [], pendingSync: null, directItems: [], findFail: null };
   const trail = (source, id) => {
     const out = [];
     let cur = server.items.find(i => i.source === source && i.item_id === id), depth = 0;
@@ -106,7 +107,12 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
         .map(i => ({ ...view(i), child_count: i.is_folder ? live.filter(c => c.source === i.source && c.parent_id === i.item_id && !c.is_folder).length : null })));
     }
     if (name === 'app_cloud_trail') return ok(trail(body.p_source, body.p_item_id));
-    if (name === 'app_cloud_find') {
+    if (name === 'app_cloud_find' || name === 'app_cloud_find_in') {
+      if (server.findFail) return ok({ code: '57014', message: server.findFail.message }, server.findFail.status);
+      // 새 함수는 켜진 출처(p_sources)만 서버가 거른다. 옛 함수는 두 출처 모두.
+      const srcs = name === 'app_cloud_find_in' ? body.p_sources : ['od', 'gd'];
+      if (!Array.isArray(srcs) || srcs.some(x => !['od', 'gd'].includes(x))) return ok({ code: '22023', message: 'CLOUD_FIND_BAD_SOURCES' }, 400);
+      const live = server.items.filter(i => !i.trashed && srcs.includes(i.source));
       let rows;
       if (body.p_query) {
         const words = body.p_query.split(' ');
