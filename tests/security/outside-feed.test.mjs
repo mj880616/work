@@ -171,8 +171,9 @@ function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,worksp
   const calls={site:[],rest:[],ai:[],auth:0,logs:[]};
   let seq=0;
   const inList=v=>{const m=/^in\.\((.*)\)$/.exec(v);if(!m)return null;const out=[];const re=/"((?:[^"\\]|\\.)*)"|([^,]+)/g;let x;while((x=re.exec(m[1])))out.push(x[1]!==undefined?x[1].replace(/\\(.)/g,'$1'):x[2]);return out;};
-  const match=(row,q)=>{for(const [k,v] of q){if(['select','limit','on_conflict','or'].includes(k))continue;
-    if(v.startsWith('eq.')){if(String(row[k])!==v.slice(3))return false;}
+  const match=(row,q)=>{for(const [k,v] of q){if(['select','limit','on_conflict','or','order'].includes(k))continue;
+    if(v==='is.null'){if(row[k]!=null)return false;}
+    else if(v.startsWith('eq.')){if(String(row[k])!==v.slice(3))return false;}
     else if(v==='is.true'){if(row[k]!==true)return false;}
     else if(v.startsWith('in.')){if(!inList(v).includes(String(row[k])))return false;}
     else throw new Error('unsupported filter '+k+'='+v);}
@@ -361,7 +362,8 @@ test('run (domestic): reads list + new posts once, stores per enabled workspace,
     sites:kctuSites()});
   const r=await h.cron('run',{source:'kctu'});assert.equal(r.status,200);
   const out=await r.json();
-  assert.deepEqual(out,{ok:true,source:'kctu',status:'ok',workspaces:2,listed:2,fresh:2,inserted:3,skipped:0,deferred:0,refilled:0});
+  assert.deepEqual(out,{ok:true,source:'kctu',status:'ok',workspaces:2,listed:2,fresh:2,inserted:3,skipped:0,deferred:0,refilled:0,redated:1});
+  assert.ok(h.db.app_outside_posts.find(p=>p.title==='이미 있음').published_at,'날짜 모름이던 기존 글이 목록 날짜로 채워짐(S50-1)');
   assert.doesNotMatch(JSON.stringify(out),/가상|nodong/,'response carries counts only');
   // 사이트 요청: robots 1번 + 목록 1번 + 글마다 1번(작업공간이 둘이어도 한 번).
   assert.deepEqual(h.calls.site,['https://nodong.org/robots.txt','https://nodong.org/statement','https://nodong.org/statement/310002','https://nodong.org/statement/310000']);
@@ -880,7 +882,7 @@ test('녹색당 목록: 줄마다 날짜 — 옛 선거 때 글은 그 날짜로
   const rows=h.db.app_outside_posts.map(p=>({...p})).sort((a,b)=>(b.published_at??'').localeCompare(a.published_at??''));
   const groups=M.groupPosts(rows,NOW);
   assert.equal(groups.at(-1).label,'날짜 모름');assert.ok(!groups.some(g=>g.label==='오늘'));
-  assert.equal(M.postView(at(902),NOW).time,'날짜 모름');
+  assert.equal(M.postView(at(902),NOW).time,'들어온 날 10.31.','게시 날짜 모름 → 받은 날만 작게(S50-1)');
 });
 
 test('글 쪽 날짜: 메타(article:published_time) → 제목 뒤 날짜 → <time datetime>, 없으면 null', () => {
@@ -1023,4 +1025,22 @@ test('뜻 없는 제목("공지")은 글 쪽 og:title로, 주소 제목 글은 "
   const t=Object.fromEntries(h.db.app_outside_posts.map(p=>[p.url.replace(/.*idx=/,''),p.title]));
   assert.equal(t['78'],'가상 녹색 전환 계획을 내놓아라','종류 꼬리표는 정돈에서 뗌');
   assert.equal(t['79'],P.NO_TITLE);
+});
+
+test('S50-1 날짜 모름 글 다시 읽기: 목록에 없는 옛 글은 글 쪽을 읽어 날짜만 채우고, 못 찾으면 그대로(다른 칸·다른 단체 글은 건드리지 않음)', async () => {
+  const OLDURL='https://nodong.org/statement/300001',NODATE='https://nodong.org/statement/300002';
+  const row=(id,url,extra={})=>({id,workspace_id:WS,source_key:'kctu',kind:'statement',lang:'ko',title:'[성명] 가상 옛 성명',url,has_body:false,published_at:null,fetched_at:'2026-11-04T00:00:00Z',summary_ko:'요약',...extra});
+  const h=harness({sources:[{workspace_id:WS,source_key:'kctu'}],
+    posts:[row('c3000000-0000-4000-8000-000000000001',OLDURL),row('c3000000-0000-4000-8000-000000000002',NODATE),
+      row('c3000000-0000-4000-8000-000000000003','https://other.test/x',{source_key:'kptu'})],
+    sites:{...kctuSites(),
+      [OLDURL]:'<html><body><article><h1>[성명] 가상 옛 성명</h1><p>정부는 계획을 철회하라.</p><p>2019년 3월 8일</p></article></body></html>',
+      [NODATE]:'<html><body><article><h1>[성명] 가상 옛 성명</h1><p>날짜 없는 본문.</p></article></body></html>'}});
+  const r=await h.cron('run',{source:'kctu'});assert.equal(r.status,200);
+  const out=await r.json();assert.ok(out.redated>=1);
+  const by=u=>h.db.app_outside_posts.find(p=>p.url===u);
+  assert.equal(by(OLDURL).published_at,'2019-03-07T15:00:00.000Z','본문 끝 서명 날짜로 채움');
+  assert.equal(by(OLDURL).summary_ko,'요약','다른 칸은 그대로');
+  assert.equal(by(NODATE).published_at,null,'못 찾으면 날짜 모름 그대로(읽은 시각을 쓰지 않음)');
+  assert.equal(by('https://other.test/x').published_at,null,'다른 단체 글은 건드리지 않음');
 });

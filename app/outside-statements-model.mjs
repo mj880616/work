@@ -86,10 +86,15 @@ export const keepChip = (chip, chips) => (chips || []).some(c => c.id === chip) 
 // 글 시각: 게시 시각만(11/02 00:17). 게시 시각을 모르면 ''(받은 시각을 게시 시각처럼 쓰지 않는다 — 옛 글이 '오늘'로 쏟아지지 않게).
 export const NO_DATE = '날짜 모름';
 export const postTime = p => p?.published_at || '';
-// 시각 칸: 'HH:MM'. 날짜만 아는 글(서울 자정으로 저장된 날짜)은 시각을 비우고, 게시 시각을 모르면 '날짜 모름'.
+// 시각 칸: 'HH:MM'. 날짜만 아는 글(서울 자정으로 저장된 날짜)은 시각을 비우고, 게시 시각을 모르면 들어온 날 '들어온 날 11.4.'(받은 시각이 없으면 '날짜 모름').
 export function timeText(p) {
   const at = postTime(p);
-  if (!at || !Number.isFinite(Date.parse(at))) return NO_DATE;
+  if (!at || !Number.isFinite(Date.parse(at))) {
+    const f = Date.parse(p?.fetched_at || '');
+    if (!Number.isFinite(f)) return NO_DATE;
+    const [, m, d] = kstDay(f).split('-');
+    return `들어온 날 ${Number(m)}.${Number(d)}.`;
+  }
   const t = hhmm(at);
   return t === '00:00' ? '' : t;
 }
@@ -102,10 +107,11 @@ export function dayHead(day, today) {
   const label = dayLabel(day);
   return day.slice(0, 4) === String(today).slice(0, 4) ? label : `${day.slice(0, 4)}. ${label}`;
 }
-// 서버가 준 순서(최신 먼저, 게시 시각 모르는 글은 맨 뒤)를 지키며 날짜로 묶는다. 게시 시각 모르는 글은 '날짜 모름' 묶음.
+// 서버가 준 순서(최신 먼저)를 지키며 날짜로 묶는다. 게시 시각 모르는 글은 '날짜 모름' 묶음이고 항상 맨 아래(맨 위로 올라오지 않게 서버 순서와 상관없이 뒤로 모은다).
 export function groupPosts(posts, now = Date.now()) {
   const today = kstDay(now), out = [];
-  for (const p of posts || []) {
+  const list = (posts || []).filter(p => postTime(p)), undated = (posts || []).filter(p => !postTime(p));
+  for (const p of [...list, ...undated]) {
     const at = postTime(p);
     const day = at ? kstDay(at) : '';
     const last = out.at(-1);
@@ -172,8 +178,11 @@ export function safeUrl(raw) {
 export const bodyText = rows => (rows || []).filter(r => r && typeof r.text === 'string').sort((a, b) => a.idx - b.idx).map(r => r.text.trim()).filter(Boolean).join(' ');
 
 // 지난번 [새로 온 것]을 본 뒤 들어온 글인가(받은 시각 기준).
+// 들어온 날보다 1년 넘게 예전 글(처음 수집 때 딸려 온 옛 글)은 새 글로 보지 않는다.
+export const STALE_MS = 365 * 86400000;
 export function isFresh(p, seenAt) {
-  const s = Date.parse(seenAt || ''), f = Date.parse(p?.fetched_at || '');
+  const s = Date.parse(seenAt || ''), f = Date.parse(p?.fetched_at || ''), at = Date.parse(postTime(p));
+  if (Number.isFinite(at) && Number.isFinite(f) && at < f - STALE_MS) return false;
   return Number.isFinite(s) && Number.isFinite(f) && f > s;
 }
 

@@ -31,3 +31,11 @@ test('프레시안: 실제 RSS 주소(안내 쪽 /rss 아님), https 피드와 �
   for (const k of ['news-labortoday', 'news-beminor', 'news-pressian']) assert.equal(newsSourceByKey(k).take, 'all');
   assert.ok(NEWS_CATALOG.every(c => !c.take || ['all', 'keywords'].includes(c.take)));
 });
+
+test('뉴스 글 쪽 날짜: 메타 → JSON-LD datePublished → 첫 <time datetime> 순(S50-1), 못 읽으면 null', async () => {
+  const {readArticlePage} = await import('../supabase/functions/news-feed/page.ts');
+  const wrap = h => `<html><head><title>가상 기사</title>${h}</head><body><p>${'본문 '.repeat(40)}</p></body></html>`;
+  assert.equal(readArticlePage(wrap('<script type="application/ld+json">{"datePublished":"2026-11-03T09:00:00+09:00"}</script>'), NOW).published_at, '2026-11-03T00:00:00.000Z');
+  assert.equal(readArticlePage(wrap('<time datetime="2026-11-02T01:00:00Z">어제</time>'), NOW).published_at, '2026-11-02T01:00:00.000Z');
+  assert.equal(readArticlePage(wrap(''), NOW).published_at, null);
+});
