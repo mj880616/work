@@ -203,18 +203,19 @@ for (const width of [390, 1280]) test(`before the folder table exists: folders b
 
 // NOTE-탐색기 후속 ②: 마우스로 노트·폴더 끌어 놓기(PC). 폰은 17:55부터 끌지 않고 꾹 누르기 메뉴·선택 모드로 옮긴다.
 const extra = [{ id: U(2), workspace_id: 'w', parent_id: null, name: '기록', sort_order: 2048, created_at: '2026-10-01T00:00:00Z' }];
-async function mouseDrop(page, from, to) {
-  await page.evaluate(([a, b]) => {
-    const src = document.querySelector(a), dst = document.querySelector(b), dt = new DataTransfer();
-    src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
-    dst.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
-    dst.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
-    src.dispatchEvent(new DragEvent('dragend', { bubbles: true }));
-  }, [from, to]);
+// 진짜 마우스로 끌기: from 줄을 잡아 to 줄의 zone 자리(before 위 25% 안 / inside 가운데 / after 아래 25% 안)에 놓는다. (S49-38: 공용 끌기 부품 reorder-drag.js)
+async function mouseDrop(page, from, to, zone = 'inside') {
+  const a = await page.locator(from).first().boundingBox(), b = await page.locator(to).first().boundingBox();
+  const ty = zone === 'before' ? b.y + b.height * 0.1 : zone === 'after' ? b.y + b.height * 0.9 : b.y + b.height * 0.5;
+  await page.mouse.move(a.x + 30, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + 40, a.y + a.height / 2 + 6, { steps: 3 });
+  await page.mouse.move(b.x + 30, ty, { steps: 8 });
+  await page.mouse.up();
 }
 test('PC 1280: drag a note onto a folder in the left tree, then drag a folder into another folder; both undo', async ({ page }) => {
   const f = await fixture(page, 1280, { more: extra });
-  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveAttribute('draggable', 'true');
+  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveAttribute('data-reorder-id', 'n:n1');
   await mouseDrop(page, '#noteRows [data-nx-note="n1"]', `[data-nx-tree] [data-nx-folder="${U(1)}"]`);
   await expect.poll(() => f.rows.find(r => r.id === 'n1').metadata).toEqual({ tasks: [{ task_id: 't1' }], folder_id: U(1), folder: '회의' });
   await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');
@@ -242,13 +243,13 @@ test.describe('PC mouse (no touch)', () => { test.use({ hasTouch: false }); test
   expect(f.errors).toEqual([]);
 }); });
 
-test('phone 390: long-press a note opens its menu (no dragging); [폴더로 옮기기] moves it', async ({ page }) => {
+test('phone 390: long-press a note and let go without moving opens its menu; [폴더로 옮기기] moves it', async ({ page }) => {
   const f = await fixture(page, 390);
   await showOutside(page, 390);
   const cdp = await page.context().newCDPSession(page);
   const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i })) });
   const from = await page.locator('#noteRows [data-nx-note="n1"] .basket-title-text').evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
-  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveAttribute('draggable', 'false');
+  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveAttribute('data-reorder-id', 'n:n1');
   await touch('touchStart', [from]); await page.waitForTimeout(700);
   await touch('touchEnd', []);
   await expect(page.locator('#noteDocMenu')).toBeVisible();

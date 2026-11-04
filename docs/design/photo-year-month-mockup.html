@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>사진 연·월 보기 시안 (PHOTO-연월보기)</title>
+<style>
+:root{--bg:#f6f6f4;--surface:#fff;--ink:#23272b;--muted:#6b7177;--line:#dcdcd8;--primary:#4b6f9e;--soft:#e6edf5;--chip:#ecece8;--scrim:rgba(255,255,255,.78)}
+:root[data-theme="dark"]{--bg:#17191b;--surface:#212427;--ink:#e3e5e7;--muted:#9aa0a6;--line:#34383c;--primary:#8fb0d8;--soft:#2a3441;--chip:#2b2e31;--scrim:rgba(33,36,39,.8)}
+*{box-sizing:border-box}
+body{margin:0;background:#c9c9c4;color:var(--ink);font:14px/1.4 system-ui,"Noto Sans KR",sans-serif}
+:root[data-theme="dark"] body{background:#0c0d0e}
+.top{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px;background:#2b2e31;color:#eee}
+.top b{margin-right:8px}
+.top button{border:0;border-radius:999px;padding:6px 12px;background:#444a50;color:#eee;font:inherit;cursor:pointer;min-height:32px}
+.top button[aria-pressed="true"]{background:#8fb0d8;color:#111}
+.note{max-width:1500px;margin:8px auto;padding:0 12px;color:var(--ink);font-size:13px}
+.stage{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;justify-content:center;padding:12px}
+.cap{font-size:12px;color:var(--muted);margin:0 0 4px;text-align:center}
+.frame{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.phone{width:412px;height:760px}
+.pc-wrap{width:720px;height:420px;overflow:hidden;position:relative}
+.pc{width:1440px;height:840px;transform:scale(.5);transform-origin:0 0;position:absolute;left:0;top:0}
+.bar{padding:4px 8px 2px;background:var(--bg);border-bottom:1px solid var(--line);flex:none}
+.row{display:flex;align-items:center;gap:6px;height:32px}
+.chip{border:0;border-radius:999px;padding:0 10px;height:28px;background:var(--chip);color:var(--ink);font:inherit;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--soft);color:var(--primary)}
+.sp{flex:1}
+.mini{border:1px solid var(--line);border-radius:6px;height:28px;min-width:32px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.mini[aria-pressed="true"]{background:var(--soft);color:var(--primary)}
+.src{width:28px;height:28px;border-radius:6px;background:var(--chip);display:grid;place-items:center;font-size:12px;color:var(--muted)}
+.scroll{flex:1;overflow:auto;padding:4px 8px 12px;position:relative}
+.hint{font-size:12px;color:var(--muted);margin:2px 0 4px}
+.dh{font-size:13px;margin:8px 0 3px}.dh span{color:var(--muted)}
+.grid{display:grid;gap:2px;grid-template-columns:repeat(var(--cols),1fr)}
+.ph{aspect-ratio:1/1;border-radius:2px;background:var(--c);position:relative}
+.ph.star::after{content:"★";position:absolute;right:2px;top:0;font-size:11px;color:#fff;text-shadow:0 0 2px #000}
+/* 월 보기 */
+.yh{position:sticky;top:-4px;z-index:2;margin:0;padding:4px 0;font-weight:700;font-size:18px;background:var(--bg)}
+.yh span{font-weight:400;font-size:12px;color:var(--muted);margin-left:6px}
+.mrow{display:block;width:100%;text-align:left;border:0;background:transparent;color:inherit;font:inherit;padding:4px 0 6px;cursor:pointer;border-bottom:1px solid var(--line)}
+.mrow .t{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+.mrow .t b{font-size:15px}.mrow .t span{font-size:12px;color:var(--muted)}
+.strip{display:grid;gap:2px;grid-template-columns:repeat(var(--mcols),1fr)}
+/* 연 보기 */
+.yrow{display:block;width:100%;text-align:left;border:0;background:transparent;color:inherit;font:inherit;padding:6px 0 8px;cursor:pointer;border-bottom:1px solid var(--line)}
+.yrow .t{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.yrow .t b{font-size:22px}.yrow .t span{font-size:12px;color:var(--muted)}
+.ystrip{display:grid;gap:3px;grid-template-columns:repeat(var(--ycols),1fr)}
+.ystrip .ph{aspect-ratio:16/9}
+/* 날짜 막대(일 단계에서만) */
+.rail{position:absolute;right:0;top:92px;bottom:10px;width:44px;opacity:0;transition:opacity .2s}
+.rail.on{opacity:1}
+.rail::before{content:"";position:absolute;right:8px;top:0;bottom:0;width:2px;background:var(--line)}
+.rail .th{position:absolute;right:0;left:0;top:40px;height:44px}
+.rail .th::after{content:"";position:absolute;right:3px;top:6px;bottom:6px;width:8px;border-radius:4px;background:var(--muted);opacity:.7}
+.rail .yy{position:absolute;right:16px;font-size:10px;line-height:12px;padding:0 3px;border-radius:3px;background:var(--scrim)}
+.rail .bub{white-space:nowrap;position:absolute;right:52px;top:30px;padding:4px 12px;border-radius:999px;font-size:16px;font-weight:600;background:var(--surface);border:.5px solid var(--line);box-shadow:0 1px 6px rgba(0,0,0,.18)}
+.tabbar{flex:none;height:44px;display:flex;border-top:1px solid var(--line);background:var(--surface)}
+.tabbar span{flex:1;display:grid;place-items:center;font-size:12px;color:var(--muted)}
+.legend{max-width:900px;margin:0 auto;padding:8px 12px 24px;font-size:13px;color:var(--ink)}
+.legend h2{font-size:15px;margin:14px 0 4px}
+</style>
+</head>
+<body>
+<div class="top" role="toolbar" aria-label="시안 조작">
+  <b>사진 연·월 보기 시안</b>
+  <button type="button" data-lv="day" aria-pressed="true">① 일별 격자</button>
+  <button type="button" data-lv="month" aria-pressed="false">② 월 보기</button>
+  <button type="button" data-lv="year" aria-pressed="false">③ 연 보기</button>
+  <button type="button" data-all aria-pressed="false">세 단계 한눈에</button>
+  <span style="flex:1"></span>
+  <button type="button" data-theme-btn="light" aria-pressed="true">밝게</button>
+  <button type="button" data-theme-btn="dark" aria-pressed="false">어둡게</button>
+</div>
+<p class="note">가짜 사진 칸(색 칸)입니다. 화면 안의 [－] [＋]를 누르거나 연·월 줄을 눌러 단계를 옮겨 보세요. ［－］는 더 작게(일별 → 월 → 연), ［＋］ 또는 줄 누르기는 한 단계 크게. 폰 412는 실제 크기, PC 1440은 절반으로 줄여 보입니다.</p>
+<div class="stage" id="stage"></div>
+<div class="legend">
+  <h2>이 시안에서 보는 것</h2>
+  <p>① 일별 격자(지금 화면 그대로, 날짜 머리줄 + 칸 수 단계 2·3·4·6) → ② 월 보기(연도 머리 아래 '10월 · 24장' 줄마다 작은 사진 한 줄) → ③ 연 보기('2026 · 312장' 줄마다 대표 사진 두세 장). 연·월에서는 오른쪽 날짜 막대를 숨깁니다(일별에서만 보임, 스크롤하면 나타나 잠시 뒤 사라짐).</p>
+  <p>대표 사진은 그 달·그 해 첫 사진, 별표(★)가 있으면 별표 먼저. 새 AI는 쓰지 않고 이미 있는 작은 미리보기만 씁니다.</p>
+</div>
+<script>
+(function(){
+  var COLORS=['#8aa6c1','#c7a98a','#9bb59a','#b99ab5','#d0b36a','#7fa7a3','#c18a8a','#8f93c4','#a3a38a','#6f9bb5'];
+  var color=function(i){return COLORS[(i*7+3)%COLORS.length];};
+  var level='day',all=false,seq=0;
+  var MONTHS=[['2026',[['10',24],['9',31],['8',12],['7',48],['6',9],['5',17]]],['2025',[['12',33],['11',8],['10',26],['3',14],['1',5]]],['2024',[['8',40],['7',22],['2',6]]],['2023',[['5',19]]]];
+  var YEARS=[['2026',312],['2025',186],['2024',98],['2023',19],['2022',44],['2020',7],['2016',63],['2011',2]];
+  function ph(i,star){var d=document.createElement('div');d.className='ph'+(star?' star':'');d.style.setProperty('--c',color(i));return d;}
+  function head(cols,wide){
+    var h=document.createElement('div');h.className='bar';
+    h.innerHTML='<div class="row"><button class="chip" type="button" aria-pressed="true">사진</button><button class="chip" type="button" aria-pressed="false">달력</button><button class="chip" type="button" aria-pressed="false">폴더</button><button class="chip" type="button" aria-pressed="false">앨범</button><button class="chip" type="button" aria-pressed="false">휴지통</button></div>'+
+    '<div class="row"><button class="chip" type="button" aria-pressed="false">전체 ▾</button><button class="chip" type="button" aria-pressed="false">찍은 날 ↓</button><button class="mini" type="button" data-step="-1" aria-label="작게">－</button><button class="mini" type="button" data-step="1" aria-label="크게">＋</button><span class="sp"></span><span class="src">OD</span><span class="src">폰</span></div>';
+    return h;
+  }
+  function dayView(f,cols){
+    var s=document.createElement('div');s.className='scroll';
+    var hint=document.createElement('p');hint.className='hint';hint.textContent='일별 · '+cols+'칸';s.append(hint);
+    var days=[['10월 5일 (월)',cols*3],['10월 2일 (금)',cols*2],['9월 20일 (일)',cols*2],['9월 14일 (월)',cols*2],['8월 15일 (토)',cols*2]];
+    var i=0;days.forEach(function(d){var h=document.createElement('div');h.className='dh';h.innerHTML='<b>'+d[0]+'</b> <span>· '+d[1]+'장</span>';s.append(h);var g=document.createElement('div');g.className='grid';g.style.setProperty('--cols',cols);for(var k=0;k<d[1];k++){g.append(ph(i++,k===1));}s.append(g);});
+    return s;
+  }
+  function monthView(f,mcols){
+    var s=document.createElement('div');s.className='scroll';
+    var hint=document.createElement('p');hint.className='hint';hint.textContent='월 보기 · 줄을 누르면 그 달 일별로';s.append(hint);
+    var i=0;MONTHS.forEach(function(y){var yh=document.createElement('p');yh.className='yh';var tot=y[1].reduce(function(a,m){return a+m[1];},0);yh.innerHTML=y[0]+'<span>'+tot+'장</span>';s.append(yh);
+      y[1].forEach(function(m){var b=document.createElement('button');b.type='button';b.className='mrow';b.setAttribute('data-go','day');b.innerHTML='<div class="t"><b>'+m[0]+'월</b><span>'+m[1]+'장</span></div>';var st=document.createElement('div');st.className='strip';st.style.setProperty('--mcols',mcols);for(var k=0;k<mcols;k++){st.append(ph(i++,k===0&&m[1]>20));}b.append(st);s.append(b);});});
+    return s;
+  }
+  function yearView(f,ycols){
+    var s=document.createElement('div');s.className='scroll';
+    var hint=document.createElement('p');hint.className='hint';hint.textContent='연 보기 · 줄을 누르면 그 해 월 보기로';s.append(hint);
+    var i=0;YEARS.forEach(function(y){var b=document.createElement('button');b.type='button';b.className='yrow';b.setAttribute('data-go','month');b.innerHTML='<div class="t"><b>'+y[0]+'</b><span>'+y[1]+'장</span></div>';var st=document.createElement('div');st.className='ystrip';st.style.setProperty('--ycols',ycols);var n=Math.min(ycols,Math.max(1,y[1]));for(var k=0;k<ycols;k++){var p=ph(i++,k===0);if(k>=n)p.style.visibility='hidden';st.append(p);}b.append(st);s.append(b);});
+    return s;
+  }
+  function rail(){var r=document.createElement('div');r.className='rail on';r.innerHTML='<span class="yy" style="top:6px">2026</span><span class="yy" style="top:150px">2025</span><span class="yy" style="top:290px">2024</span><span class="th"></span><span class="bub">2025년 10월</span>';return r;}
+  function build(host,lv,wide){
+    host.innerHTML='';var f=document.createElement('div');f.className='frame '+(wide?'pc':'phone');
+    f.append(head());
+    var v=lv==='day'?dayView(f,wide?6:4):lv==='month'?monthView(f,wide?10:6):yearView(f,wide?4:2);
+    f.append(v);
+    if(lv==='day')f.append(rail());
+    if(!wide){var t=document.createElement('div');t.className='tabbar';t.innerHTML='<span>홈</span><span>일정</span><span>사진</span><span>메뉴</span>';f.append(t);}
+    f.addEventListener('click',function(e){
+      var st=e.target.closest('[data-step]');var go=e.target.closest('[data-go]');
+      var order=['day','month','year'];
+      if(st){// ＋(1)은 크게(연→월→일), －(-1)은 작게(일→월→연)
+        var cur=order.indexOf(lv);n=Math.max(0,Math.min(2,cur+(Number(st.dataset.step)>0?-1:1)));set(order[n]);}
+      else if(go){set(go.dataset.go);}
+    });
+    host.append(f);
+  }
+  function set(lv){level=lv;all=false;render();}
+  function render(){
+    var stage=document.getElementById('stage');stage.innerHTML='';
+    var lvs=all?['day','month','year']:[level];
+    lvs.forEach(function(lv){
+      var label={day:'① 일별 격자',month:'② 월 보기',year:'③ 연 보기'}[lv];
+      var col=document.createElement('div');
+      var c1=document.createElement('p');c1.className='cap';c1.textContent=label+' · 폰 412';col.append(c1);var h1=document.createElement('div');col.append(h1);build(h1,lv,false);stage.append(col);
+      var col2=document.createElement('div');var c2=document.createElement('p');c2.className='cap';c2.textContent=label+' · PC 1440 (절반 크기)';col2.append(c2);var w=document.createElement('div');w.className='pc-wrap';var h2=document.createElement('div');w.append(h2);col2.append(w);build(h2,lv,true);stage.append(col2);
+    });
+    document.querySelectorAll('[data-lv]').forEach(function(b){b.setAttribute('aria-pressed',String(!all&&b.dataset.lv===level));});
+    document.querySelector('[data-all]').setAttribute('aria-pressed',String(all));
+  }
+  document.querySelectorAll('[data-lv]').forEach(function(b){b.addEventListener('click',function(){set(b.dataset.lv);});});
+  document.querySelector('[data-all]').addEventListener('click',function(){all=true;render();});
+  document.querySelectorAll('[data-theme-btn]').forEach(function(b){b.addEventListener('click',function(){
+    var t=b.dataset.themeBtn;if(t==='dark')document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');
+    document.querySelectorAll('[data-theme-btn]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+  render();
+})();
+</script>
+</body>
+</html>

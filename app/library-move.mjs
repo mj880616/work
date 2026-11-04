@@ -57,7 +57,7 @@ export function pickerRows({folders=[],docs=[],itemFolder=new Map(),free=false,r
   const row=f=>{
     const frameOk=free||(frames.size===1&&frames.has(f.project_id||null));
     const current=docs.length>0&&docs.every(d=>itemFolder.get(d.id)===f.id);
-    return {id:f.id,name:f.name,label:pathOf(f.id),depth:folderIndent(folderDepth(folders,f.id)-1),enabled:frameOk&&!current,current,reason:frameOk?'':(frames.size>1?MIXED_REASON:FRAME_REASON),recent:false};
+    return {id:f.id,name:f.name,color:f.color,label:pathOf(f.id),depth:folderIndent(folderDepth(folders,f.id)-1),enabled:frameOk&&!current,current,reason:frameOk?'':(frames.size>1?MIXED_REASON:FRAME_REASON),recent:false};
   };
   const all=[];
   const walk=parent=>{for(const f of folderSiblings(folders,{free:true,parentId:parent})){all.push(row(f));walk(f.id)}};

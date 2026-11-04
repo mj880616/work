@@ -191,6 +191,19 @@ export function yearTicks(bar) {
   for (const m of bar || []) { const y = String(m.key).slice(0, 4); if (seen.has(y)) continue; seen.add(y); out.push({year:Number(y), from:m.from}); }
   return out;
 }
+// PHOTO-연도막대겹침(S49-45): 막대 높이(px)에 맞춰 연도 글자를 글자끼리 겹치지 않게 거른다.
+// 위(최신)부터 훑어 앞 글자와 minGap px 이상 떨어진 해만 남기고 나머지는 생략한다. 글자는 막대 안(위·아래 끝 반 글자씩 안쪽)에 들어오게 누른다.
+export const RAIL_YEAR_GAP = 16, RAIL_YEAR_LABEL_H = 12;
+export function yearLabels(bar, heightPx, minGap = RAIL_YEAR_GAP, labelH = RAIL_YEAR_LABEL_H) {
+  if (!(heightPx > labelH)) return [];
+  const half = labelH / 2, out = [];
+  for (const t of yearTicks(bar)) {
+    const pos = Math.max(half, Math.min(heightPx - half, t.from * heightPx));
+    if (out.length && pos - out.at(-1).pos < minGap) continue;
+    out.push({year: t.year, from: t.from, pos});
+  }
+  return out;
+}
 // B 보기 단계 [연·월·일]: 연 = 사진 있는 해(최근 먼저) 칸, 월 = 그 해 열두 달 칸, 일 = 지금의 달력. months = {'2025-03': 장수}.
 export const PHOTO_LEVELS_ORDER = Object.freeze(['year', 'month', 'day']);
 export const LEVEL_TEXT = Object.freeze({year:'연', month:'월', day:'일'});

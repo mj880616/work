@@ -84,25 +84,31 @@ export const weeklyAreaRecords = (meetings, day, lineOf) => (meetings || []).fil
     ? {id:areaIdOf(m), name:'', at:m.meeting_at, text:weeklyReportText(onelineLine(m), m), requests:[], oneline:true, first:true}
     : {id:areaIdOf(m), name:'', at:m.meeting_at, text:weeklyReportText(lineOf(m), m), requests:[]});
 
-// MTG-프로젝트합치기 사업영역 AI(설계 12·13절): 그 주 임시저장의 사업영역 한 줄(summaries = {id: {text, edited}})이 있으면
-// 그 사업영역(꼬리표)의 보고 줄들 대신 한 줄 하나로 — '진행' = 한 줄, '이후 계획' = 그 보고들의 다음 할 일(겹치지 않게).
-// 한 줄이 없는 사업영역은 지금처럼 보고마다 한 줄. records 는 weeklyAreaRecords 를 날마다 모은 것({...r, day}), meetings 는 같은 재료.
-export function summarizeAreaRecords(records, meetings, summaries) {
-  const lines = summaries && typeof summaries === 'object' ? summaries : {};
-  if (!Object.keys(lines).length) return records;
-  const out = [], done = new Set();
-  for (const r of records) {
-    // 한 줄 업데이트는 AI 한 줄로 바꾸지 않고 그대로 둔다(같은 칸에서 먼저 — placeRecords 의 first).
-    if (r.oneline) { out.push(r); continue; }
-    const line = lines[String(r.id).toLowerCase()];
-    if (!line?.text) { out.push(r); continue; }
-    if (done.has(r.id)) continue;
-    done.add(r.id);
-    const days = new Set(records.filter(x => x.id === r.id && !x.oneline).map(x => x.day));
-    const plans = [...new Set((meetings || []).filter(m => !isOneline(m) && areaIdOf(m) === r.id && days.has(seoulKey(m.meeting_at))).flatMap(m => nextPlanLines(m.next_plan)))];
-    out.push({...r, text:plans.length ? `${line.text} → 이후: ${plans.join(' / ')}` : line.text, requests:[], summarized:true});
+// WEEKLY-요약표수기(S49-39): 사업요약표 미리보기 표는 보고가 없는 사업영역·세부 과제 줄도 보여 직접 쓸 수 있게 한다.
+// placed = placeRecords 의 areas([{id, name, rows:[{task, items,…}]}]), tree = 사업 목록 트리([{project, depth}]).
+// 트리 차례대로 모든 사업영역(1단)과 그 세부 과제(2단) 줄을 둔다(보고 있는 줄은 그대로 유지). 세부 과제가 하나도 없는 사업영역은 세부 과제 없는 줄 하나.
+// 트리에 없는 사업영역(placed 에만 있는 것)은 뒤에 그대로. 트리를 못 읽었으면(null) placed 그대로.
+export function fullTable(placed, tree) {
+  if (!Array.isArray(tree)) return placed || [];
+  const byId = new Map((placed || []).map(a => [String(a.id), a])), used = new Set(), out = [], order = new Map();
+  let area = null, rank = 0;
+  const nameOf = project => String(project?.name || '').trim() || '이름 없는 사업영역';
+  for (const {project, depth} of tree) {
+    if (depth === 0) {
+      const got = byId.get(String(project.id)); used.add(String(project.id));
+      area = {...(got || {}), id:project.id, name:nameOf(project), rows:got ? got.rows.map(r => ({...r})) : []};
+      out.push(area); order.set(area, new Map()); rank = 0;
+    } else if (area && depth === 1) {
+      order.get(area).set(String(project.id), ++rank);
+      if (!area.rows.some(r => String(r.task?.id ?? '') === String(project.id))) area.rows.push({task:{id:project.id, name:nameOf(project)}, items:[], folded:[], dropped:[]});
+    }
   }
-  return out;
+  for (const a of out) {
+    const rankOf = r => (r.task ? order.get(a).get(String(r.task.id)) ?? 1e6 : 0);
+    a.rows.sort((x, y) => rankOf(x) - rankOf(y));
+    if (!a.rows.length) a.rows.push({task:null, items:[], folded:[], dropped:[]});
+  }
+  return [...out, ...(placed || []).filter(a => !used.has(String(a.id)))];
 }
 
 // 사업 보고 화면 사업영역 칩: 트리 줄([{project, depth}]) → Map(id → 1단 사업영역 id).
