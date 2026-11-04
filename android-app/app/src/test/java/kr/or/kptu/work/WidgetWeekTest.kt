@@ -182,8 +182,10 @@ class WidgetWeekTest {
         assertTrue(src.contains("views.setOnClickPendingIntent(R.id.week_sel_open, day(context, d.day, 11))"))
         // 고른 날짜는 메모리에만(폰 저장 없음, W-D2).
         assertFalse(src.contains("SharedPreferences") || src.contains("getSharedPreferences") || src.contains("openFileOutput"))
-        // 요일 칸 바탕은 모두 누를 때 물결, 고른 날 칸은 옅은 테마색.
-        for (n in listOf("plain", "busy", "hot", "pick")) {
+        // 요일 칸 바탕은 보통·고른 날 둘뿐, 모두 누를 때 물결, 고른 날 칸은 옅은 테마색. 몰린 날·가장 큰 일 날 색칠은 없다(APP-주간위젯평등).
+        assertFalse(src.contains("widget_day_hot") || src.contains("widget_day_busy"))
+        assertFalse(java.io.File("src/main/res/drawable/widget_day_hot.xml").exists() || java.io.File("src/main/res/drawable/widget_day_busy.xml").exists())
+        for (n in listOf("plain", "pick")) {
             val xml = java.io.File("src/main/res/drawable/widget_day_$n.xml").readText()
             assertTrue(n, xml.contains("<ripple") && xml.contains("@color/widget_press"))
         }
