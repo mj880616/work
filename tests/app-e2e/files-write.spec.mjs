@@ -86,7 +86,7 @@ test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드
   await row(page, 'od:OD!14').dragTo(tree.locator('[data-fx-drop="od:"]'));
   await expect.poll(() => names(page)).toEqual(['가짜 메모.txt']);
   expect(edgeCalls(server, 'move')[1].body).toMatchObject({ source: 'od', ids: ['OD!14'], to: null });
-  // 다른 클라우드: 원드라이브 파일을 잘라(Ctrl+X) 구글 드라이브 폴더에 붙이기 → 확인 창 → across.
+  // 다른 클라우드: 원드라이브 파일을 잘라(Ctrl+X) 구글 드라이브 폴더에 붙이기 → 확인 창 → 서버 작업표(job_add kind move, S49-28).
   await row(page, 'od:OD!13').click({ modifiers: ['Control'] });
   await page.keyboard.press('Control+x');
   await tree.locator('[data-fx-go="gd"][data-fx-id=""]').click();
@@ -96,19 +96,20 @@ test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드
   await expect(ask(page)).toContainText('구글 드라이브로 옮길까요?');
   await expect(ask(page).locator('.kptu-ask-note')).toContainText('원본은 원드라이브 휴지통으로');
   await ask(page).getByRole('button', { name: '옮기기' }).click();
-  await expect(row(page, 'gd:gdNew91')).toBeVisible();
-  expect(edgeCalls(server, 'across')[0].body).toEqual({ action: 'across', source: 'od', id: 'OD!13', to_source: 'gd', to: 'gdFolder1', confirm: true });
-  // S49-27: 다른 클라우드로 여러 개도 차례로 하나씩(전송 줄) — 확인 한 번.
+  await expect(row(page, 'gd:gdJob01')).toBeVisible({ timeout: 15000 });
+  expect(edgeCalls(server, 'job_add')[0].body).toEqual({ action: 'job_add', confirm: true, kind: 'move', to_source: 'gd', to: 'gdFolder1', items: [{ source: 'od', id: 'OD!13' }] });
+  expect(edgeCalls(server, 'across')).toHaveLength(0);
+  // 다른 클라우드로 여러 개도 확인 한 번 → 한 번에 작업표로, 서버가 차례로.
   await row(page, 'gd:gdDoc1').click({ modifiers: ['Control'] });
-  await row(page, 'gd:gdNew91').click({ modifiers: ['Control'] });
+  await row(page, 'gd:gdJob01').click({ modifiers: ['Control'] });
   await page.keyboard.press('Control+x');
   await tree.locator('[data-fx-go="od"][data-fx-id=""]').click();
   await bar(page).locator('[data-fx-paste]').click();
   await expect(ask(page)).toContainText('2개를 원드라이브로 옮길까요?');
   await ask(page).getByRole('button', { name: '옮기기' }).click();
-  await expect.poll(() => edgeCalls(server, 'across').length).toBe(3);
-  expect(edgeCalls(server, 'across').slice(1).map(c => c.body.id)).toEqual(['gdDoc1', 'gdNew91']);
-  await expect(page.locator('body')).toContainText('2개 옮김');
+  await expect.poll(() => edgeCalls(server, 'job_add').length).toBe(2);
+  expect(edgeCalls(server, 'job_add')[1].body.items.map(i => i.id)).toEqual(['gdDoc1', 'gdJob01']);
+  await expect(page.locator('body')).toContainText('2개 보냄', { timeout: 15000 });
   expect(errors).toEqual([]);
 });
 

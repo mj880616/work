@@ -158,10 +158,14 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   for (const [name, src] of [['files.js', js], ['files-model.mjs', model]]) assert.doesNotMatch(src, deviceStores, name);
   // 읽기: 색인 읽기 함수 3개 + Edge 읽기 동작. 쓰기(S48-45): Edge write()로 다섯 가지만(confirm:true를 붙임). 표에 직접 쓰지 않는다.
   assert.deepEqual([...new Set([...js.matchAll(/rpc\('(\w+)'/g)].map(m => m[1]))].sort(), ['app_cloud_find_in', 'app_cloud_list', 'app_cloud_trail']);
-  assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['folder', 'media', 'open-url', 'preview', 'status', 'sync', 'thumb']);
-  // FILES-통합 2-①: 복사·옮기기 차례 보내기(xferRun의 call)는 move·across·copy 세 가지. 둘 다 confirm:true를 붙인다.
+  assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['folder', 'job_add', 'job_list', 'media', 'open-url', 'preview', 'status', 'sync', 'thumb']);
+  // FILES-통합 2-②: 복사·다른 저장소로 옮기기는 서버 작업표(job_add, confirm:true)로, 화면이 직접 보내는 것은 같은 저장소 안 move만.
+  //   멈춤·이어 하기(job_pause·job_resume)도 confirm:true. 작업표는 Edge로만(표 직접 읽기·쓰기 없음).
+  assert.match(js, /action: 'job_add', confirm: true, kind: mode/);
+  assert.match(js, /body: \{action, confirm: true, \.\.\.\(ids \? \{ids\} : \{all: true\}\)\}/);
+  assert.deepEqual([...new Set([...js.matchAll(/jobsDo\((b\.dataset[^,)]+)/g)].map(m => m[1]))].sort(), ["b.dataset.fxJobAct === 'pause' ? 'job_pause' : 'job_resume'", "b.dataset.fxJobsAll === 'pause' ? 'job_pause' : 'job_resume'"]);
   assert.deepEqual([...new Set([...js.matchAll(/await write\('(\w+)'/g)].map(m => m[1]))].sort(), ['mkdir', 'rename', 'trash']);
-  assert.deepEqual([...new Set([...js.matchAll(/await call\('(\w+)'/g), ...js.matchAll(/await call\(mode === 'move' \? '(\w+)' : '(\w+)'/g)].flatMap(m => m.slice(1)))].sort(), ['across', 'copy', 'move']);
+  assert.deepEqual([...new Set([...js.matchAll(/await call\('(\w+)'/g), ...js.matchAll(/await call\(mode === 'move' \? '(\w+)' : '(\w+)'/g)].flatMap(m => m.slice(1)))].sort(), ['move']);
   assert.equal([...js.matchAll(/body: \{action, \.\.\.body, confirm: true\}/g)].length, 2);
   assert.match(js, /action: kind === 'office' \? 'preview' : 'media'/);
   // 표 직접 읽기는 같은 파일 보기(app_cloud_items GET) 하나뿐, 직접 쓰기 없음.
@@ -259,7 +263,8 @@ test('같은 이름·큰 파일 묻는 글(H-3·H-4), 전송 줄·끝 한 줄', 
   assert.equal(m.sameNameAsk('down'), '같은 이름이 있어요. 그래도 받을까요?');
   const big = {source: 'od', item_id: 'B', size_bytes: Math.round(1.2 * 1024 ** 3)};
   assert.equal(m.bigAsk(big), '200MB가 넘어요(1.2GB). 그래도 보낼까요?');
-  assert.equal(m.XFER_BIG_HOW, '서버가 10MB씩 나눠 이어 보내요. 폰 데이터는 쓰지 않아요. 끊겨도 끊긴 곳부터 다시.');
+  assert.equal(m.XFER_BIG_HOW, '서버가 10MB씩 나눠 이어 보내요. 화면을 닫아도 계속되고, 끊기면 끊긴 곳부터 다시. 폰 데이터는 쓰지 않아요.');
+  assert.equal(m.XFER_BIG_LATER, undefined, '2-②: 다음 판 안내는 없어짐');
   assert.equal(m.xferBig(big, {source: 'gd'}), true); assert.equal(m.xferBig(big, {source: 'od'}), false, 'same cloud is not limited');
   assert.equal(m.xferBig({...big, size_bytes: 200 * 1024 * 1024}, {source: 'gd'}), false, '200MB exactly is fine');
   const rows = [{source: 'od', item_id: 'A', name: '가짜.PDF'}, {source: 'od', item_id: 'B', name: 'b.txt'}];
@@ -307,4 +312,37 @@ test('실패 까닭 한 줄(S49-26): 정해 둔 말만, 서버 글자는 그대�
   assert.equal(failReason({message: 'something'}), '');
   const js = read('app/files.js');
   for (const k of ['state.failedWhy', 'state.findWhy', 'state.statusWhy']) assert.match(js, new RegExp(`reason: ${k.replace('.', '\\.')}`), k);
+});
+
+test('전송 목록(2-②): 상태 글·까닭·줄 아래 글·전송 줄 묶음·단추·기기 줄 다시 열기·합치기', async () => {
+  const m = await import('../app/files-model.mjs');
+  const MB = 1024 * 1024;
+  const j = o => ({id: 'x', kind: 'copy', origin: 'cloud', src_source: 'od', dest_source: 'gd', name: '가짜.mp4', size_bytes: 400 * MB, sent_bytes: 0, status: 'queued', big: false, created_at: '2026-11-04T01:00:00Z', ...o});
+  assert.equal(m.jobStatusText(j({status: 'running', big: true, sent_bytes: 100 * MB})), '25%');
+  assert.equal(m.jobStatusText(j({status: 'running'})), '보내는 중');
+  assert.deepEqual(['queued', 'paused', 'done', 'failed', 'skipped'].map(s => m.jobStatusText(j({status: s}))), ['기다림', '멈춤', '끝', '실패', '건너뜀']);
+  assert.equal(m.jobLine(j({status: 'failed', error_code: 'no_space'})), '원드라이브 → 구글 드라이브 · 400MB · 받을 곳 공간이 부족해요');
+  assert.equal(m.jobLine(j({status: 'failed', error_code: 'weird_thing'})), '원드라이브 → 구글 드라이브 · 400MB · 연결이 끊겼어요', 'unknown code → fixed word');
+  assert.equal(m.jobLine(j({kind: 'move', status: 'done', result_name: '가짜 (2).mp4', size_bytes: null})), "원드라이브 → 구글 드라이브 옮기기 · '가짜 (2).mp4'로");
+  assert.equal(m.jobLine(j({status: 'skipped'})), '원드라이브 → 구글 드라이브 · 400MB · 같은 이름이라 건너뜀');
+  assert.equal(m.jobLine(j({origin: 'device', src_source: 'dev'})), '이 기기 → 구글 드라이브 · 400MB');
+  // 전송 줄: 지금 묶음(가장 오래된 열린 줄 이후) 기준, 바이트로 몫.
+  const list = [j({id: 'a', status: 'done', created_at: '2026-11-04T00:00:00Z'}), j({id: 'b', status: 'done', created_at: '2026-11-04T01:00:01Z', size_bytes: 100}),
+    j({id: 'c', status: 'running', big: true, created_at: '2026-11-04T01:00:01Z', size_bytes: 300, sent_bytes: 100}), j({id: 'd', status: 'queued', created_at: '2026-11-04T01:00:02Z', size_bytes: 100})];
+  assert.deepEqual(m.jobStrip(list), {text: '2/3 보내는 중', percent: 40, failed: 0, name: '가짜.mp4'});
+  assert.equal(m.jobsTitle(list), '전송 · 2/3');
+  assert.deepEqual(m.jobStrip([j({status: 'paused'})]), {text: '1개 멈춤', percent: 0, failed: 0, name: '', paused: true});
+  assert.deepEqual(m.jobStrip([j({status: 'failed'}), j({id: 'y', status: 'done'})]), {text: '1개 못 보냄', percent: 0, failed: 1, name: ''});
+  assert.equal(m.jobStrip([j({status: 'done'})]), null, 'all done: strip hidden');
+  assert.equal(m.jobsTitle([]), '전송');
+  assert.deepEqual(['queued', 'running', 'paused', 'failed', 'done', 'skipped'].map(s => m.jobAction(j({status: s}))), ['pause', 'pause', 'resume', 'retry', '', '']);
+  assert.equal(m.jobAction(j({origin: 'device', status: 'paused'})), '', 'device rows are resumed by that device');
+  // 노트북(H-6): 기기가 낀 줄은 다시 열면 멈춤으로, 클라우드끼리는 그대로(서버가 계속).
+  assert.equal(m.deviceJobOnReopen(j({origin: 'device', status: 'running'})).status, 'paused');
+  assert.equal(m.deviceJobOnReopen(j({status: 'running'})).status, 'running');
+  const merged = m.mergeJobs([j({id: 'a', status: 'running'}), j({id: 'b', created_at: '2026-11-04T02:00:00Z'})], [j({id: 'a', status: 'done'})]);
+  assert.deepEqual(merged.map(x => x.id + ':' + x.status), ['b:queued', 'a:done']);
+  assert.deepEqual(m.newlyDone([j({id: 'a', status: 'running'}), j({id: 'b', status: 'done'})], [j({id: 'a', status: 'done'}), j({id: 'b', status: 'done'}), j({id: 'n', status: 'done'})]).map(x => x.id), ['a']);
+  assert.equal(m.jobsActive([j({status: 'paused'})]), false); assert.equal(m.jobsActive([j({status: 'running'})]), true);
+  assert.equal(m.jobPercent(j({status: 'done', sent_bytes: 0})), 100);
 });

@@ -368,8 +368,7 @@ export const XFER_MODES = Object.freeze(['copy', 'move']);
 export const XFER_VERB = Object.freeze({copy: '복사', move: '옮기기'});
 // 클라우드 사이 한 파일 기본 상한(H-4). 넘는 파일은 묻고, 이 판에서는 '다음 판(2-②)에서 됩니다'로 멈춘다.
 export const XFER_BIG_BYTES = MOVE_ACROSS_MAX_BYTES;
-export const XFER_BIG_HOW = '서버가 10MB씩 나눠 이어 보내요. 폰 데이터는 쓰지 않아요. 끊겨도 끊긴 곳부터 다시.';
-export const XFER_BIG_LATER = '200MB가 넘는 파일은 다음 판에서 보낼 수 있어요. 이번엔 건너뛰었어요.';
+export const XFER_BIG_HOW = '서버가 10MB씩 나눠 이어 보내요. 화면을 닫아도 계속되고, 끊기면 끊긴 곳부터 다시. 폰 데이터는 쓰지 않아요.';
 export const RECENT_DEST_MAX = 3;
 export const RECENT_DEST_NAME_MAX = 40;
 const gdDoc = r => r?.source === 'gd' && /^application\/vnd\.google-apps\./.test(String(r?.mime || ''));
@@ -433,4 +432,95 @@ export function xferDoneText(mode, {done = 0, failed = 0, skipped = 0} = {}) {
   const verb = mode === 'move' ? '옮김' : '복사함';
   const parts = [done ? `${done}개 ${verb}` : '', skipped ? `${skipped}개 건너뜀` : '', failed ? `${failed}개 못 함` : ''].filter(Boolean);
   return parts.join(' · ') || `${mode === 'move' ? '옮긴' : '복사한'} 것 없음`;
+}
+
+// ---- 전송 목록(FILES-통합 2-②, 서버 작업표 app_cloud_jobs — 시안 ⑤⑧) ----
+// 한 줄 = 사람이 시작한 복사·옮기기 한 건. 서버(Edge cloud-files job_list)가 준 줄을 그대로 그린다(화면은 기억하지 않음, 다시 열면 서버에서 다시 읽음).
+export const JOB_ACTIVE = Object.freeze(['queued', 'running']);
+export const jobActive = j => !!j && JOB_ACTIVE.includes(j.status);
+export const jobsActive = list => (list || []).some(jobActive);
+// 실패 까닭: 서버가 정해 둔 말(code)만 받아 한 줄 글로. 모르는 말은 '연결이 끊겼어요'.
+const JOB_REASON = Object.freeze({
+  cloud_unavailable: '연결이 끊겼어요', cloud_throttled: '클라우드가 잠시 바빠요', no_space: '받을 곳 공간이 부족해요',
+  name_invalid: '이름 규칙에 맞지 않아요', too_large: '너무 커요(2GB까지)', verify_failed: '받은 것이 원본과 달라 지웠어요',
+  changed_since_index: '원본이 그사이 바뀌었어요', not_in_index: '원본을 찾지 못했어요', not_found: '원본을 찾지 못했어요',
+  size_unknown: '크기를 모르는 파일이에요', across_unsupported: '구글 문서는 다른 저장소로 보내지 않아요',
+  across_folder: '폴더는 같은 저장소 안에서만 통째로 보내요', folder_too_big: '폴더 안이 너무 많아요(200개까지)',
+  copy_into_self: '폴더를 자기 안으로 보낼 수 없어요', dest_invalid: '받을 곳을 찾지 못했어요', name_taken: '같은 이름이 있어요',
+  upload_failed: '받을 곳에 올리지 못했어요', copy_failed: '클라우드가 복사하지 못했어요', session_expired: '이어 올리기 자리가 끝났어요. [다시]는 처음부터',
+  od_not_connected: '원드라이브 연결이 필요해요', od_auth_expired: '원드라이브를 다시 연결해 주세요', gd_not_connected: '구글 드라이브 연결이 필요해요',
+  cloud_denied: '클라우드가 허락하지 않았어요', drive_owner_mismatch: '이 드라이브는 쓸 수 없어요', feature_required: '파일 기능이 꺼졌어요',
+  too_many_steps: '너무 오래 걸려 멈췄어요', big_not_confirmed: '200MB가 넘어 묻지 않고는 보내지 않아요',
+});
+export const jobReason = code => JOB_REASON[code] || JOB_REASON.cloud_unavailable;
+export const jobPercent = j => {
+  if (!j) return 0;
+  if (j.status === 'done') return 100;
+  const size = Number(j.size_bytes);
+  return size > 0 ? Math.max(0, Math.min(100, Math.floor(Number(j.sent_bytes || 0) / size * 100))) : 0;
+};
+// 줄 오른쪽 한 낱말.
+export function jobStatusText(j) {
+  if (!j) return '';
+  if (j.status === 'running') return j.big ? `${jobPercent(j)}%` : '보내는 중';
+  return {queued: '기다림', paused: '멈춤', done: '끝', failed: '실패', skipped: '건너뜀'}[j.status] || '';
+}
+// 줄 아래 작은 글: '원드라이브 → 구글 드라이브 · 240MB' + (같은 이름이면 '이름 (2)로'·실패면 까닭).
+export function jobLine(j) {
+  if (!j) return '';
+  const from = j.origin === 'device' ? '이 기기' : SOURCE_NAME[j.src_source] || '';
+  const to = SOURCE_NAME[j.dest_source] || '';
+  const parts = [`${from} → ${to}${j.kind === 'move' ? ' 옮기기' : ''}`];
+  if (j.size_bytes) parts.push(sizeText(j.size_bytes));
+  if (j.status === 'failed') parts.push(jobReason(j.error_code));
+  else if (j.status === 'skipped') parts.push('같은 이름이라 건너뜀');
+  else if (j.status === 'done' && j.result_name && j.result_name !== j.name) parts.push(`'${j.result_name}'로`);
+  else if (j.status === 'done' && j.kept_original) parts.push('원본은 남겼어요');
+  return parts.join(' · ');
+}
+// 하단바 위 전송 줄: 지금 묶음(가장 오래된 기다림·보내는 중·멈춤 줄 이후에 시작한 것) 기준 'n/N 보내는 중 · 48%'.
+//   보내는 것이 없고 멈춘 것만 있으면 'N개 멈춤', 실패만 남았으면 'N개 못 보냄'. 아무것도 없으면 null(줄 숨김).
+export function jobStrip(jobs) {
+  const list = (jobs || []).filter(Boolean);
+  const open = list.filter(j => jobActive(j) || j.status === 'paused');
+  const failed = list.filter(j => j.status === 'failed').length;
+  if (!open.length) return failed ? {text: `${failed}개 못 보냄`, percent: 0, failed, name: ''} : null;
+  const since = open.map(j => String(j.created_at || '')).sort()[0];
+  const batch = list.filter(j => String(j.created_at || '') >= since);
+  const ended = batch.filter(j => ['done', 'failed', 'skipped'].includes(j.status)).length;
+  const running = batch.find(j => j.status === 'running') || batch.find(jobActive);
+  const bytes = batch.reduce((n, j) => n + (Number(j.size_bytes) || 0), 0);
+  const sent = batch.reduce((n, j) => n + (j.status === 'done' ? Number(j.size_bytes) || 0 : Number(j.sent_bytes) || 0), 0);
+  const percent = bytes > 0 ? Math.min(100, Math.floor(sent / bytes * 100)) : xferPercent(ended, batch.length);
+  if (!running) return {text: `${open.length}개 멈춤`, percent, failed, name: '', paused: true};
+  return {text: `${Math.min(batch.length, ended + 1)}/${batch.length} 보내는 중`, percent, failed, name: running.name};
+}
+// 목록 머리: '전송 · 2/5'.
+export function jobsTitle(jobs) {
+  const s = jobStrip(jobs);
+  const m = s && /^(\d+\/\d+)/.exec(s.text);
+  return m ? `전송 · ${m[1]}` : '전송';
+}
+// 줄 단추: 기다림·보내는 중 = [멈춤], 멈춤 = [이어 하기], 실패 = [다시]. 기기가 낀 줄(origin device)은 그 기기 화면이 잇는다(서버는 잇지 않음).
+export function jobAction(j) {
+  if (!j) return '';
+  if (jobActive(j)) return 'pause';
+  if (j.origin === 'device') return '';
+  if (j.status === 'paused') return 'resume';
+  if (j.status === 'failed') return 'retry';
+  return '';
+}
+// 노트북·PC(H-6): 기기가 낀 전송(origin device — PC에서 올리기, 2-④)은 화면을 닫으면 '일시 정지'로 남고 다시 열면 남은 조각부터.
+//   다시 열었을 때 그 줄을 어떻게 볼지: 보내는 중이었던 것은 멈춤으로(이 기기가 다시 시작해야 함), 나머지는 그대로.
+export const deviceJobOnReopen = j => j && j.origin === 'device' && jobActive(j) ? {...j, status: 'paused'} : j;
+// 서버 목록을 새것 → 옛것 순서로(서버도 같은 순서로 준다). 같은 id는 새 줄이 이긴다.
+export function mergeJobs(old, fresh) {
+  const m = new Map((old || []).map(j => [j.id, j]));
+  for (const j of fresh || []) if (j?.id) m.set(j.id, j);
+  return [...m.values()].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')) || String(b.id).localeCompare(String(a.id)));
+}
+// 서버 목록이 바뀌며 '끝'이 된 줄(이번에 끝난 것)만.
+export function newlyDone(old, fresh) {
+  const was = new Map((old || []).map(j => [j.id, j.status]));
+  return (fresh || []).filter(j => j?.status === 'done' && was.has(j.id) && was.get(j.id) !== 'done');
 }
