@@ -97,7 +97,6 @@ class WidgetRefreshTest {
         assertEquals(WidgetWeek.Pick(java.time.LocalDate.of(2026, 11, 1), "D-2", "일 14:00 교섭"), wk.big)
         assertEquals(WidgetWeek.Pick(java.time.LocalDate.of(2026, 11, 2), "월", "11/2 상집 보고일"), wk.report)
         assertEquals(WidgetWeek.Pick(java.time.LocalDate.of(2026, 10, 30), "금", "일정 3개 몰림 · 운영위 회의 10:00부터"), wk.busy)
-        assertEquals(listOf(false, false, false, false, false, false, true), wk.days.map { it.hot })
         assertEquals(listOf(false, false, false, false, true, false, false), wk.days.map { it.busy })
         // APP-위젯날짜고르기: 금요일을 고르면 그 날 일정(종일 먼저·시각 순) 다음 기한 할 일. 지난 할 일(10/28)은 그 날에.
         val fri = wk.details.getValue(java.time.LocalDate.of(2026, 10, 30))

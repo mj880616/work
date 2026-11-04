@@ -15,6 +15,9 @@
 // - POST ?action=call: 통화 분석 파일(이미 Gemini가 만든 것) 읽기만. AI 없음. 업무면 업무 통화함(app_feed_items)에 저장.
 //   개인·애매(CALL-개인통화함 2단계)는 요약·전문까지 개인 통화함(app_call_personal, 소유자만 읽는 별도 표)에 저장한다. 업무 표에는 넣지 않는다.
 //   요약이 없는 옛 개인 기록·구분 없음은 개수만, 모양 다름은 판정 실패. 중복 확인은 두 표를 모두 본다(DB 트리거도 막는다).
+//   CALL-업무기본: 분석이 '애매'(status 애매)로 본 통화만 서버가 다시 가른다(새 AI 호출 없음). ① 명진이 한 번 고른 상대(app_call_contact_choice, 열쇠 = 작업공간별 SHA-256, 번호·이름 원문 저장 없음)
+//   → 고른 대로 ② 전사 파일 이름의 연락처에 담당조직 이름·약칭이나 업무 꼬리표가 들어 있으면 업무. 둘 다 아니면 '확인할 통화'로 남는다. 개인 판정·개인 번호 목록 통화는 그대로 개인.
+//   저장한 통화마다 열쇠만 별도 표(app_call_contact_ref)에 한 줄 남긴다(옮길 때 선택을 기억하는 재료, 통화 표는 그대로). 연락처 이름·번호는 저장·로그에 쓰지 않는다. DB(migration 20261104200000) 적용 뒤에 배포한다.
 // - POST ?action=call_skip: 옛 보내기 스크립트가 개인 번호·연락처 목록으로 거른 수(개수만). 새 스크립트는 목록 통화도 ?action=call로 보낸다. 옛 스크립트 호환용으로 남긴다.
 // - POST ?action=telegram: 방 하나·하루치 묶음마다 AI 한 번(공용 모듈 _shared/openai-responses.ts). 실패·형식 틀림이면 아무것도 저장하지 않음.
 //   선택 칸 `senders`(TG-발언자이름 2단계): 라벨별 [{label, key?, name?, self?}] 40명 이하. 형식 검사 뒤 DB 함수 app_tg_senders_upsert(service_role 전용)에 넘겨
@@ -58,7 +61,9 @@ import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cleanArticleUrl, openArticleUrl, urlKey } from "../_shared/news-url.ts";
 import { aiConfigFrom, callOpenAi, estimateKrw, isIncomplete, outputText, tokenCount } from "../_shared/openai-responses.ts";
 import { organizationOptions, projectOptions } from "../ai-assist/library-fill.ts";
-import { CALL_LIMITS, cleanLine, kstDay, type OrgRow, parseCall } from "./call-analysis.ts";
+import {
+  CALL_LIMITS, type CallResolve, cleanLine, contactDigest, contactIsWork, contactNorm, contactRaw, kstDay, type OrgRow, parseCall, sourceTxtNameOf,
+} from "./call-analysis.ts";
 import { buildContext, CONTEXT_LIMITS, CONTEXT_PEOPLE_FN, CONTEXT_PEOPLE_ROWS } from "./context.ts";
 import {
   askEvidence, parseTelegram, rawLines, TELEGRAM_INSTRUCTIONS, TELEGRAM_SCHEMA, telegramMaterial, TG_LIMITS, type TgAsk, type TgDay, type TgEarlier, type TgMessage,
@@ -493,6 +498,15 @@ async function claimBatch(db: Db, ws: string, today: string, source: "call" | "t
 const callResult = (o: Partial<{ kept: number; personal: number; unsure: number; failed: number; duplicate: boolean; boxed: number }> = {}) =>
   ({ ok: true, kept: 0, personal: 0, unsure: 0, failed: 0, duplicate: false, boxed: 0, ...o });
 
+// CALL-업무기본: 통화를 저장한 직후 '이 통화(원본 고유키)는 이 상대 열쇠'를 한 줄 남긴다(옮길 때 선택을 기억하는 재료).
+// 통화는 이미 저장됐으므로 실패해도 요청은 성공으로 두고(그 통화만 기억에서 빠진다) 단계 코드만 남기지 않는다: 이름·번호가 아닌 열쇠뿐이라 로그가 필요 없다.
+async function rememberContact(db: Db, ws: string, ref: string, key: string | null) {
+  if (!key) return;
+  try {
+    await db.insert("app_call_contact_ref", { workspace_id: ws, source_ref: ref, contact_key: key });
+  } catch { /* 기억만 빠진다 */ }
+}
+
 async function runCall(db: Db, ws: string, input: CallInput, nowMs: number) {
   const today = kstDay(nowMs);
   await claimBatch(db, ws, today, "call", nowMs);
@@ -501,8 +515,22 @@ async function runCall(db: Db, ws: string, input: CallInput, nowMs: number) {
   if (dup.length) return callResult({ duplicate: true });
   const dupBox = await db.get(`app_call_personal?workspace_id=eq.${ws}&source_ref=eq.${input.ref}&select=source_ref&limit=1`);
   if (dupBox.length) return callResult({ duplicate: true });
-  const parsed = parseCall(input, await readOrgs(db, ws), nowMs);
+  const orgs = await readOrgs(db, ws);
+  // CALL-업무기본: 분석이 '애매'로 본 통화만 서버 규칙으로 다시 가른다(새 AI 호출 없음, 순서는 ① 명진이 고른 상대 기억 → ② 연락처 이름 규칙).
+  // 개인(분석이 개인으로 본 것·개인 번호 목록 통화)은 그대로 개인이고, 규칙에 안 걸린 애매만 '확인할 통화'로 남는다.
+  const contact = contactRaw(sourceTxtNameOf(input.analysis_md));
+  const contactKey = await contactDigest(ws, contactNorm(contact));
+  let resolve: CallResolve | undefined;
+  if (contactKey) {
+    const saved = await db.get(`app_call_contact_choice?workspace_id=eq.${ws}&contact_key=eq.${contactKey}&select=choice&limit=1`);
+    if (saved[0]?.choice === "work") resolve = "business";
+    else if (saved[0]?.choice === "personal") resolve = "personal";
+  }
+  if (!resolve && contactIsWork(contact, orgs)) resolve = "business";
+  let parsed = parseCall(input, orgs, nowMs, resolve);
   const inRange = !!parsed.day && parsed.day <= today && parsed.day >= addDays(today, -MAX_PAST_DAYS);
+  // 규칙으로 업무가 된 통화의 녹음 날짜가 받는 범위 밖이면 판정 실패로 세지 않고 원래대로 애매로 둔다.
+  if (resolve === "business" && parsed.kind === "business" && !inRange) parsed = parseCall(input, orgs, nowMs);
   const day = inRange ? parsed.day! : today;
   // 녹음 날짜가 받는 범위(오늘부터 92일 전까지) 밖이면 업무여도 저장하지 않고 판정 실패로 센다.
   if (parsed.kind === "business" && !inRange) {
@@ -520,6 +548,7 @@ async function runCall(db: Db, ws: string, input: CallInput, nowMs: number) {
         source_ref: input.ref, drive_url: input.drive_url, model: box.model, judged_at: box.judged_at,
       });
       if (result === "conflict") return callResult({ duplicate: true });
+      await rememberContact(db, ws, input.ref, contactKey);
       await addDay(db, ws, box.day, "call", { total_count: 1 }, nowMs);
       return callResult({ ...flag, boxed: 1 });
     }
@@ -539,6 +568,7 @@ async function runCall(db: Db, ws: string, input: CallInput, nowMs: number) {
     model: parsed.model, judged_at: parsed.judged_at,
   });
   if (result === "conflict") return callResult({ duplicate: true });
+  await rememberContact(db, ws, input.ref, contactKey);
   await addDay(db, ws, day, "call", { total_count: 1, kept_count: 1 }, nowMs);
   return callResult({ kept: 1 });
 }
