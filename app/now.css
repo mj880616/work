@@ -95,3 +95,15 @@
 #appView #outsideView .now-hov-btn{ min-height:0; height:20px; padding:0 6px; font-size:11px; line-height:1; color:var(--kptu-muted); background:var(--kptu-surface); border:1px solid var(--kptu-line,currentColor); border-radius:var(--ds-radius-control,6px); cursor:pointer; }
 #appView #outsideView .now-hov-btn:hover{ color:var(--kptu-ink); }
 @media(max-width:760px){ #appView #outsideView .now-hov{ display:none !important; } }
+
+/* S50-2 [본문] 읽기 화면: 같은 상세 칸 안에서 바뀐다. 글자 크기 3단계(이 탭만), 줄 길이는 읽기 좋게 제한. */
+#appView #outsideView .nd-body-btn{ flex:none; }
+#appView #outsideView .nd-size{ flex:none; display:inline-flex; gap:2px; }
+#appView #outsideView .nd-size .nd-act:disabled{ opacity:.4; }
+#appView #outsideView .nd-reader-body{ min-width:0; max-width:42em; }
+#appView #outsideView .nd-prose{ --nd-fs:16px; font-size:var(--nd-fs); line-height:1.85; color:var(--kptu-ink); overflow-wrap:anywhere; word-break:keep-all; }
+#appView #outsideView .nd-reader[data-size="0"] .nd-prose{ --nd-fs:14px; }
+#appView #outsideView .nd-reader[data-size="2"] .nd-prose{ --nd-fs:19px; }
+#appView #outsideView .nd-prose p{ margin:0 0 .9em; }
+#appView #outsideView .nd-reader-none{ margin:8px 0; }
+#appView #outsideView .nd-reader .nd-reader-back{ display:inline-grid; }
