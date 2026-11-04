@@ -64,7 +64,7 @@ export const TG_VIEWS = Object.freeze(['day', 'room']);
 // 쓰기는 'files_sources.<기기>' 한 칸씩(split_ratio처럼): 보내기 직전 서버 값과 합쳐 다른 기기 칸을 덮지 않는다.
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(이번 접속만 기억).
 // FILES-통합 2-① 복사(S49-27): files_dest_recent = [파일] 받을 곳 창 위 '최근 보낸 곳' 칩, 배열 3개까지 [{source:'od'|'gd', id: 폴더 id(''= 맨 위), name: 1~40자}]
-// (모든 기기 같게). migration 20261104120000. 뜻·계산은 files-model.mjs(pushRecentDest). 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(알림 없음).
+// (모든 기기 같게). migration 20261104130000. 뜻·계산은 files-model.mjs(pushRecentDest). 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(알림 없음).
 export const FILES_DEST_RECENT_MAX = 3;
 const filesDestOk = d => !!d && typeof d === 'object' && !Array.isArray(d) && Object.keys(d).length === 3 && ['source', 'id', 'name'].every(k => k in d)
   && (d.source === 'od' || d.source === 'gd') && typeof d.id === 'string' && /^[A-Za-z0-9!_.-]{0,120}$/.test(d.id)

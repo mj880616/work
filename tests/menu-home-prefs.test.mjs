@@ -8,7 +8,7 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // DB에는 있지만 화면 허용 목록에는 아직 없는 칸: 없음(now_tab은 S48-27 Now 화면이 KEYS에 더함).
 const DB_ONLY = [];
 test('허용 칸 서른여섯 개가 DB 검사(마지막 migration, S49-21 files_sources 위에 S49-27 files_dest_recent 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261104120000_profile_view_prefs_files_dest.sql');
+  const sql = read('supabase/migrations/20261104130000_profile_view_prefs_files_dest.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
   assert.equal(KEYS.length, 36);

@@ -19,7 +19,7 @@
 -- expect: triggers hash = 기록
 -- expect: indexes hash = 기록
 select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261104090000' and name='profile_view_prefs_files_sources')=1 then '예' else '아니오' end as value
-union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261104120000') then '예' else '아니오' end
+union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261104130000') then '예' else '아니오' end
 union all select 'view prefs check without files dest',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_profiles') and conname='app_profiles_view_prefs_check' and contype='c' and convalidated
   and pg_get_constraintdef(oid) ~ 'files_sources' and pg_get_constraintdef(oid) ~ 'report_period' and pg_get_constraintdef(oid) !~ 'files_dest_recent')=1 then '예' else '아니오' end
 union all select 'saved files dest',count(*)::text from public.app_profiles where view_prefs ? 'files_dest_recent'

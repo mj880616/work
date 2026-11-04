@@ -16,7 +16,7 @@ lock table public.app_profiles in access exclusive mode;
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261104120000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261104130000')
      or (select count(*) from supabase_migrations.schema_migrations
          where version = '20261104090000' and name = 'profile_view_prefs_files_sources') <> 1
      or (select count(*) from pg_attribute
@@ -245,5 +245,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261104120000', 'profile_view_prefs_files_dest', array['S49-27 FILES-통합 2-①: app_profiles_view_prefs_check also accepts files_dest_recent (array of up to 3 {source od|gd, id folder id or empty, name 1-40 chars}); no new column, grants, policies or functions']);
+values ('20261104130000', 'profile_view_prefs_files_dest', array['S49-27 FILES-통합 2-①: app_profiles_view_prefs_check also accepts files_dest_recent (array of up to 3 {source od|gd, id folder id or empty, name 1-40 chars}); no new column, grants, policies or functions']);
 commit;

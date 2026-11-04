@@ -1,5 +1,5 @@
 begin;
--- 20261104120000_profile_view_prefs_files_dest의 짝 되돌리기. 화면 기억 검사를 files_dest_recent 없는 20261104090000 profile_view_prefs_files_sources 모양으로
+-- 20261104130000_profile_view_prefs_files_dest의 짝 되돌리기. 화면 기억 검사를 files_dest_recent 없는 20261104090000 profile_view_prefs_files_sources 모양으로
 -- 되돌리고 이번 기록 1행만 지운다. 어떤 프로필이라도 files_dest_recent가 저장돼 있으면 멈춘다(값을 지워서 통과시키지 않는다 —
 -- 먼저 화면 PR을 이전 판으로 되돌리고, 남은 값을 어떻게 할지 정한 뒤 다시 계획한다). 표 권한·정책·함수·다른 칸에는 손대지 않는다.
 set local lock_timeout = '5s';
@@ -9,7 +9,7 @@ lock table public.app_profiles in access exclusive mode;
 do $$
 begin
   if (select count(*) from supabase_migrations.schema_migrations
-      where version = '20261104120000' and name = 'profile_view_prefs_files_dest') <> 1 then
+      where version = '20261104130000' and name = 'profile_view_prefs_files_dest') <> 1 then
     raise exception 'PROFILE_VIEW_PREFS_FILES_DEST_ROLLBACK_BLOCKED: migration record differs';
   end if;
   if exists (select 1 from public.app_profiles where view_prefs ? 'files_dest_recent') then
@@ -198,5 +198,5 @@ alter table public.app_profiles
   );
 
 delete from supabase_migrations.schema_migrations
-  where version = '20261104120000' and name = 'profile_view_prefs_files_dest';
+  where version = '20261104130000' and name = 'profile_view_prefs_files_dest';
 commit;
