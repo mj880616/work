@@ -217,7 +217,7 @@ export const pathText = (source, folderPath) => [SOURCE_NAME[source] || '', ...(
 // 폴더 나무 줄: 묶음 3개 → 연결된 클라우드 뿌리 → 펼친 폴더의 하위 폴더(읽어 둔 것만). 계산만 하고 그리기는 화면.
 // children: Map(`${source}:${parentId || ''}` → 폴더 줄 목록), open: Set(같은 열쇠). 깊이는 40단계까지.
 export const folderKey = (source, id) => `${source}:${id || ''}`;
-export function treeRows({sources = SOURCES, children = new Map(), open = new Set()} = {}) {
+export function treeRows({sources = SOURCES, children = new Map(), open = new Set(), order = (source, rows) => rows} = {}) {
   const out = SHELVES.map(shelf => ({type: 'shelf', shelf, key: 'shelf:' + shelf, depth: 0}));
   for (const source of sources) {
     const rootKey = folderKey(source, null), isOpen = open.has(rootKey);
@@ -225,7 +225,7 @@ export function treeRows({sources = SOURCES, children = new Map(), open = new Se
     if (!isOpen) continue;
     const walk = (parent, depth) => {
       if (depth > 40) return;
-      for (const f of children.get(folderKey(source, parent)) || []) {
+      for (const f of order(source, children.get(folderKey(source, parent)) || [])) { // FOLDER-순서·색 ③-2: 정한 순서(없으면 받은 순서 그대로)
         const key = folderKey(source, f.item_id), known = children.has(key), kids = known ? (children.get(key) || []).length > 0 : true;
         const o = open.has(key);
         out.push({type: 'folder', source, id: f.item_id, name: f.name, count: f.child_count, key, depth, open: o, hasKids: kids});

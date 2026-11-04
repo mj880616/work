@@ -1,4 +1,4 @@
-// WEEKLY-요약표수기(S49-39): 사업 보고 ⋯ › [사업요약표 미리보기]
+// WEEKLY-요약표수기(S49-39) → WEEKLY-메뉴짝짓기 P5: 사업 보고 위 접는 칸 '이번 주 주간보고'(팝업·[HWP로 내려받기] 없음, 맨 아래 [주간 정리에서 보기 ›])
 // ① 내부 정례 회의(상집·집행위·집행국 등)와 늘 빼기로 정한 종류는 표·세부 내용에 나오지 않는다(뺀 n건 안내 없음).
 // ② '진행 상황 및 이후 계획'·'담당' 칸을 누르면 글 칸, Ctrl+Enter 저장 — 서버 임시저장 칸에, 보고 없는 줄도 쓸 수 있다.
 // ③ AI 제안 없음(ai-assist 호출 0, [AI 초안]·(고침) 없음). 예전에 저장된 AI 값은 보이지 않고 데이터는 그대로.
@@ -55,16 +55,15 @@ async function open(page,s,width){
   await expect(page.locator('#meetingsView')).toBeVisible();
 }
 async function openPreview(page){
-  await page.locator('#meetingsView #reportMore:visible').click();
-  await page.locator('#reportMoreMenu [data-report-preview]:visible').click();
-  const dlg=page.locator('#reportPreviewDialog');
-  await expect(dlg).toBeVisible();
-  await expect(dlg.locator('.biz-sum-table')).toBeVisible();
-  return dlg;
+  const box=page.locator('#meetingsView #bizWeekBox');
+  await expect(box).toBeVisible();
+  if(!(await box.evaluate(el=>el.open)))await box.locator(':scope > summary').click();
+  await expect(box.locator('.biz-sum-table')).toBeVisible();
+  return box;
 }
 const noOverflow=page=>page.evaluate(()=>document.documentElement.scrollWidth-innerWidth<=1);
 
-for(const width of [1440,412])test(`${width}: 사업요약표 미리보기 — 내부 정례 회의 없음, 진행·담당 직접 쓰기(보고 없는 줄 포함), AI 없음`,async({page})=>{
+for(const width of [1440,412])test(`${width}: 이번 주 주간보고 칸 — 내부 정례 회의 없음, 진행·담당 직접 쓰기(보고 없는 줄 포함), AI 없음`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=state();await open(page,s,width);
   const dlg=await openPreview(page);
@@ -108,8 +107,13 @@ for(const width of [1440,412])test(`${width}: 사업요약표 미리보기 — �
   await expect(dlg).toBeVisible();
   await expect(dlg.locator('textarea[data-bp-field]')).toHaveCount(0);
   expect(s.draftWrites.length).toBe(2);
-  // 닫았다 다시 열어도 서버에 저장된 값이 그대로 보인다(같은 칸 = 홈 [주간 정리]와 같은 저장 자리).
-  await dlg.locator('[data-bp-close]').click();
+  // 팝업·HWP 버튼은 없고, 위 ⋯ 메뉴에도 미리보기 줄이 없다.
+  await expect(dlg.locator('[data-bp-hwpx]')).toHaveCount(0);
+  await expect(dlg.locator('[data-bw-journal]')).toHaveText('주간 정리에서 보기 ›');
+  await expect(dlg.locator('.week-pick-label')).toHaveText(/^\d+\.\d+~\d+\.\d+$/);
+  // 접었다 다시 펼쳐도 서버에 저장된 값이 그대로 보인다(같은 칸 = 홈 [주간 정리]와 같은 저장 자리).
+  await dlg.locator(':scope > summary').click();
+  await expect(dlg.locator('.biz-sum-table')).toBeHidden();
   const again=await openPreview(page);
   await expect(again.locator('.biz-sum-table tbody tr',{hasText:TASK_EMPTY}).first().locator('.biz-hand-line')).toHaveCount(2);
   await expect(again.locator('.biz-sum-table tbody tr',{hasText:TASK_WITH}).first()).toContainText('합성 담당 가');

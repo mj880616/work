@@ -71,7 +71,7 @@ test('주간보고 ②(S49-39): 저장된 사업영역 한 줄(AI·고친 줄)�
 function ok(items) { return {status:'ok', items}; }
 
 test('화면 연결(S49-39): 미리보기·주간 정리에 AI 한 줄이 없다, 서버 호출 삭제, 쓰기 창 [AI 추천]·저장된 값 보존은 그대로', () => {
-  const preview = read('report-summary-preview.js'), fields = read('business-area-fields.js'), hwpx = read('journal-hwpx.js');
+  const preview = read('weekly-summary-table.js'), fields = read('business-area-fields.js'), hwpx = read('journal-hwpx.js');
   for (const gone of ['area_week_summary', 'callAiAssist', 'loadAi', 'keepEdited', '(고침)', 'changeWeekAreaSummary', 'basket-ai-summary']) assert.equal(preview.includes(gone) && !preview.split('\n').filter(l => l.includes(gone)).every(l => l.trim().startsWith('//')), false, gone);
   assert.equal(read('journal-weekly.js').includes('summarizeAreaRecords'), false);
   assert.equal(d.withAreaEdit, undefined);

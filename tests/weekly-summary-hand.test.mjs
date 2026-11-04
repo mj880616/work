@@ -138,7 +138,7 @@ test('홈 주간 정리: 사업 요약 줄·회의·활동 결과 어디에도 �
 });
 
 test('사업요약표 미리보기: 같은 한 곳으로 거른 보고만 표·세부 내용에 들어간다(정적 확인 + 재료 계산)', () => {
-  const src = read('report-summary-preview.js');
+  const src = read('weekly-summary-table.js');
   assert.match(src, /import\('\.\/journal-meeting-kinds\.js'\)/);
   assert.match(src, /state\.meetings\(\)\.filter\(m=>kinds\.reportsMeeting\(m,hidden\)\)/);
   assert.match(src, /readKinds\(\)/);
@@ -151,7 +151,7 @@ test('사업요약표 미리보기: 같은 한 곳으로 거른 보고만 표·�
 });
 
 test('사업요약표 미리보기: 칸을 누르면 글 칸, Ctrl+Enter 저장, 서버 저장, AI 호출 없음, 보고 없는 줄도 쓰기 (정적 확인)', () => {
-  const src = read('report-summary-preview.js');
+  const src = read('weekly-summary-table.js');
   assert.match(src, /e\.ctrlKey\|\|e\.metaKey/);
   assert.match(src, /changeWeekOwner\(\{start:week,area:ref\.area,task:ref\.task,text\}\)/);
   assert.match(src, /changeWeekSummaryText\(\{start:week,area:ref\.area,task:ref\.task,text\}\)/);
@@ -165,6 +165,6 @@ test('한글 파일 상자: owners 를 읽은 그대로 다시 싣고(데이터 
   const src = read('journal-hwpx.js');
   assert.match(src, /owners:s\.owners \?\? null/);
   assert.match(src, /state\.owners = draftOwners\(saved\?\.row\?\.draft\)/);
-  assert.match(src, /\{\.\.\.state\.edits, owners:ownerEdits\(state\)\}/);
+  assert.match(src, /\{\.\.\.state\.edits, orgs:week\.orgs, sites:week\.sites, owners:ownerEdits\(state\)\}/); // WEEKLY-메뉴짝짓기 P6: 4. 1)·3. 2)는 주별 조직보고 표
   assert.match(src, /c\.cell\.startsWith\('owner:'\)/);
 });

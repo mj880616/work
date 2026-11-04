@@ -76,7 +76,7 @@ test('미리보기 재료: 한 줄 업데이트는 표의 칸에(oneline·first)
 });
 
 test('화면 연결(정적 확인): [+] 메뉴 맨 위 줄, [한 줄] 칩의 [+], 창의 칸·저장 경로, 기기 저장 없음', () => {
-  const sheet = read('app/report-kind-sheet.js'), team = read('app/team.js'), ui = read('app/report-oneline.js'), preview = read('app/report-summary-preview.js');
+  const sheet = read('app/report-kind-sheet.js'), team = read('app/team.js'), ui = read('app/report-oneline.js'), preview = read('app/weekly-summary-table.js');
   assert.match(sheet, /html:\(active\?\.onOneline\?ONELINE_ROW:''\)\+REPORT_KINDS\.map/);
   assert.match(sheet, /data-report-oneline title="사업영역에 진행 상황 한 줄"><span class="home-choice-check" aria-hidden="true">✎<\/span><span class="home-choice-name">한 줄 업데이트<\/span>/);
   assert.doesNotMatch(sheet.match(/const ONELINE_ROW=`[^`]*`/)[0], /data-sheet-value/);
