@@ -3,8 +3,8 @@ import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 // DESK-현황표(요청함 10/30 13:38, 명진 결정 "모두반영"): 담당조직 상세 쟁의 단계 줄 아래 [기록 | 현황 표] 소탭.
-// [현황 표]: 표가 비었고 기록이 있으면 처음 열 때 AI(가짜 ai-assist)가 채움 → 4줄까지 보이고 나머지는 '지난 줄 펼치기', [+ 줄 추가]·고치기·빼기,
-// [기록에서 다시 채우기 (AI)]는 AI 줄만 바꾸고 고친 줄은 남김. 고른 소탭은 서버 화면 기억(view_prefs.org_tab). 서버는 가짜, 이름은 모두 합성 값.
+// [현황 표]: 4줄까지 보이고 나머지는 '지난 줄 펼치기', [+ 줄 추가]·고치기·빼기. 고른 소탭은 서버 화면 기억(view_prefs.org_tab). 서버는 가짜, 이름은 모두 합성 값.
+// WEEKLY-메뉴짝짓기 P7: [기록에서 다시 채우기 (AI)]·처음 열 때 AI 자동 채우기는 지웠다(AI 호출 0). 예전에 AI가 넣은 줄(source=ai)은 그대로 보이고 고치면 내 줄.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z',owner='home-test';
 const orgs=[{id:'oa',workspace_id:'w',name:'합성 가 지부',active:true,created_by:owner,updated_at:stamp}];
 const UP=[{id:'11111111-1111-4111-8111-111111111111',organization_id:'oa',occurred_at:'2026-10-05T01:00:00Z',raw_text:'합성 지노위 2차 조정회의 조정 종료',detail_text:null}];
@@ -15,7 +15,7 @@ async function fixture(page,{width,missing=false,prefs=null}){
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const vp=await installViewPrefsServer(page,prefs);
  const f=await openHome(page);
- const db={rows:[],seq:0,ai:[],posts:[],patches:[],deletes:[],answers:[AI1,AI2]};
+ const db={rows:AI1.map((a,i)=>({id:'old'+i,organization_id:'oa',day:a.day,end_day:null,body:a.text,sort_order:i,source:'ai',evidence:a.evidence,updated_at:stamp})),seq:0,ai:[],posts:[],patches:[],deletes:[],answers:[AI1,AI2]};
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return json(route,q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner})))});
@@ -45,7 +45,7 @@ async function openOrg(page){
 }
 const sub=(page,name)=>page.locator('#wdSubTabs').getByRole('tab',{name});
 
-for(const width of [412,1440])test(`[현황 표] 처음 AI 채움·줄 추가·고치기·다시 채우기·소탭 기억 ${width}px`,async({page})=>{
+for(const width of [412,1440])test(`[현황 표] 예전 AI 줄 그대로·줄 추가·고치기·빼기·AI 버튼 없음·소탭 기억 ${width}px`,async({page})=>{
  const {db,vp,errors}=await fixture(page,{width});
  await openOrg(page);
  // 소탭은 쟁의 단계 줄 바로 아래, [기록]이 기본이고 기록 화면은 그대로.
@@ -58,15 +58,15 @@ for(const width of [412,1440])test(`[현황 표] 처음 AI 채움·줄 추가·�
  await expect(sub(page,'현황 표')).toHaveAttribute('aria-selected','true');
  await expect(page.locator('#wdInbox')).toBeHidden();
  await expect.poll(()=>vp.patches.at(-1)?.org_tab).toBe('table');
- // 표가 비었고 기록이 있어 처음 한 번 AI가 채운다(AI 줄).
+ // 예전에 AI가 넣은 줄 두 개가 그대로 보이고, AI는 부르지 않는다. [기록에서 다시 채우기 (AI)]는 없다.
  const table=page.locator('#wdStatusTable [data-st-table]');
  await expect(table.locator('tbody tr[data-st-row]')).toHaveCount(2);
- expect(db.ai).toEqual([{kind:'org_status_rows',organization_id:'oa'}]);
+ await expect(page.locator('#wdStatusTable [data-st-refill]')).toHaveCount(0);
+ await expect(page.locator('#wdStatusTable')).not.toContainText('다시 채우기');
  // 날짜 오름차순(DESK-현황오름차순): 오래된 10.2가 위, 10.5가 아래.
  await expect(table.locator('tbody tr[data-st-row]').first()).toContainText('10.2.(금)');
  await expect(table.locator('tbody tr[data-st-row]').last()).toContainText('10.5.(월)');
  await expect(table.locator('tbody tr[data-st-row]').last()).toContainText('합성 지노위 2차 조정회의 — 조정 종료(쟁의권 확보)');
- expect(db.posts.every(p=>p.source==='ai'&&p.workspace_id==='w'&&p.organization_id==='oa')).toBe(true);
  await expect(page.locator('#wdStatusTable')).not.toContainText('그대로 들어감'); // UI-당연한안내삭제
  // 줄 추가(날짜는 달력 칸).
  await page.locator('#wdStatusTable [data-st-add]').click();
@@ -84,16 +84,8 @@ for(const width of [412,1440])test(`[현황 표] 처음 AI 채움·줄 추가·�
  await page.locator('#wdStatusTable [data-st-save]').click();
  await expect(page.locator('#wdStatusTable [data-st-status]')).toHaveText('저장했어요.');
  expect(db.patches.at(-1)).toMatchObject({body:'합성 지노위 조정 종료 — 쟁의권 확보',source:'user'});
- // 다시 채우기: AI 줄(결의대회)만 지우고 새 AI 줄을 넣는다. 고친 줄·넣은 줄은 그대로.
- await page.locator('#wdStatusTable [data-st-refill]').click();
- await expect(page.locator('#wdStatusTable [data-st-status]')).toHaveText('기록에서 1줄을 채웠어요.');
- const bodies=await table.locator('tbody tr[data-st-row] .wd-st-body').allTextContents();
- expect(bodies.some(t=>t.includes('합성 교섭 재개 요청'))).toBe(true);
- expect(bodies.some(t=>t.includes('합성 지노위 조정 종료 — 쟁의권 확보'))).toBe(true);
- expect(bodies.some(t=>t.includes('합성 다시 뽑은 줄'))).toBe(true);
- expect(bodies.some(t=>t.includes('결의대회'))).toBe(false);
  // 빼기.
- await table.locator('tbody tr[data-st-row]').filter({hasText:'합성 다시 뽑은 줄'}).getByRole('button',{name:/고치기$/}).click();
+ await table.locator('tbody tr[data-st-row]').filter({hasText:'2차 조정회의'}).getByRole('button',{name:/고치기$/}).click();
  await page.locator('#wdStatusTable [data-st-delete]').click();
  await expect(page.locator('#wdStatusTable [data-st-status]')).toHaveText('줄을 뺐어요.');
  await expect(table.locator('tbody tr[data-st-row]')).toHaveCount(2);
@@ -104,15 +96,15 @@ for(const width of [412,1440])test(`[현황 표] 처음 AI 채움·줄 추가·�
  try{await expect(page.locator('#wdTitle')).toHaveText(orgs[0].name,{timeout:5000});await expect(page.locator('#wdModal')).toBeVisible({timeout:1000})}catch{await openOrg(page)}
  await expect(sub(page,'현황 표')).toHaveAttribute('aria-selected','true');
  await expect(page.locator('#wdStatusTable [data-st-table] tbody tr[data-st-row]')).toHaveCount(2);
+ expect(db.ai).toEqual([]);
  expect(errors).toEqual([]);
 });
 
 test('[현황 표] 시작일~끝나는 날: 달력 두 칸으로 저장하면 11.2.~11.5.로 보이고, 끝이 앞이면 저장 안 됨',async({page})=>{
  const {db,errors}=await fixture(page,{width:1440,prefs:{org_tab:'table'}});
- db.rows=[];
  await openOrg(page);
  await expect(sub(page,'현황 표')).toHaveAttribute('aria-selected','true');
- await expect(page.locator('#wdStatusTable [data-st-table] tbody tr[data-st-row]')).toHaveCount(2); // 처음 열 때 AI가 두 줄을 채운 뒤부터 센다
+ await expect(page.locator('#wdStatusTable [data-st-table] tbody tr[data-st-row]')).toHaveCount(2); // 예전 AI 줄 두 개
  const n0=db.posts.length;
  await page.locator('#wdStatusTable [data-st-add]').click();
  const f=page.locator('#wdStatusTable');
