@@ -308,7 +308,7 @@ export function createOcrHandler(
           let types: string[] = [];
           if (ready) {
             try {
-              types = await drive.formats(await upload.driveToken());
+              types = await drive.formats(await upload.driveToken(workspace));
             } catch {
               /* Unknown provider support is disabled, never guessed. */
             }
@@ -375,7 +375,7 @@ export function createOcrHandler(
           ["done", "empty", "failed"].includes(file.ocr.state)
         ) return result();
       }
-      const token = await upload.driveToken();
+      const token = await upload.driveToken(workspace);
       // OCR adopts the existing verified private root, it never creates a folder.
       const setting = await admin.from("app_drive_settings").select(
         "basket_folder_id",

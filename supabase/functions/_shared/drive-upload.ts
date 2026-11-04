@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { WorkspaceDriveError, workspaceDriveToken } from "./workspace-drive-token.ts";
 
 export type UploadAdmin = Pick<SupabaseClient, "auth" | "from">;
 export type UploadLog = (code: string) => void;
@@ -45,38 +46,17 @@ export function createDriveUpload(
       return {};
     }
   }
-  async function driveToken(): Promise<string> {
-    const { data: c, error } = await admin.from("public_policy_drive_config")
-      .select("google_client_id,google_client_secret,google_refresh_token").eq(
-        "id",
-        1,
-      ).single();
-    if (error || !c?.google_refresh_token) {
-      throw new UploadError(424, "drive_not_connected", "drive_token");
-    }
-    const r = await driveFetch(
-      "drive_token",
-      "https://oauth2.googleapis.com/token",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: c.google_client_id,
-          client_secret: c.google_client_secret,
-          refresh_token: c.google_refresh_token,
-          grant_type: "refresh_token",
-        }),
-      },
-    );
-    const d = await bodyJson(r);
-    if (!r.ok || typeof d.access_token !== "string" || !d.access_token) {
-      log("drive_token_failed");
-      if (d.error === "invalid_grant" || [400, 401].includes(r.status)) {
-        throw new UploadError(424, "drive_auth_expired", "drive_token");
+  // MULTI ②-2: 작업공간별 Drive 연결(_shared/workspace-drive-token.ts). workspaceId는 부르는 쪽이 서버에서 확인한 값만.
+  async function driveToken(workspaceId: string): Promise<string> {
+    try {
+      return await workspaceDriveToken(admin, workspaceId, { fetch: request, log });
+    } catch (e) {
+      if (e instanceof WorkspaceDriveError) {
+        if (e.status === 424) throw new UploadError(424, e.code, "drive_token");
+        throw unavailable("drive_token");
       }
-      throw unavailable("drive_token");
+      throw e;
     }
-    return d.access_token;
   }
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
   async function createFolder(

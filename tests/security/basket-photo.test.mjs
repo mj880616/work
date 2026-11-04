@@ -20,7 +20,8 @@ function harness(options={}){
       upsert:()=>{q.mutation='upsert';return b;},delete:()=>{q.mutation='delete';return b;},maybeSingle:async()=>exec(),single:async()=>exec(),then:(r,e)=>exec().then(r,e)};
     async function exec(){
       if(table==='app_workspace_members')return {data:options.role===null?null:{workspace_id:WS,role:options.role||'owner'},error:null};
-      if(table==='public_policy_drive_config')return options.tokenMissing?{data:null,error:{message:'x'}}:{data:{google_client_id:'c',google_client_secret:'s',google_refresh_token:'r'},error:null};
+      if(table==='public_policy_drive_config')return {data:{google_client_id:'c',google_client_secret:'s'},error:null};
+      if(table==='app_drive_connections')return options.tokenMissing?{data:null,error:null}:{data:{google_refresh_token:'r'},error:null};
       throw new Error('admin must not touch '+table);
     }
     return b;

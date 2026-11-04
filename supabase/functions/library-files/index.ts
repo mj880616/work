@@ -10,6 +10,7 @@ import { createLibraryPhotoHandler } from './photo.ts';
 import { setKeep } from '../_shared/library-prev-model.mjs';
 import { fileNameTitle, isMeaninglessName } from '../_shared/library-file-name.mjs';
 import { withWebCors } from "../_shared/web-cors.ts";
+import { WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog } from "../_shared/safe-error.ts";
 
 const SB=Deno.env.get('SUPABASE_URL')!;
@@ -30,7 +31,8 @@ async function driveFetch(stage:string,code:string,url:string,init:RequestInit){
 async function bodyJson(r:Response){try{return await r.json()}catch{return {}}}
 
 async function getUser(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new UploadError('로그인이 필요합니다.',{status:401,code:'session_required',stage:'auth'});const {data,error}=await admin.auth.getUser(token);if(error&&![400,401,403,404].includes(Number((error as any).status))){console.error('library-files auth lookup failed',error);throw new UploadError('로그인 세션을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',{status:503,code:'auth_unavailable',stage:'auth',retryable:true})}if(error||!data.user)throw new UploadError('로그인 세션을 확인할 수 없습니다.',{status:401,code:'session_required',stage:'auth'});return data.user}
-async function driveToken(){const {data:c,error}=await admin.from('public_policy_drive_config').select('google_client_id,google_client_secret,google_refresh_token').eq('id',1).single();if(error||!c?.google_refresh_token)throw new UploadError('Google Drive 연결 설정이 필요합니다. Google Drive를 다시 연결해 주세요.',{status:424,code:'drive_not_connected',stage:'drive_token'});const r=await driveFetch('drive_token','drive_token_failed','https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:c.google_client_id,client_secret:c.google_client_secret,refresh_token:c.google_refresh_token,grant_type:'refresh_token'})});const d=await bodyJson(r);if(!r.ok||!d.access_token){console.error('library-files drive token refresh failed',{status:r.status,error:d.error||null});if(d.error==='invalid_grant'||[400,401].includes(r.status))throw new UploadError('Google Drive 토큰 갱신에 실패했습니다. Google Drive 연결이 만료됐으니 다시 연결해 주세요.',{status:424,code:'drive_auth_expired',stage:'drive_token'});throw driveUnavailable('drive_token','drive_token_failed')}return d.access_token as string}
+// MULTI ②-2: Drive 토큰은 서버가 확인한 자기 작업공간(workspaceFor/owner 행)의 연결만(_shared/workspace-drive-token.ts). id=1의 갱신 열쇠는 읽지 않는다.
+async function driveToken(workspaceId:string){try{return await workspaceDriveToken(admin,workspaceId,{fetch,log:code=>console.error('library-files drive token refresh failed',{code})})}catch(e){if(e instanceof WorkspaceDriveError){if(e.code==='drive_not_connected')throw new UploadError('Google Drive가 아직 연결되지 않았어요. 자료실에서 Drive를 연결해 주세요.',{status:424,code:'drive_not_connected',stage:'drive_token'});if(e.code==='drive_auth_expired')throw new UploadError('Google Drive 토큰 갱신에 실패했습니다. Google Drive 연결이 만료됐으니 다시 연결해 주세요.',{status:424,code:'drive_auth_expired',stage:'drive_token'});throw driveUnavailable('drive_token','drive_token_failed')}throw e}}
 async function workspaceFor(userId:string){const {data:wm}=await admin.from('app_workspace_members').select('workspace_id,role').eq('user_id',userId).maybeSingle();if(wm?.role!=='owner')throw new UploadError('워크스페이스 소유자 권한이 필요합니다.',{status:403,code:'forbidden',stage:'authorize'});return wm}
 async function canEditProject(userId:string,projectId:string){const {data:p}=await admin.from('app_spaces').select('id,workspace_id,owner_id,created_by').eq('id',projectId).is('deleted_at',null).maybeSingle();if(!p)throw new UploadError('프로젝트를 찾을 수 없습니다.',{status:404,code:'project_not_found',stage:'project'});const {data:wm}=await admin.from('app_workspace_members').select('role').eq('workspace_id',p.workspace_id).eq('user_id',userId).maybeSingle();if(wm?.role!=='owner')throw new UploadError('워크스페이스 소유자 권한이 필요합니다.',{status:403,code:'forbidden',stage:'authorize'});return p}
 async function ensureRoot(workspaceId:string,token:string){const {data:s}=await admin.from('app_drive_settings').select('root_folder_id').eq('workspace_id',workspaceId).maybeSingle();if(s?.root_folder_id)return s.root_folder_id;const r=await driveFetch('drive_folder','drive_folder_failed','https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({name:'공공기관사업팀 Workspace',mimeType:'application/vnd.google-apps.folder'})});const d=await bodyJson(r);if(!r.ok||!d.id){console.error('library-files drive root folder failed',{status:r.status,error:d.error?.message||null});throw driveUnavailable('drive_folder','drive_folder_failed')}await admin.from('app_drive_settings').upsert({workspace_id:workspaceId,root_folder_id:d.id,updated_at:new Date().toISOString()});return d.id}
@@ -106,7 +108,7 @@ async function replaceDocument(workspaceId:string,file:File,documentId:string){
   if(!doc||doc.workspace_id!==workspaceId)throw new UploadError('교체할 자료를 찾을 수 없습니다.',{status:404,code:'document_not_found',stage:'project'});
   const previous=Array.isArray(doc.previous_files)?doc.previous_files:[];
   if(doc.file_id&&previous.length>=PREVIOUS_FILES_MAX)throw new UploadError('이 자료는 파일을 교체한 횟수가 한도('+PREVIOUS_FILES_MAX+'번)에 도달했습니다.',{status:409,code:'too_many_replacements',stage:'validate'});
-  const token=await driveToken();
+  const token=await driveToken(workspaceId);
   const folder=await ensureLibrary(workspaceId,token);
   const df=await upload(file,folder,token);
   const now=new Date().toISOString();
@@ -232,7 +234,7 @@ Deno.serve(withWebCors(async(req:Request)=>{
     const description=val('description')||null;
     const tagInput=val('tags');
     const tags=tagInput?tagInput.split(',').map(x=>x.trim()).filter(Boolean):auto.tags;
-    const token=await driveToken();
+    const token=await driveToken(wm.workspace_id);
     const folder=await ensureLibrary(wm.workspace_id,token);
     const df=await upload(file,folder,token);
     const classificationNote=meetingId?'회의자료 자동등록':titleSource==='content'?'파일명 단서 부족 · 본문 기반 제목 추출 및 자동분류':titleSource==='filename'?'파일명 정돈 및 메타정보 기반 자동분류':'사용자 입력 제목 · 메타정보 자동분류';

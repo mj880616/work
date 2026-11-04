@@ -5,6 +5,7 @@ import { createDocumentText } from '../_shared/document-text.ts';
 import { renameFile } from './file-rename.ts';
 import { sendDevInbox, readDevMade } from './dev-inbox.ts';
 import { withWebCors } from "../_shared/web-cors.ts";
+import { callerOwnerWorkspace, WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
 
 const SB = Deno.env.get('SUPABASE_URL')!;
@@ -58,29 +59,26 @@ async function getUser(req: Request) {
   return data;
 }
 
-async function driveAccessToken() {
-  const rows = await db('public_policy_drive_config?id=eq.1&select=google_client_id,google_client_secret,google_refresh_token&limit=1');
-  const c = rows?.[0];
-  if (!c?.google_client_id || !c?.google_client_secret || !c?.google_refresh_token) {
-    throw new Error('Google Drive 연결 설정이 완료되지 않았습니다.');
-  }
-  const r = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: c.google_client_id,
-      client_secret: c.google_client_secret,
-      refresh_token: c.google_refresh_token,
-      grant_type: 'refresh_token',
-    }),
-  });
-  const d = await r.json();
-  if (!r.ok || !d.access_token) {
-    // SEC-정리묶음: Google 원문은 서버 로그에만. 화면은 이 글(토큰 갱신 실패 판정 글)만 받는다.
-    console.error('document-actions drive_token failed', { status: r.status });
-    throw new Error('Google Drive 토큰 갱신에 실패했습니다.');
-  }
-  return d.access_token as string;
+// MULTI ②-2: Drive 토큰은 부른 사람(로그인)의 owner 작업공간(정확히 1개) 연결만(_shared/workspace-drive-token.ts). id=1의 갱신 열쇠는 읽지 않는다.
+// expectedWorkspace를 주면(자료·메모 행의 작업공간) 그것이 본인 작업공간과 같을 때만. 요청마다 새로 만들고(모듈 전역 상태 없음), 한 요청 안에서만 토큰을 재사용한다.
+function driveTokenFor(userId: string, expectedWorkspace?: string) {
+  let pending: Promise<string> | null = null;
+  return () => pending ??= (async () => {
+    const reader = { rest: (path: string) => db(path) };
+    const own = await callerOwnerWorkspace(reader, userId);
+    if (!own || (expectedWorkspace !== undefined && own !== expectedWorkspace)) {
+      throw Object.assign(new Error('워크스페이스 소유자 권한이 필요합니다.'), { code: 'FORBIDDEN' });
+    }
+    try {
+      return await workspaceDriveToken(reader, own, { fetch, log: code => console.error('document-actions drive_token failed', { code }) });
+    } catch (e) {
+      if (e instanceof WorkspaceDriveError && e.code === 'drive_not_connected') {
+        throw Object.assign(new Error('Google Drive가 아직 연결되지 않았어요. 자료실에서 Drive를 연결해 주세요.'), { code: 'DRIVE_NOT_CONNECTED' });
+      }
+      // SEC-정리묶음: Google 원문은 서버 로그에만. 화면은 이 글(토큰 갱신 실패 판정 글)만 받는다.
+      throw new Error('Google Drive 토큰 갱신에 실패했습니다.');
+    }
+  })();
 }
 
 
@@ -134,7 +132,7 @@ async function deleteDocument(userId: string, documentId: string) {
     }
   };
   let token: string | undefined;
-  const getToken = async () => token ?? (token = await driveAccessToken());
+  const getToken = async () => token ?? (token = await driveTokenFor(userId, sourceWorkspace)());
   const origin = sourceFile ? await inspectBasketOriginal({ userId, workspaceId: sourceWorkspace, fileId: sourceFile }, {
     readPage: (path, start, end) => db(path, { prefer: 'count=exact', range: [start, end] }),
     driveToken: getToken, fetch,
@@ -217,7 +215,7 @@ async function registerBasketAttachment(userId: string, body: { note_id?: unknow
   const existing = await registeredDocument(workspaceId, fileId);
   if (existing) return { ok: true, result: 'exists', document: existing };
 
-  const token = await driveAccessToken();
+  const token = await driveTokenFor(userId, workspaceId)();
   let r: Response;
   try {
     r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size,webViewLink,trashed,ownedByMe`, {
@@ -268,7 +266,8 @@ async function registerBasketAttachment(userId: string, body: { note_id?: unknow
 // HWP-편집기 2단계: open an HWP/HWPX library document or basket attachment in the
 // editor and overwrite an HWP original (../_shared/hwp-edit.ts). Saving as a new
 // file goes through the existing library-files / basket-files uploads.
-const hwpEdit = createHwpEdit({ db: path => db(path), driveToken: driveAccessToken, assertOwner: assertDeleteAccess, fetch });
+// MULTI ②-2: Drive 토큰이 부른 사람의 작업공간 연결이어야 하므로 요청마다 만든다.
+const hwpEditFor = (userId: string) => createHwpEdit({ db: path => db(path), driveToken: driveTokenFor(userId), assertOwner: assertDeleteAccess, fetch });
 function hwpFailure(e: unknown) {
   const known = e instanceof HwpEditError;
   const backup = (e as { backup?: unknown })?.backup;
@@ -280,8 +279,8 @@ function hwpFailure(e: unknown) {
 // LIB-AI자동분류: 자료 파일의 본문 글자 앞부분을 읽어 이미 있는 app_documents.extracted_text 칸에 둔다(../_shared/document-text.ts).
 // 자료·업무공간·Drive 파일 ID는 서버가 DB에서 읽는다(화면 값 믿지 않음). 원본 Drive 파일은 읽기만 한다(이름·위치 그대로).
 // 글자는 화면에 돌려주지 않는다(상태만). 이미 읽은 자료는 다시 읽지 않는다. AI는 부르지 않는다(ai-assist가 이 칸을 읽음).
-let documentText: ReturnType<typeof createDocumentText> | null = null;
-const textReader = () => documentText ??= createDocumentText({ driveToken: driveAccessToken, fetch, log: code => console.error(JSON.stringify({ fn: 'document-actions', code })) });
+// MULTI ②-2: 자료 행의 작업공간(본인 owner 확인됨)의 Drive 연결로만 읽는다. 요청마다 만든다.
+const textReader = (userId: string, workspaceId: string) => createDocumentText({ driveToken: driveTokenFor(userId, workspaceId), fetch, log: code => console.error(JSON.stringify({ fn: 'document-actions', code })) });
 async function readDocumentText(userId: string, body: { document_id?: unknown }) {
   const id = String(body?.document_id || '').toLowerCase();
   if (!UUID.test(id)) throw fail('자료를 확인할 수 없습니다.', 'INVALID_REQUEST');
@@ -290,7 +289,7 @@ async function readDocumentText(userId: string, body: { document_id?: unknown })
   if (!doc || doc.id !== id || typeof doc.workspace_id !== 'string') throw fail('자료를 찾을 수 없습니다.', 'DOCUMENT_NOT_FOUND');
   try { await assertDeleteAccess(userId, doc); } catch { throw fail('워크스페이스 소유자 권한이 필요합니다.', 'FORBIDDEN'); }
   if (doc.extraction_status === 'ready') return { ok: true, status: 'ready', reason: 'cached' };
-  const result = await textReader().extract({
+  const result = await textReader(userId, doc.workspace_id).extract({
     fileId: typeof doc.file_id === 'string' ? doc.file_id : '', name: String(doc.file_name || ''), mime: String(doc.mime_type || ''),
     size: Number.isSafeInteger(doc.file_size) ? doc.file_size : null,
   });
@@ -311,19 +310,19 @@ Deno.serve(withWebCors(async (req: Request) => {
       let form: FormData;
       try { form = await req.formData(); } catch { return json({ error: '저장 요청을 읽지 못했습니다. 아무것도 바꾸지 않았습니다.', code: 'INVALID_REQUEST' }, 400); }
       if (form.get('action') !== 'hwp-overwrite') return json({ error: 'Unknown action' }, 400);
-      try { return json(await hwpEdit.overwrite(user.id, form)); } catch (e) { return hwpFailure(e); }
+      try { return json(await hwpEditFor(user.id).overwrite(user.id, form)); } catch (e) { return hwpFailure(e); }
     }
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || '');
     if (action === 'hwp-open') {
       try {
-        const { bytes, info } = await hwpEdit.open(user.id, body);
+        const { bytes, info } = await hwpEditFor(user.id).open(user.id, body);
         return new Response(bytes, { headers: { ...cors, 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store', 'X-Web2-Hwp': encodeURIComponent(JSON.stringify(info)) } });
       } catch (e) { return hwpFailure(e); }
     }
     if (action === 'html-view') {
       try {
-        const r = json(await hwpEdit.openHtml(user.id, body));
+        const r = json(await hwpEditFor(user.id).openHtml(user.id, body));
         r.headers.set('Cache-Control', 'no-store');
         return r;
       } catch (e) { return hwpFailure(e); }
@@ -340,7 +339,7 @@ Deno.serve(withWebCors(async (req: Request) => {
     if (action === 'rename-file') {
       const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
       try {
-        return json(await renameFile(body, { userDb: userDbFor(token), driveToken: driveAccessToken, fetch, now: Date.now }));
+        return json(await renameFile(body, { userDb: userDbFor(token), driveToken: driveTokenFor(user.id), fetch, now: Date.now }));
       } catch (e) {
         // 400: 아무것도 바꾸지 않고 거절. 503: Drive 또는 일부 줄이 바뀌었을 수 있다 — 화면이 다시 읽는다.
         const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'RESULT_UNKNOWN';
@@ -354,7 +353,7 @@ Deno.serve(withWebCors(async (req: Request) => {
       // WEEKLY-개발후보연결(S48-49): [만들기]로 보낸 개선 제안 한 건을 'Web2 요청함' 문서 끝에 더한다(./dev-inbox.ts — 로그인·owner·운영자 기능·저장값 다시 확인).
       const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
       try {
-        return json(await sendDevInbox(body, { userId: user.id, db: (path, opts = {}) => db(path, opts), userDb: userDbFor(token), driveToken: driveAccessToken, fetch, now: Date.now, docId: Deno.env.get('WEB2_DEV_INBOX_DOC_ID') }));
+        return json(await sendDevInbox(body, { userId: user.id, db: (path, opts = {}) => db(path, opts), userDb: userDbFor(token), driveToken: driveTokenFor(user.id), fetch, now: Date.now, docId: Deno.env.get('WEB2_DEV_INBOX_DOC_ID') }));
       } catch (e) {
         const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'RESULT_UNKNOWN';
         const known = ['INVALID_REQUEST', 'FORBIDDEN', 'FEATURE_REQUIRED', 'NOT_FOUND', 'NOT_ANSWERED', 'READ_FAILED', 'DOC_UNAVAILABLE', 'RESULT_UNKNOWN', 'CONFIG_MISSING'].includes(code);
@@ -367,7 +366,7 @@ Deno.serve(withWebCors(async (req: Request) => {
       // WEEKLY-개발후보CC 2단계(S48-57): 요청함 덩어리 아래 CC가 적은 '완료 #NNN'을 서버가 읽어 그 주 만들기 제안에 made 번호를 남긴다(./dev-inbox.ts readDevMade — 같은 로그인·owner·운영자 기능 확인).
       const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
       try {
-        return json(await readDevMade(body, { userId: user.id, db: (path, opts = {}) => db(path, opts), userDb: userDbFor(token), driveToken: driveAccessToken, fetch, now: Date.now, docId: Deno.env.get('WEB2_DEV_INBOX_DOC_ID') }));
+        return json(await readDevMade(body, { userId: user.id, db: (path, opts = {}) => db(path, opts), userDb: userDbFor(token), driveToken: driveTokenFor(user.id), fetch, now: Date.now, docId: Deno.env.get('WEB2_DEV_INBOX_DOC_ID') }));
       } catch (e) {
         const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'RESULT_UNKNOWN';
         const known = ['INVALID_REQUEST', 'FORBIDDEN', 'FEATURE_REQUIRED', 'NOT_FOUND', 'READ_FAILED', 'DOC_UNAVAILABLE', 'WRITE_FAILED', 'CONFIG_MISSING'].includes(code);

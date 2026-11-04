@@ -51,7 +51,7 @@ export function createLibraryPhotoHandler(
         throw new PhotoError(404, "document_not_found");
       }
       if (!doc.file_id) throw new PhotoError(404, "photo_not_found");
-      return await photo(doc.file_id, doc.mime_type, size);
+      return await photo(doc.file_id, doc.mime_type, size, workspace);
     } catch (error) {
       return photoErrorResponse(error, log);
     }
