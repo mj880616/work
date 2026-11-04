@@ -98,7 +98,7 @@ function closeChoices() {
 }
 
 export function openEdWindow({title = '크게 쓰기', doc = null, text = '', convert = null, save = null, limit = 0, textOnly = false, draft = false, keepOpen = false, saveUnchanged = false,
-  placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, files = null, shortcuts = false, onClose = () => {}} = {}) {
+  placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, files = null, onFiles = null, shortcuts = false, onClose = () => {}} = {}) {
   // One big window at a time: this one is replaced when another opens.
   current?.close({silent: true});
   if (bigWindowOpen()) return null;
@@ -307,7 +307,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   handle.ready = (async () => {
     await ensureStyles();
     if (closed) return handle;
-    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, files, shortcuts});
+    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, files, onFiles, shortcuts});
     if (closed) { made.destroy(); return handle; }
     editor = made;
     // The editor's own first value is the baseline (its cleaning may differ in small ways from the converted one), so opening alone is "not changed".
