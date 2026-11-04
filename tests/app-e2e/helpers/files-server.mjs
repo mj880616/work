@@ -1,6 +1,7 @@
 // FILES-클라우드탐색기 ④ E2E 공용 흉내 서버(파일 화면). 파일·폴더 이름과 id는 모두 가짜.
 // 색인 읽기 함수(app_cloud_list·app_cloud_trail·app_cloud_find_in(켜진 출처만, S49-26)·옛 app_cloud_find)와 Edge cloud-files(status·sync·folder·thumb·media·preview·open-url,
-// S48-45 쓰기 rename·mkdir·move·trash·across, S49-27 copy)를 흉내 낸다.
+// S48-45 쓰기 rename·mkdir·move·trash·across, S49-27 copy, S49-28 전송 작업표 job_add·job_list·job_pause·job_resume)를 흉내 낸다.
+// 작업표: job_list를 부를 때마다 가장 오래된 줄이 한 걸음 나아간다(작은 것은 끝, 큰 것(big)은 40%씩). jobsHold면 멈춰 있고, jobFail이면 첫 줄이 그 까닭으로 한 번 실패.
 import { expect } from '@playwright/test';
 import { openHome } from './home-entry.mjs';
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -37,7 +38,7 @@ export function fakePdf() {
 
 export async function filesServer(page, { connected = { od: true, gd: true } } = {}) {
   // findFail: {status, message} — 찾기·묶음 읽기를 그 오류로 실패시킨다(서버 시간 초과 흉내 등).
-  const server = { items: ITEMS(), calls: [], pendingSync: null, directItems: [], findFail: null };
+  const server = { items: ITEMS(), calls: [], pendingSync: null, directItems: [], findFail: null, jobs: [], jobSeq: 0, jobsHold: false, jobFail: '' };
   const trail = (source, id) => {
     const out = [];
     let cur = server.items.find(i => i.source === source && i.item_id === id), depth = 0;
@@ -70,6 +71,51 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
         return route.fulfill({ status: 200, contentType: 'application/pdf', body: fakePdf() });
       }
       if (a === 'open-url') return ok({ ok: true, url: 'https://example.org/fake-open' });
+      if (['job_add', 'job_list', 'job_pause', 'job_resume'].includes(a)) {
+        if (a !== 'job_list' && body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);
+        const find = (src, id) => server.items.find(i => i.source === src && i.item_id === id && !i.trashed);
+        const taken = (src, parent) => server.items.filter(i => i.source === src && (i.parent_id ?? null) === (parent ?? null) && !i.trashed).map(i => i.name);
+        const numbered = (name, list) => { if (!list.some(n => n.toLowerCase() === name.toLowerCase())) return name; const m = /^(.*?)(\.[A-Za-z0-9]{1,10})?$/.exec(name); for (let i = 2; ; i++) { const n = `${m[1]} (${i})${m[2] || ''}`; if (!list.some(x => x.toLowerCase() === n.toLowerCase())) return n; } };
+        const view = j => { const { _failed, ...v } = j; return v; };
+        const list = () => [...server.jobs].reverse().map(view);
+        if (a === 'job_add') {
+          const made = body.items.map(it => {
+            const src = find(it.source, it.id), seq = ++server.jobSeq;
+            const big = it.source !== body.to_source && src.size_bytes > 200 * 1024 * 1024;
+            const j = { id: `b0000000-0000-4000-8000-${String(seq).padStart(12, '0')}`, kind: body.kind, origin: 'cloud', src_source: it.source, src_id: it.id, dest_source: body.to_source, dest_parent: body.to ?? null,
+              name: src.name, result_name: null, same_name: it.skip ? 'skipped' : it.numbered ? 'numbered' : null, is_folder: !!src.is_folder, size_bytes: src.size_bytes, big: big && !!it.big,
+              status: it.skip ? 'skipped' : big && !it.big ? 'failed' : 'queued', sent_bytes: 0, result_item_id: null, kept_original: false, error_code: big && !it.big ? 'big_not_confirmed' : null,
+              created_at: `2026-10-06T01:00:${String(seq).padStart(2, '0')}Z`, finished_at: null };
+            server.jobs.push(j); return view(j);
+          });
+          return ok({ ok: true, jobs: made.reverse() });
+        }
+        if (a === 'job_list') {
+          const j = server.jobsHold ? null : server.jobs.find(x => x.status === 'queued' || x.status === 'running');
+          if (j && server.jobFail && !j._failed) { j._failed = true; j.status = 'failed'; j.error_code = server.jobFail; }
+          else if (j) {
+            j.status = 'running';
+            if (j.big) j.sent_bytes = Math.min(j.size_bytes, j.sent_bytes + Math.ceil(j.size_bytes * 0.4));
+            if (!j.big || j.sent_bytes >= j.size_bytes) {
+              const it = find(j.src_source, j.src_id), seq = ++server.copySeqJ || (server.copySeqJ = 1);
+              const copy = item({ ...view(it), source: j.dest_source, item_id: j.dest_source === 'od' ? 'OD!J' + server.jobSeq + j.id.slice(-2) : 'gdJob' + j.id.slice(-2), parent_id: j.dest_parent, name: numbered(it.name, taken(j.dest_source, j.dest_parent)), trashed: false, starred: false });
+              server.items.push(copy);
+              if (j.kind === 'move') it.trashed = true;
+              Object.assign(j, { status: 'done', sent_bytes: j.size_bytes ?? 0, result_item_id: copy.item_id, result_name: copy.name, finished_at: '2026-10-06T01:01:00Z' });
+              void seq;
+            }
+          }
+          return ok({ ok: true, jobs: list() });
+        }
+        const pick = x => body.all === true || (body.ids || []).includes(x.id);
+        const changed = [];
+        for (const x of server.jobs) {
+          if (!pick(x)) continue;
+          if (a === 'job_pause' && ['queued', 'running'].includes(x.status)) { x.status = 'paused'; changed.push(view(x)); }
+          if (a === 'job_resume' && ['paused', 'failed'].includes(x.status)) { x.status = 'queued'; x.error_code = null; changed.push(view(x)); }
+        }
+        return ok({ ok: true, jobs: changed });
+      }
       // S48-45 쓰기: confirm:true 없으면 거절(서버와 같음). 결과는 바뀐 줄·지운 줄.
       if (['rename', 'mkdir', 'move', 'trash', 'across', 'copy'].includes(a)) {
         if (body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);

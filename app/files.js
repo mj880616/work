@@ -7,7 +7,8 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, PHONE_TABS, PHONE_TAB_NAME, S
   recentGroups, syncText, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
   placeOf, whereOf, tabAt, cleanQuery, findSummary, errorText, failReason, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
   trashAsk, writeDoneText, writeErrorText, twinRows, TWIN_LIMIT, xferPlan, xferBig, sameNameRows, sameNameAsk, bigAsk, destTitle, destButton, destName,
-  pushRecentDest, recentDestOf, xferLine, xferPercent, xferDoneText, XFER_BIG_HOW, XFER_BIG_LATER} from './files-model.mjs';
+  pushRecentDest, recentDestOf, xferLine, xferPercent, xferDoneText, XFER_BIG_HOW,
+  jobsActive, jobStatusText, jobLine, jobPercent, jobStrip, jobsTitle, jobAction, mergeJobs, newlyDone} from './files-model.mjs';
 import {mountSplitResize} from './split-resize.js';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
@@ -40,6 +41,10 @@ import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mj
 //   받을 곳 창(하단바 위, 최근 보낸 곳 칩 3개는 서버 view_prefs.files_dest_recent, 켜진 저장소 나무, [새 폴더][여기에 복사/옮기기]) → 같은 이름은 한 번 묻기
 //   ([그래도 하기] = 서버가 '이름 (2)'로 번호 붙여 둘 다 둠 / [건너뛰기], '남은 것도 모두 같게') → 200MB 넘는 클라우드 사이 파일은 묻고 이 판에서는 다음 판 안내로 건너뜀
 //   → 하단바 위 얇은 전송 줄 '2/5 보내는 중'(차례로 하나씩). 폴더째 복사는 같은 저장소 안에서만(다른 저장소로는 막고 안내). PC Ctrl+C·Ctrl+X → Ctrl+V.
+// FILES-통합 2-② 전송 목록(S49-28, 명진 결정 H-4·H-6, 시안 ⑤⑧): 복사와 다른 저장소로 옮기기는 서버 작업표(Edge job_add → app_cloud_jobs)에 한 건 = 한 줄로 넣고
+//   서버가 화면을 닫아도 차례로 잇는다(200MB 넘는 것은 [그래도 보내기]를 누른 것만 10MB 조각씩). 같은 저장소 안 옮기기는 지금처럼 move 한 번.
+//   하단바 위 전송 줄을 누르면 전송 목록(폰: 하단바 위 칸, PC: 오른쪽 아래 작은 칸) — 줄마다 진행 막대·[멈춤]/[이어 하기]/[다시], '모두 멈춤'.
+//   목록은 서버(job_list)에서 읽어 그린다. 보내는 것이 있는 동안만 2초마다 다시 읽고(화면이 보일 때만), 다시 열면 서버 목록으로 이어 보인다. 기기 저장 없음.
 // 저장은 서버만: 목록은 이 탭 메모리(열린 동안만), 받은 그림·PDF는 blob: 주소(메모리)로만 두고 화면을 떠나면 놓는다. 기기 저장 없음.
 // 파일 이름은 모두 글자로만 그린다(esc). 로그에 파일 이름·id를 남기지 않는다.
 
@@ -65,7 +70,7 @@ function install() {
 <p class="fx-note" data-fx-note role="status" hidden></p>
 <div class="fx-cols" data-fx-cols><nav class="fx-tree nx-tree" data-fx-tree aria-label="폴더"></nav><div class="fx-main" data-fx-main><div class="fx-listcol"><div class="fx-wait" data-fx-wait hidden></div><section class="fx-list" data-fx-list aria-label="파일 목록"></section></div><aside class="fx-prev" data-fx-prev aria-label="미리보기" hidden></aside></div></div>
 <div class="fx-dim" data-fx-dim hidden></div><section class="fx-dest" data-fx-dest role="dialog" aria-modal="true" aria-labelledby="fxDestTitle" hidden></section>
-<div class="fx-askbox" data-fx-askbox hidden></div><div class="fx-xfer" data-fx-xfer role="status" aria-live="polite" hidden></div>
+<div class="fx-askbox" data-fx-askbox hidden></div><section class="fx-jobs" data-fx-jobs role="dialog" aria-labelledby="fxJobsTitle" hidden></section><div class="fx-xfer" data-fx-xfer role="status" aria-live="polite" hidden></div>
 </div></section>`);
 }
 install();
@@ -76,8 +81,11 @@ const rt = () => window.KPTURuntime;
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', where: null, rows: [], loaded: false, failed: '', failedWhy: '', trail: [], sort: 'name', dir: 'asc',
   query: '', found: null, findFailed: '', findWhy: '', children: new Map(), open: new Set(), sel: '', tab: 'recent', syncedAt: null, syncing: false,
-  preview: null, picked: new Set(), anchor: '', clip: null, busy: '', pane: 'list', hint: '', xfer: null, run: null, ask: null});
-let state = fresh(), listSeq = 0, findSeq = 0, findTimer = 0, syncTimer = 0, layer = null, entering = null;
+  preview: null, picked: new Set(), anchor: '', clip: null, busy: '', pane: 'list', hint: '', xfer: null, run: null, ask: null,
+  jobs: [], jobsOpen: false, jobsBusy: false, jobsWere: false});
+const jobsSeen = new Set();
+let state = fresh(), listSeq = 0, findSeq = 0, findTimer = 0, syncTimer = 0, layer = null, entering = null, jobTimer = 0, jobsLayer = null;
+const JOB_POLL_MS = 2000;
 
 // ---------- 서버 ----------
 const rpc = (name, body) => rt().api(`/rest/v1/rpc/${name}`, {method: 'POST', body, singleFlight: false});
@@ -106,7 +114,7 @@ function resetIfOwnerChanged() {
   if (state.scope === scope) return;
   dropPreview();
   if (state.ask) state.ask.resolve({choice: 'skip', all: true, closed: true});
-  state = fresh(); state.scope = scope;
+  state = fresh(); state.scope = scope; jobsSeen.clear(); clearTimeout(jobTimer);
 }
 const connected = () => SOURCES.filter(s => state.status?.[s]?.connected);
 // 켜진 출처(연결된 것 중 아이콘으로 켠 것). 보기 전부(최근·폴더·별표·찾기·나무)가 이 목록만 본다.
@@ -270,7 +278,7 @@ const foundShown = () => (state.found || []).filter(r => !isLockedItem(r));
 const shown = () => state.query ? foundShown() : sortRows(state.rows.filter(r => !isLockedItem(r)), state.sort, state.dir);
 // 폰 [폴더] 탭의 첫 화면은 나무(pane 'tree'), 폴더 이름을 누르면 목록(pane 'list'). 찾는 중이면 늘 목록. PC·폴드는 CSS가 둘 다 보인다.
 const treePane = () => PHONE.matches && state.tab === 'folders' && state.pane === 'tree' && !state.query;
-function paint() { root.dataset.fxPane = treePane() ? 'tree' : 'list'; paintTop(); paintBar(); paintTree(); paintList(); paintPreview(); paintAsk(); paintXfer(); }
+function paint() { root.dataset.fxPane = treePane() ? 'tree' : 'list'; paintTop(); paintBar(); paintTree(); paintList(); paintPreview(); paintAsk(); paintXfer(); paintJobs(); }
 function paintTop() {
   const crumb = $('[data-fx-crumb]');
   if (crumb) {
@@ -848,8 +856,9 @@ function askHtml(a) {
 function paintAsk() {
   const box = $('[data-fx-askbox]');
   if (!box) return;
-  const show = !!state.ask && !state.xfer;
+  const show = !!state.ask && !state.xfer && !state.jobsOpen;
   box.hidden = !show; box.innerHTML = show ? askHtml(state.ask) : '';
+  if (state.jobsOpen) paintJobs();
 }
 function ask(a) {
   return new Promise(resolve => {
@@ -885,7 +894,7 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
   try { const v = await rpc('app_cloud_list', {p_source: dest.source, p_parent_id: dest.parent}); destRows = Array.isArray(v) ? v : []; } catch { /* 모르면 묻지 않고 서버가 번호를 붙인다 */ }
   const verb = mode === 'move' ? '옮길까요' : '복사할까요';
   const same = new Set(sameNameRows(plan.ok, destRows).map(rowKey));
-  const go = [], numbered = new Set();
+  const go = [], numbered = new Set(), bigGo = new Set(), sameSkip = [];
   let skipped = plan.blocked.length, sameAll = null, bigAll = null;
   const list = plan.ok;
   for (const r of list) {
@@ -897,7 +906,7 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
         if (res.closed) return false;
         c = res.choice; if (res.all) sameAll = c;
       }
-      if (c === 'skip') { skipped++; continue; }
+      if (c === 'skip') { skipped++; sameSkip.push(r); continue; }
       numbered.add(rowKey(r));
     }
     if (xferBig(r, dest)) {
@@ -907,9 +916,9 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
         if (res.closed) return false;
         c = res.choice; if (res.all) bigAll = c;
       }
-      // 이 판(2-①)에서는 200MB 넘는 파일을 보내지 않는다 — 조각 이어 보내기는 다음 판(2-②).
-      if (c === 'go') notify(XFER_BIG_LATER, {record: false});
-      skipped++; continue;
+      // [그래도 보내기]만 서버가 10MB 조각씩 이어 보낸다(2-②). [건너뛰기]는 보내지 않는다.
+      if (c !== 'go') { skipped++; continue; }
+      bigGo.add(rowKey(r));
     }
     go.push(r);
   }
@@ -917,16 +926,28 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
   state.picked.clear(); paintPicks();
   if (plan.blocked.length) notify(plan.blocked[0].reason, {error: true, record: false});
   if (!go.length) { if (skipped) notify(xferDoneText(mode, {skipped}), {record: false}); return true; }
-  const scope = state.scope, run = state.run = {mode, total: go.length, at: 1, done: 0, failed: 0, name: go[0].name, code: '', pending: false};
+  // 복사·다른 저장소로 옮기기는 서버 작업표로(화면을 닫아도 서버가 잇는다). 같은 이름 [건너뛰기]도 '건너뜀' 줄로 남긴다.
+  const scope = state.scope;
+  const batch = mode === 'move' ? go.filter(r => r.source === dest.source) : [];
+  const toJobs = go.filter(r => !batch.includes(r));
+  if (toJobs.length) {
+    const skipRows = sameSkip.filter(r => mode === 'copy' || r.source !== dest.source);
+    const items = [...toJobs.map(r => ({source: r.source, id: r.item_id, ...(numbered.has(rowKey(r)) ? {numbered: true} : {}), ...(bigGo.has(rowKey(r)) ? {big: true} : {})})),
+      ...skipRows.map(r => ({source: r.source, id: r.item_id, skip: true}))];
+    const ok = await addJobs(mode, dest, items);
+    if (state.scope !== scope) return true;
+    if (ok && !batch.length) { notify(`${toJobs.length}개 보내기 시작 · 아래 전송 줄을 누르면 목록`, {record: false}); return true; }
+    if (!ok && !batch.length) return true;
+  }
+  if (!batch.length) return true;
+  const run = state.run = {mode, total: batch.length, at: 1, done: 0, failed: 0, name: batch[0].name, code: '', pending: false};
   paintXfer();
   const call = async (action, body) => {
     try { return await rt().api(FN, {method: 'POST', body: {action, ...body, confirm: true}, singleFlight: false, timeoutMs: action === 'move' ? 60000 : 400000}); }
     catch (e) { run.code ||= codeOf(e); return null; }
   };
   try {
-    // 같은 클라우드 안 옮기기는 move 한 번(200개씩, 남은 것은 이어서), 그 밖은 1개씩 차례로.
-    const batch = mode === 'move' ? go.filter(r => r.source === dest.source) : [];
-    const single = go.filter(r => !batch.includes(r));
+    // 같은 클라우드 안 옮기기는 move 한 번(200개씩, 남은 것은 이어서).
     let ids = batch.map(r => r.item_id);
     while (ids.length && state.scope === scope) {
       const d = await call('move', {source: dest.source, ids, to: dest.parent, ...(batch.some(r => numbered.has(rowKey(r))) ? {numbered: true} : {})});
@@ -937,18 +958,6 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
       run.failed += bad; run.done += ids.length - bad - left.length; run.at = Math.min(run.total, run.done + run.failed + 1);
       ids = left; paintXfer();
     }
-    for (const r of single) {
-      if (state.scope !== scope) break;
-      run.name = r.name; run.at = run.done + run.failed + 1; paintXfer();
-      const body = {source: r.source, id: r.item_id, to_source: dest.source, to: dest.parent};
-      const d = await call(mode === 'move' ? 'across' : 'copy', body);
-      if (!d) { run.failed++; continue; }
-      if (d.pending) run.pending = true;
-      await applyWrite(d, touchedFolders([r], dest));
-      if (d.reload) { const k = folderKey(dest.source, dest.parent); if (state.children.has(k)) loadChildren(dest.source, dest.parent); }
-      run.done++;
-      if (d.kept_original === true && !run.code) run.code = 'kept_original';
-    }
   } finally {
     if (state.run === run) state.run = null;
     paintXfer(); paintBar();
@@ -956,18 +965,122 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
   if (state.scope !== scope) return true;
   const note = run.failed && run.code ? (run.code === 'kept_original' ? writeDoneText('across', {kept: true}) : writeErrorText(run.code))
     : run.code === 'kept_original' ? writeDoneText('across', {kept: true}) : run.pending ? '원드라이브가 마저 복사하는 중이에요. 끝나면 곧 목록에 보여요.' : '';
-  notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped}), {error: !!run.failed, note, record: false});
-  if (run.pending) setTimeout(() => { if (state.scope === scope) sync(); }, 15000);
+  notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped: toJobs.length ? 0 : skipped}), {error: !!run.failed, note, record: false});
   return true;
 }
+// 전송 줄(하단바 위): 같은 저장소 안 옮기기(state.run, 화면이 직접)가 먼저, 아니면 서버 작업표 묶음(jobStrip). 누르면 전송 목록.
 function paintXfer() {
   const box = $('[data-fx-xfer]');
   if (!box) return;
-  const r = state.run;
-  box.hidden = !r;
-  root.classList.toggle('fx-xfer-on', !!r);
-  if (!r) { box.innerHTML = ''; return; }
-  box.innerHTML = `<span class="fx-xfer-bar" style="width:${xferPercent(r.done + r.failed, r.total)}%"></span><span aria-hidden="true">↗</span><b>${esc(xferLine(r.at, r.total))}</b><span class="fx-xfer-nm">${esc(r.name)}</span>`;
+  const r = state.run, s = r ? null : jobStrip(state.jobs);
+  const on = !!(r || s) && !state.jobsOpen;
+  box.hidden = !on;
+  root.classList.toggle('fx-xfer-on', on);
+  if (!on) { box.innerHTML = ''; return; }
+  if (r) { box.innerHTML = `<span class="fx-xfer-bar" style="width:${xferPercent(r.done + r.failed, r.total)}%"></span><span aria-hidden="true">↗</span><b>${esc(xferLine(r.at, r.total))}</b><span class="fx-xfer-nm">${esc(r.name)}</span>`; return; }
+  box.innerHTML = `<span class="fx-xfer-bar" style="width:${s.percent}%"></span><button type="button" class="fx-xfer-go" data-fx-jobs-open aria-haspopup="dialog">`
+    + `<span aria-hidden="true">↗</span><b>${esc(s.text)}</b>${s.name ? `<span class="fx-xfer-nm">${esc(s.name)}</span>` : '<span class="fx-xfer-nm"></span>'}`
+    + `${s.paused || !s.percent ? '' : `<span class="fx-xfer-pc">${s.percent}%</span>`}<span class="fx-xfer-open">목록 ▸</span></button>`;
+}
+
+// ---------- 전송 목록(서버 작업표) ----------
+async function loadJobs() {
+  clearTimeout(jobTimer);
+  const scope = state.scope;
+  try {
+    const d = await edge('job_list');
+    if (state.scope !== scope) return;
+    setJobs(mergeJobs([], Array.isArray(d?.jobs) ? d.jobs : []));
+  } catch { if (state.scope === scope) scheduleJobs(); /* 표가 아직 없거나 잠시 실패: 이번엔 그대로 */ }
+}
+function scheduleJobs() {
+  clearTimeout(jobTimer);
+  if (jobsActive(state.jobs) && visible()) jobTimer = setTimeout(loadJobs, JOB_POLL_MS);
+}
+function setJobs(list) {
+  const finished = newlyDone(state.jobs, list), wasActive = state.jobsWere;
+  state.jobs = list;
+  state.jobsWere = jobsActive(list);
+  // 이번 묶음 = 이 화면에서 '보내는 중'으로 본 줄들. 묶음이 다 끝나면(보내는 중 → 없음) 그 줄들만 세어 한 줄 알림.
+  for (const j of list) if (j.status === 'queued' || j.status === 'running') jobsSeen.add(j.id);
+  paintXfer(); paintJobs();
+  scheduleJobs();
+  if (finished.length) jobsLanded(finished);
+  if (wasActive && !state.jobsWere) {
+    const s = list.filter(j => jobsSeen.has(j.id));
+    jobsSeen.clear();
+    const done = s.filter(j => j.status === 'done').length, failed = s.filter(j => j.status === 'failed').length;
+    if (done || failed) notify(failed ? `${done ? done + '개 보냄 · ' : ''}${failed}개 못 보냄 · 전송 목록에서 까닭과 [다시]` : `${done}개 보냄`, {error: !!failed, record: false});
+  }
+}
+// 끝난 줄: 받은 곳(·옮기기면 원래 곳) 폴더를 색인에서 다시 읽는다(서버가 끝낼 때 색인에 넣었다).
+async function jobsLanded(list) {
+  for (const j of list) {
+    for (const [source, parent] of [[j.dest_source, j.dest_parent], ...(j.kind === 'move' ? [[j.src_source, null]] : [])]) {
+      if (state.children.has(folderKey(source, parent))) loadChildren(source, parent);
+    }
+  }
+  if (state.loaded && !state.query) await loadList({quiet: true});
+}
+async function addJobs(mode, dest, items) {
+  const scope = state.scope;
+  state.jobsBusy = true; paintBar();
+  try {
+    let made = [];
+    for (let i = 0; i < items.length; i += 200) {
+      const d = await rt().api(FN, {method: 'POST', body: {action: 'job_add', confirm: true, kind: mode, to_source: dest.source, to: dest.parent, items: items.slice(i, i + 200)}, singleFlight: false, timeoutMs: 60000});
+      made = made.concat(Array.isArray(d?.jobs) ? d.jobs : []);
+    }
+    if (state.scope !== scope) return false;
+    setJobs(mergeJobs(state.jobs, made));
+    setTimeout(() => { if (state.scope === scope) loadJobs(); }, 600);
+    return true;
+  } catch (e) {
+    if (state.scope === scope) notify(writeErrorText(codeOf(e)), {error: true, record: false});
+    return false;
+  } finally { if (state.scope === scope) { state.jobsBusy = false; paintBar(); } }
+}
+async function jobsDo(action, ids) {
+  const scope = state.scope;
+  try {
+    const d = await rt().api(FN, {method: 'POST', body: {action, confirm: true, ...(ids ? {ids} : {all: true})}, singleFlight: false, timeoutMs: 30000});
+    if (state.scope !== scope) return;
+    setJobs(mergeJobs(state.jobs, Array.isArray(d?.jobs) ? d.jobs : []));
+    if (action === 'job_resume') setTimeout(() => { if (state.scope === scope) loadJobs(); }, 600);
+  } catch (e) { if (state.scope === scope) notify(writeErrorText(codeOf(e)), {error: true, record: false}); }
+}
+function openJobs() {
+  state.jobsOpen = true;
+  jobsLayer ||= window.KPTURouter?.layer?.open('files-jobs', {reopen: () => { state.jobsOpen = true; paintJobs(); paintXfer(); paintAsk(); }, close: () => { jobsLayer = null; state.jobsOpen = false; paintJobs(); paintXfer(); paintAsk(); return true; }}) || null;
+  paintJobs(); paintXfer(); paintAsk();
+  loadJobs();
+  $('[data-fx-jobs] [data-fx-jobs-close]')?.focus({preventScroll: true});
+}
+function closeJobs() { const l = jobsLayer; jobsLayer = null; state.jobsOpen = false; paintJobs(); paintXfer(); paintAsk(); l?.close(); }
+const JOB_BTN = {pause: '멈춤', resume: '이어 하기', retry: '다시'};
+function jobRowHtml(j) {
+  const act = jobAction(j), pc = jobPercent(j);
+  const bar = j.status === 'running' || (j.status === 'paused' && j.sent_bytes > 0) ? `<span class="fx-job-pg" aria-hidden="true"><i style="width:${pc}%"></i></span>` : '';
+  const kr = {is_folder: j.is_folder, name: j.name, mime: ''};
+  return `<li class="fx-job fx-job-${esc(j.status)}" data-fx-job="${esc(j.id)}"><span class="fx-ico" data-kind="${kindOf(kr)}" aria-hidden="true">${esc(kindIcon(kr))}</span>`
+    + `<span class="fx-job-t"><span class="fx-job-nm">${esc(j.name)}</span><small>${esc(jobLine(j))}</small>${bar}</span>`
+    + `<span class="fx-job-st">${esc(jobStatusText(j))}</span>`
+    + (act ? `<button type="button" class="mini" data-fx-job-act="${act}" data-fx-job-id="${esc(j.id)}">${JOB_BTN[act]}</button>` : '') + '</li>';
+}
+function paintJobs() {
+  const box = $('[data-fx-jobs]');
+  if (!box) return;
+  if (!state.jobsOpen) { box.hidden = true; box.innerHTML = ''; root.classList.remove('fx-jobs-open'); return; }
+  box.hidden = false; root.classList.add('fx-jobs-open');
+  const list = state.jobs, active = jobsActive(list), paused = list.some(j => j.status === 'paused' && j.origin !== 'device');
+  const all = active ? '<button type="button" class="mini" data-fx-jobs-all="pause">모두 멈춤</button>' : paused ? '<button type="button" class="mini" data-fx-jobs-all="resume">모두 이어 하기</button>' : '';
+  const asking = state.ask && !state.xfer ? askHtml(state.ask) : '';
+  // 2초마다 다시 그려도 누르던 단추의 포커스를 잃지 않게(키보드·화면 읽기).
+  const f = document.activeElement, keep = f && box.contains(f) ? ['data-fx-job-id', 'data-fx-job-act', 'data-fx-jobs-all', 'data-fx-jobs-close', 'data-fx-ask']
+    .filter(n => f.hasAttribute(n)).map(n => `[${n}="${CSS.escape(f.getAttribute(n))}"]`).join('') : '';
+  box.innerHTML = `<div class="fx-jobs-h"><span id="fxJobsTitle">${esc(jobsTitle(list))}</span>${all}<button type="button" class="mini" data-fx-jobs-close aria-label="닫기">✕</button></div>${asking}`
+    + (list.length ? `<ul class="fx-jobs-list">${list.map(jobRowHtml).join('')}</ul>` : '<p class="fx-jobs-none">보낸 것이 없어요(하루 지난 것은 지워져요).</p>');
+  if (keep) (box.querySelector(keep) || box.querySelector('[data-fx-jobs-close]'))?.focus({preventScroll: true});
 }
 const hereDest = () => state.where?.source && !state.query ? {source: state.where.source, parent: state.where.parent ?? null} : null;
 const destOf = key => { const [source, ...rest] = String(key || '').split(':'); return SOURCES.includes(source) ? {source, parent: rest.join(':') || null} : null; };
@@ -1037,6 +1150,10 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-dest-mkdir]')) { destMkdir(b); return; }
   if (b.matches('[data-fx-dest-go]')) { destGo(); return; }
   if (b.matches('[data-fx-copy]')) { openDest('copy', pickedRows()); return; }
+  if (b.matches('[data-fx-jobs-open]')) { openJobs(); return; }
+  if (b.matches('[data-fx-jobs-close]')) { closeJobs(); return; }
+  if (b.matches('[data-fx-jobs-all]')) { jobsDo(b.dataset.fxJobsAll === 'pause' ? 'job_pause' : 'job_resume'); return; }
+  if (b.matches('[data-fx-job-act]')) { jobsDo(b.dataset.fxJobAct === 'pause' ? 'job_pause' : 'job_resume', [b.dataset.fxJobId]); return; }
   if (b.matches('[data-fx-cut]')) { openDest('move', pickedRows()); return; }
   if (b.matches('[data-fx-rename]')) { renameRow(pickedRows()[0], b); return; }
   if (b.matches('[data-fx-trash]')) { trashRows(pickedRows(), b); return; }
@@ -1086,6 +1203,7 @@ root?.addEventListener('keydown', event => {
   if (mod && k === 'v') { const d = hereDest(); if (state.clip && d) { event.preventDefault(); pasteClip(d, root.querySelector('[data-fx-bar]') || root); } return; }
   if (event.key === 'Escape' && state.ask) { event.preventDefault(); answer('skip'); return; }
   if (event.key === 'Escape' && state.xfer) { event.preventDefault(); closeDest(); return; }
+  if (event.key === 'Escape' && state.jobsOpen) { event.preventDefault(); closeJobs(); return; }
   if (event.key === 'Escape' && (state.picked.size || state.clip)) { event.preventDefault(); if (state.clip) uncut(); else unpick(); return; }
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     if (!rows.length) return;
@@ -1156,7 +1274,7 @@ root?.addEventListener('touchend', e => {
   if (next) setTab(next);
 }, {passive: true});
 root?.addEventListener('touchcancel', () => { swipe = null; }, {passive: true});
-document.addEventListener('visibilitychange', () => { if (visible()) sync(); });
+document.addEventListener('visibilitychange', () => { if (visible()) { sync(); loadJobs(); } });
 
 // ---------- 들어오기 ----------
 async function enter(force = false) {
@@ -1176,13 +1294,15 @@ async function enter(force = false) {
     for (const s of first) if (!state.children.has(folderKey(s, null))) loadChildren(s, null);
     startTimer();
     sync();
+    loadJobs();
   })().finally(() => { entering = null; });
   return entering;
 }
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'files') return;
   // 다른 화면으로 가면 미리보기를 놓는다(받은 그림·PDF 메모리도). 맞추기 시계는 멈춘다.
-  layer = null; dropPreview(); delete root?.dataset.fxPreview; clearInterval(syncTimer);
+  layer = null; dropPreview(); delete root?.dataset.fxPreview; clearInterval(syncTimer); clearTimeout(jobTimer);
+  if (state.jobsOpen) { jobsLayer = null; state.jobsOpen = false; paintJobs(); }
   if (state.xfer) { destLayer = null; dropDest(); }
 });
 window.addEventListener('kptu:view-prefs-rejected', e => {

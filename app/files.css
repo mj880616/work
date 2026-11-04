@@ -164,4 +164,28 @@
 .fx-xfer-nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fx-xfer-bar { position:absolute; left:0; top:-1px; height:2px; background:var(--kptu-primary); transition:width .2s; }
 .fx.fx-xfer-on .fx-cols { padding-bottom:30px; }
+/* 전송 줄 단추(2-②): 줄 전체가 누르는 곳 → 전송 목록 */
+.fx-xfer-go { flex:1; min-width:0; height:100%; display:flex; align-items:center; gap:8px; padding:0; border:0; background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.fx-xfer-pc { white-space:nowrap; }
+.fx-xfer-open { color:var(--kptu-primary-text); white-space:nowrap; }
+/* 전송 목록(시안 ⑤ 폰: 하단바 위 칸 / ⑧ PC: 오른쪽 아래 작은 칸). 줄 44px, 진행 막대 3px, 실패는 붉은 글 한 줄 */
+.fx-jobs[hidden] { display:none; }
+.fx-jobs { position:fixed; z-index:55; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px));
+  max-height:min(60dvh, 520px); display:flex; flex-direction:column; background:var(--kptu-surface); color:var(--kptu-ink); border-radius:12px 12px 0 0; box-shadow:var(--kptu-shadow-float); font-size:13px; }
+@media (min-width:761px) { .fx-jobs { left:auto; right:16px; width:min(400px, calc(100vw - 32px)); bottom:calc(var(--kptu-mobile-tab-height,0px) + 16px); border-radius:12px; max-height:min(60vh, 480px); } }
+.fx-jobs-h { display:flex; align-items:center; gap:6px; padding:8px 8px 6px 12px; font-weight:600; border-bottom:.5px solid var(--kptu-border); }
+.fx-jobs-h span { flex:1; min-width:0; }
+.fx-jobs .fx-ask { flex:none; }
+.fx-jobs-list { list-style:none; margin:0; padding:0; overflow:auto; flex:1 1 auto; }
+.fx-job { display:grid; grid-template-columns:20px minmax(0,1fr) auto auto; align-items:center; gap:8px; min-height:44px; padding:4px 10px 4px 12px; border-bottom:.5px solid var(--kptu-border); }
+.fx-job-t { display:flex; flex-direction:column; min-width:0; }
+.fx-job-nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fx-job-t small { font-size:11px; color:var(--kptu-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fx-job-pg { display:block; height:3px; margin-top:3px; background:var(--kptu-border); border-radius:2px; overflow:hidden; }
+.fx-job-pg i { display:block; height:100%; background:var(--kptu-primary); }
+.fx-job-st { font-size:12px; color:var(--kptu-muted); white-space:nowrap; }
+.fx-job-done .fx-job-st { color:var(--kptu-success); }
+.fx-job-failed .fx-job-st, .fx-job-failed small { color:var(--kptu-danger); }
+.fx-job-skipped .fx-job-nm { color:var(--kptu-muted); }
+.fx-jobs-none { margin:0; padding:16px 12px; color:var(--kptu-muted); font-size:12px; }
 .fx-dest-tree.nx-tree:not([hidden]) { position:static; border-right:0; padding-right:4px; }

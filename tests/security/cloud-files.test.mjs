@@ -6,6 +6,7 @@ import {readFileSync} from 'node:fs';
 // 비밀값·토큰·계정·파일 이름은 모두 고정 가짜 글자다.
 const {createCloudFilesHandler,odRow,gdRow,safeOpenUrl,servedType,FRESH_MS,cleanName,idList,uniqueName,safeUploadUrl,safeMonitorUrl,ACROSS_MAX_BYTES,COPY_TREE_MAX}=await import('../../supabase/functions/cloud-files/handler.ts');
 const {createHash}=await import('node:crypto');
+const {tickSign,TICK_HEADER,BIG_BYTES,JOB_STEP_MS}=await import('../../supabase/functions/cloud-files/jobs.mjs');
 const root=new URL('../../',import.meta.url);
 const read=p=>readFileSync(new URL(p,root),'utf8');
 
@@ -18,7 +19,7 @@ const DL='https://dl.example-1drv.test/x';
 
 function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS,gdScope=FULL,odScope='Files.ReadWrite offline_access User.Read',odConn=true}={}){
  let clock=Date.parse('2026-11-02T08:00:00Z');
- const db={items:[],sync:[],stars:[],conn:odConn?[{workspace_id:WS,refresh_token:'synthetic-refresh',scope:odScope}]:[]};
+ const db={items:[],sync:[],stars:[],jobs:[],jobup:[],conn:odConn?[{workspace_id:WS,refresh_token:'synthetic-refresh',scope:odScope}]:[]};
  const gd={root:'ROOTG',start:'100',pages:[
    [{id:'GF1',name:'가상폴더',mimeType:'application/vnd.google-apps.folder',parents:['ROOTG'],ownedByMe:true},
     {id:'GA',name:'가상 초안.pdf',mimeType:'application/pdf',parents:['GF1'],size:'12',md5Checksum:'ABCDEF0123456789abcdef0123456789',modifiedTime:'2026-11-01T00:00:00Z',ownedByMe:true}],
@@ -31,18 +32,20 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
    {id:'OX!3',name:'회의.docx',size:900,file:{mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',hashes:{quickXorHash:'AAAA+/=='}},parentReference:{id:'OF!2'}},
    {id:'OH!4',name:'page.html',size:5,file:{mimeType:'text/html',hashes:{sha1Hash:'A'.repeat(40)}},parentReference:{id:'OF!2'}}]],
   next:[],gone410:false};
- const calls=[],writes=[],uploads={};
+ const calls=[],writes=[],uploads={},ticks=[],pending=[];let jobN=0;
  const odItem=id=>od.pages[0].find(x=>x.id===id);
  const gdFile=id=>gd.pages.flat().find(x=>x.id===id);
  const hashOf=(alg,bytes)=>createHash(alg).update(bytes).digest('hex');
  const ok=(v,status=200,headers={})=>new Response(v===null?null:JSON.stringify(v),{status,headers:{'content-type':'application/json',...headers}});
- const T={app_cloud_items:'items',app_cloud_sync:'sync',app_cloud_stars:'stars',app_onedrive_connections:'conn'};
- const key={items:r=>r.workspace_id+r.source+r.item_id,sync:r=>r.workspace_id+r.source,stars:r=>r.workspace_id+r.source+r.item_id,conn:r=>r.workspace_id};
+ const T={app_cloud_items:'items',app_cloud_sync:'sync',app_cloud_stars:'stars',app_onedrive_connections:'conn',app_cloud_jobs:'jobs',app_cloud_job_uploads:'jobup'};
+ const key={items:r=>r.workspace_id+r.source+r.item_id,sync:r=>r.workspace_id+r.source,stars:r=>r.workspace_id+r.source+r.item_id,conn:r=>r.workspace_id,jobs:r=>r.id,jobup:r=>r.job_id};
+ const unq=v=>v.replace(/^"|"$/g,'');
  function match(row,params){
   for(const [k,v] of params){
    if(['select','order','limit','on_conflict','or'].includes(k))continue;
-   const i=v.indexOf('.'),op=v.slice(0,i),val=v.slice(i+1);
+   const i=v.indexOf('.'),op=v.slice(0,i),val=unq(v.slice(i+1));
    if(op==='eq'&&String(row[k])!==val)return false;
+   if(op==='gt'&&!(row[k]!=null&&String(row[k])>val))return false;
    if(op==='in'&&!val.slice(1,-1).split(',').map(s=>s.replace(/"/g,'')).includes(String(row[k])))return false;
    if(op==='lt'&&!(row[k]!=null&&String(row[k])<val))return false;
    if(op==='neq'&&String(row[k])===val)return false;
@@ -50,12 +53,16 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
   }
   const or=params.get('or');
   if(or&&or.startsWith('(lock_until.is.null')){const at=or.split('.lt.')[1].slice(0,-1);if(row.lock_until&&!(row.lock_until<at))return false;}
+  if(or&&or.startsWith('(lease_until.is.null')){const at=unq(or.split('.lt.')[1].slice(0,-1));if(row.lease_until&&!(row.lease_until<at))return false;}
+  if(or&&or.startsWith('(status.in.')){const m=/^\(status\.in\.\(([^)]*)\),created_at\.gt\.(.+)\)$/.exec(or);if(!m[1].split(',').includes(row.status)&&!(row.created_at>unq(m[2])))return false;}
   return true;
  }
  async function fetch(url,init={}){
   const u=new URL(url),method=init.method||'GET',h=init.headers||{};
   calls.push({method,host:u.host,path:u.pathname,search:u.search,auth:h.Authorization,range:h.Range});
   if(u.host==='sb.example.test'){
+   if(u.pathname==='/functions/v1/cloud-files'){assert.equal(h.Authorization,'Bearer '+ENV.SUPABASE_ANON_KEY,'tick passes the gate with the anon key only');
+    ticks.push({sig:h[TICK_HEADER],body:JSON.parse(init.body)});return ok({ok:true},202);}
    if(u.pathname==='/auth/v1/user'){const t=h.Authorization?.slice(7);return t===JWT?ok({id:USER}):t===JWT2?ok({id:OTHER}):ok({msg:'bad'},401);}
    if(u.pathname==='/rest/v1/rpc/app_my_features'){assert.notEqual(h.Authorization,'Bearer '+ENV.SUPABASE_SERVICE_ROLE_KEY,'features use the user token');return ok(h.Authorization==='Bearer '+JWT?features:[]);}
    assert.equal(h.Authorization,'Bearer '+ENV.SUPABASE_SERVICE_ROLE_KEY);
@@ -67,9 +74,14 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
    const t=T[name];assert.ok(t,name);
    const rep=/representation/.test(h.Prefer||'');
    if(method==='GET')return ok(db[t].filter(x=>match(x,p)));
-   if(method==='POST'){const ignore=/ignore-duplicates/.test(h.Prefer||'');
-    for(const r of [].concat(JSON.parse(init.body))){const i=db[t].findIndex(x=>key[t](x)===key[t](r));if(i<0)db[t].push({...r});else if(!ignore)Object.assign(db[t][i],r);}return ok(null,201);}
-   if(method==='PATCH'){const v=JSON.parse(init.body);const hit=db[t].filter(x=>match(x,p));hit.forEach(x=>Object.assign(x,v));return rep?ok(hit):ok(null,204);}
+   if(method==='POST'){const ignore=/ignore-duplicates/.test(h.Prefer||'');const made=[];
+    for(let r of [].concat(JSON.parse(init.body))){
+     if(t==='jobs'){if(db.jobsDown)return ok({code:'PGRST205'},404);
+      assert.ok(!('id' in r)&&!('sent_bytes' in r)&&!('lease_until' in r),'only granted insert columns');
+      r={id:'b0000000-0000-4000-8000-'+String(++jobN).padStart(12,'0'),sent_bytes:0,attempts:0,lease_until:null,started_at:null,result_item_id:null,kept_original:false,created_at:new Date(clock).toISOString(),updated_at:new Date(clock).toISOString(),...r};}
+     const i=db[t].findIndex(x=>key[t](x)===key[t](r));if(i<0){db[t].push({...r});made.push(db[t].at(-1));}else if(!ignore){Object.assign(db[t][i],r);made.push(db[t][i]);}}
+    return rep?ok(made,201):ok(null,201);}
+   if(method==='PATCH'){const v=JSON.parse(init.body);if(t==='jobs')for(const k of Object.keys(v))assert.ok(['status','sent_bytes','result_name','result_item_id','kept_original','error_code','lease_until','attempts','started_at','finished_at','updated_at'].includes(k),'only granted update columns: '+k);const hit=db[t].filter(x=>match(x,p));hit.forEach(x=>Object.assign(x,v));return rep?ok(hit):ok(null,204);}
    if(method==='DELETE'){const hit=db[t].filter(x=>match(x,p));db[t]=db[t].filter(x=>!match(x,p));return rep?ok(hit):ok(null,204);}
   }
   if(u.host==='oauth2.googleapis.com'&&u.pathname==='/token')return ok({access_token:GD_ACCESS,scope:gdScope,expires_in:3600});
@@ -79,13 +91,16 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
   if(u.host==='www.googleapis.com')assert.notEqual(method,'DELETE','Google DELETE is a permanent delete');
   if(method==='DELETE')assert.match(u.pathname,/^\/v1\.0\/me\/drive\/items\/[^/]+$/,'only OneDrive recycle-bin delete');
   if(method!=='GET')writes.push({method,host:u.host,path:u.pathname,search:u.search,body:typeof init.body==='string'?JSON.parse(init.body):null});
+  if(method==='GET'&&u.host==='sn1.up.1drv.com'){assert.equal(h.Authorization,undefined,'upload status gets no token');const up=uploads[url];
+   if(!up||up.gone)return ok({error:{}},404);return ok({nextExpectedRanges:[up.bytes.length+'-']});}
   // 이어 올리기 조각(토큰 없이).
   if(method==='PUT'&&(u.host==='sn1.up.1drv.com'||(u.host==='www.googleapis.com'&&u.searchParams.get('upload_id')))){
    assert.equal(h.Authorization,undefined,'upload URL gets no token');
    const up=uploads[url];const m=/^bytes (\d+)-(\d+)\/(\d+)$|^bytes \*\/(\d+)$/.exec(h['Content-Range']);assert.ok(m,h['Content-Range']);
    if(m[1]!==undefined){assert.equal(Number(m[1]),up.bytes.length);up.bytes=Buffer.concat([up.bytes,Buffer.from(init.body)]);}
    const total=Number(m[3]??m[4]);
-   if(up.bytes.length<total)return new Response(null,{status:up.dest==='gd'?308:202});
+   if(up.failNext){up.failNext--;return new Response(null,{status:503});}
+   if(up.bytes.length<total)return new Response(null,{status:up.dest==='gd'?308:202,headers:up.dest==='gd'&&up.bytes.length?{range:'bytes=0-'+(up.bytes.length-1)}:{}});
    const bytes=up.corrupt?Buffer.concat([up.bytes.subarray(1),Buffer.from([0])]):up.bytes;
    if(up.dest==='gd')return ok({id:'GUP',name:up.name,mimeType:'application/pdf',parents:up.parents,size:String(bytes.length),md5Checksum:hashOf('md5',bytes),ownedByMe:true},200);
    return ok({id:'OUP!7',name:up.name,size:bytes.length,file:{mimeType:'application/octet-stream',hashes:{sha1Hash:hashOf('sha1',bytes).toUpperCase()}},parentReference:{id:up.parent}},201);
@@ -117,7 +132,10 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
     return ok({changes:gd.changes,newStartPageToken:'101'});}
    const m=/^\/files\/([A-Za-z0-9_-]+)(\/export)?$/.exec(P);
    if(m&&m[2]){assert.equal(u.searchParams.get('mimeType'),'application/pdf');return new Response(new Uint8Array([37,80,68,70]),{headers:{'content-type':'application/pdf','content-length':'4'}});}
-   if(m&&u.searchParams.get('alt')==='media'){const b=gd.media?.[m[1]]||new Uint8Array([9,9]);return new Response(b,{headers:{'content-type':'application/pdf','content-length':String(b.length)}});}
+   if(m&&u.searchParams.get('alt')==='media'){const b=gd.media?.[m[1]]||new Uint8Array([9,9]);
+    if(h.Range){const [a,z]=h.Range.slice(6).split('-').map(Number);gd.rangeMs&&(clock+=gd.rangeMs);gd.ranges=(gd.ranges||0)+1;const part=b.subarray(a,z+1);
+     return new Response(part,{status:206,headers:{'content-type':'application/octet-stream','content-length':String(part.length),'content-range':`bytes ${a}-${a+part.length-1}/${b.length}`}});}
+    return new Response(b,{headers:{'content-type':'application/pdf','content-length':String(b.length)}});}
    if(m)return ok({id:m[1],webViewLink:'https://drive.google.com/file/d/'+m[1]+'/view',thumbnailLink:'https://lh3.googleusercontent.com/t=s220',trashed:false});
   }
   if(u.host==='api.onedrive.com'&&u.pathname.startsWith('/v1.0/monitor/')){assert.equal(h.Authorization,undefined,'monitor URL gets no token');
@@ -164,13 +182,22 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
    if(url.endsWith('&pdf'))return new Response(new Uint8Array([37,80]),{headers:{'content-type':'application/pdf'}});
    if(calls.at(-2)?.path.includes('/thumbnails/'))return new Response(new Uint8Array([1]),{headers:{'content-type':'image/jpeg'}});
    const mid=decodeURIComponent(new URL(url).searchParams.get('i')||'');
+   if(od.media?.[mid]&&h.Range){const b=od.media[mid];const [a,z]=h.Range.slice(6).split('-').map(Number);od.rangeMs&&(clock+=od.rangeMs);const part=b.subarray(a,z+1);
+    return new Response(part,{status:206,headers:{'content-type':'application/octet-stream','content-length':String(part.length),'content-range':`bytes ${a}-${a+part.length-1}/${b.length}`}});}
    if(od.media?.[mid]){const b=od.media[mid];return new Response(b,{headers:{'content-type':'application/octet-stream','content-length':String(b.length)}});}
    return new Response('<script>x</script>',{status:h.Range?206:200,headers:{'content-type':'text/html','content-range':h.Range?'bytes 0-1/5':''}});}
   throw new Error('unexpected host '+u.host+u.pathname);
  }
- const handler=createCloudFilesHandler({fetch,env:k=>ENV[k],now:()=>clock});
+ const handler=createCloudFilesHandler({fetch,env:k=>ENV[k],now:()=>clock,background:p=>pending.push(p)});
+ // 서버 안 입구(다음 실행)를 열쇠로 부르고, 뒤에서 도는 실행이 끝날 때까지 기다린다.
+ async function runTick(ws=WS,{sig,body}={}){
+  const exp=clock+60000,b=body||{workspace_id:ws,exp};
+  const r=await handler(new Request('https://fn.example.test/cloud-files',{method:'POST',headers:{Authorization:'Bearer '+ENV.SUPABASE_ANON_KEY,'content-type':'application/json',[TICK_HEADER]:sig??await tickSign(ENV.SUPABASE_SERVICE_ROLE_KEY,b.workspace_id,b.exp)},body:JSON.stringify(b)}));
+  while(pending.length)await pending.shift();
+  return r.status;
+ }
  const post=(body,jwt=JWT,headers={})=>handler(new Request('https://fn.example.test/cloud-files',{method:'POST',headers:{Authorization:'Bearer '+jwt,'content-type':'application/json',...headers},body:JSON.stringify(body)}));
- return {db,gd,od,calls,writes,uploads,handler,post,tick:ms=>{clock+=ms;}};
+ return {db,gd,od,calls,writes,uploads,ticks,handler,post,runTick,now:()=>clock,tick:ms=>{clock+=ms;}};
 }
 const j=async r=>({status:r.status,body:await r.json()});
 
@@ -310,7 +337,7 @@ test('static: no permanent delete, trash emptying, sharing links, permission or 
  assert.match(code,/od_trash", token, `\$\{GRAPH\}\/me\/drive\/items\/\$\{encodeURIComponent\(id\)\}`, "DELETE"\)/);
  assert.match(code,/gd_trash", token, `\$\{DRIVE\}\/files\/[^`]+`, "PATCH", \{ trashed: true \}\)/);
  // 모든 쓰기 action은 confirm:true를 먼저 본다.
- for(const a of ['rename','mkdir','move','trash','across','copy'])assert.match(code,new RegExp(`async ${a}\\(\\{[^}]*\\}\\) \\{\\n\\s*mustConfirm\\(b\\);`),a);
+ for(const a of ['rename','mkdir','move','trash','across','copy','job_add','job_pause','job_resume'])assert.match(code,new RegExp(`async ${a}\\(\\{[^}]*\\}\\) \\{\\n\\s*mustConfirm\\(b\\);`),a);
  assert.match(code,/FEATURE = "files"/);
  assert.match(code,/includes\(FEATURE\)/);
  assert.match(read('supabase/functions/cloud-files/index.ts'),/verify_jwt=true/);
@@ -604,4 +631,170 @@ test('move numbered:true: same name in the destination gets a number instead of 
  const o=await j(await w.post({action:'move',source:'od',ids:['OX!3'],to:null,confirm:true}));
  assert.equal(o.status,200);
  assert.deepEqual(w.writes.find(x=>x.method==='PATCH'&&x.path.endsWith('/items/OX!3')).body,{parentReference:{id:'ODROOT!1'}});
+});
+
+// ---- FILES-통합 2-② 전송 작업표(app_cloud_jobs) ----
+const bigFile=(n,seed=1)=>{const b=Buffer.allocUnsafe(n);for(let i=0;i<n;i+=4096)b.fill((i/4096+seed)&255,i,Math.min(n,i+4096));return b;};
+
+test('jobs gate: confirm:true, login, owner, files feature; malformed lists refused; same-cloud move is not a job; nothing written',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ const add=(b,jwt)=>w.post({action:'job_add',kind:'copy',to_source:'od',to:null,items:[{source:'gd',id:'GA'}],...b},jwt);
+ assert.deepEqual(await j(await add({})),{status:400,body:{ok:false,error:'confirm_required'}});
+ assert.equal((await add({confirm:true},'nope')).status,401);
+ assert.equal((await add({confirm:true},JWT2)).status,403,'other workspace (no files feature)');
+ const nf=world({features:['calls']});
+ assert.equal((await nf.post({action:'job_add',confirm:true,kind:'copy',to_source:'od',items:[{source:'gd',id:'GA'}]})).status,403);
+ for(const bad of [{items:[]},{items:'x'},{kind:'delete'},{to_source:'ph'},{items:[{source:'gd',id:'GA'},{source:'gd',id:'GA'}]},
+  {items:[{source:'gd',id:'GA',numbered:true,skip:true}]},{items:[{source:'gd',id:'GA',extra:1}]},{items:[{source:'gd',id:'GA',big:'yes'}]},
+  {kind:'move',to_source:'gd',items:[{source:'gd',id:'GA'}]},{items:Array.from({length:201},(_,i)=>({source:'gd',id:'G'+i}))}])
+  assert.deepEqual(await j(await add({confirm:true,...bad})),{status:400,body:{ok:false,error:'jobs_invalid'}},JSON.stringify(bad).slice(0,60));
+ assert.equal((await add({confirm:true,items:[{source:'gd',id:'NOPE'}]})).status,404,'only indexed items');
+ assert.equal((await add({confirm:true,to:'NOPE!1'})).status,404,'destination folder must be indexed');
+ for(const a of ['job_pause','job_resume']){
+  assert.deepEqual(await j(await w.post({action:a,all:true})),{status:400,body:{ok:false,error:'confirm_required'}});
+  assert.equal((await w.post({action:a,confirm:true,ids:['not-a-uuid']})).status,400);
+ }
+ assert.equal((await w.post({action:'job_list'},JWT2)).status,403);
+ assert.equal(w.db.jobs.length,0);assert.equal(w.writes.length,0);assert.equal(w.ticks.length,0);
+});
+
+test('job tick: only with the server HMAC key; bad, expired or other-key ticks do nothing; paused rows never continue',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ const r=await j(await w.post({action:'job_add',confirm:true,kind:'copy',to_source:'gd',to:null,items:[{source:'gd',id:'GA'}]}));
+ assert.equal(r.status,200);assert.equal(r.body.jobs[0].status,'queued');
+ assert.equal(w.ticks.length,1,'adding wakes the server');
+ assert.equal(w.ticks[0].body.workspace_id,WS);assert.match(w.ticks[0].sig,/^[0-9a-f]{64}$/);
+ // 잘못된 열쇠·다른 열쇠·기한 지남·다른 몸통 = 401, 아무 일 없음.
+ assert.equal(await w.runTick(WS,{sig:'0'.repeat(64)}),401);
+ assert.equal(await w.runTick(WS,{sig:await tickSign('other-key',WS,w.now()+60000),body:{workspace_id:WS,exp:w.now()+60000}}),401);
+ assert.equal(await w.runTick(WS,{body:{workspace_id:WS,exp:w.now()-1}}),401);
+ assert.equal(await w.runTick(WS,{body:{workspace_id:WS,exp:w.now()+60000,extra:1}}),401);
+ assert.equal(w.db.jobs[0].status,'queued');assert.equal(w.writes.length,0);
+ // 사람이 멈춘 줄은 서버가 잇지 않는다.
+ const p=await j(await w.post({action:'job_pause',confirm:true,all:true}));
+ assert.equal(p.body.jobs[0].status,'paused');
+ assert.equal(await w.runTick(),202);
+ assert.equal(w.db.jobs[0].status,'paused');assert.equal(w.writes.length,0,'paused job untouched');
+ // 기능이 꺼진 작업공간은 이어 가지 않는다(사람 없는 실행도 매번 본다).
+ await w.post({action:'job_resume',confirm:true,all:true});
+ const off=world({allowed:WS2});off.db.jobs.push({...w.db.jobs[0]});
+ assert.equal(await off.runTick(),202);assert.equal(off.db.jobs[0].status,'queued');assert.equal(off.writes.length,0);
+ // 사람이 만들지 않은(자리에 없는) 상태 값은 받지 않는다: 'done'·'failed'·'skipped' 줄도 잇지 않는다.
+ for(const st of ['done','failed','skipped']){const z=world();z.db.jobs.push({...w.db.jobs[0],status:st});assert.equal(await z.runTick(),202);assert.equal(z.db.jobs[0].status,st);assert.equal(z.writes.length,0);}
+});
+
+test('jobs: small copies and moves run in order on the server; same name numbered or skipped; screen view has no upload address',async()=>{
+ const bytes=Buffer.from(Array.from({length:3000},(_,i)=>(i*5)&255));
+ const w=world();
+ w.gd.pages[0].push({id:'GB',name:'회의.docx',mimeType:'application/pdf',parents:['GF1'],size:String(bytes.length),md5Checksum:createHash('md5').update(bytes).digest('hex'),ownedByMe:true},
+  {id:'GH',name:'큰 파일.zip',mimeType:'application/zip',parents:['ROOTG'],size:String(BIG_BYTES+1),ownedByMe:true});
+ w.gd.media={GB:bytes};
+ await w.post({action:'sync'});
+ const r=await j(await w.post({action:'job_add',confirm:true,kind:'copy',to_source:'od',to:'OF!2',items:[
+  {source:'gd',id:'GB',numbered:true},{source:'gd',id:'GA',skip:true},{source:'gd',id:'GF1'},{source:'gd',id:'GDOC'},{source:'gd',id:'GH'}]}));
+ assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.deepEqual(r.body.jobs.map(x=>[x.name,x.status,x.error_code,x.same_name]),[
+  ['회의.docx','queued',null,'numbered'],['가상 초안.pdf','skipped',null,'skipped'],['가상폴더','failed','across_folder',null],
+  ['가상 문서','failed','across_unsupported',null],['큰 파일.zip','failed','big_not_confirmed',null]]);
+ assert.equal(w.writes.length,0,'nothing sent before the server runs');
+ assert.equal(await w.runTick(),202);
+ const done=w.db.jobs.find(x=>x.src_id==='GB');
+ assert.equal(done.status,'done');assert.equal(done.result_name,'회의 (2).docx');assert.equal(done.sent_bytes,3000);assert.equal(done.lease_until,null);
+ assert.notEqual(w.gd.pages[0].find(x=>x.id==='GB').trashed,true,'copy keeps the original');
+ // 다른 저장소로 옮기기: 맞춘 뒤 원본은 휴지통.
+ const m=await j(await w.post({action:'job_add',confirm:true,kind:'move',to_source:'od',to:null,items:[{source:'gd',id:'GB'}]}));
+ assert.equal(m.body.jobs[0].status,'queued');
+ await w.runTick();
+ assert.equal(w.db.jobs.at(-1).status,'done');assert.equal(w.gd.pages[0].find(x=>x.id==='GB').trashed,true);
+ // 같은 클라우드 안 복사도 작업표로.
+ const c=await j(await w.post({action:'job_add',confirm:true,kind:'copy',to_source:'od',to:null,items:[{source:'od',id:'OX!3'}]}));
+ assert.equal(c.status,200);await w.runTick();
+ assert.equal(w.db.jobs.at(-1).status,'done');assert.match(w.db.jobs.at(-1).result_item_id,/^OCP!/);
+ // 목록: 화면 줄에는 이어 올리기 자리·잡기 기한·만든 사람·작업공간이 없다.
+ const l=await j(await w.post({action:'job_list'}));
+ assert.equal(l.status,200);assert.equal(l.body.jobs.length,w.db.jobs.length);
+ const text=JSON.stringify(l.body);
+ for(const bad of ['upload','lease_until','created_by','workspace_id','hash_state','1drv.com','upload_id'])assert.ok(!text.includes(bad),bad);
+ // 다른 작업공간 사람은 0줄(문에서 막힘).
+ assert.equal((await w.post({action:'job_list'},JWT2)).status,403);
+});
+
+test('jobs: big file (over 200MB) goes in 10MB pieces over several server runs, resumes after a cut from the broken piece, hash checked',async()=>{
+ const size=BIG_BYTES+3*1024*1024+17,big=bigFile(size);
+ const w=world();
+ w.gd.pages[0].push({id:'GZ',name:'영상.mp4',mimeType:'video/mp4',parents:['GF1'],size:String(size),md5Checksum:createHash('md5').update(big).digest('hex'),ownedByMe:true});
+ w.gd.media={GZ:big};w.gd.rangeMs=20000;
+ await w.post({action:'sync'});
+ const r=await j(await w.post({action:'job_add',confirm:true,kind:'copy',to_source:'od',to:'OF!2',items:[{source:'gd',id:'GZ',big:true}]}));
+ assert.equal(r.body.jobs[0].big,true);assert.equal(r.body.jobs[0].status,'queued');
+ assert.equal(await w.runTick(),202);
+ const job=w.db.jobs[0];
+ assert.equal(job.status,'running');assert.ok(job.sent_bytes>0&&job.sent_bytes<size,'stopped after its time, progress saved');
+ assert.equal(job.sent_bytes%(10*1024*1024),0);assert.equal(job.lease_until,null,'lease released for the next run');
+ assert.ok(w.ticks.length>=2,'asked the next run');
+ const up=Object.values(w.uploads).find(u=>u.dest==='od');assert.equal(up.bytes.length,job.sent_bytes);
+ assert.equal(w.db.jobup.length,1);assert.match(w.db.jobup[0].upload_url,/^https:\/\/sn1\.up\.1drv\.com\//);
+ // 화면 목록에는 자리 주소가 없다.
+ assert.ok(!JSON.stringify((await j(await w.post({action:'job_list'}))).body).includes('1drv'));
+ // 끊김: 다음 조각에서 받을 쪽이 503 → 실패(까닭: 연결) → [다시] → 끊긴 조각부터.
+ up.failNext=1;await w.runTick();
+ assert.equal(job.status,'failed');assert.equal(job.error_code,'cloud_throttled');
+ const at=job.sent_bytes,reads=w.gd.ranges;
+ await w.post({action:'job_resume',confirm:true,ids:[job.id]});
+ assert.equal(job.status,'queued');
+ for(let i=0;i<20&&job.status!=='done';i++)await w.runTick();
+ assert.equal(job.status,'done',job.error_code);
+ assert.equal(up.bytes.length,size);assert.ok(up.bytes.equals(big),'same bytes');
+ assert.equal(w.gd.ranges-reads,Math.ceil((size-at)/(10*1024*1024)),'continued from the broken piece, not from the start');
+ assert.equal(job.sent_bytes,size);assert.equal(job.result_item_id,'OUP!7');assert.equal(job.result_name,'영상.mp4');
+ assert.equal(w.db.jobup.length,0,'upload address dropped after finishing');
+ assert.ok(w.db.items.some(x=>x.item_id==='OUP!7'));
+ assert.notEqual(w.gd.pages[0].find(x=>x.id==='GZ').trashed,true);
+});
+
+test('jobs: big move to Google; pause between pieces keeps progress, resume continues; a corrupted result is trashed and the original kept',async()=>{
+ const size=BIG_BYTES+5,big=bigFile(size,7);
+ const w=world();
+ w.od.pages[0].push({id:'OZ!9',name:'묶음.zip',size,file:{mimeType:'application/zip',hashes:{sha1Hash:createHash('sha1').update(big).digest('hex')}},parentReference:{id:'OF!2'}});
+ w.od.media={'OZ!9':big};w.od.rangeMs=25000;
+ await w.post({action:'sync'});
+ await w.post({action:'job_add',confirm:true,kind:'move',to_source:'gd',to:'GF1',items:[{source:'od',id:'OZ!9',big:true}]});
+ await w.runTick();
+ const job=w.db.jobs[0],first=job.sent_bytes;
+ assert.ok(first>0&&first<size);
+ const p=await j(await w.post({action:'job_pause',confirm:true,ids:[job.id]}));
+ assert.equal(p.body.jobs[0].status,'paused');
+ await w.runTick();assert.equal(job.sent_bytes,first,'paused job does not move');
+ // 받을 쪽이 우리가 적은 것보다 한 조각 더 받았으면(적기 전에 끊김) 그 조각은 다시 보내지 않고 해시만 다시 센다(보내면 가짜 자리가 거절).
+ const up=Object.values(w.uploads).find(u=>u.dest==='gd');
+ up.bytes=Buffer.concat([up.bytes,big.subarray(first,first+10*1024*1024)]);
+ await w.post({action:'job_resume',confirm:true,all:true});
+ for(let i=0;i<20&&job.status!=='done'&&job.status!=='failed';i++)await w.runTick();
+ assert.equal(job.status,'done',job.error_code);assert.ok(up.bytes.equals(big));
+ assert.equal(w.od.pages[0].find(x=>x.id==='OZ!9')&&w.writes.some(x=>x.method==='DELETE'&&x.path==='/v1.0/me/drive/items/OZ!9'),true,'original to recycle bin after the match');
+ // 받은 것이 다르면 새 것은 휴지통, 원본은 그대로, 실패 까닭 verify_failed.
+ const v=world();v.gd.corrupt=true;
+ v.od.pages[0].push({id:'OZ!9',name:'묶음.zip',size,file:{mimeType:'application/zip',hashes:{sha1Hash:createHash('sha1').update(big).digest('hex')}},parentReference:{id:'OF!2'}});
+ v.od.media={'OZ!9':big};
+ await v.post({action:'sync'});
+ await v.post({action:'job_add',confirm:true,kind:'move',to_source:'gd',to:null,items:[{source:'od',id:'OZ!9',big:true}]});
+ for(let i=0;i<20&&!['done','failed'].includes(v.db.jobs[0].status);i++)await v.runTick();
+ assert.equal(v.db.jobs[0].status,'failed');assert.equal(v.db.jobs[0].error_code,'verify_failed');
+ assert.ok(v.writes.some(x=>x.path==='/drive/v3/files/GUP'&&x.body?.trashed===true),'bad copy trashed');
+ assert.ok(!v.writes.some(x=>x.method==='DELETE'&&x.path==='/v1.0/me/drive/items/OZ!9'),'original kept');
+});
+
+test('jobs: list wakes a stalled run only when nothing holds the lease; over 2GB refused at add',async()=>{
+ const w=world();
+ w.gd.pages[0].push({id:'GX',name:'너무 큰.iso',mimeType:'application/octet-stream',parents:['ROOTG'],size:String(2*1024*1024*1024+1),ownedByMe:true});
+ await w.post({action:'sync'});
+ const r=await j(await w.post({action:'job_add',confirm:true,kind:'copy',to_source:'od',items:[{source:'gd',id:'GX',big:true},{source:'gd',id:'GA'}]}));
+ assert.deepEqual(r.body.jobs.map(x=>x.status+':'+x.error_code),['failed:too_large','queued:null']);
+ const n=w.ticks.length;
+ await w.post({action:'job_list'});assert.equal(w.ticks.length,n,'fresh job: no extra wake');
+ w.tick(60000);await w.post({action:'job_list'});assert.equal(w.ticks.length,n+1,'stalled: wake once');
+ w.db.jobs[1].lease_until=new Date(w.now()+60000).toISOString();w.tick(1);
+ await w.post({action:'job_list'});assert.equal(w.ticks.length,n+1,'someone holds it: no wake');
 });
