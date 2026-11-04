@@ -15,8 +15,8 @@ export const ACT_ICON = Object.freeze({
   share: svg('<path d="M8 10V2.5M5.2 5.2L8 2.5l2.8 2.7M3.5 8.5v4.2a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V8.5"/>'),
   edit: svg('<path d="M2.5 13.5l.6-3L10.8 3a1.4 1.4 0 0 1 2 2L5.1 12.8z M9.6 4.2l2.2 2.2"/>'),
   info: svg('<circle cx="8" cy="8" r="6"/><path d="M8 7.2v4M8 4.9v.1"/>'),
-  // PHOTO-정보수정버튼(S49-18): ⓘ에 작은 연필을 걸친 선 아이콘(사진 정보 고치기).
-  infoEdit: svg('<path d="M13.6 7.4A5.8 5.8 0 1 1 8.6 2.2M7.2 6.8v3.6M7.2 4.7v.1"/><path d="M9.6 13.6l.3-1.7 3.6-3.6a.9.9 0 0 1 1.3 1.3l-3.6 3.6z"/>'),
+  // 더보기(⋯): 사진 아래 줄 맨 끝 칸(PHOTO-아래줄정돈, S49-34). 정보수정은 걸친 아이콘 없이 [편집 ▾] 안 글자 항목.
+  more: svg('<circle cx="3.4" cy="8" r="0.9" fill="currentColor"/><circle cx="8" cy="8" r="0.9" fill="currentColor"/><circle cx="12.6" cy="8" r="0.9" fill="currentColor"/>'),
   download: svg('<path d="M8 2.5V10M5.2 7.3L8 10l2.8-2.7M3.5 11v1.7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V11"/>'),
   restore: svg('<path d="M3 8a5 5 0 1 0 1.6-3.7M3 2.8v2.6h2.6"/>'),
 });

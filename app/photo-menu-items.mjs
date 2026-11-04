@@ -7,10 +7,11 @@ export const PHOTO_ACT_TEXT = Object.freeze({
   select: '선택',
   star: '별표',
   share: '공유',
+  more: '더보기',
   copy: '사진 복사',
   diary: '일기에 넣기',
   basket: '업데이트로 보내기',
-  download: '다운로드',
+  download: '받기',
   native: '다른 앱으로 공유…',
   // PHOTO-정보수정버튼(S49-18): 사진 정보(찍은 시각·위치) 고치기 — 아래 줄·우클릭 메뉴·크게 보기 모두 이 이름 하나.
   info: '정보수정',
@@ -26,8 +27,8 @@ export const PHOTO_ACT_TEXT = Object.freeze({
   delete: '지우기',
 });
 
-// 아이콘 줄(여러 장 고르기 줄)처럼 칸이 좁은 곳에서 보이는 앞부분(같은 이름의 앞). 읽어 주는 이름·마우스 올림 이름은 PHOTO_ACT_TEXT 온이름.
-export const PHOTO_ACT_SHORT = Object.freeze({diary: '일기', basket: '업데이트'});
+// 아이콘 줄처럼 칸이 좁은 곳에서 보이는 앞부분. PHOTO-아래줄정돈(S49-34)부터 아래 줄에 [일기]·[업데이트] 단추가 없어 비어 있다(메뉴 안에서는 온이름).
+export const PHOTO_ACT_SHORT = Object.freeze({});
 
 // 보내기 두 줄은 어느 메뉴에서든 이 순서(일기에 넣기 → 업데이트로 보내기).
 export const SEND_ROWS = Object.freeze(['diary', 'basket']);
@@ -62,8 +63,25 @@ export const releaseAfter = (act, ok) => !!ok && RELEASE_AFTER[act] === true;
 export const PHOTO_MENUS = Object.freeze({
   viewerShare: Object.freeze(['copy', ...SEND_ROWS, 'download', 'native']),
   context: Object.freeze(['star', 'share', ...SEND_ROWS, 'info']),
-  // 아래 줄 버튼 목록(순서 그대로 한 줄, 조건에 안 맞는 버튼은 숨김). 고르기 줄(selectBar)과 크게 보기 줄(viewBar)은 같은 목록이고,
-  // 크게 보기에만 [정보](보기 판 펼치기)가 더해진다. 그리는 코드는 photo-act-bar.mjs 하나, 보이는 조건은 photos.js actAvail 하나.
-  selectBar: Object.freeze(['star', 'share', 'down', ...SEND_ROWS, 'rename', 'move', 'tag', 'untag', 'restore', 'edit', 'info', 'delete']),
-  viewBar: Object.freeze(['star', 'share', 'down', ...SEND_ROWS, 'rename', 'move', 'tag', 'untag', 'restore', 'edit', 'info', 'detail', 'delete']),
+  // PHOTO-아래줄정돈(S49-34, 명진 결정 11/04 12:06 'A안'): 아래 줄은 다섯 칸까지(PHOTO_BAR_MAX). 칸 목록은 아래 두 줄, 칸 안 펼침 항목은 PHOTO_BAR_MENUS.
+  // 고르기 줄(selectBar)과 크게 보기 줄(viewBar)이 같은 원칙, 우클릭·꾹 누르기 메뉴(context)는 지금처럼 모두 펼친 목록.
+  selectBar: Object.freeze(['star', 'share', 'move', 'delete', 'more']),
+  viewBar: Object.freeze(['star', 'share', 'edit', 'delete', 'more']),
 });
+export const PHOTO_BAR_MAX = 5;
+// 아래 줄 칸 안 펼침 항목(순서 그대로, 조건에 안 맞는 항목은 빠짐 — 보이는 조건은 photos.js actAvail 한 곳).
+// 'detail' = 크게 보기 정보 판 펼치기, 'edit' = 사진 편집(폰 앱), 'copy'·'native'는 공유 메뉴(share-menu.js) 줄, 나머지는 같은 이름 동작(down·diary·basket·move·tag·untag·restore·rename·info).
+export const PHOTO_BAR_MENUS = Object.freeze({
+  viewBar: Object.freeze({
+    share: Object.freeze(['copy', ...SEND_ROWS, 'down', 'native']),
+    edit: Object.freeze(['edit', 'info']),
+    more: Object.freeze(['detail', 'move', 'tag', 'untag', 'restore', 'rename']),
+  }),
+  selectBar: Object.freeze({
+    share: Object.freeze([...SEND_ROWS, 'down', 'native']),
+    more: Object.freeze(['tag', 'untag', 'restore', 'rename', 'info']),
+  }),
+});
+// 아래 줄 칸 안 펼침 항목의 글자(아이콘 없이 글자만). 칸 이름과 달리 '무엇을 하는지' 풀어 쓴 이름. 없으면 PHOTO_ACT_TEXT 이름.
+export const PHOTO_BAR_TEXT = Object.freeze({edit: '사진 편집', move: '폴더로 옮기기', tag: '앨범에 넣기', untag: '앨범에서 빼기', detail: '정보'});
+export const barItemText = id => PHOTO_BAR_TEXT[id] || PHOTO_ACT_TEXT[id] || id;
