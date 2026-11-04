@@ -84,7 +84,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     const f2=s.folders[1].id;expect(s.folders[1].sort_order).toBe(2048);
     expect(await body(page,'p:top-a')).toEqual(['p:child-a1','f:'+f1,'f:'+f2,'a-1','a-2']);
     // 위로: 두 폴더의 순서를 맞바꾼다(요청 2개). 메뉴에는 갈 수 있는 쪽만.
-    await press(page,menuOf(page,'f:'+f2),width);await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','펼치기','위로','옮기기…','폴더 지우기']);
+    await press(page,menuOf(page,'f:'+f2),width);await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','펼치기','위로','옮기기…','색 고르기…','폴더 지우기']);
     await press(page,action(page,'위로'),width);await expect.poll(()=>body(page,'p:top-a')).toEqual(['p:child-a1','f:'+f2,'f:'+f1,'a-1','a-2']);
     expect(s.writes.slice(-2).map(w=>[w.method,w.id,w.body.sort_order])).toEqual([['PATCH',f2,1024],['PATCH',f1,2048]]);
     // 이름 바꾸기.
