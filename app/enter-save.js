@@ -17,7 +17,7 @@
 // syllable is committed, and only that one saves, so nothing is left over), never twice for one press (repeat, and one
 // pending click per button), never when the save button is disabled, aria-disabled or aria-busy, and never from a
 // select, checkbox, radio, button, file or date picker, an input with an open suggestion list, or when another listener
-// already used the Enter (defaultPrevented).
+// already used the Enter (defaultPrevented; a contenteditable is read before its editor can use the key, see onKey).
 // While a field in a root is focused on PC, its save button carries data-enter-hint (↵, Ctrl+↵ or ⌘↵); ui-standard.css
 // draws it.
 
@@ -99,9 +99,13 @@ export function installEnterSave(doc=globalThis.document){
   };
   doc.addEventListener('focusin',e=>paintHint(e.target));
   doc.addEventListener('focusout',e=>{if(!e.relatedTarget)setTimeout(()=>{const root=containerOf(doc.activeElement);if(!root||saveButtonFor(root)!==hinted)clearHint()},0)});
-  doc.addEventListener('keydown',e=>{
+  // A rich-text editor (ProseMirror, contenteditable) calls preventDefault on every Enter it does not use, Ctrl/Cmd+Enter
+  // included, before the key bubbles up. So a contenteditable is read in the capture phase, before the editor sees the key;
+  // every other field stays in the bubble phase, where "another listener already used the Enter" still counts.
+  const onKey=(e,capture)=>{
     if(e.key!=='Enter')return;
     const target=e.target,root=containerOf(target);if(!root)return;
+    if(!!target.isContentEditable!==capture)return;
     const kind=fieldKind(target);
     if(!enterAction(e,kind))return;
     const button=saveButtonFor(root);
@@ -120,7 +124,9 @@ export function installEnterSave(doc=globalThis.document){
       button.focus({preventScroll:true});button.click();
       if(doc.activeElement===button&&target.isConnected&&!target.disabled&&shown(target))target.focus({preventScroll:true});
     },0);
-  });
+  };
+  doc.addEventListener('keydown',e=>onKey(e,true),true);
+  doc.addEventListener('keydown',e=>onKey(e,false));
 }
 
 if(typeof document!=='undefined')installEnterSave(document);
