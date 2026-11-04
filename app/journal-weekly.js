@@ -488,8 +488,16 @@ export function weeklyReportText(model) {
   out.push('', '4. 산하 조직 현황', '1) 요약');
   // WEEKLY-메뉴짝짓기 P6: 주별 조직보고 표를 읽었으면 내 담당조직마다 넣은 줄(model.orgLines: 조직 id → '- 11.2. 글' 줄들), 아니면 예전처럼 이 주 기록.
   if (model.orgLines) {
+    const mineIds = new Set((model.orgs?.mine ?? []).map(o => o.id));
     for (const o of model.orgs?.mine ?? []) { out.push(`◦ ${o.name}`); out.push(...(model.orgLines.get(o.id) ?? [])); }
-    if (!(model.orgs?.mine ?? []).length) out.push('(담당조직 없음)');
+    // 내 담당조직 표 밖 묶음(미분류·그 외)은 예전처럼 그 주 기록.
+    for (const section of model.orgs?.sections ?? []) {
+      if (section.id && mineIds.has(section.id)) continue;
+      if (!section.items?.length) continue;
+      out.push(`◦ ${section.name}`);
+      for (const i of section.items) out.push(item(i));
+    }
+    if (!(model.orgs?.mine ?? []).length && !(model.orgs?.sections ?? []).length) out.push('(담당조직 없음)');
   } else if (!note('orgs', model.orgs)) {
     for (const section of model.orgs.sections) {
       out.push(`◦ ${section.name}`);
