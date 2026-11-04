@@ -19,9 +19,7 @@ export const filesDeviceKind = ({ua = '', narrow = false} = {}) => (isPhoneApp(u
 export const toggleFilesSource = (state, name) => toggleFlag(state, FILES_SRC, FILES_SRC_DEFAULT, name);
 // 보일 출처: 연결된 것(connected) 중 켜진 것. 순서는 connected 그대로.
 export const visibleSources = (state, connected) => { const s = parseFilesSources(state); return (connected || []).filter(x => s[x] === true); };
-// 줄 하나(색인 한 줄)가 켜진 출처 것인가.
-export const rowVisible = (row, visible) => !!row && visible.includes(row.source);
-export const filterBySource = (rows, visible) => (rows || []).filter(r => rowVisible(r, visible));
+// 줄 거르기는 서버가 한다(S49-26: app_cloud_find_in이 켜진 출처만 준다). 화면은 받은 줄을 덮어 거르지 않는다.
 // 아이콘 단추 정보. connected = 그 출처가 연결됨.
 export function chipInfo(state, connected, name) {
   const on = parseFilesSources(state)[name] === true, linked = (connected || []).includes(name);

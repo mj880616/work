@@ -18,7 +18,7 @@ test('폰 412: 첫 화면은 최근 파일(F9)·날짜 묶음, 탭 폴더로 들
   await expect(rows(page)).toHaveCount(6);
   await expect(root(page).locator('.fx-day-head').first()).toHaveText('오늘');
   expect((await names(page)).slice(0, 2)).toEqual(['가짜 예산표.xlsx', '가짜 계획안.hwpx']);
-  expect(server.calls.find(c => c.what === 'app_cloud_find').body).toEqual({ p_query: null, p_shelf: 'recent', p_limit: 200 });
+  expect(server.calls.find(c => c.what === 'app_cloud_find_in').body).toEqual({ p_sources: ['od', 'gd'], p_query: null, p_shelf: 'recent', p_limit: 200 });
   expect(server.calls.find(c => c.what === 'edge' && c.action === 'status').auth).toMatch(/^Bearer /);
   await expect(row(page, 'gd:gdDoc1').locator('.fx-tag')).toHaveText('자료실');
   await expect(row(page, 'gd:gdDoc1').locator('.fx-sub')).toContainText('구글 드라이브 › 가짜 업무 공간');
@@ -111,7 +111,7 @@ for (const width of [884, 1440]) {
     await expect(row(page, 'gd:gdDoc1').locator('.fx-tag')).toHaveText('자료실 · 글자 맞음');
     await expect(row(page, 'gd:gdDoc1').locator('.fx-path')).toHaveText('구글 드라이브 › 가짜 업무 공간');
     await expect(root(page).locator('.fx-crumb-now')).toHaveText('찾은 것 1 · 이름 0 · 자료실 글자 1');
-    expect(server.calls.filter(c => c.what === 'app_cloud_find').at(-1).body).toEqual({ p_query: '협약', p_shelf: null, p_limit: 200 });
+    expect(server.calls.filter(c => c.what === 'app_cloud_find_in').at(-1).body).toEqual({ p_sources: ['od', 'gd'], p_query: '협약', p_shelf: null, p_limit: 200 });
     expect(await noWideScroll(page)).toBe(true);
     expect(errors).toEqual([]);
   });

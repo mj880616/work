@@ -5,7 +5,7 @@ import {slotBox, slotImg, slotFailed} from './img-slot.js';
 import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, PHONE_TABS, PHONE_TAB_NAME, SYNC_EVERY_MS, SHELF_LIMIT, FIND_LIMIT, FIND_WAIT_MS,
   TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_NAME, kindOf, kindLabel, kindIcon, previewKind, sizeText, folderCountText, isLockedItem, dayText, fullTime,
   recentGroups, syncText, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
-  placeOf, whereOf, tabAt, cleanQuery, findSummary, errorText, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
+  placeOf, whereOf, tabAt, cleanQuery, findSummary, errorText, failReason, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
   trashAsk, writeDoneText, writeErrorText, twinRows, TWIN_LIMIT} from './files-model.mjs';
 import {mountSplitResize} from './split-resize.js';
 import {mountColResize, gripHtml} from './col-resize.js';
@@ -13,7 +13,7 @@ import {askConfirm, askText, notify} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
 import {brandIconSvg} from './brand-icons.js';
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
-import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, filterBySource, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
+import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
 import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mjs';
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
@@ -67,8 +67,8 @@ const root = document.getElementById('filesRoot');
 const $ = sel => root?.querySelector(sel);
 const rt = () => window.KPTURuntime;
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-const fresh = () => ({scope: '', status: null, statusFailed: '', where: null, rows: [], loaded: false, failed: '', trail: [], sort: 'name', dir: 'asc',
-  query: '', found: null, findFailed: '', children: new Map(), open: new Set(), sel: '', tab: 'recent', syncedAt: null, syncing: false,
+const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', where: null, rows: [], loaded: false, failed: '', failedWhy: '', trail: [], sort: 'name', dir: 'asc',
+  query: '', found: null, findFailed: '', findWhy: '', children: new Map(), open: new Set(), sel: '', tab: 'recent', syncedAt: null, syncing: false,
   preview: null, picked: new Set(), anchor: '', clip: null, busy: '', pane: 'list', hint: ''});
 let state = fresh(), listSeq = 0, findSeq = 0, findTimer = 0, syncTimer = 0, layer = null, entering = null;
 
@@ -115,7 +115,7 @@ async function loadStatus() {
     if (times.length) state.syncedAt = Math.min(...times);
   } catch (e) {
     if (state.scope !== scope) return;
-    state.statusFailed = codeOf(e);
+    state.statusFailed = codeOf(e); state.statusWhy = failReason(e);
   }
 }
 function setWhere(where, {keepPreview = false} = {}) {
@@ -137,14 +137,15 @@ async function loadList({quiet = false} = {}) {
   if (!where) return;
   try {
     let rows, trail = [];
-    if (where.shelf) rows = await rpc('app_cloud_find', {p_query: null, p_shelf: where.shelf, p_limit: SHELF_LIMIT});
+    // 묶음(최근·큰 파일·별표)은 켜진 출처를 서버로 넘겨 서버가 거른다(S49-26, 화면이 200줄을 받아 덮어 거르지 않음).
+    if (where.shelf) { const on = onSources(); rows = on.length ? await rpc('app_cloud_find_in', {p_sources: on, p_query: null, p_shelf: where.shelf, p_limit: SHELF_LIMIT}) : []; }
     else {
       [rows, trail] = await Promise.all([
         rpc('app_cloud_list', {p_source: where.source, p_parent_id: where.parent}),
         where.parent ? rpc('app_cloud_trail', {p_source: where.source, p_item_id: where.parent}) : Promise.resolve([])]);
     }
     if (seq !== listSeq || state.scope !== scope) return;
-    state.rows = Array.isArray(rows) ? rows : []; state.trail = Array.isArray(trail) ? trail : []; state.loaded = true; state.failed = '';
+    state.rows = Array.isArray(rows) ? rows : []; state.trail = Array.isArray(trail) ? trail : []; state.loaded = true; state.failed = ''; state.failedWhy = '';
     recordCounts(where, scope);
     if (where.source) {
       state.children.set(folderKey(where.source, where.parent), state.rows.filter(r => r.is_folder));
@@ -153,7 +154,7 @@ async function loadList({quiet = false} = {}) {
     }
   } catch (e) {
     if (seq !== listSeq || state.scope !== scope) return;
-    if (!quiet || !state.loaded) { state.failed = codeOf(e); state.loaded = false; }
+    if (!quiet || !state.loaded) { state.failed = codeOf(e); state.failedWhy = failReason(e); state.loaded = false; }
   }
   paint();
   if (where.source && !where.shelf) directRead(where, scope);
@@ -221,12 +222,13 @@ function setQuery(raw) {
 async function find(q) {
   const seq = ++findSeq, scope = state.scope;
   try {
-    const rows = await rpc('app_cloud_find', {p_query: q, p_shelf: null, p_limit: FIND_LIMIT});
+    const on = onSources();
+    const rows = on.length ? await rpc('app_cloud_find_in', {p_sources: on, p_query: q, p_shelf: null, p_limit: FIND_LIMIT}) : [];
     if (seq !== findSeq || state.scope !== scope || state.query !== q) return;
-    state.found = Array.isArray(rows) ? rows : []; state.findFailed = '';
+    state.found = Array.isArray(rows) ? rows : []; state.findFailed = ''; state.findWhy = '';
   } catch (e) {
     if (seq !== findSeq || state.scope !== scope) return;
-    state.found = []; state.findFailed = codeOf(e);
+    state.found = []; state.findFailed = codeOf(e); state.findWhy = failReason(e);
   }
   paint();
 }
@@ -255,8 +257,9 @@ function startTimer() { clearInterval(syncTimer); syncTimer = setInterval(() => 
 const visible = () => window.KPTURouter?.current === 'files' && document.visibilityState === 'visible';
 
 // ---------- 그리기(이 화면의 유일한 그리기 주인) ----------
-const foundShown = () => filterBySource((state.found || []).filter(r => !isLockedItem(r)), onSources());
-const shown = () => state.query ? foundShown() : sortRows(filterBySource(state.rows.filter(r => !isLockedItem(r)), onSources()), state.sort, state.dir);
+// 찾기·묶음 줄은 서버가 켜진 출처만 준다(app_cloud_find_in). 폴더 목록은 한 출처 것이고, 그 출처가 꺼지면 sourcesChanged가 최근으로 옮긴다.
+const foundShown = () => (state.found || []).filter(r => !isLockedItem(r));
+const shown = () => state.query ? foundShown() : sortRows(state.rows.filter(r => !isLockedItem(r)), state.sort, state.dir);
 // 폰 [폴더] 탭의 첫 화면은 나무(pane 'tree'), 폴더 이름을 누르면 목록(pane 'list'). 찾는 중이면 늘 목록. PC·폴드는 CSS가 둘 다 보인다.
 const treePane = () => PHONE.matches && state.tab === 'folders' && state.pane === 'tree' && !state.query;
 function paint() { root.dataset.fxPane = treePane() ? 'tree' : 'list'; paintTop(); paintBar(); paintTree(); paintList(); paintPreview(); }
@@ -335,7 +338,9 @@ function sourcesChanged() {
   if (state.query || !on.length) closePreview();
   if (!on.length) { state.picked.clear(); state.clip = null; paint(); return; }
   if (!w || (w.source && !on.includes(w.source))) { setWhere({shelf: 'recent'}); }
-  else paint();
+  else { paint(); if (w.shelf) loadList(); }
+  // 찾는 중이면 켜진 출처로 다시 찾는다(서버가 거름).
+  if (state.query) find(state.query);
   for (const s of on) if (!state.children.has(folderKey(s, null))) loadChildren(s, null);
 }
 function paintTree() {
@@ -389,10 +394,10 @@ function paintList() {
   const list = $('[data-fx-list]');
   if (!list) return;
   mountWidths(list);
-  if (state.statusFailed && !state.status) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.statusFailed)}); return; }
+  if (state.statusFailed && !state.status) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.statusFailed), reason: state.statusWhy}); return; }
   if (nothingOn()) { list.innerHTML = emptyHtml(SOURCES_OFF_TEXT); delete list.dataset.fxMode; return; }
   if (state.query) {
-    if (state.findFailed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.findFailed)}); return; }
+    if (state.findFailed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.findFailed), reason: state.findWhy}); return; }
     if (!state.found) { list.innerHTML = waitHtml({rows: 4}); return; }
     const found = foundShown();
     list.innerHTML = found.length ? `<div class="fx-rows fx-with-path" role="list">${found.map(r => rowHtml(r, {withPath: true})).join('')}</div>` : emptyHtml('찾은 것 없음');
@@ -401,7 +406,7 @@ function paintList() {
   }
   const w = state.where;
   if (!w) { list.innerHTML = state.status && !connected().length ? emptyHtml('연결된 클라우드 없음') : waitHtml({rows: 4}); return; }
-  if (state.failed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.failed)}); return; }
+  if (state.failed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.failed), reason: state.failedWhy}); return; }
   if (!state.loaded) { list.innerHTML = waitHtml({rows: 4}); return; }
   const rows = shown();
   list.dataset.fxMode = w.shelf || 'folder';

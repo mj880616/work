@@ -11,7 +11,7 @@ for (const width of [1440, 1920]) {
     let release;
     const gate = new Promise(ok => { release = ok; });
     // 나중에 만든 길이 먼저 받는다: 목록 응답만 붙잡았다가 놓는다(나머지는 앞의 흉내 서버로).
-    await page.route('**/rest/v1/rpc/app_cloud_find', async route => { await gate; await route.fallback(); });
+    await page.route('**/rest/v1/rpc/app_cloud_find_in', async route => { await gate; await route.fallback(); });
     await openFiles(page, width).catch(() => {}); // 목록이 붙잡혀 있으므로 첫 줄을 기다리는 안쪽 대기는 건너뛴다
     const list = root(page).locator('[data-fx-list]');
     const bar = list.locator('.wait');

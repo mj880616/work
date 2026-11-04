@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parseFlags, toggleFlag, SOURCES_OFF_TEXT} from '../app/source-flags.mjs';
 import {parseSources, toggleSource, sourcesValue} from '../app/photo-sources-model.mjs';
-import {FILES_SOURCES_KEY, FILES_SRC, parseFilesSources, filesSourcesValue, toggleFilesSource, visibleSources, filterBySource, chipInfo, FILES_DEVICES, filesDeviceKind, PHONE_WIDTH_QUERY} from '../app/files-sources-model.mjs';
+import {FILES_SOURCES_KEY, FILES_SRC, parseFilesSources, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, FILES_DEVICES, filesDeviceKind, PHONE_WIDTH_QUERY} from '../app/files-sources-model.mjs';
 import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../app/view-prefs.js';
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // FILES-출처켜고끄기(S49-21): 켜기/끄기 규칙은 사진 화면과 공용(source-flags.mjs). 화면 없이 규칙만 본다.
@@ -36,10 +36,8 @@ test('[파일] 출처: 없으면 둘 다 켜짐, 끄면 연결돼 있어도 보�
   assert.deepEqual(filesSourcesValue(next), {od: true, gd: false});
   assert.deepEqual(toggleFilesSource(next, 'od'), {od: false, gd: false});
 });
-test('[파일] 줄 거르기와 아이콘 상태(눌림 = 연결됨 + 켜짐)', () => {
-  const rows = [{source: 'od', item_id: 'a'}, {source: 'gd', item_id: 'b'}, null];
-  assert.deepEqual(filterBySource(rows, ['od']).map(r => r.item_id), ['a']);
-  assert.deepEqual(filterBySource(rows, []), []);
+test('[파일] 아이콘 상태(눌림 = 연결됨 + 켜짐), 줄 거르기는 서버가', () => {
+  assert.doesNotMatch(read('app/files-sources-model.mjs'), /export const filterBySource/);
   assert.deepEqual(chipInfo({gd: false}, ['od', 'gd'], 'gd'), {name: 'gd', on: false, linked: true, pressed: false});
   assert.deepEqual(chipInfo(null, ['od'], 'gd'), {name: 'gd', on: true, linked: false, pressed: false});
   assert.deepEqual(chipInfo(null, ['od', 'gd'], 'od'), {name: 'od', on: true, linked: true, pressed: true});
