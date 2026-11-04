@@ -9,6 +9,9 @@ import {FOLDER_DEPTH,OUTSIDE_KEY,SORT_GAP,canAddChild,cleanFolderName,folderTras
 import {pickerRows} from './library-move.mjs';
 import {folderIndent} from './folder-limits.mjs';
 import {createMovePicker} from './library-move-picker.js';
+import {colorChoiceHtml,colorFromButton} from './folder-look.js';
+import {colorOf} from './folder-look-model.mjs';
+import {setLibraryFolderColor} from './library-folder-data.js';
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
@@ -52,6 +55,13 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     return ok;
   };
   const reorderFolder=(id,dir)=>{const plan=folderReorderPlan(s().folders,id,dir,!!s().free);if(!plan.length)return Promise.resolve(false);return run(async()=>{for(const p of plan)await api(T_FOLDERS+where(p.id),{method:'PATCH',prefer:'return=minimal',body:{sort_order:p.sort_order}})})};
+  // 폴더 색(1~8, 기본 = null): 서버 함수(owner만)로 바로 저장하고 다시 읽어 그린다. 같은 폴더를 보이는 모든 곳(토글 머리·폴더 고르기 창)이 이 값 하나를 읽는다. 실패하면 그대로 두고 알린다.
+  async function colorFolder(id,color){
+    const f=folder(id);if(!f||busy||colorOf(f)===color)return false;
+    const ok=await run(()=>setLibraryFolderColor(api,id,color),'');
+    if(!ok)status('폴더 색을 저장하지 못했어요. 잠시 뒤 다시 해 주세요.',true);
+    return ok;
+  }
   const moveFolder=(id,parentId,done='폴더를 옮겼어요.')=>{const f=folder(id),pid=f?.project_id||null;return run(()=>api(T_FOLDERS+where(id),{method:'PATCH',prefer:'return=minimal',body:{parent_id:parentId||null,sort_order:nextSortOrder(sibs(pid,parentId))}}),done).then(ok=>{if(ok)reveal(chain(pid,parentId));return ok})};
   // TRASH-다른삭제 3단계: [폴더 지우기]는 휴지통으로 보낸다(공용 흐름 trash-actions.js). 요청은 그대로 폴더 하나의 DELETE이고(설계 3.4),
   // 서버의 가로채기 트리거가 그 폴더와 아래 폴더 전부를 휴지통 표시로 바꾼다(자료 연결은 그대로, 자료실 목록에서만 함께 숨음).
@@ -106,11 +116,14 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
 
   // ---- 메뉴 ----
   // key: 'p:<project id>' | 'p:none' | 'f:<folder id>'
+  let colorFor=null,colorReopen=false; // 색 고르기 모드로 다시 열 폴더 키
   const outsideHead=()=>document.querySelector(`#documentList [data-lu-node-menu="${OUTSIDE_KEY}"]`);
   const frameFromKey=key=>key==='p:none'||key===OUTSIDE_KEY?null:key.slice(2);
   const sep='<hr class="lu-menu-sep" role="separator">';
   const menu=createAnchoredMenu({id:'luFolderMenu',className:'lu-folder-menu',label:'폴더 관리',historyKey:'kptuLibraryFolderMenu',key:t=>t.dataset.luNodeMenu,
     render:key=>{
+      // FOLDER-순서·색 ③: [색 고르기…]를 누르면 같은 자리에 동그라미 8개 + [기본]을 다시 연다(고르면 바로 저장).
+      if(colorFor===key&&key.startsWith('f:')){const f0=folder(key.slice(2));return f0?colorChoiceHtml(colorOf(f0)):''}
       if(!key.startsWith('f:'))return '<button type="button" data-lu-folder-action="create">새 폴더</button>'+(key===OUTSIDE_KEY&&selectNode?.(key)?'<button type="button" data-lu-folder-action="select-all">전체 고르기</button>':'');
       const f=folder(key.slice(2));if(!f)return '';
       const sib=sibs(f.project_id||null,f.parent_id||null),i=sib.findIndex(x=>x.id===f.id);
@@ -123,9 +136,11 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         +(enter&&s().free?'<button type="button" data-lu-folder-action="enter">이 폴더로 들어가기</button>':'')
         +(i>0?'<button type="button" data-lu-folder-action="up">위로</button>':'')+(i>=0&&i<sib.length-1?'<button type="button" data-lu-folder-action="down">아래로</button>':'')
         +(folderMoveTargets(s().folders,f.id,!!s().free).length?'<button type="button" data-lu-folder-action="move">옮기기…</button>':'')
+        +'<button type="button" data-lu-folder-action="color">색 고르기…</button>'
         +sep+'<button type="button" class="lu-menu-danger" data-lu-folder-action="delete">폴더 지우기</button>';
     },
-    onAction:(button,active)=>{const key=active.id,action=button.dataset.luFolderAction,trigger=active.trigger;if(key.startsWith('f:'))folderAction(key.slice(2),action,trigger);else if(action==='select-all')selectNode?.(key,true);else if(action==='create')askName({title:'폴더 만들기',hint:(key===OUTSIDE_KEY?'폴더 밖(맨 위)에':frameName(frameFromKey(key))+' 안에')+' 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(frameFromKey(key),null,name)})}});
+    onClose:()=>{if(!colorReopen)colorFor=null},
+    onAction:(button,active)=>{const key=active.id,action=button.dataset.luFolderAction,trigger=active.trigger;colorReopen=false;const picked=colorFor===key?colorFromButton(button):undefined;if(picked!==undefined){colorFor=null;void colorFolder(key.slice(2),picked).then(()=>focusSummary(key));return}colorFor=null;if(key.startsWith('f:'))folderAction(key.slice(2),action,trigger);else if(action==='select-all')selectNode?.(key,true);else if(action==='create')askName({title:'폴더 만들기',hint:(key===OUTSIDE_KEY?'폴더 밖(맨 위)에':frameName(frameFromKey(key))+' 안에')+' 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(frameFromKey(key),null,name)})}});
   function folderAction(id,action,trigger){
     const f=folder(id);if(!f)return;
     if(action==='create-top')askName({title:'폴더 만들기',hint:'폴더 밖(맨 위)에 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(null,null,name)});
@@ -135,6 +150,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     else if(action==='toggle')toggleNode('f:'+id);
     else if(action==='up'||action==='down')void reorderFolder(id,action).then(()=>focusHead('f:'+id));
     else if(action==='move')askTarget({title:'폴더 옮기기',hint:s().free?`${f.name}을(를) 옮길 곳을 고르세요.`:`${f.name}을(를) 옮길 곳을 고르세요. 같은 사업영역 안에서만 옮길 수 있어요.`,trigger,targets:folderMoveTargets(s().folders,id,!!s().free).map(t=>t===null?{value:'__top__',label:s().free?'맨 위(폴더 밖)':frameName(f.project_id||null)+' 바로 아래',depth:0}:{value:t,label:pathName(t),depth:folderDepth(s().folders,t)}),then:parent=>moveFolder(id,parent)});
+    else if(action==='color'){colorFor='f:'+id;colorReopen=true;queueMicrotask(()=>{colorReopen=false;if(trigger?.isConnected)menu.open(trigger)})}
     else if(action==='delete')void trashFolder(f);
   }
   const headOf=key=>[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode===key);
