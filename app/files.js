@@ -792,7 +792,7 @@ async function openCloud(r) {
 async function shareViaApp(r) {
   if (!docMimeOf(r.name) && !/^image\//.test(r.mime || '')) { note('이 종류는 공유 창으로 못 보내요. [받기]를 써 주세요.'); return; }
   if (Number(r.size_bytes) > OUT_FILE_MAX) { note('파일이 너무 커서 공유 창으로 못 보내요.'); return; }
-  note('파일 받는 중…');
+  note('공유 창을 준비해요…');
   const blob = await rowBlob(r, 'media');
   const file = new File([blob], r.name, {type: blob.type || ''});
   const result = await appShare().share([{file}]);
