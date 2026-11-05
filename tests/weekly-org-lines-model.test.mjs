@@ -70,3 +70,14 @@ test('공용 부품 연결: 조건 쓰기(updated_at)·지우기 없음·같은 
   assert.match(wl, /state: 'in', origin: l\.origin \|\| 'user'/);
   for (const f of ['app/weekly-org-lines.js', 'app/week-pick.js', 'app/weekly-org-lines-model.mjs']) assert.doesNotMatch(read(f), /\?v=|\b(?:local|session)Storage\b/);
 });
+
+test('S50-25 ⑨ sourceRecord: 담당조직 기록 먼저, 그다음 업데이트·노트, 현황 표 줄만이면 빈 값, 출처 없으면 null', async () => {
+  const {sourceRecord} = await import('../app/weekly-org-lines-model.mjs');
+  const A = '0f0e0d0c-0b0a-4908-8706-050403020100', B = '1f0e0d0c-0b0a-4908-8706-050403020100';
+  assert.equal(sourceRecord({source_update_ids: [A], source_note_ids: [B]}), `up:${A}`);
+  assert.equal(sourceRecord({source_update_ids: [], source_note_ids: [B]}), `note:${B}`);
+  assert.equal(sourceRecord({source_status_ids: [A]}), '');
+  assert.equal(sourceRecord({source_update_ids: [1, ''], source_note_ids: null}), null);
+  assert.equal(sourceRecord({}), null);
+  assert.equal(sourceRecord(null), null);
+});

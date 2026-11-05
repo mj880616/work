@@ -97,3 +97,12 @@ export function conflictOf(mine, theirs) {
   if (cleanBody(theirs.body) === cleanBody(mine?.body) && (theirs.day || null) === (mine?.day || null) && (theirs.end_day || null) === (mine?.end_day || null) && theirs.state === mine?.state) return null;
   return {gone: false, body: cleanBody(theirs.body), state: theirs.state};
 }
+// ⑨ 줄이 나온 원래 기록(S50-25): 담당조직 기록 → 'up:<id>', 정리함 업데이트·노트 → 'note:<id>', 현황 표 줄만 → ''(조직 상세만 엶).
+// 출처가 없는 줄(손으로 넣은 줄·지난주에서 가져온 줄)은 null. 여러 기록을 합친 줄은 첫 기록(담당조직 기록 먼저).
+// 번호는 글자 그대로 넘기고(DB는 uuid 배열), 고르는 쪽이 CSS.escape로 감싼다(record-flash.js).
+const firstId = list => (Array.isArray(list) ? list.find(x => typeof x === 'string' && x.trim() && x.length <= 64) : undefined);
+export function sourceRecord(line) {
+  const up = firstId(line?.source_update_ids); if (up) return `up:${up}`;
+  const note = firstId(line?.source_note_ids); if (note) return `note:${note}`;
+  return firstId(line?.source_status_ids) ? '' : null;
+}
