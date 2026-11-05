@@ -90,6 +90,7 @@ on:
       - 'tests/phone-pull-refresh.test.mjs'
       - 'tests/phone-reopen.test.mjs'
       - 'tests/phone-push-settings.test.mjs'
+      - 'tests/family-notes-model.test.mjs'
       - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
@@ -259,6 +260,7 @@ on:
       - 'tests/phone-pull-refresh.test.mjs'
       - 'tests/phone-reopen.test.mjs'
       - 'tests/phone-push-settings.test.mjs'
+      - 'tests/family-notes-model.test.mjs'
       - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
@@ -743,6 +745,9 @@ jobs:
 
       - name: Check phone push settings and device sync (APP-폰알림 N4)
         run: node --test tests/phone-push-settings.test.mjs
+
+      - name: Check home forget-not box rules (FAMILY-잊지말기 4단계)
+        run: node --test tests/family-notes-model.test.mjs
 
       - name: Check done notices and recent 7 days rules (UI-앱안알림 4·5)
         run: node --test tests/notice-done-model.test.mjs

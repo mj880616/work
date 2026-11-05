@@ -13,15 +13,16 @@ class PushRulesTest {
 
     @Test
     fun knownKindsMatchTheServerList() {
-        // app_push_log.kind 검사 제약과 같은 아홉 가지(2절 일곱 종류 + 조용한 시간 묶음 + 시험).
+        // app_push_log.kind 검사 제약과 같은 열 가지(2절 일곱 종류 + 조용한 시간 묶음 + 시험 + 잊지 말기, migration 20261105120000).
         assertEquals(
-            listOf("task_due", "commitment", "meeting_done", "collect_stall", "morning", "evening", "next_week", "quiet_digest", "test"),
+            listOf("task_due", "commitment", "meeting_done", "collect_stall", "morning", "evening", "next_week", "quiet_digest", "test", "family"),
             PushRules.KINDS.keys.toList(),
         )
         assertTrue(PushRules.urgent("task_due"))
         assertTrue(PushRules.urgent("collect_stall"))
         assertFalse(PushRules.urgent("morning"))
         assertFalse(PushRules.urgent("evening"))
+        assertFalse(PushRules.urgent("family"))
         assertEquals("push_task_due", PushRules.channelId("task_due"))
     }
 

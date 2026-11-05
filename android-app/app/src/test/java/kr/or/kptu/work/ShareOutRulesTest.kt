@@ -10,6 +10,18 @@ import org.junit.Test
 /** PHOTO-폰앱공유(0.4.7): 웹2 [공유] → 안드로이드 공유 창 다리 규칙. */
 class ShareOutRulesTest {
     @Test
+    fun docNames() {
+        // S50-16: 자료실 문서도 받는다. 경로·이상한 글자는 빠지고 확장자는 종류에 맞춘다.
+        assertEquals(Message.Begin("보고.pdf", "application/pdf", 9), ShareOutRules.message("out:begin:{\"name\":\"../보고.pdf\",\"mime\":\"application/pdf\",\"size\":9}"))
+        assertEquals(Message.Begin("a.hwpx", "application/vnd.hancom.hwpx", 9), ShareOutRules.message("out:begin:{\"name\":\"a.zip\",\"mime\":\"application/vnd.hancom.hwpx\",\"size\":9}"))
+        assertEquals("web2-file.txt", ShareOutRules.shareName("..", "text/plain"))
+        assertEquals("x.jpg", ShareOutRules.shareName("x.png", "image/jpeg"))
+        assertNull(ShareOutRules.message("out:begin:{\"name\":\"a.exe\",\"mime\":\"application/x-msdownload\",\"size\":9}"))
+        assertNull(ShareOutRules.message("out:begin:{\"name\":\"a.pdf\",\"mime\":\"application/pdf\",\"size\":${ShareOutRules.FILE_MAX + 1}}"))
+        assertEquals(ShareOutRules.Plan("android.intent.action.SEND", "application/pdf"), ShareOutRules.plan(listOf("application/pdf")))
+    }
+
+    @Test
     fun messages() {
         assertEquals(Message.Hello, ShareOutRules.message("out:hello"))
         assertEquals(Message.Start(3), ShareOutRules.message("out:start:{\"count\":3}"))

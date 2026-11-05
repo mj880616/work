@@ -17,6 +17,11 @@
 // - `recent`: 최근 알림 7일(폰으로 보낸 것·알림 줄에 뜬 것) — 내 프로필 '폰 알림' 아래 목록. 종류·열쇠·시각·여는 주소만.
 // 저녁 'Now' 한 줄(now-line.ts, OUTSIDE-글상세·관심환류): 사회운동 글·뉴스 기사·본 시각 표를 service_role select로 건수만 센다.
 // 재료 표 중 service_role 권한이 없는 것(다음 주 준비 한 장)은 그 사용자 로그인 그대로(owner RLS) 읽는다(SUPABASE_ANON_KEY).
+// FAMILY-잊지말기 4단계(설계 docs/design/tg-personal.md 5.2절, migration 20261105120000_family_push_kind): 15분 예약(quarter)마다
+//   잊지 말기 새 제안(app_family_notes status 'new', service_role 칸 읽기 id·workspace_id·status·created_at만)이 새로 생긴 작업공간에 한 번,
+//   제목 "잊지 말기 n건"만 보낸다(본문·내용 없음 — 잠금 화면에 대화 내용이 뜨지 않게). 줄은 운영자 기능 family 작업공간에만 있다(DB 트리거).
+//   종류별 끄기(notify_prefs.kinds.family=false → skipped_off)·조용한 시간(기본 22:00~07:00 → held_quiet, 끝난 뒤 첫 실행에서 보냄)을 지킨다.
+//   기록 열쇠는 가장 새 제안의 시각(fam:<초>) — 새 제안이 생길 때마다 한 번. 기록에는 종류·열쇠·상태만(제목·본문 없음).
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig, type FcmSender } from "../_shared/fcm-send.ts";
 import { nowEveningCounts, nowEveningLine } from "./now-line.ts";
@@ -240,14 +245,73 @@ async function recent(db: Db, workspaceId: string, nowMs: number) {
 
 // ---- 예약 입구 ------------------------------------------------------------------------------------------------------
 
-async function runSlot(db: Db, slot: string, nowMs: number) {
+// ---- 잊지 말기 알림(FAMILY-잊지말기 4단계) ---------------------------------------------------------------------------
+
+export const FAMILY_TABLE = "app_family_notes";
+export const FAMILY_OPEN = "/work/app/?view=home&family=1";
+const HM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+// 보낼지: 끈 사람 = skipped_off, 조용한 시간(기본 22:00~07:00 서울) = held_quiet, 그 밖 = send(meeting-transcribe pushDecision과 같은 규칙, 종류만 family).
+export function familyDecision(prefs: unknown, nowMs: number): "send" | "held_quiet" | "skipped_off" {
+  const p = prefs && typeof prefs === "object" && !Array.isArray(prefs) ? prefs as Record<string, unknown> : {};
+  const kinds = p.kinds && typeof p.kinds === "object" ? p.kinds as Record<string, unknown> : {};
+  if (kinds.family === false) return "skipped_off";
+  const q0 = p.quiet && typeof p.quiet === "object" ? p.quiet as Record<string, unknown> : {};
+  const q = typeof q0.from === "string" && typeof q0.to === "string" && HM.test(q0.from) && HM.test(q0.to) ? { from: q0.from, to: q0.to } : { from: "22:00", to: "07:00" };
+  const kst = new Date(nowMs + 9 * 3600000), m = kst.getUTCHours() * 60 + kst.getUTCMinutes();
+  const toMin = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
+  const from = toMin(q.from), to = toMin(q.to);
+  const quiet = from === to ? false : from < to ? m >= from && m < to : m >= from || m < to;
+  return quiet ? "held_quiet" : "send";
+}
+export const familyTitle = (n: number) => `잊지 말기 ${n > 99 ? "99+" : n}건`;
+
+// 작업공간마다: 새 제안 수·가장 새 제안 시각 → 이미 같은 열쇠로 보냈거나(sent·failed·skipped_off) 보류 중이면서 아직 조용한 시간이면 넘김.
+// 실패해도 다른 작업공간·다른 일은 계속한다(로그에는 단계 코드만).
+async function familyPush(db: Db, ids: string[], nowMs: number, sender: FcmSender | null, log: Log) {
+  let sent = 0, held = 0, off = 0;
+  if (!sender) return { sent, held, off };
+  const since = new Date(nowMs - LOG_KEEP_DAYS * DAY_MS).toISOString(), nowIso = new Date(nowMs).toISOString(), day = kstDay(nowMs);
+  for (const ws of ids.slice(0, 50)) {
+    try {
+      const notes = await db.get(`${FAMILY_TABLE}?workspace_id=eq.${ws}&status=eq.new&created_at=gte.${encodeURIComponent(since)}&select=id,created_at&order=created_at.desc&limit=100`);
+      if (!notes.length) continue;
+      const newest = Date.parse(String(notes[0].created_at ?? ""));
+      if (!Number.isFinite(newest)) continue;
+      const ref = `fam:${Math.floor(newest / 1000)}`;
+      const logged = await db.get(`app_push_log?workspace_id=eq.${ws}&kind=eq.family&ref_key=eq.${encodeURIComponent(ref)}&select=status,day&limit=5`);
+      if (logged.some((r) => r.status !== "held_quiet")) continue;
+      const devices = (await activeDevices(db, ws)).slice(0, MAX_DEVICES);
+      if (!devices.length) continue;
+      // 설정은 그 작업공간 owner 한 사람의 것(한 작업공간 = 주인 한 사람).
+      const owners = (await db.get(`app_workspace_members?workspace_id=eq.${ws}&role=eq.owner&select=user_id&limit=2`)).map((r) => r.user_id).filter((v): v is string => typeof v === "string" && UUID.test(v));
+      if (owners.length !== 1) continue;
+      const prefs = (await db.get(`app_profiles?user_id=eq.${owners[0]}&select=notify_prefs&limit=1`))[0]?.notify_prefs ?? null;
+      const decision = familyDecision(prefs, nowMs);
+      const logDay = typeof logged[0]?.day === "string" ? logged[0].day as string : day;
+      if (decision === "held_quiet") { if (!logged.length) await logPush(db, ws, "family", ref, day, "held_quiet"); held++; continue; }
+      if (decision === "skipped_off") { await logPush(db, ws, "family", ref, logDay, "skipped_off"); off++; continue; }
+      const out = await sendToDevices(db, sender, devices, { kind: "family", title: familyTitle(notes.length), open: FAMILY_OPEN, urgent: false }, nowIso);
+      await logPush(db, ws, "family", ref, logDay, out.sent ? "sent" : "failed");
+      if (out.sent) sent++;
+    } catch (e) {
+      log("family_push_failed", { stage: e instanceof Fail ? e.code : "INTERNAL" });
+    }
+  }
+  return { sent, held, off };
+}
+
+async function runSlot(db: Db, slot: string, nowMs: number, sender: FcmSender | null = null, log: Log = () => {}) {
   // 30일 지난 기록 정리(설계 4.1). 기록에는 종류·열쇠·날짜·상태만 있다.
   const cutoff = new Date(nowMs - LOG_KEEP_DAYS * DAY_MS).toISOString();
   const pruned = await db.send("DELETE", `app_push_log?sent_at=lt.${encodeURIComponent(cutoff)}&select=day`, undefined, "return=representation");
   // 받을 작업공간: 살아 있는 기기가 있는 곳. 기기 주인이 지금도 그 작업공간 owner인지는 보낼 때(N5) 다시 본다.
   const rows = await db.get("app_push_devices?revoked_at=is.null&select=workspace_id&limit=1000");
   const ids = [...new Set(rows.map((r) => r.workspace_id).filter((v): v is string => typeof v === "string"))];
-  // 종류 판단·보내기는 N5(설계 6절)에서 더한다. 지금은 보내지 않는다.
+  // 종류 판단·보내기는 N5(설계 6절)에서 더한다. 지금은 잊지 말기(15분 예약)만 보낸다.
+  if (slot === "quarter") {
+    const fam = await familyPush(db, ids, nowMs, sender, log);
+    return { ok: true, slot, workspaces: ids.length, sent: fam.sent, pruned: pruned.length, family: fam };
+  }
   if (slot !== "evening") return { ok: true, slot, workspaces: ids.length, sent: 0, pruned: pruned.length };
   // 저녁: Now 한 줄('새 성명 n · 새 기사 n', now-line.ts)이 생길 작업공간 수만 센다(줄 글은 응답·로그에 싣지 않음). 보내기는 N5 저녁 묶음.
   let nowLines = 0;
@@ -295,7 +359,8 @@ export function createPhonePushHandler(deps: PhonePushDeps) {
       if (cron) {
         // 몸통은 빈 {}만. 받을 사람·작업공간은 서버가 정한다(요청 값 안 받음).
         if (!exactKeys(b, []) || !(SLOTS as readonly string[]).includes(slot ?? "")) throw new Fail(400, "INVALID_BODY");
-        return json(await runSlot(db, slot!, nowMs));
+        const fcm = slot === "quarter" ? readFcmConfig(deps.env(FCM_SECRET_NAME)) : null;
+        return json(await runSlot(db, slot!, nowMs, fcm ? makeFcmSender(fcm, doFetch, now) : null, log));
       }
 
       const who = await authorizeUser(sb, key, auth!.slice("Bearer ".length), doFetch, db);

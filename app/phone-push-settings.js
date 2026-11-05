@@ -10,7 +10,7 @@
 //   '시각 · 무엇' 한 줄씩. 누르면 그 자리(notice-place.js goPlace)로 가고 아직 안 연 것은 '열었음'을 남긴다.
 import {barHtml, failHtml} from './wait-state.js';
 import {goPlace} from './notice-place.js';
-import {KINDS, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems} from './phone-push-model.mjs';
+import {KINDS, FAMILY_KIND, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems} from './phone-push-model.mjs';
 
 const ENDPOINT = '/functions/v1/phone-push';
 const BRIDGE = 'KPTUAppShell';
@@ -104,7 +104,7 @@ export function startDeviceSync(win = window) {
 export function mountPhonePushSettings(host, {rt, win = window}) {
   phone.rt = phone.rt || rt;
   const inApp = !!bridgeOf(win);
-  let state = {phase: 'loading', prefs: parsePrefs(null), devices: [], devicesOk: false, recent: [], recentOk: false, busy: false, note: '', result: ''};
+  let state = {phase: 'loading', prefs: parsePrefs(null), family: false, devices: [], devicesOk: false, recent: [], recentOk: false, busy: false, note: '', result: ''};
   let run = 0, saveChain = Promise.resolve(), savedPrefs = null;
   const userId = () => rt.context?.read?.()?.user?.id || '';
   const workspaceId = () => rt.context?.read?.()?.workspace?.id || '';
@@ -150,7 +150,9 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     if (state.phase === 'failed') { host.innerHTML = `${head}<div class="ps-calref">${failHtml()}</div>`; return; }
     const busy = state.busy ? ' disabled' : '';
     const {prefs} = state;
-    const chips = KINDS.map(([key, label]) => `<button type="button" class="ps-push-kind" data-ps-push-kind="${key}" aria-pressed="${prefs.kinds[key] ? 'true' : 'false'}"${busy}>${esc(label)}</button>`).join('');
+    // 잊지 말기 칩은 운영자 기능 family가 있을 때만(서버 app_my_features). 화면 숨김은 보안이 아님(알림은 서버가 family 작업공간에만 보냄).
+    const kinds = state.family ? [...KINDS, FAMILY_KIND] : KINDS;
+    const chips = kinds.map(([key, label]) => `<button type="button" class="ps-push-kind" data-ps-push-kind="${key}" aria-pressed="${(key === FAMILY_KIND[0] ? prefs.family !== false : prefs.kinds[key]) ? 'true' : 'false'}"${busy}>${esc(label)}</button>`).join('');
     const time = (end, label) => `<input type="time" class="ps-push-time" data-ps-push-quiet="${end}" value="${esc(prefs.quiet[end])}" aria-label="${label}" step="300"${busy}>`;
     const quiet = `<div class="ps-calref-row"><span class="ps-calref-label">조용한 시간</span>${time('from', '조용한 시간 시작')}<span class="ps-calref-line">~</span>${time('to', '조용한 시간 끝')}<button type="button" class="row-act" data-ps-push-test${state.busy ? ' disabled aria-busy="true"' : ''}>시험 알림</button></div>`;
     const result = state.result ? `<p class="ps-calref-line ps-todo-result" data-ps-push-result>${esc(state.result)}</p>` : '';
@@ -183,8 +185,10 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     if (!userId()) { state = {...state, phase: 'failed'}; render(); return; }
     state = {...state, phase: 'loading', note: '', result: ''}; render();
     if (inApp) send('push:hello');
-    const [prefs, devices, recent] = await Promise.allSettled([readPrefs(), readDevices(), readRecent()]);
+    const [prefs, devices, recent, features] = await Promise.allSettled([readPrefs(), readDevices(), readRecent(),
+      rt.api('/rest/v1/rpc/app_my_features', {singleFlight: false})]);
     if (mine !== run) return;
+    state = {...state, family: features.status === 'fulfilled' && Array.isArray(features.value) && features.value.includes(FAMILY_KIND[0])};
     if (prefs.status !== 'fulfilled') { state = {...state, phase: 'failed'}; render(); return; }
     savedPrefs = prefs.value;
     state = {...state, phase: 'ready', prefs: prefs.value, devices: devices.status === 'fulfilled' ? devices.value : [], devicesOk: devices.status === 'fulfilled',
