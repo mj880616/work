@@ -69,8 +69,32 @@ object ShareOutRules {
         val o = try { MiniJson.obj(MiniJson.parse(raw)) } catch (_: Exception) { null } ?: return null
         val mime = MiniJson.str(o["mime"])?.lowercase() ?: return null
         val size = MiniJson.num(o["size"])?.takeIf { it == Math.floor(it) }?.toLong() ?: return null
-        if (mime !in PhotoEditRules.MIMES || size !in 1..FILE_MAX) return null
-        return Message.Begin(PhotoEditRules.fileName(MiniJson.str(o["name"]), mime), mime, size)
+        if ((mime !in PhotoEditRules.MIMES && mime !in DOC_MIMES) || size !in 1..FILE_MAX) return null
+        return Message.Begin(shareName(MiniJson.str(o["name"]), mime), mime, size)
+    }
+
+    /** S50-16 자료실 [공유]: 그림 말고 자료실 문서 종류도 같은 길로 받는다(받는 앱이 알아보는 흔한 문서만). */
+    val DOC_MIMES = mapOf(
+        "application/pdf" to "pdf",
+        "application/x-hwp" to "hwp",
+        "application/vnd.hancom.hwpx" to "hwpx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" to "docx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" to "xlsx",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation" to "pptx",
+        "text/plain" to "txt",
+        "text/csv" to "csv",
+    )
+
+    /** 받는 이름: 그림은 PhotoEditRules.fileName 그대로, 문서는 경로·제어 글자·앞 '.' 없이 120자 안에서 확장자를 종류에 맞춘다. */
+    fun shareName(raw: String?, mime: String): String {
+        val ext = DOC_MIMES[mime] ?: return PhotoEditRules.fileName(raw, mime)
+        var base = (raw ?: "").substringAfterLast('/').substringAfterLast('\\')
+            .filter { !it.isISOControl() && it !in "<>:\"|?*" }.trim().trimStart('.')
+        val dot = base.lastIndexOf('.')
+        if (dot > 0) base = base.substring(0, dot)
+        base = base.trim().take(120 - ext.length - 1).trim()
+        if (base.isEmpty()) base = "web2-file"
+        return "$base.$ext"
     }
 
     /** 공유 창 의도: 한 장이면 SEND, 여러 장이면 SEND_MULTIPLE. 종류는 모두 같으면 그것, 모두 그림이면 "image/(별)", 모두 동영상이면 "video/(별)", 섞이면 "(별)/(별)". */

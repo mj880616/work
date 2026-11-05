@@ -9,6 +9,24 @@
 const BRIDGE = 'KPTUAppShell';
 export const OUT_HELLO_MS = 1500, OUT_STEP_MS = 30000, OUT_PART = 384 * 1024, OUT_MAX = 20;
 const MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'];
+// S50-16 자료실 [공유]: 문서 종류(앱 ShareOutRules.DOC_MIMES와 같게). 확장자로 종류를 정한다(브라우저가 주는 type은 비거나 octet-stream인 일이 많음).
+const DOC_MIME_BY_EXT = {
+  pdf: 'application/pdf', hwp: 'application/x-hwp', hwpx: 'application/vnd.hancom.hwpx',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  txt: 'text/plain', csv: 'text/csv',
+};
+export const OUT_FILE_MAX = 60 * 1024 * 1024;
+// 앱 다리로 보낼 수 있는 문서 종류('' = 못 보냄).
+export function docMimeOf(name) {
+  const m = /\.([A-Za-z0-9]{1,5})$/.exec(String(name || ''));
+  return (m && DOC_MIME_BY_EXT[m[1].toLowerCase()]) || '';
+}
+const bridgeMime = file => {
+  if (MIMES.includes(file.type)) return file.type;
+  return docMimeOf(file.name) || 'image/jpeg';
+};
 
 export function base64Of(bytes) {
   let bin = '';
@@ -82,7 +100,7 @@ export function createAppShare(win = globalThis.window, {helloMs = OUT_HELLO_MS,
         for (const e of list) {
           if (!alive()) { send('out:cancel'); return 'failed'; }
           if (e.phoneId) { r = await step(`out:phone:${e.phoneId}`, 'phone'); if (!r.ok) return fail(r); continue; }
-          const file = e.file, mime = MIMES.includes(file.type) ? file.type : 'image/jpeg';
+          const file = e.file, mime = bridgeMime(file);
           r = await step(`out:begin:${JSON.stringify({name:String(file.name || 'photo.jpg').slice(0, 255), mime, size:file.size})}`, 'begin');
           if (!r.ok) return fail(r);
           for (let at = 0; at < file.size; at += OUT_PART) {

@@ -11,6 +11,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, PHONE_TABS, PHONE_TAB_NAME, S
   jobsActive, jobStatusText, jobLine, jobPercent, jobStrip, jobsTitle, jobAction, mergeJobs, newlyDone, deviceJobOnReopen,
   UPLOAD_BIG_HOW, UPLOAD_REOPEN_TEXT, upDropText, upStartText, uploadPlan, upBig, upSameName, sameUpFile, upPiece, deviceHint, upResultId,
   starWant, starLabel, applyStars} from './files-model.mjs';
+import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
 import {folderLook} from './folder-prefs.js'; // FOLDER-순서·색 ③-2: 폴더 색·순서 읽기 사본([파일]·사진 폴더가 같이 씀)
 import {folderIconHtml, colorChoiceHtml, createColorMode} from './folder-look.js';
@@ -712,7 +713,8 @@ function openLayer() {
   root.dataset.fxPreview = 'open';
   layer ||= window.KPTURouter?.layer?.open('files-preview', {reopen: () => { if (state.preview) { root.dataset.fxPreview = 'open'; paintPreview(); } }, close: () => { layer = null; dropPreview(); paintPreview(); return true; }}) || null;
 }
-const canShare = () => typeof navigator.share === 'function' && typeof navigator.canShare === 'function';
+// S50-16: 폰 앱(0.5.1+)은 navigator.share가 없어도 앱 다리로 안드로이드 공유 창을 띄운다(app-share.js).
+const canShare = () => (typeof navigator.share === 'function' && typeof navigator.canShare === 'function') || appShare().known();
 function paintPreview() {
   const box = $('[data-fx-prev]');
   if (!box) return;
@@ -786,8 +788,19 @@ async function openCloud(r) {
     if (win) { win.opener = null; win.location.href = d.url; } else window.open(d.url, '_blank', 'noopener');
   } catch (e) { win?.close(); note(errorText(codeOf(e))); }
 }
+// S50-16: 폰 앱 안의 [공유]. 문서를 받아 앱 다리로 넘긴다(바이트는 이 화면 메모리에만). 못 보내는 종류·크기는 이유를 알린다.
+async function shareViaApp(r) {
+  if (!docMimeOf(r.name) && !/^image\//.test(r.mime || '')) { note('이 종류는 공유 창으로 못 보내요. [받기]를 써 주세요.'); return; }
+  if (Number(r.size_bytes) > OUT_FILE_MAX) { note('파일이 너무 커서 공유 창으로 못 보내요.'); return; }
+  note('공유 창을 준비해요…');
+  const blob = await rowBlob(r, 'media');
+  const file = new File([blob], r.name, {type: blob.type || ''});
+  const result = await appShare().share([{file}]);
+  note(result === 'shared' ? '' : result === 'busy' ? '앞 공유가 끝나는 중이에요. 잠시 뒤 다시 눌러 주세요.' : '공유하지 못했어요. 잠시 뒤 다시 해 주세요.');
+}
 async function download(r, {share = false} = {}) {
   try {
+    if (share && !(typeof navigator.share === 'function' && typeof navigator.canShare === 'function') && appShare().known()) { await shareViaApp(r); return; }
     const blob = await rowBlob(r, 'media');
     if (share) {
       const file = new File([blob], r.name, {type: blob.type || 'application/octet-stream'});
