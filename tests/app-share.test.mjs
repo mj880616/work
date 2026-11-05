@@ -136,3 +136,29 @@ test('[공유]가 있는 화면 모두 같은 길: 크게 보기·문서 사진�
   const deviceStores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'caches' + '\\.'].join('|'));
   assert.doesNotMatch(read('app/app-share.js'), deviceStores);
 });
+
+// S50-16 자료실 [공유]: 문서도 같은 앱 다리 길(종류는 확장자로).
+test('자료실 문서: 확장자로 종류를 정해 begin에 싣는다', async () => {
+  const {docMimeOf, OUT_FILE_MAX} = await import('../app/app-share.js');
+  assert.equal(docMimeOf('보고서.PDF'), 'application/pdf');
+  assert.equal(docMimeOf('a.hwpx'), 'application/vnd.hancom.hwpx');
+  assert.equal(docMimeOf('a.exe'), '');
+  assert.equal(docMimeOf('noext'), '');
+  assert.equal(OUT_FILE_MAX, 60 * 1024 * 1024);
+  const seen = [];
+  const {win} = fakeApp();
+  const post = win.KPTUAppShell.postMessage;
+  win.KPTUAppShell.postMessage = m => { seen.push(String(m)); return post(m); };
+  const app = createAppShare(win, {helloMs: 50, stepMs: 200});
+  await app.ready();
+  const file = new File([new Uint8Array(5).fill(65)], '안내.pdf', {type: 'application/octet-stream'});
+  assert.equal(await app.share([{file}]), 'shared');
+  assert.ok(seen.some(m => m.startsWith('out:begin:') && m.includes('"mime":"application/pdf"')));
+});
+
+test('자료실 [공유]는 폰 앱 다리가 있으면 보인다(files.js)', () => {
+  const src = read('app/files.js');
+  assert.match(src, /import \{appShare, docMimeOf, OUT_FILE_MAX\} from '\.\/app-share\.js'/);
+  assert.match(src, /appShare\(\)\.known\(\)/);
+  assert.match(src, /shareViaApp\(r\)/);
+});
