@@ -1232,7 +1232,8 @@ function openViewer(index, own = null) {
       if (!needTwoWay([item])) return false; chooseDelete(anchor, [item], () => plain()); return true;
     },
     // PHOTO-크게보기메뉴통일(S49-23): 아래 줄 버튼은 고르기 줄과 같은 목록·같은 보이는 규칙(actAvail). 크게 보기에서는 지금 보는 1장을 고른 것으로 같은 동작을 부른다.
-    acts:{avail:(id, item) => actAvail(id, [item]), run:(id, item, btn) => runStripAct(id, item, btn)},
+    // S50-31: 크게 보기 [편집 ▾]의 [정보수정]은 지금처럼 폰 사진만(원드라이브·드라이브 사진은 고르기 줄 [더보기]·우클릭 메뉴에서 — 크게 보기 칸을 늘리지 않음).
+    acts:{avail:(id, item) => (id === 'info' && item?.kind !== 'phone' ? {hidden:true} : actAvail(id, [item])), run:(id, item, btn) => runStripAct(id, item, btn)},
     errorText:error => (error?.message === 'phone_trash_refused' ? '폰에서 지우지 않았어요.' : `지우지 못했어요: ${odErrorText(error)}`), onError:note,
     onClose:({starChanged, restore}) => { if (!own && starChanged && filter === 'star' && restore && shown === 'all') { setListFor('all', items.filter(isStarred)); paintList({full:true}); } }});
 }
