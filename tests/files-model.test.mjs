@@ -410,6 +410,11 @@ test('S50-14: 처음 목록 받기가 안 끝났거나 실패하면 \'방금 맞
   const st = {od: {connected: true, scanning: false, error: null}, gd: {connected: true, scanning: false, error: null}};
   assert.equal(syncLabel(st, recent, now).text, '방금 맞춤');
   assert.equal(syncLabel({...st, od: {...st.od, scanning: true}}, recent, now).text, '맞추기…');
+  // S50-20: 받는 중이면 받은 개수도(두 출처 합). 세지 못한 출처는 빼고, 하나도 못 세면 개수 없이.
+  assert.equal(syncLabel({...st, od: {...st.od, scanning: true, received: 1200}}, recent, now).text, '맞추기… 1,200개');
+  assert.equal(syncLabel({...st, od: {...st.od, scanning: true, received: 5}, gd: {...st.gd, scanning: true, received: null}}, recent, now).text, '맞추기… 5개');
+  assert.equal(applySyncReply(st, {od: {more: true, received: 30}}).od.received, 30);
+  assert.equal(applySyncReply({...st, od: {...st.od, received: 30}}, {od: {done: true}}).od.received, null);
   assert.equal(syncLabel({...st, gd: {...st.gd, error: 'GD_STORE_UNAVAILABLE'}}, recent, now).text, '맞추기 안 됨');
   // 연결 안 된 출처의 옛 오류는 보지 않는다.
   assert.equal(syncLabel({...st, gd: {connected: false, error: 'x'}}, recent, now).text, '방금 맞춤');

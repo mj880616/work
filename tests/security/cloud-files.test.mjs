@@ -47,6 +47,7 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
    const i=v.indexOf('.'),op=v.slice(0,i),val=unq(v.slice(i+1));
    if(op==='eq'&&String(row[k])!==val)return false;
    if(op==='gt'&&!(row[k]!=null&&String(row[k])>val))return false;
+   if(op==='gte'&&!(row[k]!=null&&String(row[k])>=val))return false;
    if(op==='in'&&!val.slice(1,-1).split(',').map(s=>s.replace(/"/g,'')).includes(String(row[k])))return false;
    if(op==='lt'&&!(row[k]!=null&&String(row[k])<val))return false;
    if(op==='neq'&&String(row[k])===val)return false;
@@ -74,7 +75,7 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
    if(name==='public_policy_drive_config')return ok([{google_client_id:'c',google_client_secret:'s',google_refresh_token:'synthetic-gd-refresh'}]);
    const t=T[name];assert.ok(t,name);
    const rep=/representation/.test(h.Prefer||'');
-   if(method==='GET')return ok(db[t].filter(x=>match(x,p)));
+   if(method==='GET'){const r=db[t].filter(x=>match(x,p));if(/count=exact/.test(h.Prefer||'')){const n=r.length,lim=Number(p.get('limit')||n);return ok(r.slice(0,lim),200,{'content-range':n?`0-${Math.min(n,lim)-1}/${n}`:'*/0'});}return ok(r);}
    if(method==='POST'){const ignore=/ignore-duplicates/.test(h.Prefer||'');const made=[];
     // 운영 Postgres와 같게: merge-duplicates(ON CONFLICT DO UPDATE) 한 묶음 안에 같은 키가 두 번이면 묶음 전체를 거절(21000, HTTP 500).
     if(/merge-duplicates/.test(h.Prefer||'')){const ks=[].concat(JSON.parse(init.body)).map(r=>key[t]?.(r));if(new Set(ks).size!==ks.length){db.rejected=(db.rejected||0)+1;return ok({code:'21000',message:'ON CONFLICT DO UPDATE command cannot affect row a second time'},500);}}
@@ -1103,4 +1104,23 @@ test('star: confirm, owner, files feature, indexed items only; on/off are idempo
  await w.post({action:'star',confirm:true,source:'gd',ids:['GA'],on:false});
  assert.deepEqual(w.db.stars.map(x=>x.workspace_id+x.item_id).sort(),[WS+'GF1',WS2+'GA'].sort(),'other workspace star untouched');
  assert.equal(w.writes.length,0,'no cloud writes');
+});
+
+// S50-20: 처음 받는 중이면 status가 이번 훑기에서 받은 줄 수(received)를 준다. 다 받은 뒤에는 null. 공유받은 파일은 세지 않음(색인에 안 들어감).
+test('status: while the first scan runs, received counts rows seen in this scan (mine only); null once done',async()=>{
+ const w=world();w.gd.callMs=3000;
+ w.gd.pages=Array.from({length:4},(_,p)=>Array.from({length:10},(_,i)=>{const n=p*10+i;
+  return n%5===0?{id:'GF'+n,name:'폴더'+n,mimeType:'application/vnd.google-apps.folder',parents:['ROOTG'],ownedByMe:true}
+   :{id:'GX'+n,name:'파일'+n,mimeType:'text/plain',parents:['GF'+(n-n%5)],size:'3',ownedByMe:n%7!==0};}));
+ const first=(await j(await w.post({action:'sync',source:'gd'}))).body.gd;w.tick(1000);
+ assert.equal(first.more,true,'한 번에 다 못 받음');
+ assert.equal(first.received,w.db.items.filter(x=>x.source==='gd').length,'sync 응답도 받은 개수');
+ const mid=(await j(await w.post({action:'status'}))).body.gd;
+ assert.equal(mid.scanning,true);
+ assert.equal(mid.received,w.db.items.filter(x=>x.source==='gd').length);assert.ok(mid.received>0);
+ let last=first,calls=1;
+ while(last.more&&calls<10){last=(await j(await w.post({action:'sync',source:'gd'}))).body.gd;calls++;w.tick(1000);}
+ const end=(await j(await w.post({action:'status'}))).body.gd;
+ assert.equal(end.scanning,false);assert.equal(end.received,null);
+ assert.equal(w.db.items.filter(x=>x.source==='gd').length,40-[0,7,14,21,28,35].filter(n=>n%5!==0).length,'남이 준 파일은 색인에 없음');
 });
