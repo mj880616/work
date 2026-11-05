@@ -30,8 +30,7 @@ public interface IPcShell
 /// </summary>
 public sealed class PcDoor : IDisposable
 {
-    /// <summary>The only page allowed to use the door. Exactly this value, no other scheme, host or port.</summary>
-    /// <summary>Web2 addresses (same list as supabase/functions/_shared/web-cors.ts, without the github.io preview). Exact match only.</summary>
+    /// <summary>Web2 addresses (same list as supabase/functions/_shared/web-cors.ts, minus the Pages preview host). Exact match only: no other scheme, host or port.</summary>
     public static readonly IReadOnlyList<string> AllowedOrigins = new[] { "https://bokdoong.com", "https://work.bokdoong.com", "https://desk.bokdoong.com" };
 
     public static bool IsAllowedOrigin(string? origin) => origin != null && AllowedOrigins.Contains(origin, StringComparer.Ordinal);
