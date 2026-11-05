@@ -4,6 +4,8 @@ import { outputText } from '../_shared/openai-responses.ts';
 // S48-15: 제목 찾기에 부른 AI 토큰을 홈 'AI 사용량' 줄의 기존 표(app_ai_daily_usage)에 더한다. 기록 실패는 올리기를 막지 않는다.
 import { createAiUsageMeter, recordAiDailyUsage } from '../_shared/ai-daily-usage.mjs';
 type AiMeter={add:(raw:unknown)=>void};
+// S48-15: 요청마다 미터 하나(AI를 부르는 갈래에서만 만든다) — 제목 찾기·기록 한 줄 공용.
+const aiMeter=()=>createAiUsageMeter();
 import { HwpxReader, hwpToText } from 'npm:@ssabrojs/hwpxjs';
 import { readMultipartForm } from '../_shared/multipart.ts';
 import { createLibraryPhotoHandler } from './photo.ts';
@@ -203,10 +205,9 @@ Deno.serve(withWebCors(async(req:Request)=>{
     if(file.size>100*1024*1024)throw new UploadError('현재 자료실 파일은 100MB까지 지원합니다.',{status:413,code:'file_too_large',stage:'validate'});
 
     const wm=await workspaceFor(user.id);
-    // S48-15: 이 요청이 부른 AI 토큰은 이 미터 하나에 모아 끝에 한 번 기록한다.
-    const meter=createAiUsageMeter();
     // ORG-기록첨부(S50-22): mode=record_line은 한 줄 제안만 돌려준다(Drive·자료 행 만들지 않음). AI가 실패해도 200 + line:null(화면이 파일 이름 줄로).
     if(String(form.get('mode')||'')==='record_line'){
+      const meter=aiMeter();
       let line:string|null=null;
       try{line=await inferRecordLine(file,await workspaceModel(wm.workspace_id),meter)}catch(e){console.warn('record line skipped',safeErrorLog(e))}
       await recordAiDailyUsage(admin,{workspaceId:wm.workspace_id,userId:user.id,meter});
@@ -233,6 +234,7 @@ Deno.serve(withWebCors(async(req:Request)=>{
     let title=userTitle||nameTitle();
     let titleSource=userTitle?'user':'filename';
     if(!userTitle&&!meaningfulName){
+      const meter=aiMeter();
       try{
         const model=await workspaceModel(wm.workspace_id);
         const inferred=await inferTitleFromFile(file,model,meter);
