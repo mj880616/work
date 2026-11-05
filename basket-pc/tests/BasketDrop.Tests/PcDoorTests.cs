@@ -245,7 +245,7 @@ public class PcDoorTests
 
         public Rig()
         {
-            Door = PcDoor.Open(new FakeFiles(), Shell, Verifier, _ => Task.FromResult(Own), new NullLog(), "9.9.9", new[] { FakeServer.UnusedPort() });
+            Door = PcDoor.Open(new FakeFiles(), Shell, Verifier, _ => Task.FromResult<string?>(Own), new NullLog(), "9.9.9", new[] { FakeServer.UnusedPort() });
         }
 
         public void Dispose() => Door.Dispose();
@@ -467,7 +467,7 @@ public class PcDoorTests
         Assert.False(new AppSettings().WebDoor);
         var tray = File.ReadAllText(Path.Combine(SourceRoot(), "src", "BasketDrop", "TrayApp.cs"));
         Assert.Contains("var open = wanted && _auth.State == AuthState.SignedIn", tray);
-        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(tray, @"PcDoor\.Open\(").Count);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(tray, @"PcDoor\.Open\("));
     }
 
     internal static string SourceRoot()
