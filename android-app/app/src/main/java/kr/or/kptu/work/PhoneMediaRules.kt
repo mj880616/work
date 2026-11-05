@@ -417,6 +417,49 @@ object PhoneMediaRules {
         else -> 0L to true
     }
 
+    // ── 찍은 시각: 파일 EXIF 먼저 (PHOTO-파일시각읽기) ──
+
+    /** 시간대 칸이 없는 EXIF 시각을 읽을 때 쓰는 시간대(한국). */
+    val EXIF_DEFAULT_ZONE: ZoneId = ZoneId.of("Asia/Seoul")
+    private val EXIF_DATE = Regex("^(\\d{4}):(\\d{2}):(\\d{2})[ T](\\d{2}):(\\d{2}):(\\d{2})")
+    private val EXIF_OFFSET = Regex("^([+-])(\\d{2}):(\\d{2})$")
+    private const val EXIF_MIN_MS = 86_400_000L
+    private const val EXIF_MAX_MS = 4_102_444_800_000L
+
+    /**
+     * EXIF DateTimeOriginal("yyyy:MM:dd HH:mm:ss") + OffsetTimeOriginal("+09:00") → ms. 시간대 칸이 없거나 깨졌으면 한국 시각.
+     * 날짜가 없거나 깨졌거나 0000:00:00(카메라 기본값)이거나 범위 밖이면 null(→ 사진첩 값으로).
+     */
+    fun exifTakenMs(date: String?, offset: String?, subsec: String? = null): Long? {
+        val m = EXIF_DATE.find((date ?: "").trim()) ?: return null
+        val (y, mo, d, h, mi, se) = m.destructured
+        val zone: ZoneId = EXIF_OFFSET.find((offset ?: "").trim())?.let { o ->
+            val (sign, oh, om) = o.destructured
+            val total = oh.toInt() * 3600 + om.toInt() * 60
+            if (oh.toInt() > 18 || om.toInt() > 59) null else ZoneOffset.ofTotalSeconds(if (sign == "-") -total else total)
+        } ?: EXIF_DEFAULT_ZONE
+        val base = try {
+            java.time.LocalDateTime.of(y.toInt(), mo.toInt(), d.toInt(), h.toInt(), mi.toInt(), se.toInt()).atZone(zone).toInstant().toEpochMilli()
+        } catch (_: Exception) {
+            return null
+        }
+        val ms = (subsec ?: "").trim().takeIf { it.isNotEmpty() && it.length <= 9 && it.all { c -> c in '0'..'9' } }
+            ?.padEnd(3, '0')?.take(3)?.toLong() ?: 0L
+        val out = base + ms
+        return if (out in EXIF_MIN_MS..EXIF_MAX_MS) out else null
+    }
+
+    /** 사진 한 장의 EXIF 읽은 결과 기억 한 칸. exifMs = null이면 'EXIF에 시각 없음'(그래도 다시 읽지 않는다). */
+    data class ExifEntry(val modifiedSec: Long, val size: Long, val exifMs: Long?)
+
+    /** 파일이 바뀌었나(고친 시각 또는 크기가 다름) → 이 사진만 다시 읽는다. 기억이 없어도 읽는다. */
+    fun exifStale(entry: ExifEntry?, modifiedSec: Long, size: Long): Boolean =
+        entry == null || entry.modifiedSec != modifiedSec || entry.size != size
+
+    /** 찍은 시각 최종: EXIF 시각이 있으면 그것(approx=false), 없으면 기존 규칙(사진첩 DATE_TAKEN → 고친·넣은 시각). */
+    fun takenWithExif(exifMs: Long?, dateTakenMs: Long?, modifiedSec: Long?, addedSec: Long?): Pair<Long, Boolean> =
+        if (exifMs != null) exifMs to false else taken(dateTakenMs, modifiedSec, addedSec)
+
     fun filter(list: List<Media>, filter: String): List<Media> = when (filter) {
         "video" -> list.filter { it.video }
         "shot" -> list.filter { it.screenshot }

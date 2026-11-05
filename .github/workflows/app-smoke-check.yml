@@ -646,6 +646,8 @@ jobs:
         run: node --test tests/photo-sources.test.mjs
       - name: "Phone photo read errors (PHOTO-폰사진못읽음: 앱 실패 종류·이유 글·공용 실패 표시 이유, synthetic)"
         run: node --test tests/phone-photo-errors.test.mjs
+      - name: "Phone photo EXIF taken time (PHOTO-파일시각읽기: EXIF 찍은 시각 먼저·바뀐 파일만 다시 읽기·앱 0.5.0, synthetic)"
+        run: node --test tests/phone-exif-taken.test.mjs
       - name: "Phone photo gallery edit (PHOTO-갤러리편집: 편집·받기 다리 말, [편집] 단추 자리, synthetic)"
         run: node --test tests/phone-photo-edit.test.mjs
       - name: "Photo sources on every chip (PHOTO-출처모든칩: 폴더·휴지통·앨범 출처 따르기·폰 폴더 보기, synthetic)"
