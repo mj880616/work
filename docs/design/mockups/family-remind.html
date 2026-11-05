@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>잊지 말기 시안</title>
+<style>
+/* Web2 스타일 변수(app/base-ui.css --kptu-*, 기본 테마 olive 톤). 모든 글은 지어낸 값이다. */
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;
+  --kptu-warning:#8a6218;--kptu-warning-soft:#faf4e7;--kptu-link:#355f86;--kptu-other:#e9e6dc;
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;
+  --kptu-warning:#e0c97f;--kptu-warning-soft:#3a3420;--kptu-link:#a9c6de;--kptu-other:#34332d;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px 16px}
+h1{font-size:14px;font-weight:500;margin:0 0 4px;color:var(--kptu-muted)}
+h2{font-size:13px;font-weight:500;margin:0 0 6px;color:var(--kptu-primary-ink)}
+.lead{font-size:12px;color:var(--kptu-faint);margin:0 0 12px;max-width:780px}
+.row{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.phone{width:380px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--kptu-border-strong);border-radius:12px;overflow:hidden}
+.cap{font-size:12px;color:var(--kptu-muted);margin:0 0 4px}
+.top{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:.5px solid var(--kptu-border)}
+.top .t{font-weight:500;flex:1}
+.seg{display:inline-flex;border:.5px solid var(--kptu-border-strong);border-radius:6px;overflow:hidden;font-size:12px}
+.seg span{padding:2px 8px}.seg .on{background:var(--kptu-other)}
+.sum{padding:6px 12px;font-size:12px;color:var(--kptu-muted);border-bottom:.5px solid var(--kptu-border)}
+.box{margin:6px 12px;border:.5px solid var(--kptu-border);border-radius:8px;background:var(--kptu-surface-subtle)}
+.box>summary{list-style:none;cursor:pointer;padding:5px 10px;font-size:12px;display:flex;gap:6px;align-items:center}
+.box>summary::-webkit-details-marker{display:none}
+.box .n{background:var(--kptu-warning-soft);color:var(--kptu-warning);border-radius:9px;padding:0 6px;font-size:11px}
+.box .more{margin-left:auto;color:var(--kptu-faint)}
+.item{border-top:.5px solid var(--kptu-border);padding:6px 10px}
+.item .l{display:flex;gap:6px;align-items:baseline}
+.tag{font-size:11px;border-radius:4px;padding:0 4px;white-space:nowrap}
+.firm{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.plan{background:var(--kptu-warning-soft);color:var(--kptu-warning)}
+.unc{background:var(--kptu-other);color:var(--kptu-muted)}
+.meta{font-size:11px;color:var(--kptu-faint);margin:2px 0 4px}
+.btns{display:flex;gap:4px;flex-wrap:wrap}
+.btns button{height:26px;padding:0 8px;font:inherit;font-size:12px;border:.5px solid var(--kptu-border-strong);background:var(--kptu-surface);color:var(--kptu-ink);border-radius:6px}
+.btns .x{color:var(--kptu-faint)}
+.grp{padding:4px 10px 2px;font-size:11px;color:var(--kptu-muted);border-top:.5px solid var(--kptu-border)}
+.mem{display:flex;gap:6px;padding:3px 10px;font-size:12px;align-items:baseline}
+.mem .d{margin-left:auto;font-size:11px;color:var(--kptu-faint);white-space:nowrap}
+.dot{width:12px;height:12px;border:1px solid var(--kptu-border-strong);border-radius:50%;flex:none;display:inline-block}
+.dot.on{background:var(--kptu-primary)}
+.rest{padding:8px 12px;color:var(--kptu-faint);font-size:12px}
+.side{border-top:.5px solid var(--kptu-border);padding:6px 8px;font-size:12px;color:var(--kptu-muted)}
+.side div{padding:3px 8px;border-radius:6px}.side .on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.push{margin:8px 12px;border-radius:10px;background:var(--kptu-surface-subtle);border:.5px solid var(--kptu-border);padding:8px 10px;font-size:12px}
+.push b{font-weight:500}
+.note{font-size:12px;color:var(--kptu-muted);max-width:780px;margin:12px 0 0}
+</style>
+</head>
+<body>
+<h1>잊지 말기 — 화면 자리 시안 (지어낸 값)</h1>
+<p class="lead">가족 1명의 텔레그램 대화·통화에서 AI가 뽑은 '이것 잊으면 안 돼요!' 제안과 '기억' 모음. 제안 칸(홈 [하루] 요약 한 줄 아래)과 폰 알림은 A·B 공통이고, 다른 것은 '기억' 모음의 자리뿐이다. 누르기 전에는 할 일·일정이 생기지 않는다.</p>
+
+<div class="row">
+<section>
+<h2>A안 (추천) — 홈 [하루] 칸 하나에서 제안·기억 모두</h2>
+<p class="cap">폰 · 홈 [하루] · 칸을 펼친 모습. 칸 안 [제안 | 기억] 전환. 메뉴는 늘지 않는다.</p>
+<div class="phone">
+ <div class="top"><span class="t">11월 7일 (토)</span><span class="seg"><span class="on">하루</span><span>주간 정리</span></span></div>
+ <div class="sum">나한테 온 요청 1 · 챙길 것 3 · 정리 안 된 것 2 ›</div>
+ <details class="box" open>
+  <summary>잊지 말기 <span class="n">2</span><span class="seg" style="margin-left:8px"><span class="on">제안</span><span>기억</span></span><span class="more">접기</span></summary>
+  <div class="item">
+   <div class="l"><span class="tag plan">예정</span><span>토요일 저녁에 동네 산책 가자고 함</span></div>
+   <div class="meta">말한 때: 토요일 저녁 · 텔레그램 · 11/5</div>
+   <div class="btns"><button>할 일로</button><button>일정으로</button><button>기억만</button><button class="x" aria-label="제안 지우기">×</button></div>
+  </div>
+  <div class="item">
+   <div class="l"><span class="tag firm">확정</span><span>새로 생긴 빵집 소금빵이 맛있었다고 함</span></div>
+   <div class="meta">통화 · 11/6</div>
+   <div class="btns"><button>할 일로</button><button>일정으로</button><button>기억만</button><button class="x" aria-label="제안 지우기">×</button></div>
+  </div>
+ </details>
+ <div class="rest">업데이트 입력줄 · 그날 일정 | 할 일 · 오늘 한 일 …(지금 홈 그대로)</div>
+</div>
+<p class="cap" style="margin-top:10px">같은 칸에서 [기억]을 누른 모습</p>
+<div class="phone">
+ <details class="box" open>
+  <summary>잊지 말기 <span class="seg" style="margin-left:8px"><span>제안</span><span class="on">기억</span></span><span class="more">접기</span></summary>
+  <div class="grp">좋아함 · 싫어함</div>
+  <div class="mem"><span class="tag firm">좋아함</span>소금빵(새로 생긴 빵집)<span class="d">11/6</span></div>
+  <div class="mem"><span class="tag unc">싫어함</span>너무 매운 음식<span class="d">10/30</span></div>
+  <div class="grp">하자고 한 것 · 부탁</div>
+  <div class="mem"><span class="dot"></span>토요일 저녁 동네 산책<span class="d">토요일 저녁</span></div>
+  <div class="mem"><span class="dot"></span>주말에 화분 물 주기 (잊지 마)<span class="d">11/4</span></div>
+  <div class="mem" style="color:var(--kptu-faint)"><span class="dot on"></span>퇴근길 우유 (했음) — 한 것 3 접힘 ›<span class="d"></span></div>
+  <div class="grp">기념일 · 선물 거리</div>
+  <div class="mem"><span class="tag plan">기념일</span>다음 달 ○일<span class="d">11/2</span></div>
+  <div class="mem"><span class="tag unc">선물</span>겨울 장갑이 낡았다고 함<span class="d">11/1</span></div>
+ </details>
+</div>
+</section>
+
+<section>
+<h2>B안 — 기억 모음은 사이드바 맨 아래 작은 메뉴</h2>
+<p class="cap">홈 [하루]에는 새 제안 한 줄만(A와 같은 카드). '기억'은 따로 연다. 업무 화면에서 생활 기록이 덜 보인다.</p>
+<div class="phone">
+ <div class="top"><span class="t">11월 7일 (토)</span><span class="seg"><span class="on">하루</span><span>주간 정리</span></span></div>
+ <div class="sum">나한테 온 요청 1 · 챙길 것 3 · 정리 안 된 것 2 ›</div>
+ <details class="box"><summary>잊지 말기 <span class="n">2</span><span class="more">펼치기 ›</span></summary></details>
+ <div class="rest">…(지금 홈 그대로)</div>
+ <div class="side"><div>… 자료실</div><div>설정</div><div class="on">잊지 말기</div></div>
+</div>
+<p class="cap" style="margin-top:10px">사이드바 '잊지 말기' 화면 (A의 [기억]과 같은 세 묶음 + 맨 위 새 제안)</p>
+<div class="phone">
+ <div class="top"><span class="t">잊지 말기</span></div>
+ <div class="grp">새 제안 2 ›</div>
+ <div class="grp">좋아함 · 싫어함</div>
+ <div class="mem"><span class="tag firm">좋아함</span>소금빵(새로 생긴 빵집)<span class="d">11/6</span></div>
+ <div class="grp">하자고 한 것 · 부탁</div>
+ <div class="mem"><span class="dot"></span>토요일 저녁 동네 산책<span class="d">토요일 저녁</span></div>
+ <div class="grp">기념일 · 선물 거리</div>
+ <div class="mem"><span class="tag unc">선물</span>겨울 장갑이 낡았다고 함<span class="d">11/1</span></div>
+</div>
+<p class="cap" style="margin-top:10px">폰 알림 (A·B 공통, 내용은 싣지 않음 · 조용한 시간 지킴)</p>
+<div class="phone"><div class="push"><b>웹2 · 잊지 말기 2건</b><br>눌러서 확인하세요</div></div>
+</section>
+</div>
+
+<p class="note">버튼: [할 일로] = 지금 할 일 편집 창을 제목만 채워 열기(저장해야 생김) · [일정으로] = 일정 만들기 창(캘린더·날짜는 명진이 고름) · [기억만] = 기억 모음으로 · [×] = 제안 지우기(5초 되돌리기, 기록은 남겨 같은 제안을 다시 띄우지 않음). 머리표: 확정 / 예정 / 확인(불분명).</p>
+</body>
+</html>
