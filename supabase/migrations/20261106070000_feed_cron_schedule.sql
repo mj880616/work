@@ -38,7 +38,7 @@ begin
     raise exception 'FEED_CRON_EXTENSION_UNAVAILABLE: pg_cron or pg_net not available on this server; stop';
   end if;
   if not exists (select 1 from pg_catalog.pg_extension where extname = 'supabase_vault')
-     or to_regprocedure('vault.create_secret(text,text,text)') is null
+     or to_regprocedure('vault.create_secret(text,text,text,uuid)') is null
      or to_regclass('vault.decrypted_secrets') is null then
     raise exception 'FEED_CRON_VAULT_MISSING: supabase_vault not installed; stop (do not install here)';
   end if;
