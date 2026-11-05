@@ -46,11 +46,12 @@ function placeRow() {
 // place: null (basket), {kind, id} or a list. places: the opener's already read lists (optional). sources: reads for the place lists.
 // updateVia(letters, places, doc) → {ok, message?, linkError?, fileError?, docError?} | undefined: the opener's own save (the home input
 // keeps its files, photo reading and screen state that way); undefined leaves it to this window's own save.
+// fileLine (ORG-기록첨부): given only by an organization's record input — files without letters still make that record (update-places.js).
 // own: {place, name} the opener's own record, kept chosen. upload: {getBatch(), isBusy(), onChange(), reset()} the opener's file batch.
 // onPlace(places) after [저장] in the sheet. onSaved({kind:'update', place, places, name}) after a save.
 // onClose(text, {saved, places, value}) when it closes: text/value = what was written (letters / saved form), saved = it was saved.
 export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft = true, place = null, places = null, sources = null, rt = window.KPTURuntime,
-  updateVia = null, own = null, upload = null, onPlace = () => {}, onSaved = () => {}, onClose = () => {}} = {}) {
+  updateVia = null, own = null, upload = null, fileLine = null, onPlace = () => {}, onSaved = () => {}, onClose = () => {}} = {}) {
   const owner = rt.session.read()?.user?.id;
   let handle = null, saved = null, flight = null, closed = false, busy = false, ownBatch = upload ? null : createUploadBatch();
   const batch = () => upload ? upload.getBatch() : ownBatch;
@@ -93,7 +94,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
     const list = batch(), isCurrent = () => rt.session.read()?.user?.id === owner, onChange = () => files.picker.render();
     if (!list.entries.length) return saveUpdate({places:target, text:letters, owner, doc:doc1}, rt);
     let result;
-    if (target.length) result = await saveUpdateWithFiles({places:target, text:letters, batch:list, doc:doc1, isCurrent, sameOwner:isCurrent, onChange}, rt);
+    if (target.length) result = await saveUpdateWithFiles({places:target, text:letters, batch:list, doc:doc1, isCurrent, sameOwner:isCurrent, onChange, ...(fileLine ? {fileLine} : {})}, rt);
     else {
       result = await uploadBatch(list, {raw_text:letters, rt, isCurrent, onChange});
       if (doc1 && letters.trim()) { try { await attachNoteDoc(result.note_id, doc1, rt); } catch { result = {...result, docError:true}; } }

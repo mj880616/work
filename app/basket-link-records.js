@@ -37,7 +37,8 @@ export async function readRecordPages(path,rt=window.KPTURuntime){
 // REF-참고묶음 (docs/design/ref-bundle.md 4절): kind 'bundle' reads the confirmed links to reference bundles (bundle_id) with the same
 // one read and the same owner/workspace checks, for the coming 참고 screen. Without kind 'bundle' nothing changes: organization and
 // project links only, so a reference link never reaches an organization or project record list.
-export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,dateOnly=false,noteKinds=['basket']}={},rt=window.KPTURuntime){
+// ORG-기록첨부: withFiles also reads the note's attachments (same read, same checks) for the record lists' picture/file strip (record-files.js).
+export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,dateOnly=false,noteKinds=['basket'],withFiles=false}={},rt=window.KPTURuntime){
   const context=contextFor(rt),workspaceId=context?.workspace?.id;
   if(!context?.user?.id||!workspaceId)throw changed();
   if(kind&&!['organization','project','bundle'].includes(kind))throw Error('연결할 곳을 확인해 주세요.');
@@ -45,7 +46,7 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
   const kinds=noteKinds.filter(k=>['basket','note'].includes(k));if(!kinds.length)return [];const withNotes=kinds.includes('note');
   const owner=scope(rt),encode=encodeURIComponent,bundle=kind==='bundle',target=kind==='organization'?'organization_id':bundle?'bundle_id':'project_id';
   const columns=`organization_id,project_id${bundle?',bundle_id':''}`;
-  const fields=dateOnly?`id,workspace_id,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at)`:`id,workspace_id,summary,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text${withNotes?',kind,title':''})`;
+  const fields=dateOnly?`id,workspace_id,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at)`:`id,workspace_id,summary,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text${withNotes?',kind,title':''}${withFiles?',attachments':''})`;
   const places=bundle?'bundle_id=not.is.null':'or=(organization_id.not.is.null,project_id.not.is.null)';
   const base=`/rest/v1/app_record_links?workspace_id=eq.${encode(workspaceId)}&note.workspace_id=eq.${encode(workspaceId)}&note.kind=${kinds.length===1?'eq.'+kinds[0]:'in.('+kinds.join(',')+')'}&status=eq.confirmed&note_id=not.is.null&${places}&select=${fields}&order=id.asc`;
   const batches=targetIds?Array.from({length:Math.ceil(targetIds.length/PAGE_SIZE)},(_,i)=>targetIds.slice(i*PAGE_SIZE,(i+1)*PAGE_SIZE)):[null];
@@ -61,7 +62,7 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
       if(linkId&&row.id!==linkId||kind&&!row[target]||targetIds&&!targetIds.includes(row[target]))continue;
       if(weekStart&&Date.parse(note.occurred_at)<Date.parse(weekStart)||weekEnd&&Date.parse(note.occurred_at)>=Date.parse(weekEnd))continue;
       const noteKind=withNotes&&note.kind==='note'?'note':'basket';if(!kinds.includes(noteKind))continue;
-      rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,...(bundle?{bundle_id:row.bundle_id}:{}),occurred_at:note.occurred_at,type:'basket',...(withNotes?{note_kind:noteKind,title:note.title??null}:{})});
+      rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,...(bundle?{bundle_id:row.bundle_id}:{}),occurred_at:note.occurred_at,type:'basket',...(withNotes?{note_kind:noteKind,title:note.title??null}:{}),...(withFiles&&!dateOnly?{attachments:Array.isArray(note.attachments)?note.attachments:[]}:{})});
     }
   }
   return rows;
@@ -106,10 +107,11 @@ const recordSourceText=row=>row.summary!=null?row.summary:(isNoteRecord(row)&&St
 export const recordMarkdownSource=row=>markdownSource(recordSourceText(row));
 // EDIT-번호모양보존: a text with no markdown marks that was written over several lines opens as written ("1)" "(1)" indentation and blank lines stay).
 export const recordWrittenSource=row=>{const text=recordSourceText(row);return !markdownSource(text)&&/\n/.test(String(text??'').trim())?writtenText(text):'';};
-export function linkRecordHtml(row){
+// extra: html put inside the record under its line (ORG-기록첨부: the picture/file strip, record-files.js).
+export function linkRecordHtml(row,{extra=''}={}){
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
   const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),href=note?'./?view=basket':`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
-  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'정리함 연결'} · <time>${escape(date)}</time></small><p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordText(row)||'요약 없음')}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="정리함 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'정리함 연결'} · <time>${escape(date)}</time></small><p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordText(row)||'요약 없음')}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="정리함 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div>${extra}<p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
 }
 
 // One menu panel for every mounted record host (created on first use inside the open dialog).

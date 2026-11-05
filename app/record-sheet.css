@@ -22,3 +22,14 @@
   html:has(body.kptu-workspace-shell) .modal.record-sheet{bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom))}
   .record-sheet-card{width:100%;max-height:min(82dvh,calc(100dvh - var(--kptu-mobile-tab-height,0px) - 40px))}
 }
+
+/* ORG-기록첨부(S50-22): 담당조직·프로젝트 기록 줄 아래 그 기록의 그림(작게, 누르면 크게)·파일(이름 줄, 누르면 열기). record-files.js가 그린다. */
+.record-files{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 6px}
+.record-file-thumb{position:relative;display:block;box-sizing:border-box;width:56px;height:56px;min-width:0;min-height:0;margin:0;padding:0;overflow:hidden;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);cursor:zoom-in}
+.record-file-thumb .diary-photo{display:block;width:100%;height:100%}
+.record-file-thumb img{display:block;width:100%;height:100%;object-fit:cover}
+.record-file-thumb:focus-visible,.record-file-name:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+.record-file-name{display:inline-flex;align-items:center;gap:6px;max-width:100%;min-height:32px;margin:0;padding:2px 8px 2px 4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta,12px);font-weight:400;cursor:pointer}
+.record-file-name .file-kind{flex:none;padding:0 4px;border-radius:4px;background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-size:11px;line-height:18px}
+.record-file-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.record-files-more{color:var(--kptu-muted);font-size:var(--kptu-text-meta,12px)}
