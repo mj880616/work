@@ -53,7 +53,8 @@ test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버�
   await expect(page.locator('#wdInboxText')).toBeVisible();
   await expect(page.locator('#wdInboxText')).toHaveAttribute('placeholder','통화·회의·교섭 내용을 그냥 적으세요');
   await expect(page.locator('#wdInboxSave')).toHaveText('저장');
-  await expect(page.locator('#wdModal textarea:visible, #wdModal input:visible:not(#wdStage input)')).toHaveCount(1);
+  // ORG-기록첨부(S50-22): 📎의 파일 고르기 칸(input[type=file], 화면 밖 1px)은 글 입력칸이 아니다.
+  await expect(page.locator('#wdModal textarea:visible, #wdModal input:visible:not(#wdStage input):not([type="file"])')).toHaveCount(1);
   await expect(page.locator('#wdUpdateCurrent,#wdCurrentModal,#wdAddItem,#wdItemModal,#warRaw,#warSaveRaw')).toHaveCount(0);
   await expect(page.locator('#wdDeleteOrg')).toHaveCount(0);
   const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-subpanel[data-wd-subpanel="log"] > .wd-sec')].map(sec=>(sec.querySelector('h3')||sec.querySelector('[role="tab"]'))?.firstChild?.textContent?.trim()));

@@ -413,7 +413,10 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // detail above, the current detail markup goes to main's side too and is compared under both style sets.
   if(width>=761){const html=await page.locator('#wdModal').evaluate(el=>el.outerHTML);await original.locator('#wdModal').evaluate((el,html)=>{el.outerHTML=html},html)}
   else{const orgDocs=await page.locator('#wdModal #wdDocs').evaluate(el=>el.outerHTML);
-  await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);}
+  await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);
+  // ORG-기록첨부(S50-22): 기록 칸에 📎(공용 첨부 부품)와 고른 파일 줄이 생겼다. 현재 기록 칸 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  const orgInbox=await page.locator('#wdModal #wdInbox').evaluate(el=>el.outerHTML);
+  await original.locator('#wdModal #wdInbox').evaluate((el,html)=>{el.outerHTML=html},orgInbox);}
   // MTG-사업보고 6단계(PR #1042): 담당조직 상세에 [사업 보고] 묶음이 생겼다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
   // UI-전수디자인점검 F08: 담당조직 창 이름 위 '담당조직' 작은 제목(.eyebrow)은 없앴다(창 이름과 중복). 비교 기준 쪽에서도 그 줄을 뺀다.
   await original.evaluate(()=>document.querySelectorAll('#wdModal .modal-head .eyebrow').forEach(el=>el.remove()));

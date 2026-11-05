@@ -15,6 +15,7 @@ import { confirmLinks } from './basket-classification.js';
 import { announceRecordSaved, basketDetail } from './record-saved.js';
 import { readReferenceBundles } from './reference-bundles-data.js';
 import { pickMyOrganizations } from './my-organizations.js';
+import { fallbackFileLine } from './record-file-line.mjs';
 
 // place: null (basket) | {kind:'organization'|'project'|'reference', id}
 // REF-참고묶음: 'reference' is a reference bundle (app_reference_bundles). It has no record table of its own, so an update for it is
@@ -178,10 +179,17 @@ export const fileFailText = '파일은 정리함에 저장했지만 고른 곳 �
 //    document-actions register-basket-attachment + the owner-RLS app_documents update). A document belongs to one project and
 //    one organization, so further places of the same kind show the files through the linked update only.
 // A refused link or filing leaves the update (and files) saved in the basket; {linkError, filed} says which, never a retry.
-export async function saveUpdateWithFiles({places, text, batch, doc = null, isCurrent = () => true, sameOwner = () => true, ocr, onChange, onOcrChange}, rt = window.KPTURuntime) {
+// ORG-기록첨부(S50-22): fileLine(files) → Promise<string> is given only by the organization/project record input (record-attach.js).
+// With it, files without letters still make the record: one line (the server AI's reading of the file, or the file's name) goes in
+// as that link's summary, which [요약 수정] changes later. Without it (home, basket, update window opened elsewhere) nothing changes.
+// It starts before the upload (the picked File objects are dropped once they are sent) and never stops the save.
+export async function saveUpdateWithFiles({places, text, batch, doc = null, isCurrent = () => true, sameOwner = () => true, ocr, onChange, onOcrChange, fileLine = null}, rt = window.KPTURuntime) {
   const list = placeList(places);
   if (!list.length) throw new Error('기록할 곳을 골라 주세요.');
   if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`);
+  const lettered = !!String(text || '').trim();
+  const picked = !lettered && typeof fileLine === 'function' && list.some(p => p.kind === 'project' || p.kind === 'organization') ? batch.entries.filter(e => e.kind !== 'success' && e.file).map(e => e.file) : [];
+  const linePromise = picked.length ? Promise.resolve().then(() => fileLine(picked)).catch(() => '') : null;
   await uploadBatch(batch, {raw_text:text, rt, isCurrent, ...(ocr ? {ocr} : {}), ...(onChange ? {onChange} : {}), ...(onOcrChange ? {onOcrChange} : {})});
   const noteId = batch.note_id;
   window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
@@ -192,12 +200,14 @@ export async function saveUpdateWithFiles({places, text, batch, doc = null, isCu
   try { note = await readBasketNote(noteId, rt); } catch { note = null; }
   if (!sameOwner()) return {note:{id:noteId}, linkError:'STALE', filed:null, stale:true};
   // Files only (no text) make no organization or project record, as [자료로 넣기]; a reference bundle is linked either way (REF-참고묶음).
-  const linkTo = String(text || '').trim() ? list : list.filter(p => p.kind === 'reference');
+  // ORG-기록첨부: …unless the record input gave fileLine — then the organization/project record is made with that line as its summary.
+  const line = linePromise ? String(await linePromise || '').trim() || fallbackFileLine(picked) : '';
+  const linkTo = lettered ? list : line ? list : list.filter(p => p.kind === 'reference');
   if (linkTo.length) {
     if (!note) linkError = 'NOTE_MISSING';
     else {
       try {
-        const result = await confirmLinks(noteId, note.updated_at, linkTo.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON})), rt);
+        const result = await confirmLinks(noteId, note.updated_at, linkTo.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON, ...(line && p.kind !== 'reference' ? {summary:line} : {})})), rt);
         if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
       } catch (error) { linkError = error?.message || 'UNKNOWN'; }
       if (!linkError) { window.dispatchEvent(new CustomEvent('kptu:basket-links-changed')); announceRecordSaved(basketDetail(note, linkTo)); }
