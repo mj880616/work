@@ -2,6 +2,8 @@
 //
 // 입구 두 개(verify_jwt=false, 함수 코드가 막음 — outside-feed와 같은 방식):
 // - 예약 입구(`run_plan`·`run`): `x-news-feed-cron-secret` 헤더를 비밀값 NEWS_FEED_CRON_SECRET(32자 이상)과 SHA-256 고정 길이 비교.
+//   또는(NEWS-전면개편 P1c) 그 헤더 값의 SHA-256을 service role로 읽은 app_cron_keys('web2_feed_cron') 지문과 고정 길이 비교(_shared/cron-key.ts).
+//   둘 중 하나 맞으면 통과. 지문 행이 없거나 표를 못 읽으면 지문 길만 실패한다.
 //   어느 작업공간에 넣을지는 서버가 표(app_outside_sources의 news- 키, app_news_keywords, app_news_items 대기 줄)로 정한다.
 //   run 단계: media(켠 매체 RSS 한 곳) · keywords(구글 뉴스 검색 RSS) · pending(채널 기사 원문 읽기·요약) · titles(외국어 기사 제목만 한국어로) · prune(오래된 자동 기사 정리).
 // - 화면 입구(`catalog`·`fill_now`·`open`·`translate`): 사용자 로그인을 Auth 서버로 확인 + 그 사람이 owner인 작업공간 하나를 서버가 정함.
@@ -26,6 +28,7 @@ import { tidyTitle } from "../_shared/outside-tidy.ts";
 // 기사 제목도 사회운동 Now와 같은 정돈 함수를 거친다(11/02 00:19): 한 줄, 종류 꼬리표·매체명 꼬리·날짜 꼬리만 떼고 '제목 - 부제'는 나누지 않는다.
 const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: false }).title || raw;
 import { secretMatches } from "../outside-feed/handler.ts";
+import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, splitGoogleTitle, titleKey } from "./page.ts";
 
 export type NewsFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: FeedLog };
@@ -556,10 +559,13 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       if ((cronGiven === null) === (auth === null)) throw new Fail(401, "UNAUTHORIZED");
       if (req.method !== "POST") throw new Fail(405, "METHOD_NOT_ALLOWED");
       const cron = cronGiven !== null;
-      if (cron) {
-        if (!await secretMatches(cronGiven, deps.env(SECRET_NAME))) throw new Fail(401, "UNAUTHORIZED");
-      } else if (!/^Bearer ([A-Za-z0-9._-]{20,4096})$/.test(auth ?? "")) throw new Fail(401, "UNAUTHORIZED");
       const sb = deps.env("SUPABASE_URL") ?? "", key = deps.env("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+      if (cron) {
+        // 지금 비밀값 또는 DB 예약 열쇠 지문(app_cron_keys) 둘 중 하나. 지문은 비밀값이 틀릴 때만 읽는다.
+        if (!await secretMatches(cronGiven, deps.env(SECRET_NAME)) && !await cronKeyMatches(cronGiven, { sb, serviceKey: key, doFetch, log })) {
+          throw new Fail(401, "UNAUTHORIZED");
+        }
+      } else if (!/^Bearer ([A-Za-z0-9._-]{20,4096})$/.test(auth ?? "")) throw new Fail(401, "UNAUTHORIZED");
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
       let action: string | null = null;
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
