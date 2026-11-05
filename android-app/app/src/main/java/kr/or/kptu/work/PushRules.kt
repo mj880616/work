@@ -21,6 +21,8 @@ object PushRules {
         "next_week" to "다음 주 준비",
         "quiet_digest" to "조용한 시간 묶음",
         "test" to "시험 알림",
+        // FAMILY-잊지말기 4단계: "잊지 말기 n건"(제목만, 잠금 화면은 PUBLIC_TITLE). 묶음처럼 보통(급하지 않음).
+        "family" to "잊지 말기",
     )
 
     /** 바로 알리는 종류(설계 8절: 우선순위 높음은 즉시 알림 4종 + 시험). 묶음은 보통. */

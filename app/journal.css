@@ -697,3 +697,30 @@
 #appView #homeView .journal-memorable-org{ font-weight:var(--ds-weight-medium); }
 #appView #homeView .journal-memorable-edit{ display:flex; gap:4px; width:100%; }
 #appView #homeView .journal-memorable-edit input{ flex:1; min-width:0; }
+/* FAMILY-잊지말기 4단계(시안 A): 홈 [하루]의 '잊지 말기' 작은 칸. 톤다운·콤팩트, 버튼은 mini(UI-버튼기준). */
+#appView #homeView .home-family{ margin:4px 0 6px; }
+#appView #homeView .home-family-box{ border:.5px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface-subtle); font-size:var(--ds-text-meta,12px); }
+#appView #homeView .home-family-box>summary{ cursor:pointer; padding:5px 10px; min-height:var(--kptu-touch-target,44px); display:flex; align-items:center; gap:6px; color:var(--kptu-muted); }
+#appView #homeView .home-family-n{ background:var(--kptu-warning-soft); color:var(--kptu-warning); border-radius:9px; padding:0 6px; font-size:11px; }
+#appView #homeView .home-family-tabs{ display:flex; gap:4px; align-items:center; padding:0 10px 4px; }
+#appView #homeView .home-family-tabs [aria-pressed="true"]{ background:var(--kptu-other,var(--kptu-surface)); }
+#appView #homeView .home-family-note{ margin-left:auto; color:var(--kptu-faint); font-size:11px; }
+#appView #homeView .home-family-list,#appView #homeView .home-family-grp ul,#appView #homeView .home-family-done ul{ list-style:none; margin:0; padding:0; }
+#appView #homeView .home-family-item{ border-top:.5px solid var(--kptu-border); padding:6px 10px; }
+#appView #homeView .home-family-line{ display:flex; gap:6px; align-items:baseline; color:var(--kptu-ink); }
+#appView #homeView .home-family-tag{ font-size:11px; border-radius:4px; padding:0 4px; white-space:nowrap; background:var(--kptu-other,var(--kptu-surface)); color:var(--kptu-muted); }
+#appView #homeView .home-family-tag.is-firm{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
+#appView #homeView .home-family-tag.is-plan{ background:var(--kptu-warning-soft); color:var(--kptu-warning); }
+#appView #homeView .home-family-meta{ font-size:11px; color:var(--kptu-faint); margin:2px 0 4px; }
+#appView #homeView .home-family-acts{ display:flex; gap:4px; flex-wrap:wrap; }
+#appView #homeView .home-family-x{ color:var(--kptu-faint); }
+#appView #homeView .home-family-grp h5{ margin:0; padding:4px 10px 2px; font-size:11px; font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); border-top:.5px solid var(--kptu-border); }
+#appView #homeView .home-family-mem{ display:flex; gap:6px; align-items:center; padding:3px 10px; }
+#appView #homeView .home-family-day{ margin-left:auto; font-size:11px; color:var(--kptu-faint); white-space:nowrap; }
+#appView #homeView .home-family-dot{ flex:none; width:16px; height:16px; min-width:16px; padding:0; border:1px solid var(--kptu-border-strong); border-radius:50%; background:transparent; position:relative; }
+#appView #homeView .home-family-dot::after{ content:""; position:absolute; inset:-14px; }
+#appView #homeView .home-family-dot.is-on{ background:var(--kptu-primary); }
+#appView #homeView .home-family-done>summary{ cursor:pointer; padding:3px 10px; color:var(--kptu-faint); font-size:11px; }
+#appView #homeView .home-family-empty,#appView #homeView .home-family-status{ margin:0; padding:4px 10px; color:var(--kptu-faint); font-size:11px; }
+#appView #homeView .home-family-status:empty{ display:none; }
+#appView #homeView .home-family-src{ color:var(--kptu-link); }
