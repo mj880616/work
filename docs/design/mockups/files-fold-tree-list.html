@@ -1,0 +1,58 @@
+<!doctype html><meta charset="utf-8"><style>
+body{margin:0;padding:14px;background:#e9e8ee;font-family:"Noto Sans KR",sans-serif;display:flex;gap:18px;align-items:flex-start}
+.cap{font-size:13px;font-weight:700;color:#444;margin:0 0 6px 4px}
+.fd{width:700px;height:800px;background:#f6f5f9;border-radius:18px;box-shadow:0 1px 4px #0002;overflow:hidden;display:flex;flex-direction:column}
+.top{display:flex;gap:6px;align-items:center;padding:10px 12px;border-bottom:1px solid #e2e0e8}
+.srch{flex:1;height:34px;border:1px solid #d9d7e0;border-radius:8px;background:#fff;color:#999;font-size:13px;display:flex;align-items:center;padding:0 10px}
+.b{height:32px;border:1px solid #d9d7e0;border-radius:8px;background:#fff;font-size:12px;display:flex;align-items:center;padding:0 9px}
+.main{flex:1;display:flex;min-height:0}
+.tree{width:240px;border-right:1px solid #e2e0e8;padding:6px 0;font-size:13px;overflow:hidden}
+.list{flex:1;display:flex;flex-direction:column;min-width:0}
+.r{display:flex;align-items:center;gap:7px;height:30px;padding:0 10px;white-space:nowrap}
+.r.s{font-weight:700;background:#ecebf2;margin-top:6px}
+.r.on{background:#e3dff3;border-radius:6px;margin:0 6px;padding:0 4px}
+.chips{display:flex;gap:5px;padding:4px 8px 8px}
+.chip{font-size:11px;border:1px solid #dcdae3;border-radius:12px;padding:3px 8px;background:#fff}
+.lt{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #e2e0e8;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:10px 12px}
+.c{font-size:11px;text-align:center;color:#333}
+.th{aspect-ratio:1;border-radius:8px;background:linear-gradient(135deg,#c9b9a6,#8c7a6b);margin-bottom:3px}
+.pv{width:200px;border-left:1px solid #e2e0e8;padding:10px;font-size:12px;color:#444}
+.f{width:16px;height:16px;flex:none}
+.legend{width:290px;font-size:13px;line-height:1.6;background:#fff;border-radius:12px;padding:12px 14px}
+.legend b{color:#5b4f8a}
+</style><body>
+<div><div class="cap">폴드 펼침 — 개선안 (한 칸: 나무 | 목록)</div><div class="fd">
+<div class="top"><div class="srch">파일·자료 찾기</div><span class="b">☁</span><span class="b">▲</span><span class="b">▯</span><span class="b">두 칸 보기</span></div>
+<div class="main">
+<div class="tree">
+<div class="chips"><span class="chip">🕘 최근</span><span class="chip">★ 별표</span><span class="chip">큰 파일</span></div>
+<div class="r s">▾ ☁ 원드라이브</div>
+<div class="r">› <svg class="f" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>Documents</div>
+<div class="r">› <svg class="f" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>글꼴</div>
+<div class="r">⌄ <svg class="f" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>사진 원본</div>
+<div class="r on" style="padding-left:26px"><svg class="f" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>카메라 1 <span style="color:#888;font-size:11px">863</span></div>
+<div class="r" style="padding-left:30px"><svg class="f" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>카메라 2</div>
+<div class="r" style="padding-left:30px"><svg class="f" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>카메라 3</div>
+<div class="r">› <svg class="f" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>앱</div>
+<div class="r" style="color:#888">　🗑 휴지통 9</div>
+<div class="r s">▸ ▲ 구글 드라이브</div>
+<div class="r s">▸ ▯ 이 폰</div>
+</div>
+<div class="list">
+<div class="lt"><span class="b">‹</span><span style="color:#777">사진 원본 ›</span><b>카메라 1</b><span style="margin-left:auto" class="b">이름 ▾</span><span class="b">새 폴더</span><span class="b">올리기</span></div>
+<div class="grid">
+<div class="c"><div class="th"></div>IMG_0001</div><div class="c"><div class="th" style="filter:hue-rotate(40deg)"></div>IMG_0002</div><div class="c"><div class="th" style="filter:hue-rotate(80deg)"></div>IMG_0003</div><div class="c"><div class="th" style="filter:hue-rotate(120deg)"></div>IMG_0004</div>
+<div class="c"><div class="th" style="filter:hue-rotate(160deg)"></div>IMG_0005</div><div class="c"><div class="th" style="filter:hue-rotate(200deg)"></div>IMG_0006</div><div class="c"><div class="th" style="filter:hue-rotate(240deg)"></div>IMG_0007</div><div class="c"><div class="th" style="filter:hue-rotate(280deg)"></div>IMG_0008</div>
+<div class="c"><div class="th" style="filter:hue-rotate(20deg)"></div>IMG_0009</div><div class="c"><div class="th" style="filter:hue-rotate(60deg)"></div>IMG_0010</div><div class="c"><div class="th" style="filter:hue-rotate(100deg)"></div>IMG_0011</div><div class="c"><div class="th" style="filter:hue-rotate(140deg)"></div>IMG_0012</div>
+<div class="c"><div class="th" style="filter:hue-rotate(180deg)"></div>IMG_0013</div><div class="c"><div class="th" style="filter:hue-rotate(220deg)"></div>IMG_0014</div><div class="c"><div class="th" style="filter:hue-rotate(260deg)"></div>IMG_0015</div><div class="c"><div class="th" style="filter:hue-rotate(300deg)"></div>IMG_0016</div>
+</div></div></div></div></div>
+<div class="legend"><b>지금</b>: 폴드를 펼쳐도 폰처럼 나무만 화면 전체에 깔리고 오른쪽 절반이 비어 있음. 폴더를 누르면 나무가 사라지고 목록만.<br><br>
+<b>개선</b><br>① 펼치면 <b>왼쪽 나무(좁게) | 오른쪽 목록</b> — 폴더를 눌러도 나무가 그대로 있어 옆 폴더로 바로 이동.<br>
+② 목록은 핀치로 목록 ⇄ 4칸 격자(폴드는 칸 수 하나 더).<br>
+③ 위 줄에 [두 칸 보기] — 누르면 좌우 두 목록(나무는 칸 위 ▾로 내려옴), 꾹 눌러 끌어 옆 칸으로.<br>
+④ 저장소마다 이름 줄 옅은 배경 + 접기 — 안 쓰는 저장소는 한 줄.<br>
+⑤ 나무 폭은 경계선을 끌어 조절, 서버에 기억.<br>
+⑥ 폴드 펼침 판단은 화면 폭 숫자만 보지 말고 폰 앱·삼성 인터넷 모두에서 '펼친 폴드'로 확실히 잡히게(지금 폰 모양으로 나오는 원인부터 확인).<br><br>
+같은 종류: 자료실·노트 폴더 화면도 폴드 펼침에서 같은 '나무 | 목록'.</div>
+</body>

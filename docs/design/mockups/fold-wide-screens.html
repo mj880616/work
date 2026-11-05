@@ -1,0 +1,79 @@
+<!doctype html><meta charset="utf-8"><style>
+body{margin:0;padding:14px;background:#e9e8ee;font-family:"Noto Sans KR",sans-serif}
+.wrap{display:flex;gap:14px;flex-wrap:wrap}
+.cap{font-size:13px;font-weight:700;color:#444;margin:0 0 5px 4px}
+.fd{width:520px;height:600px;background:#f6f5f9;border-radius:16px;box-shadow:0 1px 4px #0002;overflow:hidden;display:flex;flex-direction:column;font-size:12px}
+.tb{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid #e2e0e8}
+.tl{font-weight:700;font-size:14px;margin-right:4px}
+.tab{border:1px solid #d9d7e0;background:#fff;border-radius:12px;padding:2px 9px;font-size:11px}
+.tab.on{background:#e6e1f6;border-color:#9a8fc9}
+.s{flex:1;height:28px;border:1px solid #d9d7e0;border-radius:7px;background:#fff;color:#999;display:flex;align-items:center;padding:0 8px;font-size:11px}
+.m{flex:1;display:flex;min-height:0}
+.l{width:210px;border-right:1px solid #e2e0e8;overflow:hidden}
+.r{flex:1;padding:10px 12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-bottom:1px solid #ecebf1;white-space:nowrap;overflow:hidden}
+.row.on{background:#e6e1f6;box-shadow:inset 3px 0 0 #6b5ca8}
+.f{width:14px;height:14px;flex:none}
+.n{color:#999;font-size:10px}
+.h{font-size:15px;font-weight:700;margin-bottom:6px}
+.p{color:#444;line-height:1.6}
+.nav{display:flex;justify-content:space-around;border-top:1px solid #dddbe3;padding:6px 0;font-size:10px;color:#666}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px}
+.card{background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e2e0e8}
+.cv{aspect-ratio:4/3;background:linear-gradient(135deg,#c9b9a6,#8c7a6b)}
+.ci{padding:4px 6px;display:flex;align-items:center;gap:4px;font-size:11px}
+.sw{margin-left:auto;width:22px;height:12px;border-radius:6px;background:#555;position:relative}.sw:after{content:"";position:absolute;right:1px;top:1px;width:10px;height:10px;border-radius:50%;background:#fff}
+.sw.off{background:#ccc}.sw.off:after{left:1px;right:auto}
+.dim{opacity:.5}
+.legend{width:520px;font-size:13px;line-height:1.65;background:#fff;border-radius:12px;padding:12px 14px}
+.legend b{color:#5b4f8a}
+</style><body><div class="wrap">
+<div><div class="cap">A. 모든 화면 공통 — 큰 제목·아래 탭을 위 한 줄로</div><div class="fd">
+<div class="tb"><span class="tl">일정</span><span class="tab">달력</span><span class="tab on">할 일</span><span class="tab">일기</span><div class="s">찾기</div></div>
+<div class="m"><div class="l">
+<div class="row" style="color:#a33;font-weight:700">기한 지남 1</div><div class="row">○ 예시 할 일 A</div>
+<div class="row" style="color:#2d6b55;font-weight:700">오늘 2</div><div class="row on">○ 회의 자료 묶음 요청</div><div class="row">○ 의원실 연락</div>
+<div class="row" style="color:#2d6b55;font-weight:700">일주일 안 3</div><div class="row">○ 발언문 쓰기</div><div class="row">○ 교육 준비</div></div>
+<div class="r"><div class="h">회의 자료 묶음 요청</div><div class="p">기한 [오늘] · 연결 · 메모 · 첨부<br>(할 일 시안과 같음)</div></div></div>
+<div class="nav"><span>홈</span><span>노트</span><span><b>일정</b></span><span>담당조직</span><span>사업 보고</span><span>메뉴</span></div>
+</div></div>
+
+<div><div class="cap">B. 노트 — 폴더 | 노트 목록 | 노트 (세 칸)</div><div class="fd">
+<div class="tb"><span class="tl">노트</span><span class="tab on">폴더</span><span class="tab">목록</span><span class="tab">포스트잇</span><span class="tab">태그</span><div class="s">노트 찾기</div></div>
+<div class="m"><div class="l" style="width:130px">
+<div class="row" style="color:#888">최근</div>
+<div class="row"><svg class="f" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>업무 메모<span class="n">4</span></div>
+<div class="row on"><svg class="f" viewBox="0 0 24 24"><path fill="#3f8f87" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>가족<span class="n">5</span></div>
+<div class="row"><svg class="f" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>개발<span class="n">6</span></div>
+<div class="row"><svg class="f" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>읽생기<span class="n">20</span></div>
+</div>
+<div class="l" style="width:150px"><div class="row on">장보기 목록<span class="n" style="margin-left:auto">11.05</span></div><div class="row">여행 준비<span class="n" style="margin-left:auto">11.02</span></div><div class="row">선물 메모<span class="n" style="margin-left:auto">10.28</span></div></div>
+<div class="r"><div class="h">장보기 목록</div><div class="p">본문이 바로 보이고 눌러서 바로 고침.<br>위에 서식 버튼 줄, 아래 첨부.</div></div></div>
+<div style="display:flex;gap:6px;padding:8px;border-top:1px solid #e2e0e8"><div class="s">노트를 입력하세요</div><span class="tab" style="background:#5b4f8a;color:#fff">추가</span></div>
+<div class="nav"><span>홈</span><span><b>노트</b></span><span>일정</span><span>담당조직</span><span>사업 보고</span><span>메뉴</span></div>
+</div></div>
+
+<div><div class="cap">C. 사진 [폴더] — 표지 그림 카드 4칸</div><div class="fd">
+<div class="tb"><span class="tl">사진</span><span class="tab">사진</span><span class="tab">달력</span><span class="tab on">폴더</span><span class="tab">앨범</span><span class="tab">휴지통</span><span class="tab" style="margin-left:auto">찍은 날 ↓</span><span class="tab">− +</span></div>
+<div class="grid">
+<div class="card"><div class="cv"></div><div class="ci">Camera<span class="n">13276</span><span class="sw"></span></div></div>
+<div class="card"><div class="cv" style="filter:hue-rotate(60deg)"></div><div class="ci">여행 1<span class="n">5411</span><span class="sw"></span></div></div>
+<div class="card"><div class="cv" style="filter:hue-rotate(120deg)"></div><div class="ci">동영상<span class="n">949</span><span class="sw"></span></div></div>
+<div class="card"><div class="cv" style="filter:hue-rotate(180deg)"></div><div class="ci">스튜디오<span class="n">552</span><span class="sw"></span></div></div>
+<div class="card dim"><div class="cv" style="filter:grayscale(1)"></div><div class="ci">스크린샷<span class="n">40</span><span class="sw off"></span></div></div>
+<div class="card dim"><div class="cv" style="filter:grayscale(1)"></div><div class="ci">메신저<span class="n">6</span><span class="sw off"></span></div></div>
+<div class="card dim"><div class="cv" style="filter:grayscale(1)"></div><div class="ci">문서 스캔<span class="n">7</span><span class="sw off"></span></div></div>
+<div class="card" style="display:flex;align-items:center;justify-content:center;color:#777;border-style:dashed">+ 새 폴더</div>
+</div>
+<div style="flex:1"></div>
+<div class="nav"><span>홈</span><span>노트</span><span>일정</span><span>담당조직</span><span>사업 보고</span><span>메뉴</span></div>
+</div></div>
+
+<div class="legend"><b>폴드 펼침에서 찾은 것 (명진 캡처 4장 기준)</b><br>
+<b>0. 뿌리 원인</b>: 펼친 폴드가 여러 화면에서 '폰'으로 잡힘 → 넓은 화면 모양이 안 나옴. 판정 하나를 고치면 여러 화면이 같이 좋아짐(FILES-폴드나무목록 ⑥과 같은 일).<br>
+<b>A. 모든 화면 공통</b>: 맨 위 큰 제목(파일·사진·노트·할 일)이 빈 공간을 크게 차지 → 제목·탭·찾기를 <b>위 한 줄</b>로. 할 일의 아래쪽 [달력|할 일|일기] 탭도 위로 올려 아래 바와 겹치지 않게. 할 일을 감싼 큰 상자 테두리 삭제.<br>
+<b>B. 노트</b>: 지금 폴더 목록이 화면 전체 → <b>폴더 | 노트 목록 | 노트</b> 세 칸(PC와 같음). 노트를 누르면 오른쪽에서 바로 읽고 고침.<br>
+<b>C. 사진 [폴더]</b>: 줄이 화면 끝까지 길고 가운데가 빔 → <b>표지 그림 카드 4칸</b>. 꺼 둔 폴더는 흐리게, 스위치는 카드 안. 맨 끝 칸이 [+ 새 폴더].<br>
+<b>그 밖에 같은 원칙으로 볼 화면</b>: 담당조직(목록 | 상세는 이미 PC에 있음 → 폴드에도), 사업 보고, 정리함, 업데이트. 홈은 폴드에서 두 단(왼쪽 오늘 할 일·일정 | 오른쪽 업데이트·소식).<br>
+할 일 상세는 fold-task-detail-mock.png.</div>
+</div></body>
