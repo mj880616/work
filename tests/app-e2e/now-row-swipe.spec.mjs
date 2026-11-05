@@ -5,13 +5,19 @@ import { noticeText } from './helpers/small-notice.mjs';
 // PC는 밀기 대신 줄에 마우스를 올리면 [보관][숨기기]. 탭 이동은 탭 줄 위 밀기·누르기만. 서버 흉내(helpers/news-server.mjs), 글은 모두 가짜.
 const item = (page, id) => page.locator(`#newsRoot [data-nc-item="${id}"]`);
 async function swipe(locator, dx) {
-  await expect(locator).toBeVisible();
-  // 줄의 가운데 좌표는 같은 evaluate 안에서 읽는다(따로 boundingBox()를 부르면 그 사이 목록이 다시 그려질 때 null — S50-26 CI에서 한 번 관측).
-  await locator.evaluate((el, { dx }) => {
-    const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
-    const fire = (type, cx) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: cx, clientY: y }));
-    fire('pointerdown', x); for (let i = 1; i <= 10; i++) fire('pointermove', x + dx * i / 10); fire('pointerup', x + dx);
-  }, { dx });
+  // 목록을 열면 바로 채우기(#1901) → 목록 다시 읽기·곁 자료 읽기로 줄이 몇 번 다시 그려진다. 찾은 줄이 그 사이 화면에서 빠졌으면
+  // (isConnected 아님) 손가락 이벤트를 보내지 않고 다시 찾아 민다. 보낼 때는 한 evaluate 안에서 동기로 다 보내므로 도중에 다시 그려지지 않는다.
+  await expect(async () => {
+    await expect(locator).toBeVisible();
+    const sent = await locator.evaluate((el, { dx }) => {
+      if (!el.isConnected) return false;
+      const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      const fire = (type, cx) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: cx, clientY: y }));
+      fire('pointerdown', x); for (let i = 1; i <= 10; i++) fire('pointermove', x + dx * i / 10); fire('pointerup', x + dx);
+      return true;
+    }, { dx });
+    expect(sent).toBe(true);
+  }).toPass({ timeout: 10000 });
 }
 
 test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 오른쪽 끝까지 밀면 보관(별표)·다시 밀면 풀기', async ({ page }) => {
@@ -19,8 +25,6 @@ test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 오른�
   const { errors, server } = await start(page, 412);
   await openNews(page, 412);
   await expect(item(page, 'c1')).toBeVisible();
-  // 목록을 열면 읽기 전 채널 기사(w1) 때문에 '바로 채우기'가 한 번 돌고 목록을 다시 읽는다(#1901). 그 다시 읽기 도중에 밀어도
-  // 숨긴 줄이 되살아나지 않아야 한다(화면은 밀기 뒤에 목록을 다시 읽어 서버 상태로 맞춘다 — S50-26 CI 두 번 관측한 경쟁).
 
   await swipe(item(page, 'c1'), -320);
   await expect(item(page, 'c1')).toHaveCount(0);
