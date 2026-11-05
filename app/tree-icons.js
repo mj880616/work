@@ -6,6 +6,7 @@ import {folderIconHtml} from './folder-look.js';
 
 const EMOJI = Object.freeze({recent: '\u{1F552}', big: '\u{1F4C4}', outside: '\u{1F5C2}'});
 const BRAND = Object.freeze({od: 'onedrive', gd: 'gdrive'});
+const PC_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 13.5h5M8 11v2.5" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>';
 const PHONE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="1.5" width="8" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="12.2" r=".8" fill="currentColor"/></svg>';
 const PC_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 14h4M8 11v3" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>';
 
