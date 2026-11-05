@@ -20,3 +20,7 @@
 /* 끌어 놓기 자리 표시(줄 사이 = 순서 바꾸기 선 하나, 줄 가운데 = 안으로 넣기 바탕 하나, 둘이 동시에 나오지 않음) */
 .nx-row.nx-line-before { box-shadow:inset 0 2px 0 var(--kptu-primary-ink,var(--kptu-primary)); }
 .nx-row.nx-line-after { box-shadow:inset 0 -2px 0 var(--kptu-primary-ink,var(--kptu-primary)); }
+/* S50-20 FOLDER-나무아이콘(app/tree-icons.js): 별표는 톤다운 노랑, 저장소 로고는 글자 줄 높이에 맞춘 작은 그림. 크기·줄 간격은 그대로. */
+.nx-ico.tree-ico-star { color:var(--kptu-warning); }
+.nx-ico.tree-ico-brand { display:inline-flex; align-items:center; color:var(--kptu-muted); }
+.nx-ico.tree-ico-brand svg { display:block; }

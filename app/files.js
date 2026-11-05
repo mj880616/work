@@ -14,13 +14,14 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, PHONE_TABS, PHONE_TAB_NAME, S
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
 import {folderLook} from './folder-prefs.js'; // FOLDER-순서·색 ③-2: 폴더 색·순서 읽기 사본([파일]·사진 폴더가 같이 씀)
-import {folderIconHtml, colorChoiceHtml, createColorMode} from './folder-look.js';
+import {colorChoiceHtml, createColorMode} from './folder-look.js';
 import {folderShapeHtml} from './folder-look-model.mjs';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
 import {brandIconSvg} from './brand-icons.js';
+import {treeIconHtml} from './tree-icons.js';
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
 import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
@@ -528,11 +529,11 @@ function treeHtml(p) {
   const w = p.where, curKey = !p.query && w ? (w.shelf ? 'shelf:' + w.shelf : folderKey(w.source, w.parent)) : '';
   return rows.map(r => {
     const cur = r.key === curKey ? ' nx-current' : '';
-    if (r.type === 'shelf') return `<div class="nx-row fx-shelf${cur}"><button type="button" class="nx-main" data-fx-shelf="${r.shelf}"${cur ? ' aria-current="true"' : ''}><span class="nx-name">${esc(SHELF_NAME[r.shelf])}</span></button></div>`;
+    if (r.type === 'shelf') return `<div class="nx-row fx-shelf${cur}"><button type="button" class="nx-main" data-fx-shelf="${r.shelf}"${cur ? ' aria-current="true"' : ''}>${treeIconHtml(r.shelf)}<span class="nx-name">${esc(SHELF_NAME[r.shelf])}</span></button></div>`;
     const twist = r.hasKids ? `<button type="button" class="fx-twist" data-fx-twist="${esc(r.key)}" aria-expanded="${r.open}" aria-label="${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="fx-twist" aria-hidden="true"></span>';
     const name = r.type === 'root' ? SOURCE_NAME[r.source] : r.name;
     const cnt = r.type === 'folder' ? countOf(r.source, r.id) : '', num = cnt ? `<span class="nx-num${/^0개$/.test(cnt) ? ' fx-zero' : ''}">${esc(cnt)}</span>` : '';
-    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${cur}" style="--nx-indent:${r.depth}" data-fx-drop="${esc(folderKey(r.source, r.id))}">${twist}<button type="button" class="nx-main" data-fx-go="${esc(r.source)}" data-fx-id="${esc(r.id || '')}"${cur ? ' aria-current="true"' : ''}>${r.type === 'folder' && folderLook.color(r.source, r.id) ? folderIconHtml({color: folderLook.color(r.source, r.id)}, {open: r.open}) : ''}<span class="nx-name">${esc(name)}</span>${num}</button></div>`;
+    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${cur}" style="--nx-indent:${r.depth}" data-fx-drop="${esc(folderKey(r.source, r.id))}">${twist}<button type="button" class="nx-main" data-fx-go="${esc(r.source)}" data-fx-id="${esc(r.id || '')}"${cur ? ' aria-current="true"' : ''}>${r.type === 'root' ? treeIconHtml(r.source) : treeIconHtml('folder', {row: {color: folderLook.color(r.source, r.id)}, open: r.open})}<span class="nx-name">${esc(name)}</span>${num}</button></div>`;
   }).join('');
 }
 function paintTree() {
@@ -1135,7 +1136,7 @@ function paintDest() {
     const key = r.key, sel = key === cur;
     const twist = r.hasKids ? `<button type="button" class="fx-twist" data-fx-dest-twist="${esc(key)}" aria-expanded="${r.open}" aria-label="${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="fx-twist" aria-hidden="true"></span>';
     const name = r.type === 'root' ? SOURCE_NAME[r.source] : r.name;
-    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${sel ? ' nx-current' : ''}" style="--nx-indent:${r.depth}">${twist}<button type="button" class="nx-main" data-fx-dest-pick="${esc(key)}" data-fx-dest-name="${esc(name)}"${sel ? ' aria-current="true"' : ''}>${r.type === 'folder' && folderLook.color(r.source, r.id) ? folderIconHtml({color: folderLook.color(r.source, r.id)}, {open: r.open}) : ''}<span class="nx-name">${esc(name)}</span></button></div>`;
+    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${sel ? ' nx-current' : ''}" style="--nx-indent:${r.depth}">${twist}<button type="button" class="nx-main" data-fx-dest-pick="${esc(key)}" data-fx-dest-name="${esc(name)}"${sel ? ' aria-current="true"' : ''}>${r.type === 'root' ? treeIconHtml(r.source) : treeIconHtml('folder', {row: {color: folderLook.color(r.source, r.id)}, open: r.open})}<span class="nx-name">${esc(name)}</span></button></div>`;
   }).join('');
   const can = !!x.dest && !state.ask;
   box.innerHTML = `<div class="fx-dest-h"><span id="fxDestTitle">${esc(destTitle(x.rows.length, x.mode))}</span><button type="button" class="mini" data-fx-dest-close aria-label="닫기">✕</button></div>`
