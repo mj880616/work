@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {buildDiaryList, rowText, dayLabel, monthLabel, diaryPinnedAt, diaryStarredAt, withMark, matches, queryWords, MARK_KEYS} from '../app/diary-list-model.mjs';
+import {buildDiaryList, rowText, dayLabel, monthLabel, diaryPinnedAt, diaryStarredAt, withMark, matches, queryWords, MARK_KEYS, withDoneDays, doneLine} from '../app/diary-list-model.mjs';
 import {validValue, parsePrefs, KEYS, DIARY_VIEWS} from '../app/view-prefs.js';
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
@@ -98,4 +98,34 @@ test('화면 연결: 기기 저장 없음, 보기는 view_prefs로만, 일기 �
   assert.match(mark, /markGuard\('starred_at'/);
   assert.match(mark, /body:\{metadata\}/);
   assert.doesNotMatch(mark, /updated_at:new Date/);
+});
+
+// JOURNAL-오늘한일달력 (S50-29): 일기 없는 날도 '오늘 한 일'이 있으면 목록에 나온다(한 일만 있는 날 줄 — 📌·★ 없음, 별표 보기·고정 칸에는 안 나옴).
+test('한 일만 있는 날: 목록에 더함·일기 있는 날은 그대로·찾기·별표 보기 제외', () => {
+  const rows = [row('2026-10-03', '가을 산책', {starred_at:T})];
+  const done = new Map([['2026-10-03', ['산책 전 회의']], ['2026-10-05', ['가상 교섭 준비', '미술 학원']], ['bad', ['x']], ['2026-10-06', []]]);
+  const all = withDoneDays(rows, done);
+  assert.equal(all.length, 2);
+  const only = all.find(r => r.done_only);
+  assert.deepEqual({day:only.journal_day, lines:only.done_lines}, {day:'2026-10-05', lines:['가상 교섭 준비', '미술 학원']});
+  assert.deepEqual(rowText(only), {title:'', line:'한 일 · 가상 교섭 준비 외 1'});
+  assert.equal(doneLine(['하나']), '한 일 · 하나');
+  assert.equal(buildDiaryList(all).total, 2);
+  assert.equal(buildDiaryList(all, {query:'학원'}).total, 1);
+  assert.equal(buildDiaryList(all, {filter:'star'}).total, 1);
+  assert.equal(buildDiaryList(all, {filter:'star'}).months[0].rows[0].journal_day, '2026-10-03');
+  assert.equal(withDoneDays(rows, null), rows);
+  assert.equal(withDoneDays(rows, new Map()), rows);
+  assert.equal(rows.length, 1); // 원래 목록은 바꾸지 않는다
+});
+test('한 일 읽기는 읽기만: 기간·최근 줄 GET, 일기 화면은 같은 부품을 씀', () => {
+  const data = read('app/journal-data.js');
+  assert.match(data, /export async function readWorkBetween[\s\S]*?select=journal_day,raw_text&order=journal_day\.asc/);
+  assert.match(data, /export async function readWorkRecent[\s\S]*?order=journal_day\.desc&limit=\$\{max\}/);
+  const lines = read('app/work-day-lines.js');
+  assert.match(lines, /export async function readDoneBetween/);
+  assert.match(lines, /export async function readDoneRecent/);
+  assert.match(read('app/diary.js'), /m\.readDoneBetween\(first, last, rt\)/);
+  assert.match(read('app/diary-list.js'), /m\.readDoneRecent\(rt\)/);
+  assert.doesNotMatch(read('app/diary-list.js'), /localStorage|sessionStorage/);
 });
