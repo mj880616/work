@@ -134,7 +134,7 @@ async function hasOperatorFeature(workspaceId: string, feature: string) {
 // S46-24(명진 G1 2026-10-31): 자료실·바구니가 쓰는 drive.file에 더해, 사진 출처 구글 드라이브(Edge gdrive-photos)용 drive(읽기·쓰기)를 요청한다.
 // 동의 화면에서 drive 칸만 끄고 동의해도 연결은 저장되고(drive.file 기능 그대로), 사진 출처만 '권한 없음'으로 돌려보낸다.
 // 이 함수와 기존 Drive 함수들이 부르는 API는 바뀌지 않는다. 쓰기 동작은 gdrive-photos에만 있다.
-// MULTI ②-2: 전체 drive(제한 등급)는 사진 출처·파일 탐색기 기능이 허용된 운영자 작업공간에서만 요청한다. 다른 사람은 drive.file만.
+// MULTI ②-2·S50-8: 전체 drive(제한 등급)는 사진 출처·파일 탐색기 기능이 허용된 운영자 작업공간에서만 요청한다(fullDriveAllowed). 다른 사람은 drive.file만.
 const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const DRIVE_FULL_SCOPE = 'https://www.googleapis.com/auth/drive';
 const DRIVE_SCOPES = [DRIVE_FILE_SCOPE, DRIVE_FULL_SCOPE];
@@ -143,10 +143,17 @@ function grantedFullDrive(scope: unknown) {
   return typeof scope === 'string' && scope.split(/\s+/).includes(DRIVE_FULL_SCOPE);
 }
 
+// S50-8(명진 결정 11/05 '가'): Drive 전체 권한(drive, 제한 등급)을 요청해도 되는 작업공간인지 서버가 정한다.
+// 전체 권한이 필요한 운영자 기능(사진 출처 gdrive_photos·파일 탐색기 files, 서버 허용 표)이 있는 작업공간만 true.
+// 그 밖(다른 사람)의 작업공간은 drive.file(웹2가 만들거나 사용자가 고른 파일만)만 요청한다. 화면이 보낸 값은 쓰지 않는다.
+async function fullDriveAllowed(workspaceId: string) {
+  return await hasOperatorFeature(workspaceId, 'gdrive_photos') || await hasOperatorFeature(workspaceId, 'files');
+}
+
 async function startDriveAuth(req: Request) {
   const user = await getUser(req);
   const workspaceId = await ownWorkspace(user.id);
-  const full = await hasOperatorFeature(workspaceId, 'gdrive_photos') || await hasOperatorFeature(workspaceId, 'files');
+  const full = await fullDriveAllowed(workspaceId);
   const cfg = await getOAuthConfig();
   const raw = 'drive.' + crypto.randomUUID() + crypto.randomUUID();
   const stateHash = await sha256(raw);
@@ -292,7 +299,9 @@ Deno.serve(async (req) => {
       }
 
       const now = new Date().toISOString();
-      const fullDrive = grantedFullDrive(tokens.scope);
+      // full_drive는 '전체 권한을 요청해도 되는 작업공간'이고 '구글이 실제로 그 권한을 준' 때만 true(S50-8). 운영자가 아니면 늘 false.
+      const fullAllowed = await fullDriveAllowed(workspaceId);
+      const fullDrive = fullAllowed && grantedFullDrive(tokens.scope);
       // 있으면 고치고 없으면 넣는다(표 권한이 workspace_id 고치기를 주지 않으므로 upsert 대신 두 단계).
       const changed = await servicePatch(`app_drive_connections?workspace_id=eq.${encodeURIComponent(workspaceId)}`, {
         google_refresh_token: tokens.refresh_token,
@@ -318,7 +327,8 @@ Deno.serve(async (req) => {
         });
       }
       await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`);
-      return Response.redirect(driveRedirect('connected', undefined, grantedFullDrive(tokens.scope) ? undefined : 'scope_missing'), 302);
+      // 사진 권한 안내는 전체 권한을 요청한 운영자 작업공간에서 그 칸이 빠졌을 때만. 다른 사람은 사진 출처 기능이 없으므로 안내하지 않는다.
+      return Response.redirect(driveRedirect('connected', undefined, fullAllowed && !fullDrive ? 'scope_missing' : undefined), 302);
     }
 
     let email: string | null = null;
