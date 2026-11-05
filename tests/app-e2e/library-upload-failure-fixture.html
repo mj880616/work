@@ -45,7 +45,7 @@
           if(planned){
             if(planned.hold)await new Promise(resolve=>{window.__releaseLibraryUpload=resolve});
             if(planned.ok)return {ok:true,document:{id:'uploaded-'+window.__libraryUploadCalls.length,project_id:null}};
-            throw Object.assign(new Error(planned.message||'raw server detail'),{status:planned.status||0,code:planned.code||('http_'+(planned.status||0)),retryable:!!planned.retryable});
+            throw Object.assign(new Error(planned.message||'raw server detail'),{status:planned.status||0,code:planned.code||('http_'+(planned.status||0)),retryable:!!planned.retryable,...(planned.stage?{stage:planned.stage}:{})});
           }
           if(window.__libraryUploadMode==='success')return {ok:true,document:{id:'uploaded-'+window.__libraryUploadCalls.length,project_id:null}};
           if(window.__libraryUploadMode==='partial'){

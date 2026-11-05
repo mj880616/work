@@ -91,7 +91,11 @@ const SINGLE_FAILURES=[
   ['file too large',{status:413,message:'현재 자료실 파일은 100MB까지 지원합니다.'},'현재 자료실은 파일당 100MB까지 지원합니다.','100MB 초과'],
   ['generic 4xx',{status:400,message:'raw server detail'},'파일을 업로드하지 못했습니다. 파일과 입력값을 확인한 뒤 다시 시도해 주세요.','실패 · 다시 시도'],
   ['retryable 5xx',{status:503,retryable:true,message:'raw server detail'},'파일을 업로드하지 못했습니다. 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
-  ['unexpected 500',{status:500,retryable:true,message:'duplicate key value violates constraint'},'파일을 업로드하지 못했습니다. 잠시 후 다시 시도해 주세요.','실패 · 다시 시도']
+  ['unexpected 500',{status:500,retryable:true,message:'duplicate key value violates constraint'},'파일을 업로드하지 못했습니다. 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
+  // LIB-자료등록실패: 서버가 실어 보낸 멈춘 단계(고정 글자)는 짧은 이름으로 붙고, 모르는 값은 붙지 않는다.
+  ['5xx with server stage',{status:503,retryable:true,stage:'drive_token',message:'raw server detail'},'파일을 업로드하지 못했습니다 (멈춘 곳: Drive 연결 확인). 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
+  ['5xx with record stage',{status:500,retryable:true,stage:'db_insert',message:'duplicate key value violates constraint'},'파일을 업로드하지 못했습니다 (멈춘 곳: 자료 기록). 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
+  ['5xx with unknown stage',{status:500,retryable:true,stage:'<b>x</b>',message:'raw server detail'},'파일을 업로드하지 못했습니다. 잠시 후 다시 시도해 주세요.','실패 · 다시 시도']
 ];
 for(const [name,error,message,label] of SINGLE_FAILURES){
   test(`single file ${name} shows a normalized message and keeps the form recoverable`,async({page})=>{
