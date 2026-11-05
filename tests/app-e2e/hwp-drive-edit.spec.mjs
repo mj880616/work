@@ -221,7 +221,8 @@ test('a slow Drive download shows which step is running and the elapsed seconds,
   const elapsed=page.locator('#hwpLabStatus .hwp-lab-elapsed');
   await expect(elapsed).toHaveText(/\(\d+초\)/,{timeout:15000});
   await expect(elapsed).toHaveAttribute('aria-hidden','true');
-  await expect(status(page)).toHaveText('주간보고.hwp · 1쪽을 열었어요. 고친 뒤 [새 파일로 저장]을 누르세요.',{timeout:60000});
+  // 5초 넘게 걸렸으니 열린 뒤 단계별 걸린 시간 줄이 붙는다(LIB-편집열기느림).
+  await expect(status(page)).toHaveText(/^주간보고\.hwp · 1쪽을 열었어요\. 고친 뒤 \[새 파일로 저장\]을 누르세요\. \(걸린 시간: 파일 [\d.]+초 · 편집기 [\d.]+초 · 펼침 [\d.]+초 · 전체 [\d.]+초\)$/,{timeout:60000});
   await expect(elapsed).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });
