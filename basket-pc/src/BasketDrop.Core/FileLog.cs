@@ -6,6 +6,8 @@ public enum LogCode
     Started, Stopped, HotkeyFailed, HotkeyOk, Enqueued, SendOk, SendNotReached, SendUnknown,
     SendRejected, LoginRequired, QueueFull, QueueRecovered, UpdateCheck, UpdateDownloaded, UpdateFailed, Error,
     SignInOk, SignInFailed, SignedOut, NotOwner, ReloginNeeded,
+    // 'Web2에서 이 PC 보기' door: opened, closed, a request refused (count = HTTP status), no free port. Never a path.
+    DoorOn, DoorOff, DoorRefused, DoorPortsBusy,
 }
 
 public interface ILog

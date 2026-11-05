@@ -21,6 +21,9 @@ public sealed class AppSettings
     public int? DesktopTileX { get; set; }
 
     public int? DesktopTileY { get; set; }
+
+    /// <summary>'Web2에서 이 PC 보기': the 127.0.0.1 door for the Web2 [파일] screen. Off by default (decision D1); only the tray menu turns it on.</summary>
+    public bool WebDoor { get; set; }
 }
 
 public sealed class SettingsStore
