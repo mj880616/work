@@ -6,6 +6,7 @@ import {
   SORTS, VIDEO_MIME,
 } from "./graph.ts";
 import type { OneDriveItem, Sort } from "./graph.ts";
+import { readJpegMeta, validLoc, writeJpegMeta } from "../_shared/jpeg-exif.ts";
 
 // 일기 2차(JOURNAL-일기원드라이브): 원드라이브 연결·폴더 지정·사진 읽기·사진 지우기(휴지통 이동). 권한 Files.ReadWrite(고른 폴더 안 사진만 다룸).
 // 사진 메뉴 ①(PHOTO-사진메뉴): 최신순 쪽 읽기(library)·달별(months)·날별(days) 장수, 재생·받기 주소(media-url), 여러 장 지우기,
@@ -13,6 +14,9 @@ import type { OneDriveItem, Sort } from "./graph.ts";
 //   권한 범위·소유자 확인·폴더 밖 거절은 그대로다(DB 20261028220000 적용 뒤 배포).
 // 사진 메뉴 ②(폴더 보기): 새 폴더(folder-create)·이름 바꾸기(folder-rename)·폴더 옮기기(folder-move)·빈 폴더 지우기(folder-delete)·
 //   여러 장 폴더로 옮기기(photos-move). 모두 고른 맨 위 폴더 안에서만(색인 폴더 나무 + Graph 경로 이중 확인), 권한 범위는 그대로(Files.ReadWrite).
+// 사진 정보 고치기 ②(S50-31 PHOTO-정보고치기, 명진 결정 E3 (가)·E4·E5): 고른 사진의 찍은 시각·위치 읽기(photos-meta-read, 파일 앞 256KB만)·
+//   고치기(photos-meta-write, confirm:true). 원본을 메모리로만 받아 EXIF 칸만 바꾸고 같은 파일의 새 판으로 올린다(If-Match eTag — 그 사이 바뀌었으면 멈춤).
+//   JPEG만, 한 장 30MB·한 번 10장까지. 사진은 디스크·Storage·DB에 두지 않는다. 권한 범위·고른 폴더 안 확인은 그대로(Files.ReadWrite).
 // 로그인한 작업공간 소유자만 쓴다. 갱신 토큰은 service role로만 읽고 쓰며 응답·로그에 싣지 않는다.
 // 비밀값이 없으면 status가 configured:false로 답하고 나머지 동작은 424 onedrive_not_configured 로 멈춘다.
 const cors = {
@@ -1742,6 +1746,195 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     return new Response(bytes, { headers: { ...cors, "Content-Type": type, "Cache-Control": "private, max-age=3600" } });
   }
 
+  // ── 사진 정보 고치기 ②(photos-meta-read·photos-meta-write) ─────────────────────────────
+  // 고칠 수 있는 사진: 고른 폴더 안(휴지통 제외), JPEG, 30MB 이하. 아니면 사진별 실패 이름(missing·outside·trashed·not_jpeg·too_big·…).
+  const META_MAX = 10, META_BYTES = 30 * 1024 * 1024, META_HEAD = 256 * 1024;
+  const META_SELECT = "id,name,size,eTag,file,folder,parentReference,@microsoft.graph.downloadUrl";
+  const isJpeg = (it: OneDriveItem) => /^image\/(jpeg|jpg|pjpeg)$/.test(String(it.file?.mimeType || "").toLowerCase());
+  function metaIds(list: unknown) {
+    if (!Array.isArray(list) || !list.length || list.length > META_MAX) throw new Fail(400, "onedrive_request_invalid");
+    return list;
+  }
+  async function metaItem(token: string, id: string, folder: { path: string }, trashId: string | null) {
+    const r = await graph("onedrive_meta_item", token, `/me/drive/items/${encodeURIComponent(id)}?$select=${META_SELECT}`);
+    if (r.status === 404) return { why: "missing" } as const;
+    if (r.status === 429 || r.status === 503) return { why: "throttled", wait: retryAfterSeconds(r.headers.get("retry-after"), now()) } as const;
+    if (r.status === 401 || r.status === 403) throw new Fail(424, "onedrive_auth_expired");
+    if (!r.ok) return { why: "unavailable" } as const;
+    const item = (await bodyJson(r)) as OneDriveItem & { eTag?: string };
+    const bad = photoCheck(id, item, folder);
+    if (bad) return { why: bad } as const;
+    if (trashId && item.parentReference?.id === trashId) return { why: "trashed" } as const;
+    if (!isJpeg(item)) return { why: "not_jpeg" } as const;
+    if (typeof item.size !== "number" || item.size <= 0 || item.size > META_BYTES) return { why: "too_big" } as const;
+    const url = safeDownloadUrl(typeof item["@microsoft.graph.downloadUrl"] === "string" ? item["@microsoft.graph.downloadUrl"] : null);
+    if (!url || typeof item.eTag !== "string" || !item.eTag || item.eTag.length > 300) return { why: "unavailable" } as const;
+    return { item, url, etag: item.eTag } as const;
+  }
+  // 사전 인증 주소에서 받는다(토큰 없이). 앞부분만(head) 또는 전부. 크기 한도를 넘으면 중간에 멈춘다.
+  async function download(url: URL, head: boolean, expect: number) {
+    let r: Response;
+    try {
+      r = await request(url.toString(), { redirect: "error", headers: head ? { Range: `bytes=0-${META_HEAD - 1}` } : {}, signal: AbortSignal.timeout(60000) });
+    } catch {
+      log("onedrive_meta_download_failed");
+      return null;
+    }
+    if (!r.ok || !r.body) {
+      log("onedrive_meta_download_rejected:" + r.status);
+      try { await r.body?.cancel(); } catch { /* ignore */ }
+      return null;
+    }
+    const limit = head ? META_HEAD : META_BYTES, parts: Uint8Array[] = [];
+    let got = 0;
+    const reader = r.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      got += value.length;
+      if (got > limit) {
+        if (head) {
+          parts.push(value.subarray(0, value.length - (got - limit)));
+          got = limit;
+          try { await reader.cancel(); } catch { /* ignore */ }
+          break;
+        }
+        try { await reader.cancel(); } catch { /* ignore */ }
+        return null;
+      }
+      parts.push(value);
+    }
+    if (!head && got !== expect) return null;
+    const out = new Uint8Array(got);
+    let at = 0;
+    for (const p of parts) { out.set(p, at); at += p.length; }
+    return out;
+  }
+  const place = (m: { taken: string | null; lat: number | null; lon: number | null }) => ({ taken: m.taken, lat: m.lat, lon: m.lon });
+
+  // 읽기: 고른 사진(≤10)의 EXIF 찍은 시각·위치·카메라(앞 256KB만 받음). 고칠 수 있는지(can)도 함께.
+  async function photosMetaRead(workspaceId: string, body: Record<string, unknown>): Promise<Response> {
+    const conn = await readConnection(workspaceId);
+    const folder = folderOf(conn);
+    const ids = metaIds(body.ids);
+    if (!ids.every(validItemId)) throw new Fail(400, "onedrive_request_invalid");
+    const token = await accessToken(workspaceId, conn!);
+    const trashId = await readTrashId(workspaceId);
+    const items: Record<string, unknown>[] = [];
+    let retryAfter = 0;
+    for (const id of [...new Set(ids as string[])]) {
+      const got = await metaItem(token, id, folder, trashId);
+      if ("why" in got) {
+        if (got.why === "throttled") retryAfter = Math.max(retryAfter, got.wait || 30);
+        items.push({ id, can: false, why: got.why });
+        continue;
+      }
+      const bytes = await download(got.url, true, 0);
+      const meta = bytes ? readJpegMeta(bytes, true) : null;
+      if (!meta || !meta.ok) {
+        items.push({ id, can: false, why: meta ? meta.reason : "unavailable" });
+        continue;
+      }
+      items.push({ id, can: true, ...meta.meta });
+    }
+    return json({ items, ...(retryAfter ? { retry_after: retryAfter } : {}) });
+  }
+
+  // 고치기: items = [{id, taken?(ISO), loc?({lat,lon}|null)}] ≤10, confirm:true. 사진마다 받기 → EXIF만 다시 쓰기 → 같은 파일 새 판으로 올리기(If-Match).
+  // 성공한 사진은 앞·뒤 값(되돌리기 기록용 — 화면이 사용자 로그인으로 app_photo_info_edits에 적는다)을 돌려주고, 색인을 그 사진만 바로 다시 읽는다.
+  async function photosMetaWrite(workspaceId: string, body: Record<string, unknown>): Promise<Response> {
+    if (body.confirm !== true) throw new Fail(400, "onedrive_request_invalid");
+    const list = metaIds(body.items);
+    const seen = new Set<string>();
+    const wants = list.map((x) => {
+      const it = x as Record<string, unknown> | null;
+      if (!it || typeof it !== "object" || Array.isArray(it) || !validItemId(it.id) || seen.has(it.id)) throw new Fail(400, "onedrive_request_invalid");
+      seen.add(it.id);
+      const taken = it.taken, loc = it.loc;
+      if (taken !== undefined && (typeof taken !== "string" || !Number.isFinite(Date.parse(taken)))) throw new Fail(400, "onedrive_request_invalid");
+      if (loc !== undefined && loc !== null && !validLoc(loc)) throw new Fail(400, "onedrive_request_invalid");
+      if (taken === undefined && loc === undefined) throw new Fail(400, "onedrive_request_invalid");
+      return { id: it.id, change: { ...(taken !== undefined ? { taken: taken as string } : {}), ...(loc !== undefined ? { loc: loc as { lat: number; lon: number } | null } : {}) } };
+    });
+    const conn = await readConnection(workspaceId);
+    const folder = folderOf(conn);
+    if (!scopeAllowed(normalizeScopes(conn!.scope))) throw new Fail(424, "onedrive_reconnect_needed");
+    const token = await accessToken(workspaceId, conn!);
+    const trashId = await readTrashId(workspaceId);
+    const done: Record<string, unknown>[] = [], failed: Record<string, string> = {}, fresh: OneDriveItem[] = [];
+    let retryAfter = 0;
+    for (const want of wants) {
+      const got = await metaItem(token, want.id, folder, trashId);
+      if ("why" in got) {
+        if (got.why === "throttled") retryAfter = Math.max(retryAfter, got.wait || 30);
+        failed[want.id] = String(got.why);
+        continue;
+      }
+      const bytes = await download(got.url, false, got.item.size!);
+      if (!bytes) {
+        failed[want.id] = "unavailable";
+        continue;
+      }
+      const edited = writeJpegMeta(bytes, want.change);
+      if (!edited.ok) {
+        log("onedrive_meta_write_skipped:" + edited.reason);
+        failed[want.id] = edited.reason;
+        continue;
+      }
+      let up: Response;
+      try {
+        up = await request(`${GRAPH}/me/drive/items/${encodeURIComponent(want.id)}/content`, {
+          method: "PUT", redirect: "error", signal: AbortSignal.timeout(60000),
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "image/jpeg", "If-Match": got.etag },
+          body: edited.bytes,
+        });
+      } catch {
+        log("onedrive_meta_upload_failed");
+        failed[want.id] = "unavailable";
+        continue;
+      }
+      if (up.status === 412 || up.status === 409) {
+        failed[want.id] = "changed";
+        try { await up.body?.cancel(); } catch { /* ignore */ }
+        continue;
+      }
+      if (up.status === 429 || up.status === 503) {
+        retryAfter = Math.max(retryAfter, retryAfterSeconds(up.headers.get("retry-after"), now()) || 30);
+        failed[want.id] = "throttled";
+        try { await up.body?.cancel(); } catch { /* ignore */ }
+        continue;
+      }
+      if (up.status === 401 || up.status === 403) {
+        try { await up.body?.cancel(); } catch { /* ignore */ }
+        throw new Fail(424, "onedrive_auth_expired");
+      }
+      if (!up.ok) {
+        log("onedrive_meta_upload_rejected:" + up.status);
+        try { await up.body?.cancel(); } catch { /* ignore */ }
+        failed[want.id] = "unavailable";
+        continue;
+      }
+      try { await up.body?.cancel(); } catch { /* ignore */ }
+      done.push({ id: want.id, before: place(edited.before), after: place(edited.after) });
+      // 색인은 그 사진만 바로 다시 읽는다(원드라이브가 다시 뽑은 찍은 시각·위치 그대로 — 색인 규칙은 같다).
+      try {
+        const r = await graph("onedrive_meta_reindex", token, `/me/drive/items/${encodeURIComponent(want.id)}?$select=${DELTA_SELECT}`);
+        if (r.ok) fresh.push((await bodyJson(r)) as OneDriveItem);
+        else try { await r.body?.cancel(); } catch { /* ignore */ }
+      } catch {
+        log("onedrive_meta_reindex_failed");
+      }
+    }
+    if (fresh.length) {
+      try {
+        await applyDelta(workspaceId, folder.id, fresh, new Date(now()).toISOString(), trashId, folder.whole);
+      } catch {
+        log("onedrive_meta_reindex_save_failed");
+      }
+    }
+    return json({ done, failed, ...(retryAfter ? { retry_after: retryAfter } : {}) });
+  }
+
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
     try {
@@ -1773,6 +1966,8 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       if (action === "photo-urls") return await photoUrls(member.workspace_id, body);
       if (action === "photo-delete") return await photoDelete(member.workspace_id, body);
       if (action === "media-url") return await mediaUrl(member.workspace_id, body);
+      if (action === "photos-meta-read") return await photosMetaRead(member.workspace_id, body);
+      if (action === "photos-meta-write") return await photosMetaWrite(member.workspace_id, body);
       if (typeof action !== "string" || !Object.hasOwn(actions, action)) throw new Fail(400, "action_invalid");
       return await actions[action]({ userId: data.user.id, workspaceId: member.workspace_id, body });
     } catch (e) {

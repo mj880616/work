@@ -24,9 +24,9 @@ test('이름표 붙은 날짜는 글 어디서든, 두 자리 연도도', () => 
 
 test('목록 줄: 날짜 칸이 두 자리 연도여도 읽는다', () => {
   const src={...sourceByKey('pssp')};
-  const html='<table><tr><td>6001</td><td><a href="./view.php?board=statement&nid=6001&page=1">[성명] 가상 성명 하나</a></td><td>19.03.08</td></tr>'
-    +'<tr><td>6000</td><td><a href="./view.php?board=statement&nid=6000&page=1">[성명] 가상 성명 둘</a></td><td>2019-03-01</td></tr></table>';
-  const out=P.parseListHtml(src,html,'https://pssp.org/bbs/list.php?board=statement',30,undefined,NOW);
+  const html='<table><tr><td>6001</td><td><a href="./view.php?board=notice&nid=6001&page=1">[성명] 가상 성명 하나</a></td><td>19.03.08</td></tr>'
+    +'<tr><td>6000</td><td><a href="./view.php?board=notice&nid=6000&page=1">[성명] 가상 성명 둘</a></td><td>2019-03-01</td></tr></table>';
+  const out=P.parseListHtml(src,html,'https://pssp.org/bbs/list.php?board=notice',30,undefined,NOW);
   assert.deepEqual(out.map(i=>i.published_at),[KST(2019,3,8),KST(2019,3,1)]);
 });
 

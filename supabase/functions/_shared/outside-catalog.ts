@@ -27,6 +27,8 @@ export type OutsideSource = {
   listHref?: (href: string, base: URL) => string | null;
   // 목록 링크 안에 제목 칸이 따로 있는 단체: 이 class 이름을 가진 칸의 글자만 제목으로(좋아요 수·요약 같은 덧글자 빼기).
   titleClass?: RegExp;
+  // 목록 링크 안 분류 칸(class 이름, 예: 사회진보연대 `<span class="category-board">성명</span>`). 그 칸 글자는 제목에서 빼고 kindOf의 세 번째 값으로 준다.
+  categoryClass?: RegExp;
   // 목록 링크 안 title="…" 값을 제목으로(카드 제목 칸은 줄임표로 잘려 있고 그림 title에 제목 전체가 있는 단체).
   titleAttr?: boolean;
   // 목록 링크 안 날짜 칸(class 이름) — 글 쪽 머리의 '최종편집' 같은 다른 날짜를 게시일로 잘못 읽지 않게.
@@ -35,7 +37,7 @@ export type OutsideSource = {
   bodyClass?: RegExp;
   // robots.txt 예외(명진 결정 기록). 이 칸만으로는 효과가 없고, outside-feed handler의 ROBOTS_EXEMPT_KEYS에도 같은 키가 있어야 한다(둘 다 kptu·laborparty 두 곳뿐 — 시험이 고정).
   robotsException?: string;
-  kindOf: (title: string, url: string) => Kind | null;
+  kindOf: (title: string, url: string, category?: string | null) => Kind | null;
 };
 
 // 제목 머리말([성명]·<논평>·【보도자료】 등)로 종류를 정한다. 머리말이 없으면 fallback.
@@ -172,12 +174,21 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     kindOf: byPrefix(null),
   },
   {
+    // S50-32(11/05 확인): '성명' 게시판(board=statement)은 첫 쪽 최신 글이 2019-04-15에서 멈춤. 사이트 메뉴 '자료실 › 공지·성명'은
+    // board=notice이고 요즘 성명·기자회견은 여기에 올라온다(목록 줄: 링크 안 `<span class="category-board">공지|성명</span>` + 제목, 날짜 칸 2026.10.14).
+    // 그래서 공지·성명 게시판을 읽는다. 분류 '성명'은 성명(머리말이 있으면 그대로), 분류 '공지'는 머리말([기자회견]·[성명]·[논평] 등)이 있는 글만
+    // (공연·모집·추모행사 안내 같은 머리말 없는 공지는 넣지 않음). 옛 성명 게시판에서 이미 들어간 글은 지우지 않는다(날짜순이라 아래로 내려감).
     key: "pssp", name: "사회진보연대", group: "movement", lang: "ko", mode: "html",
-    lists: ["https://pssp.org/bbs/list.php?board=statement"], hosts: ["pssp.org", "www.pssp.org"],
-    // 글 번호는 nid(2026-11-01 목록 확인: `./view.php?board=statement&nid=번호&page=1`). 옛 모양(id·no·idx)도 받는다.
-    item: /^https:\/\/(www\.)?pssp\.org\/bbs\/view\.php\?(?=[^#]*\bboard=statement\b)(?=[^#]*\b(nid|id|no|idx)=\d+\b)/,
+    lists: ["https://pssp.org/bbs/list.php?board=notice"], hosts: ["pssp.org", "www.pssp.org"],
+    // 글 번호는 nid(`./view.php?board=notice&nid=번호&page=1`). 옛 모양(id·no·idx)도 받는다.
+    item: /^https:\/\/(www\.)?pssp\.org\/bbs\/view\.php\?(?=[^#]*\bboard=notice\b)(?=[^#]*\b(nid|id|no|idx)=\d+\b)/,
     canon: keepQuery(["board", "nid", "id", "no", "idx"]),
-    kindOf: byPrefix("statement"),
+    categoryClass: /^category-board$/,
+    kindOf: (title, _url, category) => {
+      const c = (category ?? "").replace(/\s+/g, "");
+      if (c === "성명") return byPrefix("statement")(title);
+      return byPrefix(null)(title);
+    },
   },
   {
     // 신문 기사와 성명이 한 피드에 섞여 있다. 명진 결정(11/01 22:30): 성명뿐 아니라 기사도 받는다.
