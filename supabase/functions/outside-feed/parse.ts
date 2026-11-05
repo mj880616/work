@@ -293,6 +293,7 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
   const dates = new Map<string, string>();
   const order: string[] = [];
   const body = html.replace(/<!--[\s\S]*?-->/g, " ").replace(/<(script|style|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, " ");
+  const cats = new Map<string, string>();
   type Hit = { url: string; title: string; sub: string | null; inner: string; start: number; end: number };
   const hits: Hit[] = [];
   for (const m of body.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)) {
@@ -310,14 +311,21 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
     try { abs = new URL(decodeEntities(raw), base).href; } catch { continue; }
     if (!source.item.test(abs)) continue;
     const url = canonicalUrl(source, abs);
-    let lines = linkLines(m[2]);
+    // 분류 칸이 있는 단체: 분류 글자를 따로 두고 제목 재료(inner)에서는 그 칸을 뺀다.
+    let inner = m[2];
+    if (source.categoryClass) {
+      const cat = innerTitle(inner, source.categoryClass);
+      if (cat && url && !cats.has(url)) cats.set(url, cat);
+      inner = withoutClass(inner, source.categoryClass);
+    }
+    let lines = linkLines(inner);
     // 링크 칸 첫 줄이 '공지'처럼 뜻 없는 한 낱말(분류 칸)이고 다음 줄이 있으면 다음 줄부터 제목(11/02 녹색당 '공지' 캡처).
     if (lines.length > 1 && isEmptyTitle(lines[0])) lines = lines.slice(1);
-    const title = (source.titleAttr ? innerTitleAttr(m[2]) : null) ?? (source.titleClass ? innerTitle(m[2], source.titleClass) : null)
+    const title = (source.titleAttr ? innerTitleAttr(inner) : null) ?? (source.titleClass ? innerTitle(inner, source.titleClass) : null)
       ?? cleanTitle(lines[0] ?? "") ?? cleanTitle(/\btitle\s*=\s*"([^"]*)"/i.exec(m[1])?.[1] ?? "");
     if (!url || !title) continue;
     const sub = !source.titleAttr && !source.titleClass && lines.length > 1 ? cleanTitle(lines[1]) : null;
-    hits.push({ url, title, sub, inner: m[2], start: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
+    hits.push({ url, title, sub, inner, start: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
   }
   for (const [i, h] of hits.entries()) {
     const { url, title } = h;
@@ -347,7 +355,7 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
   for (const url of order) {
     if (out.length >= limit) break;
     const title = best.get(url)!;
-    const kind = source.kindOf(title, url);
+    const kind = source.kindOf(title, url, cats.get(url) ?? null);
     if (!kind) continue;
     out.push({ url, title, subtitle: subs.get(url) ?? null, kind, published_at: dates.get(url) ?? null, author: null, summary: null, content: null });
   }
@@ -366,6 +374,28 @@ function innerTitleAttr(inner: string): string | null {
 }
 
 // 링크 안에서 class 이름 하나가 re에 맞는 첫 칸의 글자(같은 이름 닫는 태그까지). 없으면 null.
+// 이 class 이름을 가진 칸(여는 태그부터 같은 이름 닫는 태그까지)을 뺀 링크 안쪽.
+function withoutClass(inner: string, re: RegExp): string {
+  let out = inner;
+  for (let guard = 0; guard < 8; guard++) {
+    const lower = out.toLowerCase();
+    let cut: [number, number] | null = null;
+    for (const m of out.matchAll(/<([a-z][a-z0-9]{0,9})\b([^>]*)>/gi)) {
+      const cls = /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(m[2]);
+      const names = (cls?.[1] ?? cls?.[2] ?? "").split(/\s+/).filter(Boolean);
+      if (!names.some((n) => re.test(n))) continue;
+      const close = `</${m[1].toLowerCase()}`;
+      const end = lower.indexOf(close, (m.index ?? 0) + m[0].length);
+      if (end < 0) continue;
+      const gt = lower.indexOf(">", end);
+      cut = [m.index ?? 0, gt < 0 ? end + close.length : gt + 1];
+      break;
+    }
+    if (!cut) break;
+    out = out.slice(0, cut[0]) + " " + out.slice(cut[1]);
+  }
+  return out;
+}
 function innerTitle(inner: string, re: RegExp): string | null {
   const lower = inner.toLowerCase();
   for (const m of inner.matchAll(/<([a-z][a-z0-9]{0,9})\b([^>]*)>/gi)) {

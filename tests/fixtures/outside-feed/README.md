@@ -15,3 +15,5 @@ OUTSIDE-바깥성명 ③(`supabase/functions/outside-feed`)의 단체별 목록 
 2026-11-02(OUTSIDE-노동묶음·정돈 2단계, [노동] 단체 추가): `kmwu.html`(그누보드: 고정 공지·쪽 번호·댓글 수 링크·다른 게시판·http 링크), `kfsu.html`(KBoard: 한글 쪽 주소를 퍼센트 부호로, 줄 날짜 YYYY.MM.DD), `hakbi.html`(머리말 없는 '기자회견 개최 알림'·[취재요청]이 섞인 목록)을 더했다. 링크 모양은 조사표(`docs/design/outside-labor-catalog.md` 1절)에 맞췄고 제목·번호·날짜는 모두 지어낸 것이다. 실제 사이트 HTML과 다르면 첫 실행의 `parse_empty`로 드러난다.
 
 2026-11-02(S48-23, 정의당 다른 길): `justice-telegram.html`(t.me/s/justicekr 칸 모양만 맞춘 지어낸 글: 본문 안 홈페이지 주소가 든 [성명]·굵은 글씨 [논평]·짧은 [브리핑]·[생중계]·머리말 없는 카드뉴스·사진뿐인 글·다른 채널 글)을 더했다.
+
+2026-11-05(S50-32, 사회진보연대 최신 글): 옛 '성명' 게시판(board=statement)은 첫 쪽 최신 글이 2019년이라, 사이트 메뉴 '공지·성명' 게시판(board=notice)을 읽는다. `pssp.html`을 그 목록 줄 모양(링크 안 `<span class="category-board">공지|성명</span>` + 제목, `post-date` 칸)에 맞춰 다시 지었다(제목·번호는 지어낸 것).
