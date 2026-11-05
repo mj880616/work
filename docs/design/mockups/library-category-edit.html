@@ -1,0 +1,50 @@
+<!doctype html><meta charset="utf-8"><style>
+body{margin:0;padding:14px;background:#e9e8ee;font-family:"Noto Sans KR",sans-serif;display:flex;gap:16px;align-items:flex-start}
+.cap{font-size:13px;font-weight:700;color:#444;margin:0 0 6px 4px}
+.fd{width:720px;height:800px;background:#8c8a96;border-radius:18px;overflow:hidden;position:relative}
+.sh{position:absolute;left:0;right:0;top:40px;bottom:0;background:#f6f5f9;border-radius:16px 16px 0 0;display:flex;flex-direction:column;font-size:13px}
+.hd{display:flex;align-items:center;padding:12px 14px;font-weight:700;font-size:15px}
+.x{margin-left:auto;color:#777;font-weight:400}
+.add{display:flex;gap:6px;padding:0 14px 10px}
+.in{flex:1;height:32px;border:1px solid #d9d7e0;border-radius:8px;background:#fff;color:#999;font-size:12px;display:flex;align-items:center;padding:0 10px}
+.btn{height:32px;border-radius:8px;background:#5b4f8a;color:#fff;font-size:12px;display:flex;align-items:center;padding:0 12px}
+.r{display:flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-top:1px solid #e6e4ec}
+.h{color:#bbb;font-size:14px;width:14px}
+.n{color:#999;font-size:11px}
+.m{margin-left:auto;color:#666;font-size:16px;width:28px;text-align:center}
+.sub{padding-left:40px;color:#555}
+.edit{background:#fff;outline:2px solid #9a8fc9;outline-offset:-2px}
+.menu{position:absolute;right:20px;top:205px;background:#fff;border:1px solid #d9d7e0;border-radius:10px;box-shadow:0 6px 16px #0003;font-size:12px;overflow:hidden}
+.menu div{padding:8px 16px;border-bottom:1px solid #eee}.menu div:last-child{border:0}
+.lock{color:#aaa;font-size:11px;margin-left:auto}
+.legend{width:300px;font-size:13px;line-height:1.6;background:#fff;border-radius:12px;padding:12px 14px}
+.legend b{color:#5b4f8a}
+</style><body>
+<div><div class="cap">자료실 [편집] — 분류 고치기 개선안</div><div class="fd"><div class="sh">
+<div class="hd">분류 고치기 <span class="n" style="margin-left:6px;font-weight:400">13개</span><span class="x">✕</span></div>
+<div class="add"><div class="in">새 분류 이름</div><span class="btn">추가</span></div>
+<div class="r"><span class="h">⠿</span>교섭·합의 <span class="n">10</span><span class="m">⋯</span></div>
+<div class="r"><span class="h">⠿</span>투쟁 <span class="n">16</span><span class="m">⋯</span></div>
+<div class="r edit"><span class="h">⠿</span><span style="border-bottom:1px solid #5b4f8a">교육|</span> <span class="n">4</span><span class="m" style="font-size:12px;color:#5b4f8a">완료</span></div>
+<div class="r"><span class="h">⠿</span>선전 <span class="n">5</span><span class="m">⋯</span></div>
+<div class="r"><span class="h">⠿</span>정책 <span class="n">7</span><span class="m">⋯</span></div>
+<div class="r"><span class="h">⠿</span>회의 <span class="n">49</span><span class="m">⋯</span></div>
+<div class="r"><span class="h">⠿</span>주간보고 <span class="n">5 · 소분류 2</span><span class="m">⋯</span></div>
+<div class="r sub">└ 확정본 <span class="n">2</span><span class="m">⋯</span></div>
+<div class="r sub">└ 개인본 <span class="n">3</span><span class="m">⋯</span></div>
+<div class="r"><span class="h">⠿</span>공문 <span class="n">0</span><span class="m">⋯</span></div>
+<div class="r"><span class="h">⠿</span>성명·보도자료 <span class="n">49</span><span class="m">⋯</span></div>
+<div class="r"><span class="h">⠿</span>양식 <span class="n">2</span><span class="m">⋯</span></div>
+<div class="r"><span class="h"></span>기타 <span class="n">10</span><span class="lock">🔒 고정</span></div>
+<div class="menu"><div>+ 소분류</div><div>이름 바꾸기</div><div>지우기</div></div>
+</div></div></div>
+<div class="legend"><b>바꾸는 것</b><br>
+① 줄마다 큰 버튼 3개 → <b>'이름 · 자료 수 · ⋯'</b> 한 줄. ⋯ 누르면 [+ 소분류][이름 바꾸기][지우기] 작은 메뉴.<br>
+② 이름을 누르면 그 자리에서 바로 고침(보라 테두리), [완료] 또는 엔터로 저장.<br>
+③ 지우기는 빨강 없이, 누르면 "○○ 분류를 지울까요? 자료는 지워지지 않아요" 한 번 묻기.<br>
+④ 긴 안내문 삭제. '새 분류 이름' 칸은 <b>맨 위</b>로 — 아래 바에 가려지지 않게.<br>
+⑤ 왼쪽 ⠿ 손잡이를 끌어 순서 바꾸기(자료실 위 분류 칩 순서와 같음).<br>
+⑥ '기타'는 맨 아래 🔒 고정 표시만.<br>
+⑦ 창이 아래 바를 가리지도, 아래 바에 가려지지도 않게(폰·폴드 공통).<br><br>
+같은 종류: 노트 폴더·태그 고치기, 사진 앨범 고치기, 담당조직 묶음 고치기 등 '목록 고치기' 창은 모두 이 모양으로.</div>
+</body>
