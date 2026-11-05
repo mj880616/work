@@ -33,8 +33,10 @@ for (const width of [390, 1280]) {
     await expect(page.locator('main input:visible,main a:visible')).toHaveCount(0);
     await expect(page.locator('#appView')).toBeHidden();
     await expect(page.locator('#bootstrapView,#aaPending,#bootstrapBtn,#authView')).toHaveCount(0);
-    expect(calls.filter(x=>x.path.startsWith('/rest/v1/')).map(x=>x.path)).toEqual(['/rest/v1/app_workspace_members']);
-    expect(calls.some(x=>x.path.includes('/rpc/')||x.path.includes('/signup')||x.path.includes('/functions/'))).toBe(false);
+    // MULTI ②-4: 접근 거부 뒤 가입 스위치 상태만 한 번 묻는다(이 시험의 답은 빈 값 = 꺼짐 → [내 작업공간 만들기] 없음).
+    await expect.poll(()=>calls.filter(x=>x.path.startsWith('/rest/v1/')).map(x=>x.path)).toEqual(['/rest/v1/app_workspace_members','/rest/v1/rpc/app_workspace_start_status']);
+    expect(calls.some(x=>(x.path.includes('/rpc/')&&x.path!=='/rest/v1/rpc/app_workspace_start_status')||x.path.includes('/signup')||x.path.includes('/functions/'))).toBe(false);
+    await expect(page.locator('[data-workspace-start]')).toHaveCount(0);
     expect(modules.some(x=>/access-approval|view-loader|project-system|calendar-month-view/.test(x))).toBe(false);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.screenshot({path:test.info().outputPath('nonmember.png'),fullPage:true});
