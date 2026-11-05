@@ -11,7 +11,7 @@ async function gotoOdRoot(page, width) {
   // 폰(S50-33): 첫 화면은 나무 → 원드라이브 이름을 누른다. 새로고침이면 보던 자리(원드라이브 맨 위 목록)가 그대로 열린다.
   const go = root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]');
   if (width > 760 && await root(page).locator('[data-fx-tree] [data-fx-twist="od:"][aria-expanded="false"]').count()) await root(page).locator('[data-fx-tree] [data-fx-twist="od:"]').click();
-  await expect(go.or(row(page, 'od:OD!1')).first()).toBeVisible();
+  await expect.poll(async () => (await go.isVisible()) || (await row(page, 'od:OD!1').isVisible())).toBe(true);
   if (await go.isVisible()) await go.click();
   await expect(row(page, 'od:OD!1')).toBeVisible();
 }
