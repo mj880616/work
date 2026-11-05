@@ -55,8 +55,9 @@ test('the script never prints the secret or post contents', () => {
   assert.match(script, /process\.exitCode = 1/);
 });
 
-test('schedule workflow: 08·13·18 KST, read-only, only its own cron secret via env, pinned actions, no deploy access', () => {
-  assert.match(workflow, /^on:\n  schedule:\n    - cron: '7 23,4,9 \* \* \*'\n  workflow_dispatch:\n\npermissions:\n  contents: read\n/m);
+test('manual workflow (정해진 시각은 DB 예약 20261106070000): dispatch only, read-only, only its own cron secret via env, pinned actions, no deploy access', () => {
+  assert.match(workflow, /^on:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n/m);
+  assert.doesNotMatch(workflow, /^\s*schedule:/m);
   assert.doesNotMatch(workflow, /pull_request|^  push:/m);
   assert.doesNotMatch(workflow, /contents:\s*write|environment:|production-edge|SUPABASE_ACCESS_TOKEN|SERVICE_ROLE|OPENAI/);
   const exprs = [...workflow.matchAll(/\$\{\{\s*([^}]+?)\s*\}\}/g)].map(m => m[1]);

@@ -4,9 +4,9 @@ name: Outside feed
 # 시각(KST): 08:07·13:07·18:07(UTC 23:07·04:07·09:07). 정각은 GitHub 예약이 몰려 늦어지므로 7분.
 # 비밀값 OUTSIDE_FEED_CRON_SECRET은 GitHub Actions 비밀값과 Supabase Edge 비밀값 두 곳에 같은 값(명진이 등록).
 # 함수 첫 배포·비밀값 등록 전에는 401로 실패한다(되돌리기: 이 workflow를 끄면 예약 호출이 멈춘다).
+# 11/06 NEWS-전면개편 P1(차례 5): 정해진 시각 실행은 Supabase 예약(pg_cron, migration 20261106070000 — SQL Editor 적용)으로 옮겼다.
+#   GitHub 예약은 늦거나 빠져서 뺐고, 이 workflow는 손으로 한 번 돌릴 때(workflow_dispatch)만 쓴다.
 on:
-  schedule:
-    - cron: '7 23,4,9 * * *'
   workflow_dispatch:
 
 permissions:

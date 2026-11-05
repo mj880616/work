@@ -105,10 +105,11 @@ test('막힌 단체 상태 글: 단계 코드마다 까닭 한 줄, 모르는 �
 });
 
 // OUTSIDE-이름·바로읽기 ③: 목록 위 '마지막으로 읽음 … · 다음 …' 줄.
-test('예약 읽기 시각은 outside-feed.yml cron(UTC)과 같다', () => {
-  const yml = readFileSync(new URL('../.github/workflows/outside-feed.yml', import.meta.url), 'utf8');
-  const m = /cron:\s*'(\d+) ([\d,]+) \* \* \*'/.exec(yml);
-  assert.ok(m, 'cron 한 줄');
+test('예약 읽기 시각은 Supabase 예약 web2_feed_outside cron(UTC)과 같다', () => {
+  // 11/06부터 정해진 시각 실행은 DB 예약(migration 20261106070000, SQL Editor 적용)이 한다. GitHub workflow는 손 실행만.
+  const sql = readFileSync(new URL('../supabase/migrations/20261106070000_feed_cron_schedule.sql', import.meta.url), 'utf8');
+  const m = /cron\.schedule\('web2_feed_outside',\s*'(\d+) ([\d,]+) \* \* \*'/.exec(sql);
+  assert.ok(m, 'web2_feed_outside 예약 한 줄');
   const kst = m[2].split(',').map(h => `${String((Number(h) + 9) % 24).padStart(2, '0')}:${m[1].padStart(2, '0')}`).sort();
   assert.deepEqual(kst, [...FEED_SLOTS_KST]);
 });
