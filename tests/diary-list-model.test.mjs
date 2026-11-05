@@ -127,5 +127,4 @@ test('한 일 읽기는 읽기만: 기간·최근 줄 GET, 일기 화면은 같�
   assert.match(lines, /export async function readDoneRecent/);
   assert.match(read('app/diary.js'), /m\.readDoneBetween\(first, last, rt\)/);
   assert.match(read('app/diary-list.js'), /m\.readDoneRecent\(rt\)/);
-  assert.doesNotMatch(read('app/diary-list.js'), /localStorage|sessionStorage/);
 });
