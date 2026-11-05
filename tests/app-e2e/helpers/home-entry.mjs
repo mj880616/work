@@ -1,3 +1,4 @@
+import { OPERATOR_ORG_ORDER, OPERATOR_REPORT_CALENDAR } from '../../org-order-fixture.mjs';
 import { expect } from '@playwright/test';
 import {DEFAULT_STAGES} from '../../../app/org-dispute-stage-model.mjs';
 import { loginEntry } from './login-entry.mjs';
@@ -14,7 +15,8 @@ export async function openHome(
 ) {
   await page.clock.setFixedTime(new Date("2026-10-06T01:00:00Z"));
   // SET-보기선택서버저장: 화면 선택(빠른 입력 모드·메뉴 접기·달력 보기 등)은 서버 프로필에 저장되므로 시험도 흉내 낸 서버를 쓴다(새로고침 뒤에도 이어짐).
-  const prefs = await installViewPrefsServer(page);
+  // MULTI ②-3: 담당조직 묶음·순서와 보고 캘린더 이름(view_prefs)은 기본으로 운영자 값을 가진 사람(tests/org-order-fixture.mjs). 시험이 보는 prefs.value에는 섞이지 않는다.
+  const prefs = await installViewPrefsServer(page, null, { base: { org_order: OPERATOR_ORG_ORDER, report_calendar: OPERATOR_REPORT_CALENDAR } });
   const requests = [],
     user = { id: "home-test", email: "home@example.org" },
     tasks = [

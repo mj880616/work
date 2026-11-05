@@ -1,3 +1,5 @@
+import {OPERATOR_ORG_ORDER,OPERATOR_REPORT_CALENDAR} from '../../org-order-fixture.mjs';
+const operatorViewPrefs=()=>({org_order:OPERATOR_ORG_ORDER,report_calendar:OPERATOR_REPORT_CALENDAR});
 import { installViewPrefsServer } from './view-prefs-server.mjs';
 import { expect } from '@playwright/test';
 import { loginEntry } from './login-entry.mjs';
@@ -50,7 +52,8 @@ export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'qa-ws',user_id:'qa-user',role:'owner'}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'qa-ws',name:'QA Workspace'}]);
-    if(path==='/rest/v1/app_profiles')return ok([{user_id:'qa-user',display_name:'QA'}]);
+    // MULTI ②-3: 담당조직 묶음·보고 캘린더는 내 프로필 설정(view_prefs). 이 시험은 운영자 값을 가진 사람.
+    if(path==='/rest/v1/app_profiles')return ok([{user_id:'qa-user',display_name:'QA',view_prefs:operatorViewPrefs()}]);
     if(path==='/rest/v1/app_record_links'){if(onLinks)await onLinks();return ok(links);}
     if(path==='/rest/v1/app_spaces')return ok(projects);
     if(path==='/rest/v1/app_suborganizations')return ok(orgs);

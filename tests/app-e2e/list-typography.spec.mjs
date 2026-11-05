@@ -1,3 +1,5 @@
+import {OPERATOR_ORG_ORDER,OPERATOR_REPORT_CALENDAR} from '../org-order-fixture.mjs';
+const operatorViewPrefs=()=>({org_order:OPERATOR_ORG_ORDER,report_calendar:OPERATOR_REPORT_CALENDAR});
 import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
@@ -22,7 +24,8 @@ async function mockApp(page,{spaces=[],tasks=[]}={}){
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace.id,user_id:user.id,role:'owner',email:user.email}]);
     if(path==='/rest/v1/app_workspaces')return ok([workspace]);
-    if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'Design QA'}]);
+    // MULTI ②-3: 담당조직 묶음·보고 캘린더는 내 프로필 설정(view_prefs). 이 시험은 운영자 값을 가진 사람.
+    if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'Design QA',view_prefs:operatorViewPrefs()}]);
     if(path==='/rest/v1/app_meetings')return ok([{id:'type-meeting',workspace_id:workspace.id,title:'Fixture meeting',meeting_name:'Fixture meeting',round_no:2,meeting_at:'2026-10-05T12:00:00'}]);
     if(path==='/rest/v1/app_suborganizations')return ok([{id:'type-org',name:'Fixture organization',active:true,created_by:user.id}]);
     if(path==='/rest/v1/app_suborganization_assignees')return ok([{organization_id:'type-org',user_id:user.id}]);

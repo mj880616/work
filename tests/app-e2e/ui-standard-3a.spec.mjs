@@ -1,3 +1,5 @@
+import {OPERATOR_ORG_ORDER,OPERATOR_REPORT_CALENDAR} from '../org-order-fixture.mjs';
+const operatorViewPrefs=()=>({org_order:OPERATOR_ORG_ORDER,report_calendar:OPERATOR_REPORT_CALENDAR});
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -41,7 +43,8 @@ async function boot(page,width){
   if(path.startsWith('/rest/v1/rpc/'))return ok(null);
   if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:ws.id,user_id:user.id,role:'owner',email:user.email}]);
   if(path==='/rest/v1/app_workspaces')return ok([ws]);
-  if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'디자인'}]);
+  // MULTI ②-3: 담당조직 묶음·보고 캘린더는 내 프로필 설정(view_prefs). 이 시험은 운영자 값을 가진 사람.
+    if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'디자인',view_prefs:operatorViewPrefs()}]);
   if(path==='/rest/v1/app_meetings')return ok(meetings);
   if(path==='/rest/v1/app_suborganizations')return ok(orgs);
   if(path==='/rest/v1/app_suborganization_assignees')return ok(orgs.map(o=>({organization_id:o.id,user_id:user.id})));
