@@ -45,6 +45,7 @@ import {copyText} from './copy-text.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
 import {requestBasketNoteFrom, requestNoteDocFrom, requestTaskOpen, takeBasketReturn} from './basket-note-tasks.js';
+import {flashRecord, orgRecordSelector} from './record-flash.js';
 import {scopeKey, hasLines, keepLines} from './work-scope-model.mjs';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
@@ -584,7 +585,7 @@ function paintWeekLines(host, model) {
   if (!weekLinesMod) { slot.innerHTML = waitHtml({rows:2}); void import('./weekly-org-lines.js').then(m => { weekLinesMod = m; paintWeekLines_(); }).catch(() => { slot.textContent = '조직보고를 불러오지 못했어요.'; }); return true; }
   const workspaceId = rt.context.read()?.workspace?.id;
   if (!weekLines || weekLines.workspaceId !== workspaceId) {
-    weekLines = weekLinesMod.createWeekLines({rt, workspaceId, week:start, mode:'weekly', repaint:() => { if (weekLines.status === 'missing') { redrawFlow(); return; } drawWeekLines(); if (weekLines.status === 'ready') redrawOrgText(); },
+    weekLines = weekLinesMod.createWeekLines({rt, workspaceId, week:start, mode:'weekly', openSource:({org, record}, trigger) => void openOriginal({type:'org', org, record:record || null}, trigger), repaint:() => { if (weekLines.status === 'missing') { redrawFlow(); return; } drawWeekLines(); if (weekLines.status === 'ready') redrawOrgText(); },
       say:(text, error = false) => { weekLinesMsg = {text, error}; const el = weekLinesSlot()?.querySelector('[data-wl-status]'); if (el) { el.textContent = text; el.classList.toggle('is-error', error); } }});
   }
   const ids = weekLinesOrgs.map(o => o.id), same = ids.length === weekLines.orgIds.length && ids.every((id, i) => id === weekLines.orgIds[i]);
@@ -998,31 +999,7 @@ function rememberReturn(trigger) {
   pendingReturn = {owner:ownerScope(rt), start, day:selected, scroll:window.scrollY, focus:trigger};
 }
 const goView = view => window.KPTURouter?.go?.(view, {source:'delegated'});
-// The record on the opened screen: scrolled to the middle and lit for a moment (journal.css [data-journal-flash]). Waits for the
-// owner module to draw it (a few frames at most); a record that is not drawn (folded away, gone) leaves the screen as opened.
-// The owner module may draw its records once more right after opening (its link read lands); a record drawn again is marked again
-// while the moment lasts, so the highlight is never lost to that redraw.
-const FLASH_MS = 1600;
-async function flashRecord(selector) {
-  const find = () => [...document.querySelectorAll(selector)].find(node => node.getClientRects().length);
-  const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
-  let el = null, until = 0;
-  for (let i = 0; i < 90 && !el; i++) { el = find(); if (!el) await frame(); }
-  if (!el) return false;
-  const light = node => {
-    node.scrollIntoView({block:'center', behavior:'instant'});
-    node.removeAttribute('data-journal-flash'); void node.offsetWidth; node.setAttribute('data-journal-flash', '');
-    node.addEventListener('animationend', () => node.removeAttribute('data-journal-flash'), {once:true});
-  };
-  light(el); until = performance.now() + FLASH_MS;
-  while (performance.now() < until) {
-    await frame();
-    if (el.isConnected) continue;
-    const again = find(); if (!again) return true;
-    el = again; light(el);
-  }
-  return true;
-}
+// The record on the opened screen: scrolled to the middle and lit for a moment — record-flash.js (shared with the 담당조직 table).
 // Phone: the organization/project/meeting opens as a window over this screen; when back (or its ×) closes it, the focus returns to
 // the pressed line.
 function refocusAfter(modalSelector, trigger, onClosed = null) {
@@ -1049,7 +1026,7 @@ function refocusAfter(modalSelector, trigger, onClosed = null) {
   window.addEventListener('kptu:view-changed', () => watch.disconnect(), {once:true});
 }
 const RECORD = {
-  org:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id ? '' : kind === 'up' ? `#wdUpdates [data-wd-up="${CSS.escape(id)}"]` : `#wdUpdates [data-basket-link="${CSS.escape(id)}"]`; },
+  org:orgRecordSelector,
   // MTG-프로젝트합치기 결정 ⑥: 사업영역 화면은 옛 진행 기록 줄을 그리지 않는다 → 그 기록은 사업영역 화면만 열고 강조할 줄은 없다.
   project:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id || kind === 'progress' ? '' : `#ps3Body [data-basket-link="${CSS.escape(id)}"]`; },
 };

@@ -6,6 +6,7 @@
 //   조직 상세 [현황 표]는 그 조직의 오래 쌓이는 기록으로 따로 남는다(설계 2.1). 예전 AI 채우기 버튼은 없앴다.
 // - 표 위 한 줄: 주 고르기(week-pick.js, 월~일) + [복사](넣은 줄만). 지난 주를 고르면 그때 낸 줄이 보이고 따로 고칠 수 있다.
 // - 쟁의 단계는 org-dispute-stage.js 읽기만 한다. 조직 이름을 누르면 [목록]으로 돌아가 그 조직 상세를 연다.
+//   줄 끝 [↗](S50-25 ⑨)도 같은 길로 그 조직 상세를 열고, 줄이 나온 기록(담당조직 기록·연결된 업데이트)을 밝힌다(record-flash.js).
 // - 폰도 표 모양(칸 선)을 지키되 한 조직을 두 줄로 쌓는다(CSS). 조직 칸 폭은 끌어 바꾸고 서버에 기억한다(view_prefs.col_widths.orgall).
 // - 고른 소탭([목록|전체 표])은 이번 접속만 기억한다. 브라우저 저장소에 아무것도 두지 않는다.
 import {createWeekLines, thisWeek, weekTableHtml} from './weekly-org-lines.js';
@@ -17,6 +18,7 @@ import {loadDisputeState, peekDisputeState} from './org-dispute-stage.js';
 import {stageOfOrg, stageLabel} from './org-dispute-stage-model.mjs';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {waitHtml, emptyHtml} from './wait-state.js';
+import {flashRecord, orgRecordSelector} from './record-flash.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const TEXT = {failed: '전체 표를 불러오지 못했어요.', copied: '복사했어요.', copyFail: '복사하지 못했어요.'};
@@ -28,7 +30,7 @@ export function syncOverview({orgs, workspaceId, rt}) {
   if (!section) return;
   if (!st || st.section !== section) {
     st = {section, orgs: [], workspaceId, rt, view: 'list', msg: {text: '', error: false}, loaded: false, wl: null, names: [], nameWeek: ''};
-    st.wl = createWeekLines({rt, workspaceId, week: thisWeek(), mode: 'desk', repaint: () => paint(), say});
+    st.wl = createWeekLines({rt, workspaceId, week: thisWeek(), mode: 'desk', repaint: () => paint(), say, openSource: ({org, record}) => { openOrg(org); void flashRecord(orgRecordSelector(record)); }});
     install();
   }
   const same = st.orgs.length === orgs.length && st.orgs.every((o, i) => o.id === orgs[i].id);

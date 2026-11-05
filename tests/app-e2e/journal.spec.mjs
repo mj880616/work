@@ -2746,6 +2746,19 @@ async function weekLinesFixture(page,{width,seed,hwpx=false}={}){
 }
 const orgTable=page=>page.locator('#journalRoot [data-weekly-flow-cells="orgs"]');
 const orgRow=(page,id)=>orgTable(page).locator(`[data-wl-org-row="${id}"]`);
+// S50-25 ⑨: 기록에서 온 줄 끝 [↗] = 원래 기록 열기 — 업무일지 원본 열기와 같은 길(그 조직 화면, 그 기록 강조). 손으로 넣은 줄에는 [↗] 없음.
+for(const width of [390,1280])test(`[주간 정리] 4. 조직보고: 기록에서 온 줄 [↗] → 그 조직 화면의 그 기록 ${width}`,async({page})=>{
+ const seed=[WL('l1',OB,'2026-10-05','2026-10-06','가상 손으로 넣은 줄'),WL('l2',OB,'2026-10-05','2026-10-06','가상 조직 화면 기록','in',{origin:'plain',sort_order:1,source_update_ids:['u1']})];
+ const f=await weekLinesFixture(page,{width,seed});await originals(page,f);
+ await openJournal(page,width);await openWeekly(page);
+ const b=orgRow(page,OB);
+ await expect(b.locator('[data-wl-line="l1"] [data-wl-src]')).toHaveCount(0);
+ const src=b.locator('[data-wl-line="l2"] [data-wl-src]');
+ await expect(src).toHaveAccessibleName('가상 조직 화면 기록 원래 기록 열기');
+ await src.click();
+ await expect(page.locator('#wdModal')).toBeVisible();await expect(page.locator('#wdTitle')).toContainText('나 지역 모임');
+ await flashed(page,'#wdUpdates [data-wd-up="u1"]');
+});
 for(const width of [390,1280])test(`[주간 정리] 4. 조직보고: 담당조직과 같은 표·넣기·지난주 가져오기(1줄 이하 조직만)·복사, AI 요약 버튼 없음 ${width}`,async({page},info)=>{
  const f=await weekLinesFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
