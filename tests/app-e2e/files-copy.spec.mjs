@@ -16,7 +16,6 @@ const fake = o => ({ parent_id: null, is_folder: false, mime: null, size_bytes: 
 
 async function intoDocs(page, width) {
   await openFiles(page, width);
-  if (width < 761) await root(page).locator('[data-fx-tab="folders"]').click();
   await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
   await row(page, 'od:OD!1').click();
   await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
@@ -183,7 +182,8 @@ test('폰 412: 꾹 눌러 고르기 → [복사] → 하단바 위 받을 곳 �
   await expect(root(page).locator('[data-fx-jobs] .fx-job-st')).toHaveText(['끝', '끝', '끝'], { timeout: 30000 });
   expect(server.items.filter(i => i.parent_id === 'gdFolder1' && !i.trashed).map(i => i.name).sort()).toEqual(['가짜 결과 정리.pdf', '가짜 안내문.pdf', '가짜 영상.mp4', '가짜 예산표.xlsx'].sort());
   await root(page).locator('[data-fx-jobs] [data-fx-jobs-close]').click();
-  await intoDocs(page, 412);
+  // 새로고침해도 보던 폴더(주소 자리)에 그대로 있다.
+  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
   // 뒤로가기 한 번 = 받을 곳 창 닫힘.
   await row(page, 'od:OD!13').dispatchEvent('contextmenu');
   await bar(page).locator('[data-fx-copy]').click();

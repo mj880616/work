@@ -5,11 +5,11 @@ import {validValue, parsePrefs, applyChanges, createViewPrefs} from '../app/view
 // S49-30 FILES-통합 2-③ 두 칸(명진 결정 H-2): 켬 계산·막대 글자·받을 곳(반대 칸), 서버 칸 files_two 모양.
 test('기본: 폴드 펼침은 두 칸, PC는 한 칸 · 서버 값이 있으면 그 값', () => {
   assert.equal(FILES_TWO_KEY, 'files_two');
-  assert.deepEqual({...FILES_TWO_DEFAULT}, {fold: true, wide: false});
+  assert.deepEqual({...FILES_TWO_DEFAULT}, {fold: false, wide: false}); // S50-33: 폴드도 PC처럼 한 칸이 기본
   assert.equal(twoLayout(false), 'fold'); assert.equal(twoLayout(true), 'wide');
-  assert.equal(twoOn(undefined, 'fold'), true); assert.equal(twoOn(undefined, 'wide'), false);
+  assert.equal(twoOn(undefined, 'fold'), false); assert.equal(twoOn(undefined, 'wide'), false);
   assert.equal(twoOn({fold: false}, 'fold'), false); assert.equal(twoOn({wide: true}, 'wide'), true);
-  assert.equal(twoOn({fold: 'yes'}, 'fold'), true, '모양이 틀리면 기본');
+  assert.equal(twoOn({fold: 'yes'}, 'fold'), false, '모양이 틀리면 기본'); assert.equal(twoOn({fold: true}, 'fold'), true);
   assert.equal(twoOn([], 'wide'), false); assert.equal(twoOn({wide: true}, 'phone'), false);
 });
 test('켬 바꾸기는 이 폭 칸만 바꾸고 다른 폭 칸은 아는 값만 남긴다', () => {
@@ -26,10 +26,10 @@ test('받을 곳 = 폴더를 연 칸만(찾는 중·묶음·빈 칸은 없음) �
   assert.deepEqual(paneDest({where: {source: 'od', parent: 'OD!1'}, query: ''}), {source: 'od', parent: 'OD!1'});
   assert.deepEqual(paneDest({where: {source: 'gd'}, query: ''}), {source: 'gd', parent: null});
   assert.equal(paneDest({where: {source: 'od', parent: null}, query: '찾기'}), null);
-  assert.equal(paneDest({where: {shelf: 'recent'}, query: ''}), null);
+  assert.equal(paneDest({where: {shelf: 'starred'}, query: ''}), null);
   assert.equal(paneDest({where: null}), null);
   assert.deepEqual(otherStart({source: 'od', parent: 'x'}, ['od', 'gd']), {source: 'gd', parent: null});
-  assert.deepEqual(otherStart({shelf: 'recent'}, ['od', 'gd']), {source: 'od', parent: null});
+  assert.deepEqual(otherStart({shelf: 'starred'}, ['od', 'gd']), {source: 'od', parent: null});
   assert.deepEqual(otherStart({source: 'od'}, ['od']), {source: 'od', parent: null});
   assert.equal(otherStart(null, []), null);
 });

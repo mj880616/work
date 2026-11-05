@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles } from './helpers/files-server.mjs';
 // FILES-클라우드탐색기 ④(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files).
-// 색인 목록 · 폴더 들어가기·위치 줄·위 폴더 · 찾기(이름 + 자료실 글자) · 미리보기(사진·PDF·오피스 → PDF·글) · 갱신(바뀐 줄만) · 폰 첫 화면 최근 파일(F9).
+// 색인 목록 · 폴더 들어가기·위치 줄·위 폴더 · 찾기(이름 + 자료실 글자) · 미리보기(사진·PDF·오피스 → PDF·글) · 갱신(바뀐 줄만) · 폰 첫 화면 나무(S50-33).
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 파일·폴더 이름은 모두 가짜.
 const root = page => page.locator('#filesRoot');
 const row = (page, key) => root(page).locator(`[data-fx-row="${key}"]`);
@@ -9,51 +9,76 @@ const rows = page => root(page).locator('[data-fx-list] [data-fx-row]');
 const noWideScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 const names = page => rows(page).locator('.fx-name').allTextContents();
 
-test('폰 412: 첫 화면은 최근 파일(F9)·날짜 묶음, 탭 폴더로 들어가기·위 폴더, 미리보기는 전체 화면이고 뒤로가기 한 번에 닫힘', async ({ page }) => {
+test('폰 412(S50-33): 첫 화면은 나무 — 탭 줄·"폴더" 제목 없음, ★ 별표 줄·폴더 아이콘·맞춤 글자, 폴더를 누르면 같은 자리에 목록·위치 길, 뒤로가기는 한 단계씩', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 412);
   await openFiles(page, 412);
-  // 첫 화면: 최근 파일(바뀐 날 최근 순), 날짜 머리, 탭 [최근] 선택.
-  await expect(root(page).locator('[data-fx-tab="recent"]')).toHaveAttribute('aria-selected', 'true');
-  await expect(rows(page)).toHaveCount(6);
-  await expect(root(page).locator('.fx-day-head').first()).toHaveText('오늘');
-  expect((await names(page)).slice(0, 2)).toEqual(['가짜 예산표.xlsx', '가짜 계획안.hwpx']);
-  expect(server.calls.find(c => c.what === 'app_cloud_find_in').body).toEqual({ p_sources: ['od', 'gd'], p_query: null, p_shelf: 'recent', p_limit: 200 });
+  const tree = root(page).locator('[data-fx-tree]');
+  // 첫 화면: 나무. 탭 줄·'최근'·위치 줄 제목 없음. 찾기 칸과 출처 단추는 한 줄.
+  await expect(tree).toBeVisible();
+  await expect(root(page).locator('[data-fx-tab]')).toHaveCount(0);
+  await expect(root(page).locator('.fx-top [data-fx-crumb]')).toBeHidden();
+  await expect(tree.locator('[data-fx-shelf]')).toHaveCount(2);
+  await expect(tree.locator('[data-fx-shelf] .nx-name')).toHaveText(['별표', '큰 파일']);
+  await expect(tree.locator('[data-fx-shelf="starred"] .nx-ico')).toHaveText('★');
+  await expect(tree.locator('[data-fx-shelf="starred"] .nx-num')).toHaveText('1개');
+  await expect(tree.locator('.fx-root .nx-name')).toHaveText(['원드라이브', '구글 드라이브']);
+  // '○분 전 맞춤'은 원드라이브 줄 오른쪽 작은 글자(위 줄에는 없음).
+  await expect(tree.locator('.fx-root').first().locator('[data-fx-sync]')).toBeVisible();
+  await expect(root(page).locator('.fx-top [data-fx-sync]')).toBeHidden();
+  const search = await root(page).locator('[data-fx-search]').boundingBox(), chip = await root(page).locator('[data-fx-srcs] [data-fx-src="od"]').boundingBox();
+  expect(Math.abs((search.y + search.height / 2) - (chip.y + chip.height / 2))).toBeLessThan(4);
+  expect(chip.width).toBeLessThanOrEqual(30);
+  expect(server.calls.filter(c => c.what === 'app_cloud_find_in').map(c => c.body.p_shelf)).toEqual(['starred']);
   expect(server.calls.find(c => c.what === 'edge' && c.action === 'status').auth).toMatch(/^Bearer /);
-  await expect(row(page, 'gd:gdDoc1').locator('.fx-tag')).toHaveText('자료실');
-  await expect(row(page, 'gd:gdDoc1').locator('.fx-sub')).toContainText('구글 드라이브 › 가짜 업무 공간');
-  await expect(root(page).locator('[data-fx-tree]')).toBeHidden();
   expect(await noWideScroll(page)).toBe(true);
-  // 화면에 들어오면 바로 맞추기(sync)를 한 번 부른다(F2).
   await expect.poll(() => server.calls.filter(c => c.action === 'sync').length).toBeGreaterThan(0);
 
-  // [폴더] 탭 → 원드라이브 맨 위 → 폴더 들어가기(S49-17: 폴더 옆 개수는 그 폴더를 실제로 읽은 뒤에만, 안 읽었으면 빈칸).
-  // S49-21: 폰 [폴더] 탭 첫 화면은 두 드라이브 나무(맨 위 두 줄). 펼친 뒤 폴더 이름을 누르면 그 폴더 목록으로 들어간다.
-  await root(page).locator('[data-fx-tab="folders"]').click();
-  await expect(root(page).locator('[data-fx-tree] .fx-root')).toHaveCount(2);
-  await root(page).locator('[data-fx-tree] [data-fx-twist="od:"]').click();
-  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id="OD!1"]').click();
+  // 원드라이브 펼치기 → 폴더 줄 높이는 PC 수준(30~32px), 폴더 아이콘, 들여쓰기는 절반(7px).
+  await tree.locator('[data-fx-twist="od:"]').click();
+  const folder = tree.locator('.nx-row').filter({ has: page.locator('[data-fx-go="od"][data-fx-id="OD!1"]') });
+  await expect(folder.locator('.nx-ico')).toBeVisible();
+  const h = (await folder.boundingBox()).height;
+  expect(h).toBeGreaterThanOrEqual(29); expect(h).toBeLessThanOrEqual(33);
+  expect(await folder.evaluate(el => getComputedStyle(el).paddingLeft)).toBe('7px');
+  // 폴더를 누르면 같은 자리에서 목록 + 위치 길(‹ 원드라이브 › 가짜 문서함).
+  await tree.locator('[data-fx-go="od"][data-fx-id="OD!1"]').click();
+  await expect(tree).toBeHidden();
   await expect(row(page, 'od:OD!11')).toBeVisible();
+  await expect(root(page).locator('.fx-crumb-step')).toHaveText(['원드라이브']);
   await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
   await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
   await expect.poll(() => new URL(page.url()).searchParams.get('at')).toBe('od:OD:1');
-  // PDF 미리보기: 전체 화면 칸, pdf.js로 쪽을 그린다. 뒤로가기 한 번 = 닫힘(화면은 그대로).
+  // 하위 폴더 → 뒤로가기 한 번 = 위 폴더(화면 그대로).
+  await row(page, 'od:OD!10').click();
+  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 2026');
+  await page.goBack();
+  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
+  await expect(page.locator('#filesView')).toBeVisible();
+  // PDF 미리보기는 그 위 겹친 칸, 뒤로가기 한 번 = 닫힘.
   await row(page, 'od:OD!11').click();
   const prev = root(page).locator('[data-fx-prev]');
   await expect(prev).toBeVisible();
   await expect(prev.locator('.fx-pv-nm')).toHaveText('가짜 안내문.pdf');
   await expect(prev.locator('canvas.fx-page')).toHaveCount(1, { timeout: 20000 });
   expect(server.calls.find(c => c.action === 'media')?.body).toMatchObject({ source: 'od', id: 'OD!11' });
-  await expect(prev.locator('[data-fx-open]')).toBeVisible();
   await page.goBack();
   await expect(prev).toBeHidden();
-  await expect(page.locator('#filesView')).toBeVisible();
-  // 위 폴더(‹) → 원드라이브 맨 위.
-  await root(page).locator('[data-fx-up]').click();
+  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
+  // 뒤로가기 → 원드라이브 맨 위 → 뒤로가기 → 나무(화면은 그대로 [파일]).
+  await page.goBack();
   await expect(root(page).locator('.fx-crumb-now')).toHaveText('원드라이브');
-  // 좌우 밀기 대신 탭 [별표] → 별표 파일.
-  await root(page).locator('[data-fx-tab="starred"]').click();
+  await page.goBack();
+  await expect(tree).toBeVisible();
+  await expect(page.locator('#filesView')).toBeVisible();
+  // ★ 별표 줄 → 별표 목록, ‹ 로 나무.
+  await tree.locator('[data-fx-shelf="starred"]').click();
   await expect.poll(() => names(page)).toEqual(['가짜 예산표.xlsx']);
+  await root(page).locator('[data-fx-up]').click();
+  await expect(tree).toBeVisible();
+  // 나무에서 뒤로가기는 이전 화면(목록 자리가 남지 않음).
+  await page.goBack();
+  await expect(page.locator('#filesView')).toBeHidden();
   expect(errors).toEqual([]);
 });
 
@@ -64,15 +89,16 @@ for (const width of [884, 1440]) {
     await openFiles(page, width);
     const tree = root(page).locator('[data-fx-tree]');
     await expect(tree).toBeVisible();
-    // 나무: 묶음 3개(최근·별표·큰 파일) + 두 클라우드 뿌리.
-    await expect(tree.locator('[data-fx-shelf] .nx-name')).toHaveText(['최근', '별표', '큰 파일']);
-    // S50-20 FOLDER-나무아이콘: 최근·별표·큰 파일은 시계·별·문서, 저장소는 로고, 폴더는 폴더 아이콘(글자는 그대로).
-    await expect(tree.locator('[data-fx-shelf] .nx-ico')).toHaveText(['\u{1F552}', '\u2605', '\u{1F4C4}']);
+    // 나무: 묶음 2개(별표·큰 파일, S50-33 최근 뺌) + 두 클라우드 뿌리. 별표 줄에는 개수.
+    await expect(tree.locator('[data-fx-shelf] .nx-name')).toHaveText(['별표', '큰 파일']);
+    await expect(tree.locator('[data-fx-shelf="starred"] .nx-num')).toHaveText('1개');
+    // S50-20 FOLDER-나무아이콘: 별표·큰 파일은 별·문서, 저장소는 로고, 폴더는 폴더 아이콘(글자는 그대로).
+    await expect(tree.locator('[data-fx-shelf] .nx-ico')).toHaveText(['\u2605', '\u{1F4C4}']);
     await expect(tree.locator('.fx-root .nx-ico svg')).toHaveCount(2);
     await expect(tree.locator('.fx-root .nx-name')).toHaveText(['원드라이브', '구글 드라이브']);
-    await expect(tree.locator('[data-fx-shelf="recent"]')).toHaveAttribute('aria-current', 'true');
-    // 원드라이브 뿌리 → 폴더 → 하위 폴더.
-    await tree.locator('[data-fx-go="od"][data-fx-id=""]').click();
+    // 첫 화면(S50-33): 켜진 첫 저장소(원드라이브) 맨 위. [최근]·탭 줄은 없다.
+    await expect(tree.locator('[data-fx-go="od"][data-fx-id=""]')).toHaveAttribute('aria-current', 'true');
+    await expect(root(page).locator('[data-fx-tab]')).toHaveCount(0);
     await expect(row(page, 'od:OD!1')).toBeVisible();
     await expect(tree.locator('[data-fx-go="od"][data-fx-id="OD!1"] .nx-num')).toHaveCount(0);
     await row(page, 'od:OD!1').click();

@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S49-51 FILES-통합 3단계 '이 폰'(명진 결정 H-1 모든 파일 접근, H-7 [최근]에 폰 파일도 같이·줄마다 작은 출처 점).
+// S49-51 FILES-통합 3단계 '이 폰'(명진 결정 H-1 모든 파일 접근). S50-33: [최근](H-7 섞기)은 화면에서 뺐다.
 // 폰 앱(412, 앱 다리 흉내 + __phone/…/files/ 가로채기 흉내): [이 폰] 아이콘 → 허락 전이면 설정 안내·pfiles:ask → 앱이 '켜짐'을 알리면
-// [최근]에 폰 파일이 클라우드 파일과 바뀐 날 순으로 섞이고(출처 점), [폴더] 나무 맨 위 줄에 '이 폰', 폴더 안 목록·미리보기(폰 안에서 읽음),
+// 나무 뿌리 줄에 '이 폰', 폴더 안 목록·미리보기(폰 안에서 읽음),
 // 폰 파일 → 원드라이브 [복사]는 올리기 길(upload_open)로. 폰 쪽 쓰기(이름·휴지통)는 이 판에 없다. PC 브라우저에는 '이 폰'이 없다. 파일 이름은 모두 가짜.
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36 KPTUAndroid/0.5.0';
 const KEY = 'abcdefghijklmnopqrstuvwxyzABCDEF';
@@ -29,7 +29,6 @@ const PHONE = {
   ],
   Documents: [],
 };
-const RECENT = [PHONE.Download[0], PHONE.Download[1]];
 const TEXT = '폰 안 가짜 글';
 
 // write = 앱 3-③ 판 흉내(새 폴더·이름·휴지통·받기). 폰 쪽 상태는 Node(st.fs)에 두고 __phone 읽기와 같은 것을 본다.
@@ -88,7 +87,6 @@ async function phoneApp(page, { granted = false, write = false } = {}) {
       if (!(dir in st.fs)) return r.fulfill({ status: 404, json: { error: 'not_found' } });
       return r.fulfill({ json: { dir, items: st.fs[dir], more: false } });
     }
-    if (u.pathname.endsWith('/files/recent')) return r.fulfill({ json: { items: RECENT } });
     if (u.pathname.endsWith('/files/raw')) {
       const p = u.searchParams.get('path');
       return r.fulfill({ status: 200, contentType: p.endsWith('.txt') ? 'text/plain' : 'application/octet-stream', body: p.endsWith('.txt') ? TEXT : Buffer.alloc(20480, 1) });
@@ -101,42 +99,29 @@ async function phoneApp(page, { granted = false, write = false } = {}) {
 test.describe('폰 앱 412', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
 
-  test('[이 폰] 허락 → [최근]에 섞임(출처 점) → 나무 맨 위 줄 · 폴더 목록 · 미리보기 → 원드라이브에 복사(올리기 길) · 끄기', async ({ page }) => {
+  test('[이 폰] 허락 → 나무 뿌리 줄 · 폴더 목록 · 미리보기 → 원드라이브에 복사(올리기 길) · 끄기', async ({ page }) => {
     test.setTimeout(120000);
     const { errors, server } = await start(page, 412);
     const st = await phoneApp(page);
     await installViewPrefsServer(page);
     await page.reload();
     await openFiles(page, 412);
-    // 허락 전: 아이콘은 보이지만 꺼짐, [최근]에는 클라우드 줄만.
+    // 허락 전: 아이콘은 보이지만 꺼짐, 나무에는 클라우드 뿌리 둘만(S50-33: 첫 화면은 나무).
+    const roots = tree(page).locator('.fx-root');
     await expect(chip(page, 'ph')).toBeVisible();
     await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'false');
-    await expect(list(page).locator('[data-fx-row^="od:"]').first()).toBeVisible();
-    await expect(list(page).locator('[data-fx-row^="ph:"]')).toHaveCount(0);
+    await expect(roots).toHaveCount(2);
     expect(st.reads).toEqual([]);
-    // 누르면 설정 안내 한 줄 + 앱에 pfiles:ask → 앱이 켜짐을 알리면 아이콘 켜짐, [최근]에 폰 줄.
+    // 누르면 설정 안내 한 줄 + 앱에 pfiles:ask → 앱이 켜짐을 알리면 아이콘 켜짐, 나무 뿌리 줄에 '이 폰'.
     await chip(page, 'ph').click();
     await expect(root(page).locator('[data-fx-note]')).toHaveText("설정에서 '모든 파일 접근 허용'을 켜고 돌아오세요");
     await expect.poll(() => page.evaluate(() => window.__pfilesSent)).toContain('pfiles:ask');
     await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'false');
     await page.evaluate(() => window.__pfilesGrant());
     await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'true');
-    const phoneRow = list(page).locator('[data-fx-row="ph:Download/가짜 회의자료.hwp"]');
-    await expect(phoneRow).toBeVisible();
     await expect(root(page).locator('[data-fx-note]')).toBeHidden();
-    // H-7: 바뀐 날 순으로 섞인다(폰 회의자료 10/6 09:30 서울이 맨 위, 원드라이브 예산표 10/6 09:12가 다음). 줄마다 출처 점.
-    const keys = await list(page).locator('[data-fx-row]').evaluateAll(els => els.map(e => e.dataset.fxRow));
-    expect(keys.slice(0, 2)).toEqual(['ph:Download/가짜 회의자료.hwp', 'od:OD!12']);
-    await expect(phoneRow.locator('.fx-dot')).toHaveAttribute('data-src', 'ph');
-    await expect(list(page).locator('[data-fx-row="od:OD!12"] .fx-dot')).toHaveAttribute('data-src', 'od');
-    await expect(phoneRow).toContainText('이 폰 › Download');
-    await shot(page, 'files-phone-recent-412');
-    // 폰 목록은 서버로 보내지 않는다: Edge·RPC 몸통 어디에도 폰 경로가 없다.
-    expect(JSON.stringify(server.calls)).not.toContain('가짜 회의자료');
 
-    // [폴더]: 나무 맨 위 줄 셋(원드라이브·구글 드라이브·이 폰), '이 폰'을 펼치면 폰 폴더.
-    await root(page).locator('[data-fx-tab="folders"]').click();
-    const roots = tree(page).locator('.fx-root');
+    // 나무 뿌리 줄 셋(원드라이브·구글 드라이브·이 폰), '이 폰'을 펼치면 폰 폴더.
     await expect(roots).toHaveCount(3);
     await expect(roots.nth(2)).toContainText('이 폰');
     await tree(page).locator('[data-fx-twist="ph:"]').click();
@@ -145,6 +130,8 @@ test.describe('폰 앱 412', () => {
     await expect(list(page).locator('[data-fx-row="ph:Download/가짜 메모장.txt"]')).toBeVisible();
     await expect(root(page).locator('.fx-crumb-now')).toHaveText('Download');
     await expect(root(page).locator('[data-fx-crumb]')).toContainText('이 폰');
+    // 폰 목록은 서버로 보내지 않는다: Edge·RPC 몸통 어디에도 폰 경로가 없다.
+    expect(JSON.stringify(server.calls)).not.toContain('가짜 메모장');
     // 폰 폴더에서는 [새 폴더]·[올리기]가 없다(이 판은 폰 쪽 쓰기 없음).
     await expect(root(page).locator('[data-fx-mkdir]')).toBeHidden();
     await expect(root(page).locator('[data-fx-upload]')).toBeHidden();
@@ -176,15 +163,13 @@ test.describe('폰 앱 412', () => {
     expect(server.puts.length).toBeGreaterThan(0);
     expect(server.puts.every(p => !p.auth)).toBe(true);
 
-    // [이 폰] 끄기(이번 접속): 나무·[최근]에서 빠진다.
+    // [이 폰] 끄기(이번 접속): 보던 폰 폴더는 닫히고 나무로, 나무에서 빠진다.
     await prev.locator('[data-fx-close]').click();
     await expect(prev).toBeHidden();
     await chip(page, 'ph').click();
     await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'false');
+    await expect(tree(page)).toBeVisible();
     await expect(tree(page).locator('.fx-root')).toHaveCount(2);
-    await root(page).locator('[data-fx-tab="recent"]').click();
-    await expect(list(page).locator('[data-fx-row^="od:"]').first()).toBeVisible();
-    await expect(list(page).locator('[data-fx-row^="ph:"]')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
@@ -196,7 +181,6 @@ test.describe('폰 앱 412', () => {
     await page.reload();
     await openFiles(page, 412);
     await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'true');
-    await root(page).locator('[data-fx-tab="folders"]').click();
     await tree(page).locator('[data-fx-twist="ph:"]').click();
     await tree(page).locator('[data-fx-go="ph"][data-fx-id="Download"]').click();
     await expect(list(page).locator('[data-fx-row="ph:Download/가짜 메모장.txt"]')).toBeVisible();
@@ -228,9 +212,9 @@ test.describe('폰 앱 412', () => {
 
     // 원드라이브 → 폰 받기: 원드라이브 '가짜 메모.txt'를 폰 Download로 두 번(두 번째는 같은 이름 → [그래도 하기] → 번호).
     for (const round of [1, 2]) {
-      await root(page).locator('[data-fx-tab="folders"]').click();
-      if (await root(page).locator('[data-fx-up]').count()) await root(page).locator('[data-fx-up]').click();
-      if (await root(page).locator('[data-fx-up]').count()) await root(page).locator('[data-fx-up]').click();
+      // 목록에서 ‹ 를 눌러 나무까지(한 단계씩).
+      for (let i = 0; i < 4 && !(await tree(page).isVisible()); i++) await root(page).locator('[data-fx-up]').click();
+      await expect(tree(page)).toBeVisible();
       await tree(page).locator('[data-fx-go="od"][data-fx-id=""]').click();
       await list(page).locator('[data-fx-row="od:OD!1"]').click();
       await list(page).locator('[data-fx-row="od:OD!13"]').click();
@@ -259,17 +243,17 @@ test.describe('폰 앱 412', () => {
     expect(errors).toEqual([]);
   });
 
-  test('이미 허락된 앱: 열자마자 [최근]에 폰 파일, 폰을 못 읽어도 클라우드 줄은 보이고 한 줄 안내', async ({ page }) => {
+  test('이미 허락된 앱: 열자마자 나무 뿌리에 이 폰, 폰을 못 읽으면 목록에 한 줄 안내', async ({ page }) => {
     const { errors } = await start(page, 412);
     await phoneApp(page, { granted: true });
-    await page.route('**/__phone/**/files/recent*', r => r.fulfill({ status: 403, json: { error: 'permission' } }));
+    await page.route('**/__phone/**/files/list*', r => r.fulfill({ status: 403, json: { error: 'permission' } }));
     await installViewPrefsServer(page);
     await page.reload();
     await openFiles(page, 412);
     await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'true');
-    await expect(list(page).locator('[data-fx-row^="od:"]').first()).toBeVisible();
-    await expect(list(page).locator('[data-fx-row^="ph:"]')).toHaveCount(0);
-    await expect(root(page).locator('[data-fx-note]')).toHaveText('폰 저장 공간 허락이 꺼져 있어요(설정 › 모든 파일 접근)');
+    await expect(tree(page).locator('.fx-root')).toHaveCount(3);
+    await tree(page).locator('[data-fx-go="ph"][data-fx-id=""]').click();
+    await expect(list(page)).toContainText('폰 저장 공간 허락이 꺼져 있어요(설정 › 모든 파일 접근)');
     expect(errors).toEqual([]);
   });
 });

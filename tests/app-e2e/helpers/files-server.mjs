@@ -260,7 +260,7 @@ export async function start(page, width, opts) {
   const server = await filesServer(page, opts);
   return { errors, server };
 }
-// S49-30: 폴드 펼침(761~1199)은 기본이 두 칸(명진 결정 H-2). 한 칸 화면을 보는 시험은 위 줄 [두 칸]을 눌러 끈 뒤 시작한다({two: true}면 두 칸 그대로).
+// S50-33: 폴드 펼침(761~1199)도 기본은 한 칸(PC처럼 나무 + 목록). 서버에 '두 칸'이 기억돼 있으면 한 칸 시험은 [한 칸 보기]를 눌러 끈 뒤 시작한다({two: true}면 그대로).
 export async function openFiles(page, width, { two = false } = {}) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S49-30 FILES-통합 2-③ 두 칸(명진 결정 H-2: 폴드 펼침 = 두 칸, 시안 docs/design/files-unified-mockup.html ⑥ 폴드 884 · ⑧ PC 1440).
+// S49-30 FILES-통합 2-③ 두 칸(명진 결정 H-2, S50-33부터 폴드 기본은 한 칸 — 켜 둔 값만 두 칸, 시안 docs/design/files-unified-mockup.html ⑥ 폴드 884 · ⑧ PC 1440).
 // 칸마다 따로 위치·목록·정렬·고르기, 고르기 막대 '→ 오른쪽에 복사 / → 옮기기'(받을 곳 = 반대 칸), 칸 사이 끌어 놓기 → '복사 · 옮기기' 고르기, PC F5·F6·Tab.
 // 서버는 흉내(파일 이름은 모두 가짜). 두 칸 켬은 서버 view_prefs.files_two(기기 종류별 · 폭 종류별).
 const root = page => page.locator('#filesRoot');
@@ -19,17 +19,18 @@ async function begin(page, width, value) {
   return { errors, server, prefs };
 }
 
-test('폴드 884: 처음부터 두 칸 — 칸마다 따로 위치(▾ 나무)·정렬, 지금 칸 밑선, 고르기 막대 → 오른쪽에 복사(받을 곳 창 없이 서버 작업표)', async ({ page }) => {
+test('폴드 884: 두 칸을 켜 둔 기기 — 칸마다 따로 위치(▾ 나무)·정렬, 지금 칸 밑선, 고르기 막대 → 오른쪽에 복사(받을 곳 창 없이 서버 작업표)', async ({ page }) => {
   test.setTimeout(90000);
-  const { errors, server, prefs } = await begin(page, 884);
+  // S50-33: 폴드 기본은 PC처럼 한 칸. 두 칸을 켜 둔 값(서버 files_two.pc.fold)이 있으면 두 칸.
+  const { errors, server, prefs } = await begin(page, 884, { files_two: { pc: { fold: true } } });
   await openFiles(page, 884, { two: true });
   await expect(root(page)).toHaveAttribute('data-fx-two', 'fold');
   await expect(root(page).locator('[data-fx-two]')).toHaveText('한 칸 보기');
   await expect(pane(page, 1)).toBeVisible();
-  // 폴드 두 칸은 왼쪽 나무 대신 칸 위 ▾. 왼쪽 = 최근(첫 화면), 오른쪽 = 다른 저장소 맨 위(원드라이브).
+  // 폴드 두 칸은 왼쪽 나무 대신 칸 위 ▾. 왼쪽 = 첫 저장소 맨 위(원드라이브), 오른쪽 = 다른 저장소 맨 위(구글 드라이브).
   await expect(root(page).locator('[data-fx-tree]')).toBeHidden();
-  await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('최근');
-  await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('원드라이브');
+  await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('원드라이브');
+  await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('구글 드라이브');
   await expect(pane(page, 0)).toHaveClass(/fx-cur/);
   // 왼쪽 칸 ▾ → 그 칸 위로 나무 → 구글 드라이브 › 가짜 업무 공간.
   await pane(page, 0).locator('[data-fx-pdrop]').click();
@@ -40,7 +41,9 @@ test('폴드 884: 처음부터 두 칸 — 칸마다 따로 위치(▾ 나무)·
   await expect(ptree).toBeHidden();
   await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 업무 공간');
   await expect(prow(page, 0, 'gd:gdDoc1')).toBeVisible();
-  // 오른쪽 칸을 누르면 그 칸이 지금 칸. 원드라이브 › 가짜 문서함으로 들어간다(왼쪽은 그대로).
+  // 오른쪽 칸 ▾ → 원드라이브 맨 위 → 가짜 문서함(왼쪽은 그대로). 누른 칸이 지금 칸.
+  await pane(page, 1).locator('[data-fx-pdrop]').click();
+  await pane(page, 1).locator('[data-fx-ptree] [data-fx-go="od"][data-fx-id=""]').click();
   await prow(page, 1, 'od:OD!1').click();
   await expect(pane(page, 1)).toHaveClass(/fx-cur/);
   await expect(pane(page, 0)).not.toHaveClass(/fx-cur/);
@@ -146,7 +149,7 @@ test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무�
 test('폰 412: 한 칸 그대로 — [두 칸] 단추·오른쪽 칸 없음', async ({ page }) => {
   const { errors } = await begin(page, 412, { files_two: { phone: { fold: true, wide: true } } });
   await openFiles(page, 412);
-  await expect(root(page).locator('[data-fx-list]')).toBeVisible();
+  await expect(root(page).locator('[data-fx-tree]')).toBeVisible(); // S50-33: 폰 첫 화면은 나무
   await expect(root(page).locator('[data-fx-two]')).toBeHidden();
   await expect(pane(page, 1)).toHaveCount(0);
   await expect(root(page)).not.toHaveAttribute('data-fx-two', /.+/);

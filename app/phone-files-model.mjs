@@ -4,7 +4,6 @@
 // - 폰 파일 목록은 화면 메모리에만 있고 서버로 보내지 않는다(이 파일은 계산만).
 export const PHONE_SOURCE = 'ph';
 export const PHONE_NAME = '이 폰';
-export const PHONE_RECENT_LIMIT = 200;
 const PATH_MAX = 1024, SEG_MAX = 255, DEPTH_MAX = 40;
 
 // 앱 규칙과 같은 경로 검사(앱이 다시 본다). 빈 칸·'.'·'..'·점으로 시작·역슬래시·제어 글자·Android/data·Android/obb는 거절.
@@ -47,17 +46,6 @@ export function phoneTrail(path) {
   return segs.map((name, i) => ({item_id: segs.slice(0, i + 1).join('/'), name, depth: segs.length - 1 - i}));
 }
 
-// [최근]에 폰 줄 섞기(H-7): 클라우드 줄과 폰 줄을 바뀐 날 새것부터 한 목록으로. 같은 열쇠는 한 번만, 한도까지.
-export function mergeRecent(cloud, phone, limit = 400) {
-  const seen = new Set(), out = [];
-  for (const r of [...(cloud || []), ...(phone || [])]) {
-    const k = `${r?.source}:${r?.item_id}`;
-    if (!r || seen.has(k)) continue;
-    seen.add(k); out.push(r);
-  }
-  const t = r => Date.parse(r.modified_at || '') || 0;
-  return out.sort((a, b) => t(b) - t(a)).slice(0, limit);
-}
 
 // 다리 상태 글 'pfiles:state:{…}' → {known, can, all, key}. 열쇠는 켜져 있을 때만 받는다.
 export function phoneState(text) {
