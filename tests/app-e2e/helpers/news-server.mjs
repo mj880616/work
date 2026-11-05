@@ -17,7 +17,7 @@ export const ITEMS = () => [
 ];
 
 export async function newsServer(page) {
-  const server = { folders: [], notes: [], items: ITEMS(), keywords: [{ word: '가짜어', enabled: true, created_at: '2026-10-01T00:00:00Z' }], sources: new Map([['news-fake-a', { source_key: 'news-fake-a', enabled: true, last_ok_at: '2026-10-06T00:07:00Z', last_error: null }]]), calls: [] };
+  const server = { folders: [], notes: [], items: ITEMS(), keywords: [{ word: '가짜어', enabled: true, created_at: '2026-10-01T00:00:00Z' }], sources: new Map([['news-fake-a', { source_key: 'news-fake-a', enabled: true, last_ok_at: '2026-10-06T00:07:00Z', last_error: null }]]), calls: [], fillArmed: false };
   await page.route(SB + '/**', async route => {
     const req = route.request(), u = new URL(req.url()), p = u.pathname, method = req.method();
     const ok = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
@@ -28,7 +28,7 @@ export async function newsServer(page) {
       if (action === 'catalog') return ok({ ok: true, sources: CATALOG, limits: LIMITS });
       if (action === 'open') { const it = server.items.find(i => i.id === body.id); it._body = '가짜 본문 첫 문단.'; it.body_kind = 'full'; return ok({ ok: true, status: 'ok' }); }
       if (action === 'translate') { const it = server.items.find(i => i.id === body.id); if (it._body_ko) return ok({ ok: true, status: 'stored' }); it.title_ko ||= '가짜 외국 기사'; it._body_ko = '가짜 번역 본문.'; it.translated_at ||= '2026-10-06T01:00:00Z'; return ok({ ok: true, status: 'translated' }); }
-      if (action === 'fill_now') { const it = server.items.find(i => i.id === 'w1'); Object.assign(it, { state: 'ok', title: '채운 가짜 기사', summary: '채운 가짜 요약.' }); return ok({ ok: true, done: 1, deferred: 0 }); }
+      if (action === 'fill_now') { if (!server.fillArmed) return ok({ ok: true, done: 0, status: 'nothing' }); const it = server.items.find(i => i.id === 'w1'); Object.assign(it, { state: 'ok', title: '채운 가짜 기사', summary: '채운 가짜 요약.' }); return ok({ ok: true, done: 1, deferred: 0 }); }
       return ok({ ok: false, error: 'UNKNOWN_ACTION' }, 400);
     }
     if (p === '/functions/v1/outside-feed') {

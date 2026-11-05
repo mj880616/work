@@ -102,3 +102,12 @@ test('C2 별표 폴더·메모(= 노트)', () => {
   const idx = M.memoIndex([{id: 'n1', metadata: {news_item_id: I}, updated_at: '2026-11-01T01:00:00Z'}, {id: 'n2', metadata: {news_item_id: I}, updated_at: '2026-11-01T02:00:00Z'}, {id: 'n3', metadata: {}}]);
   assert.equal(idx.size, 1); assert.equal(idx.get(I).id, 'n2');
 });
+
+test('목록을 열 때 읽기 전 채널 기사가 있으면 바로 채우기(10분에 한 번)', () => {
+  const pend = [{lane: 'channel', state: 'pending'}], ok = [{lane: 'channel', state: 'ok'}, {lane: 'keyword', state: 'pending'}];
+  assert.equal(M.needsAutoFill(pend, NaN, 1000), true);
+  assert.equal(M.needsAutoFill(ok, NaN, 1000), false);
+  assert.equal(M.needsAutoFill([], NaN, 1000), false);
+  assert.equal(M.needsAutoFill(pend, 1000, 1000 + M.AUTO_FILL_GAP_MS - 1), false);
+  assert.equal(M.needsAutoFill(pend, 1000, 1000 + M.AUTO_FILL_GAP_MS), true);
+});

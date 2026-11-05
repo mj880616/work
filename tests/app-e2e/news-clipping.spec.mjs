@@ -75,6 +75,7 @@ for (const width of [412, 884, 1440]) {
     await expect(items(page)).toHaveCount(5);
 
     // ⋯ → 지금 채우기: fill_now → 결과 한 줄 + 목록 다시 읽기.
+    server.fillArmed = true;
     await root(page).locator('[data-nc-more]').click();
     await page.locator('#ncMenu').getByRole('button', { name: /지금 채우기/ }).click();
     await expect(root(page).locator('[data-nc-when]')).toHaveText('1건 채움');
@@ -188,6 +189,22 @@ for (const width of [412, 1440]) {
     await expect(bad.getByRole('button', { name: '다시' })).toBeVisible();
     await expect(bad.getByRole('link', { name: /원문/ })).toBeVisible();
     expect(detailCalls).toBe(0);
+    expect(errors).toEqual([]);
+  });
+}
+
+for (const width of [412, 1440]) {
+  test(`뉴스 클리핑 ${width}: 목록을 열면 읽기 전 채널 기사를 서버가 바로 채운다(10분에 한 번)`, async ({ page }) => {
+    test.setTimeout(60000);
+    const { errors, server } = await start(page, width);
+    server.fillArmed = true;
+    await openNews(page, width);
+    await expect(item(page, 'w1').locator('.nc-title')).toHaveText('채운 가짜 기사');
+    expect(server.calls.filter(c => c.action === 'fill_now')).toHaveLength(1);
+    expect(server.calls.find(c => c.action === 'fill_now').body).toEqual({});
+    // 채운 뒤 목록을 다시 읽어도(읽기 전 기사가 없고 10분 안이므로) 다시 부르지 않는다.
+    await root(page).locator('[data-nc-tab="all"]').click();
+    expect(server.calls.filter(c => c.action === 'fill_now')).toHaveLength(1);
     expect(errors).toEqual([]);
   });
 }

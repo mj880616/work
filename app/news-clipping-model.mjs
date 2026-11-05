@@ -137,6 +137,13 @@ export function errorNote(e, what) {
   if (e?.status === 404) return '기사가 없음';
   return `${what} 실패 · 잠시 뒤 다시`;
 }
+// 목록을 열 때 화면에 읽기 전(pending) 채널 기사가 있으면 서버가 새 것부터 몇 건 바로 채운다(S50-15, 하루 한도는 서버가 지킴).
+// 같은 화면에서 AUTO_FILL_GAP_MS 안에는 다시 부르지 않는다(메모리 값만, 기기에 저장하지 않음).
+export const AUTO_FILL_GAP_MS = 10 * 60 * 1000;
+export function needsAutoFill(items, lastMs, nowMs) {
+  if (Number.isFinite(lastMs) && nowMs - lastMs < AUTO_FILL_GAP_MS) return false;
+  return Array.isArray(items) && items.some(it => it?.lane === 'channel' && it?.state === 'pending');
+}
 export function fillResult(r) {
   if (r?.status === 'nothing') return '채울 기사 없음';
   const done = Number(r?.done) || 0, left = Number(r?.deferred) || 0;
