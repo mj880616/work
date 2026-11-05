@@ -253,3 +253,4 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 #wdModal #wdInbox #wdInboxFiles{grid-column:1 / -1;grid-row:3}
 .wd-inbox-files:not([hidden]){margin-top:var(--kptu-space-2)}
 #wdInbox.basket-drop-target{position:relative}
+#wdInbox .basket-clip .basket-clip-label{display:none}
