@@ -5,10 +5,10 @@ import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../ap
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
-// DB에는 있지만 화면 허용 목록에는 아직 없는 칸: 없음(now_tab은 S48-27 Now 화면이 KEYS에 더함).
-const DB_ONLY = [];
-test('허용 칸 마흔한 개가 DB 검사(마지막 migration, S49-48 photo_zoom 위에 S50-13 org_order·report_calendar 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261105131500_profile_view_prefs_org_order.sql');
+// DB에는 있지만 화면 허용 목록에는 아직 없는 칸: news_tab·news_font(S51-6 NEWS P4a DB 먼저, P4b News 화면이 KEYS에 더함).
+const DB_ONLY = ['news_tab', 'news_font'];
+test('허용 칸 마흔한 개 + DB 먼저 두 칸이 DB 검사(마지막 migration, S50-13 org_order 위에 S51-6 news_tab·news_font 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261106080000_feed_reads_news_prefs.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
   assert.equal(KEYS.length, 41);
