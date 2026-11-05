@@ -153,6 +153,7 @@ on:
       - 'tests/outside-search-model.test.mjs'
       - 'tests/notice-outside-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
+      - 'tests/news-feed-script.test.mjs'
       - 'tests/news-feed-date-source.test.mjs'
       - 'tests/news-feed-text.test.mjs'
       - 'tests/news-feed-keyword-take.test.mjs'
@@ -321,6 +322,7 @@ on:
       - 'tests/outside-search-model.test.mjs'
       - 'tests/notice-outside-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
+      - 'tests/news-feed-script.test.mjs'
       - 'tests/news-feed-date-source.test.mjs'
       - 'tests/news-feed-text.test.mjs'
       - 'tests/news-feed-keyword-take.test.mjs'
@@ -450,7 +452,7 @@ jobs:
       - name: Check request inbox open-list calculator (OPS-요청함대기계산)
         run: node --test tests/ops-inbox-open.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
-        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/now-model.test.mjs
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/now-model.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
         run: node --test tests/files-model.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/phone-files-model.test.mjs
 

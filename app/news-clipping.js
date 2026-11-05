@@ -12,7 +12,7 @@ import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {takeNewsItem} from './news-request.mjs';
 import {interestHit, signalBody} from './now-model.mjs';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
-import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, keepTab, groupItems, itemView, openResult, plainText, errorNote, fillResult, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, itemFolderId, memoTitle, memoIndex} from './news-clipping-model.mjs';
+import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, keepTab, groupItems, itemView, openResult, plainText, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, itemFolderId, memoTitle, memoIndex} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1(설계 docs/design/news-clipping.md, 명진 11/01 22:34): '뉴스 클리핑'(지금은 Now [뉴스] 탭, #nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩(출처 구분 칩·꼬리표 없음). 칩 [전체·별표], 폰은 좌우로 밀어 칩 이동.
 // - 줄: '꼬리표 · 매체 · 시각' / 제목 / 한 문장 요약(늘 보임) / 본문 접기(<details>, 펼칠 때 서버 줄에서 읽고 없으면 [본문 열기]=news-feed open)
@@ -256,6 +256,7 @@ async function loadItems({append = false, keep = false} = {}) {
     state.end = got.length <= PAGE_SIZE;
     state.loaded = true;
     loadSide(w, append ? page : state.items);
+    if (!append) maybeAutoFill();
   } catch {
     if (seq !== loadSeq) return;
     if (!append) state.failed = true;
@@ -373,7 +374,14 @@ async function translate(id) {
 }
 
 // ---------- 지금 채우기(채널 기사 대기 줄을 서버가 지금 채움) ----------
-async function fillNow() {
+let lastAutoFill = NaN;
+// 목록을 열었을 때 읽기 전 채널 기사가 보이면 새 것부터 몇 건 바로 채운다. 실패·한도는 조용히 넘기고 [지금 채우기]는 그대로 둔다.
+function maybeAutoFill() {
+  if (state.filling || !needsAutoFill(state.items, lastAutoFill, Date.now())) return;
+  lastAutoFill = Date.now();
+  fillNow({quiet: true});
+}
+async function fillNow({quiet = false} = {}) {
   if (state.filling) return;
   const scope = state.scope;
   state.filling = true; state.fillNote = ''; paint();
@@ -383,7 +391,7 @@ async function fillNow() {
     state.fillNote = fillResult(r);
   } catch (e) {
     if (scope !== state.scope) return;
-    state.fillNote = errorNote(e, '지금 채우기');
+    state.fillNote = quiet ? '' : errorNote(e, '지금 채우기');
   } finally {
     if (scope === state.scope) { state.filling = false; paint(); loadItems({keep: true}); }
   }

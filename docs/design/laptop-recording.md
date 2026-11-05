@@ -29,7 +29,7 @@
 | 전사 | Edge `meeting-transcribe` `transcribe`(Gemini Files 올림·전사 설정·400 재시도·사용량 기록·월 상한·진행 중 1건) | 없음 |
 | 회의에 붙이기 | `attach`(구간마다) | 없음 |
 | 붙이지 않은 녹음 정리 | `sweep`의 30일 뒤 휴지통 | 같은 sweep에 조각 정리만 더함 |
-| 요약·초안 | `meeting-ai-draft` 새 회의 길, `app/meeting-transcript-draft.js`의 [초안 채우기] 흐름 | 없음(2단계에서 녹음 띠가 이 흐름을 부름) |
+| 요약·초안 | `meeting-ai-draft` 새 회의 길, `app/meeting-transcript-draft.js`의 [녹음 요약하기] 흐름 | 없음(2단계에서 녹음 띠가 이 흐름을 부름) |
 | 진행 상태 | 전사 작업 표 | **DB 새 표 1개** `app_meeting_recordings`(구간 1행) |
 | 서버 | 같은 함수 `meeting-transcribe`(verify_jwt=true 유지) | 동작 4개 `rec_start`·`rec_piece`·`rec_finish`·`rec_pending` |
 
@@ -69,7 +69,7 @@
 
 - 구간 전사는 기존 `transcribe`를 그대로 쓰므로 `app_ai_external_usage`에 `ref 'mtg-<작업 id>-…'`, `source 'transcript'`로 구간마다 한 행씩 들어가고, 홈 'AI 사용량' 줄과 회의 전사 월 상한(5,000원)이 같은 기록을 센다. 새 칸·새 기록 길 없음.
 - 추정(단가표 `_shared/ai-prices.mjs`에 전사 모델 줄이 없어 가장 비싼 줄로 셈): 음성 1시간 ≈ 11.5만 토큰 ≈ 320원 + 글 출력 ≈ 150원 → **1시간 약 500원, 3시간 약 1,500원**. 월 상한으로 한 달 약 10시간.
-- 요약(초안 채우기)은 기존 `meeting-ai-draft` 사용량 기록 그대로.
+- 요약(녹음 요약하기)은 기존 `meeting-ai-draft` 사용량 기록 그대로.
 - 상한에 닿으면 기존 `transcribe`가 429 `monthly_limit`로 멈춘다. 녹음 원본·합친 파일·전사 작업은 남으므로 다음 달 또는 상한 조정 뒤 '이어서 정리'로 이어 전사할 수 있다. 2단계 화면은 `config`의 이번 달 금액과 녹음 길이로 '예상 ○○원' 한 줄을 보여 줄 수 있다.
 - 남은 일(범위 밖 발견): 전사 모델 단가 줄을 `_shared/ai-prices.mjs`에 더하면 금액이 실제에 가까워진다(가격 확인 필요).
 
@@ -88,7 +88,7 @@
 2. 누르면 마이크 허락(처음 한 번) → 바로 녹음. 제목·조직은 묻지 않음.
 3. 화면 맨 위 얇은 띠: 빨간 점 · 녹음 중 · 시간 · [일시정지] [멈추고 정리]. 다른 메뉴로 옮겨도 녹음 계속(띠와 녹음기는 앱 껍데기 한 곳이 주인, 화면 전환에 다시 그리지 않음).
 4. 녹음기: `MediaRecorder` 형식은 `audio/mp4`(AAC) → `audio/ogg`(opus) → `audio/webm`(opus) 순으로 `isTypeSupported`가 되는 첫 것(Gemini 오디오 지원 목록에 webm이 없어 마지막, 6절 위험), `audioBitsPerSecond` 32000 안팎, `timeslice` 300초. 조각마다 `rec_piece`, 실패하면 메모리에 두고 같은 번호로 다시 보냄. 3540초가 되면 같은 마이크 흐름으로 새 MediaRecorder를 먼저 켜고(새 구간 조각은 메모리에 잠시 둠) 앞 녹음기를 멈춤 → 앞 구간 마지막 조각을 보냄 → `rec_start`(같은 session_id) → 새 구간 조각을 보냄. 서버는 `recording` 상태 구간에만 조각을 받으므로 순서를 바꾸면 마지막 조각이 `closed`로 거절된다.
-5. [멈추고 정리]: 마지막 조각 → `rec_finish`(more면 반복) → 구간마다 `transcribe`(차례로) → 글 합치기(구간 머리 '― 59분부터 ―' 한 줄) → 기존 [초안 채우기] 흐름 → 사업 보고 › 회의 입력 창이 초안을 채운 채 열림. 띠에 진행 한 줄(올림 › 전사 › 요약 › 초안 열림).
+5. [멈추고 정리]: 마지막 조각 → `rec_finish`(more면 반복) → 구간마다 `transcribe`(차례로) → 글 합치기(구간 머리 '― 59분부터 ―' 한 줄) → 기존 [녹음 요약하기] 흐름 → 사업 보고 › 회의 입력 창이 초안을 채운 채 열림. 띠에 진행 한 줄(올림 › 전사 › 요약 › 초안 열림).
 6. 저장 뒤 녹음 붙이기: 기존 [이 회의에 녹음 붙이기]를 구간마다(`attach`).
 7. 다시 열었을 때 `rec_pending`이 있으면 사업 보고 위에 '이어서 정리' 한 줄 → 5번과 같은 흐름.
 8. 창 닫기 경고(`beforeunload`)는 녹음 중일 때만.

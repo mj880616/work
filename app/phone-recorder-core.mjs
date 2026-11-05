@@ -2,7 +2,7 @@
 // - 녹음은 앱이 한다(RecorderService, 화면이 꺼져도 계속). 앱은 1분마다 조각을 자르고 앱 전용 공간에만 둔다.
 // - 서버 호출(rec_start·rec_piece·rec_finish·transcribe·rec_pending·rec_discard·rec_restore)은 이 화면이 웹2 로그인 세션(runtime api)으로 한다.
 //   앱은 토큰을 보지 않는다. 조각 내용은 ./__rec/<한 번 번호>를 fetch하면 앱이 WebView 안에서 흘려준다(서버로 나가지 않음).
-// - 정리 흐름(rec_finish → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 [초안 채우기])은 노트북 녹음(meeting-recorder.js)과 같은
+// - 정리 흐름(rec_finish → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 [녹음 요약하기])은 노트북 녹음(meeting-recorder.js)과 같은
 //   규칙(meeting-recorder-model.mjs)을 쓴다. 노트북 모듈은 고치지 않는다(같은 시간 다른 작업과 겹치지 않게, PR 본문 참고).
 import {retryDelay,pieceOutcome,transcribePlan,joinSegmentTexts,seoulLocal,pendingOthers} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';

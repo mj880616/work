@@ -56,6 +56,16 @@
 //   추적 값(utm_* 등)·조각(#) 떼기(cleanArticleUrl), 겹침 판정 url_key(urlKey). 규칙에 안 맞는 줄은 버리고 개수만 센다(rejected).
 //   app_news_items(lane 'channel', state 'pending')에 한 줄씩 넣고, 같은 작업공간에 같은 url_key가 이미 있으면(어느 칸이든) 무시한다(duplicate).
 //   AI·바깥 읽기 없음 — 제목·본문·요약은 news-feed가 나중에 채운다. 하루 상한 SCRAP_DAILY_REQUESTS회(인스턴스 메모리).
+// - FAMILY-잊지말기 3단계(설계 docs/design/tg-personal.md 2·3·7·8절): 가족 1명 '잊지 말기' 한 줄 뽑기. 결과는 표 app_family_notes(원문 칸 없음)에만 넣는다.
+//   POST ?action=family_tg: 앱 스크립트가 가족 방 하나(속성 TG_FEED_FAMILY_ROOM)의 1시간 새 메시지 묶음을 보낸다. 몸통은 telegram과 같은 모양에서
+//   room_label·senders·chat_* 칸을 받지 않고(있으면 400) 선택 칸 `self`(내가 보낸 라벨 목록)만 더 받는다. 보내는 사람은 AI에 '나'/'상대'로만 보인다.
+//   작업공간은 운영자 기능 family(app_operator_feature_workspace)로 서버가 정한다. 하루 묶음 상한·한 달 AI 상한은 telegram 줄(app_feed_days 'telegram')에 함께 센다.
+//   POST ?action=call + `family: true`(속성 CALL_FEED_FAMILY_LIST의 통화): 분석 결과와 상관없이 개인으로 개인 통화함에만 저장하고(업무 통화함·상대 기억에 넣지 않음),
+//   개인 통화함 저장이 새로 성공했을 때만 같은 요청 안에서 뽑기를 한 번 한다. 뽑기가 실패해도 통화 저장은 성공으로 둔다(로그에 단계 코드만).
+//   뽑기 AI 호출은 인스턴스 메모리로 하루 FAMILY_DAILY_AI번까지. 대화·전사 원문은 AI에 보낸 뒤 버린다(저장·로그·응답에 없음).
+//   서버 쪽 거름: 가족 방의 줄은 source_ref에 방 표(작업공간 + 방 번호의 해시 16자)를 담는다. 같은 방 번호로 ?action=telegram이 오면 400 FAMILY_ROOM으로
+//   거절해 업무 소식 표에 들어가지 않게 한다(앱 스크립트가 먼저 빼는 것이 첫째 장치, 이것은 둘째 장치).
+//   할 일·일정·원장·업무일지를 만들지 않는다. 화면에서 명진이 눌러야만 생긴다(4단계).
 // 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·주소·오류 원문은 넣지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cleanArticleUrl, openArticleUrl, urlKey } from "../_shared/news-url.ts";
@@ -65,6 +75,9 @@ import {
   CALL_LIMITS, type CallResolve, cleanLine, contactDigest, contactIsWork, contactNorm, contactRaw, kstDay, type OrgRow, parseCall, sourceTxtNameOf,
 } from "./call-analysis.ts";
 import { buildContext, CONTEXT_LIMITS, CONTEXT_PEOPLE_FN, CONTEXT_PEOPLE_ROWS } from "./context.ts";
+import {
+  FAMILY_INSTRUCTIONS, FAMILY_LIMITS, FAMILY_SCHEMA, familyCallMaterial, familyTelegramMaterial, type FamilyMessage, type FamilyRecent, parseFamily,
+} from "./family.ts";
 import {
   askEvidence, parseTelegram, rawLines, TELEGRAM_INSTRUCTIONS, TELEGRAM_SCHEMA, telegramMaterial, TG_LIMITS, type TgAsk, type TgDay, type TgEarlier, type TgMessage,
 } from "./telegram.ts";
@@ -145,6 +158,14 @@ export const ASK_CANDIDATE_FN = "app_todo_candidate_from_telegram";
 // TODO-내일만(migration 20261029210000, service_role 전용, 읽기만): 이 방이 '전체 부탁도 올릴' 예외 방인지 + [내 일 아님] 예시.
 // 함수가 없거나 읽기에 실패하면 예외 방 없음·예시 없음으로 본다(단체방 전체 부탁은 기본으로 빼므로 닫힌 쪽).
 export const ASK_FILTER_FN = "app_todo_ask_filter";
+// FAMILY-잊지말기: 잊지 말기 표(migration 20261105100000, service_role은 칸별 넣기 + 여덟 칸 읽기만).
+export const FAMILY_TABLE = "app_family_notes";
+// 뽑기 AI 호출 하루 상한(인스턴스 메모리, 텔레그램 묶음 + 통화). 보통 하루 약 10번, 많은 날 약 20번(설계 8절)의 두 배.
+export const FAMILY_DAILY_AI = 40;
+// 내가 보낸 라벨 목록(family_tg의 self) 최대 수.
+const FAMILY_SELF_MAX = 10;
+// 표 검사와 같은 Drive 링크 모양(이것과 다르면 링크 없이 넣는다).
+const FAMILY_DRIVE_URL = /^https:\/\/(drive|docs)\.google\.com\/[A-Za-z0-9_./?=&%-]+$/;
 // 그날 요약을 앞서 모인 소식까지 합쳐 다시 쓴 묶음 표시(화면 app/tg-day-model.mjs CUMULATIVE_PREFIX와 같음).
 export const CUMULATIVE_PREFIX = "c-";
 const CHAT_KINDS = ["user", "group", "channel"];
@@ -211,16 +232,18 @@ async function sha256Hex(value: string) {
 
 // ---- 몸통 검사 ------------------------------------------------------------------------------------------------------
 
-type CallInput = { ref: string; analysis_md: string; transcript: string; drive_url: string | null };
+type CallInput = { ref: string; analysis_md: string; transcript: string; drive_url: string | null; family: boolean };
 export function parseCallBody(b: Record<string, unknown>): CallInput {
-  if (!exactKeys(b, ["ref", "analysis_md", "transcript"], ["drive_url"])) throw new Fail(400, "INVALID_BODY");
+  if (!exactKeys(b, ["ref", "analysis_md", "transcript"], ["drive_url", "family"])) throw new Fail(400, "INVALID_BODY");
+  // FAMILY-잊지말기: family는 true만 받는다(없으면 지금과 같음).
+  if (b.family !== undefined && b.family !== true) throw new Fail(400, "INVALID_BODY");
   if (typeof b.ref !== "string" || !DRIVE_ID.test(b.ref)) throw new Fail(400, "INVALID_BODY");
   if (typeof b.analysis_md !== "string" || !b.analysis_md.trim() || bytes(b.analysis_md) > CALL_LIMITS.analysisBytes) throw new Fail(400, "INVALID_BODY");
   if (typeof b.transcript !== "string" || bytes(b.transcript) > TRANSCRIPT_BYTES) throw new Fail(400, "INVALID_BODY");
   if (bytes(b.analysis_md) + bytes(b.transcript) > CALL_LIMITS.totalBytes) throw new Fail(413, "BODY_TOO_LARGE");
   const url = b.drive_url ?? null;
   if (url !== null && (typeof url !== "string" || url.length > 500 || !DRIVE_URL.test(url))) throw new Fail(400, "INVALID_BODY");
-  return { ref: b.ref, analysis_md: b.analysis_md, transcript: b.transcript, drive_url: url as string | null };
+  return { ref: b.ref, analysis_md: b.analysis_md, transcript: b.transcript, drive_url: url as string | null, family: b.family === true };
 }
 
 type SkipInput = { day: string; personal: number; short: number };
@@ -354,6 +377,23 @@ export function parseSendersBody(b: Record<string, unknown>, today: string): Sen
   return { day: b.day, room_key: b.room_key, senders: sp.senders, oddDropped: sp.oddDropped };
 }
 
+// 가족 방 묶음(action=family_tg). telegram 몸통과 같은 검사를 쓰되 방 이름·이름표·방 정보 칸은 받지 않는다(있으면 400).
+type FamilyTgInput = { day: string; room_key: string; total: number; part: number; attempt: number; messages: TgMessage[]; self: Set<string> };
+export function parseFamilyTgBody(b: Record<string, unknown>, today: string): FamilyTgInput {
+  if (!exactKeys(b, ["day", "room_key", "total", "messages"], ["part", "attempt", "cont", "self"])) throw new Fail(400, "INVALID_BODY");
+  const self = new Set<string>();
+  if (b.self !== undefined) {
+    if (!Array.isArray(b.self) || b.self.length > FAMILY_SELF_MAX) throw new Fail(400, "INVALID_BODY");
+    for (const l of b.self as unknown[]) {
+      if (typeof l !== "string" || !SENDER.test(l)) throw new Fail(400, "INVALID_BODY");
+      self.add(l);
+    }
+  }
+  const { self: _s, ...rest } = b;
+  const t = parseTelegramBody({ ...rest, room_label: "family" }, today);
+  return { day: t.day, room_key: t.room_key, total: t.total, part: t.part, attempt: t.attempt, messages: t.messages, self };
+}
+
 // ---- DB(service role, 칸별 grant 안) ---------------------------------------------------------------------------------
 
 type Db = {
@@ -469,7 +509,7 @@ async function addDay(db: Db, ws: string, day: string, source: string, delta: De
 }
 
 // 허용된 작업공간이 없거나 둘 이상이면(함수가 null), 함수가 없으면(DB 적용 전) 저장하지 않고 503. 몸통의 작업공간 값은 받지 않는다(400).
-async function workspaceId(db: Db, feature: "calls" | "telegram") {
+async function workspaceId(db: Db, feature: "calls" | "telegram" | "family") {
   const value = await db.rpcScalar(FEATURE_WORKSPACE_FN, { p_feature: feature });
   const id = typeof value === "string" ? value.toLowerCase() : "";
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) throw new Fail(503, "WORKSPACE_UNAVAILABLE");
@@ -507,7 +547,7 @@ async function rememberContact(db: Db, ws: string, ref: string, key: string | nu
   } catch { /* 기억만 빠진다 */ }
 }
 
-async function runCall(db: Db, ws: string, input: CallInput, nowMs: number) {
+async function runCall(db: Db, ws: string, input: CallInput, nowMs: number, family: FamilyDeps) {
   const today = kstDay(nowMs);
   await claimBatch(db, ws, today, "call", nowMs);
   // 같은 원본은 업무·개인 두 통화함을 통틀어 한 번만(DB 트리거도 막는다).
@@ -516,6 +556,7 @@ async function runCall(db: Db, ws: string, input: CallInput, nowMs: number) {
   const dupBox = await db.get(`app_call_personal?workspace_id=eq.${ws}&source_ref=eq.${input.ref}&select=source_ref&limit=1`);
   if (dupBox.length) return callResult({ duplicate: true });
   const orgs = await readOrgs(db, ws);
+  if (input.family) return await runFamilyCall(db, ws, input, orgs, nowMs, family);
   // CALL-업무기본: 분석이 '애매'로 본 통화만 서버 규칙으로 다시 가른다(새 AI 호출 없음, 순서는 ① 명진이 고른 상대 기억 → ② 연락처 이름 규칙).
   // 개인(분석이 개인으로 본 것·개인 번호 목록 통화)은 그대로 개인이고, 규칙에 안 걸린 애매만 '확인할 통화'로 남는다.
   const contact = contactRaw(sourceTxtNameOf(input.analysis_md));
@@ -720,6 +761,7 @@ async function earlierItems(db: Db, ws: string, input: TelegramInput, log: Log):
 }
 async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: number, deps: AiDeps) {
   const today = kstDay(nowMs);
+  if (await isFamilyRoom(db, ws, input.room_key, deps.log)) throw new Fail(400, "FAMILY_ROOM");
   const msgRefs = input.messages.map((m) => m.ref).sort().join(",");
   const batch = (await sha256Hex(`${input.room_key}|${input.day}|${msgRefs}`)).slice(0, 32);
   const prefix = `tg:${batch}:`;
@@ -813,6 +855,164 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   return callResult({ kept });
 }
 
+// ---- 가족 1명 잊지 말기(FAMILY-잊지말기 3단계) ----------------------------------------------------------------------
+
+type FamilyDeps = AiDeps & { use: { day: string; n: number } };
+// 생각 토큰이 max_output_tokens에 포함되므로 답 몫에 생각 여유를 더해 보낸다(텔레그램과 같음).
+const FAMILY_MAX_OUTPUT_TOKENS = FAMILY_LIMITS.maxOutputTokens + AI_REASONING_TOKEN_HEADROOM;
+
+// 방 표: 작업공간 + 방 번호의 해시 앞 16자. 방 번호 원문은 저장하지 않는다.
+export async function familyRoomTag(ws: string, roomKey: string) {
+  return (await sha256Hex(`family-room|${ws}|${roomKey}`)).slice(0, 16);
+}
+
+// 최근 30일 같은 사람 줄(kind·body만). 다시 뽑지 않게 AI 재료에 붙이고, 같은 글자 줄은 서버가 한 번 더 거른다. 읽기 실패면 빈 목록(뽑기는 계속).
+async function familyRecent(db: Db, ws: string, nowMs: number, log: Log): Promise<FamilyRecent[]> {
+  try {
+    const since = new Date(nowMs - FAMILY_LIMITS.recentDays * 86400000).toISOString();
+    const rows = await db.get(`${FAMILY_TABLE}?workspace_id=eq.${ws}&created_at=gte.${encodeURIComponent(since)}&select=kind,body&order=created_at.desc&limit=${FAMILY_LIMITS.recent}`);
+    return rows.filter((r) => typeof r.kind === "string" && typeof r.body === "string").map((r) => ({ kind: String(r.kind), body: String(r.body) }));
+  } catch {
+    log("family_recent_failed");
+    return [];
+  }
+}
+
+// 뽑기 AI 한 번. 하루 상한·한 달 상한을 넘으면 부르지 않는다. 사용량은 telegram 줄(app_feed_days)에 더한다(기존 한 달 6,000원 안에서 함께 셈).
+// 결과 코드만 돌려준다(원문·답 글은 로그에 없음).
+async function familyExtract(db: Db, ws: string, material: string, recent: FamilyRecent[], nowMs: number, deps: FamilyDeps):
+  Promise<{ ok: true; notes: ReturnType<typeof parseFamily> & object; model: string } | { ok: false; code: string; status: number }> {
+  const today = kstDay(nowMs);
+  if (deps.use.day !== today) { deps.use.day = today; deps.use.n = 0; }
+  if (deps.use.n >= FAMILY_DAILY_AI) return { ok: false, code: "FAMILY_DAILY_LIMIT", status: 429 };
+  const config = aiConfigFrom(deps.env, { keyName: KEY_NAME, model: DEFAULT_MODEL, priceIn: DEFAULT_PRICE_IN_KRW_PER_MTOK, priceOut: DEFAULT_PRICE_OUT_KRW_PER_MTOK });
+  if (!config) return { ok: false, code: "AI_NOT_CONFIGURED", status: 503 };
+  const used = await monthUsage(db, ws, nowMs);
+  if (estimateKrw(used.input, used.output, config.price) >= MONTHLY_LIMIT_KRW) return { ok: false, code: "AI_MONTHLY_LIMIT", status: 429 };
+  deps.use.n++;
+  await addDay(db, ws, today, "telegram", { ai_requests: 1 }, nowMs);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: FAMILY_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: FAMILY_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "family_notes", strict: true, schema: FAMILY_SCHEMA } },
+  }, { url: OPENAI_URL, timeoutMs: OPENAI_TIMEOUT_MS, retryDelayMs: RETRY_DELAY_MS, maxResponseBytes: OPENAI_RESPONSE_BYTES });
+  const usage = result.ok ? result.usage : result.charged ? { input: [...material].length * 2, output: FAMILY_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (usage.input || usage.output) {
+    try { await addDay(db, ws, today, "telegram", { ai_input_tokens: tokenCount(usage.input), ai_output_tokens: tokenCount(usage.output) }, nowMs); }
+    catch { deps.log("usage_record_failed"); }
+  }
+  const parsed = result.ok ? parseFamily(outputText(result.raw), recent) : null;
+  if (!parsed) {
+    const code = result.ok ? (isIncomplete(result.raw) ? "AI_INCOMPLETE" : "AI_INVALID_RESPONSE") : result.code.toUpperCase();
+    return { ok: false, code, status: result.ok ? 502 : result.code === "ai_timeout" ? 504 : 503 };
+  }
+  return { ok: true, notes: parsed, model: config.model };
+}
+
+// 뽑은 줄 넣기(칸별 grant 안: 상태·결정 시각은 넣지 않음 → 'new'). 같은 열쇠면 409로 건너뛴다. 넣은 수만 돌려준다.
+async function saveFamilyNotes(db: Db, ws: string, notes: { kind: string; body: string; said_when: string | null; firmness: string }[],
+  origin: "telegram" | "call", day: string, driveUrl: string | null, refPrefix: string, model: string, log: Log) {
+  let saved = 0, failed = 0;
+  const url = driveUrl && driveUrl.length <= 500 && FAMILY_DRIVE_URL.test(driveUrl) ? driveUrl : null;
+  for (const [i, n] of notes.entries()) {
+    try {
+      const r = await db.insert(FAMILY_TABLE, {
+        workspace_id: ws, kind: n.kind, body: n.body, said_when: n.said_when, firmness: n.firmness,
+        origin, origin_day: day, drive_url: url, source_ref: `${refPrefix}${i + 1}`, model: model.slice(0, 80),
+      });
+      if (r === "ok") saved++;
+    } catch { failed++; }
+  }
+  if (failed) log("family_save_failed", { count: failed });
+  return saved;
+}
+
+async function runFamilyTg(db: Db, ws: string, input: FamilyTgInput, nowMs: number, deps: FamilyDeps) {
+  const today = kstDay(nowMs);
+  await claimBatch(db, ws, today, "telegram", nowMs);
+  const tag = await familyRoomTag(ws, input.room_key);
+  const refs = input.messages.map((m) => m.ref).sort().join(",");
+  const batch = (await sha256Hex(`family|${input.room_key}|${input.day}|${refs}`)).slice(0, 24);
+  const prefix = `fam:tg:${tag}:${batch}:`;
+  const dup = await db.get(`${FAMILY_TABLE}?workspace_id=eq.${ws}&source_ref=like.${encodeURIComponent(prefix)}*&select=source_ref&limit=1`);
+  if (dup.length) return callResult({ duplicate: true });
+  if (!input.messages.length) return callResult();
+  const recent = await familyRecent(db, ws, nowMs, deps.log);
+  const messages: FamilyMessage[] = input.messages.map((m) => ({ at: m.at, self: input.self.has(m.sender), text: m.text }));
+  const out = await familyExtract(db, ws, familyTelegramMaterial(input.day, messages, recent), recent, nowMs, deps);
+  if (!out.ok) {
+    deps.log("family_ai_failed", { stage: out.code, origin: "telegram" });
+    throw new Fail(out.status, out.code);
+  }
+  if (out.notes.dropped || out.notes.repeated) deps.log("family_notes_adjusted", { dropped: out.notes.dropped, repeated: out.notes.repeated });
+  const saved = await saveFamilyNotes(db, ws, out.notes.notes, "telegram", input.day, null, prefix, out.model, deps.log);
+  deps.log("family_saved", { origin: "telegram", saved });
+  return callResult({ kept: saved });
+}
+
+// 가족 번호 통화: 개인으로만 저장(업무 통화함·상대 기억 없음) → 새로 저장됐을 때만 뽑기 한 번. 뽑기 실패는 통화 저장을 되돌리지 않는다.
+async function runFamilyCall(db: Db, ws: string, input: CallInput, orgs: OrgRow[], nowMs: number, deps: FamilyDeps) {
+  const today = kstDay(nowMs);
+  const parsed = parseCall(input, orgs, nowMs, undefined, true);
+  const inRange = !!parsed.day && parsed.day <= today && parsed.day >= addDays(today, -MAX_PAST_DAYS);
+  const day = inRange ? parsed.day! : today;
+  if (parsed.kind !== "personal") {
+    // forcePersonal이면 개인 또는 실패뿐이다. 업무 통화함에는 어떤 경우에도 넣지 않는다.
+    await addDay(db, ws, day, "call", { total_count: 1, failed_count: 1 }, nowMs);
+    return callResult({ failed: 1 });
+  }
+  const box = parsed.box;
+  if (!box || !inRange) {
+    await addDay(db, ws, day, "call", { total_count: 1, personal_count: 1 }, nowMs);
+    return callResult({ personal: 1 });
+  }
+  const result = await db.insert("app_call_personal", {
+    workspace_id: ws, kind: "personal", day: box.day, occurred_at: box.occurred_at, title: box.title, points: box.points,
+    counterpart: box.counterpart, speaker_split: box.speaker_split,
+    raw_text: box.raw_text === null ? null : capBytes(box.raw_text, RAW_TEXT_BYTES),
+    source_ref: input.ref, drive_url: input.drive_url, model: box.model, judged_at: box.judged_at,
+  });
+  if (result === "conflict") return callResult({ duplicate: true });
+  await addDay(db, ws, box.day, "call", { total_count: 1 }, nowMs);
+  let noted = 0;
+  try {
+    const fws = await workspaceId(db, "family");
+    if (fws !== ws) deps.log("family_skipped", { stage: "WORKSPACE_MISMATCH" });
+    else if (!input.transcript.trim()) deps.log("family_skipped", { stage: "NO_TRANSCRIPT" });
+    else {
+      const recent = await familyRecent(db, fws, nowMs, deps.log);
+      const out = await familyExtract(db, fws, familyCallMaterial(box.day, input.transcript, recent), recent, nowMs, deps);
+      if (!out.ok) deps.log("family_ai_failed", { stage: out.code, origin: "call" });
+      else {
+        if (out.notes.dropped || out.notes.repeated) deps.log("family_notes_adjusted", { dropped: out.notes.dropped, repeated: out.notes.repeated });
+        noted = await saveFamilyNotes(db, fws, out.notes.notes, "call", box.day, input.drive_url, `fam:call:${input.ref}:`, out.model, deps.log);
+        deps.log("family_saved", { origin: "call", saved: noted });
+      }
+    }
+  } catch (e) {
+    deps.log("family_ai_failed", { stage: e instanceof Fail ? e.code : "INTERNAL", origin: "call" });
+  }
+  return { ...callResult({ personal: 1, boxed: 1 }), noted };
+}
+
+// 업무 소식 입구의 둘째 장치: 이 방 번호로 잊지 말기 줄이 이미 있으면 가족 방이다 → 업무 소식으로 받지 않는다(400 FAMILY_ROOM).
+// 표를 읽지 못하면(DB 적용 전 등) 막지 않고 로그만 남긴다(첫째 장치는 앱 스크립트의 빼기).
+async function isFamilyRoom(db: Db, ws: string, roomKey: string, log: Log) {
+  try {
+    const tag = await familyRoomTag(ws, roomKey);
+    const rows = await db.get(`${FAMILY_TABLE}?workspace_id=eq.${ws}&source_ref=like.${encodeURIComponent(`fam:tg:${tag}:`)}*&select=source_ref&limit=1`);
+    return rows.length > 0;
+  } catch {
+    log("family_guard_failed");
+    return false;
+  }
+}
+
 // ---- 채널 기사(NEWS-클리핑 B2) ------------------------------------------------------------------------------------
 
 type ScrapItem = { url: string; at: unknown };
@@ -872,6 +1072,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
   const contextUse = { day: "", n: 0 };
   const sendersUse = { day: "", n: 0 };
   const scrapUse = { day: "", n: 0 };
+  const familyUse = { day: "", n: 0 };
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response(null, { status: 204 });
     if (req.method !== "POST") return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
@@ -883,7 +1084,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
       let action: string | null = null;
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
-      if (action !== "call" && action !== "call_skip" && action !== "telegram" && action !== "telegram_senders" && action !== "context" && action !== "scrap") throw new Fail(400, "UNKNOWN_ACTION");
+      if (action !== "call" && action !== "call_skip" && action !== "telegram" && action !== "telegram_senders" && action !== "context" && action !== "scrap" && action !== "family_tg") throw new Fail(400, "UNKNOWN_ACTION");
       const length = Number(req.headers.get("content-length") || 0);
       if (length > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown;
@@ -922,11 +1123,17 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
         const ndb = makeDb(sb, key, doFetch);
         return json(await runScrap(ndb, await workspaceId(ndb, "telegram"), items, nowMs, log));
       }
+      const familyDeps: FamilyDeps = { doFetch, sleep, log, env: deps.env, use: familyUse };
+      if (action === "family_tg") {
+        const fin = parseFamilyTgBody(b, today);   // 몸통을 먼저 다 검사한 뒤에 DB에 간다
+        const fdb = makeDb(sb, key, doFetch);
+        return json(await runFamilyTg(fdb, await workspaceId(fdb, "family"), fin, nowMs, familyDeps));
+      }
       // 몸통을 먼저 다 검사한 뒤에 DB에 간다.
       const input = action === "call" ? parseCallBody(b) : action === "call_skip" ? parseSkipBody(b, today) : parseTelegramBody(b, today);
       const db = makeDb(sb, key, doFetch);
       const ws = await workspaceId(db, action === "telegram" ? "telegram" : "calls");
-      const out = action === "call" ? await runCall(db, ws, input as CallInput, nowMs)
+      const out = action === "call" ? await runCall(db, ws, input as CallInput, nowMs, familyDeps)
         : action === "call_skip" ? await runCallSkip(db, ws, input as SkipInput, nowMs)
         : await runTelegram(db, ws, input as TelegramInput, nowMs, { doFetch, sleep, log, env: deps.env });
       return json(out);

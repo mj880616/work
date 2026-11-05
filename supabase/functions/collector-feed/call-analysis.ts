@@ -431,12 +431,14 @@ function boxCallOf(kind: "personal" | "unsure", meta: Record<string, string>, bo
 export type CallResolve = "business" | "personal";
 // CALL-업무기본: 분석이 '애매'로 본 통화를 서버 규칙(상대별 기억·연락처 이름 규칙)으로 다시 갈랐을 때의 구분(resolve).
 // 업무로 갈랐는데 업무 줄을 만들 재료(핵심요약·제목·녹음 시각)가 없으면 원래대로 애매로 둔다(줄 없이 개수만 세는 기존 동작).
-export function parseCall(input: { ref: string; analysis_md: string; transcript: string }, orgs: OrgRow[], nowMs: number, resolve?: CallResolve): CallParsed {
+// FAMILY-잊지말기: forcePersonal이면(가족 1명 번호 통화) 분석이 업무·애매로 봤어도 개인으로 본다(업무 통화함에 넣지 않음). 분석 실패는 그대로 실패.
+export function parseCall(input: { ref: string; analysis_md: string; transcript: string }, orgs: OrgRow[], nowMs: number, resolve?: CallResolve, forcePersonal = false): CallParsed {
+  if (forcePersonal) return parseCallAs(input, orgs, nowMs, undefined, true);
   const r = parseCallAs(input, orgs, nowMs, resolve);
   return r.kind === "failed" && resolve === "business" ? parseCallAs(input, orgs, nowMs) : r;
 }
 
-function parseCallAs(input: { ref: string; analysis_md: string; transcript: string }, orgs: OrgRow[], nowMs: number, resolve?: CallResolve): CallParsed {
+function parseCallAs(input: { ref: string; analysis_md: string; transcript: string }, orgs: OrgRow[], nowMs: number, resolve?: CallResolve, forcePersonal = false): CallParsed {
   const fm = frontmatter(input.analysis_md);
   if (!fm) return { kind: "failed", day: null };
   const meta = fm.meta;
@@ -447,7 +449,7 @@ function parseCallAs(input: { ref: string; analysis_md: string; transcript: stri
   if (meta.source_txt_id && meta.source_txt_id !== input.ref) return { kind: "failed", day };
   if ((meta.status ?? "").replace(/\s/g, "") === "분석실패") return { kind: "failed", day };
   const kind0 = workKind(meta);
-  const kind = kind0 === "unsure" && resolve && (meta.status ?? "").replace(/\s/g, "") === "애매" ? resolve : kind0;
+  const kind = forcePersonal ? "personal" : kind0 === "unsure" && resolve && (meta.status ?? "").replace(/\s/g, "") === "애매" ? resolve : kind0;
   if (kind !== "business") return { kind, day, box: boxCallOf(kind, meta, fm.body, input.transcript, at, nowMs) };
   if (at === null || at > nowMs + 86400000) return { kind: "failed", day: null };
   const s = sections(fm.body);
