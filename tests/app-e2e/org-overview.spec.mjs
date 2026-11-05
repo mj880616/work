@@ -16,7 +16,7 @@ const SEED=[
  L('p1','oa','2026-09-30','합성 지난주 줄',undefined,{week_start:'2026-09-28'}),
 ];
 const STATUS=[{id:'s1',organization_id:'ob',day:'2026-09-20',end_day:null,body:'합성 현황 줄',sort_order:0,source:'user',evidence:[],updated_at:stamp}];
-async function fixture(page,{width,missing=false,seed=SEED,order=null}){
+async function fixture(page,{width,missing=false,seed=SEED,order=null,updates=[]}){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await installViewPrefsServer(page,null);
@@ -25,7 +25,8 @@ async function fixture(page,{width,missing=false,seed=SEED,order=null}){
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return json(route,q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner})))});
- for(const t of ['app_suborganization_updates','app_notes','app_record_links'])await page.route(SB+`/rest/v1/${t}?**`,route=>json(route,[]));
+ await page.route(SB+'/rest/v1/app_suborganization_updates?**',route=>{const q=new URL(route.request().url()).searchParams.get('organization_id')||'';return json(route,updates.filter(u=>q.includes(u.organization_id)))});
+ for(const t of ['app_notes','app_record_links'])await page.route(SB+`/rest/v1/${t}?**`,route=>json(route,[]));
  await page.route(/\/rest\/v1\/app_org_status_rows(\?|$)/,route=>{const q=new URL(route.request().url()).searchParams.get('organization_id')||'';return json(route,STATUS.filter(r=>q.includes(r.organization_id)))});
  await page.route(/\/rest\/v1\/app_weekly_org_lines(\?|$)/,async route=>{
   const req=route.request(),url=new URL(req.url()),q=url.searchParams,m=req.method();
@@ -192,4 +193,23 @@ test('[전체 표] 임시저장 바탕이 없으면 앱 조직 순서(가나다)
  await openTable(page);
  await expect(page.locator('#soOverview tbody tr').first()).toHaveAttribute('data-wl-org-row','oa');
  await expect(page.locator('#soOverview tbody tr').nth(1)).toHaveAttribute('data-wl-org-row','ob');
+});
+
+// S50-25 ⑨: 기록·업데이트에서 온 줄 끝 [↗] = 원래 기록 열기 — 그 조직 상세를 열고 그 기록 줄을 밝힌다. 손으로 넣은 줄에는 [↗] 없음.
+const UP='0f0e0d0c-0b0a-4908-8706-050403020100';
+for(const width of [412,1440])test(`[전체 표] 기록에서 온 줄 [↗] → 조직 상세의 그 기록 ${width}px`,async({page})=>{
+ const seed=[L('l1','oa','2026-10-06','합성 교섭 상견례'),L('l2','oa','2026-10-07','합성 선전전','in',{origin:'ai',sort_order:1,source_update_ids:[UP]})];
+ const updates=[{id:UP,organization_id:'oa',workspace_id:'w',occurred_at:'2026-10-07T01:00:00Z',raw_text:'합성 선전전 원래 기록',detail_text:null,created_by:owner,created_at:stamp,updated_at:stamp}];
+ const {errors}=await fixture(page,{width,seed,updates});
+ await openTable(page);
+ await expect(oa(page).locator('[data-wl-line="l1"] [data-wl-src]')).toHaveCount(0);
+ const src=oa(page).locator('[data-wl-line="l2"] [data-wl-src]');
+ await expect(src).toHaveAccessibleName('합성 선전전 원래 기록 열기');
+ const box=await src.boundingBox();expect(box.height).toBeLessThan(24);
+ await src.click();
+ const rec=page.locator(`#wdUpdates [data-wd-up="${UP}"]`);
+ await expect(rec).toBeVisible();
+ await expect(rec).toContainText('합성 선전전 원래 기록');
+ await expect.poll(()=>rec.evaluate(e=>e.hasAttribute('data-journal-flash')||e.getAnimations().length>0)).toBe(true);
+ expect(errors).toEqual([]);
 });

@@ -60,3 +60,9 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
   .wl-table tbody th.wl-c-org{width:auto;border-bottom:0}
   .wl-table td{border-top:1px solid var(--kptu-border)}
 }
+/* S50-25 ⑨: 기록·업데이트에서 온 줄 끝 작은 [↗] 원래 기록 열기 — 테두리 없는 흐린 글자, 누르는 자리는 넓게. */
+#appView button.wl-src,.wl-src{position:relative;flex:0 0 auto;box-sizing:border-box;min-height:0;height:auto;padding:0 2px;border:0;background:none;color:var(--kptu-muted);font-size:var(--ds-text-meta);line-height:1;cursor:pointer}
+.wl-src::after{content:"";position:absolute;inset:-9px -6px}
+.wl-src:hover{color:var(--kptu-info)}
+.wl-src:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+.wl-src:disabled{opacity:.5;cursor:default}

@@ -3,6 +3,7 @@
 // - 줄 하나 = 행 하나. 고치기는 읽은 updated_at 조건 쓰기 → 0행이면 그사이 다른 화면이 고친 것: 그 줄만 다시 읽고 그 자리에
 //   "다른 화면에서 먼저 고쳤어요: '…'" + [그대로 두기] [내 글로 바꾸기]. 다른 줄은 영향 없음. 줄 더하기는 충돌이 아니다(새 행).
 // - 흐린 제안 줄(state suggested)은 [✓ 넣기]·[고치기]·[×](빼기 = state dropped, 지우지 않음 — 같은 기록으로 다시 제안하지 않음). 주간보고에는 넣은 줄만.
+// - 기록·업데이트에서 온 줄은 글 끝 작은 [↗] = 원래 기록 열기(S50-25 ⑨, 그 조직 상세를 열고 그 기록을 밝힘 — 화면 쪽 openSource).
 // - 지난주 줄: 담당조직(desk)에서는 접힌 '지난주 n줄 ▸', 주간 정리(weekly)에서는 넣은 줄 1줄 이하 조직만 펼쳐 [가져오기]·[지난주 모두 가져오기].
 //   처음 쓰는 주(지난주 표가 빈 조직)는 조직 상세 [현황 표] 최근 3줄을 그 자리에 보여 준다(옮기는 migration 없음, 원래 자료 그대로).
 // - 다른 화면과는 같은 탭 이벤트 kptu:weekly-org-lines-changed, 다른 탭·기기와는 화면이 다시 보일 때(visibilitychange) 그 주 줄을 다시 읽는다.
@@ -10,7 +11,7 @@
 import {missingTable} from './feed-model.mjs';
 import {readStatusRows} from './org-status-table.js';
 import {splitRows} from './org-status-model.mjs';
-import {cellParts, sortLines, dayText, cleanBody, checkDraft, nextOrder, hasRoom, importPlan, conflictOf, mondayOf, shiftWeek, weekLabel, lineText, BODY_MAX, SHOWN} from './weekly-org-lines-model.mjs';
+import {cellParts, sortLines, dayText, cleanBody, checkDraft, nextOrder, hasRoom, importPlan, conflictOf, mondayOf, shiftWeek, weekLabel, lineText, sourceRecord, BODY_MAX, SHOWN} from './weekly-org-lines-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
 import {fillMissing} from './weekly-org-suggest.js';
 import {waitHtml, emptyHtml} from './wait-state.js';
@@ -66,9 +67,10 @@ async function insertLines(c, orgId, week, list) {
 let seq = 0;
 // 한 화면의 조직보고 칸들. host = 칸들이 들어 있는 상자(클릭·키를 여기서 받음), repaint = 그 화면 다시 그리기, say(text, error) = 상태 한 줄.
 // mode: 'desk'(담당조직 — 지난주 줄 접어 둠) | 'weekly'(주간 정리 — 넣은 줄 1줄 이하 조직만 지난주 줄 펼침).
-export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'desk', repaint = () => {}, say = () => {}} = {}) {
+// openSource({org, record}, trigger) = 줄 끝 [↗](원래 기록 열기, ⑨)를 누르면 부르는 화면 쪽 열기. 없으면 [↗]를 그리지 않는다.
+export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'desk', repaint = () => {}, say = () => {}, openSource = null} = {}) {
   const ctl = {
-    id: `wl${++seq}`, rt, workspaceId, week, mode, status: 'idle', orgIds: [], lines: new Map(), last: new Map(), lastFromStatus: new Set(),
+    id: `wl${++seq}`, rt, workspaceId, week, mode, openSource, status: 'idle', orgIds: [], lines: new Map(), last: new Map(), lastFromStatus: new Set(),
     open: new Set(), lastOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, conflicts: new Map(), run: 0, host: null, focus: '',
   };
   const c = () => ({rt: ctl.rt, workspaceId: ctl.workspaceId});
@@ -114,10 +116,11 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     const label = esc(cleanBody(l.body)), dis = ctl.disabled(), day = dayText(l.day, l.end_day);
     const text = dis ? `<span class="wl-text">${label}</span>` : `<span class="wl-text is-edit" role="button" tabindex="0" data-wl-edit="${esc(l.id)}" aria-label="${label} 고치기">${label}</span>`;
     const ai = l.origin === 'ai' ? '<span class="wl-ai" title="AI가 기록을 한 줄로 줄인 제안">AI</span>' : '';
+    const src = typeof ctl.openSource === 'function' && sourceRecord(l) !== null ? `<button type="button" class="wl-src" data-wl-src="${esc(l.id)}" aria-label="${label} 원래 기록 열기" title="원래 기록 열기"${dis ? ' disabled' : ''}>↗</button>` : '';
     const btns = sug ? `<span class="wl-btns btn-row"><button type="button" class="wl-btn is-main" data-wl-in="${esc(l.id)}"${dis ? ' disabled' : ''}>✓ 넣기</button><button type="button" class="wl-btn" data-wl-edit="${esc(l.id)}"${dis ? ' disabled' : ''}>고치기</button><button type="button" class="wl-btn" data-wl-drop="${esc(l.id)}" aria-label="${label} 빼기"${dis ? ' disabled' : ''}>×</button></span>` : '';
     const conf = ctl.conflicts.get(l.id);
     const confHtml = conf ? `<div class="wl-conf" role="alert" data-wl-conflict="${esc(l.id)}">${conf.gone ? TEXT.gone : `${TEXT.conflict}: '${esc(conf.body)}'`} <span class="wl-conf-btns btn-row"><button type="button" class="wl-btn" data-wl-keep="${esc(l.id)}">그대로 두기</button>${conf.gone ? '' : `<button type="button" class="wl-btn" data-wl-mine="${esc(l.id)}">내 글로 바꾸기</button>`}</span></div>` : '';
-    return `<div class="wl-line${sug ? ' is-sug' : ''}" data-wl-line="${esc(l.id)}" data-wl-state="${esc(l.state)}"><span class="wl-day">- ${esc(day)}</span>${text}${ai}${btns}</div>${confHtml}`;
+    return `<div class="wl-line${sug ? ' is-sug' : ''}" data-wl-line="${esc(l.id)}" data-wl-state="${esc(l.state)}"><span class="wl-day">- ${esc(day)}</span>${text}${ai}${src}${btns}</div>${confHtml}`;
   };
   const formHtml = (orgId, l) => {
     const d = ctl.draft || {}, dis = ctl.busy ? ' disabled' : '', key = l?.id || 'new', inv = f => (ctl.invalid === f ? ' aria-invalid="true"' : '');
@@ -232,6 +235,7 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
       const d = b.dataset;
       if (d.wlEdit) { const hit = find(d.wlEdit); if (!hit || ctl.disabled()) return; ctl.editing = {orgId: hit.org, id: hit.line.id}; ctl.draft = {day: hit.line.day || '', end_day: hit.line.end_day || '', body: hit.line.body}; ctl.invalid = ''; ctl.focus = '[data-wl-field="body"]'; say(''); repaint(); ctl.afterPaint(); }
       else if (d.wlAdd) { ctl.editing = {orgId: d.wlAdd, id: 'new'}; const today = seoulDateKey(Date.now()); ctl.draft = {day: today >= ctl.week && today <= shiftWeek(ctl.week, 1) ? today : ctl.week, end_day: '', body: ''}; ctl.invalid = ''; ctl.focus = '[data-wl-field="body"]'; say(''); repaint(); ctl.afterPaint(); }
+      else if (d.wlSrc) { const hit = find(d.wlSrc), record = hit ? sourceRecord(hit.line) : null; if (hit && record !== null && typeof ctl.openSource === 'function') ctl.openSource({org: hit.org, record}, b); }
       else if ('wlCancel' in d) ctl.cancel();
       else if ('wlSave' in d) void ctl.save();
       else if (d.wlIn) { const hit = find(d.wlIn); if (hit) void patch(hit.line, {state: 'in'}, TEXT.placed); }
