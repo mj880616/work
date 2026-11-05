@@ -6,6 +6,7 @@
 // MTG-사업영역없음(요청 10/30 07:51): 고르기 창에 [없음](사업영역이 원래 없는 보고). 저장은 business_area_id=null·business_area_none=true,
 //   사업영역을 다시 고르면 business_area_none=false. 칸(20261030090000)이 없는 서버면 [없음]을 두지 않고 지금처럼 저장한다. AI 추천은 [없음]을 고르지 않는다.
 import {areaAvailable,areaNoneAvailable} from './report-links.js';
+import {newTaskDue} from './task-due.mjs'; // S50-36: 여기서 만드는 후속 할 일도 기한은 오늘(한 곳 규칙)
 import {waitInlineHtml} from './wait-state.js'; // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 import {shownArea,hasAreaNone,areaBody,AREA_NONE,nextPlanLines,nextPlanValue,NEXT_PLAN_MAX} from './business-area-model.mjs';
 
@@ -92,7 +93,7 @@ export function paintAreaView(host,meeting,{tasks=[],onMessage=()=>{},onTaskMade
     const title=lines[Number(b.dataset.bizPlanTask)];if(!title)return;b.disabled=true;b.textContent='넣는 중…';
     try{
       // 기존 할 일 만들기 길(google-tasks create, 사업 보고 쓰기 창의 후속 할 일과 같은 요청)을 그대로 쓴다.
-      const result=await window.KPTURuntime.api('/functions/v1/google-tasks?action=create',{method:'POST',body:{action:'create',title,notes:'',due:null,links:[{meeting_id:meeting.id},...(shown.id&&!shown.legacy?[{project_id:shown.id}]:[])]}});
+      const result=await window.KPTURuntime.api('/functions/v1/google-tasks?action=create',{method:'POST',body:{action:'create',title,notes:'',due:newTaskDue(''),links:[{meeting_id:meeting.id},...(shown.id&&!shown.legacy?[{project_id:shown.id}]:[])]}});
       b.replaceWith(Object.assign(document.createElement('span'),{className:'optional',textContent:result?.link_error?'할 일만 만듦(연결 못 함)':'할 일에 넣음'}));
       window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));onTaskMade();
     }catch(err){b.disabled=false;b.textContent='할 일로';onMessage(err?.message||'할 일을 만들지 못했어요.')}

@@ -93,7 +93,9 @@ test('웹2 할 일: 링크 뺀 첫 줄이 제목, 링크는 메모, [내일]을 
   await expect(dialog(page).getByRole('combobox', {name:'폴더'})).toBeHidden();
   const dues = dialog(page).getByRole('group', {name:'기한'});
   for (const name of ['오늘', '내일', '모레', '다음주', '기한 없음']) await expect(dues.getByRole('button', {name, exact:true})).toBeVisible();
-  await expect(dues.getByRole('button', {name:'기한 없음'})).toHaveAttribute('aria-pressed', 'true');
+  // S50-36: 새 할 일은 [오늘]이 눌린 채 시작한다(기한 없이 넣으려면 [기한 없음]).
+  await expect(dues.getByRole('button', {name:'오늘', exact:true})).toHaveAttribute('aria-pressed', 'true');
+  await expect(dues.getByRole('button', {name:'기한 없음'})).toHaveAttribute('aria-pressed', 'false');
   await dues.getByRole('button', {name:'다음주'}).tap();
   await expect(dialog(page).getByRole('group', {name:'다음 주 날짜'}).getByRole('button')).toHaveCount(7);
   await dues.getByRole('button', {name:'내일', exact:true}).tap();
@@ -105,6 +107,30 @@ test('웹2 할 일: 링크 뺀 첫 줄이 제목, 링크는 메모, [내일]을 
   expect(state.tasks).toHaveLength(1);
   const tomorrow = await page.evaluate(() => { const d = new Date(Date.now() + 9 * 3600e3 + 86400e3); return d.toISOString().slice(0, 10); });
   expect(state.tasks[0]).toMatchObject({action:'create', title:'자료 정리', notes:'둘째 줄\nhttps://example.org/b', due:tomorrow});
+  expect(errors).toEqual([]);
+});
+
+test('웹2 할 일: 기한을 고르지 않으면 오늘로 저장 412', async ({page}) => {
+  const {state, errors} = await fixture(page, {id:ID, subject:'', text:'오늘 할 일', target:'task', items:[]});
+  const dues = dialog(page).getByRole('group', {name:'기한'});
+  await expect(dues.getByRole('button', {name:'오늘', exact:true})).toHaveAttribute('aria-pressed', 'true');
+  await dialog(page).getByRole('button', {name:'저장'}).tap();
+  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('할 일에 넣었어요');
+  const today = await page.evaluate(() => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10));
+  expect(state.tasks).toHaveLength(1);
+  expect(state.tasks[0]).toMatchObject({action:'create', title:'오늘 할 일', due:today});
+  expect(errors).toEqual([]);
+});
+
+test('웹2 할 일: [기한 없음]을 누르면 기한 없이 저장 412', async ({page}) => {
+  const {state, errors} = await fixture(page, {id:ID, subject:'', text:'기한 없는 일', target:'task', items:[]});
+  const dues = dialog(page).getByRole('group', {name:'기한'});
+  await dues.getByRole('button', {name:'기한 없음'}).tap();
+  await expect(dues.getByRole('button', {name:'기한 없음'})).toHaveAttribute('aria-pressed', 'true');
+  await dialog(page).getByRole('button', {name:'저장'}).tap();
+  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('할 일에 넣었어요');
+  expect(state.tasks).toHaveLength(1);
+  expect(state.tasks[0]).toMatchObject({action:'create', title:'기한 없는 일', due:null});
   expect(errors).toEqual([]);
 });
 

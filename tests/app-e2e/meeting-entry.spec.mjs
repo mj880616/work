@@ -206,6 +206,33 @@ test('repeated meeting save submits one meeting and one Google follow-up',async(
   expect(busy).toEqual({disabled:true,text:'저장 중…'});
 });
 
+// S50-36(2026-11-06 명진 결정): 사업 보고 후속 할 일도 줄마다 고른 날이 없으면 오늘(한국 날짜), 고르면 그날.
+test('meeting follow-ups without a picked day are due today, picked days stay',async({page})=>{
+  await signIn(page);
+  const creates=[];
+  await page.route(`${SB}/rest/v1/app_meetings**`,route=>{
+    if(route.request().method()==='POST')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{...route.request().postDataJSON(),id:'meeting-due'}])});
+    return route.fulfill({status:200,contentType:'application/json',body:'[]'});
+  });
+  await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
+    if(new URL(route.request().url()).searchParams.get('action')==='create')creates.push(route.request().postDataJSON());
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:{id:'google-due-'+creates.length}})});
+  });
+  await page.locator('#newMeetingBtn').click();
+  await fillMeetingName(page,'기한 회의');
+  await fillDateTime(page,'#meetingAt','2026-09-29T09:00');
+  await page.locator('#meetingTranscript').fill('결과');
+  await page.locator('#meetingActionTitle').fill('고른 날 후속');
+  await page.locator('#meetingActionDue').fill('2026-09-30');
+  await page.locator('#meetingActionAdd').click();
+  await page.locator('#meetingActionTitle').fill('날짜 없는 후속');
+  await page.locator('#saveMeetingBtn').click();
+  await expect(page.locator('#meetingModal')).toBeHidden();
+  await expect.poll(()=>creates.length).toBe(2);
+  const today=await page.evaluate(()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10));
+  expect(creates.map(b=>[b.title,b.due])).toEqual([['고른 날 후속','2026-09-30'],['날짜 없는 후속',today]]);
+});
+
 test('failed meeting create restores its save button for a retry',async({page})=>{
   await signIn(page);
   let posts=0;

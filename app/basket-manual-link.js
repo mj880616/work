@@ -11,7 +11,7 @@ import {readReferenceBundles} from './reference-bundles-data.js';
 import {createGoogleTask} from './quick-save.js';
 import {announceRecordSaved,basketDetail} from './record-saved.js';
 import {dayKey} from './home-read-model.js';
-import {quickDueDay,weekdayLabel} from './task-due.mjs';
+import {quickDueDay,weekdayLabel,newTaskDue} from './task-due.mjs';
 import {openWeekPick} from './task-week-pick.js'; // S46-30 [다음주] 요일 목록
 import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js';
 import {aiSummaryAllowed,aiSummaryMarkup,appliedText,attachmentTextState,newAiState,placeAiSummary,readDocumentBrief,requestLinkSummary} from './basket-ai-summary.js';
@@ -318,7 +318,8 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     }
     if(mode!==next||noteId!==n.id){reset();noteId=n.id;mode=next;}
     if(next==='link'&&(n.archived_at||n.ai_export_allowed!==true)){mode=null;onModeChange?.();return manualErrorText(n.archived_at?'NOTE_ARCHIVED':'AI_EXCLUDED');}
-    if(next==='task'&&!task){const title=firstLine(n.raw_text);task={title,notes:n.raw_text||'',initial:{title,notes:n.raw_text||''},due:'',dateKind:'',project:'',status:'',unknown:null,recover:null};}
+    if(next==='task'&&!task){const title=firstLine(n.raw_text);// S50-36: 새 할 일은 기한 [오늘]이 눌린 채 시작한다(task-due.mjs newTaskDue). [오늘]을 한 번 더 누르면 기한 없음.
+    const due=newTaskDue('',dayKey(Date.now()));task={title,notes:n.raw_text||'',initial:{title,notes:n.raw_text||'',due},due,dateKind:'today',project:'',status:'',unknown:null,recover:null};}
     paint();
     host?.querySelector(next==='link'?'[data-manual-pick="organization"]':'[data-manual-task-title]')?.focus();
     // Only the project label depends on the loaded list; never rebuild the form under the user's finger.
@@ -328,7 +329,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
   function reset(){++seq;mode=null;noteId=null;link={targets:[],status:''};task=null;sheet.dismiss();taskFilesPick?.clear();}
   function hasDraft(){
     if(mode==='link')return link.targets.length>0;
-    if(mode==='task'&&task)return !!task.unknown||task.title!==task.initial.title||task.notes!==task.initial.notes||!!task.due||!!task.project||!!(taskFilesOn&&taskFilesPick?.files().length);
+    if(mode==='task'&&task)return !!task.unknown||task.title!==task.initial.title||task.notes!==task.initial.notes||(task.due||'')!==(task.initial.due||'')||!!task.project||!!(taskFilesOn&&taskFilesPick?.files().length);
     return false;
   }
   async function cancel({force=false,anchor=globalThis.document?.activeElement}={}){
