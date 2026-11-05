@@ -335,3 +335,12 @@ PC 브라우저가 편하다(폰도 가능).
 #### 8.4 가입 문
 
 - 가입 문은 닫힌 채다(5절 규칙, 단계 ②-4 전). 이 단계는 범위 판정만 바꾼다.
+
+### 8-C. 내 작업공간 만들기 (S50-19 ②-4)
+
+- DB `20261105183000_workspace_self_start`: 가입 스위치 표 `app_workspace_signup`(1행 `id=1`, `open=false`로 들어감. RLS 켬·정책 없음·anon·authenticated·service_role 권한 없음 → SQL로만 읽고 씀)과 함수 둘(SECURITY DEFINER, 빈 search_path, 인자 없음, authenticated만 실행).
+  - `app_workspace_start_status()`: `{open, has_workspace}`. 내 owner 행이 있는지와 스위치만 알려 준다(남의 정보 없음).
+  - `app_workspace_start()`: 스위치가 꺼져 있으면 42501 `SIGNUP_CLOSED`. 켜져 있으면 `auth.uid()` 본인만: 이미 owner 행이 있으면 그 작업공간을 그대로 돌려줌(`created=false`), 없을 때만 작업공간 1개(이름 '내 작업공간', slug는 서버가 만든 무작위 값) + 본인 owner 행 1개 + 프로필이 없으면 빈 프로필 1행(`created=true`). 같은 사람의 동시 호출은 사람별 트랜잭션 잠금으로 한 줄로 세운다. 넣은 뒤 그 작업공간의 구성원이 '본인 owner 1행'이 아니면(운영 전용 역할 트리거가 역할을 바꾼 경우 등) 예외로 전부 취소한다. 운영자 기능 행(`app_operator_features`)은 만들지 않는다.
+- 화면: 접근 거부 뒤 `app/workspace-start.js`가 상태를 묻고, 켜짐 + 내 작업공간 없음일 때만 [내 작업공간 만들기]. 누르면 한 번 부르고 다시 연다(`app/ARCHITECTURE.md` Task 20 아래 문단).
+- 켜기(커맨드센터, ②-2 운영 반영·D4 결정 뒤, 이 PR에 없음): SQL Editor 또는 승인형 경로로 `update public.app_workspace_signup set open = true, updated_at = now() where id = 1;` 끄기는 `open = false`. 켜기 전에 운영 전용 트리거 `trg_app_enforce_workspace_member_role`의 정의를 읽기 SQL로 확인한다(고정 메일 밖 사람의 owner 역할을 바꾸면 만들기가 `WORKSPACE_OWNER_NOT_SET`으로 실패하므로, 그 트리거 정리가 켜기의 앞 단계가 된다).
+- 시험: `tests/auth-handoff/workspace-self-start-db.test.mjs`(실제 PostgreSQL: 꺼짐 거절·켜짐 본인 1개·두 번·동시 두 번·기존 owner·남 대신 불가·역할 바뀜 실패·되돌리기), `tests/app-e2e/workspace-start.spec.mjs`·`nonmember-access.spec.mjs`(화면).
