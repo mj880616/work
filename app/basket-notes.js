@@ -3,6 +3,7 @@ import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림
 import { viewPrefs } from './view-prefs.js';
 import { followPane } from './follow-pane.js';
 import { mountSplitResize } from './split-resize.js';
+import { treeIconHtml } from './tree-icons.js';
 import { formatSeoulTime } from './meeting-time.js';
 // MEMO-노트: the [노트] side of the basket tab. Notes are app_notes rows with kind=note (20261017052234), read and
 // written through the existing owner-RLS REST paths in basket-data.js; there is no new save path.
@@ -152,9 +153,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // '폴더 없음'(17:45 ④, 옛 '폴더 밖'): 나무·폴더 목록 맨 아래, 바로 밑에 [+ 새 폴더](폴더 표가 있을 때).
   const outsideHere = () => at === OUTSIDE || (at === null && !showRecent());
-  const outsideRowHtml = (r, {tree = false} = {}) => `<div class="nx-row nx-outside${tree && outsideHere() ? ' nx-current' : ''}" data-nx-outside data-reorder-id="o" style="--nx-indent:0"${tree ? ' role="treeitem"' : ''}><button type="button" class="nx-main" data-nx-open="${OUTSIDE}"${tree && outsideHere() ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">\u{1F5C2}</span><span class="nx-name">${OUTSIDE_NAME}</span><span class="nx-num" aria-label="노트 ${r.count}개">${r.count}</span></button></div>`;
+  const outsideRowHtml = (r, {tree = false} = {}) => `<div class="nx-row nx-outside${tree && outsideHere() ? ' nx-current' : ''}" data-nx-outside data-reorder-id="o" style="--nx-indent:0"${tree ? ' role="treeitem"' : ''}><button type="button" class="nx-main" data-nx-open="${OUTSIDE}"${tree && outsideHere() ? ' aria-current="true"' : ''}>${treeIconHtml('outside')}<span class="nx-name">${OUTSIDE_NAME}</span><span class="nx-num" aria-label="노트 ${r.count}개">${r.count}</span></button></div>`;
   // PC 왼쪽 나무 맨 위 '최근'(누르면 오른쪽에 최근 5개). 끌어 놓을 곳이 아니다(폴더가 아님).
-  const recentTreeRowHtml = () => `<div class="nx-row nx-recent-item${at === null ? ' nx-current' : ''}" data-nx-recent-item style="--nx-indent:0" role="treeitem"><button type="button" class="nx-main" data-nx-open="${RECENT}"${at === null ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">\u{1F552}</span><span class="nx-name">${RECENT_NAME}</span></button></div>`;
+  const recentTreeRowHtml = () => `<div class="nx-row nx-recent-item${at === null ? ' nx-current' : ''}" data-nx-recent-item style="--nx-indent:0" role="treeitem"><button type="button" class="nx-main" data-nx-open="${RECENT}"${at === null ? ' aria-current="true"' : ''}>${treeIconHtml('recent')}<span class="nx-name">${RECENT_NAME}</span></button></div>`;
   const newFolderRowHtml = () => canEditFolders() && !pick.active ? '<button type="button" class="nx-new-folder" data-nx-new-top>+ 새 폴더</button>' : '';
   // 끌기(순서·넣기)는 폴더 보기에서만, 찾는 중이 아닐 때(PC 마우스·폰 꾹 누르기 모두).
   const canReorder = () => view === 'folder' && foldersReady && !query && !selected;
