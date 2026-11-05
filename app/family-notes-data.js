@@ -6,10 +6,10 @@ import {NOTE_SELECT, cleanNotes, decisionBody, doneBody} from './family-notes-mo
 const TABLE = 'app_family_notes';
 const enc = encodeURIComponent;
 
-// 운영자 기능 목록(서버 app_my_features). family가 없으면 칸을 그리지 않는다(화면 숨김은 보안이 아님 — 서버가 어차피 읽기를 막음).
+// 운영자 기능 목록(서버 app_my_features, stable 함수라 GET 읽기 — 쓰기 요청으로 보이지 않게). family가 없으면 칸을 그리지 않는다(화면 숨김은 보안이 아님 — 서버가 어차피 읽기를 막음).
 export async function hasFamily(rt) {
   try {
-    const v = await rt.api('/rest/v1/rpc/app_my_features', {method: 'POST', body: {}, singleFlight: false});
+    const v = await rt.api('/rest/v1/rpc/app_my_features', {singleFlight: false});
     return Array.isArray(v) && v.includes('family');
   } catch { return false; }
 }

@@ -186,7 +186,7 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     state = {...state, phase: 'loading', note: '', result: ''}; render();
     if (inApp) send('push:hello');
     const [prefs, devices, recent, features] = await Promise.allSettled([readPrefs(), readDevices(), readRecent(),
-      rt.api('/rest/v1/rpc/app_my_features', {method: 'POST', body: {}, singleFlight: false})]);
+      rt.api('/rest/v1/rpc/app_my_features', {singleFlight: false})]);
     if (mine !== run) return;
     state = {...state, family: features.status === 'fulfilled' && Array.isArray(features.value) && features.value.includes(FAMILY_KIND[0])};
     if (prefs.status !== 'fulfilled') { state = {...state, phase: 'failed'}; render(); return; }
