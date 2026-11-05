@@ -524,6 +524,7 @@ document.addEventListener('dblclick',e=>{
   e.preventDefault();window.getSelection?.()?.removeAllRanges?.();luEnterFolder(key.slice(2));
 });
 function luRenderLibrary(){const box=document.querySelector('#documentList');if(!box)return;const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';luApplyPlaceFolder();luCloseMenu();luRenderGroupBy();luRenderProjectFilter();luRenderOrganizationFilter();luRenderCategoryFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
+luSyncSearchPickAll(q,matches);
 const filtering=luFiltering(q,pid),signature=filtering?JSON.stringify([q,[...luCategoryOff].sort(),luCategorySub,luOrganization?.id||'',pid,luGroupBy]):'-';if(signature!==luFilterSignature){luFilterOpen.clear();luFilterSignature=signature}
 if(luGroupBy==='organization'&&!luOrganizations)luLoadOrganizations();
 const tree=buildTree({groupBy:luGroupBy,docs:matches,filtering,tree:luCatalog()?.tree||[],folders:luFolders_,items:luFolderItems,organizations:luOrganizations||[],categories:orderedDocumentCategories(),categoryOf,categoryLabel,projectName:luProjectName,colorOf:luProjectColor,kindOf:d=>luFileKind(d.file_name,d.mime_type),sortKey:luSortKey,monthLabel:luMonthLabel});
@@ -1017,6 +1018,21 @@ function luSyncPicks(){
   for(const b of barEl.querySelectorAll('[data-lu-bulk],#librarySelectFolder'))b.disabled=luSelBusy||!luPick.items.size;
   const fb=barEl.querySelector('#librarySelectFolder');if(fb)fb.hidden=!luFoldersReady;
   if(cancel)cancel.disabled=luSelBusy;
+}
+// SEARCH-선택옮기기 ⑤(10/28 10:44): 자료실 검색칸에 글자가 있고 걸러진 자료가 있으면 검색칸 오른쪽에 작은 [결과 n개 모두 고르기].
+// 폴더·묶음과 상관없이 걸러진 자료 전부를 선택 모드로 고른다(접힌 폴더 안 것 포함). 그 뒤 옮기기·분류 바꾸기·지우기는 같은 선택 모드가 맡는다.
+let luSearchPickIds=[];
+function luSyncSearchPickAll(q,matches){
+  const row=document.querySelector('.lu-search-row'),input=document.querySelector('#documentSearch');if(!row||!input)return;
+  let button=row.querySelector('#luSearchPickAll');
+  luSearchPickIds=q?matches.filter(d=>!d.photoset&&!isPhotoSet(d)).map(d=>d.id):[];
+  if(!luSearchPickIds.length){button?.remove();return}
+  if(!button){
+    button=document.createElement('button');button.type='button';button.id='luSearchPickAll';button.className='secondary lu-search-pick-all';
+    button.addEventListener('click',()=>{if(luSelBusy||!luSearchPickIds.length)return;luPick.stop();luPick.start([...luSearchPickIds]);luRenderLibrary()});
+    input.after(button);
+  }
+  button.textContent=`결과 ${luSearchPickIds.length}개 모두 고르기`;
 }
 function luSelStart(){if(luPick.active)return;luPick.start();luRenderLibrary()}
 // LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 오른쪽 ⋯ 하나에 [새 폴더](폴더 묶기일 때)·[여러 개 고르기]·[모두 펴기·접기]를 모은다.
