@@ -43,8 +43,17 @@ async function pcDoor(page, { up = true, user = 'same' } = {}) {
   });
   return st;
 }
-async function begin(page, door) {
+// 크롬 '로컬 네트워크 접근' 허락 상태를 흉내 낸다(Playwright 판마다 이 권한 이름을 몰라 grantPermissions를 쓰지 않는다).
+async function lnaState(page, state) {
+  await page.addInitScript(s => {
+    const q = navigator.permissions?.query?.bind(navigator.permissions);
+    if (!q) return;
+    navigator.permissions.query = d => (['loopback-network', 'local-network-access'].includes(d?.name) ? Promise.resolve({ state: s }) : q(d));
+  }, state);
+}
+async function begin(page, door, { perm = 'granted' } = {}) {
   const { errors, server } = await start(page, 1440);
+  await lnaState(page, perm);
   const st = await pcDoor(page, door);
   await installViewPrefsServer(page);
   await page.reload();
@@ -53,8 +62,8 @@ async function begin(page, door) {
 }
 
 test.describe('윈도우 PC 1440', () => {
-  // 크롬 '로컬 네트워크 접근'을 이미 허락한 PC(허락 전 모습은 아래 따로 본다).
-  test.use({ userAgent: WINDOWS, permissions: ['local-network-access'] });
+  // 크롬 '로컬 네트워크 접근'을 이미 허락한 PC(begin 기본값, 허락 전 모습은 아래 따로 본다).
+  test.use({ userAgent: WINDOWS });
 
   test("문이 답하면: 나무 맨 끝 '내 PC' → 드라이브 → 폴더 → 미리보기 [이 PC에서 열기]·[탐색기에서 위치], [최근]에는 안 섞임, 서버·저장소에 PC 이름 없음", async ({ page }) => {
     test.setTimeout(90000);
@@ -166,11 +175,10 @@ test.describe('윈도우 PC 1440 · 크롬 허락 전', () => {
   test.use({ userAgent: WINDOWS });
   test("화면을 열 때는 저절로 두드리지 않고(허락 창 안 띄움) '내 PC · 눌러서 연결', 누르면 두드려 연다", async ({ page }) => {
     test.setTimeout(90000);
-    const { errors, st } = await begin(page);
+    const { errors, st } = await begin(page, {}, { perm: 'prompt' });
     const off = tree(page).locator('[data-fx-pc-knock]');
     await expect(off).toHaveText('내 PC · 눌러서 연결');
     expect(st.calls).toEqual([]);
-    await page.context().grantPermissions(['local-network-access']);
     await off.click();
     await expect(list(page).locator(at('data-fx-row', 'pc:C:\\'))).toBeVisible();
     expect(errors).toEqual([]);
