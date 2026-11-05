@@ -19,6 +19,8 @@ test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 오른�
   const { errors, server } = await start(page, 412);
   await openNews(page, 412);
   await expect(item(page, 'c1')).toBeVisible();
+  // 목록을 열면 읽기 전 채널 기사(w1) 때문에 '바로 채우기'가 한 번 돌고 목록을 다시 읽는다(#1901). 그 다시 읽기 도중에 밀어도
+  // 숨긴 줄이 되살아나지 않아야 한다(화면은 밀기 뒤에 목록을 다시 읽어 서버 상태로 맞춘다 — S50-26 CI 두 번 관측한 경쟁).
 
   await swipe(item(page, 'c1'), -320);
   await expect(item(page, 'c1')).toHaveCount(0);

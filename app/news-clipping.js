@@ -242,9 +242,12 @@ function resetIfOwnerChanged() {
   closeLayer();
   state = fresh(); state.scope = scope;
 }
+// 지금 읽는 중인 목록(append면 다음 쪽). 줄을 숨기거나 보관한 직후 그 전에 떠난 읽기 답이 오면 바뀌기 전 줄로 덮이므로, 그때는 다시 읽는다.
+let listReading = null;
 async function loadItems({append = false, keep = false} = {}) {
   const w = workspaceOf(), seq = ++loadSeq;
   if (!w) return;
+  listReading = {seq, append};
   if (append) { state.more = true; paint(); }
   else { state.failed = false; if (!keep || !state.loaded) { state.loaded = false; state.items = []; } paint(); }
   try {
@@ -261,8 +264,15 @@ async function loadItems({append = false, keep = false} = {}) {
     if (seq !== loadSeq) return;
     if (!append) state.failed = true;
   } finally {
-    if (seq === loadSeq) { state.more = false; paint(); }
+    if (seq === loadSeq) { listReading = null; state.more = false; paint(); }
   }
+}
+// 줄을 숨기거나 보관한 뒤(서버에 저장된 뒤): 그 전에 떠난 목록 읽기가 아직 안 끝났으면 그 답은 버리고 지금 서버 상태로 다시 읽는다.
+function rereadIfStale() {
+  if (!listReading) return;
+  const {append} = listReading;
+  listReading = null;
+  loadItems({append, keep: true});
 }
 // 줄 곁 자료: 보이는 기사의 메모 노트, 별표 폴더(별표가 하나라도 있거나 별표 칸이면). 실패해도 목록은 그대로.
 async function loadSide(w, list) {
@@ -506,6 +516,7 @@ bindNowRows(root?.querySelector('[data-nc-list]'), {row: '[data-nc-item]', itemO
   enabled: () => state.mode === 'list',
   isSaved: item => !!state.items.find(x => x.id === item.id)?.starred_at,
   changed: (item, kind, on) => {
+    rereadIfStale();
     const it = state.items.find(x => x.id === item.id);
     if (kind === 'hide') { if (on) state.items = state.items.filter(x => x.id !== item.id); else load().catch(() => {}); }
     else if (it) { it.starred_at = on ? new Date().toISOString() : null; if (!on) it.folder_id = null; if (state.tab === STAR && !on) state.items = state.items.filter(x => x.id !== item.id); }

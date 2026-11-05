@@ -17,7 +17,7 @@ export const ITEMS = () => [
 ];
 
 export async function newsServer(page) {
-  const server = { folders: [], notes: [], items: ITEMS(), keywords: [{ word: '가짜어', enabled: true, created_at: '2026-10-01T00:00:00Z' }], sources: new Map([['news-fake-a', { source_key: 'news-fake-a', enabled: true, last_ok_at: '2026-10-06T00:07:00Z', last_error: null }]]), calls: [], fillArmed: false };
+  const server = { folders: [], notes: [], items: ITEMS(), keywords: [{ word: '가짜어', enabled: true, created_at: '2026-10-01T00:00:00Z' }], sources: new Map([['news-fake-a', { source_key: 'news-fake-a', enabled: true, last_ok_at: '2026-10-06T00:07:00Z', last_error: null }]]), calls: [], fillArmed: false, listReads: 0 };
   await page.route(SB + '/**', async route => {
     const req = route.request(), u = new URL(req.url()), p = u.pathname, method = req.method();
     const ok = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
@@ -78,8 +78,10 @@ export async function newsServer(page) {
       const view = it => { const { _body, _body_ko, ...row } = it; return { ...row, body: _body ?? null, body_ko: _body_ko ?? null }; };
       if (method === 'PATCH') { const row = server.items.find(i => i.id === id); Object.assign(row, body); return ok([{ id: row.id, starred_at: row.starred_at, folder_id: row.folder_id }]); }
       if (id) return ok(server.items.filter(i => i.id === id).map(view));
-      const lane = u.searchParams.get('lane'), star = u.searchParams.get('starred_at');
-      const rows = server.items.filter(i => (!lane || (lane === 'eq.channel' ? i.lane === 'channel' : i.lane !== 'channel')) && (!star || !!i.starred_at));
+      const lane = u.searchParams.get('lane'), star = u.searchParams.get('starred_at'), hidden = u.searchParams.get('hidden_at');
+      server.listReads++;
+      // 운영 REST처럼 hidden_at=is.null이면 숨긴 기사는 빼고 돌려준다(목록을 다시 읽어도 숨긴 줄이 되살아나지 않음).
+      const rows = server.items.filter(i => (!lane || (lane === 'eq.channel' ? i.lane === 'channel' : i.lane !== 'channel')) && (!star || !!i.starred_at) && (hidden !== 'is.null' || !i.hidden_at));
       return ok(rows.map(({ _body, _body_ko, ...row }) => row));
     }
     if (p === '/rest/v1/app_news_keywords') {
