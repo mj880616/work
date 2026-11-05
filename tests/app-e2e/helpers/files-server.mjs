@@ -272,8 +272,8 @@ export async function openFiles(page, width, { two = false } = {}) {
     const btn = page.locator('#filesRoot [data-fx-two]');
     await expect(btn).toBeVisible();
     // 서버에 '끔'이 이미 기억돼 있으면(다시 열기) 그대로 둔다.
-    if (await btn.getAttribute('aria-pressed') === 'true') await btn.click();
-    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+    if ((await btn.textContent())?.trim() === '한 칸 보기') await btn.click();
+    await expect(btn).toHaveText('두 칸 보기');
     await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(0);
   }
 }

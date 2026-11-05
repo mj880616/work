@@ -24,7 +24,7 @@ test('폴드 884: 처음부터 두 칸 — 칸마다 따로 위치(▾ 나무)·
   const { errors, server, prefs } = await begin(page, 884);
   await openFiles(page, 884, { two: true });
   await expect(root(page)).toHaveAttribute('data-fx-two', 'fold');
-  await expect(root(page).locator('[data-fx-two]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(root(page).locator('[data-fx-two]')).toHaveText('한 칸 보기');
   await expect(pane(page, 1)).toBeVisible();
   // 폴드 두 칸은 왼쪽 나무 대신 칸 위 ▾. 왼쪽 = 최근(첫 화면), 오른쪽 = 다른 저장소 맨 위(원드라이브).
   await expect(root(page).locator('[data-fx-tree]')).toBeHidden();
@@ -77,7 +77,7 @@ test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무�
   test.setTimeout(120000);
   const { errors, server, prefs } = await begin(page, 1440);
   await openFiles(page, 1440);
-  await expect(root(page).locator('[data-fx-two]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(root(page).locator('[data-fx-two]')).toHaveText('두 칸 보기');
   await expect(pane(page, 1)).toHaveCount(0);
   await root(page).locator('[data-fx-two]').click();
   await expect(root(page)).toHaveAttribute('data-fx-two', 'wide');

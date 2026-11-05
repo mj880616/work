@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 
 // S46-24 ③: 실제 gdrive-photos handler를 지어낸 Supabase(PostgREST)와 지어낸 Google Drive로 돌린다. 네트워크 없음.
 // 비밀값·토큰·계정·파일 이름은 모두 고정 가짜 글자다.
-const {createGdriveHandler,takenOf,photoRow,cleanName,scopeHas,TRASH_NOTE}=await import('../../supabase/functions/gdrive-photos/handler.ts');
+const {createGdriveHandler,takenOf,photoRow,cleanName,scopeHas,TRASH_NOTE,lastById}=await import('../../supabase/functions/gdrive-photos/handler.ts');
 
 const SB='https://sb.example.test',WS='a0000000-0000-4000-8000-000000000001',WS2='a0000000-0000-4000-8000-000000000002';
 const USER='u0000000-0000-4000-8000-000000000001',OTHER='u0000000-0000-4000-8000-000000000002';
 const JWT='synthetic-user-jwt',JWT2='synthetic-other-jwt',ACCESS='synthetic-access-token',FULL='https://www.googleapis.com/auth/drive';
 const ENV={SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:'synthetic-service-key',SUPABASE_ANON_KEY:'synthetic-anon-key'};
 
-function world({features=['calls','gdrive_photos'],allowed=WS,driveWs=WS,scope=`${FULL}.file ${FULL}`,members={[USER]:WS,[OTHER]:WS2}}={}){
+function world({pagedDup=false,features=['calls','gdrive_photos'],allowed=WS,driveWs=WS,scope=`${FULL}.file ${FULL}`,members={[USER]:WS,[OTHER]:WS2}}={}){
  const db={folders:[],photos:[],sync:[]};
  const drive={
   F1:{id:'F1',name:'가상 사진',mimeType:'application/vnd.google-apps.folder',parents:['root'],trashed:false},
@@ -64,7 +64,10 @@ function world({features=['calls','gdrive_photos'],allowed=WS,driveWs=WS,scope=`
    if(!id&&method==='GET'){
     const qq=u.searchParams.get('q'),parent=qq.match(/^'([^']+)' in parents/)[1];
     const folders=/mimeType='application\/vnd.google-apps.folder'/.test(qq);
-    return ok({files:Object.values(drive).filter(f=>!f.trashed&&f.parents.includes(parent)&&(folders?f.mimeType.endsWith('folder'):/^(image|video)\//.test(f.mimeType)))});
+    const files=Object.values(drive).filter(f=>!f.trashed&&f.parents.includes(parent)&&(folders?f.mimeType.endsWith('folder'):/^(image|video)\//.test(f.mimeType)));
+    // pagedDup: 사진 목록이 두 쪽으로 오고 둘째 쪽에 첫 사진이 이름만 바뀌어 다시 온다(쪽 사이에 바뀐 경우).
+    if(pagedDup&&!folders&&files.length){if(!u.searchParams.get('pageToken'))return ok({files,nextPageToken:'synthetic-page-2'});return ok({files:[{...files[0],name:'a-renamed.jpg'}]});}
+    return ok({files});
    }
    if(!id&&method==='POST'){const b=JSON.parse(init.body);const nid='N'+Object.keys(drive).length;drive[nid]={id:nid,...b,trashed:false};return ok({id:nid,name:b.name});}
    const f=drive[id];if(!f&&id!=='root')return ok({error:'nf'},404);
@@ -194,4 +197,16 @@ test('folders: switched-on folders carry their indexed photo count, off folders 
  assert.equal(driveCalls,1,'only the folder listing reaches Drive (root needs no folder read)');
  const counts=w.calls.filter(c=>c.path==='/rest/v1/app_gdrive_photos'&&/limit=1/.test(c.search));
  assert.ok(counts.length>=2&&counts.every(c=>c.method==='GET'&&/workspace_id=eq\./.test(c.search)),'counts are scoped to the workspace');
+});
+
+test('index: pages merged with a repeated id upsert each item_id once, the last one wins (no duplicate key in one upsert)',async()=>{
+ assert.deepEqual(lastById([{item_id:'A',n:1},{item_id:'B',n:2},{item_id:'A',n:3}]),[{item_id:'B',n:2},{item_id:'A',n:3}]);
+ const w=world({pagedDup:true});
+ const on=await w.call({action:'folder-toggle',id:'F1',enabled:true});
+ assert.equal(on.status,200);
+ const posts=w.calls.filter(c=>c.method==='POST'&&c.path==='/rest/v1/app_gdrive_photos');
+ assert.ok(posts.length>=1);
+ for(const c of posts){const ids=JSON.parse(c.body).map(r=>r.item_id);assert.equal(new Set(ids).size,ids.length,'one upsert carries each item_id once');}
+ assert.equal(on.body.indexed,2);
+ assert.equal(w.db.photos.find(r=>r.item_id==='P1').name,'a-renamed.jpg');
 });

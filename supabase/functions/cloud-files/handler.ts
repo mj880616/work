@@ -1386,11 +1386,26 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     return { url, name: nm };
   }
 
+  // 이번 훑기(scan_started_at 뒤)에 받은 색인 줄 수. PostgREST count=exact, 본문 1행만. 세지 못하면 null(화면은 개수 없이 '맞추기…').
+  async function countSeen(ws: string, source: Source, since: string) {
+    const r = await call("db_items_count", `${SB}/rest/v1/app_cloud_items?workspace_id=eq.${ws}&source=eq.${source}&seen_at=gte.${encodeURIComponent(since)}&select=item_id&limit=1`, {
+      headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, Accept: "application/json", Prefer: "count=exact" },
+    }).catch(() => null);
+    if (!r) return null;
+    await drop(r);
+    if (!r.ok) {
+      log("db_items_count_" + r.status);
+      return null;
+    }
+    const m = /\/(\d+)$/.exec(r.headers.get("content-range") || "");
+    return m ? Number(m[1]) : null;
+  }
+
   type Ctx = { workspaceId: string; userId: string; body: Record<string, unknown>; req: Request };
   const actions: Record<string, (c: Ctx) => Promise<Response>> = {
     // 맞춘 상태(두 출처). 클라우드를 부르지 않는다(연결 여부는 저장된 값만).
     async status({ workspaceId }) {
-      const sync = await rows("sync_all", `app_cloud_sync?workspace_id=eq.${workspaceId}&select=source,next_page,index_done_at,synced_at,last_error`);
+      const sync = await rows("sync_all", `app_cloud_sync?workspace_id=eq.${workspaceId}&select=source,next_page,scan_started_at,index_done_at,synced_at,last_error`);
       const od = (await rows("od_conn", `app_onedrive_connections?workspace_id=eq.${workspaceId}&select=scope`))[0];
       let gd = false;
       try {
@@ -1399,14 +1414,17 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
       } catch (e) {
         if (!(e instanceof Fail) || e.status !== 403) throw e;
       }
-      const one = (source: Source, connected: boolean) => {
+      const one = async (source: Source, connected: boolean) => {
         const s = sync.find((x) => x.source === source);
+        const scanning = !!s && (!s.index_done_at || !!s.next_page);
+        // S50-20: 처음 받는 중이면 이번 훑기에서 받은 줄 수(내 것만 색인에 들어감 — 공유받은 파일은 처음부터 안 넣음). 세지 못하면 null.
+        const got = connected && scanning && typeof s?.scan_started_at === "string" ? await countSeen(workspaceId, source, s.scan_started_at) : null;
         return {
-          connected, scanning: !!s && (!s.index_done_at || !!s.next_page), index_done_at: s?.index_done_at ?? null,
-          synced_at: s?.synced_at ?? null, error: s?.last_error ?? null,
+          connected, scanning, index_done_at: s?.index_done_at ?? null,
+          synced_at: s?.synced_at ?? null, error: s?.last_error ?? null, received: got,
         };
       };
-      return json({ ok: true, od: one("od", !!od && scopeAllowed(normalizeScopes(od.scope))), gd: one("gd", gd) });
+      return json({ ok: true, od: await one("od", !!od && scopeAllowed(normalizeScopes(od.scope))), gd: await one("gd", gd) });
     },
     // 바뀐 것만 색인에 반영하고 바뀐 줄을 돌려준다. 2분 안에 맞췄으면 클라우드를 부르지 않는다(F2). 동시에 두 번 돌지 않게 잠금.
     async sync({ workspaceId, body: b }) {
@@ -1452,6 +1470,11 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
         changed.push(...step.changed);
         removed.push(...step.removed.map((id) => ({ source, id })));
         out[source] = { ...(out[source] as object || {}), more: step.more, done: step.done };
+        // S50-20: 이어 받을 쪽이 남았으면 이번 훑기에서 받은 줄 수도(화면 '맞추기… n개').
+        if (step.more) {
+          const since = (await rows("sync_since", `app_cloud_sync?workspace_id=eq.${workspaceId}&source=eq.${source}&select=scan_started_at`).catch(() => []))[0]?.scan_started_at;
+          (out[source] as Record<string, unknown>).received = typeof since === "string" ? await countSeen(workspaceId, source, since) : null;
+        }
       }
       const reload = changed.length + removed.length > CHANGED_MAX;
       return json({ ok: true, ...out, reload, changed: reload ? [] : changed.map(pickRow), removed: reload ? [] : removed });

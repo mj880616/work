@@ -87,6 +87,17 @@ export function scopeHas(scope: unknown) {
 const q = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 const inList = (ids: string[]) => `in.(${ids.map((id) => `"${id}"`).join(",")})`;
 
+// 색인 줄 묶음에서 같은 item_id는 마지막 것 하나만(순서는 마지막으로 나온 자리). cloud-files의 lastById와 같은 방식.
+export function lastById<T extends Record<string, unknown>>(list: T[]): T[] {
+  const m = new Map<string, T>();
+  for (const r of list) {
+    const k = String(r.item_id);
+    m.delete(k);
+    m.set(k, r);
+  }
+  return [...m.values()];
+}
+
 export function createGdriveHandler(options: GdriveOptions) {
   const request = options.fetch ?? globalThis.fetch;
   const now = options.now ?? (() => Date.now());
@@ -254,7 +265,8 @@ export function createGdriveHandler(options: GdriveOptions) {
     const stamp = new Date(now()).toISOString();
     const { files, complete } = await listAll(token,
       `'${q(folderId)}' in parents and trashed=false and (mimeType contains 'image/' or mimeType contains 'video/')`, PHOTO_FIELDS);
-    const list = files.map((f) => photoRow(workspaceId, folderId, f, stamp)).filter(Boolean);
+    // 여러 쪽을 합친 목록에 같은 id가 두 번 와도(쪽 사이에 바뀜) 한 번의 upsert에는 하나만: 마지막 것.
+    const list = lastById(files.map((f) => photoRow(workspaceId, folderId, f, stamp)).filter(Boolean) as Record<string, unknown>[]);
     for (let i = 0; i < list.length; i += 500) {
       await db("photos_upsert", "app_gdrive_photos?on_conflict=workspace_id,item_id",
         { method: "POST", body: JSON.stringify(list.slice(i, i + 500)) }, "resolution=merge-duplicates,return=minimal");

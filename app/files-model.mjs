@@ -144,7 +144,13 @@ export function syncText(syncedAt, now = Date.now()) {
 export function syncLabel(status, syncedAt, now = Date.now(), sources = ['od', 'gd']) {
   const on = sources.map(s => status?.[s]).filter(x => x?.connected);
   if (on.some(x => x.error)) return {text: '맞추기 안 됨', title: '목록을 다 받지 못했어요. 누르면 다시 맞춥니다', state: 'error'};
-  if (on.some(x => x.scanning)) return {text: '맞추기…', title: '처음 목록을 아직 다 받지 못했어요 — 끝날 때까지 일부 파일이 안 보일 수 있어요', state: 'scanning'};
+  // S50-20: 처음 받는 중이면 받은 개수도(서버 status의 received, 내 파일만). 세지 못한 출처만 있으면 개수 없이.
+  const scan = on.filter(x => x.scanning);
+  if (scan.length) {
+    const got = scan.map(x => x.received).filter(n => Number.isFinite(n) && n >= 0);
+    const n = got.length ? got.reduce((a, b) => a + b, 0) : null;
+    return {text: n === null ? '맞추기…' : `맞추기… ${countText(n)}개`, title: '처음 목록을 아직 다 받지 못했어요 — 끝날 때까지 일부 파일이 안 보일 수 있어요', state: 'scanning'};
+  }
   return {text: syncText(syncedAt, now) || '맞추기', title: '지금 맞추기', state: 'ok'};
 }
 // sync 응답(출처마다 fresh·busy·more·done·error)을 화면이 들고 있는 상태(status 응답 모양)에 입힌다. 바꾼 새 객체를 돌려준다.
@@ -154,8 +160,8 @@ export function applySyncReply(status, reply, sources = ['od', 'gd']) {
     const r = reply?.[s], cur = out[s];
     if (!r || !cur) continue;
     if (r.error) out[s] = {...cur, error: String(r.error)};
-    else if (r.more) out[s] = {...cur, scanning: true, error: null};
-    else if (r.done || r.fresh) out[s] = {...cur, scanning: false, error: null};
+    else if (r.more) out[s] = {...cur, scanning: true, error: null, ...(Number.isFinite(r.received) ? {received: r.received} : {})};
+    else if (r.done || r.fresh) out[s] = {...cur, scanning: false, error: null, received: null};
   }
   return out;
 }
