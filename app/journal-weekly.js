@@ -14,7 +14,7 @@ import {waitHtml, emptyEl} from './wait-state.js';
 //   5. 주요 일정 — my own Google Calendar events of the two weeks from the Monday after the shown week (journal-data.js
 //      scheduleDays: written on Friday, reported on Monday — "the reported week and the week after"), in the form's cells
 //      (일 | 시간/내용/장소 | 참석자). A vacation (휴가·연차·반차 …) is not a row but one "※ 휴가: …" line under the table; an event
-//      marked 일기·비공개 is left out (WEEKLY-주요일정, 2026-10-21); only the work calendar named '공공운수노조' (REPORT_CALENDAR) is taken.
+//      marked 일기·비공개 is left out (WEEKLY-주요일정, 2026-10-21); only the work calendar named in 내 프로필 › 보고 설정 (report-calendar.mjs) is taken.
 //   참고 — the week's 한 줄, 끝낸 할 일, 할 일 예정, 자료실 새 자료, 공유 페이지, 기타 메모 (material the form has no box for).
 //   [주간보고 초안 복사] copies this same grouping as text in the same order (weeklyReportText).
 // Notes moved from the basket (노트로 옮긴 업데이트, PR 868) are not included. The tab only shows; it saves nothing and makes no file
@@ -44,6 +44,7 @@ import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {refOfOpen, meetingRef, planOverlaps, reasonOf} from './overlap-weekly.mjs';
 import {slashDay as nextSlashDay} from './next-week-sheet-model.mjs';
 import {renderPrepSheet} from './prep-sheet-view.js';
+import {reportCalendarName, calendarKey, UNSET_TEXT as UNSET_CALENDAR_TEXT} from './report-calendar.mjs'; // MULTI ②-3: 보고 캘린더 이름(사람마다)
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
 // 화면·복사용 '시간 / 제목 / 장소'(WEEKLY-장소칸: 한 줄 모양 제목은 나눠 읽음 — '종일 / 10:30 / …'가 되지 않게).
 const lineWhat = f => { const x = splitScheduleFields(f); return [x.time, x.title, x.place].filter(Boolean).join(' / '); };
@@ -131,12 +132,13 @@ export const isVacation = event => VACATION_WORDS.test(String(event?.title ?? ''
 // value and this repository is public; the id → name list is read with the events every time, journal-data.js readScheduleEvents),
 // compared without case and spacing differences. No calendar → the table is empty and the screen (only) says so. The calendar screen
 // itself is unchanged. One rule for the screen table and the .hwpx draft (both read upcomingSchedule).
-export const REPORT_CALENDAR = '공공운수노조';
-const calendarKey = name => String(name ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
-const REPORT_KEY = calendarKey(REPORT_CALENDAR);
-export const isReportCalendar = event => calendarKey(event?.calendarName) === REPORT_KEY;
-// events.calendarNames (readScheduleEvents): every calendar name of the account; when it is known and holds no 공공운수노조, noCalendar.
-export const hasReportCalendar = events => (Array.isArray(events?.calendarNames) ? events.calendarNames.some(name => calendarKey(name) === REPORT_KEY) : null);
+// MULTI ②-3(D5): the calendar name is each person's own setting (report-calendar.mjs, 내 프로필 › 보고 설정), no longer a name in this file.
+// No name set → no event is taken, and the screen says the calendar is not chosen (unsetCalendar) instead of 'not found'.
+export {reportCalendarName};
+const reportKey = (name = reportCalendarName()) => calendarKey(name);
+export const isReportCalendar = (event, name) => { const key = reportKey(name); return !!key && calendarKey(event?.calendarName) === key; };
+// events.calendarNames (readScheduleEvents): every calendar name of the account; when it is known and holds no such calendar, noCalendar.
+export const hasReportCalendar = (events, name) => { const key = reportKey(name); return key && Array.isArray(events?.calendarNames) ? events.calendarNames.some(n => calendarKey(n) === key) : null; };
 export const isPrivateEvent = event => PRIVATE_WORDS.test(`${event?.title ?? ''}\n${event?.description ?? ''}`);
 // The days an event covers (Korea time): an all-day event ends the day before its (exclusive) end date.
 function eventDays(event) {
@@ -152,7 +154,7 @@ function eventDays(event) {
 // The two weeks' events in the form's order: by day; on one day the one-day events (종일 first, then by time), then those that
 // run over several days (their day cell is "첫날 ~끝날", as the confirmed reports write it). An event that began before the two
 // weeks sits on the first day. Returns {days, rows:[{day, label, items:[{what, multi}]}], vacations:[{first, last, title}]}.
-export function upcomingSchedule(events, start) {
+export function upcomingSchedule(events, start, calendar = reportCalendarName()) {
   const days = scheduleDays(start), from = days[0], to = days[days.length - 1];
   const seen = new Set(), list = [], vacations = [];
   for (const event of events || []) {
@@ -160,7 +162,7 @@ export function upcomingSchedule(events, start) {
     const key = event.id ? `${event.calendarId || ''}:${event.id}` : null;
     if (key && seen.has(key)) continue;
     if (key) seen.add(key);
-    if (!isReportCalendar(event) || isPrivateEvent(event)) continue;
+    if (!isReportCalendar(event, calendar) || isPrivateEvent(event)) continue;
     const {first, last} = eventDays(event);
     if (!first || last < from || first > to) continue;
     const title = String(event.title || '').trim() || '(제목 없음)';
@@ -179,7 +181,7 @@ export function upcomingSchedule(events, start) {
     row.items.push({what:item.what, multi:item.multi, key:item.key, time:item.time, title:item.title, place:item.place, ...(item.open ? {open:item.open} : {})});
   }
   vacations.sort((a, b) => a.first.localeCompare(b.first) || a.last.localeCompare(b.last));
-  return {days, rows, vacations, noCalendar:hasReportCalendar(events) === false};
+  return {days, rows, vacations, calendar, unsetCalendar:!calendarKey(calendar), noCalendar:hasReportCalendar(events, calendar) === false};
 }
 // "※ 휴가: 10/23(금) 연차, 10/27(화)~10/28(수) 휴가" (screen and copy), or '' without one.
 export const vacationLine = vacations => vacations?.length ? `※ 휴가: ${vacations.map(v => `${span(v.first, v.last, slashDay, '~')} ${v.title}`).join(', ')}` : '';
@@ -813,7 +815,8 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       b.addEventListener('click', () => { lastScheduleDrop = ''; });
       p.append('일정을 뺐어요 ', b); cal.append(p);
     }
-    if (c.noCalendar) { const p = muted(`'${REPORT_CALENDAR}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
+    if (c.unsetCalendar) { const p = muted(UNSET_CALENDAR_TEXT); p.dataset.journalWeeklyNoCalendar = 'unset'; cal.append(p); }
+    else if (c.noCalendar) { const p = muted(`'${c.calendar}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록이나 내 프로필 › 보고 설정을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
     // S48-33(WEEKLY-화면디자인정리 2): 늘 보이던 안내 한 줄('참석자 칸은 한글 파일에서…')은 없앴다 — 당연한 안내 문구 삭제.
   }
   // [확정하고 한글 파일 받기] 줄 자리(journal-hwpx.js 마디를 journal.js 가 붙임).

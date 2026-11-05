@@ -605,6 +605,8 @@ test('조직 소식 sections follow the shared organization order (organization-
   const projects = [{id:'p1', project:{name:'가 프로젝트'}, effective_on:day, summary:'가'}, {id:'p2', project:{name:'나 프로젝트'}, effective_on:day, summary:'나'}];
   try {
     globalThis.window = globalThis;
+    // MULTI ②-3: 묶음은 내 프로필 설정에서 읽는다(시험은 운영자 값).
+    globalThis.KPTUViewPrefs = (await import('./org-order-fixture.mjs')).prefsStub();
     await import('../app/organization-order.js');
     const groups = globalThis.KPTUOrganizationOrder.GROUPS;
     // Known names are taken from the shared table itself: last of the last group, first of the first group, and one between.
@@ -624,7 +626,7 @@ test('조직 소식 sections follow the shared organization order (organization-
     // Not loaded: every organization stays in 가나다순, as before.
     delete globalThis.KPTUOrganizationOrder;
     assert.deepEqual(names(m.orgNewsOn({orgUpdates:Object.assign(rows, {mine})}, day)), [...[first, mid, late, '가상 가나다 앞', '가상 모르는 조직']].sort((a, b) => a.localeCompare(b, 'ko')));
-  } finally { if (saved === undefined) delete globalThis.window; else globalThis.window = saved; }
+  } finally { delete globalThis.KPTUViewPrefs; if (saved === undefined) delete globalThis.window; else globalThis.window = saved; }
 });
 
 // S49-12: 노트로 옮긴 것은 하루 카드에서 뺐다(노트에 이미 있어 중복). 읽기·묶음이 모두 없어졌는지 확인한다.

@@ -295,6 +295,15 @@ PC 브라우저가 편하다(폰도 가능).
 - 운영자 전용 기능(`gdrive_photos`·`files`, `drive-summary`)은 이미 허용 표로 운영자 작업공간에만 열려 있어 id=1을 계속 읽어도 다른 작업공간이 명진 Drive에 닿지 않는다. 이들의 새 표 전환은 Contract 단계(id=1 refresh token 비우기)와 함께 뒤로 미룬다.
 - 다른 사람의 Drive 연결은 `drive.file`만 요청한다. 전체 `drive` 권한(제한 등급, 유료 보안 심사 대상)은 `gdrive_photos`·`files`가 허용된 작업공간에서만 요청한다(D4 심사 범위를 민감 등급 이하로 유지).
 
+### 8-B. 담당조직·보고 캘린더 사람별 설정 (S50-13 ②-3, D5)
+
+- 값: 내 프로필 `app_profiles.view_prefs`의 두 칸. `org_order = {groups:[{name, orgs:[조직 이름…]}…], hidden:[조직 이름…]}`(묶음 12개·묶음마다 40곳·뺄 조직 40곳까지), `report_calendar = 캘린더 이름`(1~60자). 새 표·새 열·권한 없음(owner RLS 그대로 내 행만).
+- migration `20261105131500_profile_view_prefs_org_order`: 검사(`app_profiles_view_prefs_check`)를 최신 판(`20261104221000` photo_zoom, 서른아홉 칸) 위에서 다시 쌓아 두 칸을 더하고, 같은 트랜잭션에서 운영자(`calls` 허용 작업공간 owner) 프로필 1행에만 지금까지 화면 코드에 있던 값을 옮긴다. 다른 사람은 비어 있음.
+- 화면: `organization-order.js`는 이름을 갖지 않고 설정을 읽는다(없으면 묶음 없이 가나다순). 보고 캘린더는 `report-calendar.mjs` 한 곳 → 주간 정리 표·.hwpx 초안·다음 주 준비 표·일정 만들기 기본 캘린더. 미지정이면 표가 비고 '내 프로필 › 보고 설정에서 정해 주세요' 안내. 고치는 곳은 내 프로필 › 보고 설정 하나.
+- 주간보고 순서(`weekly-org-order-model.mjs`·`journal-weekly.js`·`weekly-hwpx/delta.mjs`·`org-overview.js`)는 모두 `KPTUOrganizationOrder.sort` 하나를 쓴다(따로 목록 없음).
+- 배포 순서: 화면(Pages) 먼저 → DB 적용. 이유: 옛 화면은 모르는 칸을 저장할 때 버리므로(view-prefs.js), DB를 먼저 적용하면 옛 화면이 열린 동안 명진 값이 지워질 수 있다. 새 화면은 DB 전에도 안전하다(값이 없을 뿐).
+- 범위 밖으로 남긴 것: 운영자 전용 Edge `drive-summary`의 조직 순서 사본(`supabase/functions/drive-summary/core.mjs`), `ai-assist/schedule-titles.ts`의 조직 이름, 자기 조직 이름(`feed-model.mjs` OWN_ORG), 바로가기 링크(`quick-links.js`).
+
 ### 8-A. 사람별 Drive 연결과 권한 범위 (S49-53 #1877, S50-8)
 
 #### 8.1 연결 저장 (#1877, 11/05 운영 반영)

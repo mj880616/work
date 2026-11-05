@@ -223,8 +223,8 @@ function harness(options = {}) {
     assert.match(html, /미완료 연결 할 일: 1 · 자료: 1/);
     assert.match(html, /D-1/); assert.match(html, /가상 하위 프로젝트/);
   });
-  test('organization comparator matches app definition for all known and unknown names', () => {
-    const ctx = { window: {} };
+  test('organization comparator matches app definition for all known and unknown names', async () => {
+    const ctx = { window: { KPTUViewPrefs: (await import('../org-order-fixture.mjs')).prefsStub() } }; // MULTI ②-3: 앱 묶음은 운영자 프로필 설정
     vm.runInNewContext(readFileSync(new URL('../../app/organization-order.js', import.meta.url), 'utf8'), ctx);
     const app = ctx.window.KPTUOrganizationOrder;
     // D-담당조직목록 combines only the last two UI groups. The Edge uses these arrays solely for sorting;

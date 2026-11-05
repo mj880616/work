@@ -1,3 +1,5 @@
+import {OPERATOR_ORG_ORDER,OPERATOR_REPORT_CALENDAR} from '../../org-order-fixture.mjs';
+const operatorViewPrefs=()=>({org_order:OPERATOR_ORG_ORDER,report_calendar:OPERATOR_REPORT_CALENDAR});
 import { installViewPrefsServer } from './view-prefs-server.mjs';
 import { expect } from '@playwright/test';
 import { loginEntry } from './login-entry.mjs';
@@ -36,7 +38,8 @@ export async function calendarEventsReady(page){
 
 export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks=TASKS,now=NOW,orgs=[],links=[],projects=[],onLinks=null,prefsOptions={}}={}){
   const calls=[],external=[];
-  const prefs=await installViewPrefsServer(page,view!=="default"?{calendar_view:view}:null,prefsOptions);
+  // MULTI ②-3: 담당조직 묶음·보고 캘린더(view_prefs)는 기본으로 운영자 값을 가진 사람(prefs.value에는 섞이지 않음).
+  const prefs=await installViewPrefsServer(page,view!=="default"?{calendar_view:view}:null,{base:operatorViewPrefs(),...prefsOptions});
   await page.clock.setFixedTime(new Date(now));
   // Catch every remote request: all API responses are synthetic and no production request can leave the browser.
   await page.route('**/*',async route=>{

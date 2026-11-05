@@ -14,7 +14,8 @@ const meeting={
 };
 
 // writes[kind]: 서버에 도착한 저장 요청 수. hold가 true면 release() 전까지 응답을 미룬다. failNext면 다음 저장 1번을 500으로 돌려준다.
-async function mock(page,{calendars=[{id:'primary',summary:'기본',primary:true,accessRole:'owner'},{id:'union',summary:'공공운수노조',accessRole:'writer'}]}={}){
+// MULTI ②-3: 보고 캘린더 이름은 내 프로필 설정(view_prefs.report_calendar). 기본은 운영자와 같은 이름을 정한 사람, null이면 정하지 않은 사람.
+async function mock(page,{calendars=[{id:'primary',summary:'기본',primary:true,accessRole:'owner'},{id:'union',summary:'공공운수노조',accessRole:'writer'}],reportCalendar='공공운수노조'}={}){
   const state={writes:{event:0,googleEdit:0,document:0,meeting:0},hold:false,failNext:false,waiters:[],googleEvents:[],eventReads:0,meetingRow:{...meeting},meetingReads:0,meetingFailure:null,lastMeetingBody:null};
   state.release=()=>{state.hold=false;for(const w of state.waiters.splice(0))w()};
   await page.route(`${SB}/**`,async route=>{
@@ -31,7 +32,7 @@ async function mock(page,{calendars=[{id:'primary',summary:'기본',primary:true
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'lock-ws',user_id:'lock-user',role:'owner',email:'lock@example.org',workspace:{id:'lock-ws',name:'QA Workspace'}}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'lock-ws',name:'QA Workspace'}]);
-    if(path==='/rest/v1/app_profiles')return ok([{user_id:'lock-user',display_name:'잠금 QA'}]);
+    if(path==='/rest/v1/app_profiles')return ok([{user_id:'lock-user',display_name:'잠금 QA',view_prefs:reportCalendar?{report_calendar:reportCalendar}:null}]);
     if(path==='/rest/v1/app_events'){state.eventReads++;return ok([])}
     if(path==='/rest/v1/app_documents'&&method==='POST')return write('document',[{id:'document-new',title:'잠금 자료'}]);
     if(path==='/rest/v1/app_meetings'){
@@ -158,6 +159,17 @@ test('Google event edit sends one request and confirms an unknown address before
   await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleStatus')).toContainText('위치를 확인');expect(state.writes.googleEdit).toBe(before+1);
   await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();expect(state.writes.googleEdit).toBe(before+2);
 });
+
+// MULTI ②-3: 보고 캘린더를 정하지 않은 사람은 이름으로 고르지 않고 기본 캘린더(선택·primary)로 연다. 다른 이름을 정하면 그 캘린더.
+for(const [reportCalendar,expected] of [[null,'primary'],['가짜 업무 달력','fake-work']]){
+  test(`new event calendar follows my report calendar setting (${reportCalendar??'unset'})`,async({page})=>{
+    const calendars=[{id:'primary',summary:'기본',primary:true,accessRole:'owner'},{id:'union',summary:'공공운수노조',accessRole:'writer'},{id:'fake-work',summary:'가짜 업무 달력',accessRole:'writer'}];
+    await signIn(page,'calendar',{calendars,reportCalendar});
+    await page.locator('#newEventBtn').click();
+    await expect(page.locator('#eventGoogleCalendar option')).toHaveCount(calendars.length);
+    await expect(page.locator('#eventGoogleCalendar')).toHaveValue(expected);
+  });
+}
 
 // 목록은 전역에 직접 주입하지 않고 모든 status 응답에서 동일하게 제공한다.
 // 늦은 status/events 응답이 다른 목록으로 되돌리는 경쟁을 없앤다.

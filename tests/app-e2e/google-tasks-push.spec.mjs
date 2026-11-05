@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
+import { OPERATOR_ORG_ORDER } from '../org-order-fixture.mjs';
 const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -36,7 +37,8 @@ async function mock(page){
     if(p==='/auth/v1/user')return ok({id:'qa-user',email:'qa@example.org',user_metadata:{display_name:'QA'}});
     if(p==='/rest/v1/app_workspace_members')return ok([{workspace_id:'qa-ws',user_id:'qa-user',role:'owner'}]);
     if(p==='/rest/v1/app_workspaces')return ok([{id:'qa-ws',name:'QA Workspace'}]);
-    if(p==='/rest/v1/app_profiles')return ok([{user_id:'qa-user',display_name:'QA'}]);
+    // MULTI ②-3: 묶음·순서는 내 프로필 설정(view_prefs.org_order). 이 시험은 운영자 값을 가진 사람.
+    if(p==='/rest/v1/app_profiles')return ok([{user_id:'qa-user',display_name:'QA',view_prefs:{org_order:OPERATOR_ORG_ORDER}}]);
     if(p==='/rest/v1/app_tasks')return ok([]);
     if(p==='/rest/v1/app_spaces')return ok([]);
     if(p==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,calendars:[],events:[]});

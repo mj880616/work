@@ -7,11 +7,27 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
 // DB에는 있지만 화면 허용 목록에는 아직 없는 칸: 없음(now_tab은 S48-27 Now 화면이 KEYS에 더함).
 const DB_ONLY = [];
-test('허용 칸 서른아홉 개가 DB 검사(마지막 migration, S49-38 note_sort 위에 S49-48 photo_zoom 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261104221000_profile_view_prefs_photo_zoom.sql');
+test('허용 칸 마흔한 개가 DB 검사(마지막 migration, S49-48 photo_zoom 위에 S50-13 org_order·report_calendar 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261105131500_profile_view_prefs_org_order.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 39);
+  assert.equal(KEYS.length, 41);
+});
+test('org_order·report_calendar 모양(S50-13 MULTI ②-3, DB 검사와 같음)', () => {
+  const g = (name, orgs) => ({name, orgs});
+  for (const v of [{groups:[], hidden:[]}, {groups:[g('가', ['나'])], hidden:['다']}, {groups:Array(12).fill(g('a'.repeat(20), ['가'.repeat(60)])), hidden:Array(40).fill('x')}, {groups:[g('a', Array(40).fill('b'))], hidden:[]}])
+    assert.equal(validValue('org_order', v), true, JSON.stringify(v).slice(0, 60));
+  for (const v of [[], null, 'x', {groups:[]}, {hidden:[]}, {groups:[], hidden:[], x:1}, {groups:{}, hidden:[]}, {groups:[], hidden:'a'}, {groups:Array(13).fill(g('a', ['b'])), hidden:[]},
+    {groups:[], hidden:Array(41).fill('x')}, {groups:['a'], hidden:[]}, {groups:[{name:'a'}], hidden:[]}, {groups:[{orgs:['a']}], hidden:[]}, {groups:[{name:'a', orgs:['b'], x:1}], hidden:[]},
+    {groups:[g('', ['b'])], hidden:[]}, {groups:[g('a'.repeat(21), ['b'])], hidden:[]}, {groups:[g(1, ['b'])], hidden:[]}, {groups:[g('a', [])], hidden:[]}, {groups:[g('a', Array(41).fill('b'))], hidden:[]},
+    {groups:[g('a', 'b')], hidden:[]}, {groups:[g('a', [1])], hidden:[]}, {groups:[g('a', [''])], hidden:[]}, {groups:[g('a', ['가'.repeat(61)])], hidden:[]}, {groups:[g('a', [['b']])], hidden:[]},
+    {groups:[g('a\nb', ['b'])], hidden:[]}, {groups:[], hidden:['a\tb']}, {groups:[], hidden:[1]}, {groups:[], hidden:['']}])
+    assert.equal(validValue('org_order', v), false, JSON.stringify(v).slice(0, 60));
+  for (const v of ['공공운수노조', '가'.repeat(60), 'a b']) assert.equal(validValue('report_calendar', v), true, v);
+  for (const v of ['', 1, null, ['a'], '가'.repeat(61), 'a\nb']) assert.equal(validValue('report_calendar', v), false, JSON.stringify(v));
+  // 옛 판 화면이 모르는 칸을 버리지 않게: 새 두 칸은 다른 칸을 저장할 때 그대로 남는다.
+  const kept = applyChanges({org_order:{groups:[g('가', ['나'])], hidden:[]}, report_calendar:'달력', theme:'navy'}, {theme:'red'});
+  assert.deepEqual(kept, {org_order:{groups:[g('가', ['나'])], hidden:[]}, report_calendar:'달력', theme:'red'});
 });
 test('phone_folders_known은 16진수 8자 글자 배열 120개까지(S48-31, DB 검사와 같음)', () => {
   for (const v of [[], ['0a1b2c3d'], ['00000000', 'ffffffff'], Array.from({length:120}, (_, i) => i.toString(16).padStart(8, '0'))]) assert.equal(validValue('phone_folders_known', v), true, JSON.stringify(v).slice(0, 40));
