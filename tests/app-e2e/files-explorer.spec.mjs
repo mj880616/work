@@ -38,9 +38,9 @@ test('폰 412(S50-33): 첫 화면은 나무 — 탭 줄·"폴더" 제목 없음,
   await tree.locator('[data-fx-twist="od:"]').click();
   const folder = tree.locator('.nx-row').filter({ has: page.locator('[data-fx-go="od"][data-fx-id="OD!1"]') });
   await expect(folder.locator('.nx-ico')).toBeVisible();
-  const h = (await folder.boundingBox()).height;
-  expect(h).toBeGreaterThanOrEqual(29); expect(h).toBeLessThanOrEqual(33);
-  expect(await folder.evaluate(el => getComputedStyle(el).paddingLeft)).toBe('7px');
+  // 나무는 하위 폴더를 읽을 때마다 다시 그려지므로(줄이 바뀜) 잴 때마다 다시 찾는다.
+  await expect.poll(async () => { const b = await folder.boundingBox().catch(() => null); return b ? b.height >= 29 && b.height <= 33 : null; }).toBe(true);
+  await expect.poll(() => folder.evaluate(el => getComputedStyle(el).paddingLeft).catch(() => '')).toBe('7px');
   // 폴더를 누르면 같은 자리에서 목록 + 위치 길(‹ 원드라이브 › 가짜 문서함).
   await tree.locator('[data-fx-go="od"][data-fx-id="OD!1"]').click();
   await expect(tree).toBeHidden();
