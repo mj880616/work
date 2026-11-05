@@ -22,7 +22,6 @@ async function begin(page, width) {
 }
 async function intoDocs(page, width, opts) {
   await openFiles(page, width, opts);
-  if (width < 761) await root(page).locator('[data-fx-tab="folders"]').click();
   await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').first().click();
   await row(page, 'od:OD!1').first().click();
   await expect(root(page).locator('.fx-crumb-now').first()).toHaveText('가짜 문서함');
@@ -138,9 +137,10 @@ for (const width of [412, 884]) {
     await bar(page).locator('[data-fx-star]').click();
     await expect.poll(() => edgeCalls(server, 'star').at(-1)?.body).toEqual({ action: 'star', confirm: true, source: 'od', ids: ['OD!11'], on: true });
     await expect(row(page, 'od:OD!11').locator('.fx-star')).toBeVisible();
-    // [별표] 탭(폰) / 나무 [별표](폴드)에 바로.
-    if (width < 761) await root(page).locator('[data-fx-tab="starred"]').click();
-    else await root(page).locator('[data-fx-shelf="starred"]').first().click();
+    // 나무 '★ 별표'에 바로(폰은 ‹ 로 나무까지 돌아가서). 개수도 늘어난다.
+    if (width < 761) for (let i = 0; i < 4 && !(await root(page).locator('[data-fx-tree]').isVisible()); i++) await root(page).locator('[data-fx-up]').click();
+    await expect(root(page).locator('[data-fx-tree] [data-fx-shelf="starred"] .nx-num')).toHaveText('2개');
+    await root(page).locator('[data-fx-tree] [data-fx-shelf="starred"]').first().click();
     await expect(row(page, 'od:OD!11')).toBeVisible();
     await expect(row(page, 'od:OD!12')).toBeVisible();
     expect(errors).toEqual([]);

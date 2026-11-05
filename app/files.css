@@ -1,6 +1,6 @@
 /* FILES-클라우드탐색기 ④ 화면 모양(설계 docs/design/files-explorer.md 6절, 시안 docs/design/mockups/files-explorer.html).
    촘촘하게: 줄 높이 28px(PC)·44px(폰), 큰 버튼·카드 없음, 톤다운 색(base-ui.css 토큰만). 폴더 나무 줄은 공용 folder-tree.css(.nx-*).
-   폭: 폰(~760) 한 칸 + 탭, 폴드 펼침(761~1199) 나무 + 목록 두 칸(미리보기는 목록 위 덮는 칸), PC(1200~) 나무 · 목록 · 미리보기 세 칸. */
+   폭: 폰(~760) 한 칸(첫 화면 나무 → 누르면 같은 자리에 목록), 폴드 펼침(761~1199) 나무 + 목록 두 칸(미리보기는 목록 위 덮는 칸), PC(1200~) 나무 · 목록 · 미리보기 세 칸. */
 .fx { display:flex; flex-direction:column; min-width:0; font-size:13px; }
 .fx-top { display:flex; align-items:center; gap:6px; min-height:36px; padding:4px 0; border-bottom:.5px solid var(--kptu-border); flex-wrap:wrap; }
 .fx-crumb { flex:1 1 200px; min-width:0; display:flex; align-items:center; gap:2px; font-size:12.5px; color:var(--kptu-muted); white-space:nowrap; overflow:hidden; }
@@ -16,9 +16,6 @@
 .fx-sort { height:28px; border:.5px solid var(--kptu-border); border-radius:var(--kptu-radius-sm); background:var(--kptu-surface); color:var(--kptu-muted); font:inherit; font-size:12px; padding:0 4px; }
 .fx-sync { border:0; background:none; color:var(--kptu-faint); font:inherit; font-size:11px; padding:2px 4px; cursor:pointer; white-space:nowrap; }
 .fx-sync:hover:not(:disabled) { color:var(--kptu-ink); }
-.fx-tabs { display:none; gap:14px; border-bottom:.5px solid var(--kptu-border); }
-.fx-tabs button { border:0; background:none; padding:7px 0 6px; font:inherit; font-size:13px; color:var(--kptu-muted); border-bottom:2px solid transparent; cursor:pointer; }
-.fx-tabs button[aria-selected="true"] { color:var(--kptu-ink); border-bottom-color:var(--kptu-primary); font-weight:500; }
 .fx-note { margin:4px 0; font-size:12px; color:var(--kptu-muted); }
 .fx-cols { display:flex; min-width:0; align-items:flex-start; }
 .fx-tree { flex:0 0 240px; width:240px; padding:4px 4px 8px 0; }
@@ -41,7 +38,7 @@
 
 /* 목록: 한 줄 = 버튼 하나(키보드·터치 그대로). PC는 칸 맞춘 줄, 폰은 두 줄(이름 / 날짜·크기 또는 위치·크기). */
 .fx-head, .fx-row { display:grid; grid-template-columns:20px minmax(0,1fr) var(--fx-w-day,92px) var(--fx-w-size,72px) var(--fx-w-kind,56px); align-items:center; column-gap:8px; }
-.fx-with-path .fx-row, .fx-list[data-fx-mode="recent"] .fx-head, .fx-list[data-fx-mode="starred"] .fx-head, .fx-list[data-fx-mode="big"] .fx-head { grid-template-columns:20px minmax(0,1fr) var(--fx-w-path,minmax(0,.8fr)) var(--fx-w-day,92px) var(--fx-w-size,72px) var(--fx-w-kind,56px); }
+.fx-with-path .fx-row, .fx-list[data-fx-mode="starred"] .fx-head, .fx-list[data-fx-mode="big"] .fx-head { grid-template-columns:20px minmax(0,1fr) var(--fx-w-path,minmax(0,.8fr)) var(--fx-w-day,92px) var(--fx-w-size,72px) var(--fx-w-kind,56px); }
 .fx-head { height:26px; padding:0 8px; font-size:11.5px; color:var(--kptu-muted); border-bottom:.5px solid var(--kptu-border); }
 .fx-head span { position:relative; }
 .fx-head span:first-child { grid-column:1 / 3; }
@@ -52,7 +49,7 @@
 .fx-ico { color:var(--kptu-faint); font-size:11px; text-align:center; }
 .fx-folder .fx-ico { font-size:13px; }
 .fx-nm { min-width:0; display:flex; align-items:center; gap:6px; }
-/* S49-51 '이 폰'(H-7): [최근]·찾기처럼 섞어 보일 때 줄마다 작은 출처 점(테마 색: 원드라이브 = 정보, 구글 = 성공, 이 폰 = 경고 톤). */
+/* S49-51 '이 폰'(H-7): 찾기·묶음처럼 섞어 보일 때 줄마다 작은 출처 점(테마 색: 원드라이브 = 정보, 구글 = 성공, 이 폰 = 경고 톤). */
 .fx-dot { flex:none; width:6px; height:6px; border-radius:50%; background:var(--kptu-faint); }
 .fx-dot[data-src="od"] { background:var(--kptu-info); }
 .fx-dot[data-src="gd"] { background:var(--kptu-success); }
@@ -66,7 +63,6 @@
 .fx-path, .fx-day, .fx-kind { min-width:0; color:var(--kptu-muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fx-size { color:var(--kptu-muted); font-size:12px; text-align:right; white-space:nowrap; }
 .fx-sub { display:none; }
-.fx-day-head { font-size:11.5px; color:var(--kptu-muted); font-weight:500; padding:6px 8px 2px; }
 
 /* 미리보기 칸 */
 .fx-pv-head { display:flex; align-items:center; gap:4px; min-width:0; }
@@ -105,23 +101,30 @@
   .fx-back { display:inline-block; }
 }
 @media (min-width:761px) and (max-width:1199px) { .fx-prev { left:max(0px, calc(100vw - 560px)); border-left:.5px solid var(--kptu-border); } }
-/* 폰: 한 칸 + 탭. [폴더] 탭의 첫 화면은 두 드라이브 나무(data-fx-pane="tree"), 폴더 이름을 누르면 목록(pane="list"). 두 줄 줄 */
+/* 폰: 한 칸. 첫 화면은 나무(data-fx-pane="tree"), 폴더·별표를 누르면 같은 자리에 목록(pane="list"). 두 줄 줄 */
 /* 정렬 기준은 작은 칩(PC): 칸 머리에서 따로 상자처럼 보이지 않게 */
 /* 정렬 기준 칩: 공용 select(폭 100%·높이 큼)가 폰에서 폭 가득 빈 칸처럼 보이던 것을 폰·PC 모두 같은 작은 칩으로. */
 .fx-sort { flex:none; width:auto; min-height:0; height:24px; max-width:96px; padding:0 8px; font-size:11.5px; border-color:transparent; border-radius:999px; background:var(--kptu-surface-subtle); }
 @media (max-width:760px) {
-  .fx-top { flex-wrap:wrap; }
-  .fx-search { flex:1 1 100%; width:auto; order:3; height:32px; }
-  .fx-sort { order:2; height:28px; }
-  .fx-tabs { display:flex; }
+  /* S50-33(시안 승인): 위 줄 = 찾기 칸 + 출처 단추(같은 줄 오른쪽 작은 정사각). 목록일 때만 아래 줄에 위치 길(‹ 원드라이브 › Pictures)·정렬. */
+  .fx-top { flex-wrap:wrap; row-gap:2px; min-height:0; padding:4px 0 3px; }
+  /* 찾기 칸은 출처 단추(2~4개)와만 한 줄을 채우고, 위치 길은 늘 다음 줄(최소 120px라 첫 줄 남은 자리에 끼지 않음). */
+  .fx-search { flex:1 1 calc(100% - 130px); width:auto; order:1; height:30px; }
+  .fx-srcs { order:2; }
+  #appView #filesView .fx-srcs [data-src-chip] { min-width:28px; width:28px; height:28px; min-height:28px; padding:0; }
+  .fx-crumb { order:3; flex:1 1 120px; }
+  .fx-sort { order:4; height:26px; }
+  .fx-mkdir, .fx-upload { order:5; }
   .fx-tree { display:none; }
-  /* S49-21: 폰 [폴더] 탭 나무 — 한 화면에 켜진 드라이브가 맨 위 줄로 나란히, 아래로 펼침. 줄은 촘촘(32px), 펼치기 단추는 손가락이 닿게 40px 폭. */
-  .fx[data-fx-pane="tree"] .fx-tree { display:block; position:static; width:100%; padding:2px 0 8px; border-right:0; }
+  /* 폰 나무 — PC처럼 촘촘하게: 줄 30px(펼치기 단추는 손가락이 닿게 36px 폭·줄 높이 그대로), 글자 13.5px, 들여쓰기 7px(PC 14px의 절반), 펼침 삼각형 9px. */
+  .fx[data-fx-pane="tree"] .fx-tree { display:block; position:static; flex:1 1 auto; width:100%; padding:2px 0 8px; border-right:0; }
   .fx[data-fx-pane="tree"] .fx-main, .fx[data-fx-pane="tree"] .fx-sort { display:none; }
-  .fx-tree .fx-shelf { display:none; }
-  .fx-tree .nx-main { min-height:32px; font-size:13px; }
-  .fx-tree .fx-twist { width:40px; align-self:stretch; font-size:11px; }
-  .fx-srcs { order:2; margin-left:auto; }
+  .fx-tree .nx-row.nx-folder { padding-left:calc(var(--nx-indent, 0) * 7px); }
+  .fx-tree .nx-main { min-height:30px; font-size:13.5px; gap:5px; padding:0 4px; }
+  .fx-tree .nx-ico { font-size:13px; }
+  .fx-tree .fx-twist { width:36px; align-self:stretch; font-size:9px; }
+  .fx-tree .fx-shelf .nx-main { padding-left:40px; }
+  .fx-sync-tree { flex:none; align-self:stretch; padding:0 6px; font-size:11px; color:var(--kptu-faint); }
   .fx-head { display:none; }
   .fx-row, .fx-with-path .fx-row { grid-template-columns:20px minmax(0,1fr); grid-template-rows:auto auto; min-height:44px; padding:4px 8px; row-gap:1px; }
   .fx-ico { grid-row:1 / 3; font-size:14px; }
@@ -219,7 +222,7 @@
 .fx[data-fx-two] .fx-head, .fx[data-fx-two] .fx-row { grid-template-columns:20px minmax(0,1fr) var(--fx-w-day,80px) var(--fx-w-size,64px); }
 .fx[data-fx-two] .fx-kind, .fx[data-fx-two] .fx-head span:last-child { display:none; }
 .fx[data-fx-two] .fx-head span:nth-last-child(2) { text-align:right; }
-.fx[data-fx-two] .fx-with-path .fx-row, .fx[data-fx-two] .fx-list[data-fx-mode="recent"] .fx-head, .fx[data-fx-two] .fx-list[data-fx-mode="starred"] .fx-head, .fx[data-fx-two] .fx-list[data-fx-mode="big"] .fx-head { grid-template-columns:20px minmax(0,1fr) var(--fx-w-path,minmax(0,.7fr)) var(--fx-w-day,80px) var(--fx-w-size,64px); }
+.fx[data-fx-two] .fx-with-path .fx-row, .fx[data-fx-two] .fx-list[data-fx-mode="starred"] .fx-head, .fx[data-fx-two] .fx-list[data-fx-mode="big"] .fx-head { grid-template-columns:20px minmax(0,1fr) var(--fx-w-path,minmax(0,.7fr)) var(--fx-w-day,80px) var(--fx-w-size,64px); }
 .fx[data-fx-two="wide"] .fx-prev { position:fixed; z-index:40; top:var(--kptu-topbar-height,56px); right:0; left:auto; width:560px; height:calc(100dvh - var(--kptu-topbar-height,56px)); max-height:none; background:var(--kptu-surface); border-left:.5px solid var(--kptu-border); padding:8px 12px; box-shadow:var(--kptu-shadow-float); }
 .fx[data-fx-two] .fx-back { display:inline-block; }
 .fx-listcol.fx-drop-pane { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:none; }

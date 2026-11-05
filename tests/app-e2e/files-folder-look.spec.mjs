@@ -8,11 +8,11 @@ const row = (page, key) => root(page).locator(`[data-fx-row="${key}"]`);
 const folderNames = page => root(page).locator('[data-fx-list] .fx-row.fx-folder .fx-name').allTextContents();
 const RGB = { 4: 'rgb(63, 148, 134)', 1: 'rgb(180, 90, 82)' };
 async function gotoOdRoot(page, width) {
-  if (width <= 760) {
-    await root(page).locator('[data-fx-tab="folders"]').click();
-    await root(page).locator('[data-fx-tree] [data-fx-twist="od:"]').click();
-  } else if (await root(page).locator('[data-fx-tree] [data-fx-twist="od:"][aria-expanded="false"]').count()) await root(page).locator('[data-fx-tree] [data-fx-twist="od:"]').click();
-  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
+  // 폰(S50-33): 첫 화면은 나무 → 원드라이브 이름을 누른다. 새로고침이면 보던 자리(원드라이브 맨 위 목록)가 그대로 열린다.
+  const go = root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]');
+  if (width > 760 && await root(page).locator('[data-fx-tree] [data-fx-twist="od:"][aria-expanded="false"]').count()) await root(page).locator('[data-fx-tree] [data-fx-twist="od:"]').click();
+  await expect.poll(async () => (await go.isVisible()) || (await row(page, 'od:OD!1').isVisible())).toBe(true);
+  if (await go.isVisible()) await go.click();
   await expect(row(page, 'od:OD!1')).toBeVisible();
 }
 // 이미 고른 줄이면 그대로 두고, 아니면 고른다(고르기는 눌러 바꾸는 방식이라 같은 줄을 또 누르면 풀린다).

@@ -1,10 +1,10 @@
 // FILES-통합 2-③ 두 칸(S49-30, 설계 docs/design/files-unified-plan.md D-3·D-4·J절 H-2, 시안 files-unified-mockup.html ⑥⑧): 화면 없이 시험하는 계산.
 // - 두 칸 켬은 서버 view_prefs.files_two에 기기 종류별로 둔다(files_sources와 같은 모양: {app?: {...}, phone?: {...}, pc?: {...}}, migration 20261104190000).
-//   기기 칸 안은 화면 폭 종류마다 참·거짓: fold = 폴드 펼침(761~1199), wide = PC(1200~). 칸이 없으면 기본값 — 폴드 펼침은 두 칸(명진 결정 H-2), PC는 한 칸(지금 구조).
+//   기기 칸 안은 화면 폭 종류마다 참·거짓: fold = 폴드 펼침(761~1199), wide = PC(1200~). 칸이 없으면 기본값 — 한 칸(왼쪽 나무 + 오른쪽 목록). S50-33(명진 결정, 시안 승인): 폴드 펼침도 PC처럼 한 칸이 기본(H-2의 '폴드 기본 두 칸'을 바꿈). [두 칸 보기]로 켠 값은 그대로 기억.
 // - 폰(≤760)은 늘 한 칸(이 계산을 부르지 않는다).
 export const FILES_TWO_KEY = 'files_two';
 export const FILES_TWO_LAYOUTS = Object.freeze(['fold', 'wide']);
-export const FILES_TWO_DEFAULT = Object.freeze({fold: true, wide: false});
+export const FILES_TWO_DEFAULT = Object.freeze({fold: false, wide: false});
 // 폭 종류. wide = 1200 이상인가.
 export const twoLayout = wide => (wide ? 'wide' : 'fold');
 // 서버 값(이 기기 칸) → 이 폭에서 두 칸인가. 모양이 틀리면 기본값.

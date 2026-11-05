@@ -24,7 +24,7 @@ test('PC 1440: 표 머리 칸 경계 끌기 · 두 번 눌러 글 길이에 맞�
   const server = await installViewPrefsServer(page);
   const { errors } = await start(page, 1440);
   await openFiles(page, 1440);
-  await expect(root(page).locator('.fx-head [data-col-grip]')).toHaveCount(4); // 최근 묶음: 위치·바뀐 날·크기·종류
+  await expect(root(page).locator('.fx-head [data-col-grip]')).toHaveCount(3); // 첫 화면 = 원드라이브 맨 위(S50-33): 바뀐 날·크기·종류
   await settle(page);
   const stored = () => server.value?.col_widths?.files ?? null;
   expect(stored()).toBeNull();

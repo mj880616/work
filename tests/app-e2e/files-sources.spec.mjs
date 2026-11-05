@@ -26,16 +26,16 @@ for (const width of [412, 884, 1440]) {
     await expect(chip(page, 'od')).toHaveAttribute('aria-pressed', 'true');
     await expect(chip(page, 'gd')).toHaveAttribute('aria-pressed', 'true');
     await expect(root(page).locator('[data-fx-srcs]')).toHaveClass(/src-chips/);
-    if (phone) await root(page).locator('[data-fx-tab="folders"]').click();
-    // 맨 위 두 줄: 원드라이브 / 구글 드라이브가 나란히(▸). 폰은 이 나무가 [폴더] 탭 첫 화면이고 목록은 아직 없다.
+    // 뿌리 두 줄: 원드라이브 / 구글 드라이브가 나란히. 폰은 이 나무가 첫 화면이고 목록은 아직 없다.
     await expect(roots(page)).toHaveCount(2);
     await expect(roots(page).nth(0)).toContainText('원드라이브');
     await expect(roots(page).nth(1)).toContainText('구글 드라이브');
-    await expect(twist(page, 'od:')).toHaveText('▸');
+    // S50-33: PC·폴드 첫 화면은 원드라이브 맨 위라 그 뿌리는 펼쳐져 있다. 폰은 둘 다 접힌 나무.
+    await expect(twist(page, 'od:')).toHaveText(phone ? '▸' : '▾');
     await expect(twist(page, 'gd:')).toHaveText('▸');
     if (phone) { await expect(root(page).locator('[data-fx-list] [data-fx-row]:visible')).toHaveCount(0); await expect(root(page)).toHaveAttribute('data-fx-pane', 'tree'); }
     // 펼치기 2단계: 원드라이브 → 가짜 문서함 → 가짜 2026. 두 번째 드라이브도 같은 화면에서 펼친다.
-    await twist(page, 'od:').click();
+    if (phone) await twist(page, 'od:').click();
     await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!1"]')).toBeVisible();
     await twist(page, 'od:OD!1').click();
     await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!10"]')).toBeVisible();
@@ -50,7 +50,7 @@ for (const width of [412, 884, 1440]) {
     await twist(page, 'od:OD!1').click();
     await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!10"]')).toBeVisible();
     expect(folderCalls(server).length).toBe(before);
-    // 나무 줄은 촘촘하게(폰 32px 안쪽, PC 28px대), 펼치기 단추는 손가락이 닿는 폭.
+    // 나무 줄은 촘촘하게(폰 30px대, PC 28px대), 펼치기 단추는 손가락이 닿는 폭.
     const rowBox = await tree(page).locator('.nx-folder:not(.fx-root) .nx-main').first().boundingBox();
     expect(rowBox.height).toBeLessThanOrEqual(phone ? 34 : 30);
     if (phone) expect((await twist(page, 'od:').boundingBox()).width).toBeGreaterThanOrEqual(36);
@@ -69,13 +69,13 @@ for (const width of [412, 884, 1440]) {
       await expect(roots(page)).toHaveCount(2);
     }
 
-    // 구글 드라이브 끄기: 아이콘이 꺼짐으로, 나무·[최근]에서 구글 드라이브가 빠지고, 서버에 저장.
+    // 구글 드라이브 끄기: 아이콘이 꺼짐으로, 나무·[별표]에서 구글 드라이브가 빠지고, 서버에 저장.
     await chip(page, 'gd').click();
     await expect(chip(page, 'gd')).toHaveAttribute('aria-pressed', 'false');
     await expect(roots(page)).toHaveCount(1);
     await expect(roots(page).first()).toContainText('원드라이브');
     await expect.poll(() => prefs.patches.at(-1)?.files_sources).toEqual({ [dev]: { od: true, gd: false } });
-    await root(page).locator(phone ? '[data-fx-tab="recent"]' : '[data-fx-shelf="recent"]').click();
+    await tree(page).locator('[data-fx-shelf="starred"]').click();
     await expect(root(page).locator('[data-fx-list] [data-fx-row^="gd:"]')).toHaveCount(0);
     await expect(root(page).locator('[data-fx-list] [data-fx-row^="od:"]').first()).toBeVisible();
     // 끈 것은 보기에서만 빠진다: 연결 표시·색인 호출은 그대로, 연결을 끊는 호출은 없다.
@@ -100,18 +100,17 @@ for (const width of [412, 884, 1440]) {
     await chip(page, 'gd').click();
     await expect(chip(page, 'od')).toHaveAttribute('aria-pressed', 'true');
     await expect(chip(page, 'gd')).toHaveAttribute('aria-pressed', 'true');
-    await expect(root(page).locator('[data-fx-list] [data-fx-row]').first()).toBeVisible();
+    if (phone) await expect(roots(page)).toHaveCount(2); // 폰은 나무 첫 화면
+    else await expect(root(page).locator('[data-fx-list] [data-fx-row]').first()).toBeVisible();
     expect(errors).toEqual([]);
   });
 }
 
-test('[파일] 폰 412: 모두 끈 채 [폴더] 탭도 안내 한 줄, 켜면 나무로 돌아온다', async ({ page }) => {
+test('[파일] 폰 412: 모두 끈 채 첫 화면 나무도 안내 한 줄, 켜면 나무로 돌아온다', async ({ page }) => {
   const { errors } = await start(page, 412);
   await installViewPrefsServer(page, { files_sources: { phone: { od: false, gd: false } } });
   await page.reload(); // 처음 읽을 때부터 서버에 저장돼 있던 값
   await openFiles(page, 412);
-  await expect(root(page).getByText('위 출처 아이콘을 켜 주세요').first()).toBeVisible();
-  await root(page).locator('[data-fx-tab="folders"]').click();
   await expect(tree(page).getByText('위 출처 아이콘을 켜 주세요')).toBeVisible();
   await chip(page, 'gd').click();
   await expect(roots(page)).toHaveCount(1);
@@ -199,40 +198,43 @@ test('[파일] 같은 계정 두 기기: 폰 앱과 PC의 출처 켜고 끄기�
   } finally { await appCtx.close(); await pcCtx.close(); }
 });
 
-// S49-26 FILES-통합 1-②: [최근]은 켜진 출처를 서버(app_cloud_find_in p_sources)로 넘겨 받은 줄만 그린다(화면에서 덮어 거르지 않음).
+// S49-26 FILES-통합 1-②: 묶음([큰 파일]·[별표], S50-33 [최근] 뺌)은 켜진 출처를 서버(app_cloud_find_in p_sources)로 넘겨 받은 줄만 그린다(화면에서 덮어 거르지 않음).
 for (const width of [412, 884, 1440]) {
-  test(`[파일] ${width}폭: [최근]은 켜진 출처만 서버에 물어 그대로 보이고, 출처를 바꾸면 다시 묻는다`, async ({ page }) => {
+  test(`[파일] ${width}폭: [큰 파일]은 켜진 출처만 서버에 물어 그대로 보이고, 출처를 바꾸면 다시 묻는다`, async ({ page }) => {
     const { errors, server } = await start(page, width);
     await installViewPrefsServer(page);
     await openFiles(page, width);
     const lastFind = () => server.calls.filter(c => c.what === 'app_cloud_find_in').at(-1)?.body;
     const list = root(page).locator('[data-fx-list]');
-    await expect.poll(lastFind).toEqual({ p_sources: ['od', 'gd'], p_query: null, p_shelf: 'recent', p_limit: 200 });
+    await tree(page).locator('[data-fx-shelf="big"]').click();
+    const lastBig = () => server.calls.filter(c => c.what === 'app_cloud_find_in' && c.body.p_shelf === 'big').at(-1)?.body;
+    await expect.poll(lastBig).toEqual({ p_sources: ['od', 'gd'], p_query: null, p_shelf: 'big', p_limit: 200 });
     await expect(list.locator('[data-fx-row^="gd:"]').first()).toBeVisible();
     await expect(list.locator('[data-fx-row^="od:"]').first()).toBeVisible();
     await chip(page, 'od').click();
-    await expect.poll(lastFind).toEqual({ p_sources: ['gd'], p_query: null, p_shelf: 'recent', p_limit: 200 });
+    await expect.poll(lastBig).toEqual({ p_sources: ['gd'], p_query: null, p_shelf: 'big', p_limit: 200 });
     await expect(list.locator('[data-fx-row^="od:"]')).toHaveCount(0);
     await expect(list.locator('[data-fx-row^="gd:"]').first()).toBeVisible();
     await chip(page, 'od').click();
     await chip(page, 'gd').click();
-    await expect.poll(lastFind).toEqual({ p_sources: ['od'], p_query: null, p_shelf: 'recent', p_limit: 200 });
+    await expect.poll(lastBig).toEqual({ p_sources: ['od'], p_query: null, p_shelf: 'big', p_limit: 200 });
     await expect(list.locator('[data-fx-row^="gd:"]')).toHaveCount(0);
     await expect(list.locator('[data-fx-row^="od:"]').first()).toBeVisible();
     // 찾는 중에 출처를 바꾸면 켜진 출처로 다시 찾는다.
     await root(page).locator('[data-fx-search]').fill('가짜');
     await expect.poll(lastFind).toEqual({ p_sources: ['od'], p_query: '가짜', p_shelf: null, p_limit: 200 });
     await chip(page, 'gd').click();
-    await expect.poll(lastFind).toEqual({ p_sources: ['od', 'gd'], p_query: '가짜', p_shelf: null, p_limit: 200 });
+    await expect.poll(() => server.calls.filter(c => c.what === 'app_cloud_find_in' && c.body.p_query).at(-1)?.body).toEqual({ p_sources: ['od', 'gd'], p_query: '가짜', p_shelf: null, p_limit: 200 });
     expect(errors).toEqual([]);
   });
 }
 
-test('[파일] 폰 412: [최근]을 못 읽으면 \'불러오지 못했습니다\' 옆에 작은 글자로 까닭 + [다시]', async ({ page }) => {
+test('[파일] 폰 412: [큰 파일]을 못 읽으면 \'불러오지 못했습니다\' 옆에 작은 글자로 까닭 + [다시]', async ({ page }) => {
   const { errors, server } = await start(page, 412);
   await installViewPrefsServer(page);
   server.findFail = { status: 500, message: 'canceling statement due to statement timeout' };
   await openFiles(page, 412).catch(() => {});
+  await tree(page).locator('[data-fx-shelf="big"]').click();
   const fail = root(page).locator('[data-fx-list] [data-wait-fail]');
   await expect(fail).toContainText('불러오지 못했습니다');
   await expect(fail.locator('[data-wait-reason]')).toHaveText('· 서버 시간 초과');

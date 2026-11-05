@@ -1,10 +1,10 @@
 // FILES-통합 3단계(S49-51, 명진 결정 H-1·H-7): [파일] '이 폰' 저장 공간의 앱 다리. 폰 앱(웹2 앱 0.5.0+) 안에서만 쓴다(PC·폰 브라우저는 없음).
 // - 다리(KPTUAppShell, 허용 Origin 최상위 화면에만 보임)에 'pfiles:hello'를 보내 {can, all, key}를 받는다. 답이 없으면(옛 앱) '이 폰'을 그리지 않는다.
 // - 'pfiles:ask' = 안드로이드 설정 '모든 파일 접근 허용' 화면(명진이 한 번 켬). 앱이 돌아오면 상태를 다시 보낸다.
-// - 목록·원본·작은 그림은 ./__phone/<열쇠>/files/{list|recent|raw|thumb} 를 fetch한다. 앱이 가로채 폰 안에서 답하고 서버로 나가지 않는다(android-app PhoneFiles.kt).
+// - 목록·원본·작은 그림은 ./__phone/<열쇠>/files/{list|raw|thumb} 를 fetch한다. 앱이 가로채 폰 안에서 답하고 서버로 나가지 않는다(android-app PhoneFiles.kt).
 //   열쇠는 메모리에만(화면을 새로 열면 다시 받는다). 폰 파일 목록은 이 화면 메모리에만 있고 기기·서버에 저장하지 않는다.
 // - 실패는 Error('phone_<종류>')(files-model errorText가 한 줄로 바꾼다). 로그에 파일 이름·경로를 남기지 않는다.
-import {phoneState, phoneRows, phonePathOk, phoneDone, phoneSaved, PHONE_RECENT_LIMIT, PHONE_SAVE_MAX} from './phone-files-model.mjs';
+import {phoneState, phoneRows, phonePathOk, phoneDone, phoneSaved, PHONE_SAVE_MAX} from './phone-files-model.mjs';
 
 const BRIDGE = 'KPTUAppShell';
 const HELLO_MS = 1500;
@@ -83,11 +83,6 @@ export function createPhoneFiles(win = globalThis.window) {
     async list(dir) {
       if (dir && !phonePathOk(dir)) throw fail('blocked');
       const r = await get('list', dir ? {dir} : {});
-      let body = null; try { body = await r.json(); } catch { throw fail('read'); }
-      return phoneRows(body?.items);
-    },
-    async recent(limit = PHONE_RECENT_LIMIT) {
-      const r = await get('recent', {limit: String(limit)});
       let body = null; try { body = await r.json(); } catch { throw fail('read'); }
       return phoneRows(body?.items);
     },

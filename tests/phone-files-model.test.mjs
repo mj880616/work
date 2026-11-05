@@ -1,7 +1,7 @@
 // S49-51 FILES-통합 3단계 '이 폰': 앱 다리 줄 → [파일] 줄 모양, 경로 검사(앱 PhoneFilesRules와 같은 규칙), 위치 줄, [최근] 섞기(H-7), 상태 글. 화면·네트워크 없음.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {phonePathOk, phoneRow, phoneRows, phoneTrail, mergeRecent, phoneState, phoneErrorText, phoneDone, phoneSaved, phoneWriteText, PHONE_SOURCE} from '../app/phone-files-model.mjs';
+import {phonePathOk, phoneRow, phoneRows, phoneTrail, phoneState, phoneErrorText, phoneDone, phoneSaved, phoneWriteText, PHONE_SOURCE} from '../app/phone-files-model.mjs';
 import {createPhoneFiles} from '../app/phone-files.js';
 import {errorText, SOURCE_NAME, SOURCES, rowKey, folderKey, trailNames} from '../app/files-model.mjs';
 
@@ -34,13 +34,6 @@ test('위치 줄: 지금 폴더가 depth 0, 이름은 "이 폰 › …"', () => 
   assert.deepEqual(phoneTrail(null), []);
   assert.deepEqual(phoneTrail('../x'), []);
   assert.equal(folderKey('ph', 'Download/회의'), 'ph:Download/회의');
-});
-
-test('[최근] 섞기(H-7): 바뀐 날 새것부터, 같은 줄 한 번, 한도까지', () => {
-  const c = [{source: 'od', item_id: '1', modified_at: '2026-10-05T00:00:00Z'}, {source: 'gd', item_id: '2', modified_at: '2026-10-01T00:00:00Z'}];
-  const p = [{source: 'ph', item_id: 'a', modified_at: '2026-10-06T00:00:00Z'}, {source: 'ph', item_id: 'b', modified_at: null}, {source: 'ph', item_id: 'a', modified_at: '2026-10-06T00:00:00Z'}];
-  assert.deepEqual(mergeRecent(c, p).map(rowKey), ['ph:a', 'od:1', 'gd:2', 'ph:b']);
-  assert.deepEqual(mergeRecent(c, p, 2).map(rowKey), ['ph:a', 'od:1']);
 });
 
 test('상태 글: 열쇠는 켜져 있을 때만, 모양이 틀리면 null', () => {
@@ -86,7 +79,7 @@ test('다리: 폰 앱이 아니면 쓰지 않고, 켜진 뒤에만 열쇠 주소
   assert.equal(fetched.length, 2);
   // 열쇠가 틀렸다고 하면 새 열쇠를 다시 묻는다.
   win.fetch = async () => ({ok: false, json: async () => ({error: 'key'})});
-  await assert.rejects(ph.recent(), /phone_key/);
+  await assert.rejects(ph.list(), /phone_key/);
   assert.equal(sent.filter(m => m === 'pfiles:hello').length, 2);
 });
 

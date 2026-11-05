@@ -8,12 +8,10 @@ export const SOURCES = Object.freeze(['od', 'gd']);
 // 'ph' = 이 폰 저장 공간(S49-51 FILES-통합 3단계, 폰 앱에서만). 클라우드 목록(SOURCES)에는 넣지 않는다 — 서버 색인·맞추기·쓰기는 클라우드 둘만.
 // 'pc' = 내 PC(S50-27 FILES-내PC드라이브 ②, 그 PC 브라우저에서 바구니 PC 앱 문이 답할 때만). 'ph'처럼 SOURCES에는 넣지 않는다 — 서버 색인·맞추기·쓰기 밖.
 export const SOURCE_NAME = Object.freeze({od: '원드라이브', gd: '구글 드라이브', ph: '이 폰', pc: '내 PC'});
-// 묶음(나무 맨 위): 최근(F9 폰 첫 화면) · 별표 · 큰 파일. 서버 app_cloud_find의 p_shelf와 같은 이름.
-export const SHELVES = Object.freeze(['recent', 'starred', 'big']);
-export const SHELF_NAME = Object.freeze({recent: '최근', starred: '별표', big: '큰 파일'});
-// 폰 탭(좌우 밀기 순서). 첫 화면은 최근(F9).
-export const PHONE_TABS = Object.freeze(['recent', 'folders', 'starred']);
-export const PHONE_TAB_NAME = Object.freeze({recent: '최근', folders: '폴더', starred: '별표'});
+// 묶음(나무 맨 위): 별표 · 큰 파일. 서버 app_cloud_find의 p_shelf와 같은 이름.
+// S50-33(명진 결정, 시안 승인): [최근] 묶음과 폰 탭 줄(최근·폴더·별표)은 화면·주소에서 뺐다(서버 p_shelf 'recent'는 그대로 둠). 폰 첫 화면은 나무.
+export const SHELVES = Object.freeze(['starred', 'big']);
+export const SHELF_NAME = Object.freeze({starred: '별표', big: '큰 파일'});
 // F2: 화면이 열려 있는 동안 2분마다 바뀐 것만(서버도 2분 안이면 클라우드를 부르지 않는다).
 export const SYNC_EVERY_MS = 2 * 60 * 1000;
 export const SHELF_LIMIT = 200;
@@ -118,17 +116,6 @@ export function fullTime(iso) {
   if (!Number.isFinite(ms)) return '—';
   const d = new Date(ms);
   return `${dayKey(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-// 최근 묶음(폰 첫 화면): 바뀐 날짜별 머리 '오늘'·'어제'·'10/30'.
-export function recentGroups(rows, now = Date.now()) {
-  const out = [];
-  for (const row of rows || []) {
-    const ms = Date.parse(row.modified_at || '');
-    const label = Number.isFinite(ms) ? dayText(row.modified_at, now).replace(/^오늘 .*/, '오늘') : '날짜 없음';
-    const last = out[out.length - 1];
-    if (last && last.label === label) last.rows.push(row); else out.push({label, rows: [row]});
-  }
-  return out;
 }
 // 맞춘 때 한 줄(머리 오른쪽 작게).
 export function syncText(syncedAt, now = Date.now()) {
@@ -245,7 +232,7 @@ export function trailIds(trail) {
 }
 export const pathText = (source, folderPath) => [SOURCE_NAME[source] || '', ...(folderPath ? [folderPath] : [])].filter(Boolean).join(' › ');
 
-// 폴더 나무 줄: 묶음 3개 → 연결된 클라우드 뿌리 → 펼친 폴더의 하위 폴더(읽어 둔 것만). 계산만 하고 그리기는 화면.
+// 폴더 나무 줄: 묶음(별표·큰 파일) → 연결된 클라우드 뿌리 → 펼친 폴더의 하위 폴더(읽어 둔 것만). 계산만 하고 그리기는 화면.
 // children: Map(`${source}:${parentId || ''}` → 폴더 줄 목록), open: Set(같은 열쇠). 깊이는 40단계까지.
 export const folderKey = (source, id) => `${source}:${id || ''}`;
 export function treeRows({sources = SOURCES, children = new Map(), open = new Set(), order = (source, rows) => rows} = {}) {
@@ -286,11 +273,6 @@ export function whereOf(place) {
   return {source: m[1], parent};
 }
 
-export function tabAt(tab, dir) {
-  const i = PHONE_TABS.indexOf(tab);
-  const j = i + (dir > 0 ? 1 : -1);
-  return i >= 0 && j >= 0 && j < PHONE_TABS.length ? PHONE_TABS[j] : null;
-}
 export function cleanQuery(v) {
   const s = String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/ +/g, ' ').trim();
   return s.slice(0, QUERY_MAX);

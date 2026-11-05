@@ -1,18 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {SOURCES, SHELVES, PHONE_TABS, SYNC_EVERY_MS, MOVE_ACROSS_MAX_BYTES, MOVE_SAME_MAX, kindOf, previewKind, sizeText, dayText, recentGroups,
-  syncText, syncLabel, applySyncReply, syncSettled, sortRows, applyChanges, touchesCounts, moveCheck, trailNames, trailIds, pathText, treeRows, folderKey, placeOf, whereOf, tabAt,
+import {SOURCES, SHELVES, SYNC_EVERY_MS, MOVE_ACROSS_MAX_BYTES, MOVE_SAME_MAX, kindOf, previewKind, sizeText, dayText,
+  syncText, syncLabel, applySyncReply, syncSettled, sortRows, applyChanges, touchesCounts, moveCheck, trailNames, trailIds, pathText, treeRows, folderKey, placeOf, whereOf,
   cleanQuery, findSummary, errorText, failReason, OD_PDF_EXT, GD_EXPORT_MIME} from '../app/files-model.mjs';
 import {ITEMS, defaultLayout} from '../app/menu-model.mjs';
 // FILES-클라우드탐색기 ④ 화면 모델(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02). 이름은 모두 가짜.
 const read = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const row = (o = {}) => ({source: 'od', item_id: 'A!1', parent_id: null, name: '가짜.txt', is_folder: false, mime: null, size_bytes: 10, modified_at: '2026-11-02T00:00:00Z', ...o});
 
-test('F2·F9·F8 상수: 2분마다, 폰 첫 탭 최근, 클라우드 사이 1개·200MB, 같은 클라우드 200개', () => {
+test('F2·F8 상수: 2분마다, 묶음은 별표·큰 파일(S50-33 최근 뺌), 클라우드 사이 1개·200MB, 같은 클라우드 200개', () => {
   assert.equal(SYNC_EVERY_MS, 120000);
-  assert.deepEqual(PHONE_TABS, ['recent', 'folders', 'starred']);
-  assert.deepEqual(SHELVES, ['recent', 'starred', 'big']);
+  assert.deepEqual(SHELVES, ['starred', 'big']);
   assert.deepEqual(SOURCES, ['od', 'gd']);
   assert.equal(MOVE_ACROSS_MAX_BYTES, 200 * 1024 * 1024);
   assert.equal(MOVE_SAME_MAX, 200);
@@ -70,8 +69,6 @@ test('크기·날짜·맞춘 때 글', () => {
   assert.equal(syncText(now - 20000, now), '방금 맞춤');
   assert.equal(syncText(now - 3 * 60000, now), '3분 전 맞춤');
   assert.equal(syncText(null, now), '');
-  const groups = recentGroups([row({modified_at: new Date(2026, 10, 2, 9).toISOString()}), row({modified_at: new Date(2026, 10, 2, 8).toISOString()}), row({modified_at: new Date(2026, 9, 30).toISOString()})], now);
-  assert.deepEqual(groups.map(g => [g.label, g.rows.length]), [['오늘', 2], ['10/30', 1]]);
 });
 
 test('정렬: 폴더 먼저, 이름은 숫자 순, 크기·바뀐 날은 고른 방향', () => {
@@ -108,16 +105,16 @@ test('갱신(F2): 바뀐 줄만 지금 폴더에 입히고, 나간 줄·휴지�
   assert.equal(touchesCounts(withFolder, where, [], [{source: 'od', id: 'Z!9'}]), true, '안 보이는 것(하위 폴더 안일 수 있음)을 지움');
 });
 
-test('위치 줄·나무 줄: 맨 위부터, 펼친 폴더만, 묶음 3개 먼저(최근·별표·큰 파일)', () => {
+test('위치 줄·나무 줄: 맨 위부터, 펼친 폴더만, 묶음 2개 먼저(별표·큰 파일)', () => {
   const trail = [{item_id: 'C!1', name: '2026', depth: 0}, {item_id: 'B!1', name: '문서', depth: 1}];
   assert.deepEqual(trailNames('od', trail), ['원드라이브', '문서', '2026']);
   assert.deepEqual(trailIds(trail), ['B!1', 'C!1']);
   assert.equal(pathText('gd', '업무 › 자료실'), '구글 드라이브 › 업무 › 자료실');
   const children = new Map([[folderKey('od', null), [{item_id: 'B!1', name: '문서', child_count: 3}]], [folderKey('od', 'B!1'), []]]);
   const closed = treeRows({sources: ['od', 'gd'], children, open: new Set()});
-  assert.deepEqual(closed.map(r => r.type), ['shelf', 'shelf', 'shelf', 'root', 'root']);
+  assert.deepEqual(closed.map(r => r.type), ['shelf', 'shelf', 'root', 'root']);
   const opened = treeRows({sources: ['od'], children, open: new Set([folderKey('od', null)])});
-  assert.deepEqual(opened.slice(3).map(r => [r.type, r.name || r.source, r.depth, r.hasKids]), [['root', 'od', 0, true], ['folder', '문서', 1, false]]);
+  assert.deepEqual(opened.slice(2).map(r => [r.type, r.name || r.source, r.depth, r.hasKids]), [['root', 'od', 0, true], ['folder', '문서', 1, false]]);
 });
 
 test('주소 자리(새로고침 제자리): 원드라이브 id의 !는 :로 적고 되읽는다, 라우터 값 규칙 안', () => {
@@ -127,15 +124,13 @@ test('주소 자리(새로고침 제자리): 원드라이브 id의 !는 :로 적
   assert.deepEqual(whereOf(at), {source: 'od', parent: 'D4648F06!5492'});
   assert.deepEqual(whereOf(placeOf({source: 'gd', parent: '1aB_c-D'})), {source: 'gd', parent: '1aB_c-D'});
   assert.deepEqual(whereOf(placeOf({source: 'gd', parent: null})), {source: 'gd', parent: null});
-  assert.deepEqual(whereOf(placeOf({shelf: 'recent'})), {shelf: 'recent'});
+  assert.deepEqual(whereOf(placeOf({shelf: 'starred'})), {shelf: 'starred'});
+  assert.equal(whereOf({shelf: 'recent'}), null, 'S50-33: 옛 주소 ?shelf=recent는 첫 화면으로');
   assert.equal(whereOf({at: 'xx:1'}), null);
   assert.equal(whereOf({shelf: 'nope'}), null);
 });
 
-test('탭 밀기·찾기 글·오류 한 줄', () => {
-  assert.equal(tabAt('recent', 1), 'folders');
-  assert.equal(tabAt('recent', -1), null);
-  assert.equal(tabAt('starred', 1), null);
+test('찾기 글·오류 한 줄', () => {
   assert.equal(cleanQuery('  계획\u0000안  '), '계획 안');
   assert.equal(cleanQuery('가'.repeat(300)).length, 200);
   assert.equal(findSummary([{match_in: 'name'}, {match_in: 'name'}, {match_in: 'text'}]), '찾은 것 3 · 이름 2 · 자료실 글자 1');
