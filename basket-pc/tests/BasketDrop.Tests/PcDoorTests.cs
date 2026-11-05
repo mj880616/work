@@ -454,12 +454,26 @@ public class PcDoorTests
             Assert.DoesNotMatch(@"_log\.Write\([^)]*(path|Path|name|Name|full)", text);
         }
         var door = File.ReadAllText(Path.Combine(SourceRoot(), "src", "BasketDrop.Core", "PcDoor.cs"));
-        Assert.Contains("public const string AllowedOrigin = \"https://desk.bokdoong.com\";", door);
+        Assert.Contains("\"https://bokdoong.com\", \"https://work.bokdoong.com\", \"https://desk.bokdoong.com\"", door);
+        Assert.DoesNotContain("github.io", door);
         Assert.DoesNotContain("Access-Control-Allow-Origin: *", door);
         Assert.DoesNotContain("Allow-Credentials", door);
         var shell = File.ReadAllText(Path.Combine(SourceRoot(), "src", "BasketDrop", "PcShell.cs"));
         Assert.Contains("PcPath.CanOpenDirectly(fullPath)", shell);
     }
+
+    [Theory]
+    [InlineData("https://bokdoong.com", true)]
+    [InlineData("https://work.bokdoong.com", true)]
+    [InlineData("https://desk.bokdoong.com", true)]
+    [InlineData("https://bokdoong.com.evil.example", false)]
+    [InlineData("http://bokdoong.com", false)]
+    [InlineData("https://bokdoong.com/work", false)]
+    [InlineData("https://mj880616.github.io", false)]
+    [InlineData("null", false)]
+    [InlineData("", false)]
+    public void Only_exact_Web2_addresses_are_allowed(string origin, bool allowed)
+        => Assert.Equal(allowed, PcDoor.IsAllowedOrigin(origin));
 
     [Fact]
     public void The_door_is_off_until_the_tray_menu_turns_it_on()

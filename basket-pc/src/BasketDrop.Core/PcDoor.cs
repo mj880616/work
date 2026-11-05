@@ -31,7 +31,10 @@ public interface IPcShell
 public sealed class PcDoor : IDisposable
 {
     /// <summary>The only page allowed to use the door. Exactly this value, no other scheme, host or port.</summary>
-    public const string AllowedOrigin = "https://desk.bokdoong.com";
+    /// <summary>Web2 addresses (same list as supabase/functions/_shared/web-cors.ts, without the github.io preview). Exact match only.</summary>
+    public static readonly IReadOnlyList<string> AllowedOrigins = new[] { "https://bokdoong.com", "https://work.bokdoong.com", "https://desk.bokdoong.com" };
+
+    public static bool IsAllowedOrigin(string? origin) => origin != null && AllowedOrigins.Contains(origin, StringComparer.Ordinal);
     /// <summary>Fixed candidates the Web2 page knocks on in order. Different from the sign-in ports (47615~47617).</summary>
     public static readonly int[] DefaultPorts = { 47620, 47621, 47622 };
     private const int MaxHeadBytes = 8192;
@@ -138,7 +141,7 @@ public sealed class PcDoor : IDisposable
             var request = await ReadAsync(stream, limit.Token).ConfigureAwait(false);
             var answer = request == null ? new Answer(400, Error("bad_request"), false) : await DecideAsync(request, limit.Token).ConfigureAwait(false);
             if (answer.Status >= 400) _log.Write(LogCode.DoorRefused, answer.Status);
-            await WriteAsync(stream, answer, limit.Token).ConfigureAwait(false);
+            await WriteAsync(stream, answer, request != null && request.Headers.TryGetValue("origin", out var o) && IsAllowedOrigin(o) ? o : null, limit.Token).ConfigureAwait(false);
         }
         catch (Exception e) when (e is IOException or OperationCanceledException or ObjectDisposedException or SocketException) { }
     }
@@ -150,7 +153,7 @@ public sealed class PcDoor : IDisposable
         // 1. Addressed to this loopback door by number (a rebound host name would carry another Host).
         if (!r.Headers.TryGetValue("host", out var host) || host != $"127.0.0.1:{Port}") return new Answer(400, Error("bad_host"), false);
         // 2. Only the Web2 page. Without the right Origin no CORS answer is given either, so other pages cannot read anything.
-        if (!r.Headers.TryGetValue("origin", out var origin) || origin != AllowedOrigin) return new Answer(403, Error("bad_origin"), false);
+        if (!r.Headers.TryGetValue("origin", out var origin) || !IsAllowedOrigin(origin)) return new Answer(403, Error("bad_origin"), false);
         // 3. Browser preflight (and Chrome's private network question). Carries no token by design.
         if (r.Method == "OPTIONS")
         {
@@ -288,14 +291,14 @@ public sealed class PcDoor : IDisposable
 
     private static int IndexOf(byte[] buf, int count, ReadOnlySpan<byte> what) => buf.AsSpan(0, count).IndexOf(what);
 
-    private static async Task WriteAsync(Stream stream, Answer a, CancellationToken ct)
+    private static async Task WriteAsync(Stream stream, Answer a, string? origin, CancellationToken ct)
     {
         var body = a.Json == null ? Array.Empty<byte>() : JsonSerializer.SerializeToUtf8Bytes(a.Json);
         var head = new StringBuilder();
         head.Append($"HTTP/1.1 {a.Status} {(a.Status < 400 ? "OK" : "Refused")}\r\n");
-        if (a.Cors)
+        if (a.Cors && origin != null)
         {
-            head.Append($"Access-Control-Allow-Origin: {AllowedOrigin}\r\nVary: Origin\r\n");
+            head.Append($"Access-Control-Allow-Origin: {origin}\r\nVary: Origin\r\n");
             if (a.Preflight)
                 head.Append("Access-Control-Allow-Methods: GET, POST\r\nAccess-Control-Allow-Headers: authorization, content-type\r\n"
                     + "Access-Control-Allow-Private-Network: true\r\nAccess-Control-Max-Age: 600\r\n");
