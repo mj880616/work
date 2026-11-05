@@ -5,10 +5,9 @@ name: News feed
 # S50-15: 11/03 아침 예약 실행이 GitHub에서 건너뛰어져 고친 코드가 돌지 않았다 → 한 번 빠져도 한 시간 뒤 다음 실행이 밀린 기사를 더 채운다. 사회운동 Now(7분)와 겹치지 않게 22분.
 # 비밀값 NEWS_FEED_CRON_SECRET은 GitHub Actions 비밀값과 Supabase Edge 비밀값 두 곳에 같은 값(명진이 등록).
 # 함수 첫 배포·비밀값 등록 전에는 401로 실패한다(되돌리기: 이 workflow를 끄면 예약 호출이 멈춘다).
+# 11/06 NEWS-전면개편 P1(차례 5): 정해진 시각 실행은 Supabase 예약(pg_cron, migration 20261106070000 — SQL Editor 적용)으로 옮겼다.
+#   GitHub 예약은 늦거나 빠져서 뺐고, 이 workflow는 손으로 한 번 돌릴 때(workflow_dispatch)만 쓴다.
 on:
-  schedule:
-    - cron: '22 23,4,9 * * *'
-    - cron: '22 0-3,5-8,10-22 * * *'
   workflow_dispatch:
 
 permissions:
@@ -37,5 +36,5 @@ jobs:
       - name: Read news clipping
         env:
           NEWS_FEED_CRON_SECRET: ${{ secrets.NEWS_FEED_CRON_SECRET }}
-          NEWS_FEED_MODE: ${{ github.event.schedule == '22 0-3,5-8,10-22 * * *' && 'fill' || 'full' }}
+          NEWS_FEED_MODE: full
         run: node scripts/ops/news-feed.mjs
