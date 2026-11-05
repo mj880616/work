@@ -104,7 +104,7 @@ test('feed cron schedule: SQL Editor only, extension guard, vault key + fingerpr
     assert.equal((body.match(/^begin;$/gm)||[]).length,1,k);assert.equal((body.match(/^commit;$/gm)||[]).length,1,k);
    }
    for(const k of ['확인 1','확인 2'])assert.doesNotMatch(P[k],/\b(insert|update|delete|create|drop|alter|begin|commit|perform)\b/i,k);
-   assert.equal(migration.split('__CC_PROJECT_URL__').length-1,1,'placeholder exactly once (fragment 2)');
+   assert.equal(migration.replace(/--.*$/gm,'').split('__CC_PROJECT_URL__').length-1,1,'placeholder exactly once in code (fragment 2)');
    assert.ok(P['조각 ②'].includes('__CC_PROJECT_URL__'));
    assert.equal((migration.match(/insert into supabase_migrations\.schema_migrations/g)||[]).length,1);
    assert.ok(P['조각 ③'].includes('insert into supabase_migrations.schema_migrations'));
