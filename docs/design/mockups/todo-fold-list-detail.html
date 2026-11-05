@@ -1,0 +1,57 @@
+<!doctype html><meta charset="utf-8"><style>
+body{margin:0;padding:14px;background:#e9e8ee;font-family:"Noto Sans KR",sans-serif;display:flex;gap:16px;align-items:flex-start}
+.cap{font-size:13px;font-weight:700;color:#444;margin:0 0 6px 4px}
+.fd{width:720px;height:800px;background:#f6f5f9;border-radius:18px;box-shadow:0 1px 4px #0002;overflow:hidden;display:flex}
+.lp{width:380px;border-right:1px solid #e2e0e8;display:flex;flex-direction:column}
+.hd{display:flex;align-items:center;gap:8px;padding:12px 14px 6px;font-size:12px;color:#777}
+.g{font-size:12px;font-weight:700;padding:10px 14px 4px}
+.r{display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #e6e4ec;font-size:13px;line-height:1.35}
+.r.on{background:#e6e1f6;box-shadow:inset 3px 0 0 #6b5ca8}
+.ck{width:16px;height:16px;border:2px solid #3d6b55;border-radius:50%;flex:none;margin-top:2px}
+.d{font-size:11px;color:#777;margin-top:2px}
+.in{margin-top:auto;display:flex;gap:6px;padding:10px;border-top:1px solid #e2e0e8}
+.in div{flex:1;height:36px;border:1px solid #d9d7e0;border-radius:8px;background:#fff;color:#999;font-size:12px;display:flex;align-items:center;padding:0 10px}
+.btn{height:36px;border-radius:8px;background:#5b4f8a;color:#fff;font-size:12px;display:flex;align-items:center;padding:0 12px}
+.rp{flex:1;padding:14px 16px;font-size:13px;display:flex;flex-direction:column;gap:12px}
+.t{font-size:16px;font-weight:700;border-bottom:1px solid #e2e0e8;padding-bottom:8px;display:flex;align-items:center;gap:10px}
+.lab{font-size:11px;color:#888;margin-bottom:4px}
+.q{display:flex;gap:5px;flex-wrap:wrap}
+.q span{border:1px solid #d9d7e0;background:#fff;border-radius:7px;padding:3px 8px;font-size:12px}
+.q span.on{background:#e6e1f6;border-color:#9a8fc9}
+.box{border:1px solid #d9d7e0;background:#fff;border-radius:8px;padding:8px 10px;min-height:70px;color:#555;font-size:12px}
+.ft{margin-top:auto;display:flex;gap:6px;justify-content:space-between}
+.ft span{border:1px solid #d9d7e0;background:#fff;border-radius:7px;padding:5px 10px;font-size:12px}
+.x{margin-left:auto;color:#888;font-weight:400}
+.legend{width:300px;font-size:13px;line-height:1.6;background:#fff;border-radius:12px;padding:12px 14px}
+.legend b{color:#5b4f8a}
+</style><body>
+<div><div class="cap">폴드 펼침 · 할 일 — 왼쪽 목록 | 오른쪽 상세</div><div class="fd">
+<div class="lp">
+<div class="hd">할 일 9개 <span style="margin-left:auto">달력 · <b style="color:#333">할 일</b> · 일기</span></div>
+<div class="g" style="color:#a33">기한 지남 1</div>
+<div class="r"><span class="ck"></span><div>예시 할 일 A<div class="d" style="color:#a33">11. 5. (목)</div></div></div>
+<div class="g" style="color:#2d6b55">오늘 2</div>
+<div class="r on"><span class="ck"></span><div>다음 주 회의 자료 묶음 요청<div class="d">11. 6. (금)</div></div></div>
+<div class="r"><span class="ck"></span><div>의원실 연락<div class="d">11. 6. (금)</div></div></div>
+<div class="g" style="color:#2d6b55">일주일 안 3</div>
+<div class="r"><span class="ck"></span><div>발언문 쓰기<div class="d">11. 11. (수) · 예시 사업</div></div></div>
+<div class="r"><span class="ck"></span><div>교육 준비<div class="d">11. 11. (수)</div></div></div>
+<div class="r"><span class="ck"></span><div>현장 물품 챙기기 16시~17시<div class="d">11. 12. (목)</div></div></div>
+<div class="in"><div>할 일을 입력하세요</div><span class="btn">추가</span></div>
+</div>
+<div class="rp">
+<div class="t"><span class="ck"></span>다음 주 회의 자료 묶음 요청<span class="x">✕</span></div>
+<div><div class="lab">기한</div><div class="q"><span class="on">오늘</span><span>내일</span><span>모레</span><span>다음주</span><span>기한 없음</span><span>📅 11. 6.</span></div></div>
+<div><div class="lab">연결</div><div class="q"><span>담당조직 고르기</span><span>프로젝트 고르기</span></div></div>
+<div><div class="lab">메모</div><div class="box">회의 전에 지부별 자료 받아서 한 파일로.</div></div>
+<div><div class="lab">첨부</div><div class="q"><span>📎 끌어 놓기 · 붙여넣기</span></div></div>
+<div class="ft"><span>지우기</span><span style="margin-left:auto">완료</span></div>
+</div></div></div>
+<div class="legend"><b>지금</b>: 폴드를 펼쳐도 폰처럼 한 줄씩 길게, 누르면 수정 창이 따로 뜸.<br><br>
+<b>개선</b><br>① 폴드 펼침·PC는 <b>왼쪽 목록 | 오른쪽 상세</b>. 줄을 누르면 오른쪽에 바로 열리고, 고르면 보라색 줄.<br>
+② 오른쪽에서 바로 고침 — 제목·기한(빠른 단추 + 달력)·연결·메모·첨부, 바꾸면 바로 저장(따로 [저장] 없음).<br>
+③ 오른쪽 위 ✕ 또는 뒤로 키 = 상세 닫기(목록만).<br>
+④ 아무것도 안 골랐을 때 오른쪽은 비워 두지 않고 '오늘 할 일' 요약.<br>
+⑤ 폰(접은 화면)은 지금처럼 누르면 수정 창.<br><br>
+같은 종류: 폴드 펼침에서 노트·업데이트·정리함도 같은 '목록 | 상세'인지 확인해 맞춤.</div>
+</body>
