@@ -10,7 +10,7 @@ import { createNote, validateNoteText, createNoteDoc, noteTitleFromText, attachN
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
 import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs';
 import { dayKey } from './home-read-model.js';
-import { quickDueDay, weekdayLabel } from './task-due.mjs';
+import { quickDueDay, weekdayLabel, newTaskDue } from './task-due.mjs';
 import { openWeekPick } from './task-week-pick.js'; // S46-30 [다음주] 요일 목록
 import { taskFilesAvailable, taskFilesKnown, onTaskFilesReady, attachNewTaskFiles, newTaskFilesNotice, MAX_TASK_FILES } from './task-files.js';
 
@@ -218,7 +218,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     const batch=upload,files=takesFiles()?batch.entries.filter(e=>e.kind!=='success').map(e=>e.file):[];
     if(files.length>MAX_TASK_FILES){taskNotice(`한 할 일에는 파일을 ${MAX_TASK_FILES}개까지 붙일 수 있습니다.`);return}
     const attempt=a||{owner:ctx.user.id,workspace:ctx.workspace.id,epoch:taskRuntime.session.epoch(),task:null,bodyState:'idle',linkState:'idle',links:new Set(),needsReview:false};
-    const body=Object.freeze({title,due:taskOnly?dayKey(Date.now()):due||null,notes:attempt.task?.notes||'',links:Object.freeze(project?[Object.freeze({project_id:project})]:[])}),r={owner:attempt.owner,workspace:attempt.workspace,epoch:attempt.epoch,token:++taskSequence,attempt,body,draft:taskSnapshot()};
+    // S50-35: 기한을 고르지 않으면 오늘(task-due.mjs newTaskDue 한 곳). 같은 시도를 다시 보낼 때는 처음 정한 오늘을 그대로 쓴다.
+    attempt.defaultDue||=dayKey(Date.now());
+    const body=Object.freeze({title,due:newTaskDue(taskOnly?'':due,attempt.defaultDue),notes:attempt.task?.notes||'',links:Object.freeze(project?[Object.freeze({project_id:project})]:[])}),r={owner:attempt.owner,workspace:attempt.workspace,epoch:attempt.epoch,token:++taskSequence,attempt,body,draft:taskSnapshot()};
     taskAttempt=attempt;taskRequest=r;attempt.pending=true;saving=true;taskControls(true);taskNotice('저장 중…');let stage='body';
     // TASK-추가창파일: the chosen files go up once the task exists (once per attempt, also after a recovered create).
     const sendFiles=async()=>{if(!files.length||attempt.filesSent||!attempt.task)return;attempt.filesSent=true;
