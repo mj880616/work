@@ -117,6 +117,9 @@ on:
       - 'tests/home-read-model.test.mjs'
       - 'tests/menu-model.test.mjs'
       - 'tests/menu-home-prefs.test.mjs'
+      - 'tests/org-order-setting.test.mjs'
+      - 'tests/org-order-fixture.mjs'
+      - 'tests/report-calendar-setup.mjs'
       - 'tests/english-labels.test.mjs'
       - 'tests/context-menu-sites.test.mjs'
       - 'tests/ledger-import-model.test.mjs'
@@ -282,6 +285,9 @@ on:
       - 'tests/home-read-model.test.mjs'
       - 'tests/menu-model.test.mjs'
       - 'tests/menu-home-prefs.test.mjs'
+      - 'tests/org-order-setting.test.mjs'
+      - 'tests/org-order-fixture.mjs'
+      - 'tests/report-calendar-setup.mjs'
       - 'tests/english-labels.test.mjs'
       - 'tests/context-menu-sites.test.mjs'
       - 'tests/ledger-import-model.test.mjs'
@@ -565,6 +571,9 @@ jobs:
 
       - name: Organization pickers offer only my organizations (ORG-고르기통일)
         run: node --test tests/org-picker-mine.test.mjs
+
+      - name: Organization order and report calendar come from my profile setting (MULTI 2-3)
+        run: node --test tests/org-order-setting.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs

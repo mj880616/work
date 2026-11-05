@@ -8,6 +8,7 @@ import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join, relative} from 'node:path';
 import vm from 'node:vm';
 import {selectMyOrganizations, myOrganizationIds, pickMyOrganizations} from '../app/my-organizations.js';
+import {prefsStub} from './org-order-fixture.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const APP = join(ROOT, 'app');
@@ -129,7 +130,7 @@ test('pickMyOrganizations: 담당이 있으면 내 것만, 없을 때는 whenNon
 });
 
 test('고르기 칸 순서: 내 담당조직을 organization-order.js 순서로, 고를 수 없는 조직은 빼고', () => {
-  const sandbox = {window: {}};
+  const sandbox = {window: {KPTUViewPrefs: prefsStub()}}; // MULTI ②-3: 묶음·뺄 조직은 내 프로필 설정(시험은 운영자 값)
   vm.runInNewContext(source('app/organization-order.js'), sandbox);
   const order = sandbox.window.KPTUOrganizationOrder;
   const mine = pickMyOrganizations(orgs, ['a', 'b', 'd', 'e'].map(organization_id => ({organization_id})));

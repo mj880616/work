@@ -83,6 +83,18 @@ const filesTwoOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Obj
 // S49-48 PHOTO-연월보기: photo_zoom = [사진] 탭 보기 단계를 기기 종류별로 {app?, phone?, pc?: 'year'|'month'|'day'}(없으면 일). migration 20261104221000. 뜻은 photo-zoom-model.mjs.
 // 쓰기는 'photo_zoom.<기기>' 한 칸씩. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(이번 접속만 기억).
 const photoZoomOk = v => PHOTO_LEVELS.includes(v);
+// MULTI-노조사용자 ②-3(D5, S50-13): 담당조직 묶음·순서와 보고 캘린더 이름은 사람마다 따로(migration 20261105131500, 명진 값은 그 migration이 옮김).
+// org_order = {groups: [{name: 묶음 이름 1~20자, orgs: [조직 이름 1~60자, 1~40개]}, 12개까지], hidden: [고르기에서 뺄 조직 이름, 40개까지]} — 둘 다 있어야 한다.
+// report_calendar = 주간보고 '주요 일정'을 가져올 Google 캘린더 이름(1~60자). 없으면 표가 비고 화면이 '보고 캘린더 미지정'을 알린다.
+// 뜻은 organization-order.js(묶음·순서)·report-calendar.mjs(캘린더). 고치는 곳은 내 프로필 › 보고 설정 하나. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다.
+export const ORG_GROUPS_MAX = 12, ORG_GROUP_ORGS_MAX = 40, ORG_HIDDEN_MAX = 40;
+const textOk = (v, max) => typeof v === 'string' && v.length > 0 && [...v].length <= max && !/[\p{Cc}]/u.test(v);
+export const orgNameOk = v => textOk(v, 60), orgGroupNameOk = v => textOk(v, 20), reportCalendarOk = v => textOk(v, 60);
+const orgOrderOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 2 && Array.isArray(v.groups) && Array.isArray(v.hidden)
+  && v.groups.length <= ORG_GROUPS_MAX && v.hidden.length <= ORG_HIDDEN_MAX && v.hidden.every(orgNameOk)
+  && v.groups.every(g => !!g && typeof g === 'object' && !Array.isArray(g) && Object.keys(g).length === 2 && orgGroupNameOk(g.name)
+    && Array.isArray(g.orgs) && g.orgs.length >= 1 && g.orgs.length <= ORG_GROUP_ORGS_MAX && g.orgs.every(orgNameOk));
+
 const DEVICE_KEYS = Object.freeze({files_sources: filesFlagsOk, files_two: filesTwoOk, photo_zoom: photoZoomOk});
 export const REPORT_PERIOD_MODES = Object.freeze(['all', 'week', 'range']);
 export const PHOTO_LEVELS = Object.freeze(['year', 'month', 'day']);
@@ -109,7 +121,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -140,6 +152,8 @@ export function validValue(key, value) {
     case 'tg_view': return TG_VIEWS.includes(value);
     case 'album_view': return ALBUM_VIEWS.includes(value);
     case 'now_tab': return NOW_TABS.includes(value);
+    case 'org_order': return orgOrderOk(value);
+    case 'report_calendar': return reportCalendarOk(value);
     case 'note_boards': return Array.isArray(value) && value.length <= NOTE_BOARDS_MAX && value.every(b => !!b && typeof b === 'object' && !Array.isArray(b)
       && Object.keys(b).every(name => name === 'id' || name === 'name') && typeof b.id === 'string' && NOTE_BOARD_ID_RE.test(b.id) && noteBoardName(b.name));
     case 'note_board': return typeof value === 'string' && (value === 'all' || NOTE_BOARD_ID_RE.test(value));
@@ -428,6 +442,8 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
   };
 }
 export const viewPrefs = createViewPrefs();
+// MULTI ②-3: 일반 스크립트(organization-order.js 등)가 import 없이 같은 값을 읽는 문. 쓰기도 같은 viewPrefs 하나로 간다(새 저장소 아님).
+if (typeof window !== 'undefined' && !window.KPTUViewPrefs) window.KPTUViewPrefs = viewPrefs;
 // 화면을 떠날 때 모인 변경을 바로 보낸다(0.4초 기다리다 새로고침·닫기로 잃지 않게).
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   window.addEventListener('pagehide', () => { void viewPrefs.flushHidden(); });

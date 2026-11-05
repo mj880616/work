@@ -64,3 +64,14 @@
 #profileView .ps-push-recent[data-opened]{color:var(--kptu-muted)}
 #profileView .ps-push-recent:hover,#profileView .ps-push-recent:focus-visible{text-decoration:underline}
 #profileView .ps-push-time{flex:none;width:7.2em;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 6px;font-size:var(--ds-compact-text)}
+/* MULTI ②-3: 보고 설정 칸(접힌 한 줄 요약 + 펼치면 글 칸 셋) */
+#profileView .ps-report>summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;list-style:none;min-height:var(--ds-compact-height)}
+#profileView .ps-report>summary::-webkit-details-marker{display:none}
+#profileView .ps-report>summary h3{margin:0;flex:none}
+#profileView .ps-report-line{color:var(--kptu-muted);font-size:var(--ds-text-meta);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#profileView .ps-report-field{display:flex;flex-direction:column;gap:2px;margin-top:6px;font-size:var(--ds-text-row);font-weight:var(--ds-weight-regular)}
+#profileView .ps-report-field small{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#profileView .ps-report-field input{height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 8px;font-size:var(--ds-compact-text);max-width:420px}
+#profileView .ps-report-field textarea{padding:4px 8px;font-size:var(--ds-compact-text);line-height:1.5;resize:vertical}
+#profileView .ps-report-note{margin:6px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#profileView .ps-report-actions{display:flex;justify-content:flex-end;margin-top:6px}

@@ -2,6 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // JOURNAL-주간보고허브 2단계: [주간 정리] groups one week of the journal's reads in the weekly report form's order
 // (docs/design/weekly-report-hub.md, docs/design/weekly-hwpx-draft.md). Fake names only.
+import {prefsStub} from './org-order-fixture.mjs';
+// MULTI ②-3: 보고 캘린더 이름은 내 프로필 설정(view_prefs.report_calendar)에서 읽는다. 이 시험은 운영자 값과 같은 이름을 설정한 사람으로 본다.
+globalThis.KPTUViewPrefs = prefsStub();
 const mod = import('../app/journal-weekly.js');
 const ok = items => ({status:'ok', items});
 const empty = ok([]);
@@ -151,7 +154,7 @@ const upcoming = [
 // a match calendar, one whose name is unknown — is left out. One rule for the table and the .hwpx form (upcomingSchedule).
 test('5. 주요 일정: only events of the 공공운수노조 calendar; no such calendar → empty table and noCalendar', async () => {
   const m = await mod;
-  assert.equal(m.REPORT_CALENDAR, '공공운수노조');
+  assert.equal(m.reportCalendarName(), '공공운수노조');
   const at = {start:'2026-10-13T10:00:00+09:00', end:'2026-10-13T11:00:00+09:00'};
   const events = Object.assign([
     {id:'a', calendarId:'x1', calendarName:'명진승지', title:'가상 개인', ...at},
@@ -174,6 +177,13 @@ test('5. 주요 일정: only events of the 공공운수노조 calendar; no such 
   assert.deepEqual([none.rows, none.vacations, none.noCalendar], [[], [], true]);
   assert.equal(m.scheduleForm(none, '나').calendar.length, 14);
   assert.ok(m.scheduleForm(none, '나').calendar.every(d => !d.items.length));
+  // MULTI ②-3: 보고 캘린더를 정하지 않은 사람 — 아무 일정도 넣지 않고 '미지정'을 알린다('못 찾음'이 아님).
+  const unset = m.upcomingSchedule(events, '2026-10-05', '');
+  assert.deepEqual([unset.rows, unset.vacations, unset.unsetCalendar, unset.noCalendar], [[], [], true, false]);
+  // 다른 이름을 정한 사람은 그 이름의 달력만.
+  const other = m.upcomingSchedule(events, '2026-10-05', '가상 다른 달력');
+  assert.deepEqual(other.rows.map(r => r.items.map(i => i.what)), [['10:00 / 가상 생일']]);
+  assert.equal(m.isReportCalendar(events[4], '가상 다른 달력'), true);
 });
 
 test('5. 주요 일정: the two weeks after the shown week, form cells, vacations apart, 일기·비공개 left out', async () => {

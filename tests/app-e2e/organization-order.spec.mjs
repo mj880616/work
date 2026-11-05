@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
+import {prefsStub} from '../org-order-fixture.mjs';
 
 // TASK-조직순서: unit checks of the shared order module, run in Node without a browser.
+// MULTI ②-3(D5): the groups come from my profile setting (view_prefs.org_order via window.KPTUViewPrefs). These checks use the operator's
+// setting (the values the migration moves); the last tests cover a person without a setting and a changed setting.
 const source=readFileSync('app/organization-order.js','utf8');
-function load(){
-  const window={};
+function load(prefs=prefsStub()){
+  const window={KPTUViewPrefs:prefs};
   vm.runInNewContext(source,{window});
   return window.KPTUOrganizationOrder;
 }
@@ -88,13 +91,15 @@ test('recent three come first, newest first, and stay in their place below',()=>
   expect(names(order.withRecent(list,['o-1','o-2']).recent)).toEqual(['서울교통공사노동조합','부산지하철노동조합']);
 });
 
-test('the decided order is defined in one place in the app',()=>{
+test('the order is not written in the app code: one module reads my profile setting',()=>{
   const order=load();
   expect(Object.isFrozen(order.GROUPS)).toBe(true);
   expect(order.GROUPS.every(g=>Object.isFrozen(g))).toBe(true);
-  const files=readdirSync('app').filter(name=>name.endsWith('.js')&&name!=='organization-order.js');
-  const copies=files.filter(name=>readFileSync(`app/${name}`,'utf8').includes('지티엑스에이운영지부'));
+  // No organization name of the operator's setting is left in any app file (they live in the operator's profile only).
+  const files=readdirSync('app').filter(name=>/\.(js|mjs)$/.test(name));
+  const copies=files.filter(name=>{const text=readFileSync(`app/${name}`,'utf8');return ['지티엑스에이운영지부','김포도시철도지부','서울교통공사9호선지부'].some(n=>text.includes(n))});
   expect(copies).toEqual([]);
+  expect(readFileSync('app/organization-order.js','utf8')).toContain("KPTUViewPrefs?.get?.('org_order')");
   // Every screen that orders organizations reads the shared module.
   for(const file of ['app/suborganizations.js','app/google-tasks.js'])expect(readFileSync(file,'utf8')).toContain('window.KPTUOrganizationOrder');
   const views=readFileSync('app/view-loader.js','utf8');
@@ -102,6 +107,33 @@ test('the decided order is defined in one place in the app',()=>{
   for(const name of ['tasks','projects','organizations'])expect(block(name)).toContain('await organizationOrder()');
   expect(block('calendar')).toContain("then(organizationOrder).then(()=>module('./suborganizations.js'");
   expect(views).toContain("module('./organization-order.js')");
+});
+
+test('a person without a setting: no groups, everything 가나다순 in one tail group, nothing left out of pickers',()=>{
+  for(const order of [load({get:()=>undefined}),load(null),load({get:()=>{throw new Error('x')}})]){
+    const list=[org('궤도협의회',40),...known];
+    expect(order.hasGroups()).toBe(false);
+    expect(order.GROUPS).toEqual([]);
+    expect(order.GROUP_NAMES).toEqual(['그 외']);
+    expect(order.PICKER_EXCLUDED).toEqual([]);
+    expect(names(order.sort(list))).toEqual(names(list).sort((a,b)=>a.localeCompare(b,'ko')));
+    expect(order.groups(list)).toHaveLength(1);
+    expect(order.groupName(list[0])).toBe('그 외');
+    expect(order.forPicker(list)).toHaveLength(14);
+    expect(order.unlisted(list)).toBe(14);
+  }
+});
+
+test('a changed setting is read on the next call (no reload), and a different person sees only their own groups',()=>{
+  let value={groups:[{name:'가묶음',orgs:['용인경전철지부','국민연금지부']}],hidden:['전국철도노동조합']};
+  const order=load({get:key=>key==='org_order'?value:undefined});
+  const list=[...known,org('국민연금지부',22)];
+  expect(order.GROUP_NAMES).toEqual(['가묶음','그 외']);
+  expect(names(order.sort(list)).slice(0,2)).toEqual(['용인경전철지부','국민연금지부']);
+  expect(names(order.forPicker(list))).not.toContain('전국철도노동조합');
+  value={groups:[],hidden:[]};
+  expect(order.hasGroups()).toBe(false);
+  expect(names(order.forPicker(list))).toContain('전국철도노동조합');
 });
 
 test('group names follow actual membership, including sparse and outside groups',()=>{

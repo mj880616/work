@@ -1,3 +1,4 @@
+import './report-calendar-setup.mjs'; // MULTI ②-3: 보고 캘린더 이름 = 운영자와 같은 설정
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
