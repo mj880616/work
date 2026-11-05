@@ -34,12 +34,17 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _autoStartItem = new("윈도우를 켤 때 자동 실행");
     private readonly ToolStripMenuItem _cornerMenu = new("화면 구석 던지기 칸");
     private readonly ToolStripMenuItem _desktopTileItem = new("바탕화면 칸");
+    private readonly ToolStripMenuItem _doorItem = new("웹2에서 이 PC 보기");
     private readonly ToolStripMenuItem _restartForUpdateItem = new("새 버전으로 다시 시작") { Visible = false };
     private readonly SettingsStore _settings = new(AppPaths.Settings);
     private readonly AutoStartManager _autoStart;
     private readonly UpdateService _updates;
     private readonly CornerWatcher _cornerWatcher;
     private readonly DesktopTile _desktopTile;
+    // 'Web2에서 이 PC 보기' (docs/design/files-pc-drive.md): closed unless the menu turned it on and this app is signed in.
+    private readonly HttpWebUserVerifier _webUsers = new();
+    private readonly CachedWebUserVerifier _webUsersCached;
+    private PcDoor? _door;
     private CancellationTokenSource? _signInCts;
     private PasteForm? _paste;
     private StatusForm? _status;
@@ -63,6 +68,7 @@ internal sealed class TrayApp : ApplicationContext
         _auth = new SupabaseAuthProvider(_authClient, new CredentialManagerTokenStore(), _api, _log);
         _auth.StateChanged += s => Ui(() => OnAuthStateChanged(s));
         _processor = new QueueProcessor(_store, _history, _api, _auth, _log);
+        _webUsersCached = new CachedWebUserVerifier(_webUsers);
         _processor.Finished += f => Ui(() => OnFinished(f));
         _processor.Changed += () => Ui(RefreshTray);
 
@@ -139,6 +145,8 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add(_cornerMenu);
         _desktopTileItem.Click += (_, _) => ToggleDesktopTile();
         menu.Items.Add(_desktopTileItem);
+        _doorItem.Click += (_, _) => ToggleDoor();
+        menu.Items.Add(_doorItem);
         _autoStartItem.Click += (_, _) => ToggleAutoStart();
         menu.Items.Add(_autoStartItem);
         _restartForUpdateItem.Click += (_, _) => RestartForUpdate();
@@ -214,6 +222,56 @@ internal sealed class TrayApp : ApplicationContext
         ToastForm.Show(on
             ? "바탕화면 칸을 켰어요. 눌러서 끌면 위치를 옮길 수 있어요."
             : "바탕화면 칸을 껐어요. 트레이 메뉴에서 다시 켤 수 있어요.");
+    }
+
+    // ---- Web2에서 이 PC 보기 ----
+
+    private void ToggleDoor()
+    {
+        var s = _settings.Load();
+        s.WebDoor = !s.WebDoor;
+        try { _settings.Save(s); }
+        catch (IOException) { _log.Write(LogCode.Error); return; }
+        SyncDoor(notify: true);
+        if (!s.WebDoor) ToastForm.Show("웹2에서 이 PC 보기를 껐어요.");
+        else if (_door != null) ToastForm.Show("웹2 [파일]에서 이 PC를 볼 수 있어요. 이 PC의 브라우저에서만 보여요.");
+        else if (_auth.State != AuthState.SignedIn) ToastForm.Show("로그인하면 웹2에서 이 PC를 볼 수 있어요.");
+    }
+
+    /// <summary>The one place the door opens or closes: wanted in the menu and signed in. Called whenever either may change.</summary>
+    private void SyncDoor(bool notify = false)
+    {
+        var wanted = _settings.Load().WebDoor;
+        var open = wanted && _auth.State == AuthState.SignedIn && !_stop.IsCancellationRequested;
+        if (open && _door == null)
+        {
+            try
+            {
+                _door = PcDoor.Open(new PcFiles(AppPaths.Root), new PcShell(), _webUsersCached,
+                    ct => PcDoor.OwnUserIdAsync(_auth, ct), _log, typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "0");
+                _log.Write(LogCode.DoorOn);
+            }
+            catch (PortsBusyException)
+            {
+                _log.Write(LogCode.DoorPortsBusy);
+                if (notify) ToastForm.Show("이 PC 보기 문을 열지 못했어요. 다른 프로그램이 같은 번호를 쓰고 있어요.", true);
+            }
+        }
+        else if (!open && _door != null)
+        {
+            CloseDoor();
+        }
+        _doorItem.Checked = wanted;
+        _doorItem.Text = wanted && _auth.State != AuthState.SignedIn ? "웹2에서 이 PC 보기 (로그인하면 열려요)" : "웹2에서 이 PC 보기";
+    }
+
+    private void CloseDoor()
+    {
+        if (_door == null) return;
+        _door.Dispose();
+        _door = null;
+        _webUsersCached.Clear();
+        _log.Write(LogCode.DoorOff);
     }
 
     // ---- start with Windows ----
@@ -297,6 +355,7 @@ internal sealed class TrayApp : ApplicationContext
         _hotkey.Dispose();
         _cornerWatcher.Dispose();
         _desktopTile.Dispose();
+        CloseDoor();
         _tray.Visible = false;
         _log.Write(LogCode.Stopped);
         _updates.ApplyAndRestart();
@@ -413,6 +472,7 @@ internal sealed class TrayApp : ApplicationContext
         _hotkey.Dispose();
         _cornerWatcher.Dispose();
         _desktopTile.Dispose();
+        CloseDoor();
         _tray.Visible = false;
         _log.Write(LogCode.Stopped);
         ExitThread();
@@ -570,6 +630,7 @@ internal sealed class TrayApp : ApplicationContext
         _signOutItem.Visible = _auth.State != AuthState.SignedOut;
         _tray.Text = status.Tooltip;
         ShowTrayPicture(status.Picture);
+        SyncDoor();
     }
 
     /// <summary>Swaps the tray picture only when it changes, and frees the one it replaces.</summary>
@@ -607,6 +668,8 @@ internal sealed class TrayApp : ApplicationContext
             _batchTimer.Dispose();
             _api.Dispose();
             _authClient.Dispose();
+            _door?.Dispose();
+            _webUsers.Dispose();
         }
         base.Dispose(disposing);
     }
