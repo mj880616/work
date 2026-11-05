@@ -79,6 +79,16 @@ export async function readWorkWeek(start, rt = window.KPTURuntime) {
   const rows = await rt.api(`${base(rt)}&journal_day=gte.${days[0]}&journal_day=lte.${days[6]}&select=${FIELDS}&order=journal_day.asc&limit=7`);
   return Array.isArray(rows) ? rows : [];
 }
+// JOURNAL-오늘한일달력 (S50-29): 일기 화면 달력·목록이 일기 없는 날의 '오늘 한 일'도 보이려고 기간·최근 줄을 읽는다(읽기만, owner RLS).
+export const WORK_LIST_MAX = 1000;
+export async function readWorkBetween(first, last, rt = window.KPTURuntime) {
+  const rows = await rt.api(`${base(rt)}&journal_day=gte.${checkDay(first)}&journal_day=lte.${checkDay(last)}&select=journal_day,raw_text&order=journal_day.asc&limit=40`);
+  return Array.isArray(rows) ? rows : [];
+}
+export async function readWorkRecent(rt = window.KPTURuntime, {max = WORK_LIST_MAX} = {}) {
+  const rows = await rt.api(`${base(rt)}&select=journal_day,raw_text&order=journal_day.desc&limit=${max}`);
+  return Array.isArray(rows) ? rows : [];
+}
 export async function readWorkDay(day, rt = window.KPTURuntime) {
   const rows = await rt.api(`${base(rt)}&journal_day=eq.${checkDay(day)}&select=${FIELDS}&limit=1`);
   return Array.isArray(rows) ? rows[0] || null : null;

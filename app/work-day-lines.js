@@ -1,12 +1,21 @@
 // JOURNAL-오늘한일업무개인 (요청함 11/01 22:56·11/02 13:29 명진): 홈에서 넣은 '오늘 한 일' 줄을 달력 날짜 상세(일정 달력 날짜 창)와
 // 일기 화면(그날 보기·쓰기)에서도 읽기만 해서 보인다 — 일기를 안 쓴 날도. 같은 자료(노트 표 kind=work, journal-data.js readWorkDay)를
 // 읽을 뿐 두 벌 저장하지 않는다. 고치기·지우기는 홈에서만. 업무·개인을 가르지 않고 그대로 보인다(가르기는 업무 재료로 쓸 때만, work-scope.js).
-import {readWorkDay, workLines, todayKey} from './journal-data.js';
+import {readWorkDay, readWorkBetween, readWorkRecent, workLines, todayKey} from './journal-data.js';
 
 export const doneTitle = day => day === todayKey() ? '오늘 한 일' : '그날 한 일';
 // 그날 줄(없으면 빈 목록). 읽지 못하면 null.
 export async function readDayDone(day, rt = window.KPTURuntime) {
   try { return workLines(await readWorkDay(day, rt)); } catch { return null; }
+}
+// JOURNAL-오늘한일달력 (S50-29, 요청함 11/02 13:17 덧붙임 '일기를 안 쓴 날도 그 날짜가 목록에 나옴'): 여러 날의 줄을 한 번에 읽는다.
+// 반환 Map(날짜 → 줄 목록, 줄 있는 날만). 읽지 못하면 null — 일기 화면은 일기만 그대로 그린다.
+const linesMap = rows => new Map((rows || []).map(row => [row?.journal_day, workLines(row)]).filter(([day, lines]) => typeof day === 'string' && lines.length));
+export async function readDoneBetween(first, last, rt = window.KPTURuntime) {
+  try { return linesMap(await readWorkBetween(first, last, rt)); } catch { return null; }
+}
+export async function readDoneRecent(rt = window.KPTURuntime) {
+  try { return linesMap(await readWorkRecent(rt)); } catch { return null; }
 }
 // 줄 목록 칸. 줄이 없거나 읽지 못하면 null(칸을 그리지 않음 — 빈 안내를 더하지 않는다).
 export function dayDoneSection(day, lines, {heading = 'h4', id = ''} = {}) {
