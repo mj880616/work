@@ -98,9 +98,11 @@ test('ai-assist: 모든 OpenAI 호출이 여유를 더하는 한 곳(자체 call
 test('collector-feed: 텔레그램 호출 상한에 생각 여유가 더해져 있다',()=>{
   const t=read(ROOT+'collector-feed/handler.ts');
   assert.match(t,/TG_MAX_OUTPUT_TOKENS = TG_LIMITS\.maxOutputTokens \+ AI_REASONING_TOKEN_HEADROOM/);
+  // FAMILY-잊지말기: 가족 잊지 말기 뽑기도 같은 여유를 더한다.
+  assert.match(t,/FAMILY_MAX_OUTPUT_TOKENS = FAMILY_LIMITS\.maxOutputTokens \+ AI_REASONING_TOKEN_HEADROOM/);
   const at=[...t.matchAll(/max_output_tokens:/g)].map(m=>t.slice(m.index,m.index+60));
   assert.ok(at.length>0);
-  for(const c of at)assert.match(c,/TG_MAX_OUTPUT_TOKENS/,c);
+  for(const c of at)assert.match(c,/TG_MAX_OUTPUT_TOKENS|FAMILY_MAX_OUTPUT_TOKENS/,c);
 });
 
 test('새 Edge 함수가 OpenAI를 부르면서 여유·공용 길을 빠뜨리지 못한다(전체 함수 폴더 검사)',async()=>{
