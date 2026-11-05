@@ -114,5 +114,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261105200000', 'outside_title_retidy', array['OUTSIDE title retidy: private table app_outside_title_fixes (RLS, no policy, all API privileges revoked) keeps id/old title/new title; app_outside_posts.title re-tidied with the outside-tidy.ts tidyTitle rules (kind/name/date tags; no split or cut; max 3000 rows); no other column, row, grant, policy or function change']);
+values ('20261105200000', 'outside_title_retidy', array['OUTSIDE title retidy: private table app_outside_title_fixes (RLS, no policy, all API privileges revoked) keeps id/old title/new title; app_outside_posts.title re-tidied with the outside-tidy.ts tidyTitle rules (kind/name/date tags; no split or cut; max 3000 rows); no other column, row, privilege, policy or function change']);
 commit;

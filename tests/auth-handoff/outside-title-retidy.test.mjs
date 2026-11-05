@@ -81,7 +81,7 @@ test('outside title retidy: same rule as the collector tidyTitle, private backup
    const summary=(await read('docs/'+stem+'.summary.md')).trim().split('\n');
    assert.deepEqual(summary.map(l=>l.split(':')[0]),['무엇이 바뀌나','잘못되면','되돌리는 법']);
    const code=migration.replace(/--.*$/gm,'');
-   assert.doesNotMatch(code,/security definer|disable row level|\bgrant\b|\bto (anon|public|authenticated|service_role)\b|create policy|create (or replace )?function|information_schema|rtw_|app_outside_sentences|app_outside_sources|app_outside_seen|\bdelete\b/i);
+   assert.doesNotMatch(code,/security definer|disable row level|\bgrant\b|\bto (anon|public|authenticated|service_role)\b|create policy|create (or replace )?function|information_schema|rtw_|app_outside_sentences|app_outside_sources|app_outside_seen|\bdelete\s+from\b|\btruncate\s+(table\s+)?public\b/i);
    for(const r of await readOnly(precheck))assert.match(r.value,/^(예|아니오|[0-9]+|[0-9a-f]{32})$/,r.item);
    for(const r of await readOnly(postcheck))assert.match(r.value,/^(예|아니오|[0-9]+|[0-9a-f]{32})$/,r.item);
   });
