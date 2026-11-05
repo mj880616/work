@@ -2,10 +2,12 @@
 // 화면(files.js)은 여기서 계산한 값으로 그리기만 한다. 색인 줄 모양은 DB 읽기 함수 app_cloud_list·app_cloud_find와 Edge cloud-files sync 응답.
 
 import {phoneErrorText} from './phone-files-model.mjs';
+import {pcErrorText} from './pc-files-model.mjs';
 
 export const SOURCES = Object.freeze(['od', 'gd']);
 // 'ph' = 이 폰 저장 공간(S49-51 FILES-통합 3단계, 폰 앱에서만). 클라우드 목록(SOURCES)에는 넣지 않는다 — 서버 색인·맞추기·쓰기는 클라우드 둘만.
-export const SOURCE_NAME = Object.freeze({od: '원드라이브', gd: '구글 드라이브', ph: '이 폰'});
+// 'pc' = 내 PC(S50-27 FILES-내PC드라이브 ②, 그 PC 브라우저에서 바구니 PC 앱 문이 답할 때만). 'ph'처럼 SOURCES에는 넣지 않는다 — 서버 색인·맞추기·쓰기 밖.
+export const SOURCE_NAME = Object.freeze({od: '원드라이브', gd: '구글 드라이브', ph: '이 폰', pc: '내 PC'});
 // 묶음(나무 맨 위): 최근(F9 폰 첫 화면) · 별표 · 큰 파일. 서버 app_cloud_find의 p_shelf와 같은 이름.
 export const SHELVES = Object.freeze(['recent', 'starred', 'big']);
 export const SHELF_NAME = Object.freeze({recent: '최근', starred: '별표', big: '큰 파일'});
@@ -302,6 +304,7 @@ export function findSummary(rows) {
 export function errorText(code) {
   const c = String(code || '');
   if (c.startsWith('phone_')) return phoneErrorText(c.slice(6));
+  if (c.startsWith('pc_')) return pcErrorText(c.slice(3));
   if (c === 'feature_required' || c === 'forbidden' || c === 'drive_owner_mismatch' || c === 'http_403') return '이 작업공간에서는 쓰지 않는 기능입니다';
   if (/not_connected|not_configured|reconnect|auth_expired|scope_missing|cloud_denied/.test(c)) return '클라우드 연결을 다시 해야 합니다';
   if (c === 'cloud_throttled') return '클라우드가 잠시 바쁩니다. 조금 뒤 다시 보세요';
