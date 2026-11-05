@@ -62,9 +62,14 @@ for (const width of [390, 1280]) {
   });
 }
 
-test('switch off or odd answer: no button, nothing sent to create', async ({page}) => {
-  for (const answer of [{open: false, has_workspace: false}, {open: true, has_workspace: true}, null, {open: 'true', has_workspace: false}]) {
-    await page.unrouteAll({behavior: 'ignoreErrors'});
+const QUIET_ANSWERS = [
+  ['switch off', {open: false, has_workspace: false}],
+  ['already has a workspace', {open: true, has_workspace: true}],
+  ['empty answer', null],
+  ['odd answer', {open: 'true', has_workspace: false}],
+];
+for (const [label, answer] of QUIET_ANSWERS) {
+  test(`${label}: no button, nothing sent to create`, async ({page}) => {
     const calls = await mock(page, {status: () => answer, start: () => [{ok: true, workspace_id: 'x'}, 200]});
     await page.goto(loginEntry(base));
     await signInWithSession(page, 'newcomer@example.test');
@@ -73,9 +78,8 @@ test('switch off or odd answer: no button, nothing sent to create', async ({page
     await expect(page.locator('[data-workspace-start]')).toHaveCount(0);
     await expect(page.locator('main button:visible')).toHaveText(['로그아웃']);
     expect(startCalls(calls)).toHaveLength(0);
-    await page.evaluate(() => window.KPTURuntime?.session?.write?.(null));
-  }
-});
+  });
+}
 
 test('server refuses: short message, button usable again, no reopen', async ({page}) => {
   const calls = await mock(page, {status: () => ({open: true, has_workspace: false}),
