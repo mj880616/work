@@ -251,7 +251,7 @@ test('cron run: slot required, body must be {}, prunes 30-day log, counts worksp
  assert.equal((await h.cron('quarter','[]')).status,400);
  for(const slot of H.SLOTS){
   const r=await h.cron(slot);assert.equal(r.status,200);
-  assert.deepEqual(await r.json(),slot==='evening'?{ok:true,slot,workspaces:2,sent:0,pruned:2,now_lines:0}:{ok:true,slot,workspaces:2,sent:0,pruned:2});
+  assert.deepEqual(await r.json(),slot==='evening'?{ok:true,slot,workspaces:2,sent:0,pruned:2,now_lines:0}:slot==='quarter'?{ok:true,slot,workspaces:2,sent:0,pruned:2,family:{sent:0,held:0,off:0}}:{ok:true,slot,workspaces:2,sent:0,pruned:2}); // FAMILY-잊지말기: FCM 비밀값이 없으면 잊지 말기도 보내지 않음
  }
  assert.equal(h.state.calls.auth,0,'cron entrance never reads user logins');
  assert.equal(h.state.calls.fcm.length+h.state.calls.oauth.length,0);

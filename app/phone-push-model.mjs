@@ -13,6 +13,9 @@ export const KINDS = Object.freeze([
   ['next_week', '다음 주 준비'],
 ]);
 export const KIND_KEYS = Object.freeze(KINDS.map(([k]) => k));
+// FAMILY-잊지말기 4단계: 운영자 기능 family가 있는 사람에게만 보이는 종류(잠금 화면엔 "잊지 말기 n건"만). 기본 켬이라 저장 값에는 끌 때만 kinds.family=false로 들어간다
+// (DB 검사 20261105120000_family_push_kind가 이 키를 받는다. 켬일 때는 칸을 만들지 않아 기존 일곱 종류 모양 그대로).
+export const FAMILY_KIND = Object.freeze(['family', '잊지 말기']);
 export const DEFAULT_QUIET = Object.freeze({from: '22:00', to: '07:00'});
 export const TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 export const TOKEN = /^[A-Za-z0-9_:-]{20,4096}$/;
@@ -26,7 +29,7 @@ export function parsePrefs(raw) {
   for (const key of KIND_KEYS) kinds[key] = typeof given[key] === 'boolean' ? given[key] : true;
   const q = src.quiet && typeof src.quiet === 'object' ? src.quiet : {};
   const quiet = TIME.test(q.from) && TIME.test(q.to) ? {from: q.from, to: q.to} : {...DEFAULT_QUIET};
-  return {kinds, quiet};
+  return {kinds, quiet, family: given.family !== false};
 }
 
 /** 화면 값 → 저장 값(검사 제약에 맞는 모양만). 시간 모양이 틀리면 null(저장하지 않음). */
@@ -34,10 +37,11 @@ export function serializePrefs(prefs) {
   const p = parsePrefs({kinds: prefs?.kinds});
   const from = prefs?.quiet?.from, to = prefs?.quiet?.to;
   if (!TIME.test(from ?? '') || !TIME.test(to ?? '')) return null;
-  return {kinds: p.kinds, quiet: {from, to}};
+  return {kinds: prefs?.family === false ? {...p.kinds, family: false} : p.kinds, quiet: {from, to}};
 }
 
 export function toggleKind(prefs, key) {
+  if (key === FAMILY_KIND[0]) return {...prefs, family: prefs.family === false};
   if (!KIND_KEYS.includes(key)) return prefs;
   return {...prefs, kinds: {...prefs.kinds, [key]: !prefs.kinds[key]}};
 }
@@ -114,7 +118,7 @@ export const NOTICE_TEXT = Object.freeze({
 /** 최근 알림 목록의 '무엇'. */
 export const RECENT_LABEL = Object.freeze({
   task_due: '할 일 기한', commitment: '원장 약속', meeting_done: '회의 요약', collect_stall: '수집 멈춤',
-  morning: '아침 묶음', evening: '저녁 묶음', next_week: '다음 주 준비 한 장', quiet_digest: '조용한 시간 묶음', test: '시험 알림',
+  morning: '아침 묶음', evening: '저녁 묶음', next_week: '다음 주 준비 한 장', quiet_digest: '조용한 시간 묶음', test: '시험 알림', family: '잊지 말기',
 });
 const NOTICE_KIND = /^[a-z_]{1,20}$/;
 const NOTICE_REF = /^[A-Za-z0-9_.:-]{1,80}$/;

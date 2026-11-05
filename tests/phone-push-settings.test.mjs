@@ -116,3 +116,20 @@ test('앱: 빌드 변수로만 Firebase를 켜고, 알림을 누르면 웹2 안�
   assert.match(setup, /setVisibility\(NotificationCompat\.VISIBILITY_PRIVATE\)/);
   assert.match(setup, /setPublicVersion\(hidden\)/);
 });
+
+test('FAMILY-잊지말기: 잊지 말기 종류는 기본 켬이라 저장 값에 넣지 않고, 끌 때만 kinds.family=false', async () => {
+  const {FAMILY_KIND} = await import('../app/phone-push-model.mjs');
+  assert.deepEqual([...FAMILY_KIND], ['family', '잊지 말기']);
+  const p = parsePrefs(null);
+  assert.equal(p.family, true);
+  assert.equal('family' in serializePrefs(p).kinds, false);
+  const off = toggleKind(p, 'family');
+  assert.equal(off.family, false);
+  assert.equal(serializePrefs(off).kinds.family, false);
+  assert.deepEqual(Object.keys(serializePrefs(off).kinds), [...KIND_KEYS, 'family']);
+  assert.equal(parsePrefs(serializePrefs(off)).family, false);
+  assert.equal(toggleKind(off, 'family').family, true);
+  assert.equal(onCount(off), 7, '일곱 종류 수는 그대로');
+  const sql = read('supabase/migrations/20261105120000_family_push_kind.sql');
+  assert.match(sql, /@\.key == "family"/);
+});
