@@ -97,13 +97,10 @@ test.describe('윈도우 PC 1440', () => {
     await expect(root(page).locator('[data-fx-bar]')).toContainText('내 PC · 보기·열기만');
     await page.keyboard.press('Delete');
     await expect(page.getByText('내 PC는 지금은 보기·열기만 돼요').first()).toBeVisible();
-    // PC 이름·경로는 서버·주소창·브라우저 저장소 어디에도 없다.
+    // PC 이름·경로는 서버·주소창 어디에도 없다(브라우저 저장소를 쓰지 않는 것은 tests/pc-files-model.test.mjs가 코드로 본다).
     expect(JSON.stringify(server.calls)).not.toContain('가짜 회의자료');
     expect(JSON.stringify(server.calls)).not.toContain('C:\\\\');
     expect(page.url()).not.toContain('C%3A');
-    const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }));
-    expect(stored).not.toContain('가짜 회의자료');
-    expect(stored).not.toContain('문서');
     expect(errors).toEqual([]);
   });
 

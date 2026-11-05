@@ -6,6 +6,7 @@ import {pcSegs, pcNorm, pcParent, pcChild, pcPathOk, pcDriveRows, pcListRows, pc
 import {createPcFiles} from '../app/pc-files.js';
 import {errorText, SOURCE_NAME, SOURCES, rowKey, trailNames, placeOf} from '../app/files-model.mjs';
 import {PC_DOOR, WEB2_CSP} from '../cloudflare/web2-csp.mjs';
+import {readFileSync} from 'node:fs';
 
 test('경로 검사: 드라이브 뿌리 아래만, ..·끝 점·금지 글자·장치 이름 거절(PC 앱과 같음)', () => {
   assert.deepEqual(pcSegs('C:\\'), ['C:']);
@@ -162,4 +163,11 @@ test('문 다리: 쓰던 문이 사라지면 상태가 off로 바뀌고 알린�
   const off = createPcFiles(w.win, {enabled: false});
   assert.equal(off.usable, false);
   assert.equal((await off.hello()).ok, false);
+});
+
+test('내 PC 다리·계산은 브라우저 저장소·서버를 쓰지 않는다(화면 메모리만)', () => {
+  for (const f of ['../app/pc-files.js', '../app/pc-files-model.mjs']) {
+    const src = readFileSync(new URL(f, import.meta.url), 'utf8');
+    assert.doesNotMatch(src, /Storage|indexedDB|caches\.|document\.cookie|\/rest\/v1|functions\/v1/, f);
+  }
 });
