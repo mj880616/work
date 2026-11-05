@@ -49,13 +49,15 @@ async function call(options, action, body) {
 }
 
 // 단계 하나가 실패해도 다음 단계는 계속한다. 비밀값 불일치(401)는 바로 멈춘다.
-export async function runNewsFeed({ secret, fetcher = fetch, base = FUNCTION_BASE, timeoutMs = 150000, retryDelayMs = 30000, sleep = ms => new Promise(r => setTimeout(r, ms)) } = {}) {
+export async function runNewsFeed({ secret, fetcher = fetch, base = FUNCTION_BASE, timeoutMs = 150000, retryDelayMs = 30000, sleep = ms => new Promise(r => setTimeout(r, ms)), mode = 'full' } = {}) {
   if (typeof secret !== 'string' || !secret.trim()) throw new FeedFailure('비밀값 미등록: GitHub 저장소 Actions 비밀값 NEWS_FEED_CRON_SECRET이 없습니다.');
   const options = { secret, fetcher, base, timeoutMs, retryDelayMs, sleep };
   const plan = await call(options, 'run_plan', {});
   if (!Array.isArray(plan.media)) throw new FeedFailure('수집 계획 응답 모양이 다릅니다.');
-  const steps = [...plan.media.filter(k => typeof k === 'string' && KEY.test(k)).slice(0, MAX_SOURCES).map(source => ({ step: 'media', source })),
-    { step: 'keywords' }, { step: 'pending' }, { step: 'titles' }, { step: 'prune' }];
+  // mode 'fill'(매시 22분): 밀린 채널 기사 읽기·외국어 제목만. 매체 RSS·구글 뉴스 요청은 하루 3번 전체 실행만(요청 횟수 유지).
+  const steps = mode === 'fill' ? [{ step: 'pending' }, { step: 'titles' }]
+    : [...plan.media.filter(k => typeof k === 'string' && KEY.test(k)).slice(0, MAX_SOURCES).map(source => ({ step: 'media', source })),
+      { step: 'keywords' }, { step: 'pending' }, { step: 'titles' }, { step: 'prune' }];
   const results = [];
   for (const s of steps) {
     const name = s.source ?? s.step;
@@ -75,7 +77,7 @@ export async function runNewsFeed({ secret, fetcher = fetch, base = FUNCTION_BAS
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   try {
-    const t = await runNewsFeed({ secret: process.env.NEWS_FEED_CRON_SECRET });
+    const t = await runNewsFeed({ secret: process.env.NEWS_FEED_CRON_SECRET, mode: process.env.NEWS_FEED_MODE === 'fill' ? 'fill' : 'full' });
     for (const r of t.results) console.log(`${r.name}: ${r.status} · ${r.n}건 · 다음으로 ${r.deferred}${r.remaining === null || r.remaining === undefined ? '' : ` · 남은 ${r.remaining}건(3일 넘은 것 ${r.stale ?? 0})`}`);
     const failed = t.results.filter(r => r.status === 'call_failed');
     if (failed.length) console.log(`::warning title=뉴스 클리핑 수집::${failed.length}단계 호출 실패(${failed.map(r => r.name).join(', ')})`);
