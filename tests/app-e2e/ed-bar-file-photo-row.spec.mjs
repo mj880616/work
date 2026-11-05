@@ -73,6 +73,16 @@ test.describe('PC 1280', () => {
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
+  test('NOTE-파일그림넣기 ④: 첨부 줄이 있는 편집기(업데이트 창)의 [파일]은 고른 파일을 그 첨부 줄로 보낸다(글 안 카드 없음)', async ({page}) => {
+    await open(page, 'row=1');
+    const button = page.locator('.ed-tools').getByRole('button', {name: '파일 넣기', exact: true});
+    await expect(button).toBeVisible();
+    await pick(page, button, [{name: '보고서.hwp', mimeType: 'application/x-hwp', buffer: Buffer.alloc(10, 1)}]);
+    await expect.poll(() => page.evaluate(() => window.rowFiles)).toEqual(['보고서.hwp']);
+    await expect(page.locator('.ed-input .ed-file')).toHaveCount(0);
+    await expect(page.locator('.ed-tools').getByRole('button', {name: '사진 넣기', includeHidden: true})).toHaveCount(0);
+  });
+
   test('[파일]이 없는 편집기(공유 페이지 등)에는 버튼이 없다', async ({page}) => {
     await open(page, 'photos=1');
     await expect(page.locator('.ed-bar').getByRole('button', {name: '파일 넣기', includeHidden: true})).toHaveCount(0);

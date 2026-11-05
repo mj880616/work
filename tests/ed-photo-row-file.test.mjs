@@ -76,12 +76,18 @@ test('ed_more: a server screen setting (참·거짓), not kept on the device', (
 
 test('[파일] and [사진] appear only where the opener gives them; notes give both through the note attachments upload', () => {
   const ed = readFileSync(new URL('../app/ed-editor.js', import.meta.url), 'utf8');
-  assert.match(ed, /if \(key === 'file' && !files\) continue;/);
+  // NOTE-파일그림넣기 ④: an opener with its own attachment row (onFiles) also gets [파일]; it fills that row.
+  assert.match(ed, /if \(key === 'file' && !files && !onFiles\) continue;/);
+  assert.match(ed, /const pickFiles = \(\) => pickFrom\('', chosen => files \? filesIn\(chosen\) : chosen\.length && onFiles\?\.\(chosen\)\);/);
   assert.match(ed, /if \(key === 'photo' && !photos\) continue;/);
   const notes = readFileSync(new URL('../app/basket-notes.js', import.meta.url), 'utf8');
   assert.match(notes, /mountEditField\(host, selected, \{photos:photosFor\(id\), files:filesFor\(id\)\}\)/);
   assert.match(notes, /const filesFor = id => noteFiles\(\{getNote:\(\) => selected\?\.id === id \? selected : null, upload:noteUpload\(id\)\}\)/);
   // Share pages get no [파일] yet (their files would need the page's own private storage).
   const share = readFileSync(new URL('../app/share-pages.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(share, /files:/);
+  assert.doesNotMatch(share, /files:|onFiles/);
+  // A new note: [사진]·[파일] wait in the window until the save (note-pending-media.mjs), never a throwing stand-in.
+  const win = readFileSync(new URL('../app/note-window.js', import.meta.url), 'utf8');
+  assert.match(win, /photos: media\.photos, files: media\.files,/);
+  assert.doesNotMatch(win, /getNote: \(\) => null/);
 });

@@ -2,15 +2,17 @@
 // [노트]) and for [큰 창에서 수정]. The window saves nothing itself: the save goes to the existing owner-RLS note paths
 // (createNoteDoc, or the note screen's own save for an edit).
 //   New note: a title row (title box + optional [폴더 ▾]) above the text, [📎 첨부] under it (the note input's own file batch or this
-//   window's), the [사진] button (a photo needs a saved note, so a new note says "먼저 저장"), and the markdown line shortcuts.
+//   window's), [넣기] → [사진]·[파일] (NOTE-파일그림넣기: they wait in this window until the save, then go up as the new note's own
+//   attachments and stay in the text: note-pending-media.mjs), and the markdown line shortcuts.
 //   There is no [업데이트 | 노트] switch here: an update is written from the update input (차이 — PR 본문).
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {openEdWindow} from './ed-window.js';
-import {createNoteDoc, noteTitleFromText} from './basket-data.js';
+import {createNoteDoc, noteTitleFromText, readNoteDoc, saveNoteDoc} from './basket-data.js';
 import {createUploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle} from './basket-upload.js';
-import {notePhotos, noteFiles} from './note-body.js';
 import {NOTE_TEXT_MAX} from './note-doc.mjs';
 import {requestNoteAiTitle} from './note-ai-title.js';
+import {WAIT_PREFIX, waitingSrcs, swapWaiting} from './note-pending-media.mjs';
+import {toPlain} from './ed-text.mjs';
 
 function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
@@ -45,6 +47,64 @@ function titleRow({value = '', folder = null, placeholder = '제목(비우면 �
   return {row, input, paint};
 }
 
+// NOTE-파일그림넣기: [사진]·[파일] in a new note (no id yet). A chosen file waits in this window's memory under a waiting id; a picture
+// shows from the device's own copy (a blob address of this page, never sent anywhere). Nothing goes up until the note is saved.
+const WAIT_MAX_BYTES = 100 * 1024 * 1024;
+export function waitingMedia() {
+  const kept = new Map();
+  let n = 0;
+  const keep = (file, picture) => {
+    if (!file?.size) throw new Error('빈 파일은 넣을 수 없어요.');
+    if (file.size > WAIT_MAX_BYTES) throw new Error('파일은 100MiB까지 넣을 수 있어요.');
+    const src = `${WAIT_PREFIX}${++n}_${Math.random().toString(36).slice(2, 8)}`;
+    kept.set(src, {file, url: picture ? URL.createObjectURL(file) : null});
+    return src;
+  };
+  return {
+    photos: {max: 20, async add(file) { return {src: keep(file, true)}; }, async url(src) { return kept.get(src)?.url || null; }},
+    files: {
+      async add(file) { return {src: keep(file, false), name: file.name || '파일', size: file.size || null}; },
+      open(src) {
+        const file = kept.get(src)?.file; if (!file) return;
+        const url = URL.createObjectURL(file);
+        window.open(url, '_blank', 'noopener,noreferrer');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      },
+    },
+    file: src => kept.get(src)?.file || null,
+    clear() { for (const entry of kept.values()) if (entry.url) URL.revokeObjectURL(entry.url); kept.clear(); },
+  };
+}
+// After the new note is made: each waiting file goes up as one of its attachments (one at a time, in the text's order) and its id is
+// swapped in the text; the note's text is then written once more (guarded by the version after the uploads). Returns '' or a warning.
+async function sendWaiting(note, value, media, {rt, isCurrent}) {
+  const swap = {};
+  let attachments = note.attachments || [], failed = 0, error = null;
+  for (const src of waitingSrcs(value)) {
+    const file = media.file(src);
+    if (!file || error) { failed++; continue; }
+    const batch = createUploadBatch(note.id, attachments);
+    batch.entries = [{file, kind: 'pending', label: '대기'}];
+    const before = new Set(attachments.map(f => f?.drive_file_id));
+    try {
+      await uploadNoteFiles(note.id, batch, {rt, isCurrent});
+      attachments = batch.attachments;
+      const made = attachments.find(f => f?.drive_file_id && !before.has(f.drive_file_id));
+      if (made) swap[src] = 'drive:' + made.drive_file_id; else failed++;
+    } catch (e) { error = e; failed++; }
+  }
+  if (!Object.keys(swap).length) return failed ? `노트는 저장했지만 사진·파일을 올리지 못했어요. ${error?.message || ''} 노트를 열어 다시 넣어 주세요.` : '';
+  const doc = swapWaiting(value, swap);
+  try {
+    const row = await readNoteDoc(note.id, rt);
+    if (!row || !isCurrent()) throw new Error('note_missing');
+    await saveNoteDoc(note.id, {title: row.title, raw_text: toPlain(doc), doc, version: row.updated_at}, rt);
+  } catch {
+    return '노트와 사진·파일은 저장했지만 글 안 자리를 맞추지 못했어요. 파일은 노트 아래에 있어요.';
+  }
+  return failed ? `노트는 저장했지만 사진·파일 ${failed}개를 올리지 못했어요. ${error?.message || ''}`.trim() : '';
+}
+
 // A new note. text: the note input's letters (kept as written). upload: the note input's own batch {getBatch, isBusy, onChange, reset}
 // (optional). noteFolder: {label(), open(trigger)} (optional; note-folder-pick.js, or the note screen's own). With write:true and get() the window
 // puts the new note into the chosen folder itself after the save (noteFolder.put: the same setNoteFolderRef write as the note screen); without it the opener does.
@@ -52,32 +112,36 @@ function titleRow({value = '', folder = null, placeholder = '제목(비우면 �
 export function openNoteWindow({text = '', title = '새 노트', rt = window.KPTURuntime, upload = null, noteFolder = null, onClose = () => {}} = {}) {
   const owner = rt.session.read()?.user?.id;
   let own = upload ? null : createUploadBatch(), saved = null, busy = false, handle = null;
+  const media = waitingMedia();
   const batch = () => upload ? upload.getBatch() : own;
   const say = message => handle?.say(message);
   const head = titleRow({folder: noteFolder});
   // The title box's Enter goes on to the text (it is not a save).
   head.input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle?.editor?.focus(); } });
   const files = attachRow({id: 'edwNoteAttach', getBatch: batch, isBusy: () => busy || !!upload?.isBusy?.(), say: message => { upload?.onChange?.(); say(message); }});
-  async function run({value, text: letters}) {
+  async function run({value, text: typed}) {
     if (rt.session.read()?.user?.id !== owner) return {ok: false, message: '로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
     const list = batch(), count = files.pending(), heading = head.input.value;
     if (count && (list.blocked || list.note_id)) return {ok: false, message: '앞선 업데이트의 첨부 저장 결과를 먼저 확인해 주세요.'};
-    if (!letters.trim() && !heading.trim() && !count) return {ok: false, message: '제목이나 본문을 써 주세요.'};
+    // NOTE-파일그림넣기: waiting pictures·files are made first without their cards (they go in after the upload, sendWaiting).
+    const waits = waitingSrcs(value), bare = waits.length ? swapWaiting(value, {}) : value, letters = waits.length ? toPlain(bare) : typed;
+    if (!letters.trim() && !heading.trim() && !count && !waits.length) return {ok: false, message: '제목이나 본문을 써 주세요.'};
     busy = true; files.picker.render();
     let warning = '';
     try {
-      const first = list.entries.find(entry => entry.kind !== 'success')?.file?.name;
-      const note = await createNoteDoc({title: heading.trim() ? heading : noteTitleFromText(letters) || fileTitle(first), raw_text: letters, markdown: false, doc: letters.trim() ? value : null}, rt);
+      const first = media.file(waits[0])?.name || list.entries.find(entry => entry.kind !== 'success')?.file?.name;
+      const note = await createNoteDoc({title: heading.trim() ? heading : noteTitleFromText(letters) || fileTitle(first), raw_text: letters, markdown: false, doc: letters.trim() || waits.length ? bare : null}, rt);
       saved = {kind: 'note', id: note.id};
-      void requestNoteAiTitle(note.id, {rt}); // NOTE-탐색기 ③: AI 요약 제목(서버가 정함, 기다리지 않음)
+      if (waits.length) warning = await sendWaiting(note, value, media, {rt, isCurrent: () => rt.session.read()?.user?.id === owner});
+      void requestNoteAiTitle(note.id, {rt}); // NOTE-탐색기 ③: AI 요약 제목(서버가 정함, 기다리지 않음). 사진·파일 글 쓰기 뒤에(같은 노트를 두 번 고치지 않게).
       // NOTE-탐색기 후속 ⑤: 고른 폴더(폴더 나무 고르기 창, 폴더 id)에 넣는 일은 noteFolder.put(note-folder-pick.js, setNoteFolderRef 한 길)이 한다.
       if (noteFolder?.write && noteFolder.get?.() && noteFolder.put) {
         try { await noteFolder.put({id: note.id}); }
-        catch { warning = `노트는 저장했지만 '${noteFolder.label()}' 폴더에 넣지 못했어요. 노트 ⋯의 [폴더로 옮기기]로 옮겨 주세요.`; }
+        catch { warning ||= `노트는 저장했지만 '${noteFolder.label()}' 폴더에 넣지 못했어요. 노트 ⋯의 [폴더로 옮기기]로 옮겨 주세요.`; }
       }
       if (count) {
         try { await uploadNoteFiles(note.id, list, {rt, isCurrent: () => rt.session.read()?.user?.id === owner, onChange: () => files.picker.render()}); }
-        catch (error) { warning = `노트는 저장했지만 첨부를 올리지 못했어요. ${error?.message || ''} 노트를 열어 다시 붙여 주세요.`.replace(/\s+/g, ' '); }
+        catch (error) { warning ||= `노트는 저장했지만 첨부를 올리지 못했어요. ${error?.message || ''} 노트를 열어 다시 붙여 주세요.`.replace(/\s+/g, ' '); }
         if (upload) upload.reset?.(); else own = createUploadBatch();
       }
     } catch (error) { return {ok: false, message: error?.message || '저장하지 못했어요. 다시 눌러 주세요.'}; }
@@ -87,9 +151,9 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
   }
   handle = openEdWindow({title, text, draft: true, limit: NOTE_TEXT_MAX, head: head.row, foot: files.node, shortcuts: true,
     dirty: () => !!head.input.value.trim() || files.pending() > 0,
-    photos: notePhotos({getNote: () => null, upload: async () => [], rt}), files: noteFiles({getNote: () => null, upload: async () => []}),
+    photos: media.photos, files: media.files,
     placeholder: '노트 본문을 쓰세요', save: {aria: '새 노트로 저장', run},
-    onClose: ({text: letters}) => { noteFolder?.close?.(); onClose({saved, text: letters}); }});
+    onClose: ({text: letters}) => { media.clear(); noteFolder?.close?.(); onClose({saved, text: letters}); }});
   if (handle) { handle.paintFolder = head.paint; queueMicrotask(() => head.input.focus()); }
   return handle;
 }

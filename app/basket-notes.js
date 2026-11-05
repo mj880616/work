@@ -495,7 +495,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     text.classList.toggle('basket-read-empty', !raw);
     if (!raw) return showPlainText(text, htmlCount || files ? '' : '본문이 없는 노트입니다.');
     // ED③ 노트: a note saved in the new editor reads its saved form (ed-render: headings, tables, colours, photos of this note).
-    if (paintDoc(text, selected, {rt})) return;
+    if (paintDoc(text, selected, {rt, onOpen:(file, el) => openPhotoView({row:selected, file, trigger:el})})) return;
     showPlainText(text, raw);
     // NOTE-마크다운선택: a note with 마크다운 off is shown exactly as written (no list, heading or indent made from its lines).
     text.dataset.noteView = noteMarkdown(selected) ? 'markdown' : 'plain';
