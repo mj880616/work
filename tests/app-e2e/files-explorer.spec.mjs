@@ -160,3 +160,20 @@ test('1440: 폴더를 열면 그 폴더만 클라우드에서 바로 읽어 색�
   expect(new Set(asked).size).toBe(asked.length);
   expect(errors).toEqual([]);
 });
+
+// S50-14 FILES-다안나옴: 처음 목록 받기가 실패하면(운영: 같은 id 두 줄 → 묶음 거절 → 매번 같은 쪽에서 실패) 위 단추가 '방금 맞춤'이 아니라 '맞추기 안 됨'.
+//   이어 받을 쪽이 남으면 '맞추기…'(글줄 안 표시는 '…' 한 글자, UI-로딩맨위). 다 받으면 다시 '방금 맞춤'.
+test('PC 1280: 맞추기 실패·이어 받기 남음은 \'방금 맞춤\'으로 덮지 않음', async ({ page }) => {
+  const { errors, server } = await start(page, 1280);
+  server.syncReply = { od: { error: 'store_unavailable', more: false, done: false } };
+  await openFiles(page, 1280);
+  const btn = root(page).locator('[data-fx-sync]');
+  await expect(btn).toHaveText('맞추기 안 됨');
+  await expect(btn).toHaveAttribute('data-fx-sync-state', 'error');
+  server.syncReply = { od: { more: true, done: false } };
+  await btn.click();
+  await expect(btn).toHaveText('맞추기…');
+  server.syncReply = { od: { more: false, done: true } };
+  await expect(btn).toHaveText('방금 맞춤', { timeout: 10000 });
+  expect(errors).toEqual([]);
+});

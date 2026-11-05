@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 
 // S48-12b ③: 실제 cloud-files handler를 지어낸 Supabase(PostgREST)·원드라이브(Graph)·구글 드라이브로 돌린다. 네트워크 없음.
 // 비밀값·토큰·계정·파일 이름은 모두 고정 가짜 글자다.
-const {createCloudFilesHandler,odRow,gdRow,safeOpenUrl,servedType,FRESH_MS,cleanName,idList,uniqueName,safeUploadUrl,safeMonitorUrl,ACROSS_MAX_BYTES,COPY_TREE_MAX}=await import('../../supabase/functions/cloud-files/handler.ts');
+const {createCloudFilesHandler,odRow,gdRow,lastById,lastDeltaItems,safeOpenUrl,servedType,FRESH_MS,cleanName,idList,uniqueName,safeUploadUrl,safeMonitorUrl,ACROSS_MAX_BYTES,COPY_TREE_MAX}=await import('../../supabase/functions/cloud-files/handler.ts');
 const {createHash}=await import('node:crypto');
 const {tickSign,TICK_HEADER,BIG_BYTES,JOB_STEP_MS,CRON_HEADER,LEASE_MS,cronSecretMatches}=await import('../../supabase/functions/cloud-files/jobs.mjs');
 const root=new URL('../../',import.meta.url);
@@ -76,6 +76,8 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
    const rep=/representation/.test(h.Prefer||'');
    if(method==='GET')return ok(db[t].filter(x=>match(x,p)));
    if(method==='POST'){const ignore=/ignore-duplicates/.test(h.Prefer||'');const made=[];
+    // 운영 Postgres와 같게: merge-duplicates(ON CONFLICT DO UPDATE) 한 묶음 안에 같은 키가 두 번이면 묶음 전체를 거절(21000, HTTP 500).
+    if(/merge-duplicates/.test(h.Prefer||'')){const ks=[].concat(JSON.parse(init.body)).map(r=>key[t]?.(r));if(new Set(ks).size!==ks.length){db.rejected=(db.rejected||0)+1;return ok({code:'21000',message:'ON CONFLICT DO UPDATE command cannot affect row a second time'},500);}}
     for(let r of [].concat(JSON.parse(init.body))){
      if(t==='jobs'){if(db.jobsDown)return ok({code:'PGRST205'},404);
       assert.ok(!('id' in r)&&!('sent_bytes' in r)&&!('lease_until' in r),'only granted insert columns');
@@ -523,6 +525,45 @@ test('google: 5-page drive is scanned to the end across resumed calls (budget cu
  do{last=(await j(await w.post({action:'sync',source:'gd'}))).body.gd;calls++;w.tick(1000);}while(last.more&&calls<10);
  assert.ok(calls>1);assert.equal(last.done,true);
  assert.equal(w.db.items.filter(x=>x.source==='gd').length,50);
+});
+
+// S50-14 FILES-다안나옴 원인: 원드라이브 delta는 한 쪽 안에 같은 항목을 두 번 줄 수 있다(이름 바꿈·옮김·지움 뒤 되살림).
+// 같은 키 두 줄을 한 번에 upsert하면 Postgres가 묶음을 거절해, 그 쪽에서 처음 훑기가 매번 실패하고 다음 쪽으로 못 넘어갔다
+// (고치기 전: 둘째 쪽에서 last_error OD_STORE_UNAVAILABLE, next_page 그대로, index_done_at 빈 채 — 매번 같은 쪽에서 실패).
+test('onedrive: duplicate ids inside one delta page (rename, delete→restore) — scan still finishes, last state wins, 3+ pages',async()=>{
+ const w=world();w.od.multi=sampleOd(4,10);w.od.callMs=3000;
+ const pg=w.od.multi[1],renamed=pg[2],back=pg[4],gone=w.od.multi[2][1];
+ pg.splice(2,0,{...renamed,name:'옛이름.txt'});// 같은 파일이 옛 이름으로 먼저, 새 이름으로 나중에
+ pg.push({id:back.id,deleted:{}},{...back});// 지움 뒤 되살림: 마지막은 살아 있음
+ w.od.multi[2].push({id:gone.id,deleted:{}});// 마지막이 지움: 빠져야 함
+ let calls=0,last;
+ do{last=(await j(await w.post({action:'sync',source:'od'}))).body.od;calls++;w.tick(1000);}while(last.more&&calls<12);
+ assert.equal(w.db.rejected||0,0,'한 묶음에 같은 키가 두 번 가지 않음');
+ assert.equal(last.done,true,'끝까지 훑음');assert.ok(calls>1);
+ const s=w.db.sync.find(x=>x.source==='od');assert.ok(s.index_done_at);assert.equal(s.next_page,null);assert.equal(s.last_error,null);
+ const od=w.db.items.filter(x=>x.source==='od');
+ assert.equal(od.length,39,'40개 중 마지막이 지움인 1개만 빠짐');
+ assert.equal(od.find(x=>x.item_id===renamed.id).name,renamed.name,'마지막 이름');
+ assert.ok(od.find(x=>x.item_id===back.id),'지움 뒤 되살린 것은 남음');
+ assert.ok(!od.find(x=>x.item_id===gone.id));
+});
+test('google: same file twice in one changes page and folder read with a repeated child — no rejected batch',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ w.tick(FRESH_MS+1000);
+ w.gd.changes=[{fileId:'GA',file:{id:'GA',name:'첫 이름.pdf',mimeType:'application/pdf',parents:['GF1'],ownedByMe:true}},
+  {fileId:'GA',file:{id:'GA',name:'둘째 이름.pdf',mimeType:'application/pdf',parents:['GF1'],ownedByMe:true}}];
+ const r=await j(await w.post({action:'sync',source:'gd'}));
+ assert.equal(r.body.gd.done,true);assert.equal(w.db.rejected||0,0);
+ assert.equal(w.db.items.find(x=>x.item_id==='GA').name,'둘째 이름.pdf');
+ assert.equal(w.db.sync.find(x=>x.source==='gd').last_error,null);
+ w.gd.children=[{id:'GK',name:'겹친 파일.txt',mimeType:'text/plain',parents:['GF1'],ownedByMe:true},{id:'GK',name:'겹친 파일.txt',mimeType:'text/plain',parents:['GF1'],ownedByMe:true}];
+ const f=await j(await w.post({action:'folder',source:'gd',id:'GF1'}));
+ assert.equal(f.status,200);assert.equal(f.body.found,1);assert.equal(w.db.rejected||0,0);
+});
+test('helpers: lastById and lastDeltaItems keep the last of each id',()=>{
+ assert.deepEqual(lastById([{item_id:'a',n:1},{item_id:'b',n:2},{item_id:'a',n:3}]).map(r=>r.n),[2,3]);
+ assert.deepEqual(lastDeltaItems([{id:'x',v:1},{id:'x',deleted:{}},{id:'y'}]).map(r=>r.id+(r.deleted?'-':'')),['x-','y']);
 });
 
 test('folder: 폴더만 클라우드에서 바로 읽어 색인에 합침 — 새로 찾은 줄만 돌려주고, 색인 밖 폴더·남의 파일은 거절/제외',async()=>{

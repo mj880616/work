@@ -73,7 +73,8 @@ export async function filesServer(page, { connected = { od: true, gd: true }, pr
       server.calls.push({ what: 'edge', action: body?.action, body, auth: req.headers().authorization || '', range: req.headers().range || '' });
       const a = body?.action;
       if (a === 'status') return ok({ ok: true, od: { connected: connected.od, scanning: false, synced_at: '2026-10-06T00:59:00Z', index_done_at: '2026-10-01T00:00:00Z', error: null }, gd: { connected: connected.gd, scanning: false, synced_at: '2026-10-06T00:58:00Z', index_done_at: '2026-10-01T00:00:00Z', error: null } });
-      if (a === 'sync') { const d = server.pendingSync || { changed: [], removed: [] }; server.pendingSync = null; return ok({ ok: true, od: { fresh: true }, gd: { fresh: true }, reload: false, ...d }); }
+      // S50-14: server.syncReply가 있으면 출처별 응답(more·done·error)을 그 값으로(처음 훑기 남음·실패 흉내).
+      if (a === 'sync') { const d = server.pendingSync || { changed: [], removed: [] }; server.pendingSync = null; return ok({ ok: true, od: { fresh: true }, gd: { fresh: true }, reload: false, ...(server.syncReply || {}), ...d }); }
       // S48-65 폴더 바로 읽기: 색인에 없는 줄(server.directItems 중 그 폴더 것)을 색인에 합치고 새로 찾은 수를 돌려준다.
       if (a === 'folder') {
         const here = server.directItems.filter(i => i.source === body.source && (i.parent_id ?? null) === (body.id ?? null));
