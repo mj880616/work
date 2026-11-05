@@ -5,6 +5,9 @@ import {seoulDateKey, addSeoulDays, formatSeoulTime} from './meeting-time.js';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 // Google keeps a due date as midnight UTC of that date, so its day is the date part as written.
 export const dueDay = task => { const key = String(task?.due || '').slice(0, 10); return DAY.test(key) ? key : ''; };
+// S50-35(2026-11-05 명진 결정): 홈에서 새로 넣는 할 일의 기한 — 고른 날이 있으면 그날, 고르지 않았으면 오늘(한국 날짜).
+// 넣자마자 홈 [할 일](그날 기한) 칸에 보이게 한다. 새로 만들 때만 쓴다(이미 있는 할 일을 고칠 때는 그 할 일의 기한을 그대로 둔다).
+export const newTaskDue = (picked, today = seoulDateKey(new Date())) => { const key = String(picked || '').slice(0, 10); return DAY.test(key) ? key : today; };
 export const tomorrowKey = (today = seoulDateKey(new Date())) => seoulDateKey(addSeoulDays(today, 1));
 export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numeric'})}(${formatSeoulTime(day, {weekday:'short'})})`;
 // [내일로]·[기한 바꾸기]: the due date becomes the given day through the same google-tasks action=update the task editor sends
