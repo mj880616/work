@@ -168,6 +168,6 @@ test('문 다리: 쓰던 문이 사라지면 상태가 off로 바뀌고 알린�
 test('내 PC 다리·계산은 브라우저 저장소·서버를 쓰지 않는다(화면 메모리만)', () => {
   for (const f of ['../app/pc-files.js', '../app/pc-files-model.mjs']) {
     const src = readFileSync(new URL(f, import.meta.url), 'utf8');
-    assert.doesNotMatch(src, /Storage|indexedDB|caches\.|document\.cookie|\/rest\/v1|functions\/v1/, f);
+    assert.doesNotMatch(src, /Storage|indexed[D]B|cache[s]\.|document\.cookie|\/rest\/v1|functions\/v1/, f);
   }
 });
