@@ -87,7 +87,7 @@ for(const width of [390,1280])test(`a library HWP opens from Drive and is saved 
   const f=await fixture(page,width);
   await editLibraryDocument(page,width);
   await expect(page.locator('#hwpView')).toHaveAttribute('aria-label','HWP 편집');
-  await expect(status(page)).toHaveText('주간보고.hwp · 1쪽을 열었어요. 고친 뒤 [새 파일로 저장]을 누르세요.',{timeout:60000});
+  await expect(status(page)).toHaveText(/^주간보고\.hwp · 1쪽을 열었어요\. 고친 뒤 \[새 파일로 저장\]을 누르세요\.( \(걸린 시간: .+\))?$/,{timeout:60000}); // 3초를 넘기면 시간 줄이 붙는다
   await expect(page.locator('#hwpLabEditor iframe')).toHaveAttribute('sandbox','allow-scripts');
   await expect(page.locator('#hwpLabPick')).toBeHidden();
   await expect(page.locator('#hwpDriveNew')).toBeEnabled();
