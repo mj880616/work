@@ -8,7 +8,7 @@
 // 창은 <dialog>(뒤로가기·Esc·× = 닫기, 저장 중에는 닫지 않음). 닫으면 앱에 끝났다고 알려 앱이 든 항목을 버린다.
 import {noteDraft, noteBodyWithExtra, taskDraft, taskNotesWithExtra, folderOptions, NOTE_TITLE_MAX, TASK_TITLE_MAX, EXTRA_MAX} from './share-target-model.mjs';
 import {shareSummary, skippedText} from './share-intake-model.mjs';
-import {QUICK_DUES, quickDueDay, nextWeekDays, weekdayLabel} from './task-due.mjs';
+import {QUICK_DUES, quickDueDay, nextWeekDays, weekdayLabel, newTaskDue} from './task-due.mjs';
 import {notify} from './small-notice.js';
 
 let dialog = null, state = null, seq = 0, layer = null;
@@ -118,7 +118,7 @@ export function openShareTarget({target, subject = '', text = '', items = [], sk
   if (state) close();
   const kind = target === 'task' ? 'task' : 'note';
   const draft = kind === 'note' ? noteDraft({subject, text, files:items}) : taskDraft({subject, text, files:items});
-  state = {kind, draft, receive, release, isCurrent, run:++seq, saving:false, files:null, got:null, due:'', week:false, folders:[], made:null};
+  state = {kind, draft, receive, release, isCurrent, run:++seq, saving:false, files:null, got:null, due:kind === 'task' ? newTaskDue('') : '', week:false, folders:[], made:null};
   $('#shareTargetTitle').textContent = WORDS[kind].title;
   const title = $('[data-st-title]');
   title.maxLength = kind === 'note' ? NOTE_TITLE_MAX : TASK_TITLE_MAX;

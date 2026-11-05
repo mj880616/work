@@ -8,6 +8,7 @@
 // When the table or the function is not deployed yet, every read reports {missing:true} and the screen hides quietly.
 import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
 import {createGoogleTask} from './quick-save.js';
+import {newTaskDue} from './task-due.mjs';
 import {recordNoteTask, noteTaskEntry} from './basket-note-tasks.js';
 
 export const RADAR_KIND_LABEL = Object.freeze({request:'요청', my_task:'내 할 일', deadline:'마감', prepare:'준비', attend:'참석'});
@@ -271,7 +272,7 @@ export async function candidateToTask(candidate, draft, {rt = window.KPTURuntime
 }
 
 // JOURNAL-챙길것화면 ③: [✓ 바로 할 일로] takes the AI's suggested due when there is one, else today.
-export const quickDue = (candidate, today) => candidate?.due && DAY.test(String(candidate.due)) ? candidate.due : today;
+export const quickDue = (candidate, today) => newTaskDue(candidate?.due, today); // S50-36: 기본값 규칙 한 곳(task-due.mjs)
 // '10.23' from a date-only value or a Google due ('2026-10-23T00:00:00.000Z'); '' when it is not a date.
 export function dotDay(value) {
   const m = String(value ?? '').match(/^\d{4}-(\d{2})-(\d{2})/);
