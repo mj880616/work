@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {SOURCES, SHELVES, PHONE_TABS, SYNC_EVERY_MS, MOVE_ACROSS_MAX_BYTES, MOVE_SAME_MAX, kindOf, previewKind, sizeText, dayText, recentGroups,
-  syncText, sortRows, applyChanges, touchesCounts, moveCheck, trailNames, trailIds, pathText, treeRows, folderKey, placeOf, whereOf, tabAt,
+  syncText, syncLabel, applySyncReply, syncSettled, sortRows, applyChanges, touchesCounts, moveCheck, trailNames, trailIds, pathText, treeRows, folderKey, placeOf, whereOf, tabAt,
   cleanQuery, findSummary, errorText, failReason, OD_PDF_EXT, GD_EXPORT_MIME} from '../app/files-model.mjs';
 import {ITEMS, defaultLayout} from '../app/menu-model.mjs';
 // FILES-클라우드탐색기 ④ 화면 모델(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02). 이름은 모두 가짜.
@@ -403,4 +403,29 @@ test('stars: want/label and apply', async () => {
   const next = m.applyStars(rows, 'od', ['A'], true);
   assert.deepEqual(next.map(r => r.starred), [true, false]);
   assert.equal(m.applyStars(next, 'od', ['A'], true), next, 'no change keeps the same array');
+});
+
+test('S50-14: 처음 목록 받기가 안 끝났거나 실패하면 \'방금 맞춤\'을 띄우지 않는다', () => {
+  const now = Date.parse('2026-11-05T03:00:00Z'), recent = now - 5000;
+  const st = {od: {connected: true, scanning: false, error: null}, gd: {connected: true, scanning: false, error: null}};
+  assert.equal(syncLabel(st, recent, now).text, '방금 맞춤');
+  assert.equal(syncLabel({...st, od: {...st.od, scanning: true}}, recent, now).text, '맞추기…');
+  assert.equal(syncLabel({...st, gd: {...st.gd, error: 'GD_STORE_UNAVAILABLE'}}, recent, now).text, '맞추기 안 됨');
+  // 연결 안 된 출처의 옛 오류는 보지 않는다.
+  assert.equal(syncLabel({...st, gd: {connected: false, error: 'x'}}, recent, now).text, '방금 맞춤');
+  assert.equal(syncLabel(null, NaN, now).text, '맞추기');
+  // 응답을 상태에 입힘: 이어 받기 남음 → 받는 중, 끝·이미 맞음 → 끝, 실패 → 오류. busy는 그대로.
+  let s2 = applySyncReply(st, {od: {more: true, done: false}, gd: {error: 'store_unavailable', more: false, done: false}});
+  assert.equal(s2.od.scanning, true); assert.equal(s2.gd.error, 'store_unavailable');
+  s2 = applySyncReply(s2, {od: {more: false, done: true}, gd: {fresh: true}});
+  assert.equal(s2.od.scanning, false); assert.equal(s2.gd.error, null);
+  assert.deepEqual(applySyncReply(s2, {od: {busy: true}}).od, s2.od);
+  assert.equal(syncSettled({od: {more: true}, gd: {fresh: true}}), false);
+  assert.equal(syncSettled({od: {done: true}, gd: {error: 'x'}}), false);
+  assert.equal(syncSettled({od: {busy: true}}), false);
+  assert.equal(syncSettled({od: {done: true, more: false}, gd: {fresh: true}}), true);
+  // 화면은 응답마다 상태를 입히고, 다 끝났을 때만 맞춘 때를 옮긴다(실패해도 '방금 맞춤'이던 옛 코드 금지).
+  const src = read('app/files.js');
+  assert.match(src, /state\.status = applySyncReply\(state\.status, d, SOURCES\);\n\s*if \(syncSettled\(d, SOURCES\)\) state\.syncedAt = Date\.now\(\);/);
+  assert.doesNotMatch(src, /\n\s*state\.syncedAt = Date\.now\(\);\n\s*if \(SOURCES\.some/);
 });

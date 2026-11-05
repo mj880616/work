@@ -139,6 +139,29 @@ export function syncText(syncedAt, now = Date.now()) {
   return `${Math.floor(s / 86400)}일 전 맞춤`;
 }
 
+// S50-14: 맞추기 단추 글자. 처음 목록 받기가 아직 안 끝났거나(scanning) 실패했으면 '방금 맞춤'을 띄우지 않는다
+//   (예전에는 실패해도 '방금 맞춤'이 떠서 목록이 덜 찬 것을 알 수 없었다). 글줄 안 진행 표시는 '…' 한 글자(UI-로딩맨위).
+export function syncLabel(status, syncedAt, now = Date.now(), sources = ['od', 'gd']) {
+  const on = sources.map(s => status?.[s]).filter(x => x?.connected);
+  if (on.some(x => x.error)) return {text: '맞추기 안 됨', title: '목록을 다 받지 못했어요. 누르면 다시 맞춥니다', state: 'error'};
+  if (on.some(x => x.scanning)) return {text: '맞추기…', title: '처음 목록을 받는 중 — 끝날 때까지 일부 파일이 안 보일 수 있어요', state: 'scanning'};
+  return {text: syncText(syncedAt, now) || '맞추기', title: '지금 맞추기', state: 'ok'};
+}
+// sync 응답(출처마다 fresh·busy·more·done·error)을 화면이 들고 있는 상태(status 응답 모양)에 입힌다. 바꾼 새 객체를 돌려준다.
+export function applySyncReply(status, reply, sources = ['od', 'gd']) {
+  const out = {...(status || {})};
+  for (const s of sources) {
+    const r = reply?.[s], cur = out[s];
+    if (!r || !cur) continue;
+    if (r.error) out[s] = {...cur, error: String(r.error)};
+    else if (r.more) out[s] = {...cur, scanning: true, error: null};
+    else if (r.done || r.fresh) out[s] = {...cur, scanning: false, error: null};
+  }
+  return out;
+}
+// 모두 끝까지 맞췄을 때만 '맞춘 때'를 지금으로 옮긴다(이어 받을 쪽이 남았거나 실패한 출처가 있으면 그대로).
+export const syncSettled = (reply, sources = ['od', 'gd']) => sources.every(s => !reply?.[s] || (!reply[s].more && !reply[s].error && !reply[s].busy));
+
 // 정렬: 폴더 먼저, 그다음 고른 열. 같은 값이면 이름 → id(늘 같은 순서).
 export const SORTS = Object.freeze(['name', 'modified', 'size']);
 export const SORT_NAME = Object.freeze({name: '이름', modified: '바뀐 날', size: '크기'});

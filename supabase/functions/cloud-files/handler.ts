@@ -132,6 +132,31 @@ export function gdRow(ws: string, rootId: string, f: Record<string, unknown>, st
   };
 }
 
+// 색인 줄 묶음에서 같은 item_id는 마지막 것 하나만(순서는 마지막으로 나온 자리). 한 번의 upsert에 같은 키가 두 번 들어가지 않게.
+export function lastById<T extends Record<string, unknown>>(list: T[]): T[] {
+  const m = new Map<string, T>();
+  for (const r of list) {
+    const k = String(r.item_id);
+    m.delete(k);
+    m.set(k, r);
+  }
+  return [...m.values()];
+}
+// 원드라이브 delta 한 쪽: 같은 id는 마지막에 온 것 하나만(지움·되살림·이름 바꿈이 한 쪽에 섞여 와도 마지막 상태).
+export function lastDeltaItems(items: Record<string, unknown>[]): Record<string, unknown>[] {
+  const m = new Map<string, Record<string, unknown>>();
+  const odd: Record<string, unknown>[] = [];
+  for (const it of items) {
+    if (typeof it?.id !== "string") {
+      odd.push(it);
+      continue;
+    }
+    m.delete(it.id);
+    m.set(it.id, it);
+  }
+  return [...odd, ...m.values()];
+}
+
 // 열기 주소는 그 클라우드 보기 화면일 때만 돌려준다.
 export function safeOpenUrl(source: Source, v: unknown): string | null {
   if (typeof v !== "string") return null;
@@ -411,9 +436,12 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
 
   // ---- 색인 ----
   async function upsertRows(stage: string, list: Record<string, unknown>[]) {
-    for (let i = 0; i < list.length; i += UPSERT_CHUNK) {
+    // 한 번에 보내는 줄에 같은 id가 두 번 있으면 Postgres가 그 묶음 전체를 거절한다(ON CONFLICT … cannot affect row a second time).
+    // 그러면 그 쪽을 넘기지 못해 처음 훑기가 영원히 그 쪽에서 멈춘다(S50-14). 같은 id는 마지막 것 하나만 보낸다.
+    const rows = lastById(list);
+    for (let i = 0; i < rows.length; i += UPSERT_CHUNK) {
       await db(stage, "app_cloud_items?on_conflict=workspace_id,source,item_id",
-        { method: "POST", body: JSON.stringify(list.slice(i, i + UPSERT_CHUNK)) }, "resolution=merge-duplicates,return=minimal");
+        { method: "POST", body: JSON.stringify(rows.slice(i, i + UPSERT_CHUNK)) }, "resolution=merge-duplicates,return=minimal");
     }
   }
   // 지운 항목과 그 아래(폴더였다면)를 함께 뺀다. 폴더 아래는 40단계까지 따라간다.
@@ -498,10 +526,11 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
         throw e;
       }
       const stamp = at();
-      const items = Array.isArray(d.value) ? d.value as Record<string, unknown>[] : [];
+      // 원드라이브 delta는 같은 항목을 한 쪽 안에 여러 번 줄 수 있다(Graph 문서: 마지막 것을 쓴다). 지움 → 다시 생김도 마지막 상태만 본다.
+      const items = lastDeltaItems(Array.isArray(d.value) ? d.value as Record<string, unknown>[] : []);
       const list = items.map((it) => odRow(ws, root.id as string, it, stamp)).filter(Boolean) as Record<string, unknown>[];
       await upsertRows("od_upsert", list);
-      step.changed.push(...list);
+      step.changed.push(...lastById(list));
       const gone = items.filter((it) => it.deleted && validItemId(it.id)).map((it) => it.id as string);
       if (gone.length) step.removed.push(...await deleteTree(ws, "od", gone));
       const next = safeGraph(d["@odata.nextLink"]), delta = safeGraph(d["@odata.deltaLink"]);
@@ -560,7 +589,7 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
         const list = (Array.isArray(d.files) ? d.files as Record<string, unknown>[] : [])
           .map((f) => gdRow(ws, root.id as string, f, stamp)).filter(Boolean) as Record<string, unknown>[];
         await upsertRows("gd_upsert", list);
-        step.changed.push(...list);
+        step.changed.push(...lastById(list));
         if (typeof d.nextPageToken === "string" && d.nextPageToken && d.nextPageToken.length < 3990) {
           nextPage = "list:" + d.nextPageToken;
           await save(ws, "gd", { next_page: nextPage });
@@ -590,7 +619,15 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
         }
         throw e;
       }
-      const changes = Array.isArray(d.changes) ? d.changes as Record<string, unknown>[] : [];
+      // 같은 파일의 바뀜이 한 쪽에 두 번 오면 마지막 것만(위 원드라이브와 같은 규칙).
+      const byFile = new Map<string, Record<string, unknown>>();
+      for (const c of Array.isArray(d.changes) ? d.changes as Record<string, unknown>[] : []) {
+        const k = isGdId(c.fileId) ? c.fileId as string : isGdId((c.file as Record<string, unknown> | undefined)?.id) ? String((c.file as Record<string, unknown>).id) : "";
+        if (!k) continue;
+        byFile.delete(k);
+        byFile.set(k, c);
+      }
+      const changes = [...byFile.values()];
       const up: Record<string, unknown>[] = [], gone: string[] = [];
       for (const c of changes) {
         const row = c.removed === true || !c.file ? null : gdRow(ws, root.id as string, c.file as Record<string, unknown>, stamp);
@@ -1490,6 +1527,10 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
           if (page === FOLDER_MAX_PAGES - 1) truncated = true;
         }
       }
+      // 쪽을 넘기는 사이 같은 항목이 두 번 올 수 있다: 마지막 것 하나만(아래 upsert가 거절되지 않게).
+      const once = lastById(list);
+      list.length = 0;
+      list.push(...once);
       // 이미 색인에 같은 값으로 있는 줄은 되돌려 주지 않는다(바뀐 것·새로 찾은 것만 → 화면이 빈틈을 알아챔).
       const same = (r: Record<string, unknown>) =>
         [r.name, r.parent_id ?? "", r.trashed, r.modified_at ? Date.parse(String(r.modified_at)) : "", r.mime ?? "", r.size_bytes ?? "", r.hash ?? ""].join("|");

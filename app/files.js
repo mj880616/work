@@ -4,7 +4,7 @@ import {requestLibraryDocument} from './basket-library-send.js';
 import {slotBox, slotImg, slotFailed} from './img-slot.js';
 import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, PHONE_TABS, PHONE_TAB_NAME, SYNC_EVERY_MS, SHELF_LIMIT, FIND_LIMIT, FIND_WAIT_MS,
   TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_NAME, kindOf, kindLabel, kindIcon, previewKind, sizeText, folderCountText, isLockedItem, dayText, fullTime,
-  recentGroups, syncText, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
+  recentGroups, syncLabel, applySyncReply, syncSettled, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
   placeOf, whereOf, tabAt, cleanQuery, findSummary, errorText, failReason, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
   trashAsk, writeDoneText, writeErrorText, twinRows, TWIN_LIMIT, xferPlan, xferBig, sameNameRows, sameNameAsk, bigAsk, destTitle, destButton, destName,
   pushRecentDest, recentDestOf, xferLine, xferPercent, xferDoneText, XFER_BIG_HOW,
@@ -321,7 +321,9 @@ async function sync({force = false} = {}) {
   try {
     const d = await edge('sync', force ? {force: true} : {});
     if (state.scope !== scope) return;
-    state.syncedAt = Date.now();
+    // S50-14: 실패·이어 받기가 남은 출처가 있으면 '방금 맞춤'으로 덮지 않는다(단추 글자는 syncLabel).
+    state.status = applySyncReply(state.status, d, SOURCES);
+    if (syncSettled(d, SOURCES)) state.syncedAt = Date.now();
     if (SOURCES.some(s => d?.[s]?.more)) setTimeout(() => { if (state.scope === scope) sync(); }, 1500);
     const changed = Array.isArray(d?.changed) ? d.changed : [], removed = Array.isArray(d?.removed) ? d.removed : [];
     // 칸마다 같은 규칙으로 입힌다(한 칸 화면은 칸 0 하나).
@@ -423,7 +425,8 @@ function paintTop() {
   if (s) {
     const scanning = SOURCES.some(x => state.status?.[x]?.scanning);
     // UI-로딩자리전수: 맞추는 동안의 두 번째 글자('맞추는 중')는 없다. 목록 칸 맨 위 가는 줄(공용 부품) 하나로만 알린다.
-    s.textContent = syncText(state.syncedAt) || '맞추기';
+    const label = syncLabel(state.status, state.syncedAt, Date.now(), SOURCES);
+    s.textContent = label.text; s.title = label.title; s.dataset.fxSyncState = label.state;
     s.disabled = state.syncing;
     s.setAttribute('aria-busy', String(state.syncing || scanning));
     for (const q of panesOn()) {
