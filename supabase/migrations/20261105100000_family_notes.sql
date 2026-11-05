@@ -13,14 +13,14 @@ begin;
 --      family가 허용되지 않은 작업공간에는 어떤 역할로도 줄을 넣거나 고치지 못한다(통화·텔레그램 표 12개와 같은 방식).
 -- 안 하는 것: 기존 표·칸·정책·권한·함수 본문 변경(운영자 표의 검사 제약만 키 하나 더해 다시 만듦), 기존 줄 변경·삭제, anon·PUBLIC 권한, RLS 약화, rtw_* 객체,
 --   폰 알림 종류 추가(화면·알림 PR에서 따로), 옛 개인 방 하루 요약 표(20261025030000, 운영 미적용·적용 계획 없음).
--- 짝: docs/20261104233000_family_notes.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261105100000_family_notes.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 lock table public.app_operator_features in access exclusive mode;
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261104233000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261105100000')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261029090000' and name = 'operator_features') <> 1
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261103100000' and name = 'dev_inbox_feature') <> 1
      or to_regclass('public.app_family_notes') is not null
@@ -149,5 +149,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261104233000', 'family_notes', array['S50-3 FAMILY-잊지말기 DB: operator feature family added to app_operator_features_feature_check and seeded only for the single calls workspace; new table app_family_notes (one extracted line per item, no raw text column; owner select/update policies and restrictive op_feature_read for authenticated; authenticated select + update of status/decided_at/done_at/updated_at only; service_role column insert + eight-column select only); new SECURITY DEFINER trigger function private.app_family_feature_guard (empty search_path, nobody executes) blocking writes outside family workspaces; no anon/PUBLIC, no change to existing policies, grants, functions or rows']);
+values ('20261105100000', 'family_notes', array['S50-3 FAMILY-잊지말기 DB: operator feature family added to app_operator_features_feature_check and seeded only for the single calls workspace; new table app_family_notes (one extracted line per item, no raw text column; owner select/update policies and restrictive op_feature_read for authenticated; authenticated select + update of status/decided_at/done_at/updated_at only; service_role column insert + eight-column select only); new SECURITY DEFINER trigger function private.app_family_feature_guard (empty search_path, nobody executes) blocking writes outside family workspaces; no anon/PUBLIC, no change to existing policies, grants, functions or rows']);
 commit;

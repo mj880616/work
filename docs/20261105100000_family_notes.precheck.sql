@@ -3,7 +3,7 @@
 -- single calls workspace 예 / new table and guard absent 예 / family rows 0. recent migrations는 기록만.
 -- expect: recent migrations = 기록
 -- expect: family rows = 0
-select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261104233000') then '예' else '아니오' end as value
+select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261105100000') then '예' else '아니오' end as value
 union all select 'prerequisite migrations',case when exists(select 1 from supabase_migrations.schema_migrations where version='20261029090000' and name='operator_features')
   and exists(select 1 from supabase_migrations.schema_migrations where version='20261103100000' and name='dev_inbox_feature') then '예' else '아니오' end
 union all select 'feature helpers',case when to_regprocedure('private.app_workspace_has_feature(uuid,text)') is not null

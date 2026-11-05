@@ -1,7 +1,7 @@
 -- SELECT only. pg_catalog·migration 기록·허용 행 개수만 읽는다(새 표의 행 값은 읽지 않음). 적용 뒤 모두 예, 되돌린 뒤에도 모두 예(기록·표·허용 행·검사가 함께 원래대로).
 with o as (select to_regclass('public.app_operator_features') as r),
 t as (select to_regclass('public.app_family_notes') as r),
-history as (select count(*) filter(where name='family_notes') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261104233000'),
+history as (select count(*) filter(where name='family_notes') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261105100000'),
 feat as (select count(*) filter(where feature='family') as k,
   count(*) filter(where feature='family' and workspace_id in (select workspace_id from public.app_operator_features where feature='calls')) as same
   from public.app_operator_features),

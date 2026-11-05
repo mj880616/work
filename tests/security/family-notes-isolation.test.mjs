@@ -7,9 +7,9 @@ import {readdirSync,readFileSync,statSync} from 'node:fs';
 import {join,relative} from 'node:path';
 const root=new URL('../../',import.meta.url).pathname;
 const ALLOWED=new Set([
- 'supabase/migrations/20261104233000_family_notes.sql',
- 'docs/20261104233000_family_notes.precheck.sql','docs/20261104233000_family_notes.snapshot.sql',
- 'docs/20261104233000_family_notes.postcheck.sql','docs/20261104233000_family_notes.rollback.sql','docs/20261104233000_family_notes.summary.md',
+ 'supabase/migrations/20261105100000_family_notes.sql',
+ 'docs/20261105100000_family_notes.precheck.sql','docs/20261105100000_family_notes.snapshot.sql',
+ 'docs/20261105100000_family_notes.postcheck.sql','docs/20261105100000_family_notes.rollback.sql','docs/20261105100000_family_notes.summary.md',
  'docs/migration-history.md','docs/design/tg-personal.md',
  'tests/auth-handoff/family-notes-db.test.mjs','tests/security/family-notes-isolation.test.mjs',
 ]);

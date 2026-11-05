@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Google, OpenAI or production credentials. All data synthetic.
-// S50-3 FAMILY-잊지말기 DB(20261104233000): 가족 1명 '잊지 말기' 한 줄 표 app_family_notes + 운영자 기능 키 family.
+// S50-3 FAMILY-잊지말기 DB(20261105100000): 가족 1명 '잊지 말기' 한 줄 표 app_family_notes + 운영자 기능 키 family.
 // - 승인형 DB workflow 확장 규칙을 통과하고(dry-run은 아무것도 안 바꿈), apply 뒤 사후 확인이 모두 예.
 // - 원문 칸이 없다. 소유자만 읽고 상태 칸만 고친다. 서버(service_role)는 넣기와 여덟 칸 읽기만.
 // - 운영자 기능 family가 없는 작업공간에는 어떤 역할로도 줄이 생기지 않고(트리거), 허용이 빠지면 소유자도 못 읽는다(restrictive 정책).
@@ -17,7 +17,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,toDryRun,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261104233000',name='family_notes',stem=version+'_'+name;
+const version='20261105100000',name='family_notes',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
@@ -92,7 +92,7 @@ test('family notes: operator-only table, no raw text, owner decides, server inse
    assert.doesNotMatch(code,/\bto (anon|public)\b|disable row level security|alter policy|drop policy|rtw_|grant usage on schema|raw_text|transcript/i);
    assert.doesNotMatch(code,/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,'no fixed id in the migration');
    assert.doesNotMatch(snapshot,/from public\./i,'snapshot reads no app table');
-   assert.match(code,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s*values \('20261104233000', 'family_notes'/);
+   assert.match(code,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s*values \('20261105100000', 'family_notes'/);
    assert.match(rollbackSQL,/SQL Editor\(폰 경로 C\) 전용/);assert.match(rollbackSQL,/FAMILY_NOTES_ROLLBACK_BLOCKED: rows exist/);
   });
 

@@ -10,5 +10,5 @@ union all select 'table ACL',c.relname::text,c.relrowsecurity::text||':'||coales
   from pg_class c where c.oid=to_regclass('public.app_operator_features')
 union all select 'policy count',c.relname::text,(select count(*) from pg_policy p where p.polrelid=c.oid)::text
   from pg_class c where c.oid=to_regclass('public.app_operator_features')
-union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261104233000'
+union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261105100000'
 order by 1,2;
