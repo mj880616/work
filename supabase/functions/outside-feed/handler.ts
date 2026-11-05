@@ -433,12 +433,15 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
   //    (OUTSIDE-텔레그램미리보기제목 ③, 11/02). '제목 없음 · 원문 링크'로 남은 글은 텔레그램만 다시 본다(목록 글자만 쓰므로 새 요청 없음).
   const have = await db.get(`app_outside_posts?workspace_id=in.(${workspaces.join(",")})&url=in.${encodeURIComponent(quoteIn(items.map((i) => i.url)))}&select=id,workspace_id,url,title,summary_ko`);
   const has = new Set(have.map((r) => `${r.workspace_id} ${r.url}`));
-  const badOld = (t: unknown) => typeof t === "string" && (t === NO_TITLE ? source.mode === "telegram" : !usableTitle(t));
-  const refill = new Map<string, { id: string; summary: unknown }[]>();
+  //    정돈 전에 들어간 글(꼬리표·단체명·날짜 꼬리가 남은 제목, 100자 넘는 한 덩어리 제목)도 같은 정돈 함수로 다시 맞춘다
+  //    (OUTSIDE-노동묶음·정돈 '옛 글 다시 정돈', S50-26): 지금 제목을 정돈 함수에 넣어 달라지면 고칠 글이다. 고친 제목은 정돈 함수의 결과라 다음 실행에는 다시 걸리지 않는다.
+  const untidy = (t: string) => t !== NO_TITLE && tidyTitle(t, source.name, { split: source.lang === "ko" }).title !== t;
+  const badOld = (t: unknown) => typeof t === "string" && (t === NO_TITLE ? source.mode === "telegram" : !usableTitle(t) || untidy(t));
+  const refill = new Map<string, { id: string; title: string; summary: unknown }[]>();
   for (const r of have) {
     if (typeof r.id !== "string" || !badOld(r.title)) continue;
     const k = String(r.url);
-    refill.set(k, [...(refill.get(k) ?? []), { id: r.id, summary: r.summary_ko }]);
+    refill.set(k, [...(refill.get(k) ?? []), { id: r.id, title: String(r.title), summary: r.summary_ko }]);
   }
   const todo = items.map((it) => ({ it, ws: workspaces.filter((w) => !has.has(`${w} ${it.url}`)), again: refill.get(it.url) ?? [] }))
     .filter((x) => x.ws.length || x.again.length);
@@ -488,7 +491,9 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
       const fresh = needSummary && body && source.lang === "ko" ? tidySummary(readKoSummary(await askAi(ai, "outside_ko_summary", KO_SUMMARY_INSTRUCTIONS,
         `단체: ${source.name}\n제목: ${title}${subtitle ? `\n부제: ${subtitle}` : ""}\n\n본문:\n${cut(body, AI_MATERIAL_CHARS)}`, KO_SUMMARY_SCHEMA, 300))) : null;
       for (const a of again) {
-        await db.send("PATCH", `app_outside_posts?id=eq.${a.id}`, a.summary == null && fresh ? { title, summary_ko: fresh } : { title });
+        const patch = a.summary == null && fresh ? { title, summary_ko: fresh } : a.title !== title ? { title } : null;
+        if (!patch) continue; // 다시 맞춰도 같은 제목이면 고치지 않는다(헛 쓰기·헛 건수 없음)
+        await db.send("PATCH", `app_outside_posts?id=eq.${a.id}`, patch);
         out.refilled++;
       }
     }

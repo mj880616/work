@@ -1044,3 +1044,27 @@ test('S50-1 날짜 모름 글 다시 읽기: 목록에 없는 옛 글은 글 쪽
   assert.equal(by(NODATE).published_at,null,'못 찾으면 날짜 모름 그대로(읽은 시각을 쓰지 않음)');
   assert.equal(by('https://other.test/x').published_at,null,'다른 단체 글은 건드리지 않음');
 });
+
+test('S50-26 옛 글 다시 정돈: 정돈 전에 들어간 제목(꼬리표·한 덩어리)은 다음 수집 때 같은 정돈 함수로 제목만 다시 맞춘다 — 이미 정돈된 글은 그대로(헛 쓰기 없음)', async () => {
+  const s=sourceByKey('laborparty');
+  const sites={[s.lists[0]]:FX('laborparty-list-2026-11.html'),
+    'https://laborparty.kr/?mod=document&page_id=13642&uid=6002':FX('laborparty-article.html').replace(/지역 공공의료를 지켜라/g,'노동시간 개악을 멈춰라').replace('[성명]','[논평]'),
+    'https://laborparty.kr/?mod=document&page_id=13642&uid=6001':FX('laborparty-article.html')};
+  const old='c5000000-0000-4000-8000-000000000001',tidy='c5000000-0000-4000-8000-000000000002';
+  const posts=[
+    {id:old,workspace_id:WS,source_key:'laborparty',kind:'statement',lang:'ko',title:'[성명] 가상 지역 공공의료를 지켜라 - 가상 병원 폐업 결정을 철회하라 - 가상 시민의 건강권은 시장에 맡길 수 없다. 가상 본문 앞부분이 길게 이어진다',
+     url:'https://laborparty.kr/?mod=document&page_id=13642&uid=6001',summary_ko:'합성 요약.',has_body:true,published_at:'2026-10-26T15:00:00.000Z',fetched_at:'2026-11-01T01:00:00Z'},
+    {id:tidy,workspace_id:WS,source_key:'laborparty',kind:'comment',lang:'ko',title:'가상 노동시간 개악을 멈춰라',
+     url:'https://laborparty.kr/?mod=document&page_id=13642&uid=6002',summary_ko:'합성 요약.',has_body:true,published_at:'2026-10-30T15:00:00.000Z',fetched_at:'2026-11-02T01:00:00Z'}];
+  const h=harness({sources:[{workspace_id:WS,source_key:'laborparty'}],posts,sites});
+  const out=await (await h.cron('run',{source:'laborparty'})).json();
+  assert.equal(out.status,'ok');assert.equal(out.inserted,0,'새 행 없음');assert.equal(out.refilled,1,'정돈 전 제목 1건만');
+  const row=h.db.app_outside_posts.find(p=>p.id===old);
+  assert.equal(row.title,'가상 지역 공공의료를 지켜라','글 쪽 제목으로 한 줄');assert.equal(row.summary_ko,'합성 요약.','요약은 있으면 그대로');
+  assert.equal(h.db.app_outside_posts.find(p=>p.id===tidy).title,'가상 노동시간 개악을 멈춰라');
+  assert.equal(h.calls.ai.length,0,'요약이 있으면 AI를 부르지 않는다');
+  assert.equal(h.db.app_outside_posts.length,2);
+  // 다음 실행: 이미 정돈된 제목이라 다시 고치지 않는다.
+  const again=await (await h.cron('run',{source:'laborparty'})).json();
+  assert.equal(again.refilled,0);assert.equal(again.fresh,0);
+});
