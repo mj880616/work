@@ -61,6 +61,17 @@ test('helper: B의 토큰은 B 연결로만 받고, A 연결·id=1 갱신 열쇠
   assert.doesNotMatch(bodies[0], new RegExp(A_REFRESH));
 });
 
+test('helper: 진짜 supabase-js처럼 rest 속성(객체)이 있는 관리자 클라이언트도 from으로 읽는다(11/05 drive_token_failed 회귀)', async () => {
+  const { workspaceDriveToken, workspaceDriveConnected, callerOwnerWorkspace } = await import('../../supabase/functions/_shared/workspace-drive-token.ts');
+  const calls = [];
+  const a = admin({ connections: { [WS_B]: B_REFRESH }, members: [{ user_id: 'user-b', workspace_id: WS_B, role: 'owner' }] });
+  a.rest = { from() { throw new Error('PostgrestClient는 함수가 아님'); } };
+  assert.equal(await workspaceDriveToken(a, WS_B, { fetch: googleFetch(calls), log: () => {} }), 'synthetic-access');
+  assert.equal(await workspaceDriveConnected(a, WS_B), true);
+  assert.equal(await callerOwnerWorkspace(a, 'user-b'), WS_B);
+  assert.match(tokenBodies(calls)[0], new RegExp('refresh_token=' + B_REFRESH));
+});
+
 test('helper: B 연결이 없으면 424 drive_not_connected, 토큰 교환 없음(A 연결로 넘어가지 않음)', async () => {
   const { workspaceDriveToken, WorkspaceDriveError } = await import('../../supabase/functions/_shared/workspace-drive-token.ts');
   const calls = [];

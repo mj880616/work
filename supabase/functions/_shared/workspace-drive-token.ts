@@ -9,8 +9,15 @@
 // deno-lint-ignore no-explicit-any
 type Admin = { from: (table: string) => any } | { rest: (path: string) => Promise<unknown> };
 
+// supabase-js 클라이언트에도 `rest` 속성(PostgrestClient 객체)이 있다. 그래서 `"rest" in admin`으로 고르면
+// 관리자 클라이언트를 REST 읽기 함수로 잘못 보고 admin.rest(...)를 부르다 예외가 난다(11/05 drive_token_failed).
+// REST 읽기 함수는 rest가 '함수'일 때만으로 가른다.
+function isRestReader(admin: Admin): admin is { rest: (path: string) => Promise<unknown> } {
+  return typeof (admin as { rest?: unknown }).rest === "function";
+}
+
 async function readOne(admin: Admin, table: string, select: string, column: string, value: string | number) {
-  if ("rest" in admin) {
+  if (isRestReader(admin)) {
     const rows = await admin.rest(`${table}?${column}=eq.${encodeURIComponent(String(value))}&select=${select}&limit=1`);
     return { data: Array.isArray(rows) ? rows[0] ?? null : null, error: null };
   }
@@ -46,7 +53,7 @@ export async function workspaceDriveConnected(admin: Admin, workspaceId: unknown
 export async function callerOwnerWorkspace(admin: Admin, userId: unknown): Promise<string | null> {
   if (!isWorkspaceId(userId)) return null;
   let rows: unknown;
-  if ("rest" in admin) {
+  if (isRestReader(admin)) {
     rows = await admin.rest(`app_workspace_members?user_id=eq.${encodeURIComponent(userId)}&role=eq.owner&select=workspace_id,role&limit=2`);
   } else {
     const r = await admin.from("app_workspace_members").select("workspace_id,role").eq("user_id", userId).eq("role", "owner").limit(2);
