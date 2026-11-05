@@ -31,6 +31,10 @@ var CALL_FEED_URL = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/colle
 var CALL_FEED_SECRET_KEY = 'COLLECTOR_FEED_SECRET';
 var CALL_FEED_SECRET_HEADER = 'x-collector-feed-secret';
 var CALL_FEED_LIST_KEY = 'CALL_FEED_PERSONAL_LIST';   // 개인 번호·연락처 이름 목록(쉼표 또는 줄바꿈으로 구분)
+// FAMILY-잊지말기(설계 docs/design/tg-personal.md 2절): 가족 1명의 번호·연락처 이름(번호 하나·이름 하나까지, 쉼표 구분). 값은 저장소·로그에 쓰지 않는다.
+// 맞는 통화는 개인으로 고정해 보내고 몸통에 family: true를 더한다(서버가 개인 통화함에만 저장하고 '잊지 말기' 한 줄을 뽑는다).
+// 번호가 둘 이상이거나 이름이 둘 이상이면(한 사람이 아닐 수 있음) family 표시를 보내지 않고, 맞는 통화는 개인으로만 보낸다.
+var CALL_FEED_FAMILY_LIST_KEY = 'CALL_FEED_FAMILY_LIST';
 var CALL_FEED_TEST_KEY = 'CALL_FEED_TEST_MODE';       // 없거나 '켬'이면 시험 모드. '끔'일 때만 실제로 보낸다
 var CALL_FEED_STATE_KEY = 'CALL_FEED_STATE';          // 어디까지 보냈는지(JSON)
 var CALL_FEED_RESEND_KEY = 'CALL_FEED_RESEND_STATE';  // 개인 통화 다시 보내기(1회용)의 진행 위치. CALL_FEED_STATE와 따로 둔다
@@ -96,6 +100,7 @@ function callFeed_check() {
     '분석 폴더: ' + folders.analysis.length + '개 찾음(' + CALL_FEED_ANALYSIS_FOLDERS.join('·') + ')',
     '비밀값: ' + (secretLength >= 32 ? '있음' : '없음 또는 너무 짧음 — 안내 2단계'),
     '개인 목록: 번호 ' + list.numbers.length + '개, 이름 ' + list.names.length + '개',
+    '가족 1명(잊지 말기): ' + callFeedFamilyText(callFeedFamilyList(props.getProperty(CALL_FEED_FAMILY_LIST_KEY) || '')),
     '시험 모드: ' + (callFeed_testMode_() ? '켬(보내지 않음)' : '끔(실제로 보냄)'),
     '시작 시각: ' + (callFeed_loadState_().since || '없음 — callFeed_setup을 먼저 실행'),
     '자동 실행 트리거: ' + feedTriggerSummary_(['callFeed_run'], '1시간 트리거(callFeed_run)가 없습니다 — callFeed_installHourlyTrigger를 실행하세요'),
@@ -160,6 +165,7 @@ function callFeed_resendPersonal() {
   var secret = props.getProperty(CALL_FEED_SECRET_KEY) || '';
   if (!test && secret.length < 32) throw new Error('스크립트 속성에 ' + CALL_FEED_SECRET_KEY + '가 없습니다. 안내 2단계를 먼저 하세요.');
   var list = callFeedParseList(props.getProperty(CALL_FEED_LIST_KEY) || '');
+  var family = callFeedFamilyList(props.getProperty(CALL_FEED_FAMILY_LIST_KEY) || '');
   var folders = callFeed_folders_();
   var nowMs = Date.now();
   var recentStart = callFeedRecentStartMs(nowMs);
@@ -176,7 +182,8 @@ function callFeed_resendPersonal() {
     var analysis = callFeed_findAnalysis_(folders.analysis, file.getName(), id);
     if (!analysis) { tally.noAnalysis++; cursor = created; continue; }
     var analysisMd = analysis.getBlob().getDataAsString('UTF-8');
-    var isList = callFeedIsPersonal(info.contact, list);
+    // 가족 1명 번호 통화도 개인으로 고정한다(다시 보내기에는 family 표시를 붙이지 않음: 지난 통화로 잊지 말기를 뽑지 않는다).
+    var isList = callFeedIsPersonal(info.contact, list) || callFeedIsPersonal(info.contact, family.list);
     var want = callFeedResendWanted(analysisMd, isList);
     if (!want) { tally.notWanted++; cursor = created; continue; }
     tally.wanted++;
@@ -247,9 +254,10 @@ function callFeed_runCore_() {
   var state = callFeed_loadState_();
   if (!state.since) throw new Error('시작 시각이 없습니다. callFeed_setup을 먼저 한 번 실행하세요.');
   var list = callFeedParseList(props.getProperty(CALL_FEED_LIST_KEY) || '');
+  var family = callFeedFamilyList(props.getProperty(CALL_FEED_FAMILY_LIST_KEY) || '');
   var folders = callFeed_folders_();
   var nowMs = Date.now();
-  var tally = { noClass: 0, personalList: 0, boxed: 0, sent: 0, work: 0, personal: 0, unsure: 0, failed: 0, duplicate: 0, waiting: 0, skipped: 0, retry: 0 };
+  var tally = { family: 0, noClass: 0, personalList: 0, boxed: 0, sent: 0, work: 0, personal: 0, unsure: 0, failed: 0, duplicate: 0, waiting: 0, skipped: 0, retry: 0 };
   var skipDays = test ? {} : state.skips;   // 시험 모드에서는 상태를 바꾸지 않는다
   var pending = test ? callFeedPendingClean(state.pending) : state.pending;   // 분석을 기다리는 통화 목록(시험 모드에서는 저장하지 않는다)
   var cursor = Date.parse(state.since);
@@ -275,7 +283,10 @@ function callFeed_runCore_() {
     if (callFeedTooOld(day, nowMs)) { tally.old = (tally.old || 0) + 1; return 'done'; }
 
     // 1단계: 개인 번호·연락처 목록에 든 통화는 내용까지 보내되 개인으로 고정한다(분석이 업무라고 해도 개인 통화함으로 간다)
-    var isList = callFeedIsPersonal(info.contact, list);
+    // FAMILY-잊지말기: 가족 1명 번호 통화도 개인으로 고정한다. 목록이 한 사람 모양일 때만 family 표시를 붙인다.
+    var familyHit = callFeedIsPersonal(info.contact, family.list);
+    var isFamily = familyHit && family.ok;
+    var isList = callFeedIsPersonal(info.contact, list) || familyHit;
 
     var analysis = callFeed_findAnalysis_(folders.analysis, name, id);
     var decision = callFeedPendingDecision({ created: created }, nowMs, !!analysis);
@@ -294,6 +305,7 @@ function callFeed_runCore_() {
     var transcript = file.getBlob().getDataAsString('UTF-8');
     var body = callFeedBuildCallBody({ ref: id, analysisMd: analysisMd, transcript: transcript, driveUrl: file.getUrl(), contact: info.contact, recordedAt: info.datetime, forcePersonal: isList });
     if (!body) { tally.skipped++; return 'done'; }   // 분석 파일이 너무 큼
+    if (isFamily) { body.family = true; tally.family++; }
 
     if (test) {
       var cls = isList && callFeedClass(analysisMd) !== '실패' ? '개인' : callFeedClass(analysisMd);
@@ -420,7 +432,7 @@ function callFeed_runCore_() {
 
   Logger.log([
     (test ? '[시험 모드 — 보내지 않음] ' : '') + '전사 ' + (files.length + seenNow) + '건 확인' + (backfill ? '(설치 전 일주일 구간 보충 중)' : '') + (pendingChecked ? ' · 대기 목록 ' + pendingChecked + '건 다시 봄' : ''),
-    '개인 번호 목록 통화: ' + tally.personalList + '(내용까지 개인 통화함으로)',
+    '개인 번호 목록 통화: ' + tally.personalList + '(내용까지 개인 통화함으로)' + (tally.family ? ' · 그중 가족 1명(잊지 말기): ' + tally.family : '') + (family.bad ? ' · 가족 목록이 한 사람 모양이 아니라 잊지 말기로 보내지 않음' : ''),
     (test ? '보낼 것: ' : '보냄: ') + tally.sent + ' (업무 ' + tally.work + ' · 개인 ' + tally.personal + ' · 애매 ' + tally.unsure +
       (test ? ' · 구분 없음(옛 분석·비어 있음) ' + tally.noClass + ' · 분석 실패 ' + tally.failed : ' · 개인 통화함에 저장 ' + tally.boxed + ' · 판정 실패 ' + tally.failed + ' · 이미 있음 ' + tally.duplicate) + ')',
     '분석 대기: ' + tally.waiting + (tally.waiting ? '건(건너뛰고 계속)' : '') + ' · 대기 목록: ' + pending.length + '건 · 넘김: ' + tally.skipped + (tally.old ? ' · 일주일 넘은 옛 녹음 넘김: ' + tally.old : '') + (tally.retry ? ' · 다시 보낼 것: ' + tally.retry : ''),
@@ -568,6 +580,24 @@ function callFeedIsPersonal(contact, list) {
   var n = callFeedNormalizeNumber(contact);
   if (n) return list.numbers.indexOf(n) >= 0;
   return list.names.indexOf(callFeedNormalizeName(contact)) >= 0;
+}
+
+/**
+ * 가족 1명 번호·연락처 목록(CALL_FEED_FAMILY_LIST). 번호 하나·이름 하나까지만 한 사람으로 본다(ok).
+ * 그보다 많으면 bad: 맞는 통화는 개인으로만 보내고 family 표시는 붙이지 않는다. 비었으면 둘 다 false(지금과 같음).
+ */
+function callFeedFamilyList(text) {
+  var list = callFeedParseList(text);
+  var count = list.numbers.length + list.names.length;
+  var bad = list.numbers.length > 1 || list.names.length > 1;
+  return { list: list, ok: count > 0 && !bad, bad: bad };
+}
+
+/** 점검 글(개수만, 값 없음). */
+function callFeedFamilyText(f) {
+  if (f.bad) return '한 사람 모양이 아님(번호 둘 이상 또는 이름 둘 이상) — 보내지 않음';
+  if (!f.ok) return '없음';
+  return '번호 ' + f.list.numbers.length + '개, 이름 ' + f.list.names.length + '개';
 }
 
 /** 기존 분석 스크립트의 파일 이름: '검토__' + (전사 이름에서 .txt 빼고 금지 글자 바꾼 앞 90자) + '__SRC_' + 전사 id + '.md'. */
@@ -835,6 +865,10 @@ var TG_FEED_RAW_FOLDER = '원문';
 var TG_FEED_MESSAGES_FOLDER = 'messages';
 var TG_FEED_ROOMS_KEY = 'TG_FEED_ROOMS';        // 허용 업무방 목록(방 이름, 방 폴더 이름 전체, 또는 맨 앞 방 번호. 쉼표·줄바꿈으로 구분)
 var TG_FEED_ROOMS_EXCLUDE_KEY = 'TG_FEED_ROOMS_EXCLUDE'; // TG_FEED_ROOMS가 `*`(모든 방)일 때 뺄 방 목록(방 이름·폴더 이름·방 번호, 쉼표·줄바꿈 구분)
+// FAMILY-잊지말기: 가족 1명과의 1:1 방 하나(방 이름·방 폴더 이름 전체·맨 앞 방 번호 중 하나). 값은 저장소·로그에 쓰지 않는다.
+// 이 방은 업무 묶음(TG_FEED_ROOMS가 `*`이든 직접 적었든)에서 먼저 빠지고, 새 메시지는 ?action=family_tg로만 간다(방 이름은 보내지 않음).
+// 두 개 이상 적혀 있거나 맞는 방 폴더가 둘 이상이면 가족 방으로 아무것도 보내지 않는다(적힌 방은 모두 업무에서도 빠진 채로 둔다).
+var TG_FEED_FAMILY_ROOM_KEY = 'TG_FEED_FAMILY_ROOM';
 var TG_FEED_TEST_KEY = 'TG_FEED_TEST_MODE';     // 없거나 '켬'이면 시험 모드. '끔'일 때만 실제로 보낸다
 var TG_FEED_SENDER_KEY = 'TG_FEED_SENDER_KEY';  // 보낸 사람 번호를 해시로 바꿀 때 섞는 열쇠(tgFeed_initSenderKey가 만든다). 바꾸면 같은 사람이 새 사람으로 생기므로 한 번 정하면 바꾸지 않는다
 var TG_FEED_SENDERS_MAX = 40;                   // 서버가 받는 senders 최대 인원(handler.ts SENDERS_MAX)
@@ -926,7 +960,8 @@ function tgFeed_check() {
   var state = tgFeed_loadState_();
   Logger.log([
     '원문 폴더: 찾음',
-    '허용 방: 적은 것 ' + wanted.length + '개 중 ' + found.rooms.length + '개 찾음' + (found.missing.length ? ' — 못 찾은 것: ' + found.missing.join(' / ') : ''),
+    '허용 방: 적은 것 ' + wanted.length + '개 중 ' + found.rooms.filter(function (r) { return !r.family; }).length + '개 찾음' + (found.missing.length ? ' — 못 찾은 것: ' + found.missing.join(' / ') : ''),
+    '가족 방(잊지 말기): ' + tgFeedFamilyText(found.family),
     '비밀값: ' + (secretLength >= 32 ? '있음' : '없음 또는 너무 짧음 — 안내 2단계'),
     '시험 모드: ' + (tgFeed_testMode_() ? '켬(보내지 않음)' : '끔(실제로 보냄)'),
     '시작 날짜: ' + (state.startDay || '없음 — tgFeed_setup을 먼저 실행'),
@@ -989,6 +1024,8 @@ function tgFeed_backfillSenders() {
     var wanted = tgFeedParseRooms(props.getProperty(TG_FEED_ROOMS_KEY) || '');
     if (!wanted.length) throw new Error('허용 방 목록(' + TG_FEED_ROOMS_KEY + ')이 비어 있습니다.');
     var found = tgFeed_rooms_(wanted);
+    // 가족 방(잊지 말기)은 이름표를 보내지 않는다(이름·해시 열쇠가 서버로 가지 않게).
+    found.rooms = found.rooms.filter(function (r) { return !r.family; });
     var budgetN = Number(props.getProperty(TG_FEED_SENDERS_BACK_BUDGET_KEY));
     var run = {
       state: { fetch: bs.fetch }, test: test, started: started, today: today,
@@ -1150,12 +1187,14 @@ function tgFeed_runCore_(isContinue) {
     };
     // 방마다 보낼 날짜 계획. 읽는 순서는 "가장 오래된 못 보낸 날"이 앞선 방부터(날짜 우선) — 한 방이 오래 걸려도 다른 방이 굶지 않는다.
     var entries = found.rooms.map(function (room, i) {
-      var rs = tgFeedRoomState(state, room.key);
+      // 가족 방이 처음이면(앞서 보낸 기록 없음) 지난 날을 몰아 보내지 않고 오늘부터 보낸다(AI 비용·앞으로만).
+      var rs = room.family ? tgFeedFamilyRoomState(state, room.key, today) : tgFeedRoomState(state, room.key);
       return { room: room, n: i + 1, rs: rs, plan: tgFeedPlanDays(rs, state, today, true), first: !!state.pri && state.pri === room.key, blocked: false };
     });
 
     while (!run.stop) {
-      var e = tgFeedNextRoom(entries);
+      // 가족 방은 업무 방을 모두 본 뒤에 보낸다(한 달 AI 상한 근처에서 업무 소식이 먼저).
+      var e = tgFeedNextRoom(entries.filter(function (x) { return !x.room.family; })) || tgFeedNextRoom(entries.filter(function (x) { return x.room.family; }));
       if (!e) break;
       if (Date.now() - started > TG_FEED_TIME_LIMIT_MS) { run.stop = '시간 제한'; run.resumable = true; break; }
       if (!test && run.tally.parts >= TG_FEED_MAX_PARTS_PER_RUN) { run.stop = '한 번에 보낼 묶음 상한(' + TG_FEED_MAX_PARTS_PER_RUN + '개) 도달'; run.resumable = true; break; }
@@ -1202,6 +1241,7 @@ function tgFeed_runCore_(isContinue) {
       '메시지: 글 있는 것 ' + tally.messages + '개 · 글 없는 것(첨부만 있음) ' + tally.noText + '개',
       (test ? '보낼 묶음: ' : '보낸 묶음: ') + tally.parts + (test ? '' : ' (소식 ' + tally.kept + '개 저장 · 이미 있음 ' + tally.duplicate + ' · 넘김 ' + tally.skipped + ' · 3번 실패 ' + tally.failed + (tally.retry ? ' · 다시 보낼 것 ' + tally.retry : '') + ')'),
       found.missing.length ? '못 찾은 허용 방: ' + found.missing.join(' / ') : '허용 방 모두 찾음',
+      '가족 방(잊지 말기): ' + tgFeedFamilyText(found.family),
       stop ? '멈춘 이유: ' + stop : '끝까지 봄',
     ].join('\n'));
     return { source: 'telegram_send', lastAt: rep.lastAt, state: rep.state };
@@ -1224,8 +1264,10 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
   tally.messages += fresh.messages.length;
   tally.noText += fresh.total - fresh.messages.length;
   var parts = tgFeedSplit(fresh.messages);
-  var senders = test ? [] : tgFeedSendersFor(tgFeed_buildSenders_(grouped.messages), fresh.messages);   // 시험 모드는 보내지 않으므로 해시도 만들지 않는다
-  var chatKind = grouped.chatKind || (test ? null : tgFeed_roomJsonKind_(run, room));   // 메시지 json 값 우선, 없으면 room.json
+  var senders = test || room.family ? [] : tgFeedSendersFor(tgFeed_buildSenders_(grouped.messages), fresh.messages);   // 시험 모드는 보내지 않으므로 해시도 만들지 않는다
+  var chatKind = room.family ? null : grouped.chatKind || (test ? null : tgFeed_roomJsonKind_(run, room));   // 메시지 json 값 우선, 없으면 room.json(가족 방은 보내지 않음)
+  // 가족 방: 방 이름·이름표는 보내지 않고 내가 보낸 라벨만(self). 해시 열쇠도 만들지 않는다.
+  var selfLabels = room.family ? tgFeedSelfLabels(grouped.messages, fresh.messages) : [];
   if (test) { tally.parts += parts.length; Logger.log('[시험] ' + e.n + '번째 방 ' + day + (open ? '(오늘)' : '') + ': 새 메시지 ' + fresh.total + '개 중 글 있는 ' + fresh.messages.length + '개, 묶음 ' + parts.length + '개'); return; }
   var save = function (rs) { e.rs = rs; state.rooms[room.key] = rs; tgFeed_saveState_(state); };
   var after = function (p, count) { return tgFeedAfterSend(e.rs, day, isBack, open, p < count ? tgFeedMaxId(parts[p]) : fresh.maxId, p + 1 >= count ? fresh.maxId : ''); };
@@ -1235,7 +1277,8 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
     var akey = room.key + '|' + day + '|' + (p + 1);
     var attempt = (state.attempts[akey] || 0) + 1;
     var body = tgFeedBuildBody({ day: day, roomKey: room.key, roomLabel: room.label, total: p === 0 ? fresh.total : parts[p].length, part: p + 1, attempt: attempt, messages: parts[p], senders: senders, chatKind: chatKind, cont: cont || p > 0 });
-    var res = tgFeed_post_(body, secret);
+    if (room.family) body = tgFeedFamilyBody(body, selfLabels);
+    var res = room.family ? tgFeed_postAction_('family_tg', body, secret) : tgFeed_post_(body, secret);
     var verdict = tgFeedVerdict(res.code, res.json && res.json.error);
     if (verdict === 'ok') {
       var out = res.json || {};
@@ -1270,6 +1313,10 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
         run.stop = '서버·연결 실패(HTTP ' + res.code + (res.json && res.json.error ? ' ' + res.json.error : '') + ') — 10분 뒤 같은 묶음을 다시 보냄'; run.resumable = true; return;
       }
     }
+  }
+  if (room.family && !parts.length) {   // 가족 방은 글 없는 묶음을 서버에 알리지 않는다(뽑을 것이 없음). 끝난 날이거나 새 메시지가 있었으면 위치만 옮긴다
+    if (!open || fresh.total) save(after(0, 1));
+    return;
   }
   if (!parts.length && !fresh.total) {   // 새 메시지가 없으면 보낼 것이 없다. 끝난 날이면 끝낸 날로만 적는다(오늘이면 그대로)
     if (!open) save(after(0, 1));
@@ -1320,11 +1367,18 @@ function tgFeed_rooms_(wanted) {
   var raw = callFeed_onlyChild_(root, TG_FEED_RAW_FOLDER);
   if (!raw) throw new Error('수집 폴더 안에 "' + TG_FEED_RAW_FOLDER + '" 폴더가 없습니다. 폴더 칸을 확인하세요.');
   var exclude = tgFeedParseRooms(PropertiesService.getScriptProperties().getProperty(TG_FEED_ROOMS_EXCLUDE_KEY) || '');
-  var rooms = [], matched = {};
+  // FAMILY-잊지말기: 가족 방으로 적은 방은 업무에서 먼저 뺀다(빼기 우선). 적힌 것이 둘 이상이어도 모두 뺀다.
+  var family = tgFeedFamilyPick(PropertiesService.getScriptProperties().getProperty(TG_FEED_FAMILY_ROOM_KEY) || '');
+  exclude = exclude.concat(family.list);
+  var rooms = [], matched = {}, familyRooms = [];
   var it = raw.getFolders();
   while (it.hasNext()) {
     var f = it.next();
     var name = f.getName();
+    if (family.ok && tgFeedRoomMatch(name, family.list)) {
+      var finfo = tgFeedRoomInfo(name);
+      if (finfo) familyRooms.push({ key: finfo.key, label: '', folder: f, family: true });
+    }
     var hit = tgFeedRoomPick(name, wanted, exclude);
     if (!hit) continue;
     var info = tgFeedRoomInfo(name);
@@ -1335,7 +1389,9 @@ function tgFeed_rooms_(wanted) {
   rooms.sort(function (a, b) { return a.key < b.key ? -1 : a.key > b.key ? 1 : 0; });
   var missing = wanted.filter(function (w) { return w !== '*' && !matched[w]; });
   if (wanted.indexOf('*') >= 0) Logger.log('모든 방 모드: ' + rooms.length + '개 방 (뺀 방 목록 ' + exclude.length + '개)');
-  return { rooms: rooms, missing: missing };
+  var famState = tgFeedFamilyState(family, familyRooms, rooms);
+  if (famState === 'ok') rooms.push(familyRooms[0]);
+  return { rooms: rooms, missing: missing, family: famState };
 }
 
 /** 하루 URL 호출 상한(스크립트 속성 TG_FEED_FETCH_BUDGET, 없으면 기본). 목록 쪽과 파일 읽기를 모두 센다. */
@@ -1605,6 +1661,58 @@ function tgFeedRoomPick(folderName, wanted, exclude) {
   if (exclude && exclude.length && tgFeedRoomMatch(folderName, exclude)) return '';
   if (wanted.indexOf('*') >= 0) return '*';
   return tgFeedRoomMatch(folderName, wanted);
+}
+
+/** 가족 방 지정(TG_FEED_FAMILY_ROOM). 한 줄이면 ok, 둘 이상이면 bad(보내지 않음). list는 업무에서 뺄 목록으로 늘 돌려준다. */
+function tgFeedFamilyPick(text) {
+  var list = tgFeedParseRooms(text).filter(function (w) { return w !== '*'; });
+  return { list: list, ok: list.length === 1, bad: list.length > 1 };
+}
+
+/** 가족 방을 보낼지: 정확히 한 방 폴더를 찾았고 업무 방과 방 번호가 겹치지 않을 때만 'ok'. */
+function tgFeedFamilyState(family, familyRooms, workRooms) {
+  if (family.bad) return 'many';
+  if (!family.ok) return 'none';
+  if (familyRooms.length > 1) return 'many_folders';
+  if (!familyRooms.length) return 'missing';
+  if ((workRooms || []).some(function (r) { return r.key === familyRooms[0].key; })) return 'overlap';
+  return 'ok';
+}
+
+/** 점검·실행 기록용 가족 방 상태 글(값 없음). */
+function tgFeedFamilyText(state) {
+  return ({
+    ok: '찾음(업무 소식에서 빠지고 잊지 말기로만 감)', none: '없음', many: '두 개 이상 적힘 — 가족 방은 하나만(아무것도 보내지 않음)',
+    many_folders: '맞는 방 폴더가 둘 이상 — 방 번호로 적어 주세요(보내지 않음)', missing: '적었지만 방 폴더를 못 찾음', overlap: '업무 방과 겹침(보내지 않음)',
+  })[state] || '없음';
+}
+
+/** 가족 방 상태: 앞서 보낸 기록이 있으면 그대로(업무로 보내던 방이면 거기서 이어감), 없으면 어제를 끝낸 날로 두어 오늘부터 보낸다(보충 구간 없음). */
+function tgFeedFamilyRoomState(state, key, today) {
+  if (state.rooms && state.rooms[key]) return tgFeedRoomState(state, key);
+  var rs = tgFeedRoomState(state, key);
+  rs.doneDay = tgFeedAddDays(today, -1);
+  rs.backDay = '';
+  return rs;
+}
+
+/** 내가 보낸 라벨(그날 전체로 정한 A·B…). 이번에 보내는 메시지에 있는 라벨만. 이름·번호·해시는 쓰지 않는다. */
+function tgFeedSelfLabels(allMessages, sending) {
+  var used = {};
+  (sending || []).forEach(function (m) { used[m.sender] = true; });
+  return tgFeedBuildSenders(allMessages || [], function () { return ''; })
+    .filter(function (s) { return s.self === true && used[s.label]; })
+    .map(function (s) { return s.label; });
+}
+
+/** 가족 방 몸통(?action=family_tg): 업무 몸통에서 방 이름·이름표·방 종류를 빼고 self만 더한다. */
+function tgFeedFamilyBody(body, selfLabels) {
+  var out = { day: body.day, room_key: body.room_key, total: body.total, messages: body.messages };
+  if (body.part) out.part = body.part;
+  if (body.attempt) out.attempt = body.attempt;
+  if (body.cont) out.cont = true;
+  if (selfLabels && selfLabels.length) out.self = selfLabels.slice(0, 10);
+  return out;
 }
 
 /** 방 폴더 이름 `<방 번호>_<표시 이름>` → 서버 room_key(방 번호)와 room_label(표시 이름, 100자까지). 번호를 못 읽으면 null. */
@@ -2540,5 +2648,7 @@ if (typeof module !== 'undefined' && module.exports) {
     tgScrapParseRooms: tgScrapParseRooms, tgScrapLookDays: tgScrapLookDays, tgScrapDays: tgScrapDays, tgScrapLines: tgScrapLines, tgScrapPlan: tgScrapPlan,
     tgScrapStateClean: tgScrapStateClean, tgScrapLastRunText: tgScrapLastRunText,
     tgFeedCompactRoom: tgFeedCompactRoom, tgFeedCompactState: tgFeedCompactState, tgFeedRemaining: tgFeedRemaining, tgFeedRemainingText: tgFeedRemainingText,
+    callFeedFamilyList: callFeedFamilyList, callFeedFamilyText: callFeedFamilyText, tgFeedFamilyPick: tgFeedFamilyPick, tgFeedFamilyState: tgFeedFamilyState,
+    tgFeedFamilyText: tgFeedFamilyText, tgFeedFamilyRoomState: tgFeedFamilyRoomState, tgFeedSelfLabels: tgFeedSelfLabels, tgFeedFamilyBody: tgFeedFamilyBody,
   };
 }
