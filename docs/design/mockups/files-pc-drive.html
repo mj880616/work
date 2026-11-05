@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>내 PC 보기 시안</title>
+<style>
+/* 색·글꼴: app/base-ui.css·theme-tokens.css 토큰 그대로 */
+:root{
+  --kptu-bg:#f5f6f7;--kptu-surface:#fff;--kptu-surface-subtle:#fafbfc;--kptu-ink:#1f2933;--kptu-muted:#66727f;--kptu-faint:#8a949e;
+  --kptu-border:#dfe4e8;--kptu-border-strong:#cfd6dc;--kptu-primary:#263f5f;--kptu-primary-soft:#eef2f6;--kptu-link:#355f86;
+  --kptu-success:#2f6b4f;--kptu-success-soft:#eef6f1;--kptu-warning:#8a6218;--kptu-warning-soft:#faf4e7;--kptu-danger:#9a4048;--kptu-danger-soft:#faeeee;
+  --kptu-info:#496b8c;--kptu-info-soft:#eef4f8;--kptu-radius-sm:6px;--kptu-radius-md:8px;--kptu-shadow-float:0 8px 24px rgba(20,33,48,.08);
+  --ds-text-row:13px;--ds-text-meta:12px;--ds-text-title:18px;--ds-compact-height:32px;--ds-compact-height-sm:28px;
+  --c-od:#2f6fb0;--c-gd:#2f8a57;--c-ph:#8a6218;--c-pc:#5d6f80;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#e9ecef;color:var(--kptu-ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;font-size:13px}
+.page-head{padding:16px 20px 4px}
+.page-head h1{font-size:18px;margin:0 0 4px}
+.page-head p{margin:0;color:var(--kptu-muted);font-size:12px}
+.row-frames{display:flex;gap:20px;padding:16px 20px;align-items:flex-start;flex-wrap:wrap}
+.fr{flex:none}
+.fr-cap{font-size:12px;color:var(--kptu-muted);margin:0 0 6px}
+.fr-cap b{color:var(--kptu-ink)}
+.dev{background:var(--kptu-bg);border:1px solid var(--kptu-border-strong);border-radius:14px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.phone{width:412px;height:860px}
+.fold{width:884px;height:860px}
+.pc{width:1440px;height:820px;border-radius:8px}
+/* 앱 머리줄·하단바 */
+.ah{height:44px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border);font-weight:600;font-size:15px}
+.ah .sp{flex:1}
+.bb{height:52px;display:flex;border-top:1px solid var(--kptu-border);background:var(--kptu-surface);flex:none}
+.bb span{flex:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--kptu-muted)}
+.bb span.on{color:var(--kptu-primary);font-weight:600}
+/* 위 줄 */
+.top{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border)}
+.crumb{display:flex;align-items:center;gap:4px;min-width:0;flex:1;font-size:13px;white-space:nowrap;overflow:hidden}
+.crumb .st{color:var(--kptu-link)}
+.crumb .sep{color:var(--kptu-faint)}
+.search{flex:1;height:30px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);padding:0 8px;font:inherit;font-size:13px;background:var(--kptu-surface-subtle);color:var(--kptu-faint);display:flex;align-items:center}
+.srcs{display:flex;gap:2px;flex:none}
+.src{width:30px;height:28px;border:1px solid transparent;border-radius:var(--kptu-radius-sm);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.src[aria-pressed=true]{background:var(--kptu-primary-soft);border-color:var(--kptu-border-strong)}
+.src[aria-pressed=false] .ic{opacity:.35;filter:grayscale(1)}
+.ic{display:inline-flex;width:16px;height:16px;border-radius:4px;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex:none}
+.ic.od{background:var(--c-od)}.ic.gd{background:var(--c-gd)}.ic.ph{background:var(--c-ph)}
+.mini{height:28px;padding:0 8px;border:0;background:transparent;color:var(--kptu-link);font:inherit;font-size:12px;cursor:pointer;border-radius:var(--kptu-radius-sm);white-space:nowrap}
+.mini.line{border:1px solid var(--kptu-border)}
+.mini.on{background:var(--kptu-primary-soft);color:var(--kptu-primary);font-weight:600}
+.tabs{display:flex;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border)}
+.tabs span{flex:1;text-align:center;padding:8px 0;font-size:13px;color:var(--kptu-muted);border-bottom:2px solid transparent}
+.tabs span.on{color:var(--kptu-primary);border-color:var(--kptu-primary);font-weight:600}
+.chips{display:flex;gap:6px;padding:6px 10px;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border);overflow:hidden}
+.chip{height:26px;padding:0 10px;border:1px solid var(--kptu-border);border-radius:999px;font-size:12px;display:flex;align-items:center;color:var(--kptu-muted);background:transparent;white-space:nowrap}
+.chip.on{background:var(--kptu-primary-soft);border-color:var(--kptu-border-strong);color:var(--kptu-primary)}
+.sync{font-size:11px;color:var(--kptu-faint);white-space:nowrap}
+/* 목록 */
+.body{flex:1;overflow:hidden;position:relative;background:var(--kptu-surface)}
+.day{padding:8px 12px 2px;font-size:11px;color:var(--kptu-faint);background:var(--kptu-surface-subtle)}
+.r{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-bottom:1px solid #eef1f3;cursor:default}
+.pc .r,.fold .r{height:30px}
+.r .k{width:18px;height:18px;border-radius:3px;font-size:9px;display:flex;align-items:center;justify-content:center;flex:none;color:#fff;font-weight:700}
+.k.pdf{background:#b5545c}.k.hwp{background:#4f7ab0}.k.doc{background:#3d6aa8}.k.xls{background:#3f8a5c}.k.img{background:#8b6db3}.k.dir{background:#c9a24a}.k.txt{background:#7d8791}.k.vid{background:#5d6f80}
+.r .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--ds-text-row)}
+.r .nm small{display:block;font-size:11px;color:var(--kptu-faint);overflow:hidden;text-overflow:ellipsis}
+.r .mt{font-size:var(--ds-text-meta);color:var(--kptu-muted);white-space:nowrap;flex:none}
+.r .dot{width:6px;height:6px;border-radius:50%;flex:none}
+.dot.od{background:var(--c-od)}.dot.gd{background:var(--c-gd)}.dot.ph{background:var(--c-ph)}
+.r.pick{background:var(--kptu-info-soft)}
+.r .cb{width:16px;height:16px;border:1px solid var(--kptu-border-strong);border-radius:3px;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff}
+.r.pick .cb{background:var(--kptu-primary);border-color:var(--kptu-primary)}
+.r.fold-row .nm{color:var(--kptu-ink)}
+.r.hide{display:none}
+.hd{display:flex;gap:8px;height:26px;align-items:center;padding:0 12px;font-size:11px;color:var(--kptu-faint);border-bottom:1px solid var(--kptu-border);background:var(--kptu-surface-subtle)}
+.hd .nm{flex:1}
+/* 나무 */
+.tree{font-size:13px}
+.t{display:flex;align-items:center;gap:6px;height:32px;padding-right:10px;cursor:pointer;white-space:nowrap}
+.pc .t,.fold .t{height:26px}
+.t .tw{width:16px;text-align:center;color:var(--kptu-faint);font-size:10px;flex:none}
+.t .nm{flex:1;overflow:hidden;text-overflow:ellipsis}
+.t .ct{font-size:11px;color:var(--kptu-faint)}
+.t.root{font-weight:600}
+.t.cur{background:var(--kptu-primary-soft);color:var(--kptu-primary)}
+.t.add{color:var(--kptu-link);font-size:12px}
+.t.shelf{color:var(--kptu-ink)}
+.tsep{height:1px;background:var(--kptu-border);margin:4px 10px}
+.kids{display:block}.kids.closed{display:none}
+/* 고른 것 막대 */
+.selbar{display:flex;align-items:center;gap:2px;padding:6px 6px 6px 12px;background:var(--kptu-primary-soft);border-bottom:1px solid var(--kptu-border-strong)}
+.selbar b{font-size:13px;margin-right:auto;color:var(--kptu-primary)}
+.selbar .mini{color:var(--kptu-primary)}
+/* 아래 창(하단바 위) */
+.dim{position:absolute;left:0;right:0;top:0;bottom:52px;background:rgba(20,33,48,.28)}
+.sheet{position:absolute;left:0;right:0;bottom:52px;background:var(--kptu-surface);border-radius:12px 12px 0 0;box-shadow:var(--kptu-shadow-float);display:flex;flex-direction:column}
+.sh-h{display:flex;align-items:center;gap:6px;padding:10px 12px 6px;font-size:14px;font-weight:600}
+.sh-h .sp{flex:1}
+.sh-sub{padding:0 12px 6px;font-size:12px;color:var(--kptu-muted)}
+.sh-f{display:flex;gap:6px;justify-content:flex-end;padding:8px 12px;border-top:1px solid var(--kptu-border)}
+.btn{height:32px;padding:0 12px;border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface);font:inherit;font-size:13px;color:var(--kptu-ink)}
+.btn.pri{background:var(--kptu-primary);border-color:var(--kptu-primary);color:#fff}
+.recentdst{display:flex;gap:6px;padding:0 12px 8px;flex-wrap:wrap}
+/* 전송 줄 */
+.xfer{height:30px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--kptu-surface);border-top:1px solid var(--kptu-border);font-size:12px;color:var(--kptu-muted);flex:none;position:relative}
+.xfer .bar{position:absolute;left:0;top:-1px;height:2px;background:var(--kptu-primary)}
+.xfer b{color:var(--kptu-ink);font-weight:600}
+.xfer .sp{flex:1}
+.xl .r{height:44px}
+.xl .pg{height:3px;background:var(--kptu-border);border-radius:2px;margin-top:3px;overflow:hidden}
+.xl .pg i{display:block;height:100%;background:var(--kptu-primary)}
+.xl .fail .mt{color:var(--kptu-danger)}
+.ask{margin:8px 12px;border:1px solid var(--kptu-warning);background:var(--kptu-warning-soft);border-radius:var(--kptu-radius-md);padding:8px 10px;font-size:12px}
+.ask p{margin:0 0 6px;color:var(--kptu-ink)}
+.ask .opts{display:flex;gap:4px;flex-wrap:wrap}
+.ask label{font-size:12px;color:var(--kptu-muted);display:flex;gap:4px;align-items:center;margin-top:6px}
+/* 칸 */
+.cols{display:flex;flex:1;min-height:0}
+.col{display:flex;flex-direction:column;min-width:0;background:var(--kptu-surface);position:relative}
+.col+.col{border-left:1px solid var(--kptu-border)}
+.pane-top{display:flex;align-items:center;gap:6px;height:34px;padding:0 10px;border-bottom:2px solid var(--kptu-border);background:var(--kptu-surface-subtle);font-size:13px}
+.pane-top.cur{border-bottom-color:var(--kptu-primary)}
+.pane-top .crumb .st{cursor:pointer}
+.prev{width:320px;background:var(--kptu-surface);border-left:1px solid var(--kptu-border);display:flex;flex-direction:column;flex:none}
+.pv-img{margin:12px;height:300px;border:1px solid var(--kptu-border);border-radius:6px;background:repeating-linear-gradient(0deg,#fff 0 18px,#f1f3f5 18px 19px);padding:18px;font-size:11px;color:var(--kptu-faint)}
+.pv-img i{display:block;height:8px;background:#e3e7eb;margin:8px 0;border-radius:2px}
+.pv-meta{padding:0 12px;font-size:12px;color:var(--kptu-muted);line-height:1.8}
+.pv-act{display:flex;gap:2px;padding:6px 8px;border-top:1px solid var(--kptu-border);margin-top:auto}
+.drop-hint{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);border:1px dashed var(--kptu-primary);background:rgba(238,242,246,.94);color:var(--kptu-primary);padding:10px 16px;border-radius:8px;font-size:12px;white-space:nowrap}
+.dragghost{position:absolute;background:var(--kptu-surface);border:1px solid var(--kptu-border-strong);box-shadow:var(--kptu-shadow-float);padding:4px 8px;border-radius:6px;font-size:12px}
+.xpanel{position:absolute;right:12px;bottom:12px;width:340px;background:var(--kptu-surface);border:1px solid var(--kptu-border-strong);border-radius:8px;box-shadow:var(--kptu-shadow-float)}
+.note{padding:12px 20px 30px;color:var(--kptu-muted);font-size:12px;line-height:1.7;max-width:1100px}
+.note b{color:var(--kptu-ink)}
+.pcbar{height:40px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--kptu-border);background:var(--kptu-surface);font-size:13px}
+.pcbar .side{width:220px;font-weight:600}
+.mnu{display:flex;flex-direction:column;width:180px;border-right:1px solid var(--kptu-border);background:var(--kptu-surface);padding:8px 0;font-size:13px;flex:none}
+.mnu span{padding:6px 16px;color:var(--kptu-muted)}
+.mnu span.on{color:var(--kptu-primary);background:var(--kptu-primary-soft);font-weight:600}
+/* 이 시안에서 더한 것 */
+.ic.pc{background:var(--c-pc);font-size:8px}
+.k.drv{width:20px;height:16px;border-radius:3px;background:#7d8791;color:#fff;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.k.exe{background:#9aa3ac}
+.mini.off{color:var(--kptu-faint);cursor:not-allowed}
+.seg{display:inline-flex;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);overflow:hidden;margin-left:8px}
+.seg span{padding:3px 12px;font-size:12px;color:var(--kptu-muted)}
+.seg span.on{background:var(--kptu-primary-soft);color:var(--kptu-primary);font-weight:600}
+.grp{font-size:11px;color:var(--kptu-faint);margin:4px 0 6px}
+.drvs{display:flex;gap:10px;margin-bottom:14px}
+.dv{display:flex;gap:8px;align-items:center;width:260px;padding:8px 10px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
+.dvb{flex:1;min-width:0;font-size:12px}
+.dvb b{font-weight:500;display:block}
+.dvb small{font-size:11px;color:var(--kptu-faint)}
+.meter{display:block;height:5px;background:var(--kptu-border);border-radius:3px;margin:4px 0 2px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--kptu-info)}
+.offbox{margin:16px;padding:10px 12px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);font-size:12px;color:var(--kptu-muted);line-height:1.7}
+.offbox b{color:var(--kptu-ink);font-weight:500}
+.xfer .st{color:var(--kptu-link)}
+</style>
+</head>
+<body>
+<div class="page-head">
+  <h1>[파일] '내 PC' 보기 — 화면 시안 A·B·C (FILES-내PC드라이브 S50-23)</h1>
+  <p>PC 1440 폭 기준. 기존 [파일] 화면(나무·목록·미리보기·두 칸)과 같은 부품만 씁니다. 파일·폴더 이름은 모두 가짜. '내 PC'는 바구니 PC 앱이 켜진 <b>그 PC의 브라우저에서만</b> 보이고, 1차는 보기·열기만(복사·휴지통은 다음 단계라 흐리게) 입니다.</p>
+</div>
+
+<section class="row-frames">
+
+<!-- ============ 시안 A ============ -->
+<div class="fr" id="A"><p class="fr-cap"><b>시안 A · 나무에 세 번째 뿌리</b> — 원드라이브·구글 드라이브 아래에 '내 PC'가 같은 모양으로 붙고, 그 아래 C:·D:. 지금 화면에서 가장 적게 바뀜.</p>
+<div class="dev pc" data-frame>
+  <div class="pcbar"><span class="side">Web2</span><span style="color:var(--kptu-muted)">파일</span><span class="sp" style="flex:1"></span><span class="srcs"><button class="src" data-src="od" aria-pressed="true" title="원드라이브"><span class="ic od">O</span></button><button class="src" data-src="gd" aria-pressed="true" title="구글 드라이브"><span class="ic gd">G</span></button><button class="src" data-src="pc" aria-pressed="true" title="내 PC"><span class="ic pc">PC</span></button></span><button class="mini line">두 칸</button><span class="sync">맞춤 2분 전</span></div>
+  <div class="cols">
+    <div class="mnu"><span>홈</span><span>일정</span><span>할 일</span><span>자료실</span><span class="on">파일</span><span>사진</span><span>노트</span></div>
+    <div class="col tree" style="width:240px;flex:none;padding-top:6px">
+      <div class="t shelf"><span class="tw">◷</span><span class="nm">최근</span><span class="ct">클라우드만</span></div>
+      <div class="t shelf"><span class="tw">☆</span><span class="nm">별표</span></div>
+      <div class="tsep"></div>
+      <div data-s="od"><div class="t root"><span class="tw">▸</span><span class="ic od">O</span><span class="nm">원드라이브</span></div></div>
+      <div data-s="gd"><div class="t root"><span class="tw">▸</span><span class="ic gd">G</span><span class="nm">구글 드라이브</span></div></div>
+      <div data-s="pc"><div class="t root" data-tw><span class="tw">▾</span><span class="ic pc">PC</span><span class="nm">내 PC</span></div>
+        <div class="kids">
+          <div class="t" style="padding-left:22px" data-tw><span class="tw">▾</span><span class="k drv">C:</span><span class="nm">로컬 디스크 (C:)</span></div>
+          <div class="kids">
+            <div class="t" style="padding-left:44px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">바탕 화면</span></div>
+            <div class="t cur" style="padding-left:44px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">문서</span><span class="ct">18</span></div>
+            <div class="t" style="padding-left:44px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">다운로드</span></div>
+            <div class="t" style="padding-left:44px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">작업_예시</span></div>
+          </div>
+          <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k drv">D:</span><span class="nm">자료 (D:)</span></div>
+        </div></div>
+    </div>
+    <div class="col" style="flex:1;position:relative">
+      <div class="top"><div class="crumb"><span class="st">‹</span><span class="ic pc">PC</span><span class="st">내 PC</span><span class="sep">›</span><span class="st">C:</span><span class="sep">›</span><b>문서</b></div><div class="search" style="max-width:260px">이 폴더에서 이름 찾기 ( / )</div><button class="mini line">정렬: 이름 ▾</button><button class="mini line">탐색기에서 열기</button></div>
+      <div class="hd"><span class="nm">이름</span><span style="width:110px">바뀐 날</span><span style="width:70px;text-align:right">크기</span><span style="width:60px">종류</span></div>
+      <div class="body">
+        <div class="r"><span class="k dir"></span><span class="nm">견적_모음(예시)</span><span class="mt" style="width:110px">11/03</span><span class="mt" style="width:70px;text-align:right">—</span><span class="mt" style="width:60px">폴더</span></div>
+        <div class="r"><span class="k dir"></span><span class="nm">스캔_연습</span><span class="mt" style="width:110px">10/28</span><span class="mt" style="width:70px;text-align:right">—</span><span class="mt" style="width:60px">폴더</span></div>
+        <div class="r pick"><span class="k hwp">한</span><span class="nm">회의자료_샘플_4차.hwpx</span><span class="mt" style="width:110px">오늘 09:14</span><span class="mt" style="width:70px;text-align:right">210KB</span><span class="mt" style="width:60px">한글</span></div>
+        <div class="r"><span class="k pdf">PDF</span><span class="nm">참고자료_예시_나.pdf</span><span class="mt" style="width:110px">어제 15:40</span><span class="mt" style="width:70px;text-align:right">1.8MB</span><span class="mt" style="width:60px">PDF</span></div>
+        <div class="r"><span class="k xls">X</span><span class="nm">명단_양식_연습.xlsx</span><span class="mt" style="width:110px">11/02</span><span class="mt" style="width:70px;text-align:right">29KB</span><span class="mt" style="width:60px">엑셀</span></div>
+        <div class="r"><span class="k img">그</span><span class="nm">사진_예시_0411.jpg</span><span class="mt" style="width:110px">10/30</span><span class="mt" style="width:70px;text-align:right">2.4MB</span><span class="mt" style="width:60px">그림</span></div>
+        <div class="r"><span class="k txt">글</span><span class="nm">메모_연습.txt</span><span class="mt" style="width:110px">10/29</span><span class="mt" style="width:70px;text-align:right">1KB</span><span class="mt" style="width:60px">글</span></div>
+        <div class="r"><span class="k exe">실</span><span class="nm">설치파일_예시.exe</span><span class="mt" style="width:110px">10/20</span><span class="mt" style="width:70px;text-align:right">35MB</span><span class="mt" style="width:60px">프로그램</span></div>
+      </div>
+    </div>
+    <div class="prev">
+      <div class="sh-h" style="font-size:13px">회의자료_샘플_4차.hwpx<span class="sp"></span><button class="mini">✕</button></div>
+      <div class="pv-img">이 PC 파일은 미리보기 없이 이름·크기만<i style="width:60%"></i><i></i><i style="width:40%"></i></div>
+      <div class="pv-meta">내 PC › C: › 문서<br>210KB · 오늘 09:14 · 한글</div>
+      <div class="pv-act"><button class="mini">이 PC에서 열기</button><button class="mini">탐색기에서 위치</button><button class="mini off" title="다음 단계">복사</button><button class="mini off" title="다음 단계">휴지통</button></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ============ 시안 B ============ -->
+<div class="fr" id="B"><p class="fr-cap"><b>시안 B · 두 칸으로 바로</b> — '내 PC'를 누르면 왼쪽 칸이 PC, 오른쪽 칸이 클라우드로 열림. 다음 단계 '끌어서 복사'를 염두에 둔 모양.</p>
+<div class="dev pc" data-frame>
+  <div class="pcbar"><span class="side">Web2</span><span style="color:var(--kptu-muted)">파일</span><span style="flex:1"></span><span class="srcs"><button class="src" data-src="od" aria-pressed="true"><span class="ic od">O</span></button><button class="src" data-src="gd" aria-pressed="true"><span class="ic gd">G</span></button><button class="src" data-src="pc" aria-pressed="true"><span class="ic pc">PC</span></button></span><button class="mini on">두 칸</button><span class="sync">맞춤 1분 전</span></div>
+  <div class="cols" style="position:relative">
+    <div class="mnu"><span>홈</span><span>일정</span><span>할 일</span><span>자료실</span><span class="on">파일</span><span>사진</span><span>노트</span></div>
+    <div class="col tree" style="width:200px;flex:none;padding-top:6px">
+      <div class="t shelf"><span class="tw">◷</span><span class="nm">최근</span></div>
+      <div class="t shelf"><span class="tw">☆</span><span class="nm">별표</span></div>
+      <div class="tsep"></div>
+      <div data-s="pc"><div class="t root cur"><span class="tw">▾</span><span class="ic pc">PC</span><span class="nm">내 PC</span></div>
+        <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k drv">C:</span><span class="nm">로컬 디스크</span></div>
+        <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k drv">D:</span><span class="nm">자료</span></div></div>
+      <div class="tsep"></div>
+      <div data-s="od"><div class="t root"><span class="tw">▸</span><span class="ic od">O</span><span class="nm">원드라이브</span></div></div>
+      <div data-s="gd"><div class="t root"><span class="tw">▾</span><span class="ic gd">G</span><span class="nm">구글 드라이브</span></div>
+        <div class="t" style="padding-left:22px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">연습 자료</span><span class="ct">24</span></div></div>
+    </div>
+    <div class="col" style="flex:1">
+      <div class="pane-top cur"><div class="crumb"><span class="ic pc">PC</span><span class="st">내 PC</span><span class="sep">›</span><span class="st">D:</span><span class="sep">›</span><b>작업_예시</b></div><span class="sp" style="flex:1"></span><button class="mini">탐색기</button></div>
+      <div class="hd"><span class="nm">이름</span><span style="width:90px">바뀐 날</span><span style="width:60px;text-align:right">크기</span></div>
+      <div class="body">
+        <div class="r fold-row"><span class="k dir"></span><span class="nm">초안</span><span class="mt" style="width:90px">11/04</span><span class="mt" style="width:60px;text-align:right">—</span></div>
+        <div class="r fold-row"><span class="k dir"></span><span class="nm">받은 파일(예시)</span><span class="mt" style="width:90px">11/01</span><span class="mt" style="width:60px;text-align:right">—</span></div>
+        <div class="r pick"><span class="k doc">W</span><span class="nm">계획_연습본_v3.docx</span><span class="mt" style="width:90px">오늘 10:02</span><span class="mt" style="width:60px;text-align:right">64KB</span></div>
+        <div class="r"><span class="k xls">X</span><span class="nm">예산표_연습_수정.xlsx</span><span class="mt" style="width:90px">어제</span><span class="mt" style="width:60px;text-align:right">51KB</span></div>
+        <div class="r"><span class="k pdf">PDF</span><span class="nm">안내문_샘플_C.pdf</span><span class="mt" style="width:90px">10/31</span><span class="mt" style="width:60px;text-align:right">2.9MB</span></div>
+        <div class="r"><span class="k img">그</span><span class="nm">배치도_예시_2.png</span><span class="mt" style="width:90px">10/26</span><span class="mt" style="width:60px;text-align:right">800KB</span></div>
+      </div>
+    </div>
+    <div class="col" style="flex:1">
+      <div class="pane-top"><div class="crumb"><span class="ic gd">G</span><span class="st">구글 드라이브</span><span class="sep">›</span><b>연습 자료</b></div></div>
+      <div class="hd"><span class="nm">이름</span><span style="width:90px">바뀐 날</span><span style="width:60px;text-align:right">크기</span></div>
+      <div class="body">
+        <div class="r fold-row"><span class="k dir"></span><span class="nm">받은 것</span><span class="mt" style="width:90px">10/30</span><span class="mt" style="width:60px;text-align:right">12개</span></div>
+        <div class="r"><span class="k xls">X</span><span class="nm">예산표_연습.xlsx</span><span class="mt" style="width:90px">오늘 08:05</span><span class="mt" style="width:60px;text-align:right">48KB</span></div>
+        <div class="r"><span class="k doc">W</span><span class="nm">계획_연습본_v2.docx</span><span class="mt" style="width:90px">11/01</span><span class="mt" style="width:60px;text-align:right">61KB</span></div>
+      </div>
+      <div class="drop-hint" style="top:62%;opacity:.7">다음 단계: 왼쪽 PC 파일을 여기로 끌면 복사</div>
+    </div>
+  </div>
+  <div class="xfer"><span class="bar" style="width:0"></span><span>▣</span><span>내 PC: 보기·열기만 (복사는 다음 단계)</span><span class="sp"></span><span>계획_연습본_v3.docx · <a class="st">이 PC에서 열기</a></span></div>
+</div></div>
+
+<!-- ============ 시안 C ============ -->
+<div class="fr" id="C"><p class="fr-cap"><b>시안 C · 위 탭으로 나눔</b> — [클라우드 | 내 PC] 탭을 바꿔 보고, '내 PC' 첫 화면은 드라이브 칸(남은 용량)과 자주 쓰는 폴더. 윈도우 탐색기와 가장 비슷.</p>
+<div class="dev pc" data-frame>
+  <div class="pcbar"><span class="side">Web2</span><span style="color:var(--kptu-muted)">파일</span><span class="seg"><span>클라우드</span><span class="on">내 PC</span></span><span style="flex:1"></span><span class="sync">이 PC · 바구니 앱 연결됨</span></div>
+  <div class="cols">
+    <div class="mnu"><span>홈</span><span>일정</span><span>할 일</span><span>자료실</span><span class="on">파일</span><span>사진</span><span>노트</span></div>
+    <div class="col tree" style="width:220px;flex:none;padding-top:6px">
+      <div class="t root cur"><span class="tw"></span><span class="ic pc">PC</span><span class="nm">내 PC</span></div>
+      <div class="tsep"></div>
+      <div class="t" style="padding-left:12px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">바탕 화면</span></div>
+      <div class="t" style="padding-left:12px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">문서</span></div>
+      <div class="t" style="padding-left:12px"><span class="tw">▸</span><span class="k dir" style="width:16px;height:14px"></span><span class="nm">다운로드</span></div>
+      <div class="tsep"></div>
+      <div class="t" style="padding-left:12px"><span class="tw">▸</span><span class="k drv">C:</span><span class="nm">로컬 디스크 (C:)</span></div>
+      <div class="t" style="padding-left:12px"><span class="tw">▸</span><span class="k drv">D:</span><span class="nm">자료 (D:)</span></div>
+    </div>
+    <div class="col" style="flex:1">
+      <div class="top"><div class="crumb"><span class="ic pc">PC</span><b>내 PC</b></div><div class="search" style="max-width:260px">폴더를 연 뒤 이름 찾기</div></div>
+      <div class="body" style="padding:12px 14px">
+        <div class="grp">드라이브</div>
+        <div class="drvs">
+          <div class="dv"><span class="k drv">C:</span><div class="dvb"><b>로컬 디스크 (C:)</b><span class="meter"><i style="width:72%"></i></span><small>남은 공간 132GB / 476GB</small></div></div>
+          <div class="dv"><span class="k drv">D:</span><div class="dvb"><b>자료 (D:)</b><span class="meter"><i style="width:38%"></i></span><small>남은 공간 580GB / 931GB</small></div></div>
+          <div class="dv"><span class="k drv">E:</span><div class="dvb"><b>USB (E:)</b><span class="meter"><i style="width:12%"></i></span><small>남은 공간 27GB / 30GB</small></div></div>
+        </div>
+        <div class="grp">자주 쓰는 폴더</div>
+        <div class="hd" style="margin:0 -14px"><span class="nm">이름</span><span style="width:110px">바뀐 날</span><span style="width:200px">위치</span></div>
+        <div style="margin:0 -14px">
+          <div class="r"><span class="k dir"></span><span class="nm">바탕 화면</span><span class="mt" style="width:110px">오늘</span><span class="mt" style="width:200px">C: › 사용자 › (내 이름)</span></div>
+          <div class="r"><span class="k dir"></span><span class="nm">문서</span><span class="mt" style="width:110px">오늘</span><span class="mt" style="width:200px">C: › 사용자 › (내 이름)</span></div>
+          <div class="r"><span class="k dir"></span><span class="nm">다운로드</span><span class="mt" style="width:110px">어제</span><span class="mt" style="width:200px">C: › 사용자 › (내 이름)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ============ 공통: 꺼져 있을 때 ============ -->
+<div class="fr" id="off"><p class="fr-cap"><b>공통 · 바구니 앱 문이 꺼져 있을 때</b> — A·B·C 어느 것을 골라도 같음. 나무 끝 '내 PC'가 흐리고 한 줄 안내. 폰·다른 PC에서는 '내 PC' 자체가 안 보임.</p>
+<div class="dev pc" style="height:260px" data-frame>
+  <div class="pcbar"><span class="side">Web2</span><span style="color:var(--kptu-muted)">파일</span><span style="flex:1"></span><span class="srcs"><button class="src" aria-pressed="true"><span class="ic od">O</span></button><button class="src" aria-pressed="true"><span class="ic gd">G</span></button><button class="src" aria-pressed="false" title="내 PC 꺼짐"><span class="ic pc">PC</span></button></span><span class="sync">맞춤 2분 전</span></div>
+  <div class="cols">
+    <div class="mnu"><span>홈</span><span class="on">파일</span></div>
+    <div class="col tree" style="width:240px;flex:none;padding-top:6px">
+      <div class="t root"><span class="tw">▸</span><span class="ic od">O</span><span class="nm">원드라이브</span></div>
+      <div class="t root"><span class="tw">▸</span><span class="ic gd">G</span><span class="nm">구글 드라이브</span></div>
+      <div class="t root" style="opacity:.45"><span class="tw"></span><span class="ic pc">PC</span><span class="nm">내 PC · 꺼짐</span></div>
+    </div>
+    <div class="col" style="flex:1">
+      <div class="offbox"><b>내 PC가 꺼져 있어요.</b> 화면 오른쪽 아래 바구니 아이콘을 오른쪽 클릭 → <b>[웹2에서 이 PC 보기]</b>를 켜 주세요. 처음 한 번 크롬이 "다른 앱에 연결" 허락을 물으면 [허용]. <button class="mini line">다시 확인</button></div>
+    </div>
+  </div>
+</div></div>
+
+</section>
+
+<div class="note">
+<b>명진이 볼 것</b><br>
+· <b>A</b>: 지금 [파일]과 같은 나무에 '내 PC' 하나만 더 붙음. 익숙함 우선.<br>
+· <b>B</b>: '내 PC'는 늘 두 칸(왼쪽 PC · 오른쪽 클라우드). PC↔클라우드 복사를 자주 할 생각이면 이쪽.<br>
+· <b>C</b>: 클라우드와 PC를 탭으로 아예 나눔. 첫 화면에 드라이브 남은 용량이 보이는 탐색기 모양.<br>
+· 셋 모두: 윈도우·프로그램 폴더는 안 보임, [최근]에 PC 파일은 안 섞임, 실행 파일(.exe 등)은 '열기' 대신 '탐색기에서 위치'만, 지우기는 다음 단계에서 휴지통으로만(늘 한 번 묻기).
+</div>
+
+<script>
+// 시안용: 위 줄 아이콘 켜고 끄기·나무 펼치기·줄 고르기(저장 없음).
+document.querySelectorAll('[data-frame]').forEach(frame => {
+  frame.addEventListener('click', e => {
+    const src = e.target.closest('.src[data-src]');
+    if (src) {
+      const on = src.getAttribute('aria-pressed') !== 'true';
+      src.setAttribute('aria-pressed', String(on));
+      frame.querySelectorAll(`[data-s="${src.dataset.src}"]`).forEach(el => { el.style.display = on ? '' : 'none'; });
+      return;
+    }
+    const tw = e.target.closest('[data-tw]');
+    if (tw) {
+      const kids = tw.nextElementSibling;
+      if (kids && kids.classList.contains('kids')) {
+        const closed = kids.classList.toggle('closed');
+        tw.querySelector('.tw').textContent = closed ? '▸' : '▾';
+      }
+      return;
+    }
+    const row = e.target.closest('.body .r');
+    if (row) {
+      frame.querySelectorAll('.body .r.pick').forEach(r => { if (r !== row) r.classList.remove('pick'); });
+      row.classList.toggle('pick');
+    }
+  });
+});
+</script>
+</body>
+</html>
