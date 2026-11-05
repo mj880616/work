@@ -6,11 +6,12 @@ import { noticeText } from './helpers/small-notice.mjs';
 const item = (page, id) => page.locator(`#newsRoot [data-nc-item="${id}"]`);
 async function swipe(locator, dx) {
   await expect(locator).toBeVisible();
-  const b = await locator.boundingBox();
-  await locator.evaluate((el, { dx, x, y }) => {
+  // 줄의 가운데 좌표는 같은 evaluate 안에서 읽는다(따로 boundingBox()를 부르면 그 사이 목록이 다시 그려질 때 null — S50-26 CI에서 한 번 관측).
+  await locator.evaluate((el, { dx }) => {
+    const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
     const fire = (type, cx) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: cx, clientY: y }));
     fire('pointerdown', x); for (let i = 1; i <= 10; i++) fire('pointermove', x + dx * i / 10); fire('pointerup', x + dx);
-  }, { dx, x: b.x + b.width / 2, y: b.y + b.height / 2 });
+  }, { dx });
 }
 
 test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 오른쪽 끝까지 밀면 보관(별표)·다시 밀면 풀기', async ({ page }) => {
