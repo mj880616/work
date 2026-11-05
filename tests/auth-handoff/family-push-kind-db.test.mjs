@@ -83,7 +83,7 @@ test('family push kind db: plan, dry-run, apply, family accepted, unknown kind r
 
   await t.test('files: expanded rules, full flow, no grant/policy/definer, three-line summary, expect lines',()=>{
    for(const mode of ['apply','dry-run']){const plan=prepareMigration({mode,version,runId:'1',root});assert.equal(plan.flow,'full');assert.deepEqual(plan.review.definer,[]);}
-   const code=migration.replace(/--.*$/gm,'');
+   const code=migration.replace(/--.*$/gm,'').replace(/insert into supabase_migrations\.schema_migrations[\s\S]*?\]\);/,''); // 기록 1행의 설명 글은 빼고 본다
    assert.doesNotMatch(code,/\bgrant\b|\brevoke\b|create policy|drop policy|security definer|disable row level security|rtw_|\bto (anon|public)\b/i);
    assert.match(toDryRun(migration),/rollback;\s*$/);
    const lines=summary.trim().split('\n');assert.equal(lines.length,3);['무엇이 바뀌나:','잘못되면:','되돌리는 법:'].forEach((p,i)=>assert.ok(lines[i].startsWith(p)));
