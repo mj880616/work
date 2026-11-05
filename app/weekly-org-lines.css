@@ -41,18 +41,22 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
 .wl-f-days input{box-sizing:border-box;height:var(--ds-compact-height-sm,26px);max-width:9.5em;font:inherit;font-size:var(--ds-text-meta)}
 .wl-f-body{box-sizing:border-box;flex:1 1 14em;min-width:0;height:var(--ds-compact-height-sm,26px);padding:0 6px;border:1px solid var(--kptu-info);border-radius:4px;background:var(--kptu-surface);color:var(--kptu-ink);font:inherit}
 .wl-form [aria-invalid="true"]{border-color:var(--kptu-danger)}
-/* 주간 정리 4. 조직보고 표(weekTableHtml) — 폰은 조직마다 한 덩이 */
-.wl-table{width:100%;border-collapse:collapse;table-layout:fixed;margin:2px 0 4px}
-.wl-table th,.wl-table td{padding:4px 6px;border-bottom:1px solid var(--kptu-border);text-align:left;vertical-align:top;font-weight:400}
-.wl-table thead th{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-.wl-table .wl-c-org{width:9.5em}
+/* 주간보고 4. 조직보고 표(weekTableHtml) — 담당조직 [전체 표]·홈 [주간 정리] 공용. 칸 선(안팎 모두)·13px 글은 주간보고 표 그대로.
+   폰은 표 모양을 지키되 한 조직을 두 줄로 쌓는다(윗줄 조직, 아랫줄 현황). */
+.wl-table{width:100%;border-collapse:collapse;table-layout:fixed;margin:2px 0 4px;border:1px solid var(--kptu-border)}
+.wl-table th,.wl-table td{padding:4px 6px;border:1px solid var(--kptu-border);text-align:left;vertical-align:top;font-weight:400;line-height:1.45}
+.wl-table thead th{position:relative;background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-size:var(--ds-text-meta);text-align:center}
+.wl-table .wl-c-org{width:var(--oa-w-org,9.5em)}
+.wl-table tbody th.wl-c-org{background:var(--kptu-surface-subtle)}
 .wl-org{font-weight:500;overflow-wrap:anywhere}
+.wl-stage{display:block;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .wl-note,.wl-status{margin:2px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .wl-status.is-error{color:var(--kptu-danger)}
 .wl-status:empty{display:none}
 @media (max-width:760px){
   .wl-table thead{display:none}
   .wl-table,.wl-table tbody,.wl-table tr,.wl-table th,.wl-table td{display:block;width:auto}
-  .wl-table tr{padding:4px 0;border-bottom:1px solid var(--kptu-border)}
-  .wl-table th,.wl-table td{padding:1px 0;border:0}
+  .wl-table tbody tr{margin:0 0 -1px}
+  .wl-table tbody th.wl-c-org{width:auto;border-bottom:0}
+  .wl-table td{border-top:1px solid var(--kptu-border)}
 }

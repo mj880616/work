@@ -8,6 +8,7 @@ import {walk, kid, kids, textOf} from '../app/weekly-hwpx/xml.mjs';
 import {extractBlankTemplate} from '../app/weekly-hwpx/template.mjs';
 import {buildReport, readReport, findTables, paraNumbering, CELL_STYLE, CHANGED_COLOR} from '../app/weekly-hwpx/report.mjs';
 import {personalReportFromTeam, reportOrgOrder} from '../app/weekly-hwpx/delta.mjs';
+import {reportOrgNames, orderForReport} from '../app/weekly-org-order-model.mjs';
 
 // WEEKLY-출력정리 (2026-10-23 사용자 지적 12:25): 주간보고 한글 파일 출력 ① 표 칸 문단 자동 번호 없음 + 표내부(Ctrl+8) ② 산하조직 표는
 // 내 담당 조직 전부를 조직보고 순서로(내용 없으면 빈 칸) ③ 5. 주요 일정은 '공공운수노조' 달력만(journal-weekly.test.mjs). 가짜 내용만.
@@ -133,4 +134,52 @@ test('⑦ 5. 주요 일정 표: 일정 없는 날 줄은 시간/내용/장소·�
   const {pkg} = buildReport(template, {title: 't', date: 'd', calendar});
   const t = findTables(pkg).schedule;
   assert.deepEqual(t.rows.map(r => r.map(c => c?.lines.join('') ?? null)), [['10.26.(월)', '', ''], ['10.27.(화)', '10:00 / 가짜 일정', '가짜담당'], ['10.28.(수)', '', '']]);
+});
+
+// S50-7: 조직 순서를 주간보고(개인본) 순서로 한 곳에서 읽는다. 이름은 모두 지어낸 값.
+const cell = (key, n = 0) => ({section: 'orgs', key, n, lines: []});
+const draft = names => ({proposed: {at: '2026-11-02T00:00:00.000Z', cells: [{section: 'summary', key: '가짜사업›과제', n: 0, lines: []}, ...names.map(k => cell(k))]}});
+const orgs = [{id: 'a', name: '가짜 가 지부'}, {id: 'b', name: '가짜 나 지회'}, {id: 'c', name: '가짜 다 노동조합'}, {id: 'd', name: '가짜 라 지부'}];
+
+test('reportOrgNames: 임시저장 바탕의 산하조직 칸만, 바탕 순서 그대로', () => {
+  assert.deepEqual(reportOrgNames(draft(['가짜 다 노동조합', '가짜 가 지부'])), ['가짜 다 노동조합', '가짜 가 지부']);
+  assert.deepEqual(reportOrgNames(null), []);
+  assert.deepEqual(reportOrgNames({}), []);
+});
+
+test('orderForReport: 바탕 순서로 놓고, 바탕에 없는 조직은 뒤에 fallback 순서', () => {
+  const names = reportOrgNames(draft(['가짜 다 노조', '가짜 가 지부']));
+  const out = orderForReport(orgs, names, list => [...list].sort((x, y) => y.id.localeCompare(x.id)));
+  assert.deepEqual(out.map(o => o.id), ['c', 'a', 'd', 'b'], '노동조합↔노조 같은 이름 규칙으로 맞고, 나머지(b·d)는 fallback(id 역순) 뒤에');
+  assert.deepEqual(orderForReport(orgs, [], list => list).map(o => o.id), ['a', 'b', 'c', 'd'], '바탕이 없으면 fallback 그대로');
+});
+
+test('orderForReport: 같은 이름 줄이 둘이어도 조직은 한 번만, 애매하게 맞는 이름은 건너뜀', () => {
+  const out = orderForReport(orgs, ['가짜 나 지회', '가짜 나 지회', '없는 조직'], list => list);
+  assert.deepEqual(out.map(o => o.id), ['b', 'a', 'c', 'd']);
+});
+
+test('reportOrgOrder(주간보고 표 바탕에 없는 조직 묶음): 앱 조직 순서 모듈이 있으면 그 순서, 없으면 가나다순', () => {
+  const list = [{name: '나'}, {name: '가'}];
+  assert.deepEqual(reportOrgOrder(list).map(o => o.name), ['가', '나']);
+  globalThis.window = {KPTUOrganizationOrder: {sort: l => [...l]}}; // 앱 순서 = 들어온 그대로(가나다순이 아님을 보임)
+  try { assert.deepEqual(reportOrgOrder(list).map(o => o.name), ['나', '가']); }
+  finally { delete globalThis.window; }
+});
+
+test('개인본 바탕에 없는 담당 조직은 맨 끝에 앱 조직 순서로 더해진다(바탕 조직은 바탕 순서 그대로)', () => {
+  const team = {title: '', date: '', requests: [], schedule: [], summary: [], details: [], rallies: [], sites: [], orgs: [{org: ['가짜 나 지회'], status: ['- 11.2. 가짜 줄'], paras: []}, {org: ['가짜 가 지부'], status: [], paras: []}]};
+  globalThis.window = {KPTUOrganizationOrder: {sort: l => [...l].sort((x, y) => y.name.localeCompare(x.name, 'ko'))}};
+  try {
+    const mine = personalReportFromTeam(team, '가짜담당', {orgList: [{name: '가짜 가 지부'}, {name: '가짜 나 지회'}, {name: '가짜 새 하'}, {name: '가짜 새 가'}]});
+    assert.deepEqual(mine.orgs.map(o => o.org.join('')), ['가짜 나 지회', '가짜 가 지부', '가짜 새 하', '가짜 새 가']);
+  } finally { delete globalThis.window; }
+});
+
+test('화면 연결: 담당조직 [전체 표]와 홈 [주간 정리] 4.가 같은 표 부품·같은 순서 모듈을 쓰고 AI 채우기 버튼은 없다', () => {
+  const read = f => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+  const ov = read('app/org-overview.js'), jw = read('app/journal-weekly.js');
+  assert.match(ov, /weekTableHtml\(wl,/); assert.match(ov, /orderForReport\(/); assert.match(jw, /orderForReport\(/);
+  assert.doesNotMatch(ov, /oa-group|<section class="oa-group"|KPTUOrganizationOrder\.groups|order\.groups/, '묶음 카드는 없다');
+  assert.doesNotMatch(ov + read('app/weekly-org-lines.js'), /AI로 채우기|모두 다시 채우기/);
 });

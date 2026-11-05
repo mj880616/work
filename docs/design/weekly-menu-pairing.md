@@ -260,6 +260,7 @@ create index on public.app_weekly_org_lines(workspace_id, week_start, organizati
 ## 10. 범위 밖 발견
 
 - `app/weekly-hwpx/delta.mjs` `reportOrgOrder`(80~85행): 주석은 '바탕(개인본) 순서'인데 코드는 가나다순 정렬이다 [사실]. 16:48 결정 '조직 순서는 개인본 순서 고정'과 맞지 않을 수 있다 → P6에서 확인 필요(이 PR에서는 고치지 않음).
+  - **정리(S50-7, 2026-11-05)**: 화면의 조직 순서는 `app/weekly-org-order-model.mjs` 한 곳에서 읽는다 — 그 주 임시저장 바탕(`draft.proposed`)의 산하조직 칸 순서(= 지난 개인본 순서), 바탕이 없거나 이름이 안 맞는 조직은 뒤에 앱 조직 순서. 담당조직 [전체 표]와 홈 [주간 정리] 4.가 같은 모듈·같은 표 부품(`weekTableHtml`)을 쓴다. `reportOrgOrder`(바탕에 없는 조직 묶음)도 가나다순 대신 앱 조직 순서(`organization-order.js`)로 맞췄다(앱 순서 모듈이 없는 시험 환경만 가나다순).
 
 ## 11. 명진이 고를 것
 
