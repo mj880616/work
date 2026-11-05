@@ -5,7 +5,12 @@
 // 쓰기(이름 바꾸기·옮기기·휴지통으로·폴더 만들기·이름·휴지통으로)는 화면이 confirm:true를 보낼 때만(사용자가 누르고 확인 한 번). 자동·일괄 정리 없음.
 // 지우기는 Drive 휴지통으로 옮기기(files.update trashed=true)만 쓴다. 영구 삭제(files.delete)·휴지통 비우기는 이 함수에 없다.
 // 토큰은 service role로만 읽고 응답·로그에 싣지 않는다. 기존 Drive 함수들이 부르는 API는 바꾸지 않는다(쓰기는 이 함수에만).
+// 사진 정보 고치기 ②(S50-31, 명진 결정 E3 (가)·E4·E5): photos-meta-read(앞 256KB만 받아 EXIF 찍은 시각·위치)·photos-meta-write(confirm:true).
+//   원본을 메모리로만 받아 EXIF 칸만 바꾸고 같은 파일의 새 판(revision)으로 올린다. 받기 전 headRevisionId를 적고 올리기 직전 다시 확인(바뀌었으면 멈춤).
+//   JPEG만, 한 장 30MB·한 번 10장까지. 권한(drive)·네 겹 문은 그대로.
 // 원본·썸네일은 저장하지 않는다. DB에는 켠 폴더와 그 폴더 사진 목록 사본만 둔다(migration 20261031120000).
+
+import { readJpegMeta, validLoc, writeJpegMeta } from "../_shared/jpeg-exif.ts";
 
 type Env = (name: string) => string | undefined;
 export type GdriveOptions = { fetch?: typeof fetch; env: Env; now?: () => number };
@@ -14,6 +19,8 @@ export const DRIVE_FULL_SCOPE = "https://www.googleapis.com/auth/drive";
 export const FEATURE = "gdrive_photos";
 export const DRIVE_WORKSPACE_SLUG = "kptu-work";
 const DRIVE = "https://www.googleapis.com/drive/v3/files";
+const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
+const META_MAX = 10, META_BYTES = 30 * 1024 * 1024, META_HEAD = 256 * 1024;
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const MAX_BODY = 16 * 1024;
 const MAX_IDS = 50;
@@ -316,6 +323,60 @@ export function createGdriveHandler(options: GdriveOptions) {
     return await body(r);
   };
 
+  // ---- 사진 정보 고치기 ② ----
+  const isJpeg = (mime: unknown) => /^image\/(jpeg|jpg|pjpeg)$/.test(String(mime || "").toLowerCase());
+  // 응답 본문을 한도까지만 읽는다. head면 한도에서 끊고, 아니면 한도를 넘을 때 null.
+  async function readBytes(r: Response, limit: number, head: boolean) {
+    if (!r.body) return null;
+    const reader = r.body.getReader(), parts: Uint8Array[] = [];
+    let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      got += value.length;
+      if (got > limit) {
+        try { await reader.cancel(); } catch { /* ignore */ }
+        if (!head) return null;
+        parts.push(value.subarray(0, value.length - (got - limit)));
+        got = limit;
+        break;
+      }
+      parts.push(value);
+    }
+    const out = new Uint8Array(got);
+    let at = 0;
+    for (const p of parts) { out.set(p, at); at += p.length; }
+    return out;
+  }
+  // 고칠 수 있는 사진인가: 목록(켠 폴더) 안 → Drive에서 휴지통 아님·JPEG·30MB 이하. 아니면 실패 이름.
+  async function metaFile(token: string, id: string) {
+    let f: Record<string, unknown>;
+    try {
+      f = await getFile(token, id, "id,mimeType,size,trashed,headRevisionId");
+    } catch (e) {
+      if (e instanceof Fail && e.status === 404) return { why: "missing" } as const;
+      if (e instanceof Fail && e.status === 403) return { why: "forbidden" } as const;
+      return { why: "unavailable" } as const;
+    }
+    if (f.trashed === true) return { why: "missing" } as const;
+    if (!isJpeg(f.mimeType)) return { why: "not_jpeg" } as const;
+    const size = Number(f.size);
+    if (!Number.isFinite(size) || size <= 0 || size > META_BYTES) return { why: "too_big" } as const;
+    if (typeof f.headRevisionId !== "string" || !f.headRevisionId) return { why: "unavailable" } as const;
+    return { size, rev: f.headRevisionId } as const;
+  }
+  // 이번 목록 안에 있는 사진만(없는 것은 실패 이름 missing으로). indexedPhotos와 같은 판단을 사진별로.
+  async function inIndex(workspaceId: string, ids: string[]) {
+    const on = new Set(await enabledIds(workspaceId));
+    const got = await rows("photos_pick", `app_gdrive_photos?workspace_id=eq.${workspaceId}&item_id=${inList(ids)}&select=item_id,parent_id`);
+    return new Map(got.filter((r) => on.has(r.parent_id as string)).map((r) => [r.item_id as string, r.parent_id as string]));
+  }
+  const place = (m: { taken: string | null; lat: number | null; lon: number | null }) => ({ taken: m.taken, lat: m.lat, lon: m.lon });
+  function metaList(v: unknown) {
+    if (!Array.isArray(v) || !v.length || v.length > META_MAX) throw new Fail(400, "ids_invalid");
+    return v;
+  }
+
   type Ctx = { workspaceId: string; body: Record<string, unknown>; req: Request };
   const actions: Record<string, (c: Ctx) => Promise<Response>> = {
     // 상태: 권한이 없으면 오류 대신 scope:false로 답한다(화면이 [Drive 다시 연결] 안내).
@@ -512,6 +573,117 @@ export function createGdriveHandler(options: GdriveOptions) {
       }
       if (trashed.length) await db("photos_trashed", `app_gdrive_photos?workspace_id=eq.${workspaceId}&item_id=${inList(trashed)}`, { method: "DELETE" }, "return=minimal");
       return json({ ok: failed.length === 0, trashed, failed, note: TRASH_NOTE });
+    },
+    // 사진 정보 읽기(≤10장): EXIF 찍은 시각·위치·카메라. 파일 앞 256KB만 받는다. 고칠 수 있는지(can)도 함께.
+    async "photos-meta-read"({ workspaceId, body: b }) {
+      const ids = metaList(b.ids);
+      if (!ids.every(isDriveId) || new Set(ids).size !== ids.length) throw new Fail(400, "ids_invalid");
+      const known = await inIndex(workspaceId, ids as string[]);
+      const token = await fullToken();
+      const items: Record<string, unknown>[] = [];
+      for (const id of ids as string[]) {
+        if (!known.has(id)) {
+          items.push({ id, can: false, why: "missing" });
+          continue;
+        }
+        const f = await metaFile(token, id);
+        if ("why" in f) {
+          items.push({ id, can: false, why: f.why });
+          continue;
+        }
+        const r = await call("meta_head", `${DRIVE}/${encodeURIComponent(id)}?alt=media`, { headers: { ...auth(token), Range: `bytes=0-${META_HEAD - 1}` } });
+        const bytes = r.ok ? await readBytes(r, META_HEAD, true) : null;
+        if (!r.ok) try { await r.body?.cancel(); } catch { /* ignore */ }
+        const meta = bytes ? readJpegMeta(bytes, true) : null;
+        if (!meta || !meta.ok) {
+          items.push({ id, can: false, why: meta ? meta.reason : "unavailable" });
+          continue;
+        }
+        items.push({ id, can: true, ...meta.meta });
+      }
+      return json({ ok: true, items });
+    },
+    // 사진 정보 고치기(≤10장, confirm:true): items = [{id, taken?(ISO), loc?({lat,lon}|null)}].
+    // 사진마다 받기 → EXIF만 다시 쓰기 → 판 번호가 그대로인지 확인 → 같은 파일 새 판으로 올리기 → 색인 그 사진만 다시 읽기.
+    // 성공한 사진은 앞·뒤 값을 돌려준다(되돌리기 기록은 화면이 사용자 로그인으로 app_photo_info_edits에 적는다).
+    async "photos-meta-write"({ workspaceId, body: b }) {
+      needConfirm(b);
+      const list = metaList(b.items);
+      const seen = new Set<string>();
+      const wants = list.map((x) => {
+        const it = x as Record<string, unknown> | null;
+        if (!it || typeof it !== "object" || Array.isArray(it) || !isDriveId(it.id) || seen.has(it.id)) throw new Fail(400, "items_invalid");
+        seen.add(it.id);
+        const taken = it.taken, loc = it.loc;
+        if (taken !== undefined && (typeof taken !== "string" || !Number.isFinite(Date.parse(taken)))) throw new Fail(400, "items_invalid");
+        if (loc !== undefined && loc !== null && !validLoc(loc)) throw new Fail(400, "items_invalid");
+        if (taken === undefined && loc === undefined) throw new Fail(400, "items_invalid");
+        return { id: it.id, change: { ...(taken !== undefined ? { taken: taken as string } : {}), ...(loc !== undefined ? { loc: loc as { lat: number; lon: number } | null } : {}) } };
+      });
+      const known = await inIndex(workspaceId, wants.map((w) => w.id));
+      const token = await fullToken();
+      const done: Record<string, unknown>[] = [], failed: Record<string, string> = {};
+      for (const want of wants) {
+        const parent = known.get(want.id);
+        if (!parent) {
+          failed[want.id] = "missing";
+          continue;
+        }
+        const f = await metaFile(token, want.id);
+        if ("why" in f) {
+          failed[want.id] = String(f.why);
+          continue;
+        }
+        const r = await call("meta_get", `${DRIVE}/${encodeURIComponent(want.id)}?alt=media`, { headers: auth(token) });
+        const bytes = r.ok ? await readBytes(r, META_BYTES, false) : null;
+        if (!r.ok) try { await r.body?.cancel(); } catch { /* ignore */ }
+        if (!bytes || bytes.length !== f.size) {
+          failed[want.id] = "unavailable";
+          continue;
+        }
+        const edited = writeJpegMeta(bytes, want.change);
+        if (!edited.ok) {
+          log("meta_write_skipped_" + edited.reason);
+          failed[want.id] = edited.reason;
+          continue;
+        }
+        // 받은 뒤 누가 바꿨으면(판 번호 다름) 덮어쓰지 않는다.
+        const again = await metaFile(token, want.id);
+        if ("why" in again || again.rev !== f.rev) {
+          failed[want.id] = "changed";
+          continue;
+        }
+        let up: Response;
+        try {
+          up = await request(`${DRIVE_UPLOAD}/${encodeURIComponent(want.id)}?uploadType=media&fields=id`, {
+            method: "PATCH", redirect: "error", signal: AbortSignal.timeout(60000),
+            headers: { ...auth(token), "Content-Type": "image/jpeg" }, body: edited.bytes,
+          });
+        } catch {
+          log("meta_upload_unreachable");
+          failed[want.id] = "unavailable";
+          continue;
+        }
+        try { await up.body?.cancel(); } catch { /* ignore */ }
+        if (!up.ok) {
+          log("meta_upload_" + up.status);
+          failed[want.id] = up.status === 403 ? "forbidden" : up.status === 429 ? "throttled" : "unavailable";
+          continue;
+        }
+        done.push({ id: want.id, before: place(edited.before), after: place(edited.after) });
+        // 색인: 그 사진만 Drive가 다시 뽑은 찍은 시각 그대로(색인 규칙 같음). 실패해도 고친 결과는 그대로 알린다(다음 다시 받기 때 맞춰짐).
+        try {
+          const fresh = await getFile(token, want.id, PHOTO_FIELDS);
+          const row = photoRow(workspaceId, parent, fresh, new Date(now()).toISOString());
+          if (row) {
+            await db("meta_reindex", "app_gdrive_photos?on_conflict=workspace_id,item_id",
+              { method: "POST", body: JSON.stringify([row]) }, "resolution=merge-duplicates,return=minimal");
+          }
+        } catch {
+          log("meta_reindex_failed");
+        }
+      }
+      return json({ ok: Object.keys(failed).length === 0, done, failed });
     },
     // 폴더 만들기(맨 위 또는 실제 폴더 안). 새 폴더는 꺼진 채.
     async "folder-create"({ body: b }) {
