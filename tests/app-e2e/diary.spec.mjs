@@ -456,6 +456,36 @@ for(const width of [390,1280])test(`[일기] 그날 보기·쓰기 창에 그날
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
+// JOURNAL-오늘한일달력 (S50-29, 요청함 11/02 13:17 덧붙임): 일기를 안 쓴 날도 그날 '오늘 한 일'이 있으면 일기 달력 칸에 빈 동그라미, 이 달 목록·[목록]
+// 보기에 그 날짜 줄('한 일 · 첫 줄')이 나온다. 그런 줄에는 📌·★가 없다(일기 한 편 단위). 누르면 그날 창(일기 없음 + 그날 한 일). 읽기만(쓰기 없음).
+for(const width of [390,1280])test(`[일기] 일기 없는 날도 한 일이 있으면 달력 동그라미·이 달 목록·[목록] 보기에 나옴 ${width}`,async({page})=>{
+ const rows=[...store(),workRow('2026-10-05','가상 교섭 준비회의\n미술 학원 다녀 옴'),workRow('2026-10-03','산책 전 가상 회의')];
+ const f=await fixture(page,{rows,width});await openDiary(page,width);
+ await expect(cell(page,'2026-10-05').locator('[data-diary-done-dot]')).toBeVisible();
+ await expect(cell(page,'2026-10-05')).toHaveAttribute('aria-label',/한 일 2줄/);
+ await expect(cell(page,'2026-10-03').locator('[data-diary-done-dot]')).toHaveCount(0); // 일기가 있는 날은 일기 표시 그대로
+ await expect(cell(page,'2026-10-04').locator('[data-diary-done-dot]')).toHaveCount(0);
+ const items=page.locator('#diaryRoot [data-diary-list-day]');
+ await expect(items).toHaveCount(3);
+ await expect(page.locator('#diaryRoot [data-diary-list-day="2026-10-05"]')).toContainText('한 일 · 가상 교섭 준비회의 외 1');
+ await page.locator('#diaryRoot [data-diary-list-day="2026-10-05"]').click();
+ const detail=page.locator('#diaryRoot [data-diary-detail]');
+ await expect(detail).toContainText('일기 없음');await expect(detail.locator('[data-diary-done] li')).toHaveText(['가상 교섭 준비회의','미술 학원 다녀 옴']);
+ await detail.locator('[data-diary-detail-close]').click();await expect(detail).toBeHidden();
+ await page.locator('#diaryRoot [data-diary-view="list"]').click();
+ const lv=page.locator('#diaryRoot [data-diary-all]');
+ await expect(lv.locator('[data-diary-lv-open]')).toHaveCount(3);
+ const doneRow=lv.locator('[data-diary-lv-swipe="2026-10-05"]');
+ await expect(doneRow).toHaveAttribute('data-diary-lv-done','');await expect(doneRow).toContainText('한 일 · 가상 교섭 준비회의 외 1');
+ await expect(doneRow.locator('[data-diary-lv-star],[data-diary-lv-more],[data-diary-lv-act]')).toHaveCount(0);
+ await expect(lv.locator('[data-diary-lv-swipe="2026-10-03"] [data-diary-lv-star]')).toHaveCount(1);
+ await page.locator('#diaryRoot [data-diary-lv-filter="star"]').click();await expect(lv.locator('[data-diary-lv-swipe="2026-10-05"]')).toHaveCount(0);
+ await page.locator('#diaryRoot [data-diary-lv-filter="all"]').click();
+ await doneRow.locator('[data-diary-lv-open]').click();
+ await expect(detail.locator('[data-diary-done] li')).toHaveText(['가상 교섭 준비회의','미술 학원 다녀 옴']);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
 // BUG-오늘버튼: [오늘] goes to this month and chooses today (its detail opens), like tapping the day.
 for(const width of [390,1280]){
  test(`[일기] [오늘]: 이번 달에서 다른 날을 골랐어도, 다른 달에서도 오늘이 골라지고 상세가 열린다 ${width}`,async({page})=>{
