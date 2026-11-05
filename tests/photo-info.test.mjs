@@ -118,7 +118,10 @@ test('다리 말: 0.4.15(meta)만, 읽기·고치기 모양, 이상한 답 버�
 
 test('연결: 사진 ⋯ 메뉴에 [정보 고치기…](폰 사진·앱 meta), 폰 앱 0.4.15, 위치 허락·EXIF 의존, DB 표 owner 전용', () => {
   const photos = readFileSync(new URL('../app/photos.js', import.meta.url), 'utf8');
-  assert.match(photos, /phone\.canMeta\(\) && tab !== 'trash' \? menuBtn\('data-pm-info', PHOTO_ACT_TEXT\.info\)/);
+  assert.match(photos, /\(String\(id\)\.startsWith\('ph:'\) \? phone\.canMeta\(\) : od\.canDelete\) && tab !== 'trash' \? menuBtn\('data-pm-info', PHOTO_ACT_TEXT\.info\)/);
+  // S50-31 ②: 구글 드라이브 우클릭 메뉴에도, [정보수정] 보이기 규칙은 폰·원드라이브·드라이브.
+  assert.match(photos, /menuBtn\('data-pm-move', '폴더로 옮기기…'\), menuBtn\('data-pm-info', PHOTO_ACT_TEXT\.info\), menuBtn\('data-pm-delete'/);
+  assert.match(photos, /const canInfo = list => tab !== 'trash' && list\.some\(x => \(x\.kind === 'phone' && phone\.canMeta\(\)\) \|\| \(x\.kind === 'od' && od\.canDelete\) \|\| \(x\.kind === 'gdrive' && gdUsable\(\)\)\)/);
   assert.doesNotMatch(photos, /photosSelMenu/);
   assert.match(photos, /data-photos-act-more/); // PHOTO-아래줄정돈(S49-34): 정보수정은 [더보기] 안 글자 항목
   assert.match(photos, /import\('\.\/photo-info-edit\.js'\)/);
@@ -134,4 +137,36 @@ test('연결: 사진 ⋯ 메뉴에 [정보 고치기…](폰 사진·앱 meta), 
   assert.match(sql, /private\.app_is_workspace_owner\(workspace_id\)/);
   assert.doesNotMatch(sql, /\bto\s+(anon|public)\b/i);
   assert.doesNotMatch(sql, /grant delete/i);
+});
+
+// S50-31 ②: 원드라이브·구글 드라이브 사진도 같은 표. 폰 모양은 그대로, 클라우드 줄은 src·key가 붙는다.
+import {sourceOf, cloudInfo, cloudWriteItems, splitBySource, chunked} from '../app/photo-info-model.mjs';
+test('클라우드 ②: 섞인 선택 → 출처별 보내기(서버는 ISO 시각), 기록 od:/gd:, 되돌리기 출처 유지, PC(폰 앱 없음)는 폰 사진만 빠짐', () => {
+  const od = {kind:'od', id:'ABC!1', name:'a.jpg', taken_at:new Date(T0).toISOString()};
+  const gd = {kind:'gdrive', id:'gd:G1', gdId:'G1', name:'b.jpg', taken_at:new Date(T0 + 60000).toISOString()};
+  const ph = item(1, T0 + 120000);
+  assert.deepEqual(sourceOf(od), {src:'onedrive', id:'ABC!1', key:'od:ABC!1'});
+  assert.deepEqual(sourceOf(gd), {src:'gdrive', id:'G1', key:'gd:G1'});
+  assert.equal(sourceOf({kind:'od', id:'bad id'}), null);
+  const inf = new Map([['od:ABC!1', cloudInfo({id:'ABC!1', can:true, taken:new Date(T0).toISOString(), lat:37.5, lon:127, make:'SONY', model:'A7'})],
+    ['gd:G1', cloudInfo({id:'G1', can:false, why:'not_jpeg'})], ['ms:1', info(1, T0 + 120000)]]);
+  const rows = infoRows([od, gd, ph], inf);
+  assert.equal(rows[0].src, 'onedrive'); assert.equal(rows[0].can, true); assert.deepEqual(rows[0].loc, {lat:37.5, lon:127});
+  assert.equal(rows[1].can, false); assert.equal(rows[1].why, '이 종류는 못 고침(JPEG만)');
+  assert.equal(rows[2].src, undefined, 'phone rows keep the old shape');
+  const plan = planRows(rows, {kind:'shift', ms:-8 * H});
+  const w = writeItems(plan);
+  assert.deepEqual(w, [{src:'onedrive', id:'ABC!1', taken:T0 - 8 * H}, {id:'1', taken:T0 + 120000 - 8 * H}]);
+  const parts = splitBySource(w);
+  assert.deepEqual(parts.phone, [{id:'1', taken:T0 + 120000 - 8 * H}]);
+  assert.deepEqual(cloudWriteItems(parts.onedrive), [{id:'ABC!1', taken:new Date(T0 - 8 * H).toISOString()}]);
+  assert.deepEqual(parts.gdrive, []);
+  const rec = recordRows(plan, {workspaceId:'w', batchId:'b', failed:['ms:1']});
+  assert.equal(rec.length, 1); assert.equal(rec[0].source, 'onedrive'); assert.equal(rec[0].item_key, 'od:ABC!1');
+  assert.deepEqual(undoItems(rec), [{src:'onedrive', id:'ABC!1', taken:T0}]);
+  assert.deepEqual(undoItems([{...rec[0], source:'gdrive'}]), [], 'source and key must agree');
+  // PC: 폰 앱이 없으면 폰 사진은 '폰 앱에서만'으로 빠지고 클라우드만 고친다.
+  const pc = infoRows([od, ph], inf, {noPhone:'폰 앱에서만'});
+  assert.equal(pc[1].can, false); assert.equal(pc[1].why, '폰 앱에서만'); assert.equal(pc[0].can, true);
+  assert.deepEqual(chunked([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
 });
