@@ -86,7 +86,7 @@ test('보내기 흐름: 가족 방은 family_tg로만, 이름표·해시를 만�
 test('가족 번호 목록: 번호 하나·이름 하나까지만 한 사람, 그 이상이면 family 표시 없이 개인으로만',()=>{
   assert.equal(G.callFeedFamilyList('010-0000-0000').ok,true);
   assert.equal(G.callFeedFamilyList('010-0000-0000, 가상 가족').ok,true);
-  const many=plain(G.callFeedFamilyList('010-0000-0000, 010-0000-0001'));
+  const many=plain(G.callFeedFamilyList('010-0000-0000, 010-1234-5678'));
   assert.equal(many.ok,false);assert.equal(many.bad,true);
   assert.equal(G.callFeedFamilyList('가상 가족, 가상 친척').bad,true);
   assert.deepEqual(plain(G.callFeedFamilyList('')),{list:{numbers:[],names:[]},ok:false,bad:false});
