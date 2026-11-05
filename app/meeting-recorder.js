@@ -8,7 +8,7 @@
 //   올린 조각을 모두 Drive 휴지통으로 옮긴다(전사·요약·초안 없음). 올리지 못한 조각은 메모리에서 버린다. 위쪽 작은 알림 [되돌리기](10초)는
 //   rec_restore로 휴지통에서 꺼내 '이어서 정리' 줄로 돌린다(마이크는 꺼졌으므로 녹음을 이어 하지는 않음). '이어서 정리' 줄에도 같은 [버리기].
 // - 59분마다 같은 마이크 흐름으로 새 녹음기를 먼저 켜고 앞 녹음기를 멈춘다(앞 구간 마지막 조각 → rec_start 같은 session_id → 새 구간 조각).
-// - [멈추고 정리]: 마지막 조각 → rec_finish(more면 반복) → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 + 기존 [초안 채우기]
+// - [멈추고 정리]: 마지막 조각 → rec_finish(more면 반복) → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 + 기존 [녹음 요약하기]
 //   (meeting-transcript-draft.js). 저장은 명진이 [사업 보고 저장]으로 하고, 그 뒤 구간마다 attach(기존 [이 회의에 녹음 붙이기]).
 import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,transcribePlan,resumables,takeOverRisk} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
@@ -518,7 +518,7 @@ async function finishOnScreen(known=null){
 function stopError(text,retry){const e=new Error('');e.recText=text;e.recRetry=retry;return e}
 function fail(text,retry){state='error';errorText=text;canRetry=!!retry&&(!!sessionId||!!jobId);step='';note='';clearInterval(ticker);paint()}
 
-// 사업 보고 › 회의 입력 창을 열고 기존 [초안 채우기] 흐름에 글을 넣는다(meeting-transcript-draft.js).
+// 사업 보고 › 회의 입력 창을 열고 기존 [녹음 요약하기] 흐름에 글을 넣는다(meeting-transcript-draft.js).
 async function openDraft(text,jobs){
   const loader=window.KPTUDeferredFeatures?.loadView||window.KPTUViewLoader?.load;
   if(loader)await loader('meetings');
