@@ -240,6 +240,7 @@ function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,worksp
 
 // ---- 입구: 비밀값·로그인·401 ------------------------------------------------------------------------------------
 
+const notKeyRead=(rest)=>rest.filter(c=>!c.startsWith('GET app_cron_keys?'));
 test('no key, wrong/short/missing secret, mixed or foreign keys → 401 before any DB or site call; OPTIONS 204', async () => {
   const h=harness();
   const r0=await h.handler(new Request(FN,{method:'OPTIONS'}));assert.equal(r0.status,204);
@@ -252,8 +253,9 @@ test('no key, wrong/short/missing secret, mixed or foreign keys → 401 before a
   assert.equal((await h.user('catalog',{},JWT_OK,{'x-drive-summary-cron-secret':'x'})).status,401);
   assert.equal((await h.user('catalog',{},'short')).status,401,'malformed bearer');
   for(const env of[{OUTSIDE_FEED_CRON_SECRET:undefined},{OUTSIDE_FEED_CRON_SECRET:''},{OUTSIDE_FEED_CRON_SECRET:'too-short-secret'}]){
-    const hh=harness({env});assert.equal((await hh.cron('run_plan')).status,401);assert.equal(hh.calls.rest.length,0);}
-  assert.equal(h.calls.rest.length,0);assert.equal(h.calls.site.length,0);assert.equal(h.calls.auth,0);
+    const hh=harness({env});assert.equal((await hh.cron('run_plan')).status,401);assert.deepEqual(notKeyRead(hh.calls.rest),[]);}
+  // NEWS-전면개편 P1c: 비밀값이 틀린 예약 열쇠는 지문 표(app_cron_keys) 읽기 1번만 하고 다른 표·사이트는 건드리지 않는다.
+  assert.deepEqual(notKeyRead(h.calls.rest),[]);assert.equal(h.calls.site.length,0);assert.equal(h.calls.auth,0);
   assert.equal(await H.secretMatches(SECRET,SECRET),true);assert.equal(await H.secretMatches(null,SECRET),false);
 });
 

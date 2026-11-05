@@ -171,6 +171,7 @@ pg_cron (DB 안 시계, postgres 역할로 실행)
 | ③ P1c Edge | `outside-feed`·`news-feed` 예약 입구에 지문 비교 추가 + 시험(지문 맞음·틀림·섞임·지문 표 없음) | Edge workflow, 한 번에 하나, 되돌리기 ref 기록 | 이전 ref 재배포 |
 | ④ 같은 PR | `outside-feed.yml`·`news-feed.yml`에서 `schedule:`만 뺌(수동 실행 남김) + 이 문서 결과 칸 | ③ 뒤, 첫 DB 예약 칸이 제대로 돈 것을 실행 기록으로 확인한 뒤 merge | schedule 되살리는 커밋 |
 
+- **③ 결과(S51-4, PR 코드만 — 배포 전)**: 공용 `_shared/cron-key.ts`(새 파일)로 `outside-feed`·`news-feed` 예약 입구에 지문 길을 더함. 지금 비밀값이 틀릴 때만 service role로 `app_cron_keys`(`web2_feed_cron`)를 읽어 고정 길이 비교, 행 없음·읽기 실패는 지문 길만 실패. 시험 `tests/security/feed-cron-key.test.mjs`. 배포는 CC가 Edge workflow로 한 번에 하나(되돌리기 ref 기록).
 - 순서 까닭: ③ 전에 ②의 예약이 돌면 모두 401이 된다 → **② (3) `cron.schedule`은 ③ 배포 확인 뒤**. ②를 (1)(2)와 (3)으로 나눠 실행해도 된다.
 - **확인 필요 [확인 못 함]**: 운영 DB에 `pg_cron`·`pg_net`·`supabase_vault`가 이미 켜져 있는지(부록 A-4). 읽생기가 이미 쓰고 있으면 켤 필요가 없고, 없으면 켜는 것이 읽생기에 영향이 없는지 CC가 한 줄 보고. pg_net의 시간 상한(기본 5초)을 150초로 줘도 Edge 쪽 실행이 끝까지 가는지는 첫 실행 기록으로 확인 [추정: Edge는 요청을 끝까지 처리].
 

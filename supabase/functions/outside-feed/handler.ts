@@ -2,6 +2,8 @@
 //
 // 입구 두 개(verify_jwt=false, 함수 코드가 막음 — collector-feed·drive-summary 예약과 같은 방식):
 // - 예약 입구(`run_plan`·`run`): `x-outside-feed-cron-secret` 헤더를 비밀값 OUTSIDE_FEED_CRON_SECRET(32자 이상)과 SHA-256 고정 길이 비교.
+//   또는(NEWS-전면개편 P1c) 그 헤더 값의 SHA-256을 service role로 읽은 app_cron_keys('web2_feed_cron') 지문과 고정 길이 비교(_shared/cron-key.ts).
+//   둘 중 하나 맞으면 통과. 지문 행이 없거나 표를 못 읽으면 지문 길만 실패한다.
 //   비밀값이 없거나 짧거나 틀리면 401. 어느 작업공간에 넣을지는 서버가 app_outside_sources.enabled로 정한다(요청 값 안 받음).
 // - 화면 입구(`catalog`·`expand`·`read_now`): 사용자 로그인(Authorization)을 Auth 서버로 확인 + 그 사람이 작업공간 owner인지 서버에서 확인.
 //   `read_now`(OUTSIDE-이름·바로읽기): 화면에서 단체를 켜면 그 단체 하나를 그 사람 작업공간에만 바로 한 번 읽는다. 단체 키 하나만 받고
@@ -18,6 +20,7 @@ import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSo
 import { aiConfigFrom, callOpenAi, outputText, type Env, type Log } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { betterTitle, pageTitleFrom, tidySummary, tidyTitle } from "../_shared/outside-tidy.ts";
 import { cut, decodeBody, extractBody, isUrlTitle, looksLikeBotCheck, NO_TITLE, oneLine, pageDate, parseFeed, parseListHtml, parseTelegram, robotsAllows, splitSentences, usableTitle, type ListItem, type ListStats } from "./parse.ts";
 
@@ -577,7 +580,10 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
       const cron = cronGiven !== null;
       if (cron) {
-        if (!await secretMatches(cronGiven, deps.env(SECRET_NAME))) throw new Fail(401, "UNAUTHORIZED");
+        // 지금 비밀값 또는 DB 예약 열쇠 지문(app_cron_keys) 둘 중 하나. 지문은 비밀값이 틀릴 때만 읽는다.
+        if (!await secretMatches(cronGiven, deps.env(SECRET_NAME)) && !await cronKeyMatches(cronGiven, { sb, serviceKey: key, doFetch, log })) {
+          throw new Fail(401, "UNAUTHORIZED");
+        }
       } else {
         const m = /^Bearer ([A-Za-z0-9._-]{20,4096})$/.exec(auth ?? "");
         if (!m) throw new Fail(401, "UNAUTHORIZED");
