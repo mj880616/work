@@ -144,7 +144,7 @@ export function syncText(syncedAt, now = Date.now()) {
 export function syncLabel(status, syncedAt, now = Date.now(), sources = ['od', 'gd']) {
   const on = sources.map(s => status?.[s]).filter(x => x?.connected);
   if (on.some(x => x.error)) return {text: '맞추기 안 됨', title: '목록을 다 받지 못했어요. 누르면 다시 맞춥니다', state: 'error'};
-  if (on.some(x => x.scanning)) return {text: '맞추기…', title: '처음 목록을 받는 중 — 끝날 때까지 일부 파일이 안 보일 수 있어요', state: 'scanning'};
+  if (on.some(x => x.scanning)) return {text: '맞추기…', title: '처음 목록을 아직 다 받지 못했어요 — 끝날 때까지 일부 파일이 안 보일 수 있어요', state: 'scanning'};
   return {text: syncText(syncedAt, now) || '맞추기', title: '지금 맞추기', state: 'ok'};
 }
 // sync 응답(출처마다 fresh·busy·more·done·error)을 화면이 들고 있는 상태(status 응답 모양)에 입힌다. 바꾼 새 객체를 돌려준다.
