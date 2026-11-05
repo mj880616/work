@@ -52,6 +52,11 @@
 .fx-ico { color:var(--kptu-faint); font-size:11px; text-align:center; }
 .fx-folder .fx-ico { font-size:13px; }
 .fx-nm { min-width:0; display:flex; align-items:center; gap:6px; }
+/* S49-51 '이 폰'(H-7): [최근]·찾기처럼 섞어 보일 때 줄마다 작은 출처 점(테마 색: 원드라이브 = 정보, 구글 = 성공, 이 폰 = 경고 톤). */
+.fx-dot { flex:none; width:6px; height:6px; border-radius:50%; background:var(--kptu-faint); }
+.fx-dot[data-src="od"] { background:var(--kptu-info); }
+.fx-dot[data-src="gd"] { background:var(--kptu-success); }
+.fx-dot[data-src="ph"] { background:var(--kptu-warning); }
 .fx-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fx-tag { flex:none; font-size:10.5px; color:var(--kptu-accent); }
 .fx-star { flex:none; font-size:11px; color:var(--kptu-muted); }

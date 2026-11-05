@@ -100,6 +100,13 @@ class MainActivity : ComponentActivity() {
     private var photoReply: JavaScriptReplyProxy? = null
     /** FILES-통합 3단계(S49-51): [파일] '이 폰'(app/phone-files.js)이 'pfiles:hello'로 연 다리. 설정에서 '모든 파일 접근'을 바꾸고 돌아오면 다시 알린다. */
     private var filesReply: JavaScriptReplyProxy? = null
+    /** FILES-통합 3-③: '이 폰' 휴지통(시스템 확인 창) 결과. 보낸 개수·못 찾은 개수. */
+    private var filesTrashCount = 0
+    private var filesTrashMissing = 0
+    private val filesTrash = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        val ok = result.resultCode == android.app.Activity.RESULT_OK
+        postFiles(PhoneFilesRules.doneMessage(ok, "trash", count = if (ok) filesTrashCount else 0, error = if (ok) (if (filesTrashMissing > 0) "missing" else "") else "refused"))
+    }
     private val photoPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
         PhoneMedia.forget()
         postPhotos(PhoneMedia.stateMessage(this))
@@ -1201,6 +1208,20 @@ class MainActivity : ComponentActivity() {
      * 목록·원본·작은 그림은 __phone/<열쇠>/files/ 가로채기(PhoneFiles.serve)로만 준다. 이 판은 읽기만.
      */
     private fun onPhoneFilesMessage(data: String, reply: JavaScriptReplyProxy) {
+        // 3-③ 쓰기(사람이 누른 것만 confirm:true): 새 폴더·이름·휴지통·클라우드 → 폰 받기. 모양이 틀리면 거절 한 줄.
+        if (data.startsWith("pfiles:op:") || data.startsWith("pfiles:save:")) {
+            filesReply = reply
+            val w = PhoneFilesRules.write(data)
+            if (w == null) {
+                if (data.startsWith("pfiles:save:")) {
+                    PhoneFilesWrite.worker.execute { PhoneFilesWrite.drop() }
+                    postFiles(PhoneFilesRules.saveMessage(false, "part", error = "bad"))
+                } else postFiles(PhoneFilesRules.doneMessage(false, "op", error = "bad"))
+                return
+            }
+            onPhoneFilesWrite(w)
+            return
+        }
         val m = PhoneFilesRules.message(data) ?: return
         filesReply = reply
         when (m) {
@@ -1219,6 +1240,68 @@ class MainActivity : ComponentActivity() {
                         postFiles(PhoneFiles.stateMessage())
                     }
                 }
+            }
+        }
+    }
+
+    private fun onPhoneFilesWrite(w: PhoneFilesRules.Write) {
+        val app = applicationContext
+        fun answer(text: String) = ui.post { if (alive) postFiles(text) }
+        fun code(e: Exception, stage: String): String {
+            if (e is PhoneFilesWrite.Failed) return e.code
+            PhoneFilesWrite.log(stage, e)
+            return if (e is SecurityException) "permission" else "write"
+        }
+        PhoneFilesWrite.worker.execute {
+            when (w) {
+                is PhoneFilesRules.Write.Mkdir -> answer(try {
+                    PhoneFilesRules.doneMessage(true, "mkdir", PhoneFilesWrite.mkdir(app, w), 1)
+                } catch (e: Exception) {
+                    PhoneFilesRules.doneMessage(false, "mkdir", error = code(e, "mkdir"))
+                })
+                is PhoneFilesRules.Write.Rename -> answer(try {
+                    PhoneFilesRules.doneMessage(true, "rename", PhoneFilesWrite.rename(app, w), 1)
+                } catch (e: Exception) {
+                    PhoneFilesRules.doneMessage(false, "rename", error = code(e, "rename"))
+                })
+                is PhoneFilesRules.Write.Trash -> try {
+                    if (Build.VERSION.SDK_INT < 30) throw PhoneFilesWrite.Failed("unsupported")
+                    val (uris, missing) = PhoneFilesWrite.trashUris(app, w)
+                    if (uris.isEmpty()) throw PhoneFilesWrite.Failed("missing")
+                    ui.post {
+                        try {
+                            filesTrashCount = uris.size
+                            filesTrashMissing = missing
+                            val sender = android.provider.MediaStore.createTrashRequest(contentResolver, uris, true).intentSender
+                            filesTrash.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build())
+                        } catch (e: Exception) {
+                            PhoneFilesWrite.log("trash", e)
+                            postFiles(PhoneFilesRules.doneMessage(false, "trash", error = "write"))
+                        }
+                    }
+                } catch (e: Exception) {
+                    answer(PhoneFilesRules.doneMessage(false, "trash", error = code(e, "trash")))
+                }
+                is PhoneFilesRules.Write.Begin -> answer(try {
+                    PhoneFilesWrite.begin(w)
+                    PhoneFilesRules.saveMessage(true, "begin")
+                } catch (e: Exception) {
+                    PhoneFilesWrite.drop()
+                    PhoneFilesRules.saveMessage(false, "begin", error = code(e, "save-begin"))
+                })
+                is PhoneFilesRules.Write.Part -> answer(try {
+                    PhoneFilesRules.saveMessage(true, "part", PhoneFilesWrite.part(java.util.Base64.getDecoder().decode(w.base64)))
+                } catch (e: Exception) {
+                    PhoneFilesWrite.drop()
+                    PhoneFilesRules.saveMessage(false, "part", error = code(e, "save-part"))
+                })
+                PhoneFilesRules.Write.End -> answer(try {
+                    PhoneFilesRules.saveMessage(true, "end", path = PhoneFilesWrite.end(app))
+                } catch (e: Exception) {
+                    PhoneFilesWrite.drop()
+                    PhoneFilesRules.saveMessage(false, "end", error = code(e, "save-end"))
+                })
+                PhoneFilesRules.Write.Cancel -> PhoneFilesWrite.drop()
             }
         }
     }
@@ -1489,8 +1572,9 @@ class MainActivity : ComponentActivity() {
         filesReply = null
         pushReply = null
         outReply = null
-        // 받다 만 사진(Pictures/웹2의 숨긴 칸)은 지운다.
+        // 받다 만 사진(Pictures/웹2의 숨긴 칸)은 지운다. '이 폰'으로 받다 만 임시 파일도.
         saveCancel()
+        PhoneFilesWrite.worker.execute { PhoneFilesWrite.drop() }
         saveWorker.shutdown()
         if (RecordHub.listener === recListener) RecordHub.listener = null
         if (AppUpdater.listener === updateListener) AppUpdater.listener = null

@@ -37,6 +37,7 @@ export const MAX_NEW_PER_RUN = 8;      // 한 번 실행에 단체마다 새로 
 export const GAP_MS = 2000;            // 같은 사이트 요청 사이
 export const RUN_BUDGET_MS = 100000;   // 한 번 실행 시간 예산(Edge 제한 안쪽)
 export const OLD_DAYS = 730;           // 2년 지난 글은 문장 없이(Q7)
+export const REDATE_PER_RUN = 5;       // 한 번 실행에 날짜 모르는 옛 글을 글 쪽에서 다시 읽는 수(목록에서 날짜를 찾은 것은 요청 없이 고침)
 export const PRUNE_BATCH = 200;
 export const EXPAND_DAILY_PER_USER = 100;
 export const READ_NOW_DAILY_PER_USER = 30;         // 바로 읽기: 사람마다 하루 횟수
@@ -349,7 +350,7 @@ async function runPlan(db: Db, nowMs: number, log: Log) {
   return { ok: true, sources: OUTSIDE_CATALOG.filter((s) => on.has(s.key)).map((s) => s.key), pruned };
 }
 
-type RunOut = { ok: true; source: string; status: string; workspaces: number; listed: number; fresh: number; inserted: number; skipped: number; deferred: number; refilled: number };
+type RunOut = { ok: true; source: string; status: string; workspaces: number; listed: number; fresh: number; inserted: number; skipped: number; deferred: number; refilled: number; redated?: number };
 
 async function markSources(db: Db, key: string, workspaces: string[], error: string | null, nowIso: string) {
   const body = error ? { last_error: error, updated_at: nowIso } : { last_ok_at: nowIso, last_error: null, updated_at: nowIso };
@@ -359,6 +360,36 @@ async function markSources(db: Db, key: string, workspaces: string[], error: str
 type RunLimits = { onlyWorkspace?: string; budgetMs?: number; maxNew?: number };
 
 // onlyWorkspace: 바로 읽기는 요청한 사람 작업공간(서버가 owner로 확인한 값)에만 넣는다. 예약 실행은 켠 작업공간 모두.
+// 이미 들어온 '날짜 모름' 글(published_at 비어 있음) 날짜 채우기(S50-1). 목록에서 날짜가 읽힌 글은 요청 없이, 나머지는 글 쪽을 REDATE_PER_RUN건까지 다시 읽는다.
+// 날짜를 끝내 못 찾는 글이 같은 자리를 막지 않게 한 시간마다 읽을 묶음을 돌린다. 다른 칸(제목·요약·본문)은 건드리지 않고 published_at만, 아직 비어 있는 행에만 쓴다.
+async function redateUndated(db: Db, reader: Reader, source: OutsideSource, workspaces: string[], items: ListItem[], tried: Map<string, string | null>, nowMs: number, startMs: number, budget: number, clock: () => number): Promise<number> {
+  if (source.mode === "telegram") return 0;
+  const rows = await db.get(`app_outside_posts?source_key=eq.${source.key}&published_at=is.null&workspace_id=in.(${workspaces.join(",")})&select=url,title&order=fetched_at.desc&limit=120`);
+  const byUrl = new Map<string, string>();
+  for (const r of rows) if (typeof r.url === "string" && !byUrl.has(r.url)) byUrl.set(r.url, typeof r.title === "string" ? r.title : "");
+  if (!byUrl.size) return 0;
+  const listed = new Map<string, string | null>(items.map((i) => [i.url, i.published_at ?? tried.get(i.url) ?? null] as const)); // 목록 날짜, 없으면 이번 실행에서 글 쪽을 읽다 찾은 날짜
+  const urls = [...byUrl.keys()];
+  const fromList = urls.filter((u) => listed.get(u));
+  const rest = urls.filter((u) => !listed.get(u) && !tried.has(u)); // 이번 실행에서 이미 글 쪽을 읽은 글은 다시 읽지 않는다
+  const chunks = Math.max(1, Math.ceil(rest.length / REDATE_PER_RUN));
+  const pick = rest.slice((Math.floor(nowMs / 3600000) % chunks) * REDATE_PER_RUN).slice(0, REDATE_PER_RUN);
+  let n = 0;
+  const patch = async (url: string, at: string) => {
+    await db.send("PATCH", `app_outside_posts?source_key=eq.${source.key}&url=eq.${encodeURIComponent(url)}&published_at=is.null&workspace_id=in.(${workspaces.join(",")})`, { published_at: at }, "return=minimal");
+    n++;
+  };
+  for (const u of fromList) await patch(u, listed.get(u)!);
+  for (const u of pick) {
+    if (clock() - startMs > budget) break;
+    const page = await reader.get(source, u, false);
+    if (!page.ok) continue;
+    const at = pageDate(page.text, byUrl.get(u) ?? "", nowMs, source.bodyClass);
+    if (at) await patch(u, at);
+  }
+  return n;
+}
+
 async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSource, nowMs: number, startMs: number, clock: () => number, limits: RunLimits = {}): Promise<RunOut> {
   const out: RunOut = { ok: true, source: source.key, status: "ok", workspaces: 0, listed: 0, fresh: 0, inserted: 0, skipped: 0, deferred: 0, refilled: 0 };
   const budget = limits.budgetMs ?? RUN_BUDGET_MS, maxNew = limits.maxNew ?? MAX_NEW_PER_RUN;
@@ -413,6 +444,7 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
     .filter((x) => x.ws.length || x.again.length);
   out.fresh = todo.filter((x) => x.ws.length).length;
 
+  const pageTried = new Map<string, string | null>(); // 이번 실행에서 글 쪽을 읽은 글 → 찾은 게시 날짜
   // 3) 새 글마다 글 페이지 1번 + AI 1번 → 필요한 작업공간마다 넣기.
   const cutoff = nowMs - OLD_DAYS * 86400000;
   for (const [n, { it, ws, again }] of todo.entries()) {
@@ -436,7 +468,8 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
       } else if (!it.summary && !it.content) { out.skipped++; continue; } // 글 쪽을 못 읽음(일시 오류·robots) — 다음 실행에 다시
     }
     // 게시 날짜: 목록 → 글 쪽(메타·제목 뒤 날짜). 못 읽으면 null('날짜 모름') — 읽은 시각을 게시 시각으로 쓰지 않는다(11/02 00:17).
-    const published = it.published_at ?? (pageText ? pageDate(pageText, it.title, nowMs) : null);
+    const published = it.published_at ?? (pageText ? pageDate(pageText, it.title, nowMs, source.bodyClass) : null);
+    if (pageRead) pageTried.set(it.url, published);
     // 정돈 한 번(11/02 00:19, 공용 _shared/outside-tidy.ts): 제목 한 줄(종류 꼬리표·단체명·날짜 꼬리 떼기, 길면 부제 떼기).
     // 글 쪽 제목(og:title·<title>)이 목록 제목 안에 든 더 짧은 제목이면 그것을 쓴다(목록 칸에 부제·본문 앞부분이 붙은 단체).
     // 종류(kind)는 목록에서 떼기 전 제목으로 이미 정했다.
@@ -494,6 +527,7 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
       }
     }
   }
+  try { out.redated = await redateUndated(db, reader, source, workspaces, items, pageTried, nowMs, startMs, budget, clock); } catch { ai.log("redate_failed", { source: source.key }); }
   await markSources(db, source.key, workspaces, null, nowIso);
   ai.log("source_done", { source: source.key, listed: out.listed, fresh: out.fresh, inserted: out.inserted, skipped: out.skipped, deferred: out.deferred, refilled: out.refilled });
   return out;

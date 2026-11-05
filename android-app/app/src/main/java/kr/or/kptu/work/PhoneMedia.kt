@@ -37,6 +37,35 @@ object PhoneMedia {
     @Volatile private var cache: List<PhoneMediaRules.Media>? = null
     @Volatile private var cacheAt = 0L
 
+    /** PHOTO-파일시각읽기: 사진별 EXIF 시각 기억(앱 실행 동안). 처음 한 번만 파일을 읽고, 고친 시각·크기가 바뀐 사진만 다시 읽는다. */
+    private val exifMemo = java.util.concurrent.ConcurrentHashMap<Long, PhoneMediaRules.ExifEntry>()
+
+    /** 파일 앞부분(EXIF)에서 찍은 시각을 읽는다. 읽을 수 없으면 null. 사진 이름·시각은 로그에 쓰지 않는다. */
+    private fun readExifMs(context: Context, id: Long): Long? = try {
+        val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+        context.contentResolver.openInputStream(uri)?.use { s ->
+            val e = androidx.exifinterface.media.ExifInterface(s)
+            PhoneMediaRules.exifTakenMs(
+                e.getAttribute(androidx.exifinterface.media.ExifInterface.TAG_DATETIME_ORIGINAL)
+                    ?: e.getAttribute(androidx.exifinterface.media.ExifInterface.TAG_DATETIME_DIGITIZED),
+                e.getAttribute(androidx.exifinterface.media.ExifInterface.TAG_OFFSET_TIME_ORIGINAL)
+                    ?: e.getAttribute(androidx.exifinterface.media.ExifInterface.TAG_OFFSET_TIME_DIGITIZED),
+                e.getAttribute(androidx.exifinterface.media.ExifInterface.TAG_SUBSEC_TIME_ORIGINAL),
+            )
+        }
+    } catch (e: Exception) {
+        logEdit("exif-read", e)
+        null
+    }
+
+    private fun exifMs(context: Context, id: Long, modifiedSec: Long, size: Long): Long? {
+        val memo = exifMemo[id]
+        if (!PhoneMediaRules.exifStale(memo, modifiedSec, size)) return memo!!.exifMs
+        val ms = readExifMs(context, id)
+        exifMemo[id] = PhoneMediaRules.ExifEntry(modifiedSec, size, ms)
+        return ms
+    }
+
     fun forget() {
         cache = null
         cacheAt = 0L
@@ -143,10 +172,13 @@ object PhoneMedia {
             fun str(i: Int): String? = if (i >= 0 && !c.isNull(i)) c.getString(i) else null
             while (c.moveToNext()) {
                 val name = str(iName) ?: ""
-                val (takenMs, approx) = PhoneMediaRules.taken(long(iTaken), long(iMod), long(iAdd))
+                val id = c.getLong(iId)
+                // 사진(동영상 아님)은 파일 EXIF 시각을 먼저. 고친 시각·크기가 같으면 기억한 값을 쓴다(목록 읽기가 느려지지 않게).
+                val exif = if (video) null else exifMs(context, id, long(iMod) ?: 0L, long(iSize) ?: -1L)
+                val (takenMs, approx) = PhoneMediaRules.takenWithExif(exif, long(iTaken), long(iMod), long(iAdd))
                 out.add(
                     PhoneMediaRules.Media(
-                        id = c.getLong(iId), name = name, size = long(iSize) ?: -1L, takenMs = takenMs, approx = approx,
+                        id = id, name = name, size = long(iSize) ?: -1L, takenMs = takenMs, approx = approx,
                         addedMs = (long(iAdd) ?: 0L) * 1000, mime = str(iMime) ?: if (video) "video/mp4" else "image/jpeg",
                         width = (long(iW) ?: 0L).toInt(), height = (long(iH) ?: 0L).toInt(), durationMs = long(iDur) ?: 0L,
                         video = video, screenshot = PhoneMediaRules.isScreenshot(str(iPath), name), folder = str(iPath) ?: "",

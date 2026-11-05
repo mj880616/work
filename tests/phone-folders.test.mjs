@@ -133,8 +133,8 @@ test('앱(0.4.1): 끈 폴더 거르기·사진마다 폴더·폴더 바꾸기·�
   assert.match(main, /Settings\.ACTION_REQUEST_MANAGE_MEDIA/);
   assert.match(read('android-app/app/src/main/AndroidManifest.xml'), /android\.permission\.MANAGE_MEDIA/);
   const gradle = read('android-app/app/build.gradle');
-  assert.match(gradle, /versionName '0\.4\.(?:[1-9]|[1-9][0-9])'/);
-  assert.match(gradle, /versionCode (?:4[1-9]|[5-9][0-9])/);
+  assert.match(gradle, /versionName '0\.(?:4\.(?:[1-9]|[1-9][0-9])|[5-9]\.\d+)'/);
+  assert.match(gradle, /versionCode (?:4[1-9]|[5-9][0-9]|[1-9][0-9]{2})/);
 });
 
 // S48-31 새 폰 폴더는 꺼진 채(요청함 10/31 11:04 [사용자 결정]): 아는 폴더(view_prefs.phone_folders_known, 지문 배열)로 새 폰 폴더를 알아본다.

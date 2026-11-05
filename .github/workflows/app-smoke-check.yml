@@ -71,6 +71,7 @@ on:
       - 'tests/basket-ocr.test.mjs'
       - 'tests/basket-ocr-runtime.test.mjs'
       - 'tests/hwp-lab-pin.test.mjs'
+      - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-fill-screen.test.mjs'
@@ -156,7 +157,14 @@ on:
       - 'tests/files-model.test.mjs'
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
+      - 'tests/phone-files-model.test.mjs'
       - 'scripts/package-lock.json'
+      - 'about/**'
+      - 'tests/about-privacy-page.test.mjs'
+      - 'supabase/functions/google-calendar/index.ts'
+      - 'supabase/functions/google-tasks/index.ts'
+      - 'supabase/functions/public-policy-drive/index.ts'
+      - 'supabase/functions/gdrive-photos/handler.ts'
       - '.github/workflows/app-smoke-check.yml'
   pull_request:
     branches: [main]
@@ -228,6 +236,7 @@ on:
       - 'tests/basket-ocr.test.mjs'
       - 'tests/basket-ocr-runtime.test.mjs'
       - 'tests/hwp-lab-pin.test.mjs'
+      - 'tests/hwp-open-timing.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-fill-screen.test.mjs'
@@ -313,7 +322,14 @@ on:
       - 'tests/files-model.test.mjs'
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
+      - 'tests/phone-files-model.test.mjs'
       - 'scripts/package-lock.json'
+      - 'about/**'
+      - 'tests/about-privacy-page.test.mjs'
+      - 'supabase/functions/google-calendar/index.ts'
+      - 'supabase/functions/google-tasks/index.ts'
+      - 'supabase/functions/public-policy-drive/index.ts'
+      - 'supabase/functions/gdrive-photos/handler.ts'
       - '.github/workflows/app-smoke-check.yml'
   workflow_dispatch:
 
@@ -335,6 +351,9 @@ jobs:
         run: |
           set -e
           find app -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Check public privacy page matches requested Google scopes (MULTI D4)
+        run: node --test tests/about-privacy-page.test.mjs
 
       - name: Check attachment file rename rules (ATT-이름고치기)
         run: node --test tests/file-rename.test.mjs
@@ -427,7 +446,7 @@ jobs:
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
         run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/now-model.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
-        run: node --test tests/files-model.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs
+        run: node --test tests/files-model.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/phone-files-model.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
@@ -503,7 +522,7 @@ jobs:
         run: node --test tests/drive-summary-refresh.test.mjs
 
       - name: Check pinned HWP editor files
-        run: node --test tests/hwp-lab-pin.test.mjs
+        run: node --test tests/hwp-lab-pin.test.mjs tests/hwp-open-timing.test.mjs
 
       - name: Check HWP union-style template and style shortcuts
         run: node --test tests/hwp-union-style.test.mjs
@@ -629,6 +648,8 @@ jobs:
         run: node --test tests/photo-sources.test.mjs
       - name: "Phone photo read errors (PHOTO-폰사진못읽음: 앱 실패 종류·이유 글·공용 실패 표시 이유, synthetic)"
         run: node --test tests/phone-photo-errors.test.mjs
+      - name: "Phone photo EXIF taken time (PHOTO-파일시각읽기: EXIF 찍은 시각 먼저·바뀐 파일만 다시 읽기·앱 0.5.0, synthetic)"
+        run: node --test tests/phone-exif-taken.test.mjs
       - name: "Phone photo gallery edit (PHOTO-갤러리편집: 편집·받기 다리 말, [편집] 단추 자리, synthetic)"
         run: node --test tests/phone-photo-edit.test.mjs
       - name: "Photo sources on every chip (PHOTO-출처모든칩: 폴더·휴지통·앨범 출처 따르기·폰 폴더 보기, synthetic)"

@@ -257,13 +257,15 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
   return ctl;
 }
 export const WEEK_LINES_EVENT = EVENT;
-// 주간 정리 4. 조직보고 표(조직 | 조직현황): 내 담당조직 전부(앱 순서, 내용 없어도 자리 유지). orgs = [{id, name}].
-export function weekTableHtml(ctl, orgs, {msg = '', error = false} = {}) {
+// 주간보고 4. 조직보고 표(조직 | 조직현황) — 담당조직 [전체 표]와 홈 [주간 정리] 4.가 이 함수 하나로 그린다(S50-7: 따로 만들지 않음).
+// orgs = [{id, name}] 주간보고(개인본) 순서대로, 내용 없어도 자리 유지.
+// 옵션: orgHtml(o) 조직 칸 안쪽 글(기본: 이름), stageOf(o) 조직 이름 밑 작은 글(쟁의 단계), headOrg 조직 머리칸 안쪽(칸 폭 끌기 손잡이), tableClass 표 구분 이름.
+export function weekTableHtml(ctl, orgs, {msg = '', error = false, orgHtml = null, stageOf = null, headOrg = '조직', headRows = '조직현황', tableClass = ''} = {}) {
   if (ctl.status === 'missing') return `<p class="wl-note" data-wl-missing>${TEXT.missing}</p>`;
   if (ctl.status === 'error') return `<p class="wl-note" role="alert">${TEXT.failed}</p>`;
   if (ctl.status !== 'ready') return waitHtml({rows: 2});
   if (!orgs.length) return emptyHtml('담당조직 없음');
-  const rows = orgs.map(o => `<tr data-wl-org-row="${esc(o.id)}"><th scope="row" class="wl-c-org"><span class="wl-org">${esc(o.name)}</span>${ctl.nameHtml(o.id)}</th><td class="wl-c-rows">${ctl.cellHtml(o.id)}</td></tr>`).join('');
-  return `<table class="wl-table" data-wl-table><thead><tr><th scope="col" class="wl-c-org">조직</th><th scope="col">조직현황</th></tr></thead><tbody>${rows}</tbody></table>`
+  const rows = orgs.map(o => { const stage = stageOf ? stageOf(o) : ''; return `<tr data-wl-org-row="${esc(o.id)}"><th scope="row" class="wl-c-org">${orgHtml ? orgHtml(o) : `<span class="wl-org">${esc(o.name)}</span>`}${ctl.nameHtml(o.id)}${stage ? `<span class="wl-stage">${esc(stage)}</span>` : ''}</th><td class="wl-c-rows">${ctl.cellHtml(o.id)}</td></tr>`; }).join('');
+  return `<table class="wl-table${tableClass ? ` ${tableClass}` : ''}" data-wl-table><thead><tr><th scope="col" class="wl-c-org">${headOrg}</th><th scope="col">${esc(headRows)}</th></tr></thead><tbody>${rows}</tbody></table>`
     + `<p class="wl-status${error ? ' is-error' : ''}" role="status" aria-live="polite" data-wl-status>${esc(msg)}</p>`;
 }

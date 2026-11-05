@@ -16,7 +16,7 @@ const SEED=[
  L('p1','oa','2026-09-30','합성 지난주 줄',undefined,{week_start:'2026-09-28'}),
 ];
 const STATUS=[{id:'s1',organization_id:'ob',day:'2026-09-20',end_day:null,body:'합성 현황 줄',sort_order:0,source:'user',evidence:[],updated_at:stamp}];
-async function fixture(page,{width,missing=false,seed=SEED}){
+async function fixture(page,{width,missing=false,seed=SEED,order=null}){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await installViewPrefsServer(page,null);
@@ -36,6 +36,12 @@ async function fixture(page,{width,missing=false,seed=SEED}){
   if(m==='PATCH'){const b=req.postDataJSON(),id=eq('id'),at=eq('updated_at');db.patches.push({id,at,...b});const hit=db.rows.filter(r=>r.id===id&&(!at||r.updated_at===at));hit.forEach(r=>Object.assign(r,b,{updated_at:'2026-10-06T03:00:0'+(db.tick++%10)+'Z'}));return json(route,hit)}
   return json(route,{message:'no'},405);
  });
+ // 주간보고(개인본) 순서: 그 주 임시저장 바탕(proposed)의 산하조직 칸 순서. order = 조직 이름들(없으면 임시저장 없음 → 앱 조직 순서).
+ await page.route(/\/rest\/v1\/app_weekly_exec_requests(\?|$)/,route=>{
+  if(route.request().method()!=='GET')return json(route,[]);
+  const draft=order?{v:1,rows:[],titles:[],proposed:{at:'2026-10-05T00:00:00.000Z',cells:order.map(k=>({section:'orgs',key:k,n:0,lines:[]}))}}:null;
+  return json(route,draft?[{id:'d1',draft,draft_saved_at:stamp}]:[]);
+ });
  await page.route(SB+'/functions/v1/ai-assist',route=>json(route,{ok:true,kind:route.request().postDataJSON().kind,skipped:true}));
  return {f,db,errors};
 }
@@ -45,9 +51,9 @@ async function openTable(page){
  await page.locator('#soTeamTabs').getByRole('tab',{name:'전체 표'}).click();
  await expect(page.locator('#soOverview')).toBeVisible();
 }
-const oa=page=>page.locator('#soOverview [data-oa-org-row="oa"]');
-const ob=page=>page.locator('#soOverview [data-oa-org-row="ob"]');
-const status=page=>page.locator('#soOverview [data-oa-status]');
+const oa=page=>page.locator('#soOverview [data-wl-org-row="oa"]');
+const ob=page=>page.locator('#soOverview [data-wl-org-row="ob"]');
+const status=page=>page.locator('#soOverview [data-wl-status]');
 
 for(const width of [412,1440])test(`[전체 표] 이번 주 조직보고: 넣은 줄·제안 줄 넣기/빼기·+ 줄·줄 고치기·AI 채우기 버튼 없음 ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width});
@@ -151,5 +157,39 @@ test('[전체 표] 넣은 줄 3줄 넘음 표시·가장 최근 3줄 + 외 n줄 
 test('[전체 표] 표가 없으면(DB 적용 전) 준비 중 한 줄',async({page})=>{
  await fixture(page,{width:412,missing:true});
  await openTable(page);
- await expect(page.locator('#soOverview [data-oa-missing]')).toHaveText('주별 조직보고 표는 준비 중이에요.');
+ await expect(page.locator('#soOverview [data-wl-missing]')).toHaveText('주별 조직보고 표는 준비 중이에요.');
+});
+
+for(const width of [412,1440])test(`[전체 표] 주간보고 조직보고 표와 같은 모양(조직 | 조직현황 칸 선) ${width}px`,async({page})=>{
+ const {errors}=await fixture(page,{width});
+ await openTable(page);
+ const table=page.locator('#soOverview table.wl-table');
+ await expect(table).toHaveCount(1);
+ await expect(page.locator('#soOverview .oa-group')).toHaveCount(0);
+ await expect(table.locator('thead th')).toHaveText(['조직','이번 주 조직보고']);
+ await expect(page.locator('#soOverview')).not.toContainText('쟁의 단계');
+ // 칸 선: 조직 칸과 현황 칸 모두 테두리가 있다(주간 정리 표와 같은 .wl-table).
+ const cell=oa(page).locator('td.wl-c-rows'),head=oa(page).locator('th.wl-c-org');
+ await expect(cell).toHaveCSS('border-top-width','1px');await expect(head).toHaveCSS('border-top-width','1px');
+ await expect(oa(page).locator('.wl-day').first()).toHaveText('- 10.6.');
+ const [h,c]=await Promise.all([head.boundingBox(),cell.boundingBox()]);
+ if(width>760){expect(c.x).toBeGreaterThanOrEqual(h.x+h.width-1);expect(Math.abs(c.y-h.y)).toBeLessThan(2);} // 옆으로 나란히
+ else{expect(c.y).toBeGreaterThanOrEqual(h.y+h.height-2);expect(Math.abs(c.x-h.x)).toBeLessThan(2);expect(c.width).toBeGreaterThan(300);} // 두 줄(조직 위, 현황 아래), 폭은 꽉 참
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+ expect(errors).toEqual([]);
+});
+
+test('[전체 표] 조직 순서 = 주간보고(개인본) 순서(그 주 임시저장 바탕), 바탕이 없으면 앱 조직 순서',async({page})=>{
+ const {errors}=await fixture(page,{width:1440,order:['합성 나 지회','합성 가 지부']});
+ await openTable(page);
+ await expect(page.locator('#soOverview tbody tr')).toHaveCount(2);
+ await expect(page.locator('#soOverview tbody tr').first()).toHaveAttribute('data-wl-org-row','ob');
+ await expect(page.locator('#soOverview tbody tr').nth(1)).toHaveAttribute('data-wl-org-row','oa');
+ expect(errors).toEqual([]);
+});
+test('[전체 표] 임시저장 바탕이 없으면 앱 조직 순서(가나다)',async({page})=>{
+ await fixture(page,{width:1440});
+ await openTable(page);
+ await expect(page.locator('#soOverview tbody tr').first()).toHaveAttribute('data-wl-org-row','oa');
+ await expect(page.locator('#soOverview tbody tr').nth(1)).toHaveAttribute('data-wl-org-row','ob');
 });

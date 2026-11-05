@@ -24,6 +24,8 @@ import {odLinkButtonHtml, paintOdLink} from './od-link.js';
 import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
 import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mjs';
+import {createPhoneFiles} from './phone-files.js';
+import {PHONE_SOURCE as PH, phoneTrail, mergeRecent, phoneParent, phoneWriteText, PHONE_SAVE_MAX, PHONE_OLD_APP_TEXT, PHONE_MOVE_TEXT, PHONE_ASK_TEXT, PHONE_CANNOT_TEXT} from './phone-files-model.mjs';
 import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest, otherStart, DROP_ASK_TEXT} from './files-panes-model.mjs';
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
 // - 목록은 서버 색인(app_cloud_list·app_cloud_find·app_cloud_trail, owner + 운영자 기능 files일 때만 읽힘)에서 바로 그린다. 클라우드는 부르지 않는다.
@@ -58,6 +60,13 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 //   고르기 막대는 '→ 오른쪽에 복사 / → 옮기기'(받을 곳 = 반대 칸의 지금 폴더, 받을 곳 창 없이). 같은 이름·200MB 묻기·전송 목록은 2-①·2-② 그대로(xferRun).
 //   칸 사이 끌어 놓기: 놓으면 '복사 · 옮기기' 작은 고르기. PC 키(두 칸일 때): F5 반대 칸에 복사 · F6 옮기기 · Tab 칸 바꾸기(입력 칸 안에서는 안 함). F2·Del은 그대로.
 //   폴드 두 칸은 나무 대신 칸 위 줄 ▾(그 칸 위로 나무가 내려옴). 미리보기는 두 칸이면 덮는 칸(뒤로가기 한 번 = 닫힘).
+// FILES-통합 3단계 '이 폰'(S49-51, 명진 결정 H-1·H-7, 폰 앱 0.5.0+): 위 줄 출처 아이콘에 [이 폰](폰 앱에서만). 앱 다리(phone-files.js)로 폰 저장 공간을 읽는다 —
+//   나무 맨 위 줄에 '이 폰'(폴더 펼치기·목록), [최근]은 클라우드 줄과 폰 줄을 바뀐 날 순으로 섞고 줄마다 작은 출처 점(H-7). 미리보기·받기·공유는 폰 안에서 읽는다.
+//   폰 파일 → 클라우드 [복사]는 올리기 길(upload_open, 2-④)을 그대로 쓴다(바이트는 폰 앱 안에서 읽어 클라우드 자리로 바로 보냄, 서버 Edge를 거치지 않음).
+//   3-③(앱이 쓰기를 알 때, state.write): 클라우드 → 폰 [복사](받을 곳 창에 '이 폰', Edge media로 받아 앱이 그 폴더에 씀 — 같은 이름은 한 번 묻고 앱이 번호를 붙임, 덮어쓰기 없음),
+//   폰 쪽 새 폴더·이름 바꾸기·휴지통(사람이 누른 것만, 휴지통은 확인 한 번 + 안드로이드 휴지통). 폰이 낀 옮기기는 아직 없다(복사 뒤 원본 지우기 안내).
+//   [별표]·[큰 파일]·찾기는 클라우드만(폰 별표는 두지 않음, 설계 D-6).
+//   폰 파일 목록은 이 화면 메모리에만 있고 서버·기기에 저장하지 않는다. [이 폰] 켜기/끄기는 이번 접속만 기억한다(서버 기억은 DB 한 칸이 더 필요해 다음 PR).
 // 저장은 서버만: 목록은 이 탭 메모리(열린 동안만), 받은 그림·PDF는 blob: 주소(메모리)로만 두고 화면을 떠나면 놓는다. 기기 저장 없음.
 // 파일 이름은 모두 글자로만 그린다(esc). 로그에 파일 이름·id를 남기지 않는다.
 
@@ -71,6 +80,10 @@ const DEVICE = filesDeviceKind({ua: navigator.userAgent || '', narrow: PHONE.mat
 const WIDE = window.matchMedia('(min-width:1200px)');
 const GDRIVE_SVG = brandIconSvg('gdrive', {size: 16, cls: 'fx-src-ic'});
 const PDF_LIB = new URL('./pdf-lib/pdfjs-dist-6.3.289/', import.meta.url);
+// '이 폰' 다리(폰 앱에서만 usable). phoneOff = 이번 접속에서 [이 폰]을 끔(메모리만).
+const phone = createPhoneFiles(window);
+let phoneOff = false;
+const PHONE_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="1.5" width="8" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="12.2" r=".8" fill="currentColor"/></svg>';
 
 // 목록 칸 하나(칸 0 = 한 칸 화면의 그 칸 / 두 칸이면 왼쪽, 칸 1 = 두 칸일 때만 있는 오른쪽). 칸 위 줄(fx-ptop)은 두 칸일 때만 보인다.
 const paneHtml = i => `<div class="fx-listcol" data-fx-pane-i="${i}"><div class="fx-ptop" data-fx-ptop hidden></div><nav class="fx-ptree nx-tree" data-fx-ptree aria-label="${i ? '오른쪽' : '왼쪽'} 칸 폴더" hidden></nav>`
@@ -80,7 +93,7 @@ function install() {
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="filesView" class="view-panel hidden" aria-labelledby="fxTitle">
 <h2 id="fxTitle" class="screen-title">파일</h2>
 <div id="filesRoot" class="fx" data-fx-pane="list">
-<div class="fx-top"><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button></span><button type="button" class="mini fx-two" data-fx-two aria-pressed="false" title="두 칸으로 보기" hidden>두 칸</button></div>
+<div class="fx-top"><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button></span><button type="button" class="mini fx-two" data-fx-two aria-pressed="false" title="두 칸으로 보기" hidden>두 칸</button></div>
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="고른 것" hidden></div>
 <div class="fx-tabs" data-fx-tabs role="tablist" aria-label="파일 보기">${PHONE_TABS.map(t => `<button type="button" role="tab" data-fx-tab="${t}" aria-selected="false">${PHONE_TAB_NAME[t]}</button>`).join('')}</div>
 <p class="fx-note" data-fx-note role="status" hidden></p>
@@ -147,8 +160,15 @@ function resetIfOwnerChanged() {
 const connected = () => SOURCES.filter(s => state.status?.[s]?.connected);
 // 켜진 출처(연결된 것 중 아이콘으로 켠 것). 보기 전부(최근·폴더·별표·찾기·나무)가 이 목록만 본다.
 const srcState = () => viewPrefs.getFilesSources?.(DEVICE);
-const onSources = () => visibleSources(srcState(), connected());
-const nothingOn = () => !!state.status && connected().length > 0 && !onSources().length;
+// '이 폰': 폰 앱 다리가 '모든 파일 접근'으로 켜져 있고(phone.state.all) 이번 접속에서 끄지 않았을 때. 클라우드 뒤 맨 끝 줄.
+const phoneLinked = () => phone.usable && phone.state.all;
+const phoneOn = () => phoneLinked() && !phoneOff;
+const onSources = () => [...visibleSources(srcState(), connected()), ...(phoneOn() ? [PH] : [])];
+const cloudOn = () => onSources().filter(s => s !== PH);
+// 폰에 쓸 수 있나(앱 3-③ 판 + 허락 + 켜짐).
+const phoneWrite = () => phoneOn() && phone.state.write === true;
+const anyLinked = () => connected().length > 0 || phoneLinked();
+const nothingOn = () => !!state.status && anyLinked() && !onSources().length;
 async function loadStatus() {
   const scope = state.scope;
   try {
@@ -184,8 +204,16 @@ async function loadList(p, {quiet = false} = {}) {
   try {
     let rows, trail = [];
     // 묶음(최근·큰 파일·별표)은 켜진 출처를 서버로 넘겨 서버가 거른다(S49-26, 화면이 200줄을 받아 덮어 거르지 않음).
-    if (where.shelf) { const on = onSources(); rows = on.length ? await rpc('app_cloud_find_in', {p_sources: on, p_query: null, p_shelf: where.shelf, p_limit: SHELF_LIMIT}) : []; }
-    else {
+    if (where.shelf) {
+      const on = cloudOn();
+      // [최근]에 폰 줄도 섞는다(H-7). 폰을 못 읽어도 클라우드 줄은 보인다(폰 실패는 한 줄 안내).
+      const ph = where.shelf === 'recent' && phoneOn() ? phone.recent().catch(e => { state.hint = errorText(codeOf(e)); return []; }) : Promise.resolve(null);
+      const [cloud, mine] = await Promise.all([on.length ? rpc('app_cloud_find_in', {p_sources: on, p_query: null, p_shelf: where.shelf, p_limit: SHELF_LIMIT}) : [], ph]);
+      rows = mine ? mergeRecent(Array.isArray(cloud) ? cloud : [], mine, SHELF_LIMIT * 2) : cloud;
+    } else if (where.source === PH) {
+      rows = await phone.list(where.parent);
+      trail = phoneTrail(where.parent);
+    } else {
       [rows, trail] = await Promise.all([
         rpc('app_cloud_list', {p_source: where.source, p_parent_id: where.parent}),
         where.parent ? rpc('app_cloud_trail', {p_source: where.source, p_item_id: where.parent}) : Promise.resolve([])]);
@@ -237,7 +265,7 @@ async function directRead(p, where, scope) {
 async function loadChildren(source, parent) {
   const key = folderKey(source, parent), scope = state.scope;
   try {
-    const rows = await rpc('app_cloud_list', {p_source: source, p_parent_id: parent});
+    const rows = source === PH ? await phone.list(parent) : await rpc('app_cloud_list', {p_source: source, p_parent_id: parent});
     if (state.scope !== scope) return;
     state.children.set(key, (Array.isArray(rows) ? rows : []).filter(r => r.is_folder));
   } catch { if (state.scope === scope) state.children.set(key, []); }
@@ -273,7 +301,7 @@ function setQuery(p, raw) {
 async function find(p, q) {
   const seq = ++p.fseq, scope = state.scope;
   try {
-    const on = onSources();
+    const on = cloudOn();
     const rows = on.length ? await rpc('app_cloud_find_in', {p_sources: on, p_query: q, p_shelf: null, p_limit: FIND_LIMIT}) : [];
     if (seq !== p.fseq || state.scope !== scope || p.query !== q) return;
     p.found = Array.isArray(rows) ? rows : []; p.findFailed = ''; p.findWhy = '';
@@ -404,8 +432,9 @@ function paintTop() {
     }
     s.hidden = !state.status || !connected().length;
   }
-  const mk = $('[data-fx-mkdir]'), folderHere = !!p.where?.source && !p.query && !treePane() && onSources().includes(p.where.source);
-  if (mk) { mk.hidden = !folderHere; mk.disabled = !!state.busy; }
+  const openHere = !!p.where?.source && !p.query && !treePane(), folderHere = openHere && cloudOn().includes(p.where.source);
+  const mk = $('[data-fx-mkdir]'), mkHere = folderHere || (openHere && p.where.source === PH && phoneWrite());
+  if (mk) { mk.hidden = !mkHere; mk.disabled = !!state.busy; }
   // 올리기(2-④): 폴더를 연 칸에서만(받을 곳 = 지금 칸의 폴더). PC는 끌어 놓기도 된다.
   const upb = $('[data-fx-upload]');
   if (upb) { upb.hidden = !folderHere; upb.disabled = !!state.busy || !!state.ask; }
@@ -415,7 +444,7 @@ function paintTop() {
   for (const b of root?.querySelectorAll('[data-fx-tab]') || []) b.setAttribute('aria-selected', String(b.dataset.fxTab === state.tab));
   const note = $('[data-fx-note]');
   if (note) {
-    const t = state.statusFailed ? errorText(state.statusFailed) : state.status && !connected().length ? '연결된 클라우드가 없습니다' : state.hint;
+    const t = state.statusFailed ? errorText(state.statusFailed) : state.status && !anyLinked() ? '연결된 클라우드가 없습니다' : state.hint;
     note.textContent = t; note.hidden = !t;
   }
 }
@@ -434,8 +463,18 @@ function paintSrcs() {
     const t = `${SOURCE_NAME[name]} ${info.linked ? (info.on ? '켜짐' : '꺼짐') : '연결 안 됨'}`;
     b.title = t; b.setAttribute('aria-label', t);
   }
+  // [이 폰]: 폰 앱(0.5.0+)에서만 보인다. 허락 전에는 흐리게(누르면 설정 안내), 허락 뒤에는 켜기/끄기.
+  const pb = box.querySelector('[data-fx-src="ph"]');
+  if (pb) {
+    pb.hidden = !(phone.usable && phone.state.known);
+    pb.setAttribute('aria-pressed', String(phoneOn()));
+    pb.classList.toggle('fx-src-off', !phoneLinked());
+    const t = `${SOURCE_NAME[PH]} ${phoneLinked() ? (phoneOn() ? '켜짐' : '꺼짐') : '허락 안 됨'}`;
+    pb.title = t; pb.setAttribute('aria-label', t);
+  }
 }
 function srcClick(name) {
+  if (name === PH) { phoneClick(); return; }
   if (!FILES_SRC.includes(name)) return;
   const info = chipInfo(srcState(), connected(), name);
   if (!info.linked) {
@@ -444,6 +483,20 @@ function srcClick(name) {
     return;
   }
   viewPrefs.setFilesSources(DEVICE, filesSourcesValue(toggleFilesSource(srcState(), name)));
+  sourcesChanged();
+}
+// [이 폰] 누름: 허락 전이면 설정 화면(앱이 돌아오면 상태를 다시 보낸다), 허락 뒤면 이번 접속에서 켜기/끄기.
+function phoneClick() {
+  if (!phone.usable) return;
+  if (!phone.state.can) { state.hint = PHONE_CANNOT_TEXT; paintTop(); return; }
+  if (!phone.state.all) { state.hint = PHONE_ASK_TEXT; paintTop(); phone.ask(); return; }
+  phoneOff = !phoneOff;
+  sourcesChanged();
+}
+// 앱이 상태를 알려 오면(설정에서 돌아옴·열쇠 바뀜): 켜졌으면 나무 맨 위를 읽고 [최근]을 다시 읽는다.
+phone.on(() => { if (state.status) { state.hint = ''; phoneChanged(); } });
+function phoneChanged() {
+  state.children.delete(folderKey(PH, null));
   sourcesChanged();
 }
 // 켜기/끄기가 바뀐 뒤: 보던 출처가 꺼졌으면 최근으로, 새로 켠 출처의 나무 맨 위를 읽고, 다시 그린다. 끄기는 보기에서만 빠진다(색인·연결은 그대로).
@@ -505,7 +558,7 @@ function rowHtml(p, r, {withPath = false} = {}) {
     + (r.is_folder && folderLook.color(r.source, r.item_id)
       ? `<span class="fx-ico fl-ico" data-kind="${kind}" data-fc="${folderLook.color(r.source, r.item_id)}" aria-hidden="true">${folderShapeHtml('closed')}</span>`
       : `<span class="fx-ico" data-kind="${kind}" aria-hidden="true">${esc(kindIcon(r))}</span>`)
-    + `<span class="fx-nm"><span class="fx-name">${esc(r.name)}</span>${star}${tag}</span>`
+    + `<span class="fx-nm">${withPath ? `<span class="fx-dot" data-src="${esc(r.source)}" title="${esc(SOURCE_NAME[r.source] || '')}" aria-label="${esc(SOURCE_NAME[r.source] || '')}"></span>` : ''}<span class="fx-name">${esc(r.name)}</span>${star}${tag}</span>`
     + (withPath ? `<span class="fx-path">${esc(where)}</span>` : '')
     + `<span class="fx-day">${esc(day)}</span><span class="fx-size">${esc(size)}</span><span class="fx-kind">${esc(kindLabel(r))}</span>`
     + `<span class="fx-sub">${esc([withPath ? where : day, size].filter(Boolean).join(' · '))}</span></button>`;
@@ -540,7 +593,7 @@ function paintList(p) {
     return;
   }
   const w = p.where;
-  if (!w) { list.innerHTML = state.status && !connected().length ? emptyHtml('연결된 클라우드 없음') : waitHtml({rows: 4}); return; }
+  if (!w) { list.innerHTML = state.status && !anyLinked() ? emptyHtml('연결된 클라우드 없음') : waitHtml({rows: 4}); return; }
   if (p.failed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(p.failed), reason: p.failedWhy}); return; }
   if (!p.loaded) { list.innerHTML = waitHtml({rows: 4}); return; }
   const rows = shown(p);
@@ -574,6 +627,16 @@ function selectRow(key, {show = true} = {}) {
   for (const b of paneEl(p)?.querySelectorAll('[data-fx-row]') || []) b.setAttribute('aria-selected', String(b.dataset.fxRow === key || p.picked.has(b.dataset.fxRow)));
   if (show && !r.is_folder) openPreview(r);
 }
+// 줄 바이트: 클라우드는 Edge(thumb·media·preview), 이 폰은 앱 다리(폰 안에서 읽음). range = 앞 몇 바이트만(글 미리보기).
+async function rowBlob(r, what, {range = 0} = {}) {
+  if (r.source === PH) {
+    const blob = what === 'thumb' ? await phone.thumb(r.item_id, true) : await phone.blob(r.item_id);
+    return range ? blob.slice(0, range) : blob;
+  }
+  if (what === 'thumb') return bytes({action: 'thumb', source: r.source, id: r.item_id, size: 'large'});
+  if (what === 'preview') return bytes({action: 'preview', source: r.source, id: r.item_id});
+  return bytes({action: 'media', source: r.source, id: r.item_id}, range ? {range: `bytes=0-${range - 1}`} : {});
+}
 async function openPreview(r) {
   if (state.preview?.key === rowKey(r)) { if (overlayPreview()) openLayer(); paintPreview(); return; }
   dropPreview();
@@ -585,15 +648,15 @@ async function openPreview(r) {
   if (kind === 'none') return;
   try {
     if (kind === 'image') {
-      const blob = await bytes({action: 'thumb', source: r.source, id: r.item_id, size: 'large'});
+      const blob = await rowBlob(r, 'thumb');
       if (state.preview !== p) return;
       p.url = URL.createObjectURL(blob);
     } else if (kind === 'text') {
-      const blob = await bytes({action: 'media', source: r.source, id: r.item_id}, {range: `bytes=0-${TEXT_PREVIEW_BYTES - 1}`});
+      const blob = await rowBlob(r, 'media', {range: TEXT_PREVIEW_BYTES});
       if (state.preview !== p) return;
       p.text = new TextDecoder('utf-8', {fatal: false}).decode(new Uint8Array(await blob.slice(0, TEXT_PREVIEW_BYTES).arrayBuffer()));
     } else {
-      const blob = await bytes({action: kind === 'office' ? 'preview' : 'media', source: r.source, id: r.item_id});
+      const blob = await rowBlob(r, kind === 'office' ? 'preview' : 'media');
       if (state.preview !== p) return;
       const lib = await pdfjs();
       p.task = lib.getDocument({data: new Uint8Array(await blob.arrayBuffer()), cMapUrl: new URL('cmaps/', PDF_LIB).href, cMapPacked: true, isEvalSupported: false, disableFontFace: false, useSystemFonts: true, verbosity: 0});
@@ -667,16 +730,20 @@ function paintPreview() {
   // 그리고 있는 PDF 칸은 그대로 둔다(다시 그리면 쪽을 처음부터 다시 그려야 함).
   if (p.doc && p.host && p.host.isConnected && box.contains(p.host) && box.dataset.fxKey === p.key) return;
   box.dataset.fxKey = p.key;
+  const mine = r.source === PH;
   box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span>`
-    + `<button type="button" class="mini fx-star-btn${r.starred ? ' on' : ''}" data-fx-star-one aria-pressed="${!!r.starred}" aria-label="${r.starred ? '별표 빼기' : '별표'}" title="${r.starred ? '별표 빼기' : '별표'}">${r.starred ? '★' : '☆'}</button></div>`
+    + (mine ? '' : `<button type="button" class="mini fx-star-btn${r.starred ? ' on' : ''}" data-fx-star-one aria-pressed="${!!r.starred}" aria-label="${r.starred ? '별표 빼기' : '별표'}" title="${r.starred ? '별표 빼기' : '별표'}">${r.starred ? '★' : '☆'}</button>`) + '</div>'
     + `<div class="fx-pv-view">${view}</div>`
     + `<dl class="fx-pv-meta"><dt>위치</dt><dd>${esc(where)}</dd><dt>크기</dt><dd>${esc(sizeText(r.size_bytes))}</dd><dt>바뀐 날</dt><dd>${esc(fullTime(r.modified_at))}</dd><dt>종류</dt><dd>${esc(kindLabel(r))}</dd></dl>`
     + '<div class="fx-pv-twins" data-fx-twins hidden></div>'
-    + `<div class="fx-pv-acts"><button type="button" class="fx-btn" data-fx-open>열기</button><button type="button" class="fx-btn" data-fx-down>받기</button>`
+    + `<div class="fx-pv-acts">${mine ? '' : '<button type="button" class="fx-btn" data-fx-open>열기</button>'}<button type="button" class="fx-btn" data-fx-down>받기</button>`
     + (canShare() ? '<button type="button" class="fx-btn fx-share" data-fx-share>공유</button>' : '')
     + (r.library_doc_id ? `<button type="button" class="fx-btn" data-fx-library="${esc(r.library_doc_id)}">자료실에서 보기</button>` : '')
-    + `<button type="button" class="fx-btn" data-fx-rename-one>이름</button><button type="button" class="fx-btn" data-fx-copy-one>복사</button><button type="button" class="fx-btn" data-fx-cut-one>옮기기</button>`
-    + `<button type="button" class="fx-btn fx-danger" data-fx-trash-one>휴지통</button></div>`;
+    // 폰 파일: [클라우드에 복사] + (앱 3-③ 판이면) 이름·휴지통. 폰이 낀 옮기기는 아직 없다.
+    + (mine ? '<button type="button" class="fx-btn" data-fx-copy-one>클라우드에 복사</button>'
+      + (phoneWrite() ? '<button type="button" class="fx-btn" data-fx-rename-one>이름</button><button type="button" class="fx-btn fx-danger" data-fx-trash-one>휴지통</button>' : '') + '</div>'
+      : `<button type="button" class="fx-btn" data-fx-rename-one>이름</button><button type="button" class="fx-btn" data-fx-copy-one>복사</button><button type="button" class="fx-btn" data-fx-cut-one>옮기기</button>`
+      + `<button type="button" class="fx-btn fx-danger" data-fx-trash-one>휴지통</button></div>`);
   paintTwins();
   if (p.doc) { p.host = null; drawPages(p, Math.max(PDF_FIRST_PAGES, p.want || 0)); }
   // 사진: 공용 그림 칸(img-slot.js) — 받는 중 회색, 못 받으면 ↻(그 사진만 다시 받기).
@@ -711,6 +778,7 @@ function paintTwins() {
 function note(text) { const n = $('[data-fx-note]'); if (n) { n.textContent = text; n.hidden = !text; } }
 // 열기: 클라우드 보기 화면 새 창. 창은 누른 순간 열어 두고(팝업 막힘 피함) 주소를 받으면 넣는다.
 async function openCloud(r) {
+  if (r.source === PH) return;
   const win = window.open('about:blank', '_blank');
   try {
     const d = await edge('open-url', {source: r.source, id: r.item_id});
@@ -720,7 +788,7 @@ async function openCloud(r) {
 }
 async function download(r, {share = false} = {}) {
   try {
-    const blob = await bytes({action: 'media', source: r.source, id: r.item_id});
+    const blob = await rowBlob(r, 'media');
     if (share) {
       const file = new File([blob], r.name, {type: blob.type || 'application/octet-stream'});
       if (navigator.canShare({files: [file]})) { await navigator.share({files: [file], title: r.name}); return; }
@@ -784,6 +852,16 @@ function paintBar() {
   }
   bar.hidden = !n;
   if (!n) { bar.innerHTML = ''; return; }
+  // 폰 파일을 고르면 이 판은 '클라우드에 복사'만(받을 곳 창 / 두 칸이면 반대 칸이 클라우드 폴더일 때).
+  if (hasPhone(pickedRows(p))) {
+    const i = state.cur, dest = two() ? oppDest() : null, ok = dest && dest.source !== PH;
+    bar.innerHTML = `<span class="fx-bar-t">${n}개 · ${esc(SOURCE_NAME[PH])}</span>`
+      + (two() ? `<button type="button" class="fx-btn" data-fx-send="copy"${ok ? '' : ` disabled title="${esc(paneSide(i ^ 1))} 칸에서 받을 클라우드 폴더를 여세요"`}>${esc(sendLabel(i, 'copy'))}</button>`
+        : '<button type="button" class="fx-btn" data-fx-copy>클라우드에 복사</button>')
+      + (phoneWrite() ? (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '') + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button>' : '')
+      + '<button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
+    return;
+  }
   if (two()) {
     // 시안 ⑥⑧: 'N개 (왼쪽) · [→ 오른쪽에 복사] [→ 옮기기] [이름] [휴지통] ✕' — 받을 곳 창 없이 반대 칸으로. PC는 키 이름을 함께.
     const i = state.cur, dest = oppDest(), keys = WIDE.matches, off = dest ? '' : ` disabled title="${esc(paneSide(i ^ 1))} 칸에서 받을 폴더를 여세요"`;
@@ -854,8 +932,46 @@ async function write(action, body, label, {timeoutMs = 60000} = {}) {
     if (state.scope === scope) { state.busy = ''; paintBar(); paintTop(); }
   }
 }
+// 폰 줄·폰 받을 곳이 낀 일: 새 폴더·이름·휴지통(write)은 앱 3-③ 판이면 한다. 옮기기는 아직 없다. 막을 때 한 줄 안내.
+const hasPhone = rows => (rows || []).some(r => r?.source === PH);
+function phoneStop(rows, dest, {write = false} = {}) {
+  if (!hasPhone(rows) && dest?.source !== PH) return false;
+  if (write && phoneWrite()) return false;
+  notify(write ? PHONE_OLD_APP_TEXT : PHONE_MOVE_TEXT, {record: false});
+  return true;
+}
+// 폰에 쓴 뒤: 그 폴더를 보고 있는 칸·나무·[최근]을 앱에서 다시 읽는다(폰 목록은 화면 메모리만).
+async function phoneRefresh(dirs, {gone = []} = {}) {
+  const set = new Set((dirs || []).map(d => d || null));
+  if (state.preview && gone.includes(state.preview.key)) closePreview();
+  for (const p of state.panes) for (const k of gone) p.picked.delete(k);
+  for (const d of set) if (state.children.has(folderKey(PH, d))) loadChildren(PH, d);
+  const work = [];
+  for (const p of panesOn()) {
+    const w = p.where;
+    if (!w || p.query) continue;
+    if (w.shelf === 'recent' || (w.source === PH && set.has(w.parent || null))) work.push(loadList(p, {quiet: true}));
+  }
+  paintBar();
+  await Promise.all(work);
+}
+// 폰 쓰기 한 번(새 폴더·이름·휴지통): 막대에 '… 중' → 앱 답 → 실패면 한 줄.
+async function phoneOp(body, label) {
+  if (state.busy || state.run) return null;
+  const scope = state.scope;
+  state.busy = label; paintBar(); paintTop();
+  try {
+    const d = await phone.op(body);
+    if (state.scope !== scope) return null;
+    if (!d.ok) { notify(phoneWriteText(d.error), {error: true, record: false}); return null; }
+    if (d.error === 'missing') notify(phoneWriteText('missing'), {error: true, record: false});
+    return d;
+  } finally {
+    if (state.scope === scope) { state.busy = ''; paintBar(); paintTop(); }
+  }
+}
 async function renameRow(r, anchor) {
-  if (!r) return;
+  if (!r || phoneStop([r], null, {write: true})) return;
   const parts = r.is_folder ? {base: r.name, ext: ''} : splitFileName(r.name);
   const v = await askText(anchor, {text: '새 이름', value: parts.base, ok: '바꾸기', max: FILE_BASE_MAX});
   if (v === null) return;
@@ -863,22 +979,44 @@ async function renameRow(r, anchor) {
   if (!chk.ok) { notify(chk.message, {error: true, record: false}); return; }
   const name = chk.base + parts.ext;
   if (name === r.name) return;
+  if (r.source === PH) {
+    const d = await phoneOp({op: 'rename', path: r.item_id, name}, '이름 바꾸는 중');
+    if (d) { await phoneRefresh([phoneParent(r.item_id)], {gone: [rowKey(r)]}); notify(writeDoneText('rename'), {record: false}); }
+    return;
+  }
   const d = await write('rename', {source: r.source, id: r.item_id, name}, '이름 바꾸는 중');
   if (d) { await applyWrite(d, touchedFolders([r])); notify(writeDoneText('rename'), {record: false}); }
 }
 async function makeFolder(anchor) {
   const w = P().where;
-  if (!w?.source) return;
+  if (!w?.source || phoneStop([], w, {write: true})) return;
   const v = await askText(anchor, {text: '새 폴더 이름', value: '', ok: '만들기', max: FILE_BASE_MAX});
   if (v === null) return;
   const chk = checkFileBase(v);
   if (!chk.ok) { notify(chk.message, {error: true, record: false}); return; }
+  if (w.source === PH) {
+    const d = await phoneOp({op: 'mkdir', dir: w.parent || '', name: chk.base}, '폴더 만드는 중');
+    if (d) { await phoneRefresh([w.parent]); notify(writeDoneText('mkdir'), {record: false}); }
+    return;
+  }
   const d = await write('mkdir', {source: w.source, parent: w.parent, name: chk.base}, '폴더 만드는 중');
   if (d) { await applyWrite(d, [folderKey(w.source, w.parent)]); notify(writeDoneText('mkdir'), {record: false}); }
 }
 async function trashRows(rows, anchor) {
   const list = rows.filter(Boolean);
-  if (!list.length) return;
+  if (!list.length || phoneStop(list, null, {write: true})) return;
+  // 폰 파일: 확인 한 번 → 안드로이드 휴지통(폴더는 지우지 않음). 클라우드 줄과 섞여 있으면 따로 하게.
+  if (hasPhone(list)) {
+    if (list.some(r => r.source !== PH)) { notify('폰 파일과 클라우드 파일은 따로 휴지통으로 보내 주세요', {record: false}); return; }
+    const files = list.filter(r => !r.is_folder);
+    if (!files.length) { notify('폰 폴더는 지우지 않아요(파일만)', {record: false}); return; }
+    const one = files.length === 1;
+    if (!(await askConfirm(anchor, {text: one ? `'${files[0].name}'을(를) 휴지통으로 보낼까요?` : `${files.length}개를 휴지통으로 보낼까요?`,
+      note: '폰 휴지통(갤러리·내 파일 앱의 휴지통)에서 30일 안에 되돌릴 수 있어요' + (files.length < list.length ? ' · 폴더는 빼고 보냅니다' : ''), ok: '휴지통으로', danger: true}))) return;
+    const d = await phoneOp({op: 'trash', paths: files.map(r => r.item_id)}, '휴지통으로 보내는 중');
+    if (d) { await phoneRefresh([...new Set(files.map(r => phoneParent(r.item_id)))], {gone: files.map(rowKey)}); notify(writeDoneText('trash', {done: d.count, failed: files.length - d.count}), {error: d.count < files.length, record: false}); }
+    return;
+  }
   const ask = trashAsk(list);
   if (!(await askConfirm(anchor, {text: ask.text, note: ask.note, ok: '휴지통으로', danger: true}))) return;
   let done = 0, failed = 0;
@@ -898,7 +1036,7 @@ async function trashRows(rows, anchor) {
 // 잘라 붙이기·복사해 붙이기(PC Ctrl+X·Ctrl+C → 폴더를 열고 Ctrl+V / [여기로 옮기기·여기에 복사]).
 function cutRows(rows, mode = 'move') {
   const list = rows.filter(Boolean);
-  if (!list.length) return;
+  if (!list.length || (mode === 'move' && phoneStop(list))) return;
   if (mode === 'move') { const chk = moveCheck(list); if (!chk.ok) { notify(chk.reason, {error: true, record: false}); return; } }
   state.clip = {rows: list, keys: list.map(rowKey), mode};
   P().picked.clear(); paintLists(); paintBar();
@@ -915,7 +1053,7 @@ function pasteClip(dest, anchor) {
 // 끌어 놓기·붙여 넣기 옮기기: 받을 곳 창과 같은 길(xferRun)로. 다른 저장소로 옮기는 것은 원본이 휴지통으로 가므로 한 번 묻는다.
 async function moveRows(rows, dest, anchor) {
   const list = rows.filter(Boolean);
-  if (!moveTargetOk(list, dest)) return;
+  if (phoneStop(list, dest) || !moveTargetOk(list, dest)) return;
   const away = list.filter(r => r.source !== dest.source);
   if (away.length) {
     const r = away[0], one = away.length === 1;
@@ -931,12 +1069,14 @@ async function moveRows(rows, dest, anchor) {
 // 받을 곳 창은 하단바 위로 열리고(뒤로가기 한 번 = 닫힘), 맨 위 '최근 보낸 곳' 칩 3개(서버 view_prefs.files_dest_recent), 켜진 저장소 나무, [새 폴더][여기에 복사/옮기기].
 // 보내기는 한 번에 하나씩 차례로(서버가 1개씩 받음, 같은 클라우드 옮기기만 move 한 번에 200개). 쓰기는 모두 사람이 누른 것(confirm:true).
 let destLayer = null;
+// 받을 곳 창의 저장소: 클라우드 + (폰에 쓸 수 있고, 보내는 것이 클라우드 파일이면) '이 폰'.
+const destSources = rows => (phoneWrite() && !hasPhone(rows) ? onSources() : cloudOn());
 const destKey = d => d ? folderKey(d.source, d.parent) : '';
 function openDest(mode, rows) {
   const list = (rows || []).filter(Boolean);
-  if (!list.length) return;
+  if (!list.length || (mode === 'move' && phoneStop(list))) return;
   if (state.run) { notify('보내는 중이에요. 끝난 뒤 다시 해 주세요.', {record: false}); return; }
-  const on = onSources(), here = hereDest();
+  const on = destSources(list), here = hereDest();
   const dest = here && on.includes(here.source) ? here : null;
   const open = new Set(on.map(s => folderKey(s, null)));
   const p = P();
@@ -969,7 +1109,7 @@ function paintDest() {
   const x = state.xfer;
   if (!x) { box.hidden = true; box.innerHTML = ''; if (dim) dim.hidden = true; root.classList.remove('fx-dest-open'); return; }
   box.hidden = false; if (dim) dim.hidden = false; root.classList.add('fx-dest-open');
-  const on = onSources(), cur = destKey(x.dest);
+  const on = destSources(x.rows), cur = destKey(x.dest);
   const chips = recentDests().map(recentDestOf).filter(d => d && on.includes(d.source));
   const recent = chips.length ? `<div class="fx-dest-sub">최근 보낸 곳</div><div class="fx-dest-recent">${recentDests().filter(d => on.includes(d.source)).map(d =>
     `<button type="button" class="fx-dest-chip${destKey(recentDestOf(d)) === cur ? ' on' : ''}" data-fx-dest-pick="${esc(destKey(recentDestOf(d)))}" data-fx-dest-name="${esc(d.name)}">${d.source === 'gd' ? brandIconSvg('gdrive', {size: 12}) : brandIconSvg('onedrive', {size: 12})}<span>${esc(d.name)}</span></button>`).join('')}</div>` : '';
@@ -1010,6 +1150,14 @@ async function destMkdir(anchor) {
   if (v === null || state.xfer !== x) return;
   const chk = checkFileBase(v);
   if (!chk.ok) { notify(chk.message, {error: true, record: false}); return; }
+  if (d.source === PH) {
+    const m = await phoneOp({op: 'mkdir', dir: d.parent || '', name: chk.base}, '폴더 만드는 중');
+    if (!m?.path || state.xfer !== x) return;
+    await loadChildren(PH, d.parent);
+    x.open.add(destKey(d));
+    pickDest(folderKey(PH, m.path), chk.base);
+    return;
+  }
   const r = await write('mkdir', {source: d.source, parent: d.parent, name: chk.base}, '폴더 만드는 중');
   const made = r?.changed?.[0];
   if (!made) return;
@@ -1054,12 +1202,24 @@ async function destGo() {
   const dest = x.dest, name = destNameOf(dest);
   const ran = await xferRun(x.mode, x.rows, dest, {inSheet: true});
   if (!ran) return;
-  viewPrefs.set('files_dest_recent', pushRecentDest(recentDests(), dest, name), {rejectable: true});
+  // '최근 보낸 곳'은 클라우드 폴더만 서버에 기억한다(폰 폴더 경로는 서버로 보내지 않음).
+  if (dest.source !== PH) viewPrefs.set('files_dest_recent', pushRecentDest(recentDests(), dest, name), {rejectable: true});
 }
 // 보내기 한 번(복사·옮기기 공용): 막을 것 거르기 → 같은 이름 묻기(한 번, '남은 것도 모두 같게') → 200MB 넘는 것 묻기 → 차례로 보내며 전송 줄.
 //   덮어쓰기는 없다: [그래도 하기]는 서버가 '이름 (2)'처럼 번호를 붙여 둘 다 둔다(공용 numberedName). 끝나면 한 줄 알림.
 async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
   if (state.run || state.busy) return false;
+  // 폰 → 클라우드 복사: 폰 앱 안에서 원본을 읽어 올리기 길(upload_open, 같은 이름·200MB 묻기·전송 목록 그대로)로. 폰이 낀 다른 일은 이 판에서 하지 않는다.
+  //   클라우드 → 폰 복사(3-③): Edge media로 받아 앱이 받을 폴더에 쓴다. 폰 → 폰·옮기기는 아직 없다.
+  if (hasPhone(rows) || dest?.source === PH) {
+    const up = mode === 'copy' && dest?.source !== PH && rows.every(r => r.source === PH);
+    const down = mode === 'copy' && dest?.source === PH && !hasPhone(rows) && phoneWrite();
+    if (!up && !down) { phoneStop(rows, dest); return false; }
+    if (inSheet) closeDest();
+    P().picked.clear(); paintPicks();
+    if (up) await phoneToCloud(rows, dest); else await cloudToPhone(rows, dest);
+    return true;
+  }
   const plan = xferPlan(rows, dest, mode);
   if (!plan.ok.length) { notify(plan.reason, {error: true, record: false}); return false; }
   let destRows = [];
@@ -1274,6 +1434,73 @@ const upFiles = new Map();
 const up = {queue: [], cur: null, pumping: false, hiddenStop: false};
 let refileFor = '';
 const upOurs = id => up.cur?.id === id || up.queue.some(q => q.id === id);
+// 클라우드 → 폰(3-③): 파일만(폴더·구글 문서·크기 모름은 xferPlan이 거름). 같은 이름은 한 번 묻고 [그래도 하기]면 앱이 '이름 (2)'로 둘 다 둔다(덮어쓰기 없음).
+//   하나씩 차례로: Edge media로 받은 바이트를 앱 다리로 384KB씩 넘긴다(화면이 열린 동안). 전송 줄은 같은 저장소 옮기기와 같은 state.run.
+async function cloudToPhone(rows, dest) {
+  const plan = xferPlan(rows, dest, 'copy');
+  if (!plan.ok.length) { notify(plan.reason, {error: true, record: false}); return; }
+  if (plan.blocked.length) notify(plan.blocked[0].reason, {error: true, record: false});
+  let destRows = [];
+  try { destRows = await phone.list(dest.parent); } catch { /* 모르면 묻지 않고 앱이 번호를 붙인다 */ }
+  const same = new Set(sameNameRows(plan.ok, destRows).map(rowKey));
+  const go = [];
+  let sameAll = null, skipped = plan.blocked.length;
+  for (const r of plan.ok) {
+    if (same.has(rowKey(r))) {
+      let c = sameAll;
+      if (!c) {
+        const res = await ask({name: r.name, text: sameNameAsk('down'), go: '그래도 하기', many: plan.ok.filter(y => same.has(rowKey(y))).length > 1});
+        if (res.closed) return;
+        c = res.choice; if (res.all) sameAll = c;
+      }
+      if (c === 'skip') { skipped++; continue; }
+    }
+    if (Number(r.size_bytes) > PHONE_SAVE_MAX) { notify(`${r.name}: 폰으로는 1GB까지 받아요`, {error: true, record: false}); skipped++; continue; }
+    go.push(r);
+  }
+  if (!go.length) { if (skipped) notify(xferDoneText('copy', {skipped}), {record: false}); return; }
+  const scope = state.scope;
+  const run = state.run = {mode: 'copy', total: go.length, at: 1, done: 0, failed: 0, name: go[0].name, code: '', pending: false};
+  paintXfer();
+  try {
+    for (const r of go) {
+      run.name = r.name; run.at = run.done + run.failed + 1; paintXfer();
+      try {
+        const blob = await rowBlob(r, 'media');
+        if (state.scope !== scope) return;
+        const res = await phone.save(dest.parent, r.name, blob);
+        if (!res.ok) throw Object.assign(new Error('phone_write'), {phoneWrite: res.error});
+        run.done++;
+      } catch (e) { run.failed++; run.code ||= e?.phoneWrite ? 'w:' + e.phoneWrite : codeOf(e); }
+      if (state.scope !== scope) return;
+    }
+  } finally {
+    if (state.run === run) state.run = null;
+    paintXfer(); paintBar();
+  }
+  await phoneRefresh([dest.parent]);
+  const why = run.code ? (run.code.startsWith('w:') ? phoneWriteText(run.code.slice(2)) : errorText(run.code)) : '';
+  notify(xferDoneText('copy', {done: run.done, failed: run.failed, skipped}), {error: !!run.failed, note: run.failed ? why : '', record: false});
+}
+// 폰 파일 → 클라우드: 파일만(폴더는 열어 파일을 고르게, H-5). 한 번에 PHONE_UP_MAX개까지 폰에서 읽어 올리기 길로 넘긴다.
+const PHONE_UP_MAX = 20;
+async function phoneToCloud(rows, dest) {
+  const files = rows.filter(r => !r.is_folder), dirs = rows.length - files.length;
+  if (!files.length) { notify('폴더는 보내지 않아요(파일만). 폴더를 열어 파일을 골라 주세요.', {record: false}); return; }
+  if (files.length > PHONE_UP_MAX) notify(`폰 파일은 한 번에 ${PHONE_UP_MAX}개까지 보내요. 앞 ${PHONE_UP_MAX}개만 보냅니다.`, {record: false});
+  const scope = state.scope, out = [];
+  state.busy = '폰 파일 가져오는 중'; paintBar();
+  try {
+    for (const r of files.slice(0, PHONE_UP_MAX)) {
+      try {
+        const blob = await phone.blob(r.item_id);
+        out.push(new File([blob], r.name, {type: r.mime || blob.type || '', lastModified: Date.parse(r.modified_at || '') || Date.now()}));
+      } catch (e) { notify(`${r.name}: ${errorText(codeOf(e))}`, {error: true, record: false}); }
+      if (state.scope !== scope) return;
+    }
+  } finally { if (state.scope === scope) { state.busy = ''; paintBar(); } }
+  if (out.length) await uploadFiles(out, dest, {skipDirs: dirs});
+}
 async function uploadFiles(files, dest, {skipDirs = 0} = {}) {
   if (!dest?.source || !SOURCES.includes(dest.source)) return;
   if (state.ask || state.busy) { notify('다른 일을 묻는 중이에요. 끝난 뒤 다시 해 주세요.', {record: false}); return; }
@@ -1486,7 +1713,7 @@ async function starRows(rows) {
 }
 
 const hereDest = (p = P()) => paneDest(p);
-const destOf = key => { const [source, ...rest] = String(key || '').split(':'); return SOURCES.includes(source) ? {source, parent: rest.join(':') || null} : null; };
+const destOf = key => { const [source, ...rest] = String(key || '').split(':'); return SOURCES.includes(source) || (source === PH && phoneWrite()) ? {source, parent: rest.join(':') || null} : null; };
 
 // ---------- 두 칸: 켜기·지금 칸·반대 칸으로 보내기·끌어 놓기 고르기 ----------
 // 지금 칸 바꾸기: 칸 안 그림은 다시 그리지 않는다(누르던 단추가 바뀌어 누름이 사라지지 않게) — 표시(fx-cur)·위 줄·막대·왼쪽 나무만.
@@ -1553,7 +1780,7 @@ function clearQuery(p) {
   const s = $('[data-fx-search]'); if (s && p === P()) s.value = '';
 }
 function goFolder(source, id, p = P()) {
-  if (!SOURCES.includes(source)) return;
+  if (!SOURCES.includes(source) && !(source === PH && phoneOn())) return;
   clearQuery(p);
   const parent = id || null;
   state.open.add(folderKey(source, parent));
@@ -1838,7 +2065,7 @@ async function enter(force = false) {
   lookLoad();
   if (entering && !force) return entering;
   entering = (async () => {
-    if (!state.status || force) { paint(); await loadStatus(); }
+    if (!state.status || force) { paint(); await Promise.all([loadStatus(), phone.hello()]); }
     const place = whereOf(window.KPTURouter?.place?.('files') || {});
     const first = onSources(), a = state.panes[0];
     if (!a.where && first.length) {

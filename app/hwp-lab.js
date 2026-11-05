@@ -19,6 +19,7 @@ import {requestBasketNote} from './basket-note-tasks.js';
 import {requestLibraryUpload} from './library-upload-request.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {askConfirm,askText} from './small-notice.js';
+import {openTimingText} from './hwp-open-timing.mjs';
 (()=>{
 'use strict';
 if(window.__KPTU_HWP_LAB_READY__)return;
@@ -294,18 +295,24 @@ async function openDrive(target){
     status(`${shown.name||'파일'} 여는 중… 파일 ${got.file?'받음':'받는 중'} · 편집기 ${got.editor?'준비됨':'준비 중'}`);
   };
   const stopElapsed=trackElapsed(()=>drive===shown&&!shown.info);
+  // LIB-편집열기느림: 단계별 걸린 시간(초)을 재서 열린 뒤 상태 글 끝에 보이고 콘솔에도 남긴다(내용·이름 없이 숫자만).
+  const t0=performance.now(),lap={},mark=name=>{lap[name]=Math.round(performance.now()-t0)};
   try{
     const editorPromise=editor();
     const fileFlight=openHwpFromDrive(target,{rt});
     stage();
-    editorPromise.then(()=>{got.editor=true;stage()},()=>{});
-    fileFlight.then(()=>{got.file=true;stage()},()=>{});
+    editorPromise.then(()=>{got.editor=true;mark('editor');stage()},()=>{});
+    fileFlight.then(()=>{got.file=true;mark('file');stage()},()=>{});
     const [instance,file]=await Promise.all([editorPromise,fileFlight]);
     if(drive!==shown)return;
     if(file.bytes.length>HWP_EDIT_MAX_BYTES)throw Object.assign(new Error('30MB보다 큰 파일은 편집기에서 열지 않아요.'),{kind:'refused'});
     status(`${file.info.file_name} 문서 펼치는 중…`);
+    const tLoad=performance.now();
     const result=await instance.loadFile(file.bytes,file.info.file_name,{skipUnsavedGuard:true});
+    lap.load=Math.round(performance.now()-tLoad);mark('total');
     if(drive!==shown)return;
+    const timing=openTimingText(lap);
+    console.info('hwp-lab open timing(ms)',{...lap,bytes:file.bytes.length});
     const seq=await changeSeq(instance);
     Object.assign(shown,{info:file.info,name:file.info.file_name,savedSeq:seq,latestSeq:seq});
     watchEdits();
@@ -315,7 +322,7 @@ async function openDrive(target){
     ].filter(Boolean).join(' ');
     status(shown.target.template
       ?`노조 양식 · ${result?.pageCount??'?'}쪽을 열었어요. 양식 원본은 그대로 두고, 고친 뒤 [새 파일로 저장]에서 제목을 정해요. 스타일은 Ctrl+1~0(예비 Alt+1~0) 또는 위쪽 스타일 버튼으로 입혀요.`
-      :`${file.info.file_name} · ${result?.pageCount??'?'}쪽을 열었어요. ${notes?notes+' ':''}고친 뒤 [새 파일로 저장]을 누르세요.`,'ok');
+      :`${file.info.file_name} · ${result?.pageCount??'?'}쪽을 열었어요. ${notes?notes+' ':''}고친 뒤 [새 파일로 저장]을 누르세요.${timing}`,'ok');
   }catch(err){
     if(drive!==shown)return;
     console.error('hwp-lab drive open',err?.kind||err);

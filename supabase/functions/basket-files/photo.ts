@@ -51,7 +51,7 @@ export function createPhotoHandler(
         ? note.attachments.find((a) => a?.drive_file_id === fileId)
         : undefined;
       if (!file) throw new PhotoError(404, "photo_not_found");
-      return await photo(fileId, file.mime_type, size);
+      return await photo(fileId, file.mime_type, size, workspace);
     } catch (error) {
       return photoErrorResponse(error, log);
     }

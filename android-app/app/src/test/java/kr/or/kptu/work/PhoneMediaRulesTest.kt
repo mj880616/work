@@ -82,6 +82,34 @@ class PhoneMediaRulesTest {
     }
 
     @Test
+    fun exifTimeIsReadWithOffsetOrKoreaDefault() {
+        // 2026-11-03 07:45:10 +09:00 = 2026-11-02T22:45:10Z
+        val utc = java.time.Instant.parse("2026-11-02T22:45:10Z").toEpochMilli()
+        assertEquals(utc, PhoneMediaRules.exifTakenMs("2026:11:03 07:45:10", "+09:00"))
+        assertEquals(utc, PhoneMediaRules.exifTakenMs("2026:11:03 07:45:10", null)) // 시간대 칸 없으면 한국 시각
+        assertEquals(utc, PhoneMediaRules.exifTakenMs("2026:11:03 07:45:10", "깨짐"))
+        assertEquals(utc + 120, PhoneMediaRules.exifTakenMs("2026:11:03 07:45:10", "+09:00", "12"))
+        assertEquals(java.time.Instant.parse("2026-11-03T07:45:10Z").toEpochMilli(), PhoneMediaRules.exifTakenMs("2026:11:03 07:45:10", "+00:00"))
+        assertNull(PhoneMediaRules.exifTakenMs(null, "+09:00"))
+        assertNull(PhoneMediaRules.exifTakenMs("0000:00:00 00:00:00", null))
+        assertNull(PhoneMediaRules.exifTakenMs("2026:13:40 07:45:10", null))
+        assertNull(PhoneMediaRules.exifTakenMs("  ", null))
+    }
+
+    @Test
+    fun exifWinsOverGalleryTimeAndRereadOnlyWhenFileChanged() {
+        assertEquals(500L to false, PhoneMediaRules.takenWithExif(500, 1000, 5, 6))
+        assertEquals(1000L to false, PhoneMediaRules.takenWithExif(null, 1000, 5, 6))
+        assertEquals(5000L to true, PhoneMediaRules.takenWithExif(null, 0, 5, 6))
+        val e = PhoneMediaRules.ExifEntry(10, 200, 500)
+        assertFalse(PhoneMediaRules.exifStale(e, 10, 200))
+        assertTrue(PhoneMediaRules.exifStale(e, 11, 200)) // 고친 시각이 바뀜
+        assertTrue(PhoneMediaRules.exifStale(e, 10, 201)) // 크기가 바뀜
+        assertTrue(PhoneMediaRules.exifStale(null, 10, 200))
+        assertFalse(PhoneMediaRules.exifStale(PhoneMediaRules.ExifEntry(10, 200, null), 10, 200)) // EXIF 없음도 다시 읽지 않음
+    }
+
+    @Test
     fun takenTimeFallsBackAndIsMarkedApprox() {
         assertEquals(1000L to false, PhoneMediaRules.taken(1000, 5, 6))
         assertEquals(5000L to true, PhoneMediaRules.taken(0, 5, 6))

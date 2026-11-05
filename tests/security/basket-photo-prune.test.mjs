@@ -23,7 +23,8 @@ function harness(options={}){
       maybeSingle:async()=>exec(),single:async()=>exec(),then:(r,e)=>exec().then(r,e)};
     async function exec(){
       if(table==='app_workspace_members')return {data:options.role===null?null:{workspace_id:WS,role:options.role||'owner'},error:null};
-      if(table==='public_policy_drive_config')return options.tokenMissing?{data:null,error:{message:'x'}}:{data:{google_client_id:'c',google_client_secret:'s',google_refresh_token:'r'},error:null};
+      if(table==='public_policy_drive_config')return {data:{google_client_id:'c',google_client_secret:'s'},error:null};
+      if(table==='app_drive_connections')return options.tokenMissing?{data:null,error:null}:{data:{google_refresh_token:'r'},error:null};
       if(table==='app_drive_settings')return {data:options.noFolderSetting?{basket_folder_id:null}:{basket_folder_id:FOLDER},error:null};
       if(table==='app_notes'||table==='app_documents'){
         if(q.mutation)throw new Error('prune must not write '+table);

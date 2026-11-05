@@ -182,7 +182,7 @@ export function createTaskFiles(admin: UploadAdmin, deps: Deps) {
 
     let token = "", fileId = "";
     try {
-      token = await drive.driveToken();
+      token = await drive.driveToken(workspaceId);
       const folder = await drive.ensurePrivateChildFolder(await libraryFolder(workspaceId), TASK_FILES_FOLDER, token);
       fileId = await drive.upload(file, folder, token);
     } catch (e) {

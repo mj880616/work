@@ -68,7 +68,10 @@ export function readArticlePage(html: string, nowMs: number): PageInfo {
   const titleRaw = meta(html, ["og:title", "twitter:title"]) ?? /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(html)?.[1] ?? "";
   const title = cut(oneLine(decodeEntities(titleRaw.replace(/<[^>]*>/g, " "))), 500) || null;
   const publisher = cut(meta(html, ["og:site_name", "application-name"]) ?? "", 120) || null;
-  const published_at = isoDate(meta(html, ["article:published_time", "datePublished", "pubdate", "date"]), nowMs);
+  // 날짜: 메타 → 구조화 데이터(JSON-LD "datePublished") → 첫 <time datetime>. 못 읽으면 null('날짜 모름' 묶음, 화면에서 맨 아래).
+  const published_at = isoDate(meta(html, ["article:published_time", "og:article:published_time", "datePublished", "pubdate", "date"]), nowMs)
+    ?? isoDate(/"datePublished"\s*:\s*"([^"]{4,64})"/.exec(html)?.[1] ?? null, nowMs)
+    ?? isoDate(/<time\b[^>]*\bdatetime\s*=\s*["']([^"']{4,64})["']/i.exec(html)?.[1] ?? null, nowMs);
   const description = meta(html, ["og:description", "description", "twitter:description"]);
   const plain = htmlToText(html);
   const lang = pageLang(html, `${title ?? ""}\n${plain}`);

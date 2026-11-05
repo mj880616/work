@@ -2,10 +2,13 @@
 // 지운 import 대신 실제 _shared/web-cors.ts·_shared/safe-error.ts를 그대로 넘긴다(가짜 구현 없음).
 import { withWebCors, applyWebCors, WEB2_ORIGINS } from '../../../supabase/functions/_shared/web-cors.ts';
 import { safeErrorMessage, safeErrorLog, SAFE_ERROR_FALLBACK } from '../../../supabase/functions/_shared/safe-error.ts';
+// MULTI ②-2: 작업공간별 Drive 연결 도우미도 실제 코드를 그대로 넘긴다.
+import { callerOwnerWorkspace, isWorkspaceId, WorkspaceDriveError, workspaceDriveConnected, workspaceDriveToken } from '../../../supabase/functions/_shared/workspace-drive-token.ts';
 
-export const EDGE_SHARED = { withWebCors, applyWebCors, WEB2_ORIGINS, safeErrorMessage, safeErrorLog, SAFE_ERROR_FALLBACK };
+export const EDGE_SHARED = { withWebCors, applyWebCors, WEB2_ORIGINS, safeErrorMessage, safeErrorLog, SAFE_ERROR_FALLBACK,
+  callerOwnerWorkspace, isWorkspaceId, WorkspaceDriveError, workspaceDriveConnected, workspaceDriveToken };
 globalThis.__edgeShared = EDGE_SHARED;
-export const EDGE_PRELUDE = 'const { withWebCors, safeErrorMessage, safeErrorLog } = globalThis.__edgeShared;\n';
+export const EDGE_PRELUDE = 'const { withWebCors, safeErrorMessage, safeErrorLog, callerOwnerWorkspace, WorkspaceDriveError, workspaceDriveToken } = globalThis.__edgeShared;\n';
 // import 줄 중 두 공용 도구만 지운다(다른 import는 각 시험이 원래대로 처리).
-export const stripEdgeShared = source => source.replace(/^import .*_shared\/(?:web-cors|safe-error)\.ts.*$/gm, '');
+export const stripEdgeShared = source => source.replace(/^import .*_shared\/(?:web-cors|safe-error|workspace-drive-token)\.ts.*$/gm, '');
 export const withEdgeShared = source => EDGE_PRELUDE + stripEdgeShared(source);

@@ -80,7 +80,8 @@ async function harness(options={}) {
         return {data:null,error:{message:'synthetic-secret'}};
       let data;
       if(table==='app_workspace_members') data=options.role===null?null:{workspace_id:WS,role:options.role||'owner'};
-      else if(table==='public_policy_drive_config')data={google_client_id:'synthetic-client',google_client_secret:'synthetic-secret',google_refresh_token:'synthetic-refresh'};
+      else if(table==='public_policy_drive_config')data={google_client_id:'synthetic-client',google_client_secret:'synthetic-secret'};
+      else if(table==='app_drive_connections')data={workspace_id:WS,google_refresh_token:'synthetic-refresh'};
       else if(table==='app_drive_settings')data=state.settings;
       else if(table==='app_notes')data=state.note;
       else throw new Error('unexpected table '+table);

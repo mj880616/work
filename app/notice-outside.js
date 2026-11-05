@@ -52,7 +52,9 @@ export function startOutsideNotice({rt = window.KPTURuntime, win = window, now =
       if (mine !== run || stopped) return;
       // 한 번도 연 적이 없으면 기준 시각이 없어 띄우지 않는다(처음 켠 날 옛 글이 '새 글'로 쏟아지지 않게).
       if (!at) { drop(); return; }
-      const rows = await rt.api(`/rest/v1/app_outside_posts?workspace_id=eq.${q(w)}&fetched_at=gt.${q(at)}&select=id&limit=${COUNT_CAP + 1}`, {singleFlight: false});
+      // 1년 넘게 예전 글(처음 수집 때 딸려 온 옛 글)은 새 글로 세지 않는다. 날짜를 모르는 글은 센다.
+      const fresh = new Date(Date.now() - 365 * 86400000).toISOString();
+      const rows = await rt.api(`/rest/v1/app_outside_posts?workspace_id=eq.${q(w)}&fetched_at=gt.${q(at)}&or=(published_at.is.null,published_at.gt.${q(fresh)})&select=id&limit=${COUNT_CAP + 1}`, {singleFlight: false});
       if (mine !== run || stopped) return;
       const text = outsideNoticeText(Array.isArray(rows) ? rows.length : 0);
       if (text && win.KPTURouter?.current !== 'outside') show(text); else drop();
