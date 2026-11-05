@@ -2775,7 +2775,7 @@ function sendMenuBtns(id) {
 }
 const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-menu', label:'사진 메뉴', historyKey:'kptuPhotosPhotoMenu',
   key:t => t.dataset.photosId || '',
-  render:id => String(id).startsWith('gd:') ? [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), gdUsable() && tab !== 'trash' ? [menuBtn('data-pm-rename', '이름 바꾸기…'), menuBtn('data-pm-move', '폴더로 옮기기…'), menuBtn('data-pm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>'].join('') : [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), (String(id).startsWith('ph:') ? phoneOps() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'), String(id).startsWith('ph:') && phone.canMeta() && tab !== 'trash' ? menuBtn('data-pm-info', PHOTO_ACT_TEXT.info) : '',
+  render:id => String(id).startsWith('gd:') ? [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), gdUsable() && tab !== 'trash' ? [menuBtn('data-pm-rename', '이름 바꾸기…'), menuBtn('data-pm-move', '폴더로 옮기기…'), menuBtn('data-pm-info', PHOTO_ACT_TEXT.info), menuBtn('data-pm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>'].join('') : [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), (String(id).startsWith('ph:') ? phoneOps() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'), (String(id).startsWith('ph:') ? phone.canMeta() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-info', PHOTO_ACT_TEXT.info) : '',
     od.canDelete || phone.state().trash ? menuBtn('data-pm-delete', '지우기', 'od-link-danger') : ''].join(''),
   onAction:(b, {trigger}) => {
     const it = itemOf(trigger); if (!it) return;
@@ -2792,13 +2792,14 @@ const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-m
     if (b.matches('[data-pm-rename]')) return gdRenamePhoto(it);
     if (b.matches('[data-pm-move]')) return openPick(trigger, {kind:'photos', ids:group.map(x => x.id)});
     if (b.matches('[data-pm-tag]')) return openPick(trigger, {kind:'tag', items:group});
-    // S48-60 PHOTO-정보고치기: 찍은 시각·위치(폰 사진, 앱 0.4.15+). 고친 뒤 폰 목록을 새로 읽는다(순서가 바뀜).
+    // S48-60 PHOTO-정보고치기: 찍은 시각·위치(폰 사진 앱 0.4.15+, S50-31 원드라이브·구글 드라이브). 고친 뒤 목록을 새로 읽는다(순서가 바뀜).
     if (b.matches('[data-pm-info]')) return openInfo(trigger, group);
     if (b.matches('[data-pm-delete]')) { if (!select.active || !select.has(it.id)) { select.stop(); select.start([it.id], it.id); } return deletePicked(trigger); }
   }});
 // S48-60 PHOTO-정보고치기 → S49-18 PHOTO-정보수정버튼: 고른 사진 아래 줄 [정보수정](폰 사진, 앱 0.4.15+; ⋯ 메뉴는 없앰). PC 우클릭 사진 메뉴에도 같은 항목.
 // 고친 뒤 폰 목록을 새로 읽는다(찍은 시각이 바뀌면 순서가 바뀜).
-const canInfo = list => phone.canMeta() && tab !== 'trash' && list.some(x => x.kind === 'phone');
+// S50-31 ②: 원드라이브(쓰기 권한 있을 때)·구글 드라이브(쓸 수 있을 때) 사진도 — PC에서도 보인다(폰 사진은 폰 앱 0.4.15+에서만). JPEG만 고치는 판단은 서버가 한다.
+const canInfo = list => tab !== 'trash' && list.some(x => (x.kind === 'phone' && phone.canMeta()) || (x.kind === 'od' && od.canDelete) || (x.kind === 'gdrive' && gdUsable()));
 function openInfo(trigger, group) {
   return void import('./photo-info-edit.js').then(m => m.openPhotoInfo(trigger, group, {phone, rt, onDone:() => {
     closePhotoStrip({restore:false}); // 크게 보기에서 고쳤으면 찍은 시각이 바뀌어 목록이 다시 읽히므로 닫는다(그림 편집과 같은 길)
