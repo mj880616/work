@@ -1,0 +1,55 @@
+<!doctype html><meta charset="utf-8"><style>
+body{margin:0;padding:16px;background:#e9e8ee;font-family:"Noto Sans KR",sans-serif;display:flex;gap:20px;align-items:flex-start}
+.cap{font-size:13px;color:#444;margin:0 0 6px 4px;font-weight:700}
+.ph{width:360px;height:700px;background:#f6f5f9;border-radius:22px;box-shadow:0 1px 4px #0002;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:6px;padding:10px 10px 4px;font-size:14px}
+.up{width:36px;height:36px;border:1px solid #d9d7e0;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:18px}
+.crumb{color:#666;font-size:12px}.cur{font-weight:700;font-size:15px}
+.tools{display:flex;justify-content:flex-end;gap:6px;padding:2px 10px 6px;font-size:12px}
+.tools span{border:1px solid #d9d7e0;background:#fff;border-radius:7px;padding:3px 8px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:6px 10px}
+.cell{display:flex;flex-direction:column;align-items:center;font-size:11px;color:#333}
+.th{width:100%;aspect-ratio:1;border-radius:8px;background:linear-gradient(135deg,#c9b9a6,#8c7a6b);}
+.th.f{background:none;display:flex;align-items:center;justify-content:center}
+.pane{flex:1;border-bottom:2px solid #cfcbe0;overflow:hidden}
+.pane.act{background:#fbfaff}
+.ph2 .pane:last-child{border-bottom:0}
+.ptop{display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:13px;font-weight:700;border-bottom:1px solid #e2e0e8}
+.row{display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;font-size:13px}
+.sm{width:26px;height:26px;border-radius:4px;background:linear-gradient(135deg,#c9b9a6,#8c7a6b);flex:none}
+.drag{position:absolute;left:150px;top:470px;transform:rotate(-4deg);background:#fff;border:1px solid #9a8fc9;border-radius:8px;box-shadow:0 6px 14px #0003;padding:6px 10px;font-size:12px;display:flex;gap:6px;align-items:center}
+.target{background:#e6e0fa;outline:2px dashed #7b6cc0;outline-offset:-2px}
+.hint{position:absolute;bottom:10px;left:10px;right:10px;background:#2b2b33;color:#fff;font-size:11px;border-radius:8px;padding:6px 8px;opacity:.9}
+.legend{width:300px;font-size:13px;line-height:1.6;background:#fff;border-radius:12px;padding:12px 14px}
+.legend b{color:#5b4f8a}
+</style>
+<body>
+<div><div class="cap">① 핀치로 크게 보기 (벌리면 격자, 오므리면 목록)</div><div class="ph">
+<div class="bar"><span class="up">‹</span><div><div class="crumb">원드라이브 › 사진 원본</div><div class="cur">여행</div></div></div>
+<div class="tools"><span>이름 ▾</span><span>새 폴더</span><span>올리기</span></div>
+<div class="grid">
+<div class="cell"><div class="th f"><svg width="70" height="70" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg></div>보정</div>
+<div class="cell"><div class="th"></div>IMG_0001</div><div class="cell"><div class="th" style="filter:hue-rotate(40deg)"></div>IMG_0002</div>
+<div class="cell"><div class="th" style="filter:hue-rotate(80deg)"></div>IMG_0003</div><div class="cell"><div class="th" style="filter:hue-rotate(120deg)"></div>IMG_0004</div><div class="cell"><div class="th" style="filter:hue-rotate(160deg)"></div>IMG_0005</div>
+<div class="cell"><div class="th" style="filter:hue-rotate(200deg)"></div>IMG_0006</div><div class="cell"><div class="th" style="filter:hue-rotate(240deg)"></div>IMG_0007</div><div class="cell"><div class="th" style="filter:hue-rotate(280deg)"></div>IMG_0008</div>
+<div class="cell"><div class="th" style="filter:hue-rotate(20deg)"></div>IMG_0009</div><div class="cell"><div class="th" style="filter:hue-rotate(60deg)"></div>IMG_0010</div><div class="cell"><div class="th" style="filter:hue-rotate(100deg)"></div>IMG_0011</div>
+</div>
+<div class="hint">목록 ⇄ 3칸 격자 ⇄ 2칸 격자 · 사진은 작은 그림으로</div>
+</div></div>
+
+<div><div class="cap">② 폰 두 칸 (위·아래) + ③ 꾹 눌러 끌기</div><div class="ph ph2">
+<div class="bar" style="padding-bottom:6px"><span class="up">‹</span><div class="cur">두 칸</div><span style="margin-left:auto;border:1px solid #d9d7e0;background:#fff;border-radius:7px;padding:3px 8px;font-size:12px">한 칸 보기</span></div>
+<div class="pane act"><div class="ptop">☁ 원드라이브 ▾ <span style="font-weight:400;color:#777">› 사진 원본 › 여행</span></div>
+<div class="row"><span class="sm"></span>IMG_0001.JPG</div><div class="row" style="opacity:.35"><span class="sm"></span>IMG_0002.JPG</div><div class="row"><span class="sm"></span>IMG_0003.JPG</div><div class="row"><span class="sm"></span>IMG_0004.JPG</div><div class="row"><span class="sm"></span>IMG_0005.JPG</div></div>
+<div class="pane"><div class="ptop">▲ 구글 드라이브 ▾ <span style="font-weight:400;color:#777">› 모음</span></div>
+<div class="row"><svg width="22" height="22" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>사진</div>
+<div class="row target"><svg width="22" height="22" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>고른 사진</div>
+<div class="row"><svg width="22" height="22" viewBox="0 0 24 24"><path fill="#e2b44c" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>문서</div></div>
+<div class="drag"><span class="sm" style="width:20px;height:20px"></span>IMG_0002.JPG</div>
+<div class="hint">꾹 눌러 들고 → 폴더 위에 놓기 → [복사][옮기기] 고르기</div>
+</div></div>
+
+<div class="legend"><b>① 핀치로 크게 보기</b><br>두 손가락을 벌리면 목록 → 3칸 격자 → 2칸 격자, 오므리면 반대로. 사진은 작은 그림, 폴더는 큰 폴더 아이콘. 마지막 보기는 서버에 기억(폰·폴드 따로).<br><br>
+<b>② 폰 두 칸</b><br>폰은 폭이 좁아 <b>위·아래</b>로 나눔. 칸마다 출처 고르기(▾)는 PC와 같음. 누른 칸이 지금 칸(옅은 보라).<br><br>
+<b>③ 꾹 눌러 끌기</b><br>꾹 누르면 집어 들기 → 손가락 따라 움직임 → 폴더(같은 칸·다른 칸·나무) 위에서 보라 점선 → 놓으면 [복사][옮기기]. 꾹 누르고 움직이지 않고 떼면 지금처럼 고르기·메뉴. 여러 개 골라 둔 상태면 고른 것 모두 함께.</div>
+</body>
