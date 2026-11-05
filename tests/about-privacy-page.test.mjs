@@ -51,10 +51,16 @@ test('로그인 화면 아래에 공개 처리방침 링크가 있다', () => {
   assert.ok(login.includes(`href="${PRIVACY_URL}"`), '로그인 화면에 처리방침 링크 없음');
 });
 
-test('공개 소개 페이지들의 상대 링크가 저장소 안 파일로 이어지고, 메일 주소를 싣지 않는다', () => {
+// 2026-11-05 명진 결정(MULTI D4): Google 앱 인증용 공개 연락처 메일 한 주소만 싣는다.
+// 어떤 주소를 허용하는지는 scripts/personal-data-allowlist.json(about/ email hash 1건)이 정하고 check-personal-data가 검사한다.
+test('공개 소개 페이지들의 상대 링크가 저장소 안 파일로 이어지고, 메일은 공개 연락처 한 주소를 mailto 링크로만 싣는다', () => {
+  const mails = new Set();
   for (const file of walk('about').filter(f => f.endsWith('.html'))) {
     const html = read(file);
-    assert.doesNotMatch(html, /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/, `${file}: 메일 주소`);
+    for (const [m] of html.matchAll(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g)) {
+      mails.add(m.toLowerCase());
+      assert.ok(html.includes(`href="mailto:${m}"`), `${file}: 메일은 mailto 링크로만`);
+    }
     for (const [, href] of html.matchAll(/(?:href|src)="([^"#]+)"/g)) {
       if (/^(https?:|mailto:)/.test(href)) continue;
       let target = join(root, dirname(file), href);
@@ -62,4 +68,5 @@ test('공개 소개 페이지들의 상대 링크가 저장소 안 파일로 이
       assert.ok(existsSync(target), `${file}: 깨진 링크 ${href}`);
     }
   }
+  assert.ok(mails.size <= 1, `공개 연락처 메일은 한 주소만: ${mails.size}개`);
 });
