@@ -231,7 +231,7 @@ PC 브라우저가 편하다(폰도 가능).
 읽는 법:
 
 - '테스트 중'이면: 등록한 테스트 사용자만 연결할 수 있고, 연결이 **7일마다 풀린다**. 노조 사람이 쓰려면 명진이 4번 화면에서 그 사람 메일을 하나씩 넣어야 한다 → 실사용 전에 '프로덕션으로 게시' 필요.
-- Web2가 요청하는 권한: Drive는 `drive.file`(민감 아님), 일정은 `calendar.events`·`calendar.calendarlist.readonly`, 할 일은 `tasks`(이 둘은 '민감' 등급)(코드 근거 `public-policy-drive/index.ts:126-135`, `google-calendar/index.ts:83`, `google-tasks/index.ts:67-69`). 유료 보안 심사가 필요한 '제한' 등급(`drive` 전체 등)은 요청하지 않는다.
+- Web2가 요청하는 권한: Drive는 모든 사용자에게 `drive.file`(민감 아님)만, 일정은 `calendar.events`·`calendar.calendarlist.readonly`, 할 일은 `tasks`(이 둘은 '민감' 등급)(코드 근거 `public-policy-drive/index.ts`의 `fullDriveAllowed`·`startDriveAuth`, `google-calendar/index.ts`, `google-tasks/index.ts`). 유료 보안 심사가 필요한 '제한' 등급 `drive`(전체)는 운영자 작업공간(사진 출처 `gdrive_photos`·파일 탐색기 `files` 허용)의 연결에서만 요청한다(S50-8, 8절). 다른 사람에게는 처음부터 요청하지 않는다. 콘솔 '데이터 액세스'에 `drive`를 남길지(운영자 전용 목적으로 적기) 뺄지는 인증 신청 때 CC가 판단한다(`google-brand-verification.md` 3절).
 - 프로덕션으로 게시만 하고 심사를 안 받으면: 사용자 100명까지 '확인되지 않은 앱' 경고(고급 → 계속)를 거쳐 쓸 수 있다. 10명 이내라 당장은 가능하지만 노조 사람들에게 경고 화면을 넘기는 법을 안내해야 한다.
 - 경고를 없애려면 **민감 권한 인증(무료)**: 3번 화면 → 브랜딩(앱 이름·로고·홈페이지·개인정보처리방침 주소·도메인 확인) 채우기 → 인증 센터 → 인증 제출. 개인정보처리방침 페이지(Web1)와 도메인 소유 확인이 필요하다. 이 단계는 단계 ②의 '연결' 작업 앞에 넣는다(결정 D4).
 - 프로덕션으로 바꾸는 버튼(4번 화면 '앱 게시')은 **누르지 않는다** — 커맨드센터 승인 뒤 단계 ②에서.
@@ -294,3 +294,35 @@ PC 브라우저가 편하다(폰도 가능).
 - 작업공간은 늘 서버가 정한다(로그인 → 본인 owner 행 정확히 1개, 또는 행의 작업공간 owner 확인). 화면이 보낸 작업공간 값으로 연결을 찾지 않는다.
 - 운영자 전용 기능(`gdrive_photos`·`files`, `drive-summary`)은 이미 허용 표로 운영자 작업공간에만 열려 있어 id=1을 계속 읽어도 다른 작업공간이 명진 Drive에 닿지 않는다. 이들의 새 표 전환은 Contract 단계(id=1 refresh token 비우기)와 함께 뒤로 미룬다.
 - 다른 사람의 Drive 연결은 `drive.file`만 요청한다. 전체 `drive` 권한(제한 등급, 유료 보안 심사 대상)은 `gdrive_photos`·`files`가 허용된 작업공간에서만 요청한다(D4 심사 범위를 민감 등급 이하로 유지).
+
+### 8-A. 사람별 Drive 연결과 권한 범위 (S49-53 #1877, S50-8)
+
+#### 8.1 연결 저장 (#1877, 11/05 운영 반영)
+
+- 표 `public.app_drive_connections`: 작업공간당 1행(`workspace_id` 기본 키), `google_refresh_token`, `full_drive`, `connected_at`, `updated_at`. RLS 켬·정책 없음·anon·authenticated·PUBLIC 권한 없음, service_role만 칸을 정해 읽고 쓴다(Edge만).
+- 명진(운영자, `calls` 허용) 작업공간 1행을 옛 자리 `public_policy_drive_config` id=1의 열쇠로 옮겼다(`full_drive=true`). 앱 client id/secret은 계속 id=1에 있다.
+- Web2 Drive 함수들은 `_shared/workspace-drive-token.ts`로 **부른 사람의 작업공간 행**만 읽는다. 연결이 없으면 424 `drive_not_connected`, 다른 작업공간 연결로 넘어가는 길은 없다.
+- 운영자 전용 함수(`gdrive-photos`·`cloud-files`의 구글 쪽·`drive-summary`)와 Web1은 아직 id=1을 읽는다(Contract는 뒤 단계). 콜백은 `calls` 허용 작업공간일 때만 id=1도 같이 갱신한다.
+
+#### 8.2 권한 범위 (명진 결정 11/05 09:18 '가')
+
+| 작업공간 | 연결 때 요청하는 범위 | `full_drive` |
+| --- | --- | --- |
+| 운영자 아님(다른 사람) | `drive.file`만(웹2가 만든 파일·폴더만) | 늘 `false` |
+| 운영자(`gdrive_photos` 또는 `files` 허용) | `drive.file` + `drive`(지금과 같음) | 구글이 실제로 `drive`를 준 때만 `true` |
+
+- 범위는 서버가 정한다: `public-policy-drive`의 `fullDriveAllowed(workspaceId)`가 서버 허용 표(`app_operator_feature_workspace`, service_role 전용)로 판정한다. 작업공간은 로그인 → 본인 owner 행(정확히 1개)으로만 정하고, 화면이 보낸 값(범위·작업공간·`full` 등)은 쓰지 않는다.
+- 콜백도 같은 판정을 다시 한다. `full_drive = fullDriveAllowed && 구글 응답 scope에 drive 있음`. 운영자가 동의 화면에서 drive 칸을 끄면 연결은 저장되고 `photos=scope_missing` 안내만 붙는다. 다른 사람에게는 사진 안내를 붙이지 않는다.
+- 명진 운영자 연결은 다시 연결시키지 않는다(지금 연결 그대로 `full_drive=true`).
+- 다른 사람의 Drive 기능(자료실·바구니·회의 파일·문서 처리)은 모두 웹2가 만든 폴더(`ensureRoot` 등) 안에서만 일하므로 `drive.file`로 동작한다.
+
+#### 8.3 전체 권한이 필요한 기능의 서버 거절
+
+- 사진 출처 구글 드라이브(`gdrive-photos`): ① 로그인 ② owner ③ `app_my_features()`에 `gdrive_photos` ④ 그 작업공간 = 허용 작업공간 = Drive 연결 작업공간. 아니면 403 `feature_required`·`drive_owner_mismatch`. 토큰에 `drive`가 없으면 403 `scope_missing`.
+- 파일 탐색기 구글 쪽(`cloud-files`): 같은 문(`files`)에 토큰 범위 확인, 없으면 424 `gd_scope_missing`.
+- 화면은 `app_my_features()` 결과로만 그 칩·메뉴를 보인다(숨김은 보안이 아님, 거절은 서버).
+- 이 두 함수는 S50-8에서 바꾸지 않았다(운영자 작업공간만 들어오고, 실제 토큰 범위로 거절하므로 `full_drive` 칸보다 강함). 시험: `tests/security/gdrive-photos.test.mjs`, `tests/security/cloud-files.test.mjs`, `tests/security/drive-connect-scope-by-workspace.test.mjs`.
+
+#### 8.4 가입 문
+
+- 가입 문은 닫힌 채다(5절 규칙, 단계 ②-4 전). 이 단계는 범위 판정만 바꾼다.
