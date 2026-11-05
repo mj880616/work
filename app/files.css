@@ -57,6 +57,9 @@
 .fx-dot[data-src="od"] { background:var(--kptu-info); }
 .fx-dot[data-src="gd"] { background:var(--kptu-success); }
 .fx-dot[data-src="ph"] { background:var(--kptu-warning); }
+.fx-dot[data-src="pc"] { background:var(--kptu-muted); }
+/* S50-27 내 PC: 바구니 PC 앱 문이 답하지 않을 때 나무 맨 끝 흐린 줄(누르면 다시 확인). */
+.fx-tree .fx-pc-off .nx-main, .fx-ptree .fx-pc-off .nx-main { opacity:.55; font-weight:400; }
 .fx-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fx-tag { flex:none; font-size:10.5px; color:var(--kptu-accent); }
 .fx-star { flex:none; font-size:11px; color:var(--kptu-muted); }

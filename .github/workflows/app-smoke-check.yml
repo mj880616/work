@@ -165,6 +165,8 @@ on:
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
       - 'tests/phone-files-model.test.mjs'
+      - 'tests/pc-files-model.test.mjs'
+      - 'cloudflare/web2-csp.mjs'
       - 'scripts/package-lock.json'
       - 'about/**'
       - 'tests/about-privacy-page.test.mjs'
@@ -337,6 +339,8 @@ on:
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
       - 'tests/phone-files-model.test.mjs'
+      - 'tests/pc-files-model.test.mjs'
+      - 'cloudflare/web2-csp.mjs'
       - 'scripts/package-lock.json'
       - 'about/**'
       - 'tests/about-privacy-page.test.mjs'
@@ -460,7 +464,7 @@ jobs:
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
         run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/now-model.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
-        run: node --test tests/files-model.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/phone-files-model.test.mjs
+        run: node --test tests/files-model.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/phone-files-model.test.mjs tests/pc-files-model.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs

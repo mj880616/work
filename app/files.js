@@ -28,6 +28,8 @@ import {SOURCES_OFF_TEXT} from './source-flags.mjs';
 import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mjs';
 import {createPhoneFiles} from './phone-files.js';
 import {PHONE_SOURCE as PH, phoneTrail, mergeRecent, phoneParent, phoneWriteText, PHONE_SAVE_MAX, PHONE_OLD_APP_TEXT, PHONE_MOVE_TEXT, PHONE_ASK_TEXT, PHONE_CANNOT_TEXT} from './phone-files-model.mjs';
+import {createPcFiles} from './pc-files.js';
+import {PC_SOURCE as PC, pcTrail, pcStateText, pcOffRowName, pcDeviceOk, PC_READONLY_TEXT, PC_PREVIEW_TEXT} from './pc-files-model.mjs';
 import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest, otherStart, DROP_ASK_TEXT} from './files-panes-model.mjs';
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
 // - 목록은 서버 색인(app_cloud_list·app_cloud_find·app_cloud_trail, owner + 운영자 기능 files일 때만 읽힘)에서 바로 그린다. 클라우드는 부르지 않는다.
@@ -69,6 +71,11 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 //   폰 쪽 새 폴더·이름 바꾸기·휴지통(사람이 누른 것만, 휴지통은 확인 한 번 + 안드로이드 휴지통). 폰이 낀 옮기기는 아직 없다(복사 뒤 원본 지우기 안내).
 //   [별표]·[큰 파일]·찾기는 클라우드만(폰 별표는 두지 않음, 설계 D-6).
 //   폰 파일 목록은 이 화면 메모리에만 있고 서버·기기에 저장하지 않는다. [이 폰] 켜기/끄기는 이번 접속만 기억한다(서버 기억은 DB 한 칸이 더 필요해 다음 PR).
+// FILES-내PC드라이브 ②(S50-27, 시안 A, 명진 결정 11/05 D1~D5·시안 A): 윈도우 PC 브라우저에서 바구니 PC 앱(0.3.0+) 문(pc-files.js, 127.0.0.1)이 같은 계정으로 답하면
+//   나무 맨 끝 뿌리에 '내 PC'(원드라이브·구글 드라이브 다음 줄) → 드라이브(C:·D: …) → 폴더. 두 칸이면 칸마다 나무에서 '내 PC'를 고른다(왼쪽 내 PC · 오른쪽 원드라이브처럼).
+//   이 단계는 보기·열기만: 파일 [이 PC에서 열기]·[탐색기에서 위치](그 PC의 프로그램이 엶, 바이트는 브라우저로 안 옴). 미리보기 그림·복사·옮기기·이름·휴지통·별표·색은 없다(다음 단계).
+//   [최근]·찾기에 PC 파일을 섞지 않는다(D3). 문이 답하지 않으면 '내 PC · 꺼짐' 흐린 줄 + 누르면 켜는 법 한 줄. 크롬 허락 창이 뜰 수 있으면 저절로 두드리지 않는다(누를 때만).
+//   PC 목록·이름은 이 화면 메모리에만(서버·주소창·브라우저 저장소에 남기지 않음). 위 줄 [내 PC] 켜기/끄기는 이번 접속만 기억한다.
 // 저장은 서버만: 목록은 이 탭 메모리(열린 동안만), 받은 그림·PDF는 blob: 주소(메모리)로만 두고 화면을 떠나면 놓는다. 기기 저장 없음.
 // 파일 이름은 모두 글자로만 그린다(esc). 로그에 파일 이름·id를 남기지 않는다.
 
@@ -85,6 +92,14 @@ const PDF_LIB = new URL('./pdf-lib/pdfjs-dist-6.3.289/', import.meta.url);
 // '이 폰' 다리(폰 앱에서만 usable). phoneOff = 이번 접속에서 [이 폰]을 끔(메모리만).
 const phone = createPhoneFiles(window);
 let phoneOff = false;
+// '내 PC' 다리(윈도우 PC 브라우저에서만). 문에는 지금 Web2 로그인 토큰을 매 요청 싣는다(문이 같은 계정인지 본다). pcOff = 이번 접속에서 [내 PC]를 끔.
+const pc = createPcFiles(window, {enabled: pcDeviceOk({ua: navigator.userAgent || '', kind: DEVICE}), token: async () => {
+  const r = window.KPTURuntime;
+  if (!r || !(await r.session.ensure())) return '';
+  return r.session.read()?.access_token || '';
+}});
+let pcOff = false;
+const PC_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 14h4M8 11v3" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>';
 const PHONE_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="1.5" width="8" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="12.2" r=".8" fill="currentColor"/></svg>';
 
 // 목록 칸 하나(칸 0 = 한 칸 화면의 그 칸 / 두 칸이면 왼쪽, 칸 1 = 두 칸일 때만 있는 오른쪽). 칸 위 줄(fx-ptop)은 두 칸일 때만 보인다.
@@ -95,7 +110,7 @@ function install() {
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="filesView" class="view-panel hidden" aria-labelledby="fxTitle">
 <h2 id="fxTitle" class="screen-title">파일</h2>
 <div id="filesRoot" class="fx" data-fx-pane="list">
-<div class="fx-top"><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button></span><button type="button" class="mini fx-two" data-fx-two title="두 칸으로 보기" hidden>두 칸 보기</button></div>
+<div class="fx-top"><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><button type="button" class="mini fx-two" data-fx-two title="두 칸으로 보기" hidden>두 칸 보기</button></div>
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="고른 것" hidden></div>
 <div class="fx-tabs" data-fx-tabs role="tablist" aria-label="파일 보기">${PHONE_TABS.map(t => `<button type="button" role="tab" data-fx-tab="${t}" aria-selected="false">${PHONE_TAB_NAME[t]}</button>`).join('')}</div>
 <p class="fx-note" data-fx-note role="status" hidden></p>
@@ -165,11 +180,13 @@ const srcState = () => viewPrefs.getFilesSources?.(DEVICE);
 // '이 폰': 폰 앱 다리가 '모든 파일 접근'으로 켜져 있고(phone.state.all) 이번 접속에서 끄지 않았을 때. 클라우드 뒤 맨 끝 줄.
 const phoneLinked = () => phone.usable && phone.state.all;
 const phoneOn = () => phoneLinked() && !phoneOff;
-const onSources = () => [...visibleSources(srcState(), connected()), ...(phoneOn() ? [PH] : [])];
-const cloudOn = () => onSources().filter(s => s !== PH);
+// '내 PC': 문이 같은 계정으로 답하고(pc.state.ok) 이번 접속에서 끄지 않았을 때. 맨 끝 줄(시안 A).
+const pcOn = () => pc.usable && pc.state.ok && !pcOff;
+const onSources = () => [...visibleSources(srcState(), connected()), ...(phoneOn() ? [PH] : []), ...(pcOn() ? [PC] : [])];
+const cloudOn = () => onSources().filter(s => s !== PH && s !== PC);
 // 폰에 쓸 수 있나(앱 3-③ 판 + 허락 + 켜짐).
 const phoneWrite = () => phoneOn() && phone.state.write === true;
-const anyLinked = () => connected().length > 0 || phoneLinked();
+const anyLinked = () => connected().length > 0 || phoneLinked() || (pc.usable && pc.state.ok);
 const nothingOn = () => !!state.status && anyLinked() && !onSources().length;
 async function loadStatus() {
   const scope = state.scope;
@@ -215,6 +232,9 @@ async function loadList(p, {quiet = false} = {}) {
     } else if (where.source === PH) {
       rows = await phone.list(where.parent);
       trail = phoneTrail(where.parent);
+    } else if (where.source === PC) {
+      rows = await pc.list(where.parent);
+      trail = pcTrail(where.parent);
     } else {
       [rows, trail] = await Promise.all([
         rpc('app_cloud_list', {p_source: where.source, p_parent_id: where.parent}),
@@ -267,7 +287,7 @@ async function directRead(p, where, scope) {
 async function loadChildren(source, parent) {
   const key = folderKey(source, parent), scope = state.scope;
   try {
-    const rows = source === PH ? await phone.list(parent) : await rpc('app_cloud_list', {p_source: source, p_parent_id: parent});
+    const rows = source === PH ? await phone.list(parent) : source === PC ? await pc.list(parent) : await rpc('app_cloud_list', {p_source: source, p_parent_id: parent});
     if (state.scope !== scope) return;
     state.children.set(key, (Array.isArray(rows) ? rows : []).filter(r => r.is_folder));
   } catch { if (state.scope === scope) state.children.set(key, []); }
@@ -478,9 +498,19 @@ function paintSrcs() {
     const t = `${SOURCE_NAME[PH]} ${phoneLinked() ? (phoneOn() ? '켜짐' : '꺼짐') : '허락 안 됨'}`;
     pb.title = t; pb.setAttribute('aria-label', t);
   }
+  // [내 PC]: 윈도우 PC 브라우저에서만. 문이 답하지 않으면 흐리게(누르면 다시 두드림·켜는 법), 답하면 켜기/끄기.
+  const cb = box.querySelector('[data-fx-src="pc"]');
+  if (cb) {
+    cb.hidden = !(pc.usable && pc.state.known);
+    cb.setAttribute('aria-pressed', String(pcOn()));
+    cb.classList.toggle('fx-src-off', !pc.state.ok);
+    const t = `${SOURCE_NAME[PC]} ${pc.state.ok ? (pcOn() ? '켜짐' : '꺼짐') : '연결 안 됨'}`;
+    cb.title = t; cb.setAttribute('aria-label', t);
+  }
 }
 function srcClick(name) {
   if (name === PH) { phoneClick(); return; }
+  if (name === PC) { if (pc.state.ok) { pcOff = !pcOff; sourcesChanged(); } else pcKnock(); return; }
   if (!FILES_SRC.includes(name)) return;
   const info = chipInfo(srcState(), connected(), name);
   if (!info.linked) {
@@ -505,6 +535,24 @@ function phoneChanged() {
   state.children.delete(folderKey(PH, null));
   sourcesChanged();
 }
+// '내 PC' 문 두드리기(사람이 누름: 크롬 허락 창이 여기서 뜰 수 있다). 되면 '내 PC' 맨 위(드라이브)를 지금 칸에 연다. 안 되면 켜는 법 한 줄.
+let pcWasOk = false;
+async function pcKnock() {
+  if (!pc.usable) return;
+  state.hint = ''; paintTop();
+  const s = await pc.hello();
+  if (s.ok) { pcOff = false; state.open.add(folderKey(PC, null)); goFolder(PC, null); return; }
+  state.hint = pcStateText(s.why); paintTop();
+}
+// 문 상태가 바뀌면(켬·끔·다른 계정): 나무 맨 위를 다시 읽고, 보던 '내 PC'가 사라졌으면 최근으로. 답하던 문이 끊긴 때만 한 줄 알린다.
+pc.on(s => {
+  state.children.delete(folderKey(PC, null));
+  const lost = pcWasOk && !s.ok;
+  pcWasOk = s.ok;
+  if (!state.status) return;
+  sourcesChanged();
+  if (lost) { state.hint = pcStateText(s.why); paintTop(); }
+});
 // 켜기/끄기가 바뀐 뒤: 보던 출처가 꺼졌으면 최근으로, 새로 켠 출처의 나무 맨 위를 읽고, 다시 그린다. 끄기는 보기에서만 빠진다(색인·연결은 그대로).
 function sourcesChanged() {
   state.hint = '';
@@ -533,9 +581,13 @@ function treeHtml(p) {
     const twist = r.hasKids ? `<button type="button" class="fx-twist" data-fx-twist="${esc(r.key)}" aria-expanded="${r.open}" aria-label="${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="fx-twist" aria-hidden="true"></span>';
     const name = r.type === 'root' ? SOURCE_NAME[r.source] : r.name;
     const cnt = r.type === 'folder' ? countOf(r.source, r.id) : '', num = cnt ? `<span class="nx-num${/^0개$/.test(cnt) ? ' fx-zero' : ''}">${esc(cnt)}</span>` : '';
-    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${cur}" style="--nx-indent:${r.depth}" data-fx-drop="${esc(folderKey(r.source, r.id))}">${twist}<button type="button" class="nx-main" data-fx-go="${esc(r.source)}" data-fx-id="${esc(r.id || '')}"${cur ? ' aria-current="true"' : ''}>${r.type === 'root' ? treeIconHtml(r.source) : treeIconHtml('folder', {row: {color: folderLook.color(r.source, r.id)}, open: r.open})}<span class="nx-name">${esc(name)}</span>${num}</button></div>`;
-  }).join('');
+    const drop = r.source === PC ? '' : ` data-fx-drop="${esc(folderKey(r.source, r.id))}"`;
+    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${cur}" style="--nx-indent:${r.depth}"${drop}>${twist}<button type="button" class="nx-main" data-fx-go="${esc(r.source)}" data-fx-id="${esc(r.id || '')}"${cur ? ' aria-current="true"' : ''}>${r.type === 'root' ? treeIconHtml(r.source) : treeIconHtml('folder', {row: {color: folderLook.color(r.source, r.id)}, open: r.open})}<span class="nx-name">${esc(name)}</span>${num}</button></div>`;
+  }).join('') + pcOffRowHtml();
 }
+// 시안 공통 '꺼져 있을 때': 나무 맨 끝 '내 PC · 꺼짐' 흐린 줄(누르면 다시 두드림). 윈도우 PC 브라우저에서 문이 답하지 않을 때만. [내 PC]를 끈 때는 없다.
+const pcOffRowHtml = () => (pc.usable && pc.state.known && !pc.state.ok
+  ? `<div class="nx-row nx-folder fx-root fx-pc-off"><span class="fx-twist" aria-hidden="true"></span><button type="button" class="nx-main" data-fx-pc-knock title="${esc(pcStateText(pc.state.why))}"><span class="nx-name">${esc(pcOffRowName(pc.state.why))}</span></button></div>` : '');
 function paintTree() {
   paintMainTree();
   for (const p of panesOn()) paintPaneTree(p);
@@ -553,7 +605,8 @@ function paintMainTree() {
 function rowHtml(p, r, {withPath = false} = {}) {
   const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
   const picked = p.picked.has(key) ? ' fx-picked' : '', cut = state.clip?.keys.includes(key) ? ' fx-cut' : '';
-  const drag = PHONE.matches ? '' : ' draggable="true"', drop = r.is_folder ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
+  const local = r.source === PC; // 내 PC 줄은 이 단계에서 끌기·놓기 없음(보기·열기만)
+  const drag = PHONE.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
   const tags = [r.library_doc_id ? '자료실' : '', r.match_in === 'text' ? '글자 맞음' : ''].filter(Boolean).join(' · ');
   const tag = tags ? `<span class="fx-tag">${tags}</span>` : '';
   const star = r.starred ? '<span class="fx-star" aria-label="별표">★</span>' : '';
@@ -635,6 +688,7 @@ function selectRow(key, {show = true} = {}) {
 }
 // 줄 바이트: 클라우드는 Edge(thumb·media·preview), 이 폰은 앱 다리(폰 안에서 읽음). range = 앞 몇 바이트만(글 미리보기).
 async function rowBlob(r, what, {range = 0} = {}) {
+  if (r.source === PC) throw new Error('pc_read'); // 내 PC 파일 바이트는 이 단계에서 브라우저로 가져오지 않는다
   if (r.source === PH) {
     const blob = what === 'thumb' ? await phone.thumb(r.item_id, true) : await phone.blob(r.item_id);
     return range ? blob.slice(0, range) : blob;
@@ -646,7 +700,7 @@ async function rowBlob(r, what, {range = 0} = {}) {
 async function openPreview(r) {
   if (state.preview?.key === rowKey(r)) { if (overlayPreview()) openLayer(); paintPreview(); return; }
   dropPreview();
-  const kind = previewKind(r), p = {key: rowKey(r), row: r, kind, status: kind === 'none' ? 'done' : 'wait', url: '', text: '', pages: 0, shown: 0, err: ''};
+  const kind = r.source === PC ? 'none' : previewKind(r), p = {key: rowKey(r), row: r, kind, status: kind === 'none' ? 'done' : 'wait', url: '', text: '', pages: 0, shown: 0, err: ''};
   state.preview = p;
   if (overlayPreview()) openLayer();
   paintPreview();
@@ -737,6 +791,14 @@ function paintPreview() {
   // 그리고 있는 PDF 칸은 그대로 둔다(다시 그리면 쪽을 처음부터 다시 그려야 함).
   if (p.doc && p.host && p.host.isConnected && box.contains(p.host) && box.dataset.fxKey === p.key) return;
   box.dataset.fxKey = p.key;
+  if (r.source === PC) {
+    // 시안 A 미리보기: 이름·위치·크기·바뀐 날·종류 + [이 PC에서 열기][탐색기에서 위치]. 바이트·별표·복사·휴지통은 없다(다음 단계).
+    box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span></div>`
+      + `<div class="fx-pv-view"><p class="fx-pv-note">${esc(PC_PREVIEW_TEXT)}</p></div>`
+      + `<dl class="fx-pv-meta"><dt>위치</dt><dd>${esc(where)}</dd><dt>크기</dt><dd>${esc(sizeText(r.size_bytes))}</dd><dt>바뀐 날</dt><dd>${esc(fullTime(r.modified_at))}</dd><dt>종류</dt><dd>${esc(kindLabel(r))}</dd></dl>`
+      + '<div class="fx-pv-acts"><button type="button" class="fx-btn" data-fx-open>이 PC에서 열기</button><button type="button" class="fx-btn" data-fx-pc-reveal>탐색기에서 위치</button></div>';
+    return;
+  }
   const mine = r.source === PH;
   box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span>`
     + (mine ? '' : `<button type="button" class="mini fx-star-btn${r.starred ? ' on' : ''}" data-fx-star-one aria-pressed="${!!r.starred}" aria-label="${r.starred ? '별표 빼기' : '별표'}" title="${r.starred ? '별표 빼기' : '별표'}">${r.starred ? '★' : '☆'}</button>`) + '</div>'
@@ -785,6 +847,7 @@ function paintTwins() {
 function note(text) { const n = $('[data-fx-note]'); if (n) { n.textContent = text; n.hidden = !text; } }
 // 열기: 클라우드 보기 화면 새 창. 창은 누른 순간 열어 두고(팝업 막힘 피함) 주소를 받으면 넣는다.
 async function openCloud(r) {
+  if (r.source === PC) { pcOpen(r); return; }
   if (r.source === PH) return;
   const win = window.open('about:blank', '_blank');
   try {
@@ -792,6 +855,13 @@ async function openCloud(r) {
     if (!d?.url) throw new Error('open_unavailable');
     if (win) { win.opener = null; win.location.href = d.url; } else window.open(d.url, '_blank', 'noopener');
   } catch (e) { win?.close(); note(errorText(codeOf(e))); }
+}
+// 내 PC 열기: 그 PC의 기본 프로그램(실행 파일·모르는 종류는 바구니 앱이 탐색기 위치만 엶). reveal = 탐색기에서 위치.
+async function pcOpen(r, {reveal = false} = {}) {
+  try {
+    const done = await pc.open(r.item_id, {reveal});
+    note(done === 'revealed' && !reveal ? '이 종류는 탐색기에서 위치만 열었어요' : '');
+  } catch (e) { note(errorText(codeOf(e))); }
 }
 // S50-16: 폰 앱 안의 [공유]. 문서를 받아 앱 다리로 넘긴다(바이트는 이 화면 메모리에만). 못 보내는 종류·크기는 이유를 알린다.
 async function shareViaApp(r) {
@@ -870,6 +940,12 @@ function paintBar() {
   }
   bar.hidden = !n;
   if (!n) { bar.innerHTML = ''; return; }
+  // 내 PC 줄을 고르면 이 단계는 보기·열기만(복사·옮기기·휴지통은 다음 단계).
+  if (hasPc(pickedRows(p))) {
+    bar.innerHTML = `<span class="fx-bar-t" title="${esc(PC_READONLY_TEXT)}">${n}개 · ${esc(SOURCE_NAME[PC])} · 보기·열기만</span>`
+      + '<button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
+    return;
+  }
   // 폰 파일을 고르면 이 판은 '클라우드에 복사'만(받을 곳 창 / 두 칸이면 반대 칸이 클라우드 폴더일 때).
   if (hasPhone(pickedRows(p))) {
     const i = state.cur, dest = two() ? oppDest() : null, ok = dest && dest.source !== PH;
@@ -882,7 +958,9 @@ function paintBar() {
   }
   if (two()) {
     // 시안 ⑥⑧: 'N개 (왼쪽) · [→ 오른쪽에 복사] [→ 옮기기] [이름] [휴지통] ✕' — 받을 곳 창 없이 반대 칸으로. PC는 키 이름을 함께.
-    const i = state.cur, dest = oppDest(), keys = WIDE.matches, off = dest ? '' : ` disabled title="${esc(paneSide(i ^ 1))} 칸에서 받을 폴더를 여세요"`;
+    const i = state.cur, dest = oppDest(), keys = WIDE.matches;
+    // 반대 칸이 내 PC면 이 단계에서는 보내지 않는다(보기·열기만).
+    const off = dest?.source === PC ? ` disabled title="${esc(PC_READONLY_TEXT)}"` : dest ? '' : ` disabled title="${esc(paneSide(i ^ 1))} 칸에서 받을 폴더를 여세요"`;
     bar.innerHTML = `<span class="fx-bar-t">${n}개 (${paneSide(i)})</span>`
       + `<button type="button" class="fx-btn" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy'))}${keys ? ' (F5)' : ''}</button>`
       + `<button type="button" class="fx-btn" data-fx-send="move"${off}>${esc(sendLabel(i, 'move'))}${keys ? ' (F6)' : ''}</button>`
@@ -952,7 +1030,15 @@ async function write(action, body, label, {timeoutMs = 60000} = {}) {
 }
 // 폰 줄·폰 받을 곳이 낀 일: 새 폴더·이름·휴지통(write)은 앱 3-③ 판이면 한다. 옮기기는 아직 없다. 막을 때 한 줄 안내.
 const hasPhone = rows => (rows || []).some(r => r?.source === PH);
+// 내 PC 줄·내 PC 받을 곳이 낀 일은 이 단계에서 모두 막는다(보기·열기만). 막을 때 한 줄 안내.
+const hasPc = rows => (rows || []).some(r => r?.source === PC);
+function pcStop(rows, dest) {
+  if (!hasPc(rows) && dest?.source !== PC) return false;
+  notify(PC_READONLY_TEXT, {record: false});
+  return true;
+}
 function phoneStop(rows, dest, {write = false} = {}) {
+  if (pcStop(rows, dest)) return true;
   if (!hasPhone(rows) && dest?.source !== PH) return false;
   if (write && phoneWrite()) return false;
   notify(write ? PHONE_OLD_APP_TEXT : PHONE_MOVE_TEXT, {record: false});
@@ -1054,7 +1140,7 @@ async function trashRows(rows, anchor) {
 // 잘라 붙이기·복사해 붙이기(PC Ctrl+X·Ctrl+C → 폴더를 열고 Ctrl+V / [여기로 옮기기·여기에 복사]).
 function cutRows(rows, mode = 'move') {
   const list = rows.filter(Boolean);
-  if (!list.length || (mode === 'move' && phoneStop(list))) return;
+  if (!list.length || pcStop(list) || (mode === 'move' && phoneStop(list))) return;
   if (mode === 'move') { const chk = moveCheck(list); if (!chk.ok) { notify(chk.reason, {error: true, record: false}); return; } }
   state.clip = {rows: list, keys: list.map(rowKey), mode};
   P().picked.clear(); paintLists(); paintBar();
@@ -1088,11 +1174,11 @@ async function moveRows(rows, dest, anchor) {
 // 보내기는 한 번에 하나씩 차례로(서버가 1개씩 받음, 같은 클라우드 옮기기만 move 한 번에 200개). 쓰기는 모두 사람이 누른 것(confirm:true).
 let destLayer = null;
 // 받을 곳 창의 저장소: 클라우드 + (폰에 쓸 수 있고, 보내는 것이 클라우드 파일이면) '이 폰'.
-const destSources = rows => (phoneWrite() && !hasPhone(rows) ? onSources() : cloudOn());
+const destSources = rows => (phoneWrite() && !hasPhone(rows) ? onSources().filter(s => s !== PC) : cloudOn());
 const destKey = d => d ? folderKey(d.source, d.parent) : '';
 function openDest(mode, rows) {
   const list = (rows || []).filter(Boolean);
-  if (!list.length || (mode === 'move' && phoneStop(list))) return;
+  if (!list.length || pcStop(list) || (mode === 'move' && phoneStop(list))) return;
   if (state.run) { notify('보내는 중이에요. 끝난 뒤 다시 해 주세요.', {record: false}); return; }
   const on = destSources(list), here = hereDest();
   const dest = here && on.includes(here.source) ? here : null;
@@ -1227,6 +1313,7 @@ async function destGo() {
 //   덮어쓰기는 없다: [그래도 하기]는 서버가 '이름 (2)'처럼 번호를 붙여 둘 다 둔다(공용 numberedName). 끝나면 한 줄 알림.
 async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
   if (state.run || state.busy) return false;
+  if (pcStop(rows, dest)) return false;
   // 폰 → 클라우드 복사: 폰 앱 안에서 원본을 읽어 올리기 길(upload_open, 같은 이름·200MB 묻기·전송 목록 그대로)로. 폰이 낀 다른 일은 이 판에서 하지 않는다.
   //   클라우드 → 폰 복사(3-③): Edge media로 받아 앱이 받을 폴더에 쓴다. 폰 → 폰·옮기기는 아직 없다.
   if (hasPhone(rows) || dest?.source === PH) {
@@ -1698,7 +1785,7 @@ const upTarget = event => {
   if (row && i >= 0) { const d = destOf(row.dataset.fxDrop); if (d && onSources().includes(d.source)) return {t: row, dest: d}; }
   const box = i >= 0 ? paneEl(state.panes[i]) : null;
   const d = box && paneDest(state.panes[i]);
-  return d && onSources().includes(d.source) ? {t: box, dest: d} : null;
+  return d && d.source !== PC && onSources().includes(d.source) ? {t: box, dest: d} : null;
 };
 
 // 미리보기 ☆ 한 개만 고친다(PDF를 그리는 칸은 다시 그리지 않음).
@@ -1798,7 +1885,7 @@ function clearQuery(p) {
   const s = $('[data-fx-search]'); if (s && p === P()) s.value = '';
 }
 function goFolder(source, id, p = P()) {
-  if (!SOURCES.includes(source) && !(source === PH && phoneOn())) return;
+  if (!SOURCES.includes(source) && !(source === PH && phoneOn()) && !(source === PC && pcOn())) return;
   clearQuery(p);
   const parent = id || null;
   state.open.add(folderKey(source, parent));
@@ -1893,11 +1980,13 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-up]')) { goUp(); return; }
   if (b.matches('[data-fx-tab]')) { setTab(b.dataset.fxTab); return; }
   if (b.matches('[data-fx-src]')) { srcClick(b.dataset.fxSrc); return; }
+  if (b.matches('[data-fx-pc-knock]')) { pcKnock(); return; }
   if (b.matches('[data-fx-sync]')) { sync({force: true}); return; }
   if (b.matches('[data-fx-close]')) { closePreview(); return; }
   if (b.matches('[data-fx-more-pages]')) { const p = state.preview; if (p?.doc) drawPages(p, p.shown + PDF_FIRST_PAGES); return; }
   const p = state.preview;
   if (b.matches('[data-fx-open]') && p) { openCloud(p.row); return; }
+  if (b.matches('[data-fx-pc-reveal]') && p?.row?.source === PC) { pcOpen(p.row, {reveal: true}); return; }
   if (b.matches('[data-fx-down]') && p) { download(p.row); return; }
   if (b.matches('[data-fx-share]') && p) { download(p.row, {share: true}); return; }
   if (b.matches('[data-fx-rename-one]') && p) { renameRow(p.row, b); return; }
@@ -1996,6 +2085,7 @@ root?.addEventListener('dragstart', event => {
   if (!b || state.busy) { event.preventDefault?.(); return; }
   { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   const key = b.dataset.fxRow, p = P();
+  if (hasPc([rowByKey(key, p)])) { event.preventDefault?.(); return; }
   drag = {pane: state.cur, rows: (p.picked.has(key) ? [...p.picked] : [key]).map(k => rowByKey(k, p)).filter(Boolean)};
   event.dataTransfer?.setData('text/plain', 'files-move');
   if (event.dataTransfer) event.dataTransfer.effectAllowed = two() ? 'copyMove' : 'move';
@@ -2006,7 +2096,7 @@ const dropAt = event => {
   const t = event.target.closest?.('[data-fx-drop]') || (cross ? event.target.closest('[data-fx-pane-i]') : null);
   if (!t) return null;
   const dest = t.dataset.fxDrop ? destOf(t.dataset.fxDrop) : paneDest(state.panes[i]);
-  if (!dest) return null;
+  if (!dest || dest.source === PC || hasPc(drag.rows)) return null;
   if (cross) return xferPlan(drag.rows, dest, 'copy').ok.length || moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
   return moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
 };
@@ -2083,7 +2173,8 @@ async function enter(force = false) {
   lookLoad();
   if (entering && !force) return entering;
   entering = (async () => {
-    if (!state.status || force) { paint(); await Promise.all([loadStatus(), phone.hello()]); }
+    // 내 PC 문은 저절로 한 번 두드린다(크롬 허락 창이 뜰 수 있으면 두드리지 않고 '눌러서 연결'로 둔다).
+    if (!state.status || force) { paint(); await Promise.all([loadStatus(), phone.hello(), pc.usable ? pc.hello({auto: true}) : null]); }
     const place = whereOf(window.KPTURouter?.place?.('files') || {});
     const first = onSources(), a = state.panes[0];
     if (!a.where && first.length) {
