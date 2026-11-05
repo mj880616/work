@@ -38,8 +38,11 @@ let n = 0;
 const photos = params.has('photos') ? {max: 40, add: async () => ({src: `share:p${++n}`}), url: async () => PIXEL} : null;
 window.opened = [];
 const files = params.has('files') ? {add: async file => ({src: `drive:f${++n}`, name: file.name, size: file.size}), open: src => { window.opened.push(src); }} : null;
+// ?row=1 — the opener's own attachment row instead (update windows: onFiles); the chosen names land in window.rowFiles.
+window.rowFiles = [];
+const onFiles = params.has('row') ? list => { window.rowFiles.push(...[...list].map(f => f.name)); } : null;
 window.ed = await createDocEditor({host: document.getElementById('host'), value: start ? JSON.parse(start) : null,
-  label: '본문', placeholder: '여기에 쓰세요', photos, files, onChange: () => { window.changes++; }});
+  label: '본문', placeholder: '여기에 쓰세요', photos, files, onFiles, onChange: () => { window.changes++; }});
 // A second editor in the same visit (S48-21: it starts with the [⌄] row as the first one left it).
 window.makeSecond = async () => { const host = document.createElement('div'); host.id = 'host2'; document.body.append(host); window.ed2 = await createDocEditor({host, label: '둘째'}); };
 window.renderOut = () => { const out = document.getElementById('out'); out.textContent = ''; out.append(renderDoc(window.ed.getValue())); out.style.display = 'block'; return out.innerHTML; };

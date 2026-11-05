@@ -33,10 +33,17 @@ async function markdownFor(note) {
 // The saved form the editor starts from (own doc, or the old letters converted in memory).
 export async function startValue(note) { return noteStartDoc(note, await markdownFor(note)); }
 
+// A shown photo that opens large when pressed: a button for touch, mouse and keyboard (Enter·Space), named for screen readers.
+function zoomable(place, open, name) {
+  if (place.dataset.edZoom) return;
+  place.dataset.edZoom = '1'; place.tabIndex = 0; place.setAttribute('role', 'button'); place.setAttribute('aria-label', `${name} 크게 보기`);
+  place.addEventListener('click', e => { e.preventDefault(); open(); });
+  place.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+}
 // The note's photos: drive:<id> of a file in this note's attachments, shown through the owner-only photo view.
 const fileOf = (note, id) => (note?.attachments || []).find(f => f?.drive_file_id === id) || null;
 // 표시는 공용 img-slot.js(PHOTO-못받은사진): 받는 동안 글자 없는 연한 회색 칸, 못 받으면 작은 ↻(누르면 그 사진만 다시).
-export function fillPhotos(box, note, {rt = window.KPTURuntime} = {}) {
+export function fillPhotos(box, note, {rt = window.KPTURuntime, onOpen = null} = {}) {
   for (const place of box.querySelectorAll('[data-ed-drive]')) {
     const file = fileOf(note, place.dataset.edDrive);
     if (!file || !/^image\//.test(file.mime_type || '')) continue;
@@ -49,7 +56,10 @@ export function fillPhotos(box, note, {rt = window.KPTURuntime} = {}) {
         img.className = 'ed-photo-img'; img.alt = place.dataset.alt || attachmentName(file, '사진'); img.decoding = 'async';
         slotImg(place, img, url, {
           retry: () => { img.remove(); load(); },
-          onShown: () => { place.classList.remove('is-place'); place.removeAttribute('role'); place.removeAttribute('aria-label'); place.replaceChildren(img); },
+          onShown: () => {
+            place.classList.remove('is-place'); place.removeAttribute('role'); place.removeAttribute('aria-label'); place.replaceChildren(img);
+            if (onOpen) zoomable(place, () => onOpen(file, place), attachmentName(file, '사진'));
+          },
         });
       }, () => { if (place.isConnected) slotFailed(place, load, 'photo'); });
     };
@@ -57,13 +67,15 @@ export function fillPhotos(box, note, {rt = window.KPTURuntime} = {}) {
   }
 }
 // The read view of a note with doc. Returns true when it drew (false: the caller keeps the old view).
-export function paintDoc(box, note, {rt} = {}) {
+// onOpen(file, trigger): NOTE-파일그림넣기 ② — a shown photo in the text is pressed (or Enter/Space) to see it large (the opener's own
+// photo view, the same one as the attachment cards). Without it the photos only show.
+export function paintDoc(box, note, {rt, onOpen = null} = {}) {
   if (!hasDoc(note)) return false;
   ensureStyles();
   const doc = renderDoc(note.doc);
   box.replaceChildren(doc);
   box.dataset.noteView = 'doc';
-  fillPhotos(box, note, {rt});
+  fillPhotos(box, note, {rt, onOpen});
   return true;
 }
 

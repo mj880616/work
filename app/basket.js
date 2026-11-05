@@ -779,7 +779,7 @@ function paintReadText() {
   showPlainText(text, raw);
   if (rawView) return;
   // ED③ 업데이트: the saved form is drawn instead of the letters (the 원문 toggle still shows the letters).
-  if (asDoc && paintDoc(text, selected, {rt})) return;
+  if (asDoc && paintDoc(text, selected, {rt, onOpen:(file, el) => openPhoto(file.drive_file_id, el)})) return;
   const owner = scope();
   void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope()}).then(result => { if (!result.ok && readShown.get(text) === key) readShown.delete(text); });
 }

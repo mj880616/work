@@ -34,7 +34,8 @@
 //   - [⌄] row open or closed is remembered on the server (view-prefs.js ed_more, the same for every editor and device): it stays as it
 //     was left — a press outside or Esc closes only the small popovers, never the row; only [⌄]/[⌃] opens or closes it. (A phone has no
 //     [⌄]: its row is grouped, see above.)
-//   - [파일] exists only where the opener passes `files` (notes: the note's own attachments). A file goes in as a small card
+//   - [파일] exists only where the opener passes `files` (notes: the note's own attachments) or `onFiles` (update windows: the chosen files
+//     go to the window's own attachment row, NOTE-파일그림넣기 ④). With `files` a file goes in as a small card
 //     (name · size); its [열기] opens it (files.open). A dropped or pasted file that is not a picture goes the same way.
 //   - 사진 나란히: a photo dragged onto another photo's left or right half joins it on one line (photo_row, up to PHOTO_ROW_MAX); a chosen
 //     photo shows a small row [옆 사진과 나란히] [따로 놓기]; several photos picked at once ask [나란히] [한 장씩] before going in.
@@ -285,7 +286,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   let lastGroup = null;
   for (const [key, text, aria, group] of BUTTONS) {
     if (key === 'photo' && !photos) continue;
-    if (key === 'file' && !files) continue;
+    // NOTE-파일그림넣기 ④: where the opener has its own attachment row (onFiles: the update windows), [파일] puts the chosen files in that row.
+    if (key === 'file' && !files && !onFiles) continue;
     const b = btn(text, {edCmd: key, edGroup: group}, aria);
     if (lastGroup && group !== lastGroup) b.classList.add('ed-gap');
     lastGroup = group;
@@ -1222,7 +1224,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const isPicture = f => /^image\//.test(f.type || '');
     const pictures = photos ? all.filter(isPicture) : [];
     const others = files ? all.filter(f => !pictures.includes(f)) : [];
-    // UPD-그림붙여넣기: where the opener has no inline [사진]/[파일] but its own attachment row (new note, update window), a pasted or dropped picture/file goes to that row.
+    // UPD-그림붙여넣기: where the opener has no inline [사진]/[파일] but its own attachment row (update windows), a pasted or dropped picture/file goes to that row.
     if (!pictures.length && !others.length) { if (onFiles && all.length) onFiles(all); else notePhotoLater(); return; }
     if (all.length > pictures.length + others.length) notePhotoLater();
     moveCursorTo(at);
@@ -1278,7 +1280,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     root.append(input); input.click();
   };
   const pickPhotos = () => pickFrom('image/*', chosen => filesFrom(chosen.filter(f => /^image\//.test(f.type || ''))));
-  const pickFiles = () => pickFrom('', chosen => filesIn(chosen));
+  const pickFiles = () => pickFrom('', chosen => files ? filesIn(chosen) : chosen.length && onFiles?.(chosen));
 
   // ── 사진 나란히 ──
   // The photo chosen now: {node, pos, row: {node, pos} | null}, or null.
