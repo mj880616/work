@@ -60,6 +60,7 @@ import {photoActButtons} from './photo-act-bar.mjs'; // PHOTO-크게보기메뉴
 import {appShare} from './app-share.js';
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
 import {brandIconSvg} from './brand-icons.js';
+import {treeIconHtml} from './tree-icons.js';
 import {createOdSettings} from './od-settings.js';
 import {createSelectMode} from './select-mode.js';
 import {createAnchoredMenu} from './anchored-menu.js';
@@ -1906,7 +1907,7 @@ function phoneFolderRowHtml(f, {wide}) {
   const cur = wide && pAt === f.id, sw = phoneSw() && !f.pending, off = sw && phoneOff.has(f.id);
   return `<div class="nx-row nx-folder photos-fx-row${cur ? ' nx-current' : ''}${off ? ' is-off' : ''}" data-photos-pf="${esc(f.id)}" style="--nx-indent:0"${wide ? ' role="treeitem"' : ''}>`
     + (wide ? '<span class="photos-fx-tog" aria-hidden="true"></span>' : '')
-    + `<button type="button" class="nx-main" data-photos-pf-open="${esc(f.id)}"${cur ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">${cur ? '\u{1F4C2}' : '\u{1F4C1}'}</span><span class="nx-name">${esc(f.name)}${placeHtml('ph:' + f.id)}${tidy.unbackedIds().has(f.id) ? '<span class="photos-fx-place photos-unbacked"> · 백업 안 됨</span>' : ''}${f.pending ? '<span class="photos-fx-place"> · 사진을 옮기면 생겨요</span>' : ''}</span>${countHtml(f.count)}</button>`
+    + `<button type="button" class="nx-main" data-photos-pf-open="${esc(f.id)}"${cur ? ' aria-current="true"' : ''}>${treeIconHtml('folder', {open: cur})}<span class="nx-name">${esc(f.name)}${placeHtml('ph:' + f.id)}${tidy.unbackedIds().has(f.id) ? '<span class="photos-fx-place photos-unbacked"> · 백업 안 됨</span>' : ''}${f.pending ? '<span class="photos-fx-place"> · 사진을 옮기면 생겨요</span>' : ''}</span>${countHtml(f.count)}</button>`
     + (sw ? phoneSwHtml(f) : '')
     + (phoneOps() ? `<button type="button" class="nx-more photos-fx-more" data-photos-pf-more="${esc(f.id)}" aria-label="${esc(f.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '')
     + '</div>';

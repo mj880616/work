@@ -22,6 +22,7 @@ import {renderDoc} from './ed-render.mjs';
 import {diaryHasDoc, diaryStartDoc, joinDiaryDocs, diaryDocToStore, diaryDocError} from './diary-doc.mjs';
 // JOURNAL-일기목록: [달력 / 목록] 바꾸기. 목록 칸은 diary-list.js가 그리고, 고른 보기는 서버(view_prefs.diary_view)에 기억한다(기기 저장 없음).
 import {createDiaryList} from './diary-list.js';
+import {doneLine} from './diary-list-model.mjs';
 import {viewPrefs} from './view-prefs.js';
 // OD-연결아이콘: 원드라이브 연결 표시는 [오늘] 오른쪽 아이콘 하나 + 드롭다운(공용 부품, 사진 메뉴도 같은 부품).
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
@@ -86,6 +87,21 @@ const listView = createDiaryList({host:allHost, rt, odReady:() => ensureOdStatus
   onOpen:day => openFromList(day),
   onMarked:saved => { const row = rows.get(saved.journal_day); if (row && row.id === saved.id) rows.set(saved.journal_day, {...row, metadata:saved.metadata, updated_at:saved.updated_at}); }});
 
+// JOURNAL-오늘한일달력 (S50-29, 요청함 11/02 13:17 덧붙임): 일기를 안 쓴 날도 그날 '오늘 한 일'이 있으면 달력 칸에 빈 동그라미, 이 달 목록에
+// 그 날짜 줄('한 일 · 첫 줄')이 나온다. 홈에서 넣은 같은 자료를 읽기만(work-day-lines.js readDoneBetween — 두 벌 저장 없음, 메모리에만).
+// 못 읽으면 일기만 그대로 그린다(안내를 더하지 않는다). 그날을 누르면 그날 창의 '오늘 한 일' 칸(paintDone)이 줄을 보인다.
+let doneMonth = {key:'', days:new Map()};
+const doneOf = day => (doneMonth.key === monthKey() ? doneMonth.days.get(day) : null) || [];
+const doneSign = days => JSON.stringify([...days].sort((a, b) => String(a[0]).localeCompare(String(b[0]))));
+function loadDoneMonth(run, key) {
+  const first = `${cursor.year}-${String(cursor.month + 1).padStart(2, '0')}-01`, last = seoulDateKey(seoulDate(cursor.year, cursor.month + 1, 0));
+  import('./work-day-lines.js').then(m => m.readDoneBetween(first, last, rt)).then(days => {
+    if (!days || !current(run) || key !== monthKey()) return;
+    const same = doneMonth.key === key && doneSign(doneMonth.days) === doneSign(days);
+    doneMonth = {key, days};
+    if (!same && !edit) renderMonth();
+  }).catch(() => {});
+}
 function renderMonth() {
   $('[data-diary-title]').textContent = `${cursor.year}년 ${cursor.month + 1}월`;
   const first = seoulDate(cursor.year, cursor.month), lead = seoulParts(first).weekday;
@@ -93,15 +109,16 @@ function renderMonth() {
   const cells = [];
   for (let i = 0; i < lead; i++) cells.push(Object.assign(document.createElement('span'), {className:'diary-cell diary-blank'}));
   for (let n = 1; n <= total; n++) {
-    const day = seoulDateKey(addSeoulDays(first, n - 1)), row = rows.get(day), photos = diaryPhotos(row), text = diaryText(row), odDay = odShown()?.days[day] || [];
+    const day = seoulDateKey(addSeoulDays(first, n - 1)), row = rows.get(day), photos = diaryPhotos(row), text = diaryText(row), odDay = odShown()?.days[day] || [], done = doneOf(day);
     const cell = document.createElement('button');
     cell.type = 'button'; cell.className = 'diary-cell'; cell.dataset.diaryDay = day;
     if (day === today) { cell.setAttribute('aria-current', 'date'); cell.classList.add('ds-today'); }
     cell.setAttribute('aria-pressed', String(selected === day)); cell.classList.toggle('ds-day-sel', selected === day);
-    cell.setAttribute('aria-label', `${shortDay(day)}${photos.length ? `, 사진 ${photos.length}장` : text ? ', 글' : ''}${odDay.length ? `, 원드라이브 사진 ${odDay.length}장` : ''}`);
+    cell.setAttribute('aria-label', `${shortDay(day)}${photos.length ? `, 사진 ${photos.length}장` : text ? ', 글' : ''}${odDay.length ? `, 원드라이브 사진 ${odDay.length}장` : ''}${done.length ? `, 한 일 ${done.length}줄` : ''}`);
     if (photos[0]) { cell.classList.add('has-photo'); cell.append(photoElement(row, photos[0], 'small', {label:'', link:false, retry:false})); }
     const num = document.createElement('span'); num.className = day === today ? 'diary-num ds-today-num' : 'diary-num'; num.textContent = String(n); cell.append(num);
     if (!photos.length && text) { const dot = document.createElement('span'); dot.className = 'diary-dot'; dot.dataset.diaryDot = ''; cell.append(dot); }
+    else if (!row && done.length) { const dot = document.createElement('span'); dot.className = 'diary-dot diary-dot-done'; dot.dataset.diaryDoneDot = ''; cell.append(dot); }
     if (odDay.length) { const dot = document.createElement('span'); dot.className = 'diary-dot diary-dot-od'; dot.dataset.diaryOdDot = ''; cell.append(dot); }
     cells.push(cell);
   }
@@ -146,21 +163,24 @@ function openFromList(day) {
 }
 function renderList() {
   const listMode = applyView();
-  const days = [...rows.keys()].filter(day => monthOf(day) === monthKey() && rows.get(day)).sort().reverse();
+  const doneDays = doneMonth.key === monthKey() ? [...doneMonth.days.keys()].filter(day => !rows.get(day)) : [];
+  const days = [...new Set([...rows.keys()].filter(day => monthOf(day) === monthKey() && rows.get(day)).concat(doneDays))].sort().reverse();
   list.hidden = listMode || !!selected || !!edit || !days.length;
   list.replaceChildren(...days.map(day => {
     const row = rows.get(day), item = document.createElement('button');
     item.type = 'button'; item.className = 'diary-list-item'; item.dataset.diaryListDay = day;
     const date = document.createElement('b'), line = document.createElement('span');
-    date.textContent = shortDay(day); line.textContent = firstLine(row);
+    date.textContent = shortDay(day); line.textContent = row ? firstLine(row) : doneLine(doneOf(day));
+    if (!row) { item.dataset.diaryListDone = ''; line.className = 'is-done'; }
     item.append(date, line); return item;
   }));
 }
 // quiet = 연 화면 유지(PERF-첫로딩, first-load.md 12절): 다 그린 같은 달로 돌아오면 보던 달력·열린 날을 그대로 두고,
 // 뒤에서 이 달 일기를 다시 읽어 바뀐 것이 있을 때만 다시 그린다(기다림 표시 없음). 탭 메모리뿐.
 async function loadMonth({force = false, quiet = false} = {}) {
-  if (!force && loadedMonth === monthKey()) { renderMonth(); if (quiet) void refreshMonth(); return; }
+  if (!force && loadedMonth === monthKey()) { renderMonth(); if (quiet) { void refreshMonth(); loadDoneMonth(epoch, monthKey()); } return; }
   const run = ++epoch, key = monthKey();
+  loadDoneMonth(run, key);
   status.innerHTML = waitInlineHtml(); $('[data-diary-retry]').hidden = true;
   rows = new Map(); odMonth = null; starSet = new Set(); starsState = 'loading'; renderMonth();
   loadOd(run, key, force);
@@ -877,7 +897,7 @@ window.addEventListener('kptu:session-changed', () => {
   closeViewer({fromBack:true, restore:false});
   stopOdSync(); odSyncState.done = false; od = {...OD_NONE}; odStatusFlight = null; odMonth = null; odSettings.setOpen(false); odSettings.drop(); odMessage = ''; odFault = false; odShowChosen = null; starSet = new Set(); starsState = 'loading'; clearOdPhotoCache(); renderOdPanel();
   if (edit) { releasePending(); dropField(); edit = null; editor.hidden = true; editor.replaceChildren(); cal.hidden = false; $('.diary-head').hidden = false; $('[data-diary-new]').hidden = false; status.hidden = false; }
-  editLayer = null; dayLayer = null; selected = null; sendWhere(null); detail.hidden = true; rows = new Map(); loadedMonth = ''; chosenView = null; lastListDay = null; listView.hide(); listView.reset(); renderMonth();
+  editLayer = null; dayLayer = null; selected = null; sendWhere(null); detail.hidden = true; rows = new Map(); loadedMonth = ''; doneMonth = {key:'', days:new Map()}; chosenView = null; lastListDay = null; listView.hide(); listView.reset(); renderMonth();
 });
 function enter() {
   const back = takeOdReturn();

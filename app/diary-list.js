@@ -7,9 +7,11 @@ import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 // - 📌 고정·★ 별표: ☆ 누르기, ⋯ 메뉴, 폰은 줄을 옆으로 밀기(오른쪽으로 밀면 📌, 왼쪽으로 밀면 ★). 밀기는 텔레그램 줄 밀기의 판단 부품
 //   (tg-day-model.mjs swipeIntent·swipeOffset·swipeSettle)을 그대로 쓴다: 가로가 세로의 1.5배 넘게 움직여야 밀기, 아니면 위아래 넘기기.
 // - 🔍 찾기: 불러온 일기 글 안에서 찾는다. 전체 검색(app_search_records)은 일기를 일부러 빼 두었으므로(search_records 결정) 그 길을 넓히지 않는다.
+// - JOURNAL-오늘한일달력 (S50-29): 일기를 안 쓴 날도 홈에서 넣은 '오늘 한 일'이 있으면 그 날짜 줄이 나온다(work-day-lines.js로 읽기만,
+//   못 읽으면 일기만). 그런 줄은 📌·★·밀기가 없고(일기 한 편 단위 표시), 누르면 그날 창이 열린다.
 // - 기기 저장 없음: 펼친 달·찾기 글자·밀어 둔 줄은 메모리만, 고정·별표는 서버(일기 행 metadata).
 import {readDiaryList, setDiaryMark, diaryPhotos, photoElement, ownerScope} from './diary-data.js';
-import {buildDiaryList, rowText, dayLabel, diaryPinnedAt, diaryStarredAt, MARK_KEYS} from './diary-list-model.mjs';
+import {buildDiaryList, withDoneDays, rowText, dayLabel, diaryPinnedAt, diaryStarredAt, MARK_KEYS} from './diary-list-model.mjs';
 import {odPhotos, odPhotoElement, odTakeWarmMonth} from './diary-onedrive.js';
 import {swipeIntent, swipeOffset, swipeSettle, swipeOpenOffset, swipeEdge} from './tg-day-model.mjs';
 import {createAnchoredMenu} from './anchored-menu.js';
@@ -18,7 +20,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;',
 const ALLOW = Object.freeze({start:1, end:1});
 
 export function createDiaryList({host, rt = window.KPTURuntime, odReady = async () => false, onOpen = () => {}, onMarked = () => {}}) {
-  const state = {owner:'', loaded:false, loading:null, error:'', rows:[], truncated:false, filter:'all', query:'', search:false, opened:{}, swipe:null, busy:new Set(), note:'', epoch:0};
+  const state = {owner:'', loaded:false, loading:null, error:'', rows:[], done:null, truncated:false, filter:'all', query:'', search:false, opened:{}, swipe:null, busy:new Set(), note:'', epoch:0};
   const odCache = new Map(); // 'YYYY-MM' → Promise<odMonth|null>
   let observer = null, drag = null, swallow = false;
   host.innerHTML = '<div class="diary-lv-search" data-diary-lv-search hidden><input type="search" data-diary-lv-q placeholder="일기 글에서 찾기" aria-label="일기 찾기" enterkeyhint="search" autocomplete="off"><button type="button" class="mini" data-diary-lv-search-close aria-label="찾기 닫기">×</button></div><p class="diary-lv-note" data-diary-lv-note role="status"></p><div class="diary-lv-body" data-diary-lv-body></div>';
@@ -32,9 +34,10 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     if (state.loading && !force) return state.loading;
     const run = ++state.epoch, owner = scopeNow();
     state.error = ''; if (!state.loaded) { note.textContent = ''; body.innerHTML = waitHtml({rows:6}); }
-    state.loading = readDiaryList(rt).then(({rows, truncated}) => {
+    const done = import('./work-day-lines.js').then(m => m.readDoneRecent(rt)).catch(() => null);
+    state.loading = Promise.all([readDiaryList(rt), done]).then(([{rows, truncated}, doneDays]) => {
       if (run !== state.epoch || owner !== scopeNow()) return;
-      Object.assign(state, {owner, loaded:true, rows, truncated, error:''});
+      Object.assign(state, {owner, loaded:true, rows, done:doneDays, truncated, error:''});
     }, () => {
       if (run !== state.epoch || owner !== scopeNow()) return;
       state.error = '일기 목록을 불러오지 못했어요.';
@@ -43,14 +46,19 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
   }
   function reset() {
     state.epoch++; observer?.disconnect(); odCache.clear();
-    Object.assign(state, {owner:scopeNow(), loaded:false, loading:null, error:'', rows:[], truncated:false, opened:{}, swipe:null, busy:new Set(), note:''});
+    Object.assign(state, {owner:scopeNow(), loaded:false, loading:null, error:'', rows:[], done:null, truncated:false, opened:{}, swipe:null, busy:new Set(), note:''});
   }
 
   const markButtons = row => {
     const day = esc(row.journal_day), star = !!diaryStarredAt(row), busy = state.busy.has(row.journal_day) ? ' disabled' : '';
     return `<button type="button" class="diary-lv-star" data-diary-lv-star="${day}" aria-pressed="${star}" aria-label="${star ? '별표 풀기' : '별표'}"${busy}>${star ? '★' : '☆'}</button><button type="button" class="diary-lv-more" data-diary-lv-more="${day}" aria-haspopup="true" aria-expanded="false" aria-controls="diaryListMenu" aria-label="${esc(dayLabel(row.journal_day))} 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button>`;
   };
+  function doneRowHtml(row) {
+    const day = row.journal_day, {line} = rowText(row);
+    return `<div class="diary-lv-swipe" data-diary-lv-swipe="${esc(day)}" data-diary-lv-done><div class="diary-lv-row"><button type="button" class="diary-lv-open" data-diary-lv-open="${esc(day)}" aria-label="${esc(`${dayLabel(day)}, 일기 없음, ${line}`)}"><span class="diary-lv-thumb" data-diary-lv-thumb="${esc(day)}" aria-hidden="true"></span><span class="diary-lv-text"><span class="diary-lv-top"><b>${esc(dayLabel(day))}</b></span><span class="diary-lv-line is-done">${esc(line)}</span></span></button></div></div>`;
+  }
   function rowHtml(row) {
+    if (row.done_only) return doneRowHtml(row);
     const day = row.journal_day, photos = diaryPhotos(row), {title, line} = rowText(row, photos.length), pinned = !!diaryPinnedAt(row), star = !!diaryStarredAt(row);
     const open = state.swipe?.day === day ? ` data-side="${state.swipe.side}"` : '';
     const label = `${dayLabel(day)}${title ? ' ' + title : ''}${pinned ? ', 고정' : ''}${star ? ', 별표' : ''}`;
@@ -63,7 +71,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     searchRow.hidden = !state.search;
     if (state.error) { note.textContent = ''; body.innerHTML = failHtml({retry: 'data-diary-lv-retry'}); return; }
     if (!state.loaded) { note.textContent = ''; body.innerHTML = waitHtml({rows:6}); return; }
-    const list = buildDiaryList(state.rows, {filter:state.filter, query:state.query, opened:state.opened});
+    const list = buildDiaryList(withDoneDays(state.rows, state.done), {filter:state.filter, query:state.query, opened:state.opened});
     const empty = !list.total ? (state.query ? '맞는 일기 없음' : state.filter === 'star' ? '별표 일기 없음' : '없음') : '';
     note.textContent = state.note || (state.truncated ? '최근 일기 1,000편만 보여요.' : '');
     const parts = [];
@@ -94,8 +102,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
   async function fillThumb(box) {
     if (box.dataset.filled) return; box.dataset.filled = '1';
     const day = box.dataset.diaryLvThumb, row = rowOf(day), owner = state.owner;
-    if (!row) return;
-    const photo = diaryPhotos(row)[0];
+    const photo = row ? diaryPhotos(row)[0] : null; // 일기 없이 한 일만 있는 날은 원드라이브 사진만
     if (photo) { box.append(photoElement(row, photo, 'small', {label:'', link:false, rt, retry:false})); box.classList.add('has-photo'); return; }
     const month = await odMonthOf(day.slice(0, 7));
     const first = month?.days?.[day]?.[0];
@@ -144,6 +151,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     if (e.pointerType !== 'touch') return;
     const inner = e.target.closest('.diary-lv-swipe > .diary-lv-row'); if (!inner) return;
     const wrap = inner.parentElement, day = wrap.dataset.diaryLvSwipe;
+    if (wrap.hasAttribute('data-diary-lv-done')) return; // 한 일만 있는 날: 📌·★ 없음
     if (state.swipe && state.swipe.day !== day) closeSwipe();
     if (swipeEdge(e.clientX, innerWidth)) return; // 화면 끝은 브라우저 뒤로가기 손동작에 양보
     drag = {id:e.pointerId, x:e.clientX, y:e.clientY, wrap, inner, day, open:state.swipe?.day === day ? swipeOpenOffset(state.swipe.side, ALLOW) : 0, dx:0, on:false};

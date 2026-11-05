@@ -65,7 +65,10 @@ for (const width of [884, 1440]) {
     const tree = root(page).locator('[data-fx-tree]');
     await expect(tree).toBeVisible();
     // 나무: 묶음 3개(최근·별표·큰 파일) + 두 클라우드 뿌리.
-    await expect(tree.locator('[data-fx-shelf]')).toHaveText(['최근', '별표', '큰 파일']);
+    await expect(tree.locator('[data-fx-shelf] .nx-name')).toHaveText(['최근', '별표', '큰 파일']);
+    // S50-20 FOLDER-나무아이콘: 최근·별표·큰 파일은 시계·별·문서, 저장소는 로고, 폴더는 폴더 아이콘(글자는 그대로).
+    await expect(tree.locator('[data-fx-shelf] .nx-ico')).toHaveText(['\u{1F552}', '\u2605', '\u{1F4C4}']);
+    await expect(tree.locator('.fx-root .nx-ico svg')).toHaveCount(2);
     await expect(tree.locator('.fx-root .nx-name')).toHaveText(['원드라이브', '구글 드라이브']);
     await expect(tree.locator('[data-fx-shelf="recent"]')).toHaveAttribute('aria-current', 'true');
     // 원드라이브 뿌리 → 폴더 → 하위 폴더.

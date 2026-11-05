@@ -27,16 +27,28 @@ export const monthLabel = key => { const [y, m] = String(key).split('-').map(Num
 const lines = text => String(text ?? '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
 // {title, line}: 제목(없으면 '')과 본문 첫 줄(없으면 '').
 export function rowText(row, photoCount = 0) {
+  if (row?.done_only) return {title: '', line: doneLine(row.done_lines)};
   const all = lines(row?.raw_text);
   if (all.length >= 2) return {title: all[0], line: all[1]};
   if (all.length === 1) return {title: '', line: all[0]};
   return {title: '', line: photoCount ? `사진 ${photoCount}장` : ''};
 }
+// JOURNAL-오늘한일달력 (S50-29): 일기를 안 쓴 날도 그날 '오늘 한 일'이 있으면 목록에 나온다(홈에서 넣은 줄을 읽기만, 두 벌 저장 없음).
+// 그런 날은 일기 행이 아닌 '한 일만 있는 날' 줄(done_only)이다: 📌·★ 없음(일기 한 편 단위 표시라서), 누르면 그날 창(일기 없음 + 그날 한 일).
+export const doneLine = lines => { const all = Array.isArray(lines) ? lines.filter(Boolean) : []; return all.length ? `한 일 · ${all[0]}${all.length > 1 ? ` 외 ${all.length - 1}` : ''}` : ''; };
+export function withDoneDays(rows, done) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!(done instanceof Map) || !done.size) return list;
+  const have = new Set(list.map(row => row?.journal_day));
+  const extra = [...done].filter(([day, lines]) => dayRe.test(String(day)) && !have.has(day) && Array.isArray(lines) && lines.length)
+    .map(([day, lines]) => ({journal_day: day, raw_text: '', done_only: true, done_lines: [...lines]}));
+  return extra.length ? [...list, ...extra] : list;
+}
 // 찾기: 공백으로 나눈 낱말이 모두 글(또는 날짜 표시)에 들어 있으면 맞다. 대소문자 구분 없음.
 export const queryWords = query => String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean);
 export function matches(row, words) {
   if (!words.length) return true;
-  const hay = `${String(row?.raw_text ?? '')}\n${dayLabel(row?.journal_day)}\n${row?.journal_day || ''}`.toLowerCase();
+  const hay = `${String(row?.raw_text ?? '')}\n${row?.done_only ? (row.done_lines || []).join('\n') + '\n' : ''}${dayLabel(row?.journal_day)}\n${row?.journal_day || ''}`.toLowerCase();
   return words.every(word => hay.includes(word));
 }
 const byDayDesc = (a, b) => String(b.journal_day).localeCompare(String(a.journal_day));

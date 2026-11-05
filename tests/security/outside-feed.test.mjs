@@ -34,7 +34,7 @@ const EXPECT={
   kgreens:[['https://kgreens.org/statement/?bmode=view&idx=777','comment'],['https://kgreens.org/press/?bmode=view&idx=778','press']],
   jinboparty:[['https://jinboparty.com/pages/?p=15&b=b_1_2&bn=3001&m=read','comment'],['https://jinboparty.com/pages/?p=286&b=b_1_111&bn=4001&m=read','press']],
   justice:[['https://t.me/justicekr/9006','comment'],['https://t.me/justicekr/9005','comment'],['https://t.me/justicekr/9001','statement']],
-  pssp:[['https://pssp.org/bbs/view.php?board=statement&nid=6001','statement']],
+  pssp:[['https://pssp.org/bbs/view.php?board=notice&nid=6003','press'],['https://pssp.org/bbs/view.php?board=notice&nid=6001','statement']],
   ws:[['https://ws.or.kr/article/40001','statement'],['https://ws.or.kr/article/40000','article'],['https://ws.or.kr/article/39999','statement']],
   platformc:[['https://platformc.kr/2026/10/fake-reading-one','article']],
   leftall:[['https://leftall.com/notice/120','statement'],['https://leftall.com/notice/118','statement']],
@@ -493,9 +493,23 @@ test('진보당: javascript:js_board_view 링크를 글 주소로 바꾸고, 제
   assert.deepEqual(listOf('jinboparty','jinboparty-comment.html','https://jinboparty.com/pages/?p=15&b=../x'),[]);
 });
 
-test('사회진보연대: 글 번호 nid 링크(./view.php?board=statement&nid=…)를 읽고 다른 게시판·http 링크는 거른다', () => {
-  const r=listOf('pssp','pssp.html','https://pssp.org/bbs/list.php?board=statement');
-  assert.deepEqual(r.map(i=>[i.url,i.kind]),[['https://pssp.org/bbs/view.php?board=statement&nid=6001','statement']]);
+test('사회진보연대: 공지·성명 게시판(board=notice) nid 링크를 읽고 다른 게시판·http 링크는 거른다', () => {
+  const r=listOf('pssp','pssp.html','https://pssp.org/bbs/list.php?board=notice');
+  assert.deepEqual(r.map(i=>[i.url,i.kind]),[['https://pssp.org/bbs/view.php?board=notice&nid=6003','press'],['https://pssp.org/bbs/view.php?board=notice&nid=6001','statement']]);
+});
+
+test('사회진보연대(S50-32): 목록은 공지·성명 게시판, 분류 칸은 제목에서 빼고 종류로 쓰며, 머리말 없는 공지는 넣지 않는다', () => {
+  const s=sourceByKey('pssp');
+  assert.deepEqual(s.lists,['https://pssp.org/bbs/list.php?board=notice'],'2019년에 멈춘 성명 게시판(board=statement)은 읽지 않는다');
+  const r=listOf('pssp','pssp.html','https://pssp.org/bbs/list.php?board=notice');
+  assert.deepEqual(r.map(i=>i.title),['[기자회견] 가상 법 개정 촉구 기자회견(10/14)','가상 전쟁 반대 공동성명'],'분류 글자(공지·성명)는 제목에 붙지 않는다');
+  assert.deepEqual(r.map(i=>i.published_at),['2026-10-13T15:00:00.000Z','2026-03-25T15:00:00.000Z'],'목록 날짜 칸(2026.10.14)을 게시 날짜로');
+  assert.equal(s.kindOf('[모집] 참가단','u','공지'),null);
+  assert.equal(s.kindOf('가상 공연','u','공지'),null,'머리말 없는 공지는 뺀다');
+  assert.equal(s.kindOf('[논평] 가상','u','공지'),'comment');
+  assert.equal(s.kindOf('가상 성명','u','성명'),'statement');
+  assert.equal(s.kindOf('[공동성명] 가상','u','성명'),'statement');
+  assert.equal(s.kindOf('[취재요청] 가상','u','성명'),null);
 });
 
 test('플랫폼C: 첫 화면 카드 제목(h2 …__title)만 제목으로, 스크립트 속 주소는 안 읽음, 목록 주소는 2MB 아래 첫 화면', () => {
@@ -694,7 +708,7 @@ test('robots 예외는 kptu·laborparty 열쇠에만: 다른 단체는 같은 ro
 });
 
 test('robots.txt를 못 읽을 때: 401·403은 robots_denied(읽지 않음), 5xx·연결 실패는 robots_unreachable, 다음 실행은 다시 읽는다', async () => {
-  const sites={'https://pssp.org/bbs/list.php?board=statement':FX('pssp.html')};
+  const sites={'https://pssp.org/bbs/list.php?board=notice':FX('pssp.html')};
   for(const status of [401,403]){
     const h=harness({sources:[{workspace_id:WS,source_key:'pssp'}],sites,robots:{'https://pssp.org':()=>new Response('<h1>403 Forbidden</h1>',{status})}});
     const out=await (await h.cron('run',{source:'pssp'})).json();
