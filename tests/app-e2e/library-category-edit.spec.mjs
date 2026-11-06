@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {bootLibrary,libDoc} from './helpers/library-folder-server.mjs';
 // S51-28 LIB-화면정리 ②(요청 11/06 01:26, 명진 'ㅇㅋ', 시안 docs/design/mockups/library-category-edit.html): 자료실 [편집] = '분류 고치기 n개' 창.
 // 공용 '목록 고치기' 모양(list-edit.mjs): 맨 위 '새 분류 이름 [추가]', 줄 = ⠿ · 이름(누르면 그 자리 고침) · 자료 수 · ⋯([+ 소분류]·[이름 바꾸기]·[지우기]),
-// 큰 버튼·빨강·긴 안내문 없음, '기타'는 맨 아래 🔒 고정, ⠿ 끌기 = 분류 칩 순서(서버 저장), 창이 아래 탭에 가리지 않음. 이름은 지어낸 것.
+// 큰 버튼·빨강·긴 안내문 없음, '기타'는 맨 아래 자물쇠 '고정', ⠿ 끌기 = 분류 칩 순서(서버 저장), 창이 아래 탭에 가리지 않음. 이름은 지어낸 것.
 const CATS=['교섭','투쟁','교육','선전','정책','회의','주간보고','주간보고›확정본','주간보고›개인본','공문','양식','기타'];
 const DOCS=[libDoc('a',null,{category:'정책'}),libDoc('b',null,{category:'투쟁'}),libDoc('c',null,{category:'주간보고›확정본'})];
 const modal=page=>page.locator('#libraryManageModal');
@@ -26,9 +26,9 @@ for(const width of [412,884,1280])test(`분류 고치기 ${width}: 한 줄 모�
   await expect(row(page,'정책').locator('.le-meta')).toHaveText('1');
   await expect(row(page,'주간보고').locator('.le-meta')).toHaveText('1 · 소분류 2');
   await expect(row(page,'주간보고›확정본')).toHaveClass(/le-sub/);await expect(row(page,'주간보고›확정본').locator('.le-name')).toHaveText('확정본');
-  // '기타'는 맨 아래 🔒 고정(이름 고치기·메뉴 없음).
+  // '기타'는 맨 아래 자물쇠 '고정'(이름 고치기·메뉴 없음).
   await expect(modal(page).locator('.le-list > .le-row').last()).toHaveAttribute('data-le-row','기타');
-  await expect(row(page,'기타').locator('.le-lock')).toHaveText('🔒 고정');await expect(row(page,'기타').locator('button')).toHaveCount(0);
+  await expect(row(page,'기타').locator('.le-lock')).toHaveText('고정');await expect(row(page,'기타').locator('.le-lock svg')).toHaveCount(1);await expect(row(page,'기타').locator('button')).toHaveCount(0);
   // '새 분류 이름 [추가]'가 맨 위, 창이 아래 탭에 가리지 않는다.
   const add=modal(page).locator('form[data-dce-add]');
   expect(await add.evaluate(el=>el.parentElement.firstElementChild===el)).toBe(true);

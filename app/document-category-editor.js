@@ -24,7 +24,7 @@ export const CATEGORY_EDITOR_TEXT=Object.freeze({
 });
 // host 안에 편집 화면을 그린다. documents(): 지금 불러온 자료들. refresh(): 자료를 다시 읽는다(이름 바꾸기·삭제 직전). onChanged(): 목록이나 자료가 바뀐 뒤.
 // S51-28 LIB-화면정리 ②(시안 docs/design/mockups/library-category-edit.html): 공용 '목록 고치기' 모양(list-edit.mjs·list-edit.js) —
-// 맨 위 '새 분류 이름 [추가]', 줄 = ⠿ · 이름(누르면 그 자리 고침) · 자료 수 · ⋯([+ 소분류]·[이름 바꾸기]·[지우기]), '기타'는 맨 아래 🔒 고정.
+// 맨 위 '새 분류 이름 [추가]', 줄 = ⠿ · 이름(누르면 그 자리 고침) · 자료 수 · ⋯([+ 소분류]·[이름 바꾸기]·[지우기]), '기타'는 맨 아래 자물쇠 '고정'.
 // ⠿ 끌기 = 큰 분류 순서(자료실 분류 칩 순서, 서버 저장). onCount(n): 창 제목 옆 수.
 export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>documents(),onChanged=()=>{},onCount=()=>{},rt=window.KPTURuntime}={}){
   let editing=null,busy=false,loading=false,status={text:'',error:false},addDraft='',renameDraft='',addSubFor='',subDraft='';

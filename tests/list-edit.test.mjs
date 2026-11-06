@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {leAddHtml,leRowHtml,leInlineHtml,leMenuHtml,leMove,leStep} from '../app/list-edit.mjs';
 import {reorderedCategories} from '../app/document-categories.js';
-// S51-28 LIB-화면정리 ②: '목록 고치기' 공용 부품. 줄 = ⠿ · 이름(누르면 그 자리 고침) · 수 · ⋯, 고정 줄 = 🔒 고정. 큰 버튼·빨강 없음.
+// S51-28 LIB-화면정리 ②: '목록 고치기' 공용 부품. 줄 = ⠿ · 이름(누르면 그 자리 고침) · 수 · ⋯, 고정 줄 = 자물쇠 '고정'. 큰 버튼·빨강 없음.
 
 test('줄 모양: 손잡이·이름 단추·수·⋯, 고정 줄은 단추 없음, 빨강 없음',()=>{
   const row=leRowHtml({id:'정책',label:'정책',meta:'7',drag:true});
@@ -11,7 +11,7 @@ test('줄 모양: 손잡이·이름 단추·수·⋯, 고정 줄은 단추 없�
   assert.match(row,/class="le-name" data-le-rename="정책" aria-label="정책 이름 고치기"/);assert.match(row,/<span class="le-meta">7<\/span>/);
   assert.match(row,/class="le-more" data-le-menu="정책"/);assert.doesNotMatch(row,/danger/);
   const lock=leRowHtml({id:'기타',label:'기타',meta:'1',locked:true});
-  assert.doesNotMatch(lock,/<button/);assert.match(lock,/🔒 고정/);
+  assert.doesNotMatch(lock,/<button/);assert.match(lock,/<span class="le-lock"><span class="ui-ico ui-ico-lock" aria-hidden="true"><svg[^]*<\/span>고정<\/span>/);assert.doesNotMatch(lock,/🔒/);
   const sub=leRowHtml({id:'a›b',label:'a › b',shown:'b',sub:true});
   assert.match(sub,/le-row le-sub/);assert.doesNotMatch(sub,/data-reorder-id/);
   assert.match(leAddHtml({name:'새 분류 이름',limit:20}),/<form class="le-add" data-enter-save><input type="text" class="le-input" maxlength="20" placeholder="새 분류 이름"/);

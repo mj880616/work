@@ -21,7 +21,7 @@ button.le-name:hover{background:var(--kptu-surface-subtle)}
 .le-tag{flex:none;padding:1px 6px;font-size:11px;color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-radius:var(--kptu-radius-pill,999px)}
 .le-more{position:relative;flex:none;width:var(--ds-compact-height-sm,28px);height:var(--ds-compact-height-sm,28px);min-height:0;margin:0 0 0 auto;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:13px;line-height:1;cursor:pointer}
 .le-more::after{content:"";position:absolute;inset:calc((var(--ds-compact-height-sm,28px) - var(--kptu-touch-target,44px)) / 2)}
-.le-lock{flex:none;margin-left:auto;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap}
+.le-lock{display:inline-flex;align-items:center;gap:3px;flex:none;margin-left:auto;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap}
 .le-row :is(.le-handle,.le-name,.le-more,.le-add-btn,.le-done):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
 .le-editing .le-inline{display:flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0;margin:4px 0}
 .le-editing .le-input{border-color:var(--kptu-primary-ink)}
