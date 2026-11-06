@@ -1,4 +1,5 @@
 // LIB-여러개삭제: 가짜 서버와 시나리오. @playwright/test에 의존하지 않아(검사는 check로 받음) 크롬 실측 스크립트도 같은 시나리오를 쓴다.
+import {showAllLibraryCategories} from './library-categories.mjs';
 import {signInWithSession} from './session-login.mjs';
 import {libraryTopMenu,libraryExpandItem} from './library-tree.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -36,8 +37,8 @@ export async function openLibrary(page,base){
   await page.waitForFunction(()=>document.querySelector('#appView.kptu-ui-ready')&&window.KPTUViewLoader?.isLoaded('library')&&window.__KPTU_LIBRARY_UPLOAD_READY__,null,{timeout:20000});
   await page.evaluate(()=>window.__KPTU_LIBRARY_UPLOAD_READY__);
   // 분류 칩은 모두 켜고 트리는 모두 편다.
-  await page.waitForSelector('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])');
-  for(const chip of await page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])').all())if(await chip.getAttribute('aria-pressed')!=='true')await chip.click();
+  await page.waitForSelector('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])',{state:'attached'});
+  await showAllLibraryCategories(page);// S51-28: 폰·폴드는 [분류 ▾] 창으로
   const now=await libraryExpandItem(page);
   if(!now.disabled&&now.text==='모두 펴기')await libraryTopMenu(page,'expand');
   await page.waitForFunction(()=>document.querySelectorAll('#documentList [data-lu-document]').length>0&&!document.querySelector('#documentList details[data-lu-node]:not([open])'));

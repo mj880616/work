@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { start, openFiles, phoneFolder, treeGo } from './helpers/files-server.mjs';
 // FOLDER-순서·색 ③-2 (S49-50, docs/design/folder-color-order.md): [파일] 클라우드 폴더(원드라이브·구글 드라이브)에 노트와 같은 색 8가지·직접 정한 순서.
 // 폴더 한 개를 고르면(PC Ctrl+누르기·폰 꾹 누르기) 아래 막대에 [색] [위로] [아래로] → 서버 표 app_folder_prefs에 저장(서버 함수), 새로고침해도 유지,
-// 목록·나무·받을 곳 창이 같은 색·같은 순서, [기본]은 지금 모양(📁), 저장 실패는 그대로 두고 알림, DB 적용 전에도 목록은 그대로. 폴더 이름은 모두 가짜.
+// 목록·나무·받을 곳 창이 같은 색·같은 순서, [기본]은 기본 노랑 폴더 그림(S51-25), 저장 실패는 그대로 두고 알림, DB 적용 전에도 목록은 그대로. 폴더 이름은 모두 가짜.
 const root = page => page.locator('#filesRoot');
 const row = (page, key) => root(page).locator(`[data-fx-row="${key}"]`);
 // S51-24: 폰 '그 폴더만'은 나무와 같은 줄(.ft-folder .ft-name, 그림 .ft-ico).
@@ -43,9 +43,8 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     const { errors, server } = await start(page, width);
     await openFiles(page, width);
     await gotoOdRoot(page, width);
-    // 안 고른 폴더는 지금 모양(📁), 색 속성 없음. 이름순: 문서함 → 사진함.
-    if (width > 760) await expect(icon(page, 'od:OD!2')).toHaveText('\u{1F4C1}');
-    else await expect(icon(page, 'od:OD!2')).toHaveAttribute('data-ft-shape', 'closed');
+    // 안 고른 폴더는 기본 노랑 폴더 그림(S51-25, 그림 문자 없음), 색 속성 없음. 이름순: 문서함 → 사진함.
+    await expect(icon(page, 'od:OD!2').locator('svg')).toHaveCount(1); await expect(icon(page, 'od:OD!2')).not.toHaveAttribute('data-fc', /./);
     await expect(root(page).locator('[data-fc]')).toHaveCount(0);
     expect(await folderNames(page)).toEqual(['가짜 문서함', '가짜 사진함']);
     // 폴더 한 개를 고르면 막대에 [색] [위로](끝이라 [아래로]는 없음). 파일을 고르면 보이지 않는다.
@@ -118,7 +117,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     await page.keyboard.press('Escape');
     if (await root(page).locator('[data-fx-dest]').isVisible()) await root(page).locator('[data-fx-dest-close]').click();
 
-    // [기본]: 지금 모양(📁)으로, 서버에는 null이 간다. (받을 곳 창을 열려고 둘을 골랐으니 풀고 하나만 고른다.)
+    // [기본]: 기본 노랑 폴더 그림으로, 서버에는 null이 간다. (받을 곳 창을 열려고 둘을 골랐으니 풀고 하나만 고른다.)
     if (await root(page).locator('[data-fx-bar] [data-fx-unpick]').count()) await root(page).locator('[data-fx-bar] [data-fx-unpick]').click();
     await pick(page, 'od:OD!2');
     await expect(bar.locator('[data-fx-look="tint"]')).toBeVisible();
@@ -126,8 +125,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     await expect.poll(() => server.prefCalls.length).toBe(3);
     expect(server.prefCalls[2]).toMatchObject({ items: [{ k: 'OD!2', c: null }] });
     await expect(root(page).locator('[data-fc]')).toHaveCount(0);
-    if (width > 760) await expect(icon(page, 'od:OD!2')).toHaveText('\u{1F4C1}');
-    else await expect(icon(page, 'od:OD!2')).toHaveAttribute('data-ft-shape', 'closed');
+    await expect(icon(page, 'od:OD!2').locator('svg')).toHaveCount(1); await expect(icon(page, 'od:OD!2')).not.toHaveAttribute('data-fc', /./);
     expect(errors).toEqual([]);
     if (width < 761) await page.screenshot({ path: info.outputPath('files-folder-look-412.png') });
   });

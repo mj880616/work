@@ -1,3 +1,4 @@
+import {toggleLibraryCategory} from './helpers/library-categories.mjs';
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,childrenOf,menuButton,folderMenuItem,press,openMove,moveFolder,moveEnabledNames,movePicker} from './helpers/library-folder-server.mjs';
@@ -17,8 +18,8 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     await radio(page,'폴더').click();await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');
     expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
     await expect(libraryNodeHead(page,'x:out').locator('.lu-node-name')).toHaveText('폴더 밖');
-    // FOLDER-나무새기준: 폴더 묶기의 폴더 줄은 ▸ 대신 공용 닫힌/열린 폴더 그림, '폴더 밖'은 🗂.
-    await expect(libraryNodeHead(page,'x:out').locator('.lu-folder-emoji')).toHaveText('\u{1F5C2}');await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toBeVisible();
+    // FOLDER-나무새기준: 폴더 묶기의 폴더 줄은 ▸ 대신 공용 닫힌/열린 폴더 그림, '폴더 밖'은 회색 점선 폴더 그림(S51-25).
+    await expect(libraryNodeHead(page,'x:out').locator('.lu-folder-emoji .tree-ico-outside svg path[stroke-dasharray]')).toHaveCount(1);await expect(libraryNodeHead(page,'x:out').locator('.lu-folder-emoji')).toHaveText('');await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toBeVisible();
     await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toHaveAttribute('data-ft-shape','closed');await expect(libraryNodeHead(page,'f:fa').locator('.lu-fe-open')).toBeHidden();
     // 들어올 때는 모두 접힘(결정 D13). 폴더 안 폴더는 프로젝트가 달라도 parent_id를 따른다. 건수는 그 안 전체.
     await expect(page.locator('#documentList details[open]')).toHaveCount(0);
@@ -73,7 +74,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     // 폴더 보기에서 종류 칩을 눌러도 기억은 저장된다(폴더 때문에 막히지 않음).
     const chip=page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])').first();const name=await chip.getAttribute('data-lu-category');
     const before=(await chip.getAttribute('aria-pressed'))==='true';
-    await chip.click();
+    await toggleLibraryCategory(page,name);
     await expect.poll(()=>s.libraryView?.categories_off?.includes(name),{timeout:5000}).toBe(before);
     expect(s.libraryView.group_by).toBe('month');
     await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');
@@ -270,7 +271,7 @@ for(const width of [390,1280])test.describe(`폴더 밖 정리 ${width}`,()=>{te
   await expandLibraryTree(page);
   // a-2('임단협…')는 a-1이 든 '가상 C'를 추천. a1-1('성명…')은 같은 첫 낱말이 없어 추천 없음.
   const tip=page.locator('[data-lu-document="a-2"] [data-lu-suggest]');
-  await expect(tip).toHaveText('📁 가상 C?');await expect(page.locator('[data-lu-document="a1-1"] [data-lu-suggest]')).toHaveCount(0);
+  await expect(tip).toHaveText('가상 C?');await expect(tip.locator('svg')).toHaveCount(1);await expect(page.locator('[data-lu-document="a1-1"] [data-lu-suggest]')).toHaveCount(0);
   expect(await noScroll(page)).toBe(true);
   // 추천을 누르면 자료는 열리지 않고 그 폴더로 옮겨진다.
   await press(page,tip,width);

@@ -4,6 +4,7 @@
 // - 그림(썸네일·원본·동영상)은 서버를 거쳐 받아 이 탭 메모리(blob: 주소, 상한 300장)에만 둔다. 기기 저장 없음(od-thumb-cache.js 사본도 쓰지 않음).
 // - 썸네일은 한 번에 4장까지만 받는다(요청마다 서버가 Drive 열쇠를 새로 받으므로 몰아치지 않게). 화면 밖으로 나간 차례 안 된 요청은 거둔다.
 import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
+import {within, isLoadTimeout} from './load-deadline.js';
 
 export const GD_FN = '/functions/v1/gdrive-photos';
 export const GD_TIMEOUT_MS = 45000;
@@ -41,14 +42,20 @@ async function bytes(rt, body, {range = ''} = {}) {
   if (!token) throw Object.assign(new Error('session_required'), {status:401});
   const headers = {apikey:rt.config.key, Authorization:'Bearer ' + token, 'Content-Type':'application/json'};
   if (range) headers.Range = range;
-  const r = await fetch(rt.config.url + GD_FN, {method:'POST', cache:'no-store', headers, body:JSON.stringify(body)});
-  const type = (r.headers.get('content-type') || '').split(';')[0].trim();
-  if (!r.ok || /json/.test(type)) {
-    let code = ''; try { code = (await r.json())?.error || ''; } catch { /* 본문 없음 */ }
-    throw Object.assign(new Error(code || `http_${r.status}`), {status:r.status});
-  }
-  return r.blob();
+  // LOAD-끝있는불러오기(S51-29): 작은 그림 받기 한 번은 BYTES_MS 안에 끝난다(동시 받기 자리 4개가 멈춘 채 남지 않게).
+  const job = async signal => {
+    const r = await fetch(rt.config.url + GD_FN, {method:'POST', cache:'no-store', headers, body:JSON.stringify(body), signal});
+    const type = (r.headers.get('content-type') || '').split(';')[0].trim();
+    if (!r.ok || /json/.test(type)) {
+      let code = ''; try { code = (await r.json())?.error || ''; } catch { /* 본문 없음 */ }
+      throw Object.assign(new Error(code || `http_${r.status}`), {status:r.status});
+    }
+    return r.blob();
+  };
+  // 작은 그림(thumb)만 끊는다. 원본·미리보기는 크거나 서버 변환이 길 수 있어 그대로.
+  return body.action === 'thumb' ? within(job, BYTES_MS).catch(e => { throw isLoadTimeout(e) ? Object.assign(new Error('timeout'), {code:'timeout'}) : e; }) : job();
 }
+const BYTES_MS = 60000;
 export const gdThumbBlob = (rt, driveId, size = 'small') => bytes(rt, {action:'thumb', id:driveId, size:size === 'large' ? 'large' : 'small'});
 // 원본(사진 원본 받기·동영상 재생). 동영상은 서버가 Range를 그대로 넘기지만, 화면의 <video>는 POST를 못 하므로 통째로 받아 메모리 주소로 튼다.
 export const gdMediaBlob = (rt, driveId) => bytes(rt, {action:'media', id:driveId});

@@ -162,7 +162,7 @@ test('그 장소 사진: 그날 기준점 근처면 3시간 밖이어도 더하�
   const capped=suggestPhotos({phone:[],od,atMs:at2,max:2});
   assert.deepEqual(capped.items.map(x=>x.id),['P1','N1']);
   assert.deepEqual(suggestPhotos({phone,od,atMs:NaN}),{items:[],here:0,anchor:null});
-  assert.equal(nearHead(5,3),'그 시각 사진 5장 · 📍그 장소 3장');assert.equal(nearHead(2),'그 시각 사진 2장');
+  assert.equal(nearHead(5,3),'그 시각 사진 5장 · 그 장소 3장');assert.equal(nearHead(2),'그 시각 사진 2장');
 });
 
 test('그 장소: 지도 서비스·새 외부 주소 없음', () => {

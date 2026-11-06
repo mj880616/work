@@ -66,6 +66,7 @@ export function phoneErrorText(code) {
     case 'blocked': return '이 폴더는 열 수 없어요';
     case 'not_found': return '폰에서 그 파일을 찾지 못했어요';
     case 'unreached': return '폰 앱 다리에 닿지 못했어요';
+    case 'timeout': return '폰 앱이 답하지 않아요';
     default: return '폰 파일을 읽지 못했어요';
   }
 }
