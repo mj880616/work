@@ -58,7 +58,8 @@ test('화면: 원드라이브·구글 드라이브 폴더 줄은 같은 함수 �
 
 test('빈 곳 핀치: 본문 칸 하나에 붙이고, 격자 위는 격자 핀치에 맡기며 달력은 제외', () => {
   const s = read('app/photos.js');
-  assert.match(s, /const bodyPinch = \(\) => \(albumSizing\(\) \? 'album' : tab !== 'calendar' \? 'grid' : ''\);/);
+  // FOLDER-나무새기준 ③: 폰 [폴더] 첫 화면 나무에서는 두 손가락이 칸 수가 아니라 '그 폴더만'(folder-pinch.js)이라 빈 곳 핀치를 쉰다.
+  assert.match(s, /const bodyPinch = \(\) => \(albumSizing\(\) \? 'album' : tab === 'folders' && fxTreeShown\(\) \? '' : tab !== 'calendar' \? 'grid' : ''\);/);
   assert.match(s, /when: event => !!bodyPinch\(\) && !event\.target\?\.closest\?\.\('\[data-diary-grid\]'\)/);
   assert.doesNotMatch(s, /closest\?\.\('\[data-photos-albums\]'\)/, '앨범 목록 위만 받던 옛 규칙 없음');
   const css = read('app/photos.css');

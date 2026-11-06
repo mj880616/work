@@ -68,7 +68,9 @@ async function openTab(page, tab) {
   await root(page).locator(`[data-photos-tab="${tab}"]`).click();
 }
 const folderIds = page => root(page).locator('[data-photos-folder]').evaluateAll(els => els.map(e => e.dataset.photosFolder).filter(id => id !== 'T'));
-const folderIcon = (page, id) => root(page).locator(`[data-photos-folder="${id}"] .nx-ico`).first();
+// FOLDER-나무새기준 ③: 폰은 공용 줄(.ft-ico, 안 고른 폴더는 기본 노랑 그림), PC 나무는 지금 줄(.nx-ico).
+const folderIcon = (page, id) => root(page).locator(`[data-photos-folder="${id}"] :is(.nx-ico, .ft-ico)`).first();
+const plainIcon = async (page, id) => { const el = folderIcon(page, id); if (await el.evaluate(e => e.classList.contains('ft-ico'))) await expect(el).not.toHaveAttribute('data-fc', /./); else await expect(el).toHaveText('\u{1F4C1}'); };
 async function openFolderMenu(page, id) {
   await root(page).locator(`[data-photos-fx-more="${id}"]`).first().click();
   await expect(page.locator('#photosFolderMenu')).toBeVisible();
@@ -90,7 +92,7 @@ for (const width of [1440, 412]) test.describe(`사진 폴더·앨범 색·순�
     await openTab(page, 'folders');
     await expect.poll(() => folderIds(page)).toEqual(['S1', 'S2', 'S3']);
     await expect(root(page).locator('[data-fc]')).toHaveCount(0);
-    await expect(folderIcon(page, 'S2')).toHaveText('\u{1F4C1}');
+    await plainIcon(page, 'S2');
     // 메뉴: 가운데 줄은 [색 고르기…][위로][아래로](끝 줄은 한쪽만).
     await openFolderMenu(page, 'S2');
     await expect(page.locator('#photosFolderMenu button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 고르기…', '위로', '아래로', '지우기']);
@@ -131,7 +133,7 @@ for (const width of [1440, 412]) test.describe(`사진 폴더·앨범 색·순�
     await expect.poll(() => s.prefCalls.length).toBe(3);
     expect(s.prefCalls[2]).toEqual({ source: 'od', items: [{ k: 'S2', c: null }] });
     await expect(root(page).locator('[data-fc]')).toHaveCount(0);
-    await expect(folderIcon(page, 'S2')).toHaveText('\u{1F4C1}');
+    await plainIcon(page, 'S2');
     expect(s.errors).toEqual([]);
     if (width < 761) await page.screenshot({ path: info.outputPath('photos-folder-look-412.png') });
   });
