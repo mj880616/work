@@ -43,5 +43,6 @@ button.le-name:hover{background:var(--kptu-surface-subtle)}
 .le-count{margin-left:6px;font-size:var(--ds-text-meta,12px);font-weight:400;color:var(--kptu-muted)}
 @media(max-width:760px){
   html:has(body.kptu-workspace-shell):not(:has(body.kptu-mobile-keyboard)) .modal.le-modal{bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom))}
-  .modal.le-modal .modal-card{max-height:min(86dvh,calc(100dvh - var(--kptu-mobile-tab-height,0px) - 24px));overflow:auto}
+  /* 공용 폰 창 높이(workspace-ui.css, !important)는 화면 전체 기준이라, 아래 탭 위에서 끝나는 이 창은 그만큼 낮춘다. */
+  html:has(body.kptu-workspace-shell) .modal.le-modal>.modal-card{max-height:min(86dvh,calc(100dvh - var(--kptu-mobile-tab-height,0px) - env(safe-area-inset-bottom) - 24px))!important}
 }
