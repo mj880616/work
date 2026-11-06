@@ -95,6 +95,56 @@ const REASONS = {robots: '이 사이트가 읽기를 막아 둠', paywall: '유�
 export const hasMaterial = row => !!(row?.summary || row?.body_kind);
 export const needsRead = row => !hasMaterial(row) && row?.state !== 'paywall';
 export const unreadReason = (status, state) => REASONS[status] || REASONS[state] || '본문을 찾지 못함';
+// ---- 상세 원문 전체(S51-14 NEWS-전면개편 P4c, 설계 docs/design/news-overhaul.md 4.1·4.3·6.2절) ----
+// 저장 원문(app_feed_bodies 한 줄) → 그릴 모양. 블록은 글자·주소로만 그린다(HTML 없음). 사진 주소는 https만, 모양이 틀린 블록은 버린다.
+export const BODY_REASONS = Object.freeze({
+  robots: '사이트가 자동 읽기를 막아 둠', bot_check: '사이트가 자동 읽기를 막아 둠', paywall: '유료 기사라 앞부분만',
+  too_big: '글이 너무 커서 다 읽지 못함', timeout: '사이트가 늦게 답해 읽지 못함', http_4xx: '사이트에서 글을 찾지 못함',
+  http_5xx: '사이트 오류로 읽지 못함', no_body: '본문 칸을 찾지 못함', off_host: '다른 사이트로 이어지는 글', relay: '검색 중계 주소라 원문을 받지 못함',
+});
+const BODY_STATES = new Set(['ok', 'lead', 'image_only', 'failed']);
+const BLOCK_MAX = 400, IMG_MAX = 20;
+export function httpsUrl(v) {
+  if (typeof v !== 'string' || v.length > 2000) return '';
+  try { const u = new URL(v); return u.protocol === 'https:' && u.hostname ? u.href : ''; } catch { return ''; }
+}
+export function cleanBlocks(blocks) {
+  const out = [];
+  let imgs = 0;
+  for (const b of Array.isArray(blocks) ? blocks : []) {
+    if (out.length >= BLOCK_MAX) break;
+    if (!b || typeof b !== 'object') continue;
+    if (b.t === 'img') {
+      const src = httpsUrl(b.src);
+      if (!src || imgs >= IMG_MAX) continue;
+      imgs++;
+      out.push({t: 'img', src, cap: str(b.cap).slice(0, 300), alt: str(b.alt).slice(0, 300)});
+    } else if (b.t === 'p' || b.t === 'h' || b.t === 'quote') {
+      const text = str(b.text);
+      if (text) out.push({t: b.t, text});
+    }
+  }
+  return out;
+}
+// row: {blocks, state, reason} | null. 답: {state, blocks, reason(한 줄 글자, 없으면 '')}.
+export function bodyView(row) {
+  if (!row || !BODY_STATES.has(row.state)) return null;
+  const blocks = row.state === 'failed' ? [] : cleanBlocks(row.blocks);
+  const why = BODY_REASONS[row.reason] || '';
+  if (row.state === 'ok') return blocks.length ? {state: 'ok', blocks, reason: ''} : {state: 'failed', blocks, reason: BODY_REASONS.no_body};
+  if (row.state === 'lead') return {state: 'lead', blocks, reason: why || '공개된 앞부분만'};
+  if (row.state === 'image_only') return {state: 'image_only', blocks, reason: '그림·첨부만 있는 글'};
+  return {state: 'failed', blocks: [], reason: why || '본문을 읽지 못함'};
+}
+// 저장 원문이 아예 없는 옛 글: 예전 저장 글자(사회운동 문장·뉴스 body)를 문단 블록으로.
+export function legacyBody(text, {lead = false} = {}) {
+  const blocks = String(text ?? '').split(/\n+/).map(t => t.trim()).filter(Boolean).slice(0, BLOCK_MAX).map(text => ({t: 'p', text}));
+  if (!blocks.length) return {state: 'failed', blocks: [], reason: '본문을 읽지 못함'};
+  return lead ? {state: 'lead', blocks, reason: '공개된 앞부분만'} : {state: 'ok', blocks, reason: ''};
+}
+// 글자 크기 세 단계(서버 view_prefs.news_font, 없으면 보통).
+export const NEWS_FONT_STEPS = Object.freeze([{id: 's', label: '글자 작게'}, {id: 'm', label: '글자 보통'}, {id: 'l', label: '글자 크게'}]);
+export const keepNewsFont = v => (NEWS_FONT_STEPS.some(f => f.id === v) ? v : 'm');
 // 상세가 실패했을 때 한 줄.
 export function detailError(e) {
   const code = String(e?.message || '');

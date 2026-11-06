@@ -144,3 +144,29 @@ test('[전체] 한 줄: 시각 최신 순, 시각 모르는 글은 맨 뒤', () 
   const m = mergeFeed([{id: 'p1', at: '2026-11-06T00:00:00Z'}, {id: 'p2', at: ''}], [{id: 'n1', at: '2026-11-06T01:00:00Z'}]);
   assert.deepEqual(m.map(x => `${x.type}:${x.id}`), ['news:n1', 'outside:p1', 'outside:p2']);
 });
+
+// S51-14 NEWS-전면개편 P4c: 상세 원문 전체(app_feed_bodies 한 줄 → 그릴 모양).
+test('저장 원문: 블록은 글자·https 사진만, 상태마다 까닭 한 줄', async () => {
+  const {bodyView, cleanBlocks, httpsUrl, legacyBody, keepNewsFont, NEWS_FONT_STEPS, BODY_REASONS} = await import('../app/now-model.mjs');
+  assert.equal(httpsUrl('https://a.example/x.jpg'), 'https://a.example/x.jpg');
+  for (const v of ['http://a.example/x.jpg', 'javascript:alert(1)', 'data:image/png;base64,AA', '//a.example/x', '', null, 'https://' + 'a'.repeat(2000)]) assert.equal(httpsUrl(v), '');
+  assert.deepEqual(cleanBlocks([{t: 'p', text: ' 문단 '}, {t: 'p', text: ''}, {t: 'h', text: '소제목'}, {t: 'quote', text: '인용'}, {t: 'img', src: 'https://a.example/1.jpg', cap: '설명', alt: null}, {t: 'img', src: 'http://a.example/2.jpg'}, {t: 'script', text: 'x'}, null, 'p']),
+    [{t: 'p', text: '문단'}, {t: 'h', text: '소제목'}, {t: 'quote', text: '인용'}, {t: 'img', src: 'https://a.example/1.jpg', cap: '설명', alt: ''}]);
+  assert.equal(cleanBlocks(Array.from({length: 30}, (_, i) => ({t: 'img', src: `https://a.example/${i}.jpg`}))).length, 20);
+  assert.deepEqual(bodyView({state: 'ok', reason: null, blocks: [{t: 'p', text: '가'}]}), {state: 'ok', blocks: [{t: 'p', text: '가'}], reason: ''});
+  assert.deepEqual(bodyView({state: 'ok', blocks: []}), {state: 'failed', blocks: [], reason: BODY_REASONS.no_body});
+  assert.equal(bodyView({state: 'lead', reason: 'paywall', blocks: [{t: 'p', text: '가'}]}).reason, '유료 기사라 앞부분만');
+  assert.equal(bodyView({state: 'image_only', blocks: [{t: 'img', src: 'https://a.example/1.jpg'}]}).reason, '그림·첨부만 있는 글');
+  assert.deepEqual(bodyView({state: 'failed', reason: 'relay', blocks: [{t: 'p', text: '안 보임'}]}), {state: 'failed', blocks: [], reason: BODY_REASONS.relay});
+  assert.equal(bodyView({state: 'failed', reason: 'unknown'}).reason, '본문을 읽지 못함');
+  for (const r of ['robots', 'bot_check', 'paywall', 'too_big', 'timeout', 'http_4xx', 'http_5xx', 'no_body', 'off_host', 'relay']) assert.ok(BODY_REASONS[r], r);
+  assert.equal(bodyView(null), null);
+  assert.equal(bodyView({state: 'weird'}), null);
+  assert.deepEqual(legacyBody('첫 줄\n\n둘째 줄'), {state: 'ok', blocks: [{t: 'p', text: '첫 줄'}, {t: 'p', text: '둘째 줄'}], reason: ''});
+  assert.equal(legacyBody('가', {lead: true}).state, 'lead');
+  assert.equal(legacyBody('  ').state, 'failed');
+  const {NEWS_FONTS} = await import('../app/view-prefs.js');
+  assert.deepEqual(NEWS_FONT_STEPS.map(f => f.id), [...NEWS_FONTS]);
+  assert.equal(keepNewsFont('l'), 'l');
+  for (const v of [undefined, '', 'xl', null]) assert.equal(keepNewsFont(v), 'm');
+});

@@ -136,7 +136,7 @@ test('Now [사회운동] ⋯ [지금 채우기]: 켠 단체만 read_now로 하�
 });
 
 // S48-66 NOW-뉴스상세: 아직 안 읽은 기사는 상세 전에 그 기사 하나를 먼저 읽는다(news-feed open → ai-assist now_detail 순서).
-// 읽지 못하면 AI를 부르지 않고 이유·[다시]·[원문]만 보인다.
+// 읽지 못하면 AI를 부르지 않고 이유·[다시]·[원래 사이트 ↗]만 보인다. 저장 원문(app_feed_bodies) 줄이 없는 옛 기사만 이 길(S51-14).
 const NOW_DETAIL = { ok: true, kind: 'now_detail', detail: { level: 'full', summary: '가짜 기사 한 줄 요약입니다.', key_sentences: [{ orig: '가짜 본문 첫 문단.', ko: null }], relevance: null, implications: null, related: [], generated_at: '2026-10-06T01:00:00Z', context_at: null }, stale: false };
 for (const width of [412, 1440]) {
   test(`뉴스 상세 ${width}: 제목 읽기 전 기사를 누르면 먼저 읽고 요약 상세가 뜬다`, async ({ page }) => {
@@ -161,10 +161,12 @@ for (const width of [412, 1440]) {
     await page.route('**/functions/v1/news-feed?action=open', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: 'robots' }) }));
     await openNews(page, width);
     await item(page, 'w1').locator('[data-nc-open="w1"]').click();
+    // S51-14 P4c: 요약 칸에 까닭 + [다시], 원문 칸에 까닭 한 줄 + [원래 사이트 ↗].
     const bad = page.locator('[data-nd-unread]');
-    await expect(bad).toContainText('기사를 읽지 못했어요');
+    await expect(bad).toContainText('요약할 재료가 없어요');
     await expect(bad.getByRole('button', { name: '다시' })).toBeVisible();
-    await expect(bad.getByRole('link', { name: /원문/ })).toBeVisible();
+    await expect(page.locator('#nowDetail [data-nd-why]')).toContainText('이 사이트가 읽기를 막아 둠');
+    await expect(page.locator('#nowDetail [data-nd-why]').getByRole('link', { name: /원래 사이트/ })).toBeVisible();
     expect(detailCalls).toBe(0);
     expect(errors).toEqual([]);
   });

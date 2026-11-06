@@ -112,8 +112,6 @@
 #appView #outsideView .nd-link:hover{ color:var(--kptu-ink); }
 #appView #outsideView .nd-title{ margin:0; font-size:16px; line-height:1.45; font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); overflow-wrap:anywhere; outline:none; }
 #appView #outsideView .nd-orig{ margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); overflow-wrap:anywhere; }
-#appView #outsideView .nd-sec{ display:flex; flex-direction:column; gap:3px; min-width:0; }
-#appView #outsideView .nd-h{ margin:6px 0 0; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); }
 #appView #outsideView .nd-sum,#appView #outsideView .nd-reason,#appView #outsideView .nd-imp{ margin:0; font-size:14px; line-height:1.6; color:var(--kptu-ink); overflow-wrap:anywhere; }
 #appView #outsideView .nd-imp b{ font-weight:var(--ds-weight-medium,500); margin-right:4px; }
 #appView #outsideView .nd-sents{ display:flex; flex-direction:column; gap:6px; margin:0; padding:0 0 0 14px; font-size:13px; line-height:1.55; }
@@ -142,14 +140,36 @@
 #appView #outsideView .now-hov-btn:hover{ color:var(--kptu-ink); }
 @media(max-width:760px){ #appView #outsideView .now-hov{ display:none !important; } }
 
-/* S50-2 [본문] 읽기 화면: 같은 상세 칸 안에서 바뀐다. 글자 크기 3단계(이 탭만), 줄 길이는 읽기 좋게 제한. */
-#appView #outsideView .nd-body-btn{ flex:none; }
-#appView #outsideView .nd-size{ flex:none; display:inline-flex; gap:2px; }
-#appView #outsideView .nd-size .nd-act:disabled{ opacity:.4; }
-#appView #outsideView .nd-reader-body{ min-width:0; max-width:42em; }
-#appView #outsideView .nd-prose{ --nd-fs:16px; font-size:var(--nd-fs); line-height:1.85; color:var(--kptu-ink); overflow-wrap:anywhere; word-break:keep-all; }
-#appView #outsideView .nd-reader[data-size="0"] .nd-prose{ --nd-fs:14px; }
-#appView #outsideView .nd-reader[data-size="2"] .nd-prose{ --nd-fs:19px; }
-#appView #outsideView .nd-prose p{ margin:0 0 .9em; }
-#appView #outsideView .nd-reader-none{ margin:8px 0; }
-#appView #outsideView .nd-reader .nd-reader-back{ display:inline-grid; }
+/* S51-14 NEWS-전면개편 P4c 상세(시안 ②·③): 요약 · 시사점 · 원문 전체 상자(흰 바탕·엷은 선), 원문 머리 줄에 글자 크기 [가 가 가].
+   글자 크기는 서버 view_prefs.news_font(s·m·l → 14·16·19px). 사진은 폭 100% 안에서, 캡션은 작게. 원래 사이트 링크는 단추 줄 끝. */
+#appView #outsideView .nd-box{ min-width:0; padding:7px 10px; background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-control,8px); }
+#appView #outsideView .nd-box[hidden]{ display:none; }
+#appView #outsideView .nd-bh{ display:flex; align-items:baseline; gap:6px; margin:0 0 3px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #outsideView .nd-bh b{ font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); }
+#appView #outsideView .nd-bh-note{ margin-left:auto; font-size:11px; }
+#appView #outsideView .nd-why{ margin:4px 0 0; font-size:13px; line-height:1.5; color:var(--kptu-muted); overflow-wrap:anywhere; }
+#appView #outsideView .nd-fold{ margin-top:4px; font-size:13px; }
+#appView #outsideView .nd-fold > summary{ min-height:24px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); cursor:pointer; }
+#appView #outsideView .nd-sub{ margin:6px 0 2px; font-size:11px; color:var(--kptu-muted); }
+#appView #outsideView .nd-orig-box{ padding:0; overflow:hidden; }
+#appView #outsideView .nd-ob{ display:flex; align-items:center; gap:6px; min-height:30px; padding:2px 6px 2px 10px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); background:var(--kptu-surface-subtle); }
+#appView #outsideView .nd-ob b{ font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); }
+#appView #outsideView .nd-ob-src::before{ content:"·"; margin-right:6px; }
+#appView #outsideView .nd-size{ display:inline-flex; gap:1px; margin-left:auto; }
+#appView #outsideView .nd-size-btn{ min-height:0; width:28px; height:26px; padding:0; font:inherit; line-height:1; color:var(--kptu-muted); background:transparent; border:0; border-radius:var(--ds-radius-control,6px); box-shadow:none; cursor:pointer; }
+#appView #outsideView .nd-size-btn[data-nd-font="s"]{ font-size:11px; }
+#appView #outsideView .nd-size-btn[data-nd-font="m"]{ font-size:13px; }
+#appView #outsideView .nd-size-btn[data-nd-font="l"]{ font-size:16px; }
+#appView #outsideView .nd-size-btn[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+#appView #outsideView .nd-ob-body{ padding:8px 10px 10px; }
+#appView #outsideView .nd-prose{ --nd-fs:16px; max-width:42em; font-size:var(--nd-fs); line-height:1.8; color:var(--kptu-ink); overflow-wrap:anywhere; word-break:keep-all; }
+#appView #outsideView .nd[data-font="s"] .nd-prose{ --nd-fs:14px; }
+#appView #outsideView .nd[data-font="l"] .nd-prose{ --nd-fs:19px; }
+#appView #outsideView .nd-prose p{ margin:0 0 .85em; }
+#appView #outsideView .nd-prose .nd-bhd{ margin:1em 0 .5em; font-size:1em; font-weight:var(--ds-weight-medium,500); }
+#appView #outsideView .nd-prose blockquote{ margin:0 0 .85em; padding-left:10px; color:var(--kptu-muted); border-left:2px solid var(--ds-line); }
+#appView #outsideView .nd-fig{ margin:0 0 .9em; }
+#appView #outsideView .nd-img{ display:block; max-width:100%; height:auto; border-radius:4px; }
+#appView #outsideView .nd-img-link{ font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #outsideView .nd-fig figcaption{ margin-top:3px; font-size:12px; line-height:1.45; color:var(--kptu-muted); }
+#appView #outsideView .nd-site{ margin-left:auto; }
