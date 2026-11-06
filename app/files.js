@@ -21,7 +21,7 @@ import {folderLook} from './folder-prefs.js'; // FOLDER-순서·색 ③-2: 폴�
 import {colorChoiceHtml, createColorMode} from './folder-look.js';
 import {folderShapeHtml} from './folder-look-model.mjs';
 import {createAnchoredMenu} from './anchored-menu.js';
-import {openRowMenu} from './row-menu.js';
+import {openRowMenu, appMenuPoint} from './row-menu.js';
 import {treeMenuItems} from './files-tree-menu.mjs';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
@@ -2391,16 +2391,28 @@ root?.addEventListener('keydown', event => {
   } else if (event.key === 'Backspace' && !p.query) { event.preventDefault(); goUp(); }
   else if (event.key === '/') { event.preventDefault(); $('[data-fx-search]')?.focus(); }
 });
-// 폰: 꾹 누르면 고르기(길게 누르면 브라우저가 contextmenu를 보낸다). PC 오른쪽 단추도 같은 고르기.
+// 폰: 꾹 누르면 고르기(길게 누르면 브라우저가 contextmenu를 보낸다).
+// S51-27 UI-PC우클릭: PC 마우스 우클릭(Shift+F10·메뉴 키)은 그 줄 하나의 메뉴를 누른 자리에 연다 — 나무 줄 ⋯와 같은 항목(files-tree-menu.mjs)·
+// 같은 실행(treeAct). 폴더의 '이 폴더만 보기'는 목록에서는 [열기](줄을 누른 것과 같은 폴더 들어가기). 고르기는 Ctrl·Shift 누름·폰 꾹 누르기 그대로.
 root?.addEventListener('contextmenu', event => {
   const b = event.target.closest('[data-fx-row]');
   if (!b || state.busy) return;
+  if (!touchDrag?.holding() && listMenu(b, event)) { event.preventDefault(); return; }
   event.preventDefault();
   // 손가락으로 누르고 있는 중이면 꾹 눌러 끌기 부품이 맡는다(떼면 고르기, 움직이면 끌기).
   if (touchDrag?.holding()) { touchDrag.armNow(); return; }
   { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   togglePick(b.dataset.fxRow);
 });
+function listMenu(b, event) {
+  const at = appMenuPoint(event, b); if (!at) return false;
+  const i = paneOfEl(b); if (i >= 0) setCur(i);
+  const key = b.dataset.fxRow, r = rowByKey(key);
+  if (!r) return false;
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite()}).map(it => (it.id === 'only' ? {...it, id: 'go', label: '열기'} : it));
+  return openRowMenu(b, {key: 'list:' + key, title: r.name, items, at, note: r.source === PC ? PC_READONLY_TEXT : '',
+    run: id => { if (id === 'go') goFolder(r.source, r.item_id); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});
+}
 // PC: 줄을 폴더(목록의 폴더 줄·나무의 폴더)로 끌어 놓아 옮기기. 끈 줄이 고른 것 안이면 고른 것 모두.
 // 두 칸: 반대 칸(그 칸의 지금 폴더 또는 그 칸의 폴더 줄)에 놓으면 '복사 · 옮기기' 작은 고르기.
 let drag = null;

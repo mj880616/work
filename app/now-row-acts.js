@@ -1,6 +1,7 @@
 import {bindRowSwipe} from './row-swipe.js';
 import {notify} from './small-notice.js';
 import {setMark, setSaved, release, savedAction, sendSignal} from './now-marks.js';
+import {openRowMenu, appMenuPoint} from './row-menu.js';
 // NOW-줄밀기(S49-3, 명진 11/03 08:55): Now 글 줄(사회운동·뉴스·보관)의 밀기·마우스 단추를 한 곳에서. 공용 줄 밀기(row-swipe.js)를 그대로 쓴다.
 // 왼쪽 밀기 = 숨기기(사회운동 '관심 없음' 표시 + 목록에서 감춤, 뉴스 hidden_at), 오른쪽 밀기 = 보관(사회운동 보관 표시, 뉴스 별표). 보관된 줄을 다시 밀면 풀기.
 // [보관] 탭의 오른쪽 밀기 = 보관 풀기. 저장은 모두 서버(상세와 같은 now-marks.js), 누른 일마다 환류 기록. 알림 '숨겼어요 [되돌리기]'.
@@ -48,5 +49,14 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, saved = f
     event.preventDefault(); event.stopPropagation();
     run(b.dataset.nowAct, item);
   }, true);
+  // S51-27 UI-PC우클릭: PC에서 줄을 우클릭(또는 Shift+F10)하면 크롬 기본 메뉴 대신 누른 자리에 같은 [보관][숨기기]([보관] 탭은 [보관 풀기]) — 공용 줄 메뉴(row-menu.js).
+  host.addEventListener('contextmenu', event => {
+    const el = event.target.closest?.(row); if (!el || !host.contains(el) || !enabled()) return;
+    const item = itemOf(el); if (!item) return;
+    const at = appMenuPoint(event, el); if (!at) return;
+    const items = saved ? [{id: 'release', label: RELEASE_LABEL}] : [{id: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL}, {id: 'hide', label: HIDE_LABEL}];
+    const title = (el.querySelector('.nw-title')?.textContent || '').replace(/\s+/g, ' ').trim();
+    if (openRowMenu(el, {key: 'now:' + item.type + ':' + item.id, title, items, at, run: key => run(key, item)})) event.preventDefault();
+  });
   return swipe;
 }
