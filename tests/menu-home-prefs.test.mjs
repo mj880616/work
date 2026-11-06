@@ -6,9 +6,10 @@ import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../ap
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
 // S51-8 NEWS P4b: DB 먼저(S51-6) 넣은 news_tab·news_font를 화면 허용 목록에도 더했다. 이제 DB에만 있는 칸은 없다.
-const DB_ONLY = [];
-test('허용 칸 마흔세 개가 DB 검사(마지막 migration, S50-13 org_order 위에 S51-6 news_tab·news_font 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261106080000_feed_reads_news_prefs.sql');
+// S51-20 FILES-폰보기끌기 ①: DB 먼저(20261106200000) files_look을 받는다. 화면은 다음 PR에서 허용 목록에 더한다.
+const DB_ONLY = ['files_look'];
+test('허용 칸이 DB 검사(마지막 migration, S51-6 news_prefs 위에 S51-20 files_look 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261106200000_profile_view_prefs_files_look.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
   assert.equal(KEYS.length, 43);
