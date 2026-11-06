@@ -17,7 +17,8 @@ export type Extracted = {
   state: BodyState; reason: BodyReason | null; rule: string | null;
   blocks: Block[]; chars: number; images: number; captions: number;
   text: string; // 글자 블록(p·h·quote)을 줄로 이은 것 — 문장 표·뉴스 body·AI 재료
-  scope?: string | null; // 본문 칸을 어디서 골랐나(probe 숫자·코드용, 저장 안 함): own·article·common·body·*_form·fragment·text
+  scope?: string | null; // 본문 칸을 어디서 골랐나(probe 숫자·코드용, 저장 안 함): own·article·common·body·*_form·fragment·text·page_rule(S51-15 다시 뽑음)
+  cut?: string | null;   // 본문이 어디서 끝났나(probe 코드용, 저장 안 함): list·prev_next·comment·related·share·copyright·edit·rule, 끝 표시 없으면 null
 };
 
 export const BODY_LIMITS = Object.freeze({ blocks: 400, chars: 100000, images: 20, src: 2000, cap: 300, textJson: 110000 });
@@ -80,7 +81,8 @@ function elementRanges(html: string, re: RegExp): [number, number][] {
       if (t[1]) { if (--depth === 0) { end = t.index + t[0].length; break; } }
       else if (!t[0].endsWith("/>")) depth++;
     }
-    if (end < 0) end = html.length;
+    // 닫는 태그를 못 찾으면(짝이 안 맞는 HTML) 여는 꼬리표만 뺀다(S51-15 — 예전: 문서 끝까지 지워 뒤 본문이 모두 사라졌다).
+    if (end < 0) { out.push([start, m.index + m[0].length]); continue; }
     out.push([start, end]);
     open.lastIndex = end;
     if (out.length >= 200) break;
@@ -186,12 +188,24 @@ export type ExtractInput = {
 
 // 글 쪽 HTML(또는 피드 본문 칸 HTML) → 블록.
 export function extractBlocks(input: ExtractInput): Extracted {
-  const rule = ruleId(input.key, input.rule);
   let raw = input.html;
   if (input.fragment && !/<[a-z]/i.test(raw) && /&lt;[a-z]/i.test(raw)) raw = decodeEntities(raw); // 한 번 더 이스케이프된 피드 본문
   const scope = input.fragment
     ? { html: raw.replace(/<(nav|header|footer|aside|form)\b[\s\S]*?<\/\1\s*>/gi, " "), own: true, via: "fragment" }
     : bodyScopeHtml(raw, input.body);
+  const first = extractScope(input, raw, scope);
+  // 고른 본문 칸(단체 본문 칸·<article>·흔한 본문 칸)에서 본문을 못 뽑았고 규칙에 시작 줄(start)이 있으면: 페이지 전체(메뉴·꼬리·옆 칸·폼만 뺌 — 기사 머리 <header>는 둠)에서 시작 줄 뒤부터 한 번 더.
+  // 시작 줄을 못 찾으면 첫 결과 그대로(페이지 전체의 메뉴 글자를 본문으로 넣지 않게).
+  if (first.state === "failed" && first.reason === "no_body" && !input.fragment && input.rule.start) {
+    const whole = /<body\b[^>]*>([\s\S]*)<\/body\s*>/i.exec(raw)?.[1] ?? raw;
+    const again = extractScope(input, raw, { html: whole.replace(/<(nav|footer|aside|form)\b[\s\S]*?<\/\1\s*>/gi, " "), own: false, via: "page_rule" }, true);
+    if (again.state !== "failed") return again;
+  }
+  return first;
+}
+
+function extractScope(input: ExtractInput, raw: string, scope: { html: string; own: boolean; via: string }, needStart = false): Extracted {
+  const rule = ruleId(input.key, input.rule);
   let html = scope.html.replace(/<!--[\s\S]*?-->/g, " ").replace(/<(script|style|noscript|template|svg|iframe|object|select|textarea)\b[\s\S]*?<\/\1\s*>/gi, " ");
   if (input.rule.drop) html = replaceRanges(html, elementRanges(html, input.rule.drop), () => " ");
   if (input.rule.caption) html = replaceRanges(html, elementRanges(html, input.rule.caption), (el) => `<figcaption>${innerOf(el)}</figcaption>`);
@@ -211,7 +225,9 @@ export function extractBlocks(input: ExtractInput): Extracted {
     return `<p>${MARK_IMG}${pics.length - 1}${MARK_IMG}</p>`;
   });
   const key = (l: string) => clean(l);
-  const lines = bodyRange(htmlToText(html).split("\n"), input.title, scope.own, key);
+  const info: { start?: string | null; end?: string | null } = {};
+  const lines = bodyRange(htmlToText(html).split("\n"), input.title, scope.own, key, { start: input.rule.start, end: input.rule.end, info });
+  if (needStart && info.start !== "rule") return { ...failedBody("no_body", rule), scope: scope.via, cut: info.end ?? null };
   const b = new Builder();
   const files: string[] = [];
   for (const line of lines) {
@@ -225,8 +241,8 @@ export function extractBlocks(input: ExtractInput): Extracted {
     b.text(kind === MARK_H ? "h" : kind === MARK_Q ? "quote" : "p", text);
   }
   const out = finish(b, rule, input.minChars, files);
-  if (input.rule.lead && out.state !== "failed" && input.rule.lead.test(raw)) return { ...leadOf(out), scope: scope.via };
-  return { ...out, scope: scope.via };
+  if (input.rule.lead && out.state !== "failed" && input.rule.lead.test(raw)) return { ...leadOf(out), scope: scope.via, cut: info.end ?? null };
+  return { ...out, scope: scope.via, cut: info.end ?? null };
 }
 
 // 유료벽: 앞부분(LEAD_MAX_CHARS자 안의 글자 블록과 그 사이 사진)만 남긴다.
@@ -261,7 +277,7 @@ export function textBlocks(text: string, opts: { key: string; rule: ExtractRule 
 // probe·로그용 숫자(글자·주소 없음).
 export function bodyNumbers(e: Extracted) {
   return { state: e.state, reason: e.reason, rule: e.rule, blocks: e.blocks.length, chars: e.chars, images: e.images, captions: e.captions,
-    headings: e.blocks.filter((b) => b.t === "h").length, quotes: e.blocks.filter((b) => b.t === "quote").length, scope: e.scope ?? null };
+    headings: e.blocks.filter((b) => b.t === "h").length, quotes: e.blocks.filter((b) => b.t === "quote").length, scope: e.scope ?? null, cut: e.cut ?? null };
 }
 
 // app_feed_bodies 한 줄(서비스 역할로 넣기). 글 id는 둘 중 하나만.

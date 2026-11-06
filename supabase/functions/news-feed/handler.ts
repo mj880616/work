@@ -7,6 +7,7 @@
 //   어느 작업공간에 넣을지는 서버가 표(app_outside_sources의 news- 키, app_news_keywords, app_news_items 대기 줄)로 정한다.
 //   `probe`(NEWS-전면개편 P2b, 설계 news-overhaul 4.4절): 매체 키 하나 → 피드 1번 + 최신 기사 1개를 읽어 본문 추출 결과를 숫자·코드로만
 //   돌려준다(제목·주소·본문 없음, 저장 없음). 몸통 {}이면 카탈로그 키 목록만.
+//   `refill`(NEWS-전면개편 P2c, S51-15): 매체 키 하나 → 최근 30일 기사 중 본문을 다시 뽑을 줄(블록 없음·timeout·옛 판 실패)을 한 번에 20개까지 다시 읽는다(건수만 응답).
 //   run 단계: media(켠 매체 RSS 한 곳) · keywords(구글 뉴스 검색 RSS) · pending(채널 기사 원문 읽기·요약) · titles(외국어 기사 제목만 한국어로) · prune(오래된 자동 기사 정리).
 // - 화면 입구(`catalog`·`fill_now`·`open`·`translate`): 사용자 로그인을 Auth 서버로 확인 + 그 사람이 owner인 작업공간 하나를 서버가 정함.
 //   몸통은 기사 id(uuid)뿐이고 주소는 받지 않는다. 하루 한도는 app_news_days에 센다(재시작에도 유지).
@@ -34,7 +35,7 @@ const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: fals
 import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, splitGoogleTitle, titleKey, type PageRule } from "./page.ts";
-import { bodyNumbers, bodyRow, failedBody, readFailReason, type Extracted } from "../_shared/feed-extract.ts";
+import { bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
 
 export type NewsFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: FeedLog };
 
@@ -58,6 +59,13 @@ export const PENDING_STALE_DAYS = 3;
 // 수집 때 본문 읽기(P2b): 매체마다 한 번에 새 기사 MEDIA_BODY_PER_RUN건(사이트마다 한 번 30건 상한 그대로), 키워드 기사 relay 표시는 RELAY_PER_RUN건.
 export const MEDIA_BODY_PER_RUN = 30;
 export const RELAY_PER_RUN = 200;
+// 다시 뽑기(NEWS-전면개편 P2c, 설계 news-overhaul 4.8 — 예약 입구 action=refill, 몸통 {source}): 최근 REFILL_DAYS일 매체 기사 가운데
+// 블록 줄이 없거나, 까닭이 timeout(사이트가 잠깐 안 닿음·robots를 못 읽음)이거나, state≠ok이고 규칙 판이 지금 카탈로그 판과 다른 것을
+// 새 것부터 주소 REFILL_PER_SOURCE개까지 다시 읽는다(같은 reader라 요청 사이 GAP_MS, 시간 예산 RUN_BUDGET_MS). 찾는 범위는 REFILL_SCAN줄.
+// 지우지 않고 그 줄만 고친다(merge). 요약(AI)·화면 '열기' 하루 한도는 쓰지 않는다.
+export const REFILL_DAYS = 30;
+export const REFILL_PER_SOURCE = 20;
+export const REFILL_SCAN = 1000;
 export const FILL_DAILY = 10;
 export const FILL_MAX = 5;
 export const OPEN_DAILY = 60;
@@ -339,9 +347,11 @@ async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], n
   // 하루 열기 횟수(fetch_n)는 사람이 누른 읽기만 센다(수집 때 읽기는 세지 않음 — 화면 '열기' 한도를 먹지 않게).
   if (opts.countFetch !== false) { try { await addDay(db, String(first.workspace_id), kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ } }
   if (!got.ok) {
+    // 못 읽은 줄에도 규칙 이름을 적는다(S51-15): 다시 뽑기가 같은 판의 영구 실패(4xx·robots 등)를 매번 다시 고르지 않게. timeout은 판과 상관없이 다시.
+    const r = opts.rule(url);
     for (const item of items) {
       await db.send("PATCH", `app_news_items?id=eq.${item.id}&workspace_id=eq.${item.workspace_id}`, { state: storedState(got.code), fetched_at: nowIso, updated_at: nowIso }, "return=minimal");
-      await saveNewsBody(db, ai.log, item, failedBody(readFailReason(got.code)), nowIso);
+      await saveNewsBody(db, ai.log, item, failedBody(readFailReason(got.code), ruleId(r.key, r.rule)), nowIso);
     }
     return storedState(got.code);
   }
@@ -390,6 +400,39 @@ async function runMediaBodies(db: Db, reader: FeedReader, ai: AiDeps, source: Ne
     done++;
   }
   return { done, deferred };
+}
+
+// 다시 뽑을 줄인가(P2c). body: 그 기사의 블록 줄(state·reason·rule) 또는 없음. current: 지금 카탈로그 규칙 이름(키@판).
+export function needsRefill(body: Row | null | undefined, current: string | null): boolean {
+  if (!body) return true;
+  if (body.reason === "timeout") return true;
+  return body.state !== "ok" && body.rule !== current;
+}
+const embedOne = (v: unknown): Row | null => (Array.isArray(v) ? (v[0] as Row | undefined) ?? null : v && typeof v === "object" ? v as Row : null);
+async function runRefill(db: Db, readers: Readers, ai: AiDeps, source: NewsSource, nowMs: number, startMs: number, clock: () => number, log: FeedLog) {
+  const out = { ok: true as const, step: "refill", source: source.key, status: "ok", done: 0, deferred: 0, remaining: 0 };
+  if (source.extract === false) return { ...out, status: "off" };
+  const current = ruleId(source.key, source.extract);
+  const since = new Date(nowMs - REFILL_DAYS * 86400000).toISOString();
+  const rows = await db.get(`app_news_items?lane=eq.media&source_key=eq.${source.key}&created_at=gte.${encodeURIComponent(since)}` +
+    `&select=id,workspace_id,lane,url,source_key,title,publisher,published_at,summary,app_feed_bodies(state,reason,rule)&order=created_at.desc&limit=${REFILL_SCAN}`);
+  const byUrl = new Map<string, Row[]>();
+  const over = new Set<string>();
+  for (const r of rows) {
+    if (typeof r.url !== "string" || typeof r.id !== "string" || !UUID.test(r.id) || typeof r.workspace_id !== "string" || !UUID.test(r.workspace_id)) continue;
+    if (!needsRefill(embedOne(r.app_feed_bodies), current)) continue;
+    if (!byUrl.has(r.url) && byUrl.size >= REFILL_PER_SOURCE) { over.add(r.url); continue; }
+    byUrl.set(r.url, [...(byUrl.get(r.url) ?? []), r]);
+  }
+  const reader = readers.catalog(source);
+  for (const [, list] of byUrl) {
+    if (clock() - startMs > RUN_BUDGET_MS) { out.deferred++; continue; }
+    await fillItems(db, reader, ai, list, nowMs, { rule: (base) => mediaRule(source, base), summarize: false, countFetch: false });
+    out.done++;
+  }
+  out.remaining = over.size + out.deferred;
+  log("refill_done", { source: source.key, done: out.done, deferred: out.deferred, remaining: out.remaining });
+  return out;
 }
 
 // 키워드 기사(구글 중계 주소)는 원문을 읽지 않는다(N3): 블록 줄을 '못 읽음(relay)'으로만 넣는다(요청 없음). 한 번에 RELAY_PER_RUN건.
@@ -699,7 +742,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
       let action: string | null = null;
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
-      const cronActions = ["run_plan", "run", "probe"], userActions = ["catalog", "fill_now", "open", "translate"];
+      const cronActions = ["run_plan", "run", "probe", "refill"], userActions = ["catalog", "fill_now", "open", "translate"];
       if (!(cron ? cronActions : userActions).includes(action ?? "")) throw new Fail(400, "UNKNOWN_ACTION");
       if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown;
@@ -723,6 +766,13 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         const source = newsSourceByKey(b.source);
         if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
         return json(await probeMedia(readers, source, nowMs));
+      }
+      if (action === "refill") {
+        // 다시 뽑기(P2c): 몸통은 매체 키 하나뿐(주소를 받지 않음). 카탈로그 밖 키는 400. 켬 여부와 상관없이 이미 들어온 기사 줄만 본다.
+        if (!exactKeys(b, ["source"])) throw new Fail(400, "INVALID_BODY");
+        const source = newsSourceByKey(b.source);
+        if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
+        return json(await runRefill(db, readers, ai, source, nowMs, startMs, now, log));
       }
       if (action === "run") {
         const step = b.step;

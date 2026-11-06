@@ -17,6 +17,11 @@ export type ExtractRule = {
   // 유료벽 없음 확인(S51-9): 뉴스 글 쪽의 흔한 유료벽 검사(news-feed/page.ts PAYWALL)를 하지 않는다.
   // 유료벽이 없는 매체가 흔한 문구(댓글 칸 '로그인 후 이용' 등)로 lead/paywall로 잘못 들어가는 것(11/06 probe: 비마이너·프레시안)을 막는다. lead와 함께 쓰지 않는다(시험이 고정).
   free?: true;
+  // 본문 시작·끝 줄(S51-15): 본문 칸 class를 실측하지 못한 사이트에서 화면 글자 줄로 자른다(그 사이트의 단추·안내 글자, 기사 글자가 아님).
+  // start: 이 줄 **다음**부터 본문(제목 뒤 처음 맞는 줄). end: 이 줄 **앞**에서 본문 끝(흔한 끝 표시 '목록·댓글·ⓒ' 등에 더함).
+  // 단체 본문 칸(bodyClass)에서 본문을 못 뽑으면(no_body) 페이지 전체(메뉴·꼬리·옆 칸·폼 뺌)에서 start 줄을 찾아 한 번 더 뽑는다 — start 줄이 없으면 하지 않음.
+  start?: RegExp;
+  end?: RegExp;
 };
 
 export type Kind = "statement" | "comment" | "press" | "article";
@@ -127,7 +132,8 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
     // 그누보드 보도자료/성명 게시판(ce_B12). 맨 위 고정 공지도 같은 주소 모양이라 머리말(공지·안내 등)로 거른다.
     key: "kmwu", name: "금속노조", group: "labor", lang: "ko", mode: "html",
-    extract: { version: 1, drop: /^(bo_v_sns|bo_v_share|bo_v_file|bo_v_link|bo_vc|bo_v_nb)$/ },
+    // @2(S51-15): 공용 추출기 고침(닫는 꼬리표 없는 빼는 칸·본문 앞 공유 줄) — failed/no_body 1건을 다시 뽑기(P2c)로 다시 본다(첨부·그림뿐인 글이면 그대로일 수 있음 [추정]).
+    extract: { version: 2, drop: /^(bo_v_sns|bo_v_share|bo_v_file|bo_v_link|bo_vc|bo_v_nb)$/ },
     lists: ["https://kmwu.kr/bbs/board.php?bo_table=ce_B12"], hosts: ["kmwu.kr", "www.kmwu.kr"],
     item: /^https:\/\/(www\.)?kmwu\.kr\/bbs\/board\.php\?(?=[^#]*\bbo_table=ce_B12\b)(?=[^#]*\bwr_id=\d+\b)/,
     canon: keepQuery(["bo_table", "wr_id"]),
@@ -150,7 +156,10 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     key: "hakbi", name: "학비노조", group: "labor", lang: "ko", mode: "html",
     // @2(S51-9): 11/06 probe failed/no_body(블록 0) → 공용 본문 칸 고르기를 고침(parse.ts bodyScopeHtml: 빈 <article> 건너뛰기, 게시판 쪽 전체가 <form> 안이면 폼 꼬리표만 벗김).
     // 원인은 [추정](실측 못 함) — 배포 뒤 probe의 scope 값(article·common·body·*_form)으로 확인한다.
-    extract: { version: 2 },
+    // @3(S51-15): @2 배포 뒤에도 블록 0 — 실제 글 쪽 화면 줄 차례(WebFetch로 확인 [사실]): 제목 → '학비노조'·조회 수·날짜 → **'공유하기'** → 트위터·카카오·페이스북·URL
+    //   → 사진·본문 → '목록보기'. 본문 끝 표시('공유하기')가 본문 **앞**에 있어 거기서 끊겨 0줄이었다 [추정: 코드상 이 줄 차례면 0줄].
+    //   공용 본문 줄 자르기(parse.ts bodyRange)가 본문 글자·사진이 나오기 전의 공유 줄은 건너뛴다.
+    extract: { version: 3 },
     lists: ["https://www.hakbi.org/board/media_reports"], hosts: ["www.hakbi.org", "hakbi.org"],
     item: /^https:\/\/(www\.)?hakbi\.org\/board\/media_reports\/read\/\d+\/?$/, canon: plain,
     kindOf: (title) => (HAKBI_NOTICE.test(title) ? null : byPrefix("statement")(title)),

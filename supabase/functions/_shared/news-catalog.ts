@@ -23,7 +23,8 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   { key: "news-labortoday", name: "매일노동뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
     // 본문 칸: 엔디소프트 기사 쪽 `#article-view-content-div`(못 찾으면 흔한 본문 칸·<article> 순서). 유료 기사는 page.ts가 앞부분만(유료벽 넘지 않음).
     // @2(S51-9): 흔한 유료벽 검사를 좁힘(page.ts) — 이 매체는 유료벽 검사를 그대로 받는다(유료 기사 있음 [추정]).
-    extract: { version: 2, drop: /^(article-copy|view-copyright|view-editors|tag-group|article-sns|share-btns|relation|ad-template)$/ },
+    // @3(S51-15): 공용 추출기 고침(닫는 꼬리표가 없는 빼는 칸이 뒤 본문을 모두 지우던 것, 본문 앞 공유 줄) — lead/no_body 3건을 다시 뽑기(P2c)로 다시 본다.
+    extract: { version: 3, drop: /^(article-copy|view-copyright|view-editors|tag-group|article-sns|share-btns|relation|ad-template)$/ },
     bodyClass: /^article-view-content-div$/,
     lists: ["https://www.labortoday.co.kr/rss/allArticle.xml"], hosts: ["www.labortoday.co.kr", "labortoday.co.kr"], kindOf: article },
   { key: "news-beminor", name: "비마이너", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
@@ -34,7 +35,13 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   { key: "news-pressian", name: "프레시안", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
     // @2(S51-9): 11/06 probe에서 lead/paywall(블록 1·글자 14)로 잘못 들어감 — 프레시안은 유료벽이 없다(CC 확인) → free.
     // 본문 칸 `div.article_body`를 단체 본문 칸으로 고정 [추정 — 실측 못 함, 없으면 예전처럼 <article>·흔한 본문 칸 순서].
-    extract: { version: 2, free: true, drop: /^(article_ad|box_ad|article_bottom|byline|share)$/ },
+    // @3(S51-15): @2 배포 뒤 30건이 모두 lead/no_body(사이트는 열림) — 본문 칸 `article_body`에서 본문을 못 뽑음 [사실: CC 운영 확인 / 까닭은 추정].
+    //   실제 글 쪽 화면 줄 차례(WebFetch로 확인 [사실], HTML class는 못 봄): 제목 → 공유 아이콘 → 제목 → 부제 → 기자·기사입력 → 공유(페이스북·트위터·밴드)
+    //   → 'URL복사' → 본문 문단·사진·캡션(…ⓒ매체) → '구글에서 프레시안을 더 자주 만나기' → 기자 이름·메일 → '최근글보기' → 제보·후원 → 댓글 → 관련기사.
+    //   그래서 본문 칸에서 못 뽑으면 페이지 전체에서 'URL복사' 줄 다음부터 '구글에서 프레시안…'·'프레시안에 제보하기'·'최근글보기' 줄 앞까지 뽑는다(start·end).
+    //   공용 추출기 고침(닫는 꼬리표 없는 빼는 칸이 뒤를 지우던 것)도 이 판에 든다. probe의 scope(own·page_rule)·cut 코드로 어느 길이었는지 확인한다.
+    extract: { version: 3, free: true, drop: /^(article_ad|box_ad|article_bottom|byline|share)$/,
+      start: /^URL\s*복사$/, end: /^(구글에서 프레시안을 더 자주 만나기|프레시안에 제보하기|최근글보기)$/ },
     bodyClass: /^article_body$/,
     // https://www.pressian.com/rss 는 RSS 안내 HTML 쪽이라 0건이었다(11/04). 실제 피드는 /api/v3/site/rss/news(요청함은 http로 확인).
     // 카탈로그는 https만 허용(tests/security/news-feed.test.mjs)이라 https로 둔다 — 배포 전 CC가 이 주소가 열리는지 확인하고, 안 열리면 배포하지 말고 명진에게 보고(http 허용은 보안 시험을 바꾸는 결정).

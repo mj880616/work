@@ -24,7 +24,7 @@ import { aiConfigFrom, callOpenAi, outputText, type Env, type Log } from "../_sh
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
-import { bodyNumbers, bodyRow, extractBlocks, failedBody, readFailReason, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
+import { bodyNumbers, bodyRow, extractBlocks, failedBody, readFailReason, ruleId, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
 import { betterTitle, pageTitleFrom, tidySummary, tidyTitle } from "../_shared/outside-tidy.ts";
 import { BODY_MAX_CHARS, cut, decodeBody, isUrlTitle, looksLikeBotCheck, NO_TITLE, oneLine, pageDate, parseFeed, parseListHtml, parseTelegram, robotsAllows, splitSentences, usableTitle, type ListItem, type ListStats } from "./parse.ts";
 
@@ -431,6 +431,61 @@ async function saveBody(db: Db, log: Log, source: OutsideSource, ex: Extracted, 
   }
 }
 
+// 다시 뽑기(NEWS-전면개편 P2c, S51-15 — 예약 입구 action=refill, 몸통 {source}): 최근 REFILL_DAYS일 글 가운데 블록 줄이 없거나,
+// 까닭이 timeout(사이트가 잠깐 안 닿음·robots를 못 읽음)이거나, state≠ok이고 규칙 판이 지금 카탈로그 판과 다른 것을 새 것부터 주소 REFILL_PER_SOURCE개까지
+// 글 쪽을 다시 읽어 블록 줄만 고친다(merge, 지우지 않음). 2년 지난 글·텔레그램(목록 글이 본문)·extract=false·robots 예외 단체는 하지 않는다.
+// 문장 표(app_outside_sentences)·요약·제목은 건드리지 않는다(화면 '원문 전체'는 블록 줄을 읽음). 못 읽은 줄에도 규칙 이름을 적어 같은 판의 영구 실패를 매번 고르지 않는다.
+export const REFILL_DAYS = 30;
+export const REFILL_PER_SOURCE = 20;
+export const REFILL_SCAN = 1000;
+export function needsRefill(body: Record<string, unknown> | null | undefined, current: string | null): boolean {
+  if (!body) return true;
+  if (body.reason === "timeout") return true;
+  return body.state !== "ok" && body.rule !== current;
+}
+const embedOne = (v: unknown): Record<string, unknown> | null =>
+  Array.isArray(v) ? (v[0] as Record<string, unknown> | undefined) ?? null : v && typeof v === "object" ? v as Record<string, unknown> : null;
+async function refillSource(db: Db, reader: Reader, log: Log, source: OutsideSource, nowMs: number, startMs: number, clock: () => number) {
+  const out = { ok: true as const, source: source.key, status: "ok", done: 0, deferred: 0, remaining: 0 };
+  if (source.extract === false) return { ...out, status: "off" };
+  if (source.mode === "telegram") return { ...out, status: "not_page" };
+  // robots 예외 단체(공공운수노조·노동당)는 하루 3번 예약 때 새 글만 읽는다(명진 결정 11/01 16:49·21:08: 부하 최소) — 다시 뽑기도 하지 않는다.
+  if (robotsExempt(source)) return { ...out, status: "robots_exception" };
+  const rule = ruleOf(source);
+  const current = ruleId(source.key, rule);
+  const since = new Date(nowMs - REFILL_DAYS * 86400000).toISOString();
+  const cutoff = nowMs - OLD_DAYS * 86400000;
+  const rows = await db.get(`app_outside_posts?source_key=eq.${source.key}&fetched_at=gte.${encodeURIComponent(since)}` +
+    `&select=id,workspace_id,url,title,published_at,app_feed_bodies(state,reason,rule)&order=fetched_at.desc&limit=${REFILL_SCAN}`);
+  const byUrl = new Map<string, { id: string; ws: string; title: string }[]>();
+  const over = new Set<string>();
+  for (const r of rows) {
+    if (typeof r.url !== "string" || typeof r.id !== "string" || !UUID.test(r.id) || typeof r.workspace_id !== "string" || !UUID.test(r.workspace_id)) continue;
+    if (typeof r.published_at === "string" && Date.parse(r.published_at) < cutoff) continue;
+    if (!needsRefill(embedOne(r.app_feed_bodies), current)) continue;
+    if (!byUrl.has(r.url) && byUrl.size >= REFILL_PER_SOURCE) { over.add(r.url); continue; }
+    byUrl.set(r.url, [...(byUrl.get(r.url) ?? []), { id: r.id, ws: r.workspace_id, title: typeof r.title === "string" ? r.title : "" }]);
+  }
+  const nowIso = new Date(nowMs).toISOString();
+  for (const [url, list] of byUrl) {
+    if (clock() - startMs > RUN_BUDGET_MS) { out.deferred++; continue; }
+    if (!allowedUrl(source, url)) continue; // 카탈로그 허용 주소만 읽는다(저장된 주소라도 다시 확인)
+    const page = await reader.get(source, url, false);
+    const it: ListItem = { url, title: list[0].title, kind: "statement", published_at: null, author: null, summary: null, content: null };
+    let ex = postBody(source, it, page);
+    if (!ex.rule) ex = { ...ex, rule: current };
+    for (const p of list) {
+      try {
+        await db.send("POST", "app_feed_bodies?on_conflict=outside_post_id", bodyRow(ex, { workspace_id: p.ws, outside_post_id: p.id }, nowIso), "return=minimal,resolution=merge-duplicates");
+      } catch { log("body_failed", { source: source.key }); }
+    }
+    out.done++;
+  }
+  out.remaining = over.size + out.deferred;
+  log("refill_done", { source: source.key, done: out.done, deferred: out.deferred, remaining: out.remaining });
+  return out;
+}
+
 // probe: 목록 1쪽 + 최신 글 1개 → 숫자·코드만(저장 없음). 글 쪽을 읽는 조건은 run과 같다(텔레그램·피드 본문 200자 이상이면 읽지 않음).
 async function probeSource(reader: Reader, source: OutsideSource, nowMs: number) {
   const base = { ok: true, source: source.key, mode: source.mode, extract: source.extract !== false };
@@ -653,7 +708,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!m) throw new Fail(401, "UNAUTHORIZED");
       }
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
-      if (cron ? action !== "run_plan" && action !== "run" && action !== "probe" : action !== "catalog" && action !== "expand" && action !== "read_now") throw new Fail(400, "UNKNOWN_ACTION");
+      if (cron ? action !== "run_plan" && action !== "run" && action !== "probe" && action !== "refill" : action !== "catalog" && action !== "expand" && action !== "read_now") throw new Fail(400, "UNKNOWN_ACTION");
       if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown = {};
       try { body = await readBoundedJson(req, { maxBytes: MAX_BODY_BYTES }); } catch { throw new Fail(400, "INVALID_BODY"); }
@@ -675,6 +730,13 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         return json(await runSource(db, reader, { doFetch, sleep, log, env: deps.env }, source, nowMs, now(), now));
       }
 
+      if (action === "refill") {
+        // 다시 뽑기(P2c): 몸통은 단체 키 하나뿐(주소를 받지 않음). 카탈로그 밖 키는 400.
+        if (!exactKeys(b, ["source"])) throw new Fail(400, "INVALID_BODY");
+        const source = sourceByKey(b.source);
+        if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
+        return json(await refillSource(db, makeReader(doFetch, sleep, log), log, source, nowMs, now(), now));
+      }
       if (action === "probe") {
         // 몸통 {}: 카탈로그 키 목록. {source}: 그 단체 하나(카탈로그 밖 키는 400). 켬 여부와 상관없이 읽고, 아무것도 저장하지 않는다.
         if (exactKeys(b, [])) return json({ ok: true, sources: OUTSIDE_CATALOG.map((s) => s.key) });

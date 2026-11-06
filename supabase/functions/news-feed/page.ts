@@ -104,8 +104,8 @@ export function readArticlePage(html: string, nowMs: number, rule?: PageRule): P
   const ex = extractBlocks({ html, base: r.base, title: title ?? "", key: r.key, rule: r.rule, body: r.body, minChars: FULL_MIN_CHARS });
   const body = cut(ex.text, BODY_MAX);
   if (ex.state === "ok") return { state: "ok", title, publisher, published_at, lang, body, body_kind: "full", blocks: ex, paywall: null };
-  // 본문이 짧으면 메타 설명(리드)만 body로. 블록은 그림뿐인 글이면 그 사진들, 아니면 리드.
-  return { state: "ok", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: ex.state === "image_only" ? ex : leadBlocks("no_body"), paywall: null };
+  // 본문이 짧으면 메타 설명(리드)만 body로. 블록은 그림뿐인 글이면 그 사진들, 아니면 리드(probe용 scope·cut 코드는 본문 칸에서 고른 것 — S51-15).
+  return { state: "ok", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: ex.state === "image_only" ? ex : { ...leadBlocks("no_body"), scope: ex.scope ?? null, cut: ex.cut ?? null }, paywall: null };
 }
 
 // 겹침 판정용 제목: 구글 뉴스 꼬리 ' - 매체', 머리말([단독] 등), 공백·문장부호 떼기.

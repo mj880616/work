@@ -69,7 +69,7 @@ test('blocks: 문단·소제목·인용·사진(캡션·대체 글), 꾸밈 그�
  for(const bad of ['메뉴 칸','공유 칸','꼬리 칸','목록 뒤','2026.11.06','logo.png','p.gif','http://','data:'])assert.ok(!all.includes(bad),bad);
  // 같은 본문 칸·제목 줄·끝 표시·덧줄 거르기: 캡션 줄만 빼면 extractBody와 같은 글자.
  assert.equal(e.text,P.extractBody(html.replace('<div class="share-box">공유 칸 글자</div>',''),'합성 제목').replace('합성 캡션\n',''));
- assert.deepEqual(E.bodyNumbers(e),{state:'ok',reason:null,rule:'kctu@3',blocks:6,chars:e.chars,images:2,captions:1,headings:1,quotes:1,scope:'article'});
+ assert.deepEqual(E.bodyNumbers(e),{state:'ok',reason:null,rule:'kctu@3',blocks:6,chars:e.chars,images:2,captions:1,headings:1,quotes:1,scope:'article',cut:'list'});
 });
 
 test('limits: 블록 400개·사진 20장·글자 10만 자·제어 문자 없음, 같은 사진 한 번',()=>{
@@ -302,7 +302,7 @@ test('source text: 추출기는 HTML·주소를 받으러 가지 않음(fetch �
 test('유료벽: 유료벽 없는 매체(free)는 흔한 검사 안 함 — 댓글 칸 로그인 문구·숨은 paywall-… 칸으로 lead가 되지 않음',()=>{
  for(const key of ['news-beminor','news-pressian']){
   const s=NC.newsSourceByKey(key);
-  assert.equal(s.extract.free,true,key);assert.equal(s.extract.version,2,key);
+  assert.equal(s.extract.free,true,key);assert.equal(s.extract.version,key==='news-pressian'?3:2,key);
   const html=SAMPLES[key]('ko').replace('<head>','<head><meta property="og:title" content="합성 견본 제목"><meta name="description" content="합성 리드">');
   const info=NP.readArticlePage(html,NOW,NH.mediaRule(s,'https://www.example.com/news/1'));
   assert.deepEqual([info.state,info.body_kind,info.blocks.state,info.blocks.reason,info.paywall],['ok','full','ok',null,null],key);
@@ -316,7 +316,7 @@ test('유료벽: 유료벽 없는 매체(free)는 흔한 검사 안 함 — 댓�
 });
 
 test('유료벽: 흔한 검사는 실제 표시만 — 구조화 데이터·정확한 class paywall·본문 칸 안 문구 / 본문 밖 문구·이름 일부는 아님',()=>{
- const s=NC.newsSourceByKey('news-labortoday');assert.equal(s.extract.version,2);assert.ok(!s.extract.free);
+ const s=NC.newsSourceByKey('news-labortoday');assert.equal(s.extract.version,3);assert.ok(!s.extract.free);
  const rule=NH.mediaRule(s,'https://www.example.com/news/1');
  const page=(head,inner,after='')=>`<html><head><meta property="og:title" content="합성 견본 제목"><meta name="description" content="합성 리드 문단">${head}</head><body>${NAV}<article id="article-view-content-div">${inner}</article>${after}${FOOT}</body></html>`;
  const full=`<p>${LONG}</p><p>${LONG}</p>`;
@@ -353,12 +353,12 @@ test('본문 칸 고르기: 빈 <article>은 건너뜀, 그림뿐인 <article>�
  const own=P.bodyScopeHtml(`<body><article><p>${LONG}</p></article><div class="mine"><p>짧은 칸</p></div></body>`,/^mine$/);
  assert.deepEqual([own.via,own.own],['own',true],'단체 본문 칸은 짧아도 그 칸');
  // 학비노조·서비스연맹 판 올림 + 서비스연맹 본문 칸 고정.
- assert.equal(OC.sourceByKey('hakbi').extract.version,2);
+ assert.equal(OC.sourceByKey('hakbi').extract.version,3);
  assert.equal(OC.sourceByKey('kfsu').extract.version,2);assert.ok(OC.sourceByKey('kfsu').bodyClass.test('kboard-content'));
  // extractBody(AI·요약 글자)도 같은 칸을 쓴다.
  const h=SAMPLES.hakbi('ko');
  const e=OH.postBody(OC.sourceByKey('hakbi'),{url:'https://www.example.com/a/1',title:'합성 견본 제목',kind:'statement',published_at:null,author:null,summary:null,content:null},{ok:true,text:h,url:'https://www.example.com/a/1'});
- assert.deepEqual([e.state,e.scope,e.rule],['ok','body_form','hakbi@2']);
+ assert.deepEqual([e.state,e.scope,e.rule],['ok','body_form','hakbi@3']);
  assert.ok(P.extractBody(h,'합성 견본 제목').includes(PARA.slice(0,10)));
 });
 
@@ -381,5 +381,77 @@ test('news-feed probe: 글 링크가 모두 허용 호스트 밖인 피드(Labou
  const w=world({[pr.lists[0]]:{body:rss,type:'application/rss+xml'},[art]:{body:SAMPLES['news-pressian']('ko').replace('<head>','<head><meta property="og:title" content="합성 견본 기사">')}});
  const h=NH.createNewsFeedHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,NEWS_FEED_CRON_SECRET:NSECRET})[n],fetch:w.doFetch,now:()=>NOW,sleep:async()=>{},log:()=>{}});
  const o3=await(await h(req('news-feed',NH.CRON_HEADER,NSECRET,{source:'news-pressian'}))).json();
- assert.deepEqual([o3.page_state,o3.state,o3.paywall,o3.scope,o3.rule],['ok','ok',null,'own','news-pressian@2']);
+ assert.deepEqual([o3.page_state,o3.state,o3.paywall,o3.scope,o3.rule],['ok','ok',null,'own','news-pressian@3']);
+});
+
+// ---- S51-15: 프레시안·학비노조 규칙 @3, 공용 추출기 고침(본문 앞 공유 줄·닫는 꼬리표 없는 빼는 칸·시작/끝 줄) -------------------------
+// 견본은 실제 화면 줄 차례(WebFetch로 확인)만 흉내 낸 지어낸 글이다(실제 기사·성명 글자 없음).
+const PR_URL='https://www.pressian.com/pages/articles/2026110600000000001';
+const prPage=({bodyDiv='<div class="article_body"><p>합성 부제</p></div>',after=''}={})=>`<html><head><meta property="og:title" content="합성 견본 제목"><meta name="description" content="합성 리드 문단"></head><body>
+<nav>합성 메뉴</nav><div class="top"><h2>합성 견본 제목</h2><img src="https://www.pressian.com/images/facebook.png" alt="Facebook"><a>정기후원</a></div>
+<div class="head"><h1>합성 견본 제목</h1><p>합성 부제 한 줄</p><p>합성 기자 기사입력 2026.11.06. 10:00:00</p>
+<ul><li>페이스북</li><li>트위터</li><li>밴드</li></ul><button>URL복사</button></div>
+${bodyDiv}
+<div class="text"><p>${LONG}</p><figure><img src="/_resources/10/2026/11/06/1_l.jpg"><figcaption>합성 사진 설명 ⓒ합성통신</figcaption></figure><p>${LONG}</p></div>
+<p>구글에서 프레시안을 더 자주 만나기</p><p>합성 기자</p><p>합성 기자 소개 문장은 서른 자가 넘는 한 줄로 지어 둔 글이다.</p><p>최근글보기</p><p>프레시안에 제보하기</p>
+<div><p>전체댓글 0</p></div><div><p>관련기사</p><p>합성 다른 기사 제목이 길게 이어지는 한 줄</p></div>${after}<footer>합성 꼬리</footer></body></html>`;
+
+test('프레시안 @3: 본문 칸(article_body)에서 못 뽑으면 페이지 전체에서 URL복사 다음 ~ 구글/최근글/제보 앞까지, 사진·캡션 유지',()=>{
+ const s=NC.newsSourceByKey('news-pressian');
+ assert.equal(s.extract.version,3);assert.equal(s.extract.free,true);
+ const info=NP.readArticlePage(prPage(),NOW,NH.mediaRule(s,PR_URL));
+ assertDbShape(info.blocks,'pressian');
+ assert.deepEqual([info.state,info.body_kind,info.blocks.state,info.blocks.rule,info.blocks.scope,info.blocks.cut],['ok','full','ok','news-pressian@3','page_rule','rule']);
+ const text=info.blocks.text;
+ assert.ok(text.includes(PARA.slice(0,10)));
+ for(const junk of ['합성 메뉴','정기후원','합성 부제 한 줄','기사입력','URL복사','구글에서','합성 기자 소개','최근글보기','제보','관련기사','합성 다른 기사','합성 꼬리'])assert.ok(!text.includes(junk),junk);
+ const img=info.blocks.blocks.filter(b=>b.t==='img');
+ assert.deepEqual(img,[{t:'img',src:'https://www.pressian.com/_resources/10/2026/11/06/1_l.jpg',cap:'합성 사진 설명 ⓒ합성통신',alt:null}],'아이콘 그림은 빼고 본문 사진·캡션만');
+ // 본문 칸이 맞으면 예전처럼 그 칸(own).
+ const own=NP.readArticlePage(prPage({bodyDiv:`<div class="article_body"><p>${LONG}</p><p>${LONG}</p></div>`}),NOW,NH.mediaRule(s,PR_URL));
+ assert.deepEqual([own.blocks.state,own.blocks.scope],['ok','own']);
+ assert.ok(!own.blocks.text.includes('구글에서'));
+ // 본문 칸이 아예 없어도(이름이 다름) 시작 줄 길로 뽑는다.
+ const none=NP.readArticlePage(prPage({bodyDiv:''}),NOW,NH.mediaRule(s,PR_URL));
+ assert.equal(none.blocks.state,'ok');
+ // 시작 줄(URL복사)이 없으면 페이지 전체 글자를 본문으로 넣지 않는다 — 예전처럼 리드만(lead/no_body).
+ const noStart=NP.readArticlePage(prPage().replace('<button>URL복사</button>',''),NOW,NH.mediaRule(s,PR_URL));
+ assert.ok(noStart.blocks.state!=='ok'||!noStart.blocks.text.includes('합성 메뉴'));
+ assert.deepEqual([noStart.blocks.state,noStart.blocks.reason],['lead','no_body']);
+ // 유료벽 검사 안 함(free) 그대로: 댓글 칸 로그인 문구가 있어도 ok.
+ const cmt=NP.readArticlePage(prPage({after:'<div class="cmt">로그인 후 이용해 주세요 로그인 후 전문 보기</div>'}),NOW,NH.mediaRule(s,PR_URL));
+ assert.equal(cmt.state,'ok');
+ // probe 코드: 리드로 끝나도 어느 칸·어디서 끊겼는지(scope·cut) 숫자 응답에 남는다(글자 없음).
+ const nums=E.bodyNumbers(noStart.blocks);
+ assert.ok('scope' in nums&&'cut' in nums);
+ assert.ok(!JSON.stringify(nums).includes('합성'));
+});
+
+test('공용: 본문 앞 공유 줄(학비노조 모양)은 끝이 아니다, 본문 뒤 공유 줄은 예전처럼 끝',()=>{
+ const s=OC.sourceByKey('hakbi');assert.equal(s.extract.version,3);
+ const page=`<html><head><title>합성 견본 제목 - 합성 단체</title></head><body><nav>합성 메뉴</nav><div class="board"><h3>합성 견본 제목</h3>
+<p>합성단체</p><p>6007</p><p>2026-04-23 15:09:41</p><h4>공유하기</h4><ul><li>트위터</li><li>카카오</li><li>페이스북</li><li>URL</li></ul>
+<div class="view"><p><img src="https://www.example.com/upload/editor/a.jpg"></p><p>${LONG}</p><p>${LONG}</p><p>합성단체</p></div>
+<p>목록보기</p><p>합성 이전 글 제목이 서른 자 넘게 길게 이어지는 줄</p></div><footer>개인정보취급방침</footer></body></html>`;
+ const e=OH.postBody(s,{url:'https://www.hakbi.org/board/media_reports/read/1',title:'합성 견본 제목',kind:'statement',published_at:null,author:null,summary:null,content:null},{ok:true,text:page,url:'https://www.hakbi.org/board/media_reports/read/1'});
+ assertDbShape(e,'hakbi');
+ assert.deepEqual([e.state,e.rule,e.images,e.cut],['ok','hakbi@3',1,'list']);
+ assert.ok(e.text.includes(PARA.slice(0,10)));
+ for(const junk of ['트위터','카카오','목록보기','합성 이전 글','개인정보'])assert.ok(!e.text.includes(junk),junk);
+ // 본문 글자가 나온 뒤의 공유 줄은 끝(뒤 꼬리 글자를 넣지 않음).
+ const lines=[ 'x 합성 견본 제목', LONG, '공유하기', '합성 꼬리 글자가 서른 자 넘게 이어지는 한 줄입니다 정말로' ];
+ const out=P.bodyRange(lines,'합성 견본 제목',false);
+ assert.deepEqual(out,[LONG]);
+ // 사진 뒤 공유 줄도 끝(그림뿐인 글).
+ assert.deepEqual(P.bodyRange(['0','공유하기','꼬리'],'',true),['0']);
+});
+
+test('공용: 닫는 꼬리표가 없는 빼는 칸(drop)은 여는 꼬리표만 빼고 뒤 본문은 남긴다',()=>{
+ const rule={version:1,drop:/^byline$/};
+ const html=`<div class="mine"><p><span class="byline">합성 기자 <p>${LONG}</p><p>${LONG}</p></div>`;
+ const e=E.extractBlocks({html,base:'https://www.example.com/a',title:'',key:'synthetic',rule,body:/^mine$/,minChars:200});
+ assert.equal(e.state,'ok');assert.ok(e.chars>300);
+ // 닫힌 칸은 예전처럼 통째로 뺀다.
+ const closed=E.extractBlocks({html:`<div class="mine"><span class="byline">합성 기자 줄</span><p>${LONG}</p></div>`,base:'https://www.example.com/a',title:'',key:'synthetic',rule,body:/^mine$/,minChars:200});
+ assert.ok(!closed.text.includes('합성 기자 줄'));
 });
