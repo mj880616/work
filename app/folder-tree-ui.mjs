@@ -10,6 +10,7 @@
 // 줄을 누르는 동작·상태(어느 폴더가 열렸나)는 각 화면의 상태 주인이 갖고, 이 파일은 HTML만 만든다. 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
 import {folderIndent} from './folder-limits.mjs';
 import {folderShapeHtml, colorOf} from './folder-look-model.mjs';
+import {chevHtml} from './fold-chevron.mjs';
 
 // 펼친 폴더에 처음 보이는 파일(노트·사진) 수. 나머지는 'n개 더 보기'.
 export const FT_PREVIEW = 5;
@@ -65,11 +66,12 @@ export function ftTrashRowHtml({count = null, attrs = {}, label = '휴지통'} =
 
 // 둥근 상자. head: 머리줄 HTML(없으면 머리 없음), body: 안 줄들. collapsible이면 머리가 접기 단추(toggleAttrs로 누름을 받는다).
 // open=false면 안 줄을 그리지 않는다(머리만). tail: 머리 오른쪽 작은 글자('맞추는 중'·'더보기' 단추 등).
-// caret: 머리 줄 끝 ▴(펼침)·▾(접힘)로 접기를 보인다('최근' 상자, S51-22). 접으면 tail(더보기)도 숨는다.
-export const ftCaretHtml = open => `<span class="ft-box-caret" aria-hidden="true">${open ? '▴' : '▾'}</span>`;
+// caret: 이름 바로 옆 공용 꺾쇠(⌃ 펼침·⌄ 접힘, UI-접기꺾쇠 S51-33)로 접기를 보인다('최근' 상자, S51-22). 머리 줄 아무 데나 누르면 접기.
+// 접으면 tail(더보기)도 숨는다. 꺾쇠는 접기 단추 안 이름 뒤에 붙고, '더보기 ›'는 오른쪽 글자 단추로 따로 있다.
+export const ftCaretHtml = open => chevHtml(open, 'ft-box-caret');
 export function ftBoxHtml({head = '', body = '', open = true, collapsible = false, caret = false, toggleAttrs = {}, tail = '', attrs = {}, label = ''} = {}) {
   const headHtml = !head ? '' : collapsible
-    ? `<div class="ft-box-head"><button type="button" class="ft-btn ft-box-toggle"${attrsHtml(toggleAttrs)} aria-expanded="${!!open}">${head}${caret ? '' : open ? '' : '<span class="ft-box-folded">접힘</span>'}</button>${caret && !open ? '' : tail}${caret ? ftCaretHtml(open) : ''}</div>`
+    ? `<div class="ft-box-head"><button type="button" class="ft-btn ft-box-toggle"${attrsHtml(toggleAttrs)} aria-expanded="${!!open}">${head}${caret ? ftCaretHtml(open) : open ? '' : '<span class="ft-box-folded">접힘</span>'}</button>${caret && !open ? '' : tail}</div>`
     : `<div class="ft-box-head"><span class="ft-box-title">${head}</span>${tail}</div>`;
   return `<section class="ft-box${open ? '' : ' ft-box-closed'}"${attrsHtml(attrs)}${label ? ` aria-label="${esc(label)}"` : ''}>${headHtml}${open ? `<div class="ft-box-body">${body}</div>` : ''}</section>`;
 }

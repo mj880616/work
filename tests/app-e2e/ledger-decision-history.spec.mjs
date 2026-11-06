@@ -88,7 +88,7 @@ for(const width of [412,884,1440]){
   const fold=detail.locator('details[data-lb-history]');
   await expect(fold).toHaveCount(1);
   await expect(fold).not.toHaveAttribute('open','');
-  await expect(fold.locator(':scope > summary')).toHaveText('이전 결정 2 ▸');
+  await expect(fold.locator(':scope > summary')).toHaveText('이전 결정 2');
   // 상세의 맨 마지막 칸
   expect(await detail.evaluate(el=>el.lastElementChild?.matches('details[data-lb-history]'))).toBe(true);
   // 거꾸로 두 단계 읽고, 세 번째 단계에서 끝남
@@ -97,7 +97,8 @@ for(const width of [412,884,1440]){
   await fold.locator(':scope > summary').focus();
   await page.keyboard.press('Enter');
   await expect(fold).toHaveAttribute('open','');
-  await expect(fold.locator(':scope > summary')).toHaveText('이전 결정 2 ⌄');
+  await expect(fold.locator(':scope > summary')).toHaveText('이전 결정 2');
+  await expect(fold.locator('.lb-hist-caret')).toHaveClass(/kptu-chev/); // S51-33 공용 꺾쇠(세모 없음)
   const lines=fold.locator('.lb-hist-line');
   await expect(lines).toHaveCount(3);
   await expect(lines.nth(0)).toContainText('7.15가상 회의비 기준 1인 8천 원');
@@ -126,7 +127,7 @@ test('약속도 이전 기록으로 보이고, 이전 기록이 없으면 줄 �
  await signIn(page);
  let detail=await openRecord(page,'11월 5일',u(5));
  const fold=detail.locator('details[data-lb-history]');
- await expect(fold.locator(':scope > summary')).toHaveText('이전 기록 1 ▸');
+ await expect(fold.locator(':scope > summary')).toHaveText('이전 기록 1');
  await fold.locator(':scope > summary').click();
  await expect(fold.locator('.lb-hist-line').nth(1)).toContainText('사유: 가상 기한 미룸');
  await expect(fold.locator('.lb-hist-topic')).toHaveCount(0);

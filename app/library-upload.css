@@ -23,7 +23,7 @@
 .library-edit-file-note{margin:0 0 2px;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
 .library-edit-file .library-pick-button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 .library-edit-file .library-pick-button:disabled{opacity:.5;cursor:default}
-.library-edit-prev>summary{display:flex;align-items:center;min-height:var(--kptu-touch-target,44px);list-style:none;cursor:pointer;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.library-edit-prev>summary{display:flex;align-items:center;gap:4px;min-height:var(--kptu-touch-target,44px);list-style:none;cursor:pointer;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .library-edit-prev>summary::-webkit-details-marker{display:none}
 .library-edit-prev>summary:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
 .library-edit-prev-row{display:flex;align-items:baseline;gap:8px;min-width:0;min-height:var(--kptu-touch-target,44px);border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
@@ -348,7 +348,7 @@
 .lu-recent-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:var(--ds-compact-height-sm,28px)}
 .lu-recent-title{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 #appView #libraryView .lu-recent-fold{flex:1 1 auto;min-width:0;min-height:var(--ds-compact-height-sm,28px);margin:0;padding:0;border:0;background:none;font:inherit;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);color:var(--kptu-muted);text-align:left;cursor:pointer}
-#appView #libraryView .lu-recent-head .ft-box-caret{padding:0 2px}
+#appView #libraryView .lu-recent-fold>.ft-box-caret{margin-left:4px}
 .lu-recent-list{list-style:none;margin:0;padding:0}
 #appView #libraryView .lu-recent-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:30px;margin:0;padding:2px 0;border:0;border-top:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);text-align:left;cursor:pointer}
 #appView #libraryView .lu-recent-row:hover{background:var(--kptu-surface-subtle)}

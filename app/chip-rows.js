@@ -1,9 +1,10 @@
 // UI-칩줄두줄(2026-10-31 명진 결정, 요청함 11:14): 앱 전체 칩 줄의 공용 부품 하나.
-// 칩 줄은 폰·PC 모두 줄바꿈으로 두 줄까지만 보이고, 넘치면 끝에 작은 [더보기 ▾] → 누르면 전부, [접기 ▴]로 다시 두 줄.
+// 칩 줄은 폰·PC 모두 줄바꿈으로 두 줄까지만 보이고, 넘치면 끝에 작은 [더보기 ›] → 누르면 전부, [접기]로 다시 두 줄.
 // 옆으로 미는 칩 줄(가로 스크롤·끝 흐림)은 없앴다. 고른 칩(keep)은 접혀 있어도 늘 보이며, 숨는 칩 자리를 건너 앞쪽에 붙는다.
 // 펼침은 기기에 저장하지 않는다: 열어 둔 동안만 메모리에 두고, 화면을 옮기면(kptu:view-changed) 모두 두 줄로 돌아간다.
 // 숨는 칩은 data-chip-cut 하나로만 표시하고 모양은 ui-standard.css "UI-칩줄두줄" 한 묶음이 그린다(칩의 hidden은 부른 쪽 몫이라 건드리지 않음).
 import {lineCount} from './chip-rows-model.mjs';
+import { MORE_LABEL } from './fold-chevron.mjs';
 
 export const CHIP_ROWS = 2;
 const opened = new Map(); // 펼친 줄: key(부른 쪽 이름) 또는 줄 요소 → true
@@ -63,7 +64,7 @@ function layout(host) {
   if (lineCount(boxes(shown)) <= opts.rows) return;
   const open = !!opened.get(opts.key || host);
   toggle.hidden = false;
-  toggle.textContent = open ? '접기 ▴' : '더보기 ▾';
+  toggle.textContent = open ? '접기' : MORE_LABEL; // UI-접기꺾쇠(S51-33): 세모 없이 '더보기 ›'/'접기'
   toggle.setAttribute('aria-expanded', String(open));
   if (open) return;
   // 뒤에서부터 남기지 않아도 되는 칩을 하나씩 접어, [더보기]까지 두 줄 안에 들 때 멈춘다. 초점이 있는 칩은 남긴다.

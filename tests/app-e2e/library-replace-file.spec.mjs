@@ -148,7 +148,7 @@ for(const width of [390,1280]){
     await expect(page.locator('#libraryEditFileLine')).toContainText('새 파일.pdf');
     const prev=page.locator('#libraryEditPrev');
     await expect(prev).toBeVisible();
-    await expect(prev.locator('summary')).toHaveText('이전 파일 ▾');
+    await expect(prev.locator('summary')).toHaveText('이전 파일');
     await prev.locator('summary').click();
     const link=prev.locator('.library-edit-prev-file');
     await expect(link).toHaveText('옛 파일.hwpx');

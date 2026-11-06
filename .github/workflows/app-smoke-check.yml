@@ -422,6 +422,8 @@ jobs:
         run: node --test tests/ui-polish-2.test.mjs
       - name: Check chip rows wrap to two lines with a more button, no sideways scroll (UI-칩줄두줄)
         run: node --test tests/chip-rows.test.mjs
+      - name: Check one shared fold chevron, no triangle fold marks (UI-접기꺾쇠)
+        run: node --test tests/fold-chevron.test.mjs
       - name: Check two screen widths only, phone and PC frame (UI-폴드PC틀)
         run: node --test tests/fold-pc-frame.test.mjs
       - name: Check one shared loading/failed/empty part (UI-기다림표시통일)
