@@ -17,7 +17,7 @@ for(const zone of ['Asia/Seoul','America/Los_Angeles'])for(const now of ['2026-1
       await expect(page.locator(`[data-gt-${group}] [data-google-task]`)).toHaveCount(ids.length);
       expect(await page.locator(`[data-gt-${group}] [data-google-task]`).evaluateAll(es=>es.map(e=>e.dataset.googleTask))).toEqual(ids);
     }
-    expect(await page.locator('#gtTaskBody>.gt-group .gt-group-head').allTextContents()).toEqual(['기한 지남 1','오늘 1','내일 1','일주일 안 1','나중 1','기한 없음 1','완료 1 ▸']);
+    expect(await page.locator('#gtTaskBody>.gt-group .gt-group-head').allTextContents()).toEqual(['기한 지남 1','오늘 1','내일 1','일주일 안 1','나중 1','기한 없음 1','완료 1']);
     await page.locator('#gtCompleted summary').click();await expect(page.locator('#gtCompleted [data-google-task="done"]')).toBeVisible();
     await page.setViewportSize({width:1280,height:800});
     await expect(page.locator('#gtTaskBody .gt-col-count')).toHaveText(['2','2']);
