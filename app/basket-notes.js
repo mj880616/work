@@ -67,6 +67,7 @@ import { tagGroups, tagsOfNote, tagKey, noteHasTag } from './note-tags.mjs';
 import { COMMENT_KINDS, kindName, commentRows, commentText } from './note-comments.mjs';
 import { readNoteComments } from './note-comments-data.js';
 import { createNoteComments } from './note-comments-ui.js';
+import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 ⑦: 노트 폴더 나무 | 목록은 펼친 폴드(600px~)부터 — 공용 판정 한 곳
 // NEWS-클리핑 C2: 기사 메모 노트(metadata.news_item_id) → 기사 id.
 const newsItemOf = note => { const m = note?.metadata; const id = m && typeof m === 'object' && !Array.isArray(m) ? m.news_item_id : null; return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null; };
 
@@ -150,7 +151,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 폴더가 없으면 노트가 이미 한 목록이라 따로 두지 않는다. 들어간 폴더 id는 at이 폴더일 때만(folderAt).
   const showRecent = () => folders.length > 0;
   const folderAt = () => at && at !== OUTSIDE && folderById(at) ? at : null;
-  const wideList = window.matchMedia('(min-width:761px)');
+  // S51-18: 폴더 나무 | 목록 두 칸은 공용 판정(600px~ = 펼친 폴드·PC). 앱 틀(위 줄 제목·하단바)의 761px은 따로(toplineWide).
+  const wideList = window.matchMedia(SPLIT_QUERY);
   const sortList = list => (noteSort === 'manual' ? sortNotesManual(list, notePinnedAt) : sortNotes(list));
   const isPicked = key => !!pick.has(key);
   const pickBox = key => `<span class="nx-pick" aria-hidden="true">${isPicked(key) ? '✓' : ''}</span>`;
@@ -317,7 +319,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (nxBody) mountSplitResize({container:nxBody, name:'notes', label:'노트 폴더와 노트 칸 폭 조절', columns:[
       {el:() => nxBody.querySelector(':scope>[data-nx-tree]'), varName:'--ds-split-list', minVar:'--ds-split-list-min', minFallback:180, share:30},
       {el:() => nxBody.querySelector(':scope>.nx-pane'), varName:'--ds-split-detail', minVar:'--ds-split-detail-min', minFallback:360, share:70}],
-      active:() => wideList.matches && view === 'folder' && nxBody.isConnected && !!nxBody.querySelector(':scope>[data-nx-tree]')?.getClientRects().length});
+      query:SPLIT_QUERY, active:() => wideList.matches && view === 'folder' && nxBody.isConnected && !!nxBody.querySelector(':scope>[data-nx-tree]')?.getClientRects().length});
     host.querySelector('[data-nx-count]').textContent = loaded ? `노트 · ${notes.length}` : '';
     if (!loaded) return;
     // UI-일기손질 ⑤: an empty note list stays empty (no guide sentence); only a search with no hit says so.

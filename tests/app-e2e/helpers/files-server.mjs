@@ -260,7 +260,8 @@ export async function start(page, width, opts) {
   const server = await filesServer(page, opts);
   return { errors, server };
 }
-// S50-33: 폴드 펼침(761~1199)도 기본은 한 칸(PC처럼 나무 + 목록). 서버에 '두 칸'이 기억돼 있으면 한 칸 시험은 [한 칸 보기]를 눌러 끈 뒤 시작한다({two: true}면 그대로).
+// S50-33: 폴드 펼침도 기본은 한 칸(PC처럼 나무 + 목록). 서버에 '두 칸'이 기억돼 있으면 한 칸 시험은 [한 칸 보기]를 눌러 끈 뒤 시작한다({two: true}면 그대로).
+// S51-18: 폴드 칸은 600px부터(공용 판정 screen-width.mjs). 앱 틀(하단바 메뉴)은 지금처럼 760px 이하라 600~760은 폰 틀 메뉴로 연다.
 export async function openFiles(page, width, { two = false } = {}) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
@@ -268,7 +269,7 @@ export async function openFiles(page, width, { two = false } = {}) {
   } else await page.locator('#appView>.app-nav').getByRole('button', { name: '파일', exact: true }).click();
   await expect(page.locator('#filesView')).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('files');
-  if (width > 760 && width < 1200 && !two) {
+  if (width >= 600 && width < 1200 && !two) {
     const btn = page.locator('#filesRoot [data-fx-two]');
     await expect(btn).toBeVisible();
     // 서버에 '끔'이 이미 기억돼 있으면(다시 열기) 그대로 둔다.

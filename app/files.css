@@ -1,6 +1,6 @@
 /* FILES-클라우드탐색기 ④ 화면 모양(설계 docs/design/files-explorer.md 6절, 시안 docs/design/mockups/files-explorer.html).
    촘촘하게: 줄 높이 28px(PC)·44px(폰), 큰 버튼·카드 없음, 톤다운 색(base-ui.css 토큰만). 폴더 나무 줄은 공용 folder-tree.css(.nx-*).
-   폭: 폰(~760) 한 칸(첫 화면 나무 → 누르면 같은 자리에 목록), 폴드 펼침(761~1199) 나무 + 목록 두 칸(미리보기는 목록 위 덮는 칸), PC(1200~) 나무 · 목록 · 미리보기 세 칸. */
+   폭: 폰(600px 미만) 한 칸(첫 화면 나무 → 누르면 같은 자리에 목록), 폴드 펼침(600~1199, 공용 판정 screen-width.mjs — S51-18) 나무 + 목록 두 칸(미리보기는 목록 위 덮는 칸), PC(1200~) 나무 · 목록 · 미리보기 세 칸. */
 .fx { display:flex; flex-direction:column; min-width:0; font-size:13px; }
 .fx-top { display:flex; align-items:center; gap:6px; min-height:36px; padding:4px 0; border-bottom:.5px solid var(--kptu-border); flex-wrap:wrap; }
 .fx-crumb { flex:1 1 200px; min-width:0; display:flex; align-items:center; gap:2px; font-size:12.5px; color:var(--kptu-muted); white-space:nowrap; overflow:hidden; }
@@ -21,6 +21,8 @@
 .fx-tree { flex:0 0 240px; width:240px; padding:4px 4px 8px 0; }
 .fx-tree .nx-main { min-height:28px; font-size:12.5px; padding:0 4px; }
 .fx-tree .fx-root .nx-main { font-weight:600; }
+/* FILES-폴드나무목록 ④(S51-18, 시안 files-fold-tree-list.html): 폴드·PC 나무의 저장소 이름 줄은 옅은 배경 — 저장소 사이가 한눈에 갈린다. 접기는 줄 왼쪽 ▸/▾(접으면 그 저장소는 한 줄). */
+:is(.fx-tree, .fx-ptree) .nx-row.fx-root { margin-top:4px; background:var(--kptu-surface-subtle); border-radius:var(--kptu-radius-sm); }
 .fx-tree .nx-row.fx-shelf:last-of-type { margin-bottom:4px; padding-bottom:4px; border-bottom:.5px solid var(--kptu-border); }
 .fx-twist { flex:none; width:16px; border:0; background:none; padding:0; color:var(--kptu-faint); font-size:10px; cursor:pointer; }
 .fx-zero { opacity:.55; }
@@ -30,10 +32,12 @@
 .fx-main { flex:1 1 auto; min-width:0; display:flex; align-items:flex-start; }
 .fx-list { flex:1 1 auto; min-width:0; }
 /* S49-4 FILES-칸폭: 폴드 펼침·PC는 두 칸(폴더 나무 | 목록+미리보기) 그리드 — 폭은 split-resize.js가 변수(fr)로 넣고 서버에 기억. 폰은 나무가 없어 그대로. */
-@media (min-width:761px) {
+@media (min-width:600px) {
   .fx-cols { --ds-split-files-tree:22fr; --ds-split-files-main:78fr; --ds-split-files-tree-min:160px; --ds-split-files-main-min:440px; display:grid; grid-template-columns:minmax(var(--ds-split-files-tree-min), var(--ds-split-files-tree)) minmax(0, var(--ds-split-files-main)); }
   .fx-tree { flex:none; width:auto; min-width:0; }
 }
+/* S51-18: 폴드 폭(600~1199)은 나무 최소 폭을 넓혀 폴더 이름이 잘리지 않게, 목록 칸 최소 폭은 줄여 나무를 더 넓힐 수 있게(목록은 이름 칸이 좁아질 뿐 줄 모양 그대로). */
+@media (min-width:600px) and (max-width:1199px) { .fx-cols { --ds-split-files-tree-min:200px; --ds-split-files-main-min:340px; } }
 .fx-prev { flex:0 0 320px; width:320px; border-left:.5px solid var(--kptu-border); padding:8px 12px; position:sticky; top:var(--follow-top,8px); align-self:start; max-height:calc(100vh - var(--follow-top,8px) - 16px); overflow:auto; }
 
 /* 목록: 한 줄 = 버튼 하나(키보드·터치 그대로). PC는 칸 맞춘 줄, 폰은 두 줄(이름 / 날짜·크기 또는 위치·크기). */
@@ -100,12 +104,12 @@
   .fx-prev { position:fixed; z-index:40; top:var(--kptu-topbar-height,56px); right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px)); left:0; width:auto; max-height:none; border-left:0; background:var(--kptu-surface); padding:8px 12px; }
   .fx-back { display:inline-block; }
 }
-@media (min-width:761px) and (max-width:1199px) { .fx-prev { left:max(0px, calc(100vw - 560px)); border-left:.5px solid var(--kptu-border); } }
+@media (min-width:600px) and (max-width:1199px) { .fx-prev { left:max(0px, calc(100vw - 560px)); border-left:.5px solid var(--kptu-border); } }
 /* 폰: 한 칸. 첫 화면은 나무(data-fx-pane="tree"), 폴더·별표를 누르면 같은 자리에 목록(pane="list"). 두 줄 줄 */
 /* 정렬 기준은 작은 칩(PC): 칸 머리에서 따로 상자처럼 보이지 않게 */
 /* 정렬 기준 칩: 공용 select(폭 100%·높이 큼)가 폰에서 폭 가득 빈 칸처럼 보이던 것을 폰·PC 모두 같은 작은 칩으로. */
 .fx-sort { flex:none; width:auto; min-height:0; height:24px; max-width:96px; padding:0 8px; font-size:11.5px; border-color:transparent; border-radius:999px; background:var(--kptu-surface-subtle); }
-@media (max-width:760px) {
+@media (max-width:599px) {
   /* S50-33(시안 승인): 위 줄 = 찾기 칸 + 출처 단추(같은 줄 오른쪽 작은 정사각). 목록일 때만 아래 줄에 위치 길(‹ 원드라이브 › Pictures)·정렬. */
   .fx-top { flex-wrap:wrap; row-gap:2px; min-height:0; padding:4px 0 3px; }
   /* 찾기 칸은 출처 단추(2~4개)와만 한 줄을 채우고, 위치 길은 늘 다음 줄(최소 120px라 첫 줄 남은 자리에 끼지 않음). */
@@ -251,6 +255,6 @@
 .fx-tkind { flex:none; box-sizing:border-box; min-width:30px; height:18px; padding:0 5px; border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface-subtle); color:var(--kptu-muted); font-size:10px; line-height:18px; text-align:center; white-space:nowrap; }
 .fx-titem .fx-tday { margin-left:auto; }
 .fx-titem .fx-star { flex:none; color:var(--kptu-warning); font-size:11px; }
-@media (max-width:760px) {
+@media (max-width:599px) {
   .fx[data-fx-pane="tree"] .fx-tree { padding:2px 0 8px; }
 }

@@ -79,7 +79,8 @@ test('화면은 서버 저장만(기기 저장 없음)·같은 부품·같은 �
   const js = read('app/files.js').replace(/\/\/.*$/gm, '');
   assert.doesNotMatch(js, new RegExp(['local', 'session'].map(k => k + 'Stor' + 'age').concat('indexed' + 'DB').join('|')));
   assert.match(js, /viewPrefs\.setFilesSources\(DEVICE, filesSourcesValue\(toggleFilesSource\(srcState\(\), name\)\)\)/);
-  assert.match(js, /const DEVICE = filesDeviceKind\(\{ua: navigator\.userAgent \|\| '', narrow: PHONE\.matches\}\)/);
+  // S51-18: 기억 칸(폰 브라우저)은 지금처럼 760px 기준(PHONE_WIDTH_QUERY), 칸 모양(PHONE)은 공용 600px 판정 — 둘이 따로다.
+  assert.match(js, /const DEVICE = filesDeviceKind\(\{ua: navigator\.userAgent \|\| '', narrow: !!window\.matchMedia\(PHONE_WIDTH_QUERY\)\.matches\}\)/);
   assert.match(js, /import \{odLinkButtonHtml, paintOdLink\} from '\.\/od-link\.js'/);
   assert.match(js, /brandIconSvg\('gdrive'/);
   assert.match(js, /treeRows\(\{sources: onSources\(\)/);

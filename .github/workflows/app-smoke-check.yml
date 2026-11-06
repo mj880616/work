@@ -522,6 +522,8 @@ jobs:
         run: node --test tests/note-tree.test.mjs
       - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자·두 손가락) 시험
         run: node --test tests/folder-tree-ui.test.mjs
+      - name: FILES-폴드나무목록 펼친 폴드 판정(공용 600px) 시험
+        run: node --test tests/screen-width.test.mjs
       - name: NOTE-탐색기 후속 선택 상태·위치 줄 공용 부품 시험
         run: node --test tests/select-mode-folder-path.test.mjs
       - name: NOTE-비밀메모 판별(서버 note-secret.ts와 같은 규칙)·목록 제목 가리기 시험

@@ -897,6 +897,9 @@
   #appView :is(.schedule-switch,.nv-switch) button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
   #appView :is(.schedule-switch,.nv-switch) button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
   #appView :is(.schedule-switch,.nv-switch) button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+  /* FILES-폴드나무목록(S51-18, 01:25 탭 자리 규칙): 펼친 폴드(600~760px, 폰 틀 — 공용 판정 screen-width.mjs)의 노트 전환 줄은 오른쪽 아래(접은 폰은 가운데, PC 틀은 위).
+     일정 전환 줄은 오른쪽 끝에 [+]가 붙어 있어 그대로 가운데. */
+  @media(min-width:600px){ #appView .nv-switch:not([hidden]){ margin:0 calc(12px + env(safe-area-inset-right)) 0 auto; } }
 
   /* S48-6 UI-폰달력월보기 결정 6(2026-11-02 명진, #1708 시안 안 a): 전환 줄이 있는 일정 화면(달력·일기)의 [+]는 떠 있는 동그란 단추 대신
      전환 줄 오른쪽 끝 작은 단추(보이는 32px·0.5px 선, 누르는 범위 44px). 달력 칸·목록을 가리지 않고 높이도 늘지 않는다.
