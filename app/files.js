@@ -900,9 +900,17 @@ function rowHtml(p, r, {withPath = false} = {}) {
     + `<span class="fx-day">${esc(day)}</span><span class="fx-size">${esc(size)}</span><span class="fx-kind">${esc(kindLabel(r))}</span>`
     + `<span class="fx-sub">${esc([withPath ? where : day, size].filter(Boolean).join(' · '))}</span></button>`;
 }
-// S49-4 FILES-칸폭: 폴더 나무 | 목록 경계(split_ratio.files)와 표 머리 칸(위치·바뀐 날·크기·종류, col_widths.files)을 끌어 조절 — 둘 다 서버에 기억.
+// S49-4 FILES-칸폭: 폴더 나무 | 목록 경계(split_ratio.files)와 표 머리 칸(col_widths.files)을 끌어 조절 — 둘 다 서버에 기억.
 // 나무 | 목록 경계는 나무가 보이는 동안만(폰·폴드 두 칸은 나무 칸이 없다).
-const COL_VARS = {path: '--fx-w-path', day: '--fx-w-day', size: '--fx-w-size', kind: '--fx-w-kind'};
+// S51-33 UI-칸너비끌기(요청함 11/06 22:33): 머리줄 칸 사이 금(이름|위치|바뀐 날|크기|종류)을 끌면 금 왼쪽 칸 너비가 바뀐다 — 이름 칸 포함.
+// 폰·폴드 펼침·PC 따로 기억(col-resize.js). 폴더 목록·큰 파일·별표·찾기 결과·두 칸 각 칸이 같은 머리줄(fileHeadHtml) 하나를 쓴다.
+const COL_VARS = {name: '--fx-w-name', path: '--fx-w-path', day: '--fx-w-day', size: '--fx-w-size', kind: '--fx-w-kind'};
+const COL_CELL = {name: '.fx-nm', path: '.fx-path', day: '.fx-day', size: '.fx-size', kind: '.fx-kind'};
+// 칸 안 글자 길이: 이름 칸은 점·이름·별·꼬리표를 더한 길이(이름은 잘려 있어 scrollWidth로 잰다).
+const cellFit = el => el.matches('.fx-nm')
+  ? [...el.children].reduce((w, c, i) => w + (i ? 6 : 0) + (c.classList.contains('fx-name') ? c.scrollWidth : c.getBoundingClientRect().width), 0)
+  : el.scrollWidth;
+const fileHeadHtml = withPath => `<div class="fx-head${withPath ? ' fx-with-path' : ''}"><span aria-hidden="true"></span><span>이름${gripHtml('name', '이름')}</span>${withPath ? `<span>위치${gripHtml('path', '위치')}</span>` : ''}<span>바뀐 날${gripHtml('day', '바뀐 날')}</span><span>크기${gripHtml('size', '크기')}</span><span>종류</span></div>`;
 function mountWidths(list) {
   const cols = $('[data-fx-cols]');
   if (cols) {
@@ -912,7 +920,7 @@ function mountWidths(list) {
     ], query: SPLIT_QUERY, active: () => !PHONE.matches && !(two() && !WIDE.matches)});
   }
   mountColResize({host: list, name: 'files', vars: COL_VARS,
-    fit: key => Math.ceil(Math.max(0, ...[...list.querySelectorAll(`.fx-row .fx-${key}`)].map(el => el.scrollWidth))) });
+    fit: key => Math.ceil(Math.max(0, ...[...list.querySelectorAll(`.fx-rows:not(.fx-grid) .fx-row ${COL_CELL[key]}`)].map(cellFit))) });
 }
 const scanningNow = () => state.syncing || SOURCES.some(x => state.status?.[x]?.scanning);
 function paintList(p) {
@@ -925,7 +933,7 @@ function paintList(p) {
     if (p.findFailed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(p.findFailed), reason: p.findWhy}); return; }
     if (!p.found) { list.innerHTML = waitHtml({rows: 4}); return; }
     const found = foundShown(p);
-    list.innerHTML = found.length ? `<div class="fx-rows fx-with-path" role="list">${found.map(r => rowHtml(p, r, {withPath: true})).join('')}</div>` : emptyHtml('찾은 것 없음');
+    list.innerHTML = found.length ? `${fileHeadHtml(true)}<div class="fx-rows fx-with-path" role="list">${found.map(r => rowHtml(p, r, {withPath: true})).join('')}</div>` : emptyHtml('찾은 것 없음');
     list.dataset.fxMode = 'find'; delete list.dataset.fxLook;
     mountThumbs(list);
     return;
@@ -947,7 +955,7 @@ function paintList(p) {
     mountThumbs(list);
     return;
   }
-  list.innerHTML = `<div class="fx-head"><span>이름</span>${w.shelf ? `<span>위치${gripHtml('path', '위치')}</span>` : ''}<span>바뀐 날${gripHtml('day', '바뀐 날')}</span><span>크기${gripHtml('size', '크기')}</span><span>종류${gripHtml('kind', '종류')}</span></div>`
+  list.innerHTML = fileHeadHtml(!!w.shelf)
     + `<div class="fx-rows${w.shelf ? ' fx-with-path' : ''}" role="list">${rows.map(r => rowHtml(p, r, {withPath: !!w.shelf})).join('')}</div>`;
   mountThumbs(list);
 }
