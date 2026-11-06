@@ -1710,7 +1710,7 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
    ② 작은 버튼 button.secondary(.ghost) — 흰 바탕·얇은 회색 선, --ds-compact-height. 지우기만 button.danger(빨강)
    ③ 글자 버튼 button.row-act — 선·바탕 없는 작은 회색 글자(위 'UI-줄버튼' 그대로)
    ④ 칩 button.ds-chip — 알약, --ds-compact-height-sm, 고른 것만 선택 표시 색(연한 바탕 + 선, '선택 표시 규칙')
-   ⑤ 보기 바꾸기 .ds-seg > button.ds-seg-btn — 붙은 칸 한 덩어리, --ds-compact-height, 고른 칸은 연한 바탕 + 아래 선
+   ⑤ 보기 바꾸기 .ds-seg 안의 button.ds-seg-btn — 붙은 칸 한 덩어리(사이 선 없이 붙는 두 칸은 .ds-seg-group), --ds-compact-height, 고른 칸은 연한 바탕 + 아래 선
    ⑥ 아이콘 button.icon-btn — ⋯ ✕ ‹ › ⤢, 선·바탕 없음(마우스를 올리면 옅은 바탕)
    모두: 모서리는 --ds-radius-control(칩만 알약), 색은 주 색 하나 + 회색 선 하나 + 빨강은 지우기만, 누르는 범위 44px(::after),
    눌림은 UI-누름움직임(위 공용 규칙), 꺼짐은 흐리게만. 값은 --ds-*·--kptu-* 토큰만 쓰고 숫자를 새로 정하지 않는다.
@@ -1722,16 +1722,18 @@ button.ds-chip{ position:relative; box-sizing:border-box; display:inline-flex; a
 button.ds-chip:is([aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-select-ink); background:var(--ds-select-bg); border-color:var(--ds-select-line); }
 .ds-seg{ display:inline-flex; align-items:stretch; flex:none; box-sizing:border-box; height:var(--ds-compact-height);
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); }
-.ds-seg > button.ds-seg-btn{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:var(--ds-chip-row-gap);
+.ds-seg button.ds-seg-btn{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:var(--ds-chip-row-gap);
   height:auto; min-height:0; margin:0; padding:0 var(--ds-compact-pad-x); border:0; border-radius:0; background:transparent; box-shadow:none;
   color:var(--kptu-muted); font-size:var(--ds-text-button); font-weight:var(--ds-weight-regular,400); line-height:1; white-space:nowrap; cursor:pointer; }
-.ds-seg > button.ds-seg-btn + button.ds-seg-btn{ border-left:var(--ds-line-width) solid var(--ds-line); }
-.ds-seg > button.ds-seg-btn:first-child{ border-top-left-radius:inherit; border-bottom-left-radius:inherit; }
-.ds-seg > button.ds-seg-btn:last-child{ border-top-right-radius:inherit; border-bottom-right-radius:inherit; }
-.ds-seg > button.ds-seg-btn[aria-pressed="true"]{ color:var(--ds-select-ink); background:var(--ds-select-bg); }
-.ds-seg > button.ds-seg-btn[aria-pressed="true"]::before{ content:""; position:absolute; left:20%; right:20%; bottom:calc(var(--ds-line-width) * 4); height:calc(var(--ds-line-width) * 4); border-radius:var(--ds-line-width); background:var(--ds-select-line); pointer-events:none; }
-:is(button.ds-chip,.ds-seg > button.ds-seg-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+/* 붙은 두 칸(.ds-seg-group, 예: 홈 [업데이트 ▾])은 사이 선 없이 한 칸처럼 보이고, 앞 칸을 고르면 뒤 칸(▾)도 같이 칠한다. */
+.ds-seg-group{ display:flex; align-items:stretch; border-radius:inherit; }
+.ds-seg > :is(button.ds-seg-btn,.ds-seg-group) + :is(button.ds-seg-btn,.ds-seg-group){ border-left:var(--ds-line-width) solid var(--ds-line); }
+.ds-seg > :first-child,.ds-seg > .ds-seg-group:first-child > button.ds-seg-btn:first-child{ border-top-left-radius:inherit; border-bottom-left-radius:inherit; }
+.ds-seg > :last-child,.ds-seg > .ds-seg-group:last-child > button.ds-seg-btn:last-child{ border-top-right-radius:inherit; border-bottom-right-radius:inherit; }
+.ds-seg button.ds-seg-btn[aria-pressed="true"],.ds-seg-group > button.ds-seg-btn[aria-pressed="true"] + button.ds-seg-btn{ color:var(--ds-select-ink); background:var(--ds-select-bg); }
+.ds-seg button.ds-seg-btn[aria-pressed="true"]::before{ content:""; position:absolute; left:20%; right:20%; bottom:calc(var(--ds-line-width) * 4); height:calc(var(--ds-line-width) * 4); border-radius:var(--ds-line-width); background:var(--ds-select-line); pointer-events:none; }
+:is(button.ds-chip,.ds-seg button.ds-seg-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 button.icon-btn{ border-color:transparent; background:transparent; box-shadow:none; color:var(--kptu-muted); }
-@media (hover:hover){ button.icon-btn:not(:disabled):hover,button.ds-chip:not(:disabled,[aria-pressed="true"],[aria-checked="true"]):hover,.ds-seg > button.ds-seg-btn:not(:disabled,[aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
-:is(button.ds-chip,.ds-seg > button.ds-seg-btn,button.icon-btn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:var(--ds-line-width); }
-:is(button.ds-chip,.ds-seg > button.ds-seg-btn,button.icon-btn):disabled{ opacity:.5; cursor:default; }
+@media (hover:hover){ button.icon-btn:not(:disabled):hover,button.ds-chip:not(:disabled,[aria-pressed="true"],[aria-checked="true"]):hover,.ds-seg button.ds-seg-btn:not(:disabled,[aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
+:is(button.ds-chip,.ds-seg button.ds-seg-btn,button.icon-btn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:var(--ds-line-width); }
+:is(button.ds-chip,.ds-seg button.ds-seg-btn,button.icon-btn):disabled{ opacity:.5; cursor:default; }

@@ -14,12 +14,13 @@ test('6가지 공용 규칙이 ui-standard.css 한 곳에 있고 값은 토큰�
   assert.match(block, /button\.ds-chip:is\(\[aria-pressed="true"\],\[aria-checked="true"\]\)\{[^}]*background:var\(--ds-select-bg\)[^}]*border-color:var\(--ds-select-line\)/);
   // ⑤ 보기 바꾸기: 붙은 칸, 32px, 고른 칸은 연한 바탕 + 아래 선
   assert.match(block, /\.ds-seg\{[^}]*height:var\(--ds-compact-height\)[^}]*border-radius:var\(--ds-radius-control\)/);
-  assert.match(block, /\.ds-seg > button\.ds-seg-btn\[aria-pressed="true"\]\{[^}]*background:var\(--ds-select-bg\)/);
-  assert.match(block, /\.ds-seg > button\.ds-seg-btn\[aria-pressed="true"\]::before\{[^}]*background:var\(--ds-select-line\)/);
+  assert.match(block, /\.ds-seg button\.ds-seg-btn\[aria-pressed="true"\],\.ds-seg-group > button\.ds-seg-btn\[aria-pressed="true"\] \+ button\.ds-seg-btn\{[^}]*background:var\(--ds-select-bg\)/);
+  assert.match(block, /\.ds-seg button\.ds-seg-btn\[aria-pressed="true"\]::before\{[^}]*background:var\(--ds-select-line\)/);
+  assert.match(block, /\.ds-seg > :is\(button\.ds-seg-btn,\.ds-seg-group\) \+ :is\(button\.ds-seg-btn,\.ds-seg-group\)\{ border-left:/, '칸 사이 선, 붙은 두 칸 안은 선 없음');
   // ⑥ 아이콘: 선·바탕 없음
   assert.match(block, /button\.icon-btn\{[^}]*border-color:transparent;[^}]*background:transparent;/);
   // 누르는 범위 44px(보이는 크기와 상관없이)
-  assert.match(block, /:is\(button\.ds-chip,\.ds-seg > button\.ds-seg-btn\)::after\{[^}]*height:var\(--kptu-touch-target,44px\)/);
+  assert.match(block, /:is\(button\.ds-chip,\.ds-seg button\.ds-seg-btn\)::after\{[^}]*height:var\(--kptu-touch-target,44px\)/);
   // 꺼짐은 흐리게만
   assert.match(block, /:disabled\{ opacity:\.5;/);
   // 숫자 값을 새로 정하지 않는다(px·색 글자 없이 토큰만)

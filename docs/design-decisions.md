@@ -399,7 +399,7 @@ UI-버튼기준의 값(32px 작은 버튼·36px 채운 버튼·누르는 범위 
 | ② 작은 버튼 | `button.secondary`(지우기만 `button.danger`) | 흰 바탕·얇은 회색 선, `--ds-compact-height`. 지우기만 빨강 |
 | ③ 글자 버튼 | `button.row-act` | 선·바탕 없는 작은 회색 글자(UI-줄버튼) |
 | ④ 칩 | `button.ds-chip` | 알약, `--ds-compact-height-sm`, 고른 것만 선택 표시 색(연한 바탕 + 선) |
-| ⑤ 보기 바꾸기 | `.ds-seg > button.ds-seg-btn` | 붙은 칸 한 덩어리, `--ds-compact-height`, 고른 칸은 연한 바탕 + 아래 선 |
+| ⑤ 보기 바꾸기 | `.ds-seg` 안의 `button.ds-seg-btn`(사이 선 없이 붙는 두 칸은 `.ds-seg-group`) | 붙은 칸 한 덩어리, `--ds-compact-height`, 고른 칸은 연한 바탕 + 아래 선 |
 | ⑥ 아이콘 | `button.icon-btn` | ⋯ ✕ ‹ › ⤢, 선·바탕 없음(마우스를 올리면 옅은 바탕) |
 
 - 모두 같은 것: 모서리 `--ds-radius-control`(칩만 알약), 색은 주 색 하나 + 회색 선 하나 + 빨강은 지우기만, 누르는 범위 44px(`::after`), 눌림은 UI-누름움직임(공용 눌림 규칙), 꺼짐은 흐리게만. 숫자는 `--ds-*`·`--kptu-*` 토큰만 쓰고 새로 정하지 않는다.
