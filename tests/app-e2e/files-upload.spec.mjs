@@ -152,13 +152,15 @@ test('PC 1440: 미리보기 ☆ 누르기로 켜고 끄기', async ({ page }) =>
   await intoDocs(page, 1440);
   await row(page, 'od:OD!13').click();
   const star = root(page).locator('[data-fx-prev] [data-fx-star-one]');
-  await expect(star).toHaveText('☆');
+  // S51-25: ☆/★ 글자 대신 공용 SVG(빈 별/채운 별) — 켬은 aria-pressed·on.
+  await expect(star).toHaveAttribute('aria-pressed', 'false');
+  await expect(star.locator('svg')).toHaveCount(1);
   await star.click();
-  await expect(star).toHaveText('★');
+  await expect(star).toHaveClass(/\bon\b/);
   await expect(star).toHaveAttribute('aria-pressed', 'true');
   await shot(page, 'files-star-preview-1440');
   await star.click();
-  await expect(star).toHaveText('☆');
+  await expect(star).toHaveAttribute('aria-pressed', 'false');
   expect(edgeCalls(server, 'star').map(c => c.body.on)).toEqual([true, false]);
   expect(errors).toEqual([]);
 });

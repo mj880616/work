@@ -16,7 +16,7 @@ const sharedPicker = () => (picker ||= createMovePicker({esc}));
 
 export function libraryFolderPlace(folders, id) {
   const f = id && Array.isArray(folders) ? folders.find(x => x.id === id) : null;
-  return f ? `\u{1F4C1} ${f.name}` : '폴더 밖';
+  return f ? `${f.name} 폴더` : '폴더 밖';
 }
 
 // 폴더 표와 고른 자료의 지금 폴더를 읽는다(자료실 화면과 같은 읽기). 못 읽으면 {ready:false}.

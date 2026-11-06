@@ -11,7 +11,7 @@ test('폴더 안 자료는 PATCH, 폴더 밖 자료는 POST, 이미 그 폴더�
   const {calls,rt}=fakeRt();
   const loaded={workspace:'ws-1',folders,itemFolder:new Map([[A,F1]])};
   const r=await moveLibraryDocsToFolder([A,B,'not-uuid'],folders[1],{rt,loaded});
-  assert.deepEqual(r.done,[A,B]);assert.deepEqual(r.failed,[]);assert.equal(r.place,'📁 교섭 자료');
+  assert.deepEqual(r.done,[A,B]);assert.deepEqual(r.failed,[]);assert.equal(r.place,'교섭 자료 폴더');
   assert.deepEqual(calls.map(c=>[c.method,c.body]),[['PATCH',{folder_id:F2}],['POST',{document_id:B,folder_id:F2,workspace_id:'ws-1'}]]);
   assert.match(calls[0].path,/document_id=eq\.[^&]+&workspace_id=eq\.ws-1/);
   calls.length=0;assert.equal(await r.undo(),true);
@@ -25,5 +25,5 @@ test('폴더 밖으로는 DELETE, 실패한 것만 failed, 되돌리기는 POST'
   assert.deepEqual(r.done,[A]);assert.deepEqual(r.failed,[B]);assert.equal(r.place,'폴더 밖');
   calls.length=0;await r.undo();
   assert.deepEqual(calls.map(c=>[c.method,c.body]),[['POST',{document_id:A,folder_id:F1,workspace_id:'ws-1'}]]);
-  assert.equal(libraryFolderPlace(folders,F1),'📁 회의자료');
+  assert.equal(libraryFolderPlace(folders,F1),'회의자료 폴더');
 });

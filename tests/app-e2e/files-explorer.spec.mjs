@@ -22,7 +22,9 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   // '최근' 상자(최근 바뀐 파일) → 별표·큰 파일 → 저장소마다 상자(머리 = 저장소 그림 + 이름, 첫 클라우드 머리 오른쪽에 맞춤 글자).
   await expect(tree.locator('[data-fx-box="recent"] .ft-box-toggle')).toHaveText('최근');
   await expect(tree.locator('[data-fx-shelf] .ft-name')).toHaveText(['별표', '큰 파일']);
-  await expect(tree.locator('[data-fx-shelf="starred"] .ft-ico')).toHaveText('★');
+  // S51-25: 별표 아이콘은 그림 문자 대신 공용 SVG(글자 없음).
+  await expect(tree.locator('[data-fx-shelf="starred"] .ft-ico svg')).toHaveCount(1);
+  await expect(tree.locator('[data-fx-shelf="starred"] .ft-ico')).toHaveText('');
   await expect(tree.locator('[data-fx-shelf="starred"] .ft-num')).toHaveText('1개');
   await expect(tree.locator('[data-fx-box-tog]')).toHaveText(['원드라이브', '구글 드라이브']);
   await expect(tree.locator('[data-fx-box="od"] .ft-box-head [data-fx-sync]')).toBeVisible();
@@ -89,7 +91,7 @@ for (const width of [884, 1440]) {
     await expect(tree.locator('[data-fx-shelf] .nx-name')).toHaveText(['별표', '큰 파일']);
     await expect(tree.locator('[data-fx-shelf="starred"] .nx-num')).toHaveText('1개');
     // S50-20 FOLDER-나무아이콘: 별표·큰 파일은 별·문서, 저장소는 로고, 폴더는 폴더 아이콘(글자는 그대로).
-    await expect(tree.locator('[data-fx-shelf] .nx-ico')).toHaveText(['\u2605', '\u{1F4C4}']);
+    await expect(tree.locator('[data-fx-shelf] .nx-ico svg')).toHaveCount(2); // S51-25: 별표·큰 파일 = 공용 SVG(그림 문자 없음)
     await expect(tree.locator('.fx-root .nx-ico svg')).toHaveCount(2);
     await expect(tree.locator('.fx-root .nx-name')).toHaveText(['원드라이브', '구글 드라이브']);
     // 첫 화면(S50-33): 켜진 첫 저장소(원드라이브) 맨 위. [최근]·탭 줄은 없다.

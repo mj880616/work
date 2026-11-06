@@ -11,6 +11,7 @@
 // 이 파일은 잊지 말기 표를 부르지 않는다(tests/security/family-notes-isolation.test.mjs).
 import {readNoteFolders, createNoteFolder} from './note-folders-data.js';
 import {openNoteFolderPicker} from './note-folder-pick.js';
+import {iconNode} from './tree-icons.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {toPlain} from './ed-text.mjs';
 import {cleanDoc} from './ed-schema.mjs';
@@ -126,7 +127,7 @@ function paint() {
   el.querySelector('[data-fs-line]').textContent = s.line;
   const folderName = s.folder?.name || (s.create ? FAMILY_FOLDER : '폴더 없음');
   const fb = el.querySelector('[data-fs-folder]');
-  fb.textContent = `📁 ${folderName} ▾`; fb.setAttribute('aria-label', `폴더: ${folderName}, 바꾸기`); fb.disabled = s.busy || !s.loaded;
+  fb.replaceChildren(iconNode('folder'), ` ${folderName} ▾`); // S51-25: 그림 문자 📁 대신 공용 그림 fb.setAttribute('aria-label', `폴더: ${folderName}, 바꾸기`); fb.disabled = s.busy || !s.loaded;
   const listBtn = el.querySelector('[data-fs-where="list"]');
   listBtn.textContent = `'${LIST_TITLE}' 노트에 한 줄 더하기`;
   for (const b of el.querySelectorAll('[data-fs-where]')) { b.setAttribute('aria-pressed', String(b.dataset.fsWhere === s.where)); b.disabled = s.busy; }

@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
-import {onlyLibraryCategories} from './helpers/library-categories.mjs';
+import {onlyLibraryCategories,showAllLibraryCategories} from './helpers/library-categories.mjs';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -241,7 +241,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`organiz
  const orgChips=page.locator('#libraryOrganizationFilter');
  await expect(orgChips.getByRole('radio')).toHaveText(['전체','합성 한빛지부']);await expect(orgChips.getByRole('radio',{name:'합성 한빛지부'})).toHaveAttribute('aria-checked','true');
  // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글. 담당조직에서 들어오면 모든 분류가 켜진 채로 보인다.
- await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체',...DEFAULT]);
+ await expect(page.locator('#libraryCategoryFilter [data-lu-category]')).toHaveText(['전체',...DEFAULT]);
  await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveCount(0);
  // 맞는 자료가 든 토글만 남고 모두 펼쳐진다(프로젝트에 붙은 자료 1건 + '프로젝트 없음' 5건). 토글 안은 날짜 최신순.
  await expect(page.locator('#documentList > details > summary .lu-node-count')).toHaveText(['1','5']);await expect(page.locator('#documentList > details > summary .lu-node-name').last()).toHaveText('사업영역 없음');await expect(page.locator('#documentList > details:not([open])')).toHaveCount(0);
@@ -257,7 +257,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`organiz
  const chips=page.locator('#libraryCategoryFilter');
  await onlyLibraryCategories(page,['교섭']);await expect(page.locator('.lu-row')).toHaveCount(2);
  await onlyLibraryCategories(page,['정책']);await expect(page.locator('.lu-row')).toHaveText([/합성 국토부 지침/]);
- await chips.getByRole('button',{name:'전체'}).click();await expect(chips.locator('[aria-pressed="false"]')).toHaveCount(0);await expect(page.locator('.lu-row')).toHaveCount(6);
+ await showAllLibraryCategories(page);await expect(chips.locator('[aria-pressed="false"]')).toHaveCount(0);await expect(page.locator('.lu-row')).toHaveCount(6);
  // [전체] on the organization row lifts the filter: every document of the workspace shows.
  await orgChips.getByRole('radio',{name:'전체'}).click();
  await expect(orgChips).toBeHidden();await expect(page.locator('.lu-row')).toHaveCount(f.tables.app_documents.length);
@@ -312,9 +312,14 @@ const editorDocs=()=>[
 ];
 async function openEditor(page,width){
  await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
- await tap(page,page.locator('#manageLibraryBtn'),width);
+ await openManage(page,width);
  const modal=page.locator('#libraryManageModal');await expect(modal).toBeVisible();
  const editor=modal.locator('.dce');await expect(editor.locator('.dce-list')).toBeVisible();return {modal,editor};
+}
+// S51-28: 폰·폴드는 [분류 ▾] 창 [편집], PC는 칩 줄 끝 [편집].
+async function openManage(page,width){
+ if(width<1200){await tap(page,page.locator('#libraryCategoryPick'),width);await tap(page,page.locator('#libraryCategorySheet [data-lu-cat-edit]'),width);}
+ else await tap(page,page.locator('#manageLibraryBtn'),width);
 }
 const names=editor=>editor.locator('.dce-row .dce-name');
 
@@ -337,7 +342,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`categor
  await expect(editor.locator('.dce-status')).toHaveText('‘홍보’ 분류를 추가했어요.');
  await expect(names(editor)).toHaveText([...DEFAULT,'홍보']);
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_add',body:{p_name:'홍보'}});
- await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체',...DEFAULT,'홍보']);
+ await expect(page.locator('#libraryCategoryFilter [data-lu-category]')).toHaveText(['전체',...DEFAULT,'홍보']);
  await expect(page.locator('#docCategory option')).toHaveText(['자동 분류',...DEFAULT,'홍보']);
  // Rename: the screen tells that this category's documents get the new name; the old stored values go along.
  await editor.getByRole('button',{name:'정책 이름 바꾸기'}).click();
@@ -362,7 +367,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`categor
  expect(f.tables.app_documents.find(d=>d.id==='e5').category).toBe('기타');
  // The library behind the window follows: 기타 now holds the deleted category's document and the field record.
  await tap(page,modal.locator('#libraryManageClose'),width);
- await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체','교섭','교육','선전','정책·법령','회의','기타','홍보']);
+ await expect(page.locator('#libraryCategoryFilter [data-lu-category]')).toHaveText(['전체','교섭','교육','선전','정책·법령','회의','기타','홍보']);
  await onlyLibraryCategories(page,['기타']);
  await expect(page.locator('.lu-row-title')).toHaveText(['합성 집회','합성 현장 기록']);
  await onlyLibraryCategories(page,['정책·법령']);
@@ -414,7 +419,7 @@ test('category list: when the list cannot be read the window does not let the pe
  const f=await fixture(page,{width:390,docs:editorDocs(),profileFails:true});
  const {editor}=await (async()=>{
   await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
-  await tap(page,page.locator('#manageLibraryBtn'),390);
+  await openManage(page,390);
   const modal=page.locator('#libraryManageModal');await expect(modal).toBeVisible();return {editor:modal.locator('.dce')};
  })();
  await expect(editor).toContainText('분류 목록을 불러오지 못했어요.');
@@ -428,7 +433,7 @@ test('a changed list is the list every screen uses: upload form, edit form, proj
  const docs=editorDocs();docs.find(d=>d.id==='e1').project_id=P;
  const f=await fixture(page,{width:1280,docs,categories:['교섭','투쟁','교육','선전','정책','홍보','회의','기타']});
  await clickView(page,'library');
- await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','홍보','회의','기타']);
+ await expect(page.locator('#libraryCategoryFilter [data-lu-category]')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','홍보','회의','기타']);
  await page.locator('#newDocumentBtn').click();
  await expect(page.locator('#docCategory option')).toHaveText(['자동 분류','교섭','투쟁','교육','선전','정책','홍보','회의','기타']);
  await page.locator('[data-close="documentModal"]').click();
@@ -442,12 +447,12 @@ test('a changed list is the list every screen uses: upload form, edit form, proj
 });
 
 // LIB-소분류 ②: 큰 분류 하나만 켜면 칩 아래 소분류 줄, 소분류 고르기, [+ 소분류]로 만들기, 지워도 자료는 큰 분류에 남음.
-for(const width of [412,1440])test(`subcategories: row under a sole category, pick, add and delete keep documents ${width}`,async({page},info)=>{
+for(const width of [1440])test(`subcategories: row under a sole category, pick, add and delete keep documents ${width}`,async({page},info)=>{
  const docs=[doc('s1','합성 투쟁속보 1호','선전›투쟁속보','2026-10-05'),doc('s2','합성 선전물','선전','2026-10-04'),doc('s3','합성 교섭 요구안','교섭','2026-10-03')];
  const f=await fixture(page,{width,docs,categories:[...DEFAULT,'선전›투쟁속보']});
  await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
  // 큰 분류 칩에는 소분류가 없다.
- await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체',...DEFAULT]);
+ await expect(page.locator('#libraryCategoryFilter [data-lu-category]')).toHaveText(['전체',...DEFAULT]);
  const sub=page.locator('#libraryView .cc-sub-row');
  await expect(sub).toHaveCount(0);
  await onlyLibraryCategories(page,['선전'],{tap:width<761});
@@ -484,3 +489,37 @@ for(const width of [412,1440])test(`subcategories: row under a sole category, pi
  expect(f.calls('app_documents','PATCH')).toEqual([]);
  expect(f.errors).toEqual([]);
 });
+
+// S51-28 LIB-화면정리: 폰·폴드(1199px까지)는 칩 아래 소분류 줄 대신 [분류 ▾] 창의 들여 쓴 소분류 줄로 고르고, 소분류 만들기·지우기는 창 [편집]에서.
+test('subcategories on a phone: pick in the [분류 ▾] window, add and delete in [편집] keep documents 412',async({page})=>{
+ const width=412,docs=[doc('s1','합성 투쟁속보 1호','선전›투쟁속보','2026-10-05'),doc('s2','합성 선전물','선전','2026-10-04'),doc('s3','합성 교섭 요구안','교섭','2026-10-03')];
+ const f=await fixture(page,{width,docs,categories:[...DEFAULT,'선전›투쟁속보']});
+ await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
+ await expect(page.locator('#libraryView .cc-sub-row')).toBeHidden();
+ const pick=page.locator('#libraryCategoryPick'),sheet=page.locator('#libraryCategorySheet');
+ await tap(page,pick,width);await expect(sheet).toBeVisible();
+ const subRow=sheet.locator('[data-sheet-value="sub:선전›투쟁속보"]');await expect(subRow).toHaveAttribute('data-depth','1');
+ await tap(page,sheet.locator('[data-lu-cat-clear]'),width);await tap(page,subRow,width);await tap(page,sheet.locator('[data-sheet-save]'),width);
+ await expect(pick).toHaveText('분류: 선전 › 투쟁속보');
+ await expandLibraryTree(page);await expect(page.locator('.lu-row-title')).toHaveText(['합성 투쟁속보 1호']);
+ expect(await noWideScroll(page)).toBe(true);
+ // 창 [편집] → 분류 고치기에서 소분류 만들기·지우기(자료는 큰 분류에 그대로).
+ await tap(page,pick,width);await tap(page,sheet.locator('[data-lu-cat-edit]'),width);
+ const modal=page.locator('#libraryManageModal'),editor=modal.locator('.dce');await expect(modal).toBeVisible();
+ await openSubForm(page,editor,'선전',width);
+ await editor.locator('[data-dce-sub-input]').fill('소식지');await editor.locator('[data-dce-sub-input]').press('Enter');
+ await expect(editor.locator('[data-dce-status]')).toHaveText('‘선전 › 소식지’ 소분류를 추가했어요.');
+ expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_add',body:{p_name:'선전›소식지'}});
+ await deleteCategory(page,editor,'선전›투쟁속보','선전 › 투쟁속보',width);
+ const message=await answerAsk(page,true);
+ await expect(editor.locator('[data-dce-status]')).toHaveText('‘선전 › 투쟁속보’ 소분류를 지웠어요. 자료 1개는 ‘선전’에 그대로 있어요.');
+ expect(message).toContain('‘선전’에 그대로 남아요');
+ expect(f.tables.app_documents.find(d=>d.id==='s1').category).toBe('선전');
+ await tap(page,modal.locator('#libraryManageClose'),width);
+ await expandLibraryTree(page);await expect(page.locator('.lu-row')).toHaveCount(2);
+ expect(f.calls('app_documents','PATCH')).toEqual([]);
+ expect(f.errors).toEqual([]);
+});
+// 분류 고치기 창의 소분류 만들기 칸 열기·지우기 누르기(창 모양이 바뀌어도 시험 본문은 그대로 두려고 한 곳에 둔다).
+async function openSubForm(page,editor,parent,width){await tap(page,editor.getByRole('button',{name:`${parent}에 소분류 만들기`}),width);await expect(editor.locator('[data-dce-sub-input]')).toBeVisible();}
+async function deleteCategory(page,editor,name,label,width){await tap(page,editor.getByRole('button',{name:`${label} 지우기`}),width);}

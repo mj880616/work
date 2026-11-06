@@ -81,7 +81,8 @@ for(const width of [1280,390])test(`LIB-목록간격: 자료 줄 여백 절반·
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-for(const width of [1280,390])test(`LIB-거르기전체: [전체] 칩 세 상태(모두·일부·없음)와 '고른 분류 없음' ${width}`,async({page})=>{
+// S51-28: 폰·폴드(1199px까지)는 칩 줄 대신 [분류 ▾] 창(library-top-row.spec.mjs). 칩 줄 규칙은 칩이 보이는 가장 좁은 폭 1200에서 본다.
+for(const width of [1280,1200])test(`LIB-거르기전체: [전체] 칩 세 상태(모두·일부·없음)와 '고른 분류 없음' ${width}`,async({page})=>{
   const {errors}=await boot(page,width);
   const group=page.locator('#libraryCategoryFilter'),all=chip(page,'all');
   await expect(group.getByRole('button').first()).toHaveText('전체');
@@ -116,7 +117,8 @@ for(const width of [1280,390])test(`LIB-거르기전체: [전체] 칩 세 상태
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-for(const width of [1280,390])test(`LIB-보기기억: 묶기·종류 칩을 프로필 칸에 서버 저장하고 다음에 같게 열림(PC와 폰 같은 상태) ${width}`,async({page,browser})=>{
+// S51-28: 폰·폴드(1199px까지)는 칩 줄 대신 [분류 ▾] 창(library-top-row.spec.mjs). 칩 줄 규칙은 칩이 보이는 가장 좁은 폭 1200에서 본다.
+for(const width of [1280,1200])test(`LIB-보기기억: 묶기·종류 칩을 프로필 칸에 서버 저장하고 다음에 같게 열림(PC와 폰 같은 상태) ${width}`,async({page,browser})=>{
   const s=state();
   const {errors}=await boot(page,width,{s});
   // 처음 열 때 서버에서 읽는다(내 프로필 행 하나, library_view 칸). 비어 있으면 기본.
