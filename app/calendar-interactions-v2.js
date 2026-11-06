@@ -238,5 +238,5 @@ async function ciActOn(eventId,calendarId,what){
   else if(what==='report')await ciLeaveReport();
   else if(what==='delete'&&(await ciDeleteGoogle())===false&&ciGoogleOpenSeq===ready.seq){ciGoogleOpenSeq++;ciGoogleCurrent=null;ciClose('#ciGoogleModal')}
 }
-window.KPTUCalendarEvents={open:(eventId,calendarId)=>{if(eventId)ciCloseDay(()=>ciOpenGoogle(String(eventId),calendarId||'primary'))},act:ciActOn,saveMove:ciSaveMoved,toast:ciToast,createSlot:ciCreateSlot};
+window.KPTUCalendarEvents={open:(eventId,calendarId)=>{if(eventId)ciCloseDay(()=>ciOpenGoogle(String(eventId),calendarId||'primary'))},act:ciActOn,saveMove:ciSaveMoved,toast:ciToast,createSlot:ciCreateSlot,slotFor:ciSlotFor};
 window.__KPTU_CALENDAR_INTERACTIONS_READY__=Promise.resolve(true);

@@ -2,8 +2,10 @@
 // 시안 docs/design/mockups/family-forget-panel.html): 홈 [하루]의 '잊지 말기' 칸 하나(한 겹).
 // - 운영자 기능 family가 있을 때만 그린다(서버 app_my_features).
 // - 머리 줄 '잊지 말기 n · AI가 뽑음 · 노트 열기 ›'(톤다운 노랑). 제안이 없으면 한 줄 '잊지 말기 · 새 제안 없음 · 노트 열기 ›'.
-// - 제안 줄 = 내용 한 줄 + 아래 작은 줄(왼쪽 말한 때·출처·날짜, 오른쪽 작은 [할 일로][일정으로][노트로] ✕). '확정'은 꼬리표 없이, 예정·확인만 작은 글자.
+// - 제안 줄 = 내용 한 줄 + 아래 작은 줄(왼쪽 말한 때·출처·날짜, 오른쪽 작은 [할 일로][이미 함][일정으로][노트로] ✕). '확정'은 꼬리표 없이, 예정·확인만 작은 글자.
 //   누르기 전에는 아무것도 만들지 않는다. [할 일로]·[일정으로]는 그 창에서 저장돼야, [노트로]는 그 창에서 보내야 상태가 바뀐다. [×]는 5초 되돌리기.
+//   S51-30 [이미 함](시안 docs/design/mockups/family-forget-already-done.html): 창 없이 '잊지 말기' 노트에 체크된 줄('☑ …')을 더한 뒤 상태 kept,
+//   5초 '이미 한 일로 표시함 · 되돌리기'(되돌리면 상태 new + 그 줄 하나 뺌). [×]는 기록 없이 빠지고, [이미 함]은 노트에 했다는 기록이 남는다.
 // - 남긴 줄은 노트('잊지 말기' 노트, family-note-send.js)에 있다. 칸 안에 [기억] 모음은 없다.
 // - 업무일지·주간보고·오늘 한 일·홈 요약 숫자에는 섞지 않는다. 글은 모두 esc()로 글자로만 그린다. 기기 저장 없음.
 // 이 파일이 이 칸의 유일한 renderer다.
@@ -27,6 +29,7 @@ export function mountHomeFamily(host, {rt = window.KPTURuntime, win = window} = 
       + `<div class="home-family-row2"><span class="home-family-meta">${esc(metaLine(n))}</span>`
       + `<span class="home-family-acts" role="group" aria-label="${esc(n.body)}">`
       + `<button type="button" class="home-family-act" data-family-act="task"${busy}>할 일로</button>`
+      + `<button type="button" class="home-family-act" data-family-act="done"${busy}>이미 함</button>`
       + `<button type="button" class="home-family-act" data-family-act="event"${busy}>일정으로</button>`
       + `<button type="button" class="home-family-act" data-family-act="note"${busy}>노트로</button>`
       + `<button type="button" class="home-family-act home-family-x" data-family-act="dismissed" aria-label="제안 지우기: ${esc(n.body)}"${busy}>×</button></span></div></li>`;
@@ -75,13 +78,29 @@ export function mountHomeFamily(host, {rt = window.KPTURuntime, win = window} = 
       return false;
     }
   }
+  function startUndo(undo) {
+    clearTimeout(undoTimer);
+    set({undo});
+    undoTimer = setTimeout(() => set({undo: null, status: ''}), UNDO_MS);
+  }
   async function act(note, kind, trigger) {
     const draft = draftOf(note);
     if (kind === 'dismissed') {
       if (!(await change(note.id, 'dismissed', '지웠어요'))) return;
       clearTimeout(undoTimer);
-      set({undo: note});
-      undoTimer = setTimeout(() => set({undo: null, status: ''}), UNDO_MS);
+      startUndo({note});
+      return;
+    }
+    if (kind === 'done') {
+      const line = noteLine(note, true);
+      set({busy: note.id, status: ''});
+      let sent;
+      try {
+        const {markDone} = await import('./family-note-send.js');
+        sent = await markDone(rt, {line, body: note.body});
+      } catch { set({busy: '', status: '노트에 남기지 못했어요. 다시 눌러 주세요'}); return; }
+      if (!(await change(note.id, 'kept', '이미 한 일로 표시함'))) return;
+      startUndo({note, done: {noteId: sent?.noteId || '', line}});
       return;
     }
     if (kind === 'note') {
@@ -112,9 +131,19 @@ export function mountHomeFamily(host, {rt = window.KPTURuntime, win = window} = 
       return;
     }
     if ('familyUndo' in b.dataset) {
-      const n = state.undo; clearTimeout(undoTimer); set({undo: null});
-      if (!n) return;
-      try { await decide(rt, ws(), n.id, 'new'); state.notes = [{...n, status: 'new'}, ...state.notes]; set({status: '되돌렸어요'}); }
+      const u = state.undo; clearTimeout(undoTimer); set({undo: null});
+      if (!u) return;
+      const n = u.note;
+      try {
+        await decide(rt, ws(), n.id, 'new');
+        state.notes = [{...n, status: 'new'}, ...state.notes];
+        // [이미 함]이면 노트에 더한 그 줄도 뺀다(못 빼면 제안만 돌아오고 알린다).
+        if (u.done) {
+          try { const {undoDone} = await import('./family-note-send.js'); await undoDone(rt, u.done); }
+          catch { set({status: '제안은 돌렸지만 노트의 줄은 남았어요'}); return; }
+        }
+        set({status: '되돌렸어요'});
+      }
       catch { set({status: '되돌리지 못했어요'}); }
       return;
     }
