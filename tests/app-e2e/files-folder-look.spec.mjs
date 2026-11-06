@@ -79,7 +79,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     expect(await icon(page, 'od:OD!2').locator('svg').evaluate(x => getComputedStyle(x).color)).toBe(RGB[4]);
     if (width > 760) {
       // 나무 줄도 같은 색.
-      const treeIcon = root(page).locator('[data-fx-tree] [data-fx-id="OD!2"] .fl-ico');
+      const treeIcon = root(page).locator('[data-fx-tree] [data-fx-fold="od:OD!2"] .ft-ico'); // S51-25: PC 나무 아이콘은 줄 앞 단추(공용 ft-ico)
       await expect(treeIcon).toHaveAttribute('data-fc', '4');
       expect(await treeIcon.locator('svg').evaluate(x => getComputedStyle(x).color)).toBe(RGB[4]);
     }
