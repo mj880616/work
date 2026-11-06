@@ -151,7 +151,9 @@ test('1440: 사진 미리보기는 공용 그림 칸(큰 썸네일), [열기]는
   await row(page, 'od:OD!20').click();
   const prev = root(page).locator('[data-fx-prev]');
   await expect(prev.locator('.fx-pv-imgbox')).toHaveAttribute('data-img-state', 'shown');
-  expect(server.calls.find(c => c.action === 'thumb').body).toEqual({ action: 'thumb', source: 'od', id: 'OD!20', size: 'large' });
+  expect(server.calls.find(c => c.action === 'thumb' && c.body.size === 'large').body).toEqual({ action: 'thumb', source: 'od', id: 'OD!20', size: 'large' });
+  // S51-20 ①: 목록 줄의 사진은 작은 그림(small)을 따로 받는다.
+  expect(server.calls.find(c => c.action === 'thumb' && c.body.size === 'small').body).toEqual({ action: 'thumb', source: 'od', id: 'OD!20', size: 'small' });
   await context.route('https://example.org/**', r => r.fulfill({ status: 200, contentType: 'text/html', body: '<p>가짜</p>' }));
   const popup = context.waitForEvent('page');
   await prev.locator('[data-fx-open]').click();
