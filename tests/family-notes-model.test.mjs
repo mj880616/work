@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {cleanNotes, suggestions, metaLine, draftOf, decisionBody, openedFromPush, shortDay, noteLine, FIRM_LABEL, NOTE_SELECT} from '../app/family-notes-model.mjs';
-import {appendLines, defaultFolder, listNoteIn, newNoteTitle, nextTopOrder, isListNote, FAMILY_FOLDER} from '../app/family-note-send.mjs';
+import {appendLines, dropLine, defaultFolder, listNoteIn, newNoteTitle, nextTopOrder, isListNote, FAMILY_FOLDER} from '../app/family-note-send.mjs';
 import {toPlain} from '../app/ed-text.mjs';
 const id = n => `f0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const rows = [
@@ -65,4 +65,12 @@ test('폴더: 마지막으로 더한 잊지 말기 노트의 폴더, 없으면 �
   assert.equal(nextTopOrder(folders), 4);
   assert.equal(nextTopOrder([]), 0);
   assert.equal(newNoteTitle('  소금빵   좋아함 '), '소금빵 좋아함');
+});
+
+test('[이미 함] 되돌리기: 끝에서부터 같은 글 문단 하나만 빼고, 없으면 null', () => {
+  const doc = appendLines(null, ['☐ 가', '☑ 나', '☑ 나']);
+  assert.deepEqual(dropLine(doc, '☑ 나').doc.content.map(p => p.content?.[0]?.text), ['☐ 가', '☑ 나']);
+  assert.equal(dropLine(doc, '☑ 다'), null);
+  assert.equal(dropLine(null, '☑ 나'), null);
+  assert.equal(noteLine({body: '가', origin: 'call', day: '2026-11-06', saidWhen: ''}, true), '☑ 가 (통화 11/6)');
 });
