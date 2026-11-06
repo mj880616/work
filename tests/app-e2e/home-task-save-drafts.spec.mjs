@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {pressName} from './helpers/area-org-picker.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',quick=page=>page.locator('#homeView [data-home-quick]');
 async function setup(page,width=390){
@@ -15,7 +16,7 @@ async function setup(page,width=390){
     await route.fulfill({status:rule?.status||200,json:rule?.response===undefined?result:rule.response});if(rule)rule.done=true;
   });await quick(page).locator('[data-quick-mode="task"]').click();return{...base,state};
 }
-async function selectProject(page){const q=quick(page);await q.locator('[data-quick-project]').click();await page.getByRole('dialog').getByRole('button',{name:'자식 프로젝트',exact:true}).click();}
+async function selectProject(page){const q=quick(page);await q.locator('[data-quick-project]').click();await pressName(page,'자식 프로젝트');}
 for(const width of [390,1280])test(`known quick task link partial preserves input and options ${width}`,async({page})=>{
   const {state}=await setup(page,width),q=quick(page);await q.locator('[data-quick-input]').fill('연결할 초안');await selectProject(page);await q.getByRole('button',{name:'내일',exact:true}).click();state.next('create',{apply:false,response:{ok:true,task:{id:'known-task',taskListId:'@default',title:'연결할 초안',notes:'',due:'2026-10-07'},links:[],meeting_links:[],link_error:'link denied'}});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('할 일은 저장');await expect(q.locator('[data-quick-input]')).toHaveValue('연결할 초안');await expect(q.locator('[data-quick-options]')).toBeVisible();await expect(q.getByRole('button',{name:'연결 확인',exact:true})).toBeVisible();await q.locator('[data-quick-save]').click();expect(state.calls.filter(c=>c.action==='create')).toHaveLength(1);
 });

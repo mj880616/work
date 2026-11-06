@@ -54,8 +54,9 @@ test('close paths consume one history entry, focus is contained and project none
  const trigger=q(page).locator('[data-quick-project]');
  const before=await page.evaluate(()=>history.state);
  await trigger.click();await expect(sheet(page)).toBeVisible();await expect(sheet(page).getByRole('button',{name:'사업영역 없음',exact:true})).toBeFocused();
- await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('searchbox',{name:'사업영역 이름 검색'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('button',{name:'선택판 닫기'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true})).toBeFocused();
- await sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(sheet(page)).toBeHidden();await expect(trigger).toHaveText('자식 프로젝트 ▾');await expect(trigger).toBeFocused();
+ /* 자주 쓴 것 꼬리표(있으면)를 지나 찾기 칸까지 */for(let i=0;i<6&&!(await sheet(page).getByRole('searchbox',{name:'찾기'}).evaluate(el=>el===document.activeElement));i++)await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('searchbox',{name:'찾기'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('button',{name:'선택판 닫기'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(sheet(page).locator('[data-aop-toggle]')).toBeFocused();
+ // S52-01 ②: 같은 고르기 창(큰 묶음만, 꺾쇠로 하위) — 꺾쇠를 눌러 하위를 펼친 뒤 고른다.
+ await page.keyboard.press('Enter');await sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(sheet(page)).toBeHidden();await expect(trigger).toHaveText('자식 프로젝트 ▾');await expect(trigger).toBeFocused();
  await expect.poll(()=>page.evaluate(()=>history.state)).toEqual(before);
  await trigger.click();await expect(sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true})).toBeFocused();
  await page.goBack();await expect(sheet(page)).toBeHidden();await expect(trigger).toBeFocused();await expect(page).toHaveURL(/\/app\//);
@@ -70,7 +71,9 @@ test('long projects scroll only inside the sheet and remain one-line with child 
  await page.setViewportSize({width:390,height:844});await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();
  await page.evaluate(()=>{const c=KPTUProjectCatalog,s=c.snapshot();c.publish({workspaceId:s.workspaceId,userId:s.userId,spaces:[{...s.spaces[0],name:'QA 긴 프로젝트 이름 '.repeat(15)},...Array.from({length:30},(_,i)=>({id:'child-'+i,name:'QA 자식 '+i,parent_id:'p',owner_id:s.userId,status:'active'}))]});});
  await q(page).locator('[data-quick-input]').fill('QA');await q(page).locator('[data-quick-project]').click();
- const content=sheet(page).locator('[data-sheet-content]'),parent=sheet(page).locator('[data-sheet-value="p"]'),child=sheet(page).locator('[data-sheet-value="child-0"]');
+ const content=sheet(page).locator('[data-sheet-content]'),parent=sheet(page).locator('.aop-list [data-sheet-value="p:p"]'),child=sheet(page).locator('.aop-list [data-sheet-value="p:child-0"]');
+ // S52-01 ②: 큰 묶음만 보이고(하위 30개는 접힘) 꺾쇠로 펼친다.
+ await expect(child).toBeHidden();await sheet(page).locator('[data-aop-toggle]').click();await expect(child).toBeVisible();
  expect(await content.evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);
  await expect(parent).toHaveCSS('height','44px');/* 8-9e-3: 고르기 시트 줄 44px */await expect(parent).toHaveCSS('text-overflow','ellipsis');await expect(parent).toHaveCSS('white-space','nowrap');
  expect(await child.evaluate(el=>parseFloat(getComputedStyle(el).paddingLeft))).toBe(22);
@@ -83,5 +86,5 @@ test('routing while a sheet is open closes it without undoing navigation',async(
  await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();await q(page).locator('[data-quick-input]').fill('QA');await q(page).locator('[data-quick-project]').click();await expect(sheet(page)).toBeVisible();
  await page.evaluate(async()=>{await KPTUViewLoader.load('calendar');KPTURouter.go('calendar',{source:'delegated'});});
  await expect(sheet(page)).toBeHidden();await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar/);
- expect(await page.evaluate(()=>history.state?.kptuHomeChoice)).toBeUndefined();
+ expect(await page.evaluate(()=>history.state?.kptuHomeChoice)).toBeUndefined();expect(await page.evaluate(()=>history.state?.kptuAreaOrgPick)).toBeUndefined();
 });

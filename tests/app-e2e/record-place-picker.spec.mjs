@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {pressName} from './helpers/area-org-picker.mjs';
 import {openHome,createdTaskReply} from './helpers/home-entry.mjs';
 // UI-기록할곳창PC: 넓은 PC(1024px~)에서 [업데이트 ▾] "기록할 곳 선택" 창은 넓게 — 제목 옆 검색칸 하나, 그 아래 "최근" 한 줄, 그 아래
 // 왼쪽 담당조직(묶음 소제목 아래 한 줄 목록, UPD-여러곳고르기) / 오른쪽 프로젝트(한 줄 목록). 1280×800에서 창 안 스크롤 없이 한 번에 보이고, 항목이 아주 많으면 각 열 안에서만
@@ -189,7 +190,7 @@ test('할 일 [프로젝트 ▾]도 추가 뒤 "프로젝트 없음"으로 돌�
  let fail=false;const bodies=[];
  await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{const body=r.request().postDataJSON();bodies.push(body);return fail?r.fulfill({status:400,json:{error:'합성 거절'}}):r.fulfill({json:createdTaskReply(body)});});
  await q.locator('[data-quick-mode="task"]').click();await q.locator('[data-quick-input]').fill('합성 할 일');
- const pick=async()=>{await q.locator('[data-quick-project]').click();await dialog(page).getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(q.locator('[data-quick-project]')).toHaveText('자식 프로젝트 ▾');};
+ const pick=async()=>{await q.locator('[data-quick-project]').click();await pressName(page,'자식 프로젝트');await expect(q.locator('[data-quick-project]')).toHaveText('자식 프로젝트 ▾');};
  await pick();await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(bodies[0].links).toEqual([{project_id:'child'}]);await expect(q.locator('[data-quick-project]')).toHaveText('사업영역 ▾');
  // The next task has no project unless one is picked again.

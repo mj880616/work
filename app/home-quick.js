@@ -3,7 +3,8 @@ import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-�
 import { viewPrefs } from './view-prefs.js';
 import { waitInlineHtml } from './wait-state.js'; // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 import {basketOcrFor} from './basket-ocr-runtime.js';
-import { createChoiceSheet, projectRows } from './choice-sheet.js';
+import { createChoiceSheet } from './choice-sheet.js';
+import { openAreaOrgPicker, dismissAreaOrgPicker, usedKeysNow, catalogAreas, areaTree, areaChipText } from './area-org-picker.js';
 import { readPlaces, placeSheetHtml, placeValue, keepPlaces, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText, docFailText } from './update-places.js';
 import { createGoogleTask } from './quick-save.js';
 import { createNote, validateNoteText, createNoteDoc, noteTitleFromText, attachNoteDoc } from './basket-data.js';
@@ -110,7 +111,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     box.querySelectorAll('[data-quick-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.quickMode===mode)));
     options.hidden=taskOnly||!expanded||mode!=='task';
     projectSelect.textContent=(projectChoices.find(x=>x.project.id===project)?.project.name||'사업영역')+' ▾';
-    projectSelect.setAttribute('aria-label',project?'사업영역: '+projectSelect.textContent.slice(0,-2):'사업영역');
+    // S52-01 ②: 좁은 줄이라 단추에는 이름만, 하위면 '상위 › 하위'는 단추 설명(title·aria-label)으로.
+    const projectPath=project?areaChipText(areaTree(catalogAreas(projectChoices)),'p:'+project):'';projectSelect.title=projectPath;
+    projectSelect.setAttribute('aria-label',project?'사업영역: '+(projectPath||projectSelect.textContent.slice(0,-2)):'사업영역');
     orgSelect.setAttribute('aria-label',places.length&&targetName?'기록할 곳 선택: '+targetName:'기록할 곳 선택');
     // UPD-여러곳고르기 ⑥: with two or more places the [업데이트] button itself says where ("첫 곳 이름 외 N"); one place keeps
     // [업데이트] (its name is in the input's placeholder, as before).
@@ -144,15 +147,24 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       // BASKET-업데이트통합: [바구니(미분류)] (no place) is the first chip, on the recent line (update-places.js, shared with the write window).
       // UPD-여러곳고르기: the 기록할 곳 sheet keeps many; presses mark a pending list that only [저장] makes the input's (onCommit).
       if(kind==='org')pendingPlaces=currentPlaces();
-      return {title:kind==='org'?'기록할 곳 선택':'사업영역 선택',search:kind==='org'?'조직·사업영역 이름 검색':'사업영역 이름 검색',split:kind==='org',html:kind==='org'?placeSheetHtml(placeChoices(),pendingPlaces,esc):projectRows(projectChoices,project,esc)};
+      return {title:'기록할 곳 선택',search:'조직·사업영역 이름 검색',split:true,html:placeSheetHtml(placeChoices(),pendingPlaces,esc)};
     },
     multi:kind=>kind==='org'?{pressed:value=>value==='basket'?!pendingPlaces.length:pendingPlaces.some(p=>placeValue(p)===value),label:choiceCountText(pendingPlaces)}:null,
-    onSelect:(kind,value)=>{if(kind==='org'){const next=togglePlace(pendingPlaces,value);if(next)pendingPlaces=next;else status.textContent=`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`;return;}project=value;paint();},
+    onSelect:(kind,value)=>{if(kind==='org'){const next=togglePlace(pendingPlaces,value);if(next)pendingPlaces=next;else status.textContent=`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`;}},
     onCommit:kind=>{if(kind!=='org')return;setPlaces(pendingPlaces);status.textContent='';paint();}
   });
-  const openSheet=kind=>picker.open(kind,kind==='org'?orgSelect:projectSelect);
-  const dismissForNavigation=()=>picker.dismiss();
-  projectSelect.onclick=()=>void openSheet('project');
+  const openSheet=kind=>picker.open(kind,orgSelect);
+  const dismissForNavigation=()=>{picker.dismiss();dismissAreaOrgPicker(projectSelect);};
+  // S52-01 ② UI-사업영역조직고르기창: [할 일]의 사업영역은 모든 화면과 같은 고르기 창(area-org-picker.js) 하나로, 하나만 고른다
+  // (줄을 누르면 고르고 닫힘, 맨 위 '사업영역 없음'). 큰 묶음만 보이고 꺾쇠로 하위를 펼친다. 저장 값(project)은 그대로다.
+  async function openProject(){
+    if(saving||window.KPTURouter.current!==view)return;const run=choiceEpoch;await choices();
+    if(saving||window.KPTURouter.current!==view||run!==choiceEpoch&&!projectChoices.length)return;
+    const used=await usedKeysNow().catch(()=>[]);if(saving||window.KPTURouter.current!==view)return;
+    await openAreaOrgPicker({kind:'area',trigger:projectSelect,areas:catalogAreas(projectChoices),selected:project?['p:'+project]:[],used,multi:false,none:true,
+      onCommit:keys=>{const k=[...keys][0]||'';project=k.startsWith('p:')?k.slice(2):'';paint();}});
+  }
+  projectSelect.onclick=()=>void openProject();
   // ▾ also picks [업데이트] when another mode is showing, then opens the organization sheet.
   orgSelect.onclick=()=>{if(saving)return;if(mode!=='update')setMode('update');void openSheet('org');};
   // UI-기록할곳되돌리기 (b)(c): a place (and a task's project) chosen here is for one add only. Leaving the screen, or closing the big

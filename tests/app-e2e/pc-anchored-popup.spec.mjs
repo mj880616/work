@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {pressName} from './helpers/area-org-picker.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 // UI-PC팝업위치: on a PC (761px~) the shared choice sheet (choice-sheet.js) opens as a small list right by the button that was
 // pressed (anchored-popup.js), without dimming the screen; outside press and Esc close it, focus goes to the first choice and
@@ -26,7 +27,7 @@ test('PC: list opens right below the pressed button, no dimming, Esc and outside
  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();await expect(trigger).toBeFocused();
  await trigger.click();await expect(sheet).toBeVisible();
  await page.mouse.click(1200,800);await expect(sheet).toBeHidden();await expect(trigger).toBeFocused();
- await trigger.click();await sheet.getByRole('button',{name:'자식 프로젝트',exact:true}).click();
+ await trigger.click();await pressName(page,'자식 프로젝트');
  await expect(sheet).toBeHidden();await expect(trigger).toHaveText('자식 프로젝트 ▾');await expect(trigger).toBeFocused();
 });
 

@@ -1,5 +1,6 @@
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
+import {pressName} from './helpers/area-org-picker.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
 import { chooseBasketKind, basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
@@ -213,7 +214,7 @@ test('③ 폰: 전환 줄이 있는 정리함·일정에서 고르기 시트는 
   const box=await sheet.boundingBox(),r=await row.boundingBox(),tabs=await page.locator('#appView > .mobile-tabs').boundingBox();
   // The row is 44px on the tabs; the sheet ends where that row starts.
   expect(Math.round(box.y+box.height)).toBe(Math.round(tabs.y-44));expect(box.y+box.height).toBeLessThanOrEqual(r.y-6+0.5);
-  for(const item of await sheet.locator('[data-sheet-value]').all()){const b=await item.boundingBox();expect(b.y+b.height).toBeLessThanOrEqual(tabs.y-44);}
+  for(const item of await sheet.locator('[data-sheet-value]').filter({visible:true}).all()){const b=await item.boundingBox();expect(b.y+b.height).toBeLessThanOrEqual(tabs.y-44);}
  }
  // 바구니 빠른 입력은 [바구니] 한 가지라 고르기 시트가 없다. 전환 줄이 보이는 일정 화면에서 일정 창 [할 일]의 프로젝트 고르기로 본다.
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').tap();
@@ -223,10 +224,10 @@ test('③ 폰: 전환 줄이 있는 정리함·일정에서 고르기 시트는 
  await expect(page.locator('#eventModal')).toBeVisible();
  await page.locator('[data-event-mode="task"]').tap();
  await page.locator('#eventTaskProject').tap();
- const sheet=page.locator('#eventProjectSheet');await expect(sheet).toHaveAttribute('open','');await settle(sheet);
+ const sheet=page.locator('#areaOrgPickSheet');await expect(sheet).toHaveAttribute('open','');await settle(sheet);
  await aboveRow(sheet,row);
  // Pick the lowest row at its bottom edge, then press the same spot again: it must not reach the switch row.
- const last=await sheet.locator('[data-sheet-value]').last().boundingBox(),x=last.x+last.width/2,y=last.y+last.height-2;
+ const last=await sheet.locator('.aop-list [data-sheet-value]').filter({visible:true}).last().boundingBox(),x=last.x+last.width/2,y=last.y+last.height-2;
  await page.touchscreen.tap(x,y);await expect(sheet).not.toHaveAttribute('open','');
  await page.touchscreen.tap(x,y);
  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('calendar');
