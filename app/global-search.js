@@ -10,6 +10,7 @@
 import {parseQuery, QUERY_MESSAGES, errorMessage, highlightParts, buildGroups, chipOptions, countLabel, GROUPS, groupOf, serverKindOf,
   groupKeyOfServer, openTarget, dateLabel, placeLabel, STATE_LABEL, PREVIEW, PAGE, byRecent} from './global-search-model.mjs';
 import * as data from './global-search-data.js';
+import {iconNode} from './tree-icons.js';
 import {waitEl, waitInlineEl, emptyEl} from './wait-state.js';
 import {renderFilterChips} from './filter-chips.js';
 import {placeAnchored, clearAnchored, followAnchor} from './anchored-popup.js';
@@ -355,7 +356,7 @@ function rowNode(item, key, where) {
   const secret = item.source === 'note' && item.kind === 'note' && looksSecret(`${item.title || ''}\n${item.snippet || ''}`);
   head.append(secret ? el('span', 'gs-row-title', SECRET_TITLE) : marked(item.title, state.words, 'gs-row-title'));
   if (item.state && STATE_LABEL[item.state]) head.append(el('span', `gs-state gs-state-${item.state}`, STATE_LABEL[item.state]));
-  if (item.source === 'document') { const f = docFolder.get(item.id); if (f) head.append(el('span', 'row-tail gs-row-folder', `📁 ${f}`)); else if (f === undefined) folderAsk.add(item.id); }
+  if (item.source === 'document') { const f = docFolder.get(item.id); if (f) { const tail = el('span', 'row-tail gs-row-folder'); tail.append(iconNode('folder', {className: 'gs-folder-ico'}), ` ${f}`); head.append(tail); } else if (f === undefined) folderAsk.add(item.id); }
   main.append(head);
   const meta = [dateLabel(item), placeLabel(item)].filter(Boolean).join(' · ');
   if (meta) main.append(el('span', 'gs-row-meta', meta));

@@ -134,7 +134,7 @@ for (const width of [412, 884, 1440]) {
     await root(page).locator('[data-photos-act-move]').click();
     const pick = page.locator('#photosPickMenu');
     await expect(pick).toBeVisible();
-    await expect(pick.locator('[data-pick-folder]')).toHaveText(['📁 카메라', '📁 2026', '📁 여행', '📁 제주']);
+    await expect(pick.locator('[data-pick-folder]')).toHaveText(['카메라', '2026', '여행', '제주']);
     await expect(pick.locator('[data-pick-folder="S1"]')).toBeDisabled();
     await pick.locator('[data-pick-folder="S2"]').click();
     await expect.poll(() => ids(page)).toEqual(['B3']);

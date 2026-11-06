@@ -5,12 +5,14 @@
 //   열쇠는 메모리에만(화면을 새로 열면 다시 받는다). 폰 파일 목록은 이 화면 메모리에만 있고 기기·서버에 저장하지 않는다.
 // - 실패는 Error('phone_<종류>')(files-model errorText가 한 줄로 바꾼다). 로그에 파일 이름·경로를 남기지 않는다.
 import {phoneState, phoneRows, phonePathOk, phoneDone, phoneSaved, PHONE_SAVE_MAX} from './phone-files-model.mjs';
+import {within, isLoadTimeout} from './load-deadline.js';
 
 const BRIDGE = 'KPTUAppShell';
 const HELLO_MS = 1500;
 // 쓰기 답 기다림: 새 폴더·이름 30초, 휴지통 3분(시스템 확인 창), 받기 한 걸음 30초. 한 조각 384KB(base64 512KB — 앱 한도 안).
 const OP_MS = 30000, TRASH_MS = 180000, SAVE_STEP_MS = 30000, SAVE_PART = 384 * 1024;
 
+const GET_MS = 25000;
 export function createPhoneFiles(win = globalThis.window) {
   const ua = /KPTUAndroid/i.test(win?.navigator?.userAgent || '');
   const bridge = win?.[BRIDGE];
@@ -39,8 +41,10 @@ export function createPhoneFiles(win = globalThis.window) {
   const fail = code => Object.assign(new Error('phone_' + code), {phone: code});
   async function get(what, q) {
     if (!state.all || !state.key) throw fail('permission');
+    // LOAD-끝있는불러오기(S51-29): 앱이 답하지 않으면 끝없이 기다렸다. 머리 받기까지 GET_MS 안(넘으면 timeout).
     let r;
-    try { r = await win.fetch(url(what, q), {cache: 'no-store', credentials: 'omit'}); } catch { throw fail('unreached'); }
+    try { r = await within(signal => win.fetch(url(what, q), {cache: 'no-store', credentials: 'omit', signal}), GET_MS); }
+    catch (e) { throw fail(isLoadTimeout(e) ? 'timeout' : 'unreached'); }
     if (!r.ok) {
       let code = 'read';
       try { const b = await r.json(); if (typeof b?.error === 'string' && /^[a-z_]{1,20}$/.test(b.error)) code = b.error; } catch { /* 본문 없음 */ }

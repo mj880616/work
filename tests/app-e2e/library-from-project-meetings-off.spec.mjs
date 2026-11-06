@@ -3,6 +3,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
+import {toggleLibraryCategory} from './helpers/library-categories.mjs';
 // LIB-토글트리: 자료실에 그냥 들어오면 토글이 접혀 있고, 프로젝트에서 걸러 열면 맞는 토글이 펼쳐져 그 자료가 보인다.
 
 const chip=(page,name)=>page.locator(`#libraryCategoryFilter [data-lu-category="${name}"]`);
@@ -25,7 +26,7 @@ for(const width of [390,1280])test(`프로젝트 상세 → 자료 전체 보기
   await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();expect(await ids(page)).not.toContain('meeting-doc');
   expect(await ids(page)).toEqual(['doc-a1']);
   // 같은 화면을 다시 그려도(고른 상태 유지) 그대로, [회의]를 켜면 그 프로젝트의 회의 자료가 함께 보인다.
-  await chip(page,'회의').click();await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
+  await toggleLibraryCategory(page,'회의');await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
   await page.evaluate(()=>window.KPTURouter.go('library',{source:'session',updateUrl:false}));await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','true');
   expect(errors).toEqual([]);
 });
