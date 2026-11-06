@@ -703,7 +703,7 @@ function treeHtml(p) {
   const sources = onSources();
   // 상자가 열린 저장소는 맨 위 폴더들이 늘 보인다(옛 '뿌리 줄 펼치기'가 상자 머리 접기로 바뀜).
   const open = new Set([...state.open, ...sources.filter(s => !state.boxShut.has(s)).map(s => folderKey(s, null))]);
-  const rows = treeRows({sources, children: state.children, open, order: lookOrder});
+  const rows = treeRows({sources: onSources(), children: state.children, open, order: lookOrder});
   const parents = [];
   for (const source of sources) {
     const shut = state.boxShut.has(source);
