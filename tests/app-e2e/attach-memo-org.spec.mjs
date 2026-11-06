@@ -312,52 +312,61 @@ const editorDocs=()=>[
 ];
 async function openEditor(page,width){
  await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
- await tap(page,page.locator('#manageLibraryBtn'),width);
+ await openManage(page,width);
  const modal=page.locator('#libraryManageModal');await expect(modal).toBeVisible();
  const editor=modal.locator('.dce');await expect(editor.locator('.dce-list')).toBeVisible();return {modal,editor};
 }
-const names=editor=>editor.locator('.dce-row .dce-name');
+// S51-28: 폰·폴드는 [분류 ▾] 창 [편집], PC는 칩 줄 끝 [편집].
+async function openManage(page,width){
+ if(width<1200){await tap(page,page.locator('#libraryCategoryPick'),width);await tap(page,page.locator('#libraryCategorySheet [data-lu-cat-edit]'),width);}
+ else await tap(page,page.locator('#manageLibraryBtn'),width);
+}
+// S51-28 공용 '목록 고치기' 줄: 이름 = .le-name(소분류는 └ 없이 끝 이름), 수 = .le-meta.
+const names=editor=>editor.locator('.le-list > .le-row .le-name');
+async function rowAct(page,editor,name,label,width){await tap(page,editor.locator(`[data-le-menu="${name}"]`),width);await tap(page,page.locator('#dceMenu').getByRole('button',{name:label,exact:true}),width);}
 
 for(const width of [390,1280])for(const scheme of ['light','dark'])test(`category list: add, rename and delete with the lock on 기타 ${width} ${scheme}`,async({page},info)=>{
  const f=await fixture(page,{width,scheme,docs:editorDocs()});
  const {modal,editor}=await openEditor(page,width);
  await expect(names(editor)).toHaveText(DEFAULT);
- await expect(editor.locator('.dce-count')).toHaveText('7개');
+ await expect(modal.locator('[data-le-count]')).toHaveText('7개');
  // '기타' is locked: no rename or delete button, and it says so.
- const lock=editor.locator('[data-dce-row="기타"]');
- await expect(lock.getByRole('button')).toHaveCount(0);await expect(lock).toContainText('고정');
- await expect(editor.locator('[data-dce-row="정책"] .dce-meta')).toHaveText('자료 3개');
- await expect(editor.locator('[data-dce-row="기타"] .dce-meta')).toContainText('자료 1개');
- await expect(editor.locator('.dce-note').first()).toContainText('자료와 파일은 지워지지 않아요');
+ const lock=editor.locator('[data-le-row="기타"]');
+ await expect(lock.locator('button')).toHaveCount(0);await expect(lock).toContainText('고정');
+ await expect(editor.locator('[data-le-row="정책"] .le-meta')).toHaveText('3');
+ await expect(editor.locator('[data-le-row="기타"] .le-meta')).toHaveText('1');
+ // S51-28: 긴 안내문 없음.
+ await expect(editor.locator('.dce-note')).toHaveCount(0);
  expect(await noWideScroll(page)).toBe(true);
  await capture(page,info,`category-editor-${width}-${scheme}`,modal.locator('.modal-card'));
  // Add.
  await editor.locator('#dceNewName').fill('  홍보  ');
  await editor.getByRole('button',{name:'추가',exact:true}).click();
  await expect(editor.locator('.dce-status')).toHaveText('‘홍보’ 분류를 추가했어요.');
- await expect(names(editor)).toHaveText([...DEFAULT,'홍보']);
+ // '기타'는 늘 맨 아래 줄(목록 값 순서는 서버 그대로).
+ await expect(names(editor)).toHaveText(['교섭','투쟁','교육','선전','정책','회의','홍보','기타']);
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_add',body:{p_name:'홍보'}});
  await expect(page.locator('#libraryCategoryFilter [data-lu-category]')).toHaveText(['전체',...DEFAULT,'홍보']);
  await expect(page.locator('#docCategory option')).toHaveText(['자동 분류',...DEFAULT,'홍보']);
  // Rename: the screen tells that this category's documents get the new name; the old stored values go along.
- await editor.getByRole('button',{name:'정책 이름 바꾸기'}).click();
+ await tap(page,editor.getByRole('button',{name:'정책 이름 고치기'}),width);
  const form=editor.locator('[data-dce-rename-form="정책"]');
- await expect(form).toContainText('이름을 바꾸면 이 분류의 자료 3개도 새 이름으로 바뀌어요.');
  await form.locator('input').fill('정책·법령');
- await form.getByRole('button',{name:'저장'}).click();
+ await form.getByRole('button',{name:'완료'}).click();
  await expect(editor.locator('.dce-status')).toHaveText('‘정책’을(를) ‘정책·법령’(으)로 바꿨어요. 자료 3개의 분류도 함께 바뀌었어요.');
  const rename=f.server.rpc.at(-1);
  expect(rename.name).toBe('app_document_category_rename');
  expect(rename.body).toMatchObject({p_from:'정책',p_to:'정책·법령'});expect([...rename.body.p_stored].sort()).toEqual(['국회자료','정부자료','정책자료']);
- await expect(names(editor)).toHaveText(['교섭','투쟁','교육','선전','정책·법령','회의','기타','홍보']);
- await expect(editor.locator('[data-dce-row="정책·법령"] .dce-meta')).toHaveText('자료 3개');
+ await expect(names(editor)).toHaveText(['교섭','투쟁','교육','선전','정책·법령','회의','홍보','기타']);
+ await expect(editor.locator('[data-le-row="정책·법령"] .le-meta')).toHaveText('3');
  expect(f.tables.app_documents.filter(d=>['e1','e2','e3'].includes(d.id)).map(d=>d.category)).toEqual(['정책·법령','정책·법령','정책·법령']);
  // Delete: the confirm says the documents move to 기타 and nothing is erased.
- await editor.getByRole('button',{name:'투쟁 지우기'}).click();
+ await rowAct(page,editor,'투쟁','지우기',width);
+ await expect(page.locator('.kptu-ask .danger')).toHaveCount(0);
  const message=await answerAsk(page,true);
  await expect(editor.locator('.dce-status')).toHaveText('‘투쟁’ 분류를 지웠어요. 자료 1개는 ‘기타’로 옮겼어요.');
  expect(message).toContain('‘투쟁’ 분류를 지울까요?');expect(message).toContain('자료 1개는 ‘기타’로 옮겨져요.');expect(message).toContain('자료와 파일은 지워지지 않아요');
- await expect(names(editor)).toHaveText(['교섭','교육','선전','정책·법령','회의','기타','홍보']);
+ await expect(names(editor)).toHaveText(['교섭','교육','선전','정책·법령','회의','홍보','기타']);
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_delete',body:{p_name:'투쟁',p_stored:[]}});
  expect(f.tables.app_documents.find(d=>d.id==='e5').category).toBe('기타');
  // The library behind the window follows: 기타 now holds the deleted category's document and the field record.
@@ -387,13 +396,13 @@ test('category list: client checks, server refusals and an unknown result are ex
  f.server.categories=[...DEFAULT,'홍보'];
  await editor.locator('#dceNewName').fill('홍보');await add.click();
  await expect(status).toHaveText('이미 있는 분류 이름이에요. 아무것도 바뀌지 않았어요.');
- await expect(names(editor)).toHaveText([...DEFAULT,'홍보']);
+ await expect(names(editor)).toHaveText([...DEFAULT.slice(0,-1),'홍보','기타']);
  // Rename to an existing name, and renaming a name that is gone: refused with nothing changed.
- await editor.getByRole('button',{name:'교육 이름 바꾸기'}).click();
- const form=editor.locator('[data-dce-rename-form="교육"]');await form.locator('input').fill('선전');await form.getByRole('button',{name:'저장'}).click();
+ await editor.getByRole('button',{name:'교육 이름 고치기'}).click();
+ const form=editor.locator('[data-dce-rename-form="교육"]');await form.locator('input').fill('선전');await form.getByRole('button',{name:'완료'}).click();
  await expect(status).toHaveText('이미 있는 분류 이름이에요.');
  await expect(form.locator('input')).toHaveValue('선전');
- await form.getByRole('button',{name:'취소'}).click();await expect(editor.locator('[data-dce-rename-form]')).toHaveCount(0);
+ await form.locator('input').press('Escape');await expect(editor.locator('[data-dce-rename-form]')).toHaveCount(0);
  expect(f.server.rpc.map(c=>c.name)).toEqual(['app_document_category_add']);
  // A server refusal (permission) says nothing changed and keeps the typed name.
  f.server.next={json:{ok:false,error:'PERMISSION_DENIED'}};
@@ -406,7 +415,7 @@ test('category list: client checks, server refusals and an unknown result are ex
  await add.click();
  await expect(status).toHaveText('저장했는지 확인하지 못했어요. 목록을 다시 불러온 뒤 확인해 주세요.');
  expect(f.server.rpc.length).toBe(before+1);
- await expect(names(editor)).toHaveText([...DEFAULT,'홍보']);
+ await expect(names(editor)).toHaveText([...DEFAULT.slice(0,-1),'홍보','기타']);
  expect(f.errors.filter(e=>!/500/.test(e))).toEqual([]);
 });
 
@@ -414,7 +423,7 @@ test('category list: when the list cannot be read the window does not let the pe
  const f=await fixture(page,{width:390,docs:editorDocs(),profileFails:true});
  const {editor}=await (async()=>{
   await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
-  await tap(page,page.locator('#manageLibraryBtn'),390);
+  await openManage(page,390);
   const modal=page.locator('#libraryManageModal');await expect(modal).toBeVisible();return {editor:modal.locator('.dce')};
  })();
  await expect(editor).toContainText('분류 목록을 불러오지 못했어요.');
@@ -470,9 +479,9 @@ for(const width of [1440])test(`subcategories: row under a sole category, pick, 
  await editor.locator('[data-dce-sub-form]').getByRole('button',{name:'추가',exact:true}).click();
  await expect(editor.locator('.dce-status')).toHaveText('‘선전 › 소식지’ 소분류를 추가했어요.');
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_add',body:{p_name:'선전›소식지'}});
- await expect(editor.locator('.dce-row-sub .dce-name')).toHaveText(['투쟁속보','소식지']);
+ await expect(editor.locator('.le-sub .le-name')).toHaveText(['투쟁속보','소식지']);
  // 소분류 지우기: 자료는 큰 분류(선전)에 그대로.
- await editor.getByRole('button',{name:'선전 › 투쟁속보 지우기'}).click();
+ await rowAct(page,editor,'선전›투쟁속보','지우기',width);
  const message=await answerAsk(page,true);
  await expect(editor.locator('.dce-status')).toHaveText('‘선전 › 투쟁속보’ 소분류를 지웠어요. 자료 1개는 ‘선전’에 그대로 있어요.');
  expect(message).toContain('‘선전’에 그대로 남아요');
@@ -516,5 +525,5 @@ test('subcategories on a phone: pick in the [분류 ▾] window, add and delete 
  expect(f.errors).toEqual([]);
 });
 // 분류 고치기 창의 소분류 만들기 칸 열기·지우기 누르기(창 모양이 바뀌어도 시험 본문은 그대로 두려고 한 곳에 둔다).
-async function openSubForm(page,editor,parent,width){await tap(page,editor.getByRole('button',{name:`${parent}에 소분류 만들기`}),width);await expect(editor.locator('[data-dce-sub-input]')).toBeVisible();}
-async function deleteCategory(page,editor,name,label,width){await tap(page,editor.getByRole('button',{name:`${label} 지우기`}),width);}
+async function openSubForm(page,editor,parent,width){await rowAct(page,editor,parent,'+ 소분류',width);await expect(editor.locator('[data-dce-sub-input]')).toBeVisible();}
+async function deleteCategory(page,editor,name,label,width){await rowAct(page,editor,name,'지우기',width);}

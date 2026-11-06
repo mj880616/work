@@ -1,0 +1,47 @@
+/* S51-28 LIB-화면정리 ②: '목록 고치기' 창 공용 모양(list-edit.mjs·list-edit.js, 시안 docs/design/mockups/library-category-edit.html).
+   줄 = ⠿ 손잡이 · 이름 · 수 · ⋯ 한 줄(높이 40px, 누르는 범위 44px). 큰 버튼·빨강 없음. 맨 위 '새 ○○ 이름 [추가]'.
+   창(.modal.le-modal)은 폰에서 아래 탭 위에서 끝나 칸이 가리지 않는다. */
+.le-add{display:flex;align-items:center;gap:6px;margin:0 0 8px}
+.le-input{flex:1 1 auto;min-width:0;box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 10px;font-size:14px;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink)}
+.le-input:focus{outline:2px solid var(--kptu-primary-ink);outline-offset:-1px}
+.le-add-btn,.le-done{position:relative;flex:none;box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 var(--ds-compact-pad-x,10px);font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);cursor:pointer}
+.le-add-btn::after,.le-done::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.le-list{display:grid;margin:0;padding:0;list-style:none}
+.le-row{display:flex;align-items:center;gap:6px;min-width:0;min-height:40px;padding:0 2px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.le-row:first-child{border-top:0}
+.le-handle{position:relative;flex:none;display:inline-grid;place-items:center;box-sizing:border-box;width:22px;height:28px;min-height:0;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-faint,var(--kptu-muted));font-size:14px;line-height:1;cursor:grab;touch-action:none}
+button.le-handle::after{content:"";position:absolute;inset:-8px -11px}
+.le-handle-off{cursor:default}
+.le-sub .le-handle-off{width:38px}
+.le-name{flex:0 1 auto;min-width:0;margin:0;padding:4px 2px;font-size:14px;line-height:1.4;text-align:left;color:var(--kptu-ink);background:transparent;border:0;border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text}
+button.le-name:hover{background:var(--kptu-surface-subtle)}
+.le-sub .le-name{font-size:13px}
+.le-sub .le-name::before{content:"└ ";color:var(--kptu-muted)}
+.le-meta{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.le-tag{flex:none;padding:1px 6px;font-size:11px;color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-radius:var(--kptu-radius-pill,999px)}
+.le-more{position:relative;flex:none;width:var(--ds-compact-height-sm,28px);height:var(--ds-compact-height-sm,28px);min-height:0;margin:0 0 0 auto;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:13px;line-height:1;cursor:pointer}
+.le-more::after{content:"";position:absolute;inset:calc((var(--ds-compact-height-sm,28px) - var(--kptu-touch-target,44px)) / 2)}
+.le-lock{flex:none;margin-left:auto;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap}
+.le-row :is(.le-handle,.le-name,.le-more,.le-add-btn,.le-done):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+.le-editing .le-inline{display:flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0;margin:4px 0}
+.le-editing .le-input{border-color:var(--kptu-primary-ink)}
+.le-done{border:0;background:transparent;color:var(--kptu-primary-ink)}
+.le-status{min-height:1.4em;margin:6px 0 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.le-status:empty{min-height:0;margin:0}
+.le-status.error{color:var(--kptu-danger)}
+/* 끌기 표시(reorder-drag.js 공용 클래스). */
+.le-list .re-drop-before{box-shadow:inset 0 2px 0 var(--kptu-primary-ink)}
+.le-list.re-drop-end{box-shadow:inset 0 -2px 0 var(--kptu-primary-ink)}
+.le-list .re-dragging{opacity:.6;background:var(--kptu-surface-subtle)}
+/* ⋯ 작은 메뉴(anchored-menu.js): 글자만, 같은 색(지우기도). */
+.le-menu{position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
+.le-menu[hidden]{display:none}
+.le-menu button{display:flex;align-items:center;width:100%;min-height:36px;margin:0;padding:0 var(--kptu-space-3,12px);text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta,13px);font-weight:500;cursor:pointer}
+.le-menu button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
+.le-menu button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+/* 창 제목 옆 수. */
+.le-count{margin-left:6px;font-size:var(--ds-text-meta,12px);font-weight:400;color:var(--kptu-muted)}
+@media(max-width:760px){
+  html:has(body.kptu-workspace-shell):not(:has(body.kptu-mobile-keyboard)) .modal.le-modal{bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom))}
+  .modal.le-modal .modal-card{max-height:min(86dvh,calc(100dvh - var(--kptu-mobile-tab-height,0px) - 24px));overflow:auto}
+}
