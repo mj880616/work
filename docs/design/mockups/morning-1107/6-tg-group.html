@@ -1,0 +1,94 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>6. 텔레그램 소식 같은 날·같은 방 묶기 — 아침 시안 11/07</title><style>
+:root{--bg:#f5f6f7;--sf:#fff;--sub:#fafbfc;--ink:#1f2933;--mu:#66727f;--fa:#8a949e;--bd:#dfe4e8;--bd2:#cfd6dc;--pr:#263f5f;--prs:#eef2f6;--ln:#355f86;--ok:#2f6b4f;--oks:#eef6f1;--wa:#8a6218;--was:#faf4e7;--dg:#9a4048;--dgs:#faeeee;--ac:#66508c;--acs:#f1eef7}
+*{box-sizing:border-box}
+html,body{margin:0;background:#e8eaed;color:var(--ink);font:13px/1.5 "Noto Sans KR",system-ui,sans-serif}
+a{color:var(--ln)}
+.page{max-width:1320px;margin:0 auto;padding:10px 12px 40px}
+.hd{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mu)}
+.hd a{text-decoration:none}
+h1{font-size:16px;margin:4px 0 2px}
+.sum{margin:0 0 8px;color:var(--ink)}
+details.fact{background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;margin:0 0 8px}
+details.fact summary{cursor:pointer;color:var(--mu);font-size:12px}
+details.fact ul{margin:6px 0 2px;padding-left:18px}
+details.fact li{margin:2px 0}
+.pick{background:var(--sf);border:1px solid var(--bd2);border-left:3px solid var(--ac);border-radius:8px;padding:8px 10px;margin:0 0 10px}
+.pick h2{font-size:13px;margin:0 0 4px;color:var(--ac)}
+.pick ol{margin:0;padding-left:18px}
+.pick li{margin:3px 0}
+.pick .rec{color:var(--ok);font-size:12px}
+.pick .ans{margin:6px 0 0;font-size:12px;color:var(--mu)}
+.wt{display:flex;gap:4px;margin:6px 0 8px;position:sticky;top:0;z-index:5;background:#e8eaed;padding:4px 0}
+.wt button{white-space:nowrap;height:28px;padding:0 9px;border:1px solid var(--bd2);border-radius:999px;background:var(--sf);font:inherit;font-size:12px;color:var(--ink)}
+.wt button[aria-pressed=true]{background:var(--pr);color:#fff;border-color:var(--pr)}
+.wt span{margin-left:auto;font-size:11px;color:var(--fa);align-self:center}
+@media (max-width:600px){.wt span{display:none}}
+figure{margin:0 0 14px}
+figcaption{font-size:12px;font-weight:600;margin:0 0 4px}
+figcaption small{font-weight:400;color:var(--mu)}
+.fit{width:100%;overflow:hidden}
+.frame{container-type:inline-size;transform-origin:0 0;background:var(--bg);border:1px solid var(--bd2);border-radius:10px;overflow:hidden;box-shadow:0 1px 3px #0001}
+/* 앱 모양 */
+.app{display:flex;min-height:300px;font-size:13px}
+.nav{display:none;width:168px;flex:0 0 168px;background:var(--sf);border-right:1px solid var(--bd);padding:8px 6px}
+.nav div{height:30px;display:flex;align-items:center;padding:0 8px;border-radius:6px;color:var(--mu)}
+.nav div.on{background:var(--prs);color:var(--pr);font-weight:600}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:44px;display:flex;align-items:center;gap:6px;padding:0 10px;background:var(--sf);border-bottom:1px solid var(--bd)}
+.top b{font-size:14px}
+.top .r{margin-left:auto;display:flex;gap:4px;align-items:center}
+.main{flex:1;padding:8px;min-width:0}
+.bot{height:48px;display:flex;justify-content:space-around;align-items:center;background:var(--sf);border-top:1px solid var(--bd);font-size:11px;color:var(--mu)}
+.bot .on{color:var(--pr);font-weight:600}
+@container (min-width:1200px){.nav{display:block}.bot{display:none}}
+.b{display:inline-flex;align-items:center;gap:3px;height:28px;padding:0 8px;border:1px solid var(--bd2);border-radius:8px;background:var(--sf);font-size:12px;color:var(--ink);white-space:nowrap}
+.b.p{background:var(--pr);border-color:var(--pr);color:#fff;height:32px;padding:0 12px}
+.b.g{border-color:transparent;background:transparent;color:var(--mu)}
+.b.on{background:var(--prs);border-color:var(--pr);color:var(--pr)}
+.c{display:inline-flex;align-items:center;height:24px;padding:0 9px;border:1px solid var(--bd);border-radius:999px;background:var(--sf);font-size:12px;color:var(--mu);white-space:nowrap}
+.c.on{background:var(--prs);border-color:var(--pr);color:var(--pr)}
+.box{background:var(--sf);border:1px solid var(--bd);border-radius:8px}
+.row{display:flex;align-items:center;gap:6px;min-height:34px;padding:4px 8px;border-top:1px solid var(--bd)}
+.row:first-child{border-top:0}
+.row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .tag{flex:0 0 auto;font-size:11px;color:var(--fa)}
+.m{color:var(--mu)}.f{color:var(--fa);font-size:11px}
+.hl{background:var(--was);border-color:#e6d3a8}
+.chev{display:inline-block;width:14px;text-align:center;color:var(--fa)}
+.pic{display:inline-block;border-radius:5px;background:linear-gradient(135deg,#c9c2b4,#8f9a8c)}
+.pic.b2{background:linear-gradient(135deg,#b9c4cf,#7d8c9b)}
+.pic.b3{background:linear-gradient(135deg,#d3c3b9,#9b877d)}
+.pop{position:absolute;background:var(--sf);border:1px solid var(--bd2);border-radius:8px;box-shadow:0 8px 24px rgba(20,33,48,.12);font-size:12px;z-index:3}
+.pop div{padding:6px 12px;border-top:1px solid var(--bd)}.pop div:first-child{border-top:0}
+.split{display:flex;gap:8px}.split>*{flex:1;min-width:0}
+@container (max-width:599px){.split{flex-direction:column}.wideonly{display:none!important}}
+@container (min-width:600px){.narrowonly{display:none!important}}
+.note{font-size:12px;color:var(--mu);margin:4px 2px 0}
+table.t{border-collapse:collapse;width:100%;background:var(--sf);font-size:12px}
+table.t th,table.t td{border:1px solid var(--bd);padding:5px 7px;text-align:left;vertical-align:top}
+table.t th{background:var(--sub);font-weight:600}
+</style></head><body><div class="page">
+<div class="hd"><a href="index.html">‹ 목차</a><span>· 6/6 · 시안(지어낸 예시, 실제 내용 아님)</span></div>
+<h1>6. 텔레그램 소식 같은 날·같은 방 묶기</h1><p class="sum">날짜 아래 방 한 줄 목록·방 상세(하루 요약·‹ 날짜 ›)·폴더·보관·날 삭제는 이미 운영에 들어가 있다. 남은 것은 '모든 방' 켜기(뺄 방 정하기)와 [텔레그램에서 열기]가 실제로 열리게 하는 방 정보다.</p>
+<details class="fact"><summary>지금 어디까지 됐나 (조사한 사실)</summary><ul><li>10/27 명진 결정 7개 모두 추천대로 → DB #1293 적용, 서버 #1295(Edge 배포), 화면 #1297(방·날 한 줄 목록·방 상세)·#1298(폴더 칸 줄·밀기·보관함·날 삭제) merge.</li><li>남은 것 ①: 지금은 허용한 업무방만 읽음(<code>TG_FEED_ROOMS</code>). '모든 방'(<code>*</code>)으로 켜려면 <b>뺄 방 목록</b>이 먼저 필요 — 명진 답 대기.</li><li>남은 것 ②: Apps Script 3단계(방 정보·첫 메시지 번호를 본문에 더함) 붙여 넣기와 수집기 쪽 방 정보 파일(저장소 밖) — 명진 직접. 이게 없으면 [텔레그램에서 열기]가 방을 못 찾는 방이 있음.</li><li>남은 것 ③: 갤럭시 폴드 두 화면 실기기 확인(밀기·버튼 폭·되돌리기 줄·열기 링크).</li><li>그 뒤 더해진 것: 보낸 사람 이름(TG-발언자이름), 나한테 온 요청 노란 띠·안 본 것(TG-요청강조·안본것).</li></ul></details>
+<section class="pick"><h2>명진이 고를 것</h2><ol><li><b>뺄 방 정하는 곳</b> — A: 지금 설계대로 스크립트 속성에 직접 적기(화면·DB 변경 없음) / B: Web2 소식 ⋯ [AI에 보내지 않을 방] 창에서 체크(서버 저장 — DB·Edge·스크립트 변경 필요). <span class="rec">추천 A(지금 바로 가능, 새 표·새 서버 길이 필요 없음)</span></li><li><b>[텔레그램에서 열기] 위치</b> — A: 방 상세 머리줄·소식 줄에만(지금) / B: 목록 줄마다 작은 ↗도. <span class="rec">추천 A(목록이 촘촘하게 유지)</span></li></ol><p class="ans">답 예: "1 A, 2 A" — A를 고르면 CC가 붙여 넣을 칸·순서를 한 단계씩 따로 드림</p></section>
+<div class="wt" role="group" aria-label="화면 폭"><button data-w="phone" aria-pressed="true">폰 412</button><button data-w="fold" aria-pressed="false">폴드 펼침 884</button><button data-w="pc" aria-pressed="false">PC 1280</button><span>작게 보이면 실제 폭을 줄여 보인 것</span></div>
+<figure><figcaption>지금 목록 <small>(날짜 아래 방 한 줄, 운영 중)</small></figcaption><div class="fit"><div class="frame"><div class="app"><div class="nav"><div>홈</div><div>달력</div><div>할 일</div><div>사업 보고</div><div>노트</div><div>일기</div><div class="on">소식</div><div>사진</div><div>파일</div><div>자료실</div></div><div class="col"><div class="top"><b>소식</b><span class="r"><span class="c on">텔레그램</span><span class="c">통화</span><span class="b">안 본 것 7</span><span class="b g">⋯</span></span></div><div class="main"><div style="display:flex;gap:4px;margin-bottom:4px"><span class="c on">전체</span><span class="c"><svg width="16" height="13" viewBox="0 0 16 13" aria-hidden="true"><path d="M1 2.2C1 1.5 1.5 1 2.2 1h3.4l1.5 1.6h6.7c.7 0 1.2.5 1.2 1.2v7.4c0 .7-.5 1.2-1.2 1.2H2.2C1.5 12.4 1 11.9 1 11.2z" fill="#c9a24a"/></svg> 업무</span><span class="c"><svg width="16" height="13" viewBox="0 0 16 13" aria-hidden="true"><path d="M1 2.2C1 1.5 1.5 1 2.2 1h3.4l1.5 1.6h6.7c.7 0 1.2.5 1.2 1.2v7.4c0 .7-.5 1.2-1.2 1.2H2.2C1.5 12.4 1 11.9 1 11.2z" fill="#c9a24a"/></svg> 지역</span><span class="c">보관함</span></div>
+<div class="f" style="margin:6px 2px 3px">11월 6일(금)</div><div class="box"><div class="row"><span style="width:6px;height:6px;border-radius:50%;background:var(--ln)"></span><span style="font-weight:600;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">지부 간부방</span><span class="t m">간담회 일정 확정, 자료 요청</span><span class="tag">소식 12</span></div><div class="row"><span style="width:6px;height:6px;border-radius:50%;background:var(--ln)"></span><span style="font-weight:600;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">정책 모임</span><span class="t m">토론회 발제 순서 조율</span><span class="tag">소식 5</span></div><div class="row"><span style="width:6px;height:6px;border-radius:50%;background:transparent"></span><span style="font-weight:600;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">본부 공지</span><span class="t m">선전물 배포 안내</span><span class="tag">소식 3</span></div></div>
+<div class="f" style="margin:6px 2px 3px">11월 5일(목)</div><div class="box"><div class="row"><span style="width:6px;height:6px;border-radius:50%;background:transparent"></span><span style="font-weight:600;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">지부 간부방</span><span class="t m">현장 순회 결과 공유</span><span class="tag">소식 9</span></div><div class="row"><span style="width:6px;height:6px;border-radius:50%;background:transparent"></span><span style="font-weight:600;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">본부 공지</span><span class="t m">교육 신청 마감</span><span class="tag">소식 2</span></div></div></div><div class="bot"><span>홈</span><span>달력</span><span>할 일</span><span class="on">소식</span><span>더보기</span></div></div></div></div></div></figure><figure><figcaption>방 상세 <small>(하루 요약·‹ 날짜 ›·텔레그램에서 열기)</small></figcaption><div class="fit"><div class="frame"><div class="app"><div class="nav"><div>홈</div><div>달력</div><div>할 일</div><div>사업 보고</div><div>노트</div><div>일기</div><div class="on">소식</div><div>사진</div><div>파일</div><div>자료실</div></div><div class="col"><div class="top"><b>소식</b><span class="r"><span class="c on">텔레그램</span><span class="c">통화</span><span class="b">안 본 것 7</span><span class="b g">⋯</span></span></div><div class="main"><div class="box" style="padding:6px 8px"><div style="display:flex;align-items:center;gap:6px"><span class="chev">‹</span><b>지부 간부방</b><span class="b" style="margin-left:auto">텔레그램에서 열기</span><span class="b g">⋯</span></div>
+<div style="display:flex;justify-content:center;gap:10px;margin:4px 0"><span class="b g">‹</span><span>11월 6일(금)</span><span class="b g">›</span></div>
+<div class="f">오늘 요약</div><p style="margin:0 0 6px">간담회는 다음 주 목요일로 확정. 지부별 현장 자료를 수요일까지 모으기로 함.</p>
+<div class="box"><div class="row"><span class="f">09:12</span><span class="t">간담회 날짜 정리</span><span class="b g">↗</span></div><div class="row"><span class="f">13:40</span><span class="t">자료 요청 — 나한테 온 요청</span><span class="b g">↗</span></div></div></div></div><div class="bot"><span>홈</span><span>달력</span><span>할 일</span><span class="on">소식</span><span>더보기</span></div></div></div></div></div></figure><figure><figcaption>2-B 목록 줄마다 ↗</figcaption><div class="fit"><div class="frame"><div class="app"><div class="nav"><div>홈</div><div>달력</div><div>할 일</div><div>사업 보고</div><div>노트</div><div>일기</div><div class="on">소식</div><div>사진</div><div>파일</div><div>자료실</div></div><div class="col"><div class="top"><b>소식</b><span class="r"><span class="c on">텔레그램</span><span class="c">통화</span><span class="b">안 본 것 7</span><span class="b g">⋯</span></span></div><div class="main"><div style="display:flex;gap:4px;margin-bottom:4px"><span class="c on">전체</span><span class="c"><svg width="16" height="13" viewBox="0 0 16 13" aria-hidden="true"><path d="M1 2.2C1 1.5 1.5 1 2.2 1h3.4l1.5 1.6h6.7c.7 0 1.2.5 1.2 1.2v7.4c0 .7-.5 1.2-1.2 1.2H2.2C1.5 12.4 1 11.9 1 11.2z" fill="#c9a24a"/></svg> 업무</span><span class="c"><svg width="16" height="13" viewBox="0 0 16 13" aria-hidden="true"><path d="M1 2.2C1 1.5 1.5 1 2.2 1h3.4l1.5 1.6h6.7c.7 0 1.2.5 1.2 1.2v7.4c0 .7-.5 1.2-1.2 1.2H2.2C1.5 12.4 1 11.9 1 11.2z" fill="#c9a24a"/></svg> 지역</span><span class="c">보관함</span></div>
+<div class="f" style="margin:6px 2px 3px">11월 6일(금)</div><div class="box"><div class="row"><span style="width:6px;height:6px;border-radius:50%;background:var(--ln)"></span><span style="font-weight:600;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">지부 간부방</span><span class="t m">간담회 일정 확정, 자료 요청</span><span class="tag">소식 12</span><span class="b g" title="텔레그램에서 열기">↗</span></div><div class="row"><span style="width:6px;height:6px;border-radius:50%;background:var(--ln)"></span><span style="font-weight:600;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">정책 모임</span><span class="t m">토론회 발제 순서 조율</span><span class="tag">소식 5</span><span class="b g" title="텔레그램에서 열기">↗</span></div><div class="row"><span style="width:6px;height:6px;border-radius:50%;background:transparent"></span><span style="font-weight:600;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">본부 공지</span><span class="t m">선전물 배포 안내</span><span class="tag">소식 3</span><span class="b g" title="텔레그램에서 열기">↗</span></div></div>
+<div class="f" style="margin:6px 2px 3px">11월 5일(목)</div><div class="box"><div class="row"><span style="width:6px;height:6px;border-radius:50%;background:transparent"></span><span style="font-weight:600;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">지부 간부방</span><span class="t m">현장 순회 결과 공유</span><span class="tag">소식 9</span><span class="b g" title="텔레그램에서 열기">↗</span></div><div class="row"><span style="width:6px;height:6px;border-radius:50%;background:transparent"></span><span style="font-weight:600;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">본부 공지</span><span class="t m">교육 신청 마감</span><span class="tag">소식 2</span><span class="b g" title="텔레그램에서 열기">↗</span></div></div></div><div class="bot"><span>홈</span><span>달력</span><span>할 일</span><span class="on">소식</span><span>더보기</span></div></div></div></div></div></figure><figure><figcaption>1-A 뺄 방: 스크립트 속성에 직접</figcaption><div class="fit"><div class="frame"><div class="app"><div class="nav"><div>홈</div><div>달력</div><div>할 일</div><div>사업 보고</div><div>노트</div><div>일기</div><div class="on">소식</div><div>사진</div><div>파일</div><div>자료실</div></div><div class="col"><div class="top"><b>소식</b><span class="r"><span class="c on">텔레그램</span><span class="c">통화</span><span class="b">안 본 것 7</span><span class="b g">⋯</span></span></div><div class="main"><div class="box" style="padding:8px 10px;max-width:520px"><div style="font-weight:600">'모든 방' 켜기 — 지금 설계(스크립트에 직접)</div>
+<ol style="margin:6px 0;padding-left:18px"><li>명진이 Apps Script 화면 → 프로젝트 설정 → 스크립트 속성</li><li><code>TG_FEED_ROOMS</code> 값을 <code>*</code>로</li><li><code>TG_FEED_ROOMS_EXCLUDE</code>에 AI에 보내면 안 되는 방 이름을 쉼표로</li></ol>
+<div class="note">방 이름은 채팅·저장소에 쓰지 않음. Web2 화면 변경·DB 없음.</div></div></div><div class="bot"><span>홈</span><span>달력</span><span>할 일</span><span class="on">소식</span><span>더보기</span></div></div></div></div></div></figure><figure><figcaption>1-B 뺄 방: Web2 창에서 체크</figcaption><div class="fit"><div class="frame"><div class="app"><div class="nav"><div>홈</div><div>달력</div><div>할 일</div><div>사업 보고</div><div>노트</div><div>일기</div><div class="on">소식</div><div>사진</div><div>파일</div><div>자료실</div></div><div class="col"><div class="top"><b>소식</b><span class="r"><span class="c on">텔레그램</span><span class="c">통화</span><span class="b">안 본 것 7</span><span class="b g">⋯</span></span></div><div class="main"><div class="box" style="max-width:520px"><div class="row" style="font-weight:600">AI에 보내지 않을 방 <span class="b g" style="margin-left:auto">✕</span></div>
+<div class="row"><span>☑</span><span class="t">가족방</span><span class="tag">개인</span></div><div class="row"><span>☑</span><span class="t">친구 모임</span><span class="tag">개인</span></div><div class="row"><span>☐</span><span class="t">지부 간부방</span><span class="tag">업무</span></div><div class="row"><span>☐</span><span class="t">정책 모임</span><span class="tag">업무</span></div>
+<div class="row" style="justify-content:flex-end"><span class="b p">저장</span></div></div><div class="note">소식 ⋯ 메뉴 안 창. 체크한 방은 요약에서 빠지고 원문도 보내지 않음(서버 저장, 스크립트가 읽음).</div></div><div class="bot"><span>홈</span><span>달력</span><span>할 일</span><span class="on">소식</span><span>더보기</span></div></div></div></div></div></figure>
+</div><script>
+(function(){
+var W={phone:412,fold:884,pc:1280},cur='phone';
+function fit(){document.querySelectorAll('.fit').forEach(function(f){var fr=f.firstElementChild;var w=W[cur];fr.style.width=w+'px';var s=Math.min(1,f.clientWidth/w);fr.style.transform='scale('+s+')';f.style.height=(fr.offsetHeight*s)+'px'})}
+document.querySelectorAll('.wt button').forEach(function(b){b.addEventListener('click',function(){cur=b.dataset.w;document.querySelectorAll('.wt button').forEach(function(x){x.setAttribute('aria-pressed',x===b)});fit()})});
+addEventListener('resize',fit);fit();
+})();</script></body></html>

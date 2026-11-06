@@ -1,0 +1,79 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>아침 시안 11/07</title><style>
+:root{--bg:#f5f6f7;--sf:#fff;--sub:#fafbfc;--ink:#1f2933;--mu:#66727f;--fa:#8a949e;--bd:#dfe4e8;--bd2:#cfd6dc;--pr:#263f5f;--prs:#eef2f6;--ln:#355f86;--ok:#2f6b4f;--oks:#eef6f1;--wa:#8a6218;--was:#faf4e7;--dg:#9a4048;--dgs:#faeeee;--ac:#66508c;--acs:#f1eef7}
+*{box-sizing:border-box}
+html,body{margin:0;background:#e8eaed;color:var(--ink);font:13px/1.5 "Noto Sans KR",system-ui,sans-serif}
+a{color:var(--ln)}
+.page{max-width:1320px;margin:0 auto;padding:10px 12px 40px}
+.hd{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mu)}
+.hd a{text-decoration:none}
+h1{font-size:16px;margin:4px 0 2px}
+.sum{margin:0 0 8px;color:var(--ink)}
+details.fact{background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;margin:0 0 8px}
+details.fact summary{cursor:pointer;color:var(--mu);font-size:12px}
+details.fact ul{margin:6px 0 2px;padding-left:18px}
+details.fact li{margin:2px 0}
+.pick{background:var(--sf);border:1px solid var(--bd2);border-left:3px solid var(--ac);border-radius:8px;padding:8px 10px;margin:0 0 10px}
+.pick h2{font-size:13px;margin:0 0 4px;color:var(--ac)}
+.pick ol{margin:0;padding-left:18px}
+.pick li{margin:3px 0}
+.pick .rec{color:var(--ok);font-size:12px}
+.pick .ans{margin:6px 0 0;font-size:12px;color:var(--mu)}
+.wt{display:flex;gap:4px;margin:6px 0 8px;position:sticky;top:0;z-index:5;background:#e8eaed;padding:4px 0}
+.wt button{white-space:nowrap;height:28px;padding:0 9px;border:1px solid var(--bd2);border-radius:999px;background:var(--sf);font:inherit;font-size:12px;color:var(--ink)}
+.wt button[aria-pressed=true]{background:var(--pr);color:#fff;border-color:var(--pr)}
+.wt span{margin-left:auto;font-size:11px;color:var(--fa);align-self:center}
+@media (max-width:600px){.wt span{display:none}}
+figure{margin:0 0 14px}
+figcaption{font-size:12px;font-weight:600;margin:0 0 4px}
+figcaption small{font-weight:400;color:var(--mu)}
+.fit{width:100%;overflow:hidden}
+.frame{container-type:inline-size;transform-origin:0 0;background:var(--bg);border:1px solid var(--bd2);border-radius:10px;overflow:hidden;box-shadow:0 1px 3px #0001}
+/* 앱 모양 */
+.app{display:flex;min-height:300px;font-size:13px}
+.nav{display:none;width:168px;flex:0 0 168px;background:var(--sf);border-right:1px solid var(--bd);padding:8px 6px}
+.nav div{height:30px;display:flex;align-items:center;padding:0 8px;border-radius:6px;color:var(--mu)}
+.nav div.on{background:var(--prs);color:var(--pr);font-weight:600}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:44px;display:flex;align-items:center;gap:6px;padding:0 10px;background:var(--sf);border-bottom:1px solid var(--bd)}
+.top b{font-size:14px}
+.top .r{margin-left:auto;display:flex;gap:4px;align-items:center}
+.main{flex:1;padding:8px;min-width:0}
+.bot{height:48px;display:flex;justify-content:space-around;align-items:center;background:var(--sf);border-top:1px solid var(--bd);font-size:11px;color:var(--mu)}
+.bot .on{color:var(--pr);font-weight:600}
+@container (min-width:1200px){.nav{display:block}.bot{display:none}}
+.b{display:inline-flex;align-items:center;gap:3px;height:28px;padding:0 8px;border:1px solid var(--bd2);border-radius:8px;background:var(--sf);font-size:12px;color:var(--ink);white-space:nowrap}
+.b.p{background:var(--pr);border-color:var(--pr);color:#fff;height:32px;padding:0 12px}
+.b.g{border-color:transparent;background:transparent;color:var(--mu)}
+.b.on{background:var(--prs);border-color:var(--pr);color:var(--pr)}
+.c{display:inline-flex;align-items:center;height:24px;padding:0 9px;border:1px solid var(--bd);border-radius:999px;background:var(--sf);font-size:12px;color:var(--mu);white-space:nowrap}
+.c.on{background:var(--prs);border-color:var(--pr);color:var(--pr)}
+.box{background:var(--sf);border:1px solid var(--bd);border-radius:8px}
+.row{display:flex;align-items:center;gap:6px;min-height:34px;padding:4px 8px;border-top:1px solid var(--bd)}
+.row:first-child{border-top:0}
+.row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .tag{flex:0 0 auto;font-size:11px;color:var(--fa)}
+.m{color:var(--mu)}.f{color:var(--fa);font-size:11px}
+.hl{background:var(--was);border-color:#e6d3a8}
+.chev{display:inline-block;width:14px;text-align:center;color:var(--fa)}
+.pic{display:inline-block;border-radius:5px;background:linear-gradient(135deg,#c9c2b4,#8f9a8c)}
+.pic.b2{background:linear-gradient(135deg,#b9c4cf,#7d8c9b)}
+.pic.b3{background:linear-gradient(135deg,#d3c3b9,#9b877d)}
+.pop{position:absolute;background:var(--sf);border:1px solid var(--bd2);border-radius:8px;box-shadow:0 8px 24px rgba(20,33,48,.12);font-size:12px;z-index:3}
+.pop div{padding:6px 12px;border-top:1px solid var(--bd)}.pop div:first-child{border-top:0}
+.split{display:flex;gap:8px}.split>*{flex:1;min-width:0}
+@container (max-width:599px){.split{flex-direction:column}.wideonly{display:none!important}}
+@container (min-width:600px){.narrowonly{display:none!important}}
+.note{font-size:12px;color:var(--mu);margin:4px 2px 0}
+table.t{border-collapse:collapse;width:100%;background:var(--sf);font-size:12px}
+table.t th,table.t td{border:1px solid var(--bd);padding:5px 7px;text-align:left;vertical-align:top}
+table.t th{background:var(--sub);font-weight:600}
+
+.it{display:block;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;margin:0 0 6px;text-decoration:none;color:var(--ink)}
+.it b{font-size:14px}.it .s{color:var(--mu);margin:1px 0}.it .q{font-size:12px}.it .q span{color:var(--ac);font-weight:600}.it .r{font-size:11px;color:var(--ok)}
+</style></head><body><div class="page" style="max-width:760px">
+<h1>아침 시안 묶음 · 11월 7일</h1>
+<p class="sum">여섯 가지를 한 장씩. 항목을 눌러 그림을 보고, 항목마다 "고를 것"에 A/B 또는 ㅇ/ㄴ로만 답하면 됩니다. 모두 지어낸 예시입니다.</p>
+<p class="f" style="margin:0 0 8px">한 번에 답하기 예: "1: 1A 2B / 2: 1A 2ㄴ 3ㅇ / 3: 1A 그대로 / 4: 1A 2A / 5: ①② / 6: 1A 2A" — "전부 추천대로"도 됩니다.</p>
+<a class="it" href="1-editor.html"><b>1. 블로그형 편집기 하나로</b><div class="s">쓰기 화면 다섯 곳은 이미 같은 편집기. 사진 나란히도 이미 됨.</div><div class="q"><span>고를 것</span> 도구 줄 위치(위 고정 / 글 고를 때만) · 여러 장 사진(묻기 / 바로 나란히)</div><div class="r">추천: 1 A · 2 B</div></a><a class="it" href="2-project-report.html"><b>2. 프로젝트를 사업 보고로 합치기</b><div class="s">1~3단계 운영 중. 옛 프로젝트 이름 = 사업영역 이름으로 이미 남아 있음.</div><div class="q"><span>고를 것</span> 옛 이름 표시(그대로 / 흐리게 한 줄) · 마지막 정리 시기 · 자료실 글자</div><div class="r">추천: 1 A · 2 ㄴ · 3 ㅇ</div></a><a class="it" href="3-photo-tidy.html"><b>3. 사진 전체 관리 제안 6가지</b><div class="s">6가지 모두 들어가 있음, 폰 확인만 남음.</div><div class="q"><span>고를 것</span> 다음 순서(지우기 안전장치 / 지우기 두 갈래) · 뺄 것</div><div class="r">추천: 1 A · 2 그대로</div></a><a class="it" href="4-files-pane-source.html"><b>4. [파일] 칸마다 출처 고르기</b><div class="s">두 칸·출처 넷은 이미 있음, 칸마다 고르는 단추만 없음.</div><div class="q"><span>고를 것</span> 칸 머리 모양(이름 ▾ / 아이콘 4개) · 서버 기억(DB 한 번 / 기억 안 함)</div><div class="r">추천: 1 A · 2 A</div></a><a class="it" href="5-perf.html"><b>5. 웹2 속도 개선</b><div class="s">화면 시안 대신 측정 표와 줄일 곳 다섯 군데.</div><div class="q"><span>고를 것</span> 다음에 손댈 곳 고르기(번호)</div><div class="r">추천: ①②</div></a><a class="it" href="6-tg-group.html"><b>6. 텔레그램 같은 날·같은 방 묶기</b><div class="s">목록·방 상세·폴더·보관 운영 중. 모든 방 켜기와 열기 링크가 남음.</div><div class="q"><span>고를 것</span> 뺄 방 정하는 곳(스크립트 / Web2 창) · [텔레그램에서 열기] 위치</div><div class="r">추천: 1 A · 2 A</div></a>
+<p class="f">각 시안은 위 [폰 412] [폴드 펼침 884] [PC 1280] 단추로 폭을 바꿔 봅니다. 화면보다 넓은 폭은 줄여서 보여 줍니다.</p>
+</div></body></html>

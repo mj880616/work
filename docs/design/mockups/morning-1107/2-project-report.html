@@ -1,0 +1,110 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>2. 프로젝트를 사업 보고로 합치기 — 아침 시안 11/07</title><style>
+:root{--bg:#f5f6f7;--sf:#fff;--sub:#fafbfc;--ink:#1f2933;--mu:#66727f;--fa:#8a949e;--bd:#dfe4e8;--bd2:#cfd6dc;--pr:#263f5f;--prs:#eef2f6;--ln:#355f86;--ok:#2f6b4f;--oks:#eef6f1;--wa:#8a6218;--was:#faf4e7;--dg:#9a4048;--dgs:#faeeee;--ac:#66508c;--acs:#f1eef7}
+*{box-sizing:border-box}
+html,body{margin:0;background:#e8eaed;color:var(--ink);font:13px/1.5 "Noto Sans KR",system-ui,sans-serif}
+a{color:var(--ln)}
+.page{max-width:1320px;margin:0 auto;padding:10px 12px 40px}
+.hd{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mu)}
+.hd a{text-decoration:none}
+h1{font-size:16px;margin:4px 0 2px}
+.sum{margin:0 0 8px;color:var(--ink)}
+details.fact{background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;margin:0 0 8px}
+details.fact summary{cursor:pointer;color:var(--mu);font-size:12px}
+details.fact ul{margin:6px 0 2px;padding-left:18px}
+details.fact li{margin:2px 0}
+.pick{background:var(--sf);border:1px solid var(--bd2);border-left:3px solid var(--ac);border-radius:8px;padding:8px 10px;margin:0 0 10px}
+.pick h2{font-size:13px;margin:0 0 4px;color:var(--ac)}
+.pick ol{margin:0;padding-left:18px}
+.pick li{margin:3px 0}
+.pick .rec{color:var(--ok);font-size:12px}
+.pick .ans{margin:6px 0 0;font-size:12px;color:var(--mu)}
+.wt{display:flex;gap:4px;margin:6px 0 8px;position:sticky;top:0;z-index:5;background:#e8eaed;padding:4px 0}
+.wt button{white-space:nowrap;height:28px;padding:0 9px;border:1px solid var(--bd2);border-radius:999px;background:var(--sf);font:inherit;font-size:12px;color:var(--ink)}
+.wt button[aria-pressed=true]{background:var(--pr);color:#fff;border-color:var(--pr)}
+.wt span{margin-left:auto;font-size:11px;color:var(--fa);align-self:center}
+@media (max-width:600px){.wt span{display:none}}
+figure{margin:0 0 14px}
+figcaption{font-size:12px;font-weight:600;margin:0 0 4px}
+figcaption small{font-weight:400;color:var(--mu)}
+.fit{width:100%;overflow:hidden}
+.frame{container-type:inline-size;transform-origin:0 0;background:var(--bg);border:1px solid var(--bd2);border-radius:10px;overflow:hidden;box-shadow:0 1px 3px #0001}
+/* 앱 모양 */
+.app{display:flex;min-height:300px;font-size:13px}
+.nav{display:none;width:168px;flex:0 0 168px;background:var(--sf);border-right:1px solid var(--bd);padding:8px 6px}
+.nav div{height:30px;display:flex;align-items:center;padding:0 8px;border-radius:6px;color:var(--mu)}
+.nav div.on{background:var(--prs);color:var(--pr);font-weight:600}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:44px;display:flex;align-items:center;gap:6px;padding:0 10px;background:var(--sf);border-bottom:1px solid var(--bd)}
+.top b{font-size:14px}
+.top .r{margin-left:auto;display:flex;gap:4px;align-items:center}
+.main{flex:1;padding:8px;min-width:0}
+.bot{height:48px;display:flex;justify-content:space-around;align-items:center;background:var(--sf);border-top:1px solid var(--bd);font-size:11px;color:var(--mu)}
+.bot .on{color:var(--pr);font-weight:600}
+@container (min-width:1200px){.nav{display:block}.bot{display:none}}
+.b{display:inline-flex;align-items:center;gap:3px;height:28px;padding:0 8px;border:1px solid var(--bd2);border-radius:8px;background:var(--sf);font-size:12px;color:var(--ink);white-space:nowrap}
+.b.p{background:var(--pr);border-color:var(--pr);color:#fff;height:32px;padding:0 12px}
+.b.g{border-color:transparent;background:transparent;color:var(--mu)}
+.b.on{background:var(--prs);border-color:var(--pr);color:var(--pr)}
+.c{display:inline-flex;align-items:center;height:24px;padding:0 9px;border:1px solid var(--bd);border-radius:999px;background:var(--sf);font-size:12px;color:var(--mu);white-space:nowrap}
+.c.on{background:var(--prs);border-color:var(--pr);color:var(--pr)}
+.box{background:var(--sf);border:1px solid var(--bd);border-radius:8px}
+.row{display:flex;align-items:center;gap:6px;min-height:34px;padding:4px 8px;border-top:1px solid var(--bd)}
+.row:first-child{border-top:0}
+.row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .tag{flex:0 0 auto;font-size:11px;color:var(--fa)}
+.m{color:var(--mu)}.f{color:var(--fa);font-size:11px}
+.hl{background:var(--was);border-color:#e6d3a8}
+.chev{display:inline-block;width:14px;text-align:center;color:var(--fa)}
+.pic{display:inline-block;border-radius:5px;background:linear-gradient(135deg,#c9c2b4,#8f9a8c)}
+.pic.b2{background:linear-gradient(135deg,#b9c4cf,#7d8c9b)}
+.pic.b3{background:linear-gradient(135deg,#d3c3b9,#9b877d)}
+.pop{position:absolute;background:var(--sf);border:1px solid var(--bd2);border-radius:8px;box-shadow:0 8px 24px rgba(20,33,48,.12);font-size:12px;z-index:3}
+.pop div{padding:6px 12px;border-top:1px solid var(--bd)}.pop div:first-child{border-top:0}
+.split{display:flex;gap:8px}.split>*{flex:1;min-width:0}
+@container (max-width:599px){.split{flex-direction:column}.wideonly{display:none!important}}
+@container (min-width:600px){.narrowonly{display:none!important}}
+.note{font-size:12px;color:var(--mu);margin:4px 2px 0}
+table.t{border-collapse:collapse;width:100%;background:var(--sf);font-size:12px}
+table.t th,table.t td{border:1px solid var(--bd);padding:5px 7px;text-align:left;vertical-align:top}
+table.t th{background:var(--sub);font-weight:600}
+</style></head><body><div class="page">
+<div class="hd"><a href="index.html">‹ 목차</a><span>· 2/6 · 시안(지어낸 예시, 실제 내용 아님)</span></div>
+<h1>2. 프로젝트를 사업 보고로 합치기</h1><p class="sum">합치기 1~3단계는 이미 운영에 들어가 있다(프로젝트 메뉴 없앰, 사업 보고에 사업영역 꼬리표·다음 할 일, 사업영역 관리 창). 남은 것은 옛 이름 표시와 마지막 정리 두 가지다.</p>
+<details class="fact"><summary>지금 어디까지 됐나 (조사한 사실)</summary><ul><li>1단계 DB(사업 보고에 꼬리표·다음 할 일 칸) 10/28 운영 적용, 2·3단계 화면 #1402·#1411·#1436·#1502·#1523 merge.</li><li>옛 <b>프로젝트 표를 그대로 사업영역 표로 씀</b> → 옛 프로젝트 이름은 사업영역 이름으로 이미 그대로 남아 있음. 옛 진행 기록은 지우지 않고 보존(화면에서는 안 보임, 10/28 결정 ⑥).</li><li>아직 남은 것: 자료실 안 '프로젝트' 글자(폴더 틀 이름), 4단계 정리(옛 진행 기록을 읽는 코드 걷기 — 설계상 "몇 주 써 본 뒤").</li><li>A안·정리·글자 바꾸기는 <b>DB 변경 없음</b>. B안만 사업영역 표에 '옛 이름' 칸 하나가 필요(DB 한 번, 시험 적용 먼저). 설계 메모: docs/design/project-into-report.md 15절.</li></ul></details>
+<section class="pick"><h2>명진이 고를 것</h2><ol><li><b>옛 프로젝트 이름을 어디에 남길지</b> — A: 지금처럼 사업영역 이름 그 자체(따로 표시 없음) / B: 이름을 바꾼 사업영역은 관리 창에 흐리게 "(옛 이름: …)" 한 줄. <span class="rec">추천 A</span></li><li><b>마지막 정리(옛 진행 기록 읽는 코드 걷기)</b> — ㅇ: 이번 주에 정리 / ㄴ: 몇 주 더 두고 보기. <span class="rec">추천 ㄴ(옛 주 보고서가 달라질 수 있어 대조표 먼저)</span></li><li><b>자료실 폴더 틀 '프로젝트' 글자 → '사업영역'</b> — ㅇ/ㄴ. <span class="rec">추천 ㅇ</span></li></ol><p class="ans">답 예: "1 A, 2 ㄴ, 3 ㅇ"</p></section>
+<div class="wt" role="group" aria-label="화면 폭"><button data-w="phone" aria-pressed="true">폰 412</button><button data-w="fold" aria-pressed="false">폴드 펼침 884</button><button data-w="pc" aria-pressed="false">PC 1280</button><span>작게 보이면 실제 폭을 줄여 보인 것</span></div>
+<figure><figcaption>목록 + 상세 <small>(지금 모양 — 폰은 목록만, 폴드·PC는 오른쪽에 상세)</small></figcaption><div class="fit"><div class="frame"><div class="app"><div class="nav"><div>홈</div><div>달력</div><div>할 일</div><div class="on">사업 보고</div><div>노트</div><div>일기</div><div>소식</div><div>사진</div><div>파일</div><div>자료실</div></div><div class="col"><div class="top"><b>사업 보고</b><span class="r"><span class="b g">‹</span><span class="m" style="font-size:12px">11월 1주</span><span class="b g">›</span><span class="b">미리보기</span><span class="b g">⋯</span></span></div><div class="main"><div class="split"><div><div style="display:flex;gap:4px;overflow:hidden;margin:0 0 6px"><span class="c on">전체 9</span><span class="c">인력 확충 3</span><span class="c">안전 2</span><span class="c">교섭 2</span><span class="c">없음 1</span></div><div class="f" style="margin:0 0 4px">사업영역 안 단 보고 1건 <a href="#">[달기]</a></div><div class="box">
+<div class="row"><span class="f" style="width:38px">11/6</span><span class="c" style="height:20px;font-size:11px">회의</span><span class="t">간담회 준비 회의</span><span class="tag">인력 확충 › 현장</span></div>
+<div class="row"><span class="f" style="width:38px">11/5</span><span class="c" style="height:20px;font-size:11px">활동</span><span class="t">지부 순회</span><span class="tag">안전</span></div>
+<div class="row"><span class="f" style="width:38px">11/4</span><span class="c" style="height:20px;font-size:11px">교섭</span><span class="t">실무 교섭 2차</span><span class="tag">교섭 › 임금</span></div>
+<div class="row hl"><span class="f" style="width:38px">11/3</span><span class="c" style="height:20px;font-size:11px">회의</span><span class="t">정책 토론 준비</span><span class="tag"><span style="color:var(--wa)">안 닮</span></span></div>
+<div class="row"><span class="f" style="width:38px">11/3</span><span class="c" style="height:20px;font-size:11px">활동</span><span class="t">선전물 배포</span><span class="tag">인력 확충</span></div></div></div><div class="wideonly"><div class="box" style="padding:8px 10px">
+<div class="f">인력 확충 › 현장 · 회의 · 11. 6.(금) 14:00</div>
+<div style="font-weight:700;font-size:15px;margin:2px 0 6px">간담회 준비 회의</div>
+<div class="f">결과</div><p style="margin:0 0 6px">현장 자료를 지부별로 묶어 간담회 전날까지 돌린다.</p>
+<div class="f">다음 할 일</div><p style="margin:0 0 6px">지부 두 곳 자료 받기 · 11/12</p>
+<div style="display:flex;gap:4px"><span class="b">할 일로</span><span class="b">고치기</span><span class="b g">⋯</span></div></div></div></div><div class="narrowonly note">줄을 누르면 상세가 한 화면으로 열림(아래 그림).</div></div><div class="bot"><span>홈</span><span>달력</span><span>할 일</span><span class="on">사업 보고</span><span>더보기</span></div></div></div></div></div></figure><figure><figcaption>상세 한 화면 <small>(폰에서 줄을 눌렀을 때)</small></figcaption><div class="fit"><div class="frame"><div class="app"><div class="nav"><div>홈</div><div>달력</div><div>할 일</div><div class="on">사업 보고</div><div>노트</div><div>일기</div><div>소식</div><div>사진</div><div>파일</div><div>자료실</div></div><div class="col"><div class="top"><span class="chev">‹</span><b>사업 보고</b></div><div class="main"><div class="box" style="padding:8px 10px">
+<div class="f">인력 확충 › 현장 · 회의 · 11. 6.(금) 14:00</div>
+<div style="font-weight:700;font-size:15px;margin:2px 0 6px">간담회 준비 회의</div>
+<div class="f">결과</div><p style="margin:0 0 6px">현장 자료를 지부별로 묶어 간담회 전날까지 돌린다.</p>
+<div class="f">다음 할 일</div><p style="margin:0 0 6px">지부 두 곳 자료 받기 · 11/12</p>
+<div style="display:flex;gap:4px"><span class="b">할 일로</span><span class="b">고치기</span><span class="b g">⋯</span></div></div></div><div class="bot"><span>홈</span><span>달력</span><span>할 일</span><span class="on">사업 보고</span><span>더보기</span></div></div></div></div></div></figure><figure><figcaption>1-A 사업영역 관리 — 이름 그대로</figcaption><div class="fit"><div class="frame"><div class="app"><div class="nav"><div>홈</div><div>달력</div><div>할 일</div><div class="on">사업 보고</div><div>노트</div><div>일기</div><div>소식</div><div>사진</div><div>파일</div><div>자료실</div></div><div class="col"><div class="top"><b>사업 보고</b><span class="r"><span class="b g">‹</span><span class="m" style="font-size:12px">11월 1주</span><span class="b g">›</span><span class="b">미리보기</span><span class="b g">⋯</span></span></div><div class="main"><div class="box" style="max-width:520px">
+<div class="row" style="font-weight:600">사업영역 관리 <span class="b g" style="margin-left:auto">✕</span></div>
+<div class="row"><svg width="16" height="13" viewBox="0 0 16 13" aria-hidden="true"><path d="M1 2.2C1 1.5 1.5 1 2.2 1h3.4l1.5 1.6h6.7c.7 0 1.2.5 1.2 1.2v7.4c0 .7-.5 1.2-1.2 1.2H2.2C1.5 12.4 1 11.9 1 11.2z" fill="#c9a24a"/></svg><span class="t">인력 확충</span><span class="tag">보고 14</span></div>
+<div class="row" style="padding-left:28px"><span class="chev">›</span><span class="t">현장</span><span class="tag">보고 6</span></div>
+<div class="row"><svg width="16" height="13" viewBox="0 0 16 13" aria-hidden="true"><path d="M1 2.2C1 1.5 1.5 1 2.2 1h3.4l1.5 1.6h6.7c.7 0 1.2.5 1.2 1.2v7.4c0 .7-.5 1.2-1.2 1.2H2.2C1.5 12.4 1 11.9 1 11.2z" fill="#c9a24a"/></svg><span class="t">안전</span><span class="tag">보고 5</span></div>
+<div class="row"><svg width="16" height="13" viewBox="0 0 16 13" aria-hidden="true"><path d="M1 2.2C1 1.5 1.5 1 2.2 1h3.4l1.5 1.6h6.7c.7 0 1.2.5 1.2 1.2v7.4c0 .7-.5 1.2-1.2 1.2H2.2C1.5 12.4 1 11.9 1 11.2z" fill="#c9a24a"/></svg><span class="t">교섭</span><span class="tag">보고 8</span></div>
+<div class="row"><span class="b">+ 사업영역</span></div></div></div><div class="bot"><span>홈</span><span>달력</span><span>할 일</span><span class="on">사업 보고</span><span>더보기</span></div></div></div></div></div></figure><figure><figcaption>1-B 사업영역 관리 — 옛 이름 흐리게 한 줄</figcaption><div class="fit"><div class="frame"><div class="app"><div class="nav"><div>홈</div><div>달력</div><div>할 일</div><div class="on">사업 보고</div><div>노트</div><div>일기</div><div>소식</div><div>사진</div><div>파일</div><div>자료실</div></div><div class="col"><div class="top"><b>사업 보고</b><span class="r"><span class="b g">‹</span><span class="m" style="font-size:12px">11월 1주</span><span class="b g">›</span><span class="b">미리보기</span><span class="b g">⋯</span></span></div><div class="main"><div class="box" style="max-width:520px">
+<div class="row" style="font-weight:600">사업영역 관리 <span class="b g" style="margin-left:auto">✕</span></div>
+<div class="row"><svg width="16" height="13" viewBox="0 0 16 13" aria-hidden="true"><path d="M1 2.2C1 1.5 1.5 1 2.2 1h3.4l1.5 1.6h6.7c.7 0 1.2.5 1.2 1.2v7.4c0 .7-.5 1.2-1.2 1.2H2.2C1.5 12.4 1 11.9 1 11.2z" fill="#c9a24a"/></svg><span class="t">인력 확충</span><span class="tag">보고 14</span></div>
+<div class="row" style="padding-left:28px"><span class="chev">›</span><span class="t">현장</span><span class="tag">보고 6</span></div>
+<div class="row"><svg width="16" height="13" viewBox="0 0 16 13" aria-hidden="true"><path d="M1 2.2C1 1.5 1.5 1 2.2 1h3.4l1.5 1.6h6.7c.7 0 1.2.5 1.2 1.2v7.4c0 .7-.5 1.2-1.2 1.2H2.2C1.5 12.4 1 11.9 1 11.2z" fill="#c9a24a"/></svg><span class="t">안전 <span class="f">(옛 이름: 안전 대책 TF)</span></span><span class="tag">보고 5</span></div>
+<div class="row"><svg width="16" height="13" viewBox="0 0 16 13" aria-hidden="true"><path d="M1 2.2C1 1.5 1.5 1 2.2 1h3.4l1.5 1.6h6.7c.7 0 1.2.5 1.2 1.2v7.4c0 .7-.5 1.2-1.2 1.2H2.2C1.5 12.4 1 11.9 1 11.2z" fill="#c9a24a"/></svg><span class="t">교섭</span><span class="tag">보고 8</span></div>
+<div class="row"><span class="b">+ 사업영역</span></div></div></div><div class="bot"><span>홈</span><span>달력</span><span>할 일</span><span class="on">사업 보고</span><span>더보기</span></div></div></div></div></div></figure>
+</div><script>
+(function(){
+var W={phone:412,fold:884,pc:1280},cur='phone';
+function fit(){document.querySelectorAll('.fit').forEach(function(f){var fr=f.firstElementChild;var w=W[cur];fr.style.width=w+'px';var s=Math.min(1,f.clientWidth/w);fr.style.transform='scale('+s+')';f.style.height=(fr.offsetHeight*s)+'px'})}
+document.querySelectorAll('.wt button').forEach(function(b){b.addEventListener('click',function(){cur=b.dataset.w;document.querySelectorAll('.wt button').forEach(function(x){x.setAttribute('aria-pressed',x===b)});fit()})});
+addEventListener('resize',fit);fit();
+})();</script></body></html>
