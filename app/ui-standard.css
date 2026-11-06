@@ -1729,7 +1729,7 @@ button.ds-chip:is([aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-s
 .ds-seg > button.ds-seg-btn:first-child{ border-top-left-radius:inherit; border-bottom-left-radius:inherit; }
 .ds-seg > button.ds-seg-btn:last-child{ border-top-right-radius:inherit; border-bottom-right-radius:inherit; }
 .ds-seg > button.ds-seg-btn[aria-pressed="true"]{ color:var(--ds-select-ink); background:var(--ds-select-bg); }
-.ds-seg > button.ds-seg-btn[aria-pressed="true"]::before{ content:""; position:absolute; left:20%; right:20%; bottom:var(--ds-line-width); height:calc(var(--ds-line-width) * 4); border-radius:var(--ds-line-width); background:var(--ds-select-line); pointer-events:none; }
+.ds-seg > button.ds-seg-btn[aria-pressed="true"]::before{ content:""; position:absolute; left:20%; right:20%; bottom:calc(var(--ds-line-width) * 4); height:calc(var(--ds-line-width) * 4); border-radius:var(--ds-line-width); background:var(--ds-select-line); pointer-events:none; }
 :is(button.ds-chip,.ds-seg > button.ds-seg-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 button.icon-btn{ border-color:transparent; background:transparent; box-shadow:none; color:var(--kptu-muted); }
 @media (hover:hover){ button.icon-btn:not(:disabled):hover,button.ds-chip:not(:disabled,[aria-pressed="true"],[aria-checked="true"]):hover,.ds-seg > button.ds-seg-btn:not(:disabled,[aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
