@@ -104,7 +104,7 @@ export const PHONE_FAIL_KINDS = Object.freeze(['permission', 'key', 'bad_request
 const PHONE_FAIL_TEXT = Object.freeze({
   permission:'사진 접근 허용이 없어요', key:'앱 열쇠가 바뀌었어요, [다시]를 눌러 주세요', bad_request:'앱이 요청 모양을 받지 않았어요',
   query:'사진첩 조회가 실패했어요', column:'사진첩 항목 이름이 맞지 않아요', decode:'그림을 만들지 못했어요', not_found:'그 사진이 폰에 없어요',
-  unreached:'앱이 요청을 받지 못했어요', answer:'앱 답을 읽지 못했어요', no_access:'사진 접근 허용이 없어요', old:'앱이 이유를 주지 않았어요(앱 새 판 필요)',
+  unreached:'앱이 요청을 받지 못했어요', timeout:'폰 앱이 답하지 않아요', answer:'앱 답을 읽지 못했어요', no_access:'사진 접근 허용이 없어요', old:'앱이 이유를 주지 않았어요(앱 새 판 필요)',
 });
 const DETAIL_RE = /^[A-Za-z0-9_$.]{1,60}$/;
 // 실패 답 해석. status: HTTP 상태(0 = 앱에 닿지 않음), body: 답 글(JSON이 아니어도 됨). 모르는 종류·이상한 글은 버린다.

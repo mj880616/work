@@ -33,6 +33,7 @@ import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, o
   odCopyCheck, odTrashLog, odTrashWatch, odTrashSeen, odKeptList, odKeptDrop} from './diary-onedrive.js';
 import {keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor, twinPairs, nearWindows, readNear, DEL_CHECK_MS} from './photo-keep-model.mjs';
 import {phonePhotos} from './phone-photos.js';
+import {within, isLoadTimeout, onResume} from './load-deadline.js';
 import {createPhotoTidy} from './photo-tidy.js';
 import {createThumbHasher} from './photo-hash.js';
 import {keptText, sizeText, COPY_BATCH, LOG_BATCH, copyPairs} from './photo-tidy-model.mjs';
@@ -521,10 +522,10 @@ function remerge() {
   return {...m, streams:st};
 }
 // 한 출처의 다음 쪽.
-async function loadStream(source, r) {
+async function loadStream(source, alive) {
   if (source === 'onedrive') {
     const page = await odLibrary(rt, {filter, cursor:next || from?.cursor || null, limit:PAGE_SIZE, sort:listSort()});
-    if (!current(r)) return;
+    if (!alive()) return;
     odList = appendItems(odList, page.items.map(toItem)); next = page.next; odEnded = !page.next;
     return;
   }
@@ -533,7 +534,7 @@ async function loadStream(source, r) {
     const all = listSort() !== DEFAULT_SORT;
     for (let guard = 0; guard < (all ? 30 : 1); guard++) {
       const page = await gdList(rt, {before:gdCursor || (from ? gdriveFrom(from.cursor.t) : null), limit:all ? 300 : PAGE_SIZE});
-      if (!current(r)) return;
+      if (!alive()) return;
       const got = (Array.isArray(page?.items) ? page.items : []).map(gdriveToItem).filter(Boolean);
       if (got.length) gdCursor = gdriveBefore(got[got.length - 1]);
       gdItems = appendItems(gdItems, filter === 'video' ? got.filter(x => x.video) : got);
@@ -544,61 +545,84 @@ async function loadStream(source, r) {
     return;
   }
   const page = await phone.page({sort:listSort(), filter, offset:phNext, limit:PAGE_SIZE, before:from ? Date.parse(from.cursor.t) : null, ...(await hideArg())});
-  if (!current(r)) return;
+  if (!alive()) return;
   phList = appendItems(phList, page.items); phNext = page.next ?? phNext; phEnded = page.next === null;
 }
 // 다음 쪽. ★는 별표 id(500개씩)로 모두 받아 최신순으로 합친다(별표는 많지 않다).
 // 출처가 둘이면 앞을 막는 출처(아직 덜 받은 쪽)부터 한 쪽씩, 보일 칸이 늘 때까지(4쪽까지) 받는다.
+// LOAD-끝있는불러오기(S51-29): 한 걸음(한 출처 한 쪽, 별표 묶음)은 LOAD_STEP_MS 안에 끝난다. 시간이 지나면 그 걸음의 늦은 답은 버리고(attempt),
+// 처음 한 번은 바로 다시 받고, 또 지나면 '불러오지 못했습니다 · 이유 · [다시]'. 화면으로 돌아오거나 앱이 다시 앞에 오면 실패한 불러오기를 다시 한다(retryStalled).
+const LOAD_STEP_MS = 60000;
+let attempt = 0, autoAgain = true;
 function loadMore() {
   if (loading || ended || !anyUse()) return loading;
-  const r = run;
+  const r = run, a = ++attempt;
+  const alive = () => current(r) && a === attempt;
   loading = (async () => {
-    let src = 'onedrive';
+    let src = 'onedrive', again = false;
     try {
       const u = useSrc();
       if (filter === 'star') {
-        await ensureStars(r);
-        if (u.onedrive && !odEnded) {
-          const all = [];
-          for (const ids of chunks(starIds(), STAR_CHUNK)) {
-            let cursor = from?.cursor || null;
-            for (let guard = 0; guard < 50; guard++) {
-              const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200, sort:listSort()});
-              if (!current(r)) return;
-              all.push(...page.items); cursor = page.next;
-              if (!cursor) break;
+        await within(async () => {
+          await ensureStars(r);
+          if (u.onedrive && !odEnded) {
+            const all = [];
+            for (const ids of chunks(starIds(), STAR_CHUNK)) {
+              let cursor = from?.cursor || null;
+              for (let guard = 0; guard < 50; guard++) {
+                const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200, sort:listSort()});
+                if (!alive()) return;
+                all.push(...page.items); cursor = page.next;
+                if (!cursor) break;
+              }
             }
+            odList = appendItems(odList, all.map(toItem).sort(sortCompare(listSort()))); odEnded = true;
           }
-          odList = appendItems(odList, all.map(toItem).sort(sortCompare(listSort()))); odEnded = true;
-        }
-        if (u.phone && !phEnded) {
-          src = 'phone';
-          const list = await phoneStarList(r);
-          if (!current(r)) return;
-          const before = from ? Date.parse(from.cursor.t) : null;
-          phList = list.filter(it => !before || Date.parse(it.taken_at) < before); phEnded = true;
-        }
+          if (u.phone && !phEnded) {
+            src = 'phone';
+            const list = await phoneStarList(r);
+            if (!alive()) return;
+            const before = from ? Date.parse(from.cursor.t) : null;
+            phList = list.filter(it => !before || Date.parse(it.taken_at) < before); phEnded = true;
+          }
+        }, LOAD_STEP_MS);
+        if (!alive()) return;
         remerge();
       } else {
         for (let guard = 0; guard < 4; guard++) {
           const shown = items.length, m = remerge();
           if (m.ended) break;
           src = m.streams[m.waiting[0]].source;
-          await loadStream(src, r);
-          if (!current(r)) return;
+          await within(loadStream(src, alive), LOAD_STEP_MS);
+          if (!alive()) return;
           if (remerge().items.length > shown) break;
         }
       }
-      failed = '';
+      failed = ''; autoAgain = true;
     } catch (error) {
-      if (!current(r)) return;
-      if (src === 'phone' || error?.phone) failed = phoneErrorText(error);
+      if (!alive()) return;
+      const timeout = isLoadTimeout(error) || error?.phone?.error === 'timeout';
+      if (timeout) attempt++; // 시간이 지난 걸음의 늦은 답은 버린다
+      if (timeout && autoAgain) { autoAgain = false; again = true; failed = ''; }
+      else if (src === 'phone' || error?.phone) {
+        if (timeout && !error?.phone) error = {phone:{status:0, error:'timeout', detail:''}}; // 걸음 전체 시간 초과도 같은 '폰 앱이 답하지 않아요'
+        failed = phoneErrorText(error);
+      }
+      else if (timeout) failed = '응답이 없어요';
       else if (src === 'gdrive') { if (gdProblemFrom(error)) { remerge(); failed = ''; } else failed = gdriveErrorText(error); }
       else { failed = odErrorText(error); odFault = true; paintOdLink(linkBtn, od, odFault); }
     } finally { if (current(r)) loading = null; }
+    if (again && current(r)) { loadMore(); return; }
     if (current(r) && tab === 'all') { paintList(); loadBar(r); }
   })();
   return loading;
+}
+// 실패한 [사진] 불러오기를 다시(화면으로 돌아옴·앱이 다시 앞에 옴·[다시]). 받는 중이면 그대로 둔다(그 걸음도 끝이 있다).
+function retryStalled() {
+  if (!failed || loading) return;
+  failed = ''; autoAgain = true;
+  if (tab === 'all' && level === 'day') paintList();
+  loadMore();
 }
 // 빠른 이동 막대의 달 눈금(거르기마다 한 번).
 async function loadBar(r) {
@@ -909,6 +933,8 @@ function render() {
   if (tab === 'folders') { paintRail(); renderFolders(); return; }
   if (tab === 'albums') { paintRail(); renderAlbums(); return; }
   if (level !== 'day') { select.stop(); paintSelect(); paintRail(); renderZoom(); return; }
+  // LOAD-끝있는불러오기: 화면·탭으로 돌아오면 실패한 불러오기는 다시(실패 글 대신 회색 빈 줄부터).
+  if (failed && !loading) { failed = ''; autoAgain = true; }
   paintList({full:true});
   if (!listGate() && !items.length && !ended) loadMore();
 }
@@ -2995,8 +3021,8 @@ function setSort(v) {
 }
 // 고르기 판: 옮길 폴더(나무 순서, 들여쓰기) 또는 넣을 앨범. 무엇을 할지는 pickFor에 둔다.
 let pickFor = null;
-// FOLDER-순서·색 ③-2: 폴더 고르기 창 줄 앞 그림도 같은 색(안 고른 폴더는 지금의 📁 그대로).
-const pickFolderIcon = (src, id) => (folderLook.color(src, id) ? folderIconHtml({color:folderLook.color(src, id)}, {className:'lu-move-ico'}) : '<span aria-hidden="true">\u{1F4C1}</span>');
+// FOLDER-순서·색 ③-2: 폴더 고르기 창 줄 앞 그림도 같은 색(안 고른 폴더는 기본 노랑 같은 그림, S51-25 그림 문자 없음).
+const pickFolderIcon = (src, id) => (folderLook.color(src, id) ? folderIconHtml({color:folderLook.color(src, id)}, {className:'lu-move-ico'}) : folderIconHtml({}, {className:'lu-move-ico'}));
 const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-menu photos-pick-menu', label:'고르기', historyKey:'kptuPhotosPickMenu',
   key:() => pickFor?.kind || '',
   render:kind => {
@@ -3006,7 +3032,7 @@ const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-men
     }
     if (kind === 'phfolder' || kind === 'phphotos') {
       const rows = phonePickRows(phoneFolderList(), kind === 'phfolder' ? {moving:pickFor.id} : {here:tab === 'folders' ? pAt : null});
-      return '<p class="od-link-status">어느 폰 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-phone="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}><span aria-hidden="true">\u{1F4C1}</span> ${esc(r.name)}${places.has('ph:' + r.id) ? `<span class="photos-fx-place"> · ${esc(places.get('ph:' + r.id))}</span>` : ''}</button>`).join('');
+      return '<p class="od-link-status">어느 폰 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-phone="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}>${folderIconHtml({}, {className:'lu-move-ico'})}${esc(r.name)}${places.has('ph:' + r.id) ? `<span class="photos-fx-place"> · ${esc(places.get('ph:' + r.id))}</span>` : ''}</button>`).join('');
     }
     if (kind === 'tag') return cards().map(c => menuBtn(`data-pick-tag="${esc(c.id)}"`, `#${esc(c.name)} <span class="photos-pick-n">${c.count}</span>`)).join('') + menuBtn('data-pick-newtag', '+ 새 앨범…');
     if (!tree) return '<p class="od-link-status">폴더를 읽지 못했어요</p>';
@@ -3209,7 +3235,7 @@ function clearLists() {
   gdItems = []; gdEnded = false; gdCursor = null;
 }
 function resetList() {
-  run++; clearLists(); loading = null; failed = ''; from = null; rendered = 0; monthsFor = ''; bar = []; io?.disconnect();
+  run++; clearLists(); loading = null; failed = ''; autoAgain = true; from = null; rendered = 0; monthsFor = ''; bar = []; io?.disconnect();
 }
 
 // ---- 출처 아이콘(PHOTO-출처 ①) ----
@@ -3315,6 +3341,8 @@ window.addEventListener('kptu:session-changed', () => {
   $('[data-photos-filter]').value = 'all'; body.replaceChildren(); odHost.replaceChildren();
 });
 window.KPTURouter?.on?.('photos', enter);
+// LOAD-끝있는불러오기: 앱이 다시 앞에 오거나 화면이 다시 보이면 실패한 [사진] 불러오기를 다시.
+onResume(() => { if (window.KPTURouter?.current === 'photos' && tab === 'all') retryStalled(); });
 window.KPTUPhotos = {refresh:() => { resetList(); trash = null; calData.clear(); tree = null; fFor = null; pFolders = null; pFor = null; tags = null; aFor = null; gdLevels.clear(); gdFFor = null; return Promise.all([ensureOd(true), ensureGd(true)]).then(() => { paintSources(); render(); }); }};
 if (window.KPTURouter?.current === 'photos') enter();
 })();

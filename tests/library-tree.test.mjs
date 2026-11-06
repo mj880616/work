@@ -61,11 +61,11 @@ test('담당조직·종류·월별 묶기는 파일만, 빈 묶음 숨김, 순�
   assert.ok(org.every(n=>n.children.length===0));
 });
 
-test('파일은 날짜 최신순, 종류 점은 정해진 순서로 최대 5개',()=>{
+test('파일은 날짜 최신순, 종류 점은 계산하지 않는다(S51-28 점 빼기)',()=>{
   const docs=[doc('old','a',{document_date:'2026-01-01'}),doc('new','a',{document_date:'2026-05-01',file_name:'x.hwp'}),doc('mid','a',{document_date:null,created_at:'2026-03-01T00:00:00Z',file_name:'y.zip'})];
   const out=m.buildTree(base({docs}));
   assert.deepEqual(out[0].files.map(d=>d.id),['new','mid','old']);
-  assert.deepEqual(out[0].kinds,['HWP','PDF','파일']);
+  assert.equal('kinds' in out[0],false);
 });
 
 test('그리기: details/summary, 펼침, 20개 넘으면 n개 더 보기(공용 줄), 이름은 이스케이프',()=>{
@@ -119,15 +119,9 @@ test('파일 형식: 확장자를 먼저, 없으면 mime. 그림은 확장자 �
   assert.equal(m.fileKindOf('a.zip','application/zip'),'파일');assert.equal(m.fileKindOf('noext',''),'파일');
   // 확장자가 알려진 문서면 mime이 image여도 문서가 먼저.
   assert.equal(m.fileKindOf('a.pdf','image/png'),'PDF');
-  assert.deepEqual([...m.KIND_ORDER],['HWP','PDF','XLS','DOC','PPT','그림','웹','파일']);
+  assert.equal(m.KIND_ORDER,undefined);
   // LIB-정리보충 ⑤: 웹 페이지 원본은 '웹'.
   for(const name of ['a.html','a.HTM','성명.mhtml'])assert.equal(m.fileKindOf(name,''),'웹',name);assert.equal(m.fileKindOf('noext','text/html'),'웹');
-});
-
-test('접힌 줄 색 점: 그림이 든 토글은 그림 점이 PPT 뒤에 나온다',()=>{
-  const k=d=>m.fileKindOf(d.file_name,d.mime_type);
-  const out=m.buildTree(base({docs:[doc('x1','b',{file_name:'x1.png'}),doc('x2','b',{file_name:'x2.hwp'}),doc('x3','b',{file_name:'x3.zip'})],kindOf:k}));
-  assert.deepEqual(out.find(n=>n.key==='p:b').kinds,['HWP','그림','파일']);
 });
 
 // LIB-종류표잘림: treeHtml이 파일 줄을 그릴 때 그 줄이 든 토글(node)도 넘긴다(종류로 묶은 토글에서 같은 종류 표를 빼는 데 쓴다).

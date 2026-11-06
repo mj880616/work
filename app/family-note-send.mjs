@@ -48,3 +48,18 @@ export function appendLines(doc, lines) {
 }
 // [새 노트]의 제목: 그 줄 내용 앞 40자.
 export const newNoteTitle = body => [...String(body || '').replace(/\s+/g, ' ').trim()].slice(0, 40).join('') || LIST_TITLE;
+
+// S51-30 [이미 함]: 되돌리기 때 더했던 줄 하나를 뺀다. 끝에서부터 그 글과 똑같은 문단 하나만. 없으면 null(아무것도 안 씀).
+const textOf = node => (node?.content || []).map(c => (typeof c?.text === 'string' ? c.text : '')).join('');
+export function dropLine(doc, line) {
+  const base = cleanDoc(doc);
+  if (!base) return null;
+  const content = [...base.doc.content];
+  for (let i = content.length - 1; i >= 0; i--) {
+    if (content[i]?.type === 'paragraph' && textOf(content[i]) === line) {
+      content.splice(i, 1);
+      return cleanDoc({type: 'doc', content});
+    }
+  }
+  return null;
+}

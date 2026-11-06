@@ -3,6 +3,7 @@
 // The mock ai-assist applies the server rules (only untidy, non-user fields; tried documents skipped). No real Supabase/Drive/OpenAI.
 // LIB-AI분류보완: the tried record is app_library_classify_attempts (with_text); empty project/organization links also make a document a
 // candidate, so documents meant to be "done" here mark both links as the person's.
+import {openLibraryCategoryEditor} from './helpers/library-categories.mjs';
 import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -69,7 +70,8 @@ async function mockApp(page,state){
     }
     // UI-앱안알림 4·5: 맨 위 알림 줄이 시작 때 묻는 phone-push notices(POST로 묻는 읽기)는 쓰기로 세지 않는다.
     if(path==='/functions/v1/phone-push'&&['notices','recent'].includes(url.searchParams.get('action')))return ok({ok:true,items:[]});
-    if(path.startsWith('/functions/v1/')){if(method!=='GET'&&method!=='OPTIONS')state.otherWrites.push(path);return ok({})}
+    // 원드라이브 연결 상태 묻기({action:'status'}, 일정 화면이 읽기만 함)는 쓰기가 아니다. 화면이 빨리 뜨면 이 시험 안에 들어온다(S51-28에서 드러남).
+    if(path.startsWith('/functions/v1/')){if(method!=='GET'&&method!=='OPTIONS'&&!(path==='/functions/v1/onedrive-photos'&&/^\{"action":"status"\}$/.test(req.postData()||'')))state.otherWrites.push(path);return ok({})}
     if(path==='/rest/v1/app_library_classify_attempts'){
       if(state.attemptsMode==='missing')return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({code:'PGRST205'})});
       return ok([...state.tried].map(id=>({document_id:id,with_text:true})));
@@ -136,7 +138,7 @@ for(const width of [390,1440]){
     expect(state.patches).toEqual([]);expect(state.otherWrites).toEqual([]);
     await expectQuiet(page);
     // The 자료 분류 수정 window no longer has the proposal list.
-    await page.locator('#manageLibraryBtn').click();
+    await openLibraryCategoryEditor(page);
     await expect(page.locator('#libraryManageModal')).toBeVisible();
     expect(await page.locator('#libraryManageModal').innerText()).not.toMatch(/정리 제안|이어서 찾기/);
   });

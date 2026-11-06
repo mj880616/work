@@ -58,7 +58,7 @@ test('PC 1440: 오른쪽 클릭 메뉴 맨 위 [고정] → 날짜 줄 위 맨 �
  const pinBox=await view.locator('[data-tg-pinrooms]').boundingBox(),dayBox=await view.locator('[data-tg-day]').first().boundingBox();
  expect(pinBox.y+pinBox.height).toBeLessThanOrEqual(dayBox.y+1);
  const prow=rd(view,B6);
- await expect(prow.locator('[data-tg-pinned]')).toHaveText('📌');
+ await expect(prow.locator('[data-tg-pinned] svg')).toHaveCount(1);
  await expect(prow.locator('[data-tg-pinday]')).toHaveText('10. 6.');
  await expect(view.locator('[data-tg-undobar]')).toContainText('고정했어요');
  // 두 번째로 고정한 방은 그 아래(고정한 순서).
