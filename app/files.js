@@ -15,6 +15,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
 import {bindFolderPinch} from './folder-pinch.js';
+import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {bindTouchDrag} from './touch-drag.js';
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
@@ -820,6 +821,7 @@ function restoreTreeSpot(back, from = null) {
   requestAnimationFrame(() => {
     const [source] = back.key.split(':');
     const row = root?.querySelector(`[data-fx-fold="${CSS.escape(back.key)}"]`) || root?.querySelector(`[data-fx-box="${CSS.escape(source)}"]`);
+    settleGestureAreas();
     if (typeof back.y === 'number') window.scrollTo({top: back.y, behavior: 'instant'});
     else row?.scrollIntoView({block: 'center', behavior: 'instant'});
     row?.querySelector('.ft-main, .ft-box-toggle')?.focus({preventScroll: true});
@@ -2447,6 +2449,8 @@ root?.addEventListener('click', event => {
 // - S51-20 ①: 목록 칸(모든 폭) 위 벌리기 = 목록 → 격자 → 큰 격자, 오므리기 = 반대. 목록에서 더 오므리면(폰, 나무에서 들어온 목록) 나무로.
 let pinchAt = '';
 const treeFolderAt = el => el.closest('[data-fx-fold]')?.dataset.fxFold || el.closest('[data-ft-parent]')?.dataset.ftParent || (el.closest('.ft-box-head') && el.closest('[data-fx-box]') ? el.closest('[data-fx-box]').dataset.fxBox + ':' : null);
+// S51-24 UI-빈칸손짓: 목록이 짧아도 아래 빈 곳까지 손짓 칸(gesture-fill.js).
+fillGestureArea(root);
 if (root) bindFolderPinch(root, {
   enabled: () => !state.xfer,
   folderAt: el => {

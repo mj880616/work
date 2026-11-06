@@ -532,6 +532,8 @@ jobs:
         run: node --test tests/note-tree.test.mjs
       - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자·두 손가락) 시험
         run: node --test tests/folder-tree-ui.test.mjs
+      - name: S51-24 UI-빈칸손짓 손짓 칸 높이 계산·'그 폴더만' 상자 시험
+        run: node --test tests/gesture-fill.test.mjs
       - name: S51-25 공용 아이콘 SVG 한 곳·화면 코드 그림 문자 없음 시험
         run: node --test tests/ui-icons.test.mjs
       - name: FILES-폴드나무목록 펼친 폴드 판정(공용 600px) 시험

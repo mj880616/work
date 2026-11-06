@@ -8,6 +8,7 @@ import { treeIconHtml, iconSvg } from './tree-icons.js';
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW } from './folder-tree-ui.mjs';
 import { riseFromRow, sinkToRow, topOf } from './folder-focus-motion.js';
 import { recentFolded, toggleRecentFolded } from './recent-fold.js';
+import { fillGestureArea, settleGestureAreas } from './gesture-fill.js';
 import { MORE_LABEL } from './fold-chevron.mjs';
 import { bindFolderPinch } from './folder-pinch.js';
 import { formatSeoulTime } from './meeting-time.js';
@@ -1371,6 +1372,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!back) return;
     const sel = back.id === OUTSIDE ? '#noteRows [data-nx-outside]' : `#noteRows [data-nx-folder="${CSS.escape(back.id)}"]`;
     const row = host.querySelector(sel);
+    settleGestureAreas();
     if (typeof back.y === 'number') window.scrollTo({top:back.y, behavior:'instant'});
     else row?.scrollIntoView({block:'center', behavior:'instant'});
     row?.querySelector('.ft-main')?.focus({preventScroll:true});
@@ -1416,6 +1418,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     actions:el => { const note = notes.find(n => n.id === el.dataset.nxNote); return note ? {start:{key:'pin', label:notePinnedAt(note) ? '고정 풀기' : '고정', tone:'info'}, end:{key:'delete', label:'삭제', tone:'danger'}} : null; },
     run:(key, el) => { const note = notes.find(n => n.id === el.dataset.nxNote); if (!note || busy || selected) return; if (key === 'delete') void remove(note.id, {confirmed:true}); else void pin(note); }});
   // FOLDER-나무새기준 ④: 폰 나무에서 펼친 폴더(또는 그 안 노트 줄) 위 두 손가락 벌리기 = 그 폴더만, 그 폴더만 보는 중 오므리기 = 나무로.
+  // S51-24 UI-빈칸손짓: 노트가 짧아도 아래 빈 곳까지 손짓 칸(두 손가락·좌우 밀기 보기 전환, gesture-fill.js).
+  fillGestureArea(host.querySelector('[data-nx-body]'));
   bindFolderPinch(host.querySelector('[data-nx-body]'), {
     enabled:() => !wideList.matches && view === 'folder' && !selected && !pick.active && !busy && !query && folders.length > 0,
     folderAt:el => { const row = el.closest('[data-nx-folder],[data-nx-outside],[data-ft-parent]'); if (!row) return null; if (row.dataset.nxFolder) return row.dataset.nxFolder; if (row.hasAttribute('data-nx-outside')) return OUTSIDE; return row.dataset.ftParent || null; },
