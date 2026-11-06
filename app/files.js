@@ -32,6 +32,7 @@ import {createPhoneFiles} from './phone-files.js';
 import {PHONE_SOURCE as PH, phoneTrail, phoneParent, phoneWriteText, PHONE_SAVE_MAX, PHONE_OLD_APP_TEXT, PHONE_MOVE_TEXT, PHONE_ASK_TEXT, PHONE_CANNOT_TEXT} from './phone-files-model.mjs';
 import {createPcFiles} from './pc-files.js';
 import {PC_SOURCE as PC, pcTrail, pcStateText, pcOffRowName, pcDeviceOk, PC_READONLY_TEXT, PC_PREVIEW_TEXT} from './pc-files-model.mjs';
+import {NARROW_QUERY, SPLIT_QUERY} from './screen-width.mjs';
 import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest, otherStart, DROP_ASK_TEXT} from './files-panes-model.mjs';
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
 // - 목록은 서버 색인(app_cloud_list·app_cloud_find·app_cloud_trail, owner + 운영자 기능 files일 때만 읽힘)에서 바로 그린다. 클라우드는 부르지 않는다.
@@ -52,7 +53,7 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 // FILES-출처켜고끄기·두드라이브나무(S49-21, 요청함 11/04 07:34): 위 줄 오른쪽 출처 아이콘 [원드라이브][구글 드라이브](사진 화면과 같은 부품: od-link.js·brand-icons.js·source-chips.css)로
 //   켜기/끄기(서버 view_prefs.files_sources의 이 기기 칸 — 폰 앱·폰 브라우저·PC 따로, files-sources-model.mjs). 켜진(연결된 것 중) 출처만 폴더·[별표]·찾기·나무에 보인다. 모두 끄면 '위 출처 아이콘을 켜 주세요' 한 줄.
 //   끄기는 보기에서만 빠진다(연결·색인·밤 예약은 그대로). 연결 안 된 출처는 누르면 연결 안내 한 줄.
-//   나무: 켜진 드라이브가 맨 위 줄(▸)로 나란히, 아래로 폴더를 펼치고 접는다. 폰(≤760)도 첫 화면이 같은 나무(한 화면에 두 드라이브, 여러 단계 펼치기),
+//   나무: 켜진 드라이브가 맨 위 줄(▸)로 나란히, 아래로 폴더를 펼치고 접는다. 폰(600px 미만)도 첫 화면이 같은 나무(한 화면에 두 드라이브, 여러 단계 펼치기),
 //   폴더 이름을 누르면 그 폴더 안 목록(pane 'list'), 목록 맨 위 ‹ 로 나무(pane 'tree')로 돌아온다. 펼친 폴더는 그 폴더를 바로 읽어(Edge folder) 채우고 한 번 읽은 폴더는 다시 부르지 않는다(directDone).
 //   펼침 상태는 이 탭 메모리만(서버에 저장하지 않음). 켜기/끄기만 서버에 기억해 다른 기기에서도 같다.
 // FILES-통합 2-① 복사(S49-27, 명진 결정 H-3·H-4·H-5, 시안 files-unified-mockup.html ③④⑤): 고르기 막대 'N개 · [복사][옮기기][이름][휴지통] ✕' →
@@ -63,8 +64,8 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 //   서버가 화면을 닫아도 차례로 잇는다(200MB 넘는 것은 [그래도 보내기]를 누른 것만 10MB 조각씩). 같은 저장소 안 옮기기는 지금처럼 move 한 번.
 //   하단바 위 전송 줄을 누르면 전송 목록(폰: 하단바 위 칸, PC: 오른쪽 아래 작은 칸) — 줄마다 진행 막대·[멈춤]/[이어 하기]/[다시], '모두 멈춤'.
 //   목록은 서버(job_list)에서 읽어 그린다. 보내는 것이 있는 동안만 2초마다 다시 읽고(화면이 보일 때만), 다시 열면 서버 목록으로 이어 보인다. 기기 저장 없음.
-// FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2, 시안 ⑥⑧): 폴드 펼침(761~1199)·PC(1200~)에서 위 줄 [두 칸]. 폴드 펼침은 기본 두 칸, PC는 기본 한 칸(나무·목록·미리보기),
-//   폰(≤760)은 늘 한 칸. 켬은 서버 view_prefs.files_two(기기 종류별 · 폭 종류별, files-panes-model.mjs). 상태는 '칸 2개'(state.panes) — 한 칸 화면은 같은 코드로 칸 0 하나만 그린다.
+// FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2, 시안 ⑥⑧): 폴드 펼침(600~1199, S51-18 전에는 761~)·PC(1200~)에서 위 줄 [두 칸]. 폴드 펼침은 기본 두 칸, PC는 기본 한 칸(나무·목록·미리보기),
+//   폰(600px 미만)은 늘 한 칸. 켬은 서버 view_prefs.files_two(기기 종류별 · 폭 종류별, files-panes-model.mjs). 상태는 '칸 2개'(state.panes) — 한 칸 화면은 같은 코드로 칸 0 하나만 그린다.
 //   칸마다 따로: 저장소·위치 줄·목록·정렬·고르기·찾기. 지금 칸(state.cur)은 칸 위 줄 밑선(fx-cur). 칸을 누르거나 Tab으로 바꾼다.
 //   고르기 막대는 '→ 오른쪽에 복사 / → 옮기기'(받을 곳 = 반대 칸의 지금 폴더, 받을 곳 창 없이). 같은 이름·200MB 묻기·전송 목록은 2-①·2-② 그대로(xferRun).
 //   칸 사이 끌어 놓기: 놓으면 '복사 · 옮기기' 작은 고르기. PC 키(두 칸일 때): F5 반대 칸에 복사 · F6 옮기기 · Tab 칸 바꾸기(입력 칸 안에서는 안 함). F2·Del은 그대로.
@@ -88,9 +89,10 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 if (window.KPTUFiles) return;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const FN = '/functions/v1/cloud-files';
-const PHONE = window.matchMedia(PHONE_WIDTH_QUERY);
-// 출처 켜기/끄기를 기억하는 기기 칸(폰 앱·폰 브라우저·PC, 명진 결정 H-8). 화면을 연 때 한 번 정한다.
-const DEVICE = filesDeviceKind({ua: navigator.userAgent || '', narrow: PHONE.matches});
+// FILES-폴드나무목록 ⑥(S51-18): 폰 한 칸인가는 공용 판정(screen-width.mjs, 600px 미만). 펼친 폴드(약 673~884px)는 폴드 칸(나무 | 목록).
+const PHONE = window.matchMedia(NARROW_QUERY);
+// 출처 켜기/끄기를 기억하는 기기 칸(폰 앱·폰 브라우저·PC, 명진 결정 H-8). 화면을 연 때 한 번 정한다. 기억 칸은 지금까지처럼 760px 기준(바꾸면 기억한 켜기/끄기가 다른 칸으로 감).
+const DEVICE = filesDeviceKind({ua: navigator.userAgent || '', narrow: !!window.matchMedia(PHONE_WIDTH_QUERY).matches});
 const WIDE = window.matchMedia('(min-width:1200px)');
 const GDRIVE_SVG = brandIconSvg('gdrive', {size: 16, cls: 'fx-src-ic'});
 const PDF_LIB = new URL('./pdf-lib/pdfjs-dist-6.3.289/', import.meta.url);
@@ -784,7 +786,7 @@ function mountWidths(list) {
     mountSplitResize({container: cols, name: 'files', label: '폴더와 목록 칸 폭 조절', columns: [
       {el: () => $('[data-fx-tree]'), varName: '--ds-split-files-tree', minVar: '--ds-split-files-tree-min', minFallback: 160, share: 22},
       {el: () => $('[data-fx-main]'), varName: '--ds-split-files-main', minVar: '--ds-split-files-main-min', minFallback: 440, share: 78},
-    ], active: () => !PHONE.matches && !(two() && !WIDE.matches)});
+    ], query: SPLIT_QUERY, active: () => !PHONE.matches && !(two() && !WIDE.matches)});
   }
   mountColResize({host: list, name: 'files', vars: COL_VARS,
     fit: key => Math.ceil(Math.max(0, ...[...list.querySelectorAll(`.fx-row .fx-${key}`)].map(el => el.scrollWidth))) });
