@@ -102,3 +102,11 @@ test('[파일] 폰 상자 나무 줄(boxRows): 맨 위 폴더부터, 펼친 폴�
   const all = boxRows({source: 'od', children, files, open: new Set([folderKey('od', 'A')]), more: new Set([folderKey('od', 'A')]), limit: 5});
   assert.equal(all.filter(r => r.type === 'more').length, 0);
 });
+
+test('[파일]·사진도 같은 공용 부품을 부른다(복사 없음)', () => {
+  for (const f of ['files.js', 'photos.js']) {
+    const src = readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8');
+    assert.match(src, /from '\.\/folder-tree-ui\.mjs'/, f);
+    assert.match(src, /bindFolderPinch\(/, f);
+  }
+});

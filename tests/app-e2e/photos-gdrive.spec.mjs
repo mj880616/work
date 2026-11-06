@@ -260,7 +260,9 @@ test.describe('폰 412', () => {
     await openPhotos(page, 412);
     await page.locator('#photosRoot [data-photos-tab="folders"]').click();
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
-    await expect(bodyEl.locator('[data-photos-fx-group="gdrive"]')).toHaveText('구글 드라이브 3');
+    // FOLDER-나무새기준 ③: 폰은 출처마다 상자(머리 = 이름, 오른쪽 전체 장수).
+    await expect(bodyEl.locator('[data-photos-box="gdrive"] .ft-box-toggle')).toHaveText('구글 드라이브');
+    await expect(bodyEl.locator('[data-photos-box="gdrive"] .ft-box-tail')).toHaveText('3');
     await expect(bodyEl.locator('[data-photos-gf] .nx-num')).toHaveText(['—', '3']); // 업무(꺼짐) · 카메라 백업(켬), 가나다순
     await bodyEl.locator('[data-photos-gf-open="GF1"]').click();
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-path')).toContainText('카메라 백업');
@@ -272,7 +274,7 @@ test.describe('폰 412', () => {
     await page.goBack();
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('카메라 백업');
     await page.goBack();
-    await expect(bodyEl.locator('[data-photos-fx-group="gdrive"]')).toBeVisible();
+    await expect(bodyEl.locator('[data-photos-box="gdrive"]')).toBeVisible();
     await expect(page.locator('#photosView')).toBeVisible();
     expect(state.errors).toEqual([]);
   });

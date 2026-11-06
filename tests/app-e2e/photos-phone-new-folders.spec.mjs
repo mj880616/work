@@ -72,7 +72,15 @@ async function openPhotos(page) {
   await expect(page.locator('#photosView')).toBeVisible();
 }
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));
-const sw = (page, path) => page.locator(`#photosRoot [data-photos-pf-sw="ph:${path}"]`);
+// FOLDER-나무새기준 ③⑦: 폰 [폴더] 나무에는 스위치 줄이 없다. 꺼 둔 폴더는 흐리게 + '끔'(ft-off), 켜기·끄기는 그 줄 ⋯ 메뉴 맨 위.
+const folderRow = (page, path) => page.locator(`#photosRoot [data-photos-pf="${path}"]`);
+const isOff = async (page, path, off) => { if (off) await expect(folderRow(page, path)).toHaveClass(/ft-off/); else await expect(folderRow(page, path)).not.toHaveClass(/ft-off/); };
+async function menuToggle(page, path, label) {
+  await folderRow(page, path).locator('[data-photos-pf-more]').click();
+  const m = page.locator('#photosPhoneFolderMenu');
+  await expect(m).toBeVisible();
+  await m.getByRole('button', { name: label, exact: true }).click();
+}
 const BASE = { photo_sources_phone: { onedrive: false, phone: true } };
 
 test.describe('폰 앱 412', () => {
@@ -95,10 +103,11 @@ test.describe('폰 앱 412', () => {
     await expect.poll(() => prefs.value?.phone_folders_off).toEqual([TG, OLD].sort());
     expect(state.hides[0].sort()).toEqual([TG, OLD].sort());
     await page.locator('#photosRoot [data-photos-tab="folders"]').click();
-    await expect(sw(page, TG)).toHaveAttribute('aria-checked', 'false');
-    await expect(sw(page, CAM)).toHaveAttribute('aria-checked', 'true');
-    await sw(page, TG).click();
-    await expect(sw(page, TG)).toHaveAttribute('aria-checked', 'true');
+    await isOff(page, TG, true);
+    await expect(folderRow(page, TG).locator('.ft-offtag')).toHaveText('끔');
+    await isOff(page, CAM, false);
+    await menuToggle(page, TG, '켜기(사진에 보이기)');
+    await isOff(page, TG, false);
     await expect.poll(() => prefs.value?.phone_folders_off).toEqual([OLD]);
     await expect.poll(() => prefs.value?.phone_folders_known).toEqual([phoneFolderKey(CAM), phoneFolderKey(TG)].sort());
     // 새로고침해도 켠 폴더는 다시 꺼지지 않는다(서버 기억).
