@@ -64,7 +64,6 @@ test('폰 412 두 칸: 위 칸 파일을 꾹 눌러 아래 칸으로 끌어 놓�
   await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 문서함');
   await pane(page, 0).locator('[data-fx-pdrop]').click();
   const ptree = pane(page, 0).locator('[data-fx-ptree]');
-  await ptree.locator('[data-fx-twist="gd:"]').click();
   await ptree.locator('[data-fx-go="gd"][data-fx-id="gdFolder1"]').click();
   await expect(prow(page, 0, 'gd:gdDoc1')).toBeVisible();
   // 아래 칸의 파일 줄(폴더 아님) 위에 놓으면 그 칸의 지금 폴더로.

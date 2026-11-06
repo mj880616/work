@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome, createdTaskReply } from './helpers/home-entry.mjs';
+import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const quick=page=>page.locator('#homeView [data-home-quick]');
 test('quick task starts folded and opens on focus',async({page})=>{
@@ -129,7 +130,7 @@ test('organization detail retains the existing shared inbox save payload and fai
 test('task screen saveEditor retains shared create title notes due and links',async({page})=>{
  await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{const body=r.request().postDataJSON();bodies.push(body);return r.fulfill({json:{ok:true,task:{id:'new',title:body.title,notes:body.notes,due:body.due,taskListId:'@default',status:'needsAction'},links:body.links.map(t=>({...t,google_task_id:'new',status:'confirmed'})),meeting_links:[]}});});
  await page.locator('#homeView [data-journal-tasks-open]').click();await expect(page.locator('#gtTaskSection')).toBeVisible();await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());await expect(page.locator('#gtTaskModal')).toBeVisible();
- await page.locator('#gtEditTitle').fill('QA');await page.locator('#gtEditNotes').fill('QA notes');await page.locator('#gtEditDue').fill('2026-10-09');await page.locator('[data-gt-link][value="p:child"]').check();await page.locator('#gtSaveBtn').click();
+ await page.locator('#gtEditTitle').fill('QA');await page.locator('#gtEditNotes').fill('QA notes');await page.locator('#gtEditDue').fill('2026-10-09');await toggleKeys(page,'#gtEditLinkBody','area',['p:child']);await page.locator('#gtSaveBtn').click();
  await expect(page.locator('#gtTaskModal')).toBeHidden();expect(bodies[0]).toMatchObject({title:'QA',notes:'QA notes',due:'2026-10-09',links:[{project_id:'child'}]});
 });
 test('quick add and show-all link respond in the transparent 44px target',async({page})=>{
