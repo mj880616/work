@@ -1,4 +1,7 @@
 import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
+import {leAddHtml, leRowHtml, leInlineHtml, leMove} from './list-edit.mjs';
+import {mountListEdit} from './list-edit.js';
+import {askConfirm} from './small-notice.js';
 // ORG-쟁의단계 화면: ① 조직 상세의 '쟁의 단계' 한 줄(선택 + 달력 날짜 + 저장, 접힌 단계 이력) ② 쟁의 단계 관리 창.
 // 데이터는 org-dispute-stage.js, 판정은 org-dispute-stage-model.mjs 한 곳. 표가 없으면(DB 적용 전) '준비 중' 한 줄만 보인다.
 import {seoulDateKey} from './meeting-time.js';
@@ -185,15 +188,22 @@ function bindLine(host) {
 window.addEventListener('kptu:dispute-stages-changed', () => { if (line && !line.busy && !line.host.contains(document.activeElement)) paintLine(); });
 
 // ───────────── ② 쟁의 단계 관리 창 ─────────────
-let mgr = null; // {workspaceId, rt, orgNames, ui:{id,mode,draft}, adding, addDraft, busy, msg}
+// S51-28 LIB-화면정리 ②(같은 종류 전수): 공용 '목록 고치기' 모양(list-edit.mjs·list-edit.js, 자료실 분류 고치기와 같음) —
+// 맨 위 '새 단계 이름 [추가]', 줄 = ⠿ · 이름(누르면 그 자리 고침) · 꼬리표(기본·투쟁 중·끝남) · ⋯([이름 바꾸기]·[투쟁 중 켜기/끄기]·[끝남 켜기/끄기]·[지우기]).
+// 지우기는 빨강 없이 한 번 묻기. ⠿ 끌기·키보드 위아래는 공용 reorder-drag.js. 기본 단계는 맨 앞 고정(끌기·지우기 없음).
+let mgr = null; // {workspaceId, rt, orgNames, ui:{id,mode,draft}, addDraft, busy, msg}
 const MODAL = 'soStageModal';
 function installModal() {
   if (document.querySelector('#' + MODAL)) return;
-  document.body.insertAdjacentHTML('beforeend', `<div id="${MODAL}" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="soStageHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="soStageHeading">쟁의 단계 관리</h2></div><button class="icon-btn" data-so-close="${MODAL}" type="button" aria-label="닫기">×</button></div><div id="soStageBody" class="stg"></div></div></div>`);
+  document.body.insertAdjacentHTML('beforeend', `<div id="${MODAL}" class="modal le-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="soStageHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="soStageHeading">쟁의 단계 관리<span class="le-count" data-le-count></span></h2></div><button class="icon-btn" data-so-close="${MODAL}" type="button" aria-label="닫기">×</button></div><div id="soStageBody" class="stg"></div></div></div>`);
+  const body = document.querySelector('#soStageBody');
+  mountListEdit(body, {key: 'stg', label: '쟁의 단계 고치기', items: menuItems, onAct: onMenuAct,
+    onMove: (id, index) => commitOrder(id, dragIndex(id, index)), onStep: (id, dir) => { const at = stagesNow().findIndex(x => x.id === id); commitOrder(id, Math.max(fixedCount(), at + dir)); },
+    canDrag: id => !!mgr && !mgr.busy && !stagesNow().find(x => x.id === id)?.is_default});
 }
 export function openStageManager({workspaceId, rt = window.KPTURuntime, orgNames = () => new Map(), trigger = document.activeElement} = {}) {
   installModal();
-  mgr = {workspaceId, rt, orgNames, ui: {id: null, mode: null, draft: ''}, adding: false, addDraft: '', busy: false, msg: {text: '', error: false}};
+  mgr = {workspaceId, rt, orgNames, ui: {id: null, mode: null, draft: ''}, addDraft: '', busy: false, msg: {text: '', error: false}};
   const m = document.querySelector('#' + MODAL);
   m.classList.remove('hidden'); m.setAttribute('aria-hidden', 'false');
   window.KPTUA11y?.dialog.activate(m, {trigger, initialFocus: '#soStageBody', onRequestClose: closeStageManager});
@@ -214,36 +224,31 @@ function orgsAt(stageId, state) {
   return out.sort((a, b) => a.localeCompare(b, 'ko'));
 }
 
-function rowHtml(s, state) {
-  const ui = mgr.ui, mine = ui.id === s.id, busy = mgr.busy ? ' disabled' : '';
-  const name = esc(s.name);
-  let flags;
-  if (s.is_default) flags = '<span class="stg-tag">기본</span>';
-  else flags = `<button type="button" class="stg-sw${s.is_struggle ? ' on' : ''}" data-stg-flag="struggle" aria-pressed="${s.is_struggle}"${busy}>투쟁 중</button>${s.is_ending ? `<button type="button" class="stg-sw end" data-stg-flag="ending" aria-pressed="true"${busy}>끝남</button>` : ''}`;
-  let extra = '';
-  if (mine && ui.mode === 'menu') {
-    extra = `<div class="stg-sub"><button type="button" class="stg-link" data-stg-rename${busy}>이름 바꾸기</button>${s.is_default ? '' : `<button type="button" class="stg-link" data-stg-flag="ending" data-stg-menu${busy}>끝남 ${s.is_ending ? '끄기' : '켜기'}</button><button type="button" class="stg-link danger" data-stg-delete${busy}>지우기</button>`}</div>`;
-  } else if (mine && ui.mode === 'rename') {
-    extra = `<form class="stg-sub" data-stg-rename-form data-enter-save><input class="stg-input" data-stg-rename-input maxlength="${STAGE_NAME_LIMIT}" value="${esc(ui.draft)}" aria-label="새 이름" autocomplete="off"><button type="button" class="stg-link" data-stg-cancel>취소</button><button type="submit" class="stg-link" data-enter-save-submit${busy}>저장</button></form>`;
-  } else if (mine && ui.mode === 'confirm') {
-    const names = ui.orgNames || [];
-    const lead = names.length ? `${esc(orgsAtStageText(names))} 지우면 ‘${esc(state.stages.find(x => x.is_default)?.name)}’ 단계로 옮겨요.` : `‘${name}’ 단계를 지울까요?`;
-    extra = `<div class="stg-sub stg-confirm" role="group" aria-label="지우기 확인"><span>${lead}</span><button type="button" class="stg-link danger" data-stg-delete-yes${busy}>지우기</button><button type="button" class="stg-link" data-stg-cancel>취소</button></div>`;
-  }
-  return `<li class="stg-row" data-stg-row="${esc(s.id)}"><div class="stg-line"><button type="button" class="stg-grip" data-stg-grip aria-label="${name} 순서 바꾸기(끌거나 위·아래 화살표)">⋮⋮</button><span class="stg-name">${name}</span>${flags}<button type="button" class="stg-more" data-stg-more aria-label="${name} 더보기" aria-expanded="${mine && !!ui.mode}"><span class="more-dots" aria-hidden="true">⋯</span></button></div>${extra}</li>`;
+function stageTags(s) {
+  if (s.is_default) return '<span class="le-tag">기본</span>';
+  return (s.is_struggle ? '<span class="le-tag" data-stg-tag="struggle">투쟁 중</span>' : '') + (s.is_ending ? '<span class="le-tag" data-stg-tag="ending">끝남</span>' : '');
+}
+function rowHtml(s) {
+  const ui = mgr.ui, busy = mgr.busy;
+  if (ui.id === s.id && ui.mode === 'rename') return leInlineHtml({id: s.id, label: `‘${s.name}’의 새 이름`, value: ui.draft, limit: STAGE_NAME_LIMIT, disabled: busy, formAttrs: {'data-stg-rename-form': true}, inputAttrs: {'data-stg-rename-input': true}});
+  return leRowHtml({id: s.id, label: s.name, drag: !s.is_default, disabled: busy, extra: stageTags(s), rowAttrs: {'data-stg-row': s.id}});
+}
+function menuItems(id) {
+  const s = stagesNow().find(x => x.id === id); if (!s) return [];
+  if (s.is_default) return [{key: 'rename', label: '이름 바꾸기'}];
+  return [{key: 'rename', label: '이름 바꾸기'}, {key: 'struggle', label: `투쟁 중 ${s.is_struggle ? '끄기' : '켜기'}`}, {key: 'ending', label: `끝남 ${s.is_ending ? '끄기' : '켜기'}`}, {key: 'delete', label: '지우기'}];
 }
 
 function paintManager() {
   const body = document.querySelector('#soStageBody'); if (!mgr || !body) return;
-  const state = peekDisputeState();
+  const state = peekDisputeState(), count = document.querySelector(`#${MODAL} [data-le-count]`);
+  if (count) count.textContent = state?.status === 'ready' ? `${state.stages.length}개` : '';
   if (!state) { body.innerHTML = waitHtml({rows:3}); return; }
   if (state.status === 'preparing') { body.innerHTML = '<p class="stg-note" data-stage-preparing>쟁의 단계는 준비 중이에요.</p>'; return; }
   if (state.status === 'error') { body.innerHTML = failHtml({retry: 'data-stg-reload'}); return; }
-  const stages = sortStages(state.stages), busy = mgr.busy ? ' disabled' : '';
-  const add = mgr.adding
-    ? `<form class="stg-add" data-stg-add-form data-enter-save><input class="stg-input" data-stg-add-input maxlength="${STAGE_NAME_LIMIT}" value="${esc(mgr.addDraft)}" placeholder="새 단계 이름" aria-label="새 단계 이름" autocomplete="off"><button type="button" class="stg-link" data-stg-add-cancel>취소</button><button type="submit" class="stg-link" data-enter-save-submit${busy}>추가</button></form>`
-    : `<button type="button" class="stg-add-btn" data-stg-add${busy}>+ 단계</button>`;
-  body.innerHTML = `<ul class="stg-list">${stages.map(s => rowHtml(s, state)).join('')}</ul>${add}<p class="stg-msg${mgr.msg.error ? ' error' : ''}" data-stg-msg role="${mgr.msg.error ? 'alert' : 'status'}">${esc(mgr.msg.text)}</p>`;
+  const stages = sortStages(state.stages);
+  body.innerHTML = leAddHtml({name: '새 단계 이름', value: mgr.addDraft, limit: STAGE_NAME_LIMIT, disabled: mgr.busy, formAttrs: {'data-stg-add-form': true}, inputAttrs: {'data-stg-add-input': true}})
+    + `<ul class="le-list stg-list" data-reorder-list="stages">${stages.map(rowHtml).join('')}</ul><p class="le-status stg-msg${mgr.msg.error ? ' error' : ''}" data-stg-msg role="${mgr.msg.error ? 'alert' : 'status'}">${esc(mgr.msg.text)}</p>`;
 }
 const say = (text, error = false) => { if (mgr) mgr.msg = {text, error}; };
 const focusSel = sel => queueMicrotask(() => document.querySelector('#soStageBody ' + sel)?.focus({preventScroll: true}));
@@ -257,39 +262,40 @@ async function run(action, ok, focusAfter) {
 }
 
 function stagesNow() { return sortStages(peekDisputeState()?.stages ?? []); }
-const rowId = el => el.closest('[data-stg-row]')?.dataset.stgRow;
 
-async function confirmDelete(move) {
-  const {workspaceId, rt} = mgr, id = mgr.ui.id;
+async function confirmDelete(id, move) {
+  const {workspaceId, rt} = mgr;
   const result = await deleteStage({rt, workspaceId, id, move});
-  if (result?.ok) { mgr.ui = {id: null, mode: null, draft: ''}; return result; }
-  if (result?.error === 'ORGS_AT_STAGE') {
-    // 그 사이 조직이 그 단계로 옮겨 왔다: 알림을 다시 보여 주고 한 번 더 확인받는다.
-    const names = mgr.orgNames(); mgr.ui = {id, mode: 'confirm', draft: '', orgNames: (result.organization_ids || []).map(x => names.get(x) || '다른 조직')};
-    throw new Error('지금 이 단계에 조직이 있어요. 아래 알림을 확인해 주세요.');
-  }
-  mgr.ui = {id: null, mode: null, draft: ''};
+  if (result?.ok) return result;
+  // 그 사이 조직이 그 단계로 옮겨 왔다: 지우지 않고, 다시 [지우기]를 누르면 조직 이름과 함께 한 번 더 묻는다.
+  if (result?.error === 'ORGS_AT_STAGE') throw new Error('지금 이 단계에 조직이 있어요. 다시 지우기를 누르면 옮길 조직을 보여 드려요.');
   throw new Error(result?.error === 'DEFAULT_STAGE' ? '기본 단계는 지울 수 없어요.' : result?.error === 'NO_DEFAULT_STAGE' ? '기본 단계가 없어요.' : '지우지 못했어요.');
 }
-
+const moreSel = id => `[data-le-menu="${CSS.escape(id)}"]`;
+async function askDelete(id) {
+  const state = peekDisputeState(), stage = stagesNow().find(x => x.id === id); if (!stage || stage.is_default) return;
+  const names = orgsAt(id, state), base = state.stages.find(x => x.is_default)?.name;
+  const text = names.length ? `${orgsAtStageText(names)} 지우면 ‘${base}’ 단계로 옮겨요.` : `‘${stage.name}’ 단계를 지울까요?`;
+  const yes = await askConfirm(document.querySelector(`#soStageBody ${moreSel(id)}`) || document.querySelector('#soStageBody'), {text, ok: '지우기'});
+  if (!yes || !mgr) return;
+  void run(() => confirmDelete(id, names.length > 0), r => r.moved ? `지웠어요. 조직 ${r.moved}곳은 기본 단계로 옮겼어요.` : '지웠어요.', '[data-stg-add-input]');
+}
+function onMenuAct(id, act) {
+  if (!mgr || mgr.busy) return;
+  const stage = stagesNow().find(x => x.id === id); if (!stage) return;
+  if (act === 'rename') { mgr.ui = {id, mode: 'rename', draft: stage.name}; say(''); paintManager(); focusSel('[data-stg-rename-input]'); return; }
+  if (act === 'delete') { void askDelete(id); return; }
+  if ((act === 'struggle' || act === 'ending') && !stage.is_default) {
+    const on = !(act === 'struggle' ? stage.is_struggle : stage.is_ending);
+    void run(() => setStageFlag({rt: mgr.rt, workspaceId: mgr.workspaceId, id, flag: act, on}), '', moreSel(id));
+  }
+}
 function onManagerClick(e) {
   if (!mgr) return;
-  const state = peekDisputeState(), id = rowId(e.target), stage = id && stagesNow().find(s => s.id === id);
   const t = el => e.target.closest(el);
   if (t('[data-stg-reload]')) { void loadDisputeState({rt: mgr.rt, workspaceId: mgr.workspaceId, force: true}).then(paintManager); return; }
-  if (t('[data-stg-more]') && stage) { mgr.ui = mgr.ui.id === id && mgr.ui.mode ? {id: null, mode: null, draft: ''} : {id, mode: 'menu', draft: stage.name}; say(''); paintManager(); focusSel(`[data-stg-row="${CSS.escape(id)}"] [data-stg-more]`); return; }
-  if (t('[data-stg-cancel]')) { mgr.ui = {id: null, mode: null, draft: ''}; say(''); paintManager(); return; }
-  if (t('[data-stg-rename]') && stage) { mgr.ui = {id, mode: 'rename', draft: stage.name}; paintManager(); focusSel('[data-stg-rename-input]'); return; }
-  if (t('[data-stg-delete]') && stage) { mgr.ui = {id, mode: 'confirm', draft: '', orgNames: orgsAt(id, state)}; say(''); paintManager(); focusSel('[data-stg-delete-yes]'); return; }
-  if (t('[data-stg-delete-yes]') && stage) { const move = (mgr.ui.orgNames || []).length > 0; void run(() => confirmDelete(move), r => r.moved ? `지웠어요. 조직 ${r.moved}곳은 기본 단계로 옮겼어요.` : '지웠어요.', '[data-stg-add]'); return; }
-  const flag = t('[data-stg-flag]');
-  if (flag && stage && !stage.is_default) {
-    const which = flag.dataset.stgFlag, on = !(which === 'struggle' ? stage.is_struggle : stage.is_ending);
-    mgr.ui = {id: null, mode: null, draft: ''};
-    void run(() => setStageFlag({rt: mgr.rt, workspaceId: mgr.workspaceId, id, flag: which, on}), '', `[data-stg-row="${CSS.escape(id)}"] [data-stg-more]`); return;
-  }
-  if (t('[data-stg-add]')) { mgr.adding = true; mgr.addDraft = ''; say(''); paintManager(); focusSel('[data-stg-add-input]'); return; }
-  if (t('[data-stg-add-cancel]')) { mgr.adding = false; say(''); paintManager(); focusSel('[data-stg-add]'); }
+  const name = t('[data-le-rename]');
+  if (name && !name.disabled) { const stage = stagesNow().find(x => x.id === name.dataset.leRename); if (stage) { mgr.ui = {id: stage.id, mode: 'rename', draft: stage.name}; say(''); paintManager(); focusSel('[data-stg-rename-input]'); } }
 }
 function onManagerSubmit(e) {
   if (!mgr) return; e.preventDefault();
@@ -297,55 +303,36 @@ function onManagerSubmit(e) {
     const name = e.target.querySelector('[data-stg-add-input]').value; mgr.addDraft = name;
     const problem = stageNameProblem(name, stagesNow());
     if (problem) { say(problem, true); paintManager(); focusSel('[data-stg-add-input]'); return; }
-    mgr.adding = false;
-    void run(() => addStage({rt: mgr.rt, workspaceId: mgr.workspaceId, name, stages: stagesNow()}), `‘${name.trim()}’ 단계를 추가했어요.`, '[data-stg-add]');
+    mgr.addDraft = '';
+    void run(() => addStage({rt: mgr.rt, workspaceId: mgr.workspaceId, name, stages: stagesNow()}), `‘${name.trim()}’ 단계를 추가했어요.`, '[data-stg-add-input]');
   } else if (e.target.matches('[data-stg-rename-form]')) {
     const id = mgr.ui.id, name = e.target.querySelector('[data-stg-rename-input]').value; mgr.ui.draft = name;
+    if (name.trim() === stagesNow().find(x => x.id === id)?.name) { mgr.ui = {id: null, mode: null, draft: ''}; paintManager(); focusSel(`[data-le-rename="${CSS.escape(id)}"]`); return; }
     const problem = stageNameProblem(name, stagesNow(), id);
     if (problem) { say(problem, true); paintManager(); focusSel('[data-stg-rename-input]'); return; }
     mgr.ui = {id: null, mode: null, draft: ''};
-    void run(() => renameStage({rt: mgr.rt, workspaceId: mgr.workspaceId, id, name, stages: stagesNow()}), '이름을 바꿨어요. 지난 이력의 글자는 그때 이름 그대로 남아요.', `[data-stg-row="${CSS.escape(id)}"] [data-stg-more]`);
+    void run(() => renameStage({rt: mgr.rt, workspaceId: mgr.workspaceId, id, name, stages: stagesNow()}), '이름을 바꿨어요. 지난 이력의 글자는 그때 이름 그대로 남아요.', `[data-le-rename="${CSS.escape(id)}"]`);
   }
 }
-
-// 순서: 끌기(손가락·마우스)와 위·아래 화살표. 끝나면 바뀐 줄의 순서 값만 저장한다.
-let drag = null;
-function commitOrder(id, toIndex, focus = true) {
+// 순서: 끌기(손가락·마우스, 공용 reorder-drag.js)와 위·아래 화살표. 끝나면 바뀐 줄의 순서 값만 저장한다.
+// 끌기 자리(index)는 끌 수 있는 줄(기본 단계 뺌) 사이 자리라, 기본 단계를 앞에 둔 전체 목록의 자리로 바꾼다. 기본 단계 앞으로는 가지 않는다.
+const fixedCount = () => stagesNow().filter(x => x.is_default).length;
+function dragIndex(id, index) {
+  const list = stagesNow(), fixed = list.filter(x => x.is_default).map(x => x.id), moved = leMove(list.filter(x => !x.is_default).map(x => x.id), id, index);
+  return [...fixed, ...moved].indexOf(id);
+}
+function commitOrder(id, toIndex) {
+  if (!mgr || mgr.busy) return;
   const changes = reorderChanges(stagesNow(), id, toIndex);
-  if (!changes.length) { paintManager(); if (focus) focusSel(`[data-stg-row="${CSS.escape(id)}"] [data-stg-grip]`); return; }
-  void run(() => reorderStages({rt: mgr.rt, workspaceId: mgr.workspaceId, changes}), '순서를 바꿨어요.', `[data-stg-row="${CSS.escape(id)}"] [data-stg-grip]`);
-}
-function onGripDown(e) {
-  const grip = e.target.closest('[data-stg-grip]'); if (!grip || !mgr || mgr.busy || (e.pointerType === 'mouse' && e.button !== 0)) return;
-  const li = grip.closest('[data-stg-row]'), list = li.parentElement;
-  drag = {id: li.dataset.stgRow, li, list, pointer: e.pointerId, grip}; li.classList.add('dragging');
-  grip.setPointerCapture?.(e.pointerId); e.preventDefault();
-}
-function onGripMove(e) {
-  if (!drag || e.pointerId !== drag.pointer) return;
-  const rows = [...drag.list.children].filter(x => x !== drag.li);
-  const after = rows.find(r => { const b = r.getBoundingClientRect(); return e.clientY < b.top + b.height / 2; });
-  if (after) { if (drag.li.nextElementSibling !== after) drag.list.insertBefore(drag.li, after); } else drag.list.append(drag.li);
-}
-function onGripUp(e) {
-  if (!drag || e.pointerId !== drag.pointer) return;
-  const {id, li, list, grip} = drag; drag = null; li.classList.remove('dragging'); grip.releasePointerCapture?.(e.pointerId);
-  commitOrder(id, [...list.children].indexOf(li));
+  if (!changes.length) { paintManager(); return; }
+  void run(() => reorderStages({rt: mgr.rt, workspaceId: mgr.workspaceId, changes}), '순서를 바꿨어요.', `[data-reorder-id="${CSS.escape(id)}"] [data-reorder-handle]`);
 }
 function onManagerKey(e) {
-  const grip = e.target.closest?.('[data-stg-grip]');
-  if (grip && mgr && !mgr.busy && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-    e.preventDefault(); const id = rowId(grip), list = stagesNow(), at = list.findIndex(s => s.id === id);
-    commitOrder(id, at + (e.key === 'ArrowUp' ? -1 : 1));
-  }
+  if (e.key === 'Escape' && mgr?.ui.mode === 'rename' && e.target.matches?.('[data-stg-rename-input]')) { e.preventDefault(); e.stopPropagation(); const id = mgr.ui.id; mgr.ui = {id: null, mode: null, draft: ''}; say(''); paintManager(); focusSel(`[data-le-rename="${CSS.escape(id)}"]`); }
 }
 document.addEventListener('click', e => { if (e.target.closest(`#${MODAL}`)) onManagerClick(e); });
 document.addEventListener('submit', e => { if (e.target.closest(`#${MODAL}`)) onManagerSubmit(e); });
-document.addEventListener('keydown', e => { if (e.target.closest?.(`#${MODAL}`)) onManagerKey(e); });
-document.addEventListener('pointerdown', e => { if (e.target.closest?.(`#${MODAL}`)) onGripDown(e); });
-document.addEventListener('pointermove', e => { if (drag) onGripMove(e); });
-document.addEventListener('pointerup', e => { if (drag) onGripUp(e); });
-document.addEventListener('pointercancel', () => { if (drag) { drag.li.classList.remove('dragging'); drag = null; paintManager(); } });
+document.addEventListener('keydown', e => { if (e.target.closest?.(`#${MODAL}`)) onManagerKey(e); }, true);
 document.addEventListener('input', e => {
   if (!mgr) return;
   if (e.target.matches?.('[data-stg-add-input]')) mgr.addDraft = e.target.value;

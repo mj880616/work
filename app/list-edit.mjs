@@ -6,8 +6,8 @@ export const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const attrs=obj=>Object.entries(obj||{}).filter(([,v])=>v!==undefined&&v!==null&&v!==false).map(([k,v])=>v===true?` ${k}`:` ${k}="${esc(v)}"`).join('');
 
 // 맨 위 추가 칸. name: 칸 이름(보이는 placeholder·읽어 주는 이름). formAttrs: 부른 쪽 표시(예 {'data-dce-add':true}).
-export function leAddHtml({name,value='',limit=20,disabled=false,inputId='',formAttrs={},button='추가'}){
-  return `<form class="le-add" data-enter-save${attrs(formAttrs)}><input type="text" class="le-input"${inputId?` id="${esc(inputId)}"`:''} maxlength="${Math.max(1,limit)}" placeholder="${esc(name)}" aria-label="${esc(name)}" value="${esc(value)}" autocomplete="off"${disabled?' disabled':''}><button type="submit" class="le-add-btn" data-enter-save-submit${disabled?' disabled':''}>${esc(button)}</button></form>`;
+export function leAddHtml({name,value='',limit=20,disabled=false,inputId='',formAttrs={},inputAttrs={},button='추가'}){
+  return `<form class="le-add" data-enter-save${attrs(formAttrs)}><input type="text" class="le-input"${inputId?` id="${esc(inputId)}"`:''}${attrs(inputAttrs)} maxlength="${Math.max(1,limit)}" placeholder="${esc(name)}" aria-label="${esc(name)}" value="${esc(value)}" autocomplete="off"${disabled?' disabled':''}><button type="submit" class="le-add-btn" data-enter-save-submit${disabled?' disabled':''}>${esc(button)}</button></form>`;
 }
 
 // 줄 하나. id: 줄 값. label: 읽어 주는 온이름(소분류는 '주간보고 › 확정본'). shown: 보이는 이름. meta: 수 글자.

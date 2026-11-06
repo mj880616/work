@@ -97,52 +97,58 @@ for(const width of [390,1280])test(`단계 저장·이력·목록 꼬리표 ${wi
  expect(errors).toEqual([]);
 });
 
+// S51-28 LIB-화면정리 ② 같은 종류 전수: 쟁의 단계 관리 창도 공용 '목록 고치기' 모양(⠿ · 이름 그 자리 고침 · 꼬리표 · ⋯ 메뉴, 맨 위 추가 칸, 지우기는 빨강 없이 한 번 묻기).
+const rows=dlg=>dlg.locator('.le-list > .le-row');
+async function act(page,row,label){await row.locator('.le-more').click();await page.locator('#stgMenu').getByRole('button',{name:label,exact:true}).click();}
 for(const width of [390,1280])test(`쟁의 단계 관리: 추가·이름·투쟁 중·순서·지우기(기본 단계로 이동) ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width});
  await clickView(page,'team');
  await page.locator('#soTeamMore').click();
  await page.locator('#soTeamMenu [data-so-stage-manage]').click();
  const dlg=page.locator('#soStageModal');await expect(dlg).toBeVisible();
- await expect(dlg.locator('.stg-row')).toHaveCount(11);
- await expect(dlg.locator('.stg-row').first()).toContainText('교섭 시작 전');await expect(dlg.locator('.stg-row').first()).toContainText('기본');
- // 기본 단계는 이름 바꾸기만
- await dlg.locator('.stg-row').first().locator('[data-stg-more]').click();
- await expect(dlg.locator('.stg-row').first().locator('.stg-sub button')).toHaveText(['이름 바꾸기']);
- await dlg.locator('.stg-row').first().locator('[data-stg-more]').click();
+ await expect(rows(dlg)).toHaveCount(11);await expect(dlg.locator('[data-le-count]')).toHaveText('11개');
+ await expect(rows(dlg).first()).toContainText('교섭 시작 전');await expect(rows(dlg).first().locator('.le-tag')).toHaveText('기본');
+ // 맨 위 추가 칸, 큰 버튼·빨강 없음, 기본 단계는 끌 손잡이 없음·메뉴는 이름 바꾸기만
+ expect(await dlg.locator('#soStageBody > *').first().evaluate(el=>el.matches('form[data-stg-add-form]'))).toBe(true);
+ await expect(dlg.locator('.danger')).toHaveCount(0);await expect(rows(dlg).first().locator('button.le-handle')).toHaveCount(0);
+ await rows(dlg).first().locator('.le-more').click();await expect(page.locator('#stgMenu').getByRole('button')).toHaveText(['이름 바꾸기']);await page.keyboard.press('Escape');
  // 추가
- await dlg.locator('[data-stg-add]').click();await dlg.locator('[data-stg-add-input]').fill('교섭 중');await dlg.locator('[data-stg-add-form] button[type=submit]').click();
+ const addInput=dlg.locator('[data-stg-add-input]');
+ await addInput.fill('교섭 중');await addInput.press('Enter');
  await expect(dlg.locator('[data-stg-msg]')).toContainText('같은 이름');
- await dlg.locator('[data-stg-add-input]').fill('합성 새 단계');await dlg.locator('[data-stg-add-form] button[type=submit]').click();
- await expect(dlg.locator('.stg-row')).toHaveCount(12);
- const added=dlg.locator('.stg-row').last();await expect(added).toContainText('합성 새 단계');
- // 투쟁 중 켬 → 끝남 켬(투쟁 중은 같은 저장에서 꺼짐)
- await added.locator('[data-stg-flag="struggle"]').click();await expect(added.locator('[data-stg-flag="struggle"]')).toHaveAttribute('aria-pressed','true');
- await added.locator('[data-stg-more]').click();await added.locator('[data-stg-menu]').click();
- await expect(added.locator('[data-stg-flag="ending"]')).toHaveAttribute('aria-pressed','true');await expect(added.locator('[data-stg-flag="struggle"]')).toHaveAttribute('aria-pressed','false');
+ await addInput.fill('합성 새 단계');await addInput.press('Enter');
+ await expect(rows(dlg)).toHaveCount(12);
+ const added=rows(dlg).last();await expect(added).toContainText('합성 새 단계');
+ // 투쟁 중 켬 → 끝남 켬(투쟁 중은 같은 저장에서 꺼짐). 상태는 꼬리표로 보인다.
+ await act(page,added,'투쟁 중 켜기');await expect(added.locator('[data-stg-tag="struggle"]')).toHaveText('투쟁 중');
+ await act(page,added,'끝남 켜기');
+ await expect(added.locator('[data-stg-tag="ending"]')).toHaveText('끝남');await expect(added.locator('[data-stg-tag="struggle"]')).toHaveCount(0);
  expect(db.stages.at(-1)).toMatchObject({is_struggle:false,is_ending:true});
- // 이름 바꾸기
- await added.locator('[data-stg-more]').click();await added.locator('[data-stg-rename]').click();
- await added.locator('[data-stg-rename-input]').fill('합성 바뀐 단계');await added.locator('[data-stg-rename-form] button[type=submit]').click();
- await expect(dlg.locator('.stg-row').last()).toContainText('합성 바뀐 단계');
- // 순서: 위 화살표로 한 칸 위로, 그리고 끌어서 맨 위 바로 아래로
- await dlg.locator('.stg-row').last().locator('[data-stg-grip]').focus();await page.keyboard.press('ArrowUp');
- await expect(dlg.locator('.stg-row').nth(10)).toContainText('합성 바뀐 단계');
- const grip=await dlg.locator('.stg-row').nth(10).locator('[data-stg-grip]').boundingBox(),target=await dlg.locator('.stg-row').nth(1).boundingBox();
- await page.mouse.move(grip.x+grip.width/2,grip.y+grip.height/2);await page.mouse.down();
- await page.mouse.move(grip.x+grip.width/2,target.y+4,{steps:12});await page.mouse.up();
- await expect(dlg.locator('.stg-row').nth(1)).toContainText('합성 바뀐 단계');
- await expect(dlg.locator('.stg-row').first()).toContainText('교섭 시작 전');
- expect(db.stages.filter(s=>s.name==='합성 바뀐 단계')[0].sort_order).toBe(2);
- // 조직 하나를 이 단계에 두고 지우기: 알림 → 기본 단계로 이동
+ // 이름 바꾸기: 이름을 누르면 그 자리에서, 엔터 = 완료
+ await added.locator('.le-name').click();
+ const ren=dlg.locator('[data-stg-rename-input]');await expect(ren).toBeFocused();await ren.fill('합성 바뀐 단계');await ren.press('Enter');
+ await expect(rows(dlg).last()).toContainText('합성 바뀐 단계');
+ // 순서: 위 화살표로 한 칸 위로, 그리고 끌어서 맨 위 바로 아래로(폰은 꾹 눌러 끌기라 PC만 마우스로)
+ await rows(dlg).last().locator('.le-handle').focus();await page.keyboard.press('ArrowUp');
+ await expect(rows(dlg).nth(10)).toContainText('합성 바뀐 단계');
+ if(width>=761){
+  const grip=await rows(dlg).nth(10).locator('.le-handle').boundingBox(),target=await rows(dlg).nth(1).boundingBox();
+  await page.mouse.move(grip.x+grip.width/2,grip.y+grip.height/2);await page.mouse.down();
+  await page.mouse.move(grip.x+grip.width/2,grip.y-10,{steps:4});await page.mouse.move(grip.x+grip.width/2,target.y+4,{steps:12});await page.mouse.up();
+  await expect(rows(dlg).nth(1)).toContainText('합성 바뀐 단계');
+  await expect(rows(dlg).first()).toContainText('교섭 시작 전');
+  expect(db.stages.filter(s=>s.name==='합성 바뀐 단계')[0].sort_order).toBe(2);
+ }
+ // 조직 하나를 이 단계에 두고 지우기: 한 번 묻기(조직 이름과 옮겨 갈 기본 단계) → 기본 단계로 이동
  db.history.push({id:'hx',organization_id:'oa',stage_id:db.stages.find(s=>s.name==='합성 바뀐 단계').id,stage_name:'합성 바뀐 단계',stage_date:'2026-10-04',created_at:'2026-10-04T00:00:00Z'});
  await dlg.locator('button[aria-label="닫기"]').click();
  await page.locator('#soTeamMore').click();await page.locator('#soTeamMenu [data-so-stage-manage]').click();
- const again=page.locator('#soStageModal').locator('.stg-row',{hasText:'합성 바뀐 단계'});await expect(again).toBeVisible();
- await again.locator('[data-stg-more]').click();await again.locator('[data-stg-delete]').click();
- await expect(again.locator('.stg-confirm')).toContainText('합성 가 지부 1곳이 이 단계예요.');await expect(again.locator('.stg-confirm')).toContainText('교섭 시작 전');
+ const again=page.locator('#soStageModal .le-row',{hasText:'합성 바뀐 단계'});await expect(again).toBeVisible();
+ await act(page,again,'지우기');
+ const ask=page.locator('.kptu-ask');await expect(ask).toContainText('합성 가 지부 1곳이 이 단계예요.');await expect(ask).toContainText('교섭 시작 전');await expect(ask.locator('.danger')).toHaveCount(0);
  expect(db.rpc).toEqual([]);
- await again.locator('[data-stg-delete-yes]').click();
- await expect(page.locator('#soStageModal .stg-row')).toHaveCount(11);
+ await ask.locator('.kptu-ask-actions button').nth(1).click();
+ await expect(rows(page.locator('#soStageModal'))).toHaveCount(11);
  expect(db.rpc).toEqual([{p_stage_id:expect.any(String),p_move_organizations:true}]);
  expect(db.history.at(-1)).toMatchObject({organization_id:'oa',stage_name:'교섭 시작 전',stage_id:'stage-1'});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
@@ -152,12 +158,12 @@ for(const width of [390,1280])test(`쟁의 단계 관리: 추가·이름·투쟁
 test('조직이 없는 단계를 지울 때는 알림 없이 한 번 확인 뒤 지움(기본 단계 지우기 불가)',async({page})=>{
  const {db}=await fixture(page,{width:390});
  await clickView(page,'team');await page.locator('#soTeamMore').click();await page.locator('#soTeamMenu [data-so-stage-manage]').click();
- const dlg=page.locator('#soStageModal'),second=dlg.locator('.stg-row').nth(1);
- await second.locator('[data-stg-more]').click();await second.locator('[data-stg-delete]').click();
- await expect(second.locator('.stg-confirm')).toContainText('‘교섭 중’ 단계를 지울까요?');
- await second.locator('[data-stg-cancel]').click();await expect(dlg.locator('.stg-row')).toHaveCount(11);expect(db.rpc).toEqual([]);
- await second.locator('[data-stg-more]').click();await second.locator('[data-stg-delete]').click();await second.locator('[data-stg-delete-yes]').click();
- await expect(dlg.locator('.stg-row')).toHaveCount(10);expect(db.rpc).toEqual([{p_stage_id:'stage-2',p_move_organizations:false}]);
+ const dlg=page.locator('#soStageModal'),second=rows(dlg).nth(1),ask=page.locator('.kptu-ask');
+ await act(page,second,'지우기');
+ await expect(ask).toContainText('‘교섭 중’ 단계를 지울까요?');
+ await ask.locator('.kptu-ask-actions button').nth(0).click();await expect(rows(dlg)).toHaveCount(11);expect(db.rpc).toEqual([]);
+ await act(page,second,'지우기');await ask.locator('.kptu-ask-actions button').nth(1).click();
+ await expect(rows(dlg)).toHaveCount(10);expect(db.rpc).toEqual([{p_stage_id:'stage-2',p_move_organizations:false}]);
 });
 
 for(const width of [390,1280])test(`표가 아직 없을 때는 '준비 중' 한 줄이고 화면은 그대로 ${width}px`,async({page})=>{
@@ -191,7 +197,7 @@ test('기본 단계가 없을 때 관리 창을 처음 열면 11개를 채운다
  const {db}=await fixture(page,{width:390,seeded:false});
  await clickView(page,'team');expect(db.stages).toEqual([]);
  await page.locator('#soTeamMore').click();await page.locator('#soTeamMenu [data-so-stage-manage]').click();
- await expect(page.locator('#soStageModal .stg-row')).toHaveCount(11);expect(db.stages[0]).toMatchObject({is_default:true});
+ await expect(page.locator('#soStageModal .le-list > .le-row')).toHaveCount(11);expect(db.stages[0]).toMatchObject({is_default:true});
 });
 
 // ORG-쟁의단계 다듬기(2026-10-24 11:05~11:08): ① 단계 기간(끝 날짜) ② 이력 한 줄 고치기·지우기 ③ 화면 전체 ⋯는 제목 '담당조직' 줄 오른쪽.
