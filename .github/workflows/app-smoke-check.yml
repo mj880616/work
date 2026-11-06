@@ -530,6 +530,8 @@ jobs:
         run: node --test tests/select-mode-folder-path.test.mjs
       - name: S51-22 '최근' 상자 접기(서버 기억·머리 줄 ▴▾) 시험
         run: node --test tests/recent-fold.test.mjs
+      - name: S51-23 파일 '최근'에서 Web2 자동 생성 파일 빼기(시스템 폴더 규칙) 시험
+        run: node --test tests/files-auto-model.test.mjs
       - name: NOTE-비밀메모 판별(서버 note-secret.ts와 같은 규칙)·목록 제목 가리기 시험
         run: node --test tests/note-secret.test.mjs
       - name: NOTE-비밀메모 서버 쪽(AI 재료에서 비밀·AI 제외 노트 건너뛰기) 시험
