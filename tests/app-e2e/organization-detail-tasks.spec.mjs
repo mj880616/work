@@ -4,6 +4,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 
 // TASK-조직상세 and TASK-조직순서 in the whole app: the organization detail shows the Google tasks linked to the organization,
 // adds a task already linked to it and links an existing one; the list and the editor follow the shared order.
@@ -91,9 +92,11 @@ test('담당조직 상세에서 연결된 할 일을 보고, 이 조직으로 �
   // The editor opens above the organization detail.
   expect(await editor.locator('#gtEditTitle').evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))})).toBe(true);
   await expect(page.locator('#gtEditTitle')).toBeFocused();
-  const orgGroup=page.locator('#gtEditLinkBody [role="group"][aria-label="조직"]');
-  expect(await sequence(orgGroup,'span')).toEqual(ORDERED);
-  await expect(orgGroup.locator(`input[value="o:${RAIL}"]`)).toBeChecked();
+  // S52-01: 조직 줄에 이 조직 꼬리표, 고르기 창은 같은 순서의 묶음.
+  await expect.poll(()=>chosenKeys(page,'#gtEditLinkBody')).toEqual([`o:${RAIL}`]);
+  await openPicker(page,'#gtEditLinkBody','org');
+  expect(await page.locator(`${SHEET} .aop-list`).evaluate(box=>[...box.querySelectorAll(':scope>.aop-group')].flatMap((g,i)=>[...(i?['|']:[]),...[...g.querySelectorAll('.home-choice-name')].map(el=>el.textContent.trim())]))).toEqual(ORDERED);
+  await page.keyboard.press('Escape');await expect(page.locator(SHEET)).toBeHidden();
   await page.locator('#gtEditTitle').fill('조직에서 만든 할 일');
   await page.locator('#gtSaveBtn').click();
   await expect(editor).toBeHidden();

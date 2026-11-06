@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import { SHEET, openPicker, pressRow } from './helpers/area-org-picker.mjs';
 // UI-고르기창개선 (PC만, 폰 그대로). A: 담당조직 고르기는 묶음별 줄(왼쪽 묶음 이름, 오른쪽 낮은 칩) + 맨 위 검색칸, 고른 칩은 초록 + ✓,
 // 조직 이름은 전체 그대로. 묶음 순서는 철도 / 지하철 / 민자철도 / 민간도시철도, 묶음에 없는 조직은 맨 아래 "그 외".
 // B: 프로젝트 고르기는 한 줄에 하나 + 검색칸, 하위는 들여쓰기·흐린 글자("↳" 없음), 작은 체크칸, 고른 줄은 연한 초록, 줄 전체 누름.
@@ -141,33 +142,41 @@ test('폰: 아래에서 올라오는 시트, 검색칸 없음, 묶음 소제목 
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);
 });
 
-test('할 일 상세 "연결할 프로젝트·조직"(PC): 하위는 ↳ 없이 들여쓰기·흐린 글자, 조직 묶음 이름; 폰은 ↳ 그대로',async({page})=>{
+// S52-01 UI-사업영역조직고르기창: 할 일 연결은 '사업영역'·'조직' 두 줄 + 누르면 고르기 창. 창 안 모양은 위 고르기 창과 같다:
+// PC는 하위가 들여쓰기·흐린 글자(↳ 없음), 조직은 묶음 이름(꺾쇠로 펼침). 폰은 같은 창이 아래에서, 찾기 칸도 있다.
+test('할 일 연결 고르기 창(PC): 하위는 ↳ 없이 들여쓰기·흐린 글자, 조직 묶음 이름; 폰은 아래 창 + 찾기',async({page})=>{
  await page.setViewportSize({width:1280,height:900});await openHome(page);await orgRoutes(page,NAMES);
  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
- const links=page.locator('#gtEditLinkBody');await expect(links.locator('input[value="p:child"]')).toBeVisible();
- const child=links.locator('label.gt-link-opt',{has:page.locator('input[value="p:child"]')}),top=links.locator('label.gt-link-opt',{has:page.locator('input[value="p:p"]')});
- await expect(child.locator('.gt-link-arrow')).toBeHidden();
- const [cx,tx]=await Promise.all([child.locator('input').boundingBox(),top.locator('input').boundingBox()]);expect(cx.x).toBeGreaterThan(tx.x+10);
- const [cc,tc]=await Promise.all([child.locator('span').evaluate(e=>getComputedStyle(e).color),top.locator('span').evaluate(e=>getComputedStyle(e).color)]);expect(cc).not.toBe(tc);
- await expect(links.locator('.gt-org-group-name')).toHaveText(['철도','지하철','민자철도','민간도시철도']);
+ await openPicker(page,'#gtEditLinkBody','area');const sheet=page.locator(SHEET);
+ await pressRow(page,'p:child');
+ const child=sheet.locator('[data-sheet-value="p:child"]'),top=sheet.locator('[data-sheet-value="p:p"]');
+ await expect(child).not.toContainText('↳');
+ const [cx,tx]=await Promise.all([child.locator('.home-choice-check').boundingBox(),top.locator('.home-choice-check').boundingBox()]);expect(cx.x).toBeGreaterThan(tx.x+10);
+ const [cc,tc]=await Promise.all([child.locator('.home-choice-name').evaluate(e=>getComputedStyle(e).color),top.locator('.home-choice-name').evaluate(e=>getComputedStyle(e).color)]);expect(cc).not.toBe(tc);
+ await sheet.locator('[data-sheet-save]').click();await expect(sheet).toBeHidden();
+ await expect(page.locator('#gtEditLinkBody [data-aop-chip="p:child"] .aop-chip-text')).toHaveText(/ › 자식 프로젝트$/);
+ await openPicker(page,'#gtEditLinkBody','org');
+ await expect(sheet.locator('.aop-group-name')).toContainText(['철도','지하철','민자철도','민간도시철도']);
+ await page.keyboard.press('Escape');await expect(sheet).toBeHidden();
  await page.setViewportSize({width:390,height:844});
- await expect(child.locator('.gt-link-arrow')).toBeVisible();await expect(child.locator('span')).toHaveText('　↳ 자식 프로젝트');
- await expect(links.locator('.gt-org-group-name:visible')).toHaveCount(0);
+ await openPicker(page,'#gtEditLinkBody','org');
+ await expect(sheet).not.toHaveClass(/home-choice-anchored/);await expect(sheet.locator('[data-sheet-search]')).toBeVisible();
 });
 
-// UI-화면점검 ③: 할 일 수정 창 "연결할 프로젝트·조직" — legend는 다른 라벨과 같은 크기(12px)의 짧은 이름만, 안내문은 legend 밖 아래 작은 글씨.
-// 폰 390에서 안내문이 legend 안에서 꺾여 테두리선이 글자를 지나가던 문제: legend는 한 줄이고 안내문은 fieldset 안쪽(테두리 안)에 놓인다.
-for(const width of [390,1280])test(`할 일 수정 창 연결 fieldset legend: 라벨과 같은 크기, 안내 줄 없음(UI-당연한안내삭제) ${width}`,async({page})=>{
+// UI-화면점검 ③ → S52-01: 연결 칸은 테두리 상자·legend 없이 두 줄. 줄 이름은 다른 칸 이름보다 크지 않고 한 줄, 안내 줄 없음(UI-당연한안내삭제).
+for(const width of [390,1280])test(`할 일 수정 창 연결 두 줄: 줄 이름 한 줄·라벨보다 크지 않음, 안내 줄 없음 ${width}`,async({page})=>{
  await page.setViewportSize({width,height:844});await openHome(page);await orgRoutes(page,NAMES);
  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
- await expect(page.locator('#gtEditLinkBody input[value="p:child"]')).toBeVisible();
+ await expect(page.locator('#gtEditLinkBody .aop-row')).toHaveCount(2);
  const m=await page.evaluate(()=>{
-  const modal=document.querySelector('#gtTaskModal'),set=modal.querySelector('.gt-links'),legend=set.querySelector(':scope > legend'),label=modal.querySelector('label'),box=e=>e.getBoundingClientRect(),fs=e=>parseFloat(getComputedStyle(e).fontSize);
-  return {legendText:legend.textContent.trim(),legendSize:fs(legend),labelSize:fs(label),legendInsideSmall:!!legend.querySelector('small'),hints:set.querySelectorAll('.gt-links-hint').length,
-   legendH:box(legend).height,legendLineH:parseFloat(getComputedStyle(legend).lineHeight),   legendRight:box(legend).right,setRight:box(set).right,weight:Number(getComputedStyle(legend).fontWeight),labelWeight:Number(getComputedStyle(label).fontWeight)};
+  const modal=document.querySelector('#gtTaskModal'),set=modal.querySelector('.gt-links'),label=modal.querySelector('label'),fs=e=>parseFloat(getComputedStyle(e).fontSize);
+  const names=[...set.querySelectorAll('.aop-label')];
+  return {names:names.map(e=>e.textContent.trim()),sizes:names.map(fs),labelSize:fs(label),legend:set.querySelectorAll('legend').length,hints:set.querySelectorAll('.gt-links-hint').length,
+   oneLine:names.every(e=>e.getBoundingClientRect().height<=parseFloat(getComputedStyle(e).lineHeight||'18')+2||e.getBoundingClientRect().height<=20),groupLabel:set.getAttribute('aria-label'),over:set.scrollWidth-set.clientWidth};
  });
- expect(m.legendText).toBe('연결할 사업영역·조직');expect(m.legendInsideSmall).toBe(false);
- expect(m.legendSize).toBe(m.labelSize);expect(m.weight).toBe(m.labelWeight);
- expect(m.hints,'고르지 않아도 됩니다 안내 줄은 지웠다').toBe(0);
- expect(m.legendH,'legend 한 줄').toBeLessThanOrEqual(m.legendLineH+1);expect(m.legendRight).toBeLessThanOrEqual(m.setRight);
+ expect(m.names).toEqual(['사업영역','조직']);expect(m.groupLabel).toBe('연결할 사업영역·조직');
+ for(const size of m.sizes)expect(size).toBeLessThanOrEqual(m.labelSize);
+ expect(m.legend).toBe(0);expect(m.hints,'고르지 않아도 됩니다 안내 줄은 지웠다').toBe(0);
+ expect(m.oneLine).toBe(true);expect(m.over).toBeLessThanOrEqual(1);
 });
+

@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
+import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 // PRJ-순서바꾸기 (2026-10-21 요청함 01:01·01:10 승인): 같은 상위 아래 형제끼리 순서를 바꾼다. PC는 프로젝트 목록에서 끌어다 놓기,
 // 폰은 목록 머리 [순서 바꾸기] 모드의 줄별 ↑ ↓(2026-10-22 변경: 상세 ⋯ 안 위로·아래로는 없앰). 저장은 기존 app_spaces.sort_order(소유자 PATCH, DB 변경 없음). 정한 순서는 프로젝트 화면·
 // 기록할 곳·할 일 연결·업무일지·주간 정리(한글 파일)가 모두 같은 목록(project-catalog.js)에서 읽는다. 순서 규칙과 업무일지·주간 정리
@@ -148,8 +149,9 @@ test('phone 390: a failed save says so and keeps the old order',async({page})=>{
 
 const taskLinkIds=async page=>{
  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
- const body=page.locator('#gtEditLinkBody');await expect(body.locator('input[value^="p:"]').first()).toBeVisible();
- const ids=await body.locator('input[value^="p:"]').evaluateAll(xs=>xs.map(x=>x.value.slice(2)));
+ const body=page.locator('#gtEditLinkBody');await openPicker(page,'#gtEditLinkBody','area');
+ const ids=(await offeredKeys(page)).map(x=>x.slice(2));
+ await page.keyboard.press('Escape');await expect(page.locator(SHEET)).toBeHidden();
  await page.keyboard.press('Escape');await expect(body).toBeHidden();return ids;
 };
 test('PC 1280: 기록할 곳 (home [업데이트]) and 할 일 연결 list projects in the order set on the project screen',async({page})=>{
