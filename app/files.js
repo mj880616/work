@@ -26,6 +26,7 @@ import {treeMenuItems} from './files-tree-menu.mjs';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
+import {recentFolded, toggleRecentFolded} from './recent-fold.js';
 import {brandIconSvg} from './brand-icons.js';
 import {treeIconHtml, iconSvg} from './tree-icons.js';
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
@@ -691,12 +692,7 @@ function treeHtml(p) {
   state.treeRows = new Map();
   const w = p.where, curKey = !p.query && w ? (w.shelf ? 'shelf:' + w.shelf : folderKey(w.source, w.parent)) : '';
   let html = '';
-  const recent = state.recent || [];
-  if (recent.length) {
-    const shown = recent.slice(0, state.recentAll ? RECENT_BOX_MORE : RECENT_BOX);
-    const more = recent.length > RECENT_BOX || state.recentAll ? `<button type="button" class="ft-btn ft-box-more" data-fx-recent-more aria-expanded="${state.recentAll}">${state.recentAll ? '접기' : '더보기'}</button>` : '';
-    html += ftBoxHtml({head: '최근', tail: more, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body: shown.map(r => treeFileHtml(r, 0, 'recent')).join('')});
-  }
+  html += recentBoxHtml();
   const shelves = SHELVES.map(shelf => ftFolderRowHtml({name: SHELF_NAME[shelf], count: shelf === 'starred' && state.stars !== null ? `${state.stars}개` : null, depth: 0, hasContent: false,
     current: curKey === 'shelf:' + shelf, icon: treeIconHtml(shelf, {className: 'ft-ico'}), className: 'fx-shelf', mainAttrs: {'data-fx-shelf': shelf}})).join('');
   html += ftBoxHtml({body: shelves, label: '모아 보기', attrs: {'data-fx-box': 'shelves'}});
@@ -755,16 +751,22 @@ function treeFolderHtml(r) {
     rowAttrs: {'data-fx-fold': r.key, 'data-fx-drop': r.source === PC ? null : r.key}, mainAttrs: {'data-fx-tog': r.key},
     more: full ? {attrs: {'data-fx-tmenu': r.key, 'data-fx-tin': r.parent}, label: `${r.name} 폴더 메뉴`} : null});
 }
-function phoneTreeHtml() {
-  state.treeRows = new Map();
-  let html = '';
-  // '최근' 상자(자료실 '최근 올린 파일'과 같은 상자, [더보기]면 15개).
+// '최근' 상자(자료실 '최근 올린 파일'과 같은 상자, [더보기]면 15개) — 폰 나무·PC 나무가 같은 상자 하나(S51-25).
+function recentBoxHtml() {
   const recent = state.recent || [];
   if (recent.length) {
     const shown = recent.slice(0, state.recentAll ? RECENT_BOX_MORE : RECENT_BOX);
     const more = recent.length > RECENT_BOX || state.recentAll ? `<button type="button" class="ft-btn ft-box-more" data-fx-recent-more aria-expanded="${state.recentAll}">${state.recentAll ? '접기' : '더보기'}</button>` : '';
-    html += ftBoxHtml({head: '최근', tail: more, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body: shown.map(r => treeFileHtml(r, 0, 'recent')).join('')});
+    // S51-22: 머리 줄을 누르면 접기(서버 view_prefs.recent_folded, recent-fold.js).
+    const shut = recentFolded('files');
+    return ftBoxHtml({head: '최근', tail: more, collapsible: true, caret: true, open: !shut, toggleAttrs: {'data-fx-recent-fold': ''}, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body: shut ? '' : shown.map(r => treeFileHtml(r, 0, 'recent')).join('')});
   }
+  return '';
+}
+function phoneTreeHtml() {
+  state.treeRows = new Map();
+  let html = '';
+  html += recentBoxHtml();
   // 묶음(별표·큰 파일): 작은 상자 하나.
   const shelves = SHELVES.map(shelf => ftFolderRowHtml({name: SHELF_NAME[shelf], count: shelf === 'starred' && state.stars !== null ? `${state.stars}개` : null, depth: 0, hasContent: false,
     icon: treeIconHtml(shelf, {className: 'ft-ico'}), className: 'fx-shelf', mainAttrs: {'data-fx-shelf': shelf}})).join('');
@@ -2305,6 +2307,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-box-tog]')) { const s0 = b.dataset.fxBoxTog; if (state.boxShut.has(s0)) state.boxShut.delete(s0); else state.boxShut.add(s0); paintTree(); return; }
   if (b.matches('[data-fx-tmore]')) { state.more.add(b.dataset.fxTmore); paintTree(); return; }
   if (b.matches('[data-fx-recent-more]')) { state.recentAll = !state.recentAll; paintTree(); return; }
+  if (b.matches('[data-fx-recent-fold]')) { toggleRecentFolded('files'); paintTree(); root?.querySelector('[data-fx-recent-fold]')?.focus({preventScroll: true}); return; }
   if (b.matches('[data-fx-tfile]')) { const r = state.treeRows.get(b.dataset.fxTfile); if (r) openPreview(r); return; }
   if (b.matches('[data-fx-tmenu]')) { treeMenu(b); return; }
   if (b.matches('[data-fx-go]')) { goFolder(b.dataset.fxGo, b.dataset.fxId || null); return; }

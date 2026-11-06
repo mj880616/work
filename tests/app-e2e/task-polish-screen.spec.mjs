@@ -48,15 +48,17 @@ test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·기한
   expect(first.height).toBeLessThanOrEqual(34);
   await expect(page.locator('#gtToggleBtn')).toBeEnabled(); // 연결 정보 읽기가 끝난 뒤에만 빠른 버튼을 받는다.
   await expect(quick.getByRole('button',{name:'오늘',exact:true})).toHaveAttribute('aria-pressed','true');
-  // S51-13 TODO-폴드목록상세(S49-6 칸 닫기를 대체): 빠른 버튼은 바로 저장하고 칸은 열린 채, 누른 버튼이 고른 표시가 된다.
+  // S51-21 TODO-칸기한닫기(S49-6 되살림): 빠른 버튼은 바로 저장하고 칸을 닫는다(고른 줄 풀림). 다시 열면 누른 버튼이 고른 표시.
   for(const [label,due] of [['내일','2026-10-09'],['모레','2026-10-10'],['오늘','2026-10-08'],['기한 없음',null]]){
     const before=calls.filter(c=>c.action==='update').length;
     await quick.getByRole('button',{name:label,exact:true}).click();
     await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(before+1);
     expect(calls.filter(c=>c.action==='update').at(-1).body.due).toBe(due);
-    await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditStatus')).toHaveText('저장했어요.');
+    await expect(page.locator('#gtTaskModal')).toBeHidden();await expect(page.locator('[data-undo-notice]')).toBeVisible();
+    await expect(page.locator('#gtTaskBody .gt-row.is-selected')).toHaveCount(0);
+    // 옮긴 줄이 접힌 묶음(기한 없음 등)에 있을 수 있어 그 줄 버튼을 바로 누른다.
+    await page.locator('[data-gt-edit="a"]').evaluate(b=>b.click());await expect(page.locator('#gtToggleBtn')).toBeEnabled();
     await expect(quick.getByRole('button',{name:label,exact:true})).toHaveAttribute('aria-pressed','true');
-    await expect(page.locator('#gtTaskBody .gt-row.is-selected')).toHaveCount(1);
   }
   // S46-30: [다음주] → 다음 주 월~일 작은 목록(토·일 옅은 색). 목록 밖을 누르면 저장 없이 닫히고, 고르면 그날로 바로 저장.
   const before=calls.filter(c=>c.action==='update').length;
@@ -77,7 +79,8 @@ test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·기한
   await expect(week).toBeHidden();
   await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(before+1);
   expect(calls.filter(c=>c.action==='update').at(-1).body.due).toBe('2026-10-14');
-  await expect(page.locator('#gtTaskModal')).toBeVisible();
+  await expect(page.locator('#gtTaskModal')).toBeHidden();
+  await page.locator('[data-gt-edit="a"]').evaluate(b=>b.click());await expect(page.locator('#gtToggleBtn')).toBeEnabled();
   await expect(quick.getByRole('button',{name:'다음주',exact:true})).toHaveAttribute('aria-pressed','true');
 });
 
