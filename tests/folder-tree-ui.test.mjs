@@ -125,3 +125,25 @@ test('toggle: 폴더 아이콘이 줄 앞 따로인 단추, 열린 그림 = 펼�
   assert.match(leaf, /<span class="ft-tog ft-tog-none"><span class="ft-ico" data-ft-shape="closed"/);
   for (const html of [open, shut, leaf]) assert.doesNotMatch(html, /[▸▾▶▼›]/);
 });
+
+// S51-25 FOLDER-세모0(요청함 11/06 21:37): 폴더를 펼치는 모든 보기에 작은 세모(▸▾)가 없다 — 폴더 = 열린/닫힌 폴더 그림, 저장소 = 상자 머리.
+// 폴더가 아닌 접기(단계 이력·진행 기록)와 고르기 단추의 ▾(정렬 ▾ 등)는 이 검사 밖이다.
+test('전수: 폴더 나무를 그리는 파일에 세모 글자·세모 모양이 없다', () => {
+  const read = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8').replace(/\/\*[^]*?\*\//g, '');
+  // 고르기 단추·이동 글자(폴더 펼침 아님), '최근' 상자 머리 ▴▾(S51-22 #1969 — 폴더가 아닌 최근 파일 상자 접기, 따로 결정)
+  const ALLOWED = [/SORT_SHORT\[sort\]\} ▾/, /fx-xfer-open">목록 ▸/, /libraryManageModal/, /ft-box-caret/];
+  const bad = [];
+  for (const f of ['folder-tree-ui.mjs', 'library-tree.js', 'note-tree.mjs', 'note-boards.js', 'news-clipping.js', 'od-settings.js', 'tree-icons.js', 'photos.js', 'basket-notes.js', 'files.js', 'library-upload.js', 'library-folders.js']) {
+    read(f).split('\n').forEach((line, i) => {
+      if (/^\s*\/\//.test(line) || ALLOWED.some(re => re.test(line))) return;
+      if (/[▸▾]|\\25B[8E]/.test(line.replace(/\/\/ .*$/, ''))) bad.push(`${f}:${i + 1}`);
+    });
+  }
+  for (const f of ['folder-tree.css', 'files.css', 'photos.css', 'library-upload.css', 'basket.css', 'news-clipping.css', 'diary.css']) {
+    // 고르기 단추 꺾쇠(자료실 [분류 ▾], S51-28 #1977)는 폴더 펼침이 아니라 검사 밖.
+    const css = read(f).split('\n').filter(line => !/\.lu-cat-caret::before/.test(line)).join('\n');
+    if (/[▸▾]|\\25B[8E]/.test(css)) bad.push(`${f}: 세모 글자`);
+    if (/lu-node-head::before\{content:""[^}]*border-left:5px/.test(css)) bad.push(`${f}: 세모 모양`);
+  }
+  assert.deepEqual(bad, []);
+});

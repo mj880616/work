@@ -521,7 +521,7 @@ function paintPaneTop(p) {
   if (!two()) { top.hidden = true; top.innerHTML = ''; if (pt) { pt.hidden = true; pt.innerHTML = ''; } return; }
   top.hidden = false;
   const fold = !WIDE.matches, i = idxOf(p);
-  top.innerHTML = (fold ? `<button type="button" class="mini fx-pdrop" data-fx-pdrop aria-expanded="${p.drop}" aria-label="${side(i)} 칸 폴더 나무">▾</button>` : '')
+  top.innerHTML = (fold ? `<button type="button" class="mini fx-pdrop" data-fx-pdrop aria-expanded="${p.drop}" aria-label="${side(i)} 칸 폴더 나무">${treeIconHtml('folder', {open: p.drop, className: 'ft-ico'})}</button>` : '')
     + `<nav class="fx-crumb" aria-label="${side(i)} 칸 위치">${crumbHtml(p)}</nav>${sortHtml(p)}`;
   paintPaneTree(p);
 }
@@ -549,7 +549,7 @@ function paintTop() {
     s.textContent = sn.label.text; s.title = sn.label.title; s.dataset.fxSyncState = sn.label.state;
     s.disabled = state.syncing;
     s.setAttribute('aria-busy', String(state.syncing || sn.scanning));
-    s.hidden = !sn.shown || (solo() && !s.closest('.nx-row, .ft-box-head'));
+    s.hidden = !sn.shown || (solo() && !s.closest('.ft-box-head'));
   }
   // UI-로딩자리전수: 맞추는 동안의 두 번째 글자('맞추는 중')는 없다. 목록 칸 맨 위 가는 줄(공용 부품) 하나로만 알린다.
   for (const q of panesOn()) {
@@ -1645,9 +1645,11 @@ function paintDest() {
   const rows = treeRows({sources: on, children: state.children, open: x.open, order: lookOrder}).filter(r => r.type !== 'shelf');
   const tree = rows.map(r => {
     const key = r.key, sel = key === cur;
-    const twist = r.hasKids ? `<button type="button" class="fx-twist" data-fx-dest-twist="${esc(key)}" aria-expanded="${r.open}" aria-label="${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="fx-twist" aria-hidden="true"></span>';
+    // S51-25 FOLDER-세모0: 받을 곳 창 나무도 공용 줄 — 세모 없이 아이콘 단추(폴더 = 열린/닫힌 그림, 저장소 = 로고)가 펼치기·접기, 이름 = 받을 곳 고르기.
     const name = r.type === 'root' ? SOURCE_NAME[r.source] : r.name;
-    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${sel ? ' nx-current' : ''}" style="--nx-indent:${r.depth}">${twist}<button type="button" class="nx-main" data-fx-dest-pick="${esc(key)}" data-fx-dest-name="${esc(name)}"${sel ? ' aria-current="true"' : ''}>${r.type === 'root' ? treeIconHtml(r.source) : treeIconHtml('folder', {row: {color: folderLook.color(r.source, r.id)}, open: r.open})}<span class="nx-name">${esc(name)}</span></button></div>`;
+    return ftFolderRowHtml({name, depth: r.depth, open: r.open, hasContent: r.hasKids, current: sel, className: r.type === 'root' ? 'fx-root' : '',
+      color: r.type === 'root' ? null : folderLook.color(r.source, r.id), icon: r.type === 'root' ? treeIconHtml(r.source, {className: 'ft-ico'}) : null,
+      mainAttrs: {'data-fx-dest-pick': key, 'data-fx-dest-name': name}, toggle: {attrs: {'data-fx-dest-twist': key}, label: `${name} ${r.open && r.hasKids ? '접기' : '펼치기'}`}});
   }).join('');
   const can = !!x.dest && !state.ask;
   box.innerHTML = `<div class="fx-dest-h"><span id="fxDestTitle">${esc(destTitle(x.rows.length, x.mode))}</span><button type="button" class="mini" data-fx-dest-close aria-label="닫기">✕</button></div>`
