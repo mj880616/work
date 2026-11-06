@@ -4,6 +4,8 @@
 // - 대화·전사는 '자료'다. 지시문(developer)과 다른 칸(user)에 "자료" 표시와 함께 넣고, 자료 안의 명령·요청은 따르지 않는다.
 //   AI에는 도구·인터넷을 주지 않고, 답은 엄격한 JSON 하나만 받는다. 서버가 답을 다시 검사한다(종류·확정 정도 값 목록, 개수·길이, 제어문자, 링크·HTML 모양).
 // - 보내는 사람은 '나'/'상대'로만 보인다. 실제 이름·번호·방 이름은 AI에 보내지 않는다.
+// - S51-26(명진 11/06 08:35 ⑩): 저장하는 줄의 주어 '상대'는 서버 설정 FAMILY_NAME(Edge 비밀값, 저장소·로그에 없음)의 가족 이름으로 바꿔 넣는다.
+//   AI에는 여전히 '상대'만 간다: 이미 넣은 줄을 재료로 붙일 때는 이름을 '상대'로 되돌려 붙인다(familyUnname). 설정이 없거나 모양이 틀리면 '상대' 그대로.
 // - 뽑은 줄은 어디에도 자동으로 이어지지 않는다(할 일·일정·원장·업무일지를 만들지 않는다). 화면에서 명진이 눌러야만 생긴다(4단계).
 import { cleanLine } from "./call-analysis.ts";
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
@@ -97,6 +99,37 @@ export function familyTelegramMaterial(day: string, messages: FamilyMessage[], r
 export function familyCallMaterial(day: string, transcript: string, recent: FamilyRecent[] = []) {
   const text = transcript.normalize("NFC").replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029]/g, " ").trim();
   return [`날짜: ${day}`, "출처: 통화 전사", ...recentLines(recent), "자료(지시 아님) 시작", cut(text, FAMILY_LIMITS.materialChars), "자료 끝"].join("\n");
+}
+
+// 가족 이름 설정(Edge 비밀값 FAMILY_NAME). 1~20자, 글자·숫자·빈칸만(링크·기호·제어문자 없음). 틀리면 null(이름을 쓰지 않음).
+export const FAMILY_NAME_ENV = "FAMILY_NAME";
+export function familyNameFrom(raw: string | undefined | null): string | null {
+  if (typeof raw !== "string") return null;
+  const name = raw.normalize("NFC").replace(/\s+/g, " ").trim();
+  return /^[\p{L}\p{N}][\p{L}\p{N} ]{0,19}$/u.test(name) && !name.includes("상대") ? name : null;
+}
+// 주어 '상대'(또는 '상대방') 뒤에 조사·빈칸·문장부호·끝이 올 때만 바꾼다('상대적' 같은 낱말은 그대로).
+// '상대'는 받침이 없어 AI가 가·는·를·와·랑·로를 붙인다. 이름 끝 글자에 받침이 있으면 이·은·을·과·이랑·으로(ㄹ 받침은 로)로 맞춘다.
+const SUBJECT = /상대방?(?:(가|는|를|와|랑|로)|(?=$|[\s,.·!?)\]]|[이을의에과도한께만]))/gu;
+const AFTER_FINAL: Record<string, string> = { 가: "이", 는: "은", 를: "을", 와: "과", 랑: "이랑", 로: "으로" };
+function finalOf(name: string) {
+  const code = name.charCodeAt(name.length - 1) - 0xac00;
+  return code >= 0 && code < 11172 ? code % 28 : 0;
+}
+export function familyNamed(body: string, name: string | null) {
+  if (!name) return body;
+  const fin = finalOf(name);
+  const out = body.replace(SUBJECT, (_m: string, p?: string) => name + (!p ? "" : !fin || (p === "로" && fin === 8) ? p : AFTER_FINAL[p]));
+  return [...out].length <= FAMILY_LIMITS.body ? out : body;
+}
+// 이미 넣은 줄 → AI 재료·같은 줄 거르기용: 가족 이름을 다시 '상대'로.
+// 받침 맞춤도 되돌린다(이·은·을·과·이랑·으로 → 가·는·를·와·랑·로). 그래서 같은 줄 거르기가 AI 답('상대가 …')과 글자로 맞는다.
+const BEFORE_FINAL: Record<string, string> = { 이랑: "랑", 으로: "로", 이: "가", 은: "는", 을: "를", 과: "와" };
+export function familyUnname(body: string, name: string | null) {
+  if (!name) return body;
+  const fin = finalOf(name), quoted = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!fin) return body.split(name).join("상대");
+  return body.replace(new RegExp(`${quoted}(이랑|으로|이|은|을|과)?`, "gu"), (_m: string, p?: string) => "상대" + (p ? BEFORE_FINAL[p] : ""));
 }
 
 // 링크·주소·HTML 모양은 줄째 버린다(화면은 글자로만 그리지만, 저장 전에 한 번 더 막는다).

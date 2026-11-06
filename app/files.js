@@ -26,6 +26,8 @@ import {treeMenuItems} from './files-tree-menu.mjs';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
+import {recentFolded, toggleRecentFolded} from './recent-fold.js';
+import {recentHumanRows} from './files-auto-model.mjs';
 import {brandIconSvg} from './brand-icons.js';
 import {treeIconHtml} from './tree-icons.js';
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
@@ -343,14 +345,16 @@ function recordCountsFor(source, parent, scope) {
 // '★ 별표 (개수)'(나무 맨 위 줄): 별표 목록을 읽으면 그 줄 수. 들어올 때·출처를 켜고 끌 때·별표를 바꾼 뒤 같은 읽기 함수(app_cloud_find_in)로 센다.
 const starCount = rows => { const list = Array.isArray(rows) ? rows : []; return list.length >= SHELF_LIMIT ? `${SHELF_LIMIT}+` : String(list.filter(r => !isLockedItem(r)).length); };
 // FOLDER-나무새기준 ① 파일 '최근' 상자: 켜진 클라우드의 최근 바뀐 파일(서버 p_shelf 'recent', 따로 저장 없음). 폰 나무에서만 보인다.
-const RECENT_BOX = 5, RECENT_BOX_MORE = 15;
+// S51-23 FILES-최근자동제외: Web2 자동화가 되풀이해 만드는 파일(텔레그램 수집·통화 전사·백업 등 시스템 폴더 안)은 '최근'에서만 뺀다
+// (규칙은 files-auto-model.mjs 한 곳, 폴더 보기·찾기에는 그대로). 빼고도 15줄이 차도록 서버 한도(300)까지 읽은 뒤 거른다.
+const RECENT_BOX = 5, RECENT_BOX_MORE = 15, RECENT_FETCH = 300;
 async function loadRecent() {
   const scope = state.scope, on = cloudOn();
   if (!on.length || !solo()) { state.recent = null; return; }
   try {
-    const rows = await rpc('app_cloud_find_in', {p_sources: on, p_query: null, p_shelf: 'recent', p_limit: RECENT_BOX_MORE});
+    const rows = await rpc('app_cloud_find_in', {p_sources: on, p_query: null, p_shelf: 'recent', p_limit: RECENT_FETCH});
     if (state.scope !== scope) return;
-    state.recent = (Array.isArray(rows) ? rows : []).filter(r => !r.is_folder && !isLockedItem(r));
+    state.recent = recentHumanRows((Array.isArray(rows) ? rows : []).filter(r => !r.is_folder && !isLockedItem(r)), RECENT_BOX_MORE);
   } catch { if (state.scope === scope) state.recent = null; }
   paintTree();
 }
@@ -733,7 +737,9 @@ function phoneTreeHtml() {
   if (recent.length) {
     const shown = recent.slice(0, state.recentAll ? RECENT_BOX_MORE : RECENT_BOX);
     const more = recent.length > RECENT_BOX || state.recentAll ? `<button type="button" class="ft-btn ft-box-more" data-fx-recent-more aria-expanded="${state.recentAll}">${state.recentAll ? '접기' : '더보기'}</button>` : '';
-    html += ftBoxHtml({head: '최근', tail: more, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body: shown.map(r => treeFileHtml(r, 0, 'recent')).join('')});
+    // S51-22: 머리 줄을 누르면 접기(서버 view_prefs.recent_folded, recent-fold.js).
+    const shut = recentFolded('files');
+    html += ftBoxHtml({head: '최근', tail: more, collapsible: true, caret: true, open: !shut, toggleAttrs: {'data-fx-recent-fold': ''}, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body: shut ? '' : shown.map(r => treeFileHtml(r, 0, 'recent')).join('')});
   }
   // 묶음(별표·큰 파일): 작은 상자 하나.
   const shelves = SHELVES.map(shelf => ftFolderRowHtml({name: SHELF_NAME[shelf], count: shelf === 'starred' && state.stars !== null ? `${state.stars}개` : null, depth: 0, hasContent: false,
@@ -2273,6 +2279,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-box-tog]')) { const s0 = b.dataset.fxBoxTog; if (state.boxShut.has(s0)) state.boxShut.delete(s0); else state.boxShut.add(s0); paintTree(); return; }
   if (b.matches('[data-fx-tmore]')) { state.more.add(b.dataset.fxTmore); paintTree(); return; }
   if (b.matches('[data-fx-recent-more]')) { state.recentAll = !state.recentAll; paintTree(); return; }
+  if (b.matches('[data-fx-recent-fold]')) { toggleRecentFolded('files'); paintTree(); root?.querySelector('[data-fx-recent-fold]')?.focus({preventScroll: true}); return; }
   if (b.matches('[data-fx-tfile]')) { const r = state.treeRows.get(b.dataset.fxTfile); if (r) openPreview(r); return; }
   if (b.matches('[data-fx-tmenu]')) { treeMenu(b); return; }
   if (b.matches('[data-fx-go]')) { goFolder(b.dataset.fxGo, b.dataset.fxId || null); return; }

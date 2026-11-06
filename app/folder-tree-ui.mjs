@@ -65,9 +65,11 @@ export function ftTrashRowHtml({count = null, attrs = {}, label = '휴지통'} =
 
 // 둥근 상자. head: 머리줄 HTML(없으면 머리 없음), body: 안 줄들. collapsible이면 머리가 접기 단추(toggleAttrs로 누름을 받는다).
 // open=false면 안 줄을 그리지 않는다(머리만). tail: 머리 오른쪽 작은 글자('맞추는 중'·'더보기' 단추 등).
-export function ftBoxHtml({head = '', body = '', open = true, collapsible = false, toggleAttrs = {}, tail = '', attrs = {}, label = ''} = {}) {
+// caret: 머리 줄 끝 ▴(펼침)·▾(접힘)로 접기를 보인다('최근' 상자, S51-22). 접으면 tail(더보기)도 숨는다.
+export const ftCaretHtml = open => `<span class="ft-box-caret" aria-hidden="true">${open ? '▴' : '▾'}</span>`;
+export function ftBoxHtml({head = '', body = '', open = true, collapsible = false, caret = false, toggleAttrs = {}, tail = '', attrs = {}, label = ''} = {}) {
   const headHtml = !head ? '' : collapsible
-    ? `<div class="ft-box-head"><button type="button" class="ft-btn ft-box-toggle"${attrsHtml(toggleAttrs)} aria-expanded="${!!open}">${head}${open ? '' : '<span class="ft-box-folded">접힘</span>'}</button>${tail}</div>`
+    ? `<div class="ft-box-head"><button type="button" class="ft-btn ft-box-toggle"${attrsHtml(toggleAttrs)} aria-expanded="${!!open}">${head}${caret ? '' : open ? '' : '<span class="ft-box-folded">접힘</span>'}</button>${caret && !open ? '' : tail}${caret ? ftCaretHtml(open) : ''}</div>`
     : `<div class="ft-box-head"><span class="ft-box-title">${head}</span>${tail}</div>`;
   return `<section class="ft-box${open ? '' : ' ft-box-closed'}"${attrsHtml(attrs)}${label ? ` aria-label="${esc(label)}"` : ''}>${headHtml}${open ? `<div class="ft-box-body">${body}</div>` : ''}</section>`;
 }

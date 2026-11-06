@@ -697,30 +697,41 @@
 #appView #homeView .journal-memorable-org{ font-weight:var(--ds-weight-medium); }
 #appView #homeView .journal-memorable-edit{ display:flex; gap:4px; width:100%; }
 #appView #homeView .journal-memorable-edit input{ flex:1; min-width:0; }
-/* FAMILY-잊지말기 4단계(시안 A): 홈 [하루]의 '잊지 말기' 작은 칸. 톤다운·콤팩트, 버튼은 mini(UI-버튼기준). */
-#appView #homeView .home-family{ margin:4px 0 6px; }
-#appView #homeView .home-family-box{ border:.5px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface-subtle); font-size:var(--ds-text-meta,12px); }
-#appView #homeView .home-family-box>summary{ cursor:pointer; padding:5px 10px; min-height:var(--kptu-touch-target,44px); display:flex; align-items:center; gap:6px; color:var(--kptu-muted); }
+/* FAMILY-잊지말기 4단계 + S51-26(시안 family-forget-panel): 홈 [하루]의 '잊지 말기' 칸 한 겹. 머리 줄 톤다운 노랑, 줄 버튼은 작은 28px(UI-버튼기준, 누르는 범위 44px). */
+#appView #homeView .home-family{ margin:4px 0 6px; padding:2px 10px 4px; border:.5px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface); font-size:var(--ds-text-meta,12px); }
+#appView #homeView .home-family-head{ display:flex; align-items:center; gap:6px; min-height:var(--ds-compact-height-sm,28px); color:var(--kptu-warning); }
+#appView #homeView .home-family-title{ font-weight:var(--ds-weight-bold,700); }
 #appView #homeView .home-family-n{ background:var(--kptu-warning-soft); color:var(--kptu-warning); border-radius:9px; padding:0 6px; font-size:11px; }
-#appView #homeView .home-family-tabs{ display:flex; gap:4px; align-items:center; padding:0 10px 4px; }
-#appView #homeView .home-family-tabs [aria-pressed="true"]{ background:var(--kptu-other,var(--kptu-surface)); }
-#appView #homeView .home-family-note{ margin-left:auto; color:var(--kptu-faint); font-size:11px; }
-#appView #homeView .home-family-list,#appView #homeView .home-family-grp ul,#appView #homeView .home-family-done ul{ list-style:none; margin:0; padding:0; }
-#appView #homeView .home-family-item{ border-top:.5px solid var(--kptu-border); padding:6px 10px; }
-#appView #homeView .home-family-line{ display:flex; gap:6px; align-items:baseline; color:var(--kptu-ink); }
-#appView #homeView .home-family-tag{ font-size:11px; border-radius:4px; padding:0 4px; white-space:nowrap; background:var(--kptu-other,var(--kptu-surface)); color:var(--kptu-muted); }
-#appView #homeView .home-family-tag.is-firm{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
-#appView #homeView .home-family-tag.is-plan{ background:var(--kptu-warning-soft); color:var(--kptu-warning); }
-#appView #homeView .home-family-meta{ font-size:11px; color:var(--kptu-faint); margin:2px 0 4px; }
-#appView #homeView .home-family-acts{ display:flex; gap:4px; flex-wrap:wrap; }
-#appView #homeView .home-family-x{ color:var(--kptu-faint); }
-#appView #homeView .home-family-grp h5{ margin:0; padding:4px 10px 2px; font-size:11px; font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); border-top:.5px solid var(--kptu-border); }
-#appView #homeView .home-family-mem{ display:flex; gap:6px; align-items:center; padding:3px 10px; }
-#appView #homeView .home-family-day{ margin-left:auto; font-size:11px; color:var(--kptu-faint); white-space:nowrap; }
-#appView #homeView .home-family-dot{ flex:none; width:16px; height:16px; min-width:16px; padding:0; border:1px solid var(--kptu-border-strong); border-radius:50%; background:transparent; position:relative; }
-#appView #homeView .home-family-dot::after{ content:""; position:absolute; inset:-14px; }
-#appView #homeView .home-family-dot.is-on{ background:var(--kptu-primary); }
-#appView #homeView .home-family-done>summary{ cursor:pointer; padding:3px 10px; color:var(--kptu-faint); font-size:11px; }
-#appView #homeView .home-family-empty,#appView #homeView .home-family-status{ margin:0; padding:4px 10px; color:var(--kptu-faint); font-size:11px; }
+#appView #homeView .home-family-faint{ color:var(--kptu-faint); font-size:11px; }
+#appView #homeView .home-family-head .home-family-open{ margin-left:auto; }
+#appView #homeView button.home-family-open{ position:relative; min-height:0; height:auto; padding:0 2px; border:0; background:transparent; color:var(--kptu-muted); font-size:11px; font-weight:400; cursor:pointer; }
+#appView #homeView button.home-family-open::after{ content:""; position:absolute; inset:-8px -4px; }
+#appView #homeView .home-family-list{ list-style:none; margin:0; padding:0; }
+#appView #homeView .home-family-item{ border-top:.5px solid var(--kptu-border); padding:6px 0 4px; }
+#appView #homeView .home-family-body{ margin:0; color:var(--kptu-ink); line-height:1.4; font-size:var(--ds-text-row,13px); overflow-wrap:anywhere; }
+#appView #homeView .home-family-firm{ color:var(--kptu-warning); font-size:11px; }
+#appView #homeView .home-family-row2{ display:flex; align-items:center; gap:4px; margin-top:3px; }
+#appView #homeView .home-family-meta{ min-width:0; flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:var(--kptu-faint); }
+#appView #homeView .home-family-acts{ flex:none; display:flex; gap:4px; }
+#appView #homeView button.home-family-act{ position:relative; flex:none; height:var(--ds-compact-height-sm,28px); min-height:0; padding:0 7px; border:.5px solid var(--kptu-border-strong,var(--kptu-border)); border-radius:6px; background:var(--kptu-surface); color:var(--kptu-ink); font-size:11px; font-weight:400; line-height:1; white-space:nowrap; cursor:pointer; }
+#appView #homeView button.home-family-act::after{ content:""; position:absolute; inset:-8px -2px; }
+#appView #homeView button.home-family-x{ border-color:transparent; background:transparent; color:var(--kptu-faint); padding:0 4px; font-size:13px; }
+#appView #homeView .home-family-status{ margin:0; padding:2px 0 0; color:var(--kptu-faint); font-size:11px; }
 #appView #homeView .home-family-status:empty{ display:none; }
-#appView #homeView .home-family-src{ color:var(--kptu-link); }
+/* S51-26 [노트로] 작은 창(family-note-send.js): 폰은 하단바 바로 위에서 올라오고, PC는 가운데 작은 창. */
+.modal.family-send{ z-index:60; }
+.family-send-card{ width:min(100%,380px); padding:10px 14px; font-size:var(--ds-text-row,13px); }
+.family-send-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.family-send-head h2{ margin:0; font-size:var(--ds-text-section,13px); font-weight:var(--ds-weight-bold,700); }
+.family-send-line{ margin:6px 0 8px; padding:6px 8px; border-radius:6px; background:var(--kptu-surface-subtle); color:var(--kptu-ink); line-height:1.45; overflow-wrap:anywhere; }
+.family-send-row{ display:flex; align-items:center; gap:8px; margin:6px 0; flex-wrap:wrap; }
+.family-send-label{ flex:none; width:3.5em; color:var(--kptu-muted); font-size:var(--ds-text-meta,12px); }
+.family-send-where{ display:flex; gap:4px; flex-wrap:wrap; min-width:0; }
+#familyNoteSend.modal .family-send-where button.secondary[aria-pressed="true"]{ border-color:var(--kptu-primary); background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
+.family-send-status{ margin:4px 0 0; min-height:0; color:var(--kptu-warning); font-size:var(--ds-text-meta,12px); }
+.family-send-status:empty{ display:none; }
+.family-send-foot{ display:flex; justify-content:flex-end; gap:6px; margin-top:10px; }
+@media(max-width:760px){
+  html:has(body.kptu-workspace-shell) .modal.family-send{ bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); }
+  .family-send-card{ width:100%; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); }
+}
