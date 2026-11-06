@@ -102,27 +102,47 @@ function loadDoneMonth(run, key) {
     if (!same && !edit) renderMonth();
   }).catch(() => {});
 }
+let monthSign = '';
 function renderMonth() {
   $('[data-diary-title]').textContent = `${cursor.year}년 ${cursor.month + 1}월`;
   const first = seoulDate(cursor.year, cursor.month), lead = seoulParts(first).weekday;
   const total = seoulParts(seoulDate(cursor.year, cursor.month + 1, 0)).day, today = todayKey();
-  const cells = [];
-  for (let i = 0; i < lead; i++) cells.push(Object.assign(document.createElement('span'), {className:'diary-cell diary-blank'}));
+  const info = [];
   for (let n = 1; n <= total; n++) {
-    const day = seoulDateKey(addSeoulDays(first, n - 1)), row = rows.get(day), photos = diaryPhotos(row), text = diaryText(row), odDay = odShown()?.days[day] || [], done = doneOf(day);
-    const cell = document.createElement('button');
-    cell.type = 'button'; cell.className = 'diary-cell'; cell.dataset.diaryDay = day;
-    if (day === today) { cell.setAttribute('aria-current', 'date'); cell.classList.add('ds-today'); }
-    cell.setAttribute('aria-pressed', String(selected === day)); cell.classList.toggle('ds-day-sel', selected === day);
-    cell.setAttribute('aria-label', `${shortDay(day)}${photos.length ? `, 사진 ${photos.length}장` : text ? ', 글' : ''}${odDay.length ? `, 원드라이브 사진 ${odDay.length}장` : ''}${done.length ? `, 한 일 ${done.length}줄` : ''}`);
-    if (photos[0]) { cell.classList.add('has-photo'); cell.append(photoElement(row, photos[0], 'small', {label:'', link:false, retry:false})); }
-    const num = document.createElement('span'); num.className = day === today ? 'diary-num ds-today-num' : 'diary-num'; num.textContent = String(n); cell.append(num);
-    if (!photos.length && text) { const dot = document.createElement('span'); dot.className = 'diary-dot'; dot.dataset.diaryDot = ''; cell.append(dot); }
-    else if (!row && done.length) { const dot = document.createElement('span'); dot.className = 'diary-dot diary-dot-done'; dot.dataset.diaryDoneDot = ''; cell.append(dot); }
-    if (odDay.length) { const dot = document.createElement('span'); dot.className = 'diary-dot diary-dot-od'; dot.dataset.diaryOdDot = ''; cell.append(dot); }
-    cells.push(cell);
+    const day = seoulDateKey(addSeoulDays(first, n - 1)), row = rows.get(day), photos = diaryPhotos(row), odDay = odShown()?.days[day] || [];
+    info.push({n, day, row, photos, text: !!diaryText(row), od: odDay.length, done: doneOf(day).length, photo: photos[0] ? `${row.id}:${photos[0].drive_file_id}` : ''});
   }
-  days.replaceChildren(...cells);
+  // 달력은 일기·원드라이브·'오늘 한 일'이 따로따로 도착할 때마다 다시 그리라는 부름을 받는다. 그릴 내용이 지금 칸과 같으면 칸을 갈지 않는다 —
+  // 누르려던 칸·그 칸의 사진이 같은 모양 새 칸으로 바뀌어 떨어져 나가지 않게(S51-19). 고른 날 표시는 selectDay·closeDetail이 칸에서 바로 맞춘다.
+  const sign = JSON.stringify([lead, today, selected, info.map(i => [i.day, !!i.row, i.photo, i.photos.length, i.text, i.od, i.done])]);
+  if (sign !== monthSign || days.childElementCount !== lead + total) {
+    monthSign = sign;
+    // 칸을 다시 만들 때도 칸의 사진은 같은 일기·같은 파일이면 앞서 만든 사진 칸을 옮겨 쓴다 — 새 사진 칸을 만들면 떨어져 나간 옛 칸도
+    // 계속 사진을 읽고 다시 읽어 요청이 늘어난다.
+    const shownPhotos = new Map([...days.querySelectorAll('.diary-cell > .diary-photo[data-diary-cell-photo]')].map(el => [el.dataset.diaryCellPhoto, el]));
+    const cells = [];
+    for (let i = 0; i < lead; i++) cells.push(Object.assign(document.createElement('span'), {className:'diary-cell diary-blank'}));
+    for (const {n, day, row, photos, text, od, done, photo} of info) {
+      const cell = document.createElement('button');
+      cell.type = 'button'; cell.className = 'diary-cell'; cell.dataset.diaryDay = day;
+      if (day === today) { cell.setAttribute('aria-current', 'date'); cell.classList.add('ds-today'); }
+      cell.setAttribute('aria-pressed', String(selected === day)); cell.classList.toggle('ds-day-sel', selected === day);
+      cell.setAttribute('aria-label', `${shortDay(day)}${photos.length ? `, 사진 ${photos.length}장` : text ? ', 글' : ''}${od ? `, 원드라이브 사진 ${od}장` : ''}${done ? `, 한 일 ${done}줄` : ''}`);
+      if (photo) {
+        cell.classList.add('has-photo');
+        let box = shownPhotos.get(photo);
+        if (box) shownPhotos.delete(photo);
+        else { box = photoElement(row, photos[0], 'small', {label:'', link:false, retry:false}); box.dataset.diaryCellPhoto = photo; }
+        cell.append(box);
+      }
+      const num = document.createElement('span'); num.className = day === today ? 'diary-num ds-today-num' : 'diary-num'; num.textContent = String(n); cell.append(num);
+      if (!photos.length && text) { const dot = document.createElement('span'); dot.className = 'diary-dot'; dot.dataset.diaryDot = ''; cell.append(dot); }
+      else if (!row && done) { const dot = document.createElement('span'); dot.className = 'diary-dot diary-dot-done'; dot.dataset.diaryDoneDot = ''; cell.append(dot); }
+      if (od) { const dot = document.createElement('span'); dot.className = 'diary-dot diary-dot-od'; dot.dataset.diaryOdDot = ''; cell.append(dot); }
+      cells.push(cell);
+    }
+    days.replaceChildren(...cells);
+  }
   renderList();
 }
 // Month list under the calendar: date + first line, newest first. A chosen day replaces it (the detail takes the same spot).

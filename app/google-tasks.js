@@ -18,6 +18,7 @@ import { mountSplitResize } from './split-resize.js';
 import { followPane } from './follow-pane.js';
 import { createTaskInline, moreButtonHtml } from './task-inline.js';
 import { bindRowSwipe } from './row-swipe.js';
+import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 ⑥: 칸 나누기 폭은 공용 판정 한 곳
 (()=>{
 'use strict';
 if(window.__KPTU_GOOGLE_TASKS__)return;
@@ -90,7 +91,6 @@ function closeEditor(){editorSeq++;editorRequest=null;editorSaving=false;const m
 // frame below 761) shows the same '왼쪽 목록 | 오른쪽 상세' as the PC. In the pane every change is saved at once (no [저장]; see
 // autoSave below), ✕·Esc·Back close the pane (one history step, router layer 'task-detail'), and with nothing chosen the pane
 // shows the 오늘 할 일 summary (paintPaneToday). The folded phone keeps the popup and its [저장].
-const SPLIT_QUERY='(min-width:600px)';
 const PC=window.matchMedia?.(SPLIT_QUERY);
 const FRAME_PC=window.matchMedia?.('(min-width:761px)');
 const pcColumns=()=>!!PC?.matches;

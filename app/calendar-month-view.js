@@ -191,6 +191,8 @@ import {eventColor} from './home-read-model.js';
     b.innerHTML=`<span class="cmv-cell-task-box" aria-hidden="true"></span><span class="cmv-event-title">${esc(ev.title)}</span>`;
     const label=taskLabel(ev);
     b.title=label;b.setAttribute('aria-label',label);
+    // S51-16 CAL-할일끌기: PC 마우스로 다른 날짜 칸에 끌어 놓으면 기한이 바뀐다(끌기·저장은 calendar-drag.js). 완료한 할 일은 끌지 않는다.
+    if(mqPc.matches&&!ev.done)b.dataset.drag='task';
     return b;
   }
   // 할 일은 하루짜리라 그 날짜 칸의 일정 줄 아래에 차례로 붙인다(같은 칸에서 일정 먼저, 할 일 다음). 줄 수(laneCount)에 더해져
@@ -418,7 +420,8 @@ import {eventColor} from './home-read-model.js';
     grid.querySelectorAll('.cmv-drag-source').forEach(el=>el.classList.remove('cmv-drag-source'));
     grid.classList.toggle('cmv-dragging',!!drag);
     if(!drag)return;
-    grid.querySelectorAll('[data-google-event]').forEach(el=>{if(el.dataset.googleEvent===drag.key.id&&el.dataset.googleCalendar===drag.key.calendarId)el.classList.add('cmv-drag-source')});
+    if(drag.kind==='task')grid.querySelectorAll('[data-calendar-task]').forEach(el=>{if(el.dataset.calendarTask===drag.key.id)el.classList.add('cmv-drag-source')});
+    else grid.querySelectorAll('[data-google-event]').forEach(el=>{if(el.dataset.googleEvent===drag.key.id&&el.dataset.googleCalendar===drag.key.calendarId)el.classList.add('cmv-drag-source')});
     const first=key(drag.next.start),last=key(drag.next.allDay?addSeoulDays(drag.next.end,-1):new Date(Math.max(dateOnly(drag.next.start).getTime(),Date.parse(drag.next.end)-1)));
     const cells=[...grid.querySelectorAll('.cal-cell[data-date]')].filter(c=>dragDayDiff(first,c.dataset.date)>=0&&dragDayDiff(c.dataset.date,last)>=0);
     cells.forEach(c=>c.classList.add('cmv-drop',...(drag.blocked?['cmv-drop-blocked']:[])));
