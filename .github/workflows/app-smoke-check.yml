@@ -792,6 +792,9 @@ jobs:
       - name: Check press feedback and done-label units (UI-눌림느낌)
         run: node --test tests/press-feedback.test.mjs
 
+      - name: Check press motion and task check motion (UI-누름움직임)
+        run: node --test tests/press-motion.test.mjs
+
       - name: Check save button place rule (UI-저장자리)
         run: node --test tests/save-button-rule.test.mjs
 

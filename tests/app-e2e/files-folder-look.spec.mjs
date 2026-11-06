@@ -17,7 +17,6 @@ async function gotoOdRoot(page, width) {
     return;
   }
   const go = root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]');
-  if (await root(page).locator('[data-fx-tree] [data-fx-twist="od:"][aria-expanded="false"]').count()) await root(page).locator('[data-fx-tree] [data-fx-twist="od:"]').click();
   await expect.poll(async () => (await go.isVisible()) || (await row(page, 'od:OD!1').isVisible())).toBe(true);
   if (await go.isVisible()) await go.click();
   await expect(row(page, 'od:OD!1')).toBeVisible();
@@ -81,7 +80,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     expect(await icon(page, 'od:OD!2').locator('svg').evaluate(x => getComputedStyle(x).color)).toBe(RGB[4]);
     if (width > 760) {
       // 나무 줄도 같은 색.
-      const treeIcon = root(page).locator('[data-fx-tree] [data-fx-id="OD!2"] .fl-ico');
+      const treeIcon = root(page).locator('[data-fx-tree] [data-fx-fold="od:OD!2"] .ft-ico'); // S51-25: PC 나무 아이콘은 줄 앞 단추(공용 ft-ico)
       await expect(treeIcon).toHaveAttribute('data-fc', '4');
       expect(await treeIcon.locator('svg').evaluate(x => getComputedStyle(x).color)).toBe(RGB[4]);
     }
@@ -92,7 +91,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     await expect.poll(() => server.prefCalls.length).toBe(2);
     expect(server.prefCalls[1]).toMatchObject({ source: 'od', items: [{ k: 'OD!2', o: 1024 }, { k: 'OD!1', o: 2048 }] });
     await expect.poll(() => folderNames(page)).toEqual(['가짜 사진함', '가짜 문서함']);
-    if (width > 760) await expect.poll(() => root(page).locator('[data-fx-tree] [data-fx-go][data-fx-id]:not([data-fx-id=""])').evaluateAll(els => els.map(e => e.dataset.fxId))).toEqual(['OD!2', 'OD!1']);
+    if (width > 760) await expect.poll(() => root(page).locator('[data-fx-tree] [data-fx-box="od"] [data-fx-go][data-fx-id]:not([data-fx-id=""])').evaluateAll(els => els.map(e => e.dataset.fxId))).toEqual(['OD!2', 'OD!1']);
 
     // 새로고침해도 유지(서버 값).
     await page.reload();

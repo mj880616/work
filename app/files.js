@@ -681,29 +681,50 @@ function goHome(p) {
   if (first) { state.open.add(folderKey(first, null)); return setWhere(p, {source: first, parent: null}); }
   p.where = null; paint();
 }
-// 나무 줄(왼쪽 나무 · 폴드 두 칸의 칸 위 ▾ 나무가 같은 줄): p = 지금 위치를 칠할 칸.
+// ---------- S51-25 FOLDER-PC나무: 왼쪽 나무(PC·펼친 폴드 한 칸) · 두 칸의 칸 위 ▾ 나무가 같은 모양 ----------
+// 기능은 그대로(나무에서 고르면 지금 칸에 열기, 끌어 놓기, 정렬·두 칸), 모양은 자료실(공용 folder-tree-ui.mjs):
+// 왼쪽 위 '최근' 상자 · 묶음(별표·큰 파일) 상자 · 저장소마다 상자(머리 = 상자째 접기), 줄 넉넉히·맨 위 단계만 구분선·굵은 이름, 줄마다 오른쪽 ⋯.
+// 세모(▸▾) 없음: 열린 폴더 그림 = 펼침, 닫힌 폴더 그림 = 접힘. 줄 누르기 = 지금 칸에 그 폴더 열기 + 펼침, 아이콘만 누르기 = 접기·펼치기만.
+// p = 지금 위치를 칠할 칸.
 const lookOrder = (source, rows) => folderLook.sort(source, rows, r => r.item_id);
-function treeHtml(p, {sync = false} = {}) {
-  const rows = treeRows({sources: onSources(), children: state.children, open: state.open, order: lookOrder});
+function pcFolderRowHtml(r, curKey) {
+  const cnt = countOf(r.source, r.id), full = (state.children.get(folderKey(r.source, r.parentId)) || []).find(x => x.item_id === r.id);
+  if (full) state.treeRows.set(r.key, full);
+  return ftFolderRowHtml({name: r.name, count: cnt || null, depth: r.depth - 1, open: r.open, hasContent: r.hasKids, color: folderLook.color(r.source, r.id),
+    current: r.key === curKey, className: /^0개$/.test(cnt || '') ? 'fx-zero' : '',
+    rowAttrs: {'data-fx-fold': r.key, 'data-fx-drop': r.source === PC ? null : r.key},
+    mainAttrs: {'data-fx-go': r.source, 'data-fx-id': r.id || ''},
+    toggle: {attrs: {'data-fx-twist': r.key}, label: `${r.name} ${r.open && r.hasKids ? '접기' : '펼치기'}`},
+    more: full ? {attrs: {'data-fx-tmenu': r.key, 'data-fx-tin': folderKey(r.source, r.parentId)}, label: `${r.name} 폴더 메뉴`} : null});
+}
+function treeHtml(p) {
+  state.treeRows = new Map();
   const w = p.where, curKey = !p.query && w ? (w.shelf ? 'shelf:' + w.shelf : folderKey(w.source, w.parent)) : '';
-  // 폰 나무: 첫 클라우드 뿌리 줄 오른쪽에 '○분 전 맞춤'(누르면 맞추기).
-  const syncAt = sync ? rows.find(r => r.type === 'root' && SOURCES.includes(r.source))?.key : '';
-  return rows.map(r => {
-    const cur = r.key === curKey ? ' nx-current' : '';
-    if (r.type === 'shelf') {
-      const n = r.shelf === 'starred' && state.stars !== null ? `<span class="nx-num">${esc(state.stars)}개</span>` : '';
-      return `<div class="nx-row fx-shelf${cur}"><button type="button" class="nx-main" data-fx-shelf="${r.shelf}"${cur ? ' aria-current="true"' : ''}>${treeIconHtml(r.shelf)}<span class="nx-name">${esc(SHELF_NAME[r.shelf])}</span>${n}</button></div>`;
-    }
-    const twist = r.hasKids ? `<button type="button" class="fx-twist" data-fx-twist="${esc(r.key)}" aria-expanded="${r.open}" aria-label="${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="fx-twist" aria-hidden="true"></span>';
-    const name = r.type === 'root' ? SOURCE_NAME[r.source] : r.name;
-    const cnt = r.type === 'folder' ? countOf(r.source, r.id) : '', num = cnt ? `<span class="nx-num${/^0개$/.test(cnt) ? ' fx-zero' : ''}">${esc(cnt)}</span>` : '';
-    const drop = r.source === PC ? '' : ` data-fx-drop="${esc(folderKey(r.source, r.id))}"`;
-    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${cur}" style="--nx-indent:${r.depth}"${drop}>${twist}<button type="button" class="nx-main" data-fx-go="${esc(r.source)}" data-fx-id="${esc(r.id || '')}"${cur ? ' aria-current="true"' : ''}>${r.type === 'root' ? treeIconHtml(r.source) : treeIconHtml('folder', {row: {color: folderLook.color(r.source, r.id)}, open: r.open})}<span class="nx-name">${esc(name)}</span>${num}</button>${r.key === syncAt ? syncTreeHtml() : ''}</div>`;
-  }).join('') + pcOffRowHtml();
+  let html = '';
+  html += recentBoxHtml();
+  const shelves = SHELVES.map(shelf => ftFolderRowHtml({name: SHELF_NAME[shelf], count: shelf === 'starred' && state.stars !== null ? `${state.stars}개` : null, depth: 0, hasContent: false,
+    current: curKey === 'shelf:' + shelf, icon: treeIconHtml(shelf, {className: 'ft-ico'}), className: 'fx-shelf', mainAttrs: {'data-fx-shelf': shelf}})).join('');
+  html += ftBoxHtml({body: shelves, label: '모아 보기', attrs: {'data-fx-box': 'shelves'}});
+  const sources = onSources();
+  // 상자가 열린 저장소는 맨 위 폴더들이 늘 보인다(옛 '뿌리 줄 펼치기'가 상자 머리 접기로 바뀜).
+  const open = new Set([...state.open, ...sources.filter(s => !state.boxShut.has(s)).map(s => folderKey(s, null))]);
+  const rows = treeRows({sources: onSources(), children: state.children, open, order: lookOrder});
+  const parents = [];
+  for (const source of sources) {
+    const shut = state.boxShut.has(source);
+    const mine = shut ? [] : rows.filter(r => r.type === 'folder' && r.source === source).map(r => { parents[r.depth] = r.id; return {...r, parentId: r.depth > 1 ? parents[r.depth - 1] : null}; });
+    const loading = !shut && !state.children.has(folderKey(source, null));
+    const body = loading ? waitHtml({rows: 2}) : mine.length ? mine.map(r => pcFolderRowHtml(r, curKey)).join('') : emptyHtml('빈 폴더');
+    const here = curKey === folderKey(source, null);
+    html += ftBoxHtml({head: `${treeIconHtml(source, {className: 'ft-box-ico'})}<span>${esc(SOURCE_NAME[source])}</span>`, collapsible: true, open: !shut,
+      tail: `<button type="button" class="ft-btn ft-box-more fx-box-top${here ? ' fx-here' : ''}" data-fx-go="${esc(source)}" data-fx-id=""${here ? ' aria-current="true"' : ''} aria-label="${esc(SOURCE_NAME[source])} 맨 위 열기">맨 위</button>`,
+      toggleAttrs: {'data-fx-box-tog': source}, attrs: {'data-fx-box': source, 'data-fx-drop': source === PC ? null : folderKey(source, null)}, label: SOURCE_NAME[source], body});
+  }
+  return html + pcOffRowHtml();
 }
 // 시안 공통 '꺼져 있을 때': 나무 맨 끝 '내 PC · 꺼짐' 흐린 줄(누르면 다시 두드림). 윈도우 PC 브라우저에서 문이 답하지 않을 때만. [내 PC]를 끈 때는 없다.
 const pcOffRowHtml = () => (pc.usable && pc.state.known && !pc.state.ok
-  ? `<div class="nx-row nx-folder fx-root fx-pc-off"><span class="fx-twist" aria-hidden="true"></span><button type="button" class="nx-main" data-fx-pc-knock title="${esc(pcStateText(pc.state.why))}"><span class="nx-name">${esc(pcOffRowName(pc.state.why))}</span></button></div>` : '');
+  ? ftBoxHtml({attrs: {'data-fx-box': 'pc-off'}, body: `<div class="ft-row ft-top fx-pc-off"><button type="button" class="ft-btn ft-main" data-fx-pc-knock title="${esc(pcStateText(pc.state.why))}">${treeIconHtml('pc', {className: 'ft-ico'})}<span class="ft-name">${esc(pcOffRowName(pc.state.why))}</span></button></div>`}) : '');
 function paintTree() {
   paintMainTree();
   for (const p of panesOn()) paintPaneTree(p);
@@ -718,12 +739,12 @@ function paintMainTree() {
   // (PC·폴드는 목록 칸이 같은 것을 보인다 — 폰 나무 화면에서는 목록 칸이 없으므로 나무 칸이 대신 보인다).
   if (treePane() && !state.status) { tree.innerHTML = state.statusFailed ? failHtml({retry: 'data-fx-retry', text: errorText(state.statusFailed), reason: state.statusWhy}) : waitHtml({rows: 4}); return; }
   if (nothingOn() && treePane()) { tree.innerHTML = emptyHtml(SOURCES_OFF_TEXT); return; }
-  tree.innerHTML = treePane() ? phoneTreeHtml() : treeHtml(P(), {sync: PHONE.matches});
+  tree.innerHTML = treePane() ? phoneTreeHtml() : treeHtml(P());
 }
 // ---------- FOLDER-나무새기준 ②(S51-12): 폰 나무 = '최근' 상자 + 묶음(별표·큰 파일) + 저장소마다 상자 ----------
 // 폴더를 누르면 화면이 바뀌지 않고 그 자리에서 하위 폴더·파일까지 펼침(처음 5개 + 'n개 더 보기'), 상자 머리를 누르면 그 저장소 접기.
 // 펼친 폴더 위 두 손가락 벌리기 = 그 폴더만(지금의 폴더 목록 화면), [‹]·뒤로 키·오므리기 = 펼친 자리 그대로 나무.
-// 파일 줄을 누르면 미리보기, ⋯는 화면을 그대로 두고 그 자리 메뉴(S51-22, row-menu.js — 폰은 하단바 위 판)를 연다.
+// 파일 줄을 누르면 미리보기, ⋯는 화면을 그대로 두고 그 줄 바로 옆 작은 메뉴(S51-22·S51-31, row-menu.js — 폰·폴드·PC 같은 상자, 누른 줄 연보라)를 연다.
 const fileDay = r => dayText(r.modified_at);
 function treeFileHtml(r, depth, parent) {
   const key = rowKey(r), kind = kindOf(r);
@@ -739,18 +760,22 @@ function treeFolderHtml(r) {
     rowAttrs: {'data-fx-fold': r.key, 'data-fx-drop': r.source === PC ? null : r.key}, mainAttrs: {'data-fx-tog': r.key},
     more: full ? {attrs: {'data-fx-tmenu': r.key, 'data-fx-tin': r.parent}, label: `${r.name} 폴더 메뉴`} : null});
 }
-function phoneTreeHtml() {
-  state.treeRows = new Map();
-  let html = '';
-  // '최근' 상자(자료실 '최근 올린 파일'과 같은 상자, [더보기]면 15개).
+// '최근' 상자(자료실 '최근 올린 파일'과 같은 상자, [더보기]면 15개) — 폰 나무·PC 나무가 같은 상자 하나(S51-25).
+function recentBoxHtml() {
   const recent = state.recent || [];
   if (recent.length) {
     const shown = recent.slice(0, state.recentAll ? RECENT_BOX_MORE : RECENT_BOX);
     const more = recent.length > RECENT_BOX || state.recentAll ? `<button type="button" class="ft-btn ft-box-more" data-fx-recent-more aria-expanded="${state.recentAll}">${state.recentAll ? '접기' : '더보기'}</button>` : '';
     // S51-22: 머리 줄을 누르면 접기(서버 view_prefs.recent_folded, recent-fold.js).
     const shut = recentFolded('files');
-    html += ftBoxHtml({head: '최근', tail: more, collapsible: true, caret: true, open: !shut, toggleAttrs: {'data-fx-recent-fold': ''}, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body: shut ? '' : shown.map(r => treeFileHtml(r, 0, 'recent')).join('')});
+    return ftBoxHtml({head: '최근', tail: more, collapsible: true, caret: true, open: !shut, toggleAttrs: {'data-fx-recent-fold': ''}, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body: shut ? '' : shown.map(r => treeFileHtml(r, 0, 'recent')).join('')});
   }
+  return '';
+}
+function phoneTreeHtml() {
+  state.treeRows = new Map();
+  let html = '';
+  html += recentBoxHtml();
   // 묶음(별표·큰 파일): 작은 상자 하나.
   const shelves = SHELVES.map(shelf => ftFolderRowHtml({name: SHELF_NAME[shelf], count: shelf === 'starred' && state.stars !== null ? `${state.stars}개` : null, depth: 0, hasContent: false,
     icon: treeIconHtml(shelf, {className: 'ft-ico'}), className: 'fx-shelf', mainAttrs: {'data-fx-shelf': shelf}})).join('');
@@ -817,7 +842,7 @@ function treeMenu(b) {
   if (!r) return;
   const sib = r.is_folder && SOURCES.includes(r.source) ? treeSibs(r.source, inKey) : [];
   const items = treeMenuItems(r, {phoneWrite: phoneWrite(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length});
-  openRowMenu(b, {key, title: r.name, items, note: r.source === PC ? PC_READONLY_TEXT : '', run: id => treeAct(id, r, inKey, liveMenuButton(key, b))});
+  openRowMenu(b, {key, label: r.name, items, note: r.source === PC ? PC_READONLY_TEXT : '', run: id => treeAct(id, r, inKey, liveMenuButton(key, b))});
 }
 // 메뉴가 열린 동안 나무가 다시 그려졌으면 같은 줄의 새 ⋯를 묻는 창의 자리로 쓴다.
 const liveMenuButton = (key, b) => (b?.isConnected ? b : root?.querySelector(`[data-fx-tmenu="${CSS.escape(key)}"]`) || b);

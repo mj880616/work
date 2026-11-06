@@ -21,9 +21,9 @@
 #gtTaskSection .gt-row.gt-settle{opacity:1;animation:gt-settle 600ms ease-in var(--gt-t,0ms) both}
 #gtTaskSection .gt-row.gt-settle.gt-anim-on{animation-duration:3000ms}
 #gtTaskSection .gt-row.gt-arrive{animation:gt-arrive 200ms ease-out var(--gt-t,0ms) both}
-#gtTaskSection .gt-row.gt-anim-on .gt-check{animation:gt-fill 160ms ease-out var(--gt-t,0ms) both}
-#gtTaskSection .gt-row.gt-anim-on .gt-check::after{animation:gt-draw 260ms ease-out calc(var(--gt-t,0ms) + 100ms) both}
-#gtTaskSection .gt-row.gt-anim-on .gt-main b{animation:gt-strike 260ms ease-out calc(var(--gt-t,0ms) + 100ms) both}
+#gtTaskSection .gt-row.gt-anim-on .gt-check{animation:gt-fill 120ms ease-out var(--gt-t,0ms) both,ds-check-pop var(--ds-check-ms) ease-out var(--gt-t,0ms) both} /* UI-누름움직임: 물결·튀어나옴은 공용 ds-check-pop(ui-standard.css), 전체 0.24초 안 */
+#gtTaskSection .gt-row.gt-anim-on .gt-check::after{animation:gt-draw 150ms ease-out calc(var(--gt-t,0ms) + 90ms) both}
+#gtTaskSection .gt-row.gt-anim-on .gt-main b{animation:gt-strike 150ms ease-out calc(var(--gt-t,0ms) + 90ms) both}
 #gtTaskSection .gt-row.gt-anim-off .gt-check{animation:gt-fill 160ms ease-in calc(var(--gt-t,0ms) + 160ms) reverse both}
 #gtTaskSection .gt-row.gt-anim-off .gt-check::after{animation:gt-draw 220ms ease-in var(--gt-t,0ms) reverse both}
 #gtTaskSection .gt-row.gt-anim-off .gt-main b{text-decoration:line-through;animation:gt-strike 260ms ease-in var(--gt-t,0ms) reverse both}

@@ -1894,16 +1894,18 @@ function loadFolder(id) {
 let places = new Map();
 const placeHtml = id => (places.has(id) ? `<span class="photos-fx-place"> · ${esc(places.get(id))}</span>` : '');
 const switchHtml = (id, name, on) => `<button type="button" role="switch" class="diary-od-switch photos-fx-sw" data-photos-fx-sw="${esc(id)}" aria-checked="${on ? 'true' : 'false'}" aria-label="${esc(name)} 사진에 보이기"></button>`;
-// PHOTO-드라이브폴더통일(요청함 11/01 23:16): 원드라이브·구글 드라이브 폴더 줄은 이 함수 하나로 그린다(▸ 펼침·장수·스위치·⋯).
+// PHOTO-드라이브폴더통일(요청함 11/01 23:16): 원드라이브·구글 드라이브 폴더 줄은 이 함수 하나로 그린다(폴더 아이콘 펼침·장수·스위치·⋯).
 // a = 줄 속성 이름 묶음(출처마다 누른 것을 알아보는 이름만 다름). 장수를 모르면 '—', 0이면 흐리게.
 const OD_ATTR = {row:'folder', open:'fx-open', tog:'fx-tog', sw:'fx-sw', more:'fx-more'};
 const GD_ATTR = {row:'gf', open:'gf-open', tog:'gf-tog', sw:'gf-sw', more:'gf-more'};
 const countHtml = n => `<span class="nx-num${n === 0 || n === null || n === undefined ? ' is-zero' : ''}" aria-label="${Number.isInteger(n) ? `사진 ${n}장` : '사진 장수 모름'}">${folderCountText(n)}</span>`;
 function folderRowHtml(r, {wide, a = OD_ATTR, cur = r.id === at && pAt === null && gdAt === null, sw = !!tree?.whole, more = true}) {
   const tog = wide && r.kids && !r.top, on = r.enabled !== false, now = cur && wide, x = k => `data-photos-${a[k]}`;
+  // S51-25 FOLDER-PC나무: PC 나무는 세모 없이 폴더 아이콘이 접기·펼치기 단추(열린 그림 = 펼침). 이름을 누르면 지금처럼 그 폴더로.
+  const ico = folderIconHtml({color: r.top ? null : folderLook.color(a === GD_ATTR ? 'gd' : 'od', r.id)}, {open: wide ? !!(r.open && r.kids) : (r.open && r.kids) || now});
   return `<div class="nx-row nx-folder photos-fx-row${now ? ' nx-current' : ''}${sw && !on ? ' is-off' : ''}" ${x('row')}="${esc(r.id)}" style="--nx-indent:${r.indent}"${wide ? ' role="treeitem"' : ''}${wide && r.kids ? ` aria-expanded="${r.open}"` : ''}>`
-    + (wide ? (tog ? `<button type="button" class="photos-fx-tog" ${x('tog')}="${esc(r.id)}" aria-label="${esc(r.name)} ${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="photos-fx-tog" aria-hidden="true"></span>') : '')
-    + `<button type="button" class="nx-main" ${x('open')}="${esc(r.id)}"${now ? ' aria-current="true"' : ''}>${folderIconHtml({color: r.top ? null : folderLook.color(a === GD_ATTR ? 'gd' : 'od', r.id)}, {open: (r.open && r.kids) || now})}<span class="nx-name">${esc(r.name)}${placeHtml(r.id)}</span>${countHtml(r.total)}</button>`
+    + (wide ? (tog ? `<button type="button" class="ft-tog photos-fx-tog" ${x('tog')}="${esc(r.id)}" aria-expanded="${!!r.open}" aria-label="${esc(r.name)} ${r.open ? '접기' : '펼치기'}">${ico}</button>` : `<span class="ft-tog ft-tog-none photos-fx-tog">${ico}</span>`) : '')
+    + `<button type="button" class="nx-main" ${x('open')}="${esc(r.id)}"${now ? ' aria-current="true"' : ''}>${wide ? '' : ico}<span class="nx-name">${esc(r.name)}${placeHtml(r.id)}</span>${countHtml(r.total)}</button>`
     + (sw ? switchHtml(r.id, r.name, on).replace('data-photos-fx-sw=', `${x('sw')}=`) : '')
     + (more ? `<button type="button" class="nx-more photos-fx-more" ${x('more')}="${esc(r.id)}" aria-label="${esc(r.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '')
     + '</div>';
@@ -1948,8 +1950,8 @@ const phoneSwHtml = f => switchHtml('ph:' + f.id, f.name, !phoneOff.has(f.id)).r
 function phoneFolderRowHtml(f, {wide}) {
   const cur = wide && pAt === f.id, sw = phoneSw() && !f.pending, off = sw && phoneOff.has(f.id);
   return `<div class="nx-row nx-folder photos-fx-row${cur ? ' nx-current' : ''}${off ? ' is-off' : ''}" data-photos-pf="${esc(f.id)}" style="--nx-indent:0"${wide ? ' role="treeitem"' : ''}>`
-    + (wide ? '<span class="photos-fx-tog" aria-hidden="true"></span>' : '')
-    + `<button type="button" class="nx-main" data-photos-pf-open="${esc(f.id)}"${cur ? ' aria-current="true"' : ''}>${treeIconHtml('folder', {open: cur})}<span class="nx-name">${esc(f.name)}${placeHtml('ph:' + f.id)}${tidy.unbackedIds().has(f.id) ? '<span class="photos-fx-place photos-unbacked"> · 백업 안 됨</span>' : ''}${f.pending ? '<span class="photos-fx-place"> · 사진을 옮기면 생겨요</span>' : ''}</span>${countHtml(f.count)}</button>`
+    + (wide ? `<span class="ft-tog ft-tog-none photos-fx-tog">${treeIconHtml('folder')}</span>` : '')
+    + `<button type="button" class="nx-main" data-photos-pf-open="${esc(f.id)}"${cur ? ' aria-current="true"' : ''}>${wide ? '' : treeIconHtml('folder', {open: cur})}<span class="nx-name">${esc(f.name)}${placeHtml('ph:' + f.id)}${tidy.unbackedIds().has(f.id) ? '<span class="photos-fx-place photos-unbacked"> · 백업 안 됨</span>' : ''}${f.pending ? '<span class="photos-fx-place"> · 사진을 옮기면 생겨요</span>' : ''}</span>${countHtml(f.count)}</button>`
     + (sw ? phoneSwHtml(f) : '')
     + (phoneOps() ? `<button type="button" class="nx-more photos-fx-more" data-photos-pf-more="${esc(f.id)}" aria-label="${esc(f.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '')
     + '</div>';
