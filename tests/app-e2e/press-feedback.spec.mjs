@@ -13,13 +13,13 @@ async function hold(page,selector){
 }
 async function letGo(page){await page.mouse.move(2,2);await page.mouse.up();}
 
-test('1280 PC: 버튼을 누르는 동안 0.97배로 작아지고 안쪽 그림자로 진해지며, 놓으면 원래대로',async({page})=>{
+test('1280 PC: 버튼을 누르는 동안 0.94배로(UI-누름움직임) 작아지고 안쪽 그림자로 진해지며, 놓으면 원래대로',async({page})=>{
  await page.setViewportSize({width:1280,height:800});await openHome(page);
  await expect(page.locator(NAV)).toBeVisible();
  const before=await style(page,NAV);
  expect(before.scale).toBe('none');
  await hold(page,NAV);
- await expect.poll(async()=>(await style(page,NAV)).scale).toBe('0.97');
+ await expect.poll(async()=>(await style(page,NAV)).scale).toBe('0.94');
  expect((await style(page,NAV)).shadow).toContain('inset');
  await letGo(page);
  await expect.poll(async()=>(await style(page,NAV)).scale).toBe('none');
@@ -44,7 +44,7 @@ test('버튼이 아닌데 눌리는 줄·카드(cursor:pointer)도 같은 규칙
   document.body.append(host);
  });
  await hold(page,'#pressSmall');
- await expect.poll(async()=>(await style(page,'#pressSmall')).scale).toBe('0.97');
+ await expect.poll(async()=>(await style(page,'#pressSmall')).scale).toBe('0.94');
  await letGo(page);
  await expect.poll(async()=>(await style(page,'#pressSmall')).pressing).toBe(false);
  await hold(page,'#pressInner');

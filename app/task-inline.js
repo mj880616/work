@@ -15,6 +15,7 @@
 // State stays with each screen: the screen passes find(id, el) to read its own task and optional hooks to draw its own change
 // (apply / saved / removed); this module keeps only which tasks are being saved now (in memory) and nothing in browser storage.
 import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
+import {noteChecked, noteUnchecked} from './check-motion.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {placeAnchored, followAnchor} from './anchored-popup.js';
@@ -113,6 +114,7 @@ export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAtt
     const task = look(id, el), api = tasksApi() || missing();
     if (!task || !api?.toggleTask) return;
     const owner = ownerNow(), name = shortName(task.title);
+    if (done) noteChecked(id); else noteUnchecked(id); // UI-누름움직임: 바로 다시 그려지는 줄(apply)도 체크 움직임을 받게 먼저 적는다
     start(id); apply?.(id, done, task);
     let result;
     try { result = await api.toggleTask({...base(id, task), status:done ? 'needsAction' : 'completed'}); } catch { result = {ok:false}; }
