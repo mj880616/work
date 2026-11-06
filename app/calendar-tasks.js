@@ -1,5 +1,6 @@
 import {emptyHtml} from './wait-state.js';
 import {createTaskInline} from './task-inline.js';
+import {applyCheckPop} from './check-motion.js'; // UI-누름움직임: 끝낸 줄의 체크 움직임
 import {moveTaskToDay,dueDay} from './task-due.mjs';
 (()=>{
 'use strict';
@@ -85,7 +86,7 @@ const findTask=id=>{const raw=tasks.find(x=>x.id===id);if(!raw)return null;const
 const line=createTaskInline({menuId:'calendarTaskMenu',historyKey:'kptuCalendarTaskMenu',menuAttr:'calendarTaskMenu',find:findTask,
   begin:id=>{const l=lineOf(id);if(l)l.dataset.busy='1'},
   end:id=>{const l=lineOf(id);if(l)delete l.dataset.busy},
-  apply:(id,done,original)=>paint(rowOf(id),done===null?original.status==='completed':done),
+  apply:(id,done,original)=>{paint(rowOf(id),done===null?original.status==='completed':done);if(done===true)applyCheckPop(rowOf(id),id)},
   edit:id=>open(id,document.querySelector('#calendarDayModal')),
   saved:(id,task)=>{tasks=tasks.map(x=>x.id===id?{...x,...task}:x);publish(tasks,Date.now());dropRow(id)},
   removed:id=>{tasks=tasks.filter(x=>x.id!==id);publish(tasks,Date.now());dropRow(id)}});

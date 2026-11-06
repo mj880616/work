@@ -1488,6 +1488,23 @@ html .cc-sub-row button.cc-sub-add{ color:var(--kptu-primary-ink,var(--kptu-prim
   :is(button,summary,a[href],[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"],[role="switch"],input:is([type="button"],[type="submit"],[type="reset"])):active:not(:disabled,[aria-disabled="true"],[data-press="off"]),
   [data-pressing]{ scale:none; transition:none; }
 }
+/* UI-누름움직임(2026-11-06 명진 요청 22:44, 시안 docs/design/mockups/press-motion.gif): 위 눌림 규칙을 '명확하게' — 버튼은 .94배·바탕 14%(토큰 값만 바꿈),
+   폰은 손가락을 대는 순간(pointerdown, press-feedback.js)부터이고 톡 쳐도 0.12초는 보인다. 화면마다 눌림을 새로 만들지 않는 것은 그대로다.
+   할 일 체크(홈·할 일·일정·연결 목록·회의 상세): 방금 끝낸 줄(check-motion.js가 다는 [data-check-pop])에서 동그라미가 작게 눌렸다 살짝 튀어나오며
+   둘레로 옅은 물결 → 색이 채워지고 체크가 그려짐 → 글자 줄이 그어짐. 전체 --ds-check-ms(0.24초) 안. 끝 모양은 각 화면 규칙 그대로(움직임은 from 쪽만 정한다).
+   움직임 줄이기 기기는 움직이지 않고 끝 모양(색)만 보인다. */
+[data-check-pop] .journal-check{ animation:ds-check-pop var(--ds-check-ms) ease-out var(--check-t,0ms) both; }
+[data-check-pop] :is(.gt-check,.cmv-task-mark){ animation:ds-check-pop var(--ds-check-ms) ease-out var(--check-t,0ms) both,ds-check-fill calc(var(--ds-check-ms) / 2) ease-out var(--check-t,0ms) both; }
+[data-check-pop] .journal-check::before{ animation:ds-check-fill calc(var(--ds-check-ms) / 2) ease-out var(--check-t,0ms) both; }
+[data-check-pop] :is(.journal-check,.gt-check)::after{ animation:ds-check-draw calc(var(--ds-check-ms) * .6) ease-out calc(var(--check-t,0ms) + var(--ds-check-ms) * .4) both; }
+[data-check-pop] :is(.gt-main b,.cmv-event-title){ animation:ds-check-strike calc(var(--ds-check-ms) * .6) ease-out calc(var(--check-t,0ms) + var(--ds-check-ms) * .4) both; }
+@keyframes ds-check-pop{ 0%{ scale:.82; box-shadow:0 0 0 0 color-mix(in srgb,var(--kptu-success) 45%,transparent); } 55%{ scale:1.12; } 100%{ scale:1; box-shadow:0 0 0 8px transparent; } }
+@keyframes ds-check-fill{ from{ background-color:transparent; } }
+@keyframes ds-check-draw{ 0%{ clip-path:inset(calc(100% - 2px) 100% 0 0); } 40%{ clip-path:inset(calc(100% - 2px) 0 0 0); } 100%{ clip-path:inset(0); } }
+@keyframes ds-check-strike{ from{ text-decoration-color:transparent; } }
+@media (prefers-reduced-motion:reduce){
+  [data-check-pop] :is(.journal-check,.gt-check,.cmv-task-mark,.gt-main b,.cmv-event-title),[data-check-pop] .journal-check::before,[data-check-pop] :is(.journal-check,.gt-check)::after{ animation:none; }
+}
 /* [복사]처럼 결과가 눈에 안 보이는 동작: 버튼 글자가 잠깐 '✓ 복사됨'(초록)으로 바뀐다(press-feedback.js flashDone). 아래 알림에 기대지 않는다. */
 [data-done]{ color:var(--ds-done-ink) !important; }
 
