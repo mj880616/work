@@ -15,7 +15,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
 import {bindFolderPinch} from './folder-pinch.js';
-import {fillGestureArea} from './gesture-fill.js';
+import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {bindTouchDrag} from './touch-drag.js';
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
@@ -781,6 +781,7 @@ function restoreTreeSpot(back, from = null) {
   requestAnimationFrame(() => {
     const [source] = back.key.split(':');
     const row = root?.querySelector(`[data-fx-fold="${CSS.escape(back.key)}"]`) || root?.querySelector(`[data-fx-box="${CSS.escape(source)}"]`);
+    settleGestureAreas();
     if (typeof back.y === 'number') window.scrollTo({top: back.y, behavior: 'instant'});
     else row?.scrollIntoView({block: 'center', behavior: 'instant'});
     row?.querySelector('.ft-main, .ft-box-toggle')?.focus({preventScroll: true});

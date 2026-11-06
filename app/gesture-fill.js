@@ -37,17 +37,41 @@ function belowOf(el) {
   return {sib, pad};
 }
 const barTopOf = viewH => { const bar = document.querySelector('nav.mobile-tabs'); const r = bar?.getClientRects().length ? bar.getBoundingClientRect() : null; return r && r.top < viewH ? r.top : viewH; };
+// 칸 안 내용 높이(늘린 높이 말고): 마지막으로 보이는 안 줄의 아래 끝 + 칸 아래 안쪽 여백. 칸을 줄였다 늘리며 재지 않는다(그러면 화면 스크롤이 잘려 위치가 튄다).
+function contentHeight(el, rect) {
+  const cs = getComputedStyle(el);
+  let bottom = rect.top + px(cs.borderTopWidth) + px(cs.paddingTop);
+  for (const c of el.children) {
+    const ccs = getComputedStyle(c);
+    if (ccs.position === 'fixed' || ccs.position === 'absolute' || !c.getClientRects().length) continue;
+    bottom = Math.max(bottom, c.getBoundingClientRect().bottom + px(ccs.marginBottom));
+  }
+  return bottom + px(cs.paddingBottom) + px(cs.borderBottomWidth) - rect.top;
+}
+const pulled = new WeakMap();
 function paint(el) {
   if (!el.isConnected) { hosts.delete(el); return; }
   const on = !!TOUCH?.matches && el.getClientRects().length > 0;
-  el.style.removeProperty('min-height'); el.style.removeProperty('margin-bottom');
-  if (!on) return;
-  const rect = el.getBoundingClientRect(), viewH = window.visualViewport?.height || window.innerHeight;
-  const {h, pull} = fillHeight({viewH, barTop: barTopOf(viewH), top: rect.top + window.scrollY, own: rect.height, ...belowOf(el)});
-  // 높이·아래 여백 당김은 이 부품만 쓰는 칸의 inline min-height·margin-bottom 한 곳(화면 CSS의 min-height보다 앞선다).
-  if (h) el.style.minHeight = h + 'px';
-  if (pull) el.style.marginBottom = (px(getComputedStyle(el).marginBottom) - pull) + 'px';
+  const was = pulled.get(el) || 0;
+  let h = 0, pull = 0;
+  if (on) {
+    const rect = el.getBoundingClientRect(), viewH = window.visualViewport?.height || window.innerHeight;
+    // 목표 높이를 먼저 정하고(내용 0으로 계산), 내용이 그보다 길 때만 늘리지 않는다. 늘린 칸 안에서 같이 늘어난 줄(1px 안)은 내용으로 치지 않아 늘렸다 줄였다 되풀이하지 않는다.
+    const t = fillHeight({viewH, barTop: barTopOf(viewH), top: rect.top + window.scrollY, own: 0, ...belowOf(el)});
+    if (t.h && contentHeight(el, rect) <= t.h + 1) ({h, pull} = t);
+  }
+  // 높이·아래 여백 당김은 이 부품만 쓰는 칸의 inline min-height·margin-bottom 한 곳(화면 CSS의 min-height보다 앞선다). 같은 값이면 건드리지 않는다.
+  const mh = h ? h + 'px' : '';
+  if (el.style.minHeight !== mh) el.style.minHeight = mh;
+  if (pull !== was) {
+    const base = px(getComputedStyle(el).marginBottom) + was;
+    if (pull) { el.style.marginBottom = (base - pull) + 'px'; pulled.set(el, pull); }
+    else { el.style.removeProperty('margin-bottom'); pulled.delete(el); }
+  }
 }
+// 화면이 내용을 새로 그린 뒤 스크롤 자리를 되돌리기 직전에 부른다: 칸 높이·여백 당김을 지금 내용에 맞춰 바로 다시 잰다
+// (짧은 화면에서 당겨 둔 여백이 남은 채 긴 화면으로 돌아오면 되돌릴 스크롤 자리가 잘리므로).
+export function settleGestureAreas() { for (const el of [...hosts]) paint(el); }
 let queued = 0;
 const paintAll = () => { cancelAnimationFrame(queued); queued = requestAnimationFrame(() => { for (const el of [...hosts]) paint(el); }); };
 function watch() {
@@ -65,5 +89,5 @@ export function fillGestureArea(el) {
   if (!el) return () => {};
   el.classList.add('gesture-fill');
   hosts.add(el); watch(); paintAll();
-  return () => { hosts.delete(el); el.classList.remove('gesture-fill'); el.style.removeProperty('min-height'); el.style.removeProperty('margin-bottom'); };
+  return () => { hosts.delete(el); pulled.delete(el); el.classList.remove('gesture-fill'); el.style.removeProperty('min-height'); el.style.removeProperty('margin-bottom'); };
 }

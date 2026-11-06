@@ -18,7 +18,7 @@ import {createSelectMode} from './select-mode.js';
 import {announceUploaded} from './upload-done.js';
 import {folderTrail,folderPathHtml} from './folder-path.mjs';
 import {bindFolderPinch} from './folder-pinch.js';
-import {fillGestureArea} from './gesture-fill.js';
+import {fillGestureArea,settleGestureAreas} from './gesture-fill.js';
 import {SPLIT_QUERY} from './screen-width.mjs';
 import {ftFolderRowHtml} from './folder-tree-ui.mjs'; // FOLDER-나무새기준 ④: 두 손가락 벌리기 = 그 폴더만(노트·파일·사진과 같은 부품)
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
@@ -519,7 +519,7 @@ function luSyncFolderLayer(){
 // 오므리기·[‹]·뒤로 키 = 펼친 자리·화면 위치 그대로 나무로. 돌아올 자리는 화면 메모리만(luTreeBack).
 let luTreeBack=null;
 function luFocusFolder(id){if(luGroupBy!=='folder'||luInFolder||!id||!luFolders_.some(f=>f.id===id))return;luTreeBack={y:window.scrollY,id};luOpened.add('f:'+id);luEnterFolder(id)}
-function luRestoreTree(back){if(!back)return;window.scrollTo({top:back.y,behavior:'instant'});const head=[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode==='f:'+back.id);head?.focus?.({preventScroll:true})}
+function luRestoreTree(back){if(!back)return;settleGestureAreas();window.scrollTo({top:back.y,behavior:'instant'});const head=[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode==='f:'+back.id);head?.focus?.({preventScroll:true})}
 function luLeaveFocus(){if(!luInFolder)return;const back=luTreeBack;luTreeBack=null;luEnterFolder(null);luRestoreTree(back)}
 document.addEventListener('click',e=>{const b=e.target.closest?.('#libraryPath [data-lu-path-back]');if(!b)return;e.preventDefault();luLeaveFocus()});
 function luRenderPath(box){

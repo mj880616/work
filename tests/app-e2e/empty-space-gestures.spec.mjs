@@ -103,10 +103,10 @@ test('사진 폰 412: 본문 아래 빈 곳도 손짓 칸(아래 바 바로 위�
   await openPhotos(page, 412);
   const body = page.locator('#photosView [data-photos-body]');
   await expect(body).toBeVisible();
-  const ok = await page.evaluate(() => {
+  // 본문 아래 끝이 아래 바 위 끝까지(사진을 그린 뒤 다시 재므로 잠깐 기다린다).
+  await expect.poll(() => page.evaluate(() => {
     const b = document.querySelector('#photosView [data-photos-body]'), bar = document.querySelector('nav.mobile-tabs');
-    return Math.abs(b.getBoundingClientRect().bottom - bar.getBoundingClientRect().top) < 80 || b.getBoundingClientRect().bottom >= bar.getBoundingClientRect().top;
-  });
-  expect(ok).toBe(true);
+    return b.getBoundingClientRect().bottom >= bar.getBoundingClientRect().top - 2;
+  })).toBe(true);
   expect(state.errors || []).toEqual([]);
 });

@@ -8,7 +8,7 @@ import { treeIconHtml } from './tree-icons.js';
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW } from './folder-tree-ui.mjs';
 import { riseFromRow, sinkToRow, topOf } from './folder-focus-motion.js';
 import { recentFolded, toggleRecentFolded } from './recent-fold.js';
-import { fillGestureArea } from './gesture-fill.js';
+import { fillGestureArea, settleGestureAreas } from './gesture-fill.js';
 import { bindFolderPinch } from './folder-pinch.js';
 import { formatSeoulTime } from './meeting-time.js';
 // MEMO-노트: the [노트] side of the basket tab. Notes are app_notes rows with kind=note (20261017052234), read and
@@ -1367,6 +1367,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!back) return;
     const sel = back.id === OUTSIDE ? '#noteRows [data-nx-outside]' : `#noteRows [data-nx-folder="${CSS.escape(back.id)}"]`;
     const row = host.querySelector(sel);
+    settleGestureAreas();
     if (typeof back.y === 'number') window.scrollTo({top:back.y, behavior:'instant'});
     else row?.scrollIntoView({block:'center', behavior:'instant'});
     row?.querySelector('.ft-main')?.focus({preventScroll:true});

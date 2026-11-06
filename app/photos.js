@@ -83,7 +83,7 @@ import {mountSplitResize} from './split-resize.js';
 // FOLDER-나무새기준 ③(S51-12): 폰 [폴더]는 노트·파일·자료실과 같은 공용 상자·줄, 두 손가락 그 폴더만.
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftTrashRowHtml, ftIconHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {bindFolderPinch} from './folder-pinch.js';
-import {fillGestureArea} from './gesture-fill.js';
+import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
   colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, parseMonth, monthLabelKo, yearTicks, yearLabels, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
   takeItems, putItems, DEFAULT_SORT, SORT_TEXT, SORT_SHORT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
@@ -2057,7 +2057,7 @@ function fxToTree() {
   const back = fxBack; fxBack = null;
   select.stop(); pAt = null; gdAt = null; fxTopFocus = false; if (tree) at = tree.top.id;
   renderFolders();
-  if (back) requestAnimationFrame(() => { window.scrollTo({top:back.y, behavior:'instant'}); body.querySelector(`[data-ft-key="${CSS.escape(back.key)}"] .ft-main`)?.focus({preventScroll:true}); });
+  if (back) requestAnimationFrame(() => { settleGestureAreas(); window.scrollTo({top:back.y, behavior:'instant'}); body.querySelector(`[data-ft-key="${CSS.escape(back.key)}"] .ft-main`)?.focus({preventScroll:true}); });
 }
 const fxBackBtn = () => (treeWide() ? '' : '<button type="button" class="ft-btn ft-focus-back" data-photos-fx-back aria-label="폴더 나무로">‹</button>');
 // S51-24 FOLDER-그폴더만같은모양(시안 folder-focus-continuity.html ②): 폰·폴드 '그 폴더만' = 나무와 같은 둥근 상자(공용 folder-tree.css ft-focus).
