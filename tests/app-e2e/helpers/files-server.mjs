@@ -290,6 +290,9 @@ export async function phoneFolder(page, source, id = '') {
 export async function treeGo(page, source, id = '') {
   const go = page.locator(`#filesRoot [data-fx-tree] [data-fx-go="${source}"][data-fx-id="${id}"]`).first();
   const box = page.locator(`#filesRoot [data-fx-tree] [data-fx-box="${source}"]`);
-  await expect.poll(async () => (await go.isVisible()) || (await box.isVisible())).toBe(true);
+  // 두 손가락 길은 폰 한 칸 나무(data-fx-pane="tree")에서만. 넓은 화면도 저장소 상자가 먼저 보이므로(나무 줄은 폴더를 읽은 뒤)
+  // 상자만 보고 고르면 줄이 그려지기 전에 넓은 화면에서 벌리기를 해 나무가 그대로 남는다(STAB-폰파일판).
+  const phoneTree = () => page.locator('#filesRoot[data-fx-pane="tree"]').count().then(n => n > 0);
+  await expect.poll(async () => (await go.isVisible()) || ((await box.isVisible()) && (await phoneTree()))).toBe(true);
   if (await go.isVisible()) await go.click(); else await phoneFolder(page, source, id);
 }
