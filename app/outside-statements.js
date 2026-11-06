@@ -17,6 +17,7 @@ import {createNowSaved} from './now-saved.js';
 import {createNowInterests} from './now-interests.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {readOutsideMarks} from './now-marks.js';
+import {fillGestureArea} from './gesture-fill.js';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절): #outsideView의 유일한 그리기 주인(News 메뉴 껍데기 — S51-17 P5에서 메뉴 이름 'News'·주소 ?view=news).
 // S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.1·6.3·6.4절, 시안 docs/design/mockups/news-overhaul.html ①·③):
 // - 탭 [전체][사회운동][언론][보관](now-model.mjs NOW_TABS). 폰은 아래 떠 있는 탭 줄, 폴드 펼침(761~1199px)은 오른쪽 아래, PC(1200px~)는 위(명진 11/06 탭 자리 규칙).
@@ -704,6 +705,8 @@ root?.addEventListener('keydown', event => {
 });
 // 폰·폴드: 좌우로 밀어 탭 이동(NEWS P4b). 글 줄 위 밀기는 숨기기·보관(NOW-줄밀기, 명진 11/03)이 가지므로 줄·입력 칸 밖(탭 줄·날짜 머리·빈 곳)에서만.
 // 가로로 충분히 민 것만. 상세가 전체 화면일 때·다른 칸(단체·관심 주제)일 때는 하지 않는다.
+// S51-24 UI-빈칸손짓: 글이 짧아도 아래 빈 곳까지 밀기 칸(gesture-fill.js).
+fillGestureArea(root);
 let swipe = null;
 const SWIPE_SKIP = '.now-row, input, textarea, select, [data-os-search], .now-detail';
 root?.addEventListener('touchstart', e => {

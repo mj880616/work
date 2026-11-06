@@ -31,13 +31,14 @@ function forCalendar(list){
 function publish(list,at){tasks=list;tasksAt=at;window.KPTUCalendarMonthView?.setTasks?.(forCalendar(list));window.KPTUCalendarView?.setTasks?.(forCalendar(list))}
 // This device's copy, when it is newer than what the calendar shows (e.g. after completing a task in the task view).
 function applyCopy(){const copy=api()?.peekTasks?.();if(copy&&copy.owner===currentOwner()&&copy.savedAt>tasksAt)publish(copy.tasks,copy.savedAt)}
-function refresh(){
+// fresh: after a change, never join a read that another screen started before the change (runtime single flight).
+function refresh(fresh=false){
   if(fetching)return fetching;
   const g=api(),me=currentOwner(),at=epoch;
   if(!g?.listTasks||!me)return Promise.resolve();
   fetching=(async()=>{
     try{
-      const r=await g.listTasks();
+      const r=await g.listTasks({fresh});
       if(at!==epoch||r.owner!==me||currentOwner()!==me)return;
       fetchedAt=Date.now();
       publish(r.status==='ok'?r.tasks:[],fetchedAt);
@@ -50,7 +51,7 @@ function refresh(){
 }
 function schedule(delay=FETCH_DELAY_MS,force=false){
   clearTimeout(timer);
-  timer=setTimeout(()=>{if(shown()&&(force||Date.now()-fetchedAt>=REFRESH_MIN_MS))refresh()},delay);
+  timer=setTimeout(()=>{if(shown()&&(force||Date.now()-fetchedAt>=REFRESH_MIN_MS))refresh(force)},delay);
 }
 function open(id,dayModal){
   const t=tasks.find(x=>x.id===id);if(!t)return;
@@ -104,7 +105,9 @@ function boot(){
   });
   window.KPTURouter?.on?.('calendar',()=>{applyCopy();schedule()});
   // A save or delete from the task editor (opened here or elsewhere) is read again at once while the calendar is shown.
-  window.addEventListener('kptu:google-tasks-changed',()=>{fetchedAt=0;if(shown())schedule(0,true)});
+  // STAB-달력할일토글: a confirmed toggle / save carries the saved task (detail.task); this list takes it at once, so a date list
+  // opened before the fresh read returns already shows it (the read used to be the only way in, and a slow one left it stale).
+  window.addEventListener('kptu:google-tasks-changed',e=>{const t=e.detail?.task;if(t?.id&&tasks.some(x=>x.id===t.id)){tasks=tasks.map(x=>x.id===t.id?{...x,...t}:x);publish(tasks,Date.now())}fetchedAt=0;if(shown())schedule(0,true)});
   // The session is rewritten on every token refresh too; only a change of owner (sign-out, another account) clears the list.
   window.addEventListener('kptu:session-changed',()=>{if(currentOwner()===owner)return;owner=currentOwner();epoch++;clearTimeout(timer);fetchedAt=0;publish([],0)});
   applyCopy();

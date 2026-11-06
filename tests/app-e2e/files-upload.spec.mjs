@@ -24,7 +24,7 @@ async function intoDocs(page, width, opts) {
   await openFiles(page, width, opts);
   await treeGo(page, 'od', '');
   await row(page, 'od:OD!1').first().click();
-  await expect(root(page).locator('.fx-crumb-now').first()).toHaveText('가짜 문서함');
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)').first()).toHaveText('가짜 문서함');
 }
 // 바탕화면에서 파일을 끌어 오는 것처럼(브라우저 DataTransfer에 파일을 넣어 dragover·drop).
 async function dropFiles(page, target, files) {

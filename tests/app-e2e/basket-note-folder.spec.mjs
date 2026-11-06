@@ -65,16 +65,17 @@ const noteRow = (page, id) => page.locator(`#noteRows [data-note-row="${id}"]`);
 // Shows the notes of folder id: phone spreads two fingers on that folder in the tree (그 폴더만), PC picks it in the left tree.
 async function showFolder(page, width, id) {
   if (width>=761) await press(page, page.locator(`[data-nx-tree] [data-nx-open="${id}"]`), width);
-  else { await pinch(page, page.locator(`#noteRows [data-nx-folder="${id}"]`), 'out'); await expect(page.locator('[data-nx-here]')).toBeVisible(); }
+  else { await pinch(page, page.locator(`#noteRows [data-nx-folder="${id}"]`), 'out'); await expect(page.locator('#noteRows [data-nx-focus]')).toBeVisible(); }
 }
 // '폴더 없음' 노트: PC는 처음부터 오른쪽에 보인다(나무의 '폴더 없음'이 고른 곳), 폰은 첫 화면 맨 아래 '폴더 없음'을 눌러 들어간다.
 async function showOutside(page, width) {
   // NOTE-최근5개: PC는 처음 '최근'이 고른 곳이라 나무의 '폴더 없음'을 눌러 연다.
   if (width>=761) { await press(page, page.locator('[data-nx-tree] [data-nx-open="out"]'), width); await expect(page.locator('[data-nx-tree] [data-nx-outside]')).toHaveClass(/ft-current/); }
   else await pinch(page, page.locator('#noteRows [data-nx-outside]'), 'out');
-  await expect(page.locator('[data-nx-here]')).toContainText('폴더 없음');
+  await expect(here(page)).toContainText('폴더 없음');
 }
-const here = page => page.locator('[data-nx-here]');
+// S51-24: 폰 '그 폴더만'은 이름·개수가 상자 머리(#noteRows [data-nx-focus] .ft-focus-head), 넓은 화면은 위 줄(data-nx-here).
+const here = page => page.locator(':is([data-nx-here]:not([hidden]), #noteRows [data-nx-focus] .ft-focus-head)');
 
 for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 없음, move with the shared picker and undo ${width}`, async ({ page }) => {
   const f = await fixture(page, width);
@@ -109,7 +110,7 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
   await showFolder(page, width, U(1));
   await expect(noteRow(page, 'n2')).toBeVisible();
   await expect(noteRow(page, 'n1')).toHaveCount(0);
-  await expect(here(page)).toContainText('회의 · 1');
+  await expect(here(page)).toContainText(width < 761 ? '회의 노트 1' : '회의 · 1');
   if (width<761) { await page.goBack(); await expect(page.locator(`#noteRows [data-nx-folder="${U(1)}"]`)).toBeVisible(); await expect(here(page)).toBeHidden(); }
   else await press(page, page.locator('[data-nx-tree] [data-nx-open="out"]'), width);
   await showOutside(page, width);
@@ -125,12 +126,12 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
   expect(w[0].body).toEqual({ metadata: { tasks: [{ task_id: 't1' }], folder_id: U(1), folder: '회의' } });
   expect(f.rows.find(r => r.id === 'n1').updated_at).toBe('2026-10-16T01:00:00Z');
   await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');
-  await expect(here(page)).toContainText('폴더 없음 · 1');
+  await expect(here(page)).toContainText(width < 761 ? '폴더 없음 노트 1' : '폴더 없음 · 1');
   if (width>=761) await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .ft-num`)).toHaveText('2');
   // [되돌리기] puts it back in 폴더 없음.
   await press(page, page.locator('#kptuNotice .kptu-notice-undo'), width);
   await expect.poll(() => f.rows.find(r => r.id === 'n1').metadata).toEqual({ tasks: [{ task_id: 't1' }] });
-  await expect(here(page)).toContainText('폴더 없음 · 2');
+  await expect(here(page)).toContainText(width < 761 ? '폴더 없음 노트 2' : '폴더 없음 · 2');
   expect(f.errors).toEqual([]);
 });
 
@@ -273,14 +274,16 @@ test('phone 390: 나무에서 그 자리 펼치기 → 두 손가락 그 폴더�
   await expect(page.locator(`#noteRows [data-nx-folder="${U(3)}"]`)).toBeVisible();
   await expect(noteRow(page, 'n2')).toBeVisible();
   await showFolder(page, 390, U(1));
-  await expect(here(page)).toHaveText('‹노트 › 회의 · 1');
+  await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-anc')).toHaveText('‹노트›');
+  await expect(here(page)).toHaveText('회의 폴더 1 · 노트 1');
   await expect(page.locator('#noteRows .ft-box-body > *').first()).toHaveAttribute('data-nx-folder', U(3));
   await expect(noteRow(page, 'n2')).toBeVisible();
   await expect(noteRow(page, 'n1')).toHaveCount(0);
   // 폰 '그 폴더만'은 위치를 [‹] 줄 안에 보이고 따로 위치 줄을 두지 않는다. 그 안 하위 폴더도 그 자리에서 펼친다.
   await expect(page.locator('[data-nx-where]')).toBeHidden();
   await press(page, page.locator(`#noteRows [data-nx-open="${U(3)}"]`), 390);
-  await expect(here(page)).toHaveText('‹노트 › 회의 · 1');
+  await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-anc')).toHaveText('‹노트›');
+  await expect(here(page)).toHaveText('회의 폴더 1 · 노트 1');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   // [‹] = 나무로(펼친 자리 그대로).
   await press(page, page.locator('[data-nx-back]'), 390);

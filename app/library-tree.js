@@ -167,11 +167,11 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=nul
     // 안에 아무것도 없는 폴더는 처음부터 닫힌 그림만. '폴더 밖'은 회색 점선 폴더(공용 tree-icons.js) + 흐린 글자. ⑨ 종류 점·색 점은 없다.
     const empty=n.kind==='folder'&&!n.count&&!n.children.length&&!n.files.length;
     const shapes=empty?ftIconHtml({color:n.fc,open:false,className:'ft-ico lu-fe-closed lu-fe-only'}):`${ftIconHtml({color:n.fc,open:false,className:'ft-ico lu-fe-closed'})}${ftIconHtml({color:n.fc,open:true,className:'ft-ico lu-fe-open'})}`;
-    const mark=face?(n.key==='x:out'?`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${treeIconHtml('outside',{className:'ft-ico'})}</span>`:`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`)
-      :n.kind==='folder'?`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`:'';
+    // S51-25 FOLDER-세모0: 폴더가 아닌 묶음(사업영역·하위 프로젝트·담당조직·분류·소분류·종류·월)도 펼치는 나무라 세모 대신 같은 열린/닫힌 폴더 그림.
+    const mark=face&&n.key==='x:out'?`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${treeIconHtml('outside',{className:'ft-ico'})}</span>`:`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`;
     const more=menu?.(n);
     const rest=folderChain(n);
-    return `<summary class="lu-node-head${face||n.kind==='folder'?' lu-node-emoji':''}${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}${rest.length?`<span class="lu-chain-rest">${rest.map(c=>` › ${esc(c.label)}`).join('')}</span>`:''}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
+    return `<summary class="lu-node-head lu-node-emoji${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}${rest.length?`<span class="lu-chain-rest">${rest.map(c=>` › ${esc(c.label)}`).join('')}</span>`:''}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
   };
   const body=n=>{
     const all=showAll(n.key),files=all?n.files:n.files.slice(0,FILE_LIMIT),rest=n.files.length-files.length;

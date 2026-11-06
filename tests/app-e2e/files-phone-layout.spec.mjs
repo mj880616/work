@@ -33,7 +33,7 @@ for (const width of [390, 900, 1440]) {
     await expect(list.getByText('가짜 안내문.pdf')).toBeVisible();
     // 열린 폴더 안: 하위 폴더 줄(가짜 2026)은 아직 안 읽음 → 비어 있다.
     expect(await text('가짜 2026')).not.toMatch(/\d+개/);
-    await root(page).locator('[data-fx-crumb] [data-fx-go]').first().click();
+    await root(page).locator('[data-fx-go]:visible').first().click();
     await expect(list.getByText('가짜 문서함')).toBeVisible();
     expect(await text('가짜 문서함')).toContain('폴더 1 · 파일 3');
     expect(await root(page).evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);

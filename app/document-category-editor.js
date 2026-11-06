@@ -1,11 +1,13 @@
 import {waitHtml} from './wait-state.js';
+import {leAddHtml,leRowHtml,leInlineHtml,leMove,leStep} from './list-edit.mjs';
+import {mountListEdit} from './list-edit.js';
 import {askConfirm} from './small-notice.js';
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {
   LOCKED_CATEGORY,CATEGORY_NAME_LIMIT,documentCategories,documentCategoriesLoaded,loadDocumentCategories,categoryNameProblem,categoryErrorText,
   addDocumentCategory,renameDocumentCategory,deleteDocumentCategory,storedValuesOf,documentCountOf,
   orderedDocumentCategories,topDocumentCategories,subcategoriesOf,isSubcategory,categoryParent,categoryLeaf,categoryLabel,subcategoryName,subcategoryNameLimit,
-  renameDocumentCategoryGroup,deleteDocumentCategoryGroup,deleteDocumentSubcategory,
+  renameDocumentCategoryGroup,deleteDocumentCategoryGroup,deleteDocumentSubcategory,reorderDocumentCategories,
 } from './document-categories.js';
 
 // UI-바구니첨부메모 PR 3: 자료 분류 목록 편집(추가·이름 바꾸기·삭제). 자료실의 [분류 수정] 창 맨 위에 붙는다.
@@ -13,61 +15,58 @@ import {
 // '기타'는 고정이다. 이름을 바꾸면 그 분류 자료도 새 이름으로, 지우면 그 분류 자료는 '기타'로 함께 바뀐다(함수가 한 번에 한다).
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const CATEGORY_EDITOR_TEXT=Object.freeze({
-  help:'자료를 올리거나 고칠 때 이 목록에서 고르고, 자료실 위쪽 분류 칩도 이 목록이에요. 자료와 파일은 지워지지 않아요.',
-  renameNote:count=>count?`이름을 바꾸면 이 분류의 자료 ${count}개도 새 이름으로 바뀌어요.`:'이 분류에 자료가 없어서 이름만 바뀌어요.',
   deleteConfirm:(name,count)=>`‘${name}’ 분류를 지울까요?\n\n${count?`이 분류의 자료 ${count}개는 ‘${LOCKED_CATEGORY}’로 옮겨져요. `:''}자료와 파일은 지워지지 않아요.`,
   loadFailed:'분류 목록을 불러오지 못했어요. 목록을 모르는 채로 고치지 않도록 잠시 막아 두었어요.',
   saving:'저장하는 중…',
   // LIB-소분류: 소분류는 큰 분류 줄 바로 아래에 한 칸 들여 보인다. 지워도 그 자료는 큰 분류에 그대로 남는다(DB 함수).
-  groupRenameNote:(count,subs)=>`이름을 바꾸면 소분류 ${subs}개${count?`와 이 분류의 자료 ${count}개`:''}도 새 이름으로 바뀌어요.`,
   groupDeleteConfirm:(name,count,subs)=>`‘${name}’ 분류와 소분류 ${subs}개를 지울까요?\n\n${count?`이 분류의 자료 ${count}개는 ‘${LOCKED_CATEGORY}’로 옮겨져요. `:''}자료와 파일은 지워지지 않아요.`,
   subDeleteConfirm:(name,count)=>`‘${categoryLabel(name)}’ 소분류를 지울까요?\n\n${count?`이 소분류의 자료 ${count}개는 ‘${categoryParent(name)}’에 그대로 남아요. `:''}자료와 파일은 지워지지 않아요.`,
 });
 // host 안에 편집 화면을 그린다. documents(): 지금 불러온 자료들. refresh(): 자료를 다시 읽는다(이름 바꾸기·삭제 직전). onChanged(): 목록이나 자료가 바뀐 뒤.
-export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>documents(),onChanged=()=>{},rt=window.KPTURuntime}={}){
+// S51-28 LIB-화면정리 ②(시안 docs/design/mockups/library-category-edit.html): 공용 '목록 고치기' 모양(list-edit.mjs·list-edit.js) —
+// 맨 위 '새 분류 이름 [추가]', 줄 = ⠿ · 이름(누르면 그 자리 고침) · 자료 수 · ⋯([+ 소분류]·[이름 바꾸기]·[지우기]), '기타'는 맨 아래 자물쇠 '고정'.
+// ⠿ 끌기 = 큰 분류 순서(자료실 분류 칩 순서, 서버 저장). onCount(n): 창 제목 옆 수.
+export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>documents(),onChanged=()=>{},onCount=()=>{},rt=window.KPTURuntime}={}){
   let editing=null,busy=false,loading=false,status={text:'',error:false},addDraft='',renameDraft='',addSubFor='',subDraft='';
   const say=(text,error=false)=>{status={text,error};};
   const countOf=name=>documentCountOf(name,documents());
   const groupCountOf=name=>documentCountOf(name,documents(),{group:true});
-  // S48-28: 브라우저 기본 확인창 대신 공용 작은 확인창(누른 [지우기] 근처). 다시 그려져 버튼이 바뀌었으면 같은 이름의 새 버튼에 붙인다.
-  const ask=(text,name)=>askConfirm(host.querySelector(`[data-dce-delete="${CSS.escape(name)}"]`),{text,ok:'지우기',danger:true});
-  const dis=busy=>busy?'disabled':'';
-  // 큰 분류 줄의 [+ 소분류]: 그 줄 바로 아래(소분류들 뒤)에 이름 칸이 열린다.
+  // 지우기는 빨강 없이 한 번 묻기(UI-지우기빨강빼기). 다시 그려져 단추가 바뀌었으면 같은 이름의 새 ⋯에 붙인다.
+  const ask=(text,name)=>askConfirm(host.querySelector(`[data-le-menu="${CSS.escape(name)}"]`)||host,{text,ok:'지우기'});
+  // 큰 분류의 ⋯ → [+ 소분류]: 그 묶음 끝(소분류들 뒤)에 이름 칸이 열린다.
   function subForm(parent){
-    const limit=subcategoryNameLimit(parent);
-    return `<li class="dce-row dce-row-edit dce-row-sub" data-dce-sub-row="${esc(parent)}"><form class="dce-sub-form" data-enter-save data-dce-sub-form="${esc(parent)}"><label class="dce-label">‘${esc(parent)}’에 만들 소분류 이름<input type="text" class="dce-input" data-dce-sub-input maxlength="${Math.max(limit,1)}" value="${esc(subDraft)}" autocomplete="off" placeholder="예: 투쟁속보"></label><div class="dce-actions"><button type="button" class="secondary" data-dce-sub-cancel ${dis(busy)}>취소</button><button type="submit" class="primary" ${dis(busy)}>추가</button></div></form></li>`;
+    return leInlineHtml({label:`‘${parent}’에 만들 소분류 이름`,value:subDraft,limit:Math.max(subcategoryNameLimit(parent),1),sub:true,button:'추가',disabled:busy,formAttrs:{'data-dce-sub-form':parent},inputAttrs:{'data-dce-sub-input':true}});
   }
   function row(name){
-    const sub=isSubcategory(name),label=sub?categoryLabel(name):name,shown=sub?categoryLeaf(name):name,cls=sub?'dce-row dce-row-sub':'dce-row';
+    const sub=isSubcategory(name),label=sub?categoryLabel(name):name,shown=sub?categoryLeaf(name):name;
     const subs=sub?0:subcategoriesOf(name).length,count=sub?countOf(name):groupCountOf(name);
-    const addSub=sub?'':`<button type="button" class="secondary dce-add-sub" data-dce-add-sub="${esc(name)}" aria-label="${esc(name)}에 소분류 만들기" ${dis(busy)}>+ 소분류</button>`;
-    const meta=`자료 ${count}개${subs?` · 소분류 ${subs}개`:''}`;
-    if(name===LOCKED_CATEGORY)return `<li class="${cls}" data-dce-row="${esc(name)}"><span class="dce-name">${esc(name)}</span><span class="dce-meta">${meta} · 고정(이름을 바꾸거나 지울 수 없어요)</span></li>`;
+    const meta=subs?`${count} · 소분류 ${subs}`:String(count);
     if(editing===name){
-      const note=sub?CATEGORY_EDITOR_TEXT.renameNote(count):subs?CATEGORY_EDITOR_TEXT.groupRenameNote(count,subs):CATEGORY_EDITOR_TEXT.renameNote(count);
       const limit=sub?Math.max(subcategoryNameLimit(categoryParent(name)),1):CATEGORY_NAME_LIMIT;
-      return `<li class="${cls} dce-row-edit" data-dce-row="${esc(name)}"><form class="dce-rename-form" data-enter-save data-dce-rename-form="${esc(name)}"><label class="dce-label">‘${esc(label)}’의 새 이름<input type="text" class="dce-input" data-dce-rename-input maxlength="${limit}" value="${esc(renameDraft)}" autocomplete="off"></label><p class="dce-note">${esc(note)}</p><div class="dce-actions"><button type="button" class="secondary" data-dce-cancel ${dis(busy)}>취소</button><button type="submit" class="primary" ${dis(busy)}>저장</button></div></form></li>`;
+      return leInlineHtml({id:name,label:`‘${label}’의 새 이름`,value:renameDraft,limit,sub,disabled:busy,formAttrs:{'data-dce-rename-form':name},inputAttrs:{'data-dce-rename-input':true}});
     }
-    return `<li class="${cls}" data-dce-row="${esc(name)}"><span class="dce-name">${esc(shown)}</span><span class="dce-meta">${meta}</span><span class="dce-actions">${addSub}<button type="button" class="secondary" data-dce-rename="${esc(name)}" aria-label="${esc(label)} 이름 바꾸기" ${dis(busy)}>이름 바꾸기</button><button type="button" class="danger" data-dce-delete="${esc(name)}" aria-label="${esc(label)} 지우기" ${dis(busy)}>지우기</button></span></li>`;
+    return leRowHtml({id:name,label,shown,meta,sub,drag:!sub&&name!==LOCKED_CATEGORY,locked:name===LOCKED_CATEGORY,disabled:busy,rowAttrs:{'data-dce-row':name}});
   }
-  // 큰 분류마다 그 소분류가 바로 뒤에, 소분류 만들기 칸은 그 묶음 끝에.
+  // 큰 분류마다 그 소분류가 바로 뒤에, 소분류 만들기 칸은 그 묶음 끝에. '기타'는 맨 아래.
   function rows(){
-    const list=orderedDocumentCategories(),out=[];
-    list.forEach((name,index)=>{
-      out.push(row(name));
-      const next=list[index+1],groupEnds=!next||!isSubcategory(next)||categoryParent(next)!==categoryParent(name);
-      if(groupEnds&&addSubFor&&categoryParent(name)===addSubFor)out.push(subForm(addSubFor));
-    });
+    const tops=topDocumentCategories(),order=[...tops.filter(n=>n!==LOCKED_CATEGORY),...tops.filter(n=>n===LOCKED_CATEGORY)];
+    const shown=new Set(),out=[];
+    for(const top of order){
+      for(const name of [top,...subcategoriesOf(top)]){out.push(row(name));shown.add(name);}
+      if(addSubFor===top)out.push(subForm(top));
+    }
+    for(const name of orderedDocumentCategories())if(!shown.has(name))out.push(row(name));
     return out.join('');
   }
   function paint(){
-    if(loading){host.innerHTML='<section class="dce" aria-labelledby="dceTitle"><h3 id="dceTitle">분류 목록</h3>'+waitHtml({rows:3})+'</section>';return;}
+    if(loading){host.innerHTML='<section class="dce" aria-label="분류 목록">'+waitHtml({rows:3})+'</section>';return;}
     if(!documentCategoriesLoaded()){
-      host.innerHTML=`<section class="dce" aria-labelledby="dceTitle"><h3 id="dceTitle">분류 목록</h3><p class="dce-note" role="status">${esc(CATEGORY_EDITOR_TEXT.loadFailed)}</p><div class="dce-actions"><button type="button" class="secondary" data-dce-reload ${busy?'disabled':''}>다시 불러오기</button></div></section>`;
+      onCount(null);
+      host.innerHTML=`<section class="dce" aria-label="분류 목록"><p class="le-status" role="status">${esc(CATEGORY_EDITOR_TEXT.loadFailed)}</p><button type="button" class="le-add-btn" data-dce-reload ${busy?'disabled':''}>다시 불러오기</button></section>`;
       return;
     }
-    const list=documentCategories();
-    host.innerHTML=`<section class="dce" aria-labelledby="dceTitle"><h3 id="dceTitle">분류 목록 <span class="dce-count">${list.length}개</span></h3><p class="dce-note">${esc(CATEGORY_EDITOR_TEXT.help)}</p><ul class="dce-list">${rows()}</ul><form class="dce-add" data-dce-add data-enter-save><label class="dce-label" for="dceNewName">새 분류 이름</label><div class="dce-add-line"><input id="dceNewName" type="text" class="dce-input" maxlength="${CATEGORY_NAME_LIMIT}" placeholder="예: 홍보" value="${esc(addDraft)}" autocomplete="off" ${busy?'disabled':''}><button type="submit" class="primary" ${busy?'disabled':''}>추가</button></div></form><p class="dce-status${status.error?' error':''}" data-dce-status role="${status.error?'alert':'status'}">${esc(status.text)}</p></section>`;
+    const list=documentCategories();onCount(list.length);
+    host.innerHTML=`<section class="dce" aria-label="분류 목록">${leAddHtml({name:'새 분류 이름',value:addDraft,limit:CATEGORY_NAME_LIMIT,disabled:busy,inputId:'dceNewName',formAttrs:{'data-dce-add':true}})}<ul class="le-list dce-list" data-reorder-list="categories">${rows()}</ul><p class="le-status dce-status${status.error?' error':''}" data-dce-status role="${status.error?'alert':'status'}">${esc(status.text)}</p></section>`;
   }
   function focus(selector){queueMicrotask(()=>host.querySelector(selector)?.focus({preventScroll:true}));}
   // 결과를 모를 때: 다시 보내지 않고 목록과 자료를 다시 읽어 보여 준다.
@@ -116,14 +115,14 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
     busy=true;say(CATEGORY_EDITOR_TEXT.saving);paint();
     const result=await addDocumentCategory(name,{rt});
     if(result.ok){addSubFor='';subDraft='';}
-    await finish(result,{success:()=>`‘${categoryLabel(name)}’ 소분류를 추가했어요.`,focusAfter:`[data-dce-add-sub="${CSS.escape(parent)}"]`});
+    await finish(result,{success:()=>`‘${categoryLabel(name)}’ 소분류를 추가했어요.`,focusAfter:`[data-le-menu="${CSS.escape(parent)}"]`});
   }
   async function rename(form){
     if(busy)return;
     const from=form.dataset.dceRenameForm,input=form.querySelector('[data-dce-rename-input]'),typed=input.value.trim();
     const sub=isSubcategory(from),parent=sub?categoryParent(from):'',to=sub?subcategoryName(parent,typed):typed;
     renameDraft=input.value;
-    if(to===from){editing=null;say('');paint();focus(`[data-dce-rename="${CSS.escape(from)}"]`);return;}
+    if(to===from){editing=null;say('');paint();focus(`[data-le-rename="${CSS.escape(from)}"]`);return;}
     const problem=categoryNameProblem(typed,{except:from,parent});
     if(problem){say(problem,true);paint();focus('[data-dce-rename-input]');return;}
     busy=true;say(CATEGORY_EDITOR_TEXT.saving);paint();
@@ -133,7 +132,7 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
     // 소분류가 있는 큰 분류는 소분류 이름 앞부분·자료 값까지 한 번에 바꾸는 함수로(LIB-소분류). 나머지는 기존 함수 그대로.
     const group=!sub&&subcategoriesOf(from).length>0;
     const result=await (group?renameDocumentCategoryGroup:renameDocumentCategory)(from,to,stored,{rt});
-    await finish(result,{success:r=>`‘${categoryLabel(from)}’을(를) ‘${categoryLabel(to)}’(으)로 바꿨어요.${r.documents?` 자료 ${r.documents}개의 분류도 함께 바뀌었어요.`:''}`,focusAfter:`[data-dce-rename="${CSS.escape(to)}"]`});
+    await finish(result,{success:r=>`‘${categoryLabel(from)}’을(를) ‘${categoryLabel(to)}’(으)로 바꿨어요.${r.documents?` 자료 ${r.documents}개의 분류도 함께 바뀌었어요.`:''}`,focusAfter:`[data-le-rename="${CSS.escape(to)}"]`});
   }
   async function remove(name){
     if(busy)return;
@@ -147,7 +146,7 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
       // 소분류 지우기: 목록에서만 빼고 그 자료는 큰 분류로 남는다.
       busy=true;say(CATEGORY_EDITOR_TEXT.saving);paint();
       const result=await deleteDocumentSubcategory(name,{rt});
-      await finish(result,{success:r=>`‘${categoryLabel(name)}’ 소분류를 지웠어요.${r.documents?` 자료 ${r.documents}개는 ‘${categoryParent(name)}’에 그대로 있어요.`:''}`,focusAfter:`[data-dce-add-sub="${CSS.escape(categoryParent(name))}"]`});
+      await finish(result,{success:r=>`‘${categoryLabel(name)}’ 소분류를 지웠어요.${r.documents?` 자료 ${r.documents}개는 ‘${categoryParent(name)}’에 그대로 있어요.`:''}`,focusAfter:`[data-le-menu="${CSS.escape(categoryParent(name))}"]`});
       return;
     }
     const stored=storedValuesOf(name,docs,{group:subs>0});
@@ -160,13 +159,25 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
     if(!topDocumentCategories().includes(parent))return;
     editing=null;addSubFor=parent;subDraft='';say('');paint();focus('[data-dce-sub-input]');
   }
+  function startRename(name){editing=name;addSubFor='';renameDraft=isSubcategory(name)?categoryLeaf(name):name;say('');paint();focus('[data-dce-rename-input]');}
+  // ⠿ 끌기·키보드 위아래: 큰 분류 순서(= 자료실 분류 칩 순서)를 서버에 저장한다. '기타'는 늘 맨 끝.
+  const movable=()=>topDocumentCategories().filter(name=>name!==LOCKED_CATEGORY);
+  async function move(next,name){
+    if(busy)return;
+    if(next.every((x,i)=>x===movable()[i]))return;
+    busy=true;say(CATEGORY_EDITOR_TEXT.saving);paint();
+    const result=await reorderDocumentCategories(next,{rt});
+    await finish(result,{success:()=>'순서를 바꿨어요.',focusAfter:`[data-reorder-id="${CSS.escape(name)}"] [data-reorder-handle]`});
+  }
+  mountListEdit(host,{key:'dce',label:'분류 고치기',
+    items:name=>isSubcategory(name)?[{key:'rename',label:'이름 바꾸기'},{key:'delete',label:'지우기'}]:[{key:'sub',label:'+ 소분류'},{key:'rename',label:'이름 바꾸기'},{key:'delete',label:'지우기'}],
+    onAct:(name,act)=>{if(busy||!documentCategories().includes(name))return;if(act==='sub')startAddSub(name);else if(act==='rename')startRename(name);else if(act==='delete')void remove(name);},
+    onMove:(name,index)=>void move(leMove(movable(),name,index),name),
+    onStep:(name,dir)=>void move(leStep(movable(),name,dir),name),
+    canDrag:()=>!busy});
   host.addEventListener('click',event=>{
     const button=event.target.closest('button');if(!button||button.disabled)return;
-    if(button.dataset.dceAddSub!==undefined)startAddSub(button.dataset.dceAddSub);
-    else if(button.hasAttribute('data-dce-sub-cancel')){const parent=addSubFor;addSubFor='';subDraft='';say('');paint();focus(`[data-dce-add-sub="${CSS.escape(parent)}"]`);}
-    else if(button.dataset.dceRename!==undefined){editing=button.dataset.dceRename;addSubFor='';renameDraft=isSubcategory(editing)?categoryLeaf(editing):editing;say('');paint();focus('[data-dce-rename-input]');}
-    else if(button.dataset.dceDelete!==undefined)void remove(button.dataset.dceDelete);
-    else if(button.hasAttribute('data-dce-cancel')){const name=editing;editing=null;say('');paint();focus(`[data-dce-rename="${CSS.escape(name||'')}"]`);}
+    if(button.dataset.leRename!==undefined)startRename(button.dataset.leRename);
     else if(button.hasAttribute('data-dce-reload'))void reload();
   });
   host.addEventListener('input',event=>{
@@ -181,8 +192,8 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
     else if(event.target.matches('[data-dce-sub-form]'))void addSub(event.target);
   });
   host.addEventListener('keydown',event=>{
-    if(event.key==='Escape'&&addSubFor&&!editing&&!busy&&host.contains(event.target)){event.stopPropagation();const parent=addSubFor;addSubFor='';subDraft='';say('');paint();focus(`[data-dce-add-sub="${CSS.escape(parent)}"]`);return;}
-    if(event.key==='Escape'&&editing&&!busy&&host.contains(event.target)){event.stopPropagation();const name=editing;editing=null;say('');paint();focus(`[data-dce-rename="${CSS.escape(name)}"]`);}
+    if(event.key==='Escape'&&addSubFor&&!editing&&!busy&&host.contains(event.target)){event.stopPropagation();const parent=addSubFor;addSubFor='';subDraft='';say('');paint();focus(`[data-le-menu="${CSS.escape(parent)}"]`);return;}
+    if(event.key==='Escape'&&editing&&!busy&&host.contains(event.target)){event.stopPropagation();const name=editing;editing=null;say('');paint();focus(`[data-le-rename="${CSS.escape(name)}"]`);}
   });
   async function reload(){
     busy=true;loading=true;paint();

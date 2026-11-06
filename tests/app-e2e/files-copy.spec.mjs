@@ -18,7 +18,7 @@ async function intoDocs(page, width) {
   await openFiles(page, width);
   await treeGo(page, 'od', '');
   await row(page, 'od:OD!1').click();
-  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 문서함');
 }
 async function begin(page, width) {
   const { errors, server } = await start(page, width);
@@ -106,7 +106,7 @@ test('PC 1440: 고르기 막대 [복사] → 받을 곳 창 → 같은 이름 �
   await sheet(page).locator('.fx-ask').getByRole('button', { name: '그래도 하기' }).click();
   await expect.poll(() => edgeCalls(server, 'job_add').length).toBe(2);
   expect(edgeCalls(server, 'job_add')[1].body).toEqual({ action: 'job_add', confirm: true, kind: 'copy', to_source: 'od', to: 'OD!1', items: [{ source: 'od', id: 'OD!10', numbered: true }] });
-  await expect(root(page).locator('[data-fx-list] .fx-name').filter({ hasText: '가짜 2026 (2)' })).toBeVisible({ timeout: 15000 });
+  await expect(root(page).locator('[data-fx-list] :is(.fx-name, .ft-name)').filter({ hasText: '가짜 2026 (2)' })).toBeVisible({ timeout: 15000 });
   expect(errors).toEqual([]);
 });
 
@@ -183,14 +183,14 @@ test('폰 412: 꾹 눌러 고르기 → [복사] → 하단바 위 받을 곳 �
   expect(server.items.filter(i => i.parent_id === 'gdFolder1' && !i.trashed).map(i => i.name).sort()).toEqual(['가짜 결과 정리.pdf', '가짜 안내문.pdf', '가짜 영상.mp4', '가짜 예산표.xlsx'].sort());
   await root(page).locator('[data-fx-jobs] [data-fx-jobs-close]').click();
   // 새로고침해도 보던 폴더(주소 자리)에 그대로 있다.
-  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 문서함');
   // 뒤로가기 한 번 = 받을 곳 창 닫힘.
   await row(page, 'od:OD!13').dispatchEvent('contextmenu');
   await bar(page).locator('[data-fx-copy]').click();
   await expect(sheet(page)).toBeVisible();
   await page.goBack();
   await expect(sheet(page)).toBeHidden();
-  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 문서함');
   expect(errors).toEqual([]);
 });
 
@@ -201,7 +201,7 @@ test('폴드 884: [옮기기] → 받을 곳 창, 같은 이름이 둘이면 한
     fake({ source: 'od', item_id: 'OD!16', parent_id: 'OD!10', name: '가짜 안내문.pdf' }));
   await intoDocs(page, 884);
   await row(page, 'od:OD!10').click();
-  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 2026');
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 2026');
   for (const k of ['od:OD!14', 'od:OD!15', 'od:OD!16']) await row(page, k).click({ modifiers: ['Control'] });
   await bar(page).locator('[data-fx-cut]').click();
   await expect(sheet(page).locator('#fxDestTitle')).toHaveText('3개 옮길 곳');

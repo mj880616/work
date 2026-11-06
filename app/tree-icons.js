@@ -29,6 +29,8 @@ const PATHS = Object.freeze({
   note: `<path d="M6.4 12.2V3.4l6.4-1.4v8.6" ${S}/><circle cx="4.8" cy="12.2" r="1.7" fill="currentColor"/><circle cx="11.2" cy="10.6" r="1.7" fill="currentColor"/>`,
   pc: `<rect x="1.5" y="2.5" width="13" height="8.5" rx="1.2" ${S}/><path d="M5.5 13.5h5M8 11v2.5" ${S}/>`,
   phone: `<rect x="4" y="1.5" width="8" height="13" rx="1.6" ${S}/><circle cx="8" cy="12.2" r=".8" fill="currentColor"/>`,
+  // S51-28 '목록 고치기' 고정 줄(분류 '기타').
+  lock: `<rect x="3.4" y="7" width="9.2" height="7" rx="1.2" ${S}/><path d="M5.4 7V5a2.6 2.6 0 0 1 5.2 0v2" ${S}/>`,
 });
 export const ICON_NAMES = Object.freeze(Object.keys(PATHS));
 
