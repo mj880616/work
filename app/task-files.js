@@ -302,7 +302,7 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
 // buttons (data-fa-menu) for [열기] [내려받기]; held changes show a small tag and [되돌리기] / [취소].
 const ATT_ICON = '<svg class="gt-att-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M4 1.5h5l3 3v10H4z M9 1.5v3h3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
 const keptCount = (base, edits, added) => base.filter(f => edits.get(f.drive_file_id)?.kind !== 'remove').length + added.length;
-export function taskAttachHtml({base = [], edits = new Map(), added = [], editable = false, busy = false, taskId = ''} = {}) {
+export function taskAttachHtml({base = [], edits = new Map(), added = [], editable = false, busy = false, taskId = '', auto = false} = {}) {
   const btn = (label, attr, aria, off) => `<button type="button" class="ghost gt-att-btn" ${attr} aria-label="${esc(aria)}"${off ? ' disabled' : ''}>${label}</button>`;
   const rows = base.map(f => {
     const id = esc(f.drive_file_id), name = esc(f.file_name), e = edits.get(f.drive_file_id);
@@ -318,7 +318,7 @@ export function taskAttachHtml({base = [], edits = new Map(), added = [], editab
   });
   const fresh = added.map((f, i) => `<div class="gt-att-row is-new">${ATT_ICON}<span class="gt-att-name" title="${esc(f.name)}">${esc(f.name)}</span><small class="gt-att-tag">새 파일</small>${btn('취소', `data-gt-att-drop="${i}"`, `붙이기 취소: ${f.name}`, busy)}</div>`);
   const changed = edits.size > 0 || added.length > 0;
-  const more = editable ? `<div class="gt-att-more">${btn('파일 붙이기', 'data-gt-att-add', '첨부 파일 붙이기', busy || keptCount(base, edits, added) >= MAX_TASK_FILES)}<small class="gt-att-hint">${changed ? '저장하면 반영됩니다 · 원래 파일은 Drive에 남습니다' : `${MAX_TASK_FILES}개까지 · 파일당 100MB`}</small></div>` : '';
+  const more = editable ? `<div class="gt-att-more">${btn('파일 붙이기', 'data-gt-att-add', '첨부 파일 붙이기', busy || keptCount(base, edits, added) >= MAX_TASK_FILES)}<small class="gt-att-hint">${changed ? (auto ? '잠시 뒤 저장됩니다 · 원래 파일은 Drive에 남습니다' : '저장하면 반영됩니다 · 원래 파일은 Drive에 남습니다') : `${MAX_TASK_FILES}개까지 · 파일당 100MB`}</small></div>` : '';
   return rows.join('') + fresh.join('') + more;
 }
 
@@ -327,7 +327,8 @@ export function taskAttachHtml({base = [], edits = new Map(), added = [], editab
 // marks the row; drops elsewhere in the box add files. Nothing goes to the server here: the owner (google-tasks.js) reads plan()
 // at [저장] and sends the same attach / detach requests as ⋯ → 파일 붙이기. Closing the window (set() on the next open) forgets
 // the changes. Detaching never deletes the Drive file. editable:false (no link table yet) keeps only [열기] [내려받기].
-export function mountTaskAttach(host, {isBusy = () => false, onError = () => {}, onChange = () => {}} = {}) {
+// S51-13: autoSave() true = the window saves by itself (할 일 '목록 | 상세' pane), so the hint says the change is saved shortly.
+export function mountTaskAttach(host, {isBusy = () => false, onError = () => {}, onChange = () => {}, autoSave = () => false} = {}) {
   let base = [], editable = false, shown = false, edits = new Map(), added = [], swapFor = '', taskId = '';
   host.innerHTML = '<span class="gt-att-label">첨부</span><div class="gt-att-list" data-gt-att-list></div><input type="file" multiple hidden data-gt-att-add-input><input type="file" hidden data-gt-att-swap-input>';
   const list = host.querySelector('[data-gt-att-list]'), addInput = host.querySelector('[data-gt-att-add-input]'), swapInput = host.querySelector('[data-gt-att-swap-input]');
@@ -336,7 +337,7 @@ export function mountTaskAttach(host, {isBusy = () => false, onError = () => {},
   const changed = () => { onError(''); render(); onChange(); };
   function render() {
     host.classList.toggle('hidden', !shown || (!editable && !base.length));
-    list.innerHTML = taskAttachHtml({base, edits, added, editable, busy: isBusy(), taskId});
+    list.innerHTML = taskAttachHtml({base, edits, added, editable, busy: isBusy(), taskId, auto: !!autoSave()});
   }
   function addFiles(files) {
     if (!editable || isBusy() || !files.length) return;

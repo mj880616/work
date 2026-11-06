@@ -104,7 +104,32 @@ async function openTasks(page,width,tasks){
   return {calls,hold(){let open;release=new Promise(r=>{open=r});return ()=>{release=null;open()}}};
 }
 
-for(const width of [1280,390])test.describe(`할 일 수정 ${width}px`,()=>{
+// S51-13 TODO-폴드목록상세: PC·폴드 펼침 오른쪽 칸은 [저장] 없이 바꾸면 바로 저장한다(제목은 엔터나 칸 떠나기, 메모는 입력이 멈추면).
+test('PC 오른쪽 수정 칸: 제목 엔터 = 바로 저장(저장 중 엔터는 다시 저장하지 않음), 메모 엔터 = 줄바꿈, 메모는 입력이 멈추면 저장',async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const tasks=[task('a','2026-10-08',{notes:'메모'})];
+  const {calls,hold}=await openTasks(page,1280,tasks);
+  await page.locator('[data-gt-edit="a"]').click();
+  const editor=page.locator('#gtTaskModal');await expect(editor).toBeVisible();
+  expect(await editor.evaluate(e=>e.closest('#gtDetailPane')!==null)).toBe(true);
+  const title=page.locator('#gtEditTitle'),notes=page.locator('#gtEditNotes');
+  await expect(page.locator('#gtSaveBtn')).toBeHidden();await expect(page.locator('#gtToggleBtn')).toBeEnabled();
+  const done=hold();
+  await title.fill('고친 할 일');await title.press('Enter');
+  await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(1);
+  await title.press('Enter');
+  done();
+  await expect(page.locator('#gtEditStatus')).toHaveText('저장했어요.');
+  expect(calls.filter(c=>c.action==='update').length).toBe(1);
+  expect(calls.find(c=>c.action==='update').body).toMatchObject({task_id:'a',title:'고친 할 일'});
+  await expect(editor).toBeVisible();
+  await notes.fill('첫 줄');await notes.press('Enter');await notes.pressSequentially('둘째 줄');
+  await expect(notes).toHaveValue('첫 줄\n둘째 줄');
+  await expect.poll(()=>calls.filter(c=>c.action==='update').at(-1)?.body.notes).toBe('첫 줄\n둘째 줄');
+  expect(errors).toEqual([]);
+});
+
+for(const width of [390])test.describe(`할 일 수정 ${width}px`,()=>{
   const phone=width<761;
   test.use({hasTouch:phone});
   test(`${phone?'폰 수정 창':'PC 오른쪽 수정 칸'}: 제목 엔터 = 저장, 메모 엔터 = 줄바꿈${phone?'':'·Ctrl+엔터 = 저장'}, 저장 중 엔터는 다시 저장하지 않음`,async({page})=>{

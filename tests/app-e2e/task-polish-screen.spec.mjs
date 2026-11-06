@@ -39,34 +39,26 @@ test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·기한
   await page.locator('[data-gt-edit="a"]').click();
   const quick=page.locator('#gtDetailPane .gt-due-quick');
   await expect(quick.locator('button')).toHaveText(['오늘','내일','모레','다음주','기한 없음']);
-  // [↵ 저장](UI-버튼기준 ④, UI-저장자리로 아래 줄 오른쪽 36px 주 버튼)이고 [오늘] 맨 앞 줄과 함께 한 줄에 들어간다. 글칸에 초점이 있어야 ↵ 안내가 붙는다.
-  await page.locator('#gtEditTitle').focus();
-  const save=await page.locator('#gtSaveBtn').boundingBox();
-  expect(save.height).toBeLessThanOrEqual(37);
+  // S51-13: 오른쪽 칸에는 [저장]이 없다(바꾸면 바로 저장). 빠른 버튼 줄은 기한 칸 오른쪽 한 줄에 들어간다.
+  await expect(page.locator('#gtSaveBtn')).toBeHidden();
   expect(await quick.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
   if(process.env.SHOT_DIR)await page.screenshot({path:`${process.env.SHOT_DIR}/task-today-after-1280.png`});
   const field=await page.locator('#gtEditDue').boundingBox(),first=await quick.locator('button').first().boundingBox();
   expect(field.width).toBeLessThan(200);expect(first.x).toBeGreaterThan(field.x+field.width-1);
   expect(first.height).toBeLessThanOrEqual(34);
-  // S49-6 TODO-기한버튼닫기: 빠른 버튼으로 저장되면 칸이 닫히고 고른 줄 표시가 풀리며 '되돌리기' 알림이 뜬다 → 다음 버튼은 줄을 다시 눌러 연다.
-  const reopen=async()=>{
-    // 기한이 바뀐 줄은 다른 묶음(접힌 곳일 수 있음)으로 옮겨 가므로 묶음을 펼치고 누른다.
-    await page.locator('[data-gt-edit="a"]').evaluate(el=>{for(let p=el.closest('details');p;p=p.parentElement?.closest('details'))p.open=true});
-    await page.locator('[data-gt-edit="a"]').click();
-    await expect(page.locator('#gtSaveBtn')).toBeEnabled(); // 연결 정보 읽기가 끝난 뒤에만 빠른 버튼을 받는다.
-  };
+  await expect(page.locator('#gtToggleBtn')).toBeEnabled(); // 연결 정보 읽기가 끝난 뒤에만 빠른 버튼을 받는다.
+  await expect(quick.getByRole('button',{name:'오늘',exact:true})).toHaveAttribute('aria-pressed','true');
+  // S51-13 TODO-폴드목록상세(S49-6 칸 닫기를 대체): 빠른 버튼은 바로 저장하고 칸은 열린 채, 누른 버튼이 고른 표시가 된다.
   for(const [label,due] of [['내일','2026-10-09'],['모레','2026-10-10'],['오늘','2026-10-08'],['기한 없음',null]]){
-    await expect(page.locator('#gtSaveBtn')).toBeEnabled();
     const before=calls.filter(c=>c.action==='update').length;
     await quick.getByRole('button',{name:label,exact:true}).click();
     await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(before+1);
     expect(calls.filter(c=>c.action==='update').at(-1).body.due).toBe(due);
-    await expect(page.locator('#gtTaskModal')).toBeHidden();
-    await expect(page.locator('#gtTaskBody .gt-row.is-selected')).toHaveCount(0);
-    await reopen();
+    await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditStatus')).toHaveText('저장했어요.');
+    await expect(quick.getByRole('button',{name:label,exact:true})).toHaveAttribute('aria-pressed','true');
+    await expect(page.locator('#gtTaskBody .gt-row.is-selected')).toHaveCount(1);
   }
   // S46-30: [다음주] → 다음 주 월~일 작은 목록(토·일 옅은 색). 목록 밖을 누르면 저장 없이 닫히고, 고르면 그날로 바로 저장.
-  await expect(page.locator('#gtSaveBtn')).toBeEnabled();
   const before=calls.filter(c=>c.action==='update').length;
   await quick.getByRole('button',{name:'다음주',exact:true}).click();
   const week=page.locator('#taskWeekPick');
@@ -85,8 +77,8 @@ test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·기한
   await expect(week).toBeHidden();
   await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(before+1);
   expect(calls.filter(c=>c.action==='update').at(-1).body.due).toBe('2026-10-14');
-  await expect(page.locator('#gtTaskModal')).toBeHidden();
-  await expect(page.locator('[data-undo-notice]')).toContainText('되돌리기');
+  await expect(page.locator('#gtTaskModal')).toBeVisible();
+  await expect(quick.getByRole('button',{name:'다음주',exact:true})).toHaveAttribute('aria-pressed','true');
 });
 
 // TASK-날짜칸겹침(2026-10-29): 폰 수정 창에도 빠른 기한 버튼 줄이 보이고, 기한 칸 글자는 앱이 그린 한 가지('10.8 (목)')뿐이다.

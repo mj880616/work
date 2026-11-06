@@ -1276,7 +1276,7 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
    프로젝트 상세 [기록]은 옆 입력칸과 한 높이(PRJ-화면다듬기)라 그대로 둔다. */
 /* ④ PC 할 일 수정 칸(요청함 08:43): 기한 날짜 칸과 [내일][모레][다음주][기한 없음]을 같은 줄·같은 높이(36px)로, 윗선·아랫선을 맞춘다.
    제목 줄 [↵ 저장]은 작은 버튼(32px). */
-@media(min-width:761px){
+@media(min-width:600px){
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-row{ align-items:flex-end; margin:var(--kptu-space-3) 0; }
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-row>label{ margin:0; }
   #gtDetailPane #gtTaskModal.gt-docked #gtEditDue{ box-sizing:border-box; height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:0; padding-bottom:0; }

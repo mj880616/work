@@ -32,7 +32,8 @@ for (const width of [412, 1280]) {
     await expect(page.locator('#gtEditTitle')).toHaveValue('오늘 항목');
     await expect(page.locator('#gtSaveBtn')).toBeEnabled();
     await page.locator('#gtEditTitle').fill('바꾼 오늘 항목');
-    await page.locator('#gtSaveBtn').click();
+    // 폰 창은 [저장](엔터 = 저장), PC 오른쪽 칸은 바꾸면 바로 저장(S51-13, 제목은 엔터나 칸 떠나기)이라 같은 엔터로 저장한다.
+    await page.locator('#gtEditTitle').press('Enter');
     // 폰은 창이 닫히고, PC 할 일 화면은 오른쪽 칸에 붙은 편집기(gt-docked)가 그 할 일을 계속 보인다.
     if (width < 761) await expect(page.locator('#gtTaskModal')).toBeHidden();
     else await expect(page.locator('#gtEditTitle')).toHaveValue('바꾼 오늘 항목');

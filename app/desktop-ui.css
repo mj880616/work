@@ -175,3 +175,8 @@
   .kptu-follow-pane{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:calc(100vh - var(--follow-top,12px) - 12px);max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto;overscroll-behavior:contain}
   .kptu-follow-pane .modal-action-footer{bottom:0}
 }
+/* S51-13 TODO-폴드목록상세: 폴드 펼침(600~760px)에서 follow-pane.js가 narrow로 붙인 칸도 같은 모양(최대 높이는 아래 떠 있는 줄만큼 뺀 값, JS). */
+@media (min-width:600px) and (max-width:760px){
+  .kptu-follow-pane.kptu-follow-narrow{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto;overscroll-behavior:contain}
+  .kptu-follow-pane.kptu-follow-narrow .modal-action-footer{bottom:0}
+}
