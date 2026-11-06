@@ -153,8 +153,10 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   for (const [name, src] of [['files.js', js], ['files-model.mjs', model]]) assert.doesNotMatch(src, deviceStores, name);
   // 읽기: 색인 읽기 함수 3개 + Edge 읽기 동작. 쓰기(S48-45): Edge write()로 다섯 가지만(confirm:true를 붙임). 표에 직접 쓰지 않는다.
   assert.deepEqual([...new Set([...js.matchAll(/rpc\('(\w+)'/g)].map(m => m[1]))].sort(), ['app_cloud_find_in', 'app_cloud_list', 'app_cloud_trail']);
-  assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['folder', 'job_add', 'job_list', 'job_pause', 'media', 'open-url', 'preview', 'status', 'sync', 'thumb',
+  // S51-20 ③: 같은 저장소 옮기기 알림의 [되돌리기]는 사람이 누른 것만 같은 move(confirm:true)로 원래 폴더에 보낸다.
+  assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['folder', 'job_add', 'job_list', 'job_pause', 'media', 'move', 'open-url', 'preview', 'status', 'sync', 'thumb',
     'upload_done', 'upload_open', 'upload_progress', 'upload_resume']);
+  assert.match(js, /body: \{action: 'move', source: dest\.source, ids: rows\.map\(r => r\.item_id\), to: parent \|\| null, confirm: true\}/);
   // 올리기(2-④): 네 동작 모두 confirm:true, 화면을 숨기거나 닫을 때 멈춤(job_pause)은 keepalive 한 번.
   for (const a of ['upload_open', 'upload_resume', 'upload_progress', 'upload_done']) assert.match(js, new RegExp(`action: '${a}', confirm: true`), a);
   assert.match(js, /keepalive: true[^]*action: 'job_pause', confirm: true, ids:/);
