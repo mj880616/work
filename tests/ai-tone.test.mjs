@@ -80,8 +80,9 @@ test('AI 요약 실패 문구 검사 목록: 재료 없음 안내 문장은 잡�
 });
 
 // 새 AI 지시문이 생기면 아래 목록에 '적용' 또는 '제외(이유)'로 올려야 한다. 말투를 빠뜨린 채 새 요약이 생기는 일을 막는다.
-const APPLIED = new Set(['library-files/record-line.ts', 'collector-feed/telegram.ts', 'collector-feed/family.ts', 'ai-assist/org-people-brief.ts', 'ai-assist/ledger-auto.ts', 'ai-assist/ledger-candidates.ts', 'ai-assist/ledger-fix.ts', 'ai-assist/journal-draft.ts', 'ai-assist/journal-memorable.ts', 'ai-assist/next-week-sheet.ts', 'ai-assist/pre-meeting-sheet.ts', 'ai-assist/web2-ask.ts', 'meeting-ai-draft/index.ts', 'outside-feed/handler.ts', 'ai-assist/now-detail.ts']);
+const APPLIED = new Set(['library-files/record-line.ts', 'collector-feed/telegram.ts', 'collector-feed/family.ts', 'ai-assist/org-people-brief.ts', 'ai-assist/ledger-auto.ts', 'ai-assist/ledger-candidates.ts', 'ai-assist/ledger-fix.ts', 'ai-assist/journal-draft.ts', 'ai-assist/journal-memorable.ts', 'ai-assist/next-week-sheet.ts', 'ai-assist/pre-meeting-sheet.ts', 'ai-assist/web2-ask.ts', 'meeting-ai-draft/index.ts', 'outside-feed/handler.ts', '_shared/now-detail-build.ts']);
 const EXCLUDED = new Map([
+  ['ai-assist/now-detail.ts', '관심 주제 후보 지시만 남음(30자 쟁점 이름과 근거 한 줄, 요약 문장 아님). 글 상세 요약·시사점 지시는 _shared/now-detail-build.ts(적용, NEWS-전면개편 P3b)'],
   ['collector-feed/handler.ts', '부르기만 한다. 텔레그램 지시문은 telegram.ts, 가족 잊지 말기 지시문은 family.ts(둘 다 적용)에 있다'],
   ['ai-assist/handler.ts', '연결 요약(주간보고 업무보고형)·챙길 것·겹침 판정이 한 파일에 있다. 연결 요약은 주간보고 문체라 제외'],
   ['ai-assist/org-status-rows.ts', '담당조직 현황 표 줄(주간보고 투쟁 사업장 칸에 그대로 들어가는 보고서 명사형 끝맺음 \'승인\'·\'개최\', DESK-전체현황표 ⑨ 11/03 명진 결정 — \'~함\' 금지)'],

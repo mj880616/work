@@ -314,6 +314,8 @@ pg_cron (DB 안 시계, postgres 역할로 실행)
 | P3b | `_shared/now-detail-build.ts` 옮기기(동작 같음, 기존 시험 통과) | ★`ai-assist` 재배포★ |
 | P3c | 두 수집 함수 `details` 일 + 상한·순서 + 사용량 기록 + `drive-summary` 합산 | ★Edge 배포★ 셋 차례로 |
 
+- **결과(S51-11 P3b, PR 코드만 — 배포 전)**: `_shared/now-detail-build.ts`(순수 함수 + 주입받는 `rest`·`rpc`·fetch·시각·로그, 서버 열쇠·환경 변수·쓰기 없음)에 글 읽기·재료 모으기·외국 원문 한 번 읽기·'함께 볼 것' 후보·AI 지시·답 모양·요청 몸통(`store:false`)·답 거르기·`app_now_details` 줄 모양을 옮겼다. `ai-assist/now-detail.ts`는 순서·하루 한도·AI 부르기(한도·사용량)·서버 열쇠 저장(`svc()` 한 곳)·관심 주제 후보만 남기고 옮긴 이름은 그대로 다시 내보낸다. 입력은 글 id + 작업공간(+ 선택 `feedText`: P3c 수집 함수가 방금 저장한 블록 글자). 재료는 `app_feed_bodies`의 `ok`·`lead` 블록 글자(글자 블록만, 사진·캡션 제외)를 먼저 쓰고(그러면 문장 표·외국 원문 쪽을 다시 읽지 않음), 줄이 없거나 `image_only`·`failed`·표 읽기 실패면 예전 방식. `rpc`가 없으면(예약 실행) 내 기록·원장 후보 찾기는 건너뛴다. 분류 `topic`은 넣지 않았다(P3c). 시험 `tests/security/now-detail-build.test.mjs` + 기존 `ai-assist-now-detail` 시험에 블록 재료 4개.
+
 ## 6. P4 화면 (시안 그대로)
 
 ### 6.1 목록
