@@ -3,7 +3,7 @@ import {sendSignal, setMark} from './now-marks.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
 import {viewPrefs} from './view-prefs.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason, bodyView, legacyBody, NEWS_FONT_STEPS, keepNewsFont} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont} from './now-model.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
 // - 위에서 아래: 꼬리 줄(매체·분류·날짜·글쓴이) → 제목 → [요약] → [시사점](주요 문장·나와의 연관은 이 칸 안 접기) → [원문 전체]
@@ -11,8 +11,9 @@ import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit
 // - 누르면 원문 전체가 바로: 저장 원문(app_feed_bodies 블록 — 문단·소제목·인용·사진·캡션)을 사용자 로그인으로 읽는다(작업공간 소유자 RLS).
 //   동시에 요약·시사점 만들기를 시작한다(ai-assist kind now_detail — 서버가 저장 원문을 재료로 먼저 씀). 기다림 표시는 요약·시사점 칸에만,
 //   다 되면 그 칸만 채운다(원문 칸은 다시 그리지 않음). 이미 만든 것(app_now_details)은 서버가 바로 돌려준다. 화면은 글 id만 보낸다.
-// - 원문이 없는 글(state failed·lead·image_only): 있는 만큼 + 까닭 한 줄 + [원래 사이트 ↗]. 저장 원문 줄이 아예 없는 옛 글만
-//   뉴스는 '기사 먼저 읽기'(news-feed open, 하루 한도는 서버) 뒤 다시 읽고, 그래도 없으면 예전 저장 글자(사회운동 문장·뉴스 body)를 문단으로.
+// - 원문이 없는 글(state failed·lead·image_only): 있는 만큼 + 까닭 한 줄 + [원래 사이트 ↗]. 뉴스 기사 중 저장 원문 줄이 아예 없는 옛 글과
+//   잠깐의 오류로 못 읽은 줄(state failed + 늦은 답·사이트 오류, now-model.mjs reopenBody)만 '기사 먼저 읽기'(news-feed open, 하루 한도는 서버)
+//   뒤 다시 읽고(S51-17 P5, 설계 7.1), 그래도 없으면 예전 저장 글자(사회운동 문장·뉴스 body)를 문단으로. 막힌 사이트·없는 글은 다시 읽지 않는다.
 // - 사진: https 주소만, referrerpolicy="no-referrer"·loading="lazy", 글을 열었을 때만 그린다. 안 뜨면 '사진 ↗' 링크.
 // - 아래 작은 단추 줄: 사회운동 글은 app_outside_marks(글마다 한 줄), 뉴스는 기존 app_news_items 칸(starred_at·hidden_at). 메모는 노트
 //   (app_notes, metadata.outside_post_id|news_item_id). 누를 때마다 환류 기록 한 줄(app_now_signals). [원래 사이트 ↗] 열기도 기록한다.
@@ -175,14 +176,15 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   }
 
   // ---------- 열기 ----------
-  // 원문: 저장 원문 → (뉴스 옛 글이면 기사 먼저 읽기 뒤 다시) → 예전 저장 글자. 답: {hadRow, pre:{ok,why}}.
+  // 원문: 저장 원문 → (뉴스 기사에 저장 원문 줄이 없거나 잠깐의 오류로 못 읽은 줄이면 기사 먼저 읽기 뒤 다시) → 예전 저장 글자. 답: {hadRow, pre:{ok,why}}.
   async function loadBody(item, my) {
     const key = itemKey(item);
     // 저장 원문 읽기가 실패하면 줄이 없는 것과 같은 길로(예전 저장 글자). 그것도 못 읽으면 [다시].
     let row = null;
     try { row = await readFeedBody(item); } catch { row = null; }
     if (my !== seq) return {stale: true};
-    if (row) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); return {hadRow: true}; }
+    // 저장 원문 줄이 있으면 그것을 그린다. 뉴스 기사에서 그 줄이 잠깐의 오류(state failed — 늦은 답·사이트 오류)면 아래 '기사 먼저 읽기'로 한 번 다시 읽는다.
+    if (row && !(item.type === 'news' && reopenBody(row))) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); return {hadRow: true}; }
     let pre = {ok: true};
     if (item.type === 'news') {
       pre = await readFirst(item, my).catch(() => ({ok: true}));

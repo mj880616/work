@@ -136,6 +136,9 @@ export function bodyView(row) {
   if (row.state === 'image_only') return {state: 'image_only', blocks, reason: '그림·첨부만 있는 글'};
   return {state: 'failed', blocks: [], reason: why || '본문을 읽지 못함'};
 }
+// 저장 원문 줄이 잠깐의 오류(늦은 답·사이트 오류)로 실패한 뉴스 기사만 누를 때 한 번 다시 읽는다(S51-17 P5, 설계 7.1). 막힘·없는 글·유료는 다시 읽지 않는다.
+const REOPEN_REASONS = new Set(['timeout', 'http_5xx']);
+export const reopenBody = row => row?.state === 'failed' && REOPEN_REASONS.has(row?.reason);
 // 저장 원문이 아예 없는 옛 글: 예전 저장 글자(사회운동 문장·뉴스 body)를 문단 블록으로.
 export function legacyBody(text, {lead = false} = {}) {
   const blocks = String(text ?? '').split(/\n+/).map(t => t.trim()).filter(Boolean).slice(0, BLOCK_MAX).map(text => ({t: 'p', text}));

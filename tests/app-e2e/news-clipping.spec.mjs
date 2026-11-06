@@ -126,7 +126,7 @@ test('Now [사회운동] ⋯ [지금 채우기]: 켠 단체만 read_now로 하�
   test.setTimeout(60000);
   const { errors, server } = await start(page, 1440);
   server.sources.set('kctu', { source_key: 'kctu', enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null });
-  await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
+  await page.locator('#appView>.app-nav').getByRole('button', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot [data-os-more]').click();
   await page.locator('#osMenu').getByRole('button', { name: '지금 채우기' }).click();

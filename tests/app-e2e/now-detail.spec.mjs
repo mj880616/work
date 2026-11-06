@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S48-27 OUTSIDE-글상세·관심환류 ③④(docs/design/outside-statements.md 12절, 요청함 11/01 23:12, 명진 결정 23:14·23:16):
-// 메뉴 'Now' 하나(이름 바꾸기는 P5) + 탭 [전체] [사회운동] [언론] [보관](S51-8, 마지막 탭 서버 기억 news_tab), 글 줄 전체 누름 → 상세
+// 메뉴 'News' 하나(S51-17 P5 이름 바꿈) + 탭 [전체] [사회운동] [언론] [보관](S51-8, 마지막 탭 서버 기억 news_tab), 글 줄 전체 누름 → 상세
 // (꼬리 줄·요약·시사점(주요 문장·나와의 연관 접기)·원문 전체·함께 볼 것(접기) + [☆ 별표] [보관] [메모] [관심 없음] … [원래 사이트 ↗], S51-14 P4c),
 // 폰은 상세 전체 화면(뒤로가기 = 목록), PC는 목록 | 상세 두 칸. 누른 것은 환류 기록(app_now_signals)으로, 관심 주제 후보 → [ㅇ 확정] → 목록 작은 표시.
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 글·주제는 모두 가상.
@@ -79,8 +80,8 @@ async function start(page, width) {
 async function openNow(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: 'Now' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
 }
 const root = page => page.locator('#outsideRoot');
@@ -92,7 +93,7 @@ for (const width of [412, 1280]) {
     test.setTimeout(90000);
     const { errors, server, prefs } = await start(page, width);
     await openNow(page, width);
-    // 메뉴 'Now' 하나(뉴스 클리핑 칸 없음), 탭 넷, 처음은 [전체] → [사회운동]으로.
+    // 메뉴 'News' 하나(뉴스 클리핑 칸 없음), 탭 넷, 처음은 [전체] → [사회운동]으로.
     await expect(page.locator('#osTitle')).toHaveText('News');
     await expect(page.locator('.nav-btn[data-view="news"], #mobileMenu [data-view="news"]')).toHaveCount(0);
     await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '보관']);
@@ -179,7 +180,7 @@ for (const width of [412, 1280]) {
       await page.goBack();
       await expect(root(page).locator('#nowMain')).toBeVisible();
       await expect(detail(page)).toBeHidden();
-      await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
+      await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('news');
     }
 
     // 관심 주제 후보 → [ㅇ 확정](state·decided_at·updated_at만 고침) → 목록 줄에 작은 표시.
@@ -215,15 +216,36 @@ for (const width of [412, 1280]) {
   });
 }
 
-test('옛 주소 ?view=news는 News [언론] 탭으로', async ({ page }) => {
+// S51-17 NEWS P5(설계 7.2·7.3): 주소는 ?view=news가 정식, 옛 ?view=outside·?view=now도 같은 화면을 연다. 주소는 탭을 정하지 않고(마지막 탭),
+// 옛 저장 값 now_tab은 news_tab이 없을 때 한 번 바꿔 옮겨 적는다(옛 값은 지우지 않음).
+for (const query of ['?view=news', '?view=outside', '?view=now']) {
+  test(`주소 ${query}는 News를 연다`, async ({ page }) => {
+    test.setTimeout(60000);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await openHome(page, { query });
+    await nowServer(page);
+    await expect(page.locator('#outsideView')).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('#osTitle')).toHaveText('News');
+    await expect(page.locator('#appView>.app-nav').getByRole('button', { name: 'News', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(root(page).getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
+    if (query === '?view=now') await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('news');
+    expect(errors).toEqual([]);
+  });
+}
+
+test('옛 저장 값 now_tab=news는 [언론]으로 한 번 옮겨 적고 옛 값은 그대로', async ({ page }) => {
   test.setTimeout(60000);
   await page.setViewportSize({ width: 1280, height: 900 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  await openHome(page, { query: '?view=news' });
+  await installViewPrefsServer(page, { now_tab: 'news' });
+  const { prefs } = await openHome(page, { query: '?view=news' });
   await nowServer(page);
   await expect(page.locator('#outsideView')).toBeVisible({ timeout: 20000 });
   await expect(root(page).getByRole('tab', { name: '언론' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('#nowPanelNews #newsRoot')).toBeVisible();
+  await expect.poll(() => prefs.value?.news_tab).toBe('media');
+  expect(prefs.value?.now_tab).toBe('news');
   expect(errors).toEqual([]);
 });

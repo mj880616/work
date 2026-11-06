@@ -119,14 +119,14 @@ export async function start(page, width) {
   const server = await newsServer(page);
   return { errors, server };
 }
-// S48-27 → S51-8: 뉴스 클리핑은 News 메뉴의 [언론] 탭(라우터 화면 이름 outside, 메뉴 글자는 P5까지 'Now').
+// S48-27 → S51-8: 뉴스 클리핑은 News 메뉴의 [언론] 탭(라우터 화면 이름 outside, S51-17 P5부터 메뉴 글자 'News'·주소 ?view=news).
 export async function openNews(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: 'Now' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot [data-os-tab="media"]').click();
   await expect(page.locator('#nowPanelNews')).toBeVisible();
-  await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
+  await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('news');
 }

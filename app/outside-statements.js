@@ -17,7 +17,7 @@ import {createNowSaved} from './now-saved.js';
 import {createNowInterests} from './now-interests.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {readOutsideMarks} from './now-marks.js';
-// OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절): #outsideView의 유일한 그리기 주인(News 메뉴 껍데기 — 메뉴 이름·주소 'Now'→'News'는 P5).
+// OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절): #outsideView의 유일한 그리기 주인(News 메뉴 껍데기 — S51-17 P5에서 메뉴 이름 'News'·주소 ?view=news).
 // S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.1·6.3·6.4절, 시안 docs/design/mockups/news-overhaul.html ①·③):
 // - 탭 [전체][사회운동][언론][보관](now-model.mjs NOW_TABS). 폰은 아래 떠 있는 탭 줄, 폴드 펼침(761~1199px)은 오른쪽 아래, PC(1200px~)는 위(명진 11/06 탭 자리 규칙).
 //   좌우 밀기 = 탭 이동(글 줄 위 밀기는 숨기기·보관이 갖는다). 고른 탭은 서버 view_prefs.news_tab. news_tab이 없으면 옛 now_tab을 바꿔 한 번 옮긴다(옛 값은 지우지 않음).
@@ -538,10 +538,10 @@ function restorePlaced() {
 function enter() {
   resetIfOwnerChanged();
   restorePlaced();
-  // 처음 들어올 때 탭: 노트 [기사로 가기]·옛 ?view=news 주소면 [언론], 아니면 서버에 기억한 마지막 탭(news_tab, 없으면 옛 now_tab을 옮김, 둘 다 없으면 전체).
-  // 알림 줄 [보기]는 [사회운동](requestNewsTab).
-  const entry = window.KPTURouter?.takeEntry?.('outside'), asked = takeNewsTab();
-  if (hasNewsItem() || entry?.tab === 'news') { state.tab = ''; setTab('media', {save: false}); }
+  // 처음 들어올 때 탭: 노트 [기사로 가기]면 [언론], 아니면 서버에 기억한 마지막 탭(news_tab, 없으면 옛 now_tab을 옮김, 둘 다 없으면 전체).
+  // 주소 ?view=news(옛 ?view=outside·?view=now 포함, S51-17 P5)는 탭을 정하지 않는다. 알림 줄 [보기]는 [사회운동](requestNewsTab).
+  const asked = takeNewsTab();
+  if (hasNewsItem()) { state.tab = ''; setTab('media', {save: false}); }
   else if (asked) setTab(asked, {save: false});
   else if (!state.tabSet) {
     restoreTab();

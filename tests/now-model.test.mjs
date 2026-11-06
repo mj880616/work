@@ -170,3 +170,12 @@ test('저장 원문: 블록은 글자·https 사진만, 상태마다 까닭 한 
   assert.equal(keepNewsFont('l'), 'l');
   for (const v of [undefined, '', 'xl', null]) assert.equal(keepNewsFont(v), 'm');
 });
+
+test('S51-17 P5: 잠깐의 오류(늦은 답·사이트 오류)로 실패한 저장 원문만 누를 때 다시 읽는다(설계 7.1)', async () => {
+  const {reopenBody} = await import('../app/now-model.mjs');
+  assert.equal(reopenBody({state: 'failed', reason: 'timeout'}), true);
+  assert.equal(reopenBody({state: 'failed', reason: 'http_5xx'}), true);
+  for (const reason of ['robots', 'bot_check', 'paywall', 'http_4xx', 'no_body', 'off_host', 'relay', 'too_big', null]) assert.equal(reopenBody({state: 'failed', reason}), false, String(reason));
+  for (const state of ['ok', 'lead', 'image_only']) assert.equal(reopenBody({state, reason: 'timeout'}), false, state);
+  assert.equal(reopenBody(null), false);
+});
