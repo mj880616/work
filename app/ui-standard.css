@@ -1720,7 +1720,7 @@ button.ds-chip{ position:relative; box-sizing:border-box; display:inline-flex; a
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); background:var(--kptu-surface); box-shadow:none;
   color:var(--kptu-ink); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular,400); line-height:1; white-space:nowrap; cursor:pointer; }
 button.ds-chip:is([aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-select-ink); background:var(--ds-select-bg); border-color:var(--ds-select-line); }
-.ds-seg{ display:inline-flex; align-items:stretch; flex:none; box-sizing:border-box; height:var(--ds-compact-height);
+.ds-seg{ display:inline-flex; align-items:stretch; flex:none; box-sizing:border-box; width:max-content; max-width:100%; height:var(--ds-compact-height);
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); }
 .ds-seg button.ds-seg-btn{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:var(--ds-chip-row-gap);
   height:auto; min-height:0; margin:0; padding:0 var(--ds-compact-pad-x); border:0; border-radius:0; background:transparent; box-shadow:none;
