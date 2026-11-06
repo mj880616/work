@@ -125,8 +125,10 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'recent_folded']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
+// S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
+export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
 const FOLDER_RE = /^(all|none|f:[^\p{Cc}]{1,20})$/u;
@@ -158,6 +160,7 @@ export function validValue(key, value) {
     case 'now_tab': return NOW_TABS.includes(value);
     case 'news_tab': return NEWS_TABS.includes(value);
     case 'news_font': return NEWS_FONTS.includes(value);
+    case 'recent_folded': return Array.isArray(value) && value.length <= RECENT_FOLD_SCREENS.length + 1 && value.every(v => RECENT_FOLD_SCREENS.includes(v));
     case 'org_order': return orgOrderOk(value);
     case 'report_calendar': return reportCalendarOk(value);
     case 'note_boards': return Array.isArray(value) && value.length <= NOTE_BOARDS_MAX && value.every(b => !!b && typeof b === 'object' && !Array.isArray(b)

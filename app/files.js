@@ -22,6 +22,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
+import {recentFolded, toggleRecentFolded} from './recent-fold.js';
 import {brandIconSvg} from './brand-icons.js';
 import {treeIconHtml} from './tree-icons.js';
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
@@ -713,7 +714,9 @@ function phoneTreeHtml() {
   if (recent.length) {
     const shown = recent.slice(0, state.recentAll ? RECENT_BOX_MORE : RECENT_BOX);
     const more = recent.length > RECENT_BOX || state.recentAll ? `<button type="button" class="ft-btn ft-box-more" data-fx-recent-more aria-expanded="${state.recentAll}">${state.recentAll ? '접기' : '더보기'}</button>` : '';
-    html += ftBoxHtml({head: '최근', tail: more, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body: shown.map(r => treeFileHtml(r, 0, 'recent')).join('')});
+    // S51-22: 머리 줄을 누르면 접기(서버 view_prefs.recent_folded, recent-fold.js).
+    const shut = recentFolded('files');
+    html += ftBoxHtml({head: '최근', tail: more, collapsible: true, caret: true, open: !shut, toggleAttrs: {'data-fx-recent-fold': ''}, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body: shut ? '' : shown.map(r => treeFileHtml(r, 0, 'recent')).join('')});
   }
   // 묶음(별표·큰 파일): 작은 상자 하나.
   const shelves = SHELVES.map(shelf => ftFolderRowHtml({name: SHELF_NAME[shelf], count: shelf === 'starred' && state.stars !== null ? `${state.stars}개` : null, depth: 0, hasContent: false,
@@ -2121,6 +2124,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-box-tog]')) { const s0 = b.dataset.fxBoxTog; if (state.boxShut.has(s0)) state.boxShut.delete(s0); else state.boxShut.add(s0); paintTree(); return; }
   if (b.matches('[data-fx-tmore]')) { state.more.add(b.dataset.fxTmore); paintTree(); return; }
   if (b.matches('[data-fx-recent-more]')) { state.recentAll = !state.recentAll; paintTree(); return; }
+  if (b.matches('[data-fx-recent-fold]')) { toggleRecentFolded('files'); paintTree(); root?.querySelector('[data-fx-recent-fold]')?.focus({preventScroll: true}); return; }
   if (b.matches('[data-fx-tfile]')) { const r = state.treeRows.get(b.dataset.fxTfile); if (r) openPreview(r); return; }
   if (b.matches('[data-fx-tpick]')) { treePick(b.dataset.fxTpick, b.dataset.fxTin); return; }
   if (b.matches('[data-fx-go]')) { goFolder(b.dataset.fxGo, b.dataset.fxId || null); return; }
