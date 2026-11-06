@@ -109,9 +109,9 @@ function loadNames(week) {
 function paint() {
   if (!st || !st.panel) return;
   const {panel, wl} = st;
-  if (wl.status === 'loading' && !wl.lines.size) { panel.innerHTML = waitHtml({rows: 4}); return; }
-  if (wl.status === 'error') { panel.innerHTML = `<p class="wd-st-note" role="alert">${TEXT.failed} <button type="button" class="wd-st-btn" data-oa-retry>다시 시도</button></p>`; return; }
-  if (wl.status !== 'missing' && !st.orgs.length) { panel.innerHTML = emptyHtml(); return; }
+  if (wl.status === 'loading' && !wl.lines.size) { put(waitHtml({rows: 4})); return; }
+  if (wl.status === 'error') { put(`<p class="wd-st-note" role="alert">${TEXT.failed} <button type="button" class="wd-st-btn" data-oa-retry>다시 시도</button></p>`); return; }
+  if (wl.status !== 'missing' && !st.orgs.length) { put(emptyHtml()); return; }
   if (wl.status === 'ready') loadNames(wl.week);
   const dis = wl.disabled();
   const bar = `<div class="oa-bar btn-row">${weekPickHtml(wl.week, {disabled: dis})}<button type="button" class="wd-st-btn" data-oa-copy>복사</button></div>`;
@@ -120,9 +120,16 @@ function paint() {
     headOrg: `조직${gripHtml('org', '조직', 1)}`,
     orgHtml: o => `<button type="button" class="oa-name" data-oa-open="${esc(o.id)}">${esc(o.name)}</button>`,
     stageOf: o => stageText(o.id)});
-  panel.innerHTML = `${bar}${table}`;
+  put(`${bar}${table}`);
   mountColResize({host: panel, name: 'orgall', vars: {org: '--oa-w-org'}, dir: 1, labels: {org: '조직'},
     fit: () => Math.ceil(Math.max(0, ...[...panel.querySelectorAll('.oa-name')].map(el => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().width; })))});
+}
+// 표를 그리는 곳은 paint() 하나다. 쟁의 단계·주간보고 순서·줄 읽기가 따로따로 끝나며 paint()를 부르므로,
+// 그린 결과가 지금 화면과 같으면 DOM을 갈지 않는다 — 누르려던 단추·입력 중인 칸이 같은 내용으로 바뀌어 사라지지 않게(S51-19).
+function put(html) {
+  if (st.painted === html && st.panel.childElementCount) return;
+  st.painted = html;
+  st.panel.innerHTML = html;
 }
 function say(text, error = false) { if (!st) return; st.msg = {text, error}; const el = st.panel?.querySelector('[data-wl-status]'); if (el) { el.textContent = text; el.classList.toggle('is-error', error); } }
 
