@@ -1,13 +1,15 @@
 // D-3e anchored menu: shared history, focus, outside-click replay and positioning.
 import {markScrollMore} from './anchored-popup.js';
-export function createAnchoredMenu({id,className,label,historyKey,parent=document.body,key,render,onAction,onClose=()=>{},canOpen=()=>true}){
+// actDetached: 메뉴가 열린 동안 화면이 다시 그려져 누른 칸이 바뀌어도 고른 항목을 실행한다(부르는 쪽이 새 칸을 찾는다).
+// sheet(trigger): true면 누른 자리 대신 화면 아래(하단바 위)에서 올라오는 판으로 둔다(S51-22 폰 줄 메뉴, 모양은 od-link.css .am-sheet).
+export function createAnchoredMenu({id,className,label,historyKey,parent=document.body,key,render,onAction,onClose=()=>{},canOpen=()=>true,sheet=()=>false,actDetached=false}){
   let active=null,closing=null;
   const panel=document.createElement('div');panel.id=id;panel.className=className;panel.hidden=true;panel.setAttribute('role','group');panel.setAttribute('aria-label',label);
   let popover=typeof panel.showPopover==='function'&&typeof panel.hidePopover==='function'&&'popover' in panel;
   // parent may be a function of the trigger (TASK-바로처리통일: a list inside an open dialog keeps its menu inside that dialog).
   const host=trigger=>typeof parent==='function'?parent(trigger)||document.body:parent;
   if(popover)panel.setAttribute('popover','manual');(typeof parent==='function'?document.body:parent).append(panel);
-  panel.addEventListener('click',e=>{const button=e.target.closest('button'),previous=active;if(!button||!previous)return;close(()=>{if(previous.trigger.isConnected)onAction(button,previous)});});
+  panel.addEventListener('click',e=>{const button=e.target.closest('button'),previous=active;if(!button||!previous)return;close(()=>{if(actDetached||previous.trigger.isConnected)onAction(button,previous)});});
 function close(then,fromBack=false){
   const previous=active;if(!previous){if(then){if(closing)closing.then(then);else then()}return closing||Promise.resolve()}
   active=null;if(popover)panel.hidePopover();panel.hidden=true;previous.trigger.setAttribute('aria-expanded','false');
@@ -17,6 +19,8 @@ function close(then,fromBack=false){
 }
 function position(){
   if(!active)return;
+  const asSheet=!!sheet(active.trigger);panel.classList.toggle('am-sheet',asSheet);
+  if(asSheet){panel.style.left=panel.style.top=panel.style.width=panel.style.maxHeight='';markScrollMore(panel);return}
   // UI-창잘림·끌어옮기기: the left edge comes from the width the menu was really drawn at (its CSS may make it wider than 200px),
   // so a menu opened from a button at the window's right edge is never cut. Menus have no title row and are not dragged.
   const rect=active.trigger.getBoundingClientRect(),margin=12,gap=8,vw=document.documentElement.clientWidth||innerWidth;
