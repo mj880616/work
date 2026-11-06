@@ -14,12 +14,15 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {bindFolderPinch} from './folder-pinch.js';
+import {bindTouchDrag} from './touch-drag.js';
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
 import {folderLook} from './folder-prefs.js'; // FOLDER-순서·색 ③-2: 폴더 색·순서 읽기 사본([파일]·사진 폴더가 같이 씀)
 import {colorChoiceHtml, createColorMode} from './folder-look.js';
 import {folderShapeHtml} from './folder-look-model.mjs';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {openRowMenu} from './row-menu.js';
+import {treeMenuItems} from './files-tree-menu.mjs';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
@@ -88,6 +91,8 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 // FILES-폰보기끌기 ①(S51-20, 시안 files-phone-grid-two-drag.html ①): 목록 위 두 손가락 벌리기 = 목록 → 격자 → 큰 격자, 오므리기 = 반대(폰·두 칸의 칸 3·2칸, 폴드·PC 한 칸 4·3칸).
 //   사진은 목록·격자 모두 작은 그림(Edge thumb small · 이 폰은 앱 다리, 화면에 들어온 칸만), 폴더는 큰 폴더. 마지막 보기는 서버 view_prefs.files_look(기기 칸 · 폭 칸).
 //   격자 칸은 목록 줄과 같은 단추·같은 data-*라 누르기·꾹 누르기·끌어 놓기 길이 그대로다. 찾는 중 목록은 늘 목록.
+// FILES-폰보기끌기 ②(S51-20): 폰도 [두 칸 보기] = 위·아래 두 칸(files_two.<기기>.narrow). 폰 한 칸 흐름(나무 ⇄ 목록·뒤로가기)은 solo() 한 곳.
+// FILES-폰보기끌기 ③(S51-20): 꾹 눌러 끌기(touch-drag.js) — 폴더(같은 칸·다른 칸·▾ 나무) 위 보라 점선, 놓으면 [복사][옮기기]. 같은 저장소 옮기기는 알림 [되돌리기].
 // 저장은 서버만: 목록은 이 탭 메모리(열린 동안만), 받은 그림·PDF는 blob: 주소(메모리)로만 두고 화면을 떠나면 놓는다. 기기 저장 없음.
 // 파일 이름은 모두 글자로만 그린다(esc). 로그에 파일 이름·id를 남기지 않는다.
 
@@ -100,6 +105,8 @@ const PHONE = window.matchMedia(NARROW_QUERY);
 // 출처 켜기/끄기를 기억하는 기기 칸(폰 앱·폰 브라우저·PC, 명진 결정 H-8). 화면을 연 때 한 번 정한다. 기억 칸은 지금까지처럼 760px 기준(바꾸면 기억한 켜기/끄기가 다른 칸으로 감).
 const DEVICE = filesDeviceKind({ua: navigator.userAgent || '', narrow: !!window.matchMedia(PHONE_WIDTH_QUERY).matches});
 const WIDE = window.matchMedia('(min-width:1200px)');
+// 손가락이 주 입력인 기기(폰·폴드): 줄을 HTML 끌기(draggable)로 두지 않는다 — 안드로이드 크롬은 길게 누르면 그 끌기를 시작해 꾹 눌러 끌기(touch-drag.js)를 끊는다.
+const TOUCH = window.matchMedia('(hover: none) and (pointer: coarse)');
 const GDRIVE_SVG = brandIconSvg('gdrive', {size: 16, cls: 'fx-src-ic'});
 const PDF_LIB = new URL('./pdf-lib/pdfjs-dist-6.3.289/', import.meta.url);
 // '이 폰' 다리(폰 앱에서만 usable). phoneOff = 이번 접속에서 [이 폰]을 끔(메모리만).
@@ -145,6 +152,8 @@ const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', 
   // FOLDER-나무새기준 ②: 폴더 안 파일(폰 나무 그 자리 펼치기), 접은 저장소 상자, 'n개 더 보기'를 누른 폴더, '최근' 상자(서버 p_shelf 'recent'),
   // 두 손가락으로 그 폴더만 보기 전 나무 화면 위치. 모두 화면 메모리만(기기 저장 없음).
   files: new Map(), boxShut: new Set(), more: new Set(), recent: null, recentAll: false, treeBack: null, treeRows: new Map(),
+  // S51-22 나무 ⋯ 메뉴: 색을 바꿀 폴더·올릴 폴더(그 메뉴에서 고른 것, 화면 메모리만).
+  lookRow: null, upTo: null,
   preview: null, clip: null, busy: '', hint: '', xfer: null, run: null, ask: null, dropAsk: null,
   jobs: [], jobsOpen: false, jobsBusy: false, jobsWere: false});
 const jobsSeen = new Set();
@@ -704,20 +713,21 @@ function paintMainTree() {
 // ---------- FOLDER-나무새기준 ②(S51-12): 폰 나무 = '최근' 상자 + 묶음(별표·큰 파일) + 저장소마다 상자 ----------
 // 폴더를 누르면 화면이 바뀌지 않고 그 자리에서 하위 폴더·파일까지 펼침(처음 5개 + 'n개 더 보기'), 상자 머리를 누르면 그 저장소 접기.
 // 펼친 폴더 위 두 손가락 벌리기 = 그 폴더만(지금의 폴더 목록 화면), [‹]·뒤로 키·오므리기 = 펼친 자리 그대로 나무.
-// 파일 줄을 누르면 미리보기, ⋯는 그 파일·폴더가 든 폴더를 열고 그 줄을 고른다(작업 줄이 뜬다).
+// 파일 줄을 누르면 미리보기, ⋯는 화면을 그대로 두고 그 자리 메뉴(S51-22, row-menu.js — 폰은 하단바 위 판)를 연다.
 const fileDay = r => dayText(r.modified_at);
 function treeFileHtml(r, depth, parent) {
   const key = rowKey(r), kind = kindOf(r);
   state.treeRows.set(key, r);
   return `<div class="ft-row ft-item fx-titem" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}"><button type="button" class="ft-btn ft-main" data-fx-tfile="${esc(key)}">`
     + `<span class="fx-tkind" data-kind="${kind}" aria-hidden="true">${esc(kindLabel(r))}</span><span class="ft-name">${esc(r.name)}</span>${r.starred ? '<span class="fx-star" aria-label="별표">★</span>' : ''}<span class="ft-num fx-tday">${esc(fileDay(r))}</span></button>`
-    + ftMoreButtonHtml({attrs: {'data-fx-tpick': key, 'data-fx-tin': parent}, label: `${r.name} 고르기`}) + '</div>';
+    + ftMoreButtonHtml({attrs: {'data-fx-tmenu': key, 'data-fx-tin': parent}, label: `${r.name} 메뉴`}) + '</div>';
 }
 function treeFolderHtml(r) {
-  const cnt = countOf(r.source, r.id);
+  const cnt = countOf(r.source, r.id), full = (state.children.get(r.parent) || []).find(x => x.item_id === r.id);
+  if (full) state.treeRows.set(r.key, full);
   return ftFolderRowHtml({name: r.name, count: cnt || null, depth: r.depth, open: r.open, hasContent: r.hasContent, color: folderLook.color(r.source, r.id),
     rowAttrs: {'data-fx-fold': r.key, 'data-fx-drop': r.source === PC ? null : r.key}, mainAttrs: {'data-fx-tog': r.key},
-    more: {attrs: {'data-fx-tpick': r.key, 'data-fx-tin': r.parent}, label: `${r.name} 폴더 고르기`}});
+    more: full ? {attrs: {'data-fx-tmenu': r.key, 'data-fx-tin': r.parent}, label: `${r.name} 폴더 메뉴`} : null});
 }
 function phoneTreeHtml() {
   state.treeRows = new Map();
@@ -766,12 +776,31 @@ function backToTree() {
     root?.querySelector(`[data-fx-fold="${CSS.escape(back.key)}"] .ft-main`)?.focus({preventScroll: true});
   });
 }
-// ⋯: 그 줄이 든 폴더를 열고 그 줄을 고른다(작업 줄 — 옮기기·이름 바꾸기·색 등은 지금 고르기와 같은 길).
-async function treePick(key, inKey) {
-  if (!inKey || inKey === 'recent') { const r = state.treeRows.get(key); if (r) { await goFolder(r.source, r.parent_id || null); } }
-  else { const [source, ...rest] = inKey.split(':'); await goFolder(source, rest.join(':') || null); }
-  const p = P();
-  if (rowByKey(key, p) && !p.picked.has(key)) togglePick(key);
+// S51-22 ⋯(요청함 11/06 19:51): 화면·펼친 자리·스크롤은 그대로, 그 줄 하나의 메뉴(예전 고르기 줄에 있던 기능 그대로 — files-tree-menu.mjs).
+// 같은 부모 안 폴더 순서(위로·아래로): 나무가 그리는 순서(lookOrder) 그대로.
+const treeSibs = (source, parentKey) => lookOrder(source, state.children.get(parentKey) || []).map(x => x.item_id);
+function treeMenu(b) {
+  const key = b.dataset.fxTmenu, inKey = b.dataset.fxTin || '', r = state.treeRows.get(key);
+  if (!r) return;
+  const sib = r.is_folder && SOURCES.includes(r.source) ? treeSibs(r.source, inKey) : [];
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length});
+  openRowMenu(b, {key, title: r.name, items, note: r.source === PC ? PC_READONLY_TEXT : '', run: id => treeAct(id, r, inKey, liveMenuButton(key, b))});
+}
+// 메뉴가 열린 동안 나무가 다시 그려졌으면 같은 줄의 새 ⋯를 묻는 창의 자리로 쓴다.
+const liveMenuButton = (key, b) => (b?.isConnected ? b : root?.querySelector(`[data-fx-tmenu="${CSS.escape(key)}"]`) || b);
+async function treeAct(id, r, inKey, anchor) {
+  const key = rowKey(r), here = {source: r.source, parent: r.item_id};
+  if (id === 'open') { openPreview(r); return; }
+  if (id === 'only') { focusTreeFolder(key); return; }
+  if (id === 'mkdir') { await makeFolder(anchor, here); return; }
+  if (id === 'upload') { const inp = $('[data-fx-file]'); if (inp) { state.upTo = here; inp.value = ''; inp.click(); } return; }
+  if (id === 'copy' || id === 'tocloud') { openDest('copy', [r]); return; }
+  if (id === 'move') { openDest('move', [r]); return; }
+  if (id === 'rename') { await renameRow(r, anchor); void loadRecent(); return; }
+  if (id === 'color') { state.lookRow = r; lookMode.begin('x', anchor, lookMenu); return; }
+  if (id === 'up' || id === 'down') { lookSave(() => folderLook.step(rt(), r.source, treeSibs(r.source, inKey), r.item_id, id === 'up' ? -1 : 1), '폴더 순서를 저장하지 못했어요.'); return; }
+  if (id === 'star' || id === 'unstar') { await starRows([r]); return; }
+  if (id === 'trash') { await trashRows([r], anchor); void loadRecent(); }
 }
 // ---------- S51-20 FILES-폰보기끌기 ①: 목록 보기 크기(목록 → 격자 → 큰 격자) + 사진 작은 그림 ----------
 // 보기는 서버 view_prefs.files_look(이 기기 칸 · 이 폭 종류, files-look-model.mjs). 한 줄 칸 수는 폭이 정한다(폰·두 칸의 칸 3·2, 폴드·PC 한 칸 4·3).
@@ -843,7 +872,7 @@ function cellHtml(p, r) {
   const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
   const picked = p.picked.has(key) ? ' fx-picked' : '', cut = state.clip?.keys.includes(key) ? ' fx-cut' : '';
   const local = r.source === PC;
-  const drag = PHONE.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
+  const drag = PHONE.matches || TOUCH.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
   const fc = r.is_folder ? folderLook.color(r.source, r.item_id) : '';
   const pic = wantsThumb(r) ? thumbHtml(r, 'fx-cell-pic')
     : r.is_folder ? `<span class="fx-cell-pic fx-cell-fold fl-ico" data-kind="folder"${fc ? ` data-fc="${fc}"` : ''} aria-hidden="true">${folderShapeHtml('closed')}</span>`
@@ -857,7 +886,7 @@ function rowHtml(p, r, {withPath = false} = {}) {
   const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
   const picked = p.picked.has(key) ? ' fx-picked' : '', cut = state.clip?.keys.includes(key) ? ' fx-cut' : '';
   const local = r.source === PC; // 내 PC 줄은 이 단계에서 끌기·놓기 없음(보기·열기만)
-  const drag = PHONE.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
+  const drag = PHONE.matches || TOUCH.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
   const tags = [r.library_doc_id ? '자료실' : '', r.match_in === 'text' ? '글자 맞음' : ''].filter(Boolean).join(' · ');
   const tag = tags ? `<span class="fx-tag">${tags}</span>` : '';
   const star = r.starred ? '<span class="fx-star" aria-label="별표">★</span>' : '';
@@ -1162,11 +1191,13 @@ function lookButtonsHtml(p) {
     + (i > 0 ? '<button type="button" class="fx-btn" data-fx-look="up">위로</button>' : '') + (i >= 0 && i < sib.length - 1 ? '<button type="button" class="fx-btn" data-fx-look="down">아래로</button>' : '');
 }
 const lookMode = createColorMode();
+// 색을 바꿀 폴더: 나무 ⋯ 메뉴에서 고른 폴더(state.lookRow), 아니면 고르기 줄의 한 폴더.
+const lookTarget = () => state.lookRow || pickedRows()[0];
 const lookMenu = createAnchoredMenu({id: 'fxLookMenu', className: 'od-link-menu', label: '폴더 색', historyKey: 'kptuFilesLookMenu',
-  key: t => t.dataset.fxLookFor || 'x', onClose: () => lookMode.onClose(),
-  render: () => { const r = pickedRows()[0]; return r?.is_folder ? colorChoiceHtml(folderLook.color(r.source, r.item_id)) + '<p class="od-link-status">이 색·순서는 이 앱에서만 보여요</p>' : ''; },
+  key: t => t.dataset.fxLookFor || 'x', onClose: () => { lookMode.onClose(); if (!lookMode.active('x')) state.lookRow = null; },
+  render: () => { const r = lookTarget(); return r?.is_folder ? colorChoiceHtml(folderLook.color(r.source, r.item_id)) + '<p class="od-link-status">이 색·순서는 이 앱에서만 보여요</p>' : ''; },
   onAction: b => {
-    const r = pickedRows()[0];
+    const r = lookTarget();
     if (!r?.is_folder) return;
     const picked = lookMode.pick('x', b);
     if (picked !== undefined) lookSave(() => folderLook.setColor(rt(), r.source, r.item_id, picked), '폴더 색을 저장하지 못했어요.');
@@ -1175,7 +1206,7 @@ function lookSave(job, failText) { return job().catch(() => notify(`${failText} 
 function lookDo(act, button) {
   const p = P(), r = pickedRows(p)[0];
   if (!r?.is_folder) return;
-  if (act === 'tint') { lookMode.begin('x', button, lookMenu); return; }
+  if (act === 'tint') { state.lookRow = null; lookMode.begin('x', button, lookMenu); return; }
   lookSave(() => folderLook.step(rt(), r.source, lookSibs(p), r.item_id, act === 'up' ? -1 : 1), '폴더 순서를 저장하지 못했어요.');
 }
 function paintBar() {
@@ -1349,8 +1380,8 @@ async function renameRow(r, anchor) {
   const d = await write('rename', {source: r.source, id: r.item_id, name}, '이름 바꾸는 중');
   if (d) { await applyWrite(d, touchedFolders([r])); notify(writeDoneText('rename'), {record: false}); }
 }
-async function makeFolder(anchor) {
-  const w = P().where;
+async function makeFolder(anchor, where = null) {
+  const w = where || P().where;
   if (!w?.source || phoneStop([], w, {write: true})) return;
   const v = await askText(anchor, {text: '새 폴더 이름', value: '', ok: '만들기', max: FILE_BASE_MAX});
   if (v === null) return;
@@ -1660,7 +1691,19 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
   if (state.scope !== scope) return true;
   const note = run.failed && run.code ? (run.code === 'kept_original' ? writeDoneText('across', {kept: true}) : writeErrorText(run.code))
     : run.code === 'kept_original' ? writeDoneText('across', {kept: true}) : run.pending ? '원드라이브가 마저 복사하는 중이에요. 끝나면 곧 목록에 보여요.' : '';
-  notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped: toJobs.length ? 0 : skipped}), {error: !!run.failed, note, record: false});
+  // S51-20 ③: 같은 저장소 안 옮기기는 [되돌리기] — 옮긴 것을 원래 폴더로 다시 move(이름에 번호가 붙은 것은 빼고, 사람이 누른 것만).
+  const back = mode === 'move' && run.done && !run.failed && !run.pending ? batch.filter(r => !numbered.has(rowKey(r))) : [];
+  const undo = back.length ? async () => {
+    const groups = new Map();
+    for (const r of back) { const k = r.parent_id ?? ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); }
+    for (const [parent, rows] of groups) {
+      const d = await rt().api(FN, {method: 'POST', body: {action: 'move', source: dest.source, ids: rows.map(r => r.item_id), to: parent || null, confirm: true}, singleFlight: false, timeoutMs: 60000});
+      await applyWrite(d, touchedFolders(rows, dest));
+      if ((d?.failed || []).length) throw new Error(d.failed[0]?.error || 'move_failed');
+    }
+    return {status: 'restored'};
+  } : null;
+  notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped: toJobs.length ? 0 : skipped}), {error: !!run.failed, note, record: false, ...(undo ? {undo, label: `옮기기 ${back.length}개`} : {})});
   return true;
 }
 // 전송 줄(하단바 위): 같은 저장소 안 옮기기(state.run, 화면이 직접)가 먼저, 아니면 서버 작업표 묶음(jobStrip). 누르면 전송 목록.
@@ -2067,7 +2110,11 @@ async function starRows(rows) {
       if (p.found) { const f = applyStars(p.found, g.source, ids, on); if (f !== p.found) p.found = f; }
     }
     if (state.preview && state.preview.row.source === g.source && ids.includes(state.preview.row.item_id)) { state.preview.row = {...state.preview.row, starred: on}; paintStarOne(); }
+    // 폰 나무(그 자리 펼친 파일·'최근' 상자)의 ★도 같은 값으로(S51-22 나무 ⋯ 메뉴에서 별표).
+    for (const m of [state.files, state.children]) for (const [k, rs] of m) { const next = applyStars(rs, g.source, ids, on); if (next !== rs) m.set(k, next); }
+    if (state.recent) state.recent = applyStars(state.recent, g.source, ids, on);
   }
+  paintTree();
   const work = [];
   for (const p of panesOn()) { if (p.where?.shelf === 'starred' && !p.query) work.push(loadList(p, {quiet: true})); else paintList(p); }
   if (!work.length) work.push(loadStars());
@@ -2217,7 +2264,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-jobs-all]')) { jobsDo(b.dataset.fxJobsAll === 'pause' ? 'job_pause' : 'job_resume'); return; }
   if (b.matches('[data-fx-job-act="reup"]')) { reupload(b.dataset.fxJobId); return; }
   if (b.matches('[data-fx-job-act]')) { jobsDo(b.dataset.fxJobAct === 'pause' ? 'job_pause' : 'job_resume', [b.dataset.fxJobId]); return; }
-  if (b.matches('[data-fx-upload]')) { const inp = $('[data-fx-file]'); if (inp && hereDest()) { inp.value = ''; inp.click(); } return; }
+  if (b.matches('[data-fx-upload]')) { const inp = $('[data-fx-file]'); if (inp && hereDest()) { state.upTo = null; inp.value = ''; inp.click(); } return; }
   if (b.matches('[data-fx-star]')) { starRows(pickedRows()); return; }
   if (b.matches('[data-fx-star-one]') && state.preview) { starRows([state.preview.row]); return; }
   if (b.matches('[data-fx-cut]')) { openDest('move', pickedRows()); return; }
@@ -2227,14 +2274,14 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-unpick]')) { unpick(); return; }
   if (b.matches('[data-fx-paste]')) { const d = hereDest(); if (state.clip && d) pasteClip(d, b); return; }
   if (b.matches('[data-fx-uncut]')) { uncut(); return; }
-  // FOLDER-나무새기준 ②: 폰 나무(공용 줄) — 펼치기·접기, 상자 접기, n개 더 보기, 최근 더보기, 파일 미리보기, ⋯ 고르기.
+  // FOLDER-나무새기준 ②: 폰 나무(공용 줄) — 펼치기·접기, 상자 접기, n개 더 보기, 최근 더보기, 파일 미리보기, ⋯ 그 자리 메뉴(S51-22).
   if (b.matches('[data-fx-tog]')) { toggle(b.dataset.fxTog, b.closest('.nx-tree')); return; }
   if (b.matches('[data-fx-box-tog]')) { const s0 = b.dataset.fxBoxTog; if (state.boxShut.has(s0)) state.boxShut.delete(s0); else state.boxShut.add(s0); paintTree(); return; }
   if (b.matches('[data-fx-tmore]')) { state.more.add(b.dataset.fxTmore); paintTree(); return; }
   if (b.matches('[data-fx-recent-more]')) { state.recentAll = !state.recentAll; paintTree(); return; }
   if (b.matches('[data-fx-recent-fold]')) { toggleRecentFolded('files'); paintTree(); root?.querySelector('[data-fx-recent-fold]')?.focus({preventScroll: true}); return; }
   if (b.matches('[data-fx-tfile]')) { const r = state.treeRows.get(b.dataset.fxTfile); if (r) openPreview(r); return; }
-  if (b.matches('[data-fx-tpick]')) { treePick(b.dataset.fxTpick, b.dataset.fxTin); return; }
+  if (b.matches('[data-fx-tmenu]')) { treeMenu(b); return; }
   if (b.matches('[data-fx-go]')) { goFolder(b.dataset.fxGo, b.dataset.fxId || null); return; }
   if (b.matches('[data-fx-shelf]')) { goShelf(b.dataset.fxShelf); return; }
   if (b.matches('[data-fx-twist]')) { toggle(b.dataset.fxTwist, b.closest('.nx-tree')); return; }
@@ -2286,7 +2333,7 @@ root?.addEventListener('dblclick', event => {
 });
 root?.addEventListener('input', event => { if (event.target.matches('[data-fx-search]')) setQuery(P(), event.target.value); });
 root?.addEventListener('change', event => {
-  if (event.target.matches('[data-fx-file]')) { const d = hereDest(), files = [...(event.target.files || [])]; event.target.value = ''; if (d && files.length) uploadFiles(files, d); return; }
+  if (event.target.matches('[data-fx-file]')) { const d = state.upTo || hereDest(), files = [...(event.target.files || [])]; state.upTo = null; event.target.value = ''; if (d && files.length) uploadFiles(files, d); return; }
   if (event.target.matches('[data-fx-refile]')) { const f = event.target.files?.[0]; event.target.value = ''; refilePicked(f); return; }
   if (!event.target.matches('[data-fx-sort]')) return;
   // 칸 위 줄의 정렬은 그 칸, 위 줄의 정렬은 지금 칸.
@@ -2356,6 +2403,8 @@ root?.addEventListener('contextmenu', event => {
   const b = event.target.closest('[data-fx-row]');
   if (!b || state.busy) return;
   event.preventDefault();
+  // 손가락으로 누르고 있는 중이면 꾹 눌러 끌기 부품이 맡는다(떼면 고르기, 움직이면 끌기).
+  if (touchDrag?.holding()) { touchDrag.armNow(); return; }
   { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   togglePick(b.dataset.fxRow);
 });
@@ -2372,14 +2421,16 @@ root?.addEventListener('dragstart', event => {
   event.dataTransfer?.setData('text/plain', 'files-move');
   if (event.dataTransfer) event.dataTransfer.effectAllowed = two() ? 'copyMove' : 'move';
 });
-const dropAt = event => {
-  if (!drag) return null;
-  const i = two() ? paneOfEl(event.target) : -1, cross = i >= 0 && i !== drag.pane;
-  const t = event.target.closest?.('[data-fx-drop]') || (cross ? event.target.closest('[data-fx-pane-i]') : null);
-  if (!t) return null;
+// 놓을 곳: 폴더 줄·칸·나무 폴더(data-fx-drop), 두 칸이면 반대 칸(그 칸의 지금 폴더). any = 꾹 눌러 끌기(놓으면 늘 복사·옮기기를 고름).
+const dropAt = (target, {any = false} = {}) => {
+  if (!drag || !target?.closest) return null;
+  const i = two() ? paneOfEl(target) : -1, cross = i >= 0 && i !== drag.pane;
+  const t = target.closest('[data-fx-drop]') || (cross ? target.closest('[data-fx-pane-i]') : null);
+  if (!t || !root.contains(t)) return null;
   const dest = t.dataset.fxDrop ? destOf(t.dataset.fxDrop) : paneDest(state.panes[i]);
   if (!dest || dest.source === PC || hasPc(drag.rows)) return null;
-  if (cross) return xferPlan(drag.rows, dest, 'copy').ok.length || moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
+  if (drag.rows.some(r => r.is_folder && folderKey(r.source, r.item_id) === folderKey(dest.source, dest.parent))) return null;
+  if (cross || any) return xferPlan(drag.rows, dest, 'copy').ok.length || moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross: cross || any} : null;
   return moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
 };
 const dropOff = keep => {
@@ -2396,7 +2447,7 @@ root?.addEventListener('dragover', event => {
     upHit.t.dataset.fxUptext = upDropText(destNameOf(upHit.dest));
     return;
   }
-  const hit = dropAt(event);
+  const hit = dropAt(event.target);
   dropOff(hit?.t);
   if (!hit) return;
   event.preventDefault();
@@ -2416,7 +2467,7 @@ root?.addEventListener('drop', event => {
     uploadFiles(files, upHit.dest, {skipDirs: dirs.size});
     return;
   }
-  const hit = dropAt(event);
+  const hit = dropAt(event.target);
   dropOff(null);
   drag = null;
   if (!hit) return;
@@ -2425,6 +2476,31 @@ root?.addEventListener('drop', event => {
   moveRows(hit.rows, hit.dest, hit.t);
 });
 root?.addEventListener('dragend', () => { drag = null; dropOff(null); });
+// S51-20 ③ 꾹 눌러 끌기(폰·폴드 터치, 공용 부품 touch-drag.js): 꾹 누르면 집어 들고 손가락을 따라 폴더(같은 칸·다른 칸·▾ 나무) 위에서 보라 점선,
+// 놓으면 [복사][옮기기] 고르기(fx-drop-ask, PC 칸 사이 놓기와 같은 고르기). 움직이지 않고 떼면 지금처럼 고르기. 고른 것이 있으면 고른 것 모두.
+// 끌다가 칸(폰 두 칸) 또는 화면 위·아래 끝이면 저절로 굴린다. 끄는 길만 새것이고 복사·옮기기는 xferRun·moveRows 그대로.
+const touchDrag = bindTouchDrag(root, {
+  enabled: () => !state.busy && !state.xfer && !state.ask && !state.run,
+  pick: target => {
+    const b = target?.closest?.('[data-fx-row]'), i = paneOfEl(b);
+    if (!b || i < 0) return null;
+    setCur(i);
+    const key = b.dataset.fxRow, p = P(), rows = (p.picked.has(key) ? [...p.picked] : [key]).map(k => rowByKey(k, p)).filter(Boolean);
+    if (!rows.length || hasPc(rows)) return null;
+    return {key, pane: i, rows, label: rows.length > 1 ? `${rows.length}개` : rows[0].name};
+  },
+  hold: item => togglePick(item.key),
+  over: (item, el) => { drag = {pane: item.pane, rows: item.rows}; const hit = dropAt(el, {any: true}); dropOff(hit?.t); if (hit) { hit.t.classList.add('fx-drop-on'); hit.t.classList.toggle('fx-drop-pane', hit.t.matches('[data-fx-pane-i]')); } },
+  drop: (item, el, x, y) => {
+    drag = {pane: item.pane, rows: item.rows};
+    const hit = dropAt(el, {any: true});
+    dropOff(null); drag = null;
+    if (!hit) return;
+    state.dropAsk = {rows: hit.rows, dest: hit.dest, x, y}; paintDropAsk();
+  },
+  cancel: () => { drag = null; dropOff(null); },
+  scroller: el => el?.closest?.('.fx[data-fx-two="phone"] .fx-listcol') || null,
+});
 document.addEventListener('visibilitychange', () => {
   // 올리는 중 화면을 숨기면 그 자리에서 멈춤(H-6), 다시 보이면 쥐고 있던 파일로 남은 조각부터.
   if (document.visibilityState === 'hidden') upStop(); else upShow();
