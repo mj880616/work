@@ -77,12 +77,9 @@
 .ft-item { --ft-item-pad:calc(12px + var(--ft-depth,0) * 22px); }
 /* ④ 두 손가락 손짓을 받는 칸: 브라우저 확대 대신 이 칸의 손짓(folder-pinch.js). 한 손가락 위아래·옆 밀기는 그대로. */
 .ft-pinch { touch-action:pan-x pan-y; }
-/* '그 폴더만' 보기 위치 줄: [‹] + 위치 + 개수. */
-.ft-focus-bar { display:flex; align-items:center; gap:4px; min-width:0; min-height:40px; margin:0 0 6px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+/* [‹] 나무로 돌아가기 단추(사진 위치 줄). '그 폴더만' 상자 위치 줄 안에서는 아래 .ft-focus-anc 모양. */
 .ft-focus-back { position:relative; flex:none; width:32px; height:32px; min-height:0; margin:0; padding:0; border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:16px; line-height:1; cursor:pointer; }
 .ft-focus-back::after { content:""; position:absolute; inset:-6px; }
-.ft-focus-path { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ft-focus-path b { color:var(--kptu-ink); font-weight:700; }
 /* S51-24 '그 폴더만' 상자(folder-tree-ui.mjs ftFocusHtml, 시안 folder-focus-continuity.html ②): 나무와 같은 상자·같은 줄.
    맨 위 작은 회색 위치 줄(누르면 그 단계) → 머리(열린 폴더 그림 + 굵은 이름 + 개수) → 안 줄. 돌아가기 글자 없음, [‹]는 위치 줄 맨 앞 작은 꺽쇠. */
 .ft-focus-anc { display:flex; align-items:center; gap:2px; min-width:0; min-height:28px; padding:4px 8px 0 6px; overflow:hidden; font-size:11px; color:var(--kptu-muted); white-space:nowrap; }

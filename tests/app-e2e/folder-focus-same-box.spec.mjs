@@ -71,7 +71,9 @@ test.describe('움직임 줄이기', () => {
   test.use({ reducedMotion: 'reduce' });
   test('파일 폰 412: 기기 움직임 줄이기면 움직임 없이 바로 바뀐다', async ({ page }) => {
     const { errors } = await start(page, 412);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await openFiles(page, 412);
+    expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
     await tree(page).locator('[data-fx-fold="od:OD!1"] .ft-main').tap();
     await pinch(page, tree(page).locator('[data-fx-fold="od:OD!1"]'), 'out');
     await expect(box(page)).toBeVisible();

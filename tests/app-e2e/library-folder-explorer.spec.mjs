@@ -209,14 +209,16 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
     expect(await tops(page)).toEqual(['f:fa']);await expect(libraryNode(page,'f:fa')).toHaveAttribute('open','');
     await expect(libraryNode(page,'f:fa')).toHaveAttribute('style',/--lu-depth:\s*0/);
-    await expect(path).toBeVisible();await expect(path).toHaveText('‹자료실›가상 A');await expect(path.locator('[aria-current="location"]')).toHaveText('가상 A');
+    // S51-24: 폰 '그 폴더만'은 상자 맨 위 위치 줄(위 단계만, 지금 폴더 이름은 바로 아래 폴더 줄이 머리), 넓은 화면은 지금 위치 줄 그대로.
+    const here=(...n)=>width<761?['‹자료실',...n.slice(0,-1)].join('›')+'›':['‹자료실',...n].join('›');
+    await expect(path).toBeVisible();await expect(path).toHaveText(here('가상 A'));if(width>=761)await expect(path.locator('[aria-current="location"]')).toHaveText('가상 A');
     // 안의 폴더로 한 단계 더(폰은 메뉴, PC는 두 번 누르기).
     if(width<761){await press(page,menuButton(page,'f:fc'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width)}
     else await libraryNodeHead(page,'f:fc').locator('.lu-node-name').dispatchEvent('dblclick');// PC 두 번 누르기(더블클릭 이벤트). 실제 두 번 누름의 펼침·접힘은 이 시험의 관심 밖.
     expect(await tops(page)).toEqual(['f:fc']);await expect(libraryNode(page,'f:fc')).toHaveAttribute('style',/--lu-depth:\s*0/);
-    await expect(path).toHaveText('‹자료실›가상 A›가상 C');expect(await childrenOf(page,'f:fc')).toEqual(['a-1']);
+    await expect(path).toHaveText(here('가상 A','가상 C'));expect(await childrenOf(page,'f:fc')).toEqual(['a-1']);
     // 위치 줄의 '가상 A'를 누르면 그 단계로.
-    await path.getByRole('button',{name:'가상 A'}).click();expect(await tops(page)).toEqual(['f:fa']);await expect(path).toHaveText('‹자료실›가상 A');
+    await path.getByRole('button',{name:'가상 A'}).click();expect(await tops(page)).toEqual(['f:fa']);await expect(path).toHaveText(here('가상 A'));
     // '자료실'을 누르면 처음 목록.
     await path.getByRole('button',{name:'자료실'}).click();expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);await expect(path).toBeHidden();
     // 들어간 채 묶기를 바꾸면 처음으로 돌아오고 위치 줄은 사라진다.
@@ -232,11 +234,12 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     await radio(page,'폴더').click();
     const path=page.locator('#libraryPath');
     await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
-    await expect(path).toHaveText('‹자료실›가상 A');
+    const here=(...n)=>width<761?['‹자료실',...n.slice(0,-1)].join('›')+'›':['‹자료실',...n].join('›');
+    await expect(path).toHaveText(here('가상 A'));
     await press(page,menuButton(page,'f:fc'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
-    await expect(path).toHaveText('‹자료실›가상 A›가상 C');
+    await expect(path).toHaveText(here('가상 A','가상 C'));
     await page.goBack();
-    await expect(path).toHaveText('‹자료실›가상 A');expect(await tops(page)).toEqual(['f:fa']);
+    await expect(path).toHaveText(here('가상 A'));expect(await tops(page)).toEqual(['f:fa']);
     await expect(page).toHaveURL(/[?&]folder=fa(?:&|$)/);
     await page.goBack();
     await expect(path).toBeHidden();await expect.poll(()=>tops(page)).toEqual(['x:out','f:fa','f:fn']);

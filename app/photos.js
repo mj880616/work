@@ -81,7 +81,7 @@ import {readDeviceSources, deviceSourcesPref} from './photo-sources-device.js';
 import {followPane} from './follow-pane.js';
 import {mountSplitResize} from './split-resize.js';
 // FOLDER-나무새기준 ③(S51-12): 폰 [폴더]는 노트·파일·자료실과 같은 공용 상자·줄, 두 손가락 그 폴더만.
-import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftTrashRowHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
+import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftTrashRowHtml, ftIconHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {bindFolderPinch} from './folder-pinch.js';
 import {fillGestureArea} from './gesture-fill.js';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
@@ -2060,6 +2060,17 @@ function fxToTree() {
   if (back) requestAnimationFrame(() => { window.scrollTo({top:back.y, behavior:'instant'}); body.querySelector(`[data-ft-key="${CSS.escape(back.key)}"] .ft-main`)?.focus({preventScroll:true}); });
 }
 const fxBackBtn = () => (treeWide() ? '' : '<button type="button" class="ft-btn ft-focus-back" data-photos-fx-back aria-label="폴더 나무로">‹</button>');
+// S51-24 FOLDER-그폴더만같은모양(시안 folder-focus-continuity.html ②): 폰·폴드 '그 폴더만' = 나무와 같은 둥근 상자(공용 folder-tree.css ft-focus).
+// 상자 맨 위 작은 회색 위치 줄(위 단계만 — [‹]·'사진' = 펼친 자리 그대로 나무), 머리 = 열린 폴더 그림 + 그 폴더 줄(굵은 이름 · 장수 · 보이기 스위치), 안 = 하위 폴더·사진 격자.
+// steps: [{attr, id, name}] 위 단계(맨 앞 '사진'은 함수가 넣는다). head: 그 폴더 줄(photos-fx-here) HTML.
+const FX_ROOT = {attr:'data-photos-fx-back', id:'', name:'사진'};
+function fxFocusBox({steps = [], head, body}) {
+  const anc = `<nav class="ft-focus-anc photos-fx-path" aria-label="지금 위치"><button type="button" class="ft-btn ft-focus-back" data-photos-fx-back aria-label="폴더 나무">‹</button>`
+    + [FX_ROOT, ...steps].map(x => `<button type="button" class="ft-btn ft-focus-step" ${x.attr}="${esc(x.id)}">${esc(x.name)}</button><span class="ft-focus-sep" aria-hidden="true">›</span>`).join('') + '</nav>';
+  const top = head.replace(/^<p class="photos-fx-here([^"]*)">/, (m, more) => `<p class="ft-focus-head photos-fx-here${more}">${ftIconHtml({open:true})}`);
+  return `<section class="ft-box ft-focus photos-fx-focus">${anc}${top}<div class="ft-box-body">${body}</div></section>`;
+}
+const phoneFocusHtml = (f, rest) => fxFocusBox({steps:[{attr:'data-photos-pf-at', id:'phone', name:'폰'}], head:phoneHeadHtml(f), body:rest});
 function renderFolders() {
   io?.disconnect();
   const g = listGate();
@@ -2083,7 +2094,7 @@ function renderFolders() {
     // 폰·구글 드라이브 묶음(둘 다 켜졌으면 묶음 이름을 붙인다).
     const groups = (u.phone ? phoneGroupHtml({wide, head:u.gdrive}) : '') + gdGroupHtml({wide, head:u.phone});
     if (wide) body.innerHTML = `${top}<div class="photos-fx is-wide"><div class="nx-tree photos-fx-tree" data-photos-fx-tree role="tree" aria-label="${u.phone && !u.gdrive ? '폰 폴더' : '사진 폴더'}">${groups}</div><div class="photos-fx-pane"${gdPane ? ' data-photos-gd-folder' : ''}>${gdPane ? gdPaneHtml({wide}) : f ? `${phonePathHtml(f)}${phoneHeadHtml(f)}<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>` : ''}</div></div>`;
-    else body.innerHTML = f ? `<div class="photos-fx">${phonePathHtml(f)}${phoneHeadHtml(f)}<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p></div>`
+    else body.innerHTML = f ? `<div class="photos-fx">${phoneFocusHtml(f, '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>')}</div>`
       : `${top}<div class="photos-fx photos-fx-boxes">${fxBoxesHtml(u)}</div>`;
     if (!wide && !f) fxFillStrips();
     if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:52}); fxSplit(); }
@@ -2108,7 +2119,7 @@ function renderFolders() {
     const rows = photoFolderRows(tree, id => openSet.has(id));
     body.innerHTML = `${top}<div class="photos-fx is-wide"><div class="nx-tree photos-fx-tree" data-photos-fx-tree role="tree" aria-label="${many ? '사진 폴더' : '원드라이브 폴더'}">${odHead}${rows.map(r => folderRowHtml(r, {wide})).join('')}${newFolderHtml()}${both ? phoneGroupHtml({wide, head:true}) : ''}${gdGroupHtml({wide, head:true})}</div><div class="photos-fx-pane"${gdPane ? ' data-photos-gd-folder' : ''}>${gdPane ? gdPaneHtml({wide}) : (pf ? phonePathHtml(pf) + phoneHeadHtml(pf) : path + head) + grid}</div></div>`;
   } else if (pf) {
-    body.innerHTML = `<div class="photos-fx">${phonePathHtml(pf)}${phoneHeadHtml(pf)}${grid}</div>`;
+    body.innerHTML = `<div class="photos-fx">${phoneFocusHtml(pf, grid)}</div>`;
   } else if (at === tree.top.id && !fxTopFocus) {
     // FOLDER-나무새기준 ③: 폰 첫 화면 = 원드라이브·폰·구글 드라이브 상자 나무(그 자리 펼치기, 폴더 안 처음 몇 장).
     body.innerHTML = `${top}<div class="photos-fx photos-fx-boxes">${fxBoxesHtml(u)}</div>`;
@@ -2119,7 +2130,9 @@ function renderFolders() {
     const kids = photoSubfolders(tree, at).map(f => ({id:f.id, name:f.name, indent:0, count:f.count, total:f.total, enabled:f.enabled, kids:false, open:false, top:false}));
     // 두 출처면 맨 위 폴더에서만 '폰' 묶음을 원드라이브 하위 폴더 아래에 보인다.
     const phoneRows = many && at === tree.top.id ? `<div class="photos-fx-list">${both ? phoneGroupHtml({wide, head:true}) : ''}${gdGroupHtml({wide, head:true})}</div>` : '';
-    body.innerHTML = `${top}<div class="photos-fx">${odHead}${path}<div class="photos-fx-list">${kids.map(r => folderRowHtml(r, {wide})).join('')}${newFolderHtml()}</div>${phoneRows}${head}${grid}</div>`;
+    const inner = `<div class="photos-fx-list">${kids.map(r => folderRowHtml(r, {wide})).join('')}${newFolderHtml()}</div>${phoneRows}`;
+    // 폰·폴드에서 여기는 늘 '그 폴더만'(맨 위 폴더 첫 화면은 위 상자 나무).
+    body.innerHTML = `${top}<div class="photos-fx">${fxFocusBox({steps:photoFolderTrail(tree, at).slice(0, -1).map(x => ({attr:'data-photos-fx-at', id:x.id, name:x.name})), head, body:inner + grid})}</div>`;
   }
   if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:52}); fxSplit(); } // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다.
   syncFolderLayer();
@@ -2530,7 +2543,9 @@ function gdPaneHtml({wide}) {
   const head = top ? `<p class="photos-fx-here"><span><b>${esc(t.top.name)}</b> · ${n}</span></p>`
     : `<p class="photos-fx-here has-sw"><span><b>${esc(f.name)}</b> · ${n}${f.enabled ? '' : ' · 사진에 안 보임'}</span>${gdSwHtml(f)}</p>`;
   const kids = wide ? '' : `<div class="photos-fx-list">${gdLevelHtml(gdAt, {wide:false})}</div>`;
-  return `${path}${head}${kids}<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>`;
+  const grid = '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>';
+  if (!wide) return fxFocusBox({steps:trail.slice(0, -1).map(x => ({attr:'data-photos-gf-at', id:x.id, name:x.name})), head, body:kids + grid});
+  return `${path}${head}${kids}${grid}`;
 }
 // 폰: 들어간 폴더 하나를 한 화면으로.
 function renderGdFolder() {
