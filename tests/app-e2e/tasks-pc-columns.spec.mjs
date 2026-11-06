@@ -179,10 +179,14 @@ for(const width of [1280,1440]){
     // 지금 수정 창과 같은 항목: 할 일·기한·메모·프로젝트·조직 연결.
     await expect(page.locator('#gtEditDue')).toHaveValue('2026-10-08');await expect(page.locator('#gtEditNotes')).toHaveValue('첫 메모');
     await expect(pane.locator('[data-gt-link][value="p:p1"]')).toBeChecked();await expect(pane.locator('[data-gt-link][value="o:o1"]')).not.toBeChecked();
-    // S51-13 ②(2026-11-06): 바꾸면 바로 저장(같은 update·link·unlink 경로), [저장] 버튼 없음, 칸은 열린 채 고른 줄 표시도 그대로.
+    // S51-13 ②(2026-11-06): 바꾸면 바로 저장(같은 update·link·unlink 경로), [저장] 버튼 없음, 칸은 열린 채 고른 줄 표시도 그대로(기한만 예외, S51-21).
     await expect(pane.locator('#gtSaveBtn')).toBeHidden();
+    // S51-21 TODO-칸기한닫기: 기한 칸(달력)으로 다른 날로 옮기면 저장 뒤 칸을 닫고 [되돌리기] 알림. 다시 열어 나머지를 고친다(칸은 열린 채).
     await page.locator('#gtEditDue').fill('2026-10-12');
     await expect.poll(()=>calls.filter(c=>c.action==='update').at(-1)?.body.due).toBe('2026-10-12');
+    await expect(editor).toBeHidden();await expect(page.locator('[data-undo-notice] [data-undo-text]')).toHaveText("'할 일 a' 기한을 10월 12일(월)로 바꿨어요.");
+    await page.locator('[data-gt-edit="a"]').click();await expect(editor).toBeVisible();await expect(page.locator('#gtToggleBtn')).toBeEnabled();
+    await expect(page.locator('#gtEditDue')).toHaveValue('2026-10-12');
     await page.locator('#gtEditNotes').fill('고친 메모');
     await expect.poll(()=>calls.filter(c=>c.action==='update').at(-1)?.body.notes).toBe('고친 메모');
     await pane.locator('[data-gt-link][value="o:o1"]').check();
