@@ -287,6 +287,7 @@ pg_cron (DB 안 시계, postgres 역할로 실행)
 | 15,000원 | 약 500원 | 전부 + 다시 만들기 여유 |
 
 - 기존 `ai-assist` 월 15,000원(다른 기능과 함께 씀)과 **따로** 둔다(미리 만들기가 다른 기능 몫을 먹지 않게).
+- **M1 = 10,000원 확정**(명진 결정 2026-11-06 10:40). 값은 DB가 아니라 `ai-assist` 15,000원(`ai-assist/handler.ts` `MONTHLY_LIMIT_KRW`)과 같은 Edge 상수로 P3c가 둔다(P3a 표에는 값 없음).
 
 ### 5.3 순서·하루 몫
 
@@ -303,6 +304,7 @@ pg_cron (DB 안 시계, postgres 역할로 실행)
 - 일: 대기열 일 `details`(사회운동·언론 각 실행 끝에 1개, 한 번에 글 20개, 예산 100초). 수집 함수(`outside-feed`·`news-feed`)가 예약 입구로 받는다 — `ai-assist`에 예약 입구를 새로 열지 않는다(사용자 로그인 전용 경계 그대로).
 - 코드: 지금 `ai-assist/now-detail.ts`의 재료 모으기·지시·모양 검사를 `_shared/now-detail-build.ts`로 옮겨 세 곳(ai-assist 누를 때·두 수집 함수 미리)이 함께 쓴다(복사 금지). 옮긴 뒤 `ai-assist`도 같은 소스로 재배포.
 - 저장: 기존 `app_now_details`(service role 넣기 권한 이미 있음 [사실]) — 새 칸 없음. 분류 꼬리표용 `topic`만 7.3에서 따로.
+  - P3a 결정: `topic`은 확장 규칙 허용 범위(`ALTER TABLE` 칸 더하기)여서 P3a migration(`20261106100000_feed_ai_days`)에 함께 넣었다. 값 `labor|politics|economy|society` 또는 null(노동·정치·경제·사회), 표 단위 권한이라 소유자 읽기·서버 넣기·고치기 그대로.
 - 사용량: 새 표 `app_feed_ai_days`(`workspace_id`·`day`·`feature`(`outside_summary|news_summary|prebuild`)·요청·입력·출력 토큰·원) — `outside-feed`의 기록 없음(1.5)도 여기로. 홈 'AI 사용량'(`drive-summary ai_usage`)이 이 표와 빠져 있던 `app_news_days`를 함께 더한다.
 - 내 기록을 AI에 보내는 규칙은 지금 그대로(이름·제목만, 본문·비밀 메모 없음).
 
