@@ -4,7 +4,9 @@
   const mq=window.matchMedia('(max-width:760px)');
   const watched=new WeakSet();
   const touched=new WeakSet();
-  const tracks=modal=>mq.matches||modal?.dataset.kptuHistoryAll==='1';
+  // S51-13 TODO-폴드목록상세: a .modal element placed in a page pane instead of shown as a window (the task editor docked in the
+  // 할 일 '목록 | 상세' pane, data-kptu-history-off) is not a window here; its owner keeps its own Back step.
+  const tracks=modal=>modal?.dataset.kptuHistoryOff!=='1'&&(mq.matches||modal?.dataset.kptuHistoryAll==='1');
   const isVisible=el=>!!el&&!el.classList.contains('hidden')&&getComputedStyle(el).display!=='none';
 
   function sync(modal){
