@@ -186,9 +186,10 @@
   --ds-frame-paper:#ffffff;
   /* UI-눌림느낌(2026-10-27 명진 요청): 누르는 순간 살짝 작아지고(--ds-press-scale) 바탕이 조금 진해진다(--ds-press-tint, 바탕 위에 한 겹).
      큰 줄·카드는 눌림 도우미(press-feedback.js)가 --ds-press-scale-wide로 낮춘다. 복사됨 글자 색은 --ds-done-ink.
-     UI-누름움직임(2026-11-06 명진 요청 22:44 "명확하게 눌렸다는 모션"): .97·9% → .94·14%(어두운 화면 13% → 18%). 큰 줄·카드(.985)는 그대로.
+     UI-누름움직임(2026-11-06 명진 요청 22:44 "명확하게 눌렸다는 모션"): .97·9% → .94·14%(어두운 화면 13% → 18%), 작아지는 시간 0.08초 → 0.04초
+     (톡 치는 짧은 누름에도 끝까지 작아진 모습이 보이게). 큰 줄·카드(.985)는 그대로.
      할 일 체크 움직임(작아짐·물결 → 채움·체크 → 줄 긋기)은 --ds-check-ms 안에 끝난다. */
-  --ds-press-scale:.94;--ds-press-scale-wide:.985;--ds-press-tint:rgb(0 0 0 / 14%);--ds-press-ms:80ms;--ds-check-ms:240ms;
+  --ds-press-scale:.94;--ds-press-scale-wide:.985;--ds-press-tint:rgb(0 0 0 / 14%);--ds-press-ms:40ms;--ds-check-ms:240ms;
   --ds-done-ink:var(--kptu-success);
 }
 /* 다크 모드(3/3 8-9e-3에서 켬): 기기 설정이 어두우면 Web2 전체(창 포함)가 어두운 값으로 바뀐다.

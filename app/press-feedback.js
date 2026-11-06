@@ -9,9 +9,8 @@ export const DONE_MS = 1500;
 // CSS(ui-standard.css)가 :active로 직접 다루는 요소. 이 안에 들어 있으면 누른 것은 그 버튼이지 바깥 카드가 아니다.
 export const NATIVE_PRESS = 'button,summary,a[href],[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"],[role="switch"],input[type="button"],input[type="submit"],input[type="reset"]';
 const WIDE_W = 240, WIDE_H = 60;
-// UI-누름움직임(2026-11-06): 폰에서 톡 치면 손가락이 0.05초 만에 떨어져 눌림이 안 보였다. 눌림 표시는 손가락을 대는 순간(pointerdown)
-// 켜지고, 손가락(터치·펜)은 일찍 떼도 이만큼은 남아 있다(스크롤로 바뀐 누름·창 닫힘은 바로 끈다). 마우스는 누르고 있는 동안만(:active와 같음).
-export const PRESS_MIN_MS = 120;
+// UI-누름움직임(2026-11-06): 눌림 표시는 손가락을 대는 순간(pointerdown) 켜진다(뗄 때가 아니라). 톡 치는 짧은 누름에도 다 보이도록
+// 작아지는 시간은 --ds-press-ms(0.04초)로 짧게 둔다. 뗀 뒤에 일부러 더 남기지는 않는다(화면 크기를 재는 다른 동작·시험이 늦게 보지 않게).
 
 // 큰 줄·카드는 같은 3%라도 눈에 띄게 많이 움직이므로 낮춘다.
 export const isWide = rect => !!rect && (rect.width >= WIDE_W || rect.height >= WIDE_H);
@@ -32,31 +31,19 @@ export function pressTarget(start, {cursorOf = el => getComputedStyle(el).cursor
   return top;
 }
 
-let pressed = null, pressedAt = 0, pressedBy = '', holdTimer = 0, held = null;
-const clearPress = el => { el.removeAttribute('data-pressing'); el.removeAttribute('data-press-wide'); };
-function releaseNow() {
-  if (holdTimer) { clearTimeout(holdTimer); holdTimer = 0; }
-  if (held) { clearPress(held); held = null; }
+let pressed = null;
+function release() {
   if (!pressed) return;
-  clearPress(pressed);
+  pressed.removeAttribute('data-pressing'); pressed.removeAttribute('data-press-wide');
   pressed = null;
-}
-// 손가락을 뗐을 때: 눌림이 PRESS_MIN_MS보다 짧았으면 남은 만큼만 더 보이고 꺼진다.
-export function holdLeft(downAt, upAt, min = PRESS_MIN_MS, pointerType = 'touch') { return pointerType === 'mouse' ? 0 : Math.max(0, min - Math.max(0, upAt - downAt)); }
-function release(event) {
-  if (!pressed) { if (event?.type !== 'pointerup') releaseNow(); return; }
-  const left = event?.type === 'pointerup' ? holdLeft(pressedAt, performance.now(), PRESS_MIN_MS, pressedBy) : 0;
-  if (!left) return releaseNow();
-  held = pressed; pressed = null;
-  holdTimer = setTimeout(() => { holdTimer = 0; if (held) { clearPress(held); held = null; } }, left);
 }
 
 function onDown(event) {
   if (event.button > 0 || event.isPrimary === false) return;
-  releaseNow();
+  release();
   const target = pressTarget(event.target);
   if (!target) return;
-  pressed = target; pressedAt = performance.now(); pressedBy = event.pointerType || 'mouse';
+  pressed = target;
   if (isWide(target.getBoundingClientRect())) target.setAttribute('data-press-wide', '');
   target.setAttribute('data-pressing', '');
 }
@@ -66,8 +53,8 @@ export function bindPressFeedback(doc = document, win = window) {
   win.__KPTU_PRESS_BOUND__ = true;
   doc.addEventListener('pointerdown', onDown, {capture: true, passive: true});
   for (const type of ['pointerup', 'pointercancel', 'dragstart', 'contextmenu']) doc.addEventListener(type, release, {capture: true, passive: true});
-  win.addEventListener('blur', releaseNow);
-  doc.addEventListener('visibilitychange', releaseNow);
+  win.addEventListener('blur', release);
+  doc.addEventListener('visibilitychange', release);
 }
 
 // ── 완료 표시 ──────────────────────────────────────────────────────────────
