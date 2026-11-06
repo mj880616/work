@@ -174,7 +174,7 @@ function rowOf(type, row, {openAttr, rowAttr, acts = '', star = false} = {}) {
     return rowHtml({...base, title: v.title, titleLang: v.titleLang, src: v.publisher, color: newsColor(row, newsCatalog()), tag: newsTag(row), time: v.time, star: !!row.starred_at, hit: interestHit([v.title, v.origTitle, v.summary], interests.topics())}, esc);
   }
   const v = postView(row);
-  return rowHtml({...base, title: v.title, titleLang: row.lang === 'en' && !row.title_ko ? 'en' : '', src: nameOf(row.source_key), color: outsideColor(row.source_key, state.catalog || []), tag: postTag(row), time: v.time, hit: interestHit([v.title, v.origTitle, v.summary], interests.topics())}, esc);
+  return rowHtml({...base, title: v.title, titleLang: row.lang === 'en' && !row.title_ko ? 'en' : '', src: nameOf(row.source_key), badge: v.tag, color: outsideColor(row.source_key, state.catalog || []), tag: postTag(row), time: v.time, hit: interestHit([v.title, v.origTitle, v.summary], interests.topics())}, esc);
 }
 let detailLayer = null, readerLayer = null, interestsLayer = null, interestsAsk = 0;
 const detail = createNowDetail({box: detailBox, topics: () => interests.topics(),

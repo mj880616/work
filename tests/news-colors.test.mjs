@@ -51,6 +51,7 @@ test('줄 글자: 바깥 글자는 esc, 읽음·안 읽음·모름, 별표, 색 
   assert.match(unread, />국제</);
   assert.match(rowHtml({...base, read: true}, esc), /is-read/);
   assert.doesNotMatch(rowHtml({...base, read: null, star: false, tag: ''}, esc), /is-read|is-new|nw-star|nw-tag/);
+  assert.match(rowHtml({...base, badge: '공대위'}, esc), /nw-src">가상일보<\/span><span class="nw-badge">공대위<\/span>/);
   assert.match(rowHtml({...base, hit: '<철도>'}, esc), /<span class="now-hit">&lt;철도&gt;<\/span>/);
   assert.match(dayHtml('오늘', '', 6, esc), /오늘 · 새 글 6/);
   assert.doesNotMatch(dayHtml('어제', '', 0, esc), /새 글/);

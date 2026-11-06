@@ -47,6 +47,7 @@
 #appView #outsideView .nw-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:0 5px; margin:3px 0 0; font-size:11px; color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
 #appView #outsideView .nw-src{ font-weight:700; color:var(--nw-c); }
 #appView #outsideView .nw-tag{ padding:1px 5px; font-size:10px; line-height:1.3; color:var(--nw-tag-ink); background:var(--nw-tag-bg); border-radius:5px; }
+#appView #outsideView .nw-badge{ padding:1px 4px; font-size:10px; line-height:1.3; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-radius:5px; }
 #appView #outsideView .nw-star{ margin-left:auto; color:var(--kptu-warning); }
 #appView #outsideView .nw-row .ns-mark{ align-self:center; font-size:11px; color:var(--kptu-muted); }
 

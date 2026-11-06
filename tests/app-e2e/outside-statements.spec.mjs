@@ -165,6 +165,9 @@ for (const width of [412, 884, 1280]) {
     const [bar, src] = await Promise.all([p1.locator('.nw-bar').evaluate(el => getComputedStyle(el).backgroundColor), p1.locator('.nw-src').evaluate(el => getComputedStyle(el).color)]);
     expect(bar).toBe(src);
     await expect(row(page, 'outside:p3').locator('.nw-tag')).toHaveText('국제');
+    // 공대위 표시(L3): 매체 이름 바로 뒤 작은 꼬리표 — 민주노총·공공운수노조 글 중 제목·요약에 '공대위'가 든 글만.
+    await expect(row(page, 'outside:p5').locator('.nw-meta > span:nth-child(-n+2)')).toHaveText(['민주노총', '공대위']);
+    await expect(p1.locator('.nw-badge')).toHaveCount(0);
     await expect(row(page, 'news:e1').locator('.nw-tag')).toHaveText('국제');
     await expect(row(page, 'news:e1').locator('.nw-title')).toHaveText('가짜 외신 기사');
     await expect(row(page, 'news:a1').locator('.nw-tag')).toHaveCount(0);
