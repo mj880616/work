@@ -146,13 +146,78 @@ test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무�
   expect(errors).toEqual([]);
 });
 
-test('폰 412: 한 칸 그대로 — [두 칸] 단추·오른쪽 칸 없음', async ({ page }) => {
+test('폰 412: 기본은 한 칸(폴드·PC 칸 값은 폰에 쓰지 않음) — [두 칸 보기] 단추만 보인다', async ({ page }) => {
   const { errors } = await begin(page, 412, { files_two: { phone: { fold: true, wide: true } } });
   await openFiles(page, 412);
   await expect(root(page).locator('[data-fx-tree]')).toBeVisible(); // S50-33: 폰 첫 화면은 나무
-  await expect(root(page).locator('[data-fx-two]')).toBeHidden();
+  await expect(root(page).locator('[data-fx-two]')).toHaveText('두 칸 보기');
   await expect(pane(page, 1)).toHaveCount(0);
   await expect(root(page)).not.toHaveAttribute('data-fx-two', /.+/);
   await shot(page, 'files-one-412');
+  expect(errors).toEqual([]);
+});
+
+// S51-20 FILES-폰보기끌기 ②(시안 files-phone-grid-two-drag.html ②): 폰 [두 칸 보기] = 위·아래 두 칸, 칸마다 ▾ 출처·폴더, 누른 칸이 지금 칸(옅은 보라),
+// 고르기 막대 '↓ 아래에 복사', 켬은 서버 files_two.<기기>.narrow. [한 칸 보기]로 돌아오면 폰 한 칸(목록 ‹ → 나무).
+test('폰 412: [두 칸 보기] → 위·아래 두 칸 · 칸마다 ▾ · 지금 칸 · ↓ 아래에 복사 · 서버 기억 · [한 칸 보기]', async ({ page }) => {
+  test.setTimeout(90000);
+  const { errors, server, prefs } = await begin(page, 412);
+  await openFiles(page, 412);
+  await expect(root(page).locator('[data-fx-tree]')).toBeVisible();
+  await root(page).locator('[data-fx-two]').click();
+  await expect(root(page)).toHaveAttribute('data-fx-two', 'phone');
+  await expect(root(page).locator('[data-fx-two]')).toHaveText('한 칸 보기');
+  await expect.poll(() => prefs.value?.files_two?.phone).toEqual({ narrow: true });
+  // 위 칸 = 첫 저장소 맨 위(원드라이브), 아래 칸 = 다른 저장소 맨 위(구글 드라이브). 위아래로 쌓이고 폭은 화면 가득.
+  await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('원드라이브');
+  await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('구글 드라이브');
+  const a = await pane(page, 0).boundingBox(), b = await pane(page, 1).boundingBox();
+  expect(b.y).toBeGreaterThanOrEqual(a.y + a.height - 2);
+  expect(Math.abs(a.width - b.width)).toBeLessThan(2);
+  expect(a.width).toBeGreaterThan(380);
+  await expect(root(page).locator('[data-fx-tree]')).toBeHidden();
+  await expect(pane(page, 0)).toHaveClass(/fx-cur/);
+  // 아래 칸 ▾ → 원드라이브 맨 위 → 가짜 문서함. 누른 칸이 지금 칸(옅은 보라 바탕).
+  await pane(page, 1).locator('[data-fx-pdrop]').click();
+  await pane(page, 1).locator('[data-fx-ptree] [data-fx-go="od"][data-fx-id=""]').click();
+  await prow(page, 1, 'od:OD!1').click();
+  await expect(pane(page, 1)).toHaveClass(/fx-cur/);
+  await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 문서함');
+  expect(await pane(page, 1).evaluate(e => getComputedStyle(e).backgroundColor)).not.toBe(await pane(page, 0).evaluate(e => getComputedStyle(e).backgroundColor));
+  // 위 칸 ▾ → 구글 드라이브 › 가짜 업무 공간, 꾹 눌러(contextmenu) 고르기 → '1개 (위) · [↓ 아래에 복사] [↓ 옮기기]'
+  await pane(page, 0).locator('[data-fx-pdrop]').click();
+  const ptree = pane(page, 0).locator('[data-fx-ptree]');
+  await ptree.locator('[data-fx-twist="gd:"]').click();
+  await ptree.locator('[data-fx-go="gd"][data-fx-id="gdFolder1"]').click();
+  await expect(prow(page, 0, 'gd:gdDoc1')).toBeVisible();
+  await prow(page, 0, 'gd:gdDoc1').dispatchEvent('contextmenu');
+  await expect(bar(page).locator('.fx-bar-t')).toHaveText('1개 (위)');
+  await expect(bar(page).locator('[data-fx-send="copy"]')).toHaveText('↓ 아래에 복사');
+  await expect(bar(page).locator('[data-fx-send="move"]')).toHaveText('↓ 옮기기');
+  await shot(page, 'files-two-412');
+  server.jobsHold = true;
+  await bar(page).locator('[data-fx-send="copy"]').click();
+  await expect.poll(() => edgeCalls(server, 'job_add').length).toBe(1);
+  expect(edgeCalls(server, 'job_add')[0].body).toEqual({ action: 'job_add', confirm: true, kind: 'copy', to_source: 'od', to: 'OD!1', items: [{ source: 'gd', id: 'gdDoc1' }] });
+  server.jobsHold = false;
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  // [한 칸 보기] → 폰 한 칸: 지금 칸(위)의 폴더 목록, ‹ 로 나무.
+  await root(page).locator('[data-fx-two]').click();
+  await expect(pane(page, 1)).toHaveCount(0);
+  await expect.poll(() => prefs.value?.files_two?.phone).toEqual({ narrow: false });
+  await expect(root(page)).toHaveAttribute('data-fx-pane', 'list');
+  await root(page).locator('[data-fx-crumb] [data-fx-up]').click();
+  await root(page).locator('[data-fx-crumb] [data-fx-up]').click();
+  await expect(root(page)).toHaveAttribute('data-fx-pane', 'tree');
+  expect(errors).toEqual([]);
+});
+
+test('폰 412: 두 칸을 켜 둔 기기는 다시 열어도 위·아래 두 칸', async ({ page }) => {
+  test.setTimeout(60000);
+  const { errors } = await begin(page, 412, { files_two: { phone: { narrow: true } } });
+  await openFiles(page, 412);
+  await expect(root(page)).toHaveAttribute('data-fx-two', 'phone');
+  await expect(pane(page, 0).locator('[data-fx-row]').first()).toBeVisible();
+  await expect(pane(page, 1).locator('[data-fx-row]').first()).toBeVisible();
   expect(errors).toEqual([]);
 });
