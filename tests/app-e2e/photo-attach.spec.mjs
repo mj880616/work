@@ -204,7 +204,7 @@ test.describe('PC 1280 · 그 장소', () => {
     const line = page.locator('#mrdTimePhotos');
     await line.locator('[data-tp-open]').click();
     await expect.poll(() => itemIds(page)).toEqual(['C', 'A']);
-    await expect(line.locator('[data-tp-head]')).toHaveText('그 시각 사진 2장 · 📍그 장소 2장');
+    await expect(line.locator('[data-tp-head]')).toHaveText('그 시각 사진 2장 · 그 장소 2장'); // S51-25: 📍 글자 없음(사진 칸의 장소 표시는 공용 그림)
     await expect(line.locator('.tp-here')).toHaveCount(2);
     await expect(strip(page).first()).toHaveAttribute('aria-label', /그 장소/);
     expect(state.uploads.length).toBe(0);

@@ -93,6 +93,7 @@ const SHAPE = {
   closed: '<path d="M1.5 4.2c0-.7.6-1.2 1.2-1.2h3.1c.4 0 .7.2.9.4l.8.9h5.8c.7 0 1.2.5 1.2 1.2v6.3c0 .7-.5 1.2-1.2 1.2H2.7c-.7 0-1.2-.5-1.2-1.2z"/>',
   open: '<path d="M1.5 4.2c0-.7.6-1.2 1.2-1.2h3.1c.4 0 .7.2.9.4l.8.9h4.8c.7 0 1.2.5 1.2 1.2v.9H3.6c-.6 0-1.1.4-1.3 1l-.8 3.9z"/><path d="M3.6 7.6h11.3c.5 0 .8.5.7 1l-1.1 4.4c-.1.5-.6.9-1.2.9H2.7c-.7 0-1.1-.5-1-1.1l.8-4.3c.2-.5.7-.9 1.1-.9z"/>'
 };
+export const FOLDER_SHAPE = SHAPE;
 export const folderShapeHtml = kind => `<svg viewBox="0 0 16 16" width="15" height="15" focusable="false" aria-hidden="true">${kind === 'open' ? SHAPE.open : SHAPE.closed}</svg>`;
 
 // ---- 클라우드 폴더·앨범 색·순서(FOLDER-순서·색 ③-2, 표 app_folder_prefs·app_photo_tags 칸): [파일]·사진 폴더·앨범이 같은 계산을 쓴다. ----

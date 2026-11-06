@@ -3,7 +3,7 @@ import {requestLibraryDocument} from './basket-library-send.js';
 import {slotBox, slotImg, slotFailed} from './img-slot.js';
 import {lookLayout, lookOf, lookValue, stepLook, lookCols, thumbWanted, FILES_LOOK_KEY} from './files-look-model.mjs';
 import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, FIND_LIMIT, FIND_WAIT_MS,
-  TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_NAME, kindOf, kindLabel, kindIcon, previewKind, sizeText, folderCountText, isLockedItem, dayText, fullTime,
+  TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_NAME, kindOf, kindLabel, kindIcon, kindSvg, previewKind, sizeText, folderCountText, isLockedItem, dayText, fullTime,
   syncLabel, applySyncReply, syncSettled, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
   placeOf, whereOf, cleanQuery, findSummary, errorText, failReason, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
   trashAsk, writeDoneText, writeErrorText, twinRows, TWIN_LIMIT, xferPlan, xferBig, sameNameRows, sameNameAsk, bigAsk, destTitle, destButton, destName,
@@ -29,7 +29,7 @@ import {viewPrefs} from './view-prefs.js';
 import {recentFolded, toggleRecentFolded} from './recent-fold.js';
 import {recentHumanRows} from './files-auto-model.mjs';
 import {brandIconSvg} from './brand-icons.js';
-import {treeIconHtml} from './tree-icons.js';
+import {treeIconHtml, iconSvg} from './tree-icons.js';
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
 import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
@@ -99,6 +99,10 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 (() => {
 if (window.KPTUFiles) return;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+// 종류 아이콘 속: 그림 이름이 있으면 공용 SVG, 없으면 짧은 글자(P·한·W 등).
+const kindIco = r => (kindSvg(r) ? iconSvg(kindSvg(r), {size: 14}) : esc(kindIcon(r)));
+const starFace = on => iconSvg(on ? 'star' : 'starLine', {size: 15});
+const STAR_ICO = `<span class="fx-star" aria-label="별표">${iconSvg('star', {size: 11})}</span>`;
 const FN = '/functions/v1/cloud-files';
 // FILES-폴드나무목록 ⑥(S51-18): 폰 한 칸인가는 공용 판정(screen-width.mjs, 600px 미만). 펼친 폴드(약 673~884px)는 폴드 칸(나무 | 목록).
 const PHONE = window.matchMedia(NARROW_QUERY);
@@ -714,7 +718,7 @@ function treeFileHtml(r, depth, parent) {
   const key = rowKey(r), kind = kindOf(r);
   state.treeRows.set(key, r);
   return `<div class="ft-row ft-item fx-titem" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}"><button type="button" class="ft-btn ft-main" data-fx-tfile="${esc(key)}">`
-    + `<span class="fx-tkind" data-kind="${kind}" aria-hidden="true">${esc(kindLabel(r))}</span><span class="ft-name">${esc(r.name)}</span>${r.starred ? '<span class="fx-star" aria-label="별표">★</span>' : ''}<span class="ft-num fx-tday">${esc(fileDay(r))}</span></button>`
+    + `<span class="fx-tkind" data-kind="${kind}" aria-hidden="true">${esc(kindLabel(r))}</span><span class="ft-name">${esc(r.name)}</span>${r.starred ? STAR_ICO : ''}<span class="ft-num fx-tday">${esc(fileDay(r))}</span></button>`
     + ftMoreButtonHtml({attrs: {'data-fx-tmenu': key, 'data-fx-tin': parent}, label: `${r.name} 메뉴`}) + '</div>';
 }
 function treeFolderHtml(r) {
@@ -738,7 +742,7 @@ function phoneTreeHtml() {
   }
   // 묶음(별표·큰 파일): 작은 상자 하나.
   const shelves = SHELVES.map(shelf => ftFolderRowHtml({name: SHELF_NAME[shelf], count: shelf === 'starred' && state.stars !== null ? `${state.stars}개` : null, depth: 0, hasContent: false,
-    icon: treeIconHtml(shelf, {className: 'ft-ico ft-ico-emoji'}), className: 'fx-shelf', mainAttrs: {'data-fx-shelf': shelf}})).join('');
+    icon: treeIconHtml(shelf, {className: 'ft-ico'}), className: 'fx-shelf', mainAttrs: {'data-fx-shelf': shelf}})).join('');
   html += ftBoxHtml({body: shelves, label: '모아 보기', attrs: {'data-fx-box': 'shelves'}});
   const sync = syncTreeHtml();
   let syncPut = false;
@@ -886,8 +890,8 @@ function cellHtml(p, r) {
   const fc = r.is_folder ? folderLook.color(r.source, r.item_id) : '';
   const pic = wantsThumb(r) ? thumbHtml(r, 'fx-cell-pic')
     : r.is_folder ? `<span class="fx-cell-pic fx-cell-fold fl-ico" data-kind="folder"${fc ? ` data-fc="${fc}"` : ''} aria-hidden="true">${folderShapeHtml('closed')}</span>`
-      : `<span class="fx-cell-pic fx-cell-ic" data-kind="${kind}" aria-hidden="true">${esc(kindIcon(r))}</span>`;
-  const star = r.starred ? '<span class="fx-star" aria-label="별표">★</span>' : '';
+      : `<span class="fx-cell-pic fx-cell-ic" data-kind="${kind}" aria-hidden="true">${kindIco(r)}</span>`;
+  const star = r.starred ? STAR_ICO : '';
   const sub = r.is_folder ? countOf(r.source, r.item_id) : sizeText(r.size_bytes);
   return `<button type="button" class="fx-row fx-cell${r.is_folder ? ' fx-folder' : ''}${picked}${cut}" data-fx-row="${esc(key)}" aria-selected="${sel}"${drag}${drop} title="${esc([r.name, sub].filter(Boolean).join(' · '))}">`
     + `${pic}<span class="fx-nm"><span class="fx-name">${esc(r.name)}</span>${star}</span></button>`;
@@ -899,15 +903,15 @@ function rowHtml(p, r, {withPath = false} = {}) {
   const drag = PHONE.matches || TOUCH.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
   const tags = [r.library_doc_id ? '자료실' : '', r.match_in === 'text' ? '글자 맞음' : ''].filter(Boolean).join(' · ');
   const tag = tags ? `<span class="fx-tag">${tags}</span>` : '';
-  const star = r.starred ? '<span class="fx-star" aria-label="별표">★</span>' : '';
+  const star = r.starred ? STAR_ICO : '';
   const where = withPath ? pathText(r.source, r.folder_path) : '';
   const size = r.is_folder ? countOf(r.source, r.item_id) : sizeText(r.size_bytes);
   const day = dayText(r.modified_at);
   return `<button type="button" class="fx-row${r.is_folder ? ' fx-folder' : ''}${picked}${cut}" data-fx-row="${esc(key)}" aria-selected="${sel}"${drag}${drop}>`
     + (wantsThumb(r) ? thumbHtml(r, 'fx-ico')
-      : r.is_folder && folderLook.color(r.source, r.item_id)
-        ? `<span class="fx-ico fl-ico" data-kind="${kind}" data-fc="${folderLook.color(r.source, r.item_id)}" aria-hidden="true">${folderShapeHtml('closed')}</span>`
-        : `<span class="fx-ico" data-kind="${kind}" aria-hidden="true">${esc(kindIcon(r))}</span>`)
+      : r.is_folder
+        ? `<span class="fx-ico fl-ico" data-kind="${kind}"${folderLook.color(r.source, r.item_id) ? ` data-fc="${folderLook.color(r.source, r.item_id)}"` : ''} aria-hidden="true">${folderShapeHtml('closed')}</span>`
+        : `<span class="fx-ico" data-kind="${kind}" aria-hidden="true">${kindIco(r)}</span>`)
     + `<span class="fx-nm">${withPath ? `<span class="fx-dot" data-src="${esc(r.source)}" title="${esc(SOURCE_NAME[r.source] || '')}" aria-label="${esc(SOURCE_NAME[r.source] || '')}"></span>` : ''}<span class="fx-name">${esc(r.name)}</span>${star}${tag}</span>`
     + (withPath ? `<span class="fx-path">${esc(where)}</span>` : '')
     + `<span class="fx-day">${esc(day)}</span><span class="fx-size">${esc(size)}</span><span class="fx-kind">${esc(kindLabel(r))}</span>`
@@ -1106,7 +1110,7 @@ function paintPreview() {
   }
   const mine = r.source === PH;
   box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span>`
-    + (mine ? '' : `<button type="button" class="mini fx-star-btn${r.starred ? ' on' : ''}" data-fx-star-one aria-pressed="${!!r.starred}" aria-label="${r.starred ? '별표 빼기' : '별표'}" title="${r.starred ? '별표 빼기' : '별표'}">${r.starred ? '★' : '☆'}</button>`) + '</div>'
+    + (mine ? '' : `<button type="button" class="mini fx-star-btn${r.starred ? ' on' : ''}" data-fx-star-one aria-pressed="${!!r.starred}" aria-label="${r.starred ? '별표 빼기' : '별표'}" title="${r.starred ? '별표 빼기' : '별표'}">${starFace(r.starred)}</button>`) + '</div>'
     + `<div class="fx-pv-view">${view}</div>`
     + `<dl class="fx-pv-meta"><dt>위치</dt><dd>${esc(where)}</dd><dt>크기</dt><dd>${esc(sizeText(r.size_bytes))}</dd><dt>바뀐 날</dt><dd>${esc(fullTime(r.modified_at))}</dd><dt>종류</dt><dd>${esc(kindLabel(r))}</dd></dl>`
     + '<div class="fx-pv-twins" data-fx-twins hidden></div>'
@@ -1826,7 +1830,7 @@ function jobRowHtml(j) {
   const act = jobAction(j), pc = jobPercent(j), hint = deviceHint(j, upFiles.has(j.id));
   const bar = j.status === 'running' || (j.status === 'paused' && j.sent_bytes > 0) ? `<span class="fx-job-pg" aria-hidden="true"><i style="width:${pc}%"></i></span>` : '';
   const kr = {is_folder: j.is_folder, name: j.name, mime: ''};
-  return `<li class="fx-job fx-job-${esc(j.status)}" data-fx-job="${esc(j.id)}"><span class="fx-ico" data-kind="${kindOf(kr)}" aria-hidden="true">${esc(kindIcon(kr))}</span>`
+  return `<li class="fx-job fx-job-${esc(j.status)}" data-fx-job="${esc(j.id)}"><span class="fx-ico" data-kind="${kindOf(kr)}" aria-hidden="true">${kindIco(kr)}</span>`
     + `<span class="fx-job-t"><span class="fx-job-nm">${esc(j.name)}</span><small>${esc([jobLine(j), hint].filter(Boolean).join(' · '))}</small>${bar}</span>`
     + `<span class="fx-job-st">${esc(jobStatusText(j))}</span>`
     + (act ? `<button type="button" class="mini" data-fx-job-act="${act}" data-fx-job-id="${esc(j.id)}">${JOB_BTN[act]}</button>` : '') + '</li>';
@@ -2111,7 +2115,7 @@ const upTarget = event => {
 function paintStarOne() {
   const b = $('[data-fx-star-one]'), on = !!state.preview?.row?.starred;
   if (!b) return;
-  b.textContent = on ? '★' : '☆'; b.classList.toggle('on', on);
+  b.innerHTML = starFace(on); b.classList.toggle('on', on);
   b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', on ? '별표 빼기' : '별표'); b.title = on ? '별표 빼기' : '별표';
 }
 // ---------- 별표(2-④): 고르기 막대·미리보기 ☆. 서버(app_cloud_stars)가 기억, 나무 '★ 별표' 줄 개수·목록에 바로 ----------

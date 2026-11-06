@@ -1,14 +1,13 @@
 // FOLDER-순서·색 ② (S49-38, 설계 5절): 폴더 아이콘·색 고르기 줄을 그리는 공용 부품(순서·색 계산은 folder-look-model.mjs).
 // 색 번호 1~8만 data-fc에 달고, 실제 색 값은 theme-tokens.css(--ds-folder-N-*)와 folder-look.css([data-fc]) 한 곳이 정한다.
-// 안 고른 폴더(color null)는 지금 모양 그대로 노란 폴더 그림(📁/📂)을 쓴다. 이번 단계는 노트가, 다음 단계는 자료실·[파일]·사진이 같은 부품을 부른다.
+// 안 고른 폴더(color null)는 기본 노랑(--ds-folder-0-ico) 같은 폴더 그림을 쓴다(S51-25: 그림 문자 📁/📂는 PC에서 깨져 쓰지 않음). 이번 단계는 노트가, 다음 단계는 자료실·[파일]·사진이 같은 부품을 부른다.
 import {FOLDER_COLORS, colorOf, colorName, folderShapeHtml} from './folder-look-model.mjs';
 import {swatchHtml} from './color-swatch.mjs';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 // 줄 앞 폴더 그림. row.color(1~8)이 있으면 칠한 그림, 없으면 지금의 노란 폴더. open: 열린 폴더·지금 폴더.
 export function folderIconHtml(row, {open = false, className = 'nx-ico'} = {}) {
   const color = colorOf(row);
-  if (!color) return `<span class="${className}" aria-hidden="true">${open ? '\u{1F4C2}' : '\u{1F4C1}'}</span>`;
-  return `<span class="${className} fl-ico" data-fc="${color}" aria-hidden="true">${folderShapeHtml(open ? 'open' : 'closed')}</span>`;
+  return `<span class="${className} fl-ico"${color ? ` data-fc="${color}"` : ''} aria-hidden="true">${folderShapeHtml(open ? 'open' : 'closed')}</span>`;
 }
 // 폴더 고르기 창 줄 앞의 작은 그림(색 고른 폴더만 보인다. 안 고른 폴더는 지금 모양 그대로 그림 없음).
 export const pickIconHtml = row => (colorOf(row) ? folderIconHtml(row, {className: 'lu-move-ico'}) : '');
