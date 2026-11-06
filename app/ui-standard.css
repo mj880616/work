@@ -1723,7 +1723,7 @@ button.ds-chip:is([aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-s
 .ds-seg{ display:inline-flex; align-items:stretch; flex:none; box-sizing:border-box; width:max-content; max-width:100%; height:var(--ds-compact-height);
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); }
 .ds-seg button.ds-seg-btn{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:var(--ds-chip-row-gap);
-  height:auto; min-height:0; margin:0; padding:0 var(--ds-compact-pad-x); border:0; border-radius:0; background:transparent; box-shadow:none;
+  height:auto; min-height:0; margin:0; padding:0 var(--ds-compact-pad-x); border:0; border-radius:0; background:var(--kptu-surface); box-shadow:none;
   color:var(--kptu-muted); font-size:var(--ds-text-button); font-weight:var(--ds-weight-regular,400); line-height:1; white-space:nowrap; cursor:pointer; }
 /* 붙은 두 칸(.ds-seg-group, 예: 홈 [업데이트 ▾])은 사이 선 없이 한 칸처럼 보이고, 앞 칸을 고르면 뒤 칸(▾)도 같이 칠한다. */
 .ds-seg-group{ display:flex; align-items:stretch; border-radius:inherit; }
@@ -1732,6 +1732,9 @@ button.ds-chip:is([aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-s
 .ds-seg > :is(button.ds-seg-btn,.ds-seg-group):last-child,.ds-seg > .ds-seg-group:last-child > button.ds-seg-btn:last-child{ border-top-right-radius:inherit; border-bottom-right-radius:inherit; }
 .ds-seg button.ds-seg-btn[aria-pressed="true"],.ds-seg-group > button.ds-seg-btn[aria-pressed="true"] + button.ds-seg-btn{ color:var(--ds-select-ink); background:var(--ds-select-bg); }
 .ds-seg button.ds-seg-btn[aria-pressed="true"]::before{ content:""; position:absolute; left:20%; right:20%; bottom:calc(var(--ds-line-width) * 4); height:calc(var(--ds-line-width) * 4); border-radius:var(--ds-line-width); background:var(--ds-select-line); pointer-events:none; }
+/* 누르는 순간: 기기 기본 탭 하이라이트(폰 민트·파란 빛) 없이 공용 눌림(UI-누름움직임). 칩·보기 바꾸기의 안 고른 칸은 누르는 동안 고른 쪽처럼 옅은 회색(전부터의 전환 칸과 같음). */
+:is(button.primary,button.secondary,button.ghost,button.danger,button.row-act,button.ds-chip,.ds-seg button.ds-seg-btn,button.icon-btn){ -webkit-tap-highlight-color:transparent; }
+:is(button.ds-chip,.ds-seg button.ds-seg-btn):active:not(:disabled,[aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
 :is(button.ds-chip,.ds-seg button.ds-seg-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 button.icon-btn{ border-color:transparent; background:transparent; box-shadow:none; color:var(--kptu-muted); }
 @media (hover:hover){ button.icon-btn:not(:disabled):hover,button.ds-chip:not(:disabled,[aria-pressed="true"],[aria-checked="true"]):hover,.ds-seg button.ds-seg-btn:not(:disabled,[aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
