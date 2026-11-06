@@ -196,7 +196,7 @@
 .fx-job-failed .fx-job-st, .fx-job-failed small { color:var(--kptu-danger); }
 .fx-job-skipped .fx-job-nm { color:var(--kptu-muted); }
 .fx-jobs-none { margin:0; padding:16px 12px; color:var(--kptu-muted); font-size:12px; }
-.fx-dest-tree.nx-tree:not([hidden]) { position:static; border-right:0; padding-right:4px; }
+.fx-dest-tree.nx-tree:not([hidden]) { position:static; align-self:stretch; border-right:0; padding-right:4px; }
 
 /* FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2, 시안 ⑥ 폴드 884 · ⑧ PC 1440). 칸 둘은 같은 칸 모양(.fx-listcol)을 나란히.
    칸 위 줄(위치 줄 + 정렬, 폴드는 ▾ 나무)은 밑선 2px, 지금 칸은 강조색 밑선(시안 pane-top.cur). 폴드 두 칸은 왼쪽 나무 대신 칸 위 ▾ 나무.
