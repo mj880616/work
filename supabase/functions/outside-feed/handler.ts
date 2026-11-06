@@ -15,7 +15,8 @@
 // 읽는 주소: _shared/outside-catalog.ts 고정 목록의 허용 호스트만(요청 몸통·화면은 단체 키만 보냄 — SSRF 차단).
 //   리다이렉트도 같은 단체 허용 호스트만, 응답 2MB·10초 상한, GET만. robots.txt를 먼저 읽고 막힌 경로는 건너뛴다(last_error='robots').
 // 저장(2절 경계): 국내 글 = 제목·종류·시각·원문 주소·AI 한 문장 요약·본문 문장(2년 지난 글은 문장 없이). 외국 글 = 제목·한국어 제목·
-//   한국어 요약·핵심 문장 3개까지(원문+번역). 외국 글 본문·전문 번역은 저장하지 않는다(AI 재료로 한 번 쓰고 버림).
+//   한국어 요약·핵심 문장 3개까지(원문+번역). 전문 번역은 저장하지 않는다.
+//   본문 블록(NEWS-전면개편 P2b, D1): 국내·외국 글 모두 본문 문단·사진 주소·캡션을 app_feed_bodies에 작업공간 소유자 비공개로(카탈로그 extract=false 단체는 빼고).
 // DB는 service role로 migration 20261031230000의 grant(네 표 select·insert·update·delete) 안에서만 쓴다. 다른 표는 owner 확인용
 //   app_workspace_members 읽기뿐이다. 로그·응답에는 단계 코드·건수·단체 키만(제목·본문·주소 없음).
 import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSource } from "../_shared/outside-catalog.ts";
@@ -23,9 +24,9 @@ import { aiConfigFrom, callOpenAi, outputText, type Env, type Log } from "../_sh
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
-import { bodyNumbers, extractBlocks, failedBody, readFailReason, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
+import { bodyNumbers, bodyRow, extractBlocks, failedBody, readFailReason, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
 import { betterTitle, pageTitleFrom, tidySummary, tidyTitle } from "../_shared/outside-tidy.ts";
-import { cut, decodeBody, extractBody, isUrlTitle, looksLikeBotCheck, NO_TITLE, oneLine, pageDate, parseFeed, parseListHtml, parseTelegram, robotsAllows, splitSentences, usableTitle, type ListItem, type ListStats } from "./parse.ts";
+import { BODY_MAX_CHARS, cut, decodeBody, isUrlTitle, looksLikeBotCheck, NO_TITLE, oneLine, pageDate, parseFeed, parseListHtml, parseTelegram, robotsAllows, splitSentences, usableTitle, type ListItem, type ListStats } from "./parse.ts";
 
 export type OutsideFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: Log };
 
@@ -419,6 +420,17 @@ export function postBody(source: OutsideSource, it: ListItem, page: { ok: true; 
   return extractBlocks({ html: page.text, base: page.url, title, key: source.key, rule, body: source.bodyClass, minChars: MIN_BODY_CHARS });
 }
 
+// 블록 한 줄 넣기(서비스 역할, 칸별 insert grant 안). 카탈로그 extract=false인 단체·2년 지난 글은 넣지 않는다.
+// 실패해도 글 넣기는 그대로 둔다(로그는 단계 코드·단체 키만). 같은 글 줄이 이미 있으면 그대로 둔다(다시 뽑기는 P2c).
+async function saveBody(db: Db, log: Log, source: OutsideSource, ex: Extracted, workspaceId: string, postId: string, nowIso: string) {
+  if (source.extract === false) return;
+  try {
+    await db.send("POST", "app_feed_bodies?on_conflict=outside_post_id", bodyRow(ex, { workspace_id: workspaceId, outside_post_id: postId }, nowIso), "return=minimal,resolution=ignore-duplicates");
+  } catch {
+    log("body_failed", { source: source.key });
+  }
+}
+
 // probe: 목록 1쪽 + 최신 글 1개 → 숫자·코드만(저장 없음). 글 쪽을 읽는 조건은 run과 같다(텔레그램·피드 본문 200자 이상이면 읽지 않음).
 async function probeSource(reader: Reader, source: OutsideSource, nowMs: number) {
   const base = { ok: true, source: source.key, mode: source.mode, extract: source.extract !== false };
@@ -503,23 +515,27 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
   for (const [n, { it, ws, again }] of todo.entries()) {
     if (n >= maxNew || clock() - startMs > budget) { out.deferred = todo.length - n; break; }
     // 본문: 피드 본문(200자 이상)이 있으면 그것, 없으면 글 페이지 1번 읽어 본문 칸을 뽑는다(국내·외국 같음 — 외국 글은 본문을 AI 재료로만 쓰고 버림).
-    let body = it.content && chars(it.content) >= 200 ? it.content : "";
+    // 본문(NEWS-전면개편 P2b): 공용 추출기 한 번 → 화면 블록(app_feed_bodies)·문장 표·AI 재료가 같은 결과를 쓴다.
+    // 피드 본문(200자 이상)·텔레그램 글은 글 쪽을 읽지 않고 그것으로, 아니면 글 쪽 1번(국내·외국 같음).
+    let ex: Extracted;
     let pageText = "";
     let pageRead = false;
     if (source.mode === "telegram") {
       // 텔레그램 채널 글: 목록에 실린 글 자체가 본문이다. 글 쪽(채널 글·단체 사이트)은 따로 요청하지 않는다(사이트 로봇 확인 화면을 건드리지 않음).
-      body = it.content && chars(it.content) >= MIN_BODY_CHARS ? it.content : "";
+      ex = postBody(source, it, null);
       pageRead = true; // 본문이 짧으면 제목만 넣는다(요약 줄 비움).
-    } else if (!body) {
+    } else if (it.content && chars(it.content) >= 200) {
+      ex = postBody(source, it, null);
+    } else {
       const page = await reader.get(source, it.url, false);
       if (page.ok) {
         pageRead = true;
         pageText = page.text;
-        // 글 쪽 제목이 목록 제목보다 정확하면(목록 칸에 부제·본문 앞부분이 붙은 단체) 그 제목 줄 뒤부터 본문을 읽는다.
-        const got = extractBody(page.text, betterTitle(it.title, pageTitleFrom(page.text), source.name) ?? it.title, source.bodyClass);
-        body = chars(got) >= MIN_BODY_CHARS ? got : "";
       } else if (!it.summary && !it.content) { out.skipped++; continue; } // 글 쪽을 못 읽음(일시 오류·robots) — 다음 실행에 다시
+      // 글 쪽 제목이 목록 제목보다 정확하면(목록 칸에 부제·본문 앞부분이 붙은 단체) 그 제목 줄 뒤부터 본문을 읽는다(postBody 안).
+      ex = postBody(source, it, page);
     }
+    const body = ex.state === "ok" ? cut(ex.text, BODY_MAX_CHARS) : "";
     // 게시 날짜: 목록 → 글 쪽(메타·제목 뒤 날짜). 못 읽으면 null('날짜 모름') — 읽은 시각을 게시 시각으로 쓰지 않는다(11/02 00:17).
     const published = it.published_at ?? (pageText ? pageDate(pageText, it.title, nowMs, source.bodyClass) : null);
     if (pageRead) pageTried.set(it.url, published);
@@ -556,7 +572,7 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
       const sentences = old || !body ? [] : splitSentences(body);
       const summary = body ? tidySummary(readKoSummary(await askAi(ai, "outside_ko_summary", KO_SUMMARY_INSTRUCTIONS,
         `단체: ${source.name}\n제목: ${title}${subtitle ? `\n부제: ${subtitle}` : ""}\n\n본문:\n${cut(body, AI_MATERIAL_CHARS)}`, KO_SUMMARY_SCHEMA, 300))) : null;
-      for (const w of ws) rows.push({ workspace_id: w, source_key: source.key, kind: it.kind, lang: "ko", title, author: it.author, url: it.url, published_at: published, summary_ko: summary, has_body: sentences.length > 0, _sentences: sentences });
+      for (const w of ws) rows.push({ workspace_id: w, source_key: source.key, kind: it.kind, lang: "ko", title, author: it.author, url: it.url, published_at: published, summary_ko: summary, has_body: sentences.length > 0, _sentences: sentences, _saveBody: !old });
     } else {
       // 재료: 본문(피드 또는 글 쪽 앞부분) → 없으면 피드 본문·소개 글. 하나도 없으면 제목만 넣는다(요약 줄 비움).
       const material = cut(body || it.content || it.summary || "", AI_MATERIAL_CHARS);
@@ -564,14 +580,15 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
         ? readEnIntro(await askAi(ai, "outside_en_intro", EN_INSTRUCTIONS, `Title: ${title}\n\n${material}`, EN_SCHEMA, 1200), material)
         : { title_ko: null, summary_ko: null, key_sentences: [] };
       if (!intro) { out.skipped++; continue; } // AI가 없거나 답 모양이 틀림 — 넣지 않고 다음 실행에 다시 본다.
-      for (const w of ws) rows.push({ workspace_id: w, source_key: source.key, kind: "article", lang: "en", title, title_ko: intro.title_ko, author: it.author, url: it.url, published_at: published, summary_ko: intro.summary_ko, key_sentences: intro.key_sentences, has_body: false, _sentences: [] });
+      for (const w of ws) rows.push({ workspace_id: w, source_key: source.key, kind: "article", lang: "en", title, title_ko: intro.title_ko, author: it.author, url: it.url, published_at: published, summary_ko: intro.summary_ko, key_sentences: intro.key_sentences, has_body: false, _sentences: [], _saveBody: !(published !== null && Date.parse(published) < cutoff) });
     }
     for (const row of rows) {
-      const { _sentences, ...post } = row as Record<string, unknown> & { _sentences: string[] };
+      const { _sentences, _saveBody, ...post } = row as Record<string, unknown> & { _sentences: string[]; _saveBody: boolean };
       const made = await db.send("POST", "app_outside_posts?on_conflict=workspace_id,url&select=id,workspace_id", post, "return=representation,resolution=ignore-duplicates");
       const id = made[0]?.id;
       if (typeof id !== "string") continue; // 그 사이 다른 실행이 넣음
       out.inserted++;
+      if (_saveBody) await saveBody(db, ai.log, source, ex, String(post.workspace_id), id, nowIso);
       if (_sentences.length) {
         try {
           await db.send("POST", "app_outside_sentences", _sentences.map((text, idx) => ({ post_id: id, workspace_id: post.workspace_id, lang: "ko", idx, text })), "return=minimal");

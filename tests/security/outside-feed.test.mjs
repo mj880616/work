@@ -167,7 +167,7 @@ const html=(body,status=200,headers={})=>new Response(body,{status,headers:{'Con
 const KEY_CHECK=/^[a-z0-9][a-z0-9-]{1,39}$/;
 
 function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,workspace_id:WS,role:'owner'}],sites={},robots={},ai,env={},failSentences=false}={}){
-  const db={app_outside_sources:sources.map(r=>({enabled:true,last_ok_at:null,last_error:null,...r})),app_outside_posts:posts.map(p=>({...p})),app_outside_sentences:sentences.map(s=>({...s})),app_workspace_members:members};
+  const db={app_outside_sources:sources.map(r=>({enabled:true,last_ok_at:null,last_error:null,...r})),app_outside_posts:posts.map(p=>({...p})),app_outside_sentences:sentences.map(s=>({...s})),app_workspace_members:members,app_feed_bodies:[]};
   const calls={site:[],rest:[],ai:[],auth:0,logs:[]};
   let seq=0;
   const inList=v=>{const m=/^in\.\((.*)\)$/.exec(v);if(!m)return null;const out=[];const re=/"((?:[^"\\]|\\.)*)"|([^,]+)/g;let x;while((x=re.exec(m[1])))out.push(x[1]!==undefined?x[1].replace(/\\(.)/g,'$1'):x[2]);return out;};
@@ -206,6 +206,16 @@ function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,worksp
       for(const s of body){const post=db.app_outside_posts.find(p=>p.id===s.post_id&&p.workspace_id===s.workspace_id);
         assert.ok(post,'sentence must point to a post of the same workspace');assert.equal(post.lang,'ko','DB: no sentence rows for foreign posts');assert.equal(s.lang,'ko');
         assert.ok(s.idx>=0&&s.idx<=3000&&s.text.length>=1&&[...s.text].length<=500);rows.push(s);}return new Response(null,{status:201});}
+    if(method==='POST'&&table==='app_feed_bodies'){
+      // NEWS-전면개편 P2b: 칸 이름·같은 작업공간 글·DB 모양(20261106050000)·글마다 한 줄(겹치면 그대로 둠).
+      assert.equal(q.get('on_conflict'),'outside_post_id');assert.match(init.headers.Prefer,/resolution=ignore-duplicates/);
+      assert.deepEqual(Object.keys(body).sort(),['blocks','chars','extracted_at','images','news_item_id','outside_post_id','reason','rule','state','workspace_id']);
+      const post=db.app_outside_posts.find(p=>p.id===body.outside_post_id);assert.ok(post&&post.workspace_id===body.workspace_id,'same-workspace post');
+      assert.equal(body.news_item_id,null);assert.ok(['ok','lead','image_only','failed'].includes(body.state));assert.ok(body.blocks.length<=400);
+      assert.equal(body.chars,body.blocks.filter(b=>b.t!=='img').reduce((n,b)=>n+[...b.text].length,0));
+      assert.equal(body.images,body.blocks.filter(b=>b.t==='img').length);
+      for(const b of body.blocks)if(b.t==='img')assert.match(b.src,/^https:\/\/\S+$/);else assert.ok(b.text&&!/[\u0000-\u001f]/.test(b.text));
+      if(!rows.some(r=>r.outside_post_id===body.outside_post_id))rows.push(body);return new Response(null,{status:201});}
     if(method==='PATCH'){for(const r of rows.filter(r=>match(r,q)))Object.assign(r,body);return new Response(null,{status:204});}
     if(method==='DELETE'){const keep=rows.filter(r=>!match(r,q));rows.length=0;rows.push(...keep);return new Response(null,{status:204});}
     throw new Error('unexpected '+method+' '+table);
@@ -378,6 +388,12 @@ test('run (domestic): reads list + new posts once, stores per enabled workspace,
   assert.deepEqual(h.db.app_outside_sentences.filter(s=>s.post_id===fresh.id).map(s=>s.text),['가상 정부가 노동법을 바꾸려 한다.','우리는 이를 규탄한다!','가상 구조조정은 인력 감축으로 이어진다.','정원 축소를 멈춰라.','모든 노동자는 함께 싸울 것이다.']);
   const old=posts.find(p=>p.has_body===false);
   assert.equal(h.db.app_outside_sentences.filter(s=>s.post_id===old.id).length,0,'2-year-old post: title·summary only (Q7)');
+  // 본문 블록(P2b): 새 글마다 작업공간마다 한 줄, 문장 표와 같은 추출 결과(블록 글자 = 문장 재료). 2년 지난 글은 블록도 없음.
+  const bodies=h.db.app_feed_bodies;
+  assert.deepEqual(bodies.map(b=>[b.workspace_id,b.state,b.rule]).sort(),[[WS,'ok','kctu@1'],[WS2,'ok','kctu@1']].sort());
+  assert.ok(bodies.every(b=>posts.find(p=>p.id===b.outside_post_id).has_body));
+  const text=bodies[0].blocks.filter(b=>b.t!=='img').map(b=>b.text).join(' ');
+  for(const sent of h.db.app_outside_sentences.filter(s=>s.post_id===bodies[0].outside_post_id))assert.ok(text.includes(sent.text),sent.text);
   assert.ok(h.db.app_outside_sources.every(s=>s.last_ok_at===new Date(NOW).toISOString()&&s.last_error===null));
   // 로그에는 제목·본문·주소가 없다.
   assert.doesNotMatch(JSON.stringify(h.calls.logs),/가상|https?:/);
@@ -440,7 +456,10 @@ test('run (foreign): title·Korean summary·≤3 verified key sentences only —
   assert.equal(p.lang,'en');assert.equal(p.kind,'article');assert.equal(p.has_body,false);assert.equal(p.title_ko,'가상 파업 물결');assert.equal(p.author,'Jane Example');
   assert.deepEqual(p.key_sentences,[{orig:'Workers in a fictional city walked out on Monday.',ko:'가상 도시 노동자들이 월요일 일손을 놓음.'}],'made-up or >300-char sentences dropped');
   assert.equal(h.db.app_outside_sentences.length,0);
-  assert.doesNotMatch(JSON.stringify(p),/general assembly|three fictional plants/,'article body is not stored');
+  assert.doesNotMatch(JSON.stringify(p),/general assembly|three fictional plants/,'article body is not stored in the post row');
+  // D1(가)·M3: 외국 글 원문(영어)은 본문 블록 표에만, 작업공간 소유자 비공개(번역 저장 없음).
+  assert.equal(h.db.app_feed_bodies.length,1);assert.equal(h.db.app_feed_bodies[0].outside_post_id,p.id);assert.equal(h.db.app_feed_bodies[0].rule,'jacobin@1');
+  assert.match(JSON.stringify(h.db.app_feed_bodies[0].blocks),/general assembly/);assert.doesNotMatch(JSON.stringify(h.db.app_feed_bodies[0].blocks),/[가-힣]/);
   assert.match(h.calls.ai[0].input,/general assembly/,'body used only as AI material');
   // AI가 없거나 틀리면 외국 글은 넣지 않는다(다음 실행에 다시).
   const h2=harness({sources:[{workspace_id:WS,source_key:'jacobin'}],env:{WEB2_OPENAI_API_KEY:undefined},sites:{'https://jacobin.com/rss':FX('jacobin.xml'),'https://jacobin.com/2026/10/fictional-strike-wave':FX('article-en.html')}});
