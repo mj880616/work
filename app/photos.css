@@ -279,3 +279,8 @@
 #appView #photosView button.photos-fx-thumb > *{ display:block; width:100%; height:100%; object-fit:cover; }
 #appView #photosView .photos-fx-boxes .photos-fx-group{ display:none; }
 #appView #photosView .photos-fx-boxes .ft-box .photos-fx-row{ padding-left:4px; }
+/* S51-24 '그 폴더만'(폰·폴드) = 나무와 같은 상자(folder-tree.css ft-focus): 그 폴더 줄이 상자 머리(열린 폴더 그림 + 굵은 이름 · 장수 · 스위치), 안은 하위 폴더·격자. */
+#appView #photosView .photos-fx-focus .photos-fx-here{ min-height:40px; margin:0; padding:0 12px 2px; font-size:var(--ds-compact-text,13px); }
+#appView #photosView .photos-fx-focus .photos-fx-here b{ font-size:15px; font-weight:700; }
+#appView #photosView .photos-fx-focus .ft-box-body{ padding:0 0 8px; }
+#appView #photosView .photos-fx-focus .ft-box-body > [data-photos-fx-grid]{ padding:8px 8px 0; }

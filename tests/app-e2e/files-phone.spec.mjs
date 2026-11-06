@@ -128,8 +128,9 @@ test.describe('폰 앱 412', () => {
     await expect(tree(page).locator('[data-fx-fold="ph:Download"]')).toBeVisible();
     await phoneFolder(page, 'ph', 'Download');
     await expect(list(page).locator('[data-fx-row="ph:Download/가짜 메모장.txt"]')).toBeVisible();
-    await expect(root(page).locator('.fx-crumb-now')).toHaveText('Download');
-    await expect(root(page).locator('[data-fx-crumb]')).toContainText('이 폰');
+    await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('Download');
+    // S51-24: 폰 '그 폴더만'의 위치 줄은 상자 맨 위.
+    await expect(root(page).locator('[data-fx-list] .ft-focus-anc')).toContainText('이 폰');
     // 폰 목록은 서버로 보내지 않는다: Edge·RPC 몸통 어디에도 폰 경로가 없다.
     expect(JSON.stringify(server.calls)).not.toContain('가짜 메모장');
     // 폰 폴더에서는 [새 폴더]·[올리기]가 없다(이 판은 폰 쪽 쓰기 없음).

@@ -28,7 +28,7 @@ test('파일 폰 412: 벌리기 → 그 폴더만 → 오므리기 → 같은 �
   // 하위 폴더 '그 폴더만'에서 [‹] 한 번 = 나무(한 단계 위 목록이 아님).
   await phoneFolder(page, 'od', 'OD!10');
   await expect(list(page).locator('[data-fx-row="od:OD!14"]')).toBeVisible();
-  await page.locator('#filesRoot [data-fx-crumb] [data-fx-up]').click();
+  await page.locator('#filesRoot [data-fx-list] [data-fx-up]').click();
   await expect(tree(page)).toBeVisible();
   expect(await shape(page, 'od:OD!1')).toBe('open');
   expect(errors).toEqual([]);
@@ -48,7 +48,7 @@ test('파일 폰 412: 두 손가락이 아닌 길(두 칸 → 한 칸)로 들어
     await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(0);
     await expect(page.locator('#filesRoot')).toHaveAttribute('data-fx-pane', 'list');
     if (leave === 'pinch') await pinch(page, list(page), 'in');
-    else if (leave === 'up') await page.locator('#filesRoot [data-fx-crumb] [data-fx-up]').click();
+    else if (leave === 'up') await page.locator('#filesRoot [data-fx-list] [data-fx-up]').click();
     else await page.goBack();
     await expect(tree(page)).toBeVisible();
     expect(await shape(page, 'od:OD!1')).toBe('open');

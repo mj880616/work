@@ -4,7 +4,7 @@ import { start, openFiles, treeGo } from './helpers/files-server.mjs';
 // 이름 바꾸기·새 폴더·여러 개 고르기·휴지통(확인 창)·잘라 붙이기·끌어 놓기·클라우드 사이 옮기기. 서버는 흉내(파일 이름은 모두 가짜).
 const root = page => page.locator('#filesRoot');
 const row = (page, key) => root(page).locator(`[data-fx-row="${key}"]`);
-const names = page => root(page).locator('[data-fx-list] [data-fx-row] .fx-name').allTextContents();
+const names = page => root(page).locator('[data-fx-list] [data-fx-row] :is(.fx-name, .ft-name)').allTextContents();
 const ask = page => page.locator('.kptu-ask');
 const bar = page => root(page).locator('[data-fx-bar]');
 const edgeCalls = (server, action) => server.calls.filter(c => c.what === 'edge' && c.action === action);
@@ -26,7 +26,7 @@ test('PC 1440: 이름 바꾸기(확장자 그대로)·새 폴더·여러 개 골
   await expect(ask(page).locator('.kptu-ask-field')).toHaveValue('가짜 메모');
   await ask(page).locator('.kptu-ask-field').fill('가짜 메모 고침');
   await ask(page).getByRole('button', { name: '바꾸기' }).click();
-  await expect(row(page, 'od:OD!13').locator('.fx-name')).toHaveText('가짜 메모 고침.txt');
+  await expect(row(page, 'od:OD!13').locator(':is(.fx-name, .ft-name)')).toHaveText('가짜 메모 고침.txt');
   expect(edgeCalls(server, 'rename')[0].body).toEqual({ action: 'rename', source: 'od', id: 'OD!13', name: '가짜 메모 고침.txt', confirm: true });
   await expect(root(page).locator('[data-fx-prev] .fx-pv-nm')).toHaveText('가짜 메모 고침.txt');
   // 못 쓰는 글자는 보내기 전에 막는다.
@@ -75,7 +75,7 @@ test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드
   await expect(bar(page)).toContainText('1개 옮기는 중');
   await expect(row(page, 'od:OD!13')).toHaveClass(/fx-cut/);
   await row(page, 'od:OD!10').click();
-  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 2026');
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 2026');
   await bar(page).locator('[data-fx-paste]').click();
   await expect.poll(() => names(page)).toEqual(['가짜 계획안.hwpx', '가짜 메모.txt']);
   expect(edgeCalls(server, 'move')[0].body).toEqual({ action: 'move', source: 'od', ids: ['OD!13'], to: 'OD!10', confirm: true });
@@ -90,7 +90,7 @@ test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드
   await page.keyboard.press('Control+x');
   await treeGo(page, 'gd', '');
   await row(page, 'gd:gdFolder1').click();
-  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 업무 공간');
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 업무 공간');
   await bar(page).locator('[data-fx-paste]').click();
   await expect(ask(page)).toContainText('구글 드라이브로 옮길까요?');
   await expect(ask(page).locator('.kptu-ask-note')).toContainText('원본은 원드라이브 휴지통으로');
@@ -146,7 +146,7 @@ test('PC 1440: 같은 파일 보기(같은 해시) — 미리보기 아래 작�
   await expect(twins.locator('.fx-twin')).toHaveText(['가짜 현장.jpg']);
   expect(server.calls.find(c => c.what === 'app_cloud_items').auth).toMatch(/^Bearer /);
   await twins.locator('.fx-twin').click();
-  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 사진함');
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 사진함');
   // 해시가 없는 파일은 읽지 않는다.
   const n = server.calls.filter(c => c.what === 'app_cloud_items').length;
   await row(page, 'od:OD!20').click();

@@ -78,12 +78,23 @@
 .ft-item { --ft-item-pad:calc(12px + var(--ft-depth,0) * 22px); }
 /* ④ 두 손가락 손짓을 받는 칸: 브라우저 확대 대신 이 칸의 손짓(folder-pinch.js). 한 손가락 위아래·옆 밀기는 그대로. */
 .ft-pinch { touch-action:pan-x pan-y; }
-/* '그 폴더만' 보기 위치 줄: [‹] + 위치 + 개수. */
-.ft-focus-bar { display:flex; align-items:center; gap:4px; min-width:0; min-height:40px; margin:0 0 6px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+/* [‹] 나무로 돌아가기 단추(사진 위치 줄). '그 폴더만' 상자 위치 줄 안에서는 아래 .ft-focus-anc 모양. */
 .ft-focus-back { position:relative; flex:none; width:32px; height:32px; min-height:0; margin:0; padding:0; border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:16px; line-height:1; cursor:pointer; }
 .ft-focus-back::after { content:""; position:absolute; inset:-6px; }
-.ft-focus-path { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ft-focus-path b { color:var(--kptu-ink); font-weight:700; }
+/* S51-24 '그 폴더만' 상자(folder-tree-ui.mjs ftFocusHtml, 시안 folder-focus-continuity.html ②): 나무와 같은 상자·같은 줄.
+   맨 위 작은 회색 위치 줄(누르면 그 단계) → 머리(열린 폴더 그림 + 굵은 이름 + 개수) → 안 줄. 돌아가기 글자 없음, [‹]는 위치 줄 맨 앞 작은 꺽쇠. */
+.ft-focus-anc { display:flex; align-items:center; gap:2px; min-width:0; min-height:28px; padding:4px 8px 0 6px; overflow:hidden; font-size:11px; color:var(--kptu-muted); white-space:nowrap; }
+.ft-focus-anc .ft-box-ico, .ft-focus-anc .ft-ico { flex:none; margin:0 2px; }
+.ft-focus-anc .ft-focus-back { position:relative; flex:none; width:22px; height:24px; min-height:0; margin:0; padding:0; border:0; border-radius:var(--kptu-radius-sm,6px); background:none; color:var(--kptu-muted); font:inherit; font-size:16px; line-height:1; cursor:pointer; }
+.ft-focus-anc .ft-focus-back::after { content:""; position:absolute; inset:-10px -6px; }
+.ft-focus-step { position:relative; flex:0 1 auto; min-width:0; min-height:0; margin:0; padding:2px 2px; border:0; background:none; color:inherit; font:inherit; overflow:hidden; text-overflow:ellipsis; cursor:pointer; border-radius:var(--kptu-radius-sm,6px); }
+.ft-focus-step::after { content:""; position:absolute; inset:-10px 0; }
+.ft-focus-step:hover, .ft-focus-anc .ft-focus-back:hover { background:var(--kptu-surface-subtle); color:var(--kptu-ink); }
+.ft-focus-sep { flex:none; padding:0 1px; }
+.ft-focus-head { display:flex; align-items:center; gap:9px; min-width:0; min-height:40px; padding:0 12px 2px; }
+.ft-focus-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; font-weight:700; color:var(--kptu-ink); }
+.ft-focus-head + .ft-box-body > :first-child { border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
+.ft-focus .ft-box-body > .wait-empty, .ft-focus .ft-box-body > .wait { margin:0; padding:8px 12px; }
 /* S51-25 FOLDER-PC나무: 아이콘이 따로인 단추(줄 = 그 폴더 열기 + 펼침, 아이콘 = 접기·펼치기만). 세모 없음 — 열린 폴더 = 펼침, 닫힌 폴더 = 접힘.
    들여쓰기는 아이콘 단추 앞 같은 폭(단계마다 22px), 이름 단추는 아이콘 바로 뒤에서 시작한다. 아이콘에 마우스를 올리면 옅은 보라 테두리·손가락. */
 .ft-has-tog { padding-left:calc(6px + var(--ft-depth,0) * 22px); }
