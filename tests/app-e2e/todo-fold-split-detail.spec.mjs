@@ -59,15 +59,21 @@ for(const width of [690,884,1280]){
     await expect(pane.locator('#gtToggleBtn')).toBeVisible();await expect(pane.locator('#gtDeleteBtn')).toBeVisible();
     expect(await historyLength(page)).toBe(before+1);
     await expect(pane.locator('[data-gt-due-quick="0"]')).toHaveAttribute('aria-pressed','true');
-    // ② 기한 빠른 버튼 → 바로 저장, 칸은 열린 채, 고른 버튼 표시.
+    // ② S51-21 TODO-칸기한닫기: 기한 빠른 버튼 → 바로 저장하고 칸을 닫는다(고른 줄도 풀림) + 위쪽 작은 알림 [되돌리기].
     await pane.locator('[data-gt-due-quick="1"]').click();
     await expect.poll(()=>calls.filter(c=>c.action==='update').map(c=>c.body.due)).toEqual(['2026-10-09']);
-    await expect(editor).toBeVisible();await expect(page.locator('#gtEditDue')).toHaveValue('2026-10-09');
+    await expect(editor).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);
+    await expect(page.locator('#gtTaskBody .gt-row.is-selected')).toHaveCount(0);
+    await expect(page.locator('[data-undo-notice] [data-undo-text]')).toHaveText("'할 일 a' 기한을 내일로 옮겼어요.");
+    await expect(page.locator('[data-undo-notice] [data-undo-action]')).toBeVisible();
+    // 다시 열면 고친 기한이 고른 표시. 제목·메모·연결은 고쳐도 칸이 열린 채 저장된다.
+    await page.locator('[data-gt-edit="a"]').click();await expect(editor).toBeVisible();
+    await expect(page.locator('#gtEditDue')).toHaveValue('2026-10-09');
     await expect(pane.locator('[data-gt-due-quick="1"]')).toHaveAttribute('aria-pressed','true');
-    await expect(pane.locator('#gtEditStatus')).toHaveText('저장했어요.');
     // 메모: 입력을 멈추면 바로 저장(같은 update 경로).
     await page.locator('#gtEditNotes').fill('고친 메모');
     await expect.poll(()=>calls.filter(c=>c.action==='update').at(-1)?.body.notes).toBe('고친 메모');
+    await expect(editor).toBeVisible();await expect(pane.locator('#gtEditStatus')).toHaveText('저장했어요.');
     // 제목: Enter로 저장, 칸은 그대로.
     await page.locator('#gtEditTitle').fill('고친 제목');await page.locator('#gtEditTitle').press('Enter');
     await expect.poll(()=>calls.filter(c=>c.action==='update').at(-1)?.body.title).toBe('고친 제목');
@@ -93,6 +99,49 @@ for(const width of [690,884,1280]){
     expect(errors).toEqual([]);
   });
 }
+
+// S51-21 TODO-칸기한닫기: [다음주 ▾] 요일·기한 칸(달력)으로 고른 날도 저장 뒤 칸을 닫고, [되돌리기]는 원래 기한으로 되돌린다.
+// 같은 날을 다시 누르면 저장 없이 닫기만. 접은 폰(412) 수정 창도 빠른 기한이면 저장 뒤 닫히고 같은 알림.
+for(const width of [690,1280]){
+  test(`${width}: 다음주 요일·달력 칸으로 기한을 옮기면 저장 뒤 칸이 닫히고 [되돌리기]`,async({page})=>{
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    const tasks=[task('a','2026-10-08'),task('b','2026-10-08')];
+    const calls=await open(page,width,tasks);
+    const pane=page.locator('#gtDetailPane'),editor=pane.locator('#gtTaskModal'),updates=()=>calls.filter(c=>c.action==='update');
+    await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtToggleBtn')).toBeEnabled();
+    await pane.locator('[data-gt-due-quick="week"]').click();
+    await page.locator('#taskWeekPick').getByRole('button',{name:'월 10.12',exact:true}).click();
+    await expect.poll(()=>updates().map(c=>c.body.due)).toEqual(['2026-10-12']);
+    await expect(editor).toBeHidden();await expect(page.locator('#gtTaskBody .gt-row.is-selected')).toHaveCount(0);
+    await expect(page.locator('[data-undo-notice] [data-undo-text]')).toHaveText("'할 일 a' 기한을 10월 12일(월)로 바꿨어요.");
+    await page.locator('[data-undo-notice] [data-undo-action]').click();
+    await expect.poll(()=>updates().map(c=>c.body.due)).toEqual(['2026-10-12','2026-10-08']);
+    await expect(page.locator('[data-undo-notice] [data-undo-text]')).toHaveText('기한을 되돌려 놨어요.');
+    // 기한 칸(달력)으로 고른 날도 같다.
+    await page.locator('[data-gt-edit="b"]').click();await expect(page.locator('#gtToggleBtn')).toBeEnabled();
+    await page.locator('#gtEditDue').fill('2026-10-20');
+    await expect.poll(()=>updates().at(-1)?.body).toMatchObject({task_id:'b',due:'2026-10-20'});
+    await expect(editor).toBeHidden();
+    await expect(page.locator('[data-undo-notice] [data-undo-text]')).toHaveText("'할 일 b' 기한을 10월 20일(화)로 바꿨어요.");
+    // 같은 날을 다시 누르면 저장 없이 닫기만.
+    await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtToggleBtn')).toBeEnabled();
+    const n=updates().length;
+    await pane.locator('[data-gt-due-quick="0"]').click();
+    await expect(editor).toBeHidden();expect(updates().length).toBe(n);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('412: 폰 수정 창도 빠른 기한이면 저장 뒤 닫히고 [되돌리기] 알림',async({page})=>{
+  const tasks=[task('a','2026-10-08')];
+  const calls=await open(page,412,tasks);
+  await page.locator('[data-gt-edit="a"]').click();
+  const modal=page.locator('#gtTaskModal');await expect(modal).toBeVisible();await expect(page.locator('#gtToggleBtn')).toBeEnabled();
+  await modal.locator('[data-gt-due-quick="2"]').click();
+  await expect.poll(()=>calls.filter(c=>c.action==='update').map(c=>c.body.due)).toEqual(['2026-10-10']);
+  await expect(modal).toBeHidden();
+  await expect(page.locator('[data-undo-notice] [data-undo-text]')).toHaveText("'할 일 a' 기한을 10월 10일(토)로 바꿨어요.");
+});
 
 test('690: 메모를 쓰다 다른 줄을 고르면 쓰던 메모를 먼저 저장하고 넘어간다',async({page})=>{
   const tasks=[task('a','2026-10-08'),task('b','2026-10-08')];

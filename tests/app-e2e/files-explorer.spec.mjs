@@ -20,7 +20,7 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   await expect(root(page).locator('[data-fx-tab]')).toHaveCount(0);
   await expect(root(page).locator('.fx-top [data-fx-crumb]')).toBeHidden();
   // '최근' 상자(최근 바뀐 파일) → 별표·큰 파일 → 저장소마다 상자(머리 = 저장소 그림 + 이름, 첫 클라우드 머리 오른쪽에 맞춤 글자).
-  await expect(tree.locator('[data-fx-box="recent"] .ft-box-title')).toHaveText('최근');
+  await expect(tree.locator('[data-fx-box="recent"] .ft-box-toggle')).toHaveText('최근');
   await expect(tree.locator('[data-fx-shelf] .ft-name')).toHaveText(['별표', '큰 파일']);
   // S51-25: 별표 아이콘은 그림 문자 대신 공용 SVG(글자 없음).
   await expect(tree.locator('[data-fx-shelf="starred"] .ft-ico svg')).toHaveCount(1);

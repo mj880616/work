@@ -76,7 +76,8 @@ import {
 } from "./call-analysis.ts";
 import { buildContext, CONTEXT_LIMITS, CONTEXT_PEOPLE_FN, CONTEXT_PEOPLE_ROWS } from "./context.ts";
 import {
-  FAMILY_INSTRUCTIONS, FAMILY_LIMITS, FAMILY_SCHEMA, familyCallMaterial, familyTelegramMaterial, type FamilyMessage, type FamilyRecent, parseFamily,
+  FAMILY_INSTRUCTIONS, FAMILY_LIMITS, FAMILY_NAME_ENV, FAMILY_SCHEMA, familyCallMaterial, familyNameFrom, familyNamed, familyTelegramMaterial, familyUnname,
+  type FamilyMessage, type FamilyRecent, parseFamily,
 } from "./family.ts";
 import {
   askEvidence, parseTelegram, rawLines, TELEGRAM_INSTRUCTIONS, TELEGRAM_SCHEMA, telegramMaterial, TG_LIMITS, type TgAsk, type TgDay, type TgEarlier, type TgMessage,
@@ -866,14 +867,19 @@ export async function familyRoomTag(ws: string, roomKey: string) {
   return (await sha256Hex(`family-room|${ws}|${roomKey}`)).slice(0, 16);
 }
 
+// S51-26: 가족 이름(서버 설정 FAMILY_NAME). 로그·응답에 쓰지 않는다. 없거나 모양이 틀리면 null('상대' 그대로).
+const familyName = (env: Env) => familyNameFrom(env(FAMILY_NAME_ENV));
+
 // 최근 30일 같은 사람 줄(kind·body만). 다시 뽑지 않게 AI 재료에 붙이고, 같은 글자 줄은 서버가 한 번 더 거른다. 읽기 실패면 빈 목록(뽑기는 계속).
-async function familyRecent(db: Db, ws: string, nowMs: number, log: Log): Promise<FamilyRecent[]> {
+// 저장된 줄의 가족 이름은 '상대'로 되돌려 붙인다(AI에는 이름이 가지 않음, 같은 줄 거르기는 AI 답과 같은 글자로).
+async function familyRecent(db: Db, ws: string, nowMs: number, deps: { log: Log; env: Env }): Promise<FamilyRecent[]> {
   try {
     const since = new Date(nowMs - FAMILY_LIMITS.recentDays * 86400000).toISOString();
     const rows = await db.get(`${FAMILY_TABLE}?workspace_id=eq.${ws}&created_at=gte.${encodeURIComponent(since)}&select=kind,body&order=created_at.desc&limit=${FAMILY_LIMITS.recent}`);
-    return rows.filter((r) => typeof r.kind === "string" && typeof r.body === "string").map((r) => ({ kind: String(r.kind), body: String(r.body) }));
+    const name = familyName(deps.env);
+    return rows.filter((r) => typeof r.kind === "string" && typeof r.body === "string").map((r) => ({ kind: String(r.kind), body: familyUnname(String(r.body), name) }));
   } catch {
-    log("family_recent_failed");
+    deps.log("family_recent_failed");
     return [];
   }
 }
@@ -911,6 +917,9 @@ async function familyExtract(db: Db, ws: string, material: string, recent: Famil
     const code = result.ok ? (isIncomplete(result.raw) ? "AI_INCOMPLETE" : "AI_INVALID_RESPONSE") : result.code.toUpperCase();
     return { ok: false, code, status: result.ok ? 502 : result.code === "ai_timeout" ? 504 : 503 };
   }
+  // 주어 '상대' → 가족 이름(설정이 있을 때만, 150자를 넘으면 그 줄은 '상대' 그대로).
+  const name = familyName(deps.env);
+  if (name) parsed.notes = parsed.notes.map((n) => ({ ...n, body: familyNamed(n.body, name) }));
   return { ok: true, notes: parsed, model: config.model };
 }
 
@@ -942,7 +951,7 @@ async function runFamilyTg(db: Db, ws: string, input: FamilyTgInput, nowMs: numb
   const dup = await db.get(`${FAMILY_TABLE}?workspace_id=eq.${ws}&source_ref=like.${encodeURIComponent(prefix)}*&select=source_ref&limit=1`);
   if (dup.length) return callResult({ duplicate: true });
   if (!input.messages.length) return callResult();
-  const recent = await familyRecent(db, ws, nowMs, deps.log);
+  const recent = await familyRecent(db, ws, nowMs, deps);
   const messages: FamilyMessage[] = input.messages.map((m) => ({ at: m.at, self: input.self.has(m.sender), text: m.text }));
   const out = await familyExtract(db, ws, familyTelegramMaterial(input.day, messages, recent), recent, nowMs, deps);
   if (!out.ok) {
@@ -985,7 +994,7 @@ async function runFamilyCall(db: Db, ws: string, input: CallInput, orgs: OrgRow[
     if (fws !== ws) deps.log("family_skipped", { stage: "WORKSPACE_MISMATCH" });
     else if (!input.transcript.trim()) deps.log("family_skipped", { stage: "NO_TRANSCRIPT" });
     else {
-      const recent = await familyRecent(db, fws, nowMs, deps.log);
+      const recent = await familyRecent(db, fws, nowMs, deps);
       const out = await familyExtract(db, fws, familyCallMaterial(box.day, input.transcript, recent), recent, nowMs, deps);
       if (!out.ok) deps.log("family_ai_failed", { stage: out.code, origin: "call" });
       else {
