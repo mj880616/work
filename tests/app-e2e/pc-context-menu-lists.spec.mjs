@@ -10,7 +10,8 @@ import {showAllReportWeeks} from './helpers/report-week.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 const menu=page=>page.locator('#rowMenu');
 const labels=loc=>loc.locator('button').allTextContents().then(a=>a.map(s=>s.trim()));
-async function rightAt(page,loc){const b=await loc.boundingBox(),x=Math.round(b.x+Math.min(b.width/2,60)),y=Math.round(b.y+b.height/2);await page.mouse.move(x,y);await page.mouse.click(x,y,{button:'right'});return {x,y}}
+// 다시 그려지는 줄도 기다렸다가 누른다(locator.click이 보일 때까지 기다림). 돌려주는 값 = 누른 화면 자리.
+async function rightAt(page,loc){await expect(loc).toBeVisible();const b=await loc.boundingBox(),dx=Math.round(Math.min(b.width/2,60)),dy=Math.round(b.height/2);await loc.click({button:'right',position:{x:dx,y:dy}});return {x:Math.round(b.x)+dx,y:Math.round(b.y)+dy}}
 const keepLog=page=>page.evaluate(()=>{window.__kept=[];window.addEventListener('contextmenu',e=>window.__kept.push(!e.defaultPrevented))});
 
 test('파일 1280: 목록 줄 우클릭 → 그 줄 메뉴(고르기 아님), 폴더는 [열기]로 들어가기',async({page})=>{
