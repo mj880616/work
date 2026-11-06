@@ -128,7 +128,8 @@ test('PC: names sit under the card, the menu lists 편집·파일 붙이기·삭
   const notes=page.locator('#gtEditNotes');
   await expect(notes).toHaveValue('원래 메모');
   await notes.fill('고친 메모');
-  await page.locator('#gtSaveBtn').click();
+  // S51-13: PC 오른쪽 칸은 [저장] 없이 바로 저장 — 메모는 칸을 떠나면 저장된다.
+  await notes.blur();
   await expect.poll(()=>state.calls.updates.length).toBe(1);
   expect(state.calls.updates[0].notes).toBe('고친 메모');
   // The server (google-tasks Edge, notesForUpdate) adds the file line back; the editor keeps what was typed.
@@ -203,7 +204,8 @@ test('card: a long file name stays on one line with an ellipsis; tapping it open
 // TASK-첨부교체: the edit window's 첨부 rows offer [교체] [빼기] and [파일 붙이기]; nothing is sent until [저장], closing forgets it,
 // and the old Drive file is only taken off the task (detach), never deleted.
 const txt=name=>({name,mimeType:'text/plain',buffer:Buffer.from('abc')});
-for(const viewport of [{width:412,height:915},{width:1440,height:900}]){
+// S51-13 TODO-폴드목록상세: PC·폴드 펼침 오른쪽 칸은 바꾸면 잠시 뒤 바로 저장된다(아래 'PC 오른쪽 칸' 시험). 이 시험은 [저장]이 있는 폰 창.
+for(const viewport of [{width:412,height:915}]){
   test(`${viewport.width}px: 교체 → 저장 puts the new file in the list and the window; 빼기·파일 붙이기 too; closing forgets held changes`,async({browser})=>{
     const {context,page,state,google}=await openTasks(browser,{viewport,files:[{google_task_id:'a',drive_file_id:'old1',file_name:'기존 자료.pdf',size_bytes:9}]});
     const open=async()=>{await row(page,'a').locator('[data-gt-edit]').click();await expect(page.locator('#gtEditAttach')).toBeVisible()};
@@ -260,6 +262,33 @@ for(const viewport of [{width:412,height:915},{width:1440,height:900}]){
     await context.close();
   });
 }
+
+test('1440px PC 오른쪽 칸: 교체·빼기·파일 붙이기는 [저장] 없이 잠시 뒤 바로 저장되고, 칸은 열린 채 새 파일을 보인다',async({browser})=>{
+  const {context,page,state,google}=await openTasks(browser,{viewport:{width:1440,height:900},files:[{google_task_id:'a',drive_file_id:'old1',file_name:'기존 자료.pdf',size_bytes:9}]});
+  const att=page.locator('#gtEditAttach');
+  await row(page,'a').locator('[data-gt-edit]').click();await expect(att).toBeVisible();
+  await expect(page.locator('#gtSaveBtn')).toBeHidden();
+  // [교체]: 안내는 '잠시 뒤 저장됩니다', 새 파일이 먼저 올라가고 원래 파일은 할 일에서만 빠진다.
+  await att.locator('[data-gt-att-swap="old1"]').click();
+  await att.locator('[data-gt-att-swap-input]').setInputFiles([txt('새 자료.txt')]);
+  await expect(att.locator('.gt-att-hint')).toHaveText('잠시 뒤 저장됩니다 · 원래 파일은 Drive에 남습니다');
+  await expect.poll(()=>state.calls.detach.length).toBe(1);
+  expect(state.calls.attach).toEqual([{taskId:'a',name:'새 자료.txt'}]);
+  expect(state.calls.detach).toEqual([{action:'detach',task_id:'a',drive_file_id:'old1'}]);
+  await expect(row(page,'a').locator('.gt-files a.gt-file')).toHaveText(['새 자료.txt']);
+  await expect(page.locator('#gtTaskModal')).toBeVisible();
+  await expect(att.locator('.gt-att-row .gt-att-name')).toHaveText(['새 자료.txt']);
+  expect(google.a.notes).toBe(['원래 메모',line('drv1','새 자료.txt')].join('\n'));
+  // [빼기] → 바로 저장, [파일 붙이기] → 바로 저장.
+  await att.locator('[data-gt-att-remove="drv1"]').click();
+  await expect.poll(()=>state.calls.detach.length).toBe(2);
+  await expect(att.locator('.gt-att-row')).toHaveCount(0);
+  await att.locator('[data-gt-att-add-input]').setInputFiles([txt('붙인 자료.txt')]);
+  await expect.poll(()=>state.calls.attach.length).toBe(2);
+  await expect(row(page,'a').locator('.gt-files a.gt-file')).toHaveText(['붙인 자료.txt']);
+  expect(await noSideScroll(page)).toBe(true);
+  await context.close();
+});
 
 test('a file known only from a notes line is taken off by the notes save; other lines stay',async({browser})=>{
   const {context,page,state}=await openTasks(browser,{viewport:{width:412,height:915},notes:withLines,files:[{google_task_id:'a',drive_file_id:'n1',file_name:'회의록 최종.pdf',size_bytes:9}]});
