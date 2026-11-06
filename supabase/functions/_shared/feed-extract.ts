@@ -17,6 +17,7 @@ export type Extracted = {
   state: BodyState; reason: BodyReason | null; rule: string | null;
   blocks: Block[]; chars: number; images: number; captions: number;
   text: string; // 글자 블록(p·h·quote)을 줄로 이은 것 — 문장 표·뉴스 body·AI 재료
+  scope?: string | null; // 본문 칸을 어디서 골랐나(probe 숫자·코드용, 저장 안 함): own·article·common·body·*_form·fragment·text
 };
 
 export const BODY_LIMITS = Object.freeze({ blocks: 400, chars: 100000, images: 20, src: 2000, cap: 300, textJson: 110000 });
@@ -189,7 +190,7 @@ export function extractBlocks(input: ExtractInput): Extracted {
   let raw = input.html;
   if (input.fragment && !/<[a-z]/i.test(raw) && /&lt;[a-z]/i.test(raw)) raw = decodeEntities(raw); // 한 번 더 이스케이프된 피드 본문
   const scope = input.fragment
-    ? { html: raw.replace(/<(nav|header|footer|aside|form)\b[\s\S]*?<\/\1\s*>/gi, " "), own: true }
+    ? { html: raw.replace(/<(nav|header|footer|aside|form)\b[\s\S]*?<\/\1\s*>/gi, " "), own: true, via: "fragment" }
     : bodyScopeHtml(raw, input.body);
   let html = scope.html.replace(/<!--[\s\S]*?-->/g, " ").replace(/<(script|style|noscript|template|svg|iframe|object|select|textarea)\b[\s\S]*?<\/\1\s*>/gi, " ");
   if (input.rule.drop) html = replaceRanges(html, elementRanges(html, input.rule.drop), () => " ");
@@ -224,8 +225,8 @@ export function extractBlocks(input: ExtractInput): Extracted {
     b.text(kind === MARK_H ? "h" : kind === MARK_Q ? "quote" : "p", text);
   }
   const out = finish(b, rule, input.minChars, files);
-  if (input.rule.lead && out.state !== "failed" && input.rule.lead.test(raw)) return leadOf(out);
-  return out;
+  if (input.rule.lead && out.state !== "failed" && input.rule.lead.test(raw)) return { ...leadOf(out), scope: scope.via };
+  return { ...out, scope: scope.via };
 }
 
 // 유료벽: 앞부분(LEAD_MAX_CHARS자 안의 글자 블록과 그 사이 사진)만 남긴다.
@@ -252,15 +253,15 @@ export function textBlocks(text: string, opts: { key: string; rule: ExtractRule 
   }
   if (opts.state === "lead") {
     if (!b.chars) return failedBody(opts.reason ?? "no_body", rule);
-    return { state: "lead", reason: opts.reason ?? null, rule, blocks: b.blocks, chars: b.chars, images: b.images, captions: 0, text: b.textOnly() };
+    return { state: "lead", reason: opts.reason ?? null, rule, blocks: b.blocks, chars: b.chars, images: b.images, captions: 0, text: b.textOnly(), scope: "text" };
   }
-  return finish(b, rule, opts.minChars, []);
+  return { ...finish(b, rule, opts.minChars, []), scope: "text" };
 }
 
 // probe·로그용 숫자(글자·주소 없음).
 export function bodyNumbers(e: Extracted) {
   return { state: e.state, reason: e.reason, rule: e.rule, blocks: e.blocks.length, chars: e.chars, images: e.images, captions: e.captions,
-    headings: e.blocks.filter((b) => b.t === "h").length, quotes: e.blocks.filter((b) => b.t === "quote").length };
+    headings: e.blocks.filter((b) => b.t === "h").length, quotes: e.blocks.filter((b) => b.t === "quote").length, scope: e.scope ?? null };
 }
 
 // app_feed_bodies 한 줄(서비스 역할로 넣기). 글 id는 둘 중 하나만.
