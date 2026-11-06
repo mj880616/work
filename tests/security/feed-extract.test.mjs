@@ -69,7 +69,7 @@ test('blocks: 문단·소제목·인용·사진(캡션·대체 글), 꾸밈 그�
  for(const bad of ['메뉴 칸','공유 칸','꼬리 칸','목록 뒤','2026.11.06','logo.png','p.gif','http://','data:'])assert.ok(!all.includes(bad),bad);
  // 같은 본문 칸·제목 줄·끝 표시·덧줄 거르기: 캡션 줄만 빼면 extractBody와 같은 글자.
  assert.equal(e.text,P.extractBody(html.replace('<div class="share-box">공유 칸 글자</div>',''),'합성 제목').replace('합성 캡션\n',''));
- assert.deepEqual(E.bodyNumbers(e),{state:'ok',reason:null,rule:'kctu@3',blocks:6,chars:e.chars,images:2,captions:1,headings:1,quotes:1});
+ assert.deepEqual(E.bodyNumbers(e),{state:'ok',reason:null,rule:'kctu@3',blocks:6,chars:e.chars,images:2,captions:1,headings:1,quotes:1,scope:'article'});
 });
 
 test('limits: 블록 400개·사진 20장·글자 10만 자·제어 문자 없음, 같은 사진 한 번',()=>{
@@ -131,8 +131,8 @@ const SAMPLES={
  kctu:l=>wrap(`<div class="xe_content">${body(l)}${FIG()}</div>`),
  kptu:l=>wrap(`<form><div class="publishList_write">${body(l)}<p><img src="/upload/sample.png"></p></div></form>`.replace('<form>','').replace('</form>','')),
  kmwu:l=>wrap(`<section id="bo_v_atc"><div id="bo_v_con">${body(l)}${FIG()}</div><section id="bo_v_file">합성첨부.hwp 빼는 칸</section><div id="bo_v_sns">공유 빼는 칸</div></section>`),
- kfsu:l=>wrap(`<div class="kboard-content">${body(l)}${FIG()}</div><div class="kboard-document-action">빼는 칸 좋아요</div>`),
- hakbi:l=>wrap(`<div class="board_view">${body(l)}${FIG()}</div>`),
+ kfsu:l=>wrap(`<article class="post"><p>합성 머리 짧은 칸</p></article><div class="kboard-content">${body(l)}${FIG()}</div><div class="kboard-document-action">빼는 칸 좋아요</div>`),
+ hakbi:l=>wrap(`<article class="top"><p>짧은 상단 칸</p></article><form name="bbs"><div class="read_body">${body(l)}${FIG()}</div><input type="hidden" name="x"></form>`),
  laborparty:l=>wrap(`<div class="kboard-content">${body(l)}${FIG()}<div class="kboard-document-action">빼는 칸 인쇄</div></div>`),
  kgreens:l=>wrap(`<h1>합성 견본 제목</h1>${body(l)}${FIG()}`),
  jinboparty:l=>wrap(`<div class="content_head">합성 머리 칸</div><div class="content_box">${body(l)}${FIG()}</div>`),
@@ -146,8 +146,8 @@ const SAMPLES={
  redpepper:l=>wrap(`<div class="entry-content">${body(l)}<div class="wp-caption"><img src="/wp-content/uploads/sample.jpg"><p class="wp-caption-text">합성 캡션 글</p></div><div class="jp-relatedposts">빼는 칸 관련</div></div>`),
  socialistworker:l=>wrap(`<div class="entry-content">${body(l)}<figure class="wp-block-image">${'<img src="/wp-content/uploads/sample.jpg"><figcaption class="wp-element-caption">합성 캡션 글</figcaption>'}</figure><div class="addtoany_share_save_container">빼는 칸 공유</div></div>`),
  'news-labortoday':l=>wrap(`<article class="article-view-header">합성 머리 칸</article><article id="article-view-content-div">${body(l)}${FIG('photo-layout')}<div class="view-copyright">빼는 칸 저작권</div></article>`),
- 'news-beminor':l=>wrap(`<article id="article-view-content-div">${body(l)}${FIG('photo-layout')}<div class="view-editors">빼는 칸 기자</div></article>`),
- 'news-pressian':l=>wrap(`<div class="article_body">${body(l)}${FIG()}<div class="byline">빼는 칸 기자</div></div>`),
+ 'news-beminor':l=>wrap(`<article id="article-view-content-div">${body(l)}${FIG('photo-layout')}<div class="view-editors">빼는 칸 기자</div></article><div class="paywall-layer"></div><aside>로그인 후 이용해 주세요</aside>`),
+ 'news-pressian':l=>wrap(`<article class="rel"><p>합성 머리 관련 칸</p></article><div class="article_body">${body(l)}${FIG()}<div class="byline">빼는 칸 기자</div></div><div class="comment">로그인 후 이용 가능합니다</div>`),
  'news-psi':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-itf':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-labourstart':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
@@ -269,7 +269,7 @@ test('news-feed probe: 매체 하나 → 숫자·코드만, 저장 없음',async
  const h=NH.createNewsFeedHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,NEWS_FEED_CRON_SECRET:NSECRET})[n],fetch:w.doFetch,now:()=>NOW,sleep:async()=>{},log:()=>{}});
  assert.deepEqual(await(await h(req('news-feed',NH.CRON_HEADER,NSECRET,{}))).json(),{ok:true,sources:NC.NEWS_SOURCE_KEYS});
  const out=await(await h(req('news-feed',NH.CRON_HEADER,NSECRET,{source:'news-beminor'}))).json();
- assert.deepEqual([out.list,out.page,out.page_state,out.body_kind,out.state,out.rule],['ok','ok','ok','full','ok','news-beminor@1']);
+ assert.deepEqual([out.list,out.page,out.page_state,out.body_kind,out.state,out.rule],['ok','ok','ok','full','ok','news-beminor@2']);
  assert.ok(out.images>=1&&out.captions>=1);
  for(const v of Object.values(out))assert.ok(v===null||typeof v==='number'||typeof v==='boolean'||/^[a-z0-9_@-]{1,40}$/.test(v),`숫자·코드만: ${v}`);
  assert.equal(w.calls.filter(c=>c.url.startsWith(SB)).length,0,'DB 요청 없음');
@@ -296,4 +296,90 @@ test('source text: 추출기는 HTML·주소를 받으러 가지 않음(fetch �
   const t=readFileSync(new URL(`../../supabase/functions/${f}`,import.meta.url),'utf8');
   for(const m of t.matchAll(/log\("([a-z_]+)"(, \{[^}]*\})?\)/g))assert.doesNotMatch(m[2]??'',/title|text|body|url|blocks/,`${f}: ${m[0]}`);
  }
+});
+
+// ---- S51-9: 11/06 운영 probe 결과로 고친 규칙(유료벽 오탐·본문 칸 고르기·LabourStart 까닭 코드) ---------------------------------
+test('유료벽: 유료벽 없는 매체(free)는 흔한 검사 안 함 — 댓글 칸 로그인 문구·숨은 paywall-… 칸으로 lead가 되지 않음',()=>{
+ for(const key of ['news-beminor','news-pressian']){
+  const s=NC.newsSourceByKey(key);
+  assert.equal(s.extract.free,true,key);assert.equal(s.extract.version,2,key);
+  const html=SAMPLES[key]('ko').replace('<head>','<head><meta property="og:title" content="합성 견본 제목"><meta name="description" content="합성 리드">');
+  const info=NP.readArticlePage(html,NOW,NH.mediaRule(s,'https://www.example.com/news/1'));
+  assert.deepEqual([info.state,info.body_kind,info.blocks.state,info.blocks.reason,info.paywall],['ok','full','ok',null,null],key);
+  assert.equal(info.blocks.scope,'own',key);
+  assert.ok(info.blocks.chars>300,key);
+  // free면 구조화 데이터 표시가 있어도 보지 않는다(유료벽 없음 확인 매체).
+  const ld=NP.readArticlePage(html.replace('<head>','<head><script type="application/ld+json">{"isAccessibleForFree":false}</script>'),NOW,NH.mediaRule(s,'https://www.example.com/news/1'));
+  assert.equal(ld.state,'ok',key);
+ }
+ for(const s of [...OC.OUTSIDE_CATALOG,...NC.NEWS_CATALOG])if(s.extract)assert.ok(!(s.extract.free&&s.extract.lead),`${s.key}: free와 lead를 함께 쓰지 않음`);
+});
+
+test('유료벽: 흔한 검사는 실제 표시만 — 구조화 데이터·정확한 class paywall·본문 칸 안 문구 / 본문 밖 문구·이름 일부는 아님',()=>{
+ const s=NC.newsSourceByKey('news-labortoday');assert.equal(s.extract.version,2);assert.ok(!s.extract.free);
+ const rule=NH.mediaRule(s,'https://www.example.com/news/1');
+ const page=(head,inner,after='')=>`<html><head><meta property="og:title" content="합성 견본 제목"><meta name="description" content="합성 리드 문단">${head}</head><body>${NAV}<article id="article-view-content-div">${inner}</article>${after}${FOOT}</body></html>`;
+ const full=`<p>${LONG}</p><p>${LONG}</p>`;
+ const cases=[
+  [page('<script type="application/ld+json">{"@type":"NewsArticle","isAccessibleForFree":"False"}</script>',full),'paywall','ld_not_free'],
+  [page('',full,'<div class="box paywall">x</div>'),'paywall','class'],
+  [page('',`<p>${LONG}</p><p>이 기사는 유료회원 전용입니다.</p>`),'paywall','phrase_ko'],
+  [page('',full,'<aside>유료회원 전용 상품 안내</aside><div class="cmt">로그인 후 이용해 주세요</div>'),'ok',null],
+  [page('',full,'<div class="paywall-banner">x</div><div class="no-paywall">y</div>'),'ok',null],
+  [page('',`${full}<p>댓글은 로그인 후 이용할 수 있습니다.</p>`),'ok',null],
+ ];
+ for(const [html,state,mark] of cases){
+  const info=NP.readArticlePage(html,NOW,rule);
+  assert.equal(info.state,state,mark??html.slice(-80));assert.equal(info.paywall,mark);
+  if(state==='paywall'){assert.deepEqual([info.blocks.state,info.blocks.reason,info.body_kind],['lead','paywall','lead']);assert.ok(info.blocks.chars<=E.LEAD_MAX_CHARS);}
+  else assert.equal(info.body_kind,'full');
+ }
+ const en=NP.readArticlePage(`<html><head><meta property="og:title" content="Synthetic"></head><body><article><p>${EN.repeat(5)}</p><p>Subscribe now to continue reading.</p></article></body></html>`,NOW,{key:'open',rule:NC.OPEN_ARTICLE_RULE,base:'https://www.example.com/a'});
+ assert.deepEqual([en.state,en.paywall],['paywall','phrase_en']);
+ assert.equal(NC.OPEN_ARTICLE_RULE.version,2);
+});
+
+test('본문 칸 고르기: 빈 <article>은 건너뜀, 그림뿐인 <article>은 씀, 게시판 쪽 전체가 <form> 안이면 폼 꼬리표만 벗김',()=>{
+ const skip=P.bodyScopeHtml(`<body><article><p>짧은 칸</p></article><article><p>${LONG}</p></article></body>`);
+ assert.equal(skip.via,'article');assert.ok(skip.html.includes(PARA.slice(0,10)));assert.ok(!skip.html.includes('짧은 칸'));
+ const toCommon=P.bodyScopeHtml(`<body><article><p>짧은 칸</p></article><div class="view_content"><p>${LONG}</p></div></body>`);
+ assert.equal(toCommon.via,'common');
+ const img=P.bodyScopeHtml(`<body><article><p><img src="https://www.example.com/a.png"></p></article><div><p>${LONG}</p></div></body>`);
+ assert.equal(img.via,'article','그림뿐인 글(image_only)은 예전처럼 그 칸');
+ const form=P.bodyScopeHtml(`<body><nav>합성 메뉴</nav><form><div class="read"><p>${LONG}</p></div></form></body>`);
+ assert.equal(form.via,'body_form');assert.ok(!form.html.includes('합성 메뉴'));assert.ok(form.html.includes(PARA.slice(0,10)));
+ const searchForm=P.bodyScopeHtml(`<body><form><input name="q"><p>검색 칸</p></form><div><p>${LONG}</p></div></body>`);
+ assert.equal(searchForm.via,'body');assert.ok(!searchForm.html.includes('검색 칸'),'본문이 폼 밖에 있으면 폼은 예전처럼 뺀다');
+ const own=P.bodyScopeHtml(`<body><article><p>${LONG}</p></article><div class="mine"><p>짧은 칸</p></div></body>`,/^mine$/);
+ assert.deepEqual([own.via,own.own],['own',true],'단체 본문 칸은 짧아도 그 칸');
+ // 학비노조·서비스연맹 판 올림 + 서비스연맹 본문 칸 고정.
+ assert.equal(OC.sourceByKey('hakbi').extract.version,2);
+ assert.equal(OC.sourceByKey('kfsu').extract.version,2);assert.ok(OC.sourceByKey('kfsu').bodyClass.test('kboard-content'));
+ // extractBody(AI·요약 글자)도 같은 칸을 쓴다.
+ const h=SAMPLES.hakbi('ko');
+ const e=OH.postBody(OC.sourceByKey('hakbi'),{url:'https://www.example.com/a/1',title:'합성 견본 제목',kind:'statement',published_at:null,author:null,summary:null,content:null},{ok:true,text:h,url:'https://www.example.com/a/1'});
+ assert.deepEqual([e.state,e.scope,e.rule],['ok','body_form','hakbi@2']);
+ assert.ok(P.extractBody(h,'합성 견본 제목').includes(PARA.slice(0,10)));
+});
+
+test('news-feed probe: 글 링크가 모두 허용 호스트 밖인 피드(LabourStart)는 off_host, 글 없는 피드는 no_body · paywall·scope 코드',async()=>{
+ const s=NC.newsSourceByKey('news-labourstart');
+ const off=`<rss><channel><item><title>Synthetic item</title><link>https://other.example.com/news/1</link></item><item><title>Synthetic item 2</title><link>https://other.example.com/news/2</link></item></channel></rss>`;
+ const mk=(xml)=>{const w=world({[s.lists[0]]:{body:xml,type:'application/rss+xml'}});return {w,h:NH.createNewsFeedHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,NEWS_FEED_CRON_SECRET:NSECRET})[n],fetch:w.doFetch,now:()=>NOW,sleep:async()=>{},log:()=>{}})};};
+ const a=mk(off);
+ const o=await(await a.h(req('news-feed',NH.CRON_HEADER,NSECRET,{source:'news-labourstart'}))).json();
+ assert.deepEqual([o.list,o.listed,o.raw,o.state,o.reason,o.rule],['ok',0,2,'failed','off_host',null]);
+ assert.equal(a.w.calls.filter(c=>c.url.includes('other.example.com')).length,0,'허용 호스트 밖 주소는 요청하지 않음');
+ const b=mk('<rss><channel></channel></rss>');
+ const o2=await(await b.h(req('news-feed',NH.CRON_HEADER,NSECRET,{source:'news-labourstart'}))).json();
+ assert.deepEqual([o2.listed,o2.raw,o2.reason],[0,0,'no_body']);
+ for(const v of [...Object.values(o),...Object.values(o2)])assert.ok(v===null||typeof v==='number'||typeof v==='boolean'||/^[a-z0-9_@-]{1,40}$/.test(v),`숫자·코드만: ${v}`);
+ // 기사 probe는 맞은 유료벽 표시 이름과 본문 칸 고른 곳을 코드로 돌려준다.
+ const pr=NC.newsSourceByKey('news-pressian');
+ const art='https://www.pressian.com/pages/articles/1';
+ const rss=`<rss><channel><item><title>합성 견본 기사</title><link>${art}</link></item></channel></rss>`;
+ const w=world({[pr.lists[0]]:{body:rss,type:'application/rss+xml'},[art]:{body:SAMPLES['news-pressian']('ko').replace('<head>','<head><meta property="og:title" content="합성 견본 기사">')}});
+ const h=NH.createNewsFeedHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,NEWS_FEED_CRON_SECRET:NSECRET})[n],fetch:w.doFetch,now:()=>NOW,sleep:async()=>{},log:()=>{}});
+ const o3=await(await h(req('news-feed',NH.CRON_HEADER,NSECRET,{source:'news-pressian'}))).json();
+ assert.deepEqual([o3.page_state,o3.state,o3.paywall,o3.scope,o3.rule],['ok','ok',null,'own','news-pressian@2']);
 });

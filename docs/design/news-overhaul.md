@@ -66,6 +66,25 @@
 - 사회운동 국내 글은 이미 문장 표(`app_outside_sentences`, 6만 자 상한)에 본문을 둔다 [사실]. 그런데 **문장 단위로 쪼개 저장해 문단·사진이 사라진다** → 화면 '원문 전체'가 문단 없이 이어진 글이 되는 까닭 중 하나 [사실: 문장 표 모양].
 - 뉴스는 `app_news_items.body`(10만 자, `body_kind` full/lead) 칸이 처음부터 있으나, **누를 때(open)만 채운다** [사실, `news-feed/handler.ts`]. 사진 칸은 두 표 모두 없다 [사실].
 
+
+#### 1.1b 운영 probe 결과(11/06 10:3x, #1941·#1942 배포 `92edf0e3` 뒤)와 S51-9 고친 뒤 기대
+
+CC가 예약 입구 `probe`를 25개 출처에 돌린 숫자(글자·주소 없음)다 [사실: CC 보고]. S51-9 세션은 예약 실행이라 **WebFetch 허락 요청에 답할 사람이 없어 실제 목록·글 쪽 HTML을 열지 못했다** [사실] — 그래서 아래 '고친 것'은 저장소 코드와 probe 숫자로 원인을 좁힌 것이고, 사이트 HTML 모양은 [추정]이다. 배포 뒤 probe가 새로 돌려주는 코드 `scope`(본문 칸을 고른 곳: own·article·common·body·*_form)·`paywall`(맞은 유료벽 표시 이름)·`raw`(피드 글 수)로 확인한다.
+운영 저장 현황(10:27) [사실: CC 보고]: `app_feed_bodies` 48줄 — ok 29, lead/paywall 17, lead/no_body 1, failed/no_body 1. 잘못 저장된 줄 다시 뽑기는 P2c(규칙 판이 바뀐 줄을 `rule` 칸으로 고름).
+
+| 키 | probe(블록·글자, 상태) | 원인 | 고친 것(판) | 고친 뒤 기대 |
+| --- | --- | --- | --- | --- |
+| `kctu` `kptu` `kmwu` `laborparty` `kgreens` `jinboparty` `justice` `pssp` `ws` `platformc` `leftall` `socialism` `jacobin` `labornotes` `redpepper` `socialistworker` `news-labortoday` `news-psi` `news-itf` | 블록 7~92·글자 600~17000, ok [사실] | — | 없음(@1 그대로. `news-labortoday`만 유료벽 검사가 좁아져 @2) | 그대로 [추정: 첫 본문 칸이 100자 이상이라 본문 칸 고르기 변경의 영향 없음] |
+| `news-beminor` | 블록 1·글자 300, lead/paywall [사실] | 비마이너는 유료벽이 없다(CC 확인). 흔한 유료벽 검사(`page.ts` PAYWALL)가 페이지 **전체**에서 문구·class 이름 일부(`paywall-…`)를 찾아 오탐 [사실: 코드] — 어느 표시에 걸렸는지는 확인 못 함 | `extract.free`(유료벽 없음 확인 — 흔한 검사 안 함) @2 | ok, 본문 칸 `#article-view-content-div`(own) [추정] |
+| `news-pressian` | 블록 1·글자 14, lead/paywall [사실] | 같은 오탐 [사실: 코드]. 글자 14 = 짧은 메타 설명만 저장 | `extract.free` @2 + 본문 칸 `div.article_body` 고정 [추정] | ok. 본문 칸이 다르면 예전처럼 `<article>`·흔한 본문 칸 순서로 찾음 |
+| `hakbi` | 블록 0, failed/no_body [사실] | 본문 칸 고르기가 **처음 찾은 칸이 비어 있어도 그 칸**을 썼고(빈 `<article>`), 게시판 쪽 전체가 `<form>` 안이면 폼째 지웠다 [사실: 코드 / 이 사이트가 그 경우인지는 추정] | 공용 본문 칸 고르기(`parse.ts` `bodyScopeHtml`): 글자 100자 미만·그림 없는 칸은 건너뜀, 폼을 빼면 비는 칸은 폼 꼬리표만 벗김 @2 | ok 또는 image_only. probe `scope`가 `body_form`·`common`이면 원인 확인 |
+| `kfsu` | 블록 3·글자 93 [사실] | 본문 칸 일부(앞에 있는 짧은 `<article>` 등)만 집음 [추정] | KBoard 본문 칸 `kboard-content` 고정(노동당과 같은 KBoard) [추정] + 위 본문 칸 고르기 @2 | ok, `scope`=own |
+| `socialist` | 블록 1·글자 198 [사실] | 텔레그램 채널 글 자체가 짧은 소개 + 사이트 글 링크(사이트는 봇 확인 화면이라 읽지 않음) [추정] | 없음(@1) — 고칠 것 없음 [추정] | 그대로. 같은 텔레그램 길인 `justice`는 블록 여러 개라 줄 나누기는 정상 [사실: probe] |
+| `news-labourstart` | failed/no_body, rule 없음 [사실] | 피드 글 링크가 모두 남의 매체(허용 호스트 밖)라 `parseFeed`가 다 빼서 **기사 줄이 0건** → probe가 '글 없음(no_body)'으로 보고 [추정: 코드상 유일한 rule 없는 no_body 길] | probe가 피드 글 수(`raw`)를 세어 글이 있는데 다 빠졌으면 `off_host`로 보고(@1 그대로) | probe failed/off_host·`raw`>0. 기사 줄을 남기는 길(링크만 저장)은 범위 밖 — 발견사항 |
+| (채널) `open` | — | 흔한 유료벽 검사 오탐 위험 같음 | 유료벽 검사 좁힘 + 본문 칸 고르기 @2 | — |
+
+흔한 유료벽 검사(S51-9 뒤, `news-feed/page.ts`) [사실: 코드]: 페이지 전체에서는 구조화 데이터 `isAccessibleForFree=false`와 class 이름이 **정확히** `paywall`인 칸만, 문구(유료 회원 전용·구독자 전용·로그인 후 전문/기사/본문/열람 등)는 **본문 칸 안에서만** 본다('로그인 후 이용'의 '이용'은 뺌 — 댓글 칸 문구). 매체 규칙 `extract.lead`(그 매체의 실제 표시)는 따로, `extract.free`와 함께 쓰지 않는다(시험 고정).
+
 ### 1.2 예약 실행 기록 (GitHub API, 10/31~11/05 UTC, schedule만)
 
 예정: `outside-feed.yml` UTC 23:07·04:07·09:07(서울 08:07·13:07·18:07). `news-feed.yml` UTC 23:22·04:22·09:22 + 11/05 04:48(UTC)부터 매시 22분 '채우기만'(#1901) [사실].
