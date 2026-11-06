@@ -805,7 +805,8 @@ function paintList(p) {
     return;
   }
   const w = p.where;
-  if (!w) { list.innerHTML = state.status && !anyLinked() ? emptyHtml('연결된 클라우드 없음') : waitHtml({rows: 4}); return; }
+  // 폰 첫 화면(나무)은 목록 칸을 보이지 않으므로 빈 칸(회색 줄을 숨겨 두지 않음).
+  if (!w) { list.innerHTML = PHONE.matches && treePane() ? '' : state.status && !anyLinked() ? emptyHtml('연결된 클라우드 없음') : waitHtml({rows: 4}); return; }
   if (p.failed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(p.failed), reason: p.failedWhy}); return; }
   if (!p.loaded) { list.innerHTML = waitHtml({rows: 4}); return; }
   const rows = shown(p);

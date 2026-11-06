@@ -26,8 +26,7 @@ for (const width of WIDTHS) {
     await page.route('**/rest/v1/rpc/app_cloud_find_in', async route => { await gate; await route.fallback(); });
     await page.route('**/rest/v1/rpc/app_cloud_list', async route => { await gate; await route.fallback(); });
     await openFiles(page, width).catch(() => {});
-    // S50-33: 폰 첫 화면은 나무(목록을 읽지 않음) → 원드라이브를 눌러 목록을 읽게 한다.
-    if (width <= 760) await page.locator('#filesRoot [data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
+    // FOLDER-나무새기준 ②: 폰 첫 화면 상자 나무는 저장소마다 맨 위 폴더 줄과 '최근'을 바로 읽는다(누를 것 없음).
     await expect(page.locator('#filesRoot .wait').first()).toBeVisible({ timeout: 10000 });
     await topBarOk(page, width);
     await page.evaluate(() => window.scrollTo(0, 400));
@@ -49,7 +48,6 @@ for (const width of WIDTHS) {
     await page.route('**/rest/v1/rpc/app_cloud_list', async route => { await gate; await route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"fail"}' }); });
     await page.route('**/rest/v1/rpc/app_cloud_find_in', async route => { await gate; await route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"fail"}' }); });
     await openFiles(page, width).catch(() => {});
-    if (width <= 760) await page.locator('#filesRoot [data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
     await expect(page.locator('.top-wait')).toHaveCount(1, { timeout: 10000 });
     release();
     await expect(page.locator('.top-wait')).toHaveCount(0, { timeout: 15000 });
