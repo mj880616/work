@@ -1,5 +1,6 @@
 import {emptyHtml} from './wait-state.js';
 import {createTaskInline} from './task-inline.js';
+import {moveTaskToDay,dueDay} from './task-due.mjs';
 (()=>{
 'use strict';
 if(window.KPTUCalendarTasks)return;
@@ -106,6 +107,26 @@ function boot(){
   applyCopy();
   if(shown())schedule();
 }
-window.KPTUCalendarTasks={refresh:()=>refresh()};
+// S51-16 CAL-할일끌기: PC 달력에서 할 일을 다른 날짜 칸에 끌어 놓았을 때(calendar-drag.js) 기한만 그 날로 바꾼다. 저장은 수정 창·⋯[기한 바꾸기]와
+// 같은 google-tasks action=update(task-due.mjs moveTaskToDay)이고, 이 모듈이 달력의 할 일 목록 주인이라 저장된 값으로 다시 그린다.
+// 결과: {status:'saved',before,task} | 'same'(같은 날) | 'blocked'(완료·없음) | 'stale'(계정 바뀜) | 'failed'(text).
+async function moveDue(id,day){
+  const raw=tasks.find(x=>x.id===id),base=api()?.taskState?.(id)?.task||raw;
+  if(!base)return {status:'blocked',text:'할 일을 찾지 못했어요.'};
+  if(base.status==='completed')return {status:'blocked',text:'끝낸 할 일은 옮길 수 없어요.'};
+  const before=dueDay(base);if(before===day)return {status:'same'};
+  const me=currentOwner();
+  try{
+    const next=await moveTaskToDay(base,day,window.KPTURuntime);
+    if(me!==currentOwner())return {status:'stale'};
+    tasks=tasks.map(x=>x.id===id?{...x,...next}:x);publish(tasks,Date.now());
+    const g=api();if(g?.taskSaved)g.taskSaved(next);else window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
+    return {status:'saved',before,task:next};
+  }catch(e){
+    if(me!==currentOwner())return {status:'stale'};
+    return {status:'failed',text:e?.message&&!e.status?e.message:'기한을 바꾸지 못했어요. 다시 시도해 주세요.'};
+  }
+}
+window.KPTUCalendarTasks={refresh:()=>refresh(),moveDue};
 boot();
 })();
