@@ -18,13 +18,15 @@ test('눌림은 버튼 부품 전체에 한 규칙: 버튼류(:active)·눌리�
   assert.match(read('app/theme-tokens.css'), /--ds-check-ms:240ms;/);
 });
 
-test('폰은 손가락을 대는 순간부터: pointerdown에 켜고, 톡 쳐도 0.12초는 보인다', () => {
+test('폰은 손가락을 대는 순간부터: pointerdown에 켜고, 손가락으로 톡 쳐도 0.12초는 보인다(마우스는 누르는 동안만)', () => {
   const src = read('app/press-feedback.js');
   assert.match(src, /addEventListener\('pointerdown', onDown/);
   assert.equal(PRESS_MIN_MS, 120);
   assert.equal(holdLeft(0, 30), 90);
   assert.equal(holdLeft(0, 200), 0);
   assert.equal(holdLeft(100, 50), 120, '시계가 거꾸로 가도 음수 없음');
+  assert.equal(holdLeft(0, 30, 120, 'mouse'), 0, '마우스는 누르고 있는 동안만(:active와 같음)');
+  assert.equal(holdLeft(0, 30, 120, 'pen'), 90);
 });
 
 test('체크 움직임: 끝낸 지 0.24초 안의 줄만 지난 시간만큼 앞당겨 한 번, 그 뒤·되돌림은 없음', () => {

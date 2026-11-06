@@ -10,7 +10,7 @@ export const DONE_MS = 1500;
 export const NATIVE_PRESS = 'button,summary,a[href],[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"],[role="switch"],input[type="button"],input[type="submit"],input[type="reset"]';
 const WIDE_W = 240, WIDE_H = 60;
 // UI-누름움직임(2026-11-06): 폰에서 톡 치면 손가락이 0.05초 만에 떨어져 눌림이 안 보였다. 눌림 표시는 손가락을 대는 순간(pointerdown)
-// 켜지고, 일찍 떼도 이만큼은 남아 있다(스크롤로 바뀐 누름·창 닫힘은 바로 끈다).
+// 켜지고, 손가락(터치·펜)은 일찍 떼도 이만큼은 남아 있다(스크롤로 바뀐 누름·창 닫힘은 바로 끈다). 마우스는 누르고 있는 동안만(:active와 같음).
 export const PRESS_MIN_MS = 120;
 
 // 큰 줄·카드는 같은 3%라도 눈에 띄게 많이 움직이므로 낮춘다.
@@ -32,7 +32,7 @@ export function pressTarget(start, {cursorOf = el => getComputedStyle(el).cursor
   return top;
 }
 
-let pressed = null, pressedAt = 0, holdTimer = 0, held = null;
+let pressed = null, pressedAt = 0, pressedBy = '', holdTimer = 0, held = null;
 const clearPress = el => { el.removeAttribute('data-pressing'); el.removeAttribute('data-press-wide'); };
 function releaseNow() {
   if (holdTimer) { clearTimeout(holdTimer); holdTimer = 0; }
@@ -42,10 +42,10 @@ function releaseNow() {
   pressed = null;
 }
 // 손가락을 뗐을 때: 눌림이 PRESS_MIN_MS보다 짧았으면 남은 만큼만 더 보이고 꺼진다.
-export function holdLeft(downAt, upAt, min = PRESS_MIN_MS) { return Math.max(0, min - Math.max(0, upAt - downAt)); }
+export function holdLeft(downAt, upAt, min = PRESS_MIN_MS, pointerType = 'touch') { return pointerType === 'mouse' ? 0 : Math.max(0, min - Math.max(0, upAt - downAt)); }
 function release(event) {
   if (!pressed) { if (event?.type !== 'pointerup') releaseNow(); return; }
-  const left = event?.type === 'pointerup' ? holdLeft(pressedAt, performance.now()) : 0;
+  const left = event?.type === 'pointerup' ? holdLeft(pressedAt, performance.now(), PRESS_MIN_MS, pressedBy) : 0;
   if (!left) return releaseNow();
   held = pressed; pressed = null;
   holdTimer = setTimeout(() => { holdTimer = 0; if (held) { clearPress(held); held = null; } }, left);
@@ -56,7 +56,7 @@ function onDown(event) {
   releaseNow();
   const target = pressTarget(event.target);
   if (!target) return;
-  pressed = target; pressedAt = performance.now();
+  pressed = target; pressedAt = performance.now(); pressedBy = event.pointerType || 'mouse';
   if (isWide(target.getBoundingClientRect())) target.setAttribute('data-press-wide', '');
   target.setAttribute('data-pressing', '');
 }
