@@ -179,9 +179,12 @@ export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAtt
     if (!task || !anchor?.isConnected) return;
     openDue(anchor, {name:shortName(task.title), value:dueDay(task), onPick:day => void moveDue(id, day, anchor)});
   }
+  // S51-27: openMenu(줄, {id, at}) = ⋯가 없는 줄(달력 칸 안 할 일 막대)을 PC 우클릭한 자리에 같은 메뉴로 연다.
   let menu = null, menuExtras = new Map();
-  function openMenu(trigger) {
-    menu ||= createAnchoredMenu({id:menuId, className:'task-inline-menu', label:'할 일 관리', historyKey, parent, key:t => t.dataset[menuAttr],
+  const menuIds = new WeakMap();
+  function openMenu(trigger, {id = '', at = null} = {}) {
+    if (id) menuIds.set(trigger, id);
+    menu ||= createAnchoredMenu({id:menuId, className:'task-inline-menu', label:'할 일 관리', historyKey, parent, key:t => menuIds.get(t) || t.dataset[menuAttr],
       render:id => {
         const active = menu?.active?.trigger || document.querySelector(`[data-${dataName(menuAttr)}="${CSS.escape(id)}"]`);
         const task = look(id, active), done = task?.status === 'completed';
@@ -201,7 +204,7 @@ export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAtt
         if (action === 'reopen') return void setDone(id, false, {el, undo:false, viaMenu:true});
         if (action?.startsWith('x:')) return void menuExtras.get(action.slice(2))?.run?.();
       }});
-    menu.open(trigger);
+    menu.open(trigger, {at});
   }
   return {
     // The circle: a pending line completes (with [되돌리기]), a finished one reopens.
