@@ -10,7 +10,9 @@ import { pinch } from './helpers/pinch.mjs';
 test.use({ hasTouch: true });
 const tree = page => page.locator('#filesRoot [data-fx-tree]');
 const box = page => page.locator('#filesRoot [data-fx-list] .ft-focus');
-const moving = page => page.evaluate(() => document.getAnimations().filter(a => !(a instanceof CSSAnimation) && !(a instanceof CSSTransition)).length);
+// 움직임을 몇 번 걸었는지(Element.animate 부른 수). 지금 도는지 재면 0.2초가 이미 끝났을 수 있어 센다.
+const countMoves = page => page.addInitScript(() => { window.__moves = 0; const a = Element.prototype.animate; Element.prototype.animate = function (...x) { window.__moves++; return a.apply(this, x); }; });
+const moves = page => page.evaluate(() => window.__moves);
 
 test('파일 폰 412: 그 폴더만 = 나무와 같은 상자·줄·그림, 위치 줄, 돌아가기 글자 없음, 하위 폴더 위 벌리기 = 한 단계 더 안', async ({ page }) => {
   const { errors } = await start(page, 412);
@@ -54,33 +56,38 @@ test('파일 폰 412: 그 폴더만 = 나무와 같은 상자·줄·그림, 위�
 });
 
 test('파일 폰 412: 벌리기·오므리기는 0.2초 움직임으로 이어진다(그 줄 → 상자 머리 → 그 줄)', async ({ page }) => {
+  await countMoves(page);
   const { errors } = await start(page, 412);
   await openFiles(page, 412);
   await tree(page).locator('[data-fx-fold="od:OD!1"] .ft-main').tap();
+  const m0 = await moves(page);
   await pinch(page, tree(page).locator('[data-fx-fold="od:OD!1"]'), 'out');
-  expect(await moving(page)).toBeGreaterThan(0);
   await expect(box(page)).toBeVisible();
-  await expect.poll(() => moving(page)).toBe(0);
+  // 머리·하위 폴더 줄·파일 줄·위치 줄에 움직임.
+  await expect.poll(() => moves(page)).toBeGreaterThan(m0 + 3);
+  const m1 = await moves(page);
   await pinch(page, box(page), 'in');
   await expect(tree(page)).toBeVisible();
-  expect(await moving(page)).toBeGreaterThan(0);
+  await expect.poll(() => moves(page)).toBeGreaterThan(m1);
   expect(errors).toEqual([]);
 });
 
 test.describe('움직임 줄이기', () => {
   test.use({ reducedMotion: 'reduce' });
   test('파일 폰 412: 기기 움직임 줄이기면 움직임 없이 바로 바뀐다', async ({ page }) => {
+    await countMoves(page);
     const { errors } = await start(page, 412);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await openFiles(page, 412);
     expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
     await tree(page).locator('[data-fx-fold="od:OD!1"] .ft-main').tap();
+    const m0 = await moves(page);
     await pinch(page, tree(page).locator('[data-fx-fold="od:OD!1"]'), 'out');
     await expect(box(page)).toBeVisible();
-    expect(await moving(page)).toBe(0);
     await pinch(page, box(page), 'in');
     await expect(tree(page)).toBeVisible();
-    expect(await moving(page)).toBe(0);
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    expect(await moves(page)).toBe(m0);
     expect(errors).toEqual([]);
   });
 });

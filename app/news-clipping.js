@@ -57,7 +57,7 @@ const fresh = () => ({scope: '', tab: ALL, items: [], loaded: false, failed: fal
   limits: {...DEFAULT_LIMITS}, catalog: null, catalogFailed: false, sources: new Map(), sourcesLoaded: false, sourcesFailed: false,
   keywords: [], keywordsLoaded: false, keywordsFailed: false, saving: new Set(), panelNote: '', draft: '',
   mode: 'list', filling: false, fillNote: '',
-  folders: [], foldersLoaded: false, openFolders: new Set(), treeNote: '', focus: ''});
+  folders: [], foldersLoaded: false, foldersFailed: false, openFolders: new Set(), treeNote: '', focus: ''});
 let state = fresh(), loadSeq = 0, layer = null;
 
 // ---------- 서버 읽기·쓰기 ----------
@@ -123,7 +123,7 @@ const folderOfItem = it => itemFolderId(it, state.folders);
 function treeHtml() {
   const head = `<div class="nc-tree-head"><button type="button" class="nc-text-btn nc-new-folder" data-nc-new-folder>새 폴더</button>${state.treeNote ? `<span class="nc-panel-note" role="status">${esc(state.treeNote)}</span>` : ''}</div>`;
   if (!state.loaded) return head + (state.failed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 4}));
-  if (!state.foldersLoaded) return head + waitHtml({rows: 4});
+  if (!state.foldersLoaded) return head + (state.foldersFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 4})); // LOAD-끝있는불러오기: 못 읽으면 [다시]
   if (!state.items.length && !state.folders.length) return head + emptyHtml('별표한 기사 없음', {attrs: 'data-nc-empty'});
   const rows = treeRows({folders: state.folders, notes: state.items, folderOf: folderOfItem, isOpen: id => state.openFolders.has(id)});
   const html = rows.map(r => {
@@ -215,9 +215,10 @@ async function loadItems({append = false, keep = false} = {}) {
 }
 async function ensureFolders() {
   if (state.foldersLoaded) return true;
+  state.foldersFailed = false;
   const w = workspaceOf(), scope = state.scope;
-  try { const rows = await readFolders(w); if (scope !== state.scope) return false; state.folders = Array.isArray(rows) ? rows : []; state.foldersLoaded = true; return true; }
-  catch { return false; }
+  try { const rows = await readFolders(w); if (scope !== state.scope) return false; state.folders = Array.isArray(rows) ? rows : []; state.foldersLoaded = true; state.foldersFailed = false; return true; }
+  catch { if (scope === state.scope) state.foldersFailed = true; return false; }
 }
 async function loadCatalog() {
   if (state.catalog) return;

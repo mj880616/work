@@ -6,7 +6,7 @@
 // - 안전망: 이 파일을 불러오면 문서 전체에서 그림 받기 실패(error)를 잡아 그 <img>를 감춘다(data-img-broken). 칸 규칙을 아직 안 쓴 곳도 깨진 그림이 보이지 않는다.
 // 기기 저장 없음(메모리의 WeakMap뿐).
 export const SLOT_CLASS = 'img-slot';
-const retries = new WeakMap();
+const retries = new WeakMap(), timers = new WeakMap();
 
 function addClass(el, name) {
   if (el.classList) el.classList.add(name);
@@ -110,12 +110,22 @@ export function slotRetry(box) {
 export function slotImg(box, img, src, {retry = null, onShown = null, onFailed = null, passive = false} = {}) {
   slotBox(box);
   if (img.parentNode !== box && !(box.children || []).includes?.(img)) box.append(img);
-  img.onload = () => { img.onload = img.onerror = null; slotShown(box); onShown?.(); };
-  img.onerror = () => { img.onload = img.onerror = null; img.removeAttribute('src'); slotFailed(box, retry, 'img', {passive}); onFailed?.(); };
+  clearTimeout(timers.get(img));
+  const stop = () => { clearTimeout(timers.get(img)); timers.delete(img); };
+  img.onload = () => { stop(); img.onload = img.onerror = null; slotShown(box); onShown?.(); };
+  img.onerror = () => { stop(); img.onload = img.onerror = null; img.removeAttribute('src'); slotFailed(box, retry, 'img', {passive}); onFailed?.(); };
   slotLoading(box);
   img.src = src;
+  // LOAD-끝있는불러오기(S51-29): 답이 오지 않는 그림(폰 앱이 멈춤 등)도 SLOT_IMG_MS 뒤에는 '못 받음'(↻)으로 끝낸다(회색 칸이 끝없이 남지 않게).
+  // 늦게 받는 그림(loading=lazy)은 화면에 들어올 때 받기 시작하므로 재지 않는다.
+  if (img.loading !== 'lazy' && typeof setTimeout === 'function') {
+    const handler = img.onerror;
+    const t = setTimeout(() => { timers.delete(img); if (img.onerror === handler && img.complete !== true) handler(); }, SLOT_IMG_MS);
+    t?.unref?.(); timers.set(img, t);
+  }
   return img;
 }
+export const SLOT_IMG_MS = 30000;
 
 // 문서 전체 처리기(한 번만): ↻ 누르기, 바깥 버튼의 키보드 누르기(못 받은 칸 하나뿐일 때), 그림 받기 실패 안전망.
 function slotOf(target) {

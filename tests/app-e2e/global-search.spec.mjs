@@ -255,11 +255,11 @@ test('PC 1280: 자료실 결과 줄에 지금 폴더 표시, 옮기면 바뀜',a
   }});
   await top(page).click();await top(page).fill('교섭');
   const row=panel(page).locator('[data-gs-group="document"] .gs-row').first();
-  await expect(row.locator('.gs-row-folder')).toHaveText('📁 회의자료');
+  await expect(row.locator('.gs-row-folder')).toHaveText('회의자료');
   expect(reads.length).toBe(1);expect(reads[0]).toContain(`document_id=in.(${D})`);
   // 자료실에서 옮긴 뒤(같은 신호) → 다시 읽어 바뀐다.
   folderOf='f-2';await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
-  await expect(row.locator('.gs-row-folder')).toHaveText('📁 교섭 자료');
+  await expect(row.locator('.gs-row-folder')).toHaveText('교섭 자료');
   // 다른 종류 결과 줄에는 폴더 표시가 없다.
   await expect(panel(page).locator('[data-gs-group="update"] .gs-row-folder')).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -286,7 +286,7 @@ test('PC 1280: 자료실 결과 우클릭 [폴더로 옮기기 ›] → 그 자�
   }});
   await top(page).click();await top(page).fill('교섭');
   const row=panel(page).locator('[data-gs-group="document"] .gs-row').first();
-  await expect(row.locator('.gs-row-folder')).toHaveText('📁 회의자료');
+  await expect(row.locator('.gs-row-folder')).toHaveText('회의자료');
   await row.click({button:'right'});
   const menu=page.locator('#gsRowMenu');
   await menu.getByRole('button',{name:'폴더로 옮기기 ›'}).click();
@@ -300,9 +300,9 @@ test('PC 1280: 자료실 결과 우클릭 [폴더로 옮기기 ›] → 그 자�
   expect(writes[0]).toEqual({method:'PATCH',body:{folder_id:F2}});
   // 자료실 화면으로 넘어가지 않는다. 결과 줄 폴더 표시가 바로 바뀐다.
   await expect(page.locator('#libraryView')).toBeHidden();
-  await expect(row.locator('.gs-row-folder')).toHaveText('📁 교섭 자료');
+  await expect(row.locator('.gs-row-folder')).toHaveText('교섭 자료');
   const notice=page.locator('#kptuNotice');
-  await expect(notice).toContainText('옮겼어요 1개 → 📁 교섭 자료');
+  await expect(notice).toContainText('옮겼어요 1개 → 교섭 자료 폴더');
   await notice.locator('.kptu-notice-undo').click();
   await expect.poll(()=>writes.length).toBe(2);
   expect(writes[1]).toEqual({method:'PATCH',body:{folder_id:F1}});
@@ -341,7 +341,7 @@ test('PC 1280: 노트 결과 우클릭 [폴더로 옮기기 ›] → 노트 폴�
   await expect.poll(()=>patches.length).toBe(1);
   expect(patches[0].metadata).toEqual({folder_id:F2,folder:'교섭 기록'});
   const notice=page.locator('#kptuNotice');
-  await expect(notice).toContainText('옮겼어요 노트 1개 → 📁 교섭 기록');
+  await expect(notice).toContainText('옮겼어요 노트 1개 → 교섭 기록 폴더');
   await notice.locator('.kptu-notice-undo').click();
   await expect.poll(()=>patches.length).toBe(2);
   expect(patches[1].metadata).toEqual({});

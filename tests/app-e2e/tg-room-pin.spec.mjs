@@ -34,6 +34,7 @@ const pinKeys=view=>view.locator('[data-tg-pinrooms] [data-tg-rd]').evaluateAll(
 const rpc=(f,name)=>f.writes.filter(w=>w.rpc===name).map(w=>w.body);
 // 폰 꾹 누르기: 터치 포인터를 누른 채 0.6초(feed-hold.js 0.5초) 기다렸다 뗀다.
 async function hold(page,locator){
+ await expect(locator).toBeVisible(); // 첫 그리기 뒤 줄이 다시 그려지는 사이에 재지 않도록(보이는 줄을 잰다)
  const box=await locator.boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;
  await page.evaluate(async({x,y})=>{
   const el=document.elementFromPoint(x,y),o={bubbles:true,cancelable:true,clientX:x,clientY:y,pointerType:'touch',pointerId:21,isPrimary:true};
@@ -57,7 +58,7 @@ test('PC 1440: 오른쪽 클릭 메뉴 맨 위 [고정] → 날짜 줄 위 맨 �
  const pinBox=await view.locator('[data-tg-pinrooms]').boundingBox(),dayBox=await view.locator('[data-tg-day]').first().boundingBox();
  expect(pinBox.y+pinBox.height).toBeLessThanOrEqual(dayBox.y+1);
  const prow=rd(view,B6);
- await expect(prow.locator('[data-tg-pinned]')).toHaveText('📌');
+ await expect(prow.locator('[data-tg-pinned] svg')).toHaveCount(1);
  await expect(prow.locator('[data-tg-pinday]')).toHaveText('10. 6.');
  await expect(view.locator('[data-tg-undobar]')).toContainText('고정했어요');
  // 두 번째로 고정한 방은 그 아래(고정한 순서).
