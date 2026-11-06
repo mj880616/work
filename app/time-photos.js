@@ -13,6 +13,7 @@ import {phoneErrorText} from './photo-sources-model.mjs';
 import {phoneHideList} from './phone-folders-sync.js';
 import {readDeviceSources} from './photo-sources-device.js';
 import {viewPrefs} from './view-prefs.js';
+import {iconSvg} from './tree-icons.js';
 import {waitInlineHtml} from './wait-state.js';
 import {reportAtMs, suggestRange, windowMonths, odMonthItems, suggestPhotos, attachName, nearHead, pickLabel, PICK_MAX} from './time-photos-model.mjs';
 import {isPhotoFile} from './activity-photo-model.mjs';
@@ -107,7 +108,7 @@ export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed =
       const hhmm = new Date(Date.parse(it.taken_at) + 9 * 3600 * 1000).toISOString().slice(11, 16);
       b.setAttribute('aria-label', `사진 ${i + 1} ${hhmm}${it.here ? ' 그 장소' : ''}${it.kind === 'phone' ? ' 폰' : ' 원드라이브'}`);
       b.append(element(it));
-      if (it.here) { const pin = document.createElement('span'); pin.className = 'tp-here'; pin.setAttribute('aria-hidden', 'true'); pin.textContent = '📍'; b.append(pin); }
+      if (it.here) { const pin = document.createElement('span'); pin.className = 'tp-here'; pin.setAttribute('aria-hidden', 'true'); pin.innerHTML = iconSvg('place', {size: 12}); b.append(pin); }
       const t = document.createElement('span'); t.className = 'tp-time'; t.setAttribute('aria-hidden', 'true'); t.textContent = hhmm;
       b.append(t);
       return b;

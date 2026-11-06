@@ -782,7 +782,7 @@ async function renderCalendar() {
   if (!days) {
     body.innerHTML = `${headHtml}${waitHtml({rows:4, h:72})}`;
     try { days = await monthDays(key, want, r); }
-    catch (error) { if (current(r) && tab === 'calendar' && calCursor === ym) body.innerHTML = `${headHtml}<p class="photos-muted">사진을 읽지 못했어요: ${esc(readErrorText(error))}</p>`; return; }
+    catch (error) { if (current(r) && tab === 'calendar' && calCursor === ym) body.innerHTML = `${headHtml}<p class="photos-muted">사진을 읽지 못했어요: ${esc(readErrorText(error))} <button type="button" class="mini" data-photos-cal-retry>다시</button></p>`; return; }
     if (!current(r) || tab !== 'calendar' || calCursor !== ym || filter !== want) return;
   }
   const {lead, cells} = calendarFromDays(ym, days), today = seoulDateKey(new Date());
@@ -2714,26 +2714,29 @@ const cardOf = id => cards().find(c => c.id === id) || null;
 async function loadAlbum(id) {
   const c = cardOf(id); if (!c) return;
   const r = run; aFor = id; aItems = []; aFailed = '';
-  aLoading = (async () => {
+  // LOAD-끝있는불러오기: 받는 중에 목록이 새로 시작되면(run 바뀜) 이 받기는 버리고 aFor도 비운다('없음'으로 잘못 끝나지 않게, 다시 그릴 때 새로 받음).
+  const gone = () => { if (!current(r) || aFor !== id) { if (aFor === id) aFor = null; return true; } return false; };
+  const mine = (async () => {
     try {
       const all = [];
       for (const ids of chunks(ready() ? c.keys : [], STAR_CHUNK)) {
         let cursor = null;
         for (let guard = 0; guard < 50; guard++) {
           const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200, sort});
-          if (!current(r) || aFor !== id) return;
+          if (gone()) return;
           all.push(...page.items); cursor = page.next;
           if (!cursor) break;
         }
       }
       // 폰 사진(이 폰에 있는 것만 — 다른 폰·지운 사진은 빠진다).
       const ph = phoneUsable() && c.phoneKeys.length ? await phone.byIds(c.phoneKeys.map(phoneIdOfKey), await hideArg()) : [];
-      if (!current(r) || aFor !== id) return;
+      if (gone()) return;
       aItems = [...all.map(toItem), ...ph].sort(sortCompare(sort));
     } catch (error) { if (current(r) && aFor === id) aFailed = readErrorText(error); }
-    finally { if (aFor === id) aLoading = null; }
+    finally { if (aLoading === mine) aLoading = null; }
     if (current(r) && tab === 'albums' && album === id) renderAlbums();
   })();
+  aLoading = mine;
   return aLoading;
 }
 // FOLDER-순서·색 ③-2: 앨범 이름 앞 작은 폴더 그림(색을 고른 앨범만. 안 고른 앨범은 지금 모양 그대로 그림 없음).
@@ -2777,7 +2780,7 @@ function renderAlbums() {
   if (aFor !== album) { body.innerHTML = waitHtml({rows:3, h:72}); loadAlbum(album); return; }
   body.innerHTML = `<p class="photos-fx-here photos-al-head"><button type="button" class="mini" data-photos-al-back aria-label="앨범 목록으로">‹ 앨범</button><b>${albumIconHtml(c)}#${esc(c.name)}</b> · ${aLoading ? c.count : aItems.length}장<button type="button" class="photos-album-more" data-photos-al-more="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></p>`;
   if (aLoading) { body.insertAdjacentHTML('beforeend', waitHtml({rows:2, h:72})); return; }
-  if (aFailed) { body.insertAdjacentHTML('beforeend', `<p class="photos-muted">사진을 읽지 못했어요: ${esc(aFailed)}</p>`); return; }
+  if (aFailed) { body.insertAdjacentHTML('beforeend', `<p class="photos-muted">사진을 읽지 못했어요: ${esc(aFailed)} <button type="button" class="mini" data-photos-al-retry>다시</button></p>`); return; }
   if (!aItems.length) { body.insertAdjacentHTML('beforeend', emptyHtml()); paintSelect(); return; }
   const grid = newGrid(); aItems.forEach((item, i) => grid.append(cell(item, i))); body.append(grid);
   paintSize(); paintSelect();
@@ -3021,8 +3024,8 @@ function setSort(v) {
 }
 // 고르기 판: 옮길 폴더(나무 순서, 들여쓰기) 또는 넣을 앨범. 무엇을 할지는 pickFor에 둔다.
 let pickFor = null;
-// FOLDER-순서·색 ③-2: 폴더 고르기 창 줄 앞 그림도 같은 색(안 고른 폴더는 지금의 📁 그대로).
-const pickFolderIcon = (src, id) => (folderLook.color(src, id) ? folderIconHtml({color:folderLook.color(src, id)}, {className:'lu-move-ico'}) : '<span aria-hidden="true">\u{1F4C1}</span>');
+// FOLDER-순서·색 ③-2: 폴더 고르기 창 줄 앞 그림도 같은 색(안 고른 폴더는 기본 노랑 같은 그림, S51-25 그림 문자 없음).
+const pickFolderIcon = (src, id) => (folderLook.color(src, id) ? folderIconHtml({color:folderLook.color(src, id)}, {className:'lu-move-ico'}) : folderIconHtml({}, {className:'lu-move-ico'}));
 const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-menu photos-pick-menu', label:'고르기', historyKey:'kptuPhotosPickMenu',
   key:() => pickFor?.kind || '',
   render:kind => {
@@ -3032,7 +3035,7 @@ const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-men
     }
     if (kind === 'phfolder' || kind === 'phphotos') {
       const rows = phonePickRows(phoneFolderList(), kind === 'phfolder' ? {moving:pickFor.id} : {here:tab === 'folders' ? pAt : null});
-      return '<p class="od-link-status">어느 폰 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-phone="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}><span aria-hidden="true">\u{1F4C1}</span> ${esc(r.name)}${places.has('ph:' + r.id) ? `<span class="photos-fx-place"> · ${esc(places.get('ph:' + r.id))}</span>` : ''}</button>`).join('');
+      return '<p class="od-link-status">어느 폰 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-phone="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}>${folderIconHtml({}, {className:'lu-move-ico'})}${esc(r.name)}${places.has('ph:' + r.id) ? `<span class="photos-fx-place"> · ${esc(places.get('ph:' + r.id))}</span>` : ''}</button>`).join('');
     }
     if (kind === 'tag') return cards().map(c => menuBtn(`data-pick-tag="${esc(c.id)}"`, `#${esc(c.name)} <span class="photos-pick-n">${c.count}</span>`)).join('') + menuBtn('data-pick-newtag', '+ 새 앨범…');
     if (!tree) return '<p class="od-link-status">폴더를 읽지 못했어요</p>';
@@ -3212,6 +3215,8 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-purge]')) return purgeAsk(b, pickedItems().map(x => x.id));
   if (b.matches('[data-photos-purge-all]')) return purgeAsk(b, (trash || []).map(x => x.id));
   if (b.matches('[data-photos-trash-retry]')) return renderTrash({reload:true});
+  if (b.matches('[data-photos-cal-retry]')) return renderCalendar(); // LOAD-끝있는불러오기: [달력] 못 읽음 → 다시
+  if (b.matches('[data-photos-al-retry]')) { aFor = null; aFailed = ''; return renderAlbums(); }
   if (b.matches('[data-photos-cal]')) { calCursor = Number(b.dataset.photosCal) < 0 ? prevMonth(calCursor) : nextMonth(calCursor); return renderCalendar(); }
   if (b.matches('[data-photos-cal-day]')) return goDay(b.dataset.photosCalDay);
   if (b.matches('[data-photos-zgo]')) return zoomGo(b.dataset.photosZgo);

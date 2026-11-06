@@ -8,7 +8,7 @@
 [data-fc="6"] { --fl-ico:var(--ds-folder-6-ico); --fl-tag:var(--ds-folder-6-tag); --fl-paper:var(--ds-folder-6-paper); }
 [data-fc="7"] { --fl-ico:var(--ds-folder-7-ico); --fl-tag:var(--ds-folder-7-tag); --fl-paper:var(--ds-folder-7-paper); }
 [data-fc="8"] { --fl-ico:var(--ds-folder-8-ico); --fl-tag:var(--ds-folder-8-tag); --fl-paper:var(--ds-folder-8-paper); }
-.fl-ico { display:inline-flex; align-items:center; justify-content:center; color:var(--fl-ico); }
+.fl-ico { display:inline-flex; align-items:center; justify-content:center; color:var(--fl-ico,var(--ds-folder-0-ico)); }
 .fl-ico svg { display:block; fill:currentColor; }
 .lu-move-ico { flex:none; margin-right:6px; }
 .fl-choice { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 10px; max-width:220px; }

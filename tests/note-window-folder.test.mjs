@@ -66,7 +66,7 @@ test('NOTE-탐색기 후속 ⑤: an old folder name maps to the top folder of th
   assert.equal(folderIdFromName(folders, '개발'), null, 'only top folders keep the old names');
   assert.equal(folderIdFromName(folders, null), null);
   assert.equal(folderIdFromName(null, '회의'), null);
-  assert.equal(noteFolderPlace(folders, 'c'), '\u{1F4C1} 개발');
+  assert.equal(noteFolderPlace(folders, 'c'), '개발 폴더');
   assert.equal(noteFolderPlace(folders, null), '폴더 없음');
   assert.equal(noteFolderPlace(folders, 'gone'), '폴더 없음');
 });

@@ -11,6 +11,7 @@ import {matchIndex, placeItems, placeCounts, unbackedFolders, junkGroups, groupH
   TIDY_SORTS, DUP_SORTS, paneSortDefault, sortTidy, sortDupGroups, totalBytes, dupStats, dupStatText, whereLines, copiesFinder, DUP_HOW,
   partlyBackedFolders, TIDY_HELP, JUNK_HELP, partlyText, foundText, similarCandidates, similarGroups, SIMILAR_BATCH} from './photo-tidy-model.mjs';
 import {waitInlineHtml} from './wait-state.js';
+import {folderIconHtml} from './folder-look.js';
 
 const PAGE = 200;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -230,7 +231,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       if (st.odOn) {
         const on = st.unbacked.filter(f => !off.has(f.id)), offN = st.unbacked.length - on.length, n = on.reduce((s, f) => s + f.count, 0);
         const offBtn = f => (canHide ? `<button type="button" class="mini" data-photos-tidy-off="${esc(f.id)}">${off.has(f.id) ? '다시 켜기' : '폴더 끄기'}</button>` : '');
-        const folderRow = (f, key, note, offOk = true) => `<div class="photos-tidy-junk"><span>📁 ${esc(f.name)} <span class="photos-tidy-num">${note}${f.bytes ? ' · ' + sizeText(f.bytes) : ''}${off.has(f.id) ? ' · 꺼짐' : ''}</span></span>`
+        const folderRow = (f, key, note, offOk = true) => `<div class="photos-tidy-junk"><span>${folderIconHtml({}, {className:'photos-tidy-ico'})} ${esc(f.name)} <span class="photos-tidy-num">${note}${f.bytes ? ' · ' + sizeText(f.bytes) : ''}${off.has(f.id) ? ' · 꺼짐' : ''}</span></span>`
           + `<button type="button" class="mini" data-photos-tidy-see="${esc(key)}" aria-expanded="${panes.has(key)}">보기</button>${offOk ? offBtn(f) : ''}<button type="button" class="mini" data-photos-tidy-folder="${esc(f.id)}">폴더</button></div>`
           + (panes.has(key) ? pane(key) : '');
         rows.push(st.unbacked.length || st.partly.length

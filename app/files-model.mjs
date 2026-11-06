@@ -43,11 +43,12 @@ const KIND_BY_EXT = {
   zip: 'zip', '7z': 'zip', rar: 'zip', gz: 'zip', alz: 'zip', egg: 'zip',
 };
 export const KIND = Object.freeze({
-  folder: {label: '폴더', icon: '📁'}, image: {label: '사진', icon: '▣'}, video: {label: '동영상', icon: '▶'},
-  audio: {label: '소리', icon: '♪'}, pdf: {label: 'PDF', icon: 'P'}, hwp: {label: '한글', icon: '한'},
+  // S51-25: 그림 문자(📁📄)·기기마다 그림이 되는 기호(▶♪)는 글자 대신 공용 SVG(tree-icons.js, svg = 그림 이름). 나머지는 짧은 글자.
+  folder: {label: '폴더', icon: '', svg: 'folder'}, image: {label: '사진', icon: '▣'}, video: {label: '동영상', icon: '', svg: 'play'},
+  audio: {label: '소리', icon: '', svg: 'note'}, pdf: {label: 'PDF', icon: 'P'}, hwp: {label: '한글', icon: '한'},
   word: {label: '워드', icon: 'W'}, excel: {label: '표', icon: '표'}, slide: {label: '발표', icon: '슬'},
   text: {label: '글', icon: '글'}, web: {label: '웹', icon: '<>'}, zip: {label: '압축', icon: '압'},
-  gdoc: {label: '구글 문서', icon: 'G'}, file: {label: '파일', icon: '📄'},
+  gdoc: {label: '구글 문서', icon: 'G'}, file: {label: '파일', icon: '', svg: 'doc'},
 });
 // 종류: 폴더 → 구글 문서류(mime) → 확장자 → mime 앞부분 → 파일.
 export function kindOf(row) {
@@ -66,6 +67,7 @@ export function kindOf(row) {
 }
 export const kindLabel = row => KIND[kindOf(row)].label;
 export const kindIcon = row => KIND[kindOf(row)].icon;
+export const kindSvg = row => KIND[kindOf(row)].svg || '';
 
 // 오른쪽 칸(폰은 전체 화면) 미리보기 길. image = 큰 썸네일, pdf = 원본을 pdf.js로, office = 서버가 PDF로 바꾼 것(F4),
 // text = 앞 200KB 글, none = 이름·크기·위치만 + [열기]. 구글에 올린 오피스 파일은 서버가 바꾸지 않으므로 [열기]만(설계 Q4).
