@@ -205,7 +205,7 @@ test('폰 412: [두 칸 보기] → 위·아래 두 칸 · 칸마다 ▾ · 지�
   await expect.poll(() => prefs.value?.files_two?.phone).toEqual({ narrow: false });
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'list');
   // S51-24: 폰 한 칸 목록의 ‹ 는 어느 단계에서든 한 번에 나무로.
-  await root(page).locator('[data-fx-crumb] [data-fx-up]').click();
+  await root(page).locator('[data-fx-list] [data-fx-up]').click();
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'tree');
   expect(errors).toEqual([]);
 });

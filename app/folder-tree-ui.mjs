@@ -39,13 +39,13 @@ export function ftMoreButtonHtml({attrs = {}, label = '메뉴', className = ''} 
 // 폴더 줄 하나.
 //  name·count(회색 개수, 숫자 또는 짧은 글자)·countLabel(읽기 프로그램용)·depth(0 = 맨 위 단계 → 구분선·굵은 이름)·open·hasContent(펼칠 것이 있나)
 //  color(1~8)·off(꺼 둔 폴더: 흐리게 + '끔')·current(지금 고른 폴더)·picked(선택 모드에서 고름)·lead(앞에 붙일 HTML, 선택 칸 등)
-//  rowAttrs: 줄 div의 속성, mainAttrs: 줄을 누르는 단추의 속성(펼치기·접기 data 이름), more: ftMoreButtonHtml 인자(없으면 ⋯ 없음)
+//  rowAttrs: 줄 div의 속성, mainAttrs: 줄을 누르는 단추의 속성(펼치기·접기 data 이름), mainClass: 그 단추에 더할 class, more: ftMoreButtonHtml 인자(없으면 ⋯ 없음)
 //  tree: PC 왼쪽 나무처럼 role=tree 안에 있을 때(treeitem·aria-expanded).
 //  toggle(S51-25 FOLDER-PC나무): PC 나무처럼 '줄 누르기 = 그 폴더 열기 + 펼침, 아이콘만 누르기 = 접기·펼치기만'인 화면.
 //    {attrs: 아이콘 단추 data 이름과 값, label: 읽기 프로그램 이름}. 주면 폴더 아이콘이 줄 앞 따로인 단추가 되고(세모 없음),
 //    펼칠 것이 없는 폴더(hasContent false)는 단추 없이 닫힌 아이콘만 같은 자리에 둔다.
 export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0, open = false, hasContent = true, color = null, off = false,
-  current = false, picked = false, lead = '', rowAttrs = {}, mainAttrs = {}, more = null, tree = false, className = '', icon = null, toggle = null}) {
+  current = false, picked = false, lead = '', rowAttrs = {}, mainAttrs = {}, more = null, tree = false, className = '', mainClass = '', icon = null, toggle = null}) {
   const top = depth === 0, shown = !!open && !!hasContent;
   const cls = ['ft-row', 'ft-folder', top ? 'ft-top' : 'ft-sub', shown ? 'ft-open' : '', off ? 'ft-off' : '', current ? 'ft-current' : '', picked ? 'ft-picked' : '', toggle ? 'ft-has-tog' : '', className].filter(Boolean).join(' ');
   const num = count === null || count === undefined || count === '' ? '' : `<span class="ft-num"${countLabel ? ` aria-label="${esc(countLabel)}"` : ''}>${esc(count)}</span>`;
@@ -55,7 +55,7 @@ export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0,
     ? `<button type="button" class="ft-btn ft-tog"${attrsHtml(toggle.attrs)} aria-expanded="${shown}" aria-label="${esc(toggle.label || `${name} ${shown ? '접기' : '펼치기'}`)}">${ico}</button>`
     : `<span class="ft-tog ft-tog-none">${ico}</span>`;
   return `<div class="${cls}"${attrsHtml(rowAttrs)} style="--ft-depth:${ftDepth(depth)}"${tree ? ' role="treeitem"' : ''}>${tog}`
-    + `<button type="button" class="ft-btn ft-main"${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}>${lead}${toggle ? '' : ico}<span class="ft-name">${esc(name)}</span>${num}${off ? '<span class="ft-offtag">끔</span>' : ''}</button>`
+    + `<button type="button" class="ft-btn ft-main${mainClass ? ' ' + esc(mainClass) : ''}"${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}>${lead}${toggle ? '' : ico}<span class="ft-name">${esc(name)}</span>${num}${off ? '<span class="ft-offtag">끔</span>' : ''}</button>`
     + `${more ? ftMoreButtonHtml(more) : ''}</div>`;
 }
 
@@ -88,4 +88,23 @@ export function ftLimit(list, all = false, limit = FT_PREVIEW) {
   const items = Array.isArray(list) ? list : [];
   if (all || items.length <= limit) return {shown: items, rest: 0};
   return {shown: items.slice(0, limit), rest: items.length - limit};
+}
+
+// S51-24 FOLDER-그폴더만같은모양(요청함 11/06 21:52, 시안 docs/design/mockups/folder-focus-continuity.html ②):
+// '그 폴더만' 화면도 나무와 같은 둥근 상자·같은 줄. 상자 맨 위 작은 회색 위치 줄(누르면 그 단계), 그 아래 머리 = 열린 폴더 그림 + 굵은 이름 + 개수.
+// 돌아가기 글자·단추('나무로' 등)는 두지 않는다. [‹]는 위치 줄 맨 앞의 작은 꺽쇠(back: 속성, 없으면 없음).
+//  trail: [{label, attrs}] 위 단계(맨 앞 = 저장소·화면 이름), lead: 위치 줄 맨 앞 그림(저장소 로고 등), name·color·count, body: 안 줄(ft 줄 또는 격자).
+export function ftFocusHtml({back = null, lead = '', trail = [], name = '', color = null, count = '', body = '', attrs = {}} = {}) {
+  return `<section class="ft-box ft-focus"${attrsHtml(attrs)} aria-label="${esc(name)}">${ftFocusTopHtml({back, lead, trail, name, color, count})}<div class="ft-box-body">${body}</div></section>`;
+}
+// 상자 위쪽만(위치 줄 + 머리): 상자 몸통을 그 화면이 따로 그리는 곳(자료실 목록 상자·사진 격자)에서 상자 맨 위에 넣는다.
+export function ftFocusTopHtml({back = null, lead = '', trail = [], name = '', color = null, count = ''} = {}) {
+  const steps = (trail || []).map(t => `<button type="button" class="ft-btn ft-focus-step"${attrsHtml(t.attrs)}>${esc(t.label)}</button><span class="ft-focus-sep" aria-hidden="true">›</span>`).join('');
+  const backHtml = back ? `<button type="button" class="ft-btn ft-focus-back"${attrsHtml(back)} aria-label="폴더 나무">‹</button>` : '';
+  return `<nav class="ft-focus-anc" aria-label="지금 위치">${backHtml}${lead}${steps}</nav>`
+    + `<div class="ft-focus-head">${ftIconHtml({color, open: true})}<span class="ft-focus-name">${esc(name)}</span>${count ? ` <span class="ft-num">${esc(count)}</span>` : ''}</div>`;
+}
+// 상자 머리 개수: '폴더 1 · 파일 3'(없는 쪽은 뺀다). fileWord: 화면마다 '파일'·'노트'·'사진'.
+export function ftFocusCount(folders = 0, files = 0, fileWord = '파일') {
+  return [folders > 0 ? `폴더 ${folders}` : '', files > 0 ? `${fileWord} ${files}` : ''].filter(Boolean).join(' · ');
 }

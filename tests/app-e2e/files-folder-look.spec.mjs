@@ -5,7 +5,8 @@ import { start, openFiles, phoneFolder, treeGo } from './helpers/files-server.mj
 // 목록·나무·받을 곳 창이 같은 색·같은 순서, [기본]은 기본 노랑 폴더 그림(S51-25), 저장 실패는 그대로 두고 알림, DB 적용 전에도 목록은 그대로. 폴더 이름은 모두 가짜.
 const root = page => page.locator('#filesRoot');
 const row = (page, key) => root(page).locator(`[data-fx-row="${key}"]`);
-const folderNames = page => root(page).locator('[data-fx-list] .fx-row.fx-folder .fx-name').allTextContents();
+// S51-24: 폰 '그 폴더만'은 나무와 같은 줄(.ft-folder .ft-name, 그림 .ft-ico).
+const folderNames = page => root(page).locator('[data-fx-list] :is(.fx-row.fx-folder .fx-name, .ft-folder .ft-name)').allTextContents();
 const RGB = { 4: 'rgb(63, 148, 134)', 1: 'rgb(180, 90, 82)' };
 async function gotoOdRoot(page, width) {
   // 폰(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 → 원드라이브 상자 머리 위 두 손가락 벌리기 = 원드라이브 맨 위 목록. 새로고침이면 보던 자리(목록)가 그대로 열린다.
@@ -32,7 +33,7 @@ async function pickColor(page, name) {
   await choice.getByRole('radio', { name, exact: true }).click();
   await expect(page.locator('#fxLookMenu')).toBeHidden();
 }
-const icon = (page, key) => row(page, key).locator('.fx-ico');
+const icon = (page, key) => row(page, key).locator(':is(.fx-ico, .ft-ico)');
 
 for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${width}`, () => {
   test.use({ hasTouch: width < 761 });
@@ -111,7 +112,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     const destRows = dest.locator('[data-fx-dest-pick]:not([data-fx-dest-pick$=":"])');
     await expect.poll(() => destRows.evaluateAll(els => els.map(e => e.dataset.fxDestPick))).toEqual(expect.arrayContaining(['od:OD!2', 'od:OD!1']));
     expect(await destRows.evaluateAll(els => els.map(e => e.dataset.fxDestPick).filter(k => /^od:OD![12]$/.test(k)))).toEqual(['od:OD!2', 'od:OD!1']);
-    await expect(dest.locator('[data-fx-dest-pick="od:OD!2"] .fl-ico')).toHaveAttribute('data-fc', '4');
+    await expect(dest.locator('.ft-row:has([data-fx-dest-pick="od:OD!2"]) .ft-ico')).toHaveAttribute('data-fc', '4');
     await page.keyboard.press('Escape');
     if (await root(page).locator('[data-fx-dest]').isVisible()) await root(page).locator('[data-fx-dest-close]').click();
 

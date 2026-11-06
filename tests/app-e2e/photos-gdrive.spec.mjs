@@ -265,7 +265,8 @@ test.describe('폰 412', () => {
     await expect(bodyEl.locator('[data-photos-box="gdrive"] .ft-box-tail')).toHaveText('3');
     await expect(bodyEl.locator('[data-photos-gf] .nx-num')).toHaveText(['—', '3']); // 업무(꺼짐) · 카메라 백업(켬), 가나다순
     await bodyEl.locator('[data-photos-gf-open="GF1"]').click();
-    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-path')).toContainText('카메라 백업');
+    // S51-24: 폰 '그 폴더만' = 상자 맨 위 위치 줄(위 단계만) + 그 폴더 줄(머리).
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-path')).toHaveText('‹사진›구글 드라이브›');
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('카메라 백업 · 3장');
     await expect(bodyEl.locator('[data-photos-gf-open="GF11"]')).toBeVisible();
     await expect.poll(() => bodyEl.locator('[data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId))).toEqual(['gd:G1', 'gd:G2', 'gd:G3']);

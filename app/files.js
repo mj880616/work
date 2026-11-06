@@ -12,8 +12,10 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
   UPLOAD_BIG_HOW, UPLOAD_REOPEN_TEXT, upDropText, upStartText, uploadPlan, upBig, upSameName, sameUpFile, upPiece, deviceHint, upResultId,
   starWant, starLabel, applyStars, boxRows} from './files-model.mjs';
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
-import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
+import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
+import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
 import {bindFolderPinch} from './folder-pinch.js';
+import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {bindTouchDrag} from './touch-drag.js';
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
@@ -388,7 +390,7 @@ function listLayerOpen() {
   listLayer = window.KPTURouter?.layer?.open('files-list', {
     reopen: () => { const p = state.panes[0]; if (p.where) { p.pane = 'list'; window.KPTURouter?.setPlace?.('files', {at: null, shelf: null, ...placeOf(p.where)}); paint(); } },
     // S51-24: 뒤로 키 = 오므리기·[‹]와 같은 곳(어떤 길로 들어왔든 나무, 그 폴더를 펼친 그 자리).
-    close: () => { listLayer = null; const back = treeSpot(); toTree(); restoreTreeSpot(back); return true; }}) || null;
+    close: () => { listLayer = null; const back = treeSpot(), from = focusHeadTop(); toTree(); restoreTreeSpot(back, from); return true; }}) || null;
 }
 // 폰 칸 0을 나무로. release = 화면 안 ‹ 로 돌아옴(뒤로가기 자리도 닫는다). 보던 곳은 나무가 칠해 둔다.
 function toTree({release = false} = {}) {
@@ -501,6 +503,8 @@ function crumbHtml(p) {
   // S50-33: 폰 나무 화면에는 위치 줄이 없다(중복 제목 '폴더' 뺌). 폰 목록의 ‹ 는 어느 단계에서든 나무로 돌아온다(S51-24, 위 단계는 위치 줄 글자로).
   if (p === state.panes[0] && treePane()) return '';
   if (!w) return '';
+  // S51-24: 폰 '그 폴더만'은 위치 줄이 상자 안(paintFocus)이라 위 막대가 없다.
+  if (focusBox(p)) return '';
   const back = solo() && p === state.panes[0];
   if (w.shelf) return (back ? '<button type="button" class="fx-up" data-fx-up aria-label="폴더 나무">‹</button>' : '') + `<span class="fx-crumb-now">${esc(SHELF_NAME[w.shelf])}</span>`;
   const names = trailNames(w.source, p.trail), ids = [null, ...trailIds(p.trail)];
@@ -518,7 +522,7 @@ function paintPaneTop(p) {
   if (!two()) { top.hidden = true; top.innerHTML = ''; if (pt) { pt.hidden = true; pt.innerHTML = ''; } return; }
   top.hidden = false;
   const fold = !WIDE.matches, i = idxOf(p);
-  top.innerHTML = (fold ? `<button type="button" class="mini fx-pdrop" data-fx-pdrop aria-expanded="${p.drop}" aria-label="${side(i)} 칸 폴더 나무">▾</button>` : '')
+  top.innerHTML = (fold ? `<button type="button" class="mini fx-pdrop" data-fx-pdrop aria-expanded="${p.drop}" aria-label="${side(i)} 칸 폴더 나무">${treeIconHtml('folder', {open: p.drop, className: 'ft-ico'})}</button>` : '')
     + `<nav class="fx-crumb" aria-label="${side(i)} 칸 위치">${crumbHtml(p)}</nav>${sortHtml(p)}`;
   paintPaneTree(p);
 }
@@ -546,7 +550,7 @@ function paintTop() {
     s.textContent = sn.label.text; s.title = sn.label.title; s.dataset.fxSyncState = sn.label.state;
     s.disabled = state.syncing;
     s.setAttribute('aria-busy', String(state.syncing || sn.scanning));
-    s.hidden = !sn.shown || (solo() && !s.closest('.nx-row, .ft-box-head'));
+    s.hidden = !sn.shown || (solo() && !s.closest('.ft-box-head'));
   }
   // UI-로딩자리전수: 맞추는 동안의 두 번째 글자('맞추는 중')는 없다. 목록 칸 맨 위 가는 줄(공용 부품) 하나로만 알린다.
   for (const q of panesOn()) {
@@ -797,7 +801,11 @@ function focusTreeFolder(key) {
   const [source, ...rest] = key.split(':'), id = rest.join(':') || null;
   state.treeBack = {y: window.scrollY, key};
   state.open.add(key);
+  // S51-24 ④: 그 줄 자리에서 상자 머리로 올라오는 0.2초(folder-focus-motion.js). 그 폴더만은 화면 맨 위부터.
+  const from = topOf(root?.querySelector(`[data-fx-fold="${CSS.escape(key)}"]`) || root?.querySelector(`[data-fx-box="${CSS.escape(source)}"]`));
   goFolder(source, id);
+  window.scrollTo({top: 0, behavior: 'instant'});
+  riseFromRow(from, inPane(state.panes[0], '.ft-focus'));
 }
 // S51-24 FILES-핀치돌아오기(요청함 11/06 20:27): 폰 '그 폴더만'(칸 0 목록)에서 나무로 돌아올 자리 한 곳.
 // 두 손가락으로 들어왔으면 그때 화면 위치(treeBack), 다른 길(두 칸 → 한 칸·새로고침·⋯ 등)로 들어왔으면 그 폴더 줄 자리.
@@ -807,21 +815,25 @@ function treeSpot() {
   if (back) return back;
   return w?.source && !w.shelf ? {y: null, key: folderKey(w.source, w.parent)} : null;
 }
-function restoreTreeSpot(back) {
+// from: '그 폴더만' 상자 머리가 있던 화면 위치(있으면 그 줄이 거기서 제자리로 내려오는 0.2초, S51-24 ④).
+function restoreTreeSpot(back, from = null) {
   if (!back) return;
   requestAnimationFrame(() => {
     const [source] = back.key.split(':');
     const row = root?.querySelector(`[data-fx-fold="${CSS.escape(back.key)}"]`) || root?.querySelector(`[data-fx-box="${CSS.escape(source)}"]`);
+    settleGestureAreas();
     if (typeof back.y === 'number') window.scrollTo({top: back.y, behavior: 'instant'});
     else row?.scrollIntoView({block: 'center', behavior: 'instant'});
     row?.querySelector('.ft-main, .ft-box-toggle')?.focus({preventScroll: true});
+    sinkToRow(from, row, root?.querySelectorAll('[data-fx-tree] .ft-box'));
   });
 }
+const focusHeadTop = () => topOf(inPane(state.panes[0], '.ft-focus-head'));
 // 오므리기·[‹]: 나무로(뒤로가기 자리도 닫는다).
 function backToTree() {
-  const back = treeSpot();
+  const back = treeSpot(), from = focusHeadTop();
   toTree({release: true});
-  restoreTreeSpot(back);
+  restoreTreeSpot(back, from);
 }
 // S51-22 ⋯(요청함 11/06 19:51): 화면·펼친 자리·스크롤은 그대로, 그 줄 하나의 메뉴(예전 고르기 줄에 있던 기능 그대로 — files-tree-menu.mjs).
 // 같은 부모 안 폴더 순서(위로·아래로): 나무가 그리는 순서(lookOrder) 그대로.
@@ -838,7 +850,8 @@ const liveMenuButton = (key, b) => (b?.isConnected ? b : root?.querySelector(`[d
 async function treeAct(id, r, inKey, anchor) {
   const key = rowKey(r), here = {source: r.source, parent: r.item_id};
   if (id === 'open') { openPreview(r); return; }
-  if (id === 'only') { focusTreeFolder(key); return; }
+  // '그 폴더만'(S51-24) 안 하위 폴더의 ⋯ '이 폴더만' = 한 단계 더 안으로(같은 상자 모양).
+  if (id === 'only') { if (treePane()) focusTreeFolder(key); else goFolder(r.source, r.item_id); return; }
   if (id === 'mkdir') { await makeFolder(anchor, here); return; }
   if (id === 'upload') { const inp = $('[data-fx-file]'); if (inp) { state.upTo = here; inp.value = ''; inp.click(); } return; }
   if (id === 'copy' || id === 'tocloud') { openDest('copy', [r]); return; }
@@ -976,6 +989,7 @@ const scanningNow = () => state.syncing || SOURCES.some(x => state.status?.[x]?.
 function paintList(p) {
   const list = inPane(p, '[data-fx-list]');
   if (!list) return;
+  const drawn = list.fxHtml; list.fxHtml = '';
   mountWidths(list);
   if (state.statusFailed && !state.status) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.statusFailed), reason: state.statusWhy}); return; }
   if (nothingOn()) { list.innerHTML = emptyHtml(SOURCES_OFF_TEXT); delete list.dataset.fxMode; return; }
@@ -989,6 +1003,8 @@ function paintList(p) {
     return;
   }
   const w = p.where;
+  if (focusBox(p)) { paintFocus(p, list, drawn); return; }
+  delete list.dataset.fxFocus;
   // 폰 첫 화면(나무)은 목록 칸을 보이지 않으므로 빈 칸(회색 줄을 숨겨 두지 않음).
   if (!w) { list.innerHTML = state.status && !anyLinked() ? emptyHtml('연결된 클라우드 없음') : treePane() ? '' : waitHtml({rows: 4}); return; }
   if (p.failed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(p.failed), reason: p.failedWhy}); return; }
@@ -1007,6 +1023,73 @@ function paintList(p) {
   }
   list.innerHTML = fileHeadHtml(!!w.shelf)
     + `<div class="fx-rows${w.shelf ? ' fx-with-path' : ''}" role="list">${rows.map(r => rowHtml(p, r, {withPath: !!w.shelf})).join('')}</div>`;
+  mountThumbs(list);
+}
+// ---------- S51-24 FOLDER-그폴더만같은모양: 폰 '그 폴더만' = 나무와 같은 상자·같은 줄(시안 folder-focus-continuity.html ②) ----------
+// 상자 맨 위 작은 회색 위치 줄(‹ + 저장소 › 위 폴더 ›, 누르면 그 단계), 머리 = 열린 폴더 그림 + 굵은 이름 + '폴더 n · 파일 m', 안 줄은 나무 줄 그대로(⋯ = 그 자리 메뉴).
+// 줄을 누르는 동작·고르기·끌기는 목록과 같다(누르는 단추가 data-fx-row). 격자 보기면 상자 안이 격자. 돌아가기 글자는 없다(오므리기·‹·뒤로 키·위치 줄).
+const focusBox = p => solo() && p === state.panes[0] && p.pane === 'list' && !p.query && !!p.where?.source && !p.where.shelf;
+// 아직 서버 목록을 받기 전이면 나무가 읽어 둔 그 폴더 안(state.children·state.files)으로 바로 그린다(벌리는 순간 같은 줄이 이어지게).
+function focusRows(p) {
+  if (p.loaded) return shown(p);
+  const k = folderKey(p.where.source, p.where.parent), kids = state.children.get(k), files = state.files.get(k);
+  return kids && files ? shown({...p, rows: [...kids, ...files]}) : null;
+}
+// 위 단계(맨 위부터 지금 폴더까지): 받은 위치(p.trail), 아직이면 나무가 읽어 둔 폴더들로 거슬러 올라간다.
+function focusTrail(p) {
+  const {source, parent} = p.where;
+  if (p.loaded || !parent) return {names: trailNames(source, p.trail), ids: [null, ...trailIds(p.trail)]};
+  const up = []; let cur = parent;
+  for (let guard = 0; cur && guard < 40; guard++) {
+    let hit = null;
+    for (const [k, list] of state.children) if (k.startsWith(source + ':') && (hit = list.find(x => x.item_id === cur))) break;
+    if (!hit) break;
+    up.unshift(hit); cur = hit.parent_id || null;
+  }
+  return {names: [SOURCE_NAME[source] || '', ...up.map(x => x.name)], ids: [null, ...up.map(x => x.item_id)]};
+}
+function focusFileHtml(p, r, parent) {
+  const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
+  const cls = ['ft-btn', 'ft-main', p.picked.has(key) ? 'fx-picked' : '', state.clip?.keys.includes(key) ? 'fx-cut' : ''].filter(Boolean).join(' ');
+  state.treeRows.set(key, r);
+  return `<div class="ft-row ft-item fx-titem" style="--ft-depth:0" data-ft-parent="${esc(parent)}"><button type="button" class="${cls}" data-fx-row="${esc(key)}" aria-selected="${sel}">`
+    + `${wantsThumb(r) ? thumbHtml(r, 'fx-tthumb') : `<span class="fx-tkind" data-kind="${kind}" aria-hidden="true">${esc(kindLabel(r))}</span>`}<span class="ft-name">${esc(r.name)}</span>${r.starred ? STAR_ICO : ''}<span class="ft-num fx-tday">${esc(fileDay(r))}</span></button>`
+    + ftMoreButtonHtml({attrs: {'data-fx-tmenu': key, 'data-fx-tin': parent}, label: `${r.name} 메뉴`}) + '</div>';
+}
+function focusFolderHtml(p, r, parent) {
+  const key = rowKey(r), fk = folderKey(r.source, r.item_id), local = r.source === PC;
+  state.treeRows.set(key, r);
+  // 고름·잘라 둠 표시는 누르는 단추(data-fx-row)에 둔다(paintPicks가 그 단추만 바꾼다).
+  const mark = [p.picked.has(key) ? 'fx-picked' : '', state.clip?.keys.includes(key) ? 'fx-cut' : ''].filter(Boolean).join(' ');
+  return ftFolderRowHtml({name: r.name, count: countOf(r.source, r.item_id) || null, depth: 0, open: false, hasContent: false, color: folderLook.color(r.source, r.item_id),
+    mainClass: mark,
+    rowAttrs: {'data-ft-parent': parent}, mainAttrs: {'data-fx-row': key, 'data-fx-drop': local ? null : fk, 'aria-selected': String(p.sel === key || p.picked.has(key))},
+    more: {attrs: {'data-fx-tmenu': key, 'data-fx-tin': parent}, label: `${r.name} 폴더 메뉴`}});
+}
+function paintFocus(p, list, drawn = '') {
+  const w = p.where, parent = folderKey(w.source, w.parent);
+  if (p.failed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(p.failed), reason: p.failedWhy}); return; }
+  const rows = focusRows(p);
+  const {names, ids} = focusTrail(p);
+  const name = names[names.length - 1] || SOURCE_NAME[w.source] || '';
+  let body;
+  if (!rows) body = waitHtml({rows: 4});
+  else if (!rows.length) body = p.loaded && !scanningNow() ? emptyHtml('빈 폴더') : waitHtml({rows: 4});
+  else {
+    const look = lookNow(), cols = lookCols(look, roomy());
+    list.dataset.fxLook = look;
+    body = cols ? `<div class="fx-rows fx-grid" role="list" data-fx-cols="${cols}" style="--fx-cols:${cols}">${rows.map(r => cellHtml(p, r)).join('')}</div>`
+      : rows.map(r => (r.is_folder ? focusFolderHtml(p, r, parent) : focusFileHtml(p, r, parent))).join('');
+  }
+  const folders = rows ? rows.filter(r => r.is_folder).length : 0;
+  const trail = names.slice(0, -1).map((label, i) => ({label, attrs: {'data-fx-go': w.source, 'data-fx-id': ids[i] || ''}}));
+  const html = ftFocusHtml({back: {'data-fx-up': ''}, lead: treeIconHtml(w.source, {className: 'ft-box-ico'}), trail, name,
+    color: w.parent ? folderLook.color(w.source, w.parent) : null, count: rows ? ftFocusCount(folders, rows.length - folders) : '', body, attrs: {'data-fx-focus': parent}});
+  list.dataset.fxMode = 'folder'; list.dataset.fxFocus = '';
+  // 같은 모양이면 다시 그리지 않는다(서버 목록이 나무가 읽어 둔 것과 같을 때 벌리는 움직임이 끊기지 않게).
+  list.fxHtml = html;
+  if (drawn === html) return;
+  list.innerHTML = html;
   mountThumbs(list);
 }
 // ---------- 미리보기 ----------
@@ -1564,9 +1647,11 @@ function paintDest() {
   const rows = treeRows({sources: on, children: state.children, open: x.open, order: lookOrder}).filter(r => r.type !== 'shelf');
   const tree = rows.map(r => {
     const key = r.key, sel = key === cur;
-    const twist = r.hasKids ? `<button type="button" class="fx-twist" data-fx-dest-twist="${esc(key)}" aria-expanded="${r.open}" aria-label="${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="fx-twist" aria-hidden="true"></span>';
+    // S51-25 FOLDER-세모0: 받을 곳 창 나무도 공용 줄 — 세모 없이 아이콘 단추(폴더 = 열린/닫힌 그림, 저장소 = 로고)가 펼치기·접기, 이름 = 받을 곳 고르기.
     const name = r.type === 'root' ? SOURCE_NAME[r.source] : r.name;
-    return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${sel ? ' nx-current' : ''}" style="--nx-indent:${r.depth}">${twist}<button type="button" class="nx-main" data-fx-dest-pick="${esc(key)}" data-fx-dest-name="${esc(name)}"${sel ? ' aria-current="true"' : ''}>${r.type === 'root' ? treeIconHtml(r.source) : treeIconHtml('folder', {row: {color: folderLook.color(r.source, r.id)}, open: r.open})}<span class="nx-name">${esc(name)}</span></button></div>`;
+    return ftFolderRowHtml({name, depth: r.depth, open: r.open, hasContent: r.hasKids, current: sel, className: r.type === 'root' ? 'fx-root' : '',
+      color: r.type === 'root' ? null : folderLook.color(r.source, r.id), icon: r.type === 'root' ? treeIconHtml(r.source, {className: 'ft-ico'}) : null,
+      mainAttrs: {'data-fx-dest-pick': key, 'data-fx-dest-name': name}, toggle: {attrs: {'data-fx-dest-twist': key}, label: `${name} ${r.open && r.hasKids ? '접기' : '펼치기'}`}});
   }).join('');
   const can = !!x.dest && !state.ask;
   box.innerHTML = `<div class="fx-dest-h"><span id="fxDestTitle">${esc(destTitle(x.rows.length, x.mode))}</span><button type="button" class="mini" data-fx-dest-close aria-label="닫기">✕</button></div>`
@@ -2364,17 +2449,23 @@ root?.addEventListener('click', event => {
 // - S51-20 ①: 목록 칸(모든 폭) 위 벌리기 = 목록 → 격자 → 큰 격자, 오므리기 = 반대. 목록에서 더 오므리면(폰, 나무에서 들어온 목록) 나무로.
 let pinchAt = '';
 const treeFolderAt = el => el.closest('[data-fx-fold]')?.dataset.fxFold || el.closest('[data-ft-parent]')?.dataset.ftParent || (el.closest('.ft-box-head') && el.closest('[data-fx-box]') ? el.closest('[data-fx-box]').dataset.fxBox + ':' : null);
+// S51-24 UI-빈칸손짓: 목록이 짧아도 아래 빈 곳까지 손짓 칸(gesture-fill.js).
+fillGestureArea(root);
 if (root) bindFolderPinch(root, {
   enabled: () => !state.xfer,
   folderAt: el => {
     pinchAt = '';
     if (treePane()) { const k = treeFolderAt(el); if (k) pinchAt = 'tree'; return k; }
+    // S51-24: '그 폴더만' 안 하위 폴더 줄 위 벌리기 = 한 단계 더 안으로(같은 상자 모양, 돌아올 나무 자리는 그대로).
+    const sub = focusBox(state.panes[0]) && el.closest('.ft-folder')?.querySelector('[data-fx-row]')?.dataset.fxRow;
+    if (sub) { pinchAt = 'sub'; return sub; }
     const list = el.closest('[data-fx-list]'), i = paneOfEl(el);
     if (list && i >= 0 && state.panes[i].where && !state.panes[i].query) { pinchAt = 'list'; return 'list'; }
     return null;
   },
   onOut: key => {
     if (pinchAt === 'tree') focusTreeFolder(key);
+    else if (pinchAt === 'sub') activate(key);
     else if (pinchAt === 'list') setLook(stepLook(lookNow(), 'out'));
   },
   onIn: () => {

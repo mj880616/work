@@ -400,3 +400,8 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
 @media (max-width:760px){.share-target-dialog{margin:12px auto auto}}
 /* FILES-폰보기끌기 ③(S51-20): 꾹 눌러 끄는 동안 손가락을 따라가는 조각(touch-drag.js). 위치는 부품이 transform으로만 바꾼다. */
 .td-ghost{position:fixed;left:0;top:0;z-index:70;max-width:min(60vw,240px);padding:5px 10px;border:1px solid var(--kptu-primary);border-radius:8px;background:var(--kptu-surface);color:var(--kptu-ink);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:var(--kptu-shadow-float);pointer-events:none;rotate:-3deg}
+
+/* S51-24 UI-빈칸손짓: 손짓을 받는 칸은 내용이 끝난 아래 빈 곳까지(아래 바 바로 위까지) 채운다. 높이(inline min-height)와
+   아래 여백 당김(감싼 칸들의 아래 여백이 아래 바 자리보다 많으면 그만큼, 화면이 더 길어지지 않게)은 gesture-fill.js가 잰다.
+   늘어난 칸 안의 줄은 위에 붙는다(격자 칸이 줄 사이를 벌리지 않게). */
+.gesture-fill{align-content:start}
