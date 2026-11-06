@@ -7,20 +7,23 @@
 // 칸이 아직 제자리 위(자연 위치)로 오르기 전에는 칸 아래쪽 줄([저장] 등)이 화면 밖으로 나가지 않게 최대 높이를 그 자리에 맞춘다.
 // 새 항목을 그려 다시 부르면(reset) 칸 안 스크롤을 맨 위로 되돌린다. 서버·기기 저장 없음.
 const GAP = 12;
-const panes = new Map(); // el -> top
+// S51-13 TODO-폴드목록상세: 폴드 펼침(600~760px, 폰 틀)에서도 붙일 칸은 narrow로 부른다. 그 폭은 아래에 입력칸·전환 줄·하단바가
+// 떠 있으므로 그 높이(bottom, px를 돌려주는 함수)만큼 칸 최대 높이를 줄인다. 모양은 desktop-ui.css .kptu-follow-narrow 한 곳.
+const panes = new Map(); // el -> {top, bottom}
 let queued = false;
 
 /** 순수 계산(tests/follow-pane-math.test.mjs): 칸이 화면 위에서 rectTop에 있을 때 화면 안에 다 들어오는 최대 높이. 칸이 붙으면(rectTop<=top) top 기준. */
 export function followMax({ view, top = GAP, rectTop }) {
   return Math.max(160, Math.floor(view - Math.max(top, rectTop) - GAP));
 }
-function paint(el, top) {
-  const v = `${followMax({ view: window.innerHeight, top, rectTop: el.getBoundingClientRect().top })}px`;
+function paint(el, { top, bottom }) {
+  const below = typeof bottom === 'function' ? Math.max(0, Number(bottom()) || 0) : 0;
+  const v = `${followMax({ view: window.innerHeight - below, top, rectTop: el.getBoundingClientRect().top })}px`;
   if (el.style.getPropertyValue('--follow-max') !== v) el.style.setProperty('--follow-max', v);
 }
 function refresh() {
   queued = false;
-  for (const [el, top] of panes) { if (el.isConnected) paint(el, top); else panes.delete(el); }
+  for (const [el, at] of panes) { if (el.isConnected) paint(el, at); else panes.delete(el); }
 }
 function queue() { if (!queued) { queued = true; requestAnimationFrame(refresh); } }
 let listening = false;
@@ -32,12 +35,14 @@ function listen() {
 }
 
 /** 칸 하나를 화면(위에서 top px)에 붙인다. 같은 칸을 다시 부르면 reset일 때 칸 안 스크롤을 맨 위로. */
-export function followPane(el, { top = GAP, reset = true } = {}) {
+export function followPane(el, { top = GAP, reset = true, narrow = false, bottom = null } = {}) {
   if (!el) return;
   el.classList.add('kptu-follow-pane');
+  el.classList.toggle('kptu-follow-narrow', !!narrow);
   const v = `${Math.round(top)}px`;
   if (el.style.getPropertyValue('--follow-top') !== v) el.style.setProperty('--follow-top', v);
-  panes.set(el, top); listen(); paint(el, top);
+  const at = { top, bottom: narrow ? bottom : null };
+  panes.set(el, at); listen(); paint(el, at);
   if (reset) {
     el.scrollTop = 0;
     // 칸 머리가 자기 자리(top) 위로 지나가 있으면(칸을 품은 줄 끝 가까이에서 새 항목을 연 때) 그만큼만 화면을 올려 머리를 보인다.

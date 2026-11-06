@@ -16,13 +16,17 @@ import { viewPrefs } from './view-prefs.js';
 //   role=separator with aria-valuenow (the share left of the boundary, in %).
 const DEFAULT_RATIO=1/3,STEP=0.02;
 const mounted=new WeakMap();
-// Screens asked to mount while not in the multi-column layout; retried when the window reaches PC width.
-const pending=new Map();let pcQuery=null;
+// Screens asked to mount while not in the multi-column layout; retried when the window reaches the screen's width (o.query).
+// S51-13 TODO-폴드목록상세: a screen may start its columns below PC width (e.g. the unfolded Fold, '(min-width:600px)'); the
+// default stays the PC width. One listener per width rule.
+const PC_QUERY='(min-width:761px)';
+const pending=new Map(),queries=new Map();
 function waitForPc(o){
   pending.set(o.container,o);
-  if(pcQuery||!window.matchMedia)return;
-  pcQuery=window.matchMedia('(min-width:761px)');
-  pcQuery.addEventListener?.('change',()=>{if(!pcQuery.matches)return;requestAnimationFrame(()=>{for(const [c,cfg] of [...pending]){if(!c.isConnected){pending.delete(c);continue}mountSplitResize(cfg)}})});
+  const rule=o.query||PC_QUERY;
+  if(queries.has(rule)||!window.matchMedia)return;
+  const mq=window.matchMedia(rule);queries.set(rule,mq);
+  mq.addEventListener?.('change',()=>{if(!mq.matches)return;requestAnimationFrame(()=>{for(const [c,cfg] of [...pending]){if(!c.isConnected){pending.delete(c);continue}if((cfg.query||PC_QUERY)===rule)mountSplitResize(cfg)}})});
 }
 let sheet=false;
 
@@ -90,7 +94,7 @@ function ensureStyle(){
   const style=document.createElement('style');style.dataset.kptuSplitResize='';
   style.textContent=`.split-resize-handle{position:absolute;z-index:3;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;cursor:col-resize;touch-action:none;outline:none}
 .split-resize-handle[hidden]{display:none}
-@media(max-width:760px){.split-resize-handle{display:none!important}}
+@media(max-width:760px){.split-resize-handle:not([data-split-narrow]){display:none!important}}
 .split-resize-handle::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;border-radius:2px;background:transparent;transition:background-color .12s}
 .split-resize-handle:hover::before,.split-resize-handle.is-dragging::before{background:var(--kptu-border-strong)}
 .split-resize-handle:focus-visible::before{background:var(--kptu-info);width:3px;margin-left:-1.5px}
@@ -113,6 +117,8 @@ html.split-resizing,html.split-resizing *{cursor:col-resize!important;user-selec
  * @param {() => boolean} o.active true while the multi-column layout is shown
  * @param {string} [o.label] accessible name
  * @param {string} [o.controls] id of the left column, for aria-controls (two columns)
+ * @param {string} [o.query] media query from which the screen shows its columns (default PC width, '(min-width:761px)'); a narrower
+ *   rule (the unfolded Fold) also shows the boundaries below PC width
  */
 export function mountSplitResize(o){
   const {container}=o;if(!container)return null;
@@ -122,7 +128,7 @@ export function mountSplitResize(o){
     known.dispose();
   }
   // Nothing is added to the page until the multi-column layout is shown (phones and middle widths stay untouched); a later
-  // widening to PC width mounts it then.
+  // widening to the screen's width (o.query, default PC) mounts it then.
   if(!o.active?.()){waitForPc(o);return null}
   pending.delete(container);
   ensureStyle();
@@ -135,7 +141,7 @@ export function mountSplitResize(o){
   const handles=[];
   for(let i=0;i<n-1;i++){
     const handle=document.createElement('div');
-    handle.className='split-resize-handle';handle.tabIndex=0;handle.hidden=true;
+    handle.className='split-resize-handle';handle.tabIndex=0;handle.hidden=true;if(o.query&&o.query!==PC_QUERY)handle.dataset.splitNarrow='';
     handle.setAttribute('role','separator');handle.setAttribute('aria-orientation','vertical');
     handle.setAttribute('aria-label',n===2?(o.label||'목록과 상세 칸 폭 조절'):`${o.label||'칸 폭 조절'} ${i+1}`);
     handle.setAttribute('aria-valuemin','0');handle.setAttribute('aria-valuemax','100');

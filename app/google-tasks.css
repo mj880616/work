@@ -152,11 +152,16 @@ div.gt-main{cursor:default}
 #gtTaskModal.gt-has-task .gt-due-quick{display:flex;flex-wrap:wrap;gap:var(--kptu-space-1);align-items:center;min-width:0}
 #gtTaskModal.gt-has-task:not(.gt-docked) .gt-due-quick{margin:calc(-1 * var(--kptu-space-1)) 0 var(--kptu-space-2)}
 #gtTaskModal.gt-has-task .gt-due-quick>button{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 10px;margin:0;font-size:var(--ds-text-meta);white-space:nowrap}
+/* PC 틀(761~)에서만: 화면 아래 여백·입력 카드 자리. 폴드 펼침(600~760)은 폰 틀(아래 입력칸·탭·하단바가 떠 있음) 그대로다. */
 @media(min-width:761px){
   html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) main{padding-bottom:12px}
   html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) #appView>.app-nav{margin-bottom:0}
   #appView #tasksView:not(.hidden):has(#gtTaskSection.gt-pc){display:flex;flex-direction:column;height:auto;min-height:calc(100vh - 24px - var(--kptu-topline-space,0px));min-height:calc(100dvh - 24px - var(--kptu-topline-space,0px))}
   #appView #tasksView:has(#gtTaskSection.gt-pc)>.home-quick{flex:none;margin:0 0 var(--kptu-space-2);padding:6px}
+}
+/* S51-13 TODO-폴드목록상세(2026-11-06 명진 'ㅇ', docs/design/mockups/todo-fold-list-detail.html): 폴드 펼침(600px~)도 PC와 같은
+   '왼쪽 목록 | 오른쪽 상세'. 아래 규칙은 모두 .gt-pc(google-tasks.js renderTasks가 600px~에서 붙임)·.gt-docked 안쪽만 그린다. */
+@media(min-width:600px){
   #appView #tasksView #gtTaskSection.gt-pc{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto auto auto;align-content:start;column-gap:var(--kptu-space-3);margin:0;padding:0;border:0;background:transparent}
   #appView #tasksView #gtTaskSection.gt-pc>.gt-head{grid-column:1 / -1;grid-row:1;min-height:32px}
   #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody{grid-column:1;grid-row:2;min-height:0;margin:0}
@@ -166,7 +171,8 @@ div.gt-main{cursor:default}
   /* UI-칸안스크롤하나로(시안 A): 상세 칸에 따로 스크롤을 두지 않는다. 화면에 붙어 따라오는 일은 follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 한다(google-tasks.js syncSplit). */
   #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane{grid-column:2;grid-row:2 / -1;display:block;align-self:start;min-height:0;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
   /* UI-전수디자인점검 F06: 할 일을 고르기 전에는 안내문 없이 빈 자리(상자 선·바탕 없음). 고르면 이 칸에 수정 창이 들어오며 상자가 된다. */
-  #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane:not(.has-task){border-color:transparent;background:transparent}
+  /* S51-13 ④: 아무것도 안 골랐을 때 오른쪽 칸은 '오늘 할 일' 요약(#gtPaneToday, renderTasks가 그림). 고르면 요약은 숨고 수정 칸이 들어온다. */
+  #gtDetailPane.has-task>#gtPaneToday{display:none}
   /* TASK-화면다듬기: [기한] 칸은 좁게, 오른쪽에 낮은 빠른 버튼 [내일][모레][다음주][기한 없음](PC 상세 칸에서만, 이미 있는 할 일을 고칠 때). */
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-row{display:flex;align-items:flex-end;gap:var(--kptu-space-2);flex-wrap:wrap}
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-row>label{flex:0 0 168px;min-width:0}
@@ -190,7 +196,7 @@ div.gt-main{cursor:default}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card{position:relative;box-sizing:border-box;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;column-gap:2px;min-height:36px;margin:0;padding:0;border:0;border-top:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-none,0);background:transparent}
   #appView #tasksView #gtTaskSection.gt-pc .gt-cards>.gt-card:first-child{border-top:0}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card:hover{background:var(--ds-kind-other-soft)}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card.is-selected{background:var(--ds-kind-task-soft);outline:1.5px solid var(--ds-kind-task-ink);outline-offset:-1.5px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card.is-selected{background:var(--ds-select-bg);box-shadow:var(--kptu-shadow-select)}
   /* 완료 동그라미: 보이는 원 18px, 누르는 범위 44×44(위아래 4px는 이웃 줄에 겹쳐 줄 높이는 36px 그대로). */
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-check{width:44px;height:44px;min-width:44px;min-height:44px;margin:-4px 0}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-check::before{width:18px;height:18px;left:13px;top:13px}
@@ -235,11 +241,11 @@ div.gt-main{cursor:default}
 #calendarDayTasks .gt-day-menu{flex:0 0 44px;width:44px;height:44px;min-height:44px;min-width:44px;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
 #calendarDayTasks .gt-day-menu:hover{background:var(--kptu-surface-subtle)}
 #calendarDayTasks .gt-day-menu:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:-2px}
-/* UI-고르기창개선 C(PC만, 폰 그대로): 연결할 프로젝트·조직 체크 목록도 고르기 창과 같은 표시. 하위 프로젝트는 "↳" 없이 들여쓰기 +
+/* UI-고르기창개선 C(PC·폴드 펼침 600px~, 폰 그대로): 연결할 프로젝트·조직 체크 목록도 고르기 창과 같은 표시. 하위 프로젝트는 "↳" 없이 들여쓰기 +
    흐린 글자, 조직은 묶음마다 작은 묶음 이름. 열 수(#776: 1280 이상 2열)는 그대로. */
 .gt-link-arrow{font-style:normal}
 .gt-org-group-name{display:none}
-@media(min-width:761px){
+@media(min-width:600px){
   .gt-links .gt-link-opt[data-depth] .gt-link-arrow{display:none}
   .gt-links .gt-link-opt>span{color:var(--kptu-ink)}
   .gt-links .gt-link-opt[data-depth]>span{color:var(--kptu-muted)}
@@ -279,3 +285,24 @@ div.gt-main{cursor:default}
 #gtTaskModal .gt-att.is-drop{outline:1px dashed var(--kptu-link);outline-offset:2px;border-radius:var(--kptu-radius-sm)}
 @media (max-width:600px){#gtTaskModal .gt-att-btn{padding:0 6px}#gtTaskModal .gt-att-row{gap:2px}}
 .gt-pick.is-drop{outline:1px dashed var(--kptu-link);outline-offset:2px;border-radius:var(--kptu-radius-sm)}
+/* S51-13 TODO-폴드목록상세: 오른쪽 칸 '오늘 할 일' 요약(아무것도 안 골랐을 때) · 칸 안 바로 저장(제목·기한·연결·메모·첨부) */
+#gtPaneToday:empty{display:none}
+.gt-pane-today-head{display:flex;align-items:baseline;gap:8px;margin:0 0 var(--kptu-space-2);font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium);line-height:1.4}
+.gt-pane-today-head b{font-weight:var(--ds-weight-medium);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+.gt-pane-today-late{margin-left:auto;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular);color:var(--kptu-danger)}
+.gt-pane-today-list{list-style:none;margin:0;padding:0}
+.gt-pane-today-list li+li{border-top:var(--ds-line-width) solid var(--ds-line)}
+.gt-pane-today-item{display:block;width:100%;min-height:36px;margin:0;padding:6px 4px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:inherit;font:inherit;font-size:var(--ds-text-row);line-height:1.4;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gt-pane-today-item:hover{background:var(--ds-kind-other-soft)}
+.gt-pane-today-item:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+/* 칸 안에서는 바꾸면 바로 저장되므로 [저장] 버튼이 없다. 아래 줄은 [삭제] 왼쪽 · [완료] 오른쪽, 안내 글은 그 위. 고른 빠른 기한 버튼은 선택 표시. */
+#gtDetailPane #gtTaskModal.gt-docked #gtSaveBtn{display:none}
+#gtDetailPane #gtTaskModal.gt-docked .modal-action-footer{flex-wrap:wrap}
+#gtDetailPane #gtTaskModal.gt-docked .gt-modal-actions{display:flex;flex:1 1 100%;align-items:center;gap:var(--kptu-space-2)}
+#gtDetailPane #gtTaskModal.gt-docked #gtDeleteBtn{margin-right:auto}
+#gtDetailPane #gtTaskModal.gt-docked .gt-due-quick>button[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--ds-select-ink)}
+#gtTaskModal .gt-field-error{margin:calc(-1 * var(--kptu-space-1)) 0 var(--kptu-space-2);color:var(--kptu-danger);font-size:var(--ds-text-meta);line-height:1.4}
+/* 폴드 펼침(600~760px): 칸 최소 폭을 그 폭에 맞춘다(왼쪽 목록은 제목이 읽히게 조금 넓게, 오른쪽 상세는 좁게). 비율 저장·끌기는 split-resize.js 그대로. */
+@media(min-width:600px) and (max-width:760px){
+  #appView #tasksView #gtTaskSection.gt-pc{--ds-split-list-min:260px;--ds-split-detail-min:300px}
+}
