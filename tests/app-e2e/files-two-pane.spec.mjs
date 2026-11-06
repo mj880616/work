@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, treeGo } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S49-30 FILES-통합 2-③ 두 칸(명진 결정 H-2, S50-33부터 폴드 기본은 한 칸 — 켜 둔 값만 두 칸, 시안 docs/design/files-unified-mockup.html ⑥ 폴드 884 · ⑧ PC 1440).
 // 칸마다 따로 위치·목록·정렬·고르기, 고르기 막대 '→ 오른쪽에 복사 / → 옮기기'(받을 곳 = 반대 칸), 칸 사이 끌어 놓기 → '복사 · 옮기기' 고르기, PC F5·F6·Tab.
@@ -87,14 +87,14 @@ test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무�
   await expect.poll(() => prefs.value?.files_two).toEqual({ pc: { wide: true } });
   await expect(root(page).locator('[data-fx-tree]')).toBeVisible();
   // 왼쪽(지금 칸): 나무에서 원드라이브 › 가짜 문서함.
-  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
+  await treeGo(page, 'od', '');
   await prow(page, 0, 'od:OD!1').click();
   await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 문서함');
   // Tab → 오른쪽이 지금 칸. 나무로 구글 드라이브 › 가짜 업무 공간을 오른쪽 칸에 연다.
   await prow(page, 0, 'od:OD!11').focus();
   await page.keyboard.press('Tab');
   await expect(pane(page, 1)).toHaveClass(/fx-cur/);
-  await root(page).locator('[data-fx-tree] [data-fx-go="gd"][data-fx-id=""]').click();
+  await treeGo(page, 'gd', '');
   await prow(page, 1, 'gd:gdFolder1').click();
   await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 업무 공간');
   await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 문서함');
@@ -110,7 +110,7 @@ test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무�
   server.jobsHold = false;
   await expect(root(page).locator('[data-fx-xfer]')).toBeHidden({ timeout: 15000 });
   // 오른쪽 칸을 원드라이브 › 가짜 2026으로 바꾸고, 왼쪽에서 고른 2개를 F6(같은 저장소 옮기기 = move 한 번).
-  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id="OD!10"]').click();
+  await treeGo(page, 'od', 'OD!10');
   await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 2026');
   await prow(page, 0, 'od:OD!12').click({ modifiers: ['Control'] });
   await prow(page, 0, 'od:OD!13').click({ modifiers: ['Control'] });

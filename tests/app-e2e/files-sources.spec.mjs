@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // FILES-출처켜고끄기 + FILES-두드라이브나무(S49-21, 요청함 11/04 07:34): [파일] 위 줄 출처 아이콘 [원드라이브][구글 드라이브] 켜기/끄기(서버 view_prefs.files_sources),
 // S49-26(명진 결정 H-8): 켜고 끄기 기억은 기기 종류마다 따로(files_sources.app / .phone / .pc) — 412는 폰 브라우저, 884·1440은 PC 칸.
@@ -8,7 +8,8 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 const root = page => page.locator('#filesRoot');
 const chip = (page, name) => root(page).locator(`[data-fx-src="${name}"]`);
 const tree = page => root(page).locator('[data-fx-tree]');
-const roots = page => tree(page).locator('.fx-root');
+// FOLDER-나무새기준 ②(S51-12): 폰 나무는 저장소마다 상자(머리 [data-fx-box-tog]), PC·폴드는 뿌리 줄(.fx-root).
+const roots = page => tree(page).locator('.fx-root, [data-fx-box-tog]');
 const twist = (page, key) => tree(page).locator(`[data-fx-twist="${key}"]`);
 const folderCalls = server => server.calls.filter(c => c.action === 'folder').map(c => `${c.body.source}:${c.body.id || ''}`);
 const SHOTS = process.env.FILES_SOURCES_SHOTS || '';
@@ -30,43 +31,60 @@ for (const width of [412, 884, 1440]) {
     await expect(roots(page)).toHaveCount(2);
     await expect(roots(page).nth(0)).toContainText('원드라이브');
     await expect(roots(page).nth(1)).toContainText('구글 드라이브');
-    // S50-33: PC·폴드 첫 화면은 원드라이브 맨 위라 그 뿌리는 펼쳐져 있다. 폰은 둘 다 접힌 나무.
-    await expect(twist(page, 'od:')).toHaveText(phone ? '▸' : '▾');
-    await expect(twist(page, 'gd:')).toHaveText('▸');
-    if (phone) { await expect(root(page).locator('[data-fx-list] [data-fx-row]:visible')).toHaveCount(0); await expect(root(page)).toHaveAttribute('data-fx-pane', 'tree'); }
-    // 펼치기 2단계: 원드라이브 → 가짜 문서함 → 가짜 2026. 두 번째 드라이브도 같은 화면에서 펼친다.
-    if (phone) await twist(page, 'od:').click();
-    await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!1"]')).toBeVisible();
-    await twist(page, 'od:OD!1').click();
-    await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!10"]')).toBeVisible();
-    await twist(page, 'gd:').click();
-    await expect(tree(page).locator('[data-fx-go="gd"][data-fx-id="gdFolder1"]')).toBeVisible();
-    await expect(twist(page, 'od:')).toHaveText('▾');
-    // 펼친 폴더는 바로 읽기(Edge folder)로 채우고, 접었다 다시 펼쳐도 다시 부르지 않는다.
-    await expect.poll(() => folderCalls(server)).toEqual(expect.arrayContaining(['od:OD!1', 'od:', 'gd:']));
-    const before = folderCalls(server).length;
-    await twist(page, 'od:OD!1').click();
-    await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!10"]')).toHaveCount(0);
-    await twist(page, 'od:OD!1').click();
-    await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!10"]')).toBeVisible();
-    expect(folderCalls(server).length).toBe(before);
-    // 나무 줄은 촘촘하게(폰 30px대, PC 28px대), 펼치기 단추는 손가락이 닿는 폭.
-    const rowBox = await tree(page).locator('.nx-folder:not(.fx-root) .nx-main').first().boundingBox();
-    expect(rowBox.height).toBeLessThanOrEqual(phone ? 34 : 30);
-    if (phone) expect((await twist(page, 'od:').boundingBox()).width).toBeGreaterThanOrEqual(36);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/files-tree-${width}.png` }); }
-    // 폴더 이름을 누르면 그 폴더 안 파일 목록으로 들어간다.
-    await tree(page).locator('[data-fx-go="od"][data-fx-id="OD!1"]').click();
-    await expect(root(page).locator('[data-fx-list] [data-fx-row="od:OD!11"]')).toBeVisible();
-    if (phone) { await expect(root(page)).toHaveAttribute('data-fx-pane', 'list'); await expect(tree(page)).toBeHidden(); }
-    // 폰: ‹ 로 위 폴더 → 맨 위 폴더에서 한 번 더 ‹ 면 나무로 돌아온다.
     if (phone) {
-      await root(page).locator('[data-fx-up]').click();
-      await expect(root(page).locator('.fx-crumb-now')).toHaveText('원드라이브');
+      // FOLDER-나무새기준 ②: 폰은 저장소마다 상자(펼친 채), 목록은 아직 없다. 폴더를 누르면 그 자리에서 펼치기(2단계까지), 두 드라이브 같은 화면.
+      await expect(root(page).locator('[data-fx-list] [data-fx-row]:visible')).toHaveCount(0); await expect(root(page)).toHaveAttribute('data-fx-pane', 'tree');
+      const fold = id => tree(page).locator(`[data-fx-fold="${id}"]`);
+      await expect(fold('od:OD!1')).toBeVisible();
+      await fold('od:OD!1').locator('.ft-main').click();
+      await expect(fold('od:OD!10')).toBeVisible();
+      await expect(fold('gd:gdFolder1')).toBeVisible();
+      await expect.poll(() => folderCalls(server)).toEqual(expect.arrayContaining(['od:OD!1']));
+      const before = folderCalls(server).length;
+      await fold('od:OD!1').locator('.ft-main').click();
+      await expect(fold('od:OD!10')).toHaveCount(0);
+      await fold('od:OD!1').locator('.ft-main').click();
+      await expect(fold('od:OD!10')).toBeVisible();
+      expect(folderCalls(server).length).toBe(before);
+      // 줄은 넉넉하게(맨 위 단계 44px, 하위 40px). 누르는 범위는 줄 전체.
+      expect(Math.round((await fold('od:OD!1').locator('.ft-main').boundingBox()).height)).toBe(44);
+      expect(Math.round((await fold('od:OD!10').locator('.ft-main').boundingBox()).height)).toBe(40);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/files-tree-${width}.png` }); }
+      // 두 손가락 벌리기 = 그 폴더만(파일 목록), ‹ 는 나무로.
+      await phoneFolder(page, 'od', 'OD!1');
+      await expect(root(page).locator('[data-fx-list] [data-fx-row="od:OD!11"]')).toBeVisible();
+      await expect(root(page)).toHaveAttribute('data-fx-pane', 'list');
       await root(page).locator('[data-fx-up]').click();
       await expect(root(page)).toHaveAttribute('data-fx-pane', 'tree');
       await expect(roots(page)).toHaveCount(2);
+    } else {
+      // S50-33: PC·폴드 첫 화면은 원드라이브 맨 위라 그 뿌리는 펼쳐져 있다. 폰은 둘 다 접힌 나무.
+      await expect(twist(page, 'od:')).toHaveText('▾');
+      await expect(twist(page, 'gd:')).toHaveText('▸');
+      // 펼치기 2단계: 원드라이브 → 가짜 문서함 → 가짜 2026. 두 번째 드라이브도 같은 화면에서 펼친다.
+      await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!1"]')).toBeVisible();
+      await twist(page, 'od:OD!1').click();
+      await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!10"]')).toBeVisible();
+      await twist(page, 'gd:').click();
+      await expect(tree(page).locator('[data-fx-go="gd"][data-fx-id="gdFolder1"]')).toBeVisible();
+      await expect(twist(page, 'od:')).toHaveText('▾');
+      // 펼친 폴더는 바로 읽기(Edge folder)로 채우고, 접었다 다시 펼쳐도 다시 부르지 않는다.
+      await expect.poll(() => folderCalls(server)).toEqual(expect.arrayContaining(['od:OD!1', 'od:', 'gd:']));
+      const before = folderCalls(server).length;
+      await twist(page, 'od:OD!1').click();
+      await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!10"]')).toHaveCount(0);
+      await twist(page, 'od:OD!1').click();
+      await expect(tree(page).locator('[data-fx-go="od"][data-fx-id="OD!10"]')).toBeVisible();
+      expect(folderCalls(server).length).toBe(before);
+      // 나무 줄은 촘촘하게(폰 30px대, PC 28px대), 펼치기 단추는 손가락이 닿는 폭.
+      const rowBox = await tree(page).locator('.nx-folder:not(.fx-root) .nx-main').first().boundingBox();
+      expect(rowBox.height).toBeLessThanOrEqual(30);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/files-tree-${width}.png` }); }
+      // 폴더 이름을 누르면 그 폴더 안 파일 목록으로 들어간다.
+      await tree(page).locator('[data-fx-go="od"][data-fx-id="OD!1"]').click();
+      await expect(root(page).locator('[data-fx-list] [data-fx-row="od:OD!11"]')).toBeVisible();
     }
 
     // 구글 드라이브 끄기: 아이콘이 꺼짐으로, 나무·[별표]에서 구글 드라이브가 빠지고, 서버에 저장.

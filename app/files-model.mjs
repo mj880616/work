@@ -612,3 +612,28 @@ export function applyStars(rows, source, ids, on) {
   });
   return hit ? next : rows;
 }
+
+// FOLDER-나무새기준 ②(S51-12): 폰 나무는 저장소마다 둥근 상자(공용 folder-tree-ui.mjs). 한 상자 안 줄 — 맨 위 폴더(depth 0)부터,
+// 펼친 폴더 안에는 하위 폴더 → 그 폴더 파일(처음 limit개 + {type:'more'} 줄). 상자 맨 위(저장소 뿌리)의 파일도 같은 규칙으로 맨 끝에.
+// children·files: Map(folderKey → 폴더 줄·파일 줄 목록, 읽기 전이면 없음). open: 펼친 폴더 열쇠. more: 'n개 더 보기'를 누른 폴더 열쇠.
+export function boxRows({source, children = new Map(), files = new Map(), open = new Set(), more = new Set(), order = (s, rows) => rows, limit = 5} = {}) {
+  const out = [];
+  const fileRows = (parent, depth) => {
+    const key = folderKey(source, parent), list = files.get(key) || [], cap = more.has(key) ? Infinity : limit;
+    for (const r of list.slice(0, cap)) out.push({type: 'file', source, row: r, key: source + ':' + r.item_id, parent: key, depth});
+    if (list.length > cap) out.push({type: 'more', source, key, parent: key, depth, rest: list.length - cap});
+  };
+  const walk = (parent, depth) => {
+    if (depth > 40) return;
+    for (const f of order(source, children.get(folderKey(source, parent)) || [])) {
+      const key = folderKey(source, f.item_id), known = children.has(key) || files.has(key);
+      const has = known ? (children.get(key) || []).length > 0 || (files.get(key) || []).length > 0 : true;
+      const o = open.has(key);
+      out.push({type: 'folder', source, id: f.item_id, name: f.name, key, parent: folderKey(source, parent), depth, open: o, hasContent: has, known});
+      if (o) { walk(f.item_id, depth + 1); fileRows(f.item_id, depth + 1); }
+    }
+  };
+  walk(null, 0);
+  fileRows(null, 0);
+  return out;
+}

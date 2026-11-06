@@ -88,3 +88,17 @@ test('공용 모양 한 곳: folder-tree.css에 ft- 규칙, 노트·자료실이
   assert.doesNotMatch(libCss, /\.lu-kdot|\.lu-pdot|\.lu-folder-icon/);
   assert.match(readFileSync(new URL('../app/view-loader.js', import.meta.url), 'utf8'), /library:\[[^\]]*'\.\/folder-tree\.css'/);
 });
+
+test('[파일] 폰 상자 나무 줄(boxRows): 맨 위 폴더부터, 펼친 폴더 안 하위 폴더 → 파일 limit개 + more, 뿌리 파일은 맨 끝', async () => {
+  const {boxRows, folderKey} = await import('../app/files-model.mjs');
+  const children = new Map([[folderKey('od', null), [{item_id: 'A', name: '가'}, {item_id: 'B', name: '나'}]], [folderKey('od', 'A'), [{item_id: 'C', name: '다'}]], [folderKey('od', 'B'), []]]);
+  const files = new Map([[folderKey('od', 'A'), Array.from({length: 7}, (_, i) => ({item_id: 'f' + i, name: 'f' + i}))], [folderKey('od', 'B'), []], [folderKey('od', null), [{item_id: 'r', name: 'r'}]]]);
+  const rows = boxRows({source: 'od', children, files, open: new Set([folderKey('od', 'A')]), limit: 5});
+  assert.deepEqual(rows.map(r => r.type), ['folder', 'folder', 'file', 'file', 'file', 'file', 'file', 'more', 'folder', 'file']);
+  assert.equal(rows[0].depth, 0); assert.equal(rows[1].depth, 1); assert.equal(rows[2].depth, 1); assert.equal(rows[7].rest, 2);
+  assert.equal(rows[0].hasContent, true); assert.equal(rows[8].hasContent, false, '읽었는데 빈 폴더는 닫힌 그림');
+  assert.equal(rows[1].hasContent, true, '아직 읽지 않은 폴더는 펼칠 수 있는 것으로');
+  assert.equal(rows[2].parent, folderKey('od', 'A'));
+  const all = boxRows({source: 'od', children, files, open: new Set([folderKey('od', 'A')]), more: new Set([folderKey('od', 'A')]), limit: 5});
+  assert.equal(all.filter(r => r.type === 'more').length, 0);
+});

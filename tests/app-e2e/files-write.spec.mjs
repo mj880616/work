@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, treeGo } from './helpers/files-server.mjs';
 // S48-45 FILES-클라우드탐색기 ⑤·⑦ 쓰기(명진 결정 F1 원드라이브 자체 휴지통, F8 클라우드 사이 1개·200MB).
 // 이름 바꾸기·새 폴더·여러 개 고르기·휴지통(확인 창)·잘라 붙이기·끌어 놓기·클라우드 사이 옮기기. 서버는 흉내(파일 이름은 모두 가짜).
 const root = page => page.locator('#filesRoot');
@@ -11,7 +11,7 @@ const edgeCalls = (server, action) => server.calls.filter(c => c.what === 'edge'
 
 async function intoDocs(page, width) {
   await openFiles(page, width);
-  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
+  await treeGo(page, 'od', '');
   await row(page, 'od:OD!1').click();
   await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
 }
@@ -88,7 +88,7 @@ test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드
   // 다른 클라우드: 원드라이브 파일을 잘라(Ctrl+X) 구글 드라이브 폴더에 붙이기 → 확인 창 → 서버 작업표(job_add kind move, S49-28).
   await row(page, 'od:OD!13').click({ modifiers: ['Control'] });
   await page.keyboard.press('Control+x');
-  await tree.locator('[data-fx-go="gd"][data-fx-id=""]').click();
+  await treeGo(page, 'gd', '');
   await row(page, 'gd:gdFolder1').click();
   await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 업무 공간');
   await bar(page).locator('[data-fx-paste]').click();
@@ -102,7 +102,7 @@ test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드
   await row(page, 'gd:gdDoc1').click({ modifiers: ['Control'] });
   await row(page, 'gd:gdJob01').click({ modifiers: ['Control'] });
   await page.keyboard.press('Control+x');
-  await tree.locator('[data-fx-go="od"][data-fx-id=""]').click();
+  await treeGo(page, 'od', '');
   await bar(page).locator('[data-fx-paste]').click();
   await expect(ask(page)).toContainText('2개를 원드라이브로 옮길까요?');
   await ask(page).getByRole('button', { name: '옮기기' }).click();
@@ -151,7 +151,7 @@ test('PC 1440: 같은 파일 보기(같은 해시) — 미리보기 아래 작�
   const n = server.calls.filter(c => c.what === 'app_cloud_items').length;
   await row(page, 'od:OD!20').click();
   await expect(root(page).locator('[data-fx-prev] [data-fx-twins] .fx-twin')).toHaveText(['가짜 메모.txt']);
-  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
+  await treeGo(page, 'od', '');
   await row(page, 'od:OD!1').click();
   await row(page, 'od:OD!11').click();
   await expect(root(page).locator('[data-fx-prev] .fx-pv-nm')).toHaveText('가짜 안내문.pdf');

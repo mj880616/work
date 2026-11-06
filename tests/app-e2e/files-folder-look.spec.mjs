@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, phoneFolder, treeGo } from './helpers/files-server.mjs';
 // FOLDER-순서·색 ③-2 (S49-50, docs/design/folder-color-order.md): [파일] 클라우드 폴더(원드라이브·구글 드라이브)에 노트와 같은 색 8가지·직접 정한 순서.
 // 폴더 한 개를 고르면(PC Ctrl+누르기·폰 꾹 누르기) 아래 막대에 [색] [위로] [아래로] → 서버 표 app_folder_prefs에 저장(서버 함수), 새로고침해도 유지,
 // 목록·나무·받을 곳 창이 같은 색·같은 순서, [기본]은 지금 모양(📁), 저장 실패는 그대로 두고 알림, DB 적용 전에도 목록은 그대로. 폴더 이름은 모두 가짜.
@@ -8,9 +8,15 @@ const row = (page, key) => root(page).locator(`[data-fx-row="${key}"]`);
 const folderNames = page => root(page).locator('[data-fx-list] .fx-row.fx-folder .fx-name').allTextContents();
 const RGB = { 4: 'rgb(63, 148, 134)', 1: 'rgb(180, 90, 82)' };
 async function gotoOdRoot(page, width) {
-  // 폰(S50-33): 첫 화면은 나무 → 원드라이브 이름을 누른다. 새로고침이면 보던 자리(원드라이브 맨 위 목록)가 그대로 열린다.
+  // 폰(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 → 원드라이브 상자 머리 위 두 손가락 벌리기 = 원드라이브 맨 위 목록. 새로고침이면 보던 자리(목록)가 그대로 열린다.
+  if (width <= 760) {
+    await expect.poll(async () => (await root(page).locator('[data-fx-tree] [data-fx-box="od"]').isVisible()) || (await row(page, 'od:OD!1').isVisible())).toBe(true);
+    if (!(await row(page, 'od:OD!1').isVisible())) await phoneFolder(page, 'od');
+    await expect(row(page, 'od:OD!1')).toBeVisible();
+    return;
+  }
   const go = root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]');
-  if (width > 760 && await root(page).locator('[data-fx-tree] [data-fx-twist="od:"][aria-expanded="false"]').count()) await root(page).locator('[data-fx-tree] [data-fx-twist="od:"]').click();
+  if (await root(page).locator('[data-fx-tree] [data-fx-twist="od:"][aria-expanded="false"]').count()) await root(page).locator('[data-fx-tree] [data-fx-twist="od:"]').click();
   await expect.poll(async () => (await go.isVisible()) || (await row(page, 'od:OD!1').isVisible())).toBe(true);
   if (await go.isVisible()) await go.click();
   await expect(row(page, 'od:OD!1')).toBeVisible();
@@ -134,8 +140,8 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     expect(await icon(page, 'od:OD!1').locator('svg').evaluate(x => getComputedStyle(x).color)).toBe('rgb(194, 122, 114)');
     // 같은 열쇠여도 출처가 다르면 다른 줄: 구글 드라이브 폴더에 색을 고르면 source 'gd'로 간다.
     if (width <= 760) await root(page).locator('[data-fx-up]').click().catch(() => {});
-    if (width <= 760) await root(page).locator('[data-fx-tree] [data-fx-twist="gd:"]').click();
-    await root(page).locator('[data-fx-tree] [data-fx-go="gd"][data-fx-id=""]').click();
+    if (width <= 760) await phoneFolder(page, 'gd');
+    else await treeGo(page, 'gd', '');
     await expect(row(page, 'gd:gdFolder1')).toBeVisible();
     await expect(icon(page, 'gd:gdFolder1')).not.toHaveAttribute('data-fc', /./);
     await pick(page, 'gd:gdFolder1');

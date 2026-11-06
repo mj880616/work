@@ -277,3 +277,18 @@ export async function openFiles(page, width, { two = false } = {}) {
     await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(0);
   }
 }
+
+// FOLDER-나무새기준 ②(S51-12): 폰 나무는 그 자리 펼치기라 폴더 목록(그 폴더만)은 두 손가락 벌리기로 연다. id 없음 = 저장소 맨 위(상자 머리 위에서).
+export async function phoneFolder(page, source, id = '') {
+  const { pinch } = await import('./pinch.mjs');
+  const tree = page.locator('#filesRoot [data-fx-tree]');
+  await pinch(page, id ? tree.locator(`[data-fx-fold="${source}:${id}"]`) : tree.locator(`[data-fx-box="${source}"] .ft-box-head`), 'out');
+  await expect(tree).toBeHidden();
+}
+// 나무에서 그 폴더 목록 열기: 넓은 화면은 나무 줄 이름을 누르고, 폰(상자 나무)은 두 손가락 벌리기.
+export async function treeGo(page, source, id = '') {
+  const go = page.locator(`#filesRoot [data-fx-tree] [data-fx-go="${source}"][data-fx-id="${id}"]`).first();
+  const box = page.locator(`#filesRoot [data-fx-tree] [data-fx-box="${source}"]`);
+  await expect.poll(async () => (await go.isVisible()) || (await box.isVisible())).toBe(true);
+  if (await go.isVisible()) await go.click(); else await phoneFolder(page, source, id);
+}

@@ -21,7 +21,7 @@
 .fx-tree { flex:0 0 240px; width:240px; padding:4px 4px 8px 0; }
 .fx-tree .nx-main { min-height:28px; font-size:12.5px; padding:0 4px; }
 .fx-tree .fx-root .nx-main { font-weight:600; }
-.fx-tree .fx-shelf:last-of-type { margin-bottom:4px; padding-bottom:4px; border-bottom:.5px solid var(--kptu-border); }
+.fx-tree .nx-row.fx-shelf:last-of-type { margin-bottom:4px; padding-bottom:4px; border-bottom:.5px solid var(--kptu-border); }
 .fx-twist { flex:none; width:16px; border:0; background:none; padding:0; color:var(--kptu-faint); font-size:10px; cursor:pointer; }
 .fx-zero { opacity:.55; }
 /* S49-21 출처 아이콘 줄(켜짐/꺼짐 모양은 source-chips.css 공용). 줄 높이는 [정렬] 칩과 같게 촘촘하게. */
@@ -118,7 +118,8 @@
   .fx-tree { display:none; }
   /* 폰 나무 — PC처럼 촘촘하게: 줄 30px(펼치기 단추는 손가락이 닿게 36px 폭·줄 높이 그대로), 글자 13.5px, 들여쓰기 7px(PC 14px의 절반), 펼침 삼각형 9px. */
   .fx[data-fx-pane="tree"] .fx-tree { display:block; position:static; flex:1 1 auto; width:100%; padding:2px 0 8px; border-right:0; }
-  .fx[data-fx-pane="tree"] .fx-main, .fx[data-fx-pane="tree"] .fx-sort { display:none; }
+  /* FOLDER-나무새기준 ②: 나무에서 파일 줄을 누르면 미리보기가 나무 위에 뜬다(미리보기 칸만 남기고 목록 칸은 숨김). */
+  .fx[data-fx-pane="tree"] .fx-main > :not([data-fx-prev]), .fx[data-fx-pane="tree"] .fx-sort { display:none; }
   .fx-tree .nx-row.nx-folder { padding-left:calc(var(--nx-indent, 0) * 7px); }
   .fx-tree .nx-main { min-height:30px; font-size:13.5px; gap:5px; padding:0 4px; }
   .fx-tree .nx-ico { font-size:13px; }
@@ -242,3 +243,14 @@
 /* FOLDER-순서·색 ③-2: 색을 고른 폴더 줄의 그림(folder-look.css의 data-fc가 --fl-ico를 준다). .fx-ico의 흐린 글자색보다 앞서도록 한 번 더 지정. 안 고른 폴더는 지금의 📁 글자 그대로. */
 .fx-ico.fl-ico { color:var(--fl-ico); }
 .fx-ico.fl-ico svg { width:14px; height:14px; }
+/* FOLDER-나무새기준 ②(S51-12): 폰 나무는 공용 상자·줄(folder-tree.css ft-). 여기는 [파일]만의 것 — 상자 머리 저장소 그림, 파일 줄 종류 글자·날짜. */
+.fx-tree .ft-box-ico { display:inline-flex; align-items:center; color:var(--kptu-muted); }
+.fx-tree .ft-box-ico svg { display:block; }
+.fx-tree .ft-box-head .fx-sync-tree { align-self:center; }
+.fx-titem .ft-main { min-height:40px; }
+.fx-tkind { flex:none; box-sizing:border-box; min-width:30px; height:18px; padding:0 5px; border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface-subtle); color:var(--kptu-muted); font-size:10px; line-height:18px; text-align:center; white-space:nowrap; }
+.fx-titem .fx-tday { margin-left:auto; }
+.fx-titem .fx-star { flex:none; color:var(--kptu-warning); font-size:11px; }
+@media (max-width:760px) {
+  .fx[data-fx-pane="tree"] .fx-tree { padding:2px 0 8px; }
+}
