@@ -24,17 +24,17 @@ for (const width of [700, 768, 884, 1280]) test(`파일 ${width}: 왼쪽 나무 
   expect(l.x).toBeGreaterThanOrEqual(t.x + t.width - 1);
   expect(Math.abs(l.y - t.y)).toBeLessThan(80);
   expect(t.width).toBeLessThan(l.width);
-  // 저장소 이름 줄은 옅은 배경(시안 ④).
-  const rootRow = tree.locator('.nx-row.fx-root').first();
-  expect(await rootRow.evaluate(e => getComputedStyle(e).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+  // 저장소마다 둥근 상자(S51-25, 자료실 모양) — 상자 사이가 한눈에 갈린다.
+  const rootBox = tree.locator('[data-fx-box="od"]');
+  expect(await rootBox.evaluate(e => parseFloat(getComputedStyle(e).borderTopLeftRadius))).toBeGreaterThan(0);
   // 나무에서 폴더를 두 번 옮겨 다녀도 나무가 그대로, 오른쪽 목록과 위치 줄이 바뀐다.
   const go = tree.locator('[data-fx-go][data-fx-id]:not([data-fx-id=""])');
   await go.first().click();
   await expect(tree).toBeVisible();
-  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(await go.first().locator('.nx-name').textContent());
+  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(await go.first().locator('.ft-name').textContent());
   await go.nth(1).click();
   await expect(tree).toBeVisible();
-  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(await go.nth(1).locator('.nx-name').textContent());
+  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(await go.nth(1).locator('.ft-name').textContent());
   t = await box(tree); l = await box(list);
   expect(l.x).toBeGreaterThanOrEqual(t.x + t.width - 1);
   // 나무 | 목록 경계선이 있다(끌어 폭 조절).

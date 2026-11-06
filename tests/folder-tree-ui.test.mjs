@@ -110,3 +110,18 @@ test('[파일]·사진도 같은 공용 부품을 부른다(복사 없음)', () 
     assert.match(src, /bindFolderPinch\(/, f);
   }
 });
+
+// S51-25 FOLDER-PC나무: PC 나무는 아이콘이 따로인 단추(줄 = 열기 + 펼침, 아이콘 = 접기·펼치기만). 세모 없음.
+test('toggle: 폴더 아이콘이 줄 앞 따로인 단추, 열린 그림 = 펼침, 펼칠 것이 없으면 단추 없이 닫힌 그림', () => {
+  const open = ftFolderRowHtml({name: '문서함', depth: 1, open: true, hasContent: true, mainAttrs: {'data-x-go': 'a'}, toggle: {attrs: {'data-x-tog': 'a'}}});
+  assert.match(open, /^<div class="ft-row ft-folder ft-sub ft-open ft-has-tog"/);
+  assert.match(open, /<button type="button" class="ft-btn ft-tog" data-x-tog="a" aria-expanded="true" aria-label="문서함 접기"><span class="ft-ico" data-ft-shape="open"/);
+  // 이름 단추에는 아이콘도 aria-expanded도 없다(펼침은 아이콘 단추가 알림).
+  assert.match(open, /<button type="button" class="ft-btn ft-main" data-x-go="a"><span class="ft-name">문서함<\/span><\/button>/);
+  const shut = ftFolderRowHtml({name: '문서함', open: false, hasContent: true, toggle: {attrs: {'data-x-tog': 'a'}}});
+  assert.match(shut, /aria-expanded="false" aria-label="문서함 펼치기"><span class="ft-ico" data-ft-shape="closed"/);
+  const leaf = ftFolderRowHtml({name: '빈 폴더', open: true, hasContent: false, toggle: {attrs: {'data-x-tog': 'b'}}});
+  assert.doesNotMatch(leaf, /data-x-tog|<button[^>]*ft-tog/);
+  assert.match(leaf, /<span class="ft-tog ft-tog-none"><span class="ft-ico" data-ft-shape="closed"/);
+  for (const html of [open, shut, leaf]) assert.doesNotMatch(html, /[▸▾▶▼›]/);
+});

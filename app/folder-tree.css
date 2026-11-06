@@ -83,6 +83,18 @@
 .ft-focus-back::after { content:""; position:absolute; inset:-6px; }
 .ft-focus-path { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ft-focus-path b { color:var(--kptu-ink); font-weight:700; }
+/* S51-25 FOLDER-PC나무: 아이콘이 따로인 단추(줄 = 그 폴더 열기 + 펼침, 아이콘 = 접기·펼치기만). 세모 없음 — 열린 폴더 = 펼침, 닫힌 폴더 = 접힘.
+   들여쓰기는 아이콘 단추 앞 같은 폭(단계마다 22px), 이름 단추는 아이콘 바로 뒤에서 시작한다. 아이콘에 마우스를 올리면 옅은 보라 테두리·손가락. */
+.ft-has-tog { padding-left:calc(6px + var(--ft-depth,0) * 22px); }
+.ft-has-tog > .ft-main { padding-left:5px; }
+.ft-tog { position:relative; flex:none; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:28px; height:28px; min-height:0; margin:0; padding:0; border:1px solid transparent; border-radius:var(--kptu-radius-sm,6px); background:none; color:inherit; font:inherit; }
+button.ft-tog { cursor:pointer; }
+button.ft-tog::after { content:""; position:absolute; inset:calc((28px - var(--kptu-touch-target,44px)) / 2) -4px; }
+button.ft-tog:hover { border-color:color-mix(in srgb, var(--kptu-primary) 40%, transparent); background:color-mix(in srgb, var(--kptu-primary) 7%, transparent); }
+button.ft-tog:focus-visible { outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
+.ft-current > .ft-tog { background:none; }
+.ft-has-tog.ft-current { background:var(--kptu-primary-soft); }
+.ft-has-tog.ft-current > .ft-main { background:none; }
 @media (min-width:761px) {
   .ft-main { min-height:36px; font-size:var(--ds-compact-text,13px); }
   .ft-sub > .ft-main { min-height:32px; }
