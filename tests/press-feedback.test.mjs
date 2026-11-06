@@ -20,7 +20,8 @@ test('눌림 규칙은 ui-standard.css 한 곳: 작아지기(scale)와 바탕 �
 
 test('움직임 줄이기: 작아지는 움직임 없이 색만 바뀐다', () => {
   const rule = css('ui-standard.css').split('UI-눌림느낌')[1];
-  const reduced = rule.slice(rule.indexOf('@media (prefers-reduced-motion:reduce)'));
+  const from = rule.indexOf('@media (prefers-reduced-motion:reduce)');
+  const reduced = rule.slice(from, rule.indexOf('\n}', from) + 2); // 그 @media 묶음만(뒤의 다른 규칙은 보지 않는다)
   assert.match(reduced, /:active:not\([^{]*\[data-pressing\]\s*\{\s*scale:none;\s*transition:none;\s*\}/);
   assert.doesNotMatch(reduced, /box-shadow:\s*none/, '색(안쪽 그림자)은 그대로 남긴다');
 });

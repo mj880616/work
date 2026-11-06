@@ -797,6 +797,9 @@ jobs:
       - name: Check press motion and task check motion (UI-누름움직임)
         run: node --test tests/press-motion.test.mjs
 
+      - name: Check six button kinds rule and debt ratchet (UI-버튼6가지)
+        run: node --test tests/button-six-kinds.test.mjs
+
       - name: Check save button place rule (UI-저장자리)
         run: node --test tests/save-button-rule.test.mjs
 
