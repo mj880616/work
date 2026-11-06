@@ -6,14 +6,14 @@ import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../ap
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
 // S51-8 NEWS P4b: DB 먼저(S51-6) 넣은 news_tab·news_font를 화면 허용 목록에도 더했다. 이제 DB에만 있는 칸은 없다.
-// S51-20 FILES-폰보기끌기 ①: DB 먼저(20261106200000) files_look을 받는다. 화면은 다음 PR에서 허용 목록에 더한다.
-// S51-22 '최근' 상자 접기: DB 먼저(20261106233000) recent_folded를 받고, 화면 허용 목록에도 더했다.
-const DB_ONLY = ['files_look'];
+// S51-20 FILES-폰보기끌기 ①: DB 먼저(20261106200000) 넣은 files_look을 화면 허용 목록에도 더했다.
+// S51-22 '최근' 상자 접기: DB 먼저(20261106233000) recent_folded를 받고, 화면 허용 목록에도 더했다. DB에만 있는 칸은 없다.
+const DB_ONLY = [];
 test('허용 칸이 DB 검사(마지막 migration, S51-20 files_look 위에 S51-22 recent_folded 더함)와 같다', () => {
   const sql = read('supabase/migrations/20261106233000_profile_view_prefs_recent_folded.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 44);
+  assert.equal(KEYS.length, 45);
   for (const v of ['all', 'movement', 'media', 'archive']) assert.equal(validValue('news_tab', v), true, v);
   for (const v of ['outside', 'news', 'saved', 'search', '', null, 1]) assert.equal(validValue('news_tab', v), false, String(v));
   for (const v of ['s', 'm', 'l']) assert.equal(validValue('news_font', v), true, v);
@@ -152,4 +152,15 @@ test('photo_zoom은 기기 칸(app·phone·pc)마다 year·month·day 글자만(
   assert.equal(validValue('photo_zoom', {phone: 'month', pc: 'year', app: 'day'}), true);
   assert.equal(validValue('photo_zoom', {}), true);
   for (const v of ['month', null, [], {tablet: 'month'}, {phone: 'week'}, {phone: 1}, {phone: {v: 'month'}}, {pc: ''}]) assert.equal(validValue('photo_zoom', v), false, JSON.stringify(v));
+});
+test('files_look은 기기 칸(app·phone·pc) 안 폭 칸(narrow·fold·wide)마다 list·grid·big 글자만(S51-20, DB 20261106200000과 같음)', () => {
+  assert.equal(validValue('files_look', {app: {narrow: 'grid', fold: 'big'}, phone: {narrow: 'big'}, pc: {wide: 'list'}}), true);
+  assert.equal(validValue('files_look', {}), true);
+  assert.equal(validValue('files_look', {pc: {}}), true);
+  for (const v of ['grid', null, [], {pc: 'grid'}, {tablet: {narrow: 'grid'}}, {pc: {tablet: 'grid'}}, {pc: {wide: 'g3'}}, {pc: {wide: 1}}, {pc: {wide: ''}}, {pc: {wide: 'GRID'}}])
+    assert.equal(validValue('files_look', v), false, JSON.stringify(v));
+});
+test('files_look 한 기기 칸 쓰기는 다른 기기 칸을 덮지 않는다', () => {
+  assert.deepEqual(applyChanges({files_look: {pc: {wide: 'grid'}}, theme: 'navy'}, {'files_look.app': {narrow: 'big'}}),
+    {files_look: {pc: {wide: 'grid'}, app: {narrow: 'big'}}, theme: 'navy'});
 });

@@ -1,6 +1,7 @@
 import {waitHtml, barHtml, failHtml, emptyHtml} from './wait-state.js';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {slotBox, slotImg, slotFailed} from './img-slot.js';
+import {lookLayout, lookOf, lookValue, stepLook, lookCols, thumbWanted, FILES_LOOK_KEY} from './files-look-model.mjs';
 import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, FIND_LIMIT, FIND_WAIT_MS,
   TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_NAME, kindOf, kindLabel, kindIcon, previewKind, sizeText, folderCountText, isLockedItem, dayText, fullTime,
   syncLabel, applySyncReply, syncSettled, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
@@ -84,6 +85,9 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 //   이 단계는 보기·열기만: 파일 [이 PC에서 열기]·[탐색기에서 위치](그 PC의 프로그램이 엶, 바이트는 브라우저로 안 옴). 미리보기 그림·복사·옮기기·이름·휴지통·별표·색은 없다(다음 단계).
 //   찾기에 PC 파일을 섞지 않는다(D3). 문이 답하지 않으면 '내 PC · 꺼짐' 흐린 줄 + 누르면 켜는 법 한 줄. 크롬 허락 창이 뜰 수 있으면 저절로 두드리지 않는다(누를 때만).
 //   PC 목록·이름은 이 화면 메모리에만(서버·주소창·브라우저 저장소에 남기지 않음). 위 줄 [내 PC] 켜기/끄기는 이번 접속만 기억한다.
+// FILES-폰보기끌기 ①(S51-20, 시안 files-phone-grid-two-drag.html ①): 목록 위 두 손가락 벌리기 = 목록 → 격자 → 큰 격자, 오므리기 = 반대(폰·두 칸의 칸 3·2칸, 폴드·PC 한 칸 4·3칸).
+//   사진은 목록·격자 모두 작은 그림(Edge thumb small · 이 폰은 앱 다리, 화면에 들어온 칸만), 폴더는 큰 폴더. 마지막 보기는 서버 view_prefs.files_look(기기 칸 · 폭 칸).
+//   격자 칸은 목록 줄과 같은 단추·같은 data-*라 누르기·꾹 누르기·끌어 놓기 길이 그대로다. 찾는 중 목록은 늘 목록.
 // 저장은 서버만: 목록은 이 탭 메모리(열린 동안만), 받은 그림·PDF는 blob: 주소(메모리)로만 두고 화면을 떠나면 놓는다. 기기 저장 없음.
 // 파일 이름은 모두 글자로만 그린다(esc). 로그에 파일 이름·id를 남기지 않는다.
 
@@ -763,6 +767,86 @@ async function treePick(key, inKey) {
   const p = P();
   if (rowByKey(key, p) && !p.picked.has(key)) togglePick(key);
 }
+// ---------- S51-20 FILES-폰보기끌기 ①: 목록 보기 크기(목록 → 격자 → 큰 격자) + 사진 작은 그림 ----------
+// 보기는 서버 view_prefs.files_look(이 기기 칸 · 이 폭 종류, files-look-model.mjs). 한 줄 칸 수는 폭이 정한다(폰·두 칸의 칸 3·2, 폴드·PC 한 칸 4·3).
+// 찾는 중(위치 칸이 있는 목록)은 늘 목록. 작은 그림은 사진 파일만, 화면에 들어온 칸만 받는다(Edge cloud-files thumb small · 이 폰은 앱 다리).
+// 받은 그림은 이 탭 메모리(blob:)에만 두고 화면을 떠나면 놓는다. 기기 저장 없음.
+const lookLay = () => lookLayout({narrow: PHONE.matches, wide: WIDE.matches});
+const lookNow = () => lookOf(viewPrefs.getFilesLook?.(DEVICE), lookLay());
+const roomy = () => !PHONE.matches && !two();
+function setLook(next) {
+  if (!next || next === lookNow()) return;
+  viewPrefs.setFilesLook?.(DEVICE, lookValue(viewPrefs.getFilesLook?.(DEVICE), lookLay(), next));
+  paintLists();
+}
+const THUMB_KEEP = 400, THUMB_AT_ONCE = 4;
+const thumbs = new Map(), thumbWait = new Set();
+let thumbQueue = [], thumbBusy = 0;
+const thumbKey = r => rowKey(r) + '|' + (r.modified_at || '');
+function dropThumbs() {
+  for (const v of thumbs.values()) if (v.url) URL.revokeObjectURL(v.url);
+  thumbs.clear(); thumbWait.clear(); thumbQueue = [];
+}
+async function smallThumb(r) {
+  if (r.source === PH) return phone.thumb(r.item_id, false);
+  if (r.source === PC) throw new Error('pc_read');
+  return bytes({action: 'thumb', source: r.source, id: r.item_id, size: 'small'});
+}
+function thumbShow(box, v) {
+  if (v.url) { const img = document.createElement('img'); img.alt = ''; img.decoding = 'async'; slotImg(box, img, v.url); }
+  else slotFailed(box, null, v.fail, {passive: true});
+}
+function thumbPump() {
+  while (thumbBusy < THUMB_AT_ONCE && thumbQueue.length) {
+    const {k, r} = thumbQueue.shift(), scope = state.scope;
+    thumbBusy++;
+    smallThumb(r).then(b => ({url: URL.createObjectURL(b)}), e => ({fail: codeOf(e) || 'thumb'})).then(v => {
+      thumbBusy--; thumbWait.delete(k);
+      if (scope !== state.scope) { if (v.url) URL.revokeObjectURL(v.url); return; }
+      thumbs.set(k, v);
+      while (thumbs.size > THUMB_KEEP) { const [old, ov] = thumbs.entries().next().value; thumbs.delete(old); if (ov.url) URL.revokeObjectURL(ov.url); }
+      for (const box of root?.querySelectorAll(`[data-fx-thumb="${CSS.escape(k)}"]`) || []) thumbShow(box, v);
+      thumbPump();
+    });
+  }
+}
+function wantThumb(box) {
+  const k = box.dataset.fxThumb, b = box.closest('[data-fx-row]'), i = paneOfEl(box);
+  if (!k || !b || i < 0 || thumbs.has(k) || thumbWait.has(k)) return;
+  const r = rowByKey(b.dataset.fxRow, state.panes[i]);
+  if (!r) return;
+  thumbWait.add(k); thumbQueue.push({k, r}); thumbPump();
+}
+function mountThumbs(list) {
+  list._fxIo?.disconnect(); list._fxIo = null;
+  const boxes = list.querySelectorAll('[data-fx-thumb]');
+  if (!boxes.length) return;
+  const io = typeof IntersectionObserver === 'function'
+    ? new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { io.unobserve(e.target); wantThumb(e.target); } }, {rootMargin: '240px'}) : null;
+  list._fxIo = io;
+  for (const box of boxes) {
+    slotBox(box);
+    const v = thumbs.get(box.dataset.fxThumb);
+    if (v) thumbShow(box, v); else if (io) io.observe(box); else wantThumb(box);
+  }
+}
+const thumbHtml = (r, cls) => `<span class="${cls} fx-th" data-kind="image" data-fx-thumb="${esc(thumbKey(r))}" aria-hidden="true"></span>`;
+const wantsThumb = r => r.source !== PC && thumbWanted(kindOf(r), r.is_folder);
+// 격자 칸 하나: 줄과 같은 단추·같은 data-*(누르기·꾹 누르기·끌기·놓기 길 그대로), 그림은 사진 = 작은 그림, 폴더 = 큰 폴더, 그 밖 = 종류 글자.
+function cellHtml(p, r) {
+  const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
+  const picked = p.picked.has(key) ? ' fx-picked' : '', cut = state.clip?.keys.includes(key) ? ' fx-cut' : '';
+  const local = r.source === PC;
+  const drag = PHONE.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
+  const fc = r.is_folder ? folderLook.color(r.source, r.item_id) : '';
+  const pic = wantsThumb(r) ? thumbHtml(r, 'fx-cell-pic')
+    : r.is_folder ? `<span class="fx-cell-pic fx-cell-fold fl-ico" data-kind="folder"${fc ? ` data-fc="${fc}"` : ''} aria-hidden="true">${folderShapeHtml('closed')}</span>`
+      : `<span class="fx-cell-pic fx-cell-ic" data-kind="${kind}" aria-hidden="true">${esc(kindIcon(r))}</span>`;
+  const star = r.starred ? '<span class="fx-star" aria-label="별표">★</span>' : '';
+  const sub = r.is_folder ? countOf(r.source, r.item_id) : sizeText(r.size_bytes);
+  return `<button type="button" class="fx-row fx-cell${r.is_folder ? ' fx-folder' : ''}${picked}${cut}" data-fx-row="${esc(key)}" aria-selected="${sel}"${drag}${drop} title="${esc([r.name, sub].filter(Boolean).join(' · '))}">`
+    + `${pic}<span class="fx-nm"><span class="fx-name">${esc(r.name)}</span>${star}</span></button>`;
+}
 function rowHtml(p, r, {withPath = false} = {}) {
   const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
   const picked = p.picked.has(key) ? ' fx-picked' : '', cut = state.clip?.keys.includes(key) ? ' fx-cut' : '';
@@ -775,9 +859,10 @@ function rowHtml(p, r, {withPath = false} = {}) {
   const size = r.is_folder ? countOf(r.source, r.item_id) : sizeText(r.size_bytes);
   const day = dayText(r.modified_at);
   return `<button type="button" class="fx-row${r.is_folder ? ' fx-folder' : ''}${picked}${cut}" data-fx-row="${esc(key)}" aria-selected="${sel}"${drag}${drop}>`
-    + (r.is_folder && folderLook.color(r.source, r.item_id)
-      ? `<span class="fx-ico fl-ico" data-kind="${kind}" data-fc="${folderLook.color(r.source, r.item_id)}" aria-hidden="true">${folderShapeHtml('closed')}</span>`
-      : `<span class="fx-ico" data-kind="${kind}" aria-hidden="true">${esc(kindIcon(r))}</span>`)
+    + (wantsThumb(r) ? thumbHtml(r, 'fx-ico')
+      : r.is_folder && folderLook.color(r.source, r.item_id)
+        ? `<span class="fx-ico fl-ico" data-kind="${kind}" data-fc="${folderLook.color(r.source, r.item_id)}" aria-hidden="true">${folderShapeHtml('closed')}</span>`
+        : `<span class="fx-ico" data-kind="${kind}" aria-hidden="true">${esc(kindIcon(r))}</span>`)
     + `<span class="fx-nm">${withPath ? `<span class="fx-dot" data-src="${esc(r.source)}" title="${esc(SOURCE_NAME[r.source] || '')}" aria-label="${esc(SOURCE_NAME[r.source] || '')}"></span>` : ''}<span class="fx-name">${esc(r.name)}</span>${star}${tag}</span>`
     + (withPath ? `<span class="fx-path">${esc(where)}</span>` : '')
     + `<span class="fx-day">${esc(day)}</span><span class="fx-size">${esc(size)}</span><span class="fx-kind">${esc(kindLabel(r))}</span>`
@@ -809,7 +894,8 @@ function paintList(p) {
     if (!p.found) { list.innerHTML = waitHtml({rows: 4}); return; }
     const found = foundShown(p);
     list.innerHTML = found.length ? `<div class="fx-rows fx-with-path" role="list">${found.map(r => rowHtml(p, r, {withPath: true})).join('')}</div>` : emptyHtml('찾은 것 없음');
-    list.dataset.fxMode = 'find';
+    list.dataset.fxMode = 'find'; delete list.dataset.fxLook;
+    mountThumbs(list);
     return;
   }
   const w = p.where;
@@ -822,8 +908,16 @@ function paintList(p) {
   // 불러오는 동안(처음 목록 맞추는 중 포함)에는 '별표 없음'·'빈 폴더'를 보이지 않는다. 다 읽은 뒤에만.
   if (!rows.length && scanningNow()) { list.innerHTML = waitHtml({rows: 4}); return; }
   if (!rows.length) { list.innerHTML = emptyHtml(w.shelf ? `${SHELF_NAME[w.shelf]} 없음` : '빈 폴더'); return; }
+  const look = lookNow(), cols = lookCols(look, roomy());
+  list.dataset.fxLook = look;
+  if (cols) {
+    list.innerHTML = `<div class="fx-rows fx-grid" role="list" data-fx-cols="${cols}" style="--fx-cols:${cols}">${rows.map(r => cellHtml(p, r)).join('')}</div>`;
+    mountThumbs(list);
+    return;
+  }
   list.innerHTML = `<div class="fx-head"><span>이름</span>${w.shelf ? `<span>위치${gripHtml('path', '위치')}</span>` : ''}<span>바뀐 날${gripHtml('day', '바뀐 날')}</span><span>크기${gripHtml('size', '크기')}</span><span>종류${gripHtml('kind', '종류')}</span></div>`
     + `<div class="fx-rows${w.shelf ? ' fx-with-path' : ''}" role="list">${rows.map(r => rowHtml(p, r, {withPath: !!w.shelf})).join('')}</div>`;
+  mountThumbs(list);
 }
 // ---------- 미리보기 ----------
 const rowByKey = (key, p = P()) => (p.query ? p.found || [] : p.rows).find(r => rowKey(r) === key) || null;
@@ -2152,13 +2246,28 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-library]')) { requestLibraryDocument(b.dataset.fxLibrary); window.KPTURouter?.go?.('library', {source: 'delegated'}); return; }
   if (b.matches('[data-fx-retry]')) { const q = P(); if (!state.status) enter(true); else if (q.query) refind(q); else loadList(q); }
 });
-// FOLDER-나무새기준 ④: 폰 나무에서 펼친 폴더(또는 그 안 파일 줄) 위 두 손가락 벌리기 = 그 폴더만, 그 폴더만 보는 중 오므리기 = 펼친 자리 그대로 나무.
+// 두 손가락 손짓은 이 한 곳이 나눈다(손짓 주인 하나, 부품 folder-pinch.js).
+// - FOLDER-나무새기준 ④: 폰 나무에서 펼친 폴더(또는 그 안 파일 줄) 위 벌리기 = 그 폴더만(마지막 보기 그대로), 그 폴더만 보는 중 오므리기 = 펼친 자리 그대로 나무.
+// - S51-20 ①: 목록 칸(모든 폭) 위 벌리기 = 목록 → 격자 → 큰 격자, 오므리기 = 반대. 목록에서 더 오므리면(폰, 나무에서 들어온 목록) 나무로.
+let pinchAt = '';
+const treeFolderAt = el => el.closest('[data-fx-fold]')?.dataset.fxFold || el.closest('[data-ft-parent]')?.dataset.ftParent || (el.closest('.ft-box-head') && el.closest('[data-fx-box]') ? el.closest('[data-fx-box]').dataset.fxBox + ':' : null);
 if (root) bindFolderPinch(root, {
-  enabled: () => PHONE.matches && !state.xfer,
-  // 폴더 줄·그 안 파일 줄이면 그 폴더, 저장소 상자 머리면 그 저장소 맨 위.
-  folderAt: el => el.closest('[data-fx-fold]')?.dataset.fxFold || el.closest('[data-ft-parent]')?.dataset.ftParent || (el.closest('.ft-box-head') && el.closest('[data-fx-box]') ? el.closest('[data-fx-box]').dataset.fxBox + ':' : null),
-  onOut: key => { if (treePane()) focusTreeFolder(key); },
-  onIn: () => { const p = state.panes[0]; if (p.pane === 'list' && state.treeBack) backToTree(); }});
+  enabled: () => !state.xfer,
+  folderAt: el => {
+    pinchAt = '';
+    if (treePane()) { const k = treeFolderAt(el); if (k) pinchAt = 'tree'; return k; }
+    const list = el.closest('[data-fx-list]'), i = paneOfEl(el);
+    if (list && i >= 0 && state.panes[i].where && !state.panes[i].query) { pinchAt = 'list'; return 'list'; }
+    return null;
+  },
+  onOut: key => {
+    if (pinchAt === 'tree') focusTreeFolder(key);
+    else if (pinchAt === 'list') setLook(stepLook(lookNow(), 'out'));
+  },
+  onIn: () => {
+    if (pinchAt === 'list' && lookNow() !== 'list') { setLook(stepLook(lookNow(), 'in')); return; }
+    const p = state.panes[0]; if (PHONE.matches && p.pane === 'list' && state.treeBack) backToTree();
+  }});
 root?.addEventListener('dblclick', event => {
   const b = event.target.closest('[data-fx-row]');
   const r = b && rowByKey(b.dataset.fxRow);
@@ -2347,13 +2456,14 @@ async function enter(force = false) {
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'files') return;
   // 다른 화면으로 가면 미리보기를 놓는다(받은 그림·PDF 메모리도). 맞추기 시계는 멈춘다.
-  layer = null; listLayer = null; dropPreview(); delete root?.dataset.fxPreview; clearInterval(syncTimer); clearTimeout(jobTimer);
+  layer = null; listLayer = null; dropPreview(); dropThumbs(); delete root?.dataset.fxPreview; clearInterval(syncTimer); clearTimeout(jobTimer);
   if (state.jobsOpen) { jobsLayer = null; state.jobsOpen = false; paintJobs(); }
   if (state.xfer) { destLayer = null; dropDest(); }
   dropAskClose();
 });
 window.addEventListener('kptu:view-prefs-rejected', e => {
   const paths = e.detail?.paths || [];
+  if (paths.includes(`${FILES_LOOK_KEY}.${DEVICE}`)) { notify('보기 크기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true, record: false}); if (state.status) paintLists(); }
   if (paths.includes(`${FILES_TWO_KEY}.${DEVICE}`)) { notify('두 칸 켜기/끄기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true, record: false}); if (state.status) layoutChanged(); }
   if (!paths.includes(`${FILES_SOURCES_KEY}.${DEVICE}`)) return;
   notify('출처 켜기/끄기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true, record: false});
@@ -2362,7 +2472,7 @@ window.addEventListener('kptu:view-prefs-rejected', e => {
 // 서버 화면 설정이 늦게 오면(두 칸 켬이 바뀌었을 수 있음) 한 번 맞춘다.
 let twoSeen = null;
 const twoCheck = () => { const now = two(); if (twoSeen !== null && now !== twoSeen && state.status) layoutChanged(); twoSeen = now; };
-window.addEventListener('kptu:view-prefs-ready', () => { if (state.status) twoCheck(); });
+window.addEventListener('kptu:view-prefs-ready', () => { if (state.status) { twoCheck(); paintLists(); } });
 // 접고 펼 때: 펼쳐서(폰 → 폴드) 칸 0이 비어 있으면(폰 나무 첫 화면) 첫 저장소 맨 위를 연다.
 PHONE.addEventListener?.('change', () => { if (state.status) { twoCheck(); if (!PHONE.matches && !state.panes[0].where) goHome(state.panes[0]); else paint(); } });
 WIDE.addEventListener?.('change', () => { if (state.status) { twoCheck(); paint(); } });
