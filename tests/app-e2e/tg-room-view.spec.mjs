@@ -110,7 +110,7 @@ test('PC 1440: 서버에 방별이 기억돼 있으면 방별로 열리고, 폴�
  await expect(menu.locator('button')).toHaveText(['고정','폴더로','보관']);
  await menu.getByRole('button',{name:'고정',exact:true}).click();
  await expect.poll(()=>f.writes.filter(w=>w.rpc==='app_feed_room_pin').map(w=>w.body)).toEqual([{p_room_key:'room-b',p_pinned:true}]);
- await expect(view.locator('[data-tg-pinrooms] [data-tg-roomrow="room-b"] [data-tg-pinned]')).toHaveText('📌');
+ await expect(view.locator('[data-tg-pinrooms] [data-tg-roomrow="room-b"] [data-tg-pinned] svg')).toHaveCount(1);
  expect(await roomKeys(view)).toEqual(['room-b','room-a','-1001234567']);
  // 방을 열고 새로고침해도 방별·그 방 그대로(주소), 보기 고르기는 다시 저장하지 않는다.
  await view.locator('[data-tg-roomrow="room-b"] [data-tg-roomopen]').click();

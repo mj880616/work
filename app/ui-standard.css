@@ -1686,3 +1686,11 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
 /* UI-줄꼬리표(S49-20, 요청함 11/04 00:17): '제목 + 오른쪽 작은 꼬리표(폴더 이름·날짜 등)' 줄의 꼬리표는 줄어들지 않고 온전히 보인다.
    제목만 남은 폭에서 …로 줄고, 꼬리표 자신이 아주 길 때만 8글자(8em)까지 보인 뒤 …로 줄인다. 새 꼬리표는 class="row-tail"만 붙인다. */
 .row-tail{ flex:none; min-width:0; max-width:var(--ds-row-tail-max,8em); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* S51-25 LIB-폴더밖아이콘: 공용 아이콘(app/tree-icons.js의 SVG) 한 규칙. 그림 문자(📁📄🗂🕒📌📍📷🔍🖼📎)는 기기·글꼴마다 깨져 쓰지 않는다.
+   크기는 svg width/height(부르는 쪽이 정함), 색은 글자색(currentColor). 글자 줄 가운데에 맞춘다. */
+.ui-ico { display:inline-flex; align-items:center; justify-content:center; flex:none; vertical-align:-0.15em; line-height:1; }
+.ui-ico-svg { display:block; flex:none; }
+.ui-ico-star { color:var(--kptu-warning); }
+.gs-row-folder .ui-ico { margin-right:2px; color:var(--ds-folder-0-ico,var(--kptu-muted)); }
+.nx-clip svg, .feed-pinmark svg, .tp-here svg, .diary-lv-find svg { display:inline-block; vertical-align:-0.15em; }

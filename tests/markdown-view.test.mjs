@@ -108,7 +108,7 @@ test('two or more images in a row fold into one chip that holds only checked lin
   const {html}=render('![가](https://img.example/1.png) ![나](https://img.example/2.png)\n![다](https://img.example/3.png)\n\n![라](https://img.example/4.png)\n\n본문');
   assert.doesNotMatch(html,/<img/i);
   assert.equal((html.match(/class="md-image-chip"/g)||[]).length,1);
-  assert.ok(html.includes('<button type="button" class="md-image-chip" aria-expanded="false">🖼 이미지 4개</button><span class="md-image-list" hidden>'));
+  assert.match(html,/<button type="button" class="md-image-chip" aria-expanded="false"><span class="ui-ico" aria-hidden="true"><svg[^]*?<\/svg><\/span> 이미지 4개<\/button><span class="md-image-list" hidden>/);
   assert.deepEqual([...html.matchAll(/<a class="md-image-link" href="([^"]*)" target="_blank" rel="noopener noreferrer">/g)].map(m=>m[1]),[1,2,3,4].map(n=>`https://img.example/${n}.png`));
   assert.match(html,/<p>본문<\/p>/);
 });

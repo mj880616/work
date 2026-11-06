@@ -51,6 +51,7 @@
 .fx-row:hover { background:var(--kptu-surface-subtle); }
 .fx-row[aria-selected="true"] { background:var(--kptu-primary-soft); }
 .fx-ico { color:var(--kptu-faint); font-size:11px; text-align:center; }
+.fx-ico > svg, .fx-cell-ic > svg { display:inline-block; vertical-align:middle; }
 .fx-folder .fx-ico { font-size:13px; }
 .fx-nm { min-width:0; display:flex; align-items:center; gap:6px; }
 /* S49-51 '이 폰'(H-7): 찾기·묶음처럼 섞어 보일 때 줄마다 작은 출처 점(테마 색: 원드라이브 = 정보, 구글 = 성공, 이 폰 = 경고 톤). */
@@ -63,7 +64,8 @@
 .fx-tree .fx-pc-off .nx-main, .fx-ptree .fx-pc-off .nx-main { opacity:.55; font-weight:400; }
 .fx-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fx-tag { flex:none; font-size:10.5px; color:var(--kptu-accent); }
-.fx-star { flex:none; font-size:11px; color:var(--kptu-muted); }
+.fx-star { flex:none; display:inline-flex; align-items:center; font-size:11px; color:var(--kptu-muted); }
+.fx-star svg, .fx-star-btn svg { display:block; }
 .fx-path, .fx-day, .fx-kind { min-width:0; color:var(--kptu-muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fx-size { color:var(--kptu-muted); font-size:12px; text-align:right; white-space:nowrap; }
 .fx-sub { display:none; }
@@ -244,8 +246,8 @@
 .fx-row.fx-drop-up { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:var(--kptu-primary-soft); }
 .fx-star-btn { flex:none; margin-left:auto; color:var(--kptu-muted); font-size:14px; line-height:1; }
 .fx-star-btn.on { color:var(--kptu-warning); }
-/* FOLDER-순서·색 ③-2: 색을 고른 폴더 줄의 그림(folder-look.css의 data-fc가 --fl-ico를 준다). .fx-ico의 흐린 글자색보다 앞서도록 한 번 더 지정. 안 고른 폴더는 지금의 📁 글자 그대로. */
-.fx-ico.fl-ico { color:var(--fl-ico); }
+/* FOLDER-순서·색 ③-2: 색을 고른 폴더 줄의 그림(folder-look.css의 data-fc가 --fl-ico를 준다). .fx-ico의 흐린 글자색보다 앞서도록 한 번 더 지정. 안 고른 폴더는 기본 노랑 같은 그림(S51-25, 그림 문자 없음). */
+.fx-ico.fl-ico { color:var(--fl-ico,var(--ds-folder-0-ico)); }
 .fx-ico.fl-ico svg { width:14px; height:14px; }
 /* FOLDER-나무새기준 ②(S51-12): 폰 나무는 공용 상자·줄(folder-tree.css ft-). 여기는 [파일]만의 것 — 상자 머리 저장소 그림, 파일 줄 종류 글자·날짜. */
 .fx-tree .ft-box-ico { display:inline-flex; align-items:center; color:var(--kptu-muted); }
@@ -271,6 +273,7 @@
 .fx-cell-fold:not([data-fc]) { --fl-ico:var(--kptu-faint); }
 .fx-cell-fold svg { width:46%; height:46%; }
 .fx-cell-ic { color:var(--kptu-muted); font-size:22px; }
+.fx-cell-ic svg { width:40%; height:40%; }
 .fx-rows.fx-grid .fx-nm { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:11.5px; line-height:1.3; word-break:break-all; }
 .fx-rows.fx-grid .fx-name { white-space:normal; }
 @media (max-width:599px) {

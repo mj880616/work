@@ -7,6 +7,7 @@
 import {FOLDER_DEPTH_LIMIT,folderIndent,folderDepthLimitFrom} from './folder-limits.mjs';
 // FOLDER-나무새기준(S51-12): 폴더 그림(닫힌/열린)·'n개 더 보기' 줄은 노트·파일·사진과 같은 공용 부품(folder-tree-ui.mjs). 점(●)은 그리지 않는다.
 import {ftIconHtml,ftMoreRowHtml} from './folder-tree-ui.mjs';
+import {treeIconHtml} from './tree-icons.js';
 export const GROUP_BY=Object.freeze(['project','organization','category','month','folder']);
 export const GROUP_LABELS=Object.freeze({project:'사업영역',organization:'담당조직',category:'분류',month:'월별',folder:'폴더'});
 // 결정 D12: 한 토글에 파일이 20개를 넘으면 20개만 보이고 [N건 더].
@@ -157,7 +158,7 @@ export function pathTo(list,documentId){let found=null;walk(list,(n,parents)=>{i
 // fileHtml(d, node)는 지금의 파일 줄(luRowHtml)을 그대로 쓴다. node는 그 줄이 든 토글(종류로 묶었을 때 같은 종류 표를 빼는 데 쓴다).
 // menu(n): 그 토글 머리에 ⋯ 버튼을 둘 때 접근성 이름(없으면 버튼 없음). 버튼 누르기는 토글을 여닫지 않는다(그리는 쪽이 막음).
 // canDrag(n): 폴더 머리를 끌 수 있게 할지(PC 끌어 놓기). 파일 줄의 끌기는 fileHtml이 정한다.
-// emoji: 폴더로 묶었을 때(LIB-폴더보기, 2026-10-28 명진 요청 08:25 ③) ▸ 삼각형 대신 닫힌 📁 / 열린 📂 글자, '폴더 밖'은 🗂 + 흐린 글자.
+// emoji: 폴더로 묶었을 때(LIB-폴더보기, 2026-10-28 명진 요청 08:25 ③) ▸ 삼각형 대신 닫힌/열린 폴더 그림, '폴더 밖'은 회색 점선 폴더 그림 + 흐린 글자(S51-25: 그림 문자 🗂은 PC에서 깨짐).
 // SEARCH-선택옮기기 ⑦(10/28 명진 요청 '외줄 폴더 경로 압축'): 자기 자료 없이 폴더 하나만 든 폴더가 이어지면 그 아래 폴더들(맨 위 폴더 제외).
 // 접힌 줄은 '공공팀 › 회의 › 집행위' 한 줄로 보이고, 펼치면 지금처럼 '공공팀' 아래 단마다 줄이 생긴다(CSS가 펼친 줄의 뒤 경로를 숨김).
 // 펼칠 때 이어진 폴더들도 함께 펼친다(library-upload.js luOnHeadClick). 메뉴·끌어 놓기는 지금처럼 맨 위 폴더 기준.
@@ -166,10 +167,10 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey,menu=null,can
   const head=n=>{
     const face=emoji&&(n.kind==='folder'||n.key==='x:out');
     // FOLDER-나무새기준 ③⑥: 폴더는 닫힌/열린 폴더 그림 하나(색을 고른 폴더는 그 색, 안 고른 폴더는 기본 노랑). 펼침에 따라 CSS가 둘 중 하나를 보이고,
-    // 안에 아무것도 없는 폴더는 처음부터 닫힌 그림만. '폴더 밖'은 🗂 + 흐린 글자. ⑨ 종류 점·색 점은 없다.
+    // 안에 아무것도 없는 폴더는 처음부터 닫힌 그림만. '폴더 밖'은 회색 점선 폴더(공용 tree-icons.js) + 흐린 글자. ⑨ 종류 점·색 점은 없다.
     const empty=n.kind==='folder'&&!n.count&&!n.children.length&&!n.files.length;
     const shapes=empty?ftIconHtml({color:n.fc,open:false,className:'ft-ico lu-fe-closed lu-fe-only'}):`${ftIconHtml({color:n.fc,open:false,className:'ft-ico lu-fe-closed'})}${ftIconHtml({color:n.fc,open:true,className:'ft-ico lu-fe-open'})}`;
-    const mark=face?(n.key==='x:out'?'<span class="lu-folder-emoji" aria-hidden="true">\u{1F5C2}</span>':`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`)
+    const mark=face?(n.key==='x:out'?`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${treeIconHtml('outside',{className:'ft-ico'})}</span>`:`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`)
       :n.kind==='folder'?`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`:'';
     const more=menu?.(n);
     const rest=folderChain(n);

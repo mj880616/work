@@ -2995,8 +2995,8 @@ function setSort(v) {
 }
 // 고르기 판: 옮길 폴더(나무 순서, 들여쓰기) 또는 넣을 앨범. 무엇을 할지는 pickFor에 둔다.
 let pickFor = null;
-// FOLDER-순서·색 ③-2: 폴더 고르기 창 줄 앞 그림도 같은 색(안 고른 폴더는 지금의 📁 그대로).
-const pickFolderIcon = (src, id) => (folderLook.color(src, id) ? folderIconHtml({color:folderLook.color(src, id)}, {className:'lu-move-ico'}) : '<span aria-hidden="true">\u{1F4C1}</span>');
+// FOLDER-순서·색 ③-2: 폴더 고르기 창 줄 앞 그림도 같은 색(안 고른 폴더는 기본 노랑 같은 그림, S51-25 그림 문자 없음).
+const pickFolderIcon = (src, id) => (folderLook.color(src, id) ? folderIconHtml({color:folderLook.color(src, id)}, {className:'lu-move-ico'}) : folderIconHtml({}, {className:'lu-move-ico'}));
 const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-menu photos-pick-menu', label:'고르기', historyKey:'kptuPhotosPickMenu',
   key:() => pickFor?.kind || '',
   render:kind => {
@@ -3006,7 +3006,7 @@ const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-men
     }
     if (kind === 'phfolder' || kind === 'phphotos') {
       const rows = phonePickRows(phoneFolderList(), kind === 'phfolder' ? {moving:pickFor.id} : {here:tab === 'folders' ? pAt : null});
-      return '<p class="od-link-status">어느 폰 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-phone="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}><span aria-hidden="true">\u{1F4C1}</span> ${esc(r.name)}${places.has('ph:' + r.id) ? `<span class="photos-fx-place"> · ${esc(places.get('ph:' + r.id))}</span>` : ''}</button>`).join('');
+      return '<p class="od-link-status">어느 폰 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-phone="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}>${folderIconHtml({}, {className:'lu-move-ico'})}${esc(r.name)}${places.has('ph:' + r.id) ? `<span class="photos-fx-place"> · ${esc(places.get('ph:' + r.id))}</span>` : ''}</button>`).join('');
     }
     if (kind === 'tag') return cards().map(c => menuBtn(`data-pick-tag="${esc(c.id)}"`, `#${esc(c.name)} <span class="photos-pick-n">${c.count}</span>`)).join('') + menuBtn('data-pick-newtag', '+ 새 앨범…');
     if (!tree) return '<p class="od-link-status">폴더를 읽지 못했어요</p>';

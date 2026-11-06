@@ -3,6 +3,8 @@
 // 안전 원칙: 글 속 HTML은 글자로만 보이고(html:false), 링크는 http·https·mailto만 새 창 + noopener로 열며,
 // 이미지는 불러오지 않고 링크로만 보인다(연달아 나오면 칩 하나로 접고, 누를 때만 불러온다). 수식·도식은 자리표시(원문 글자)만 두고 나중에 바꾼다.
 
+import {iconSvg} from './tree-icons.js';
+const IMAGE_ICO = iconSvg('image', {size: 13});
 const LINK_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 
 export function safeHref(value) {
@@ -201,7 +203,7 @@ export function createMarkdown(MarkdownIt) {
   md.renderer.rules.md_image_chip = (tokens, idx) => {
     const images = tokens[idx].meta.images;
     const links = images.map(x => `<a class="md-image-link" href="${esc(x.href)}" target="_blank" rel="noopener noreferrer">이미지: ${esc(x.alt || '설명 없음')}</a>`).join('');
-    return `<span class="md-image-group"><button type="button" class="md-image-chip" aria-expanded="false">🖼 이미지 ${images.length}개</button><span class="md-image-list" hidden>${links}</span></span>`;
+    return `<span class="md-image-group"><button type="button" class="md-image-chip" aria-expanded="false"><span class="ui-ico" aria-hidden="true">${IMAGE_ICO}</span> 이미지 ${images.length}개</button><span class="md-image-list" hidden>${links}</span></span>`;
   };
   md.renderer.rules.md_callout_title = (tokens, idx) => {
     const kind = tokens[idx].meta.kind;
