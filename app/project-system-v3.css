@@ -162,8 +162,6 @@
 .ps3-row-actions{display:flex;flex:0 0 auto;gap:var(--kptu-space-1);align-items:flex-start}
 .ps3-fold>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2);min-height:28px;cursor:pointer}
 .ps3-fold>summary::-webkit-details-marker{display:none}
-.ps3-fold>summary::after{content:'▾';color:var(--kptu-faint);transition:transform .14s ease}
-.ps3-fold[open]>summary::after{transform:rotate(180deg)}
 .ps3-fold-body{margin-top:var(--kptu-space-2)}
 .ps3-fold-actions{display:flex;justify-content:flex-end}
 
@@ -322,8 +320,6 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 #appView #projectsView .ps3-plist .ps3-fold{border-top:1px solid var(--kptu-border)}
 .ps3-fold-summary{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 var(--kptu-space-4);cursor:pointer;list-style:none;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px)}
 .ps3-fold-summary::-webkit-details-marker{display:none}
-.ps3-fold-summary::before{content:"▸";flex:none}
-.ps3-fold[open]>.ps3-fold-summary::before{content:"▾"}
 .ps3-fold-label{flex:none;white-space:nowrap}
 .ps3-fold-names{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps3-fold[open]>.ps3-fold-summary .ps3-fold-names{display:none}

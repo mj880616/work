@@ -4,6 +4,7 @@
 // - 보기만 한다(쓰기 없음). 충전·청구 입력은 없앴다(10/28 요청함). 한 탭에서 10분에 한 번만 묻는다(메모리만, 수집 칸과 같은 요청).
 import {readSummary, titleText, warnText, summaryLine, detailRows} from './ai-usage-model.mjs';
 import {isOwner, readDriveStatus} from './collection-status.js';
+import { chevHtml } from './fold-chevron.mjs';
 
 const scopeOf = rt => { const c = rt?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 // 수집 칸과 같은 drive-summary GET ?action=status 한 번(ai_usage 칸)을 함께 쓴다(탭마다 10분 한 번, 요청을 늘리지 않음).
@@ -24,7 +25,7 @@ export function mountAiUsageLine(host, {rt = window.KPTURuntime, now = () => Dat
     const head = `<button type="button" class="aiu-open" data-aiu-toggle aria-expanded="${open}" aria-controls="${panelId}"${warn ? ' data-warn' : ''}>`
       + (warn ? `<svg class="aiu-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3 2.5 16.5h15zM10 8.5v3.5M10 14.2v.3"/></svg><span class="aiu-sum">${esc(warn)}</span>`
         : `<span class="aiu-title">${esc(titleText(s, at))}</span><span class="aiu-sum">${esc(summaryLine(s, at))}</span>`)
-      + `<span class="aiu-chevron" aria-hidden="true">${open ? '접기 ▴' : '펼치기 ▾'}</span></button>`;
+      + `<span class="aiu-chevron" aria-hidden="true">${open ? '접기' : '펼치기'} ${chevHtml(open)}</span></button>`;
     // 경고 줄일 때는 펼친 칸 맨 위에 기간·요약을 한 번 보인다.
     const top = warn ? `<p class="aiu-head-line"><span class="aiu-title">${esc(titleText(s, at))}</span> <span>${esc(summaryLine(s, at))}</span></p>` : '';
     const panel = `<div class="aiu-panel" id="${panelId}" role="region" aria-label="AI 사용량 자세히"${open ? '' : ' hidden'}>${top}<ul class="aiu-list">${detailRows(s)}</ul></div>`;

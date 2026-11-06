@@ -7,6 +7,7 @@ import { treeIconHtml, iconSvg } from './tree-icons.js';
 // FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, FT_PREVIEW } from './folder-tree-ui.mjs';
 import { recentFolded, toggleRecentFolded } from './recent-fold.js';
+import { MORE_LABEL } from './fold-chevron.mjs';
 import { bindFolderPinch } from './folder-pinch.js';
 import { formatSeoulTime } from './meeting-time.js';
 // MEMO-노트: the [노트] side of the basket tab. Notes are app_notes rows with kind=note (20261017052234), read and
@@ -313,7 +314,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // NOTE-최근5개 → 나무새기준 ①: 폰 첫 화면 맨 위 '최근' 상자(자료실 '최근 올린 파일'과 같은 상자, [더보기]면 15개).
       const recent = !m && at === null && showRecent() ? recentRows({folders, notes, folderOf, count:recentAll ? RECENT_MORE : undefined}) : [];
       recentBox.hidden = !recent.length;
-      const moreBtn = notes.length > recent.length || recentAll ? `<button type="button" class="ft-btn ft-box-more" data-nx-recent-more aria-expanded="${recentAll}">${recentAll ? '접기' : '더보기'}</button>` : '';
+      const moreBtn = notes.length > recent.length || recentAll ? `<button type="button" class="ft-btn ft-box-more" data-nx-recent-more aria-expanded="${recentAll}">${recentAll ? '접기' : MORE_LABEL}</button>` : '';
       // S51-22: 머리 줄을 누르면 접기(서버 view_prefs.recent_folded, recent-fold.js).
       const shut = recentFolded('notes');
       recentBox.innerHTML = recent.length ? ftBoxHtml({head:RECENT_NAME, tail:moreBtn, collapsible:true, caret:true, open:!shut, toggleAttrs:{'data-nx-recent-fold':''}, body:shut ? '' : recent.map(r => rowHtml(r)).join(''), label:'최근 노트'}) : '';

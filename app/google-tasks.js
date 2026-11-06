@@ -20,6 +20,7 @@ import { createTaskInline, moreButtonHtml } from './task-inline.js';
 import { noteChecked, noteUnchecked, checkPopAttr } from './check-motion.js'; // UI-누름움직임: 방금 끝낸 할 일의 체크 움직임(모든 목록 공용)
 import { bindRowSwipe } from './row-swipe.js';
 import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 ⑥: 칸 나누기 폭은 공용 판정 한 곳
+import { chevHtml } from './fold-chevron.mjs';
 (()=>{
 'use strict';
 if(window.__KPTU_GOOGLE_TASKS__)return;
@@ -417,8 +418,8 @@ function columnsHtml({overdue,today,tomorrow=[],week,later,undated,completed},ro
   const list=(id,html)=>html?`<ul class="gt-cards"${id?` data-gt-${id}`:''}>${html}</ul>`:'';
   const now=list('overdue',cards(overdue,true))+list('today',cards(today));
   const undatedCards=undated.length?`<h4 class="gt-col-sub">기한 없음 ${undated.length}</h4>${list('undated',cards(undated))}`:'';
-  const laterFold=later.length+undated.length?`<details id="gtLater" class="gt-col-fold gt-later"${laterOpen?' open':''}><summary class="gt-group-head">나중 ${later.length+undated.length} <span class="gt-disclosure">▸</span></summary>${list('later',cards(later))+undatedCards}</details>`:'';
-  const doneFold=completed.length?`<details id="gtCompleted" class="gt-completed gt-col-fold gt-col-done"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length} <span class="gt-disclosure">▸</span></summary>${list('',cards(completed))}</details>`:'';
+  const laterFold=later.length+undated.length?`<details id="gtLater" class="gt-col-fold gt-later"${laterOpen?' open':''}><summary class="gt-group-head">나중 ${later.length+undated.length}${chevHtml(false, 'gt-disclosure')}</summary>${list('later',cards(later))+undatedCards}</details>`:'';
+  const doneFold=completed.length?`<details id="gtCompleted" class="gt-completed gt-col-fold gt-col-done"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length}${chevHtml(false, 'gt-disclosure')}</summary>${list('',cards(completed))}</details>`:'';
   // TASK-내일칸: 내일 기한이 있으면 "일주일 안" 열 맨 위에 '내일 N' 소제목과 그 카드, 그 아래 '모레 이후 N'(모레~7일). 열 건수는 둘을 더한 수.
   const soon=tomorrow.length?`<h4 class="gt-col-sub gt-col-sub-top">내일 ${tomorrow.length}</h4>${list('tomorrow',cards(tomorrow))}${week.length?`<h4 class="gt-col-sub">모레 이후 ${week.length}</h4>`:''}`:'';
   return `<div class="gt-cols">${col('now','지남·오늘',overdue.length+today.length,now)+col('week','일주일 안',tomorrow.length+week.length,soon+list('week',cards(week)),laterFold+doneFold)}</div>`;
@@ -508,7 +509,7 @@ function renderTasks(tasks){
   paintPaneToday(pc?{overdue,today}:null);
   if(pc){const openId=isDocked()&&!document.querySelector('#gtTaskModal').classList.contains('hidden')?editing?.id:'',has=rows=>!!openId&&rows.some(x=>x.t.id===openId);paintBody(body,'gt-list gt-board',columnsHtml({overdue,today,tomorrow,week,later,undated,completed},(x,overdue=false)=>taskCard(x.t,overdue,effectOf(x.t.id,now)),{completedOpen:completedOpen||has(completed),laterOpen:laterOpen||has(later)||has(undated)}));laterWasOpen=!!body.querySelector('#gtLater')?.open||(!body.querySelector('#gtLater')&&laterOpen)}else{
   const group=(id,title,rows)=>rows.length?`<div class="gt-group${id==='overdue'?' gt-overdue':''}" data-gt-${id} role="group" aria-labelledby="gt-${id}-head"><h4 id="gt-${id}-head" class="gt-group-head">${title} ${rows.length}</h4>${rows.map(x=>row(x,id==='overdue')).join('')}</div>`:'';
-  if(!unlinkedOnly)paintBody(body,'gt-list',(pending.length?'':emptyHtml())+group('overdue','기한 지남',overdue)+group('today','오늘',today)+group('tomorrow','내일',tomorrow)+group('week','일주일 안',week)+group('later','나중',later)+group('undated','기한 없음',undated)+(completed.length?`<details id="gtCompleted" class="gt-group gt-completed"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length} <span class="gt-disclosure">▸</span></summary>${completed.map(x=>row(x)).join('')}</details>`:''));}
+  if(!unlinkedOnly)paintBody(body,'gt-list',(pending.length?'':emptyHtml())+group('overdue','기한 지남',overdue)+group('today','오늘',today)+group('tomorrow','내일',tomorrow)+group('week','일주일 안',week)+group('later','나중',later)+group('undated','기한 없음',undated)+(completed.length?`<details id="gtCompleted" class="gt-group gt-completed"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length}${chevHtml(false, 'gt-disclosure')}</summary>${completed.map(x=>row(x)).join('')}</details>`:''));}
   if(unlinkedOnly){section()?.classList.remove('gt-pc');syncSplit();const unlinked=pending.filter(x=>x.t.unlinked);paintBody(body,'gt-list',`<div class="gt-group-head" tabindex="-1" data-gt-unlinked-heading>연결 안 된 할 일 ${unlinked.filter(x=>!isDone(x.t)).length} <button type="button" data-gt-show-all>전체 보기 ›</button></div>${unlinked.map(x=>row(x,isOverdue(x.p,now))).join('')}`);body.querySelector('[data-gt-show-all]').onclick=()=>{unlinkedOnly=false;renderTasks(lastTasks)}}
   body.querySelectorAll('[data-gt-toggle]').forEach(b=>b.onclick=()=>toggleTask(lastTasks.find(t=>t.id===b.dataset.gtToggle)));
   // UI-목록밀기: 폰 할 일 줄 — 오른쪽으로 밀기 [완료]/[완료 취소](✓와 같은 길, 다시 밀면 되돌아감). Google 할 일 삭제는 휴지통·되돌리기가 없어 왼쪽 밀기는 두지 않는다(⋯의 [삭제]는 그대로).

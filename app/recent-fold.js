@@ -1,5 +1,5 @@
 // S51-22 '최근' 상자 접기(요청함 11/06 19:50 "어디든 최신 접을 수 있게"): 파일·노트·자료실 맨 위 '최근' 상자의 접은 상태 한 곳.
-// 머리 줄을 누르면 접기/펼치기(머리 줄 끝 ▴▾ — folder-tree-ui.mjs ftCaretHtml), 접으면 머리 줄 한 줄만.
+// 머리 줄을 누르면 접기/펼치기(이름 옆 공용 꺾쇠 — folder-tree-ui.mjs ftCaretHtml, UI-접기꺾쇠), 접으면 머리 줄 한 줄만.
 // 화면마다 서버 view_prefs.recent_folded(접은 화면 이름 배열)에 기억한다 — 기기 저장 없음. DB 적용 전이면 이번 접속만 접힌다.
 import {viewPrefs, RECENT_FOLD_SCREENS} from './view-prefs.js';
 
