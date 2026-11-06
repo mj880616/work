@@ -22,7 +22,6 @@
 /* S51-25 FOLDER-PC나무: PC·폴드 왼쪽 나무와 두 칸의 ▾ 나무도 공용 상자 나무(folder-tree.css ft-) — 세모 없음, 저장소마다 상자. 화면 CSS는 자리만.
    저장소 상자 머리 오른쪽 [맨 위]는 그 저장소 맨 위를 지금 칸에 연다. */
 .fx-box-top.fx-here { font-weight:700; }
-.fx-twist { flex:none; width:16px; border:0; background:none; padding:0; color:var(--kptu-faint); font-size:10px; cursor:pointer; }
 .fx-zero { opacity:.55; }
 /* S49-21 출처 아이콘 줄(켜짐/꺼짐 모양은 source-chips.css 공용). 줄 높이는 [정렬] 칩과 같게 촘촘하게. */
 .fx-srcs { flex:none; }
@@ -155,9 +154,6 @@
 .fx-dest-chip span { overflow:hidden; text-overflow:ellipsis; }
 .fx-dest-chip.on { background:var(--kptu-primary-soft); border-color:var(--kptu-border-strong); color:var(--kptu-primary-text); }
 .fx-dest-tree { flex:1 1 auto; min-height:120px; overflow:auto; border-top:.5px solid var(--kptu-border); padding:4px 4px 4px 0; }
-.fx-dest-tree .nx-main { min-height:32px; font-size:13px; padding:0 4px; }
-.fx-dest-tree .fx-root .nx-main { font-weight:600; }
-.fx-dest-tree .fx-twist { width:32px; align-self:stretch; }
 .fx-dest-f { display:flex; align-items:center; gap:6px; padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px)); border-top:.5px solid var(--kptu-border); }
 .fx-dest-at { flex:1; min-width:0; font-size:12px; color:var(--kptu-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fx-dest-f .fx-btn { height:32px; padding:0 12px; font-size:13px; }
@@ -224,7 +220,7 @@
 .fx-ptop { display:flex; align-items:center; gap:6px; min-height:34px; padding:0 6px 0 8px; border-bottom:2px solid var(--kptu-border); background:var(--kptu-surface-subtle); }
 .fx-cur > .fx-ptop { border-bottom-color:var(--kptu-primary); }
 .fx-ptop .fx-crumb { flex:1 1 auto; }
-.fx-pdrop { flex:none; height:24px; min-width:28px; padding:0 6px; }
+.fx-pdrop { flex:none; display:inline-flex; align-items:center; justify-content:center; height:28px; min-width:28px; padding:0 4px; } /* S51-25: ▾ 대신 폴더 그림(열림 = 나무 내려옴) */
 .fx-pdrop[aria-expanded="true"] { background:var(--kptu-primary-soft); }
 .fx-ptree.nx-tree:not([hidden]) { position:static; display:block; max-height:min(50vh, 420px); overflow:auto; border-right:0; border-bottom:.5px solid var(--kptu-border); padding:8px 8px 0; background:var(--kptu-surface-subtle); }
 .fx[data-fx-two="fold"] .fx-cols { display:block; }

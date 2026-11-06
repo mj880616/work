@@ -347,7 +347,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 :is(#appView #basketView .nbb-side, .nbb-pick) .nbb-note.nbb-on { opacity:.45; cursor:default; }
 .nbb-name { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .nbb-num { flex:none; font-size:11px; color:var(--kptu-faint,var(--kptu-muted)); }
-.nbb-caret { flex:none; width:10px; font-size:10px; color:var(--kptu-faint,var(--kptu-muted)); }
+.nbb-caret { flex:none; width:16px; font-size:15px; } /* S51-25: 세모 대신 폴더 그림(열림/닫힘) */
 .nbb-check { flex:none; width:14px; color:var(--kptu-primary-text); font-size:12px; }
 .nb-empty { position:absolute; left:0; right:0; top:38%; margin:0; text-align:center; font-size:13px; color:var(--kptu-muted); pointer-events:none; }
 .nb.nb-drop .nb-scroll { outline:2px dashed var(--kptu-primary); outline-offset:-2px; }

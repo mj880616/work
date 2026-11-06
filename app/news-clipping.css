@@ -51,7 +51,7 @@
 #appView #nowPanelNews .nc-folder-more::after{ content:""; position:absolute; inset:-8px -6px; }
 #appView #nowPanelNews .nc-tree-head{ display:flex; align-items:center; gap:8px; }
 #appView #nowPanelNews .nc-tree-head .nc-new-folder{ align-self:flex-start; margin:4px 0; }
-#appView #nowPanelNews .nc-caret{ width:12px; color:var(--kptu-muted); font-size:11px; }
+#appView #nowPanelNews .nc-caret{ flex:none; width:16px; font-size:15px; } /* S51-25: 세모 대신 폴더 그림 */
 #appView #nowPanelNews .nc-tree-item{ padding-left:calc(var(--nc-indent,0) * 14px); }
 
 /* S51-8 별표 폴더 칸 줄: 공용 줄(news-row.mjs) 오른쪽에 [폴더]·☆ 작은 단추. */
