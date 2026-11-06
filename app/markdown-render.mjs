@@ -201,7 +201,7 @@ export function createMarkdown(MarkdownIt) {
   md.renderer.rules.md_image_chip = (tokens, idx) => {
     const images = tokens[idx].meta.images;
     const links = images.map(x => `<a class="md-image-link" href="${esc(x.href)}" target="_blank" rel="noopener noreferrer">이미지: ${esc(x.alt || '설명 없음')}</a>`).join('');
-    return `<span class="md-image-group"><button type="button" class="md-image-chip" aria-expanded="false">🖼 이미지 ${images.length}개</button><span class="md-image-list" hidden>${links}</span></span>`;
+    return `<span class="md-image-group"><button type="button" class="md-image-chip" aria-expanded="false">이미지 ${images.length}개</button><span class="md-image-list" hidden>${links}</span></span>`;
   };
   md.renderer.rules.md_callout_title = (tokens, idx) => {
     const kind = tokens[idx].meta.kind;

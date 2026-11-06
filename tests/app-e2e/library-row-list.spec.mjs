@@ -1,7 +1,7 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {THEMES} from './helpers/theme-list.mjs';
 import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
-import {onlyLibraryCategories} from './helpers/library-categories.mjs';
+import {onlyLibraryCategories,openLibraryCategoryEditor,toggleLibraryCategory,showAllLibraryCategories} from './helpers/library-categories.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expandLibraryTree,focusLibraryProject} from './helpers/library-tree.mjs';
 import { test, expect } from '@playwright/test';
@@ -155,9 +155,9 @@ for(const width of [390,1440]){
     else{await expect(title).toHaveCSS('white-space','nowrap');await expect(title).toHaveCSS('text-overflow','ellipsis');expect(await title.evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true)}
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
-    expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);expect(await page.locator('#libraryView .lu-search-row button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn','libraryTopMenuBtn']);// 분류 편집 버튼은 종류 칩 줄로 옮겼다(UI-자료실편집버튼). [+ 자료 등록]은 검색 칸 오른쪽(UI-전수디자인점검 F11).
-    await expect(page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"] > #manageLibraryBtn')).toBeVisible();
-    await page.locator('#manageLibraryBtn').click();await expect(page.locator('#libraryManageModal')).toBeVisible();
+    expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);expect(await page.locator('#libraryView .lu-search-row button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['libraryCategoryPick','newDocumentBtn','libraryTopMenuBtn']);// S51-28: [분류 ▾]는 폰·폴드에서만 보임(PC는 CSS로 숨김).// 분류 편집 버튼은 종류 칩 줄로 옮겼다(UI-자료실편집버튼). [+ 자료 등록]은 검색 칸 오른쪽(UI-전수디자인점검 F11).
+    await expect(page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"] > #manageLibraryBtn')).toBeVisible({visible:width>=1200});
+    await openLibraryCategoryEditor(page);await expect(page.locator('#libraryManageModal')).toBeVisible();
     await page.locator('#libraryManageClose').click();await expect(page.locator('#libraryManageModal')).toBeHidden();
     const before=await browser.newPage();await boot(before,{width,main:true});
     // PC 줄은 예전보다 낮다. 폰(M2)은 이름 두 줄 + 종류·분류 줄이라 예전 줄보다 높을 수 있어, 두 단 높이(9+2줄+3+18+9px) 안인지 본다.
@@ -272,8 +272,9 @@ for(const width of [390,1280]){
       const rows=page.locator('#documentList [data-lu-document]'),ids=()=>rows.evaluateAll(els=>els.map(el=>el.dataset.luDocument));
       await expandLibraryTree(page);
       // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글 묶음(aria-pressed). 들어올 때는 [회의]만 꺼져 있다.
-      const category=page.getByRole('group',{name:'자료 분류 (여러 개 고르기)',exact:true});
-      const pressed=name=>category.getByRole('button',{name,exact:true});
+      // S51-28: 폰(390)은 칩 줄이 숨고 [분류 ▾] 창으로 고른다. 칩은 숨어도 같은 상태를 그린다.
+      const category=page.locator('#libraryCategoryFilter');
+      const pressed=name=>category.locator(`[data-lu-category="${name==='전체'?'all':name}"]`),narrow=width<1200;
       // UI-바구니거르기: no [일반 자료|회의자료만] row; meeting-linked documents list with the rest by their category.
       await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.getByRole('radiogroup',{name:'자료 종류',exact:true})).toHaveCount(0);
       expect(await ids()).toEqual(['ordinary-a','meeting-a','ordinary-b']);
@@ -281,18 +282,20 @@ for(const width of [390,1280]){
       await expect(page.locator('#libraryMeetingToggle')).toHaveCount(0);
       // The group-by row (LIB-토글트리, in place of the project chip row) and the category chip row stay; meeting documents are the [회의] category (회의자료·회의결과).
       await expect(page.locator('#libraryGroupBy')).toBeVisible();await expect(category).toHaveAttribute('aria-controls','documentList');
-      if(width===390)await pressed('회의').tap();else await pressed('회의').click();
+      await toggleLibraryCategory(page,'회의',{tap:width===390});
       await expect(pressed('회의')).toHaveAttribute('aria-pressed','true');await expect(pressed('전체')).toHaveAttribute('aria-pressed','true');
       // LIB-토글트리: 줄 차례는 트리 차례(프로젝트 차례, 그 안은 날짜 최신순).
       expect(await ids()).toEqual(['ordinary-a','category-only','meeting-a','ordinary-b','meeting-b']);
       await onlyLibraryCategories(page,['회의'],{tap:width===390});expect(await ids()).toEqual(['category-only','meeting-b']);
       await page.screenshot({path:`/tmp/library-two-meetings-${width}.png`,fullPage:true});
       // Keyboard (LIB-거르기전체): [전체] turns every category on, pressing it again turns every category off ('고른 분류 없음'), and a third press turns all on; [회의] off returns to the default.
+      if(!narrow){
       await pressed('전체').focus();await page.keyboard.press('Enter');
       await expect(rows).toHaveCount(5);await expect(pressed('전체')).toHaveAttribute('aria-pressed','true');await expect(pressed('전체')).toBeFocused();
       await page.keyboard.press('Space');await expect(rows).toHaveCount(0);await expect(pressed('전체')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toBeFocused();await expect(page.locator('#documentList')).toHaveText('고른 분류 없음');
       await page.keyboard.press('Enter');await expect(rows).toHaveCount(5);await expect(pressed('전체')).toBeFocused();
-      await pressed('회의').click();await expect(rows).toHaveCount(3);await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');
+      }else{await showAllLibraryCategories(page);await expect(rows).toHaveCount(5);}
+      await toggleLibraryCategory(page,'회의',{tap:width===390});await expect(rows).toHaveCount(3);await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');
       await focusLibraryProject(page,'top-a');
       await page.locator('#documentSearch').fill('철도');
       // A search follows the chips; a hit in a switched-off category is reported below the list with [켜기].
@@ -303,16 +306,17 @@ for(const width of [390,1280]){
       await page.locator('.lu-off-hint button').click();await expect(rows).toHaveCount(1);await expect(page.locator('[data-lu-document="meeting-a"]')).toBeVisible();await expect(pressed('기타')).toHaveAttribute('aria-pressed','true');
       await page.locator('#documentSearch').fill('');await expect(page.locator('.lu-off-hint')).toHaveCount(0);await focusLibraryProject(page,'all');
       expect(await ids()).toEqual(['category-only','meeting-a','meeting-b']);
-      await pressed('전체').click();await expect(rows).toHaveCount(5);
-      await page.locator('#manageLibraryBtn').click();
+      if(narrow)await showAllLibraryCategories(page);else await pressed('전체').click();await expect(rows).toHaveCount(5);
+      await openLibraryCategoryEditor(page,{tap:width===390});
       await expect(page.locator('#libraryManageModal .dce')).toBeVisible();
       await expect(page.locator('#libraryManageList, .library-manage-title, [data-library-edit]')).toHaveCount(0);
       await page.locator('#libraryManageClose').click();
       const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));
       const before=await storageKeys();
-      await pressed('정책').click();await pressed('정책').click();
+      const t={tap:width===390};
+      await toggleLibraryCategory(page,'정책',t);await toggleLibraryCategory(page,'정책',t);
       expect(await storageKeys()).toEqual(before);
-      await pressed('정책').click();await expect(rows).toHaveCount(3);
+      await toggleLibraryCategory(page,'정책',t);await expect(rows).toHaveCount(3);
       // 이 가짜 서버는 프로필의 library_view를 저장하지 않으므로 서버에 기억된 것이 없다 → 들어올 때마다 기본: only [회의] off. (기억 동작은 library-list-filters.spec.mjs)
       await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('library'));

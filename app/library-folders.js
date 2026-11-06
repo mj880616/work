@@ -359,7 +359,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     try{onMoved({done:ok?done:[],failed:ok?failed:prev.map(p=>p.id),folderId})}catch{}
     if(!ok)return false;
     if(folderId)reveal(chain(todo[0].project_id||null,folderId));
-    const moved=prev.filter(p=>done.includes(p.id)),where_=folderId?`📁 ${folder(folderId)?.name||'폴더'}`:'폴더 밖';
+    const moved=prev.filter(p=>done.includes(p.id)),where_=folderId?`${folder(folderId)?.name||''} 폴더`:'폴더 밖';
     say(`옮겼어요 ${moved.length}개 → ${where_}${failed.length?` · ${failed.length}개는 옮기지 못했어요(고른 채로 남김)`:''} ·`,{error:failed.length>0,undo:()=>run(async()=>{for(const p of moved){
       const cur=s().items.find(x=>x.document_id===p.id);if((cur?.folder_id||null)!==folderId)continue;
       const back=p.had?p.folder:null;

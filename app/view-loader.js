@@ -26,7 +26,7 @@ const routeStyles={
   tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./home-quick.css','./library-upload.css','./basket-picker.css','./folder-look.css','./ui-standard.css'],
   diary:['./diary.css','./od-link.css','./ed-doc.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./ui-standard.css'],
-  library:['./filter-chips.css','./library-upload.css','./folder-tree.css','./compact-list.css','./markdown-view.css','./folder-look.css','./ui-standard.css'],
+  library:['./filter-chips.css','./choice-sheet.css','./library-upload.css','./folder-tree.css','./compact-list.css','./markdown-view.css','./folder-look.css','./ui-standard.css'],
   meetings:['./filter-chips.css','./weekly-org-lines.css','./choice-sheet.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
   pages:['./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
   team:['./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./library-upload.css','./basket-picker.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
@@ -40,7 +40,7 @@ const routeStyles={
   photos:['./diary.css','./od-link.css','./source-chips.css','./photos.css','./folder-tree.css','./folder-look.css','./ui-standard.css'],
   arsenal:['./arsenal.css','./ui-standard.css'],
   // OUTSIDE-글상세·관심환류 ③: Now 한 메뉴(사회운동·뉴스·보관·문장 찾기 탭 + 글 상세). 옛 news 화면은 Now [뉴스] 탭.
-  outside:['./outside-statements.css','./news-clipping.css','./row-swipe.css','./library-upload.css','./now.css','./folder-look.css','./ui-standard.css'],
+  outside:['./od-link.css','./outside-statements.css','./news-clipping.css','./row-swipe.css','./library-upload.css','./now.css','./folder-look.css','./ui-standard.css'],
   files:['./od-link.css','./folder-tree.css','./source-chips.css','./files.css','./folder-look.css','./ui-standard.css'],
   updates:['./release-notes.css','./ui-standard.css']
 };

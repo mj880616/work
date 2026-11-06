@@ -70,7 +70,7 @@ async function openTab(page, tab) {
 const folderIds = page => root(page).locator('[data-photos-folder]').evaluateAll(els => els.map(e => e.dataset.photosFolder).filter(id => id !== 'T'));
 // FOLDER-나무새기준 ③: 폰은 공용 줄(.ft-ico, 안 고른 폴더는 기본 노랑 그림), PC 나무는 지금 줄(.nx-ico).
 const folderIcon = (page, id) => root(page).locator(`[data-photos-folder="${id}"] :is(.nx-ico, .ft-ico)`).first();
-const plainIcon = async (page, id) => { const el = folderIcon(page, id); if (await el.evaluate(e => e.classList.contains('ft-ico'))) await expect(el).not.toHaveAttribute('data-fc', /./); else await expect(el).toHaveText('\u{1F4C1}'); };
+const plainIcon = async (page, id) => { const el = folderIcon(page, id); if (await el.evaluate(e => e.classList.contains('ft-ico'))) await expect(el).not.toHaveAttribute('data-fc', /./); else { await expect(el.locator('svg')).toHaveCount(1); await expect(el).not.toHaveAttribute('data-fc', /./); } };
 async function openFolderMenu(page, id) {
   await root(page).locator(`[data-photos-fx-more="${id}"]`).first().click();
   await expect(page.locator('#photosFolderMenu')).toBeVisible();

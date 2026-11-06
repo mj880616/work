@@ -152,5 +152,5 @@ export function attachName(name, type) {
   return /\.[A-Za-z0-9]{2,5}$/.test(base) ? base : `${base}.${ext}`;
 }
 
-export const nearHead = (n, here = 0) => (n ? `그 시각 사진 ${n}장${here ? ` · 📍그 장소 ${here}장` : ''}` : '그 시각 앞뒤 3시간에 찍은 사진이 없어요');
+export const nearHead = (n, here = 0) => (n ? `그 시각 사진 ${n}장${here ? ` · 그 장소 ${here}장` : ''}` : '그 시각 앞뒤 3시간에 찍은 사진이 없어요');
 export const pickLabel = n => (n ? `붙이기 ${n}` : '붙이기');

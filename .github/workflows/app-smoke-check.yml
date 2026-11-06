@@ -426,6 +426,8 @@ jobs:
         run: node --test tests/fold-chevron.test.mjs
       - name: Check two screen widths only, phone and PC frame (UI-폴드PC틀)
         run: node --test tests/fold-pc-frame.test.mjs
+      - name: Check table column widths are kept per screen kind on the server (UI-칸너비끌기)
+        run: node --test tests/col-widths-model.test.mjs
       - name: Check one shared loading/failed/empty part (UI-기다림표시통일)
         run: node --test tests/wait-state.test.mjs
 
@@ -530,6 +532,8 @@ jobs:
         run: node --test tests/note-tree.test.mjs
       - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자·두 손가락) 시험
         run: node --test tests/folder-tree-ui.test.mjs
+      - name: S51-25 공용 아이콘 SVG 한 곳·화면 코드 그림 문자 없음 시험
+        run: node --test tests/ui-icons.test.mjs
       - name: FILES-폴드나무목록 펼친 폴드 판정(공용 600px) 시험
         run: node --test tests/screen-width.test.mjs
       - name: S51-22 파일 나무 줄 ⋯ 그 자리 메뉴 항목·공용 줄 메뉴 시험
@@ -550,7 +554,7 @@ jobs:
         run: node --test tests/origin-redirect.test.mjs
 
       - name: Check library toggle tree model
-        run: node --test tests/library-tree.test.mjs tests/library-twins.test.mjs tests/library-folder-pick.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
+        run: node --test tests/library-tree.test.mjs tests/library-category-pick.test.mjs tests/library-twins.test.mjs tests/library-folder-pick.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
 
       - name: Check split-resize column math
         run: node --test tests/split-resize-math.test.mjs

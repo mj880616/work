@@ -331,7 +331,7 @@ test('정리 줄마다 설명(접혀도 보임)·대안 줄·[폴더 끄기]·�
   assert.ok(html.includes(JUNK_HELP.kakao) && html.includes(JUNK_HELP.telegram));
   // 설명은 summary 안(접혀도 보임).
   assert.match(html, /<summary><span>백업 안 됨 <b>3개 폴더<\/b> · 5장 · 일부만 2개<span class="photos-tidy-help">이 폴더 사진은 원드라이브에서 한 장도 못 찾았어요\./);
-  assert.match(html, /📁 P <span class="photos-tidy-num">원드라이브에 일부만 있음 1\/2장/);
+  assert.match(html, /<span class="photos-tidy-ico fl-ico" aria-hidden="true"><svg[^]*?<\/svg><\/span> P <span class="photos-tidy-num">원드라이브에 일부만 있음 1\/2장/);
   assert.match(html, /data-photos-tidy-off="Pictures\/Telegram\/">폴더 끄기<\/button>/);
   assert.doesNotMatch(t.html({canHide:false}), /data-photos-tidy-off/, '폴더 스위치 없는 앱이면 단추 없음');
   // 어디에 있나 칩마다 설명이 바뀐다.

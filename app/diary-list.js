@@ -16,6 +16,7 @@ import {odPhotos, odPhotoElement, odTakeWarmMonth} from './diary-onedrive.js';
 import {swipeIntent, swipeOffset, swipeSettle, swipeOpenOffset, swipeEdge} from './tg-day-model.mjs';
 import {createAnchoredMenu} from './anchored-menu.js';
 import { chevHtml } from './fold-chevron.mjs';
+import {iconHtml} from './tree-icons.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ALLOW = Object.freeze({start:1, end:1});
@@ -63,7 +64,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     const day = row.journal_day, photos = diaryPhotos(row), {title, line} = rowText(row, photos.length), pinned = !!diaryPinnedAt(row), star = !!diaryStarredAt(row);
     const open = state.swipe?.day === day ? ` data-side="${state.swipe.side}"` : '';
     const label = `${dayLabel(day)}${title ? ' ' + title : ''}${pinned ? ', 고정' : ''}${star ? ', 별표' : ''}`;
-    return `<div class="diary-lv-swipe" data-diary-lv-swipe="${esc(day)}"${open}><div class="diary-lv-acts diary-lv-acts-start"><button type="button" class="diary-lv-act" data-diary-lv-act="pin" tabindex="-1" aria-hidden="true">📌<span>${pinned ? '고정 풀기' : '고정'}</span></button></div><div class="diary-lv-acts diary-lv-acts-end"><button type="button" class="diary-lv-act" data-diary-lv-act="star" tabindex="-1" aria-hidden="true">★<span>${star ? '별표 풀기' : '별표'}</span></button></div>`
+    return `<div class="diary-lv-swipe" data-diary-lv-swipe="${esc(day)}"${open}><div class="diary-lv-acts diary-lv-acts-start"><button type="button" class="diary-lv-act" data-diary-lv-act="pin" tabindex="-1" aria-hidden="true">${iconHtml('pin')}<span>${pinned ? '고정 풀기' : '고정'}</span></button></div><div class="diary-lv-acts diary-lv-acts-end"><button type="button" class="diary-lv-act" data-diary-lv-act="star" tabindex="-1" aria-hidden="true">${iconHtml('star')}<span>${star ? '별표 풀기' : '별표'}</span></button></div>`
       + `<div class="diary-lv-row"><button type="button" class="diary-lv-open" data-diary-lv-open="${esc(day)}" aria-label="${esc(label)}"><span class="diary-lv-thumb" data-diary-lv-thumb="${esc(day)}" aria-hidden="true"></span><span class="diary-lv-text"><span class="diary-lv-top"><b>${esc(dayLabel(day))}</b>${title ? `<span class="diary-lv-title">${esc(title)}</span>` : ''}</span>${line ? `<span class="diary-lv-line">${esc(line)}</span>` : ''}</span></button>${markButtons(row)}</div></div>`;
   }
   function paint() {
@@ -76,7 +77,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     const empty = !list.total ? (state.query ? '맞는 일기 없음' : state.filter === 'star' ? '별표 일기 없음' : '없음') : '';
     note.textContent = state.note || (state.truncated ? '최근 일기 1,000편만 보여요.' : '');
     const parts = [];
-    if (list.pinned.length) parts.push(`<section class="diary-lv-group" aria-label="고정한 일기"><h4 class="diary-lv-head is-pin">📌 고정 <span>· ${list.pinned.length}</span></h4><div class="diary-lv-rows">${list.pinned.map(rowHtml).join('')}</div></section>`);
+    if (list.pinned.length) parts.push(`<section class="diary-lv-group" aria-label="고정한 일기"><h4 class="diary-lv-head is-pin">${iconHtml('pin')} 고정 <span>· ${list.pinned.length}</span></h4><div class="diary-lv-rows">${list.pinned.map(rowHtml).join('')}</div></section>`);
     for (const month of list.months) {
       parts.push(`<section class="diary-lv-group"><button type="button" class="diary-lv-head" data-diary-lv-month="${esc(month.key)}" aria-expanded="${month.open}">${esc(month.label)} <span>· ${month.count}</span>${chevHtml(month.open)}</button>${month.open ? `<div class="diary-lv-rows">${month.rows.map(rowHtml).join('')}</div>` : ''}</section>`);
     }
@@ -133,7 +134,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
   const menu = createAnchoredMenu({id:'diaryListMenu', className:'diary-lv-menu', label:'일기 메뉴', historyKey:'kptuDiaryListMenu', key:t => t.dataset.diaryLvMore,
     render:day => {
       const row = rowOf(day); if (!row) return '';
-      return `<button type="button" data-diary-lv-menu="open">열기</button><button type="button" data-diary-lv-menu="pin">${diaryPinnedAt(row) ? '📌 고정 풀기' : '📌 고정'}</button><button type="button" data-diary-lv-menu="star">${diaryStarredAt(row) ? '★ 별표 풀기' : '☆ 별표'}</button>`;
+      return `<button type="button" data-diary-lv-menu="open">열기</button><button type="button" data-diary-lv-menu="pin">${iconHtml('pin')} ${diaryPinnedAt(row) ? '고정 풀기' : '고정'}</button><button type="button" data-diary-lv-menu="star">${diaryStarredAt(row) ? '★ 별표 풀기' : '☆ 별표'}</button>`;
     },
     onAction:(button, {id}) => { const act = button.dataset.diaryLvMenu; if (act === 'open') onOpen(id); else if (act) toggleMark(id, act); }});
 

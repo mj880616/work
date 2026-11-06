@@ -44,7 +44,9 @@ test('세모 ▸는 접기 표시로 쓰지 않는다(폴더 나무 줄·하위 
 test('CSS 가상 요소로 세모 접기 표시를 그리지 않는다(고르기 ▾는 field-btn·계정 메뉴·UI-펼침표시만)', () => {
   const bad = hits(/content:\s*['"][^'"]*(▸|▴|\\25B8|\\25B4)/);
   assert.deepEqual(bad, []);
-  assert.deepEqual(hits(/content:\s*['"][^'"]*(▾|\\25BE)/, []).map(s => s.split(':')[0]).sort(), ['topbar-actions.css', 'ui-standard.css', 'ui-standard.css']);
+  // 고르기 창을 여는 버튼 뒤 ▾만: 계정 메뉴·field-btn·UI-펼침표시·자료실 [분류 ▾](S51-28).
+  const pickers = new Set(['topbar-actions.css', 'ui-standard.css', 'library-upload.css']);
+  assert.deepEqual(hits(/content:\s*['"][^'"]*(▾|\\25BE)/, []).map(s => s.split(':')[0]).filter(f => !pickers.has(f)), []);
 });
 
 test("'더보기 ▾'·'접기 ▴'·'펼치기 ▾' 같은 세모 붙은 접기 글자 없음", () => {
