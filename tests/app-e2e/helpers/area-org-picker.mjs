@@ -46,3 +46,13 @@ export async function pressName(page, name) {
   if (key === null) throw new Error('고르기 창에 없는 이름: ' + name);
   await pressRow(page, key);
 }
+// 창 안의 접힌 묶음(사업영역 상위·담당조직 묶음)을 모두 펼친다. sheet: 열린 고르기 창 locator.
+export async function openFolds(sheet) {
+  await expect(sheet).toBeVisible();
+  await sheet.locator('[data-sheet-content] [data-sheet-value]').first().waitFor({state: 'attached'});
+  for (let i = 0; i < 40; i++) {
+    const t = sheet.locator('[data-aop-toggle][aria-expanded="false"]').filter({visible: true}).first();
+    if (!(await t.count())) break;
+    await t.click();
+  }
+}

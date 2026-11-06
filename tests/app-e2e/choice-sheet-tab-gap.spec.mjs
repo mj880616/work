@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import {openFolds} from './helpers/area-org-picker.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, #1708 질문 5): while the write window is open on a phone the bottom tabs are hidden and
@@ -41,7 +42,7 @@ async function expectAboveTabs(page,sheet){
  const box=await sheet.boundingBox(),bar=await page.locator('.mobile-tabs').boundingBox();
  await expect(page.locator('.mobile-tabs')).toBeVisible();
  expect(Math.round(box.y+box.height)).toBe(Math.round(bar.y));
- for(const row of await sheet.locator('[data-sheet-value]').all()){const r=await row.boundingBox();expect(r.y+r.height).toBeLessThanOrEqual(bar.y);}
+ for(const row of await sheet.locator('[data-sheet-value]').filter({visible:true}).all()){const r=await row.boundingBox();expect(r.y+r.height).toBeLessThanOrEqual(bar.y);}
 }
 // The write window's own sheets: the tabs are hidden while the window is open, the sheet sits on the screen's end, every row on screen.
 async function expectAtScreenEnd(page,sheet){
@@ -125,6 +126,7 @@ test('다른 고르기 시트(홈 [업데이트 ▾] 조직)도 아래 탭 위�
  await expectAboveTabs(page,sheet);
  // UPD-여러곳고르기: a press on a row marks it and keeps the sheet open; [저장] (at the very bottom, just above the tabs) closes it.
  // The same spot pressed again after the sheet closed must not reach the tab under it.
+ await openFolds(sheet);
  const last=await sheet.getByRole('button',{name:names.at(-1),exact:true}).last().boundingBox();
  await touch(page,last.x+last.width/2,last.y+last.height/2);
  await expect(sheet).toBeVisible();await expect(sheet.getByRole('button',{name:names.at(-1),exact:true}).last()).toHaveAttribute('aria-pressed','true');

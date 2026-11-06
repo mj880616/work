@@ -20,23 +20,29 @@
 .aop-lines button:disabled { opacity:.5; cursor:not-allowed; }
 
 /* 고르기 창 안: 큰 묶음만 보이고 꺾쇠로 하위를 펼친다. 찾는 동안(.home-choice-searching)은 맞는 줄을 모두 보이고 꺾쇠는 감춘다. */
-.aop-sheet .aop-line { display:flex; align-items:center; gap:2px; }
-.aop-sheet .aop-line > .home-choice-pick { flex:1 1 auto; min-width:0; }
-.aop-sheet .aop-kids { display:none; }
-.aop-sheet .aop-node.is-open > .aop-kids, .aop-sheet.home-choice-searching .aop-kids { display:block; }
-.aop-sheet .aop-fold, .aop-sheet .aop-group-name { position:relative; display:inline-flex; align-items:center; gap:4px; flex:none; height:32px; padding:0 8px; border:0; border-radius:var(--ds-radius-control,8px); background:transparent; color:var(--kptu-muted); font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-regular,400); }
-.aop-sheet .aop-fold::after, .aop-sheet .aop-group-name::after { content:""; position:absolute; left:0; right:0; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
-.aop-sheet .aop-group-name { flex:1 1 auto; justify-content:flex-start; color:var(--kptu-ink); font-size:14px; text-align:left; }
-.aop-sheet .aop-group-name .aop-fold-n { margin-left:auto; }
-.aop-sheet .aop-fold-n { color:var(--kptu-faint); font-size:11px; }
-.aop-sheet .aop-fold-mark { display:inline-block; width:6px; height:6px; margin:0 2px 3px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; color:var(--kptu-muted); transform:rotate(45deg); }
-.aop-sheet [aria-expanded="true"] > .aop-fold-mark { margin-bottom:-3px; transform:rotate(225deg); }
-.aop-sheet .aop-fold:hover, .aop-sheet .aop-group-name:hover { background:var(--kptu-surface-subtle); }
-.aop-sheet .aop-group > .aop-kids { padding-left:12px; }
-.aop-sheet.home-choice-searching :is(.aop-fold, .aop-fold-n, .aop-fold-mark) { display:none; }
-.aop-sheet.home-choice-searching .aop-group-name { pointer-events:none; height:24px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
-.aop-sheet .aop-recent { padding-bottom:4px; margin-bottom:6px; border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
-.aop-sheet .aop-recent .home-choice-group { margin:6px 0; }
-.aop-sheet [data-aop-empty] { margin:8px 0; }
+.home-choice-sheet .aop-line { display:flex; align-items:center; gap:2px; }
+.home-choice-sheet .aop-line > .home-choice-pick { flex:1 1 auto; min-width:0; }
+.home-choice-sheet .aop-kids { display:none; }
+.home-choice-sheet .aop-node.is-open > .aop-kids, .home-choice-sheet.home-choice-searching .aop-kids { display:block; }
+.home-choice-sheet .aop-fold, .home-choice-sheet .aop-group-name { position:relative; display:inline-flex; align-items:center; gap:4px; flex:none; height:32px; padding:0 8px; border:0; border-radius:var(--ds-radius-control,8px); background:transparent; color:var(--kptu-muted); font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-regular,400); }
+.home-choice-sheet .aop-fold::after, .home-choice-sheet .aop-group-name::after { content:""; position:absolute; left:0; right:0; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
+.home-choice-sheet .aop-group-name { flex:1 1 auto; justify-content:flex-start; color:var(--kptu-ink); font-size:14px; text-align:left; }
+.home-choice-sheet .aop-group-name .aop-fold-n { margin-left:auto; }
+.home-choice-sheet .aop-fold-n { color:var(--kptu-faint); font-size:11px; }
+.home-choice-sheet .aop-fold-mark { display:inline-block; width:6px; height:6px; margin:0 2px 3px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; color:var(--kptu-muted); transform:rotate(45deg); }
+.home-choice-sheet [aria-expanded="true"] > .aop-fold-mark { margin-bottom:-3px; transform:rotate(225deg); }
+.home-choice-sheet .aop-fold:hover, .home-choice-sheet .aop-group-name:hover { background:var(--kptu-surface-subtle); }
+.home-choice-sheet .aop-group > .aop-kids { padding-left:12px; }
+.home-choice-sheet.home-choice-searching :is(.aop-fold, .aop-fold-n, .aop-fold-mark) { display:none; }
+.home-choice-sheet.home-choice-searching .aop-group-name { pointer-events:none; height:24px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+.home-choice-sheet .aop-recent { padding-bottom:4px; margin-bottom:6px; border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
+.home-choice-sheet .aop-recent .home-choice-group { margin:6px 0; }
+.home-choice-sheet [data-aop-empty] { margin:8px 0; }
 /* 찾기 칸은 폰(아래 창)에서도 보인다(choice-sheet.js searchAlways). */
 .home-choice-sheet.home-choice-search-all .home-choice-search-box { display:block; }
+/* 조직 줄은 이름을 자르지 않고 줄을 바꾼다. 폰 44px, PC 목록 32px(choice-sheet.css 조직 줄과 같은 기준).
+   넓은 PC '기록할 곳' 창(home-choice-split)의 담당조직 두 단에서 한 묶음은 한 단 안에 둔다. */
+.home-choice-sheet :is(.aop-org-items, .aop-org) .home-choice-pick { height:auto; min-height:var(--kptu-touch-target,44px); white-space:normal; overflow:visible; text-overflow:clip; }
+.home-choice-sheet :is(.aop-org-items, .aop-org) .home-choice-pick .home-choice-name { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.home-choice-sheet.home-choice-anchored :is(.aop-org-items, .aop-org) .home-choice-pick { min-height:32px; padding-top:4px; padding-bottom:4px; line-height:20px; }
+.home-choice-sheet.home-choice-split [data-sheet-all] .aop-node { break-inside:avoid; }

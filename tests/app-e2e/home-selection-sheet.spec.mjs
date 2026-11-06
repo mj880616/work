@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {openFolds} from './helpers/area-org-picker.mjs';
 import {openHome,createdTaskReply} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const q=page=>page.locator('#homeView [data-home-quick]');
@@ -10,11 +11,13 @@ async function orgs(page){
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[5,1,0].map(i=>({organization_id:String(i),occurred_at:'2026-10-06'}))}));
  await page.reload();await q(page).locator('[data-quick-mode="update"]').click();await q(page).locator('[data-quick-input]').fill('QA');
  await q(page).locator('[data-quick-org]').click();await expect(sheet(page)).toBeVisible();
+ // S52-01 ②: 담당조직은 접힌 묶음 — 줄을 보려면 펼친다.
+ await openFolds(sheet(page));
 }
 for(const width of [390,1440])test(`organization rows fit, preserve order and non-overlapping targets at ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:844});await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();await orgs(page);
  await sheet(page).evaluate(async dialog=>{await Promise.all(dialog.getAnimations().map(animation=>animation.finished));});
- const recent=sheet(page).locator('[data-sheet-recent] button'),all=sheet(page).locator('[data-sheet-all] button');
+ const recent=sheet(page).locator('[data-sheet-recent] button'),all=sheet(page).locator('[data-sheet-all] [data-sheet-value]');
  await expect(recent).toHaveCount(3);await expect(all).toHaveCount(13);
  expect(await all.allTextContents()).toEqual(names);
  // UPD-여러곳고르기 ①: organizations are one per line under their group heading, each with a check box (phone and PC). The list
@@ -32,10 +35,10 @@ for(const width of [390,1440])test(`organization rows fit, preserve order and no
  await expect(all.first().locator('.home-choice-check')).toBeVisible();
  const rows=await all.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left};}));
  // Within a group the rows share one left edge and never overlap (a wide PC flows the groups into two columns, UI-기록할곳창PC).
- const byGroup=await sheet(page).locator('[data-sheet-all] .home-choice-org-items').evaluateAll(gs=>gs.map(g=>[...g.querySelectorAll('[data-sheet-value]')].map(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left};})));
+ const byGroup=await sheet(page).locator('[data-sheet-all] .aop-kids').evaluateAll(gs=>gs.map(g=>[...g.querySelectorAll('[data-sheet-value]')].map(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left};})));
  for(const g of byGroup)for(let i=1;i<g.length;i++){expect(g[i].top).toBeGreaterThanOrEqual(g[i-1].bottom-.5);expect(g[i].left).toBe(g[0].left);}
  expect(rows.length).toBe(13);
- await expect(sheet(page).locator('[data-sheet-all] .home-choice-group-name')).toHaveText(['철도','지하철','민자철도','민간도시철도']);
+ await expect(sheet(page).locator('[data-sheet-all] .aop-group-label')).toHaveText(['철도','지하철','민자철도','민간도시철도']);
  // The 최근 chips keep separate pressing ranges.
  const targets=await sheet(page).locator('.home-choice-chip').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el,'::after'),h=parseFloat(s.height),w=parseFloat(s.width);return {left:r.left+1+parseFloat(s.left),right:r.left+1+parseFloat(s.left)+w,top:r.top+r.height/2-h/2,bottom:r.top+r.height/2+h/2};}));
  for(let i=0;i<targets.length;i++)for(let j=i+1;j<targets.length;j++){const a=targets[i],b=targets[j];expect(Math.max(a.left,b.left)>=Math.min(a.right,b.right)-.1||Math.max(a.top,b.top)>=Math.min(a.bottom,b.bottom)-.1).toBe(true);}

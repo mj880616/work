@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-import { SHEET, openPicker, pressRow } from './helpers/area-org-picker.mjs';
+import { SHEET, openPicker, pressRow, openFolds } from './helpers/area-org-picker.mjs';
 // UI-고르기창개선 (PC만, 폰 그대로). A: 담당조직 고르기는 묶음별 줄(왼쪽 묶음 이름, 오른쪽 낮은 칩) + 맨 위 검색칸, 고른 칩은 초록 + ✓,
 // 조직 이름은 전체 그대로. 묶음 순서는 철도 / 지하철 / 민자철도 / 민간도시철도, 묶음에 없는 조직은 맨 아래 "그 외".
 // B: 프로젝트 고르기는 한 줄에 하나 + 검색칸, 하위는 들여쓰기·흐린 글자("↳" 없음), 작은 체크칸, 고른 줄은 연한 초록, 줄 전체 누름.
@@ -20,6 +20,8 @@ async function homeOrgSheet(page,width,names){
  await page.setViewportSize({width,height:900});await openHome(page);await orgRoutes(page,names);await page.reload();
  const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').fill('QA');
  const trigger=q.locator('[data-quick-org]');await trigger.click();const sheet=dialog(page);await expect(sheet).toBeVisible();
+ // S52-01 ②: 담당조직·사업영역은 접힌 묶음(같은 고르기 창 목록) — 줄을 보려면 펼친다.
+ await openFolds(sheet);
  return {q,trigger,sheet};
 }
 // The extra projects are served by the network as well (a later catalog reload must not drop them).
@@ -42,12 +44,12 @@ test('PC 담당조직: 묶음 소제목 아래 한 줄에 하나(체크칸), 그
  const {d,gap}=await below(trigger,sheet);expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThanOrEqual(12);
  // UI-기록할곳창PC: at 1280 the 기록할 곳 sheet is the wide split list (organizations left, projects right), up to 880px.
  await expect(sheet).toHaveClass(/home-choice-split/);expect(d.width).toBeLessThanOrEqual(880);
- const groups=sheet.locator('[data-sheet-all] [data-sheet-group]');
- await expect(groups.locator('.home-choice-group-name')).toHaveText(['철도','지하철','민자철도','민간도시철도','그 외']);
+ const groups=sheet.locator('[data-sheet-all] .aop-group');
+ await expect(groups.locator('.aop-group-label')).toHaveText(['철도','지하철','민자철도','민간도시철도','그 외']);
  expect(await groups.evaluateAll(gs=>gs.map(g=>[...g.querySelectorAll('[data-sheet-value]')].map(b=>b.textContent)))).toEqual([NAMES.slice(0,1),NAMES.slice(1,5),NAMES.slice(5,9),NAMES.slice(9,13),[LONG]]);
  // Each group: the heading above, then its organizations one per line (same left edge), each with a check box.
  for(const g of await groups.all()){
-  const name=await g.locator('.home-choice-group-name').boundingBox(),rows=await g.locator('[data-sheet-value]').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:r.left,top:r.top,bottom:r.bottom};}));
+  const name=await g.locator(':scope > .aop-line').boundingBox(),rows=await g.locator('[data-sheet-value]').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:r.left,top:r.top,bottom:r.bottom};}));
   expect(name.y+name.height).toBeLessThanOrEqual(rows[0].top+1);
   for(let i=1;i<rows.length;i++){expect(rows[i].x).toBe(rows[0].x);expect(rows[i].top).toBeGreaterThanOrEqual(rows[i-1].bottom-.5);}
  }
@@ -73,25 +75,25 @@ test('PC 담당조직: 검색칸이 이름으로 거르고 빈 묶음은 숨김,
  expect(await box.evaluate(el=>!el.closest('[data-sheet-content]'))).toBe(true);
  await box.fill('9호선');
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveText(['메트로9호선노동조합','서울교통공사9호선지부']);
- await expect(sheet.locator('[data-sheet-all] [data-sheet-group]:visible .home-choice-group-name')).toHaveText(['민간도시철도']);
+ await expect(sheet.locator('[data-sheet-all] .aop-group:visible .aop-group-label')).toHaveText(['민간도시철도']);
  await expect(sheet.locator('[data-sheet-recent]')).toBeHidden();await expect(sheet.locator('[data-sheet-projects] [data-sheet-value]:visible')).toHaveCount(0);
  await box.fill('서울 교통');
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveText(['서울교통공사노동조합','서울교통공사9호선지부']);
  await box.fill('자식');
- await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(0);await expect(sheet.locator('[data-sheet-projects] [data-sheet-value]:visible')).toHaveText(['자식 프로젝트']);
+ await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(0);await expect(sheet.locator('[data-sheet-projects] [data-sheet-value]:visible .home-choice-name')).toHaveText(['자식 프로젝트']);
  await box.fill('없는 이름');await expect(sheet.locator('[data-sheet-empty][data-wait-empty]')).toBeVisible();await expect(sheet.locator('[data-sheet-empty]')).toHaveText('맞는 항목 없음');
  await box.fill('');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);await expect(sheet.locator('[data-sheet-empty][data-wait-empty]')).toBeHidden();
  // ↓ goes from the box to the first choice shown; Enter marks it and [저장] closes the list.
  await box.fill('공항');await box.press('ArrowDown');const first=sheet.locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true});await expect(first).toBeFocused();
  await page.keyboard.press('Enter');await expect(first).toHaveAttribute('aria-pressed','true');await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();await expect(quick(page).locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 공항철도지부');
  // Opening again starts with an empty box and every choice.
- await quick(page).locator('[data-quick-org]').click();await expect(box).toHaveValue('');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);
+ await quick(page).locator('[data-quick-org]').click();await expect(box).toHaveValue('');await openFolds(sheet);await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);
 });
 
 test('묶음 값이 없을 때(묶음에 든 조직이 없음): 지금처럼 한 묶음 + 검색, 묶음 이름 없음',async({page})=>{
  const names=['합성 가지부','합성 나지부','합성 다지부'];
  const {sheet}=await homeOrgSheet(page,1280,names);
- await expect(sheet.locator('[data-sheet-all] .home-choice-org-group')).toHaveCount(1);await expect(sheet.locator('[data-sheet-all] .home-choice-group-name')).toHaveCount(0);
+ await expect(sheet.locator('[data-sheet-all] .aop-group')).toHaveCount(0);await expect(sheet.locator('[data-sheet-all] .aop-group-label')).toHaveCount(0);
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]')).toHaveText(names);
  await sheet.getByRole('searchbox').fill('나');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveText(['합성 나지부']);
 });
@@ -130,20 +132,20 @@ test('PC 프로젝트: 한 줄에 하나, 하위는 들여쓰기·흐린 글자(
 
 // UPD-여러곳고르기: the phone sheet has the same list as a PC (group headings, one organization per 44px line, check boxes on every
 // row, since many can be chosen) with [취소] [저장] fixed at the bottom; still no search box.
-test('폰: 아래에서 올라오는 시트, 검색칸 없음, 묶음 소제목 + 조직 줄 44px, 체크칸, 아래 [취소] [저장]',async({page})=>{
+test('폰: 아래에서 올라오는 시트, 찾기 칸, 묶음 이름 + 조직 줄 44px, 체크칸, 아래 [취소] [저장]',async({page})=>{
  const {sheet}=await homeOrgSheet(page,390,NAMES);
  await expect(sheet).not.toHaveClass(/home-choice-anchored/);
- await expect(sheet.getByRole('searchbox')).toBeHidden();await expect(sheet.locator('[data-sheet-all] .home-choice-group-name')).toHaveText(['철도','지하철','민자철도','민간도시철도']);
+ /* S52-01 ②: 폰도 찾기 칸 */await expect(sheet.getByRole('searchbox')).toBeVisible();await expect(sheet.locator('[data-sheet-all] .aop-group-label')).toHaveText(['철도','지하철','민자철도','민간도시철도']);
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]').first()).toHaveCSS('min-height','44px');
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]')).toHaveText(NAMES);
  const row=sheet.locator('[data-sheet-projects] [data-sheet-value]').first();await expect(row).toHaveCSS('height','44px');
  await expect(row.locator('.home-choice-check')).toBeVisible();
  await expect(sheet.getByRole('button',{name:'저장',exact:true})).toBeVisible();
- // A box typed in on a PC and then shrunk to a phone does not keep filtering.
+ // S52-01 ②: 찾기 칸은 폰에도 있어, PC에서 쓴 글자가 폰 폭으로 줄여도 그대로 거른다.
  await page.keyboard.press('Escape');await page.setViewportSize({width:1280,height:900});await quick(page).locator('[data-quick-org]').click();
  await sheet.getByRole('searchbox').fill('9호선');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(2);
  await page.setViewportSize({width:390,height:844});await expect(sheet).not.toHaveClass(/home-choice-anchored/);
- await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);
+ await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(2);
 });
 
 // S52-01 UI-사업영역조직고르기창: 할 일 연결은 '사업영역'·'조직' 두 줄 + 누르면 고르기 창. 창 안 모양은 위 고르기 창과 같다:

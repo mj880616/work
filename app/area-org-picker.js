@@ -7,7 +7,7 @@
 // '자주 쓴 것'은 이미 저장된 연결(app_record_links, 작업공간 주인 RLS)에서 센다(loadUsedKeys). 기기에는 아무것도 저장하지 않는다.
 // S52-01 ② 전수: 하나만 고르는 곳(빠른 입력·일정 추가 [할 일] 사업영역 등)은 같은 창을 여러 개 고르기 없이 연다(openAreaOrgPicker
 // multi:false: 줄을 누르면 바로 고르고 닫힘, none으로 '없음' 줄). 다른 창 안에 같은 접는 목록을 그리는 곳(업데이트 '기록할 곳')은
-// areaListHtml·orgListHtml·openKeysFor·bindFolds와 그 창에 붙이는 FOLD_SHEET_CLASS로 같은 모양·같은 펼침·같은 찾기를 쓴다.
+// areaListHtml·orgListHtml·openKeysFor로 같은 모양·같은 찾기를 쓴다(꺾쇠 펼침은 모든 고르기 창이 한다: choice-sheet.js).
 import {createChoiceSheet} from './choice-sheet.js';
 import {emptyHtml} from './wait-state.js';
 
@@ -16,13 +16,12 @@ const KINDS={area:{label:'사업영역',title:'사업영역 고르기'},org:{lab
 const RECENT_MAX=4;
 // The first row of a one-choice sheet that picks nothing ('사업영역 없음' / '조직 없음').
 const noneLabel=kind=>`${KINDS[kind].label} 없음`;
-// A choice sheet carrying this class folds its lists (area-org-picker.css): only the big groups show, a chevron opens one.
-export const FOLD_SHEET_CLASS='aop-sheet';
 let sheet=null,current=null;
 // The sheet's look (choice-sheet.css) and this file's (area-org-picker.css) are put in once, whatever screen mounts the lines
 // (a screen's own list may have them already: matched by file name).
 const STYLES=['./choice-sheet.css','./area-org-picker.css'];
 export function ensureStyles(){
+  if(typeof document==='undefined')return;
   const have=new Set([...document.querySelectorAll('link[rel="stylesheet"]')].map(l=>(l.getAttribute('href')||'').split('?')[0].split('/').at(-1)));
   for(const path of STYLES){if(have.has(path.split('/').at(-1)))continue;const link=document.createElement('link');link.rel='stylesheet';link.href=path;link.dataset.kptuViewStyle='1';document.head.append(link)}
 }
@@ -61,7 +60,7 @@ export function loadUsedKeys(rt,workspaceId){
   return usedCache.get(workspaceId);
 }
 export function forgetUsedKeys(){usedCache.clear()}
-['kptu:google-tasks-changed','kptu:basket-links-changed'].forEach(n=>window.addEventListener(n,forgetUsedKeys));
+if(typeof window!=='undefined')['kptu:google-tasks-changed','kptu:basket-links-changed'].forEach(n=>window.addEventListener(n,forgetUsedKeys));
 
 const check='<span class="home-choice-check" aria-hidden="true"></span>';
 const rowHtml=(key,name,depth,{path='',pressed=false}={})=>`<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:${depth}" data-depth="${depth}" data-sheet-value="${esc(key)}"${path?` data-sheet-path="${esc(path)}"`:''} aria-pressed="${!!pressed}" title="${esc(name)}">${check}<span class="home-choice-name">${esc(name)}</span></button>`;
@@ -78,9 +77,9 @@ export function areaListHtml(tree,{open=new Set(),pressed=()=>false}={}){return 
 // organization falls in a named group (only the "그 외" tail) the organizations are plain rows. groups: [[{key,name,group}]].
 export function orgListHtml(groups,{open=new Set(),pressed=()=>false}={}){
   const list=(groups||[]).filter(g=>g?.length),named=list.length>1||!!(list[0]?.[0]?.group&&list[0][0].group!==window.KPTUOrganizationOrder?.GROUP_NAMES?.at(-1));
-  if(!named)return list.flat().map(o=>`<div class="aop-node" data-sheet-section><div class="aop-line">${rowHtml(o.key,o.name,0,{pressed:pressed(o.key)})}</div></div>`).join('');
+  if(!named)return list.flat().map(o=>`<div class="aop-node aop-org" data-sheet-section><div class="aop-line">${rowHtml(o.key,o.name,0,{pressed:pressed(o.key)})}</div></div>`).join('');
   return list.map((g,i)=>{const name=g[0].group||'그 외',id='g'+i,isOpen=open.has(id);
-    return `<div class="aop-node aop-group${isOpen?' is-open':''}" data-sheet-section data-aop-group="${id}"><div class="aop-line"><button type="button" class="aop-group-name" data-aop-toggle aria-expanded="${isOpen}">${esc(name)}<span class="aop-fold-n">${g.length}</span><span class="aop-fold-mark" aria-hidden="true"></span></button></div><div class="aop-kids">${g.map(o=>rowHtml(o.key,o.name,0,{pressed:pressed(o.key)})).join('')}</div></div>`}).join('');
+    return `<div class="aop-node aop-group${isOpen?' is-open':''}" data-sheet-section data-aop-group="${id}"><div class="aop-line"><button type="button" class="aop-group-name" data-aop-toggle aria-expanded="${isOpen}"><span class="aop-group-label">${esc(name)}</span><span class="aop-fold-n">${g.length}</span><span class="aop-fold-mark" aria-hidden="true"></span></button></div><div class="aop-kids aop-org-items">${g.map(o=>rowHtml(o.key,o.name,0,{pressed:pressed(o.key)})).join('')}</div></div>`}).join('');
 }
 // Which areas and organization groups start open: the ones holding a chosen key.
 export function openKeysFor(tree,groups,keys){
@@ -89,12 +88,6 @@ export function openKeysFor(tree,groups,keys){
   (groups||[]).filter(g=>g?.length).forEach((g,i)=>{if(g.some(o=>chosen.has(String(o.key))))open.add('g'+i)});
   return open;
 }
-// A chevron (or a group's name) opens or closes its block. Bound once per sheet element.
-export function bindFolds(el){
-  if(!el||el.dataset.aopFolds)return;el.dataset.aopFolds='1';el.classList.add(FOLD_SHEET_CLASS);
-  el.addEventListener('click',e=>{const b=e.target.closest('[data-aop-toggle]');if(!b||!el.contains(b))return;const node=b.closest('.aop-node'),open=!node.classList.contains('is-open');node.classList.toggle('is-open',open);b.setAttribute('aria-expanded',String(open));const lbl=b.getAttribute('aria-label');if(lbl)b.setAttribute('aria-label',lbl.replace(/(접기|펼치기)$/,open?'접기':'펼치기'))});
-}
-
 // What the open sheet shows: current = {kind, multi, none, pending:Set, tree, orgGroups, areaKnown, orgKnown, used, host, commit(set)}.
 function render(kind){
   const c=current,t=KINDS[kind];if(!c)return {title:t.title,html:''};
@@ -117,7 +110,6 @@ function ensureSheet(){
       if(c.pending.has(value))c.pending.delete(value);else c.pending.add(value)},
     multi:kind=>current?.multi?{pressed:v=>current.pending.has(v),label:current.pending.size?`${current.pending.size}개 고름`:''}:null,
     onCommit:kind=>{const c=current;if(c?.multi)c.commit(c.pending)}});
-  bindFolds(document.getElementById('areaOrgPickSheet'));
   return sheet;
 }
 function choiceState({areas=[],orgGroups=[],used=[]}){
