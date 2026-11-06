@@ -150,8 +150,14 @@ const jobsSeen = new Set();
 let state = fresh(), syncTimer = 0, layer = null, entering = null, jobTimer = 0, jobsLayer = null;
 // 지금 칸 · 두 칸인가(폰은 늘 한 칸) · 그려지는 칸들 · 반대 칸 · 칸 번호.
 const P = () => state.panes[state.cur];
-const twoPref = () => twoOn(viewPrefs.getFilesTwo?.(DEVICE), twoLayout(WIDE.matches));
-const two = () => !PHONE.matches && twoPref();
+// S51-20 ②: 폰(600px 미만)도 [두 칸 보기] — 위·아래 두 칸(시안 files-phone-grid-two-drag.html ②). 켬은 files_two의 narrow 칸.
+const twoPref = () => twoOn(viewPrefs.getFilesTwo?.(DEVICE), twoLayout(WIDE.matches, PHONE.matches));
+const two = () => twoPref();
+// 폰 한 칸(나무 화면 ⇄ 폴더 목록, 뒤로가기 = 한 단계 위·나무). 폰 두 칸은 폴드 두 칸처럼 칸마다 ▾ 나무.
+const solo = () => PHONE.matches && !two();
+// 칸 이름: 폰 두 칸은 위·아래, 그 밖은 왼쪽·오른쪽.
+const VERT = () => PHONE.matches && two();
+const side = i => paneSide(i, VERT());
 const panesOn = () => (two() ? state.panes : [state.panes[0]]);
 const idxOf = p => state.panes.indexOf(p);
 const otherOf = p => state.panes[idxOf(p) ^ 1];
@@ -332,7 +338,7 @@ const starCount = rows => { const list = Array.isArray(rows) ? rows : []; return
 const RECENT_BOX = 5, RECENT_BOX_MORE = 15;
 async function loadRecent() {
   const scope = state.scope, on = cloudOn();
-  if (!on.length || !PHONE.matches) { state.recent = null; return; }
+  if (!on.length || !solo()) { state.recent = null; return; }
   try {
     const rows = await rpc('app_cloud_find_in', {p_sources: on, p_query: null, p_shelf: 'recent', p_limit: RECENT_BOX_MORE});
     if (state.scope !== scope) return;
@@ -354,7 +360,7 @@ async function loadStars() {
 // 폰: 칸 0이 목록(폴더·별표·큰 파일)이면 뒤로가기 자리 하나(layer 'files-list'). 뒤로가기 = 한 단계 위 폴더(자리는 그대로), 맨 위 목록이면 나무로(자리 닫힘).
 let listLayer = null;
 function listLayerOpen() {
-  if (!PHONE.matches || listLayer || state.panes[0].pane !== 'list') return;
+  if (!solo() || listLayer || state.panes[0].pane !== 'list') return;
   listLayer = window.KPTURouter?.layer?.open('files-list', {
     reopen: () => { const p = state.panes[0]; if (p.where) { p.pane = 'list'; window.KPTURouter?.setPlace?.('files', {at: null, shelf: null, ...placeOf(p.where)}); paint(); } },
     close: () => {
@@ -446,11 +452,11 @@ function shown(p) {
   return folders.length > 1 ? [...folderLook.sort(p.where.source, folders, r => r.item_id), ...rows.filter(r => !r.is_folder)] : rows;
 }
 // 폰 첫 화면은 나무(pane 'tree'), 폴더·별표를 누르면 목록(pane 'list'). 찾는 중이면 늘 목록. PC·폴드는 CSS가 둘 다 보인다.
-const treePane = () => PHONE.matches && state.panes[0].pane === 'tree' && !state.panes[0].query;
+const treePane = () => solo() && state.panes[0].pane === 'tree' && !state.panes[0].query;
 // 칸 1(오른쪽)의 자리는 두 칸일 때만 있다(한 칸이면 지움 — 숨김이 아니라 없음). 그리기 주인은 paint 하나.
 function ensurePanes() {
   const on = two(), main = $('[data-fx-main]');
-  root.dataset.fxTwo = on ? (WIDE.matches ? 'wide' : 'fold') : '';
+  root.dataset.fxTwo = on ? (WIDE.matches ? 'wide' : PHONE.matches ? 'phone' : 'fold') : '';
   if (!on) delete root.dataset.fxTwo;
   let el = root.querySelector('[data-fx-pane-i="1"]');
   if (on && !el && main) { main.querySelector('[data-fx-pane-i="0"]')?.insertAdjacentHTML('afterend', paneHtml(1)); el = root.querySelector('[data-fx-pane-i="1"]'); }
@@ -476,7 +482,7 @@ function crumbHtml(p) {
   // S50-33: 폰 나무 화면에는 위치 줄이 없다(중복 제목 '폴더' 뺌). 폰 목록은 맨 위에서도 ‹ 가 나무로 돌아온다.
   if (p === state.panes[0] && treePane()) return '';
   if (!w) return '';
-  const back = PHONE.matches && p === state.panes[0];
+  const back = solo() && p === state.panes[0];
   if (w.shelf) return (back ? '<button type="button" class="fx-up" data-fx-up aria-label="폴더 나무">‹</button>' : '') + `<span class="fx-crumb-now">${esc(SHELF_NAME[w.shelf])}</span>`;
   const names = trailNames(w.source, p.trail), ids = [null, ...trailIds(p.trail)];
   let html = names.map((n, i) => i === names.length - 1
@@ -485,7 +491,7 @@ function crumbHtml(p) {
   if (names.length > 1 || back) html = `<button type="button" class="fx-up" data-fx-up aria-label="${names.length > 1 ? '위 폴더' : '폴더 나무'}">‹</button>` + html;
   return html;
 }
-const sortHtml = p => `<select class="fx-sort" data-fx-sort aria-label="${p ? paneSide(idxOf(p)) + ' 칸 ' : ''}정렬">${SORTS.map(k => `<option value="${k}"${p?.sort === k ? ' selected' : ''}>${SORT_NAME[k]}</option>`).join('')}</select>`;
+const sortHtml = p => `<select class="fx-sort" data-fx-sort aria-label="${p ? side(idxOf(p)) + ' 칸 ' : ''}정렬">${SORTS.map(k => `<option value="${k}"${p?.sort === k ? ' selected' : ''}>${SORT_NAME[k]}</option>`).join('')}</select>`;
 // 칸 위 줄(두 칸일 때만): 폴드는 ▾(그 칸 위로 나무) + 위치 줄 + 정렬, PC는 위치 줄 + 정렬(나무는 왼쪽 그대로).
 function paintPaneTop(p) {
   const top = inPane(p, '[data-fx-ptop]'), pt = inPane(p, '[data-fx-ptree]');
@@ -493,8 +499,8 @@ function paintPaneTop(p) {
   if (!two()) { top.hidden = true; top.innerHTML = ''; if (pt) { pt.hidden = true; pt.innerHTML = ''; } return; }
   top.hidden = false;
   const fold = !WIDE.matches, i = idxOf(p);
-  top.innerHTML = (fold ? `<button type="button" class="mini fx-pdrop" data-fx-pdrop aria-expanded="${p.drop}" aria-label="${paneSide(i)} 칸 폴더 나무">▾</button>` : '')
-    + `<nav class="fx-crumb" aria-label="${paneSide(i)} 칸 위치">${crumbHtml(p)}</nav>${sortHtml(p)}`;
+  top.innerHTML = (fold ? `<button type="button" class="mini fx-pdrop" data-fx-pdrop aria-expanded="${p.drop}" aria-label="${side(i)} 칸 폴더 나무">▾</button>` : '')
+    + `<nav class="fx-crumb" aria-label="${side(i)} 칸 위치">${crumbHtml(p)}</nav>${sortHtml(p)}`;
   paintPaneTree(p);
 }
 function paintPaneTree(p) {
@@ -521,7 +527,7 @@ function paintTop() {
     s.textContent = sn.label.text; s.title = sn.label.title; s.dataset.fxSyncState = sn.label.state;
     s.disabled = state.syncing;
     s.setAttribute('aria-busy', String(state.syncing || sn.scanning));
-    s.hidden = !sn.shown || (PHONE.matches && !s.closest('.nx-row, .ft-box-head'));
+    s.hidden = !sn.shown || (solo() && !s.closest('.nx-row, .ft-box-head'));
   }
   // UI-로딩자리전수: 맞추는 동안의 두 번째 글자('맞추는 중')는 없다. 목록 칸 맨 위 가는 줄(공용 부품) 하나로만 알린다.
   for (const q of panesOn()) {
@@ -536,7 +542,7 @@ function paintTop() {
   if (upb) { upb.hidden = !folderHere; upb.disabled = !!state.busy || !!state.ask; }
   const tw = $('[data-fx-two]');
   // S50-20 FILES-두칸버튼글자: 글자가 누르면 될 상태를 말한다(한 칸이면 '두 칸 보기', 두 칸이면 '한 칸 보기'). 색으로 켜짐을 따로 보이지 않는다.
-  if (tw) { tw.hidden = PHONE.matches; const t = twoNow ? '한 칸 보기' : '두 칸 보기'; if (tw.textContent !== t) tw.textContent = t; tw.title = twoNow ? '한 칸으로 보기' : '두 칸으로 보기'; tw.removeAttribute('aria-pressed'); }
+  if (tw) { tw.hidden = false; const t = twoNow ? '한 칸 보기' : '두 칸 보기'; if (tw.textContent !== t) tw.textContent = t; tw.title = twoNow ? '한 칸으로 보기' : '두 칸으로 보기'; tw.removeAttribute('aria-pressed'); }
   paintSrcs();
   const note = $('[data-fx-note]');
   if (note) {
@@ -633,7 +639,7 @@ function sourcesChanged() {
   for (const p of panesOn()) {
     const w = p.where;
     if (w?.source && !on.includes(w.source)) { goHome(p); painted = true; }
-    else if (!w && !(PHONE.matches && p === state.panes[0])) { goHome(p); painted = true; }
+    else if (!w && !(solo() && p === state.panes[0])) { goHome(p); painted = true; }
     else if (w?.shelf) loadList(p);
     // 찾는 중이면 켜진 출처로 다시 찾는다(서버가 거름).
     if (p.query) find(p, p.query);
@@ -644,7 +650,7 @@ function sourcesChanged() {
 }
 // 첫 화면: 폰 칸 0은 나무, 그 밖(PC·폴드·오른쪽 칸)은 켜진 첫 저장소 맨 위(없으면 빈 칸).
 function goHome(p) {
-  if (PHONE.matches && p === state.panes[0]) {
+  if (solo() && p === state.panes[0]) {
     p.where = null; p.rows = []; p.loaded = false; p.failed = ''; p.trail = [];
     toTree({release: true});
     return;
@@ -690,7 +696,7 @@ function paintMainTree() {
   // (PC·폴드는 목록 칸이 같은 것을 보인다 — 폰 나무 화면에서는 목록 칸이 없으므로 나무 칸이 대신 보인다).
   if (treePane() && !state.status) { tree.innerHTML = state.statusFailed ? failHtml({retry: 'data-fx-retry', text: errorText(state.statusFailed), reason: state.statusWhy}) : waitHtml({rows: 4}); return; }
   if (nothingOn() && treePane()) { tree.innerHTML = emptyHtml(SOURCES_OFF_TEXT); return; }
-  tree.innerHTML = PHONE.matches && treePane() ? phoneTreeHtml() : treeHtml(P(), {sync: PHONE.matches});
+  tree.innerHTML = treePane() ? phoneTreeHtml() : treeHtml(P(), {sync: PHONE.matches});
 }
 // ---------- FOLDER-나무새기준 ②(S51-12): 폰 나무 = '최근' 상자 + 묶음(별표·큰 파일) + 저장소마다 상자 ----------
 // 폴더를 누르면 화면이 바뀌지 않고 그 자리에서 하위 폴더·파일까지 펼침(처음 5개 + 'n개 더 보기'), 상자 머리를 누르면 그 저장소 접기.
@@ -742,7 +748,7 @@ function phoneTreeHtml() {
 }
 // 두 손가락 벌리기 → 그 폴더만(폴더 목록 화면). 돌아올 자리(화면 위치)를 기억해 두고, [‹]·뒤로 키·오므리기는 한 단계 위가 아니라 나무로.
 function focusTreeFolder(key) {
-  if (!PHONE.matches || !treePane() || !key || key === 'recent' || key === 'shelves') return;
+  if (!treePane() || !key || key === 'recent' || key === 'shelves') return;
   const [source, ...rest] = key.split(':'), id = rest.join(':') || null;
   state.treeBack = {y: window.scrollY, key};
   state.open.add(key);
@@ -897,7 +903,7 @@ function paintList(p) {
   }
   const w = p.where;
   // 폰 첫 화면(나무)은 목록 칸을 보이지 않으므로 빈 칸(회색 줄을 숨겨 두지 않음).
-  if (!w) { list.innerHTML = state.status && !anyLinked() ? emptyHtml('연결된 클라우드 없음') : PHONE.matches && treePane() ? '' : waitHtml({rows: 4}); return; }
+  if (!w) { list.innerHTML = state.status && !anyLinked() ? emptyHtml('연결된 클라우드 없음') : treePane() ? '' : waitHtml({rows: 4}); return; }
   if (p.failed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(p.failed), reason: p.failedWhy}); return; }
   if (!p.loaded) { list.innerHTML = waitHtml({rows: 4}); return; }
   const rows = shown(p);
@@ -1199,7 +1205,7 @@ function paintBar() {
   if (hasPhone(pickedRows(p))) {
     const i = state.cur, dest = two() ? oppDest() : null, ok = dest && dest.source !== PH;
     bar.innerHTML = `<span class="fx-bar-t">${n}개 · ${esc(SOURCE_NAME[PH])}</span>`
-      + (two() ? `<button type="button" class="fx-btn" data-fx-send="copy"${ok ? '' : ` disabled title="${esc(paneSide(i ^ 1))} 칸에서 받을 클라우드 폴더를 여세요"`}>${esc(sendLabel(i, 'copy'))}</button>`
+      + (two() ? `<button type="button" class="fx-btn" data-fx-send="copy"${ok ? '' : ` disabled title="${esc(side(i ^ 1))} 칸에서 받을 클라우드 폴더를 여세요"`}>${esc(sendLabel(i, 'copy', VERT()))}</button>`
         : '<button type="button" class="fx-btn" data-fx-copy>클라우드에 복사</button>')
       + (phoneWrite() ? (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '') + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button>' : '')
       + '<button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
@@ -1209,10 +1215,10 @@ function paintBar() {
     // 시안 ⑥⑧: 'N개 (왼쪽) · [→ 오른쪽에 복사] [→ 옮기기] [이름] [휴지통] ✕' — 받을 곳 창 없이 반대 칸으로. PC는 키 이름을 함께.
     const i = state.cur, dest = oppDest(), keys = WIDE.matches;
     // 반대 칸이 내 PC면 이 단계에서는 보내지 않는다(보기·열기만).
-    const off = dest?.source === PC ? ` disabled title="${esc(PC_READONLY_TEXT)}"` : dest ? '' : ` disabled title="${esc(paneSide(i ^ 1))} 칸에서 받을 폴더를 여세요"`;
-    bar.innerHTML = `<span class="fx-bar-t">${n}개 (${paneSide(i)})</span>`
-      + `<button type="button" class="fx-btn" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy'))}${keys ? ' (F5)' : ''}</button>`
-      + `<button type="button" class="fx-btn" data-fx-send="move"${off}>${esc(sendLabel(i, 'move'))}${keys ? ' (F6)' : ''}</button>`
+    const off = dest?.source === PC ? ` disabled title="${esc(PC_READONLY_TEXT)}"` : dest ? '' : ` disabled title="${esc(side(i ^ 1))} 칸에서 받을 폴더를 여세요"`;
+    bar.innerHTML = `<span class="fx-bar-t">${n}개 (${side(i)})</span>`
+      + `<button type="button" class="fx-btn" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy', VERT()))}${keys ? ' (F5)' : ''}</button>`
+      + `<button type="button" class="fx-btn" data-fx-send="move"${off}>${esc(sendLabel(i, 'move', VERT()))}${keys ? ' (F6)' : ''}</button>`
       + (n === 1 ? `<button type="button" class="fx-btn" data-fx-rename>이름${keys ? ' (F2)' : ''}</button>` : '') + lookButtonsHtml(p)
       + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
       + `<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통${keys ? ' (Del)' : ''}</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>`;
@@ -2083,9 +2089,15 @@ function layoutChanged() {
     if (state.cur === 1) { state.panes.reverse(); state.cur = 0; window.KPTURouter?.setPlace?.('files', placeOf(state.panes[0].where)); }
     state.panes[1].picked.clear(); state.panes[1].drop = false;
     state.dropAsk = null;
+    // 폰 한 칸으로 돌아오면 칸 0은 그 폴더 목록(뒤로가기 = 한 단계 위·나무).
+    if (solo()) { const a = state.panes[0]; if (a.where) { a.pane = 'list'; listLayerOpen(); } }
     paint();
     return;
   }
+  // 폰 두 칸: 한 칸 화면의 뒤로가기 자리(목록 ⇄ 나무)는 놓는다. 칸 0이 나무 화면이었으면 첫 저장소 맨 위를 연다.
+  if (listLayer) { const l = listLayer; listLayer = null; l.close(); }
+  state.treeBack = null;
+  if (!state.panes[0].where && state.status) goHome(state.panes[0]);
   const b = state.panes[1];
   paint();
   if (!state.status) return;
@@ -2094,8 +2106,7 @@ function layoutChanged() {
   if (start) setWhere(b, start, {keepPreview: true});
 }
 function setTwo(on) {
-  if (PHONE.matches) return;
-  viewPrefs.setFilesTwo?.(DEVICE, twoValue(viewPrefs.getFilesTwo?.(DEVICE), twoLayout(WIDE.matches), on));
+  viewPrefs.setFilesTwo?.(DEVICE, twoValue(viewPrefs.getFilesTwo?.(DEVICE), twoLayout(WIDE.matches, PHONE.matches), on));
   closePreview();
   layoutChanged();
 }
@@ -2103,7 +2114,7 @@ function setTwo(on) {
 function sendOpp(mode, anchor) {
   const dest = oppDest(), list = actRows();
   if (!list.length) return;
-  if (!dest) { notify(`${paneSide(state.cur ^ 1)} 칸에서 받을 폴더를 여세요`, {record: false}); return; }
+  if (!dest) { notify(`${side(state.cur ^ 1)} 칸에서 받을 폴더를 여세요`, {record: false}); return; }
   if (mode === 'move') moveRows(list, dest, anchor); else xferRun('copy', list, dest);
 }
 // 칸 사이로 끌어 놓았을 때 '복사 · 옮기기' 작은 고르기(시안 ⑥ drop-hint). 놓은 자리 곁에 뜬다.
@@ -2148,7 +2159,7 @@ function goShelf(shelf, p = P()) {
 function goUp() {
   const p = P(), w = p.where;
   if (!w?.source) return;
-  if (!w.parent) { if (PHONE.matches && p === state.panes[0]) toTree({release: true}); return; }
+  if (!w.parent) { if (solo() && p === state.panes[0]) toTree({release: true}); return; }
   const ids = trailIds(p.trail);
   return goFolder(w.source, ids.length > 1 ? ids[ids.length - 2] : null);
 }
@@ -2224,7 +2235,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-go]')) { goFolder(b.dataset.fxGo, b.dataset.fxId || null); return; }
   if (b.matches('[data-fx-shelf]')) { goShelf(b.dataset.fxShelf); return; }
   if (b.matches('[data-fx-twist]')) { toggle(b.dataset.fxTwist, b.closest('.nx-tree')); return; }
-  if (b.matches('[data-fx-up]')) { const q = P(); if (PHONE.matches && q === state.panes[0] && state.treeBack) backToTree(); else if (PHONE.matches && q === state.panes[0] && q.where?.shelf) toTree({release: true}); else goUp(); return; }
+  if (b.matches('[data-fx-up]')) { const q = P(); if (solo() && q === state.panes[0] && state.treeBack) backToTree(); else if (solo() && q === state.panes[0] && q.where?.shelf) toTree({release: true}); else goUp(); return; }
   if (b.matches('[data-fx-src]')) { srcClick(b.dataset.fxSrc); return; }
   if (b.matches('[data-fx-pc-knock]')) { pcKnock(); return; }
   if (b.matches('[data-fx-sync]')) { sync({force: true}); return; }
@@ -2263,7 +2274,7 @@ if (root) bindFolderPinch(root, {
   },
   onIn: () => {
     if (pinchAt === 'list' && lookNow() !== 'list') { setLook(stepLook(lookNow(), 'in')); return; }
-    const p = state.panes[0]; if (PHONE.matches && p.pane === 'list' && state.treeBack) backToTree();
+    const p = state.panes[0]; if (solo() && p.pane === 'list' && state.treeBack) backToTree();
   }});
 root?.addEventListener('dblclick', event => {
   const b = event.target.closest('[data-fx-row]');
@@ -2433,7 +2444,7 @@ async function enter(force = false) {
       // S50-33: 주소에 자리가 있으면 그 자리. 없으면 폰은 나무(목록을 읽지 않음), PC·폴드는 켜진 첫 저장소 맨 위.
       const want = place && (place.shelf || first.includes(place.source)) ? place : null;
       if (want?.source) state.open.add(folderKey(want.source, null));
-      if (want) await setWhere(a, want); else if (!PHONE.matches) await goHome(a); else paint();
+      if (want) await setWhere(a, want); else if (!solo()) await goHome(a); else paint();
     } else if (a.where) await loadList(a, {quiet: true});
     // 두 칸: 오른쪽 칸도 연다(처음이면 왼쪽과 다른 저장소의 맨 위).
     if (two()) {
@@ -2471,7 +2482,7 @@ let twoSeen = null;
 const twoCheck = () => { const now = two(); if (twoSeen !== null && now !== twoSeen && state.status) layoutChanged(); twoSeen = now; };
 window.addEventListener('kptu:view-prefs-ready', () => { if (state.status) { twoCheck(); paintLists(); } });
 // 접고 펼 때: 펼쳐서(폰 → 폴드) 칸 0이 비어 있으면(폰 나무 첫 화면) 첫 저장소 맨 위를 연다.
-PHONE.addEventListener?.('change', () => { if (state.status) { twoCheck(); if (!PHONE.matches && !state.panes[0].where) goHome(state.panes[0]); else paint(); } });
+PHONE.addEventListener?.('change', () => { if (state.status) { twoCheck(); if (!solo() && !state.panes[0].where) goHome(state.panes[0]); else paint(); } });
 WIDE.addEventListener?.('change', () => { if (state.status) { twoCheck(); paint(); } });
 window.KPTURouter?.on?.('files', () => { enter(); });
 window.KPTUFiles = {refresh: () => enter(true)};
