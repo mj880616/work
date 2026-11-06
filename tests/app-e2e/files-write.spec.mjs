@@ -82,7 +82,7 @@ test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드
   await expect(bar(page)).toBeHidden();
   // 끌어 놓기: 줄을 나무의 원드라이브 맨 위로.
   const tree = root(page).locator('[data-fx-tree]');
-  await row(page, 'od:OD!14').dragTo(tree.locator('[data-fx-drop="od:"]'));
+  await row(page, 'od:OD!14').dragTo(tree.locator('[data-fx-box="od"] .ft-box-head') /* S51-25: 저장소 맨 위 = 상자 머리에 놓기 */);
   await expect.poll(() => names(page)).toEqual(['가짜 메모.txt']);
   expect(edgeCalls(server, 'move')[1].body).toMatchObject({ source: 'od', ids: ['OD!14'], to: null });
   // 다른 클라우드: 원드라이브 파일을 잘라(Ctrl+X) 구글 드라이브 폴더에 붙이기 → 확인 창 → 서버 작업표(job_add kind move, S49-28).

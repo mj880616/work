@@ -2781,7 +2781,7 @@ for(const width of [390,1280])test(`[주간 정리] 4. 조직보고: 담당조�
  await expect(b.locator('.wl-line:not(.is-last):not(.is-sug)')).toHaveCount(2);
  expect(f.db.posts.map(p=>[p.organization_id,p.week_start,p.body,p.origin,p.state])).toEqual([[OB,'2026-10-05','가상 지난주 설명회','last_week','in'],[OB,'2026-10-05','가상 지난주 간담회','last_week','in']]);
  // 넣은 줄이 2줄이 되면 지난주 줄은 접힌 한 줄.
- await expect(b.locator('[data-wl-last]')).toHaveText('지난주 2줄 ▸');
+ await expect(b.locator('[data-wl-last]')).toHaveText('지난주 2줄');
  // 복사: 내 담당조직마다 넣은 줄(제안·뺀 줄 없음).
  await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');

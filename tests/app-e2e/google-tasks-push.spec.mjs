@@ -4,6 +4,7 @@ import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
 import { OPERATOR_ORG_ORDER } from '../org-order-fixture.mjs';
+import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -365,19 +366,23 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await expect(page.locator('#gtEditList')).toHaveCount(0);
   await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toHaveCount(0); // UI-당연한안내삭제
-  const links=page.locator('#gtEditLinkBody');
-  await expect(links.locator('[data-gt-link]')).toHaveCount(17);
-  await expect(links.locator('input[value="p:p3"]')).toHaveCount(0);
-  await expect(links.locator('input[value="o:o0"]')).toHaveCount(0);
-  // TASK-조직순서: the shared order, a thin line between groups, and organizations outside the 13 last in 가나다 order.
-  await expect(links.locator('.gt-link-group').last().locator('span')).toHaveText([
+  const links=page.locator('#gtEditLinkBody'),L='#gtEditLinkBody',sheet=page.locator(SHEET);
+  // S52-01: 평소 두 줄만. 고르기 창에 보관된 사업영역(p3)·담당 아닌 조직(o0)은 없다.
+  await expect(links.locator('.aop-row')).toHaveCount(2);
+  await openPicker(page,L,'area');
+  expect(await offeredKeys(page)).toEqual(['p:p1','p:p2']);
+  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();
+  // TASK-조직순서: the shared order, one big group per order group, and organizations outside the 13 last in 가나다 order.
+  await openPicker(page,L,'org');
+  await expect(sheet.locator('.aop-list .home-choice-name')).toHaveText([
     '전국철도노동조합','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','메트로9호선노동조합','서울교통공사9호선지부','김포도시철도지부','용인경전철지부','가나다조직','아주 긴 이름이 360픽셀 화면에서도 체크박스 아래로 내려가거나 가로로 넘치지 않아야 하는 담당 조직'
   ]);
-  expect(await links.locator('.gt-link-group').last().evaluate(group=>[...group.querySelectorAll('.gt-org-group')].flatMap((g,i)=>[...(i?['|']:[]),...[...g.querySelectorAll('label')].map(el=>el.textContent.slice(0,4))]))).toEqual([
+  expect(await sheet.locator('.aop-group').evaluateAll(gs=>gs.flatMap((g,i)=>[...(i?['|']:[]),...[...g.querySelectorAll('.home-choice-name')].map(el=>el.textContent.slice(0,4))]))).toEqual([
     '전국철도','|','서울교통','부산지하','대구교통','인천교통','|','서해선지','신분당선','지티엑스','공항철도','|','메트로9','서울교통','김포도시','용인경전','|','가나다조','아주 긴'
   ]);
-  await expect(links.locator('.gt-link-group').first().locator('.gt-org-sep')).toHaveCount(0);
-  await expect(links.locator('.gt-org-group')).toHaveCount(5);
+  await expect(sheet.locator('.aop-group-name')).toHaveCount(5);
+  expect(await offeredKeys(page)).not.toContain('o:o0');
+  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();
   await page.locator('#gtEditTitle').fill('연결 없는 할 일');
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.find(x=>x.action==='create')?.body).toEqual(expect.objectContaining({title:'연결 없는 할 일',links:[]}));
@@ -389,15 +394,15 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await expect(page.locator('#gtEditTitle')).toBeVisible();
   await page.locator('#gtEditTitle').fill('연결 둘');
-  await links.locator('input[value="p:p2"]').check();
-  await links.locator('input[value="o:o1"]').check();
+  await toggleKeys(page,L,'area',['p:p2']);
+  await toggleKeys(page,L,'org',['o:o1']);
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.filter(x=>x.action==='create')[1]?.body?.links).toEqual([{project_id:'p2'},{organization_id:'o1'}]);
   await closedSettled();
   await page.locator('[data-gt-edit="g1"]').click();
-  await expect(links.locator('input[value="p:p1"]')).toBeChecked();
-  await links.locator('input[value="p:p1"]').uncheck();
-  await links.locator('input[value="o:o1"]').check();
+  await expect.poll(()=>chosenKeys(page,L)).toEqual(['p:p1']);
+  await removeKey(page,L,'p:p1');
+  await toggleKeys(page,L,'org',['o:o1']);
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.find(x=>x.action==='unlink')?.body?.links).toEqual([{project_id:'p1'}]);
   expect(calls.find(x=>x.action==='link')?.body).toEqual(expect.objectContaining({task_id:'g1',links:[{organization_id:'o1'}]}));
@@ -411,16 +416,15 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   // Saving closes the editor; reopen it before measuring the visible link options.
   await closedSettled();
   await page.locator('[data-gt-edit="g1"]').click();
-  await expect(links.locator('[data-gt-link]')).toHaveCount(17);
+  await expect(links.locator('.aop-row')).toHaveCount(2);
+  await toggleKeys(page,L,'org',['o:o15']);
   for(const width of [360,1280]){
     await page.setViewportSize({width,height:800});
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
-    const option=links.locator('label.gt-link-opt').last();
-    const [checkBox,textBox]=await Promise.all([option.locator('input').boundingBox(),option.locator('span').boundingBox()]);
-    expect(checkBox).not.toBeNull();
-    expect(textBox).not.toBeNull();
-    expect(textBox.x).toBeGreaterThan(checkBox.x);
-    expect(textBox.x+textBox.width).toBeLessThanOrEqual(width);
+    // 긴 조직 이름 꼬리표도 칸 안에서 줄어든다(가로로 넘치지 않음).
+    const [chip,body]=await Promise.all([links.locator('[data-aop-chip="o:o15"]').boundingBox(),links.boundingBox()]);
+    expect(chip).not.toBeNull();
+    expect(chip.x+chip.width).toBeLessThanOrEqual(body.x+body.width+1);
   }
 });
 
@@ -432,9 +436,10 @@ test('Google Tasks editor shows a short message when no organizations are assign
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,needs_reconnect:false,tasks:[]})}));
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
-  const organizations=page.locator('#gtEditLinkBody [role="group"][aria-label="조직"]');
-  await expect(organizations.locator('[data-wait-empty]')).toHaveText('없음');
-  await expect(organizations.locator('[data-gt-link]')).toHaveCount(0);
+  await expect(page.locator('#gtEditLinkBody [data-aop-line="org"] [data-aop-none]')).toHaveText('없음');
+  await openPicker(page,'#gtEditLinkBody','org');
+  expect(await offeredKeys(page)).toEqual([]);
+  await expect(page.locator(`${SHEET} [data-aop-empty]`)).toHaveText('조직 없음');
 });
 
 test('rows show only confirmed project names without unlinked badges or a separate section',async({page})=>{
@@ -464,7 +469,7 @@ test('rows show only confirmed project names without unlinked badges or a separa
   await page.locator('[data-google-task="free-undated"] [data-gt-edit]').click();
   await expect(page.locator('#gtTaskModal')).toBeVisible();
   await expect(page.locator('#gtEditTitle')).toHaveValue('free-undated');
-  await expect(page.locator('#gtEditLinkBody input[value="p:p1"]')).toBeVisible();
+  await expect(page.locator('#gtEditLinkBody [data-aop-add="area"]')).toBeVisible();
   for(const width of [360,1280]){
     await page.setViewportSize({width,height:800});
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
@@ -478,7 +483,8 @@ test('Google Tasks editor warns by count when an assigned organization misses th
   const warnings=[];page.on('console',msg=>{if(msg.type()==='warning')warnings.push(msg.text())});
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
-  await expect(page.locator('#gtEditLinkBody [aria-label="조직"] [data-gt-link]')).toHaveCount(2);
+  await openPicker(page,'#gtEditLinkBody','org');
+  await expect(page.locator(`${SHEET} .aop-list [data-sheet-value]`)).toHaveCount(2);
   await expect.poll(()=>warnings.filter(x=>x.startsWith('[Google Tasks] 조직 순서표 미등록:'))).toEqual(['[Google Tasks] 조직 순서표 미등록: 1개. 이름 일치 여부를 확인하세요.']);
 });
 

@@ -58,8 +58,6 @@
 #appView #arsenalView .ars-sec summary{ display:flex; align-items:center; gap:4px; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row,14px); font-weight:var(--ds-weight-medium,500); cursor:pointer; list-style:none; }
 /* UI-칸안스크롤하나로 ②: 접힌 칸 제목 앞 펼침 표시(▸ 접힘 / ▾ 펼침, 앱의 다른 접힌 칸과 같은 글자). display:flex라 기본 표시가 사라졌었다. */
 #appView #arsenalView .ars-sec summary::-webkit-details-marker{ display:none; }
-#appView #arsenalView .ars-sec summary::before{ content:"\25B8"; flex:none; font-size:10px; color:var(--kptu-muted); }
-#appView #arsenalView .ars-sec[open] summary::before{ content:"\25BE"; }
 #appView #arsenalView .ars-sec ul{ margin:0 0 8px; padding-left:18px; line-height:1.6; }
 #appView #arsenalView .ars-sec li + li{ margin-top:4px; }
 #appView #arsenalView .ars-stats{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; padding-top:8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); text-align:center; }

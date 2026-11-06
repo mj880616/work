@@ -58,8 +58,6 @@
 .feed-view .feed-tag-check{background:var(--ds-kind-note-soft);color:var(--ds-kind-note-ink)}
 .feed-view .feed-full summary{display:flex;align-items:center;gap:6px;min-height:var(--kptu-touch-target);font-size:var(--ds-text-meta);color:var(--kptu-muted);cursor:pointer;list-style:none}
 .feed-view .feed-full summary::-webkit-details-marker{display:none}
-.feed-view .feed-full[open] .feed-ar{transform:rotate(180deg)}
-.feed-view .feed-full .feed-ar{display:inline-block}
 .feed-view .feed-badge{padding:0 5px;border-radius:4px;background:var(--kptu-warning-soft);color:var(--kptu-warning);font-size:11px}
 .feed-view .feed-script{font-size:var(--ds-text-row);line-height:1.6}
 .feed-view .feed-script p{display:flex;gap:8px;margin:0;padding:3px 0}

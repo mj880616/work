@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { chosenKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const task=(id='saved')=>({id,title:'원래 할 일',notes:'서버 메모',due:null,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일'});
 async function tasks(page,{newTask=false}={}){
@@ -21,7 +22,7 @@ async function tasks(page,{newTask=false}={}){
   });
   await page.evaluate(()=>window.KPTURouter.go('tasks'));await expect(page.locator('#gtTaskSection')).toBeVisible();
   await page.evaluate(({newTask,t})=>window.KPTUGoogleTasks.openEditor(newTask?null:t),{newTask,t:state.current});
-  await expect(page.locator('#gtEditLinkBody input[value="p:child"]')).toBeVisible();
+  await expect(page.locator('#gtEditLinkBody .aop-row')).toHaveCount(2);
   return state;
 }
 for(const width of [390,1280])test(`task permission failure keeps current draft ${width}`,async({page})=>{
@@ -29,16 +30,16 @@ for(const width of [390,1280])test(`task permission failure keeps current draft 
   await expect(page.locator('#gtEditStatus')).toContainText('권한');await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditTitle')).toHaveValue('수정 초안');await expect(page.locator('#gtEditNotes')).toHaveValue('보존 메모');
 });
 test('known created task keeps draft and retries links without another create',async({page})=>{
-  const s=await tasks(page,{newTask:true});s.partial=true;await page.locator('#gtEditTitle').fill('새 할 일');await page.locator('input[value="p:child"]').check();await page.locator('#gtSaveBtn').click();
+  const s=await tasks(page,{newTask:true});s.partial=true;await page.locator('#gtEditTitle').fill('새 할 일');await toggleKeys(page,'#gtEditLinkBody','area',['p:child']);await page.locator('#gtSaveBtn').click();
   await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditStatus')).toContainText('연결');s.partial=false;await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtTaskModal')).toBeHidden();
   expect(s.calls.filter(x=>x.a==='create')).toHaveLength(1);expect(s.calls.filter(x=>x.a==='link')[0].b.task_id).toBe('created');
 });
 test('successful add is not resent after unlink fails',async({page})=>{
-  const s=await tasks(page);s.links=[{project_id:'p',status:'confirmed'}];await page.evaluate(()=>window.KPTUGoogleTasks.openEditor({id:'saved',title:'원래 할 일',notes:'서버 메모',taskListId:'@default'}));await expect(page.locator('input[value="p:p"]')).toBeChecked();
-  await page.locator('input[value="p:p"]').uncheck();await page.locator('input[value="p:child"]').check();await page.locator('#gtEditTitle').fill('변경');s.fail='unlink';await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditStatus')).toContainText('연결');s.fail='';await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtTaskModal')).toBeHidden();expect(s.calls.filter(x=>x.a==='link')).toHaveLength(1);expect(s.calls.filter(x=>x.a==='update')).toHaveLength(1);
+  const s=await tasks(page);s.links=[{project_id:'p',status:'confirmed'}];await page.evaluate(()=>window.KPTUGoogleTasks.openEditor({id:'saved',title:'원래 할 일',notes:'서버 메모',taskListId:'@default'}));await expect.poll(()=>chosenKeys(page,'#gtEditLinkBody')).toEqual(['p:p']);
+  await removeKey(page,'#gtEditLinkBody','p:p');await toggleKeys(page,'#gtEditLinkBody','area',['p:child']);await page.locator('#gtEditTitle').fill('변경');s.fail='unlink';await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditStatus')).toContainText('연결');s.fail='';await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtTaskModal')).toBeHidden();expect(s.calls.filter(x=>x.a==='link')).toHaveLength(1);expect(s.calls.filter(x=>x.a==='update')).toHaveLength(1);
 });
 test('session change prevents later link writes from the previous save',async({page})=>{
-  const s=await tasks(page);let release;s.gate=new Promise(r=>release=r);await page.locator('input[value="p:child"]').check();await page.locator('#gtEditTitle').fill('계정 A 초안');await page.locator('#gtSaveBtn').click();await expect.poll(()=>s.calls.length).toBe(1);
+  const s=await tasks(page);let release;s.gate=new Promise(r=>release=r);await toggleKeys(page,'#gtEditLinkBody','area',['p:child']);await page.locator('#gtEditTitle').fill('계정 A 초안');await page.locator('#gtSaveBtn').click();await expect.poll(()=>s.calls.length).toBe(1);
   await page.evaluate(()=>window.KPTURuntime.session.write({...window.KPTURuntime.session.read(),user:{id:'other-owner'}}));release();await expect.poll(()=>page.locator('#gtSaveBtn').isDisabled()).toBe(false);expect(s.calls.filter(x=>x.a==='link')).toHaveLength(0);
 });
 test('new text typed while task save is pending remains open after success',async({page})=>{
@@ -58,10 +59,10 @@ test('registration task partial create keeps known id for link-only retry',async
 });
 
 test('failed links reread prevents more writes until the result is known',async({page})=>{
- const s=await tasks(page);s.fail='link';s.readFail=true;await page.locator('input[value="p:child"]').check();await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtEditStatus')).toContainText('연결');const count=s.calls.length;await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtEditStatus')).toContainText('확인');expect(s.calls).toHaveLength(count);s.readFail=false;s.fail='';await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtTaskModal')).toBeHidden();
+ const s=await tasks(page);s.fail='link';s.readFail=true;await toggleKeys(page,'#gtEditLinkBody','area',['p:child']);await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtEditStatus')).toContainText('연결');const count=s.calls.length;await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtEditStatus')).toContainText('확인');expect(s.calls).toHaveLength(count);s.readFail=false;s.fail='';await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtTaskModal')).toBeHidden();
 });
 test('partially successful link batch retries only missing targets',async({page})=>{
- const s=await tasks(page);s.partialLink=true;await page.locator('input[value="p:p"]').check();await page.locator('input[value="p:child"]').check();await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtEditStatus')).toContainText('연결');await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtTaskModal')).toBeHidden();const adds=s.calls.filter(x=>x.a==='link');expect(adds).toHaveLength(2);expect(adds[1].b.links).toEqual([{project_id:'child'}]);
+ const s=await tasks(page);s.partialLink=true;await toggleKeys(page,'#gtEditLinkBody','area',['p:p','p:child']);await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtEditStatus')).toContainText('연결');await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtTaskModal')).toBeHidden();const adds=s.calls.filter(x=>x.a==='link');expect(adds).toHaveLength(2);expect(adds[1].b.links).toEqual([{project_id:'child'}]);
 });
 test('unknown create adopts only the task explicitly selected from actual results',async({page})=>{
  const s=await tasks(page,{newTask:true});s.empty=true;await page.locator('#gtEditTitle').fill('불명 생성');await page.locator('#gtSaveBtn').click();await page.getByRole('button',{name:'목록에서 저장 결과 확인',exact:true}).click();await page.getByRole('button',{name:'원래 할 일 · 이 할 일에 이어서 저장',exact:true}).click();await expect(page.locator('#gtEditTitle')).toHaveValue('불명 생성');s.empty=false;await page.locator('#gtSaveBtn').click();await expect(page.locator('#gtTaskModal')).toBeHidden();expect(s.calls.filter(x=>x.a==='create')).toHaveLength(1);expect(s.calls.find(x=>x.a==='update').b.task_id).toBe('saved');
@@ -73,11 +74,11 @@ test('reopening the same task waits for its outstanding save',async({page})=>{
  const s=await tasks(page);let release;s.gate=new Promise(r=>release=r);await page.locator('#gtEditTitle').fill('첫 저장');await page.locator('#gtSaveBtn').click();await expect.poll(()=>s.calls.length).toBe(1);await page.locator('[data-gt-close]').click();await page.evaluate(()=>{void window.KPTUGoogleTasks.openEditor({id:'saved',title:'원래 할 일',notes:'서버 메모',taskListId:'@default'})});await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtSaveBtn')).toBeDisabled();await page.locator('#gtEditTitle').fill('다시 연 입력');release();await expect(page.locator('#gtSaveBtn')).toBeEnabled();await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditTitle')).toHaveValue('다시 연 입력');
 });
 test('token refresh keeps an editor opened from calendar before the task list loads',async({page})=>{
- await openHome(page,{query:'?view=calendar'});await page.waitForFunction(()=>window.KPTUGoogleTasks);await page.route(SB+'/functions/v1/google-tasks?action=links*',r=>r.fulfill({json:{links:[],meeting_links:[]}}));await page.evaluate(()=>window.KPTUGoogleTasks.openEditor({id:'saved',title:'원래 할 일',taskListId:'@default'}));await expect(page.locator('#gtEditLinkBody input')).not.toHaveCount(0);await page.locator('#gtEditTitle').fill('토큰 갱신 중 초안');await page.evaluate(()=>window.KPTURuntime.session.write({...window.KPTURuntime.session.read(),access_token:'refreshed-synthetic-token'}));await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditTitle')).toHaveValue('토큰 갱신 중 초안');await expect(page.locator('#gtSaveBtn')).toBeEnabled();
+ await openHome(page,{query:'?view=calendar'});await page.waitForFunction(()=>window.KPTUGoogleTasks);await page.route(SB+'/functions/v1/google-tasks?action=links*',r=>r.fulfill({json:{links:[],meeting_links:[]}}));await page.evaluate(()=>window.KPTUGoogleTasks.openEditor({id:'saved',title:'원래 할 일',taskListId:'@default'}));await expect(page.locator('#gtEditLinkBody .aop-row')).not.toHaveCount(0);await page.locator('#gtEditTitle').fill('토큰 갱신 중 초안');await page.evaluate(()=>window.KPTURuntime.session.write({...window.KPTURuntime.session.read(),access_token:'refreshed-synthetic-token'}));await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditTitle')).toHaveValue('토큰 갱신 중 초안');await expect(page.locator('#gtSaveBtn')).toBeEnabled();
 });
 
 test('logout and same-owner login use a fresh authenticated screen without old link callbacks',async({page})=>{
- const s=await tasks(page);let release;s.gate=new Promise(r=>release=r);await page.locator('input[value="p:child"]').check();await page.locator('#gtEditTitle').fill('이전 세션');await page.locator('#gtSaveBtn').click();await expect.poll(()=>s.calls.length).toBe(1);await page.evaluate(()=>window.KPTURuntime.session.write(null));await expect(page.locator('#googleLoginBtn')).toBeVisible();release();await signInWithSession(page,'home@example.org');await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);await expect(page.locator('#gtTaskModal')).toBeHidden();expect(s.calls.filter(x=>x.a==='link')).toHaveLength(0);
+ const s=await tasks(page);let release;s.gate=new Promise(r=>release=r);await toggleKeys(page,'#gtEditLinkBody','area',['p:child']);await page.locator('#gtEditTitle').fill('이전 세션');await page.locator('#gtSaveBtn').click();await expect.poll(()=>s.calls.length).toBe(1);await page.evaluate(()=>window.KPTURuntime.session.write(null));await expect(page.locator('#googleLoginBtn')).toBeVisible();release();await signInWithSession(page,'home@example.org');await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);await expect(page.locator('#gtTaskModal')).toBeHidden();expect(s.calls.filter(x=>x.a==='link')).toHaveLength(0);
 });
 test.describe('normal keyboard and touch saves',()=>{
  test.use({hasTouch:true});

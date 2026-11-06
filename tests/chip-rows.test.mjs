@@ -5,7 +5,7 @@ import {join, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {lineCount, pickedToggles} from '../app/chip-rows-model.mjs';
 
-// UI-칩줄두줄(2026-10-31 명진 결정): 앱 전체 칩 줄 = 줄바꿈 두 줄 + [더보기 ▾], 옆으로 미는 칩 줄 없음. 실제 화면 폭 확인은 CI E2E(412·PC).
+// UI-칩줄두줄(2026-10-31 명진 결정): 앱 전체 칩 줄 = 줄바꿈 두 줄 + [더보기 ›](S51-33 UI-접기꺾쇠: 세모 없음), 옆으로 미는 칩 줄 없음. 실제 화면 폭 확인은 CI E2E(412·PC).
 const app = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const read = f => readFileSync(join(app, f), 'utf8');
 const noComments = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -70,14 +70,14 @@ test('fitChipRows: 두 줄에 들면 [더보기] 없이 전부, 넘치면 두 �
   const many = new Host(200, Array(12).fill(50));
   fitChipRows(many);
   const more = many.lastElementChild;
-  assert.equal(more.hidden, false); assert.equal(more.textContent, '더보기 ▾'); assert.equal(more.getAttribute('aria-expanded'), 'false');
+  assert.equal(more.hidden, false); assert.equal(more.textContent, '더보기 ›'); assert.equal(more.getAttribute('aria-expanded'), 'false');
   assert.ok(rows(many) <= 2);
   assert.ok(many.children.some(c => c.dataset.chipCut !== undefined));
   more.click();
-  assert.equal(more.textContent, '접기 ▴'); assert.ok(rows(many) > 2);
+  assert.equal(more.textContent, '접기'); assert.ok(rows(many) > 2);
   assert.equal(many.children.filter(c => c.dataset.chipCut !== undefined).length, 0);
   more.click();
-  assert.equal(more.textContent, '더보기 ▾'); assert.ok(rows(many) <= 2);
+  assert.equal(more.textContent, '더보기 ›'); assert.ok(rows(many) <= 2);
 });
 
 test('fitChipRows: 고른 칩은 접혀도 보이고, 숨는 칩을 건너 앞쪽에 붙는다', () => {

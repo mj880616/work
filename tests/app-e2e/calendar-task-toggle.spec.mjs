@@ -6,6 +6,7 @@ import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
+import { chosenKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 
 const ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const NOW='2026-10-15T03:00:00.000Z';
@@ -72,7 +73,8 @@ async function open(page,path){
   await chip(page,id).click();
   await expect(page.locator('#calendarDayModal')).toBeHidden();
   await expect(page.locator('#gtTaskModal')).toBeVisible();
-  await expect(page.locator('#gtEditLinkBody [data-gt-link]')).toHaveCount(1);
+  // S52-01: 연결은 두 줄(사업영역·조직), 저장된 사업영역이 꼬리표로 보인다.
+  await expect(page.locator('#gtEditLinkBody [data-aop-chip]')).toHaveCount(1);
   await expect(page.locator('#gtToggleBtn')).toBeEnabled();
   return id;
 }
@@ -122,17 +124,17 @@ for(const field of ['title','due','notes','links']){
   test(`unsaved ${field} blocks toggling without discarding or saving`,async({page})=>{
     const {calls}=await fixture(page);
     await open(page,'cell');
-    const sel={title:'#gtEditTitle',due:'#gtEditDue',notes:'#gtEditNotes',links:'#gtEditLinkBody [data-gt-link]'}[field];
-    const input=page.locator(sel),value={title:'QA changed',due:'2026-10-22',notes:'QA changed note'}[field];
-    if(field==='links')await input.uncheck();else await input.fill(value);
+    const sel={title:'#gtEditTitle',due:'#gtEditDue',notes:'#gtEditNotes'}[field],L='#gtEditLinkBody';
+    const input=sel&&page.locator(sel),value={title:'QA changed',due:'2026-10-22',notes:'QA changed note'}[field];
+    if(field==='links')await removeKey(page,L,'p:qa-project');else await input.fill(value);
     await page.locator('#gtToggleBtn').click();
     await expect(page.locator('#gtEditStatus')).toContainText('먼저 저장');
     await expect(page.locator('#gtTaskModal')).toBeVisible();
-    if(field==='links')await expect(input).not.toBeChecked();else await expect(input).toHaveValue(value);
+    if(field==='links')expect(await chosenKeys(page,L)).toEqual([]);else await expect(input).toHaveValue(value);
     expect(await page.evaluate(()=>KPTUCalendarMonthView.dayEvents('2026-10-20').find(t=>t.id==='cell').done)).toBe(false);
     expect(calls.filter(c=>['toggle','update','create','link','unlink'].includes(c.action))).toEqual([]);
     // Restoring the original draft allows toggling again.
-    if(field==='links')await input.check();else await input.fill({title:'QA task',due:'2026-10-20',notes:'QA note'}[field]);
+    if(field==='links')await toggleKeys(page,L,'area',['p:qa-project']);else await input.fill({title:'QA task',due:'2026-10-20',notes:'QA note'}[field]);
     await page.locator('#gtToggleBtn').click();
     await expect(page.locator('#gtTaskModal')).toBeHidden();
     expect(toggles(calls)).toHaveLength(1);

@@ -12,6 +12,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 import {closeProjectDetail,expectProjectDetail,projectDetailDocked} from './helpers/project-detail.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
+import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 // 작은 확인창의 질문과 작은 설명(note)을 함께 읽고 답한다(영구 삭제 확인창은 둘째 문장을 note로 보인다).
 async function askWithNote(page,accept){const ask=page.locator('.kptu-ask');await ask.waitFor({state:'visible'});const note=(await ask.locator('.kptu-ask-note').count())?((await ask.locator('.kptu-ask-note').textContent())||''):'';return [await answerAsk(page,accept),note]}
 
@@ -670,8 +671,7 @@ test('top-level project creates a task directly on the current project',async({p
   await expect(page.locator('#gtTaskModal')).toBeVisible();
   await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toHaveCount(0); // UI-당연한안내삭제
   await expect(page.locator('#gtEditList')).toHaveCount(0);
-  await expect(page.locator('#gtEditLinkBody input[value="p:main-1"]')).toBeChecked();
-  await expect(page.locator('#gtEditLinkBody input[value="p:child-1"]')).not.toBeChecked();
+  await expect.poll(()=>chosenKeys(page,'#gtEditLinkBody')).toEqual(['p:main-1']);
   await page.locator('#gtEditTitle').fill('상위 프로젝트 직접 연결 업무');
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>state.gtCalls.find(x=>x.action==='create')?.body).toEqual(expect.objectContaining({title:'상위 프로젝트 직접 연결 업무',links:[{project_id:'main-1'}]}));
@@ -1341,7 +1341,7 @@ test('V3 project task section completes, edits and unlinks linked Google tasks',
   await expect(page.locator('#gtTaskModal')).toBeVisible();
   await expect(page.locator('#gtEditTitle')).toHaveValue('자료 정리');
   await expect(page.locator('#gtEditNotes')).toHaveValue('공유 전 확인');
-  await expect(page.locator('#gtEditLinkBody input[value="p:child-1"]')).toBeChecked();
+  await expect.poll(()=>chosenKeys(page,'#gtEditLinkBody')).toContain('p:child-1');
   await page.locator('#gtTaskModal [data-gt-close]').click();
   await expect(page.locator('#gtTaskModal')).toBeHidden();
   // TASK-바로처리통일: [연결 해제] is in the row's ⋯ (the shared task line).

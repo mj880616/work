@@ -36,6 +36,7 @@ import { requestBasketNote, requestNoteDocOpen } from './basket-note-tasks.js';
 import { offerUndoNotice } from './basket-record-delete.js';
 import { askConfirm } from './small-notice.js';
 import { fitChipRows, foldChipRows } from './chip-rows.js';
+import { chevHtml, moreLabel } from './fold-chevron.mjs';
 
 const rt = window.KPTURuntime;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -447,7 +448,7 @@ function fitChips() {
   if (box) fitChipRows(box, { key: 'ledger', keep: el => !el.matches('.lb-topic') });
 }
 // 목록 하나의 첫 보임 건수 제한. 접힌 건수가 있으면 [더보기 n ▾].
-const moreBtn = (key, hidden) => hidden ? `<button type="button" class="lg-text-btn lb-list-more" data-lb-action="list-more" data-lb-list="${key}">더보기 ${hidden} <span aria-hidden="true">▾</span></button>` : '';
+const moreBtn = (key, hidden) => hidden ? `<button type="button" class="lg-text-btn lb-list-more" data-lb-action="list-more" data-lb-list="${key}">${moreLabel(hidden)}</button>` : '';
 const capped = (key, rows, opts = {}) => capList(rows, { expanded: state.more.has(key), openId: state.openId, ...opts });
 
 const SEARCH_ICON = '<svg class="lb-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -604,7 +605,7 @@ function historyHtml(d) {
     return `<li class="lb-hist-line"><details class="lb-hist-row" data-lb-hist="${esc(l.id)}"${open ? ' open' : ''}><summary>${head}</summary>${body}</details></li>`;
   };
   const topic = d.topicCount > 0 ? `<button type="button" class="lg-text-btn lb-hist-topic" data-lb-action="story" data-lb-type="topic" data-lb-sid="${esc(d.record.topic_id)}">같은 주제 결정 ${d.topicCount}건 ›</button>` : '';
-  return `<details class="lb-history" data-lb-history${state.histOpen ? ' open' : ''}><summary>${esc(historyLabel(d.record.kind, n))} <span class="lb-hist-caret" aria-hidden="true">${state.histOpen ? '⌄' : '▸'}</span></summary><ol class="lb-hist-list">${lines.map(row).join('')}</ol>${topic}</details>`;
+  return `<details class="lb-history" data-lb-history${state.histOpen ? ' open' : ''}><summary>${esc(historyLabel(d.record.kind, n))} ${chevHtml(state.histOpen, 'lb-hist-caret')}</summary><ol class="lb-hist-list">${lines.map(row).join('')}</ol>${topic}</details>`;
 }
 // 상세 ⋯ 메뉴(작은 글자 목록, 누른 자리에서 열림). 제목 첫 줄 오른쪽 끝에 놓는다(CSS: 행 오른쪽 위 고정, 제목은 그 옆으로 비켜 줄바꿈).
 function detailMenu(id) {
@@ -688,7 +689,7 @@ function bind() {
     if (!(d instanceof HTMLDetailsElement) || !root()?.contains(d)) return;
     if (d.matches('details[data-lb-history]')) {
       state.histOpen = d.open;
-      const caret = d.querySelector(':scope > summary .lb-hist-caret'); if (caret) caret.textContent = d.open ? '⌄' : '▸';
+      d.querySelector(':scope > summary .lb-hist-caret')?.classList.toggle('is-open', d.open);
     } else if (d.matches('details[data-lb-hist]')) void toggleHistoryRow(d.dataset.lbHist, d.open);
   }, true);
   document.addEventListener('toggle', e => {
