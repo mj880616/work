@@ -4,6 +4,7 @@
 // 아무것도 안 골랐을 때 오른쪽은 '오늘 할 일' 요약. 접은 폰(412)은 지금처럼 수정 창([저장]).
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
+import { toggleKeys } from './helpers/area-org-picker.mjs';
 
 const NOW=Date.parse('2026-10-08T03:00:00Z'); // 한국 시각 10월 8일(목) 정오
 const task=(id,due=null,extra={})=>({id,title:'할 일 '+id,taskListId:'@default',taskListTitle:'내 할 일',due,status:'needsAction',notes:'',...extra});
@@ -77,8 +78,8 @@ for(const width of [690,884,1280]){
     // 제목: Enter로 저장, 칸은 그대로.
     await page.locator('#gtEditTitle').fill('고친 제목');await page.locator('#gtEditTitle').press('Enter');
     await expect.poll(()=>calls.filter(c=>c.action==='update').at(-1)?.body.title).toBe('고친 제목');
-    // 연결: 체크하면 바로 link.
-    await pane.locator('[data-gt-link][value="o:o1"]').check();
+    // 연결: 고르기 창에서 [넣기]하면 바로 link.
+    await toggleKeys(page,'#gtDetailPane','org',['o:o1']);
     await expect.poll(()=>calls.filter(c=>c.action==='link').map(c=>c.body.links)).toEqual([[{organization_id:'o1'}]]);
     await expect(editor).toBeVisible();
     expect(calls.some(c=>c.action==='create')).toBe(false);
@@ -87,7 +88,9 @@ for(const width of [690,884,1280]){
     await expect(editor).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);await expect(today).toBeVisible();
     await expect(page.locator('#gtTaskBody .gt-row.is-selected')).toHaveCount(0);
     await expect(page.locator('#tasksView')).toBeVisible();
-    expect(await historyLength(page)).toBe(before+1);
+    // 고르기 창(S52-01)도 열 때 뒤로 기록 하나를 쌓고 닫을 때 거둔다(앞으로 칸에 남는 한 칸은 다음 기록이 지운다). 그래서 길이는 칸 하나 + 창 하나.
+    expect(await historyLength(page)).toBe(before+2);
+    expect(await page.evaluate(()=>!history.state?.kptuAreaOrgPick)).toBe(true);
     // ✕도 닫는다. 다시 열었다 다른 줄을 고르면 그 할 일로 바뀌고 뒤로 기록은 하나뿐.
     await page.locator('[data-gt-edit="b"]').click();await expect(editor).toBeVisible();
     await page.locator('[data-gt-edit="soon"]').click();await expect(page.locator('#gtEditTitle')).toHaveValue('할 일 soon');
@@ -147,7 +150,7 @@ test('690: 메모를 쓰다 다른 줄을 고르면 쓰던 메모를 먼저 저�
   const tasks=[task('a','2026-10-08'),task('b','2026-10-08')];
   const calls=await open(page,690,tasks);
   await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtTaskModal')).toBeVisible();
-  await expect(page.locator('#gtDetailPane [data-gt-link]')).toHaveCount(2);
+  await expect(page.locator('#gtDetailPane .aop-row')).toHaveCount(2);
   await page.locator('#gtEditNotes').pressSequentially('바로 넘김');
   await page.locator('[data-gt-edit="b"]').click();
   await expect(page.locator('#gtEditTitle')).toHaveValue('할 일 b');
@@ -157,7 +160,7 @@ test('690: 메모를 쓰다 다른 줄을 고르면 쓰던 메모를 먼저 저�
 test('690: 저장이 안 되면 그 칸 아래에 알리고 입력은 그대로',async({page})=>{
   await open(page,690,[task('a','2026-10-08')],{fail:'update'});
   const pane=page.locator('#gtDetailPane');
-  await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('[data-gt-link]')).toHaveCount(2);
+  await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('.aop-row')).toHaveCount(2);
   await page.locator('#gtEditNotes').fill('저장 안 될 메모');await page.locator('#gtEditNotes').blur();
   const err=pane.locator('[data-gt-field-error="notes"]');
   await expect(err).toBeVisible();await expect(err).not.toBeEmpty();
@@ -170,7 +173,7 @@ test('690: 저장이 안 되면 그 칸 아래에 알리고 입력은 그대로'
 test('690: [완료]는 쓰던 메모를 저장한 뒤 완료하고 칸을 닫는다',async({page})=>{
   const tasks=[task('a','2026-10-08')];
   const calls=await open(page,690,tasks);
-  await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtDetailPane [data-gt-link]')).toHaveCount(2);
+  await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtDetailPane .aop-row')).toHaveCount(2);
   await page.locator('#gtEditNotes').pressSequentially('끝내기 전');
   await page.locator('#gtToggleBtn').click();
   await expect(page.locator('#gtTaskModal')).toBeHidden();

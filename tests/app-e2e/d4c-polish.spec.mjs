@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
+import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 const task=(id,date,status='needsAction')=>({id,title:id,taskListId:'@default',due:date?date+'T00:00:00.000Z':null,status,...(status==='completed'?{completed:'2026-10-08T03:00:00Z'}:{})});
 const orgs=['전국철도노동조합','서울교통공사노동조합','부산지하철노동조합','서해선지부','공항철도지부','김포도시철도지부'].map((name,i)=>({id:'d4c-org-'+i,name,active:true}));
 for(const zone of ['Asia/Seoul','America/Los_Angeles'])for(const now of ['2026-10-08T14:59:59.999Z','2026-10-08T15:00:00.000Z']){
@@ -62,7 +63,7 @@ for(const width of [360,1280])test(`modal titles and organization group boxes ${
   }
   await page.locator('#newEventBtn').click();await groups('#soEventOrgChecks','.so-org-group','label');await page.locator('[data-close="eventModal"]').click();
   await page.locator('[data-google-event="blue-0"]').first().click();await groups('#soGoogleEditOrgChecks','.so-org-group','label');await title('ciGoogleModal');await page.locator('#ciGoogleClose').click();
-  await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());await groups('#gtEditLinkBody [aria-label="조직"]','.gt-org-group','label');await title('gtTaskModal');await page.locator('[data-gt-close]').click();
+  await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());await expect(page.locator('#gtEditLinkBody .aop-row')).toHaveCount(2);await title('gtTaskModal');await page.locator('[data-gt-close]').click();
   await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'d4c-project'}));await title('gtPickModal');await page.locator('[data-gt-pick-close]').click();
   await page.evaluate(async()=>{await import('/app/task-layout.js');window.KPTUTaskLayout.openCreate()});await title('taskModal');await page.locator('[data-close="taskModal"]').click();
   // Entering the screen reloads and redraws the list; read the boxes after that redraw (on a PC the detail opened on the

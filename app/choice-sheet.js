@@ -41,18 +41,21 @@ const searchText=value=>String(value||'').toLowerCase().replace(/\s+/g,'');
 // UI-창잘림·끌어옮기기: width (px) is the PC list's width for a sheet that needs more room than the usual 360px (its CSS never
 // widens it on its own, or the box would be drawn wider than placed and cut at the window's edge). On a wide screen the sheet
 // can be dragged by its title row (anchored-popup.js dragByTitle); the spot is forgotten when it closes.
-export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,onSelect,onError,anchored,multi=()=>null,onCommit=()=>{},width=0}){
+// S52-01 UI-사업영역조직고르기창: saveLabel names the multi footer's keep button (default 저장, e.g. 넣기). A render() view with
+// searchAlways keeps the search box on a phone (bottom sheet) too and filters there. While the box holds text the sheet carries
+// .home-choice-searching, so a list that folds its rows (area-org-picker.js) can show every match.
+export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,onSelect,onError,anchored,multi=()=>null,onCommit=()=>{},width=0,saveLabel='저장'}){
   const sheet=document.createElement('dialog');sheet.className='home-choice-sheet';sheet.id=id;sheet.setAttribute('aria-labelledby',titleId);
   // render() may return search (the box's label): the box sits above the list, outside its scroll, and filters the choices by name
   // (PC list only; phones keep the sheet as it was).
-  sheet.innerHTML=`<header class="anchored-drag-title"><h2 id="${titleId}"></h2><button type="button" data-sheet-close aria-label="선택판 닫기">×</button></header><div class="home-choice-search-box" data-sheet-search-box hidden><input type="search" class="home-choice-search" data-sheet-search autocomplete="off" spellcheck="false">${emptyHtml('맞는 항목 없음', {attrs: 'data-sheet-empty hidden'})}</div><div data-sheet-content></div><footer class="home-choice-foot" data-sheet-foot hidden><span class="home-choice-count" data-sheet-count role="status"></span><button type="button" class="home-choice-cancel" data-sheet-cancel>취소</button><button type="button" class="home-choice-save" data-sheet-save>저장</button></footer>`;
+  sheet.innerHTML=`<header class="anchored-drag-title"><h2 id="${titleId}"></h2><button type="button" data-sheet-close aria-label="선택판 닫기">×</button></header><div class="home-choice-search-box" data-sheet-search-box hidden><input type="search" class="home-choice-search" data-sheet-search autocomplete="off" spellcheck="false">${emptyHtml('맞는 항목 없음', {attrs: 'data-sheet-empty hidden'})}</div><div data-sheet-content></div><footer class="home-choice-foot" data-sheet-foot hidden><span class="home-choice-count" data-sheet-count role="status"></span><button type="button" class="home-choice-cancel" data-sheet-cancel>취소</button><button type="button" class="home-choice-save" data-sheet-save>${saveLabel}</button></footer>`;
   document.body.append(sheet);dragByTitle(sheet,'header');
   let active=null,closing=null,epoch=0,unfollow=null;
   const search=sheet.querySelector('[data-sheet-search]'),searchBox=sheet.querySelector('[data-sheet-search-box]'),empty=sheet.querySelector('[data-sheet-empty]');
   // Hides the choices whose name does not hold the typed text, then any group or section left without a choice. The box is shown
   // only on the PC list; on a phone (bottom sheet) nothing is filtered.
   function filter(){
-    const content=sheet.querySelector('[data-sheet-content]'),q=searchBox.hidden||!sheet.classList.contains('home-choice-anchored')?'':searchText(search.value);let shown=0;
+    const content=sheet.querySelector('[data-sheet-content]'),q=searchBox.hidden||!(sheet.classList.contains('home-choice-anchored')||sheet.classList.contains('home-choice-search-all'))?'':searchText(search.value);let shown=0;sheet.classList.toggle('home-choice-searching',!!q);
     const visible=root=>!!root?.querySelector('[data-sheet-value]:not([hidden]),[data-sheet-item]:not([hidden])');
     content.querySelectorAll('[data-sheet-value],[data-sheet-item]').forEach(el=>{const hit=!q||searchText((el.querySelector('.home-choice-name')||el).textContent).includes(q);el.hidden=!hit;if(hit)shown++;});
     content.querySelectorAll('[data-sheet-path]').forEach(el=>{let tag=el.querySelector('.home-choice-path');if(!q){tag?.remove();return}if(!tag){tag=document.createElement('span');tag.className='home-choice-path';tag.textContent=el.dataset.sheetPath;el.append(tag)}});
@@ -85,7 +88,7 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
   function unplace(){unfollow?.();unfollow=null;sheet.classList.remove('home-choice-split');moveSearch(false);if(!sheet.classList.contains('home-choice-anchored'))return;sheet.classList.remove('home-choice-anchored');clearAnchored(sheet);}
   function paint(){
     if(!active)return;const view=render(active.kind);active.split=!!view.split;sheet.querySelector('h2').textContent=view.title;sheet.dataset.kind=active.kind;
-    searchBox.hidden=!view.search;if(view.search){search.placeholder=view.search;search.setAttribute('aria-label',view.search);}else search.value='';
+    searchBox.hidden=!view.search;sheet.classList.toggle('home-choice-search-all',!!(view.search&&view.searchAlways));if(view.search){search.placeholder=view.search;search.setAttribute('aria-label',view.search);}else search.value='';
     const content=sheet.querySelector('[data-sheet-content]');content.innerHTML=view.html;sync();place();
     const focus=content.querySelector('[aria-pressed="true"]:not([hidden])')||content.querySelector('button:not([hidden])')||sheet.querySelector('[data-sheet-close]');focus.focus({preventScroll:true});focus.scrollIntoView({block:'nearest'});
   }
