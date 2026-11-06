@@ -26,9 +26,7 @@ export async function openGoogleEventMenu(trigger, x = null, y = null) {
   await calendarReady();
   await import('./calendar-context-menu.js');
   if (!window.KPTUCalendarEventMenu?.open || !trigger.isConnected) return false;
-  if (x !== null && y !== null) window.KPTUContextMenu?.pinAt?.(trigger, x, y);
-  window.KPTUCalendarEventMenu.open(trigger);
-  return true;
+  return window.KPTUCalendarEventMenu.open(trigger, x !== null && y !== null ? {x, y} : null) !== false;
 }
 // Data attributes for a line that stands for a Google event (used by openGoogleEventMenu and the click handler).
 const attr = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));

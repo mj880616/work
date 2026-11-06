@@ -5,6 +5,8 @@
 // - 노트 줄은 체크 목록 한 줄('☐ 내용 (통화 11/5)', 줄 글자는 부른 쪽이 만들어 넘김). 했음은 노트에서 ☐ → ☑.
 // - 노트는 기존 노트 저장 길(basket-data.js createNoteDoc·saveNoteDoc, app_notes 소유자 RLS)만 쓴다. AI 재료에서 뺀다(ai_export_allowed=false).
 //   더하기는 읽은 판(updated_at)이 그대로일 때만 저장한다(다른 곳에서 고친 노트를 덮지 않음, 한 번 다시 읽어 다시 시도).
+// - S51-30 [이미 함](markDone): 창 없이 처음 고르는 폴더(위와 같음)의 '잊지 말기' 노트에 체크된 줄('☑ 내용 (통화 11/5)') 하나를 더한다.
+//   되돌리기(undoDone)는 그 노트에서 그 줄 하나만 뺀다(읽은 판일 때만). 할 일·일정은 만들지 않는다.
 // - 보내기가 끝나야 onSent가 불린다(부른 쪽이 그 제안의 상태를 바꿈). 닫으면 아무것도 쓰지 않는다. 기기 저장 없음.
 // 이 파일은 잊지 말기 표를 부르지 않는다(tests/security/family-notes-isolation.test.mjs).
 import {readNoteFolders, createNoteFolder} from './note-folders-data.js';
@@ -14,7 +16,7 @@ import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {toPlain} from './ed-text.mjs';
 import {cleanDoc} from './ed-schema.mjs';
 import {plainToDocKeep} from './ed-markdown.mjs';
-import {FAMILY_FOLDER, LIST_KEY, LIST_TITLE, appendLines, defaultFolder, listNoteIn, newNoteTitle, nextTopOrder} from './family-note-send.mjs';
+import {FAMILY_FOLDER, LIST_KEY, LIST_TITLE, appendLines, defaultFolder, dropLine, listNoteIn, newNoteTitle, nextTopOrder} from './family-note-send.mjs';
 
 const ID = 'familyNoteSend';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -71,6 +73,32 @@ export async function sendLine(rt, {line, body, where, folder, create, lists, fo
   const saved = await createNoteDoc({title: where === 'list' ? LIST_TITLE : newNoteTitle(body), raw_text: toPlain(doc), doc, ai_export_allowed: false,
     folder: folderRef, family_list: where === 'list'}, rt);
   return {noteId: saved?.id || '', folderName: target?.name || ''};
+}
+
+// S51-30 [이미 함]: 창 없이 '잊지 말기' 노트에 체크된 줄 하나. 반환 {noteId, folderName}. 실패하면 던진다(부른 쪽은 상태를 바꾸지 않음).
+export async function markDone(rt, {line, body}) {
+  const [folders, lists] = await Promise.all([readNoteFolders(rt).catch(() => ({ready: false, folders: []})), readListNotes(rt).catch(() => [])]);
+  const list = folders.ready ? folders.folders : [];
+  const pick = defaultFolder(lists, list, folders.ready);
+  return sendLine(rt, {line, body, where: 'list', folder: pick.folder, create: pick.create, lists, folders: list});
+}
+// [이미 함] 되돌리기: 더한 줄 하나만 뺀다. 줄이 이미 없으면 아무것도 쓰지 않는다.
+export async function undoDone(rt, {noteId, line}) {
+  const ws = wsOf(rt);
+  if (!noteId || !ws) return;
+  for (let tries = 0; tries < 2; tries++) {
+    const rows = await rt.api(`/rest/v1/app_notes?id=eq.${enc(noteId)}&workspace_id=eq.${enc(ws)}&kind=eq.note&select=id,title,doc,raw_text,updated_at`, {singleFlight: false});
+    const row = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+    if (!row?.updated_at) return;
+    const doc = dropLine(cleanDoc(row.doc) || plainToDocKeep(row.raw_text || ''), line);
+    if (!doc) return;
+    try {
+      await saveNoteDoc(noteId, {title: String(row.title || '').trim() || LIST_TITLE, raw_text: toPlain(doc), doc, version: row.updated_at}, rt);
+      return;
+    } catch (error) {
+      if (error?.code !== 'note_changed' || tries) throw error;
+    }
+  }
 }
 
 function install() {
