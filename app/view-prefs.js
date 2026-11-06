@@ -77,7 +77,7 @@ const filesFlagsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && O
 // FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2): files_two = [파일] 위 줄 [두 칸] 켬을 기기 종류별(app·phone·pc, files_sources와 같은 모양)로,
 // 기기 칸 안은 화면 폭 종류마다 참·거짓 {fold?: 폴드 펼침 761~1199, wide?: PC 1200~}(없으면 폴드 = 두 칸, PC = 한 칸). migration 20261104190000. 뜻은 files-panes-model.mjs.
 // 쓰기는 'files_two.<기기>' 한 칸씩(files_sources처럼). 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(이번 접속만 기억).
-export const FILES_TWO_LAYOUTS = Object.freeze(['fold', 'wide']);
+export const FILES_TWO_LAYOUTS = Object.freeze(['fold', 'wide', 'narrow']); // narrow = 폰 위·아래 두 칸(S51-20 ②, migration 20261106200000)
 const filesTwoOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(name => FILES_TWO_LAYOUTS.includes(name) && typeof v[name] === 'boolean');
 // 기기 칸 객체(files_sources·files_two): 이름 → 기기 칸 하나의 모양 검사.
 // S49-48 PHOTO-연월보기: photo_zoom = [사진] 탭 보기 단계를 기기 종류별로 {app?, phone?, pc?: 'year'|'month'|'day'}(없으면 일). migration 20261104221000. 뜻은 photo-zoom-model.mjs.
