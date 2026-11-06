@@ -13,7 +13,9 @@ export const URL_MAX_CHARS = 2000;
 // 목록에서 찾은 글 수(종류 거르기 전). 0이면 목록을 못 뽑은 것(parse_empty), 1 이상인데 넣을 글이 0이면 '이번엔 해당 글 없음'(no_match).
 export type ListStats = { candidates: number };
 // title은 목록 칸의 첫 줄(종류 판정용 머리말 포함 — 꼬리표 떼기는 저장 직전 _shared/outside-tidy.ts가 한다). subtitle은 목록 칸 둘째 줄(부제, 없으면 null).
-export type ListItem = { url: string; title: string; subtitle?: string | null; kind: Kind; published_at: string | null; author: string | null; summary: string | null; content: string | null };
+// contentHtml: 피드 본문 칸(content:encoded) 원래 HTML — 공용 추출기가 문단·사진 블록을 뽑는 재료(저장하지 않음). photos: 텔레그램 글 사진 주소(https만).
+export type ListItem = { url: string; title: string; subtitle?: string | null; kind: Kind; published_at: string | null; author: string | null; summary: string | null; content: string | null; contentHtml?: string | null; photos?: string[] };
+export const CONTENT_HTML_MAX = 400000;
 
 // ---- 글자 다듬기 ----------------------------------------------------------------------------------------------------
 
@@ -200,6 +202,7 @@ export function parseFeed(source: OutsideSource, xml: string, nowMs: number, lim
       published_at: feedDate(tag(b, ["pubDate", "dc:date", "published", "updated"]), nowMs, source.lang === "ko"),
       summary: summaryRaw ? cut(feedText(summaryRaw), 4000) || null : null,
       content: contentRaw ? cut(feedText(contentRaw), BODY_MAX_CHARS) || null : null,
+      contentHtml: contentRaw ? contentRaw.slice(0, CONTENT_HTML_MAX) : null,
     });
   }
   return out;
@@ -221,6 +224,21 @@ export function telegramPreview(seg: string): { title: string | null; descriptio
   const title = cleanTitle(cut(part("link_preview_title"), TG_TITLE_MAX));
   const description = cut(part("link_preview_description"), 4000).trim() || null;
   return { title: title && usableTitle(title) ? title : null, description };
+}
+// 텔레그램 글 사진: `tgme_widget_message_photo_wrap` 칸의 style background-image 주소(https만, 20장까지). 주소만 — 받으러 가지 않는다.
+export function telegramPhotos(seg: string): string[] {
+  const out: string[] = [];
+  for (const m of seg.matchAll(/<a\b[^>]*\bclass\s*=\s*"[^"]*\btgme_widget_message_photo_wrap\b[^"]*"[^>]*>/gi)) {
+    const style = decodeEntities(/\bstyle\s*=\s*"([^"]*)"/i.exec(m[0])?.[1] ?? "");
+    const raw = /background-image\s*:\s*url\(\s*['"]?([^'")\s]+)['"]?\s*\)/i.exec(style)?.[1];
+    if (!raw) continue;
+    let u: URL;
+    try { u = new URL(raw); } catch { continue; }
+    if (u.protocol !== "https:" || u.username || u.password || u.href.length > 2000 || out.includes(u.href)) continue;
+    out.push(u.href);
+    if (out.length >= 20) break;
+  }
+  return out;
 }
 export function parseTelegram(source: OutsideSource, html: string, nowMs: number, limit = 30, stats?: ListStats): ListItem[] {
   const ch = source.telegram;
@@ -269,7 +287,7 @@ export function parseTelegram(source: OutsideSource, html: string, nowMs: number
     if (!kind) continue;
     seen.add(url);
     const dt = /<time\b[^>]*\bdatetime\s*=\s*"([^"]+)"/i.exec(seg)?.[1] ?? null;
-    out.push({ url, title, kind, author: null, published_at: feedDate(dt, nowMs), summary: null, content: content || null });
+    out.push({ url, title, kind, author: null, published_at: feedDate(dt, nowMs), summary: null, content: content || null, photos: telegramPhotos(seg) });
   }
   return out;
 }
@@ -447,28 +465,43 @@ export function bodyBlocks(html: string, re: RegExp): string {
 
 // 글 페이지에서 본문 글자만: 단체 규칙 bodyClass 칸 → <article>(또는 흔한 본문 칸) → 페이지 전체 순서. 제목 줄 뒤부터 '목록·이전글·댓글·저작권' 줄 앞까지.
 // 본문 칸 줄들(필터 전): 단체 본문 칸 → <article> → 흔한 본문 칸 → 페이지 전체 순서. 제목 줄 뒤부터 '목록·이전글·댓글·저작권' 줄 앞까지.
-function bodyScope(html: string, title: string, bodyClass?: RegExp): string[] {
+// 본문 칸 HTML(필터 전)과 그것이 단체 본문 칸(bodyClass)인지. 공용 추출기(_shared/feed-extract.ts)가 같은 칸을 쓴다(한 번 뽑아 세 곳).
+export function bodyScopeHtml(html: string, bodyClass?: RegExp): { html: string; own: boolean } {
   const own = bodyClass ? bodyBlocks(html, bodyClass) : "";
   const scoped = (own.trim() ? own : null)
     ?? /<article\b[^>]*>([\s\S]*?)<\/article\s*>/i.exec(html)?.[1]
     ?? /<(?:div|section)\b[^>]*\b(?:class|id)\s*=\s*["'][^"']*\b(?:entry-content|post-content|article-body|article_body|view_content|view-content|board_view|bbs_view|xe_content|rd_body|content_view|viewContent|bo_v_con|kboard-content)\b[^"']*["'][^>]*>([\s\S]*)/i.exec(html)?.[1]
     ?? (/<body\b[^>]*>([\s\S]*)<\/body\s*>/i.exec(html)?.[1] ?? html);
-  const cleaned = scoped.replace(/<(nav|header|footer|aside|form)\b[\s\S]*?<\/\1\s*>/gi, " ");
-  const lines = htmlToText(cleaned).split("\n");
+  return { html: scoped.replace(/<(nav|header|footer|aside|form)\b[\s\S]*?<\/\1\s*>/gi, " "), own: !!own.trim() };
+}
+// 본문 칸 줄들 → 본문 줄들: 제목 줄 뒤부터(단체 본문 칸이면 처음부터) '목록·이전글·댓글·저작권' 줄 앞까지.
+// key: 줄 글자를 판정용으로 바꾸는 함수(추출기의 표시 글자를 떼는 데 씀).
+export function bodyRange(lines: string[], title: string, own: boolean, key: (l: string) => string = (l) => l): string[] {
   // 단체 본문 칸 안은 처음부터 본문이다(제목 찾기를 하면 '…규탄한다.hwp' 같은 첨부 이름 줄 뒤부터 읽게 된다).
-  const start = own.trim() ? 0 : afterTitle(lines, title);
+  const start = own ? 0 : afterTitle(lines.map(key), title);
   const out: string[] = [];
   for (const l of lines.slice(start)) {
-    if (END_MARK.test(l)) break;
+    if (END_MARK.test(key(l))) break;
     out.push(l);
   }
   return out;
+}
+function bodyScope(html: string, title: string, bodyClass?: RegExp): string[] {
+  const scope = bodyScopeHtml(html, bodyClass);
+  return bodyRange(htmlToText(scope.html).split("\n"), title, scope.own);
+}
+// 본문 줄이 아닌 것: 글 머리의 날짜·시각 줄, 첨부 파일 이름 줄, 메뉴·공유·조회수 같은 짧은 덧줄.
+export function isBodyNoise(l: string): boolean {
+  return DATE_ONLY.test(l) || FILE_LINE.test(l) || isNoiseLine(l);
+}
+export function isFileLine(l: string): boolean {
+  return FILE_LINE.test(l);
 }
 // 글 페이지에서 본문 글자만.
 export function extractBody(html: string, title: string, bodyClass?: RegExp): string {
   const body: string[] = [];
   for (const l of bodyScope(html, title, bodyClass)) {
-    if (DATE_ONLY.test(l) || FILE_LINE.test(l) || isNoiseLine(l)) continue; // 글 머리의 날짜·시각 줄, 첨부 파일 이름 줄, 메뉴·공유·조회수 같은 짧은 덧줄은 본문이 아니다
+    if (isBodyNoise(l)) continue;
     body.push(l);
   }
   return cut(body.join("\n").trim(), BODY_MAX_CHARS);

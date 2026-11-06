@@ -2,7 +2,9 @@
 // - 공개로 읽히는 기사: 본문 전체(body_kind='full').
 // - 유료·로그인 기사(유료벽 표시가 보이면): 본문을 읽지 않고 공개 리드·메타 설명만(body_kind='lead', state='paywall'). 유료벽을 넘지 않는다.
 // - 봇 확인 쪽: 아무것도 저장하지 않음(state='bot_check').
-import { cut, decodeEntities, extractBody, htmlToText, looksLikeBotCheck, oneLine } from "../outside-feed/parse.ts";
+// NEWS-전면개편 P2b: 본문은 공용 추출기(_shared/feed-extract.ts) 한 번으로 뽑아 블록(화면 '원문 전체' 저장용)과 body 글자(AI·번역 재료)에 함께 쓴다.
+import { cut, decodeEntities, htmlToText, looksLikeBotCheck, oneLine } from "../outside-feed/parse.ts";
+import { extractBlocks, failedBody, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
 
 export const BODY_MAX = 100000;      // DB 검사와 같음
 export const FULL_MIN_CHARS = 200;   // 이보다 짧으면 본문을 못 뽑은 것으로 보고 메타 설명(리드)만
@@ -16,7 +18,10 @@ export type PageInfo = {
   lang: string;
   body: string | null;
   body_kind: "full" | "lead" | null;
+  blocks: Extracted; // app_feed_bodies에 넣을 블록(같은 추출 결과)
 };
+// 본문 규칙: 매체 카탈로그 extract·bodyClass 또는 채널 기사의 열린 주소 규칙(open@판).
+export type PageRule = { key: string; rule: ExtractRule; body?: RegExp; base: string };
 
 function meta(html: string, keys: string[]): string | null {
   for (const k of keys) {
@@ -64,7 +69,7 @@ function isoDate(raw: string | null, nowMs: number): string | null {
   return new Date(t).toISOString();
 }
 
-export function readArticlePage(html: string, nowMs: number): PageInfo {
+export function readArticlePage(html: string, nowMs: number, rule?: PageRule): PageInfo {
   const titleRaw = meta(html, ["og:title", "twitter:title"]) ?? /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(html)?.[1] ?? "";
   const title = cut(oneLine(decodeEntities(titleRaw.replace(/<[^>]*>/g, " "))), 500) || null;
   const publisher = cut(meta(html, ["og:site_name", "application-name"]) ?? "", 120) || null;
@@ -75,14 +80,18 @@ export function readArticlePage(html: string, nowMs: number): PageInfo {
   const description = meta(html, ["og:description", "description", "twitter:description"]);
   const plain = htmlToText(html);
   const lang = pageLang(html, `${title ?? ""}\n${plain}`);
-  if (looksLikeBotCheck(plain)) return { state: "bot_check", title: null, publisher, published_at: null, lang, body: null, body_kind: null };
+  const r: PageRule = rule ?? { key: "open", rule: { version: 1 }, base: "https://invalid.example/" };
+  if (looksLikeBotCheck(plain)) return { state: "bot_check", title: null, publisher, published_at: null, lang, body: null, body_kind: null, blocks: failedBody("bot_check", null) };
   const lead = description ? cut(description, LEAD_MAX) || null : null;
-  if (looksPaywalled(html)) {
-    return { state: "paywall", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null };
+  const leadBlocks = (reason: "paywall" | "no_body") => lead ? textBlocks(lead, { key: r.key, rule: r.rule, minChars: 1, state: "lead", reason }) : failedBody(reason, null);
+  if (looksPaywalled(html) || (r.rule.lead && r.rule.lead.test(html))) {
+    return { state: "paywall", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: leadBlocks("paywall") };
   }
-  const body = cut(extractBody(html, title ?? ""), BODY_MAX);
-  if ([...body].length >= FULL_MIN_CHARS) return { state: "ok", title, publisher, published_at, lang, body, body_kind: "full" };
-  return { state: "ok", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null };
+  const ex = extractBlocks({ html, base: r.base, title: title ?? "", key: r.key, rule: r.rule, body: r.body, minChars: FULL_MIN_CHARS });
+  const body = cut(ex.text, BODY_MAX);
+  if (ex.state === "ok") return { state: "ok", title, publisher, published_at, lang, body, body_kind: "full", blocks: ex };
+  // 본문이 짧으면 메타 설명(리드)만 body로. 블록은 그림뿐인 글이면 그 사진들, 아니면 리드.
+  return { state: "ok", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: ex.state === "image_only" ? ex : leadBlocks("no_body") };
 }
 
 // 겹침 판정용 제목: 구글 뉴스 꼬리 ' - 매체', 머리말([단독] 등), 공백·문장부호 떼기.

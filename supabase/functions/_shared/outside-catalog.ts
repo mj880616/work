@@ -7,6 +7,8 @@
 // 빠진 것(결정): 정의당 홈페이지(Q1, robots.txt가 막음 — 자동 수집 안 함, 대신 공개 텔레그램 채널을 읽음 S48-23), NLR(Q5, 유료), In These Times·The Nation·Tribune·Spectre(Q5).
 // 새 단체는 여기에 한 줄 더하는 작은 PR로만 넣는다(Edge 재배포 정지 지점).
 
+import type { ExtractRule } from "./feed-extract.ts";
+
 export type Kind = "statement" | "comment" | "press" | "article";
 // 묶음 칩(11/02 00:19 명진 요청): [노동] [정당] [사회운동] [외국]. 민주노총·공공운수노조는 [노동] 안 단체 칩.
 export type Group = "labor" | "party" | "movement" | "foreign";
@@ -35,6 +37,9 @@ export type OutsideSource = {
   dateClass?: RegExp;
   // 글 쪽 본문 칸(class 이름 또는 id). 맞는 칸의 안쪽만 본문으로 읽는다(없거나 비면 흔한 본문 칸·<article>·페이지 전체 순서).
   bodyClass?: RegExp;
+  // 본문·사진 블록 추출 규칙(NEWS-전면개편 P2b, 설계 docs/design/news-overhaul.md 4.2절). 출처마다 반드시 적는다(시험이 고정).
+  // false: 본문 블록을 저장하지 않음(명진 확인 M3 — 외국 매체를 예전처럼 요약만 두고 싶을 때 이 한 칸으로 끔). 본문 칸은 위 bodyClass를 그대로 쓴다.
+  extract: ExtractRule | false;
   // robots.txt 예외(명진 결정 기록). 이 칸만으로는 효과가 없고, outside-feed handler의 ROBOTS_EXEMPT_KEYS에도 같은 키가 있어야 한다(둘 다 kptu·laborparty 두 곳뿐 — 시험이 고정).
   robotsException?: string;
   kindOf: (title: string, url: string, category?: string | null) => Kind | null;
@@ -88,6 +93,7 @@ function jinboView(href: string, base: URL): string | null {
 export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
     key: "kctu", name: "민주노총", group: "labor", lang: "ko", mode: "html",
+    extract: { version: 1 },
     lists: ["https://nodong.org/statement"], hosts: ["nodong.org", "www.nodong.org"],
     item: /^https:\/\/(www\.)?nodong\.org\/statement\/\d+\/?$/, canon: plain,
     kindOf: byPrefix("statement"),
@@ -97,6 +103,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 명진이 소속된 노조의 공개 성명 게시판. 하루 3번 예약 때 목록 한 쪽 + 새 글만(바로 읽기 없음), 요청 머리(User-Agent)는 그대로.
     // 다른 단체의 robots 규칙은 그대로 지킨다. 2026-11-01 확인: 글 본문은 `div.publishList_write` 안(ASP.NET form 안쪽).
     key: "kptu", name: "공공운수노조", group: "labor", lang: "ko", mode: "html",
+    extract: { version: 1 },
     robotsException: "명진 결정 11/01 16:49",
     lists: ["https://www.kptu.net/board/list.aspx?mid=F686C1F3"], hosts: ["www.kptu.net", "kptu.net"],
     bodyClass: /^publishList_write$/,
@@ -110,6 +117,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
     // 그누보드 보도자료/성명 게시판(ce_B12). 맨 위 고정 공지도 같은 주소 모양이라 머리말(공지·안내 등)로 거른다.
     key: "kmwu", name: "금속노조", group: "labor", lang: "ko", mode: "html",
+    extract: { version: 1, drop: /^(bo_v_sns|bo_v_share|bo_v_file|bo_v_link|bo_vc|bo_v_nb)$/ },
     lists: ["https://kmwu.kr/bbs/board.php?bo_table=ce_B12"], hosts: ["kmwu.kr", "www.kmwu.kr"],
     item: /^https:\/\/(www\.)?kmwu\.kr\/bbs\/board\.php\?(?=[^#]*\bbo_table=ce_B12\b)(?=[^#]*\bwr_id=\d+\b)/,
     canon: keepQuery(["bo_table", "wr_id"]),
@@ -118,6 +126,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
     // 워드프레스 + KBoard 성명·보도자료 쪽(/성명-보도자료/). 글 주소는 같은 쪽 + ?mod=document&uid=번호(노동당과 같은 모양).
     key: "kfsu", name: "서비스연맹", group: "labor", lang: "ko", mode: "html",
+    extract: { version: 1, drop: /^(kboard-document-action|kboard-control|kboard-comments-area)$/ },
     lists: ["https://kfsu.kr/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C/"], hosts: ["kfsu.kr", "www.kfsu.kr"],
     item: /^https:\/\/(www\.)?kfsu\.kr\/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C\/?\?(?=[^#]*\bmod=document\b)(?=[^#]*\buid=\d+\b)/i,
     canon: keepQuery(["mod", "uid"]),
@@ -126,6 +135,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
     // 성명·보도자료 게시판에 기자회견 알림 글이 섞여 있다: '[알림]'·'[취재요청]' 머리말과 머리말 없는 '… 기자회견 (개최) 알림·안내'는 넣지 않는다.
     key: "hakbi", name: "학비노조", group: "labor", lang: "ko", mode: "html",
+    extract: { version: 1 },
     lists: ["https://www.hakbi.org/board/media_reports"], hosts: ["www.hakbi.org", "hakbi.org"],
     item: /^https:\/\/(www\.)?hakbi\.org\/board\/media_reports\/read\/\d+\/?$/, canon: plain,
     kindOf: (title) => (HAKBI_NOTICE.test(title) ? null : byPrefix("statement")(title)),
@@ -135,6 +145,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 공공운수노조 예외와 똑같이 하루 3번 예약 때 목록 한 쪽 + 새 글만(바로 읽기 없음), 요청 머리(User-Agent)는 그대로.
     // 다른 단체의 robots 규칙은 그대로 지킨다.
     key: "laborparty", name: "노동당", group: "party", lang: "ko", mode: "html",
+    extract: { version: 1, drop: /^(kboard-document-action|kboard-control|kboard-comments-area)$/ },
     robotsException: "명진 결정 11/01 21:08",
     lists: ["https://laborparty.kr/?page_id=13642"], hosts: ["laborparty.kr", "www.laborparty.kr"],
     item: /^https:\/\/(www\.)?laborparty\.kr\/\?(?=[^#]*\bmod=document\b)(?=[^#]*\bpage_id=13642\b)(?=[^#]*\buid=\d+\b)/,
@@ -143,6 +154,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   },
   {
     key: "kgreens", name: "녹색당", group: "party", lang: "ko", mode: "html",
+    extract: { version: 1 },
     lists: ["https://kgreens.org/statement", "https://kgreens.org/press"], hosts: ["kgreens.org", "www.kgreens.org"],
     item: /^https:\/\/(www\.)?kgreens\.org\/(statement|press)\/?\?(?=[^#]*\bbmode=view\b)(?=[^#]*\bidx=\d+\b)/,
     canon: keepQuery(["bmode", "idx"]),
@@ -150,6 +162,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   },
   {
     key: "jinboparty", name: "진보당", group: "party", lang: "ko", mode: "html",
+    extract: { version: 1 },
     lists: ["https://jinboparty.com/pages/?p=15&b=b_1_2", "https://jinboparty.com/pages/?p=286&b=b_1_111"],
     hosts: ["jinboparty.com", "www.jinboparty.com"],
     // 2026-11-01 목록 확인: 글 링크가 `javascript:js_board_view('번호')`라 주소로 바꿔 읽는다(listHref). 제목은 링크 안 제목 칸만
@@ -170,6 +183,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 채널에는 생중계·행사 안내·카드뉴스 글도 섞여 있어 머리말([성명]·[논평]·[브리핑]·[보도자료] 등)이 있는 글만 넣는다.
     // 원문 링크는 채널 글 주소(본문 안 justice21.org 주소는 허용 호스트가 아니라 원문으로 쓰지 않는다 — 요청도 하지 않는다).
     key: "justice", name: "정의당", group: "party", lang: "ko", mode: "telegram", telegram: "justicekr",
+    extract: { version: 1 },
     lists: ["https://t.me/s/justicekr"], hosts: ["t.me"], canon: plain,
     kindOf: byPrefix(null),
   },
@@ -179,6 +193,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 그래서 공지·성명 게시판을 읽는다. 분류 '성명'은 성명(머리말이 있으면 그대로), 분류 '공지'는 머리말([기자회견]·[성명]·[논평] 등)이 있는 글만
     // (공연·모집·추모행사 안내 같은 머리말 없는 공지는 넣지 않음). 옛 성명 게시판에서 이미 들어간 글은 지우지 않는다(날짜순이라 아래로 내려감).
     key: "pssp", name: "사회진보연대", group: "movement", lang: "ko", mode: "html",
+    extract: { version: 1 },
     lists: ["https://pssp.org/bbs/list.php?board=notice"], hosts: ["pssp.org", "www.pssp.org"],
     // 글 번호는 nid(`./view.php?board=notice&nid=번호&page=1`). 옛 모양(id·no·idx)도 받는다.
     item: /^https:\/\/(www\.)?pssp\.org\/bbs\/view\.php\?(?=[^#]*\bboard=notice\b)(?=[^#]*\b(nid|id|no|idx)=\d+\b)/,
@@ -196,6 +211,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 나머지는 기사(article: 종류 칸 비움). 공지·안내·모집 등 머리말 글은 다른 단체처럼 뺀다(byPrefix).
     // 하루 수십 건이어도 한 번 실행에 단체마다 새 글 MAX_NEW_PER_RUN(8)건, 나머지는 다음 실행으로 넘긴다(handler.ts).
     key: "ws", name: "노동자연대", group: "movement", lang: "ko", mode: "rss",
+    extract: { version: 1, drop: /^(sharedaddy|sd-sharing-enabled|jp-relatedposts|addtoany_share_save_container|post-tags|author-box|wp-block-buttons)$/, caption: /^(wp-caption-text|wp-element-caption)$/ },
     lists: ["https://ws.or.kr/feed"], hosts: ["ws.or.kr", "www.ws.or.kr"],
     canon: plain,
     kindOf: (title) => (WS_BARE_STATEMENT.test(title) ? "statement" : byPrefix("article")(title)),
@@ -204,6 +220,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 2026-11-01 확인: RSS·사이트맵이 없고, 글 목록(/readings)은 모든 글을 한 쪽에 실어 3.4MB라 2MB 상한에 걸렸다(too_large).
     // 상한은 그대로 두고 더 작은 첫 화면(약 0.8MB, 최근 글 30개 카드)을 목록으로 읽는다. 카드 제목은 `h2.PostCard-module__…__title`.
     key: "platformc", name: "플랫폼C", group: "movement", lang: "ko", mode: "html",
+    extract: { version: 1 },
     lists: ["https://platformc.kr/"], hosts: ["platformc.kr", "www.platformc.kr"],
     item: /^https:\/\/(www\.)?platformc\.kr\/\d{4}\/\d{2}\/[^/?#]+\/?$/, canon: plain,
     titleClass: /(^|__)title$/,
@@ -212,6 +229,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
     // 성명 게시판이 없고 공지사항에 [입장] 머리말로 올라온다(Q3). [입장]만 성명으로 넣는다(공지·토론회 안내는 거름).
     key: "leftall", name: "전국결집", group: "movement", lang: "ko", mode: "html",
+    extract: { version: 1, drop: /^(bo_v_sns|bo_v_share|bo_v_file|bo_v_link|bo_vc|bo_v_nb)$/ },
     lists: ["https://leftall.com/bbs/board.php?bo_table=notice"], hosts: ["leftall.com", "www.leftall.com"],
     item: /^https:\/\/(www\.)?leftall\.com\/(notice\/\d+\/?$|bbs\/board\.php\?(?=[^#]*\bbo_table=notice\b)(?=[^#]*\bwr_id=\d+\b))/,
     canon: (u) => {
@@ -222,6 +240,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   },
   {
     key: "socialism", name: "사회주의를향한전진", group: "movement", lang: "ko", mode: "html",
+    extract: { version: 1, drop: /^(bo_v_sns|bo_v_share|bo_v_file|bo_v_link|bo_vc|bo_v_nb)$/ },
     lists: ["https://socialism.jinbo.net/bbs/board.php?bo_table=news&me_id=11&me_code=20"], hosts: ["socialism.jinbo.net"],
     // 2026-11-01 확인('건너뜀 8'의 까닭): 글 쪽 첫 <article>은 공유 단추 칸이라 본문을 0자로 읽었다 → 본문 칸 `#body_content`만 읽는다.
     // 목록 쪽에는 메뉴(기본강령·대중투쟁강령)·옆 칸(다른 게시판 글) 링크도 같은 주소 모양이라, 성명/논평 게시판 링크(me_code=20)만 받는다.
@@ -240,28 +259,34 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // t.me는 이 단체의 이 경로(목록 t.me/s/ksocialist, 글 t.me/ksocialist/<번호>)만 허용한다. robots.txt는 그대로 지킨다(예외 아님).
     // 글 쪽은 읽지 않는다: 본문은 채널 글 자체, 원문 링크는 본문 안 socialist.kr 글 주소(있으면, 요청하지 않고 링크로만) 아니면 채널 글 주소.
     key: "socialist", name: "사회주의자", group: "movement", lang: "ko", mode: "telegram", telegram: "ksocialist",
+    extract: { version: 1 },
     lists: ["https://t.me/s/ksocialist"], hosts: ["t.me", "socialist.kr", "www.socialist.kr"], httpHosts: ["socialist.kr", "www.socialist.kr"],
     // WordPress 짧은 주소(?p=번호)는 번호를 남긴다(빼면 모든 글이 첫 화면 주소 하나로 겹친다).
     canon: (u) => { const p = u.searchParams.get("p"); return p && /^\d{1,9}$/.test(p) ? `${plain(u)}?p=${p}` : plain(u); },
     kindOf: byPrefix("article"),
   },
-  // 외국 매체(Q5): 제목·링크·한국어 요약·핵심 문장 3개까지만 저장한다(본문·전문 번역 저장 안 함, 2절).
+  // 외국 매체(Q5): 제목·링크·한국어 요약·핵심 문장 3개. NEWS-전면개편 D1(가)·M3로 원문(영어) 본문 블록도 작업공간 소유자 비공개로 저장한다
+  // (전문 번역 저장은 여전히 없음 — 설계 news-overhaul 4.6절). 요약만 두려면 그 단체 extract를 false로.
   {
     // 피드에 본문이 없고 소개 글만 있다. 글 쪽 본문은 `div.po-bo__content`(여러 칸으로 나뉨) — 첫 <article> 안에 다른 글 카드가 겹쳐 있어 그 칸만 읽는다(2026-11-01 확인).
     key: "jacobin", name: "Jacobin", group: "foreign", lang: "en", mode: "rss",
+    extract: { version: 1, drop: /^(po-bo__share|po-bo__newsletter|po-bo__related)$/ },
     lists: ["https://jacobin.com/rss"], hosts: ["jacobin.com", "www.jacobin.com"], canon: plain, kindOf: () => "article",
     bodyClass: /^po-bo__content$/,
   },
   {
     key: "labornotes", name: "Labor Notes", group: "foreign", lang: "en", mode: "rss",
+    extract: { version: 1, caption: /^(caption|image-caption|field-name-field-caption)$/ },
     lists: ["https://labornotes.org/feed"], hosts: ["labornotes.org", "www.labornotes.org"], canon: plain, kindOf: () => "article",
   },
   {
     key: "redpepper", name: "Red Pepper", group: "foreign", lang: "en", mode: "rss",
+    extract: { version: 1, drop: /^(sharedaddy|sd-sharing-enabled|jp-relatedposts|addtoany_share_save_container|post-tags|author-box|wp-block-buttons)$/, caption: /^(wp-caption-text|wp-element-caption)$/ },
     lists: ["https://www.redpepper.org.uk/feed/"], hosts: ["www.redpepper.org.uk", "redpepper.org.uk"], canon: plain, kindOf: () => "article",
   },
   {
     key: "socialistworker", name: "Socialist Worker", group: "foreign", lang: "en", mode: "rss",
+    extract: { version: 1, drop: /^(sharedaddy|sd-sharing-enabled|jp-relatedposts|addtoany_share_save_container|post-tags|author-box|wp-block-buttons)$/, caption: /^(wp-caption-text|wp-element-caption)$/ },
     lists: ["https://socialistworker.co.uk/feed/"], hosts: ["socialistworker.co.uk", "www.socialistworker.co.uk"], canon: plain, kindOf: () => "article",
   },
 ] as OutsideSource[]);

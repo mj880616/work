@@ -5,6 +5,8 @@
 //   또는(NEWS-전면개편 P1c) 그 헤더 값의 SHA-256을 service role로 읽은 app_cron_keys('web2_feed_cron') 지문과 고정 길이 비교(_shared/cron-key.ts).
 //   둘 중 하나 맞으면 통과. 지문 행이 없거나 표를 못 읽으면 지문 길만 실패한다.
 //   어느 작업공간에 넣을지는 서버가 표(app_outside_sources의 news- 키, app_news_keywords, app_news_items 대기 줄)로 정한다.
+//   `probe`(NEWS-전면개편 P2b, 설계 news-overhaul 4.4절): 매체 키 하나 → 피드 1번 + 최신 기사 1개를 읽어 본문 추출 결과를 숫자·코드로만
+//   돌려준다(제목·주소·본문 없음, 저장 없음). 몸통 {}이면 카탈로그 키 목록만.
 //   run 단계: media(켠 매체 RSS 한 곳) · keywords(구글 뉴스 검색 RSS) · pending(채널 기사 원문 읽기·요약) · titles(외국어 기사 제목만 한국어로) · prune(오래된 자동 기사 정리).
 // - 화면 입구(`catalog`·`fill_now`·`open`·`translate`): 사용자 로그인을 Auth 서버로 확인 + 그 사람이 owner인 작업공간 하나를 서버가 정함.
 //   몸통은 기사 id(uuid)뿐이고 주소는 받지 않는다. 하루 한도는 app_news_days에 센다(재시작에도 유지).
@@ -29,7 +31,8 @@ import { tidyTitle } from "../_shared/outside-tidy.ts";
 const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: false }).title || raw;
 import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
-import { readArticlePage, splitGoogleTitle, titleKey } from "./page.ts";
+import { readArticlePage, splitGoogleTitle, titleKey, type PageRule } from "./page.ts";
+import { bodyNumbers, failedBody, readFailReason } from "../_shared/feed-extract.ts";
 
 export type NewsFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: FeedLog };
 
@@ -92,6 +95,19 @@ const exactKeys = (o: Record<string, unknown>, required: string[]) => {
 const chars = (s: string) => [...s].length;
 const kstDay = (ms: number) => new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
+export const IN_LIST_MAX_BYTES = 3000;
+// PostgREST in.(…) 값 묶음(이미 인코딩된 글자): 한 묶음 40개·IN_LIST_MAX_BYTES 바이트까지. 값 하나가 상한보다 길면 그 값만 한 묶음.
+export function inChunks(values: string[]): string[] {
+  const out: string[] = [];
+  let cur: string[] = [], size = 0;
+  for (const v of values) {
+    const enc = encodeURIComponent(inList([v])).length;
+    if (cur.length && (cur.length >= 40 || size + enc > IN_LIST_MAX_BYTES)) { out.push(encodeURIComponent(inList(cur))); cur = []; size = 0; }
+    cur.push(v); size += enc;
+  }
+  if (cur.length) out.push(encodeURIComponent(inList(cur)));
+  return out;
+}
 const inList = (values: string[]) => `(${values.map((v) => `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",")})`;
 
 // ---- DB(service role, PostgREST) ------------------------------------------------------------------------------------
@@ -342,8 +358,10 @@ async function insertNew(db: Db, rows: NewRow[], left?: Map<string, number>): Pr
   for (const [ws, list] of byWs) {
     const keys = [...new Set(list.map((r) => r.url_key))], tks = [...new Set(list.map((r) => r.title_key).filter((t): t is string => !!t))];
     const have = new Set<string>();
-    for (let i = 0; i < keys.length; i += 40) for (const r of await db.get(`app_news_items?workspace_id=eq.${ws}&url_key=in.${encodeURIComponent(inList(keys.slice(i, i + 40)))}&select=url_key`)) have.add(`u:${r.url_key}`);
-    for (let i = 0; i < tks.length; i += 40) for (const r of await db.get(`app_news_items?workspace_id=eq.${ws}&title_key=in.${encodeURIComponent(inList(tks.slice(i, i + 40)))}&select=title_key`)) have.add(`t:${r.title_key}`);
+    // 묶음은 개수(40)와 주소 길이(IN_LIST_MAX_BYTES) 둘 다로 나눈다: 한글 제목 40개를 한 주소에 실으면 퍼센트 인코딩으로 1만 바이트를 넘어
+    // 저장소 앞단이 요청을 거절했다(503 STORE_UNAVAILABLE — 비마이너, 11/03~11/06 매번).
+    for (const part of inChunks(keys)) for (const r of await db.get(`app_news_items?workspace_id=eq.${ws}&url_key=in.${part}&select=url_key`)) have.add(`u:${r.url_key}`);
+    for (const part of inChunks(tks)) for (const r of await db.get(`app_news_items?workspace_id=eq.${ws}&title_key=in.${part}&select=title_key`)) have.add(`t:${r.title_key}`);
     let fresh: NewRow[] = [];
     const seen = new Set<string>();
     for (const r of list) {
@@ -521,6 +539,26 @@ async function runTitles(db: Db, ai: AiDeps, nowMs: number, startMs: number, clo
   return { ok: true, step: "titles", done, deferred };
 }
 
+// ---- 본문 규칙·probe(NEWS-전면개편 P2b) -----------------------------------------------------------------------------
+// 매체 기사: 카탈로그 extract·bodyClass. 채널 기사(열린 주소): open@판. base는 읽은 최종 주소(사진 상대 주소 풀기).
+export function mediaRule(source: NewsSource, base: string): PageRule {
+  return { key: source.key, rule: source.extract || { version: 1 }, body: source.bodyClass, base };
+}
+async function probeMedia(readers: Readers, source: NewsSource, nowMs: number) {
+  const base = { ok: true, source: source.key, extract: source.extract !== false };
+  const reader = readers.catalog(source);
+  const got = await reader.get(source.lists[0], ACCEPT_FEED);
+  if (!got.ok) return { ...base, list: got.code, listed: 0, page: null, ...bodyNumbers(failedBody(readFailReason(got.code))) };
+  const items = parseFeed(source, got.text, nowMs, 5);
+  const it = items[0];
+  if (!it) return { ...base, list: "ok", listed: 0, page: null, ...bodyNumbers(failedBody("no_body")) };
+  const clean = cleanArticleUrl(it.url);
+  const page = clean ? await reader.get(clean, ACCEPT_HTML) : { ok: false as const, code: "url_outside" };
+  if (!page.ok) return { ...base, list: "ok", listed: items.length, page: page.code, ...bodyNumbers(failedBody(readFailReason(page.code))) };
+  const info = readArticlePage(page.text, nowMs, mediaRule(source, page.url));
+  return { ...base, list: "ok", listed: items.length, page: "ok", page_state: info.state, body_kind: info.body_kind, ...bodyNumbers(info.blocks) };
+}
+
 // ---- 화면 입구(로그인 + owner) --------------------------------------------------------------------------------------
 async function authorizeUser(sb: string, key: string, jwt: string, doFetch: typeof fetch, db: Db): Promise<{ userId: string; workspaceId: string }> {
   let r: Response;
@@ -569,7 +607,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
       let action: string | null = null;
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
-      const cronActions = ["run_plan", "run"], userActions = ["catalog", "fill_now", "open", "translate"];
+      const cronActions = ["run_plan", "run", "probe"], userActions = ["catalog", "fill_now", "open", "translate"];
       if (!(cron ? cronActions : userActions).includes(action ?? "")) throw new Fail(400, "UNKNOWN_ACTION");
       if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown;
@@ -585,6 +623,14 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
         const media = [...(await enabledMedia(db)).keys()];
         return json({ ok: true, media, steps: ["keywords", "pending", "titles", "prune"] });
+      }
+      if (action === "probe") {
+        // 몸통 {}: 카탈로그 키 목록. {source}: 그 매체 하나(카탈로그 밖 키는 400). 켬 여부와 상관없이 읽고, 아무것도 저장하지 않는다.
+        if (exactKeys(b, [])) return json({ ok: true, sources: NEWS_CATALOG.map((s) => s.key) });
+        if (!exactKeys(b, ["source"])) throw new Fail(400, "INVALID_BODY");
+        const source = newsSourceByKey(b.source);
+        if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
+        return json(await probeMedia(readers, source, nowMs));
       }
       if (action === "run") {
         const step = b.step;
