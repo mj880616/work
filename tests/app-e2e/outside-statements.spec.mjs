@@ -121,10 +121,10 @@ async function start(page, width, initialPrefs = null) {
 async function openOutside(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: 'Now' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
-  await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
+  await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('news');
 }
 const root = page => page.locator('#outsideRoot');
 const rows = (page, panel) => root(page).locator(`${panel} [data-nw-key]`);

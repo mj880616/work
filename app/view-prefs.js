@@ -105,10 +105,10 @@ export const PHONE_FOLDERS_OFF_MAX = 80;
 // PHOTO-위쪽두줄앨범보기: album_view = 사진 [앨범] 탭 보기 크기 세 단계 'card'(큰 칸)·'thumb'(작은 그림 + 이름·장수·기간)·'line'(글자만 한 줄), 없으면 큰 칸.
 // migration 20261031235000. 뜻·단계 순서는 photos-model.mjs ALBUM_VIEWS. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(알림 없음).
 export const ALBUM_VIEWS = Object.freeze(['card', 'thumb', 'line']);
-// OUTSIDE-글상세·관심환류 ③: now_tab = Now 메뉴의 마지막 탭(migration 20261102141000), 없으면 사회운동. split_ratio.now = 목록 | 상세 칸 비율.
+// OUTSIDE-글상세·관심환류 ③: now_tab = 옛 마지막 탭(migration 20261102141000). 이제 쓰지 않고 읽기만 한다(아래 news_tab). split_ratio.now = 목록 | 상세 칸 비율.
 export const NOW_TABS = Object.freeze(['outside', 'news', 'saved', 'search']);
 // S51-8 NEWS-전면개편 P4b: news_tab = News 메뉴의 마지막 탭(전체·사회운동·언론·보관), news_font = 상세 원문 글자 크기 세 단계(migration 20261106080000).
-// 옛 now_tab은 news_tab이 없을 때 한 번 읽어 옮기기만 한다(지우지 않음, 정리는 P5).
+// 옛 now_tab은 news_tab이 없을 때 한 번 읽어 옮기기만 한다(now-model.mjs startTab). 서버의 옛 값은 지우지 않는다(데이터 보존, S51-17 P5 확인).
 export const NEWS_TABS = Object.freeze(['all', 'movement', 'media', 'archive']);
 export const NEWS_FONTS = Object.freeze(['s', 'm', 'l']);
 // UI-앱안알림(S48-19): link_hidden_on = 맨 위 알림 줄 '연결 끊김' ✕를 누른 서울 날짜(오늘 하루 숨김, collect_hidden_on과 같은 모양).
@@ -277,7 +277,7 @@ const LEGACY = [
 ];
 
 // 고른 적 없을 때 화면이 보여 주는 값: 이 값으로 "바꾸는" 호출은 저장할 것이 없다.
-const DEFAULTS = { note_sort: 'changed', note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list', photo_cols: 4, photo_cols_wide: 6, diary_view: 'calendar', diary_onedrive: true, quiet_weeks: 3, note_view: 'folder', tg_view: 'day', album_view: 'card', ed_more: false, now_tab: 'outside' };
+const DEFAULTS = { note_sort: 'changed', note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list', photo_cols: 4, photo_cols_wide: 6, diary_view: 'calendar', diary_onedrive: true, quiet_weeks: 3, note_view: 'folder', tg_view: 'day', album_view: 'card', ed_more: false };
 const defaultStorage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
 const getPath = (prefs, path) => path.startsWith('split_ratio.') ? prefs.split_ratio?.[path.slice(12)] : path.startsWith('col_widths.') ? prefs.col_widths?.[colScreen(path)]
   : devKeyOf(path) ? prefs[devKeyOf(path)]?.[devOf(path)] : prefs[path];

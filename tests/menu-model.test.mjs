@@ -13,7 +13,7 @@ test('기본 구성은 지금 화면과 같고 모든 항목이 정확히 한 �
   assert.deepEqual(d.bar, ['home', 'basket', 'calendar', 'meetings', 'team']);
   // PHOTO-사진메뉴: [사진]은 원장 다음. OUTSIDE-바깥성명 ④: [바깥 성명]은 처음 자리가 위 메뉴 끝(사진 다음). MENU-세칸: 통화·텔레그램 소식·아스날은 아래 붙는 메뉴 칸.
   // FILES-클라우드탐색기 ④: [파일]은 처음 자리가 자료실 바로 아래(명진 결정 F5).
-  // OUTSIDE-글상세·관심환류 ③: 사회운동 Now·뉴스 클리핑은 'Now' 한 칸(id outside).
+  // OUTSIDE-글상세·관심환류 ③: 사회운동 Now·뉴스 클리핑은 'News' 한 칸(id outside, S51-17 P5에서 Now → News).
   assert.deepEqual(d.rest, ['note', 'library', 'files', 'hwp', 'pages', 'ledger', 'photos', 'outside']);
   assert.deepEqual(d.tail, ['calls', 'telegram', 'arsenal']);
   assert.equal(ITEMS.some(i => i.id === 'projects'), false, '[프로젝트] 메뉴 항목은 없다');
@@ -147,7 +147,7 @@ test('FILES-클라우드탐색기 ④: 저장된 순서에 없던 [파일]은 �
 
 test('OUTSIDE-글상세·관심환류 ③: 옛 메뉴 id news(뉴스 클리핑)는 Now(outside)로 읽는다 — 저장된 메뉴 순서가 깨지지 않음', () => {
   assert.equal(ITEMS.some(i => i.id === 'news'), false, '뉴스 클리핑 칸은 없다');
-  assert.equal(ITEMS.find(i => i.id === 'outside').label, 'Now');
+  assert.equal(ITEMS.find(i => i.id === 'outside').label, 'News');
   // 뉴스만 하단바에 두었던 사람: 그 자리에 Now가 선다(위 메뉴에서 다시 나오지 않음).
   const onlyNews = normalizeLayout({bar: ['home', 'basket', 'news', 'meetings'], rest: ['note', 'library', 'photos', TAIL_MARK, 'calls', 'telegram', 'arsenal']});
   assert.deepEqual(onlyNews.bar, ['home', 'basket', 'outside', 'meetings']);

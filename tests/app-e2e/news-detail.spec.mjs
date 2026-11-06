@@ -55,8 +55,8 @@ async function start(page, width) {
   const s = await server(page);
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: 'Now' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot').getByRole('tab', { name: '사회운동' }).click();
   await expect(page.locator('#outsideRoot [data-os-list] [data-nw-key]')).toHaveCount(3);
@@ -130,7 +130,7 @@ for (const width of [412, 884, 1440]) {
       await page.goBack();
       await expect(root(page).locator('#nowMain')).toBeVisible();
       await expect.poll(() => new URL(page.url()).searchParams.get('item')).toBe(null);
-      await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
+      await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('news');
     } else {
       // 폴드 펼침·PC: 왼쪽 목록 | 오른쪽 상세, 폭 끌기 경계.
       await expect(root(page).locator('[data-os-list] [data-nw-key]').first()).toBeVisible();

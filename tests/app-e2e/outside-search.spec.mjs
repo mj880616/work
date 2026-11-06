@@ -66,8 +66,8 @@ for (const width of [412, 1280]) {
     const s = await server(page);
     if (width <= 760) {
       await page.locator('#mobileMenuTab').click();
-      await page.locator('#mobileMenu nav button:visible', { hasText: 'Now' }).click();
-    } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
+      await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
+    } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'News', exact: true }).click();
     const root = page.locator('#outsideRoot');
     await expect(root.getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     await expect(root.locator('[data-os-search]')).toBeHidden();
