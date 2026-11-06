@@ -15,6 +15,7 @@ import {buildDiaryList, withDoneDays, rowText, dayLabel, diaryPinnedAt, diarySta
 import {odPhotos, odPhotoElement, odTakeWarmMonth} from './diary-onedrive.js';
 import {swipeIntent, swipeOffset, swipeSettle, swipeOpenOffset, swipeEdge} from './tg-day-model.mjs';
 import {createAnchoredMenu} from './anchored-menu.js';
+import { chevHtml } from './fold-chevron.mjs';
 import {iconHtml} from './tree-icons.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -78,7 +79,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     const parts = [];
     if (list.pinned.length) parts.push(`<section class="diary-lv-group" aria-label="고정한 일기"><h4 class="diary-lv-head is-pin">${iconHtml('pin')} 고정 <span>· ${list.pinned.length}</span></h4><div class="diary-lv-rows">${list.pinned.map(rowHtml).join('')}</div></section>`);
     for (const month of list.months) {
-      parts.push(`<section class="diary-lv-group"><button type="button" class="diary-lv-head" data-diary-lv-month="${esc(month.key)}" aria-expanded="${month.open}">${esc(month.label)} <span>· ${month.count}</span><i aria-hidden="true">${month.open ? '▾' : '▸'}</i></button>${month.open ? `<div class="diary-lv-rows">${month.rows.map(rowHtml).join('')}</div>` : ''}</section>`);
+      parts.push(`<section class="diary-lv-group"><button type="button" class="diary-lv-head" data-diary-lv-month="${esc(month.key)}" aria-expanded="${month.open}">${esc(month.label)} <span>· ${month.count}</span>${chevHtml(month.open)}</button>${month.open ? `<div class="diary-lv-rows">${month.rows.map(rowHtml).join('')}</div>` : ''}</section>`);
     }
     body.innerHTML = empty ? emptyHtml(empty, {attrs: 'data-diary-lv-empty'}) : parts.join('');
     watchThumbs();

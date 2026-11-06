@@ -14,15 +14,17 @@ test('S51-22 recent_folded 화면 값 검사 = DB 검사(files·notes·library, 
   assert.match(sql, /@ == "files" \|\| @ == "notes" \|\| @ == "library"/);
 });
 
-test('S51-22 상자 머리 줄 끝 ▴▾: 접으면 머리 줄 한 줄만(더보기도 숨김)', () => {
-  const open = ftBoxHtml({head: '최근', body: '<i>줄</i>', tail: '<b>더보기</b>', collapsible: true, caret: true, open: true, toggleAttrs: {'data-x': ''}});
+test('S51-22·S51-33 상자 머리 줄: 이름 바로 옆 공용 꺾쇠(⌃⌄), 더보기는 따로 오른쪽, 접으면 머리 줄 한 줄만(더보기도 숨김)', () => {
+  const open = ftBoxHtml({head: '최근', body: '<p>줄</p>', tail: '<b>더보기</b>', collapsible: true, caret: true, open: true, toggleAttrs: {'data-x': ''}});
   assert.match(open, /aria-expanded="true"/);
-  assert.match(open, /<b>더보기<\/b><span class="ft-box-caret" aria-hidden="true">▴<\/span>/);
-  assert.match(open, /<i>줄<\/i>/);
-  const shut = ftBoxHtml({head: '최근', body: '<i>줄</i>', tail: '<b>더보기</b>', collapsible: true, caret: true, open: false});
-  assert.match(shut, /aria-expanded="false"/);
-  assert.doesNotMatch(shut, /더보기|<i>|접힘/);
-  assert.equal(ftCaretHtml(false), '<span class="ft-box-caret" aria-hidden="true">▾</span>');
+  // 꺾쇠는 접기 단추 안 '최근' 바로 뒤, '더보기'는 단추 밖(오른쪽).
+  assert.match(open, /aria-expanded="true">최근<i class="kptu-chev is-open ft-box-caret" aria-hidden="true"><\/i><\/button><b>더보기<\/b>/);
+  assert.match(open, /<p>줄<\/p>/);
+  assert.doesNotMatch(open, /[▴▾▸]/);
+  const shut = ftBoxHtml({head: '최근', body: '<p>줄</p>', tail: '<b>더보기</b>', collapsible: true, caret: true, open: false});
+  assert.match(shut, /aria-expanded="false">최근<i class="kptu-chev ft-box-caret" aria-hidden="true"><\/i><\/button>/);
+  assert.doesNotMatch(shut, /더보기|<p>|접힘|[▴▾▸]/);
+  assert.equal(ftCaretHtml(false), '<i class="kptu-chev ft-box-caret" aria-hidden="true"></i>');
   // 저장소 상자(caret 없음)는 그대로 '접힘' 글자.
   assert.match(ftBoxHtml({head: '원드라이브', collapsible: true, open: false}), /접힘/);
 });

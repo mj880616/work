@@ -25,6 +25,7 @@ import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {callLedgerRecords, retireCallRecords} from './call-ledger.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 import {askConfirm} from './small-notice.js';
+import { chevHtml } from './fold-chevron.mjs';
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
@@ -178,7 +179,7 @@ function fullHtml(r) {
   else if (raw.speaker_split) script = `<div class="feed-script" data-cf-script="lines">${speakerLines(raw.raw_text).map(l => `<p class="${l.me ? 'is-me' : ''}"><b>${esc(l.who)}</b><span>${esc(l.text)}</span></p>`).join('')}</div>`;
   else script = `<div class="feed-script feed-script-one" data-cf-script="one">${esc(raw.raw_text)}</div>`;
   const badge = raw && raw.raw_text && !raw.speaker_split ? '<span class="feed-badge">화자 구분은 전사 수정 뒤</span>' : '';
-  return `<details class="feed-full" data-cf-full${state.rawOpen ? ' open' : ''}><summary>${state.rawOpen ? '전문 접기' : '전문 펼치기'} <span class="feed-ar" aria-hidden="true">▾</span>${badge}</summary>${script}</details>`;
+  return `<details class="feed-full" data-cf-full${state.rawOpen ? ' open' : ''}><summary>${state.rawOpen ? '전문 접기' : '전문 펼치기'} ${chevHtml(false, 'feed-ar')}${badge}</summary>${script}</details>`;
 }
 function paintRaw(id) {
   const old = $(`#cfDetail [data-cf-detail="${CSS.escape(id)}"] [data-cf-full]`), r = rowOf(id);
