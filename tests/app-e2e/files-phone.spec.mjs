@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S49-51 FILES-통합 3단계 '이 폰'(명진 결정 H-1 모든 파일 접근). S50-33: [최근](H-7 섞기)은 화면에서 뺐다.
 // 폰 앱(412, 앱 다리 흉내 + __phone/…/files/ 가로채기 흉내): [이 폰] 아이콘 → 허락 전이면 설정 안내·pfiles:ask → 앱이 '켜짐'을 알리면
@@ -107,7 +107,7 @@ test.describe('폰 앱 412', () => {
     await page.reload();
     await openFiles(page, 412);
     // 허락 전: 아이콘은 보이지만 꺼짐, 나무에는 클라우드 뿌리 둘만(S50-33: 첫 화면은 나무).
-    const roots = tree(page).locator('.fx-root');
+    const roots = tree(page).locator('.fx-root, [data-fx-box-tog]');
     await expect(chip(page, 'ph')).toBeVisible();
     await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'false');
     await expect(roots).toHaveCount(2);
@@ -124,9 +124,9 @@ test.describe('폰 앱 412', () => {
     // 나무 뿌리 줄 셋(원드라이브·구글 드라이브·이 폰), '이 폰'을 펼치면 폰 폴더.
     await expect(roots).toHaveCount(3);
     await expect(roots.nth(2)).toContainText('이 폰');
-    await tree(page).locator('[data-fx-twist="ph:"]').click();
-    await expect(tree(page).locator('[data-fx-go="ph"][data-fx-id="Download"]')).toBeVisible();
-    await tree(page).locator('[data-fx-go="ph"][data-fx-id="Download"]').click();
+    // FOLDER-나무새기준 ②: 폰 나무는 저장소마다 상자, 폴더 목록(그 폴더만)은 두 손가락 벌리기.
+    await expect(tree(page).locator('[data-fx-fold="ph:Download"]')).toBeVisible();
+    await phoneFolder(page, 'ph', 'Download');
     await expect(list(page).locator('[data-fx-row="ph:Download/가짜 메모장.txt"]')).toBeVisible();
     await expect(root(page).locator('.fx-crumb-now')).toHaveText('Download');
     await expect(root(page).locator('[data-fx-crumb]')).toContainText('이 폰');
@@ -169,7 +169,7 @@ test.describe('폰 앱 412', () => {
     await chip(page, 'ph').click();
     await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'false');
     await expect(tree(page)).toBeVisible();
-    await expect(tree(page).locator('.fx-root')).toHaveCount(2);
+    await expect(tree(page).locator('.fx-root, [data-fx-box-tog]')).toHaveCount(2);
     expect(errors).toEqual([]);
   });
 
@@ -181,8 +181,7 @@ test.describe('폰 앱 412', () => {
     await page.reload();
     await openFiles(page, 412);
     await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'true');
-    await tree(page).locator('[data-fx-twist="ph:"]').click();
-    await tree(page).locator('[data-fx-go="ph"][data-fx-id="Download"]').click();
+    await phoneFolder(page, 'ph', 'Download');
     await expect(list(page).locator('[data-fx-row="ph:Download/가짜 메모장.txt"]')).toBeVisible();
     const ask = page.locator('.kptu-ask');
     // 새 폴더: 폰 폴더에서도 [새 폴더] → 이름 → 앱에 confirm:true로.
@@ -215,7 +214,7 @@ test.describe('폰 앱 412', () => {
       // 목록에서 ‹ 를 눌러 나무까지(한 단계씩).
       for (let i = 0; i < 4 && !(await tree(page).isVisible()); i++) await root(page).locator('[data-fx-up]').click();
       await expect(tree(page)).toBeVisible();
-      await tree(page).locator('[data-fx-go="od"][data-fx-id=""]').click();
+      await phoneFolder(page, 'od');
       await list(page).locator('[data-fx-row="od:OD!1"]').click();
       await list(page).locator('[data-fx-row="od:OD!13"]').click();
       await prev.locator('[data-fx-copy-one]').click();
@@ -251,8 +250,8 @@ test.describe('폰 앱 412', () => {
     await page.reload();
     await openFiles(page, 412);
     await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'true');
-    await expect(tree(page).locator('.fx-root')).toHaveCount(3);
-    await tree(page).locator('[data-fx-go="ph"][data-fx-id=""]').click();
+    await expect(tree(page).locator('.fx-root, [data-fx-box-tog]')).toHaveCount(3);
+    await phoneFolder(page, 'ph');
     await expect(list(page)).toContainText('폰 저장 공간 허락이 꺼져 있어요(설정 › 모든 파일 접근)');
     expect(errors).toEqual([]);
   });
@@ -267,7 +266,7 @@ test('PC 1440 브라우저: [이 폰] 아이콘이 없고 폰 다리를 부르�
   await openFiles(page, 1440);
   await expect(chip(page, 'od')).toBeVisible();
   await expect(chip(page, 'ph')).toBeHidden();
-  await expect(tree(page).locator('.fx-root')).toHaveCount(2);
+  await expect(tree(page).locator('.fx-root, [data-fx-box-tog]')).toHaveCount(2);
   expect(reads).toEqual([]);
   expect(errors).toEqual([]);
 });

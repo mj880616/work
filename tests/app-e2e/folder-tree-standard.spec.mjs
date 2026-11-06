@@ -166,3 +166,46 @@ test('자료실 폰 412: 폴더 그림 열림/닫힘·점 없음·두 손가락 
   expect(typeof y0).toBe('number');
   expect(errors).toEqual([]);
 });
+
+// [파일](② S51-12): 폰 나무 = '최근' 상자 + 별표·큰 파일 상자 + 저장소마다 상자(머리를 누르면 접기). 폴더는 그 자리에서 하위 폴더·파일까지,
+// 파일이 많으면 5개 + 'n개 더 보기'. 두 손가락 = 그 폴더만(폴더 목록 화면), [‹]·뒤로 키·오므리기 = 펼친 자리 그대로 나무.
+test('파일 폰 412: 저장소 상자·그 자리 펼치기(파일까지)·n개 더 보기·두 손가락 그 폴더만·뒤로 키로 나무', async ({ page }) => {
+  const { start, openFiles } = await import('./helpers/files-server.mjs');
+  const { errors, server } = await start(page, 412);
+  for (let i = 1; i <= 7; i++) server.items.push({ source: 'od', item_id: 'OD!3' + i, parent_id: 'OD!2', name: `가짜 사진 ${i}.jpg`, is_folder: false, mime: 'image/jpeg', size_bytes: 1000, modified_at: `2026-09-0${i}T01:00:00Z`, hash: null, trashed: false, starred: false, library_doc_id: null });
+  await openFiles(page, 412);
+  const tree = page.locator('#filesRoot [data-fx-tree]');
+  await expect(tree.locator('[data-fx-box="recent"] .ft-box-title')).toHaveText('최근');
+  await expect(tree.locator('[data-fx-box="recent"] [data-fx-tfile]')).toHaveCount(5);
+  const od = tree.locator('[data-fx-box="od"]');
+  await expect(od.locator('.ft-box-toggle')).toContainText('원드라이브');
+  const box = od.locator('[data-fx-fold="od:OD!2"]');
+  await expect(box).toHaveClass(/ft-top/);
+  expect(await box.locator('.ft-ico').getAttribute('data-ft-shape')).toBe('closed');
+  await box.locator('.ft-main').tap();
+  expect(await box.locator('.ft-ico').getAttribute('data-ft-shape')).toBe('open');
+  await expect(od.locator('[data-ft-parent="od:OD!2"] [data-fx-tfile]')).toHaveCount(5);
+  await expect(od.locator('[data-fx-tmore="od:OD!2"]')).toContainText('3개 더 보기');
+  await od.locator('[data-fx-tmore="od:OD!2"]').tap();
+  await expect(od.locator('[data-ft-parent="od:OD!2"] [data-fx-tfile]')).toHaveCount(8);
+  await noDots(page, '#filesRoot [data-fx-tree]');
+  await page.screenshot({ path: 'test-results/ft-files-phone-tree.png' });
+  // 상자 머리를 누르면 그 저장소 접기.
+  const gd = tree.locator('[data-fx-box="gd"]');
+  await gd.locator('.ft-box-toggle').tap();
+  await expect(gd.locator('.ft-box-toggle')).toHaveAttribute('aria-expanded', 'false');
+  await expect(gd.locator('[data-fx-fold]')).toHaveCount(0);
+  // 두 손가락 벌리기 → 그 폴더만(목록), 오므리기 → 나무(펼친 자리 그대로).
+  await pinch(page, od.locator('[data-ft-parent="od:OD!2"]').first(), 'out');
+  await expect(page.locator('#filesRoot [data-fx-list] [data-fx-row]').first()).toBeVisible();
+  await expect(tree).toBeHidden();
+  await pinch(page, page.locator('#filesRoot [data-fx-list]'), 'in');
+  await expect(tree).toBeVisible();
+  expect(await tree.locator('[data-fx-fold="od:OD!2"] .ft-ico').getAttribute('data-ft-shape')).toBe('open');
+  // 뒤로 키도 같다(한 단계 위가 아니라 나무로).
+  await pinch(page, tree.locator('[data-fx-fold="od:OD!1"]'), 'out');
+  await expect(tree).toBeHidden();
+  await page.goBack();
+  await expect(tree).toBeVisible();
+  expect(errors).toEqual([]);
+});

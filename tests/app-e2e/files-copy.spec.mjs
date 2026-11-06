@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, treeGo } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S49-27 FILES-통합 2-① 복사(명진 결정 H-3 같은 이름 한 번 묻기·번호 붙여 둘 다, H-4 200MB 넘으면 묻기, H-5 폴더째는 같은 저장소 안만).
 // 시안 docs/design/files-unified-mockup.html ③ 고르기 막대 · ④ 받을 곳 창(하단바 위, 최근 보낸 곳 칩) · ⑤ 아래 전송 줄. 서버는 흉내(파일 이름은 모두 가짜).
@@ -16,7 +16,7 @@ const fake = o => ({ parent_id: null, is_folder: false, mime: null, size_bytes: 
 
 async function intoDocs(page, width) {
   await openFiles(page, width);
-  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
+  await treeGo(page, 'od', '');
   await row(page, 'od:OD!1').click();
   await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
 }
@@ -219,7 +219,7 @@ test('폴드 884: [옮기기] → 받을 곳 창, 같은 이름이 둘이면 한
   expect(server.items.filter(i => i.parent_id === 'OD!1' && !i.trashed).map(i => i.name).sort())
     .toEqual(['가짜 2026', '가짜 계획안.hwpx', '가짜 메모 (2).txt', '가짜 메모.txt', '가짜 안내문 (2).pdf', '가짜 안내문.pdf', '가짜 예산표.xlsx'].sort());
   // 미리보기 [복사] 단추도 같은 창.
-  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id="OD!1"]').click();
+  await treeGo(page, 'od', 'OD!1');
   await row(page, 'od:OD!12').click();
   await root(page).locator('[data-fx-prev] [data-fx-copy-one]').click();
   await expect(sheet(page).locator('#fxDestTitle')).toHaveText('1개 복사할 곳');
@@ -252,7 +252,7 @@ test('폴드 884: 다른 저장소로 복사 → 서버 작업표, 전송 목록
   // Esc = 닫기.
   await page.keyboard.press('Escape');
   await expect(jobs).toBeHidden();
-  await root(page).locator('[data-fx-tree] [data-fx-go="gd"][data-fx-id=""]').click();
+  await treeGo(page, 'gd', '');
   await row(page, 'gd:gdFolder1').click();
   await expect(row(page, 'gd:gdJob01')).toBeVisible();
   expect(errors).toEqual([]);

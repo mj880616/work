@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, treeGo } from './helpers/files-server.mjs';
 // S49-17 FILES-폰화면깨짐: 폰에서 정렬 칸이 폭 가득 빈 칸으로 보이던 것, 안 읽은 폴더가 '0개'로 보이던 것, 개인 중요 보관소가 0B 파일로 보이던 것.
 // 폭 세 가지: 폰 390 · 펼친 폴드 900 · PC 1440. 이름·id는 모두 가짜.
 const root = page => page.locator('#filesRoot');
@@ -12,7 +12,7 @@ for (const width of [390, 900, 1440]) {
     server.items.push(VAULT);
     await openFiles(page, width);
     const phone = width <= 760;
-    await root(page).locator('[data-fx-tree] [data-fx-go="od"]').first().click();
+    await treeGo(page, 'od');
     const list = root(page).locator('[data-fx-list]');
     await expect(list.locator('[data-fx-row]').first()).toBeVisible();
     // 정렬 칸: 폭 가득이 아니다.
