@@ -4,7 +4,8 @@ begin;
 -- 적용은 커맨드센터가 docs/ops-db-workflow.md "승인 한 번 흐름"으로만 한다(이 브랜치는 적용 직전 정지).
 --
 -- 무엇: app_profiles_view_prefs_check 하나만 바꾼다(지우고 같은 이름으로 다시 만듦). 받는 칸 마흔세 개(20261106080000 feed_reads_news_prefs 판 글자 그대로)에
---   files_look 하나를 더해 마흔네 개로. files_look = 객체, 칸은 기기 종류 app·phone·pc 셋뿐(photo_zoom과 같은 모양), 값은 글자 list·grid·big 중 하나.
+--   files_look 하나를 더해 마흔네 개로. files_look = 객체, 칸은 기기 종류 app·phone·pc 셋뿐(files_two와 같은 모양), 기기 칸 안은 화면 폭 종류
+--   narrow·fold·wide 셋뿐(폰·폴드·PC 따로 기억, 시안 files-phone-grid-two-drag.html), 값은 글자 list·grid·big 중 하나.
 --   다른 칸 규칙·전체 4000바이트 상한은 글자 그대로 같다(넓히기만). 기존 행은 건드리지 않는다.
 -- 권한: grant·revoke·정책·RLS·함수·트리거·새 열 변경 없음. 프로필 정책은 task12a 두 개 그대로.
 -- 앞 단계: 20261106080000_feed_reads_news_prefs(S51-6) 기록이 있어야 한다(없으면 멈춘다). 이 검사는 그 단계의 news_tab·news_font까지 그대로 담고 있다.
@@ -269,12 +270,15 @@ alter table public.app_profiles
         -- News 글 상세 글자 크기(S51-6 NEWS-전면개편 P4a): 작게·보통·크게(s·m·l) 셋 중 하나(글자여야 한다).
         and case when not (view_prefs ? 'news_font') then true
               else jsonb_typeof(view_prefs -> 'news_font') = 'string' and view_prefs ->> 'news_font' in ('s', 'm', 'l') end
-        -- [파일] 목록 보기 크기(S51-20 FILES-폰보기끌기 ①): 객체, 칸은 기기 종류 app(폰 앱)·phone(폰 브라우저)·pc(그 밖) 셋뿐(photo_zoom과 같은 모양),
-        -- 값은 list(목록)·grid(격자)·big(큰 격자) 중 하나(글자). 없으면 화면이 list로 본다. 한 줄 칸 수는 화면 폭이 정한다(저장하지 않음).
+        -- [파일] 목록 보기 크기(S51-20 FILES-폰보기끌기 ①): 객체, 칸은 기기 종류 app(폰 앱)·phone(폰 브라우저)·pc(그 밖) 셋뿐(files_two와 같은 모양)이고
+        -- 각 칸은 객체, 그 안 칸은 화면 폭 종류 narrow(폰 한 칸 600px 미만)·fold(폴드 펼침 600~1199)·wide(PC 1200~) 셋뿐이며
+        -- 값은 list(목록)·grid(격자)·big(큰 격자) 중 하나(글자). 없는 칸은 화면이 list로 본다. 한 줄 칸 수는 화면 폭이 정한다(저장하지 않음).
         and case when not (view_prefs ? 'files_look') then true
               when jsonb_typeof(view_prefs -> 'files_look') <> 'object' then false
-              else not jsonb_path_exists(view_prefs, 'strict $.files_look.keyvalue() ? (!(@.key == "app" || @.key == "phone" || @.key == "pc"))')
-               and not jsonb_path_exists(view_prefs, 'strict $.files_look.* ? (@.type() != "string" || !(@ == "list" || @ == "grid" || @ == "big"))') end
+              when jsonb_path_exists(view_prefs, 'strict $.files_look.keyvalue() ? (!(@.key == "app" || @.key == "phone" || @.key == "pc"))') then false
+              when jsonb_path_exists(view_prefs, 'strict $.files_look.* ? (@.type() != "object")') then false
+              else not jsonb_path_exists(view_prefs, 'strict $.files_look.*.keyvalue() ? (!(@.key == "narrow" || @.key == "fold" || @.key == "wide"))')
+               and not jsonb_path_exists(view_prefs, 'strict $.files_look.*.* ? (@.type() != "string" || !(@ == "list" || @ == "grid" || @ == "big"))') end
     end
   );
 
@@ -295,5 +299,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261106200000', 'profile_view_prefs_files_look', array['S51-20 FILES-phone-look: app_profiles_view_prefs_check rebuilt on the feed_reads_news_prefs version also accepting files_look (object by device app|phone|pc, string list|grid|big); every other key and rule unchanged; no new column, grants, policies or functions']);
+values ('20261106200000', 'profile_view_prefs_files_look', array['S51-20 FILES-phone-look: app_profiles_view_prefs_check rebuilt on the feed_reads_news_prefs version also accepting files_look (object by device app|phone|pc, each an object by layout narrow|fold|wide, string list|grid|big); every other key and rule unchanged; no new column, grants, policies or functions']);
 commit;

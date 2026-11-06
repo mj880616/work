@@ -1,6 +1,6 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
 // S51-20 FILES-폰보기끌기 ①(20261106200000_profile_view_prefs_files_look): app_profiles_view_prefs_check accepts files_look
-// (object by device app|phone|pc, list|grid|big) through the approved DB workflow runner.
+// (object by device app|phone|pc, each by layout narrow|fold|wide, list|grid|big) through the approved DB workflow runner.
 // - 다른 칸 규칙 그대로(앞 판 feed_reads_news_prefs의 마흔세 칸을 그대로 받고, 전에 거절하던 값은 계속 거절).
 // - 권한 그대로: 프로필은 내 행만, anon은 못 읽는다. 표 권한·정책 수 그대로.
 // - 승인형 workflow의 plan·dry-run·apply가 통과하고, rollback은 files_look이 저장돼 있으면 멈춘 뒤 비우면 앞 판 검사와 글자 그대로 같은 모양으로 돌아간다.
@@ -112,9 +112,10 @@ test('view prefs files look: plan, dry-run, apply, own-row writes, CHECK and gua
    nav_collapsed:true,calendar_view:'week',home_quick_mode:'task',note_folder:'all',report_view:'calendar',menu_layout:{bar:['home','tasks'],rest:['notes']},photo_cols:4,photo_cols_wide:8,diary_onedrive:false,
    phone_folders_known:['0123abcd'],col_widths:{files:{name:240,day:90}},photo_sources_phone:{phone:true,onedrive:false},photo_sources_pc:{onedrive:true,gdrive:false},photo_level:'month',report_period:{mode:'range',from:'2026-10-01',to:'2026-10-31'},files_sources:{app:{od:true,gd:false},pc:{gd:true}},files_dest_recent:[{source:'gd',id:'gdFolder1',name:'가짜 업무 공간'}],files_two:{pc:{fold:true}},note_sort:'manual',photo_zoom:{app:'day',pc:'year'},
    org_order:{groups:[{name:'가묶음',orgs:['가짜노조']}],hidden:['옛 가짜 조직']},report_calendar:'가짜 업무 달력',news_tab:'media',news_font:'l'};
-  const RANGE={files_look:{app:'grid',phone:'big',pc:'list'}};
-  const GOOD=[{files_look:{phone:'grid'}},{files_look:{}},RANGE];
-  const BAD=[{files_look:'grid'},{files_look:null},{files_look:[]},{files_look:{tablet:'grid'}},{files_look:{pc:'g3'}},{files_look:{pc:1}},{files_look:{pc:''}},{files_look:{pc:{v:'grid'}}},{files_look:{pc:'GRID'}},{files_look:{pc:true}}];
+  const RANGE={files_look:{app:{narrow:'grid',fold:'big'},phone:{narrow:'big'},pc:{fold:'list',wide:'grid'}}};
+  const GOOD=[{files_look:{phone:{narrow:'grid'}}},{files_look:{}},{files_look:{app:{}}},RANGE];
+  const BAD=[{files_look:'grid'},{files_look:null},{files_look:[]},{files_look:{tablet:{narrow:'grid'}}},{files_look:{pc:'grid'}},{files_look:{pc:{wide:'g3'}}},{files_look:{pc:{wide:1}}},{files_look:{pc:{wide:''}}},
+   {files_look:{pc:{tablet:'grid'}}},{files_look:{pc:{wide:'GRID'}}},{files_look:{pc:{wide:true}}},{files_look:{pc:{wide:{v:'grid'}}}},{files_look:{pc:[]}},{files_look:{pc:null}}];
 
   await t.test('guard: stops without changes when the news prefs step is not recorded',async()=>{
    await guardFails(/PROFILE_VIEW_PREFS_FILES_LOOK_PREREQUISITE_CHANGED/);
