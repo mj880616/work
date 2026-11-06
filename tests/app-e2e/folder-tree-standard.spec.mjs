@@ -45,7 +45,7 @@ async function noDots(page, scope) {
 test('노트 폰 412: 최근 상자 + 폴더 상자, 그 자리 펼치기 · n개 더 보기 · 두 손가락 그 폴더만 · 뒤로 키 = 펼친 자리 그대로', async ({ page }) => {
   const f = await notesFixture(page, 412);
   // ① 상자 두 개: '최근'(5줄, [더보기]) + 폴더 상자.
-  await expect(page.locator('[data-nx-recent] .ft-box .ft-box-title')).toHaveText('최근');
+  await expect(page.locator('[data-nx-recent] .ft-box .ft-box-toggle')).toHaveText('최근');
   await expect(page.locator('[data-nx-recent] [data-note-row]')).toHaveCount(5);
   await page.locator('[data-nx-recent] [data-nx-recent-more]').tap();
   await expect(page.locator('[data-nx-recent] [data-note-row]')).toHaveCount(11);
@@ -177,7 +177,7 @@ test('파일 폰 412: 저장소 상자·그 자리 펼치기(파일까지)·n개
   for (let i = 1; i <= 7; i++) server.items.push({ source: 'od', item_id: 'OD!3' + i, parent_id: 'OD!2', name: `가짜 사진 ${i}.jpg`, is_folder: false, mime: 'image/jpeg', size_bytes: 1000, modified_at: `2026-09-0${i}T01:00:00Z`, hash: null, trashed: false, starred: false, library_doc_id: null });
   await openFiles(page, 412);
   const tree = page.locator('#filesRoot [data-fx-tree]');
-  await expect(tree.locator('[data-fx-box="recent"] .ft-box-title')).toHaveText('최근');
+  await expect(tree.locator('[data-fx-box="recent"] .ft-box-toggle')).toHaveText('최근');
   await expect(tree.locator('[data-fx-box="recent"] [data-fx-tfile]')).toHaveCount(5);
   const od = tree.locator('[data-fx-box="od"]');
   await expect(od.locator('.ft-box-toggle')).toContainText('원드라이브');

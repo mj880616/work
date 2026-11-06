@@ -2,6 +2,8 @@ import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the 
 import {renderFilterChips} from './filter-chips.js';
 import {readView,saveView,orderedGroups,moveGroup} from './library-view-pref.js';
 import {mountReorder} from './reorder-drag.js';
+import {recentFolded,toggleRecentFolded} from './recent-fold.js';
+import {ftCaretHtml} from './folder-tree-ui.mjs';
 import {RECENT_UPLOAD_LIMIT,RECENT_UPLOAD_MORE,recentUploads,isNewUpload,uploadTimeLabel,rememberFolder,cleanRecentFolders} from './library-move.mjs';
 import {renderCategoryChips,toggleCategoryOff,hiddenCategories,activeSubcategory} from './category-chips.js';
 import {nodeDocumentIds,toggleAll,allSelected,someSelected,pruneSelected,deleteSequentially} from './library-select.js';
@@ -597,7 +599,11 @@ function luRenderRecent(rows){
   const shown=luRecentMore?all:all.slice(0,RECENT_UPLOAD_LIMIT),now=Date.now(),more=all.length>RECENT_UPLOAD_LIMIT;
   const where=d=>{const key=pathTo(luLastTree,d.id).at(-1);return key?luTreeNode(key)?.label||'':''};
   box.hidden=false;
-  box.innerHTML=`<div class="lu-recent-head"><span class="lu-recent-title" id="libraryRecentTitle">최근 올린 파일</span>${more?`<button type="button" class="lu-more-files lu-recent-more" data-lu-recent-more aria-expanded="${luRecentMore}" aria-controls="libraryRecentList">${luRecentMore?'접기':'더보기'}</button>`:''}</div><ul class="lu-recent-list" id="libraryRecentList" aria-labelledby="libraryRecentTitle">${shown.map(d=>{
+  // S51-22: 머리 줄을 누르면 접기(머리 줄 끝 ▴▾, 서버 view_prefs.recent_folded — recent-fold.js). 접으면 머리 줄 한 줄만.
+  const shut=recentFolded('library');
+  const head=`<div class="lu-recent-head"><button type="button" class="lu-recent-title lu-recent-fold" id="libraryRecentTitle" data-lu-recent-fold aria-expanded="${!shut}" aria-controls="libraryRecentList">최근 올린 파일</button>${more&&!shut?`<button type="button" class="lu-more-files lu-recent-more" data-lu-recent-more aria-expanded="${luRecentMore}" aria-controls="libraryRecentList">${luRecentMore?'접기':'더보기'}</button>`:''}${ftCaretHtml(!shut)}</div>`;
+  if(shut){box.innerHTML=head+'<ul class="lu-recent-list" id="libraryRecentList" hidden></ul>';return}
+  box.innerHTML=`${head}<ul class="lu-recent-list" id="libraryRecentList" aria-labelledby="libraryRecentTitle">${shown.map(d=>{
     const name=luPhone()?luDisplayName(d).name:(d.title||d.file_name||'파일'),kind=luFileKind(d.file_name,d.mime_type);
     return `<li><div class="lu-recent-row" role="button" tabindex="0" data-lu-recent="${luEsc(d.id)}"><span class="lu-file-kind" data-lu-kind="${luKindKey(kind)}">${kind}</span><span class="lu-recent-name">${luEsc(name)}</span><span class="lu-recent-where">${luEsc(where(d))}</span><span class="lu-recent-time">${luEsc(uploadTimeLabel(d,now))}</span></div></li>`}).join('')}</ul>`;
 }
@@ -620,6 +626,7 @@ function luBindRecent(){
     window.KPTUContextMenu?.pinAt?.(row,e.clientX,e.clientY);luOpenMenu(row);
   });
   box.addEventListener('click',e=>{
+    if(e.target.closest('[data-lu-recent-fold]')){toggleRecentFolded('library');luRenderLibrary();document.querySelector('#libraryRecent [data-lu-recent-fold]')?.focus({preventScroll:true});return}
     if(e.target.closest('[data-lu-recent-more]')){luRecentMore=!luRecentMore;luRenderLibrary();document.querySelector('#libraryRecent [data-lu-recent-more]')?.focus({preventScroll:true});return}
     const row=e.target.closest('[data-lu-recent]');if(row)luGoToRecent(row.dataset.luRecent);
   });
