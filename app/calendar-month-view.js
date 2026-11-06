@@ -288,7 +288,10 @@ import {eventColor} from './home-read-model.js';
         // 일정·할 일 줄 사이 빈 곳도 같은 길(보조 칸: 화면 읽기·Tab에서는 빼고, 날짜 숫자 버튼이 대표).
         const fill=document.createElement('button');fill.type='button';fill.className='cmv-date-fill';fill.tabIndex=-1;fill.setAttribute('aria-hidden','true');
         fill.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
-        cell.append(create,fill,list);
+        // S51-27 UI-PC우클릭 ③: PC에서 칸에 마우스를 올리면 날짜 숫자 옆 작은 [+](일정으로 꽉 찬 날도). 누르면 빈 곳 누름과 같은 일정 등록 창
+        // (calendar-interactions-v2.js 칸 누름 길). 키보드·화면 읽기는 위 .cmv-date-create 단추가 대표라 여기서는 뺀다.
+        const plus=document.createElement('button');plus.type='button';plus.className='cmv-date-plus';plus.tabIndex=-1;plus.setAttribute('aria-hidden','true');plus.title='이날 일정 등록';plus.textContent='+';
+        cell.append(create,fill,list,plus);
         dayGrid.appendChild(cell);
       }
       const layer=document.createElement('div');layer.className='cmv-week-events';
