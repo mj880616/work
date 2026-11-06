@@ -1,3 +1,4 @@
+import {openLibraryCategoryEditor} from './helpers/library-categories.mjs';
 import { appOrigin } from './helpers/test-origin.mjs';
 import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -370,7 +371,7 @@ for(const width of [360,390,412,430]){
     await expect(page.locator('#docProject')).toHaveValue('child-a2');
     expect(await overflow()).toBeLessThanOrEqual(1);
     await page.locator('#documentModal [data-close="documentModal"]').click();
-    await page.locator('#manageLibraryBtn').click();
+    await openLibraryCategoryEditor(page);
     await expect(page.locator('#libraryManageModal .dce')).toBeVisible();
     expect(await overflow()).toBeLessThanOrEqual(1);
     await page.locator('#libraryManageClose').click();

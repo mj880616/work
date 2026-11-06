@@ -869,6 +869,9 @@
   html:has(:where(#appView :is(#calendarView,#tasksView,#diaryView):not(.hidden) > .schedule-switch:not([hidden]))){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   /* FOLDER-나무새기준 ⑧(01:25 탭 자리 규칙): 폰 노트 [폴더|목록|포스트잇|태그|댓글]도 같은 전환 줄(아래 가운데), 노트 입력칸은 그 위. */
   html:has(:where(#appView #basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-list]:not([hidden]) .nv-switch)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
+  /* S51-28 LIB-화면정리: 자료실 묶기 알약(library-upload.css)도 아래 탭 바로 위라 동그란 [+]는 그 위로. 큰 제목(앱 머리 '자료실')은 없다. */
+  html:has(:where(#appView #libraryView:not(.hidden) #libraryGroupBy)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
+  html:has(#appView #libraryView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
   html:has(body.kptu-mobile-keyboard){ --kptu-switch-dock:0px; }
   /* 전체 화면 쓰기 창(ed-window.js)이 열려 있으면 전환 줄은 창 아래에 가려지므로 0(하단 탭도 숨음, topbar-actions.css S48-6b). */
   html.ed-window-open{ --kptu-switch-dock:0px; }
@@ -1649,6 +1652,7 @@ body.kptu-mobile-keyboard :is(
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new]),
   #appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick],
   #appView :is(.schedule-switch,.nv-switch),
+  #appView #libraryView #libraryGroupBy,
   .save-row-sticky,
   #appView #photosView .photos-act,
   #appView #photosView .photos-rail,
