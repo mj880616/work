@@ -201,12 +201,12 @@ test('폰 412: [두 칸 보기] → 위·아래 두 칸 · 칸마다 ▾ · 지�
   expect(edgeCalls(server, 'job_add')[0].body).toEqual({ action: 'job_add', confirm: true, kind: 'copy', to_source: 'od', to: 'OD!1', items: [{ source: 'gd', id: 'gdDoc1' }] });
   server.jobsHold = false;
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  // [한 칸 보기] → 폰 한 칸: 지금 칸(위)의 폴더 목록, ‹ 로 나무.
+  // [한 칸 보기] → 폰 한 칸: 지금 칸(위)의 폴더 목록, ‹ 한 번에 나무.
   await root(page).locator('[data-fx-two]').click();
   await expect(pane(page, 1)).toHaveCount(0);
   await expect.poll(() => prefs.value?.files_two?.phone).toEqual({ narrow: false });
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'list');
-  await root(page).locator('[data-fx-crumb] [data-fx-up]').click();
+  // S51-24: 폰 한 칸 목록의 ‹ 는 어느 단계에서든 한 번에 나무로.
   await root(page).locator('[data-fx-crumb] [data-fx-up]').click();
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'tree');
   expect(errors).toEqual([]);
