@@ -137,6 +137,10 @@
   // The owner's close button calls the returned close() after closing itself.
   const LAYERS='kptuLayers';
   const layers=[];let releasing=0,deferred=[],layerReturn=false,traverseDelta=0,released=[],closing=null;
+  // STAB-폰파일판: where the history will stand once the layer backs already asked for have arrived (null = none pending). A second
+  // close asked before the first back arrives (preview ✕ then ‹ at once) counts from there, not from the entry still shown, so the
+  // two backs together leave exactly the closed entries instead of one entry more.
+  let landing=null;
   // NAV-새로고침제자리: a side step (setSub) or a place (setPlace) asked while a layer is closing waits for that back to arrive,
   // so the step's own entry is added after it instead of being the one the late back leaves (one owner of the history stack).
   let pendingSub=null,pendingPlace=null;
@@ -149,12 +153,13 @@
   // its name in the entry's list. Entries added on top of a layer (a menu, a small ask) copy the list, so the name alone cannot
   // tell whether the layer's own entry is still there.
   const here=()=>{const entry=window.navigation?.currentEntry;return entry&&Number.isInteger(entry.index)?entry:null};
+  const standIndex=entry=>Number.isInteger(landing)?Math.min(landing,entry.index):entry.index;
   const entryAt=index=>{try{return window.navigation.entries()[index]||null}catch{return null}};
   // Is the layer's own entry still at or below where the history stands now?
   function layerAlive(layer){
     const entry=here();
     if(!entry||!Number.isInteger(layer.index)||!layer.key)return null;
-    return layer.index<=entry.index&&entryAt(layer.index)?.key===layer.key;
+    return layer.index<=standIndex(entry)&&entryAt(layer.index)?.key===layer.key;
   }
   function pushLayer(layer){
     history.pushState({...(history.state||{}),[LAYERS]:[...chainOf(history.state),layer.name]},'',location.href);
@@ -223,14 +228,14 @@
     // Still-open layers below stay: go back only to just above the highest of them.
     const keep=layers.filter(layer=>!deferred.includes(layer)&&layerAlive(layer)).reduce((max,layer)=>Math.max(max,layer.index),-1);
     const target=Math.max(batch.low-1,keep);
-    const delta=entry?target-entry.index:0;
-    if(delta<0){history.go(delta);return}
+    const delta=entry?target-standIndex(entry):0;
+    if(delta<0){landing=target;history.go(delta);return}
     releasing--;
-    if(!releasing){flushPending();settleReleased()}
+    if(!releasing){landing=null;flushPending();settleReleased()}
   }
   function settleReleased(){const list=released;released=[];list.forEach(resolve=>queueMicrotask(resolve))}
   // A view change ends the layers of the view left; their owners close them on kptu:view-changed.
-  function forgetLayers(){layers.length=0;deferred=[];releasing=0;closing=null;pendingSub=null;pendingPlace=null;settleReleased()}
+  function forgetLayers(){layers.length=0;deferred=[];releasing=0;closing=null;landing=null;pendingSub=null;pendingPlace=null;settleReleased()}
   function flushPending(){
     const step=pendingSub,where=pendingPlace;pendingSub=null;pendingPlace=null;
     if(step&&api.current===step.view)writeSub(step.view,step.sub,{replace:step.replace});
@@ -299,7 +304,7 @@
     if(layerReturn){layerReturn=false;return}
     if(releasing){
       releasing--;
-      if(!releasing)flushPending();
+      if(!releasing){landing=null;flushPending();}
       restoreFromUrl('popstate');
       if(!releasing)settleReleased();
       return;

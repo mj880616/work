@@ -93,6 +93,22 @@ test.describe('라우터 겹 동시 닫기', () => {
       return navigation.currentEntry.index;
     });
     expect(r2).toBe(start);
+    // STAB-폰파일판: 위 겹을 닫은 뒤로가기가 아직 오지 않은 사이에(느린 기기·CI) 아래 겹을 닫아도 두 칸만 걷힌다(한 칸 더 지나치지 않음).
+    // 느린 뒤로가기 흉내: history.go를 0.15초 늦게 실행한다(그동안 지금 기록 칸은 위 겹 칸 그대로).
+    const r3 = await page.evaluate(async () => {
+      const go = History.prototype.go;
+      History.prototype.go = function (d) { setTimeout(() => go.call(this, d), 150); };
+      try {
+        const a = KPTURouter.layer.open('t-a', { close: () => true });
+        const b = KPTURouter.layer.open('t-b', { close: () => true });
+        const first = b.close();
+        await new Promise(r => setTimeout(r, 20));
+        await Promise.all([first, a.close()]);
+        await new Promise(r => setTimeout(r, 300));
+        return navigation.currentEntry.index;
+      } finally { History.prototype.go = go; }
+    });
+    expect(r3).toBe(start);
     // 다음 뒤로가기: 한 칸(사진 화면 → 그 앞 화면). 건너뛰지 않는다.
     await page.goBack();
     await expect.poll(() => page.evaluate(() => navigation.currentEntry.index)).toBe(start - 1);
