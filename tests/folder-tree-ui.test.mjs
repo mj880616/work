@@ -83,7 +83,7 @@ test('공용 모양 한 곳: folder-tree.css에 ft- 규칙, 노트·자료실이
   const notes = readFileSync(new URL('../app/basket-notes.js', import.meta.url), 'utf8');
   assert.match(notes, /from '\.\/folder-tree-ui\.mjs'/); assert.match(notes, /bindFolderPinch\(/);
   const libJs = readFileSync(new URL('../app/library-upload.js', import.meta.url), 'utf8');
-  assert.match(libJs, /bindFolderPinch\(list,/);
+  assert.match(libJs, /bindFolderPinch\(luGestureArea,/); // S51-24: 손짓 칸 = 자료실 화면 전체(gesture-fill.js)
   const libCss = readFileSync(new URL('../app/library-upload.css', import.meta.url), 'utf8');
   assert.doesNotMatch(libCss, /\.lu-kdot|\.lu-pdot|\.lu-folder-icon/);
   assert.match(readFileSync(new URL('../app/view-loader.js', import.meta.url), 'utf8'), /library:\[[^\]]*'\.\/folder-tree\.css'/);
