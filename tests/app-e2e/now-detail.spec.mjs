@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 // S48-27 OUTSIDE-글상세·관심환류 ③④(docs/design/outside-statements.md 12절, 요청함 11/01 23:12, 명진 결정 23:14·23:16):
 // 메뉴 'Now' 하나(이름 바꾸기는 P5) + 탭 [전체] [사회운동] [언론] [보관](S51-8, 마지막 탭 서버 기억 news_tab), 글 줄 전체 누름 → 상세
-// (꼬리 줄·[원문 ↗]·핵심 요약·주요 문장·나와의 연관·시사점·함께 볼 것 + [☆ 별표] [보관] [메모] [관심 없음]),
+// (꼬리 줄·요약·시사점(주요 문장·나와의 연관 접기)·원문 전체·함께 볼 것(접기) + [☆ 별표] [보관] [메모] [관심 없음] … [원래 사이트 ↗], S51-14 P4c),
 // 폰은 상세 전체 화면(뒤로가기 = 목록), PC는 목록 | 상세 두 칸. 누른 것은 환류 기록(app_now_signals)으로, 관심 주제 후보 → [ㅇ 확정] → 목록 작은 표시.
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 글·주제는 모두 가상.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -122,10 +122,11 @@ for (const width of [412, 1280]) {
     await expect.poll(() => server.calls.filter(c => c.what === 'ai' && c.body?.kind === 'now_detail').length).toBe(1);
     expect(server.calls.find(c => c.body?.kind === 'now_detail')).toMatchObject({ body: { kind: 'now_detail', outside_post_id: P1 }, auth: expect.stringMatching(/^Bearer /) });
     await expect(nd.locator('.nd-meta')).toContainText('민주노총');
-    await expect(nd.locator('.nd-meta')).toContainText('국내');
+    await expect(nd.locator('.nd-meta')).toContainText('성명');
     await expect(nd.locator('.nd-meta')).toContainText('2026. 10. 6. 09:30');
     await expect(nd.locator('.nd-title')).toHaveText('[성명] 가상 철도 민영화 반대');
-    const link = nd.getByRole('link', { name: /원문/ });
+    const link = nd.locator('.nd-acts .nd-site');
+    await expect(link).toHaveText('원래 사이트 ↗');
     await expect(link).toHaveAttribute('href', 'https://nodong.org/statement/101');
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
@@ -150,7 +151,7 @@ for (const width of [412, 1280]) {
     expect(post.body).toMatchObject({ post_id: P1, workspace_id: 'w' });
     await expect.poll(() => server.signals).toEqual([{ workspace_id: 'w', outside_post_id: P1, action: 'star' }]);
     // [원문 ↗] 열기도 기록(새 창은 막아 둔다).
-    await page.evaluate(() => { window.open = () => null; document.querySelector('[data-nd-link]').addEventListener('click', e => e.preventDefault(), { once: true }); });
+    await page.evaluate(() => { window.open = () => null; document.querySelectorAll('[data-nd-link]').forEach(a => a.addEventListener('click', e => e.preventDefault(), { once: true })); });
     await link.click();
     await expect.poll(() => server.signals.map(x => x.action)).toEqual(['star', 'open']);
 
@@ -162,7 +163,11 @@ for (const width of [412, 1280]) {
     expect(server.notes[0].body).toMatchObject({ kind: 'note', raw_text: '가상 메모', metadata: { outside_post_id: P1 } });
     await expect.poll(() => server.signals.map(x => x.action)).toEqual(['star', 'open', 'memo']);
 
+    // 시사점 칸 안 접기(주요 문장·나와의 연관), 함께 볼 것은 원문 아래 접기(S51-14 P4c).
+    await expect(nd.locator('[data-nd-implications] [data-nd-more]')).not.toHaveAttribute('open', '');
+    await expect(nd.locator('[data-nd-body] ~ [data-nd-relslot] [data-nd-relatedbox]')).toHaveCount(1);
     // 함께 볼 것: 같은 Now 글은 그 상세로.
+    await nd.locator('[data-nd-relatedbox] > summary').click();
     await nd.locator('.nd-rel').first().click();
     await expect(detail(page).locator('.nd-title')).toHaveText('가상의 외국 글');
     await expect(detail(page).locator('.nd-orig')).toHaveText('An Imaginary Article');

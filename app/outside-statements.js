@@ -8,8 +8,8 @@ import {viewPrefs} from './view-prefs.js';
 import {mountSplitResize} from './split-resize.js';
 import {hasNewsItem, takeNewsTab} from './news-request.mjs';
 import {itemView, whenOf} from './news-clipping-model.mjs';
-import {NOW_TABS, keepNowTab, nowTabAt, startTab, titleHit, itemKey, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed} from './now-model.mjs';
-import {outsideColor, newsColor, colorVar, familyOfGroup, postTag, newsTag} from './news-colors.mjs';
+import {NOW_TABS, keepNowTab, nowTabAt, startTab, titleHit, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed} from './now-model.mjs';
+import {outsideColor, newsColor, colorVar, familyOfGroup, postTag, newsTag, tagLabel} from './news-colors.mjs';
 import {rowHtml, dayHtml} from './news-row.mjs';
 import {ensureReads, readState, markRead, onReads} from './news-reads.js';
 import {createNowDetail} from './now-detail.js';
@@ -24,7 +24,7 @@ import {readOutsideMarks} from './now-marks.js';
 // - 위 줄: 찾기 칸 하나 'News 찾기 — 제목·문장'(제목은 지금 보이는 목록에서 바로 거르고, Enter = 문장 찾기 app_outside_search·expand — 결과 칸은 outside-search.js)
 //   + [매체: 전체 ▾](자료실 분류 창과 같은 부품 library-move-picker.js, 묶음 → 매체, 화면 메모리만) + ⋯(지금 채우기·단체 켜고 끄기·매체 켜고 끄기·키워드·별표 폴더·관심 주제).
 // - 줄: 날짜 묶음 → 흰 상자 안 줄(news-row.mjs). 매체 색 띠·같은 색 이름·분류 꼬리표·시각·별표(news-colors.mjs). 안 읽은 글 굵게·읽은 글 흐리게(news-reads.js, 상세를 열면 읽음).
-// - 각 탭 칸 안: [전체]·[사회운동] 이 모듈, [언론] news-clipping.js, [보관] now-saved.js. 상세 칸은 now-detail.js 하나(순서·원문 블록은 P4c). 관심 주제 칸은 now-interests.js.
+// - 각 탭 칸 안: [전체]·[사회운동] 이 모듈, [언론] news-clipping.js, [보관] now-saved.js. 상세 칸은 now-detail.js 하나(요약 · 시사점 · 원문 전체, S51-14 P4c — 연 글은 주소 ?item=). 관심 주제 칸은 now-interests.js.
 // - 단체 켜고 끄기 칸: 카탈로그(서버 outside-feed ?action=catalog) 단체마다 켬/끔(서버 표 app_outside_sources) + 마지막으로 읽은 시각·실패 표시. 뒤로가기 한 번 = 목록(KPTURouter.layer).
 // - 들어오면 본 시각(app_outside_seen, 알림 줄 '새 성명 n건'의 기준)을 지금 시각으로 바꿔 둔다(서버 저장). 줄의 '새' 표시는 읽음 굵기(news-reads.js)로 바뀌었다.
 // 바깥에서 온 글은 모두 글자로만 그린다(esc). 로그에 글 제목·본문을 남기지 않는다. 기기 저장 없음.
@@ -33,7 +33,7 @@ import {readOutsideMarks} from './now-marks.js';
 if (window.KPTUOutside) return;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
-const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetched_at,summary_ko,key_sentences,has_body';
+const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetched_at,summary_ko,key_sentences,has_body,author';
 const NEWS_COLS = 'id,lane,url,title,lang,publisher,source_key,published_at,scrapped_at,created_at,state,summary,body_kind,title_ko,starred_at';
 const SOURCE_COLS = 'source_key,enabled,last_ok_at,last_error';
 const PANEL = Object.freeze({all: 'nowPanelAll', movement: 'osPanelNew', media: 'nowPanelNews', archive: 'nowPanelSaved'});
@@ -160,10 +160,12 @@ const mainBox = root?.querySelector('#nowMain'), detailBox = root?.querySelector
 function describe(type, row) {
   if (type === 'news') {
     const v = itemView(row || {});
-    return {meta: [v.publisher, v.foreign ? '외국' : '국내', '기사', dateText(row?.published_at || row?.created_at)], title: v.title, origTitle: v.origTitle, titleLang: v.titleLang, lang: row?.lang || 'ko', url: v.url, lead: v.summary, body: v.canOpen ? 'news' : ''};
+    return {meta: [v.publisher, tagLabel(newsTag(row)) || '기사', dateText(row?.published_at || row?.created_at)], title: v.title, origTitle: v.origTitle, titleLang: v.titleLang, lang: row?.lang || 'ko', url: v.url};
   }
-  const v = postView(row || {});
-  return {meta: [nameOf(row?.source_key), row?.lang === 'en' ? '외국' : '국내', v.kind, dateText(row?.published_at)], title: v.title, origTitle: v.origTitle, titleLang: row?.lang === 'en' && !row?.title_ko ? 'en' : '', lang: row?.lang || 'ko', url: v.url, lead: v.lead, body: v.body === 'sentences' ? 'outside' : ''};
+  const v = postView(row || {}), tag = postTag(row || {});
+  // 꼬리 줄 = 매체 · 분류(성명은 글 종류 그대로, 국제는 '국제 · 종류') · 날짜 · 글쓴이(있을 때만).
+  const kind = tag === 'intl' ? `${tagLabel(tag)} · ${v.kind}` : (tag && tag !== 'statement' ? tagLabel(tag) : v.kind);
+  return {meta: [nameOf(row?.source_key), kind, dateText(row?.published_at), typeof row?.author === 'string' ? row.author.trim().slice(0, 60) : ''], title: v.title, origTitle: v.origTitle, titleLang: row?.lang === 'en' && !row?.title_ko ? 'en' : '', lang: row?.lang || 'ko', url: v.url};
 }
 // 줄 하나(세 목록 공통 모양 news-row.mjs). 사회운동 글·언론 기사 → 그릴 값.
 function rowOf(type, row, {openAttr, rowAttr, acts = '', star = false} = {}) {
@@ -176,7 +178,7 @@ function rowOf(type, row, {openAttr, rowAttr, acts = '', star = false} = {}) {
   const v = postView(row);
   return rowHtml({...base, title: v.title, titleLang: row.lang === 'en' && !row.title_ko ? 'en' : '', src: nameOf(row.source_key), badge: v.tag, color: outsideColor(row.source_key, state.catalog || []), tag: postTag(row), time: v.time, hit: interestHit([v.title, v.origTitle, v.summary], interests.topics())}, esc);
 }
-let detailLayer = null, readerLayer = null, interestsLayer = null, interestsAsk = 0;
+let detailLayer = null, interestsLayer = null, interestsAsk = 0;
 const detail = createNowDetail({box: detailBox, topics: () => interests.topics(),
   onClose: () => closeDetail(),
   onChanged: (item, act) => {
@@ -187,8 +189,7 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
   },
   onSignal: () => askInterests(),
   onRead: (item, row) => { const c = detail.current(); if (c && itemKey(c) === itemKey(item)) detail.setHead(describe('news', row)); window.KPTUNews?.refresh?.(); },
-  onRelated: r => openRelated(r),
-  onReader: on => toggleReaderLayer(on)});
+  onRelated: r => openRelated(r)});
 const saved = createNowSaved({box: root?.querySelector('[data-now-panel-saved]'), describe, rowOf, query: () => state.query,
   onOpen: (item, head) => openDetail(item, head), onListed: () => autoOpenTop(),
   onChanged: item => { if (item.type === 'news') window.KPTUNews?.refresh?.(); else loadMarks().then(() => { if (state.mode === 'list') paintList(); }); }});
@@ -200,13 +201,6 @@ function askInterests() {
   rt().api('/functions/v1/ai-assist', {method: 'POST', body: {kind: 'now_interests'}, singleFlight: false, timeoutMs: 60000})
     .then(r => { if (r?.added) interests.load(); }).catch(() => {});
 }
-// [본문] 읽기 화면: 폰은 상세 위에 겹을 하나 더(뒤로가기 한 번 = 상세로). PC·폴드 펼침은 오른쪽 칸 안에서 바뀌므로 겹 없음.
-function toggleReaderLayer(on) {
-  if (on) {
-    if (!PC.matches) readerLayer ||= window.KPTURouter?.layer?.open('now-reader', {reopen: () => detail.openReader(), close: () => { readerLayer = null; detail.closeReader({quiet: true}); return true; }}) || null;
-    if (!PC.matches) window.scrollTo({top: 0, behavior: 'instant'});
-  } else { const l = readerLayer; readerLayer = null; l?.close(); }
-}
 let autoOpening = false;
 function openDetail(item, head) {
   if (!item || !head) return;
@@ -217,6 +211,8 @@ function openDetail(item, head) {
   mountSplit();
   // 폰(좁은 화면): 상세가 전체 화면 — 뒤로가기 한 번 = 목록(라우터 겹). PC·폴드 펼침은 오른쪽 칸이라 겹 없음.
   if (!PC.matches) { detailLayer ||= window.KPTURouter?.layer?.open('now-detail', {reopen: () => openDetail(item, head), close: () => { detailLayer = null; closeDetail({fromLayer: true}); return true; }}) || null; window.scrollTo({top: 0, behavior: 'instant'}); }
+  // 주소에 연 글(?item=outside:<id>) — 새로고침해도 같은 글. PC에서 맨 위 글을 저절로 연 것은 남기지 않는다.
+  if (!autoOpening) window.KPTURouter?.setPlace?.('outside', {item: itemKey(item)});
   markOpen();
 }
 function closeDetail({fromLayer = false} = {}) {
@@ -225,6 +221,7 @@ function closeDetail({fromLayer = false} = {}) {
   if (root) root.dataset.detail = 'closed';
   mountSplit();
   if (!fromLayer) { const l = detailLayer; detailLayer = null; l?.close(); }
+  window.KPTURouter?.setPlace?.('outside', {item: null});
   markOpen();
   if (was) root?.querySelector(`[data-nw-key="${CSS.escape(itemKey(was))}"] .now-open`)?.focus({preventScroll: true});
 }
@@ -233,14 +230,18 @@ function markOpen() {
   const c = detail.current(), key = c ? itemKey(c) : '';
   root?.querySelectorAll('.now-row[data-nw-key]').forEach(el => el.classList.toggle('is-open', !!key && el.dataset.nwKey === key));
 }
+// 글 하나를 id로 읽는다(함께 볼 것·주소에 남은 글). 없으면 null.
+async function fetchItem(type, id) {
+  const w = workspaceOf();
+  const rows = type === 'news'
+    ? await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=${NEWS_COLS}&limit=1`, {singleFlight: false})
+    : await rt().api(`/rest/v1/app_outside_posts?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=${POST_COLS}&limit=1`, {singleFlight: false});
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
 async function openRelated(r) {
   if (r.kind === 'outside' || r.kind === 'news') {
-    const w = workspaceOf();
     try {
-      const rows = r.kind === 'news'
-        ? await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(r.id)}&select=id,lane,url,title,lang,publisher,published_at,created_at,summary,title_ko&limit=1`, {singleFlight: false})
-        : await rt().api(`/rest/v1/app_outside_posts?workspace_id=eq.${q(w)}&id=eq.${q(r.id)}&select=${POST_COLS}&limit=1`, {singleFlight: false});
-      const row = Array.isArray(rows) ? rows[0] : null;
+      const row = await fetchItem(r.kind, r.id);
       if (row) openDetail({type: r.kind, id: row.id}, describe(r.kind, row));
     } catch { /* 못 읽으면 그대로 */ }
     return;
@@ -410,8 +411,9 @@ onReads(() => { paintList(); if (state.tab === 'archive') saved.paint(); });
 // UI-Now PC정돈(명진 11/03 09:39): PC·폴드 펼침에서 상세 칸이 비어 안내문만 있지 않게 — 목록이 보이면 맨 위 글을 바로 연다(탭마다 이 화면에 들어온 뒤 한 번,
 // 닫으면 다시 열지 않음). 글이 없는 탭(빈 목록)은 상세 칸을 열지 않고 목록이 폭을 쓴다(CSS가 data-detail="closed"일 때 한 칸).
 const autoOpened = new Set();
+let restoring = false; // 주소에 남은 글을 다시 열기(restorePlaced)
 function autoOpenTop() {
-  if (!PC.matches || state.mode !== 'list' || detail.current() || autoOpened.has(state.tab)) return;
+  if (!PC.matches || state.mode !== 'list' || detail.current() || autoOpened.has(state.tab) || restoring) return;
   const panel = $(`#${PANEL[state.tab] || ''}`);
   const btn = panel?.querySelector('.now-row .now-open');
   if (!btn) return;
@@ -522,8 +524,20 @@ async function load() {
   await Promise.allSettled([loadPosts({keep: true}), state.tab === 'all' ? loadNews({keep: true}) : newsMeta()]);
   paintMediaButton();
 }
+// 주소에 남은 글(새로고침·되돌아온 주소)을 다시 연다. 그동안 PC 맨 위 글 저절로 열기는 쉰다.
+function restorePlaced() {
+  const m = /^(outside|news):(.+)$/.exec(window.KPTURouter?.place?.('outside')?.item || '');
+  if (!m || !isUuid(m[2]) || detail.current() || restoring) return;
+  restoring = true;
+  fetchItem(m[1], m[2]).then(row => {
+    if (!row || detail.current() || window.KPTURouter?.current !== 'outside') return;
+    autoOpened.add(state.tab);
+    openDetail({type: m[1], id: row.id}, describe(m[1], row));
+  }).catch(() => {}).finally(() => { restoring = false; autoOpenTop(); });
+}
 function enter() {
   resetIfOwnerChanged();
+  restorePlaced();
   // 처음 들어올 때 탭: 노트 [기사로 가기]·옛 ?view=news 주소면 [언론], 아니면 서버에 기억한 마지막 탭(news_tab, 없으면 옛 now_tab을 옮김, 둘 다 없으면 전체).
   // 알림 줄 [보기]는 [사회운동](requestNewsTab).
   const entry = window.KPTURouter?.takeEntry?.('outside'), asked = takeNewsTab();
