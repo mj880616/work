@@ -68,7 +68,7 @@ test('파일은 날짜 최신순, 종류 점은 정해진 순서로 최대 5개'
   assert.deepEqual(out[0].kinds,['HWP','PDF','파일']);
 });
 
-test('그리기: details/summary, 펼침, 20개 넘으면 N건 더, 이름은 이스케이프',()=>{
+test('그리기: details/summary, 펼침, 20개 넘으면 n개 더 보기(공용 줄), 이름은 이스케이프',()=>{
   const docs=Array.from({length:23},(_,i)=>doc('d'+i,'b'));
   const out=m.buildTree(base({docs,tree:[{project:P('b','<B>'),depth:0}]}));
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -77,9 +77,10 @@ test('그리기: details/summary, 펼침, 20개 넘으면 N건 더, 이름은 �
   assert.match(html,/<details class="lu-node" data-lu-node="p:b"[^>]* open>/);
   assert.match(html,/&lt;B&gt;/);
   assert.equal((html.match(/<article/g)||[]).length,20);
-  assert.match(html,/data-lu-more="p:b">3건 더</);
+  // FOLDER-나무새기준(S51-12): 'n개 더 보기'는 공용 줄(folder-tree-ui.mjs ftMoreRowHtml). 폴더가 아닌 묶음에는 두 손가락 안내가 없다.
+  assert.match(html,/data-lu-more="p:b" style="--ft-depth:0">3개 더 보기</);assert.doesNotMatch(html,/두 손가락/);
   const all=m.treeHtml(out,{...opts,showAll:()=>true});
-  assert.equal((all.match(/<article/g)||[]).length,23);assert.doesNotMatch(all,/건 더/);
+  assert.equal((all.match(/<article/g)||[]).length,23);assert.doesNotMatch(all,/더 보기/);
 });
 
 test('폴더 편집 규칙: 깊이·옮길 곳(자기 아래·100단 초과·다른 틀 제외)·위로/아래로·이름·오류 문구',()=>{
@@ -236,9 +237,10 @@ test('폴더 색: 노드 fc는 1~8만, 머리 그림은 칠한 폴더(폴더 보
   assert.equal(byKey['f:f1'].fc,4);assert.equal(byKey['f:f2'].fc,null);assert.equal(byKey['f:f3'].fc,null);assert.equal(byKey['f:f4'].fc,null);
   const opts={isOpen:()=>false,showAll:()=>false,fileHtml:()=>'',esc:s=>String(s),kindKey:k=>k};
   const emoji=m.treeHtml(nodes,{...opts,emoji:true});
-  assert.match(emoji,/<span class="lu-folder-emoji fl-ico" data-fc="4"[^>]*><span class="lu-fe-closed"><svg/);
+  // FOLDER-나무새기준(S51-12): 모든 폴더가 공용 폴더 그림(ft-ico). 색을 고른 폴더만 data-fc, 안 고른 폴더는 기본 노랑(속성 없음). 빈 폴더는 닫힌 그림만.
+  assert.match(emoji,/<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true"><span class="ft-ico lu-fe-closed lu-fe-only" data-fc="4" data-ft-shape="closed"[^>]*><svg/);
   assert.equal((emoji.match(/data-fc=/g)||[]).length,1);
-  assert.equal((emoji.match(/\u{1F4C1}/gu)||[]).length,3,'안 고른 폴더 셋은 노란 폴더 글자 그대로');
+  assert.equal((emoji.match(/class="ft-ico/g)||[]).length,4);assert.doesNotMatch(emoji,/\u{1F4C1}|\u{1F4C2}/u);
   const outline=m.treeHtml(nodes,{...opts,emoji:false});
-  assert.match(outline,/<svg class="lu-folder-icon" data-fc="4" /);assert.equal((outline.match(/data-fc=/g)||[]).length,1);
+  assert.equal((outline.match(/data-fc=/g)||[]).length,1);assert.equal((outline.match(/class="ft-ico/g)||[]).length,4);
 });

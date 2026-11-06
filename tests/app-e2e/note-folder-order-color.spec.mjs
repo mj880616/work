@@ -109,11 +109,11 @@ test.describe('PC 1440', () => {
 
   test('색: 고르면 나무·꼬리표·폴더 고르기 창·포스트잇이 같은 색, 새로고침해도 유지, 서버 함수로만 저장', async ({ page }) => {
     const f = await fixture(page, 1440);
-    // 안 고른 폴더는 지금처럼 노란 폴더 그림.
-    await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .nx-ico`)).toHaveText('\u{1F4C1}');
+    // 안 고른 폴더는 기본 노랑 폴더 그림(FOLDER-나무새기준: 공용 닫힌/열린 그림, 색 번호 없음).
+    await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .ft-ico`)).not.toHaveAttribute('data-fc', /./);
     await pickColor(page, U(1), '강청');
     await expect.poll(() => f.rpc).toEqual([{ p_id: U(1), p_color: 5 }]);
-    const icon = page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .nx-ico`);
+    const icon = page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .ft-ico`);
     await expect(icon).toHaveAttribute('data-fc', '5');
     await expect(icon.locator('svg')).toBeVisible();
     // 표 쓰기(PATCH)로는 색을 보내지 않는다.
@@ -131,10 +131,10 @@ test.describe('PC 1440', () => {
     await expect(icon).toHaveAttribute('data-fc', '7');
     // 새로고침해도(서버 값) 같은 색.
     await page.reload(); await f.show();
-    await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .nx-ico`)).toHaveAttribute('data-fc', '7');
+    await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .ft-ico`)).toHaveAttribute('data-fc', '7');
     await pickColor(page, U(1), '기본');
     expect(f.rpc.at(-1)).toEqual({ p_id: U(1), p_color: null });
-    await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .nx-ico`)).toHaveText('\u{1F4C1}');
+    await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .ft-ico`)).not.toHaveAttribute('data-fc', /./);
     expect(f.errors).toEqual([]);
   });
 
@@ -210,7 +210,7 @@ test.describe('폰 412', () => {
     const cdp = await page.context().newCDPSession(page);
     const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i })) });
     const center = async sel => { const r = await page.locator(sel).first().boundingBox(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: r.y + r.height * 0.1 }; };
-    const rowSel = n => `#noteRows [data-nx-folder="${U(n)}"] .nx-name`;
+    const rowSel = n => `#noteRows [data-nx-folder="${U(n)}"] .ft-name`;
     const order = () => page.locator('#noteRows [data-nx-folder]').evaluateAll(els => els.map(el => el.dataset.nxFolder));
     expect(await order()).toEqual([U(1), U(2), U(3)]);
     // 병 폴더를 꾹 눌러 갑 폴더 윗부분으로 끌어 놓기 → 순서만 바뀐다.
@@ -239,7 +239,7 @@ test.describe('폰 412', () => {
     expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(412);
     await rootMenu(page).locator('[aria-label="황토"]').tap();
     await expect.poll(() => f.rpc).toEqual([{ p_id: U(2), p_color: 2 }]);
-    await expect(page.locator(`#noteRows [data-nx-folder="${U(2)}"] .nx-ico`)).toHaveAttribute('data-fc', '2');
+    await expect(page.locator(`#noteRows [data-nx-folder="${U(2)}"] .ft-ico`)).toHaveAttribute('data-fc', '2');
     await cdp.detach();
     expect(f.errors).toEqual([]);
   });

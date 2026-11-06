@@ -461,7 +461,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const finish=()=>{clearMarks();stopScroll();drag=null;cancel()};
     list.addEventListener('pointerdown',e=>{
       if(e.pointerType!=='touch'||!e.isPrimary||!touchOk())return;
-      const t=e.target;if(!(t instanceof Element)||t.closest('input,textarea,select,[contenteditable],button,a[href],.lu-undo,.lu-more-files'))return;
+      const t=e.target;if(!(t instanceof Element)||t.closest('input,textarea,select,[contenteditable],button,a[href],.lu-undo,.lu-more-files,.lu-more-row'))return;
       const el=t.closest('.lu-row,summary.lu-node-head');if(!el||(el.matches('summary')&&renaming))return;
       cancel();
       touch={el,x:e.clientX,y:e.clientY,grabbed:false,moved:false,drop:null,at:Date.now(),timer:setTimeout(()=>{
@@ -505,7 +505,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // F2 = 포커스가 있는 폴더 줄의 이름 바꾸기. 빈 곳 우클릭 = 그 자리를 품은 가장 가까운 토글의 ⋯ 메뉴(폴더면 폴더 메뉴, 프로젝트·'폴더 밖'이면 [새 폴더]),
   // 어느 토글도 아니면 맨 위 자리의 [새 폴더]. 카드·줄·입력칸·링크·버튼 위의 우클릭은 공용 우클릭(context-menu.js)이 그대로 맡는다.
   const WIDE=typeof matchMedia==='function'?matchMedia('(min-width:761px)'):null;
-  const IGNORE='.lu-row,summary.lu-node-head,input,textarea,select,button,a[href],[contenteditable],.lu-off-hint,.lu-more-files,.lu-undo';
+  const IGNORE='.lu-row,summary.lu-node-head,input,textarea,select,button,a[href],[contenteditable],.lu-off-hint,.lu-more-files,.lu-more-row,.lu-undo';
   function blankTrigger(target,list){
     for(let el=target.closest('.lu-node');el;el=el.parentElement?.closest('.lu-node')){const b=el.querySelector(':scope > summary [data-lu-node-menu]');if(b)return b}
     return list.querySelector(`[data-lu-node-menu="${s().free?OUTSIDE_KEY:'p:none'}"]`)||(s().free?list.querySelector('summary[data-lu-top] [data-lu-node-menu^="f:"]'):null);

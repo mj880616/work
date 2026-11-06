@@ -5,7 +5,8 @@
 // source는 나중에 Drive 폴더 보기(DRIVE-자료트리)를 더할 자리다(결정 D10). 지금은 늘 'library'.
 
 import {FOLDER_DEPTH_LIMIT,folderIndent,folderDepthLimitFrom} from './folder-limits.mjs';
-import {folderShapeHtml} from './folder-look-model.mjs';
+// FOLDER-나무새기준(S51-12): 폴더 그림(닫힌/열린)·'n개 더 보기' 줄은 노트·파일·사진과 같은 공용 부품(folder-tree-ui.mjs). 점(●)은 그리지 않는다.
+import {ftIconHtml,ftMoreRowHtml} from './folder-tree-ui.mjs';
 export const GROUP_BY=Object.freeze(['project','organization','category','month','folder']);
 export const GROUP_LABELS=Object.freeze({project:'사업영역',organization:'담당조직',category:'분류',month:'월별',folder:'폴더'});
 // 결정 D12: 한 토글에 파일이 20개를 넘으면 20개만 보이고 [N건 더].
@@ -163,20 +164,20 @@ export function pathTo(list,documentId){let found=null;walk(list,(n,parents)=>{i
 export function folderChain(n){const out=[];let c=n,guard=0;while(c?.kind==='folder'&&!c.files.length&&c.children.length===1&&c.children[0].kind==='folder'&&guard++<FOLDER_DEPTH){c=c.children[0];out.push(c)}return out}
 export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey,menu=null,canDrag=null,pick=null,emoji=false}){
   const head=n=>{
-    const dots=n.kinds.map(k=>`<i class="lu-kdot" data-lu-kind="${esc(kindKey(k))}"></i>`).join('');
     const face=emoji&&(n.kind==='folder'||n.key==='x:out');
-    // FOLDER-순서·색 ③: 색을 고른 폴더(n.fc 1~8)는 칠한 폴더 그림(닫힘·열림을 CSS가 바꿈), 안 고른 폴더는 지금 모양 그대로.
-    const fcls=n.kind==='folder'&&n.fc?` data-fc="${n.fc}"`:'';
-    const mark=face?(n.key==='x:out'?'<span class="lu-folder-emoji" aria-hidden="true">\u{1F5C2}</span>':n.fc?`<span class="lu-folder-emoji fl-ico"${fcls} aria-hidden="true"><span class="lu-fe-closed">${folderShapeHtml('closed')}</span><span class="lu-fe-open">${folderShapeHtml('open')}</span></span>`:'<span class="lu-folder-emoji" aria-hidden="true"><span class="lu-fe-closed">\u{1F4C1}</span><span class="lu-fe-open">\u{1F4C2}</span></span>')
-      :n.kind==='folder'?`<svg class="lu-folder-icon"${fcls} viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1.75 4.25a1 1 0 0 1 1-1h3.1l1.4 1.5h5.999a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H2.75a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`
-      :n.color?`<span class="lu-pdot" data-color="${esc(n.color)}"${n.tone?` data-tone="${esc(n.tone)}"`:''} aria-hidden="true"></span>`:'';
+    // FOLDER-나무새기준 ③⑥: 폴더는 닫힌/열린 폴더 그림 하나(색을 고른 폴더는 그 색, 안 고른 폴더는 기본 노랑). 펼침에 따라 CSS가 둘 중 하나를 보이고,
+    // 안에 아무것도 없는 폴더는 처음부터 닫힌 그림만. '폴더 밖'은 🗂 + 흐린 글자. ⑨ 종류 점·색 점은 없다.
+    const empty=n.kind==='folder'&&!n.count&&!n.children.length&&!n.files.length;
+    const shapes=empty?ftIconHtml({color:n.fc,open:false,className:'ft-ico lu-fe-closed lu-fe-only'}):`${ftIconHtml({color:n.fc,open:false,className:'ft-ico lu-fe-closed'})}${ftIconHtml({color:n.fc,open:true,className:'ft-ico lu-fe-open'})}`;
+    const mark=face?(n.key==='x:out'?'<span class="lu-folder-emoji" aria-hidden="true">\u{1F5C2}</span>':`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`)
+      :n.kind==='folder'?`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`:'';
     const more=menu?.(n);
     const rest=folderChain(n);
-    return `<summary class="lu-node-head${face?' lu-node-emoji':''}${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}${rest.length?`<span class="lu-chain-rest">${rest.map(c=>` › ${esc(c.label)}`).join('')}</span>`:''}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${dots?`<span class="lu-kdots" aria-hidden="true">${dots}</span>`:''}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
+    return `<summary class="lu-node-head${face||n.kind==='folder'?' lu-node-emoji':''}${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}${rest.length?`<span class="lu-chain-rest">${rest.map(c=>` › ${esc(c.label)}`).join('')}</span>`:''}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
   };
   const body=n=>{
     const all=showAll(n.key),files=all?n.files:n.files.slice(0,FILE_LIMIT),rest=n.files.length-files.length;
-    return n.children.map(one).join('')+files.map(d=>fileHtml(d,n)).join('')+(rest>0?`<button type="button" class="lu-more-files" data-lu-more="${esc(n.key)}">${rest}건 더</button>`:'');
+    return n.children.map(one).join('')+files.map(d=>fileHtml(d,n)).join('')+(rest>0?ftMoreRowHtml({rest,depth:0,attrs:{'data-lu-more':n.key},hint:n.kind==='folder'}).replace('class="ft-btn ft-row ft-more-row"','class="ft-btn ft-row ft-more-row lu-more-row"'):'');
   };
   const one=n=>{const rest=folderChain(n);return `<details class="lu-node" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}"${rest.length?` data-lu-chain="${esc(rest.map(c=>c.key).join(' '))}"`:''} style="--lu-depth:${folderIndent(n.depth)}"${isOpen(n.key)?' open':''}>${head(n)}<div class="lu-node-body">${body(n)}</div></details>`};
   return list.map(one).join('');

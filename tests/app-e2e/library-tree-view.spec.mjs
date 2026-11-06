@@ -39,27 +39,25 @@ const tops=page=>page.locator('#documentList > details').evaluateAll(xs=>xs.map(
 const visibleRows=page=>page.locator('#documentList .lu-row:visible').evaluateAll(xs=>xs.map(x=>x.dataset.luDocument));
 const noScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
-for(const width of [390,1280])test(`프로젝트 트리: 맨 위 단만, 자료 수·종류 점·색, 펼치면 하위 → 파일(날짜순), 20개 넘으면 N건 더, 모두 펴기·접기 ${width}`,async({page},info)=>{
+for(const width of [390,1280])test(`프로젝트 트리: 맨 위 단만, 자료 수·점 없음, 펼치면 하위 → 파일(날짜순), 20개 넘으면 n개 더 보기, 모두 펴기·접기 ${width}`,async({page},info)=>{
   const {errors}=await boot(page,width);
   // 1단 프로젝트(프로젝트 화면 차례) → 보관·옛 공간·확인 불가 → 맨 아래 '프로젝트 없음'. 처음엔 모두 접힘(결정 D13).
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
   await expect(page.locator('#documentList details[open]')).toHaveCount(0);
   await expect(page.locator('.lu-row:visible')).toHaveCount(0);
-  // 접힌 줄: 이름 · 자료 수(아래 단 포함) · 종류 색 점(HWP·PDF·XLS 순) · 프로젝트 색 점.
+  // 접힌 줄: 이름 · 자료 수(아래 단 포함). FOLDER-나무새기준 ⑨(명진 11/06 01:39): 종류 색 점·사업영역 색 점은 없다.
   const a=libraryNodeHead(page,'p:top-a');
   await expect(a.locator('.lu-node-name')).toHaveText('공공기관 기능개혁 대응');await expect(a.locator('.lu-node-count')).toHaveText('3');
   await expect(a.locator('.lu-node-count')).toHaveAttribute('aria-label','자료 3건');
-  expect(await a.locator('.lu-kdot').evaluateAll(xs=>xs.map(x=>x.dataset.luKind))).toEqual(['hwp','pdf','xls']);
-  await expect(a.locator('.lu-pdot')).toHaveAttribute('data-color','blue');
+  await expect(a.locator('.lu-kdot, .lu-pdot, .lu-kdots')).toHaveCount(0);
   await expect(libraryNodeHead(page,'p:top-b').locator('.lu-node-count')).toHaveText('23');
   await expect(libraryNodeHead(page,'p:orphan-1').locator('.lu-node-count')).toHaveText('0');
   // 자료가 없는 하위(산자부 대응)는 숨긴다.
   await expect(libraryNode(page,'p:child-a2')).toHaveCount(0);
   // 접힌 줄은 36px 얇은 줄(LIB-목록간격 ②: 32 → 36px, 줄 간격 조금 넓게), 누르는 범위 44px.
   expect(Math.round((await a.boundingBox()).height)).toBe(36);
-  // 펼치기: 하위 프로젝트 토글이 먼저, 그다음 이 단의 파일. 하위의 색 점은 같은 색의 연한 톤.
+  // 펼치기: 하위 프로젝트 토글이 먼저, 그다음 이 단의 파일.
   await a.click();await expect(libraryNode(page,'p:top-a')).toHaveAttribute('open','');
-  await expect(libraryNodeHead(page,'p:child-a1').locator('.lu-pdot')).toHaveAttribute('data-tone','soft');
   expect(await page.locator('#documentList details[data-lu-node="p:top-a"] > .lu-node-body > *').evaluateAll(xs=>xs.map(x=>x.dataset.luNode||x.dataset.luDocument))).toEqual(['p:child-a1','a-1']);
   await libraryNodeHead(page,'p:child-a1').click();
   // 토글 안 파일은 날짜 최신순, 단마다 들여쓰기.
@@ -68,13 +66,13 @@ for(const width of [390,1280])test(`프로젝트 트리: 맨 위 단만, 자료 
   expect(await indent('a1-1')).toBeGreaterThan(await indent('a-1'));
   // 파일 줄은 지금 줄 그대로(종류 태그·분류 태그·날짜·⋯).
   await expect(page.locator('[data-lu-document="a1-2"] .lu-file-kind')).toHaveText('XLS');await expect(page.locator('[data-lu-document="a1-2"] .lu-row-date')).toHaveText('10.03');
-  // N건 더: 20개 넘는 토글은 20개만, [3건 더]를 누르면 그 토글만 전부.
+  // n개 더 보기(공용 줄): 20개 넘는 토글은 20개만, [3개 더 보기]를 누르면 그 토글만 전부.
   await libraryNodeHead(page,'p:top-b').click();
   const b=page.locator('#documentList details[data-lu-node="p:top-b"] > .lu-node-body');
-  await expect(b.locator(':scope > .lu-row')).toHaveCount(20);await expect(b.locator(':scope > .lu-more-files')).toHaveText('3건 더');
+  await expect(b.locator(':scope > .lu-row')).toHaveCount(20);await expect(b.locator(':scope > .ft-more-row')).toHaveText('3개 더 보기');
   await expect(b.locator(':scope > .lu-row').first()).toHaveAttribute('data-lu-document','b-22');
   if(width===390)await page.screenshot({path:info.outputPath('tree-390.png'),fullPage:true});else await page.screenshot({path:info.outputPath('tree-1280.png'),fullPage:true});
-  await b.locator(':scope > .lu-more-files').click();await expect(b.locator(':scope > .lu-row')).toHaveCount(23);await expect(b.locator('.lu-more-files')).toHaveCount(0);
+  await b.locator(':scope > .ft-more-row').click();await expect(b.locator(':scope > .lu-row')).toHaveCount(23);await expect(b.locator('.ft-more-row')).toHaveCount(0);
   // 펼침 상태는 다시 그려도 남는다.
   await page.evaluate(()=>window.KPTULibrary.render());await expect(libraryNode(page,'p:child-a1')).toHaveAttribute('open','');await expect(b.locator(':scope > .lu-row')).toHaveCount(23);
   // 모두 펴기 ↔ 모두 접기(빠짐9: 자료실 칸 맨 위 ⋯ 메뉴 한 줄).
@@ -158,7 +156,7 @@ for(const width of [390,1280])test(`폴더(읽기만): 프로젝트 안 3단 폴
   // 폴더는 하위 프로젝트 다음, 파일 앞. 같은 상위 안 차례는 sort_order.
   expect(await page.locator('#documentList details[data-lu-node="p:top-a"] > .lu-node-body > *').evaluateAll(xs=>xs.map(x=>x.dataset.luNode||x.dataset.luDocument))).toEqual(['p:child-a1','f:f-a0','f:f-a']);
   await expect(page.locator('#documentList details[data-lu-node="f:f-a"] details[data-lu-node="f:f-a-1"] details[data-lu-node="f:f-a-1-1"] [data-lu-document="a-1"]')).toBeVisible();
-  await expect(libraryNodeHead(page,'f:f-a0').locator('.lu-node-count')).toHaveText('0');await expect(libraryNodeHead(page,'f:f-a0').locator('.lu-folder-icon')).toBeVisible();
+  await expect(libraryNodeHead(page,'f:f-a0').locator('.lu-node-count')).toHaveText('0');await expect(libraryNodeHead(page,'f:f-a0').locator('.ft-ico.lu-fe-closed')).toBeVisible();
   // 자료의 프로젝트(child-a1)와 폴더의 틀(top-a)이 어긋난 연결은 없는 것으로 보고, 자료의 프로젝트 토글 바로 아래에 둔다.
   await expect(page.locator('#documentList details[data-lu-node="p:child-a1"] > .lu-node-body > [data-lu-document="a1-1"]')).toBeVisible();
   await expect(page.locator('#documentList details[data-lu-node="p:none"] details[data-lu-node="f:f-n"] [data-lu-document="none-1"]')).toBeVisible();

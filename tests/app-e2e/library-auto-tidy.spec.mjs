@@ -100,7 +100,7 @@ async function boot(page,state,{width=390}={}){
   await expandLibraryTree(page);
   await expect(page.locator('[data-lu-document]').first()).toBeVisible();
 }
-// LIB-토글트리: 한 토글은 20개까지 그리고 나머지는 [N건 더]로 그린다(설계 5절). 모든 줄 수를 셀 때는 [N건 더]를 모두 누른다.
+// LIB-토글트리: 한 토글은 20개까지 그리고 나머지는 [n개 더 보기]로 그린다(설계 5절). 모든 줄 수를 셀 때는 그것을 모두 누른다.
 async function showAllRows(page){
   for(let more=page.locator('#documentList [data-lu-more]');await more.count();)await more.first().click();
 }

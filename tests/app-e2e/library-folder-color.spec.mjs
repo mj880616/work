@@ -9,7 +9,8 @@ const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFold
 const ITEMS=[{document_id:'a-1',folder_id:'fa'}];
 const RGB={light:{4:'rgb(63, 148, 134)',1:'rgb(180, 90, 82)'},dark:{4:'rgb(98, 179, 165)'}};
 const radio=(page,name)=>page.locator('#libraryGroupBy').getByRole('radio',{name});
-const mark=(page,key)=>libraryNodeHead(page,key).locator('.lu-folder-emoji');
+// FOLDER-나무새기준(S51-12): 폴더 그림은 공용 닫힌/열린 그림(.ft-ico). 지금 보이는 그림(닫힘)에 색 번호가 붙는다.
+const mark=(page,key)=>libraryNodeHead(page,key).locator('.lu-folder-shape .ft-ico.lu-fe-closed');
 const colorOfMark=el=>el.locator('svg').first().evaluate(x=>getComputedStyle(x).color);
 async function pickColor(page,key,name,width){
   await press(page,menuButton(page,key),width);
@@ -23,8 +24,8 @@ for(const width of [1440,412])test.describe(`자료실 폴더 색 ${width}`,()=>
   test.use({hasTouch:width<761});
   test(`색을 고르면 저장되고 새로고침해도 유지, [기본]으로 되돌림, 같은 폴더는 다른 화면에서 같은 색 ${width}`,async({page},info)=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더'});
-    // 안 고른 폴더는 지금 모양 그대로(노란 폴더 글자), 색 번호 속성 없음.
-    await expect(mark(page,'f:fa').locator('.lu-fe-closed')).toHaveText('\u{1F4C1}');await expect(page.locator('#documentList [data-fc]')).toHaveCount(0);
+    // 안 고른 폴더는 기본 노랑 폴더 그림, 색 번호 속성 없음.
+    await expect(mark(page,'f:fa').locator('svg')).toBeVisible();await expect(page.locator('#documentList [data-fc]')).toHaveCount(0);
     // 메뉴: [색 고르기…]가 있고, 고르는 줄은 동그라미 8개 + [기본]이며 이름이 붙어 있다.
     await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'색 고르기…'),width);
     const choice=page.locator('#luFolderMenu .fl-choice');await expect(choice.getByRole('radio')).toHaveCount(9);
@@ -37,7 +38,7 @@ for(const width of [1440,412])test.describe(`자료실 폴더 색 ${width}`,()=>
     await expect.poll(()=>s.colorCalls?.length||0).toBe(1);expect(s.colorCalls[0]).toEqual({p_id:'fa',p_color:4});
     await expect(mark(page,'f:fa')).toHaveAttribute('data-fc','4');await expect(mark(page,'f:fb')).not.toHaveAttribute('data-fc',/./);
     expect(await colorOfMark(mark(page,'f:fa'))).toBe(RGB.light[4]);
-    await expect(mark(page,'f:fa').locator('.lu-fe-closed svg')).toBeVisible();
+    await expect(mark(page,'f:fa').locator('svg')).toBeVisible();
     // 다시 열면 고른 색에 표시(aria-checked).
     await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'색 고르기…'),width);
     await expect(page.locator('#luFolderMenu .fl-choice').getByRole('radio',{name:'청록',exact:true})).toHaveAttribute('aria-checked','true');
@@ -51,20 +52,20 @@ for(const width of [1440,412])test.describe(`자료실 폴더 색 ${width}`,()=>
 
     // 같은 폴더가 다른 화면에서도 같은 색: 사업영역 묶기의 폴더 머리, 폴더 고르기 창(자료 ⋯ → 폴더로 옮기기).
     await radio(page,'사업영역').click();await expandLibraryTree(page);
-    const outline=libraryNodeHead(page,'f:fa').locator('.lu-folder-icon');await expect(outline).toHaveAttribute('data-fc','4');
+    const outline=libraryNodeHead(page,'f:fa').locator('.ft-ico.lu-fe-closed');await expect(outline).toHaveAttribute('data-fc','4');
     expect(await outline.evaluate(x=>getComputedStyle(x).color)).toBe(RGB.light[4]);
-    await expect(libraryNodeHead(page,'f:fb').locator('.lu-folder-icon')).not.toHaveAttribute('data-fc',/./);
+    await expect(libraryNodeHead(page,'f:fb').locator('.ft-ico.lu-fe-closed')).not.toHaveAttribute('data-fc',/./);
     await openMove(page,'a-2',width);
     const pickIcon=moveFolder(page,'fa').locator('.lu-move-ico');await expect(pickIcon).toHaveAttribute('data-fc','4');
     expect(await pickIcon.locator('svg').evaluate(x=>getComputedStyle(x).color)).toBe(RGB.light[4]);
     await expect(moveFolder(page,'fb').locator('.lu-move-ico')).toHaveCount(0);
     await page.keyboard.press('Escape');
 
-    // [기본]: 지금 모양(노란 폴더 글자)으로 돌아가고 서버에는 null이 간다. 이미 기본이면 저장하지 않는다.
+    // [기본]: 기본 노랑 폴더 그림으로 돌아가고 서버에는 null이 간다. 이미 기본이면 저장하지 않는다.
     await radio(page,'폴더').click();
     await pickColor(page,'f:fa','기본',width);
     await expect.poll(()=>s.colorCalls.length).toBe(2);expect(s.colorCalls[1]).toEqual({p_id:'fa',p_color:null});
-    await expect(page.locator('#documentList [data-fc]')).toHaveCount(0);await expect(mark(page,'f:fa').locator('.lu-fe-closed')).toHaveText('\u{1F4C1}');
+    await expect(page.locator('#documentList [data-fc]')).toHaveCount(0);await expect(mark(page,'f:fa')).not.toHaveAttribute('data-fc',/./);
     await pickColor(page,'f:fb','기본',width);expect(s.colorCalls.length).toBe(2);
     expect(s.writes.filter(w=>w.table==='folders')).toEqual([]);   // 색은 표를 직접 쓰지 않고 서버 함수로만
     expect(errors).toEqual([]);

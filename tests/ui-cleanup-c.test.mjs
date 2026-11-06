@@ -29,7 +29,8 @@ test('④ 화면 칸 전체의 버튼 기본 모양(#화면 button)이 글 편�
     }
   }
   assert.deepEqual(bad, [], '넓은 버튼 규칙에는 :not(.ed-editor *)를 붙이세요(편집 도구줄 모양은 ed-doc.css 한 곳)');
-  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*\) \{/);
+  // FOLDER-나무새기준(S51-12): 공용 폴더 나무 단추(.ft-btn)도 이 넓은 규칙에서 뺀다(모양은 folder-tree.css 한 곳).
+  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*(?:, \.ft-btn)?\) \{/);
 });
 
 test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [·][▾] 두 칸 없음)', () => {

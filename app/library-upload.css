@@ -226,25 +226,7 @@
 #appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{font-weight:700}
 #appView #libraryView .lu-node-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #appView #libraryView .lu-node-count{flex:none;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
-#appView #libraryView .lu-kdots{flex:none;display:inline-flex;gap:3px;margin-left:2px}
-#appView #libraryView .lu-kdot{display:block;width:6px;height:6px;border-radius:999px;background:var(--ds-kind-other-ink)}
-#appView #libraryView .lu-kdot[data-lu-kind="pdf"]{background:var(--ds-file-pdf-ink)}
-#appView #libraryView .lu-kdot[data-lu-kind="hwp"]{background:var(--ds-file-hwp-ink)}
-#appView #libraryView .lu-kdot[data-lu-kind="xls"]{background:var(--ds-file-xls-ink)}
-#appView #libraryView .lu-kdot[data-lu-kind="doc"]{background:var(--ds-file-doc-ink)}
-#appView #libraryView .lu-kdot[data-lu-kind="ppt"]{background:var(--ds-file-ppt-ink)}
-#appView #libraryView .lu-kdot[data-lu-kind="img"]{background:var(--ds-file-img-ink)}
-#appView #libraryView .lu-pdot{flex:none;width:8px;height:8px;border-radius:999px;background:var(--ds-project-gray)}
-#appView #libraryView .lu-pdot[data-color="green"]{background:var(--ds-project-green)}#appView #libraryView .lu-pdot[data-color="green"][data-tone="soft"]{background:var(--ds-project-green-soft)}
-#appView #libraryView .lu-pdot[data-color="blue"]{background:var(--ds-project-blue)}#appView #libraryView .lu-pdot[data-color="blue"][data-tone="soft"]{background:var(--ds-project-blue-soft)}
-#appView #libraryView .lu-pdot[data-color="orange"]{background:var(--ds-project-orange)}#appView #libraryView .lu-pdot[data-color="orange"][data-tone="soft"]{background:var(--ds-project-orange-soft)}
-#appView #libraryView .lu-pdot[data-color="purple"]{background:var(--ds-project-purple)}#appView #libraryView .lu-pdot[data-color="purple"][data-tone="soft"]{background:var(--ds-project-purple-soft)}
-#appView #libraryView .lu-pdot[data-color="pink"]{background:var(--ds-project-pink)}#appView #libraryView .lu-pdot[data-color="pink"][data-tone="soft"]{background:var(--ds-project-pink-soft)}
-#appView #libraryView .lu-pdot[data-color="yellow"]{background:var(--ds-project-yellow)}#appView #libraryView .lu-pdot[data-color="yellow"][data-tone="soft"]{background:var(--ds-project-yellow-soft)}
-#appView #libraryView .lu-pdot[data-color="red"]{background:var(--ds-project-red)}#appView #libraryView .lu-pdot[data-color="red"][data-tone="soft"]{background:var(--ds-project-red-soft)}
-#appView #libraryView .lu-pdot[data-tone="soft"]:not([data-color]){background:var(--ds-project-gray-soft)}
-#appView #libraryView .lu-folder-icon{flex:none;color:var(--kptu-muted)}
-#appView #libraryView .lu-folder-icon[data-fc]{color:var(--fl-ico)} /* FOLDER-순서·색 ③: 색을 고른 폴더(값은 folder-look.css) */
+/* FOLDER-나무새기준 ⑨(S51-12): 종류 점·사업영역 색 점은 그리지 않는다(점 없음). 폴더 그림은 공용 folder-tree.css .ft-ico. */
 #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 16px)}
 #appView #libraryView .lu-node-body > .lu-row:first-child{border-top:0}
 /* 'N건 더': 작은 글자 버튼(UI-버튼기준, 28px·12px·테두리 없음, 누르는 범위 44px). */
@@ -422,9 +404,11 @@
 /* LIB-폴더보기 (2026-10-28 명진 요청 08:25 ③): 폴더로 묶었을 때 폴더 줄은 ▸ 대신 📁(닫힘)/📂(열림) 글자, '폴더 밖'은 🗂 + 흐린 글자. 다른 묶기는 그대로. */
 #appView #libraryView .lu-node-head.lu-node-emoji::before{content:none;display:none}
 #appView #libraryView .lu-folder-emoji{flex:none;margin:0 4px 0 1px;font-size:14px;line-height:1}
-#appView #libraryView .lu-folder-emoji.fl-ico{font-size:0}
-#appView #libraryView .lu-fe-open,#appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-closed{display:none}
-#appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-open{display:inline}
+/* FOLDER-나무새기준 ③: 폴더 그림은 공용 닫힌/열린 그림 둘 중 하나(펼침에 따라). 안이 빈 폴더는 닫힌 그림만(lu-fe-only). */
+#appView #libraryView .lu-folder-shape{display:inline-flex;margin:0 4px 0 0}
+#appView #libraryView .lu-folder-shape .lu-fe-open,#appView #libraryView .lu-node[open] > .lu-node-head .lu-folder-shape .lu-fe-closed:not(.lu-fe-only){display:none}
+#appView #libraryView .lu-node[open] > .lu-node-head .lu-folder-shape .lu-fe-open{display:inline-flex}
+#appView #libraryView .lu-node-body > .ft-more-row{padding-left:calc((var(--lu-depth,0) + 1) * 16px + 8px)}
 #appView #libraryView .lu-node-out .lu-node-name{color:var(--kptu-muted)}
 /* SEARCH-선택옮기기 ⑦: 외줄 폴더는 접힌 줄에서만 '공공팀 › 회의 › 집행위'(뒤 경로는 엷게), 펼치면 맨 위 이름만 — 아래 단은 자기 줄로 보인다. */
 #appView #libraryView .lu-chain-rest{color:var(--kptu-muted)}

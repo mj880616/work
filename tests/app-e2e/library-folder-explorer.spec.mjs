@@ -17,9 +17,9 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     await radio(page,'폴더').click();await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');
     expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
     await expect(libraryNodeHead(page,'x:out').locator('.lu-node-name')).toHaveText('폴더 밖');
-    // LIB-폴더보기: 폴더 묶기의 폴더 줄은 ▸ 대신 📁/📂 글자, '폴더 밖'은 🗂.
+    // FOLDER-나무새기준: 폴더 묶기의 폴더 줄은 ▸ 대신 공용 닫힌/열린 폴더 그림, '폴더 밖'은 🗂.
     await expect(libraryNodeHead(page,'x:out').locator('.lu-folder-emoji')).toHaveText('\u{1F5C2}');await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toBeVisible();
-    await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toHaveText('\u{1F4C1}');await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-icon')).toHaveCount(0);
+    await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toHaveAttribute('data-ft-shape','closed');await expect(libraryNodeHead(page,'f:fa').locator('.lu-fe-open')).toBeHidden();
     // 들어올 때는 모두 접힘(결정 D13). 폴더 안 폴더는 프로젝트가 달라도 parent_id를 따른다. 건수는 그 안 전체.
     await expect(page.locator('#documentList details[open]')).toHaveCount(0);
     await expect(count(page,'x:out')).toHaveText('2');await expect(count(page,'f:fa')).toHaveText('2');await expect(count(page,'f:fn')).toHaveText('0');
@@ -209,14 +209,14 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
     expect(await tops(page)).toEqual(['f:fa']);await expect(libraryNode(page,'f:fa')).toHaveAttribute('open','');
     await expect(libraryNode(page,'f:fa')).toHaveAttribute('style',/--lu-depth:\s*0/);
-    await expect(path).toBeVisible();await expect(path).toHaveText('자료실›가상 A');await expect(path.locator('[aria-current="location"]')).toHaveText('가상 A');
+    await expect(path).toBeVisible();await expect(path).toHaveText('‹자료실›가상 A');await expect(path.locator('[aria-current="location"]')).toHaveText('가상 A');
     // 안의 폴더로 한 단계 더(폰은 메뉴, PC는 두 번 누르기).
     if(width<761){await press(page,menuButton(page,'f:fc'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width)}
     else await libraryNodeHead(page,'f:fc').locator('.lu-node-name').dispatchEvent('dblclick');// PC 두 번 누르기(더블클릭 이벤트). 실제 두 번 누름의 펼침·접힘은 이 시험의 관심 밖.
     expect(await tops(page)).toEqual(['f:fc']);await expect(libraryNode(page,'f:fc')).toHaveAttribute('style',/--lu-depth:\s*0/);
-    await expect(path).toHaveText('자료실›가상 A›가상 C');expect(await childrenOf(page,'f:fc')).toEqual(['a-1']);
+    await expect(path).toHaveText('‹자료실›가상 A›가상 C');expect(await childrenOf(page,'f:fc')).toEqual(['a-1']);
     // 위치 줄의 '가상 A'를 누르면 그 단계로.
-    await path.getByRole('button',{name:'가상 A'}).click();expect(await tops(page)).toEqual(['f:fa']);await expect(path).toHaveText('자료실›가상 A');
+    await path.getByRole('button',{name:'가상 A'}).click();expect(await tops(page)).toEqual(['f:fa']);await expect(path).toHaveText('‹자료실›가상 A');
     // '자료실'을 누르면 처음 목록.
     await path.getByRole('button',{name:'자료실'}).click();expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);await expect(path).toBeHidden();
     // 들어간 채 묶기를 바꾸면 처음으로 돌아오고 위치 줄은 사라진다.
@@ -232,11 +232,11 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     await radio(page,'폴더').click();
     const path=page.locator('#libraryPath');
     await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
-    await expect(path).toHaveText('자료실›가상 A');
+    await expect(path).toHaveText('‹자료실›가상 A');
     await press(page,menuButton(page,'f:fc'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
-    await expect(path).toHaveText('자료실›가상 A›가상 C');
+    await expect(path).toHaveText('‹자료실›가상 A›가상 C');
     await page.goBack();
-    await expect(path).toHaveText('자료실›가상 A');expect(await tops(page)).toEqual(['f:fa']);
+    await expect(path).toHaveText('‹자료실›가상 A');expect(await tops(page)).toEqual(['f:fa']);
     await expect(page).toHaveURL(/[?&]folder=fa(?:&|$)/);
     await page.goBack();
     await expect(path).toBeHidden();await expect.poll(()=>tops(page)).toEqual(['x:out','f:fa','f:fn']);
