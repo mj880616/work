@@ -149,14 +149,15 @@ test('아스날 PC 1440: 스크롤 막대는 화면 하나, 아래쪽 옛 경기
   await expect(review(page)).toBeInViewport();
   const head = await review(page).boundingBox();
   expect(head.y).toBeGreaterThanOrEqual(0); expect(head.y).toBeLessThan(200);
-  // 접힌 칸 제목 앞 펼침 표시: 접힘 ▸, 펼침 ▾(기본 표시는 숨김).
-  const marks = await review(page).locator('.ars-sec').evaluateAll(list => list.map(d => ({ open: d.open, mark: getComputedStyle(d.querySelector('summary'), '::before').content })));
+  // 접힌 칸 제목 앞 펼침 표시: 공용 꺾쇠(S51-33 UI-접기꺾쇠) — 접힘 ⌄, 펼침 ⌃(180도). 기본 표시는 숨김.
+  const mark = s => { const c = getComputedStyle(s, '::before'); return { mask: (c.webkitMaskImage || c.maskImage || '').includes('svg'), turn: c.transform }; };
+  const marks = await review(page).locator('.ars-sec').evaluateAll((list, f) => list.map(d => ({ open: d.open, ...(new Function('return ' + f)())(d.querySelector('summary')) })), mark.toString());
   expect(marks.length).toBeGreaterThan(1);
-  for (const m of marks) expect(m.mark).toBe(m.open ? '"▾"' : '"▸"');
+  for (const m of marks) { expect(m.mask).toBe(true); expect(m.turn).toBe(m.open ? 'matrix(-1, 0, 0, -1, 0, 0)' : 'none'); }
   const key = await review(page).locator('.ars-sec:not([open])').first().getAttribute('data-ars-sec');
   const closed = review(page).locator(`.ars-sec[data-ars-sec="${key}"] summary`);
   await closed.click(); await expect(review(page).locator(`.ars-sec[data-ars-sec="${key}"]`)).toHaveAttribute('open', '');
-  expect(await closed.evaluate(s => getComputedStyle(s, '::before').content)).toBe('"▾"');
+  await expect.poll(() => closed.evaluate(s => getComputedStyle(s, '::before').transform)).toBe('matrix(-1, 0, 0, -1, 0, 0)');
   expect(f.errors).toEqual([]);
 });
 
