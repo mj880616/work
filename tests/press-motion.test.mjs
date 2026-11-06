@@ -65,3 +65,7 @@ test('할 일 체크가 있는 모든 목록이 같은 부품을 쓴다(따로 �
   assert.match(read('app/google-tasks.js'), /data-task-inline-row\$\{isDone\(t\)\?checkPopAttr\(t\.id\):''\}/, '담당조직·사업 보고 연결 목록');
   assert.match(read('app/meeting-round-detail.js'), /checkPopAttr\(t\.id\)/, '회의 상세');
 });
+
+test('끌기 조각은 눌림 움직임(작아짐)을 뺀 원래 크기·자리에서 시작한다(달력 할 일 끌기)', () => {
+  assert.match(read('app/calendar-drag.js'), /w=g\.el\.offsetWidth\|\|b\.width,h=g\.el\.offsetHeight\|\|b\.height,r=\{left:b\.left\+\(b\.width-w\)\/2,top:b\.top\+\(b\.height-h\)\/2/);
+});
