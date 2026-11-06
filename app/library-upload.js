@@ -531,7 +531,7 @@ function luRenderPath(box){
   const phone=!!LU_PHONE?.matches,trail=folderTrail(luFolders_,luInFolder);
   nav.className=phone?'ft-focus-anc lu-focus-anc':'fp-path';
   nav.innerHTML=phone?'<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="폴더 나무">‹</button>'+[{id:'',name:'자료실'},...trail.slice(0,-1)].map(f=>`<button type="button" class="ft-btn ft-focus-step" data-lu-path="${luEsc(f.id)}">${luEsc(f.name)}</button><span class="ft-focus-sep" aria-hidden="true">›</span>`).join('')
-    :'<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="폴더 나무로">‹</button>'+folderPathHtml({rootLabel:'자료실',trail,attr:'data-lu-path',esc:luEsc});
+    :'<button type="button" class="ft-btn ft-focus-back" data-lu-path-back aria-label="폴더 나무로">‹</button>'+folderPathHtml({rootLabel:'자료실',trail:folderTrail(luFolders_,luInFolder),attr:'data-lu-path',esc:luEsc});
   nav.hidden=false;
 }
 // FILES-폴드나무목록 ⑦(S51-20 ④, 시안 docs/design/mockups/files-fold-tree-list.html '같은 종류'): 펼친 폴드·PC(600px~, 공용 판정 screen-width.mjs)에서
