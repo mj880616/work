@@ -471,3 +471,12 @@
 /* SEARCH-선택옮기기 ⑤: 검색칸 오른쪽 작은 [결과 n개 모두 고르기] */
 #appView #libraryView .library-filter-toolbar .lu-search-row > .lu-search-pick-all{flex:none;min-height:30px;padding:2px 10px;font-size:12px;white-space:nowrap}
 @media (max-width:760px){#appView #libraryView .library-filter-toolbar .lu-search-row > .lu-search-pick-all{padding:2px 8px}}
+/* FILES-폴드나무목록 ⑦(S51-20 ④): 펼친 폴드·PC(600px~) 폴더 묶기 = 왼쪽 폴더 나무 | 오른쪽 목록. 나무 칸은 카드 왼쪽에 붙고(목록과 함께 내려감),
+   안쪽은 화면 위에 붙어 따로 굴러간다. 줄 모양은 공용 폴더 줄(folder-tree.css ft-). 폰은 그대로(이 칸 없음). */
+@media(min-width:600px){
+  #appView #libraryListCard[data-lu-split]{position:relative;padding-left:calc(var(--lu-fnav-w) + 12px);min-height:320px;--lu-fnav-w:clamp(180px,28%,300px)}
+  #libraryFolderNav{position:absolute;left:0;top:0;bottom:0;width:var(--lu-fnav-w);border-right:.5px solid var(--kptu-border)}
+  #libraryFolderNav .lu-fnav-in{position:sticky;top:var(--follow-top,8px);max-height:calc(100dvh - var(--follow-top,8px) - 24px);overflow:auto;padding:4px 6px 8px 0}
+  #libraryFolderNav .ft-row .ft-main{min-height:30px;font-size:12.5px}
+  #libraryFolderNav .ft-current>.ft-main{background:var(--kptu-primary-soft);color:var(--kptu-primary-text);border-radius:var(--kptu-radius-sm,6px)}
+}
