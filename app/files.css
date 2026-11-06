@@ -258,3 +258,22 @@
 @media (max-width:599px) {
   .fx[data-fx-pane="tree"] .fx-tree { padding:2px 0 8px; }
 }
+/* S51-20 FILES-폰보기끌기 ①(시안 files-phone-grid-two-drag.html ①): 두 손가락으로 목록 → 격자 → 큰 격자. 칸 수는 --fx-cols(폰·두 칸 3·2, 폴드·PC 4·3).
+   격자 칸도 목록 줄과 같은 단추(.fx-row) — 고르기·잘라 두기·끌어 놓기 표시는 위 규칙 그대로. 사진은 작은 그림(img-slot), 폴더는 큰 폴더, 그 밖은 종류 글자. */
+.fx-th { display:block; overflow:hidden; border-radius:3px; }
+.fx-th img { display:block; width:100%; height:100%; object-fit:cover; }
+.fx-row .fx-ico.fx-th { width:20px; height:20px; justify-self:center; }
+.fx .fx-rows.fx-grid { display:grid; grid-template-columns:repeat(var(--fx-cols,3), minmax(0,1fr)); gap:8px; padding:6px 8px 10px; }
+.fx .fx-rows.fx-grid .fx-row { display:flex; flex-direction:column; align-items:stretch; gap:3px; min-height:0; padding:3px; border:0; border-radius:var(--kptu-radius-sm,6px); text-align:center; }
+.fx .fx-rows.fx-grid .fx-row.fx-picked { box-shadow:inset 0 0 0 2px var(--kptu-primary); }
+.fx-cell-pic { width:100%; aspect-ratio:1; border-radius:var(--kptu-radius-sm,6px); }
+.fx-cell-fold, .fx-cell-ic { display:flex; align-items:center; justify-content:center; background:var(--kptu-surface-subtle); }
+.fx-cell-fold:not([data-fc]) { --fl-ico:var(--kptu-faint); }
+.fx-cell-fold svg { width:46%; height:46%; }
+.fx-cell-ic { color:var(--kptu-muted); font-size:22px; }
+.fx-rows.fx-grid .fx-nm { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:11.5px; line-height:1.3; word-break:break-all; }
+.fx-rows.fx-grid .fx-name { white-space:normal; }
+@media (max-width:599px) {
+  .fx .fx-rows:not(.fx-grid) .fx-row:has(> .fx-th) { grid-template-columns:32px minmax(0,1fr); }
+  .fx-row .fx-ico.fx-th { width:32px; height:32px; }
+}
