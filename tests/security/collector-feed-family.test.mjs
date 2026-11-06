@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 // 실제 collector-feed handler를 지어낸 Supabase(migration 20261105100000의 service_role 칸별 grant 흉내)와 지어낸 OpenAI로 돌린다. 네트워크 없음.
 // 사람·방·번호·대화는 모두 지어낸 값이다.
 const {createCollectorFeedHandler,FAMILY_DAILY_AI,familyRoomTag}=await import('../../supabase/functions/collector-feed/handler.ts');
-const {parseFamily,FAMILY_INSTRUCTIONS,FAMILY_SCHEMA,familyTelegramMaterial}=await import('../../supabase/functions/collector-feed/family.ts');
+const {parseFamily,FAMILY_INSTRUCTIONS,FAMILY_SCHEMA,familyTelegramMaterial,familyNamed,familyUnname,familyNameFrom}=await import('../../supabase/functions/collector-feed/family.ts');
 
 const SB='https://synthetic.supabase.test';
 const FN=`${SB}/functions/v1/collector-feed`;
@@ -35,7 +35,7 @@ const NOTES=[
   {kind:'ask',body:'퇴근길에 우유 사 와 달라고 함',said_when:'',firmness:'firm'},
 ];
 
-function harness({ai=[aiNotes(NOTES)],notes=[],feedItems=[],personal=[],features={calls:WS,telegram:WS,family:WS}}={}){
+function harness({ai=[aiNotes(NOTES)],notes=[],feedItems=[],personal=[],features={calls:WS,telegram:WS,family:WS},env={}}={}){
   const calls={openai:[],rest:[],logs:[],features:[]};
   const db={app_family_notes:structuredClone(notes),app_feed_items:structuredClone(feedItems),app_feed_days:[],app_call_personal:structuredClone(personal),
     app_call_contact_choice:[],app_call_contact_ref:[],app_suborganizations:[],app_spaces:[]};
@@ -85,7 +85,7 @@ function harness({ai=[aiNotes(NOTES)],notes=[],feedItems=[],personal=[],features
     throw new Error('unexpected method '+method);
   };
   const handler=createCollectorFeedHandler({
-    env:n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,COLLECTOR_FEED_SECRET:SECRET,WEB2_OPENAI_API_KEY:'synthetic-openai-key'})[n],
+    env:n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,COLLECTOR_FEED_SECRET:SECRET,WEB2_OPENAI_API_KEY:'synthetic-openai-key',...env})[n],
     fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push(JSON.stringify({code,...(detail||{})})),
   });
   const send=(action,body)=>handler(new Request(`${FN}?action=${action}`,{method:'POST',headers:{'Content-Type':'application/json','x-collector-feed-secret':SECRET},body:JSON.stringify(body)}));
@@ -183,6 +183,41 @@ test('family_tg: 최근에 제안한 줄은 재료에 붙고, 같은 글자 줄�
   const out=await (await h.send('family_tg',famBody())).json();
   assert.equal(out.kept,1);
   assert.match(h.calls.openai[0].input[1].content,/이미 제안한 것:\n- ask: 퇴근길에 우유 사 와 달라고 함/);
+});
+
+// S51-26 ⑩: 주어 '상대' → 가족 이름(서버 설정 FAMILY_NAME). 이름은 지어낸 값. AI에는 이름이 가지 않고, 저장 줄에만 들어간다.
+test('family_tg: FAMILY_NAME이 있으면 저장 줄의 주어만 이름으로(받침 맞춤), AI 재료·로그에는 이름 없음',async()=>{
+  const NAME='가상민준';
+  const h=harness({env:{FAMILY_NAME:NAME},ai:[aiNotes([{kind:'ask',body:'상대가 퇴근길에 우유 사 와 달라고 함',said_when:'',firmness:'firm'},{kind:'like',body:'상대는 상대적으로 단 것을 좋아함',said_when:'',firmness:'firm'}])],
+    notes:[{workspace_id:WS,kind:'plan',body:`${NAME}이 토요일 산책 가자고 함`,source_ref:'fam:tg:0000000000000000:old:1',status:'kept',created_at:'2026-10-20T00:00:00Z'}]});
+  const out=await (await h.send('family_tg',famBody())).json();
+  assert.equal(out.kept,2);
+  const saved=h.db.app_family_notes.filter(r=>r.status==='new').map(r=>r.body);
+  assert.deepEqual(saved,[`${NAME}이 퇴근길에 우유 사 와 달라고 함`,`${NAME}은 상대적으로 단 것을 좋아함`]);
+  assert.doesNotMatch(JSON.stringify(h.calls.openai),new RegExp(NAME));
+  assert.match(h.calls.openai[0].input[1].content,/- plan: 상대가 토요일 산책 가자고 함/);
+  assert.doesNotMatch(h.calls.logs.join('\n'),new RegExp(NAME));
+});
+test('family_tg: FAMILY_NAME이 없거나 모양이 틀리면 상대 그대로, 이미 넣은 이름 줄과 같은 내용은 다시 넣지 않는다',async()=>{
+  for(const bad of [undefined,'<b>x</b>','https://x.io','상대']){
+    const h=harness({env:bad===undefined?{}:{FAMILY_NAME:bad},ai:[aiNotes([{kind:'ask',body:'상대가 우유 부탁함',said_when:'',firmness:'firm'}])]});
+    await h.send('family_tg',famBody());
+    assert.deepEqual(h.db.app_family_notes.map(r=>r.body),['상대가 우유 부탁함']);
+  }
+  const h=harness({env:{FAMILY_NAME:'가상민준'},ai:[aiNotes([{kind:'ask',body:'상대가 우유 부탁함',said_when:'',firmness:'firm'}])],
+    notes:[{workspace_id:WS,kind:'ask',body:'가상민준이 우유 부탁함',source_ref:'fam:tg:0000000000000000:old:1',status:'new',created_at:'2026-10-20T00:00:00Z'}]});
+  const out=await (await h.send('family_tg',famBody())).json();
+  assert.equal(out.kept,0);
+  assert.equal(h.db.app_family_notes.length,1);
+});
+test('이름 바꾸기 규칙: 낱말 상대적은 그대로, 받침·ㄹ받침 조사, 되돌리면 원래 글자, 150자 넘으면 상대 그대로',()=>{
+  assert.equal(familyNamed('상대가 상대방에게 상대로부터 상대랑 상대와 상대적으로','가상하늘'),'가상하늘이 가상하늘에게 가상하늘로부터 가상하늘이랑 가상하늘과 상대적으로');
+  assert.equal(familyNamed('상대가 왔고 상대는 갔다','가상지수'),'가상지수가 왔고 가상지수는 갔다');
+  for(const n of ['가상하늘','가상지수','가상민준']){const t='상대가 우유를 부탁함. 상대는 바쁨. 상대로부터 상대랑 상대와 상대의';assert.equal(familyUnname(familyNamed(t,n),n),t);}
+  const long='상대가 '+'가'.repeat(146);assert.equal(familyNamed(long,'가상민준'),long);
+  assert.equal(familyNamed('상대가 옴',null),'상대가 옴');
+  assert.equal(familyNameFrom('  가상 민준 '),'가상 민준');
+  for(const bad of ['', ' ', '가'.repeat(21), '<x>', 'a.b', '상대', null, undefined])assert.equal(familyNameFrom(bad),null);
 });
 
 test('telegram 입구: 이미 가족 방으로 잊지 말기 줄이 있는 방 번호는 400 FAMILY_ROOM, 업무 소식·AI 없음',async()=>{

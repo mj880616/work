@@ -24,7 +24,7 @@ async function gotoOdRoot(page, width) {
 }
 // 이미 고른 줄이면 그대로 두고, 아니면 고른다(고르기는 눌러 바꾸는 방식이라 같은 줄을 또 누르면 풀린다).
 async function pick(page, key) {
-  if (!(await row(page, key).evaluate(el => el.classList.contains('fx-picked')))) await row(page, key).dispatchEvent('contextmenu');
+  if (!(await row(page, key).evaluate(el => el.classList.contains('fx-picked')))) await row(page, key).click({ modifiers: ['Control'] }); // S51-27: PC 우클릭은 줄 메뉴, 고르기는 Ctrl+누름
   await expect(row(page, key)).toHaveClass(/fx-picked/);
 }
 async function pickColor(page, name) {
@@ -56,7 +56,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     await expect(bar.locator('[data-fx-look="down"]')).toHaveCount(0);
     await pick(page, 'od:OD!1');
     await expect(bar.locator('[data-fx-look]')).toHaveCount(0); // 둘을 고름 → 단추 없음
-    await row(page, 'od:OD!1').dispatchEvent('contextmenu'); // 다시 누르면 풀림
+    await row(page, 'od:OD!1').click({ modifiers: ['Control'] }); // 다시 누르면 풀림
     await expect(row(page, 'od:OD!1')).not.toHaveClass(/fx-picked/);
     expect(server.prefCalls).toEqual([]);
 
