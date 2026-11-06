@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { pinch } from './helpers/pinch.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { bootLibrary, libFolder, menuButton, folderMenuItem, press } from './helpers/library-folder-server.mjs';
@@ -47,8 +48,8 @@ for (const width of [390, 1280]) test.describe(`새로고침 뒤 같은 화면 $
     await expect(page).toHaveURL(/[?&]view=basket(?:&|$)/); await expect(page).toHaveURL(/[?&]pane=note(?:&|$)/);
     await reload(page);
     await expect(page.locator('#basketView')).toBeVisible(); await expect(page.locator('#basketView')).toHaveAttribute('data-kind', 'note');
-    // 폰은 한 화면씩(폴더 목록 → '폴더 없음' 화면, 폴더 화면은 기록 한 칸): '폴더 없음'에 들어가면 ?folder=out이 그 칸에 적힌다.
-    if (width < 761) { await page.locator('#noteRows [data-nx-open="out"]').click(); await expect(page.locator('[data-nx-here]')).toContainText('폴더 없음'); await expect(page).toHaveURL(/[?&]folder=out(?:&|$)/); }
+    // 폰(FOLDER-나무새기준): 나무에서 '폴더 없음' 위 두 손가락 벌리기 = 그 묶음만(기록 한 칸): 그때 ?folder=out이 그 칸에 적힌다.
+    if (width < 761) { await pinch(page, page.locator('#noteRows [data-nx-outside]'), 'out'); await expect(page.locator('[data-nx-here]')).toContainText('폴더 없음'); await expect(page).toHaveURL(/[?&]folder=out(?:&|$)/); }
     await expect(page.locator('[data-note-host] [data-note-row="n1"]')).toBeVisible();
     // 열린 노트는 ?doc=로 적히고, 새로고침해도 그 노트가 열린 채다.
     await page.locator('[data-note-host] [data-note-row="n1"]').click();
@@ -129,9 +130,9 @@ for (const width of [390, 1280]) test.describe(`새로고침 뒤 같은 화면 $
     await page.locator('#libraryGroupBy').getByRole('radio', { name: '폴더' }).click();
     await press(page, menuButton(page, 'f:fa'), width); await press(page, folderMenuItem(page, '이 폴더로 들어가기'), width);
     const path = page.locator('#libraryPath');
-    await expect(path).toHaveText('자료실›가상 A'); await expect(page).toHaveURL(/[?&]folder=fa(?:&|$)/);
+    await expect(path).toHaveText('‹자료실›가상 A'); await expect(page).toHaveURL(/[?&]folder=fa(?:&|$)/);
     await reload(page);
-    await expect(path).toHaveText('자료실›가상 A');
+    await expect(path).toHaveText('‹자료실›가상 A');
     // '자료실'을 누르면 처음 목록, 주소에서도 빠진다.
     await press(page, path.locator('[data-lu-path=""]'), width);
     await expect(page).not.toHaveURL(/[?&]folder=/);

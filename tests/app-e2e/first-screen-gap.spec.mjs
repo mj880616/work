@@ -120,7 +120,7 @@ for (const width of [412, 884, 1440]) test(`노트 첫 화면 ${width}: 맨 위 
   await expect(recent.nth(3).locator('[data-nx-recent-folder]')).toHaveCount(0);
   if (wide) {
     await expect(page.locator('[data-nx-tree] > *').first()).toHaveAttribute('data-nx-recent-item', '');
-    await expect(page.locator('[data-nx-tree] [data-nx-recent-item]')).toHaveClass(/nx-current/);
+    await expect(page.locator('[data-nx-tree] [data-nx-recent-item]')).toHaveClass(/ft-current/);
     await expect(page.locator('[data-nx-here]')).toHaveText('최근 · 5');
   } else {
     // 그 아래 지금처럼 폴더 목록.

@@ -1,0 +1,14 @@
+// FOLDER-나무새기준(S51-12): 두 손가락 벌리기('out')·오므리기('in')를 Chromium 터치 입력으로 흉내 낸다(folder-pinch.js 시험용).
+// 두 손가락은 locator 가운데를 중심으로 좌우에 놓인다. 화면 확대는 나무 칸의 touch-action이 막는다.
+export async function pinch(page, locator, dir) {
+  await locator.evaluate(e => e.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  const box = await locator.boundingBox();
+  const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+  const cdp = await page.context().newCDPSession(page);
+  const points = d => [{ x: cx - d, y: cy, id: 0 }, { x: cx + d, y: cy, id: 1 }];
+  const [from, to] = dir === 'out' ? [20, 90] : [90, 20];
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: points(from) });
+  for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: points(from + (to - from) * i / 6) });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+}

@@ -76,7 +76,9 @@ export function placeNotes(notes, folders, folderOf) {
 // 화면에 그릴 줄(한 화면 나무, 폰): 맨 위 폴더 → (열린 폴더면) 그 안 폴더·노트 들여쓰기 → 맨 아래 '폴더 밖' 노트.
 // root: 들어간 폴더 id(null = 맨 위). isOpen(id): 그 폴더가 열려 있나. 닫힌 폴더 안은 만들지 않는다(폴더가 많아도 느려지지 않게).
 // 찾는 중(query)이면 맞는 노트가 든 폴더만 열어 보인다. foldersOnly: PC 왼쪽 나무(노트 없이 폴더만).
-export function treeRows({folders, notes, folderOf, root = null, isOpen = () => false, matches = null, foldersOnly = false, sort = list => list}) {
+// FOLDER-나무새기준(S51-12): limit(폴더 id, OUTSIDE 포함) → 그 폴더에 처음 보일 노트 수(Infinity = 다). 넘치면 {type:'more'} 줄 하나(n개 더 보기).
+// 폴더 줄의 hasContent = 안에 폴더나 노트가 있나(없으면 늘 닫힌 그림).
+export function treeRows({folders, notes, folderOf, root = null, isOpen = () => false, matches = null, foldersOnly = false, sort = list => list, limit = () => Infinity}) {
   const {byFolder, total} = placeNotes(notes, folders, folderOf);
   const hits = matches ? new Map() : null;
   if (matches) {
@@ -88,21 +90,26 @@ export function treeRows({folders, notes, folderOf, root = null, isOpen = () => 
     for (const f of folderSiblings(folders, {free: true, parentId: parent})) {
       if (hits && !hits.has(f.id)) continue;
       const open = hits ? true : isOpen(f.id);
-      rows.push({type: 'folder', id: f.id, name: f.name, depth, indent: folderIndent(depth), count: total.get(f.id) || 0, color: colorOf(f), open, hasChildren: folderSiblings(folders, {free: true, parentId: f.id}).length > 0});
+      const hasChildren = folderSiblings(folders, {free: true, parentId: f.id}).length > 0;
+      rows.push({type: 'folder', id: f.id, name: f.name, depth, indent: folderIndent(depth), count: total.get(f.id) || 0, color: colorOf(f), open, hasChildren, hasContent: hasChildren || (total.get(f.id) || 0) > 0, parent});
       if (open) walk(f.id, depth + 1);
     }
     if (foldersOnly) return;
     if (parent === null && root === null) return; // 맨 위의 '폴더 밖' 노트는 맨 아래 따로
     const own = sort((byFolder.get(parent) || []).filter(n => !matches || matches(n)));
-    for (const n of own) rows.push({type: 'note', id: n.id, note: n, depth, indent: folderIndent(depth)});
+    const cap = matches ? Infinity : limit(parent);
+    for (const n of own.slice(0, cap)) rows.push({type: 'note', id: n.id, note: n, depth, indent: folderIndent(depth), parent});
+    if (own.length > cap) rows.push({type: 'more', id: parent, rest: own.length - cap, depth, indent: folderIndent(depth), parent});
   };
   walk(root, 0);
   if (root === null && !foldersOnly) {
     const out = sort((byFolder.get(null) || []).filter(n => !matches || matches(n)));
     if (out.length) {
       const open = matches ? true : isOpen(OUTSIDE);
-      rows.push({type: 'outside', id: OUTSIDE, name: OUTSIDE_NAME, depth: 0, indent: 0, count: out.length, open});
-      if (open) for (const n of out) rows.push({type: 'note', id: n.id, note: n, depth: 1, indent: 1});
+      rows.push({type: 'outside', id: OUTSIDE, name: OUTSIDE_NAME, depth: 0, indent: 0, count: out.length, open, hasContent: true});
+      const cap = matches ? Infinity : limit(OUTSIDE);
+      if (open) for (const n of out.slice(0, cap)) rows.push({type: 'note', id: n.id, note: n, depth: 1, indent: 1, parent: OUTSIDE});
+      if (open && out.length > cap) rows.push({type: 'more', id: OUTSIDE, rest: out.length - cap, depth: 1, indent: 1, parent: OUTSIDE});
     }
   }
   return rows;

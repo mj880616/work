@@ -42,7 +42,10 @@ for (const width of [412, 884, 1440]) {
     const { errors } = await fixture(page, width);
     await expect(view(page, 'folder')).toHaveAttribute('aria-pressed', 'true');
     const head = await page.locator('.note-list-head').boundingBox(), sw = await page.locator('.nv-switch').boundingBox();
-    expect(sw.height).toBeLessThanOrEqual(34); expect(sw.y + sw.height).toBeLessThanOrEqual(head.y + head.height + 1);
+    expect(sw.height).toBeLessThanOrEqual(34);
+    // FOLDER-나무새기준 ⑧(01:25 탭 자리 규칙): 폰은 아래 탭 바로 위 가운데(일정 전환 줄과 같은 줄), 넓은 화면은 위 머리줄 안.
+    if (width < 761) { const tabs = await page.locator('.mobile-tabs').boundingBox(); expect(sw.y + sw.height).toBeLessThanOrEqual(tabs.y); expect(Math.abs(sw.x + sw.width / 2 - width / 2)).toBeLessThanOrEqual(2); }
+    else expect(sw.y + sw.height).toBeLessThanOrEqual(head.y + head.height + 1);
     // 목록: 최근 고친 순(나 → 다 → 가), 폴더 노트에만 꼬리표.
     await press(page, view(page, 'list'), width);
     await expect(view(page, 'list')).toHaveAttribute('aria-pressed', 'true');
