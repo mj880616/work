@@ -16,6 +16,8 @@ const ALLOWED=new Set([
  'supabase/functions/collector-feed/handler.ts','tests/security/collector-feed-family.test.mjs',
  // 4단계(화면·폰 알림): phone-push는 새 제안 수·시각만 읽고(내용 칸 없음), 화면은 데이터 모듈 하나만 부른다.
  'supabase/functions/phone-push/handler.ts','app/family-notes-data.js','tests/app-e2e/home-family.spec.mjs',
+ // S51-26 FAMILY-노트로: 옛 [기억만] 줄을 노트로 한 번 옮기는 운영 SQL(커맨드센터가 실행, 건수만 출력).
+ 'docs/ops/family-kept-to-note.sql',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
 function walk(dir,out=[]){
