@@ -107,6 +107,9 @@ function renderMonth() {
   const first = seoulDate(cursor.year, cursor.month), lead = seoulParts(first).weekday;
   const total = seoulParts(seoulDate(cursor.year, cursor.month + 1, 0)).day, today = todayKey();
   const cells = [];
+  // 달력은 일기·원드라이브·'오늘 한 일'이 따로따로 도착할 때마다 다시 그린다. 칸의 사진은 같은 일기·같은 파일이면 앞서 만든 사진 칸을
+  // 그대로 옮겨 쓴다 — 다시 그릴 때마다 새 사진 칸을 만들면 떨어져 나간 옛 칸도 계속 사진을 읽고 다시 읽어 요청이 늘어난다(S51-19).
+  const shownPhotos = new Map([...days.querySelectorAll('.diary-cell > .diary-photo[data-diary-cell-photo]')].map(el => [el.dataset.diaryCellPhoto, el]));
   for (let i = 0; i < lead; i++) cells.push(Object.assign(document.createElement('span'), {className:'diary-cell diary-blank'}));
   for (let n = 1; n <= total; n++) {
     const day = seoulDateKey(addSeoulDays(first, n - 1)), row = rows.get(day), photos = diaryPhotos(row), text = diaryText(row), odDay = odShown()?.days[day] || [], done = doneOf(day);
@@ -115,7 +118,14 @@ function renderMonth() {
     if (day === today) { cell.setAttribute('aria-current', 'date'); cell.classList.add('ds-today'); }
     cell.setAttribute('aria-pressed', String(selected === day)); cell.classList.toggle('ds-day-sel', selected === day);
     cell.setAttribute('aria-label', `${shortDay(day)}${photos.length ? `, 사진 ${photos.length}장` : text ? ', 글' : ''}${odDay.length ? `, 원드라이브 사진 ${odDay.length}장` : ''}${done.length ? `, 한 일 ${done.length}줄` : ''}`);
-    if (photos[0]) { cell.classList.add('has-photo'); cell.append(photoElement(row, photos[0], 'small', {label:'', link:false, retry:false})); }
+    if (photos[0]) {
+      cell.classList.add('has-photo');
+      const key = `${row.id}:${photos[0].drive_file_id}`;
+      let box = shownPhotos.get(key);
+      if (box) shownPhotos.delete(key);
+      else { box = photoElement(row, photos[0], 'small', {label:'', link:false, retry:false}); box.dataset.diaryCellPhoto = key; }
+      cell.append(box);
+    }
     const num = document.createElement('span'); num.className = day === today ? 'diary-num ds-today-num' : 'diary-num'; num.textContent = String(n); cell.append(num);
     if (!photos.length && text) { const dot = document.createElement('span'); dot.className = 'diary-dot'; dot.dataset.diaryDot = ''; cell.append(dot); }
     else if (!row && done.length) { const dot = document.createElement('span'); dot.className = 'diary-dot diary-dot-done'; dot.dataset.diaryDoneDot = ''; cell.append(dot); }
