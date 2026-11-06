@@ -43,3 +43,17 @@ test('재발 방지: 6가지 밖 버튼·화면별 버튼 모양 선언이 기�
   assert.deepEqual(grown, [], '새 버튼은 6가지 클래스(primary·secondary·danger·row-act·ds-chip·ds-seg-btn·icon-btn) 중 하나를 쓰고, '
     + '높이·모서리·바탕·테두리는 화면 CSS에 쓰지 말고 app/ui-standard.css "UI-버튼6가지" 규칙에 맡기세요(docs/design-decisions.md UI-버튼6가지).');
 });
+
+test('정리한 화면 ③ 홈: 머리 줄·빠른 입력 전환은 6가지 부품만, 화면 CSS에 그 버튼 모양 규칙 없음', () => {
+  const journal = readFileSync('app/journal.js', 'utf8'), quick = readFileSync('app/home-quick.js', 'utf8');
+  assert.match(journal, /class="icon-btn" data-journal-prev[^>]*>‹/);
+  assert.match(journal, /class="icon-btn" data-journal-next[^>]*>›/);
+  assert.match(journal, /class="secondary" data-journal-today>이번 주/);
+  assert.match(journal, /class="journal-mode-switch ds-seg"[^>]*><button type="button" class="ds-seg-btn" data-journal-mode="day"/);
+  assert.match(quick, /class="home-quick-modes ds-seg"[^>]*><span class="home-quick-update-split ds-seg-group"><button type="button" class="ds-seg-btn" data-quick-mode="update">/);
+  assert.match(quick, /<button type="button" class="ds-seg-btn" data-quick-mode="task">/);
+  const css = ['journal.css', 'ui-standard.css', 'quick-controls.css'].map(f => readFileSync(`app/${f}`, 'utf8')).join('\n');
+  assert.doesNotMatch(css, /\.journal-mode-switch button/, '[하루|주간 정리] 칸 모양은 공용 ⑤');
+  assert.doesNotMatch(css, /\.journal-week-nav \.mini/, '‹ › [이번 주] 모양은 공용 ⑥·②');
+  assert.doesNotMatch(css, /\.home-quick-modes button[^\n{]*\{[^}]*(border|background|height|border-radius)\s*:/, '[업데이트 ▾][할 일] 모양은 공용 ⑤');
+});
