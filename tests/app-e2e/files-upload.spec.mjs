@@ -130,8 +130,8 @@ for (const width of [412, 884]) {
     await expect(row(page, 'od:OD!U01')).toBeVisible();
     // 전송 목록: 기기에서 올린 두 줄이 '끝'으로(전송 줄은 끝난 뒤 사라짐 — 목록은 서버 작업표에서 다시 읽음).
     expect(server.jobs.map(j => j.origin)).toEqual(['device', 'device']);
-    // 별표: 꾹 눌러 고르기 → 막대 [☆ 별표] → 서버에 기억, ★ 표시.
-    await row(page, 'od:OD!11').click({ button: 'right' });
+    // 별표: 고르기(Ctrl+누름 — S51-27부터 PC 우클릭은 줄 메뉴) → 막대 [☆ 별표] → 서버에 기억, ★ 표시.
+    await row(page, 'od:OD!11').click({ modifiers: ['Control'] });
     await expect(bar(page).locator('[data-fx-star]')).toHaveText('☆ 별표');
     await shot(page, `files-star-bar-${width}`);
     await bar(page).locator('[data-fx-star]').click();

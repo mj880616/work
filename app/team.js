@@ -3,6 +3,7 @@ import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-�
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {formatMeetingTime,toMeetingISO,seoulParts,seoulDate,seoulDateKey,seoulClock} from './meeting-time.js';
 import './time-input.js';
+import {appMenuPoint} from './row-menu.js'; // S51-27 UI-PC우클릭: 기본 메뉴 그대로 둘 때 규칙(공용)
 import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {viewPrefs} from './view-prefs.js';
 import {PERIOD_CHIPS,periodFromPref,prefFromPeriod,inRange,rangeLabel,quickRanges,validRange} from './report-period-model.mjs'; // REPORT-기간고르기 // ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기 선택은 서버(report_view)에 기억
@@ -285,6 +286,13 @@ window.KPTUMeetingColumns={showPhotos:id=>{if(!id)return;leaveReport(()=>{report
   reveal:id=>{if(!meetingPc?.matches||reportView!=='list'||(window.KPTURouter&&window.KPTURouter.current!=='meetings')||window.KPTUAreaWindow?.isOpen?.()||!$('#meetingList #mcolResult'))return false;/* MTG-프로젝트합치기 ①: 사업영역 관리 창 안에서 연 보고는 그 창 위 팝업 */const m=meetings.find(x=>String(x.id)===String(id));if(!m)return false;window.KPTUMeetingColumns.select({id:m.id});return true}};
 function meetingListClick(e){if(reportView!=='list'&&reportViewClick(e))return;const kind=e.target.closest('[data-meeting-kind]');if(kind){selectMeetingKind(kind.dataset.meetingKind);return}const round=e.target.closest('[data-meeting-round]');if(round){selectMeetingRound(round.dataset.meetingRound);return}}
 // 왼쪽 종류 목록·가운데 차수 목록: 위·아래 화살표로 같은 목록 안에서 옮겨 다니고(Home·End 처음·끝), Enter·Space로 고른다(버튼 기본 동작).
+// S51-27 UI-PC우클릭: PC에서 보고 줄을 우클릭하면 그 줄을 고른 것(왼쪽 누름과 같음)으로 하고, 그 보고가 오른쪽 칸에 뜨면 그 보고의 ⋯ 메뉴
+// ([수정][칸 바꾸기][성명 초안 만들기][삭제], meeting-round-detail.js)를 누른 자리에 연다. 예전에는 공용 우클릭이 지금 떠 있는 다른 보고의 ⋯를 눌렀다.
+async function meetingListMenu(e){const round=e.target.closest?.('[data-meeting-round]');if(!round)return;const at=appMenuPoint(e,round);if(!at)return;e.preventDefault();
+  const id=String(round.dataset.meetingRound);if(String(meetingSelectedId)!==id)selectMeetingRound(id);
+  for(let i=0;i<180;i++){const modal=document.querySelector('#meetingRoundDetailModal'),more=document.querySelector('#mrdMore');
+    if(modal?.dataset.meetingId===id&&more&&!more.classList.contains('hidden')&&more.getClientRects().length){window.KPTUContextMenu?.pinAt?.(more,at.x,at.y);more.click();return}
+    await new Promise(r=>requestAnimationFrame(r))}}
 function meetingKindKeys(e){const item=e.target.closest?.('[data-meeting-kind],[data-meeting-round]');if(!item||!['ArrowDown','ArrowUp','Home','End'].includes(e.key))return;const all=[...$$(item.dataset.meetingKind!=null?'#meetingList [data-meeting-kind]':'#meetingList [data-meeting-round]')],i=all.indexOf(item);const next=e.key==='Home'?all[0]:e.key==='End'?all.at(-1):all[i+(e.key==='ArrowDown'?1:-1)];if(next){e.preventDefault();next.focus()}}
 // ④ [+ 회의 결과]는 화면 위 하나. PC에서는 왼쪽에서 고른 종류를 미리 고른 채 연다(만들기 창에서 바꿀 수 있음). 폰은 지금처럼 비운 채.
 function newMeetingName(){if(!meetingPc?.matches||reportChip!==DEFAULT_KIND)return '';const c=selectedMeetingColumn();return c&&c.key!==NONE_KEY?c.name:''}
@@ -411,7 +419,7 @@ function bind(){
  $('#bootRetryBtn').onclick=()=>{try{window.KPTUAppShell?.postMessage?.('reopen:mark:retry')}catch{}location.reload()};$('#bootLogoutBtn').onclick=logout;$('#accessDeniedLogoutBtn').onclick=logout;
  document.addEventListener('click',async e=>{const b=e.target.closest('button,a');if(!b)return;if(b.dataset.close){closeModal(b.dataset.close);return}});
  if(window.KPTURouter?.on)window.KPTURouter.on('calendar',()=>{renderCalendar();if(googleState.connected)window.KPTUCalendarPersistence?.refresh?.()});
- if($('#homeAddEvent'))$('#homeAddEvent').onclick=openEventModal;$('#newEventBtn').onclick=openEventModal;$('#newDocumentBtn').onclick=openDocumentModal;$('#newMeetingBtn').onclick=e=>newReport(e.currentTarget);bindReportMore();$('#meetingPlaces').onclick=e=>void choosePlaces(e.currentTarget);$('#meetingList')?.addEventListener('click',meetingListClick);$('#reportWeekFilter')?.addEventListener('click',reportWeekClick);$('#reportWeekFilter')?.addEventListener('input',reportPeriodInput);$('#areaUntaggedLine')?.addEventListener('click',untaggedClick);$('#reportFilterBtn')?.addEventListener('click',e=>openReportFilter(e.currentTarget));$('#meetingList')?.addEventListener('keydown',meetingKindKeys);
+ if($('#homeAddEvent'))$('#homeAddEvent').onclick=openEventModal;$('#newEventBtn').onclick=openEventModal;$('#newDocumentBtn').onclick=openDocumentModal;$('#newMeetingBtn').onclick=e=>newReport(e.currentTarget);bindReportMore();$('#meetingPlaces').onclick=e=>void choosePlaces(e.currentTarget);$('#meetingList')?.addEventListener('click',meetingListClick);$('#meetingList')?.addEventListener('contextmenu',e=>void meetingListMenu(e));$('#reportWeekFilter')?.addEventListener('click',reportWeekClick);$('#reportWeekFilter')?.addEventListener('input',reportPeriodInput);$('#areaUntaggedLine')?.addEventListener('click',untaggedClick);$('#reportFilterBtn')?.addEventListener('click',e=>openReportFilter(e.currentTarget));$('#meetingList')?.addEventListener('keydown',meetingKindKeys);
  $('#meetingRoundNo').oninput=()=>{meetingRoundEdited=true};$('#meetingRoundNo').addEventListener('change',paintEntryKind);
  $('#saveDocumentBtn').onclick=saveDocument;$('#saveMeetingBtn').onclick=saveMeeting;$('#meetingFiles').onchange=selectMeetingFiles;$('#meetingPickFiles').onclick=()=>$('#meetingFiles').click();bindDropTarget($('#meetingModal .modal-card'),addMeetingFiles,()=>!meetingSavePending);$('#meetingSelectedFiles').addEventListener('click',removeMeetingFile);$('#meetingPhotoFiles').onchange=selectMeetingPhotos;$('#meetingPickPhotos').onclick=()=>$('#meetingPhotoFiles').click();$('#meetingSelectedPhotos').addEventListener('click',removeMeetingFile);
  $('#documentSearch').oninput=renderDocuments;

@@ -1,7 +1,7 @@
 // FAMILY-잊지말기 4단계(설계 docs/design/tg-personal.md 5·6절, 명진 결정 11/05 시안 A) + S51-26 FAMILY-노트로(11/06 결정 '2'):
 // 홈 [하루] '잊지 말기' 칸의 규칙. 화면·서버 호출 없이 node --test로 확인한다.
 // 줄은 서버(collector-feed)가 가족 1명의 대화·통화에서 뽑은 한 줄이다(원문 없음). 화면은 글자로만 그린다(HTML 해석 금지).
-// 상태: new(제안) → kept(노트로 보냄 — 옛 [기억만]도 같은 값, 처음 한 번 노트로 옮김)·tasked(할 일로)·scheduled(일정으로)·dismissed(×).
+// 상태: new(제안) → kept(노트로 보냄·[이미 함] — 옛 [기억만]도 같은 값, 처음 한 번 노트로 옮김)·tasked(할 일로)·scheduled(일정으로)·dismissed(×).
 // [×]도 줄을 지우지 않는다. 칸은 제안(new)만 보인다. 남길 것은 노트('잊지 말기' 노트, 체크 목록 한 줄)에 둔다.
 
 export const KIND_LABEL = Object.freeze({plan: '약속·계획', ask: '부탁', like: '좋아함', dislike: '싫어함', date: '기념일', gift: '선물 거리', remind: '잊지 마'});
