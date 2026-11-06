@@ -79,7 +79,7 @@ test('자료실 나무: 점(●) 없음, 폴더는 공용 닫힌/열린 그림, 
 
 test('공용 모양 한 곳: folder-tree.css에 ft- 규칙, 노트·자료실이 공용 부품을 부르고 옛 점 규칙은 없음', () => {
   const css = readFileSync(new URL('../app/folder-tree.css', import.meta.url), 'utf8');
-  for (const sel of ['.ft-box {', '.ft-main {', '.ft-top > .ft-main .ft-name', '.ft-off > .ft-main', '.ft-more-row {', '.ft-pinch {', '.ft-focus-bar {']) assert.ok(css.includes(sel), sel);
+  for (const sel of ['.ft-box {', '.ft-main {', '.ft-top > .ft-main .ft-name', '.ft-off > .ft-main', '.ft-more-row {', '.ft-pinch {', '.ft-focus-anc {', '.ft-focus-head {']) assert.ok(css.includes(sel), sel);
   const notes = readFileSync(new URL('../app/basket-notes.js', import.meta.url), 'utf8');
   assert.match(notes, /from '\.\/folder-tree-ui\.mjs'/); assert.match(notes, /bindFolderPinch\(/);
   const libJs = readFileSync(new URL('../app/library-upload.js', import.meta.url), 'utf8');

@@ -152,7 +152,10 @@ test('자료실 폰 412: 폴더 그림 열림/닫힘·점 없음·두 손가락 
   await pinch(page, head('f:fa'), 'out');
   const path = page.locator('#libraryPath');
   await expect(path).toBeVisible();
-  await expect(path).toContainText('가상 A');
+  // S51-24: 폰 '그 폴더만' = 목록 상자 맨 위 위치 줄(위 단계만) + 바로 아래 그 폴더 줄(열린 폴더 그림·굵은 이름)이 머리.
+  await expect(path).toHaveText('‹자료실›');
+  await expect(path).toHaveClass(/ft-focus-anc/);
+  expect(await visibleShape('f:fa')).toBe('open');
   await expect(path.locator('[data-lu-path-back]')).toHaveText('‹');
   await pinch(page, page.locator('#documentList'), 'in');
   await expect(path).toBeHidden();

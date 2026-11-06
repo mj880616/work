@@ -86,12 +86,14 @@ export function ftLimit(list, all = false, limit = FT_PREVIEW) {
 // 돌아가기 글자·단추('나무로' 등)는 두지 않는다. [‹]는 위치 줄 맨 앞의 작은 꺽쇠(back: 속성, 없으면 없음).
 //  trail: [{label, attrs}] 위 단계(맨 앞 = 저장소·화면 이름), lead: 위치 줄 맨 앞 그림(저장소 로고 등), name·color·count, body: 안 줄(ft 줄 또는 격자).
 export function ftFocusHtml({back = null, lead = '', trail = [], name = '', color = null, count = '', body = '', attrs = {}} = {}) {
+  return `<section class="ft-box ft-focus"${attrsHtml(attrs)} aria-label="${esc(name)}">${ftFocusTopHtml({back, lead, trail, name, color, count})}<div class="ft-box-body">${body}</div></section>`;
+}
+// 상자 위쪽만(위치 줄 + 머리): 상자 몸통을 그 화면이 따로 그리는 곳(자료실 목록 상자·사진 격자)에서 상자 맨 위에 넣는다.
+export function ftFocusTopHtml({back = null, lead = '', trail = [], name = '', color = null, count = ''} = {}) {
   const steps = (trail || []).map(t => `<button type="button" class="ft-btn ft-focus-step"${attrsHtml(t.attrs)}>${esc(t.label)}</button><span class="ft-focus-sep" aria-hidden="true">›</span>`).join('');
   const backHtml = back ? `<button type="button" class="ft-btn ft-focus-back"${attrsHtml(back)} aria-label="폴더 나무">‹</button>` : '';
-  return `<section class="ft-box ft-focus"${attrsHtml(attrs)} aria-label="${esc(name)}">`
-    + `<nav class="ft-focus-anc" aria-label="지금 위치">${backHtml}${lead}${steps}</nav>`
-    + `<div class="ft-focus-head">${ftIconHtml({color, open: true})}<span class="ft-focus-name">${esc(name)}</span>${count ? ` <span class="ft-num">${esc(count)}</span>` : ''}</div>`
-    + `<div class="ft-box-body">${body}</div></section>`;
+  return `<nav class="ft-focus-anc" aria-label="지금 위치">${backHtml}${lead}${steps}</nav>`
+    + `<div class="ft-focus-head">${ftIconHtml({color, open: true})}<span class="ft-focus-name">${esc(name)}</span>${count ? ` <span class="ft-num">${esc(count)}</span>` : ''}</div>`;
 }
 // 상자 머리 개수: '폴더 1 · 파일 3'(없는 쪽은 뺀다). fileWord: 화면마다 '파일'·'노트'·'사진'.
 export function ftFocusCount(folders = 0, files = 0, fileWord = '파일') {

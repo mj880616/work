@@ -130,9 +130,11 @@ for (const width of [390, 1280]) test.describe(`새로고침 뒤 같은 화면 $
     await page.locator('#libraryGroupBy').getByRole('radio', { name: '폴더' }).click();
     await press(page, menuButton(page, 'f:fa'), width); await press(page, folderMenuItem(page, '이 폴더로 들어가기'), width);
     const path = page.locator('#libraryPath');
-    await expect(path).toHaveText('‹자료실›가상 A'); await expect(page).toHaveURL(/[?&]folder=fa(?:&|$)/);
+    // S51-24: 폰은 상자 맨 위 위치 줄(위 단계만), 넓은 화면은 지금 위치 줄.
+    const here = width < 761 ? '‹자료실›' : '‹자료실›가상 A';
+    await expect(path).toHaveText(here); await expect(page).toHaveURL(/[?&]folder=fa(?:&|$)/);
     await reload(page);
-    await expect(path).toHaveText('‹자료실›가상 A');
+    await expect(path).toHaveText(here);
     // '자료실'을 누르면 처음 목록, 주소에서도 빠진다.
     await press(page, path.locator('[data-lu-path=""]'), width);
     await expect(page).not.toHaveURL(/[?&]folder=/);
