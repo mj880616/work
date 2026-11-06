@@ -98,6 +98,14 @@
       upstream?.removeEventListener?.('abort',onAbort);
     }
   }
+  // LOAD-끝있는불러오기(S51-29): 응답 머리를 받은 뒤 본문 읽기도 같은 시간 한도 안에서 끝낸다(전에는 한도 밖이라 멈추면 같은 GET 합치기까지 끝없이 기다림).
+  function dataWithin(r,timeoutMs=config.timeoutMs){
+    const ms=Number(timeoutMs);
+    if(!(ms>0))return responseData(r);
+    let timer=null;
+    const late=new Promise((_,fail)=>{timer=setTimeout(()=>{fail(timeoutError());try{r.body?.cancel?.()?.catch?.(()=>{})}catch{}},ms)});
+    return Promise.race([responseData(r),late]).finally(()=>clearTimeout(timer));
+  }
   async function responseData(r){
     const text=await r.text();
     if(!text)return null;
@@ -153,7 +161,7 @@
           body:JSON.stringify({refresh_token:current.refresh_token}),
           cache:'no-store'
         });
-        const data=await responseData(r);
+        const data=await dataWithin(r);
         if(!r.ok){
           if([400,401,403].includes(r.status)){
             if(matchesSessionSnapshot(current))write(null);
@@ -236,7 +244,7 @@
       }
     }
 
-    const data=await responseData(r);
+    const data=await dataWithin(r,timeoutMs);
     checkRequestSession(expectedSessionEpoch);
     if(!r.ok){
       throw new RuntimeError(responseMessage(data,r.status),{
