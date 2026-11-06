@@ -27,10 +27,10 @@ test('움직임 줄이기: 작아지는 움직임 없이 색만 바뀐다', () =
 
 test('값은 토큰: 눌림 크기·진해짐·완료 글자색, 어두운 화면은 밝아지는 쪽', () => {
   const tokens = css('theme-tokens.css');
-  assert.match(tokens, /--ds-press-scale:\.97;--ds-press-scale-wide:\.985;--ds-press-tint:rgb\(0 0 0 \/ 9%\)/);
+  assert.match(tokens, /--ds-press-scale:\.94;--ds-press-scale-wide:\.985;--ds-press-tint:rgb\(0 0 0 \/ 14%\)/); // UI-누름움직임(11/06): .97·9% → .94·14%
   assert.match(tokens, /--ds-done-ink:var\(--kptu-success\)/);
   const dark = tokens.slice(tokens.indexOf('prefers-color-scheme:dark'));
-  assert.match(dark, /--ds-press-tint:rgb\(255 255 255 \/ 13%\)/);
+  assert.match(dark, /--ds-press-tint:rgb\(255 255 255 \/ 18%\)/);
   assert.match(css('ui-standard.css'), /\[data-done\]\{ color:var\(--ds-done-ink\) !important; \}/);
 });
 

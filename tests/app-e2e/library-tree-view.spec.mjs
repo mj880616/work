@@ -1,3 +1,4 @@
+import {onlyLibraryCategories,showAllLibraryCategories} from './helpers/library-categories.mjs';
 import { appOrigin } from './helpers/test-origin.mjs';
 // LIB-토글트리 ②(docs/design/library-tree.md 5절): 자료실 토글 트리 보기. 폴더 표는 읽기만(편집은 다음 단계).
 import {test,expect} from '@playwright/test';
@@ -106,14 +107,17 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
   await expect(libraryNode(page,'p:top-b')).toHaveAttribute('open','');await expect(libraryNode(page,'p:top-a')).not.toHaveAttribute('open','');
   // 종류 칩으로 거르면 같은 규칙.
   const chip=name=>page.locator(`#libraryCategoryFilter [data-lu-category="${name}"]`);
-  for(const name of ['투쟁','교육','선전','정책','기타'])await chip(name).click();
+  // S51-28: 폰·폴드는 칩 줄 대신 [분류 ▾] 창(같은 상태)으로 교섭만 남긴다.
+  if(width<1200)await onlyLibraryCategories(page,['교섭']);else for(const name of ['투쟁','교육','선전','정책','기타'])await chip(name).click();
   expect(await tops(page)).toEqual(['p:top-a']);expect(await visibleRows(page)).toEqual(['a1-1']);
-  // LIB-거르기전체: 일부 켜짐에서 [전체] 한 번 = 모두 켬(거르기 풀림), 한 번 더 = 모두 끔(빈 목록 한 줄), 또 한 번 = 모두 켬.
-  await chip('all').click();
+  // LIB-거르기전체: 일부 켜짐에서 [전체] 한 번 = 모두 켬(거르기 풀림), 한 번 더 = 모두 끔(빈 목록 한 줄), 또 한 번 = 모두 켬. 폰·폴드 창은 '모두 끔'이 없어 [전체]만.
+  if(width<1200)await showAllLibraryCategories(page);else await chip('all').click();
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
+  if(width>=1200){
   await chip('all').click();expect(await tops(page)).toEqual([]);await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('고른 분류 없음');
   await chip('all').click();
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
+  }
   // 맞는 자료가 없으면 빈 안내.
   await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('없음');expect((await libraryExpandItem(page)).disabled).toBe(true);
   expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);

@@ -15,6 +15,7 @@
 // State stays with each screen: the screen passes find(id, el) to read its own task and optional hooks to draw its own change
 // (apply / saved / removed); this module keeps only which tasks are being saved now (in memory) and nothing in browser storage.
 import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
+import {noteChecked, noteUnchecked} from './check-motion.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {placeAnchored, followAnchor} from './anchored-popup.js';
@@ -113,6 +114,7 @@ export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAtt
     const task = look(id, el), api = tasksApi() || missing();
     if (!task || !api?.toggleTask) return;
     const owner = ownerNow(), name = shortName(task.title);
+    if (done) noteChecked(id); else noteUnchecked(id); // UI-누름움직임: 바로 다시 그려지는 줄(apply)도 체크 움직임을 받게 먼저 적는다
     start(id); apply?.(id, done, task);
     let result;
     try { result = await api.toggleTask({...base(id, task), status:done ? 'needsAction' : 'completed'}); } catch { result = {ok:false}; }
@@ -179,9 +181,12 @@ export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAtt
     if (!task || !anchor?.isConnected) return;
     openDue(anchor, {name:shortName(task.title), value:dueDay(task), onPick:day => void moveDue(id, day, anchor)});
   }
+  // S51-27: openMenu(줄, {id, at}) = ⋯가 없는 줄(달력 칸 안 할 일 막대)을 PC 우클릭한 자리에 같은 메뉴로 연다.
   let menu = null, menuExtras = new Map();
-  function openMenu(trigger) {
-    menu ||= createAnchoredMenu({id:menuId, className:'task-inline-menu', label:'할 일 관리', historyKey, parent, key:t => t.dataset[menuAttr],
+  const menuIds = new WeakMap();
+  function openMenu(trigger, {id = '', at = null} = {}) {
+    if (id) menuIds.set(trigger, id);
+    menu ||= createAnchoredMenu({id:menuId, className:'task-inline-menu', label:'할 일 관리', historyKey, parent, key:t => menuIds.get(t) || t.dataset[menuAttr],
       render:id => {
         const active = menu?.active?.trigger || document.querySelector(`[data-${dataName(menuAttr)}="${CSS.escape(id)}"]`);
         const task = look(id, active), done = task?.status === 'completed';
@@ -201,7 +206,7 @@ export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAtt
         if (action === 'reopen') return void setDone(id, false, {el, undo:false, viaMenu:true});
         if (action?.startsWith('x:')) return void menuExtras.get(action.slice(2))?.run?.();
       }});
-    menu.open(trigger);
+    menu.open(trigger, {at});
   }
   return {
     // The circle: a pending line completes (with [되돌리기]), a finished one reopens.

@@ -1,5 +1,6 @@
 import {emptyHtml} from './wait-state.js';
 import {createTaskInline} from './task-inline.js';
+import {applyCheckPop} from './check-motion.js'; // UI-누름움직임: 끝낸 줄의 체크 움직임
 import {moveTaskToDay,dueDay} from './task-due.mjs';
 (()=>{
 'use strict';
@@ -85,8 +86,10 @@ const findTask=id=>{const raw=tasks.find(x=>x.id===id);if(!raw)return null;const
 const line=createTaskInline({menuId:'calendarTaskMenu',historyKey:'kptuCalendarTaskMenu',menuAttr:'calendarTaskMenu',find:findTask,
   begin:id=>{const l=lineOf(id);if(l)l.dataset.busy='1'},
   end:id=>{const l=lineOf(id);if(l)delete l.dataset.busy},
-  apply:(id,done,original)=>paint(rowOf(id),done===null?original.status==='completed':done),
+  apply:(id,done,original)=>{paint(rowOf(id),done===null?original.status==='completed':done);if(done===true)applyCheckPop(rowOf(id),id)},
   edit:id=>open(id,document.querySelector('#calendarDayModal')),
+  // S51-27: 칸 안 할 일 막대에는 동그라미가 없어 PC 우클릭 메뉴에 [완료]를 더한다(동그라미와 같은 완료·되돌리기).
+  extras:(task,el)=>el&&!el.closest('#calendarDayTasks')&&task.status!=='completed'?[{key:'done',label:'완료',run:()=>void line.complete(task.id,el)}]:[],
   saved:(id,task)=>{tasks=tasks.map(x=>x.id===id?{...x,...task}:x);publish(tasks,Date.now());dropRow(id)},
   removed:id=>{tasks=tasks.filter(x=>x.id!==id);publish(tasks,Date.now());dropRow(id)}});
 function boot(){
@@ -127,6 +130,8 @@ async function moveDue(id,day){
     return {status:'failed',text:e?.message&&!e.status?e.message:'기한을 바꾸지 못했어요. 다시 시도해 주세요.'};
   }
 }
-window.KPTUCalendarTasks={refresh:()=>refresh(),moveDue};
+// S51-27 UI-PC우클릭: 달력 칸·주간의 할 일 줄(data-calendar-task)을 우클릭한 자리에 그 줄의 ⋯ 메뉴(task-inline.js)를 연다.
+function menuAt(el,at){const id=el?.dataset?.calendarTask;if(!id||!findTask(id))return false;line.openMenu(el,{id,at});return true}
+window.KPTUCalendarTasks={refresh:()=>refresh(),moveDue,menuAt};
 boot();
 })();

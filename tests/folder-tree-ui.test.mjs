@@ -140,7 +140,8 @@ test('전수: 폴더 나무를 그리는 파일에 세모 글자·세모 모양�
     });
   }
   for (const f of ['folder-tree.css', 'files.css', 'photos.css', 'library-upload.css', 'basket.css', 'news-clipping.css', 'diary.css']) {
-    const css = read(f);
+    // 고르기 단추 꺾쇠(자료실 [분류 ▾], S51-28 #1977)는 폴더 펼침이 아니라 검사 밖.
+    const css = read(f).split('\n').filter(line => !/\.lu-cat-caret::before/.test(line)).join('\n');
     if (/[▸▾]|\\25B[8E]/.test(css)) bad.push(`${f}: 세모 글자`);
     if (/lu-node-head::before\{content:""[^}]*border-left:5px/.test(css)) bad.push(`${f}: 세모 모양`);
   }
