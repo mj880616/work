@@ -46,3 +46,11 @@ export async function showAllLibraryCategories(page){
   else for(const chip of await chips.all())if(await chip.getAttribute('aria-pressed')!=='true'){await chip.scrollIntoViewIfNeeded();await chip.click()}
   await expect(page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])[aria-pressed="false"]')).toHaveCount(0);
 }
+
+// 분류 고치기 창 열기: 폰·폴드는 [분류 ▾] 창의 [편집], PC는 칩 줄 끝 [편집](S51-28).
+export async function openLibraryCategoryEditor(page,{tap=false}={}){
+  const press=async l=>{if(tap)await l.tap();else await l.click()};
+  if(await narrowLibrary(page)){await press(page.locator('#libraryCategoryPick'));await press(page.locator('#libraryCategorySheet [data-lu-cat-edit]'));}
+  else await press(page.locator('#manageLibraryBtn'));
+  await expect(page.locator('#libraryManageModal')).toBeVisible();
+}
