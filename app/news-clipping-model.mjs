@@ -6,10 +6,6 @@
 export const ALL = 'all';
 // C2: 별표한 기사는 폴더 트리(폴더 안 폴더)로 본다.
 export const STAR = 'star';
-export const TABS = Object.freeze([
-  {id: ALL, label: '전체'},
-  {id: STAR, label: '별표'},
-]);
 export const PAGE_SIZE = 40;
 export const KEYWORD_MAX_CHARS = 30;
 // 서버가 limits를 주기 전(또는 실패)의 보임용 값. 실제 한도는 서버가 센다.
@@ -21,11 +17,6 @@ export function laneFilter(tab) {
   return '';
 }
 export const orderOf = tab => (tab === STAR ? 'starred_at.desc,id.desc' : 'created_at.desc,id.desc');
-export const tabAt = (tab, step) => {
-  const i = TABS.findIndex(t => t.id === tab) + step;
-  return i >= 0 && i < TABS.length ? TABS[i].id : null;
-};
-export const keepTab = tab => (TABS.some(t => t.id === tab) ? tab : ALL);
 
 export function domainOf(url) {
   try { return new URL(String(url)).hostname.replace(/^www\./, ''); } catch { return ''; }
@@ -124,12 +115,6 @@ export function itemView(item, {showKo = false} = {}) {
 }
 
 // 서버 [본문 열기] 응답 → 화면 글. 'stored'·'ok'는 줄을 다시 읽어 본문을 보인다.
-export function openResult(status) {
-  if (status === 'stored' || status === 'ok') return {reload: true, note: ''};
-  if (status === 'paywall') return {reload: true, note: ''};
-  if (status === 'original_only') return {reload: false, note: '이 기사는 원문에서 보기'};
-  return {reload: true, note: stateNote(status) || '본문을 읽지 못함 · 원문에서'};
-}
 export function errorNote(e, what) {
   const code = `${e?.code || ''} ${e?.message || ''}`;
   if (code.includes('MONTHLY_LIMIT')) return '이번 달 AI 한도에 닿음';
@@ -193,18 +178,3 @@ export function noteNewsItemId(note) {
   return isUuid(id) ? id : null;
 }
 // 메모 노트 제목: '기사 메모 · 기사 제목'(한 줄, 200자 안쪽). 노트 목록에서 어느 기사 메모인지 보이게.
-export function memoTitle(item) {
-  const t = String(item?.title_ko || (item?.title && !isAddressTitle(item.title) ? item.title : '') || domainOf(item?.url) || '기사').replace(/\s+/g, ' ').trim();
-  return [...`기사 메모 · ${t}`].slice(0, 200).join('');
-}
-// 기사 id 여러 개 → 메모 노트 묶음(기사마다 가장 최근에 고친 노트 하나).
-export function memoIndex(notes) {
-  const out = new Map();
-  for (const n of Array.isArray(notes) ? notes : []) {
-    const id = noteNewsItemId(n);
-    if (!id) continue;
-    const have = out.get(id);
-    if (!have || String(n.updated_at || '') > String(have.updated_at || '')) out.set(id, n);
-  }
-  return out;
-}

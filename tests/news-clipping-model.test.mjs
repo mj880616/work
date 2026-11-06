@@ -5,19 +5,13 @@ import * as M from '../app/news-clipping-model.mjs';
 
 const NOW = Date.parse('2026-11-01T03:00:00Z'); // 서울 12:00
 
-test('한 목록: 채널/자동 구분 없음 — 칩은 [전체][별표]뿐, 걸러내기 조건', () => {
+test('한 목록: 채널/자동 구분 없음 — 목록·별표 폴더 칸 걸러내기 조건(S51-8: 칩 줄은 없앰)', () => {
   assert.equal(M.tagOf, undefined); assert.equal(M.CHANNEL, undefined); assert.equal(M.AUTO, undefined);
   assert.equal(M.laneFilter(M.ALL), '');
-  assert.deepEqual(M.TABS.map(t => t.label), ['전체', '별표']);
+  assert.equal(M.TABS, undefined); assert.equal(M.keepTab, undefined);
   assert.equal(M.laneFilter(M.STAR), '&starred_at=not.is.null');
   assert.equal(M.orderOf(M.STAR), 'starred_at.desc,id.desc');
   assert.equal(M.orderOf(M.ALL), 'created_at.desc,id.desc');
-  assert.equal(M.tabAt(M.ALL, 1), M.STAR);
-  assert.equal(M.tabAt(M.ALL, -1), null);
-  assert.equal(M.tabAt(M.STAR, 1), null);
-  assert.equal(M.keepTab('x'), M.ALL);
-  assert.equal(M.keepTab('channel'), M.ALL, '예전에 기억한 칩 값은 전체로');
-  assert.equal(M.keepTab('auto'), M.ALL);
   assert.equal(M.itemView({id: '1', lane: 'channel', lang: 'ko', title: 'T', url: 'https://example.org/a'}).tag, undefined);
 });
 
@@ -63,10 +57,7 @@ test('날짜 묶음: 받은 날, 오늘·어제·날짜(요일)', () => {
   assert.equal(M.itemView({scrapped_at: '2026-11-01T00:05:00Z', state: 'ok'}).time, '09:05');
 });
 
-test('서버 응답 글: 본문 열기·지금 채우기·하루 한도', () => {
-  assert.deepEqual(M.openResult('stored'), {reload: true, note: ''});
-  assert.equal(M.openResult('original_only').reload, false);
-  assert.equal(M.openResult('robots').note, '사이트가 자동 읽기를 막아 둠 · 원문에서');
+test('서버 응답 글: 지금 채우기·하루 한도', () => {
   assert.equal(M.fillResult({status: 'nothing'}), '채울 기사 없음');
   assert.equal(M.fillResult({done: 3, deferred: 0}), '3건 채움');
   assert.equal(M.fillResult({done: 5, deferred: 2}), '5건 채움 · 2건은 다음에');
@@ -97,10 +88,6 @@ test('C2 별표 폴더·메모(= 노트)', () => {
   assert.equal(M.noteNewsItemId({metadata: {news_item_id: I}}), I);
   assert.equal(M.noteNewsItemId({metadata: {news_item_id: 'nope'}}), null);
   assert.equal(M.noteNewsItemId({metadata: null}), null);
-  assert.equal(M.memoTitle({title: '  가짜   제목 '}), '기사 메모 · 가짜 제목');
-  assert.equal([...M.memoTitle({title: '가'.repeat(300)})].length, 200);
-  const idx = M.memoIndex([{id: 'n1', metadata: {news_item_id: I}, updated_at: '2026-11-01T01:00:00Z'}, {id: 'n2', metadata: {news_item_id: I}, updated_at: '2026-11-01T02:00:00Z'}, {id: 'n3', metadata: {}}]);
-  assert.equal(idx.size, 1); assert.equal(idx.get(I).id, 'n2');
 });
 
 test('목록을 열 때 읽기 전 채널 기사가 있으면 바로 채우기(10분에 한 번)', () => {

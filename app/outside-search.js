@@ -1,9 +1,10 @@
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {SEARCH_PAGE, PERIODS, cleanTerm, rangeOf, cleanSimilar, cleanHits, hitDay, hitIsoDay, markParts, mineHits, mineIds} from './outside-search-model.mjs';
 import {PRESS_QUOTE_MAX, pressQuotes, hasPressQuote, addPressQuote, removePressQuote, onPressQuotes} from './press-quotes.mjs';
-// S48-18 사회운동 Now [문장 찾기](설계 docs/design/outside-statements.md 3.3·4절 [문장 찾기]·5절). 탭 칸 [data-os-search]의 유일한 그리기 주인.
-// 탭 줄·탭 상태는 outside-statements.js가 갖고, 이 모듈은 그 칸 안만 그린다(한 영역 한 renderer).
-// - 찾기 칸 하나 + 거르기 줄(기간 1달·6달·1년·전체·날짜 고르기, 단체 묶음 칩, [비슷한 말]·[내 성명] 켬 기본).
+// S48-18 사회운동 Now [문장 찾기](설계 docs/design/outside-statements.md 3.3·4절 [문장 찾기]·5절). 결과 칸 [data-os-search]의 유일한 그리기 주인.
+// S51-8 NEWS P4b: [문장 찾기] 탭은 없어지고 News 위 찾기 칸 하나(outside-statements.js가 가짐)로 합쳤다. Enter를 누르면 껍데기가 run(찾는 말)을 부르고,
+//   이 모듈은 목록 위 결과 칸 안만 그린다(한 영역 한 renderer). 단체 거르기는 껍데기의 [매체: 전체 ▾]가 고른 것(keysOf)을 따른다.
+// - 거르기 줄(기간 1달·6달·1년·전체·날짜 고르기, [비슷한 말]·[내 성명] 켬 기본).
 // - 비슷한 말: 서버 outside-feed ?action=expand(사용자 로그인·하루 횟수는 서버)로 3~6개를 받아 원래 말과 함께 찾는다. 같은 말은 이 탭 메모리에 기억(다시 부르지 않음).
 //   못 받으면(하루 횟수 끝·AI 쉼) 낱말만 찾고 한 줄로 알린다.
 // - 바깥 문장: RPC app_outside_search(SECURITY INVOKER, owner RLS) — 문장 하나씩, 찾은 말 칠하기(<mark>), 앞뒤 한 문장 흐리게,
@@ -15,8 +16,8 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '
 const rt = () => window.KPTURuntime;
 const q = v => encodeURIComponent(v);
 
-export function createOutsideSearch({box, nameOf, chipsOf, keysOf, workspaceOf}) {
-  const fresh = () => ({query: '', similar: [], similarNote: '', period: 'all', pickFrom: '', pickTo: '', chip: 'all', similarOn: true, mineOn: true,
+export function createOutsideSearch({box, nameOf, keysOf, workspaceOf}) {
+  const fresh = () => ({query: '', similar: [], similarNote: '', period: 'all', pickFrom: '', pickTo: '', similarOn: true, mineOn: true,
     hits: [], loaded: false, loading: false, failed: false, end: true, more: false, mine: [], mineLoaded: false, mineFailed: false, note: ''});
   let state = fresh(), seq = 0, built = false;
   const expandCache = new Map(); // 찾는 말(소문자) → 비슷한 말 목록(이 탭 메모리만)
@@ -26,7 +27,7 @@ export function createOutsideSearch({box, nameOf, chipsOf, keysOf, workspaceOf})
   const expandApi = query => rt().api('/functions/v1/outside-feed?action=expand', {method: 'POST', body: {query}, singleFlight: false, timeoutMs: 30000});
   function searchApi(offset) {
     const r = rangeOf(state.period, Date.now(), state.pickFrom, state.pickTo);
-    const keys = keysOf(state.chip);
+    const keys = keysOf();
     return rt().api('/rest/v1/rpc/app_outside_search', {method: 'POST', singleFlight: false, body: {
       p_query: state.query, p_terms: state.similar.length ? state.similar : null, p_sources: keys && keys.length ? keys : null,
       p_from: r.from, p_to: r.to, p_limit: SEARCH_PAGE + 1, p_offset: offset}});
@@ -44,10 +45,7 @@ export function createOutsideSearch({box, nameOf, chipsOf, keysOf, workspaceOf})
   function build() {
     if (built || !box) return;
     built = true;
-    box.innerHTML = `<form class="osq-form" data-osq-form role="search" aria-label="문장 찾기">
-<input type="search" class="osq-input" data-osq-input maxlength="100" enterkeyhint="search" placeholder="찾을 낱말·문장" aria-label="찾을 낱말·문장" autocomplete="off">
-<button type="submit" class="osq-go secondary">찾기</button></form>
-<div class="osq-filters" data-osq-filters></div>
+    box.innerHTML = `<div class="osq-filters" data-osq-filters></div>
 <p class="osq-note" data-osq-note role="status" aria-live="polite"></p>
 <div class="osq-tray" data-osq-tray hidden></div>
 <div class="osq-results" data-osq-results aria-label="찾은 문장"></div>`;
@@ -56,10 +54,8 @@ export function createOutsideSearch({box, nameOf, chipsOf, keysOf, workspaceOf})
   function filtersHtml() {
     const periods = PERIODS.map(p => chip('data-osq-period', p.id, p.label, state.period === p.id)).join('');
     const pick = state.period === 'pick' ? `<span class="osq-pick"><input type="date" class="osq-date" data-osq-from value="${esc(state.pickFrom)}" aria-label="시작 날짜"><span aria-hidden="true">~</span><input type="date" class="osq-date" data-osq-to value="${esc(state.pickTo)}" aria-label="끝 날짜"></span>` : '';
-    const chips = chipsOf();
-    const groups = chips.length > 1 ? `<div class="osq-row" role="group" aria-label="단체 거르기">${chips.map(c => chip('data-osq-chip', c.id, c.label, state.chip === c.id)).join('')}</div>` : '';
     const toggles = chip('data-osq-toggle', 'similar', '비슷한 말', state.similarOn) + chip('data-osq-toggle', 'mine', '내 성명', state.mineOn);
-    return `<div class="osq-row" role="group" aria-label="기간">${periods}${pick}</div>${groups}<div class="osq-row" role="group" aria-label="함께 찾기">${toggles}</div>`;
+    return `<div class="osq-row" role="group" aria-label="기간">${periods}${pick}</div><div class="osq-row" role="group" aria-label="함께 찾기">${toggles}</div>`;
   }
   const marked = (text, cls = 'osq-sent') => `<span class="${cls}">${markParts(text, state.query, state.similar).map(p => p.mark ? `<mark class="osq-mark${p.mark === 'sim' ? ' is-sim' : ''}">${esc(p.text)}</mark>` : esc(p.text)).join('')}</span>`;
   function hitHtml(h) {
@@ -182,13 +178,6 @@ export function createOutsideSearch({box, nameOf, chipsOf, keysOf, workspaceOf})
   }
 
   // ---------- 누르기 ----------
-  box?.addEventListener('submit', e => {
-    if (!e.target.matches('[data-osq-form]')) return;
-    e.preventDefault();
-    const v = cleanTerm($('[data-osq-input]')?.value);
-    state.query = v;
-    run();
-  });
   box?.addEventListener('change', e => {
     if (e.target.matches('[data-osq-from]')) { state.pickFrom = e.target.value; run({keepSimilar: true}); }
     else if (e.target.matches('[data-osq-to]')) { state.pickTo = e.target.value; run({keepSimilar: true}); }
@@ -198,7 +187,6 @@ export function createOutsideSearch({box, nameOf, chipsOf, keysOf, workspaceOf})
     if (!b || !box.contains(b) || b.disabled) return;
     const d = b.dataset;
     if (d.osqPeriod) { if (state.period !== d.osqPeriod) { state.period = d.osqPeriod; if (d.osqPeriod === 'pick') paint(); else run({keepSimilar: true}); } return; }
-    if (d.osqChip) { if (state.chip !== d.osqChip) { state.chip = d.osqChip; run({keepSimilar: true}); } return; }
     if (d.osqToggle === 'similar') { state.similarOn = !state.similarOn; run(); return; }
     if (d.osqToggle === 'mine') { state.mineOn = !state.mineOn; run({keepSimilar: true}); return; }
     if ('osqRetry' in d) { run({keepSimilar: !state.similarNote}); return; }
@@ -214,7 +202,10 @@ export function createOutsideSearch({box, nameOf, chipsOf, keysOf, workspaceOf})
 
   return {
     paint,
-    focus: () => $('[data-osq-input]')?.focus({preventScroll: true}),
+    // 위 찾기 칸에서 Enter: 같은 말이면 거르기(기간·매체)만 새로, 새 말이면 비슷한 말부터 다시.
+    run: query => { const v = cleanTerm(query); const same = v === state.query && !!v; state.query = v; run({keepSimilar: same && !state.similarNote}); },
+    // 찾기 칸을 비우면 결과도 비운다(거르기 고른 것은 그대로).
+    clear: () => { seq++; Object.assign(state, {query: '', similar: [], similarNote: '', hits: [], loaded: false, loading: false, failed: false, end: true, more: false, mine: [], mineLoaded: false, mineFailed: false, note: ''}); paint(); },
     // 로그인·작업공간이 바뀌면 찾은 것·기억한 비슷한 말을 버린다(고른 초안 문장은 press-quotes.mjs가 비운다).
     reset: () => { seq++; state = fresh(); expandCache.clear(); built = false; if (box) box.replaceChildren(); },
   };

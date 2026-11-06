@@ -62,8 +62,9 @@ for (const width of [412, 1440]) {
   test(`Now ${width}: 상세 [본문]으로 글 전체 읽기·글자 크기·못 읽음·본문 없는 출처`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, calls } = await start(page, width);
-    const open = id => root(page).locator(`[data-os-post="${id}"] .now-open`).click();
-    await expect(root(page).locator('[data-os-post]')).toHaveCount(3);
+    const open = id => root(page).locator(`[data-os-list] [data-nw-key="outside:${id}"] .now-open`).click();
+    await root(page).getByRole('tab', { name: '사회운동' }).click();
+    await expect(root(page).locator('[data-os-list] [data-nw-key]')).toHaveCount(3);
 
     // 본문을 저장하지 않은 글(has_body=false)에는 [본문]이 없다.
     await open(P2);
@@ -122,7 +123,7 @@ for (const width of [412, 1440]) {
     test.setTimeout(90000);
     const { errors } = await start(page, width);
     await root(page).getByRole('tab', { name: '보관' }).click();
-    await root(page).locator(`[data-ns-open="news:${N1}"]`).click();
+    await root(page).locator(`[data-now-panel-saved] [data-nw-key="news:${N1}"] .now-open`).click();
     const nd = detail(page).locator('.nd');
     await expect(nd.locator('.nd-title')).toHaveText('가상 뉴스 기사');
     await nd.locator('button[data-nd-reader]').click();

@@ -1,20 +1,39 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NOW_TAB_IDS, keepNowTab, nowTabAt, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText} from '../app/now-model.mjs';
-import {NOW_TABS} from '../app/view-prefs.js';
+import {NOW_TABS, NOW_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText} from '../app/now-model.mjs';
+import {NEWS_TABS} from '../app/view-prefs.js';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 화면 순수 계산.
 
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 
-test('탭 넷은 view_prefs.now_tab 값과 같고, 모르는 값은 사회운동, 밀기는 끝에서 멈춘다', () => {
-  assert.deepEqual(NOW_TAB_IDS, ['outside', 'news', 'saved', 'search']);
-  assert.deepEqual([...NOW_TABS], NOW_TAB_IDS);
-  assert.equal(keepNowTab('news'), 'news');
-  for (const v of [undefined, '', 'new', 'now', null]) assert.equal(keepNowTab(v), 'outside');
-  assert.equal(nowTabAt('outside', 1), 'news');
-  assert.equal(nowTabAt('search', 1), null);
-  assert.equal(nowTabAt('outside', -1), null);
-  assert.equal(nowTabAt('saved', -1), 'news');
+test('탭 넷은 view_prefs.news_tab 값과 같고, 모르는 값은 전체, 밀기는 끝에서 멈춘다', () => {
+  assert.deepEqual(NOW_TAB_IDS, ['all', 'movement', 'media', 'archive']);
+  assert.deepEqual([...NEWS_TABS], NOW_TAB_IDS);
+  assert.deepEqual(NOW_TABS.map(t => t.label), ['전체', '사회운동', '언론', '보관']);
+  assert.equal(keepNowTab('media'), 'media');
+  for (const v of [undefined, '', 'news', 'outside', null]) assert.equal(keepNowTab(v), 'all');
+  assert.equal(nowTabAt('all', 1), 'movement');
+  assert.equal(nowTabAt('archive', 1), null);
+  assert.equal(nowTabAt('all', -1), null);
+  assert.equal(nowTabAt('archive', -1), 'media');
+});
+
+test('처음 탭: news_tab이 있으면 그것, 없으면 옛 now_tab을 바꿔 한 번 옮긴다(설계 7.3)', () => {
+  assert.deepEqual(startTab('media', 'outside'), {tab: 'media', migrate: false});
+  assert.deepEqual(startTab(undefined, 'outside'), {tab: 'movement', migrate: true});
+  assert.deepEqual(startTab(undefined, 'news'), {tab: 'media', migrate: true});
+  assert.deepEqual(startTab(undefined, 'saved'), {tab: 'archive', migrate: true});
+  assert.deepEqual(startTab(undefined, 'search'), {tab: 'all', migrate: true});
+  assert.deepEqual(startTab(undefined, undefined), {tab: 'all', migrate: false});
+  assert.deepEqual(startTab('bogus', 'bogus'), {tab: 'all', migrate: false});
+});
+
+test('제목 거르기: 띄어쓰기·대소문자 무시, 빈 말은 모두 통과', () => {
+  assert.equal(titleHit(['철도 노조 파업'], '노조파업'), true);
+  assert.equal(titleHit(['Rail Strike'], 'rail'), true);
+  assert.equal(titleHit(['철도'], '버스'), false);
+  assert.equal(titleHit(['철도'], '  '), true);
+  assert.equal(titleHit([null, '원제 Strike'], 'strike'), true);
 });
 
 test('서버에 보내는 것은 글 id만(상세)·글 id와 동작만(환류 기록)', () => {
@@ -90,4 +109,38 @@ test('뉴스 상세: 요약·본문이 없으면 먼저 읽고, 유료는 읽지
   assert.equal(needsRead({state: 'ok', summary: '있음'}), false);
   assert.match(unreadReason('robots', ''), /막아/);
   assert.equal(unreadReason('', 'paywall'), '유료 기사');
+});
+
+test('매체 고르기 줄: 전체 → 묶음 → 켠 매체, 탭마다 쓸 수 있는 쪽만(사회운동·언론), 찾는 말은 이름으로', () => {
+  const oc = [{key: 'kctu', name: '민주노총', group: 'labor'}, {key: 'kptu', name: '공공운수노조', group: 'labor'}, {key: 'jacobin', name: 'Jacobin', group: 'foreign'}];
+  const nc = [{key: 'news-a', name: '가상일보', region: 'domestic'}, {key: 'news-b', name: 'Fake Times', region: 'foreign'}];
+  const all = mediaRows({tab: 'all', oc, on: ['kctu', 'jacobin'], nc, non: ['news-a'], pick: 's:kctu'}).all;
+  assert.deepEqual(all.map(r => [r.id, r.depth]), [['all', 0], ['g:labor', 0], ['s:kctu', 1], ['g:foreign', 0], ['s:jacobin', 1], ['r:domestic', 0], ['n:news-a', 1]]);
+  assert.equal(all.find(r => r.current).id, 's:kctu');
+  assert.deepEqual(mediaRows({tab: 'movement', oc, on: ['kctu'], nc, non: ['news-a']}).all.map(r => r.id), ['all', 'g:labor', 's:kctu']);
+  assert.deepEqual(mediaRows({tab: 'media', oc, on: ['kctu'], nc, non: ['news-a', 'news-b']}).all.map(r => r.id), ['all', 'r:domestic', 'n:news-a', 'r:foreign', 'n:news-b']);
+  assert.deepEqual(mediaRows({tab: 'all', oc, on: ['kctu'], nc, non: ['news-a'], query: '가상'}).all.map(r => r.id), ['n:news-a']);
+  assert.equal(mediaFits('movement', 'n:news-a'), false);
+  assert.equal(mediaFits('media', 'r:domestic'), true);
+  assert.equal(mediaFits('archive', 'g:labor'), false);
+  assert.equal(keepMedia('media', 's:kctu'), 'all');
+  assert.equal(mediaName('s:kctu', {oc}), '민주노총');
+  assert.equal(mediaName('r:foreign'), '언론 외국');
+  assert.equal(mediaName('all'), '전체');
+});
+
+test('매체 거르기: 사회운동 키 · 언론 키(고른 쪽이 아니면 빈 목록)', () => {
+  const oc = [{key: 'kctu', group: 'labor'}, {key: 'kptu', group: 'labor'}];
+  const nc = [{key: 'news-a', region: 'domestic'}, {key: 'news-b', region: 'foreign'}];
+  assert.equal(outsideKeysOf('all', oc, ['kctu']), null);
+  assert.deepEqual(outsideKeysOf('g:labor', oc, ['kctu']), ['kctu']);
+  assert.deepEqual(outsideKeysOf('n:news-a', oc, ['kctu']), []);
+  assert.equal(newsKeysOf('all', nc), null);
+  assert.deepEqual(newsKeysOf('r:foreign', nc), ['news-b']);
+  assert.deepEqual(newsKeysOf('s:kctu', nc), []);
+});
+
+test('[전체] 한 줄: 시각 최신 순, 시각 모르는 글은 맨 뒤', () => {
+  const m = mergeFeed([{id: 'p1', at: '2026-11-06T00:00:00Z'}, {id: 'p2', at: ''}], [{id: 'n1', at: '2026-11-06T01:00:00Z'}]);
+  assert.deepEqual(m.map(x => `${x.type}:${x.id}`), ['news:n1', 'outside:p1', 'outside:p2']);
 });

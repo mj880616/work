@@ -1,10 +1,9 @@
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 2·4절): '바깥 성명' 화면의 계산만(DOM·네트워크 없음).
-// 화면(outside-statements.js)이 그리기·서버 읽기/쓰기를 맡고, 여기서는 칩 줄·날짜 묶음·글 한 건의 보이는 모양을 정한다.
+// 화면(outside-statements.js)이 그리기·서버 읽기/쓰기를 맡고, 여기서는 묶음·날짜 묶음·글 한 건의 보이는 모양을 정한다(S51-8: 칩 줄 계산은 매체 고르기 now-model.mjs로 바뀌어 뺐다).
 import {kstDay, addDays, dayLabel, hhmm} from './feed-model.mjs';
 
-export const ALL = 'all';
-// 칩 묶음(카탈로그 group 값과 같은 이름). 단체 이름·묶음은 서버 카탈로그(outside-feed ?action=catalog)에서만 받는다.
-// 11/02 00:19 명진 요청: [노동] [정당] [사회운동] [외국]. 민주노총·공공운수노조는 [노동] 안 단체 칩(둘째 줄).
+// 단체 묶음(카탈로그 group 값과 같은 이름). 단체 이름·묶음은 서버 카탈로그(outside-feed ?action=catalog)에서만 받는다.
+// 11/02 00:19 명진 요청: [노동] [정당] [사회운동] [외국]. 민주노총·공공운수노조는 [노동] 안.
 export const GROUPS = Object.freeze([
   {key: 'labor', label: '노동'},
   {key: 'party', label: '정당'},
@@ -44,44 +43,6 @@ export function normalizeCatalog(raw) {
 
 // 켠 단체(enabled 줄) 열쇠 목록.
 export const enabledKeys = rows => (rows || []).filter(r => r && r.enabled === true && KEY.test(String(r.source_key || ''))).map(r => r.source_key);
-
-// 칩 첫 줄: [전체] + 켠 단체가 있는 묶음만(노동·정당·사회운동·외국). 단체 낱개는 둘째 줄(subChipsOf)로(11/01 요청 4).
-export function chipsOf(catalog, enabled) {
-  const on = new Set(enabled || []);
-  const chips = [{id: ALL, label: '전체'}];
-  for (const g of GROUPS) {
-    if ((catalog || []).some(s => s.group === g.key && on.has(s.key))) chips.push({id: 'g:' + g.key, label: g.label});
-  }
-  return chips;
-}
-// 고른 칩이 속한 묶음 열쇠('g:party'이거나 그 묶음 단체 's:kgreens'면 'party'). 없으면 ''.
-export function groupOfChip(chip, catalog) {
-  if (typeof chip !== 'string') return '';
-  if (chip.startsWith('g:')) return GROUP_KEYS.has(chip.slice(2)) ? chip.slice(2) : '';
-  if (chip.startsWith('s:')) return (catalog || []).find(s => s.key === chip.slice(2))?.group || '';
-  return '';
-}
-// 칩 둘째 줄: 묶음을 골랐을 때 그 묶음의 켠 단체 낱개(둘 이상일 때만 — 하나뿐이면 묶음 칩이 곧 그 단체). 묶음을 안 골랐으면 [].
-export function subChipsOf(catalog, enabled, chip) {
-  const g = groupOfChip(chip, catalog);
-  if (!g) return [];
-  const on = new Set(enabled || []);
-  const members = (catalog || []).filter(s => s.group === g && on.has(s.key));
-  return members.length > 1 ? members.map(s => ({id: 's:' + s.key, label: s.name})) : [];
-}
-// 첫 줄 칩이 눌린 모양인가: 그 칩 자체이거나, 고른 단체가 그 묶음에 속할 때.
-export const chipPressed = (id, chip, catalog) => id === chip || (id.startsWith('g:') && groupOfChip(chip, catalog) === id.slice(2) && String(chip).startsWith('s:'));
-
-// 고른 칩 → 서버에 물을 단체 열쇠 목록. null = 거르지 않음(전체).
-export function keysOf(chip, catalog, enabled) {
-  if (!chip || chip === ALL) return null;
-  const on = new Set(enabled || []);
-  if (chip.startsWith('s:')) { const k = chip.slice(2); return KEY.test(k) ? [k] : null; }
-  if (chip.startsWith('g:')) return (catalog || []).filter(s => s.group === chip.slice(2) && on.has(s.key)).map(s => s.key);
-  return null;
-}
-// 칩 줄이 바뀌어 고른 칩이 없어졌으면 [전체]로(chips = 첫 줄 + 둘째 줄).
-export const keepChip = (chip, chips) => (chips || []).some(c => c.id === chip) ? chip : ALL;
 
 // 글 시각: 게시 시각만(11/02 00:17). 게시 시각을 모르면 ''(받은 시각을 게시 시각처럼 쓰지 않는다 — 옛 글이 '오늘'로 쏟아지지 않게).
 export const NO_DATE = '날짜 모름';
@@ -174,18 +135,6 @@ export function safeUrl(raw) {
   if (!/^https?:\/\/[^\s]+$/i.test(s)) return '';
   try { const u = new URL(s); return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : ''; } catch { return ''; }
 }
-// 본문 문장 → 한 덩어리 글(문장 사이 빈칸).
-export const bodyText = rows => (rows || []).filter(r => r && typeof r.text === 'string').sort((a, b) => a.idx - b.idx).map(r => r.text.trim()).filter(Boolean).join(' ');
-
-// 지난번 [새로 온 것]을 본 뒤 들어온 글인가(받은 시각 기준).
-// 들어온 날보다 1년 넘게 예전 글(처음 수집 때 딸려 온 옛 글)은 새 글로 보지 않는다.
-export const STALE_MS = 365 * 86400000;
-export function isFresh(p, seenAt) {
-  const s = Date.parse(seenAt || ''), f = Date.parse(p?.fetched_at || ''), at = Date.parse(postTime(p));
-  if (Number.isFinite(at) && Number.isFinite(f) && at < f - STALE_MS) return false;
-  return Number.isFinite(s) && Number.isFinite(f) && f > s;
-}
-
 // OUTSIDE-막힌단체: 서버가 남긴 단계 코드(last_error)를 일상어 한 줄로. 모르는 코드는 '읽기 실패'.
 // 모양: '못 읽음 · 이유 한 마디'(11/01 요청 1).
 const ERROR_NOTES = Object.freeze({
