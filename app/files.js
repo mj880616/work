@@ -41,6 +41,7 @@ import {createPcFiles} from './pc-files.js';
 import {PC_SOURCE as PC, pcTrail, pcStateText, pcOffRowName, pcDeviceOk, PC_READONLY_TEXT, PC_PREVIEW_TEXT} from './pc-files-model.mjs';
 import {NARROW_QUERY, SPLIT_QUERY} from './screen-width.mjs';
 import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest, otherStart, DROP_ASK_TEXT} from './files-panes-model.mjs';
+import {within, isLoadTimeout} from './load-deadline.js';
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
 // - 목록은 서버 색인(app_cloud_list·app_cloud_find·app_cloud_trail, owner + 운영자 기능 files일 때만 읽힘)에서 바로 그린다. 클라우드는 부르지 않는다.
 // - 갱신(F2): 들어올 때 + 2분마다 + 창으로 돌아올 때 Edge cloud-files sync(서버가 2분 안이면 클라우드를 부르지 않음). 응답의 바뀐 줄만
@@ -192,14 +193,20 @@ async function bytes(body, {range = ''} = {}) {
   if (!token) throw Object.assign(new Error('session_required'), {status: 401});
   const headers = {apikey: r.config.key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'};
   if (range) headers.Range = range;
-  const res = await fetch(r.config.url + FN, {method: 'POST', cache: 'no-store', headers, body: JSON.stringify(body)});
-  const type = (res.headers.get('content-type') || '').split(';')[0].trim();
-  if (!res.ok || /json/.test(type)) {
-    let code = ''; try { code = (await res.json())?.error || ''; } catch { /* 본문 없음 */ }
-    throw Object.assign(new Error(code || `http_${res.status}`), {status: res.status});
-  }
-  return res.blob();
+  // LOAD-끝있는불러오기(S51-29): 작은 그림 받기 한 번은 BYTES_MS 안에 끝난다(넘으면 timeout → 칸 ↻·실패 표시).
+  const job = async signal => {
+    const res = await fetch(r.config.url + FN, {method: 'POST', cache: 'no-store', headers, body: JSON.stringify(body), signal});
+    const type = (res.headers.get('content-type') || '').split(';')[0].trim();
+    if (!res.ok || /json/.test(type)) {
+      let code = ''; try { code = (await res.json())?.error || ''; } catch { /* 본문 없음 */ }
+      throw Object.assign(new Error(code || `http_${res.status}`), {status: res.status});
+    }
+    return res.blob();
+  };
+  // 작은 그림(thumb)만 끊는다. 원본·미리보기는 크거나 서버 변환이 길 수 있어 그대로.
+  return body.action === 'thumb' ? within(job, BYTES_MS).catch(e => { throw isLoadTimeout(e) ? Object.assign(new Error('timeout'), {code: 'timeout'}) : e; }) : job();
 }
+const BYTES_MS = 60000;
 
 // ---------- 상태·목록 읽기 ----------
 function resetIfOwnerChanged() {

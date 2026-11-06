@@ -12,6 +12,7 @@ import {placeOf} from './time-photos-model.mjs'; // S48-58: 찍은 곳(lat·lon)
 import {createThumbLoader, retryDelay, ThumbError, VISIBLE, NEAR, IDLE, GATHER_MS} from './od-thumb-loader.js';
 import {holdPhotoBlob, holdPhotoMaker, forgetPhotoBlob, localImageBlob, readyPhotoBlob} from './photo-share.js';
 import {slotBox, slotLoading, slotShown, slotFailed, slotPreview, slotTiming} from './img-slot.js';
+import {within, isLoadTimeout} from './load-deadline.js';
 
 export const OD_FN = '/functions/v1/onedrive-photos';
 const encode = encodeURIComponent;
@@ -427,20 +428,24 @@ export async function odPhotoBytes(rt, id, size = 'small', fetcher = globalThis.
   if (!(await rt.session.ensure())) throw new Error('session');
   const token = rt.session.read()?.access_token;
   if (!token) throw new Error('session');
-  const response = await fetcher(rt.config.url + OD_FN, {
-    method: 'POST', cache: 'no-store',
-    headers: {apikey: rt.config.key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'},
-    body: JSON.stringify({action: 'photo', id, size}),
-  });
-  const type = response.headers.get('content-type') || '';
-  if (response.status === 429) {
-    let after = null; try { after = (await response.json())?.retry_after; } catch { /* 본문 없음 */ }
-    throw new ThumbError('throttled', {retryAfter: after});
-  }
-  if (response.status === 404 || response.status === 403) throw new ThumbError(response.status === 404 ? 'missing' : 'outside');
-  if (!response.ok || !/^image\//.test(type)) throw new Error('photo');
-  return URL.createObjectURL(await response.blob());
+  // LOAD-끝있는불러오기(S51-29): 한 장 받기는 PHOTO_BYTES_MS 안에 끝난다(동시 받기 자리 4개가 멈춘 채 남아 모든 칸이 회색이 되지 않게).
+  return within(async signal => {
+    const response = await fetcher(rt.config.url + OD_FN, {
+      method: 'POST', cache: 'no-store',
+      headers: {apikey: rt.config.key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'photo', id, size}), signal,
+    });
+    const type = response.headers.get('content-type') || '';
+    if (response.status === 429) {
+      let after = null; try { after = (await response.json())?.retry_after; } catch { /* 본문 없음 */ }
+      throw new ThumbError('throttled', {retryAfter: after});
+    }
+    if (response.status === 404 || response.status === 403) throw new ThumbError(response.status === 404 ? 'missing' : 'outside');
+    if (!response.ok || !/^image\//.test(type)) throw new Error('photo');
+    return URL.createObjectURL(await response.blob());
+  }, PHOTO_BYTES_MS).catch(e => { throw isLoadTimeout(e) ? new Error('photo') : e; });
 }
+const PHOTO_BYTES_MS = 45000;
 
 let loader = null, cacheScope = '';
 // 이 화면의 사진 대기열(로그인한 사람마다 하나). 시험은 fetchUrls·fetchBytes를 바꿔 넣는다(모으는 시간 gatherMs도).
