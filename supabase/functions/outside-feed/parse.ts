@@ -500,13 +500,44 @@ export function bodyScopeHtml(html: string, bodyClass?: RegExp): { html: string;
 
 // 본문 칸 줄들 → 본문 줄들: 제목 줄 뒤부터(단체 본문 칸이면 처음부터) '목록·이전글·댓글·저작권' 줄 앞까지.
 // key: 줄 글자를 판정용으로 바꾸는 함수(추출기의 표시 글자를 떼는 데 씀).
-export function bodyRange(lines: string[], title: string, own: boolean, key: (l: string) => string = (l) => l): string[] {
+// opts(S51-15): 출처 규칙의 시작·끝 줄(extract.start·end — 그 사이트의 실제 화면 글자, 본문 칸 class를 실측 못 해도 줄로 자름),
+//   info: 어디서 끊겼나(probe 코드용, 저장 안 함).
+// 공유 줄(S51-15, 학비노조): '공유하기' 같은 공유 단추 줄이 본문 글자보다 **앞**(제목·작성자·날짜 줄과 본문 사이)에 있으면 본문 끝이 아니다.
+//   예전에는 그 줄에서 끊겨 본문이 0줄이었다. 본문 글자(SHARE_SKIP_MIN자 이상 줄) 또는 사진이 나온 뒤의 공유 줄은 예전처럼 끝.
+export type RangeOpts = { start?: RegExp; end?: RegExp; info?: { start?: string | null; end?: string | null } };
+const SHARE_LINE = /^(공유하기|SNS 공유|Share this)$/i;
+const SHARE_SKIP_MIN = 30;
+const IMG_LINE = /\ue000\d+\ue000/;
+function endCode(mark: string): string {
+  if (/^(목록)/.test(mark)) return "list";
+  if (/^(이전|다음|윗|아랫)/.test(mark)) return "prev_next";
+  if (/^(댓글|덧글|comment|leave)/i.test(mark)) return "comment";
+  if (/^(관련|related)/i.test(mark)) return "related";
+  if (/^(공유|sns|share)/i.test(mark)) return "share";
+  if (/^(copyright|ⓒ|©)/i.test(mark)) return "copyright";
+  return "edit";
+}
+export function bodyRange(lines: string[], title: string, own: boolean, key: (l: string) => string = (l) => l, opts: RangeOpts = {}): string[] {
   // 단체 본문 칸 안은 처음부터 본문이다(제목 찾기를 하면 '…규탄한다.hwp' 같은 첨부 이름 줄 뒤부터 읽게 된다).
-  const start = own ? 0 : afterTitle(lines.map(key), title);
+  const keys = lines.map(key);
+  let start = own ? 0 : afterTitle(keys, title);
+  if (opts.start) {
+    const i = keys.findIndex((l, n) => n >= start && opts.start!.test(l.trim()));
+    if (i >= 0) { start = i + 1; if (opts.info) opts.info.start = "rule"; }
+  }
   const out: string[] = [];
-  for (const l of lines.slice(start)) {
-    if (END_MARK.test(key(l))) break;
+  let started = false;
+  for (let n = start; n < lines.length; n++) {
+    const l = lines[n], k = keys[n].trim();
+    if (opts.end && opts.end.test(k)) { if (opts.info) opts.info.end = "rule"; break; }
+    const m = END_MARK.exec(k);
+    if (m) {
+      if (!started && SHARE_LINE.test(k)) continue;
+      if (opts.info) opts.info.end = endCode(m[0]);
+      break;
+    }
     out.push(l);
+    if (!started && (IMG_LINE.test(l) || (k.length >= SHARE_SKIP_MIN && !isBodyNoise(k)))) started = true;
   }
   return out;
 }

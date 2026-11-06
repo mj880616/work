@@ -85,6 +85,22 @@ CC가 예약 입구 `probe`를 25개 출처에 돌린 숫자(글자·주소 없�
 
 흔한 유료벽 검사(S51-9 뒤, `news-feed/page.ts`) [사실: 코드]: 페이지 전체에서는 구조화 데이터 `isAccessibleForFree=false`와 class 이름이 **정확히** `paywall`인 칸만, 문구(유료 회원 전용·구독자 전용·로그인 후 전문/기사/본문/열람 등)는 **본문 칸 안에서만** 본다('로그인 후 이용'의 '이용'은 뺌 — 댓글 칸 문구). 매체 규칙 `extract.lead`(그 매체의 실제 표시)는 따로, `extract.free`와 함께 쓰지 않는다(시험 고정).
 
+#### 1.1c S51-15 후속(11/06 13:2x 운영 숫자 → 고친 것)
+
+운영 저장 현황(13:2x) [사실: CC 보고, 숫자만]: ok 120 · failed/timeout 60(프레시안, probe list=robots_unreachable — 그 시간 사이트에 닿지 않음) · lead/no_body 30(`news-pressian@2`, 사이트는 다시 닿음) · lead/paywall 17(`news-pressian@1` 옛 오탐) · lead/no_body 3(매일노동뉴스) · failed/no_body 2(학비노조·금속노조 각 1).
+S51-15 세션은 WebFetch로 글 쪽을 **글자로만** 읽었다(HTML class는 못 봄). 화면 줄 차례는 [사실], class·코드상 원인은 [추정].
+
+| 키 | 실제 화면 줄 차례 [사실: WebFetch] | 원인 [추정] | 고친 것(판) |
+| --- | --- | --- | --- |
+| `news-pressian` | 제목 → 공유 아이콘 → 제목 → 부제 → 기자·기사입력 → 페이스북·트위터·밴드 → `URL복사` → 본문·사진·캡션(…ⓒ매체) → `구글에서 프레시안을 더 자주 만나기` → 기자·메일 → `최근글보기` → 제보·후원 → 댓글 → 관련기사 | 본문 칸 `article_body`가 본문을 담지 않거나(빈 틀), 빼는 칸이 닫히지 않아 뒤를 모두 지움 | @3: 카탈로그 `extract.start`·`end`(화면 단추 글자 줄) — 본문 칸에서 못 뽑으면 페이지 전체에서 `URL복사` 다음 ~ `구글에서…`·`최근글보기`·`프레시안에 제보하기` 앞. 시작 줄이 없으면 하지 않음(메뉴 글자 방지) |
+| `hakbi` | 제목 → 단체·조회 수·날짜 → **`공유하기`** → 트위터·카카오·페이스북·URL → 사진·본문 → `목록보기` | 끝 표시 `공유하기`가 본문 **앞**에 있어 0줄 | @3: 공용 `bodyRange` — 본문 글자(30자 이상 줄)·사진이 나오기 전의 공유 줄(`공유하기`·`SNS 공유`·`Share this` 한 줄)은 건너뜀. 뒤의 공유 줄은 예전처럼 끝 |
+| (공용) | — | 닫는 꼬리표가 없는 빼는 칸(`drop`)이 문서 끝까지 지움 | `elementRanges`: 짝이 없으면 여는 꼬리표만 뺌 |
+| `news-labortoday` `kmwu` | 확인 못 함 | 짧은 사진 기사·첨부뿐인 글일 수 있음 | 판만 올림(@3·@2) — 다시 뽑기가 공용 고침으로 한 번 더 봄 |
+
+probe 코드 더함: `cut`(본문이 끝난 곳: list·prev_next·comment·related·share·copyright·edit·rule), `scope`에 `page_rule`(시작 줄 길). 리드로 끝나도 본문 칸에서 고른 `scope`·`cut`을 남긴다.
+
+**사이트가 잠깐 안 닿을 때(robots 못 읽음·시간 초과 → `failed/timeout`)** [사실: 코드]: 수집(`media`·`pending`)은 블록 줄이 **없는** 기사만 읽어서, timeout 줄은 다음 수집이 다시 시도하지 **않았다**. → 다시 뽑기(P2c, 4.8)가 `reason=timeout`이면 판과 상관없이 다시 고른다. 못 읽은 줄(4xx·robots 등)에도 규칙 이름을 적어, 같은 판의 영구 실패는 판이 오를 때까지 다시 고르지 않는다.
+
 ### 1.2 예약 실행 기록 (GitHub API, 10/31~11/05 UTC, schedule만)
 
 예정: `outside-feed.yml` UTC 23:07·04:07·09:07(서울 08:07·13:07·18:07). `news-feed.yml` UTC 23:22·04:22·09:22 + 11/05 04:48(UTC)부터 매시 22분 '채우기만'(#1901) [사실].
@@ -277,6 +293,14 @@ pg_cron (DB 안 시계, postgres 역할로 실행)
 | P2a | DB `app_feed_bodies` + 짝 파일 5개 + 권한 시험 | ★DB 적용★(승인형 workflow, 시험 적용 먼저) |
 | P2b | Edge 공용 추출기 + 카탈로그 `extract` + `probe` + 두 수집 함수 저장 + 출처 전수 시험 | ★Edge 배포★ `outside-feed` → 확인 → `news-feed`(한 번에 하나, 되돌리기 ref) |
 | P2c | 이미 들어간 최근 30일 글 다시 뽑기(일 줄에 `refill` 일, 사이트마다 하루 20건씩) | 운영 데이터 더하기만(지우지 않음), 실행 전 건수 한 줄 보고 |
+
+P2c 구현(S51-15) [사실: 코드]:
+- 예약 입구 `action=refill`, 몸통 `{source}`(키 하나, 주소 안 받음) — `news-feed`(매체 기사)·`outside-feed`(사회운동 글). 같은 열쇠 확인(비밀값 또는 `app_cron_keys` 지문).
+- 고르는 줄: 최근 30일(`REFILL_DAYS`) 가운데 블록 줄 없음 / `reason=timeout` / `state≠ok`이고 `rule`이 지금 카탈로그 판과 다름. 새 것부터 주소 20개(`REFILL_PER_SOURCE`), 찾는 범위 1000줄, 요청 사이 2초, 시간 예산 100초.
+- 블록 줄만 merge로 고친다(지우지 않음). 뉴스는 기사 줄의 body·body_kind·state도 같은 결과로(수집과 같은 `fillItems`, AI 요약 없음·열기 한도 안 셈). 사회운동 글은 문장 표·요약·제목을 건드리지 않는다.
+- 하지 않는 것: 텔레그램(목록 글이 본문)·`extract=false`·robots 예외 단체(공공운수노조·노동당 — 하루 3번 새 글만, 명진 결정).
+- 부르는 길(지금): CC가 SQL Editor에서 `docs/ops/feed-refill-once.sql`(① 건수 확인 → ② `net.http_post`로 몇 개씩 → ③ 응답 건수). DB 일 줄(`app_feed_jobs`)은 `action`이 `run_plan|run`, `step`이 정해진 목록만 받고 계획 응답 뒤 일을 `app_feed_settle`이 고정으로 넣으므로, 하루 한 번 자동으로 넣으려면 DB 검사·함수 바꿈이 필요하다 → 별도 PR(제안, 4.8 끝).
+- 하루 한 번 자동(제안): `app_feed_jobs_action_check`에 `refill` 더하기 + 새 예약 `web2_feed_refill`(밤 한 번, 일 줄에 매체·단체마다 `refill` 일) — 예약(cron)이 들어가 SQL Editor 전용 파일. 지금 숫자(남은 줄 수백 건)는 손 부르기 몇 번으로 끝나므로 급하지 않다.
 
 - 되돌리기: Edge 이전 ref 재배포 → 블록 저장이 멈출 뿐 기존 화면은 그대로. 표는 rollback SQL로 지움(다른 표 영향 없음).
 
