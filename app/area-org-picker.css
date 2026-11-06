@@ -1,0 +1,42 @@
+/* S52-01 UI-사업영역조직고르기창: 사업영역·조직 두 줄(area-org-picker.js) + 공용 고르기 창(choice-sheet.css) 안의 접는 목록.
+   값은 공용 토큰만 쓴다. 보이는 크기는 작게, 누르는 범위는 44px(::after, UI-버튼기준). */
+.aop-lines { display:block; margin:0; padding:0; }
+.aop-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; min-height:40px; padding:4px 0; border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
+.aop-row:last-child { border-bottom:0; }
+.aop-label { flex:none; width:58px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+.aop-chips { display:contents; }
+.aop-row [data-aop-none] { margin:0; }
+.aop-chip { display:inline-flex; align-items:center; max-width:100%; min-width:0; height:24px; box-sizing:border-box; padding:0 2px 0 9px; border:var(--ds-line-width,1px) solid var(--ds-select-line,var(--kptu-border-strong)); border-radius:var(--kptu-radius-pill,999px); background:var(--ds-select-bg,var(--kptu-primary-soft)); color:var(--ds-select-ink,var(--kptu-primary-ink)); font-size:var(--ds-text-meta,12px); line-height:1; }
+.aop-chip-text { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.aop-lines button { font:inherit; cursor:pointer; }
+.aop-lines .aop-chip-x { position:relative; display:inline-grid; place-items:center; flex:none; width:20px; height:20px; margin:0 0 0 2px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--kptu-muted); font-size:11px; line-height:1; }
+.aop-lines .aop-chip-x::after { content:""; position:absolute; inset:-12px -6px; }
+/* [+ 고르기]·[+]는 창 안 작은 글자 버튼(UI-버튼기준: 32px·13px/500·모서리 8px, 테두리 없음). */
+.aop-lines .aop-add { position:relative; flex:none; box-sizing:border-box; height:var(--ds-compact-height,32px); min-height:0; padding:0 8px; border:0; border-radius:var(--ds-radius-control,8px); background:transparent; color:var(--kptu-link,var(--kptu-primary-ink)); font-size:var(--ds-compact-text,13px); font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; }
+.aop-lines .aop-add.is-short { min-width:32px; padding:0 10px; }
+.aop-lines .aop-add::after { content:""; position:absolute; left:-4px; right:-4px; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
+.aop-lines .aop-add:hover, .aop-lines .aop-chip-x:hover { background:var(--kptu-surface-subtle); }
+.aop-lines button:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:1px; }
+.aop-lines button:disabled { opacity:.5; cursor:not-allowed; }
+
+/* 고르기 창 안: 큰 묶음만 보이고 꺾쇠로 하위를 펼친다. 찾는 동안(.home-choice-searching)은 맞는 줄을 모두 보이고 꺾쇠는 감춘다. */
+#areaOrgPickSheet .aop-line { display:flex; align-items:center; gap:2px; }
+#areaOrgPickSheet .aop-line > .home-choice-pick { flex:1 1 auto; min-width:0; }
+#areaOrgPickSheet .aop-kids { display:none; }
+#areaOrgPickSheet .aop-node.is-open > .aop-kids, #areaOrgPickSheet.home-choice-searching .aop-kids { display:block; }
+#areaOrgPickSheet .aop-fold, #areaOrgPickSheet .aop-group-name { position:relative; display:inline-flex; align-items:center; gap:4px; flex:none; height:32px; padding:0 8px; border:0; border-radius:var(--ds-radius-control,8px); background:transparent; color:var(--kptu-muted); font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-regular,400); }
+#areaOrgPickSheet .aop-fold::after, #areaOrgPickSheet .aop-group-name::after { content:""; position:absolute; left:0; right:0; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
+#areaOrgPickSheet .aop-group-name { flex:1 1 auto; justify-content:flex-start; color:var(--kptu-ink); font-size:14px; text-align:left; }
+#areaOrgPickSheet .aop-group-name .aop-fold-n { margin-left:auto; }
+#areaOrgPickSheet .aop-fold-n { color:var(--kptu-faint); font-size:11px; }
+#areaOrgPickSheet .aop-fold-mark { display:inline-block; width:6px; height:6px; margin:0 2px 3px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; color:var(--kptu-muted); transform:rotate(45deg); }
+#areaOrgPickSheet [aria-expanded="true"] > .aop-fold-mark { margin-bottom:-3px; transform:rotate(225deg); }
+#areaOrgPickSheet .aop-fold:hover, #areaOrgPickSheet .aop-group-name:hover { background:var(--kptu-surface-subtle); }
+#areaOrgPickSheet .aop-group > .aop-kids { padding-left:12px; }
+#areaOrgPickSheet.home-choice-searching :is(.aop-fold, .aop-fold-n, .aop-fold-mark) { display:none; }
+#areaOrgPickSheet.home-choice-searching .aop-group-name { pointer-events:none; height:24px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#areaOrgPickSheet .aop-recent { padding-bottom:4px; margin-bottom:6px; border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
+#areaOrgPickSheet .aop-recent .home-choice-group { margin:6px 0; }
+#areaOrgPickSheet [data-aop-empty] { margin:8px 0; }
+/* 찾기 칸은 폰(아래 창)에서도 보인다(choice-sheet.js searchAlways). */
+.home-choice-sheet.home-choice-search-all .home-choice-search-box { display:block; }

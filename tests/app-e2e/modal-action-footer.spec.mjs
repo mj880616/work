@@ -9,7 +9,7 @@ const cases=[
   {id:'eventModal',save:'saveEventBtn',status:'eventStatus',last:'#soEventOrgChecks label:last-child',input:'eventDescription'},
   {id:'ciGoogleModal',save:'ciGoogleSave',status:'ciGoogleStatus',last:'#soGoogleEditOrgChecks label:last-child',input:'ciGoogleMemo'},
   {id:'taskModal',save:'saveTaskBtn',status:'taskModalStatus',last:'#taskNote',input:'taskNote'},
-  {id:'gtTaskModal',save:'gtSaveBtn',status:'gtEditStatus',last:'#gtEditLinkBody label:last-child',input:'gtEditNotes'}
+  {id:'gtTaskModal',save:'gtSaveBtn',status:'gtEditStatus',last:'#gtEditLinkBody .aop-row:last-child',input:'gtEditNotes'}
 ];
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -53,7 +53,6 @@ for(const width of [360,1280])for(const c of cases){
     const cardAtTop=await card.boundingBox(),footerAtTop=await page.locator('#'+c.id+' .modal-action-footer').boundingBox();
     expect(Math.abs((footerAtTop.y+footerAtTop.height)-(cardAtTop.y+cardAtTop.height))).toBeLessThanOrEqual(1);
     await card.evaluate(el=>el.scrollTop=el.scrollHeight);
-    if(c.id==='gtTaskModal')await page.locator('#gtEditLinkBody').evaluate(el=>el.scrollTop=el.scrollHeight);
     const last=await page.locator(c.last).last().boundingBox(),footer=await page.locator('#'+c.id+' .modal-action-footer').boundingBox();
     expect(last.y+last.height).toBeLessThanOrEqual(footer.y);
     // Hit-test the full 44px target (including D-3c's transparent extension).

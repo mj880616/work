@@ -122,8 +122,8 @@ test('[전체 표] 주 고르기: 지난 주를 고르면 그 주 줄, [이번 �
  const {db,errors}=await fixture(page,{width:412});
  await openTable(page);
  // 평일 담당조직: 지난주 줄은 접힌 한 줄. 지난주 표가 빈 조직(ob)은 현황 표 최근 줄.
- await expect(oa(page).locator('[data-wl-last="oa"]')).toHaveText('지난주 1줄 ▸');
- await expect(ob(page).locator('[data-wl-last="ob"]')).toHaveText('현황 표 1줄 ▸');
+ await expect(oa(page).locator('[data-wl-last="oa"]')).toHaveText('지난주 1줄');
+ await expect(ob(page).locator('[data-wl-last="ob"]')).toHaveText('현황 표 1줄');
  await ob(page).locator('[data-wl-last="ob"]').click();
  await expect(ob(page).locator('.wl-line.is-last')).toContainText('합성 현황 줄');
  await ob(page).locator('[data-wl-take="ob"]').click();

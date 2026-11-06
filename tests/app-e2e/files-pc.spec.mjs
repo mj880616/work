@@ -71,7 +71,7 @@ test.describe('윈도우 PC 1440', () => {
     await expect(chip(page)).toBeVisible();
     await expect(chip(page)).toHaveAttribute('aria-pressed', 'true');
     // 시안 A: 원드라이브·구글 드라이브 다음 줄에 '내 PC'.
-    const roots = tree(page).locator('.fx-root .nx-name');
+    const roots = tree(page).locator('[data-fx-box-tog], [data-fx-pc-knock] .ft-name'); // S51-25: 저장소마다 상자 머리
     await expect(roots).toHaveText(['원드라이브', '구글 드라이브', '내 PC']);
     // 매 요청 로그인 토큰을 머리에 싣는다.
     expect(st.calls.length).toBeGreaterThan(0);
@@ -148,7 +148,7 @@ test.describe('윈도우 PC 1440', () => {
     const { errors, st } = await begin(page, { up: false });
     const off = tree(page).locator('[data-fx-pc-knock]');
     await expect(off).toHaveText('내 PC · 꺼짐');
-    await expect(tree(page).locator('.fx-root .nx-name')).toHaveText(['원드라이브', '구글 드라이브', '내 PC · 꺼짐']);
+    await expect(tree(page).locator('[data-fx-box-tog], [data-fx-pc-knock] .ft-name')).toHaveText(['원드라이브', '구글 드라이브', '내 PC · 꺼짐']);
     await expect(chip(page)).toHaveAttribute('aria-pressed', 'false');
     await shot(page, 'files-pc-off-1440');
     await off.click();
@@ -156,7 +156,7 @@ test.describe('윈도우 PC 1440', () => {
     st.up = true;
     await off.click();
     await expect(list(page).locator(at('data-fx-row', 'pc:C:\\'))).toBeVisible();
-    await expect(tree(page).locator('.fx-root .nx-name')).toHaveText(['원드라이브', '구글 드라이브', '내 PC']);
+    await expect(tree(page).locator('[data-fx-box-tog], [data-fx-pc-knock] .ft-name')).toHaveText(['원드라이브', '구글 드라이브', '내 PC']);
     expect(errors).toEqual([]);
   });
 
@@ -188,7 +188,7 @@ test.describe('윈도우 PC 1440 · 크롬 허락 전', () => {
 test('윈도우가 아닌 PC 브라우저: 내 PC 아이콘·줄이 없고 문을 두드리지 않는다', async ({ page }) => {
   test.setTimeout(60000);
   const { errors, st } = await begin(page);
-  await expect(tree(page).locator('.fx-root .nx-name')).toHaveText(['원드라이브', '구글 드라이브']);
+  await expect(tree(page).locator('[data-fx-box-tog], [data-fx-pc-knock] .ft-name')).toHaveText(['원드라이브', '구글 드라이브']);
   await expect(chip(page)).toBeHidden();
   await expect(tree(page).locator('[data-fx-pc-knock]')).toHaveCount(0);
   expect(st.calls).toEqual([]);

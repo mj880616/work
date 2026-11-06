@@ -87,18 +87,19 @@ for (const width of [884, 1440]) {
     await openFiles(page, width);
     const tree = root(page).locator('[data-fx-tree]');
     await expect(tree).toBeVisible();
-    // 나무: 묶음 2개(별표·큰 파일, S50-33 최근 뺌) + 두 클라우드 뿌리. 별표 줄에는 개수.
-    await expect(tree.locator('[data-fx-shelf] .nx-name')).toHaveText(['별표', '큰 파일']);
-    await expect(tree.locator('[data-fx-shelf="starred"] .nx-num')).toHaveText('1개');
-    // S50-20 FOLDER-나무아이콘: 별표·큰 파일은 별·문서, 저장소는 로고, 폴더는 폴더 아이콘(글자는 그대로).
-    await expect(tree.locator('[data-fx-shelf] .nx-ico svg')).toHaveCount(2); // S51-25: 별표·큰 파일 = 공용 SVG(그림 문자 없음)
-    await expect(tree.locator('.fx-root .nx-ico svg')).toHaveCount(2);
-    await expect(tree.locator('.fx-root .nx-name')).toHaveText(['원드라이브', '구글 드라이브']);
+    // 나무(S51-25 FOLDER-PC나무, 자료실 모양): 묶음 상자(별표·큰 파일) + 저장소마다 상자. 별표 줄에는 개수. 세모 없음.
+    await expect(tree.locator('[data-fx-shelf] .ft-name')).toHaveText(['별표', '큰 파일']);
+    await expect(tree.locator('[data-fx-shelf="starred"] .ft-num')).toHaveText('1개');
+    // S50-20 FOLDER-나무아이콘: 별표·큰 파일은 별·문서(공용 SVG), 저장소는 로고, 폴더는 폴더 아이콘.
+    await expect(tree.locator('[data-fx-shelf] .ft-ico svg')).toHaveCount(2);
+    await expect(tree.locator('.ft-box-head .ft-box-ico svg')).toHaveCount(2);
+    await expect(tree.locator('[data-fx-box-tog]')).toHaveText(['원드라이브', '구글 드라이브']);
+    await expect(tree).not.toContainText(/[▸▾]/);
     // 첫 화면(S50-33): 켜진 첫 저장소(원드라이브) 맨 위. [최근]·탭 줄은 없다.
     await expect(tree.locator('[data-fx-go="od"][data-fx-id=""]')).toHaveAttribute('aria-current', 'true');
     await expect(root(page).locator('[data-fx-tab]')).toHaveCount(0);
     await expect(row(page, 'od:OD!1')).toBeVisible();
-    await expect(tree.locator('[data-fx-go="od"][data-fx-id="OD!1"] .nx-num')).toHaveCount(0);
+    await expect(tree.locator('[data-fx-go="od"][data-fx-id="OD!1"] .ft-num')).toHaveCount(0);
     await row(page, 'od:OD!1').click();
     await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
     await expect(root(page).locator('.fx-crumb-step')).toHaveText(['원드라이브']);

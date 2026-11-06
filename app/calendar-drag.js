@@ -51,7 +51,8 @@ function copyLook(from,to,root){
   [...from.children].forEach((c,i)=>{if(to.children[i])copyLook(c,to.children[i],false)});
 }
 function ghostStart(e){
-  const r=g.el.getBoundingClientRect(),c=g.el.cloneNode(true);
+  // 누르는 동안의 눌림 움직임(UI-누름움직임: 가운데 기준 .94배)이 걸린 채 재면 조각이 작고 안쪽으로 밀린다 → 원래 크기·자리로 되돌려 잰다.
+  const b=g.el.getBoundingClientRect(),w=g.el.offsetWidth||b.width,h=g.el.offsetHeight||b.height,r={left:b.left+(b.width-w)/2,top:b.top+(b.height-h)/2,width:w,height:h},c=g.el.cloneNode(true);
   copyLook(g.el,c,true);
   [c,...c.querySelectorAll('*')].forEach(n=>{for(const a of [...n.attributes])if(a.name==='id'||a.name==='tabindex'||a.name==='title'||a.name.startsWith('data-')||a.name.startsWith('aria-'))n.removeAttribute(a.name)});
   c.className='cal-drag-ghost';c.setAttribute('aria-hidden','true');c.setAttribute('inert','');

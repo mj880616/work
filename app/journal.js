@@ -39,6 +39,7 @@ import {dueLabel} from './task-due.mjs';
 import {openGoogleEvent, eventAttrs} from './event-open.js';
 import {shouldAskDraft, draftFor, draftMaterial} from './journal-draft-model.mjs';
 import {createTaskInline, objectParticle} from './task-inline.js';
+import {applyCheckPop} from './check-motion.js';
 import {loadDocumentCategories} from './document-categories.js';
 import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './copy-text.js';
@@ -325,6 +326,7 @@ function taskRow(item, {pending}) {
     const mark = document.createElement('span');
     mark.className = 'journal-check is-done'; mark.setAttribute('aria-hidden', 'true');
     li.prepend(mark);
+    applyCheckPop(li, item.id); // UI-누름움직임: 방금 끝내 '한 일'로 옮겨 온 줄만 체크 움직임을 이어서 보인다
   }
   li.dataset.taskInlineRow = '';
   const more = document.createElement('button');

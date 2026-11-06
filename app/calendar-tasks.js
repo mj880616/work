@@ -1,5 +1,6 @@
 import {emptyHtml} from './wait-state.js';
 import {createTaskInline} from './task-inline.js';
+import {applyCheckPop} from './check-motion.js'; // UI-누름움직임: 끝낸 줄의 체크 움직임
 import {moveTaskToDay,dueDay} from './task-due.mjs';
 (()=>{
 'use strict';
@@ -85,7 +86,7 @@ const findTask=id=>{const raw=tasks.find(x=>x.id===id);if(!raw)return null;const
 const line=createTaskInline({menuId:'calendarTaskMenu',historyKey:'kptuCalendarTaskMenu',menuAttr:'calendarTaskMenu',find:findTask,
   begin:id=>{const l=lineOf(id);if(l)l.dataset.busy='1'},
   end:id=>{const l=lineOf(id);if(l)delete l.dataset.busy},
-  apply:(id,done,original)=>paint(rowOf(id),done===null?original.status==='completed':done),
+  apply:(id,done,original)=>{paint(rowOf(id),done===null?original.status==='completed':done);if(done===true)applyCheckPop(rowOf(id),id)},
   edit:id=>open(id,document.querySelector('#calendarDayModal')),
   // S51-27: 칸 안 할 일 막대에는 동그라미가 없어 PC 우클릭 메뉴에 [완료]를 더한다(동그라미와 같은 완료·되돌리기).
   extras:(task,el)=>el&&!el.closest('#calendarDayTasks')&&task.status!=='completed'?[{key:'done',label:'완료',run:()=>void line.complete(task.id,el)}]:[],

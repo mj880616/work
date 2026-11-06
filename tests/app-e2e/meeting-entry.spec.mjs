@@ -10,6 +10,7 @@ import {openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-op
 import {showAllReportWeeks} from './helpers/report-week.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {reportFilterButton,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
+import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -991,15 +992,15 @@ test('Google editor displays and retains meeting links while a meeting-only task
   await expect(page.locator('#gtTaskBody [data-google-task="linked-google"]')).toBeVisible({timeout:15000});
   await page.locator('[data-gt-edit="linked-google"]').click();
   await expect(page.locator('#gtMeetingLinks')).toContainText('사업 보고: 궤도협의회');
-  await expect(page.locator('#gtEditLinkBody input[value="p:main"]')).toBeChecked();
+  await expect.poll(()=>chosenKeys(page,'#gtEditLinkBody')).toEqual(['p:main']);
   // S51-13: 폴드 펼침(600px~)·PC 할 일 화면은 오른쪽 칸에서 바로 저장([저장] 없음), 폰 창은 [저장].
   const save=async()=>{const b=page.locator('#gtSaveBtn');if(await b.isVisible())await b.click();else await page.locator('#gtEditTitle').focus()};
   await page.locator('#gtEditNotes').fill('회의 연결을 유지하는 수정');await save();
   await expect.poll(()=>update).not.toBeNull();
   expect(linkChanges).toBe(0);
   await page.locator('[data-gt-edit="linked-google"]').click();
-  await expect(page.locator('#gtEditLinkBody input[value="p:main"]')).toBeChecked();
-  await page.locator('#gtEditLinkBody input[value="p:main"]').uncheck();
+  await expect.poll(()=>chosenKeys(page,'#gtEditLinkBody')).toEqual(['p:main']);
+  await removeKey(page,'#gtEditLinkBody','p:main');
   await save();
   await expect.poll(()=>unlinkBody).not.toBeNull();
   expect(unlinkBody.links).toEqual([{project_id:'main'}]);

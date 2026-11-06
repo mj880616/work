@@ -84,14 +84,14 @@ test('1280 월간: 일정으로 꽉 찬 날도 칸 어디든 우클릭 → 날�
   await expect(page.locator('#calendarDayModal [data-google-event="e6"]')).toBeVisible();
 });
 
-test('1280 월간: 일정 우클릭 → [수정][담당조직 연결][결과 남기기][삭제](맨 아래·빨강 없음), 할 일 막대 → 그 할 일 메뉴',async({page})=>{
+test('1280 월간: 일정 우클릭 → [수정][담당조직 연결][결과 남기기][삭제](맨 아래·빨강, S51-31), 할 일 막대 → 그 할 일 메뉴',async({page})=>{
   await open(page);
   await rightAt(page,page.locator('#calendarGrid [data-google-event="e0"]').first());
   await expect(menu(page)).toBeVisible();
   expect(await labels(page)).toEqual(['수정','담당조직 연결','결과 남기기','삭제']);
   const last=menu(page).locator('button').last();
   await expect(last).toHaveClass(/row-menu-last/);
-  const [red,ink]=await last.evaluate(b=>[getComputedStyle(b).color,getComputedStyle(b.previousElementSibling).color]);expect(red).toBe(ink);
+  const [red,ink,danger]=await last.evaluate(b=>{const d=document.createElement('i');d.style.color='var(--kptu-danger)';document.body.append(d);const c=getComputedStyle(d).color;d.remove();return [getComputedStyle(b).color,getComputedStyle(b.previousElementSibling).color,c]});expect(red).toBe(danger);expect(red).not.toBe(ink);
   await page.keyboard.press('Escape');await expect(menu(page)).toBeHidden();
   const chip=page.locator('#calendarGrid [data-calendar-task="t1"]').first();
   await expect(chip).toBeVisible();

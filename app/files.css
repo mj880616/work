@@ -18,12 +18,10 @@
 .fx-sync:hover:not(:disabled) { color:var(--kptu-ink); }
 .fx-note { margin:4px 0; font-size:12px; color:var(--kptu-muted); }
 .fx-cols { display:flex; min-width:0; align-items:flex-start; }
-.fx-tree { flex:0 0 240px; width:240px; padding:4px 4px 8px 0; }
-.fx-tree .nx-main { min-height:28px; font-size:12.5px; padding:0 4px; }
-.fx-tree .fx-root .nx-main { font-weight:600; }
-/* FILES-폴드나무목록 ④(S51-18, 시안 files-fold-tree-list.html): 폴드·PC 나무의 저장소 이름 줄은 옅은 배경 — 저장소 사이가 한눈에 갈린다. 접기는 줄 왼쪽 ▸/▾(접으면 그 저장소는 한 줄). */
-:is(.fx-tree, .fx-ptree) .nx-row.fx-root { margin-top:4px; background:var(--kptu-surface-subtle); border-radius:var(--kptu-radius-sm); }
-.fx-tree .nx-row.fx-shelf:last-of-type { margin-bottom:4px; padding-bottom:4px; border-bottom:.5px solid var(--kptu-border); }
+.fx-tree { flex:0 0 260px; width:260px; padding:0 10px 8px 0; }
+/* S51-25 FOLDER-PC나무: PC·폴드 왼쪽 나무와 두 칸의 ▾ 나무도 공용 상자 나무(folder-tree.css ft-) — 세모 없음, 저장소마다 상자. 화면 CSS는 자리만.
+   저장소 상자 머리 오른쪽 [맨 위]는 그 저장소 맨 위를 지금 칸에 연다. */
+.fx-box-top.fx-here { font-weight:700; }
 .fx-twist { flex:none; width:16px; border:0; background:none; padding:0; color:var(--kptu-faint); font-size:10px; cursor:pointer; }
 .fx-zero { opacity:.55; }
 /* S49-21 출처 아이콘 줄(켜짐/꺼짐 모양은 source-chips.css 공용). 줄 높이는 [정렬] 칩과 같게 촘촘하게. */
@@ -65,7 +63,9 @@
 .fx-dot[data-src="ph"] { background:var(--kptu-warning); }
 .fx-dot[data-src="pc"] { background:var(--kptu-muted); }
 /* S50-27 내 PC: 바구니 PC 앱 문이 답하지 않을 때 나무 맨 끝 흐린 줄(누르면 다시 확인). */
-.fx-tree .fx-pc-off .nx-main, .fx-ptree .fx-pc-off .nx-main { opacity:.55; font-weight:400; }
+.fx-pc-off > .ft-main { opacity:.55; }
+.fx-pc-off > .ft-main .ft-name { font-weight:400; }
+
 .fx-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fx-tag { flex:none; font-size:10.5px; color:var(--kptu-accent); }
 .fx-star { flex:none; display:inline-flex; align-items:center; font-size:11px; color:var(--kptu-muted); }
@@ -126,15 +126,9 @@
   .fx-sort { order:4; height:26px; }
   .fx-mkdir, .fx-upload { order:5; }
   .fx-tree { display:none; }
-  /* 폰 나무 — PC처럼 촘촘하게: 줄 30px(펼치기 단추는 손가락이 닿게 36px 폭·줄 높이 그대로), 글자 13.5px, 들여쓰기 7px(PC 14px의 절반), 펼침 삼각형 9px. */
   .fx[data-fx-pane="tree"] .fx-tree { display:block; position:static; flex:1 1 auto; width:100%; padding:2px 0 8px; border-right:0; }
   /* FOLDER-나무새기준 ②: 나무에서 파일 줄을 누르면 미리보기가 나무 위에 뜬다(미리보기 칸만 남기고 목록 칸은 숨김). */
   .fx[data-fx-pane="tree"] .fx-main > :not([data-fx-prev]), .fx[data-fx-pane="tree"] .fx-sort { display:none; }
-  .fx-tree .nx-row.nx-folder { padding-left:calc(var(--nx-indent, 0) * 7px); }
-  .fx-tree .nx-main { min-height:30px; font-size:13.5px; gap:5px; padding:0 4px; }
-  .fx-tree .nx-ico { font-size:13px; }
-  .fx-tree .fx-twist { width:36px; align-self:stretch; font-size:9px; }
-  .fx-tree .fx-shelf .nx-main { padding-left:40px; }
   .fx-sync-tree { flex:none; align-self:stretch; padding:0 6px; font-size:11px; color:var(--kptu-faint); }
   .fx-head { display:none; }
   .fx-row, .fx-with-path .fx-row { grid-template-columns:20px minmax(0,1fr); grid-template-rows:auto auto; min-height:44px; padding:4px 8px; row-gap:1px; }
@@ -220,14 +214,23 @@
 .fx-listcol { position:relative; }
 .fx[data-fx-two] .fx-main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start; }
 .fx[data-fx-two] .fx-listcol + .fx-listcol { border-left:.5px solid var(--kptu-border); }
+/* S51-25(시안 pc-files-library-style.html): 600px~ 두 칸은 칸마다 둥근 상자, 지금 칸은 강조색 테두리. 칸 사이는 틈. */
+@media (min-width:600px) {
+  .fx[data-fx-two] .fx-main { gap:10px; }
+  .fx[data-fx-two] .fx-listcol { border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); border-radius:var(--kptu-radius-md,12px); overflow:hidden; background:var(--kptu-surface); }
+  .fx[data-fx-two] .fx-listcol + .fx-listcol { border-left:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
+  .fx[data-fx-two] .fx-listcol.fx-cur { border-color:var(--kptu-primary); box-shadow:0 0 0 1px var(--kptu-primary); }
+  .fx[data-fx-two] .fx-ptop { border-bottom-width:.5px; }
+  /* 줄 넉넉히(시안 36px 안쪽): 목록 줄 34px·13px. 고르기·끌기·키보드는 그대로. */
+  .fx-rows:not(.fx-grid) > .fx-row { min-height:34px; font-size:13px; padding:0 12px; }
+  .fx-head { padding:0 12px; }
+}
 .fx-ptop { display:flex; align-items:center; gap:6px; min-height:34px; padding:0 6px 0 8px; border-bottom:2px solid var(--kptu-border); background:var(--kptu-surface-subtle); }
 .fx-cur > .fx-ptop { border-bottom-color:var(--kptu-primary); }
 .fx-ptop .fx-crumb { flex:1 1 auto; }
 .fx-pdrop { flex:none; height:24px; min-width:28px; padding:0 6px; }
 .fx-pdrop[aria-expanded="true"] { background:var(--kptu-primary-soft); }
-.fx-ptree.nx-tree:not([hidden]) { position:static; display:block; max-height:min(50vh, 420px); overflow:auto; border-right:0; border-bottom:.5px solid var(--kptu-border); padding:4px 4px 6px 0; background:var(--kptu-surface); }
-.fx-ptree .nx-main { min-height:30px; font-size:12.5px; padding:0 4px; }
-.fx-ptree .fx-root .nx-main { font-weight:600; }
+.fx-ptree.nx-tree:not([hidden]) { position:static; display:block; max-height:min(50vh, 420px); overflow:auto; border-right:0; border-bottom:.5px solid var(--kptu-border); padding:8px 8px 0; background:var(--kptu-surface-subtle); }
 .fx[data-fx-two="fold"] .fx-cols { display:block; }
 .fx[data-fx-two="fold"] .fx-tree { display:none; }
 .fx[data-fx-two] .fx-head, .fx[data-fx-two] .fx-row { grid-template-columns:20px var(--fx-w-name,minmax(0,1fr)) var(--fx-w-day,80px) var(--fx-w-size,64px); }
@@ -254,8 +257,8 @@
 .fx-ico.fl-ico { color:var(--fl-ico,var(--ds-folder-0-ico)); }
 .fx-ico.fl-ico svg { width:14px; height:14px; }
 /* FOLDER-나무새기준 ②(S51-12): 폰 나무는 공용 상자·줄(folder-tree.css ft-). 여기는 [파일]만의 것 — 상자 머리 저장소 그림, 파일 줄 종류 글자·날짜. */
-.fx-tree .ft-box-ico { display:inline-flex; align-items:center; color:var(--kptu-muted); }
-.fx-tree .ft-box-ico svg { display:block; }
+:is(.fx-tree, .fx-ptree) .ft-box-ico { display:inline-flex; align-items:center; color:var(--kptu-muted); }
+:is(.fx-tree, .fx-ptree) .ft-box-ico svg { display:block; }
 .fx-tree .ft-box-head .fx-sync-tree { align-self:center; }
 .fx-titem .ft-main { min-height:40px; }
 .fx-tkind { flex:none; box-sizing:border-box; min-width:30px; height:18px; padding:0 5px; border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface-subtle); color:var(--kptu-muted); font-size:10px; line-height:18px; text-align:center; white-space:nowrap; }

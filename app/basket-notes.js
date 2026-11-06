@@ -7,6 +7,7 @@ import { treeIconHtml, iconSvg } from './tree-icons.js';
 // FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, FT_PREVIEW } from './folder-tree-ui.mjs';
 import { recentFolded, toggleRecentFolded } from './recent-fold.js';
+import { MORE_LABEL } from './fold-chevron.mjs';
 import { bindFolderPinch } from './folder-pinch.js';
 import { formatSeoulTime } from './meeting-time.js';
 // MEMO-노트: the [노트] side of the basket tab. Notes are app_notes rows with kind=note (20261017052234), read and
@@ -161,7 +162,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // (맨 위 단계만 구분선·굵은 이름, 하위는 들여쓰기, 이름 + 회색 개수, 오른쪽 ⋯, 펼침은 폴더 그림 열린/닫힌 모양).
   function folderRowHtml(r, {tree = false} = {}) {
     const key = 'f:' + r.id, current = tree && at === r.id;
-    return ftFolderRowHtml({name:r.name, count:r.count, countLabel:`노트 ${r.count}개`, depth:r.depth || 0, open:r.open || current, hasContent:r.hasContent !== false,
+    // S51-25 FOLDER-PC나무: PC 왼쪽 나무는 줄 = 그 폴더 열기 + 펼침, 아이콘만 = 접기·펼치기(오른쪽은 그대로). 폴더만 보이는 나무라 하위 폴더가 있을 때만 펼칠 것이 있다.
+    const pcTree = tree && !pick.active, kids = pcTree ? !!r.hasChildren : r.hasContent !== false;
+    return ftFolderRowHtml({name:r.name, count:r.count, countLabel:`노트 ${r.count}개`, depth:r.depth || 0, open:pcTree ? !!r.open : r.open || current, hasContent:kids,
+      toggle:pcTree ? {attrs:{'data-nx-tog':r.id}, label:`${r.name} ${r.open && kids ? '접기' : '펼치기'}`} : null,
       color:r.color, current, picked:isPicked(key), lead:pick.active ? pickBox(key) : '', tree, className:'nx-folder',
       rowAttrs:{'data-nx-folder':r.id, 'data-reorder-id':key}, mainAttrs:{'data-nx-open':r.id},
       more:{attrs:{'data-nx-folder-more':r.id, 'aria-controls':'noteDocMenu'}, label:`${r.name} 폴더 메뉴`, className:'nx-more'}});
@@ -310,7 +314,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // NOTE-최근5개 → 나무새기준 ①: 폰 첫 화면 맨 위 '최근' 상자(자료실 '최근 올린 파일'과 같은 상자, [더보기]면 15개).
       const recent = !m && at === null && showRecent() ? recentRows({folders, notes, folderOf, count:recentAll ? RECENT_MORE : undefined}) : [];
       recentBox.hidden = !recent.length;
-      const moreBtn = notes.length > recent.length || recentAll ? `<button type="button" class="ft-btn ft-box-more" data-nx-recent-more aria-expanded="${recentAll}">${recentAll ? '접기' : '더보기'}</button>` : '';
+      const moreBtn = notes.length > recent.length || recentAll ? `<button type="button" class="ft-btn ft-box-more" data-nx-recent-more aria-expanded="${recentAll}">${recentAll ? '접기' : MORE_LABEL}</button>` : '';
       // S51-22: 머리 줄을 누르면 접기(서버 view_prefs.recent_folded, recent-fold.js).
       const shut = recentFolded('notes');
       recentBox.innerHTML = recent.length ? ftBoxHtml({head:RECENT_NAME, tail:moreBtn, collapsible:true, caret:true, open:!shut, toggleAttrs:{'data-nx-recent-fold':''}, body:shut ? '' : recent.map(r => rowHtml(r)).join(''), label:'최근 노트'}) : '';
@@ -1291,6 +1295,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.hasAttribute('data-note-view')) { setView(b.dataset.noteView); return; }
     if (b.hasAttribute('data-nb-remove')) { if (!pick.active) boards.detach(b.dataset.nbRemove); return; }
     if (b.hasAttribute('data-note-row')) { if (pick.active) togglePick('n:' + b.dataset.noteRow); else open(b.dataset.noteRow); }
+    else if (b.hasAttribute('data-nx-tog')) { const id = b.dataset.nxTog; if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderList(); host.querySelector(`[data-nx-tog="${CSS.escape(id)}"]`)?.focus({preventScroll:true}); }
     else if (b.hasAttribute('data-nx-open')) pressFolder(b.dataset.nxOpen, e);
     else if (b.hasAttribute('data-nx-at')) enter(b.dataset.nxAt || null);
     else if (b.hasAttribute('data-nx-back')) up();
@@ -1322,7 +1327,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (id === OUTSIDE) { enter(OUTSIDE); return; }
     if (id === RECENT) { enter(null); return; }
     if (pick.active) { togglePick('f:' + id); return; }
-    if (wideList.matches) { if (e?.target?.closest?.('[data-nx-tree]') && at === id) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); } else openSet.add(id); }
+    if (wideList.matches) openSet.add(id); // S51-25: 줄 누르기 = 그 폴더 열기 + 펼침(접기는 아이콘만)
     enter(id);
   }
   // 들어가기(10:34 ②): 그 폴더만 보이고 위에 '이름 · 장수'(2단 이상이면 위치 줄도). 폴더 위쪽은 왼쪽 나무에서 열어 둔다.

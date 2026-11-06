@@ -20,8 +20,6 @@
 #appView #pagesView .sp-box{ margin-top:8px; }
 #appView #pagesView .sp-box-summary{ display:inline-flex; align-items:center; min-height:var(--kptu-touch-target,44px); padding:0 2px; font-size:var(--ds-text-meta); color:var(--kptu-muted); cursor:pointer; list-style:none; }
 #appView #pagesView .sp-box-summary::-webkit-details-marker{ display:none; }
-#appView #pagesView .sp-box-summary::before{ content:'▸'; margin-right:4px; font-size:10px; }
-#appView #pagesView .sp-box[open] > .sp-box-summary::before{ content:'▾'; }
 #appView #pagesView .sp-box-summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #pagesView .sp-row.sp-box-row{ cursor:default; color:var(--kptu-muted); }
 #appView #pagesView .sp-row.sp-box-row:hover{ background:transparent; }
