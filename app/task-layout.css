@@ -8,8 +8,6 @@
 .tl-status-group{border-top:1px solid var(--kptu-border,#e5e9ed)}
 .tl-status-group>summary{display:flex;justify-content:space-between;align-items:center;list-style:none;cursor:pointer;padding:var(--kptu-space-2,8px) var(--kptu-space-1,4px) 6px;font-size:11px;color:var(--kptu-muted,#68737e)}
 .tl-status-group>summary::-webkit-details-marker{display:none}
-.tl-status-group>summary span:before{content:'▸';display:inline-block;margin-right:5px;transition:transform .15s}
-.tl-status-group[open]>summary span:before{transform:rotate(90deg)}
 .tl-status-group>summary b{font-size:10px}
 .tl-open-list,.tl-done-list{display:grid;min-width:0}
 .tl-task-row{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:2px;min-width:0;min-height:54px;padding:6px 0;border-bottom:1px solid var(--kptu-border,#e5e9ed);position:relative}

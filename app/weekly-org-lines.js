@@ -15,6 +15,7 @@ import {cellParts, sortLines, dayText, cleanBody, checkDraft, nextOrder, hasRoom
 import {seoulDateKey} from './meeting-time.js';
 import {fillMissing} from './weekly-org-suggest.js';
 import {waitHtml, emptyHtml} from './wait-state.js';
+import { chevHtml } from './fold-chevron.mjs';
 
 const TABLE = '/rest/v1/app_weekly_org_lines';
 const COLS = 'id,organization_id,week_start,day,end_day,body,sort_order,state,origin,edited,source_update_ids,source_note_ids,source_status_ids,updated_at';
@@ -135,7 +136,7 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     const fromStatus = ctl.lastFromStatus.has(orgId), name = fromStatus ? '현황 표' : '지난주';
     const open = ctl.lastOpen.has(orgId) || (ctl.mode === 'weekly' && parts.thin && !ctl.lastOpen.has(`-${orgId}`));
     const dis = ctl.disabled() || !hasRoom(ctl.lines.get(orgId));
-    const toggle = `<button type="button" class="wl-more is-last" data-wl-last="${esc(orgId)}" aria-expanded="${open}">${name} ${last.length}줄 ${open ? '▴' : '▸'}</button>`;
+    const toggle = `<button type="button" class="wl-more is-last" data-wl-last="${esc(orgId)}" aria-expanded="${open}">${name} ${last.length}줄 ${chevHtml(open)}</button>`;
     if (!open) return toggle;
     return `${toggle}<div class="wl-last" data-wl-last-box="${esc(orgId)}">${last.map((l, i) => `<div class="wl-line is-last"><span class="wl-day">- ${esc(dayText(l.day, l.end_day))}</span><span class="wl-text">${esc(cleanBody(l.body))}</span><span class="wl-btns btn-row"><button type="button" class="wl-btn" data-wl-take="${esc(orgId)}" data-wl-i="${i}"${dis ? ' disabled' : ''}>가져오기</button></span></div>`).join('')}</div>`;
   };
@@ -151,7 +152,7 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     const parts = cellParts(ctl.lines.get(orgId) || []), dis = ctl.disabled();
     const open = parts.older.length > 0 && (ctl.open.has(orgId) || parts.older.some(l => l.id === ctl.editing?.id));
     let html = '';
-    if (parts.older.length) html += `<button type="button" class="wl-more" data-wl-toggle="${esc(orgId)}" aria-expanded="${open}">외 ${parts.older.length}줄 ${open ? '▴' : '▾'}</button>`;
+    if (parts.older.length) html += `<button type="button" class="wl-more" data-wl-toggle="${esc(orgId)}" aria-expanded="${open}">외 ${parts.older.length}줄 ${chevHtml(open)}</button>`;
     if (open) html += parts.older.map(l => lineHtml(orgId, l)).join('');
     html += parts.shown.map(l => lineHtml(orgId, l)).join('');
     if (!parts.placed.length && !parts.suggested.length && !(ctl.editing?.orgId === orgId)) html += '<span class="wl-empty">—</span>';

@@ -182,7 +182,6 @@
 #appView #photosView .photos-tidy-row > summary::-webkit-details-marker{ display:none; }
 #appView #photosView .photos-tidy-row b{ font-weight:600; }
 #appView #photosView .photos-tidy-see{ color:var(--kptu-primary-ink); font-size:12px; }
-#appView #photosView .photos-tidy-row[open] .photos-tidy-see::after{ content:" ▴"; }
 #appView #photosView .photos-tidy-list{ display:flex; flex-direction:column; gap:2px; padding:0 0 4px 8px; }
 #appView #photosView .photos-tidy-item{ display:flex; justify-content:space-between; gap:8px; min-height:30px; min-width:0; margin:0; padding:0 4px; border:0; background:transparent; box-shadow:none; color:var(--kptu-ink); font-size:13px; font-weight:400; text-align:left; }
 #appView #photosView .photos-tidy-num{ flex:none; color:var(--kptu-muted); font-size:12px; font-variant-numeric:tabular-nums; }

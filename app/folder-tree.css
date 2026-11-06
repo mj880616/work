@@ -38,7 +38,8 @@
 .ft-box-folded { margin-left:auto; padding-right:8px; font-size:var(--ds-text-meta,12px); font-weight:400; color:var(--kptu-muted); }
 .ft-box-head > :last-child:not(.ft-box-title):not(.ft-box-toggle) { margin-left:auto; }
 .ft-box-tail { flex:none; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
-.ft-box-caret { flex:none; padding:0 8px 0 4px; font-size:11px; color:var(--kptu-muted); pointer-events:none; }
+/* '최근' 상자 접기 꺾쇠: 이름 바로 옆, 글자와 같은 높이·회색(모양은 ui-standard.css UI-접기꺾쇠 .kptu-chev 한 곳). 이름과의 간격은 단추 gap 6px를 4px로. */
+.ft-box-toggle > .ft-box-caret { margin-left:-2px; }
 
 .ft-box-more { position:relative; flex:none; min-height:28px; margin:0; padding:0 8px; border:0; background:none; color:var(--kptu-primary-ink,var(--kptu-primary)); font:inherit; font-size:var(--ds-text-meta,12px); cursor:pointer; }
 .ft-box-more::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
