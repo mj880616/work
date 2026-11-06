@@ -134,6 +134,16 @@
      칸이 작은 달력(사진 달력)은 얇은 선(--ds-today-line-width-sm). 규칙은 ui-standard.css '오늘 표시' 한 곳. */
   --ds-today-line:var(--kptu-primary-ink);--ds-today-line-width:2px;--ds-today-line-width-sm:1.5px;
   /* 3/3(8-9e) 자료실 파일 종류 색(원장 CC18 결정): PDF 빨강·HWP 파랑·엑셀 초록·워드 남색·PPT 주황, 나머지는 --ds-kind-other(회색). */
+  /* S51-8 NEWS-전면개편 P4b: News 목록 매체 색(묶음마다 색 계열 하나 · 매체마다 톤다운 한 칸, 계산은 news-colors.mjs 하나)과 분류 꼬리표 4색. */
+  --ds-news-labor-1:#a3412e;--ds-news-labor-2:#b8434f;--ds-news-labor-3:#c0643c;--ds-news-labor-4:#8f4a3a;
+  --ds-news-party-1:#1f7a78;--ds-news-party-2:#2c8c86;--ds-news-party-3:#3a6f80;--ds-news-party-4:#2a6b5e;
+  --ds-news-movement-1:#8a5bb5;--ds-news-movement-2:#7a4aa5;--ds-news-movement-3:#6b5a9e;--ds-news-movement-4:#9a5a8f;
+  --ds-news-foreign-1:#555555;--ds-news-foreign-2:#6b6b6b;--ds-news-foreign-3:#5a6068;--ds-news-foreign-4:#706a60;
+  --ds-news-press-1:#3d7bc8;--ds-news-press-2:#2f9e6b;--ds-news-press-3:#2d5aa6;--ds-news-press-4:#3a8a5a;
+  --ds-news-tag-labor-soft:#fbe9e7;--ds-news-tag-labor-ink:#a3412e;
+  --ds-news-tag-politics-soft:#e8eefb;--ds-news-tag-politics-ink:#2d5aa6;
+  --ds-news-tag-intl-soft:#eef7ee;--ds-news-tag-intl-ink:#2f7a3a;
+  --ds-news-tag-statement-soft:#f6eefb;--ds-news-tag-statement-ink:#7a4aa5;
   --ds-file-pdf-soft:#fbe5e2;--ds-file-pdf-ink:#a3271b;
   --ds-file-hwp-soft:#e3eefb;--ds-file-hwp-ink:#1c5aa6;
   --ds-file-xls-soft:#e1f2e5;--ds-file-xls-ink:#226b3a;
@@ -203,6 +213,16 @@
     --ds-kind-diary-soft:#2b2440;--ds-kind-diary-ink:#c8b5ee;
     --ds-kind-task-soft:#16332b;--ds-kind-task-ink:#8ad6bd;
     --ds-kind-other-soft:#2d2c27;--ds-kind-other-ink:#cbc8bd;
+    /* S51-8 News 매체 색·꼬리표 어두운 값: 같은 색 계열, 어두운 바탕에서 읽히게 밝게. */
+    --ds-news-labor-1:#e59a8a;--ds-news-labor-2:#e8909a;--ds-news-labor-3:#e6a07e;--ds-news-labor-4:#d19a8c;
+    --ds-news-party-1:#72c6c2;--ds-news-party-2:#80d0c8;--ds-news-party-3:#86b8c8;--ds-news-party-4:#7cbca9;
+    --ds-news-movement-1:#c3a5e6;--ds-news-movement-2:#b896e0;--ds-news-movement-3:#ada2d8;--ds-news-movement-4:#d1a3c8;
+    --ds-news-foreign-1:#b5b2a8;--ds-news-foreign-2:#c4c1b7;--ds-news-foreign-3:#aab1ba;--ds-news-foreign-4:#c0b8a8;
+    --ds-news-press-1:#8fb8ea;--ds-news-press-2:#86d0aa;--ds-news-press-3:#9db3e6;--ds-news-press-4:#92c7a2;
+    --ds-news-tag-labor-soft:#3b201d;--ds-news-tag-labor-ink:#f0a597;
+    --ds-news-tag-politics-soft:#1b2a3d;--ds-news-tag-politics-ink:#9fc4f0;
+    --ds-news-tag-intl-soft:#1c3022;--ds-news-tag-intl-ink:#9fd2a9;
+    --ds-news-tag-statement-soft:#2b2440;--ds-news-tag-statement-ink:#c8b5ee;
     --ds-file-pdf-soft:#3d1f1b;--ds-file-pdf-ink:#f2a097;
     --ds-file-hwp-soft:#1b2a3d;--ds-file-hwp-ink:#9fc4f0;
     --ds-file-xls-soft:#1c3022;--ds-file-xls-ink:#9fd2a9;

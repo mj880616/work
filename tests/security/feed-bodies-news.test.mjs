@@ -53,7 +53,7 @@ test('media: 피드 읽은 뒤 새 기사마다 글 쪽 1번 → 기사 body ful
  const out=await w.cron({step:'media',source:'news-beminor'});
  assert.equal(out.ok,true);assert.equal(out.bodies,1);assert.equal(out.bodies_deferred,0);
  assert.equal(w.calls.filter(c=>c.url===ART(1)).length,1,'같은 주소는 한 번만 읽음(작업공간 둘)');
- assert.deepEqual(w.bodies.map(x=>[x.workspace_id,x.news_item_id,x.state,x.rule,x.images]).sort(),[[WS,a.id,'ok','news-beminor@1',1],[WS2,b.id,'ok','news-beminor@1',1]].sort());
+ assert.deepEqual(w.bodies.map(x=>[x.workspace_id,x.news_item_id,x.state,x.rule,x.images]).sort(),[[WS,a.id,'ok','news-beminor@2',1],[WS2,b.id,'ok','news-beminor@2',1]].sort());
  const img=w.bodies[0].blocks.find(x=>x.t==='img');assert.deepEqual(img,{t:'img',src:'https://www.beminor.com/news/photo/1.jpg',cap:'합성 캡션 1',alt:null});
  assert.ok(!JSON.stringify(w.bodies).includes('합성 메뉴'));
  const patches=w.calls.filter(c=>c.method==='PATCH'&&c.url.includes('/app_news_items?id=eq.'));

@@ -21,7 +21,7 @@ const BODY_KO='공공기관 민영화 저지 투쟁을 선포한다. 정부는 �
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 const answer=obj=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(obj)}]}],usage:{input_tokens:3000,output_tokens:400}});
 
-function harness({openai=null,usage=[],details=[],interests=[],signals=[],site=null,env={}}={}){
+function harness({openai=null,usage=[],details=[],interests=[],signals=[],site=null,env={},feed=[]}={}){
   const calls={openai:[],rest:[],service:[],site:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -40,6 +40,7 @@ function harness({openai=null,usage=[],details=[],interests=[],signals=[],site=n
     app_news_items:[
       {id:NEWS_1,workspace_id:WS,lane:'keyword',url:'https://news.example/a',title:'철도 민영화 논란 재점화',title_ko:null,lang:'ko',publisher:'가상일보',source_key:null,summary:'철도 분할 논의.',body:'철도 분할 논의가 다시 시작됐다.',body_ko:null,hidden_at:null,created_at:'2026-11-01T00:00:00Z'},
     ],
+    app_feed_bodies:structuredClone(feed),
     app_now_details:structuredClone(details),
     app_now_interests:structuredClone(interests),
     app_now_signals:structuredClone(signals),
@@ -276,7 +277,11 @@ test('source: the service key is read only in now-detail.ts svc() for three tabl
   assert.equal((nd.match(/SUPABASE_SERVICE_ROLE_KEY/g)||[]).length,1);
   assert.match(nd,/const SERVICE_TABLES = Object\.freeze\(\{\n  app_now_details: \["POST", "PATCH"\],\n  app_now_interests: \["POST", "PATCH"\],\n  app_now_signals: \["DELETE"\],/);
   for(const f of ['handler.ts','index.ts'])assert.doesNotMatch(readFileSync(`supabase/functions/ai-assist/${f}`,'utf8'),/SERVICE_ROLE/);
-  assert.match(nd,/store: false/);assert.doesNotMatch(nd,/tools\s*:/);
+  // AI 요청 몸통·재료·지시는 공용 모듈(P3b): 저장 안 함·도구 없음, 서버 열쇠·환경 변수를 읽지 않고 쓰기도 하지 않는다.
+  const build=readFileSync('supabase/functions/_shared/now-detail-build.ts','utf8');
+  assert.match(build,/model, store: false, max_output_tokens/);assert.doesNotMatch(build,/tools\s*:/);assert.doesNotMatch(nd,/tools\s*:/);
+  assert.doesNotMatch(build,/SERVICE_ROLE|Deno\.env|method:\s*["'](POST|PATCH|DELETE|PUT)/);
+  assert.match(nd,/kit\.ai\(config\.key, aiRequestBody\(/);
   assert.equal(N.NOW_DETAIL_DAILY,40);
   for(const t of [N.NOW_DETAIL_INSTRUCTIONS,N.NOW_BASIC_INSTRUCTIONS,N.NOW_CONTEXT_INSTRUCTIONS])assert.ok(t.includes("말투: 요약·정리 문장은"),'shared tone rule');
 });
@@ -286,4 +291,48 @@ test('내용 없음 문장은 요약으로 받지 않는다',()=>{
   assert.equal(N.isNoContentSummary('자료에 글의 제목과 본문이 제공되지 않아 요약할 내용이 없음.'),true);
   assert.equal(N.isNoContentSummary('정부가 철도 분할을 추진하자 노조가 총파업을 예고했다.'),false);
   assert.equal(N.cleanCore({summary:'요약할 내용이 없음',key_sentences:[]},'본문',false),null);
+});
+
+// P3b: 수집 때 저장한 본문 블록(app_feed_bodies)이 있으면 그 글자를 재료로 먼저 쓴다(문장 표·원문 쪽을 다시 읽지 않음).
+const FEED_KO=[{t:'h',text:'공공기관 민영화 저지'},{t:'p',text:'공공기관 민영화 저지 투쟁을 선포한다.'},{t:'img',src:'https://www.kptu.net/i/1.jpg',cap:'집회 사진'},{t:'quote',text:'정부는 철도와 가스의 분할을 멈춰야 한다.'}];
+test('stored body blocks are the material first: domestic post skips the sentence table',async()=>{
+  const {handler,calls}=harness({feed:[{id:id(300),workspace_id:WS,outside_post_id:POST_KO,news_item_id:null,state:'ok',blocks:FEED_KO}]});
+  const b=await (await post(handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
+  assert.equal(b.detail.level,'full');
+  const m=JSON.parse(calls.openai[0].input[1].content);
+  assert.equal(m.item.material,'공공기관 민영화 저지\n공공기관 민영화 저지 투쟁을 선포한다.\n정부는 철도와 가스의 분할을 멈춰야 한다.');
+  assert.ok(!m.item.material.includes('집회 사진')&&!m.item.material.includes('https://'),'photos and captions are not material');
+  assert.deepEqual(b.detail.key_sentences,[{orig:'정부는 철도와 가스의 분할을 멈춰야 한다.',ko:null}]);
+  assert.ok(!calls.rest.some(c=>c.table==='app_outside_sentences'),'no sentence-table read');
+  const fb=calls.rest.find(c=>c.table==='app_feed_bodies');
+  assert.ok(fb.query.includes(`workspace_id=eq.${WS}`)&&fb.query.includes(`outside_post_id=eq.${POST_KO}`));
+});
+
+test('stored body blocks for a foreign post: no robots·page read',async()=>{
+  const feed=[{id:id(301),workspace_id:WS,outside_post_id:POST_EN,news_item_id:null,state:'lead',blocks:[{t:'p',text:'Unions call for more action.'}]}];
+  const {handler,calls}=harness({feed,openai:()=>answer({summary:'영국에서 파업이 번진다.',key_sentences:[{orig:'Unions call for more action.',ko:'노조들은 더 많은 행동을 요구한다.'}],relevance:{topics:[],reason:''},implications:{kptu:'',labor:''},related:[]})});
+  const b=await (await post(handler,{kind:'now_detail',outside_post_id:POST_EN})).json();
+  assert.equal(calls.site.length,0,'site never requested');
+  assert.equal(JSON.parse(calls.openai[0].input[1].content).item.material,'Unions call for more action.');
+  assert.deepEqual(b.detail.key_sentences,[{orig:'Unions call for more action.',ko:'노조들은 더 많은 행동을 요구한다.'}]);
+});
+
+test('failed·image-only body rows and another workspace\'s row fall back to the old material',async()=>{
+  const feed=[{id:id(302),workspace_id:WS,outside_post_id:null,news_item_id:NEWS_1,state:'failed',reason:'relay',blocks:[]},
+    {id:id(303),workspace_id:OTHER_WS,outside_post_id:POST_KO,news_item_id:null,state:'ok',blocks:[{t:'p',text:'남의 본문'}]}];
+  const {handler,calls}=harness({feed});
+  await post(handler,{kind:'now_detail',news_item_id:NEWS_1});
+  assert.equal(JSON.parse(calls.openai[0].input[1].content).item.material,'철도 분할 논의가 다시 시작됐다.');
+  await post(handler,{kind:'now_detail',outside_post_id:POST_KO});
+  assert.equal(JSON.parse(calls.openai[1].input[1].content).item.material,BODY_KO);
+  assert.ok(!calls.openai.some(o=>o.input[1].content.includes('남의 본문')));
+});
+
+test('body table not there yet (read fails) → old material, still works',async()=>{
+  const {handler,calls,db}=harness();
+  delete db.app_feed_bodies;
+  const b=await (await post(handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
+  assert.equal(b.detail.level,'full');
+  assert.equal(JSON.parse(calls.openai[0].input[1].content).item.material,BODY_KO);
+  assert.ok(calls.logs.some(l=>l.code==='now_read_skipped'&&l.detail?.stage==='feed_body'));
 });

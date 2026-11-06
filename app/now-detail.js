@@ -1,35 +1,40 @@
-import {waitHtml, failHtml} from './wait-state.js';
+import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {sendSignal, setMark} from './now-marks.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason} from './now-model.mjs';
-// OUTSIDE-글상세·관심환류 ③(설계 docs/design/outside-statements.md 12.3·12.4·12.5·12.6절): 글 상세 공용 부품.
-// 사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다(두 벌 안 만듦). 상세 칸(box)의 유일한 그리기 주인이다.
-// - 위: 꼬리 줄(단체·매체 · 국내/외국 · 종류 · 글쓴이 · 날짜) + 오른쪽 [원문 ↗] / 제목(외국어면 원제 작게)
-// - AI 부분(핵심 요약·주요 문장·나와의 연관·시사점·함께 볼 것)은 서버(ai-assist kind now_detail)가 처음 열 때 한 번 만들어 저장한다.
-//   화면은 글 id만 보낸다(주소·본문 안 보냄). 다시 열면 서버 저장본. 하루 40번을 넘으면 서버가 요약·문장까지만(level basic).
-// - 아래 작은 단추 줄 [☆ 별표] [보관] [메모] [관심 없음]: 사회운동 글은 app_outside_marks(글마다 한 줄), 뉴스는 기존 app_news_items 칸
-//   (starred_at·hidden_at, 보관 = 별표 폴더라 목록의 폴더 고르기에서). 메모는 기존 노트(app_notes, metadata.outside_post_id|news_item_id).
-//   누를 때마다 환류 기록 한 줄(app_now_signals, 화면은 더하기만, 시각은 서버 시계). [원문 ↗] 열기도 기록한다.
-// - 저장은 모두 서버(작업공간 소유자 RLS). 기기 저장 없음. 상세 저장본은 이 탭 메모리에만 다시 쓰려고 둔다.
-// - [본문](S50-2, 11/04): head.body가 있는 글(서버에 본문을 저장한 출처)만 꼬리 줄에 [본문]이 보인다. 누르면 같은 칸이 읽기 화면으로 바뀐다
-//   (제목·꼬리 줄 + 본문 전체, 글자 크기 3단계 — 이 탭 메모리만). 본문은 사회운동 글 = app_outside_sentences, 뉴스 = app_news_items.body를
-//   사용자 로그인으로 읽는다(원문 사이트는 부르지 않음). 못 읽으면 '본문을 못 읽었어요 · 원문 ↗'. 폰은 호스트가 라우터 겹을 열어 뒤로가기로 닫는다.
-// 바깥 글자는 모두 esc로 그린다. 로그에 제목·본문을 남기지 않는다.
+import {viewPrefs} from './view-prefs.js';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason, bodyView, legacyBody, NEWS_FONT_STEPS, keepNewsFont} from './now-model.mjs';
+// 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
+// S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
+// - 위에서 아래: 꼬리 줄(매체·분류·날짜·글쓴이) → 제목 → [요약] → [시사점](주요 문장·나와의 연관은 이 칸 안 접기) → [원문 전체]
+//   (글자 크기 [가 가 가] 세 단계 — 서버 view_prefs.news_font) → '함께 볼 것'(접기) → [☆ 별표][보관][메모][관심 없음] … [원래 사이트 ↗].
+// - 누르면 원문 전체가 바로: 저장 원문(app_feed_bodies 블록 — 문단·소제목·인용·사진·캡션)을 사용자 로그인으로 읽는다(작업공간 소유자 RLS).
+//   동시에 요약·시사점 만들기를 시작한다(ai-assist kind now_detail — 서버가 저장 원문을 재료로 먼저 씀). 기다림 표시는 요약·시사점 칸에만,
+//   다 되면 그 칸만 채운다(원문 칸은 다시 그리지 않음). 이미 만든 것(app_now_details)은 서버가 바로 돌려준다. 화면은 글 id만 보낸다.
+// - 원문이 없는 글(state failed·lead·image_only): 있는 만큼 + 까닭 한 줄 + [원래 사이트 ↗]. 저장 원문 줄이 아예 없는 옛 글만
+//   뉴스는 '기사 먼저 읽기'(news-feed open, 하루 한도는 서버) 뒤 다시 읽고, 그래도 없으면 예전 저장 글자(사회운동 문장·뉴스 body)를 문단으로.
+// - 사진: https 주소만, referrerpolicy="no-referrer"·loading="lazy", 글을 열었을 때만 그린다. 안 뜨면 '사진 ↗' 링크.
+// - 아래 작은 단추 줄: 사회운동 글은 app_outside_marks(글마다 한 줄), 뉴스는 기존 app_news_items 칸(starred_at·hidden_at). 메모는 노트
+//   (app_notes, metadata.outside_post_id|news_item_id). 누를 때마다 환류 기록 한 줄(app_now_signals). [원래 사이트 ↗] 열기도 기록한다.
+// - 저장은 모두 서버. 기기 저장 없음. 상세·원문은 이 탭 메모리에만 다시 쓰려고 둔다. 바깥 글자는 모두 esc로 그린다. 로그에 제목·본문을 남기지 않는다.
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const q = v => encodeURIComponent(v);
 const rt = () => window.KPTURuntime;
 const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const MEMO_COLS = 'id,title,raw_text,metadata,updated_at,doc_type:doc->>type';
+const NEWS_ROW_COLS = 'state,body_kind,summary,title,title_ko,publisher,published_at,url,lang';
+const ITEM_COL = {outside: 'outside_post_id', news: 'news_item_id'};
 const saveFailNote = e => (e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시');
 
-// head: {meta: [글자…], title, origTitle, lang, url}. item: {type:'outside'|'news', id}.
-export function createNowDetail({box, topics = () => [], onClose, onChanged, onSignal, onRelated, onRead, onReader} = {}) {
-  let cur = null; // {item, head, detail, failed, note, marks, memo, memoOpen, memoBusy, memoNote, busy, reader}
+// head: {meta: [글자…], title, origTitle, titleLang, lang, url}. item: {type:'outside'|'news', id}.
+export function createNowDetail({box, topics = () => [], onClose, onChanged, onSignal, onRelated, onRead} = {}) {
+  let cur = null; // {item, head, body, detail, failed, unread, making, reading, note, marks, memo, memoOpen, memoBusy, memoNote, busy}
   const details = new Map(); // itemKey → 서버 답(이 탭 메모리만)
-  const bodies = new Map(); // itemKey → {text, lead} | {failed:true} | {empty:true} (이 탭 메모리만)
-  let seq = 0, bodySeq = 0, fontStep = 1; // 글자 크기 0작게 1보통 2크게(기기에 저장하지 않음)
+  const bodies = new Map(); // itemKey → bodyView 모양(이 탭 메모리만)
+  let seq = 0;
+  let font = null; // 이번 접속에서 고른 값(서버에 쓰는 중에도 바로 보이게). 처음엔 서버 기억 값.
+  const fontNow = () => keepNewsFont(font ?? viewPrefs.get('news_font'));
 
   // ---------- 서버 ----------
   const askDetail = item => rt().api('/functions/v1/ai-assist', {method: 'POST', body: detailBody(item), singleFlight: false, timeoutMs: 120000});
@@ -45,37 +50,83 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     return {star: !!r?.starred_at, archive: !!r?.archived_at, dismiss: !!r?.dismissed_at, has: !!r};
   }
   const readMemo = item => rt().api(`/rest/v1/app_notes?workspace_id=eq.${q(workspaceOf())}&kind=eq.note&archived_at=is.null&metadata->>${item.type === 'news' ? 'news_item_id' : 'outside_post_id'}=eq.${q(item.id)}&select=${MEMO_COLS}&order=updated_at.desc&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
-  async function readBodyText(item) {
+  // 저장 원문 한 줄(없으면 null).
+  const readFeedBody = item => rt().api(`/rest/v1/app_feed_bodies?workspace_id=eq.${q(workspaceOf())}&${ITEM_COL[item.type]}=eq.${q(item.id)}&select=blocks,state,reason&limit=1`, {singleFlight: false})
+    .then(r => (Array.isArray(r) ? r[0] || null : null));
+  // 옛 글: 예전 저장 글자.
+  async function readLegacyText(item) {
     const w = workspaceOf();
     if (item.type === 'news') {
       const rows = await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(item.id)}&select=body,body_kind&limit=1`, {singleFlight: false});
       const r = Array.isArray(rows) ? rows[0] : null;
-      const text = plainText(r?.body).trim();
-      return text ? {text, lead: r?.body_kind === 'lead'} : {empty: true};
+      return legacyBody(plainText(r?.body).trim(), {lead: r?.body_kind === 'lead'});
     }
     const rows = await rt().api(`/rest/v1/app_outside_sentences?post_id=eq.${q(item.id)}&workspace_id=eq.${q(w)}&select=idx,text&order=idx.asc&limit=3001`, {singleFlight: false});
     const text = (Array.isArray(rows) ? rows : []).filter(r => r && typeof r.text === 'string').sort((a, b) => a.idx - b.idx).map(r => r.text.trim()).filter(Boolean).join(' ');
-    return text ? {text, lead: false} : {empty: true};
+    return legacyBody(text);
   }
+  const readNewsRow = item => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=${NEWS_ROW_COLS}&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
   const signal = (item, action) => sendSignal(item, action, onSignal);
 
-  // ---------- 그리기 ----------
-  function aiHtml() {
-    if (cur.unread) return `<div class="nd-unread" data-nd-unread role="status"><p class="nd-reason">기사를 읽지 못했어요 · ${esc(cur.unread)}</p><p class="nd-unread-acts"><button type="button" class="secondary" data-nd-retry>다시</button>${cur.head.url ? `<a class="nd-link" data-nd-link href="${esc(cur.head.url)}" target="_blank" rel="noopener noreferrer" aria-label="원문 (새 창)">원문 ↗</a>` : ''}</p></div>`;
-    if (!cur.detail && cur.reading) return '<div class="nd-wait" data-nd-wait><p class="nd-faint">기사 가져오는 중 · 처음 한 번만</p>' + waitHtml({rows: 3}) + '</div>';
-    if (!cur.detail) return cur.failed ? `${failHtml({text: cur.failed, retry: 'data-nd-retry'})}` : `<div class="nd-wait" data-nd-wait><p class="nd-faint">상세를 만드는 중 · 처음 한 번만</p>${waitHtml({rows: 5})}</div>`;
+  // ---------- 그리기(칸마다 따로 — 요약이 와도 원문 칸은 그대로) ----------
+  const siteLink = (label = '원래 사이트 ↗', cls = 'nd-link') => (cur.head.url ? `<a class="${cls}" data-nd-link href="${esc(cur.head.url)}" target="_blank" rel="noopener noreferrer" aria-label="원래 사이트 (새 창)">${esc(label)}</a>` : '');
+  const langAttr = () => (cur.head.lang && cur.head.lang !== 'ko' ? ` lang="${esc(cur.head.lang)}"` : '');
+  const boxHead = (title, note = '') => `<p class="nd-bh"><b>${title}</b>${note ? `<span class="nd-bh-note" role="status">${esc(note)}</span>` : ''}</p>`;
+  function sumHtml() {
+    if (cur.unread) return boxHead('요약') + `<p class="nd-why" data-nd-unread role="status">요약할 재료가 없어요 · ${esc(cur.unread)} <button type="button" class="nd-act" data-nd-retry>다시</button></p>`;
+    if (!cur.detail && cur.failed) return boxHead('요약') + failHtml({text: cur.failed, retry: 'data-nd-retry'});
+    if (!cur.detail) return boxHead('요약', cur.reading ? '기사 가져오는 중' : '만드는 중') + `<div class="nd-wait" data-nd-wait aria-busy="true">${waitHtml({rows: 2})}</div>`;
     const v = detailView(cur.detail);
-    const sec = (title, inner, attr) => (inner ? `<section class="nd-sec"${attr ? ` ${attr}` : ''}><h4 class="nd-h">${title}</h4>${inner}</section>` : '');
-    const sum = v.summary ? `<p class="nd-sum">${esc(v.summary)}</p>` : '';
-    const sents = v.sentences.length ? `<ul class="nd-sents">${v.sentences.map(s => `<li><span class="nd-orig-line"${cur.head.lang && cur.head.lang !== 'ko' ? ` lang="${esc(cur.head.lang)}"` : ''}>${esc(s.orig)}</span>${s.ko ? `<span class="nd-ko">${esc(s.ko)}</span>` : ''}</li>`).join('')}</ul>` : '';
+    return boxHead('요약') + (v.summary ? `<p class="nd-sum">${esc(v.summary)}</p>` : emptyHtml('요약 없음'));
+  }
+  function impHtml() {
+    if (cur.unread || (!cur.detail && cur.failed)) return '';
+    if (!cur.detail) return boxHead('시사점', '만드는 중') + `<div class="nd-wait" aria-busy="true">${waitHtml({rows: 2})}</div>`;
+    const v = detailView(cur.detail);
+    if (v.level === 'basic') return boxHead('시사점') + '<p class="nd-faint">오늘 상세 한도를 넘어 요약까지만 · 내일 열면 채워요</p>' + moreHtml(v);
+    const imp = v.implications ? `${v.implications.kptu ? `<p class="nd-imp"><b>공공운수노조 운동</b> ${esc(v.implications.kptu)}</p>` : ''}${v.implications.labor ? `<p class="nd-imp"><b>한국 노동운동</b> ${esc(v.implications.labor)}</p>` : ''}` : emptyHtml('시사점 없음');
+    return boxHead('시사점') + imp + moreHtml(v);
+  }
+  // 시사점 칸 안 접기: 주요 문장·나와의 연관.
+  function moreHtml(v) {
+    const sents = v.sentences.length ? `<ul class="nd-sents" data-nd-sentences>${v.sentences.map(s => `<li><span class="nd-orig-line"${langAttr()}>${esc(s.orig)}</span>${s.ko ? `<span class="nd-ko">${esc(s.ko)}</span>` : ''}</li>`).join('')}</ul>` : '';
     let rel = '';
-    if (v.level === 'basic') rel = '<p class="nd-faint">오늘 상세 한도를 넘어 요약·문장까지만 · 내일 열면 채워요</p>';
-    else if (v.relevance) rel = `${v.relevance.topics.length ? `<p class="nd-topics">${v.relevance.topics.map(t => `<span class="nd-topic">${esc(t)}</span>`).join('')}</p>` : ''}${v.relevance.reason ? `<p class="nd-reason">${esc(v.relevance.reason)}</p>` : ''}`;
-    else rel = `<p class="nd-faint">${topics().length ? '연관 낮음' : '확정한 관심 주제가 없어요 · ⋯ → 관심 주제'}</p>`;
-    const imp = v.implications ? `${v.implications.kptu ? `<p class="nd-imp"><b>공공운수노조 운동</b> ${esc(v.implications.kptu)}</p>` : ''}${v.implications.labor ? `<p class="nd-imp"><b>한국 노동운동</b> ${esc(v.implications.labor)}</p>` : ''}` : '';
-    const related = v.related.length ? `<ul class="nd-related">${v.related.map((r, i) => `<li><button type="button" class="nd-rel" data-nd-related="${i}"><span class="nd-rel-kind">${esc(RELATED_LABEL[r.kind])}</span>${esc(r.title)}</button></li>`).join('')}</ul>` : '';
-    return sec('핵심 요약', sum, 'data-nd-summary') + sec('주요 문장', sents, 'data-nd-sentences') + sec('나와의 연관', rel, 'data-nd-relevance')
-      + (v.level === 'basic' ? '' : sec('시사점', imp, 'data-nd-implications')) + sec('함께 볼 것', related, 'data-nd-relatedbox');
+    if (v.relevance) rel = `${v.relevance.topics.length ? `<p class="nd-topics">${v.relevance.topics.map(t => `<span class="nd-topic">${esc(t)}</span>`).join('')}</p>` : ''}${v.relevance.reason ? `<p class="nd-reason">${esc(v.relevance.reason)}</p>` : ''}`;
+    else if (v.level !== 'basic') rel = `<p class="nd-faint">${topics().length ? '연관 낮음' : '확정한 관심 주제가 없어요 · ⋯ → 관심 주제'}</p>`;
+    if (!sents && !rel) return '';
+    return `<details class="nd-fold" data-nd-more><summary>주요 문장 · 나와의 연관</summary>${sents ? `<p class="nd-sub">주요 문장</p>${sents}` : ''}${rel ? `<p class="nd-sub">나와의 연관</p><div data-nd-relevance>${rel}</div>` : ''}</details>`;
+  }
+  function relatedHtml() {
+    if (!cur.detail) return '';
+    const v = detailView(cur.detail);
+    if (!v.related.length) return '';
+    return `<details class="nd-fold nd-relfold" data-nd-relatedbox><summary>함께 볼 것 ${v.related.length}</summary><ul class="nd-related">${v.related.map((r, i) => `<li><button type="button" class="nd-rel" data-nd-related="${i}"><span class="nd-rel-kind">${esc(RELATED_LABEL[r.kind])}</span>${esc(r.title)}</button></li>`).join('')}</ul></details>`;
+  }
+  function blockHtml(b) {
+    if (b.t === 'img') {
+      const cap = b.cap ? `<figcaption>${esc(b.cap)}</figcaption>` : '';
+      return `<figure class="nd-fig"><img class="nd-img" data-nd-img src="${esc(b.src)}" alt="${esc(b.alt || b.cap || '')}" loading="lazy" decoding="async" referrerpolicy="no-referrer"><a class="nd-img-link" data-nd-img-link href="${esc(b.src)}" target="_blank" rel="noopener noreferrer" hidden>사진 ↗</a>${cap}</figure>`;
+    }
+    if (b.t === 'h') return `<h4 class="nd-bhd">${esc(b.text)}</h4>`;
+    if (b.t === 'quote') return `<blockquote>${esc(b.text)}</blockquote>`;
+    return `<p>${esc(b.text)}</p>`;
+  }
+  function fontHtml() {
+    const f = fontNow();
+    return `<span class="nd-size" role="group" aria-label="글자 크기">${NEWS_FONT_STEPS.map(s => `<button type="button" class="nd-size-btn" data-nd-font="${s.id}" aria-label="${s.label}" aria-pressed="${s.id === f}">가</button>`).join('')}</span>`;
+  }
+  function bodyHtml() {
+    const b = bodies.get(itemKey(cur.item));
+    const head = `<div class="nd-ob"><b>원문 전체</b>${cur.head.meta?.[0] ? `<span class="nd-ob-src">${esc(cur.head.meta[0])}</span>` : ''}${fontHtml()}</div>`;
+    let inner;
+    if (!b) inner = `<div aria-busy="true">${waitHtml({rows: 4})}</div>`;
+    else if (b.failedLoad) inner = failHtml({text: '원문을 불러오지 못함', retry: 'data-nd-body-retry'});
+    else {
+      const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}</p>` : '';
+      const prose = b.blocks.length ? `<div class="nd-prose"${langAttr()} data-nd-prose>${b.blocks.map(blockHtml).join('')}</div>` : '';
+      inner = b.state === 'failed' ? why : prose + why;
+    }
+    return head + `<div class="nd-ob-body" data-nd-body-inner>${inner}</div>`;
   }
   function actsHtml() {
     const m = cur.marks || {};
@@ -83,7 +134,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const btn = (act, on, label, onLabel) => `<button type="button" class="nd-act" data-nd-act="${act}" aria-pressed="${!!on}"${busy}>${esc(on ? onLabel : label)}</button>`;
     const archive = cur.item.type === 'outside' ? btn('archive', m.archive, '보관', '보관됨') : '';
     const memo = cur.memoOpen ? '' : `<button type="button" class="nd-act" data-nd-act="memo"${busy}>${cur.memo ? '메모 고치기' : '메모'}</button>`;
-    return `<div class="nd-acts" role="group" aria-label="이 글 표시">${btn('star', m.star, '☆ 별표', '★ 별표')}${archive}${memo}${btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓')}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}</div>`;
+    return `${btn('star', m.star, '☆ 별표', '★ 별표')}${archive}${memo}${btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓')}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
   }
   function memoHtml() {
     if (cur.memoOpen) {
@@ -92,100 +143,78 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     }
     return cur.memo?.raw_text ? `<p class="nd-memo-text" data-nd-memo-text><span class="nd-memo-label">메모</span>${esc(cur.memo.raw_text)}</p>` : '';
   }
-  function readerBodyHtml() {
-    const b = bodies.get(itemKey(cur.item));
-    const link = cur.head.url ? ` <a class="nd-link" data-nd-link href="${esc(cur.head.url)}" target="_blank" rel="noopener noreferrer" aria-label="원문 (새 창)">원문 ↗</a>` : '';
-    if (!b) return waitHtml({rows: 6});
-    if (b.failed) return failHtml({text: '본문을 불러오지 못함', retry: 'data-nd-reader-retry'});
-    if (b.empty) return `<p class="nd-reason nd-reader-none" data-nd-reader-none role="status">본문을 못 읽었어요 ·${link}</p>`;
-    const lang = cur.head.lang && cur.head.lang !== 'ko' ? ` lang="${esc(cur.head.lang)}"` : '';
-    const paras = b.text.split(/\n+/).map(t => t.trim()).filter(Boolean);
-    return `${b.lead ? '<p class="nd-faint">공개된 앞부분만</p>' : ''}<div class="nd-prose"${lang} data-nd-prose>${paras.map(t => `<p>${esc(t)}</p>`).join('')}</div>`;
+  const part = sel => box?.querySelector(`[data-nd="${CSS.escape(itemKey(cur.item))}"] ${sel}`);
+  function paintAi() {
+    if (!cur) return;
+    const s = part('[data-nd-summary]'), i = part('[data-nd-implications]'), r = part('[data-nd-relslot]');
+    if (s) s.innerHTML = sumHtml();
+    if (i) { const html = impHtml(); i.innerHTML = html; i.hidden = !html; }
+    if (r) r.innerHTML = relatedHtml();
   }
-  function paintReader() {
-    const h = cur.head;
-    const link = h.url ? `<a class="nd-link" data-nd-link href="${esc(h.url)}" target="_blank" rel="noopener noreferrer" aria-label="원문 (새 창)">원문 ↗</a>` : '';
-    const size = `<span class="nd-size" role="group" aria-label="글자 크기"><button type="button" class="nd-act" data-nd-size="-1" aria-label="글자 작게"${fontStep <= 0 ? ' disabled' : ''}>가−</button><button type="button" class="nd-act" data-nd-size="1" aria-label="글자 크게"${fontStep >= 2 ? ' disabled' : ''}>가+</button></span>`;
-    box.innerHTML = `<article class="nd nd-reader" data-nd="${esc(itemKey(cur.item))}" data-nd-reader data-size="${fontStep}" aria-label="본문 읽기">
-<div class="nd-top"><button type="button" class="nd-back nd-reader-back" data-nd-reader-close aria-label="상세로"><span aria-hidden="true">‹</span></button><p class="nd-meta">${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}</p>${size}${link}</div>
-<h3 class="nd-title" tabindex="-1"${h.titleLang ? ` lang="${esc(h.titleLang)}"` : ''}>${esc(h.title)}</h3>${h.origTitle ? `<p class="nd-orig" lang="${esc(h.lang || 'en')}">${esc(h.origTitle)}</p>` : ''}
-<div class="nd-reader-body" data-nd-reader-body>${readerBodyHtml()}</div></article>`;
-  }
-  async function loadBody(item) {
-    const my = ++bodySeq, key = itemKey(item);
-    if (bodies.has(key) && !bodies.get(key).failed) return;
-    bodies.delete(key); paint();
-    let got;
-    try { got = await readBodyText(item); } catch { got = {failed: true}; }
-    if (got.failed) { if (my === bodySeq && cur && itemKey(cur.item) === key) { bodies.set(key, got); paint(); } return; }
-    bodies.set(key, got);
-    if (cur && itemKey(cur.item) === key) paint();
-  }
-  function openReader() {
-    if (!cur || !cur.head.body) return;
-    cur.reader = true;
-    onReader?.(true);
-    loadBody(cur.item);
-    paint();
-    box?.querySelector('.nd-title')?.focus({preventScroll: true});
-  }
-  function closeReader({quiet = false} = {}) {
-    if (!cur?.reader) return;
-    cur.reader = false;
-    if (!quiet) onReader?.(false);
-    paint();
-    box?.querySelector('[data-nd-reader]')?.focus({preventScroll: true});
+  function paintBody() { const el = cur && part('[data-nd-body]'); if (el) el.innerHTML = bodyHtml(); }
+  function paintActs() {
+    if (!cur) return;
+    const a = part('[data-nd-acts]'), m = part('[data-nd-memo]');
+    if (a) a.innerHTML = actsHtml();
+    if (m) m.innerHTML = memoHtml();
   }
   function paint() {
     if (!box) return;
-    if (cur?.reader) { paintReader(); return; }
     if (!cur) { box.innerHTML = '<p class="nd-empty" data-nd-empty>글을 누르면 여기에 상세가 열려요</p>'; return; }
     const h = cur.head;
     const hit = interestHit([h.title, h.origTitle], topics());
-    const link = h.url ? `<a class="nd-link" data-nd-link href="${esc(h.url)}" target="_blank" rel="noopener noreferrer" aria-label="원문 (새 창)">원문 ↗</a>` : '';
-    box.innerHTML = `<article class="nd" data-nd="${esc(itemKey(cur.item))}" aria-label="글 상세">
-<div class="nd-top"><button type="button" class="nd-back" data-nd-close aria-label="목록으로"><span aria-hidden="true">‹</span></button><p class="nd-meta">${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</p>${h.body ? '<button type="button" class="nd-act nd-body-btn" data-nd-reader aria-label="본문 읽기">본문</button>' : ''}${link}</div>
+    const imp = impHtml();
+    box.innerHTML = `<article class="nd" data-nd="${esc(itemKey(cur.item))}" data-font="${fontNow()}" aria-label="글 상세">
+<div class="nd-top"><button type="button" class="nd-back" data-nd-close aria-label="목록으로"><span aria-hidden="true">‹</span></button><p class="nd-meta">${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</p></div>
 <h3 class="nd-title" tabindex="-1"${h.titleLang ? ` lang="${esc(h.titleLang)}"` : ''}>${esc(h.title)}</h3>${h.origTitle ? `<p class="nd-orig" lang="${esc(h.lang || 'en')}">${esc(h.origTitle)}</p>` : ''}
-<div class="nd-ai" data-nd-ai>${aiHtml()}</div>
-${actsHtml()}${memoHtml()}</article>`;
+<section class="nd-box" data-nd-summary aria-label="요약">${sumHtml()}</section>
+<section class="nd-box" data-nd-implications aria-label="시사점"${imp ? '' : ' hidden'}>${imp}</section>
+<section class="nd-box nd-orig-box" data-nd-body aria-label="원문 전체">${bodyHtml()}</section>
+<div data-nd-relslot>${relatedHtml()}</div>
+<div class="nd-acts" data-nd-acts role="group" aria-label="이 글 표시">${actsHtml()}</div><div data-nd-memo>${memoHtml()}</div></article>`;
   }
 
   // ---------- 열기 ----------
-  // 뉴스 기사: 본문·요약이 아직 없으면(제목 읽기 전·대기) 상세 전에 그 기사 하나를 먼저 읽는다(news-feed open, 하루 한도는 서버).
-  // 읽지 못하면 AI를 부르지 않고 이유와 [다시]·[원문]만 보인다(S48-66, 11/03).
+  // 원문: 저장 원문 → (뉴스 옛 글이면 기사 먼저 읽기 뒤 다시) → 예전 저장 글자. 답: {hadRow, pre:{ok,why}}.
+  async function loadBody(item, my) {
+    const key = itemKey(item);
+    // 저장 원문 읽기가 실패하면 줄이 없는 것과 같은 길로(예전 저장 글자). 그것도 못 읽으면 [다시].
+    let row = null;
+    try { row = await readFeedBody(item); } catch { row = null; }
+    if (my !== seq) return {stale: true};
+    if (row) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); return {hadRow: true}; }
+    let pre = {ok: true};
+    if (item.type === 'news') {
+      pre = await readFirst(item, my).catch(() => ({ok: true}));
+      if (my !== seq || pre.stale) return {stale: true};
+      try { row = await readFeedBody(item); } catch { row = null; }
+      if (my !== seq) return {stale: true};
+      if (row) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); return {hadRow: true, pre}; }
+    }
+    let legacy;
+    try { legacy = await readLegacyText(item); } catch { legacy = {failedLoad: true}; }
+    if (my !== seq) return {stale: true};
+    if (legacy.state === 'failed' && pre && !pre.ok && pre.why) legacy = {...legacy, reason: pre.why};
+    bodies.set(key, legacy); paintBody();
+    return {hadRow: false, pre};
+  }
+  // 저장 원문 줄이 없는 옛 뉴스 기사: 본문·요약이 아직 없으면 그 기사 하나를 먼저 읽는다(news-feed open). 읽지 못하면 AI를 부르지 않는다.
   async function readFirst(item, my) {
-    const w = workspaceOf();
-    const row0 = (await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(item.id)}&select=state,body_kind,summary,title,title_ko,publisher,published_at,url,lang&limit=1`, {singleFlight: false}))?.[0];
-    if (!row0) return {ok: true};
-    if (!needsRead(row0)) return {ok: true};
-    cur.reading = true; paint();
+    const row0 = await readNewsRow(item);
+    if (!row0 || !needsRead(row0)) return {ok: true};
+    cur.reading = true; paintAi();
     let status = '';
     try { status = (await rt().api('/functions/v1/news-feed?action=open', {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 60000}))?.status || ''; } catch (e) { status = e?.status === 429 ? 'daily_limit' : 'error'; }
     if (my !== seq) return {ok: true, stale: true};
     cur.reading = false;
-    const row = (await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(item.id)}&select=state,body_kind,summary,title,title_ko,publisher,published_at,url,lang&limit=1`, {singleFlight: false}))?.[0] || row0;
+    const row = (await readNewsRow(item)) || row0;
     if (my !== seq) return {ok: true, stale: true};
     onRead?.(item, row);
     return hasMaterial(row) ? {ok: true} : {ok: false, why: unreadReason(status, row.state)};
   }
-  async function load(item) {
-    const my = ++seq, key = itemKey(item);
-    const tasks = [readMarks(item), readMemo(item)];
-    const have = details.get(key);
-    if (have) cur.detail = have;
-    const [marks, memo] = await Promise.allSettled(tasks);
-    if (my !== seq) return;
-    if (marks.status === 'fulfilled') cur.marks = marks.value;
-    if (memo.status === 'fulfilled') cur.memo = memo.value;
-    paint();
-    if (have) return;
+  async function makeDetail(item, my) {
+    const key = itemKey(item);
     try {
-      if (item.type === 'news') {
-        const pre = await readFirst(item, my).catch(() => ({ok: true}));
-        if (my !== seq || pre.stale) return;
-        if (!pre.ok) { cur.unread = pre.why; cur.reading = false; paint(); return; }
-        cur.unread = ''; cur.reading = false;
-      }
       const r = await askDetail(item);
       if (my !== seq) return;
       if (!r?.detail) throw new Error('shape');
@@ -193,29 +222,51 @@ ${actsHtml()}${memoHtml()}</article>`;
       cur.detail = r.detail; cur.failed = '';
     } catch (e) {
       if (my !== seq) return;
-      cur.reading = false;
       if (e?.status === 422 && String(e?.message || '').includes('no_material')) cur.unread = unreadReason('', 'pending');
       else cur.failed = detailError(e);
     }
-    paint();
+    cur.reading = false;
+    paintAi();
+  }
+  async function load(item) {
+    const my = ++seq, key = itemKey(item);
+    const have = details.get(key);
+    if (have) cur.detail = have;
+    Promise.allSettled([readMarks(item), readMemo(item)]).then(([marks, memo]) => {
+      if (my !== seq) return;
+      if (marks.status === 'fulfilled') cur.marks = marks.value;
+      if (memo.status === 'fulfilled') cur.memo = memo.value;
+      paintActs();
+    });
+    // 사회운동 글: 원문 읽기와 요약 만들기를 함께 시작. 뉴스 기사: 저장 원문 줄이 있으면 바로, 없는 옛 글만 먼저 읽은 뒤.
+    const needBody = !bodies.has(key);
+    if (item.type === 'outside' || have) {
+      if (!have) makeDetail(item, my);
+      if (needBody) loadBody(item, my);
+      return;
+    }
+    if (!needBody) { makeDetail(item, my); return; }
+    const got = await loadBody(item, my);
+    if (my !== seq || got.stale) return;
+    if (got.pre && !got.pre.ok) { cur.unread = got.pre.why; paintAi(); return; }
+    makeDetail(item, my);
   }
   function open(item, head) {
     if (!item || !head) return;
     const same = cur && itemKey(cur.item) === itemKey(item);
-    if (!same && cur?.reader) onReader?.(false);
-    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false, reader: false};
+    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false};
     else cur.head = head;
     paint();
     box?.querySelector('.nd-title')?.focus({preventScroll: true});
-    if (!same || cur.failed || cur.unread) { cur.failed = ''; cur.unread = ''; load(item); }
+    if (!same || cur.failed || cur.unread) { cur.failed = ''; cur.unread = ''; if (same) paintAi(); load(item); }
   }
-  function close() { seq++; bodySeq++; const was = !!cur?.reader; cur = null; if (was) onReader?.(false); paint(); }
+  function close() { seq++; cur = null; paint(); }
 
   // ---------- 누르기 ----------
   async function toggle(act) {
     if (!cur || cur.busy) return;
     const c = cur, item = c.item, m = c.marks || {}, on = !m[act];
-    c.busy = true; c.note = ''; paint();
+    c.busy = true; c.note = ''; paintActs();
     try {
       await setMark(item, act, on);
       c.marks = {...m, [act]: on, ...(item.type === 'news' && act === 'star' && !on ? {archive: false} : {})};
@@ -223,14 +274,14 @@ ${actsHtml()}${memoHtml()}</article>`;
       onChanged?.(item, act, on);
     } catch (e) { c.note = saveFailNote(e); }
     c.busy = false;
-    if (cur === c) { paint(); box?.querySelector(`[data-nd-act="${act}"]`)?.focus({preventScroll: true}); }
+    if (cur === c) { paintActs(); box?.querySelector(`[data-nd-act="${act}"]`)?.focus({preventScroll: true}); }
   }
   async function saveMemo(text) {
     const c = cur;
     if (!c || c.memoBusy) return;
     const value = String(text ?? '');
-    if (!c.memo && !value.trim()) { c.memoOpen = false; paint(); return; }
-    c.memoBusy = true; c.memoNote = ''; paint();
+    if (!c.memo && !value.trim()) { c.memoOpen = false; paintActs(); return; }
+    c.memoBusy = true; c.memoNote = ''; paintActs();
     try {
       const title = String(c.head.title || '메모').slice(0, 80);
       const link = c.item.type === 'news' ? {news_item_id: c.item.id} : {outside_post_id: c.item.id};
@@ -241,7 +292,16 @@ ${actsHtml()}${memoHtml()}</article>`;
       onChanged?.(c.item, 'memo', true);
     } catch (e) { c.memoNote = e?.message && !e?.status ? e.message : saveFailNote(e); }
     c.memoBusy = false;
-    if (cur === c) { paint(); box?.querySelector(c.memoOpen ? '[data-nd-memo-input]' : '[data-nd-act="memo"]')?.focus({preventScroll: true}); }
+    if (cur === c) { paintActs(); box?.querySelector(c.memoOpen ? '[data-nd-memo-input]' : '[data-nd-act="memo"]')?.focus({preventScroll: true}); }
+  }
+  function setFont(id) {
+    const f = keepNewsFont(id);
+    if (f === fontNow()) return;
+    font = f;
+    const art = box?.querySelector('.nd');
+    if (art) art.dataset.font = f;
+    box?.querySelectorAll('[data-nd-font]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ndFont === f)));
+    if (viewPrefs.get('news_font') !== f) { viewPrefs.set('news_font', f, {rejectable: true}); void viewPrefs.flush?.(); }
   }
   box?.addEventListener('click', event => {
     const a = event.target.closest('a[data-nd-link]');
@@ -249,21 +309,29 @@ ${actsHtml()}${memoHtml()}</article>`;
     const b = event.target.closest('button');
     if (!b || !box.contains(b) || !cur) return;
     if (b.matches('[data-nd-close]')) { onClose?.(); return; }
-    if (b.matches('button[data-nd-reader]')) { openReader(); return; }
-    if (b.matches('[data-nd-reader-close]')) { closeReader(); return; }
-    if (b.matches('[data-nd-reader-retry]')) { bodies.delete(itemKey(cur.item)); loadBody(cur.item); return; }
-    if (b.matches('[data-nd-size]')) { fontStep = Math.min(2, Math.max(0, fontStep + Number(b.dataset.ndSize))); paint(); box.querySelector(`[data-nd-size="${b.dataset.ndSize}"]:not([disabled])`)?.focus({preventScroll: true}); return; }
-    if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paint(); load(cur.item); return; }
-    if (b.matches('[data-nd-act="memo"]')) { cur.memoOpen = true; cur.memoNote = ''; paint(); box.querySelector('[data-nd-memo-input],[data-nd-memo-cancel]')?.focus({preventScroll: true}); return; }
+    if (b.matches('[data-nd-font]')) { setFont(b.dataset.ndFont); return; }
+    if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
+    if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
+    if (b.matches('[data-nd-act="memo"]')) { cur.memoOpen = true; cur.memoNote = ''; paintActs(); box.querySelector('[data-nd-memo-input],[data-nd-memo-cancel]')?.focus({preventScroll: true}); return; }
     if (b.matches('[data-nd-act]')) { toggle(b.dataset.ndAct); return; }
-    if (b.matches('[data-nd-memo-cancel]')) { cur.memoOpen = false; cur.memoNote = ''; paint(); return; }
+    if (b.matches('[data-nd-memo-cancel]')) { cur.memoOpen = false; cur.memoNote = ''; paintActs(); return; }
     if (b.matches('[data-nd-related]')) { const r = detailView(cur.detail).related[Number(b.dataset.ndRelated)]; if (r) onRelated?.(r); }
   });
+  // 사진이 안 뜨면(사이트가 막음·사라짐) 그 자리에 '사진 ↗' 링크만.
+  box?.addEventListener('error', event => {
+    const img = event.target;
+    if (!(img instanceof HTMLImageElement) || !img.matches('[data-nd-img]')) return;
+    img.hidden = true;
+    const link = img.parentElement?.querySelector('[data-nd-img-link]');
+    if (link) link.hidden = false;
+  }, true);
   box?.addEventListener('submit', event => {
     if (!event.target.matches('[data-nd-memo-form]')) return;
     event.preventDefault();
     saveMemo(event.target.querySelector('[data-nd-memo-input]')?.value);
   });
+  // 서버 기억 값이 늦게 오면(첫 로딩) 그 값으로.
+  window.addEventListener('kptu:view-prefs-ready', () => { if (font === null && cur) { const art = box?.querySelector('.nd'); if (art) art.dataset.font = fontNow(); box?.querySelectorAll('[data-nd-font]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ndFont === fontNow()))); } });
   paint();
-  return {open, close, paint, closeReader, openReader, readerOpen: () => !!cur?.reader, setHead: head => { if (cur && head) { cur.head = head; paint(); } }, current: () => (cur ? cur.item : null), reset: () => { details.clear(); bodies.clear(); close(); }};
+  return {open, close, paint, setHead: head => { if (cur && head) { cur.head = head; paint(); } }, current: () => (cur ? cur.item : null), reset: () => { details.clear(); bodies.clear(); close(); }};
 }

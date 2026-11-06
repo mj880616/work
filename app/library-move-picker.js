@@ -8,14 +8,16 @@ import {emptyHtml} from './wait-state.js';
 const GAP=4,EDGE=8,WIDTH=248;
 const wide=()=>typeof matchMedia==='function'&&matchMedia('(min-width:761px)').matches;
 
-export function createMovePicker({esc}){
+// S51-8 NEWS-전면개편 P4b: News [매체: 전체 ▾]도 같은 창을 쓴다 — id·창 이름·찾기 칸 글자·아래 단추 줄(foot:false면 없음)만 바꿔 연다. 기본값은 지금 그대로(폴더로 옮기기).
+//   줄에 dot(색 토큰 var(...))이 있으면 폴더 그림 대신 작은 색 점, current 표시 글자는 currentTag로 바꾼다.
+export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기기',findLabel='폴더 찾기',foot:withFoot=true,currentTag='지금 여기'}){
   let panel=null,input=null,list=null,note=null,foot=null,state=null,popover=false,closing=null,historyOwned=false,outside=null,keep=null;
   const HISTORY_KEY='kptuLibraryMovePicker';
 
   function ensure(){
     if(panel)return;
-    panel=document.createElement('div');panel.id='luMovePicker';panel.className='lu-move-picker';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','폴더로 옮기기');
-    panel.innerHTML='<input type="search" class="lu-move-find" placeholder="폴더 찾기" aria-label="폴더 찾기" autocomplete="off" enterkeyhint="search"><div class="lu-move-list" role="group" aria-label="폴더 목록"></div><p class="lu-move-note" role="status" hidden></p><div class="lu-move-foot"></div>';
+    panel=document.createElement('div');panel.id=id;panel.className='lu-move-picker';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label',label);
+    panel.innerHTML=`<input type="search" class="lu-move-find" placeholder="${esc(findLabel)}" aria-label="${esc(findLabel)}" autocomplete="off" enterkeyhint="search"><div class="lu-move-list" role="group" aria-label="${esc(label)} 목록"></div><p class="lu-move-note" role="status" hidden></p><div class="lu-move-foot"${withFoot?'':' hidden'}></div>`;
     input=panel.querySelector('.lu-move-find');list=panel.querySelector('.lu-move-list');note=panel.querySelector('.lu-move-note');foot=panel.querySelector('.lu-move-foot');
     popover=typeof panel.showPopover==='function'&&typeof panel.hidePopover==='function'&&'popover' in panel;if(popover)panel.setAttribute('popover','manual');
     document.body.append(panel);
@@ -49,7 +51,7 @@ export function createMovePicker({esc}){
     },true);
   }
   const items=()=>[...(list?.querySelectorAll('.lu-move-item')||[])];
-  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${pickIconHtml(r)}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?'<span class="lu-move-tag">지금 여기</span>':''}</button>`;
+  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${r.dot?`<span class="lu-move-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:pickIconHtml(r)}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?`<span class="lu-move-tag">${esc(currentTag)}</span>`:''}</button>`;
 
   function paint(){
     if(!state)return;
@@ -61,6 +63,7 @@ export function createMovePicker({esc}){
     list.innerHTML=parts.join('');
     const reason=[...data.recent,...data.all].find(r=>r.reason)?.reason;
     note.hidden=!reason;note.textContent=reason?`흐린 폴더는 ${reason}. 묶기를 ‘폴더’로 바꾸면 고를 수 있어요.`:'';
+    if(!withFoot){foot.replaceChildren();position();return}
     foot.innerHTML=`<button type="button" class="lu-move-foot-btn" data-lu-move-new${state.canNew?'':' aria-disabled="true"'}>+ 새 폴더 만들어 넣기</button>${state.canOut?'<button type="button" class="lu-move-foot-btn" data-lu-move-out>폴더 밖으로</button>':''}`;
     position();
   }

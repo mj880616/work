@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// S48-18 사회운동 Now [문장 찾기](docs/design/outside-statements.md 3.3·4·5절): 탭 줄 [새로 온 것]·[문장 찾기](폰은 좌우 밀기),
-// 찾기 칸 + 기간·단체·[비슷한 말]·[내 성명], 결과 문장 칠하기·앞뒤 문장·'비슷한 말' 꼬리표·[원문], [초안에 쓰기] → 성명 초안 '바깥 문장'(글 id + 문장 번호만 보냄).
+// S48-18 사회운동 Now [문장 찾기](docs/design/outside-statements.md 3.3·4·5절) → S51-8 News 위 찾기 칸 하나(Enter = 문장 찾기 결과 칸),
+// 기간·[비슷한 말]·[내 성명] + 단체는 위 [매체 ▾], 결과 문장 칠하기·앞뒤 문장·'비슷한 말' 꼬리표·[원문], [초안에 쓰기] → 성명 초안 '바깥 문장'(글 id + 문장 번호만 보냄).
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 글은 모두 가상의 글.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const CATALOG = [
@@ -56,7 +56,7 @@ async function server(page) {
 }
 
 for (const width of [412, 1280]) {
-  test(`사회운동 Now [문장 찾기] ${width}: 탭·거르기·칠하기·내 성명·초안에 쓰기`, async ({ page }) => {
+  test(`News 위 찾기 칸 ${width}: Enter = 문장 찾기·거르기(기간·매체)·칠하기·내 성명·초안에 쓰기`, async ({ page }) => {
     test.setTimeout(90000);
     await page.setViewportSize({ width, height: 900 });
     const errors = [];
@@ -69,22 +69,20 @@ for (const width of [412, 1280]) {
       await page.locator('#mobileMenu nav button:visible', { hasText: 'Now' }).click();
     } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
     const root = page.locator('#outsideRoot');
-    await expect(root.getByRole('tab', { name: '사회운동' })).toHaveAttribute('aria-selected', 'true');
+    await expect(root.getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     await expect(root.locator('[data-os-search]')).toBeHidden();
-
-    // 탭 [문장 찾기]: [새로 온 것] 칸은 감추고 찾기 칸만. 찾기 전에는 서버를 부르지 않는다.
-    await root.getByRole('tab', { name: '문장 찾기' }).click();
-    await expect(root.getByRole('tab', { name: '문장 찾기' })).toHaveAttribute('aria-selected', 'true');
-    await expect(root.locator('[data-os-panel-new]')).toBeHidden();
-    const box = root.locator('[data-os-search]');
-    await expect(box.locator('[data-osq-empty="start"]')).toHaveCount(0); // 안내 문구는 입력칸 흐린 글자와 같아 뺐다
-    await expect(box.locator('[data-osq-input]')).toHaveAttribute('placeholder', '찾을 낱말·문장');
-    await expect(box.locator('[data-osq-period]')).toHaveText(['1달', '6달', '1년', '전체', '날짜']);
-    await expect(box.locator('[data-osq-chip]')).toHaveText(['전체', '노동', '정당']);
+    // S51-8: [문장 찾기] 탭은 없어지고 위 찾기 칸 하나. 글자만 넣으면 제목 거르기만(서버 안 부름), Enter = 문장 찾기 결과 칸.
+    await expect(root.getByRole('tab', { name: '문장 찾기' })).toHaveCount(0);
+    const find = root.locator('[data-nw-find]');
+    await expect(find).toHaveAttribute('placeholder', 'News 찾기 — 제목·문장');
+    await find.fill('구조조정');
+    await expect(root.locator('[data-os-search]')).toBeHidden();
     expect(s.calls.filter(c => c.what === 'search')).toHaveLength(0);
-
-    await box.locator('[data-osq-input]').fill('구조조정');
-    await box.locator('[data-osq-input]').press('Enter');
+    await find.press('Enter');
+    const box = root.locator('[data-os-search]');
+    await expect(box).toBeVisible();
+    await expect(box.locator('[data-osq-input], [data-osq-chip]')).toHaveCount(0);
+    await expect(box.locator('[data-osq-period]')).toHaveText(['1달', '6달', '1년', '전체', '날짜']);
     // 비슷한 말(서버 expand, 원래 말 빼고) + 원래 말로 찾는다. 기간 '전체' = 기간 없음.
     await expect(box.locator('.osq-outside .osq-hit')).toHaveCount(2);
     expect(s.calls.find(c => c.action === 'expand').body).toEqual({ query: '구조조정' });
@@ -106,17 +104,19 @@ for (const width of [412, 1280]) {
     expect(s.calls.find(c => c.what === 'records').body).toEqual({ p_query: '구조조정', p_kinds: null, p_per_kind: 50, p_offset: 0, p_kind: 'document' });
     expect(s.calls.find(c => c.what === 'doc-cats').query).toContain('workspace_id=eq.w');
 
-    // 거르기: 기간 1달(게시 날짜 기준 서울 9.6부터), 단체 묶음 '정당' → 그 묶음 단체만. 비슷한 말은 다시 부르지 않는다.
+    // 거르기: 기간 1달(게시 날짜 기준 서울 9.6부터), 단체는 위 [매체 ▾]에서 '정당' → 그 묶음 단체만. 비슷한 말은 다시 부르지 않는다.
     await box.locator('[data-osq-period="1m"]').click();
     await expect.poll(() => s.calls.filter(c => c.what === 'search').at(-1).body.p_from).toBe('2026-09-06');
-    await box.locator('[data-osq-chip="g:party"]').click();
+    await root.locator('[data-nw-media]').click();
+    await page.locator('#nwMediaPicker [data-lu-move-folder="g:party"]').click();
     await expect.poll(() => s.calls.filter(c => c.what === 'search').at(-1).body.p_sources).toEqual(['laborparty']);
     expect(s.expand).toBe(1);
     // 날짜 고르기: 달력 칸 두 개.
     await box.locator('[data-osq-period="pick"]').click();
     await expect(box.locator('input[type="date"]')).toHaveCount(2);
     await box.locator('[data-osq-period="all"]').click();
-    await box.locator('[data-osq-chip="all"]').click();
+    await root.locator('[data-nw-media]').click();
+    await page.locator('#nwMediaPicker [data-lu-move-folder="all"]').click();
     await expect(box.locator('.osq-outside .osq-hit')).toHaveCount(2);
 
     // [초안에 쓰기] → '초안에 쓸 문장 1/5' 줄 → [성명 초안 열기] → '바깥 문장' 칸(체크됨) → 초안 요청은 글 id + 문장 번호만.
@@ -136,23 +136,15 @@ for (const width of [412, 1280]) {
     await expect(dialog.locator('.pd-sources li')).toHaveText(['바깥 인용 · 민주노총 · [성명] 가상 구조조정 중단하라 · 10.5']);
     await dialog.locator('[data-pd-close]').click();
 
-    // 폰은 좌우 밀기로 탭 이동(오른쪽으로 밀면 바로 앞 탭 [보관], S48-27 Now 탭 넷). PC는 화살표 키.
-    if (width <= 760) {
-      await root.locator('[data-os-tabs]').evaluate(el => { // 탭 이동 밀기는 탭 줄 위에서만(NOW-줄밀기)
-        const t = (type, x) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 300 });
-        el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t('touchstart', 60)], changedTouches: [t('touchstart', 60)] }));
-        el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [t('touchend', 300)] }));
-      });
-    } else {
-      await root.getByRole('tab', { name: '문장 찾기' }).focus();
-      await page.keyboard.press('ArrowLeft');
-    }
-    await expect(root.getByRole('tab', { name: '보관' })).toHaveAttribute('aria-selected', 'true');
+    // 찾기 칸을 비우면 결과 칸이 닫힌다. 다시 찾으면 고른 문장은 그대로(이 탭 메모리).
+    await find.fill('');
     await expect(box).toBeHidden();
-    // 다시 [문장 찾기]로 오면 찾은 것·고른 문장이 그대로(이 탭 메모리).
-    await root.getByRole('tab', { name: '문장 찾기' }).click();
-    await expect(box.locator('[data-osq-input]')).toHaveValue('구조조정');
+    await find.fill('구조조정');
+    await find.press('Enter');
     await expect(h1.locator('[data-osq-quote]')).toHaveAttribute('aria-pressed', 'true');
+    // 탭을 옮겨도 결과 칸은 목록 위에 그대로(찾기 칸은 모든 탭 공통).
+    await root.getByRole('tab', { name: '보관' }).click();
+    await expect(box).toBeVisible();
     expect(errors).toEqual([]);
   });
 }
