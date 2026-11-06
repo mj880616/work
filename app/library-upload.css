@@ -145,30 +145,7 @@
 /* UI-바구니첨부메모 PR 3: 담당조직으로 거른 자료실(칩 한 줄)과 [분류 수정] 창의 분류 목록 편집. */
 #libraryOrganizationFilter{flex:1 1 100%;min-width:0}
 #libraryOrganizationFilter[hidden]{display:none}
-.library-category-editor{margin:0 0 16px;padding:0 0 14px;border-bottom:1px solid var(--kptu-border)}
-.dce h3{margin:0 0 4px;font-size:15px}
-.dce-count{margin-left:4px;font-size:var(--kptu-text-meta);font-weight:400;color:var(--kptu-muted)}
-.dce-note{margin:0 0 8px;font-size:var(--kptu-text-meta);line-height:1.5;color:var(--kptu-muted)}
-.dce-list{display:grid;margin:0 0 10px;padding:0;list-style:none}
-.dce-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0;min-height:44px;padding:6px 0;border-top:1px solid var(--kptu-border)}
-.dce-row:first-child{border-top:0}
-.dce-name{flex:1 1 80px;min-width:0;overflow-wrap:anywhere;font-size:14px}
-.dce-meta{flex:0 1 auto;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
-.dce-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
-.dce-row-edit{display:block}
-/* LIB-소분류: 소분류 줄은 큰 분류 줄 바로 아래에 한 칸 들여, 작고 흐린 글자로. */
-.dce-row-sub{padding-left:16px;border-top-style:dashed}
-.dce-row-sub .dce-name{font-size:var(--kptu-text-meta,13px);color:var(--kptu-muted)}
-.dce-label{display:block;margin:0 0 4px;font-size:var(--kptu-text-meta)}
-.dce-input{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box}
-.dce-add{margin:0 0 6px}
-.dce-add-line{display:flex;align-items:center;gap:8px}
-.dce-add-line .dce-input{flex:1 1 auto}
-.dce-status{min-height:1.4em;margin:6px 0 0;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
-.dce-status.error{color:var(--kptu-danger)}
-/* LIB-분류칸삭제: [자료 분류 수정] 창 안 버튼(이름 바꾸기·지우기·추가·저장·취소)은 UI-버튼기준의 작은 버튼(32px). 누르는 범위 44px은 ::after로 지킨다. */
-.dce button{position:relative;box-sizing:border-box;width:auto;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap}
-.dce button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.library-category-editor{margin:0}
 
 /* UI-PC자료실 C: 분류 칩 여러 개 고르기. 고른 칩은 앱 공통 기준(회색 '그 밖' 색), 안 고른 칩은 흰 바탕. */
 #appView #libraryView #libraryCategoryFilter button[aria-pressed="true"]{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-color:var(--ds-kind-other-soft)}
@@ -213,8 +190,7 @@
 #appView #libraryView #documentList .lu-node .lu-node{border-top:0}
 #appView #libraryView .lu-node-head{position:relative;display:flex;align-items:center;gap:6px;min-width:0;min-height:var(--ds-compact-height,32px);padding:6px 2px 6px calc(var(--lu-depth,0) * 16px);list-style:none;cursor:pointer;font-size:var(--ds-compact-text,13px);color:var(--kptu-ink);-webkit-tap-highlight-color:transparent}
 #appView #libraryView .lu-node-head::-webkit-details-marker{display:none}
-#appView #libraryView .lu-node-head::before{content:"";flex:none;width:0;height:0;margin:0 3px 0 2px;border-left:5px solid var(--kptu-muted);border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
-#appView #libraryView .lu-node[open] > .lu-node-head::before{transform:rotate(90deg)}
+/* S51-25 FOLDER-세모0: 묶음 머리의 세모(::before)는 없다 — 모든 묶음이 열린/닫힌 폴더 그림(library-tree.js). */
 #appView #libraryView .lu-node-head::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #appView #libraryView .lu-node-head:hover{background:var(--kptu-surface-subtle)}
 #appView #libraryView .lu-node-head:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
@@ -252,7 +228,7 @@
   /* 빠짐9: [모두 펴기]가 맨 위 ⋯로 옮겨 간 자리. 칩이 오른쪽 끝까지 가면 바로 아래 [편집]의 누르는 범위(44px)와 겹치므로 그만큼 비워 둔다. */
   #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="group"]{padding-right:52px}
 }
-@media(prefers-reduced-motion:reduce){#appView #libraryView .lu-node-head::before{transition:none}}
+/* (세모 ::before 없음 — S51-25) */
 
 /* LIB-토글트리 ③: 토글 머리 끝 ⋯(폴더 만들기·관리). 보이는 크기 28px, 누르는 범위 44px(UI-버튼기준 작은 버튼). */
 #appView #libraryView .lu-node-more{position:relative;flex:none;width:var(--ds-compact-height-sm,28px);height:var(--ds-compact-height-sm,28px);min-height:0;margin:-4px 0 -4px auto;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);line-height:1}
@@ -403,7 +379,6 @@
 .lu-drop-note{margin:4px 4px 0;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
 .lu-drop-note[hidden]{display:none}
 /* LIB-폴더보기 (2026-10-28 명진 요청 08:25 ③): 폴더로 묶었을 때 폴더 줄은 ▸ 대신 📁(닫힘)/📂(열림) 글자, '폴더 밖'은 🗂 + 흐린 글자. 다른 묶기는 그대로. */
-#appView #libraryView .lu-node-head.lu-node-emoji::before{content:none;display:none}
 #appView #libraryView .lu-folder-emoji{flex:none;margin:0 4px 0 1px;font-size:14px;line-height:1}
 /* FOLDER-나무새기준 ③: 폴더 그림은 공용 닫힌/열린 그림 둘 중 하나(펼침에 따라). 안이 빈 폴더는 닫힌 그림만(lu-fe-only). */
 #appView #libraryView .lu-folder-shape{display:inline-flex;margin:0 4px 0 0}

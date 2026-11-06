@@ -7,6 +7,7 @@
 //   되돌리고 알린다(rejectable). 늦게 온 서버 값은 이번 접속에서 고른 뒤에는 덮지 않는다.
 // - 노트가 붙은 보드와 자리: 노트 metadata.boards[보드 id](basket-data.js setNoteBoardPlace). [전체]는 지금 그대로 metadata.board.
 import { viewPrefs } from './view-prefs.js';
+import { treeIconHtml } from './tree-icons.js';
 import { mountSplitResize } from './split-resize.js';
 import { ALL, BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, addBoard, renameBoard, removeBoard, boardPlaceOf, onBoard, notesOnBoard, dropPlace } from './note-boards-model.mjs';
 import { layoutBoard } from './note-board-model.mjs';
@@ -70,7 +71,7 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
     const html = rows.map(r => {
       if (r.type === 'folder' || r.type === 'outside') {
         const name = r.type === 'outside' ? OUTSIDE_NAME : r.name;
-        return `<button type="button" class="nbb-folder" data-nbb-folder="${esc(r.id)}" aria-expanded="${!!r.open}" style="--nx-indent:${r.indent}"><span class="nbb-caret" aria-hidden="true">${r.open ? '▾' : '▸'}</span><span class="nbb-name">${esc(name)}</span><span class="nbb-num">${r.count}</span></button>`;
+        return `<button type="button" class="nbb-folder" data-nbb-folder="${esc(r.id)}" aria-expanded="${!!r.open}" style="--nx-indent:${r.indent}">${treeIconHtml(r.type === 'outside' ? 'outside' : 'folder', {row: r, open: !!r.open, className: 'nbb-caret'})}<span class="nbb-name">${esc(name)}</span><span class="nbb-num">${r.count}</span></button>`;
       }
       const on = onBoard(r.note, current), title = [...noteLineTitle(r.note)].slice(0, 60).join('');
       return `<button type="button" class="nbb-note${on ? ' nbb-on' : ''}" data-nbb-note="${esc(r.note.id)}" draggable="${on ? 'false' : 'true'}" style="--nx-indent:${r.indent}"${on ? ' aria-disabled="true" title="이미 붙어 있음"' : ' title="끌어다 놓거나 누르면 보드에 붙어요"'}><span class="nbb-name">${esc(title)}</span></button>`;
@@ -245,7 +246,7 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
       const q = state.q, m = q ? n => `${n.title || ''}\n${n.raw_text || ''}`.toLowerCase().includes(q) : null;
       const rows = treeRows({folders:folders(), notes:notes.get(), folderOf, root:null, isOpen:id => state.open.has(id), matches:m});
       list.innerHTML = rows.map(r => {
-        if (r.type !== 'note') return `<button type="button" class="nbb-folder" data-nbb-pf="${esc(r.id)}" aria-expanded="${!!r.open}" style="--nx-indent:${r.indent}"><span class="nbb-caret" aria-hidden="true">${r.open ? '▾' : '▸'}</span><span class="nbb-name">${esc(r.type === 'outside' ? OUTSIDE_NAME : r.name)}</span><span class="nbb-num">${r.count}</span></button>`;
+        if (r.type !== 'note') return `<button type="button" class="nbb-folder" data-nbb-pf="${esc(r.id)}" aria-expanded="${!!r.open}" style="--nx-indent:${r.indent}">${treeIconHtml(r.type === 'outside' ? 'outside' : 'folder', {row: r, open: !!r.open, className: 'nbb-caret'})}<span class="nbb-name">${esc(r.type === 'outside' ? OUTSIDE_NAME : r.name)}</span><span class="nbb-num">${r.count}</span></button>`;
         const on = onBoard(r.note, current), sel = state.picked.has(r.note.id);
         return `<button type="button" class="nbb-note${on ? ' nbb-on' : ''}" data-nbb-pn="${esc(r.note.id)}" aria-pressed="${on || sel}"${on ? ' aria-disabled="true"' : ''} style="--nx-indent:${r.indent}"><span class="nbb-check" aria-hidden="true">${on || sel ? '✓' : ''}</span><span class="nbb-name">${esc([...noteLineTitle(r.note)].slice(0, 60).join(''))}</span></button>`;
       }).join('') || emptyHtml('맞는 노트 없음');

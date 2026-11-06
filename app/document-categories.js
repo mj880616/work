@@ -202,3 +202,38 @@ export const deleteDocumentCategory=(name,stored,{rt=window.KPTURuntime}={})=>ca
 export const renameDocumentCategoryGroup=(from,to,stored,{rt=window.KPTURuntime}={})=>call('app_document_category_rename_group',{p_from:from,p_to:to,p_stored:stored||[]},rt).then(done);
 export const deleteDocumentCategoryGroup=(name,stored,{rt=window.KPTURuntime}={})=>call('app_document_category_delete_group',{p_name:name,p_stored:stored||[]},rt).then(done);
 export const deleteDocumentSubcategory=(name,{rt=window.KPTURuntime}={})=>call('app_document_subcategory_delete',{p_name:name},rt).then(done);
+
+// S51-28 LIB-화면정리 ②(분류 고치기 창 ⠿ 끌기): 큰 분류 순서 바꾸기 = 자료실 분류 칩 순서. 저장 위치는 그대로 내 프로필 칸 하나
+// (app_profiles.document_categories, 기존 owner RLS·표 검사 1~30개·이름 규칙·'기타' 필수가 그대로 지킴). 새 칸·새 함수·권한 변경 없음.
+// 같은 이름들의 순서만 바꾼다(빠지거나 새로 생기면 보내지 않음). 소분류는 그 큰 분류 바로 뒤로 함께 옮기고 '기타'는 늘 맨 끝.
+// 다른 기기에서 그사이 목록을 바꿨으면 덮어쓰지 않는다: 지금 목록과 같을 때만 고치는 조건(document_categories=eq.지금 목록)을 붙이고,
+// 고친 줄이 없으면 CATEGORY_NOT_FOUND(최신 목록을 다시 읽어 그림)로 돌려준다.
+export function reorderedCategories(list,tops){
+  const shape=shapeOf(list),rest=shape.tops.filter(name=>name!==LOCKED_CATEGORY);
+  if(tops.length!==rest.length||new Set(tops).size!==tops.length||!tops.every(name=>rest.includes(name)))return null;
+  const subsOf=name=>list.filter(x=>isSubcategory(x)&&categoryParent(x)===name);
+  const head=tops.flatMap(name=>[name,...subsOf(name)]),tail=[LOCKED_CATEGORY,...subsOf(LOCKED_CATEGORY)];
+  const next=[...head,...list.filter(x=>!head.includes(x)&&!tail.includes(x)),...tail];
+  return next.length===list.length&&next.every(x=>list.includes(x))?next:null;
+}
+const arrayLiteral=list=>'{'+list.map(name=>'"'+String(name).replace(/[\\"]/g,c=>'\\'+c)+'"').join(',')+'}';
+export async function reorderDocumentCategories(tops,{rt=window.KPTURuntime}={}){
+  const owner=ownerOf(rt),list=current,next=reorderedCategories(list,tops);
+  if(!owner||!loadedOwner)return {ok:false,error:'PERMISSION_DENIED'};
+  if(!next)return {ok:false,error:'INVALID_INPUT'};
+  if(next.every((name,i)=>name===list[i]))return {ok:true,categories:list,documents:0};
+  let rows;
+  try{
+    rows=await rt.api(`/rest/v1/app_profiles?user_id=eq.${encodeURIComponent(owner)}&document_categories=eq.${encodeURIComponent(arrayLiteral(list))}`,{method:'PATCH',prefer:'return=representation',body:{document_categories:next},singleFlight:false});
+  }catch(error){
+    const status=Number(error?.status)||0;
+    if(status===401||status===403)return {ok:false,error:'PERMISSION_DENIED'};
+    return status>=400&&status<500?{ok:false,error:'REFUSED'}:{ok:false,error:'UNKNOWN'};
+  }
+  const saved=Array.isArray(rows)&&rows.length===1?rows[0]?.document_categories:null;
+  if(!Array.isArray(rows))return {ok:false,error:'UNKNOWN'};
+  if(!rows.length)return {ok:false,error:'CATEGORY_NOT_FOUND'};
+  if(!validList(saved))return {ok:false,error:'UNKNOWN'};
+  setDocumentCategories(saved,owner);
+  return {ok:true,categories:saved,documents:0};
+}

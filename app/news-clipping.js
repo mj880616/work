@@ -6,6 +6,7 @@ import {folderSiblings, nextSortOrder, cleanFolderName, folderErrorText} from '.
 import {treeRows, folderPath, OUTSIDE, OUTSIDE_NAME} from './note-tree.mjs';
 import {FOLDER_DEPTH_LIMIT} from './folder-limits.mjs';
 import {askConfirm} from './small-notice.js';
+import {treeIconHtml} from './tree-icons.js';
 import {takeNewsItem} from './news-request.mjs';
 import {signalBody} from './now-model.mjs';
 import {ensureReads, onReads, readState} from './news-reads.js';
@@ -130,7 +131,7 @@ function treeHtml() {
     if (r.type === 'note') return `<div class="nc-tree-item" style="--nc-indent:${r.indent}">${treeItemHtml(r.note)}</div>`;
     const name = r.type === 'outside' ? OUTSIDE_NAME : r.name;
     const more = r.type === 'folder' ? `<button type="button" class="nc-folder-more" data-nc-folder-more="${esc(r.id)}" data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="${esc(name)} 폴더 메뉴">${MORE}</button>` : '';
-    return `<div class="nc-folder-row" style="--nc-indent:${r.indent}"><button type="button" class="nc-folder" data-nc-folder-toggle="${esc(r.id)}" aria-expanded="${!!r.open}"><span class="nc-caret" aria-hidden="true">${r.open ? '▾' : '▸'}</span><span class="nc-folder-name">${esc(name)}</span><span class="nc-faint">${r.count}</span></button>${more}</div>`;
+    return `<div class="nc-folder-row" style="--nc-indent:${r.indent}"><button type="button" class="nc-folder" data-nc-folder-toggle="${esc(r.id)}" aria-expanded="${!!r.open}">${treeIconHtml(r.type === 'outside' ? 'outside' : 'folder', {row: r, open: !!r.open, className: 'nc-caret'})}<span class="nc-folder-name">${esc(name)}</span><span class="nc-faint">${r.count}</span></button>${more}</div>`;
   }).join('');
   const more = state.end ? '' : `<button type="button" class="nc-text-btn nc-more-items" data-nc-more-items${state.more ? ' disabled aria-busy="true"' : ''}>더 보기</button>`;
   return head + html + more;

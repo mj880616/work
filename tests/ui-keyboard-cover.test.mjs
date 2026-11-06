@@ -24,7 +24,7 @@ const exempt=[
  ['.modal.ed-window','쓰기 창: 자판 위에서 끝남(--kptu-keyboard-inset), 아래 버튼 줄은 ed-window.css가 숨김'],
  ['.feed-menu','메뉴'],['.gs-row-menu','메뉴'],['.gt-task-menu','메뉴'],
  ['#appView #hwpView .hwp-lab[data-focus]','전체 화면 편집'],['.hwp-bar-panel','메뉴'],
- [':is(.lu-more-panel,.lu-folder-menu)','메뉴'],['.lu-drop-overlay','끌어 놓기 표시'],['.lu-move-picker','고르기 시트'],
+ [':is(.lu-more-panel,.lu-folder-menu)','메뉴'],['.le-menu','메뉴(목록 고치기 줄 ⋯, S51-28)'],['.lu-drop-overlay','끌어 놓기 표시'],['.lu-move-picker','고르기 시트'],
  ['.html-frame-full','전체 화면 보기'],['.od-link-menu','메뉴'],['.ps3-record-menu','메뉴'],['.rb-menu','메뉴'],
  ['.radar-row-menu','메뉴'],['.account-panel','계정 창'],['.mobile-menu','전체 메뉴'],
  ['.basket-photo-view','전체 화면 보기'],['.fx-prev','파일 미리보기 칸(폰·폴드 전체 화면 보기, 뒤로가기 = 닫힘)'],['.fx-dim','파일 받을 곳 창 바탕'],['.fx-dest','파일 받을 곳 고르기 창(쓰는 칸 없음, 뒤로가기 = 닫힘)'],['.fx-askbox','파일 같은 이름·큰 파일 묻는 칸(쓰는 칸 없음)'],['.task-inline-menu','메뉴'],['.task-due-popup','달력 팝업'],['.basket-link-menu','메뉴'],
