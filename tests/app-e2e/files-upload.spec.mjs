@@ -139,7 +139,7 @@ for (const width of [412, 884]) {
     await expect(row(page, 'od:OD!11').locator('.fx-star')).toBeVisible();
     // 나무 '★ 별표'에 바로(폰은 ‹ 로 나무까지 돌아가서). 개수도 늘어난다.
     if (width < 761) for (let i = 0; i < 4 && !(await root(page).locator('[data-fx-tree]').isVisible()); i++) await root(page).locator('[data-fx-up]').click();
-    await expect(root(page).locator('[data-fx-tree] [data-fx-shelf="starred"]').locator(width < 761 ? '.ft-num' : '.nx-num')).toHaveText('2개');
+    await expect(root(page).locator('[data-fx-tree] [data-fx-shelf="starred"]').locator('.ft-num')).toHaveText('2개');
     await root(page).locator('[data-fx-tree] [data-fx-shelf="starred"]').first().click();
     await expect(row(page, 'od:OD!11')).toBeVisible();
     await expect(row(page, 'od:OD!12')).toBeVisible();

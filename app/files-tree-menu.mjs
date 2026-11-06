@@ -3,12 +3,14 @@
 //  클라우드(원드라이브·구글): 파일 = 열기·복사·옮기기·이름 바꾸기·별표·휴지통 / 폴더 = 이 폴더만 보기·새 폴더·올리기·복사·옮기기·이름 바꾸기·색·위로·아래로·별표·휴지통
 //  이 폰: 파일 = 열기·클라우드에 복사·이름 바꾸기·휴지통(폰에 쓸 수 있을 때) / 폴더 = 이 폴더만 보기·새 폴더·클라우드에 복사·이름 바꾸기(폰 폴더는 지우지 않음)
 //  내 PC: 보기·열기만(파일 = 열기, 폴더 = 이 폴더만 보기).
-// 휴지통은 맨 아래 한 줄(last, 빨강 없음 — 한 번 묻기는 trashRows).
+// S51-31 UI-⋯작은메뉴(요청함 11/06 23:28): 세 묶음으로 나눠 보인다 — 열기·올리기·복사·옮기기·이름 바꾸기 | 별표·색·위로·아래로 | 휴지통.
+// 휴지통은 맨 아래 한 줄(last, 빨강 — 한 번 묻기는 trashRows). 둘째 묶음 첫 항목에 sep(가는 선).
 export const TREE_MENU_LABEL = Object.freeze({
   open: '열기', only: '이 폴더만 보기', mkdir: '새 폴더', upload: '올리기', copy: '복사', move: '옮기기', tocloud: '클라우드에 복사',
   rename: '이름 바꾸기', color: '색', up: '위로', down: '아래로', star: '별표', unstar: '별표 빼기', trash: '휴지통'
 });
 const CLOUD = ['od', 'gd'];
+const SECOND = ['star', 'unstar', 'color', 'up', 'down']; // 둘째 묶음은 이 순서(요청함 원문 '별표·색·위로·아래로')
 // row: 나무 줄의 원래 줄(source·is_folder·starred), opt: phoneWrite(폰에 쓸 수 있나), sibIndex·sibCount(같은 부모 안 폴더 순서, 모르면 -1·0).
 export function treeMenuItems(row, {phoneWrite = false, sibIndex = -1, sibCount = 0} = {}) {
   if (!row || !row.source) return [];
@@ -25,5 +27,9 @@ export function treeMenuItems(row, {phoneWrite = false, sibIndex = -1, sibCount 
     } else ids.push('open', 'copy', 'move', 'rename');
     ids.push(row.starred ? 'unstar' : 'star', 'trash');
   }
-  return ids.map(id => ({id, label: TREE_MENU_LABEL[id], ...(id === 'trash' ? {last: true} : {}), ...(id === 'color' ? {popup: true} : {})}));
+  const group = id => (SECOND.includes(id) ? 2 : id === 'trash' ? 3 : 1);
+  const rank = (id, i) => (group(id) === 2 ? SECOND.indexOf(id) : i);
+  const sorted = ids.map((id, i) => ({id, i})).sort((a, b) => group(a.id) - group(b.id) || rank(a.id, a.i) - rank(b.id, b.i)).map(x => x.id);
+  return sorted.map((id, i) => ({id, label: TREE_MENU_LABEL[id], ...(id === 'trash' ? {last: true} : {}), ...(id === 'color' ? {popup: true} : {}),
+    ...(i && group(id) === 2 && group(sorted[i - 1]) !== 2 ? {sep: true} : {})}));
 }

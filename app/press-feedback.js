@@ -9,6 +9,8 @@ export const DONE_MS = 1500;
 // CSS(ui-standard.css)가 :active로 직접 다루는 요소. 이 안에 들어 있으면 누른 것은 그 버튼이지 바깥 카드가 아니다.
 export const NATIVE_PRESS = 'button,summary,a[href],[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"],[role="switch"],input[type="button"],input[type="submit"],input[type="reset"]';
 const WIDE_W = 240, WIDE_H = 60;
+// UI-누름움직임(2026-11-06): 눌림 표시는 손가락을 대는 순간(pointerdown) 켜진다(뗄 때가 아니라). 톡 치는 짧은 누름에도 다 보이도록
+// 작아지는 시간은 --ds-press-ms(0.04초)로 짧게 둔다. 뗀 뒤에 일부러 더 남기지는 않는다(화면 크기를 재는 다른 동작·시험이 늦게 보지 않게).
 
 // 큰 줄·카드는 같은 3%라도 눈에 띄게 많이 움직이므로 낮춘다.
 export const isWide = rect => !!rect && (rect.width >= WIDE_W || rect.height >= WIDE_H);

@@ -577,7 +577,7 @@ function luRenderPath(box){
 // 나무는 같은 묶기 계산(buildTree) 결과의 폴더만 그린다(거르기·순서·색 같음). 펼침: 들어간 폴더까지의 길 + 들어간 폴더 + 사람이 펼친 폴더(화면 메모리만).
 // 줄 모양은 공용 폴더 줄(folder-tree-ui.mjs). 폰(600px 미만)은 지금처럼 목록 안 토글 나무 하나.
 const LU_SPLIT=typeof matchMedia==='function'?matchMedia(SPLIT_QUERY):null;
-const luNavOpen=new Set();
+const luNavOpen=new Set(),luNavShut=new Set(); // S51-25: 아이콘으로 접은 폴더(들어간 폴더의 길이어도 접힌 채)
 function luNavPath(){const out=new Set();let f=luFolders_.find(x=>x.id===luInFolder),n=0;while(f&&n<120){out.add(f.id);f=f.parent_id?luFolders_.find(x=>x.id===f.parent_id):null;n++}return out}
 function luRenderFolderNav(tree){
   const card=document.querySelector('#libraryListCard');if(!card)return;
@@ -587,19 +587,20 @@ function luRenderFolderNav(tree){
   if(!nav){nav=document.createElement('nav');nav.id='libraryFolderNav';nav.className='lu-fnav';nav.setAttribute('aria-label','자료실 폴더');card.prepend(nav)}
   card.dataset.luSplit='1';
   const path=luNavPath(),rows=[];
-  const walk=(list,depth)=>{for(const n of list||[]){if(n.kind!=='folder')continue;const kids=(n.children||[]).filter(c=>c.kind==='folder'),open=kids.length>0&&(path.has(n.id)||luNavOpen.has(n.id));
-    rows.push(ftFolderRowHtml({name:n.label,count:n.count,countLabel:`${n.count}건`,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,mainAttrs:{'data-lu-nav':n.id}}));
+  const walk=(list,depth)=>{for(const n of list||[]){if(n.kind!=='folder')continue;const kids=(n.children||[]).filter(c=>c.kind==='folder'),open=kids.length>0&&!luNavShut.has(n.id)&&(path.has(n.id)||luNavOpen.has(n.id));
+    rows.push(ftFolderRowHtml({name:n.label,count:n.count,countLabel:`${n.count}건`,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,mainAttrs:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`}}));
     if(open)walk(kids,depth+1)}};
   walk(tree,0);
   const top=`<div class="ft-row ft-folder ft-top lu-fnav-root${luInFolder?'':' ft-current'}" role="treeitem"><button type="button" class="ft-btn ft-main" data-lu-nav=""${luInFolder?'':' aria-current="true"'}><span class="ft-name">자료실 전체</span></button></div>`;
   nav.innerHTML=`<div class="lu-fnav-in" role="tree" aria-label="자료실 폴더 나무">${top}${rows.join('')}</div>`;
 }
-// 나무 줄: 다른 폴더면 들어가고, 이미 들어간 폴더를 다시 누르면 그 아래 폴더 펼치기·접기.
+// S51-25 FOLDER-PC나무: 줄 누르기 = 그 폴더로 들어가기 + 나무에서 펼침, 폴더 아이콘만 누르기 = 오른쪽은 그대로 두고 접기·펼치기만(세모 없음).
 document.addEventListener('click',e=>{
+  const t=e.target.closest?.('#libraryFolderNav [data-lu-nav-tog]');
+  if(t){e.preventDefault();const id=t.dataset.luNavTog;if(t.getAttribute('aria-expanded')==='true'){luNavShut.add(id);luNavOpen.delete(id)}else{luNavShut.delete(id);luNavOpen.add(id)}luRenderLibrary();document.querySelector(`#libraryFolderNav [data-lu-nav-tog="${CSS.escape(id)}"]`)?.focus({preventScroll:true});return}
   const b=e.target.closest?.('#libraryFolderNav [data-lu-nav]');if(!b)return;
   e.preventDefault();const id=b.dataset.luNav||null;
-  if(id&&id===luInFolder){if(luNavOpen.has(id))luNavOpen.delete(id);else luNavOpen.add(id);luRenderLibrary();document.querySelector(`#libraryFolderNav [data-lu-nav="${CSS.escape(id)}"]`)?.focus({preventScroll:true});return}
-  if(id)luNavOpen.add(id);
+  if(id){luNavShut.delete(id);luNavOpen.add(id)}
   luTreeBack=null;luEnterFolder(id);
   document.querySelector(`#libraryFolderNav [data-lu-nav="${CSS.escape(id||'')}"]`)?.focus({preventScroll:true});
 });

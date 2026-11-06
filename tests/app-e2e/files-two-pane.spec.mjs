@@ -36,7 +36,6 @@ test('폴드 884: 두 칸을 켜 둔 기기 — 칸마다 따로 위치(▾ 나�
   await pane(page, 0).locator('[data-fx-pdrop]').click();
   const ptree = pane(page, 0).locator('[data-fx-ptree]');
   await expect(ptree).toBeVisible();
-  await ptree.locator('[data-fx-twist="gd:"]').click();
   await ptree.locator('[data-fx-go="gd"][data-fx-id="gdFolder1"]').click();
   await expect(ptree).toBeHidden();
   await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 업무 공간');
@@ -187,7 +186,6 @@ test('폰 412: [두 칸 보기] → 위·아래 두 칸 · 칸마다 ▾ · 지�
   // 위 칸 ▾ → 구글 드라이브 › 가짜 업무 공간, 꾹 눌러(contextmenu) 고르기 → '1개 (위) · [↓ 아래에 복사] [↓ 옮기기]'
   await pane(page, 0).locator('[data-fx-pdrop]').click();
   const ptree = pane(page, 0).locator('[data-fx-ptree]');
-  await ptree.locator('[data-fx-twist="gd:"]').click();
   await ptree.locator('[data-fx-go="gd"][data-fx-id="gdFolder1"]').click();
   await expect(prow(page, 0, 'gd:gdDoc1')).toBeVisible();
   await prow(page, 0, 'gd:gdDoc1').dispatchEvent('contextmenu');
