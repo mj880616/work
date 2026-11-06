@@ -56,24 +56,8 @@
 /* UI-표잘림전수: 단계 표는 '…'로 자르지 않는다. 폰에서는 줄바꿈한다. */
 @media(max-width:760px){.so-stage-tag{max-width:9em;white-space:normal;overflow-wrap:anywhere}}
 .stg{display:grid;gap:6px}
-.stg-list{margin:0;padding:0;list-style:none}
-.stg-row{border-bottom:1px solid var(--kptu-border)}.stg-row:last-child{border-bottom:0}
-.stg-row.dragging{background:var(--kptu-primary-soft)}
-.stg-line{display:flex;align-items:center;gap:6px;min-height:var(--kptu-touch-target,44px)}
-.stg-grip{flex:0 0 auto;width:28px;height:var(--ds-compact-height);padding:0;border:0;background:transparent;color:var(--kptu-faint);font-size:var(--ds-text-meta);letter-spacing:-2px;cursor:grab;touch-action:none}
-.stg-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-row)}
-.stg-tag{flex:0 0 auto;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
-.stg-sw{flex:0 0 auto;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:1px solid var(--kptu-border-strong);border-radius:999px;background:transparent;color:var(--kptu-faint);font-size:var(--ds-text-meta);cursor:pointer}
-.stg-sw.on{border-color:transparent;background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink)}
-.stg-sw.end{border-color:transparent;background:var(--ds-kind-journal-soft);color:var(--ds-kind-journal-ink)}
-.stg-more{flex:0 0 auto;position:relative;width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);cursor:pointer}
-.stg-more::after,.stg-grip::after{content:"";position:absolute;inset:-6px 0}.stg-grip{position:relative}
-.stg-sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:0 0 8px 34px;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
 .stg-link{min-height:var(--ds-compact-height-sm);padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font-size:var(--ds-text-meta);cursor:pointer}
 .stg-link.danger{color:var(--kptu-danger)}
-.stg-input{flex:1 1 8em;min-width:0;height:var(--ds-compact-height);padding:0 8px;font-size:var(--ds-text-button)}
-.stg-add{display:flex;align-items:center;gap:6px}
-.stg-add-btn{justify-self:start;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta);cursor:pointer}
 .stg-note,.stg-msg{margin:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}.stg-msg:empty{display:none}.stg-msg.error{color:var(--kptu-danger)}
 /* ORG-쟁의단계 다듬기 ③: 화면 전체 ⋯는 화면 제목 '담당조직' 줄 오른쪽(#soTeamHead). 761px~: 본문 제목 줄(바구니 머리줄과 같은 글자 크기),
    폰: 위 머리줄 "담당조직" 오른쪽 자리로 올린다(바구니 .basket-head와 같은 방식, ☰가 빠진 자리). 크기 값은 기존 토큰만. */

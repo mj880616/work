@@ -62,6 +62,16 @@ async function mockApp(page,state){
     if(path==='/functions/v1/workspace-drive'){state.downloads.push(body);return ok({url:`${appOrigin}/tests/app-e2e/library-open-fixture.html?download=1`})}
     if(path==='/functions/v1/document-actions'){state.deletes.push(body);state.docs=state.docs.filter(d=>d.id!==body.document_id);return ok({ok:true})}
     if(path.startsWith('/functions/v1/'))return ok({});
+    // S51-28: state.documentCategories(분류 목록)를 주면 분류 함수 셋(추가·이름 바꾸기·지우기)을 DB 규칙만큼 흉내 낸다(state.categoryCalls에 쌓음).
+    if(state.documentCategories&&/^\/rest\/v1\/rpc\/app_document_(category|subcategory)_/.test(path)){
+      const fn=path.split('/').pop(),list=state.documentCategories;(state.categoryCalls||(state.categoryCalls=[])).push({fn,body});
+      const done=next=>{state.documentCategories=next;return ok({ok:true,categories:next,documents:0})};
+      if(fn==='app_document_category_add')return list.includes(body.p_name)?ok({ok:false,error:'CATEGORY_EXISTS'}):done([...list,body.p_name]);
+      if(fn==='app_document_category_rename')return !list.includes(body.p_from)?ok({ok:false,error:'CATEGORY_NOT_FOUND'}):list.includes(body.p_to)?ok({ok:false,error:'CATEGORY_EXISTS'}):done(list.map(x=>x===body.p_from?body.p_to:x));
+      if(fn==='app_document_category_delete'||fn==='app_document_subcategory_delete')return done(list.filter(x=>x!==body.p_name));
+      if(fn==='app_document_category_delete_group')return done(list.filter(x=>x!==body.p_name&&!x.startsWith(body.p_name+'›')));
+      return ok({ok:false,error:'REFUSED'});
+    }
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'workspace-1',user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
     if(path==='/rest/v1/app_profiles'){
@@ -76,12 +86,18 @@ async function mockApp(page,state){
         // LIB-폴더보기 칩 순서 적용 전 서버: 검사가 group_order 칸을 거절(400, 검사 위반).
         if(state.libraryViewNoOrder&&body?.library_view&&'group_order' in body.library_view)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'23514',message:'new row for relation "app_profiles" violates check constraint "app_profiles_library_view_check"'})});
         if(state.libraryViewFail)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'fail'})});
+        // S51-28 분류 순서: 지금 목록과 같을 때만 고친다(document_categories=eq.{…}). 다르면 고친 줄 없음([]).
+        if(body&&'document_categories' in body){
+          const want=url.searchParams.get('document_categories'),now='eq.{'+(state.documentCategories||[]).map(x=>'"'+x.replace(/[\\"]/g,c=>'\\'+c)+'"').join(',')+'}';
+          if(want!==now)return ok([]);
+          state.documentCategories=body.document_categories;return ok([{user_id:state.user.id,document_categories:state.documentCategories}]);
+        }
         if(body&&'library_view' in body)state.libraryView=body.library_view;
         return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null}]);
       }
       if(state.libraryViewMissing&&url.searchParams.get('select')?.includes('library_view'))return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_view does not exist'})});
       (state.profileReads||(state.profileReads=[])).push(url.search);
-      return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null}]);
+      return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null,...(state.documentCategories?{document_categories:state.documentCategories}:{})}]);
     }
     if(path==='/rest/v1/app_library_folders'&&method==='GET')return ok(state.folders||[]);
     if(path==='/rest/v1/app_library_folder_items'&&method==='GET')return ok(state.folderItems||[]);
