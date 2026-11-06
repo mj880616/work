@@ -90,7 +90,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     await expect.poll(() => server.prefCalls.length).toBe(2);
     expect(server.prefCalls[1]).toMatchObject({ source: 'od', items: [{ k: 'OD!2', o: 1024 }, { k: 'OD!1', o: 2048 }] });
     await expect.poll(() => folderNames(page)).toEqual(['가짜 사진함', '가짜 문서함']);
-    if (width > 760) await expect.poll(() => root(page).locator('[data-fx-tree] [data-fx-go][data-fx-id]:not([data-fx-id=""])').evaluateAll(els => els.map(e => e.dataset.fxId))).toEqual(['OD!2', 'OD!1']);
+    if (width > 760) await expect.poll(() => root(page).locator('[data-fx-tree] [data-fx-box="od"] [data-fx-go][data-fx-id]:not([data-fx-id=""])').evaluateAll(els => els.map(e => e.dataset.fxId))).toEqual(['OD!2', 'OD!1']);
 
     // 새로고침해도 유지(서버 값).
     await page.reload();
