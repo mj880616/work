@@ -14,6 +14,8 @@ const ALLOWED=new Set([
  'tests/auth-handoff/family-notes-db.test.mjs','tests/security/family-notes-isolation.test.mjs',
  // 3단계(수집·서버): collector-feed가 뽑은 줄을 넣고(칸별 grant), 중복·최근 줄·가족 방 거름을 위해 읽는다. 시험 하나.
  'supabase/functions/collector-feed/handler.ts','tests/security/collector-feed-family.test.mjs',
+ // S51-26 ⑩: 이미 뽑힌 줄의 주어 '상대' → 가족 이름 한 번 고치기 운영 SQL(커맨드센터가 이름을 넣어 실행, 건수만 출력).
+ 'docs/ops/family-subject-name.sql',
  // 4단계(화면·폰 알림): phone-push는 새 제안 수·시각만 읽고(내용 칸 없음), 화면은 데이터 모듈 하나만 부른다.
  'supabase/functions/phone-push/handler.ts','app/family-notes-data.js','tests/app-e2e/home-family.spec.mjs',
 ]);
