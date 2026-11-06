@@ -1,0 +1,47 @@
+<!doctype html><meta charset="utf-8"><style>
+body{margin:0;padding:14px;background:#e9e8ee;font-family:"Noto Sans KR",sans-serif;display:flex;gap:14px;align-items:flex-start;color:#222}
+.col{display:flex;flex-direction:column;gap:12px}
+.cap{font-size:13px;font-weight:700;color:#444;margin:0 0 6px 2px}
+.card{background:#fbfbfd;border:1px solid #e2e0e8;border-radius:12px;padding:12px;width:420px}
+.k{display:grid;grid-template-columns:118px 1fr;gap:8px 10px;align-items:center;font-size:12px;color:#666}
+.k b{color:#333;font-size:12.5px}
+.p{height:36px;padding:0 16px;border-radius:8px;background:#5b4f8a;color:#fff;border:0;font-size:14px;font-weight:600}
+.s{height:32px;padding:0 11px;border-radius:8px;background:#fff;color:#333;border:1px solid #d9d7e0;font-size:13px}
+.s.dn{color:#b3261e;border-color:#e8c4c1}
+.t{height:28px;padding:0 4px;background:none;border:0;color:#777;font-size:12px}
+.c{height:28px;padding:0 11px;border-radius:14px;background:#fff;border:1px solid #d9d7e0;font-size:12.5px;color:#444}
+.c.on{background:#efedf8;border-color:#9a8fc9;color:#4a3f80;font-weight:600}
+.i{width:32px;height:32px;border:0;background:none;color:#777;font-size:16px;border-radius:8px}
+.seg{display:inline-flex;border:1px solid #d9d7e0;border-radius:8px;overflow:hidden;height:32px}
+.seg span{padding:0 12px;display:flex;align-items:center;font-size:13px;color:#555;border-right:1px solid #e2e0e8}
+.seg span:last-child{border:0}.seg .on{background:#efedf8;color:#4a3f80;font-weight:600}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.bad{background:#fff;border:1px dashed #e0b9b5;border-radius:10px;padding:10px;font-size:12px}
+.bad .h{color:#b3261e;font-weight:700;margin-bottom:6px}
+.good .h{color:#3b7a4a}
+.bb{height:44px;padding:0 18px;border-radius:14px;border:1px solid #cfcbe0;background:#fff;font-size:15px}
+.legend{width:330px;font-size:12.5px;line-height:1.6;background:#fff;border-radius:12px;padding:12px 14px}.legend b{color:#5b4f8a}
+</style><body>
+<div class="col"><div><div class="cap">버튼은 이 6가지뿐</div><div class="card"><div class="k">
+<b>① 주 동작</b><div class="row"><button class="p">추가</button><span>한 화면·창에 하나, 진한 보라 채움, 36px</span></div>
+<b>② 작은 버튼</b><div class="row"><button class="s">할 일로</button><button class="s">취소</button><button class="s dn">지우기</button><span>흰 바탕·얇은 회색 선, 32px</span></div>
+<b>③ 글자 버튼</b><div class="row"><button class="t">되돌리기</button><button class="t">빼기</button><button class="t">노트 열기 ›</button><span>선·바탕 없음, 회색 작은 글자</span></div>
+<b>④ 칩</b><div class="row"><span class="c on">제안 3</span><span class="c">기억</span><span class="c">D-33 간담회</span><span>알약, 28px, 고른 것만 연보라</span></div>
+<b>⑤ 보기 바꾸기</b><div class="row"><span class="seg"><span class="on">하루</span><span>주간 정리</span></span><span>붙은 칸, 32px</span></div>
+<b>⑥ 아이콘</b><div class="row"><button class="i">⋯</button><button class="i">✕</button><button class="i">⤢</button><span>선·바탕 없음, 회색</span></div>
+</div></div></div>
+<div><div class="cap">모두 같은 것</div><div class="card" style="font-size:12px;line-height:1.7;color:#555">모서리: 버튼 8px · 칩만 알약 &nbsp;|&nbsp; 글자: 13px(주 동작 14px) &nbsp;|&nbsp; 색: 진한 보라 하나 + 회색 선 하나 + 빨강은 지우기만 &nbsp;|&nbsp; 누르는 범위: 보이는 크기와 상관없이 손가락 크기(44px) &nbsp;|&nbsp; 누르면: 살짝 작아지고 진해짐(UI-누름움직임) &nbsp;|&nbsp; 꺼짐: 흐리게만</div></div></div>
+<div class="col"><div class="cap">지금 다른 곳 → 고침 (예)</div>
+<div class="bad"><div class="h">홈 잊지 말기 — 둥글고 큰 상자 44px</div><div class="row"><button class="bb">할 일로</button><button class="bb">일정으로</button><button class="bb">✕</button></div></div>
+<div class="bad good" style="border-color:#bcd8c3"><div class="h">→ ② 작은 버튼 + ⑥ 아이콘</div><div class="row"><button class="s">할 일로</button><button class="s">이미 함</button><button class="s">일정으로</button><button class="s">노트로</button><button class="i">✕</button></div></div>
+<div class="bad"><div class="h">파일 머리 줄 — 큰 아이콘 상자·[두 칸 보기] 따로 한 줄·글자 '방금 맞춤'</div><div class="row"><button class="bb" style="width:56px">☁</button><button class="bb" style="width:56px">▲</button><button class="bb" style="width:56px">▯</button><button class="bb">두 칸 보기</button></div></div>
+<div class="bad good" style="border-color:#bcd8c3"><div class="h">→ ⑤ 보기 바꾸기 한 줄 + ③</div><div class="row"><span class="seg"><span class="on">한 칸</span><span>두 칸</span></span><span class="seg"><span class="on">☁</span><span>▲</span><span>▯</span></span><button class="t">방금 맞춤</button></div></div>
+<div class="bad"><div class="h">홈 아래 [업데이트 ▾][할 일] · 날짜 줄 ‹ › [이번 주] 큰 상자</div><div class="row"><button class="bb">업데이트 ▾</button><button class="bb">‹</button><button class="bb">이번 주</button></div></div>
+<div class="bad good" style="border-color:#bcd8c3"><div class="h">→ ⑤ 보기 바꾸기 · ⑥ 아이콘 · ② 작은 버튼</div><div class="row"><span class="seg"><span class="on">업데이트 ▾</span><span>할 일</span></span><button class="i">‹</button><button class="i">›</button><button class="s">이번 주</button></div></div>
+</div>
+<div class="legend"><b>버튼 전수 통일</b><br>
+① 사이트 버튼을 <b>6가지</b>로만: 주 동작 · 작은 버튼 · 글자 버튼 · 칩 · 보기 바꾸기 · 아이콘. 모양(모서리)·크기·색·테두리는 종류마다 하나.<br>
+② <b>전수 조사</b>: 모든 화면(홈·노트·파일·사진·자료실·일정·할 일·News·담당조직·사업 보고·메뉴·작은 창·설정) × 폰·폴드 펼침·PC에서 버튼을 하나씩 찾아 '지금 모양 → 6가지 중 무엇' 표로. 화면별로 새로 정한 높이·둥글기·색은 모두 지움.<br>
+③ 한 번에 고침(작은 화면별 PR로 나눠도 같은 규칙 하나).<br>
+④ <b>다시 안 생기게</b>: 6가지에 안 드는 버튼이나 화면별 버튼 크기·색을 새로 쓰면 시험이 실패.<br><br>
+기존 결정(작고 낮게, 주 동작 하나만 채움)은 그대로 — 이번엔 '빠진 곳 없이 전부'와 '종류 6개 고정'이 새것.</div></body>

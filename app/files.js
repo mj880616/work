@@ -22,12 +22,13 @@ import {folderLook} from './folder-prefs.js'; // FOLDER-순서·색 ③-2: 폴�
 import {colorChoiceHtml, createColorMode} from './folder-look.js';
 import {folderShapeHtml} from './folder-look-model.mjs';
 import {createAnchoredMenu} from './anchored-menu.js';
-import {openRowMenu} from './row-menu.js';
+import {openRowMenu, appMenuPoint} from './row-menu.js';
 import {treeMenuItems} from './files-tree-menu.mjs';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
 import {recentFolded, toggleRecentFolded} from './recent-fold.js';
+import {recentHumanRows} from './files-auto-model.mjs';
 import {brandIconSvg} from './brand-icons.js';
 import {treeIconHtml} from './tree-icons.js';
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
@@ -345,14 +346,16 @@ function recordCountsFor(source, parent, scope) {
 // '★ 별표 (개수)'(나무 맨 위 줄): 별표 목록을 읽으면 그 줄 수. 들어올 때·출처를 켜고 끌 때·별표를 바꾼 뒤 같은 읽기 함수(app_cloud_find_in)로 센다.
 const starCount = rows => { const list = Array.isArray(rows) ? rows : []; return list.length >= SHELF_LIMIT ? `${SHELF_LIMIT}+` : String(list.filter(r => !isLockedItem(r)).length); };
 // FOLDER-나무새기준 ① 파일 '최근' 상자: 켜진 클라우드의 최근 바뀐 파일(서버 p_shelf 'recent', 따로 저장 없음). 폰 나무에서만 보인다.
-const RECENT_BOX = 5, RECENT_BOX_MORE = 15;
+// S51-23 FILES-최근자동제외: Web2 자동화가 되풀이해 만드는 파일(텔레그램 수집·통화 전사·백업 등 시스템 폴더 안)은 '최근'에서만 뺀다
+// (규칙은 files-auto-model.mjs 한 곳, 폴더 보기·찾기에는 그대로). 빼고도 15줄이 차도록 서버 한도(300)까지 읽은 뒤 거른다.
+const RECENT_BOX = 5, RECENT_BOX_MORE = 15, RECENT_FETCH = 300;
 async function loadRecent() {
   const scope = state.scope, on = cloudOn();
   if (!on.length || !solo()) { state.recent = null; return; }
   try {
-    const rows = await rpc('app_cloud_find_in', {p_sources: on, p_query: null, p_shelf: 'recent', p_limit: RECENT_BOX_MORE});
+    const rows = await rpc('app_cloud_find_in', {p_sources: on, p_query: null, p_shelf: 'recent', p_limit: RECENT_FETCH});
     if (state.scope !== scope) return;
-    state.recent = (Array.isArray(rows) ? rows : []).filter(r => !r.is_folder && !isLockedItem(r));
+    state.recent = recentHumanRows((Array.isArray(rows) ? rows : []).filter(r => !r.is_folder && !isLockedItem(r)), RECENT_BOX_MORE);
   } catch { if (state.scope === scope) state.recent = null; }
   paintTree();
 }
@@ -2491,16 +2494,28 @@ root?.addEventListener('keydown', event => {
   } else if (event.key === 'Backspace' && !p.query) { event.preventDefault(); goUp(); }
   else if (event.key === '/') { event.preventDefault(); $('[data-fx-search]')?.focus(); }
 });
-// 폰: 꾹 누르면 고르기(길게 누르면 브라우저가 contextmenu를 보낸다). PC 오른쪽 단추도 같은 고르기.
+// 폰: 꾹 누르면 고르기(길게 누르면 브라우저가 contextmenu를 보낸다).
+// S51-27 UI-PC우클릭: PC 마우스 우클릭(Shift+F10·메뉴 키)은 그 줄 하나의 메뉴를 누른 자리에 연다 — 나무 줄 ⋯와 같은 항목(files-tree-menu.mjs)·
+// 같은 실행(treeAct). 폴더의 '이 폴더만 보기'는 목록에서는 [열기](줄을 누른 것과 같은 폴더 들어가기). 고르기는 Ctrl·Shift 누름·폰 꾹 누르기 그대로.
 root?.addEventListener('contextmenu', event => {
   const b = event.target.closest('[data-fx-row]');
   if (!b || state.busy) return;
+  if (!touchDrag?.holding() && listMenu(b, event)) { event.preventDefault(); return; }
   event.preventDefault();
   // 손가락으로 누르고 있는 중이면 꾹 눌러 끌기 부품이 맡는다(떼면 고르기, 움직이면 끌기).
   if (touchDrag?.holding()) { touchDrag.armNow(); return; }
   { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   togglePick(b.dataset.fxRow);
 });
+function listMenu(b, event) {
+  const at = appMenuPoint(event, b); if (!at) return false;
+  const i = paneOfEl(b); if (i >= 0) setCur(i);
+  const key = b.dataset.fxRow, r = rowByKey(key);
+  if (!r) return false;
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite()}).map(it => (it.id === 'only' ? {...it, id: 'go', label: '열기'} : it));
+  return openRowMenu(b, {key: 'list:' + key, title: r.name, items, at, note: r.source === PC ? PC_READONLY_TEXT : '',
+    run: id => { if (id === 'go') goFolder(r.source, r.item_id); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});
+}
 // PC: 줄을 폴더(목록의 폴더 줄·나무의 폴더)로 끌어 놓아 옮기기. 끈 줄이 고른 것 안이면 고른 것 모두.
 // 두 칸: 반대 칸(그 칸의 지금 폴더 또는 그 칸의 폴더 줄)에 놓으면 '복사 · 옮기기' 작은 고르기.
 let drag = null;

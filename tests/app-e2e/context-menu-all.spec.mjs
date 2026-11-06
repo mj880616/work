@@ -91,7 +91,7 @@ async function openCalendar(page, { calendarId = 'source', view = 'week' } = {})
   await expect.poll(() => page.evaluate(() => !!window.__KPTU_CALENDAR_CONTEXT_MENU__ && !!window.KPTUCalendarEvents?.act)).toBe(true);
   return { state, chip };
 }
-const eventMenu = page => page.locator('#calendarEventMenu');
+const eventMenu = page => page.locator('#rowMenu');
 const labels = menu => menu.locator('button').allTextContents().then(a => a.map(s => s.trim()));
 
 test('1280 calendar: right-click on an event opens the small menu at the pointer; [수정] opens the edit window', async ({ page }) => {
@@ -100,7 +100,7 @@ test('1280 calendar: right-click on an event opens the small menu at the pointer
   await page.mouse.move(x, y); await page.mouse.click(x, y, { button: 'right' });
   const menu = eventMenu(page);
   await expect(menu).toBeVisible();
-  expect(await labels(menu)).toEqual(['수정', '담당조직 연결', '결과 남기기', '일정 삭제']);
+  expect(await labels(menu)).toEqual(['수정', '담당조직 연결', '결과 남기기', '삭제']);
   const m = await menu.boundingBox();
   expect(Math.abs(m.x - x)).toBeLessThanOrEqual(12);
   await page.keyboard.press('Escape'); await expect(menu).toBeHidden();
@@ -110,16 +110,16 @@ test('1280 calendar: right-click on an event opens the small menu at the pointer
   await expect(page.locator('#ciGoogleSave')).toBeEnabled();
 });
 
-test('1280 calendar: [일정 삭제] asks first; cancel keeps the event, OK sends the same delete the window sends', async ({ page }) => {
+test('1280 calendar: [삭제] (맨 아래) asks first; cancel keeps the event, OK sends the same delete the window sends', async ({ page }) => {
   const { state, chip } = await openCalendar(page);
   const menu = eventMenu(page);
   await chip.click({ button: 'right' }); await expect(menu).toBeVisible();
-  await menu.getByRole('button', { name: '일정 삭제' }).click();
+  await menu.getByRole('button', { name: '삭제', exact: true }).click();
   expect(await answerAsk(page, false)).toContain('Google 일정을 삭제할까요?');
   await expect(page.locator('#ciGoogleModal')).toBeHidden();
   expect(state.writes).toEqual([]);
   await chip.click({ button: 'right' }); await expect(menu).toBeVisible();
-  await menu.getByRole('button', { name: '일정 삭제' }).click();
+  await menu.getByRole('button', { name: '삭제', exact: true }).click();
   await answerAsk(page, true);
   await expect.poll(() => state.writes.length).toBe(1);
   expect(state.writes[0]).toMatchObject({ action: 'delete-event', calendar_id: 'source', event_id: 'ctx-event' });
