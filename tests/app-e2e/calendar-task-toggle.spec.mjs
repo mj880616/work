@@ -14,7 +14,7 @@ const gate=()=>{let release;const wait=new Promise(r=>{release=r});return {wait,
 test.use({timezoneId:'Asia/Seoul'});
 
 // Exercise the real editor, renderer, history and toggle path; only remote APIs are synthetic.
-async function fixture(page,{width=390,onToggle}={}){
+async function fixture(page,{width=390,onToggle,holdRead}={}){
   await page.setViewportSize({width,height:844});
   await page.clock.setFixedTime(new Date(NOW));
   const make=(id,date)=>({id,title:'QA task',notes:'QA note',due:date+'T00:00:00.000Z',status:'needsAction',completed:null,taskListId:'@default',taskListTitle:'QA',source:'google-task'});
@@ -43,7 +43,10 @@ async function fixture(page,{width=390,onToggle}={}){
         tasks[i]={...tasks[i],status:body.completed?'completed':'needsAction',completed:body.completed?NOW:null};
         return ok({ok:true,task:tasks[i]});
       }
-      return ok({connected:true,authorized:true,needs_reconnect:false,tasks,pending_scope:'all'});
+      // holdRead: a read made after a toggle waits (a slow network) and then answers what the server had when it was asked.
+      const answer=JSON.parse(JSON.stringify(tasks));
+      if(holdRead&&calls.some(c=>c.action==='toggle')){holdRead.held=(holdRead.held||0)+1;await holdRead.wait;holdRead.done=(holdRead.done||0)+1}
+      return ok({connected:true,authorized:true,needs_reconnect:false,tasks:answer,pending_scope:'all'});
     }
     return ok([]);
   });
@@ -117,6 +120,27 @@ for(const [path,width] of [['cell',1280],['cell',390],['list',390]]){
     await showDay(page,id);
     await expect(chip(page,id)).toHaveClass(/cmv-task-done/);
     expect(external).toEqual([]);
+  });
+}
+
+// STAB-달력할일토글: the date list opened right after 완료 shows the confirmed state even while the calendar's fresh read is still
+// on its way (CI was slow enough for the list to open first and keep the old state).
+for(const width of [1280,390]){
+  test(`date list shows the confirmed toggle before the fresh read returns (${width}px)`,async({page})=>{
+    const hold=gate(),{calls}=await fixture(page,{width,holdRead:hold});
+    await open(page,'cell');
+    await page.locator('#gtToggleBtn').click();
+    await expect(page.locator('#gtTaskModal')).toBeHidden();
+    if(width<=760)await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined();
+    await expect.poll(()=>hold.held||0).toBeGreaterThan(0);
+    await showDay(page,'cell');
+    await expect(chip(page,'cell')).toHaveClass(/cmv-task-done/);
+    hold.release();
+    await expect.poll(()=>hold.done||0).toBe(hold.held);
+    await expect.poll(()=>page.evaluate(()=>KPTUCalendarMonthView.dayEvents('2026-10-20').find(t=>t.id==='cell')?.done)).toBe(true);
+    await showDay(page,'cell');
+    await expect(chip(page,'cell')).toHaveClass(/cmv-task-done/);
+    expect(toggles(calls)).toHaveLength(1);
   });
 }
 
