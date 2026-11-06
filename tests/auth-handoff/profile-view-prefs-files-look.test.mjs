@@ -113,9 +113,10 @@ test('view prefs files look: plan, dry-run, apply, own-row writes, CHECK and gua
    phone_folders_known:['0123abcd'],col_widths:{files:{name:240,day:90}},photo_sources_phone:{phone:true,onedrive:false},photo_sources_pc:{onedrive:true,gdrive:false},photo_level:'month',report_period:{mode:'range',from:'2026-10-01',to:'2026-10-31'},files_sources:{app:{od:true,gd:false},pc:{gd:true}},files_dest_recent:[{source:'gd',id:'gdFolder1',name:'가짜 업무 공간'}],files_two:{pc:{fold:true}},note_sort:'manual',photo_zoom:{app:'day',pc:'year'},
    org_order:{groups:[{name:'가묶음',orgs:['가짜노조']}],hidden:['옛 가짜 조직']},report_calendar:'가짜 업무 달력',news_tab:'media',news_font:'l'};
   const RANGE={files_look:{app:{narrow:'grid',fold:'big'},phone:{narrow:'big'},pc:{fold:'list',wide:'grid'}}};
-  const GOOD=[{files_look:{phone:{narrow:'grid'}}},{files_look:{}},{files_look:{app:{}}},RANGE];
+  const NARROW={files_two:{app:{narrow:true,fold:false},phone:{narrow:false}}};
+  const GOOD=[{files_look:{phone:{narrow:'grid'}}},{files_look:{}},{files_look:{app:{}}},RANGE,NARROW,{...RANGE,...NARROW}];
   const BAD=[{files_look:'grid'},{files_look:null},{files_look:[]},{files_look:{tablet:{narrow:'grid'}}},{files_look:{pc:'grid'}},{files_look:{pc:{wide:'g3'}}},{files_look:{pc:{wide:1}}},{files_look:{pc:{wide:''}}},
-   {files_look:{pc:{tablet:'grid'}}},{files_look:{pc:{wide:'GRID'}}},{files_look:{pc:{wide:true}}},{files_look:{pc:{wide:{v:'grid'}}}},{files_look:{pc:[]}},{files_look:{pc:null}}];
+   {files_look:{pc:{tablet:'grid'}}},{files_two:{pc:{narrow:1}}},{files_two:{pc:{tablet:true}}},{files_two:{pc:{narrow:'yes'}}},{files_look:{pc:{wide:'GRID'}}},{files_look:{pc:{wide:true}}},{files_look:{pc:{wide:{v:'grid'}}}},{files_look:{pc:[]}},{files_look:{pc:null}}];
 
   await t.test('guard: stops without changes when the news prefs step is not recorded',async()=>{
    await guardFails(/PROFILE_VIEW_PREFS_FILES_LOOK_PREREQUISITE_CHANGED/);
@@ -129,6 +130,7 @@ test('view prefs files look: plan, dry-run, apply, own-row writes, CHECK and gua
    assert.equal(v['prerequisite recorded'],'예');assert.equal(v['new migration absent'],'예');
    assert.equal(v['view prefs check without files look'],'예');assert.equal(v['saved files look'],'0');
    await assert.rejects(write(OWNER,OWNER,RANGE),{code:'23514'});
+   await assert.rejects(write(OWNER,OWNER,NARROW),{code:'23514'},'files_two narrow refused before');
    assert.equal(Object.keys(ALL_OLD).length,43,'all keys of the news prefs check');
    assert.equal((await write(OWNER,OWNER,ALL_OLD)).rowCount,1,'every previous key is accepted before');
    await write(OWNER,OWNER,null);
@@ -166,6 +168,9 @@ test('view prefs files look: plan, dry-run, apply, own-row writes, CHECK and gua
    const result=await run('rollback','9984');assert.equal(result.ok,false,result.summary);
    const c=await pool.connect();try{await assert.rejects(c.query(rollbackSQL),/PROFILE_VIEW_PREFS_FILES_LOOK_ROLLBACK_BLOCKED: files look choice saved/);await c.query('rollback');}finally{c.release();}
    assert.deepEqual(await saved_(OWNER),RANGE);
+   await write(OWNER,OWNER,NARROW);
+   const c2=await pool.connect();try{await assert.rejects(c2.query(rollbackSQL),/PROFILE_VIEW_PREFS_FILES_LOOK_ROLLBACK_BLOCKED: phone two panes choice saved/);await c2.query('rollback');}finally{c2.release();}
+   assert.deepEqual(await saved_(OWNER),NARROW);
   });
   await t.test('rollback restores the previous check word for word once no files_look remains; re-apply works',async()=>{
    await write(OWNER,OWNER,ALL_OLD);
@@ -174,6 +179,7 @@ test('view prefs files look: plan, dry-run, apply, own-row writes, CHECK and gua
    assert.equal(await checkDef(),newsDef);
    assert.deepEqual((await pool.query(snapshot)).rows,before);
    await assert.rejects(write(OWNER,OWNER,RANGE),{code:'23514'});
+   await assert.rejects(write(OWNER,OWNER,NARROW),{code:'23514'});
    assert.deepEqual(await saved_(OWNER),ALL_OLD,'other saved values survive the rollback');
    const again=await run('apply','9985');assert.equal(again.ok,true,again.summary);
   });

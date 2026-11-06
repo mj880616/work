@@ -1,6 +1,6 @@
 begin;
 -- 20261106200000_profile_view_prefs_files_look의 짝 되돌리기. 화면 기억 검사를 files_look 없는 20261106080000 feed_reads_news_prefs 모양(글자 그대로)으로
--- 되돌리고 이번 기록 1행만 지운다. 어떤 프로필이라도 files_look이 저장돼 있으면 멈춘다(값을 지워서 통과시키지 않는다 —
+-- 되돌리고 이번 기록 1행만 지운다. 어떤 프로필이라도 files_look 또는 files_two의 narrow 칸이 저장돼 있으면 멈춘다(값을 지워서 통과시키지 않는다 —
 -- 먼저 화면 PR을 이전 판으로 되돌리고, 남은 값을 어떻게 할지 정한 뒤 다시 계획한다). 표 권한·정책·함수·다른 칸에는 손대지 않는다.
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
@@ -14,6 +14,10 @@ begin
   end if;
   if exists (select 1 from public.app_profiles where view_prefs ? 'files_look') then
     raise exception 'PROFILE_VIEW_PREFS_FILES_LOOK_ROLLBACK_BLOCKED: files look choice saved; decide it first';
+  end if;
+  if exists (select 1 from public.app_profiles
+             where view_prefs -> 'files_two' -> 'app' ? 'narrow' or view_prefs -> 'files_two' -> 'phone' ? 'narrow' or view_prefs -> 'files_two' -> 'pc' ? 'narrow') then
+    raise exception 'PROFILE_VIEW_PREFS_FILES_LOOK_ROLLBACK_BLOCKED: phone two panes choice saved; decide it first';
   end if;
 end
 $$;

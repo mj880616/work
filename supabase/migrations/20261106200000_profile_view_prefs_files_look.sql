@@ -6,6 +6,7 @@ begin;
 -- 무엇: app_profiles_view_prefs_check 하나만 바꾼다(지우고 같은 이름으로 다시 만듦). 받는 칸 마흔세 개(20261106080000 feed_reads_news_prefs 판 글자 그대로)에
 --   files_look 하나를 더해 마흔네 개로. files_look = 객체, 칸은 기기 종류 app·phone·pc 셋뿐(files_two와 같은 모양), 기기 칸 안은 화면 폭 종류
 --   narrow·fold·wide 셋뿐(폰·폴드·PC 따로 기억, 시안 files-phone-grid-two-drag.html), 값은 글자 list·grid·big 중 하나.
+--   + files_two 기기 칸 안 폭 칸에 narrow(폰 한 칸 화면) 하나를 더 받는다(S51-20 ② 폰 위·아래 두 칸 켬 기억, 시안 files-phone-grid-two-drag.html ②).
 --   다른 칸 규칙·전체 4000바이트 상한은 글자 그대로 같다(넓히기만). 기존 행은 건드리지 않는다.
 -- 권한: grant·revoke·정책·RLS·함수·트리거·새 열 변경 없음. 프로필 정책은 task12a 두 개 그대로.
 -- 앞 단계: 20261106080000_feed_reads_news_prefs(S51-6) 기록이 있어야 한다(없으면 멈춘다). 이 검사는 그 단계의 news_tab·news_font까지 그대로 담고 있다.
@@ -228,12 +229,12 @@ alter table public.app_profiles
                and jsonb_array_length(jsonb_path_query_array(view_prefs, 'lax $.files_dest_recent[*] ? (@.source.type() == "string" && (@.source == "od" || @.source == "gd") && @.id.type() == "string" && @.id like_regex "^[A-Za-z0-9!_.-]{0,120}$" && @.name.type() == "string" && @.name like_regex "^[^[:cntrl:]]{1,40}$")'))
                    = jsonb_array_length(view_prefs -> 'files_dest_recent') end
         -- [파일] 두 칸 켬(S49-30 FILES-통합 2-③, 명진 결정 H-2): 객체, 칸은 기기 종류 app·phone·pc 셋뿐(files_sources와 같은 모양)이고
-        -- 각 칸은 객체, 그 안 칸은 fold(폴드 펼침)·wide(PC) 둘뿐이며 값은 모두 참·거짓. 없는 칸은 화면이 기본(폴드 = 두 칸, PC = 한 칸)으로 본다.
+        -- 각 칸은 객체, 그 안 칸은 fold(폴드 펼침)·wide(PC)·narrow(폰 한 칸 600px 미만, S51-20 ② 폰 위·아래 두 칸에서 더함) 셋뿐이며 값은 모두 참·거짓. 없는 칸은 화면이 기본(폴드 = 두 칸, PC = 한 칸)으로 본다.
         and case when not (view_prefs ? 'files_two') then true
               when jsonb_typeof(view_prefs -> 'files_two') <> 'object' then false
               when jsonb_path_exists(view_prefs, 'strict $.files_two.keyvalue() ? (!(@.key == "app" || @.key == "phone" || @.key == "pc"))') then false
               when jsonb_path_exists(view_prefs, 'strict $.files_two.* ? (@.type() != "object")') then false
-              else not jsonb_path_exists(view_prefs, 'strict $.files_two.*.keyvalue() ? (!(@.key == "fold" || @.key == "wide"))')
+              else not jsonb_path_exists(view_prefs, 'strict $.files_two.*.keyvalue() ? (!(@.key == "fold" || @.key == "wide" || @.key == "narrow"))')
                and not jsonb_path_exists(view_prefs, 'strict $.files_two.*.* ? (@.type() != "boolean")') end
         -- 노트 목록 정렬(S49-38 FOLDER-순서·색 ②): changed(고친 날, 기본) 또는 manual(내가 정한 순서) 둘 중 하나(글자여야 한다). 없으면 화면이 changed로 본다.
         and case when not (view_prefs ? 'note_sort') then true
@@ -299,5 +300,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261106200000', 'profile_view_prefs_files_look', array['S51-20 FILES-phone-look: app_profiles_view_prefs_check rebuilt on the feed_reads_news_prefs version also accepting files_look (object by device app|phone|pc, each an object by layout narrow|fold|wide, string list|grid|big); every other key and rule unchanged; no new column, grants, policies or functions']);
+values ('20261106200000', 'profile_view_prefs_files_look', array['S51-20 FILES-phone-look: app_profiles_view_prefs_check rebuilt on the feed_reads_news_prefs version also accepting files_two layout narrow and files_look (object by device app|phone|pc, each an object by layout narrow|fold|wide, string list|grid|big); every other key and rule unchanged; no new column, grants, policies or functions']);
 commit;

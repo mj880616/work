@@ -1,5 +1,5 @@
 -- SELECT only. Aggregates and hashes; no profile text. Run before dry-run/apply (also the dry-run before/after comparison).
--- 적용 전 기대: 앞 단계(feed_reads_news_prefs) 기록 예 / 이번 기록 없음 예 / 화면 기억 검사에 news_tab·news_font·photo_zoom·files_two 있고 files_look 없음 예 / 저장된 files_look 0 /
+-- 적용 전 기대: 앞 단계(feed_reads_news_prefs) 기록 예 / 이번 기록 없음 예 / 화면 기억 검사에 news_tab·news_font·photo_zoom·files_two 있고 files_look 없음 예 / 저장된 files_look 0 / 저장된 files_two narrow 0 /
 --   RLS 예 / anon 아니오 / 정책 2개 예. 그 밖의 해시·개수는 사후 확인과 같은 값이어야 한다(기록만).
 -- 이 값이 다르면 적용하지 않고 멈춘다(권한·정책을 넓히지 않는다).
 -- read_only 요청은 표 소유자가 아닌 역할로 돈다. pg_constraint·pg_get_constraintdef로 읽는다(information_schema 안 씀).
@@ -7,6 +7,7 @@
 -- expect: new migration absent = 예
 -- expect: view prefs check without files look = 예
 -- expect: saved files look = 0
+-- expect: saved files two narrow = 0
 -- expect: RLS enabled = 예
 -- expect: anon or public table privilege = 아니오
 -- expect: two owner policies = 예
@@ -23,6 +24,7 @@ union all select 'new migration absent',case when not exists(select 1 from supab
 union all select 'view prefs check without files look',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_profiles') and conname='app_profiles_view_prefs_check' and contype='c' and convalidated
   and pg_get_constraintdef(oid) ~ 'news_font' and pg_get_constraintdef(oid) ~ 'news_tab' and pg_get_constraintdef(oid) ~ 'photo_zoom' and pg_get_constraintdef(oid) ~ 'files_two' and pg_get_constraintdef(oid) !~ 'files_look')=1 then '예' else '아니오' end
 union all select 'saved files look',count(*)::text from public.app_profiles where view_prefs ? 'files_look'
+union all select 'saved files two narrow',count(*)::text from public.app_profiles where view_prefs -> 'files_two' -> 'app' ? 'narrow' or view_prefs -> 'files_two' -> 'phone' ? 'narrow' or view_prefs -> 'files_two' -> 'pc' ? 'narrow'
 union all select 'RLS enabled',case when exists(select 1 from pg_class where oid=to_regclass('public.app_profiles') and relrowsecurity) then '예' else '아니오' end
 union all select 'anon or public table privilege',case when has_table_privilege('anon','public.app_profiles','select,insert,update,delete')
   or exists(select 1 from pg_class where oid=to_regclass('public.app_profiles') and relacl::text ~ '(^|[{,])(anon)?=') then '예' else '아니오' end
