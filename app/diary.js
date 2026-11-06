@@ -109,8 +109,8 @@ function renderMonth() {
   const total = seoulParts(seoulDate(cursor.year, cursor.month + 1, 0)).day, today = todayKey();
   const info = [];
   for (let n = 1; n <= total; n++) {
-    const day = seoulDateKey(addSeoulDays(first, n - 1)), row = rows.get(day), photos = diaryPhotos(row);
-    info.push({n, day, row, photos, text: !!diaryText(row), od: (odShown()?.days[day] || []).length, done: doneOf(day).length, photo: photos[0] ? `${row.id}:${photos[0].drive_file_id}` : ''});
+    const day = seoulDateKey(addSeoulDays(first, n - 1)), row = rows.get(day), photos = diaryPhotos(row), odDay = odShown()?.days[day] || [];
+    info.push({n, day, row, photos, text: !!diaryText(row), od: odDay.length, done: doneOf(day).length, photo: photos[0] ? `${row.id}:${photos[0].drive_file_id}` : ''});
   }
   // 달력은 일기·원드라이브·'오늘 한 일'이 따로따로 도착할 때마다 다시 그리라는 부름을 받는다. 그릴 내용이 지금 칸과 같으면 칸을 갈지 않는다 —
   // 누르려던 칸·그 칸의 사진이 같은 모양 새 칸으로 바뀌어 떨어져 나가지 않게(S51-19). 고른 날 표시는 selectDay·closeDetail이 칸에서 바로 맞춘다.
