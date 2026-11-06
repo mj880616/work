@@ -312,9 +312,14 @@ const editorDocs=()=>[
 ];
 async function openEditor(page,width){
  await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
- await tap(page,page.locator('#manageLibraryBtn'),width);
+ await openManage(page,width);
  const modal=page.locator('#libraryManageModal');await expect(modal).toBeVisible();
  const editor=modal.locator('.dce');await expect(editor.locator('.dce-list')).toBeVisible();return {modal,editor};
+}
+// S51-28: 폰·폴드는 [분류 ▾] 창 [편집], PC는 칩 줄 끝 [편집].
+async function openManage(page,width){
+ if(width<1200){await tap(page,page.locator('#libraryCategoryPick'),width);await tap(page,page.locator('#libraryCategorySheet [data-lu-cat-edit]'),width);}
+ else await tap(page,page.locator('#manageLibraryBtn'),width);
 }
 const names=editor=>editor.locator('.dce-row .dce-name');
 
@@ -414,7 +419,7 @@ test('category list: when the list cannot be read the window does not let the pe
  const f=await fixture(page,{width:390,docs:editorDocs(),profileFails:true});
  const {editor}=await (async()=>{
   await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
-  await tap(page,page.locator('#manageLibraryBtn'),390);
+  await openManage(page,390);
   const modal=page.locator('#libraryManageModal');await expect(modal).toBeVisible();return {editor:modal.locator('.dce')};
  })();
  await expect(editor).toContainText('분류 목록을 불러오지 못했어요.');

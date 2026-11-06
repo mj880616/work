@@ -179,7 +179,7 @@ function luRenderCategoryFilter(){
     onSub:luPickCategorySub,onAddSub:parent=>luManage({addSubTo:parent}),subAfter:host?.closest('.lu-filter-row')||null});
   // S51-28 LIB-화면정리: 폰·폴드(1199px까지)는 칩 줄 대신 위 한 줄 [분류: … ▾] 하나(CSS가 둘 중 하나만 보임). 글자는 같은 상태에서 만든다.
   const pick=document.querySelector('#libraryCategoryPick');
-  if(pick){const names=topDocumentCategories(),sub=activeSubcategory(names,luCategoryOff,luCategorySub);pick.textContent=pickLabel(names,luCategoryOff,sub?categoryLabel(sub):'');}
+  if(pick){const names=topDocumentCategories(),sub=activeSubcategory(names,luCategoryOff,luCategorySub);const text=pickLabel(names,luCategoryOff,sub?categoryLabel(sub):'');if(pick.dataset.label!==text){pick.dataset.label=text;pick.innerHTML=`<span class="lu-cat-pick-text">${luEsc(text)}</span><span class="lu-cat-caret" aria-hidden="true"></span>`;}}
 }
 // [분류 ▾] 고르기 창: 공용 고르기 창(choice-sheet.js — 폰은 아래에서 올라오는 판, 폴드 펼침·PC 폭은 단추 아래 작은 창) 하나.
 // 줄을 누르면 창 안에서만 바뀌고 [적용]을 눌러야 자료실에 걸린다(기억은 지금처럼 서버 library_view.categories_off). [편집]은 분류 고치기 창.

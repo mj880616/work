@@ -3,6 +3,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
+import {showAllLibraryCategories} from './helpers/library-categories.mjs';
 
 const OPEN=`${appOrigin}/tests/app-e2e/library-open-fixture.html`;
 const LONG='가상 예시 자료 — 아주 긴 이름이 줄 끝을 넘어갈 때 잘리는지 확인하기 위한 시험용 제목 '.repeat(4).trim();
@@ -64,7 +65,8 @@ test('PC 중간 폭(900px)도 한 줄 배치·가로 넘침 없음',async({page}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`분류 칩: 기본은 회의만 꺼짐, 여러 개 고르기, [전체] 두 번, 검색 안내와 [켜기] ${width}`,async({page})=>{
+// S51-28: 폰·폴드(1199px까지)는 칩 줄 대신 [분류 ▾] 창(library-top-row.spec.mjs). 칩 줄 규칙은 칩이 보이는 폭(1200·1280)에서 본다.
+for(const width of [1200,1280])test(`분류 칩: 기본은 회의만 꺼짐, 여러 개 고르기, [전체] 두 번, 검색 안내와 [켜기] ${width}`,async({page})=>{
   const {errors}=await boot(page,width);
   const group=page.locator('#libraryCategoryFilter');await expect(group).toHaveAttribute('role','group');
   await expect(group.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
@@ -135,7 +137,7 @@ for(const scheme of ['light','dark'])test(`꺼진 분류 칩은 흐리게(글자
 
 // 날짜 우선순위는 폰·PC 같다: 자료 날짜 → 이름 앞 날짜 → 올린 날 + 올림.
 for(const width of [1280,390])test(`날짜 우선순위(자료 날짜 → 이름 앞 날짜 → 올린 날 + 올림) ${width}`,async({page})=>{
-  const {errors}=await boot(page,width,{extra:[doc('no-date','가상 날짜 없는 참고자료','기타',null,{file_name:'nd.pdf'})]});await chip(page,'all').click();
+  const {errors}=await boot(page,width,{extra:[doc('no-date','가상 날짜 없는 참고자료','기타',null,{file_name:'nd.pdf'})]});await showAllLibraryCategories(page);
   const d=id=>page.locator(`[data-lu-document="${id}"] .lu-row-date`);
   // 1) 자료 날짜가 있으면 그 날짜(이름 앞 날짜가 있어도 자료 날짜가 이긴다).
   await expect(d('short')).toHaveText('10.14');await expect(d('short')).not.toHaveClass(/upload/);
@@ -154,7 +156,7 @@ for(const width of [1280,390])test(`날짜 우선순위(자료 날짜 → 이름
 
 test('폰 M2: 이름 다듬기(날짜 앞머리 → 오른쪽 날짜, 밑줄 → 띄어쓰기, 확장자 빼기), 원본 이름은 그대로 검색',async({page})=>{
   const {s,errors}=await boot(page,390);
-  await chip(page,'all').click();
+  await showAllLibraryCategories(page);
   const name=id=>page.locator(`[data-lu-document="${id}"] .lu-row-title`),date=id=>page.locator(`[data-lu-document="${id}"] .lu-row-date`);
   // 자료 날짜가 없으면 이름 앞의 날짜를 오른쪽 날짜로 보인다.
   await expect(name('prefixed')).toHaveText('가상노조 교섭 본교섭 3차 요구안');await expect(date('prefixed')).toHaveText('10.09');
@@ -183,16 +185,16 @@ test('폰 M2: 이름 다듬기(날짜 앞머리 → 오른쪽 날짜, 밑줄 →
 
 // UI-PC자료실 거르기 줄 → LIB-토글트리: [프로젝트]·[세부] 칩 줄은 트리가 대신하고, 검색칸 아래 [묶기](+ 모두 펴기) → [종류]가 한 줄씩, 줄마다 왼쪽 이름표.
 const box=locator=>locator.boundingBox();
-for(const scheme of ['light','dark'])test(`PC 거르기 줄: 이름표·차례(묶기 → 종류)·담당조직 줄·프로젝트 줄은 다른 화면에서 걸러 열 때만 ${scheme}`,async({page})=>{
+// S51-28 LIB-화면정리(11/06 01:45 명진 'ㅇ'): '묶기'·'분류' 이름표는 없다. 담당조직·사업영역으로 걸러 열 때 끼는 줄만 이름표가 있다.
+for(const scheme of ['light','dark'])test(`PC 거르기 줄: 차례(묶기 → 종류, 이름표 없음)·담당조직 줄·프로젝트 줄은 다른 화면에서 걸러 열 때만 ${scheme}`,async({page})=>{
   const {errors}=await boot(page,1280,{scheme});
   const labels=page.locator('#libraryView .library-filter-toolbar .lu-filter-label:visible'),group=page.locator('#libraryGroupBy'),category=page.locator('#libraryCategoryFilter');
-  await expect(labels).toHaveText(['묶기','분류']);await expect(page.locator('#documentProject')).toBeHidden();
+  await expect(labels).toHaveCount(0);await expect(page.locator('#documentProject')).toBeHidden();
   await expect(group.getByRole('radio')).toHaveText(['폴더','사업영역','담당조직','분류','월별']);await expect(group.getByRole('radio',{name:'사업영역'})).toHaveAttribute('aria-checked','true');
   const search=await box(page.locator('#documentSearch')),top=await box(group),cat=await box(category);
   expect(top.y).toBeGreaterThanOrEqual(search.y+search.height-1);expect(cat.y).toBeGreaterThanOrEqual(top.y+top.height-1);
-  const labelBoxes=await labels.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),right:r.right,mid:r.top+r.height/2}}));
-  expect(new Set(labelBoxes.map(b=>b.x)).size).toBe(1);expect(Math.round(top.x)).toBe(Math.round(cat.x));expect(top.x).toBeGreaterThan(labelBoxes[0].right);
-  expect(Math.abs(labelBoxes[0].mid-(top.y+top.height/2))).toBeLessThan(4);expect(Math.abs(labelBoxes[1].mid-(cat.y+cat.height/2))).toBeLessThan(4);
+  // 이름표가 없으니 묶기·분류 칩 줄은 찾기 칸과 같은 왼쪽 끝에서 시작한다.
+  expect(Math.round(top.x)).toBe(Math.round(cat.x));expect(Math.abs(top.x-search.x)).toBeLessThan(2);
   // UI-자료실걸러줄: 검색·묶기·분류가 한 덩이로 위에, '최근 올린 파일' 칸은 그 아래.
   expect(await page.evaluate(()=>!!(document.querySelector('#libraryCategoryFilter').compareDocumentPosition(document.querySelector('#libraryRecent'))&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   // 빠짐9: [모두 펴기/접기]·[여러 개 고르기]·[새 폴더]는 자료실 칸 맨 위 오른쪽 ⋯ 하나(28px, 누르는 범위 44px). 따로 뜬 글자 버튼은 없다.
@@ -204,40 +206,40 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 이름표·차례(�
   expect(await page.locator('#libraryView .lu-filter-label').evaluateAll(els=>els.every(el=>el.getAttribute('aria-hidden')==='true'))).toBe(true);
   // 담당조직으로 걸러 들어오면 그 줄도 같은 모양(이름표 + 칩)으로 끼운다.
   await page.evaluate(()=>{window.KPTULibrary.showOrganization('org-1','가상 지부')});
-  await expect(labels).toHaveText(['묶기','담당조직','분류']);await expect(page.locator('#libraryOrganizationFilter')).toBeVisible();
-  await page.locator('#libraryOrganizationFilter [data-filter-value="all"]').click();await expect(labels).toHaveText(['묶기','분류']);
+  await expect(labels).toHaveText(['담당조직']);await expect(page.locator('#libraryOrganizationFilter')).toBeVisible();
+  await page.locator('#libraryOrganizationFilter [data-filter-value="all"]').click();await expect(labels).toHaveCount(0);
   // 프로젝트 상세의 자료 "전체 보기"처럼 다른 화면이 프로젝트 하나로 걸러 열면 [프로젝트] 줄([전체 | 그 프로젝트])이 묶기와 종류 사이에 생긴다.
   await page.evaluate(()=>{document.querySelector('#documentProject').value='child-a1';window.KPTULibrary.render()});
-  await expect(labels).toHaveText(['묶기','사업영역','분류']);await expect(page.locator('#documentProject').getByRole('radio')).toHaveText(['전체','공공기관 기능개혁 대응 › 국토부 대응']);
-  await page.locator('#documentProject [data-filter-value="all"]').click();await expect(labels).toHaveText(['묶기','분류']);await expect(page.locator('#documentProject')).toHaveJSProperty('value','all');
+  await expect(labels).toHaveText(['사업영역']);await expect(page.locator('#documentProject').getByRole('radio')).toHaveText(['전체','공공기관 기능개혁 대응 › 국토부 대응']);
+  await page.locator('#documentProject [data-filter-value="all"]').click();await expect(labels).toHaveCount(0);await expect(page.locator('#documentProject')).toHaveJSProperty('value','all');
   await expect(page.locator('#newDocumentBtn')).toHaveClass(/\bprimary\b/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-test('폰 거르기 줄: 줄마다 이름표(묶기·종류) + 칩 두 줄(옆으로 밀지 않음, UI-칩줄두줄), 차례는 PC와 같음',async({page})=>{
+// S51-28 LIB-화면정리(11/06 01:45 명진 'ㅇ', 시안 library-phone-dropdown.html): 폰 위쪽은 한 줄 [찾기][분류 ▾][⋯]. 묶기는 아래 알약, 분류 칩 줄은 숨김.
+test('폰 거르기 줄: 위 한 줄 [찾기][분류 ▾][⋯], 이름표 없음, 묶기는 아래 알약(자세한 동작은 library-top-row.spec.mjs)',async({page})=>{
   const {errors}=await boot(page,390);
-  await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveText(['묶기','분류']);
-  const group=page.locator('#libraryGroupBy'),category=page.locator('#libraryCategoryFilter');
-  const top=await box(group),cat=await box(category);expect(cat.y).toBeGreaterThanOrEqual(top.y+top.height-1);
-  for(const [b,n] of [[top,0],[cat,1]]){const l=await box(page.locator('#libraryView .lu-filter-label:visible').nth(n));expect(b.x).toBeGreaterThanOrEqual(l.x+l.width-1)}
-  // UI-칩줄두줄: 묶기 줄(칩 + 모두 펴기)과 종류 줄(칩 + 편집)은 옆으로 밀지 않고, 칩 묶음이 줄바꿈으로 두 줄까지.
-  for(const row of ['group','category']){const r=page.locator(`#libraryView .lu-filter-row[data-lu-filter-row="${row}"]`);await expect(r).toHaveCSS('overflow-x','visible')}
-  for(const g of [group,category]){await expect(g).toHaveCSS('flex-wrap','wrap');await expect(g).toHaveCSS('overflow-x','visible');
-    expect(await g.evaluate(el=>new Set([...el.children].filter(c=>c.getClientRects().length).map(c=>Math.round(c.getBoundingClientRect().top))).size)).toBeLessThanOrEqual(2)}
+  await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveCount(0);
+  await expect(page.locator('#libraryCategoryFilter')).toBeHidden();await expect(page.locator('#manageLibraryBtn')).toBeHidden();
+  const search=await box(page.locator('#documentSearch')),pick=await box(page.locator('#libraryCategoryPick')),more=await box(page.locator('#libraryTopMenuBtn'));
+  expect(Math.abs((search.y+search.height/2)-(pick.y+pick.height/2))).toBeLessThan(4);expect(Math.abs((more.y+more.height/2)-(pick.y+pick.height/2))).toBeLessThan(4);
+  const group=page.locator('#libraryGroupBy');await expect(group).toHaveCSS('position','fixed');await expect(group).toHaveCSS('flex-wrap','nowrap');
+  const g=await box(group);expect(g.y).toBeGreaterThan(search.y+300);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
 // UI-자료실편집버튼(2026-10-21): [분류 수정]이 목록 머리에서 [종류] 칩 줄 맨 끝의 작은 [편집]으로 옮겨 갔다. 동작(분류 편집 창 열기)은 그대로, 접근성 이름은 "분류 편집".
-for(const width of [1280,390])test(`종류 칩 줄 맨 끝 [편집] ${width}: 칩 오른쪽 같은 줄, 머리에는 [+ 자료 등록]만, 누르면 분류 편집 창`,async({page})=>{
+// S51-28: 폰·폴드(1199px까지)는 [편집]이 [분류 ▾] 창 안(library-top-row.spec.mjs). 칩 줄 끝 [편집]은 1200px~.
+for(const width of [1280,1200])test(`종류 칩 줄 맨 끝 [편집] ${width}: 칩 오른쪽 같은 줄, 머리에는 [+ 자료 등록]만, 누르면 분류 편집 창`,async({page})=>{
   const {errors}=await boot(page,width);
   const edit=page.getByRole('button',{name:'분류 편집',exact:true}),category=page.locator('#libraryCategoryFilter');
   await expect(edit).toHaveCount(1);await expect(edit).toBeVisible();await expect(edit).toHaveText('편집');await expect(edit).toHaveAttribute('id','manageLibraryBtn');
   // UI-전수디자인점검 F11: 목록 칸 머리에는 맨 위 ⋯ 하나만(빠짐9), [+ 자료 등록]은 검색 칸 오른쪽 하나.
   expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);
-  expect(await page.locator('#libraryView .lu-search-row button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn','libraryTopMenuBtn']);
+  expect(await page.locator('#libraryView .lu-search-row button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn','libraryTopMenuBtn']);
   // 종류 칩 줄 안, 칩 묶음 바로 다음(맨 끝). 칩 묶음의 버튼에는 섞이지 않는다(칩 개수·이름 그대로).
   expect(await edit.evaluate(el=>el.previousElementSibling?.id==='libraryCategoryFilter'&&!el.nextElementSibling&&el.parentElement.dataset.luFilterRow==='category')).toBe(true);
-  await expect(category.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
+  await expect(category.locator('[data-lu-category]')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
   const e=await box(edit),c=await box(category);
   // PC는 칩 줄 가운데, 폰(칩이 두 줄일 수 있음)은 첫 줄 칩 가운데와 같은 높이(UI-칩줄두줄).
   if(width>=761)expect(Math.abs((e.y+e.height/2)-(c.y+c.height/2))).toBeLessThan(4);

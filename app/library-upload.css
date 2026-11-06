@@ -491,9 +491,11 @@
 #appView #libraryView .lu-search-row > .lu-cat-pick{display:none}
 @media(max-width:1199px){
   #appView #libraryView .lu-search-row > .lu-cat-pick{position:relative;display:inline-flex;align-items:center;flex:0 1 auto;min-width:0;max-width:46%;box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 8px;
-    font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;color:var(--kptu-ink);white-space:nowrap;overflow:visible;
     background:var(--ds-select-bg,var(--kptu-surface-subtle));border:var(--ds-line-width,1px) solid var(--ds-line);border-radius:var(--kptu-radius-md);cursor:pointer}
-  #appView #libraryView .lu-search-row > .lu-cat-pick::after{content:"▾";content:"▾" / "";flex:none;margin-left:4px;font-size:.85em;opacity:.7}
+  #appView #libraryView .lu-search-row > .lu-cat-pick .lu-cat-pick-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  #appView #libraryView .lu-search-row > .lu-cat-pick .lu-cat-caret::before{content:"▾";content:"▾" / "";flex:none;margin-left:4px;font-size:.85em;opacity:.7}
+  #appView #libraryView .lu-search-row > .lu-cat-pick::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
   #appView #libraryView .lu-search-row > .lu-cat-pick:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
   #appView #libraryView .lu-search-row{gap:6px}
   #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="category"],
@@ -502,10 +504,11 @@
   #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="group"]{display:contents}
   #appView #libraryView #libraryGroupBy{position:fixed;z-index:28;display:inline-flex;flex-wrap:nowrap;align-items:stretch;gap:0;width:max-content;max-width:calc(100vw - 24px);margin:0;padding:0;overflow:hidden;
     background:var(--kptu-surface);border:var(--ds-line-width,1px) solid var(--ds-line);border-radius:999px;box-shadow:var(--kptu-shadow-float)}
-  #appView #libraryView #libraryGroupBy > button{position:relative;flex:none;box-sizing:border-box;height:28px;min-height:0;margin:0;padding:0 10px;font-size:12px;font-weight:var(--ds-weight-regular,400);line-height:1;
-    color:var(--kptu-ink);background:transparent;border:0;border-radius:var(--kptu-radius-none,0);box-shadow:none;white-space:nowrap}
+  #appView #libraryView #libraryGroupBy > button{position:relative;flex:none;box-sizing:border-box;height:var(--ds-chip-row-height,26px);min-height:0;margin:0;padding:0 10px;font-size:12px;font-weight:var(--ds-weight-regular,400);line-height:1;
+    color:var(--kptu-ink);background:transparent;border:0;border-radius:999px;box-shadow:none;white-space:nowrap}
   #appView #libraryView #libraryGroupBy > button + button{border-left:var(--ds-line-width,1px) solid var(--ds-line)}
-  #appView #libraryView #libraryGroupBy > button[aria-checked="true"]{font-weight:700;background:var(--ds-select-bg,var(--kptu-surface-subtle));border-color:var(--ds-line)}
+  /* 고른 탭 = 연한 바탕 + 보통 글자(design-decisions 고른 표시 규칙). */
+  #appView #libraryView #libraryGroupBy > button[aria-checked="true"]{font-weight:var(--ds-weight-medium,500);background:var(--ds-select-bg,var(--kptu-surface-subtle));border-color:var(--ds-line)}
   #appView #libraryView #libraryGroupBy > button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
   #appView #libraryView #libraryGroupBy > button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
   /* 떠 있는 알약에 마지막 줄이 가리지 않게 목록 아래 여백. */
