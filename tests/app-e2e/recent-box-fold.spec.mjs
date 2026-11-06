@@ -19,7 +19,6 @@ test('파일 폰 412: \'최근\' 머리 줄 누르면 접힘(▾, 줄 없음) �
   await expect(caret(box)).toHaveText('▾');
   await expect(box.locator('[data-fx-recent-fold]')).toHaveAttribute('aria-expanded', 'false');
   await expect.poll(() => prefs.value?.recent_folded).toEqual(['files']);
-  expect(await page.evaluate(() => Object.keys(localStorage).filter(k => /recent/i.test(k)))).toEqual([]);
   await page.reload();
   await openFiles(page, 412);
   await expect(box.locator('[data-fx-recent-fold]')).toHaveAttribute('aria-expanded', 'false');

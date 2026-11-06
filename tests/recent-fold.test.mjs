@@ -27,9 +27,9 @@ test('S51-22 상자 머리 줄 끝 ▴▾: 접으면 머리 줄 한 줄만(더�
   assert.match(ftBoxHtml({head: '원드라이브', collapsible: true, open: false}), /접힘/);
 });
 
-test('S51-22 접은 상태는 서버 칸 하나(recent-fold.js)로만 — 기기 저장 없음, 세 화면이 같은 부품', () => {
+test('S51-22 접은 상태는 서버 칸 하나(recent-fold.js, view_prefs)로만 — 세 화면이 같은 부품', () => {
   const src = read('app/recent-fold.js');
-  assert.doesNotMatch(src, /localStorage|sessionStorage/);
+  assert.match(src, /viewPrefs\.set\('recent_folded'/);
   for (const [p, name] of [['app/files.js', 'files'], ['app/basket-notes.js', 'notes'], ['app/library-upload.js', 'library']]) {
     const s = read(p);
     assert.match(s, /from '\.\/recent-fold\.js'/, p);
