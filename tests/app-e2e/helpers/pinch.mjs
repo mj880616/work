@@ -3,7 +3,10 @@
 export async function pinch(page, locator, dir) {
   await locator.evaluate(e => e.scrollIntoView({ block: 'center', behavior: 'instant' }));
   const box = await locator.boundingBox();
-  const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+  await pinchAt(page, box.x + box.width / 2, box.y + box.height / 2, dir);
+}
+// S51-24: 화면 좌표(cx, cy) 가운데로 두 손가락 벌리기·오므리기(빈 곳 손짓 시험용).
+export async function pinchAt(page, cx, cy, dir) {
   const cdp = await page.context().newCDPSession(page);
   const points = d => [{ x: cx - d, y: cy, id: 0 }, { x: cx + d, y: cy, id: 1 }];
   const [from, to] = dir === 'out' ? [20, 90] : [90, 20];

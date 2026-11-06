@@ -24,7 +24,8 @@ export function bindFolderPinch(el, {folderAt = () => null, onOut = () => {}, on
     if (e.touches.length !== 2 || !enabled()) { if (e.touches.length > 2) p = null; return; }
     const [a, b] = e.touches, x = (a.clientX + b.clientX) / 2, y = (a.clientY + b.clientY) / 2;
     const target = document.elementFromPoint(x, y);
-    p = {d: gap(a, b), key: target && el.contains(target) ? folderAt(target) : null, done: false};
+    // 두 손가락 가운데가 칸 밖이거나 비어 있으면 칸 자체를 넘긴다(화면이 손짓마다 새로 판정하게 — 지난 손짓의 판정이 남지 않게).
+    p = {d: gap(a, b), key: folderAt(target && el.contains(target) ? target : el), done: false};
   };
   const move = e => {
     if (!p || p.done || e.touches.length !== 2) return;

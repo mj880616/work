@@ -3,7 +3,7 @@ import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림
 import { viewPrefs } from './view-prefs.js';
 import { followPane } from './follow-pane.js';
 import { mountSplitResize } from './split-resize.js';
-import { treeIconHtml } from './tree-icons.js';
+import { treeIconHtml, iconSvg } from './tree-icons.js';
 // FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, FT_PREVIEW } from './folder-tree-ui.mjs';
 import { recentFolded, toggleRecentFolded } from './recent-fold.js';
@@ -169,11 +169,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // '폴더 없음'(17:45 ④, 옛 '폴더 밖'): 나무·폴더 목록 맨 아래, 바로 밑에 [+ 새 폴더](폴더 표가 있을 때).
   const outsideHere = () => at === OUTSIDE || (at === null && !showRecent());
   const outsideRowHtml = (r, {tree = false} = {}) => ftFolderRowHtml({name:OUTSIDE_NAME, count:r.count, countLabel:`노트 ${r.count}개`, depth:0, open:!!r.open, hasContent:r.count > 0,
-    current:tree && outsideHere(), tree, className:'nx-outside', icon:treeIconHtml('outside', {className:'ft-ico ft-ico-emoji'}),
+    current:tree && outsideHere(), tree, className:'nx-outside', icon:treeIconHtml('outside', {className:'ft-ico'}),
     rowAttrs:{'data-nx-outside':true, 'data-reorder-id':'o'}, mainAttrs:{'data-nx-open':OUTSIDE}});
   // PC 왼쪽 나무 맨 위 '최근'(누르면 오른쪽에 최근 5개). 끌어 놓을 곳이 아니다(폴더가 아님).
   const recentTreeRowHtml = () => ftFolderRowHtml({name:RECENT_NAME, depth:0, current:at === null, tree:true, hasContent:false, className:'nx-recent-item',
-    icon:treeIconHtml('recent', {className:'ft-ico ft-ico-emoji'}), rowAttrs:{'data-nx-recent-item':true}, mainAttrs:{'data-nx-open':RECENT}});
+    icon:treeIconHtml('recent', {className:'ft-ico'}), rowAttrs:{'data-nx-recent-item':true}, mainAttrs:{'data-nx-open':RECENT}});
   // 펼친 폴더 안 노트가 FT_PREVIEW개를 넘으면 'n개 더 보기'(누르면 그 폴더 노트 다). 폴더마다 이번 접속 메모리(moreSet)만.
   const moreRowHtml = r => ftMoreRowHtml({rest:r.rest, depth:r.depth, attrs:{'data-nx-more':r.id, 'data-ft-parent':r.id}});
   const newFolderRowHtml = () => canEditFolders() && !pick.active ? '<button type="button" class="nx-new-folder" data-nx-new-top>+ 새 폴더</button>' : '';
@@ -182,7 +182,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // ② one line: title (own → AI title → first line) + 📎 when files + date. No preview, no link chips.
   function noteRowHtml(r) {
     const note = r.note, title = noteLineTitle(note), name = [...title].slice(0, 40).join(''), key = 'n:' + note.id;
-    return `<div class="basket-row-item note-row-item nx-row nx-note${r.tree ? ' ft-item' : ''}${isPicked(key) ? ' nx-picked' : ''}" data-nx-note="${esc(note.id)}" data-reorder-id="n:${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''}${r.tree && r.parent !== undefined ? ` data-ft-parent="${esc(r.parent ?? '')}"` : ''} style="--nx-indent:${r.indent};--ft-depth:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}>${pick.active ? pickBox(key) : ''}<b class="basket-title">${notePinnedAt(note) ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">\u{1F4CE}</span>` : ''}<time datetime="${esc(note.updated_at || '')}" title="고친 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time></button></div>`;
+    return `<div class="basket-row-item note-row-item nx-row nx-note${r.tree ? ' ft-item' : ''}${isPicked(key) ? ' nx-picked' : ''}" data-nx-note="${esc(note.id)}" data-reorder-id="n:${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''}${r.tree && r.parent !== undefined ? ` data-ft-parent="${esc(r.parent ?? '')}"` : ''} style="--nx-indent:${r.indent};--ft-depth:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}>${pick.active ? pickBox(key) : ''}<b class="basket-title">${notePinnedAt(note) ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}</span>` : ''}<time datetime="${esc(note.updated_at || '')}" title="고친 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time></button></div>`;
   }
   const rowHtml = (r, opts) => r.type === 'folder' ? folderRowHtml(r, opts) : r.type === 'outside' ? outsideRowHtml(r, opts) : r.type === 'more' ? moreRowHtml(r) : noteRowHtml(r);
   function paintWhere() {
@@ -901,7 +901,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     renderList(); if (selected) paintMeta();
     const count = done.notes.length + done.folders.length;
     if (!count || silent) return;
-    const where = target ? `📁 ${target.name}` : OUTSIDE_NAME;
+    const where = target ? `${target.name} 폴더` : OUTSIDE_NAME;
     flash(done);
     notify(`옮겼어요 ${count}개 → ${where}`, {label:`폴더 옮기기 ${count}개`, undo:async () => {
       for (const d of done.notes) { const note = notes.find(n => n.id === d.id); if (note) applySaved(d.id, await setNoteFolderRef(note, d.from ? folderById(d.from) : null, rt)); }

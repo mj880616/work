@@ -1,6 +1,7 @@
 // D-3e anchored menu: shared history, focus, outside-click replay and positioning.
 import {markScrollMore} from './anchored-popup.js';
 // actDetached: 메뉴가 열린 동안 화면이 다시 그려져 누른 칸이 바뀌어도 고른 항목을 실행한다(부르는 쪽이 새 칸을 찾는다).
+// open(trigger,{at:{x,y}}): 누른 자리(PC 우클릭·Shift+F10) 바로 옆에 둔다. 이때 trigger(날짜 칸·일정 줄)는 메뉴 주인일 뿐이라 그 안을 다시 눌러도 바깥 누름으로 닫힌다(S51-27).
 // sheet(trigger): true면 누른 자리 대신 화면 아래(하단바 위)에서 올라오는 판으로 둔다(S51-22 폰 줄 메뉴, 모양은 od-link.css .am-sheet).
 export function createAnchoredMenu({id,className,label,historyKey,parent=document.body,key,render,onAction,onClose=()=>{},canOpen=()=>true,sheet=()=>false,actDetached=false}){
   let active=null,closing=null;
@@ -23,24 +24,26 @@ function position(){
   if(asSheet){panel.style.left=panel.style.top=panel.style.width=panel.style.maxHeight='';markScrollMore(panel);return}
   // UI-창잘림·끌어옮기기: the left edge comes from the width the menu was really drawn at (its CSS may make it wider than 200px),
   // so a menu opened from a button at the window's right edge is never cut. Menus have no title row and are not dragged.
-  const rect=active.trigger.getBoundingClientRect(),margin=12,gap=8,vw=document.documentElement.clientWidth||innerWidth;
+  const at=active.at,margin=12,gap=at?2:8,vw=document.documentElement.clientWidth||innerWidth;
+  const rect=at?{top:at.y,bottom:at.y,left:at.x,right:at.x}:active.trigger.getBoundingClientRect();
   panel.style.width=Math.min(200,vw-margin*2)+'px';
   const below=innerHeight-rect.bottom-gap-margin,above=rect.top-gap-margin,down=below>=panel.scrollHeight||below>=above; // UI-메뉴잘림: 아래에 다 들어갈 때만 아래로, 아니면 더 넓은 쪽(끝 항목이 안쪽 스크롤에 숨지 않게)
   panel.style.maxHeight=Math.max(0,down?below:above)+'px';const box=panel.getBoundingClientRect(),width=box.width,height=box.height;
-  panel.style.left=Math.max(margin,Math.min(rect.right-width,vw-width-margin))+'px';
+  panel.style.left=Math.max(margin,Math.min(at?rect.left:rect.right-width,vw-width-margin))+'px';
   panel.style.top=Math.max(margin,Math.min(down?rect.bottom+gap:rect.top-gap-height,innerHeight-height-margin))+'px';
   markScrollMore(panel);
 }
-function open(trigger){
+function open(trigger,{at=null}={}){
   if(trigger.disabled||!canOpen(trigger))return;
-  if(closing){closing.then(()=>{if(trigger.isConnected)open(trigger)});return}
-  if(active){close(active.trigger===trigger?null:()=>open(trigger));return}
-  const id=key(trigger),to=host(trigger);if(panel.parentElement!==to)to.append(panel);active={trigger,id};
+  const point=at&&Number.isFinite(at.x)&&Number.isFinite(at.y)?{x:at.x,y:at.y}:null;
+  if(closing){closing.then(()=>{if(trigger.isConnected)open(trigger,{at:point})});return}
+  if(active){close(active.trigger===trigger&&!point?null:()=>open(trigger,{at:point}));return}
+  const id=key(trigger),to=host(trigger);if(panel.parentElement!==to)to.append(panel);active={trigger,id,at:point};
   panel.innerHTML=render(id);
   panel.hidden=false;if(popover){try{panel.showPopover()}catch{popover=false;panel.removeAttribute('popover')}}
   position();trigger.setAttribute('aria-expanded','true');history.pushState({...history.state,[historyKey]:id},'',location.href);panel.querySelector('button')?.focus({preventScroll:true});
 }
-  document.addEventListener('click',e=>{if((!active&&!closing)||panel.contains(e.target)||active?.trigger.contains(e.target))return;const target=e.target,forward=new MouseEvent('click',e);e.preventDefault();e.stopImmediatePropagation();close(()=>{if(target.isConnected)target.dispatchEvent(forward)})},true);
+  document.addEventListener('click',e=>{if((!active&&!closing)||panel.contains(e.target)||(active&&!active.at&&active.trigger.contains(e.target)))return;const target=e.target,forward=new MouseEvent('click',e);e.preventDefault();e.stopImmediatePropagation();close(()=>{if(target.isConnected)target.dispatchEvent(forward)})},true);
   document.addEventListener('keydown',e=>{if(!active)return;if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();close()}else if(e.key==='Tab'){const buttons=[...panel.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);e.preventDefault();e.stopImmediatePropagation();buttons[(index+(e.shiftKey?-1:1)+buttons.length)%buttons.length].focus()}},true);
   window.addEventListener('popstate',e=>{if(active&&e.state?.[historyKey]!==active.id)close(null,true)},true);
   window.addEventListener('resize',position);window.addEventListener('scroll',position,true);new ResizeObserver(position).observe(panel);

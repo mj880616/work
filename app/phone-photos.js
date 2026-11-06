@@ -16,8 +16,11 @@
 import {phoneToItem, phoneFailure} from './photo-sources-model.mjs';
 import {slotImg} from './img-slot.js';
 import {holdPhotoMaker} from './photo-share.js';
+import {within, isLoadTimeout} from './load-deadline.js';
 
 const BRIDGE = 'KPTUAppShell';
+// LOAD-끝있는불러오기(S51-29): 앱이 __phone 읽기에 답하지 않으면 끝없이 기다렸다(회색 빈 줄만 남음). 목록·그림 읽기 한 번은 이 시간 안에 끝낸다.
+export const PHONE_READ_MS = 25000;
 const HELLO_MS = 1500, TRASH_MS = 120000, OP_MS = 180000, HIDE_MAX = 80, META_READ_MS = 30000, META_WRITE_MS = 180000, META_MAX = 200;
 // 편집기에 머무는 시간(넉넉히 2시간), 받기 한 걸음 대기, 한 조각 바이트(base64로 512KB — 앱 한도 안), 받는 사진 한도(앱과 같게).
 const EDIT_MS = 2 * 60 * 60 * 1000, SAVE_STEP_MS = 30000, SAVE_PART = 384 * 1024, SAVE_MAX = 60 * 1024 * 1024;
@@ -77,10 +80,13 @@ export function createPhonePhotos(win = globalThis.window) {
   const url = path => new URL(`__phone/${state.key}/${path}`, base()).href;
   // PHOTO-폰사진못읽음: 실패하면 error.phone = {status, error(종류), detail(예외 클래스 이름)}. 화면 글은 phoneErrorText.
   const failure = info => Object.assign(new Error('phone_read_failed'), {phone:info});
-  async function read(u) {
-    try { return await win.fetch(u, {cache:'no-store', credentials:'omit'}); }
-    catch (e) { throw failure(phoneFailure(0, '', {error:'unreached', detail:e?.name || ''})); }
+  // 시간 안에 답이 없으면 그 요청을 끊고 '폰 앱이 답하지 않아요'(timeout)로 끝낸다. 답 읽기(json·blob)까지 같은 시간 안.
+  const timedOut = () => failure(phoneFailure(0, '', {error:'timeout'}));
+  async function read(u, signal) {
+    try { return await win.fetch(u, {cache:'no-store', credentials:'omit', ...(signal ? {signal} : {})}); }
+    catch (e) { if (signal?.aborted) throw timedOut(); throw failure(phoneFailure(0, '', {error:'unreached', detail:e?.name || ''})); }
   }
+  const bounded = job => within(job, PHONE_READ_MS).catch(e => { throw isLoadTimeout(e) ? timedOut() : e; });
   async function refuse(r) {
     let body = ''; try { body = await r.text(); } catch { body = ''; }
     const info = phoneFailure(r.status, body.slice(0, 500));
@@ -90,9 +96,11 @@ export function createPhonePhotos(win = globalThis.window) {
   }
   async function getJson(path) {
     if (!state.key) throw new Error('phone_no_access');
-    const r = await read(url(path));
-    if (!r.ok) throw await refuse(r);
-    try { return await r.json(); } catch { throw failure(phoneFailure(r.status, '', {error:'answer'})); }
+    return bounded(async signal => {
+      const r = await read(url(path), signal);
+      if (!r.ok) throw await refuse(r);
+      try { return await r.json(); } catch { if (signal?.aborted) throw timedOut(); throw failure(phoneFailure(r.status, '', {error:'answer'})); }
+    });
   }
   const items = list => (Array.isArray(list) ? list : []).map(phoneToItem).filter(Boolean);
   // 끈 폰 폴더(앱 0.4.1+만). 빈 목록이면 붙이지 않는다.
@@ -188,9 +196,11 @@ export function createPhonePhotos(win = globalThis.window) {
     mediaUrl: item => (state.key ? url(`media/${item.phoneId}`) : ''),
     async blob(item, size = 'large') {
       if (!state.key) throw new Error('phone_no_access');
-      const r = await read(api.thumbUrl(item, size));
-      if (!r.ok) throw await refuse(r);
-      return r.blob();
+      return bounded(async signal => {
+        const r = await read(api.thumbUrl(item, size), signal);
+        if (!r.ok) throw await refuse(r);
+        return r.blob();
+      });
     },
     // 폰 휴지통으로(안드로이드 11+). 시스템 확인 창에서 [허용]하면 {ok:true, count}.
     trash(list) {
