@@ -1718,13 +1718,13 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
 button.ds-chip{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; gap:var(--ds-chip-row-gap); flex:none;
   height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); margin:0; padding:0 var(--ds-chip-row-pad-x);
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); background:var(--kptu-surface); box-shadow:none;
-  color:var(--kptu-ink); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular,400); line-height:1; white-space:nowrap; cursor:pointer; }
+  color:var(--kptu-ink); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
 button.ds-chip:is([aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-select-ink); background:var(--ds-select-bg); border-color:var(--ds-select-line); }
 .ds-seg{ display:inline-flex; align-items:stretch; flex:none; box-sizing:border-box; width:max-content; max-width:100%; height:var(--ds-compact-height);
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); }
 .ds-seg button.ds-seg-btn{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:var(--ds-chip-row-gap);
   height:auto; min-height:0; margin:0; padding:0 var(--ds-compact-pad-x); border:0; border-radius:0; background:var(--kptu-surface); box-shadow:none;
-  color:var(--kptu-muted); font-size:var(--ds-text-button); font-weight:var(--ds-weight-regular,400); line-height:1; white-space:nowrap; cursor:pointer; }
+  color:var(--kptu-muted); font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
 /* 붙은 두 칸(.ds-seg-group, 예: 홈 [업데이트 ▾])은 사이 선 없이 한 칸처럼 보이고, 앞 칸을 고르면 뒤 칸(▾)도 같이 칠한다. */
 .ds-seg-group{ display:flex; align-items:stretch; border-radius:inherit; }
 .ds-seg > :is(button.ds-seg-btn,.ds-seg-group) + :is(button.ds-seg-btn,.ds-seg-group){ border-left:var(--ds-line-width) solid var(--ds-line); }
