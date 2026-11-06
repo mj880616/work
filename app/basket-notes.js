@@ -6,6 +6,7 @@ import { mountSplitResize } from './split-resize.js';
 import { treeIconHtml } from './tree-icons.js';
 // FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, FT_PREVIEW } from './folder-tree-ui.mjs';
+import { recentFolded, toggleRecentFolded } from './recent-fold.js';
 import { bindFolderPinch } from './folder-pinch.js';
 import { formatSeoulTime } from './meeting-time.js';
 // MEMO-노트: the [노트] side of the basket tab. Notes are app_notes rows with kind=note (20261017052234), read and
@@ -310,7 +311,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const recent = !m && at === null && showRecent() ? recentRows({folders, notes, folderOf, count:recentAll ? RECENT_MORE : undefined}) : [];
       recentBox.hidden = !recent.length;
       const moreBtn = notes.length > recent.length || recentAll ? `<button type="button" class="ft-btn ft-box-more" data-nx-recent-more aria-expanded="${recentAll}">${recentAll ? '접기' : '더보기'}</button>` : '';
-      recentBox.innerHTML = recent.length ? ftBoxHtml({head:RECENT_NAME, tail:moreBtn, body:recent.map(r => rowHtml(r)).join(''), label:'최근 노트'}) : '';
+      // S51-22: 머리 줄을 누르면 접기(서버 view_prefs.recent_folded, recent-fold.js).
+      const shut = recentFolded('notes');
+      recentBox.innerHTML = recent.length ? ftBoxHtml({head:RECENT_NAME, tail:moreBtn, collapsible:true, caret:true, open:!shut, toggleAttrs:{'data-nx-recent-fold':''}, body:shut ? '' : recent.map(r => rowHtml(r)).join(''), label:'최근 노트'}) : '';
     }
     paintWhere(); paintSelectBar();
     // UI-칸폭끌기전수(요청함 10/30 10:29): PC [폴더]는 폴더 나무 | 노트 사이 경계를 끌어 폭을 바꾼다(공용 split-resize.js, 기본 30:70·나무 최소 180px).
@@ -1293,6 +1296,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-nx-back')) up();
     else if (b.hasAttribute('data-nx-more')) { moreSet.add(b.dataset.nxMore || OUTSIDE); renderList(); }
     else if (b.hasAttribute('data-nx-recent-more')) { recentAll = !recentAll; renderList(); }
+    else if (b.hasAttribute('data-nx-recent-fold')) { toggleRecentFolded('notes'); renderList(); host.querySelector('[data-nx-recent-fold]')?.focus({preventScroll:true}); }
     else if (b.hasAttribute('data-nx-new-top')) void newFolder(null);
     else if (b.hasAttribute('data-nx-sel-move')) openMovePicker(b, pickedItems());
     else if (b.hasAttribute('data-nx-sel-delete')) void deletePicked(b);
