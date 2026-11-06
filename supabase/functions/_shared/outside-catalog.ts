@@ -7,7 +7,14 @@
 // 빠진 것(결정): 정의당 홈페이지(Q1, robots.txt가 막음 — 자동 수집 안 함, 대신 공개 텔레그램 채널을 읽음 S48-23), NLR(Q5, 유료), In These Times·The Nation·Tribune·Spectre(Q5).
 // 새 단체는 여기에 한 줄 더하는 작은 PR로만 넣는다(Edge 재배포 정지 지점).
 
-import type { ExtractRule } from "./feed-extract.ts";
+// 본문 블록 추출 규칙(공용 추출기 _shared/feed-extract.ts가 쓴다). 이 파일에 두는 까닭: 카탈로그만 쓰는 함수(ai-assist 등)가 추출기를 끌어오지 않게.
+export type ExtractRule = {
+  version: number;     // 규칙 판(규칙을 고치면 올린다 — rule 칸 `키@판`으로 다시 뽑을 글을 고름)
+  drop?: RegExp;       // 빼는 칸(class 이름 또는 id): 공유·관련 기사·광고·기자 소개
+  caption?: RegExp;    // 캡션 칸(class 이름). figcaption은 늘 캡션
+  skipImage?: RegExp;  // 빼는 사진 주소(경로) — 기본 규칙(아이콘·로고·1px 등)에 더함
+  lead?: RegExp;       // 유료벽 표시(맞으면 앞부분만, state='lead'·reason='paywall')
+};
 
 export type Kind = "statement" | "comment" | "press" | "article";
 // 묶음 칩(11/02 00:19 명진 요청): [노동] [정당] [사회운동] [외국]. 민주노총·공공운수노조는 [노동] 안 단체 칩.

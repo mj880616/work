@@ -7,14 +7,9 @@
 // - 사진 주소는 저장만 한다. 서버가 받으러 가지 않는다(화면이 https로만, 리퍼러 없이 띄움 — 4.5절).
 import { bodyRange, bodyScopeHtml, cut, decodeEntities, htmlToText, isBodyNoise, isFileLine, oneLine } from "../outside-feed/parse.ts";
 
-// 출처마다 카탈로그 `extract` 칸. 본문 칸은 지금 카탈로그 `bodyClass`를 그대로 쓴다(ai-assist가 같은 칸을 읽음 — 두 벌 금지).
-export type ExtractRule = {
-  version: number;     // 규칙 판(규칙을 고치면 올린다 — rule 칸 `키@판`으로 다시 뽑을 글을 고름)
-  drop?: RegExp;       // 빼는 칸(class 이름 또는 id): 공유·관련 기사·광고·기자 소개
-  caption?: RegExp;    // 캡션 칸(class 이름). figcaption은 늘 캡션
-  skipImage?: RegExp;  // 빼는 사진 주소(경로) — 기본 규칙(아이콘·로고·1px 등)에 더함
-  lead?: RegExp;       // 유료벽 표시(맞으면 앞부분만, state='lead'·reason='paywall')
-};
+// 출처마다 카탈로그 `extract` 칸(모양은 outside-catalog.ts의 ExtractRule). 본문 칸은 지금 카탈로그 `bodyClass`를 그대로 쓴다(ai-assist가 같은 칸을 읽음 — 두 벌 금지).
+import type { ExtractRule } from "./outside-catalog.ts";
+export type { ExtractRule };
 export type Block = { t: "p" | "h" | "quote"; text: string } | { t: "img"; src: string; cap?: string | null; alt?: string | null };
 export type BodyState = "ok" | "lead" | "image_only" | "failed";
 export type BodyReason = "robots" | "bot_check" | "paywall" | "too_big" | "timeout" | "http_4xx" | "http_5xx" | "no_body" | "off_host" | "relay";
