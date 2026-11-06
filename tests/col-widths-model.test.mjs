@@ -32,9 +32,8 @@ test('두 번 누르기: 같은 금을 350ms 안에 두 번', () => {
   assert.equal(isDoubleTap({ key: 'name', at: 10 }, { key: 'day', at: 20 }), false);
 });
 
-test('공용 부품: 기기 저장 없음, 금은 늘 보이고 잡는 범위 24px, 폰에서도 숨기지 않음, 끄는 동안 안내선', () => {
+test('공용 부품(기기 저장 없음은 browser-storage-audit가 본다): 금은 늘 보이고 잡는 범위 24px, 폰에서도 숨기지 않음, 끄는 동안 안내선', () => {
   const src = fs.readFileSync(new URL('../app/col-resize.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
   assert.match(src, /\.col-grip\{position:absolute;top:0;bottom:0;width:24px/);
   assert.doesNotMatch(src, /@media\(max-width:760px\)\{\.col-grip\{display:none/);
   assert.match(src, /\.col-guide\{position:fixed/);
