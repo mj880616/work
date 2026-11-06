@@ -39,3 +39,10 @@ export async function toggleKeys(page, scope, kind, keys) {
 }
 // 꼬리표 ✕로 뺀다.
 export const removeKey = (page, scope, key) => page.locator(`${scope} [data-aop-remove="${key}"]`).click();
+// S52-01 ②: 이름으로 줄을 찾아(접힌 묶음이면 펼쳐) 누른다. 하나만 고르는 창은 누르면 바로 닫힌다.
+export async function pressName(page, name) {
+  await expect(page.locator(SHEET)).toBeVisible();
+  const key = await page.locator(SHEET).evaluate((sheet, name) => [...sheet.querySelectorAll('.aop-list [data-sheet-value]')].find(el => el.querySelector('.home-choice-name')?.textContent === name)?.dataset.sheetValue ?? null, name);
+  if (key === null) throw new Error('고르기 창에 없는 이름: ' + name);
+  await pressRow(page, key);
+}

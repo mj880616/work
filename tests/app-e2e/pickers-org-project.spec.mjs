@@ -96,12 +96,16 @@ test('묶음 값이 없을 때(묶음에 든 조직이 없음): 지금처럼 한
  await sheet.getByRole('searchbox').fill('나');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveText(['합성 나지부']);
 });
 
+// S52-01 ②: 빠른 입력 [할 일] 사업영역도 같은 고르기 창(#areaOrgPickSheet) — 큰 묶음만 보이고 꺾쇠로 하위를 펼친다.
 test('PC 프로젝트: 한 줄에 하나, 하위는 들여쓰기·흐린 글자(↳ 없음), 체크칸, 줄 전체 눌러 선택, 검색',async({page})=>{
  const {trigger,sheet}=await homeProjectSheet(page,1280);
  await expect(sheet).toHaveClass(/home-choice-anchored/);
  const {d,gap}=await below(trigger,sheet);expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThanOrEqual(12);expect(d.width).toBeLessThanOrEqual(360);
- const rows=sheet.locator('[data-sheet-value]');
+ const rows=sheet.locator('.aop-list [data-sheet-value]');
  await expect(rows).toHaveText(['사업영역 없음','테스트 프로젝트','자식 프로젝트','손자 프로젝트','다른 상위 프로젝트']);
+ await expect(rows.filter({visible:true})).toHaveText(['사업영역 없음','테스트 프로젝트','다른 상위 프로젝트']);
+ await sheet.getByRole('button',{name:'테스트 프로젝트 하위 1개 펼치기'}).click();await sheet.getByRole('button',{name:'자식 프로젝트 하위 1개 펼치기'}).click();
+ await expect(rows.filter({visible:true})).toHaveCount(5);
  expect((await sheet.locator('[data-sheet-content]').textContent())).not.toContain('↳');
  const info=await rows.evaluateAll(rs=>rs.map(r=>{const n=r.querySelector('.home-choice-name'),c=r.querySelector('.home-choice-check'),b=r.getBoundingClientRect();return {x:n.getBoundingClientRect().left,color:getComputedStyle(n).color,check:c.getBoundingClientRect().width,h:b.height,w:b.width};}));
  const [, top,child,grand,other]=info;
@@ -109,15 +113,15 @@ test('PC 프로젝트: 한 줄에 하나, 하위는 들여쓰기·흐린 글자(
  expect(child.color).not.toBe(top.color);expect(grand.color).toBe(child.color);expect(other.color).toBe(top.color);
  for(const r of info){expect(r.check).toBeGreaterThan(10);expect(r.check).toBeLessThanOrEqual(16);expect(r.h).toBeLessThanOrEqual(34);}
  // The whole row is the button: a press at its right end picks it.
- const childRow=sheet.locator('[data-sheet-value="child"]'),b=await childRow.boundingBox();
+ const childRow=sheet.locator('.aop-list [data-sheet-value="p:child"]'),b=await childRow.boundingBox();
  await page.mouse.click(b.x+b.width-6,b.y+b.height/2);await expect(sheet).toBeHidden();await expect(trigger).toHaveText('자식 프로젝트 ▾');
  // Picking a parent does not pick its children.
- await trigger.click();await expect(sheet.locator('[aria-pressed="true"]')).toHaveText(['자식 프로젝트']);
- const chosen=sheet.locator('[data-sheet-value="child"]');
+ await trigger.click();await expect(sheet.locator('.aop-list [aria-pressed="true"]')).toHaveText(['자식 프로젝트']);
+ const chosen=sheet.locator('.aop-list [data-sheet-value="p:child"]');
  const look=await chosen.evaluate(el=>{const p=document.createElement('span');p.style.background='var(--kptu-success-soft)';p.style.color='var(--kptu-success)';document.body.append(p);const s=getComputedStyle(p),out={soft:s.backgroundColor,green:s.color};p.remove();const c=getComputedStyle(el.querySelector('.home-choice-check'));return {...out,bg:getComputedStyle(el).backgroundColor,check:c.backgroundColor,mark:getComputedStyle(el.querySelector('.home-choice-check'),'::after').content};});
  expect(look.bg).toBe(look.soft);expect(look.check).toBe(look.green);expect(look.mark).toContain('✓');
- await sheet.locator('[data-sheet-value="p"]').click();await trigger.click();await expect(sheet.locator('[aria-pressed="true"]')).toHaveText(['테스트 프로젝트']);
- const box=sheet.getByRole('searchbox',{name:'사업영역 이름 검색'});await box.fill('손자');
+ await sheet.locator('.aop-list [data-sheet-value="p:p"]').click();await trigger.click();await expect(sheet.locator('.aop-list [aria-pressed="true"]')).toHaveText(['테스트 프로젝트']);
+ const box=sheet.getByRole('searchbox',{name:'찾기'});await box.fill('손자');
  await expect(sheet.locator('[data-sheet-value]:visible .home-choice-name')).toHaveText(['손자 프로젝트']);
  // PRJ-3단: while searching, a third-level row also shows where it sits ("1단 › 2단").
  await expect(sheet.locator('[data-sheet-value]:visible .home-choice-path')).toHaveText(['테스트 프로젝트 › 자식 프로젝트']);

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome, createdTaskReply } from './helpers/home-entry.mjs';
-import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
+import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey, pressName } from './helpers/area-org-picker.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const quick=page=>page.locator('#homeView [data-home-quick]');
 test('quick task starts folded and opens on focus',async({page})=>{
@@ -13,7 +13,7 @@ test('quick task starts folded and opens on focus',async({page})=>{
 test('quick task KST midnight, project, IME, partial success and request lock',async({page})=>{
  const {requests}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await quick(page).locator('[data-quick-mode="task"]').click(); const q=quick(page),input=q.locator('[data-quick-input]');
  await input.fill('QA');await q.locator('[data-quick-project]').click();
- await page.getByRole('dialog').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(q.locator('[data-quick-project]')).toBeFocused();
+ await pressName(page,'자식 프로젝트');await expect(q.locator('[data-quick-project]')).toBeFocused();
  await page.clock.setFixedTime(new Date('2026-10-06T15:00:00Z'));
  await q.getByRole('button',{name:'오늘',exact:true}).click();
  await q.getByRole('button',{name:'오늘',exact:true}).click();await expect(q.getByRole('button',{name:'오늘',exact:true})).toHaveAttribute('aria-pressed','false');
@@ -96,10 +96,10 @@ for(const width of [390,1440])test(`quick visual measurements and snapshot ${wid
  if(width===390){await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>400});visualViewport.dispatchEvent(new Event('resize'));});await expect(page.locator('.mobile-tabs')).toBeHidden();const b=await q.locator('[data-quick-input]').boundingBox();expect(b.y+b.height).toBeLessThan(400);}
 });
 test('catalog changes clear a retired selection and refresh labels during the same visit',async({page})=>{
- await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-input]').fill('QA');await q.locator('[data-quick-project]').click();await page.getByRole('dialog').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(q.locator('[data-quick-project]')).toBeFocused();
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-input]').fill('QA');await q.locator('[data-quick-project]').click();await pressName(page,'자식 프로젝트');await expect(q.locator('[data-quick-project]')).toBeFocused();
  await page.evaluate(()=>{const cat=window.KPTUProjectCatalog,s=cat.snapshot();cat.publish({workspaceId:s.workspaceId,userId:s.userId,spaces:s.spaces.map(p=>({...p,name:'QA renamed',status:p.id==='child'?'archived':p.status}))});});
  await expect(q.locator('[data-quick-project]')).toHaveText('사업영역 ▾');await q.locator('[data-quick-project]').click();
- await expect(page.locator('[data-sheet-value="child"]')).toHaveCount(0);await expect(page.locator('[data-sheet-value="p"]')).toHaveText('QA renamed');await page.keyboard.press('Escape');await expect(q.locator('[data-quick-project]')).toBeFocused();
+ await expect(page.locator('#areaOrgPickSheet [data-sheet-value="p:child"]')).toHaveCount(0);await expect(page.locator('#areaOrgPickSheet .aop-list [data-sheet-value="p:p"]')).toHaveText('QA renamed');await page.keyboard.press('Escape');await expect(q.locator('[data-quick-project]')).toBeFocused();
  const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:createdTaskReply(r.request().postDataJSON())});});
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(bodies[0].links).toEqual([]);
 });

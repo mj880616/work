@@ -22,7 +22,7 @@ function style(path){
 const routeStyles={
   basket:['./basket.css','./home-quick.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./folder-look.css','./ui-standard.css'],
   home:['./journal.css','./weekly-org-lines.css','./home-quick.css','./library-upload.css','./row-swipe.css','./basket-picker.css','./choice-sheet.css','./google-tasks.css','./area-org-picker.css','./folder-look.css','./ui-standard.css'],
-  calendar:['./choice-sheet.css','./od-link.css','./calendar-ui.css','./ui-standard.css'],
+  calendar:['./choice-sheet.css','./area-org-picker.css','./od-link.css','./calendar-ui.css','./ui-standard.css'],
   tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./area-org-picker.css','./home-quick.css','./library-upload.css','./basket-picker.css','./folder-look.css','./ui-standard.css'],
   diary:['./diary.css','./od-link.css','./ed-doc.css','./folder-look.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./ui-standard.css'],

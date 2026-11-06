@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {pressName} from './helpers/area-org-picker.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 // UI-홈빠른입력상세: 홈 빠른 입력 [할 일] 모드에서만 입력 칸 안 오른쪽 끝 [+](상세 설정으로 추가)가 보이고, 누르면 새 창 없이
 // 기존 [할 일 등록] 창(UI-할일빠른추가상세 #728과 같은 창)을 연다. 입력 글은 제목, 위 칩(프로젝트·오늘·내일·날짜)은 창의 같은 칸에 채운다.
@@ -48,7 +49,7 @@ for(const width of [390,1440]){
   await expect(input).toHaveValue('분기 보고서 작성');
   // 칩(프로젝트·내일)을 고른 뒤: 창의 날짜·프로젝트 칸에 그 값.
   await q.locator('[data-quick-project]').click();
-  await page.locator('#homeChoiceSheet').getByRole('button',{name:'자식 프로젝트',exact:true}).click();
+  await pressName(page,'자식 프로젝트');
   await q.getByRole('button',{name:'내일',exact:true}).click();
   await plus.click();
   await expect(modal).toBeVisible();

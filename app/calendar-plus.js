@@ -5,12 +5,11 @@ import {waitInlineHtml as cmWaitHtml} from './wait-state.js'; // UI-기다림표
 import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
 import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,logSaveDetail} from './calendar-save-notice.js';
 import { createGoogleTask, saveProjectMilestone } from './quick-save.js';
-import { createChoiceSheet, projectRows } from './choice-sheet.js';
+import { openAreaOrgPicker, dismissAreaOrgPicker, usedKeysNow, catalogAreas, areaTree, areaChipText } from './area-org-picker.js';
 import { taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, attachNewTaskFiles, newTaskFilesNotice } from './task-files.js';
 const CM_GOOGLE_DEFAULT='#4285f4';
 const CM_FALLBACK_EVENT_COLORS=['#a4bdfc','#7ae7bf','#dbadff','#ff887c','#fbd75b','#ffb878','#46d6db','#e1e1e1','#5484ed','#51b749','#dc2127'];
 let cmEndLink=null,cmGoogle=null,cmSavePending=false,cmMode='event',cmProject='',cmProjectRows=[],cmFormEpoch=0,cmRequest=null,cmSaved=null;const cmAttempts=new Map();
-const cmEsc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function cmHexRgb(hex){const h=String(hex||'').replace('#','');if(!/^[0-9a-f]{6}$/i.test(h))return null;return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]}
 function cmColorDistance(a,b){const x=cmHexRgb(a),y=cmHexRgb(b);return x&&y?(x[0]-y[0])**2+(x[1]-y[1])**2+(x[2]-y[2])**2:Number.POSITIVE_INFINITY}
 function cmColorPalette(state=window.__KPTU_GOOGLE_STATE__||cmGoogle){
@@ -64,15 +63,21 @@ function cmPaintFiles(){const f=cmEnsureFiles();if(!f)return;const owner=cmOwner
   if(cmMode==='task'&&!cmFilesOn&&owner)void taskFilesAvailable().then(yes=>{if(owner!==cmOwner())return;if(yes)cmFilesOn=true;if(cmMode==='task'&&!cmSaved)place(yes,false)})}
 let cmFormOwner=window.KPTURuntime.context.read()?.user?.id;
 const cmProjectButton=()=>document.querySelector('#eventTaskProject');
-function cmPaintProject(){const b=cmProjectButton();if(!b)return;const name=cmProjectRows.find(x=>x.project.id===cmProject)?.project.name||'',label=document.createElement('span'),arrow=document.createElement('span');label.className='event-project-name';label.textContent=cmProject&&name?name:'선택 안 함';label.dataset.empty=String(!(cmProject&&name));arrow.className='event-project-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='▾';b.replaceChildren(label,arrow);b.setAttribute('aria-label',cmProject&&name?'사업영역: '+name:'사업영역')}
+function cmPaintProject(){const b=cmProjectButton();if(!b)return;const name=cmProjectRows.find(x=>x.project.id===cmProject)?.project.name||'',label=document.createElement('span'),arrow=document.createElement('span');label.className='event-project-name';label.textContent=cmProject&&name?(areaChipText(areaTree(catalogAreas(cmProjectRows)),'p:'+cmProject)||name):'선택 안 함';label.dataset.empty=String(!(cmProject&&name));arrow.className='event-project-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='▾';b.replaceChildren(label,arrow);b.setAttribute('aria-label',cmProject&&name?'사업영역: '+label.textContent:'사업영역')}
 async function cmLoadProjects(){const ctx=window.KPTURuntime.context.read(),snap=await window.KPTUProjectCatalog.load({workspaceId:ctx.workspaceId,userId:ctx.user.id});cmProjectRows=snap.tree.filter(x=>x.project.status==='active');if(!cmProjectRows.some(x=>x.project.id===cmProject))cmProject='';cmPaintProject();}
 // UI-홈빠른입력상세: 홈 빠른 입력 [+]가 고른 프로젝트를 새 [할 일 등록] 창의 프로젝트 칸에 채운다(창에서 다시 고르면 그 값). 이름은 같은 목록에서 찾는다.
 function cmSetTaskProject(id){if(cmSavePending||cmSaved)return;cmProject=typeof id==='string'?id:'';cmPaintProject();if(cmProject&&!cmProjectRows.some(x=>x.project.id===cmProject)){const seq=cmFormEpoch;cmLoadProjects().catch(()=>{if(seq===cmFormEpoch){cmProject='';cmPaintProject();}});}}
-const cmProjectPicker=createChoiceSheet({id:'eventProjectSheet',titleId:'eventProjectSheetTitle',historyKey:'kptuEventProjectChoice',
-  canOpen:()=>!cmSavePending&&!cmSaved?.linked&&!document.querySelector('#eventModal')?.classList.contains('hidden'),
-  choices:cmLoadProjects,
-  render:()=>({title:'사업영역 선택',search:'사업영역 이름 검색',html:projectRows(cmProjectRows,cmProject,cmEsc)}),onSelect:(_,value)=>{cmProject=value;cmPaintProject();},onError:e=>cmStatus(e.message||'사업영역 목록을 불러오지 못했습니다.',true)
-});
+// S52-01 ② UI-사업영역조직고르기창: [할 일]·[일정]의 사업영역은 모든 화면과 같은 고르기 창(area-org-picker.js) 하나로, 하나만 고른다
+// (줄을 누르면 고르고 닫힘, 맨 위 '사업영역 없음'). 큰 묶음만 보이고 꺾쇠로 하위를 펼친다. 저장 값(cmProject)·연결 경로는 그대로다.
+const cmCanPick=()=>!cmSavePending&&!cmSaved?.linked&&!document.querySelector('#eventModal')?.classList.contains('hidden');
+async function cmOpenProject(){
+  const b=cmProjectButton();if(!b||!cmCanPick())return;const seq=cmFormEpoch;
+  try{await cmLoadProjects()}catch(e){cmStatus(e.message||'사업영역 목록을 불러오지 못했습니다.',true);return}
+  const used=await usedKeysNow().catch(()=>[]);if(seq!==cmFormEpoch||!cmCanPick())return;
+  await openAreaOrgPicker({kind:'area',trigger:b,areas:catalogAreas(cmProjectRows),selected:cmProject?['p:'+cmProject]:[],used,multi:false,none:true,
+    onCommit:keys=>{if(seq!==cmFormEpoch||!cmCanPick())return;const k=[...keys][0]||'';cmProject=k.startsWith('p:')?k.slice(2):'';cmPaintProject();}});
+}
+const cmProjectPicker={dismiss:()=>dismissAreaOrgPicker(cmProjectButton())};
 window.addEventListener('kptu:session-changed',()=>{const nextOwner=window.KPTURuntime.context.read()?.user?.id;if(nextOwner===cmFormOwner)return;cmFormOwner=nextOwner;cmProjectPicker.dismiss();cmProject='';cmProjectRows=[];cmFormEpoch++;cmRequest=null;cmSaved=null;cmAttempts.clear();cmSavePending=false;cmSetBusy(false);cmPaintProject();});
 window.addEventListener('kptu:view-changed',()=>cmProjectPicker.dismiss());
 const cmOwner=()=>cmRuntime().session.read()?.user?.id||'';
@@ -224,7 +229,7 @@ async function cmSaveGoogle(){
 // FAMILY-잊지말기: 이 창에서 새 일정이 처음 만들어지면 한 번 부를 것(openEventModal preset.onCreated). 다른 창을 열면 지운다.
 let cmOnCreated=null;
 async function cmPrepareNewEvent(opts={}){cmOnCreated=typeof opts?.onCreated==='function'?opts.onCreated:null;cmAskFiles();cmFormEpoch++;cmRequest=null;cmSaved=null;cmFiles?.clear();cmSavePending=false;cmSetBusy(false);document.querySelector('#saveEventBtn').textContent='저장';cmMode='event';cmProject='';cmPaintMode();cmPaintProject();cmStatus('');cmToggleAllDay();['#eventStartTime','#eventEndTime'].forEach(id=>{const el=document.querySelector(id);if(el)paintTimeHint(el,false)});cmEndLink?.reset();await cmPopulateGoogleCalendars()}
-function cmBindCreate(){const modal=document.querySelector('#eventModal');window.addEventListener('kptu:dialog-closed',e=>{if(e.detail?.modal===modal)cmOnCreated=null;if(e.detail?.modal===modal&&cmRequest){cmFormEpoch++;cmRequest=null;cmSavePending=false}});const allDay=document.querySelector('#eventAllDay'),calendar=document.querySelector('#eventGoogleCalendar'),btn=document.querySelector('#saveEventBtn');if(!allDay||!btn)return false;document.querySelectorAll('[data-event-mode]').forEach(b=>b.onclick=()=>{if(cmSavePending)return;if(cmSaved||cmAttempts.has(cmMode==='task'?'task':'event')){cmStatus('현재 항목의 저장 결과를 먼저 확인해 주세요. 입력은 유지했습니다.',true);return}cmMode=b.dataset.eventMode;cmPaintMode();cmStatus('');});cmProjectButton().onclick=()=>void cmProjectPicker.open('project',cmProjectButton());allDay.addEventListener('change',cmToggleAllDay);const q=id=>document.querySelector('#event'+id);cmEndLink=linkEventEnd({startDate:q('StartDate'),startTime:q('StartTime'),endDate:q('EndDate'),endTime:q('EndTime'),allDay});calendar?.addEventListener('change',cmGoogleCalendarChanged);btn.onclick=e=>{e?.preventDefault?.();return cmSaveGoogle()};return true}
+function cmBindCreate(){const modal=document.querySelector('#eventModal');window.addEventListener('kptu:dialog-closed',e=>{if(e.detail?.modal===modal)cmOnCreated=null;if(e.detail?.modal===modal&&cmRequest){cmFormEpoch++;cmRequest=null;cmSavePending=false}});const allDay=document.querySelector('#eventAllDay'),calendar=document.querySelector('#eventGoogleCalendar'),btn=document.querySelector('#saveEventBtn');if(!allDay||!btn)return false;document.querySelectorAll('[data-event-mode]').forEach(b=>b.onclick=()=>{if(cmSavePending)return;if(cmSaved||cmAttempts.has(cmMode==='task'?'task':'event')){cmStatus('현재 항목의 저장 결과를 먼저 확인해 주세요. 입력은 유지했습니다.',true);return}cmMode=b.dataset.eventMode;cmPaintMode();cmStatus('');});cmProjectButton().onclick=()=>void cmOpenProject();allDay.addEventListener('change',cmToggleAllDay);const q=id=>document.querySelector('#event'+id);cmEndLink=linkEventEnd({startDate:q('StartDate'),startTime:q('StartTime'),endDate:q('EndDate'),endTime:q('EndTime'),allDay});calendar?.addEventListener('change',cmGoogleCalendarChanged);btn.onclick=e=>{e?.preventDefault?.();return cmSaveGoogle()};return true}
 async function cmInit(){if(!document.querySelector('#calendarView'))return false;cmInjectControls();cmBindCreate();cmAskFiles();return true}
 window.KPTUCalendarPlus={paint:()=>{},refresh:async()=>true,prepareNewEvent:cmPrepareNewEvent,setTaskProject:cmSetTaskProject,saveGoogle:cmSaveGoogle,savePrefs:()=>{}};
 window.__KPTU_CALENDAR_PLUS_READY__=cmInit().catch(e=>{console.warn('calendar plus init',e);return false});
