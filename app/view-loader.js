@@ -26,7 +26,7 @@ const routeStyles={
   tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./area-org-picker.css','./home-quick.css','./library-upload.css','./basket-picker.css','./folder-look.css','./ui-standard.css'],
   diary:['./diary.css','./od-link.css','./ed-doc.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./ui-standard.css'],
-  library:['./filter-chips.css','./library-upload.css','./folder-tree.css','./compact-list.css','./markdown-view.css','./folder-look.css','./ui-standard.css'],
+  library:['./filter-chips.css','./choice-sheet.css','./library-upload.css','./folder-tree.css','./compact-list.css','./markdown-view.css','./folder-look.css','./ui-standard.css'],
   meetings:['./filter-chips.css','./weekly-org-lines.css','./choice-sheet.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./todo-radar.css','./ui-standard.css'],
   pages:['./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
   team:['./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./library-upload.css','./basket-picker.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./area-org-picker.css','./ui-standard.css'],

@@ -8,6 +8,7 @@ import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // TG-발언자이름: 원문에 이름을 입히고([이름 붙이기]) 머리줄 ⋯ → '보낸 사람 이름'에서 관리한다(tg-sender-model.mjs, tg-sender-data.js). 방 색은 저장하지 않는다(feed-model.mjs roomTone).
 import './enter-save.js';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {iconSvg} from './tree-icons.js';
 import {createFeedHold} from './feed-hold.js';
 import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
@@ -269,7 +270,7 @@ function rowHtml(l, {pin = false} = {}) {
   const fresh = state.seen ? isUnseen(l, state.seen) : null, dot = fresh ? '<span class="feed-unseen" data-tg-unseen aria-hidden="true"></span><span class="a11y-only">안 본 것</span>' : '';
   return swipeRow(key, 'live', l.room_key, l.day, `<div class="feed-rd feed-r${roomTone(l.room_key)}${on ? ' is-selected' : ''}${ask ? ' is-ask' : ''}${fresh === false ? ' is-seen' : ''}" data-tg-rd="${esc(key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(l.room_label))}</span><button type="button" class="feed-rdb" data-tg-rdopen="${esc(key)}"${on ? ' aria-current="true"' : ''}><span class="feed-rn">${pin ? PIN_MARK : ''}${esc(l.room_label)}${pin ? `<span class="feed-pday" data-tg-pinday>${esc(dayShort(l.day))}</span>` : ''}${dot}</span><span class="feed-rl">${esc(text)}</span>${tags}<span class="feed-ft"><span>소식 ${l.item_count}</span><span>원문 ${l.raw_count}</span>${mark ? `<span class="feed-mark" data-tg-mark>${esc(mark)}</span>` : ''}</span></button><button type="button" class="feed-hov" data-tg-rdmore="${esc(key)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc(l.room_label)} 메뉴">${MORE}</button></div>`);
 }
-const PIN_MARK = '<span class="feed-pinmark" data-tg-pinned aria-hidden="true">📌</span><span class="a11y-only">고정됨: </span>';
+const PIN_MARK = `<span class="feed-pinmark" data-tg-pinned aria-hidden="true">${iconSvg('pin', {size: 12})}</span><span class="a11y-only">고정됨: </span>`;
 // 고정한 방 한 줄: 그 방의 가장 최근 날 줄. 줄을 찾지 못하면 방 이름과 작은 [고정 풀기]만.
 function pinRowHtml(p) {
   if (p.last) return rowHtml(p.last, {pin:true});

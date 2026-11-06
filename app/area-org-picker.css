@@ -11,8 +11,9 @@
 .aop-lines button { font:inherit; cursor:pointer; }
 .aop-lines .aop-chip-x { position:relative; display:inline-grid; place-items:center; flex:none; width:20px; height:20px; margin:0 0 0 2px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--kptu-muted); font-size:11px; line-height:1; }
 .aop-lines .aop-chip-x::after { content:""; position:absolute; inset:-12px -6px; }
-.aop-lines .aop-add { position:relative; flex:none; height:24px; min-height:0; padding:0 6px; border:0; border-radius:var(--ds-radius-control,8px); background:transparent; color:var(--kptu-link,var(--kptu-primary-ink)); font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); white-space:nowrap; }
-.aop-lines .aop-add.is-short { padding:0 8px; font-size:14px; }
+/* [+ 고르기]·[+]는 창 안 작은 글자 버튼(UI-버튼기준: 32px·13px/500·모서리 8px, 테두리 없음). */
+.aop-lines .aop-add { position:relative; flex:none; box-sizing:border-box; height:var(--ds-compact-height,32px); min-height:0; padding:0 8px; border:0; border-radius:var(--ds-radius-control,8px); background:transparent; color:var(--kptu-link,var(--kptu-primary-ink)); font-size:var(--ds-compact-text,13px); font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; }
+.aop-lines .aop-add.is-short { min-width:32px; padding:0 10px; }
 .aop-lines .aop-add::after { content:""; position:absolute; left:-4px; right:-4px; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
 .aop-lines .aop-add:hover, .aop-lines .aop-chip-x:hover { background:var(--kptu-surface-subtle); }
 .aop-lines button:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:1px; }

@@ -8,6 +8,7 @@
 // 상태는 이 탭 메모리에만 있다(브라우저 저장소 없음). 실패는 화면 경고 한 줄 외에는 알리지 않는다.
 import { ledgerFromStatus, exportDue, exportResult, failureText, copyState, nextExportDelay, CHECK_EVERY_MS, START_DELAY_MS } from './ledger-export-model.mjs';
 import { formatSeoulTime } from './meeting-time.js';
+import { iconHtml } from './tree-icons.js';
 
 const rt = window.KPTURuntime;
 const STATUS = '/functions/v1/drive-summary?action=ledger_status';
@@ -85,7 +86,7 @@ function render() {
   if (state.stalled) {
     const since = state.since !== null ? `${esc(day(state.since))}부터 ` : '';
     const why = state.code ? ` title="${esc(failureText(state.code))}"` : '';
-    line = `<p class="lg-note lg-copy-line is-stalled" data-le-line="stalled" role="status"${why}><span aria-hidden="true">⚠</span> Claude용 사본이 ${since}멈췄어요 · <button type="button" class="lg-text-btn" data-le-action="retry"${busy || flight ? ' disabled' : ''}>${busy || flight ? '다시 하는 중…' : '다시 시도'}</button></p>`;
+    line = `<p class="lg-note lg-copy-line is-stalled" data-le-line="stalled" role="status"${why}>${iconHtml('warn')} Claude용 사본이 ${since}멈췄어요 · <button type="button" class="lg-text-btn" data-le-action="retry"${busy || flight ? ' disabled' : ''}>${busy || flight ? '다시 하는 중…' : '다시 시도'}</button></p>`;
   } else {
     line = `<p class="lg-note lg-copy-line" data-le-line="ok">${state.at !== null ? `Claude용 사본 ${esc(when(state.at))} 갱신` : 'Claude용 사본 준비 중'}</p>`;
   }

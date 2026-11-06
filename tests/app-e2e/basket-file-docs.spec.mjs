@@ -1,6 +1,6 @@
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
-import {onlyLibraryCategories} from './helpers/library-categories.mjs';
+import {onlyLibraryCategories,showAllLibraryCategories} from './helpers/library-categories.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
@@ -316,7 +316,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('#documentProject')).toHaveJSProperty('value',P);
  const chips=page.locator('#libraryCategoryFilter');
  // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글(aria-pressed). 들어올 때는 [회의]만 꺼져 있다.
- await expect(chips.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
+ await expect(chips.locator('[data-lu-category]')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
  await expect(chips.locator('[aria-pressed="false"]')).toHaveText(['회의']);await expect(chips.locator('[data-lu-category="all"]')).toHaveAttribute('aria-pressed','mixed');// LIB-거르기전체: 일부만 켜진 [전체]는 mixed.
  // LIB-토글트리: 프로젝트로 걸러 들어오면 그 프로젝트 토글이 펼쳐져 있고, 안은 날짜 최신순(자료 날짜가 없으면 올린 날).
  await expect(page.locator(`#documentList details[data-lu-node="p:${P}"]`)).toHaveAttribute('open','');
@@ -329,7 +329,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  await capture(page,info,`library-${width}-${scheme}`);
  await onlyLibraryCategories(page,['정책']);await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('.lu-row')).toContainText('국토부 지침');
  await onlyLibraryCategories(page,['투쟁']);await expect(page.locator('.lu-row')).toHaveText([/집회 계획/]);
- await chips.getByRole('button',{name:'전체'}).click();await expect(chips.locator('[aria-pressed="false"]')).toHaveCount(0);await page.locator('#documentSearch').fill('선전');await expect(page.locator('.lu-row')).toHaveText([/기자회견 웹자보/]);
+ await showAllLibraryCategories(page);await expect(chips.locator('[aria-pressed="false"]')).toHaveCount(0);await page.locator('#documentSearch').fill('선전');await expect(page.locator('.lu-row')).toHaveText([/기자회견 웹자보/]);
 });
 
 test('the library forms choose one of the 7 categories; an old value is shown as its match and kept unless changed',async({page})=>{

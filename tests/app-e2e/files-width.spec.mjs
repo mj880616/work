@@ -24,18 +24,18 @@ test('PC 1440: 표 머리 칸 경계 끌기 · 두 번 눌러 글 길이에 맞�
   const server = await installViewPrefsServer(page);
   const { errors } = await start(page, 1440);
   await openFiles(page, 1440);
-  await expect(root(page).locator('.fx-head [data-col-grip]')).toHaveCount(3); // 첫 화면 = 원드라이브 맨 위(S50-33): 바뀐 날·크기·종류
+  await expect(root(page).locator('.fx-head [data-col-grip]')).toHaveCount(3); // 첫 화면 = 원드라이브 맨 위(S50-33): 이름·바뀐 날·크기 오른쪽 금(S51-33)
   await settle(page);
   const stored = () => server.value?.col_widths?.files ?? null;
   expect(stored()).toBeNull();
   const before = await cellWidth(page, 'day');
-  // 왼쪽 가장자리를 왼쪽으로 40px 끌면 그 칸이 40px 넓어진다(이름 칸이 남는 폭을 먹는다).
+  // S51-33: 칸 오른쪽 금을 오른쪽으로 40px 끌면 그 칸(금 왼쪽 칸)이 40px 넓어진다(이름 칸이 남는 폭을 먹는다).
   const grip = root(page).locator('.fx-head [data-col-grip="day"]');
   const g = await grip.boundingBox(), y = g.y + g.height / 2, x = g.x + g.width / 2;
   await page.mouse.move(x, y); await page.mouse.down();
-  await page.mouse.move(x - 20, y, { steps: 4 }); await page.mouse.move(x - 40, y, { steps: 4 }); await page.mouse.up(); await settle(page);
+  await page.mouse.move(x + 20, y, { steps: 4 }); await page.mouse.move(x + 40, y, { steps: 4 }); await page.mouse.up(); await settle(page);
   expect(Math.abs((await cellWidth(page, 'day')) - (before + 40))).toBeLessThan(3);
-  await expect.poll(() => Math.abs((stored()?.day ?? 0) - (before + 40))).toBeLessThan(3);
+  await expect.poll(() => Math.abs((stored()?.day ?? 0) - (before + 40))).toBeLessThan(3); // PC 값(꼬리 없음)
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   const dragged = stored().day;
   // 새로고침(다른 PC도 같은 서버 값을 읽는다) 뒤에도 그대로, 다른 칸은 기본 그대로.
@@ -48,10 +48,10 @@ test('PC 1440: 표 머리 칸 경계 끌기 · 두 번 눌러 글 길이에 맞�
   await page.mouse.dblclick(g2.x + g2.width / 2, g2.y + g2.height / 2); await settle(page);
   await expect.poll(() => stored()?.day).not.toBe(dragged);
   expect(stored().day).toBeGreaterThanOrEqual(40); expect(stored().day).toBeLessThanOrEqual(800);
-  // 키보드: ← 로 8px 넓히고, Home 이면 그 칸만 기본으로(서버 값 지움).
+  // 키보드: → 로 8px 넓히고(오른쪽 금), Home 이면 그 칸만 기본으로(서버 값 지움).
   const kb = root(page).locator('.fx-head [data-col-grip="size"]');
   await kb.focus(); const w0 = await cellWidth(page, 'size');
-  await page.keyboard.press('ArrowLeft'); await settle(page);
+  await page.keyboard.press('ArrowRight'); await settle(page);
   expect(Math.abs((await cellWidth(page, 'size')) - (w0 + 8))).toBeLessThan(2);
   await expect.poll(() => stored()?.size).toBeGreaterThan(w0);
   await page.keyboard.press('Home'); await settle(page);
@@ -60,7 +60,7 @@ test('PC 1440: 표 머리 칸 경계 끌기 · 두 번 눌러 글 길이에 맞�
   expect(errors).toEqual([]);
 });
 
-test('폰 412: 손잡이·경계 없음(표 머리가 없다)', async ({ page }) => {
+test('폰 412: 손잡이·경계 없음(폰 [파일]은 두 줄 목록이라 표 머리가 없다)', async ({ page }) => {
   await installViewPrefsServer(page);
   const { errors } = await start(page, 412);
   await openFiles(page, 412);

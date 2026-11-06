@@ -88,7 +88,7 @@ for(const width of [390,1280]){
   await press(page,page.locator('[data-basket-row="rich"]'),width);
   await expect(read).toHaveClass(/md-body/);
   const chip=read.locator('button.md-image-chip');
-  await expect(chip).toHaveCount(1);await expect(chip).toHaveText('🖼 이미지 3개');await expect(chip).toHaveAttribute('aria-expanded','false');
+  await expect(chip).toHaveCount(1);await expect(chip).toHaveText('이미지 3개'); // S51-25: 그림 문자 🖼 없음await expect(chip).toHaveAttribute('aria-expanded','false');
   await expect(read.locator('img')).toHaveCount(0);await expect(read.locator('.md-image-list')).toBeHidden();
   // Callouts.
   await expect(read.locator('blockquote.md-callout-note .md-callout-title')).toHaveText('참고');

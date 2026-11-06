@@ -195,6 +195,8 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     // the selected one is gray (종류 색 '그 밖'). The touch target stays 44px through ::after.
     const tokens=await page.evaluate(()=>Object.fromEntries(['--kptu-ink','--kptu-surface','--kptu-muted','--ds-kind-other-ink','--ds-kind-other-soft','--ds-select-ink','--ds-select-bg'].map(n=>{const e=document.createElement('span');e.style.color=`var(${n})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return [n,c];})));
     for(const group of await groups.all()){
+      // S51-28 LIB-화면정리: 1199px까지 자료실은 분류 칩 줄이 숨고([분류 ▾] 창) 묶기는 아래 알약 탭이라 칩 모양 기준 밖(library-top-row.spec.mjs가 본다).
+      if(name==='library'&&width<1200)continue;
       // UI-PC자료실: 자료실 분류 줄은 여러 개 켜고 끄는 토글(role=group, aria-pressed). 켠 칩은 회색, 꺼진 칩은 흐린 글자(보조 글자색)·흰 바탕.
       if(await group.getAttribute('id')==='libraryCategoryFilter'){
         await expect(group).toHaveAttribute('role','group');
