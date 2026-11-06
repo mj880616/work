@@ -90,7 +90,11 @@ test('News 폰 412: 글 아래 빈 곳에서 좌우 밀기 = 탭 이동', async 
   const { errors } = await start(page, 412);
   await openNews(page, 412);
   await expect(page.locator('#nowPanelNews')).toBeVisible();
+  // 글 줄을 다 그린 뒤에 빈 곳을 잰다(늦게 그려진 줄 위를 밀면 줄 밀기가 가져간다).
+  await expect(page.locator('#outsideRoot [data-nc-item]')).toHaveCount(5);
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   const spot = await emptyIn(page, '#outsideRoot > *:not([hidden])', '#outsideRoot');
+  expect(await page.evaluate(([x, y]) => !document.elementFromPoint(x, y)?.closest('[data-nc-item], .now-row'), [spot.x, spot.y])).toBe(true);
   await swipeAt(page, spot.x + 100, spot.y, -200);
   await expect(page.locator('#outsideRoot [data-os-tab="archive"]')).toHaveAttribute('aria-selected', 'true');
   expect(errors).toEqual([]);
