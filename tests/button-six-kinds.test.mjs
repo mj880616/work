@@ -4,10 +4,10 @@ import {readFileSync} from 'node:fs';
 import {scan, compare, cssDebt, htmlDebt, KIND_CLASSES} from './button-six-kinds.mjs';
 // UI-버튼6가지(2026-11-06 명진 요청 23:23, 시안 승인): 버튼은 6가지뿐, 모양은 ui-standard.css 한 곳. 재발 방지 시험(App smoke check).
 const ui = readFileSync('app/ui-standard.css', 'utf8');
-const block = ui.slice(ui.indexOf('UI-버튼6가지'));
+const block = ui.slice(ui.indexOf('/* ===== UI-버튼6가지')); // 다른 규칙의 설명에 이름이 나와도 묶음 머리부터
 
 test('6가지 공용 규칙이 ui-standard.css 한 곳에 있고 값은 토큰만 쓴다', () => {
-  assert.ok(ui.indexOf('UI-버튼6가지') > 0);
+  assert.ok(ui.indexOf('/* ===== UI-버튼6가지') > 0);
   assert.deepEqual(KIND_CLASSES, ['primary', 'secondary', 'ghost', 'danger', 'row-act', 'ds-chip', 'ds-seg-btn', 'icon-btn']);
   // ④ 칩: 알약, 28px, 고른 것만 선택 표시 색(연한 바탕 + 선)
   assert.match(block, /button\.ds-chip\{[^}]*height:var\(--ds-compact-height-sm\)[^}]*border-radius:var\(--ds-chip-radius\)/);
