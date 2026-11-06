@@ -16,7 +16,6 @@ async function gotoOdRoot(page, width) {
     return;
   }
   const go = root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]');
-  if (await root(page).locator('[data-fx-tree] [data-fx-twist="od:"][aria-expanded="false"]').count()) await root(page).locator('[data-fx-tree] [data-fx-twist="od:"]').click();
   await expect.poll(async () => (await go.isVisible()) || (await row(page, 'od:OD!1').isVisible())).toBe(true);
   if (await go.isVisible()) await go.click();
   await expect(row(page, 'od:OD!1')).toBeVisible();
