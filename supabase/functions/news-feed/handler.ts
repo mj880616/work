@@ -18,9 +18,11 @@
 // 읽는 주소: 매체·구글 뉴스는 _shared/news-catalog.ts 허용 호스트만, 채널 기사 원문은 _shared/feed-fetch.ts openArticleUrl 규칙.
 //   robots.txt 먼저(막히면 state='robots'), 유료벽 표시면 본문을 읽지 않고 공개 리드만(state='paywall'), 봇 확인 쪽은 저장 안 함.
 // 저장: 서비스 역할로 app_news_items(넣기·고치기)·app_news_days(넣기·고치기)·app_news_keywords(읽기)·app_outside_sources(news- 키 읽기·상태)·
-//   app_workspace_members(owner 확인 읽기)·rpc app_news_prune만. 로그·응답에는 건수·키·단계 코드만(제목·본문·주소·키워드 없음).
+//   app_workspace_members(owner 확인 읽기)·rpc app_news_prune·app_feed_bodies(본문 블록 넣기·고치기, P2b)만.
+//   본문 블록(NEWS-전면개편 P2b, 4.7절): media 단계가 피드를 읽은 뒤 새 기사마다 글 쪽 1번(같은 reader라 요청 사이 GAP_MS, 예산 RUN_BUDGET_MS,
+//   매체마다 한 번 MEDIA_BODY_PER_RUN건), 남은 것은 pending 단계가 읽는다. 키워드 기사는 읽지 않고 relay 줄만. 누를 때 열기(open)도 같은 줄을 고친다. 로그·응답에는 건수·키·단계 코드만(제목·본문·주소·키워드 없음).
 import { allowedUrl } from "../_shared/outside-catalog.ts";
-import { GOOGLE_NEWS, googleNewsUrl, matchedKeywords, NEWS_CATALOG, newsSourceByKey, publicNewsCatalog, type NewsSource } from "../_shared/news-catalog.ts";
+import { GOOGLE_NEWS, googleNewsUrl, matchedKeywords, NEWS_CATALOG, newsSourceByKey, OPEN_ARTICLE_KEY, OPEN_ARTICLE_RULE, publicNewsCatalog, type NewsSource } from "../_shared/news-catalog.ts";
 import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleUrl, urlKey, type FeedLog, type FeedReader } from "../_shared/feed-fetch.ts";
 import { aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount, type Env } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
@@ -32,7 +34,7 @@ const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: fals
 import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, splitGoogleTitle, titleKey, type PageRule } from "./page.ts";
-import { bodyNumbers, failedBody, readFailReason } from "../_shared/feed-extract.ts";
+import { bodyNumbers, bodyRow, failedBody, readFailReason, type Extracted } from "../_shared/feed-extract.ts";
 
 export type NewsFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: FeedLog };
 
@@ -53,6 +55,9 @@ export const KEYWORD_ITEMS_DAILY = 30;
 export const PENDING_PER_RUN = 60;
 export const PENDING_COUNT_CAP = 1000;
 export const PENDING_STALE_DAYS = 3;
+// 수집 때 본문 읽기(P2b): 매체마다 한 번에 새 기사 MEDIA_BODY_PER_RUN건(사이트마다 한 번 30건 상한 그대로), 키워드 기사 relay 표시는 RELAY_PER_RUN건.
+export const MEDIA_BODY_PER_RUN = 30;
+export const RELAY_PER_RUN = 200;
 export const FILL_DAILY = 10;
 export const FILL_MAX = 5;
 export const OPEN_DAILY = 60;
@@ -305,34 +310,99 @@ async function fillVideo(db: Db, reader: FeedReader, item: Row, vid: string, now
   return "ok";
 }
 
-async function fillItem(db: Db, reader: FeedReader, ai: AiDeps, item: Row, nowMs: number): Promise<string> {
-  const ws = String(item.workspace_id), id = String(item.id), url = String(item.url);
+// 본문 규칙 고르기: 매체 기사는 카탈로그(extract·bodyClass), 채널 기사는 열린 주소 규칙(open@판). 구글 중계·카탈로그 밖 매체는 null(읽지 않음).
+type RuleFor = (base: string) => PageRule;
+const openRule: RuleFor = (base) => ({ key: OPEN_ARTICLE_KEY, rule: OPEN_ARTICLE_RULE, base });
+function ruleForItem(item: Row): RuleFor | null {
+  if (item.lane === "channel") return openRule;
+  const source = newsSourceByKey(item.source_key);
+  return source ? (base) => mediaRule(source, base) : null;
+}
+// 기사 블록 한 줄(서비스 역할). 다시 읽으면(누를 때 열기) 새 결과로 고친다. 실패해도 기사 줄은 그대로 둔다.
+async function saveNewsBody(db: Db, log: FeedLog, item: Row, ex: Extracted, nowIso: string) {
+  if (item.lane === "media" && newsSourceByKey(item.source_key)?.extract === false) return;
+  try {
+    await db.send("POST", "app_feed_bodies?on_conflict=news_item_id",
+      bodyRow(ex, { workspace_id: String(item.workspace_id), news_item_id: String(item.id) }, nowIso), "return=minimal,resolution=merge-duplicates");
+  } catch { log("body_failed", { lane: String(item.lane ?? "") }); }
+}
+
+type FillOpts = { rule: RuleFor; summarize?: boolean; countFetch?: boolean };
+// 원문 한 번 읽기 → 같은 주소의 기사 줄들(items, 보통 하나 — 수집 때는 같은 기사를 켠 작업공간마다 한 줄)에 같은 결과를 쓴다.
+async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], nowMs: number, opts: FillOpts): Promise<string> {
+  const first = items[0];
+  const url = String(first.url);
   const nowIso = new Date(nowMs).toISOString();
   const vid = videoId(url);
-  if (vid) return await fillVideo(db, reader, item, vid, nowMs);
+  if (vid) { let st = "ok"; for (const it of items) st = await fillVideo(db, reader, it, vid, nowMs); return st; }
   const got = await reader.get(url, ACCEPT_HTML);
-  try { await addDay(db, ws, kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ }
+  // 하루 열기 횟수(fetch_n)는 사람이 누른 읽기만 센다(수집 때 읽기는 세지 않음 — 화면 '열기' 한도를 먹지 않게).
+  if (opts.countFetch !== false) { try { await addDay(db, String(first.workspace_id), kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ } }
   if (!got.ok) {
-    await db.send("PATCH", `app_news_items?id=eq.${id}&workspace_id=eq.${ws}`, { state: storedState(got.code), fetched_at: nowIso, updated_at: nowIso }, "return=minimal");
+    for (const item of items) {
+      await db.send("PATCH", `app_news_items?id=eq.${item.id}&workspace_id=eq.${item.workspace_id}`, { state: storedState(got.code), fetched_at: nowIso, updated_at: nowIso }, "return=minimal");
+      await saveNewsBody(db, ai.log, item, failedBody(readFailReason(got.code)), nowIso);
+    }
     return storedState(got.code);
   }
-  const page = readArticlePage(got.text, nowMs);
-  const patch: Row = { state: page.state, fetched_at: nowIso, updated_at: nowIso, lang: page.lang };
-  if (page.state !== "bot_check") {
-    // 줄에 든 제목이 주소뿐이면 없는 것으로 본다(도메인·주소가 제목으로 남지 않게, 11/02).
-    const own = typeof item.title === "string" && item.title && !isUrlTitle(item.title) ? item.title : "";
-    const title = own || page.title;
-    if (!own && page.title) { const t = newsTitle(page.title); patch.title = t; patch.title_key = titleKey(t); }
-    if (!item.publisher && page.publisher) patch.publisher = page.publisher;
-    if (!item.published_at && page.published_at) patch.published_at = page.published_at;
-    if (page.body && page.body_kind) { patch.body = page.body; patch.body_kind = page.body_kind; }
-    if (!item.summary && title) {
-      const s = await summarize(db, ai, ws, title, page.body, nowMs);
-      if (s) patch.summary = s;
+  const page = readArticlePage(got.text, nowMs, opts.rule(got.url));
+  for (const item of items) {
+    const ws = String(item.workspace_id), id = String(item.id);
+    const patch: Row = { state: page.state, fetched_at: nowIso, updated_at: nowIso, lang: page.lang };
+    if (page.state !== "bot_check") {
+      // 줄에 든 제목이 주소뿐이면 없는 것으로 본다(도메인·주소가 제목으로 남지 않게, 11/02).
+      const own = typeof item.title === "string" && item.title && !isUrlTitle(item.title) ? item.title : "";
+      const title = own || page.title;
+      if (!own && page.title) { const t = newsTitle(page.title); patch.title = t; patch.title_key = titleKey(t); }
+      if (!item.publisher && page.publisher) patch.publisher = page.publisher;
+      if (!item.published_at && page.published_at) patch.published_at = page.published_at;
+      if (page.body && page.body_kind) { patch.body = page.body; patch.body_kind = page.body_kind; }
+      if (opts.summarize !== false && !item.summary && title) {
+        const s = await summarize(db, ai, ws, title, page.body, nowMs);
+        if (s) patch.summary = s;
+      }
     }
+    await db.send("PATCH", `app_news_items?id=eq.${id}&workspace_id=eq.${ws}`, patch, "return=minimal");
+    await saveNewsBody(db, ai.log, item, page.blocks, nowIso);
   }
-  await db.send("PATCH", `app_news_items?id=eq.${id}&workspace_id=eq.${ws}`, patch, "return=minimal");
   return page.state;
+}
+const fillItem = (db: Db, reader: FeedReader, ai: AiDeps, item: Row, nowMs: number, opts: FillOpts) => fillItems(db, reader, ai, [item], nowMs, opts);
+
+// 수집 때 본문 읽기(NEWS-전면개편 P2b, 4.7절): 이 매체의 최근 PENDING_STALE_DAYS일 기사 가운데 블록 줄이 아직 없는 것을 새 것부터 주소 MEDIA_BODY_PER_RUN개,
+// 같은 주소는 한 번만 읽어 그 주소의 작업공간 줄 모두에 쓴다(요청 사이 GAP_MS — 같은 reader). 시간 예산을 넘으면 멈추고, 남은 것은 다음 '대기 기사' 일이 읽는다.
+// 요약(AI)은 여기서 만들지 않는다(P3 미리 만들기). 화면 '열기' 하루 한도는 세지 않는다.
+async function runMediaBodies(db: Db, reader: FeedReader, ai: AiDeps, source: NewsSource, nowMs: number, startMs: number, clock: () => number) {
+  if (source.extract === false) return { done: 0, deferred: 0 };
+  const since = new Date(nowMs - PENDING_STALE_DAYS * 86400000).toISOString();
+  const rows = await db.get(`app_news_items?lane=eq.media&source_key=eq.${source.key}&created_at=gte.${encodeURIComponent(since)}` +
+    `&select=id,workspace_id,lane,url,source_key,title,publisher,published_at,summary,app_feed_bodies(id)&app_feed_bodies=is.null&order=created_at.desc&limit=${MEDIA_BODY_PER_RUN * 4}`);
+  const byUrl = new Map<string, Row[]>();
+  for (const r of rows) {
+    if (typeof r.url !== "string" || typeof r.id !== "string" || !UUID.test(r.id) || typeof r.workspace_id !== "string" || !UUID.test(r.workspace_id)) continue;
+    if (!byUrl.has(r.url) && byUrl.size >= MEDIA_BODY_PER_RUN) continue;
+    byUrl.set(r.url, [...(byUrl.get(r.url) ?? []), r]);
+  }
+  let done = 0, deferred = 0;
+  for (const [, list] of byUrl) {
+    if (clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
+    await fillItems(db, reader, ai, list, nowMs, { rule: (base) => mediaRule(source, base), summarize: false, countFetch: false });
+    done++;
+  }
+  return { done, deferred };
+}
+
+// 키워드 기사(구글 중계 주소)는 원문을 읽지 않는다(N3): 블록 줄을 '못 읽음(relay)'으로만 넣는다(요청 없음). 한 번에 RELAY_PER_RUN건.
+async function markRelayBodies(db: Db, log: FeedLog, nowMs: number) {
+  const since = new Date(nowMs - PENDING_STALE_DAYS * 86400000).toISOString();
+  const rows = await db.get(`app_news_items?lane=eq.keyword&created_at=gte.${encodeURIComponent(since)}&select=id,workspace_id,app_feed_bodies(id)&app_feed_bodies=is.null&limit=${RELAY_PER_RUN}`);
+  const nowIso = new Date(nowMs).toISOString();
+  const list = rows.filter((r) => typeof r.id === "string" && UUID.test(r.id) && typeof r.workspace_id === "string" && UUID.test(r.workspace_id))
+    .map((r) => bodyRow(failedBody("relay"), { workspace_id: String(r.workspace_id), news_item_id: String(r.id) }, nowIso));
+  if (!list.length) return 0;
+  try { await db.send("POST", "app_feed_bodies?on_conflict=news_item_id", list, "return=minimal,resolution=ignore-duplicates"); }
+  catch { log("body_failed", { lane: "keyword" }); return 0; }
+  return list.length;
 }
 
 // ---- 예약 단계 -----------------------------------------------------------------------------------------------------
@@ -383,7 +453,7 @@ function oneLineLead(s: string | null): string | null {
   return t || null;
 }
 
-async function runMedia(db: Db, readers: Readers, source: NewsSource, nowMs: number, log: FeedLog) {
+async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource, nowMs: number, startMs: number, clock: () => number, log: FeedLog) {
   const ws = (await enabledMedia(db)).get(source.key) ?? [];
   if (!ws.length) return { ok: true, step: "media", source: source.key, status: "no_workspace", inserted: 0 };
   const reader = readers.catalog(source);
@@ -414,8 +484,11 @@ async function runMedia(db: Db, readers: Readers, source: NewsSource, nowMs: num
   }
   await db.send("PATCH", `app_outside_sources?source_key=eq.${source.key}&workspace_id=in.(${ws.join(",")})`,
     status === "ok" ? { last_ok_at: nowIso, last_error: null } : { last_error: status.replace(/[^a-z0-9_-]/g, "_").slice(0, 40) }, "return=minimal");
-  log("media_done", { source: source.key, inserted, status });
-  return { ok: true, step: "media", source: source.key, status, inserted };
+  // 새 기사 본문(P2b): 피드를 읽은 같은 실행에서 글 쪽 1번씩(예산 안). 실패해도 수집 결과는 그대로.
+  let bodies = { done: 0, deferred: 0 };
+  try { bodies = await runMediaBodies(db, reader, ai, source, nowMs, startMs, clock); } catch { log("bodies_failed", { source: source.key }); }
+  log("media_done", { source: source.key, inserted, status, bodies: bodies.done, bodies_deferred: bodies.deferred });
+  return { ok: true, step: "media", source: source.key, status, inserted, bodies: bodies.done, bodies_deferred: bodies.deferred };
 }
 
 async function runKeywords(db: Db, readers: Readers, nowMs: number, startMs: number, clock: () => number, log: FeedLog) {
@@ -457,20 +530,22 @@ async function runKeywords(db: Db, readers: Readers, nowMs: number, startMs: num
     }
     inserted += await insertNew(db, out, left);
   }
-  log("keywords_done", { words, inserted, deferred });
-  return { ok: true, step: "keywords", words, inserted, deferred };
+  let relay = 0;
+  try { relay = await markRelayBodies(db, log, nowMs); } catch { log("bodies_failed"); }
+  log("keywords_done", { words, inserted, deferred, relay });
+  return { ok: true, step: "keywords", words, inserted, deferred, relay };
 }
 
 async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, startMs: number, clock: () => number, log: FeedLog, onlyWs?: string, max = PENDING_PER_RUN) {
   const only = onlyWs ? `&workspace_id=eq.${onlyWs}` : "";
   // 새 것부터(오늘 들어온 채널 기사 먼저). 옛 대기 줄은 그 뒤에 — 옛 것부터 채우면 오늘 기사가 계속 밀린다(11/02).
-  const rows = await db.get(`app_news_items?state=eq.pending&lane=eq.channel${only}&select=id,workspace_id,url,title,publisher,published_at,summary&order=created_at.desc&limit=${max}`);
+  const rows = await db.get(`app_news_items?state=eq.pending&lane=eq.channel${only}&select=id,workspace_id,lane,url,title,publisher,published_at,summary&order=created_at.desc&limit=${max}`);
   const reader = readers.open();
   let done = 0, deferred = 0;
   const states: Record<string, number> = {};
   for (const r of rows) {
     if (clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
-    const s = await fillItem(db, reader, ai, r, nowMs);
+    const s = await fillItem(db, reader, ai, r, nowMs, { rule: openRule });
     states[s] = (states[s] ?? 0) + 1;
     done++;
   }
@@ -482,8 +557,21 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
     const since = new Date(nowMs - PENDING_STALE_DAYS * 86400000).toISOString();
     stale = (await db.get(`app_news_items?state=eq.pending&lane=eq.channel&created_at=lt.${encodeURIComponent(since)}${only}&select=id&limit=${cap}`)).length;
   } catch { log("pending_count_failed"); }
-  log("pending_done", { done, deferred, remaining, stale, ...states });
-  return { ok: true, step: "pending", done, deferred, remaining, stale, states };
+  // 매체 기사 가운데 수집 때 예산이 모자라 본문을 못 읽은 것(P2b '대기 기사'): 화면 채우기(onlyWs)에서는 하지 않는다.
+  let bodies = 0, bodiesDeferred = 0;
+  if (!onlyWs) {
+    try {
+      const on = await enabledMedia(db);
+      for (const source of NEWS_CATALOG) {
+        if (!on.has(source.key)) continue;
+        if (clock() - startMs > RUN_BUDGET_MS) { bodiesDeferred++; continue; }
+        const r = await runMediaBodies(db, readers.catalog(source), ai, source, nowMs, startMs, clock);
+        bodies += r.done; bodiesDeferred += r.deferred;
+      }
+    } catch { log("bodies_failed"); }
+  }
+  log("pending_done", { done, deferred, remaining, stale, bodies, bodies_deferred: bodiesDeferred, ...states });
+  return { ok: true, step: "pending", done, deferred, remaining, stale, states, bodies, bodies_deferred: bodiesDeferred };
 }
 
 // 외국어 기사 제목만 한국어로(백그라운드). 작업공간마다 AI 한 번에 묶고, 하루 상한·이번 달 AI 한도 안에서만.
@@ -638,7 +726,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
           if (!exactKeys(b, ["step", "source"])) throw new Fail(400, "INVALID_BODY");
           const source = newsSourceByKey(b.source);
           if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
-          return json(await runMedia(db, readers, source, nowMs, log));
+          return json(await runMedia(db, readers, ai, source, nowMs, startMs, now, log));
         }
         if (!exactKeys(b, ["step"])) throw new Fail(400, "INVALID_BODY");
         if (step === "keywords") return json(await runKeywords(db, readers, nowMs, startMs, now, log));
@@ -679,7 +767,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
           reader = readers.catalog(source);
         }
         await useDaily(db, who.workspaceId, "fetch_n", OPEN_DAILY, nowMs);
-        const state = await fillItem(db, reader, ai, item, nowMs);
+        const state = await fillItem(db, reader, ai, item, nowMs, { rule: ruleForItem(item) ?? openRule });
         return json({ ok: true, status: state });
       }
       // translate: 외국어 기사만. 본문 번역이 이미 있으면(또는 본문 없이 제목 번역이 있으면) 저장본(다시 부르지 않음).

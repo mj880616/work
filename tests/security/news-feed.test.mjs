@@ -131,8 +131,11 @@ test('pending: redirect to an internal host or a non-https item is not followed'
   {id:ITEM_EN,workspace_id:WS,lane:'channel',state:'pending',url:'http://news.example.org/plain'}];
  const w=fakeWorld({items,sites:{'https://news.example.org/robots.txt':{body:''},'https://news.example.org/a/1':{status:302,headers:{location:'https://127.0.0.1/admin'}}}});
  await call(w,cronReq('run',{step:'pending'}));
- const states=w.writes().filter(c=>c.body?.state).map(c=>c.body.state);
+ const states=w.writes().filter(c=>c.url.includes('/app_news_items')&&c.body?.state).map(c=>c.body.state);
  assert.deepEqual(states,['blocked','blocked']);
+ // 본문 블록 줄(P2b): 읽지 않은 까닭만(허용 밖 주소 → off_host), 블록 없음.
+ const bodies=w.writes().filter(c=>c.url.includes('/app_feed_bodies')).map(c=>[c.body.state,c.body.reason,c.body.blocks.length]);
+ assert.deepEqual(bodies,[['failed','off_host',0],['failed','off_host',0]]);
  assert.equal(w.outbound().filter(c=>/127\.0\.0\.1|^http:/.test(c.url)).length,0);
 });
 
