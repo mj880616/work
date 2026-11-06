@@ -1,0 +1,89 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>5. 웹2 속도 개선 — 아침 시안 11/07</title><style>
+:root{--bg:#f5f6f7;--sf:#fff;--sub:#fafbfc;--ink:#1f2933;--mu:#66727f;--fa:#8a949e;--bd:#dfe4e8;--bd2:#cfd6dc;--pr:#263f5f;--prs:#eef2f6;--ln:#355f86;--ok:#2f6b4f;--oks:#eef6f1;--wa:#8a6218;--was:#faf4e7;--dg:#9a4048;--dgs:#faeeee;--ac:#66508c;--acs:#f1eef7}
+*{box-sizing:border-box}
+html,body{margin:0;background:#e8eaed;color:var(--ink);font:13px/1.5 "Noto Sans KR",system-ui,sans-serif}
+a{color:var(--ln)}
+.page{max-width:1320px;margin:0 auto;padding:10px 12px 40px}
+.hd{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mu)}
+.hd a{text-decoration:none}
+h1{font-size:16px;margin:4px 0 2px}
+.sum{margin:0 0 8px;color:var(--ink)}
+details.fact{background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;margin:0 0 8px}
+details.fact summary{cursor:pointer;color:var(--mu);font-size:12px}
+details.fact ul{margin:6px 0 2px;padding-left:18px}
+details.fact li{margin:2px 0}
+.pick{background:var(--sf);border:1px solid var(--bd2);border-left:3px solid var(--ac);border-radius:8px;padding:8px 10px;margin:0 0 10px}
+.pick h2{font-size:13px;margin:0 0 4px;color:var(--ac)}
+.pick ol{margin:0;padding-left:18px}
+.pick li{margin:3px 0}
+.pick .rec{color:var(--ok);font-size:12px}
+.pick .ans{margin:6px 0 0;font-size:12px;color:var(--mu)}
+.wt{display:flex;gap:4px;margin:6px 0 8px;position:sticky;top:0;z-index:5;background:#e8eaed;padding:4px 0}
+.wt button{white-space:nowrap;height:28px;padding:0 9px;border:1px solid var(--bd2);border-radius:999px;background:var(--sf);font:inherit;font-size:12px;color:var(--ink)}
+.wt button[aria-pressed=true]{background:var(--pr);color:#fff;border-color:var(--pr)}
+.wt span{margin-left:auto;font-size:11px;color:var(--fa);align-self:center}
+@media (max-width:600px){.wt span{display:none}}
+figure{margin:0 0 14px}
+figcaption{font-size:12px;font-weight:600;margin:0 0 4px}
+figcaption small{font-weight:400;color:var(--mu)}
+.fit{width:100%;overflow:hidden}
+.frame{container-type:inline-size;transform-origin:0 0;background:var(--bg);border:1px solid var(--bd2);border-radius:10px;overflow:hidden;box-shadow:0 1px 3px #0001}
+/* 앱 모양 */
+.app{display:flex;min-height:300px;font-size:13px}
+.nav{display:none;width:168px;flex:0 0 168px;background:var(--sf);border-right:1px solid var(--bd);padding:8px 6px}
+.nav div{height:30px;display:flex;align-items:center;padding:0 8px;border-radius:6px;color:var(--mu)}
+.nav div.on{background:var(--prs);color:var(--pr);font-weight:600}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:44px;display:flex;align-items:center;gap:6px;padding:0 10px;background:var(--sf);border-bottom:1px solid var(--bd)}
+.top b{font-size:14px}
+.top .r{margin-left:auto;display:flex;gap:4px;align-items:center}
+.main{flex:1;padding:8px;min-width:0}
+.bot{height:48px;display:flex;justify-content:space-around;align-items:center;background:var(--sf);border-top:1px solid var(--bd);font-size:11px;color:var(--mu)}
+.bot .on{color:var(--pr);font-weight:600}
+@container (min-width:1200px){.nav{display:block}.bot{display:none}}
+.b{display:inline-flex;align-items:center;gap:3px;height:28px;padding:0 8px;border:1px solid var(--bd2);border-radius:8px;background:var(--sf);font-size:12px;color:var(--ink);white-space:nowrap}
+.b.p{background:var(--pr);border-color:var(--pr);color:#fff;height:32px;padding:0 12px}
+.b.g{border-color:transparent;background:transparent;color:var(--mu)}
+.b.on{background:var(--prs);border-color:var(--pr);color:var(--pr)}
+.c{display:inline-flex;align-items:center;height:24px;padding:0 9px;border:1px solid var(--bd);border-radius:999px;background:var(--sf);font-size:12px;color:var(--mu);white-space:nowrap}
+.c.on{background:var(--prs);border-color:var(--pr);color:var(--pr)}
+.box{background:var(--sf);border:1px solid var(--bd);border-radius:8px}
+.row{display:flex;align-items:center;gap:6px;min-height:34px;padding:4px 8px;border-top:1px solid var(--bd)}
+.row:first-child{border-top:0}
+.row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .tag{flex:0 0 auto;font-size:11px;color:var(--fa)}
+.m{color:var(--mu)}.f{color:var(--fa);font-size:11px}
+.hl{background:var(--was);border-color:#e6d3a8}
+.chev{display:inline-block;width:14px;text-align:center;color:var(--fa)}
+.pic{display:inline-block;border-radius:5px;background:linear-gradient(135deg,#c9c2b4,#8f9a8c)}
+.pic.b2{background:linear-gradient(135deg,#b9c4cf,#7d8c9b)}
+.pic.b3{background:linear-gradient(135deg,#d3c3b9,#9b877d)}
+.pop{position:absolute;background:var(--sf);border:1px solid var(--bd2);border-radius:8px;box-shadow:0 8px 24px rgba(20,33,48,.12);font-size:12px;z-index:3}
+.pop div{padding:6px 12px;border-top:1px solid var(--bd)}.pop div:first-child{border-top:0}
+.split{display:flex;gap:8px}.split>*{flex:1;min-width:0}
+@container (max-width:599px){.split{flex-direction:column}.wideonly{display:none!important}}
+@container (min-width:600px){.narrowonly{display:none!important}}
+.note{font-size:12px;color:var(--mu);margin:4px 2px 0}
+table.t{border-collapse:collapse;width:100%;background:var(--sf);font-size:12px}
+table.t th,table.t td{border:1px solid var(--bd);padding:5px 7px;text-align:left;vertical-align:top}
+table.t th{background:var(--sub);font-weight:600}
+</style></head><body><div class="page">
+<div class="hd"><a href="index.html">‹ 목차</a><span>· 5/6 · 시안(지어낸 예시, 실제 내용 아님)</span></div>
+<h1>5. 웹2 속도 개선</h1><p class="sum">화면 시안 대신 지금 속도를 재고 줄일 곳 다섯 군데를 골랐다. 폰 첫 홈 7초, 달력 처음 2초가 가장 크다.</p>
+<details class="fact"><summary>지금 어디까지 됐나 (조사한 사실)</summary><ul><li>오늘(11/07 08:34) 수동 측정 workflow를 main에서 돌림(run #19, 성공). 이 세션 컨테이너에서는 설치가 막혀 손으로 재지 못함.</li><li>지금까지 한 것(first-load.md): 홈 지연 불러오기(P2), 미리 받기 사슬 채우기(P4), 사업 보고 모듈 늦게 부르기(P5-b·c), 연 화면 유지(홈·원장·할 일·일기), 홈 요청 합치기.</li><li>달력 첫 전환이 여전히 가장 느린 전환(새 파일 40개, 그중 절반 이상이 달력이 아닌 사업 보고·회의·공유 페이지·편집기 파일).</li><li>이전 기준값(7-2절)은 다른 기계에서 잰 값이라 바로 비교하지 않음.</li></ul></details>
+<section class="pick"><h2>명진이 고를 것</h2><ol><li><b>다음에 손댈 번호</b>(여러 개 가능) — ①~⑤. <span class="rec">추천 ①② (효과 확실·작음, 같이 진행 가능)</span></li></ol><p class="ans">답 예: "①②" 또는 "추천대로"</p></section>
+
+
+<div class="box" style="padding:8px 10px;margin:0 0 10px"><div style="font-weight:600;margin-bottom:4px">폰(느린 연결 흉내)에서 화면이 보일 때까지</div>
+<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:118px;flex:0 0 118px;font-size:12px">첫 홈(처음)</span><span style="flex:1;background:var(--prs);border-radius:4px;height:14px;position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:95.06666666666666%;background:var(--wa);border-radius:4px;opacity:.75"></span></span><span style="width:46px;text-align:right;font-size:12px">7.13초</span></div><div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:118px;flex:0 0 118px;font-size:12px">첫 홈(두 번째부터)</span><span style="flex:1;background:var(--prs);border-radius:4px;height:14px;position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:35.333333333333336%;background:var(--pr);border-radius:4px;opacity:.75"></span></span><span style="width:46px;text-align:right;font-size:12px">2.65초</span></div><div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:118px;flex:0 0 118px;font-size:12px">달력 처음 누름</span><span style="flex:1;background:var(--prs);border-radius:4px;height:14px;position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:26.666666666666668%;background:var(--wa);border-radius:4px;opacity:.75"></span></span><span style="width:46px;text-align:right;font-size:12px">2.00초</span></div><div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:118px;flex:0 0 118px;font-size:12px">사업 보고 누름</span><span style="flex:1;background:var(--prs);border-radius:4px;height:14px;position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:11.733333333333333%;background:var(--pr);border-radius:4px;opacity:.75"></span></span><span style="width:46px;text-align:right;font-size:12px">0.88초</span></div><div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:118px;flex:0 0 118px;font-size:12px">원장 누름</span><span style="flex:1;background:var(--prs);border-radius:4px;height:14px;position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:11.333333333333332%;background:var(--pr);border-radius:4px;opacity:.75"></span></span><span style="width:46px;text-align:right;font-size:12px">0.85초</span></div><div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:118px;flex:0 0 118px;font-size:12px">홈으로 돌아오기</span><span style="flex:1;background:var(--prs);border-radius:4px;height:14px;position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:6.4%;background:var(--pr);border-radius:4px;opacity:.75"></span></span><span style="width:46px;text-align:right;font-size:12px">0.48초</span></div><div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:118px;flex:0 0 118px;font-size:12px">할 일 누름</span><span style="flex:1;background:var(--prs);border-radius:4px;height:14px;position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:4.533333333333333%;background:var(--pr);border-radius:4px;opacity:.75"></span></span><span style="width:46px;text-align:right;font-size:12px">0.34초</span></div>
+<div class="note">main 2de463f, GitHub 러너, 흉내 로그인·자료 즉시 답함(실제 서버 기다림은 빠진 값). 노란 막대 = 이번 제안 대상.</div></div>
+<div style="font-weight:600;margin:0 0 4px">줄일 수 있는 곳 다섯</div>
+<div style="overflow-x:auto"><table class="t"><tr><th>번호</th><th>어디가 느린가</th><th>고치는 방법</th><th>예상 효과(추정)</th></tr><tr><td>①</td><td>폰에서 달력을 처음 열 때 1.5~2초 — 달력 보이기 전에 사업 보고·회의·공유 페이지·편집기 파일 40개를 같이 받음</td><td>일정·회의 창을 열 때 그 파일을 받게 나눔</td><td>1.5초 → 0.6초 안팎</td></tr><tr><td>②</td><td>원장 첫 화면 자료 요청 23개 중 11개가 같은 요청</td><td>한 번 읽고 나눠 쓰기</td><td>실제 폰에서 0.3~1초</td></tr><tr><td>③</td><td>폰 첫 홈 7초 — 보이기 전 파일 150개(1.75MB)</td><td>홈에 꼭 필요한 것만 먼저, 나머지는 열 때</td><td>7초 → 4~5초</td></tr><tr><td>④</td><td>쉬는 틈에 미리 받는 양이 6MB로 커짐(전엔 약 3.9MB)</td><td>자주 쓰는 화면만 미리</td><td>폰 데이터·배터리 절약</td></tr><tr><td>⑤</td><td>홈 돌아오기·사업 보고·원장 전환 0.5~0.8초(새 파일 거의 없음, 다시 그리는 시간)</td><td>한 번 연 화면은 그대로 두기를 넓힘</td><td>0.5초 → 0.1초 안팎</td></tr></table></div>
+<p class="note">자세한 표: docs/design/perf-first-load-1107.md. 모두 화면 코드만 바꾸는 일(DB·서버 변경 없음).</p>
+</div><script>
+(function(){
+var W={phone:412,fold:884,pc:1280},cur='phone';
+function fit(){document.querySelectorAll('.fit').forEach(function(f){var fr=f.firstElementChild;var w=W[cur];fr.style.width=w+'px';var s=Math.min(1,f.clientWidth/w);fr.style.transform='scale('+s+')';f.style.height=(fr.offsetHeight*s)+'px'})}
+document.querySelectorAll('.wt button').forEach(function(b){b.addEventListener('click',function(){cur=b.dataset.w;document.querySelectorAll('.wt button').forEach(function(x){x.setAttribute('aria-pressed',x===b)});fit()})});
+addEventListener('resize',fit);fit();
+})();</script></body></html>
