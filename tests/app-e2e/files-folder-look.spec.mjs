@@ -111,7 +111,7 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     const destRows = dest.locator('[data-fx-dest-pick]:not([data-fx-dest-pick$=":"])');
     await expect.poll(() => destRows.evaluateAll(els => els.map(e => e.dataset.fxDestPick))).toEqual(expect.arrayContaining(['od:OD!2', 'od:OD!1']));
     expect(await destRows.evaluateAll(els => els.map(e => e.dataset.fxDestPick).filter(k => /^od:OD![12]$/.test(k)))).toEqual(['od:OD!2', 'od:OD!1']);
-    await expect(dest.locator('[data-fx-dest-pick="od:OD!2"] .fl-ico')).toHaveAttribute('data-fc', '4');
+    await expect(dest.locator('.ft-row:has([data-fx-dest-pick="od:OD!2"]) .ft-ico')).toHaveAttribute('data-fc', '4');
     await page.keyboard.press('Escape');
     if (await root(page).locator('[data-fx-dest]').isVisible()) await root(page).locator('[data-fx-dest-close]').click();
 
