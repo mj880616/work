@@ -83,6 +83,7 @@ import {mountSplitResize} from './split-resize.js';
 // FOLDER-나무새기준 ③(S51-12): 폰 [폴더]는 노트·파일·자료실과 같은 공용 상자·줄, 두 손가락 그 폴더만.
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftTrashRowHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {bindFolderPinch} from './folder-pinch.js';
+import {fillGestureArea} from './gesture-fill.js';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
   colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, parseMonth, monthLabelKo, yearTicks, yearLabels, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
   takeItems, putItems, DEFAULT_SORT, SORT_TEXT, SORT_SHORT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
@@ -971,6 +972,8 @@ attachPinch(body, () => {
 });
 // 본문이 짧아도 화면 아래까지 손가락을 받도록 본문 칸 높이를 채우고(CSS), 그 탭에서는 두 손가락을 화면 확대 대신 보기 크기로 쓴다.
 // FOLDER-나무새기준 ④: 폰 [폴더] 나무에서 펼친 폴더(또는 그 작은 그림 줄) 위 두 손가락 벌리기 = 그 폴더만. (그 폴더만 화면의 오므리기는 위 changeStage가 나무로.)
+// S51-24 UI-빈칸손짓: 본문 칸은 늘 아래 빈 곳까지(예전 100svh - 240px 어림 대신 공용 gesture-fill.js가 잰 높이).
+fillGestureArea(body);
 bindFolderPinch(body, {enabled:() => tab === 'folders' && fxTreeShown() && !select.active,
   folderAt:el => el.closest('[data-ft-key]')?.dataset.ftKey || el.closest('[data-ft-parent]')?.dataset.ftParent || null,
   onOut:key => fxFocus(key)});

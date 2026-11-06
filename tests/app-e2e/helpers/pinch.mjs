@@ -17,3 +17,22 @@ export async function pinchAt(page, cx, cy, dir) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.detach();
 }
+// S51-24: 화면 좌표(x, y)에서 손가락 하나로 옆으로 dx만큼 밀기(빈 곳 손짓 시험용).
+export async function swipeAt(page, x, y, dx) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 0 }] });
+  for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + dx * i / 6, y, id: 0 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+}
+// 내용이 끝난 아래 빈 곳(화면 좌표): items(내용 줄) 중 가장 아래 끝에서 gap px 아래, 가로 가운데. 하단 탭바보다 위여야 한다.
+export async function emptySpot(page, items, gap = 40) {
+  return page.evaluate(([sel, g]) => {
+    const fixed = el => { for (let e = el; e; e = e.parentElement) if (getComputedStyle(e).position === 'fixed') return true; return false; };
+    const bottom = Math.max(...[...document.querySelectorAll(sel)].filter(e => e.getClientRects().length && !fixed(e)).map(e => e.getBoundingClientRect().bottom));
+    const bar = document.querySelector('nav.mobile-tabs');
+    return { x: Math.round(innerWidth / 2), y: Math.round(bottom + g), barTop: bar?.getBoundingClientRect().top ?? innerHeight };
+  }, [items, gap]);
+}
+// 그 자리 요소가 손짓 칸(sel) 안인가.
+export const spotIn = (page, { x, y }, sel) => page.evaluate(([px, py, s]) => !!document.elementFromPoint(px, py)?.closest(s), [x, y, sel]);
