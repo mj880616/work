@@ -5,7 +5,8 @@ import { start, openFiles, phoneFolder, treeGo } from './helpers/files-server.mj
 // 목록·나무·받을 곳 창이 같은 색·같은 순서, [기본]은 지금 모양(📁), 저장 실패는 그대로 두고 알림, DB 적용 전에도 목록은 그대로. 폴더 이름은 모두 가짜.
 const root = page => page.locator('#filesRoot');
 const row = (page, key) => root(page).locator(`[data-fx-row="${key}"]`);
-const folderNames = page => root(page).locator('[data-fx-list] .fx-row.fx-folder .fx-name').allTextContents();
+// S51-24: 폰 '그 폴더만'은 나무와 같은 줄(.ft-folder .ft-name, 그림 .ft-ico).
+const folderNames = page => root(page).locator('[data-fx-list] :is(.fx-row.fx-folder .fx-name, .ft-folder .ft-name)').allTextContents();
 const RGB = { 4: 'rgb(63, 148, 134)', 1: 'rgb(180, 90, 82)' };
 async function gotoOdRoot(page, width) {
   // 폰(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 → 원드라이브 상자 머리 위 두 손가락 벌리기 = 원드라이브 맨 위 목록. 새로고침이면 보던 자리(목록)가 그대로 열린다.
@@ -33,7 +34,7 @@ async function pickColor(page, name) {
   await choice.getByRole('radio', { name, exact: true }).click();
   await expect(page.locator('#fxLookMenu')).toBeHidden();
 }
-const icon = (page, key) => row(page, key).locator('.fx-ico');
+const icon = (page, key) => row(page, key).locator(':is(.fx-ico, .ft-ico)');
 
 for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${width}`, () => {
   test.use({ hasTouch: width < 761 });
@@ -43,7 +44,8 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     await openFiles(page, width);
     await gotoOdRoot(page, width);
     // 안 고른 폴더는 지금 모양(📁), 색 속성 없음. 이름순: 문서함 → 사진함.
-    await expect(icon(page, 'od:OD!2')).toHaveText('\u{1F4C1}');
+    if (width > 760) await expect(icon(page, 'od:OD!2')).toHaveText('\u{1F4C1}');
+    else await expect(icon(page, 'od:OD!2')).toHaveAttribute('data-ft-shape', 'closed');
     await expect(root(page).locator('[data-fc]')).toHaveCount(0);
     expect(await folderNames(page)).toEqual(['가짜 문서함', '가짜 사진함']);
     // 폴더 한 개를 고르면 막대에 [색] [위로](끝이라 [아래로]는 없음). 파일을 고르면 보이지 않는다.
@@ -124,7 +126,8 @@ for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${wi
     await expect.poll(() => server.prefCalls.length).toBe(3);
     expect(server.prefCalls[2]).toMatchObject({ items: [{ k: 'OD!2', c: null }] });
     await expect(root(page).locator('[data-fc]')).toHaveCount(0);
-    await expect(icon(page, 'od:OD!2')).toHaveText('\u{1F4C1}');
+    if (width > 760) await expect(icon(page, 'od:OD!2')).toHaveText('\u{1F4C1}');
+    else await expect(icon(page, 'od:OD!2')).toHaveAttribute('data-ft-shape', 'closed');
     expect(errors).toEqual([]);
     if (width < 761) await page.screenshot({ path: info.outputPath('files-folder-look-412.png') });
   });

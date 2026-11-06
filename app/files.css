@@ -91,6 +91,9 @@
 .fx-bar-t { color:var(--kptu-muted); margin-right:auto; }
 .fx-row.fx-picked { background:var(--kptu-primary-soft); box-shadow:inset 2px 0 0 var(--kptu-primary); }
 .fx-row.fx-cut { opacity:.55; }
+/* S51-24 폰 '그 폴더만'(나무와 같은 줄): 고름·잘라 둠은 누르는 단추에. */
+.ft-main.fx-picked { background:var(--kptu-primary-soft); box-shadow:inset 2px 0 0 var(--kptu-primary); }
+.ft-main.fx-cut { opacity:.55; }
 .fx-drop-on, .fx-row.fx-drop-on { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:var(--kptu-primary-soft); }
 .fx-btn:disabled { opacity:.5; cursor:default; }
 .fx-pv-twins { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:6px 0; font-size:12px; }
@@ -254,6 +257,8 @@
 .fx-titem .ft-main { min-height:40px; }
 .fx-tkind { flex:none; box-sizing:border-box; min-width:30px; height:18px; padding:0 5px; border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface-subtle); color:var(--kptu-muted); font-size:10px; line-height:18px; text-align:center; white-space:nowrap; }
 .fx-titem .fx-tday { margin-left:auto; }
+/* S51-24 '그 폴더만' 사진 줄: 종류 글자 자리에 작은 그림(목록 보기 사진 작은 그림, S51-20 그대로). */
+.fx-tthumb { flex:none; width:30px; height:30px; border-radius:4px; }
 .fx-titem .fx-star { flex:none; color:var(--kptu-warning); font-size:11px; }
 @media (max-width:599px) {
   .fx[data-fx-pane="tree"] .fx-tree { padding:2px 0 8px; }

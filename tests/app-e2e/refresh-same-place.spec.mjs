@@ -49,7 +49,7 @@ for (const width of [390, 1280]) test.describe(`새로고침 뒤 같은 화면 $
     await reload(page);
     await expect(page.locator('#basketView')).toBeVisible(); await expect(page.locator('#basketView')).toHaveAttribute('data-kind', 'note');
     // 폰(FOLDER-나무새기준): 나무에서 '폴더 없음' 위 두 손가락 벌리기 = 그 묶음만(기록 한 칸): 그때 ?folder=out이 그 칸에 적힌다.
-    if (width < 761) { await pinch(page, page.locator('#noteRows [data-nx-outside]'), 'out'); await expect(page.locator('[data-nx-here]')).toContainText('폴더 없음'); await expect(page).toHaveURL(/[?&]folder=out(?:&|$)/); }
+    if (width < 761) { await pinch(page, page.locator('#noteRows [data-nx-outside]'), 'out'); await expect(page.locator('#noteRows [data-nx-focus]')).toContainText('폴더 없음'); await expect(page).toHaveURL(/[?&]folder=out(?:&|$)/); }
     await expect(page.locator('[data-note-host] [data-note-row="n1"]')).toBeVisible();
     // 열린 노트는 ?doc=로 적히고, 새로고침해도 그 노트가 열린 채다.
     await page.locator('[data-note-host] [data-note-row="n1"]').click();
@@ -62,7 +62,7 @@ for (const width of [390, 1280]) test.describe(`새로고침 뒤 같은 화면 $
     await expect(page.locator('[data-note-detail]')).toBeHidden(); await expect(page).not.toHaveURL(/[?&]doc=/);
     await expect(page.locator('#basketView')).toHaveAttribute('data-kind', 'note');
     // 폰: 한 번 더 뒤로는 '폴더 없음' 화면에서 폴더 목록(주소에서 folder 빠짐).
-    if (width < 761) { await expect(page.locator('[data-nx-here]')).toContainText('폴더 없음'); await page.goBack(); await expect(page.locator('[data-nx-here]')).toBeHidden(); await expect(page).not.toHaveURL(/[?&]folder=/); }
+    if (width < 761) { await expect(page.locator('#noteRows [data-nx-focus]')).toContainText('폴더 없음'); await page.goBack(); await expect(page.locator('#noteRows [data-nx-focus]')).toBeHidden(); await expect(page).not.toHaveURL(/[?&]folder=/); }
     await page.goBack();
     await expect(page.locator('#calendarView')).toBeVisible(); await expect(page).not.toHaveURL(/[?&]pane=/);
     // [정리함]으로 가면 노트 쪽이 아니고 주소에도 pane이 없다.

@@ -67,7 +67,7 @@ test('노트 폰 412: 최근 상자 + 폴더 상자, 그 자리 펼치기 · n�
   // ③ 누르면 그 자리에서 펼침(화면 바뀌지 않음): 노트 처음 5개 + '3개 더 보기'. 다시 누르면 접힘.
   await work.locator('.ft-main').tap();
   expect(await shape(work)).toBe('open');
-  await expect(page.locator('[data-nx-here]')).toBeHidden();
+  await expect(page.locator('#noteRows [data-nx-focus]')).toBeHidden();
   await expect(page.locator('#noteRows [data-ft-parent="' + U(1) + '"] [data-note-row]')).toHaveCount(5);
   const more = page.locator(`#noteRows [data-nx-more="${U(1)}"]`);
   await expect(more).toContainText('3개 더 보기');
@@ -88,28 +88,30 @@ test('노트 폰 412: 최근 상자 + 폴더 상자, 그 자리 펼치기 · n�
   const y0 = await page.evaluate(() => window.scrollY);
   expect(y0).toBeGreaterThan(0);
   await pinch(page, page.locator(`#noteRows [data-nx-note="w2"]`), 'out');
-  await expect(page.locator('[data-nx-here]')).toContainText('업무 메모 · 8');
-  await expect(page.locator('[data-nx-here] [data-nx-back]')).toHaveText('‹');
+  // S51-24: 그 폴더만 = 나무와 같은 상자(위치 줄 + 머리: 열린 폴더 그림 + 이름 + 개수).
+  await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-head')).toHaveText('업무 메모 노트 8');
+  await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-head .ft-ico')).toHaveAttribute('data-ft-shape', 'open');
+  await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-back')).toHaveText('‹');
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(8);
   await expect(page.locator('[data-nx-recent]')).toBeHidden();
   await page.screenshot({ path: 'test-results/ft-notes-phone-focus.png' });
   // 오므리기 → 나무로, 펼친 자리 그대로.
   await pinch(page, page.locator('#noteRows'), 'in');
-  await expect(page.locator('[data-nx-here]')).toBeHidden();
+  await expect(page.locator('#noteRows [data-nx-focus]')).toBeHidden();
   expect(await shape(folderRow(page, U(1)))).toBe('open');
   expect(await shape(folderRow(page, U(2)))).toBe('open');
   await expect(folderRow(page, U(3))).toBeVisible();
   expect(await page.evaluate(() => window.scrollY)).toBe(y0);
   // 다시 벌렸다가 뒤로 키 → 나무.
   await pinch(page, folderRow(page, U(2)), 'out');
-  await expect(page.locator('[data-nx-here]')).toContainText('개발 · 2');
+  await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-head')).toHaveText('개발 폴더 1 · 노트 1');
   await page.goBack();
-  await expect(page.locator('[data-nx-here]')).toBeHidden();
+  await expect(page.locator('#noteRows [data-nx-focus]')).toBeHidden();
   await expect(folderRow(page, U(3))).toBeVisible();
   // [‹]도 같다.
   await pinch(page, folderRow(page, U(2)), 'out');
-  await page.locator('[data-nx-here] [data-nx-back]').tap();
-  await expect(page.locator('[data-nx-here]')).toBeHidden();
+  await page.locator('#noteRows [data-nx-focus] .ft-focus-back').tap();
+  await expect(page.locator('#noteRows [data-nx-focus]')).toBeHidden();
   await expect(folderRow(page, U(3))).toBeVisible();
   expect(f.errors).toEqual([]);
 });

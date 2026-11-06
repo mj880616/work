@@ -81,6 +81,20 @@
 .ft-focus-back::after { content:""; position:absolute; inset:-6px; }
 .ft-focus-path { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ft-focus-path b { color:var(--kptu-ink); font-weight:700; }
+/* S51-24 '그 폴더만' 상자(folder-tree-ui.mjs ftFocusHtml, 시안 folder-focus-continuity.html ②): 나무와 같은 상자·같은 줄.
+   맨 위 작은 회색 위치 줄(누르면 그 단계) → 머리(열린 폴더 그림 + 굵은 이름 + 개수) → 안 줄. 돌아가기 글자 없음, [‹]는 위치 줄 맨 앞 작은 꺽쇠. */
+.ft-focus-anc { display:flex; align-items:center; gap:2px; min-width:0; min-height:28px; padding:4px 8px 0 6px; overflow:hidden; font-size:11px; color:var(--kptu-muted); white-space:nowrap; }
+.ft-focus-anc .ft-box-ico, .ft-focus-anc .ft-ico { flex:none; margin:0 2px; }
+.ft-focus-anc .ft-focus-back { position:relative; flex:none; width:22px; height:24px; min-height:0; margin:0; padding:0; border:0; border-radius:var(--kptu-radius-sm,6px); background:none; color:var(--kptu-muted); font:inherit; font-size:16px; line-height:1; cursor:pointer; }
+.ft-focus-anc .ft-focus-back::after { content:""; position:absolute; inset:-10px -6px; }
+.ft-focus-step { position:relative; flex:0 1 auto; min-width:0; min-height:0; margin:0; padding:2px 2px; border:0; background:none; color:inherit; font:inherit; overflow:hidden; text-overflow:ellipsis; cursor:pointer; border-radius:var(--kptu-radius-sm,6px); }
+.ft-focus-step::after { content:""; position:absolute; inset:-10px 0; }
+.ft-focus-step:hover, .ft-focus-anc .ft-focus-back:hover { background:var(--kptu-surface-subtle); color:var(--kptu-ink); }
+.ft-focus-sep { flex:none; padding:0 1px; }
+.ft-focus-head { display:flex; align-items:center; gap:9px; min-width:0; min-height:40px; padding:0 12px 2px; }
+.ft-focus-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; font-weight:700; color:var(--kptu-ink); }
+.ft-focus-head + .ft-box-body > :first-child { border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
+.ft-focus .ft-box-body > .wait-empty, .ft-focus .ft-box-body > .wait { margin:0; padding:8px 12px; }
 @media (min-width:761px) {
   .ft-main { min-height:36px; font-size:var(--ds-compact-text,13px); }
   .ft-sub > .ft-main { min-height:32px; }

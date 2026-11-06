@@ -8,7 +8,7 @@ const root = page => page.locator('#filesRoot');
 const row = (page, key) => root(page).locator(`[data-fx-row="${key}"]`);
 const rows = page => root(page).locator('[data-fx-list] [data-fx-row]');
 const noWideScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
-const names = page => rows(page).locator('.fx-name').allTextContents();
+const names = page => rows(page).locator(':is(.fx-name, .ft-name)').allTextContents();
 
 test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — 최근·별표·큰 파일·저장소 상자, 폴더는 그 자리 펼치기, 두 손가락 그 폴더만(위치 길), 뒤로가기는 나무로', async ({ page }) => {
   test.setTimeout(90000);
@@ -56,13 +56,13 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   await pinch(page, folder, 'out');
   await expect(tree).toBeHidden();
   await expect(row(page, 'od:OD!11')).toBeVisible();
-  await expect(root(page).locator('.fx-crumb-step')).toHaveText(['원드라이브']);
-  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
+  await expect(root(page).locator(':is(.fx-crumb-step, .ft-focus-step)')).toHaveText(['원드라이브']);
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 문서함');
   await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
   await expect.poll(() => new URL(page.url()).searchParams.get('at')).toBe('od:OD:1');
   // 그 안에서 하위 폴더로 가도, 뒤로가기 한 번 = 펼친 자리 그대로 나무.
   await row(page, 'od:OD!10').click();
-  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 2026');
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 2026');
   await page.goBack();
   await expect(tree).toBeVisible();
   await expect(tree.locator('[data-fx-fold="od:OD!10"]')).toBeVisible();
@@ -99,7 +99,7 @@ for (const width of [884, 1440]) {
     await expect(tree.locator('[data-fx-go="od"][data-fx-id="OD!1"] .nx-num')).toHaveCount(0);
     await row(page, 'od:OD!1').click();
     await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
-    await expect(root(page).locator('.fx-crumb-step')).toHaveText(['원드라이브']);
+    await expect(root(page).locator(':is(.fx-crumb-step, .ft-focus-step)')).toHaveText(['원드라이브']);
     expect(server.calls.find(c => c.what === 'app_cloud_trail').body).toEqual({ p_source: 'od', p_item_id: 'OD!1' });
     // 정렬: 크기(큰 것부터), 폴더는 늘 위.
     await root(page).locator('[data-fx-sort]').selectOption('size');
@@ -135,7 +135,7 @@ for (const width of [884, 1440]) {
     await expect(rows(page)).toHaveCount(1);
     await expect(row(page, 'gd:gdDoc1').locator('.fx-tag')).toHaveText('자료실 · 글자 맞음');
     await expect(row(page, 'gd:gdDoc1').locator('.fx-path')).toHaveText('구글 드라이브 › 가짜 업무 공간');
-    await expect(root(page).locator('.fx-crumb-now')).toHaveText('찾은 것 1 · 이름 0 · 자료실 글자 1');
+    await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('찾은 것 1 · 이름 0 · 자료실 글자 1');
     expect(server.calls.filter(c => c.what === 'app_cloud_find_in').at(-1).body).toEqual({ p_sources: ['od', 'gd'], p_query: '협약', p_shelf: null, p_limit: 200 });
     expect(await noWideScroll(page)).toBe(true);
     expect(errors).toEqual([]);
@@ -179,7 +179,7 @@ test('1440: 폴더를 열면 그 폴더만 클라우드에서 바로 읽어 색�
   await openFiles(page, 1440);
   await treeGo(page, 'od', '');
   await row(page, 'od:OD!1').click();
-  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 문서함');
   await expect.poll(() => names(page)).toContain('가짜 직접읽기.docx');
   // 맨 위(id 없음)와 가짜 문서함, 폴더마다 한 번씩만.
   const asked = server.calls.filter(c => c.action === 'folder').map(c => `${c.body.source}:${c.body.id ?? ''}`);

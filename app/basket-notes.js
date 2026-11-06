@@ -5,7 +5,8 @@ import { followPane } from './follow-pane.js';
 import { mountSplitResize } from './split-resize.js';
 import { treeIconHtml } from './tree-icons.js';
 // FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
-import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, FT_PREVIEW } from './folder-tree-ui.mjs';
+import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW } from './folder-tree-ui.mjs';
+import { riseFromRow, sinkToRow, topOf } from './folder-focus-motion.js';
 import { bindFolderPinch } from './folder-pinch.js';
 import { formatSeoulTime } from './meeting-time.js';
 // MEMO-노트: the [노트] side of the basket tab. Notes are app_notes rows with kind=note (20261017052234), read and
@@ -193,15 +194,20 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     nav.hidden = path.length < 2 || !!query || phoneFocus;
     nav.innerHTML = path.length >= 2 && !phoneFocus ? folderPathHtml({rootLabel:'노트', trail:path, attr:'data-nx-at', esc}) : '';
     // 위에 작게 '개발 · 7'(PC), 폰 폴더 화면은 '← 개발 · 7'. 폰 첫 화면(폴더 목록)·찾는 중에는 없음.
-    const here = host.querySelector('[data-nx-here]'), wide = wideList.matches, show = view === 'folder' && !query && (wide || at !== null) && (wide || folders.length > 0 || at !== null);
+    // S51-24: 폰 '그 폴더만'은 위치·이름·개수가 상자 안(focusBoxHtml)이라 이 줄은 넓은 화면에서만.
+    const here = host.querySelector('[data-nx-here]'), wide = wideList.matches, show = view === 'folder' && !query && wide;
     here.hidden = !show;
     if (!show) { here.replaceChildren(); return; }
     const h = wide && at === null && showRecent() ? {name:RECENT_NAME, count:recentRows({folders, notes, folderOf}).length} : paneHead({folders, notes, folderOf, at});
-    // 폰 '그 폴더만'(두 손가락 벌림): [‹] 노트 › 위 폴더 › 이름 · 수. [‹]·뒤로 키·오므리기로 펼친 자리 그대로 나무로 돌아간다.
-    const up = wide ? '' : path.slice(0, -1).map(f => `${esc(f.name)} › `).join('');
-    here.classList.toggle('ft-focus-bar', !wide);
-    here.innerHTML = wide ? `<span class="nx-here-name">${esc(h.name)}</span><span class="nx-here-num"> · ${h.count}</span>`
-      : `<button type="button" class="ft-btn ft-focus-back nx-back" data-nx-back aria-label="폴더 나무로">‹</button><span class="ft-focus-path">노트 › ${up}<b class="nx-here-name">${esc(h.name)}</b><span class="nx-here-num"> · ${h.count}</span></span>`;
+    here.innerHTML = `<span class="nx-here-name">${esc(h.name)}</span><span class="nx-here-num"> · ${h.count}</span>`;
+  }
+  // S51-24 FOLDER-그폴더만같은모양: 폰 '그 폴더만' = 나무와 같은 상자(folder-tree-ui.mjs ftFocusHtml). 맨 위 작은 회색 위치 줄([‹] 노트 › 위 폴더 ›,
+  // 누르면 그 단계 — '노트'는 나무로), 머리 = 열린 폴더 그림 + 굵은 이름 + '폴더 n · 노트 m'. 돌아가기 글자는 없다.
+  function focusBoxHtml(body) {
+    const f = at !== OUTSIDE ? folderById(at) : null, path = f ? folderPath(folders, at) : [];
+    const subs = f ? folders.filter(x => x.parent_id === at).length : 0, own = notes.filter(n => folderOf(n) === (f ? at : null)).length;
+    const trail = [{label:'노트', attrs:{'data-nx-at':''}}, ...path.slice(0, -1).map(x => ({label:x.name, attrs:{'data-nx-at':x.id}}))];
+    return ftFocusHtml({back:{'data-nx-back':''}, trail, name:f ? f.name : OUTSIDE_NAME, color:f ? colorOf(f) : null, count:ftFocusCount(subs, own, '노트'), body, attrs:{'data-nx-focus':at}});
   }
   function paintSelectBar() {
     const bar = host.querySelector('[data-nx-select-bar]');
@@ -305,7 +311,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else rows = treeRows({folders, notes, folderOf, root:at, isOpen:id => openSet.has(id), sort:sortList, limit:at === null ? limit : () => Infinity}).map(r => ({...r, tree:true}));
       const body = rows.map(r => rowHtml(r)).join('');
       const boxed = !m && folders.length > 0;
-      rowsBox.innerHTML = boxed ? ftBoxHtml({body, label:'노트 폴더'}) + (at === null ? newFolderRowHtml() : '') : body;
+      rowsBox.innerHTML = boxed ? (at !== null ? focusBoxHtml(body) : ftBoxHtml({body, label:'노트 폴더'}) + newFolderRowHtml()) : body;
       // NOTE-최근5개 → 나무새기준 ①: 폰 첫 화면 맨 위 '최근' 상자(자료실 '최근 올린 파일'과 같은 상자, [더보기]면 15개).
       const recent = !m && at === null && showRecent() ? recentRows({folders, notes, folderOf, count:recentAll ? RECENT_MORE : undefined}) : [];
       recentBox.hidden = !recent.length;
@@ -1289,7 +1295,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.hasAttribute('data-nb-remove')) { if (!pick.active) boards.detach(b.dataset.nbRemove); return; }
     if (b.hasAttribute('data-note-row')) { if (pick.active) togglePick('n:' + b.dataset.noteRow); else open(b.dataset.noteRow); }
     else if (b.hasAttribute('data-nx-open')) pressFolder(b.dataset.nxOpen, e);
-    else if (b.hasAttribute('data-nx-at')) enter(b.dataset.nxAt || null);
+    // 위치 줄 맨 앞 '노트'(폰 '그 폴더만' 상자 안)는 [‹]와 같이 펼친 자리 그대로 나무로(S51-24).
+    else if (b.hasAttribute('data-nx-at')) { const id = b.dataset.nxAt || null; if (id === null && !wideList.matches && at !== null) up(); else enter(id); }
     else if (b.hasAttribute('data-nx-back')) up();
     else if (b.hasAttribute('data-nx-more')) { moreSet.add(b.dataset.nxMore || OUTSIDE); renderList(); }
     else if (b.hasAttribute('data-nx-recent-more')) { recentAll = !recentAll; renderList(); }
@@ -1338,23 +1345,31 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (wideList.matches || at !== null || !id || (id !== OUTSIDE && !folderById(id))) return;
     treeScroll = {y:window.scrollY, id};
     openSet.add(id);
+    // S51-24 ④: 그 줄 자리에서 상자 머리로 올라오는 0.2초(folder-focus-motion.js).
+    const from = topOf(host.querySelector(id === OUTSIDE ? '#noteRows [data-nx-outside]' : `#noteRows [data-nx-folder="${CSS.escape(id)}"]`));
     enter(id);
+    riseFromRow(from, host.querySelector('#noteRows .ft-focus'));
   }
+  const focusHeadTop = () => topOf(host.querySelector('#noteRows .ft-focus-head'));
   function up() {
     if (wideList.matches) { enter(at && at !== OUTSIDE ? folderById(at)?.parent_id || null : null); return; }
-    const back = treeScroll; treeScroll = null;
+    const back = treeScroll || {y:null, id:at}, from = focusHeadTop(); treeScroll = null;
     enter(null, {focus:false});
-    restoreTree(back);
+    restoreTree(back, from);
   }
-  function restoreTree(back) {
+  // 나무로 돌아온 자리: 두 손가락으로 들어왔으면 그때 화면 위치, 다른 길이면 그 폴더 줄을 화면 가운데로(S51-24). from: 상자 머리가 있던 곳(내려오는 움직임).
+  function restoreTree(back, from = null) {
     if (!back) return;
-    window.scrollTo({top:back.y, behavior:'instant'});
-    const sel = back.id === OUTSIDE ? '#noteRows [data-nx-outside] .ft-main' : `#noteRows [data-nx-folder="${CSS.escape(back.id)}"] .ft-main`;
-    host.querySelector(sel)?.focus({preventScroll:true});
+    const sel = back.id === OUTSIDE ? '#noteRows [data-nx-outside]' : `#noteRows [data-nx-folder="${CSS.escape(back.id)}"]`;
+    const row = host.querySelector(sel);
+    if (typeof back.y === 'number') window.scrollTo({top:back.y, behavior:'instant'});
+    else row?.scrollIntoView({block:'center', behavior:'instant'});
+    row?.querySelector('.ft-main')?.focus({preventScroll:true});
+    sinkToRow(from, row, host.querySelectorAll('[data-nx-recent] .ft-box, #noteRows > .ft-box'));
   }
   // 폰 폴더 화면은 라우터 한 겹: 갤럭시 뒤로가기 = 첫 화면 폴더 목록(선택 모드·열린 노트 겹이 있으면 그것부터 닫힘).
   function syncFolderLayer() {
-    if (at !== null && !folderLayer) { const folderId = at; folderLayer = window.KPTURouter?.layer?.open('basket-note-folder', {close: () => { folderLayer = null; endSelect(); at = null; const back = treeScroll; treeScroll = null; renderList(); restoreTree(back); return true; }, reopen: () => enter(folderId)}) || null; }
+    if (at !== null && !folderLayer) { const folderId = at; folderLayer = window.KPTURouter?.layer?.open('basket-note-folder', {close: () => { folderLayer = null; endSelect(); const back = treeScroll || (wideList.matches ? null : {y:null, id:at}), from = focusHeadTop(); treeScroll = null; at = null; renderList(); restoreTree(back, from); return true; }, reopen: () => enter(folderId)}) || null; }
     else if (at === null && folderLayer) { const l = folderLayer; folderLayer = null; l.close(); }
   }
   host.addEventListener('keydown', e => {
