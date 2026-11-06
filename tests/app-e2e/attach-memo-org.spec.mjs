@@ -442,7 +442,7 @@ test('a changed list is the list every screen uses: upload form, edit form, proj
 });
 
 // LIB-소분류 ②: 큰 분류 하나만 켜면 칩 아래 소분류 줄, 소분류 고르기, [+ 소분류]로 만들기, 지워도 자료는 큰 분류에 남음.
-for(const width of [412,1440])test(`subcategories: row under a sole category, pick, add and delete keep documents ${width}`,async({page},info)=>{
+for(const width of [1440])test(`subcategories: row under a sole category, pick, add and delete keep documents ${width}`,async({page},info)=>{
  const docs=[doc('s1','합성 투쟁속보 1호','선전›투쟁속보','2026-10-05'),doc('s2','합성 선전물','선전','2026-10-04'),doc('s3','합성 교섭 요구안','교섭','2026-10-03')];
  const f=await fixture(page,{width,docs,categories:[...DEFAULT,'선전›투쟁속보']});
  await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
@@ -484,3 +484,37 @@ for(const width of [412,1440])test(`subcategories: row under a sole category, pi
  expect(f.calls('app_documents','PATCH')).toEqual([]);
  expect(f.errors).toEqual([]);
 });
+
+// S51-28 LIB-화면정리: 폰·폴드(1199px까지)는 칩 아래 소분류 줄 대신 [분류 ▾] 창의 들여 쓴 소분류 줄로 고르고, 소분류 만들기·지우기는 창 [편집]에서.
+test('subcategories on a phone: pick in the [분류 ▾] window, add and delete in [편집] keep documents 412',async({page})=>{
+ const width=412,docs=[doc('s1','합성 투쟁속보 1호','선전›투쟁속보','2026-10-05'),doc('s2','합성 선전물','선전','2026-10-04'),doc('s3','합성 교섭 요구안','교섭','2026-10-03')];
+ const f=await fixture(page,{width,docs,categories:[...DEFAULT,'선전›투쟁속보']});
+ await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
+ await expect(page.locator('#libraryView .cc-sub-row')).toBeHidden();
+ const pick=page.locator('#libraryCategoryPick'),sheet=page.locator('#libraryCategorySheet');
+ await tap(page,pick,width);await expect(sheet).toBeVisible();
+ const subRow=sheet.locator('[data-sheet-value="sub:선전›투쟁속보"]');await expect(subRow).toHaveAttribute('data-depth','1');
+ await tap(page,sheet.locator('[data-lu-cat-clear]'),width);await tap(page,subRow,width);await tap(page,sheet.locator('[data-sheet-save]'),width);
+ await expect(pick).toHaveText('분류: 선전 › 투쟁속보');
+ await expandLibraryTree(page);await expect(page.locator('.lu-row-title')).toHaveText(['합성 투쟁속보 1호']);
+ expect(await noWideScroll(page)).toBe(true);
+ // 창 [편집] → 분류 고치기에서 소분류 만들기·지우기(자료는 큰 분류에 그대로).
+ await tap(page,pick,width);await tap(page,sheet.locator('[data-lu-cat-edit]'),width);
+ const modal=page.locator('#libraryManageModal'),editor=modal.locator('.dce');await expect(modal).toBeVisible();
+ await openSubForm(page,editor,'선전',width);
+ await editor.locator('[data-dce-sub-input]').fill('소식지');await editor.locator('[data-dce-sub-input]').press('Enter');
+ await expect(editor.locator('[data-dce-status]')).toHaveText('‘선전 › 소식지’ 소분류를 추가했어요.');
+ expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_add',body:{p_name:'선전›소식지'}});
+ await deleteCategory(page,editor,'선전›투쟁속보','선전 › 투쟁속보',width);
+ const message=await answerAsk(page,true);
+ await expect(editor.locator('[data-dce-status]')).toHaveText('‘선전 › 투쟁속보’ 소분류를 지웠어요. 자료 1개는 ‘선전’에 그대로 있어요.');
+ expect(message).toContain('‘선전’에 그대로 남아요');
+ expect(f.tables.app_documents.find(d=>d.id==='s1').category).toBe('선전');
+ await tap(page,modal.locator('#libraryManageClose'),width);
+ await expandLibraryTree(page);await expect(page.locator('.lu-row')).toHaveCount(2);
+ expect(f.calls('app_documents','PATCH')).toEqual([]);
+ expect(f.errors).toEqual([]);
+});
+// 분류 고치기 창의 소분류 만들기 칸 열기·지우기 누르기(창 모양이 바뀌어도 시험 본문은 그대로 두려고 한 곳에 둔다).
+async function openSubForm(page,editor,parent,width){await tap(page,editor.getByRole('button',{name:`${parent}에 소분류 만들기`}),width);await expect(editor.locator('[data-dce-sub-input]')).toBeVisible();}
+async function deleteCategory(page,editor,name,label,width){await tap(page,editor.getByRole('button',{name:`${label} 지우기`}),width);}
