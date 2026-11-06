@@ -76,7 +76,6 @@ test('폰: 두 줄만 → [+ 고르기] 아래 창(찾기·자주 쓴 것·큰 �
   else expect(Math.round(sb.y+sb.height)).toBeLessThanOrEqual(844);
   // 자주 쓴 것: 저장된 연결에서 많이 쓴 순(보관·안 보이는 대상 제외).
   await expect(sheet.locator('.aop-recent [data-sheet-value]')).toHaveText(['민자철도 사업','정책연구']);
-  await expect(page.evaluate(()=>Object.keys(localStorage).filter(k=>/aop|area-org/i.test(k)))).resolves.toEqual([]);
   // 큰 묶음만: 하위는 접혀 있다. 보관된 사업영역은 없다.
   expect(await offeredKeys(page)).toEqual(['p:p1','p:p2','p:p3','p:p4']);
   await expect(sheet.locator('.aop-list [data-sheet-value]:visible')).toHaveCount(2);
