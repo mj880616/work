@@ -34,6 +34,7 @@ const pinKeys=view=>view.locator('[data-tg-pinrooms] [data-tg-rd]').evaluateAll(
 const rpc=(f,name)=>f.writes.filter(w=>w.rpc===name).map(w=>w.body);
 // 폰 꾹 누르기: 터치 포인터를 누른 채 0.6초(feed-hold.js 0.5초) 기다렸다 뗀다.
 async function hold(page,locator){
+ await expect(locator).toBeVisible(); // 첫 그리기 뒤 줄이 다시 그려지는 사이에 재지 않도록(보이는 줄을 잰다)
  const box=await locator.boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;
  await page.evaluate(async({x,y})=>{
   const el=document.elementFromPoint(x,y),o={bubbles:true,cancelable:true,clientX:x,clientY:y,pointerType:'touch',pointerId:21,isPrimary:true};
