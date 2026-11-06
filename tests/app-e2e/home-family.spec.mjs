@@ -124,7 +124,7 @@ test('[노트로]: 가족 폴더의 잊지 말기 노트에 체크 한 줄을 �
   expect(notePatches.length+notePosts.length+patches.length).toBe(0);
   await box(page).locator(`[data-family-note="${id(2)}"] [data-family-act="note"]`).click();
   await expect(sheet(page).locator('[data-fs-line]')).toHaveText('☐ <b>새로 생긴 빵집</b> 소금빵이 맛있었다고 함 (통화 10/5)');
-  await expect(sheet(page).locator('[data-fs-folder]')).toHaveText('📁 가족 ▾');
+  await expect(sheet(page).locator('[data-fs-folder]')).toHaveText('가족 ▾');
   await expect(sheet(page).locator('[data-fs-where="list"]')).toHaveAttribute('aria-pressed','true');
   // 폰: 창은 하단바 위에서 올라오고 가리지 않는다.
   const gap=await sheet(page).locator('.family-send-card').evaluate(el=>{const tab=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kptu-mobile-tab-height'))||0;return {bottom:el.getBoundingClientRect().bottom,limit:innerHeight-tab};});
@@ -147,7 +147,7 @@ test('[노트로]: 가족 폴더의 잊지 말기 노트에 체크 한 줄을 �
 test('[노트로]: 가족 폴더·잊지 말기 노트가 없으면 만들어 넣는다. [새 노트]는 표시 없이 그 줄 제목으로',async({page})=>{
   const {patches,notePosts,folderPosts}=await fixture(page,{folders:[]});
   await box(page).locator(`[data-family-note="${id(1)}"] [data-family-act="note"]`).click();
-  await expect(sheet(page).locator('[data-fs-folder]')).toHaveText('📁 가족 ▾');
+  await expect(sheet(page).locator('[data-fs-folder]')).toHaveText('가족 ▾');
   await sheet(page).locator('[data-fs-send]').click();
   await expect.poll(()=>patches.length).toBe(1);
   expect(folderPosts).toHaveLength(1);
@@ -156,7 +156,7 @@ test('[노트로]: 가족 폴더·잊지 말기 노트가 없으면 만들어 �
   expect(notePosts[0]).toMatchObject({kind:'note',title:'잊지 말기',ai_export_allowed:false,raw_text:'☐ 토요일 저녁에 동네 산책 가자고 함 (텔레그램 10/5 · 말한 때: 토요일 저녁)',
     metadata:{family_list:true,folder:'가족',folder_id:'a0000000-0000-4000-8000-000000000009'}});
   await box(page).locator(`[data-family-note="${id(2)}"] [data-family-act="note"]`).click();
-  await expect(sheet(page).locator('[data-fs-folder]')).toHaveText('📁 가족 ▾');
+  await expect(sheet(page).locator('[data-fs-folder]')).toHaveText('가족 ▾');
   await sheet(page).locator('[data-fs-where="new"]').click();
   await expect(sheet(page).locator('[data-fs-where="new"]')).toHaveAttribute('aria-pressed','true');
   await sheet(page).locator('[data-fs-send]').click();
