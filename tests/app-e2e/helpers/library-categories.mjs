@@ -3,7 +3,7 @@ import {expect} from '@playwright/test';
 // S51-28 LIB-화면정리: 폰·폴드(1199px까지)는 칩 줄 대신 위 한 줄 [분류 ▾] 창(체크 = 보일 분류, 아무것도 안 고르면 전체)에서 고르고 [적용].
 // 칩 줄은 숨어 있어도 같은 상태(aria-pressed)를 그리므로 상태 확인은 지금처럼 칩으로 한다.
 const chipsOf=page=>page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])');
-export const narrowLibrary=page=>page.locator('#libraryCategoryPick').isVisible();
+export const narrowLibrary=page=>page.evaluate(()=>innerWidth<1200);// 1199px까지 = [분류 ▾](library-upload.css 같은 경계)
 // [분류 ▾] 창에서 on(보일 큰 분류 이름들)만 체크하고 [적용]. on이 비면 [전체].
 export async function pickLibraryCategories(page,on,{tap=false}={}){
   const press=async l=>{if(tap)await l.tap();else await l.click()};
@@ -20,6 +20,7 @@ export async function offLibraryCategories(page){
 }
 export async function onlyLibraryCategories(page,names,{tap=false}={}){
   if(await narrowLibrary(page)){
+    await expect(chipsOf(page)).not.toHaveCount(0);
     const all=(await chipsOf(page).allTextContents()).map(s=>s.trim());
     await pickLibraryCategories(page,names.length===all.length?[]:names,{tap});return;
   }
@@ -31,6 +32,7 @@ export async function onlyLibraryCategories(page,names,{tap=false}={}){
 // 칩 하나를 누른 것과 같은 결과(그 분류만 켬↔끔). 폰·폴드는 [분류 ▾] 창으로 같은 상태를 만든다(모두 끄기는 창에서 만들 수 없음).
 export async function toggleLibraryCategory(page,name,{tap=false}={}){
   if(!(await narrowLibrary(page))){const chip=page.locator(`#libraryCategoryFilter [data-lu-category="${name}"]`);await chip.scrollIntoViewIfNeeded();if(tap)await chip.tap();else await chip.click();return;}
+  await expect(chipsOf(page)).not.toHaveCount(0);await expect(page.locator(`#libraryCategoryFilter [data-lu-category="${name}"]`)).toHaveCount(1);
   const all=(await chipsOf(page).allTextContents()).map(s=>s.trim()),off=new Set(await offLibraryCategories(page));
   if(off.has(name))off.delete(name);else off.add(name);
   const on=all.filter(n=>!off.has(n));

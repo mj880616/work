@@ -1,3 +1,4 @@
+import {toggleLibraryCategory} from './helpers/library-categories.mjs';
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,childrenOf,menuButton,folderMenuItem,press,openMove,moveFolder,moveEnabledNames,movePicker} from './helpers/library-folder-server.mjs';
@@ -73,7 +74,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     // 폴더 보기에서 종류 칩을 눌러도 기억은 저장된다(폴더 때문에 막히지 않음).
     const chip=page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])').first();const name=await chip.getAttribute('data-lu-category');
     const before=(await chip.getAttribute('aria-pressed'))==='true';
-    await chip.click();
+    await toggleLibraryCategory(page,name);
     await expect.poll(()=>s.libraryView?.categories_off?.includes(name),{timeout:5000}).toBe(before);
     expect(s.libraryView.group_by).toBe('month');
     await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');
