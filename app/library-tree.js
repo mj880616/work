@@ -1,7 +1,7 @@
 // LIB-토글트리 ②(설계 docs/design/library-tree.md 5절): 자료실 목록을 토글 안 토글로 묶는 순수 함수.
 // 상태 주인과 그리기는 library-upload.js의 luRenderLibrary 하나다. 이 파일은 노드 목록 만들기·HTML 바꾸기만 하고
 // 화면·저장소·네트워크에 닿지 않는다(node --test로 시험).
-// 노드 모양(묶기 4가지 공통): {kind:'group'|'folder', key, label, depth, count, kinds, files, children, more, ...}
+// 노드 모양(묶기 4가지 공통): {kind:'group'|'folder', key, label, depth, count, files, children, more, ...}
 // source는 나중에 Drive 폴더 보기(DRIVE-자료트리)를 더할 자리다(결정 D10). 지금은 늘 'library'.
 
 import {FOLDER_DEPTH_LIMIT,folderIndent,folderDepthLimitFrom} from './folder-limits.mjs';
@@ -14,10 +14,7 @@ export const GROUP_LABELS=Object.freeze({project:'사업영역',organization:'�
 export const FILE_LIMIT=20;
 // 결정 D3 → LIB-폴더100단(10/28): 폴더 안 폴더는 100단까지(DB 트리거가 강제, 화면은 그 이상을 만들지 않음). 숫자는 folder-limits.mjs 한 곳.
 export const FOLDER_DEPTH=FOLDER_DEPTH_LIMIT;
-// 접힌 줄의 종류 색 점 순서(기존 --ds-file-* 색 + LIB-그림형식의 그림). 최대 6개.
 // LIB-정리보충 ⑤(10:41): 웹 페이지 원본(.html, 성명·보도자료 옮겨 올 때 생긴 것)은 '파일' 대신 '웹'.
-export const KIND_ORDER=Object.freeze(['HWP','PDF','XLS','DOC','PPT','그림','웹','파일']);
-const KIND_DOTS=6;
 // 자료 한 건의 파일 형식 글자(자료실 줄의 종류 표시). 확장자를 먼저 보고, 확장자가 없으면 Drive가 알려 준 mime_type을 본다.
 const KIND_BY_EXT=Object.freeze({HWP:'HWP',HWPX:'HWP',PDF:'PDF',XLS:'XLS',XLSX:'XLS',DOC:'DOC',DOCX:'DOC',PPT:'PPT',PPTX:'PPT',JPG:'그림',JPEG:'그림',PNG:'그림',GIF:'그림',WEBP:'그림',HEIC:'그림',BMP:'그림',HTML:'웹',HTM:'웹',MHT:'웹',MHTML:'웹'});
 const KIND_BY_MIME=Object.freeze([[/^application\/pdf$/,'PDF'],[/hwp|hancom|haansoft/,'HWP'],[/spreadsheet|ms-excel/,'XLS'],[/wordprocessing|msword|google-apps\.document/,'DOC'],[/presentation|powerpoint/,'PPT'],[/^image\//,'그림'],[/^text\/html$|xhtml/,'웹']]);
@@ -43,13 +40,13 @@ const byKey=(a,b)=>a.key===b.key?a.i-b.i:!a.key?1:!b.key?-1:a.key<b.key?1:-1;
 export function sortFiles(files,sortKey){return files.map((d,i)=>({d,i,key:sortKey(d)})).sort(byKey).map(x=>x.d)}
 const folderOrder=(a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0)||String(a.created_at||'').localeCompare(String(b.created_at||''))||String(a.id).localeCompare(String(b.id));
 
-function node(kind,key,label,extra={}){return {kind,key,label,source:'library',depth:0,files:[],children:[],count:0,kinds:[],...extra}}
-// 아래에서 위로 자료 수·종류를 모은다(거른 뒤의 수, 결정 D9).
-function finish(n,kindOf,sortKey,depth=0){
+function node(kind,key,label,extra={}){return {kind,key,label,source:'library',depth:0,files:[],children:[],count:0,...extra}}
+// 아래에서 위로 자료 수를 모은다(거른 뒤의 수, 결정 D9). 폴더 옆 종류 점(파랑=한글·빨강=PDF 등)은 S51-12에서 화면에서 뺐고 S51-28에서 계산도 뺐다.
+function finish(n,sortKey,depth=0){
   n.depth=depth;n.files=sortFiles(n.files,sortKey);
-  const kinds=new Set(n.files.map(d=>kindOf(d)));let count=n.files.length;
-  for(const c of n.children){finish(c,kindOf,sortKey,depth+1);count+=c.count;c.kinds.forEach(k=>kinds.add(k))}
-  n.count=count;n.kinds=KIND_ORDER.filter(k=>kinds.has(k)).slice(0,KIND_DOTS);
+  let count=n.files.length;
+  for(const c of n.children){finish(c,sortKey,depth+1);count+=c.count}
+  n.count=count;
   return n;
 }
 const hasFolder=n=>n.kind==='folder'||n.children.some(hasFolder);
@@ -74,10 +71,10 @@ function forestOf(list){
 // 프로젝트 묶기: 1단 프로젝트(프로젝트 화면 순서) → 2·3단 → 그 프로젝트의 폴더 → 파일. 보관·옛 공간·확인 불가 연결은
 // 활성 프로젝트 뒤에 따로 두고, 맨 아래 '프로젝트 없음'. 폴더 연결이 자료의 프로젝트와 어긋나면 연결이 없는 것으로 본다(설계 3.2).
 function byProject(o){
-  const {docs,tree=[],folders=[],items=[],projectName,colorOf,filtering}=o;
+  const {docs,tree=[],folders=[],items=[],projectName,filtering}=o;
   const top=[],groups=new Map(),stack=[];
   for(const {project,depth} of tree){
-    const g=node('group','p:'+project.id,String(project.name||'이름 없는 사업영역'),{projectId:project.id,projectDepth:depth,...(colorOf?.(project)||{})});
+    const g=node('group','p:'+project.id,String(project.name||'이름 없는 사업영역'),{projectId:project.id,projectDepth:depth});
     groups.set(project.id,g);stack.length=depth;const parent=depth>0?stack[depth-1]:null;stack[depth]=g;(parent?parent.children:top).push(g);
   }
   const stale=[];
@@ -94,7 +91,7 @@ function byProject(o){
   // 하위 프로젝트 토글보다 폴더가 뒤에 오도록(2·3단 → 폴더 → 파일).
   const order=n=>{n.children.sort((a,b)=>(a.kind==='folder')-(b.kind==='folder'));n.children.forEach(order)};
   const list=[...top,...stale,none];list.forEach(order);
-  list.forEach(n=>finish(n,o.kindOf,o.sortKey));
+  list.forEach(n=>finish(n,o.sortKey));
   if(filtering)return prune(list,()=>false);
   // 1단 프로젝트와 '프로젝트 없음'은 늘 보인다. 빈 하위 프로젝트는 숨기고(폴더가 있으면 남김), 폴더는 비어도 보인다.
   return prune(list,n=>n.kind==='folder'||hasFolder(n)||(n.kind==='group'&&!n.stale&&n.projectDepth===0));
@@ -110,14 +107,14 @@ function byFolder(o){
   const folderOf=d=>{if(!d?.photoset)return where.get(d.id);const ids=(d.photos||[]).map(p=>where.get(p.id));return ids.length&&ids.every(x=>x&&x===ids[0])?ids[0]:undefined};
   for(const d of docs){const fid=folderOf(d),f=fid?byId.get(fid):null;(f||outside).files.push(d)}
   const list=[outside,...roots];
-  list.forEach(n=>finish(n,o.kindOf,o.sortKey));
+  list.forEach(n=>finish(n,o.sortKey));
   if(filtering)return prune(list,()=>false);
   // LIB-정리보충(10:34 '폴더 밖은 비우고 싶음'): '폴더 밖'이 비면(0개) 그 줄을 없앤다. 폴더가 하나도 없을 때만 첫 폴더를 만들 자리로 남긴다.
   // 맨 위 새 폴더는 맨 위 폴더 메뉴의 [맨 위에 새 폴더], 폴더 밖으로 빼기는 [폴더로 옮기기 ›]의 [폴더 밖으로]·끄는 동안 왼쪽 팝업이 맡는다.
   return prune(list,n=>n.kind==='folder'||(n.key===OUTSIDE_KEY&&(n.count>0||!roots.length)));
 }
 
-function flat(list,o){list.forEach(n=>finish(n,o.kindOf,o.sortKey));return list.filter(n=>n.count>0)}
+function flat(list,o){list.forEach(n=>finish(n,o.sortKey));return list.filter(n=>n.count>0)}
 function byOrganization(o){
   const {docs,organizations=[]}=o,known=new Map(organizations.map(x=>[x.id,x])),groups=new Map(),unknown=[];
   for(const x of organizations)groups.set(x.id,node('group','o:'+x.id,String(x.name||'이름 없는 조직'),{organizationId:x.id}));
@@ -163,7 +160,7 @@ export function pathTo(list,documentId){let found=null;walk(list,(n,parents)=>{i
 // 접힌 줄은 '공공팀 › 회의 › 집행위' 한 줄로 보이고, 펼치면 지금처럼 '공공팀' 아래 단마다 줄이 생긴다(CSS가 펼친 줄의 뒤 경로를 숨김).
 // 펼칠 때 이어진 폴더들도 함께 펼친다(library-upload.js luOnHeadClick). 메뉴·끌어 놓기는 지금처럼 맨 위 폴더 기준.
 export function folderChain(n){const out=[];let c=n,guard=0;while(c?.kind==='folder'&&!c.files.length&&c.children.length===1&&c.children[0].kind==='folder'&&guard++<FOLDER_DEPTH){c=c.children[0];out.push(c)}return out}
-export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey,menu=null,canDrag=null,pick=null,emoji=false}){
+export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=null,pick=null,emoji=false}){
   const head=n=>{
     const face=emoji&&(n.kind==='folder'||n.key==='x:out');
     // FOLDER-나무새기준 ③⑥: 폴더는 닫힌/열린 폴더 그림 하나(색을 고른 폴더는 그 색, 안 고른 폴더는 기본 노랑). 펼침에 따라 CSS가 둘 중 하나를 보이고,
