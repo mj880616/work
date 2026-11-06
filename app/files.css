@@ -277,3 +277,15 @@
   .fx .fx-rows:not(.fx-grid) .fx-row:has(> .fx-th) { grid-template-columns:32px minmax(0,1fr); }
   .fx-row .fx-ico.fx-th { width:32px; height:32px; }
 }
+/* S51-20 FILES-폰보기끌기 ②(시안 files-phone-grid-two-drag.html ②): 폰 [두 칸 보기] = 위·아래 두 칸. 칸마다 칸 위 줄(▾ 나무·위치·정렬)과 따로 굴러가는 목록,
+   누른 칸이 지금 칸(옅은 보라 바탕 + 칸 위 줄 강조 밑선). 줄 모양은 폰 두 줄 그대로. */
+@media (max-width:599px) {
+  .fx-two { order:2; }
+  .fx[data-fx-two="phone"] .fx-main { grid-template-columns:minmax(0,1fr); }
+  .fx[data-fx-two="phone"] .fx-listcol { height:calc((100dvh - var(--kptu-mobile-tab-height, 56px) - 150px) / 2); min-height:180px; overflow:auto; overscroll-behavior:contain; }
+  .fx[data-fx-two="phone"] .fx-listcol + .fx-listcol { border-left:0; border-top:2px solid var(--kptu-border-strong, var(--kptu-border)); }
+  .fx[data-fx-two="phone"] .fx-listcol.fx-cur { background:color-mix(in srgb, var(--kptu-primary-soft) 45%, var(--kptu-surface)); }
+  .fx[data-fx-two="phone"] .fx-ptop { position:sticky; top:0; z-index:2; }
+  .fx[data-fx-two="phone"] .fx-list .fx-row, .fx[data-fx-two="phone"] .fx-list .fx-with-path .fx-row { grid-template-columns:20px minmax(0,1fr); }
+  .fx[data-fx-two="phone"] .fx-list .fx-rows:not(.fx-grid) .fx-row:has(> .fx-th) { grid-template-columns:32px minmax(0,1fr); }
+}

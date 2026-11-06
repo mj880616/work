@@ -5,7 +5,7 @@ import {validValue, parsePrefs, applyChanges, createViewPrefs} from '../app/view
 // S49-30 FILES-통합 2-③ 두 칸(명진 결정 H-2): 켬 계산·막대 글자·받을 곳(반대 칸), 서버 칸 files_two 모양.
 test('기본: 폴드 펼침은 두 칸, PC는 한 칸 · 서버 값이 있으면 그 값', () => {
   assert.equal(FILES_TWO_KEY, 'files_two');
-  assert.deepEqual({...FILES_TWO_DEFAULT}, {fold: false, wide: false}); // S50-33: 폴드도 PC처럼 한 칸이 기본
+  assert.deepEqual({...FILES_TWO_DEFAULT}, {fold: false, wide: false, narrow: false}); // S50-33: 폴드도 PC처럼 한 칸이 기본 · S51-20 ②: 폰도 기본 한 칸
   assert.equal(twoLayout(false), 'fold'); assert.equal(twoLayout(true), 'wide');
   assert.equal(twoOn(undefined, 'fold'), false); assert.equal(twoOn(undefined, 'wide'), false);
   assert.equal(twoOn({fold: false}, 'fold'), false); assert.equal(twoOn({wide: true}, 'wide'), true);
@@ -43,4 +43,14 @@ test('view_prefs files_two: 기기 칸 app·phone·pc, 안은 fold·wide 참·�
   const prefs = createViewPrefs({runtime: () => null, storage: () => null});
   assert.equal(prefs.getFilesTwo('pc'), undefined);
   assert.equal(prefs.get('files_two'), undefined, '기기 칸 객체는 get으로 통째로 읽지 않는다');
+});
+
+test('S51-20 ②: 폰 위·아래 두 칸 — narrow 칸, 칸 이름 위·아래, 고르기 막대 화살표 ↓·↑', async () => {
+  const {paneSide, sendLabel} = await import('../app/files-panes-model.mjs');
+  assert.equal(twoLayout(false, true), 'narrow'); assert.equal(twoLayout(true, true), 'wide'); assert.equal(twoLayout(false, false), 'fold');
+  assert.equal(twoOn(undefined, 'narrow'), false); assert.equal(twoOn({narrow: true}, 'narrow'), true); assert.equal(twoOn({narrow: true}, 'fold'), false);
+  assert.deepEqual(twoValue({fold: true}, 'narrow', true), {fold: true, narrow: true});
+  assert.equal(paneSide(0, true), '위'); assert.equal(paneSide(1, true), '아래'); assert.equal(paneSide(1), '오른쪽');
+  assert.equal(sendLabel(0, 'copy', true), '↓ 아래에 복사'); assert.equal(sendLabel(1, 'copy', true), '↑ 위에 복사');
+  assert.equal(sendLabel(0, 'move', true), '↓ 옮기기'); assert.equal(sendLabel(0, 'copy'), '→ 오른쪽에 복사');
 });

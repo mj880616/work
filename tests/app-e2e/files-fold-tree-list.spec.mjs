@@ -67,13 +67,14 @@ for (const width of [700, 884]) test(`파일 폴드 ${width}: 경계선을 끌�
   expect(errors).toEqual([]);
 });
 
-test('파일 폰 412: 그대로 한 칸(나무 화면 · 경계선·[두 칸 보기] 없음)', async ({ page }) => {
+test('파일 폰 412: 그대로 한 칸(나무 화면 · 경계선 없음, 두 칸은 [두 칸 보기]로만)', async ({ page }) => {
   test.setTimeout(90000);
   const { errors } = await start(page, 412);
   await openFiles(page, 412);
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'tree');
   await expect(root(page).locator('[data-fx-cols]>.split-resize-handle')).toBeHidden();
-  await expect(root(page).locator('[data-fx-two]')).toBeHidden();
+  await expect(root(page).locator('[data-fx-two]')).toHaveText('두 칸 보기');
+  await expect(root(page).locator('[data-fx-pane-i="1"]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
