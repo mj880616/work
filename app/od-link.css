@@ -18,8 +18,15 @@
 .od-link-menu button:hover{background:var(--kptu-surface-subtle)}
 .od-link-menu button:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .od-link-menu .od-link-check{flex:0 0 12px;width:12px;color:var(--kptu-info)}
-/* S51-22 공용 줄 메뉴(row-menu.js): 폰은 누른 자리 대신 하단바 위에서 올라오는 판(anchored-menu sheet). PC는 위 모양 그대로 줄 옆. */
-.od-link-menu.am-sheet{left:8px;right:8px;top:auto;width:auto;max-width:520px;margin:0 auto;bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + 8px);max-height:min(60dvh,420px);border-radius:var(--ds-radius-box,12px);padding:4px 4px 6px}
-.od-link-menu.am-sheet button{min-height:var(--kptu-touch-target,44px);font-size:14px}
+/* S51-31 UI-⋯작은메뉴: 공용 줄 메뉴(row-menu.js)는 폰·폴드·PC 모두 같은 작은 상자 — 폭 약 180px(anchored-menu width)·줄 34px·선 아이콘 16px + 글자 13px.
+   묶음 사이 가는 선(row-menu-sep), 맨 아래 휴지통·삭제는 빨강(row-menu-last). 누른 줄은 선택 색(연보라)으로 표시(row-menu-owner). */
+.row-menu{padding:4px 0;border-radius:var(--ds-radius-box,10px)}
+.row-menu button{gap:9px;min-height:34px;padding:0 12px;border-radius:0}
+.row-menu .row-menu-ico{flex:0 0 16px;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;color:var(--kptu-muted)}
+.row-menu button>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-menu .row-menu-sep{border-top:var(--ds-line-width,1px) solid var(--kptu-border);margin-top:3px}
+.row-menu .row-menu-last,.row-menu .row-menu-last .row-menu-ico{color:var(--kptu-danger)}
+.row-menu-owner{background:var(--ds-select-bg,var(--kptu-primary-soft))}
+.row-menu-owner:not(.ft-row){outline:2px solid var(--ds-select-line,var(--kptu-info));outline-offset:-2px} /* 우클릭한 달력 칸·일정처럼 제 색이 있는 칸 */
 .row-menu .row-menu-title{margin:0;padding:6px 10px 4px;font-size:12px;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:var(--ds-line-width,1px) solid var(--kptu-border);margin-bottom:2px}
-.row-menu .row-menu-last{border-top:var(--ds-line-width,1px) solid var(--kptu-border);margin-top:2px;padding-top:2px}
+.row-menu .row-menu-last{border-top:var(--ds-line-width,1px) solid var(--kptu-border);margin-top:3px}

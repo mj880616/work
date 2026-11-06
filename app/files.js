@@ -709,7 +709,7 @@ function paintMainTree() {
 // ---------- FOLDER-나무새기준 ②(S51-12): 폰 나무 = '최근' 상자 + 묶음(별표·큰 파일) + 저장소마다 상자 ----------
 // 폴더를 누르면 화면이 바뀌지 않고 그 자리에서 하위 폴더·파일까지 펼침(처음 5개 + 'n개 더 보기'), 상자 머리를 누르면 그 저장소 접기.
 // 펼친 폴더 위 두 손가락 벌리기 = 그 폴더만(지금의 폴더 목록 화면), [‹]·뒤로 키·오므리기 = 펼친 자리 그대로 나무.
-// 파일 줄을 누르면 미리보기, ⋯는 화면을 그대로 두고 그 자리 메뉴(S51-22, row-menu.js — 폰은 하단바 위 판)를 연다.
+// 파일 줄을 누르면 미리보기, ⋯는 화면을 그대로 두고 그 줄 바로 옆 작은 메뉴(S51-22·S51-31, row-menu.js — 폰·폴드·PC 같은 상자, 누른 줄 연보라)를 연다.
 const fileDay = r => dayText(r.modified_at);
 function treeFileHtml(r, depth, parent) {
   const key = rowKey(r), kind = kindOf(r);
@@ -778,7 +778,7 @@ function treeMenu(b) {
   if (!r) return;
   const sib = r.is_folder && SOURCES.includes(r.source) ? treeSibs(r.source, inKey) : [];
   const items = treeMenuItems(r, {phoneWrite: phoneWrite(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length});
-  openRowMenu(b, {key, title: r.name, items, note: r.source === PC ? PC_READONLY_TEXT : '', run: id => treeAct(id, r, inKey, liveMenuButton(key, b))});
+  openRowMenu(b, {key, label: r.name, items, note: r.source === PC ? PC_READONLY_TEXT : '', run: id => treeAct(id, r, inKey, liveMenuButton(key, b))});
 }
 // 메뉴가 열린 동안 나무가 다시 그려졌으면 같은 줄의 새 ⋯를 묻는 창의 자리로 쓴다.
 const liveMenuButton = (key, b) => (b?.isConnected ? b : root?.querySelector(`[data-fx-tmenu="${CSS.escape(key)}"]`) || b);
