@@ -12,7 +12,8 @@ import type { OutsideSource } from "./outside-catalog.ts";
 // take: 'all'(그 매체 글을 키워드 상관없이 전부 받음 — 운동·노동 매체) / 'keywords'(키워드 목록에 글자가 맞는 글만 — 종합지·방송사, NEWS-매체늘리기).
 // 없으면 'all'. 지금 카탈로그는 모두 'all'.
 // 채널 기사(열린 주소 규칙, 매체가 정해져 있지 않음) 본문 규칙. 규칙 이름 `open@판`.
-export const OPEN_ARTICLE_RULE = Object.freeze({ version: 1 });
+// @2(S51-9): 흔한 유료벽 검사를 좁힘(문구는 본문 칸 안만, class는 정확히 `paywall`) + 본문 칸 고르기(빈 <article> 건너뛰기·폼 안 본문).
+export const OPEN_ARTICLE_RULE = Object.freeze({ version: 2 });
 export const OPEN_ARTICLE_KEY = "open";
 export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords" };
 
@@ -21,15 +22,20 @@ const article = () => "article" as const;
 export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   { key: "news-labortoday", name: "매일노동뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
     // 본문 칸: 엔디소프트 기사 쪽 `#article-view-content-div`(못 찾으면 흔한 본문 칸·<article> 순서). 유료 기사는 page.ts가 앞부분만(유료벽 넘지 않음).
-    extract: { version: 1, drop: /^(article-copy|view-copyright|view-editors|tag-group|article-sns|share-btns|relation|ad-template)$/ },
+    // @2(S51-9): 흔한 유료벽 검사를 좁힘(page.ts) — 이 매체는 유료벽 검사를 그대로 받는다(유료 기사 있음 [추정]).
+    extract: { version: 2, drop: /^(article-copy|view-copyright|view-editors|tag-group|article-sns|share-btns|relation|ad-template)$/ },
     bodyClass: /^article-view-content-div$/,
     lists: ["https://www.labortoday.co.kr/rss/allArticle.xml"], hosts: ["www.labortoday.co.kr", "labortoday.co.kr"], kindOf: article },
   { key: "news-beminor", name: "비마이너", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
-    extract: { version: 1, drop: /^(article-copy|view-copyright|view-editors|tag-group|article-sns|share-btns|relation|ad-template)$/ },
+    // @2(S51-9): 11/06 probe에서 lead/paywall(블록 1·글자 300)로 잘못 들어감 — 비마이너는 유료벽이 없다(CC 확인) → free(흔한 유료벽 검사 안 함).
+    extract: { version: 2, free: true, drop: /^(article-copy|view-copyright|view-editors|tag-group|article-sns|share-btns|relation|ad-template)$/ },
     bodyClass: /^article-view-content-div$/,
     lists: ["https://www.beminor.com/rss/allArticle.xml"], hosts: ["www.beminor.com", "beminor.com"], kindOf: article },
   { key: "news-pressian", name: "프레시안", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
-    extract: { version: 1, drop: /^(article_ad|box_ad|article_bottom|byline|share)$/ },
+    // @2(S51-9): 11/06 probe에서 lead/paywall(블록 1·글자 14)로 잘못 들어감 — 프레시안은 유료벽이 없다(CC 확인) → free.
+    // 본문 칸 `div.article_body`를 단체 본문 칸으로 고정 [추정 — 실측 못 함, 없으면 예전처럼 <article>·흔한 본문 칸 순서].
+    extract: { version: 2, free: true, drop: /^(article_ad|box_ad|article_bottom|byline|share)$/ },
+    bodyClass: /^article_body$/,
     // https://www.pressian.com/rss 는 RSS 안내 HTML 쪽이라 0건이었다(11/04). 실제 피드는 /api/v3/site/rss/news(요청함은 http로 확인).
     // 카탈로그는 https만 허용(tests/security/news-feed.test.mjs)이라 https로 둔다 — 배포 전 CC가 이 주소가 열리는지 확인하고, 안 열리면 배포하지 말고 명진에게 보고(http 허용은 보안 시험을 바꾸는 결정).
     lists: ["https://www.pressian.com/api/v3/site/rss/news"], hosts: ["www.pressian.com", "pressian.com"], kindOf: article },
@@ -41,6 +47,7 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     lists: ["https://www.itfglobal.org/en/rss/feed"], hosts: ["www.itfglobal.org", "itfglobal.org"], kindOf: article },
   { key: "news-labourstart", name: "LabourStart(아시아)", group: "foreign", region: "foreign", lang: "en", mode: "rss",
     // 링크가 남의 매체라 허용 호스트 밖 — 본문은 읽지 않고 failed/off_host(4.3절). 규칙은 판 번호만.
+    // S51-9: 피드 글 링크가 모두 허용 호스트 밖이면 parseFeed가 다 빼서 기사 줄 자체가 0건이다(probe는 off_host로 보고). 기사 줄을 남기는 길은 범위 밖(보고만).
     extract: { version: 1 },
     lists: ["https://www.labourstart.org/rdf/labourstart.asia.rss"], hosts: ["www.labourstart.org", "labourstart.org"], kindOf: article },
 ] as NewsSource[]);

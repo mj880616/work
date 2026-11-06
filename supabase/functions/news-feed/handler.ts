@@ -639,12 +639,16 @@ async function probeMedia(readers: Readers, source: NewsSource, nowMs: number) {
   if (!got.ok) return { ...base, list: got.code, listed: 0, page: null, ...bodyNumbers(failedBody(readFailReason(got.code))) };
   const items = parseFeed(source, got.text, nowMs, 5);
   const it = items[0];
-  if (!it) return { ...base, list: "ok", listed: 0, page: null, ...bodyNumbers(failedBody("no_body")) };
+  // 피드에 글은 있는데 모두 허용 호스트 밖 링크라 빠졌으면 off_host(LabourStart처럼 남의 매체로 가는 피드, 설계 4.3), 글이 없으면 no_body.
+  if (!it) {
+    const raw = (got.text.match(/<(item|entry)\b/gi) ?? []).length;
+    return { ...base, list: "ok", listed: 0, raw: Math.min(raw, 1000), page: null, ...bodyNumbers(failedBody(raw > 0 ? "off_host" : "no_body")) };
+  }
   const clean = cleanArticleUrl(it.url);
   const page = clean ? await reader.get(clean, ACCEPT_HTML) : { ok: false as const, code: "url_outside" };
   if (!page.ok) return { ...base, list: "ok", listed: items.length, page: page.code, ...bodyNumbers(failedBody(readFailReason(page.code))) };
   const info = readArticlePage(page.text, nowMs, mediaRule(source, page.url));
-  return { ...base, list: "ok", listed: items.length, page: "ok", page_state: info.state, body_kind: info.body_kind, ...bodyNumbers(info.blocks) };
+  return { ...base, list: "ok", listed: items.length, page: "ok", page_state: info.state, body_kind: info.body_kind, paywall: info.paywall, ...bodyNumbers(info.blocks) };
 }
 
 // ---- 화면 입구(로그인 + owner) --------------------------------------------------------------------------------------

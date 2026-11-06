@@ -992,8 +992,10 @@ test('공대위 표시(L3): 민주노총·공공운수노조 글 중 제목·요
   assert.equal(v({source_key:'kptu',title:'[성명] 가상 공공기관 성명',summary_ko:'가상 요약이다.'}),'');
   assert.equal(v({source_key:'kmwu',title:'[성명] 가상 공대위 이름이 든 다른 단체 글'}),'','민주노총·공공운수노조 글만');
   assert.equal(v({source_key:'laborparty',title:'[논평] 가상 공대위'}),'');
-  const js=readFileSync('app/outside-statements.js','utf8');
-  assert.match(js,/<span class="os-tag">\$\{esc\(v\.tag\)\}<\/span>/);
+  // S51-8 News 목록: 사회운동 줄은 공용 줄(news-row.mjs)의 badge 칸에 그대로 넘기고, 줄은 매체 이름 바로 뒤에 글자로만 그린다.
+  const js=readFileSync('app/outside-statements.js','utf8'),row=readFileSync('app/news-row.mjs','utf8');
+  assert.match(js,/badge: v\.tag/);
+  assert.match(row,/<span class="nw-badge">\$\{esc\(r\.badge\)\}<\/span>/);
 });
 
 // OUTSIDE-텔레그램미리보기제목(11/02): 본문이 주소뿐인 글은 링크 미리보기 제목을 제목으로, 설명을 요약 재료로. 주소는 제목이 되지 않는다.
