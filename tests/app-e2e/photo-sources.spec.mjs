@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { pinch } from './helpers/pinch.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // PHOTO-출처 ①(요청함 10/30 17:30): 사진 메뉴 위 줄 오른쪽 출처 아이콘 + 폰 사진 섞어 보기.
@@ -155,25 +156,25 @@ test.describe('폰 앱 412 · 모든 칩', () => {
     const od = page.locator('#photosRoot [data-photos-src="onedrive"]'), phoneBtn = page.locator('#photosRoot [data-photos-src="phone"]');
     const tab = name => page.locator(`#photosRoot [data-photos-tab="${name}"]`);
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
-    // 둘 다 켜짐: [폴더]에 '원드라이브'·'폰' 두 묶음.
+    // 둘 다 켜짐: [폴더]에 '원드라이브'·'폰' 두 상자(FOLDER-나무새기준 ③: 출처마다 상자, 폴더 줄은 공용 줄).
     await tab('folders').click();
-    await expect(bodyEl.locator('[data-photos-fx-group="onedrive"]')).toHaveText('원드라이브');
-    await expect(bodyEl.locator('[data-photos-fx-group="phone"]')).toHaveText('폰');
-    await expect(bodyEl.locator('[data-photos-fx-open="S1"]')).toBeVisible();
-    await expect(bodyEl.locator('[data-photos-pf-open]')).toHaveCount(2);
+    await expect(bodyEl.locator('[data-photos-box="onedrive"] .ft-box-toggle')).toHaveText('원드라이브');
+    await expect(bodyEl.locator('[data-photos-box="phone"] .ft-box-toggle')).toHaveText('폰');
+    await expect(bodyEl.locator('[data-photos-folder="S1"]')).toBeVisible();
+    await expect(bodyEl.locator('[data-photos-pf]')).toHaveCount(2);
     // 원드라이브 끄기: 폰 폴더만(원드라이브 폴더·⋯·새 폴더 없음).
     await od.click();
     await expect(od).toHaveAttribute('aria-pressed', 'false');
-    await expect(bodyEl.locator('[data-photos-fx-open]')).toHaveCount(0);
+    await expect(bodyEl.locator('[data-photos-folder]')).toHaveCount(0);
     await expect(bodyEl.locator('[data-photos-fx-more], [data-photos-fx-new]')).toHaveCount(0);
-    await expect(bodyEl.locator('[data-photos-pf-open]')).toHaveText(['📁Camera2', '📁Screenshots2']);
-    // 폰 폴더 열기 → 그 폴더 사진 격자, 뒤로가기로 목록.
-    await bodyEl.locator('[data-photos-pf-open="DCIM/Camera/"]').click();
+    await expect(bodyEl.locator('[data-photos-pf] .ft-main')).toHaveText(['Camera2', 'Screenshots2']);
+    // 폰 폴더 위 두 손가락 벌리기 → 그 폴더만(사진 격자), 뒤로가기로 나무.
+    await pinch(page, bodyEl.locator('[data-photos-pf="DCIM/Camera/"]'), 'out');
     await expect(bodyEl.locator('.photos-fx-here')).toContainText('Camera');
     await expect.poll(() => bodyEl.locator('[data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId))).toEqual(['ph:1', 'ph:2']);
     expect(state.phoneReads.some(p => /page\?.*folder=DCIM%2FCamera%2F/.test(p))).toBe(true);
     await page.goBack();
-    await expect(bodyEl.locator('[data-photos-pf-open]')).toHaveCount(2);
+    await expect(bodyEl.locator('[data-photos-pf]')).toHaveCount(2);
     // [휴지통]: 원드라이브 휴지통을 읽지 않고 안내 한 줄.
     const trashReads = state.edge.filter(a => a === 'trash-list').length;
     await tab('trash').click();
@@ -186,11 +187,11 @@ test.describe('폰 앱 412 · 모든 칩', () => {
       await tab(name).click();
       await expect(bodyEl.locator('[data-photos-no-source]')).toHaveText('위 출처 아이콘을 켜 주세요.');
     }
-    // 원드라이브만 다시 켜기: [폴더]는 원드라이브 폴더만, 묶음 이름 없음.
+    // 원드라이브만 다시 켜기: [폴더]는 원드라이브 상자 하나.
     await od.click();
     await tab('folders').click();
-    await expect(bodyEl.locator('[data-photos-fx-open="S1"]')).toBeVisible();
-    await expect(bodyEl.locator('[data-photos-pf-open], [data-photos-fx-group]')).toHaveCount(0);
+    await expect(bodyEl.locator('[data-photos-folder="S1"]')).toBeVisible();
+    await expect(bodyEl.locator('[data-photos-pf], [data-photos-box="phone"]')).toHaveCount(0);
     expect(state.errors).toEqual([]);
   });
 });
