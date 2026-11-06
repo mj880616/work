@@ -5,13 +5,17 @@ import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../ap
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
-// DB에는 있지만 화면 허용 목록에는 아직 없는 칸: news_tab·news_font(S51-6 NEWS P4a DB 먼저, P4b News 화면이 KEYS에 더함).
-const DB_ONLY = ['news_tab', 'news_font'];
-test('허용 칸 마흔한 개 + DB 먼저 두 칸이 DB 검사(마지막 migration, S50-13 org_order 위에 S51-6 news_tab·news_font 더함)와 같다', () => {
+// S51-8 NEWS P4b: DB 먼저(S51-6) 넣은 news_tab·news_font를 화면 허용 목록에도 더했다. 이제 DB에만 있는 칸은 없다.
+const DB_ONLY = [];
+test('허용 칸 마흔세 개가 DB 검사(마지막 migration, S50-13 org_order 위에 S51-6 news_tab·news_font 더함)와 같다', () => {
   const sql = read('supabase/migrations/20261106080000_feed_reads_news_prefs.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 41);
+  assert.equal(KEYS.length, 43);
+  for (const v of ['all', 'movement', 'media', 'archive']) assert.equal(validValue('news_tab', v), true, v);
+  for (const v of ['outside', 'news', 'saved', 'search', '', null, 1]) assert.equal(validValue('news_tab', v), false, String(v));
+  for (const v of ['s', 'm', 'l']) assert.equal(validValue('news_font', v), true, v);
+  for (const v of ['xl', '', 0, null]) assert.equal(validValue('news_font', v), false, String(v));
 });
 test('org_order·report_calendar 모양(S50-13 MULTI ②-3, DB 검사와 같음)', () => {
   const g = (name, orgs) => ({name, orgs});

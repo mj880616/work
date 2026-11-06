@@ -17,7 +17,7 @@ export const ITEMS = () => [
 ];
 
 export async function newsServer(page) {
-  const server = { folders: [], notes: [], items: ITEMS(), keywords: [{ word: '가짜어', enabled: true, created_at: '2026-10-01T00:00:00Z' }], sources: new Map([['news-fake-a', { source_key: 'news-fake-a', enabled: true, last_ok_at: '2026-10-06T00:07:00Z', last_error: null }]]), calls: [], fillArmed: false };
+  const server = { folders: [], notes: [], items: ITEMS(), keywords: [{ word: '가짜어', enabled: true, created_at: '2026-10-01T00:00:00Z' }], sources: new Map([['news-fake-a', { source_key: 'news-fake-a', enabled: true, last_ok_at: '2026-10-06T00:07:00Z', last_error: null }]]), calls: [], fillArmed: false, reads: new Set() };
   await page.route(SB + '/**', async route => {
     const req = route.request(), u = new URL(req.url()), p = u.pathname, method = req.method();
     const ok = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
@@ -39,6 +39,14 @@ export async function newsServer(page) {
       return ok({ ok: false }, 400);
     }
     if (p.startsWith('/rest/v1/app_outside_') && !p.endsWith('app_outside_sources')) return ok([]);
+    // S51-8 읽음 표(app_feed_reads): 넣은 것만 기억, 처음엔 모두 안 읽음.
+    if (p === '/rest/v1/app_feed_reads') {
+      server.calls.push({ what: 'app_feed_reads', method, query: decodeURIComponent(u.search), body });
+      if (method === 'POST') { server.reads.add(body.news_item_id || body.outside_post_id); return route.fulfill({ status: 201 }); }
+      const col = u.searchParams.has('news_item_id') ? 'news_item_id' : 'outside_post_id';
+      const ids = /^in\.\((.*)\)$/.exec(u.searchParams.get(col) || '')?.[1]?.split(',') || [];
+      return ok(ids.filter(id => server.reads.has(id)).map(id => ({ [col]: id })));
+    }
     // S48-27 Now: 관심 주제·환류 기록은 비어 있음, 관심 후보 묻기는 '아직'(서버 규칙).
     if (p.startsWith('/rest/v1/app_now_')) { server.calls.push({ what: p.slice('/rest/v1/'.length), method, body }); return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]); }
     if (p === '/functions/v1/ai-assist' && body?.kind === 'now_interests') return ok({ ok: true, kind: 'now_interests', ran: false, added: 0 });
@@ -79,7 +87,8 @@ export async function newsServer(page) {
       if (method === 'PATCH') { const row = server.items.find(i => i.id === id); Object.assign(row, body); return ok([{ id: row.id, starred_at: row.starred_at, folder_id: row.folder_id }]); }
       if (id) return ok(server.items.filter(i => i.id === id).map(view));
       const lane = u.searchParams.get('lane'), star = u.searchParams.get('starred_at');
-      const rows = server.items.filter(i => (!lane || (lane === 'eq.channel' ? i.lane === 'channel' : i.lane !== 'channel')) && (!star || !!i.starred_at));
+      const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
+      const rows = server.items.filter(i => (!lane || (lane === 'eq.channel' ? i.lane === 'channel' : i.lane !== 'channel')) && (!star || !!i.starred_at) && (!inKeys || inKeys.includes(i.source_key)));
       return ok(rows.map(({ _body, _body_ko, ...row }) => row));
     }
     if (p === '/rest/v1/app_news_keywords') {
@@ -110,14 +119,14 @@ export async function start(page, width) {
   const server = await newsServer(page);
   return { errors, server };
 }
-// S48-27: 뉴스 클리핑은 Now 메뉴의 [뉴스] 탭(라우터 화면 이름 outside).
+// S48-27 → S51-8: 뉴스 클리핑은 News 메뉴의 [언론] 탭(라우터 화면 이름 outside, 메뉴 글자는 P5까지 'Now').
 export async function openNews(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav button:visible', { hasText: 'Now' }).click();
   } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
-  await page.locator('#outsideRoot [data-os-tab="news"]').click();
+  await page.locator('#outsideRoot [data-os-tab="media"]').click();
   await expect(page.locator('#nowPanelNews')).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
 }

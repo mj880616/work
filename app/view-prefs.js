@@ -107,6 +107,10 @@ export const PHONE_FOLDERS_OFF_MAX = 80;
 export const ALBUM_VIEWS = Object.freeze(['card', 'thumb', 'line']);
 // OUTSIDE-글상세·관심환류 ③: now_tab = Now 메뉴의 마지막 탭(migration 20261102141000), 없으면 사회운동. split_ratio.now = 목록 | 상세 칸 비율.
 export const NOW_TABS = Object.freeze(['outside', 'news', 'saved', 'search']);
+// S51-8 NEWS-전면개편 P4b: news_tab = News 메뉴의 마지막 탭(전체·사회운동·언론·보관), news_font = 상세 원문 글자 크기 세 단계(migration 20261106080000).
+// 옛 now_tab은 news_tab이 없을 때 한 번 읽어 옮기기만 한다(지우지 않음, 정리는 P5).
+export const NEWS_TABS = Object.freeze(['all', 'movement', 'media', 'archive']);
+export const NEWS_FONTS = Object.freeze(['s', 'm', 'l']);
 // UI-앱안알림(S48-19): link_hidden_on = 맨 위 알림 줄 '연결 끊김' ✕를 누른 서울 날짜(오늘 하루 숨김, collect_hidden_on과 같은 모양).
 // migration 20261102170000. 적용 전에는 쓰기가 400이라 rejectable로 보내 그 칸만 되돌린다(알림 없음, 이 탭에서는 닫힌 채).
 // S48-21 쓰기 창 서식 줄: ed_more = 편집기 서식 줄 [⌄] 아래 줄을 펼쳐 둔 채인가(참·거짓, 없으면 접힘). 모든 편집기·기기가 같은 값.
@@ -121,7 +125,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -152,6 +156,8 @@ export function validValue(key, value) {
     case 'tg_view': return TG_VIEWS.includes(value);
     case 'album_view': return ALBUM_VIEWS.includes(value);
     case 'now_tab': return NOW_TABS.includes(value);
+    case 'news_tab': return NEWS_TABS.includes(value);
+    case 'news_font': return NEWS_FONTS.includes(value);
     case 'org_order': return orgOrderOk(value);
     case 'report_calendar': return reportCalendarOk(value);
     case 'note_boards': return Array.isArray(value) && value.length <= NOTE_BOARDS_MAX && value.every(b => !!b && typeof b === 'object' && !Array.isArray(b)

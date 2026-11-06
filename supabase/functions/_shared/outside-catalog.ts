@@ -14,6 +14,9 @@ export type ExtractRule = {
   caption?: RegExp;    // 캡션 칸(class 이름). figcaption은 늘 캡션
   skipImage?: RegExp;  // 빼는 사진 주소(경로) — 기본 규칙(아이콘·로고·1px 등)에 더함
   lead?: RegExp;       // 유료벽 표시(맞으면 앞부분만, state='lead'·reason='paywall')
+  // 유료벽 없음 확인(S51-9): 뉴스 글 쪽의 흔한 유료벽 검사(news-feed/page.ts PAYWALL)를 하지 않는다.
+  // 유료벽이 없는 매체가 흔한 문구(댓글 칸 '로그인 후 이용' 등)로 lead/paywall로 잘못 들어가는 것(11/06 probe: 비마이너·프레시안)을 막는다. lead와 함께 쓰지 않는다(시험이 고정).
+  free?: true;
 };
 
 export type Kind = "statement" | "comment" | "press" | "article";
@@ -133,7 +136,10 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
     // 워드프레스 + KBoard 성명·보도자료 쪽(/성명-보도자료/). 글 주소는 같은 쪽 + ?mod=document&uid=번호(노동당과 같은 모양).
     key: "kfsu", name: "서비스연맹", group: "labor", lang: "ko", mode: "html",
-    extract: { version: 1, drop: /^(kboard-document-action|kboard-control|kboard-comments-area)$/ },
+    // @2(S51-9): 11/06 probe 블록 3·글자 93(본문 칸 일부만) → KBoard 본문 칸 `kboard-content`를 단체 본문 칸으로 고정 [추정 — 실측 못 함]
+    // + 공용 본문 칸 고르기가 빈 <article>을 건너뜀(parse.ts bodyScopeHtml).
+    extract: { version: 2, drop: /^(kboard-document-action|kboard-control|kboard-comments-area)$/ },
+    bodyClass: /^kboard-content$/,
     lists: ["https://kfsu.kr/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C/"], hosts: ["kfsu.kr", "www.kfsu.kr"],
     item: /^https:\/\/(www\.)?kfsu\.kr\/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C\/?\?(?=[^#]*\bmod=document\b)(?=[^#]*\buid=\d+\b)/i,
     canon: keepQuery(["mod", "uid"]),
@@ -142,7 +148,9 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
     // 성명·보도자료 게시판에 기자회견 알림 글이 섞여 있다: '[알림]'·'[취재요청]' 머리말과 머리말 없는 '… 기자회견 (개최) 알림·안내'는 넣지 않는다.
     key: "hakbi", name: "학비노조", group: "labor", lang: "ko", mode: "html",
-    extract: { version: 1 },
+    // @2(S51-9): 11/06 probe failed/no_body(블록 0) → 공용 본문 칸 고르기를 고침(parse.ts bodyScopeHtml: 빈 <article> 건너뛰기, 게시판 쪽 전체가 <form> 안이면 폼 꼬리표만 벗김).
+    // 원인은 [추정](실측 못 함) — 배포 뒤 probe의 scope 값(article·common·body·*_form)으로 확인한다.
+    extract: { version: 2 },
     lists: ["https://www.hakbi.org/board/media_reports"], hosts: ["www.hakbi.org", "hakbi.org"],
     item: /^https:\/\/(www\.)?hakbi\.org\/board\/media_reports\/read\/\d+\/?$/, canon: plain,
     kindOf: (title) => (HAKBI_NOTICE.test(title) ? null : byPrefix("statement")(title)),

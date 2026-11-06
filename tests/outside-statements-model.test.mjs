@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {ALL, normalizeCatalog, enabledKeys, chipsOf, subChipsOf, chipPressed, keysOf, keepChip, groupPosts, isOld, firstSentence, postView, safeUrl, bodyText, isFresh, sourceState, errorNote, FEED_SLOTS_KST, feedSlots, feedWhen, ownSourceRows} from '../app/outside-statements-model.mjs';
+import {normalizeCatalog, enabledKeys, groupPosts, isOld, firstSentence, postView, safeUrl, sourceState, errorNote, FEED_SLOTS_KST, feedSlots, feedWhen, ownSourceRows} from '../app/outside-statements-model.mjs';
 import {readFileSync} from 'node:fs';
 
 // OUTSIDE-바깥성명 ④ 화면 1(docs/design/outside-statements.md 2·4절): 화면 계산 규칙.
@@ -18,28 +18,6 @@ test('카탈로그는 모양이 맞는 단체만 받는다', () => {
   assert.deepEqual(CATALOG.map(s => s.key), ['kctu', 'kptu', 'laborparty', 'kgreens', 'jacobin']);
   assert.deepEqual(normalizeCatalog(null), []);
   assert.deepEqual(CATALOG.filter(s => s.group === 'labor').map(s => s.key), ['kctu', 'kptu'], '민주노총·공공운수노조는 [노동] 묶음(11/02 00:19)');
-});
-
-test('칩 줄: 첫 줄은 전체 + 켠 단체가 있는 묶음만, 단체 낱개는 묶음을 고르면 둘째 줄에(둘 이상 켜진 묶음만)', () => {
-  const on = enabledKeys([{source_key: 'kctu', enabled: true}, {source_key: 'laborparty', enabled: true}, {source_key: 'kgreens', enabled: true}, {source_key: 'jacobin', enabled: false}]);
-  const chips = chipsOf(CATALOG, on);
-  assert.deepEqual(chips.map(c => c.label), ['전체', '노동', '정당'], '첫 줄에 단체 낱개가 섞이지 않음');
-  assert.deepEqual(subChipsOf(CATALOG, on, ALL), [], '묶음을 안 고르면 둘째 줄 없음');
-  assert.deepEqual(subChipsOf(CATALOG, on, 'g:labor'), [], '단체가 하나뿐인 묶음은 둘째 줄 없음');
-  const both = [...on, 'kptu'];
-  assert.deepEqual(subChipsOf(CATALOG, both, 'g:labor').map(c => [c.id, c.label]), [['s:kctu', '민주노총'], ['s:kptu', '공공운수노조']], '[노동] 안 단체 칩');
-  assert.deepEqual(chipsOf(CATALOG, both).map(c => c.label), ['전체', '노동', '정당']);
-  assert.deepEqual(subChipsOf(CATALOG, on, 'g:party').map(c => [c.id, c.label]), [['s:laborparty', '노동당'], ['s:kgreens', '녹색당']]);
-  assert.deepEqual(subChipsOf(CATALOG, on, 's:kgreens').map(c => c.id), ['s:laborparty', 's:kgreens'], '단체를 골라도 둘째 줄 유지');
-  assert.equal(chipPressed('g:party', 's:kgreens', CATALOG), true, '단체를 고르면 그 묶음 칩도 눌린 모양');
-  assert.equal(chipPressed('g:labor', 's:kgreens', CATALOG), false);
-  assert.equal(chipPressed('s:kgreens', 's:kgreens', CATALOG), true);
-  assert.equal(keepChip('s:kgreens', [...chips, ...subChipsOf(CATALOG, on, 's:kgreens')]), 's:kgreens');
-  assert.equal(keysOf(ALL, CATALOG, on), null);
-  assert.deepEqual(keysOf('g:party', CATALOG, on), ['laborparty', 'kgreens']);
-  assert.deepEqual(keysOf('s:kgreens', CATALOG, on), ['kgreens']);
-  assert.equal(keepChip('g:foreign', chips), ALL, '없어진 칩은 전체로');
-  assert.deepEqual(chipsOf(CATALOG, []).map(c => c.id), [ALL]);
 });
 
 test('날짜 묶음: 오늘·어제·그 밖 날짜, 서버 순서 유지, 게시 시각 모르는 글은 받은 시각이 아니라 \'날짜 모름\'(11/02 00:17)', () => {
@@ -77,14 +55,11 @@ test('글 모양: 국내는 본문 펼치기, 외국은 요약·핵심 문장, 2
   assert.equal(postView({lang: 'ko', kind: 'toString', title: 't'}, NOW).kind, '');
 });
 
-test('작은 규칙: 첫 문장·원문 주소·본문 잇기·새 글·단체 상태', () => {
+test('작은 규칙: 첫 문장·원문 주소·단체 상태', () => {
   assert.equal(firstSentence('노조는 반대한다. 이어서 둘째.'), '노조는 반대한다.');
   assert.equal(firstSentence(''), '');
   assert.equal(safeUrl('javascript:alert(1)'), '');
   assert.equal(safeUrl('https://kgreens.org/statement?bmode=view&idx=1'), 'https://kgreens.org/statement?bmode=view&idx=1');
-  assert.equal(bodyText([{idx: 1, text: '둘.'}, {idx: 0, text: '하나.'}]), '하나. 둘.');
-  assert.equal(isFresh({fetched_at: '2026-10-31T00:00:00Z'}, '2026-10-30T00:00:00Z'), true);
-  assert.equal(isFresh({fetched_at: '2026-10-31T00:00:00Z'}, null), false);
   assert.equal(sourceState({enabled: true, last_error: 'robots'}), '못 읽음 · 사이트가 자동 읽기 막음');
   assert.equal(sourceState({enabled: true, last_ok_at: '2026-10-31T09:07:00Z'}), '마지막 10. 31. (토) 18:07');
 });

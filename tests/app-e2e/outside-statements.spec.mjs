@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// OUTSIDE-바깥성명 ④ 화면 1(docs/design/outside-statements.md 4절, 12:43 시안): '사회운동 Now' 메뉴(?view=outside).
-// [새로 온 것]: 칩으로 단체 묶음 거르기(공용 두 줄 + [더보기]), 날짜 묶음, 글마다 단체·종류·시각 / 제목 / 한 문장 요약(늘 보임) / 본문 접기 / [원문](새 창).
-// 2년 지난 글은 제목·요약만. ⋯ → [단체 켜고 끄기]는 서버 표(app_outside_sources)에 저장하고, 뒤로가기 한 번 = 목록. 들어오면 본 시각을 서버에 둔다.
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+// OUTSIDE-바깥성명 ④ 화면 1 → S51-8 NEWS-전면개편 P4b(docs/design/news-overhaul.md 6.1·6.3절, 시안 mockups/news-overhaul.html): News 목록(?view=outside).
+// 탭 [전체][사회운동][언론][보관] — 폰 아래 떠 있는 탭 줄·폴드 오른쪽 아래·PC 위, 좌우 밀기 = 탭 이동, 고른 탭은 서버 view_prefs.news_tab.
+// 위 찾기 칸(제목 바로 거르기), [매체: 전체 ▾](자료실 분류 창 부품), 줄은 날짜 묶음 → 흰 상자 안 줄(매체 색 띠·같은 색 이름·분류 꼬리표·시각·★),
+// 안 읽은 글 굵게·읽은 글 흐리게(app_feed_reads, 상세를 열면 넣음). ⋯ → [단체 켜고 끄기]는 서버 표(app_outside_sources), 뒤로가기 한 번 = 목록.
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 글은 모두 가상의 글.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const CATALOG = [
@@ -19,14 +21,20 @@ const POSTS = [
   { id: 'p4', source_key: 'kgreens', kind: 'press', lang: 'ko', title: '[보도자료] 가상 보도자료', title_ko: null, url: 'https://kgreens.org/press/?bmode=view&idx=3', published_at: '2026-10-01T05:00:00Z', fetched_at: '2026-10-01T09:07:00Z', summary_ko: '가상 보도자료 요약이다.', key_sentences: [], has_body: true },
   { id: 'p5', source_key: 'kctu', kind: 'statement', lang: 'ko', title: '[성명] 오래된 가상 성명', title_ko: null, url: 'https://nodong.org/statement/1', published_at: '2023-03-02T01:00:00Z', fetched_at: '2026-10-01T09:07:00Z', summary_ko: '오래된 성명 요약이다. 가상 공대위 공동 입장이다.', key_sentences: [], has_body: false },
 ];
+// 언론 쪽(가짜): 국내 매체 하나·외국 매체 하나. 사회운동 글과 시각이 섞이게.
+const NEWS_CATALOG = [{ key: 'news-fake-a', name: '가짜일보', region: 'domestic', lang: 'ko' }, { key: 'news-fake-en', name: 'Fake Wire', region: 'foreign', lang: 'en' }];
+const NEWS = [
+  { id: 'a1', lane: 'channel', url: 'https://example.org/a1', title: '가짜 언론 기사', lang: 'ko', publisher: '가짜일보', source_key: 'news-fake-a', published_at: '2026-10-06T00:50:00Z', scrapped_at: '2026-10-06T00:55:00Z', created_at: '2026-10-06T00:56:00Z', state: 'ok', summary: '가짜 요약.', body_kind: null, title_ko: null, starred_at: '2026-10-06T00:58:00Z' },
+  { id: 'e1', lane: 'media', url: 'https://example.org/e1', title: 'A fake wire story', lang: 'en', publisher: 'Fake Wire', source_key: 'news-fake-en', published_at: '2026-10-05T02:00:00Z', scrapped_at: null, created_at: '2026-10-05T02:10:00Z', state: 'ok', summary: 'One line.', body_kind: null, title_ko: '가짜 외신 기사', starred_at: null },
+];
 const SENTENCES = { p1: [{ idx: 0, text: '가상 본문 첫 문장이다.' }, { idx: 1, text: '가상 본문 둘째 문장이다.' }] };
 
 async function outsideServer(page) {
   const server = {
     sources: new Map([['kctu', true], ['laborparty', true], ['kgreens', true], ['jacobin', true]].map(([k, on]) => [k, { source_key: k, enabled: on, last_ok_at: '2026-10-05T09:07:00Z', last_error: null }])),
     // 같은 표의 뉴스 클리핑 매체 줄(news- 키): 사회운동 Now 계산에 섞이면 안 된다(흉내 서버는 조건을 무시하고 함께 돌려준다).
-    newsRows: [{ source_key: 'news-fake-en', enabled: true, last_ok_at: '2026-10-06T00:30:00Z', last_error: null }],
-    seen: [{ seen_at: '2026-10-05T00:00:00Z' }], calls: [], extra: [],
+    newsRows: [{ source_key: 'news-fake-en', enabled: true, last_ok_at: '2026-10-06T00:30:00Z', last_error: null }, { source_key: 'news-fake-a', enabled: true, last_ok_at: '2026-10-06T00:30:00Z', last_error: null }],
+    seen: [{ seen_at: '2026-10-05T00:00:00Z' }], calls: [], extra: [], reads: new Set(['p2']),
   };
   // 바로 읽기(read_now)는 열어 줄 때까지 붙잡아 둔다('읽는 중…' 확인용).
   let release;
@@ -49,6 +57,27 @@ async function outsideServer(page) {
       }
       return action === 'catalog' && method === 'POST' ? ok({ ok: true, sources: CATALOG }) : ok({ ok: false, error: 'UNKNOWN_ACTION' }, 400);
     }
+    // S51-8 News: 언론 카탈로그·기사(가짜 둘), 읽음 표(p2만 읽음 → 넣으면 기억).
+    if (p === '/functions/v1/news-feed') {
+      const action = u.searchParams.get('action');
+      if (action === 'catalog') return ok({ ok: true, sources: NEWS_CATALOG, limits: { fill: 10, translate: 20, keyword_items: 30, keywords: 30 } });
+      if (action === 'fill_now') return ok({ ok: true, done: 0, status: 'nothing' });
+      return ok({ ok: false }, 400);
+    }
+    if (p === '/rest/v1/app_news_items') {
+      server.calls.push({ what: 'app_news_items', method, query: decodeURIComponent(u.search) });
+      const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
+      return ok(NEWS.filter(r => !inKeys || inKeys.includes(r.source_key)));
+    }
+    if (p === '/rest/v1/app_news_keywords' || p === '/rest/v1/app_news_folders' || p === '/rest/v1/app_notes') return ok([]);
+    if (p === '/rest/v1/app_feed_reads') {
+      const body = req.postDataJSON?.() ?? null;
+      server.calls.push({ what: 'app_feed_reads', method, query: decodeURIComponent(u.search), body, prefer: req.headers().prefer || '' });
+      if (method === 'POST') { server.reads.add(body.outside_post_id || body.news_item_id); return route.fulfill({ status: 201 }); }
+      const col = u.searchParams.has('outside_post_id') ? 'outside_post_id' : 'news_item_id';
+      const ids = /^in\.\((.*)\)$/.exec(u.searchParams.get(col) || '')?.[1]?.split(',') || [];
+      return ok(ids.filter(id => server.reads.has(id)).map(id => ({ [col]: id })));
+    }
     // S48-27 Now: 관심 주제·환류 기록·보관 표시는 비어 있음, 관심 후보 묻기는 '아직'(서버 규칙).
     if (p.startsWith('/rest/v1/app_now_')) return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
     if (p === '/functions/v1/ai-assist' && req.postDataJSON?.()?.kind === 'now_interests') return ok({ ok: true, kind: 'now_interests', ran: false, added: 0 });
@@ -70,6 +99,7 @@ async function outsideServer(page) {
       const key = (u.searchParams.get('source_key') || '').replace(/^eq\./, '');
       if (method === 'PATCH') { const row = server.sources.get(key); if (!row) return ok([]); row.enabled = body.enabled; return ok([row]); }
       if (method === 'POST') { const row = { source_key: body.source_key, enabled: body.enabled, last_ok_at: null, last_error: null }; server.sources.set(row.source_key, row); return ok([row], 201); }
+      if (u.searchParams.get('source_key') === 'like.news-*') return ok(server.newsRows);
       return ok([...server.sources.values(), ...server.newsRows]);
     }
     return ok([]);
@@ -77,13 +107,15 @@ async function outsideServer(page) {
   return server;
 }
 
-async function start(page, width) {
+async function start(page, width, initialPrefs = null) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
-  await openHome(page);
+  if (initialPrefs) await installViewPrefsServer(page, initialPrefs);
+  const home = await openHome(page);
   const server = await outsideServer(page);
+  server.prefs = home.prefs;
   return { errors, server };
 }
 async function openOutside(page, width) {
@@ -95,139 +127,153 @@ async function openOutside(page, width) {
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
 }
 const root = page => page.locator('#outsideRoot');
-const posts = page => root(page).locator('[data-os-post]');
-const post = (page, id) => root(page).locator(`[data-os-post="${id}"]`);
-const chips = page => root(page).locator('[data-os-chip]:visible');
+const rows = (page, panel) => root(page).locator(`${panel} [data-nw-key]`);
+const row = (page, key) => root(page).locator(`[data-nw-key="${key}"]:visible`);
+const tab = (page, id) => root(page).locator(`[data-os-tab="${id}"]`);
 const noWideScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+// 줄·탭 밖(날짜 머리)에서 손가락으로 왼쪽(dx<0)·오른쪽으로 민다.
+async function swipeOn(locator, dx) {
+  await locator.evaluate((el, dx) => {
+    const r = el.getBoundingClientRect(), y = r.top + r.height / 2, x0 = r.left + r.width / 2;
+    const t = (type, x) => { const p = new Touch({ identifier: 1, target: el, clientX: x, clientY: y }); el.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === 'touchend' ? [] : [p], changedTouches: [p] })); };
+    t('touchstart', x0); t('touchend', x0 + dx);
+  }, dx);
+}
 
-for (const width of [412, 1280]) {
-  test(`바깥 성명 ${width}: [새로 온 것] 칩·날짜 묶음·요약·본문 접기·원문, 단체 켜고 끄기는 서버 저장`, async ({ page }) => {
+for (const width of [412, 884, 1280]) {
+  test(`News 목록 ${width}: 탭 넷 자리·[전체] 한 줄·색 띠·꼬리표·읽음 굵기·찾기·매체 고르기·탭 서버 저장·단체 켜고 끄기`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, server } = await start(page, width);
     await openOutside(page, width);
-    await expect(posts(page)).toHaveCount(POSTS.length);
-    // 위쪽 작은 줄(OUTSIDE-이름·바로읽기): 마지막 읽음 10. 5. 18:07, 오늘 08:07 예약분이 아직 안 돌아 '다음 곧'.
-    await expect(page.locator('#osTitle')).toHaveText('Now');
-    await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 어제 18:07 · 다음 곧(08:07 예정분)');
-    expect(server.calls.find(c => c.what === 'app_outside_sources' && c.method === 'GET').query).toContain('source_key=not.like.news-*');
-
-    // 칩 첫 줄: 전체 + 켠 단체가 있는 묶음만(단체 낱개는 묶음을 고르면 둘째 줄에).
-    await expect(chips(page)).toHaveText(['전체', '노동', '정당', '외국']);
-    await expect(root(page).locator('[data-os-subchips]')).toBeHidden();
-    await expect(root(page).locator('[data-os-chip="all"]')).toHaveAttribute('aria-pressed', 'true');
-    // 카탈로그는 사용자 로그인으로 Edge에서, 목록은 자기 작업공간만 묻는다.
-    expect(server.calls.find(c => c.what === 'edge')).toMatchObject({ action: 'catalog', method: 'POST', auth: expect.stringMatching(/^Bearer /) });
-    expect(server.calls.find(c => c.what === 'app_outside_posts').query).toContain('workspace_id=eq.w');
-
-    // 날짜 묶음: 오늘 · 어제 · 10. 1. (목) · 2023. 3. 2. (목).
-    await expect(root(page).locator('.os-day-head')).toHaveText(['오늘', '어제', '10. 1. (목)', '2023. 3. 2. (목)']);
-    // 글 한 건: 단체 · 종류 · 시각 / 제목 / 한 문장 요약(늘 보임) / 본문 접힘 / [원문].
-    const p1 = post(page, 'p1');
-    await expect(p1.locator('.os-meta')).toContainText('민주노총');
-    await expect(p1.locator('.os-meta')).toContainText('성명');
-    await expect(p1.locator('.os-time')).toHaveText('09:30');
-    await expect(p1.locator('.os-title')).toHaveText('[성명] 가상 성명 하나');
-    await expect(p1.locator('.os-lead')).toBeVisible();
-    await expect(p1.locator('.os-lead')).toHaveText('가상 성명 한 문장 요약이다.');
-    await expect(p1.locator('details.os-fold')).not.toHaveAttribute('open', '');
-    // S48-27: [원문]은 상세 위로 옮겼다(줄에는 없음). 줄 전체는 제목 단추 하나가 덮는다.
-    await expect(p1.getByRole('link', { name: /원문/ })).toHaveCount(0);
-    await expect(p1.locator('[data-now-open="p1"]')).toHaveText('[성명] 가상 성명 하나');
-    // 지난번 본 시각(10. 5. 09:00) 뒤 받은 글에만 작은 '새'.
-    await expect(post(page, 'p1').locator('.os-new')).toHaveCount(1);
-    await expect(post(page, 'p2').locator('.os-new')).toHaveCount(1);
-    await expect(post(page, 'p3').locator('.os-new')).toHaveCount(0);
-    // 들어오면 본 시각을 지금으로(서버 저장, 기존 줄 고치기).
-    await expect.poll(() => server.calls.some(c => c.what === 'app_outside_seen' && c.method === 'PATCH')).toBe(true);
-    expect(server.calls.filter(c => c.what === 'app_outside_sentences')).toHaveLength(0);
-
-    // 본문 펼치기: 그때 서버 문장 표에서 한 번 읽는다.
-    await p1.locator('summary').click();
-    await expect(p1.locator('.os-text')).toHaveText('가상 본문 첫 문장이다. 가상 본문 둘째 문장이다.');
-    expect(server.calls.filter(c => c.what === 'app_outside_sentences')).toHaveLength(1);
-    // 외국 글: 한국어 제목, 첫 요약 문장, 펼치면 요약 전체 + 핵심 문장(원문 + 번역).
-    const p3 = post(page, 'p3');
-    await expect(p3.locator('.os-title')).toHaveText('가상의 외국 글');
-    // 외국 글은 보도·논설을 가릴 수 없어 종류 칸을 비운다('글'이라 쓰지 않음): 단체 이름 · 시각만.
-    await expect(p3.locator('.os-meta > span')).toHaveText(['Jacobin', '10:00']);
-    await expect(p3.locator('.os-lead')).toHaveText('첫 요약 문장임.');
-    await p3.locator('summary').click();
-    await expect(p3.locator('.os-keys li')).toHaveCount(1);
-    await expect(p3.locator('.os-key-ko')).toHaveText('가상의 핵심 문장.');
-    await expect(p3.locator('.os-key-orig')).toHaveText('An imaginary key line.');
-    // 2년 지난 글은 제목·요약만(펼칠 본문 없음).
-    await expect(post(page, 'p5').locator('details')).toHaveCount(0);
-    await expect(post(page, 'p5').locator('.os-lead')).toHaveText('오래된 성명 요약이다.');
-    // 공대위 표시(L3): 민주노총·공공운수노조 글 중 제목·요약에 '공대위'가 든 글만, 단체 이름 바로 뒤.
-    await expect(post(page, 'p5').locator('.os-meta > span:nth-child(-n+3)')).toHaveText(['민주노총', '공대위', '성명']);
-    await expect(post(page, 'p1').locator('.os-tag')).toHaveCount(0);
+    // 탭 넷, 처음은 [전체](news_tab·옛 now_tab 둘 다 없음 → 저장 안 함).
+    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '보관']);
+    await expect(tab(page, 'all')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#osTitle')).toHaveText('News');
+    // [전체] = 사회운동 글 + 언론 기사를 시각 최신 순으로(날짜 묶음 → 흰 상자).
+    const all = rows(page, '[data-nw-all]');
+    await expect(all).toHaveCount(POSTS.length + NEWS.length);
+    await expect(all.first()).toHaveAttribute('data-nw-key', 'news:a1');
+    await expect(root(page).locator('[data-nw-all] .nw-day-head').first()).toHaveText(/^오늘/);
+    await expect(root(page).locator('[data-nw-all] .nw-card')).toHaveCount(4);
+    // 줄: 색 띠·같은 색 매체 이름·분류 꼬리표(성명 = 성명·논평·보도자료, 국제 = 외국 글)·시각·★(별표한 기사). 요약 줄은 없다.
+    const p1 = row(page, 'outside:p1');
+    await expect(p1.locator('.nw-title')).toHaveText('[성명] 가상 성명 하나');
+    await expect(p1.locator('.nw-src')).toHaveText('민주노총');
+    await expect(p1.locator('.nw-tag')).toHaveText('성명');
+    await expect(p1.locator('.nw-time')).toHaveText('09:30');
+    await expect(p1).toHaveAttribute('style', '--nw-c:var(--ds-news-labor-1)');
+    const [bar, src] = await Promise.all([p1.locator('.nw-bar').evaluate(el => getComputedStyle(el).backgroundColor), p1.locator('.nw-src').evaluate(el => getComputedStyle(el).color)]);
+    expect(bar).toBe(src);
+    await expect(row(page, 'outside:p3').locator('.nw-tag')).toHaveText('국제');
+    // 공대위 표시(L3): 매체 이름 바로 뒤 작은 꼬리표 — 민주노총·공공운수노조 글 중 제목·요약에 '공대위'가 든 글만.
+    await expect(row(page, 'outside:p5').locator('.nw-meta > span:nth-child(-n+2)')).toHaveText(['민주노총', '공대위']);
+    await expect(p1.locator('.nw-badge')).toHaveCount(0);
+    await expect(row(page, 'news:e1').locator('.nw-tag')).toHaveText('국제');
+    await expect(row(page, 'news:e1').locator('.nw-title')).toHaveText('가짜 외신 기사');
+    await expect(row(page, 'news:a1').locator('.nw-tag')).toHaveCount(0);
+    await expect(row(page, 'news:a1').locator('.nw-star')).toHaveCount(1);
+    await expect(root(page).locator('.os-lead, .nc-sum')).toHaveCount(0);
+    // 읽음: 서버 표에 있는 p2만 흐리게, 나머지는 굵게. 묶음 머리에 새 글 수.
+    await expect(row(page, 'outside:p2')).toHaveClass(/is-read/);
+    await expect(p1).toHaveClass(/is-new/);
+    expect(await p1.locator('.nw-title').evaluate(el => getComputedStyle(el).fontWeight)).toBe('700');
+    expect(server.calls.find(c => c.what === 'app_feed_reads' && c.method === 'GET').query).toContain('workspace_id=eq.w');
     expect(await noWideScroll(page)).toBe(true);
 
-    // 칩 '정당' → 서버에 그 묶음 단체만 묻는다.
-    await root(page).locator('[data-os-chip="g:party"]').click();
-    await expect(posts(page)).toHaveCount(2);
-    await expect(root(page).locator('[data-os-chip="g:party"]')).toHaveAttribute('aria-pressed', 'true');
-    expect(server.calls.filter(c => c.what === 'app_outside_posts').at(-1).query).toContain('source_key=in.(laborparty,kgreens)');
-    // 묶음을 고르면 둘째 줄에 그 묶음 단체(첫 줄 아래). 단체를 고르면 그 단체만, 묶음 칩은 눌린 모양 그대로.
-    const sub = root(page).locator('[data-os-subchips]');
-    await expect(sub.locator('[data-os-chip]')).toHaveText(['노동당', '녹색당']);
-    const [barBox, subBox] = await Promise.all([root(page).locator('[data-os-chips]').boundingBox(), sub.boundingBox()]);
-    expect(subBox.y).toBeGreaterThanOrEqual(barBox.y + barBox.height - 1);
-    await sub.locator('[data-os-chip="s:kgreens"]').click();
-    await expect(posts(page)).toHaveCount(1);
-    await expect(sub.locator('[data-os-chip="s:kgreens"]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(root(page).locator('[data-os-chip="g:party"]')).toHaveAttribute('aria-pressed', 'true');
-    expect(server.calls.filter(c => c.what === 'app_outside_posts').at(-1).query).toContain('source_key=in.(kgreens)');
-    await root(page).locator('[data-os-chip="all"]').click();
-    await expect(posts(page)).toHaveCount(POSTS.length);
-    await expect(sub).toBeHidden();
+    // 탭 자리(명진 11/06): 폰 = 아래 가운데 떠 있음, 폴드 = 오른쪽 아래, PC = 위.
+    const tb = await root(page).locator('[data-os-tabs]').boundingBox(), vw = width, top = await root(page).locator('[data-nw-top]').boundingBox();
+    if (width <= 760) { expect(Math.abs(tb.x + tb.width / 2 - vw / 2)).toBeLessThan(4); expect(tb.y).toBeGreaterThan(700); }
+    else if (width < 1200) { expect(vw - (tb.x + tb.width)).toBeLessThan(20); expect(tb.y).toBeGreaterThan(800); }
+    else expect(tb.y + tb.height).toBeLessThanOrEqual(top.y + 1);
 
-    // ⋯ → 단체 켜고 끄기: 카탈로그 단체마다 켬/끔 + 상태(마지막 읽은 시각·막힘).
+    // 상세를 열면 읽음 한 줄(on_conflict + ignore-duplicates = 이미 있으면 그대로), 줄은 흐리게.
+    await p1.locator('.now-open').click();
+    await expect.poll(() => server.calls.filter(c => c.what === 'app_feed_reads' && c.method === 'POST').map(c => c.body)).toContainEqual({ workspace_id: 'w', outside_post_id: 'p1' });
+    const post = server.calls.find(c => c.what === 'app_feed_reads' && c.method === 'POST' && c.body.outside_post_id === 'p1');
+    expect(post.query).toBe('?on_conflict=outside_post_id');
+    expect(post.prefer).toContain('resolution=ignore-duplicates');
+    if (width <= 760) await page.goBack();
+    await expect(row(page, 'outside:p1')).toHaveClass(/is-read/);
+
+    // 위 찾기 칸: 글자를 넣으면 지금 목록에서 제목으로 바로 거른다(서버 안 부름).
+    const find = root(page).locator('[data-nw-find]');
+    await find.fill('외신');
+    await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
+    await find.fill('');
+    await expect(rows(page, '[data-nw-all]')).toHaveCount(POSTS.length + NEWS.length);
+
+    // [매체: 전체 ▾]: 자료실 분류 창과 같은 부품 — 전체 → 묶음 → 켠 매체. 고르면 그 매체 글만(서버에 그 키만 묻는다).
+    const dd = root(page).locator('[data-nw-media]');
+    await expect(dd).toHaveText('매체: 전체 ▾');
+    await dd.click();
+    const pick = page.locator('#nwMediaPicker');
+    await expect(pick).toBeVisible();
+    await expect(pick.locator('.lu-move-item')).toHaveText([/^전체/, '노동', '민주노총', '정당', '노동당', '녹색당', '외국', 'Jacobin', '언론 국내', '가짜일보', '언론 외국', 'Fake Wire']);
+    await expect(pick.locator('.lu-move-foot')).toBeHidden();
+    await pick.locator('[data-lu-move-folder="g:party"]').click();
+    await expect(dd).toHaveText('매체: 정당 ▾');
+    await expect(rows(page, '[data-nw-all]')).toHaveCount(2);
+    expect(server.calls.filter(c => c.what === 'app_outside_posts').at(-1).query).toContain('source_key=in.(laborparty,kgreens)');
+    await dd.click();
+    await pick.locator('[data-lu-move-folder="n:news-fake-en"]').click();
+    await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
+    expect(server.calls.filter(c => c.what === 'app_news_items').at(-1).query).toContain('source_key=in.(news-fake-en)');
+    await dd.click();
+    await pick.locator('[data-lu-move-folder="all"]').click();
+    await expect(rows(page, '[data-nw-all]')).toHaveCount(POSTS.length + NEWS.length);
+
+    // 탭 이동: 폰·폴드는 줄 밖(날짜 머리)을 왼쪽으로 밀어서, PC는 눌러서. 고른 탭은 서버 view_prefs.news_tab.
+    if (width < 1200) await swipeOn(root(page).locator('[data-nw-all] .nw-day-head').first(), -160);
+    else await tab(page, 'movement').click();
+    await expect(tab(page, 'movement')).toHaveAttribute('aria-selected', 'true');
+    await expect.poll(() => server.prefs.value?.news_tab).toBe('movement');
+    const mv = rows(page, '[data-os-list]');
+    await expect(mv).toHaveCount(POSTS.length);
+    await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 어제 18:07 · 다음 곧(08:07 예정분)');
+    // [사회운동] 탭의 매체 창에는 언론이 없다.
+    await dd.click();
+    await expect(pick.locator('.lu-move-item')).toHaveText([/^전체/, '노동', '민주노총', '정당', '노동당', '녹색당', '외국', 'Jacobin']);
+    await page.keyboard.press('Escape');
+    // 글 줄 위를 밀면 탭이 아니라 줄 밀기(숨기기·보관)의 몫 — 탭은 그대로.
+    if (width < 1200) { await swipeOn(row(page, 'outside:p4'), -160); await expect(tab(page, 'movement')).toHaveAttribute('aria-selected', 'true'); }
+
+    // ⋯ → 단체 켜고 끄기: 카탈로그 단체마다 켬/끔 + 상태(마지막 읽은 시각·막힘). 위 줄·탭 줄은 감춘다.
     await root(page).locator('[data-os-more]').click();
     await page.locator('#osMenu').getByRole('button', { name: '단체 켜고 끄기' }).click();
     const sw = key => root(page).locator(`[data-os-source="${key}"]`);
     await expect(sw('kctu')).toBeVisible();
-    await expect(posts(page)).toHaveCount(0);
-    await expect(sw('kctu')).toHaveAttribute('aria-checked', 'true');
+    await expect(root(page).locator('[data-nw-top]')).toBeHidden();
+    await expect(root(page).locator('[data-os-tabs]')).toBeHidden();
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'false');
     await expect(root(page).locator('[data-os-on-count]')).toHaveText('켬 4');
-    // 막힌 까닭을 단체 줄에 작은 글로(OUTSIDE-막힌단체): robots → 막아 둠, parse_empty → 사이트 구조 바뀜. 카탈로그 순서(노동당 → 녹색당).
     await expect(root(page).locator('.os-src-note.is-bad')).toHaveText(['못 읽음 · 사이트 구조 바뀜', '못 읽음 · 사이트가 자동 읽기 막음']);
-    await expect(root(page).locator('.os-src-row:has([data-os-source="kctu"]) .os-src-note')).toHaveText('마지막 10. 5. (월) 18:07');
-    // 없던 단체 켜기 = 새 줄 넣기(workspace_id·source_key·enabled만), 켠 단체 끄기 = enabled만 고치기.
     await sw('kptu').click();
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'true');
     expect(server.calls.filter(c => c.what === 'app_outside_sources' && c.method === 'POST').at(-1).body).toEqual({ workspace_id: 'w', source_key: 'kptu', enabled: true });
-    // 켜면 그 단체만 바로 한 번 읽는다(OUTSIDE-이름·바로읽기): 사용자 로그인으로 Edge read_now, 몸통은 단체 키 하나.
     await expect.poll(() => server.calls.filter(c => c.what === 'edge' && c.action === 'read_now').length).toBe(1);
-    expect(server.calls.find(c => c.action === 'read_now')).toMatchObject({ method: 'POST', auth: expect.stringMatching(/^Bearer /), body: { source: 'kptu' } });
-    // 기다리는 동안 그 단체 줄에 공용 작은 기다림 표시(wait-state.js).
     await expect(root(page).locator('.os-src-row:has([data-os-source="kptu"]) [data-os-reading] [data-wait]')).toHaveCount(1);
-    await sw('jacobin').click();
-    await expect(sw('jacobin')).toHaveAttribute('aria-checked', 'false');
-    const patch = server.calls.filter(c => c.what === 'app_outside_sources' && c.method === 'PATCH').at(-1);
-    expect(Object.keys(patch.body).sort()).toEqual(['enabled', 'updated_at']);
-    expect(patch.query).toContain('source_key=eq.jacobin');
-    expect(await noWideScroll(page)).toBe(true);
-    // 끄기는 바로 읽기를 부르지 않는다. 읽기가 끝나면 단체 줄이 마지막 읽은 시각으로 바뀐다.
     server.release();
     await expect(root(page).locator('.os-src-row:has([data-os-source="kptu"]) .os-src-note')).toHaveText('마지막 10. 6. (화) 10:00');
-    expect(server.calls.filter(c => c.action === 'read_now').map(c => c.body.source)).toEqual(['kptu']);
-
-    // 뒤로가기 한 번 = 목록(바깥 성명 화면 그대로). 칩 줄이 켠 단체대로 바뀐다.
+    // 뒤로가기 한 번 = 목록. 바로 읽은 글이 곧바로 보인다.
     await page.goBack();
-    // 바로 읽은 글이 목록에 곧바로 보이고, 위쪽 줄은 방금 읽은 시각(10:00, 08:07 예약분 뒤라 다음은 13:07).
-    await expect(posts(page)).toHaveCount(POSTS.length + 1);
-    await expect(post(page, 'n-kptu').locator('.os-title')).toHaveText('[성명] 바로 읽은 가상 성명');
-    await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 오늘 10:00 · 다음 13:07쯤');
-    await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
-    await expect(chips(page)).toHaveText(['전체', '노동', '정당']);
+    await expect(mv).toHaveCount(POSTS.length + 1);
+    await expect(row(page, 'outside:n-kptu').locator('.nw-title')).toHaveText('[성명] 바로 읽은 가상 성명');
+    await expect.poll(() => server.calls.some(c => c.what === 'app_outside_seen' && c.method === 'PATCH')).toBe(true);
+    expect(await noWideScroll(page)).toBe(true);
 
-    // 새로고침해도 켜고 끈 값은 서버에서 다시 읽는다(기기 저장 없음).
+    // 새로고침해도 마지막 탭은 서버에서 다시 읽는다(기기 저장 없음).
     await page.reload();
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
     await expect(page.locator('#outsideView')).toBeVisible();
-    await expect(chips(page)).toHaveText(['전체', '노동', '정당']);
+    await expect(tab(page, 'movement')).toHaveAttribute('aria-selected', 'true');
     expect(errors).toEqual([]);
   });
 }
+
+test('News 처음 탭: news_tab이 없으면 옛 now_tab을 바꿔 한 번 옮겨 적는다(옛 값은 그대로)', async ({ page }) => {
+  const { server } = await start(page, 1280, { now_tab: 'news' });
+  await openOutside(page, 1280);
+  await expect(tab(page, 'media')).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(() => server.prefs.value?.news_tab).toBe('media');
+  expect(server.prefs.value.now_tab).toBe('news');
+});

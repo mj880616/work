@@ -3,7 +3,7 @@
 // - 유료·로그인 기사(유료벽 표시가 보이면): 본문을 읽지 않고 공개 리드·메타 설명만(body_kind='lead', state='paywall'). 유료벽을 넘지 않는다.
 // - 봇 확인 쪽: 아무것도 저장하지 않음(state='bot_check').
 // NEWS-전면개편 P2b: 본문은 공용 추출기(_shared/feed-extract.ts) 한 번으로 뽑아 블록(화면 '원문 전체' 저장용)과 body 글자(AI·번역 재료)에 함께 쓴다.
-import { cut, decodeEntities, htmlToText, looksLikeBotCheck, oneLine } from "../outside-feed/parse.ts";
+import { bodyScopeHtml, cut, decodeEntities, htmlToText, looksLikeBotCheck, oneLine } from "../outside-feed/parse.ts";
 import { extractBlocks, failedBody, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
 
 export const BODY_MAX = 100000;      // DB 검사와 같음
@@ -19,6 +19,7 @@ export type PageInfo = {
   body: string | null;
   body_kind: "full" | "lead" | null;
   blocks: Extracted; // app_feed_bodies에 넣을 블록(같은 추출 결과)
+  paywall: string | null; // 맞은 유료벽 표시 이름(probe용 코드, 저장 안 함)
 };
 // 본문 규칙: 매체 카탈로그 extract·bodyClass 또는 채널 기사의 열린 주소 규칙(open@판).
 export type PageRule = { key: string; rule: ExtractRule; body?: RegExp; base: string };
@@ -35,15 +36,27 @@ function meta(html: string, keys: string[]): string | null {
   return null;
 }
 
-// 유료벽 표시(본문을 읽지 않는 신호). 구조화 데이터의 isAccessibleForFree=false가 가장 확실하고, 문구는 흔한 것만.
-const PAYWALL = [
-  /"isAccessibleForFree"\s*:\s*"?false"?/i,
-  /유료\s*(회원|구독자?)\s*(전용|만)/, /구독자\s*전용/, /로그인\s*(후|하시면)\s*(전문|기사|본문|이용|열람)/, /(전문|기사)\s*보기는\s*(유료|구독)/,
-  /subscribe\s+(now\s+)?to\s+(continue|read)/i, /subscribers?[- ]only/i, /this\s+(article|story)\s+is\s+for\s+subscribers/i,
-  /class\s*=\s*["'][^"']*\bpaywall\b/i,
+// 유료벽 표시(본문을 읽지 않는 신호). S51-9(11/06 probe 오탐 — 비마이너·프레시안이 유료벽 없이 lead/paywall)로 좁혔다:
+// - 페이지 전체에서 보는 것: 구조화 데이터의 isAccessibleForFree=false(매체가 스스로 밝힌 표시), class 이름이 정확히 `paywall`인 칸.
+//   (예전에는 `paywall-…`·`…-paywall`처럼 이름 일부만 맞아도 걸렸다 — 숨은 틀·광고 칸 이름.)
+// - 본문 칸 안에서만 보는 것: 문구(유료 회원 전용·구독자 전용·로그인 후 전문/기사/본문 열람 등). 댓글 칸·로그인 창·메뉴의 '로그인 후 이용' 같은 문구는 보지 않는다('이용'은 뺐다).
+// 매체 규칙 extract.free(유료벽 없음 확인)면 검사하지 않는다. 매체 규칙 extract.lead는 따로(그 매체의 실제 표시).
+const PAYWALL_PAGE: [string, RegExp][] = [
+  ["ld_not_free", /"isAccessibleForFree"\s*:\s*"?false"?/i],
+  ["class", /\bclass\s*=\s*["'](?:[^"']*\s)?paywall(?:\s[^"']*)?["']/i],
 ];
-export function looksPaywalled(html: string): boolean {
-  return PAYWALL.some((re) => re.test(html));
+const PAYWALL_BODY: [string, RegExp][] = [
+  ["phrase_ko", /유료\s*(회원|구독자?)\s*(전용|만)|구독자\s*전용|로그인\s*(후|하시면)\s*(전문|기사|본문|열람)|(전문|기사)\s*보기는\s*(유료|구독)/],
+  ["phrase_en", /subscribe\s+(now\s+)?to\s+(continue|read)|subscribers?[- ]only|this\s+(article|story)\s+is\s+for\s+subscribers/i],
+];
+// 맞은 표시의 이름(probe 숫자·코드용) 또는 null. bodyHtml: 본문 칸 HTML(없으면 문구 검사 없음).
+export function paywallMark(html: string, bodyHtml?: string | null): string | null {
+  for (const [name, re] of PAYWALL_PAGE) if (re.test(html)) return name;
+  if (bodyHtml) { const t = htmlToText(bodyHtml); for (const [name, re] of PAYWALL_BODY) if (re.test(t)) return name; }
+  return null;
+}
+export function looksPaywalled(html: string, bodyHtml?: string | null): boolean {
+  return paywallMark(html, bodyHtml) !== null;
 }
 
 // 언어: <html lang> → og:locale → 글자 비율(한글·가나·라틴).
@@ -81,17 +94,18 @@ export function readArticlePage(html: string, nowMs: number, rule?: PageRule): P
   const plain = htmlToText(html);
   const lang = pageLang(html, `${title ?? ""}\n${plain}`);
   const r: PageRule = rule ?? { key: "open", rule: { version: 1 }, base: "https://invalid.example/" };
-  if (looksLikeBotCheck(plain)) return { state: "bot_check", title: null, publisher, published_at: null, lang, body: null, body_kind: null, blocks: failedBody("bot_check", null) };
+  if (looksLikeBotCheck(plain)) return { state: "bot_check", title: null, publisher, published_at: null, lang, body: null, body_kind: null, blocks: failedBody("bot_check", null), paywall: null };
   const lead = description ? cut(description, LEAD_MAX) || null : null;
   const leadBlocks = (reason: "paywall" | "no_body") => lead ? textBlocks(lead, { key: r.key, rule: r.rule, minChars: 1, state: "lead", reason }) : failedBody(reason, null);
-  if (looksPaywalled(html) || (r.rule.lead && r.rule.lead.test(html))) {
-    return { state: "paywall", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: leadBlocks("paywall") };
+  const mark = r.rule.lead && r.rule.lead.test(html) ? "rule" : r.rule.free ? null : paywallMark(html, bodyScopeHtml(html, r.body).html);
+  if (mark) {
+    return { state: "paywall", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: leadBlocks("paywall"), paywall: mark };
   }
   const ex = extractBlocks({ html, base: r.base, title: title ?? "", key: r.key, rule: r.rule, body: r.body, minChars: FULL_MIN_CHARS });
   const body = cut(ex.text, BODY_MAX);
-  if (ex.state === "ok") return { state: "ok", title, publisher, published_at, lang, body, body_kind: "full", blocks: ex };
+  if (ex.state === "ok") return { state: "ok", title, publisher, published_at, lang, body, body_kind: "full", blocks: ex, paywall: null };
   // 본문이 짧으면 메타 설명(리드)만 body로. 블록은 그림뿐인 글이면 그 사진들, 아니면 리드.
-  return { state: "ok", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: ex.state === "image_only" ? ex : leadBlocks("no_body") };
+  return { state: "ok", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: ex.state === "image_only" ? ex : leadBlocks("no_body"), paywall: null };
 }
 
 // 겹침 판정용 제목: 구글 뉴스 꼬리 ' - 매체', 머리말([단독] 등), 공백·문장부호 떼기.

@@ -38,11 +38,11 @@ test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 오른�
   expect(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'PATCH').at(-1).body.hidden_at).toBeNull();
 
   await swipe(item(page, 'k1'), 320);
-  await expect(item(page, 'k1').locator('[data-nc-star]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(item(page, 'k1').locator('.nw-star')).toHaveCount(1);
   expect(Object.keys(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'PATCH').at(-1).body).sort()).toEqual(['starred_at', 'updated_at']);
   await expect.poll(() => server.calls.some(c => c.what === 'app_now_signals' && c.body?.news_item_id === 'k1' && c.body?.action === 'star')).toBe(true);
   await swipe(item(page, 'k1'), 320);
-  await expect(item(page, 'k1').locator('[data-nc-star]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(item(page, 'k1').locator('.nw-star')).toHaveCount(0);
   expect(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'PATCH').at(-1).body).toMatchObject({ starred_at: null, folder_id: null });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
@@ -55,7 +55,7 @@ test('Now 뉴스 412: 글 줄 위 좌우 밀기는 탭을 옮기지 않는다', 
     const t = (type, x) => { const p = new Touch({ identifier: 1, target: el, clientX: x, clientY: 300 }); el.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === 'touchend' ? [] : [p], changedTouches: [p] })); };
     t('touchstart', 300); t('touchmove', 150); t('touchend', 150);
   });
-  await expect(page.locator('#outsideRoot [data-os-tab="news"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#outsideRoot [data-os-tab="media"]')).toHaveAttribute('aria-selected', 'true');
   expect(errors).toEqual([]);
 });
 
@@ -69,7 +69,7 @@ test('Now 뉴스 1440: 줄에 마우스를 올리면 [보관][숨기기], 눌러
   await c1.hover();
   await expect(c1.locator('[data-now-act="save"]')).toBeVisible();
   await c1.locator('[data-now-act="save"]').click();
-  await expect(c1.locator('[data-nc-star]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(c1.locator('.nw-star')).toHaveCount(1);
   await c1.hover();
   await c1.locator('[data-now-act="hide"]').click();
   await expect(item(page, 'c1')).toHaveCount(0);

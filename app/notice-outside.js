@@ -2,11 +2,12 @@
 // 자리·높이는 notice-bar.js가 맡고, 이 파일은 이 줄의 상태 주인이자 유일한 렌더러다.
 // - 언제: 서울 18:10(18:07 예약 수집 뒤)부터 자정 전까지, 사회운동 Now [새로 온 것]을 마지막으로 본 시각(app_outside_seen, 서버) 뒤에 받은 글이 있을 때.
 //   재료는 이미 있는 두 표를 owner RLS로 읽기만 한다(새 서버 함수·새 표 없음). 폰 알림 한 줄(phone-push evening 묶음)은 phone-push N5 뒤 몫.
-// - [보기]: 사회운동 Now [새로 온 것]으로(들어가면 화면이 본 시각을 지금으로 바꿔 줄이 저절로 사라진다).
+// - [보기]: News [사회운동] 탭으로(news-request.mjs requestNewsTab — 화면이 아직 안 불러와졌어도. 들어가면 화면이 본 시각을 지금으로 바꿔 줄이 저절로 사라진다).
 // - ✕: '확인함' — 본 시각을 지금으로 서버에 둔다(폰·PC 같게, 이 기기에는 아무것도 저장하지 않음). 그 뒤 새 글이 들어오면 다시 뜬다.
 // - 다시 묻기: 시작할 때, 화면이 다시 보일 때·화면을 옮길 때 10분에 한 번까지. 로그인한 사람이 바뀌면 멈춘다. 로그에 글 제목을 남기지 않는다.
 import {putNotice, removeNotice} from './notice-bar.js';
 import {eveningOpen, outsideNoticeText, COUNT_CAP} from './notice-outside-model.mjs';
+import {requestNewsTab} from './news-request.mjs';
 
 const ICON = '<svg class="kptu-notice-line-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12M4 10h12M4 15h8"/></svg>';
 const KEY = 'outside-new';
@@ -32,7 +33,7 @@ export function startOutsideNotice({rt = window.KPTURuntime, win = window, now =
       el = win.document.createElement('aside');
       el.className = 'kptu-notice-line'; el.dataset.notice = KEY; el.setAttribute('aria-label', '새 성명 안내');
       el.innerHTML = `${ICON}<span role="status"></span><button type="button" class="kptu-notice-line-action" data-notice-act>보기</button><button type="button" class="kptu-notice-line-close" data-notice-close aria-label="닫기">✕</button>`;
-      el.querySelector('[data-notice-act]').onclick = () => { run++; drop(); win.KPTUOutside?.showNew?.(); win.KPTURouter?.go?.('outside', {source: 'delegated'}); };
+      el.querySelector('[data-notice-act]').onclick = () => { run++; drop(); requestNewsTab('movement'); win.KPTUOutside?.showNew?.(); win.KPTURouter?.go?.('outside', {source: 'delegated'}); };
       el.querySelector('[data-notice-close]').onclick = () => { run++; drop(); void markSeen().catch(() => {}); };
     }
     el.querySelector('[role="status"]').textContent = text;
