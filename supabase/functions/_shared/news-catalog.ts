@@ -11,24 +11,37 @@ import type { OutsideSource } from "./outside-catalog.ts";
 
 // take: 'all'(그 매체 글을 키워드 상관없이 전부 받음 — 운동·노동 매체) / 'keywords'(키워드 목록에 글자가 맞는 글만 — 종합지·방송사, NEWS-매체늘리기).
 // 없으면 'all'. 지금 카탈로그는 모두 'all'.
+// 채널 기사(열린 주소 규칙, 매체가 정해져 있지 않음) 본문 규칙. 규칙 이름 `open@판`.
+export const OPEN_ARTICLE_RULE = Object.freeze({ version: 1 });
+export const OPEN_ARTICLE_KEY = "open";
 export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords" };
 
 const article = () => "article" as const;
 
 export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   { key: "news-labortoday", name: "매일노동뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
+    // 본문 칸: 엔디소프트 기사 쪽 `#article-view-content-div`(못 찾으면 흔한 본문 칸·<article> 순서). 유료 기사는 page.ts가 앞부분만(유료벽 넘지 않음).
+    extract: { version: 1, drop: /^(article-copy|view-copyright|view-editors|tag-group|article-sns|share-btns|relation|ad-template)$/ },
+    bodyClass: /^article-view-content-div$/,
     lists: ["https://www.labortoday.co.kr/rss/allArticle.xml"], hosts: ["www.labortoday.co.kr", "labortoday.co.kr"], kindOf: article },
   { key: "news-beminor", name: "비마이너", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
+    extract: { version: 1, drop: /^(article-copy|view-copyright|view-editors|tag-group|article-sns|share-btns|relation|ad-template)$/ },
+    bodyClass: /^article-view-content-div$/,
     lists: ["https://www.beminor.com/rss/allArticle.xml"], hosts: ["www.beminor.com", "beminor.com"], kindOf: article },
   { key: "news-pressian", name: "프레시안", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
+    extract: { version: 1, drop: /^(article_ad|box_ad|article_bottom|byline|share)$/ },
     // https://www.pressian.com/rss 는 RSS 안내 HTML 쪽이라 0건이었다(11/04). 실제 피드는 /api/v3/site/rss/news(요청함은 http로 확인).
     // 카탈로그는 https만 허용(tests/security/news-feed.test.mjs)이라 https로 둔다 — 배포 전 CC가 이 주소가 열리는지 확인하고, 안 열리면 배포하지 말고 명진에게 보고(http 허용은 보안 시험을 바꾸는 결정).
     lists: ["https://www.pressian.com/api/v3/site/rss/news"], hosts: ["www.pressian.com", "pressian.com"], kindOf: article },
   { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss",
+    extract: { version: 1 },
     lists: ["https://publicservices.international/feed.xml"], hosts: ["publicservices.international"], kindOf: article },
   { key: "news-itf", name: "ITF", group: "foreign", region: "foreign", lang: "en", mode: "rss",
+    extract: { version: 1 },
     lists: ["https://www.itfglobal.org/en/rss/feed"], hosts: ["www.itfglobal.org", "itfglobal.org"], kindOf: article },
   { key: "news-labourstart", name: "LabourStart(아시아)", group: "foreign", region: "foreign", lang: "en", mode: "rss",
+    // 링크가 남의 매체라 허용 호스트 밖 — 본문은 읽지 않고 failed/off_host(4.3절). 규칙은 판 번호만.
+    extract: { version: 1 },
     lists: ["https://www.labourstart.org/rdf/labourstart.asia.rss"], hosts: ["www.labourstart.org", "labourstart.org"], kindOf: article },
 ] as NewsSource[]);
 
@@ -44,6 +57,8 @@ export function publicNewsCatalog() {
 // 링크는 구글 중계 주소 그대로 둔다(풀지 않음, N3). 누르면 브라우저가 원문으로 넘어간다.
 export const GOOGLE_NEWS: OutsideSource = Object.freeze({
   key: "news-google", name: "구글 뉴스", group: "foreign", lang: "ko", mode: "rss",
+  // 중계 주소는 읽지 않는다(N3) — 본문은 failed/relay.
+  extract: false,
   lists: [], hosts: ["news.google.com"], kindOf: article,
 }) as OutsideSource;
 export function googleNewsUrl(word: string): string {

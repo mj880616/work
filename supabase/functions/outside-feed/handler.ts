@@ -1,10 +1,12 @@
 // outside-feed: 바깥 성명 수집기(OUTSIDE-바깥성명 ③, 설계 docs/design/outside-statements.md 3.2~3.4·6절, DB migration 20261031230000).
 //
 // 입구 두 개(verify_jwt=false, 함수 코드가 막음 — collector-feed·drive-summary 예약과 같은 방식):
-// - 예약 입구(`run_plan`·`run`): `x-outside-feed-cron-secret` 헤더를 비밀값 OUTSIDE_FEED_CRON_SECRET(32자 이상)과 SHA-256 고정 길이 비교.
+// - 예약 입구(`run_plan`·`run`·`probe`): `x-outside-feed-cron-secret` 헤더를 비밀값 OUTSIDE_FEED_CRON_SECRET(32자 이상)과 SHA-256 고정 길이 비교.
 //   또는(NEWS-전면개편 P1c) 그 헤더 값의 SHA-256을 service role로 읽은 app_cron_keys('web2_feed_cron') 지문과 고정 길이 비교(_shared/cron-key.ts).
 //   둘 중 하나 맞으면 통과. 지문 행이 없거나 표를 못 읽으면 지문 길만 실패한다.
 //   비밀값이 없거나 짧거나 틀리면 401. 어느 작업공간에 넣을지는 서버가 app_outside_sources.enabled로 정한다(요청 값 안 받음).
+//   `probe`(NEWS-전면개편 P2b, 설계 news-overhaul 4.4절): 단체 키 하나 → 목록 1쪽 + 최신 글 1개를 읽어 본문 추출 결과를 숫자·코드로만 돌려준다
+//   (제목·주소·본문 없음, 저장 없음). 몸통 {}이면 카탈로그 키 목록만.
 // - 화면 입구(`catalog`·`expand`·`read_now`): 사용자 로그인(Authorization)을 Auth 서버로 확인 + 그 사람이 작업공간 owner인지 서버에서 확인.
 //   `read_now`(OUTSIDE-이름·바로읽기): 화면에서 단체를 켜면 그 단체 하나를 그 사람 작업공간에만 바로 한 번 읽는다. 단체 키 하나만 받고
 //   (주소 없음), 그 작업공간에서 켜져 있어야 하며, 마지막으로 읽은 지 READ_NOW_COOLDOWN_MS 안이면 다시 읽지 않고, 사람마다 하루
@@ -21,6 +23,7 @@ import { aiConfigFrom, callOpenAi, outputText, type Env, type Log } from "../_sh
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
+import { bodyNumbers, extractBlocks, failedBody, readFailReason, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
 import { betterTitle, pageTitleFrom, tidySummary, tidyTitle } from "../_shared/outside-tidy.ts";
 import { cut, decodeBody, extractBody, isUrlTitle, looksLikeBotCheck, NO_TITLE, oneLine, pageDate, parseFeed, parseListHtml, parseTelegram, robotsAllows, splitSentences, usableTitle, type ListItem, type ListStats } from "./parse.ts";
 
@@ -393,6 +396,50 @@ async function redateUndated(db: Db, reader: Reader, source: OutsideSource, work
   return n;
 }
 
+// ---- 본문 블록(NEWS-전면개편 P2b): 한 번 뽑아 화면 블록·문장 표·AI 재료에 함께 ------------------------------------------
+
+export const ruleOf = (source: OutsideSource): ExtractRule => source.extract || { version: 1 };
+// 글 하나의 본문 추출. page: 글 쪽을 읽었으면 그 글자·최종 주소, 못 읽었으면 실패 코드. 글 쪽을 읽지 않았으면(텔레그램·피드 본문) null.
+export function postBody(source: OutsideSource, it: ListItem, page: { ok: true; text: string; url: string } | { ok: false; code: string } | null): Extracted {
+  const rule = ruleOf(source);
+  if (source.mode === "telegram") return textBlocks(it.content ?? "", { key: source.key, rule, minChars: MIN_BODY_CHARS, photos: it.photos });
+  if (!page) {
+    if (it.content && chars(it.content) >= 200) {
+      if (it.contentHtml) {
+        const ex = extractBlocks({ html: it.contentHtml, base: it.url, title: it.title, key: source.key, rule, minChars: MIN_BODY_CHARS, fragment: true });
+        if (ex.state !== "failed") return ex;
+      }
+      return textBlocks(it.content, { key: source.key, rule, minChars: MIN_BODY_CHARS });
+    }
+    return failedBody("no_body", null);
+  }
+  if (!page.ok) return failedBody(readFailReason(page.code), null);
+  if (looksLikeBotCheck(page.text)) return failedBody("bot_check", null);
+  const title = betterTitle(it.title, pageTitleFrom(page.text), source.name) ?? it.title;
+  return extractBlocks({ html: page.text, base: page.url, title, key: source.key, rule, body: source.bodyClass, minChars: MIN_BODY_CHARS });
+}
+
+// probe: 목록 1쪽 + 최신 글 1개 → 숫자·코드만(저장 없음). 글 쪽을 읽는 조건은 run과 같다(텔레그램·피드 본문 200자 이상이면 읽지 않음).
+async function probeSource(reader: Reader, source: OutsideSource, nowMs: number) {
+  const base = { ok: true, source: source.key, mode: source.mode, extract: source.extract !== false };
+  const got = await reader.get(source, source.lists[0], source.mode === "rss");
+  if (!got.ok) return { ...base, list: got.code, listed: 0, page: null, from: null, ...bodyNumbers(failedBody(readFailReason(got.code))) };
+  const stats: ListStats = { candidates: 0 };
+  const items = source.mode === "rss" ? parseFeed(source, got.text, nowMs, 5, stats)
+    : source.mode === "telegram" ? parseTelegram(source, got.text, nowMs, 5, stats)
+    : parseListHtml(source, got.text, got.url, 5, stats, nowMs);
+  const it = items[0];
+  if (!it) {
+    const reason = stats.candidates === 0 && looksLikeBotCheck(got.text) ? "bot_check" : "no_body";
+    return { ...base, list: "ok", listed: 0, candidates: stats.candidates, page: null, from: null, ...bodyNumbers(failedBody(reason)) };
+  }
+  const feedBody = source.mode === "telegram" || (it.content !== null && chars(it.content) >= 200);
+  const page = feedBody ? null : await reader.get(source, it.url, false);
+  const ex = postBody(source, it, page);
+  return { ...base, list: "ok", listed: items.length, candidates: stats.candidates, page: page ? (page.ok ? "ok" : page.code) : null,
+    from: source.mode === "telegram" ? "telegram" : feedBody ? "feed" : "page", ...bodyNumbers(ex) };
+}
+
 async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSource, nowMs: number, startMs: number, clock: () => number, limits: RunLimits = {}): Promise<RunOut> {
   const out: RunOut = { ok: true, source: source.key, status: "ok", workspaces: 0, listed: 0, fresh: 0, inserted: 0, skipped: 0, deferred: 0, refilled: 0 };
   const budget = limits.budgetMs ?? RUN_BUDGET_MS, maxNew = limits.maxNew ?? MAX_NEW_PER_RUN;
@@ -589,7 +636,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!m) throw new Fail(401, "UNAUTHORIZED");
       }
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
-      if (cron ? action !== "run_plan" && action !== "run" : action !== "catalog" && action !== "expand" && action !== "read_now") throw new Fail(400, "UNKNOWN_ACTION");
+      if (cron ? action !== "run_plan" && action !== "run" && action !== "probe" : action !== "catalog" && action !== "expand" && action !== "read_now") throw new Fail(400, "UNKNOWN_ACTION");
       if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown = {};
       try { body = await readBoundedJson(req, { maxBytes: MAX_BODY_BYTES }); } catch { throw new Fail(400, "INVALID_BODY"); }
@@ -609,6 +656,15 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
         const reader = makeReader(doFetch, sleep, log);
         return json(await runSource(db, reader, { doFetch, sleep, log, env: deps.env }, source, nowMs, now(), now));
+      }
+
+      if (action === "probe") {
+        // 몸통 {}: 카탈로그 키 목록. {source}: 그 단체 하나(카탈로그 밖 키는 400). 켬 여부와 상관없이 읽고, 아무것도 저장하지 않는다.
+        if (exactKeys(b, [])) return json({ ok: true, sources: OUTSIDE_CATALOG.map((s) => s.key) });
+        if (!exactKeys(b, ["source"])) throw new Fail(400, "INVALID_BODY");
+        const source = sourceByKey(b.source);
+        if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
+        return json(await probeSource(makeReader(doFetch, sleep, log), source, nowMs));
       }
 
       const jwt = auth!.slice("Bearer ".length);
