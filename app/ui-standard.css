@@ -1703,3 +1703,35 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
 /* UI-줄꼬리표(S49-20, 요청함 11/04 00:17): '제목 + 오른쪽 작은 꼬리표(폴더 이름·날짜 등)' 줄의 꼬리표는 줄어들지 않고 온전히 보인다.
    제목만 남은 폭에서 …로 줄고, 꼬리표 자신이 아주 길 때만 8글자(8em)까지 보인 뒤 …로 줄인다. 새 꼬리표는 class="row-tail"만 붙인다. */
 .row-tail{ flex:none; min-width:0; max-width:var(--ds-row-tail-max,8em); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ===== UI-버튼6가지(2026-11-06 명진 요청 23:23 '버튼 모양 크기 색깔 테두리 등 전수조사 통일감', 시안 docs/design/mockups/button-six-kinds.html 승인 'ㅇ') =====
+   사이트 버튼은 이 6가지뿐이고 모양(높이·모서리·바탕·테두리·글자)은 여기 한 곳이 정한다. 화면 CSS는 자리(간격·순서)만 정한다.
+   ① 주 동작 button.primary — 진한 주 색 채움, 한 화면·창에 하나(UI-저장자리), 높이 --kptu-control-height(위 'UI-버튼통일' 그대로)
+   ② 작은 버튼 button.secondary(.ghost) — 흰 바탕·얇은 회색 선, --ds-compact-height. 지우기만 button.danger(빨강)
+   ③ 글자 버튼 button.row-act — 선·바탕 없는 작은 회색 글자(위 'UI-줄버튼' 그대로)
+   ④ 칩 button.ds-chip — 알약, --ds-compact-height-sm, 고른 것만 선택 표시 색(연한 바탕 + 선, '선택 표시 규칙')
+   ⑤ 보기 바꾸기 .ds-seg > button.ds-seg-btn — 붙은 칸 한 덩어리, --ds-compact-height, 고른 칸은 연한 바탕 + 아래 선
+   ⑥ 아이콘 button.icon-btn — ⋯ ✕ ‹ › ⤢, 선·바탕 없음(마우스를 올리면 옅은 바탕)
+   모두: 모서리는 --ds-radius-control(칩만 알약), 색은 주 색 하나 + 회색 선 하나 + 빨강은 지우기만, 누르는 범위 44px(::after),
+   눌림은 UI-누름움직임(위 공용 규칙), 꺼짐은 흐리게만. 값은 --ds-*·--kptu-* 토큰만 쓰고 숫자를 새로 정하지 않는다.
+   재발 방지: tests/button-six-kinds.test.mjs(6가지 밖 버튼·화면별 버튼 모양 선언이 기준표보다 늘면 실패). */
+button.ds-chip{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; gap:var(--ds-chip-row-gap); flex:none;
+  height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); margin:0; padding:0 var(--ds-chip-row-pad-x);
+  border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); background:var(--kptu-surface); box-shadow:none;
+  color:var(--kptu-ink); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular,400); line-height:1; white-space:nowrap; cursor:pointer; }
+button.ds-chip:is([aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-select-ink); background:var(--ds-select-bg); border-color:var(--ds-select-line); }
+.ds-seg{ display:inline-flex; align-items:stretch; flex:none; box-sizing:border-box; height:var(--ds-compact-height);
+  border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); }
+.ds-seg > button.ds-seg-btn{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:var(--ds-chip-row-gap);
+  height:auto; min-height:0; margin:0; padding:0 var(--ds-compact-pad-x); border:0; border-radius:0; background:transparent; box-shadow:none;
+  color:var(--kptu-muted); font-size:var(--ds-text-button); font-weight:var(--ds-weight-regular,400); line-height:1; white-space:nowrap; cursor:pointer; }
+.ds-seg > button.ds-seg-btn + button.ds-seg-btn{ border-left:var(--ds-line-width) solid var(--ds-line); }
+.ds-seg > button.ds-seg-btn:first-child{ border-top-left-radius:inherit; border-bottom-left-radius:inherit; }
+.ds-seg > button.ds-seg-btn:last-child{ border-top-right-radius:inherit; border-bottom-right-radius:inherit; }
+.ds-seg > button.ds-seg-btn[aria-pressed="true"]{ color:var(--ds-select-ink); background:var(--ds-select-bg); }
+.ds-seg > button.ds-seg-btn[aria-pressed="true"]::before{ content:""; position:absolute; left:20%; right:20%; bottom:var(--ds-line-width); height:calc(var(--ds-line-width) * 4); border-radius:var(--ds-line-width); background:var(--ds-select-line); pointer-events:none; }
+:is(button.ds-chip,.ds-seg > button.ds-seg-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+button.icon-btn{ border-color:transparent; background:transparent; box-shadow:none; color:var(--kptu-muted); }
+@media (hover:hover){ button.icon-btn:not(:disabled):hover,button.ds-chip:not(:disabled,[aria-pressed="true"],[aria-checked="true"]):hover,.ds-seg > button.ds-seg-btn:not(:disabled,[aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
+:is(button.ds-chip,.ds-seg > button.ds-seg-btn,button.icon-btn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:var(--ds-line-width); }
+:is(button.ds-chip,.ds-seg > button.ds-seg-btn,button.icon-btn):disabled{ opacity:.5; cursor:default; }
