@@ -398,3 +398,5 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
 .share-target-dues button[aria-pressed="true"]{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-weight:700}
 .share-target-what{margin:0;font-size:12px;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:760px){.share-target-dialog{margin:12px auto auto}}
+/* FILES-폰보기끌기 ③(S51-20): 꾹 눌러 끄는 동안 손가락을 따라가는 조각(touch-drag.js). 위치는 부품이 transform으로만 바꾼다. */
+.td-ghost{position:fixed;left:0;top:0;z-index:70;max-width:min(60vw,240px);padding:5px 10px;border:1px solid var(--kptu-primary);border-radius:8px;background:var(--kptu-surface);color:var(--kptu-ink);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:var(--kptu-shadow-float);pointer-events:none;rotate:-3deg}

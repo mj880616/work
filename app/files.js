@@ -14,6 +14,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {bindFolderPinch} from './folder-pinch.js';
+import {bindTouchDrag} from './touch-drag.js';
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
 import {folderLook} from './folder-prefs.js'; // FOLDER-순서·색 ③-2: 폴더 색·순서 읽기 사본([파일]·사진 폴더가 같이 씀)
@@ -86,6 +87,8 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 // FILES-폰보기끌기 ①(S51-20, 시안 files-phone-grid-two-drag.html ①): 목록 위 두 손가락 벌리기 = 목록 → 격자 → 큰 격자, 오므리기 = 반대(폰·두 칸의 칸 3·2칸, 폴드·PC 한 칸 4·3칸).
 //   사진은 목록·격자 모두 작은 그림(Edge thumb small · 이 폰은 앱 다리, 화면에 들어온 칸만), 폴더는 큰 폴더. 마지막 보기는 서버 view_prefs.files_look(기기 칸 · 폭 칸).
 //   격자 칸은 목록 줄과 같은 단추·같은 data-*라 누르기·꾹 누르기·끌어 놓기 길이 그대로다. 찾는 중 목록은 늘 목록.
+// FILES-폰보기끌기 ②(S51-20): 폰도 [두 칸 보기] = 위·아래 두 칸(files_two.<기기>.narrow). 폰 한 칸 흐름(나무 ⇄ 목록·뒤로가기)은 solo() 한 곳.
+// FILES-폰보기끌기 ③(S51-20): 꾹 눌러 끌기(touch-drag.js) — 폴더(같은 칸·다른 칸·▾ 나무) 위 보라 점선, 놓으면 [복사][옮기기]. 같은 저장소 옮기기는 알림 [되돌리기].
 // 저장은 서버만: 목록은 이 탭 메모리(열린 동안만), 받은 그림·PDF는 blob: 주소(메모리)로만 두고 화면을 떠나면 놓는다. 기기 저장 없음.
 // 파일 이름은 모두 글자로만 그린다(esc). 로그에 파일 이름·id를 남기지 않는다.
 
@@ -98,6 +101,8 @@ const PHONE = window.matchMedia(NARROW_QUERY);
 // 출처 켜기/끄기를 기억하는 기기 칸(폰 앱·폰 브라우저·PC, 명진 결정 H-8). 화면을 연 때 한 번 정한다. 기억 칸은 지금까지처럼 760px 기준(바꾸면 기억한 켜기/끄기가 다른 칸으로 감).
 const DEVICE = filesDeviceKind({ua: navigator.userAgent || '', narrow: !!window.matchMedia(PHONE_WIDTH_QUERY).matches});
 const WIDE = window.matchMedia('(min-width:1200px)');
+// 손가락이 주 입력인 기기(폰·폴드): 줄을 HTML 끌기(draggable)로 두지 않는다 — 안드로이드 크롬은 길게 누르면 그 끌기를 시작해 꾹 눌러 끌기(touch-drag.js)를 끊는다.
+const TOUCH = window.matchMedia('(hover: none) and (pointer: coarse)');
 const GDRIVE_SVG = brandIconSvg('gdrive', {size: 16, cls: 'fx-src-ic'});
 const PDF_LIB = new URL('./pdf-lib/pdfjs-dist-6.3.289/', import.meta.url);
 // '이 폰' 다리(폰 앱에서만 usable). phoneOff = 이번 접속에서 [이 폰]을 끔(메모리만).
@@ -837,7 +842,7 @@ function cellHtml(p, r) {
   const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
   const picked = p.picked.has(key) ? ' fx-picked' : '', cut = state.clip?.keys.includes(key) ? ' fx-cut' : '';
   const local = r.source === PC;
-  const drag = PHONE.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
+  const drag = PHONE.matches || TOUCH.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
   const fc = r.is_folder ? folderLook.color(r.source, r.item_id) : '';
   const pic = wantsThumb(r) ? thumbHtml(r, 'fx-cell-pic')
     : r.is_folder ? `<span class="fx-cell-pic fx-cell-fold fl-ico" data-kind="folder"${fc ? ` data-fc="${fc}"` : ''} aria-hidden="true">${folderShapeHtml('closed')}</span>`
@@ -851,7 +856,7 @@ function rowHtml(p, r, {withPath = false} = {}) {
   const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
   const picked = p.picked.has(key) ? ' fx-picked' : '', cut = state.clip?.keys.includes(key) ? ' fx-cut' : '';
   const local = r.source === PC; // 내 PC 줄은 이 단계에서 끌기·놓기 없음(보기·열기만)
-  const drag = PHONE.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
+  const drag = PHONE.matches || TOUCH.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
   const tags = [r.library_doc_id ? '자료실' : '', r.match_in === 'text' ? '글자 맞음' : ''].filter(Boolean).join(' · ');
   const tag = tags ? `<span class="fx-tag">${tags}</span>` : '';
   const star = r.starred ? '<span class="fx-star" aria-label="별표">★</span>' : '';
@@ -1654,7 +1659,19 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
   if (state.scope !== scope) return true;
   const note = run.failed && run.code ? (run.code === 'kept_original' ? writeDoneText('across', {kept: true}) : writeErrorText(run.code))
     : run.code === 'kept_original' ? writeDoneText('across', {kept: true}) : run.pending ? '원드라이브가 마저 복사하는 중이에요. 끝나면 곧 목록에 보여요.' : '';
-  notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped: toJobs.length ? 0 : skipped}), {error: !!run.failed, note, record: false});
+  // S51-20 ③: 같은 저장소 안 옮기기는 [되돌리기] — 옮긴 것을 원래 폴더로 다시 move(이름에 번호가 붙은 것은 빼고, 사람이 누른 것만).
+  const back = mode === 'move' && run.done && !run.failed && !run.pending ? batch.filter(r => !numbered.has(rowKey(r))) : [];
+  const undo = back.length ? async () => {
+    const groups = new Map();
+    for (const r of back) { const k = r.parent_id ?? ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); }
+    for (const [parent, rows] of groups) {
+      const d = await rt().api(FN, {method: 'POST', body: {action: 'move', source: dest.source, ids: rows.map(r => r.item_id), to: parent || null, confirm: true}, singleFlight: false, timeoutMs: 60000});
+      await applyWrite(d, touchedFolders(rows, dest));
+      if ((d?.failed || []).length) throw new Error(d.failed[0]?.error || 'move_failed');
+    }
+    return {status: 'restored'};
+  } : null;
+  notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped: toJobs.length ? 0 : skipped}), {error: !!run.failed, note, record: false, ...(undo ? {undo, label: `옮기기 ${back.length}개`} : {})});
   return true;
 }
 // 전송 줄(하단바 위): 같은 저장소 안 옮기기(state.run, 화면이 직접)가 먼저, 아니면 서버 작업표 묶음(jobStrip). 누르면 전송 목록.
@@ -2349,6 +2366,8 @@ root?.addEventListener('contextmenu', event => {
   const b = event.target.closest('[data-fx-row]');
   if (!b || state.busy) return;
   event.preventDefault();
+  // 손가락으로 누르고 있는 중이면 꾹 눌러 끌기 부품이 맡는다(떼면 고르기, 움직이면 끌기).
+  if (touchDrag?.holding()) { touchDrag.armNow(); return; }
   { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   togglePick(b.dataset.fxRow);
 });
@@ -2365,14 +2384,16 @@ root?.addEventListener('dragstart', event => {
   event.dataTransfer?.setData('text/plain', 'files-move');
   if (event.dataTransfer) event.dataTransfer.effectAllowed = two() ? 'copyMove' : 'move';
 });
-const dropAt = event => {
-  if (!drag) return null;
-  const i = two() ? paneOfEl(event.target) : -1, cross = i >= 0 && i !== drag.pane;
-  const t = event.target.closest?.('[data-fx-drop]') || (cross ? event.target.closest('[data-fx-pane-i]') : null);
-  if (!t) return null;
+// 놓을 곳: 폴더 줄·칸·나무 폴더(data-fx-drop), 두 칸이면 반대 칸(그 칸의 지금 폴더). any = 꾹 눌러 끌기(놓으면 늘 복사·옮기기를 고름).
+const dropAt = (target, {any = false} = {}) => {
+  if (!drag || !target?.closest) return null;
+  const i = two() ? paneOfEl(target) : -1, cross = i >= 0 && i !== drag.pane;
+  const t = target.closest('[data-fx-drop]') || (cross ? target.closest('[data-fx-pane-i]') : null);
+  if (!t || !root.contains(t)) return null;
   const dest = t.dataset.fxDrop ? destOf(t.dataset.fxDrop) : paneDest(state.panes[i]);
   if (!dest || dest.source === PC || hasPc(drag.rows)) return null;
-  if (cross) return xferPlan(drag.rows, dest, 'copy').ok.length || moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
+  if (drag.rows.some(r => r.is_folder && folderKey(r.source, r.item_id) === folderKey(dest.source, dest.parent))) return null;
+  if (cross || any) return xferPlan(drag.rows, dest, 'copy').ok.length || moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross: cross || any} : null;
   return moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
 };
 const dropOff = keep => {
@@ -2389,7 +2410,7 @@ root?.addEventListener('dragover', event => {
     upHit.t.dataset.fxUptext = upDropText(destNameOf(upHit.dest));
     return;
   }
-  const hit = dropAt(event);
+  const hit = dropAt(event.target);
   dropOff(hit?.t);
   if (!hit) return;
   event.preventDefault();
@@ -2409,7 +2430,7 @@ root?.addEventListener('drop', event => {
     uploadFiles(files, upHit.dest, {skipDirs: dirs.size});
     return;
   }
-  const hit = dropAt(event);
+  const hit = dropAt(event.target);
   dropOff(null);
   drag = null;
   if (!hit) return;
@@ -2418,6 +2439,31 @@ root?.addEventListener('drop', event => {
   moveRows(hit.rows, hit.dest, hit.t);
 });
 root?.addEventListener('dragend', () => { drag = null; dropOff(null); });
+// S51-20 ③ 꾹 눌러 끌기(폰·폴드 터치, 공용 부품 touch-drag.js): 꾹 누르면 집어 들고 손가락을 따라 폴더(같은 칸·다른 칸·▾ 나무) 위에서 보라 점선,
+// 놓으면 [복사][옮기기] 고르기(fx-drop-ask, PC 칸 사이 놓기와 같은 고르기). 움직이지 않고 떼면 지금처럼 고르기. 고른 것이 있으면 고른 것 모두.
+// 끌다가 칸(폰 두 칸) 또는 화면 위·아래 끝이면 저절로 굴린다. 끄는 길만 새것이고 복사·옮기기는 xferRun·moveRows 그대로.
+const touchDrag = bindTouchDrag(root, {
+  enabled: () => !state.busy && !state.xfer && !state.ask && !state.run,
+  pick: target => {
+    const b = target?.closest?.('[data-fx-row]'), i = paneOfEl(b);
+    if (!b || i < 0) return null;
+    setCur(i);
+    const key = b.dataset.fxRow, p = P(), rows = (p.picked.has(key) ? [...p.picked] : [key]).map(k => rowByKey(k, p)).filter(Boolean);
+    if (!rows.length || hasPc(rows)) return null;
+    return {key, pane: i, rows, label: rows.length > 1 ? `${rows.length}개` : rows[0].name};
+  },
+  hold: item => togglePick(item.key),
+  over: (item, el) => { drag = {pane: item.pane, rows: item.rows}; const hit = dropAt(el, {any: true}); dropOff(hit?.t); if (hit) { hit.t.classList.add('fx-drop-on'); hit.t.classList.toggle('fx-drop-pane', hit.t.matches('[data-fx-pane-i]')); } },
+  drop: (item, el, x, y) => {
+    drag = {pane: item.pane, rows: item.rows};
+    const hit = dropAt(el, {any: true});
+    dropOff(null); drag = null;
+    if (!hit) return;
+    state.dropAsk = {rows: hit.rows, dest: hit.dest, x, y}; paintDropAsk();
+  },
+  cancel: () => { drag = null; dropOff(null); },
+  scroller: el => el?.closest?.('.fx[data-fx-two="phone"] .fx-listcol') || null,
+});
 document.addEventListener('visibilitychange', () => {
   // 올리는 중 화면을 숨기면 그 자리에서 멈춤(H-6), 다시 보이면 쥐고 있던 파일로 남은 조각부터.
   if (document.visibilityState === 'hidden') upStop(); else upShow();
