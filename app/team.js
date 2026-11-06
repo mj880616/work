@@ -13,6 +13,7 @@ import {newTaskDue} from './task-due.mjs'; // S50-36: 사업 보고 후속 할 �
 // 홈 등 다른 화면이 보이기 전 정적 사슬에서 뺐다. 사업 보고 화면 자료를 읽을 때(loadForView('meetings'))·연결 다시 읽기 때 reportKit()으로 한 번 부른다.
 // 아래 이름들은 묶음이 온 뒤 채워진다 — 그리기·창 열기는 모두 그 뒤에만 불린다(renderMeetings·reportLinkLabel은 오기 전이면 그리지 않음).
 let renderFilterChips,defaultReportAt,isPhotoFile,paintLocalPhotos,REPORT_VIEW_OPTIONS,reportViewOf,shiftMonth,photosByMeeting,calendarHtml,photoViewHtml,mountPhotoView,mountStrips,PC_QUERY,NONE_KEY,sortRecentFirst,MEETING_DOCS_LABEL,meetingColumns,columnsHtml,listHtml,pickMeeting,assignMeetingColors,meetingPaletteColor,nameHash,MEETING_HUES,roundLabel,hasRound,meetingShortName,formatMeetingWhen,pickReportKind,reportWords,isMeetingKind,createFieldRows,mountSplitResize,followPane,targetList,targetsLabel,firstProjectId,saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,noteAreaFromMeetings,noteAreaNoneFromMeetings,LEGACY_NOTE,mountAreaFields,mountBigWrite,untaggedInWeek,NO_AREA,AREA_NONE,areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,defaultReportWeek,inReportWeek,undatedCount,reportWeekLabel,reportDayOf,weekOf,shiftDays;
+import {within, isLoadTimeout} from './load-deadline.js';
 let reportKitLoaded=false,reportKitFlight=null,meetingPc=null,entryRoundRows=null;
 function reportKit(){
   if(reportKitLoaded)return Promise.resolve();
@@ -51,14 +52,22 @@ function saveSession(s){session=s;window.KPTURuntime?.session?.write(s)}
 function loadSession(){return window.KPTURuntime?.session?.read?.()||null}
 async function refreshSession(){if(window.KPTURuntime?.session){const next=await window.KPTURuntime.session.refresh();session=next||null;return !!next}if(!session?.refresh_token)return false;const r=await fetch(SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});if(!r.ok){saveSession(null);return false}const d=await r.json();d.expires_at=d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600);saveSession(d);return true}
 async function ensureSession(){if(window.KPTURuntime?.session){const ok=await window.KPTURuntime.session.ensure();session=window.KPTURuntime.session.read();return ok}if(!session)return false;if((session.expires_at||0)<Math.floor(Date.now()/1000)+60)return refreshSession();return true}
+const API_MS=30000;
 async function api(path,{method='GET',body=null,auth=true,prefer=''}={}){if(auth&&!(await ensureSession()))throw new Error('로그인이 필요합니다.');const isForm=typeof FormData!=='undefined'&&body instanceof FormData;const headers={apikey:KEY};if(!isForm)headers['Content-Type']='application/json';headers.Authorization='Bearer '+(auth?session.access_token:KEY);if(prefer)headers.Prefer=prefer;const started=performance.now();let r;
+// LOAD-끝있는불러오기(S51-29): 한 번 읽기(GET)는 API_MS 안에 끝난다(받는 중 약속 teamViewFlights가 멈춘 채 다시 받기를 막지 않게). 넘으면 오류 → 화면 프로그램 받기 실패 표시([다시]).
+let text;
 try{
-  r=await fetch(SB+path,{method,headers,body:body===null?null:(isForm?body:JSON.stringify(body))});
-  window.__KPTU_STARTUP__?.request?.(SB+path,performance.now()-started,r.status);
+  const job=async signal=>{
+    r=await fetch(SB+path,{method,headers,body:body===null?null:(isForm?body:JSON.stringify(body)),signal});
+    window.__KPTU_STARTUP__?.request?.(SB+path,performance.now()-started,r.status);
+    return r.text();
+  };
+  text=String(method).toUpperCase()==='GET'?await within(job,API_MS):await job(); // 쓰기는 끊지 않는다(결과를 모르게 되지 않게)
 }catch(e){
-  window.__KPTU_STARTUP__?.request?.(SB+path,performance.now()-started,0);
+  if(!r)window.__KPTU_STARTUP__?.request?.(SB+path,performance.now()-started,0);
+  if(isLoadTimeout(e))throw new Error('요청 시간이 초과되었습니다. 다시 시도해 주세요.');
   throw e;
-}const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!r.ok)throw new Error(data?.message||data?.error_description||data?.hint||('요청 실패 '+r.status));return data}
+}let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!r.ok)throw new Error(data?.message||data?.error_description||data?.hint||('요청 실패 '+r.status));return data}
 async function rpc(name,payload={}){return api('/rest/v1/rpc/'+name,{method:'POST',body:payload})}
 async function getUser(){return api('/auth/v1/user')}
 function userFromSession(){
