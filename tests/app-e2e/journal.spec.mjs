@@ -3921,3 +3921,38 @@ test('[하루] 기억할 통화·텔레그램: 운영자 기능이 없는 작업
  await expect(group(page,'memorable')).toHaveCount(0);
  expect(asked).toEqual([]);
 });
+
+// WEEKLY-입력줄없애기(요청함 11/07 19:23): 홈 [주간 정리]에서는 아래 입력 세 줄(사업영역·날짜 칩 / 업데이트|할 일 / 입력칸)을 그리지 않는다.
+// 가리지 않고 상자 자체가 화면에 없다. 폰은 주간 정리 마지막 줄이 하단바(전환 줄·탭) 바로 위까지 오고, [하루]로 돌아오면 쓰던 글 그대로 다시 보인다.
+for(const width of [390,1440])test(`WEEKLY-입력줄없애기: [주간 정리]에는 입력줄이 없고 [하루]로 오면 쓰던 글 그대로 ${width}`,async({page})=>{
+ await weeklyFixture(page,{width});
+ await openJournal(page,width);
+ const quick=page.locator('#homeView [data-home-quick]');
+ await expect(quick).toBeVisible();
+ await quick.locator('[data-quick-input]').fill('합성 입력 글');
+ await openWeekly(page);
+ await settleBase(page);
+ await expect(page.locator('#homeView [data-home-quick]')).toHaveCount(0);
+ await expect(page.locator('#homeView [data-quick-input]')).toHaveCount(0);
+ if(width<761){
+  // 아래 여백은 입력 상자 몫 없이 전환 줄·탭만큼(내용이 화면 끝까지): 맨 아래로 내린 뒤 주간 정리 마지막 칸 아래끝이 하단 탭 위에 있다.
+  await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+  const gap=await page.evaluate(()=>{const v=document.querySelector('#homeView'),last=document.querySelector('#journalRoot [data-journal-weekly-root]'),tab=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kptu-mobile-tab-height'))||0;return {pad:parseFloat(getComputedStyle(v).paddingBottom),bottom:last.getBoundingClientRect().bottom,limit:innerHeight-tab};});
+  expect(gap.pad).toBeLessThan(80);
+  expect(gap.bottom).toBeLessThanOrEqual(gap.limit+1);
+ }
+ await page.locator('#journalRoot [data-journal-mode="day"]').click();
+ await expect(page.locator('#homeView [data-home-quick]')).toBeVisible();
+ await expect(page.locator('#homeView [data-quick-input]')).toHaveValue('합성 입력 글');
+ // 원래 자리(상태 줄 다음, 하루 카드 앞) 그대로.
+ expect(await page.evaluate(()=>document.querySelector('#journalRoot [data-home-quick]').nextElementSibling?.matches('[data-journal-day]'))).toBe(true);
+});
+// 주소에 ?mode=week를 단 채로 새로 열어도(NAV-새로고침제자리) 입력줄이 없다.
+test('WEEKLY-입력줄없애기: [주간 정리]를 연 채 새로 열어도 입력줄이 없다',async({page})=>{
+ await weeklyFixture(page,{width:390});
+ await openJournal(page,390);
+ await openWeekly(page);
+ await page.reload();
+ await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeVisible();
+ await expect(page.locator('#homeView [data-home-quick]')).toHaveCount(0);
+});

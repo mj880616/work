@@ -640,8 +640,20 @@ function weeklyKit() {
   return kitFlight;
 }
 const kitFailed = () => { const host = $('[data-journal-weekly]'); if (mode === 'week' && !W && host) host.innerHTML = failHtml({retry:'data-journal-kit-retry'}); };
+// WEEKLY-입력줄없애기(요청함 11/07 19:23): [주간 정리] 보기에서는 업데이트·할 일 입력줄(home-quick.js, 폰은 하단 탭 위 고정 세 줄)을
+// 그리지 않는다 — 홈 칸 배치의 주인인 이 함수가 그 상자를 화면에서 떼어 두고, [하루]로 돌아오면 원래 자리(아래 표시 자리)에 다시 붙인다.
+// 상자는 떼어 둔 동안에도 같은 것이라(쓰던 글·고른 곳 그대로) 다시 만들지 않는다. 폰 아래 여백은 상자가 붙어 있을 때만 그 높이를
+// 비운다(ui-standard.css '홈·바구니 빠른 입력' 여백 규칙의 :has) — 떼어 두면 주간 정리 내용이 하단바 바로 위까지 온다.
+let quickBox = null; const quickSpot = document.createComment('home-quick');
+function placeQuick() {
+  quickBox ||= root.querySelector('[data-home-quick]');
+  if (!quickBox) return;
+  if (!quickSpot.parentNode) quickBox.before(quickSpot);
+  if (mode === 'week') quickBox.remove(); else if (!quickBox.isConnected) quickSpot.after(quickBox);
+}
 function renderMode() {
   root.dataset.journalMode = mode;
+  placeQuick();
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
   days.hidden = mode === 'week';
   $('[data-journal-day]').hidden = mode === 'week';
