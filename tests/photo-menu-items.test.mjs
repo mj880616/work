@@ -105,5 +105,5 @@ test('크게 보기가 열려 있으면 작은 알림·되돌리기 알림·확�
   const over = Number(/body:has\(\[data-diary-viewer\]\) > :is\(([^)]*)\)\{\s*z-index:(\d+)/.exec(css)?.[2]);
   assert.ok(viewer > 0 && over > viewer, `viewer ${viewer} / over ${over}`);
   for (const sel of ['.kptu-ask', '.kptu-notice', '.kptu-undo-notice', '.toast']) assert.match(css, new RegExp(`body:has\\(\\[data-diary-viewer\\]\\) > :is\\([^)]*${sel.replace('.', '\\.')}`), sel);
-  assert.equal(SEND_NOTE.basketOpen, '정리함 보기');
+  assert.equal(SEND_NOTE.basketOpen, '잊지 말기 보기');
 });

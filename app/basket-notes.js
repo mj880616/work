@@ -432,7 +432,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-detach', '보드에서 빼기']] : []),
       ...(from === 'list' && view === 'board' && boards.isNamed() && !onBoard(note, boards.current()) ? [['data-nbb-attach', '보드에 붙이기']] : []),
       ['data-note-pin', notePinnedAt(note) ? '고정 풀기' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
-      ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '정리함으로 돌리기']] : []),
+      ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '잊지 말기로 돌리기']] : []),
       ['data-note-to-diary', '일기로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
       ['data-note-ai-off', noteAiOff(note) ? 'AI 제외 풀기' : 'AI에 보내지 않기'],
       ['data-note-delete', '삭제', 'basket-menu-danger']];
@@ -1179,17 +1179,17 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   async function toBasket() {
     if (!selected || editing || busy) return;
-    if (!await askConfirm(host.querySelector('[data-note-to-basket]') || document.activeElement, {text:'이 노트를 정리함 업데이트로 돌릴까요?', note:'제목은 지워지고 본문·첨부·연결은 그대로 남아요.', ok:'돌리기'})) return;
+    if (!await askConfirm(host.querySelector('[data-note-to-basket]') || document.activeElement, {text:'이 노트를 잊지 말기 업데이트로 돌릴까요?', note:'제목은 지워지고 본문·첨부·연결은 그대로 남아요.', ok:'돌리기'})) return;
     if (!selected || editing || busy) return;
     const note = selected, run = ++epoch, owner = scope(); lock(true); say('');
     try {
       await moveToBasket(note, rt);
       if (run !== epoch || owner !== scope()) return;
       notes = notes.filter(n => n.id !== note.id); links = links.filter(l => l.note_id !== note.id);
-      busy = false; close({force:true, focus:false}); status.textContent = '정리함으로 돌렸어요.'; onMovedToBasket(note.id);
+      busy = false; close({force:true, focus:false}); status.textContent = '잊지 말기로 돌렸어요.'; onMovedToBasket(note.id);
     } catch (error) {
       if (run !== epoch || owner !== scope()) return;
-      say(/정리함/.test(error?.message || '') ? error.message : '정리함으로 돌리지 못했어요. 다시 시도해 주세요.');
+      say(/잊지 말기/.test(error?.message || '') ? error.message : '잊지 말기로 돌리지 못했어요. 다시 시도해 주세요.');
     } finally { if (run === epoch && selected) lock(false); else busy = false; }
   }
   // S48-56 [일기로 보내기]: 날짜를 묻고(기본 = 노트를 만든 날) 그날 일기에 글·사진을 더한 뒤 노트는 휴지통(알림의 [되돌리기]). diary-send.js 한 곳.

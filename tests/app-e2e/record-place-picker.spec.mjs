@@ -131,11 +131,11 @@ for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 정�
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(orgBodies).toEqual([{organization_id:'o8',raw_text:'합성 기록',created_by:'home-test'}]);
  // Back to the basket at once.
- await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트 입력(정리함에 저장)');
+ await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트 입력(잊지 말기에 저장)');
  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택');
  // The place just used is first on the 최근 line (after [바구니(미분류)]), not chosen.
  await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));const sheet=dialog(page);
- await expect(sheet.locator('[data-sheet-basket] [aria-pressed="true"]')).toHaveText('정리함(미분류)');
+ await expect(sheet.locator('[data-sheet-basket] [aria-pressed="true"]')).toHaveText('잊지 말기(미분류)');
  await expect(sheet.locator('[data-sheet-recent] [data-sheet-value]')).toHaveText(['공항철도지부','서해선지부','서울교통공사노동조합']);
  await sheet.locator('[data-sheet-recent]').getByRole('button',{name:'공항철도지부',exact:true}).click();await sheet.getByRole('button',{name:'저장',exact:true}).click();
  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 공항철도지부');

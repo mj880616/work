@@ -190,7 +190,7 @@ for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes 
  await rec.locator('[data-wd-up-cancel]').click();await expect(rec.locator('[data-wd-up-edit]')).toHaveCount(0);
  // 2) The 요약 box of a linked record.
  const link=modal.locator('[data-basket-link="l-o"]');await scrollToRecord(page,link);
- await link.getByRole('button',{name:'정리함 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
+ await link.getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
  const sum=link.locator('[data-link-summary-input]');await expect(sum).toBeFocused();await expect(sum).toHaveCSS('resize','none');
  const sumBig=link.locator('[data-link-summary-big]');await expect(sumBig).toBeVisible();await expect(sumBig).toHaveAccessibleName('크게');
  // 요약 keeps letters only (결정 E): the window says so, and its [저장] hands the letters to the box; the box's own [저장] is the only save.

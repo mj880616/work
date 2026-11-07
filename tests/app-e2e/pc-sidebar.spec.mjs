@@ -31,7 +31,7 @@ test('PC 1280: 맨 위 "홈" 줄이 홈 메뉴이고 고른 표시를 가진다;
 
 test('PC 1280: [정리함]은 하위 줄 없는 한 줄, [노트]는 [일정] 다음 독립 줄, 누르면 노트 쪽을 연다',async({page})=>{
  const errors=await open(page,1280),basketRow=nav(page).locator('.nav-btn[data-view="basket"]'),noteRow=nav(page).locator('.nav-btn[data-basket-kind-nav="note"]');
- await expect(basketRow).toHaveText('정리함');await expect(nav(page).locator('.nav-sub[aria-label="정리함"]')).toHaveCount(0);
+ await expect(basketRow).toHaveText('잊지 말기');await expect(nav(page).locator('.nav-sub[aria-label="정리함"]')).toHaveCount(0);
  await expect(nav(page).locator('.nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력','할 일','일기']);
  await expect(noteRow).toBeVisible();await expect(noteRow).toHaveText('노트');
  // 순서: 정리함 / 일정 / 달력…일기 / 노트 / 사업 보고.
@@ -166,7 +166,7 @@ test('업무일지 = 홈: 옛 ?view=journal은 홈, 사이드바·폰 전환 줄
  await expect(page.locator('.schedule-switch [data-view="journal"]')).toHaveCount(0);
  expect(await bare()).toBe(0);
  // 폰: 하단 탭 6칸·메뉴 판 항목은 그대로, 홈 탭이 고른 칸.
- await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','정리함','일정','사업 보고','담당조직','메뉴']);
+ await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','잊지 말기','일정','사업 보고','담당조직','메뉴']);
  await expect(page.locator('.mobile-tabs [data-view="home"]')).toHaveAttribute('aria-current','page');
  await page.locator('#mobileMenuTab').click();
  expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','자료실','파일','HWP 편집','공유 페이지','원장','사진','News','통화','텔레그램 소식','아스날']);

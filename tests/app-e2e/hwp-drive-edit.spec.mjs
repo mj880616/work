@@ -121,10 +121,10 @@ test('overwrite asks once, says both sides change for a shared file, and sends t
     overwrite:(route,body,n)=>route.fulfill({headers:cors,json:{...replies[0],revision:'rev-'+(n+1)}}),
   });
   await editLibraryDocument(page,390);
-  await expect(status(page)).toHaveText(/이 파일은 정리함과 자료실이 같은 원본을 써요/,{timeout:60000});
+  await expect(status(page)).toHaveText(/이 파일은 잊지 말기와 자료실이 같은 원본을 써요/,{timeout:60000});
   await press(page,'hwpDriveOverwrite',390);
   const note=page.locator('.kptu-ask .kptu-ask-note');
-  await expect(note).toContainText('정리함과 자료실 양쪽에 반영돼요.');
+  await expect(note).toContainText('잊지 말기와 자료실 양쪽에 반영돼요.');
   await expect(note).toContainText('Web2 편집 백업');
   expect(await answerAsk(page,false)).toContain('덮어쓸까요?');
   expect(f.sent.overwrite).toEqual([]);

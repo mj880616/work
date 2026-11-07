@@ -35,7 +35,7 @@ const overflow=page=>page.evaluate(()=>{
 // [이름, 왼쪽 메뉴 안 버튼, 라우터 화면 이름, 노트 쪽인가]. 할 일·일기는 [일정] 아래 작은 메뉴(좁은 칸에서는 작은 그림).
 const MENU=[
   ['홈','.sidebar-brand','home'],
-  ['정리함','.nav-btn[data-view="basket"]','basket'],
+  ['잊지 말기','.nav-btn[data-view="basket"]','basket'],
   ['달력','.nav-btn[data-view="calendar"]','calendar'],
   ['할 일','.nav-sub-btn[data-view="tasks"]','tasks',false,true],
   ['일기','.nav-sub-btn[data-view="diary"]','diary',false,true],

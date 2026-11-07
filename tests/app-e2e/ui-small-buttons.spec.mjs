@@ -242,7 +242,7 @@ test('③ PC 1280: 정리함 화면 위에 [업데이트|노트] 전환 없음([
  const f=await fixture(page,{width:1280,height:900});
  await go(page,'basket');
  const sw=page.locator('#basketView .basket-kind-switch');await expect(sw).toHaveCount(0);
- const sub=page.locator('#appView > .app-nav :is([data-view="basket"],[data-basket-kind-nav])');await expect(sub).toHaveText(['정리함','노트']);
+ const sub=page.locator('#appView > .app-nav :is([data-view="basket"],[data-basket-kind-nav])');await expect(sub).toHaveText(['잊지 말기','노트']);
  const filter=await page.locator('[data-forget-view-open]').boundingBox(),rows=await page.locator('#basketView [data-basket-rows]').boundingBox();
  expect(filter.y+filter.height).toBeLessThanOrEqual(rows.y);
  await sub.nth(1).click();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();

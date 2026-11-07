@@ -58,7 +58,7 @@ function start() {
     try {
       if (window.KPTURouter?.current !== 'basket') window.KPTURouter?.go?.('basket', {allowUnloaded:true});
       await window.KPTUViewLoader?.load?.('basket');
-    } catch { /* 정리함 화면을 못 열어도 저장은 같은 길로 한다. */ }
+    } catch { /* 잊지 말기 화면을 못 열어도 저장은 같은 길로 한다. */ }
     await put();
   }
 
@@ -118,7 +118,7 @@ function start() {
       if (batch) {
         let ocrNote = '';
         // 바구니와 같은 길: 첫 파일과 글로 업데이트를 만들고 나머지 파일을 붙인 뒤, 사진이면 글자 읽기를 한다(D5).
-        await uploadBatch(batch, {raw_text:batch.note_id ? '' : raw.text, isCurrent, onOcrChange:value => { if (!value.ok) ocrNote = value.result_unknown ? '글자 읽기 결과는 정리함에서 확인해 주세요.' : '사진 글자는 읽지 못했어요.'; }});
+        await uploadBatch(batch, {raw_text:batch.note_id ? '' : raw.text, isCurrent, onOcrChange:value => { if (!value.ok) ocrNote = value.result_unknown ? '글자 읽기 결과는 잊지 말기에서 확인해 주세요.' : '사진 글자는 읽지 못했어요.'; }});
         noteId = batch.note_id || '';
         if (ocrNote) status = [status, ocrNote].filter(Boolean).join(' ');
       } else {
@@ -158,7 +158,7 @@ function start() {
     catch { result = {status:'unknown'}; }
     if (result?.status === 'deleted' || result?.status === 'missing') { refresh(); return result.status === 'deleted' ? {silent:true} : {status:'ok'}; }
     if (result?.status === 'stale') return {status:'stale'};
-    return {status:'failed', message:result?.message || '정리함에서 빼지 못했어요. 정리함에서 지워 주세요.'};
+    return {status:'failed', message:result?.message || '잊지 말기에서 빼지 못했어요. 잊지 말기에서 지워 주세요.'};
   }
 
   // [메모 달기]: 알림 자리를 한 줄 입력칸으로 바꾼다. 초점이 안에 있는 동안 알림은 사라지지 않는다(small-notice holdTimer).
@@ -187,9 +187,9 @@ function start() {
         const note = await readBasketNote(noteId);
         if (!note) throw new Error('업데이트를 찾을 수 없어요. 이미 지워졌을 수 있어요.');
         // 글 모양(doc)이 붙은 업데이트는 글자만 고치면 모양이 지워진다: 덮어쓰지 않고 정리함에서 고치게 한다.
-        if (note.doc) throw new Error('그사이 바뀐 업데이트라 메모를 달지 않았어요. 정리함에서 고쳐 주세요.');
+        if (note.doc) throw new Error('그사이 바뀐 업데이트라 메모를 달지 않았어요. 잊지 말기에서 고쳐 주세요.');
         const text = withMemo(next, note.raw_text || '');
-        if (!text || text.cut) throw new Error('글이 길어 메모를 달지 못했어요. 정리함에서 고쳐 주세요.');
+        if (!text || text.cut) throw new Error('글이 길어 메모를 달지 못했어요. 잊지 말기에서 고쳐 주세요.');
         if (scope() !== who) throw new Error('로그인 계정이 바뀌어 메모를 달지 않았어요.');
         await updateNote(noteId, {raw_text:text.text});
         refresh();

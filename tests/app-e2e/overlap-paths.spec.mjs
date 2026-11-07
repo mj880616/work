@@ -123,7 +123,7 @@ test('MTG-겹침 연결이 거절된 업데이트는 확인하지 않는다(정�
   await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',route=>route.fulfill({status:200,json:{ok:false,error:'NOTE_CHANGED'}}));
   await pick(page,q,'테스트 프로젝트','테스트 조직');
   await q.locator('[data-quick-save]').click();
-  await expect(page.locator('#toast')).toContainText('정리함에 저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
   await page.waitForTimeout(300);
   expect(calls.ai).toHaveLength(0);
   await expect(notice(page)).toHaveCount(0);

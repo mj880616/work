@@ -170,7 +170,7 @@ test('PC: where shows group › screen and the group word opens the group',async
  await page.locator('#appView>.app-nav [data-basket-kind-nav="note"]').click();
  await expect(where(page).locator('li')).toHaveText(['노트']);
  await page.locator('#appView>.app-nav .nav-btn[data-view="basket"]').click();
- await expect(where(page).locator('li')).toHaveText(['정리함']);
+ await expect(where(page).locator('li')).toHaveText(['잊지 말기']);
 });
 
 test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노트·일정',async({page})=>{
@@ -186,7 +186,7 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
  {
   await add.click();await menu.getByRole('button',{name:'업데이트'}).click();
   const editor=page.locator('#edWindow');await expect(editor).toBeVisible();
-  await expect(editor.locator('[data-edw-place]')).toContainText('정리함(미분류)');
+  await expect(editor.locator('[data-edw-place]')).toContainText('잊지 말기(미분류)');
   await expect(editor.locator('.ed-window-body .ProseMirror')).toBeVisible();
   await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  }

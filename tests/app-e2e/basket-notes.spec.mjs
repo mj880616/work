@@ -140,7 +140,7 @@ for(const width of [390,1280]){
   // UI-알림창정리(노트): 브라우저 기본 확인창 대신 공용 작은 확인창(small-notice.js askConfirm)에서 [돌리기].
   await page.locator('[data-note-more]').click();await page.locator('#noteDocMenu [data-note-to-basket]').click();
   await page.locator('.kptu-ask button',{hasText:'돌리기'}).click();
-  await expect(page.locator('[data-note-list-status]')).toHaveText('정리함으로 돌렸어요.');
+  await expect(page.locator('[data-note-list-status]')).toHaveText('잊지 말기로 돌렸어요.');
   expect(f.writes[1].query).toMatchObject({id:'eq.m1',kind:'eq.note'});expect(f.writes[1].body).toMatchObject({kind:'basket',title:null});
   await expect(noteList(page)).toHaveCount(2);
   await chooseBasketKind(page,'memo');
@@ -300,7 +300,7 @@ test('a note without body cannot go back to the basket and nothing is written',a
  await expect(page.locator('[data-note-detail] [data-basket-read-text]')).toHaveText('본문이 없는 노트입니다.');
  await page.locator('[data-note-more]').click();await page.locator('#noteDocMenu [data-note-to-basket]').click();
  await page.locator('.kptu-ask button',{hasText:'돌리기'}).click();
- await expect(page.locator('[data-note-detail] [data-basket-status]')).toContainText('정리함으로 돌릴 수 없어요');
+ await expect(page.locator('[data-note-detail] [data-basket-status]')).toContainText('잊지 말기로 돌릴 수 없어요');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 

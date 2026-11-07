@@ -58,7 +58,7 @@ for (const width of [1280, 1440]) test(`PC ${width}: 노트를 열면 상단 줄
   await clickView(page, 'home');
   await expect(where(page).locator('li')).toHaveText(['홈']);
   await page.evaluate(() => window.KPTURouter.go('basket'));
-  await expect(where(page).locator('li')).toHaveText(['정리함']);
+  await expect(where(page).locator('li')).toHaveText(['잊지 말기']);
   await chooseBasketKind(page, 'note');
   await expect(where(page).locator('li')).toHaveText(['노트']);
   // Close: the place drops the title.
@@ -75,7 +75,7 @@ for (const width of [1280, 1440]) test(`PC ${width}: 노트를 열면 상단 줄
   expect(fit.clipped).toBe(true); expect(fit.ellipsis).toBe('ellipsis'); expect(fit.h).toBeLessThan(60);
   // Going to 정리함 closes the note and clears the place.
   await page.locator('#appView > .app-nav [data-view="basket"]:visible').first().click();
-  await expect(where(page).locator('li')).toHaveText(['정리함']);
+  await expect(where(page).locator('li')).toHaveText(['잊지 말기']);
   expect(f.errors).toEqual([]);
 });
 

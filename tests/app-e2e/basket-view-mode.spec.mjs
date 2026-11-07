@@ -48,7 +48,7 @@ for(const width of [390,1280]){
   await expect(detail.locator('[data-basket-attachments] a')).toHaveText('Drive에서 열기');await expect(detail.locator('[data-basket-attachments]')).toContainText(/\d B|KB|MB/);
   await expect(detail.locator('[data-basket-text]')).toBeHidden();await expect(detail.locator('[data-basket-save]')).toBeHidden();await expect(detail.locator('[data-basket-upload]')).toBeHidden();
   // UI-디자인손질 6: big buttons [연결하기]·[할 일 만들기], "‹ 바구니" back, the rest in the note's [⋯]; no list menu on a note.
-  for(const name of ['연결하기','할 일 만들기','정리함 목록으로','이 업데이트 메뉴'])await expect(detail.getByRole('button',{name,exact:true})).toBeVisible();
+  for(const name of ['연결하기','할 일 만들기','잊지 말기 목록으로','이 업데이트 메뉴'])await expect(detail.getByRole('button',{name,exact:true})).toBeVisible();
   for(const name of ['수정','보류로','삭제'])await expect(detail.getByRole('button',{name,exact:true})).toBeHidden();
   await expect(page.locator('#basketView [data-basket-more]')).toBeHidden();await expect(page.locator('#basketView').getByRole('button',{name:'AI 분류 요청',exact:true})).toHaveCount(0);
   expect(await editableFocused(page)).toBe(false);
@@ -130,7 +130,7 @@ test('basket quick input explains a lock below the input and offers a new memo',
  const q=page.locator('#basketView [data-basket-list] [data-home-quick]'),input=q.locator('[data-quick-input]'),lock=q.locator('[data-quick-lock]');
  await expect(lock).toBeHidden();
  await input.fill('첨부와 함께 쓴 글');await q.locator('input[type=file]').setInputFiles(['a.txt','b.txt'].map(name=>({name,mimeType:'text/plain',buffer:Buffer.from(name)})));
- await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('정리함에서 확인');
+ await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('잊지 말기에서 확인');
  await expect(lock).toBeVisible();await expect(q.locator('[data-quick-lock-reason]')).toContainText('입력창을 잠갔어요');await expect(q.locator('[data-quick-new-note]')).toBeVisible();
  expect(await input.evaluate(el=>el.readOnly)).toBe(true);
  // 8-9e-2: 폰 입력칸은 하단 탭 바로 위에 붙어 맨 아래에 있으므로 잠금 안내는 입력칸 바로 위에 붙는다.
