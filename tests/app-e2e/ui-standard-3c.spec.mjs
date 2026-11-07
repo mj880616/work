@@ -65,7 +65,8 @@ const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('sp
 async function sameButtons(page,region,skip='.icon-btn'){
  const primary=await token(page,'--kptu-primary'),filled=[];
  for(const control of await region.locator('button:visible,a.mini:visible').all()){
-  if(await control.evaluate((el,skip)=>el.matches(skip)||el.matches('.chip-rows-more'),skip))continue;
+  // 칸 모양 단추(.field-btn, MTG-보고창칸정리·S52-01 ③c 자료 사업영역 칸)는 입력칸 기준(28px)이라 아래 inputs()가 본다.
+  if(await control.evaluate((el,skip)=>el.matches(skip)||el.matches('.chip-rows-more')||el.matches('.field-btn'),skip))continue;
   const s=await look(control),label=(await control.textContent()).trim();
   // UI-버튼크기: 필터 칩은 32px 알약, 전환 세그먼트(일정 창 [일정 | 할 일])는 32px 상자 안 칸. 둘 다 누르는 범위 44px.
   const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('[data-event-mode]')?'segment':'button');
@@ -82,7 +83,7 @@ async function sameButtons(page,region,skip='.icon-btn'){
  return filled;
 }
 async function inputs(region){
- for(const input of await region.locator('input:visible:not([type="checkbox"],[type="radio"],[type="file"],[type="color"],.dt-date>input),select:visible').all()){
+ for(const input of await region.locator('input:visible:not([type="checkbox"],[type="radio"],[type="file"],[type="color"],.dt-date>input),select:visible,button.field-btn:visible').all()){
   // MTG-보고창칸정리(명진 2026-10-27): 창 한 줄 입력칸 높이 46px -> 28px(공용 --ds-field-height). 날짜 칸 위에 투명하게 겹친 달력 입력(.dt-date>input)은 칸 자체(.dt-date)가 28px라 뺀다.
   const s=await look(input);expect(s.height,await input.getAttribute('id')).toBeGreaterThanOrEqual(28);expect(s.height,await input.getAttribute('id')).toBeLessThanOrEqual(30);expect(s.radius).toBe('8px');expect(s.fontWeight).toBe('400');
  }

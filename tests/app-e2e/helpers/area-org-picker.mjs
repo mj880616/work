@@ -62,3 +62,9 @@ export async function pressNamesAndSave(page, names) {
   await page.locator(`${SHEET} [data-sheet-save]`).click();
   await expect(page.locator(SHEET)).toBeHidden();
 }
+// S52-01 ③c: 값을 가진 <select>(자료실 #docProject·#libraryEditProject) 옆 칸 단추를 눌러 공용 창에서 사업영역 하나를 고른다(''는 '사업영역 없음').
+export async function pickSelectArea(page, select, id) {
+  await page.locator(`${select} + .lu-area-pick`).click();
+  await pressRow(page, id ? 'p:' + id : '');
+  await expect(page.locator(SHEET)).toBeHidden();
+}

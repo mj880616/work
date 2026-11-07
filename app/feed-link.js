@@ -2,7 +2,7 @@
 // detail with linkBoxHtml and owns its state; this part only holds the organization picker and the save call).
 // 요약 부품 통일 ② (minimal, until the shared summary part lands on main): the summary box starts with the core points
 // (feed-model.mjs linkSummaryDefault); [저장] sets the row's organization and adds that summary to the organization's 기록.
-import {createChoiceSheet, orgRow, orgGroupRows} from './choice-sheet.js';
+import {openAreaOrgPicker, usedKeysNow, orderedOrgGroups} from './area-org-picker.js';
 import {linkOrganization} from './feed-data.js';
 import {linkSummaryDefault} from './feed-model.mjs';
 
@@ -28,24 +28,20 @@ export function linkBoxHtml(box, orgs, prefix) {
 // One organization picker for both screens (ORG-고르기통일): only my organizations (feed-data.js readOrganizations → mine,
 // my-organizations.js) in the shared order (organization-order.js). The organization this row is already linked to stays
 // shown even when it is not mine, so the current link can be seen and kept; nothing else outside mine is offered.
-let sheet = null, pick = null;
-export function openOrgPicker(trigger, {orgs, mine, selected, onPick}) {
+// S52-01 ③c UI-사업영역조직고르기창: the sheet is the shared picker (area-org-picker.js), one choice: '연결 안 함' first, the groups
+// folded (a press opens one), search and the most used. onPick(id | '') as before.
+let pick = null;
+export async function openOrgPicker(trigger, {orgs, mine, selected, onPick}) {
   pick = {orgs, mine, selected, onPick};
-  sheet ||= createChoiceSheet({
-    id:'feedOrgSheet', titleId:'feedOrgSheetTitle', historyKey:'kptuFeedOrgSheet',
-    canOpen:() => !!pick, choices:async () => true,
-    render:() => {
-      const order = window.KPTUOrganizationOrder, {orgs: all, mine: my, selected: sel} = pick;
-      const offered = (all || []).filter(o => (o.active !== false && my?.has(o.id)) || o.id === sel);
-      const list = order?.forPicker ? order.forPicker(offered, sel ? [sel] : []) : offered;
-      const groups = order?.groups ? order.groups(list) : [list];
-      const row = o => orgRow(o, o.id === sel, esc);
-      const none = `<button type="button" class="home-choice-row home-choice-pick" data-sheet-value="${NONE}" aria-pressed="${!sel}"><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">연결 안 함</span></button>`;
-      return {title:'연결할 조직', search:'조직 이름 찾기', html:none + orgGroupRows(groups, row)};
-    },
-    onSelect:(_kind, value) => { const p = pick; if (p) p.onPick(value === NONE ? '' : value); },
-  });
-  return sheet.open('org', trigger);
+  const order = window.KPTUOrganizationOrder, sel = selected || '';
+  const offered = (orgs || []).filter(o => (o.active !== false && mine?.has(o.id)) || o.id === sel);
+  const list = order?.forPicker ? order.forPicker(offered, sel ? [sel] : []) : offered;
+  const groups = order?.groups ? order.groups(list) : [list];
+  const used = await usedKeysNow().catch(() => []);
+  if (!trigger?.isConnected) return;
+  const mineNow = pick;
+  return openAreaOrgPicker({kind:'org', trigger, used, multi:false, none:'연결 안 함', title:'연결할 조직', orgGroups:orderedOrgGroups(groups), selected:sel ? ['o:' + sel] : [],
+    onCommit:keys => { if (pick !== mineNow) return; const k = [...keys][0] || ''; mineNow.onPick(k.startsWith('o:') ? k.slice(2) : ''); }});
 }
 
 export async function saveLinkBox(row, box, rt = window.KPTURuntime) {

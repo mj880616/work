@@ -34,6 +34,8 @@ import {archiveFilter, boxFilter, archiveConfirmText, archivePatch, undoPatch, r
 import {deleteToTrash} from './trash-actions.js';
 import {createShareHtml} from './share-html.js';
 import {htmlState, HTML_STATE_TEXT} from './share-html-model.mjs';
+// S52-01 ③c UI-사업영역조직고르기창: 연결 사업영역은 모든 화면과 같은 고르기 창(하나만, 맨 위 '사업영역 없음').
+import {openAreaOrgPicker, usedKeysNow, catalogAreas, areaTree, areaChipText} from './area-org-picker.js';
 
 (() => {
 if (window.KPTUSharePages) return;
@@ -478,13 +480,36 @@ function renderLinks() {
 function paintStatusButtons() {
   for (const button of editorView.querySelectorAll('[data-sp-set-status]')) button.setAttribute('aria-pressed', String(button.dataset.spSetStatus === editing.status));
 }
+// S52-01 ③c: the 연결 사업영역 field is a field-like button ([data-sp-project], one per editor look) showing the chosen area
+// ('상위 › 하위') or '사업영역 없음'; a press opens the shared picker (one choice). A link the catalog no longer offers (archived,
+// legacy) reads '[현재 연결·선택 불가] …' as before and stays until another is picked. editing.project_id is the only value.
+function projectText() {
+  const id = editing?.project_id || '', catalog = window.KPTUProjectCatalog;
+  if (!id) return '사업영역 없음';
+  const d = catalog?.describe?.(id);
+  if (d?.kind === 'active') return areaChipText(areaTree(catalogAreas(catalog.snapshot().tree || [])), 'p:' + id) || d.name || '이름 없는 사업영역';
+  return d && d.kind !== 'missing' ? '[현재 연결·선택 불가] ' + (d.name || id) : '사업영역 연결';
+}
+function paintProjectButtons() {
+  if (!editing) return;
+  const text = projectText();
+  for (const b of editorView.querySelectorAll('[data-sp-project]')) { b.textContent = text; b.title = editing.project_id ? text : ''; b.classList.toggle('is-empty', !editing.project_id); b.setAttribute('aria-label', '연결 사업영역: ' + text); }
+}
 async function paintProjects() {
-  const select = editorView.querySelector('[data-sp-project]');
-  if (!select || !editing) return;
+  if (!editing || !editorView.querySelector('[data-sp-project]')) return;
   const catalog = window.KPTUProjectCatalog, ctx = rt.context.read();
-  const fill = () => { select.innerHTML = catalog?.options ? catalog.options(editing.project_id || '') : '<option value="">사업영역 없음</option>'; select.value = editing.project_id || ''; };
-  fill();
-  try { if (catalog?.load && ctx?.workspace?.id && ctx?.user?.id) { await catalog.load({workspaceId:ctx.workspace.id, userId:ctx.user.id}); if (editorView.contains(select)) fill(); } } catch {}
+  paintProjectButtons();
+  try { if (catalog?.load && ctx?.workspace?.id && ctx?.user?.id) { await catalog.load({workspaceId:ctx.workspace.id, userId:ctx.user.id}); paintProjectButtons(); } } catch {}
+}
+async function pickProject(button) {
+  const page = editing, catalog = window.KPTUProjectCatalog, ctx = rt.context.read();
+  if (!page || !catalog) return;
+  try { if (ctx?.workspace?.id && ctx?.user?.id) await catalog.load({workspaceId:ctx.workspace.id, userId:ctx.user.id}); } catch {}
+  const used = await usedKeysNow().catch(() => []);
+  if (editing !== page || !button.isConnected) return;
+  const id = page.project_id || '', rows = catalog.snapshot().tree || [];
+  await openAreaOrgPicker({kind:'area', trigger:button, areas:catalogAreas(rows), selected:id ? ['p:' + id] : [], used, multi:false, none:true,
+    onCommit:keys => { if (editing !== page) return; const k = [...keys][0] || ''; page.project_id = k.startsWith('p:') ? k.slice(2) : null; paintProjectButtons(); paintDirty(); }});
 }
 function renderEditor() {
   if (!editing) return;
@@ -504,7 +529,7 @@ function renderEditor() {
         el('div', {class:'sp-seg', role:'group', 'aria-labelledby':'spStatusLabel'},
           el('button', {type:'button', dataset:{spSetStatus:'draft'}, text:'초안'}),
           el('button', {type:'button', dataset:{spSetStatus:'published'}, text:'게시'}))),
-      el('label', {class:'sp-field'}, el('span', {text:'연결 사업영역 (선택)'}), el('select', {class:'sp-input', dataset:{spProject:''}}))),
+      el('label', {class:'sp-field'}, el('span', {text:'연결 사업영역 (선택)'}), el('button', {type:'button', class:'secondary sp-area-pick', 'aria-haspopup':'dialog', 'aria-expanded':'false', dataset:{spProject:''}}))),
     el('p', {class:'sp-hint', text:'게시 상태일 때만 링크를 받은 사람이 볼 수 있어요. 초안으로 바꾸면 모든 링크에서 바로 안 보여요.'}),
     el('section', {class:'sp-canvas', 'aria-labelledby':'spCanvasTitle'},
       el('p', {class:'sp-canvas-cap', id:'spCanvasTitle', text:'받는 사람에게 보이는 모양'}),
@@ -539,7 +564,7 @@ function renderFull() {
     el('button', {type:'button', class:'sp-tool sp-top-more', 'aria-label':'사업영역·링크·AI 초안', 'data-ctx':'off', 'aria-expanded':'false', 'aria-controls':'spTopExtra', dataset:{spTopMore:''}},
       el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'})),
     el('div', {class:'sp-top-extra', id:'spTopExtra', dataset:{spTopExtra:''}},
-      el('label', {class:'sp-top-project'}, el('span', {text:'사업영역'}), el('select', {class:'sp-top-select', dataset:{spProject:''}})),
+      el('label', {class:'sp-top-project'}, el('span', {text:'사업영역'}), el('button', {type:'button', class:'secondary sp-area-pick sp-top-area', 'aria-haspopup':'dialog', 'aria-expanded':'false', dataset:{spProject:''}})),
       el('button', {type:'button', class:'sp-tool', 'aria-expanded':'false', 'aria-controls':'spLinksPanel', dataset:{spLinksOpen:''}, text:'링크'}),
       el('button', {type:'button', class:'sp-tool', 'aria-haspopup':'dialog', dataset:{spAiDraft:''}, text:'AI 초안'})),
     el('span', {class:'sp-top-gap', 'aria-hidden':'true'}),
@@ -852,6 +877,7 @@ root.addEventListener('click', event => {
   const target = event.target.closest?.('button');
   if (!target || !root.contains(target)) return;
   const d = target.dataset;
+  if ('spProject' in d) { if (editing) void pickProject(target); return; }
   if ('spNew' in d) { if (!busy) showEditor(null); return; }
   if ('spNewHtml' in d) { shareHtml.openNew(); return; }
   if (d.spPreview) { const page = pages?.find(p => p.id === d.spPreview); if (page) void shareHtml.openPreview(page); return; }
@@ -930,7 +956,6 @@ root.addEventListener('input', event => {
 root.addEventListener('change', event => {
   if (!editing) return;
   const t = event.target;
-  if ('spProject' in t.dataset) { editing.project_id = t.value || null; paintDirty(); return; }
   if (t.dataset.spCurrent !== undefined) { const block = editing.blocks[Number(t.dataset.spCurrent)]; if (block) block.current = Number(t.value); }
 });
 root.addEventListener('keydown', event => {

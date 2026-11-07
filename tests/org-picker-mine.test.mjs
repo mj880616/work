@@ -87,7 +87,8 @@ test('고르기 칸이 있는 파일은 모두 규칙을 쓴다(허용 목록으
 test('통화·텔레그램 조직 고르기 창은 내 담당조직(과 지금 연결된 조직)만 보이고 "그 외" 묶음이 없다', () => {
   const link = source('app/feed-link.js');
   assert.doesNotMatch(link, /그 외/);
-  assert.match(link, /\(o\.active !== false && my\?\.has\(o\.id\)\) \|\| o\.id === sel/);
+  // S52-01 ③c: 창은 공용 고르기 창이 되었고 고를 수 있는 곳의 규칙은 그대로.
+  assert.match(link, /\(o\.active !== false && mine\?\.has\(o\.id\)\) \|\| o\.id === sel/);
   assert.match(source('app/feed-data.js'), /mine:myOrganizationIds\(rows, mine\)/);
 });
 
