@@ -34,6 +34,13 @@ test('S51-22 나무 ⋯ 메뉴: 이 폰은 클라우드에 복사(+쓸 수 있�
   // S52-41: 바구니 문 0.4.0+면 내 PC 파일도 클라우드로 복사·옮기기(이름·휴지통은 다음 판이라 없음).
   assert.deepEqual(ids({source: 'pc'}, {pcWrite: true}), ['open', 'copy', 'move']);
   assert.deepEqual(ids({source: 'pc', is_folder: true}, {pcWrite: true}), ['only']);
+  // S52-43 ① FILES-내PC쓰기: 0.5.0+ 문(pcEdit)이면 클라우드와 같은 항목(폴더째 복사는 다음 PR, 드라이브 줄은 이 폴더만·새 폴더).
+  const edit = {pcWrite: true, pcEdit: true};
+  assert.deepEqual(ids({source: 'pc', parent_id: 'C:\\'}, edit), ['open', 'copy', 'move', 'rename', 'trash']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, edit), ['only', 'mkdir', 'move', 'rename', 'trash']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: null}, edit), ['only', 'mkdir']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {...edit, pinned: false}), ['only', 'mkdir', 'move', 'rename', 'pin', 'trash']);
+  assert.equal(treeMenuItems({source: 'pc'}, edit).filter(x => x.last).map(x => x.id).join(), 'trash');
   assert.deepEqual(ids(null), []);
 });
 

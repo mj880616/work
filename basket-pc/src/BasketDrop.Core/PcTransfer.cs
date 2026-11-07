@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 namespace BasketDrop;
 
 /// <summary>What happened to one read, write or trash step of the door (docs/design/files-pc-drive.md 6절 ③).</summary>
-public enum PcStep { Ok, BadPath, Blocked, NotFound, NotFolder, NotFile, BadRange, Exists, Risky, TooBig, NoSpace, BadPiece, Busy, Failed }
+public enum PcStep { Ok, BadPath, Blocked, NotFound, NotFolder, NotFile, BadRange, Exists, Risky, TooBig, NoSpace, BadPiece, Busy, Failed, OtherDrive }
 
 public sealed record PcRead(PcStep Result, byte[] Bytes, long Size);
 
