@@ -432,6 +432,8 @@ jobs:
         run: node --test tests/wait-state.test.mjs
       - name: Check one shared upload time budget (UPLOAD-올리기안됨)
         run: node --test tests/upload-budget.test.mjs
+      - name: Check picture recognition without a file type (UPLOAD-올리기안됨)
+        run: node --test tests/picture-file.test.mjs
 
       - name: Check loader preload lists (PERF-첫로딩 P3)
         run: node --test tests/loader-preload.test.mjs
