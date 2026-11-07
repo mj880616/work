@@ -246,6 +246,20 @@
 .fx-bar:has(> [data-fx-send]) { background:var(--kptu-primary-soft); border-bottom-color:var(--kptu-border-strong); padding:3px 4px 3px 10px; }
 .fx-bar:has(> [data-fx-send]) .fx-bar-t { color:var(--kptu-primary-text); font-weight:600; font-size:13px; }
 .fx-ptop .fx-sort { background:var(--kptu-surface); border-color:var(--kptu-border); }
+/* S52-07 FILES-칸출처고르기(시안 morning-1107/4 1-A): 칸 머리 '원드라이브 ⌄' → 출처 네 줄. 목록은 칸 머리 아래 한 줄을 통째로 쓴다(칸이 짧아도 잘리지 않고 하단바에 가리지 않게).
+   단추는 공용 글자 버튼(row-act)이고 여기서는 칸 머리 안 자리·굵기만 정한다. 꺾쇠는 고르기 표시(폴더 펼침 세모 아님). */
+.fx-ptop { flex-wrap:wrap; }
+.fx-psrc-wrap { display:contents; }
+.fx-ptop .fx-psrc { flex:none; display:inline-flex; align-items:center; gap:4px; max-width:46%; padding:4px 6px; color:var(--kptu-text); font-size:13px; font-weight:600; }
+.fx-psrc .fx-psrc-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fx-psrc-caret { flex:none; width:5px; height:5px; margin:0 2px 3px 2px; border-right:1.5px solid var(--kptu-muted); border-bottom:1.5px solid var(--kptu-muted); transform:rotate(45deg); }
+.fx-psrc[aria-expanded="true"] .fx-psrc-caret { margin:3px 2px 0 2px; transform:rotate(225deg); }
+.fx-psrc-menu { order:9; flex:1 0 100%; display:flex; flex-direction:column; margin:0 -6px 0 -8px; padding:2px 0; border-top:.5px solid var(--kptu-border); background:var(--kptu-surface); }
+.fx-psrc-menu .fx-psrc-item { display:flex; align-items:center; gap:6px; width:100%; padding:9px 12px; color:var(--kptu-text); font-size:13px; text-align:left; }
+.fx-psrc-menu .fx-psrc-item.on { color:var(--kptu-primary-text, var(--kptu-primary)); font-weight:600; }
+.fx-psrc-menu .fx-psrc-item[disabled] { opacity:.55; cursor:default; }
+.fx-psrc-on { margin-left:2px; }
+.fx-psrc-why { margin-left:auto; color:var(--kptu-muted); font-size:11px; font-weight:400; }
 /* FILES-통합 2-④ 올리기·별표(S49-33, 시안 ⑦ drop-hint). 바탕화면 파일을 칸·폴더 줄에 끌어 오면 점선 + '여기 놓으면 ○○에 올리기'. */
 .fx-listcol.fx-drop-up { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; }
 .fx-listcol.fx-drop-up::after { content:attr(data-fx-uptext); position:absolute; left:50%; top:min(40%, 200px); transform:translate(-50%,-50%); border:1px dashed var(--kptu-primary); background:var(--kptu-primary-soft); color:var(--kptu-primary-text); padding:8px 14px; border-radius:8px; font-size:12px; white-space:nowrap; max-width:calc(100% - 24px); overflow:hidden; text-overflow:ellipsis; pointer-events:none; }

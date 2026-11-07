@@ -29,8 +29,8 @@ test('폴드 884: 두 칸을 켜 둔 기기 — 칸마다 따로 위치(▾ 나�
   await expect(pane(page, 1)).toBeVisible();
   // 폴드 두 칸은 왼쪽 나무 대신 칸 위 ▾. 왼쪽 = 첫 저장소 맨 위(원드라이브), 오른쪽 = 다른 저장소 맨 위(구글 드라이브).
   await expect(root(page).locator('[data-fx-tree]')).toBeHidden();
-  await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('원드라이브');
-  await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('구글 드라이브');
+  await expect(pane(page, 0).locator('.fx-ptop .fx-psrc-name')).toHaveText('원드라이브');
+  await expect(pane(page, 1).locator('.fx-ptop .fx-psrc-name')).toHaveText('구글 드라이브');
   await expect(pane(page, 0)).toHaveClass(/fx-cur/);
   // 왼쪽 칸 ▾ → 그 칸 위로 나무 → 구글 드라이브 › 가짜 업무 공간.
   await pane(page, 0).locator('[data-fx-pdrop]').click();
@@ -168,8 +168,8 @@ test('폰 412: [두 칸 보기] → 위·아래 두 칸 · 칸마다 ▾ · 지�
   await expect(root(page).locator('[data-fx-two]')).toHaveText('한 칸 보기');
   await expect.poll(() => prefs.value?.files_two?.phone).toEqual({ narrow: true });
   // 위 칸 = 첫 저장소 맨 위(원드라이브), 아래 칸 = 다른 저장소 맨 위(구글 드라이브). 위아래로 쌓이고 폭은 화면 가득.
-  await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('원드라이브');
-  await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('구글 드라이브');
+  await expect(pane(page, 0).locator('.fx-ptop .fx-psrc-name')).toHaveText('원드라이브');
+  await expect(pane(page, 1).locator('.fx-ptop .fx-psrc-name')).toHaveText('구글 드라이브');
   const a = await pane(page, 0).boundingBox(), b = await pane(page, 1).boundingBox();
   expect(b.y).toBeGreaterThanOrEqual(a.y + a.height - 2);
   expect(Math.abs(a.width - b.width)).toBeLessThan(2);

@@ -8,13 +8,13 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // S51-8 NEWS P4b: DB 먼저(S51-6) 넣은 news_tab·news_font를 화면 허용 목록에도 더했다. 이제 DB에만 있는 칸은 없다.
 // S51-20 FILES-폰보기끌기 ①: DB 먼저(20261106200000) 넣은 files_look을 화면 허용 목록에도 더했다.
 // S51-22 '최근' 상자 접기: DB 먼저(20261106233000) recent_folded를 받고, 화면 허용 목록에도 더했다. 
-// S52-07 FILES-칸출처고르기 ①: DB 먼저(20261107110000) files_panes를 받는다. 화면은 다음 PR에서 허용 목록에 더한다.
-const DB_ONLY = ['files_panes'];
+// S52-07 FILES-칸출처고르기: DB 먼저(20261107110000) files_panes를 받고, ②에서 화면 허용 목록에도 더했다. DB에만 있는 칸은 없다.
+const DB_ONLY = [];
 test('허용 칸이 DB 검사(마지막 migration, S51-22 recent_folded 위에 S52-07 files_panes 더함)와 같다', () => {
   const sql = read('supabase/migrations/20261107110000_profile_view_prefs_files_panes.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 45);
+  assert.equal(KEYS.length, 46);
   for (const v of ['all', 'movement', 'media', 'archive']) assert.equal(validValue('news_tab', v), true, v);
   for (const v of ['outside', 'news', 'saved', 'search', '', null, 1]) assert.equal(validValue('news_tab', v), false, String(v));
   for (const v of ['s', 'm', 'l']) assert.equal(validValue('news_font', v), true, v);
