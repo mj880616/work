@@ -7,7 +7,10 @@ const wired = new WeakSet();
 // QA-주간정리메뉴간헐: 화면은 늦게 도착한 읽기마다 그 자리를 다시 그린다(그리는 곳은 화면마다 하나). 다시 그리면 ⋯ 도 새로 만들어져 닫힌 채
 // 그려졌고, 열어 둔 메뉴가 사용자가 누르기 전에 닫혔다. 열린 ⋯ 하나를 기억해(메모리만), 같은 줄의 ⋯ 를 다시 만들 때 열린 채로 만든다.
 // 같은 줄 = 읽기 이름·data-*·메뉴 버튼 data-* 가 모두 같은 것. 한 번 그리는 동안 같은 열쇠가 둘이면 처음 것 하나만 연다.
-const keyOf = new WeakMap(), fresh = new WeakSet();
+// S52-20 재발(CI 두 번): 한 번의 일 안에서 이어 두 번 다시 그리면, 처음 다시 그린 ⋯ 가 '방금 만든 것'이라 이어받지 못해 닫혔다.
+// 이제는 '아직 누구에게도 물려주지 않은' 열린 ⋯ 에서 이어받는다 — 이어 그리기는 몇 번이든 열린 채. 같은 열쇠 두 줄은 처음 것만:
+// 물려준 ⋯ 는 다시 물려주지 않고, 이번 그리기에서 막 이어받아 아직 화면에 붙지 않은 ⋯(born)도 물려주지 않는다.
+const keyOf = new WeakMap(), handed = new WeakSet(), born = new WeakSet();
 let openBox = null;
 function wire(doc) {
   if (wired.has(doc)) return;
@@ -46,11 +49,9 @@ export function rowMore(doc, {label, items, data = {}}) {
   keyOf.set(box, key);
   // 지금 열린 ⋯(닫으면 .open 이 바로 false)와 같은 줄을 다시 그리는 중이면 열린 채로 — 지연 덮어쓰기 없이 만들 때 한 번.
   // (열린 직후 toggle 알림이 오기 전에 다시 그려도 되게, 기억한 것이 없으면 문서에서 열린 ⋯ 를 찾는다.)
-  const cur = openBox?.open ? openBox : doc.querySelector?.('details.row-more[open]');
-  if (cur && cur !== box && !fresh.has(cur) && keyOf.get(cur) === key) {
-    box.open = true; openBox = box;
-    for (const b of [cur, box]) { fresh.add(b); queueMicrotask(() => fresh.delete(b)); }
-  }
+  const can = b => b && b !== box && b.open && !handed.has(b) && (b.isConnected || !born.has(b));
+  const cur = can(openBox) ? openBox : [...(doc.querySelectorAll?.('details.row-more[open]') ?? [])].find(can);
+  if (cur && keyOf.get(cur) === key) { box.open = true; openBox = box; handed.add(cur); born.add(box); queueMicrotask(() => born.delete(box)); }
   const menu = doc.createElement('div'); menu.className = 'row-more-menu'; menu.setAttribute('role', 'group'); menu.setAttribute('aria-label', label);
   for (const item of items) {
     const b = doc.createElement('button'); b.type = 'button'; b.textContent = item.text;
