@@ -214,6 +214,34 @@ import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-m
       week.laneCount=Math.max(week.laneCount,lane);
     });
   }
+  // S52-19 CAL-확대높이따로(명진 11/07): 두 손가락으로 키운 동안은 제목이 줄을 바꿔 높이가 저마다 다르다. 한 주 가로 줄(lane)을 7일이
+  // 같이 쓰면 그 줄에서 가장 긴 제목 높이로 같은 줄 일정이 다 늘어나므로, 여러 날에 걸친 띠(span>1)만 위쪽 가로 줄로 잇고
+  // 하루짜리 일정·할 일은 날마다 따로 쌓는다(자기 글 길이만큼). 처음 크기·PC는 줄 높이가 고정이라 기존 가로 줄 그대로.
+  function zoomStacks(week){
+    const bands=[],lanes=[],stacks=Array.from({length:7},()=>[]);
+    week.segments.forEach(seg=>{
+      if(seg.span<=1){stacks[seg.startCol].push(seg);return}
+      let lane=0;
+      for(;lane<lanes.length;lane++)if(lanes[lane].every(x=>seg.endCol<x.startCol||seg.startCol>x.endCol))break;
+      (lanes[lane]||(lanes[lane]=[])).push(seg);
+      bands.push({...seg,lane});
+    });
+    // 하루짜리는 그 날 띠 아래부터: 그 날에 걸친 띠의 마지막 줄 다음 칸에서 시작해 맨 아래 줄(늘어나는 줄)까지 걸친다.
+    const top=Array.from({length:7},(_,col)=>Math.max(0,...bands.filter(b=>b.startCol<=col&&b.endCol>=col).map(b=>b.lane+1)));
+    return {bands,bandLanes:lanes.length,stacks,top};
+  }
+  function appendZoomStacks(week,layer){
+    const z=zoomStacks(week);
+    layer.style.setProperty('--cmv-band-lanes',String(z.bandLanes));
+    z.bands.forEach(seg=>layer.appendChild(eventButton(seg)));
+    z.stacks.forEach((list,col)=>{
+      if(!list.length)return;
+      const stack=document.createElement('div');stack.className='cmv-day-stack';stack.dataset.date=key(addSeoulDays(week.start,col));
+      stack.style.gridColumn=String(col+1);stack.style.gridRow=`${z.top[col]+1} / ${z.bandLanes+2}`;
+      list.forEach(seg=>{const b=seg.ev.source==='task'?cellTaskButton(seg):eventButton(seg);b.style.removeProperty('grid-column');b.style.removeProperty('grid-row');stack.appendChild(b)});
+      layer.appendChild(stack);
+    });
+  }
   function timeLabel(ev){
     if(ev.allDay)return '';
     return seoulClock(ev.start);
@@ -315,6 +343,7 @@ import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-m
           else for(let col=seg.startCol;col<=seg.endCol;col++)hidden[col]++;
           return;
         }
+        if(zoomMode)return;
         // Keep weekly lanes; only clip pieces hidden by this date's unchanged slot limit.
         let run=null;
         const appendRun=()=>{if(run)layer.appendChild(run.ev.source==='task'?cellTaskButton(run):eventButton(run));run=null};
@@ -326,6 +355,7 @@ import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-m
         }
         appendRun();
       });
+      if(phone&&zoomMode)appendZoomStacks(week,layer);
       // 칸 위쪽 '그 날 창 열기' 범위: 그 날짜에 보이는 줄 수(+n 줄 포함)까지.
       for(let col=0;col<7;col++){
         const cap=mq760.matches?dayCaps[col]:lanes;

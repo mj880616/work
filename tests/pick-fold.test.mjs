@@ -60,7 +60,6 @@ const SHORT_OR_OTHER = {
   'markdown-render.mjs': '글 안 할 일 표시(읽기 전용)',
   'suborganizations.js': '일정의 관련 담당조직은 내 담당만(짧음), 담당자 고르기는 사람 몇 명',
   'task-row-view.js': '할 일 완료 체크',
-  'team.js': '표시할 Google 캘린더(몇 개)',
 };
 const walk = dir => readdirSync(dir).flatMap(name => { const p = join(dir, name); return statSync(p).isDirectory() ? walk(p) : [p]; });
 const files = walk(APP).map(p => relative(APP, p).split('\\').join('/')).filter(f => /\.(m?js)$/.test(f) && !SKIP.test(f));

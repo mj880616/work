@@ -38,7 +38,8 @@ async function sameButtons(region,height,quickHeight=height){
   const want=await control.evaluate(el=>{
    const seg=el.closest('.home-quick-modes');
    const r='8px';
-   if(seg){const cells=[...seg.querySelectorAll('button')],i=cells.indexOf(el);return {min:30,max:32,radius:i===0?`${r} 0px 0px ${r}`:i===cells.length-1?`0px ${r} ${r} 0px`:'0px'};}
+   // UI-보기탭한모양(S52-17): 공용 ⑤ 보기 바꾸기 — 칸은 연한 알약(32px) 안의 26px 알약(누른 직후 눌림 움직임으로 조금 작게 잴 수 있음).
+   if(seg)return {min:24,max:26,radius:'999px'};
    // UI-창아래버튼통일(11/07): 창 아래 줄(.save-row) 안 저장·보조·지우기는 한 가족 36px.
    if(el.matches(':is(.modal-action-footer,.save-row) button:is(.primary,.secondary,.ghost,.danger)'))return {min:36,max:36,radius:'8px'};
    // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px. UI-업데이트편집한줄: 수정 화면 버튼 줄과 [첨부 저장]도 32px.
@@ -50,7 +51,9 @@ async function sameButtons(region,height,quickHeight=height){
   // UI-PC버튼36: the quick input's [추가] is the input height on PC (quickHeight); other main buttons keep --ds-control-height.
   // UI-버튼전수조사(2026-10-24): 46px(--ds-control-height) 버튼은 없앴다. 채운 버튼(주 동작)은 36px(--kptu-control-height), 나머지는 작은 버튼 32px. 누르는 범위 44px.
   else{const h=await control.evaluate((el,q)=>el.matches('.home-quick-save')?q:el.matches('.primary,.quick-pill-primary,[data-basket-save]')?36:32,quickHeight);expect(Math.abs(s.height-h),label).toBeLessThanOrEqual(0.5);expect(s.radius,label).toBe('8px');expect(await control.evaluate(el=>{const r=el.getBoundingClientRect().height,a=getComputedStyle(el,'::after');return a.content==='none'?r:Math.max(r,parseFloat(a.height)||0,parseFloat(a.minHeight)||0)}),label+' 누르는 범위').toBeGreaterThanOrEqual(44);}
-  expect(s.fontSize).toBe('13px');expect(s.fontWeight).toBe('500');expect(s.shadow).toBe('none');expect(s.image).toBe('none');
+  // UI-보기탭한모양(S52-17): 보기 바꾸기의 고른 칸만 굵게(600)·흰 알약 그림자(--ds-seg-on-shadow).
+  const strong=await control.evaluate(el=>el.matches('.ds-seg .ds-seg-btn:is([aria-pressed="true"],[aria-checked="true"]),.ds-seg-group:has(> [aria-pressed="true"]) > [aria-pressed="true"]'));
+  expect(s.fontSize).toBe('13px');expect(s.fontWeight).toBe(strong?'600':'500');if(!strong)expect(s.shadow).toBe('none');expect(s.image).toBe('none');
  }
  return shaped;
 }
@@ -64,14 +67,15 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  const quickHeight=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-control-height'))),inputHeight=quickHeight;
  expect(height).toBe(46);expect((await look(save)).height).toBe(quickHeight);expect(quickHeight).toBe(36);
  const primary=await token(page,'--kptu-primary'),onPrimary=await token(page,'--kptu-on-primary');
- // Home tabs: one height; the selected tab is gray whichever it is (UI-선택표시통일 결정 B), the others white.
+ // Home tabs: one height; UI-보기탭한모양(S52-17): 공용 ⑤ 보기 바꾸기 — 고른 칸만 흰 알약(--ds-seg-on, [업데이트 ▾]는 두 칸 묶음이 알약) + 진한 글자, 나머지는 칠하지 않음.
+ const pill=locator=>locator.evaluate(el=>getComputedStyle(el.closest('.ds-seg-group')||el).backgroundColor);
  const kinds={update:'--ds-kind-other',task:'--ds-kind-other'};
  for(const [mode,kind] of Object.entries(kinds)){
   const tab=quick.locator(`[data-quick-mode="${mode}"]`);
   if(width<761)await tab.tap();else await tab.click();
   await expect(tab).toHaveAttribute('aria-pressed','true');
-  const s=await look(tab);expect(s.bg).toBe(await token(page,'--ds-select-bg'));expect(s.fg).toBe(await token(page,'--ds-select-ink'));
-  for(const other of Object.keys(kinds).filter(m=>m!==mode))expect((await look(quick.locator(`[data-quick-mode="${other}"]`))).bg).toBe(await token(page,'--kptu-surface'));
+  const s=await look(tab);expect(await pill(tab)).toBe(await token(page,'--ds-seg-on'));expect(s.fg).toBe(await token(page,'--kptu-ink'));
+  for(const other of Object.keys(kinds).filter(m=>m!==mode))expect(await pill(quick.locator(`[data-quick-mode="${other}"]`))).toBe('rgba(0, 0, 0, 0)');
   const filled=await look(save);expect(filled.height).toBe(quickHeight);expect(filled.bg).toBe(primary);expect(filled.fg).toBe(onPrimary);
   if(mode!=='update')expect((await quick.locator('[data-quick-input]').boundingBox()).height).toBe(inputHeight);
   expect(await save.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);

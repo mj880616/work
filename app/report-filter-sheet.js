@@ -7,7 +7,7 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&l
 let sheet = null, current = null;
 
 function rowHtml(key, o, selected) {
-  const dot = o.color ? `<span class="filter-chip-dot" style="background-color:${esc(o.color)}" aria-hidden="true"></span>` : '';
+  const dot = o.color ? `<span class="filter-chip-dot ui-color-dot" style="background-color:${esc(o.color)}" aria-hidden="true"></span>` : '';
   return `<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:0" data-depth="0" data-sheet-value="${esc(key + ':' + o.value)}" aria-pressed="${o.value === selected}" title="${esc(o.label)}"><span class="home-choice-check" aria-hidden="true"></span>${dot}<span class="home-choice-name">${esc(o.label)}</span></button>`;
 }
 export function reportFilterHtml(sections) {

@@ -4,10 +4,10 @@
 <body>
   <div id="googleCalendarControls"></div>
   <div id="googleCalendarList">
-    <label><input type="checkbox" data-google-cal="cal-a" checked> A</label>
-    <label><input type="checkbox" data-google-cal="cal-b"> B</label>
+    <button type="button" class="ds-chip cal-chip" data-dot-toggle data-google-cal="cal-a" aria-pressed="true"><span class="ui-color-dot" data-cp-dot="cal-a" aria-hidden="true"></span><span class="cal-chip-name">캘린더 A</span></button>
+    <button type="button" class="ds-chip cal-chip" data-dot-toggle data-google-cal="cal-b" aria-pressed="false"><span class="ui-color-dot" data-cp-dot="cal-b" aria-hidden="true"></span><span class="cal-chip-name">캘린더 B</span></button>
+    <span id="cpSaved" class="cal-saved" role="status" aria-live="polite"></span>
   </div>
-  <button id="saveGooglePrefs" type="button">저장</button>
   <div id="monthTitle">2026년 9월</div>
   <div id="calendarGrid"></div>
   <script>
