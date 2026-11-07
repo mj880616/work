@@ -332,3 +332,13 @@
   .fx[data-fx-two="fold"]:not([data-fx-tree-shut]) .fx-cols { display:grid; grid-template-columns:minmax(180px, 26%) minmax(0, 1fr); }
   .fx[data-fx-two="fold"]:not([data-fx-tree-shut]) .fx-tree { display:block; }
 }
+
+/* FILES-폴더고정(S52-41 ④): 나무 맨 위 '고정한 폴더' 상자 — 줄 왼쪽 ⠿(공용 icon-btn), 오른쪽 흐린 출처 글자(ft-num). 연결 안 된 줄은 공용 흐림(ft-off).
+   나무의 고정한 폴더는 이름 옆 작은 핀 그림. 끌기 표시는 공용 reorder-drag.js(re-*). */
+.fx-pin { display:flex; align-items:center; min-width:0; }
+.fx-pin > .ft-row { flex:1 1 auto; min-width:0; }
+.fx-pin-grip { flex:none; width:20px; min-width:20px; padding:0; color:var(--kptu-faint); cursor:grab; font-size:12px; }
+.fx-pin .ft-num { font-size:11px; color:var(--kptu-faint); }
+.fx-pinned > .ft-main .ft-name::after { content:''; display:inline-block; width:10px; height:10px; margin-left:3px; vertical-align:-1px; background:var(--kptu-faint); -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 1.8h4l-.6 4.2 2.4 2.4H4.2l2.4-2.4zM8 8.4v5.8' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center/contain; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 1.8h4l-.6 4.2 2.4 2.4H4.2l2.4-2.4zM8 8.4v5.8' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center/contain; } /* 공용 tree-icons.js 'pin'과 같은 그림 */
+.fx-psrc-pin .fx-psrc-why { margin-left:auto; }
+.fx-pin.re-dragging { opacity:.55; }

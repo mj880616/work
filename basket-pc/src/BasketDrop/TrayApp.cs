@@ -250,7 +250,7 @@ internal sealed class TrayApp : ApplicationContext
                 var files = new PcFiles(AppPaths.Root);
                 _door = PcDoor.Open(files, new PcShell(), _webUsersCached,
                     ct => PcDoor.OwnUserIdAsync(_auth, ct), _log, typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "0",
-                    transfer: new PcTransfer(files, AppPaths.Root));
+                    transfer: new PcTransfer(files, AppPaths.Root), pins: new PcPins(Path.Combine(AppPaths.Root, "pc-pins.json"), AppPaths.Root));
                 _log.Write(LogCode.DoorOn);
             }
             catch (PortsBusyException)

@@ -29,6 +29,8 @@ import {folderShapeHtml} from './folder-look-model.mjs';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {openRowMenu, appMenuPoint} from './row-menu.js';
 import {treeMenuItems} from './files-tree-menu.mjs';
+import {PINS_MAX, pinParse, pinKey, pinsClean, pinHas, pinAdd, pinRemove, pinMove, pinStep, pinView} from './files-pins-model.mjs';
+import {mountReorder} from './reorder-drag.js';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
@@ -111,6 +113,10 @@ import {within, isLoadTimeout} from './load-deadline.js';
 // FILES-두칸나무접기(S52-41 ③, 명진 결정 (가) 11/08, 시안 files-two-pane-tree.html): 두 칸 보기(폴드 펼침·PC)면 왼쪽 나무를 접어 두고 맨 위 줄 왼쪽 ◫로 열고 닫는다
 //   (서버 view_prefs.files_tree.<기기>.<fold|wide>, 없으면 접힘 — 적용 전에는 이번 접속만). 나무에서 누른 폴더는 지금 칸(초록 테두리)에 열린다. 칸 위 [출처 ▾] 맨 위에 별표·큰 파일.
 //   나무 폴더 줄도 끌어서 칸·다른 나무 폴더에 놓을 수 있다(칸에 놓으면 [복사][옮기기]). 한 칸 보기·폰은 그대로.
+// FILES-폴더고정(S52-41 ④, 시안 files-pinned-folders.html): 나무 맨 위(별표 위) '📌 고정한 폴더' 상자 — 어느 출처 폴더든, 줄 오른쪽 흐린 출처 글자, 누르면 그 폴더(두 칸이면 지금 칸),
+//   ⠿(왼쪽, 공용 reorder-drag.js)로 순서. 폴더 ⋯·PC 우클릭 [위에 고정]·[고정 풀기], 나무 이름 옆 작은 📌, 칸 위 [출처 ▾] 맨 위에도.
+//   클라우드 고정은 서버 view_prefs.files_pins('od:<id>'·'gd:<id>', 12개까지, 모든 기기 같게, 별표와 따로 — 적용 전에는 이번 접속만).
+//   내 PC 고정은 그 PC에만(바구니 PC 앱 문 /v1/pins, 서버·브라우저 저장소·로그에 경로 없음) — 고정한 그 PC에서만 보인다. 출처를 껐거나 연결이 끊기면 흐리게 '연결 안 됨'(지우지 않음).
 // 저장은 서버만: 목록은 이 탭 메모리(열린 동안만), 받은 그림·PDF는 blob: 주소(메모리)로만 두고 화면을 떠나면 놓는다. 기기 저장 없음.
 // 파일 이름은 모두 글자로만 그린다(esc). 로그에 파일 이름·id를 남기지 않는다.
 
@@ -252,6 +258,101 @@ const treeLayout = () => (WIDE.matches ? 'wide' : 'fold');
 const treeMem = new Map();
 const treeOpen = () => (treeMem.has(treeLayout()) ? treeMem.get(treeLayout()) : viewPrefs.getFilesTree?.(DEVICE)?.[treeLayout()] === true);
 const treeShut = () => two() && !PHONE.matches && !treeOpen();
+// ---------- 고정한 폴더(S52-41 ④) ----------
+let pinsMem = null, pinsPc = [];
+const pinNames = new Map(), pinAsked = new Set();
+const cloudPins = () => pinsClean(pinsMem ?? viewPrefs.getFilesPins?.());
+const pcPinsOn = () => pcOn() && pc.canPins;
+const pinOf = (source, id) => (source === PC ? (id ? 'pc:' + id : '') : pinKey(source, id));
+const isPinned = (source, id) => (source === PC ? pinsPc.includes(id) : pinHas(cloudPins(), pinKey(source, id)));
+// 고정할 수 있는 폴더인가(클라우드 폴더, 또는 바구니 문이 고정을 아는 내 PC 폴더·드라이브). 아니면 메뉴 항목 없음(null).
+const pinState = r => (r?.is_folder && (SOURCES.includes(r.source) || (r.source === PC && pcPinsOn())) ? isPinned(r.source, r.item_id) : null);
+function pinsChanged() { paintTree(); for (const p of panesOn()) if (p.srcOpen) paintPaneTop(p); }
+function setCloudPins(list) {
+  pinsMem = list;
+  viewPrefs.setFilesPins?.(list);
+  pinsChanged();
+}
+async function setPcPins(list) {
+  try { pinsPc = await pc.setPins(list); } catch (e) { notify(errorText(codeOf(e)), {error: true, record: false}); }
+  pinsChanged();
+}
+async function loadPcPins() {
+  if (!pcPinsOn()) { if (pinsPc.length) { pinsPc = []; pinsChanged(); } return; }
+  try { pinsPc = await pc.pins(); } catch { pinsPc = []; }
+  pinsChanged();
+}
+function pinToggle(r) {
+  if (!r?.is_folder) return;
+  if (r.source === PC) {
+    const has = pinsPc.includes(r.item_id);
+    if (!has && pinsPc.length >= PINS_MAX) { notify(`고정은 ${PINS_MAX}개까지예요. 다른 것을 풀고 다시 해 주세요`, {record: false}); return; }
+    void setPcPins(has ? pinsPc.filter(x => x !== r.item_id) : [...pinsPc, r.item_id]);
+    return;
+  }
+  const key = pinKey(r.source, r.item_id);
+  if (pinHas(cloudPins(), key)) { setCloudPins(pinRemove(cloudPins(), key)); return; }
+  if (r.name) pinNames.set(key, r.name);
+  const out = pinAdd(cloudPins(), key);
+  if (!out.ok) { notify(out.why, {record: false}); return; }
+  setCloudPins(out.list);
+}
+// 고정한 폴더 이름: 이 화면이 이미 아는 줄에서 찾고, 모르면 색인 위치 줄(app_cloud_trail)에서 한 번 묻는다.
+function pinNameOf(source, id) {
+  const key = pinKey(source, id);
+  if (pinNames.has(key)) return pinNames.get(key);
+  for (const list of state.children.values()) { const f = list.find(x => x.source === source && x.item_id === id); if (f) { pinNames.set(key, f.name); return f.name; } }
+  for (const p of state.panes) { const t = p.where?.source === source && p.trail.find(x => x.item_id === id); if (t) { pinNames.set(key, t.name); return t.name; } }
+  if (!pinAsked.has(key) && connected().includes(source)) {
+    pinAsked.add(key);
+    rpc('app_cloud_trail', {p_source: source, p_item_id: id}).then(rows => {
+      const me = (Array.isArray(rows) ? rows : []).find(x => x.item_id === id) || (Array.isArray(rows) ? rows : []).find(x => Number(x.depth) === 0);
+      if (me?.name) { pinNames.set(key, me.name); pinsChanged(); }
+    }).catch(() => {});
+  }
+  return '';
+}
+function pinRows() {
+  const on = onSources();
+  const cloud = cloudPins().map(k => { const {source, id} = pinParse(k); return {key: k, list: 'cloud', ...pinView({source, id, name: pinNameOf(source, id), on})}; });
+  const local = pcPinsOn() ? pinsPc.map(path => ({key: 'pc:' + path, list: 'pc', ...pinView({source: PC, id: path, on})})) : [];
+  return [...cloud, ...local];
+}
+function pinRowHtml(x, curKey) {
+  return `<div class="fx-pin" data-reorder-id="${esc(x.key)}"><button type="button" class="icon-btn fx-pin-grip" data-reorder-handle aria-label="${esc(x.name)} 순서 옮기기(위·아래 화살표)">⠿</button>`
+    + ftFolderRowHtml({name: x.name, count: x.tag || SOURCE_NAME[x.source], depth: 0, hasContent: false, current: curKey === pinOf(x.source, x.id) && !!x.live,
+      className: x.live ? 'fx-pin-row' : 'fx-pin-row ft-off', mainAttrs: {'data-fx-pin-go': x.key, title: x.live ? '' : `${SOURCE_NAME[x.source]}이(가) 꺼져 있거나 연결이 끊겼어요`},
+      more: {attrs: {'data-fx-pin-menu': x.key}, label: `${x.name} 고정 메뉴`}}) + '</div>';
+}
+function pinBoxHtml(curKey = '') {
+  const rows = pinRows();
+  if (!rows.length) return '';
+  const part = list => { const r = rows.filter(x => x.list === list); return r.length ? `<div class="fx-pins" data-reorder-list="${list}">${r.map(x => pinRowHtml(x, curKey)).join('')}</div>` : ''; };
+  return ftBoxHtml({head: `<span class="ft-box-ico">${iconSvg('pin', {size: 13})}</span>고정한 폴더`, body: part('cloud') + part('pc'), label: '고정한 폴더', attrs: {'data-fx-box': 'pins'}});
+}
+function pinGo(key, p = P()) {
+  const x = pinRows().find(y => y.key === key);
+  if (!x) return;
+  if (!x.live) { notify(`${SOURCE_NAME[x.source]}이(가) 꺼져 있거나 연결이 끊겼어요. 위 출처 아이콘을 확인해 주세요`, {record: false}); return; }
+  state.open.add(folderKey(x.source, null));
+  goFolder(x.source, x.id, p);
+}
+function pinMenu(b) {
+  const key = b.dataset.fxPinMenu, x = pinRows().find(y => y.key === key);
+  if (!x) return;
+  openRowMenu(b, {key: 'pin:' + key, label: x.name, items: [{id: 'go', label: '열기'}, {id: 'unpin', label: '고정 풀기', sep: true}],
+    run: id => { if (id === 'go') pinGo(key); else if (x.source === PC) void setPcPins(pinsPc.filter(y => y !== x.id)); else setCloudPins(pinRemove(cloudPins(), key)); }});
+}
+function pinReorder(key, list, index) {
+  if (list !== (key.startsWith('pc:') ? 'pc' : 'cloud')) return; // 클라우드 ↔ 내 PC 묶음 사이로는 옮기지 않는다(저장 곳이 다름)
+  if (list === 'pc') { const k = key.slice(3); if (pinsPc.includes(k)) void setPcPins(pinMove(pinsPc, k, index)); return; }
+  if (pinHas(cloudPins(), key)) setCloudPins(pinMove(cloudPins(), key, index));
+}
+function pinNudge(key, dir) {
+  if (key.startsWith('pc:')) { const k = key.slice(3); void setPcPins(pinStep(pinsPc, k, dir)); }
+  else setCloudPins(pinStep(cloudPins(), key, dir));
+  requestAnimationFrame(() => root?.querySelector(`[data-reorder-id="${CSS.escape(key)}"] [data-reorder-handle]`)?.focus({preventScroll: true}));
+}
 function toggleTree() {
   const at = treeLayout(), on = !treeOpen();
   treeMem.set(at, on);
@@ -602,7 +703,9 @@ function paneSrcHtml(p, i) {
     .map(c => `<button type="button" class="row-act fx-psrc-item${c.cur ? ' on' : ''}" data-fx-psrc-pick="${c.src}"${c.usable ? '' : ' disabled'}${c.cur ? ' aria-current="true"' : ''}>${PANE_SRC_SVG[c.src] || ''}<span class="fx-psrc-name">${esc(c.name)}</span>${c.cur ? '<span class="fx-psrc-on" aria-hidden="true">✓</span>' : ''}${c.why ? `<span class="fx-psrc-why">${esc(c.why)}</span>` : ''}</button>`).join('');
   // S52-41 ③: 두 칸에서 나무를 접어 두므로 칸 위 목록 맨 위에 별표·큰 파일(나무 '모아 보기'와 같은 묶음).
   const shelves = SHELVES.map(sh => `<button type="button" class="row-act fx-psrc-item${p.where?.shelf === sh ? ' on' : ''}" data-fx-psrc-shelf="${sh}">${treeIconHtml(sh, {className: 'ft-ico'})}<span class="fx-psrc-name">${esc(SHELF_NAME[sh])}</span></button>`).join('');
-  return `<span class="fx-psrc-wrap">${btn}<span class="fx-psrc-menu" data-fx-psrc-menu role="group" aria-label="${side(i)} 칸 출처 고르기">${shelves}${items}</span></span>`;
+  // S52-41 ④: 고정한 폴더를 맨 위에(흐린 출처 글자, 연결 안 된 것은 흐리게).
+  const pins = pinRows().map(x => `<button type="button" class="row-act fx-psrc-item fx-psrc-pin" data-fx-psrc-pin="${esc(x.key)}"${x.live ? '' : ' disabled'}>${treeIconHtml('folder', {className: 'ft-ico'})}<span class="fx-psrc-name">${esc(x.name)}</span><span class="fx-psrc-why">${esc(x.tag || SOURCE_NAME[x.source])}</span></button>`).join('');
+  return `<span class="fx-psrc-wrap">${btn}<span class="fx-psrc-menu" data-fx-psrc-menu role="group" aria-label="${side(i)} 칸 출처 고르기">${pins}${shelves}${items}</span></span>`;
 }
 function paneSrcClose(focus = false) {
   let any = false;
@@ -749,6 +852,7 @@ pc.on(s => {
   state.children.delete(folderKey(PC, null));
   const lost = pcWasOk && !s.ok;
   pcWasOk = s.ok;
+  void loadPcPins();
   if (!state.status) return;
   sourcesChanged();
   if (lost) { state.hint = pcStateText(s.why); paintTop(); }
@@ -795,7 +899,7 @@ function pcFolderRowHtml(r, curKey) {
   const cnt = countOf(r.source, r.id), full = (state.children.get(folderKey(r.source, r.parentId)) || []).find(x => x.item_id === r.id);
   if (full) state.treeRows.set(r.key, full);
   return ftFolderRowHtml({name: r.name, count: cnt || null, depth: r.depth - 1, open: r.open, hasContent: r.hasKids, color: folderLook.color(r.source, r.id),
-    current: r.key === curKey, className: /^0개$/.test(cnt || '') ? 'fx-zero' : '',
+    current: r.key === curKey, className: [/^0개$/.test(cnt || '') ? 'fx-zero' : '', r.id && isPinned(r.source, r.id) ? 'fx-pinned' : ''].filter(Boolean).join(' '),
     rowAttrs: {'data-fx-fold': r.key, 'data-fx-drop': r.source === PC && (!pcWrite() || !r.id) ? null : r.key,
       draggable: full && !PHONE.matches && !TOUCH.matches && (r.source !== PC || pcWrite()) ? 'true' : null},
     mainAttrs: {'data-fx-go': r.source, 'data-fx-id': r.id || ''},
@@ -807,6 +911,7 @@ function treeHtml(p) {
   const w = p.where, curKey = !p.query && w ? (w.shelf ? 'shelf:' + w.shelf : folderKey(w.source, w.parent)) : '';
   let html = '';
   html += recentBoxHtml();
+  html += pinBoxHtml(curKey); // S52-41 ④: 별표 위 '고정한 폴더'
   const shelves = SHELVES.map(shelf => ftFolderRowHtml({name: SHELF_NAME[shelf], count: shelf === 'starred' && state.stars !== null ? `${state.stars}개` : null, depth: 0, hasContent: false,
     current: curKey === 'shelf:' + shelf, icon: treeIconHtml(shelf, {className: 'ft-ico'}), className: 'fx-shelf', mainAttrs: {'data-fx-shelf': shelf}})).join('');
   html += ftBoxHtml({body: shelves, label: '모아 보기', attrs: {'data-fx-box': 'shelves'}});
@@ -881,6 +986,7 @@ function phoneTreeHtml() {
   state.treeRows = new Map();
   let html = '';
   html += recentBoxHtml();
+  html += pinBoxHtml(); // S52-41 ④: 별표 위 '고정한 폴더'
   // 묶음(별표·큰 파일): 작은 상자 하나.
   const shelves = SHELVES.map(shelf => ftFolderRowHtml({name: SHELF_NAME[shelf], count: shelf === 'starred' && state.stars !== null ? `${state.stars}개` : null, depth: 0, hasContent: false,
     icon: treeIconHtml(shelf, {className: 'ft-ico'}), className: 'fx-shelf', mainAttrs: {'data-fx-shelf': shelf}})).join('');
@@ -946,7 +1052,7 @@ function treeMenu(b) {
   const key = b.dataset.fxTmenu, inKey = b.dataset.fxTin || '', r = state.treeRows.get(key);
   if (!r) return;
   const sib = r.is_folder && SOURCES.includes(r.source) ? treeSibs(r.source, inKey) : [];
-  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length});
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length, pinned: pinState(r)});
   openRowMenu(b, {key, label: r.name, items, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '', run: id => treeAct(id, r, inKey, liveMenuButton(key, b))});
 }
 // 메뉴가 열린 동안 나무가 다시 그려졌으면 같은 줄의 새 ⋯를 묻는 창의 자리로 쓴다.
@@ -966,6 +1072,7 @@ async function treeAct(id, r, inKey, anchor) {
   if (id === 'color') { state.lookRow = r; lookMode.begin('x', anchor, lookMenu); return; }
   if (id === 'up' || id === 'down') { lookSave(() => folderLook.step(rt(), r.source, treeSibs(r.source, inKey), r.item_id, id === 'up' ? -1 : 1), '폴더 순서를 저장하지 못했어요.'); return; }
   if (id === 'star' || id === 'unstar') { await starRows([r]); return; }
+  if (id === 'pin' || id === 'unpin') { pinToggle(r); return; }
   if (id === 'trash') { await trashRows([r], anchor); void loadRecent(); }
 }
 // ---------- S51-20 FILES-폰보기끌기 ①: 목록 보기 크기(목록 → 격자 → 큰 격자) + 사진 작은 그림 ----------
@@ -2714,6 +2821,9 @@ root?.addEventListener('click', event => {
   }
   if (b.matches('[data-fx-two]')) { setTwo(!two()); return; }
   if (b.matches('[data-fx-tree-tog]')) { toggleTree(); return; }
+  if (b.matches('[data-fx-pin-go]')) { pinGo(b.dataset.fxPinGo); return; }
+  if (b.matches('[data-fx-pin-menu]')) { pinMenu(b); return; }
+  if (b.matches('[data-fx-psrc-pin]')) { const p = P(); p.srcOpen = false; pinGo(b.dataset.fxPsrcPin, p); return; }
   if (b.matches('[data-fx-psrc-shelf]')) { const p = P(); p.srcOpen = false; goShelf(b.dataset.fxPsrcShelf, p); return; }
   if (b.matches('[data-fx-psrc]')) { const p = P(), open = !p.srcOpen; paneSrcClose(); p.srcOpen = open; paintPaneTop(p); inPane(p, open ? '[data-fx-psrc-pick]:not([disabled])' : '[data-fx-psrc]')?.focus({preventScroll: true}); return; }
   if (b.matches('[data-fx-psrc-pick]')) { paneSrcPick(P(), b.dataset.fxPsrcPick); return; }
@@ -2896,7 +3006,7 @@ function listMenu(b, event) {
   const i = paneOfEl(b); if (i >= 0) setCur(i);
   const key = b.dataset.fxRow, r = rowByKey(key);
   if (!r) return false;
-  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite()}).map(it => (it.id === 'only' ? {...it, id: 'go', label: '열기'} : it));
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pinned: pinState(r)}).map(it => (it.id === 'only' ? {...it, id: 'go', label: '열기'} : it));
   return openRowMenu(b, {key: 'list:' + key, title: r.name, items, at, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '',
     run: id => { if (id === 'go') goFolder(r.source, r.item_id); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});
 }
@@ -3002,6 +3112,9 @@ const touchDrag = bindTouchDrag(root, {
   cancel: () => { drag = null; dropOff(null); },
   scroller: el => el?.closest?.('.fx[data-fx-two="phone"] .fx-listcol') || null,
 });
+// S52-41 ④: 고정한 폴더 순서 — ⠿ 손잡이 끌기(폰은 꾹 눌러), 키보드는 손잡이에서 ↑↓(공용 reorder-drag.js).
+if (root) mountReorder(root, {listSelector: '.fx-pins[data-reorder-list]', itemSelector: '.fx-pin[data-reorder-id]', handleSelector: '.fx-pin-grip[data-reorder-handle]',
+  onDrop: ({id, list, index}) => pinReorder(id, list, index), onStep: (id, dir) => pinNudge(id, dir)});
 document.addEventListener('visibilitychange', () => {
   // 올리는 중 화면을 숨기면 그 자리에서 멈춤(H-6), 다시 보이면 쥐고 있던 파일로 남은 조각부터.
   if (document.visibilityState === 'hidden') upStop(); else upShow();

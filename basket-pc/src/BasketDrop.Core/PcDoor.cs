@@ -51,6 +51,7 @@ public sealed class PcDoor : IDisposable
     private readonly IPcFiles _files;
     private readonly IPcShell _shell;
     private readonly IPcTransfer? _transfer;
+    private readonly IPcPins? _pins;
     private readonly IWebUserVerifier _verifier;
     private readonly Func<CancellationToken, Task<string?>> _ownUserId;
     private readonly ILog _log;
@@ -61,9 +62,10 @@ public sealed class PcDoor : IDisposable
     public int Port { get; }
 
     private PcDoor(TcpListener listener, IPcFiles files, IPcShell shell, IWebUserVerifier verifier,
-        Func<CancellationToken, Task<string?>> ownUserId, ILog log, string appVersion, IPcTransfer? transfer)
+        Func<CancellationToken, Task<string?>> ownUserId, ILog log, string appVersion, IPcTransfer? transfer, IPcPins? pins)
     {
         _transfer = transfer;
+        _pins = pins;
         _listener = listener;
         Port = ((IPEndPoint)listener.LocalEndpoint).Port;
         _files = files;
@@ -77,7 +79,7 @@ public sealed class PcDoor : IDisposable
 
     /// <summary>Opens the door on the first free candidate port of 127.0.0.1. Throws <see cref="PortsBusyException"/> if none is free.</summary>
     public static PcDoor Open(IPcFiles files, IPcShell shell, IWebUserVerifier verifier,
-        Func<CancellationToken, Task<string?>> ownUserId, ILog log, string appVersion, IEnumerable<int>? ports = null, IPcTransfer? transfer = null)
+        Func<CancellationToken, Task<string?>> ownUserId, ILog log, string appVersion, IEnumerable<int>? ports = null, IPcTransfer? transfer = null, IPcPins? pins = null)
     {
         foreach (var port in ports ?? DefaultPorts)
         {
@@ -85,7 +87,7 @@ public sealed class PcDoor : IDisposable
             try
             {
                 listener.Start(8);
-                return new PcDoor(listener, files, shell, verifier, ownUserId, log, appVersion, transfer);
+                return new PcDoor(listener, files, shell, verifier, ownUserId, log, appVersion, transfer, pins);
             }
             catch (SocketException)
             {
@@ -193,6 +195,9 @@ public sealed class PcDoor : IDisposable
             ("POST", "/v1/write/finish") when _transfer != null => FinishAnswer(r.Body),
             ("POST", "/v1/write/cancel") when _transfer != null => CancelAnswer(r.Body),
             ("POST", "/v1/trash") when _transfer != null => TrashAnswer(BodyPath(r.Body)),
+            ("GET", "/v1/pins") when _pins != null => new Answer(200, new { pins = _pins!.Load() }, true),
+            ("POST", "/v1/pins") when _pins != null => PinsAnswer(r.Body),
+            (_, "/v1/pins") when _pins != null => new Answer(405, Error("method"), true),
             (_, "/v1/hello" or "/v1/drives" or "/v1/list" or "/v1/open" or "/v1/reveal") => new Answer(405, Error("method"), true),
             (_, "/v1/read" or "/v1/write/start" or PiecePath or "/v1/write/finish" or "/v1/write/cancel" or "/v1/trash") when _transfer != null
                 => new Answer(405, Error("method"), true),
@@ -238,9 +243,23 @@ public sealed class PcDoor : IDisposable
         return new Answer(200, new { done }, true);
     }
 
-    private string[] Can => _transfer == null
-        ? new[] { "drives", "list", "open", "reveal" }
-        : new[] { "drives", "list", "open", "reveal", "read", "write", "trash" };
+    private string[] Can => new[] { "drives", "list", "open", "reveal" }
+        .Concat(_transfer == null ? Array.Empty<string>() : new[] { "read", "write", "trash" })
+        .Concat(_pins == null ? Array.Empty<string>() : new[] { "pins" }).ToArray();
+
+    /// <summary>FILES-폴더고정: replaces this PC's pinned folders (paths only, kept on this PC).</summary>
+    private Answer PinsAnswer(byte[] body)
+    {
+        if (BodyObject(body) is not { } o || !o.TryGetProperty("pins", out var arr) || arr.ValueKind != JsonValueKind.Array || arr.GetArrayLength() > PcPins.Max)
+            return new Answer(400, Error("bad_request"), true);
+        var list = new List<string?>();
+        foreach (var e in arr.EnumerateArray())
+        {
+            if (e.ValueKind != JsonValueKind.String) return new Answer(400, Error("bad_request"), true);
+            list.Add(e.GetString());
+        }
+        return _pins!.Save(list) ? new Answer(200, new { pins = _pins.Load() }, true) : new Answer(400, Error("bad_path"), true);
+    }
 
     private static Answer StepRefusal(PcStep step) => step switch
     {

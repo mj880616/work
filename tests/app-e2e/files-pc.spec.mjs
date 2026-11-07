@@ -29,7 +29,7 @@ const PC = {
 // 문 흉내: up = 문이 열려 있나(꺼지면 연결 거절), user = 문이 보는 계정(다른 계정이면 403 other_user).
 // write = 0.4.0 문(read·write·trash). 쓴 파일은 PC 목록에 더하고(같은 이름이면 numbered일 때만 '이름 (2)'), 휴지통은 목록에서 뺀다.
 async function pcDoor(page, { up = true, user = 'same', write = false } = {}) {
-  const st = { up, user, write, calls: [], writes: {}, seq: 0, trashed: [], pc: JSON.parse(JSON.stringify(PC)) };
+  const st = { up, user, write, calls: [], writes: {}, seq: 0, trashed: [], pins: [], pc: JSON.parse(JSON.stringify(PC)) };
   await page.route(/^http:\/\/127\.0\.0\.1:4762[0-2]\//, async r => {
     const req = r.request(), u = new URL(req.url()), origin = req.headers().origin || '';
     const cors = { 'access-control-allow-origin': origin, vary: 'Origin', 'access-control-allow-methods': 'GET, POST', 'access-control-allow-headers': 'authorization, content-type', 'access-control-allow-private-network': 'true', 'access-control-expose-headers': 'X-Pc-Size' };
@@ -40,7 +40,7 @@ async function pcDoor(page, { up = true, user = 'same', write = false } = {}) {
     const json = (status, body) => r.fulfill({ status, headers: cors, contentType: 'application/json', body: JSON.stringify(body) });
     if (!(req.headers().authorization || '').startsWith('Bearer ')) return json(401, { error: 'no_token' });
     if (st.user !== 'same') return json(403, { error: 'other_user' });
-    if (u.pathname === '/v1/hello') return json(200, { app: 'basket-pc', version: st.write ? '0.4.0' : '0.3.0', door: 1, can: ['drives', 'list', 'open', 'reveal', ...(st.write ? ['read', 'write', 'trash'] : [])] });
+    if (u.pathname === '/v1/hello') return json(200, { app: 'basket-pc', version: st.write ? '0.4.0' : '0.3.0', door: 1, can: ['drives', 'list', 'open', 'reveal', ...(st.write ? ['read', 'write', 'trash', 'pins'] : [])] });
     const PCX = st.pc, dirOf = p => p.slice(0, p.lastIndexOf('\\')) || p, baseOf = p => p.slice(p.lastIndexOf('\\') + 1);
     const entry = p => (PCX[dirOf(p)] || []).find(e => e.name === baseOf(p) && !e.dir);
     if (st.write && u.pathname === '/v1/read') {
@@ -65,6 +65,10 @@ async function pcDoor(page, { up = true, user = 'same', write = false } = {}) {
       if (has(name)) { if (!b.numbered) return json(409, { error: 'exists' }); const dot = name.lastIndexOf('.'); for (let i = 2; has(name); i++) name = dot > 0 ? `${w.name.slice(0, dot)} (${i})${w.name.slice(dot)}` : `${w.name} (${i})`; }
       list.push({ name, dir: false, size: w.size, modified: '2026-11-08T00:00:00Z' }); delete st.writes[b.id];
       return json(200, { name });
+    }
+    if (st.write && u.pathname === '/v1/pins') {
+      if (req.method() === 'POST') st.pins = JSON.parse(req.postData() || '{}').pins || [];
+      return json(200, { pins: st.pins });
     }
     if (st.write && u.pathname === '/v1/write/cancel') return json(200, { done: 'cancelled' });
     if (st.write && u.pathname === '/v1/trash') {
@@ -318,6 +322,35 @@ test.describe('윈도우 PC 1440 · 바구니 0.4.0 문(내 PC ↔ 클라우드)
     await bar.locator('[data-fx-copy]').click();
     await dest.locator('[data-fx-dest-pick="pc:"]').click();
     await expect(dest.locator('[data-fx-dest-go]')).toBeDisabled();
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('윈도우 PC 1440 · 내 PC 폴더 고정(S52-41 ④)', () => {
+  test.use({ userAgent: WINDOWS });
+  test('내 PC 폴더 ⋯ [위에 고정] → 경로는 그 PC 바구니 앱에만(서버·화면 기억 칸에 없음), 고정한 폴더 상자에 "내 PC"로 보이고 누르면 연다', async ({ page }) => {
+    test.setTimeout(90000);
+    const { errors, server, st } = await begin(page, { write: true });
+    await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
+    await list(page).locator(at('data-fx-row', 'pc:C:\\')).click();
+    const row = tree(page).locator(at('data-fx-fold', 'pc:C:\\문서'));
+    await row.locator('[data-fx-tmenu]').click();
+    await page.locator('[data-row-item="pin"]').first().click();
+    await expect.poll(() => st.pins).toEqual(['C:\\문서']);
+    const pin = tree(page).locator('[data-fx-box="pins"] .fx-pin');
+    await expect(pin.locator('.ft-name')).toHaveText(['문서']);
+    await expect(pin.locator('.ft-num')).toHaveText(['내 PC']);
+    await tree(page).locator('[data-fx-go="od"][data-fx-id=""]').click();
+    await pin.locator('[data-fx-pin-go]').click();
+    await expect(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 회의자료_연습.hwpx'))).toBeVisible();
+    // 경로는 서버(화면 기억 칸 포함)로 가지 않는다.
+    expect(JSON.stringify(server.calls)).not.toContain('C:\\\\');
+    expect(JSON.stringify(server.prefCalls || [])).not.toContain('C:');
+    // 고정 풀기도 그 PC에만.
+    await tree(page).locator('[data-fx-box="pins"] [data-fx-pin-menu]').click();
+    await page.locator('[data-row-item="unpin"]').first().click();
+    await expect.poll(() => st.pins).toEqual([]);
+    await expect(tree(page).locator('[data-fx-box="pins"]')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 });

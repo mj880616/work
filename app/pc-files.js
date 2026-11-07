@@ -155,6 +155,19 @@ export function createPcFiles(win = globalThis.window, {enabled = true, token = 
         }
       });
     },
+    // S52-41 ④ FILES-폴더고정: 이 PC의 고정한 폴더(경로는 그 PC 바구니 앱 안에만, 서버·브라우저 저장소에 넣지 않음). 문이 'pins'를 알 때만.
+    get canPins() { return state.ok && state.can.includes('pins'); },
+    async pins() {
+      const port = door();
+      const d = await guard(() => call(port, '/v1/pins'));
+      return (Array.isArray(d?.pins) ? d.pins : []).map(pcNorm).filter(Boolean);
+    },
+    async setPins(list) {
+      const port = door(), pins = (list || []).map(pcNorm);
+      if (pins.some(p => !p)) throw fail('bad_path');
+      const d = await guard(() => call(port, '/v1/pins', {method: 'POST', body: {pins}}));
+      return (Array.isArray(d?.pins) ? d.pins : []).map(pcNorm).filter(Boolean);
+    },
     // 옮기기 뒤 원본 파일 하나를 윈도우 휴지통으로(문이 파일만 받음).
     async trash(path) {
       const port = door(), at = pcNorm(path);
