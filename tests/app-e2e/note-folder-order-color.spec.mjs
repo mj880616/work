@@ -146,7 +146,12 @@ test.describe('PC 1440', () => {
     await page.locator('#noteDocMenu [data-note-folder-move]').click();
     const item = page.locator('#luMovePicker .lu-move-item', { hasText: '을 폴더' });
     await expect(item.locator('.lu-move-ico')).toHaveAttribute('data-fc', '4');
-    await expect(page.locator('#luMovePicker .lu-move-item', { hasText: '갑 폴더' }).locator('.lu-move-ico')).toHaveCount(0);
+    // S52-27(11/07 21:13): 색 안 고른 폴더도 기본 노란 폴더 그림(색 번호 없음), 이름은 그림 바로 옆 왼쪽.
+    const plain = page.locator('#luMovePicker .lu-move-item', { hasText: '갑 폴더' });
+    await expect(plain.locator('.lu-move-ico svg')).toHaveCount(1);
+    await expect(plain.locator('.lu-move-ico')).not.toHaveAttribute('data-fc', /./);
+    const gap = await plain.evaluate(b => b.querySelector('.lu-move-name').getBoundingClientRect().left - b.querySelector('.lu-move-ico').getBoundingClientRect().right);
+    expect(gap).toBeLessThan(20);
     expect(f.errors).toEqual([]);
   });
 
