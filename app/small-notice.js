@@ -212,16 +212,27 @@ function askPanel(anchor,{doc,none,maxHeight=220,build}){
     first?.focus({preventScroll:true});
   });
 }
-export function askConfirm(anchor,{text,ok='확인',cancel='취소',danger=false,note='',doc=globalThis.document}={}){
+// S52-06 확인창 안 체크 한 줄(check = {label, checked}). 누르면 check.checked가 바뀐다(부른 쪽이 창이 닫힌 뒤 읽음). 기본은 꺼짐.
+function askCheckRow(doc,panel,check,sync){
+  const lab=doc.createElement('label');lab.className='kptu-ask-check';
+  const box=doc.createElement('input');box.type='checkbox';box.checked=!!check.checked;box.dataset.askCheck='';
+  lab.append(box,doc.createTextNode(String(check.label??'')));panel.append(lab);
+  box.addEventListener('change',()=>{check.checked=box.checked;sync()});
+}
+// needCheck = 체크해야만 [ok]를 누를 수 있음(지울 것이 체크한 것뿐일 때).
+export function askConfirm(anchor,{text,ok='확인',cancel='취소',danger=false,note='',check=null,needCheck=false,doc=globalThis.document}={}){
   return askPanel(anchor,{doc,none:false,build:(panel,finish)=>{
     const msg=doc.createElement('p');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text??'').trim();panel.setAttribute('aria-labelledby',msg.id);panel.append(msg);
     if(note){const n=doc.createElement('small');n.className='kptu-ask-note';n.textContent=noticeText(note);panel.append(n)}
     const row=doc.createElement('div');row.className='kptu-ask-actions';
     const no=doc.createElement('button');no.type='button';no.className='secondary';no.textContent=cancel;
     const yes=doc.createElement('button');yes.type='button';yes.className=danger?'danger':'primary';yes.textContent=ok;
+    const sync=()=>{yes.disabled=!!(check&&needCheck&&!check.checked)};
+    if(check)askCheckRow(doc,panel,check,sync);
+    sync();
     row.append(no,yes);panel.append(row);
-    no.addEventListener('click',()=>finish(false));yes.addEventListener('click',()=>finish(true));
-    return danger?no:yes;
+    no.addEventListener('click',()=>finish(false));yes.addEventListener('click',()=>{if(!yes.disabled)finish(true)});
+    return danger||yes.disabled?no:yes;
   }});
 }
 // S48-28 작은 글 입력창: 브라우저 기본 prompt 대신. 누른 자리 근처, 하단바 위. 엔터 = [확인](한글 조합 중 엔터는 제외), Esc·바깥·뒤로가기 = 취소.
@@ -263,23 +274,28 @@ export function askDate(anchor,{text='',value='',note='',ok='확인',cancel='취
 }
 // S48-17 작은 고르기창: 줄마다 [아이콘 + 굵은 글 + 작은 설명] 버튼, 맨 아래 흐린 글자 한 줄. 고른 값(value) 또는 null(닫음).
 // choices = [{value, label, note, icon(SVG 글), danger, disabled}]. 아이콘은 이 파일을 부르는 쪽이 만든 고정 SVG만 넣는다(사용자 글은 textContent).
-export function askChoice(anchor,{text='',choices=[],foot='',doc=globalThis.document}={}){
+// S52-06: check = {label, checked} 체크 한 줄(맨 아래 글 다음). 줄마다 labelChecked(체크했을 때 글)·needCheck(체크해야 누를 수 있음).
+export function askChoice(anchor,{text='',choices=[],foot='',check=null,doc=globalThis.document}={}){
   return askPanel(anchor,{doc,none:null,maxHeight:320,build:(panel,finish)=>{
     panel.classList.add('kptu-ask-choice');
     if(text){const msg=doc.createElement('p');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text).trim();panel.setAttribute('aria-labelledby',msg.id);panel.append(msg)}
     else panel.setAttribute('aria-label','고르기');
     let first=null;
+    const rows=[];
+    const sync=()=>{for(const {c,b,l} of rows){const on=!!check?.checked;b.disabled=!!c.disabled||(!!c.needCheck&&!on);l.textContent=String((on&&c.labelChecked)||c.label||'')}};
     for(const c of choices){
-      const b=doc.createElement('button');b.type='button';b.className='kptu-ask-pick'+(c.danger?' is-danger':'');b.dataset.askPick=String(c.value);b.disabled=!!c.disabled;
+      const b=doc.createElement('button');b.type='button';b.className='kptu-ask-pick'+(c.danger?' is-danger':'');b.dataset.askPick=String(c.value);
       if(c.icon){const i=doc.createElement('span');i.className='kptu-ask-pick-ic';i.setAttribute('aria-hidden','true');i.innerHTML=c.icon;b.append(i)}
       const t=doc.createElement('span');t.className='kptu-ask-pick-t';
-      const l=doc.createElement('b');l.textContent=String(c.label??'');t.append(l);
+      const l=doc.createElement('b');t.append(l);
       if(c.note){const n=doc.createElement('small');n.textContent=String(c.note);t.append(n)}
-      b.append(t);panel.append(b);
-      b.addEventListener('click',()=>finish(c.value));
-      if(!first&&!b.disabled)first=b;
+      b.append(t);panel.append(b);rows.push({c,b,l});
+      b.addEventListener('click',()=>{if(!b.disabled)finish(c.value)});
     }
+    sync();
+    for(const {b} of rows)if(!first&&!b.disabled)first=b;
     if(foot){const f=doc.createElement('small');f.className='kptu-ask-note kptu-ask-foot';f.textContent=String(foot);panel.append(f)}
+    if(check)askCheckRow(doc,panel,check,sync);
     return first;
   }});
 }

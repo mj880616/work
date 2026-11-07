@@ -31,12 +31,12 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, odErrorText, odSync, odSyncDelay, odLibrary, odMonths, odDays, odMediaUrl,
   odTrashList, odTrashRestore, odTrashPurge, odPhotoBlob, readOdStars, readPhoneStars, addStar, removeStar, starKey, takenLabel, takeOdReturn,
   odCopyCheck, odTrashLog, odTrashWatch, odTrashSeen, odKeptList, odKeptDrop} from './diary-onedrive.js';
-import {keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor, twinPairs, nearWindows, readNear, DEL_CHECK_MS} from './photo-keep-model.mjs';
+import {keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor, twinPairs, nearWindows, readNear, DEL_CHECK_MS, backupSplit, gateText} from './photo-keep-model.mjs';
 import {phonePhotos} from './phone-photos.js';
 import {within, isLoadTimeout, onResume} from './load-deadline.js';
 import {createPhotoTidy} from './photo-tidy.js';
 import {createThumbHasher} from './photo-hash.js';
-import {keptText, sizeText, COPY_BATCH, LOG_BATCH, copyPairs} from './photo-tidy-model.mjs';
+import {keptText, sizeText, totalBytes, COPY_BATCH, LOG_BATCH, copyPairs} from './photo-tidy-model.mjs';
 import {parsePhoneOff, phoneOffValue, remapPhoneOff, knownAfterOff, remapPhoneKnown, knownWith, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText} from './phone-folders-model.mjs';
 import {syncPhoneFolders, savePhoneKnown, currentPhoneKnown} from './phone-folders-sync.js';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT,
@@ -249,6 +249,8 @@ function tidyCell(item, i) {
 function openTidyViewer(list, index) {
   openViewer(index, {
     list,
+    // S52-06: 폰 사진 한 장 [지우기]는 되돌리기 시간 뒤가 아니라 바로 안전장치(백업 확인·요약 한 번)로.
+    choose:(item, anchor) => { if (item?.kind !== 'phone') return false; void tidyPhoneTrashOne(item, anchor); return true; },
     take:item => { tidyGone.add(item.id); paintTidy(); return [{item, index:0}]; },
     restore:taken => { for (const t of taken) tidyGone.delete(t.item.id); paintTidy(); },
     commit:async (taken, opts) => {
@@ -261,6 +263,16 @@ function openTidyViewer(list, index) {
       paintTidy();
     },
   });
+}
+async function tidyPhoneTrashOne(item, anchor) {
+  const g = await phoneGate(anchor, [item]);
+  if (!g?.list.length) return;
+  const {gone} = await trashLogged(g.list, g.copyOf, {keep:false});
+  if (!gone.length) { photoStripNote('폰에서 지우지 않았어요.'); return; }
+  tidy.forget(gone);
+  if (items.some(x => gone.includes(x.id))) { setListFor('all', items.filter(x => !gone.includes(x.id))); if (tab === 'all') paintList({full:true}); }
+  calData.clear(); monthsFor = ''; phStarItems = null;
+  photoStripDrop(item.id); paintTidy();
 }
 // S47-16 PHOTO-폰지우기안전장치(요청함 10/31 22:52): [폰 공간만 비우기]·[나머지 지우기]는 원드라이브 사본이 지금도 있는(같은 파일·크기) 사진만 지운다.
 // 서버가 사본을 다시 확인하고(copy-check), 확인된 것만 폰 휴지통으로 보낸 뒤 지운 기록(폰 사진 번호·사본 id)을 서버에 남긴다(trash-log).
@@ -296,13 +308,47 @@ async function trashLogged(list, copyOf, {keep}) {
   }
   return {gone, logFail};
 }
+// ---- S52-06 PHOTO-폰지우기안전장치(명진 11/07 '모두 추천대로' — 3-① A) ----
+// 폰 원본을 지우는 모든 길이 지나는 문: 원드라이브 사본 짝 → 서버가 사본을 다시 확인(copy-check) → 확인된 것만 기본으로 지운다.
+// 백업 없음(짝 없음·서버가 못 찾음·확인 못 함)은 따로 세어 체크 한 줄로만 함께 지운다. 지우기 전 개수·용량 요약 확인 한 번. 폰 휴지통(30일 되살림)으로만.
+// 사본 확인을 DEL_CHECK_MS 안에 못 끝내면 확인 못 함(= 백업 없음)으로 본다.
+const delWithin = (p, fallback) => { let t = 0; return Promise.race([p, new Promise(ok => { t = setTimeout(() => ok(fallback), DEL_CHECK_MS); })]).finally(() => clearTimeout(t)); };
+async function gatePairs(list) {
+  const known = tidy.copyPairs(list); // 사진 정리가 읽은 원드라이브 목록(오래됐어도 서버가 다시 확인하므로 안전 — 새로 올라간 사본만 백업 없음으로 보일 수 있음)
+  if (known) return known;
+  if (!ready()) return null;
+  let stop = false;
+  const got = await delWithin(pairCheck(list, [], () => !stop).then(r => r?.pairs || null), null);
+  stop = true;
+  return got;
+}
+const checkedWithin = (pairs, missing) => delWithin(copyChecked(pairs, missing), {list:[], copyOf:new Map(), kept:''});
+// 답: {list(지울 폰 칸), copyOf(칸 id → 사본 id)} 또는 null(취소).
+async function phoneGate(anchor, list, {what = '사진'} = {}) {
+  let copyOf = new Map(), why = '';
+  if (!ready()) why = '원드라이브가 연결되지 않아 백업을 확인하지 못했어요';
+  else {
+    const pl = await gatePairs(list);
+    if (!pl) why = '원드라이브 백업을 확인하지 못했어요';
+    else if (pl.pairs.length) ({copyOf} = await checkedWithin(pl.pairs.map(x => ({item:x.item, copyId:x.copy.id})), pl.noCopy.length));
+  }
+  const split = backupSplit(list, copyOf), t = gateText(split, {what, why});
+  const check = t.check ? {label:t.check, checked:false} : null;
+  if (!await askConfirm(anchor, {text:t.text, note:t.note, ok:'폰 휴지통으로', danger:true, check, needCheck:!split.ok.length})) return null;
+  return {list:check?.checked ? [...split.ok, ...split.bare] : split.ok, copyOf};
+}
 async function tidyTrash(b, kind) {
   const g = tidy.group(kind); if (!g || !g.items.length || !phone.state().trash) return;
   const needCopy = kind === 'space' || kind.startsWith('dup');
   // 원드라이브에 정말 있는지 — 읽은 지 오래됐으면 다시 확인부터.
   if (needCopy && !tidy.fresh()) { notify('원드라이브에 있는지 다시 확인할게요. 확인이 끝나면 다시 눌러 주세요.'); tidy.rescan(); return; }
   let list = g.items, copyOf = null, keptMsg = '';
-  if (needCopy) {
+  if (!needCopy) {
+    // 잡동사니도 백업 없음은 기본으로 빼고, 체크해야만 함께(S52-06).
+    const gt = await phoneGate(b, g.items, {what:g.label});
+    if (!gt?.list.length) return;
+    list = gt.list; copyOf = gt.copyOf.size ? gt.copyOf : null;
+  } else {
     const pl = tidy.copyPairs(g.items);
     if (!pl) { notify('원드라이브를 읽은 뒤에 지울 수 있어요.'); return; }
     const c = await copyChecked(pl.pairs.map(x => ({item:x.item, copyId:x.copy.id})), pl.noCopy.length);
@@ -311,7 +357,8 @@ async function tidyTrash(b, kind) {
   }
   const n = list.length;
   const keepNote = kind === 'space' ? '원드라이브에는 그대로 남고, 사진 목록에도 남아요. ' : kind.startsWith('dup') ? '남길 사진은 그대로예요. ' : '';
-  if (!await askConfirm(b, {text:`${g.label} ${n}장을 폰 휴지통으로 옮길까요?`, note:`${keptMsg ? keptMsg + '. ' : ''}${keepNote}폰이 한 번 더 확인 창을 띄워요(200장씩). 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요.`, ok:'폰 휴지통으로', danger:true})) return;
+  const size = sizeText(list.reduce((t, x) => t + (x.size_bytes > 0 ? x.size_bytes : 0), 0));
+  if (needCopy && !await askConfirm(b, {text:`${g.label} ${n}장${size ? `(${size})` : ''}을 폰 휴지통으로 옮길까요?`, note:`${keptMsg ? keptMsg + '. ' : ''}${keepNote}폰이 한 번 더 확인 창을 띄워요(200장씩). 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요.`, ok:'폰 휴지통으로', danger:true})) return;
   const {gone, logFail} = await trashLogged(list, copyOf, {keep:kind === 'space'});
   if (!gone.length) { notify(`폰에서 지우지 않았어요.${keptMsg ? ' ' + keptMsg : ''}`); return; }
   tidy.forget(gone);
@@ -1148,7 +1195,14 @@ const restoreTaken = taken => { const t0 = taken.tab || 'all'; setListFor(t0, pu
 async function commitOne(taken, {keepalive = false} = {}) {
   const item = taken[0].item, id = item.id;
   // 폰 사진: 폰 휴지통으로(시스템 확인 창). 거절하면 칸이 돌아온다.
-  if (item.kind === 'phone') { const res = await phone.trash([item]); if (!res.ok) throw new Error('phone_trash_refused'); return; }
+  // S52-06: 폰 사진은 안전장치(백업 확인·요약 한 번)를 지나서만 폰 휴지통으로. 거절·취소하면 칸이 돌아온다.
+  if (item.kind === 'phone') {
+    const g = await phoneGate(document.querySelector('[data-diary-viewer] [data-od-delete]'), [item]);
+    if (!g?.list.length) throw new Error('phone_trash_refused');
+    const {gone} = await trashLogged(g.list, g.copyOf, {keep:false});
+    if (!gone.length) throw new Error('phone_trash_refused');
+    return;
+  }
   try { await odDelete(rt, id, {keepalive}); forgetOdPhoto(id); trash = null; void dropKept(keptIdsFor(kept, [id])); }
   catch (error) { if (error?.message === 'onedrive_item_missing') { forgetOdPhoto(id); return; } throw error; }
 }
@@ -1269,7 +1323,7 @@ function openViewer(index, own = null) {
       : {ok:od.canDelete, title:od.canDelete ? 'Web2 휴지통으로' : '지우려면 원드라이브를 다시 연결해 주세요'}),
     take:own?.take || takeOne, restore:own?.restore || restoreTaken, commit:own?.commit || commitOne,
     // S48-32: 폰 앱 크게 보기 한 장 [지우기]도 고른 사진 [지우기]와 같은 판단(두 갈래 창). 두 갈래가 아니면 plain(예전 5초 되돌리기).
-    choose:own ? null : (item, anchor, plain) => {
+    choose:own ? (own.choose || null) : (item, anchor, plain) => {
       // 구글 드라이브 사진은 고르기 [지우기]와 같은 확인 한 번 뒤 드라이브 휴지통으로(빠지면 다음 사진으로).
       if (item.kind === 'gdrive') { void gdTrashPicked(anchor, [item]).then(() => { if (!listFor(shown).some(x => x.id === item.id)) photoStripDrop(item.id); }); return true; }
       if (!needTwoWay([item])) return false; chooseDelete(anchor, [item], () => plain()); return true;
@@ -1518,13 +1572,15 @@ async function commitBatch({keepalive = false} = {}) {
   else if (b.tab !== 'all') { resetList(); calData.clear(); tree = null; }
 }
 // 폰 사진: 바로 폰 휴지통 요청(시스템 확인 창이 확인 역할, 되돌리기 시간 없음). 허용하면 칸에서 뺀다.
-async function trashPhonePicked(list) {
+async function trashPhonePicked(list, anchor = null) {
   const t0 = tab;
-  const res = await phone.trash(list);
-  if (!res.ok) { notify('폰에서 지우지 않았어요.', {error:!phone.state().trash}); return; }
-  const t = takeItems(listFor(t0), list.map(x => x.id));
+  const g = await phoneGate(anchor?.isConnected ? anchor : $('[data-photos-act-delete]'), list);
+  if (!g?.list.length) return;
+  const {gone} = await trashLogged(g.list, g.copyOf, {keep:false});
+  if (!gone.length) { notify('폰에서 지우지 않았어요.', {error:!phone.state().trash}); return; }
+  const t = takeItems(listFor(t0), gone);
   setListFor(t0, t.rest); calData.clear(); monthsFor = '';
-  tidy.forget(list.map(x => x.id));
+  tidy.forget(gone);
   if (tab === t0) repaintShown();
   paintTidy();
   notify(`${t.taken.length}장을 폰 휴지통으로 옮겼어요`);
@@ -1599,21 +1655,24 @@ async function chooseDelete(anchor, all, plain = null) {
       // 폰 사진을 못 읽었으면 원드라이브만 지우지 않는다(폰 원본만 남고 백업이 사라질 수 있어서).
       if (twins === null) { sayDel('폰에 같은 사진이 있는지 확인하지 못해 지우지 않았어요. 잠시 뒤 다시 눌러 주세요.', {error:true}); return; }
     }
-    const plan = deletePlan(all, pairs, twins), text = deleteChoices(plan);
+    const plan = deletePlan(all, pairs, twins);
     if (!plan.twoWay) { deleting = false; (plain || deleteDirect)(anchor, all); return; }
+    // S52-06: 고르기 창을 띄우기 전에 서버가 사본을 다시 확인한다 → 창의 장수·용량이 실제로 지울 것(백업 없음은 따로).
+    const checked = plan.space.length && ready() ? await checkedWithin(plan.space, plan.noCopy) : {list:[], copyOf:new Map(), kept:''};
+    const text = deleteChoices(plan, new Set(checked.copyOf.keys()));
+    const check = text.check ? {label:text.check, checked:false} : null;
     const where = anchor?.isConnected ? anchor : $('[data-photos-act-delete]');
     const pick = await askChoice(where, {choices:[
-      {value:'space', icon:CLOUD_ICON, ...text.space, disabled:!plan.space.length || !phone.state().trash},
+      {value:'space', icon:CLOUD_ICON, ...text.space, disabled:!text.spaceCount || !phone.state().trash},
       {value:'full', icon:TRASH_ICON, danger:true, ...text.full, disabled:(plan.phone.length > 0 && !phone.state().trash) || (!plan.phone.length && !plan.gd.length && !od.canDelete)}],
-      foot:text.foot});
-    if (pick === 'space') await spaceFree(plan);
-    else if (pick === 'full') await fullDelete(plan, anchor);
+      foot:text.foot, check});
+    if (pick === 'space') await spaceFree(plan, checked);
+    else if (pick === 'full') await fullDelete(plan, anchor, {copyOf:checked.copyOf, withBare:!!check?.checked});
     if (pick && photoStripOpen()) photoStripReload(null);
   } finally { deleting = false; cancelCheck = null; waitNote?.close(); }
 }
 // 폰 공간만 비우기: 서버 사본 확인 → 폰 휴지통 → 비운 기록(keep) → 목록에서 폰 칸을 빼고 비운 사진 칸으로 다시 섞는다.
-async function spaceFree(plan) {
-  const c = await copyChecked(plan.space, plan.noCopy);
+async function spaceFree(plan, c) {
   if (!c.list.length) { notify(`비울 사진이 없어요. ${c.kept}`); return; }
   select.stop(); paintSelect();
   const {gone, logFail} = await trashLogged(c.list.slice(0, SELECT_MAX * 4), c.copyOf, {keep:true});
@@ -1627,12 +1686,14 @@ async function spaceFree(plan) {
   notify(`${gone.length}장 폰 공간을 비웠어요 · 목록에는 남아요${c.kept ? ' · ' + c.kept : ''}${logFail ? ' · 비운 기록 일부를 남기지 못했어요(그 사진은 목록에서 빠질 수 있어요)' : ''}`, {error:logFail});
 }
 // 완전히 지우기: 구글 드라이브(확인 한 번) · 폰 사진(폰 확인 창) → 그 뒤 원드라이브 칸과 폰 사진의 짝 사본을 Web2 휴지통으로. 폰에서 거절하면 아무것도 지우지 않는다.
-async function fullDelete(plan, anchor) {
+// S52-06: 폰 칸은 서버가 사본을 확인한 것(copyOf)만, 백업 없음은 체크(withBare)했을 때만.
+async function fullDelete(plan, anchor, {copyOf = new Map(), withBare = false} = {}) {
   select.stop(); paintSelect();
   if (plan.gd.length) gdTrashPicked(anchor?.isConnected ? anchor : $('[data-photos-act-delete]'), plan.gd);
   let phoneGone = [];
-  if (plan.phone.length) {
-    const list = plan.phone.slice(0, 200);
+  const phoneList = plan.phone.filter(x => withBare || copyOf.has(x.id));
+  if (phoneList.length) {
+    const list = phoneList.slice(0, 200);
     const res = await phone.trash(list);
     if (!res.ok) { notify('폰에서 지우지 않았어요.', {error:!phone.state().trash}); return; }
     phoneGone = list;
@@ -1699,7 +1760,7 @@ function deletePicked(anchor = null) {
 function deleteDirect(anchor, all) {
   const phonePart = all.filter(x => x.kind === 'phone'), gdPart = all.filter(x => x.kind === 'gdrive');
   if (gdPart.length) gdTrashPicked(anchor || $('[data-photos-act-delete]'), gdPart);
-  if (phonePart.length) { select.stop(); paintSelect(); trashPhonePicked(phonePart.slice(0, SELECT_MAX)); }
+  if (phonePart.length) { select.stop(); paintSelect(); trashPhonePicked(phonePart.slice(0, SELECT_MAX), anchor); }
   if (!od.canDelete) return;
   const picked = all.filter(x => x.kind !== 'phone' && x.kind !== 'gdrive'), ids = picked.slice(0, SELECT_MAX).map(x => x.id);
   if (!ids.length) return;
@@ -2326,7 +2387,19 @@ async function trashPhoneFolder(anchor, id) {
   const f = phoneFolderOf(id); if (!f) return;
   if (f.pending) { pPending = pPending.filter(x => x.id !== id); if (pAt === id) pAt = null; return renderFolders(); }
   if (!isPhoneTrashable(id)) return notify('이 폴더는 지울 수 없어요.', {error:true});
-  if (!await askConfirm(anchor, {text:`'${f.name}' 폴더를 지울까요?`, note:`안의 사진 ${f.count}장(하위 폴더 포함)이 폰 휴지통으로 가요(갤러리 앱에서 30일 안에 되살림).`, ok:'지우기', danger:true})) return;
+  // S52-06: 폴더째 지우기는 한 장씩 고를 수 없어서, 백업 없음이 있거나(서버 확인) 확인하지 못했으면 체크해야만 지운다.
+  const inside = tidy.phoneItems()?.filter(p => String(p.folder || '').startsWith(id)) || null;
+  let bare = null;
+  if (inside && !inside.length) bare = 0;
+  else if (inside && ready()) {
+    const pl = tidy.copyPairs(inside);
+    if (pl) bare = inside.length - (await checkedWithin(pl.pairs.map(x => ({item:x.item, copyId:x.copy.id})), pl.noCopy.length)).copyOf.size;
+  }
+  if (inside && inside.length !== f.count) bare = null; // 정리를 읽은 뒤 폴더가 바뀌었으면 모름으로(체크해야만)
+  const size = inside ? sizeText(totalBytes(inside)) : '';
+  const check = bare === 0 ? null : {label:bare === null ? '백업을 확인하지 못한 채로 지우기' : `백업 없음 ${bare}장도 함께 지우기`, checked:false};
+  const how = bare === null ? '원드라이브 백업 여부를 확인하지 못했어요([정리]에서 확인)' : bare ? `그중 백업 없음 ${bare}장(원드라이브에서 같은 사진을 못 찾음)` : '모두 원드라이브에 같은 사진이 있어요';
+  if (!await askConfirm(anchor, {text:`'${f.name}' 폴더를 지울까요?`, note:`안의 사진 ${f.count}장${size ? `(${size})` : ''}(하위 폴더 포함)이 폰 휴지통으로 가요(갤러리 앱에서 30일 안에 되살림) · ${how}`, ok:'지우기', danger:true, check, needCheck:true})) return;
   await phoneOpGo(anchor, {op:'trashfolder', from:id}, r => `폴더를 지웠어요(${r.count}장 폰 휴지통)`, () => followPhone(id, null));
 }
 async function movePhonePhotos(anchor, list, to) {

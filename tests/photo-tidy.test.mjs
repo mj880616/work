@@ -107,7 +107,8 @@ test('정리 읽기: 폰(끈 폴더 포함)·원드라이브를 끝까지 쪽마
 test('사진 메뉴 연결: [정리] 칩·접힌 칸·누를 때만 지우기·숨기기, 기기 저장 없음', () => {
   const src = read('app/photos.js'), tidy = read('app/photo-tidy.js'), model = read('app/photo-tidy-model.mjs');
   assert.match(src, /data-photos-tidy-chip aria-expanded="false" aria-controls="photosTidy" hidden>정리<\/button>/);
-  assert.match(src, /askConfirm\(b, \{text:`\$\{g\.label\} \$\{n\}장을 폰 휴지통으로 옮길까요\?`/);
+  assert.match(src, /askConfirm\(b, \{text:`\$\{g\.label\} \$\{n\}장\$\{size \? `\(\$\{size\}\)` : ''\}을 폰 휴지통으로 옮길까요\?`/); // S52-06 용량 요약
+  assert.match(src, /const gt = await phoneGate\(b, g\.items, \{what:g\.label\}\);/); // S52-06 잡동사니도 안전장치
   assert.match(src, /if \(b\.matches\('\[data-photos-tidy-hide\]'\)\)/);
   assert.match(src, /photos-unbacked/);
   // 기기 저장 낱말은 저장소 검사(browser-storage-audit)가 시험 글에서도 막으므로 조각으로 만든다.
