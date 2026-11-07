@@ -173,9 +173,13 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   // 표 직접 읽기는 같은 파일 보기(app_cloud_items GET) 하나뿐, 직접 쓰기 없음.
   assert.deepEqual([...js.matchAll(/\/rest\/v1\/(app_cloud_\w+)/g)].map(m => m[1]), ['app_cloud_items']);
   assert.doesNotMatch(js, /method: '(PATCH|DELETE)'/);
-  // PUT은 올리기 조각 하나뿐: 서버가 열어 준 이어 올리기 자리(slot.url)로, 토큰·쿠키 없이(credentials omit, Authorization 없음).
-  assert.deepEqual([...js.matchAll(/fetch\(([\w.]+), \{method: 'PUT'[^}]*headers: \{([^}]*)\}/g)].map(m => [m[1], m[2]]), [['slot.url', "'Content-Range': `bytes ${piece.start"]]);
-  assert.match(js, /method: 'PUT', cache: 'no-store', credentials: 'omit'/);
+  // PUT은 올리기 조각 하나뿐: 서버가 열어 준 이어 올리기 자리(slot.url)로, 토큰·쿠키 없이(Authorization 없음).
+  // UI-올리기진행표시 ②: 조각은 공용 보내기(upload-send.mjs sendUpload = XMLHttpRequest, 실제 보낸 양)로 보낸다 — 쿠키를 싣지 않는다(withCredentials를 켜지 않음).
+  assert.deepEqual([...js.matchAll(/(?:fetch|sendUpload)\(([\w.]+), \{method: 'PUT'[^}]*headers: \{([^}]*)\}/g)].map(m => [m[1], m[2]]), [['slot.url', "'Content-Range': `bytes ${piece.start"]]);
+  assert.doesNotMatch(js, /withCredentials/);
+  assert.doesNotMatch(read('app/upload-send.mjs'), /withCredentials\s*=\s*true/);
+  // 조각 PUT 머리는 Content-Range 하나(Authorization·apikey 없음).
+  assert.match(js, /sendUpload\(slot\.url, \{method: 'PUT', headers: \{'Content-Range': `bytes \$\{piece\.start\}-\$\{piece\.end - 1\}\/\$\{size\}`\},\s*body: file\.slice/);
 });
 
 // ---------- S48-45 쓰기 ----------

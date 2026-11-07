@@ -3,9 +3,25 @@ import assert from 'node:assert/strict';
 import { readTaskFiles, fileLinksHtml, fileProblem, driveFileUrl, attachTaskFile, detachTaskFile, MAX_TASK_FILES } from '../app/task-files.js';
 
 // TASK-파일붙이기: the app reads the link table with the owner's session and changes it only through the google-tasks Edge.
+// UI-올리기진행표시 ②: 파일 붙이기(attach)는 공용 보내기(upload-send.mjs sendUploadApi)로 간다. 시험 환경에는 XMLHttpRequest가 없어
+// fetch로 보내므로, 그 요청을 그 rt의 가짜 api가 받게 잇는다(rt마다 다른 가짜 로그인 값으로 가린다). 빼기(detach)는 지금처럼 rt.api.
+const MOCK = 'https://mock.invalid', uploadRts = new Map();
+globalThis.fetch = async (url, options = {}) => {
+  const rt = uploadRts.get(String(options.headers?.Authorization || ''));
+  if (!rt) throw Error('unexpected fetch ' + url);
+  try { const data = await rt.api(String(url).replace(MOCK, ''), { method: options.method, body: options.body, upload: true }); return new Response(JSON.stringify(data ?? null), { status: 200 }); }
+  catch (e) { return new Response(JSON.stringify({ message: e.message }), { status: e.status || 500 }); }
+};
+const viaUpload = rt => {
+  const token = 'mock-' + (uploadRts.size + 1);
+  uploadRts.set('Bearer ' + token, rt);
+  rt.session ??= { ensure: async () => true, read: () => ({ access_token: token }), epoch: () => 0 };
+  rt.config ??= { url: MOCK, key: 'mock-key' };
+  return rt;
+};
 const fakeRt = (answer) => {
   const calls = [];
-  return { calls, rt: { api: async (path, options = {}) => { calls.push({ path, options }); return typeof answer === 'function' ? answer(path, options) : answer; }, copyUploadFile: async f => f } };
+  return { calls, rt: viaUpload({ api: async (path, options = {}) => { calls.push({ path, options }); return typeof answer === 'function' ? answer(path, options) : answer; }, copyUploadFile: async f => f }) };
 };
 
 test('readTaskFiles: owner REST read in chunks of 50, attach order kept, bad rows skipped', async () => {
@@ -56,10 +72,9 @@ test('attach sends one file as multipart to the Edge; detach sends only ids', as
   await attachTaskFile('t1', file, { rt });
   assert.equal(calls[0].path, '/functions/v1/google-tasks?action=attach');
   assert.equal(calls[0].options.method, 'POST');
-  assert.equal(calls[0].options.singleFlight, false);
+  assert.equal(calls[0].options.upload, true, '첨부는 공용 보내기 길(실제 보낸 양)로');
   assert.ok(calls[0].options.body instanceof FormData);
   assert.equal(calls[0].options.body.get('task_id'), 't1');
-  assert.ok(calls[0].options.timeoutMs >= 90000);
   await detachTaskFile('t1', 'f1', { rt });
   assert.deepEqual(calls[1], { path: '/functions/v1/google-tasks?action=detach', options: { method: 'POST', body: { action: 'detach', task_id: 't1', drive_file_id: 'f1' }, singleFlight: false } });
 });
@@ -68,7 +83,7 @@ test('attach sends one file as multipart to the Edge; detach sends only ids', as
 import { attachNewTaskFiles, newTaskFilesNotice, pickProblem, taskFilesAvailable } from '../app/task-files.js';
 test('attachNewTaskFiles: one attach per file to the new task; a failed file is listed and the rest still go', async () => {
   const sent = [];
-  const rt = { api: async (path, options) => { const name = options.body.get('file').name; sent.push([path, options.body.get('task_id'), name]); if (name === 'b.txt') throw Error('Drive에 올리지 못했습니다.'); return { ok: true, files: sent.filter(s => s[2] !== 'b.txt').map((s, i) => ({ drive_file_id: 'd' + i, file_name: s[2], size_bytes: 1 })), notes_synced: true }; }, copyUploadFile: async f => f };
+  const rt = viaUpload({ api: async (path, options) => { const name = options.body.get('file').name; sent.push([path, options.body.get('task_id'), name]); if (name === 'b.txt') throw Error('Drive에 올리지 못했습니다.'); return { ok: true, files: sent.filter(s => s[2] !== 'b.txt').map((s, i) => ({ drive_file_id: 'd' + i, file_name: s[2], size_bytes: 1 })), notes_synced: true }; }, copyUploadFile: async f => f });
   const files = [new File(['a'], 'a.txt'), new File(['b'], 'b.txt'), new File([''], 'empty.txt'), new File(['c'], 'c.txt')];
   const seen = [];
   const result = await attachNewTaskFiles('t1', files, { rt, onProgress: (i, n, f) => seen.push([i, n, f.name]) });
@@ -164,6 +179,7 @@ const editRt = ({ failAttach = [], failDetach = [], start = [] } = {}) => {
       throw Error('unexpected ' + path);
     }
   };
+  viaUpload(rt);
   return { rt, calls, files: () => files };
 };
 

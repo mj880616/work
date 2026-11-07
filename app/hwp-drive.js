@@ -4,6 +4,8 @@
 // 어떤 요청도 자동으로 다시 보내지 않는다. 400대 거절은 "바뀐 것 없음", 시간 초과·5xx·응답 이상은 "결과 불명"이다.
 // 서버가 아직 배포되지 않았으면 열기가 거절되어 편집기에 Drive 파일이 들어오지 않으므로 아무것도 바뀌지 않는다.
 import {weeklySaveCategory} from './document-categories.js'; // LIB-소분류: 목록에 '주간보고›개인본'이 있으면 그 이름으로 저장
+import {sendUpload} from './upload-send.mjs';
+import {trackUpload} from './upload-progress.js';
 import {readTextLater} from './document-text-read.js'; // SEARCH ②: 자료실에 새로 등록된 파일 안 글자를 서버가 한 번 읽어 둠
 export const HWP_EDIT_MAX_BYTES=30*1024*1024;
 const OLD_SERVER=new Set(['document_id가 필요합니다.','Unknown action']);
@@ -83,13 +85,26 @@ async function session(rt){
   return value;
 }
 // One request, never repeated. A timeout leaves the outcome unknown; the caller decides what that means.
-async function send(rt,path,body,{timeoutMs=120000,fetcher=fetch}={}){
+// UI-올리기진행표시 ②: 파일을 보내는 요청(FormData)은 공용 길(upload-send.mjs, 실제 보낸 양)로 보내고 공용 표시(upload-progress.js)를 붙인다.
+// 시간 한도·결과 불명 규칙은 그대로(한 번만 보내고, 한도가 지나면 결과 불명). ✕(취소)는 다 보내기 전만 — 그때는 아무것도 바뀌지 않는다.
+// fetcher를 넘긴 시험은 지금처럼 그 fetcher로 보낸다(보낸 양 없음).
+async function send(rt,path,body,{timeoutMs=120000,fetcher}={}){
   const s=await session(rt);
   let timer;
   const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>reject(failure('unknown','timeout')),timeoutMs)});
+  const headers={apikey:rt.config.key,Authorization:'Bearer '+s.access_token,...(body instanceof FormData?{}:{'Content-Type':'application/json'})};
+  const file=body instanceof FormData&&!fetcher?body.get('file'):null;
+  const job=file?trackUpload({file,name:file.name,size:file.size}):null;
   try{
-    return await Promise.race([fetcher(rt.config.url+path,{method:'POST',cache:'no-store',headers:{apikey:rt.config.key,Authorization:'Bearer '+s.access_token,...(body instanceof FormData?{}:{'Content-Type':'application/json'})},body:body instanceof FormData?body:JSON.stringify(body)}),deadline]);
+    if(job){
+      const r=await Promise.race([sendUpload(rt.config.url+path,{headers,body,size:file.size||0,timeoutMs:0,signal:job.signal,onProgress:job.progress}),deadline]);
+      if(r.ok)job.done();else job.fail(HWP_TEXT.refused);
+      return {ok:r.ok,status:r.status,headers:new Headers(),json:async()=>JSON.parse(r.text)};
+    }
+    return await Promise.race([(fetcher||fetch)(rt.config.url+path,{method:'POST',cache:'no-store',headers,body:body instanceof FormData?body:JSON.stringify(body)}),deadline]);
   }catch(err){
+    if(err?.code==='upload_cancelled')throw failure('cancelled','cancelled');
+    job?.fail('저장했는지 확인하지 못했어요.');
     if(err?.kind)throw err;
     throw failure('unknown','network');
   }finally{clearTimeout(timer)}
@@ -117,6 +132,7 @@ export async function openHwpFromDrive(target,{rt=window.KPTURuntime,fetcher}={}
 
 export function newFileOutcome({status,data,error},where){
   if(error?.kind==='session')return {kind:'session',message:HWP_TEXT.session};
+  if(error?.kind==='cancelled')return {kind:'refused',message:'올리기를 취소했어요. 아무것도 바뀌지 않았어요.'};
   if(error)return {kind:'unknown',message:HWP_TEXT.newUnknown.replace('{where}',where)};
   if(status===401)return {kind:'session',message:HWP_TEXT.session};
   if(status>=400&&status<500)return {kind:'refused',message:[HWP_TEXT.refused,data?.message||data?.error].filter(Boolean).join(' '),code:data?.code};
