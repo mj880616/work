@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — News 글 보기: 원문 먼저, 요약·시사점 아래, 영문 [번역]</title>
+<style>
+  :root{--bg:#f4f3f7;--card:#fcfcfd;--line:#e3e1ea;--ink:#2b2930;--faint:#7d7986;--btn:#efedf4;--on:#5c5470}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:20px;padding:0 16px 24px}
+  .col{width:360px}
+  .col h2{font-size:14px;margin:8px 0}
+  .phone{background:var(--bg);border-radius:18px;padding:12px;border:1px solid #d6d4dd}
+  .meta{font-size:12px;color:var(--faint);margin:0 0 6px}
+  .ttl{font-size:16px;font-weight:600;margin:0 0 2px}
+  .sub{font-size:12px;color:var(--faint);margin:0 0 8px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden}
+  .bh{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:13px;background:#f8f7fa}
+  .bh b{font-weight:700}
+  .src{color:var(--faint);font-size:12px}
+  .r{margin-left:auto;display:flex;gap:4px;align-items:center}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;font-size:12px;padding:2px 9px;color:var(--ink)}
+  .chip.on{background:var(--on);color:#fff;border-color:var(--on)}
+  .fs{font-size:12px;color:var(--faint);padding:0 3px}
+  .bd{padding:8px 10px;font-size:13.5px;line-height:1.6}
+  .bd p{margin:0 0 8px}
+  .wait{height:12px;background:#ecebf1;border-radius:6px;margin:6px 0}
+  .faint{color:var(--faint);font-size:12px}
+  .fold{display:flex;align-items:center;padding:8px 10px;font-size:13px}
+  .fold .r{color:var(--faint);font-size:12px}
+  .tag{display:inline-block;font-size:11px;color:#fff;background:var(--on);border-radius:4px;padding:1px 5px;margin-left:4px}
+  .hl{outline:2px dashed #c79a2a;outline-offset:2px;border-radius:999px}
+</style>
+</head>
+<body>
+<h1>시안 — News 글 보기: 원문 먼저 · 요약·시사점은 아래 · 영문 글에 [번역]</h1>
+<p class="note">명진 11/07 10:51: "요약 시사점 아래로 내리고 영문은 번역 버튼 추가, 구글 번역 쓰는 걸로."<br>
+글 내용은 시안용으로 지어낸 문장이에요.</p>
+
+<div class="wrap">
+  <div class="col">
+    <h2>지금</h2>
+    <div class="phone">
+      <p class="meta">‹ 매체 · 국제 · 2026. 11. 7. · 글쓴이</p>
+      <p class="ttl">(한글 제목)</p><p class="sub">(English title)</p>
+      <div class="box"><div class="bh"><b>요약</b><span class="r faint">만드는 중</span></div><div class="bd"><div class="wait"></div><div class="wait"></div></div></div>
+      <div class="box"><div class="bh"><b>시사점</b><span class="r faint">만드는 중</span></div><div class="bd"><div class="wait"></div><div class="wait"></div></div></div>
+      <div class="box"><div class="bh"><b>원문 전체</b><span class="src">· 매체</span><span class="r"><span class="fs">가</span><span class="fs">가</span><span class="fs">가</span></span></div>
+        <div class="bd"><p>This is a sample English paragraph used only for the mockup. It stands in for the article body.</p></div></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>바꾼 뒤 — 영문 글 처음 <span class="tag">명진 10:53 확정(가)</span></h2>
+    <div class="phone">
+      <p class="meta">‹ 매체 · 국제 · 2026. 11. 7. · 글쓴이</p>
+      <p class="ttl">(한글 제목)</p><p class="sub">(English title)</p>
+      <div class="box"><div class="bh"><b>원문 전체</b><span class="src">· 매체</span>
+        <span class="r"><button class="chip hl">번역</button><span class="fs">가</span><span class="fs">가</span><span class="fs">가</span></span></div>
+        <div class="bd"><p>This is a sample English paragraph used only for the mockup. It stands in for the article body.</p>
+        <p>A second sample paragraph follows here so the box looks like a real article.</p>
+        <p class="faint">… (원문 끝까지)</p></div></div>
+      <div class="box"><div class="bh"><b>요약</b><span class="r faint">만드는 중</span></div><div class="bd"><div class="wait"></div><div class="wait"></div></div></div>
+      <div class="box"><div class="bh"><b>시사점</b><span class="r faint">만드는 중</span></div><div class="bd"><div class="wait"></div><div class="wait"></div></div></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>바꾼 뒤 — [번역] 누른 뒤</h2>
+    <div class="phone">
+      <p class="meta">‹ 매체 · 국제 · 2026. 11. 7. · 글쓴이</p>
+      <p class="ttl">(한글 제목)</p><p class="sub">(English title)</p>
+      <div class="box"><div class="bh"><b>원문 전체</b><span class="src">· Google 번역</span>
+        <span class="r"><button class="chip on">번역</button><span class="fs">가</span><span class="fs">가</span><span class="fs">가</span></span></div>
+        <div class="bd"><p>시안에만 쓰는 영어 문단의 번역이에요. 기사 본문 자리를 대신해요.</p>
+        <p>진짜 기사처럼 보이도록 두 번째 문단이 이어져요.</p>
+        <p class="faint">… (문단·소제목·사진 자리는 원문 그대로, 글만 한국어) · 다시 누르면 영어</p></div></div>
+      <div class="box"><div class="bh"><b>요약</b></div><div class="bd"><p>(AI 요약 — 다 만들어지면 여기)</p></div></div>
+      <div class="box"><div class="bh"><b>시사점</b></div><div class="bd"><p>(시사점)</p></div></div>
+    </div>
+  </div>
+</div>
+
+<p class="note">• 순서: 꼬리 줄 → 제목 → <b>원문 전체</b> → 요약 → 시사점. 요약·시사점은 지금처럼 글을 열 때 만들기 시작하고, 원문을 읽는 동안 아래에서 채워짐.<br>
+• [번역]은 영문 글에만(한글 글에는 없음). 원문 칸 머리 줄, 글자 크기 단추 왼쪽 작은 칩. 누르면 Google 번역으로 한국어, 다시 누르면 영어. 한 번 번역한 글은 서버에 저장해 다음엔 바로. 번역은 Web2 안에서(서버가 Google 번역 호출, 명진 10:53 (가)).<br>
+• 같은 종류 전수: 사회운동 글·뉴스 기사 등 '원문 전체'가 있는 모든 글 보기(폰·폴드·PC) 같은 순서·같은 단추.</p>
+</body>
+</html>
