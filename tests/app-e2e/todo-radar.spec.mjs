@@ -62,22 +62,19 @@ const createsOf=page=>{const list=[];page.on('request',r=>{if(r.url().includes('
 const btn=(row,name)=>row.getByRole('button',{name,exact:true});
 
 
-for(const width of [412,884,1440])test(`home: the first open of the day asks once (auto), and the summary line counts and opens the 정리함 ${width}`,async({page},info)=>{
+for(const width of [412,884,1440])test(`home: the first open of the day asks once (auto), and the 잊지 말기 line counts and opens the 정리함 ${width}`,async({page},info)=>{
  const f=await fixture(page,{width,routes:()=>page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:['telegram']})),rows:[cand(1,{kind:'deadline',due:'2026-10-09',summary:'가상 의견 제출'}),cand(2,{source_kind:'org_update',organization_id:ORG,summary:'가상 조직 회신'}),cand(3,{source_kind:'telegram',source_id:id(301),summary:'가상 나한테 온 요청'})]});
  await expect(page.locator('#homeView')).toBeVisible();
  // ① one automatic look a day, kind + mode only.
  // (운영자 기능 telegram이 있으면 업무일지 '기억할 만한 일' 읽기도 ai-assist를 부르므로 챙길 것 찾기만 센다.)
  const radarCalls=()=>f.calls.ai.filter(c=>c.kind==='todo_radar');
  await expect.poll(()=>radarCalls().length).toBe(1);expect(radarCalls()[0]).toEqual({kind:'todo_radar',mode:'auto'});
- // ② S52-09 UI-요청상자통일: 카드 맨 위 '나한테 온 요청' 상자(운영자 기능 telegram) — 요청 줄은 상자 안, 맨 아래 흐린 한 줄 '챙길 것 n · 정리 안 된 것 n ›'.
+ // ② S52-20: [하루] 맨 위 '잊지 말기' 한 줄 + 빨간 숫자(요청 1 + 챙길 것 2 + 미분류 업데이트 0 = 3). 요청 줄·'챙길 것 n · 정리 안 된 것 n' 줄은 없다.
  const line=page.locator('#homeView [data-home-summary]');
  await expect(line).toBeVisible();
  await expect(line).toHaveClass(/(^|\s)nbx(\s|$)/);
- await expect(line.locator('.nbx-head')).toHaveText('나한테 온 요청1· 텔레그램 ·정리함 열기 ›');
- await expect(line.locator('[data-nbx-row] .nbx-body')).toHaveText(['가상 나한테 온 요청']);
- await expect(line.locator('[data-home-summary-todos]')).toHaveText('2');
- await expect(line.locator('[data-home-summary-unsorted]')).toHaveText('0');
- await expect(line.locator('.nbx-foot')).toHaveText('챙길 것 2 · 정리 안 된 것 0 ›');
+ await expect(line.locator('.nbx-head')).toHaveText('잊지 말기3열기 ›');
+ await expect(line.locator('[data-nbx-row],.nbx-foot')).toHaveCount(0);
  // 날짜 밑 옛 요약 줄은 없다(상자는 [하루] 카드 안).
  expect(await line.evaluate(el=>!!el.closest('[data-journal-day]'))).toBe(true);
  await expect(page.locator('#homeView .home-summary-open,#homeView .home-summary-rest')).toHaveCount(0);
@@ -85,7 +82,7 @@ for(const width of [412,884,1440])test(`home: the first open of the day asks onc
  // 옛 챙길 것 상자는 홈 어디에도 없다.
  await expect(page.locator('#homeView [data-journal-radar],#homeView [data-home-card="radar"],#homeView [data-radar-row]')).toHaveCount(0);
  await page.screenshot({path:info.outputPath(`home-summary-${width}.png`)});
- await tap(page,line.locator('.nbx-foot-open'),width);
+ await tap(page,line.locator('[data-home-forget-open]'),width);
  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
  // 정리함: 텔레그램 요청과 챙길 것이 한 목록의 같은 줄.
  await expect(inbox(page).locator('[data-forget-src="todo"]')).toHaveCount(2);
@@ -98,15 +95,14 @@ for(const width of [412,884,1440])test(`home: the first open of the day asks onc
  expect(f.calls.patch).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('home: no number can be read → the summary line stays hidden; nothing else breaks',async({page})=>{
+test('home: a candidate table that is not applied counts as 0; nothing else breaks',async({page})=>{
  const f=await fixture(page,{tables:false});
  await expect(page.locator('#homeView [data-journal-schedule]')).toBeVisible();
  await page.waitForTimeout(300);
  const line=page.locator('#homeView [data-home-summary]');
- // A table that is not applied counts as 0 (inbox-count.js), so the line shows zeros instead of failing.
- // 운영자 기능 telegram이 없는 작업공간(기본): 상자 없이 흐린 한 줄만.
- await expect(line).toHaveText('챙길 것 0 · 정리 안 된 것 0 ›');
- await expect(line).not.toHaveClass(/(^|\s)nbx(\s|$)/);
+ // A table that is not applied counts as 0 (inbox-count.js), so the line shows no number instead of failing.
+ await expect(line.locator('.nbx-head')).toHaveText('잊지 말기열기 ›');
+ await expect(line.locator('[data-nbx-badge]')).toHaveCount(0);
  expect(f.errors).toEqual([]);
 });
 

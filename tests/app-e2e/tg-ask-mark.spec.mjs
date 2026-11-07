@@ -87,21 +87,21 @@ test('요청이 없으면 [나한테 온 요청] 칸도 노란 줄도 없다, �
  expect(f.errors).toEqual([]);
 });
 
-// HOME-업무일지홈 → S52-09 UI-요청상자통일: 홈 [하루] 카드 맨 위 '나한테 온 요청 n · 텔레그램 · 정리함 열기 ›' 상자(정리함 숫자와 같은 읽기), '새 소식'은 없다.
-test('홈 나한테 온 요청 상자에 요청 수가 보인다(정리함 숫자와 같은 읽기), 누르면 정리함',async({page})=>{
+// HOME-업무일지홈 → S52-20 HOME-잊지말기한목록: 홈 [하루] 맨 위 '잊지 말기' 한 줄의 숫자에 요청도 든다(정리함 숫자와 같은 읽기), '새 소식'은 없다.
+test('홈 잊지 말기 한 줄 숫자에 요청이 들고(정리함 숫자와 같은 읽기), 누르면 정리함 한 목록에 그 요청 줄',async({page})=>{
  await page.setViewportSize({width:412,height:900});
  await openHome(page,{beforeLoad:async()=>{
   await page.route('**/rest/v1/app_feed_days**',r=>r.fulfill({json:[{day:'2026-10-06',source:'telegram',total_count:30,kept_count:12,room_count:4,failed_count:0}]}));
-  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',r=>r.fulfill({json:CANDS().filter(c=>c.status==='open')}));
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',r=>{const st=new URL(r.request().url()).searchParams.get('status')||'';return r.fulfill({json:CANDS().filter(c=>st==='eq.open'?c.status==='open':c.status!=='open')});});
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:['telegram']}));
  }});
  const line=page.locator('#homeView [data-home-summary]');
- await expect(line.locator('.nbx-head')).toHaveText('나한테 온 요청1· 텔레그램 ·정리함 열기 ›');
- await expect(line.locator('[data-nbx-row]')).toHaveCount(1);
- await expect(line.locator('.nbx-foot')).toHaveText(/^챙길 것 \d+ · 정리 안 된 것 \d+ ›$/);
+ await expect(line.locator('[data-nbx-badge]')).toHaveText(/^\d+$/);
+ await expect(line.locator('.nbx-head')).toContainText('잊지 말기');
  await expect(line).not.toContainText('새 소식');
- await line.locator('.nbx-head [data-goto="basket"]').click();
+ await line.locator('[data-home-forget-open]').click();
  await expect(page.locator('#basketView')).toBeVisible();
+ await expect(page.locator('#basketView [data-forget-section] [data-forget-src="telegram"]')).toHaveCount(1);
 });
 
 // TG-안본것 3/3: 안 연 방·날은 이름 옆 작은 점, 연 것은 흐림, [안 본 것 n]. '봤음'은 서버 줄(seen_at)이라 다른 기기에서 연 것도 흐리게 보인다.

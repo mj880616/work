@@ -9,7 +9,7 @@ const six = ui.slice(ui.indexOf('/* ===== UI-버튼6가지'));
 
 // 아직 공용 부품으로 옮기지 않은 보기 탭(두 번째 PR에서 전수 정리). 줄기만 하고 늘지 않는다 — 새 보기 탭은 처음부터 .ds-seg.
 const PENDING = [
-  'app/basket.js inbox-chips', 'app/basket.js basket-filters', 'app/diary.js diary-source',
+  'app/diary.js diary-source', // S52-20: 정리함 칩(inbox-chips·basket-filters)은 한 목록 [처리 전 ▾]로 바뀌어 없어짐
   'app/org-overview.js so-team-tabs', 'app/org-overview.js role=tab so-team-tab',
   'app/outside-statements.js os-tabs', 'app/outside-statements.js role=tab ?',
   'app/photos.js photos-chips', 'app/telegram-feed.js feed-vsw',
