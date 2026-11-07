@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NOW_TABS, NOW_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText} from '../app/now-model.mjs';
+import {NOW_TABS, NOW_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK} from '../app/now-model.mjs';
 import {NEWS_TABS} from '../app/view-prefs.js';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 화면 순수 계산.
 
@@ -178,4 +178,42 @@ test('S51-17 P5: 잠깐의 오류(늦은 답·사이트 오류)로 실패한 저
   for (const reason of ['robots', 'bot_check', 'paywall', 'http_4xx', 'no_body', 'off_host', 'relay', 'too_big', null]) assert.equal(reopenBody({state: 'failed', reason}), false, String(reason));
   for (const state of ['ok', 'lead', 'image_only']) assert.equal(reopenBody({state, reason: 'timeout'}), false, state);
   assert.equal(reopenBody(null), false);
+});
+
+// S52-12 NEWS-원문먼저번역: 원문 칸 [번역] — 외국어 뉴스 기사만, 번역 줄은 같은 순서의 글자 블록에(사진·캡션 자리 그대로).
+test('번역 단추는 외국어 뉴스 기사에만', () => {
+  assert.equal(canTranslate({type: 'news'}, {lang: 'en'}), true);
+  assert.equal(canTranslate({type: 'news'}, {lang: 'ko'}), false);
+  assert.equal(canTranslate({type: 'news'}, {lang: ''}), false);
+  assert.equal(canTranslate({type: 'outside'}, {lang: 'en'}), false);
+});
+test('번역 줄은 글자 블록 자리에 하나씩, 사진·캡션은 그대로', () => {
+  const blocks = [{t: 'p', text: 'One.'}, {t: 'img', src: 'https://x/a.jpg', cap: 'Cap', alt: ''}, {t: 'h', text: 'Head'}, {t: 'quote', text: 'Q.'}, {t: 'p', text: 'Two.'}];
+  const r = translatedBlocks(blocks, 'One.\nHead\nQ.\nTwo.', '하나.\n\n소제목\n인용.\n둘.');
+  assert.equal(r.aligned, true);
+  assert.equal(r.partial, false);
+  assert.deepEqual(r.blocks.map(b => b.t), ['p', 'img', 'h', 'quote', 'p']);
+  assert.deepEqual(r.blocks.map(b => b.text ?? b.cap), ['하나.', 'Cap', '소제목', '인용.', '둘.']);
+  assert.equal(blocks[0].text, 'One.', '원래 블록은 바꾸지 않음');
+});
+test('앞부분만 번역(서버 표시 줄)이면 앞 블록만 바꾸고 나머지는 원문', () => {
+  const blocks = [{t: 'p', text: 'A'}, {t: 'p', text: 'B'}, {t: 'p', text: 'C'}];
+  const r = translatedBlocks(blocks, 'A\nB\nC', `가\n\n${TRANSLATE_REST_MARK}`);
+  assert.deepEqual(r.blocks.map(b => b.text), ['가', 'B', 'C']);
+  assert.equal(r.partial, true);
+  assert.equal(r.aligned, true);
+});
+test('줄 수가 안 맞으면 번역 문단만 차례로, 사진은 아래에', () => {
+  const blocks = [{t: 'p', text: 'A'}, {t: 'img', src: 'https://x/a.jpg', cap: '', alt: ''}, {t: 'p', text: 'B'}, {t: 'p', text: 'C'}];
+  const r = translatedBlocks(blocks, 'A\nB\nC', '가나');
+  assert.equal(r.aligned, false);
+  assert.deepEqual(r.blocks.map(b => b.t), ['p', 'img']);
+  assert.equal(translatedBlocks(blocks, 'A', ''), null);
+  assert.equal(translatedBlocks(blocks, 'A', null), null);
+});
+test('번역 실패 한 줄', () => {
+  assert.equal(translateError({status: 429, message: 'DAILY_LIMIT'}), '오늘 번역을 다 씀 · 내일 다시');
+  assert.equal(translateError({status: 429, message: 'MONTHLY_LIMIT'}), '이번 달 번역 한도를 다 씀');
+  assert.equal(translateError({status: 503, message: 'AI_UNAVAILABLE'}), '번역하지 못함 · HTTP 503');
+  assert.equal(translateError(new Error('x')), '번역하지 못함 · 잠시 뒤 다시');
 });

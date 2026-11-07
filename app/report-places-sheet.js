@@ -1,7 +1,7 @@
 // MTG-사업보고 6단계: 사업 보고의 두 고르기 창. 둘 다 공용 고르기 창(choice-sheet.js)을 그대로 쓴다.
 // ① pickReportPlaces: [연결할 곳] — 업데이트 '기록할 곳 선택' 창과 같은 모양(체크·여러 곳·오른쪽 아래 [저장]), 바구니(미분류)만 없다.
 // ② pickReport: 프로젝트·담당조직 화면의 [연결] — 사업 보고 전체(모든 종류)에서 하나를 고른다.
-import {createChoiceSheet,projectRow} from './choice-sheet.js';
+import {createChoiceSheet} from './choice-sheet.js';
 import {readPlaces,placeSources,placeSheetHtml,placeValue,placeList,togglePlace,choiceCountText,placeName,PLACE_LIMIT} from './update-places.js';
 import {pickerLine,pickableReports} from './report-links-model.mjs';
 import {seoulParts} from './meeting-time.js';
@@ -60,24 +60,21 @@ export function pickReport(trigger,{reports,linkedIds=new Set(),title,onPick}={}
   return ensureReportSheet().open('report',trigger);
 }
 
-// MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 고르기 — 하나만(명진 결정 ①). 사업영역 = 지금 프로젝트 트리(공용 고르기 창의 한 줄 모양 그대로).
-// 맨 위 '꼬리표 없음'. 고르면 바로 닫히고 onPick(id|'')가 불린다.
+// MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 고르기 — 하나만(명진 결정 ①). 맨 위 '꼬리표 없음'. 고르면 바로 닫히고 onPick(id|'')가 불린다.
 // MTG-사업영역없음: allowNone이면 맨 위는 '고르지 않음'(''), 그 아래 회색 '없음'(AREA_NONE — 사업영역이 원래 없는 보고). 한 줄 업데이트 창은 사업영역이 필수라 두지 않는다.
-let areaSheet=null,areaActive=null;
+// S52-01 ③b UI-사업영역조직고르기창: 창은 모든 화면과 같은 고르기 창(area-org-picker.js, 하나만 고르기) — 큰 묶음만 보이고 꺾쇠로 하위,
+// 찾기(폰도)·자주 쓴 것. 맨 위 줄('꼬리표 없음' 또는 '고르지 않음'·'없음')과 돌려주는 값(id|''|AREA_NONE)은 그대로다.
 export const areaPathName=x=>x?[x.path,x.project?.name||'이름 없는 사업영역'].filter(Boolean).join(' › '):'';
 // 고를 수 있는 사업영역 목록에서 id의 경로 이름('사업영역 › 세부 과제'). 목록에 없으면(보관·휴지통) ''.
 export const areaNameIn=(places,id)=>id?areaPathName(places?.projects?.find(x=>String(x.project.id)===String(id))):'';
-function ensureAreaSheet(){
-  areaSheet||=createChoiceSheet({id:'reportAreaSheet',titleId:'reportAreaSheetTitle',historyKey:'kptuReportArea',
-    canOpen:()=>!!areaActive,choices:()=>loadReportPlaces().then(p=>{if(areaActive)areaActive.places=p}),
-    render:()=>{const rows=areaActive?.places?.projects||[],sel=areaActive?.chosen||'';
-      const top=areaActive?.allowNone?[{project:{id:'',name:'고르지 않음'},depth:0},{project:{id:AREA_NONE,name:'없음'},depth:0,none:true}]:[{project:{id:'',name:'꼬리표 없음'},depth:0}];
-      return {title:'사업영역 꼬리표',search:'사업영역 이름 검색',html:[...top,...rows].map(x=>projectRow(x,sel,esc,x.none?{extra:'data-area-none'}:{})).join('')}},
-    onSelect:(kind,value)=>{const pick=areaActive?.onPick;queueMicrotask(()=>pick?.(value||''))},
-    onError:error=>areaActive?.onMessage?.(error?.message||'사업영역을 불러오지 못했어요.')});
-  return areaSheet;
-}
-export function pickBusinessArea(trigger,{chosen='',allowNone=false,onPick,onMessage}={}){
-  areaActive={chosen:String(chosen||''),allowNone:!!allowNone,places:null,onPick,onMessage};
-  return ensureAreaSheet().open('area',trigger);
+export async function pickBusinessArea(trigger,{chosen='',allowNone=false,onPick,onMessage}={}){
+  let places,used;
+  try{places=await loadReportPlaces();}catch(error){onMessage?.(error?.message||'사업영역을 불러오지 못했어요.');return;}
+  const picker=await import('./area-org-picker.js');
+  used=await picker.usedKeysNow().catch(()=>[]);
+  if(!trigger?.isConnected)return;
+  const value=String(chosen||''),top=allowNone?[{key:'',name:'고르지 않음'},{key:AREA_NONE,name:'없음',attrs:'data-area-none data-aop-muted'}]:[{key:'',name:'꼬리표 없음'}];
+  return picker.openAreaOrgPicker({kind:'area',trigger,used,multi:false,top,title:'사업영역 꼬리표',areas:picker.catalogAreas(places.projects||[]),
+    selected:value===AREA_NONE?[AREA_NONE]:value?['p:'+value]:[],
+    onCommit:keys=>{const k=[...keys][0]||'';onPick?.(k===AREA_NONE?AREA_NONE:k.startsWith('p:')?k.slice(2):'');}});
 }

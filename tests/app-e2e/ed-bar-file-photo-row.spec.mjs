@@ -1,5 +1,5 @@
 // S48-21 (요청함 10/23 11:08 ③, 10/22 19:27 ②, 10/22 09:33): 편집기 서식 줄 [⌄] 펼침 상태를 서버 화면 설정(view_prefs ed_more)에 기억,
-// [파일](본문 안 작은 파일 칸), 사진 나란히(여러 장 한꺼번에 → [나란히]/[한 장씩], 고른 사진 [따로 놓기]/[옆 사진과 나란히], 폰은 두 장씩 줄바꿈).
+// [파일](본문 안 작은 파일 칸), 사진 나란히(여러 장 한꺼번에 → 묻지 않고 바로 나란히, S52-05 A·4장씩 줄 나눔, 고른 사진 [따로 놓기]/[옆 사진과 나란히], 폰은 두 장씩 줄바꿈).
 // 편집기만 띄우는 시험 화면(ed-editor-fixture.html)에서 본다. 서버는 그 화면 안의 가짜(view_prefs 읽기·PATCH만)다.
 import {test, expect} from '@playwright/test';
 import {appOrigin} from './helpers/test-origin.mjs';
@@ -88,14 +88,12 @@ test.describe('PC 1280', () => {
     await expect(page.locator('.ed-bar').getByRole('button', {name: '파일 넣기', includeHidden: true})).toHaveCount(0);
   });
 
-  test('사진 여러 장: [나란히]를 고르면 한 줄, 고른 사진 [따로 놓기]·[옆 사진과 나란히]로 풀고 붙인다', async ({page}) => {
+  test('사진 여러 장: 묻지 않고 바로 한 줄, 고른 사진 [따로 놓기]·[옆 사진과 나란히]로 풀고 붙인다', async ({page}) => {
     await open(page, 'photos=1');
     await pick(page, page.locator('.ed-tools').getByRole('button', {name: '사진 넣기', exact: true}), [png('a.png'), png('b.png'), png('c.png')]);
-    const ask = page.getByRole('group', {name: '여러 장 놓기'});
-    await expect(ask).toBeVisible();
-    await expect(ask).toContainText('사진 3장');
-    await ask.getByRole('button', {name: '나란히', exact: true}).click();
-    await expect(ask).toBeHidden();
+    // S52-05 A: [나란히]/[한 장씩] 묻기 줄은 없다.
+    await expect(page.getByRole('group', {name: '여러 장 놓기'})).toHaveCount(0);
+    await expect(page.locator('.ed-bar').getByRole('button', {name: '한 장씩', includeHidden: true})).toHaveCount(0);
     await expect.poll(async () => (await content(page)).map(n => n.type)).toEqual(['photo_row', 'paragraph']);
     const row = page.locator('.ed-input .ed-photo-row');
     await expect(row.locator('.ed-photo')).toHaveCount(3);
@@ -123,15 +121,16 @@ test.describe('PC 1280', () => {
     expect(await page.evaluate(() => window.plain())).toBe('[사진]\n[사진]\n[사진]');
   });
 
-  test('사진 여러 장에 [한 장씩]을 고르면 전처럼 한 장씩, 한 장만 고르면 묻지 않는다', async ({page}) => {
+  test('사진 6장은 4장 줄 + 2장 줄, 5장은 4장 줄 + 한 장, 한 장만 고르면 따로 한 장', async ({page}) => {
     await open(page, 'photos=1');
     const photo = page.locator('.ed-tools').getByRole('button', {name: '사진 넣기', exact: true});
-    await pick(page, photo, [png('a.png'), png('b.png')]);
-    await page.getByRole('group', {name: '여러 장 놓기'}).getByRole('button', {name: '한 장씩'}).click();
-    await expect.poll(async () => (await content(page)).map(n => n.type)).toEqual(['image', 'image', 'paragraph']);
+    await pick(page, photo, [1, 2, 3, 4, 5, 6].map(i => png(`p${i}.png`)));
+    await expect.poll(async () => (await content(page)).map(n => n.type === 'photo_row' ? `row${n.content.length}` : n.type)).toEqual(['row4', 'row2', 'paragraph']);
+    await open(page, 'photos=1');
+    await pick(page, photo, [1, 2, 3, 4, 5].map(i => png(`q${i}.png`)));
+    await expect.poll(async () => (await content(page)).map(n => n.type === 'photo_row' ? `row${n.content.length}` : n.type)).toEqual(['row4', 'image', 'paragraph']);
     await pick(page, photo, [png('c.png')]);
-    await expect(page.getByRole('group', {name: '여러 장 놓기'})).toBeHidden();
-    await expect.poll(async () => (await content(page)).filter(n => n.type === 'image')).toHaveLength(3);
+    await expect.poll(async () => (await content(page)).map(n => n.type === 'photo_row' ? `row${n.content.length}` : n.type)).toEqual(['row4', 'image', 'image', 'paragraph']);
   });
 });
 

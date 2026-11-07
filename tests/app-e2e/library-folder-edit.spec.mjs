@@ -170,7 +170,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     await expect(page.locator('#documentList details[data-lu-node="p:top-a"] > .lu-node-body > [data-lu-document="a-1"]')).toBeAttached();
     // 하위 프로젝트 자료(child-a1)는 top-a 폴더에 넣을 수 없다(다른 틀): 폴더 줄은 흐리고 이유 한 줄이 보이며 눌러도 아무 일도 없다.
     await openMove(page,'a1-1',width);
-    expect(await moveEnabledNames(page)).toEqual([]);await expect(page.locator('#luMovePicker .lu-move-note')).toContainText('프로젝트가 달라 넣을 수 없어요');
+    expect(await moveEnabledNames(page)).toEqual([]);await expect(page.locator('#luMovePicker .lu-move-note')).toContainText('사업영역이 달라 넣을 수 없어요');
     const writesBefore=s.writes.length;await moveFolder(page,'fa').click({force:true});expect(s.writes.length).toBe(writesBefore);await expect(page.locator('#luMovePicker')).toBeVisible();
     await page.keyboard.press('Escape');await expect(page.locator('#luMovePicker')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeVisible();await page.keyboard.press('Escape');await expect(page.locator('#luMorePanel')).toBeHidden();
     // 자료(app_documents)는 한 번도 쓰지 않았다.

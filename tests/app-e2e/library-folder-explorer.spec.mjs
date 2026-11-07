@@ -31,6 +31,9 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     // 프로젝트 묶기에서는 틀이 다른 연결(n-1은 프로젝트 없음인데 폴더 fa는 top-a)을 '폴더에 없는 것'으로 본다(이전 동작 그대로).
     await radio(page,'사업영역').click();await expandLibraryTree(page);
     expect(await childrenOf(page,'p:none')).toContain('n-1');expect(await childrenOf(page,'f:fa')).toEqual([]);
+    // S52-05 B LIB-사업영역글자: 자료실 화면 글자에 '프로젝트'가 남아 있지 않다(저장 값 project_id는 그대로).
+    // 시험 자료 이름(가짜 사업영역 '고아 하위 프로젝트' 등, 사용자가 붙인 이름)은 빼고 화면 글자만 본다.
+    expect(await page.locator('#libraryView').evaluate(v=>{const c=v.cloneNode(true);c.querySelectorAll('.lu-node-name,[data-lu-document]').forEach(x=>x.remove());return c.innerText})).not.toContain('프로젝트');
     await radio(page,'폴더').click();
     expect(s.writes).toEqual([]);
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);

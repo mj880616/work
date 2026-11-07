@@ -98,7 +98,10 @@ function render(kind){
   const recent=frequentKeys(c.used,new Map([...known].filter(([k])=>!locked(k)))).map(k=>`<button type="button" class="home-choice-chip" data-sheet-value="${esc(k)}" aria-pressed="${pressed(k)}">${esc(known.get(k))}</button>`);
   const open=openKeysFor(c.tree,c.orgGroups,c.pending);
   const body=kind==='area'?areaListHtml(c.tree,{open,pressed,locked}):orgListHtml(c.orgGroups,{open,pressed,locked});
-  const none=c.none&&!c.multi?`<div class="aop-node" data-sheet-section><div class="aop-line">${rowHtml('',noneLabel(kind),0,{pressed:!c.pending.size})}</div></div>`:'';
+  // A one-choice sheet may start with rows of its own (top: [{key,name,attrs}], e.g. '고르지 않음' and a gray '없음'); none:true is the
+  // usual single '사업영역 없음' row. A row keyed '' is pressed when nothing is chosen.
+  const tops=!c.multi?(c.top?.length?c.top:c.none?[{key:'',name:typeof c.none==='string'?c.none:noneLabel(kind)}]:[]):[];
+  const none=tops.map(x=>`<div class="aop-node" data-sheet-section${x.attrs?' '+x.attrs:''}><div class="aop-line">${rowHtml(x.key,x.name,0,{pressed:x.key?c.pending.has(x.key):!c.pending.size})}</div></div>`).join('');
   return {title:c.title||t.title,search:'찾기',searchAlways:true,
     html:`${recent.length?`<div class="aop-recent" data-sheet-hide-on-search><p class="home-choice-label">자주 쓴 것</p><div class="home-choice-group home-choice-group-plain">${recent.join('')}</div></div>`:''}<div class="aop-list">${none}${body||(none?'':emptyHtml(`${t.label} 없음`,{attrs:'data-aop-empty'}))}</div>`};
 }
@@ -128,10 +131,11 @@ function choiceState({areas=[],orgGroups=[],used=[]}){
 // onCommit(keys:Set) runs on [넣기] (or the one press); cancelling runs nothing.
 // locked: Map key → short text ('이미 연결됨') for places shown but not choosable. max: the most keys kept at once (multi only).
 // title: the sheet's title when the screen names it otherwise (default '사업영역 고르기' / '조직 고르기').
-export function openAreaOrgPicker({kind='area',trigger,anchor=null,areas=[],orgGroups=[],selected=[],used=[],multi=true,none='',locked=null,max=0,title='',onCommit=()=>{}}={}){
+// top: one-choice rows above the list ([{key,name,attrs}]); none: true or a label for the one '… 없음' row (top wins when given).
+export function openAreaOrgPicker({kind='area',trigger,anchor=null,areas=[],orgGroups=[],selected=[],used=[],multi=true,none='',top=null,locked=null,max=0,title='',onCommit=()=>{}}={}){
   if(!trigger)return;ensureStyles();
-  const st=choiceState({areas,orgGroups,used}),known=kind==='area'?st.areaKnown:st.orgKnown;
-  current={...st,kind,multi:!!multi,none,locked:locked instanceof Map?locked:null,max:Math.max(0,Number(max)||0),title,full:false,host:trigger,pending:new Set([...selected].map(String).filter(k=>known.has(k))),commit:keys=>onCommit(new Set(keys))};
+  const st=choiceState({areas,orgGroups,used}),known=kind==='area'?st.areaKnown:st.orgKnown,topKeys=new Set((top||[]).map(x=>String(x.key)).filter(Boolean));
+  current={...st,kind,multi:!!multi,none,top:Array.isArray(top)?top.map(x=>({key:String(x.key||''),name:String(x.name||''),attrs:x.attrs||''})):null,locked:locked instanceof Map?locked:null,max:Math.max(0,Number(max)||0),title,full:false,host:trigger,pending:new Set([...selected].map(String).filter(k=>known.has(k)||(!multi&&topKeys.has(k)))),commit:keys=>onCommit(new Set(keys))};
   return ensureSheet().open(kind,trigger,anchor);
 }
 
@@ -151,11 +155,12 @@ export const catalogAreas=rows=>(rows||[]).map(x=>({key:'p:'+x.project.id,name:x
 // value(): the chosen keys among the offered ones; known(): every offered key (the caller keeps links it did not offer).
 // kinds: which lines to show (default both, e.g. ['area'] for a screen that only takes a 사업영역). multi:false keeps one choice
 // per line (the sheet picks and closes on a press, as openAreaOrgPicker).
-export function mountAreaOrgLines(host,{onChange=()=>{},kinds=['area','org'],multi=true}={}){
+// labels: a line's own name when the screen calls it otherwise (e.g. {org:'관련 담당조직'}).
+export function mountAreaOrgLines(host,{onChange=()=>{},kinds=['area','org'],multi=true,labels={}}={}){
   if(!host)return null;
   ensureStyles();host.classList.add('aop-lines');
   const shown=Object.entries(KINDS).filter(([k])=>kinds.includes(k));
-  host.innerHTML=shown.map(([k,t])=>`<div class="aop-row" data-aop-line="${k}"><span class="aop-label">${t.label}</span><span class="aop-chips" data-aop-chips="${k}"></span><button type="button" class="aop-add" data-aop-add="${k}" aria-haspopup="dialog" aria-expanded="false" aria-label="${t.label} 고르기"></button></div>`).join('');
+  host.innerHTML=shown.map(([k,t])=>{const label=esc(labels?.[k]||t.label);return `<div class="aop-row" data-aop-line="${k}"><span class="aop-label${labels?.[k]?' is-long':''}">${label}</span><span class="aop-chips" data-aop-chips="${k}"></span><button type="button" class="aop-add" data-aop-add="${k}" aria-haspopup="dialog" aria-expanded="false" aria-label="${label} 고르기"></button></div>`}).join('');
   let state={...choiceState({}),selected:new Set()};
   function commit(kind,pending){const known=kind==='area'?state.areaKnown:state.orgKnown;for(const k of known.keys()){if(pending.has(k))state.selected.add(k);else state.selected.delete(k)}paint();onChange()}
   function chipLabel(kind,k){return kind==='area'?chipText(state.tree.byKey.get(k)):state.orgKnown.get(k)}
