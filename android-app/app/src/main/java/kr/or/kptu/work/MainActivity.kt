@@ -210,7 +210,7 @@ class MainActivity : ComponentActivity() {
 
     /**
      * UPLOAD-올리기안됨(0.5.2): 고른 파일 주소들. FileChooserParams.parseResult는 data 하나만 보고 ClipData는 버린다.
-     * 사진 고르기(image/*, 여러 장 허용)는 한 장만 골라도 ClipData로만 돌려주는 기기가 있어(갤럭시 사진 고르기) 아무것도 안 들어갔다.
+     * 사진 고르기(이미지만·여러 장 허용)는 한 장만 골라도 ClipData로만 돌려주는 기기가 있어(갤럭시 사진 고르기) 아무것도 안 들어갔다.
      */
     private fun pickedUris(resultCode: Int, data: Intent?): Array<Uri>? {
         if (resultCode != android.app.Activity.RESULT_OK || data == null) return null
