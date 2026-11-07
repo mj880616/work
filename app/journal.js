@@ -30,6 +30,7 @@ import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
 // usual window (its own history entry), so one back also returns. Coming back by back/← keeps this card as it was (no re-read)
 // and the same scroll and focus.
 import {createMemorable} from './journal-memorable.js';
+import {rowMore} from './row-more.js';
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
@@ -264,20 +265,6 @@ let opens = new Map(), openSeq = 0, othersOpen = false;
 let selfBusy = 0;
 const keyFor = target => { if (!target) return ''; const key = `j${++openSeq}`; opens.set(key, target); return key; };
 const WIDE = window.matchMedia?.('(min-width:761px)');
-// ⋯ of one line: a native disclosure (as the meeting-kind ⋯ of [주간 정리]) holding small buttons.
-function moreMenu(label, buttons) {
-  const more = document.createElement('details');
-  more.className = 'journal-item-more';
-  more.innerHTML = `<summary aria-label="${esc(label)} 더 보기"><span class="more-dots" aria-hidden="true">⋯</span></summary>`;
-  more.append(...buttons);
-  return more;
-}
-function smallButton(text, data, value, aria) {
-  const button = document.createElement('button');
-  button.type = 'button'; button.className = 'mini'; button.textContent = text; button.dataset[data] = value;
-  if (aria) button.setAttribute('aria-label', aria);
-  return button;
-}
 // One line: the text is a button that opens the original. Update lines keep the request tags (JOURNAL-요청표시) in front.
 function itemRow(item) {
   const li = document.createElement('li');
@@ -295,8 +282,9 @@ function itemRow(item) {
   if ('summary' in item) body.insertAdjacentHTML('beforeend', item.summary ? `<p class="journal-item-summary">${esc(item.summary)}</p>` : '<p class="journal-item-summary journal-no-result" data-journal-no-result>결과 아직 없음</p>');
   li.append(body);
   // An update filed to an organization or a project: ⋯ [원래 업데이트 보기] opens the basket update itself.
+  // S52-29: 줄 끝 ⋯ 는 공용 rowMore(누르면 ⋯ 아래 작은 메뉴 — 줄 글을 밀지 않는다).
   if (item.open?.note && ['org', 'project'].includes(item.open.type)) {
-    li.append(moreMenu(item.text, [smallButton('원래 업데이트 보기', 'journalOriginal', keyFor({type:'note', note:item.open.note}))]));
+    li.append(rowMore(document, {label:`${item.text} 더 보기`, items:[{text:'원래 업데이트 보기', data:{journalOriginal:keyFor({type:'note', note:item.open.note})}}]}));
   }
   return li;
 }

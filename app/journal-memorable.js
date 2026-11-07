@@ -3,8 +3,9 @@
 // - 화면을 열 때(그날을 보여줄 때) 한 번: 저장된 줄을 읽어 먼저 그리고, ai-assist(kind=journal_memorable)에 날짜만 보낸다.
 //   서버가 '마지막 실행 1시간 뒤 + 새 기록 있음'일 때만 AI를 부르고 결과를 표에 넣는다. 화면은 다시 읽어 그린다. 1시간 안에 다시 열면 AI를 부르지 않는다.
 // - 운영자 기능(통화·텔레그램)은 서버가 판정한다(app_my_features, 표 restrictive 정책, ai-assist). 여기서 app_my_features를 읽는 것은 묶음을 그릴지 정하는 편의일 뿐이다.
-// - 줄마다 [넣기] [고쳐서 넣기] [빼기] ⋯(이유 선택). 빼기한 줄은 보이지 않는다. 표가 없으면(DB 적용 전) 묶음을 그리지 않는다.
+// - 줄 = 공용 '제안 줄'(출처 꼬리표 · 글 · 줄 끝 ⋯ 하나, S52-29). ⋯ = [넣기][고쳐서 넣기][빼기 · 이유]. 빼기한 줄은 보이지 않는다. 표가 없으면(DB 적용 전) 묶음을 그리지 않는다.
 import {callAiAssist} from './basket-ai-summary.js';
+import {rowMore} from './row-more.js';
 
 export const MEMORABLE_REASONS = Object.freeze(['중복', '사적', '주간보고감 아님', '기타']);
 export const MEMORABLE_REFRESH_MS = 60 * 60 * 1000;
@@ -110,15 +111,22 @@ export function createMemorable({onChange = () => {}, now = () => Date.now()} = 
         li.innerHTML = `<form class="journal-memorable-edit" data-memorable-edit="${esc(row.id)}"><input type="text" maxlength="${LINE_MAX}" value="${esc(row.line)}" aria-label="고쳐서 넣을 한 줄" data-memorable-input><button type="submit" class="mini"${busy ? ' disabled' : ''}>넣기</button><button type="button" class="mini" data-memorable-cancel>취소</button></form>`;
         ul.append(li); continue;
       }
+      // S52-29 공용 '제안 줄'(주간 정리와 같은 모양): 줄 앞 흐린 출처 꼬리표 · 글(줄 전체 폭, 누르면 원본) · 줄 끝 ⋯ 하나.
+      //   ⋯ = [넣기][고쳐서 넣기]/[빼기: 이유] — 이름·동작·저장(서버 표 PATCH)은 전과 같다. 큰 테두리 버튼은 두지 않는다.
+      li.classList.add('journal-memorable-row');
+      const source = row.source === 'telegram' ? '텔레그램' : '통화';
+      const tag = document.createElement('span'); tag.className = 'weekly-flow-tag'; tag.dataset.memorableSource = row.source; tag.textContent = source;
       const body = document.createElement('div'); body.className = 'journal-item-body';
       const text = document.createElement('button'); text.type = 'button'; text.className = 'journal-item-open'; text.dataset.memorableOpen = row.id;
-      text.setAttribute('aria-label', `${row.line} (원본 ${row.source === 'telegram' ? '텔레그램' : '통화'} 열기)`);
-      text.innerHTML = `${row.org ? `<strong class="journal-memorable-org">${esc(row.org)}</strong> ` : ''}${esc(row.line)} <small class="journal-muted">${row.source === 'telegram' ? '텔레그램' : '통화'}</small>${row.status === 'kept' ? ' <small class="journal-muted" data-memorable-kept>넣음</small>' : ''}`;
+      text.setAttribute('aria-label', `${row.line} (원본 ${source} 열기)`);
+      text.innerHTML = `${row.org ? `<strong class="journal-memorable-org">${esc(row.org)}</strong> ` : ''}${esc(row.line)}${row.status === 'kept' ? ' <small class="journal-muted" data-memorable-kept>넣음</small>' : ''}`;
       body.append(text);
-      const actions = document.createElement('div'); actions.className = 'journal-memorable-actions';
-      const dis = busy ? ' disabled' : '';
-      actions.innerHTML = `${row.status === 'kept' ? '' : `<button type="button" class="mini" data-memorable-keep="${esc(row.id)}"${dis}>넣기</button>`}<button type="button" class="mini" data-memorable-fix="${esc(row.id)}"${dis}>${row.status === 'kept' ? '고치기' : '고쳐서 넣기'}</button><details class="journal-item-more"><summary aria-label="${esc(row.line)} 빼기">빼기</summary>${MEMORABLE_REASONS.map(reason => `<button type="button" class="mini" data-memorable-drop="${esc(row.id)}" data-reason="${esc(reason)}"${dis}>${esc(reason)}</button>`).join('')}</details>`;
-      li.append(body, actions); ul.append(li);
+      const items = [
+        ...(row.status === 'kept' ? [] : [{text:'넣기', data:{memorableKeep:row.id}, disabled:busy, aria:`넣기: ${row.line}`}]),
+        {text:row.status === 'kept' ? '고치기' : '고쳐서 넣기', data:{memorableFix:row.id}, disabled:busy, aria:`${row.status === 'kept' ? '고치기' : '고쳐서 넣기'}: ${row.line}`},
+        ...MEMORABLE_REASONS.map(reason => ({text:`빼기 · ${reason}`, data:{memorableDrop:row.id, reason}, disabled:busy, danger:true, aria:`빼기(${reason}): ${row.line}`})),
+      ];
+      li.append(tag, body, rowMore(document, {label:`${row.line} 넣기·빼기`, data:{memorableMore:row.id}, items})); ul.append(li);
     }
     box.append(ul);
     if (state.error) box.insertAdjacentHTML('beforeend', `<p class="wait-fail journal-failed" role="alert">${esc(state.error)}</p>`);
