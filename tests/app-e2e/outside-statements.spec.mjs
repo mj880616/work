@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { segBox } from './helpers/seg-box.mjs'; // UI-보기탭한모양(S52-17): 보기 탭은 보이는 알약 자리로 잰다
 // OUTSIDE-바깥성명 ④ 화면 1 → S51-8 NEWS-전면개편 P4b(docs/design/news-overhaul.md 6.1·6.3절, 시안 mockups/news-overhaul.html): News 목록(?view=outside).
 // 탭 [전체][사회운동][언론][보관] — 폰 아래 떠 있는 탭 줄·폴드 오른쪽 아래·PC 위, 좌우 밀기 = 탭 이동, 고른 탭은 서버 view_prefs.news_tab.
 // 위 찾기 칸(제목 바로 거르기), [매체: 전체 ▾](자료실 분류 창 부품), 줄은 날짜 묶음 → 흰 상자 안 줄(매체 색 띠·같은 색 이름·분류 꼬리표·시각·★),
@@ -181,7 +182,7 @@ for (const width of [412, 884, 1280]) {
     expect(await noWideScroll(page)).toBe(true);
 
     // 탭 자리(명진 11/06): 폰 = 아래 가운데 떠 있음, 폴드 = 오른쪽 아래, PC = 위.
-    const tb = await root(page).locator('[data-os-tabs]').boundingBox(), vw = width, top = await root(page).locator('[data-nw-top]').boundingBox();
+    const tb = await segBox(root(page).locator('[data-os-tabs]')), vw = width, top = await root(page).locator('[data-nw-top]').boundingBox();
     if (width <= 760) { expect(Math.abs(tb.x + tb.width / 2 - vw / 2)).toBeLessThan(4); expect(tb.y).toBeGreaterThan(700); }
     else if (width < 1200) { expect(vw - (tb.x + tb.width)).toBeLessThan(20); expect(tb.y).toBeGreaterThan(800); }
     else expect(tb.y + tb.height).toBeLessThanOrEqual(top.y + 1);

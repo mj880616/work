@@ -1113,7 +1113,6 @@ html :is(
   #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button[aria-checked="true"],
   #appView #libraryView #libraryCategoryFilter button[aria-pressed="true"],
   #appView #ledgerView .lb-chip:has(input:checked),
-  #appView #diaryView .diary-source [aria-pressed="true"],
   #appView #pagesView .sp-seg button[aria-pressed="true"],
   .modal .event-create-modes button[data-event-mode][aria-pressed="true"],
   .modal .meeting-create-modes button[aria-pressed="true"]
@@ -1121,13 +1120,11 @@ html :is(
 /* ① 가로 전환(세그먼트): 테두리가 없거나 이웃과 붙어 있어, 고른 칸 아래쪽 안에 얇은 선(2px)을 그린다.
    버튼 자체의 그림자·배경 그림은 그대로 두고(UI-버튼크기 '그림자 없음'), 누르는 범위 ::after와 겹치지 않게 ::before를 쓴다. */
 html :is(
-  #appView #diaryView .diary-source [aria-pressed="true"],
   #appView #pagesView .sp-seg button[aria-pressed="true"],
   .modal .event-create-modes button[data-event-mode][aria-pressed="true"],
   .modal .meeting-create-modes button[aria-pressed="true"]
 ){ position:relative; }
 html :is(
-  #appView #diaryView .diary-source [aria-pressed="true"],
   #appView #pagesView .sp-seg button[aria-pressed="true"],
   .modal .event-create-modes button[data-event-mode][aria-pressed="true"],
   .modal .meeting-create-modes button[aria-pressed="true"]
@@ -1807,16 +1804,16 @@ button.ds-chip:is([aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-s
 .ds-seg button.ds-seg-btn[hidden]{ display:none; }
 /* 붙은 두 칸(.ds-seg-group, 예: 홈 [업데이트 ▾])은 한 알약처럼: 앞 칸을 고르면 두 칸을 함께 흰 알약으로 띄운다. */
 .ds-seg-group{ display:flex; align-items:center; flex:none; border-radius:var(--ds-chip-radius); }
-.ds-seg > button.ds-seg-btn:is([aria-pressed="true"],[aria-selected="true"]),.ds-seg > .ds-seg-group:has(> button.ds-seg-btn[aria-pressed="true"]){ background:var(--ds-seg-on); box-shadow:var(--ds-seg-on-shadow); }
-.ds-seg button.ds-seg-btn:is([aria-pressed="true"],[aria-selected="true"]),.ds-seg-group:has(> button.ds-seg-btn[aria-pressed="true"]) > button.ds-seg-btn{ color:var(--kptu-ink); }
-.ds-seg button.ds-seg-btn:is([aria-pressed="true"],[aria-selected="true"]){ font-weight:var(--ds-weight-strong); }
+.ds-seg > button.ds-seg-btn:is([aria-pressed="true"],[aria-selected="true"],[aria-checked="true"]),.ds-seg > .ds-seg-group:has(> button.ds-seg-btn:is([aria-pressed="true"],[aria-checked="true"])){ background:var(--ds-seg-on); box-shadow:var(--ds-seg-on-shadow); }
+.ds-seg button.ds-seg-btn:is([aria-pressed="true"],[aria-selected="true"],[aria-checked="true"]),.ds-seg-group:has(> button.ds-seg-btn:is([aria-pressed="true"],[aria-checked="true"])) > button.ds-seg-btn{ color:var(--kptu-ink); }
+.ds-seg button.ds-seg-btn:is([aria-pressed="true"],[aria-selected="true"],[aria-checked="true"]){ font-weight:var(--ds-weight-strong); }
 /* 누르는 순간: 기기 기본 탭 하이라이트(폰 민트·파란 빛) 없이 공용 눌림(UI-누름움직임). 칩·보기 바꾸기의 안 고른 칸은 누르는 동안 고른 쪽처럼 옅은 회색(전부터의 전환 칸과 같음). */
 :is(button.primary,button.secondary,button.ghost,button.danger,button.row-act,button.ds-chip,.ds-seg button.ds-seg-btn,button.icon-btn){ -webkit-tap-highlight-color:transparent; }
 button.ds-chip:active:not(:disabled,[aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
-.ds-seg button.ds-seg-btn:active:not(:disabled,[aria-pressed="true"],[aria-selected="true"]){ color:var(--kptu-ink); }
+.ds-seg button.ds-seg-btn:active:not(:disabled,[aria-pressed="true"],[aria-selected="true"],[aria-checked="true"]){ color:var(--kptu-ink); }
 :is(button.ds-chip,.ds-seg button.ds-seg-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 button.icon-btn{ border-color:transparent; background:transparent; box-shadow:none; color:var(--kptu-muted); }
-@media (hover:hover){ button.icon-btn:not(:disabled):hover,button.ds-chip:not(:disabled,[aria-pressed="true"],[aria-checked="true"]):hover{ background:var(--kptu-surface-subtle); } .ds-seg button.ds-seg-btn:not(:disabled,[aria-pressed="true"],[aria-selected="true"]):hover{ color:var(--kptu-ink); } }
+@media (hover:hover){ button.icon-btn:not(:disabled):hover,button.ds-chip:not(:disabled,[aria-pressed="true"],[aria-checked="true"]):hover{ background:var(--kptu-surface-subtle); } .ds-seg button.ds-seg-btn:not(:disabled,[aria-pressed="true"],[aria-selected="true"],[aria-checked="true"]):hover{ color:var(--kptu-ink); } }
 :is(button.ds-chip,button.icon-btn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:var(--ds-line-width); }
 .ds-seg button.ds-seg-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:calc(var(--ds-line-width) * -4); }
 :is(button.ds-chip,.ds-seg button.ds-seg-btn,button.icon-btn):disabled{ opacity:.5; cursor:default; }

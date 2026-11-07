@@ -44,7 +44,7 @@ function install() {
   const {section} = st;
   if (!section.querySelector('#soTeamTabs')) {
     section.querySelector('#soTeamHead')?.insertAdjacentHTML('afterend',
-      '<div id="soTeamTabs" class="so-team-tabs" role="tablist" aria-label="담당조직 보기"><button type="button" role="tab" class="so-team-tab" data-so-view="list" aria-selected="true" tabindex="0">목록</button><button type="button" role="tab" class="so-team-tab" data-so-view="table" aria-selected="false" tabindex="-1">전체 표</button></div>');
+      '<div id="soTeamTabs" class="so-team-tabs ds-seg" role="tablist" aria-label="담당조직 보기"><button type="button" role="tab" class="so-team-tab ds-seg-btn" data-so-view="list" aria-selected="true" tabindex="0">목록</button><button type="button" role="tab" class="so-team-tab ds-seg-btn" data-so-view="table" aria-selected="false" tabindex="-1">전체 표</button></div>');
   }
   if (!section.querySelector('#soOverview')) section.insertAdjacentHTML('beforeend', '<section id="soOverview" class="oa wd-st" aria-label="담당조직 이번 주 조직보고" hidden></section>');
   // PC 좌우 격자에서 소탭 줄이 맨 위 한 줄을 갖고 목록·상세 칸은 그 아래 같은 줄에 머문다(suborganizations.css .so-has-tabs).

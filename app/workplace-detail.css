@@ -157,10 +157,8 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 .wd-doc-main.has-report-photos>.report-photo-strip{grid-column:2;grid-row:1/span 3;align-self:center;justify-self:end}
 
 /* ORG-주요인물: 맨 아래 작은 탭 [주요 인물][기본 정보][소속][이전 요약](role=tablist, 패널은 hidden 속성) + [주요 인물] 칸(org-key-people.js). */
-.wd-tabs{display:flex;gap:2px;border-bottom:1px solid var(--kptu-border);margin:0 0 8px;overflow-x:auto;scrollbar-width:none}
-.wd-tab{position:relative;flex:0 0 auto;height:var(--ds-compact-height);min-height:0;padding:0 10px;border:0;border-bottom:2px solid transparent;border-radius:var(--kptu-radius-none,0);background:none;color:var(--kptu-muted);font-size:var(--ds-text-button);font-weight:500}
-.wd-tab::after{content:"";position:absolute;inset:-6px 0}
-.wd-tab[aria-selected="true"]{color:var(--kptu-ink);border-bottom-color:var(--kptu-ink);font-weight:600}
+/* UI-보기탭한모양(S52-17): 조직 정보 탭·[기록|현황 표]는 공용 ⑤ 보기 바꾸기(.ds-seg) 한 모양(넘치면 옆으로 밀기). 여기는 자리만. */
+.wd-tabs{margin-bottom:calc(8px - var(--ds-seg-hit))}
 .wd-tab-n{margin-left:4px;color:var(--kptu-muted);font-weight:400}
 .wd-tab-n:empty{display:none}
 .wd-tabpanel>.wd-sub:first-child{margin-top:0}
@@ -209,8 +207,8 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 .okp-sg::after{content:"";position:absolute;inset:-8px -2px}
 /* UI-고른것접기: 소속 고르기의 고른 것·그 외 목록도 같은 줄 간격 */
 .wd-aff-checks .pick-picked,.wd-aff-checks .pick-group{display:grid;gap:6px}.wd-aff-checks .pick-others>summary{margin-top:2px}
-/* DESK-현황표: 쟁의 단계 줄 아래 소탭 [기록 | 현황 표](.wd-tabs 모양 그대로)와 현황 표. 작고 낮은 버튼, 톤다운 */
-.wd-subtabs{margin:0 0 10px}
+/* DESK-현황표: 쟁의 단계 줄 아래 소탭 [기록 | 현황 표](공용 ⑤ 보기 바꾸기)와 현황 표. 작고 낮은 버튼, 톤다운 */
+.wd-subtabs{margin-bottom:calc(10px - var(--ds-seg-hit))}
 .wd-st{font-size:var(--ds-text-row)}
 .wd-st{--st-w-day:6.4em;position:relative}
 .wd-st-table{width:100%;border-collapse:collapse;table-layout:fixed}

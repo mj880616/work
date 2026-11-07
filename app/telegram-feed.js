@@ -222,7 +222,7 @@ function chipsHtml() {
   const news = state.seen && (unseen || state.filter === 'unseen') ? chip('data-tg-filter="unseen"', state.filter === 'unseen', `안 본 것 ${unseen}`) : '';
   // BIZ-버튼줄정리 4번(위쪽 줄 ⋯는 줄 오른쪽 끝): 고른 폴더의 ⋯는 [보관함] 뒤 맨 끝.
   const fm = state.folder ? `<button type="button" class="feed-more feed-folder-more" data-ctx="off" data-tg-folder-more aria-haspopup="true" aria-expanded="false" aria-label="폴더 메뉴">${MORE}</button>` : '';
-  const by = byNow(), sw = `<span class="feed-vsw" role="group" aria-label="보기" data-tg-bysw><button type="button" data-tg-by="day" aria-pressed="${by === 'day'}">날짜별</button><button type="button" data-tg-by="room" aria-pressed="${by === 'room'}">방별</button></span>`;
+  const by = byNow(), sw = `<span class="feed-vsw ds-seg" role="group" aria-label="보기" data-tg-bysw><button type="button" class="ds-seg-btn" data-tg-by="day" aria-pressed="${by === 'day'}">날짜별</button><button type="button" class="ds-seg-btn" data-tg-by="room" aria-pressed="${by === 'room'}">방별</button></span>`;
   return `<div class="feed-chiprow" role="group" aria-label="폴더">${sw}${chip('data-tg-folder=""', !state.folder && !state.filter, '전체')}${ask}${news}${folders}<button type="button" class="feed-chip is-add" data-tg-folder-add>+ 폴더</button><button type="button" class="feed-chip is-box" data-tg-shelf="archive">보관함 ${archived}</button>${fm}</div>`;
 }
 // 폴더 만들기·이름 바꾸기·지우기 상자(칸 줄 바로 아래). create 때 room이 있으면 만든 폴더에 그 방을 넣는다.

@@ -103,7 +103,7 @@ test('옆으로 미는 칩 줄 코드는 없다: 공용 칩 부품 둘이 chip-r
   assert.doesNotMatch(read('ledger-browse-model.mjs'), /chipFit/);
 });
 
-test('칩 줄 CSS는 줄바꿈이고 가로 스크롤이 없다(자료실·담당조직·프로젝트·사업 보고·정리함·텔레그램·노트 보드·사진·원장)', () => {
+test('칩 줄 CSS는 줄바꿈이고 가로 스크롤이 없다(자료실·담당조직·프로젝트·사업 보고·정리함·텔레그램·노트 보드·원장 — 사진 보기 탭은 UI-보기탭한모양 공용 ⑤)', () => {
   const rules = [
     ['filter-chips.css', /\.filter-chips \{([^}]*)\}/],
     ['ui-standard.css', /#appView :is\(#libraryView,#meetingsView,#basketView\) \.filter-chips:not\(\[hidden\]\)\{([^}]*)\}/],
@@ -111,7 +111,6 @@ test('칩 줄 CSS는 줄바꿈이고 가로 스크롤이 없다(자료실·담�
     ['ui-standard.css', /html \.cc-sub-row:not\(\[hidden\]\)\{([^}]*)\}/],
     ['feed.css', /\.feed-view \.feed-chiprow\{([^}]*)\}/],
     ['basket.css', /\.nbb \{([^}]*)\}/],
-    ['photos.css', /#appView #photosView \.photos-chips\{([^}]*)\}/],
     ['ledger-import.css', /#appView #ledgerView \.lb-topics\{([^}]*)\}/],
   ];
   for (const [f, re] of rules) {
