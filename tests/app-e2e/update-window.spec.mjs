@@ -54,7 +54,7 @@ for(const width of [390,1280]){
   await big.click();await expect(text(page)).toContainText('큰 창에서 고친 업데이트');
   await win(page).locator('[data-edw-save]').click();
   await expect(win(page)).toHaveCount(0);
-  await expect(page.locator('#toast')).toContainText('정리함에 저장');
+  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장');
   await expect(q.locator('[data-quick-input]')).toHaveValue('');
   expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({workspace_id:'w',raw_text:'큰 창에서 고친 업데이트'});expect(f.notes[0].doc).toMatchObject({v:'ed1'});
   expect(f.orgs).toEqual([]);expect(f.projects).toEqual([]);

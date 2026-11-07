@@ -14,7 +14,7 @@ async function open(page,kind='organization'){await page.evaluate(kind=>{const s
 for(const width of [390,1280])test(`organization blends old and basket records with archived source and NULL fallback ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});await ready(page);await open(page);
  const box=page.locator('#wdUpdates');await expect(box.locator('[data-basket-link]')).toHaveCount(2);await expect(box).toContainText('연결 요약');await expect(box).toContainText('보관 원문');
- const first=await box.locator(':scope > div').first().textContent();expect(first).toContain('정리함');await expect(box.locator('[data-wd-up-menu]')).toHaveCount(1);await expect(box.locator('[data-wd-up-del]')).toHaveCount(0);await expect(box.locator('[data-basket-link] [data-wd-up-menu]')).toHaveCount(0);
+ const first=await box.locator(':scope > div').first().textContent();expect(first).toContain('잊지 말기');await expect(box.locator('[data-wd-up-menu]')).toHaveCount(1);await expect(box.locator('[data-wd-up-del]')).toHaveCount(0);await expect(box.locator('[data-basket-link] [data-wd-up-menu]')).toHaveCount(0);
  await expect(box.locator('[data-basket-link] a').first()).toHaveAttribute('href',/view=basket&note=/);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 for(const width of [390,1280])test(`project basket rows join the record list read-only and keep child/menu separation ${width}`,async({page})=>{

@@ -136,7 +136,7 @@ test('연결이 거절되면 업데이트는 정리함에 남고 안내(두 번 
  const {q,f}=await setup(page,1280);f.linkReply={ok:false,error:'TARGET_UNSELECTABLE',created:0,existing:0};
  await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));await org(page,'공항철도지부').click();await org(page,'서해선지부').click();await save(page).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
- await expect(q.locator('[data-quick-status]')).toHaveText('업데이트는 정리함에 저장했지만 고른 곳에 연결하지 못했어요. 정리함에서 [연결하기]로 다시 연결해 주세요.');
+ await expect(q.locator('[data-quick-status]')).toHaveText('업데이트는 잊지 말기에 저장했지만 고른 곳에 연결하지 못했어요. 잊지 말기에서 [연결하기]로 다시 연결해 주세요.');
  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
  expect(f.notes).toHaveLength(1);expect(f.links).toHaveLength(1);await expect(q).toHaveAttribute('data-mode','basket');
 });
