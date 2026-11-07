@@ -34,7 +34,7 @@ function harness(o = {}) {
     if (table === 'app_drive_connections') return Response.json([{ google_refresh_token: 'r' }]);
     if (table === 'app_workspace_members') {
       if (u.searchParams.has('workspace_id')) return Response.json(state.role ? [{ role: state.role }] : []);
-      return Response.json([{ workspace_id: 'ws-1', role: 'owner' }], { headers: { 'Content-Range': '0-0/1' } });
+      return Response.json(state.ownerRows ?? [{ workspace_id: 'ws-1', role: 'owner' }], { headers: { 'Content-Range': '0-0/1' } });
     }
     if (table === 'app_notes') {
       // TRASH-다른삭제 5단계: noTrashColumn = DB 적용 전(deleted_at 칸 없음, PostgREST 42703 거절). deleted_at=is.null이 오면 휴지통 노트(deleted_at 있음)는 빠진다.
@@ -44,6 +44,8 @@ function harness(o = {}) {
       const rows = state.note ? [state.note] : [];
       return Response.json(rows, { headers: { 'Content-Range': rows.length ? `0-${rows.length - 1}/${rows.length}` : '*/0' } });
     }
+    // FILES-자료실로보내기: [파일] 색인(서버만 씀). 그 작업공간·구글·그 id만 돌려준다.
+    if (table === 'app_cloud_items') return Response.json((state.cloudItems || []).filter(i => 'eq.' + i.workspace_id === u.searchParams.get('workspace_id') && 'eq.' + i.source === u.searchParams.get('source') && 'eq.' + i.item_id === u.searchParams.get('item_id')).slice(0, 1));
     if (table === 'app_drive_settings') return Response.json([], { headers: { 'Content-Range': '*/0' } });
     if (table === 'app_drive_download_tokens') return new Response(null, { status: 204 });
     if (table === 'app_documents') {
@@ -215,4 +217,79 @@ test('before the database has deleted_at the note is read once more without the 
   assert.equal(reads.length, 2);
   assert.match(reads[0].path, /&deleted_at=is\.null/);
   assert.doesNotMatch(reads[1].path, /deleted_at/);
+});
+
+// FILES-자료실로보내기(S52-26): [파일]의 구글 드라이브 파일을 사본 없이 자료실 자료로 연결한다(register-drive-file).
+const GD = 'gd-file_9';
+const gdItem = (o = {}) => ({ workspace_id: 'ws-1', source: 'gd', item_id: GD, name: '가상 회의록.pdf', is_folder: false, mime: 'application/pdf', size_bytes: 4321, trashed: false, ...o });
+const gdHarness = (o = {}) => harness({ cloudItems: [gdItem()], drive: { id: GD, name: 'drive 이름.pdf', mimeType: 'application/pdf', size: '4321', webViewLink: 'https://drive.google.com/file/d/gd-file_9/view', trashed: false, ownedByMe: true }, ...o });
+const link = (h, extra = {}) => h.send({ action: 'register-drive-file', drive_file_id: GD, ...extra });
+
+test('register-drive-file: a [파일] Google Drive file becomes a private library document on the same Drive file (no copy)', async () => {
+  const h = gdHarness();
+  const r = await link(h);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body, { ok: true, result: 'created', document: { id: 'doc-new', title: '가상 회의록' } });
+  assert.equal(posts(h).length, 1);
+  assert.deepEqual(posts(h)[0].body, {
+    workspace_id: 'ws-1', project_id: null, meeting_id: null, title: '가상 회의록', category: '기타', source: null, document_date: null, description: null, tags: [],
+    drive_url: 'https://drive.google.com/file/d/gd-file_9/view', file_id: GD, file_name: '가상 회의록.pdf', mime_type: 'application/pdf', file_size: 4321,
+    visibility: 'private', uploaded_by: 'owner-1', auto_classified: false, classification_note: '[파일]의 구글 드라이브에서 연결(같은 Drive 원본)',
+  });
+  // 사본·옮기기·올리기·휴지통 없음: Drive에는 읽기(GET)만.
+  assert.deepEqual(driveWrites(h), []);
+  // 색인은 부른 사람의 owner 작업공간(ws-1)으로만 찾는다.
+  assert.ok(h.calls.some(c => c.path.startsWith('/rest/v1/app_cloud_items?workspace_id=eq.ws-1&source=eq.gd&item_id=eq.gd-file_9')));
+});
+
+test('register-drive-file: the same Drive file twice returns exists and makes nothing new', async () => {
+  const h = gdHarness({ documents: [{ id: 'doc-had', title: '이미 있는 자료', workspace_id: 'ws-1', file_id: GD }] });
+  const r = await link(h);
+  assert.deepEqual(r.body, { ok: true, result: 'exists', document: { id: 'doc-had', title: '이미 있는 자료' } });
+  assert.equal(posts(h).length, 0);
+  assert.equal(h.calls.some(c => c.path.startsWith('/drive/')), false);
+});
+
+test('register-drive-file: refuses files outside this workspace\'s [파일] index, folders, trashed files, OneDrive items and non-owners — nothing written', async () => {
+  const cases = [
+    [{ cloudItems: [] }, 'FILE_NOT_FOUND'],
+    [{ cloudItems: [gdItem({ workspace_id: 'ws-other' })] }, 'FILE_NOT_FOUND'],
+    [{ cloudItems: [gdItem({ is_folder: true })] }, 'FILE_NOT_FOUND'],
+    [{ cloudItems: [gdItem({ trashed: true })] }, 'FILE_NOT_FOUND'],
+    [{ cloudItems: [gdItem({ source: 'od' })] }, 'FILE_NOT_FOUND'],
+    [{ ownerRows: [] }, 'FORBIDDEN'],
+    [{ ownerRows: [{ workspace_id: 'ws-1', role: 'owner' }, { workspace_id: 'ws-2', role: 'owner' }] }, 'FORBIDDEN'],
+  ];
+  for (const [o, code] of cases) {
+    const h = gdHarness(o);
+    const r = await link(h, { workspace_id: 'ws-other' }); // 화면이 보낸 작업공간 값은 쓰지 않는다
+    assert.equal(r.status, 400, JSON.stringify(o));
+    assert.equal(r.body.code, code, JSON.stringify(o));
+    assert.equal(posts(h).length, 0);
+    assert.equal(h.calls.some(c => c.path.startsWith('/drive/')), false);
+  }
+  for (const bad of ['', '../x', 'a b', 'x'.repeat(256)]) {
+    const h = gdHarness();
+    const r = await link(h, { drive_file_id: bad });
+    assert.equal(r.body.code, 'INVALID_REQUEST');
+    assert.equal(posts(h).length, 0);
+  }
+});
+
+test('register-drive-file: a Drive original that is not mine or is in the trash is not linked', async () => {
+  for (const [drive, code] of [[{ ownedByMe: false }, 'DRIVE_FILE_INVALID'], [{ trashed: true }, 'DRIVE_FILE_TRASHED']]) {
+    const h = gdHarness();
+    h.state.drive = { ...h.state.drive, ...drive };
+    const r = await link(h);
+    assert.equal(r.body.code, code);
+    assert.equal(posts(h).length, 0);
+  }
+});
+
+test('register-drive-file: an unknown write result is reported (503) and not sent again', async () => {
+  const h = gdHarness({ insertStatus: 503 });
+  const r = await link(h);
+  assert.equal(r.status, 503);
+  assert.equal(r.body.code, 'RESULT_UNKNOWN');
+  assert.equal(posts(h).length, 1);
 });

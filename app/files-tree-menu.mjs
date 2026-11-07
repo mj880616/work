@@ -3,11 +3,14 @@
 //  클라우드(원드라이브·구글): 파일 = 열기·복사·옮기기·이름 바꾸기·별표·휴지통 / 폴더 = 이 폴더만 보기·새 폴더·올리기·복사·옮기기·이름 바꾸기·색·위로·아래로·별표·휴지통
 //  이 폰: 파일 = 열기·클라우드에 복사·이름 바꾸기·휴지통(폰에 쓸 수 있을 때) / 폴더 = 이 폴더만 보기·새 폴더·클라우드에 복사·이름 바꾸기(폰 폴더는 지우지 않음)
 //  내 PC: 보기·열기만(파일 = 열기, 폴더 = 이 폴더만 보기).
+// FILES-자료실로보내기(S52-26): 파일(폴더 아님)은 [자료실로 보내기] — 구글 드라이브 파일이 이미 자료실에 있으면 그 자리가 [자료실에서 보기].
+//   내 PC 파일은 아직 다리가 바이트를 읽지 못해(보기·열기만) 넣지 않는다. 폴더째 보내기는 이번엔 없다.
 // S51-31 UI-⋯작은메뉴(요청함 11/06 23:28): 세 묶음으로 나눠 보인다 — 열기·올리기·복사·옮기기·이름 바꾸기 | 별표·색·위로·아래로 | 휴지통.
 // 휴지통은 맨 아래 한 줄(last, 빨강 — 한 번 묻기는 trashRows). 둘째 묶음 첫 항목에 sep(가는 선).
 export const TREE_MENU_LABEL = Object.freeze({
   open: '열기', only: '이 폴더만 보기', mkdir: '새 폴더', upload: '올리기', copy: '복사', move: '옮기기', tocloud: '클라우드에 복사',
-  rename: '이름 바꾸기', color: '색', up: '위로', down: '아래로', star: '별표', unstar: '별표 빼기', trash: '휴지통'
+  rename: '이름 바꾸기', color: '색', up: '위로', down: '아래로', star: '별표', unstar: '별표 빼기', trash: '휴지통',
+  tolib: '자료실로 보내기', libview: '자료실에서 보기'
 });
 const CLOUD = ['od', 'gd'];
 const SECOND = ['star', 'unstar', 'color', 'up', 'down']; // 둘째 묶음은 이 순서(요청함 원문 '별표·색·위로·아래로')
@@ -18,13 +21,13 @@ export function treeMenuItems(row, {phoneWrite = false, sibIndex = -1, sibCount 
   if (row.source === 'pc') ids.push(folder ? 'only' : 'open');
   else if (row.source === 'ph') {
     if (folder) ids.push('only', ...(phoneWrite ? ['mkdir'] : []), 'tocloud', ...(phoneWrite ? ['rename'] : []));
-    else ids.push('open', 'tocloud', ...(phoneWrite ? ['rename', 'trash'] : []));
+    else ids.push('open', 'tolib', 'tocloud', ...(phoneWrite ? ['rename', 'trash'] : []));
   } else if (CLOUD.includes(row.source)) {
     if (folder) {
       ids.push('only', 'mkdir', 'upload', 'copy', 'move', 'rename', 'color');
       if (sibIndex > 0) ids.push('up');
       if (sibIndex >= 0 && sibIndex < sibCount - 1) ids.push('down');
-    } else ids.push('open', 'copy', 'move', 'rename');
+    } else ids.push('open', row.library_doc_id && row.source === 'gd' ? 'libview' : 'tolib', 'copy', 'move', 'rename');
     ids.push(row.starred ? 'unstar' : 'star', 'trash');
   }
   const group = id => (SECOND.includes(id) ? 2 : id === 'trash' ? 3 : 1);

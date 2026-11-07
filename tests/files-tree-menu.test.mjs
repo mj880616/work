@@ -8,8 +8,12 @@ const ids = (row, opt) => treeMenuItems(row, opt).map(x => x.id);
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 test('S51-22 나무 ⋯ 메뉴: 클라우드 파일·폴더는 예전 고르기 줄 기능 그대로, 휴지통 맨 아래', () => {
-  assert.deepEqual(ids({source: 'od', is_folder: false}), ['open', 'copy', 'move', 'rename', 'star', 'trash']);
-  assert.deepEqual(ids({source: 'gd', is_folder: false, starred: true}), ['open', 'copy', 'move', 'rename', 'unstar', 'trash']);
+  // FILES-자료실로보내기(S52-26): 파일은 [자료실로 보내기], 이미 자료실에 있는 구글 드라이브 파일은 그 자리가 [자료실에서 보기].
+  assert.deepEqual(ids({source: 'od', is_folder: false}), ['open', 'tolib', 'copy', 'move', 'rename', 'star', 'trash']);
+  assert.deepEqual(ids({source: 'gd', is_folder: false, starred: true}), ['open', 'tolib', 'copy', 'move', 'rename', 'unstar', 'trash']);
+  assert.deepEqual(ids({source: 'gd', is_folder: false, library_doc_id: 'd1'}), ['open', 'libview', 'copy', 'move', 'rename', 'star', 'trash']);
+  assert.equal(treeMenuItems({source: 'gd'}).find(x => x.id === 'tolib').label, '자료실로 보내기');
+  assert.equal(treeMenuItems({source: 'gd', library_doc_id: 'd1'}).find(x => x.id === 'libview').label, '자료실에서 보기');
   // S51-31: 세 묶음 — 올리기·복사·옮기기·이름 바꾸기 | 별표·색·위로·아래로 | 휴지통.
   assert.deepEqual(ids({source: 'od', is_folder: true}, {sibIndex: 1, sibCount: 3}), ['only', 'mkdir', 'upload', 'copy', 'move', 'rename', 'star', 'color', 'up', 'down', 'trash']);
   assert.deepEqual(ids({source: 'od', is_folder: true}, {sibIndex: 0, sibCount: 1}), ['only', 'mkdir', 'upload', 'copy', 'move', 'rename', 'star', 'color', 'trash']);
@@ -22,8 +26,8 @@ test('S51-22 나무 ⋯ 메뉴: 클라우드 파일·폴더는 예전 고르기 
 });
 
 test('S51-22 나무 ⋯ 메뉴: 이 폰은 클라우드에 복사(+쓸 수 있으면 이름·휴지통, 폴더는 지우지 않음), 내 PC는 보기·열기만', () => {
-  assert.deepEqual(ids({source: 'ph'}), ['open', 'tocloud']);
-  assert.deepEqual(ids({source: 'ph'}, {phoneWrite: true}), ['open', 'tocloud', 'rename', 'trash']);
+  assert.deepEqual(ids({source: 'ph'}), ['open', 'tolib', 'tocloud']);
+  assert.deepEqual(ids({source: 'ph'}, {phoneWrite: true}), ['open', 'tolib', 'tocloud', 'rename', 'trash']);
   assert.deepEqual(ids({source: 'ph', is_folder: true}, {phoneWrite: true}), ['only', 'mkdir', 'tocloud', 'rename']);
   assert.deepEqual(ids({source: 'pc'}), ['open']);
   assert.deepEqual(ids({source: 'pc', is_folder: true}), ['only']);
