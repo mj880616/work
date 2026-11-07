@@ -207,8 +207,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .home-quick button.home-quick-folder[hidden] { display:none; }
 #appView #basketView .home-quick button.home-quick-folder::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
 #appView #basketView .home-quick button.home-quick-folder:hover { background:var(--kptu-primary-soft); }
-#basketView .home-quick .home-quick-folder-row { display:flex; justify-content:flex-start; order:1; }
-#basketView .home-quick .home-quick-folder-row[hidden] { display:none; }
+/* S52-34 UI-전체정리(노트): 폰도 [폴더 ▾]가 입력칸과 한 줄(입력칸 위 따로 줄 없음). 폴더 이름은 짧게 잘라 입력칸 폭을 남긴다. */
+@media(max-width:760px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:center; max-width:6.5em; text-overflow:ellipsis; white-space:nowrap; } }
 @media(min-width:761px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:flex-start; margin-top:2px; } }
 /* ED③ 노트: 노트 수정 칸의 본문은 새 편집기(ed-editor.js, 모양은 ed-doc.css). 칸 테두리만 둘러 옛 textarea 자리와 같은 폭·높이로 둔다. */
 #basketView .note-editor .note-body-field { display:block; min-width:0; margin:6px 0 0; border:1px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface); }

@@ -7,7 +7,7 @@
 // 이 자리(data-journal-weekly-hq-slot)는 이 모듈 하나가 그린다. 브라우저 저장소에 아무것도 두지 않는다.
 // S46-27: 같은 표를 한글 파일 상자 1. 요청사항 안에도 그린다(place 'weekly' | 'box'). 고치기 상태·끌기는 자리마다 따로, 자료는 같은 그 주 행 하나.
 import {changeWeekDocs, withHq, withTitleEdit, draftHq, withLinePick} from './weekly-draft-store.js';
-import {withHqRow, withoutHqRow, movedHqRow, withPicked, eventFields, editFrom, cleanTime, hqLine, HQ_MAX, TITLE_MAX, PLACE_MAX} from './weekly-schedule-rows.mjs';
+import {withHqRow, withoutHqRow, movedHqRow, withPicked, eventFields, editFrom, cleanTime, hqLine, HQ_MAX, TITLE_MAX, PLACE_MAX, WHO_MAX} from './weekly-schedule-rows.mjs';
 import {timeCell, TIME_HINT} from './time-input.js';
 import {scheduleItems} from './weekly-hwpx/schedule.mjs';
 import {formDay} from './weekly-exec-requests.js';
@@ -18,6 +18,7 @@ import {majorRule} from './weekly-major-schedule.mjs'; // WEEKLY-주요일정기
 import {sortPicks, droppedOf, keptOf, hadTexts, HAVE_ACT} from './weekly-picks.mjs';
 import {lineIn} from './weekly-cell-names.mjs';
 import {learnFor} from './weekly-picks.js';
+import {colGripHtml} from './weekly-cols.js'; // WEEKLY-조직이름한줄 덧붙임: 칸 폭 끌기 손잡이
 
 const TEXT = Object.freeze({
   missing:'2) 주요 일정 저장 칸이 아직 준비되지 않았어요(서버 적용 전).',
@@ -63,9 +64,9 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   const events = scheduleItems(model.calendar?.allRows ? {...model.calendar, rows:model.calendar.allRows} : model.calendar);
   const eventOf = key => hq.events.get(key);
 
-  const table = el('table', 'journal-weekly-table journal-exec-table journal-hq-table'); table.dataset.journalHqTable = '';
+  const table = el('table', 'journal-weekly-table journal-exec-table journal-hq-table'); table.dataset.journalHqTable = ''; table.dataset.wkCols = 'hq';
   // WEEKLY-손잡이왼쪽(요청함 11/08 00:18): ⠿는 줄 맨 왼쪽 칸(첫 칸 '일' 앞), ⋯는 줄 맨 오른쪽 칸 — 2. 1) 요약 줄과 같은 자리.
-  table.innerHTML = '<thead><tr><th scope="col" class="journal-grip-head" aria-label="순서"></th><th scope="col">일</th><th scope="col">시간 / 내용 / 장소</th><th scope="col" class="journal-exec-tools-head" aria-label="고치기"></th></tr></thead>';
+  table.innerHTML = `<thead><tr><th scope="col" class="journal-grip-head" aria-label="순서"></th><th scope="col">일${colGripHtml('hq', 2)}</th><th scope="col">시간 / 내용 / 장소</th><th scope="col" class="journal-exec-tools-head" aria-label="고치기"></th></tr></thead>`;
   const body = el('tbody'); body.dataset.reorderList = 'hq';
   for (const row of rows) {
     if (ui.editing === row.id) { body.append(editRow(row)); continue; }
@@ -231,10 +232,12 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
 // 날짜·시간·내용·장소 한 줄 고치기 칸(2) 주요 일정 줄과 5. 주요 일정 손으로 더한 줄이 같은 부품 — weekly-hand-lines.js).
 // values: {day, time, title, place}, field·cancel·save: dataset 이름(칸·[취소]·[저장]), tag: [취소]·[저장]의 dataset 값. 날짜 칸은 공용 날짜 칸(date-field.js 가 붙음),
 // 시간 칸은 FORM-시간숫자(숫자 자판 + 작은 [종일], time-input.js). min·max: 고를 수 있는 날짜(주지 않으면 제한 없음).
-export function dayRowForm(doc, {values = {}, busy = false, invalid = '', idBase, field, cancel, save, tag = '', min = '', max = ''}) {
+// who: 참석 칸도(5. 주요 일정 줄 제자리 고치기 — WEEKLY-주요일정제자리고치기).
+export function dayRowForm(doc, {values = {}, busy = false, invalid = '', idBase, field, cancel, save, tag = '', min = '', max = '', who = false}) {
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   const form = el('div', 'journal-exec-form');
-  for (const [name, label, type, maxLen] of [['day', '일', 'date'], ['time', '시간', 'text', 5], ['title', '내용', 'text', TITLE_MAX], ['place', '장소', 'text', PLACE_MAX]]) {
+  const fields = [['day', '일', 'date'], ['time', '시간', 'text', 5], ['title', '내용', 'text', TITLE_MAX], ['place', '장소', 'text', PLACE_MAX], ...(who ? [['who', '참석', 'text', WHO_MAX]] : [])];
+  for (const [name, label, type, maxLen] of fields) {
     const wrap = el('label', `journal-exec-field journal-exec-${name === 'title' ? 'what' : name}`); wrap.append(el('span', null, label));
     const input = el('input'); input.type = type; input.value = values[name] ?? ''; input.dataset[field] = name; input.id = `${idBase}-${name}`;
     if (maxLen) { input.maxLength = maxLen; input.autocomplete = 'off'; }

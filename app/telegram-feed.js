@@ -189,12 +189,20 @@ async function moreRoomDays() {
   if (shown < days.length) state.rshown = shown + ROOM_DAY_PAGE;
   paintList(); paintDetail(); void ensureRoomDays();
 }
-async function loadRaw(id) {
-  if (state.raw.has(id)) return;
-  state.raw.set(id, {loading:true});
-  try { const r = await readRaw(id, rt); state.raw.set(id, {raw_text:r?.raw_text || null}); }
-  catch { state.raw.set(id, {error:true}); }
-  if (state.open.has(id)) paintDetail();
+// 읽는 중인 원문은 같은 약속을 돌려준다(⋯ [원문 복사]·[원문 모두 선택]이 다 읽기를 기다림, S52-39). 이 탭 메모리만.
+const rawWait = new Map();
+function loadRaw(id) {
+  if (state.raw.has(id)) return rawWait.get(id) || Promise.resolve();
+  const raws = state.raw;
+  raws.set(id, {loading:true});
+  const p = (async () => {
+    try { const r = await readRaw(id, rt); raws.set(id, {raw_text:r?.raw_text || null}); }
+    catch { raws.set(id, {error:true}); }
+    rawWait.delete(id);
+    if (state.raw === raws && state.open.has(id)) paintDetail();
+  })();
+  rawWait.set(id, p);
+  return p;
 }
 
 // ---------- paint (the only renderer of #telegramView)
@@ -764,6 +772,25 @@ const dayText = (key = '') => {
 };
 const say = text => { state.status = text; for (const el of view()?.querySelectorAll('[data-tg-status],[data-tg-detail-status]') || []) el.innerHTML = statusHtml(); };
 const copyTg = (text, button = null) => copySummary(text, {say, current:() => state.status, button});
+// S52-39 NEWS-원문복사선택(텔레그램 원문): 소식 ⋯ [원문 복사] = 방 이름 / 날짜·시각 / 원문 글 그대로. [원문 모두 선택] = 그 소식 원문을 펼쳐 전체를 선택된 상태로
+// (폰은 그 위에 기본 메뉴 복사·공유·검색). 화면 안에서만(서버 저장·전송 없음).
+const rawCopyText = (r, raw) => [[oneLineOf(r.room_label), [dayLabel(r.day), hhmm(r.occurred_at)].filter(Boolean).join(' ')].filter(Boolean).join('\n'), String(raw || '').trim()].filter(Boolean).join('\n\n');
+async function copyRaw(r) {
+  await loadRaw(r.id);
+  const raw = state.raw.get(r.id)?.raw_text;
+  void copyTg(raw ? rawCopyText(r, raw) : '');
+}
+async function selectRaw(r) {
+  if (!state.open.has(r.id)) { state.open.add(r.id); paintDetail(); }
+  await loadRaw(r.id);
+  paintDetail();
+  const el = $(`#tgDetail [data-tg-di="${CSS.escape(r.id)}"] [data-tg-raw]`), sel = window.getSelection?.();
+  if (!el || !sel) return;
+  sel.removeAllRanges();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  sel.addRange(range);
+}
 function startLink(r) { if (!state.open.has(r.id)) { state.open.add(r.id); void loadRaw(r.id); } state.link = newLinkBox(r); paintDetail(); $('#tgDetail [data-tg-link-pick]')?.focus({preventScroll:true}); }
 function saveLink() {
   const r = itemOf(state.link?.rowId), box = state.link; if (!r || !box) return;
@@ -847,7 +874,7 @@ const menu = createAnchoredMenu({id:'tgMenu', className:'feed-menu', label:'소�
   render:id => {
     if (id === 'head:') return `<button type="button" data-tg-act="senders">보낸 사람 이름</button>${trashCount() ? `<button type="button" data-tg-act="trash-view">휴지통 ${trashCount()}</button>` : ''}`;
     const r = itemOf(id.slice(id.indexOf(':') + 1)); if (!r) return '';
-    const copy = tgText(r) ? '<button type="button" data-tg-act="copy">요약 복사</button>' : '';
+    const copy = `${tgText(r) ? '<button type="button" data-tg-act="copy">요약 복사</button>' : ''}${state.raw.get(r.id)?.error || (state.raw.has(r.id) && !state.raw.get(r.id).loading && !state.raw.get(r.id).raw_text) ? '' : '<button type="button" class="row-act" data-tg-act="rawcopy">원문 복사</button><button type="button" class="row-act" data-tg-act="rawselect">원문 모두 선택</button>'}`;
     const fix = editsOn() && r.id ? '<button type="button" data-tg-act="sumedit">요약 고치기</button>' : '';
     return `<button type="button" data-tg-act="pin">${r.pinned_at ? '고정 풀기' : '고정'}</button>${copy}${fix}<button type="button" data-tg-act="link">조직 연결</button><button type="button" class="feed-menu-danger" data-tg-act="trash">삭제</button>`;
   },
@@ -855,7 +882,7 @@ const menu = createAnchoredMenu({id:'tgMenu', className:'feed-menu', label:'소�
     const act = button.dataset.tgAct;
     if (active.id === 'head:') { if (act === 'senders') enterShelf('senders'); else if (act === 'trash-view') enterShelf('trash'); return; }
     const r = itemOf(active.id.slice(active.id.indexOf(':') + 1)); if (!r) return;
-    if (act === 'pin') void pin(r); else if (act === 'trash') void trashItem(r); else if (act === 'copy') void copyTg(tgText(r)); else if (act === 'link') startLink(r); else if (act === 'sumedit') startSumEdit('item', r);
+    if (act === 'pin') void pin(r); else if (act === 'trash') void trashItem(r); else if (act === 'copy') void copyTg(tgText(r)); else if (act === 'rawcopy') void copyRaw(r); else if (act === 'rawselect') void selectRaw(r); else if (act === 'link') startLink(r); else if (act === 'sumedit') startSumEdit('item', r);
   }});
 // 보낸 사람 이름 목록의 줄마다 ⋯: 이름 고치기 · 나로 표시(빼기) · 다른 사람과 합치기 · 지우기.
 const pmenu = createAnchoredMenu({id:'tgPersonMenu', className:'feed-menu', label:'보낸 사람 메뉴', historyKey:'kptuTelegramPersonMenu',

@@ -28,6 +28,7 @@ import {requestTagsHtml, requestPrefix} from './update-requests.js';
 import {seoulDateKey, addSeoulDays, seoulClock} from './meeting-time.js';
 import {meetingKindKey, meetingKindName, reportsMeeting, validKindKey} from './journal-meeting-kinds.js';
 import {itemWhat} from './weekly-hwpx/schedule.mjs';
+import {colGripHtml} from './weekly-cols.js'; // WEEKLY-조직이름한줄 덧붙임: 표 칸 폭 끌기 손잡이(공용 col-resize.js)
 import {annotateCalendar, memoryTitle, idleWeeks, visibleCalendar} from './weekly-schedule-memory.js';
 import {whoList, titleFields, hqFields, hqLines} from './weekly-schedule-rows.mjs';
 import {splitScheduleFields} from './schedule-line-split.mjs';
@@ -772,12 +773,18 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const handSlot = el('div', 'journal-hand-slot journal-part-slot'); handSlot.dataset.journalHandSlot = 'calendar';
   if (!status(cal, c, '달력 일정') && !c.failed.length) {
     if (c.rows.length) {
-      const table = el('table', 'journal-weekly-table journal-weekly-schedule');
-      table.innerHTML = '<thead><tr><th scope="col">일</th><th scope="col">시간/내용/장소</th><th scope="col">참석자</th></tr></thead>';
+      const table = el('table', 'journal-weekly-table journal-weekly-schedule'); table.dataset.wkCols = 'cal';
+      table.innerHTML = `<thead><tr><th scope="col">일${colGripHtml('cal', 1)}</th><th scope="col">시간/내용/장소</th><th scope="col">참석자</th></tr></thead>`;
       const body = el('tbody');
+      // S52-31 WEEKLY-주요일정제자리고치기: 줄 ⋯ [고치기]를 누르면 그 줄 자리(일 칸 옆)에 고치기 칸(journal-hwpx.js 가 만든 마디, 아래 [취소][저장]). 한 번에 한 줄.
+      const sv = model.scheduleView ?? null, editKey = sv?.edit?.key ?? '';
       for (const row of c.rows) row.items.forEach((item, index) => {
         const tr = el('tr'); tr.dataset.journalScheduleDay = row.day;
         if (!index) { const th = el('th', 'journal-weekly-area', row.label); th.scope = 'rowgroup'; th.rowSpan = row.items.length; tr.append(th); }
+        if (editKey && item.key === editKey && sv.edit.form) {
+          tr.classList.add('journal-exec-edit-row'); tr.dataset.journalScheduleEditRow = item.key;
+          const td = el('td'); td.colSpan = 2; td.append(sv.edit.form); tr.append(td); body.append(tr); return;
+        }
         // HOME-줄누르기 ⑦: 칸의 글을 누르면 달력의 그 일정 수정 창(업무일지 그날 일정 줄과 같은 열기).
         const what = el('td', 'journal-weekly-what');
         if (item.hand) { what.append(item.what, ' '); const tag = el('span', 'journal-exec-carried', HAND_TAG); tag.title = '손으로 더한 줄 — 한글 파일 표에도 들어가요'; tag.dataset.journalScheduleHand = ''; what.append(tag); }
@@ -791,13 +798,17 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
         if (item.hand) owner.append(rowMore(doc, {label:`고치기·지우기: ${item.what}`, data:{journalHandMore:`calendar:${item.hand}`}, items:[
           {text:'고치기', data:{journalHandFix:`calendar:${item.hand}`}, aria:`고치기: ${item.what}`},
           {text:'지우기', data:{journalHandDelete:`calendar:${item.hand}`}, danger:true, aria:`지우기: ${item.what}`}]}));
-        else if (item.key) owner.append(rowMore(doc, {label:`일정 고치기·빼기: ${item.what}`, data:{journalScheduleMore:''}, items:[
+        // 고치는 줄이 열려 있으면 다른 줄 ⋯ 는 그리지 않는다(한 번에 한 줄). 기억한 이름으로 바뀐 줄은 ⋯ 에 [이번 주만 원래대로].
+        else if (item.key && !editKey) owner.append(rowMore(doc, {label:`일정 고치기·빼기: ${item.what}`, data:{journalScheduleMore:''}, items:[
           {text:'고치기', data:{journalScheduleFix:item.key}, aria:`일정 고치기: ${item.what}`},
+          ...(item.memo?.title && !item.edited ? [{text:'이번 주만 원래대로', data:{journalScheduleOrigin:item.key}, aria:`이번 주만 원래 제목으로: ${item.title}`}] : []),
           {text:'빼기', data:{journalScheduleDrop:item.key}, danger:true, aria:`이번 주 보고에서 빼기: ${item.what}`, onClick:() => { lastScheduleDrop = item.key; }}]}));
         tr.append(what, owner);
         body.append(tr);
       });
       table.append(body); cal.append(table);
+      // 고치기 [저장] 뒤 잠깐 '저장됨', AI로 다듬기 진행·결과, 저장 실패 — 표 바로 아래 한 줄.
+      if (sv?.note?.text) { const p = el('p', 'journal-line-status', sv.note.text); p.dataset.journalScheduleStatus = ''; p.setAttribute('role', 'status'); if (sv.note.error) p.classList.add('journal-failed'); cal.append(p); }
     } else cal.append(empty());
     cal.append(handSlot);
     const off = vacationLine(c.vacations);
@@ -941,9 +952,9 @@ export function execRequestsPart(doc, model, execUi, place = 'weekly') {
 }
 function execTable(doc, el, items, ui) {
   const editing = ui.editing ?? null, busy = !!ui.saving;
-  const table = el('table', 'journal-weekly-table journal-exec-table'); table.dataset.journalExecTable = '';
+  const table = el('table', 'journal-weekly-table journal-exec-table'); table.dataset.journalExecTable = ''; table.dataset.wkCols = 'exec';
   const head = el('thead'), hr = el('tr');
-  for (const name of EXEC_HEAD) { const th = el('th', null, name); th.scope = 'col'; hr.append(th); }
+  EXEC_HEAD.forEach((name, i) => { const th = el('th', null, name); th.scope = 'col'; th.insertAdjacentHTML?.('beforeend', colGripHtml('exec', i + 1)); hr.append(th); });
   const tools = el('th', 'journal-exec-tools-head'); tools.scope = 'col'; tools.setAttribute('aria-label', '고치기'); hr.append(tools);
   head.append(hr); table.append(head);
   const body = el('tbody');
