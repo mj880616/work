@@ -66,7 +66,11 @@
 .kptu-day-list .cmv-task-mark{margin-right:8px;font-size:12px}
 /* S48-6c 폰 월 보기 칸 안 할 일 줄: 일정 막대와 구별되게 바탕색 없이 글자만, 앞에 작은 체크 네모. 기한 지난 것은 경고색. */
 .cmv-cell-task{pointer-events:auto;display:flex;align-items:center;gap:2px;min-width:0;min-height:0;height:14px;line-height:14px;margin:0 1px;padding:0 1px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-align:left;cursor:pointer}
-.cmv-cell-task-box{flex:0 0 auto;width:8px;height:8px;box-sizing:border-box;border:1px solid var(--kptu-muted)}
+.cmv-cell-task-box{position:relative;flex:0 0 auto;width:8px;height:8px;box-sizing:border-box;border:1px solid var(--kptu-muted)}
+/* S52-11: 칸 안 ☐를 누르면 바로 완료(5초 되돌리기, calendar-tasks.js). 누르는 범위는 네모 둘레까지 조금 넓힌다(줄 밖으로는 줄 버튼이 자른다). 제목을 누르면 상세. */
+.cmv-cell-task-box::before{content:'';position:absolute;inset:-4px -3px -4px -4px}
+.cmv-cell-task-done{color:var(--kptu-faint);text-decoration:line-through}
+.cmv-cell-task-done .cmv-cell-task-box{background:currentColor;border-color:currentColor}
 .cmv-cell-task-overdue{color:var(--kptu-danger)}
 .cmv-cell-task-overdue .cmv-cell-task-box{border-color:currentColor}
 .cmv-cell-task:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
@@ -153,6 +157,21 @@
   .cal-day{width:19px;height:19px;margin-left:0;font-size:11px}
   .cal-event.cmv-event{height:14px;line-height:14px;margin-left:1px;margin-right:1px;padding-left:2px;padding-right:2px;font-size:11px}
   .cmv-event-time{margin-right:1px;font-size:10px}
+  /* S52-11 CAL-폰달력핀치(명진 11/07, 시안 calendar-phone-pinch.html): 달력 칸 위 두 손가락은 화면 확대가 아니라 칸 키우기(calendar-month-view.js).
+     한 손가락 밀기(위아래·옆)는 브라우저 그대로. 커진 동안(.cmv-zoomed) 칸은 가로·세로가 같은 배율(--cmv-zoom, 1~2.5)로 함께 커지고,
+     글자는 덜 커지며(--cmv-fs) 제목은 줄을 바꿔 전부 보인다. 화면보다 커진 달력은 달력 안에서 옆·위아래로 밀어 본다. 머리 줄·아래 줄·하단바는 그대로. */
+  #calendarView .calendar-grid{touch-action:pan-x pan-y}
+  #calendarView .calendar-grid.cmv-zoomed{--cmv-fs:calc(1 + (var(--cmv-zoom,1) - 1) * .35);overflow:auto;overscroll-behavior:contain}
+  #calendarView .calendar-grid.cmv-zoomed>.cmv-head-row{position:sticky;top:0;z-index:3;flex:none;width:calc(100% * var(--cmv-zoom,1));height:calc(var(--cmv-head-height) * var(--cmv-fs))}
+  #calendarView .calendar-grid.cmv-zoomed>.cmv-weeks{flex:none;width:calc(100% * var(--cmv-zoom,1))}
+  #calendarView .calendar-grid.cmv-zoomed .cal-head{font-size:calc(10px * var(--cmv-fs))}
+  #calendarView .calendar-grid.cmv-zoomed .cmv-week{display:grid;height:auto;min-height:calc(var(--cmv-week-h,36px) * var(--cmv-zoom,1));overflow:visible}
+  #calendarView .calendar-grid.cmv-zoomed .cmv-week-days{grid-area:1/1;height:auto}
+  #calendarView .calendar-grid.cmv-zoomed .cmv-week-events{grid-area:1/1;position:relative;inset:auto;padding:calc(var(--cmv-date-header-height) * var(--cmv-fs)) 0 4px;grid-auto-rows:auto}
+  #calendarView .calendar-grid.cmv-zoomed .cal-day{width:calc(19px * var(--cmv-fs));height:calc(19px * var(--cmv-fs));font-size:calc(11px * var(--cmv-fs))}
+  #calendarView .calendar-grid.cmv-zoomed .cal-event.cmv-event,#calendarView .calendar-grid.cmv-zoomed .cmv-cell-task{height:auto;min-height:calc(14px * var(--cmv-fs));padding-top:1px;padding-bottom:1px;align-items:flex-start;font-size:calc(11px * var(--cmv-fs));line-height:1.25;white-space:normal;text-overflow:clip}
+  #calendarView .calendar-grid.cmv-zoomed .cmv-event-title{white-space:normal;overflow:visible;text-overflow:clip;word-break:keep-all;overflow-wrap:anywhere}
+  #calendarView .calendar-grid.cmv-zoomed .cmv-cell-task-box{width:calc(8px * var(--cmv-fs));height:calc(8px * var(--cmv-fs));margin-top:calc((1.25em - 8px * var(--cmv-fs)) / 2)}
   .view-panel>.section-head{align-items:flex-start;gap:var(--kptu-space-2)}
   .view-panel>.section-head>div:first-child{min-width:0;flex:1}
   .view-panel>.section-head>.primary,.view-panel>.section-head>.secondary{flex:0 0 auto;width:auto;min-width:0;white-space:nowrap;margin-top:1px}

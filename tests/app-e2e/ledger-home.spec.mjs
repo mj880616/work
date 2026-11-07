@@ -601,3 +601,29 @@ test('원장 연 화면 유지: 다른 화면에 갔다 오면 보던 이야기 
  expect(await waits.count()).toBe(0);
  await page.unroute(rest,hold);
 });
+
+// S52-08 ②(docs/design/perf-first-load-1107.md 6절): 원장을 처음 열 때 목록·겹친 기록·사본 상태 줄이 모듈을 띄우며 한 번 읽고, 이어지는 화면 들어오기에서
+// 같은 요청을 또 보내던 것(겹침 11)을 없앴다. 처음 열기는 같은 주소를 한 번만, 다른 화면에 갔다 오면 전처럼 다시 읽는다.
+test('원장 첫 화면 자료 요청은 같은 주소를 한 번만, 다시 들어오면 다시 읽는다 390',async({page})=>{
+ test.setTimeout(90000);
+ await page.setViewportSize({width:390,height:900});
+ await mockApp(page);
+ const sent=new Map();
+ page.on('request',r=>{const x=new URL(r.url());if(x.origin!==SB||r.method()!=='GET'&&!(x.pathname.startsWith('/functions/v1/')&&r.method()==='POST'))return;if(x.pathname.startsWith('/auth/'))return;const key=r.method()+' '+x.pathname+x.search;sent.set(key,(sent.get(key)||0)+1)});
+ await signIn(page);
+ const browse=page.locator('#ledgerBrowseRoot');
+ await expect(browse.locator('[data-lb-sec="overdue"]')).toBeVisible({timeout:15000});
+ await expect.poll(()=>browse.locator('[data-wait]').count()).toBe(0);
+ await page.waitForTimeout(800);
+ const twice=[...sent].filter(([,n])=>n>1).map(([k])=>k.replace(/\?.*/,''));
+ expect(twice).toEqual([]);
+ const orgs=()=>[...sent].filter(([k])=>k.includes('/rest/v1/app_ledger_organizations?')).reduce((n,[,c])=>n+c,0);
+ const overlaps=()=>[...sent].filter(([k])=>k.includes('/rest/v1/app_record_overlaps?')).reduce((n,[,c])=>n+c,0);
+ expect(orgs()).toBe(1);
+ expect(overlaps()).toBe(1);
+ await page.evaluate(()=>window.KPTURouter.go('home',{source:'keep-test'}));
+ await expect(page.locator('#homeView')).toBeVisible();
+ await page.evaluate(()=>window.KPTURouter.go('ledger',{source:'keep-test'}));
+ await expect.poll(orgs).toBe(2);
+ await expect.poll(overlaps).toBe(2);
+});

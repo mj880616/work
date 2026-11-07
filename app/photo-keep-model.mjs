@@ -3,7 +3,7 @@
 //   폰 사진 목록(쪽으로 받음)에 원래 날짜 자리로 섞는다. 칸은 원드라이브 사진이고(작은 그림·크게 보기 = 원드라이브), kept 표시만 더한다.
 // - 지우기 두 갈래 계획: 고른 사진 → 폰 공간만 비우기(원드라이브에 원본이 확인된 폰 사진만) / 완전히 지우기(폰 + 원드라이브, 짝 사본까지).
 import {toItem} from './photos-model.mjs';
-import {copyFinder} from './photo-tidy-model.mjs';
+import {copyFinder, sizeText, totalBytes} from './photo-tidy-model.mjs';
 import {SAME_MS} from './photo-sources-model.mjs';
 
 const pad = n => String(n).padStart(2, '0');
@@ -107,13 +107,40 @@ export function deletePlan(picked, pairs, twins = null) {
   return {space, noCopy:own.length - ownSpace.length, full:all.length, phone, od, gd, copies, twins:twin.length, twinOf:new Map(twin.map(p => [p.copyId, p.item.id])),
     twoWay:own.length > 0 || twin.length > 0 || od.some(x => x.kept)};
 }
-// 고르기 창 글(시안 확정 00:27).
-export function deleteChoices(plan) {
+// 고르기 창 글(시안 확정 00:27). S52-06 PHOTO-폰지우기안전장치: backed = 서버(copy-check)가 원드라이브 사본을 다시 확인한 폰 칸 id(Set).
+// 백업 없음(backed 밖 폰 칸)은 공간만 비우기에서 빠지고, 완전히 지우기에서도 기본으로 빠진다(체크 한 줄을 켜야만 함께). 장수 옆에 용량.
+// backed를 주지 않으면 plan.space(짝 찾기 결과)를 백업으로 본다(단위 시험용 — 화면은 늘 서버 확인 결과를 준다).
+const sizeTail = bytes => (sizeText(bytes) ? ` · ${sizeText(bytes)}` : '');
+export function deleteChoices(plan, backed = null) {
+  const has = backed || new Set(plan.space.map(p => p.item.id));
+  const space = plan.space.filter(p => has.has(p.item.id)).map(p => p.item);
+  const bare = plan.phone.filter(x => !has.has(x.id));
+  const twinIds = new Set(plan.twinOf?.values?.() || []);
+  const allBytes = totalBytes(plan.phone.filter(x => !twinIds.has(x.id))) + totalBytes(plan.od) + totalBytes(plan.gd), bareBytes = totalBytes(bare);
+  const fullN = plan.full - bare.length;
   return {
-    space:{label:`폰 공간만 비우기 · ${plan.space.length}장`, note:'원드라이브에 원본이 있는 사진만. 목록에 남고, 나중에 [폰으로 되돌리기]로 제자리에'},
-    full:{label:`완전히 지우기 · ${plan.full}장`, note:'폰과 원드라이브 둘 다 휴지통으로(30일 안엔 되살리기). 목록에서 사라짐'},
-    foot:plan.noCopy > 0 ? `원드라이브에 원본이 없는 ${plan.noCopy}장은 공간만 비우기에서 빠져요` : '',
+    space:{label:`폰 공간만 비우기 · ${space.length}장${sizeTail(totalBytes(space))}`, note:'원드라이브에 원본이 있는 사진만. 목록에 남고, 나중에 [폰으로 되돌리기]로 제자리에'},
+    full:{label:`완전히 지우기 · ${fullN}장${sizeTail(Math.max(0, allBytes - bareBytes))}`, labelChecked:`완전히 지우기 · ${plan.full}장${sizeTail(allBytes)}`, needCheck:fullN <= 0,
+      note:'폰과 원드라이브 둘 다 휴지통으로(30일 안엔 되살리기). 목록에서 사라짐'},
+    foot:bare.length ? `백업 없음 ${bare.length}장(원드라이브에서 같은 사진을 못 찾음)은 기본으로 지우지 않아요` : '',
+    check:bare.length ? `백업 없음 ${bare.length}장${sizeTail(bareBytes)}도 완전히 지우기에 넣기` : '',
+    spaceCount:space.length, bare:bare.length,
   };
+}
+// S52-06: 지울 폰 칸을 백업 있음(서버가 사본을 확인 — copyOf에 있음)과 백업 없음으로 나눈다.
+export function backupSplit(list, copyOf) {
+  const ok = [], bare = [];
+  for (const p of list || []) (copyOf?.has?.(p.id) ? ok : bare).push(p);
+  return {ok, bare, okBytes:totalBytes(ok), bareBytes:totalBytes(bare)};
+}
+// S52-06: 폰 원본 지우기 전 요약 확인 한 번의 글. what = 무엇을(예: '카톡 받은 사진'), why = 백업을 확인하지 못한 까닭(있으면).
+export function gateText({ok, bare, okBytes, bareBytes}, {what = '사진', why = ''} = {}) {
+  const tail = why ? ` · ${why}` : '';
+  const text = ok.length ? `${what} ${ok.length}장${sizeText(okBytes) ? `(${sizeText(okBytes)})` : ''}을 폰 휴지통으로 옮길까요?`
+    : `${what} ${bare.length}장 모두 백업 없음이에요`;
+  const note = (ok.length ? '원드라이브에 같은 사진이 있는 것만 지워요' : '원드라이브에서 같은 사진을 못 찾았어요. 그래도 지우려면 아래를 체크하세요')
+    + ` · 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요${tail}`;
+  return {text, note, check:bare.length ? `백업 없음 ${bare.length}장${sizeText(bareBytes) ? `(${sizeText(bareBytes)})` : ''}도 함께 지우기` : ''};
 }
 // 비운 기록으로 남길 줄(서버 trash-log). 원래 폴더·찍은 시각만, 이름·크기·내용은 넣지 않는다.
 export const keepLogRows = (list, copyOf, {keep = true} = {}) => (list || []).filter(x => x.phoneId && copyOf.has(x.id)).map(x => ({

@@ -7,11 +7,12 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import {closeProjectDetail,expectProjectDetail} from './helpers/project-detail.mjs';
 for(const timezoneId of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])for(const width of [390,1280])test.describe(`${timezoneId} ${width}`,()=>{
   test.use({timezoneId,viewport:{width,height:900}});
+  // S52-11 CAL-제목먼저: 폰 월 보기 칸 줄은 제목만이라 한국 시각은 칸의 읽기 이름(aria-label '시각 제목')으로 본다(PC도 같은 이름).
   test('월 날짜 칸·한국 오늘·자정·월 경계·종일',async({page})=>{
     const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
     const s=await openSeoulApp(page);await expect(page.locator('.cal-cell.today')).toHaveAttribute('data-date','2026-10-01');
-    await expect(page.locator('#calendarGrid [data-google-event="early"]').first()).toContainText('00:30');
-    await expect(page.locator('#calendarGrid [data-google-event="late"]').first()).toContainText('23:30');
+    await expect(page.locator('#calendarGrid [data-google-event="early"]').first()).toHaveAttribute('aria-label',/^00:30 /);
+    await expect(page.locator('#calendarGrid [data-google-event="late"]').first()).toHaveAttribute('aria-label',/^23:30 /);
     for(const [id,date,time] of [['early','2026-10-01','00:30'],['late','2026-09-30','23:30'],['all','2026-10-01','종일']]){
       await page.evaluate(date=>window.KPTUCalendarDayOverflow.open(new Date(date+'T00:00:00+09:00'),window.KPTUCalendarMonthView.dayEvents(new Date(date+'T00:00:00+09:00'))),date);
       await expect(page.locator(`#calendarDayList [data-google-event="${id}"]`)).toContainText(time);
@@ -22,7 +23,7 @@ for(const timezoneId of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])for(c
     expect(await page.locator('#calendarGrid [data-google-event="boundary"]').first().evaluate(el=>el.style.gridColumn)).toBe('4 / span 2');
     await page.evaluate(()=>{const date=new Date('2026-10-01T00:00:00+09:00');window.KPTUCalendarDayOverflow.open(date,window.KPTUCalendarMonthView.dayEvents(date))});
     await expect(page.locator('#calendarDayList [data-google-event="boundary"]')).toBeVisible();await expect(page.locator('#calendarDayList [data-google-event="midnight-end"]')).toHaveCount(0);await page.locator('#calendarDayModal [data-close]').click();
-    await page.locator('#prevMonthBtn').click();await expect(page.locator('#calendarGrid [data-google-event="exec"]').first()).toContainText('10:00');
+    await page.locator('#prevMonthBtn').click();await expect(page.locator('#calendarGrid [data-google-event="exec"]').first()).toHaveAttribute('aria-label',/^10:00 /);
     await page.locator('#calendarGrid [data-google-event="exec"]').first().click();await expect(page.locator('#ciGoogleStartDate')).toHaveValue('2026-09-15');await expect(page.locator('#ciGoogleStartTime')).toHaveValue('10:00');expect(errors).toEqual([]);
   });
   test('새 일정 저장·다시 열기·수정 저장·종일 왕복·목록/주간',async({page})=>{

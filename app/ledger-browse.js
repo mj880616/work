@@ -741,18 +741,23 @@ function bind() {
     else if (action === 'quick-apply') void quickApply(button.dataset.lbId);
   });
   window.addEventListener('kptu:ledger-changed', () => { if (state.phase !== 'hidden' || document.querySelector('#ledgerBrowseRoot')) void load(); });
-  window.KPTURouter?.on?.('ledger', () => { foldChipRows('ledger'); void load(); });
+  // S52-08 ②: 처음 열 때는 boot가 방금 다 읽었으므로 바로 이어지는 화면 들어오기(이 훅)에서 같은 요청을 다시 보내지 않는다.
+  // 그 사이 다른 화면으로 갔거나(view-changed) 보여 줄 기록을 바꿨으면(show) 전처럼 다시 읽는다.
+  window.KPTURouter?.on?.('ledger', () => { foldChipRows('ledger'); if (bootRead) { bootRead = false; return; } void load(); });
+  window.addEventListener('kptu:view-changed', e => { if (e.detail?.view !== 'ledger') bootRead = false; });
 }
 
-window.addEventListener('kptu:session-changed', () => { state = fresh(); if (document.querySelector('#ledgerBrowseRoot') && workspaceId()) void load(); });
+let bootRead = false;
+window.addEventListener('kptu:session-changed', () => { state = fresh(); bootRead = false; if (document.querySelector('#ledgerBrowseRoot') && workspaceId()) void load(); });
 async function boot() {
   installView();
   bind();
   await load();
+  bootRead = state.phase === 'ready';
   // 업무일지 "새로 기록된 약속 N"에서: 약속만 보이게 거른 뒤 화면을 연다(목록은 열 때 읽음).
   // HOME-줄누르기 ⑤: 홈 '놓친 약속' 줄 → openId: 첫 화면(검색 없음)에서 그 기록을 펼친 채로 연다. 화면이 열리며 읽는 load가 펼친 기록의
   // 상세를 읽고(settleOpen), 다 그리면 그 줄로 옮긴다. 목록에 없으면(이미 지켜짐·폐기) 접힌 첫 화면 그대로.
-  window.KPTULedgerBrowse = { reload: load, show: ({ kinds = [], openId = null } = {}) => { state.filters = { ...freshFilters(), kinds: kinds.filter(k => KINDS.includes(k)) }; state.openId = UUID.test(String(openId || '')) ? String(openId) : null; state.reveal = state.openId; state.quick = null; state.condOpen = false; state.story = null; foldChipRows('ledger'); state.more.clear(); } };
+  window.KPTULedgerBrowse = { reload: load, show: ({ kinds = [], openId = null } = {}) => { bootRead = false; state.filters = { ...freshFilters(), kinds: kinds.filter(k => KINDS.includes(k)) }; state.openId = UUID.test(String(openId || '')) ? String(openId) : null; state.reveal = state.openId; state.quick = null; state.condOpen = false; state.story = null; foldChipRows('ledger'); state.more.clear(); } };
   return true;
 }
 window.__KPTU_LEDGER_BROWSE_READY__ = boot().catch(err => { console.error('ledger browse init', err?.name || 'error'); return false; });

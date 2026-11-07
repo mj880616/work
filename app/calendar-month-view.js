@@ -1,6 +1,7 @@
 import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,formatSeoulTime} from './meeting-time.js';
 import {canDrag,dayDiff as dragDayDiff} from './calendar-drag-model.js';
 import {eventColor} from './home-read-model.js';
+import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-model.mjs';
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
@@ -9,6 +10,8 @@ import {eventColor} from './home-read-model.js';
   // Up to 12px per axis is still a tap; a larger move suppresses the release click.
   const tapSlop=()=>12;
   let last=null,touchStart=null,suppressUntil=0,resizeFrame=0;
+  // 누름 막기 시간은 흐르는 시계(performance.now)로 잰다 — 기기 시각이 바뀌어도(또는 멈춰도) 막기가 남지 않게.
+  const clickClock=()=>globalThis.performance?.now?.()??Date.now();
   let layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
   // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks().
   let tasks=[],tasksSig='';
@@ -16,6 +19,9 @@ import {eventColor} from './home-read-model.js';
   let drag=null;
   // S46-23: 폰 월 보기의 펼침 상태(메모리만). monthKey가 바뀌면(달 바꾸기) 한 화면 크기로 돌아간다.
   let expanded=false,expandable=false,monthKey='',animateFrom=null;
+  // S52-11 CAL-폰달력핀치: 폰 월 보기 두 손가락 칸 키우기. zoom = 칸 배율(1~2.5, calendar-pinch-model.mjs), zoomMode = 커진 모양으로 그리는 중
+  // (손짓 중 배율이 1까지 내려와도 손을 뗄 때까지는 커진 모양). 메모리만 — 달 바꾸기·화면 떠나기·폰 폭이 아니게 되면 처음 크기.
+  let zoom=1,zoomMode=false,pinch=null,zoomBack=0;
 
   const pad=n=>String(n).padStart(2,'0');
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -80,7 +86,7 @@ import {eventColor} from './home-read-model.js';
     }
     const rowHeight=Math.max(minWeek,(height-headHeight-border)/weeks);
     const slots=Math.max(1,Math.floor((rowHeight-header-2-Math.max(0,moreHeight-step))/step));
-    if(expanded)grid.style.removeProperty('--cmv-grid-height');else grid.style.setProperty('--cmv-grid-height',height+'px');
+    if(expanded&&!zoomMode)grid.style.removeProperty('--cmv-grid-height');else grid.style.setProperty('--cmv-grid-height',height+'px');
     grid.dataset.cmvViewportHeight=String(height);
     grid.dataset.cmvLaneSlots=String(slots);
     return {height,rowHeight,slots,dateHeaderHeight:header,laneStep:step};
@@ -224,7 +230,10 @@ import {eventColor} from './home-read-model.js';
     b.style.background=ev.color;b.style.color=ev.text;
     if(ev.source==='google')b.style.setProperty('--cmv-google-source',ev.color||'#4285f4');
     const tm=timeLabel(ev),label=(tm?tm+' ':'')+ev.title;
-    b.innerHTML=(tm?`<span class="cmv-event-time">${esc(tm)}</span>`:'')+`<span class="cmv-event-title">${esc(ev.title)}</span>`;
+    // S52-11 CAL-제목먼저(명진 11/07): 폰 월 보기 칸 안 줄은 제목만 — 시각은 읽기 이름(aria-label·title)과 그날 목록·일정 창에 남는다.
+    // PC·펼친 폴드(761px 이상)는 칸이 넓어 시각 + 제목 그대로.
+    const showTime=tm&&!mq760.matches;
+    b.innerHTML=(showTime?`<span class="cmv-event-time">${esc(tm)}</span>`:'')+`<span class="cmv-event-title">${esc(ev.title)}</span>`;
     b.title=label;
     b.setAttribute('aria-label',label);
     return b;
@@ -246,7 +255,7 @@ import {eventColor} from './home-read-model.js';
     layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
     const year=Number(options.year),month=Number(options.month),range=visibleRange(year,month);
     const phone=mq760.matches;
-    if(monthKey!==year+'-'+month||!phone){expanded=false;monthKey=year+'-'+month}
+    if(monthKey!==year+'-'+month||!phone){expanded=false;monthKey=year+'-'+month;resetZoom()}
     const events=allEvents(options);
     const weeks=segmentWeeks(events.filter(ev=>ev.source!=='task'),range);
     const pendingByDate=new Map();
@@ -254,8 +263,10 @@ import {eventColor} from './home-read-model.js';
     // 할 일은 폰·PC·폴드 모두 같은 부품(cellTaskButton)으로 칸 안 제목 줄로(S48-6c 폰, S49-6 CAL-PC할일보이기 PC). 날짜 옆 ✓n 표시는 없앴다.
     weeks.forEach(week=>addCellTasks(week,pendingByDate));
 
+    const keepScroll=zoomMode?{left:grid.scrollLeft,top:grid.scrollTop}:null;
     grid.replaceChildren();
     grid.dataset.monthView='1';
+    paintZoom(grid);
     grid.style.setProperty('--cmv-week-count',String(range.weeks));
 
     const heads=document.createElement('div');heads.className='cmv-head-row';
@@ -269,7 +280,8 @@ import {eventColor} from './home-read-model.js';
     const weeksBox=document.createElement('div');weeksBox.className='cmv-weeks';
     let anyHidden=false;
     weeks.forEach(week=>{
-      const lanes=mqPc.matches||(phone&&expanded)?week.laneCount:laneCap(week.laneCount,layout);
+      const showAll=phone&&(expanded||zoomMode);
+      const lanes=mqPc.matches||showAll?week.laneCount:laneCap(week.laneCount,layout);
       const wrap=document.createElement('div');wrap.className='cmv-week';wrap.dataset.weekStart=key(week.start);wrap.dataset.laneCap=String(lanes);wrap.dataset.laneCount=String(week.laneCount);
       const dayGrid=document.createElement('div');dayGrid.className='cmv-week-days';
       for(let i=0;i<7;i++){
@@ -296,7 +308,7 @@ import {eventColor} from './home-read-model.js';
       }
       const layer=document.createElement('div');layer.className='cmv-week-events';
       const hidden=Array(7).fill(0);
-      const dayCaps=phone&&expanded?Array(7).fill(Infinity):mq760.matches?Array.from({length:7},(_,col)=>laneCap(Math.max(0,...week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).map(seg=>seg.lane+1)),layout)):Array(7).fill(lanes);
+      const dayCaps=showAll?Array(7).fill(Infinity):mq760.matches?Array.from({length:7},(_,col)=>laneCap(Math.max(0,...week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).map(seg=>seg.lane+1)),layout)):Array(7).fill(lanes);
       week.segments.forEach(seg=>{
         if(!mq760.matches){
           if(seg.lane<lanes){const button=seg.ev.source==='task'?cellTaskButton(seg):eventButton(seg);if(seg.ev.source!=='task'&&mqPc.matches&&canDrag(seg.ev.calendarId,options.googleState))button.dataset.drag='day';layer.appendChild(button)}
@@ -325,7 +337,8 @@ import {eventColor} from './home-read-model.js';
       if(phone){
         // 한 화면: 주마다 같은 높이. 펼침: 그 주의 일정 줄이 모두 들어가는 높이(한 화면 높이보다 작아지지 않음).
         const full=layout.dateHeaderHeight+week.laneCount*layout.laneStep+4;
-        wrap.style.setProperty('--cmv-week-h',(expanded?Math.max(layout.rowHeight,full):layout.rowHeight)+'px');
+        // 두 손가락으로 키운 동안(zoomMode)은 한 화면 주 높이가 바탕이고, CSS가 배율(--cmv-zoom)만큼 키운다(제목이 줄을 바꾸면 그만큼 더).
+        wrap.style.setProperty('--cmv-week-h',(expanded&&!zoomMode?Math.max(layout.rowHeight,full):layout.rowHeight)+'px');
       }
       hidden.forEach((count,col)=>{
         if(!count)return;
@@ -338,6 +351,7 @@ import {eventColor} from './home-read-model.js';
       wrap.append(dayGrid,layer);weeksBox.appendChild(wrap);
     });
     grid.appendChild(weeksBox);
+    if(keepScroll){grid.scrollLeft=keepScroll.left;grid.scrollTop=keepScroll.top}
     if(phone){
       // 펼칠 일정이 없는 달(+n 없음)은 펼치기 없이 그대로.
       expandable=expanded||anyHidden;
@@ -354,7 +368,7 @@ import {eventColor} from './home-read-model.js';
   // S46-23 펼침 표시: 펼칠 수 있거나 펼친 동안은 이 달력 위 손가락이 펼치기·접기 몫이므로 폰 앱 당겨서 새로고침(phone-pull-refresh.js
   // [data-no-pull])과 브라우저 당겨서 새로고침(html.cmv-no-overscroll)을 달력 위에서만 끈다. 달력 밖(위 줄)에서는 그대로 당겨서 새로고침.
   function paintExpand(grid){
-    const on=mq760.matches&&expandable;
+    const on=mq760.matches&&(expandable||zoomMode);
     grid.classList.toggle('cmv-expanded',mq760.matches&&expanded);
     grid.dataset.cmvExpandable=on?'1':'0';
     grid.dataset.cmvExpanded=mq760.matches&&expanded?'1':'0';
@@ -392,7 +406,7 @@ import {eventColor} from './home-read-model.js';
     hideWatch=new IntersectionObserver(entries=>{
       for(const entry of entries){
         if(entry.boundingClientRect.width>0||entry.boundingClientRect.height>0)continue;
-        expanded=false;expandable=false;
+        expanded=false;expandable=false;resetZoom();grid.classList.remove('cmv-zoomed');grid.style.removeProperty('--cmv-zoom');
         document.documentElement.classList.remove('cmv-no-overscroll');
         grid.removeAttribute('data-no-pull');grid.classList.remove('cmv-expanded');
       }
@@ -436,7 +450,7 @@ import {eventColor} from './home-read-model.js';
   // 펼친 뒤 위로 밀기는 보통 화면 스크롤이다.
   const EXPAND_PX=28;
   function expandGesture(dx,dy){
-    if(!touchStart||touchStart.done||!mq760.matches||!expandable)return;
+    if(!touchStart||touchStart.done||!mq760.matches||!expandable||zoomMode)return;
     if(Math.abs(dy)<EXPAND_PX||Math.abs(dy)<Math.abs(dx)*1.5)return;
     if(!expanded){touchStart.done=true;touchStart.pending=true;return}
     if(dy>0&&touchStart.top&&window.scrollY<=0){touchStart.done=true;touchStart.pending=false}
@@ -447,6 +461,8 @@ import {eventColor} from './home-read-model.js';
     const grid=document.querySelector('#calendarGrid');if(!grid||grid.dataset.cmvTouchGuard==='1')return;
     grid.dataset.cmvTouchGuard='1';
     grid.addEventListener('touchstart',e=>{
+      if(e.touches?.length===2)startPinch(grid,e.touches);
+      else if(e.touches?.length>2)stopPinch();
       if(e.touches?.length!==1){touchStart=null;return}
       const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY,moved:false,top:window.scrollY<=0,done:false};
     },{passive:true});
@@ -467,17 +483,91 @@ import {eventColor} from './home-read-model.js';
       if(!touchStart||!e.changedTouches?.length)return;
       const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;
       const slop=tapSlop();
-      if(touchStart.moved||Math.abs(dx)>slop||Math.abs(dy)>slop)suppressUntil=Date.now()+350;
+      if(touchStart.moved||Math.abs(dx)>slop||Math.abs(dy)>slop)suppressUntil=clickClock()+350;
       touchStart=null;
     },{passive:true});
     grid.addEventListener('touchcancel',()=>{
-      if(touchStart?.moved)suppressUntil=Date.now()+350;
+      if(touchStart?.moved)suppressUntil=clickClock()+350;
       touchStart=null;
     },{passive:true});
   }
+  // ── S52-11 두 손가락 칸 키우기(폰 월 보기만) ──
+  const touchGap=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+  function focalOf(grid,t){
+    const r=grid.getBoundingClientRect();
+    return {x:(t[0].clientX+t[1].clientX)/2-r.left-grid.clientLeft,y:(t[0].clientY+t[1].clientY)/2-r.top-grid.clientTop};
+  }
+  function resetZoom(){cancelAnimationFrame(zoomBack);zoomBack=0;zoom=1;zoomMode=false;stopPinch()}
+  // 배율은 CSS 변수 하나(--cmv-zoom)와 표시 하나(cmv-zoomed)로만 칸에 준다. 다시 그리지 않고 칸·글자 크기가 따라온다.
+  function paintZoom(grid){
+    const on=mq760.matches&&zoomMode;
+    grid.classList.toggle('cmv-zoomed',on);
+    if(on)grid.style.setProperty('--cmv-zoom',String(Math.round(zoom*1000)/1000));else grid.style.removeProperty('--cmv-zoom');
+    grid.dataset.cmvZoom=on?String(Math.round(zoom*100)/100):'1';
+  }
+  function setZoom(grid,next,focal){
+    const before={w:grid.scrollWidth,h:grid.scrollHeight,l:grid.scrollLeft,t:grid.scrollTop};
+    zoom=next;
+    // 처음 커질 때 한 번만 다시 그린다(칸에 다 들어가지 않던 줄·'+n'까지 모두 그린 커진 모양). 그 뒤는 배율만 바꾼다.
+    if(!zoomMode){zoomMode=true;render(last)}else paintZoom(grid);
+    if(!focal)return;
+    grid.scrollLeft=focalScroll(before.l,focal.x,before.w,grid.scrollWidth,grid.clientWidth);
+    grid.scrollTop=focalScroll(before.t,focal.y,before.h,grid.scrollHeight,grid.clientHeight);
+  }
+  // 두 손가락: 달력 칸 위에서는 화면 확대 대신 칸 크기(CSS touch-action:pan-x pan-y와 함께). 한 손가락 밀기는 막지 않는다.
+  // 손짓 듣기는 손가락이 닿은 요소 자신에 붙인다: 처음 커질 때 달력을 한 번 다시 그리면 그 요소가 달력에서 빠지는데,
+  // 터치는 끝까지 처음 닿은 요소로 오므로(문서로 올라오지 않음) 달력에 붙여 두면 손짓이 끊긴다. 손을 떼면 떼어 낸다.
+  function startPinch(grid,t){
+    stopPinch();
+    if(!mq760.matches||!last||grid.dataset.monthView!=='1')return;
+    cancelAnimationFrame(zoomBack);zoomBack=0;
+    const d=touchGap(t);
+    if(!(d>0))return;
+    const move=e=>{
+      if(!pinch||e.touches?.length!==2)return;
+      if(e.cancelable)e.preventDefault();
+      movePinch(grid,e.touches);
+    };
+    const end=e=>{if(pinch&&(e.touches?.length||0)<2)finishPinch(grid)};
+    const targets=[...new Set([...t].map(x=>x.target).filter(x=>x?.addEventListener))];
+    targets.forEach(el=>{el.addEventListener('touchmove',move,{passive:false});el.addEventListener('touchend',end,{passive:true});el.addEventListener('touchcancel',end,{passive:true})});
+    pinch={gap:d,start:zoom,moved:false,off:()=>targets.forEach(el=>{el.removeEventListener('touchmove',move);el.removeEventListener('touchend',end);el.removeEventListener('touchcancel',end)})};
+  }
+  function stopPinch(){const p=pinch;pinch=null;p?.off?.();return p}
+  function movePinch(grid,t){
+    const next=pinchZoom(pinch.start,pinch.gap,touchGap(t));
+    if(next===null)return;
+    pinch.moved=true;
+    if(next===zoom&&zoomMode)return;
+    if(!zoomMode&&next<=1)return;
+    setZoom(grid,next,focalOf(grid,t));
+  }
+  function finishPinch(grid){
+    const p=stopPinch();
+    if(!p)return;
+    // 손을 뗄 때 오는 누르기는 칸 누르기(새 일정)가 아니다.
+    suppressUntil=clickClock()+400;
+    if(!zoomMode)return;
+    const target=releaseZoom(p.start,zoom);
+    if(target>1){zoom=target;paintZoom(grid);return}
+    zoomOut(grid);
+  }
+  // 처음 한 화면 크기로 0.2초에 줄인 뒤 보통 모양으로 다시 그린다(움직임 줄이기 설정이면 바로).
+  function zoomOut(grid){
+    const done=()=>{zoomBack=0;zoom=1;zoomMode=false;grid.scrollLeft=0;grid.scrollTop=0;if(last)render(last)};
+    const from=zoom;
+    if(reduceMotion()||from<=1){done();return}
+    const t0=performance.now();
+    const step=now=>{
+      const k=Math.min(1,(now-t0)/ZOOM_BACK_MS),ease=1-(1-k)*(1-k);
+      zoom=from+(1-from)*ease;paintZoom(grid);
+      if(k<1)zoomBack=requestAnimationFrame(step);else done();
+    };
+    zoomBack=requestAnimationFrame(step);
+  }
   // Compatibility with team.js: month navigation is disabled; buttons own month changes.
   function setNavigate(){bindTouchGuard()}
-  function suppressClick(){return Date.now()<suppressUntil}
+  function suppressClick(){return clickClock()<suppressUntil}
   // S49-6 요일 줄([일]~[토])을 누르면 이번 주(오늘이 든 주) 그 요일의 날 창. 키보드는 Enter·Space.
   function openWeekdayDay(h){
     const i=Number(h.dataset.weekday);if(!Number.isInteger(i)||!last)return;
@@ -511,7 +601,7 @@ import {eventColor} from './home-read-model.js';
   if(mq760.addEventListener)mq760.addEventListener('change',forceRerender);else mq760.addListener?.(forceRerender);
   document.addEventListener('toggle',event=>{if(event.target?.id==='googleCalendarPanel')forceRerender()},true);
 
-  window.KPTUCalendarMonthView={render,googleColor,normalizeGoogle,segmentWeeks,eventButton,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[],setDrag,setExpanded,isExpanded:()=>expanded};
+  window.KPTUCalendarMonthView={render,googleColor,normalizeGoogle,segmentWeeks,eventButton,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[],setDrag,setExpanded,isExpanded:()=>expanded,zoom:()=>zoomMode?zoom:1};
   if(window.__KPTU_CALENDAR_MOVE_MONTH__)setNavigate(window.__KPTU_CALENDAR_MOVE_MONTH__);
   window.__KPTU_CALENDAR_MONTH_VIEW_READY__=Promise.resolve(true);
 })();
