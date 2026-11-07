@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NOW_TABS, NOW_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody} from '../app/now-model.mjs';
+import {NOW_TABS, NOW_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from '../app/now-model.mjs';
 import {NEWS_TABS} from '../app/view-prefs.js';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 화면 순수 계산.
 
@@ -228,4 +228,19 @@ test('번역 실패 한 줄', () => {
   assert.equal(translateError({status: 429, message: 'MONTHLY_LIMIT'}), '이번 달 번역 한도를 다 씀');
   assert.equal(translateError({status: 503, message: 'AI_UNAVAILABLE'}), '번역하지 못함 · HTTP 503');
   assert.equal(translateError(new Error('x')), '번역하지 못함 · 잠시 뒤 다시');
+});
+
+// S52-39 NEWS-원문복사선택: [복사] 글 = 제목 / 매체 · 날짜 / 본문 전체(문단 사이 빈 줄) / 원래 주소. 사진·캡션은 빼고, 주소는 https만.
+test('원문 [복사] 글: 제목·매체·날짜·문단·주소', () => {
+  const head = {meta: ['가상 매체', '국제', '2026. 11. 7. 09:30', '가상 글쓴이'], title: '가상  제목', url: 'https://news.example.org/a'};
+  const blocks = [{t: 'p', text: '첫  문단.'}, {t: 'h', text: '소제목'}, {t: 'img', src: 'https://x/a.jpg', cap: '사진 설명', alt: ''}, {t: 'quote', text: '인용.'}, {t: 'p', text: ''}, {t: 'p', text: '끝 문단.'}];
+  assert.equal(copyArticleText(head, blocks), '가상 제목\n가상 매체 · 2026. 11. 7. 09:30\n\n첫 문단.\n\n소제목\n\n인용.\n\n끝 문단.\n\nhttps://news.example.org/a');
+  assert.equal(copyArticleText({...head, url: 'javascript:alert(1)'}, []), '가상 제목\n가상 매체 · 2026. 11. 7. 09:30');
+  assert.equal(copyArticleText({title: 'T', meta: []}, [{t: 'p', text: 'B'}]), 'T\n\nB');
+  assert.equal(copyArticleText(null, null), '');
+});
+test('⋯ [공유]는 제목·주소만(본문은 넘기지 않음)', () => {
+  assert.deepEqual(shareArticleData({title: '제목', url: 'https://x.example.org/1', meta: ['m']}), {title: '제목', url: 'https://x.example.org/1'});
+  assert.deepEqual(shareArticleData({title: '제목', url: 'http://x.example.org/1'}), {title: '제목', text: '제목'});
+  assert.equal(shareArticleData({}), null);
 });
