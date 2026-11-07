@@ -153,8 +153,12 @@ for (const width of [412, 884, 1440]) {
     // PC(761px~): 원문 위 우클릭 = 같은 ⋯ 메뉴.
     if (width > 760) {
       await page.evaluate(() => window.getSelection().removeAllRanges());
-      await prose.locator('p').first().click({ button: 'right' });
+      const pb = await prose.locator('p').first().boundingBox();
+      await prose.locator('p').first().click({ button: 'right', position: { x: 10, y: pb.height / 2 } });
       await expect(menuBox(page)).toBeVisible();
+      // 누른 자리 바로 옆(⋯ 밑이 아니라).
+      const mb2 = await menuBox(page).boundingBox();
+      expect(Math.abs(mb2.x - (pb.x + 10))).toBeLessThan(16);
       await expect(menuBox(page).locator('button').first()).toHaveText('모두 선택');
       await page.keyboard.press('Escape');
     }
