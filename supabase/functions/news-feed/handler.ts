@@ -14,6 +14,8 @@
 //   · fill_now: 채널 기사 대기 줄 바로 채우기(하루 FILL_DAILY번, 한 번에 FILL_MAX건). 채운 뒤 그 작업공간 외국어 제목도 번역(titles와 같은 규칙).
 //   · open: 기사 하나의 본문을 지금 읽기(매체 기사는 카탈로그 호스트만, 채널 기사는 열린 주소 규칙, 구글 중계 주소는 읽지 않음). 하루 OPEN_DAILY번.
 //   · translate: 외국어 기사 본문을 한국어로 번역해 그 줄에 저장(본문 번역이 이미 있으면 저장본, 재번역 없음). 하루 TRANSLATE_DAILY번.
+//     엔진(S52-12 NEWS-원문먼저번역 ②): 비밀값 GOOGLE_TRANSLATE_API_KEY가 있으면 Google Cloud Translation(google-translate.ts, 줄 수를 맞춰 저장),
+//     없거나 Google이 실패하면 기존 AI 번역(news_translate). 입구·로그인·owner·하루 한도·저장 칸은 그대로.
 //     본문 번역은 누를 때만 한다. 백그라운드(titles 단계·fill_now)는 제목만 번역한다(S47-57 명진 결정: 제목만 미리, 본문은 그때).
 //   두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙으면 401.
 // 읽는 주소: 매체·구글 뉴스는 _shared/news-catalog.ts 허용 호스트만, 채널 기사 원문은 _shared/feed-fetch.ts openArticleUrl 규칙.
@@ -36,6 +38,7 @@ import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, splitGoogleTitle, titleKey, type PageRule } from "./page.ts";
 import { bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
+import { googleKeyFrom, googleTranslateItem, TRANSLATE_REST_MARK } from "./google-translate.ts";
 
 export type NewsFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: FeedLog };
 
@@ -833,23 +836,34 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       if (!text && typeof item.title_ko === "string" && item.title_ko) return json({ ok: true, status: "stored" });
       if (item.lang === "ko") throw new Fail(409, "NOT_FOREIGN");
       if (!title && !text) throw new Fail(409, "NOTHING_TO_TRANSLATE");
-      if (await monthKrw(db, who.workspaceId, nowMs) >= MONTHLY_LIMIT_KRW) throw new Fail(429, "MONTHLY_LIMIT");
+      // AI 월 한도는 AI로 번역할 때만 본다(Google 번역은 AI 비용이 아님 — Google 쪽 하루 글자 한도는 Cloud 콘솔 할당량으로).
+      const google = googleKeyFrom(deps.env);
+      if (!google && await monthKrw(db, who.workspaceId, nowMs) >= MONTHLY_LIMIT_KRW) throw new Fail(429, "MONTHLY_LIMIT");
       await useDaily(db, who.workspaceId, "translate_n", TRANSLATE_DAILY, nowMs);
-      const material = `제목: ${title}\n\n본문:\n${text.slice(0, TRANSLATE_MAX_CHARS)}`;
-      const out = await askAi(ai, "news_translate", TRANSLATE_INSTRUCTIONS, material, TRANSLATE_SCHEMA, Math.min(40000, Math.ceil(chars(material) * 1.5) + 300), 120000);
-      if (out.usage.input || out.usage.output) {
-        try { await addDay(db, who.workspaceId, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: out.usage.input, ai_output_tokens: out.usage.output }, nowMs); }
-        catch { log("usage_record_failed"); }
+      const hadTitle = typeof item.title_ko === "string" && !!item.title_ko;
+      let tr: { title_ko: string | null; body_ko: string | null } | null = null, engine = "ai";
+      if (google) {
+        tr = await googleTranslateItem(doFetch, google, { title, text, lang: item.lang, needTitle: !hadTitle }, TRANSLATE_MAX_CHARS, log);
+        if (tr) engine = "google";
+        else if (await monthKrw(db, who.workspaceId, nowMs) >= MONTHLY_LIMIT_KRW) throw new Fail(429, "MONTHLY_LIMIT");
       }
-      const tr = readTranslation(out.value, !!text);
-      if (!tr) throw new Fail(503, "AI_UNAVAILABLE");
+      if (!tr) {
+        const material = `제목: ${title}\n\n본문:\n${text.slice(0, TRANSLATE_MAX_CHARS)}`;
+        const out = await askAi(ai, "news_translate", TRANSLATE_INSTRUCTIONS, material, TRANSLATE_SCHEMA, Math.min(40000, Math.ceil(chars(material) * 1.5) + 300), 120000);
+        if (out.usage.input || out.usage.output) {
+          try { await addDay(db, who.workspaceId, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: out.usage.input, ai_output_tokens: out.usage.output }, nowMs); }
+          catch { log("usage_record_failed"); }
+        }
+        const got = readTranslation(out.value, !!text);
+        if (!got) throw new Fail(503, "AI_UNAVAILABLE");
+        tr = { title_ko: got.title_ko, body_ko: got.body_ko && chars(text) > TRANSLATE_MAX_CHARS ? `${got.body_ko}\n\n${TRANSLATE_REST_MARK}` : got.body_ko };
+      }
       const nowIso = new Date(nowMs).toISOString();
-      const bodyKo = tr.body_ko && chars(text) > TRANSLATE_MAX_CHARS ? `${tr.body_ko}\n\n(이후 부분은 원문만 있음)` : tr.body_ko;
       // 제목 번역이 이미 있으면(백그라운드) 그대로 두고 본문만 더한다. translated_at은 처음 번역 시각을 유지한다.
-      const keepTitle = typeof item.title_ko === "string" && item.title_ko ? item.title_ko : null;
+      const keepTitle = hadTitle ? item.title_ko : null;
       await db.send("PATCH", `app_news_items?id=eq.${item.id}&workspace_id=eq.${who.workspaceId}`,
-        { title_ko: keepTitle ?? tr.title_ko, body_ko: bodyKo, translated_at: item.translated_at ?? nowIso, updated_at: nowIso }, "return=minimal");
-      return json({ ok: true, status: "translated" });
+        { title_ko: keepTitle ?? tr.title_ko, body_ko: tr.body_ko, translated_at: item.translated_at ?? nowIso, updated_at: nowIso }, "return=minimal");
+      return json({ ok: true, status: "translated", engine });
     } catch (e) {
       if (e instanceof Fail) {
         if (e.status >= 500) log("failed", { stage: e.code, status: e.status });

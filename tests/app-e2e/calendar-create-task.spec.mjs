@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {pressName} from './helpers/area-org-picker.mjs';
+import {pressName,openPicker,pressNamesAndSave,chosenKeys} from './helpers/area-org-picker.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 test.use({timezoneId:'Asia/Seoul',viewport:{width:360,height:844}});
@@ -91,11 +91,12 @@ test('360px project label stays on one line like the optional date label',async(
  expect(label.text).toBe('사업영역 (선택)');expect(label.buttonTop).toBeGreaterThanOrEqual(label.bottom);
 });
 
-test('event mode shows the project field and registers a project milestone after the Google save',async({page})=>{
- await open(page);await expect(page.locator('#eventTaskProject')).toBeVisible();
+// CAL-일정사업영역: [일정]은 한 개 고르기 칸 대신 '사업영역 / 관련 담당조직' 두 줄(#soEventOrgChecks)로 고르고, 저장 뒤 주요 일정 행을 만든다.
+test('event mode picks areas on the two lines and registers a project milestone after the Google save',async({page})=>{
+ await open(page);await expect(page.locator('#eventTaskProject')).toBeHidden();await expect(page.locator('#soEventOrgChecks [data-aop-line="area"]')).toBeVisible();
  const writes=[],milestones=[];await page.route(SB+'/functions/v1/google-calendar',r=>{writes.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,event:{id:'created-event',calendarId:r.request().postDataJSON().calendar_id,location:r.request().postDataJSON().location||''}}});});
  await page.route(SB+'/rest/v1/app_project_milestones*',r=>{if(r.request().method()==='POST'){milestones.push(r.request().postDataJSON());return r.fulfill({status:201,json:[r.request().postDataJSON()]})}return r.fulfill({json:[]})});
- await page.locator('#eventTitle').fill('QA');await page.locator('#eventTaskProject').click();await pressName(page,'자식 프로젝트');
+ await page.locator('#eventTitle').fill('QA');await openPicker(page,'#soEventOrgChecks','area');await pressNamesAndSave(page,'자식 프로젝트');expect(await chosenKeys(page,'#soEventOrgChecks')).toEqual(['p:child']);
  await page.locator('#saveEventBtn').click();await expect(page.locator('#eventModal')).toBeHidden();
  expect(writes).toHaveLength(1);expect(milestones).toHaveLength(1);
  expect(milestones[0]).toMatchObject({project_id:'child',title:'QA',milestone_type:'action',status:'planned',google_calendar_id:writes[0].calendar_id,google_event_id:'created-event'});
@@ -104,7 +105,7 @@ test('project link failure keeps the event, offers retry and never creates a sec
  await open(page);const writes=[],milestones=[];let fail=true,stored=[];
  await page.route(SB+'/functions/v1/google-calendar',r=>{writes.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,event:{id:'created-event',calendarId:r.request().postDataJSON().calendar_id,location:r.request().postDataJSON().location||''}}});});
  await page.route(SB+'/rest/v1/app_project_milestones*',r=>{if(r.request().method()==='POST'){if(fail)return r.fulfill({status:500,json:{message:'fail'}});milestones.push(r.request().postDataJSON());stored=[{id:'m1',google_event_id:'created-event'}];return r.fulfill({status:201,json:[r.request().postDataJSON()]})}return r.fulfill({json:stored})});
- await page.locator('#eventTitle').fill('QA');await page.locator('#eventTaskProject').click();await pressName(page,'자식 프로젝트');
+ await page.locator('#eventTitle').fill('QA');await openPicker(page,'#soEventOrgChecks','area');await pressNamesAndSave(page,'자식 프로젝트');expect(await chosenKeys(page,'#soEventOrgChecks')).toEqual(['p:child']);
  await page.locator('#saveEventBtn').click();await expect(page.locator('#eventStatus')).toContainText('사업영역 연결 실패');await expect(page.locator('#eventModal')).toBeVisible();expect(writes).toHaveLength(1);
  fail=false;const retry=page.locator('#eventStatus button',{hasText:'다시 시도'});await retry.dispatchEvent('click');await expect(page.locator('#eventModal')).toBeHidden();
  expect(writes).toHaveLength(1);expect(milestones).toHaveLength(1);

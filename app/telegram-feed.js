@@ -281,7 +281,7 @@ function roomRowHtml(g, {pin = false} = {}) {
   const l = g.last, key = rdKey(l.room_key, l.day), on = state.rsel === g.room_key, text = lineText(lineView(l), state.titles);
   const ask = g.lines.map(x => askTagText(state.asks?.byLine.get(rdKey(x.room_key, x.day)))).find(Boolean) || '';
   const fresh = state.seen ? g.lines.some(x => isUnseen(x, state.seen)) : null, dot = fresh ? '<span class="feed-unseen" data-tg-unseen aria-hidden="true"></span><span class="a11y-only">안 본 것</span>' : '';
-  return swipeRow(key, 'room', l.room_key, l.day, `<div class="feed-rd feed-r${roomTone(l.room_key)}${on ? ' is-selected' : ''}${ask ? ' is-ask' : ''}${fresh === false ? ' is-seen' : ''}" data-tg-rd="${esc(key)}" data-tg-roomrow="${esc(g.room_key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(g.room_label))}</span><button type="button" class="feed-rdb" data-tg-roomopen="${esc(g.room_key)}"${on ? ' aria-current="true"' : ''}><span class="feed-rn">${pin ? PIN_MARK : ''}${esc(g.room_label)}<span class="feed-pday" data-tg-roomday>${esc(roomDayText(l.day))} · ${g.days}일</span>${dot}</span><span class="feed-rl">${esc(text)}</span>${ask ? `<span class="feed-ask" data-tg-ask>${esc(ask)}</span>` : ''}</button><button type="button" class="feed-hov" data-tg-rdmore="${esc(key)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc(g.room_label)} 메뉴">${MORE}</button></div>`);
+  return swipeRow(key, 'room', l.room_key, l.day, `<div class="feed-rd feed-r${roomTone(l.room_key)}${on ? ' is-selected' : ''}${ask ? ' is-ask' : ''}${fresh === false ? ' is-seen' : ''}" data-tg-rd="${esc(key)}" data-tg-roomrow="${esc(g.room_key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(g.room_label))}</span><button type="button" class="feed-rdb" data-tg-roomopen="${esc(g.room_key)}"${on ? ' aria-current="true"' : ''}><span class="feed-rn">${pin ? PIN_MARK : ''}${esc(g.room_label)}${dot}</span><span class="feed-rl">${esc(text)}</span>${ask ? `<span class="feed-ask" data-tg-ask>${esc(ask)}</span>` : ''}<span class="feed-ft"><span data-tg-roomday>${esc(roomDayText(l.day))} · ${g.days}일</span></span></button><button type="button" class="feed-hov" data-tg-rdmore="${esc(key)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc(g.room_label)} 메뉴">${MORE}</button></div>`);
 }
 function roomListHtml() {
   const folder = state.filter ? '' : state.folder, all = liveLines(allLines(), {folder});
@@ -290,7 +290,9 @@ function roomListHtml() {
   const pinKeys = new Set(pinned.map(p => p.room_key)), groups = roomGroups(all.filter(l => kept.has(l.room_key) && !pinKeys.has(l.room_key)));
   const pinGroup = p => roomGroups(all.filter(l => l.room_key === p.room_key))[0];
   const top = pinned.length ? `<div class="feed-pinrooms" data-tg-pinrooms role="group" aria-label="고정한 방">${pinned.map(p => { const g = pinGroup(p); return g ? roomRowHtml(g, {pin:true}) : pinRowHtml(p); }).join('')}</div>` : '';
-  return top + (groups.length ? `<div class="feed-rooms" data-tg-rooms>${groups.map(g => roomRowHtml(g)).join('')}</div>` : pinned.length ? '' : emptyHtml('없음', {attrs:'data-tg-empty="none"'}));
+  // TG-보기바꿈높이같게: 날짜별의 날짜 머리 줄과 같은 자리·높이의 빈 머리 줄(글자 없음). [날짜별]↔[방별]을 바꿔도 첫 방 줄이 같은 높이에서 시작한다.
+  const head = '<div class="feed-day feed-day-center" data-tg-roomhead aria-hidden="true">&nbsp;</div>';
+  return top + (groups.length ? `${head}<div class="feed-rooms" data-tg-rooms>${groups.map(g => roomRowHtml(g)).join('')}</div>` : pinned.length ? '' : emptyHtml('없음', {attrs:'data-tg-empty="none"'}));
 }
 // 보관함의 방 한 줄: 방 이름 · 최근 날 · 한 줄 · [꺼내기]. 줄을 누르면 가장 최근 날의 방 상세가 열린다.
 function archiveRowHtml(r) {
@@ -318,11 +320,13 @@ function paintList() {
     box.innerHTML = headHtml() + `<div class="feed-feed">${days}${items}</div>` + tail; return;
   }
   const older = state.end ? '' : '<div class="feed-older"><button type="button" class="feed-text-btn" data-tg-older>이전 날 더 보기</button></div>';
-  if (byNow() === 'room') { box.innerHTML = headHtml() + `<div class="feed-feed">${roomListHtml()}</div>${older}` + tail; return; }
+  // 고정한 소식 띠는 두 보기 모두 같은 자리(목록 시작 높이를 맞춘다). 방별에서 누르면 그 방이 열린다.
+  const pins = pinnedOf(state.pins);
+  const pinbar = pins.length ? `<button type="button" class="feed-pinbar" data-tg-pin-open="${esc(pins[0].id)}" data-tg-pinbar><span class="feed-pt">${esc(pins[0].room_label)} · ${esc(sumOf(pins[0]) || pins[0].title || '')}</span><span class="feed-cnt">고정 ${pins.length}</span></button>` : '';
+  if (byNow() === 'room') { box.innerHTML = headHtml() + pinbar + `<div class="feed-feed">${roomListHtml()}</div>${older}` + tail; fitFolderChips(box); return; }
   // TG-방고정: 거르기 칸(요청·안 본 것)을 고른 동안은 고정 칸 없이 거른 줄만 보인다.
   const pinned = state.filter ? [] : pinnedRooms(state.rooms, [...state.lines, ...state.pinLines], {folder:state.folder});
-  const lines = withoutPinned(filterLines(liveLines(state.lines, {folder:state.filter ? '' : state.folder}), state.filter, {byLine:state.asks?.byLine, seen:state.seen, keep:selKey()}), pinned), pins = pinnedOf(state.pins);
-  const pinbar = pins.length ? `<button type="button" class="feed-pinbar" data-tg-pin-open="${esc(pins[0].id)}" data-tg-pinbar><span class="feed-pt">${esc(pins[0].room_label)} · ${esc(sumOf(pins[0]) || pins[0].title || '')}</span><span class="feed-cnt">고정 ${pins.length}</span></button>` : '';
+  const lines = withoutPinned(filterLines(liveLines(state.lines, {folder:state.filter ? '' : state.folder}), state.filter, {byLine:state.asks?.byLine, seen:state.seen, keep:selKey()}), pinned);
   const groups = groupLines(lines);
   const top = pinned.length ? `<div class="feed-pinrooms" data-tg-pinrooms role="group" aria-label="고정한 방">${pinned.map(pinRowHtml).join('')}</div>` : '';
   const feed = top + (groups.length ? groups.map(g => `<div class="feed-day feed-day-center" data-tg-day="${esc(g.day)}">${esc(dayLabel(g.day))}</div>${g.rows.map(l => rowHtml(l)).join('')}`).join('') : pinned.length ? '' : emptyHtml('없음', {attrs: 'data-tg-empty="none"'}));
@@ -982,7 +986,7 @@ function bind() {
     else if (d.tgRoomopen) openRoom(d.tgRoomopen);
     else if (d.tgBy) setBy(d.tgBy === 'room' ? 'room' : 'day');
     else if (b.hasAttribute('data-tg-rolder')) void moreRoomDays();
-    else if (d.tgPinOpen) { const r = itemOf(d.tgPinOpen); if (r) { select(r.room_key, r.day, r.id); } }
+    else if (d.tgPinOpen) { const r = itemOf(d.tgPinOpen); if (r) { if (roomMode()) openRoom(r.room_key); else select(r.room_key, r.day, r.id); } }
     else if (d.tgNav) void navDay(d.tgNav);
     else if (d.tgRestore) void restoreItem(d.tgRestore);
     else if (b.hasAttribute('data-tg-older')) { b.disabled = true; void extend().then(() => { paintList(); if (state.rsel) paintDetail(); }).catch(() => { state.status = '이전 날을 불러오지 못했어요.'; paintList(); }); }
