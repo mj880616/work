@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — '잊지 말기' 하나: 요청·챙길 것·가족·업데이트를 한 목록, 한 양식</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--pri:#5c5470;--tonal:#ecebf3;--bg:#f4f3f7;--yel:#8a6a12;--yelbg:#fbf7ea;--red:#a8382f}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:20px;padding:0 16px 24px}
+  .col{width:370px}
+  .col h2{font-size:14px;margin:8px 0}
+  .card{background:#fcfcfd;border:1px solid #d6d4dd;border-radius:14px;padding:10px}
+  .line{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--yelbg);font-size:13.5px}
+  .line b{color:var(--yel);font-weight:700}
+  .badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#c8463b;color:#fff;font-size:11.5px;font-weight:700}
+  .line .go{margin-left:auto;color:var(--faint);font-size:12.5px}
+  .sec{font-weight:700;font-size:15px;margin:12px 2px 4px}
+  .head{display:flex;align-items:center;gap:8px;margin:2px 2px 8px}
+  .head .t{font-size:17px;font-weight:700}
+  .head .f{margin-left:auto;font-size:12.5px;color:var(--faint);border:1px solid var(--line);border-radius:8px;padding:3px 8px;background:#fff}
+  ul{margin:0;padding:0}
+  li{list-style:none;padding:7px 0;border-top:1px solid var(--line)}
+  li:first-child{border-top:0}
+  .body{margin:0 0 3px;font-size:13.5px}
+  .row2{display:flex;align-items:center;gap:5px;flex-wrap:nowrap}
+  .meta{flex:1;min-width:0;color:var(--faint);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .src{display:inline-block;font-size:10.5px;border-radius:4px;padding:0 4px;margin-right:3px;background:var(--tonal);color:var(--ink)}
+  .act{border:0;background:var(--tonal);border-radius:6px;font-size:11.5px;padding:2px 6px;white-space:nowrap}
+  .act.cls{background:#e4ecf6;color:#2f4f7a}
+  .x{color:var(--faint)}
+  .tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:1px 5px;margin-left:4px}
+  ul.k{margin:0 16px 24px;padding-left:18px;font-size:13px;line-height:1.7}
+</style>
+</head>
+<body>
+<h1>시안 — '잊지 말기' 하나: 들어오는 곳은 달라도 한 목록·한 양식</h1>
+<p class="note">명진 11/07 14:42~14:43: "챙길 것·잊지 말기·업데이트는 다른 소스로 올 뿐, 내 입장에서 의사 결정은 똑같다. 구분해서 보여 줄 필요 없고 하나의 양식으로. 메뉴도 잊지 말기로 통일할 수도. 업데이트도 같이 섞자 — 업데이트로 온 것만 버튼 추가." / 14:44 "분류 대신 조직·사업 두 개, 놓친 것 글자 없이 숫자만 빨갛게." 내용은 시안용이에요.</p>
+
+<div class="wrap">
+  <div class="col">
+    <h2>① 홈 [하루] 맨 위 한 줄</h2>
+    <div class="card">
+      <div class="line"><b>잊지 말기</b><span class="badge">4</span><span class="go">열기 ›</span></div>
+      <div class="sec">그날 일정 2</div>
+      <p class="note" style="margin:2px">… (아래는 그대로)</p>
+    </div>
+    <div class="card" style="margin-top:10px">
+      <div class="line"><b>잊지 말기</b><span class="go">열기 ›</span></div>
+    </div>
+    <p class="note" style="margin:6px 0">빨간 동그라미 숫자(앱 안 읽은 알림처럼) = 아직 처리 안 한 줄 수(조직·사업 안 붙인 업데이트 포함). 0이면 숫자 없이 '잊지 말기 ›'만. 메뉴 알림 숫자와 같은 기준. (명진 14:44: '놓친 것' 글자 빼고 숫자만 빨갛게)</p>
+  </div>
+
+  <div class="col">
+    <h2>② 잊지 말기 화면 — 한 목록, 시간순 <span class="tag">추천</span></h2>
+    <div class="card">
+      <div class="head"><span class="t">잊지 말기</span><span class="f">처리 전 ▾</span></div>
+      <ul>
+        <li><p class="body">간담회 참석 여부를 알려 달라는 요청</p>
+          <div class="row2"><span class="meta"><span class="src">텔레그램</span>○○지부 · 11/07</span><button class="act">할 일로</button><button class="act">일정으로</button><button class="act">노트로</button><button class="act">이미 함</button><span class="x">×</span></div></li>
+        <li><p class="body">(가족과 나눈 말 한 줄)</p>
+          <div class="row2"><span class="meta"><span class="src">가족</span>통화 · 11/06</span><button class="act">할 일로</button><button class="act">일정으로</button><button class="act">노트로</button><button class="act">이미 함</button><span class="x">×</span></div></li>
+        <li><p class="body">현장 방문 결과 정리 — 다음 주 회신 받기로</p>
+          <div class="row2"><span class="meta"><span class="src">업데이트</span>11/06</span><button class="act cls">조직</button><button class="act cls">사업</button><button class="act">할 일로</button><button class="act">일정으로</button><button class="act">노트로</button><button class="act">이미 함</button><span class="x">×</span></div></li>
+        <li><p class="body">자료 회신 여부 확인하기</p>
+          <div class="row2"><span class="meta"><span class="src">챙길 것</span>업데이트에서 · 11/05</span><button class="act">할 일로</button><button class="act">일정으로</button><button class="act">노트로</button><button class="act">이미 함</button><span class="x">×</span></div></li>
+      </ul>
+    </div>
+    <p class="note" style="margin:6px 0">줄 모양·버튼은 모두 같음. 다른 점은 ① 작은 줄 맨 앞 출처 글씨(흐린 작은 꼬리표) ② 업데이트로 온 줄만 맨 앞 [조직][사업](누르면 그 고르기 작은 창, UI-영역조직고르기 — 명진 14:44 '분류' 대신 조직·사업 두 개). × = 무시(5초 되돌리기).</p>
+  </div>
+</div>
+
+<ul class="k">
+  <li>메뉴 '정리함' → 이름 '잊지 말기'. 화면 안 '나한테 온 요청'·'챙길 것'·'잊지 말기'·'업데이트' 칸 나눔은 없앰 — 한 목록, 새 것이 위.</li>
+  <li>위 오른쪽 [처리 전 ▾] 드롭다운 하나로 보기 바꾸기: 처리 전 · 보냄(할 일·일정·노트로 간 것) · 이미 함 · 무시 · 연결 완료(업데이트). 출처별로 거르기는 이 드롭다운 안 아래쪽 칸(필요할 때만).</li>
+  <li>업데이트 줄: [조직]·[사업]으로 연결하면 '연결 완료'로 빠짐. 할 일·일정·노트로 보내도 업데이트 기록은 그대로(지금 규칙).</li>
+  <li>홈의 '나한테 온 요청' 상자·'잊지 말기' 상자는 홈에서 빼고 위 한 줄만. 서버·원본(텔레그램 후보, 가족 노트·통화 알림, 업데이트 기록)과 각 버튼 동작은 그대로 — 보여 주는 자리·양식만 하나로.</li>
+  <li>같은 종류 전수: 폰·폴드·PC, 메뉴 알림 숫자, 공유하기·바구니에서 '정리함'이라 부르는 글자 전부 '잊지 말기'로.</li>
+</ul>
+</body>
+</html>
