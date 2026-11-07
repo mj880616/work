@@ -77,7 +77,8 @@ test('폰 412 노트 수정 화면: [넣기] → [파일]이 느린 서버(15초
  expect(f.errors).toEqual([]);
 });
 
-test('폰 412 일기: 큰 사진(4000×3000)이 느린 서버(15초 넘게)에서도 들어간다',async({page})=>{
+for(const [label,file] of [['큰 사진(4000×3000)',{name:'IMG_1.png',mimeType:'image/png'}],['종류·이름 끝 없는 폰 앱 사진',{name:'1000012346',mimeType:''}]])
+test(`폰 412 일기: ${label}이 느린 서버(15초 넘게)에서도 들어간다`,async({page})=>{
  const rows=[],uploads=[],errors=[];let n=0;
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
  await openHome(page);
@@ -107,7 +108,7 @@ test('폰 412 일기: 큰 사진(4000×3000)이 느린 서버(15초 넘게)에�
  await expect(page.locator('#diaryView')).toBeVisible();
  await page.locator('#diaryRoot #newDiaryBtn').click();
  const ed=page.locator('#diaryRoot [data-diary-editor]');
- await ed.locator('[data-diary-input]').setInputFiles([{name:'IMG_1.png',mimeType:'image/png',buffer:big}]);
+ await ed.locator('[data-diary-input]').setInputFiles([{...file,buffer:big}]);
  await expect(ed.locator('.diary-thumb.pending')).toHaveCount(1);
  await ed.locator('[data-diary-save]').click();
  await expect(ed).toBeHidden({timeout:SLOW_MS+20000});
@@ -115,4 +116,21 @@ test('폰 412 일기: 큰 사진(4000×3000)이 느린 서버(15초 넘게)에�
  expect(uploads).toHaveLength(1);expect(uploads[0].type).toBe('image/jpeg');expect(uploads[0].noteId).toBe('d-new-1');
  expect(rows[0].attachments).toHaveLength(1);
  expect(errors).toEqual([]);
+});
+
+// Web2 폰 앱(안드로이드 WebView)은 갤러리·클라우드 사진을 종류(type) 없이, 때로는 이름 끝(.jpg)도 없이 넘긴다.
+// 이전에는 종류만 보고 사진이 아니라며 아무 안내 없이 버렸다(명진 폰 앱: 고른 뒤 안 들어감). 이름 끝·첫 바이트로 알아본다.
+test('폰 412 노트 [넣기] → [사진]: 종류·이름 끝 없는 폰 앱 사진도 들어가고 image/jpeg로 올라간다',async({page})=>{
+ const f=await noteFixture(page);
+ await insertVia(page,f.box,'photo',[{name:'1000012345',mimeType:'',buffer:bigJpeg()}]);
+ await expect(f.field.locator('img.ed-photo-img')).toHaveCount(1,{timeout:SLOW_MS+20000});
+ expect(f.uploads.map(u=>[u.name,u.type])).toEqual([['1000012345.jpg','image/jpeg']]);
+ expect(f.errors).toEqual([]);
+});
+
+test('폰 412 노트 [넣기] → [사진]: 사진이 아닌 파일만 고르면 조용히 끝내지 않고 안내한다',async({page})=>{
+ const f=await noteFixture(page);
+ await insertVia(page,f.box,'photo',[{name:'memo',mimeType:'',buffer:Buffer.from('%PDF-1.4\nhello')}]);
+ await expect(page.locator('[data-note-detail]')).toContainText('사진으로 알아보지 못했어요');
+ expect(f.uploads).toEqual([]);
 });

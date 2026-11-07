@@ -51,6 +51,7 @@ import {toPlain} from './ed-text.mjs';
 import {slotLoading, slotShown, slotFailed} from './img-slot.js';
 import {viewPrefs} from './view-prefs.js';
 import {clipboardFiles, namePasted} from './paste-files.mjs';
+import {splitPictures} from './picture-file.mjs';
 
 const LIB = './editor-lib/pm-ed1-1.2.0/prosemirror.min.mjs';
 const MARKDOWN_IT = './markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
@@ -1210,9 +1211,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // One at a time, each put in after the one before. A failure stops the rest and says why; the ones in stay.
   async function filesFrom(list, at) {
     const all = [...(list || [])];
-    const isPicture = f => /^image\//.test(f.type || '');
-    const pictures = photos ? all.filter(isPicture) : [];
-    const others = files ? all.filter(f => !pictures.includes(f)) : [];
+    // UPLOAD-올리기안됨: a photo from the phone app can come with an empty type; splitPictures also looks at the name and first bytes.
+    const split = photos ? await splitPictures(all) : {pictures: [], others: all};
+    if (view.isDestroyed) return;
+    const pictures = split.pictures;
+    const others = files ? split.others : [];
     // UPD-그림붙여넣기: where the opener has no inline [사진]/[파일] but its own attachment row (update windows), a pasted or dropped picture/file goes to that row.
     if (!pictures.length && !others.length) { if (onFiles && all.length) onFiles(all); else notePhotoLater(); return; }
     if (all.length > pictures.length + others.length) notePhotoLater();
@@ -1268,7 +1271,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     input.addEventListener('cancel', () => input.remove(), {once: true});
     root.append(input); input.click();
   };
-  const pickPhotos = () => pickFrom('image/*', chosen => filesFrom(chosen.filter(f => /^image\//.test(f.type || ''))));
+  const pickPhotos = () => pickFrom('image/*', async chosen => {
+    const {pictures} = await splitPictures(chosen);
+    if (view.isDestroyed) return;
+    if (!pictures.length) { if (chosen.length) showNote('고른 파일을 사진으로 알아보지 못했어요. JPEG·PNG 같은 사진을 골라 주세요.'); return; }
+    return filesFrom(pictures);
+  });
   const pickFiles = () => pickFrom('', chosen => files ? filesIn(chosen) : chosen.length && onFiles?.(chosen));
 
   // ── 사진 나란히 ──

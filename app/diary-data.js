@@ -3,6 +3,7 @@
 // requires it, app_notes_diary_private_check). Photos go through the existing basket-files upload with note_id, one at a
 // time, and are shown through its owner-only photo view (GET ?action=photo). No browser storage, no new save path.
 import {seoulDateKey} from './meeting-time.js';
+import {asPicture} from './picture-file.mjs';
 import {uploadBasketFile, driveFileUrl} from './basket-upload.js';
 import {holdPhotoMaker, forgetPhotoBlob, localImageBlob} from './photo-share.js';
 import {slotBox, slotLoading, slotShown, slotFailed, slotPreview, slotTiming} from './img-slot.js';
@@ -187,8 +188,10 @@ export async function dropEmptyDiary(row, rt = window.KPTURuntime) {
 // J3: shrink to a 2048px long edge JPEG on the phone before upload. A JPEG already within the edge is sent as is.
 // redraw: always draw again, even a small JPEG (share photos: the new JPEG carries no EXIF, so no location goes out).
 export async function shrinkPhoto(file, {edge = DIARY_PHOTO_EDGE, quality = 0.86, redraw = false} = {}) {
+  const name0 = file?.name;
   if (!file?.size) throw new Error('빈 파일은 올릴 수 없어요.');
-  if (!/^image\//.test(file.type || '')) throw new Error(`${file.name || '이 파일'}은 사진이 아니에요.`);
+  file = await asPicture(file);
+  if (!file) throw new Error(`${name0 || '이 파일'}은 사진이 아니에요.`);
   let bitmap;
   try { bitmap = await createImageBitmap(file, {imageOrientation:'from-image'}); }
   catch { throw new Error(`${file.name || '이 사진'}은 이 기기에서 열 수 없는 형식이에요. JPEG·PNG로 바꿔 올려 주세요.`); }
