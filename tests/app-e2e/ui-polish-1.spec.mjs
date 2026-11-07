@@ -195,7 +195,7 @@ for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ �
  expect(state.posts).toHaveLength(1);expect(state.posts[0]).toMatchObject({workspace_id:ws.id,raw_text:'# 새 메모\n쓰기에서 저장'});expect(state.posts[0].doc).toMatchObject({v:'ed1'});
  // The basket list on screen shows the new note without leaving it.
  await showBasketRow(page,'10000000-0000-4000-8000-000000000099');
- await expect(page.locator('[data-basket-row="10000000-0000-4000-8000-000000000099"]')).toContainText('# 새 메모');
+ await expect(page.locator('[data-basket-row-item="10000000-0000-4000-8000-000000000099"]')).toContainText('# 새 메모');
  // The next [쓰기] starts empty again.
  await openWriteFromEntry(page,width);
  await expect(page.locator('#edWindow .ed-window-body .ProseMirror')).not.toContainText('쓰기에서 저장');

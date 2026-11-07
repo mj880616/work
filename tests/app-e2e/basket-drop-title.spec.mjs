@@ -30,7 +30,7 @@ async function fixture(page,width){
  await expect(page.locator('[data-basket-row="old-bare"]')).toBeVisible();
  return {errors,uploads,writes,notes};
 }
-const title=(page,id)=>page.locator(`[data-basket-row="${id}"] .basket-title`);
+const title=(page,id)=>page.locator(`[data-basket-row="${id}"]`); // S52-20: 한 목록 줄의 내용 버튼이 제목이다
 
 for(const width of [390,1280]){
  test(`old cut attachment names show readably and unchanged in storage ${width}`,async({page})=>{
@@ -59,7 +59,7 @@ test('a file dropped on the basket input on a PC keeps its whole name, as the [�
  expect(f.uploads).toHaveLength(1);
  expect(f.uploads[0]).toContain(`filename="${name}"`);expect(f.uploads[0]).not.toContain('name="raw_text"');
  await expect(title(page,'dropped')).toHaveText(`파일 · ${name}`);
- await expect(page.locator('[data-basket-row="dropped"]')).toContainText('첨부 1개');
+ await expect(page.locator('[data-basket-row-item="dropped"]')).toContainText('첨부 1개');
  // The [첨부] picker sends the same filename part for the same name.
  await box.locator('input[type=file]').setInputFiles([{name,mimeType:'application/x-hwp',buffer:Buffer.from('hwp')}]);
  await box.locator('[data-quick-save]').click();

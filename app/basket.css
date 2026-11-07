@@ -132,7 +132,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView > .basket-head:not([hidden]):not(:has(> :not(.a11y-only,[hidden]))) { min-height:0; margin:0; }
 /* S52-20: 정리함 머리 줄 [처리 전 ▾](② 작은 버튼, 모양은 공용) 오른쪽 끝 정렬. */
 #appView #basketView .forget-head:not([hidden]) { justify-content:flex-end; }
-#appView #basketView [data-forget-section] > .nbx-list > li { padding-left:var(--ds-row-pad-x); padding-right:var(--ds-row-pad-x); }
 #forgetViewMenu .forget-view-sep { margin:4px 0; border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
 #forgetViewMenu button[aria-checked="true"] { color:var(--ds-select-ink); font-weight:var(--ds-weight-medium); }
 /* UI-점검1030손질 C5: [다시 찾기]는 거르기 칩(처리 전·보냄·무시)이 아니라 동작이므로 칩 모양이 아니라 홈·업무일지 '챙길 것'의 [다시 찾기]와 같은 글자 버튼(todo-radar.css .radar-find). 누르는 범위 44px은 아래 ::after. */

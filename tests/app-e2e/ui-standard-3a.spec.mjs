@@ -204,11 +204,11 @@ for(const width of [390,1280])test(`프로젝트 목록 오른쪽은 D-day 하�
  // 바구니 목록 이름도 13px·400, 보조 줄 12px. [분류 요청] 뒤에 열리는 칸 이름은 [분류 결과 입력].
  await view(page,'basket');
  const basket=page.locator('#basketView');await expect(basket.locator('[data-basket-row]')).toHaveCount(1);
- await rowText(page,basket.locator('.basket-row .basket-title'));
- for(const meta of await basket.locator('.basket-row time').all())expect((await look(meta)).fontSize).toBe('12px');
- // BASKET-AI메뉴삭제: [분류 결과 입력] 칸은 없다. BASKET-정리함한화면: 칸 제목은 '챙길 것'·'업데이트' 두 개.
+ await rowText(page,basket.locator('[data-basket-row]'));
+ for(const meta of await basket.locator('[data-forget-section] .nbx-meta').all())expect((await look(meta)).fontSize).toBe('12px');
+ // BASKET-AI메뉴삭제: [분류 결과 입력] 칸은 없다. S52-20: 칸 나눔 없이 한 목록(옛 '챙길 것'·'업데이트' 칸 제목 없음).
  await expect(basket.getByRole('heading',{level:3,name:'분류 결과 입력',exact:true})).toHaveCount(0);
- await expect(basket.locator('#inboxTodoTitle')).toContainText('챙길 것');await expect(basket.locator('#inboxUpdateTitle')).toContainText('업데이트');
+ await expect(basket.locator('#inboxTodoTitle,#inboxUpdateTitle')).toHaveCount(0);
  expect(errors).toEqual([]);
 });
 

@@ -64,18 +64,13 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, width);
     const more = rowMore(page, A), copy = page.locator(`[data-basket-row-copy="${A}"]`), row = page.locator(`[data-basket-row="${A}"]`);
     await expect(more).toHaveAccessibleName('합성 교섭 결과 공유 메뉴');
-    const mb = await more.boundingBox(), rb = await row.boundingBox();
-    expect(mb.width).toBeGreaterThanOrEqual(44); expect(mb.height).toBeGreaterThanOrEqual(44);
-    expect(mb.x + mb.width).toBeGreaterThan(rb.x + rb.width - 8);
-    const title = await row.locator('.basket-title').boundingBox();
-    // UI-화면정리 C4(S48-46): 폰·PC 모두 줄에 [복사] 버튼이 없다([복사]는 ⋯ 메뉴 맨 위). 제목은 ⋯ 바로 왼쪽까지 쓰고 ⋯ 아래로 들어가지 않는다.
+    // S52-20 한 목록: ⋯는 줄 아래 작은 줄 맨 끝 ⑥ 아이콘(누르는 범위 44px은 ::after). 줄에 [복사] 버튼은 없다([복사]는 ⋯ 메뉴 맨 위).
+    const item = page.locator(`[data-basket-row-item="${A}"]`);
+    const mb = await more.boundingBox(), ib = await item.boundingBox();
+    expect(mb.x + mb.width).toBeGreaterThan(ib.x + ib.width - 24);
+    const xb = await item.locator('.nbx-x').boundingBox(); expect(Math.round(mb.height)).toBe(Math.round(xb.height)); // 같은 ⑥ 아이콘(× 와 같은 크기)
     await expect(copy).toHaveCount(0); await expect(page.locator('[data-basket-row-copy]')).toHaveCount(0);
-    expect(title.x + title.width).toBeLessThanOrEqual(mb.x + 1);
-    if (width < 761) {
-      expect(title.x + title.width).toBeGreaterThan(mb.x - 8);
-      expect(title.width).toBeGreaterThanOrEqual(rb.width - 48 - 16 - 2);
-      for (const sel of ['time']) { const b = await row.locator(sel).first().boundingBox(); expect(b.x + b.width).toBeLessThanOrEqual(mb.x + 1); }
-    }
+    await expect(row).toBeVisible();
     // A row with nothing to copy keeps only the ⋯, in the same place.
     const mc = await rowMore(page, C).boundingBox(); expect(Math.round(mc.x)).toBe(Math.round(mb.x));
     { await press(page, rowMore(page, C), width); await expect(menu(page).getByRole('button', { name: '복사', exact: true })).toHaveCount(0); await expect(menu(page).locator('button').first()).toHaveText('수정'); await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden(); }

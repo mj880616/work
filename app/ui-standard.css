@@ -1739,6 +1739,7 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
    아래 작은 줄 맨 앞 흐린 출처 꼬리표, 처리한 줄의 오른쪽 상태 글, 내용을 누르면 기록을 여는 글자 버튼, 업데이트 줄만의 [조직][사업]. */
 .nbx[data-nbx-tone="list"]{ --nbx-ink:var(--kptu-muted); --nbx-bg:transparent; margin:0; padding:0; border:0; border-radius:0; font-size:var(--ds-text-meta); }
 .nbx[data-nbx-tone="list"] > .nbx-list > .nbx-item:first-child{ border-top:0; }
+.nbx[data-nbx-tone="list"] > .nbx-list > li{ padding-left:var(--ds-row-pad-x); padding-right:var(--ds-row-pad-x); }
 .nbx-src{ display:inline-block; margin-right:4px; padding:0 4px; border-radius:var(--ds-radius-control); background:var(--kptu-surface-subtle); color:var(--kptu-muted); }
 .nbx-done{ flex:none; margin-left:auto; color:var(--kptu-faint); }
 .nbx .row-act.nbx-body-btn{ display:inline; width:auto; height:auto; min-height:0; padding:0; color:var(--kptu-ink); font-size:var(--ds-text-row); font-weight:inherit; line-height:inherit; text-align:left; white-space:normal; overflow-wrap:anywhere; }

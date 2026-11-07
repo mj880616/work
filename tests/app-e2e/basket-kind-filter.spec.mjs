@@ -21,7 +21,7 @@ for(const width of [390,1280]){
   await page.route(SB+'/rest/v1/app_record_links?**',r=>new URL(r.request().url()).searchParams.has('note_id')?r.fulfill({json:[]}):r.fallback());
   await page.evaluate(()=>window.KPTURouter.go('basket'));
   await expect(page.locator('[data-basket-row]')).toHaveCount(1);
-  await expect(page.locator('[data-basket-row="b1"]')).toContainText('합성 정리함 메모');
+  await expect(page.locator('[data-basket-row-item="b1"]')).toContainText('합성 정리함 메모');
   await expect(page.locator('#basketView')).not.toContainText('NOTE_ROW_MUST_NOT_SHOW');
   await expect(page.locator('#basketView')).not.toContainText('DIARY_ROW_MUST_NOT_SHOW');
   expect(reads.length).toBeGreaterThan(0);expect(reads.every(k=>k==='eq.basket')).toBe(true);

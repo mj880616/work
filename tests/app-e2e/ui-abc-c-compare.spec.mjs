@@ -39,7 +39,7 @@ for (const [width, height] of WIDTHS) {
     // C4 업데이트 줄: 복사 아이콘 없음, ⋯ 하나.
     out.rowCopy = await page.locator('[data-basket-row-copy]').count();
     expect(out.rowCopy).toBe(0);
-    out.rowState = await page.locator('#basketRows .basket-row-state').allTextContents().then(t => t.filter(x => x.trim() === '미분류').length);
+    out.rowState = await page.locator('#basketRows .nbx-meta').allTextContents().then(t => t.filter(x => x.trim() === '미분류').length);
     expect(out.rowState, '[미분류] 칩을 고른 동안 줄의 미분류 글자').toBe(0);
     await page.screenshot({path: `${DIR}/c-basket-${width}.png`});
 

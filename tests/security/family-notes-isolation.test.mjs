@@ -22,6 +22,8 @@ const ALLOWED=new Set([
  'docs/ops/family-kept-to-note.sql',
  // S52-09 UI-요청상자통일: 홈 두 상자(나한테 온 요청·잊지 말기)가 같은 부품인지 보는 화면 시험(지어낸 잊지 말기 줄을 흉내 낸 서버로만 돌려줌).
  'tests/app-e2e/home-asks-box.spec.mjs',
+ // S52-20 HOME-잊지말기한목록: 정리함 한 목록에 가족 줄이 같은 줄로 보이는지 보는 화면 시험(지어낸 줄을 흉내 낸 서버로만 돌려줌).
+ 'tests/app-e2e/forget-one-list.spec.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
 function walk(dir,out=[]){
