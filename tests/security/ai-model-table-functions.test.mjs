@@ -130,7 +130,7 @@ test('news-feed: 공용 callOpenAi(생각 수준)만 쓰고 출력 상한에 생
 
 test('outside-feed: 공용 callOpenAi(생각 수준)만 쓰고 모든 출력 상한에 생각 여유가 더해져 있다',()=>{
   const t=read(ROOT+'outside-feed/handler.ts');
-  assert.match(t,/import \{ aiConfigFrom, callOpenAi, outputText, type Env, type Log \} from "\.\.\/_shared\/openai-responses\.ts"/);
+  assert.match(t,/import \{ aiConfigFrom, callOpenAi, outputText, tokenCount, type Env, type Log \} from "\.\.\/_shared\/openai-responses\.ts"/);
   assert.equal([...t.matchAll(/await callOpenAi\(/g)].length,1,'한 곳(askAi)만 OpenAI를 부른다');
   const at=[...t.matchAll(/max_output_tokens:/g)].map(m=>t.slice(m.index,m.index+70));
   assert.equal(at.length,1);

@@ -9,6 +9,7 @@ import {pickMyOrganizations} from './my-organizations.js';
 import {mountReorder} from './reorder-drag.js';
 import {emptyEl, waitHtml} from './wait-state.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
+import {colGripHtml} from './weekly-cols.js'; // WEEKLY-조직이름한줄 덧붙임: 칸 폭 끌기 손잡이
 
 const TEXT = Object.freeze({
   missing:'3) 상집 논의 요청 저장 칸이 아직 준비되지 않았어요(서버 적용 전).',
@@ -59,9 +60,9 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
   // 다시 그려도(조직 이름을 다 읽은 뒤 등) 고치던 칸의 초점은 그대로.
   const was = doc.activeElement, keepField = slot.contains(was) ? was?.dataset?.journalDiscussField : '';
 
-  const table = el('table', 'journal-weekly-table journal-exec-table journal-discuss-table'); table.dataset.journalDiscussTable = '';
+  const table = el('table', 'journal-weekly-table journal-exec-table journal-discuss-table'); table.dataset.journalDiscussTable = ''; table.dataset.wkCols = 'discuss';
   // WEEKLY-손잡이왼쪽(요청함 11/08 00:18): ⠿는 줄 맨 왼쪽 칸, ⋯는 줄 맨 오른쪽 칸.
-  table.innerHTML = '<thead><tr><th scope="col" class="journal-grip-head" aria-label="순서"></th><th scope="col">안건</th><th scope="col">설명</th><th scope="col">관련 조직</th><th scope="col" class="journal-exec-tools-head" aria-label="고치기"></th></tr></thead>';
+  table.innerHTML = `<thead><tr><th scope="col" class="journal-grip-head" aria-label="순서"></th><th scope="col">안건${colGripHtml('discuss', 2)}</th><th scope="col">설명</th><th scope="col">관련 조직${colGripHtml('discuss', 4)}</th><th scope="col" class="journal-exec-tools-head" aria-label="고치기"></th></tr></thead>`;
   const body = el('tbody'); body.dataset.reorderList = 'discuss';
   for (const row of rows) {
     if (ui.editing === row.id) { body.append(editRow(row)); continue; }

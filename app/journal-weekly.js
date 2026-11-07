@@ -28,6 +28,7 @@ import {requestTagsHtml, requestPrefix} from './update-requests.js';
 import {seoulDateKey, addSeoulDays, seoulClock} from './meeting-time.js';
 import {meetingKindKey, meetingKindName, reportsMeeting, validKindKey} from './journal-meeting-kinds.js';
 import {itemWhat} from './weekly-hwpx/schedule.mjs';
+import {colGripHtml} from './weekly-cols.js'; // WEEKLY-조직이름한줄 덧붙임: 표 칸 폭 끌기 손잡이(공용 col-resize.js)
 import {annotateCalendar, memoryTitle, idleWeeks, visibleCalendar} from './weekly-schedule-memory.js';
 import {whoList, titleFields, hqFields, hqLines} from './weekly-schedule-rows.mjs';
 import {splitScheduleFields} from './schedule-line-split.mjs';
@@ -772,8 +773,8 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const handSlot = el('div', 'journal-hand-slot journal-part-slot'); handSlot.dataset.journalHandSlot = 'calendar';
   if (!status(cal, c, '달력 일정') && !c.failed.length) {
     if (c.rows.length) {
-      const table = el('table', 'journal-weekly-table journal-weekly-schedule');
-      table.innerHTML = '<thead><tr><th scope="col">일</th><th scope="col">시간/내용/장소</th><th scope="col">참석자</th></tr></thead>';
+      const table = el('table', 'journal-weekly-table journal-weekly-schedule'); table.dataset.wkCols = 'cal';
+      table.innerHTML = `<thead><tr><th scope="col">일${colGripHtml('cal', 1)}</th><th scope="col">시간/내용/장소</th><th scope="col">참석자</th></tr></thead>`;
       const body = el('tbody');
       for (const row of c.rows) row.items.forEach((item, index) => {
         const tr = el('tr'); tr.dataset.journalScheduleDay = row.day;
@@ -941,9 +942,9 @@ export function execRequestsPart(doc, model, execUi, place = 'weekly') {
 }
 function execTable(doc, el, items, ui) {
   const editing = ui.editing ?? null, busy = !!ui.saving;
-  const table = el('table', 'journal-weekly-table journal-exec-table'); table.dataset.journalExecTable = '';
+  const table = el('table', 'journal-weekly-table journal-exec-table'); table.dataset.journalExecTable = ''; table.dataset.wkCols = 'exec';
   const head = el('thead'), hr = el('tr');
-  for (const name of EXEC_HEAD) { const th = el('th', null, name); th.scope = 'col'; hr.append(th); }
+  EXEC_HEAD.forEach((name, i) => { const th = el('th', null, name); th.scope = 'col'; th.insertAdjacentHTML?.('beforeend', colGripHtml('exec', i + 1)); hr.append(th); });
   const tools = el('th', 'journal-exec-tools-head'); tools.scope = 'col'; tools.setAttribute('aria-label', '고치기'); hr.append(tools);
   head.append(hr); table.append(head);
   const body = el('tbody');
