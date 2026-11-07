@@ -17,14 +17,19 @@ const LONG='집회 준비 회의 저녁 모임과 자료 정리';
 const EVENTS=[
   {id:'timed',calendarId:'qa-cal',source:'google',title:LONG,start:'2026-10-20T10:30:00+09:00',end:'2026-10-20T11:30:00+09:00',allDay:false,color:'#4285f4'},
   {id:'allday',calendarId:'qa-cal',source:'google',title:'울산 출장',start:'2026-10-21',end:'2026-10-23',allDay:true,color:'#a4bdfc'},
-  ...Array.from({length:8},(_,i)=>({id:'busy-'+i,calendarId:'qa-cal',source:'google',title:'공동 회의 '+(i+1),start:`2026-10-22T0${i+1}:00:00+09:00`,end:`2026-10-22T0${i+1}:30:00+09:00`,allDay:false,color:'#5484ed'}))
+  ...Array.from({length:8},(_,i)=>({id:'busy-'+i,calendarId:'qa-cal',source:'google',title:'공동 회의 '+(i+1),start:`2026-10-22T0${i+1}:00:00+09:00`,end:`2026-10-22T0${i+1}:30:00+09:00`,allDay:false,color:'#5484ed'})),
+  // S52-19 CAL-확대높이따로: 같은 주 같은 줄에 짧은 일정 둘(26·27일)과 긴 할 일(28일), 여러 날 띠(29~30일)와 그 아래 짧은 할 일.
+  {id:'short-a',calendarId:'qa-cal',source:'google',title:'국회 선전전',start:'2026-10-26T12:00:00+09:00',end:'2026-10-26T13:00:00+09:00',allDay:false,color:'#4285f4'},
+  {id:'short-b',calendarId:'qa-cal',source:'google',title:'기자회견',start:'2026-10-27T10:00:00+09:00',end:'2026-10-27T11:00:00+09:00',allDay:false,color:'#4285f4'},
+  {id:'band',calendarId:'qa-cal',source:'google',title:'부산 출장',start:'2026-10-29',end:'2026-10-31',allDay:true,color:'#a4bdfc'}
 ];
+const LONG_TASK='위원회 회의 자료 묶음 정리해서 사무실 전체에 다시 보내고 답 모으기';
 const make=(id,title,date)=>({id,title,notes:'',due:date+'T00:00:00.000Z',status:'needsAction',completed:null,taskListId:'@default',taskListTitle:'QA',source:'google-task'});
 
 async function fixture(page,{width=412,hasTouch=true}={}){
   await installViewPrefsServer(page,{calendar_view:'month'});
   await page.clock.setFixedTime(new Date(NOW));
-  const tasks=[make('cell','국토부 자료 보내기','2026-10-20'),make('other','의원실 연락','2026-10-14')];
+  const tasks=[make('cell','국토부 자료 보내기','2026-10-20'),make('other','의원실 연락','2026-10-14'),make('long','위원회 회의 자료 묶음 정리해서 사무실 전체에 다시 보내고 답 모으기','2026-10-28'),make('under','연락','2026-10-29')];
   const calls=[],external=[];
   await page.route('**/*',async route=>{
     const req=route.request(),url=new URL(req.url()),p=url.pathname;
@@ -194,6 +199,45 @@ test.describe('폰 월 보기(폴드 접힘 412px)',()=>{
       await page.keyboard.press('Escape');
       await expect(page.locator('#eventModal')).toBeHidden();
     }
+  });
+
+  test('커진 동안 날마다 따로 쌓기: 긴 할 일이 있는 주에서도 짧은 일정은 자기 글만큼, 띠만 가로로 잇고 글자는 왼쪽',async({page})=>{
+    await fixture(page);
+    const ev=id=>page.locator(`#calendarGrid [data-google-event="${id}"]`);
+    const task=id=>page.locator(`#calendarGrid .cmv-cell-task[data-calendar-task="${id}"]`);
+    // 처음 크기: 줄 높이는 고정(같은 줄 일정은 같은 한 줄 높이), 글자는 왼쪽.
+    const h0=[await ev('short-a').boundingBox(),await task('long').boundingBox()].map(b=>b.height);
+    expect(Math.abs(h0[0]-h0[1])).toBeLessThan(2);
+    const g=await page.locator('#calendarGrid').boundingBox();
+    await pinch(page,{cx:g.x+g.width/2,cy:g.y+g.height/2,from:60,to:300});
+    await expect.poll(()=>zoomOf(page)).toBe(2.5);
+    await expect(task('long')).toHaveText(LONG_TASK);
+    const box=async loc=>{await loc.scrollIntoViewIfNeeded();return loc.evaluate(el=>{const r=el.getBoundingClientRect(),t=el.querySelector('.cmv-event-title'),tr=t.getBoundingClientRect(),lh=parseFloat(getComputedStyle(t).lineHeight);
+      return {top:r.top,left:r.left,width:r.width,height:r.height,lines:Math.round(tr.height/lh),lh,align:getComputedStyle(el).textAlign,titleAlign:getComputedStyle(t).textAlign,pad:tr.left-r.left}})};
+    const a=await box(ev('short-a')),b=await box(ev('short-b')),long=await box(task('long'));
+    // 긴 할 일은 여러 줄, 짧은 일정은 한 줄 높이 그대로(긴 할 일 높이로 늘어나지 않음).
+    expect(long.lines).toBeGreaterThan(2);
+    for(const s of [a,b]){
+      expect(s.lines).toBe(1);
+      expect(s.height).toBeLessThan(s.lh+6);
+      expect(s.height).toBeLessThan(long.height/2);
+      // 글자는 왼쪽 정렬(가운데 아님).
+      expect(s.align).toBe('left');expect(s.titleAlign).toBe('left');expect(s.pad).toBeLessThan(6);
+    }
+    expect(long.align).toBe('left');
+    // 여러 날 띠는 두 날 칸에 걸쳐 가로로 잇고, 그 날 짧은 할 일은 띠 바로 아래에 자기 높이로.
+    const band=await box(ev('band')),under=await box(task('under'));
+    const cellW=(await page.locator('.cal-cell[data-date="2026-10-29"]').boundingBox()).width;
+    expect(band.width).toBeGreaterThan(cellW*1.8);
+    expect(under.top).toBeGreaterThanOrEqual(band.top+band.height-1);
+    expect(under.top-(band.top+band.height)).toBeLessThan(4);
+    expect(under.lines).toBe(1);
+    // 이 주 짧은 일정 둘은 같은 높이에서 시작(날짜 줄 바로 아래).
+    expect(Math.abs(a.top-b.top)).toBeLessThan(1);
+    // 오므리면 처음 크기(고정 줄)로.
+    await pinch(page,{cx:g.x+g.width/2,cy:g.y+g.height/2,from:200,to:60});
+    await expect(page.locator('#calendarGrid')).not.toHaveClass(/cmv-zoomed/,{timeout:1500});
+    await expect(page.locator('#calendarGrid .cmv-day-stack')).toHaveCount(0);
   });
 
   test('크기는 기억하지 않는다(메모리만): 달을 바꾸면 처음 크기',async({page})=>{
