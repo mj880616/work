@@ -4,12 +4,12 @@ import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
 // MTG-3칸폭끌기(2026-10-26 요청): PC(≥1024) 사업 보고 3단(왼쪽 회의 종류 / 가운데 차수 / 오른쪽 결과)의 두 경계를 끌어 칸 폭을 바꾼다.
-// 할 일·프로젝트·담당조직과 같은 공용 app/split-resize.js(경계 여러 개). 기본 1.6 : 0.9 : 4(S52-34, 처음엔 1 : 0.5 : 4.5), 경계는 이웃 두 칸만 움직이고, 칸마다 최소 폭
+// 할 일·프로젝트·담당조직과 같은 공용 app/split-resize.js(경계 여러 개). 기본 1.3 : 0.8 : 5.9(S52-34, 처음엔 1 : 0.5 : 4.5), 경계는 이웃 두 칸만 움직이고, 칸마다 최소 폭
 // (종류 150·차수 96, 결과 360), 두 번 누르면 그 경계만 기본, 키보드 ←→·Home·End, 고른 폭은 서버(프로필 view_prefs.split_ratio.reports3 — UI-작은결정묶음 ④, 2단 reports와 따로)에 기억한다.
 // 칸 크기는 화면 안에서 한 번에 읽는다(그리는 도중 바뀌는 칸을 두 번에 나눠 잡지 않도록).
 test.use({timezoneId:'Asia/Seoul'});
-// S52-34 UI-전체정리(사업 보고): 기본 비율 1.6 : 0.9 : 4, 최소 폭 종류 150·차수 96(회의 이름·차수 날짜가 잘리지 않게).
-const KA=1.6/6.5,KB=0.9/6.5;
+// S52-34 UI-전체정리(사업 보고): 기본 비율 1.3 : 0.8 : 5.9, 최소 폭 종류 150·차수 96(회의 이름·차수 날짜가 잘리지 않게).
+const KA=1.3/8,KB=0.8/8;
 
 function columnState(){
   const s=baseState();s.meetingWrites=[];
@@ -53,11 +53,11 @@ async function dragTo(page,i,x){
 const handle=(page,i)=>page.locator('#meetingList .mcol-layout>.split-resize-handle').nth(i);
 
 for(const width of [1280,1440,1920]){
- test(`PC ${width}: 사업 보고 3단 — 기본 1.6·0.9·4, 두 경계 끌기·최소 폭·기억·두 번 눌러 기본·키보드`,async({page})=>{
+ test(`PC ${width}: 사업 보고 3단 — 기본 1.3·0.8·5.9, 두 경계 끌기·최소 폭·기억·두 번 눌러 기본·키보드`,async({page})=>{
   const errors=await open(page,width);
   await expect(handle(page,0)).toHaveAttribute('role','separator');await expect(handle(page,0)).toHaveAttribute('aria-orientation','vertical');
-  await expect(handle(page,0)).toHaveAttribute('aria-valuenow',String(Math.round(KA*100)));expect(Number(await handle(page,1).getAttribute('aria-valuenow'))).toBeGreaterThanOrEqual(37);expect(Number(await handle(page,1).getAttribute('aria-valuenow'))).toBeLessThanOrEqual(40);
-  // 기본(MTG-3칸정리 ④): 종류 1.6/6.5, 차수 0.9/6.5(최소 96px 아래로는 안 줄임), 결과 나머지. 경계선은 두 칸 사이 틈에 있다.
+  await expect(handle(page,0)).toHaveAttribute('aria-valuenow',String(Math.round(KA*100)));expect(Number(await handle(page,1).getAttribute('aria-valuenow'))).toBeGreaterThanOrEqual(25);expect(Number(await handle(page,1).getAttribute('aria-valuenow'))).toBeLessThanOrEqual(28);
+  // 기본(MTG-3칸정리 ④): 종류 1.3/8, 차수 0.8/8(최소 96px 아래로는 안 줄임), 결과 나머지. 경계선은 두 칸 사이 틈에 있다.
   let m=await widths(page);
   expect(Math.abs(m.kinds/m.total-KA)).toBeLessThan(0.01);expect(Math.abs(m.rounds/m.total-Math.max(KB,96/m.total))).toBeLessThan(0.01);expect(m.rounds).toBeLessThan(m.kinds*0.75);
   const geo=await page.evaluate(()=>{const r=s=>document.querySelector(s).getBoundingClientRect(),hs=[...document.querySelectorAll('#meetingList .mcol-layout>.split-resize-handle')].map(h=>h.getBoundingClientRect()),k=r('.mcol-kinds'),d=r('.mcol-rounds'),x=r('.mcol-result');return {h0:[hs[0].x,hs[0].right],h1:[hs[1].x,hs[1].right],k:k.right,d:[d.left,d.right],x:x.left}});
@@ -67,13 +67,14 @@ for(const width of [1280,1440,1920]){
 
   // 첫 경계(종류|차수)를 끌면 종류와 차수만 바뀌고 결과 폭은 그대로.
   const resultBefore=m.result;
-  // 종류는 (종류+차수 몫) - (차수 최소 폭) 까지만 넓어진다. 줄이는 쪽(0.18)으로 끈다.
+  // 종류는 (종류+차수 몫) - (차수 최소 폭) 까지만 넓어진다. 줄이는 쪽(최소 폭과 기본의 가운데, KT)으로 끈다.
+  const KT=(150/m.total+KA)/2;
   const pairBefore=m.kinds+m.rounds,ratioBefore=await handle(page,1).getAttribute('aria-valuenow');
-  await dragTo(page,0,await xFor(page,0,0.18));
+  await dragTo(page,0,await xFor(page,0,KT));
   m=await widths(page);
-  expect(Math.abs(m.kinds/m.total-0.18)).toBeLessThan(0.01);expect(Math.abs(m.result-resultBefore)).toBeLessThanOrEqual(1.5);
+  expect(Math.abs(m.kinds/m.total-KT)).toBeLessThan(0.01);expect(Math.abs(m.result-resultBefore)).toBeLessThanOrEqual(1.5);
   expect(Math.abs(m.kinds+m.rounds-pairBefore)).toBeLessThanOrEqual(1.5);
-  await expect(handle(page,0)).toHaveAttribute('aria-valuenow','18');await expect(handle(page,1)).toHaveAttribute('aria-valuenow',ratioBefore);
+  await expect(handle(page,0)).toHaveAttribute('aria-valuenow',String(Math.round(KT*100)));await expect(handle(page,1)).toHaveAttribute('aria-valuenow',ratioBefore);
   await expect.poll(()=>typeof stored()).toBe('number');
 
   // 둘째 경계(차수|결과)를 끌면 차수와 결과만 바뀌고 종류 폭은 그대로.
@@ -115,7 +116,7 @@ for(const width of [1280,1440,1920]){
   await expect.poll(()=>typeof stored()).toBe('number');
   await page.keyboard.press('ArrowLeft');await settle(page);
   expect(Math.abs((await widths(page)).rounds/m.total-(roundsDefault+0.02))).toBeLessThan(0.01);
-  await handle(page,0).focus();await page.keyboard.press('Home');await settle(page);expect((await widths(page)).kinds).toBeLessThan(130);
+  await handle(page,0).focus();await page.keyboard.press('Home');await settle(page);expect((await widths(page)).kinds).toBeLessThan(160);
   await handle(page,1).focus();await page.keyboard.press('End');await settle(page);
   m=await widths(page);expect(m.result).toBeGreaterThanOrEqual(359);expect(m.result).toBeLessThan(370);
   expect(errors).toEqual([]);
@@ -124,11 +125,11 @@ for(const width of [1280,1440,1920]){
 
 test('서버 값을 읽거나 저장하지 못해도 기본으로 그리고 끌기는 된다(기억만 없음)',async({page})=>{
  const errors=await open(page,1280,{failRead:true,failWrite:true});
- let m=await widths(page);expect(Math.abs(m.kinds/m.total-KA)).toBeLessThan(0.01);
- await dragTo(page,0,await xFor(page,0,0.18));
- m=await widths(page);expect(Math.abs(m.kinds/m.total-0.18)).toBeLessThan(0.01);
+ let m=await widths(page);expect(Math.abs(m.kinds/m.total-KA)).toBeLessThan(0.01);const KT=(150/m.total+KA)/2;
+ await dragTo(page,0,await xFor(page,0,KT));
+ m=await widths(page);expect(Math.abs(m.kinds/m.total-KT)).toBeLessThan(0.01);
  await page.locator('#meetingList [data-meeting-kind]').nth(1).click();await settle(page);
- m=await widths(page);expect(Math.abs(m.kinds/m.total-0.18)).toBeLessThan(0.01);
+ m=await widths(page);expect(Math.abs(m.kinds/m.total-KT)).toBeLessThan(0.01);
  expect(errors).toEqual([]);
 });
 
