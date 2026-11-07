@@ -17,6 +17,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
+import {followPane} from './follow-pane.js';
 import {bindFolderPinch} from './folder-pinch.js';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {bindTouchDrag} from './touch-drag.js';
@@ -511,8 +512,35 @@ function paint() {
   paintTop(); paintBar(); paintTree();
   for (const p of panesOn()) paintPane(p);
   paintPreview(); paintAsk(); paintDropAsk(); paintXfer(); paintJobs();
+  paintScroll();
 }
 function paintPane(p) { paintPaneTop(p); paintList(p); }
+// ---------- FILES-칸따로스크롤(S52-41 ②, 요청함 11/08) ----------
+// 폴드 펼침·PC(600px~)에서 왼쪽 나무와 오른쪽 목록이 각자 따로 스크롤한다: 맨 위 줄(위치 길·찾기·정렬·출처·두 칸 보기)과 고르기 막대는 화면 위에 고정(sticky),
+// 나무는 공용 부품 follow-pane.js로 그 아래에 붙어 화면보다 길면 나무만 스크롤(UI-상세칸고정과 같은 칸 모양). 한 칸 목록은 화면 스크롤 그대로라
+// 나무를 끝까지 내려도 목록·위치 길은 제자리. 두 칸이면 칸마다 따로(칸 머리 줄은 칸 안 위에 고정). 폰(600px 미만, 폰 두 칸 위·아래 포함)은 지금대로.
+// 명진 요청(11/08)이 C8 'UI-칸안스크롤하나로'(화면 스크롤 하나)보다 우선이다 — [파일]의 나무·목록 칸에서만.
+const SPLIT_SCROLL = window.matchMedia('(min-width:600px)'), FOLLOW_WIDE = window.matchMedia('(min-width:761px)');
+const dockBelow = () => parseFloat(getComputedStyle(root).getPropertyValue('--kptu-mobile-tab-height')) || 0;
+let headWatch = null;
+function paintScroll() {
+  if (!root) return;
+  const on = SPLIT_SCROLL.matches && !PHONE.matches;
+  root.classList.toggle('fx-split-scroll', on);
+  const tree = $('[data-fx-tree]'), cols = [...root.querySelectorAll('[data-fx-pane-i]')];
+  if (!on) { for (const el of [tree, ...cols]) el?.classList.remove('kptu-follow-pane', 'kptu-follow-narrow'); return; }
+  const top = $('.fx-top'), bar = $('[data-fx-bar]');
+  const topH = top?.offsetHeight || 0, head = topH + (bar && !bar.hidden ? bar.offsetHeight : 0);
+  root.style.setProperty('--fx-top-h', `${topH}px`);
+  root.style.setProperty('--fx-head-h', `${head}px`);
+  const at = {top: head + 4, reset: false, narrow: !FOLLOW_WIDE.matches, bottom: dockBelow};
+  if (tree) followPane(tree, at);
+  for (const el of cols) { if (two()) followPane(el, at); else el.classList.remove('kptu-follow-pane', 'kptu-follow-narrow'); }
+  if (!headWatch && typeof ResizeObserver === 'function') {
+    headWatch = new ResizeObserver(() => paintScroll());
+    for (const el of [top, bar]) if (el) headWatch.observe(el);
+  }
+}
 // 위치 줄(빵부스러기): 한 칸 화면은 위 줄, 두 칸이면 칸마다 칸 위 줄에 같은 글자.
 function crumbHtml(p, {noRoot = false} = {}) {
   const w = p.where;
