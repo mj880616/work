@@ -79,7 +79,27 @@ export function previewKind(row) {
   if (src === 'od' && OD_PDF_EXT.test(String(row.name || ''))) return 'office';
   if (src === 'gd' && GD_EXPORT_MIME.test(String(row.mime || ''))) return 'office';
   if (kind === 'text') return 'text';
+  // S52-43 ③ FILES-관리자마무리: 동영상·소리는 미리보기 칸에서 재생(받은 바이트를 화면 메모리 blob:으로, MEDIA_PREVIEW_MAX까지).
+  if (kind === 'video' || kind === 'audio') return kind;
   return 'none';
+}
+export const MEDIA_PREVIEW_MAX = 200 * 1024 * 1024;
+// 재생할 때 붙일 종류(서버가 octet-stream으로 줘도 브라우저가 알아보게). 모르면 ''.
+const MEDIA_MIME = {mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mkv: 'video/x-matroska', avi: 'video/x-msvideo',
+  mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac', amr: 'audio/amr'};
+export const mediaMime = row => (/^(video|audio)\//.test(String(row?.mime || '')) ? String(row.mime) : MEDIA_MIME[ext(row?.name)] || '');
+// 미리보기 ←→(S52-43 ③): 지금 목록 차례(keys)에서 파일만 건너뛰며 앞·다음. 없으면 ''.
+export function stepFile(keys, cur, dir, isFile) {
+  const list = (keys || []).filter(k => isFile(k));
+  const i = list.indexOf(cur);
+  if (i < 0) return '';
+  return list[i + dir] || '';
+}
+// 경로 복사 글자(S52-43 ③): 내 PC는 실제 경로, 그 밖은 '원드라이브 › 문서 › 이름'.
+export function pathCopyText(row, where) {
+  if (!row) return '';
+  if (row.source === 'pc') return String(row.item_id || '');
+  return [where, row.name].filter(Boolean).join(' › ');
 }
 
 export function sizeText(bytes) {

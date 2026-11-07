@@ -42,6 +42,9 @@ test('S51-22 나무 ⋯ 메뉴: 이 폰은 클라우드에 복사(+쓸 수 있�
   assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {...edit, pinned: false}), ['only', 'mkdir', 'move', 'rename', 'pin', 'trash']);
   assert.equal(treeMenuItems({source: 'pc'}, edit).filter(x => x.last).map(x => x.id).join(), 'trash');
   assert.deepEqual(ids(null), []);
+  // S52-43 ③: [경로 복사]는 화면이 클립보드를 쓸 수 있을 때 첫 묶음 끝(둘째 묶음·휴지통 앞).
+  assert.deepEqual(ids({source: 'od', is_folder: false}, {copyPath: true}), ['open', 'tolib', 'copy', 'move', 'rename', 'path', 'star', 'trash']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {pcWrite: true, pcEdit: true, pinned: false, copyPath: true}), ['only', 'mkdir', 'move', 'rename', 'path', 'pin', 'trash']);
 });
 
 test('S51-31 공용 줄 메뉴 HTML: 제목(줄 수 있을 때)·선 아이콘·묶음 선·맨 아래 줄·글자 막기', () => {

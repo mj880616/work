@@ -478,7 +478,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     const folder = list(page).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시'));
     await folder.click({ button: 'right' });
     await expect(menu(page)).toBeVisible();
-    await expect(menu(page).locator('[data-row-item]')).toHaveText(['열기', '새 폴더', '옮기기', '이름 바꾸기', '위에 고정', '휴지통']);
+    await expect(menu(page).locator('[data-row-item]')).toHaveText(['열기', '새 폴더', '옮기기', '이름 바꾸기', '경로 복사', '위에 고정', '휴지통']);
     await menu(page).getByRole('button', { name: '휴지통' }).click();
     await ask(page).getByRole('button', { name: '휴지통으로' }).click();
     await expect(folder).toHaveCount(0);

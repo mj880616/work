@@ -19,7 +19,8 @@ export const ROW_MENU_ICON = Object.freeze({
   star: STAR, unstar: STAR, color: 'M8 3a5 5 0 1 0 0 10 5 5 0 1 0 0-10zM8 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3z',
   up: 'M8 13V3M4 7l4-4 4 4', down: 'M8 3v10M4 9l4 4 4-4', trash: BIN, delete: BIN,
   orgs: 'M7 9l2-2M5.5 7.5l-1.3 1.3a2 2 0 0 0 2.9 2.9l1.3-1.3M10.5 8.5l1.3-1.3a2 2 0 0 0-2.9-2.9L7.6 5.6', report: 'M4 2.5h8v11H4zM6 6h4M6 8.5h4M6 11h2',
-  tolib: SHELF, libview: SHELF, event: CAL, day: CAL, task: 'M3 3h10v10H3zM5.5 8l2 2 3-4'
+  tolib: SHELF, libview: SHELF, event: CAL, day: CAL, task: 'M3 3h10v10H3zM5.5 8l2 2 3-4',
+  path: 'M7 9l2-2M5.5 7.5l-1.3 1.3a2 2 0 0 0 2.9 2.9l1.3-1.3M10.5 8.5l1.3-1.3a2 2 0 0 0-2.9-2.9L7.6 5.6' // 경로 복사(S52-43 ③, 사슬)
 });
 const icoHtml = d => `<svg class="row-menu-ico" viewBox="0 0 16 16" aria-hidden="true" focusable="false">${d ? `<path d="${esc(d)}"/>` : ''}</svg>`;
 // 어느 줄의 메뉴인지: 우클릭(at)은 누른 칸·줄 자체, ⋯는 그 ⋯가 든 줄(.ft-row 등, 화면이 data-row-menu-row로 정할 수도 있음).
