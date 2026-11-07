@@ -172,7 +172,7 @@ const hosts = new Set();
 // ① 첨부 줄 칸. has(job): 이 칸이 보일 올리기. preview(job): 그림 주소(있으면 흐린 미리보기 칸). 돌려줌 {destroy()}.
 // compact: 파일마다 막대는 화면의 미리보기 칸이 그리는 곳(일기 고른 사진, paintUploadOverlay) — 합계 줄은 하나여도 보이고,
 // 줄은 버튼이 필요한 것(실패 [다시]·느려요)만.
-export function mountUploadRows(host, {has = () => true, preview = null, summary = true, compact = false} = {}) {
+export function mountUploadRows(host, {has = () => true, preview = null, summary = true, compact = false, failed = true} = {}) {
   if (typeof document === 'undefined' || typeof host?.setAttribute !== 'function') return {paint() {}, destroy() {}};
   host.classList.add('up-rows');
   host.setAttribute('aria-live', 'polite');
@@ -182,7 +182,7 @@ export function mountUploadRows(host, {has = () => true, preview = null, summary
   hosts.add(entry);
   function paint() {
     const all = uploadJobs().filter(job => { try { return has(job); } catch { return false; } });
-    const mine = compact ? all.filter(job => job.phase === 'failed' || job.slow) : all;
+    const mine = compact ? all.filter(job => (failed && job.phase === 'failed') || job.slow) : all;
     const text = summary && (compact ? all.length : all.length > 1) ? summaryText(all) : '';
     sum.textContent = text; sum.hidden = !text;
     const seen = new Set();
@@ -225,6 +225,23 @@ export function paintUploadOverlay(tile, file) {
   paintBar(over.querySelector('.up-bar'), job);
   over.querySelector('.up-pc').textContent = stateText(job);
   over.querySelector('.up-x').hidden = job.phase !== 'sending';
+}
+
+// ①' 화면이 이미 그린 파일 줄(첨부 고르기 줄) 안에 막대 + % + ✕. file이 없거나 그 파일이 보내는 중·마무리 중이 아니면 지운다.
+export function paintUploadLine(row, file) {
+  const job = file ? uploadJobs().find(item => item.file === file && (item.phase === 'sending' || item.phase === 'finishing')) : null;
+  let line = row.querySelector(':scope > .up-inline');
+  row.classList.toggle('up-uploading', !!job);
+  if (!job) { line?.remove(); return; }
+  if (!line) {
+    line = el('span', 'up-inline'); line.append(bar(job), el('span', 'up-pc'));
+    const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.setAttribute('aria-label', `${job.name} 올리기 취소`);
+    x.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); uploadJobs().find(item => item.file === file && item.phase === 'sending')?.cancel(); });
+    line.append(x); row.append(line);
+  }
+  paintBar(line.querySelector('.up-bar'), job);
+  line.querySelector('.up-pc').textContent = stateText(job);
+  line.querySelector('.up-x').hidden = job.phase !== 'sending';
 }
 
 // ③ 하단바 위 한 줄.

@@ -3,7 +3,7 @@ import {bindPaste} from './paste-files.mjs';
 import {uploadTimeoutMs} from './upload-budget.mjs';
 // UI-올리기진행표시: 보낸 양을 아는 공용 보내기(upload-send.mjs)와 올리는 중 표시 공용 부품(upload-progress.js).
 import {sendUpload} from './upload-send.mjs';
-import {trackUpload, setUploadRetry, mountUploadRows, isUploading, watchUploads} from './upload-progress.js';
+import {trackUpload, setUploadRetry, mountUploadRows, paintUploadLine, watchUploads} from './upload-progress.js';
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
 const UNKNOWN = '저장 결과를 확인하지 못했습니다. 정리함에서 확인 후 다시 시도하세요';
@@ -149,15 +149,16 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, pasteTarget 
   const input = host.querySelector('input'), clip = host.querySelector('button'), badge = host.querySelector('[data-basket-count]'), hint = filesHost.querySelector('[data-basket-hint]'), rows = filesHost.querySelector('[data-basket-files]');
   let renderedBatch;
   let dragDepth = 0;
-  // UI-올리기진행표시: 올리는 동안(그리고 '✓ 완료' 1초) 그 파일 줄은 공용 올리는 줄이 그리고, 끝나면 아래 보통 첨부 줄이 맡는다.
+  // UI-올리기진행표시: 고른 줄은 그대로 두고, 올리는 동안 그 줄 안에 공용 막대 + % + ✕를 그린다(paintUploadLine).
+  // 위 합계 줄과 '느려요 · [계속 기다리기]'는 공용 올리는 줄(compact). 끝나면 줄의 글자가 '완료'·'실패'로 바뀐다.
   const sentFile = entry => entry.upFile || entry.file;
-  const progress = mountUploadRows(filesHost.querySelector('[data-basket-progress]'), {has: job => getBatch().entries.some(entry => sentFile(entry) === job.file)});
-  let uploadingNow = '';
-  watchUploads(() => {
-    if (!host.isConnected) return;
-    const now = getBatch().entries.map(entry => isUploading(sentFile(entry)) ? 1 : 0).join('');
-    if (now !== uploadingNow) render();
-  });
+  const progress = mountUploadRows(filesHost.querySelector('[data-basket-progress]'), {compact:true, failed:false, has: job => getBatch().entries.some(entry => sentFile(entry) === job.file)});
+  function paintLines() {
+    if (typeof rows.querySelectorAll !== 'function') return;
+    const batch = getBatch();
+    rows.querySelectorAll('[data-basket-file]').forEach(row => { const entry = batch.entries[Number(row.dataset.basketFile)]; if (entry) paintUploadLine(row, entry.kind === 'uploading' ? sentFile(entry) : null); });
+  }
+  watchUploads(() => { if (host.isConnected) paintLines(); });
   function clearDrag() { dragDepth = 0; dropTarget.classList.remove('basket-dragover'); }
   function render() {
     const batch = getBatch();
@@ -167,9 +168,9 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, pasteTarget 
     if (input.disabled) clearDrag();
     badge.textContent = String(batch.entries.length); badge.hidden = !batch.entries.length;
     hint.hidden = !batch.entries.length; filesHost.hidden = !batch.entries.length;
-    uploadingNow = batch.entries.map(entry => isUploading(sentFile(entry)) ? 1 : 0).join('');
-    for (const entry of batch.entries) if (entry.upFile && entry.kind === 'success' && !isUploading(entry.upFile)) entry.upFile = null;
-    rows.innerHTML = batch.entries.map((entry, index) => isUploading(sentFile(entry)) ? '' : `<div class="library-selected-file ${entry.kind}" data-basket-file="${index}"><div class="library-selected-file-main"><b>${esc(entry.file.name)}</b><small>${esc(fileSize(entry.file.size))}</small></div><span class="library-upload-state">${esc(entry.label || '대기')}</span>${entry.kind === 'success' ? '' : `<button type="button" class="icon-btn" data-basket-remove="${index}" aria-label="${esc(entry.file.name)} 선택 취소"${isBusy() || batch.blocked ? ' disabled' : ''}>×</button>`}</div>`).join('');
+    for (const entry of batch.entries) if (entry.upFile && entry.kind !== 'uploading') entry.upFile = null;
+    rows.innerHTML = batch.entries.map((entry, index) => `<div class="library-selected-file ${entry.kind}" data-basket-file="${index}"><div class="library-selected-file-main"><b>${esc(entry.file.name)}</b><small>${esc(fileSize(entry.file.size))}</small></div><span class="library-upload-state">${esc(entry.label || '대기')}</span>${entry.kind === 'success' ? '' : `<button type="button" class="icon-btn" data-basket-remove="${index}" aria-label="${esc(entry.file.name)} 선택 취소"${isBusy() || batch.blocked ? ' disabled' : ''}>×</button>`}</div>`).join('');
+    paintLines();
   }
   // UPD-사진여러장: on the phone app a chosen photo is only a pointer the system picker lent for a moment, and the upload used to
   // read file 2, 3… minutes later, one request after another. Read each one into memory right away (within EAGER_BYTES in all);

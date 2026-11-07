@@ -1755,6 +1755,9 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 .up-uploading{ position:relative; }
 .up-uploading > button.icon-btn{ visibility:hidden; } /* 올리는 동안 칸의 [선택 취소]는 막대 줄의 ✕가 맡는다 */
 .ed-uploads{ padding:4px 6px; }
+/* ①' 이미 있는 파일 줄 안: 짧은 막대 + % + ✕(첨부 고르기 줄). */
+.up-inline{ flex:none; display:inline-flex; align-items:center; gap:6px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+.up-inline > .up-bar{ width:64px; }
 .ed-uploads[hidden]{ display:none; }
 /* ③ 하단바 위 한 줄: 올리는 줄이 보이는 화면이 없을 때만(다른 화면·창 닫음). 폰은 하단 탭 위, PC는 화면 아래 가운데. */
 #uploadDock{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + var(--up-dock-lift,0px) + env(safe-area-inset-bottom,0px) + 8px); z-index:95; box-sizing:border-box; width:min(92vw,360px); padding:6px 12px; border-radius:var(--ds-radius-box,10px); background:var(--kptu-ink); color:var(--kptu-surface); font-size:var(--ds-text-meta,12px); box-shadow:var(--kptu-shadow-float); }
