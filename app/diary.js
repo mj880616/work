@@ -11,6 +11,8 @@ import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPho
 import {SIZE_BUTTONS, WIDE_QUERY, paintGrid, paintButtons, changeCols, attachPinch} from './photo-grid-size.js';
 import {putBack} from './photo-viewer-model.mjs';
 import {splitPictures} from './picture-file.mjs';
+// UI-올리기진행표시: 고른 사진 칸 위 막대 + %, 위쪽 합계 줄, 실패 [다시](공용 부품 하나).
+import {mountUploadRows, paintUploadOverlay, watchUploads, setUploadRetry} from './upload-progress.js';
 // OD-크게보기: 크게 보기는 공용 부품(사진 메뉴와 같은 것).
 import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh} from './photo-strip.js';
 import {deleteNoteOriginal, offerUndoNotice} from './basket-record-delete.js';
@@ -620,6 +622,7 @@ function renderEditor(message = '') {
 <div class="diary-edit-top"><input type="date" data-diary-date value="${esc(day)}" min="2000-01-01" max="2100-12-31" aria-label="일기 날짜"${row ? ' disabled' : ''}><input id="diaryPhotoInput" class="a11y-only" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true" data-diary-input><button type="button" class="secondary diary-photo-pick" data-diary-pick aria-controls="diaryPhotoInput" aria-label="사진 고르기, ${count}장 / 최대 ${DIARY_MAX_PHOTOS}장"${count >= DIARY_MAX_PHOTOS ? ' disabled' : ''}>${iconHtml('camera')} 사진 <span data-diary-count>${count}/${DIARY_MAX_PHOTOS}</span></button></div>
 <div class="diary-done" data-diary-done></div>
 <div class="diary-thumbs" data-diary-thumbs></div>
+<div data-diary-uploads hidden></div>
 <div class="diary-doc"><div data-diary-doc-slot></div></div>
 <p class="diary-editor-status" data-diary-editor-status role="status" aria-live="polite"></p>
 <div class="diary-actions save-row save-row-sticky"><button type="button" class="secondary" data-diary-editor-close>취소</button><button type="button" class="primary" data-diary-save data-enter-save-submit>저장</button></div>`;
@@ -650,11 +653,21 @@ function renderEditor(message = '') {
     cell.append(item, commentInput(entry.comment, entry.file.name, 'data-diary-pending-comment', String(i))); thumbs.append(cell);
   });
   thumbs.hidden = !count;
+  uploadRows?.destroy();
+  uploadRows = mountUploadRows(editor.querySelector('[data-diary-uploads]'), {compact:true, has:job => !!edit?.pending.some(entry => entry.file === job.file)});
+  paintPendingUploads();
   setEditorStatus(message);
   editor.querySelectorAll('button,input,textarea').forEach(control => { if (edit.busy && !control.matches('[data-diary-editor-close]') && !edit.host.contains(control)) control.disabled = true; });
   edit.host.toggleAttribute('inert', !!edit.busy);
 }
 const setEditorStatus = message => { const line = editor.querySelector('[data-diary-editor-status]'); if (!line) return; if (message === EDITOR_LOADING) line.innerHTML = waitInlineHtml(); else line.textContent = message; line.dataset.diaryEditorWait = message === EDITOR_LOADING ? '1' : ''; };
+// 고른 사진 칸마다 그 사진의 올리기 막대 + %(보내는 동안만).
+let uploadRows = null;
+function paintPendingUploads() {
+  if (!edit || editor.hidden) return;
+  editor.querySelectorAll('[data-diary-pending]').forEach(tile => { const entry = edit.pending[Number(tile.dataset.diaryPending)]; if (entry) paintUploadOverlay(tile, entry.file); });
+}
+watchUploads(paintPendingUploads);
 function releasePending() { edit?.pending.forEach(entry => URL.revokeObjectURL(entry.url)); }
 // 뒤로가기(fromBack)는 라우터가 그 자리에서 닫을지 정하므로 브라우저 기본 확인창으로 묻는다. [닫기] 버튼은 askCloseEditor가 작은 확인창으로 묻는다.
 const CLOSE_TEXT = '쓰던 일기를 저장하지 않고 닫을까요?';
@@ -737,11 +750,14 @@ async function save() {
     const comments = {...cleanLive()};
     if (edit.pending.length) {
       const files = edit.pending.map(entry => entry.file), have = (edit.row.attachments || []).length;
-      result = await uploadDiaryPhotos(edit.row, files, {rt, isCurrent:mine, onProgress:({done, total}) => setEditorStatus(`사진 올리는 중… ${done}/${total}장`)});
+      // 사진마다 보낸 양은 칸 위 막대와 위 합계 줄(UI-올리기진행표시)이 보이므로 상태 줄은 '저장하는 중…' 그대로 둔다.
+      result = await uploadDiaryPhotos(edit.row, files, {rt, isCurrent:mine});
       if (!mine()) return;
       // The photos that went up are the last ones on the row, in the order they were picked: their comments follow them.
-      (result.attachments || []).slice(have, have + result.done).forEach((file, i) => { const line = String(edit.pending[i]?.comment ?? '').replace(/\s+/g, ' ').trim(); if (line) comments[file.drive_file_id] = line; });
-      edit.pending.splice(0, result.done).forEach(entry => URL.revokeObjectURL(entry.url));
+      // A photo cancelled with ✕ (UI-올리기진행표시) did not go up: it stays picked, and the next ones went up after it.
+      const up = result.uploaded || [], went = new Set(up);
+      (result.attachments || []).slice(have, have + up.length).forEach((file, i) => { const line = String(edit.pending[up[i]]?.comment ?? '').replace(/\s+/g, ' ').trim(); if (line) comments[file.drive_file_id] = line; });
+      edit.pending = edit.pending.filter((entry, i) => { if (!went.has(i)) return true; URL.revokeObjectURL(entry.url); return false; });
     }
     let fresh = await readDiaryDay(day, rt);
     if (!mine()) return;
@@ -765,6 +781,12 @@ async function save() {
     if (result.failed) {
       const done = result.done ? `${result.done}장은 올렸어요. ` : '';
       renderEditor(`${done}'${result.failed}'부터 올리지 못했어요. ${result.message} 남은 사진은 [저장]을 다시 누르면 이어서 올려요.`);
+      // 실패 줄의 [다시] = [저장]을 다시 누름(남은 사진을 이어서 올림).
+      for (const entry of edit.pending) setUploadRetry(entry.file, () => save());
+      return renderMonth();
+    }
+    if (edit.pending.length) {
+      renderEditor(`취소한 사진 ${edit.pending.length}장은 올리지 않았어요. 빼거나 [저장]을 다시 눌러 올려 주세요.`);
       return renderMonth();
     }
     closeEditor({force:true});

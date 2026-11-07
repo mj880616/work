@@ -52,6 +52,8 @@ import {slotLoading, slotShown, slotFailed} from './img-slot.js';
 import {viewPrefs} from './view-prefs.js';
 import {clipboardFiles, namePasted} from './paste-files.mjs';
 import {splitPictures} from './picture-file.mjs';
+// UI-올리기진행표시: [넣기] 사진·파일이 올라가는 동안 도구줄 아래 공용 올리는 줄(사진은 흐린 미리보기 위 막대 + %).
+import {mountUploadRows, watchUploads, isUploading, setUploadRetry} from './upload-progress.js';
 
 const LIB = './editor-lib/pm-ed1-1.2.0/prosemirror.min.mjs';
 const MARKDOWN_IT = './markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
@@ -385,6 +387,24 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   suggest.append(suggestText, convert, dismiss);
   const note = document.createElement('div');
   note.className = 'ed-note'; note.hidden = true; note.setAttribute('role', 'status');
+  // UI-올리기진행표시: 글 안에 넣는 사진·파일의 올리는 줄(그 파일이 올라가는 동안만 보임, 글 칸 바로 위). 사진은 흐린 미리보기 위 막대 + %.
+  const uploads = document.createElement('div');
+  uploads.className = 'ed-uploads'; uploads.hidden = true;
+  const upFiles = new Set(), upGoing = new Set(), upPreview = new Map();
+  const upRows = mountUploadRows(uploads, {has: job => upFiles.has(job.file), preview: job => upPreview.get(job.file) || null});
+  const forgetUploads = () => {
+    for (const file of [...upFiles]) {
+      if (upGoing.has(file) || isUploading(file)) continue;
+      upFiles.delete(file);
+      const url = upPreview.get(file); if (url) { URL.revokeObjectURL(url); upPreview.delete(file); }
+    }
+  };
+  const stopUploads = watchUploads(forgetUploads);
+  const uploadStarts = (file, picture) => {
+    upFiles.add(file); upGoing.add(file);
+    if (picture && !upPreview.has(file)) { try { upPreview.set(file, URL.createObjectURL(file)); } catch { /* 미리보기 없이 줄만 */ } }
+  };
+  const uploadEnds = file => { upGoing.delete(file); forgetUploads(); };
   const status = document.createElement('p');
   status.className = 'ed-status a11y-only'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   const PANEL_ORDER = ['more', ...GROUP_KEYS, 'style', 'color', 'highlight', 'align', 'bullet', 'ordered', 'symDot', 'symNote', 'symArrow', 'symCircled', 'symBracket', 'grid', 'link'];
@@ -405,7 +425,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   ctx.append(colRow);
   const measure = document.createElement('div');
   measure.className = 'ed-doc ed-measure'; measure.setAttribute('aria-hidden', 'true');
-  root.append(bar, ...(head ? [head] : []), box, status, ctx, measure);
+  root.append(bar, ...(head ? [head] : []), uploads, box, status, ctx, measure);
   host.append(root);
 
   // ── plugins ──
@@ -1232,7 +1252,14 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     try {
       for (const file of pictures) {
         say(`사진 올리는 중… (${made.length + 1}/${pictures.length})`);
-        const {src} = await photos.add(file);
+        uploadStarts(file, true);
+        let src;
+        try { ({src} = await photos.add(file)); }
+        catch (e) {
+          if (e?.code === 'upload_cancelled') continue; // ✕: 이 사진만 넣지 않고 다음 사진으로
+          if (!e?.code || !['note_save_result_unknown', 'note_changed'].includes(e.code)) setUploadRetry(file, () => filesFrom([file]));
+          throw e;
+        } finally { uploadEnds(file); }
         if (view.isDestroyed) return;
         made.push(N.image.create({src, alt: ''}));
         if (layout === 'single') insertBlock(made.at(-1));
@@ -1254,7 +1281,14 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     try {
       for (const file of list) {
         say(`파일 올리는 중… (${done + 1}/${list.length})`);
-        const made = await files.add(file);
+        uploadStarts(file, false);
+        let made;
+        try { made = await files.add(file); }
+        catch (e) {
+          if (e?.code === 'upload_cancelled') continue;
+          if (!e?.code || !['note_save_result_unknown', 'note_changed'].includes(e.code)) setUploadRetry(file, () => filesIn([file]));
+          throw e;
+        } finally { uploadEnds(file); }
         if (view.isDestroyed) return;
         insertBlock(N.file.create({src: made.src, name: String(made.name || file.name || '').slice(0, LIMITS.alt), size: made.size > 0 ? made.size : (file.size || null)}));
         done++;
@@ -1799,6 +1833,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       window.visualViewport?.removeEventListener('resize', followPop);
       window.visualViewport?.removeEventListener('scroll', followPop);
       window.removeEventListener('mouseup', release, true);
+      stopUploads(); upRows.destroy(); for (const url of upPreview.values()) URL.revokeObjectURL(url); upPreview.clear();
       view.destroy(); root.remove();
     },
   };
