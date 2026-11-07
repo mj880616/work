@@ -1676,7 +1676,8 @@ body.kptu-mobile-keyboard :is(
   #appView #photosView .photos-rail,
   .feed-view .feed-undo,
   #appView #filesView .fx-xfer,
-  #appView #filesView .fx-jobs
+  #appView #filesView .fx-jobs,
+  #uploadDock
 ):not(:has([data-keyboard-field])){ display:none !important; }
 /* 팝업·시트 아래 버튼 줄은 숨기지 않고 글 끝에 붙여(제자리 흐름) 칸을 덮지 않게 한다. 팝업 창은 자판 위에서 끝난다(자판이 화면만 덮는 브라우저). */
 body.kptu-mobile-keyboard :is(.modal-foot,#reportAreaTagSheet .area-tag-foot,#gtDetailPane #gtTaskModal.gt-docked .modal-action-footer){ position:static; }
@@ -1716,6 +1717,60 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
 .ui-ico-star { color:var(--kptu-warning); }
 .gs-row-folder .ui-ico { margin-right:2px; color:var(--ds-folder-0-ico,var(--kptu-muted)); }
 .nx-clip svg, .feed-pinmark svg, .tp-here svg, .diary-lv-find svg { display:inline-block; vertical-align:-0.15em; }
+
+/* UI-올리기진행표시(S52-15, 시안 docs/design/mockups/upload-progress.html): 올리는 중 표시 공용 부품(app/upload-progress.js) 한 곳.
+   ① 첨부 줄(.up-rows): 합계 줄 + 파일마다 얇은 막대·%·✕ / 실패 [다시]. ② 흐린 미리보기 위 막대(.up-tile·.up-tile-over). ③ 하단바 위 한 줄(#uploadDock).
+   색은 주 색 하나(막대) + 옅은 바탕(막대 길) + 회색 글자. 버튼은 공용 .row-act(글자)·.icon-btn(✕)만 쓴다. */
+.up-rows{ display:flex; flex-direction:column; gap:2px; min-width:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+.up-rows[hidden]{ display:none; }
+.up-sum{ padding:2px 0; font-variant-numeric:tabular-nums; }
+.up-sum[hidden]{ display:none; }
+.up-list{ display:flex; flex-direction:column; min-width:0; }
+.up-list:has(.up-tile){ flex-direction:row; flex-wrap:wrap; gap:6px; }
+.up-row{ display:flex; align-items:center; gap:8px; min-width:0; min-height:var(--ds-compact-height-sm,28px); border-top:var(--ds-line-width,1px) solid var(--kptu-border); }
+.up-list > .up-row:first-child{ border-top:0; }
+.up-main{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.up-name{ color:var(--kptu-ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:var(--ds-text-row,13px); }
+.up-bar{ display:block; height:4px; border-radius:2px; overflow:hidden; background:var(--kptu-primary-soft); }
+.up-bar > i{ display:block; height:100%; width:0; border-radius:2px; background:var(--kptu-primary); transition:width .2s linear; }
+.up-bar.is-finishing > i{ opacity:.6; }
+.up-pc{ flex:none; min-width:40px; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.up-row[data-phase="done"] .up-pc{ color:var(--kptu-success); }
+.up-row[data-phase="failed"] .up-pc{ color:var(--kptu-danger); }
+.up-row[data-phase="failed"] .up-bar{ display:none; }
+.up-acts{ flex:none; display:inline-flex; align-items:center; gap:4px; }
+.up-acts:empty{ display:none; }
+.up-slow{ color:var(--kptu-warning); white-space:nowrap; }
+.up-row.is-slow{ flex-wrap:wrap; }
+button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px); min-width:0; height:var(--ds-compact-height-sm,28px); min-height:0; padding:0; font-size:var(--ds-text-meta,12px); }
+/* ② 흐린 미리보기 위 막대 + %: 글 안 사진·일기 고른 사진. */
+.up-tile{ position:relative; flex-direction:column; align-items:stretch; gap:0; width:120px; min-height:0; border:0; border-radius:var(--ds-radius-control,6px); overflow:hidden; background:var(--kptu-surface-subtle); }
+.up-tile-img{ display:block; width:100%; height:80px; object-fit:cover; filter:blur(2px) saturate(.6); opacity:.7; }
+.up-tile[data-phase="done"] .up-tile-img{ filter:none; opacity:1; }
+.up-tile-over,.up-uploading > .up-tile-over{ position:absolute; left:6px; right:6px; bottom:6px; display:flex; flex-direction:column; gap:2px; color:var(--kptu-ink); font-size:11px; }
+.up-tile-over .up-pc{ text-align:left; min-width:0; }
+.up-tile-over .up-bar{ background:var(--kptu-surface); }
+.up-tile-over > .up-x{ position:absolute; right:-4px; bottom:10px; }
+.up-tile > .up-acts{ position:absolute; top:2px; right:2px; }
+.up-uploading > img{ filter:blur(2px) saturate(.6); opacity:.7; }
+.up-uploading{ position:relative; }
+.up-uploading > button.icon-btn{ visibility:hidden; } /* 올리는 동안 칸의 [선택 취소]는 막대 줄의 ✕가 맡는다 */
+.ed-uploads{ padding:4px 6px; }
+/* ①' 이미 있는 파일 줄 안: 짧은 막대 + % + ✕(첨부 고르기 줄). */
+.up-inline{ flex:none; display:inline-flex; align-items:center; gap:6px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+.up-inline > .up-bar{ width:64px; }
+.ed-uploads[hidden]{ display:none; }
+/* ③ 하단바 위 한 줄: 올리는 줄이 보이는 화면이 없을 때만(다른 화면·창 닫음). 폰은 하단 탭 위, PC는 화면 아래 가운데. */
+#uploadDock{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + var(--up-dock-lift,0px) + env(safe-area-inset-bottom,0px) + 8px); z-index:95; box-sizing:border-box; width:min(92vw,360px); padding:6px 12px; border-radius:var(--ds-radius-box,10px); background:var(--kptu-ink); color:var(--kptu-surface); font-size:var(--ds-text-meta,12px); box-shadow:var(--kptu-shadow-float); }
+#uploadDock[hidden]{ display:none; }
+#uploadDock .up-dock-head{ display:flex; align-items:center; gap:8px; min-height:var(--ds-compact-height-sm,28px); }
+#uploadDock .up-dock-text{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#uploadDock .up-dock-pc{ font-variant-numeric:tabular-nums; }
+#uploadDock .up-dock-acts{ display:inline-flex; align-items:center; gap:4px; }
+#uploadDock .up-bar[hidden]{ display:none; }
+#uploadDock .up-bar{ margin-top:2px; background:color-mix(in srgb, var(--kptu-surface) 25%, transparent); }
+#uploadDock .up-bar > i{ background:var(--kptu-surface); }
+#uploadDock :is(button.row-act,button.icon-btn){ color:var(--kptu-surface); }
 
 /* ===== UI-요청상자통일(S52-09, 요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html 명진 'ㅇ') =====
    홈 '나한테 온 요청'·'잊지 말기' 상자와 정리함 '나한테 온 요청' 상자가 함께 쓰는 공용 부품(app/notice-box.mjs) 한 곳의 모양.
