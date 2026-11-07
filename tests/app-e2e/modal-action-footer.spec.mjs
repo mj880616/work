@@ -6,8 +6,8 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const orgs=Array.from({length:16},(_,i)=>({id:'footer-org-'+i,name:'합성 담당조직 '+(i+1),active:true}));
 const event={id:'event',title:'오전 일정',start:'2026-10-06T10:00:00+09:00',end:'2026-10-06T11:00:00+09:00',calendarId:'c',recurring:false,organizationIds:[]};
 const cases=[
-  {id:'eventModal',save:'saveEventBtn',status:'eventStatus',last:'#soEventOrgChecks label:last-child',input:'eventDescription'},
-  {id:'ciGoogleModal',save:'ciGoogleSave',status:'ciGoogleStatus',last:'#soGoogleEditOrgChecks label:last-child',input:'ciGoogleMemo'},
+  {id:'eventModal',save:'saveEventBtn',status:'eventStatus',last:'#soEventOrgChecks .aop-row:last-child',input:'eventDescription'},
+  {id:'ciGoogleModal',save:'ciGoogleSave',status:'ciGoogleStatus',last:'#soGoogleEditOrgChecks .aop-row:last-child',input:'ciGoogleMemo'},
   {id:'taskModal',save:'saveTaskBtn',status:'taskModalStatus',last:'#taskNote',input:'taskNote'},
   {id:'gtTaskModal',save:'gtSaveBtn',status:'gtEditStatus',last:'#gtEditLinkBody .aop-row:last-child',input:'gtEditNotes'}
 ];

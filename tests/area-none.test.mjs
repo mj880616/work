@@ -58,13 +58,13 @@ test("사업 보고 거르기: [없음] 보고는 '사업영역 없음 n' 한 �
 
 test('화면 연결(전수): [달기] 창·쓰기/고치기 창은 [없음]을 두고, 한 줄 업데이트 창은 두지 않는다. AI 추천은 [없음]을 미리 고르지 않는다',()=>{
   const tag=read('report-area-tag.js');
-  assert.match(tag,/<option value="">고르기<\/option>\$\{options\}/);
-  assert.match(tag,/withNone\?`<option value="\$\{AREA_NONE\}" class="area-tag-none">\$\{NONE_LABEL\}<\/option>`:''\)\+\(places\?\.projects/); // '고르기' 바로 아래
+  // S52-01 ③b: 줄마다 공용 고르기 창(하나만) — 맨 위 '고르기', 그 바로 아래 회색 '없음'(withNone일 때만), 그 아래 사업영역.
+  assert.match(tag,/top=\[\{key:'',name:'고르기'\},\.\.\.\(a\.withNone\?\[\{key:AREA_NONE,name:NONE_LABEL,attrs:'data-area-none data-aop-muted'\}\]:\[\]\)\]/);
   assert.match(tag,/withNone:list\.every\(hasAreaNone\)/);
   assert.match(tag,/areaBody\(value,withNone\)/);
   assert.doesNotMatch(tag,/presetArea\([^)]*AREA_NONE/);
   const sheet=read('report-places-sheet.js');
-  assert.match(sheet,/allowNone\?\[\{project:\{id:'',name:'고르지 않음'\},depth:0\},\{project:\{id:AREA_NONE,name:'없음'\}/);
+  assert.match(sheet,/top=allowNone\?\[\{key:'',name:'고르지 않음'\},\{key:AREA_NONE,name:'없음',attrs:'data-area-none data-aop-muted'\}\]:\[\{key:'',name:'꼬리표 없음'\}\]/);
   const fields=read('business-area-fields.js');
   assert.match(fields,/allowNone:noneReady/);
   assert.match(fields,/const pickArea=id=>\{const v=String\(id\|\|''\);none=noneReady&&v===AREA_NONE;area=v===AREA_NONE\?'':v;legacy=false;touched=true;/);
