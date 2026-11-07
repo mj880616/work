@@ -2680,59 +2680,6 @@ async function pcInPc(rows, dest, mode) {
   } : null;
   notify(xferDoneText(mode, {done: run.done, skipped}), {record: false, ...(undo ? {undo, label: `옮기기 ${back.length}개`} : {})});
 }
-// 내 PC 안 옮기기·복사(S52-43 ① FILES-내PC쓰기, 0.5.0+ 문): 옮기기는 파일·폴더(폴더는 같은 드라이브 안 — 문이 거절하면 한 줄), 복사는 파일만.
-//   같은 이름은 한 번 묻고 [그래도 하기]면 문이 '이름 (2)'로 둘 다 둔다(덮어쓰기 없음). 하나씩 차례로, 끝나면 보낸 곳·받은 곳 목록을 문에서 다시 읽는다.
-async function pcInPc(rows, dest, mode) {
-  const plan = xferPlan(rows, dest, mode);
-  let list = plan.ok;
-  if (mode === 'copy' && list.some(r => r.is_folder)) {
-    notify('내 PC 안 폴더 복사는 다음 판에서 돼요(지금은 파일만 복사)', {record: false});
-    list = list.filter(r => !r.is_folder);
-  }
-  if (plan.blocked.length) notify(plan.blocked[0].reason, {error: true, record: false});
-  if (!list.length) { if (!plan.blocked.length && !rows.some(r => r.is_folder)) notify(plan.reason, {error: true, record: false}); return; }
-  let destRows = [];
-  try { destRows = await pc.list(dest.parent); } catch { /* 모르면 묻지 않는다: 문이 같은 이름을 거절하면 그 줄은 못 함 */ }
-  const same = new Set(sameNameRows(list, destRows).map(rowKey)), numbered = new Set();
-  const go = [];
-  let sameAll = null, skipped = plan.blocked.length;
-  for (const r of list) {
-    if (same.has(rowKey(r))) {
-      let c = sameAll;
-      if (!c) {
-        const res = await ask({name: r.name, text: sameNameAsk(mode), go: '그래도 하기', many: list.filter(y => same.has(rowKey(y))).length > 1});
-        if (res.closed) return;
-        c = res.choice; if (res.all) sameAll = c;
-      }
-      if (c === 'skip') { skipped++; continue; }
-      numbered.add(rowKey(r));
-    }
-    go.push(r);
-  }
-  if (!go.length) { if (skipped) notify(xferDoneText(mode, {skipped}), {record: false}); return; }
-  const scope = state.scope, moved = [];
-  const run = state.run = {mode, total: go.length, at: 1, done: 0, failed: 0, name: go[0].name, code: '', pending: false};
-  paintXfer();
-  try {
-    for (const r of go) {
-      run.name = r.name; run.at = run.done + run.failed + 1; paintXfer();
-      try {
-        const opt = {numbered: numbered.has(rowKey(r))};
-        if (mode === 'move') { const to = await pc.move(r.item_id, dest.parent, opt); moved.push(r); if (r.is_folder) pcRenamed(r, to); }
-        else await pc.copy(r.item_id, dest.parent, opt);
-        run.done++;
-      } catch (e) { run.failed++; run.code ||= codeOf(e); }
-      if (state.scope !== scope) return;
-    }
-  } finally {
-    if (state.run === run) state.run = null;
-    paintXfer(); paintBar();
-  }
-  await phoneRefresh([dest.parent, ...moved.map(r => r.parent_id)], {source: PC, gone: moved.map(rowKey)});
-  for (const r of moved) if (r.is_folder) state.children.delete(folderKey(PC, r.item_id));
-  if (run.failed) notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped}), {error: true, note: errorText(run.code), record: false});
-  else notify(xferDoneText(mode, {done: run.done, skipped}), {record: false});
-}
 // 클라우드 파일 → 내 PC 폴더: 파일만(폴더·구글 문서·크기 모름은 xferPlan이 거름). 같은 이름은 한 번 묻고 [그래도 하기]면 문이 '이름 (2)'로 둘 다 둔다(덮어쓰기 없음).
 //   하나씩 차례로: Edge media로 받은 바이트를 문에 4MB씩 새 파일로 쓴다(화면이 열린 동안). 옮기기면 다 쓴 것만 그 클라우드 휴지통으로.
 async function cloudToPc(rows, dest, mode) {
