@@ -7,13 +7,10 @@ import {readOpenCandidates, notPlanned} from './todo-radar-data.js';
 export const unsortedUpdates = (notes, links, docs = []) => visibleNotes(notes || [], links || [], 'unclassified', docs || []).length;
 // 챙길 것 처리 전: open candidates, minus what is already a task by title (todo-radar decision 5).
 export const openTodos = (candidates, taskTitles = []) => notPlanned((candidates || []).filter(row => row?.status === 'open'), taskTitles).length;
-// TG-요청강조: 그중 텔레그램 '나한테 온 요청'(수집 서버가 ask_me로 올린 후보). 홈 한 줄 요약이 같은 읽기로 함께 센다(읽기 추가 없음).
-export const openAsks = (candidates, taskTitles = []) => askRows(candidates, taskTitles).length;
-// S52-09 UI-요청상자통일: 그 요청 줄 자체(홈 '나한테 온 요청' 상자가 같은 읽기로 그림, 읽기 추가 없음).
-export const askRows = (candidates, taskTitles = []) => notPlanned((candidates || []).filter(row => row?.status === 'open' && row?.source_kind === 'telegram'), taskTitles);
+// S52-20: 텔레그램 요청은 따로 세지 않는다 — 홈 '잊지 말기' 한 줄은 처리 전 후보 전부(요청 포함)를 같은 숫자로 센다.
 export function inboxCount({notes, links, docs, candidates, taskTitles} = {}) {
   const update = unsortedUpdates(notes, links, docs), todo = openTodos(candidates, taskTitles);
-  return {update, todo, total: update + todo, asks: openAsks(candidates, taskTitles)};
+  return {update, todo, total: update + todo};
 }
 // The two reads behind the count (정리함 업데이트 + 챙길 것 후보). PERF-첫로딩 요청 합치기(S48-59): the home starts them together with the
 // journal's own basket read, so the runtime's single flight sends each basket page/link read once (same paths) instead of twice.
@@ -25,6 +22,6 @@ export async function readInboxCount(rt = window.KPTURuntime, {taskTitles = [], 
     const [basket, open] = await (parts || readInboxParts(rt));
     if (!open.missing && !open.ok) return {ok: false};
     const candidates = open.missing ? [] : open.rows;
-    return {ok: true, ...inboxCount({notes: basket.notes, links: basket.links, docs: basket.docs, candidates, taskTitles}), askRows: askRows(candidates, taskTitles)};
+    return {ok: true, ...inboxCount({notes: basket.notes, links: basket.links, docs: basket.docs, candidates, taskTitles})};
   } catch { return {ok: false}; }
 }

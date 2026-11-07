@@ -1744,6 +1744,7 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
 .nbx-done{ flex:none; margin-left:auto; color:var(--kptu-faint); }
 .nbx .row-act.nbx-body-btn{ display:inline; width:auto; height:auto; min-height:0; padding:0; color:var(--kptu-ink); font-size:var(--ds-text-row); font-weight:inherit; line-height:inherit; text-align:left; white-space:normal; overflow-wrap:anywhere; }
 .nbx .row-act.nbx-lead{ color:var(--kptu-info); }
+.nbx-badge{ display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:1.5em; height:1.5em; padding:0 .4em; border-radius:999px; background:var(--kptu-danger); color:var(--kptu-on-primary); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); font-variant-numeric:tabular-nums; line-height:1; }
 .nbx-below{ position:relative; z-index:1; display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:6px; padding-bottom:var(--ds-row-pad-y); }
 
 /* ===== UI-버튼6가지(2026-11-06 명진 요청 23:23 '버튼 모양 크기 색깔 테두리 등 전수조사 통일감', 시안 docs/design/mockups/button-six-kinds.html 승인 'ㅇ') =====

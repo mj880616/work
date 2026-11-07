@@ -10,7 +10,7 @@
 import {createAnchoredMenu} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
 import {esc, rowHtml} from './notice-box.mjs';
-import {waitHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {seoulDateKey} from './meeting-time.js';
@@ -67,7 +67,7 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 // updates(): {loading, items:[{id, at, body, meta, done, below, tail, attrs, open}]} — basket.js가 지금 보기의 업데이트 줄 재료를 준다.
 // onUpdateAct(id, act, button): 업데이트 줄 버튼(org·area·task·event·note·done·dismissed). onView(view): 보기가 바뀌면(업데이트 거르기를 맞춤).
 // radarPromises(): 찾기가 돌려준 상대 약속(저장하지 않음, todo-radar.js) — 처리 전 맨 아래 같은 줄로, 버튼은 [원장으로](쓰기요청 글 복사) 하나. 세지 않는다.
-export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, viewButton = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, onView = () => {}, radarPromises = () => [], openSource = () => {}} = {}) {
+export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, viewButton = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, onView = () => {}, radarPromises = () => [], openSource = () => {}, updateCount = () => null} = {}) {
   if (!host) return null;
   let view = 'open', src = 'all', rows = [], cState = 'loading', notes = [], fOn = false, fWs = '', run = 0, status = '', scope = radarScope(rt);
   const busy = new Set(), unknown = new Set(), linking = new Map();
@@ -133,15 +133,15 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   function linkingHtml(c) {
     const l = linking.get(c.id); if (!l) return '';
     const id = esc(c.id), dis = busy.has(c.id) ? ' disabled' : '';
-    const picks = l.tasks === null ? '<span class="nbx-faint">할 일 읽는 중…</span>'
+    const picks = l.tasks === null ? waitInlineHtml()
       : l.tasks.length ? l.tasks.map(t => `<button type="button" class="row-act" data-forget-link-task="${esc(t.id)}" data-forget-link-for="${id}"${dis}>${esc(t.title)}</button>`).join('')
       : `<span class="nbx-faint">${l.failed ? '할 일을 못 읽었어요.' : '비슷한 할 일을 못 찾았어요.'}</span>${l.failed ? `<button type="button" class="row-act" data-forget-link-retry="${id}"${dis}>다시</button>` : ''}`;
     return `<div class="nbx-below" data-forget-link="${id}" role="group" aria-label="이미 있는 할 일 고르기">${picks}<button type="button" class="row-act" data-forget-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="row-act" data-forget-link-cancel="${id}"${dis}>취소</button></div>`;
   }
   function paint() {
     paintViewButton();
-    // UI-앱안알림 3단계(A4): 메뉴 '홈' 표시는 열린 텔레그램 요청 수(홈 요약 줄과 같은 기준, 새 읽기 없음).
-    if (cState === 'ok') setHomeAsks(candidatesFor('open', rows, taskTitles()).filter(r => r.source_kind === 'telegram').length);
+    // UI-앱안알림 3단계(A4) → S52-20: 메뉴 '홈' 표시는 홈 '잊지 말기' 한 줄과 같은 숫자(처리 안 한 수, 새 읽기 없음).
+    { const n = api.openCount(updateCount()); if (n !== null) setHomeAsks(n); }
     const list = items(), u = updates();
     const focus = host.contains(document.activeElement) ? {row: document.activeElement.closest('[data-nbx-row]')?.dataset.nbxRow, act: document.activeElement.dataset.nbxAct || ''} : null;
     if (list.length) host.innerHTML = list.map(x => x.html).join('');
@@ -394,8 +394,9 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     run++; rows = []; notes = []; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
     onView(view); paint();
   });
-  paint();
-  return {refresh, paint, setView, view: () => view, source: () => src,
-    // 처리 안 한 줄 수(연결 안 된 업데이트 포함). 모르면 null.
+  const api = {refresh, paint, setView, view: () => view, source: () => src,
+    // 처리 안 한 줄 수(연결 안 된 업데이트 포함, 홈 한 줄과 같은 기준 — 상대 약속은 세지 않음). 모르면 null.
     openCount: count => cState === 'ok' && Number.isInteger(count) ? candidatesFor('open', rows, taskTitles()).length + (fOn ? notes.length : 0) + count : null};
+  paint();
+  return api;
 }

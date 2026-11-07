@@ -388,6 +388,7 @@ const UPDATE_FILTER={open:'unclassified',linked:'classified',dismissed:'archived
 forget=mountForgetList(root.querySelector('[data-basket-rows]'),{rt,statusEl:root.querySelector('[data-forget-status]'),viewButton:root.querySelector('[data-forget-view-open]'),
   updates:()=>({loading:!!loadingRun&&!notes.length,items:updateItems()}),
   onUpdateAct:(id,act,button)=>void updateAct(id,act,button),radarPromises,openSource:openTodoSource,
+  updateCount:()=>loadingRun&&!notes.length?null:visibleNotes(notes,links,'unclassified',docs).length,
   onView:view=>{filter=UPDATE_FILTER[view]||'none';place='all';sub='all';renderList();}});
 void forget.refresh();
 // [다시 찾기]: the same finder as the work journal (todo-radar.js); its change event makes the list read its 챙길 것 rows again.

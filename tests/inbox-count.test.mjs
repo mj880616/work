@@ -23,23 +23,13 @@ test('todo count: open only, and what is already a task by title is left out', (
   assert.equal(count.openTodos(rows, ['이미  있는 할 일!']), 1);
 });
 
-test('TG-요청강조: asks = open telegram candidates only (same read, already-a-task by title left out)', () => {
-  const rows = [cand(1, {source_kind: 'telegram'}), cand(2, {source_kind: 'telegram', status: 'dismissed'}), cand(3), cand(4, {source_kind: 'telegram', summary: '이미 있는 할 일'})];
-  assert.equal(count.openAsks(rows), 2);
-  assert.equal(count.openAsks(rows, ['이미 있는 할 일']), 1);
-  assert.equal(count.inboxCount({notes: [], links: [], candidates: rows}).asks, 2);
-  assert.equal(count.openAsks(), 0);
-  // S52-09 UI-요청상자통일: 홈 상자가 그리는 요청 줄 자체(같은 기준).
-  assert.deepEqual(count.askRows(rows, ['이미 있는 할 일']).map(r => r.id), [id(1)]);
-});
-
 test('inboxCount adds the two; readInboxCount reads both and treats a missing table as 0', async () => {
-  assert.deepEqual(count.inboxCount({notes: [note(1)], links: [], docs: [], candidates: [cand(1), cand(2)]}), {update: 1, todo: 2, total: 3, asks: 0});
+  assert.deepEqual(count.inboxCount({notes: [note(1)], links: [], docs: [], candidates: [cand(1), cand(2)]}), {update: 1, todo: 2, total: 3});
   const rtWith = api => ({context: {read: () => ({user: {id: 'u'}, workspace: {id: 'w'}})}, session: {ensure: async () => true, read: () => ({access_token: 't'}), epoch: () => 1}, api: async (path, opts) => api(path, opts)});
   const ok = rtWith(async path => path.includes('app_todo_candidates') ? [cand(1)] : []);
-  assert.deepEqual(await count.readInboxCount(ok), {ok: true, update: 0, todo: 1, total: 1, asks: 0, askRows: []});
+  assert.deepEqual(await count.readInboxCount(ok), {ok: true, update: 0, todo: 1, total: 1});
   const gone = rtWith(async path => { if (path.includes('app_todo_candidates')) throw Object.assign(new Error('x'), {status: 404}); return []; });
-  assert.deepEqual(await count.readInboxCount(gone), {ok: true, update: 0, todo: 0, total: 0, asks: 0, askRows: []});
+  assert.deepEqual(await count.readInboxCount(gone), {ok: true, update: 0, todo: 0, total: 0});
   const down = rtWith(async path => { if (path.includes('app_todo_candidates')) throw Object.assign(new Error('x'), {status: 500}); return []; });
   assert.deepEqual(await count.readInboxCount(down), {ok: false});
 });
@@ -51,7 +41,7 @@ test('PERF 요청 합치기(S48-59): 미리 시작한 읽기(parts)로 세면 �
   assert.ok(calls.length > 0, '부르는 즉시 읽기를 시작한다');
   await parts;
   const read = calls.length;
-  assert.deepEqual(await count.readInboxCount(rt, {taskTitles: ['이미 있는 할 일'], parts}), {ok: true, update: 0, todo: 1, total: 1, asks: 0, askRows: []});
+  assert.deepEqual(await count.readInboxCount(rt, {taskTitles: ['이미 있는 할 일'], parts}), {ok: true, update: 0, todo: 1, total: 1});
   assert.equal(calls.length, read, 'parts를 넘기면 readInboxCount가 따로 읽지 않는다');
   const again = calls.length;
   await count.readInboxCount(rt, {parts});

@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 
 globalThis.window ??= {KPTURuntime: null, addEventListener() {}, dispatchEvent() {}};
 const nb = await import('../app/notice-box.mjs');
-const {askMeta, askDraft} = await import('../app/asks-box.js');
+const {forgetCount, forgetLineHtml} = await import('../app/home-summary.js');
 const read = rel => readFileSync(new URL('../app/' + rel, import.meta.url), 'utf8');
 
 test('줄: 내용 한 줄 + 아래 작은 줄(왼쪽 글, 오른쪽 [할 일로][일정으로][노트로][이미 함] ×), 글은 글자로만', () => {
@@ -28,20 +28,18 @@ test('머리 줄: 제목 · 개수(있을 때) · 흐린 글 · [열기 ›], �
   assert.equal(nb.NB_UNDO_MS, 5000);
 });
 
-test('두 상자는 같은 부품 하나: 잊지 말기·나한테 온 요청 모두 notice-box.mjs로 그리고, 따로 줄·버튼을 만들지 않는다', () => {
-  for (const f of ['home-family.js', 'asks-box.js']) {
-    const src = read(f);
-    assert.match(src, /from '\.\/notice-box\.mjs'/, f);
-    assert.match(src, /rowHtml\(/, f); assert.match(src, /headHtml\(/, f); assert.match(src, /boxHtml\(/, f); assert.match(src, /markBox\(host, '(ask|forget)'\)/, f);
-    assert.doesNotMatch(src, /<li |class="home-family-|data-family-act|data-family-note|class="[^"]*nbx-(act|x|head|item)/, f + ': 줄·버튼 HTML은 공용 부품만');
-  }
+test('같은 부품 하나: 정리함 한 목록의 줄과 홈 잊지 말기 한 줄은 notice-box.mjs로 그리고, 따로 줄·버튼을 만들지 않는다', () => {
+  // S52-20 ②: 옛 홈 두 상자(asks-box.js·home-family.js)는 지웠다.
+  for (const f of ['home-family.js', 'asks-box.js']) assert.throws(() => read(f), /ENOENT/, f);
   // S52-20: 정리함 안은 상자 없이 한 목록(forget-list.js)이고, 그 줄도 같은 부품(rowHtml) — 따로 줄·버튼 HTML 없음.
   assert.doesNotMatch(read('inbox-todos.js'), /mountAsksBox|asksHost/);
   const fl = read('forget-list.js');
   assert.match(fl, /from '\.\/notice-box\.mjs'/); assert.match(fl, /rowHtml\(\{id: `c:/); assert.match(fl, /rowHtml\(\{id: `f:/); assert.match(fl, /rowHtml\(\{id: `u:/);
   assert.doesNotMatch(fl, /<li class=|class="[^"]*nbx-(act|x|head|item)/, 'forget-list.js: 줄·버튼 HTML은 공용 부품만');
   assert.match(read('basket.js'), /<section class="nbx forget-list" data-nbx-tone="list" data-forget-section[^>]*><ul class="nbx-list" data-basket-rows id="basketRows"><\/ul>/);
-  assert.match(read('home-summary.js'), /mountAsksBox\(line, \{rt, where: 'home'\}\)/);
+  const hs = read('home-summary.js');
+  assert.match(hs, /headHtml\(\{title: '잊지 말기', badge: count,/); assert.match(hs, /markBox\(line, 'forget'\)/);
+  assert.doesNotMatch(hs, /mountAsksBox|<li |class="[^"]*nbx-(act|x|head|item)/);
   // 모양은 ui-standard.css 한 곳(화면 id 없음), 색만 tone으로. 옛 화면별 규칙·날짜 밑 요약 줄 규칙은 없다.
   const ui = read('ui-standard.css');
   const block = ui.slice(ui.indexOf('/* ===== UI-요청상자통일'), ui.indexOf('/* ===== UI-버튼6가지'));
@@ -51,23 +49,35 @@ test('두 상자는 같은 부품 하나: 잊지 말기·나한테 온 요청 �
   for (const css of ['journal.css', 'basket.css']) assert.doesNotMatch(read(css), /\.home-family-|\.home-summary|\.nbx-/, css);
 });
 
-test('홈: 날짜 밑 옛 요약 줄은 없고, [하루] 카드 맨 위에 요청 상자 → 잊지 말기 상자. 텔레그램 요청은 운영자 기능 telegram일 때만 상자(서버 목록)', () => {
+// S52-20 HOME-잊지말기한목록 ②(시안 docs/design/mockups/forget-one-list.html ①): 홈 [하루] 맨 위는 '잊지 말기' 한 줄 + 빨간 숫자 동그라미만.
+test('홈: [하루] 맨 위 잊지 말기 한 줄 + 빨간 숫자(0이면 없음, 놓친 것 글자 없음), 누르면 정리함. 숫자 = 미분류 업데이트 + 처리 전 후보 + 가족 제안', () => {
   const j = read('journal.js');
-  assert.doesNotMatch(j, /class="home-summary"/);
-  assert.ok(j.indexOf('data-journal-day>') < j.indexOf('data-home-summary') && j.indexOf('data-home-summary') < j.indexOf('data-home-family'));
-  const s = read('home-summary.js');
-  assert.match(s, /hasFeature\(rt, 'telegram'\)/);
-  assert.match(s, /todos: on \? parts\.todos : parts\.todos \+ parts\.asks/, '상자가 없으면 요청도 챙길 것 수에 든다');
+  assert.doesNotMatch(j, /class="home-summary"|data-home-family|home-family\.js/);
+  assert.ok(j.indexOf('data-journal-day>') < j.indexOf('data-home-summary') && j.indexOf('data-home-summary') < j.indexOf('data-journal-schedule'));
+  assert.equal(forgetCount({update: 2, todo: 3, family: 1}), 6);
+  assert.equal(forgetCount({update: 0, todo: 0}), 0);
+  assert.equal(forgetCount({update: null, todo: 1}), null);
+  assert.equal(forgetCount({update: 1, todo: 1, family: null}), 2, '가족 기능 없음·못 읽음은 0');
+  const four = forgetLineHtml(4);
+  assert.match(four, /^<div class="nbx-head"><span class="nbx-title">잊지 말기<\/span><span class="nbx-badge" data-nbx-badge>4<\/span><button type="button" class="row-act nbx-open" data-goto="basket" data-home-forget-open aria-label="잊지 말기 4건. 열기">열기 ›<\/button><\/div>$/);
+  assert.doesNotMatch(four + forgetLineHtml(0), /놓친|챙길 것|정리 안 된/);
+  assert.doesNotMatch(forgetLineHtml(0), /nbx-badge/);
+  assert.match(nb.headHtml({title: 'x', badge: 120}), /<span class="nbx-badge" data-nbx-badge>99\+<\/span>/);
+  assert.match(forgetLineHtml(1, 2), /data-goto="ledger" data-home-summary-promises[^>]*>내일 약속 2 ›<\/button><button type="button" class="row-act nbx-open"/);
+  // 빨간 바탕 흰 글자(토큰만).
+  assert.match(read('ui-standard.css'), /\.nbx-badge\{[^}]*background:var\(--kptu-danger\); color:var\(--kptu-on-primary\);/);
   assert.match(read('my-features.js'), /\/rest\/v1\/rpc\/app_my_features/);
   assert.match(read('family-notes-data.js'), /hasFeature\(rt, 'family'\)/);
 });
 
-test('요청 줄 글: 방 이름 · 날짜(+ 기한), 할 일·일정 창에는 제목과 출처 메모', () => {
-  const c = {summary: '가짜 회의 자료 요청', source_day: '2026-10-06', due: null, tg: {room_label: '가상 지부방'}};
-  assert.equal(askMeta(c), '가상 지부방 · 10/6');
-  assert.equal(askMeta({...c, tg: null}), '텔레그램 · 10/6');
-  assert.deepEqual(askDraft(c), {title: '가짜 회의 자료 요청', memo: '텔레그램 · 가상 지부방 · 10/6'});
-  assert.equal([...askDraft({summary: '가'.repeat(150)}).title].length, 100);
+test('요청·챙길 것 줄 글(한 목록): 방 이름·원래 기록 · 날짜(+ 기한), 할 일·일정 창에는 제목과 출처 메모', async () => {
+  const {candidateMeta, candidateDraft} = await import('../app/forget-list.js');
+  const c = {summary: '가짜 회의 자료 요청', source_kind: 'telegram', source_day: '2026-10-06', due: null, status: 'open', tg: {room_label: '가상 지부방'}};
+  assert.equal(candidateMeta(c), '가상 지부방 · 10/6');
+  assert.equal(candidateMeta({...c, tg: null}), '10/6');
+  assert.equal(candidateMeta({...c, source_kind: 'basket', tg: null}), '업데이트에서 · 10/6');
+  assert.deepEqual(candidateDraft(c), {title: '가짜 회의 자료 요청', memo: '텔레그램 · 가상 지부방 · 10/6'});
+  assert.equal([...candidateDraft({summary: '가'.repeat(150)}).title].length, 100);
 });
 
 // S52-20 HOME-잊지말기한목록(시안 docs/design/mockups/forget-one-list.html): 출처가 달라도 같은 줄. 다른 점은 출처 꼬리표·업데이트 줄의 [조직][사업]뿐.
