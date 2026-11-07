@@ -10,6 +10,7 @@ import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPho
   photoComments, cleanComments, saveDiaryComments} from './diary-data.js';
 import {SIZE_BUTTONS, WIDE_QUERY, paintGrid, paintButtons, changeCols, attachPinch} from './photo-grid-size.js';
 import {putBack} from './photo-viewer-model.mjs';
+import {splitPictures} from './picture-file.mjs';
 // OD-크게보기: 크게 보기는 공용 부품(사진 메뉴와 같은 것).
 import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh} from './photo-strip.js';
 import {deleteNoteOriginal, offerUndoNotice} from './basket-record-delete.js';
@@ -675,9 +676,13 @@ async function askCloseEditor(anchor) {
   if (edit !== open || edit.busy) return;
   closeEditor({force:true});
 }
-function pick(files) {
+async function pick(files) {
+  const open = edit;
+  // UPLOAD-올리기안됨: a photo from the phone app can come with an empty type; splitPictures also looks at the name and first bytes.
+  const {pictures:images} = await splitPictures(files);
+  if (!edit || edit !== open) return;
   const have = diaryPhotos(edit.row).length + edit.pending.length, room = Math.max(0, DIARY_MAX_PHOTOS - have);
-  const images = [...files].filter(file => /^image\//.test(file.type || '')), skipped = files.length - images.length;
+  const skipped = files.length - images.length;
   const taken = images.slice(0, room);
   edit.pending.push(...taken.map(file => ({file, url:URL.createObjectURL(file), comment:''})));
   const notes = [];
@@ -891,7 +896,7 @@ root.addEventListener('input', event => {
   else if (event.target.matches('[data-diary-pending-comment]')) { const entry = edit.pending[Number(event.target.dataset.diaryPendingComment)]; if (entry) entry.comment = event.target.value; }
 });
 root.addEventListener('change', event => {
-  if (event.target.matches('[data-diary-input]')) { const files = [...event.target.files || []]; event.target.value = ''; if (files.length && edit) pick(files); }
+  if (event.target.matches('[data-diary-input]')) { const files = [...event.target.files || []]; event.target.value = ''; if (files.length && edit) void pick(files); }
   if (event.target.matches('[data-diary-date]')) changeDay(event.target.value);
 });
 

@@ -1,5 +1,6 @@
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import {bindPaste} from './paste-files.mjs';
+import {uploadTimeoutMs} from './upload-budget.mjs';
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
 const UNKNOWN = '저장 결과를 확인하지 못했습니다. 정리함에서 확인 후 다시 시도하세요';
@@ -40,8 +41,8 @@ export async function uploadBasketFile(fd, file, rt = window.KPTURuntime, fetche
   const session = rt.session.read();
   if (!session?.access_token) throw uploadError('로그인이 필요합니다.', 'session_required', 401);
   let timer;
-  // Match the established upload budget and native multipart fetch. No abort/replay on unknown outcomes.
-  const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(uploadError(UNKNOWN, 'note_save_result_unknown')), Math.min(600000, 90000 + Math.ceil(file.size / 1048576) * 4000)); });
+  // The shared upload budget (upload-budget.mjs, by file size) and native multipart fetch. No abort/replay on unknown outcomes.
+  const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(uploadError(UNKNOWN, 'note_save_result_unknown')), uploadTimeoutMs(file?.size)); });
   try {
     return await Promise.race([(async () => {
       const response = await fetcher(rt.config.url + '/functions/v1/basket-files', {method:'POST',headers:{apikey:rt.config.key,Authorization:'Bearer ' + session.access_token},body:fd});

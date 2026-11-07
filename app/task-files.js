@@ -6,6 +6,7 @@ import {bindPaste} from './paste-files.mjs';
 // Deploy order: google-tasks Edge first, then the table. The menu item and file names appear only once the table answers,
 // so an older Edge never gets an attach request.
 import { fileAttrs, driveFileUrl } from './file-actions.js';
+import { uploadTimeoutMs } from './upload-budget.mjs';
 import { renameHostAttrs, renameButtonHtml, applyRenamed } from './file-rename.js'; // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(할 일 첨부 표에 있는 파일만)
 export { splitTaskNotes, joinTaskNotes, taskAttachments } from './task-note-files.mjs'; // TASK-첨부열기: 메모 속 '첨부:' 줄 읽기·쓰기는 이 한 곳 // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
@@ -54,7 +55,7 @@ export async function attachTaskFile(taskId, file, {rt = window.KPTURuntime} = {
   fd.append('task_id', taskId);
   fd.append('file', copy);
   try {
-    return await rt.api(endpoint('attach'), {method: 'POST', body: fd, singleFlight: false, timeoutMs: Math.min(600000, 90000 + Math.ceil(file.size / 1048576) * 4000)});
+    return await rt.api(endpoint('attach'), {method: 'POST', body: fd, singleFlight: false, timeoutMs: uploadTimeoutMs(file.size)});
   } finally { fd.delete('file'); }
 }
 

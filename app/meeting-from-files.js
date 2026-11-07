@@ -13,6 +13,7 @@ import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {seoulDateKey,toMeetingISO} from './meeting-time.js';
 import {announceRecordSaved} from './record-saved.js';
 import {readTextLater} from './document-text-read.js'; // SEARCH ②: 올린 파일 안 글자를 서버가 한 번 읽어 둠
+import {uploadTimeoutMs} from './upload-budget.mjs'; // UPLOAD-올리기안됨: 올리기 시간 한도 한 곳
 
 (()=>{
 'use strict';
@@ -257,7 +258,8 @@ async function saveGroup(g,scope){
     let form=null;
     try{
       form=new FormData();form.append('meeting_id',meetingId);form.append('file',await rt().copyUploadFile(item.file));
-      readTextLater((await api('/functions/v1/meeting-files',{method:'POST',body:form}))?.document);
+      // UPLOAD-올리기안됨: 올리기는 불러오기 기본 15초 한도가 아니라 파일 크기에 맞춘 공용 올리기 한도로.
+      readTextLater((await api('/functions/v1/meeting-files',{method:'POST',body:form,singleFlight:false,timeoutMs:uploadTimeoutMs(item.file.size)}))?.document);
       item.uploaded=true;item.error='';
     }catch(err){failed++;message=err?.message||'파일 올리기 실패';item.error=message;console.warn('meeting file upload failed',item.file.name,err)}
     finally{form?.delete('file');form=null}
