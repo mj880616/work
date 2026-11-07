@@ -46,9 +46,9 @@ test('파일 폰 412: 펼친 폴더 안 파일 ⋯ = 그 줄 바로 옆 작은 �
   await expect(menu(page)).toBeVisible();
   await expect(menu(page).locator('.row-menu-title')).toHaveCount(0);
   await expect(menu(page)).toHaveAttribute('aria-label', '가짜 안내문.pdf 메뉴');
-  await expect(menu(page).locator('button')).toHaveText(['열기', '복사', '옮기기', '이름 바꾸기', '별표', '휴지통']);
+  await expect(menu(page).locator('button')).toHaveText(['열기', '자료실로 보내기', '복사', '옮기기', '이름 바꾸기', '별표', '휴지통']);
   await expect(menu(page).locator('button').last()).toHaveClass(/row-menu-last/);
-  await expect(menu(page).locator('button .row-menu-ico')).toHaveCount(6);
+  await expect(menu(page).locator('button .row-menu-ico')).toHaveCount(7);
   await expect(menu(page).locator('[data-row-item="trash"]')).toHaveCSS('color', await page.evaluate(() => { const d = document.createElement('i'); d.style.color = 'var(--kptu-danger)'; document.body.append(d); const c = getComputedStyle(d).color; d.remove(); return c; }));
   await expect(menu(page).getByRole('button', { name: '열기' })).toBeFocused();
   await smallBoxBy(page, file);

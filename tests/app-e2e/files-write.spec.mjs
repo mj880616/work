@@ -46,7 +46,7 @@ test('PC 1440: 이름 바꾸기(확장자 그대로)·새 폴더·여러 개 골
   await row(page, 'od:OD!11').click({ modifiers: ['Control'] });
   await row(page, 'od:OD!12').click({ modifiers: ['Control'] });
   await expect(bar(page).locator('.fx-bar-t')).toHaveText('2개');
-  await expect(bar(page).locator('button')).toHaveText(['복사', '옮기기', '☆ 별표', '휴지통', '✕']);
+  await expect(bar(page).locator('button')).toHaveText(['복사', '옮기기', '자료실로', '☆ 별표', '휴지통', '✕']);
   await page.keyboard.press('Escape');
   await expect(bar(page)).toBeHidden();
   await row(page, 'od:OD!11').click({ modifiers: ['Control'] });
