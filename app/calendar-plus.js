@@ -4,7 +4,7 @@ import {toSeoulISO} from './meeting-time.js';
 import {waitInlineHtml as cmWaitHtml} from './wait-state.js'; // UI-기다림표시통일 2차: 창 상태 줄의 기다림은 글자 없는 회색 칸
 import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
 import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,logSaveDetail} from './calendar-save-notice.js';
-import { createGoogleTask, saveProjectMilestone } from './quick-save.js';
+import { createGoogleTask, syncEventAreas } from './quick-save.js';
 import { openAreaOrgPicker, dismissAreaOrgPicker, usedKeysNow, catalogAreas, areaTree, areaChipText } from './area-org-picker.js';
 import { taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, attachNewTaskFiles, newTaskFilesNotice } from './task-files.js';
 const CM_GOOGLE_DEFAULT='#4285f4';
@@ -46,7 +46,8 @@ function cmPaintMode(){
   document.querySelector('#eventModalTitle').textContent=task?'할 일 등록':'일정 등록';document.querySelector('#eventDateLabel').textContent=task?'날짜 (선택)':'시작 날짜';
   modal.querySelectorAll('[data-event-mode]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.eventMode===cmMode));b.disabled=cmSavePending;});
   modal.querySelectorAll('[data-event-only]').forEach(el=>el.hidden=task);document.querySelector('#eventGoogleOptions').hidden=task;
-  const org=document.querySelector('#soEventOrganizations');if(org)org.hidden=task;
+  // CAL-일정사업영역: [일정]은 사업영역을 '사업영역 / 관련 담당조직' 두 줄(suborganizations.js, 여러 개)로 고르고, 한 개 고르기 칸은 [할 일]만 쓴다.
+  const org=document.querySelector('#soEventOrganizations');if(org)org.hidden=task;const one=document.querySelector('#eventProjectField');if(one)one.hidden=!task;
   cmPaintFiles();
 }
 // TASK-추가창파일: [파일 붙이기] in the 할 일 등록 window (also opened by the quick inputs' [+]), once the task-file table answers.
@@ -85,7 +86,8 @@ const cmSession=()=>cmRuntime().session.epoch();
 const cmCall=(r,path,options={})=>cmRuntime().api(path,{...options,expectedSessionEpoch:r.epoch});
 const cmSameSession=r=>r.owner===cmOwner()&&r.epoch===cmSession();
 const cmActive=r=>cmSameSession(r)&&cmRequest===r&&r.seq===cmFormEpoch&&!document.querySelector('#eventModal').classList.contains('hidden');
-function cmSnapshot(){return JSON.stringify([cmMode,cmProject,...['eventTitle','eventStartDate','eventStartTime','eventEndDate','eventEndTime','eventDescription','eventLocation','eventGoogleCalendar'].map(id=>document.getElementById(id)?.value||''),document.getElementById('eventAllDay')?.checked,cmColorValue('#eventGoogleColor'),window.__KPTU_SELECTED_EVENT_ORGS__?.()||[]])}
+function cmSnapshot(){return JSON.stringify([cmMode,cmProject,...['eventTitle','eventStartDate','eventStartTime','eventEndDate','eventEndTime','eventDescription','eventLocation','eventGoogleCalendar'].map(id=>document.getElementById(id)?.value||''),document.getElementById('eventAllDay')?.checked,cmColorValue('#eventGoogleColor'),window.__KPTU_SELECTED_EVENT_ORGS__?.()||[],cmEventAreas()])}
+const cmEventAreas=()=>[...(window.__KPTU_SELECTED_EVENT_AREAS__?.()||[])];
 function cmTaskLinks(d){if(!Array.isArray(d?.links)||(d.meeting_links!=null&&!Array.isArray(d.meeting_links)))throw new Error('연결 저장 결과를 확인하지 못했습니다.');return [...d.links,...(d.meeting_links||[])].filter(l=>!l.status||l.status==='confirmed')}
 function cmUnknownNotice(kind,message){
   cmStatus(message,true);const b=document.createElement('button');b.type='button';b.className='mini';b.textContent='목록에서 저장 결과 확인';b.onclick=()=>cmRecover(kind);document.querySelector('#eventStatus').append(document.createTextNode(' '),b);
@@ -163,13 +165,17 @@ async function cmSaveTask(){
   }finally{if(cmRequest===r){cmRequest=null;cmSavePending=false;if(cmSameSession(r)&&r.seq===cmFormEpoch){cmSetBusy(false);cmPaintMode()}}}
 }
 function cmForm(){const title=document.querySelector('#eventTitle')?.value.trim(),allDay=!!document.querySelector('#eventAllDay')?.checked,startDate=document.querySelector('#eventStartDate')?.value,endDate=document.querySelector('#eventEndDate')?.value||startDate;if(!title)throw new Error('제목을 입력해 주세요.');if(!startDate||!endDate)throw new Error('시작·종료 날짜를 입력해 주세요.');const f={title,allDay,startDate,endDate,memo:document.querySelector('#eventDescription')?.value||'',location:document.querySelector('#eventLocation')?.value||'',color_hex:cmColorValue('#eventGoogleColor').hex};if(!allDay){const st=document.querySelector('#eventStartTime')?.value,et=document.querySelector('#eventEndTime')?.value;if(!st||!et)throw new Error('시작·종료 시간을 입력해 주세요.');const sn=normalizeTime(st),en=normalizeTime(et);if(!sn||!en)throw new Error('시작·종료 시간을 확인해 주세요. 예: 0930 → 09:30');const start=new Date(toSeoulISO(startDate+'T'+sn)),end=new Date(toSeoulISO(endDate+'T'+en));if(end<=start)throw new Error('종료시간은 시작시간보다 뒤여야 합니다.');f.start_iso=start.toISOString();f.end_iso=end.toISOString()}return f}
-function cmLinkBody(r){const b=cmSaved.body,f=b?{title:b.title,allDay:b.all_day,startDate:b.start_date,start_iso:b.start_iso,memo:b.memo||''}:cmForm();return {id:cmSaved.milestoneId||(cmSaved.milestoneId=crypto.randomUUID()),project_id:cmProject,title:f.title,start_at:f.allDay?toSeoulISO(f.startDate+'T00:00'):f.start_iso,notes:f.memo.trim()||null,google_calendar_id:cmSaved.record.calendarId,google_event_id:cmSaved.record.id,created_by:r.owner,expectedSessionEpoch:r.epoch}}
+function cmLinkFields(){const b=cmSaved.body,f=b?{title:b.title,allDay:b.all_day,startDate:b.start_date,start_iso:b.start_iso,memo:b.memo||''}:cmForm();return {title:f.title,start_at:f.allDay?toSeoulISO(f.startDate+'T00:00'):f.start_iso,notes:f.memo.trim()||null}}
 function cmLinkFailed(message){
   cmStatus(message,true);const b=document.createElement('button');b.type='button';b.className='mini';b.textContent='다시 시도';b.onclick=()=>void cmRetryLink();document.querySelector('#eventStatus').append(document.createTextNode(' '),b);
 }
+// CAL-일정사업영역: 고른 사업영역마다 '사업영역 주요 일정' 한 행(quick-save.js syncEventAreas → saveProjectMilestone: 같은 일정은 한 사업영역에 한 번).
+// 등록한 행(cmSaved.areaRows)은 이 창이 기억해 다시 시도·이어서 저장할 때 남은 것만 한다(저장 뒤 뺀 사업영역은 그 행만 지운다).
 async function cmLinkProject(r){
-  if(!cmProject||!cmSaved||cmSaved.kind!=='event'||cmSaved.linked===cmProject)return true;
-  try{await saveProjectMilestone(cmLinkBody(r),cmRuntime());if(!cmActive(r))return false;cmSaved.linked=cmProject;return true}
+  if(!cmSaved||cmSaved.kind!=='event')return true;
+  const rows=cmSaved.areaRows||=[],want=cmEventAreas();
+  if(want.length===rows.length&&want.every(id=>rows.some(x=>x.project_id===id)))return true;
+  try{await syncEventAreas({had:rows,next:want,...cmLinkFields(),google_calendar_id:cmSaved.record.calendarId,google_event_id:cmSaved.record.id,created_by:r.owner,expectedSessionEpoch:r.epoch},cmRuntime());return cmActive(r)}
   catch(e){if(!cmActive(r))return false;cmLinkFailed('일정은 저장했습니다. 사업영역 연결 실패, 다시 시도해 주세요. '+(e.message||''));return false}
 }
 async function cmRetryLink(){
@@ -214,7 +220,7 @@ async function cmSaveGoogle(){
     if(body.action==='create-event'&&cmOnCreated){const f=cmOnCreated;cmOnCreated=null;try{f(d.event.id)}catch{}}
     if(!await cmLinkProject(r)){try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return false}
     if(d.event.location!==body.location){cmStatus('일정은 저장했습니다. 장소 저장은 확인하지 못했습니다. 장소와 수정 입력은 유지했습니다. 확인한 뒤 다시 저장해 주세요.',true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return false}
-    const linked=!!cmSaved.linked,unchanged=r.snapshot===cmSnapshot();if(unchanged){cmSetBusy(false);button.textContent=label;cmCloseModal()}else cmStatus('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
+    const linked=!!cmSaved.areaRows?.length,unchanged=r.snapshot===cmSnapshot();if(unchanged){cmSetBusy(false);button.textContent=label;cmCloseModal()}else cmStatus('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
     try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast('일정은 저장했습니다. 목록을 새로고침해 주세요.');return true}
     if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast(linked?'저장하고 사업영역 주요 일정에 등록했습니다.':'Google Calendar에 저장했습니다.');return true;
   }catch(e){
@@ -228,7 +234,7 @@ async function cmSaveGoogle(){
 }
 // FAMILY-잊지말기: 이 창에서 새 일정이 처음 만들어지면 한 번 부를 것(openEventModal preset.onCreated). 다른 창을 열면 지운다.
 let cmOnCreated=null;
-async function cmPrepareNewEvent(opts={}){cmOnCreated=typeof opts?.onCreated==='function'?opts.onCreated:null;cmAskFiles();cmFormEpoch++;cmRequest=null;cmSaved=null;cmFiles?.clear();cmSavePending=false;cmSetBusy(false);document.querySelector('#saveEventBtn').textContent='저장';cmMode='event';cmProject='';cmPaintMode();cmPaintProject();cmStatus('');cmToggleAllDay();['#eventStartTime','#eventEndTime'].forEach(id=>{const el=document.querySelector(id);if(el)paintTimeHint(el,false)});cmEndLink?.reset();await cmPopulateGoogleCalendars()}
+async function cmPrepareNewEvent(opts={}){cmOnCreated=typeof opts?.onCreated==='function'?opts.onCreated:null;cmAskFiles();cmFormEpoch++;cmRequest=null;cmSaved=null;cmFiles?.clear();cmSavePending=false;cmSetBusy(false);document.querySelector('#saveEventBtn').textContent='저장';cmMode='event';cmProject='';window.__KPTU_RESET_EVENT_PICKS__?.();cmPaintMode();cmPaintProject();cmStatus('');cmToggleAllDay();['#eventStartTime','#eventEndTime'].forEach(id=>{const el=document.querySelector(id);if(el)paintTimeHint(el,false)});cmEndLink?.reset();await cmPopulateGoogleCalendars()}
 function cmBindCreate(){const modal=document.querySelector('#eventModal');window.addEventListener('kptu:dialog-closed',e=>{if(e.detail?.modal===modal)cmOnCreated=null;if(e.detail?.modal===modal&&cmRequest){cmFormEpoch++;cmRequest=null;cmSavePending=false}});const allDay=document.querySelector('#eventAllDay'),calendar=document.querySelector('#eventGoogleCalendar'),btn=document.querySelector('#saveEventBtn');if(!allDay||!btn)return false;document.querySelectorAll('[data-event-mode]').forEach(b=>b.onclick=()=>{if(cmSavePending)return;if(cmSaved||cmAttempts.has(cmMode==='task'?'task':'event')){cmStatus('현재 항목의 저장 결과를 먼저 확인해 주세요. 입력은 유지했습니다.',true);return}cmMode=b.dataset.eventMode;cmPaintMode();cmStatus('');});cmProjectButton().onclick=()=>void cmOpenProject();allDay.addEventListener('change',cmToggleAllDay);const q=id=>document.querySelector('#event'+id);cmEndLink=linkEventEnd({startDate:q('StartDate'),startTime:q('StartTime'),endDate:q('EndDate'),endTime:q('EndTime'),allDay});calendar?.addEventListener('change',cmGoogleCalendarChanged);btn.onclick=e=>{e?.preventDefault?.();return cmSaveGoogle()};return true}
 async function cmInit(){if(!document.querySelector('#calendarView'))return false;cmInjectControls();cmBindCreate();cmAskFiles();return true}
 window.KPTUCalendarPlus={paint:()=>{},refresh:async()=>true,prepareNewEvent:cmPrepareNewEvent,setTaskProject:cmSetTaskProject,saveGoogle:cmSaveGoogle,savePrefs:()=>{}};
