@@ -164,8 +164,8 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  // The same for an opened memo.
  await basketKindButton(page,'memo').tap();await showBasketRow(page,'m1');
  await page.locator('[data-basket-row="m1"]').tap();await expect(page.locator('[data-basket-close]')).toBeVisible();
- await expect(page.locator('#basketView [data-inbox-todo-section]')).toBeHidden();
- await page.locator('[data-basket-close]').tap();await expect(page.locator('#basketView [data-inbox-todo-section]')).toBeVisible();
+ await expect(page.locator('#basketView .forget-head')).toBeHidden();
+ await page.locator('[data-basket-close]').tap();await expect(page.locator('#basketView .forget-head')).toBeVisible();
  // One painter per screen: each switch is the screen's own element, there is no second copy anywhere.
  expect(await page.locator('.schedule-switch').count()).toBe(3);await expect(page.locator('#homeView > .schedule-switch')).toHaveCount(0);expect(await page.locator('.basket-kind-switch').count()).toBe(0);expect(await page.locator('.inbox-pane-switch').count()).toBe(0);
  for(const v of ['calendar','tasks','diary'])expect(await page.locator(`#${v}View > .schedule-switch`).count()).toBe(1);

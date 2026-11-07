@@ -13,9 +13,9 @@ export async function openKindMenu(page, kind) {
   await page.locator('#mobileMenuTab:visible').first().click();
   await page.locator('#mobileMenu:not([hidden]) [data-basket-kind-nav="note"]').waitFor();
 }
-// BASKET-정리함한화면: the 정리함 is one screen; '챙길 것' and '업데이트' are two boxes. This is a box title (with its count), PC and phone.
-export const basketPaneButton = (page, pane) =>
-  page.locator(pane === 'todo' ? '#basketView #inboxTodoTitle' : '#basketView #inboxUpdateTitle');
+// BASKET-정리함한화면 → S52-20: the 정리함 is one screen with one list (no '챙길 것'·'업데이트' boxes). Both old box titles now point at the
+// list's one view button [처리 전 ▾] (PC and phone).
+export const basketPaneButton = (page, pane) => page.locator('#basketView [data-forget-view-open]');
 export async function chooseBasketKind(page, kind) {
   await openKindMenu(page, kind);
   await basketKindButton(page, kind).click();

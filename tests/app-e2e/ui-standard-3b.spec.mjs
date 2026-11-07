@@ -215,7 +215,7 @@ test('정리함: 처리할 것이 없으면 회색 한 줄 "없음"(공용 없�
  const {errors}=await boot(page,390,{notes:[]});
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');
  const empty=page.locator('#basketView [data-forget-empty]');await expect(empty).toHaveText('없음');
- await expect(empty).toHaveCSS('text-align','start');
+ await expect(empty).toHaveCSS('text-align',/^(start|left)$/);
  await expect(page.locator('#basketView [data-forget-view-open]')).toHaveText('처리 전 ▾');
  expect(errors).toEqual([]);
 });
