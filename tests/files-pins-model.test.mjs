@@ -59,6 +59,6 @@ test('내 PC 고정 경로는 서버·브라우저 저장소로 가지 않는다
   const files = readFileSync(new URL('../app/files.js', import.meta.url), 'utf8');
   const body = files.slice(files.indexOf('async function setPcPins'), files.indexOf('async function loadPcPins'));
   assert.match(body, /pc\.setPins\(/);
-  assert.doesNotMatch(body, /viewPrefs|localStorage|rpc\(/);
-  assert.doesNotMatch(readFileSync(new URL('../app/files-pins-model.mjs', import.meta.url), 'utf8'), /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(body, /viewPrefs|Storage|rpc\(/);
+  assert.doesNotMatch(readFileSync(new URL('../app/files-pins-model.mjs', import.meta.url), 'utf8'), /Storage|indexed[D]B|cache[s]\./);
 });
