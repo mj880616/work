@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import {expectDiaryDay} from './helpers/screen-title.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
+import { segBox } from './helpers/seg-box.mjs';
 // ED③ 일기: the day's text is the new editor ([data-diary-text] .ProseMirror). Typing goes through the editor like a person (select all, type).
 const field=ed=>ed.locator('[data-diary-text] .ProseMirror');
 const plain={useInnerText:true};
@@ -143,12 +144,12 @@ test('[일정] 머리줄 [달력|할 일|일기]: 높이 32·고른 쪽 테마�
  await expect(sw).toBeVisible();await expect(sw.locator('button')).toHaveText(['달력','할 일','일기']);
  await expect(sw.locator('[data-view="journal"]')).toHaveCount(0);
  // UI-버튼작게 ③: 폰은 아래 탭 바로 위 한 줄.
- const box=await sw.boundingBox(),tabs=await page.locator('.mobile-tabs').boundingBox();
+ const box=await segBox(sw),tabs=await page.locator('.mobile-tabs').boundingBox();
  expect(Math.round(box.height)).toBe(32);expect(Math.round(tabs.y-(box.y+box.height))).toBe(6);expect(box.x+box.width).toBeLessThanOrEqual(390);
  await sw.locator('[data-view="diary"]').click();
  await expect(page.locator('#diaryView')).toBeVisible();await expect(page.locator('#diaryView')).not.toContainText('준비 중');
  const pressed=page.locator('#diaryView .schedule-switch [aria-pressed="true"]');await expect(pressed).toHaveText('일기');
- expect(await pressed.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-select-bg)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
+ expect(await pressed.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-seg-on)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
  await page.locator('.mobile-tabs [data-view="home"]').click();await expect(page.locator('#homeView')).toBeVisible();
  await expect(page.locator('#journalRoot [data-journal-input]')).toBeAttached();
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();

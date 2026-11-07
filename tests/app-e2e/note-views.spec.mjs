@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { segBox } from './helpers/seg-box.mjs';
 
 // NOTE-보기3가지 (요청함 10/29 15:05, 명진 15:10 '추천대로'): 노트 검색 칸 오른쪽 [폴더|목록|포스트잇].
 // 목록 = 모든 노트 최근 고친 순 한 줄(폴더 꼬리표·날짜), 포스트잇 = 넓은 보드 위 같은 크기 칸(제목·앞 줄·폴더 이름), 끌어 놓으면
@@ -41,7 +42,7 @@ for (const width of [412, 884, 1440]) {
   test(`세 보기 전환·목록 순서·포스트잇 칸·검색 (${width})`, async ({ page }) => {
     const { errors } = await fixture(page, width);
     await expect(view(page, 'folder')).toHaveAttribute('aria-pressed', 'true');
-    const head = await page.locator('.note-list-head').boundingBox(), sw = await page.locator('.nv-switch').boundingBox();
+    const head = await page.locator('.note-list-head').boundingBox(), sw = await segBox(page.locator('.nv-switch'));
     expect(sw.height).toBeLessThanOrEqual(34);
     // FOLDER-나무새기준 ⑧(01:25 탭 자리 규칙): 폰은 아래 탭 바로 위 가운데(일정 전환 줄과 같은 줄), 넓은 화면은 위 머리줄 안.
     if (width < 761) { const tabs = await page.locator('.mobile-tabs').boundingBox(); expect(sw.y + sw.height).toBeLessThanOrEqual(tabs.y); expect(Math.abs(sw.x + sw.width / 2 - width / 2)).toBeLessThanOrEqual(2); }

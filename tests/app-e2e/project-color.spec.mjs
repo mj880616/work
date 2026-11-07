@@ -68,7 +68,8 @@ for(const scheme of ['light','dark'])test(`PRJ-색 list dots: chosen color, chil
   expect(await dotColor(page,rowDot('plain'))).toBe(await tokenColor(page,'--ds-project-gray'));
   expect(await dotColor(page,rowDot('odd'))).toBe(await tokenColor(page,'--ds-project-gray'));
   expect(await tokenColor(page,'--ds-project-green')).not.toBe(await tokenColor(page,'--ds-project-green-soft'));
-  const box=await page.locator(rowDot('green')).boundingBox();expect(box.width).toBe(8);expect(box.height).toBe(8);
+  // UI-색점(S52-18): 이름 옆 색 점은 공용 .ui-color-dot 12px.
+  const box=await page.locator(rowDot('green')).boundingBox();expect(box.width).toBe(12);expect(box.height).toBe(12);
   // Dot sits before the name on the same line.
   const name=await page.locator('[data-ps3-project="green"] .kptu-list-name').boundingBox();
   expect(box.x+box.width).toBeLessThanOrEqual(name.x);expect(Math.abs(box.y+box.height/2-(name.y+name.height/2))).toBeLessThan(4);

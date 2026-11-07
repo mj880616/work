@@ -66,6 +66,7 @@ on:
       - 'tests/drive-summary-refresh.test.mjs'
       - 'tests/basket-classification.test.mjs'
       - 'tests/basket-upload.test.mjs'
+      - 'tests/upload-progress.test.mjs'
       - 'tests/paste-files.test.mjs'
       - 'tests/record-attach.test.mjs'
       - 'tests/basket-ocr-text.test.mjs'
@@ -244,6 +245,7 @@ on:
       - 'tests/drive-summary-refresh.test.mjs'
       - 'tests/basket-classification.test.mjs'
       - 'tests/basket-upload.test.mjs'
+      - 'tests/upload-progress.test.mjs'
       - 'tests/paste-files.test.mjs'
       - 'tests/record-attach.test.mjs'
       - 'tests/basket-ocr-text.test.mjs'
@@ -434,6 +436,8 @@ jobs:
         run: node --test tests/upload-budget.test.mjs
       - name: Check picture recognition without a file type (UPLOAD-올리기안됨)
         run: node --test tests/picture-file.test.mjs
+      - name: Check upload progress uses the real sent amount (UI-올리기진행표시)
+        run: node --test tests/upload-progress.test.mjs
 
       - name: Check loader preload lists (PERF-첫로딩 P3)
         run: node --test tests/loader-preload.test.mjs
@@ -806,6 +810,9 @@ jobs:
 
       - name: Check six button kinds rule and debt ratchet (UI-버튼6가지)
         run: node --test tests/button-six-kinds.test.mjs
+
+      - name: Check view tabs one look (UI-보기탭한모양)
+        run: node --test tests/view-tabs-one-look.test.mjs
 
       - name: Check sheet footer button family (UI-창아래버튼통일)
         run: node --test tests/sheet-footer-buttons.test.mjs

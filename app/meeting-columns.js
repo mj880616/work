@@ -80,7 +80,7 @@ export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resul
   const selected=columns.find(c=>c.key===selectedKey)||columns[0],current=pickMeeting(selected,selectedId);
   const kinds=columns.map(c=>{
     const label=c.name||'회의명 미지정',on=c===selected;
-    return `<li><button type="button" class="mcol-kind kptu-pick-row" data-meeting-kind="${esc(c.key)}" aria-controls="mcolRounds"${on?' aria-current="true"':''} style="--meeting-color:${esc(colorOf(c.name))}"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${c.meetings.length}건">${c.meetings.length}</span></button></li>`;
+    return `<li><button type="button" class="mcol-kind kptu-pick-row" data-meeting-kind="${esc(c.key)}" aria-controls="mcolRounds"${on?' aria-current="true"':''} style="--meeting-color:${esc(colorOf(c.name))}"><span class="mcol-dot ui-color-dot" aria-hidden="true"></span><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${c.meetings.length}건">${c.meetings.length}</span></button></li>`;
   }).join('');
   const label=selected.name||'회의명 미지정';
   const rows=selected.meetings.map(m=>{

@@ -77,7 +77,8 @@ for (const width of [390, 1280]) test('버튼 전수 수집 ' + width, async ({p
   expect(errors).toEqual([]);
   if (REPORT_ONLY) return;
   // 단추 모양(모서리가 둥근 것)만 잰다. 줄 전체를 누르는 목록 줄(모서리 0)·첨부 클립은 버튼 모양이 아니다.
-  const shaped = b => !b.icon && b.br !== '0px' && b.br !== '50%' && !/basket-clip/.test(b.cls);
+  // UI-보기탭한모양(S52-17): 보기 바꾸기 칸(.ds-seg-btn)은 공용 ⑤ 한 모양(고른 칸만 굵게)이라 tests/view-tabs-one-look.test.mjs가 따로 본다.
+  const shaped = b => !b.icon && b.br !== '0px' && b.br !== '50%' && !/basket-clip|\bds-seg-btn\b/.test(b.cls);
   // 규칙 1: 글자 버튼 굵기는 400·500만(굵은 700 버튼 없음), 글자는 14px 이하.
   const heavy = all.filter(b => shaped(b) && (Number(b.fw) > 500 || parseFloat(b.fs) > 14));
   expect(heavy.map(b => `${b.view} ${b.label} ${b.fs}/${b.fw}`), '굵거나 큰 글자 버튼').toEqual([]);

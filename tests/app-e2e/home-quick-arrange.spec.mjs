@@ -8,7 +8,8 @@ import {openHome} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const names=['전국철도노동조합','서해선지부','신분당선지부'];
 const q=page=>page.locator('#homeView [data-home-quick]');
-const look=locator=>locator.evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color};});
+// UI-보기탭한모양(S52-17): [업데이트 ▾|할 일]은 공용 ⑤ 보기 바꾸기 — 한 알약으로 붙은 두 칸(.ds-seg-group)은 묶음이 바탕을 칠한다.
+const look=locator=>locator.evaluate(el=>{const s=getComputedStyle(el);return {bg:getComputedStyle(el.closest('.ds-seg-group')||el).backgroundColor,fg:s.color};});
 const token=(page,name,prop='color')=>page.evaluate(([name,prop])=>{const e=document.createElement('span');e.style[prop]=`var(${name})`;document.querySelector('#appView').append(e);const c=getComputedStyle(e)[prop];e.remove();return c;},[name,prop]);
 async function open(page,width,dark){
  await page.setViewportSize({width,height:width<761?844:900});
@@ -22,11 +23,11 @@ async function open(page,width,dark){
  return errors;
 }
 async function press(page){return {bg:await token(page,'--ds-kind-other-soft','backgroundColor'),fg:await token(page,'--ds-kind-other-ink')};}
-async function gray(page){return {bg:await token(page,'--ds-select-bg','backgroundColor'),fg:await token(page,'--ds-select-ink')};}
+async function gray(page){return {bg:await token(page,'--ds-seg-on','backgroundColor'),fg:await token(page,'--kptu-ink')};} // 고른 칸: 흰 알약 + 진한 글자
 const shot=(info,name)=>process.env.KPTU_SHOT_DIR?`${process.env.KPTU_SHOT_DIR}/${name}.png`:info.outputPath(`${name}.png`);
 
 for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입력 배치와 고른 쪽 테마색 ${width}${dark?' 다크':''}`,async({page},info)=>{
- const errors=await open(page,width,dark),box=q(page),selected=await gray(page),white=await token(page,'--kptu-surface','backgroundColor');
+ const errors=await open(page,width,dark),box=q(page),selected=await gray(page),white='rgba(0, 0, 0, 0)'; // 안 고른 칸은 칠하지 않음(연한 알약 바탕이 비침)
  const modes=box.locator('.home-quick-modes'),update=box.locator('[data-quick-mode="update"]'),org=box.locator('[data-quick-org]'),input=box.locator('[data-quick-input]');
  // 안내 화살표 글자는 어느 모드에서도 없다.
  await expect(box.locator('[data-quick-destination],[data-quick-update-options]')).toHaveCount(0);
@@ -107,7 +108,8 @@ for(const dark of [false,true])test(`눌림 색: 탭 하이라이트 없음, :ac
   await cdp.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:[]});return v;
  };
  await box.locator('[data-quick-mode="update"]').click();
- expect(await pressed('#homeView [data-quick-mode="task"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
+ // 보기 바꾸기 칸은 누르는 동안 글자만 진하게(바탕은 연한 알약 그대로), 탭 하이라이트 없음.
+ expect(await pressed('#homeView [data-quick-mode="task"]')).toEqual({bg:'rgba(0, 0, 0, 0)',fg:await token(page,'--kptu-ink'),tap:'rgba(0, 0, 0, 0)'});
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView [data-forget-view-open]')).toBeVisible();
  expect((await pressed('#basketView [data-forget-view-open]')).tap).toBe('rgba(0, 0, 0, 0)'); // S52-20: 정리함 보기는 칩이 아니라 [처리 전 ▾](② 작은 버튼) — 탭 하이라이트만 없음을 본다
  expect(errors).toEqual([]);
