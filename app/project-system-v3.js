@@ -147,7 +147,7 @@ const listedProjects=()=>catalog.tree(projects).map(x=>x.project);
 const PROJECT_COLORS=[['green','초록'],['blue','파랑'],['orange','주황'],['purple','보라'],['pink','분홍'],['yellow','노랑'],['red','빨강'],['gray','회색']];
 const colorKey=v=>PROJECT_COLORS.some(([k])=>k===v)?v:'';
 // PRJ-3단: every level under a main project shows the main project's color in the soft tone.
-function colorDot(p){const top=ancestors(p)[0]||(p?.parent_id?spaces.find(x=>x.id===p.parent_id):null);return `<span class="ps3-color-dot" data-color="${colorKey((top||p)?.metadata?.color)||'gray'}"${top?' data-tone="soft"':''} aria-hidden="true"></span>`}
+function colorDot(p){const top=ancestors(p)[0]||(p?.parent_id?spaces.find(x=>x.id===p.parent_id):null);return `<span class="ps3-color-dot ui-color-dot" data-color="${colorKey((top||p)?.metadata?.color)||'gray'}"${top?' data-tone="soft"':''} aria-hidden="true"></span>`}
 function paintColorPicker(){const field=$('#ps3CreateColorField');if(!field)return;const value=colorKey($('#ps3CreateColor').value);field.hidden=!!$('#ps3CreateParent').value;field.querySelectorAll('[data-ps3-color]').forEach((b,i)=>{const on=b.dataset.ps3Color===value;b.setAttribute('aria-checked',String(on));b.tabIndex=on||!value&&i===0?0:-1})}
 function pickColor(key,focus=false){const input=$('#ps3CreateColor');if(!input||!colorKey(key))return;if(input.value!==key){input.value=key;input.dispatchEvent(new Event('input',{bubbles:true}))}paintColorPicker();if(focus)$(`#ps3CreateColorField [data-ps3-color="${key}"]`)?.focus()}
 const nameOf=id=>profiles.find(x=>x.user_id===id)?.display_name||id?.slice(0,8)||'팀원';

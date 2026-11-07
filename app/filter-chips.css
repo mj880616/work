@@ -5,7 +5,6 @@
 /* 두 줄이라 누르는 범위는 칩 둘레 2px까지(위아래 줄과 겹치지 않게). */
 .filter-chips button:not(.chip-rows-more)::after { top:calc(50% - (var(--ds-chip-row-height,26px) + 4px) / 2); height:calc(var(--ds-chip-row-height,26px) + 4px); left:-2px; right:-2px; }
 .filter-chips button:focus-visible { outline:2px solid var(--kptu-primary);outline-offset:-2px; }
-.filter-chip-dot { width:8px;height:8px;flex:0 0 8px;border-radius:50%; }
 #libraryView .library-filter-toolbar { display:flex;flex-wrap:wrap;align-items:center;gap:8px; }
 #libraryView .library-filter-toolbar .search { flex:1 1 100%; }
 #documentProject { display:grid;grid-template-columns:minmax(0,1fr);gap:4px;max-width:100%;min-width:0;flex:1 1 100%; }

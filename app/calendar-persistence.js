@@ -1,6 +1,8 @@
 import {seoulParts,seoulDate,addSeoulDays} from './meeting-time.js';
 import {paintFreshness} from './data-freshness.js';
 import {dayKey,ranges} from './home-read-model.js';
+import {createAnchoredMenu} from './anchored-menu.js';
+import {swatchHtml,swatchColor} from './color-swatch.mjs';
 let cpState=null,cpEvents=[],cpSavePromise=null,cpSaveQueued=false,cpOwner=null;
 // 메모리 캐시: status는 연결 상태일 때만 5분, 범위별 events는 5분 동안 먼저 보여주고 항상 뒤에서 다시 읽는다.
 // CAL-저장본먼저(2026-10-22 사용자 결정): 이 기기에도 마지막 연결 상태와 범위별 일정을 남겨, 다음에 열 때 바로 보여 주고 곧바로 다시 읽는다.
@@ -50,9 +52,39 @@ function cpStatusFresh(){return !!cpState?.connected&&!!cpStatusAt&&cpOwner===cp
 function cpEventsKey(owner,s,e){return [owner,(cpState?.selected||[]).join(','),s.toISOString(),e.toISOString()].join('|')}
 function cpCalendarVisible(){const v=document.querySelector('#calendarView');return !v||!v.classList.contains('hidden')}
 function cpSyncEvents(){window.__KPTU_GOOGLE_EVENTS__=cpEvents;window.__KPTU_SYNC_GOOGLE_EVENTS__?.(cpEvents);cpPaint()}
-function cpDecorate(){if(!cpState?.connected)return;const box=document.querySelector('#googleCalendarList');if(!box)return;const selected=new Set(cpState.selected||[]);box.querySelectorAll('[data-google-cal]').forEach(ch=>{ch.checked=selected.has(ch.dataset.googleCal);if(!ch.dataset.cpBound){ch.dataset.cpBound='1';ch.addEventListener('change',cpSave)}const lab=ch.closest('label');if(!lab)return;let c=lab.querySelector('.cp-color');if(!c){c=document.createElement('input');c.type='color';c.className='cp-color';c.dataset.id=ch.dataset.googleCal;c.title='색상';c.addEventListener('change',cpSave);lab.appendChild(c)}c.value=cpColor(ch.dataset.googleCal)});const save=document.querySelector('#saveGooglePrefs');if(save){save.textContent='자동 저장';save.disabled=true}}
-function cpPreferenceSnapshot(){const ids=[...document.querySelectorAll('[data-google-cal]:checked')].map(x=>x.dataset.googleCal),colors={...(cpState?.colors||{})};document.querySelectorAll('.cp-color').forEach(x=>colors[x.dataset.id]=x.value);return{ids,colors,enabled:true}}
-function cpSave(){if(!cpState)return Promise.resolve(false);cpSaveQueued=true;if(cpSavePromise)return cpSavePromise;const owner=cpSessionOwner();cpSavePromise=(async()=>{let last=null;try{while(cpSaveQueued){cpSaveQueued=false;last=cpPreferenceSnapshot();await cpCall('',{method:'POST',body:{action:'preferences',calendar_ids:last.ids,calendar_colors:last.colors,enabled:last.enabled}});if(!owner||cpSessionOwner()!==owner)return false;cpState.selected=last.ids;cpState.colors=last.colors;cpState.enabled=last.enabled}cpSyncState();cpMessage(`Google 캘린더 ${last?.ids.length||0}개 표시 · 자동 저장됨`);await cpLoadEvents({force:true});return true}catch(e){if(!owner||cpSessionOwner()!==owner)return false;cpMessage(e.message,true);return false}finally{cpSavePromise=null;if(cpSaveQueued)cpSave()}})();return cpSavePromise}
+// CAL-캘린더색칩(S52-18): 표시할 캘린더 칩(team.js calendarChipHtml)의 누름·색 점·저장을 여기 한 곳이 맡는다.
+// 칩 = 보이기/숨기기(aria-pressed), 색 점(또는 길게 누르기·우클릭·Shift+F10) = 작은 색 고르기 상자(공용 작은 메뉴 + 공용 색 칸).
+// 색 목록은 일정 색과 같은 목록(KPTUCalendarColors.palette, 없으면 Google 일정 색) 앞에 그 캘린더의 Google 기본 색. 저장 길(preferences)은 그대로.
+const CP_DOT_HIT=6;
+const cpDot=id=>[...document.querySelectorAll('#googleCalendarList [data-cp-dot]')].find(d=>d.dataset.cpDot===id)||null;
+function cpPalette(id){
+  const own=swatchColor(cpState?.calendars?.find(x=>x.id===id)?.backgroundColor||''),list=[];
+  const shared=window.KPTUCalendarColors?.palette?.(cpState)||Object.values(cpState?.eventColors||{}).map(v=>({hex:v?.background}));
+  if(own)list.push({hex:own.toLowerCase(),label:'Google 기본 색'});
+  shared.forEach((row,i)=>{const hex=swatchColor(row?.hex||'').toLowerCase();if(hex&&!list.some(x=>x.hex===hex))list.push({hex,label:'색 '+(i+1)})});
+  return list;
+}
+function cpPaintDot(dot,hex){dot.dataset.cpColor=hex;dot.style.setProperty('--ui-dot',swatchColor(hex)||'transparent')}
+const cpColorMenu=createAnchoredMenu({id:'cpColorMenu',className:'od-link-menu cp-color-menu',label:'캘린더 색',historyKey:'kptuCalColorMenu',boxWidth:216,actDetached:true,
+  key:t=>t.dataset.googleCal||'',
+  render:id=>{const now=String(cpDot(id)?.dataset.cpColor||cpColor(id)).toLowerCase();return `<div class="ui-swatches" role="radiogroup" aria-label="캘린더 색">${cpPalette(id).map(c=>swatchHtml({color:c.hex,label:c.label,role:'radio',on:c.hex===now,attrs:{'data-cp-pick':c.hex,title:c.label}})).join('')}</div>`},
+  onAction:(button,{id})=>{const hex=swatchColor(button.dataset.cpPick||''),dot=cpDot(id);if(!hex||!dot||dot.dataset.cpColor===hex)return;cpPaintDot(dot,hex);cpSave()}});
+function cpOnChip(e){
+  const chip=e.currentTarget,dot=chip.querySelector('[data-cp-dot]');
+  // 손가락·마우스로 색 점(둘레 6px) 위를 누르면 색 상자, 그 밖(이름)이나 키보드 Enter·Space는 보이기/숨기기.
+  if(dot&&e.detail>0){const r=dot.getBoundingClientRect();if(e.clientX<=r.right+CP_DOT_HIT&&e.clientX>=r.left-CP_DOT_HIT*2){cpColorMenu.open(chip);return}}
+  chip.setAttribute('aria-pressed',chip.getAttribute('aria-pressed')==='true'?'false':'true');cpSave();
+}
+function cpOnChipMenu(e){e.preventDefault();cpColorMenu.open(e.currentTarget)}
+// 저장 중(cpSavePromise)에는 누른 칩·고른 색을 서버 값으로 되돌리지 않는다(다음 저장이 화면 값을 읽음).
+function cpDecorate(){if(!cpState?.connected)return;const box=document.querySelector('#googleCalendarList');if(!box)return;const selected=new Set(cpState.selected||[]);box.querySelectorAll('[data-google-cal]').forEach(chip=>{const id=chip.dataset.googleCal;const busy=!!cpSavePromise&&!!chip.dataset.cpBound;if(!busy)chip.setAttribute('aria-pressed',selected.has(id)?'true':'false');if(!chip.dataset.cpBound){chip.dataset.cpBound='1';chip.setAttribute('aria-haspopup','true');chip.addEventListener('click',cpOnChip);chip.addEventListener('contextmenu',cpOnChipMenu)}const dot=chip.querySelector('[data-cp-dot]');if(dot&&!(busy&&dot.dataset.cpColor))cpPaintDot(dot,cpColor(id))});cpPaintSaved()}
+function cpPreferenceSnapshot(){const ids=[...document.querySelectorAll('#googleCalendarList [data-google-cal][aria-pressed="true"]')].map(x=>x.dataset.googleCal),colors={...(cpState?.colors||{})};document.querySelectorAll('#googleCalendarList [data-cp-dot]').forEach(x=>{if(x.dataset.cpColor)colors[x.dataset.cpDot]=x.dataset.cpColor});return{ids,colors,enabled:true}}
+// '자동 저장'은 버튼이 아니라 저장된 뒤 잠깐 '저장됨' 글자만(2초).
+// 칩 줄이 다시 그려져도 2초 안이면 cpDecorate가 다시 쓴다.
+let cpSavedTimer=0,cpSavedUntil=0;
+function cpPaintSaved(){const e=document.querySelector('#cpSaved');if(e)e.textContent=Date.now()<cpSavedUntil?'저장됨':''}
+function cpSaved(){cpSavedUntil=Date.now()+2000;cpPaintSaved();clearTimeout(cpSavedTimer);cpSavedTimer=setTimeout(cpPaintSaved,2050)}
+function cpSave(){if(!cpState)return Promise.resolve(false);cpSaveQueued=true;if(cpSavePromise)return cpSavePromise;const owner=cpSessionOwner();cpSavePromise=(async()=>{let last=null;try{while(cpSaveQueued){cpSaveQueued=false;last=cpPreferenceSnapshot();await cpCall('',{method:'POST',body:{action:'preferences',calendar_ids:last.ids,calendar_colors:last.colors,enabled:last.enabled}});if(!owner||cpSessionOwner()!==owner)return false;cpState.selected=last.ids;cpState.colors=last.colors;cpState.enabled=last.enabled}cpSyncState();cpSaved();await cpLoadEvents({force:true});return true}catch(e){if(!owner||cpSessionOwner()!==owner)return false;cpMessage(e.message,true);return false}finally{cpSavePromise=null;if(cpSaveQueued)cpSave()}})();return cpSavePromise}
 function cpApplyEvents(d,append=false,s=null,e=null,{at=Date.now(),copy=false}={}){if(s&&e)cpCover=append&&cpCover?{s:Math.min(cpCover.s,+s),e:Math.max(cpCover.e,+e)}:{s:+s,e:+e};cpFromCopy=append?cpFromCopy||copy:copy;cpCheckedAt=append&&cpCheckedAt?Math.min(cpCheckedAt,at):at;cpEvents=append?[...new Map([...cpEvents,...(d.events||[])].map(ev=>[ev.calendarId+':'+ev.id,ev])).values()]:d.events||[];cpState.eventColors=d.eventColors||cpState?.eventColors||{};cpSyncState();cpSyncEvents()}
 function cpEventsMessage(d){cpMessage(d.warning?'Google 일정 읽기 오류: '+d.warning:(cpEvents.length?`Google 일정 ${cpEvents.length}건 표시 중`:'이 기간에 선택한 Google 일정이 없습니다.'),!!d.warning)}
 async function cpReadEvents(s,e,force){

@@ -1009,3 +1009,9 @@ PC(1024px~) 담당조직 상세 칸만 바꾼다. 왼쪽 조직 목록과 폰·7
 - 정리함 [챙길 것] 처리 전 위에도 같은 상자(`asks-box.js`, 머리 줄 [열기 ›]·흐린 한 줄 없음)를 두고, 텔레그램 요청은 아래 목록에서 뺀다.
 - 요청 줄 동작은 기존 챙길 것 길만 쓴다(새 DB 없음): [할 일로] = 할 일 창에서 저장되면 tasked, [이미 함] = done(5초 되돌리기), [일정으로]·[노트로] = 그 창에서 저장되면 done, [×] = dismissed(5초 되돌리기). 결과 기록(`app_todo_feedback`)도 같은 값.
 - 재발 방지: `tests/notice-box.test.mjs`(공용 부품 하나·옛 규칙 없음), `tests/app-e2e/home-asks-box.spec.mjs`(폰 344·390, 폴드 884, PC 1280에서 두 상자 모양 값이 바탕색 말고 같음, 정리함 상자도 같음).
+
+### UI-색점·CAL-캘린더색칩 (2026-11-07 명진 요청 14:33 '캘린더 종류 옆에 색상 표시 버튼 크기', 시안 `docs/design/mockups/calendar-color-chip.html` 14:35 'A')
+
+- 이름 옆 색 표시는 사이트 어디서나 공용 점 하나: `.ui-color-dot`(지름 `--ds-color-dot` 12px 동그라미 + 옅은 테두리). 점의 색만 화면이 정하고(화면 규칙의 background 또는 `--ui-dot`), 크기·모양은 `app/ui-standard.css` "UI-색점·색점칩" 한 곳. 적용: 일정 '표시할 Google 캘린더' 칩, 사업영역 색(`.ps3-color-dot`), 사업 보고 종류(`.mcol-dot`), 필터 칩 색(`.filter-chip-dot`), 정리함 연결 칩(`.basket-chip-dot`), 지금 매체 고르기(`.lu-move-dot`). 사진·[파일] 출처 단추는 색 점이 아니라 공식 아이콘이라 그대로.
+- 표시할 Google 캘린더: 캘린더 하나 = ④ 칩(`button.ds-chip[data-dot-toggle]`) 하나(색 점 + 이름). 칩 누르기 = 보이기/숨기기(숨김 = 빈 점·흐린 글자), 색 점 누르기(또는 길게 누르기·우클릭·Shift+F10) = 작은 메뉴 안 공용 색 칸(`color-swatch.mjs`, 그 캘린더의 Google 기본 색 + 일정 색 목록). 체크 네모·브라우저 색 칸·[자동 저장] 버튼은 없앴고, 저장되면 2초 '저장됨' 글자만. [연결 해제]는 ② 작은 버튼. 저장 길(google-calendar `preferences`)은 그대로.
+- 재발 방지: `tests/app-e2e/calendar-color-chip.spec.mjs`(폰 390·폴드 884·PC 1280), `tests/color-swatch.test.mjs`(브라우저 기본 색 칸 예외 없음).
