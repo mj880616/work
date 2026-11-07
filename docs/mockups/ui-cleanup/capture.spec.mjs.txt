@@ -1,0 +1,58 @@
+// UI-전체정리 시안(S52-34): 가짜 서버(filter-chip-fixture)와 합성 데이터만으로 화면 사진을 찍는다. 운영 주소·로그인 없음.
+// 저장소에는 docs/mockups/ui-cleanup/capture.spec.mjs.txt 사본만 둔다(CI에서 돌지 않게). 찍을 때는 tests/app-e2e/ 아래로 복사해 쓴다.
+import {test} from '@playwright/test';
+import {mkdirSync} from 'node:fs';
+import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
+test.use({timezoneId:'Asia/Seoul'});
+const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const OUT=process.env.SHOT_OUT||'test-results/ui-cleanup';
+const TAG=process.env.SHOT_TAG||'before';
+const SIZES=(process.env.SHOT_W||'412x915,884x1104,1440x900').split(',').map(x=>x.split('x').map(Number));
+const SCREENS=(process.env.SHOT_V||'home,note,calendar,tasks,team,meetings,weekly').split(',');
+const KINDS=['meeting','policy','negotiation','press','assembly','education'];
+function state(){
+  const s=baseState();s.meetingWrites=[];s.downloads=[];s.deletes=[];
+  s.meetings=KINDS.flatMap((k,i)=>[1,2].map(n=>({id:`m-${k}-${n}`,workspace_id:'workspace-1',title:`가상 회의 ${i+1}-${n}`,series_name:`가상 회의 ${i+1}`,round_no:n,meeting_at:new Date(Date.now()-(i*2+n-1)*86400000).toISOString(),meeting_name:`가상 회의 ${i+1}`,project_id:'top-a',activity_kind:k,transcript_text:'합성 회의 기록 본문입니다.',created_by:'user-1'})));
+  s.docs=s.docs.map((d,i)=>({...d,file_name:`가상자료${i+1}.pdf`,mime_type:'application/pdf',file_id:'f'+i,document_date:'2026-10-2'+i}));
+  return s;
+}
+async function extra(page){
+  const ok=(route,data)=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
+  const DAY=86400000,kst=(o=0)=>new Date(Date.now()+9*3600000+o*DAY).toISOString().slice(0,10),at=(o,h)=>new Date(Date.parse(kst(o)+'T00:00:00+09:00')+h*3600000).toISOString();
+  const ev=(id,title,o,h)=>({id,title,start:at(o,h),end:at(o,h+1),allDay:false,calendarId:'primary',source:'google',location:'',description:'',recurring:false,organizationIds:[]});
+  const tk=(id,title,o)=>({id,title,taskListId:'l1',taskListTitle:'업무',due:kst(o)+'T00:00:00.000Z',notes:'',status:'needsAction',source:'google-task'});
+  if(!process.env.AUDIT_NOGOOGLE)await page.route(`${SB}/functions/v1/google-calendar**`,r=>{const a=new URL(r.request().url()).searchParams.get('action');if(a==='events')return ok(r,{events:[ev('e1','가상 일정 회의',0,10),ev('e2','가상 현장 방문',0,14),ev('e3','가상 교섭',1,9),ev('e4','가상 간담회',2,15),ev('e5','가상 집회',-1,11)],colors:{},eventColors:{}});return ok(r,{connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'업무',primary:true}]})});
+  if(!process.env.AUDIT_NOGOOGLE)await page.route(`${SB}/functions/v1/google-tasks**`,r=>{const a=new URL(r.request().url()).searchParams.get('action');if(a==='overview')return ok(r,{connected:true,authorized:true,needs_reconnect:false,pending_scope:'all',tasks:[tk('t1','가상 할 일 보고서 정리',0),tk('t2','가상 할 일 자료 요청',1),tk('t3','가상 할 일 회의 준비',-1),tk('t4','가상 할 일 공문 확인',3)]});return ok(r,{links:[],tasks:[],meeting_links:[]})});
+  await page.route(`${SB}/rest/v1/app_suborganization_assignees**`,r=>ok(r,[0,1,2].map(i=>({organization_id:'org-'+i,user_id:'user-1',assigned_by:'user-1',created_at:'2026-09-17T00:00:00Z'}))));
+  await page.route(`${SB}/rest/v1/app_suborganizations**`,r=>ok(r,['가상노조 A지부','가상노조 B지부','가상노조 C지회'].map((name,i)=>({id:'org-'+i,workspace_id:'workspace-1',name,active:true,created_by:'user-1'}))));
+  await page.route(`${SB}/rest/v1/app_notes**`,r=>{const q=new URL(r.request().url()).searchParams;if(q.get('metadata'))return ok(r,[]);return ok(r,[1,2,3,4].map(n=>({id:`10000000-0000-4000-8000-00000000000${n}`,workspace_id:'workspace-1',occurred_at:`2026-10-2${n}T01:00:00Z`,updated_at:`2026-10-2${n}T01:00:00Z`,created_at:`2026-10-2${n}T01:00:00Z`,raw_text:`가상 메모 ${n}: 합성 내용 한 줄입니다.`,ai_export_allowed:true,archived_at:null,attachments:[],metadata:{}})))});
+}
+
+async function open(page,s){
+  const go=v=>page.evaluate(async v=>{try{await window.KPTUViewLoader?.load?.(v)}catch{} window.KPTURouter?.go?.(v)},v);
+  if(s==='note'){await go('basket');await page.waitForTimeout(900);await page.evaluate(()=>{const b=document.querySelector('[data-basket-kind-nav="note"]');b?.click();});}
+  else if(s==='weekly'){await go('home');await page.waitForTimeout(1200);await page.locator('[data-journal-mode="week"]').first().click().catch(()=>{});}
+  else if(s==='calmonth'){await go('calendar');}
+  else await go(s);
+  await page.waitForTimeout(1800);await page.evaluate(()=>window.scrollTo(0,0));await page.waitForTimeout(200);
+}
+for(const [w,h] of SIZES)test(`shots ${w}`,async({page})=>{
+  test.setTimeout(600000);mkdirSync(OUT,{recursive:true});
+  await page.setViewportSize({width:w,height:h});
+  await mockApp(page,state());await extra(page);await signIn(page);
+  await page.waitForFunction(()=>window.KPTURouter?.go&&window.KPTUViewLoader);await page.waitForTimeout(600);
+  for(const s of SCREENS){
+    try{await open(page,s);await page.screenshot({path:`${OUT}/${s}-${w}-${TAG}.png`});}
+    catch(e){console.log('shot fail',s,w,String(e.message).slice(0,120))}
+  }
+});
+if(process.env.PROBE)test('probe',async({page})=>{
+  test.setTimeout(300000);const [w,h]=(process.env.PW||'412x915').split('x').map(Number);
+  await page.setViewportSize({width:w,height:h});await mockApp(page,state());await extra(page);await signIn(page);
+  await page.waitForFunction(()=>window.KPTURouter?.go&&window.KPTUViewLoader);await page.waitForTimeout(600);
+  await open(page,process.env.PROBE);
+  if(process.env.PCLICK){await page.locator(process.env.PCLICK).first().click().catch(e=>console.log('click fail'));await page.waitForTimeout(1500);}
+  const out=await page.evaluate(([sels,L])=>sels.split('||').map(s=>{const e=document.querySelector(s);if(!e)return s+': 없음';const r=e.getBoundingClientRect();const cs=getComputedStyle(e);return `${s} [${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)} pos=${cs.position} disp=${cs.display} gtc=${cs.gridTemplateColumns}]\n`+e.outerHTML.replace(/\s+/g,' ').slice(0,L)}).join('\n\n'),[process.env.PSEL,+process.env.PLEN||1500]);
+  console.log(out);
+  if(process.env.PSHOT)await page.screenshot({path:process.env.PSHOT});
+});
