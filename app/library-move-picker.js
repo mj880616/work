@@ -4,19 +4,26 @@ import {emptyHtml} from './wait-state.js';
 // 맨 위 '폴더 찾기' 칸 → 최근 넣은 폴더 → 전체 폴더(하위는 들여쓰기) → 아래 [+ 새 폴더 만들어 넣기]·[폴더 밖으로].
 // 목록 줄은 library-move.mjs의 pickerRows()가 만든 것을 그대로 그리고, 옮기는 일은 부른 쪽(library-folders.js)이 한다(서버 길은 LIB-폴더탐색기와 같은 하나).
 // PC(761px~)는 누른 버튼 옆(자리가 없으면 반대쪽, 버튼이 모서리 도구줄이면 아래)에, 폰(760px 이하)은 아래에서 올라오는 작은 시트로 연다.
-// 닫기: Esc·바깥 누르기·폴더 고르기·왼쪽 화살표(옆 목록일 때)·폰 뒤로가기(history:true일 때). 열 때 '폴더 찾기' 칸에 초점, 닫을 때 부른 버튼으로 돌아간다.
+// 닫기: Esc·바깥 누르기·폴더 고르기·왼쪽 화살표(옆 목록일 때)·폰 뒤로가기(history:true일 때). 닫을 때 부른 버튼으로 돌아간다.
+// S52-27 UI-창스크롤(11/07 21:24 명진 결정): 열 때 초점은 PC(마우스)면 '폴더 찾기' 칸, 손가락 화면(pointer:coarse)이면 창 자체 —
+//   폰에서 자판이 저절로 올라와 목록 절반을 덮지 않고, 찾기 칸을 눌렀을 때만 뜬다. 창 안에서 ↓·↑ 이동은 그대로.
+// S52-27: 폰 시트는 아래 바(--kptu-mobile-tab-height·--kptu-switch-dock) 위에서 올라오고(library-upload.css), 높이 한도는 그 위 남은 자리 안.
+//   창 안 목록이 밀릴 때 나는 scroll은 자리 다시 맞추기(keep)에서 뺀다(anchored-popup.js followAnchor와 같은 규칙) —
+//   전에는 목록 scroll마다 position()이 시트의 inline 높이 한도를 지웠다 다시 써서 그 사이 목록 스크롤이 0으로 되돌아가 끝까지 내려가지 않았다.
 const GAP=4,EDGE=8,WIDTH=248;
 const wide=()=>typeof matchMedia==='function'&&matchMedia('(min-width:761px)').matches;
+const coarse=()=>typeof matchMedia==='function'&&matchMedia('(pointer:coarse)').matches;
 
 // S51-8 NEWS-전면개편 P4b: News [매체: 전체 ▾]도 같은 창을 쓴다 — id·창 이름·찾기 칸 글자·아래 단추 줄(foot:false면 없음)만 바꿔 연다. 기본값은 지금 그대로(폴더로 옮기기).
 //   줄에 dot(색 토큰 var(...))이 있으면 폴더 그림 대신 작은 색 점, current 표시 글자는 currentTag로 바꾼다.
-export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기기',findLabel='폴더 찾기',foot:withFoot=true,currentTag='지금 여기'}){
+//   folderIcons:false면(매체 고르기) 점 없는 줄에 폴더 그림을 그리지 않는다.
+export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기기',findLabel='폴더 찾기',foot:withFoot=true,currentTag='지금 여기',folderIcons=true}){
   let panel=null,input=null,list=null,note=null,foot=null,state=null,popover=false,closing=null,historyOwned=false,outside=null,keep=null;
   const HISTORY_KEY='kptuLibraryMovePicker';
 
   function ensure(){
     if(panel)return;
-    panel=document.createElement('div');panel.id=id;panel.className='lu-move-picker';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label',label);
+    panel=document.createElement('div');panel.id=id;panel.className='lu-move-picker';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label',label);panel.tabIndex=-1;
     panel.innerHTML=`<input type="search" class="lu-move-find" placeholder="${esc(findLabel)}" aria-label="${esc(findLabel)}" autocomplete="off" enterkeyhint="search"><div class="lu-move-list" role="group" aria-label="${esc(label)} 목록"></div><p class="lu-move-note" role="status" hidden></p><div class="lu-move-foot"${withFoot?'':' hidden'}></div>`;
     input=panel.querySelector('.lu-move-find');list=panel.querySelector('.lu-move-list');note=panel.querySelector('.lu-move-note');foot=panel.querySelector('.lu-move-foot');
     popover=typeof panel.showPopover==='function'&&typeof panel.hidePopover==='function'&&'popover' in panel;if(popover)panel.setAttribute('popover','manual');
@@ -51,7 +58,7 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     },true);
   }
   const items=()=>[...(list?.querySelectorAll('.lu-move-item')||[])];
-  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${r.dot?`<span class="lu-move-dot ui-color-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:pickIconHtml(r)}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?`<span class="lu-move-tag">${esc(currentTag)}</span>`:''}</button>`;
+  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${r.dot?`<span class="lu-move-dot ui-color-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:folderIcons?pickIconHtml(r):''}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?`<span class="lu-move-tag">${esc(currentTag)}</span>`:''}</button>`;
 
   function paint(){
     if(!state)return;
@@ -72,7 +79,13 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     if(!state||panel.hidden)return;
     const maxH=Math.max(160,Math.min(440,innerHeight-EDGE*2));
     panel.classList.toggle('lu-move-sheet',!wide());
-    if(!wide()){panel.style.cssText='';panel.style.maxHeight=Math.min(Math.round(innerHeight*0.7),maxH+80)+'px';return}
+    if(!wide()){
+      // 폰 시트: 자리(left·right·bottom)는 CSS(.lu-move-sheet)가 정하고, 여기서는 옆 목록 때 쓴 inline 자리만 지운 뒤 높이 한도만 둔다(같은 값이면 그대로).
+      for(const k of ['left','top','right','bottom','width'])panel.style.removeProperty(k);
+      const room=innerHeight-(parseFloat(getComputedStyle(panel).bottom)||0)-EDGE,mh=Math.max(120,Math.min(Math.round(innerHeight*0.7),maxH+80,room))+'px';
+      if(panel.style.maxHeight!==mh)panel.style.maxHeight=mh;
+      return;
+    }
     panel.style.width=Math.min(WIDTH,innerWidth-EDGE*2)+'px';panel.style.maxHeight=maxH+'px';
     const a=state.anchor.getBoundingClientRect(),h=Math.min(panel.getBoundingClientRect().height||maxH,maxH),w=Math.min(WIDTH,innerWidth-EDGE*2);
     let left,top;
@@ -97,11 +110,11 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     historyOwned=!!opts.history;
     if(historyOwned)history.pushState({...history.state,[HISTORY_KEY]:true},'',location.href);
     outside=e=>{if(!state||panel.contains(e.target)||state.anchor.contains?.(e.target)||state.keepOpen?.(e.target))return;void close(false,false)};
-    keep=()=>position();
+    keep=e=>{if(e?.type==='scroll'&&e.target instanceof Node&&panel.contains(e.target))return;position()};
     document.addEventListener('pointerdown',outside,true);
     window.addEventListener('resize',keep);window.addEventListener('scroll',keep,true);
     window.addEventListener('popstate',onPop);
-    input.focus({preventScroll:true});
+    (coarse()?panel:input).focus({preventScroll:true});
   }
   function onPop(e){if(state&&historyOwned&&!e.state?.[HISTORY_KEY]){historyOwned=false;void close(true,true)}}
   // 닫기. 끝난 뒤 resolve. fromBack=true는 이미 뒤로가기로 기록이 빠진 경우, restoreFocus=true는 부른 버튼으로 초점을 돌려준다(Esc·왼쪽 화살표·뒤로가기).
