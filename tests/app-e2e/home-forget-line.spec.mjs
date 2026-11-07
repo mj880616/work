@@ -41,7 +41,7 @@ for(const width of [344,390,884,1280])test(`${width}px: [하루] 맨 위 '잊지
   await fixture(page,{width});
   // 요청 2 + 챙길 것 1 + 가족 1 + 미분류 업데이트 0 = 4.
   await expect(line(page).locator('[data-nbx-badge]')).toHaveText('4');
-  await expect(line(page).locator('.nbx-head')).toHaveText('잊지 말기4열기 ›');
+  await expect(line(page).locator('.nbx-head')).toHaveText('잊지 말기4');
   await expect(line(page)).not.toContainText(/놓친|챙길 것|정리 안 된|나한테 온 요청/);
   await expect(line(page).locator('[data-nbx-row]')).toHaveCount(0);
   await expect(page.locator('#homeView [data-home-family],#homeView .nbx-foot')).toHaveCount(0);
@@ -62,9 +62,9 @@ test('누르면 정리함 한 목록이 열리고, 같은 숫자의 줄이 있�
   await expect(page.locator('#basketView [data-forget-section] [data-forget-src="telegram"],#basketView [data-forget-section] [data-forget-src="todo"],#basketView [data-forget-section] [data-forget-src="family"]')).toHaveCount(4);
 });
 
-test('처리할 것이 없으면 숫자 없이 "잊지 말기 열기 ›"만',async({page})=>{
+test('처리할 것이 없으면 숫자 없이 "잊지 말기"만',async({page})=>{
   await fixture(page,{features:[],cands:[]});
-  await expect(line(page).locator('.nbx-head')).toHaveText('잊지 말기열기 ›');
+  await expect(line(page).locator('.nbx-head')).toHaveText('잊지 말기');
   await expect(line(page).locator('[data-nbx-badge]')).toHaveCount(0);
 });
 

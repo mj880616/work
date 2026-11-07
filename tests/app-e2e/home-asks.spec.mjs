@@ -53,7 +53,7 @@ for(const width of [900,1280])test(`${width}px: a faint number beside the menu h
 });
 for(const width of [390,1280])test(`${width}px: nothing to handle → no mark`,async({page})=>{
   await fixture(page,{width,cands:[cand(3,'update')]});
-  await expect(page.locator('#homeView [data-home-summary] .nbx-head')).toHaveText('잊지 말기열기 ›');
+  await expect(page.locator('#homeView [data-home-summary] .nbx-head')).toHaveText('잊지 말기');
   const m=await mark(page);
   expect(m.attr).toBeNull();expect(['none','normal']).toContain(m.content);
 });
