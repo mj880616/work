@@ -81,3 +81,37 @@ for (const width of [1280, 390]) test(`the note input names the folder a new not
   await expect(folderBtn(page)).toHaveText('폴더 없음 ▾');
   expect(f.errors).toEqual([]);
 });
+
+// NOTE-폴더메뉴새노트(11/07): 폴더 줄 ⋯ 맨 위 [새 노트] → 기존 새 노트 창이 그 폴더가 골라진 채로 열리고, 저장하면 그 폴더에 들어간다.
+// 폴더 안 화면의 머리 ⋯ 에는 [이 폴더에 새 노트]. 폰 412 · PC 1280.
+for (const width of [1280, 412]) test(`folder ⋯ [새 노트] opens the new note window in that folder and saves there ${width}`, async ({ page }) => {
+  const f = await fixture(page, width);
+  const win = page.locator('#edWindow');
+  await expect(folderBtn(page)).toHaveText('폴더 없음 ▾');
+  await press(page, page.locator(`[data-nx-folder-more="${U(2)}"]`).first(), width);
+  await expect(page.locator('#noteDocMenu button').first()).toHaveText('새 노트');
+  await press(page, page.locator('#noteDocMenu [data-nx-new-note]'), width);
+  await expect(page.locator('#noteDocMenu')).toBeHidden();
+  await expect(win).toBeVisible();
+  await expect(win.locator('[data-edw-folder]')).toHaveText('개발 ▾');
+  await expect(folderBtn(page)).toHaveText('개발 ▾');
+  await win.locator('[data-edw-title]').fill('폴더 메뉴 새 노트');
+  await win.locator('.ed-window-body .ProseMirror').click(); await page.keyboard.type('합성 본문');
+  await win.locator('[data-edw-save]').click();
+  await expect(win).toHaveCount(0);
+  await expect.poll(() => f.rows.find(r => r.id === 'n-new')?.metadata?.folder_id).toBe(U(2));
+  expect(f.rows.find(r => r.id === 'n-new').metadata.folder).toBe('개발');
+  expect(f.writes.filter(w => w.method === 'POST')).toHaveLength(1);
+  expect(f.errors).toEqual([]);
+});
+
+for (const width of [1280, 412]) test(`inside a folder the head ⋯ has [이 폴더에 새 노트] ${width}`, async ({ page }) => {
+  await fixture(page, width);
+  await press(page, page.locator(`[data-nx-folder-more="${U(1)}"]`).first(), width);
+  await press(page, page.locator('#noteDocMenu [data-nx-enter]'), width);
+  await expect(folderBtn(page)).toHaveText('회의 ▾');
+  await press(page, page.locator('[data-note-folder-more]'), width);
+  await expect(page.locator('#noteDocMenu button').first()).toHaveText('이 폴더에 새 노트');
+  await press(page, page.locator('#noteDocMenu [data-nx-new-note]'), width);
+  await expect(page.locator('#edWindow [data-edw-folder]')).toHaveText('회의 ▾');
+});

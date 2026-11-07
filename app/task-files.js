@@ -7,6 +7,8 @@ import {bindPaste} from './paste-files.mjs';
 // so an older Edge never gets an attach request.
 import { fileAttrs, driveFileUrl } from './file-actions.js';
 import { uploadTimeoutMs } from './upload-budget.mjs';
+import { sendUploadApi } from './upload-send.mjs';
+import { trackUpload, mountUploadRows } from './upload-progress.js';
 import { renameHostAttrs, renameButtonHtml, applyRenamed } from './file-rename.js'; // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(할 일 첨부 표에 있는 파일만)
 export { splitTaskNotes, joinTaskNotes, taskAttachments } from './task-note-files.mjs'; // TASK-첨부열기: 메모 속 '첨부:' 줄 읽기·쓰기는 이 한 곳 // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
@@ -49,13 +51,23 @@ export function fileProblem(file, count) {
 }
 
 // One file per request (the Edge reads the whole request into memory). The same upload budget as the basket.
-export async function attachTaskFile(taskId, file, {rt = window.KPTURuntime} = {}) {
-  const copy = await rt.copyUploadFile(file);
+// UI-올리기진행표시 ②: 보내기는 공용 길(upload-send.mjs sendUploadApi = 실제 보낸 양), 표시는 공용 부품(upload-progress.js).
+// 한 할 일의 메모 줄을 서버가 차례로 고치므로 한 번에 한 파일씩 보낸다(동시에 보내면 늦은 쪽이 메모 줄을 덮을 수 있다).
+// 올리는 줄의 열쇠: job.scope = 'task:' + 할 일 id(창이 자기 할 일 것만 그린다). ✕는 다 보내기 전만(code upload_cancelled).
+export async function attachTaskFile(taskId, file, {rt = window.KPTURuntime, job = null} = {}) {
+  const shown = job || trackUpload({file, name: file?.name, size: file?.size});
+  shown.scope = 'task:' + taskId;
   const fd = new FormData();
-  fd.append('task_id', taskId);
-  fd.append('file', copy);
   try {
-    return await rt.api(endpoint('attach'), {method: 'POST', body: fd, singleFlight: false, timeoutMs: uploadTimeoutMs(file.size)});
+    const copy = await rt.copyUploadFile(file);
+    fd.append('task_id', taskId);
+    fd.append('file', copy);
+    const data = await sendUploadApi(rt, endpoint('attach'), {body: fd, size: file?.size || 0, job: shown, timeoutMs: uploadTimeoutMs(file?.size)});
+    shown.done();
+    return data;
+  } catch (e) {
+    if (e?.code !== 'upload_cancelled') shown.fail(message(e));
+    throw e;
   } finally { fd.delete('file'); }
 }
 
@@ -76,8 +88,9 @@ let dialog = null;
 export function openTaskFilesDialog({task, files = [], rt = window.KPTURuntime, onChange = () => {}, isCurrent = () => true}) {
   if (!task?.id) return;
   if (!dialog) {
-    document.body.insertAdjacentHTML('beforeend', `<div id="gtFilesModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="gtFilesTitle"><div class="modal-card small-card"><div class="modal-head"><h2 id="gtFilesTitle">파일 붙이기</h2><button type="button" class="icon-btn" data-gt-files-close aria-label="닫기">×</button></div><p class="gt-files-task" data-gt-files-task></p><ul class="gt-files-list" data-gt-files-list></ul><p class="gt-scope-note">${MAX_TASK_FILES}개까지 · 파일당 100MB</p><div class="gt-files-actions"><button type="button" class="secondary" data-gt-files-pick>파일 고르기</button><input type="file" multiple hidden data-gt-files-input></div><div class="status gt-files-status" data-gt-files-status role="status" aria-live="polite"></div></div></div>`);
+    document.body.insertAdjacentHTML('beforeend', `<div id="gtFilesModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="gtFilesTitle"><div class="modal-card small-card"><div class="modal-head"><h2 id="gtFilesTitle">파일 붙이기</h2><button type="button" class="icon-btn" data-gt-files-close aria-label="닫기">×</button></div><p class="gt-files-task" data-gt-files-task></p><ul class="gt-files-list" data-gt-files-list></ul><p class="gt-scope-note">${MAX_TASK_FILES}개까지 · 파일당 100MB</p><div class="gt-files-actions"><button type="button" class="secondary" data-gt-files-pick>파일 고르기</button><input type="file" multiple hidden data-gt-files-input></div><div data-gt-files-progress hidden></div><div class="status gt-files-status" data-gt-files-status role="status" aria-live="polite"></div></div></div>`);
     const m = document.querySelector('#gtFilesModal');
+    mountUploadRows(m.querySelector('[data-gt-files-progress]'), {has: job => !!dialog?.state && job.scope === 'task:' + dialog.state.task.id});
     dialog = {m, state: null};
     m.querySelector('[data-gt-files-close]').onclick = closeTaskFilesDialog;
     m.querySelector('[data-gt-files-pick]').onclick = () => { if (!dialog.state?.busy) m.querySelector('[data-gt-files-input]').click(); };
@@ -137,7 +150,7 @@ async function upload(picked) {
       status(`${file.name} 올리는 중… (${done + 1}/${picked.length})`);
       let d;
       try { d = await attachTaskFile(s.task.id, file, {rt: s.rt}); }
-      catch (e) { if (dialog?.state === s && s.isCurrent()) status(`${file.name}: ${message(e)}`, true); return; }
+      catch (e) { if (e?.code === 'upload_cancelled') continue; if (dialog?.state === s && s.isCurrent()) status(`${file.name}: ${message(e)}`, true); return; }
       if (!s.isCurrent()) return;
       if (!d?.ok) { status(`${file.name}: 저장 결과를 확인하지 못했습니다. 할 일을 다시 열어 확인해 주세요.`, true); return; }
       // Saved on the server: the list owner hears it even if this dialog was closed meanwhile.

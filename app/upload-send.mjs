@@ -7,7 +7,8 @@
 // 'upload_timeout_sending'(한도 안에 다 못 보냄 — 받지 못함), 'note_save_result_unknown'(다 보낸 뒤 답이 없음 — 저장됐을 수 있음).
 import {uploadTimeoutMs} from './upload-budget.mjs';
 
-const failure = (message, code, status = 0) => Object.assign(new Error(message), {code, status});
+// via: 'error'(연결 끊김) | 'timeout'(시간 한도) — 부르는 곳이 지금까지의 문구(끊김/시간 초과)를 고를 수 있게.
+const failure = (message, code, status = 0, via = '') => Object.assign(new Error(message), {code, status, ...(via ? {via} : {})});
 
 export function sendUpload(url, {method = 'POST', headers = {}, body, size = 0, timeoutMs = uploadTimeoutMs(size), signal = null, onProgress = () => {}, Xhr = globalThis.XMLHttpRequest, fetcher = globalThis.fetch} = {}) {
   const tell = value => { try { onProgress(value); } catch { /* 표시가 올리기를 멈추게 하지 않는다 */ } };
@@ -34,8 +35,8 @@ export function sendUpload(url, {method = 'POST', headers = {}, body, size = 0, 
     };
     xhr.upload.onload = () => { finishing = true; sent = whole = Math.max(whole, sent); tell({loaded: sent, total: whole, phase: 'finishing'}); };
     xhr.onload = () => end(resolve, {ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, text: String(xhr.responseText ?? '')});
-    xhr.onerror = () => end(reject, notSent() ? failure('연결이 끊겨 다 보내지 못했어요.', 'upload_not_sent') : failure('저장 결과를 확인하지 못했어요.', 'note_save_result_unknown'));
-    xhr.ontimeout = () => end(reject, notSent() ? failure('너무 오래 걸려 다 보내지 못했어요.', 'upload_timeout_sending') : failure('저장 결과를 확인하지 못했어요.', 'note_save_result_unknown'));
+    xhr.onerror = () => end(reject, notSent() ? failure('연결이 끊겨 다 보내지 못했어요.', 'upload_not_sent', 0, 'error') : failure('저장 결과를 확인하지 못했어요.', 'note_save_result_unknown', 0, 'error'));
+    xhr.ontimeout = () => end(reject, notSent() ? failure('너무 오래 걸려 다 보내지 못했어요.', 'upload_timeout_sending', 0, 'timeout') : failure('저장 결과를 확인하지 못했어요.', 'note_save_result_unknown', 0, 'timeout'));
     xhr.onabort = () => end(reject, failure('올리기를 취소했어요.', 'upload_cancelled'));
     signal?.addEventListener?.('abort', onAbort, {once: true});
     tell({loaded: 0, total: whole, phase: 'sending'});
@@ -63,3 +64,31 @@ export const amount = bytes => {
 };
 // 실제로 보낸 양으로만 %를 셈(0~100, 내림 — 다 보내기 전에는 100%를 쓰지 않는다).
 export const percent = (loaded, total) => total > 0 ? Math.min(100, Math.floor((Math.max(0, loaded) / total) * 100)) : 0;
+
+// UI-올리기진행표시 ②: 공용 runtime.api(fetch, 보낸 양 모름)로 파일을 보내던 곳(할 일 첨부·회의 파일)이 같은 결과 모양으로 쓰는 길.
+// runtime.api와 같게: 로그인 확인 → apikey·Bearer → 401이면 한 번만 새 로그인으로 다시 → JSON → 실패는 RuntimeError(status, code 'http_'+status).
+// 보내기는 sendUpload(실제 보낸 양을 job.progress로). 성공하면 runtime.api처럼 kptu:api-saved(경로·방법만, 내용 없음)를 한 번 알린다.
+export async function sendUploadApi(rt, path, {body, size = 0, job = null, timeoutMs, Xhr, fetcher} = {}) {
+  const fail = (message, options) => rt?.RuntimeError ? new rt.RuntimeError(message, options) : Object.assign(new Error(message), {status: 0, retryable: false, ...options});
+  const sessionRequired = () => fail('로그인이 필요합니다.', {status: 401, code: 'session_required'});
+  if (!(await rt.session.ensure())) throw sessionRequired();
+  const epoch = rt.session.epoch?.() ?? 0, url = path.startsWith('http') ? path : rt.config.url + path;
+  const send = () => {
+    const token = rt.session.read()?.access_token;
+    if (!token) throw sessionRequired();
+    return sendUpload(url, {headers: {apikey: rt.config.key, Authorization: 'Bearer ' + token}, body, size, signal: job?.signal || null, onProgress: job?.progress || (() => {}),
+      ...(timeoutMs != null ? {timeoutMs} : {}), ...(Xhr !== undefined ? {Xhr} : {}), ...(fetcher ? {fetcher} : {})});
+  };
+  let response = await send();
+  if (response.status === 401) {
+    if (!(await rt.session.refresh?.())) throw sessionRequired();
+    response = await send();
+    if (response.status === 401) { rt.session.write?.(null); throw sessionRequired(); }
+  }
+  let data; try { data = response.text ? JSON.parse(response.text) : null; } catch { data = response.text; }
+  if (!response.ok) throw fail(data?.message || data?.error_description || data?.hint || data?.error || ('요청 실패 ' + response.status), {status: response.status, code: 'http_' + response.status, retryable: response.status === 408 || response.status === 425 || response.status === 429 || response.status >= 500});
+  if (epoch === (rt.session.epoch?.() ?? 0) && data?.ok !== false && !data?.error) {
+    try { globalThis.window?.dispatchEvent(new CustomEvent('kptu:api-saved', {detail: {path, method: 'POST', fields: [], action: '', projectLinked: !!(body?.get?.('project_id') || data?.document?.project_id), epoch}})); } catch { /* 알림을 듣는 곳이 저장 결과를 바꾸지 않는다 */ }
+  }
+  return data;
+}

@@ -1,4 +1,6 @@
 import {waitHtml, barHtml, failHtml, emptyHtml} from './wait-state.js';
+import {sendUpload} from './upload-send.mjs';
+import {trackUpload, mountUploadRows} from './upload-progress.js'; // UI-올리기진행표시 ②: 기기 → 클라우드 올리기의 막대·%
 import {requestLibraryDocument} from './basket-library-send.js';
 import {slotBox, slotImg, slotFailed} from './img-slot.js';
 import {lookLayout, lookOf, lookValue, stepLook, lookCols, thumbWanted, FILES_LOOK_KEY} from './files-look-model.mjs';
@@ -8,7 +10,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
   placeOf, whereOf, cleanQuery, findSummary, errorText, failReason, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
   trashAsk, writeDoneText, writeErrorText, twinRows, TWIN_LIMIT, xferPlan, xferBig, sameNameRows, sameNameAsk, bigAsk, destTitle, destButton, destName,
   pushRecentDest, recentDestOf, xferLine, xferPercent, xferDoneText, XFER_BIG_HOW,
-  jobsActive, jobStatusText, jobLine, jobPercent, jobStrip, jobsTitle, jobAction, mergeJobs, newlyDone, deviceJobOnReopen,
+  jobsActive, jobReason, jobStatusText, jobLine, jobPercent, jobStrip, jobsTitle, jobAction, mergeJobs, newlyDone, deviceJobOnReopen,
   UPLOAD_BIG_HOW, UPLOAD_REOPEN_TEXT, upDropText, upStartText, uploadPlan, upBig, upSameName, sameUpFile, upPiece, deviceHint, upResultId,
   starWant, starLabel, applyStars, boxRows} from './files-model.mjs';
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
@@ -145,6 +147,7 @@ function install() {
 <div class="fx-top"><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><button type="button" class="mini fx-two" data-fx-two title="두 칸으로 보기" hidden>두 칸 보기</button></div>
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="고른 것" hidden></div>
 <p class="fx-note" data-fx-note role="status" hidden></p>
+<div class="fx-up" data-fx-uprows hidden></div>
 <div class="fx-cols" data-fx-cols><nav class="fx-tree nx-tree" data-fx-tree aria-label="폴더"></nav><div class="fx-main" data-fx-main>${paneHtml(0)}<aside class="fx-prev" data-fx-prev aria-label="미리보기" hidden></aside></div></div>
 <div class="fx-dim" data-fx-dim hidden></div><section class="fx-dest" data-fx-dest role="dialog" aria-modal="true" aria-labelledby="fxDestTitle" hidden></section>
 <div class="fx-askbox" data-fx-askbox hidden></div><div class="fx-drop-ask" data-fx-dropask role="dialog" aria-label="놓을 때 고르기" hidden></div><section class="fx-jobs" data-fx-jobs role="dialog" aria-labelledby="fxJobsTitle" hidden></section><div class="fx-xfer" data-fx-xfer role="status" aria-live="polite" hidden></div>
@@ -2016,6 +2019,26 @@ function paintJobs() {
 // 파일 손잡이(upFiles)는 이 탭 메모리에만 — 기기 저장 없음.
 const upFiles = new Map();
 const up = {queue: [], cur: null, pumping: false, hiddenStop: false};
+// UI-올리기진행표시 ②: 이 탭이 보내는 기기 파일마다 공용 올리는 줄 하나(trackUpload). 맨 위 줄('올리는 중 n개 · 보낸 양/전체 · %')은
+// 이 화면 위쪽(data-fx-uprows), 다른 화면으로 가면 하단바 위 한 줄. %는 조각(5MB) 안에서도 브라우저가 실제로 보낸 양(upload-send.mjs).
+// ✕ = 그 줄 멈춤(전송 목록의 [멈춤]과 같은 서버 요청 — 받은 조각은 클라우드에 남아 [이어 올리기]로 잇는다).
+// 숨김·멈춤(작업표 '일시 정지')이 되면 표시만 내린다(다시 보이면 남은 조각부터 새 표시로).
+mountUploadRows(root?.querySelector('[data-fx-uprows]'), {compact: true, has: job => job.fxUp === true});
+function upJob(item) {
+  if (item.job && !item.job.cancelled()) return item.job;
+  const job = trackUpload({file: item.file, name: item.file.name, size: item.file.size});
+  job.fxUp = true; item.job = job;
+  job.signal.addEventListener('abort', () => { if (item.job === job && !item.letGo) { item.job = null; jobsDo('job_pause', [item.id]); } }, {once: true});
+  return job;
+}
+// 표시만 내린다(서버 줄은 그대로). 숨김·사람이 멈춤·실패 뒤.
+function upLetGo(item, how, why = '') {
+  const job = item.job; if (!job) return;
+  item.job = null;
+  if (how === 'done') job.done();
+  else if (how === 'failed') job.fail(why);
+  else { item.letGo = true; job.cancel(); item.letGo = false; }
+}
 let refileFor = '';
 const upOurs = id => up.cur?.id === id || up.queue.some(q => q.id === id);
 // 클라우드 → 폰(3-③): 파일만(폴더·구글 문서·크기 모름은 xferPlan이 거름). 같은 이름은 한 번 묻고 [그래도 하기]면 앱이 '이름 (2)'로 둘 다 둔다(덮어쓰기 없음).
@@ -2173,10 +2196,19 @@ async function upPump() {
 }
 // 조각 보내기. 'done'·'failed' = 이 줄 끝, 'stop' = 멈춤(숨김·사람이 멈춤).
 async function upSend(item, slot) {
+  const out = await upSendPieces(item, slot);
+  upLetGo(item, out === 'done' ? 'done' : out === 'failed' ? 'failed' : 'stop', out === 'failed' ? jobReason(item.failCode || 'upload_failed') : '');
+  return out;
+}
+async function upSendPieces(item, slot) {
   const file = item.file, size = file.size, ctrl = new AbortController();
   up.cur = {id: item.id, ctrl};
   let off = Math.max(0, Number(slot.offset) || 0), tries = 0;
+  const job = upJob(item);
+  job.signal.addEventListener('abort', () => ctrl.abort(), {once: true});
+  job.progress({loaded: off, total: size, phase: 'sending'});
   const fail = async code => {
+    item.failCode = code;
     try { const v = await rt().api(FN, {method: 'POST', body: {action: 'upload_progress', confirm: true, id: item.id, error: code}, singleFlight: false, timeoutMs: 30000}); if (v?.job) setJobs(mergeJobs(state.jobs, [v.job])); } catch { loadJobs(); }
     return 'failed';
   };
@@ -2185,8 +2217,12 @@ async function upSend(item, slot) {
     if (!piece) return fail('upload_failed');
     let res;
     try {
-      res = await fetch(slot.url, {method: 'PUT', cache: 'no-store', credentials: 'omit', headers: {'Content-Range': `bytes ${piece.start}-${piece.end - 1}/${size}`},
-        body: file.slice(piece.start, piece.end), signal: ctrl.signal});
+      // 조각 하나를 실제 보낸 양을 알리며 보낸다(XMLHttpRequest — 기본으로 로그인 정보·쿠키를 싣지 않는다). 마지막 조각을 다 보낸 뒤만 '마무리 중…'.
+      const last = piece.end >= size, base = piece.start;
+      const r = await sendUpload(slot.url, {method: 'PUT', headers: {'Content-Range': `bytes ${piece.start}-${piece.end - 1}/${size}`},
+        body: file.slice(piece.start, piece.end), size: piece.end - piece.start, timeoutMs: 0, signal: ctrl.signal,
+        onProgress: p => job.progress({loaded: base + (Number(p.loaded) || 0), total: size, phase: last && p.phase === 'finishing' ? 'finishing' : 'sending'})});
+      res = {status: r.status, json: async () => JSON.parse(r.text)};
     } catch {
       if (ctrl.signal.aborted) return 'stop';
       if (++tries <= 2) { await new Promise(r => setTimeout(r, 1500 * tries)); if (ctrl.signal.aborted) return 'stop'; continue; }

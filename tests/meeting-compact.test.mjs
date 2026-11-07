@@ -13,7 +13,8 @@ test('파일 한 줄: 종류·이름·크기·상태·끝 버튼, 이름은 esca
   assert.match(html, /<span class="file-kind" data-kind="pdf" aria-hidden="true">PDF<\/span>/);
   assert.match(html, /<b>&lt;b&gt;&quot;자료&quot;\.pdf<\/b><small>2KB<\/small>/);
   assert.match(html, /<span class="file-line-state" data-s>올리는 중…<\/span>/);
-  assert.match(html, /role="progressbar"/);
+  // UI-올리기진행표시 ②: 끝없이 도는 줄은 그리지 않는다(올리는 동안 막대는 공용 부품 paintUploadLine이 실제 보낸 양으로 그린다).
+  assert.doesNotMatch(html, /role="progressbar"|file-line-progress/);
   assert.match(html, /<button>×<\/button><\/div>$/);
   const plain = fileLine({name:'a.hwp'});
   assert.doesNotMatch(plain, /file-line-state|progressbar|<small>/);
