@@ -2305,7 +2305,7 @@ async function treeAcross(mode, folders, dest, {numbered = new Set(), destRows =
   let doneFolders = 0, doneFiles = 0, skipped = 0;
   for (const f of folders) {
     let tree;
-    state.busy = `'${f.name}' 폴더 안을 읽는 중`; paintBar();
+    state.busy = `'${f.name}' 폴더 안 파일 모으는 중`; paintBar();
     try { tree = await treeWalk(f); } catch (e) { tree = undefined; notify(`${f.name}: ${errorText(codeOf(e))}`, {error: true, record: false}); }
     finally { if (state.scope === scope) { state.busy = ''; paintBar(); } }
     if (state.scope !== scope) return;
