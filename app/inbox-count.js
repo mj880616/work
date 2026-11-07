@@ -8,7 +8,9 @@ export const unsortedUpdates = (notes, links, docs = []) => visibleNotes(notes |
 // 챙길 것 처리 전: open candidates, minus what is already a task by title (todo-radar decision 5).
 export const openTodos = (candidates, taskTitles = []) => notPlanned((candidates || []).filter(row => row?.status === 'open'), taskTitles).length;
 // TG-요청강조: 그중 텔레그램 '나한테 온 요청'(수집 서버가 ask_me로 올린 후보). 홈 한 줄 요약이 같은 읽기로 함께 센다(읽기 추가 없음).
-export const openAsks = (candidates, taskTitles = []) => openTodos((candidates || []).filter(row => row?.source_kind === 'telegram'), taskTitles);
+export const openAsks = (candidates, taskTitles = []) => askRows(candidates, taskTitles).length;
+// S52-09 UI-요청상자통일: 그 요청 줄 자체(홈 '나한테 온 요청' 상자가 같은 읽기로 그림, 읽기 추가 없음).
+export const askRows = (candidates, taskTitles = []) => notPlanned((candidates || []).filter(row => row?.status === 'open' && row?.source_kind === 'telegram'), taskTitles);
 export function inboxCount({notes, links, docs, candidates, taskTitles} = {}) {
   const update = unsortedUpdates(notes, links, docs), todo = openTodos(candidates, taskTitles);
   return {update, todo, total: update + todo, asks: openAsks(candidates, taskTitles)};
@@ -22,6 +24,7 @@ export async function readInboxCount(rt = window.KPTURuntime, {taskTitles = [], 
   try {
     const [basket, open] = await (parts || readInboxParts(rt));
     if (!open.missing && !open.ok) return {ok: false};
-    return {ok: true, ...inboxCount({notes: basket.notes, links: basket.links, docs: basket.docs, candidates: open.missing ? [] : open.rows, taskTitles})};
+    const candidates = open.missing ? [] : open.rows;
+    return {ok: true, ...inboxCount({notes: basket.notes, links: basket.links, docs: basket.docs, candidates, taskTitles}), askRows: askRows(candidates, taskTitles)};
   } catch { return {ok: false}; }
 }

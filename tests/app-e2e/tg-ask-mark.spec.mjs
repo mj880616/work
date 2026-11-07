@@ -87,18 +87,20 @@ test('요청이 없으면 [나한테 온 요청] 칸도 노란 줄도 없다, �
  expect(f.errors).toEqual([]);
 });
 
-// HOME-업무일지홈: 홈 요약 한 줄은 '나한테 온 요청 n · 챙길 것 n · 정리 안 된 것 n ›'(PC·폰 같음, '새 소식'은 뺐다). 요청만 노란 주목 글씨.
-test('홈 한 줄 요약에 나한테 온 요청 수가 보인다(정리함 숫자와 같은 읽기), 누르면 정리함',async({page})=>{
+// HOME-업무일지홈 → S52-09 UI-요청상자통일: 홈 [하루] 카드 맨 위 '나한테 온 요청 n · 텔레그램 · 정리함 열기 ›' 상자(정리함 숫자와 같은 읽기), '새 소식'은 없다.
+test('홈 나한테 온 요청 상자에 요청 수가 보인다(정리함 숫자와 같은 읽기), 누르면 정리함',async({page})=>{
  await page.setViewportSize({width:412,height:900});
  await openHome(page,{beforeLoad:async()=>{
   await page.route('**/rest/v1/app_feed_days**',r=>r.fulfill({json:[{day:'2026-10-06',source:'telegram',total_count:30,kept_count:12,room_count:4,failed_count:0}]}));
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',r=>r.fulfill({json:CANDS().filter(c=>c.status==='open')}));
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:['telegram']}));
  }});
  const line=page.locator('#homeView [data-home-summary]');
- await expect(line).toHaveText(/^나한테 온 요청 1 · 챙길 것 \d+ · 정리 안 된 것 \d+ ›$/);
- await expect(line.locator('[data-home-summary-asks]')).toHaveClass(/is-on/);
+ await expect(line.locator('.nbx-head')).toHaveText('나한테 온 요청1· 텔레그램 ·정리함 열기 ›');
+ await expect(line.locator('[data-nbx-row]')).toHaveCount(1);
+ await expect(line.locator('.nbx-foot')).toHaveText(/^챙길 것 \d+ · 정리 안 된 것 \d+ ›$/);
  await expect(line).not.toContainText('새 소식');
- await line.locator('[data-goto="basket"]').click();
+ await line.locator('.nbx-head [data-goto="basket"]').click();
  await expect(page.locator('#basketView')).toBeVisible();
 });
 
