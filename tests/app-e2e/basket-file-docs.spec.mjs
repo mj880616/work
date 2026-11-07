@@ -154,7 +154,8 @@ for(const width of [390,1280])test(`[자료로 넣기] puts the files into the p
 });
 
 // UI-PC다듬기묶음 ④: [조직·프로젝트 자료로 넣기] 칸 버튼은 작은 버튼 기준(보이는 32px, 누르는 범위 44px).
-// UI-버튼전수조사(2026-10-24): 폰·중간 폭도 같은 32px, 채운 [자료로 넣기]만 폰·중간 폭에서 36px(PC 칸은 원래대로 32px).
+// UI-버튼전수조사(2026-10-24): 폰·중간 폭도 같은 32px. UI-창아래버튼통일(11/07): 아래 줄 [취소][자료로 넣기]는 한 가족 36px(모든 폭).
+// 누르는 범위 검사는 이름대로 버튼 위·아래 3px(36px 버튼의 44px 범위는 위아래 4px까지라 4px 지점은 경계 소수점에 걸린다).
 for(const [width,painted] of [[1280,32],[1024,32],[900,32],[390,32]])test(`[자료로 넣기] panel buttons are small at every width ${width}`,async({page})=>{
  const f=await fixture(page,{width}),detail=await openNote(page,ONLY,width);
  await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
@@ -162,10 +163,10 @@ for(const [width,painted] of [[1280,32],[1024,32],[900,32],[390,32]])test(`[자�
  const panel=detail.locator('[data-manual-link]');
  const target=panel.locator(`[data-manual-target="project:${P}"]`);
  await expect(target.getByRole('button',{name:'기록도 남기기'})).toBeVisible();
- const measure=async locator=>{await locator.scrollIntoViewIfNeeded();return locator.evaluate(el=>{const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after'),x=r.left+r.width/2;return {h:r.height,touch:p.content!=='none'?parseFloat(p.height):r.height,above:document.elementFromPoint(x,r.top-4)?.closest('button')===el,below:document.elementFromPoint(x,r.bottom+4)?.closest('button')===el}})};
+ const measure=async locator=>{await locator.scrollIntoViewIfNeeded();return locator.evaluate(el=>{const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after'),x=r.left+r.width/2;return {h:r.height,touch:p.content!=='none'?parseFloat(p.height):r.height,above:document.elementFromPoint(x,r.top-3)?.closest('button')===el,below:document.elementFromPoint(x,r.bottom+3)?.closest('button')===el}})};
  const buttons={'담당조직 고르기':panel.locator('[data-manual-pick="organization"]'),'프로젝트 고르기':panel.locator('[data-manual-pick="project"]'),'빼기':target.locator('[data-manual-remove]'),'기록도 남기기':target.locator('[data-manual-record]'),'자료로 넣기':panel.locator('[data-manual-confirm]'),'취소':panel.locator('[data-manual-cancel]')};
  for(const [name,locator] of Object.entries(buttons)){
-  const m=await measure(locator);expect(m.h,name).toBe(name==='자료로 넣기'&&width<761?36:painted);expect(m.touch,name).toBeGreaterThanOrEqual(44);
+  const m=await measure(locator);expect(m.h,name).toBe(name==='자료로 넣기'||name==='취소'?36:painted);expect(m.touch,name).toBeGreaterThanOrEqual(44);
   if(width>=761){expect(m.above,name+' 위 3px 누름').toBe(true);expect(m.below,name+' 아래 3px 누름').toBe(true)}
  }
  await expect(buttons['자료로 넣기']).toHaveText('자료로 넣기');

@@ -46,7 +46,7 @@ function footers() {
   return out;
 }
 // 아직 가족 클래스가 아닌 줄 안 버튼(다음 PR UI-창아래버튼통일 ②에서 정리). 줄기만 한다.
-const LEFTOVER = {'basket.js':1, 'basket-manual-link.js':2, 'journal.js':3};
+const LEFTOVER = {'journal.js':3};
 
 test('줄 안 삭제는 맨 앞(왼쪽 끝), 저장(주 동작)은 맨 뒤(오른쪽 끝)', () => {
   const list = footers();
