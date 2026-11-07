@@ -74,10 +74,12 @@ for (const width of [412, 884, 1440]) {
     await open(page, P1);
     const d = nd(page);
     await expect(d.locator('.nd-title')).toHaveText('가상 글 1');
-    // 순서: 꼬리 줄 → 제목 → 요약 → 시사점 → 원문 전체 → 단추 줄.
+    // 순서(S52-12 NEWS-원문먼저번역): 꼬리 줄 → 제목 → 원문 전체 → 요약 → 시사점 → 단추 줄.
     await expect(d.locator('.nd-meta > span')).toHaveText(['민주노총', '성명', '2026. 10. 6. 09:30', '가상 글쓴이']);
     const order = await d.evaluate(el => [...el.children].map(c => c.dataset.ndSummary !== undefined ? 'sum' : c.dataset.ndImplications !== undefined ? 'imp' : c.dataset.ndBody !== undefined ? 'body' : c.matches('[data-nd-acts]') ? 'acts' : c.matches('.nd-title') ? 'title' : c.matches('.nd-top') ? 'top' : '').filter(Boolean));
-    expect(order).toEqual(['top', 'title', 'sum', 'imp', 'body', 'acts']);
+    expect(order).toEqual(['top', 'title', 'body', 'sum', 'imp', 'acts']);
+    // 한글 사회운동 글에는 [번역]이 없다.
+    await expect(d.locator('[data-nd-translate]')).toHaveCount(0);
     // AI가 아직인데 원문 전체가 보인다(글자로만 — 태그는 글자 그대로). 요약·시사점 칸에만 '만드는 중'.
     const prose = d.locator('[data-nd-prose]');
     await expect(prose.locator('p').first()).toHaveText('가상 첫 문단이다 <b>태그</b>.');
