@@ -1,3 +1,4 @@
+import { SHEET, openPicker, pressRow, chosenKeys } from './helpers/area-org-picker.mjs';
 import { appOrigin } from './helpers/test-origin.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
 import { test, expect } from '@playwright/test';
@@ -311,6 +312,8 @@ test('360 390 412 430px에서 담당조직 목록과 상세가 가로 넘침 없
 
 // TASK-조직순서: the list and both event checks use the shared order, with a thin line between groups.
 const ORDERED=['전국철도노동조합','|','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','|','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','|','메트로9호선노동조합','서울교통공사9호선지부','김포도시철도지부','용인경전철지부','|'];
+// 공용 고르기 창(area-org-picker.js) 안 담당조직 순서, 묶음 사이 '|'.
+const pickerSequence=page=>page.locator(SHEET).evaluate(sheet=>[...sheet.querySelectorAll('.aop-list > .aop-group')].flatMap((g,i)=>[...(i?['|']:[]),...[...g.querySelectorAll('.aop-org-items .home-choice-name')].map(el=>el.textContent.trim())]));
 const sequence=(page,selector,item)=>page.locator(selector).evaluate((box,item)=>[...box.querySelectorAll(':scope>.so-org-group')].flatMap((g,i)=>[...(i?['|']:[]),...[...g.querySelectorAll(item)].map(el=>el.firstChild?.textContent?.trim())]),item);
 
 test('담당조직 목록은 정한 13개 순서와 묶음 구분선, 그 밖은 가나다순으로 표시한다',async({page})=>{
@@ -334,10 +337,13 @@ test('일정 등록의 담당조직 체크는 같은 순서·구분선이고 궤
     await page.setViewportSize({width,height:900});
     await openAssigned(page,'?orgs=order');
     await page.evaluate(()=>{const m=document.querySelector('#eventModal');m.classList.remove('hidden')});
-    expect(await sequence(page,'#soEventOrgChecks .so-org-checks','span')).toEqual([...ORDERED,'국민연금지부','한국소비자원지부']);
-    await expect(page.locator('#soEventOrgChecks')).not.toContainText('궤도협의회');
-    await expect(page.locator('#soEventOrgChecks .so-org-group')).toHaveCount(5);
-    await page.locator('[data-event-org="ord-12"]').check();
+    // S52-01 ③b: '관련 담당조직'은 한 줄 + 공용 고르기 창(묶음만 + 펼침). 창 안 순서·묶음은 그대로.
+    await openPicker(page,'#soEventOrgChecks','org');
+    expect(await pickerSequence(page)).toEqual([...ORDERED,'국민연금지부','한국소비자원지부']);
+    await expect(page.locator(SHEET)).not.toContainText('궤도협의회');
+    await expect(page.locator(SHEET+' .aop-group')).toHaveCount(5);
+    await pressRow(page,'o:ord-12');await page.locator(SHEET+' [data-sheet-save]').click();await expect(page.locator(SHEET)).toBeHidden();
+    expect(await chosenKeys(page,'#soEventOrgChecks')).toEqual(['o:ord-12']);
     expect(await page.evaluate(()=>window.__KPTU_SELECTED_EVENT_ORGS__())).toEqual(['ord-12']);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth),`checks overflow at ${width}px`).toBeLessThanOrEqual(1);
   }
@@ -346,10 +352,12 @@ test('일정 등록의 담당조직 체크는 같은 순서·구분선이고 궤
 test('Google 일정 수정은 내 담당조직만 표시하고 기존 숨은 연결을 보존한다',async({page})=>{
   await openAssigned(page,'?orgs=order');
   await page.evaluate(()=>{document.querySelector('#ciGoogleModal').classList.remove('hidden');window.__KPTU_EDIT_GOOGLE_ORGS__(['ord-other'])});
-  const box='#soGoogleEditOrgChecks .so-org-checks';
-  await expect(page.locator(box)).toBeVisible();
-  expect(await sequence(page,box,'span')).toEqual([...ORDERED,'국민연금지부','한국소비자원지부']);
-  await expect(page.locator(box)).not.toContainText('가나다 다른 담당');
+  const box='#soGoogleEditOrgChecks';
+  await expect(page.locator(box+' [data-aop-line="org"]')).toBeVisible();await expect(page.locator(box+' [data-aop-chip]')).toHaveCount(0);
+  await openPicker(page,box,'org');
+  expect(await pickerSequence(page)).toEqual([...ORDERED,'국민연금지부','한국소비자원지부']);
+  await expect(page.locator(SHEET)).not.toContainText('가나다 다른 담당');
+  await page.locator(SHEET+' [data-sheet-close]').click();await expect(page.locator(SHEET)).toBeHidden();
   expect(await page.evaluate(()=>window.__KPTU_SELECTED_GOOGLE_EDIT_ORGS__())).toEqual(['ord-other']);
 });
 

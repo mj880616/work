@@ -4,6 +4,7 @@
 .aop-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; min-height:40px; padding:4px 0; border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
 .aop-row:last-child { border-bottom:0; }
 .aop-label { flex:none; width:58px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+.aop-label.is-long { width:auto; margin-right:4px; }
 .aop-chips { display:contents; }
 .aop-row [data-aop-none] { margin:0; }
 .aop-chip { display:inline-flex; align-items:center; max-width:100%; min-width:0; height:24px; box-sizing:border-box; padding:0 2px 0 9px; border:var(--ds-line-width,1px) solid var(--ds-select-line,var(--kptu-border-strong)); border-radius:var(--kptu-radius-pill,999px); background:var(--ds-select-bg,var(--kptu-primary-soft)); color:var(--ds-select-ink,var(--kptu-primary-ink)); font-size:var(--ds-text-meta,12px); line-height:1; }
@@ -51,3 +52,5 @@
 .home-choice-sheet.home-choice-anchored .aop-done { min-height:32px; padding-left:calc(30px + var(--home-choice-depth,0)*16px); font-size:13px; }
 .home-choice-sheet .aop-done .home-choice-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .home-choice-sheet .aop-done-note { flex:none; color:var(--kptu-faint); font-size:var(--ds-text-meta,12px); white-space:pre; }
+/* 하나만 고르는 창 맨 위의 회색 줄(사업 보고 '없음' 등, openAreaOrgPicker top attrs). */
+.home-choice-sheet [data-aop-muted] .home-choice-name { color:var(--kptu-muted); }

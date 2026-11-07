@@ -1,3 +1,4 @@
+import {SHEET as AOP_SHEET,pressRow} from './helpers/area-org-picker.mjs';
 // MTG-한줄업데이트(요청함 10/29 08:59, 명진 09:01 '추천대로'): 사업 보고 [전체] [+] 메뉴 맨 위 [✎ 한 줄 업데이트] → 창(사업영역·날짜·한 줄·
 // + 다음 할 일) → 저장 본문(칸 oneline·꼬리표·다음 할 일)과 사업영역 연결 → 목록에 그 문장, [한 줄] 칩에서 [+]는 바로 창. 폰 412·884, PC 1440.
 // 모든 이름·글은 합성 값.
@@ -52,8 +53,10 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
   expect(s.meetingWrites).toEqual([]);
   // 공용 사업영역 고르기 창에서 고른다.
   await dialog.locator('[data-ol-area]').click();
-  const areas=page.locator('#reportAreaSheet');await expect(areas).toBeVisible();
-  await areas.locator('[data-sheet-value="top-a"]').click();
+  // S52-01 ③b: 모든 화면과 같은 고르기 창(하나만 고르기, 누르면 닫힘).
+  const areas=page.locator(AOP_SHEET);await expect(areas).toBeVisible();await expect(areas.locator('h2')).toHaveText('사업영역 꼬리표');
+  await expect(areas.locator('.aop-list [data-sheet-value=""]')).toHaveText('꼬리표 없음');
+  await pressRow(page,'p:top-a');
   await expect(areas).toBeHidden();
   await expect(dialog.locator('[data-ol-area]')).toContainText('공공기관 기능개혁 대응');
   // 다음 할 일은 눌러야 펼쳐진다.

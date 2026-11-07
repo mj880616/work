@@ -8,9 +8,13 @@
 // - MTG-사업영역없음(요청 10/30 07:51): 고르기 목록 '고르기' 바로 아래 [없음](회색). 고르면 business_area_id=null·business_area_none=true로 저장해
 //   '안 단 보고'에서 빠진다. 사업영역을 고르면 business_area_none=false를 함께 보낸다. 칸(20261030090000)이 없는 서버면 [없음]을 두지 않는다.
 //   [없음]은 미리 고르지 않는다(연결·AI 추천은 사업영역 id만).
+// - S52-01 ③b UI-사업영역조직고르기창: 줄마다의 사업영역 칸은 작은 단추([고르기] / 고른 이름 '상위 › 하위' / 회색 '없음')이고, 누르면 모든 화면과 같은
+//   고르기 창(area-org-picker.js, 하나만 고르기: 맨 위 '고르기'·'없음', 큰 묶음만 + 꺾쇠, 찾기·자주 쓴 것)이 이 창 위에 뜬다(뒤로가기는 위 창부터).
+//   단추가 값(data-value: 사업영역 id | AREA_NONE | '')을 갖고, 저장 길은 그대로다.
 import {createChoiceSheet} from './choice-sheet.js';
 import {untaggedInWeek,presetArea,reportDay,AREA_NONE,hasAreaNone,areaBody} from './business-area-model.mjs';
-import {loadReportPlaces} from './report-places-sheet.js';
+import {loadReportPlaces,areaNameIn} from './report-places-sheet.js';
+import {openAreaOrgPicker,dismissAreaOrgPicker,usedKeysNow,catalogAreas} from './area-org-picker.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const AI_ROWS=8;                                             // 창 하나에서 AI에 묻는 줄 수(한도 아끼기)
@@ -21,37 +25,47 @@ const NONE_LABEL='없음';                                      // [없음] 고�
 const titleOf=m=>String(m?.title||m?.series_name||'').replace(/\s+/g,' ').trim()||'제목 없음';
 const dayOf=m=>{const d=reportDay(m);return d?`${Number(d.slice(5,7))}.${Number(d.slice(8,10))}`:''};
 
-function optionsHtml(places,withNone){
-  return (withNone?`<option value="${AREA_NONE}" class="area-tag-none">${NONE_LABEL}</option>`:'')+(places?.projects||[]).map(x=>`<option value="${esc(x.project.id)}">${'　'.repeat(Math.max(0,x.depth||0))}${esc(x.project.name||'이름 없는 사업영역')}</option>`).join('');
+// The row's 사업영역 button: its value is data-value (사업영역 id | AREA_NONE | ''), its text the chosen name ('상위 › 하위'), '없음' or '고르기'.
+const valueOf=b=>b?.dataset.value||'';
+function paintPick(b,value){
+  if(!b)return;b.dataset.value=value||'';const name=value===AREA_NONE?NONE_LABEL:value?(areaNameIn(active?.places,value)||'사업영역'):'고르기';
+  const text=document.createElement('span');text.className='area-tag-select-text';text.textContent=name;b.replaceChildren(text);b.title=value&&value!==AREA_NONE?name:'';b.classList.toggle('is-none',value===AREA_NONE);b.classList.toggle('is-empty',!value);
 }
-function rowHtml(m,options){
+function rowHtml(m){
   const id=esc(m.id),title=titleOf(m);
-  return `<div class="area-tag-row" data-area-tag-row="${id}"><span class="area-tag-day">${esc(dayOf(m))}</span><span class="area-tag-title" title="${esc(title)}">${esc(title)}</span><span class="area-tag-pick"><select class="area-tag-select" data-area-tag-select="${id}" aria-label="${esc(title)} 사업영역"><option value="">고르기</option>${options}</select><span class="area-tag-mark" data-area-tag-mark hidden></span></span></div>`;
+  return `<div class="area-tag-row" data-area-tag-row="${id}"><span class="area-tag-day">${esc(dayOf(m))}</span><span class="area-tag-title" title="${esc(title)}">${esc(title)}</span><span class="area-tag-pick"><button type="button" class="secondary area-tag-select is-empty" data-area-tag-select="${id}" data-value="" aria-haspopup="dialog" aria-label="${esc(title)} 사업영역"><span class="area-tag-select-text">고르기</span></button><span class="area-tag-mark" data-area-tag-mark hidden></span></span></div>`;
+}
+async function pickFor(button){
+  const a=active,id=button.dataset.areaTagSelect;if(!a||a.saving)return;
+  const used=await usedKeysNow().catch(()=>[]);if(active!==a||!button.isConnected)return;
+  const value=valueOf(button),top=[{key:'',name:'고르기'},...(a.withNone?[{key:AREA_NONE,name:NONE_LABEL,attrs:'data-area-none data-aop-muted'}]:[])];
+  await openAreaOrgPicker({kind:'area',trigger:button,used,multi:false,top,title:'사업영역 고르기',areas:catalogAreas(a.places?.projects||[]),
+    selected:value===AREA_NONE?[AREA_NONE]:value?['p:'+value]:[],
+    onCommit:keys=>{if(active!==a||!button.isConnected)return;const k=[...keys][0]||'';a.touched.add(id);paintPick(button,k===AREA_NONE?AREA_NONE:k.startsWith('p:')?k.slice(2):'');mark(button,'')}});
 }
 function ensureSheet(){
   if(sheet)return sheet;
   sheet=createChoiceSheet({id:'reportAreaTagSheet',titleId:'reportAreaTagSheetTitle',historyKey:'kptuReportAreaTag',
     canOpen:()=>!!active,choices:()=>loadReportPlaces().then(p=>{if(active)active.places=p}),
-    render:()=>{const options=optionsHtml(active?.places,!!active?.withNone);return {title:`사업영역 달기 · ${active?.list.length||0}건`,html:`<div class="area-tag-list">${(active?.list||[]).map(m=>rowHtml(m,options)).join('')}</div><div class="area-tag-foot"><span class="area-tag-status" data-area-tag-status role="status"></span><button type="button" class="primary area-tag-save" data-area-tag-save>저장</button></div>`}},
+    render:()=>{return {title:`사업영역 달기 · ${active?.list.length||0}건`,html:`<div class="area-tag-list">${(active?.list||[]).map(m=>rowHtml(m)).join('')}</div><div class="area-tag-foot"><span class="area-tag-status" data-area-tag-status role="status"></span><button type="button" class="primary area-tag-save" data-area-tag-save>저장</button></div>`}},
     onSelect:()=>{},
     onError:error=>active?.onMessage?.(error?.message||'사업영역을 불러오지 못했어요.'),
     // UI-창잘림·끌어옮기기: 고르기 칸까지 한 줄에 들어가게 넓은 창(폭은 공용 부품이 정하고 화면 안으로 맞춘다).
     width:420});
   const el=document.getElementById('reportAreaTagSheet');
   el.classList.add('area-tag-sheet');
-  el.addEventListener('change',e=>{const s=e.target.closest?.('[data-area-tag-select]');if(!s||!active)return;active.touched.add(s.dataset.areaTagSelect);s.classList.toggle('is-none',s.value===AREA_NONE);mark(s,'')});
-  el.addEventListener('click',e=>{if(e.target.closest?.('[data-area-tag-save]'))void save()});
+  el.addEventListener('click',e=>{const pick=e.target.closest?.('[data-area-tag-select]');if(pick){if(!pick.disabled)void pickFor(pick);return}if(e.target.closest?.('[data-area-tag-save]'))void save()});
   // 창이 닫히면(저장·×·Esc·뒤로가기·바깥) 남은 AI 추천 묻기를 멈춘다.
-  el.addEventListener('close',()=>{run++;active=null});
+  el.addEventListener('close',()=>{run++;active=null;dismissAreaOrgPicker()});
   return sheet;
 }
 const known=id=>!!active?.places?.projects?.some(x=>String(x.project.id)===String(id));
 function selectOf(id){return document.querySelector(`#reportAreaTagSheet [data-area-tag-select="${CSS.escape(String(id))}"]`)}
 function mark(select,from){const m=select?.parentElement?.querySelector('[data-area-tag-mark]');if(!m)return;m.textContent=from==='ai'?'AI':from==='link'?'연결':'';m.hidden=!from;m.title=from==='ai'?'AI 추천으로 미리 골랐어요':from==='link'?'이 보고에 연결된 사업영역이에요':''}
 function preset(m,aiId=''){
-  const s=selectOf(m.id);if(!s||active.touched.has(String(m.id))||s.value)return false;
+  const s=selectOf(m.id);if(!s||active.touched.has(String(m.id))||valueOf(s))return false;
   const p=presetArea(m,aiId,known);if(!p.id)return false;
-  s.value=p.id;mark(s,p.from);return true;
+  paintPick(s,p.id);mark(s,p.from);return true;
 }
 
 // 미리 고르기: 연결에서 먼저, 남은 줄은 AI 추천을 차례로(창이 닫히거나 한도면 멈춤).
@@ -80,7 +94,7 @@ async function saveOne(rt,workspace,id,value,withNone){
 }
 async function save(){
   const a=active;if(!a||a.saving)return;
-  const picks=a.list.map(m=>({m,area:selectOf(m.id)?.value||''})).filter(x=>x.area);
+  const picks=a.list.map(m=>({m,area:valueOf(selectOf(m.id))})).filter(x=>x.area);
   if(!picks.length){status('고른 사업영역이 없어요.');return}
   const rt=window.KPTURuntime,workspace=rt?.context?.read?.()?.workspace?.id;
   if(!rt?.api||!workspace){status('로그인 상태를 확인하지 못했어요.');return}

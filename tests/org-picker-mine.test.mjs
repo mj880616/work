@@ -36,7 +36,7 @@ const PICKERS = Object.freeze({
   'app/update-places.js': '기록할 곳 고르기(홈 업데이트·크게 쓰기)',
   'app/google-tasks.js': '할 일 연결',
   'app/feed-data.js': '통화·텔레그램 소식 조직 연결(내 담당 표시)',
-  'app/suborganizations.js': '일정 등록·Google 일정 수정의 관련 담당조직 체크',
+  'app/suborganizations.js': '일정 등록·Google 일정 수정의 관련 담당조직 고르기',
   'app/library-upload.js': '자료실 일괄 바꾸기 담당조직',
   'app/basket-manual-link.js': '정리함 [연결하기]',
   'app/weekly-discuss-table.js': '주간보고 3) 상집 논의 요청 줄의 관련 조직 고르기',
@@ -76,7 +76,8 @@ test('고르기 칸이 있는 파일은 모두 규칙을 쓴다(허용 목록으
   assert.match(source('app/update-places.js'), /pickMyOrganizations\(os, as, \{whenNone: 'none'\}\)/);
   assert.match(source('app/google-tasks.js'), /pickMyOrganizations\(orgs\|\|\[\],assignments\|\|\[\],\{whenNone:'none'\}\)/);
   assert.match(source('app/suborganizations.js'), /import\('\.\/my-organizations\.js'\)/);
-  assert.match(source('app/suborganizations.js'), /checks\('event',selected,pickerOrganizations\(\)\)/);
+  // S52-01 ③b: 체크 목록 대신 한 줄 + 공용 고르기 창. 고를 수 있는 곳은 여전히 pickerOrganizations()(내 담당조직 규칙).
+  assert.match(source('app/suborganizations.js'), /const mine=pickerOrganizations\(\),order=window\.KPTUOrganizationOrder,list=order\.forPicker\(mine,getSel\(\)\)/);
   assert.match(source('app/suborganizations.js'), /const mine=pickerOrganizations\(\);soGoogleHiddenOrgIds=/);
   // 자료실 일괄 바꾸기는 내 담당조직만, 묶기(이미 붙은 자료 보여 주기)는 모든 조직 이름.
   assert.match(source('app/library-upload.js'), /organizations:kind==='organization'\?luBulkOrganizations\(cur\):\[\]/);
