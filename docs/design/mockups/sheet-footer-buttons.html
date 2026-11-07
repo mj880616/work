@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — 창 아래 버튼 줄(삭제·완료·저장) 한 가족으로</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--pri:#5c5470;--tonal:#ecebf3;--red:#a8382f;--redbg:#f8ecea}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:20px;padding:0 16px 24px}
+  .col{width:360px}
+  .col h2{font-size:14px;margin:8px 0}
+  .sheet{background:#fcfcfd;border:1px solid #d6d4dd;border-radius:16px 16px 0 0;padding:12px}
+  .field{font-size:12.5px;color:var(--faint);padding:6px 0;border-bottom:1px solid var(--line)}
+  .bar{display:flex;align-items:center;gap:8px;margin-top:12px}
+  .sp{flex:1}
+  /* 지금(캡처 재현): 크기·테두리·바탕이 제각각 */
+  .now button{font:inherit;border-radius:12px}
+  .now .del{height:44px;padding:0 16px;border:1.5px solid var(--red);color:var(--red);background:#fff;font-size:15px}
+  .now .done{height:42px;padding:0 18px;border:1px solid var(--line);background:#fff;font-size:15px}
+  .now .save{height:46px;padding:0 18px;border:0;background:var(--pri);color:#fff;font-size:15.5px}
+  /* 한 가족: 높이·모서리·글자·안쪽 여백 같음, 다른 건 '채움 정도'만 */
+  .fam button{font:inherit;font-size:14px;font-weight:600;height:38px;padding:0 16px;border-radius:10px;border:0}
+  .fam .save{background:var(--pri);color:#fff}
+  .fam .done{background:var(--tonal);color:var(--ink)}
+  .A .del{background:none;color:var(--red);padding:0 6px}
+  .B .del{background:var(--redbg);color:var(--red)}
+  .tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:1px 5px;margin-left:4px}
+  table{border-collapse:collapse;margin:0 16px 24px;font-size:13px;background:#fff}
+  td,th{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{background:#f3f2f6}
+</style>
+</head>
+<body>
+<h1>시안 — 창 아래 버튼 줄(삭제·완료·저장)을 한 가족으로</h1>
+<p class="note">명진 11/07 10:55: "삭제 완료 저장 버튼 미세하게 크기 다르고 디자인 통일감이 없음. 똑같은 색으로 하라는 게 아니라 같은 디자인에서의 배리에이션으로 안 느껴짐. 배경색 유무 등도."<br>
+→ 높이·모서리·글자 크기·굵기·안쪽 여백은 셋 다 똑같이. 다른 건 <b>채움 정도 하나</b>만: 저장 = 진하게 채움, 완료 = 연하게 채움, 삭제 = 빨간 글자. 테두리 선은 아무 버튼에도 없음.</p>
+
+<div class="wrap">
+  <div class="col">
+    <h2>지금(캡처 재현)</h2>
+    <div class="sheet now">
+      <div class="field">사업영역 없음 + 고르기</div><div class="field">조직 ○○지부 ✕ +</div>
+      <div class="bar"><span class="sp"></span><button class="del">삭제</button><button class="done">완료</button><button class="save">저장</button></div>
+    </div>
+    <p class="note" style="margin:6px 0">높이 44·42·46, 삭제만 빨간 굵은 테두리, 완료는 흰 바탕 회색 선, 저장은 채움 → 셋이 다른 부품처럼 보임</p>
+  </div>
+
+  <div class="col">
+    <h2>A — 삭제는 왼쪽 빨간 글자 <span class="tag">명진 10:57 확정</span></h2>
+    <div class="sheet fam A">
+      <div class="field">사업영역 없음 + 고르기</div><div class="field">조직 ○○지부 ✕ +</div>
+      <div class="bar"><button class="del">삭제</button><span class="sp"></span><button class="done">완료</button><button class="save">저장</button></div>
+    </div>
+    <p class="note" style="margin:6px 0">지우기는 실수로 누르기 쉬운 자리에서 떨어뜨려 왼쪽 끝. 바탕 없는 글자라 눈에 덜 튐(누르면 5초 되돌리기는 그대로).</p>
+  </div>
+
+  <div class="col">
+    <h2>B — 셋 다 바탕 있음</h2>
+    <div class="sheet fam B">
+      <div class="field">사업영역 없음 + 고르기</div><div class="field">조직 ○○지부 ✕ +</div>
+      <div class="bar"><button class="del">삭제</button><span class="sp"></span><button class="done">완료</button><button class="save">저장</button></div>
+    </div>
+    <p class="note" style="margin:6px 0">삭제도 같은 모양 상자에 연한 빨강 바탕. 셋이 나란한 상자로 보임.</p>
+  </div>
+</div>
+
+<table>
+  <tr><th>같게</th><td>높이 38px(누르는 범위 44px) · 모서리 10px · 글자 14px 굵게 · 안쪽 여백 16px · 테두리 선 없음</td></tr>
+  <tr><th>다르게(채움 정도만)</th><td>저장 = 진한 채움(주 동작) · 완료 = 연한 채움 · 삭제 = 빨간 글자(A) 또는 연한 빨강 채움(B)</td></tr>
+  <tr><th>자리</th><td>삭제는 왼쪽 끝, 완료·저장은 오른쪽(저장이 맨 오른쪽)</td></tr>
+  <tr><th>같은 종류 전수</th><td>모든 작은 창·아래에서 올라오는 창의 아래 버튼 줄(할 일·일정·노트·업데이트·사업 보고·자료 등록·고르기 창 등), 폰·폴드·PC</td></tr>
+</table>
+</body>
+</html>
