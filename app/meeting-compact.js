@@ -18,7 +18,7 @@ export function fileKind(name){
 // 파일 한 줄: 종류 · 이름(· 크기) · 상태(진행률) · 끝 버튼(×). state: pending|uploading|success|error|unknown.
 export function fileLine({name,meta='',state='',label='',end='',attrs='',cls='',stateAttr='data-file-state'}){
   const kind=fileKind(name);
-  return `<div class="file-line${cls?' '+cls:''}${state?' '+state:''}"${attrs}><span class="file-kind" data-kind="${kind.key}" aria-hidden="true">${esc(kind.label)}</span><span class="file-line-main"><b>${esc(name||'파일')}</b>${meta?`<small>${esc(meta)}</small>`:''}</span>${label?`<span class="file-line-state" ${stateAttr}>${esc(label)}</span>`:''}${state==='uploading'?'<span class="file-line-progress" role="progressbar" aria-label="올리는 중"></span>':''}${end}</div>`;
+  return `<div class="file-line${cls?' '+cls:''}${state?' '+state:''}"${attrs}><span class="file-kind" data-kind="${kind.key}" aria-hidden="true">${esc(kind.label)}</span><span class="file-line-main"><b>${esc(name||'파일')}</b>${meta?`<small>${esc(meta)}</small>`:''}</span>${label?`<span class="file-line-state" ${stateAttr}>${esc(label)}</span>`:''}${end}</div>`;
 }
 
 export function paintDue(input){

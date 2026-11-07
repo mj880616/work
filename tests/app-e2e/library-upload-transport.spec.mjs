@@ -77,6 +77,14 @@ async function open(page,{width,baseline=false,shortTimeout=false}={}){
    if(String(url).includes('/functions/v1/library-files'))window.__completed++;
    return result;
   };
+  // UI-올리기진행표시 ②: 지금 화면은 XMLHttpRequest(실제 보낸 양)로 보낸다 — 같은 자리에서 보낸 모양·끝난 수를 본다(옛 화면은 위 fetch).
+  const nativeOpen=XMLHttpRequest.prototype.open,nativeSet=XMLHttpRequest.prototype.setRequestHeader,nativeSend=XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open=function(method,url,...rest){this.__lib=String(url).includes('/functions/v1/library-files');this.__method=method;this.__headers=[];return nativeOpen.call(this,method,url,...rest)};
+  XMLHttpRequest.prototype.setRequestHeader=function(name,value){this.__headers?.push(name);return nativeSet.call(this,name,value)};
+  XMLHttpRequest.prototype.send=function(body){
+   if(this.__lib){window.__uploadOptions.push({xhr:true,method:this.__method,withCredentials:this.withCredentials,timeout:this.timeout,headers:[...this.__headers].sort()});this.addEventListener('loadend',()=>window.__completed++)}
+   return nativeSend.call(this,body);
+  };
   window.setTimeout=function(fn,ms,...args){if(ms>=90000&&ms<=600000){window.__deadlines.push(ms);if(shortTimeout&&window.__shortTimeout!==false)ms=150}return nativeTimer(fn,ms,...args)};
  },{shortTimeout});
  await page.goto(origin+'/fixture'+(baseline?'?baseline':''));
@@ -88,7 +96,7 @@ const select=page=>page.locator('#libraryFileInput').setInputFiles({name:'한쪽
 
 for(const width of [390,1280])test.describe(`native library transport ${width}px`,()=>{
  test.use(width===390?{...phone,viewport:{width,height:900}}:{viewport:{width,height:900}});
- test(`library A/B uses meeting fetch options and publishes one save at ${width}px`,async({page})=>{
+ test(`library upload sends one plain request (no cookies) and publishes one save at ${width}px`,async({page})=>{
   await open(page,{width});
   await select(page);await page.locator('#docProject').evaluate((s,id)=>{s.value=id;s.dispatchEvent(new Event('change',{bubbles:true}))},project.id); // S52-01 ③c: 값은 숨은 <select>(전송 시험이라 고르기 창은 거치지 않음)
   await page.locator('#docTitle').fill('한글 자료');await page.locator('#docDescription').fill('설명 🙂');
@@ -98,7 +106,8 @@ for(const width of [390,1280])test.describe(`native library transport ${width}px
   expect(requests.filter(r=>r.path==='/functions/v1/library-files'&&r.method==='OPTIONS')).toHaveLength(1);
   expect(posts()[0].raw).toContain('한글 자료');expect(posts()[0].raw).toContain('설명 🙂');
   expect(posts()[0].headers['content-type']).toMatch(/^multipart\/form-data; boundary=/);
-  expect(await page.evaluate(()=>window.__uploadOptions)).toEqual([{keys:['body','headers','method'],cache:null,signal:false,credentials:'same-origin',mode:'cors',keepalive:false,headers:['Authorization','apikey']}]);
+  // 로그인 정보(쿠키)를 싣지 않고, XMLHttpRequest 자체 시간 한도 없이(한도는 아래 올리기 한도 하나), 머리글은 apikey·Authorization뿐.
+  expect(await page.evaluate(()=>window.__uploadOptions)).toEqual([{xhr:true,method:'POST',withCredentials:false,timeout:0,headers:['Authorization','apikey']}]);
   expect(await page.evaluate(()=>window.__saved)).toEqual([{path:'/functions/v1/library-files',method:'POST',fields:[],action:'',projectLinked:true,epoch:1}]);
   expect(await page.evaluate(()=>window.__changed)).toBe(1);
   expect(await page.evaluate(()=>window.__deadlines)).toEqual([94000]);

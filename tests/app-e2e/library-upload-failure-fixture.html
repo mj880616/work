@@ -66,6 +66,27 @@
       if(ms>=90000&&ms<=600000)window.__lastUploadDeadline=ms;
       return nativeTimeout(callback,ms,...args);
     };
+    // UI-올리기진행표시 ②: 자료실 올리기는 이제 XMLHttpRequest(실제 보낸 양)로 보낸다. 같은 가짜 api로 잇고, 시간 초과·끊김은
+    // XMLHttpRequest의 ontimeout·onerror로 알린다(다 보낸 뒤라 결과 불명). 다른 주소는 진짜 XMLHttpRequest 그대로.
+    const NativeXhr=window.XMLHttpRequest;
+    window.XMLHttpRequest=class extends NativeXhr{
+      open(method,url,...rest){this.__mock=String(url).endsWith('/functions/v1/library-files');if(!this.__mock)return super.open(method,url,...rest)}
+      setRequestHeader(name,value){if(!this.__mock)return super.setRequestHeader(name,value)}
+      send(body){
+        if(!this.__mock)return super.send(body);
+        const answer=(status,text)=>{Object.defineProperty(this,'status',{value:status,configurable:true});Object.defineProperty(this,'responseText',{value:text,configurable:true});this.onload?.()};
+        this.upload.onprogress?.({lengthComputable:false,loaded:0,total:0});
+        (async()=>{
+          try{const data=await window.KPTURuntime.api('/functions/v1/library-files',{body,timeoutMs:window.__lastUploadDeadline});this.upload.onload?.();answer(200,JSON.stringify(data))}
+          catch(error){
+            this.upload.onload?.();
+            if(error.code==='timeout')return this.ontimeout?.();
+            if(error.code==='network_error')return this.onerror?.();
+            answer(error.status||500,JSON.stringify({message:error.message,...(error.stage?{stage:error.stage}:{})}));
+          }
+        })();
+      }
+    };
     window.fetch=async function(url,options={}){
       if(!String(url).endsWith('/functions/v1/library-files'))return nativeFetch.apply(this,arguments);
       try{

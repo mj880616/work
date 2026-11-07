@@ -140,7 +140,9 @@ for(const width of [390,1280]){
     state.hold=true;
     await page.locator('#saveDocumentBtn').click();
     await expect.poll(()=>state.uploads.length).toBe(1);
-    await expect(page.getByRole('button',{name:'keep-a.pdf 선택 취소',exact:true})).toBeDisabled();
+    // UI-올리기진행표시 ②: 올리는 줄은 [선택 취소] 대신 공용 막대 줄(보내는 동안 ✕ 올리기 취소)이 맡는다 — 고른 목록에서 뺄 수 없다.
+    await expect(page.getByRole('button',{name:'keep-a.pdf 선택 취소',exact:true})).toBeHidden();
+    await expect(page.locator('[data-lu-upload-file]').first().locator('.up-inline [role="progressbar"]')).toBeVisible();
     await expect(page.getByRole('button',{name:'keep-b.pdf 선택 취소',exact:true})).toBeDisabled();
     await expect(input).toBeDisabled();
     await expect(page.locator('#newDocumentBtn')).toBeDisabled();
@@ -176,7 +178,9 @@ for(const width of [390,1280]){
     state.hold=true;
     await page.locator('#saveMeetingBtn').click();
     await expect.poll(()=>state.uploads.length).toBe(1);
-    await expect(page.getByRole('button',{name:'keep.pdf 선택 취소',exact:true})).toBeDisabled();
+    // UI-올리기진행표시 ②: 올리는 줄은 [선택 취소] 대신 공용 막대 줄(보내는 동안 ✕ 올리기 취소)이 맡는다 — 고른 목록에서 뺄 수 없다.
+    await expect(page.getByRole('button',{name:'keep.pdf 선택 취소',exact:true})).toBeHidden();
+    await expect(page.locator('#meetingSelectedFiles [data-meeting-file] .up-inline [role="progressbar"]')).toBeVisible();
     await expect(page.locator('#meetingFiles')).toBeDisabled();
     await expect(page.locator('#newMeetingBtn')).toBeDisabled();
     state.hold=false;state.release();
@@ -263,13 +267,17 @@ async function observeSelectedFiles(page){
       }
       return nativeRead.call(this);
     };
-    window.fetch=function(url,options){
-      if(/\/functions\/v1\/(library|meeting)-files$/.test(String(url))&&options?.body instanceof FormData){
-        const sent=options.body.get('file'),source=[...originals].find(file=>file.name===sent.name);
+    const note=(url,body)=>{
+      if(/\/functions\/v1\/(library|meeting)-files$/.test(String(url))&&body instanceof FormData){
+        const sent=body.get('file'),source=[...originals].find(file=>file.name===sent.name);
         window.__copyUploads.push({isOriginal:originals.has(sent),name:sent.name,type:sent.type,lastModified:sent.lastModified,sourceModified:source.lastModified,size:sent.size,sourceSize:source.size});
       }
-      return nativeFetch.apply(this,arguments);
     };
+    window.fetch=function(url,options){note(url,options?.body);return nativeFetch.apply(this,arguments)};
+    // UI-올리기진행표시 ②: 자료실·회의 파일은 XMLHttpRequest(실제 보낸 양)로 보낸다 — 보낸 몸통을 같은 자리에서 본다.
+    const nativeOpen=XMLHttpRequest.prototype.open,nativeSend=XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open=function(method,url,...rest){this.__url=String(url);return nativeOpen.call(this,method,url,...rest)};
+    XMLHttpRequest.prototype.send=function(body){note(this.__url,body);return nativeSend.call(this,body)};
   });
 }
 async function openUploadScreen(page,screen){

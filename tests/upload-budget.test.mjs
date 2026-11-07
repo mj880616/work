@@ -27,16 +27,16 @@ test('파일을 보내는 곳은 모두 공용 올리기 한도를 쓴다(손으
   }
 });
 
-test('공용 runtime api로 FormData를 보내는 곳은 timeoutMs(올리기 한도)를 함께 준다', () => {
-  // 노트·일기·업데이트·담당조직 기록(basket-upload.js)과 자료실(library-upload.js)은 직접 fetch + 올리기 한도라 여기 해당하지 않는다.
+test('공용 보내기(sendUploadApi)로 파일을 보내는 곳은 timeoutMs(올리기 한도)를 함께 준다', () => {
+  // UI-올리기진행표시 ②: 할 일 첨부·회의 파일은 runtime api(fetch) 대신 실제 보낸 양을 아는 sendUploadApi로 보낸다(합치지 않는 한 번 요청).
+  // 노트·일기·업데이트·담당조직 기록(basket-upload.js)과 자료실(library-upload.js)은 sendUpload + 올리기 한도라 여기 해당하지 않는다.
   const calls = [
-    ['meeting-from-files.js', /api\('\/functions\/v1\/meeting-files',\{[^}]*\}/],
-    ['task-files.js', /rt\.api\(endpoint\('attach'\), \{[^}]*\}/],
+    ['meeting-from-files.js', /sendUploadApi\(rt\(\),'\/functions\/v1\/meeting-files',\{[^}]*\}/],
+    ['task-files.js', /sendUploadApi\(rt, endpoint\('attach'\), \{[^}]*\}/],
   ];
   for (const [name, pattern] of calls) {
     const hit = read(name).match(pattern);
     assert.ok(hit, `${name}: 올리기 호출을 찾지 못함`);
     assert.match(hit[0], /timeoutMs:\s*uploadTimeoutMs\(/, `${name}: 올리기 호출에 timeoutMs: uploadTimeoutMs(...)`);
-    assert.match(hit[0], /singleFlight:\s*false/, `${name}: 올리기는 합치지 않는다`);
   }
 });

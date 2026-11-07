@@ -14,6 +14,8 @@ import {seoulDateKey,toMeetingISO} from './meeting-time.js';
 import {announceRecordSaved} from './record-saved.js';
 import {readTextLater} from './document-text-read.js'; // SEARCH ②: 올린 파일 안 글자를 서버가 한 번 읽어 둠
 import {uploadTimeoutMs} from './upload-budget.mjs'; // UPLOAD-올리기안됨: 올리기 시간 한도 한 곳
+import {sendUploadApi} from './upload-send.mjs';
+import {trackUpload,paintUploadLine,watchUploads} from './upload-progress.js';
 
 (()=>{
 'use strict';
@@ -160,6 +162,11 @@ function rowHtml(g){
   return `<details class="mff-row" data-mff-anchor="${esc(g.anchor)}" data-state="${g.state}"${open?' open':''}><summary aria-label="${esc(label)}"><span class="mff-cell mff-date">${esc(shortDate(g.date)||'—')}</span><span class="mff-cell mff-kind">${esc(g.kind||'—')}</span><span class="mff-cell mff-round">${esc(g.round?g.round+'차':'—')}</span><span class="mff-cell mff-count">${g.materials.length}</span><span class="mff-cell mff-result" data-has="${g.results.length?1:0}">${result}</span><span class="mff-note">${esc(g.note)}</span></summary><div class="mff-body">${choose}${confirm}${fields}<div class="mtg-file-list">${fileRows}</div></div></details>`;
 }
 
+// UI-올리기진행표시 ②: 올리는 파일 줄 안에 공용 막대 + % + ✕(paintUploadLine). 다른 화면으로 가면 하단바 위 한 줄.
+function paintMffUploads(){
+  $('#mffList')?.querySelectorAll('[data-mff-item]').forEach(row=>{const item=files.find(i=>i.id===row.dataset.mffItem);paintUploadLine(row,item?.sending?item.file:null)});
+}
+watchUploads(()=>{if(saving)paintMffUploads()});
 function paint(){
   const list=$('#mffList');if(!list)return;
   const focus=document.activeElement&&list.contains(document.activeElement)?focusKey(document.activeElement):null;
@@ -167,6 +174,7 @@ function paint(){
   const dl=$('#mffKinds');if(dl)dl.innerHTML=kinds().map(k=>`<option value="${esc(k)}"></option>`).join('');
   list.innerHTML=groups.length?`<div class="mff-head" aria-hidden="true"><span>날짜</span><span>종류</span><span>차수</span><span>자료</span><span>결과</span></div>${groups.map(rowHtml).join('')}`:'<p class="mtg-empty">파일을 고르거나 결과 글을 붙여 넣으면 회의별로 묶어 보여 줘요.</p>';
   if(focus)restoreFocus(focus);
+  paintMffUploads();
   const ready=groups.filter(g=>g.state==='ready'),reading=groups.some(g=>g.reading)||files.some(i=>i.read==='reading');
   const skipped=groups.filter(g=>!['ready','done'].includes(g.state)).length,retry=ready.some(g=>g.items.some(i=>i.error));
   const button=$('#mffCreate');
@@ -255,14 +263,21 @@ async function saveGroup(g,scope){
   let failed=0,message='';
   for(const item of g.items){
     if(item.kind!=='file'||item.uploaded)continue;
-    let form=null;
+    let form=null,job=null;
     try{
+      // UI-올리기진행표시 ②: 보내기는 공용 길(sendUploadApi = 실제 보낸 양), 표시는 공용 부품(파일 줄 안 막대 + % + ✕).
+      // 한 회의의 Drive 폴더를 처음 만드는 일이 겹치지 않게 한 번에 한 파일씩.
+      job=trackUpload({file:item.file,name:item.file.name,size:item.file.size});item.sending=true;paint();
       form=new FormData();form.append('meeting_id',meetingId);form.append('file',await rt().copyUploadFile(item.file));
       // UPLOAD-올리기안됨: 올리기는 불러오기 기본 15초 한도가 아니라 파일 크기에 맞춘 공용 올리기 한도로.
-      readTextLater((await api('/functions/v1/meeting-files',{method:'POST',body:form,singleFlight:false,timeoutMs:uploadTimeoutMs(item.file.size)}))?.document);
+      readTextLater((await sendUploadApi(rt(),'/functions/v1/meeting-files',{body:form,size:item.file.size,job,timeoutMs:uploadTimeoutMs(item.file.size)}))?.document);
+      job.done();
       item.uploaded=true;item.error='';
-    }catch(err){failed++;message=err?.message||'파일 올리기 실패';item.error=message;console.warn('meeting file upload failed',item.file.name,err)}
-    finally{form?.delete('file');form=null}
+    }catch(err){
+      if(err?.code==='upload_cancelled'){item.error='취소함';failed++;message='올리기를 취소했어요.';}
+      else{failed++;message=err?.message||'파일 올리기 실패';item.error=message;job?.fail(message);console.warn('meeting file upload failed',item.file.name,err)}
+    }
+    finally{form?.delete('file');form=null;job=null;item.sending=false}
     paint();
   }
   if(failed)throw new Error(`파일 ${failed}개 실패${message?' · '+message:''}`);
