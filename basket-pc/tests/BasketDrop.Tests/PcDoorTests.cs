@@ -221,6 +221,20 @@ public class PcDoorTests
         public bool Trash(string fullPath) { Trashed.Add(fullPath); return true; }
     }
 
+    private sealed class FakePins : IPcPins
+    {
+        public List<string> Saved { get; } = new();
+        public IReadOnlyList<string> Load() => Saved.ToList();
+        public bool Save(IReadOnlyList<string?> pins)
+        {
+            var clean = pins.Select(p => PcPins.Clean(p, null)).ToList();
+            if (clean.Any(c => c == null)) return false;
+            Saved.Clear();
+            Saved.AddRange(clean.OfType<string>());
+            return true;
+        }
+    }
+
     /// <summary>Records what the door asked for; holds one file being written in memory.</summary>
     private sealed class FakeTransfer : IPcTransfer
     {
@@ -283,10 +297,12 @@ public class PcDoorTests
         public PcDoor Door { get; }
         public int Port => Door.Port;
 
+        public FakePins Pins { get; } = new();
+
         public Rig(bool canWrite = false)
         {
             Door = PcDoor.Open(new FakeFiles(), Shell, Verifier, _ => Task.FromResult<string?>(Own), new NullLog(), "9.9.9", new[] { FakeServer.UnusedPort() },
-                canWrite ? Transfer : null);
+                canWrite ? Transfer : null, canWrite ? Pins : null);
         }
 
         public void Dispose() => Door.Dispose();
@@ -588,6 +604,25 @@ public class PcDoorTests
     }
 
     [Fact]
+    public async Task Pinned_pc_folders_stay_on_this_pc_and_only_allowed_paths_are_kept()
+    {
+        using var rig = new Rig(canWrite: true);
+        Assert.Contains("\"pins\"", (await rig.Get("/v1/hello")).Body);
+        Assert.Equal(200, (await rig.Post("/v1/pins", "{\"pins\":[\"C:\\\\Docs\",\"d:\\\\자료\\\\\"]}")).Status);
+        Assert.Equal(new[] { "C:\\Docs", "D:\\자료" }, rig.Pins.Saved);
+        var got = await rig.Get("/v1/pins");
+        Assert.Equal(200, got.Status);
+        Assert.Contains("C:\\\\Docs", got.Body);
+        Assert.Equal(400, (await rig.Post("/v1/pins", "{\"pins\":[\"C:\\\\Windows\"]}")).Status);
+        Assert.Equal(400, (await rig.Post("/v1/pins", "{\"pins\":[\"\\\\\\\\server\\\\x\"]}")).Status);
+        Assert.Equal(400, (await rig.Post("/v1/pins", "{\"pins\":[1]}")).Status);
+        Assert.Equal(new[] { "C:\\Docs", "D:\\자료" }, rig.Pins.Saved); // refused lists change nothing
+        Assert.Equal(403, (await rig.Get("/v1/pins", token: "web-b")).Status);
+        using var old = new Rig();
+        Assert.Equal(404, (await old.Get("/v1/pins")).Status);
+    }
+
+    [Fact]
     public async Task Only_a_found_file_goes_to_the_recycle_bin()
     {
         using var rig = new Rig(canWrite: true);
@@ -762,6 +797,35 @@ public class PcTransferTests
         finally
         {
             Directory.Delete(root, true);
+        }
+    }
+}
+
+/// <summary>'고정한 폴더' kept in this app's own data folder: plain allowed paths only, at most twelve, in order.</summary>
+public class PcPinsTests
+{
+    [Fact]
+    public void Pins_are_saved_cleaned_and_loaded_in_order()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "pcpins-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var pins = new PcPins(Path.Combine(dir, "pc-pins.json"), null);
+            Assert.Empty(pins.Load());
+            Assert.True(pins.Save(new[] { "d:\\자료\\", "C:\\Docs" }));
+            Assert.Equal(new[] { "D:\\자료", "C:\\Docs" }, pins.Load());
+            Assert.False(pins.Save(new[] { "C:\\Docs", "c:\\docs" }));          // the same folder twice
+            Assert.False(pins.Save(new[] { "C:\\Program Files\\x" }));          // blocked
+            Assert.False(pins.Save(new[] { "C:\\a\\..\\Windows" }));           // escaping
+            Assert.False(pins.Save(new string?[] { null }));
+            Assert.False(pins.Save(Enumerable.Range(0, 13).Select(i => (string?)$"C:\\f{i}").ToList()));
+            Assert.Equal(new[] { "D:\\자료", "C:\\Docs" }, pins.Load());        // refused saves keep the old list
+            Assert.True(pins.Save(Array.Empty<string?>()));
+            Assert.Empty(pins.Load());
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
         }
     }
 }

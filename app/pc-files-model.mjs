@@ -85,7 +85,7 @@ export function pcTrail(path) {
 // 문 답 /v1/hello → 쓸 수 있나. 바구니 PC 앱만(app = 'basket-pc', door 1, list를 앎).
 export const pcHelloOk = body => body?.app === 'basket-pc' && body?.door === 1 && Array.isArray(body?.can) && body.can.includes('list');
 // FILES-내PC클라우드옮기기(S52-41): 문이 아는 일 목록(can)만 남긴다(정해 둔 말만). 0.4.0+ 문은 read·write·trash를 더 안다.
-const PC_CAN = ['drives', 'list', 'open', 'reveal', 'read', 'write', 'trash'];
+const PC_CAN = ['drives', 'list', 'open', 'reveal', 'read', 'write', 'trash', 'pins'];
 export const pcCanList = body => (Array.isArray(body?.can) ? PC_CAN.filter(c => body.can.includes(c)) : []);
 // 내 PC ↔ 클라우드 복사·옮기기를 할 수 있는 문인가(읽기·쓰기·휴지통을 모두 앎).
 export const pcCanXfer = can => Array.isArray(can) && ['read', 'write', 'trash'].every(c => can.includes(c));

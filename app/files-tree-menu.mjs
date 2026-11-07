@@ -10,12 +10,13 @@
 export const TREE_MENU_LABEL = Object.freeze({
   open: '열기', only: '이 폴더만 보기', mkdir: '새 폴더', upload: '올리기', copy: '복사', move: '옮기기', tocloud: '클라우드에 복사',
   rename: '이름 바꾸기', color: '색', up: '위로', down: '아래로', star: '별표', unstar: '별표 빼기', trash: '휴지통',
-  tolib: '자료실로 보내기', libview: '자료실에서 보기'
+  tolib: '자료실로 보내기', libview: '자료실에서 보기', pin: '위에 고정', unpin: '고정 풀기'
 });
 const CLOUD = ['od', 'gd'];
-const SECOND = ['star', 'unstar', 'color', 'up', 'down']; // 둘째 묶음은 이 순서(요청함 원문 '별표·색·위로·아래로')
+const SECOND = ['pin', 'unpin', 'star', 'unstar', 'color', 'up', 'down']; // 둘째 묶음은 이 순서(요청함 원문 '별표·색·위로·아래로', S52-41 고정이 맨 앞)
 // row: 나무 줄의 원래 줄(source·is_folder·starred), opt: phoneWrite(폰에 쓸 수 있나)·pcWrite(내 PC 문이 복사·옮기기를 앎), sibIndex·sibCount(같은 부모 안 폴더 순서, 모르면 -1·0).
-export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, sibIndex = -1, sibCount = 0} = {}) {
+// pinned(S52-41 FILES-폴더고정): 폴더를 고정할 수 있으면 true(고정됨)·false(안 됨), 고정할 수 없는 곳이면 null(항목 없음).
+export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, sibIndex = -1, sibCount = 0, pinned = null} = {}) {
   if (!row || !row.source) return [];
   const folder = !!row.is_folder, ids = [];
   if (row.source === 'pc') ids.push(...(folder ? ['only'] : ['open', ...(pcWrite ? ['copy', 'move'] : [])]));
@@ -30,6 +31,7 @@ export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, sibInde
     } else ids.push('open', row.library_doc_id && row.source === 'gd' ? 'libview' : 'tolib', 'copy', 'move', 'rename');
     ids.push(row.starred ? 'unstar' : 'star', 'trash');
   }
+  if (folder && typeof pinned === 'boolean') ids.push(pinned ? 'unpin' : 'pin');
   const group = id => (SECOND.includes(id) ? 2 : id === 'trash' ? 3 : 1);
   const rank = (id, i) => (group(id) === 2 ? SECOND.indexOf(id) : i);
   const sorted = ids.map((id, i) => ({id, i})).sort((a, b) => group(a.id) - group(b.id) || rank(a.id, a.i) - rank(b.id, b.i)).map(x => x.id);
