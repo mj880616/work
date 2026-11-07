@@ -94,3 +94,20 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
 .wl-table.wl-weekly .wl-org-line > :not(.wl-org){flex:none}
 .wl-table.wl-weekly .wl-org-line .wl-count{margin-left:0}
 #appView #homeView .wl-table.wl-weekly .wl-org-line > .row-more{float:none;margin-left:auto} /* 홈 공용 ⋯ 여백 규칙보다 앞서게 */
+/* S52-42 WEEKLY-조직현황폰다시(요청함 11/08 04:05 "주간 정리 산하조직 현황이 계속 이상햐"): [주간 정리] 4. 산하 조직 현황은 '그 칸의 폭'으로 모양을 정한다.
+   폰은 물론 폴드 펼침에서도 3장·4장이 두 칸으로 나란해 4장 칸이 폰 폭(약 370px)이라, 화면 폭(760px) 기준으로는 폴드에서 표 + PC 칸 폭에 갇혔다.
+   칸 폭이 30em(약 480px) 아래면 폰 모양으로 쌓는다 — 조직마다 위쪽 선 한 줄, 이름 줄(이름 한 줄, 넘칠 때만 끝 …, ⋯ 오른쪽 끝)이 아래 소식 줄과 같은 폭.
+   이때는 머리줄이 없으니 [조직] 칸 폭(이름에 맞춘 --wk-w-org-fit · 끌어 정한 --wk-w-org)도 쓰지 않는다 — 넓은 PC 표에서만. 담당조직 [전체 표]는 바꾸지 않는다. */
+[data-weekly-flow-cells="orgs"]{container-type:inline-size}
+@container (max-width:30em){
+  .wl-table.wl-weekly thead{display:none}
+  .wl-table.wl-weekly,.wl-table.wl-weekly tbody,.wl-table.wl-weekly tr,.wl-table.wl-weekly th,.wl-table.wl-weekly td{display:block;width:auto}
+  .wl-table.wl-weekly .wl-c-org{width:auto}
+  .wl-table.wl-weekly{border:0}
+  .wl-table.wl-weekly th,.wl-table.wl-weekly td{border:0;padding:2px 0}
+  .wl-table.wl-weekly tbody th.wl-c-org{background:none;padding-top:6px;border-top:1px solid var(--kptu-border)}
+  .wl-table.wl-weekly td{padding-bottom:6px}
+}
+@media (max-width:760px){
+  .wl-table.wl-weekly .wl-c-org{width:auto}
+}
