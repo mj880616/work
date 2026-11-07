@@ -29,6 +29,7 @@ import {folderShapeHtml} from './folder-look-model.mjs';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {openRowMenu, appMenuPoint} from './row-menu.js';
 import {treeMenuItems} from './files-tree-menu.mjs';
+import {lastClean, lastPut, lastStart} from './files-last-model.mjs';
 import {PINS_MAX, pinParse, pinKey, pinsClean, pinHas, pinAdd, pinRemove, pinMove, pinStep, pinView} from './files-pins-model.mjs';
 import {mountReorder} from './reorder-drag.js';
 import {mountColResize, gripHtml} from './col-resize.js';
@@ -130,6 +131,9 @@ import {within, isLoadTimeout} from './load-deadline.js';
 //   이름 바꾸기(클라우드·이 폰·내 PC)·내 PC 안 옮기기도 알림 [되돌리기](같은 저장소 클라우드 옮기기는 앞서 있음). 휴지통은 그 저장소 휴지통에서 되살린다(F1 그대로).
 // FILES-관리자마무리(S52-43 ③): 미리보기 머리 줄 ← →(키 ←·→) = 같은 목록의 앞·다음 파일, 동영상·소리는 미리보기 칸에서 재생(200MB까지, blob: 메모리),
 //   파일·폴더 ⋯·우클릭 [경로 복사](클립보드에만 — 내 PC는 실제 경로, 그 밖은 '원드라이브 › 문서 › 이름'), 그림·파일 붙여넣기(Ctrl+V) = 지금 클라우드 폴더에 올리기.
+// FILES-관리자마무리 ②(S52-44): 칸마다 마지막으로 보던 원드라이브·구글 드라이브 폴더를 서버에 기억(view_prefs.files_last, files-last-model.mjs — 적용 전에는 이번 접속만).
+//   PC·폴드 첫 칸·두 칸의 각 칸을 처음 열 때 그 저장소의 마지막 폴더로(폰 한 칸 첫 화면은 그대로 나무). 그 폴더가 없어졌으면 맨 위로 열고 기억을 지운다.
+//   이 폰·내 PC 위치·폴더 이름은 서버에 두지 않는다.
 // 저장은 서버만: 목록은 이 탭 메모리(열린 동안만), 받은 그림·PDF는 blob: 주소(메모리)로만 두고 화면을 떠나면 놓는다. 기기 저장 없음.
 // 파일 이름은 모두 글자로만 그린다(esc). 로그에 파일 이름·id를 남기지 않는다.
 
@@ -192,7 +196,7 @@ const rt = () => window.KPTURuntime;
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 // 칸 하나의 상태(S49-30 두 칸): 위치·목록·정렬·찾기·고르기. pane = 폰 칸 0의 나무/목록(첫 화면은 나무), drop = 폴드 두 칸의 ▾ 나무가 내려와 있는가. seq·fseq·ftimer = 늦게 온 응답 거르기.
 const freshPane = () => ({where: null, rows: [], loaded: false, failed: '', failedWhy: '', trail: [], sort: 'name', dir: 'asc',
-  query: '', found: null, findFailed: '', findWhy: '', sel: '', picked: new Set(), anchor: '', pane: 'tree', drop: false, srcOpen: false, seq: 0, fseq: 0, ftimer: 0});
+  query: '', found: null, findFailed: '', findWhy: '', sel: '', picked: new Set(), anchor: '', pane: 'tree', drop: false, srcOpen: false, seq: 0, fseq: 0, ftimer: 0, lastTry: ''});
 const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', panes: [freshPane(), freshPane()], cur: 0,
   children: new Map(), open: new Set(), stars: null, syncedAt: null, syncing: false,
   // FOLDER-나무새기준 ②: 폴더 안 파일(폰 나무 그 자리 펼치기), 접은 저장소 상자, 'n개 더 보기'를 누른 폴더, '최근' 상자(서버 p_shelf 'recent'),
@@ -284,6 +288,21 @@ const isPinned = (source, id) => (source === PC ? pinsPc.includes(id) : pinHas(c
 // 고정할 수 있는 폴더인가(클라우드 폴더, 또는 바구니 문이 고정을 아는 내 PC 폴더·드라이브). 아니면 메뉴 항목 없음(null).
 const pinState = r => (r?.is_folder && (SOURCES.includes(r.source) || (r.source === PC && pcPinsOn())) ? isPinned(r.source, r.item_id) : null);
 function pinsChanged() { paintTree(); for (const p of panesOn()) if (p.srcOpen) paintPaneTop(p); }
+// ---------- 칸마다 마지막 폴더(S52-44 ②) ----------
+let lastMem = null;
+const lastNow = () => lastClean(lastMem ?? viewPrefs.getFilesLast?.());
+function rememberLast(p, where) {
+  const next = lastPut(lastNow(), idxOf(p), where);
+  if (!next) return;
+  lastMem = next;
+  viewPrefs.setFilesLast?.(next);
+}
+// 칸 p의 첫 자리(맨 위)를 기억한 폴더로. 바꿨으면 그 폴더가 아직 있는지 목록을 읽은 뒤 본다(p.lastTry).
+function startAt(p, start) {
+  const at = lastStart(start, lastNow(), idxOf(p));
+  p.lastTry = at !== start ? at.parent : '';
+  return at;
+}
 function setCloudPins(list) {
   pinsMem = list;
   viewPrefs.setFilesPins?.(list);
@@ -403,6 +422,8 @@ function setWhere(p, where, {keepPreview = false} = {}) {
   else if (fromShelf) [p.sort, p.dir] = ['name', 'asc'];
   if (!keepPreview) { p.sel = ''; closePreview(); }
   p.picked.clear(); p.anchor = ''; p.pane = 'list'; state.hint = '';
+  if (where?.parent !== p.lastTry) p.lastTry = '';
+  rememberLast(p, where);
   if (p === state.panes[0]) {
     // 주소 자리는 at·shelf 중 하나만(묶음 → 폴더로 옮겨도 옛 shelf가 남아 새로고침 때 묶음으로 열리지 않게).
     window.KPTURouter?.setPlace?.('files', {at: null, shelf: null, ...placeOf(where)});
@@ -433,6 +454,11 @@ async function loadList(p, {quiet = false} = {}) {
     }
     if (seq !== p.seq || state.scope !== scope) return;
     p.rows = Array.isArray(rows) ? rows : []; p.trail = Array.isArray(trail) ? trail : []; p.loaded = true; p.failed = ''; p.failedWhy = '';
+    // S52-44 ②: 기억한 마지막 폴더가 없어졌으면(위치를 못 찾음) 그 저장소 맨 위로 열고 기억을 지운다.
+    if (p.lastTry && where.parent === p.lastTry && !where.shelf) {
+      p.lastTry = '';
+      if (!p.trail.length && !p.rows.length) return setWhere(p, {source: where.source, parent: null}, {keepPreview: true});
+    }
     if (where.shelf === 'starred') state.stars = starCount(p.rows);
     recordCounts(p, scope);
     if (where.source) {
@@ -903,7 +929,7 @@ function goHome(p) {
   // S52-07: 두 칸이면 그 칸에 기억한 출처(켜져 있을 때)의 맨 위, 아니면 켜진 첫 출처.
   const start = two() ? paneStart(idxOf(p), viewPrefs.getFilesPanes?.(DEVICE), onSources(), otherOf(p)?.where) : null;
   const first = start?.source || onSources()[0];
-  if (first) { state.open.add(folderKey(first, null)); return setWhere(p, {source: first, parent: null}); }
+  if (first) { state.open.add(folderKey(first, null)); return setWhere(p, startAt(p, {source: first, parent: null})); }
   p.where = null; paint();
 }
 // ---------- S51-25 FOLDER-PC나무: 왼쪽 나무(PC·펼친 폴드 한 칸) · 두 칸의 칸 위 ▾ 나무가 같은 모양 ----------
@@ -3073,7 +3099,7 @@ function layoutChanged() {
   if (!state.status) return;
   if (b.where) { loadList(b, {quiet: true}); return; }
   const start = paneStart(1, viewPrefs.getFilesPanes?.(DEVICE), onSources(), state.panes[0].where);
-  if (start) setWhere(b, start, {keepPreview: true});
+  if (start) setWhere(b, startAt(b, start), {keepPreview: true});
 }
 function setTwo(on) {
   viewPrefs.setFilesTwo?.(DEVICE, twoValue(viewPrefs.getFilesTwo?.(DEVICE), twoLayout(WIDE.matches, PHONE.matches), on));
@@ -3500,7 +3526,7 @@ async function enter(force = false) {
     if (two()) {
       const b = state.panes[1];
       if (b.where) await loadList(b, {quiet: true});
-      else { const start = paneStart(1, viewPrefs.getFilesPanes?.(DEVICE), first, a.where); if (start) await setWhere(b, start, {keepPreview: true}); }
+      else { const start = paneStart(1, viewPrefs.getFilesPanes?.(DEVICE), first, a.where); if (start) await setWhere(b, startAt(b, start), {keepPreview: true}); }
     }
     paint();
     for (const s of first) if (!state.children.has(folderKey(s, null))) loadChildren(s, null);

@@ -118,6 +118,13 @@ export const FILES_TREE_LAYOUTS = Object.freeze(['fold', 'wide']);
 const filesTreeOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(name => FILES_TREE_LAYOUTS.includes(name) && typeof v[name] === 'boolean');
 export const FILES_PINS_MAX = 12;
 export const FILES_PIN_RE = /^(od|gd):[^\p{Cc}]{1,200}$/u;
+// S52-44 ② FILES-관리자마무리: files_last = [파일] 칸마다 마지막으로 보던 폴더 [{od?, gd?}, {od?, gd?}](칸 차례 0 = 첫 칸·한 칸 보기, 1 = 둘째 칸),
+// 값은 그 저장소 폴더 id 글자(1~200자, 이름·이 폰·내 PC 경로 없음, 모든 기기 같게). migration 20261108060000. 뜻은 files-last-model.mjs.
+// 쓰기는 files_last 통째로(files_pins처럼). 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(기기 저장 없음).
+export const FILES_LAST_PANES = 2;
+export const FILES_LAST_ID_RE = /^[^\p{Cc}]{1,200}$/u;
+const filesLastOk = v => Array.isArray(v) && v.length <= FILES_LAST_PANES && v.every(o => !!o && typeof o === 'object' && !Array.isArray(o)
+  && Object.keys(o).every(k => FILES_SOURCE_NAMES.includes(k) && typeof o[k] === 'string' && FILES_LAST_ID_RE.test(o[k])));
 const DEVICE_KEYS = Object.freeze({files_sources: filesFlagsOk, files_two: filesTwoOk, photo_zoom: photoZoomOk, files_look: filesLookOk, files_panes: filesPanesOk, box_shut: boxShutOk, files_tree: filesTreeOk});
 export const REPORT_PERIOD_MODES = Object.freeze(['all', 'week', 'range']);
 export const PHOTO_LEVELS = Object.freeze(['year', 'month', 'day']);
@@ -148,7 +155,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -200,6 +207,7 @@ export function validValue(key, value) {
     case 'report_period': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => name === 'mode' || name === 'from' || name === 'to') && REPORT_PERIOD_MODES.includes(value.mode)
       && (value.mode === 'range' ? DATE_RE.test(String(value.from)) && DATE_RE.test(String(value.to)) && typeof value.from === 'string' && typeof value.to === 'string' && value.from <= value.to : !('from' in value) && !('to' in value));
+    case 'files_last': return filesLastOk(value);
     case 'files_pins': return Array.isArray(value) && value.length <= FILES_PINS_MAX && new Set(value).size === value.length && value.every(v => typeof v === 'string' && FILES_PIN_RE.test(v));
     case 'files_dest_recent': return Array.isArray(value) && value.length <= FILES_DEST_RECENT_MAX && value.every(filesDestOk);
     case 'photo_zoom':
@@ -482,6 +490,8 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
     setFilesTree: (device, value) => set('files_tree.' + device, value, {rejectable: true}),
     getFilesPins: () => (Array.isArray(prefs.files_pins) ? prefs.files_pins : []),
     setFilesPins: value => set('files_pins', value.length ? value : null, {rejectable: true}),
+    getFilesLast: () => (Array.isArray(prefs.files_last) ? prefs.files_last : []),
+    setFilesLast: value => set('files_last', value.some(o => Object.keys(o).length) ? value : null, {rejectable: true}),
     flush,
     flushHidden,
     status: () => state,
