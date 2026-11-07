@@ -72,6 +72,7 @@ import {readStatusRows} from './org-status-table.js'; // DESK-현황표: 담당�
 import {siteLinesFromTable} from './org-status-model.mjs';
 import {readWeekLines} from './weekly-org-lines.js'; // WEEKLY-메뉴짝짓기 P6: 주별 조직보고 표 → 4. 1) 산하조직·3. 2) 투쟁 사업장 칸
 import {reportLines as weekReportLines} from './weekly-org-lines-model.mjs';
+import {inSites, SITE_REF_LINE} from './weekly-cell-names.mjs'; // S52-25: 3장에 든 조직은 4장 '참고' 한 줄
 import {isStageLine} from './org-dispute-stage-model.mjs';
 import {reportLine as orgRefLine, materialLine as orgRefMaterial, alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {sortPicks, droppedOf, keptOf, withPick, pickKey, reviewDue, withReview} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
@@ -890,10 +891,14 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const s0 = state, orgs0 = s0.context.orgFailed || s0.context.orgFallback ? [] : s0.context.organizations;
     const weekRows = orgs0.length ? await readWeekLines({rt, workspaceId:rt.context.read()?.workspace?.id, week:s0.start, orgIds:orgs0.map(o => o.id)}).then(r => r.missing ? null : r.rows).catch(() => s0.context.weekRows ?? null) : null;
     if (state !== s0) throw Object.assign(new Error('주가 바뀌었어요. 다시 눌러 주세요.'), {code:'stale'});
-    const weekKey = weekRows ? JSON.stringify([...weekRows].map(([id, rows]) => [id, weekReportLines(rows)])) : '';
+    const siteNames = arrangeSites(siteRows(state), state.layout).shown.map(r => r.org); // S52-25: 3장 구성이 바뀌면 다시 만든다
+    const weekKey = (weekRows ? JSON.stringify([...weekRows].map(([id, rows]) => [id, weekReportLines(rows)])) : '') + JSON.stringify(siteNames);
     if (state.built && state.weekKey === weekKey) return state.built;
     state.weekKey = weekKey;
     const week = applyWeekRows(state, {orgs:[...state.edits.orgs], sites:[...state.edits.sites]}, weekRows);
+    // S52-25 WEEKLY-투쟁사업장참고: 3. 2) 투쟁 사업장 현황에 들어간 조직(구성 순서로 보이는 사업장, 이름 맞추기 = 칸 이름 기준)의 4. 1) 칸은 '참고' 한 줄.
+    // 그 조직 칸에 쓴 줄(임시저장·주별 표)은 그대로 두고 파일에만 넣지 않는다. 3장에서 빼면 다음 만들기부터 원래 줄.
+    for (const r of state.orgs) if (inSites(siteNames, r.org)) week.orgs.set(r.index, [SITE_REF_LINE]);
     const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, {...state.edits, orgs:week.orgs, sites:week.sites, owners:ownerEdits(state)});
     // 3. 2) 투쟁 사업장 현황: 들어간 사업장만, 구성 순서로(뺀 사업장의 글은 칸에 남아 있고 파일에만 없다).
     data.sites = layoutSiteData(data.sites ?? [], siteRows(state), state.layout);

@@ -71,3 +71,8 @@ export function foldCells(cells, parse, idOf) {
   }
   return {cells:out, into};
 }
+
+// S52-25 WEEKLY-투쟁사업장참고(요청함 11/07 19:26): '3. 투쟁 사업장 현황'에 들어간 조직은 '4. 산하 조직 현황'의 그 조직 칸을 이 한 줄로(화면·한글 파일 같게).
+// 조직 이름 맞추기는 칸 이름과 같은 기준(부호·띄어쓰기만 다르면 같은 조직 — sameName). 4장 칸에 쓴 줄은 지우지 않고 그대로 둔다(화면에서 접어 보임).
+export const SITE_REF_LINE = '- 투쟁 사업장 보고 참고';
+export const inSites = (siteNames, name) => (siteNames ?? []).some(n => sameName(n, name));

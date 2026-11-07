@@ -123,3 +123,12 @@ test('2) 주요 일정 제안: 손으로 적은 줄·[이미 있음]으로 치�
   assert.deepEqual(hqSuggestions(events, [], new Map(), picks, learn), []);
   assert.deepEqual(hqSuggestions(events, [{id:'r1', day:'2026-11-10', time:'10:00', title:'가상 공동 집회.', place:'가상 광장'}], new Map(), null, learn), []);
 });
+
+// S52-25 WEEKLY-투쟁사업장참고: 3장 사업장 이름과 4장 조직 이름 맞추기는 칸 이름 기준(부호·띄어쓰기만 다르면 같은 조직).
+test('inSites: 부호·띄어쓰기만 다른 조직 이름은 같은 조직, 참고 줄은 하나', async () => {
+  const {inSites, SITE_REF_LINE} = await import('../app/weekly-cell-names.mjs');
+  assert.equal(inSites(['가상 노동조합/지부'], '가상노동조합 · 지부'), true);
+  assert.equal(inSites(['가상 노동조합'], '가상 노동조합 지회'), false);
+  assert.equal(inSites([], '가상 노동조합'), false);
+  assert.equal(SITE_REF_LINE, '- 투쟁 사업장 보고 참고');
+});
