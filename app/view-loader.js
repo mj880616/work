@@ -199,7 +199,7 @@ function load(view){
     loaded.add(key);
     window.dispatchEvent(new CustomEvent('kptu:view-loader-ready',{detail:{view:key}}));
     return {...(result||{ok:true}),view:key}
-  }).finally(()=>flights.delete(key));
+  }).finally(()=>{flights.delete(key);resumeWarm()});
   flights.set(key,flight);
   return flight
 }
@@ -213,18 +213,20 @@ async function loadAll(){
 // (modulepreload·prefetch: 실행·적용하지 않음 → 화면·자료에 영향 없음). 처음 눌러도 '불러오는 중'이 거의 안 보이게 한다. 기기 저장 없이 브라우저 기본 캐시만.
 // HWP 편집기(약 20MB)·아스날은 받지 않는다. 주소는 위 화면별 불러오기와 같은 글자(Pages 빌드가 같은 해시 번호를 붙인다).
 // PERF-첫로딩 P4: 목록에는 화면 첫 프로그램(뿌리)만 적고, 그 정적 import 사슬은 Pages 빌드가 채운다(/*static-chain*/) — 미리 받은 뒤 눌러도 사슬을 다시 받지 않게.
+// S52-08 ①(docs/design/perf-first-load-1107.md 6절): 뿌리에는 위 loaders가 화면이 보이기 전에 기다리는 모듈을 모두 적는다(달력 interactions·mobile-ui·
+// day-overflow·persistence, 사업 보고 파일·녹음 초안, 원장 고치기·합치기·사본 줄). 빠지면 첫 클릭 때 그 사슬을 새로 받는다.
 const warmModules={
   basket:/*static-chain*/['./basket.js'],
-  calendar:/*static-chain*/['./calendar-month-view.js','./calendar-view.js','./calendar-plus.js'],
+  calendar:/*static-chain*/['./calendar-month-view.js','./calendar-view.js','./calendar-plus.js','./calendar-interactions-v2.js','./calendar-mobile-ui.js','./calendar-day-overflow.js','./calendar-persistence.js'],
   tasks:/*static-chain*/['./project-catalog.js','./organization-order.js','./google-tasks.js'],
   home:/*static-chain*/['./journal.js'],
   diary:/*static-chain*/['./diary.js'],
   projects:/*static-chain*/['./project-system-v3.js'],
   library:/*static-chain*/['./library-upload.js'],
-  meetings:/*static-chain*/['./team-report-kit.js','./task-workflow.js','./meeting-round-detail.js'],
+  meetings:/*static-chain*/['./team-report-kit.js','./task-workflow.js','./meeting-round-detail.js','./meeting-from-files.js','./meeting-transcript-draft.js'],
   pages:/*static-chain*/['./share-pages.js'],
   team:/*static-chain*/['./suborganizations.js','./workplace-detail.js'],
-  ledger:/*static-chain*/['./ledger-browse.js'],
+  ledger:/*static-chain*/['./ledger-browse.js','./ledger-fix.js','./ledger-merge.js','./ledger-export.js'],
   reference:/*static-chain*/['./reference-bundles.js'],
   calls:/*static-chain*/['./call-feed.js'],
   telegram:/*static-chain*/['./telegram-feed.js'],
@@ -246,6 +248,8 @@ function hint(rel,path,as){
 // 한꺼번에(약 220개) 걸면 폰에서 받기·해석(modulepreload는 받은 뒤 해석까지 함)이 한데 몰려, P5-b로 홈 앞에서 뺀 사업 보고 묶음까지 홈 바로 뒤에서
 // 먼저 누를 화면(일정 등)과 다툰다(S48-34 측정: 달력 첫 전환 775 → 1359ms). 순서는 위 목록 그대로(메뉴 순서). 그 화면을 이미 열었으면 건너뛰고,
 // 화면을 누르면 prepare가 그 사슬을 바로 받는다(같은 주소는 한 번만).
+let warmPaused=null;
+function resumeWarm(){if(flights.size||!warmPaused)return;const next=warmPaused;warmPaused=null;idle(next)}
 const settled=link=>new Promise(resolve=>{link.addEventListener('load',resolve,{once:true});link.addEventListener('error',resolve,{once:true})});
 const idle=fn=>window.requestIdleCallback?window.requestIdleCallback(fn,{timeout:2000}):setTimeout(fn,50);
 function warm(){
@@ -254,6 +258,8 @@ function warm(){
   const queue=Object.entries(warmModules);
   const next=()=>{
     while(queue.length){
+      // S52-08 ①: 화면을 부르는 중이면(누른 화면의 받기·실행) 다음 화면 미리 받기를 걸지 않고, 다 부른 뒤 쉬는 틈에 잇는다.
+      if(flights.size){warmPaused=next;return}
       const [view,paths]=queue.shift();
       if(loaded.has(view))continue;
       const links=paths.map(path=>hint('modulepreload',path)).filter(Boolean);
