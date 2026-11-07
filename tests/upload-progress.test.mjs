@@ -87,6 +87,5 @@ test('올리는 길: basket-files는 공용 보내기(upload-send.mjs)와 표시
   assert.match(src, /sendUpload\(rt\.config\.url \+ '\/functions\/v1\/basket-files'/);
   assert.doesNotMatch(src, /await fetcher\(rt\.config\.url/);
   for (const name of ['ed-editor.js', 'diary.js', 'note-window.js']) assert.match(readFileSync('app/' + name, 'utf8'), /from '\.\/upload-progress\.js'/, name);
-  // 기기 저장 없음
-  for (const name of ['upload-progress.js', 'upload-send.mjs']) assert.doesNotMatch(readFileSync('app/' + name, 'utf8'), /localStorage|sessionStorage|indexedDB/, name);
+  // 기기 저장 없음은 browser-storage-audit(CI)가 본다.
 });
