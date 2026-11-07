@@ -1253,7 +1253,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   }
   // Put a draft's cells into the current base by name; what does not fit is kept aside (shown folded, saved again as it was).
   function placeCells(s, d) {
-    const placed = placeDraft(d, new Set(s.cellAt.keys()));
+    const placed = placeDraft(d, new Set(s.cellAt.keys()), s.initial); // S52-24: 부호만 다른 이름으로 나뉘어 저장된 요약 칸은 같은 주제 칸에 붙인다
     for (const [id, at] of s.cellAt) s.edits[at.section].set(at.index, placed.cells.has(id) ? placed.cells.get(id) : [...s.initial.get(id)]);
     if (s.store) s.store.keep = placed.unplaced;
     s.built = null;

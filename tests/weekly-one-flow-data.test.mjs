@@ -36,8 +36,8 @@ function fakeRt({rows = [], missing = 0} = {}) {
   return {rt, calls, rows, writes:() => calls.filter(c => c.method !== 'GET').length};
 }
 
-test('동작 종류: take·edit·drop·fix·cut·add·none 을 받고, before 는 edit·fix 에만, 모르는 동작은 버림', () => {
-  assert.deepEqual([...p.PICK_ACTS].sort(), ['add', 'cut', 'drop', 'edit', 'fix', 'none', 'take']);
+test('동작 종류: take·edit·drop·fix·cut·add·none·have(S52-24 [이미 있음]) 을 받고, before 는 edit·fix 에만, 모르는 동작은 버림', () => {
+  assert.deepEqual([...p.PICK_ACTS].sort(), ['add', 'cut', 'drop', 'edit', 'fix', 'have', 'none', 'take']);
   const item = {kind:'material', from:'record', cell:'summary:가상 영역›가상 과제', text:'- 가상 집회'};
   const key = p.pickKey(item);
   const r = p.readPicks({items:[

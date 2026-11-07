@@ -15,7 +15,8 @@ import {mountReorder} from './reorder-drag.js';
 import {emptyEl, waitHtml} from './wait-state.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
 import {majorRule} from './weekly-major-schedule.mjs'; // WEEKLY-주요일정기준: 넣을 일정의 기준(한 곳)
-import {sortPicks, droppedOf, keptOf} from './weekly-picks.mjs';
+import {sortPicks, droppedOf, keptOf, hadTexts, HAVE_ACT} from './weekly-picks.mjs';
+import {lineIn} from './weekly-cell-names.mjs';
 import {learnFor} from './weekly-picks.js';
 
 const TEXT = Object.freeze({
@@ -33,9 +34,11 @@ const lineOf = f => hqLine({day:f.day ?? '', time:f.time ?? '', title:f.title ??
 function fresh(start) { return {start, editing:null, draft:{}, picking:false, picked:new Set(), saving:false, status:'', error:false, undo:null}; }
 // WEEKLY-주요일정기준 ①: 2주 달력 일정 가운데 기준(weekly-major-schedule.mjs)에 맞고 아직 표에 없는 것 → 제안(명진이 [넣기]를 눌러야 들어감).
 // 제안 열쇠·학습은 [달력에서] 고르기와 같은 동작 기록(kind 'calendar', 칸 'requests:hq') — 뺀 제안은 다시 보이지 않고(목록 없음), 받은/뺀 셈이 다음 제안 순서·거르기에 쓰인다.
+// S52-24: 손으로 적은 줄·[이미 있음]으로 치운 일정과 부호·띄어쓰기만 다른 일정도 이미 있는 것으로 본다(weekly-cell-names.mjs lineIn).
 export function hqSuggestions(events, rows, titles, picks, learn) {
   const have = new Set((rows ?? []).map(r => r.event).filter(Boolean));
-  const list = (events ?? []).filter(item => !have.has(item.key)).map(item => ({item, f:eventFields(item, titles?.get?.(item.key))})).filter(x => majorRule(x.f.title));
+  const lines = [...(rows ?? []).map(r => lineOf(r)), ...(hadTexts(picks).get('requests:hq') ?? [])];
+  const list = (events ?? []).filter(item => !have.has(item.key)).map(item => ({item, f:eventFields(item, titles?.get?.(item.key))})).filter(x => majorRule(x.f.title) && !lineIn(lines, lineOf(x.f)));
   const opts = {dropped:droppedOf(picks), kept:keptOf(picks), ...(learn ? {learn} : {})};
   return sortPicks(list, x => ({kind:'calendar', from:'calendar', cell:'requests:hq', org:'', text:lineOf(x.f)}), opts).shown;
 }
@@ -101,7 +104,9 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
       li.append(el('span', 'weekly-flow-tag', '캘린더'), el('span', 'weekly-flow-text', f.day ? text : `${item.label} ${text}`)); // 줄 글에 날짜가 들어 있다(hqLine)
       const take = el('button', 'mini weekly-flow-take', '넣기'); take.type = 'button'; take.dataset.journalHqSuggestTake = item.key; take.disabled = busy || rows.length >= HQ_MAX;
       take.setAttribute('aria-label', `2) 주요 일정에 넣기: ${text}`);
-      li.append(take, rowMore(doc, {label:`제안 빼기: ${text}`, data:{journalHqSuggestMore:item.key}, items:[{text:'빼기', data:{journalHqSuggestDrop:item.key}, disabled:busy, danger:true, aria:`제안 빼기: ${text}`}]}));
+      // S52-24: [이미 있음] — 이미 적은 일정이라 치움(빼기와 따로 기록). 공용 ② 작은 버튼.
+      const had = el('button', 'secondary weekly-flow-have', '이미 있음'); had.type = 'button'; had.dataset.journalHqSuggestHave = item.key; had.disabled = busy; had.setAttribute('aria-label', `이미 있음(이미 적은 일정): ${text}`);
+      li.append(take, had, rowMore(doc, {label:`제안 빼기: ${text}`, data:{journalHqSuggestMore:item.key}, items:[{text:'빼기', data:{journalHqSuggestDrop:item.key}, disabled:busy, danger:true, aria:`제안 빼기: ${text}`}]}));
       sg.append(li);
     }
     parts.push(sg);
@@ -168,6 +173,11 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
       const item = events.find(i => i.key === b.dataset.journalHqSuggestDrop); if (!item) return;
       const text = lineOf(eventFields(item, hq.titles.get(item.key)));
       void save(list => list, '제안을 뺐어요.', '', null, [{kind:'calendar', from:'calendar', act:'drop', text}], {undo:text});
+    }
+    else if (b.matches('[data-journal-hq-suggest-have]')) {
+      const item = events.find(i => i.key === b.dataset.journalHqSuggestHave); if (!item) return;
+      const text = lineOf(eventFields(item, hq.titles.get(item.key)));
+      void save(list => list, '이미 있는 일정으로 치웠어요.', '', null, [{kind:'calendar', from:'calendar', act:HAVE_ACT, text}], {undo:text});
     }
     else if (b.matches('[data-journal-hq-suggest-undo]')) { const text = ui.undo?.text; if (text) void save(list => list, '되돌렸어요.', '', null, [{kind:'calendar', from:'calendar', act:'none', text}]); }
     else if (b.matches('[data-journal-hq-pick]')) { setUi({...fresh(start), picking:true}); redraw(); }

@@ -3,12 +3,13 @@
 // - 담당 칸 = draft.owners {칸 이름 → 한 줄}. 홈 [주간 정리]에는 담당 칸이 없고, 사업요약표 미리보기와 한글 파일 요약 표 담당 칸에만 쓰인다.
 // 칸 이름(summaryKey) = '사업영역›세부 과제' (weekly-draft-store.js). 사업영역만 있는 줄은 '사업영역›'.
 // 글은 로그에 쓰지 않는다. AI를 부르지 않는다.
+import {nameKey, sameName} from './weekly-cell-names.mjs';
 export const OWNER_MAX = 60; // 담당 한 칸 글자 수(한글 파일 담당 칸은 이름 몇 개)
 export const OWNERS_COUNT_MAX = 200;
 
 const oneLine = s => String(s ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim();
-// 이름 비교는 띄어쓰기·가운뎃점 모양을 무시(weekly-hwpx/draft.mjs norm 과 같은 규칙).
-export const norm = s => String(s ?? '').replace(/\s+/g, '').replace(/[‧·․]/g, '·').toLowerCase();
+// 이름 비교는 띄어쓰기·부호 모양을 무시(S52-24: weekly-cell-names.mjs nameKey 한 곳 — weekly-hwpx/draft.mjs norm 과 같은 규칙).
+export const norm = s => nameKey(s);
 
 // 미리보기 표의 한 줄(사업영역 이름·세부 과제 이름) → 그 주 draft 의 summary 칸 이름.
 // weekly-hwpx/draft.mjs weekMaterial 과 같은 규칙: 사업영역·세부 과제가 맞는 칸 → 없으면(세부 과제가 있을 때) 그 사업영역의 세부 과제 없는 칸 → 없으면 새 이름.
@@ -20,7 +21,10 @@ export function summaryCellKey(keys, area, task) {
   const exact = list.find(x => norm(x.p[0]) === norm(a) && (t ? norm(x.p[1]) === norm(t) : !norm(x.p[1])));
   if (exact) return exact.k;
   const blank = t ? list.find(x => norm(x.p[0]) === norm(a) && !norm(x.p[1])) : null;
-  return blank ? blank.k : `${a}›${t}`;
+  if (blank) return blank.k;
+  // S52-24: 사업영역만 있는 줄은 세부 과제 이름이 그 사업영역 이름인 칸(예: '의제 › 주제/A')이 그 주제 칸이다.
+  const topic = !t ? list.find(x => sameName(x.p[1], a)) : null;
+  return topic ? topic.k : `${a}›${t}`;
 }
 
 // ---- 담당(owners) ----
