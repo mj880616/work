@@ -205,7 +205,22 @@ class MainActivity : ComponentActivity() {
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val callback = fileCallback ?: return@registerForActivityResult
         fileCallback = null
-        callback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
+        callback.onReceiveValue(pickedUris(result.resultCode, result.data))
+    }
+
+    /**
+     * UPLOAD-올리기안됨(0.5.2): 고른 파일 주소들. FileChooserParams.parseResult는 data 하나만 보고 ClipData는 버린다.
+     * 사진 고르기(이미지만·여러 장 허용)는 한 장만 골라도 ClipData로만 돌려주는 기기가 있어(갤럭시 사진 고르기) 아무것도 안 들어갔다.
+     */
+    private fun pickedUris(resultCode: Int, data: Intent?): Array<Uri>? {
+        if (resultCode != android.app.Activity.RESULT_OK || data == null) return null
+        val clip = data.clipData
+        if (clip != null && clip.itemCount > 0) {
+            val uris = (0 until clip.itemCount).mapNotNull { clip.getItemAt(it)?.uri }
+            if (uris.isNotEmpty()) return uris.toTypedArray()
+        }
+        return data.data?.let { arrayOf(it) }
+            ?: WebChromeClient.FileChooserParams.parseResult(resultCode, data)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
