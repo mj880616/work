@@ -47,18 +47,19 @@ internal sealed class PcShell : IPcShell
     private const ushort FofSilent = 0x4, FofNoConfirmation = 0x10, FofAllowUndo = 0x40, FofNoErrorUi = 0x400, FofWantNukeWarning = 0x4000;
 
     /// <summary>
-    /// One file (already checked by <see cref="PcFiles.Find"/>) to the recycle bin. If Windows cannot keep it in the bin
+    /// One file or folder (already checked by <see cref="PcFiles.Find"/>; folders only from a door that can edit) to the recycle bin. If Windows cannot keep it in the bin
     /// (a network or removable drive), it asks instead of deleting for good (FOF_WANTNUKEWARNING).
     /// </summary>
     public bool Trash(string fullPath)
     {
-        if (!File.Exists(fullPath)) return false;
+        var folder = Directory.Exists(fullPath);
+        if (!folder && !File.Exists(fullPath)) return false;
         var op = new ShFileOp
         {
             Func = FoDelete,
             From = fullPath + "\0\0", // the list ends with two NULs
             Flags = (ushort)(FofAllowUndo | FofNoConfirmation | FofSilent | FofNoErrorUi | FofWantNukeWarning),
         };
-        return SHFileOperation(ref op) == 0 && op.AnyAborted == 0 && !File.Exists(fullPath);
+        return SHFileOperation(ref op) == 0 && op.AnyAborted == 0 && !(folder ? Directory.Exists(fullPath) : File.Exists(fullPath));
     }
 }

@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {pcSegs, pcNorm, pcParent, pcChild, pcPathOk, pcDriveRows, pcListRows, pcTrail, pcHelloOk, pcCode, pcStateText, pcErrorText, pcDeviceOk, pcOffRowName,
-  PC_SOURCE, PC_PORTS, pcDoorOrigin, pcCanList, pcCanXfer, pcXferWhy, PC_READONLY_TEXT, PC_PIECE} from '../app/pc-files-model.mjs';
+  PC_SOURCE, PC_PORTS, pcDoorOrigin, pcCanList, pcCanXfer, pcCanEdit, pcXferWhy, PC_READONLY_TEXT, PC_PIECE} from '../app/pc-files-model.mjs';
 import {createPcFiles} from '../app/pc-files.js';
 import {errorText, SOURCE_NAME, SOURCES, rowKey, trailNames, placeOf} from '../app/files-model.mjs';
 import {PC_DOOR, WEB2_CSP} from '../cloudflare/web2-csp.mjs';
@@ -192,7 +192,15 @@ test('내 PC가 낀 복사·옮기기: 내 PC ↔ 클라우드만, 옛 문·섞�
   assert.equal(pcXferWhy([pcFile], {source: 'od', parent: null}, {can: ['list']}), PC_READONLY_TEXT);
   assert.equal(pcXferWhy([pcFile], null, {can}), ''); // 받을 곳을 아직 고르지 않음
   assert.match(pcXferWhy([pcFile, odFile], null, {can}), /따로/);
-  assert.match(pcXferWhy([pcFile], {source: 'pc', parent: 'D:\\'}, {can}), /다음 판/);
+  assert.match(pcXferWhy([pcFile], {source: 'pc', parent: 'D:\\'}, {can}), /새 판\(0\.5\.0\)/);
+  // S52-43 ① FILES-내PC쓰기: 0.5.0+ 문(edit)이면 내 PC 안끼리도 된다(드라이브 맨 위 목록은 받을 곳 아님).
+  const edit = [...can, 'edit'];
+  assert.equal(pcXferWhy([pcFile], {source: 'pc', parent: 'D:\\'}, {can: edit}), '');
+  assert.match(pcXferWhy([pcFile], {source: 'pc', parent: null}, {can: edit}), /드라이브나 폴더/);
+  assert.match(pcXferWhy([pcFile], {source: 'ph', parent: null}, {can: edit}), /원드라이브·구글 드라이브로/);
+  assert.equal(pcCanEdit(edit), true);
+  assert.equal(pcCanEdit(['edit']), false);
+  assert.deepEqual(pcCanList({can: [...edit, 'zz']}), ['drives', 'list', 'read', 'write', 'trash', 'edit']);
   assert.match(pcXferWhy([pcFile], {source: 'ph', parent: null}, {can}), /원드라이브·구글 드라이브로/);
   assert.match(pcXferWhy([phFile], {source: 'pc', parent: 'C:\\'}, {can}), /원드라이브·구글 드라이브 파일/);
   assert.match(pcXferWhy([odFile], {source: 'pc', parent: null}, {can}), /드라이브나 폴더/);

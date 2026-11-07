@@ -14,7 +14,7 @@ public interface IPcShell
     /// <summary>Shows the item in Explorer without opening it.</summary>
     void Reveal(string fullPath);
 
-    /// <summary>Sends one file to the Windows recycle bin (never a permanent delete). False when Windows refused.</summary>
+    /// <summary>Sends one file (or, from a door that can edit, one folder) to the Windows recycle bin (never a permanent delete). False when Windows refused.</summary>
     bool Trash(string fullPath);
 }
 
@@ -28,7 +28,8 @@ public interface IPcShell
 /// that is signed in to this app;</item>
 /// <item>reads folders and opens files. Since FILES-내PC클라우드옮기기 it also reads and writes single files for copying
 /// between this PC and the cloud (<see cref="IPcTransfer"/>: new files only, never replacing one) and sends a file to
-/// the recycle bin after a move. Only what a person pressed on the screen arrives here. Names and paths never go to a
+/// the recycle bin after a move. Since FILES-내PC쓰기 it also renames, makes folders, moves and copies inside this PC
+/// (<see cref="IPcEdit"/>: never replacing or deleting) and sends folders to the recycle bin. Only what a person pressed on the screen arrives here. Names and paths never go to a
 /// server or into the log.</item>
 /// </list>
 /// Off unless the tray menu turns it on, and closed while this app is signed out.
@@ -52,6 +53,7 @@ public sealed class PcDoor : IDisposable
     private readonly IPcShell _shell;
     private readonly IPcTransfer? _transfer;
     private readonly IPcPins? _pins;
+    private readonly IPcEdit? _edit;
     private readonly IWebUserVerifier _verifier;
     private readonly Func<CancellationToken, Task<string?>> _ownUserId;
     private readonly ILog _log;
@@ -62,10 +64,11 @@ public sealed class PcDoor : IDisposable
     public int Port { get; }
 
     private PcDoor(TcpListener listener, IPcFiles files, IPcShell shell, IWebUserVerifier verifier,
-        Func<CancellationToken, Task<string?>> ownUserId, ILog log, string appVersion, IPcTransfer? transfer, IPcPins? pins)
+        Func<CancellationToken, Task<string?>> ownUserId, ILog log, string appVersion, IPcTransfer? transfer, IPcPins? pins, IPcEdit? edit)
     {
         _transfer = transfer;
         _pins = pins;
+        _edit = edit;
         _listener = listener;
         Port = ((IPEndPoint)listener.LocalEndpoint).Port;
         _files = files;
@@ -79,7 +82,7 @@ public sealed class PcDoor : IDisposable
 
     /// <summary>Opens the door on the first free candidate port of 127.0.0.1. Throws <see cref="PortsBusyException"/> if none is free.</summary>
     public static PcDoor Open(IPcFiles files, IPcShell shell, IWebUserVerifier verifier,
-        Func<CancellationToken, Task<string?>> ownUserId, ILog log, string appVersion, IEnumerable<int>? ports = null, IPcTransfer? transfer = null, IPcPins? pins = null)
+        Func<CancellationToken, Task<string?>> ownUserId, ILog log, string appVersion, IEnumerable<int>? ports = null, IPcTransfer? transfer = null, IPcPins? pins = null, IPcEdit? edit = null)
     {
         foreach (var port in ports ?? DefaultPorts)
         {
@@ -87,7 +90,7 @@ public sealed class PcDoor : IDisposable
             try
             {
                 listener.Start(8);
-                return new PcDoor(listener, files, shell, verifier, ownUserId, log, appVersion, transfer, pins);
+                return new PcDoor(listener, files, shell, verifier, ownUserId, log, appVersion, transfer, pins, edit);
             }
             catch (SocketException)
             {
@@ -198,6 +201,11 @@ public sealed class PcDoor : IDisposable
             ("GET", "/v1/pins") when _pins != null => new Answer(200, new { pins = _pins!.Load() }, true),
             ("POST", "/v1/pins") when _pins != null => PinsAnswer(r.Body),
             (_, "/v1/pins") when _pins != null => new Answer(405, Error("method"), true),
+            ("POST", "/v1/rename") when _edit != null => EditAnswer(r.Body, "rename"),
+            ("POST", "/v1/mkdir") when _edit != null => EditAnswer(r.Body, "mkdir"),
+            ("POST", "/v1/move") when _edit != null => EditAnswer(r.Body, "move"),
+            ("POST", "/v1/copy") when _edit != null => EditAnswer(r.Body, "copy"),
+            (_, "/v1/rename" or "/v1/mkdir" or "/v1/move" or "/v1/copy") when _edit != null => new Answer(405, Error("method"), true),
             (_, "/v1/hello" or "/v1/drives" or "/v1/list" or "/v1/open" or "/v1/reveal") => new Answer(405, Error("method"), true),
             (_, "/v1/read" or "/v1/write/start" or PiecePath or "/v1/write/finish" or "/v1/write/cancel" or "/v1/trash") when _transfer != null
                 => new Answer(405, Error("method"), true),
@@ -245,7 +253,28 @@ public sealed class PcDoor : IDisposable
 
     private string[] Can => new[] { "drives", "list", "open", "reveal" }
         .Concat(_transfer == null ? Array.Empty<string>() : new[] { "read", "write", "trash" })
-        .Concat(_pins == null ? Array.Empty<string>() : new[] { "pins" }).ToArray();
+        .Concat(_pins == null ? Array.Empty<string>() : new[] { "pins" })
+        .Concat(_edit == null || _transfer == null ? Array.Empty<string>() : new[] { "edit" }).ToArray();
+
+    /// <summary>
+    /// FILES-내PC쓰기: rename · new folder · move · copy inside this PC (<see cref="IPcEdit"/>), only what a person pressed.
+    /// Answers the new full path so the screen can show it; nothing is replaced or deleted, and nothing but a fixed code is logged.
+    /// </summary>
+    private Answer EditAnswer(byte[] body, string what)
+    {
+        if (BodyObject(body) is not { } o) return new Answer(400, Error("bad_request"), true);
+        var numbered = o.TryGetProperty("numbered", out var n) && n.ValueKind == JsonValueKind.True;
+        var (step, path) = what switch
+        {
+            "rename" => _edit!.Rename(StringProp(o, "path"), StringProp(o, "name")),
+            "mkdir" => _edit!.MakeFolder(StringProp(o, "dir"), StringProp(o, "name")),
+            "move" => _edit!.Move(StringProp(o, "path"), StringProp(o, "dir"), numbered),
+            _ => _edit!.Copy(StringProp(o, "path"), StringProp(o, "dir"), numbered),
+        };
+        if (step != PcStep.Ok || path == null) return StepRefusal(step);
+        _log.Write(LogCode.DoorEdited);
+        return new Answer(200, new { path }, true);
+    }
 
     /// <summary>FILES-폴더고정: replaces this PC's pinned folders (paths only, kept on this PC).</summary>
     private Answer PinsAnswer(byte[] body)
@@ -275,6 +304,7 @@ public sealed class PcDoor : IDisposable
         PcStep.BadPiece => new Answer(409, Error("bad_piece"), true),
         PcStep.Busy => new Answer(429, Error("busy"), true),
         PcStep.Failed => new Answer(500, Error("write_failed"), true),
+        PcStep.OtherDrive => new Answer(400, Error("other_drive"), true),
         _ => new Answer(404, Error("not_found"), true),
     };
 
@@ -325,12 +355,16 @@ public sealed class PcDoor : IDisposable
         return new Answer(200, new { done = "cancelled" }, true);
     }
 
-    /// <summary>After a move: the original goes to the recycle bin (files only, never a folder, never a permanent delete).</summary>
+    /// <summary>
+    /// After a move the original goes to the recycle bin; never a permanent delete. Folders only when this door can edit
+    /// (FILES-내PC쓰기, the screen asks once first), and never a whole drive.
+    /// </summary>
     private Answer TrashAnswer(string? path)
     {
         var (result, kind, full) = _files.Find(path);
         if (result != PcLookup.Ok || full == null) return Refusal(result);
-        if (kind != PcItemKind.File) return new Answer(400, Error("not_file"), true);
+        if (kind != PcItemKind.File && (_edit == null || kind != PcItemKind.Folder || PcPath.Parse(full)!.Length < 2))
+            return new Answer(400, Error("not_file"), true);
         try
         {
             if (!_shell.Trash(full)) return new Answer(500, Error("trash_failed"), true);

@@ -272,6 +272,34 @@ public class PcDoorTests
         public void Cancel(string? id) => Calls.Add($"cancel {id}");
     }
 
+    /// <summary>FILES-내PC쓰기: records what the door asked for and answers like the real rules would for C:\Docs.</summary>
+    private sealed class FakeEdit : IPcEdit
+    {
+        public List<string> Calls { get; } = new();
+        public (PcStep Result, string? Path) Rename(string? path, string? name)
+        {
+            Calls.Add($"rename {path} {name}");
+            if (name == "run.exe") return (PcStep.Risky, null);
+            if (name == "taken.pdf") return (PcStep.Exists, null);
+            return path == "C:\\Docs\\a.pdf" ? (PcStep.Ok, "C:\\Docs\\" + name) : (PcStep.NotFound, null);
+        }
+        public (PcStep Result, string? Path) MakeFolder(string? dir, string? name)
+        {
+            Calls.Add($"mkdir {dir} {name}");
+            return dir == "C:\\Docs" ? (PcStep.Ok, "C:\\Docs\\" + name) : (PcStep.Blocked, null);
+        }
+        public (PcStep Result, string? Path) Move(string? path, string? dir, bool numbered)
+        {
+            Calls.Add($"move {path} {dir} {numbered}");
+            return dir == "D:\\" ? (PcStep.OtherDrive, null) : numbered ? (PcStep.Ok, dir + "\\a (2).pdf") : (PcStep.Exists, null);
+        }
+        public (PcStep Result, string? Path) Copy(string? path, string? dir, bool numbered)
+        {
+            Calls.Add($"copy {path} {dir} {numbered}");
+            return (PcStep.Ok, dir + "\\a (2).pdf");
+        }
+    }
+
     private sealed class FakeVerifier : IWebUserVerifier
     {
         public int Calls;
@@ -298,11 +326,12 @@ public class PcDoorTests
         public int Port => Door.Port;
 
         public FakePins Pins { get; } = new();
+        public FakeEdit Edit { get; } = new();
 
-        public Rig(bool canWrite = false)
+        public Rig(bool canWrite = false, bool canEdit = false)
         {
             Door = PcDoor.Open(new FakeFiles(), Shell, Verifier, _ => Task.FromResult<string?>(Own), new NullLog(), "9.9.9", new[] { FakeServer.UnusedPort() },
-                canWrite ? Transfer : null, canWrite ? Pins : null);
+                canWrite || canEdit ? Transfer : null, canWrite || canEdit ? Pins : null, canEdit ? Edit : null);
         }
 
         public void Dispose() => Door.Dispose();
@@ -633,6 +662,56 @@ public class PcDoorTests
         Assert.Equal(new[] { "C:\\Docs\\a.pdf" }, rig.Shell.Trashed);
     }
 
+    [Fact]
+    public async Task A_door_that_can_edit_renames_makes_folders_moves_and_copies_for_the_owner_only()
+    {
+        using var rig = new Rig(canEdit: true);
+        var hello = await rig.Get("/v1/hello");
+        Assert.Contains("\"edit\"", hello.Body);
+        var renamed = await rig.Post("/v1/rename", "{\"path\":\"C:\\\\Docs\\\\a.pdf\",\"name\":\"b.pdf\"}");
+        Assert.Equal(200, renamed.Status);
+        Assert.Contains("\"path\":\"C:\\\\Docs\\\\b.pdf\"", renamed.Body);
+        Assert.Equal(403, (await rig.Post("/v1/rename", "{\"path\":\"C:\\\\Docs\\\\a.pdf\",\"name\":\"run.exe\"}")).Status);
+        Assert.Equal(409, (await rig.Post("/v1/rename", "{\"path\":\"C:\\\\Docs\\\\a.pdf\",\"name\":\"taken.pdf\"}")).Status);
+        Assert.Equal(200, (await rig.Post("/v1/mkdir", "{\"dir\":\"C:\\\\Docs\",\"name\":\"새 폴더\"}")).Status);
+        Assert.Equal(403, (await rig.Post("/v1/mkdir", "{\"dir\":\"C:\\\\Windows\",\"name\":\"x\"}")).Status);
+        Assert.Equal(409, (await rig.Post("/v1/move", "{\"path\":\"C:\\\\Docs\\\\a.pdf\",\"dir\":\"C:\\\\\"}")).Status);
+        Assert.Equal(200, (await rig.Post("/v1/move", "{\"path\":\"C:\\\\Docs\\\\a.pdf\",\"dir\":\"C:\\\\\",\"numbered\":true}")).Status);
+        var other = await rig.Post("/v1/move", "{\"path\":\"C:\\\\Docs\",\"dir\":\"D:\\\\\"}");
+        Assert.Equal(400, other.Status);
+        Assert.Contains("other_drive", other.Body);
+        Assert.Equal(200, (await rig.Post("/v1/copy", "{\"path\":\"C:\\\\Docs\\\\a.pdf\",\"dir\":\"C:\\\\Docs\"}")).Status);
+        Assert.Equal(405, (await rig.Get("/v1/rename")).Status);
+        Assert.Equal(400, (await rig.Post("/v1/rename", "[1]")).Status);
+        // Another account or no sign-in never reaches the edit.
+        var calls = rig.Edit.Calls.Count;
+        Assert.Equal(403, (await rig.Post("/v1/rename", "{\"path\":\"C:\\\\Docs\\\\a.pdf\",\"name\":\"c.pdf\"}", token: "web-b")).Status);
+        Assert.Equal(401, (await rig.Post("/v1/mkdir", "{\"dir\":\"C:\\\\Docs\",\"name\":\"y\"}", token: "nope")).Status);
+        Assert.Equal(calls, rig.Edit.Calls.Count);
+    }
+
+    [Fact]
+    public async Task A_door_without_edit_offers_none_of_it_and_still_refuses_folders_in_the_bin()
+    {
+        using var rig = new Rig(canWrite: true);
+        Assert.DoesNotContain("\"edit\"", (await rig.Get("/v1/hello")).Body);
+        Assert.Equal(404, (await rig.Post("/v1/rename", "{\"path\":\"C:\\\\Docs\\\\a.pdf\",\"name\":\"b.pdf\"}")).Status);
+        Assert.Equal(404, (await rig.Post("/v1/move", "{\"path\":\"C:\\\\Docs\\\\a.pdf\",\"dir\":\"C:\\\\\"}")).Status);
+        Assert.Equal(400, (await rig.Post("/v1/trash", "{\"path\":\"C:\\\\Docs\"}")).Status);
+        Assert.Empty(rig.Edit.Calls);
+        Assert.Empty(rig.Shell.Trashed);
+    }
+
+    [Fact]
+    public async Task A_door_that_can_edit_sends_a_folder_but_never_a_drive_to_the_bin()
+    {
+        using var rig = new Rig(canEdit: true);
+        Assert.Equal(200, (await rig.Post("/v1/trash", "{\"path\":\"C:\\\\Docs\"}")).Status);
+        Assert.Equal(400, (await rig.Post("/v1/trash", "{\"path\":\"C:\\\\\"}")).Status);
+        Assert.Equal(403, (await rig.Post("/v1/trash", "{\"path\":\"C:\\\\Windows\"}")).Status);
+        Assert.Equal(new[] { "C:\\Docs" }, rig.Shell.Trashed);
+    }
+
     [Theory]
     [InlineData("https://bokdoong.com", true)]
     [InlineData("https://work.bokdoong.com", true)]
@@ -793,6 +872,67 @@ public class PcTransferTests
             t.Cancel(gone);
             Assert.Empty(Directory.GetFiles(root, PcTransfer.PartPrefix + "*"));
             Assert.Equal(PcStep.Risky, t.Begin(root, "x.exe", 1).Result);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+}
+
+/// <summary>FILES-내PC쓰기: rename, new folder, move and copy inside this PC — never replacing or deleting anything.</summary>
+public class PcEditTests
+{
+    [Fact]
+    public void The_edit_code_never_replaces_or_deletes_and_never_logs()
+    {
+        var text = File.ReadAllText(Path.Combine(PcDoorTests.SourceRoot(), "src", "BasketDrop.Core", "PcEdit.cs"));
+        Assert.DoesNotMatch(@"File\.(Delete|Replace|WriteAll|Create|Open)|Directory\.Delete|overwrite:\s*true|FileMode\.|\.Delete\(|_log", text);
+        Assert.Contains("File.Copy(item.Full, target, overwrite: false)", text);
+        Assert.Contains("File.Move(from, to, overwrite: false)", text);
+        Assert.Contains("PcTransfer.NameCheck", text);
+    }
+
+    [Fact]
+    public void Renames_makes_folders_moves_and_copies_on_the_real_disk_without_replacing()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var root = Path.Combine(AppContext.BaseDirectory, "pcedit-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "sub"));
+        File.WriteAllText(Path.Combine(root, "a.txt"), "one");
+        File.WriteAllText(Path.Combine(root, "b.txt"), "two");
+        try
+        {
+            if (PcPath.Parse(root) is not { } segs || PcPath.IsBlocked(segs)) return;
+            var edit = new PcEdit(new PcFiles(null), null);
+            var a = Path.Combine(root, "a.txt");
+            Assert.Equal(PcStep.Exists, edit.Rename(a, "b.txt").Result);
+            Assert.Equal("two", File.ReadAllText(Path.Combine(root, "b.txt")));
+            Assert.Equal(PcStep.Risky, edit.Rename(a, "a.exe").Result);
+            Assert.Equal(PcStep.BadPath, edit.Rename(a, "..").Result);
+            var (renamed, c) = edit.Rename(a, "c.txt");
+            Assert.Equal(PcStep.Ok, renamed);
+            Assert.Equal(Path.Combine(root, "c.txt"), c);
+            Assert.Equal(PcStep.Ok, edit.Rename(c, "C.txt").Result); // only the letter case
+            var (made, folder) = edit.MakeFolder(root, "새 폴더");
+            Assert.Equal(PcStep.Ok, made);
+            Assert.True(Directory.Exists(folder));
+            Assert.Equal(PcStep.Exists, edit.MakeFolder(root, "새 폴더").Result);
+            var (copied, copy) = edit.Copy(Path.Combine(root, "b.txt"), root, false);
+            Assert.Equal(PcStep.Ok, copied);
+            Assert.Equal(Path.Combine(root, "b (2).txt"), copy); // a copy into its own folder always gets a number
+            Assert.Equal(PcStep.NotFile, edit.Copy(Path.Combine(root, "sub"), root, true).Result);
+            File.WriteAllText(Path.Combine(root, "sub", "b.txt"), "sub");
+            Assert.Equal(PcStep.Exists, edit.Move(Path.Combine(root, "b.txt"), Path.Combine(root, "sub"), false).Result);
+            var (moved, to) = edit.Move(Path.Combine(root, "b.txt"), Path.Combine(root, "sub"), true);
+            Assert.Equal(PcStep.Ok, moved);
+            Assert.Equal(Path.Combine(root, "sub", "b (2).txt"), to);
+            Assert.Equal("sub", File.ReadAllText(Path.Combine(root, "sub", "b.txt")));
+            Assert.Equal(PcStep.BadPath, edit.Move(Path.Combine(root, "sub"), Path.Combine(root, "sub"), true).Result); // into itself
+            Assert.Equal(PcStep.Ok, edit.Move(Path.Combine(root, "sub"), folder, false).Result);
+            Assert.True(File.Exists(Path.Combine(folder!, "sub", "b (2).txt")));
+            Assert.Equal(PcStep.BadPath, edit.Rename(segs[0] + "\\", "x").Result); // never a drive
+            Assert.Equal(PcStep.Blocked, edit.MakeFolder("C:\\Windows", "x").Result);
         }
         finally
         {

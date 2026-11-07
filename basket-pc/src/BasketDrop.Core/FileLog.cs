@@ -10,6 +10,8 @@ public enum LogCode
     DoorOn, DoorOff, DoorRefused, DoorPortsBusy,
     // A file the screen copied onto this PC got its name; a moved original went to the recycle bin. Never a path.
     DoorWrote, DoorTrashed,
+    // FILES-내PC쓰기: a rename, new folder, move or copy inside this PC finished. Never a path.
+    DoorEdited,
 }
 
 public interface ILog

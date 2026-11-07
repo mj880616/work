@@ -28,8 +28,10 @@ const PC = {
 };
 // 문 흉내: up = 문이 열려 있나(꺼지면 연결 거절), user = 문이 보는 계정(다른 계정이면 403 other_user).
 // write = 0.4.0 문(read·write·trash). 쓴 파일은 PC 목록에 더하고(같은 이름이면 numbered일 때만 '이름 (2)'), 휴지통은 목록에서 뺀다.
-async function pcDoor(page, { up = true, user = 'same', write = false } = {}) {
-  const st = { up, user, write, calls: [], writes: {}, seq: 0, trashed: [], pins: [], pc: JSON.parse(JSON.stringify(PC)) };
+// edit = 0.5.0 문(FILES-내PC쓰기: rename·mkdir·move·copy, 폴더 휴지통). 쓰기와 함께 켠다.
+async function pcDoor(page, { up = true, user = 'same', write = false, edit = false } = {}) {
+  if (edit) write = true;
+  const st = { up, user, write, edit, calls: [], writes: {}, seq: 0, trashed: [], pins: [], pc: JSON.parse(JSON.stringify(PC)) };
   await page.route(/^http:\/\/127\.0\.0\.1:4762[0-2]\//, async r => {
     const req = r.request(), u = new URL(req.url()), origin = req.headers().origin || '';
     const cors = { 'access-control-allow-origin': origin, vary: 'Origin', 'access-control-allow-methods': 'GET, POST', 'access-control-allow-headers': 'authorization, content-type', 'access-control-allow-private-network': 'true', 'access-control-expose-headers': 'X-Pc-Size' };
@@ -40,7 +42,7 @@ async function pcDoor(page, { up = true, user = 'same', write = false } = {}) {
     const json = (status, body) => r.fulfill({ status, headers: cors, contentType: 'application/json', body: JSON.stringify(body) });
     if (!(req.headers().authorization || '').startsWith('Bearer ')) return json(401, { error: 'no_token' });
     if (st.user !== 'same') return json(403, { error: 'other_user' });
-    if (u.pathname === '/v1/hello') return json(200, { app: 'basket-pc', version: st.write ? '0.4.0' : '0.3.0', door: 1, can: ['drives', 'list', 'open', 'reveal', ...(st.write ? ['read', 'write', 'trash', 'pins'] : [])] });
+    if (u.pathname === '/v1/hello') return json(200, { app: 'basket-pc', version: st.edit ? '0.5.0' : st.write ? '0.4.0' : '0.3.0', door: 1, can: ['drives', 'list', 'open', 'reveal', ...(st.write ? ['read', 'write', 'trash', 'pins'] : []), ...(st.edit ? ['edit'] : [])] });
     const PCX = st.pc, dirOf = p => p.slice(0, p.lastIndexOf('\\')) || p, baseOf = p => p.slice(p.lastIndexOf('\\') + 1);
     const entry = p => (PCX[dirOf(p)] || []).find(e => e.name === baseOf(p) && !e.dir);
     if (st.write && u.pathname === '/v1/read') {
@@ -71,6 +73,47 @@ async function pcDoor(page, { up = true, user = 'same', write = false } = {}) {
       return json(200, { pins: st.pins });
     }
     if (st.write && u.pathname === '/v1/write/cancel') return json(200, { done: 'cancelled' });
+    // 0.5.0 문: 내 PC 안 이름 바꾸기·새 폴더·옮기기·복사(덮어쓰기 없음 — 같은 이름은 numbered일 때만 '이름 (2)').
+    const dirP = p => { const d = dirOf(p); return /^[A-Z]:$/.test(d) ? d + '\\' : d; }, join = (d, n) => d.replace(/\\$/, '') + '\\' + n;
+    const anyEntry = p => (PCX[dirP(p)] || []).find(e => e.name === baseOf(p));
+    const free = (dir, name, numbered) => {
+      const has = n => (PCX[dir] || []).some(e => e.name.toLowerCase() === n.toLowerCase());
+      if (!has(name)) return name;
+      if (!numbered) return null;
+      const dot = name.lastIndexOf('.');
+      for (let i = 2; ; i++) { const n = dot > 0 ? `${name.slice(0, dot)} (${i})${name.slice(dot)}` : `${name} (${i})`; if (!has(n)) return n; }
+    };
+    if (st.edit && ['/v1/rename', '/v1/mkdir', '/v1/move', '/v1/copy'].includes(u.pathname)) {
+      const b = JSON.parse(req.postData() || '{}');
+      if (u.pathname === '/v1/mkdir') {
+        if (!(b.dir in PCX)) return json(404, { error: 'not_found' });
+        if (free(b.dir, b.name, false) === null) return json(409, { error: 'exists' });
+        PCX[b.dir].push({ name: b.name, dir: true, size: 0, modified: '2026-11-08T00:00:00Z' }); PCX[join(b.dir, b.name)] = [];
+        return json(200, { path: join(b.dir, b.name) });
+      }
+      const e = anyEntry(b.path || ''); if (!e) return json(404, { error: 'not_found' });
+      if (u.pathname === '/v1/rename') {
+        if (/\.exe$/i.test(b.name)) return json(403, { error: 'risky_kind' });
+        if (free(dirP(b.path), b.name, false) === null) return json(409, { error: 'exists' });
+        const to = join(dirP(b.path), b.name);
+        if (e.dir) { PCX[to] = PCX[b.path] || []; delete PCX[b.path]; }
+        e.name = b.name; return json(200, { path: to });
+      }
+      if (!(b.dir in PCX)) return json(404, { error: 'not_found' });
+      if (u.pathname === '/v1/copy' && e.dir) return json(400, { error: 'not_file' });
+      const name = free(b.dir, e.name, !!b.numbered); if (name === null) return json(409, { error: 'exists' });
+      const to = join(b.dir, name);
+      if (u.pathname === '/v1/move') {
+        PCX[dirP(b.path)] = PCX[dirP(b.path)].filter(x => x !== e);
+        if (e.dir) { PCX[to] = PCX[b.path] || []; delete PCX[b.path]; }
+        PCX[b.dir].push({ ...e, name });
+      } else PCX[b.dir].push({ ...e, name });
+      return json(200, { path: to });
+    }
+    if (st.edit && u.pathname === '/v1/trash') {
+      const p = JSON.parse(req.postData() || '{}').path || '', e = anyEntry(p); if (!e) return json(404, { error: 'not_found' });
+      PCX[dirP(p)] = PCX[dirP(p)].filter(x => x !== e); if (e.dir) delete PCX[p]; st.trashed.push(p); return json(200, { done: 'trashed' });
+    }
     if (st.write && u.pathname === '/v1/trash') {
       const p = JSON.parse(req.postData() || '{}').path || '', e = entry(p); if (!e) return json(404, { error: 'not_found' });
       PCX[dirOf(p)] = PCX[dirOf(p)].filter(x => x !== e); st.trashed.push(p); return json(200, { done: 'trashed' });
@@ -308,7 +351,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.4.0 문(내 PC ↔ 클라우드)
     await expect(bar.locator('[data-fx-copy]')).toBeVisible();
     await expect(bar.locator('[data-fx-trash], [data-fx-rename]')).toHaveCount(0);
     await page.keyboard.press('Delete');
-    await expect(page.getByText('내 PC 안 이름 바꾸기·새 폴더·휴지통은 다음 판에서 돼요').first()).toBeVisible();
+    await expect(page.getByText(/새 판\(0\.5\.0\)으로 올리면 내 PC 안 이름 바꾸기/).first()).toBeVisible();
     await bar.locator('[data-fx-copy]').click();
     const dest = root(page).locator('[data-fx-dest]');
     await expect(dest).toBeVisible();
@@ -377,4 +420,134 @@ test('윈도우가 아닌 PC 브라우저: 내 PC 아이콘·줄이 없고 문�
   await expect(tree(page).locator('[data-fx-pc-knock]')).toHaveCount(0);
   expect(st.calls).toEqual([]);
   expect(errors).toEqual([]);
+});
+
+// S52-43 ① FILES-내PC쓰기: 0.5.0 문(can에 edit). 내 PC 안 이름 바꾸기·새 폴더·옮기기·복사·휴지통(파일·폴더), 미리보기(글·사진·PDF),
+// 고르기 막대·⋯·우클릭 메뉴가 클라우드와 같은 항목. 덮어쓰기 없음(같은 이름은 한 번 묻고 '이름 (2)'). PC 경로는 서버에 가지 않는다.
+const ask = page => page.locator('.kptu-ask');
+const menu = page => page.locator('#rowMenu');
+async function openDocs(page, i = 0) {
+  await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
+  await pane(page, i).locator(at('data-fx-row', 'pc:C:\\')).click();
+  await pane(page, i).locator(at('data-fx-row', 'pc:C:\\문서')).click();
+  await expect(pane(page, i).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'))).toBeVisible();
+}
+test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
+  test.use({ userAgent: WINDOWS });
+
+  test('한 칸: 고르기 막대 [이름][휴지통]·F2 이름 바꾸기, [새 폴더], [휴지통] → 한 번 묻고 윈도우 휴지통(폴더도), 같은 이름·프로그램 이름은 거절', async ({ page }) => {
+    test.setTimeout(120000);
+    const { errors, server, st } = await begin(page, { edit: true });
+    st.pc['C:\\문서'].push({ name: '가짜 다른.txt', dir: false, size: 3, modified: '2026-11-06T00:00:00Z' });
+    await openDocs(page);
+    const memo = list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'));
+    await memo.click({ modifiers: ['Control'] });
+    const bar = root(page).locator('[data-fx-bar]');
+    await expect(bar.locator('[data-fx-copy]')).toBeVisible();
+    await expect(bar.locator('[data-fx-rename]')).toBeVisible();
+    await expect(bar.locator('[data-fx-trash]')).toBeVisible();
+    // F2 → 새 이름(확장자는 그대로) → 문 /v1/rename → 목록이 새 이름.
+    await page.keyboard.press('F2');
+    await expect(ask(page).locator('.kptu-ask-field')).toHaveValue('가짜 메모_연습');
+    await ask(page).locator('.kptu-ask-field').fill('가짜 메모_고침');
+    await ask(page).getByRole('button', { name: '바꾸기' }).click();
+    await expect(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_고침.txt'))).toBeVisible();
+    await expect(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'))).toHaveCount(0);
+    expect(JSON.parse(st.calls.find(c => c.path === '/v1/rename').body)).toEqual({ path: 'C:\\문서\\가짜 메모_연습.txt', name: '가짜 메모_고침.txt' });
+    // 같은 이름은 문이 거절 → 한 줄, 아무것도 바뀌지 않음.
+    await list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_고침.txt')).click({ modifiers: ['Control'] });
+    await page.keyboard.press('F2');
+    await ask(page).locator('.kptu-ask-field').fill('가짜 다른');
+    await ask(page).getByRole('button', { name: '바꾸기' }).click();
+    await expect(page.getByText('같은 이름 파일이 이미 있어요').first()).toBeVisible();
+    await expect(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_고침.txt'))).toBeVisible();
+    // [새 폴더]: 내 PC 폴더에서도 보이고 문 /v1/mkdir.
+    await root(page).locator('[data-fx-mkdir]').click();
+    await ask(page).locator('.kptu-ask-field').fill('가짜 새 폴더');
+    await ask(page).getByRole('button', { name: '만들기' }).click();
+    await expect(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 새 폴더'))).toBeVisible();
+    // 막대 [휴지통]: 파일 하나 → 한 번 묻기(윈도우 휴지통 안내) → 문 /v1/trash.
+    // (앞 이름 바꾸기가 거절돼 그 줄은 아직 골라져 있다.)
+    await expect(bar).toContainText('1개');
+    await bar.locator('[data-fx-trash]').click();
+    await expect(ask(page)).toContainText("'가짜 메모_고침.txt'을(를) 휴지통으로 보낼까요?");
+    await expect(ask(page)).toContainText('윈도우 휴지통');
+    await ask(page).getByRole('button', { name: '휴지통으로' }).click();
+    await expect(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_고침.txt'))).toHaveCount(0);
+    // 폴더도 ⋯ [휴지통](맨 아래)으로.
+    const folder = list(page).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시'));
+    await folder.click({ button: 'right' });
+    await expect(menu(page)).toBeVisible();
+    await expect(menu(page).locator('[data-row-item]')).toHaveText(['열기', '새 폴더', '옮기기', '이름 바꾸기', '위에 고정', '휴지통']);
+    await menu(page).getByRole('button', { name: '휴지통' }).click();
+    await ask(page).getByRole('button', { name: '휴지통으로' }).click();
+    await expect(folder).toHaveCount(0);
+    expect(st.trashed).toEqual(['C:\\문서\\가짜 메모_고침.txt', 'C:\\문서\\하위_예시']);
+    // PC 경로·이름은 서버 어디에도 없다.
+    expect(JSON.stringify(server.calls)).not.toContain('C:\\\\');
+    expect(JSON.stringify(server.calls)).not.toContain('가짜 메모_고침');
+    expect(errors).toEqual([]);
+  });
+
+  test('미리보기: 글은 앞부분만 문에서 읽어 보기 칸에, 아래 줄 [이 PC에서 열기][탐색기에서 위치][복사][옮기기][이름][휴지통]. 0.4.0 문은 이름·휴지통 없음', async ({ page }) => {
+    test.setTimeout(90000);
+    const { errors, st } = await begin(page, { edit: true });
+    await openDocs(page);
+    await list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt')).click();
+    const prev = root(page).locator('[data-fx-prev]');
+    await expect(prev.locator('.fx-pv-text')).toHaveText('AAAAAAAAAAAA');
+    const read = st.calls.find(c => c.path === '/v1/read');
+    expect(read.q).toBe('C:\\문서\\가짜 메모_연습.txt');
+    await expect(prev.locator('.fx-pv-acts button')).toHaveText(['이 PC에서 열기', '탐색기에서 위치', '복사', '옮기기', '이름', '휴지통']);
+    await shot(page, 'files-pc-preview-text-1440');
+    // 한글 문서(미리보기 없는 종류)는 이름·크기만.
+    await list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 회의자료_연습.hwpx')).click();
+    await expect(prev).toContainText('미리보기 없이 이름·크기만');
+    // 미리보기 [이름]도 같은 길.
+    await prev.locator('[data-fx-rename-one]').click();
+    await ask(page).locator('.kptu-ask-field').fill('가짜 회의자료_고침');
+    await ask(page).getByRole('button', { name: '바꾸기' }).click();
+    await expect(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 회의자료_고침.hwpx'))).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test('두 칸: 내 PC 줄을 반대 칸 내 PC 폴더로 끌어 놓으면 [복사][옮기기] → 옮기기, 같은 칸 폴더에 놓으면 묻지 않고 옮기기, Ctrl+C → [여기에 복사]는 같은 이름이면 한 번 묻고 이름 (2)', async ({ page }) => {
+    test.setTimeout(150000);
+    const { errors, server, st } = await begin(page, { edit: true });
+    await root(page).locator('[data-fx-two]').click();
+    await expect(pane(page, 1)).toBeVisible();
+    await root(page).locator('[data-fx-tree-tog]').click();
+    await pane(page, 0).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
+    await openDocs(page, 0);
+    await pane(page, 1).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
+    await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
+    await pane(page, 1).locator(at('data-fx-row', 'pc:D:\\')).click();
+    await expect(pane(page, 1).locator('[data-fx-list]')).toContainText('빈 폴더');
+    // 왼쪽 내 PC 파일 → 오른쪽 내 PC D: 끌어 놓기 → [옮기기].
+    const memo = pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'));
+    await expect(memo).toHaveAttribute('draggable', 'true');
+    await memo.dragTo(pane(page, 1).locator('[data-fx-list]'));
+    const drop = root(page).locator('[data-fx-dropask]');
+    await expect(drop).toBeVisible();
+    await drop.locator('[data-fx-drop-go="move"]').click();
+    await expect(pane(page, 1).locator(at('data-fx-row', 'pc:D:\\가짜 메모_연습.txt'))).toBeVisible();
+    await expect(memo).toHaveCount(0);
+    expect(JSON.parse(st.calls.find(c => c.path === '/v1/move').body)).toEqual({ path: 'C:\\문서\\가짜 메모_연습.txt', dir: 'D:\\' });
+    // 같은 칸 안 폴더에 놓기 = 묻지 않고 옮기기(클라우드 안과 같게).
+    const pdf = pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 안내문.pdf'));
+    await pdf.dragTo(pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시')));
+    await expect(pdf).toHaveCount(0);
+    expect(st.pc['C:\\문서\\하위_예시'].map(e => e.name)).toEqual(['가짜 안내문.pdf']);
+    // Ctrl+C(오른쪽 D: 파일) → 같은 칸 Ctrl+V = 같은 이름 → [그래도 하기] → '이름 (2)'.
+    await pane(page, 1).locator(at('data-fx-row', 'pc:D:\\가짜 메모_연습.txt')).click({ modifiers: ['Control'] });
+    await page.keyboard.press('Control+c');
+    await root(page).locator('[data-fx-bar] [data-fx-paste]').click(); // '1개 복사하는 중 · 이 폴더로 [여기에 복사]'
+    const same = root(page).locator('.fx-ask');
+    await expect(same).toContainText('같은 이름이 있어요');
+    await same.locator('[data-fx-ask="go"]').click();
+    await expect(pane(page, 1).locator(at('data-fx-row', 'pc:D:\\가짜 메모_연습 (2).txt'))).toBeVisible();
+    expect(JSON.parse(st.calls.find(c => c.path === '/v1/copy').body)).toEqual({ path: 'D:\\가짜 메모_연습.txt', dir: 'D:\\', numbered: true });
+    expect(JSON.stringify(server.calls)).not.toContain('D:\\\\');
+    expect(errors).toEqual([]);
+  });
 });

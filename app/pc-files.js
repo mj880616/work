@@ -5,9 +5,12 @@
 // - FILES-내PC클라우드옮기기(S52-41, 바구니 PC 앱 0.4.0+ — hello의 can에 read·write·trash): 사람이 누른 복사·옮기기만
 //   GET /v1/read?path=&at=&len=(4MB 조각) · POST /v1/write/start {dir,name,size} → /v1/write/piece?id=&at=(바이트) → /v1/write/finish {id,numbered}
 //   (실패하면 /v1/write/cancel), 옮기기 뒤 원본은 POST /v1/trash {path}(윈도우 휴지통, 파일만). 덮어쓰기는 문이 하지 않는다(같은 이름은 화면이 묻고 '이름 (2)').
+// - FILES-내PC쓰기(S52-43 ①, 바구니 PC 앱 0.5.0+ — hello의 can에 edit): 사람이 누른 것만 POST /v1/rename {path,name} · /v1/mkdir {dir,name}
+//   · /v1/move {path,dir,numbered} · /v1/copy {path,dir,numbered}(파일만) → 답 {path}(새 경로). 폴더 휴지통도 /v1/trash(드라이브는 문이 거절).
+//   덮어쓰기·지우기는 문이 하지 않는다(같은 이름은 'exists', numbered면 '이름 (2)').
 // - 토큰은 요청 머리에만 싣고 화면·로그에 남기지 않는다. PC 목록·이름은 이 화면 메모리에만 있고 서버·브라우저 저장소에 저장하지 않는다.
 // - 실패는 Error('pc_<까닭>')(files-model errorText가 한 줄로 바꾼다).
-import {PC_PORTS, PC_PIECE, pcDoorOrigin, pcDriveRows, pcListRows, pcNorm, pcHelloOk, pcCode, pcCanList, pcCanXfer} from './pc-files-model.mjs';
+import {PC_PORTS, PC_PIECE, pcDoorOrigin, pcDriveRows, pcListRows, pcNorm, pcHelloOk, pcCode, pcCanList, pcCanXfer, pcCanEdit} from './pc-files-model.mjs';
 
 const HELLO_MS = 1500, CALL_MS = 15000;
 
@@ -109,9 +112,17 @@ export function createPcFiles(win = globalThis.window, {enabled = true, token = 
     // 내 PC ↔ 클라우드 복사·옮기기를 할 수 있는 문인가(0.4.0+).
     get canXfer() { return state.ok && pcCanXfer(state.can); },
     // 파일 하나를 4MB 조각으로 읽어 Blob으로(화면 메모리만). onProgress(받은 양, 전체). 읽는 동안 크기가 바뀌면 멈춘다.
-    async read(path, {size = null, type = '', onProgress = null, signal = null} = {}) {
+    //   head = 앞 몇 바이트만(글 미리보기, 한 조각 안).
+    async read(path, {size = null, type = '', onProgress = null, signal = null, head = 0} = {}) {
       const port = door(), at = pcNorm(path);
       if (!at) throw fail('bad_path');
+      if (head > 0) {
+        const len = Math.min(PC_PIECE, Math.floor(head));
+        return guard(async () => {
+          const d = await call(port, `/v1/read?path=${encodeURIComponent(at)}&at=0&len=${len}`, {raw: true, ms: 60000});
+          return new Blob(d?.bytes ? [d.bytes] : [], {type: type || ''});
+        });
+      }
       return guard(async () => {
         const parts = [];
         let off = 0, total = Number.isFinite(Number(size)) && size !== null ? Number(size) : -1;
@@ -168,7 +179,22 @@ export function createPcFiles(win = globalThis.window, {enabled = true, token = 
       const d = await guard(() => call(port, '/v1/pins', {method: 'POST', body: {pins}}));
       return (Array.isArray(d?.pins) ? d.pins : []).map(pcNorm).filter(Boolean);
     },
-    // 옮기기 뒤 원본 파일 하나를 윈도우 휴지통으로(문이 파일만 받음).
+    // FILES-내PC쓰기: 내 PC 안 이름 바꾸기·새 폴더·옮기기·복사를 아는 문인가(0.5.0+).
+    get canEdit() { return state.ok && pcCanEdit(state.can); },
+    // 답 = 새 경로(문이 다시 본 가지런한 경로). 실패는 Error('pc_<까닭>').
+    async edit(what, body) {
+      const port = door();
+      if (!['rename', 'mkdir', 'move', 'copy'].includes(what)) throw fail('bad_request');
+      const d = await guard(() => call(port, '/v1/' + what, {method: 'POST', body}));
+      const path = pcNorm(d?.path);
+      if (!path) throw fail('write_failed');
+      return path;
+    },
+    async rename(path, name) { const at = pcNorm(path); if (!at || typeof name !== 'string' || !name) throw fail('bad_path'); return this.edit('rename', {path: at, name}); },
+    async mkdir(dir, name) { const at = pcNorm(dir); if (!at || typeof name !== 'string' || !name) throw fail('bad_path'); return this.edit('mkdir', {dir: at, name}); },
+    async move(path, dir, {numbered = false} = {}) { const a = pcNorm(path), b = pcNorm(dir); if (!a || !b) throw fail('bad_path'); return this.edit('move', {path: a, dir: b, ...(numbered ? {numbered: true} : {})}); },
+    async copy(path, dir, {numbered = false} = {}) { const a = pcNorm(path), b = pcNorm(dir); if (!a || !b) throw fail('bad_path'); return this.edit('copy', {path: a, dir: b, ...(numbered ? {numbered: true} : {})}); },
+    // 휴지통: 옮기기 뒤 원본 파일, 또는(0.5.0+ 문) 사람이 고른 파일·폴더 하나를 윈도우 휴지통으로.
     async trash(path) {
       const port = door(), at = pcNorm(path);
       if (!at) throw fail('bad_path');
