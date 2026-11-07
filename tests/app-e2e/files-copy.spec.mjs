@@ -92,20 +92,24 @@ test('PC 1440: 고르기 막대 [복사] → 받을 곳 창 → 같은 이름 �
   await sheet(page).locator('.fx-ask').getByRole('button', { name: '건너뛰기' }).click();
   await expect(page.locator('body')).toContainText('1개 건너뜀');
   expect(edgeCalls(server, 'job_add')).toHaveLength(1);
-  // 폴더를 다른 저장소로는 막고 안내(H-5), 보내지 않음.
+  // S52-43 ② 폴더째 다른 저장소로: 받을 곳에 같은 이름 폴더를 만들고(mkdir) 안의 파일을 전송 목록에 펼쳐 넣는다(H-5는 내 PC·이 폰만 남음).
   await row(page, 'od:OD!10').click({ modifiers: ['Control'] });
   await bar(page).locator('[data-fx-copy]').click();
   await pick(page, 'gd:').click();
   await sheet(page).locator('[data-fx-dest-go]').click();
-  await expect(page.locator('body')).toContainText('폴더는 같은 저장소 안에서만 통째로 복사돼요');
-  expect(edgeCalls(server, 'job_add')).toHaveLength(1);
+  await expect.poll(() => edgeCalls(server, 'job_add').length).toBe(2);
+  expect(edgeCalls(server, 'mkdir').map(c => c.body)).toEqual([{ action: 'mkdir', source: 'gd', parent: null, name: '가짜 2026', confirm: true }]);
+  expect(edgeCalls(server, 'job_add')[1].body).toEqual({ action: 'job_add', confirm: true, kind: 'copy', to_source: 'gd', to: 'gdNew90', items: [{ source: 'od', id: 'OD!14' }] });
+  await expect(page.locator('body')).toContainText('폴더 1개 · 파일 1개 복사 시작');
+  await row(page, 'od:OD!10').click({ modifiers: ['Control'] });
+  await bar(page).locator('[data-fx-copy]').click();
   // 같은 저장소 안 폴더째 복사는 된다(같은 곳이면 이름 (2)).
   await pick(page, 'od:OD!1').click();
   await sheet(page).locator('[data-fx-dest-go]').click();
   await expect(sheet(page).locator('.fx-ask')).toContainText('가짜 2026 — 같은 이름이 있어요. 그래도 복사할까요?');
   await sheet(page).locator('.fx-ask').getByRole('button', { name: '그래도 하기' }).click();
-  await expect.poll(() => edgeCalls(server, 'job_add').length).toBe(2);
-  expect(edgeCalls(server, 'job_add')[1].body).toEqual({ action: 'job_add', confirm: true, kind: 'copy', to_source: 'od', to: 'OD!1', items: [{ source: 'od', id: 'OD!10', numbered: true }] });
+  await expect.poll(() => edgeCalls(server, 'job_add').length).toBe(3);
+  expect(edgeCalls(server, 'job_add')[2].body).toEqual({ action: 'job_add', confirm: true, kind: 'copy', to_source: 'od', to: 'OD!1', items: [{ source: 'od', id: 'OD!10', numbered: true }] });
   await expect(root(page).locator('[data-fx-list] :is(.fx-name, .ft-name)').filter({ hasText: '가짜 2026 (2)' })).toBeVisible({ timeout: 15000 });
   expect(errors).toEqual([]);
 });

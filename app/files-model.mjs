@@ -401,15 +401,29 @@ const gdDoc = r => r?.source === 'gd' && /^application\/vnd\.google-apps\./.test
 // 받을 곳으로 보낼 수 있는지 줄마다 가른다. {ok: 보낼 줄, blocked: [{row, reason}], reason: 하나도 못 보낼 때 한 줄}.
 //   같은 저장소: 복사는 파일·폴더(폴더째, H-5), 옮기기는 지금 규칙(같은 자리·자기 안 빼고 200개까지는 move가 나눠 보냄).
 //   다른 저장소: 파일만(폴더는 막고 안내), 크기를 모르는 것·구글 문서는 막음. 200MB 넘는 것은 여기서 막지 않는다(묻는 창이 따로, big()).
+// 폴더째 다른 저장소로(S52-43 ②): 원드라이브 ↔ 구글 드라이브만. 한 폴더에 파일 500개·폴더 100개까지(넘으면 나눠 보내게 안내).
+const TREE_SOURCES = ['od', 'gd'];
+export const TREE_ACROSS_FILES = 500, TREE_ACROSS_FOLDERS = 100;
+export const treeAcrossBig = (files, folders) => files > TREE_ACROSS_FILES || folders > TREE_ACROSS_FOLDERS;
+export const treeAcrossTooBigText = name => `${name}: 폴더 안이 너무 많아요(파일 ${TREE_ACROSS_FILES}개·폴더 ${TREE_ACROSS_FOLDERS}개까지). 안쪽 폴더를 나눠 보내 주세요`;
+export const treeBigAsk = n => `200MB 넘는 파일이 ${n}개 있어요. 그래도 보낼까요?`;
+// 폴더째 보낸 뒤 한 줄. moved = 옮기기(원래 폴더는 파일이 다 옮겨진 뒤 빈 폴더로 남는다).
+export function treeDoneText(mode, {folders = 0, files = 0, skipped = 0} = {}) {
+  const head = `폴더 ${folders}개 · 파일 ${files}개 ${mode === 'move' ? '옮기기' : '복사'} 시작 · 아래 전송 줄을 누르면 목록`;
+  return skipped ? `${head} · ${skipped}개 건너뜀` : head;
+}
+export const TREE_MOVE_NOTE = '파일이 다 옮겨지면 원래 폴더는 빈 폴더로 남아요(지우려면 휴지통으로)';
 export function xferPlan(rows, dest, mode = 'copy') {
   const list = (rows || []).filter(Boolean), ok = [], blocked = [];
   if (!dest?.source) return {ok, blocked, reason: '받을 곳을 고르세요'};
   const verb = mode === 'move' ? '옮겨요' : '복사돼요';
   for (const r of list) {
     const across = r.source !== dest.source;
-    if (across && r.is_folder) blocked.push({row: r, reason: `폴더는 같은 저장소 안에서만 통째로 ${verb}. 다른 저장소로는 폴더를 열어 파일을 골라 주세요`});
+    // S52-43 ② FILES-저장소사이: 원드라이브 ↔ 구글 드라이브는 폴더째(화면이 같은 폴더 모양을 만들고 안의 파일을 전송 목록에 펼쳐 넣음, treeAcross).
+    //   내 PC·이 폰이 끼면 아직 폴더째는 없다.
+    if (across && r.is_folder && !(TREE_SOURCES.includes(r.source) && TREE_SOURCES.includes(dest.source))) blocked.push({row: r, reason: `내 PC·이 폰과는 폴더째 ${verb === '옮겨요' ? '옮기지' : '복사하지'} 않아요. 폴더를 열어 파일을 골라 주세요`});
     else if (across && gdDoc(r)) blocked.push({row: r, reason: '구글 문서는 다른 저장소로 보내지 않습니다'});
-    else if (across && (r.size_bytes === null || r.size_bytes === undefined || !Number.isFinite(Number(r.size_bytes)))) blocked.push({row: r, reason: '크기를 모르는 파일은 다른 저장소로 보내지 않습니다'});
+    else if (across && !r.is_folder && (r.size_bytes === null || r.size_bytes === undefined || !Number.isFinite(Number(r.size_bytes)))) blocked.push({row: r, reason: '크기를 모르는 파일은 다른 저장소로 보내지 않습니다'});
     else if (!across && r.is_folder && r.item_id === (dest.parent ?? null)) blocked.push({row: r, reason: `폴더를 자기 안으로 ${mode === 'move' ? '옮길' : '복사할'} 수 없습니다`});
     else if (mode === 'move' && !across && (r.parent_id ?? null) === (dest.parent ?? null)) blocked.push({row: r, reason: '이미 이 폴더에 있습니다'});
     else ok.push(r);

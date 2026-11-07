@@ -243,6 +243,40 @@ test.describe('폰 앱 412', () => {
     expect(errors).toEqual([]);
   });
 
+  // S52-43 ② FILES-저장소사이: 폰 ↔ 클라우드 옮기기 = 복사한 뒤 원본을 휴지통으로(폰 → 클라우드는 서버가 올린 파일을 맞춘 뒤에만 폰 휴지통).
+  test('앱 3-③ 판: 폰 파일 [옮기기] → 원드라이브(올린 뒤 폰 휴지통), 원드라이브 파일 [옮기기] → 이 폰(받은 뒤 원드라이브 휴지통)', async ({ page }) => {
+    test.setTimeout(120000);
+    const { errors, server } = await start(page, 412);
+    const st = await phoneApp(page, { granted: true, write: true });
+    await installViewPrefsServer(page);
+    await page.reload();
+    await openFiles(page, 412);
+    await phoneFolder(page, 'ph', 'Download');
+    await list(page).locator('[data-fx-row="ph:Download/가짜 메모장.txt"]').click();
+    const prev = root(page).locator('[data-fx-prev]');
+    await expect(prev.locator('[data-fx-cut-one]')).toHaveText('옮기기');
+    await prev.locator('[data-fx-cut-one]').click();
+    const sheet = root(page).locator('[data-fx-dest]');
+    await expect(sheet.locator('[data-fx-dest-pick^="ph:"]')).toHaveCount(0);
+    await sheet.locator('[data-fx-dest-pick="od:"]').first().click();
+    await sheet.locator('[data-fx-dest-go]').click();
+    await expect.poll(() => server.jobs.filter(j => j.status === 'done').length, { timeout: 15000 }).toBe(1);
+    await expect.poll(() => st.ops.filter(o => o.startsWith('pfiles:op:'))).toEqual(['pfiles:op:{"op":"trash","paths":["Download/가짜 메모장.txt"],"confirm":true}']);
+    await expect(list(page).locator('[data-fx-row="ph:Download/가짜 메모장.txt"]')).toHaveCount(0);
+    // 원드라이브 → 이 폰 옮기기: 폰에 다 쓴 것만 원드라이브 휴지통으로.
+    for (let i = 0; i < 4 && !(await tree(page).isVisible()); i++) await root(page).locator('[data-fx-up]').click();
+    await phoneFolder(page, 'od');
+    await list(page).locator('[data-fx-row="od:OD!1"]').click();
+    await list(page).locator('[data-fx-row="od:OD!13"]').click();
+    await prev.locator('[data-fx-cut-one]').click();
+    await sheet.locator('[data-fx-dest-pick="ph:Download"]').click();
+    await sheet.locator('[data-fx-dest-go]').click();
+    await expect.poll(() => Object.keys(st.saved)).toEqual(['Download/가짜 메모.txt']);
+    await expect.poll(() => edgeCalls(server, 'trash').map(c => c.body)).toEqual([{ action: 'trash', source: 'od', ids: ['OD!13'], confirm: true }]);
+    expect(JSON.stringify(server.calls)).not.toContain('Download');
+    expect(errors).toEqual([]);
+  });
+
   test('이미 허락된 앱: 열자마자 나무 뿌리에 이 폰, 폰을 못 읽으면 목록에 한 줄 안내', async ({ page }) => {
     const { errors } = await start(page, 412);
     await phoneApp(page, { granted: true });

@@ -101,6 +101,7 @@ export function phoneWriteText(code) {
 // '이 폰'에서 아직 안 되는 일. 옛 앱(쓰기 모름)은 보기·클라우드로 복사만.
 export const PHONE_READONLY_TEXT = '폰 파일은 지금은 보기·받기만 돼요';
 export const PHONE_OLD_APP_TEXT = '폰에 쓰려면 웹2 앱을 새 판으로 올려 주세요';
-export const PHONE_MOVE_TEXT = '폰이 낀 옮기기는 아직 안 돼요. 복사한 뒤 원본을 지워 주세요';
+// FILES-저장소사이(S52-43 ②): 폰에 쓸 수 있는 앱(3-③)이면 폰 ↔ 클라우드 옮기기(복사 뒤 원본 휴지통)가 된다. 옛 앱·폰 안끼리는 이 한 줄.
+export const PHONE_MOVE_TEXT = '폰 안끼리 옮기기는 아직 안 돼요. 폰 ↔ 클라우드는 웹2 앱 새 판에서 옮길 수 있어요';
 export const PHONE_ASK_TEXT = "설정에서 '모든 파일 접근 허용'을 켜고 돌아오세요";
 export const PHONE_CANNOT_TEXT = '이 폰(안드로이드 10 이하)에서는 폰 저장 공간을 열 수 없어요';
