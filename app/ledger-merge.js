@@ -180,14 +180,18 @@ function bind() {
     else if (action === 'undo') void undoRecent(button.dataset.lmFix);
   });
   window.addEventListener('kptu:ledger-changed', () => { if (document.querySelector('#ledgerMergeRoot')) void load(); });
-  window.KPTURouter?.on?.('ledger', () => { void load(); }); // 원장 화면을 다시 열 때마다 새로 읽는다
+  // 원장 화면을 다시 열 때마다 새로 읽는다. S52-08 ②: 처음 열 때는 boot가 막 읽기 시작했으므로 바로 이어지는 들어오기에서 같은 요청을 다시 보내지 않는다.
+  window.KPTURouter?.on?.('ledger', () => { if (bootRead) { bootRead = false; return; } void load(); });
+  window.addEventListener('kptu:view-changed', e => { if (e.detail?.view !== 'ledger') bootRead = false; });
 }
 
-window.addEventListener('kptu:session-changed', () => { seq++; state = fresh(); render(); if (document.querySelector('#ledgerMergeRoot') && workspaceId()) void load(); });
+let bootRead = false;
+window.addEventListener('kptu:session-changed', () => { seq++; bootRead = false; state = fresh(); render(); if (document.querySelector('#ledgerMergeRoot') && workspaceId()) void load(); });
 function boot() {
   bind();
   render();
   window.KPTULedgerMerge = Object.freeze({ reload: load });
+  bootRead = !!(workspaceId() && document.querySelector('#ledgerMergeRoot'));
   void load();
   return true;
 }
