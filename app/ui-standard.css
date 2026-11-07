@@ -831,6 +831,8 @@
   html:has(:where(#appView #basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-list]:not([hidden]) .nv-switch)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   /* S51-28 LIB-화면정리: 자료실 묶기 알약(library-upload.css)도 아래 탭 바로 위라 동그란 [+]는 그 위로. 큰 제목(앱 머리 '자료실')은 없다. */
   html:has(:where(#appView #libraryView:not(.hidden) #libraryGroupBy)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
+  /* S52-22 TEAM-맨위한줄: 사업 보고 [목록|달력|사진](meeting-ui.css 자리)도 아래 탭 바로 위라 동그란 [+]는 그 위로. */
+  html:has(:where(#appView #meetingsView:not(.hidden) #reportViewFilter)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   html:has(#appView #libraryView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
   html:has(body.kptu-mobile-keyboard){ --kptu-switch-dock:0px; }
   /* 전체 화면 쓰기 창(ed-window.js)이 열려 있으면 전환 줄은 창 아래에 가려지므로 0(하단 탭도 숨음, topbar-actions.css S48-6b). */
@@ -1464,9 +1466,13 @@ button.secondary:not(.icon-btn){ border-color:var(--ds-line); }
 }
 :where(select:not([multiple],[size])){
   -webkit-appearance:none; appearance:none;
+  border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); color:var(--kptu-ink); font-weight:var(--ds-weight-regular);
+}
+/* ▾ 그림은 base-ui.css 칸 기본(select{background:…} 줄임 표기)보다 한 단계 강하게 둔다(S52-22에서 발견: :where 강도 0이라 ▾가 어디서도 그려지지 않았다).
+   화면이 #id로 바탕을 따로 정한 상자는 그 규칙이 그대로 이긴다. 오른쪽 여백 26px은 아래 ③ 규칙. */
+select:not([multiple],[size]){
   background-image:linear-gradient(45deg,transparent 50%,var(--kptu-muted) 50%),linear-gradient(135deg,var(--kptu-muted) 50%,transparent 50%);
   background-position:calc(100% - 13px) 50%,calc(100% - 9px) 50%; background-size:4px 4px,4px 4px; background-repeat:no-repeat;
-  border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); color:var(--kptu-ink); font-weight:var(--ds-weight-regular);
 }
 .date-field{ position:relative; display:inline-flex; max-width:100%; min-width:0; vertical-align:middle; }
 .date-field.is-block{ display:flex; width:100%; }

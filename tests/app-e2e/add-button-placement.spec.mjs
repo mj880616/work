@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
-import {reportFilterButton,reportFilterKeys,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
+import {reportFilterKeys,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -77,8 +77,8 @@ async function assertFloating(page,button){
   expect(await control.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
   // Painted circle 36px; the ::after touch target is 44px and sits 12px above the tabs —
   // or, where the phone switch row sits on the tabs (UI-버튼작게 ③: 일정·할 일, 44px row), 12px above that row.
-  // S51-28: 자료실은 묶기 알약(#libraryGroupBy)이 아래 탭 위 44px 줄을 차지한다.
-  const dock=await control.evaluate(n=>{const sw=n.closest('.view-panel')?.querySelector(':scope > .schedule-switch, #libraryGroupBy');return sw&&sw.getClientRects().length?44:0;});
+  // S51-28: 자료실은 묶기 알약(#libraryGroupBy)이 아래 탭 위 44px 줄을 차지한다. S52-22: 사업 보고 [목록|달력|사진](#reportViewFilter)도 같다.
+  const dock=await control.evaluate(n=>{const sw=n.closest('.view-panel')?.querySelector(':scope > .schedule-switch, #libraryGroupBy, #reportViewFilter');return sw&&sw.getClientRects().length?44:0;});
   expect(b.width).toBe(36);expect(b.height).toBe(36);const el=control;const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w).toBe(44);expect(t.h).toBe(44);expect(Math.round(tabs.y-dock-t.bottom)).toBe(12);
 }
 // S48-6 UI-폰달력월보기 결정 6: 달력 [+]는 전환 줄(44px, 탭 바로 위) 안 오른쪽 끝 작은 단추 — 보이는 32px, 누르는 범위 44px이 전환 줄에 꼭 맞음.
@@ -111,12 +111,14 @@ for(const width of [390,1440]){
     });
     test('meeting list card keeps filter and opens the same form',async({page})=>{
       await openApp(page,'meetings');
-      // UI-선택표시통일: 폰은 다른 탭과 같은 동그란 [+](하단 탭 위), PC는 카드 머리줄 그대로.
-      await assertPlaced(page,width,{card:'#meetingsListCard',head:'.add-list-head',button:'#newMeetingBtn',title:'h2'});
+      // UI-선택표시통일: 폰은 다른 탭과 같은 동그란 [+](하단 탭 위). S52-22 TEAM-맨위한줄: PC는 맨 위 한 줄 오른쪽 [녹음][+ 사업 보고][⋯] 안.
+      if(width===390)await assertFloating(page,'#newMeetingBtn');
+      else{const bar=page.locator('#meetingsView .report-kind-bar');await expect(bar.locator('#newMeetingBtn')).toBeVisible();const [b,btn,more]=await Promise.all([bar.boundingBox(),bar.locator('#newMeetingBtn').boundingBox(),page.locator('#reportMore').boundingBox()]);
+        expect(btn.x+btn.width).toBeLessThanOrEqual(more.x);expect(more.x+more.width).toBeCloseTo(b.x+b.width,0);expect(btn.y+btn.height/2).toBeCloseTo(b.y+b.height/2,0)}
       // MEET-결과정리 ⑤: PC(≥1024)는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록, 폰은 지금 회의명 필터.
-      // UI-전수디자인점검 F01: 폰의 회의명 거르기는 칸 칩 줄 끝 [거르기 ▾] 창 안의 한 묶음이다.
+      // S52-22 TEAM-맨위한줄: 폰의 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음이다.
       if(width>=761){expect(await reportFilterKeys(page)).not.toContain('name');await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
-      else{await expect(reportFilterButton(page)).toBeVisible();expect(await reportFilterKeys(page)).toContain('name')}
+      else{expect(await reportFilterKeys(page)).toContain('name')}
       await page.locator('#newMeetingBtn').click();
       await expect(page.locator('#meetingModal')).toBeVisible();
     });

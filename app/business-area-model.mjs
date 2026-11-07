@@ -117,19 +117,19 @@ export function areaRoots(tree) {
   for (const {project, depth} of tree || []) { trail.length = Math.min(trail.length, depth); trail[depth] = String(project?.id); roots.set(String(project?.id), trail[0] ?? String(project?.id)); }
   return roots;
 }
-export const NO_AREA = '__none__';
-// 칩 목록: [전체] + 보고가 있는 1단 사업영역(트리 순서) + [사업영역 없음 n]([없음]을 고른 보고 한 묶음) + [안 단 보고 n]. 보고는 화면 꼬리표(shownArea) 기준.
+// 고르기 목록: [전체] + 보고가 있는 1단 사업영역(트리 순서) + [사업영역 없음 n]([없음]을 고른 보고 한 묶음). 보고는 화면 꼬리표(shownArea) 기준.
+// S52-22 TEAM-맨위한줄: 사업영역을 아직 안 단 보고는 고르기 목록에 없고, 목록 위 '사업영역 안 단 보고 n건 · 달기' 줄(untaggedInWeek)이 맡는다.
 export function areaChipOptions(meetings, tree) {
-  const roots = areaRoots(tree), count = new Map(); let none = 0, chosenNone = 0;
-  for (const m of meetings || []) { const shown = shownArea(m), id = shown.id; if (!id) { if (shown.none) chosenNone++; else none++; continue; } const root = roots.get(id); if (root) count.set(root, (count.get(root) || 0) + 1); }
+  const roots = areaRoots(tree), count = new Map(); let chosenNone = 0;
+  for (const m of meetings || []) { const shown = shownArea(m), id = shown.id; if (!id) { if (shown.none) chosenNone++; continue; } const root = roots.get(id); if (root) count.set(root, (count.get(root) || 0) + 1); }
   const areas = (tree || []).filter(x => x.depth === 0 && count.has(String(x.project.id))).map(x => ({value:String(x.project.id), label:String(x.project.name || '이름 없는 사업영역')}));
-  return [{value:'all', label:'전체'}, ...areas, ...(chosenNone ? [{value:AREA_NONE, label:`사업영역 없음 ${chosenNone}`}] : []), ...(none ? [{value:NO_AREA, label:`안 단 보고 ${none}`}] : [])];
+  return [{value:'all', label:'전체'}, ...areas, ...(chosenNone ? [{value:AREA_NONE, label:`사업영역 없음 ${chosenNone}`}] : [])];
 }
 export function matchesAreaChip(meeting, chip, roots) {
   if (!chip || chip === 'all') return true;
   const shown = shownArea(meeting), id = shown.id;
   if (chip === AREA_NONE) return !!shown.none;
-  return chip === NO_AREA ? !id && !shown.none : !!id && roots.get(id) === chip;
+  return !!id && roots.get(id) === chip;
 }
 
 // MTG-프로젝트합치기 3단계(요청 10/28 19:07 ③): 사업 보고 목록은 주 단위(‹ › 로 주 넘기기). 서울 월~일.

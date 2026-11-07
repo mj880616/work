@@ -143,7 +143,8 @@ for (const width of [1440, 412]) test.describe(`사진 폴더·앨범 색·순�
     await openTab(page, 'folders');
     await expect.poll(() => folderIds(page)).toEqual(['S3', 'S1', 'S2']); // 정한 폴더가 앞, 나머지는 이름순
     await expect(folderIcon(page, 'S3')).toHaveAttribute('data-fc', '1');
-    expect(await folderIcon(page, 'S3').locator('svg').evaluate(x => getComputedStyle(x).color)).toBe(RGB[1]);
+    // 색 표시 뒤 아이콘이 다시 그려지는 사이에 재면 빈 값이 나올 수 있어 될 때까지 다시 잰다(CI 간헐 실패, S52-22에서 발견).
+    await expect.poll(() => folderIcon(page, 'S3').locator('svg').evaluate(x => getComputedStyle(x).color).catch(() => '')).toBe(RGB[1]);
     await pickFolderColor(page, 'S1', '청록');
     await expect.poll(() => s.prefCalls.length).toBe(1);
     await expect(page.locator('body')).toContainText('폴더 색을 저장하지 못했어요');

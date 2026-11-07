@@ -298,7 +298,9 @@ for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacen
   await clickView(page,view);await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
   const overlaps=await page.evaluate(()=>{
    const visible=el=>el.checkVisibility({checkVisibilityCSS:true});
-   const controls=[...document.querySelectorAll('button,input,select,textarea,a[href],summary')].filter(visible);
+   // 열린 창(.modal, 예: 프로젝트 = 사업 보고 위 사업영역 관리 창)이 있으면 그 창 뒤의 화면 버튼은 누를 수 없으므로 창 안 버튼끼리만 잰다(S52-22: 사업 보고 맨 위 줄이 창 머리 줄과 같은 높이가 됨).
+   const top=[...document.querySelectorAll('.modal')].filter(m=>!m.classList.contains('hidden')&&visible(m)).pop();
+   const controls=[...document.querySelectorAll('button,input,select,textarea,a[href],summary')].filter(visible).filter(el=>!top||top.contains(el));
    // CAL-주간고정: 안에서 스크롤되는 칸(#calendarWeek)에 가려진 부분은 겹침으로 세지 않는다(화면에 보이는 영역만).
    const clip=(el,r)=>{
     let box={left:r.left,top:r.top,right:r.right,bottom:r.bottom};

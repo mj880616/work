@@ -61,16 +61,12 @@ test.describe('폰 412',()=>{
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   });
 
-  test('C2 사업 보고: 칸 칩 줄은 [거르기 ▾] 앞에서 끝나고, 옆으로 밀지 않고 두 줄까지(UI-칩줄두줄)',async({page})=>{
+  test('C2 사업 보고: 맨 위는 한 줄 [종류 ▾] … [⋯](S52-22 TEAM-맨위한줄, 칩 줄·[거르기] 없음)',async({page})=>{
     await openApp(page,'meetings');
-    const row=page.locator('#reportKindFilter'),btn=page.locator('#reportFilterBtn');
-    await expect(row.locator('button').first()).toBeVisible();await expect(btn).toBeVisible();
-    const r=await row.boundingBox(),b=await btn.boundingBox();
-    expect(r.x+r.width).toBeLessThanOrEqual(b.x);
-    const m=await row.evaluate(el=>({over:el.scrollWidth>el.clientWidth+1,ox:getComputedStyle(el).overflowX,wrap:getComputedStyle(el).flexWrap,
-      lines:new Set([...el.children].filter(c=>c.getClientRects().length).map(c=>Math.round(c.getBoundingClientRect().top))).size}));
-    expect(m).toEqual({over:false,ox:'visible',wrap:'wrap',lines:m.lines});
-    expect(m.lines).toBeLessThanOrEqual(2);
+    const bar=page.locator('#meetingsView .report-kind-bar'),kind=page.locator('#reportKindSelect'),more=page.locator('#reportMore');
+    await expect(page.locator('#reportKindFilter')).toBeHidden();await expect(page.locator('#reportFilterBtn')).toHaveCount(0);await expect(kind).toBeVisible();
+    const b=await bar.boundingBox(),k=await kind.boundingBox(),m=await more.boundingBox();
+    expect(b.height).toBeLessThanOrEqual(48);expect(Math.abs((k.y+k.height/2)-(m.y+m.height/2))).toBeLessThanOrEqual(2);expect(k.x+k.width).toBeLessThanOrEqual(m.x);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   });
 });

@@ -1,3 +1,4 @@
+import {pickReportKind,pickedReportKind} from './helpers/report-filter.mjs';
 import {SHEET as AOP_SHEET,pressRow} from './helpers/area-org-picker.mjs';
 // MTG-한줄업데이트(요청함 10/29 08:59, 명진 09:01 '추천대로'): 사업 보고 [전체] [+] 메뉴 맨 위 [✎ 한 줄 업데이트] → 창(사업영역·날짜·한 줄·
 // + 다음 할 일) → 저장 본문(칸 oneline·꼬리표·다음 할 일)과 사업영역 연결 → 목록에 그 문장, [한 줄] 칩에서 [+]는 바로 창. 폰 412·884, PC 1440.
@@ -25,7 +26,8 @@ async function open(page,s,width){
   await expect(page.locator('#meetingsView')).toBeVisible();
   await showAllReportWeeks(page);
 }
-const chip=(page,name)=>page.locator('#reportKindFilter').getByRole('radio',{name,exact:true});
+// S52-22: 종류는 PC(1200px~) 칩, 그 아래 폭은 [종류 ▾] 상자의 줄.
+const chip=(page,name)=>page.locator((page.viewportSize()?.width||0)>=1200?'#reportKindFilter':'#reportKindSelect').locator((page.viewportSize()?.width||0)>=1200?`[role=radio]`:'option').filter({hasText:new RegExp(`^${name}$`)});
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
 for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 업데이트 → 사업영역·날짜·한 줄·다음 할 일 저장 → 목록에 문장, [한 줄] 칩의 [+]는 바로 창`,async({page})=>{
@@ -33,7 +35,7 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
   const s=state();await open(page,s,width);
   // [한 줄] 칩은 한 줄 업데이트가 생기기 전에는 없다.
   await expect(chip(page,'한 줄')).toHaveCount(0);
-  await chip(page,'전체').click();
+  await pickReportKind(page,'전체');
   await page.locator('#newMeetingBtn').click();
   const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();
   const first=sheet.locator('[data-sheet-content] > button').first();
@@ -74,10 +76,10 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
   expect(JSON.stringify(s.linkCalls[0].p_targets)).toContain('top-a');
   // 목록에 그 문장, [한 줄] 칩이 생긴다.
   await expect(page.locator('#meetingList').getByText(LINE).first()).toBeVisible();
-  await expect(chip(page,'한 줄')).toBeVisible();
+  await expect(chip(page,'한 줄')).toHaveCount(1);
   if(width<=884)expect(await noSideScroll(page)).toBe(true);
   // [한 줄] 칩: 그 칸만, [+]는 칸 고르기 없이 바로 한 줄 창. Esc로 닫힌다.
-  await chip(page,'한 줄').click();
+  await pickReportKind(page,'한 줄');
   await page.locator('#newMeetingBtn').click();
   await expect(dialog).toBeVisible();await expect(sheet).toBeHidden();
   await expect(dialog.locator('[data-ol-text]')).toHaveValue('');
@@ -88,7 +90,7 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
 
 test('412: 칸 칩([회의])에서 [+]는 지금처럼 바로 쓰기 창(한 줄 줄 없음)',async({page})=>{
   const s=state();await open(page,s,412);
-  await chip(page,'회의').click();
+  await pickReportKind(page,'회의');
   await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#reportOnelineDialog')).toHaveCount(0);

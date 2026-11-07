@@ -1,9 +1,10 @@
-// REPORT-기간고르기 (2026-11-03 명진 요청 10:10): 사업 보고 목록의 기간 줄 [전체][주간 보기][기간 설정] — 화면 없이 시험하는 부분.
+// REPORT-기간고르기 (2026-11-03 명진 요청 10:10) → S52-22 TEAM-맨위한줄(11/07): 사업 보고 목록의 기간 한 줄 ‹ 날짜 · n건 › + [이번 주 ▾] — 화면 없이 시험하는 부분.
 // 모드: all(전체) · week(주간 보기, 늘 이번 주부터) · range(기간 설정: 시작·끝 날). 고른 모드와 기간은 서버(view_prefs.report_period)에 기억한다.
 // 날짜는 모두 서울 날짜 'YYYY-MM-DD'. 일시가 없는 보고는 어느 기간에서나 빠지지 않는다(주간 보기와 같은 규칙).
 import {reportDay} from './business-area-model.mjs';
 
-export const PERIOD_CHIPS = Object.freeze([['all', '전체'], ['week', '주간 보기'], ['range', '기간 설정']]);
+// 기간 고르기 상자 [이번 주 ▾]의 줄: 이번 주(주 단위, 이번 주로) · 전체 기간 · 기간 정하기(달력).
+export const PERIOD_CHOICES = Object.freeze([['week', '이번 주'], ['all', '전체 기간'], ['range', '기간 정하기']]);
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const real = day => DAY.test(String(day)) && new Date(`${day}T00:00:00Z`).toISOString().slice(0, 10) === day;
 export const validRange = (from, to) => real(from) && real(to) && from <= to;
