@@ -38,7 +38,8 @@
 //     go to the window's own attachment row, NOTE-파일그림넣기 ④). With `files` a file goes in as a small card
 //     (name · size); its [열기] opens it (files.open). A dropped or pasted file that is not a picture goes the same way.
 //   - 사진 나란히: a photo dragged onto another photo's left or right half joins it on one line (photo_row, up to PHOTO_ROW_MAX); a chosen
-//     photo shows a small row [옆 사진과 나란히] [따로 놓기]; several photos picked at once ask [나란히] [한 장씩] before going in.
+//     photo shows a small row [옆 사진과 나란히] [따로 놓기]; several photos picked at once go in side by side without asking (S52-05 A,
+//     rows of PHOTO_ROW_MAX); one of them goes back to a line of its own with [따로 놓기] or by dragging it out.
 //     The row's photos are as high as each other; a phone wraps a row of three or four (ed-doc.css).
 // 한글 IME: nothing here changes the document while a composition is running. A button pressed during one lets the press blur
 // the box first (that ends the composition), then runs and puts focus back.
@@ -372,13 +373,10 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const linkOk = btn('넣기', {edLinkOk: ''}, '링크 넣기 확인'), linkOff = btn('링크 빼기', {edLinkOff: ''});
   const tableRow = panel('ed-table-tools', '표 고치기');
   for (const [key, text, aria] of TABLE_TOOLS) tableRow.append(btn(text, {edTable: key}, aria));
-  // S48-21 사진 나란히: shown while one photo is chosen (like the table tools row). And the question when several photos come at once.
+  // S48-21 사진 나란히: shown while one photo is chosen (like the table tools row).
   const photoTools = panel('ed-photo-tools', '사진 놓기');
   const photoJoin = btn('옆 사진과 나란히', {edPhoto: 'join'}), photoApart = btn('따로 놓기', {edPhoto: 'apart'});
   photoTools.append(photoJoin, photoApart);
-  const photoAsk = panel('ed-photo-ask', '여러 장 놓기');
-  const photoAskText = document.createElement('span');
-  photoAsk.append(photoAskText, btn('나란히', {edPhotoAsk: 'row'}), btn('한 장씩', {edPhotoAsk: 'single'}));
   const suggest = document.createElement('div');
   suggest.className = 'ed-suggest'; suggest.hidden = true; suggest.setAttribute('role', 'status');
   const suggestText = document.createElement('span'); suggestText.textContent = '마크다운 기호가 보여요.';
@@ -390,7 +388,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   status.className = 'ed-status a11y-only'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   const PANEL_ORDER = ['more', ...GROUP_KEYS, 'style', 'color', 'highlight', 'align', 'bullet', 'ordered', 'symDot', 'symNote', 'symArrow', 'symCircled', 'symBracket', 'grid', 'link'];
   // The full-width rows (the [⌄] row, table tools, offers, notes) sit in the flow; popovers are placed on the screen.
-  bar.append(tools, panels.more, tableRow, photoTools, photoAsk, suggest, note, ...PANEL_ORDER.filter(k => k !== 'more').map(k => panels[k]));
+  bar.append(tools, panels.more, tableRow, photoTools, suggest, note, ...PANEL_ORDER.filter(k => k !== 'more').map(k => panels[k]));
   const box = document.createElement('div');
   box.className = 'ed-box';
   // The table cell menu (right click, a phone's long press): a small floating list, closed by Esc or a press outside.
@@ -1208,15 +1206,6 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (typeof at !== 'number' || at < 0 || at > view.state.doc.content.size) return;
     try { view.dispatch(view.state.tr.setSelection(pm.TextSelection.near(view.state.doc.resolve(at)))); } catch { /* the cursor stays */ }
   };
-  // Several photos at once: [나란히] or [한 장씩] (a short question under the button row; Esc or a press elsewhere = 한 장씩).
-  let askDone = null;
-  function askLayout(count) {
-    askDone?.('single');
-    photoAskText.textContent = `사진 ${count}장 · `;
-    photoAsk.hidden = false;
-    photoAsk.querySelector('[data-ed-photo-ask="row"]').focus({preventScroll: true});
-    return new Promise(resolve => { askDone = choice => { askDone = null; photoAsk.hidden = true; resolve(choice); }; });
-  }
   // Files dropped, pasted or picked: pictures go to [사진] (when the opener gives photos), the rest to [파일] (when it gives files).
   // One at a time, each put in after the one before. A failure stops the rest and says why; the ones in stay.
   async function filesFrom(list, at) {
@@ -1234,8 +1223,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   async function photosIn(pictures) {
     const room = (photos.max || 40) - photoCount();
     if (pictures.length > room) { showNote(`사진은 한 페이지에 ${photos.max || 40}장까지 넣을 수 있어요.`); if (room <= 0) return; pictures.length = room; }
-    const layout = pictures.length > 1 ? await askLayout(pictures.length) : 'single';
-    if (view.isDestroyed) return;
+    // S52-05 A: several photos go in side by side without asking (no [나란히]/[한 장씩] question); one photo goes in on its own.
+    const layout = pictures.length > 1 ? 'row' : 'single';
     const made = [];
     try {
       for (const file of pictures) {
@@ -1547,7 +1536,6 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const outside = e => {
     if (!ctx.hidden && !ctx.contains(e.target)) closeCtx(false);
     if (openName && !bar.contains(e.target)) closePanels();
-    if (askDone && !photoAsk.contains(e.target)) askDone('single');
   };
   document.addEventListener('pointerdown', outside, true);
   // Esc closes it even when the focus is not in the text box or on a button.
@@ -1629,7 +1617,6 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (!b || !bar.contains(b) || b.disabled) return;
     const d = b.dataset;
     if ('edMore' in d) { setMore(!moreOn); return; }
-    if (d.edPhotoAsk) { askDone?.(d.edPhotoAsk === 'row' ? 'row' : 'single'); view.focus(); return; }
     if (d.edPhoto) { run(d.edPhoto === 'join' ? joinPhoto : apartPhoto); return; }
     if (d.edCmd && OPENS[d.edCmd]) { const name = OPENS[d.edCmd]; openPanel(openName === name ? hostOf(name) : name); return; }
     if (d.edStyle) { run(() => setTextStyle(d.edStyle)); closePanels(); return; }
@@ -1652,7 +1639,6 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     }
   });
   bar.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && askDone) { e.preventDefault(); askDone('single'); view.focus(); return; }
     if (e.key !== 'Escape' || !openName) return;
     e.preventDefault();
     const name = openName, trigger = triggerOf(name);
@@ -1796,7 +1782,6 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     focus: () => view.focus(),
     destroy() {
       resize?.disconnect(); phone?.removeEventListener?.('change', syncLayout); cancelAnimationFrame(fitFrame); clearTimeout(noteTimer);
-      askDone?.('single');
       window.removeEventListener('kptu:view-prefs-ready', takeMore);
       document.removeEventListener('pointerdown', outside, true);
       document.removeEventListener('keydown', escape);

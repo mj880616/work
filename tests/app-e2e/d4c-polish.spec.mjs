@@ -61,8 +61,12 @@ for(const width of [360,1280])test(`modal titles and organization group boxes ${
     // ORG-PC좌우: on a PC the 담당조직 list marks the organization shown on the right (light green); only that one row.
     expect(sizes.flatMap(g=>g.children).filter(r=>r.selected).length).toBeLessThanOrEqual(1);
   }
-  await page.locator('#newEventBtn').click();await groups('#soEventOrgChecks','.so-org-group','label');await page.locator('[data-close="eventModal"]').click();
-  await page.locator('[data-google-event="blue-0"]').first().click();await groups('#soGoogleEditOrgChecks','.so-org-group','label');await title('ciGoogleModal');await page.locator('#ciGoogleClose').click();
+  // S52-01 ③b: 일정 추가·Google 일정 수정의 '관련 담당조직'은 한 줄 + 공용 고르기 창(묶음 4개, 묶음 안 조직 수 그대로).
+  const pickerGroups=async root=>{await expect(page.locator(root+' [data-aop-line="org"]')).toHaveCount(1);await openPicker(page,root,'org');
+    expect(await page.locator(SHEET+' .aop-list > .aop-group').evaluateAll(gs=>gs.map(g=>g.querySelectorAll('.aop-org-items [data-sheet-value]').length))).toEqual([1,2,2,1]);
+    await page.locator(SHEET+' [data-sheet-close]').click();await expect(page.locator(SHEET)).toBeHidden();};
+  await page.locator('#newEventBtn').click();await pickerGroups('#soEventOrgChecks');await page.locator('[data-close="eventModal"]').click();
+  await page.locator('[data-google-event="blue-0"]').first().click();await pickerGroups('#soGoogleEditOrgChecks');await title('ciGoogleModal');await page.locator('#ciGoogleClose').click();
   await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());await expect(page.locator('#gtEditLinkBody .aop-row')).toHaveCount(2);await title('gtTaskModal');await page.locator('[data-gt-close]').click();
   await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'d4c-project'}));await title('gtPickModal');await page.locator('[data-gt-pick-close]').click();
   await page.evaluate(async()=>{await import('/app/task-layout.js');window.KPTUTaskLayout.openCreate()});await title('taskModal');await page.locator('[data-close="taskModal"]').click();
