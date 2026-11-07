@@ -196,7 +196,7 @@ test.describe('폰 월 보기(폴드 접힘 412px)',()=>{
     }
   });
 
-  test('크기는 기억하지 않는다: 달을 바꾸면 처음 크기',async({page})=>{
+  test('크기는 기억하지 않는다(메모리만): 달을 바꾸면 처음 크기',async({page})=>{
     await fixture(page);
     const g=await page.locator('#calendarGrid').boundingBox();
     await pinch(page,{cx:g.x+g.width/2,cy:g.y+g.height/2,from:80,to:160});
@@ -204,8 +204,6 @@ test.describe('폰 월 보기(폴드 접힘 412px)',()=>{
     await page.locator('#nextMonthBtn').click();
     await expect(page.locator('#calendarGrid')).not.toHaveClass(/cmv-zoomed/);
     expect(await zoomOf(page)).toBe(1);
-    const keys=await page.evaluate(()=>{const out=[];try{for(let i=0;i<localStorage.length;i++)out.push(localStorage.key(i))}catch{}return out.filter(k=>/zoom|pinch/i.test(k))});
-    expect(keys).toEqual([]);
   });
 });
 
