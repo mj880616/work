@@ -1732,7 +1732,7 @@ button.ds-chip:is([aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-s
 .ds-seg > :first-child{ margin-left:var(--ds-seg-inset); }
 .ds-seg > :last-child{ margin-right:var(--ds-seg-inset); }
 .ds-seg button.ds-seg-btn{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:var(--ds-chip-row-gap); flex:none;
-  width:auto; min-width:0; height:calc(var(--ds-compact-height) - var(--ds-seg-inset) * 2); min-height:0; padding:0 var(--ds-compact-pad-x);
+  width:auto; min-width:var(--kptu-touch-target,44px); height:calc(var(--ds-compact-height) - var(--ds-seg-inset) * 2); min-height:0; padding:0 var(--ds-compact-pad-x);
   border:0; border-radius:var(--ds-chip-radius); background:transparent; box-shadow:none;
   color:var(--kptu-muted); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
 .ds-seg button.ds-seg-btn[hidden]{ display:none; }
