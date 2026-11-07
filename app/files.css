@@ -314,3 +314,11 @@
   .fx[data-fx-two="phone"] .fx-list .fx-row, .fx[data-fx-two="phone"] .fx-list .fx-with-path .fx-row { grid-template-columns:20px minmax(0,1fr); }
   .fx[data-fx-two="phone"] .fx-list .fx-rows:not(.fx-grid) .fx-row:has(> .fx-th) { grid-template-columns:32px minmax(0,1fr); }
 }
+
+/* FILES-칸따로스크롤(S52-41 ②, 명진 11/08 — 이 화면에서는 C8 'UI-칸안스크롤하나로'보다 우선): 폴드 펼침·PC(600px~)에서 맨 위 줄·고르기 막대는 화면 위에 고정,
+   나무(·두 칸이면 칸마다)는 follow-pane.js가 그 아래(--follow-top)에 붙여 따로 스크롤한다(.kptu-follow-pane, desktop-ui.css 한 곳). 폰은 지금대로. */
+.fx.fx-split-scroll > .fx-top { position:sticky; top:0; z-index:6; background:var(--kptu-surface); }
+.fx.fx-split-scroll > .fx-bar:not([hidden]) { position:sticky; top:var(--fx-top-h,40px); z-index:6; background:var(--kptu-surface); }
+.fx.fx-split-scroll .fx-listcol.kptu-follow-pane { position:sticky; overflow-y:auto; overscroll-behavior:contain; }
+.fx.fx-split-scroll .fx-listcol.kptu-follow-pane > .fx-ptop { position:sticky; top:0; z-index:2; }
+.fx.fx-split-scroll .fx-prev { top:calc(var(--fx-head-h,40px) + 4px); max-height:calc(100dvh - var(--fx-head-h,40px) - 16px); }
