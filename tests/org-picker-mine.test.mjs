@@ -77,7 +77,7 @@ test('고르기 칸이 있는 파일은 모두 규칙을 쓴다(허용 목록으
   assert.match(source('app/google-tasks.js'), /pickMyOrganizations\(orgs\|\|\[\],assignments\|\|\[\],\{whenNone:'none'\}\)/);
   assert.match(source('app/suborganizations.js'), /import\('\.\/my-organizations\.js'\)/);
   // S52-01 ③b: 체크 목록 대신 한 줄 + 공용 고르기 창. 고를 수 있는 곳은 여전히 pickerOrganizations()(내 담당조직 규칙).
-  assert.match(source('app/suborganizations.js'), /const mine=pickerOrganizations\(\),order=window\.KPTUOrganizationOrder,list=order\.forPicker\(mine,getSel\(\)\)/);
+  assert.match(source('app/suborganizations.js'), /const mine=pickerOrganizations\(\),order=window\.KPTUOrganizationOrder,list=order\.forPicker\(mine,pick\.orgs\(\)\)/); // S52-30: 사업영역 줄이 더해져 고른 담당조직은 pick.orgs()에서 온다
   assert.match(source('app/suborganizations.js'), /const mine=pickerOrganizations\(\);soGoogleHiddenOrgIds=/);
   // 자료실 일괄 바꾸기는 내 담당조직만, 묶기(이미 붙은 자료 보여 주기)는 모든 조직 이름.
   assert.match(source('app/library-upload.js'), /organizations:kind==='organization'\?luBulkOrganizations\(cur\):\[\]/);

@@ -27,6 +27,31 @@ export async function saveProjectMilestone({id,project_id,title,start_at,notes=n
   await rt.api('/rest/v1/app_project_milestones', {method:'POST',body,prefer:'return=representation',...epoch});
   return {id,existing:false};
 }
+// CAL-일정사업영역: 일정의 사업영역은 따로 저장하지 않고 위와 같은 '사업영역 주요 일정' 행(같은 google_event_id, 사업영역마다 한 행)이다.
+// 일정 창은 열 때 이 행들을 읽어 고른 사업영역으로 보이고(eventAreaRows), 저장 때 고른 것과 맞춘다(syncEventAreas).
+export async function eventAreaRows(google_event_id, rt=window.KPTURuntime, {expectedSessionEpoch=null}={}) {
+  if(!google_event_id)return [];
+  const rows=await rt.api('/rest/v1/app_project_milestones?google_event_id=eq.'+encodeURIComponent(google_event_id)+'&select=id,project_id', {singleFlight:false,...(expectedSessionEpoch==null?{}:{expectedSessionEpoch})});
+  if(!Array.isArray(rows))throw new Error('사업영역 연결을 확인하지 못했습니다.');
+  return rows.filter(r=>r?.id&&r?.project_id).map(r=>({id:String(r.id),project_id:String(r.project_id)}));
+}
+// had: the rows read on open (kept up to date here, so a retry after a half-done save only does what is left).
+// next: every project id that should stay linked (chosen ones plus ones the window did not offer, e.g. an archived area).
+// A newly chosen area gets a milestone row (saveProjectMilestone, never twice); an area taken off loses its row only (the Google event stays).
+export async function syncEventAreas({had,next,title,start_at,notes=null,google_calendar_id,google_event_id,created_by,expectedSessionEpoch=null}, rt=window.KPTURuntime) {
+  const want=new Set([...(next||[])].map(String)),have=new Set(had.map(r=>r.project_id)),epoch=expectedSessionEpoch==null?{}:{expectedSessionEpoch};
+  for(const project_id of want){
+    if(have.has(project_id))continue;
+    const r=await saveProjectMilestone({id:crypto.randomUUID(),project_id,title,start_at,notes,google_calendar_id,google_event_id,created_by,expectedSessionEpoch},rt);
+    had.push({id:String(r.id),project_id});have.add(project_id);
+  }
+  const drop=had.filter(r=>!want.has(r.project_id));
+  if(drop.length){
+    await rt.api('/rest/v1/app_project_milestones?google_event_id=eq.'+encodeURIComponent(google_event_id)+'&id=in.('+drop.map(r=>encodeURIComponent(r.id)).join(',')+')', {method:'DELETE',...epoch});
+    for(const r of drop)had.splice(had.indexOf(r),1);
+  }
+  return had;
+}
 // UI-홈업데이트선택: same table and row shape as the project screen's progress input (project-system-v3.js saveRecordInput).
 // ED③ 기록: doc (optional) is the new editor's saved form, kept with the letters (summary) in the same insert.
 export async function saveProjectProgress({project_id,raw_text,created_by,doc=null}, rt=window.KPTURuntime) {

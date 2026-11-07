@@ -7,7 +7,8 @@ import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
 import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,logSaveDetail} from './calendar-save-notice.js';
 import {updateBody,same as ciSameTimes} from './calendar-drag-model.js';
 import {clickSlot,allDaySlot,dateSlot,minuteAtY} from './calendar-create-slot.js';
-let ciEndLink=null,ciGoogleCurrent=null,ciGoogleSavePending=false,ciGoogleOpenSeq=0,ciGoogleReadySeq=0,ciGoogleOwner=null,ciSaveRequest=null;const ciUncertain=new Map(),ciPendingWrites=new Map();
+import {eventAreaRows,syncEventAreas} from './quick-save.js'; // CAL-일정사업영역: 일정의 사업영역 = 사업영역 주요 일정 행
+let ciGoogleAreaRows=null,ciEndLink=null,ciGoogleCurrent=null,ciGoogleSavePending=false,ciGoogleOpenSeq=0,ciGoogleReadySeq=0,ciGoogleOwner=null,ciSaveRequest=null;const ciUncertain=new Map(),ciPendingWrites=new Map();
 function ciRuntime(){const rt=window.KPTURuntime;if(!rt?.session||!rt?.api)throw new Error('앱 런타임을 불러오지 못했습니다.');return rt}
 async function ciGoogleCall(action,{method='GET',body=null,params=null,expectedSessionEpoch=null}={}){const rt=ciRuntime();if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await rt.api(u.toString(),{method,body,expectedSessionEpoch});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
 function ciPad(n){return String(n).padStart(2,'0')}
@@ -77,16 +78,20 @@ async function ciOpenGoogle(eventId,calendarId,{fresh=false,fallback=null}={}){
     else{const s=ciParts(e.start),en=ciParts(e.end);document.querySelector('#ciGoogleStartDate').value=s.date;document.querySelector('#ciGoogleStartTime').value=s.time;document.querySelector('#ciGoogleEndDate').value=en.date;document.querySelector('#ciGoogleEndTime').value=en.time}
     ['#ciGoogleStartTime','#ciGoogleEndTime'].forEach(id=>paintTimeHint(document.querySelector(id),false));ciEndLink.reset({touched:true});
     window.KPTUCalendarColors?.render?.('#ciGoogleColor',{value:ciGoogleDisplayColor(e),colorId:e.colorId||null,touched:false,label:'Google 일정 색상'});
-    ciToggleGoogleTime();window.__KPTU_GOOGLE_EDIT_ORGS_PENDING__=e.organizationIds||[];
+    // CAL-일정사업영역: 이 일정에 걸린 사업영역(주요 일정 행)을 읽는다. 읽지 못하면(null) 사업영역 줄만 누를 수 없고 저장은 사업영역을 건드리지 않는다.
+    ciGoogleAreaRows=null;const areaRead=eventAreaRows(e.id,ciRuntime(),{expectedSessionEpoch:epoch}).catch(()=>null);
+    ciToggleGoogleTime();window.__KPTU_GOOGLE_EDIT_ORGS_PENDING__=e.organizationIds||[];window.__KPTU_GOOGLE_EDIT_AREAS_PENDING__=null;
     if(window.__KPTU_SUBORGANIZATIONS_READY__)await window.__KPTU_SUBORGANIZATIONS_READY__;
+    const areaRows=await areaRead;
     if(!active())return;
-    window.__KPTU_EDIT_GOOGLE_ORGS__?.(e.organizationIds||[]);ciPreMeetingLine(e);if(pending){ciWait('#ciGoogleStatus');await pending.done;if(!active())return;}if(confirmed){ciWait('#ciGoogleStatus');const r=await confirmed;if(!active())return;if(r==='gone'){ciGoneEvent(eventId,calendarId);return}}if(ciGoogleGoneSeq===seq)return {seq,readFailed};ciGoogleReadySeq=seq;ciStatus('#ciGoogleStatus','');document.querySelector('#ciGoogleSave').disabled=ciGoogleSavePending;document.querySelector('#ciGoogleDelete').disabled=ciGoogleSavePending;
+    ciGoogleAreaRows=areaRows;const areaIds=areaRows?[...new Set(areaRows.map(x=>x.project_id))]:null;window.__KPTU_GOOGLE_EDIT_AREAS_PENDING__=areaIds;
+    window.__KPTU_EDIT_GOOGLE_ORGS__?.(e.organizationIds||[],{areas:areaIds});ciPreMeetingLine(e);if(pending){ciWait('#ciGoogleStatus');await pending.done;if(!active())return;}if(confirmed){ciWait('#ciGoogleStatus');const r=await confirmed;if(!active())return;if(r==='gone'){ciGoneEvent(eventId,calendarId);return}}if(ciGoogleGoneSeq===seq)return {seq,readFailed};ciGoogleReadySeq=seq;ciStatus('#ciGoogleStatus','');document.querySelector('#ciGoogleSave').disabled=ciGoogleSavePending;document.querySelector('#ciGoogleDelete').disabled=ciGoogleSavePending;
     return {seq,readFailed};
   }catch(e){if(active())ciStatus('#ciGoogleStatus',e.message||String(e),true)}
 }
 // FEAT-1029묶음 ②: 담당조직이 연결된 7일 안 교섭·회의 일정이면 창 위쪽에 '교섭 전 한 장 ›' 한 줄(그리기·열기는 pre-meeting-sheet.js 하나).
 function ciPreMeetingLine(e){const host=document.querySelector('#ciPreMeeting');if(!host)return;host.hidden=true;host.replaceChildren();void import('./pre-meeting-sheet.js').then(m=>m.paintEventLine(host,e)).catch(()=>{})}
-function ciDraft(){return JSON.stringify([...['ciGoogleCalendar','ciGoogleTitle','ciGoogleMemo','ciGoogleLocation','ciGoogleStartDate','ciGoogleStartTime','ciGoogleEndDate','ciGoogleEndTime'].map(id=>document.getElementById(id).value),document.getElementById('ciGoogleAllDay').checked,window.KPTUCalendarColors?.value?.('#ciGoogleColor'),window.__KPTU_SELECTED_GOOGLE_EDIT_ORGS__?.()||[]])}
+function ciDraft(){return JSON.stringify([...['ciGoogleCalendar','ciGoogleTitle','ciGoogleMemo','ciGoogleLocation','ciGoogleStartDate','ciGoogleStartTime','ciGoogleEndDate','ciGoogleEndTime'].map(id=>document.getElementById(id).value),document.getElementById('ciGoogleAllDay').checked,window.KPTUCalendarColors?.value?.('#ciGoogleColor'),window.__KPTU_SELECTED_GOOGLE_EDIT_ORGS__?.()||[],window.__KPTU_SELECTED_GOOGLE_EDIT_AREAS__?.()??null])}
 const ciSameSession=r=>r.owner===ciRuntime().session.read()?.user?.id&&r.epoch===ciRuntime().session.epoch();
 const ciSaveActive=r=>ciSaveRequest===r&&ciSameSession(r)&&r.seq===ciGoogleOpenSeq&&ciGoogleCurrent===r.current&&!document.querySelector('#ciGoogleModal').classList.contains('hidden');
 const ciUncertainKey=(id,calendar)=>JSON.stringify([ciRuntime().session.epoch(),ciRuntime().session.read()?.user?.id,id,calendar]);
@@ -98,7 +103,7 @@ function ciAcceptAddress(r,event,{preserveSelection=false}={}){
 }
 async function ciSaveGoogle(){
   if(!ciGoogleCurrent||ciGoogleSavePending||ciGoogleReadySeq!==ciGoogleOpenSeq)return;
-  const current=ciGoogleCurrent,r={current,seq:ciGoogleOpenSeq,owner:ciRuntime().session.read()?.user?.id,epoch:ciRuntime().session.epoch(),draft:ciDraft(),selected:document.querySelector('#ciGoogleCalendar').value};
+  const current=ciGoogleCurrent,areaRows=ciGoogleAreaRows,areas=areaRows?window.__KPTU_SELECTED_GOOGLE_EDIT_AREAS__?.()??null:null,r={current,seq:ciGoogleOpenSeq,owner:ciRuntime().session.read()?.user?.id,epoch:ciRuntime().session.epoch(),draft:ciDraft(),selected:document.querySelector('#ciGoogleCalendar').value};
   const title=document.querySelector('#ciGoogleTitle').value.trim(),allDay=document.querySelector('#ciGoogleAllDay').checked,startDate=document.querySelector('#ciGoogleStartDate').value,endDate=document.querySelector('#ciGoogleEndDate').value;
   if(!title)return ciStatus('#ciGoogleStatus','제목을 입력해 주세요.',true);
   if(!startDate||!endDate)return ciStatus('#ciGoogleStatus','시작 날짜와 종료 날짜를 입력해 주세요.',true);
@@ -145,7 +150,8 @@ async function ciSaveGoogle(){
     verified=true;ciUncertain.delete(key);const unchanged=r.draft===ciDraft();ciAcceptAddress(r,result.event);window.KPTUCalendarPersistence?.put?.(result.event,current.calendarId);
     // normEvent always returns location; a different value means the server did not store the new place.
     if(typeof result.event.location==='string'&&result.event.location!==body.location){ciStatus('#ciGoogleStatus','일정은 저장했습니다. 장소 저장은 확인하지 못했습니다. 장소와 수정 입력은 유지했습니다. 확인한 뒤 다시 저장해 주세요.',true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return}
-    
+    // CAL-일정사업영역: 고른 사업영역과 주요 일정 행을 맞춘다(새로 고른 곳은 행 추가, 뺀 곳은 그 행만 삭제). 실패하면 창을 열어 둔 채 다시 저장하게 한다.
+    if(areas&&areaRows){try{await syncEventAreas({had:areaRows,next:areas,title,start_at:allDay?toSeoulISO(startDate+'T00:00'):body.start_iso,notes:body.memo.trim()||null,google_calendar_id:result.event.calendarId,google_event_id:current.id,created_by:r.owner,expectedSessionEpoch:r.epoch},ciRuntime())}catch(e){if(!ciSaveActive(r))return;ciStatus('#ciGoogleStatus','일정은 저장했습니다. 사업영역 연결을 저장하지 못했습니다. 다시 저장해 주세요. '+(e?.message||''),true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return}if(!ciSaveActive(r))return}
     let closedSeq=null;if(unchanged){b.disabled=false;b.textContent=label;b.removeAttribute('aria-busy');document.querySelector('#ciGoogleDelete').disabled=false;ciClose('#ciGoogleModal');ciGoogleCurrent=null;closedSeq=ciGoogleOpenSeq}else ciStatus('#ciGoogleStatus','보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
     try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{if(ciSameSession(r)&&closedSeq===ciGoogleOpenSeq)ciToast('일정은 저장했습니다. 목록을 새로고침해 주세요.');return}
     if(ciSameSession(r)&&closedSeq===ciGoogleOpenSeq)ciToast('Google 일정을 수정했습니다.');

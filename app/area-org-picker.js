@@ -150,7 +150,7 @@ export function usedKeysNow(rt=window.KPTURuntime){const ctx=rt?.context?.read?.
 // Rows of the shared project catalog's tree ({project, depth}) as the picker's areas, keyed 'p:<id>'.
 export const catalogAreas=rows=>(rows||[]).map(x=>({key:'p:'+x.project.id,name:x.project.name||'이름 없는 사업영역',depth:x.depth||0}));
 
-// host: an empty box. onChange(): after [넣기] or a ✕ changed the choice. Returns {set, value, known, focus, disable}.
+// host: an empty box. onChange(): after [넣기] or a ✕ changed the choice. Returns {set, value, known, focus, disable(on, kind?)}.
 // set({areas:[{key,name,depth}], orgGroups:[[{key,name,group}]], selected:Set|keys, used:[keys newest first]}).
 // value(): the chosen keys among the offered ones; known(): every offered key (the caller keeps links it did not offer).
 // kinds: which lines to show (default both, e.g. ['area'] for a screen that only takes a 사업영역). multi:false keeps one choice
@@ -186,6 +186,7 @@ export function mountAreaOrgLines(host,{onChange=()=>{},kinds=['area','org'],mul
     value(){return new Set([...state.selected].filter(k=>state.areaKnown.has(k)||state.orgKnown.has(k)))},
     known(){return new Set([...state.areaKnown.keys(),...state.orgKnown.keys()])},
     focus(){host.querySelector('[data-aop-add]')?.focus({preventScroll:true})},
-    disable(on){host.querySelectorAll('button').forEach(b=>{b.disabled=!!on})},
+    // kind: only that line ('area' | 'org'), e.g. a line whose saved choice could not be read.
+    disable(on,kind=''){host.querySelectorAll(kind?`[data-aop-line="${kind}"] button`:'button').forEach(b=>{b.disabled=!!on})},
   };
 }
