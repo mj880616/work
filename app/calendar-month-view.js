@@ -238,7 +238,7 @@ import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-m
       if(!list.length)return;
       const stack=document.createElement('div');stack.className='cmv-day-stack';stack.dataset.date=key(addSeoulDays(week.start,col));
       stack.style.gridColumn=String(col+1);stack.style.gridRow=`${z.top[col]+1} / ${z.bandLanes+2}`;
-      list.forEach(seg=>{const b=seg.ev.source==='task'?cellTaskButton(seg):eventButton(seg);b.style.removeProperty('grid-column');b.style.removeProperty('grid-row');stack.appendChild(b)});
+      list.forEach(seg=>{const b=seg.ev.source==='task'?cellTaskButton(seg):eventButton(seg,{zoomed:true});b.style.removeProperty('grid-column');b.style.removeProperty('grid-row');stack.appendChild(b)});
       layer.appendChild(stack);
     });
   }
@@ -246,7 +246,7 @@ import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-m
     if(ev.allDay)return '';
     return seoulClock(ev.start);
   }
-  function eventButton(seg){
+  function eventButton(seg,{zoomed=false}={}){
     const ev=seg.ev;
     const b=document.createElement('button');
     b.type='button';
@@ -260,7 +260,9 @@ import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-m
     const tm=timeLabel(ev),label=(tm?tm+' ':'')+ev.title;
     // S52-11 CAL-제목먼저(명진 11/07): 폰 월 보기 칸 안 줄은 제목만 — 시각은 읽기 이름(aria-label·title)과 그날 목록·일정 창에 남는다.
     // PC·펼친 폴드(761px 이상)는 칸이 넓어 시각 + 제목 그대로.
-    const showTime=tm&&!mq760.matches;
+    // S52-40 CAL-확대시각(명진 11/07·11/08): 폰에서 두 손가락으로 키운 동안 날마다 쌓는 하루짜리 일정(appendZoomStacks → zoomed)은
+    // 제목 앞에 작은 시각. 띠·종일·할 일은 시각 없음. 오므리면 render가 다시 그려 제목만.
+    const showTime=tm&&(!mq760.matches||(zoomed&&zoomMode&&seg.span<=1));
     b.innerHTML=(showTime?`<span class="cmv-event-time">${esc(tm)}</span>`:'')+`<span class="cmv-event-title">${esc(ev.title)}</span>`;
     b.title=label;
     b.setAttribute('aria-label',label);

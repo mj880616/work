@@ -213,14 +213,17 @@ test.describe('폰 월 보기(폴드 접힘 412px)',()=>{
     await expect.poll(()=>zoomOf(page)).toBe(2.5);
     await expect(task('long')).toHaveText(LONG_TASK);
     const box=async loc=>{await loc.scrollIntoViewIfNeeded();return loc.evaluate(el=>{const r=el.getBoundingClientRect(),t=el.querySelector('.cmv-event-title'),tr=t.getBoundingClientRect(),lh=parseFloat(getComputedStyle(t).lineHeight);
-      return {top:r.top,left:r.left,width:r.width,height:r.height,lines:Math.round(tr.height/lh),lh,align:getComputedStyle(el).textAlign,titleAlign:getComputedStyle(t).textAlign,pad:tr.left-r.left}})};
+      const first=el.firstElementChild.getBoundingClientRect(); // 줄 첫 글자(커진 동안 하루짜리 일정은 시각, 그 밖은 제목)
+      return {top:r.top,left:r.left,width:r.width,height:r.height,lines:Math.round(tr.height/lh),lh,align:getComputedStyle(el).textAlign,titleAlign:getComputedStyle(t).textAlign,pad:first.left-r.left}})};
     const a=await box(ev('short-a')),b=await box(ev('short-b')),long=await box(task('long'));
-    // 긴 할 일은 여러 줄, 짧은 일정은 한 줄 높이 그대로(긴 할 일 높이로 늘어나지 않음).
+    // 긴 할 일은 여러 줄, 짧은 일정은 자기 글 줄 수만큼(긴 할 일 높이로 늘어나지 않음).
+    // S52-40 CAL-확대시각: 최대 확대에서는 제목 앞 시각이 붙어 짧은 제목도 두 줄이 될 수 있다 — 높이 = 자기 줄 수 × 줄 높이.
     expect(long.lines).toBeGreaterThan(2);
     for(const s of [a,b]){
-      expect(s.lines).toBe(1);
-      expect(s.height).toBeLessThan(s.lh+6);
-      expect(s.height).toBeLessThan(long.height/2);
+      expect(s.lines).toBeLessThan(long.lines);
+      expect(s.lines).toBeLessThanOrEqual(2);
+      expect(s.height).toBeLessThan(s.lines*s.lh+6);
+      expect(s.height).toBeLessThan(long.height*.75);
       // 글자는 왼쪽 정렬(가운데 아님).
       expect(s.align).toBe('left');expect(s.titleAlign).toBe('left');expect(s.pad).toBeLessThan(6);
     }
@@ -238,6 +241,41 @@ test.describe('폰 월 보기(폴드 접힘 412px)',()=>{
     await pinch(page,{cx:g.x+g.width/2,cy:g.y+g.height/2,from:200,to:60});
     await expect(page.locator('#calendarGrid')).not.toHaveClass(/cmv-zoomed/,{timeout:1500});
     await expect(page.locator('#calendarGrid .cmv-day-stack')).toHaveCount(0);
+  });
+
+  // S52-40 CAL-확대시각(명진 11/07·11/08): 처음 크기 = 시각 없음, 두 손가락으로 키운 동안 = 하루짜리 일정 제목 앞에 작은 시각.
+  test('두 손가락으로 키운 동안만 하루짜리 일정 제목 앞에 작은 시각, 오므리면 다시 제목만',async({page})=>{
+    await fixture(page);
+    const grid=page.locator('#calendarGrid');
+    const ev=id=>page.locator(`#calendarGrid [data-google-event="${id}"]`);
+    // 처음 크기: 칸 안에 시각 글자 0개.
+    await expect(grid.locator('.cmv-event-time')).toHaveCount(0);
+    await expect(ev('timed')).toHaveText(LONG);
+    const g=await grid.boundingBox();
+    await pinch(page,{cx:g.x+g.width/2,cy:g.y+g.height/2,from:80,to:160});
+    await expect.poll(()=>zoomOf(page)).toBeGreaterThan(1.8);
+    await expect(grid).toHaveClass(/cmv-zoomed/);
+    // 하루짜리 일정: 시각 + 제목(시각이 먼저).
+    for(const [id,tm] of [['timed','10:30'],['short-a','12:00'],['busy-0','01:00']]){
+      await expect(ev(id).locator('.cmv-event-time')).toHaveText(tm);
+      await expect(ev(id).locator(':scope > :first-child')).toHaveClass(/cmv-event-time/);
+    }
+    // 시각은 제목보다 작고 흐리며, 제목은 잘리지 않는다.
+    const look=await ev('timed').evaluate(el=>{const t=el.querySelector('.cmv-event-title'),m=el.querySelector('.cmv-event-time'),tc=getComputedStyle(t),mc=getComputedStyle(m);
+      return {title:parseFloat(tc.fontSize),time:parseFloat(mc.fontSize),opacity:Number(mc.opacity),clipped:t.scrollWidth>t.clientWidth+1||t.scrollHeight>t.clientHeight+1,before:m.getBoundingClientRect().left<t.getBoundingClientRect().left}});
+    expect(look.time).toBeLessThan(look.title);
+    expect(look.opacity).toBeLessThan(1);
+    expect(look.clipped).toBe(false);
+    expect(look.before).toBe(true);
+    // 종일·여러 날 띠와 할 일은 시각 없음.
+    await expect(ev('allday').locator('.cmv-event-time')).toHaveCount(0);
+    await expect(ev('band').locator('.cmv-event-time')).toHaveCount(0);
+    await expect(grid.locator('.cmv-cell-task .cmv-event-time')).toHaveCount(0);
+    // 오므리면 처음 크기 = 다시 시각 0개.
+    await pinch(page,{cx:g.x+g.width/2,cy:g.y+g.height/2,from:200,to:60});
+    await expect(grid).not.toHaveClass(/cmv-zoomed/,{timeout:1500});
+    await expect(grid.locator('.cmv-event-time')).toHaveCount(0);
+    await expect(ev('timed')).toHaveText(LONG);
   });
 
   test('크기는 기억하지 않는다(메모리만): 달을 바꾸면 처음 크기',async({page})=>{
