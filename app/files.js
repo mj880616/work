@@ -1275,7 +1275,7 @@ function paintPreview() {
     + '<div class="fx-pv-twins" data-fx-twins hidden></div>'
     + `<div class="fx-pv-acts">${mine ? '' : '<button type="button" class="fx-btn" data-fx-open>열기</button>'}<button type="button" class="fx-btn" data-fx-down>받기</button>`
     + (canShare() ? '<button type="button" class="fx-btn fx-share" data-fx-share>공유</button>' : '')
-    + (r.library_doc_id ? `<button type="button" class="fx-btn" data-fx-library="${esc(r.library_doc_id)}">자료실에서 보기</button>` : '<button type="button" class="fx-btn" data-fx-tolib-one>자료실로 보내기</button>')
+    + (r.library_doc_id ? `<button type="button" class="fx-btn" data-fx-library="${esc(r.library_doc_id)}">자료실에서 보기</button>` : '<button type="button" class="secondary" data-fx-tolib-one>자료실로 보내기</button>')
     // 폰 파일: [클라우드에 복사] + (앱 3-③ 판이면) 이름·휴지통. 폰이 낀 옮기기는 아직 없다.
     + (mine ? '<button type="button" class="fx-btn" data-fx-copy-one>클라우드에 복사</button>'
       + (phoneWrite() ? '<button type="button" class="fx-btn" data-fx-rename-one>이름</button><button type="button" class="fx-btn fx-danger" data-fx-trash-one>휴지통</button>' : '') + '</div>'
@@ -2017,7 +2017,8 @@ function paintJobs() {
 // 원본은 그대로. 원드라이브·이 폰 파일은 이 화면이 바이트를 받아(원드라이브는 Edge media, 폰은 앱 다리) 자료실 Drive 폴더에 사본으로 올리고,
 // 구글 드라이브 파일은 사본 없이 연결만(서버 document-actions register-drive-file이 이 작업공간 [파일] 색인·Drive 원본을 확인).
 // 이미 자료실에 있는 파일은 넣지 않고 '이미 자료실에 있어요 · [보기]'. 폴더째 보내기·내 PC 파일은 이번엔 없다.
-const TOLIB_BTN = '<button type="button" class="fx-btn" data-fx-tolib>자료실로</button>';
+// 새 버튼은 공용 6가지 중 작은 버튼(secondary, UI-버튼6가지)만 쓴다.
+const TOLIB_BTN = '<button type="button" class="secondary" data-fx-tolib>자료실로</button>';
 const LIBRARY_MAX_BYTES = 100 * 1024 * 1024;
 function openLibraryDoc(id) { if (!id) return; requestLibraryDocument(id); window.KPTURouter?.go?.('library', {source: 'delegated'}); }
 async function libraryReady() {

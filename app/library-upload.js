@@ -321,7 +321,7 @@ async function luLinkDriveEntry(entry,{many=false}={}){
     try{const rows=await luApi(`/rest/v1/app_documents?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(luWorkspace)}&select=id,project_id`,{method:'PATCH',body:{...body,updated_at:new Date().toISOString()},prefer:'return=representation',singleFlight:false});noted=Array.isArray(rows)&&rows.length===1&&rows[0]?.id===id}
     catch{noted=false}
   }
-  luAiFill(id,fd,entry.file.name);
+  const file=entry.file;luAiFill(id,fd,file.name);
   entry.failure=null;luSetFileStatus(entry,'success',noted?'연결함':'연결함 · 칸은 [정보 수정]에서');
   return {ok:true,created:true,id,projectId};
 }
