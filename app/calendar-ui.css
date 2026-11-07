@@ -341,15 +341,12 @@
   #calendarView .calendar-toolbar-add{box-sizing:border-box;width:36px;min-width:36px;padding:0}
 }
 
-/* BASKET-전환버튼고정: 제목 글자 길이(달 "2026년 10월" / 목록·주 "10월 25일 – 11월 7일")가 달라도 오른쪽 보기 전환 버튼이 안 움직이게 제목 칸 폭을 고정한다. */
+/* BASKET-전환버튼고정: 제목 글자 길이(달 "2026년 10월" / 목록·주 "10월 25일 – 11월 7일")가 달라도 오른쪽 보기 전환 버튼이 안 움직이게 제목 칸 폭을 고정한다.
+   UI-보기탭한모양(S52-17): 보기 전환이 공용 ⑤(칸 사이 2px·양옆 3px)로 10px 넓어져, 가장 좁은 PC 틀(761px)에서도 한 줄에 들어가게 12.5em → 11.5em. */
 @media(min-width:761px){
   #calendarView .calendar-toolbar #monthTitle,
-  #calendarView.calendar-list-active .calendar-toolbar #monthTitle{box-sizing:border-box;flex:none;width:12.5em;min-width:12.5em;text-align:center;white-space:nowrap}
+  #calendarView.calendar-list-active .calendar-toolbar #monthTitle{box-sizing:border-box;flex:none;width:11.5em;min-width:11.5em;text-align:center;white-space:nowrap}
 }
-/* UI-보기탭한모양(S52-17): 보기 전환이 공용 ⑤(칸 사이 2px·양옆 3px)가 되어 10px 넓어졌다. 가장 좁은 PC 틀(761~1023px)에서 한 줄에 들어가게 제목 칸만 11.5em(긴 제목 '10월 25일 – 11월 7일'도 들어감). */
-@media(min-width:761px) and (max-width:1023px){
-  #calendarView .calendar-toolbar #monthTitle,
-  #calendarView.calendar-list-active .calendar-toolbar #monthTitle{width:11.5em;min-width:11.5em}
 }
 /* UI-기다림표시통일 3차: 일정 없는 날 줄 안의 공용 '없음'은 줄(.clv-empty) 높이를 그대로 따른다. */
 .clv-empty>.wait-empty{margin:0}
