@@ -90,7 +90,7 @@ for(const width of [390,1280])test.describe(`native library transport ${width}px
  test.use(width===390?{...phone,viewport:{width,height:900}}:{viewport:{width,height:900}});
  test(`library A/B uses meeting fetch options and publishes one save at ${width}px`,async({page})=>{
   await open(page,{width});
-  await select(page);await page.locator('#docProject').selectOption(project.id);
+  await select(page);await page.locator('#docProject').evaluate((s,id)=>{s.value=id;s.dispatchEvent(new Event('change',{bubbles:true}))},project.id); // S52-01 ③c: 값은 숨은 <select>(전송 시험이라 고르기 창은 거치지 않음)
   await page.locator('#docTitle').fill('한글 자료');await page.locator('#docDescription').fill('설명 🙂');
   await page.locator('#saveDocumentBtn').click();
   await expect(page.locator('#documentModal')).toHaveClass(/hidden/);

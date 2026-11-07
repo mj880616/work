@@ -21,12 +21,13 @@ function declarations(file){
   if(file==='workplace-report.js')nodes=nodes[0].expression.callee.body.body;
   return nodes.filter(n=>['VariableDeclaration','FunctionDeclaration'].includes(n.type)).map(n=>source.slice(n.start,n.end)).join('\n');
 }
+// S52-01 ③c: 자료실 사업영역 칸 단추를 값 <select> 바로 뒤에 붙이므로(after) 가짜 요소도 그 함수를 갖는다.
 function element(){
   const classes=new Set();
   return {value:'',textContent:'',innerHTML:'',className:'',dataset:{},disabled:false,isConnected:true,children:[],
     classList:{contains:k=>classes.has(k),add:k=>classes.add(k),remove:k=>classes.delete(k),toggle:(k,on)=>{on??=!classes.has(k);on?classes.add(k):classes.delete(k);return on;}},
     focus(){},setAttribute(){},removeAttribute(){},toggleAttribute(){},replaceChildren(){this.children=[];},append(...nodes){this.children.push(...nodes);},
-    insertAdjacentHTML(){},querySelector(){return null;},querySelectorAll(){return [];},addEventListener(){},matches(){return false;},closest(){return null;},cloneNode(){return element();},replaceWith(value){Object.assign(this,value);}};
+    insertAdjacentHTML(){},querySelector(){return null;},querySelectorAll(){return [];},addEventListener(){},matches(){return false;},closest(){return null;},cloneNode(){return element();},replaceWith(value){Object.assign(this,value);},after(){}};
 }
 const copy=x=>structuredClone(x),WS='workspace-A',OWNER='owner-A';
 const stamp='2026-10-13T10:00:00.123456Z';

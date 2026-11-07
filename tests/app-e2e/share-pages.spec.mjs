@@ -1,3 +1,4 @@
+import {SHEET,pressRow} from './helpers/area-org-picker.mjs';
 // SHARE-현장공유 PR 2: Web2 "공유 페이지" editor (mock Supabase) and the Web1 reader (mock share-page-read).
 import {test, expect} from '@playwright/test';
 import {answerAsk} from './helpers/small-notice.mjs';
@@ -116,7 +117,8 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   await page.keyboard.type('3차 교섭 결렬, 조정 신청 예정');
   // Project: on the top line on PC, under ⋯ on a phone.
   if (width < 761) await editor.getByRole('button', {name:'사업영역·링크·AI 초안', exact:true}).click();
-  await editor.locator('[data-sp-project]').selectOption('proj-1');
+  // S52-01 ③c: 연결 사업영역은 칸 단추 + 공용 고르기 창(하나만).
+  await editor.locator('[data-sp-project]:visible').click();await pressRow(page,'p:proj-1');await expect(page.locator(SHEET)).toBeHidden();
   await editor.locator('[data-sp-set-status="published"]').click();
   await expect(editor.locator('[data-sp-set-status="published"]')).toHaveAttribute('aria-pressed', 'true');
   if (width < 761) await editor.getByRole('button', {name:'사업영역·링크·AI 초안', exact:true}).click();
