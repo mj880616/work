@@ -1,6 +1,9 @@
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import {bindPaste} from './paste-files.mjs';
 import {uploadTimeoutMs} from './upload-budget.mjs';
+// UI-올리기진행표시: 보낸 양을 아는 공용 보내기(upload-send.mjs)와 올리는 중 표시 공용 부품(upload-progress.js).
+import {sendUpload} from './upload-send.mjs';
+import {trackUpload, setUploadRetry, mountUploadRows, isUploading, watchUploads} from './upload-progress.js';
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
 const UNKNOWN = '저장 결과를 확인하지 못했습니다. 정리함에서 확인 후 다시 시도하세요';
@@ -16,6 +19,8 @@ export function createUploadBatch(note_id = null, attachments = []) {
 }
 function uploadError(message, code, status = 0) { return Object.assign(new Error(message), {code, status}); }
 function failure(e) {
+  // 다 보내기 전에 끊김·한도: 서버는 파일을 받지 못했으므로 다시 보내도 겹치지 않는다(결과 불명이 아님).
+  if (e.code === 'upload_not_sent' || e.code === 'upload_timeout_sending') return uploadError('연결이 끊겨 다 보내지 못했어요. 연결을 확인하고 다시 올려 주세요.', e.code);
   if (e.code === 'file_read_failed') return uploadError('파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.', e.code);
   if (e.code === 'note_changed') return uploadError('업데이트가 변경되었습니다. 업데이트를 다시 불러온 후 첨부를 확인해 주세요.', e.code, e.status);
   if (e.code === 'note_save_result_unknown' || !e.status || e.status >= 500) return uploadError(UNKNOWN, 'note_save_result_unknown', e.status);
@@ -36,30 +41,35 @@ export function validateBatch(batch, raw_text = '') {
     if (file.size > MAX_BYTES) throw Error('파일은 100MiB까지 첨부할 수 있습니다.');
   }
 }
-export async function uploadBasketFile(fd, file, rt = window.KPTURuntime, fetcher = fetch, isCurrent = () => true) {
+// fetcher: 시험에서만 넘긴다(그때는 보낸 양 없이 fetch). 화면에서는 XMLHttpRequest로 실제 보낸 양을 올리는 중 표시에 알린다.
+// source: 표시가 찾는 원래 파일(일기는 줄인 사진을 보내므로 고른 사진). job: 화면이 미리 만든 표시(없으면 여기서 만든다).
+export async function uploadBasketFile(fd, file, rt = window.KPTURuntime, fetcher = null, isCurrent = () => true, {source = null, job = null} = {}) {
   if (!(await rt.session.ensure()) || !isCurrent()) throw uploadError('로그인이 필요합니다.', 'session_required', 401);
   const session = rt.session.read();
   if (!session?.access_token) throw uploadError('로그인이 필요합니다.', 'session_required', 401);
-  let timer;
-  // The shared upload budget (upload-budget.mjs, by file size) and native multipart fetch. No abort/replay on unknown outcomes.
-  const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(uploadError(UNKNOWN, 'note_save_result_unknown')), uploadTimeoutMs(file?.size)); });
+  const shown = job || trackUpload({file: source || file, name: (source || file)?.name, size: file?.size});
+  // The shared upload budget (upload-budget.mjs, by file size). No replay on unknown outcomes; ✕ stops only before everything is sent.
   try {
-    return await Promise.race([(async () => {
-      const response = await fetcher(rt.config.url + '/functions/v1/basket-files', {method:'POST',headers:{apikey:rt.config.key,Authorization:'Bearer ' + session.access_token},body:fd});
-      const text = await response.text();
-      let data; try { data = JSON.parse(text); } catch { data = null; }
-      if (!response.ok) throw uploadError(data?.error || '첨부 저장 실패', data?.code || 'http_' + response.status, response.status);
-      return data;
-    })(), deadline]);
-  } finally { clearTimeout(timer); }
+    const response = await sendUpload(rt.config.url + '/functions/v1/basket-files', {headers:{apikey:rt.config.key,Authorization:'Bearer ' + session.access_token}, body:fd, size:file?.size || 0,
+      timeoutMs:uploadTimeoutMs(file?.size), signal:shown.signal, onProgress:shown.progress, ...(fetcher ? {Xhr:null, fetcher} : {})});
+    let data; try { data = JSON.parse(response.text); } catch { data = null; }
+    if (!response.ok) throw uploadError(data?.error || '첨부 저장 실패', data?.code || 'http_' + response.status, response.status);
+    shown.done();
+    return data;
+  } catch (e) {
+    if (e?.code !== 'upload_cancelled') shown.fail(failure(e).message);
+    throw e;
+  }
 }
 export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime, onChange = () => {}, onOcrChange = () => {}, isCurrent = () => true, request = uploadBasketFile, ocr} = {}) {
   validateBatch(batch, raw_text);
   const originalIds=new Set(batch.attachments.map(file=>file.drive_file_id));
   const hadPending=batch.entries.some(entry=>entry.kind!=='success');
+  let cancelled=0, tried=0;
   for (const entry of batch.entries.filter(e => e.kind !== 'success')) {
     if (!isCurrent()) throw Error('입력 세션이 변경되었습니다.');
-    entry.kind = 'uploading'; entry.label = '업로드 중'; onChange();
+    // upFile: 올리는 중 표시가 이 줄을 찾는 열쇠(성공 뒤 entry.file은 이름·크기만 남으므로). 표시가 끝나면 고른 줄 그리기가 지운다.
+    entry.kind = 'uploading'; entry.label = '업로드 중'; entry.upFile = entry.file; tried++; onChange();
     let fd;
     try {
       // UPD-사진여러장: a file read as soon as it was chosen (mountBasketPicker) is used as is; the rest are read now.
@@ -68,7 +78,7 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
       fd = new FormData(); fd.append('file', copy);
       if (batch.note_id) fd.append('note_id', batch.note_id);
       else if (raw_text) fd.append('raw_text', raw_text);
-      const result = await request(fd, entry.file, rt, fetch, isCurrent);
+      const result = await request(fd, entry.file, rt, null, isCurrent);
       if (!isCurrent()) throw uploadError('입력 세션이 변경되었습니다.', 'session_changed', 401);
       if (!result?.ok || typeof result.note_id !== 'string' || !result.note_id || !Array.isArray(result.attachments) || (batch.note_id && result.note_id !== batch.note_id)) throw uploadError(UNKNOWN, 'note_save_result_unknown');
       batch.note_id = result.note_id; batch.attachments = result.attachments;
@@ -78,11 +88,15 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
       try { globalThis.window?.dispatchEvent(new CustomEvent('kptu:api-saved', {detail:{path:'/functions/v1/basket-files',method:'POST',fields:['attachments'],action:'',projectLinked:false}})); } catch { /* A subscriber cannot turn a saved attachment into a failed upload. */ }
       onChange();
     } catch (e) {
+      // ✕(올리기 취소): 다 보내기 전에 멈춘 그 파일만 고른 목록에서 빼고 다음 파일을 이어서 올린다.
+      if (e?.code === 'upload_cancelled') { const at = batch.entries.indexOf(entry); if (at >= 0) batch.entries.splice(at, 1); cancelled++; onChange(); continue; }
       const error = failure(e); entry.kind = 'error'; entry.label = '실패';
       if (['note_save_result_unknown','note_changed'].includes(error.code)) batch.blocked = error;
       onChange(); throw error;
     } finally { fd?.delete('file'); }
   }
+  // 고른 파일을 모두 ✕로 취소했으면 아무것도 올라가지 않았다: 부른 곳이 '저장함'으로 보지 않게 알린다(노트·일기 글 안 사진이 건너뜀).
+  if (tried && cancelled === tried) throw uploadError('올리기를 취소했어요.', 'upload_cancelled');
   // Multipart success is final before this separate phase. An OCR failure never
   // changes upload entries, blocks the batch, or sends the source file again.
   if(hadPending && isCurrent()) {
@@ -115,6 +129,8 @@ export async function uploadNoteFiles(noteId, batch, {rt = window.KPTURuntime, i
   batch.note_id = noteId;
   try { return await uploadBatch(batch, {rt, isCurrent, onChange, ocr:NO_OCR, ...(request ? {request} : {})}); }
   catch (error) {
+    // [다시]: 노트는 이미 있으므로 실패한 파일만 같은 노트로 다시 보낸다. 결과를 알 수 없는 실패(저장됐을 수 있음)는 [다시]를 두지 않는다.
+    if (!batch.blocked) for (const entry of batch.entries.filter(e => e.kind === 'error')) setUploadRetry(entry.file, () => uploadNoteFiles(noteId, batch, {rt, isCurrent, onChange, request}).catch(() => {}));
     // The basket wording ("바구니에서 확인") is said in the note's own words; the code stays.
     if (error?.code === 'note_save_result_unknown') error.message = '첨부 저장 결과를 확인하지 못했어요. 노트를 다시 열어 첨부를 확인해 주세요.';
     else if (error?.code === 'note_changed') error.message = '노트가 그사이 바뀌었어요. 노트를 다시 열어 첨부를 확인해 주세요.';
@@ -128,11 +144,20 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, pasteTarget 
   host.classList.add('basket-clip-picker');
   host.innerHTML = `<input id="${id}" class="library-file-input" type="file" multiple tabindex="-1" aria-hidden="true"><button type="button" class="basket-clip" data-basket-clip aria-label="파일 첨부" aria-controls="${id}"><svg class="basket-clip-icon" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" focusable="false"><path d="M13.2 7.6 8.1 12.7a3.3 3.3 0 0 1-4.7-4.7l5.4-5.4a2.2 2.2 0 0 1 3.1 3.1L6.6 11a1.1 1.1 0 0 1-1.6-1.6l4.8-4.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="basket-clip-label">첨부</span><span class="basket-clip-count" data-basket-count aria-hidden="true" hidden></span></button>`;
   filesHost.classList.add('basket-file-selection');
-  filesHost.innerHTML = `<small class="basket-file-hint" data-basket-hint hidden>파일당 100MiB · 20개까지</small><div class="library-selected-files" data-basket-files aria-live="polite"></div>`;
+  filesHost.innerHTML = `<small class="basket-file-hint" data-basket-hint hidden>파일당 100MiB · 20개까지</small><div data-basket-progress hidden></div><div class="library-selected-files" data-basket-files aria-live="polite"></div>`;
   dropTarget.classList.add('basket-drop-target');
   const input = host.querySelector('input'), clip = host.querySelector('button'), badge = host.querySelector('[data-basket-count]'), hint = filesHost.querySelector('[data-basket-hint]'), rows = filesHost.querySelector('[data-basket-files]');
   let renderedBatch;
   let dragDepth = 0;
+  // UI-올리기진행표시: 올리는 동안(그리고 '✓ 완료' 1초) 그 파일 줄은 공용 올리는 줄이 그리고, 끝나면 아래 보통 첨부 줄이 맡는다.
+  const sentFile = entry => entry.upFile || entry.file;
+  const progress = mountUploadRows(filesHost.querySelector('[data-basket-progress]'), {has: job => getBatch().entries.some(entry => sentFile(entry) === job.file)});
+  let uploadingNow = '';
+  watchUploads(() => {
+    if (!host.isConnected) return;
+    const now = getBatch().entries.map(entry => isUploading(sentFile(entry)) ? 1 : 0).join('');
+    if (now !== uploadingNow) render();
+  });
   function clearDrag() { dragDepth = 0; dropTarget.classList.remove('basket-dragover'); }
   function render() {
     const batch = getBatch();
@@ -142,7 +167,9 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, pasteTarget 
     if (input.disabled) clearDrag();
     badge.textContent = String(batch.entries.length); badge.hidden = !batch.entries.length;
     hint.hidden = !batch.entries.length; filesHost.hidden = !batch.entries.length;
-    rows.innerHTML = batch.entries.map((entry, index) => `<div class="library-selected-file ${entry.kind}" data-basket-file="${index}"><div class="library-selected-file-main"><b>${esc(entry.file.name)}</b><small>${esc(fileSize(entry.file.size))}</small></div><span class="library-upload-state">${esc(entry.label || '대기')}</span>${entry.kind === 'success' ? '' : `<button type="button" class="icon-btn" data-basket-remove="${index}" aria-label="${esc(entry.file.name)} 선택 취소"${isBusy() || batch.blocked ? ' disabled' : ''}>×</button>`}</div>`).join('');
+    uploadingNow = batch.entries.map(entry => isUploading(sentFile(entry)) ? 1 : 0).join('');
+    for (const entry of batch.entries) if (entry.upFile && entry.kind === 'success' && !isUploading(entry.upFile)) entry.upFile = null;
+    rows.innerHTML = batch.entries.map((entry, index) => isUploading(sentFile(entry)) ? '' : `<div class="library-selected-file ${entry.kind}" data-basket-file="${index}"><div class="library-selected-file-main"><b>${esc(entry.file.name)}</b><small>${esc(fileSize(entry.file.size))}</small></div><span class="library-upload-state">${esc(entry.label || '대기')}</span>${entry.kind === 'success' ? '' : `<button type="button" class="icon-btn" data-basket-remove="${index}" aria-label="${esc(entry.file.name)} 선택 취소"${isBusy() || batch.blocked ? ' disabled' : ''}>×</button>`}</div>`).join('');
   }
   // UPD-사진여러장: on the phone app a chosen photo is only a pointer the system picker lent for a moment, and the upload used to
   // read file 2, 3… minutes later, one request after another. Read each one into memory right away (within EAGER_BYTES in all);
@@ -207,5 +234,5 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, pasteTarget 
     batch.entries.splice(index, 1); render(); onChange();
     (rows.querySelectorAll('button')[Math.min(index, rows.querySelectorAll('button').length - 1)] || clip).focus();
   });
-  render(); return {render, add};
+  render(); return {render, add, progress};
 }
