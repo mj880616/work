@@ -46,9 +46,9 @@ test('파일 폰 412: 펼친 폴더 안 파일 ⋯ = 그 줄 바로 옆 작은 �
   await expect(menu(page)).toBeVisible();
   await expect(menu(page).locator('.row-menu-title')).toHaveCount(0);
   await expect(menu(page)).toHaveAttribute('aria-label', '가짜 안내문.pdf 메뉴');
-  await expect(menu(page).locator('button')).toHaveText(['열기', '자료실로 보내기', '복사', '옮기기', '이름 바꾸기', '별표', '휴지통']);
+  await expect(menu(page).locator('button')).toHaveText(['열기', '자료실로 보내기', '복사', '옮기기', '이름 바꾸기', '경로 복사', '별표', '휴지통']); // S52-43 ③ [경로 복사]
   await expect(menu(page).locator('button').last()).toHaveClass(/row-menu-last/);
-  await expect(menu(page).locator('button .row-menu-ico')).toHaveCount(7);
+  await expect(menu(page).locator('button .row-menu-ico')).toHaveCount(8);
   await expect(menu(page).locator('[data-row-item="trash"]')).toHaveCSS('color', await page.evaluate(() => { const d = document.createElement('i'); d.style.color = 'var(--kptu-danger)'; document.body.append(d); const c = getComputedStyle(d).color; d.remove(); return c; }));
   await expect(menu(page).getByRole('button', { name: '열기' })).toBeFocused();
   await smallBoxBy(page, file);
@@ -92,7 +92,7 @@ test('파일 폰 412: 폴더 줄 ⋯ = 새 폴더·올리기·복사·옮기기�
   await openFiles(page, 412);
   const od = tree(page).locator('[data-fx-box="od"]');
   await od.locator('[data-fx-fold="od:OD!1"] [data-fx-tmenu]').click();
-  await expect(menu(page).locator('button')).toHaveText(['이 폴더만 보기', '새 폴더', '올리기', '복사', '옮기기', '이름 바꾸기', '위에 고정', '별표', '색', '아래로', '휴지통']); // S52-41 ④: 폴더는 [위에 고정]
+  await expect(menu(page).locator('button')).toHaveText(['이 폴더만 보기', '새 폴더', '올리기', '복사', '옮기기', '이름 바꾸기', '경로 복사', '위에 고정', '별표', '색', '아래로', '휴지통']); // S52-41 ④: 폴더는 [위에 고정]
   await expect(menu(page).locator('.row-menu-sep')).toHaveText(['위에 고정']);
   await smallBoxBy(page, od.locator('[data-fx-fold="od:OD!1"]'));
   await page.screenshot({ path: 'test-results/files-tree-row-menu-folder-phone.png' });

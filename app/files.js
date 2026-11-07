@@ -12,7 +12,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
   pushRecentDest, recentDestOf, xferLine, xferPercent, xferDoneText, XFER_BIG_HOW,
   jobsActive, jobReason, jobStatusText, jobLine, jobPercent, jobStrip, jobsTitle, jobAction, mergeJobs, newlyDone, deviceJobOnReopen,
   UPLOAD_BIG_HOW, UPLOAD_REOPEN_TEXT, upDropText, upStartText, uploadPlan, upBig, upSameName, sameUpFile, upPiece, deviceHint, upResultId,
-  starWant, starLabel, applyStars, boxRows, treeAcrossBig, treeAcrossTooBigText, treeBigAsk, treeDoneText, TREE_MOVE_NOTE} from './files-model.mjs';
+  starWant, starLabel, applyStars, boxRows, MEDIA_PREVIEW_MAX, mediaMime, stepFile, pathCopyText, treeAcrossBig, treeAcrossTooBigText, treeBigAsk, treeDoneText, TREE_MOVE_NOTE} from './files-model.mjs';
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {boxShut, toggleBoxShut} from './box-fold.js';
@@ -43,6 +43,7 @@ import {odLinkButtonHtml, paintOdLink} from './od-link.js';
 import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
 import {checkFileBase, splitFileName, numberedName, FILE_BASE_MAX} from './file-rename-name.mjs';
+import {bindPaste} from './paste-files.mjs';
 import {createPhoneFiles} from './phone-files.js';
 import {PHONE_SOURCE as PH, phoneTrail, phoneParent, phoneWriteText, PHONE_SAVE_MAX, PHONE_OLD_APP_TEXT, PHONE_MOVE_TEXT, PHONE_ASK_TEXT, PHONE_CANNOT_TEXT} from './phone-files-model.mjs';
 import {createPcFiles} from './pc-files.js';
@@ -127,6 +128,8 @@ import {within, isLoadTimeout} from './load-deadline.js';
 //   한 폴더에 파일 500개·폴더 100개까지, 옮기기면 원래 폴더는 빈 폴더로 남음 — treeAcross). 여러 개 옮기기도 전송 목록(1개 제한 없음).
 //   폰 ↔ 클라우드 옮기기(앱 3-③ 판): 복사한 뒤 원본을 휴지통으로(폰 → 클라우드는 서버가 맞춘 뒤 안드로이드 휴지통, 클라우드 → 폰은 다 받은 것만 클라우드 휴지통).
 //   이름 바꾸기(클라우드·이 폰·내 PC)·내 PC 안 옮기기도 알림 [되돌리기](같은 저장소 클라우드 옮기기는 앞서 있음). 휴지통은 그 저장소 휴지통에서 되살린다(F1 그대로).
+// FILES-관리자마무리(S52-43 ③): 미리보기 머리 줄 ← →(키 ←·→) = 같은 목록의 앞·다음 파일, 동영상·소리는 미리보기 칸에서 재생(200MB까지, blob: 메모리),
+//   파일·폴더 ⋯·우클릭 [경로 복사](클립보드에만 — 내 PC는 실제 경로, 그 밖은 '원드라이브 › 문서 › 이름'), 그림·파일 붙여넣기(Ctrl+V) = 지금 클라우드 폴더에 올리기.
 // 저장은 서버만: 목록은 이 탭 메모리(열린 동안만), 받은 그림·PDF는 blob: 주소(메모리)로만 두고 화면을 떠나면 놓는다. 기기 저장 없음.
 // 파일 이름은 모두 글자로만 그린다(esc). 로그에 파일 이름·id를 남기지 않는다.
 
@@ -138,6 +141,7 @@ const kindIco = r => (kindSvg(r) ? iconSvg(kindSvg(r), {size: 14}) : esc(kindIco
 const starFace = on => iconSvg(on ? 'star' : 'starLine', {size: 15});
 const STAR_ICO = `<span class="fx-star" aria-label="별표">${iconSvg('star', {size: 11})}</span>`;
 const FN = '/functions/v1/cloud-files';
+const MEDIA_BIG_TEXT = '200MB가 넘어 여기서는 재생하지 않아요. [열기]로 보세요';
 // FILES-폴드나무목록 ⑥(S51-18): 폰 한 칸인가는 공용 판정(screen-width.mjs, 600px 미만). 펼친 폴드(약 673~884px)는 폴드 칸(나무 | 목록).
 const PHONE = window.matchMedia(NARROW_QUERY);
 // 출처 켜기/끄기를 기억하는 기기 칸(폰 앱·폰 브라우저·PC, 명진 결정 H-8). 화면을 연 때 한 번 정한다. 기억 칸은 지금까지처럼 760px 기준(바꾸면 기억한 켜기/끄기가 다른 칸으로 감).
@@ -1065,8 +1069,15 @@ function treeMenu(b) {
   const key = b.dataset.fxTmenu, inKey = b.dataset.fxTin || '', r = state.treeRows.get(key);
   if (!r) return;
   const sib = r.is_folder && SOURCES.includes(r.source) ? treeSibs(r.source, inKey) : [];
-  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length, pinned: pinState(r)});
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length, pinned: pinState(r)});
   openRowMenu(b, {key, label: r.name, items, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '', run: id => treeAct(id, r, inKey, liveMenuButton(key, b))});
+}
+// [경로 복사](S52-43 ③): 클립보드에 위치 글자만(내 PC는 실제 경로 — 그 PC 화면 안에서만, 서버·로그로 가지 않음).
+const canCopyPath = () => typeof navigator.clipboard?.writeText === 'function';
+async function copyPath(r) {
+  const text = pathCopyText(r, pathText(r.source, r.folder_path));
+  try { await navigator.clipboard.writeText(text); notify('경로를 복사했어요', {record: false}); }
+  catch { notify('경로를 복사하지 못했어요', {error: true, record: false}); }
 }
 // 메뉴가 열린 동안 나무가 다시 그려졌으면 같은 줄의 새 ⋯를 묻는 창의 자리로 쓴다.
 const liveMenuButton = (key, b) => (b?.isConnected ? b : root?.querySelector(`[data-fx-tmenu="${CSS.escape(key)}"]`) || b);
@@ -1086,6 +1097,7 @@ async function treeAct(id, r, inKey, anchor) {
   if (id === 'up' || id === 'down') { lookSave(() => folderLook.step(rt(), r.source, treeSibs(r.source, inKey), r.item_id, id === 'up' ? -1 : 1), '폴더 순서를 저장하지 못했어요.'); return; }
   if (id === 'star' || id === 'unstar') { await starRows([r]); return; }
   if (id === 'pin' || id === 'unpin') { pinToggle(r); return; }
+  if (id === 'path') { await copyPath(r); return; }
   if (id === 'trash') { await trashRows([r], anchor); void loadRecent(); }
 }
 // ---------- S51-20 FILES-폰보기끌기 ①: 목록 보기 크기(목록 → 격자 → 큰 격자) + 사진 작은 그림 ----------
@@ -1356,13 +1368,16 @@ async function rowBlob(r, what, {range = 0} = {}) {
 const pcPreviewKind = r => {
   if (r.source !== PC) return previewKind(r);
   const k = previewKind(r);
-  if (!pc.canXfer || !['image', 'pdf', 'text'].includes(k)) return 'none';
-  return k === 'text' || Number(r.size_bytes) <= PC_PREVIEW_MAX ? k : 'none';
+  if (!pc.canXfer || !['image', 'pdf', 'text', 'video', 'audio'].includes(k)) return 'none';
+  return k === 'text' || k === 'video' || k === 'audio' || Number(r.size_bytes) <= PC_PREVIEW_MAX ? k : 'none';
 };
+// 동영상·소리(S52-43 ③): MEDIA_PREVIEW_MAX보다 크면 재생하지 않고 이름·크기 + [열기]만(화면 메모리를 아끼려고).
+const mediaBig = (r, k) => (k === 'video' || k === 'audio') && !(Number(r.size_bytes) <= MEDIA_PREVIEW_MAX);
 async function openPreview(r) {
   if (state.preview?.key === rowKey(r)) { if (overlayPreview()) openLayer(); paintPreview(); return; }
   dropPreview();
-  const kind = pcPreviewKind(r), p = {key: rowKey(r), row: r, kind, status: kind === 'none' ? 'done' : 'wait', url: '', text: '', pages: 0, shown: 0, err: ''};
+  const k0 = pcPreviewKind(r), big = mediaBig(r, k0), kind = big ? 'none' : k0;
+  const p = {key: rowKey(r), row: r, kind, big, status: kind === 'none' ? 'done' : 'wait', url: '', text: '', pages: 0, shown: 0, err: ''};
   state.preview = p;
   if (overlayPreview()) openLayer();
   paintPreview();
@@ -1377,6 +1392,10 @@ async function openPreview(r) {
       const blob = await rowBlob(r, 'media', {range: TEXT_PREVIEW_BYTES});
       if (state.preview !== p) return;
       p.text = new TextDecoder('utf-8', {fatal: false}).decode(new Uint8Array(await blob.slice(0, TEXT_PREVIEW_BYTES).arrayBuffer()));
+    } else if (kind === 'video' || kind === 'audio') {
+      const blob = await rowBlob(r, 'media');
+      if (state.preview !== p) return;
+      p.url = URL.createObjectURL(mediaMime(r) && blob.type !== mediaMime(r) ? new Blob([blob], {type: mediaMime(r)}) : blob);
     } else {
       const blob = await rowBlob(r, kind === 'office' ? 'preview' : 'media');
       if (state.preview !== p) return;
@@ -1436,12 +1455,43 @@ function openLayer() {
 }
 // S50-16: 폰 앱(0.5.1+)은 navigator.share가 없어도 앱 다리로 안드로이드 공유 창을 띄운다(app-share.js).
 const canShare = () => (typeof navigator.share === 'function' && typeof navigator.canShare === 'function') || appShare().known();
+// 미리보기 ←→(S52-43 ③): 그 줄이 있는 칸의 목록 차례에서 파일만 건너뛰며 앞·다음(키보드 ←·→, 머리 줄 작은 ← → 단추).
+const STEP_HTML = '<button type="button" class="icon-btn" data-fx-pv-step="-1" aria-label="앞 파일" title="앞 파일 (←)">←</button>'
+  + '<button type="button" class="icon-btn" data-fx-pv-step="1" aria-label="다음 파일" title="다음 파일 (→)">→</button>';
+function previewPane() {
+  const k = state.preview?.key;
+  return k ? state.panes.find(q => (q.query ? q.found || [] : q.rows || []).some(x => rowKey(x) === k)) || null : null;
+}
+function previewNext(dir) {
+  const p = state.preview, q = previewPane();
+  if (!p || !q) return '';
+  const keys = [...(paneEl(q)?.querySelectorAll('[data-fx-row]') || [])].map(b => b.dataset.fxRow);
+  return stepFile([...new Set(keys)], p.key, dir, k => { const r = rowByKey(k, q); return !!r && !r.is_folder; });
+}
+function previewStep(dir) {
+  const next = previewNext(dir), q = previewPane();
+  if (!next || !q) return false;
+  const r = rowByKey(next, q);
+  if (!r) return false;
+  q.sel = next; paintPicks(q);
+  paneEl(q)?.querySelector(`[data-fx-row="${CSS.escape(next)}"]`)?.scrollIntoView?.({block: 'nearest'});
+  openPreview(r);
+  return true;
+}
+// keep = 다시 그리기 전 초점이 있던 ← → 단추('-1'|'1'): 새로 그린 같은 단추로 초점을 돌려 키를 이어 쓰게.
+let stepKeep = '';
+function paintStep(box) {
+  for (const b of box.querySelectorAll('[data-fx-pv-step]')) b.disabled = !previewNext(Number(b.dataset.fxPvStep));
+  const keep = stepKeep; stepKeep = '';
+  if (keep) (box.querySelector(`[data-fx-pv-step="${keep}"]:not([disabled])`) || box.querySelector('[data-fx-pv-step]:not([disabled])'))?.focus({preventScroll: true});
+}
 function paintPreview() {
   const box = $('[data-fx-prev]');
   if (!box) return;
   const p = state.preview;
   if (!p) { box.hidden = true; box.innerHTML = ''; delete root.dataset.fxPreview; return; }
   box.hidden = false;
+  stepKeep = box.contains(document.activeElement) ? document.activeElement?.dataset?.fxPvStep || '' : '';
   const r = p.row, at = state.panes.find(q => q.where?.source === r.source && !q.query && !q.where?.shelf && q.rows.some(x => rowKey(x) === p.key));
   const where = at ? trailNames(r.source, at.trail).join(' › ') : pathText(r.source, r.folder_path);
   let view = '';
@@ -1449,16 +1499,21 @@ function paintPreview() {
   else if (p.status === 'wait') view = barHtml(); // 미리보기 칸 맨 위 가는 줄(칸 한가운데 회색 막대가 아니라)
   else if (p.status === 'fail') view = `<p class="fx-pv-note">${esc(errorText(p.err))}</p>`;
   else if (p.kind === 'text') view = `<pre class="fx-pv-text">${esc(p.text)}</pre>`;
+  else if (p.kind === 'video') view = `<video class="fx-pv-media" data-fx-media controls playsinline preload="metadata" src="${esc(p.url)}"></video>`;
+  else if (p.kind === 'audio') view = `<audio class="fx-pv-media" data-fx-media controls preload="metadata" src="${esc(p.url)}"></audio>`;
+  else if (p.big) view = `<p class="fx-pv-note">${esc(MEDIA_BIG_TEXT)}</p>`;
   else if (p.kind === 'pdf' || p.kind === 'office') view = `<div class="fx-pages" data-fx-pages></div><button type="button" class="fx-btn" data-fx-more-pages hidden></button>`;
   // 그리고 있는 PDF 칸은 그대로 둔다(다시 그리면 쪽을 처음부터 다시 그려야 함).
   if (p.doc && p.host && p.host.isConnected && box.contains(p.host) && box.dataset.fxKey === p.key) return;
+  // 재생 중인 동영상·소리는 다시 그리지 않는다(다시 그리면 처음부터 다시 받거나 멈춤).
+  if ((p.kind === 'video' || p.kind === 'audio') && p.status === 'done' && box.dataset.fxKey === p.key && box.querySelector('[data-fx-media]')) { paintStep(box); return; }
   box.dataset.fxKey = p.key;
   if (r.source === PC) {
     // 내 PC 미리보기(S52-43 ① FILES-내PC쓰기): 사진·PDF·글은 클라우드와 같은 보기 칸(바구니 문에서 화면 메모리로 읽음), 그 밖은 이름·크기만.
     //   아래 줄: [이 PC에서 열기][탐색기에서 위치] + (0.4.0+) [복사][옮기기] + (0.5.0+) [이름][휴지통] — 클라우드와 같은 항목.
-    const big = p.kind === 'none' && ['image', 'pdf'].includes(previewKind(r)) && Number(r.size_bytes) > PC_PREVIEW_MAX && pc.canXfer;
-    box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span></div>`
-      + `<div class="fx-pv-view">${p.kind === 'none' ? `<p class="fx-pv-note">${esc(big ? PC_PREVIEW_BIG_TEXT : PC_PREVIEW_TEXT)}</p>` : view}</div>`
+    const big = p.big || (p.kind === 'none' && ['image', 'pdf'].includes(previewKind(r)) && Number(r.size_bytes) > PC_PREVIEW_MAX && pc.canXfer);
+    box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span>${STEP_HTML}</div>`
+      + `<div class="fx-pv-view">${p.kind === 'none' ? `<p class="fx-pv-note">${esc(p.big ? MEDIA_BIG_TEXT : big ? PC_PREVIEW_BIG_TEXT : PC_PREVIEW_TEXT)}</p>` : view}</div>`
       + `<dl class="fx-pv-meta"><dt>위치</dt><dd>${esc(where)}</dd><dt>크기</dt><dd>${esc(sizeText(r.size_bytes))}</dd><dt>바뀐 날</dt><dd>${esc(fullTime(r.modified_at))}</dd><dt>종류</dt><dd>${esc(kindLabel(r))}</dd></dl>`
       + '<div class="fx-pv-acts"><button type="button" class="fx-btn" data-fx-open>이 PC에서 열기</button><button type="button" class="fx-btn" data-fx-pc-reveal>탐색기에서 위치</button>'
       + (pcWrite() ? '<button type="button" class="secondary" data-fx-copy-one>복사</button><button type="button" class="secondary" data-fx-cut-one>옮기기</button>' : '')
@@ -1470,10 +1525,11 @@ function paintPreview() {
       if (p.status === 'done' && p.url) { const img = document.createElement('img'); img.className = 'fx-pv-img'; img.alt = r.name; slotImg(pcImg, img, p.url); }
       else if (p.status === 'fail') slotFailed(pcImg, () => { if (state.preview === p) { dropPreview(); openPreview(r); } }, p.err);
     }
+    paintStep(box);
     return;
   }
   const mine = r.source === PH;
-  box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span>`
+  box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span>${STEP_HTML}`
     + (mine ? '' : `<button type="button" class="mini fx-star-btn${r.starred ? ' on' : ''}" data-fx-star-one aria-pressed="${!!r.starred}" aria-label="${r.starred ? '별표 빼기' : '별표'}" title="${r.starred ? '별표 빼기' : '별표'}">${starFace(r.starred)}</button>`) + '</div>'
     + `<div class="fx-pv-view">${view}</div>`
     + `<dl class="fx-pv-meta"><dt>위치</dt><dd>${esc(where)}</dd><dt>크기</dt><dd>${esc(sizeText(r.size_bytes))}</dd><dt>바뀐 날</dt><dd>${esc(fullTime(r.modified_at))}</dd><dt>종류</dt><dd>${esc(kindLabel(r))}</dd></dl>`
@@ -1488,6 +1544,7 @@ function paintPreview() {
       : `<button type="button" class="fx-btn" data-fx-rename-one>이름</button><button type="button" class="fx-btn" data-fx-copy-one>복사</button><button type="button" class="fx-btn" data-fx-cut-one>옮기기</button>`
       + `<button type="button" class="fx-btn fx-danger" data-fx-trash-one>휴지통</button></div>`);
   paintTwins();
+  paintStep(box);
   if (p.doc) { p.host = null; drawPages(p, Math.max(PDF_FIRST_PAGES, p.want || 0)); }
   // 사진: 공용 그림 칸(img-slot.js) — 받는 중 회색, 못 받으면 ↻(그 사진만 다시 받기).
   const imgBox = box.querySelector('[data-fx-img]');
@@ -2942,6 +2999,14 @@ const upTarget = event => {
   const d = box && paneDest(state.panes[i]);
   return d && d.source !== PC && onSources().includes(d.source) ? {t: box, dest: d} : null;
 };
+// S52-43 ③ FILES-관리자마무리: 클립보드 그림·파일 붙여넣기(Ctrl+V) = 지금 칸의 클라우드 폴더에 올리기(올리기 길 그대로 — 같은 이름·200MB 묻기·전송 목록).
+//   앞서 [복사]·[잘라내기]로 잡아 둔 줄이 있으면 Ctrl+V는 그쪽(키 처리가 먼저 막음). 글자만 붙여 넣으면 건드리지 않는다(공용 paste-files.js).
+//   [파일] 화면이 보이고, 지금 칸이 원드라이브·구글 드라이브 폴더(찾기·묶음 칸 아님)일 때만. 붙여 넣은 그림은 업로드 전까지 화면 메모리에만.
+const pasteDest = () => { const d = hereDest(); return d && SOURCES.includes(d.source) && onSources().includes(d.source) ? d : null; };
+// 붙여 넣은 그림의 이름('붙여넣은 그림 11-08 01:57.png')의 ':'는 클라우드 파일 이름에 쓸 수 없어 '.'으로('01.57').
+const cloudSafe = f => (f.name.includes(':') ? new File([f], f.name.replace(/:/g, '.'), {type: f.type, lastModified: f.lastModified}) : f);
+bindPaste(document, files => { const d = pasteDest(); if (d) void uploadFiles(files.map(cloudSafe), d); }, {key: 'files-view',
+  canTake: () => !!root?.isConnected && root.getClientRects().length > 0 && !state.busy && !state.ask && !state.clip && !!pasteDest()});
 
 // 미리보기 ☆ 한 개만 고친다(PDF를 그리는 칸은 다시 그리지 않음).
 function paintStarOne() {
@@ -3160,6 +3225,8 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-pc-reveal]') && p?.row?.source === PC) { pcOpen(p.row, {reveal: true}); return; }
   if (b.matches('[data-fx-down]') && p) { download(p.row); return; }
   if (b.matches('[data-fx-share]') && p) { download(p.row, {share: true}); return; }
+  // 미리보기를 새로 그려도 같은 자리 단추로 초점이 돌아온다(paintStep) — ←→ 키를 이어 쓴다.
+  if (b.matches('[data-fx-pv-step]')) { previewStep(Number(b.dataset.fxPvStep) < 0 ? -1 : 1); return; }
   if (b.matches('[data-fx-rename-one]') && p) { renameRow(p.row, b); return; }
   // 미리보기 [복사]·[옮기기]: 두 칸이고 반대 칸이 폴더를 열었으면 그리로 바로, 아니면 받을 곳 창.
   if (b.matches('[data-fx-cut-one]') && p) { const d = oppDest(); if (d) { closePreview(); moveRows([p.row], d, b); } else openDest('move', [p.row]); return; }
@@ -3259,6 +3326,10 @@ root?.addEventListener('keydown', event => {
   if (event.key === 'Escape' && state.jobsOpen) { event.preventDefault(); closeJobs(); return; }
   if (event.key === 'Escape' && (p.picked.size || state.clip)) { event.preventDefault(); if (state.clip) uncut(); else unpick(); return; }
   if (event.key === 'Escape' && p.drop) { event.preventDefault(); p.drop = false; paintPaneTop(p); return; }
+  if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !mod && state.preview && !event.target.closest('[data-fx-media]')) {
+    if (previewStep(event.key === 'ArrowLeft' ? -1 : 1)) event.preventDefault();
+    return;
+  }
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     if (!rows.length) return;
     event.preventDefault();
@@ -3290,7 +3361,7 @@ function listMenu(b, event) {
   const i = paneOfEl(b); if (i >= 0) setCur(i);
   const key = b.dataset.fxRow, r = rowByKey(key);
   if (!r) return false;
-  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), pinned: pinState(r)}).map(it => (it.id === 'only' ? {...it, id: 'go', label: '열기'} : it));
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), pinned: pinState(r)}).map(it => (it.id === 'only' ? {...it, id: 'go', label: '열기'} : it));
   return openRowMenu(b, {key: 'list:' + key, title: r.name, items, at, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '',
     run: id => { if (id === 'go') goFolder(r.source, r.item_id); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});
 }

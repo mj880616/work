@@ -80,6 +80,7 @@
 .fx-pv-view { margin:8px 0; }
 .fx-pv-imgbox { min-height:180px; border-radius:var(--kptu-radius-sm); }
 .fx-pv-img { display:block; max-width:100%; max-height:60vh; margin:0 auto; border:.5px solid var(--kptu-border); border-radius:var(--kptu-radius-sm); }
+.fx-pv-media { display:block; width:100%; max-height:60vh; }
 .fx-pv-text { margin:0; max-height:60vh; overflow:auto; white-space:pre-wrap; word-break:break-all; font-size:12px; background:var(--kptu-surface-subtle); border:.5px solid var(--kptu-border); border-radius:var(--kptu-radius-sm); padding:6px 8px; }
 .fx-pv-note { margin:8px 0; color:var(--kptu-muted); font-size:12px; }
 .fx-pages { display:flex; flex-direction:column; gap:6px; }

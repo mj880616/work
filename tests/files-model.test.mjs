@@ -445,3 +445,25 @@ test('S50-14: 처음 목록 받기가 안 끝났거나 실패하면 \'방금 맞
   assert.match(src, /state\.status = applySyncReply\(state\.status, d, SOURCES\);\n\s*if \(syncSettled\(d, SOURCES\)\) state\.syncedAt = Date\.now\(\);/);
   assert.doesNotMatch(src, /\n\s*state\.syncedAt = Date\.now\(\);\n\s*if \(SOURCES\.some/);
 });
+
+// S52-43 ③ FILES-관리자마무리: 동영상·소리 재생 칸, 미리보기 ←→, 경로 복사 글자.
+test('관리자마무리: 동영상·소리는 미리보기 재생, 재생 종류 붙이기, ←→는 파일만 건너뛰며, 경로 복사 글자', async () => {
+  const m = await import('../app/files-model.mjs');
+  const r = o => ({source: 'od', item_id: 'X', parent_id: null, is_folder: false, mime: null, size_bytes: 10, ...o});
+  assert.equal(m.previewKind(r({name: '영상.mp4'})), 'video');
+  assert.equal(m.previewKind(r({name: '녹음.m4a'})), 'audio');
+  assert.equal(m.previewKind(r({name: '계획.hwp'})), 'none');
+  assert.equal(m.mediaMime(r({name: '영상.MOV'})), 'video/quicktime');
+  assert.equal(m.mediaMime(r({name: 'x.bin', mime: 'audio/ogg'})), 'audio/ogg');
+  assert.equal(m.mediaMime(r({name: 'x.pdf'})), '');
+  assert.equal(m.MEDIA_PREVIEW_MAX, 200 * 1024 * 1024);
+  const keys = ['F', 'a', 'G', 'b', 'c'], isFile = k => k === k.toLowerCase();
+  assert.equal(m.stepFile(keys, 'a', 1, isFile), 'b');
+  assert.equal(m.stepFile(keys, 'b', -1, isFile), 'a');
+  assert.equal(m.stepFile(keys, 'a', -1, isFile), '');
+  assert.equal(m.stepFile(keys, 'c', 1, isFile), '');
+  assert.equal(m.stepFile(keys, 'zz', 1, isFile), '');
+  assert.equal(m.pathCopyText(r({name: '안내.pdf'}), '원드라이브 › 문서'), '원드라이브 › 문서 › 안내.pdf');
+  assert.equal(m.pathCopyText({source: 'pc', item_id: 'C:\\문서\\a.txt', name: 'a.txt'}, 'C: › 문서'), 'C:\\문서\\a.txt');
+  assert.equal(m.pathCopyText(null, 'x'), '');
+});
