@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {openFolds} from './helpers/area-org-picker.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 // HOME-빠른입력정리 + UI-선택표시통일: 할 일 옵션 줄은 모드 버튼 줄 위, 안내 화살표 글자 없음,
 // 조직 고르기는 [업데이트] 오른쪽 ▾(누르는 범위 44px, 키보드로 열림), 고른 조직은 입력칸 안내 글자.
@@ -61,7 +62,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입
  // 키보드: [업데이트]에서 Tab → ▾, Enter → 기존 조직 선택 창. 고른 조직은 안내 글자로.
  await update.focus();await page.keyboard.press('Tab');await expect(org).toBeFocused();
  await page.keyboard.press('Enter');const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();await expect(sheet).toContainText('기록할 곳 선택');
- await sheet.getByRole('button',{name:'서해선지부',exact:true}).first().click();await expect(sheet).toBeVisible();
+ await openFolds(sheet);await sheet.getByRole('button',{name:'서해선지부',exact:true}).first().click();await expect(sheet).toBeVisible();
  // UPD-여러곳고르기: a press only marks; [저장] keeps it and closes the sheet.
  await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();
  await expect(input).toHaveAttribute('placeholder','서해선지부 기록을 입력하세요');

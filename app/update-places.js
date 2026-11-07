@@ -10,7 +10,8 @@ import { createNote, readBasketNote, attachNoteDoc } from './basket-data.js';
 import { uploadBatch } from './basket-upload.js';
 import { putFilesIntoTargets } from './basket-file-docs.js';
 import { saveOrganizationUpdate } from './quick-save.js';
-import { projectRows, projectRow, orgGroupRows, orgRow } from './choice-sheet.js';
+import { projectRows } from './choice-sheet.js';
+import { areaTree, areaListHtml, orgListHtml, openKeysFor, ensureStyles } from './area-org-picker.js';
 import { confirmLinks } from './basket-classification.js';
 import { announceRecordSaved, basketDetail } from './record-saved.js';
 import { readReferenceBundles } from './reference-bundles-data.js';
@@ -116,7 +117,6 @@ function usedPlaces(places) {
 export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true, references = true} = {}) {
   const list = placeList(chosen), picked = value => value === 'basket' ? !list.length : list.some(p => placeValue(p) === value);
   const chip = (value, name) => `<button type="button" class="home-choice-chip" data-sheet-value="${esc(value)}" aria-pressed="${picked(value)}">${esc(name)}</button>`;
-  const row = x => projectRow(x, picked('project:' + x.project.id) ? 'project:' + x.project.id : null, esc, {value:'project:' + x.project.id});
   const basket = `<span data-sheet-basket class="home-choice-inline">${chip('basket', '정리함(미분류)')}</span>`;
   const orgs = places?.orgs || {recent:[], groups:[]}, projects = places?.projects || [];
   const used = usedPlaces(places), usedIds = new Set(used.filter(p => p.kind === 'organization').map(p => p.id));
@@ -127,8 +127,14 @@ export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true, 
   const recentBlock = withBasket || recent.length ? `<div data-sheet-recent-block data-sheet-hide-on-search><p class="home-choice-label">최근</p><div class="home-choice-group home-choice-group-plain">${withBasket ? basket : ''}<span data-sheet-recent class="home-choice-inline">${recent.join('')}</span></div></div>` : '';
   const bundles = references ? places?.bundles || [] : [];
   const refs = bundles.length ? `<p class="home-choice-label" data-sheet-label-of="refs">참고</p><div data-sheet-refs data-sheet-part="refs">${bundles.map(b => referenceRow(b, picked('reference:' + b.id), esc)).join('')}</div>` : '';
-  const projectCol = projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">사업영역</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div>${refs}</div>` : refs ? `<div class="home-choice-col" data-sheet-col="refs">${refs}</div>` : '';
-  return `${recentBlock}<div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div data-sheet-all data-sheet-part="all">${orgGroupRows(orgs.groups, o => orgRow(o, picked(o.id), esc))}</div></div>${projectCol}`;
+  // S52-01 ② UI-사업영역조직고르기창: 담당조직·사업영역은 모든 화면과 같은 접는 목록(area-org-picker.js) — 큰 묶음만 보이고
+  // 꺾쇠로 하위를 펼친다(고른 것이 든 묶음은 처음부터 펼침, 찾는 동안은 맞는 하위가 모두 보임). 값('project:<id>'·'<조직 id>')은 그대로.
+  ensureStyles();
+  const order = window.KPTUOrganizationOrder, tree = areaTree(projects.map(x => ({key:'project:' + x.project.id, name:x.project.name, depth:x.depth})));
+  const groups = (orgs.groups || []).map(g => g.map(o => ({key:o.id, name:o.name || '이름 없는 조직', group:order?.groupName?.(o) || ''})));
+  const open = openKeysFor(tree, groups, [...list.map(placeValue)]), pressed = picked;
+  const projectCol = projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">사업영역</p><div class="aop-list" data-sheet-projects data-sheet-part="projects">${areaListHtml(tree, {open, pressed})}</div>${refs}</div>` : refs ? `<div class="home-choice-col" data-sheet-col="refs">${refs}</div>` : '';
+  return `${recentBlock}<div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div class="aop-list" data-sheet-all data-sheet-part="all">${orgListHtml(groups, {open, pressed})}</div></div>${projectCol}`;
 }
 // One reference bundle: the same row as an organization (check box, one per line), valued 'reference:<id>'.
 export function referenceRow(b, pressed, esc) {

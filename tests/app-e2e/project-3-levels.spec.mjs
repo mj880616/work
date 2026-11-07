@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {openFolds} from './helpers/area-org-picker.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectTitle,projectColorDot} from './helpers/screen-title.mjs';
@@ -134,11 +135,12 @@ test('phone 390: the same tree, and the third level opens in the dialog without 
 for(const width of [1280,390])test(`${width}: the record-place sheet shows "1단 › 2단" on a third-level row only while searching`,async({page})=>{
  const {errors}=await fixture(page,{width});
  const q=page.locator('#homeView [data-home-quick]');await q.locator('[data-quick-mode="update"]').click();
- await q.locator('[data-quick-org]').click();const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();
+ await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();
  const deep=sheet.locator('[data-sheet-projects] [data-sheet-value="project:pd"]');await expect(deep).toHaveAttribute('data-depth','2');
  await expect(deep.locator('.home-choice-path')).toHaveCount(0);await expect(deep).toHaveText('합성 세부 사안');
  await expect(sheet.locator('[data-sheet-projects] [data-sheet-value="project:pc"] .home-choice-path')).toHaveCount(0);
- if(width<761){await expect(sheet.getByRole('searchbox')).toBeHidden();expect(errors).toEqual([]);return}
+ // S52-01 ②: 찾기 칸은 폰에도 있다(같은 고르기 창).
+ await expect(sheet.getByRole('searchbox')).toBeVisible();
  const search=sheet.getByRole('searchbox',{name:'조직·사업영역 이름 검색'});await search.fill('사안');
  await expect(deep).toBeVisible();await expect(deep.locator('.home-choice-path')).toBeVisible();await expect(deep.locator('.home-choice-path')).toHaveText('합성 정책 사업 › 합성 하위 토론회');
  await expect(sheet.locator('[data-sheet-projects] [data-sheet-value="project:pc"]')).toBeHidden();

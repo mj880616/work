@@ -147,7 +147,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       // BASKET-업데이트통합: [바구니(미분류)] (no place) is the first chip, on the recent line (update-places.js, shared with the write window).
       // UPD-여러곳고르기: the 기록할 곳 sheet keeps many; presses mark a pending list that only [저장] makes the input's (onCommit).
       if(kind==='org')pendingPlaces=currentPlaces();
-      return {title:'기록할 곳 선택',search:'조직·사업영역 이름 검색',split:true,html:placeSheetHtml(placeChoices(),pendingPlaces,esc)};
+      return {title:'기록할 곳 선택',search:'조직·사업영역 이름 검색',searchAlways:true,split:true,html:placeSheetHtml(placeChoices(),pendingPlaces,esc)};
     },
     multi:kind=>kind==='org'?{pressed:value=>value==='basket'?!pendingPlaces.length:pendingPlaces.some(p=>placeValue(p)===value),label:choiceCountText(pendingPlaces)}:null,
     onSelect:(kind,value)=>{if(kind==='org'){const next=togglePlace(pendingPlaces,value);if(next)pendingPlaces=next;else status.textContent=`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`;}},

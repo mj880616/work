@@ -1,6 +1,7 @@
 import {noticeText,answerAsk} from './helpers/small-notice.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
+import {openFolds} from './helpers/area-org-picker.mjs';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
@@ -121,7 +122,7 @@ test('new meeting creates a Google follow-up linked to the meeting and project',
   await fillMeetingName(page,'궤도협의회 집행위원회');
   await page.locator('#meetingRoundNo').fill('8');
   await fillDateTime(page,'#meetingAt','2026-09-25T14:00');
-  await page.locator('#meetingPlaces').click();await page.locator('#reportPlacesSheet').getByRole('button',{name:/하위/}).first().click();await page.locator('#reportPlacesSheet').getByRole('button',{name:'저장',exact:true}).click();
+  await page.locator('#meetingPlaces').click();await openFolds(page.locator('#reportPlacesSheet'));await page.locator('#reportPlacesSheet [data-sheet-value]').filter({hasText:/하위/}).first().click();await page.locator('#reportPlacesSheet').getByRole('button',{name:'저장',exact:true}).click();
   const raw='  첫 줄\n둘째 줄\n마지막 줄  ';
   await page.locator('#meetingTranscript').fill(raw);
   await page.locator('#meetingNotes').fill('특이사항\n둘째 줄');
@@ -1034,7 +1035,7 @@ test('changing a meeting project leaves existing Google follow-up links untouche
   // PC 3단(MEET-결과3단)은 오른쪽 결과도 후속 할 일을 읽으므로, 창을 연 뒤의 읽기 수를 기준으로 저장 때 다시 읽지 않는지 본다.
   const readsBeforeSave=linkedReads;expect(readsBeforeSave).toBeGreaterThanOrEqual(1);
   await mrdMenu(page,'edit');
-  await page.locator('#mrdEditPlaces').click();await page.locator('#reportPlacesSheet').getByRole('button',{name:/하위/}).first().click();await page.locator('#reportPlacesSheet').getByRole('button',{name:'저장',exact:true}).click();
+  await page.locator('#mrdEditPlaces').click();await openFolds(page.locator('#reportPlacesSheet'));await page.locator('#reportPlacesSheet [data-sheet-value]').filter({hasText:/하위/}).first().click();await page.locator('#reportPlacesSheet').getByRole('button',{name:'저장',exact:true}).click();
   await page.locator('#mrdSaveEdit').click();
   await expect(page.locator('#mrdTasks [data-mrd-task="existing"]')).toBeVisible();
   await expect.poll(()=>current.project_id).toBe('child');
