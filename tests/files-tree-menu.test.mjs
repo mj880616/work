@@ -31,6 +31,9 @@ test('S51-22 나무 ⋯ 메뉴: 이 폰은 클라우드에 복사(+쓸 수 있�
   assert.deepEqual(ids({source: 'ph', is_folder: true}, {phoneWrite: true}), ['only', 'mkdir', 'tocloud', 'rename']);
   assert.deepEqual(ids({source: 'pc'}), ['open']);
   assert.deepEqual(ids({source: 'pc', is_folder: true}), ['only']);
+  // S52-41: 바구니 문 0.4.0+면 내 PC 파일도 클라우드로 복사·옮기기(이름·휴지통은 다음 판이라 없음).
+  assert.deepEqual(ids({source: 'pc'}, {pcWrite: true}), ['open', 'copy', 'move']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true}, {pcWrite: true}), ['only']);
   assert.deepEqual(ids(null), []);
 });
 

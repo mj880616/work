@@ -215,8 +215,47 @@ public class PcDoorTests
     {
         public List<string> Opened { get; } = new();
         public List<string> Revealed { get; } = new();
+        public List<string> Trashed { get; } = new();
         public void Open(string fullPath) => Opened.Add(fullPath);
         public void Reveal(string fullPath) => Revealed.Add(fullPath);
+        public bool Trash(string fullPath) { Trashed.Add(fullPath); return true; }
+    }
+
+    /// <summary>Records what the door asked for; holds one file being written in memory.</summary>
+    private sealed class FakeTransfer : IPcTransfer
+    {
+        public List<string> Calls { get; } = new();
+        public MemoryStream Written { get; } = new();
+        public long Size;
+        public PcRead Read(string? path, long at, int count)
+        {
+            Calls.Add($"read {path} {at} {count}");
+            if (path != "C:\\Docs\\a.pdf") return new PcRead(PcStep.NotFound, Array.Empty<byte>(), 0);
+            var all = Encoding.ASCII.GetBytes("HELLO");
+            return at > all.Length ? new PcRead(PcStep.BadRange, Array.Empty<byte>(), 5) : new PcRead(PcStep.Ok, all.Skip((int)at).Take(count).ToArray(), all.Length);
+        }
+        public (PcStep Result, string? Id) Begin(string? dir, string? name, long size)
+        {
+            Calls.Add($"begin {dir} {name} {size}");
+            if (name == "run.exe") return (PcStep.Risky, null);
+            if (dir != "C:\\Docs") return (PcStep.NotFound, null);
+            Size = size;
+            return (PcStep.Ok, "id1");
+        }
+        public PcStep Piece(string? id, long at, byte[] bytes)
+        {
+            Calls.Add($"piece {id} {at} {bytes.Length}");
+            if (id != "id1" || at != Written.Length) return PcStep.BadPiece;
+            Written.Write(bytes);
+            return PcStep.Ok;
+        }
+        public (PcStep Result, string? Name) Finish(string? id, bool numbered)
+        {
+            Calls.Add($"finish {id} {numbered}");
+            if (Written.Length != Size) return (PcStep.BadPiece, null);
+            return numbered ? (PcStep.Ok, "b (2).txt") : (PcStep.Exists, null);
+        }
+        public void Cancel(string? id) => Calls.Add($"cancel {id}");
     }
 
     private sealed class FakeVerifier : IWebUserVerifier
@@ -240,12 +279,14 @@ public class PcDoorTests
         public FakeShell Shell { get; } = new();
         public FakeVerifier Verifier { get; } = new();
         public string? Own { get; set; } = "user-a";
+        public FakeTransfer Transfer { get; } = new();
         public PcDoor Door { get; }
         public int Port => Door.Port;
 
-        public Rig()
+        public Rig(bool canWrite = false)
         {
-            Door = PcDoor.Open(new FakeFiles(), Shell, Verifier, _ => Task.FromResult<string?>(Own), new NullLog(), "9.9.9", new[] { FakeServer.UnusedPort() });
+            Door = PcDoor.Open(new FakeFiles(), Shell, Verifier, _ => Task.FromResult<string?>(Own), new NullLog(), "9.9.9", new[] { FakeServer.UnusedPort() },
+                canWrite ? Transfer : null);
         }
 
         public void Dispose() => Door.Dispose();
@@ -262,12 +303,18 @@ public class PcDoorTests
                 + $"Content-Type: application/json\r\nContent-Length: {body}\r\n\r\n{json}");
         }
 
-        public async Task<(int Status, string Head, string Body)> Raw(string request)
+        public Task<(int Status, string Head, string Body)> PostBytes(string target, byte[] bytes, string token = "web-a", int? claimed = null) =>
+            RawBytes(Encoding.UTF8.GetBytes($"POST {target} HTTP/1.1\r\nHost: 127.0.0.1:{Port}\r\nOrigin: {Origin}\r\nAuthorization: Bearer {token}\r\n"
+                + $"Content-Type: application/octet-stream\r\nContent-Length: {claimed ?? bytes.Length}\r\n\r\n").Concat(bytes).ToArray());
+
+        public Task<(int Status, string Head, string Body)> Raw(string request) => RawBytes(Encoding.UTF8.GetBytes(request));
+
+        public async Task<(int Status, string Head, string Body)> RawBytes(byte[] request)
         {
             using var client = new TcpClient();
             await client.ConnectAsync(IPAddress.Loopback, Port);
             var stream = client.GetStream();
-            await stream.WriteAsync(Encoding.UTF8.GetBytes(request));
+            await stream.WriteAsync(request);
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
             var text = Encoding.UTF8.GetString(ms.ToArray());
@@ -447,6 +494,7 @@ public class PcDoorTests
     [Fact]
     public void The_door_code_never_writes_moves_or_deletes_and_never_logs_names()
     {
+        // Writing lives in PcTransfer.cs alone (new files only, see PcTransferTests); the door itself still never touches a file.
         foreach (var name in new[] { "PcDoor.cs", "PcFiles.cs", "PcPath.cs", "WebUserVerifier.cs" })
         {
             var text = File.ReadAllText(Path.Combine(SourceRoot(), "src", "BasketDrop.Core", name));
@@ -460,6 +508,94 @@ public class PcDoorTests
         Assert.DoesNotContain("Allow-Credentials", door);
         var shell = File.ReadAllText(Path.Combine(SourceRoot(), "src", "BasketDrop", "PcShell.cs"));
         Assert.Contains("PcPath.CanOpenDirectly(fullPath)", shell);
+        Assert.Contains("FofAllowUndo", shell); // trash = the recycle bin, never a permanent delete
+        Assert.DoesNotContain("File.Delete", shell);
+    }
+
+    [Fact]
+    public async Task An_old_style_door_without_transfer_offers_no_read_write_or_trash()
+    {
+        using var rig = new Rig();
+        var hello = await rig.Get("/v1/hello");
+        Assert.DoesNotContain("\"write\"", hello.Body);
+        Assert.Equal(404, (await rig.Get("/v1/read?path=C%3A%5CDocs%5Ca.pdf&at=0&len=5")).Status);
+        Assert.Equal(404, (await rig.Post("/v1/trash", "{\"path\":\"C:\\\\Docs\\\\a.pdf\"}")).Status);
+        Assert.Empty(rig.Shell.Trashed);
+    }
+
+    [Fact]
+    public async Task Hello_tells_the_screen_it_can_read_write_and_trash()
+    {
+        using var rig = new Rig(canWrite: true);
+        var hello = await rig.Get("/v1/hello");
+        Assert.Contains("\"read\"", hello.Body);
+        Assert.Contains("\"write\"", hello.Body);
+        Assert.Contains("\"trash\"", hello.Body);
+    }
+
+    [Fact]
+    public async Task A_file_is_read_in_pieces_with_its_size_for_the_web2_page_only()
+    {
+        using var rig = new Rig(canWrite: true);
+        var (status, head, body) = await rig.Get("/v1/read?path=C%3A%5CDocs%5Ca.pdf&at=1&len=3");
+        Assert.Equal(200, status);
+        Assert.Equal("ELL", body);
+        Assert.Contains("X-Pc-Size: 5", head);
+        Assert.Contains("Access-Control-Expose-Headers: X-Pc-Size", head);
+        Assert.Contains("Content-Type: application/octet-stream", head);
+        Assert.Equal(400, (await rig.Get("/v1/read?path=C%3A%5CDocs%5Ca.pdf&at=0&len=99999999")).Status);
+        Assert.Equal(400, (await rig.Get("/v1/read?path=C%3A%5CDocs%5Ca.pdf&at=-1&len=3")).Status);
+        Assert.Equal(404, (await rig.Get("/v1/read?path=C%3A%5CDocs%5Cnope&at=0&len=3")).Status);
+        // Same gates as looking: another page, another account.
+        Assert.Equal(403, (await rig.Get("/v1/read?path=C%3A%5CDocs%5Ca.pdf&at=0&len=3", origin: "https://evil.example")).Status);
+        Assert.Equal(403, (await rig.Get("/v1/read?path=C%3A%5CDocs%5Ca.pdf&at=0&len=3", token: "web-b")).Status);
+    }
+
+    [Fact]
+    public async Task A_new_file_is_written_in_order_and_never_replaces_one()
+    {
+        using var rig = new Rig(canWrite: true);
+        var start = await rig.Post("/v1/write/start", "{\"dir\":\"C:\\\\Docs\",\"name\":\"b.txt\",\"size\":4}");
+        Assert.Equal(200, start.Status);
+        Assert.Contains("\"id\":\"id1\"", start.Body);
+        Assert.Equal(200, (await rig.PostBytes("/v1/write/piece?id=id1&at=0", Encoding.ASCII.GetBytes("ab"))).Status);
+        Assert.Equal(409, (await rig.PostBytes("/v1/write/piece?id=id1&at=0", Encoding.ASCII.GetBytes("ab"))).Status); // out of order
+        Assert.Equal(200, (await rig.PostBytes("/v1/write/piece?id=id1&at=2", Encoding.ASCII.GetBytes("cd"))).Status);
+        Assert.Equal("abcd", Encoding.ASCII.GetString(rig.Transfer.Written.ToArray()));
+        var taken = await rig.Post("/v1/write/finish", "{\"id\":\"id1\"}");
+        Assert.Equal(409, taken.Status);
+        Assert.Contains("exists", taken.Body);
+        var numbered = await rig.Post("/v1/write/finish", "{\"id\":\"id1\",\"numbered\":true}");
+        Assert.Equal(200, numbered.Status);
+        Assert.Contains("b (2).txt", numbered.Body);
+        Assert.Equal(200, (await rig.Post("/v1/write/cancel", "{\"id\":\"id1\"}")).Status);
+    }
+
+    [Fact]
+    public async Task Programs_bad_requests_and_oversized_pieces_are_refused()
+    {
+        using var rig = new Rig(canWrite: true);
+        var exe = await rig.Post("/v1/write/start", "{\"dir\":\"C:\\\\Docs\",\"name\":\"run.exe\",\"size\":4}");
+        Assert.Equal(403, exe.Status);
+        Assert.Contains("risky_kind", exe.Body);
+        Assert.Equal(400, (await rig.Post("/v1/write/start", "{\"dir\":\"C:\\\\Docs\",\"name\":\"b.txt\"}")).Status);
+        // Only the piece route takes a large body; a large JSON body anywhere else is refused before it is read.
+        Assert.Equal(400, (await rig.PostBytes("/v1/write/start", Array.Empty<byte>(), claimed: 8000)).Status);
+        Assert.Equal(400, (await rig.PostBytes("/v1/write/piece?id=id1&at=0", Array.Empty<byte>(), claimed: PcTransfer.MaxPiece + 1)).Status);
+        Assert.Equal(401, (await rig.PostBytes("/v1/write/piece?id=id1&at=0", new byte[3], token: "forged")).Status);
+        Assert.Equal(405, (await rig.Get("/v1/write/start")).Status);
+        Assert.DoesNotContain(rig.Transfer.Calls, c => c.StartsWith("piece", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Only_a_found_file_goes_to_the_recycle_bin()
+    {
+        using var rig = new Rig(canWrite: true);
+        Assert.Equal(200, (await rig.Post("/v1/trash", "{\"path\":\"C:\\\\Docs\\\\a.pdf\"}")).Status);
+        Assert.Equal(400, (await rig.Post("/v1/trash", "{\"path\":\"C:\\\\Docs\"}")).Status);       // a folder
+        Assert.Equal(403, (await rig.Post("/v1/trash", "{\"path\":\"C:\\\\Windows\\\\x.dll\"}")).Status);
+        Assert.Equal(404, (await rig.Post("/v1/trash", "{\"path\":\"C:\\\\Docs\\\\nope.pdf\"}")).Status);
+        Assert.Equal(new[] { "C:\\Docs\\a.pdf" }, rig.Shell.Trashed);
     }
 
     [Theory]
@@ -539,5 +675,93 @@ public class PcFilesTests
         var drives = new PcFiles(null).Drives();
         Assert.NotEmpty(drives);
         Assert.All(drives, d => Assert.Matches(@"^[A-Z]:\\$", d.Root));
+    }
+}
+
+/// <summary>Copying onto this PC: new files only, through a hidden part file, never replacing or deleting another file.</summary>
+public class PcTransferTests
+{
+    [Theory]
+    [InlineData("보고서.pdf", 2, "보고서 (2).pdf")]
+    [InlineData("자료", 3, "자료 (3)")]
+    [InlineData("a.tar.gz", 2, "a.tar (2).gz")]
+    [InlineData(".env", 2, ".env (2)")]
+    public void Taken_names_get_a_number(string name, int n, string expected) => Assert.Equal(expected, PcTransfer.Numbered(name, n));
+
+    [Theory]
+    [InlineData("b.txt", PcStep.Ok)]
+    [InlineData("회의 자료 (1).hwpx", PcStep.Ok)]
+    [InlineData("run.exe", PcStep.Risky)]
+    [InlineData("x.ps1", PcStep.Risky)]
+    [InlineData("a\\b.txt", PcStep.BadPath)]
+    [InlineData("..", PcStep.BadPath)]
+    [InlineData("con.txt", PcStep.BadPath)]
+    [InlineData("a:b", PcStep.BadPath)]
+    [InlineData("~basket-abc.part", PcStep.BadPath)]
+    [InlineData("", PcStep.BadPath)]
+    public void Only_plain_file_names_that_are_not_programs_may_be_written(string name, PcStep expected)
+        => Assert.Equal(expected, PcTransfer.NameCheck(new[] { "C:", "Docs" }, name, null));
+
+    [Fact]
+    public void Nothing_is_written_into_blocked_folders()
+    {
+        Assert.Equal(PcStep.Blocked, PcTransfer.NameCheck(new[] { "C:" }, "Windows", null));
+        Assert.Equal(PcStep.Blocked, PcTransfer.NameCheck(new[] { "C:", "Users", "me" }, "AppData", null));
+    }
+
+    [Fact]
+    public void The_transfer_code_only_ever_removes_its_own_part_file_and_never_logs_names()
+    {
+        var text = File.ReadAllText(Path.Combine(PcDoorTests.SourceRoot(), "src", "BasketDrop.Core", "PcTransfer.cs"));
+        Assert.DoesNotMatch(@"Directory\.(Delete|Move)|File\.Replace|File\.Copy|overwrite:\s*true|FileMode\.(Create|Truncate|Append|OpenOrCreate)\b|\.MoveTo\(|\.CopyTo\(|_log", text);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(text, @"File\.Delete\("));
+        Assert.Contains("File.Delete(s.Part)", text);
+        Assert.Contains("FileMode.CreateNew", text);
+        Assert.Contains("overwrite: false", text);
+    }
+
+    [Fact]
+    public void A_file_is_written_read_and_named_on_the_real_disk()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var root = Path.Combine(AppContext.BaseDirectory, "pctransfer-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "b.txt"), "old");
+        try
+        {
+            if (PcPath.Parse(root) is not { } segs || PcPath.IsBlocked(segs)) return;
+            var now = DateTimeOffset.Parse("2026-11-08T00:00:00Z");
+            using var t = new PcTransfer(new PcFiles(null), null, () => now);
+            var (ok, id) = t.Begin(root, "b.txt", 4);
+            Assert.Equal(PcStep.Ok, ok);
+            // The part file is hidden, so the screen never lists it.
+            Assert.DoesNotContain(new PcFiles(null).List(root).Entries, e => e.Name.StartsWith(PcTransfer.PartPrefix, StringComparison.Ordinal));
+            Assert.Equal(PcStep.Ok, t.Piece(id, 0, "ne"u8.ToArray()));
+            Assert.Equal(PcStep.BadPiece, t.Piece(id, 0, "ne"u8.ToArray()));
+            Assert.Equal(PcStep.BadPiece, t.Finish(id, true).Result); // not complete yet
+            Assert.Equal(PcStep.Ok, t.Piece(id, 2, "w!"u8.ToArray()));
+            Assert.Equal(PcStep.BadPiece, t.Piece(id, 4, "x"u8.ToArray())); // past the size
+            Assert.Equal(PcStep.Exists, t.Finish(id, false).Result);
+            var (named, name) = t.Finish(id, true);
+            Assert.Equal(PcStep.Ok, named);
+            Assert.Equal("b (2).txt", name);
+            Assert.Equal("old", File.ReadAllText(Path.Combine(root, "b.txt")));
+            Assert.Equal("new!", File.ReadAllText(Path.Combine(root, "b (2).txt")));
+            Assert.Equal(0, t.OpenCount);
+            var read = t.Read(Path.Combine(root, "b (2).txt"), 1, 2);
+            Assert.Equal(PcStep.Ok, read.Result);
+            Assert.Equal("ew", System.Text.Encoding.ASCII.GetString(read.Bytes));
+            Assert.Equal(4, read.Size);
+            Assert.Equal(PcStep.NotFile, t.Read(root, 0, 1).Result);
+            // A cancelled or abandoned file leaves nothing behind.
+            var (_, gone) = t.Begin(root, "c.txt", 10);
+            t.Cancel(gone);
+            Assert.Empty(Directory.GetFiles(root, PcTransfer.PartPrefix + "*"));
+            Assert.Equal(PcStep.Risky, t.Begin(root, "x.exe", 1).Result);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 }

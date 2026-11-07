@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {pcSegs, pcNorm, pcParent, pcChild, pcPathOk, pcDriveRows, pcListRows, pcTrail, pcHelloOk, pcCode, pcStateText, pcErrorText, pcDeviceOk, pcOffRowName,
-  PC_SOURCE, PC_PORTS, pcDoorOrigin} from '../app/pc-files-model.mjs';
+  PC_SOURCE, PC_PORTS, pcDoorOrigin, pcCanList, pcCanXfer, pcXferWhy, PC_READONLY_TEXT, PC_PIECE} from '../app/pc-files-model.mjs';
 import {createPcFiles} from '../app/pc-files.js';
 import {errorText, SOURCE_NAME, SOURCES, rowKey, trailNames, placeOf} from '../app/files-model.mjs';
 import {PC_DOOR, WEB2_CSP} from '../cloudflare/web2-csp.mjs';
@@ -90,8 +90,10 @@ function fakeWin({doors = {}, perm = 'unknown'} = {}) {
     calls.push({port: Number(u.port), path: u.pathname + u.search, method: init.method, auth: init.headers.Authorization, body: init.body, credentials: init.credentials});
     const door = doors[u.port];
     if (!door) throw new TypeError('Failed to fetch');
-    const [status, body] = door(u, init);
-    return {ok: status >= 200 && status < 300, status, json: async () => body};
+    const [status, body, head = {}] = door(u, init);
+    const bytes = body instanceof Uint8Array ? body : null;
+    return {ok: status >= 200 && status < 300, status, json: async () => body, arrayBuffer: async () => (bytes ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) : new ArrayBuffer(0)),
+      headers: {get: n => head[String(n).toLowerCase()] ?? null}};
   };
   const permissions = perm === 'unknown' ? undefined : {query: async ({name}) => { if (name === 'loopback-network') return {state: perm}; throw new TypeError('bad'); }};
   return {win: {fetch, navigator: {permissions}}, calls};
@@ -170,4 +172,85 @@ test('내 PC 다리·계산은 브라우저 저장소·서버를 쓰지 않는�
     const src = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.doesNotMatch(src, /Storage|indexed[D]B|cache[s]\.|document\.cookie|\/rest\/v1|functions\/v1/, f);
   }
+});
+
+// ---- S52-41 FILES-내PC클라우드옮기기 ----
+test('문이 아는 일(can): 정해 둔 말만 남기고, 읽기·쓰기·휴지통을 모두 알아야 복사·옮기기', () => {
+  assert.deepEqual(pcCanList({can: ['list', 'read', 'write', 'trash', 'format_c', 5]}), ['list', 'read', 'write', 'trash']);
+  assert.deepEqual(pcCanList(null), []);
+  assert.equal(pcCanXfer(['drives', 'list', 'open', 'reveal']), false);
+  assert.equal(pcCanXfer(['read', 'write']), false);
+  assert.equal(pcCanXfer(['read', 'write', 'trash']), true);
+});
+
+test('내 PC가 낀 복사·옮기기: 내 PC ↔ 클라우드만, 옛 문·섞기·내 PC 안끼리·이 폰 사이·드라이브 목록은 한 줄로 막음', () => {
+  const can = ['drives', 'list', 'read', 'write', 'trash'];
+  const pcFile = {source: 'pc', item_id: 'C:\\문서\\a.txt', is_folder: false}, odFile = {source: 'od', item_id: 'OD!1', is_folder: false}, phFile = {source: 'ph', item_id: 'x'};
+  assert.equal(pcXferWhy([odFile], {source: 'gd', parent: null}, {can}), ''); // 내 PC가 안 낌
+  assert.equal(pcXferWhy([pcFile], {source: 'od', parent: null}, {can}), '');
+  assert.equal(pcXferWhy([odFile], {source: 'pc', parent: 'C:\\문서'}, {can}), '');
+  assert.equal(pcXferWhy([pcFile], {source: 'od', parent: null}, {can: ['list']}), PC_READONLY_TEXT);
+  assert.equal(pcXferWhy([pcFile], null, {can}), ''); // 받을 곳을 아직 고르지 않음
+  assert.match(pcXferWhy([pcFile, odFile], null, {can}), /따로/);
+  assert.match(pcXferWhy([pcFile], {source: 'pc', parent: 'D:\\'}, {can}), /다음 판/);
+  assert.match(pcXferWhy([pcFile], {source: 'ph', parent: null}, {can}), /원드라이브·구글 드라이브로/);
+  assert.match(pcXferWhy([phFile], {source: 'pc', parent: 'C:\\'}, {can}), /원드라이브·구글 드라이브 파일/);
+  assert.match(pcXferWhy([odFile], {source: 'pc', parent: null}, {can}), /드라이브나 폴더/);
+  assert.match(pcXferWhy([odFile], {source: 'pc', parent: 'C:\\..'}, {can}), /드라이브나 폴더/);
+});
+
+test('쓰기 오류 글: 정해 둔 말만(덮어쓰기 없음·프로그램 파일 거절)', () => {
+  assert.match(pcErrorText('exists'), /같은 이름/);
+  assert.match(pcErrorText('risky_kind'), /프로그램 파일/);
+  assert.equal(errorText('pc_no_space'), pcErrorText('no_space'));
+});
+
+const helloWrite = () => [200, {app: 'basket-pc', version: '0.4.0', door: 1, can: ['drives', 'list', 'open', 'reveal', 'read', 'write', 'trash']}];
+test('문 다리 읽기: 4MB 조각으로 차례로 읽어 Blob, 크기가 바뀌면 멈춤. 옛 문은 canXfer가 거짓', async () => {
+  const size = PC_PIECE + 10, data = new Uint8Array(size).fill(7);
+  const {win, calls} = fakeWin({doors: {47620: u => {
+    if (u.pathname === '/v1/hello') return helloWrite();
+    if (u.pathname === '/v1/read') { const at = Number(u.searchParams.get('at')), len = Number(u.searchParams.get('len')); return [200, data.subarray(at, at + len), {'x-pc-size': String(size)}]; }
+    return [404, {error: 'not_found'}];
+  }}});
+  const pc = createPcFiles(win, {token: async () => 'T'});
+  await pc.hello();
+  assert.equal(pc.canXfer, true);
+  const seen = [];
+  const blob = await pc.read('C:\\문서\\큰.bin', {size, onProgress: (a, b) => seen.push([a, b])});
+  assert.equal(blob.size, size);
+  assert.deepEqual(calls.filter(c => c.path.startsWith('/v1/read')).map(c => new URL('http://x' + c.path).searchParams.get('at')), ['0', String(PC_PIECE)]);
+  assert.deepEqual(seen.at(-1), [size, size]);
+  await assert.rejects(pc.read('C:\\문서\\큰.bin', {size: 5}), /pc_bad_range/);
+  const old = fakeWin({doors: {47620: helloOk}});
+  const o = createPcFiles(old.win, {token: async () => 'T'});
+  await o.hello();
+  assert.equal(o.canXfer, false);
+});
+
+test('문 다리 쓰기: start → 조각 차례로 → finish(numbered), 실패하면 cancel. 휴지통은 경로 하나', async () => {
+  let got = 0, fail = false;
+  const {win, calls} = fakeWin({doors: {47620: (u, init) => {
+    if (u.pathname === '/v1/hello') return helloWrite();
+    if (u.pathname === '/v1/write/start') return [200, {id: 'w1'}];
+    if (u.pathname === '/v1/write/piece') { if (fail) return [500, {error: 'write_failed'}]; got += init.body.size; return [200, {at: got}]; }
+    if (u.pathname === '/v1/write/finish') return [200, {name: JSON.parse(init.body).numbered ? 'a (2).txt' : 'a.txt'}];
+    if (u.pathname === '/v1/write/cancel') return [200, {done: 'cancelled'}];
+    if (u.pathname === '/v1/trash') return [200, {done: 'trashed'}];
+    return [404, {error: 'not_found'}];
+  }}});
+  const pc = createPcFiles(win, {token: async () => 'T'});
+  await pc.hello();
+  const blob = new Blob([new Uint8Array(PC_PIECE * 2 + 3)]);
+  assert.equal(await pc.save('c:\\문서\\', 'a.txt', blob, {numbered: true}), 'a (2).txt');
+  assert.equal(got, blob.size);
+  assert.deepEqual(JSON.parse(calls.find(c => c.path === '/v1/write/start').body), {dir: 'C:\\문서', name: 'a.txt', size: blob.size});
+  assert.equal(calls.filter(c => c.path.startsWith('/v1/write/piece')).length, 3);
+  assert.deepEqual(JSON.parse(calls.find(c => c.path === '/v1/write/finish').body), {id: 'w1', numbered: true});
+  fail = true;
+  await assert.rejects(pc.save('C:\\문서', 'b.txt', blob), /pc_write_failed/);
+  assert.equal(calls.at(-1).path, '/v1/write/cancel');
+  await assert.rejects(pc.save('C:\\..', 'b.txt', blob), /pc_bad_path/);
+  assert.equal(await pc.trash('C:\\문서\\a.txt'), true);
+  assert.equal(calls.at(-1).body, JSON.stringify({path: 'C:\\문서\\a.txt'}));
 });

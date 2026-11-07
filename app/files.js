@@ -43,7 +43,7 @@ import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mj
 import {createPhoneFiles} from './phone-files.js';
 import {PHONE_SOURCE as PH, phoneTrail, phoneParent, phoneWriteText, PHONE_SAVE_MAX, PHONE_OLD_APP_TEXT, PHONE_MOVE_TEXT, PHONE_ASK_TEXT, PHONE_CANNOT_TEXT} from './phone-files-model.mjs';
 import {createPcFiles} from './pc-files.js';
-import {PC_SOURCE as PC, pcTrail, pcStateText, pcOffRowName, pcDeviceOk, PC_READONLY_TEXT, PC_PREVIEW_TEXT} from './pc-files-model.mjs';
+import {PC_SOURCE as PC, pcTrail, pcStateText, pcOffRowName, pcDeviceOk, pcParent, pcXferWhy, PC_READONLY_TEXT, PC_PREVIEW_TEXT, PC_WRITE_LATER_TEXT, PC_XFER_MAX, PC_FILE_MAX} from './pc-files-model.mjs';
 import {NARROW_QUERY, SPLIT_QUERY} from './screen-width.mjs';
 import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest, DROP_ASK_TEXT, FILES_PANES_KEY, panesValue, paneStart, paneChoices, paneSourceLabel} from './files-panes-model.mjs';
 import {within, isLoadTimeout} from './load-deadline.js';
@@ -95,6 +95,13 @@ import {within, isLoadTimeout} from './load-deadline.js';
 //   이 단계는 보기·열기만: 파일 [이 PC에서 열기]·[탐색기에서 위치](그 PC의 프로그램이 엶, 바이트는 브라우저로 안 옴). 미리보기 그림·복사·옮기기·이름·휴지통·별표·색은 없다(다음 단계).
 //   찾기에 PC 파일을 섞지 않는다(D3). 문이 답하지 않으면 '내 PC · 꺼짐' 흐린 줄 + 누르면 켜는 법 한 줄. 크롬 허락 창이 뜰 수 있으면 저절로 두드리지 않는다(누를 때만).
 //   PC 목록·이름은 이 화면 메모리에만(서버·주소창·브라우저 저장소에 남기지 않음). 위 줄 [내 PC] 켜기/끄기는 이번 접속만 기억한다.
+// FILES-내PC클라우드옮기기(S52-41, 요청함 11/08 1순위, 설계 docs/design/files-manager-audit.md A-1·C-1): 바구니 PC 앱 0.4.0+(문 hello의 can에 read·write·trash)이면
+//   내 PC ↔ 원드라이브·구글 드라이브 복사·옮기기 — 칸 사이(·나무·폴더 줄) 끌어 놓기 → [복사][옮기기], 두 칸 F5/F6·'→ 오른쪽에 복사', Ctrl+C·X·V, 고르기 막대·⋯ [복사][옮기기]·받을 곳 창.
+//   내 PC 줄도 끌기·놓기 대상(폴더 줄·드라이브 줄, '내 PC' 맨 위 목록은 받을 곳이 아님). 같은 이름은 한 번 묻고([그래도 하기] = '이름 (2)', 덮어쓰기 없음).
+//   내 PC → 클라우드: 문에서 4MB씩 읽어(화면 메모리) 지금 올리기 길(upload_open·전송 목록·올리기 진행 표시 그대로). 옮기기면 서버가 올린 파일을 맞춘 뒤(upload_done)에만 원본을 윈도우 휴지통으로.
+//   클라우드 → 내 PC: Edge media로 받아 문에 4MB씩 새 파일로 씀(문이 숨긴 조각 파일 → 크기가 맞으면 이름). 옮기기면 다 쓴 것만 클라우드 휴지통으로.
+//   한 번에 20개·한 파일 1GB까지, 폴더째·내 PC 안끼리·이 폰과 사이는 아직 없음(pcXferWhy가 한 줄로 막음). 내 PC 안 이름·새 폴더·휴지통은 다음 판(FILES-내PC쓰기).
+//   문 검사(127.0.0.1·허용 출처·매 요청 로그인 토큰)는 그대로. PC 경로·이름은 서버·로그·'최근 보낸 곳'에 남기지 않는다. 쓰기는 사람이 누른 것만.
 // FILES-폰보기끌기 ①(S51-20, 시안 files-phone-grid-two-drag.html ①): 목록 위 두 손가락 벌리기 = 목록 → 격자 → 큰 격자, 오므리기 = 반대(폰·두 칸의 칸 3·2칸, 폴드·PC 한 칸 4·3칸).
 //   사진은 목록·격자 모두 작은 그림(Edge thumb small · 이 폰은 앱 다리, 화면에 들어온 칸만), 폴더는 큰 폴더. 마지막 보기는 서버 view_prefs.files_look(기기 칸 · 폭 칸).
 //   격자 칸은 목록 줄과 같은 단추·같은 data-*라 누르기·꾹 누르기·끌어 놓기 길이 그대로다. 찾는 중 목록은 늘 목록.
@@ -233,6 +240,9 @@ const phoneLinked = () => phone.usable && phone.state.all;
 const phoneOn = () => phoneLinked() && !phoneOff;
 // '내 PC': 문이 같은 계정으로 답하고(pc.state.ok) 이번 접속에서 끄지 않았을 때. 맨 끝 줄(시안 A).
 const pcOn = () => pc.usable && pc.state.ok && !pcOff;
+// 내 PC ↔ 클라우드 복사·옮기기를 할 수 있나(문이 0.4.0+ — read·write·trash를 앎).
+const pcWrite = () => pcOn() && pc.canXfer;
+const pcWhy = (rows, dest) => pcXferWhy(rows, dest, {can: pcOn() ? pc.state.can : []});
 const onSources = () => [...visibleSources(srcState(), connected()), ...(phoneOn() ? [PH] : []), ...(pcOn() ? [PC] : [])];
 const cloudOn = () => onSources().filter(s => s !== PH && s !== PC);
 // 폰에 쓸 수 있나(앱 3-③ 판 + 허락 + 켜짐).
@@ -734,7 +744,7 @@ function pcFolderRowHtml(r, curKey) {
   if (full) state.treeRows.set(r.key, full);
   return ftFolderRowHtml({name: r.name, count: cnt || null, depth: r.depth - 1, open: r.open, hasContent: r.hasKids, color: folderLook.color(r.source, r.id),
     current: r.key === curKey, className: /^0개$/.test(cnt || '') ? 'fx-zero' : '',
-    rowAttrs: {'data-fx-fold': r.key, 'data-fx-drop': r.source === PC ? null : r.key},
+    rowAttrs: {'data-fx-fold': r.key, 'data-fx-drop': r.source === PC && (!pcWrite() || !r.id) ? null : r.key},
     mainAttrs: {'data-fx-go': r.source, 'data-fx-id': r.id || ''},
     toggle: {attrs: {'data-fx-twist': r.key}, label: `${r.name} ${r.open && r.hasKids ? '접기' : '펼치기'}`},
     more: full ? {attrs: {'data-fx-tmenu': r.key, 'data-fx-tin': folderKey(r.source, r.parentId)}, label: `${r.name} 폴더 메뉴`} : null});
@@ -799,7 +809,7 @@ function treeFolderHtml(r) {
   const cnt = countOf(r.source, r.id), full = (state.children.get(r.parent) || []).find(x => x.item_id === r.id);
   if (full) state.treeRows.set(r.key, full);
   return ftFolderRowHtml({name: r.name, count: cnt || null, depth: r.depth, open: r.open, hasContent: r.hasContent, color: folderLook.color(r.source, r.id),
-    rowAttrs: {'data-fx-fold': r.key, 'data-fx-drop': r.source === PC ? null : r.key}, mainAttrs: {'data-fx-tog': r.key},
+    rowAttrs: {'data-fx-fold': r.key, 'data-fx-drop': r.source === PC && (!pcWrite() || !r.id) ? null : r.key}, mainAttrs: {'data-fx-tog': r.key},
     more: full ? {attrs: {'data-fx-tmenu': r.key, 'data-fx-tin': r.parent}, label: `${r.name} 폴더 메뉴`} : null});
 }
 // '최근' 상자(자료실 '최근 올린 파일'과 같은 상자, [더보기]면 15개) — 폰 나무·PC 나무가 같은 상자 하나(S51-25).
@@ -883,8 +893,8 @@ function treeMenu(b) {
   const key = b.dataset.fxTmenu, inKey = b.dataset.fxTin || '', r = state.treeRows.get(key);
   if (!r) return;
   const sib = r.is_folder && SOURCES.includes(r.source) ? treeSibs(r.source, inKey) : [];
-  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length});
-  openRowMenu(b, {key, label: r.name, items, note: r.source === PC ? PC_READONLY_TEXT : '', run: id => treeAct(id, r, inKey, liveMenuButton(key, b))});
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length});
+  openRowMenu(b, {key, label: r.name, items, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '', run: id => treeAct(id, r, inKey, liveMenuButton(key, b))});
 }
 // 메뉴가 열린 동안 나무가 다시 그려졌으면 같은 줄의 새 ⋯를 묻는 창의 자리로 쓴다.
 const liveMenuButton = (key, b) => (b?.isConnected ? b : root?.querySelector(`[data-fx-tmenu="${CSS.escape(key)}"]`) || b);
@@ -974,7 +984,7 @@ const wantsThumb = r => r.source !== PC && thumbWanted(kindOf(r), r.is_folder);
 function cellHtml(p, r) {
   const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
   const picked = p.picked.has(key) ? ' fx-picked' : '', cut = state.clip?.keys.includes(key) ? ' fx-cut' : '';
-  const local = r.source === PC;
+  const local = r.source === PC && !pcWrite(); // 옛 바구니 문(보기·열기만)이면 내 PC 줄은 끌기·놓기 없음
   const drag = PHONE.matches || TOUCH.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
   const fc = r.is_folder ? folderLook.color(r.source, r.item_id) : '';
   const pic = wantsThumb(r) ? thumbHtml(r, 'fx-cell-pic')
@@ -988,7 +998,7 @@ function cellHtml(p, r) {
 function rowHtml(p, r, {withPath = false} = {}) {
   const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
   const picked = p.picked.has(key) ? ' fx-picked' : '', cut = state.clip?.keys.includes(key) ? ' fx-cut' : '';
-  const local = r.source === PC; // 내 PC 줄은 이 단계에서 끌기·놓기 없음(보기·열기만)
+  const local = r.source === PC && !pcWrite(); // 옛 바구니 문(보기·열기만)이면 내 PC 줄은 끌기·놓기 없음
   const drag = PHONE.matches || TOUCH.matches || local ? '' : ' draggable="true"', drop = r.is_folder && !local ? ` data-fx-drop="${esc(folderKey(r.source, r.item_id))}"` : '';
   const tags = [r.library_doc_id ? '자료실' : '', r.match_in === 'text' ? '글자 맞음' : ''].filter(Boolean).join(' · ');
   const tag = tags ? `<span class="fx-tag">${tags}</span>` : '';
@@ -1100,7 +1110,7 @@ function focusFileHtml(p, r, parent) {
     + ftMoreButtonHtml({attrs: {'data-fx-tmenu': key, 'data-fx-tin': parent}, label: `${r.name} 메뉴`}) + '</div>';
 }
 function focusFolderHtml(p, r, parent) {
-  const key = rowKey(r), fk = folderKey(r.source, r.item_id), local = r.source === PC;
+  const key = rowKey(r), fk = folderKey(r.source, r.item_id), local = r.source === PC && !pcWrite();
   state.treeRows.set(key, r);
   // 고름·잘라 둠 표시는 누르는 단추(data-fx-row)에 둔다(paintPicks가 그 단추만 바꾼다).
   const mark = [p.picked.has(key) ? 'fx-picked' : '', state.clip?.keys.includes(key) ? 'fx-cut' : ''].filter(Boolean).join(' ');
@@ -1390,6 +1400,10 @@ function lookDo(act, button) {
   if (act === 'tint') { state.lookRow = null; lookMode.begin('x', button, lookMenu); return; }
   lookSave(() => folderLook.step(rt(), r.source, lookSibs(p), r.item_id, act === 'up' ? -1 : 1), '폴더 순서를 저장하지 못했어요.');
 }
+// 고르기 막대 공용 단추(클라우드·내 PC 줄이 같은 단추): 한 칸 [복사][옮기기], 두 칸 '→ 오른쪽에 복사 / → 옮기기'(PC는 키 이름), 고르기 풀기 ✕.
+const COPY_CUT_HTML = '<button type="button" class="fx-btn" data-fx-copy>복사</button><button type="button" class="fx-btn" data-fx-cut>옮기기</button>';
+const UNPICK_HTML = '<button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
+const sendButtonsHtml = (i, off, keys) => ['copy', 'move'].map(m => `<button type="button" class="fx-btn" data-fx-send="${m}"${off}>${esc(sendLabel(i, m, VERT()))}${keys ? (m === 'copy' ? ' (F5)' : ' (F6)') : ''}</button>`).join('');
 function paintBar() {
   const bar = $('[data-fx-bar]');
   if (!bar) return;
@@ -1402,7 +1416,7 @@ function paintBar() {
   if (clip) {
     const here = hereDest();
     const copy = clip.mode === 'copy';
-    const ok = here && (copy ? xferPlan(clip.rows, here, 'copy').ok.length > 0 : moveTargetOk(clip.rows, here));
+    const ok = here && !pcWhy(clip.rows, here) && (copy ? xferPlan(clip.rows, here, 'copy').ok.length > 0 : moveTargetOk(clip.rows, here));
     bar.hidden = false;
     bar.innerHTML = `<span class="fx-bar-t">${clip.rows.length}개 ${copy ? '복사하는' : '옮기는'} 중 · ${ok ? '이 폴더로' : `${copy ? '복사할' : '옮길'} 폴더를 여세요`}</span>`
       + `<button type="button" class="fx-btn" data-fx-paste${ok ? '' : ' disabled'}>${copy ? '여기에 복사' : '여기로 옮기기'}</button><button type="button" class="fx-btn" data-fx-uncut>취소</button>`;
@@ -1410,10 +1424,18 @@ function paintBar() {
   }
   bar.hidden = !n;
   if (!n) { bar.innerHTML = ''; return; }
-  // 내 PC 줄을 고르면 이 단계는 보기·열기만(복사·옮기기·휴지통은 다음 단계).
+  // 내 PC 줄: 옛 바구니 문이면 보기·열기만. 0.4.0+ 문이면 클라우드로 [복사][옮기기](두 칸은 반대 칸으로 — 반대 칸이 클라우드 폴더일 때).
+  //   이름·휴지통은 다음 판(FILES-내PC쓰기)이라 두지 않는다.
   if (hasPc(pickedRows(p))) {
-    bar.innerHTML = `<span class="fx-bar-t" title="${esc(PC_READONLY_TEXT)}">${n}개 · ${esc(SOURCE_NAME[PC])} · 보기·열기만</span>`
-      + '<button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
+    if (!pcWrite()) {
+      bar.innerHTML = `<span class="fx-bar-t" title="${esc(PC_READONLY_TEXT)}">${n}개 · ${esc(SOURCE_NAME[PC])} · 보기·열기만</span>`
+        + '<button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
+      return;
+    }
+    const i = state.cur, dest = two() ? oppDest() : null, keys = WIDE.matches;
+    const why = two() ? (dest ? pcWhy(pickedRows(p), dest) : `${side(i ^ 1)} 칸에서 받을 클라우드 폴더를 여세요`) : '';
+    const off = why ? ` disabled title="${esc(why)}"` : '';
+    bar.innerHTML = `<span class="fx-bar-t">${n}개 · ${esc(SOURCE_NAME[PC])}</span>` + (two() ? sendButtonsHtml(i, off, keys) : COPY_CUT_HTML) + UNPICK_HTML;
     return;
   }
   // 폰 파일을 고르면 이 판은 '클라우드에 복사'만(받을 곳 창 / 두 칸이면 반대 칸이 클라우드 폴더일 때).
@@ -1429,11 +1451,10 @@ function paintBar() {
   if (two()) {
     // 시안 ⑥⑧: 'N개 (왼쪽) · [→ 오른쪽에 복사] [→ 옮기기] [이름] [휴지통] ✕' — 받을 곳 창 없이 반대 칸으로. PC는 키 이름을 함께.
     const i = state.cur, dest = oppDest(), keys = WIDE.matches;
-    // 반대 칸이 내 PC면 이 단계에서는 보내지 않는다(보기·열기만).
-    const off = dest?.source === PC ? ` disabled title="${esc(PC_READONLY_TEXT)}"` : dest ? '' : ` disabled title="${esc(side(i ^ 1))} 칸에서 받을 폴더를 여세요"`;
-    bar.innerHTML = `<span class="fx-bar-t">${n}개 (${side(i)})</span>`
-      + `<button type="button" class="fx-btn" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy', VERT()))}${keys ? ' (F5)' : ''}</button>`
-      + `<button type="button" class="fx-btn" data-fx-send="move"${off}>${esc(sendLabel(i, 'move', VERT()))}${keys ? ' (F6)' : ''}</button>`
+    // 반대 칸이 내 PC면 바구니 문이 받을 수 있을 때만(0.4.0+ · 드라이브나 폴더를 연 칸).
+    const why = dest ? pcWhy(pickedRows(p), dest) : `${side(i ^ 1)} 칸에서 받을 폴더를 여세요`;
+    const off = why ? ` disabled title="${esc(why)}"` : '';
+    bar.innerHTML = `<span class="fx-bar-t">${n}개 (${side(i)})</span>` + sendButtonsHtml(i, off, keys)
       + TOLIB_BTN
       + (n === 1 ? `<button type="button" class="fx-btn" data-fx-rename>이름${keys ? ' (F2)' : ''}</button>` : '') + lookButtonsHtml(p)
       + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
@@ -1441,7 +1462,7 @@ function paintBar() {
     return;
   }
   // 시안 ③: 'N개 · [복사] [옮기기] [이름] [휴지통] ✕'(쓰지 않는 ⋯는 두지 않는다).
-  bar.innerHTML = `<span class="fx-bar-t">${n}개</span><button type="button" class="fx-btn" data-fx-copy>복사</button><button type="button" class="fx-btn" data-fx-cut>옮기기</button>` + TOLIB_BTN
+  bar.innerHTML = `<span class="fx-bar-t">${n}개</span>` + COPY_CUT_HTML + TOLIB_BTN
     + (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '') + lookButtonsHtml(p)
     + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
     + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
@@ -1501,31 +1522,34 @@ async function write(action, body, label, {timeoutMs = 60000} = {}) {
 }
 // 폰 줄·폰 받을 곳이 낀 일: 새 폴더·이름·휴지통(write)은 앱 3-③ 판이면 한다. 옮기기는 아직 없다. 막을 때 한 줄 안내.
 const hasPhone = rows => (rows || []).some(r => r?.source === PH);
-// 내 PC 줄·내 PC 받을 곳이 낀 일은 이 단계에서 모두 막는다(보기·열기만). 막을 때 한 줄 안내.
+// 내 PC 줄·내 PC 받을 곳이 낀 일: 복사·옮기기는 pcXferWhy가 되는 것만 통과(0.4.0+ 문, 내 PC ↔ 클라우드).
+//   write = 내 PC 안 이름·새 폴더·휴지통 — 다음 판(FILES-내PC쓰기)이라 막는다. 막을 때 한 줄 안내.
 const hasPc = rows => (rows || []).some(r => r?.source === PC);
-function pcStop(rows, dest) {
+function pcStop(rows, dest, {write = false} = {}) {
   if (!hasPc(rows) && dest?.source !== PC) return false;
-  notify(PC_READONLY_TEXT, {record: false});
+  const why = write ? (pcWrite() ? PC_WRITE_LATER_TEXT : PC_READONLY_TEXT) : pcWhy(rows, dest);
+  if (!why) return false;
+  notify(why, {record: false});
   return true;
 }
 function phoneStop(rows, dest, {write = false} = {}) {
-  if (pcStop(rows, dest)) return true;
+  if (pcStop(rows, dest, {write})) return true;
   if (!hasPhone(rows) && dest?.source !== PH) return false;
   if (write && phoneWrite()) return false;
   notify(write ? PHONE_OLD_APP_TEXT : PHONE_MOVE_TEXT, {record: false});
   return true;
 }
-// 폰에 쓴 뒤: 그 폴더를 보고 있는 칸·나무·[최근]을 앱에서 다시 읽는다(폰 목록은 화면 메모리만).
-async function phoneRefresh(dirs, {gone = []} = {}) {
+// 폰(·내 PC)에 쓴 뒤: 그 폴더를 보고 있는 칸·나무·[최근]을 앱(·바구니 문)에서 다시 읽는다(폰·PC 목록은 화면 메모리만).
+async function phoneRefresh(dirs, {gone = [], source = PH} = {}) {
   const set = new Set((dirs || []).map(d => d || null));
   if (state.preview && gone.includes(state.preview.key)) closePreview();
   for (const p of state.panes) for (const k of gone) p.picked.delete(k);
-  for (const d of set) if (state.children.has(folderKey(PH, d))) loadChildren(PH, d);
+  for (const d of set) if (state.children.has(folderKey(source, d))) loadChildren(source, d);
   const work = [];
   for (const p of panesOn()) {
     const w = p.where;
     if (!w || p.query) continue;
-    if (w.source === PH && set.has(w.parent || null)) work.push(loadList(p, {quiet: true}));
+    if (w.source === source && set.has(w.parent || null)) work.push(loadList(p, {quiet: true}));
   }
   paintBar();
   await Promise.all(work);
@@ -1644,8 +1668,13 @@ async function moveRows(rows, dest, anchor) {
 // 받을 곳 창은 하단바 위로 열리고(뒤로가기 한 번 = 닫힘), 맨 위 '최근 보낸 곳' 칩 3개(서버 view_prefs.files_dest_recent), 켜진 저장소 나무, [새 폴더][여기에 복사/옮기기].
 // 보내기는 한 번에 하나씩 차례로(서버가 1개씩 받음, 같은 클라우드 옮기기만 move 한 번에 200개). 쓰기는 모두 사람이 누른 것(confirm:true).
 let destLayer = null;
-// 받을 곳 창의 저장소: 클라우드 + (폰에 쓸 수 있고, 보내는 것이 클라우드 파일이면) '이 폰'.
-const destSources = rows => (phoneWrite() && !hasPhone(rows) ? onSources().filter(s => s !== PC) : cloudOn());
+// 받을 곳 창의 저장소: 클라우드 + (폰에 쓸 수 있고, 보내는 것이 클라우드 파일이면) '이 폰' + (바구니 문 0.4.0+이고 클라우드 파일이면) '내 PC'.
+//   내 PC 파일은 클라우드로만 보낸다.
+const destSources = rows => {
+  if (hasPc(rows)) return cloudOn();
+  const base = phoneWrite() && !hasPhone(rows) ? onSources().filter(s => s !== PC) : cloudOn();
+  return pcWrite() && !hasPhone(rows) ? [...base, PC] : base;
+};
 const destKey = d => d ? folderKey(d.source, d.parent) : '';
 function openDest(mode, rows) {
   const list = (rows || []).filter(Boolean);
@@ -1697,7 +1726,8 @@ function paintDest() {
       color: r.type === 'root' ? null : folderLook.color(r.source, r.id), icon: r.type === 'root' ? treeIconHtml(r.source, {className: 'ft-ico'}) : null,
       mainAttrs: {'data-fx-dest-pick': key, 'data-fx-dest-name': name}, toggle: {attrs: {'data-fx-dest-twist': key}, label: `${name} ${r.open && r.hasKids ? '접기' : '펼치기'}`}});
   }).join('');
-  const can = !!x.dest && !state.ask;
+  // '내 PC' 맨 위(드라이브 목록)는 받을 곳이 아니다(드라이브나 폴더를 골라야 함).
+  const can = !!x.dest && !state.ask && !(x.dest.source === PC && !x.dest.parent);
   box.innerHTML = `<div class="fx-dest-h"><span id="fxDestTitle">${esc(destTitle(x.rows.length, x.mode))}</span><button type="button" class="mini" data-fx-dest-close aria-label="닫기">✕</button></div>`
     + recent + `<nav class="fx-dest-tree nx-tree" aria-label="받을 곳 폴더">${tree || waitHtml({rows: 3})}</nav>`
     + (state.ask ? askHtml(state.ask) : '')
@@ -1779,14 +1809,21 @@ async function destGo() {
   const dest = x.dest, name = destNameOf(dest);
   const ran = await xferRun(x.mode, x.rows, dest, {inSheet: true});
   if (!ran) return;
-  // '최근 보낸 곳'은 클라우드 폴더만 서버에 기억한다(폰 폴더 경로는 서버로 보내지 않음).
-  if (dest.source !== PH) viewPrefs.set('files_dest_recent', pushRecentDest(recentDests(), dest, name), {rejectable: true});
+  // '최근 보낸 곳'은 클라우드 폴더만 서버에 기억한다(폰·내 PC 폴더 경로는 서버로 보내지 않음).
+  if (dest.source !== PH && dest.source !== PC) viewPrefs.set('files_dest_recent', pushRecentDest(recentDests(), dest, name), {rejectable: true});
 }
 // 보내기 한 번(복사·옮기기 공용): 막을 것 거르기 → 같은 이름 묻기(한 번, '남은 것도 모두 같게') → 200MB 넘는 것 묻기 → 차례로 보내며 전송 줄.
 //   덮어쓰기는 없다: [그래도 하기]는 서버가 '이름 (2)'처럼 번호를 붙여 둘 다 둔다(공용 numberedName). 끝나면 한 줄 알림.
 async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
   if (state.run || state.busy) return false;
   if (pcStop(rows, dest)) return false;
+  // 내 PC ↔ 클라우드(S52-41): 내 PC 파일은 문에서 읽어 올리기 길로, 클라우드 파일은 Edge media로 받아 문에 쓴다. 옮기기는 다 된 것만 원본 휴지통.
+  if (hasPc(rows) || dest?.source === PC) {
+    if (inSheet) closeDest();
+    P().picked.clear(); paintPicks();
+    if (hasPc(rows)) await pcToCloud(rows, dest, mode); else await cloudToPc(rows, dest, mode);
+    return true;
+  }
   // 폰 → 클라우드 복사: 폰 앱 안에서 원본을 읽어 올리기 길(upload_open, 같은 이름·200MB 묻기·전송 목록 그대로)로. 폰이 낀 다른 일은 이 판에서 하지 않는다.
   //   클라우드 → 폰 복사(3-③): Edge media로 받아 앱이 받을 폴더에 쓴다. 폰 → 폰·옮기기는 아직 없다.
   if (hasPhone(rows) || dest?.source === PH) {
@@ -2162,7 +2199,110 @@ async function phoneToCloud(rows, dest) {
   } finally { if (state.scope === scope) { state.busy = ''; paintBar(); } }
   if (out.length) await uploadFiles(out, dest, {skipDirs: dirs});
 }
-async function uploadFiles(files, dest, {skipDirs = 0} = {}) {
+// ---------- 내 PC ↔ 클라우드(S52-41 FILES-내PC클라우드옮기기) ----------
+// 옮기기로 올리는 내 PC 파일: 작업표 줄 id → 원본 PC 경로(이 탭 메모리만). 서버가 올린 파일을 맞춘 뒤(upload_done)에만 원본을 윈도우 휴지통으로.
+const upPcMove = new Map();
+async function pcGone(jobId) {
+  const path = upPcMove.get(jobId);
+  if (!path) return;
+  upPcMove.delete(jobId);
+  try {
+    await pc.trash(path);
+    await phoneRefresh([pcParent(path)], {source: PC, gone: [rowKey({source: PC, item_id: path})]});
+  } catch (e) {
+    notify('올렸지만 내 PC 원본은 휴지통으로 보내지 못했어요', {error: true, note: errorText(codeOf(e)), record: false});
+  }
+}
+// 내 PC 파일 → 클라우드: 파일만(폴더는 열어 파일을 고르게), 한 번에 20개·한 파일 1GB까지. 문에서 4MB씩 읽어 지금 올리기 길(같은 이름·200MB 묻기·전송 목록·진행 표시 그대로)로.
+async function pcToCloud(rows, dest, mode) {
+  const plan = xferPlan(rows, dest, 'copy');
+  if (!plan.ok.length) { notify(plan.reason, {error: true, record: false}); return; }
+  if (plan.blocked.length) notify(plan.blocked[0].reason, {error: true, record: false});
+  let files = plan.ok.filter(r => {
+    if (Number(r.size_bytes) <= PC_FILE_MAX) return true;
+    notify(`${r.name}: 내 PC에서는 한 파일 1GB까지 보내요`, {error: true, record: false});
+    return false;
+  });
+  if (files.length > PC_XFER_MAX) { notify(`내 PC 파일은 한 번에 ${PC_XFER_MAX}개까지 보내요. 앞 ${PC_XFER_MAX}개만 보냅니다.`, {record: false}); files = files.slice(0, PC_XFER_MAX); }
+  if (!files.length) return;
+  const scope = state.scope, out = [], from = new Map();
+  try {
+    for (const [i, r] of files.entries()) {
+      state.busy = `내 PC 파일 가져오는 중 (${i + 1}/${files.length})`; paintBar();
+      try {
+        const blob = await pc.read(r.item_id, {size: r.size_bytes});
+        const f = new File([blob], r.name, {type: blob.type || '', lastModified: Date.parse(r.modified_at || '') || Date.now()});
+        out.push(f); from.set(f, r.item_id);
+      } catch (e) { notify(`${r.name}: ${errorText(codeOf(e))}`, {error: true, record: false}); }
+      if (state.scope !== scope) return;
+    }
+  } finally { if (state.scope === scope) { state.busy = ''; paintBar(); } }
+  if (out.length) await uploadFiles(out, dest, {pcMove: mode === 'move' ? from : null});
+}
+// 클라우드 파일 → 내 PC 폴더: 파일만(폴더·구글 문서·크기 모름은 xferPlan이 거름). 같은 이름은 한 번 묻고 [그래도 하기]면 문이 '이름 (2)'로 둘 다 둔다(덮어쓰기 없음).
+//   하나씩 차례로: Edge media로 받은 바이트를 문에 4MB씩 새 파일로 쓴다(화면이 열린 동안). 옮기기면 다 쓴 것만 그 클라우드 휴지통으로.
+async function cloudToPc(rows, dest, mode) {
+  const plan = xferPlan(rows, dest, 'copy');
+  if (!plan.ok.length) { notify(plan.reason, {error: true, record: false}); return; }
+  if (plan.blocked.length) notify(plan.blocked[0].reason, {error: true, record: false});
+  let destRows = [];
+  try { destRows = await pc.list(dest.parent); } catch { /* 모르면 묻지 않는다: 문이 같은 이름을 거절하면 그 줄은 못 함으로 남는다 */ }
+  const same = new Set(sameNameRows(plan.ok, destRows).map(rowKey)), numbered = new Set();
+  let go = [], sameAll = null, skipped = plan.blocked.length;
+  for (const r of plan.ok) {
+    if (same.has(rowKey(r))) {
+      let c = sameAll;
+      if (!c) {
+        const res = await ask({name: r.name, text: sameNameAsk(mode === 'move' ? 'move' : 'down'), go: '그래도 하기', many: plan.ok.filter(y => same.has(rowKey(y))).length > 1});
+        if (res.closed) return;
+        c = res.choice; if (res.all) sameAll = c;
+      }
+      if (c === 'skip') { skipped++; continue; }
+      numbered.add(rowKey(r));
+    }
+    if (Number(r.size_bytes) > PC_FILE_MAX) { notify(`${r.name}: 내 PC로는 한 파일 1GB까지 받아요`, {error: true, record: false}); skipped++; continue; }
+    go.push(r);
+  }
+  if (go.length > PC_XFER_MAX) { notify(`내 PC로는 한 번에 ${PC_XFER_MAX}개까지 받아요. 앞 ${PC_XFER_MAX}개만 받습니다.`, {record: false}); skipped += go.length - PC_XFER_MAX; go = go.slice(0, PC_XFER_MAX); }
+  if (!go.length) { if (skipped) notify(xferDoneText(mode, {skipped}), {record: false}); return; }
+  const scope = state.scope, landed = [];
+  const run = state.run = {mode, total: go.length, at: 1, done: 0, failed: 0, name: go[0].name, code: '', pending: false};
+  paintXfer();
+  try {
+    for (const r of go) {
+      run.name = r.name; run.at = run.done + run.failed + 1; paintXfer();
+      try {
+        const blob = await rowBlob(r, 'media');
+        if (state.scope !== scope) return;
+        await pc.save(dest.parent, r.name, blob, {numbered: numbered.has(rowKey(r))});
+        run.done++; landed.push(r);
+      } catch (e) { run.failed++; run.code ||= codeOf(e); }
+      if (state.scope !== scope) return;
+    }
+  } finally {
+    if (state.run === run) state.run = null;
+    paintXfer(); paintBar();
+  }
+  await phoneRefresh([dest.parent], {source: PC});
+  // 옮기기: 내 PC에 다 쓴 것만 원본을 그 클라우드 휴지통으로(사람이 [옮기기]를 누른 것, 확인은 moveRows가 한 번 물음).
+  let kept = 0;
+  if (mode === 'move' && landed.length) {
+    for (const g of groupBySource(landed)) {
+      let ids = g.rows.map(r => r.item_id);
+      while (ids.length) {
+        const d = await write('trash', {source: g.source, ids}, '원본을 휴지통으로 보내는 중');
+        if (!d) { kept += ids.length; break; }
+        await applyWrite(d, touchedFolders(g.rows));
+        kept += (d.failed || []).length;
+        ids = Array.isArray(d.left) ? d.left : [];
+      }
+    }
+  }
+  const why = run.code ? errorText(run.code) : '';
+  const note = kept ? `${kept}개는 내 PC에 받았지만 원본을 휴지통으로 보내지 못해 그대로 있어요` : run.failed ? why : '';
+  notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped}), {error: !!run.failed || !!kept, note, record: false});
+}
+async function uploadFiles(files, dest, {skipDirs = 0, pcMove = null} = {}) {
   if (!dest?.source || !SOURCES.includes(dest.source)) return;
   if (state.ask || state.busy) { notify('다른 일을 묻는 중이에요. 끝난 뒤 다시 해 주세요.', {record: false}); return; }
   const plan = uploadPlan(files, n => checkFileBase(n).ok);
@@ -2212,7 +2352,8 @@ async function uploadFiles(files, dest, {skipDirs = 0} = {}) {
       if (!d?.job?.id) continue;
       opened++;
       setJobs(mergeJobs(state.jobs, [d.job]));
-      if (d.job.status === 'done') { applyWrite(d); continue; }
+      if (pcMove?.has(f)) upPcMove.set(d.job.id, pcMove.get(f));
+      if (d.job.status === 'done') { applyWrite(d); pcGone(d.job.id); continue; }
       upFiles.set(d.job.id, f);
       up.queue.push({id: d.job.id, file: f});
     }
@@ -2251,6 +2392,7 @@ async function upPump() {
 // 조각 보내기. 'done'·'failed' = 이 줄 끝, 'stop' = 멈춤(숨김·사람이 멈춤).
 async function upSend(item, slot) {
   const out = await upSendPieces(item, slot);
+  if (out === 'done') pcGone(item.id); // 내 PC에서 옮긴 파일: 서버가 맞춘 뒤에만 원본을 휴지통으로
   upLetGo(item, out === 'done' ? 'done' : out === 'failed' ? 'failed' : 'stop', out === 'failed' ? jobReason(item.failCode || 'upload_failed') : '');
   return out;
 }
@@ -2351,7 +2493,7 @@ const upTarget = event => {
   if (drag || !Array.from(event.dataTransfer?.types || []).includes('Files')) return null;
   const row = event.target.closest?.('[data-fx-drop]');
   const i = paneOfEl(event.target);
-  if (row && i >= 0) { const d = destOf(row.dataset.fxDrop); if (d && onSources().includes(d.source)) return {t: row, dest: d}; }
+  if (row && i >= 0) { const d = destOf(row.dataset.fxDrop); if (d && d.source !== PC && onSources().includes(d.source)) return {t: row, dest: d}; }
   const box = i >= 0 ? paneEl(state.panes[i]) : null;
   const d = box && paneDest(state.panes[i]);
   return d && d.source !== PC && onSources().includes(d.source) ? {t: box, dest: d} : null;
@@ -2392,7 +2534,7 @@ async function starRows(rows) {
 }
 
 const hereDest = (p = P()) => paneDest(p);
-const destOf = key => { const [source, ...rest] = String(key || '').split(':'); return SOURCES.includes(source) || (source === PH && phoneWrite()) ? {source, parent: rest.join(':') || null} : null; };
+const destOf = key => { const [source, ...rest] = String(key || '').split(':'); return SOURCES.includes(source) || (source === PH && phoneWrite()) || (source === PC && pcWrite()) ? {source, parent: rest.join(':') || null} : null; };
 
 // ---------- 두 칸: 켜기·지금 칸·반대 칸으로 보내기·끌어 놓기 고르기 ----------
 // 지금 칸 바꾸기: 칸 안 그림은 다시 그리지 않는다(누르던 단추가 바뀌어 누름이 사라지지 않게) — 표시(fx-cur)·위 줄·막대·왼쪽 나무만.
@@ -2699,8 +2841,8 @@ function listMenu(b, event) {
   const i = paneOfEl(b); if (i >= 0) setCur(i);
   const key = b.dataset.fxRow, r = rowByKey(key);
   if (!r) return false;
-  const items = treeMenuItems(r, {phoneWrite: phoneWrite()}).map(it => (it.id === 'only' ? {...it, id: 'go', label: '열기'} : it));
-  return openRowMenu(b, {key: 'list:' + key, title: r.name, items, at, note: r.source === PC ? PC_READONLY_TEXT : '',
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite()}).map(it => (it.id === 'only' ? {...it, id: 'go', label: '열기'} : it));
+  return openRowMenu(b, {key: 'list:' + key, title: r.name, items, at, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '',
     run: id => { if (id === 'go') goFolder(r.source, r.item_id); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});
 }
 // PC: 줄을 폴더(목록의 폴더 줄·나무의 폴더)로 끌어 놓아 옮기기. 끈 줄이 고른 것 안이면 고른 것 모두.
@@ -2711,7 +2853,7 @@ root?.addEventListener('dragstart', event => {
   if (!b || state.busy) { event.preventDefault?.(); return; }
   { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   const key = b.dataset.fxRow, p = P();
-  if (hasPc([rowByKey(key, p)])) { event.preventDefault?.(); return; }
+  if (hasPc([rowByKey(key, p)]) && !pcWrite()) { event.preventDefault?.(); return; }
   drag = {pane: state.cur, rows: (p.picked.has(key) ? [...p.picked] : [key]).map(k => rowByKey(k, p)).filter(Boolean)};
   event.dataTransfer?.setData('text/plain', 'files-move');
   if (event.dataTransfer) event.dataTransfer.effectAllowed = two() ? 'copyMove' : 'move';
@@ -2723,9 +2865,10 @@ const dropAt = (target, {any = false} = {}) => {
   const t = target.closest('[data-fx-drop]') || (cross ? target.closest('[data-fx-pane-i]') : null);
   if (!t || !root.contains(t)) return null;
   const dest = t.dataset.fxDrop ? destOf(t.dataset.fxDrop) : paneDest(state.panes[i]);
-  if (!dest || dest.source === PC || hasPc(drag.rows)) return null;
+  if (!dest || pcWhy(drag.rows, dest)) return null;
   if (drag.rows.some(r => r.is_folder && folderKey(r.source, r.item_id) === folderKey(dest.source, dest.parent))) return null;
-  if (cross || any) return xferPlan(drag.rows, dest, 'copy').ok.length || moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross: cross || any} : null;
+  // 내 PC가 끼면 같은 칸 안에서 놓아도 늘 [복사][옮기기]를 고른다(다른 저장소라 기본 옮기기가 없다).
+  if (cross || any || hasPc(drag.rows) || dest.source === PC) return xferPlan(drag.rows, dest, 'copy').ok.length || moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross: true} : null;
   return moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
 };
 const dropOff = keep => {
@@ -2781,7 +2924,7 @@ const touchDrag = bindTouchDrag(root, {
     if (!b || i < 0) return null;
     setCur(i);
     const key = b.dataset.fxRow, p = P(), rows = (p.picked.has(key) ? [...p.picked] : [key]).map(k => rowByKey(k, p)).filter(Boolean);
-    if (!rows.length || hasPc(rows)) return null;
+    if (!rows.length || (hasPc(rows) && !pcWrite())) return null;
     return {key, pane: i, rows, label: rows.length > 1 ? `${rows.length}개` : rows[0].name};
   },
   hold: item => togglePick(item.key),

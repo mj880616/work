@@ -84,6 +84,11 @@ export function pcTrail(path) {
 
 // 문 답 /v1/hello → 쓸 수 있나. 바구니 PC 앱만(app = 'basket-pc', door 1, list를 앎).
 export const pcHelloOk = body => body?.app === 'basket-pc' && body?.door === 1 && Array.isArray(body?.can) && body.can.includes('list');
+// FILES-내PC클라우드옮기기(S52-41): 문이 아는 일 목록(can)만 남긴다(정해 둔 말만). 0.4.0+ 문은 read·write·trash를 더 안다.
+const PC_CAN = ['drives', 'list', 'open', 'reveal', 'read', 'write', 'trash'];
+export const pcCanList = body => (Array.isArray(body?.can) ? PC_CAN.filter(c => body.can.includes(c)) : []);
+// 내 PC ↔ 클라우드 복사·옮기기를 할 수 있는 문인가(읽기·쓰기·휴지통을 모두 앎).
+export const pcCanXfer = can => Array.isArray(can) && ['read', 'write', 'trash'].every(c => can.includes(c));
 // 문 답 HTTP 상태·오류 글자 → 짧은 까닭(정해 둔 말만).
 export function pcCode(status, error) {
   const e = typeof error === 'string' && /^[a-z_]{1,24}$/.test(error) ? error : '';
@@ -114,6 +119,15 @@ export function pcStateText(why) {
 // 목록·열기 실패 → 한 줄(files-model errorText가 'pc_' 앞머리를 여기로 보낸다).
 export function pcErrorText(code) {
   switch (code) {
+    case 'exists': return '같은 이름 파일이 이미 있어요';
+    case 'risky_kind': return '프로그램 파일(.exe 등)은 내 PC로 받지 않아요';
+    case 'too_big': return '한 파일은 2GB까지 내 PC로 받아요';
+    case 'no_space': return '내 PC 디스크 공간이 모자라요';
+    case 'bad_piece': case 'bad_range': return '파일이 보내는 동안 바뀌었어요. 다시 해 주세요';
+    case 'busy': return '내 PC가 다른 파일을 여러 개 받고 있어요. 잠시 뒤 다시 해 주세요';
+    case 'write_failed': return '내 PC에 쓰지 못했어요(폴더 권한 확인)';
+    case 'trash_failed': return '내 PC 휴지통으로 보내지 못했어요';
+    case 'not_file': return '파일만 보낼 수 있어요';
     case 'blocked': return '이 폴더는 열 수 없어요(윈도우·프로그램 폴더)';
     case 'not_found': return '내 PC에서 찾지 못했어요';
     case 'bad_path': case 'not_folder': return '열 수 없는 경로예요';
@@ -123,6 +137,29 @@ export function pcErrorText(code) {
     default: return '내 PC 파일을 읽지 못했어요';
   }
 }
-// 이 단계에서 안 되는 일(복사·옮기기·이름·휴지통은 다음 단계).
-export const PC_READONLY_TEXT = '내 PC는 지금은 보기·열기만 돼요(복사·휴지통은 다음 단계)';
+// 옛 문(0.3.x): 보기·열기만. 0.4.0+이면 복사·옮기기가 된다.
+export const PC_READONLY_TEXT = '바구니 PC 앱을 새 판(0.4.0)으로 올리면 내 PC ↔ 클라우드 복사·옮기기가 돼요(지금은 보기·열기만)';
+// 내 PC 안 이름 바꾸기·새 폴더·휴지통·내 PC 안 복사·옮기기는 다음 판(FILES-내PC쓰기).
+export const PC_WRITE_LATER_TEXT = '내 PC 안 이름 바꾸기·새 폴더·휴지통은 다음 판에서 돼요';
+// 한 번에 보내는 개수·크기(화면이 파일을 메모리에 쥐고 나른다 — '이 폰'과 같은 1GB, 바구니 문은 2GB까지 받음).
+export const PC_XFER_MAX = 20;
+export const PC_FILE_MAX = 1024 * 1024 * 1024;
+export const PC_PIECE = 4 * 1024 * 1024;
+// 내 PC가 낀 복사·옮기기를 이 판에서 할 수 있나. 안 되면 한 줄 까닭, 되면 ''. rows = 보낼 줄, dest = {source, parent}.
+//   되는 것: 내 PC 파일 → 클라우드(원드라이브·구글 드라이브) 폴더, 클라우드 파일 → 내 PC 폴더(드라이브 맨 위 목록은 아님). 복사·옮기기 모두.
+//   안 되는 것: 내 PC 안끼리(다음 판), 내 PC와 이 폰 사이, 내 PC 파일과 다른 곳 파일을 섞어 보내기, 옛 문.
+export function pcXferWhy(rows, dest, {can = [], cloud = ['od', 'gd']} = {}) {
+  const list = (rows || []).filter(Boolean);
+  const fromPc = list.some(r => r.source === PC_SOURCE), toPc = dest?.source === PC_SOURCE;
+  if (!fromPc && !toPc) return '';
+  if (!pcCanXfer(can)) return PC_READONLY_TEXT;
+  if (!list.length) return '고른 것이 없습니다';
+  if (fromPc && list.some(r => r.source !== PC_SOURCE)) return '내 PC 파일과 다른 곳 파일은 따로 보내 주세요';
+  if (!dest) return ''; // 받을 곳을 아직 고르지 않음(잘라 두기·받을 곳 창 열기)
+  if (fromPc && toPc) return '내 PC 안 복사·옮기기는 다음 판에서 돼요(지금은 탐색기에서)';
+  if (fromPc && !cloud.includes(dest?.source)) return '내 PC 파일은 원드라이브·구글 드라이브로 보내요';
+  if (toPc && list.some(r => !cloud.includes(r.source))) return '내 PC로는 원드라이브·구글 드라이브 파일을 받아요';
+  if (toPc && !pcNorm(dest.parent)) return '내 PC에서는 드라이브나 폴더를 열어 주세요';
+  return '';
+}
 export const PC_PREVIEW_TEXT = '내 PC 파일은 미리보기 없이 이름·크기만 보여요';
