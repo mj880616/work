@@ -69,6 +69,9 @@ function open(id,dayModal){
 // was asked to change (paint) and hands the list to the month view (publish); the task view's toggle / update / delete do the saving.
 const rowOf=id=>document.querySelector(`#calendarDayTasks [data-calendar-task="${CSS.escape(id)}"]`);
 const lineOf=id=>document.querySelector(`#calendarDayTasks [data-calendar-task-line="${CSS.escape(id)}"]`);
+// S52-11: 달력 칸 안 할 일 줄(☐ 제목). ☐를 누르면 저장을 기다리지 않고 바로 완료 모양, 실패하면 되돌린다(저장은 날짜 목록 동그라미와 같은 길).
+const cellsOf=id=>[...document.querySelectorAll(`#calendarGrid .cmv-cell-task[data-calendar-task="${CSS.escape(id)}"]`)];
+function paintCell(id,value){cellsOf(id).forEach(b=>b.classList.toggle('cmv-cell-task-done',!!value))}
 function paint(b,value){
   if(!b)return;
   b.classList.toggle('cmv-task-done',value);
@@ -85,9 +88,9 @@ function dropRow(id){
 }
 const findTask=id=>{const raw=tasks.find(x=>x.id===id);if(!raw)return null;const row=rowOf(id);return {...(api()?.taskState?.(id)?.task||raw),...(row?{status:row.classList.contains('cmv-task-done')?'completed':'needsAction'}:{})}};
 const line=createTaskInline({menuId:'calendarTaskMenu',historyKey:'kptuCalendarTaskMenu',menuAttr:'calendarTaskMenu',find:findTask,
-  begin:id=>{const l=lineOf(id);if(l)l.dataset.busy='1'},
-  end:id=>{const l=lineOf(id);if(l)delete l.dataset.busy},
-  apply:(id,done,original)=>{paint(rowOf(id),done===null?original.status==='completed':done);if(done===true)applyCheckPop(rowOf(id),id)},
+  begin:id=>{const l=lineOf(id);if(l)l.dataset.busy='1';cellsOf(id).forEach(b=>{b.dataset.busy='1'})},
+  end:id=>{const l=lineOf(id);if(l)delete l.dataset.busy;cellsOf(id).forEach(b=>{delete b.dataset.busy})},
+  apply:(id,done,original)=>{const value=done===null?original.status==='completed':done;paint(rowOf(id),value);paintCell(id,value);if(done===true)applyCheckPop(rowOf(id),id)},
   edit:id=>open(id,document.querySelector('#calendarDayModal')),
   // S51-27: 칸 안 할 일 막대에는 동그라미가 없어 PC 우클릭 메뉴에 [완료]를 더한다(동그라미와 같은 완료·되돌리기).
   extras:(task,el)=>el&&!el.closest('#calendarDayTasks')&&task.status!=='completed'?[{key:'done',label:'완료',run:()=>void line.complete(task.id,el)}]:[],
@@ -101,6 +104,8 @@ function boot(){
     const b=e.target.closest?.('[data-calendar-task]');
     if(!b||window.KPTUCalendarMonthView?.suppressClick?.())return;
     if(e.target.closest('#calendarDayTasks .cmv-task-mark')){e.preventDefault();if(!b.closest('[data-busy]'))void line.toggle(b.dataset.calendarTask,b);return}
+    // S52-11 CAL-폰달력핀치 ③: 달력 칸 안 ☐ = 바로 완료(5초 되돌리기). 폰·폴드·PC, 처음·커진 크기 모두 같은 줄 부품이라 한 곳에서 받는다.
+    if(e.target.closest('#calendarGrid .cmv-cell-task-box')){e.preventDefault();e.stopPropagation();if(!b.dataset.busy)void line.complete(b.dataset.calendarTask,b);return}
     e.preventDefault();open(b.dataset.calendarTask,b.closest('#calendarDayModal'));
   });
   window.KPTURouter?.on?.('calendar',()=>{applyCopy();schedule()});
