@@ -71,7 +71,8 @@ async function sameButtons(page,region,skip='.icon-btn'){
   const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('[data-event-mode]')?'segment':'button');
   // UI-버튼줄이기: 창 주 동작·HWP [내 기기에 저장]은 36px, 창 보조·HWP 보조는 32px.
   // UI-버튼전수조사(2026-10-24): 남은 46px 버튼도 기준으로 — 채운 버튼(주 동작)은 36px, 나머지는 작은 버튼 32px.
-  const want=await control.evaluate(el=>el.matches('#hwpLabPick,#hwpLabUpload,#eventTaskProject,#gtDeleteBtn,#gtToggleBtn,.gt-pick-btn,.gt-pane-save,#wdInboxBig,#wdInboxSave')?32:el.matches('.primary,#hwpLabSave,#saveEventBtn,#saveTaskBtn,#gtSaveBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate')?36:32);
+  // UI-창아래버튼통일(11/07): 창 아래 줄 버튼(.modal-action-footer·.save-row)은 한 가족 36px.
+  const want=await control.evaluate(el=>el.matches(':is(.modal-action-footer,.save-row) button:is(.primary,.secondary,.ghost,.danger,.tl-danger)')?36:el.matches('#hwpLabPick,#hwpLabUpload,#eventTaskProject,.gt-pick-btn,.gt-pane-save,#wdInboxBig,#wdInboxSave')?32:el.matches('.primary,#hwpLabSave,#saveEventBtn,#saveTaskBtn,#gtSaveBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate')?36:32);
   if(kind==='button'){expect(s.height,label).toBe(want);expect(s.radius,label).toBe('8px');}
   // UI-칩줄두줄(10/31): 칩 줄의 칩은 26px·12px, 누르는 범위는 칩 둘레 2px(30px).
   else{expect(s.height,label).toBeGreaterThanOrEqual(kind==='chip'?26:30);expect(s.height,label).toBeLessThanOrEqual(kind==='chip'?26:32);if(kind==='chip')expect(s.radius,label).toBe('999px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(kind==='chip'?30:44);}

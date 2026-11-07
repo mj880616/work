@@ -407,6 +407,17 @@ UI-버튼기준의 값(32px 작은 버튼·36px 채운 버튼·누르는 범위 
 - 재발 방지: `tests/button-six-kinds.test.mjs`(App smoke check). 화면 CSS(공용 `theme-tokens.css`·`base-ui.css` 밖, `ui-standard.css`는 화면 id를 쓴 규칙)의 버튼 높이·모서리·바탕·테두리 선언 수와, 6가지 클래스가 하나도 없는 `<button>` 수를 파일마다 세어 기준표(`tests/button-six-kinds-baseline.json`)보다 늘면 실패한다. 줄면 기준표도 줄인다.
 - 이 PR에서 바로 바뀐 것: `button.icon-btn`의 기본 회색 상자(선·바탕)를 없앴다. 화면 규칙이 따로 상자를 그린 아이콘은 화면별 PR에서 정리한다.
 
+### UI-창아래버튼통일 (2026-11-07 명진 요청 10:55 '삭제 완료 저장 … 같은 디자인에서의 배리에이션으로 안느껴짐', 시안 `docs/design/mockups/sheet-footer-buttons.html` 10:57 'A'): 창 아래 버튼 줄은 한 가족
+
+UI-버튼6가지·UI-저장자리를 그대로 두고, 창 아래 버튼 줄 안에서만 ①·② 버튼을 한 가족으로 묶는다. 줄 부품은 팝업·아래에서 올라오는 창의 `.modal-action-footer`와 화면 안 창·칸의 `.save-row` 두 이름이 같은 부품이고, 모양은 `app/ui-standard.css` 끝 "UI-창아래버튼통일" 한 곳이 정한다.
+
+- 같게: 높이 `--kptu-control-height`(누르는 범위 44px) · 모서리 `--ds-radius-control` · 글자 `--ds-text-button`/`--ds-weight-medium` · 안쪽 여백 `--ds-control-pad-x` · 테두리 선 없음.
+- 다르게(채움 정도만): 저장(`.primary`) = 진한 주 색 채움 · 완료·취소 같은 보조(`.secondary`·`.ghost`) = 연한 주 색 채움(`--kptu-primary-soft`) · 삭제(`.danger`·`.tl-danger` 등 지우기 클래스) = 바탕 없는 빨간 글자.
+- 자리: 삭제는 줄 왼쪽 끝(글 순서도 맨 앞), 보조는 오른쪽, 저장은 맨 오른쪽. 지우기를 확인하는 창의 주 동작(`.primary`)은 채움 그대로.
+- 줄 안 버튼은 화면 CSS 규칙(#id·#appView …)이 많아 공용 규칙이 `!important`로 고정한다(`.save-row-start`와 같은 방식). 화면별 높이 규칙(할 일 창 `#gtSaveBtn` 36px·`#gtDeleteBtn`·`#gtToggleBtn` 32px)은 지웠다.
+- 같은 종류 전수: 이 두 줄 부품을 쓰는 창은 모두 바로 바뀐다. 다른 이름의 아래 줄(고르기 창·확인 창·노트 기록 창·사진 폴더 고르기 등)과 6가지 밖 버튼이 남은 줄(업데이트 고치기 [수정 저장]·업무일지 [삭제][취소][저장])은 ② PR에서 이 부품으로 옮긴다.
+- 재발 방지: `tests/sheet-footer-buttons.test.mjs`(App smoke check — 공용 규칙·줄 안 [삭제] 맨 앞·[저장] 맨 뒤·가족 밖 버튼은 줄기만), `tests/app-e2e/sheet-footer-buttons.spec.mjs`(폰 390·폴드 884·PC 1280에서 높이·모서리·글자·여백·선 없음·채움·자리를 잼).
+
 ### UI-화면정리 B (2026-10-28 명진 요청 20:03): 공용 부품 통일 — 제목·⋯·칩·시각·저장 하나
 
 A 묶음의 부품(작은 버튼·고르기 상자·날짜 칸)은 그대로 쓰고, 화면마다 따로 있던 모양을 `app/ui-standard.css` 끝 "UI-화면정리 B" 묶음과 공용 함수로 모았다. 재발 방지는 `tests/ui-cleanup-b.test.mjs`(App smoke check).
