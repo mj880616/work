@@ -25,13 +25,14 @@ export function headHtml({title, count = 0, faint = '', open = null, countAttr =
 // - done: 처리한 줄(처리 전이 아닌 보기)은 버튼 대신 오른쪽 작은 상태 글('할 일로 보냄 · 11/7' 등).
 // - open: {attrs, label} 내용 줄을 누르면 원래 기록을 여는 글자 버튼(업데이트 줄). attrs는 이미 esc된 속성 글.
 // - attrs: li에 더 붙일 속성(이미 esc된 글), tail: × 뒤에 붙일 ⑥ 아이콘(⋯) HTML, below: 줄 아래 더 붙일 HTML(연결된 곳 칩).
-export function rowHtml({id, body, meta = '', prefix = '', busy = false, src = '', lead = [], done = '', open = null, attrs = '', tail = '', below = ''}) {
+// - acts: 4개 버튼과 × 대신 쓸 버튼 목록(같은 ③ 글자 버튼, 없앨 수 없는 줄만 — 상대 약속 [원장으로]).
+export function rowHtml({id, body, meta = '', prefix = '', busy = false, src = '', lead = [], done = '', open = null, attrs = '', tail = '', below = '', acts = null}) {
   const dis = busy ? ' disabled' : '';
   const btn = ([act, label], cls = '') => `<button type="button" class="row-act nbx-act${cls}" data-nbx-act="${act}"${dis}>${esc(label)}</button>`;
   const right = done
     ? `<span class="nbx-done">${esc(done)}</span>${tail}`
-    : `<span class="nbx-acts" role="group" aria-label="${esc(body)}">${lead.map(l => btn(l, ' nbx-lead')).join('')}${NB_ACTS.map(a => btn(a)).join('')}`
-      + `<button type="button" class="icon-btn nbx-x" data-nbx-act="dismissed" aria-label="지우기: ${esc(body)}"${dis}>×</button>${tail}</span>`;
+    : `<span class="nbx-acts" role="group" aria-label="${esc(body)}">${lead.map(l => btn(l, ' nbx-lead')).join('')}${(acts || NB_ACTS).map(a => btn(a)).join('')}`
+      + `${acts ? '' : `<button type="button" class="icon-btn nbx-x" data-nbx-act="dismissed" aria-label="지우기: ${esc(body)}"${dis}>×</button>`}${tail}</span>`;
   const text = open ? `<button type="button" class="row-act nbx-body-btn" ${open.attrs}>${esc(open.label ?? body)}</button>` : esc(body);
   return `<li class="nbx-item" data-nbx-row="${esc(id)}"${attrs ? ' ' + attrs : ''}><p class="nbx-body">${prefix}${text}</p>`
     + `<div class="nbx-row2"><span class="nbx-meta">${src ? `<span class="nbx-src">${esc(src)}</span>` : ''}${esc(meta)}</span>${right}</div>${below}</li>`;

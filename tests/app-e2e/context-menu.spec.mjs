@@ -181,7 +181,8 @@ test('1280 update row: browser menu stays with a text selection, outside any car
 test('1280 update row: right-click on a link inside the card keeps the browser menu (no ⋯ menu); beside the link the ⋯ menu still opens', async ({ page }) => {
   await basketFixture(page, 1280); await watch(page);
   const row = page.locator(`[data-basket-row="${A}"]`), menu = page.locator('#basketRowMenu');
-  await row.evaluate(el => { const a = document.createElement('a'); a.href = 'https://example.org/x'; a.id = 'ctxLink'; a.textContent = '합성 링크'; a.style.cssText = 'display:inline-block;padding:4px 8px'; el.appendChild(a); });
+  // S52-20: 한 목록 줄 글(.nbx-body) 안에 링크를 둔다(내용 버튼 안이 아니라).
+  await page.locator(`[data-basket-row-item="${A}"] .nbx-body`).evaluate(el => { const a = document.createElement('a'); a.href = 'https://example.org/x'; a.id = 'ctxLink'; a.textContent = '합성 링크'; a.style.cssText = 'display:inline-block;padding:4px 8px'; el.appendChild(a); });
   const link = page.locator('#ctxLink');
   await link.click({ button: 'right' }); await expect(menu).toBeHidden();
   expect(await kept(page)).toEqual([true]);

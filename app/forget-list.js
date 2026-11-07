@@ -11,11 +11,12 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
 import {esc, rowHtml} from './notice-box.mjs';
 import {waitHtml, emptyHtml} from './wait-state.js';
+import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {seoulDateKey} from './meeting-time.js';
 import {dueLabel} from './task-due.mjs';
 import {readInboxCandidates, dismissCandidate, reopenCandidate, markDone, markTasked, markNotMine, undoNotMine, candidateToTask, validateTaskDraft,
-  notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback} from './todo-radar-data.js';
+  notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText} from './todo-radar-data.js';
 import {FIRM_LABEL, draftOf, metaLine, noteLine} from './family-notes-model.mjs';
 import {decide as decideFamily, hasFamily, readNotes} from './family-notes-data.js';
 
@@ -23,7 +24,7 @@ const CHANGED = 'kptu:todo-radar-changed';
 // 보기(처리 상태)와 출처. 이름은 시안 그대로.
 export const FORGET_VIEWS = Object.freeze([['open', '처리 전'], ['tasked', '보냄'], ['done', '이미 함'], ['dismissed', '무시'], ['linked', '연결 완료']]);
 export const FORGET_SOURCES = Object.freeze([['all', '모든 출처'], ['telegram', '텔레그램'], ['family', '가족'], ['update', '업데이트'], ['todo', '챙길 것']]);
-export const SOURCE_TAG = Object.freeze({telegram: '텔레그램', family: '가족', update: '업데이트', todo: '챙길 것'});
+export const SOURCE_TAG = Object.freeze({telegram: '텔레그램', family: '가족', update: '업데이트', todo: '챙길 것', promise: '상대 약속'});
 // 업데이트 줄만 맨 앞에 붙는 두 버튼('분류' 글자는 쓰지 않음, 명진 14:44).
 export const UPDATE_LEAD = Object.freeze([['org', '조직'], ['area', '사업']]);
 
@@ -64,7 +65,8 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 // host: 줄을 그릴 <ul>(바깥 칸은 notice-box 'list' 톤). statusEl: 목록 아래 상태 줄. viewButton: [처리 전 ▾].
 // updates(): {loading, items:[{id, at, body, meta, done, below, tail, attrs, open}]} — basket.js가 지금 보기의 업데이트 줄 재료를 준다.
 // onUpdateAct(id, act, button): 업데이트 줄 버튼(org·area·task·event·note·done·dismissed). onView(view): 보기가 바뀌면(업데이트 거르기를 맞춤).
-export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, viewButton = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, onView = () => {}} = {}) {
+// radarPromises(): 찾기가 돌려준 상대 약속(저장하지 않음, todo-radar.js) — 처리 전 맨 아래 같은 줄로, 버튼은 [원장으로](쓰기요청 글 복사) 하나. 세지 않는다.
+export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, viewButton = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, onView = () => {}, radarPromises = () => []} = {}) {
   if (!host) return null;
   let view = 'open', src = 'all', rows = [], cState = 'loading', notes = [], fOn = false, fWs = '', run = 0, status = '', scope = radarScope(rt);
   const busy = new Set(), unknown = new Set();
@@ -114,7 +116,11 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       for (const u of updates().items || []) out.push({at: u.at, html: rowHtml({id: `u:${u.id}`, body: u.body, meta: u.meta, src: SOURCE_TAG.update, busy: !!u.busy,
         lead: view === 'open' ? UPDATE_LEAD : [], done: view === 'open' ? '' : (u.done || ' '), open: u.open, tail: u.tail || '', below: u.below || '', attrs: `data-forget-src="update" ${u.attrs || ''}`})});
     }
-    return newestFirst(out);
+    const sorted = newestFirst(out);
+    // 상대 약속: 처리 전·모든 출처일 때만, 맨 아래(시각 없음). 처리 상태가 없어 다른 보기에는 없다.
+    if (view === 'open' && src === 'all' && cState === 'ok') (radarPromises() || []).forEach((p, i) => sorted.push({html: rowHtml({id: `p:${i}`, body: p.summary, src: SOURCE_TAG.promise,
+      meta: [RADAR_SOURCE_LABEL[p.source_kind] || '', dueLabel(p.due) ? `기한 ${dueLabel(p.due)}` : ''].filter(Boolean).join(' · '), acts: [['ledger', '원장으로']], attrs: 'data-forget-src="promise" data-inbox-promise'})}));
+    return sorted;
   }
   function paint() {
     paintViewButton();
@@ -300,7 +306,8 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const [kind, id] = [row.slice(0, 1), row.slice(2)];
     if (kind === 'u') { onUpdateAct(id, act, b); return; }
     if (kind === 'c') { const c = byId(id); if (c) void candidateAct(c, act); return; }
-    if (kind === 'f') { const n = notes.find(x => x.id === id); if (n) void familyAct(n, act, b); }
+    if (kind === 'f') { const n = notes.find(x => x.id === id); if (n) void familyAct(n, act, b); return; }
+    if (kind === 'p' && act === 'ledger') { const p = (radarPromises() || [])[Number(id)]; if (p) void copyText(ledgerRequestText(p)).then(ok => say(ok ? '원장에 넣을 약속 문구를 복사했어요.' : '복사하지 못했어요.')); }
   });
   statusEl?.addEventListener('click', event => {
     if (event.target.closest?.('[data-forget-retry]')) { cState = 'loading'; paint(); void loadCandidates(); }
