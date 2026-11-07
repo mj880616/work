@@ -197,7 +197,7 @@ test.describe('PC 1440', () => {
   test('폴더 ⋯ 메뉴: 색 고르기·위로·아래로(맨 앞은 위로 없음, 맨 끝은 아래로 없음)', async ({ page }) => {
     const f = await fixture(page, 1440);
     await more(page, U(1)).click();
-    await expect(rootMenu(page).locator('button')).toHaveText(['선택', '이 폴더로 들어가기', '새 폴더', '이름 바꾸기', '색 고르기…', '아래로', '옮기기…', '폴더 지우기']);
+    await expect(rootMenu(page).locator('button')).toHaveText(['새 노트', '선택', '이 폴더로 들어가기', '새 폴더', '이름 바꾸기', '색 고르기…', '아래로', '옮기기…', '폴더 지우기']);
     await page.keyboard.press('Escape');
     await more(page, U(3)).click();
     await expect(rootMenu(page).locator('[data-nx-folder-up]')).toHaveText('위로');
@@ -231,7 +231,9 @@ test.describe('폰 412', () => {
     const c = await center(rowSel(2));
     await touch('touchStart', [{ x: c.x, y: c.y }]); await page.waitForTimeout(650); await touch('touchEnd', []);
     await expect(rootMenu(page)).toBeVisible();
-    await expect(rootMenu(page).locator('button').first()).toHaveText('선택');
+    // NOTE-폴더메뉴새노트: 맨 위 [새 노트], 그다음 [선택].
+    await expect(rootMenu(page).locator('button').first()).toHaveText('새 노트');
+    await expect(rootMenu(page).locator('button').nth(1)).toHaveText('선택');
     await expect(rootMenu(page).locator('[data-nx-folder-up]')).toHaveText('위로');
     await rootMenu(page).locator('[data-nx-folder-up]').tap();
     await expect.poll(order).toEqual([U(3), U(2), U(1)]);
