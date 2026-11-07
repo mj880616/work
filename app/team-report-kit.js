@@ -18,4 +18,4 @@ export {targetList,targetsLabel,firstProjectId} from './report-links-model.mjs';
 export {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,noteAreaFromMeetings,noteAreaNoneFromMeetings,LEGACY_NOTE} from './report-links.js';
 export {mountAreaFields} from './business-area-fields.js';
 export {mountBigWrite} from './record-text-write.js';
-export {untaggedInWeek,NO_AREA,AREA_NONE,areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,defaultReportWeek,inReportWeek,undatedCount,reportWeekLabel,reportDay,weekOf,shiftDays} from './business-area-model.mjs';
+export {untaggedInWeek,AREA_NONE,areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,defaultReportWeek,inReportWeek,undatedCount,reportWeekLabel,reportDay,weekOf,shiftDays} from './business-area-model.mjs';

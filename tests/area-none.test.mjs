@@ -41,19 +41,18 @@ test("[없음]을 고른 보고는 '안 단 보고' 개수·[달기] 창·미리
   assert.equal(p.all.length,3);
 });
 
-test("사업 보고 거르기: [없음] 보고는 '사업영역 없음 n' 한 묶음, 안 고른 보고는 '안 단 보고 n'",()=>{
+test("사업 보고 [사업영역 ▾]: [없음] 보고는 '사업영역 없음 n' 한 줄, 안 고른 보고는 목록에 없음(S52-22: '안 단 보고' 줄이 맡음)",()=>{
   const ms=[
     {id:'n1',business_area_id:null,business_area_none:true,project_id:'A'},
     {id:'n2',business_area_id:null,business_area_none:true},
     {id:'u',business_area_id:null,business_area_none:false},
     {id:'t',business_area_id:'A1',business_area_none:false}
   ];
-  assert.deepEqual(m.areaChipOptions(ms,tree),[{value:'all',label:'전체'},{value:'A',label:'사업영역 A'},{value:m.AREA_NONE,label:'사업영역 없음 2'},{value:m.NO_AREA,label:'안 단 보고 1'}]);
+  assert.deepEqual(m.areaChipOptions(ms,tree),[{value:'all',label:'전체'},{value:'A',label:'사업영역 A'},{value:m.AREA_NONE,label:'사업영역 없음 2'}]);
   const roots=m.areaRoots(tree);
   assert.deepEqual(ms.filter(x=>m.matchesAreaChip(x,m.AREA_NONE,roots)).map(x=>x.id),['n1','n2']);
-  assert.deepEqual(ms.filter(x=>m.matchesAreaChip(x,m.NO_AREA,roots)).map(x=>x.id),['u']);
   assert.deepEqual(ms.filter(x=>m.matchesAreaChip(x,'A',roots)).map(x=>x.id),['t']);
-  assert.notEqual(m.AREA_NONE,m.NO_AREA);
+  assert.equal(m.NO_AREA,undefined);
 });
 
 test('화면 연결(전수): [달기] 창·쓰기/고치기 창은 [없음]을 두고, 한 줄 업데이트 창은 두지 않는다. AI 추천은 [없음]을 미리 고르지 않는다',()=>{
@@ -76,6 +75,6 @@ test('화면 연결(전수): [달기] 창·쓰기/고치기 창은 [없음]을 �
   assert.match(read('report-links.js'),/areaNoneAvailable=\(rt\)=>probe\('areaNone','\/rest\/v1\/app_meetings\?select=business_area_none&limit=1'/);
   const team=read('team.js');
   assert.match(team,/noteAreaNoneFromMeetings\(meetings\)/);
-  assert.match(team,/areaChip!==NO_AREA&&areaChip!==AREA_NONE\?areaChip:''/);
+  assert.match(team,/areaChip!=='all'&&areaChip!==AREA_NONE\?areaChip:''/);
   // 기기 저장 없음은 저장소 전체 검사(Browser storage audit)가 본다.
 });

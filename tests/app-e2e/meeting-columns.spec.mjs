@@ -7,8 +7,8 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {selectMeetingRound,openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
 import {toplineItem} from './helpers/screen-title.mjs';
-import {showAllReportWeeks,reportWeekButton} from './helpers/report-week.mjs';
-import {reportFilterButton,reportFilterKeys,pickReportFilter} from './helpers/report-filter.mjs';
+import {showAllReportWeeks,reportWeekButton,reportPeriodSelect} from './helpers/report-week.mjs';
+import {reportFilterKeys,pickReportFilter} from './helpers/report-filter.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -303,7 +303,7 @@ test('폰 390: 지금 한 줄 목록 그대로(종류 목록·차수 목록 없�
   await open(page,s,390);
   await expect(page.locator('#meetingList :is(.mcol-layout,.mcol-kinds,.mcol-detail)')).toHaveCount(0);
   // UI-전수디자인점검 F01: 회의명 칩 줄 대신 칸 칩 줄 끝 [거르기 ▾] 하나.
-  await expect(reportFilterButton(page)).toBeVisible();expect(await reportFilterKeys(page)).toContain('name');
+  expect(await reportFilterKeys(page)).toContain('name');
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(s.meetings.length);
   // 폰도 PC처럼 최신이 위: 시각 내림차순(받은 순서에 기대지 않음).
   expect(await page.locator('#meetingList [data-mrd-meeting]').evaluateAll(els=>els.map(e=>e.dataset.mrdMeeting))).toEqual(['rail-derived','labor-2','labor-1','rail-6','rail-5','rail-4','rail-3','rail-2','rail-1','blank-1','safety-1']);
@@ -423,44 +423,43 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   const pc=width>=761;
   const shown=()=>page.locator(pc?'#meetingList [data-meeting-round]':'#meetingList [data-mrd-meeting]').evaluateAll((els,pc)=>els.map(e=>pc?e.dataset.meetingRound:e.dataset.mrdMeeting),pc);
   const bar=page.locator('#meetingsView .report-week-bar'),label=page.locator('#reportWeekFilter .report-week-label');
-  const prev=reportWeekButton(page,'prev'),next=reportWeekButton(page,'next'),all=reportWeekButton(page,'all');
-  // 주 줄: 칩 줄 아래, ‹ 라벨(n건) › [전체] 한 줄.
+  const prev=reportWeekButton(page,'prev'),next=reportWeekButton(page,'next'),pick=reportPeriodSelect(page);
+  // 주 줄(S52-22 TEAM-맨위한줄): 맨 위 줄 아래, ‹ 라벨 · n건 › ……… [이번 주 ▾] 한 줄.
   await expect(bar).toBeVisible();await expect(page.locator('#reportWeekFilter')).toHaveAttribute('role','group');
   await expect(prev).toHaveAttribute('aria-label','이전 주');await expect(next).toHaveAttribute('aria-label','다음 주');
-  await expect(all).toHaveText('전체');await expect(all).toHaveAttribute('aria-checked','false');
-  await expect(reportWeekButton(page,'week')).toHaveText('주간 보기');await expect(reportWeekButton(page,'week')).toHaveAttribute('aria-checked','true');await expect(reportWeekButton(page,'range')).toHaveText('기간 설정');
+  await expect(pick.locator('option:not([hidden])')).toHaveText(['이번 주','전체 기간','기간 정하기']);await expect(pick.locator('option:checked')).toHaveText('주 단위');
   const kindBar=await page.locator('#meetingsView .report-kind-bar').boundingBox(),weekBar=await bar.boundingBox();expect(weekBar.y).toBeGreaterThanOrEqual(kindBar.y+kindBar.height-1);
-  // REPORT-기간고르기: 칩 세 개는 폰에서도 한 줄. 주 넘기기(‹ 라벨 ›)도 자기들끼리 한 줄.
-  for(const sel of ['#reportWeekFilter .report-period-chips > *','#reportWeekFilter .report-week-nav > *']){const tops=await page.locator(sel).evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return Math.round(r.top+r.height/2)}));
+  // 주 넘기기(‹ 라벨 ›)와 [이번 주 ▾]는 폰에서도 한 줄.
+  for(const sel of ['#reportWeekFilter .report-week-nav > *, #reportWeekFilter [data-report-period]']){const tops=await page.locator(sel).evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return Math.round(r.top+r.height/2)}));
     expect(Math.max(...tops)-Math.min(...tops)).toBeLessThanOrEqual(2)}
   // 처음: 최근 주(10.19~10.25)의 보고만.
-  await expect(label).toHaveText('10.19(월)~10.25(일) 1건');
+  await expect(label).toHaveText('10.19(월)~10.25(일) · 1건');
   await expect.poll(shown).toEqual(['week-new']);
   if(pc){await expect(page.locator('#meetingList [data-meeting-kind="궤도협의회"] .mcol-count')).toHaveText('1');await expect(result(page)).toHaveAttribute('data-meeting-result','week-new')}
   // ‹: 앞 주(10.12~10.18)의 보고만.
   await prev.click();
-  await expect(label).toHaveText('10.12(월)~10.18(일) 1건');
+  await expect(label).toHaveText('10.12(월)~10.18(일) · 1건');
   await expect.poll(shown).toEqual(['week-old']);
   if(pc)await expect(result(page)).toHaveAttribute('data-meeting-result','week-old');
   // 보고가 없는 주도 넘길 수 있다(0건, 빈 목록).
-  await prev.click();await expect(label).toHaveText('10.5(월)~10.11(일) 0건');await expect.poll(shown).toEqual([]);
+  await prev.click();await expect(label).toHaveText('10.5(월)~10.11(일) · 0건');await expect.poll(shown).toEqual([]);
   // ›: 다시 뒤 주로.
   await next.click();await next.click();
-  await expect(label).toHaveText('10.19(월)~10.25(일) 1건');await expect.poll(shown).toEqual(['week-new']);
+  await expect(label).toHaveText('10.19(월)~10.25(일) · 1건');await expect.poll(shown).toEqual(['week-new']);
   await prev.click();await expect.poll(shown).toEqual(['week-old']);
-  // [전체]: 모든 주(최신 위). ‹ ›는 없어지고 라벨은 '전체 n건'.
-  await all.click();
-  await expect(all).toHaveAttribute('aria-checked','true');await expect(label).toHaveText('전체 2건');
+  // 전체 기간: 모든 주(최신 위). ‹ ›는 없어지고 라벨은 '전체 · n건'.
+  await pick.selectOption('all');
+  await expect(pick).toHaveValue('all');await expect(label).toHaveText('전체 · 2건');
   await expect(prev).toHaveCount(0);await expect(next).toHaveCount(0);
   await expect.poll(shown).toEqual(['week-new','week-old']);
   if(pc)await expect(page.locator('#meetingList [data-meeting-kind="궤도협의회"] .mcol-count')).toHaveText('2');
-  // [주간 보기]를 누르면 보던 주(10.12~10.18)로.
-  await reportWeekButton(page,'week').click();
-  await expect(all).toHaveAttribute('aria-checked','false');await expect(label).toHaveText('10.12(월)~10.18(일) 1건');
+  // '이번 주'를 고르면 주 단위로, 보던 주(10.12~10.18)로 돌아간다.
+  await pick.selectOption('week');
+  await expect(pick).not.toHaveValue('all');await expect(label).toHaveText('10.12(월)~10.18(일) · 1건');
   await expect.poll(shown).toEqual(['week-old']);
   // 다른 곳에서 고른 보고(KPTUMeetingColumns.select)가 지금 주에 없으면 그 보고의 주로 옮긴다.
   await page.evaluate(()=>window.KPTUMeetingColumns.select({id:'week-new'}));
-  await expect(label).toHaveText('10.19(월)~10.25(일) 1건');await expect.poll(shown).toEqual(['week-new']);
+  await expect(label).toHaveText('10.19(월)~10.25(일) · 1건');await expect.poll(shown).toEqual(['week-new']);
   if(pc)await expect(result(page)).toHaveAttribute('data-meeting-result','week-new');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
@@ -476,12 +475,12 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록] 주 단위 
   const pc=width>=761;
   const shown=()=>page.locator(pc?'#meetingList [data-meeting-round]':'#meetingList [data-mrd-meeting]').evaluateAll((els,pc)=>els.map(e=>pc?e.dataset.meetingRound:e.dataset.mrdMeeting),pc);
   const label=page.locator('#reportWeekFilter .report-week-label');
-  await expect(label).toHaveText('10.19(월)~10.25(일) 1건 · 일시 없음 1');
+  await expect(label).toHaveText('10.19(월)~10.25(일) · 1건 · 일시 없음 1');
   await expect.poll(shown).toEqual(['week-new','no-when']);
   if(pc)await expect(page.locator('#meetingList [data-meeting-round="no-when"]')).toHaveAttribute('aria-label',/일시 없음/);
   else await expect(page.locator('#meetingList [data-mrd-meeting="no-when"]')).toContainText('일시 없음');
   await reportWeekButton(page,'prev').click();
-  await expect(label).toHaveText('10.12(월)~10.18(일) 1건 · 일시 없음 1');
+  await expect(label).toHaveText('10.12(월)~10.18(일) · 1건 · 일시 없음 1');
   await expect.poll(shown).toEqual(['week-old','no-when']);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);

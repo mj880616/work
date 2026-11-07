@@ -1,0 +1,152 @@
+import { appOrigin } from './helpers/test-origin.mjs';
+import { test, expect } from '@playwright/test';
+import { enterLogin } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+
+// S52-22 TEAM-맨위한줄(요청 11/07 16:18, 시안 docs/design/mockups/report-top-bar.html): 사업 보고 맨 위는 언제나 한 줄 [종류 ▾][사업영역 ▾][녹음][⋯]
+// + 기간 한 줄 '‹ 날짜 · n건 › [이번 주 ▾]', '거르기'라는 말이 없고, [목록|달력|사진]은 탭 자리 규칙(폰 아래 가운데·폴드 오른쪽 아래·PC 위).
+// (가짜 서버·가짜 보고는 report-period.spec.mjs와 같은 틀. 모든 이름·번호는 합성 값.)
+test.use({timezoneId: 'Asia/Seoul'});
+const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+const ID = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+const M1 = ID(901), M2 = ID(902), M3 = ID(903), M4 = ID(904), M5 = ID(905);
+const now = () => new Date().toISOString();
+const seoulKey = d => new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Seoul'}).format(d);
+
+function makeState() {
+  const at = new Date(Date.now()), today = at.toISOString();
+  const [y, mo] = seoulKey(at).split('-').map(Number);
+  const meeting = (id, title, kind, when) => ({id, workspace_id: 'workspace-1', title, series_name: title, round_no: null, meeting_at: when, activity_kind: kind, created_by: 'user-1', notes: '', decisions: '', transcript_text: '원문'});
+  const doc = (n, mid, name = `s${n}.jpg`) => ({id: ID(n), workspace_id: 'workspace-1', project_id: null, title: '사진 ' + n, file_name: name, mime_type: 'image/jpeg', category: '회의', tags: [], meeting_id: mid, file_id: 'drive-' + n, created_at: `2026-10-0${n % 9 + 1}T00:00:00Z`, document_date: '2026-10-20'});
+  const docs = [];
+  for (let k = 1; k <= 5; k++) docs.push(doc(10 + k, M1));
+  docs.push(doc(21, M2), doc(31, M5));
+  return {
+    year: y, month: mo - 1, photoCalls: [], meetingOpens: [], docs,
+    user: {id: 'user-1', email: 'owner@example.org', user_metadata: {display_name: '관리자'}},
+    workspace: {id: 'workspace-1', slug: 'team', name: '웹2'},
+    meetings: [meeting(M1, '○○ 대표자 회의', 'meeting', today), meeting(M2, '□□ 실무 회의', 'meeting', today), meeting(M3, '△△ 점검 회의', 'meeting', today),
+      meeting(M4, '지난 회의', 'meeting', new Date(Date.now() - 40 * 86400000).toISOString()), meeting(M5, '◇◇ 결의대회', 'struggle', today)]
+  };
+}
+
+async function mock(page, state) {
+  await page.route(`${SB}/**`, async route => {
+    const req = route.request(), url = new URL(req.url()), path = url.pathname;
+    const ok = data => route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(data ?? null)});
+    if (path === '/auth/v1/token') return ok({access_token: 'e2e-access', refresh_token: 'e2e-refresh', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: state.user});
+    if (path === '/auth/v1/user') return ok(state.user);
+    if (path === '/auth/v1/logout') return ok({});
+    if (path === '/functions/v1/library-files' && req.method() === 'GET') {
+      state.photoCalls.push({id: url.searchParams.get('document_id'), size: url.searchParams.get('size')});
+      return route.fulfill({status: 200, contentType: 'image/png', body: PNG});
+    }
+    if (path === '/functions/v1/google-calendar') return ok({connected: false, enabled: false, selected: [], calendars: [], events: [], eventColors: {}});
+    if (path.startsWith('/functions/v1/')) return ok({});
+    if (path.startsWith('/rest/v1/rpc/')) return ok(null);
+    if (path === '/rest/v1/app_workspace_members') return ok([{workspace_id: 'workspace-1', user_id: state.user.id, role: 'owner', workspace: state.workspace, created_at: now()}]);
+    if (path === '/rest/v1/app_workspaces') return ok([state.workspace]);
+    if (path === '/rest/v1/app_documents' && req.method() === 'GET') return ok(state.docs);
+    if (path === '/rest/v1/app_meetings' && req.method() === 'GET') {
+      const id = url.searchParams.get('id') || '';
+      if (!id || id.startsWith('in.(')) return ok(state.meetings);
+      state.meetingOpens.push(id);
+      return ok(state.meetings.filter(m => 'eq.' + m.id === id));
+    }
+    if (path === '/rest/v1/app_profiles') return ok([{user_id: state.user.id, display_name: '관리자'}]);
+    if (path.startsWith('/rest/v1/')) return ok([]);
+    return ok({});
+  });
+}
+
+async function open(page, state, width, prefsInitial = null, prefsOptions = {}) {
+  await page.setViewportSize({width, height: 900});
+  const prefs = await installViewPrefsServer(page, prefsInitial, prefsOptions);
+  await mock(page, state);
+  await page.goto(`${appOrigin}/app/?view=meetings`);
+  await enterLogin(page);
+  await signInWithSession(page, 'owner@example.org');
+  await page.waitForFunction(() => window.KPTUViewLoader?.isLoaded('meetings'));
+  await expect(page.locator('#reportViewFilter [data-filter-value]')).toHaveCount(3);
+  return prefs;
+}
+const tops = els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); });
+const visibleIn = sel => document.querySelectorAll(sel);
+async function lineCenters(page, sel) {
+  return page.locator(sel).evaluateAll(els => els.filter(e => e.getClientRects().length && getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden').map(e => { const r = e.getBoundingClientRect(); return {mid: Math.round(r.top + r.height / 2), right: r.right, w: r.width}; }));
+}
+for (const width of [412, 884, 1280, 1440]) test(`${width}: 맨 위 한 줄 + 기간 한 줄, '거르기' 말 없음, 보기 탭 자리`, async ({page}) => {
+  const state = makeState();
+  await open(page, state, width);
+  const bar = page.locator('#meetingsView .report-kind-bar');
+  await expect(bar).toBeVisible();
+  // 줄 안 보이는 것들이 모두 한 줄(가운데 높이 같음)이고 줄이 화면 안이다.
+  // 폰(~760px)의 [+ 사업 보고]는 하단 동그란 [+](화면 기준 고정)라 줄 높이 재기에서 뺀다.
+  const items = await lineCenters(page, '#meetingsView .report-kind-bar > :is(select,#reportKindFilter), #meetingsView .report-kind-bar .report-head-actions > :not([hidden])').then(xs => xs.filter(x => x.mid < 300));
+  expect(items.length).toBeGreaterThanOrEqual(2);
+  const mids = items.map(x => x.mid);
+  expect(Math.max(...mids) - Math.min(...mids)).toBeLessThanOrEqual(3);
+  const box = await bar.boundingBox();
+  expect(box.height).toBeLessThanOrEqual(48);
+  for (const x of items) expect(x.right).toBeLessThanOrEqual(width + 1);
+  await expect(page.locator('#meetingsView')).not.toContainText('거르기');
+  // 종류: 1200px 아래는 고르기 상자, PC는 칩.
+  if (width < 1200) { await expect(page.locator('#reportKindSelect')).toBeVisible(); await expect(page.locator('#reportKindFilter')).toBeHidden(); }
+  else { await expect(page.locator('#reportKindFilter')).toBeVisible(); await expect(page.locator('#reportKindSelect')).toBeHidden(); }
+  // 녹음·⋯는 맨 위 줄 안.
+  await expect(bar.locator('#reportMore')).toBeVisible();
+  // 기간 한 줄: ‹ 날짜 · n건 › + [이번 주 ▾].
+  const period = page.locator('#reportWeekFilter [data-report-period]');
+  await expect(period).toBeVisible();
+  await expect(period).toHaveValue('week');
+  await expect(page.locator('#reportWeekFilter .report-week-label')).toContainText(/\(월\)~.*\(일\) · \d+건/);
+  const pmids = (await lineCenters(page, '#reportWeekFilter .report-week-nav > *, #reportWeekFilter [data-report-period]')).map(x => x.mid);
+  expect(Math.max(...pmids) - Math.min(...pmids)).toBeLessThanOrEqual(3);
+  // 보기 탭 자리: 폰 아래 가운데, 폴드(761~1199) 오른쪽 아래, PC 위(목록 상자 머리).
+  const seg = await page.locator('#reportViewFilter').boundingBox(), vp = page.viewportSize();
+  if (width < 600) { expect(Math.abs(seg.x + seg.width / 2 - vp.width / 2)).toBeLessThanOrEqual(2); expect(seg.y).toBeGreaterThan(vp.height / 2); }
+  else if (width < 1200) { expect(seg.x + seg.width).toBeGreaterThan(vp.width - 40); expect(seg.y).toBeGreaterThan(vp.height / 2); }
+  else { const list = await page.locator('#meetingList').boundingBox(); expect(seg.y).toBeLessThan(list.y); }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
+  // 화면 칸 안에서도 옆으로 넘치지 않는다(button-sizing.spec와 같은 재기).
+  expect(await page.locator('#meetingsView').evaluate(el => { const out = [...el.querySelectorAll('*')].filter(e => getComputedStyle(e).position !== 'fixed' && !e.closest('#reportViewFilter') && e.getBoundingClientRect().right > el.getBoundingClientRect().right + 1).map(e => e.id || e.className).slice(0, 5); return {over: el.scrollWidth > el.clientWidth, out}; })).toEqual({over: false, out: []});
+  if (process.env.SHOT_DIR) await page.screenshot({path: `${process.env.SHOT_DIR}/report-top-${width}.png`});
+});
+
+test('412: [종류 ▾]로 고르면 그 칸만 보이고 글자가 진해지며, [회의]일 때 회의명도 같은 상자에서 고른다', async ({page}) => {
+  const state = makeState();
+  await open(page, state, 412);
+  const kind = page.locator('#reportKindSelect');
+  await expect(kind.locator('option').first()).toHaveText('종류 전체');
+  await expect(kind).toHaveValue('kind:meeting');
+  await expect(kind.locator('optgroup[label="회의명"] option')).toContainText(['○○ 대표자 회의']);
+  await kind.selectOption('name:○○ 대표자 회의');
+  await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
+  await kind.selectOption('kind:all');
+  await expect(kind).toHaveValue('kind:all');
+  await expect(kind).not.toHaveClass(/is-on/);
+  await kind.selectOption('kind:struggle');
+  await expect(kind).toHaveClass(/is-on/);
+  await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
+  await expect(page.locator('#meetingList')).toContainText('◇◇ 결의대회');
+});
+
+test('412: [이번 주 ▾] — 전체 기간·기간 정하기·주 넘기면 주 단위, 이번 주로 돌아오기', async ({page}) => {
+  const state = makeState();
+  await open(page, state, 412);
+  const period = page.locator('#reportWeekFilter [data-report-period]'), label = page.locator('#reportWeekFilter .report-week-label');
+  await expect(period.locator('option:not([hidden])')).toHaveText(['이번 주', '전체 기간', '기간 정하기']);
+  await page.locator('#reportWeekFilter [data-report-week="prev"]').click();
+  await expect(period).toHaveValue('');
+  await expect(period).toHaveClass(/is-on/);
+  await period.selectOption('week');
+  await expect(period).toHaveValue('week');
+  await expect(period).not.toHaveClass(/is-on/);
+  await period.selectOption('all');
+  await expect(label).toContainText('전체 · ');
+  await expect(page.locator('#reportWeekFilter [data-report-week="prev"]')).toHaveCount(0);
+  await period.selectOption('range');
+  await expect(page.locator('#reportWeekFilter [data-report-period-panel]')).toBeVisible();
+});

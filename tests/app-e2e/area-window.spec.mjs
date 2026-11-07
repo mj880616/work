@@ -6,7 +6,7 @@ import {SHEET as AOP_SHEET,pressRow} from './helpers/area-org-picker.mjs';
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
-import {reportWeekButton} from './helpers/report-week.mjs';
+import {reportWeekButton,reportPeriodSelect} from './helpers/report-week.mjs';
 import {openMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
@@ -113,8 +113,8 @@ for(const width of [390,1280])test(`${width}: '사업영역 안 단 보고 n건 
   // 0건인 주(9.28~10.4)는 줄이 없다. [전체] 보기도 줄이 없다(보고 있는 주가 아님).
   await reportWeekButton(page,'prev').click();await expect(weekLabel(page)).toContainText(WEEK_B);await expect(line).toBeHidden();
   await reportWeekButton(page,'next').click();await expect(weekLabel(page)).toContainText(WEEK_A);await expect(line).toBeVisible();
-  await reportWeekButton(page,'all').click();await expect(line).toBeHidden();
-  await reportWeekButton(page,'week').click();await expect(line).toBeVisible();
+  await reportPeriodSelect(page).selectOption('all');await expect(line).toBeHidden();
+  await reportPeriodSelect(page).selectOption('week');await expect(line).toBeVisible();
   // 줄은 얇고 버튼은 작다.
   const btn=line.locator('[data-area-untagged]');
   expect((await line.boundingBox()).height).toBeLessThanOrEqual(36);expect((await btn.boundingBox()).height).toBeLessThanOrEqual(28);

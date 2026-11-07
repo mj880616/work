@@ -4,7 +4,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
-// REPORT-기간고르기(S49-11): 사업 보고 기간 줄 [전체][주간 보기][기간 설정] — 고른 기간을 서버(view_prefs.report_period)에 기억하고 다시 열어도 유지.
+// REPORT-기간고르기(S49-11) → S52-22 TEAM-맨위한줄: 사업 보고 기간 한 줄 '‹ 날짜 · n건 ›' + [이번 주 ▾](이번 주·전체 기간·기간 정하기) — 고른 기간을 서버(view_prefs.report_period)에 기억하고 다시 열어도 유지.
 // (가짜 서버·가짜 보고는 report-views.spec.mjs와 같은 틀.)
 // 원래 설명: 사업 보고 화면의 [목록|달력|사진] 보기. 달력은 사업 보고 화면 안에서만, 사진은 날짜 묶음 격자(크게 보기 재사용),
 // 고른 보기는 서버(프로필 view_prefs.report_view)에 기억하고 칸이 아직 없는 서버(적용 전)면 기억만 건너뛴다. 모든 이름·번호는 합성 값.
@@ -75,25 +75,25 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
 }
 const view = (page, label) => page.locator('#reportViewFilter').getByRole('radio', {name: label});
 const chip = (page, v) => page.locator(`#reportWeekFilter [data-report-week="${v}"]`);
+const period = page => page.locator('#reportWeekFilter [data-report-period]');
 const label = page => page.locator('#reportWeekFilter .report-week-label');
 const kindNamesIn = page => page.locator('#meetingList .mcol-kinds .mcol-name, #meetingList .meeting-list-title h3');
 const daysAgo = n => seoulKey(new Date(Date.now() - n * 86400000));
 
-for (const width of [1440, 390]) test(`${width}: 기간 칩 세 개 한 줄 — 기본은 주간 보기, [전체]는 ‹ › 없이 '전체 n건'`, async ({page}) => {
+for (const width of [1440, 390]) test(`${width}: 기간 한 줄 — 기본은 이번 주(‹ ›), 전체 기간은 ‹ › 없이 '전체 · n건'`, async ({page}) => {
   const state = makeState();
   await open(page, state, width);
-  await expect(page.locator('#reportWeekFilter .report-period-chips button')).toHaveText(['전체', '주간 보기', '기간 설정']);
-  await expect(chip(page, 'week')).toHaveAttribute('aria-checked', 'true');
+  await expect(period(page).locator('option:not([hidden])')).toHaveText(['이번 주', '전체 기간', '기간 정하기']);
+  await expect(period(page)).toHaveValue('week');
   await expect(chip(page, 'prev')).toBeVisible();
-  const tops = await page.locator('#reportWeekFilter .report-period-chips > *').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().top)));
+  const tops = await page.locator('#reportWeekFilter .report-week-nav > *, #reportWeekFilter [data-report-period]').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
-  await chip(page, 'all').click();
-  await expect(chip(page, 'all')).toHaveAttribute('aria-checked', 'true');
-  await expect(chip(page, 'week')).toHaveAttribute('aria-checked', 'false');
+  await period(page).selectOption('all');
+  await expect(period(page)).toHaveValue('all');
   await expect(label(page)).toContainText('전체');
   await expect(chip(page, 'prev')).toHaveCount(0);
   await expect(chip(page, 'next')).toHaveCount(0);
-  await chip(page, 'week').click();
+  await period(page).selectOption('week');
   await expect(chip(page, 'prev')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
 });
@@ -102,7 +102,7 @@ test('기간 설정: 달력으로 시작·끝 날을 고르면 그 기간 보고
   const state = makeState();
   const prefs = await open(page, state, 1440);
   const from = daysAgo(41), to = daysAgo(39);
-  await chip(page, 'range').click();
+  await period(page).selectOption('range');
   const panel = page.locator('[data-report-period-panel]');
   await expect(panel).toBeVisible();
   await expect(panel.locator('input[type="date"]')).toHaveCount(2);
@@ -116,7 +116,8 @@ test('기간 설정: 달력으로 시작·끝 날을 고르면 그 기간 보고
   await panel.locator('[data-report-to]').fill(to);
   await panel.locator('[data-report-week="apply"]').click();
   await expect(panel).toHaveCount(0);
-  await expect(chip(page, 'range')).toHaveAttribute('aria-checked', 'true');
+  await expect(period(page)).toHaveValue('');
+  await expect(period(page).locator('option:checked')).toHaveText('정한 기간');
   await expect(label(page)).toContainText('1건');
   await expect(chip(page, 'prev')).toHaveCount(0);
   await expect(page.locator('#meetingList')).toContainText('지난 회의');
@@ -127,21 +128,21 @@ test('기간 설정: 달력으로 시작·끝 날을 고르면 그 기간 보고
   // 새 브라우저 창(로그인 기억이 없는 새 환경)에서 열어, 서버에 기억한 값만으로 같은 기간이 나오는지 본다.
   const context2 = await browser.newContext(), page2 = await context2.newPage();
   await open(page2, makeState(), 1440, saved);
-  await expect(chip(page2, 'range')).toHaveAttribute('aria-checked', 'true');
+  await expect(period(page2).locator('option:checked')).toHaveText('정한 기간');
   await expect(page2.locator('#meetingList')).toContainText('지난 회의');
   await expect(page2.locator('#meetingList')).not.toContainText('○○ 대표자 회의');
   // × 로 지우면 주간 보기로 돌아가고 기억도 비운다.
   await page2.locator('#reportWeekFilter [data-report-week="clear"]').click();
-  await expect(chip(page2, 'week')).toHaveAttribute('aria-checked', 'true');
+  await expect(period(page2)).toHaveValue('week');
   await context2.close();
 });
 
 test('빠른 칩 [최근 3달]은 바로 적용된다', async ({page}) => {
   const state = makeState();
   const prefs = await open(page, state, 1440);
-  await chip(page, 'range').click();
+  await period(page).selectOption('range');
   await page.locator('[data-report-quick="last-3"]').click();
-  await expect(chip(page, 'range')).toHaveAttribute('aria-checked', 'true');
+  await expect(period(page).locator('option:checked')).toHaveText('정한 기간');
   await expect.poll(() => prefs.value?.report_period?.mode).toBe('range');
   await expect(page.locator('#meetingList')).toContainText('지난 회의');
 });

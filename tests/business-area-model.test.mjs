@@ -89,14 +89,13 @@ test('화면 연결: 쓰기 창·고치기 창·보기 면·미리보기·⋯ �
   assert.match(read('report-links.js'), /select=business_area_id,next_plan&limit=1/);
 });
 
-test('사업영역 칩: 보고가 있는 1단만(트리 순서), 옛 보고는 빌린 꼬리표로, 안 단 보고 n', () => {
+test('사업영역 고르기: 보고가 있는 1단만(트리 순서), 옛 보고는 빌린 꼬리표로, 안 단 보고는 목록에 없음(S52-22)', () => {
   const list = [...meetings, {id:'r5', series_name:'아무 데도', meeting_at:'2026-10-09T01:00:00Z'}];
-  assert.deepEqual(m.areaChipOptions(list, tree), [{value:'all', label:'전체'}, {value:'A', label:'사업영역 A'}, {value:'B', label:'사업영역 B'}, {value:m.NO_AREA, label:'안 단 보고 1'}]);
+  assert.deepEqual(m.areaChipOptions(list, tree), [{value:'all', label:'전체'}, {value:'A', label:'사업영역 A'}, {value:'B', label:'사업영역 B'}]);
   const roots = m.areaRoots(tree);
   assert.equal(roots.get('A1x'), 'A');
   assert.deepEqual(list.filter(x => m.matchesAreaChip(x, 'A', roots)).map(x => x.id), ['r1', 'r3', 'r4']);
   assert.deepEqual(list.filter(x => m.matchesAreaChip(x, 'B', roots)).map(x => x.id), ['r2']);
-  assert.deepEqual(list.filter(x => m.matchesAreaChip(x, m.NO_AREA, roots)).map(x => x.id), ['r5']);
   assert.equal(list.filter(x => m.matchesAreaChip(x, 'all', roots)).length, 5);
   // 칩·목록 연결(정적): 거르기는 목록·달력·사진·PC 세 칸이 함께 쓰는 reportRows·meetingColumnList 한 곳에서.
   const team = readFileSync(new URL('../app/team.js', import.meta.url), 'utf8');
