@@ -1115,6 +1115,8 @@
   font-size:var(--ds-compact-text); line-height:1; white-space:nowrap;
 }
 #appView #basketView .basket-edit-actions .basket-clip{ gap:4px; }
+/* UI-창아래버튼통일(11/07): 수정 화면 아래 줄의 [📎 첨부]도 같은 줄 [큰 창에서 수정][취소]와 한 가족 — 36px·선 없음·연한 채움. */
+#appView #basketView .basket-edit-actions .basket-clip{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); border-color:transparent; background:var(--kptu-primary-soft); }
 #appView #basketView .basket-edit-actions > button::after,
 #appView #basketView .basket-edit-actions .basket-clip::after,
 #appView #basketView .basket-editor-files [data-basket-upload]::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }

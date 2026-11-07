@@ -5,7 +5,7 @@ import { answerAsk } from './helpers/small-notice.mjs';
 
 // UI-업데이트편집한줄(2026-10-20 사용자 결정): 바구니 업데이트 수정 화면 아래 버튼은 노트처럼 한 줄 —
 // [📎 첨부] [큰 창에서 수정] [수정 저장] [취소](노트 [큰 창에서 수정][저장][취소] 순서). 공용 작은 버튼(보이는 32px, 누르는 범위 44px),
-// UI-창아래버튼통일(11/07): 그중 [큰 창에서 수정][취소][수정 저장]은 창 아래 줄 한 가족 36px, 바탕 없는 [📎 첨부]는 32px — 줄 가운데 높이가 같다.
+// UI-창아래버튼통일(11/07): 네 버튼 모두 창 아래 줄 한 가족 36px(선 없음, 채움만 다름).
 // 360·390·1280에서 한 줄·글자 잘림 없음. [첨부 저장]은 파일을 골랐을 때만 고른 파일 옆에 보인다(저장 경로는 그대로).
 test.use({ hasTouch: true });
 async function openEdit(page, width) {
@@ -31,7 +31,7 @@ for (const width of [360, 390, 1280]) test(`update edit buttons [첨부][큰 창
   for (const b of await bar.locator('button:visible').all()) boxes.push(await measure(b));
   for (const [i, m] of boxes.entries()) {
     expect(m.cut, order[i]).toBe(false);
-    expect(m.height, order[i]).toBe(i === 0 ? 32 : 36);
+    expect(m.height, order[i]).toBe(36);
     expect(m.touch, order[i]).toBe(44);
     expect(m.font, order[i]).toBe('13px');
     expect(Math.abs(m.mid - boxes[0].mid), order[i]).toBeLessThanOrEqual(0.5);
