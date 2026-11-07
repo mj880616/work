@@ -3,7 +3,11 @@
 // S48-45 쓰기 rename·mkdir·move·trash·across, S49-27 copy, S49-28 전송 작업표 job_add·job_list·job_pause·job_resume)를 흉내 낸다.
 // 작업표: job_list를 부를 때마다 가장 오래된 줄이 한 걸음 나아간다(작은 것은 끝, 큰 것(big)은 40%씩). jobsHold면 멈춰 있고, jobFail이면 첫 줄이 그 까닭으로 한 번 실패.
 import { expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { openHome } from './home-entry.mjs';
+import { servePagesCors } from './hwp-editor.mjs';
+// S52-44 ③: 한글 파일 미리보기는 저장소 한글 엔진(칸막이 iframe)이 읽는다 — 흉내 서버는 진짜 시험용 한글 파일을 돌려준다.
+const HWP = readFileSync(new URL('../../fixtures/hwp-lab/sample.hwp', import.meta.url)), HWPX = readFileSync(new URL('../../fixtures/hwp-lab/sample.hwpx', import.meta.url));
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 export const UPLOAD_HOST = 'https://upload.example.test';
 // 시계는 2026-10-06 10:00 서울(home-entry.mjs).
@@ -87,6 +91,7 @@ export async function filesServer(page, { connected = { od: true, gd: true }, pr
       if (a === 'media') {
         const it = server.items.find(i => i.source === body.source && i.item_id === body.id);
         if (it?.mime === 'text/plain') return route.fulfill({ status: 206, contentType: 'text/plain; charset=utf-8', body: '가짜 메모 첫 줄\n둘째 줄' });
+        if (/\.hwpx?$/i.test(it?.name || '')) return route.fulfill({ status: 200, contentType: 'application/octet-stream', body: /x$/i.test(it.name) ? HWPX : HWP });
         return route.fulfill({ status: 200, contentType: 'application/pdf', body: fakePdf() });
       }
       if (a === 'open-url') return ok({ ok: true, url: 'https://example.org/fake-open' });
@@ -257,6 +262,7 @@ export async function start(page, width, opts) {
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
   await openHome(page);
+  await servePagesCors(page); // 한글 엔진 파일(GitHub Pages처럼 다른 출처 허용 머리)
   const server = await filesServer(page, opts);
   return { errors, server };
 }
