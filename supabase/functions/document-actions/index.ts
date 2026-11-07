@@ -214,7 +214,13 @@ async function registerBasketAttachment(userId: string, body: { note_id?: unknow
   if (!attachment) throw fail('이 메모의 첨부가 아닙니다.', 'ATTACHMENT_NOT_FOUND');
   const existing = await registeredDocument(workspaceId, fileId);
   if (existing) return { ok: true, result: 'exists', document: existing };
+  return await registerDriveDocument(userId, workspaceId, fileId, attachment, '바구니 메모 첨부에서 등록(같은 Drive 원본)');
+}
 
+// BASKET-4b-1 B 등록의 뒷부분(FILES-자료실로보내기도 같이 씀): 그 작업공간 Drive 연결로 원본을 다시 읽어(내 소유·휴지통 아님) 같은 Drive 원본을
+// 가리키는 자료 행 하나를 만든다. 복사·이동·올리기 없음. 이름·종류·크기는 known(서버가 읽은 값)이 먼저, 없으면 Drive 값.
+type KnownFile = { file_name?: unknown; mime_type?: unknown; size_bytes?: unknown };
+async function registerDriveDocument(userId: string, workspaceId: string, fileId: string, known: KnownFile, note: string) {
   const token = await driveTokenFor(userId, workspaceId)();
   let r: Response;
   try {
@@ -230,16 +236,16 @@ async function registerBasketAttachment(userId: string, body: { note_id?: unknow
   if (!file || file.id !== fileId || file.ownedByMe !== true || typeof file.trashed !== 'boolean') throw fail('Drive 원본을 확인하지 못했습니다.', 'DRIVE_FILE_INVALID');
   if (file.trashed) throw fail('Drive 원본이 휴지통에 있어 보내지 않았습니다.', 'DRIVE_FILE_TRASHED');
 
-  const fileName = typeof attachment.file_name === 'string' && attachment.file_name.trim() ? attachment.file_name.trim().slice(0, 255) : String(file.name || '첨부');
+  const fileName = typeof known.file_name === 'string' && known.file_name.trim() ? known.file_name.trim().slice(0, 255) : String(file.name || '첨부').slice(0, 255);
   const title = fileName.replace(/\.[^.]+$/, '').trim() || fileName;
-  const size = typeof attachment.size_bytes === 'number' && Number.isSafeInteger(attachment.size_bytes) && attachment.size_bytes >= 0 ? attachment.size_bytes : (Number.isSafeInteger(Number(file.size)) ? Number(file.size) : null);
+  const size = typeof known.size_bytes === 'number' && Number.isSafeInteger(known.size_bytes) && known.size_bytes >= 0 ? known.size_bytes : (Number.isSafeInteger(Number(file.size)) ? Number(file.size) : null);
   const link = typeof file.webViewLink === 'string' && file.webViewLink.startsWith('https://') ? file.webViewLink : `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view`;
   const row = {
     workspace_id: workspaceId, project_id: null, meeting_id: null, title, category: '기타', source: null, document_date: null, description: null, tags: [],
     drive_url: link, file_id: fileId, file_name: fileName,
-    mime_type: typeof attachment.mime_type === 'string' && attachment.mime_type ? attachment.mime_type : String(file.mimeType || 'application/octet-stream'),
+    mime_type: typeof known.mime_type === 'string' && known.mime_type ? known.mime_type : String(file.mimeType || 'application/octet-stream'),
     file_size: size, visibility: 'private', uploaded_by: userId, auto_classified: false,
-    classification_note: '바구니 메모 첨부에서 등록(같은 Drive 원본)',
+    classification_note: note,
   };
   // Re-check right before the write to narrow the window of a parallel send.
   const again = await registeredDocument(workspaceId, fileId);
@@ -261,6 +267,24 @@ async function registerBasketAttachment(userId: string, body: { note_id?: unknow
   const created = await w.json().catch(() => null);
   if (!Array.isArray(created) || created.length !== 1 || created[0]?.file_id !== fileId || created[0]?.workspace_id !== workspaceId || typeof created[0]?.id !== 'string') throw unknown();
   return { ok: true, result: 'created', document: { id: created[0].id, title: String(created[0].title ?? title) } };
+}
+
+// FILES-자료실로보내기(S52-26, 명진 11/07 11:41 '(가) 연결만'): [파일]의 구글 드라이브 파일을 사본 없이 자료실 자료로 연결한다.
+// 작업공간은 부른 사람의 owner 작업공간 하나(화면 값 믿지 않음). 그 파일은 그 작업공간의 [파일] 색인(app_cloud_items, 서버만 씀)에
+// 구글(gd)·파일(폴더 아님)·휴지통 아님으로 있어야 하고, 등록은 그 작업공간 Drive 연결로 원본을 다시 읽은 뒤(registerDriveDocument:
+// 내 소유·휴지통 아님) 한다. 다른 작업공간의 색인·Drive 연결은 읽지도 쓰지도 않는다. 이미 같은 원본 자료가 있으면 새로 만들지 않는다(exists).
+// 이름·종류·크기는 색인 값. 제목·분류·사업영역 등은 화면이 그 뒤 자기 로그인(owner RLS)으로 고친다(자료실 [정보 수정]과 같은 길).
+async function registerDriveFile(userId: string, body: { drive_file_id?: unknown }) {
+  const fileId = String(body?.drive_file_id || '');
+  if (!DRIVE_ID.test(fileId)) throw fail('보낼 구글 드라이브 파일을 확인할 수 없습니다.', 'INVALID_REQUEST');
+  const own = await callerOwnerWorkspace({ rest: (path: string) => db(path) }, userId);
+  if (!own) throw fail('워크스페이스 소유자 권한이 필요합니다.', 'FORBIDDEN');
+  const rows = await db(`app_cloud_items?workspace_id=eq.${encodeURIComponent(own)}&source=eq.gd&item_id=eq.${encodeURIComponent(fileId)}&select=item_id,name,is_folder,mime,size_bytes,trashed&limit=1`);
+  const item = Array.isArray(rows) ? rows[0] : null;
+  if (!item || item.item_id !== fileId || item.is_folder !== false || item.trashed !== false) throw fail('[파일]의 구글 드라이브 파일이 아닙니다.', 'FILE_NOT_FOUND');
+  const existing = await registeredDocument(own, fileId);
+  if (existing) return { ok: true, result: 'exists', document: existing };
+  return await registerDriveDocument(userId, own, fileId, { file_name: item.name, mime_type: item.mime, size_bytes: Number.isSafeInteger(Number(item.size_bytes)) && item.size_bytes != null ? Number(item.size_bytes) : undefined }, '[파일]의 구글 드라이브에서 연결(같은 Drive 원본)');
 }
 
 // HWP-편집기 2단계: open an HWP/HWPX library document or basket attachment in the
@@ -373,6 +397,16 @@ Deno.serve(withWebCors(async (req: Request) => {
         const status = known && typeof (e as { status?: unknown })?.status === 'number' ? (e as { status: number }).status : 503;
         console.error('document-actions dev-made failed', { code: known ? code : 'RESULT_UNKNOWN' });
         return json({ error: known && e instanceof Error ? e.message : '번호를 읽지 못했습니다.', code: known ? code : 'RESULT_UNKNOWN' }, status);
+      }
+    }
+    if (action === 'register-drive-file') {
+      try {
+        return json(await registerDriveFile(user.id, body));
+      } catch (e) {
+        // 400: refused before any write. 503: the write may have happened (check the library first).
+        const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : undefined;
+        console.error('document-actions register-drive failed', safeErrorLog(e));
+        return json({ error: safeErrorMessage(e), ...(code ? { code } : {}) }, code === 'RESULT_UNKNOWN' ? 503 : 400);
       }
     }
     if (action === 'register-basket-attachment') {

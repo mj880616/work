@@ -11,6 +11,7 @@ let ctx = null, menu = null, owner = null;
 // 16px 선 아이콘(글자 색을 따름 — 휴지통은 빨강). 경로만 두고 그리는 곳은 rowMenuHtml 하나.
 const PEN = 'M3 13l1-3 7-7 2 2-7 7z', BIN = 'M3 4h10M6 4V2.5h4V4M4.5 4l.7 9h5.6l.7-9', CAL = 'M3 4h10v9H3zM3 7h10M6 2.5v3M10 2.5v3';
 const STAR = 'M8 2.5l1.7 3.5 3.8.5-2.8 2.6.7 3.8L8 11l-3.4 1.9.7-3.8L2.5 6.5l3.8-.5z';
+const SHELF = 'M3 3h3v10H3zM7 3h3v10H7zM11 4.5l2-.5 1.5 8.5-2 .5z'; // 자료실(책꽂이)
 export const ROW_MENU_ICON = Object.freeze({
   open: 'M6.5 3H3v10h10V9.5M9 3h4v4M13 3L7.5 8.5', only: 'M3 6V3h3M10 3h3v3M13 10v3h-3M6 13H3v-3', mkdir: 'M8 3.5v9M3.5 8h9',
   upload: 'M8 11V3M5 6l3-3 3 3M3 13h10', copy: 'M5 5h8v8H5zM3 10V3h7', move: 'M2 8h10M9 5l3 3-3 3',
@@ -18,7 +19,7 @@ export const ROW_MENU_ICON = Object.freeze({
   star: STAR, unstar: STAR, color: 'M8 3a5 5 0 1 0 0 10 5 5 0 1 0 0-10zM8 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3z',
   up: 'M8 13V3M4 7l4-4 4 4', down: 'M8 3v10M4 9l4 4 4-4', trash: BIN, delete: BIN,
   orgs: 'M7 9l2-2M5.5 7.5l-1.3 1.3a2 2 0 0 0 2.9 2.9l1.3-1.3M10.5 8.5l1.3-1.3a2 2 0 0 0-2.9-2.9L7.6 5.6', report: 'M4 2.5h8v11H4zM6 6h4M6 8.5h4M6 11h2',
-  event: CAL, day: CAL, task: 'M3 3h10v10H3zM5.5 8l2 2 3-4'
+  tolib: SHELF, libview: SHELF, event: CAL, day: CAL, task: 'M3 3h10v10H3zM5.5 8l2 2 3-4'
 });
 const icoHtml = d => `<svg class="row-menu-ico" viewBox="0 0 16 16" aria-hidden="true" focusable="false">${d ? `<path d="${esc(d)}"/>` : ''}</svg>`;
 // 어느 줄의 메뉴인지: 우클릭(at)은 누른 칸·줄 자체, ⋯는 그 ⋯가 든 줄(.ft-row 등, 화면이 data-row-menu-row로 정할 수도 있음).

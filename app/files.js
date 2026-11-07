@@ -895,6 +895,8 @@ async function treeAct(id, r, inKey, anchor) {
   if (id === 'only') { if (treePane()) focusTreeFolder(key); else goFolder(r.source, r.item_id); return; }
   if (id === 'mkdir') { await makeFolder(anchor, here); return; }
   if (id === 'upload') { const inp = $('[data-fx-file]'); if (inp) { state.upTo = here; inp.value = ''; inp.click(); } return; }
+  if (id === 'tolib') { await sendToLibrary([r]); return; }
+  if (id === 'libview') { openLibraryDoc(r.library_doc_id); return; }
   if (id === 'copy' || id === 'tocloud') { openDest('copy', [r]); return; }
   if (id === 'move') { openDest('move', [r]); return; }
   if (id === 'rename') { await renameRow(r, anchor); void loadRecent(); return; }
@@ -1273,7 +1275,7 @@ function paintPreview() {
     + '<div class="fx-pv-twins" data-fx-twins hidden></div>'
     + `<div class="fx-pv-acts">${mine ? '' : '<button type="button" class="fx-btn" data-fx-open>열기</button>'}<button type="button" class="fx-btn" data-fx-down>받기</button>`
     + (canShare() ? '<button type="button" class="fx-btn fx-share" data-fx-share>공유</button>' : '')
-    + (r.library_doc_id ? `<button type="button" class="fx-btn" data-fx-library="${esc(r.library_doc_id)}">자료실에서 보기</button>` : '')
+    + (r.library_doc_id ? `<button type="button" class="fx-btn" data-fx-library="${esc(r.library_doc_id)}">자료실에서 보기</button>` : '<button type="button" class="secondary" data-fx-tolib-one>자료실로 보내기</button>')
     // 폰 파일: [클라우드에 복사] + (앱 3-③ 판이면) 이름·휴지통. 폰이 낀 옮기기는 아직 없다.
     + (mine ? '<button type="button" class="fx-btn" data-fx-copy-one>클라우드에 복사</button>'
       + (phoneWrite() ? '<button type="button" class="fx-btn" data-fx-rename-one>이름</button><button type="button" class="fx-btn fx-danger" data-fx-trash-one>휴지통</button>' : '') + '</div>'
@@ -1419,7 +1421,7 @@ function paintBar() {
     const i = state.cur, dest = two() ? oppDest() : null, ok = dest && dest.source !== PH;
     bar.innerHTML = `<span class="fx-bar-t">${n}개 · ${esc(SOURCE_NAME[PH])}</span>`
       + (two() ? `<button type="button" class="fx-btn" data-fx-send="copy"${ok ? '' : ` disabled title="${esc(side(i ^ 1))} 칸에서 받을 클라우드 폴더를 여세요"`}>${esc(sendLabel(i, 'copy', VERT()))}</button>`
-        : '<button type="button" class="fx-btn" data-fx-copy>클라우드에 복사</button>')
+        : '<button type="button" class="fx-btn" data-fx-copy>클라우드에 복사</button>') + TOLIB_BTN
       + (phoneWrite() ? (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '') + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button>' : '')
       + '<button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
     return;
@@ -1432,13 +1434,14 @@ function paintBar() {
     bar.innerHTML = `<span class="fx-bar-t">${n}개 (${side(i)})</span>`
       + `<button type="button" class="fx-btn" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy', VERT()))}${keys ? ' (F5)' : ''}</button>`
       + `<button type="button" class="fx-btn" data-fx-send="move"${off}>${esc(sendLabel(i, 'move', VERT()))}${keys ? ' (F6)' : ''}</button>`
+      + TOLIB_BTN
       + (n === 1 ? `<button type="button" class="fx-btn" data-fx-rename>이름${keys ? ' (F2)' : ''}</button>` : '') + lookButtonsHtml(p)
       + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
       + `<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통${keys ? ' (Del)' : ''}</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>`;
     return;
   }
   // 시안 ③: 'N개 · [복사] [옮기기] [이름] [휴지통] ✕'(쓰지 않는 ⋯는 두지 않는다).
-  bar.innerHTML = `<span class="fx-bar-t">${n}개</span><button type="button" class="fx-btn" data-fx-copy>복사</button><button type="button" class="fx-btn" data-fx-cut>옮기기</button>`
+  bar.innerHTML = `<span class="fx-bar-t">${n}개</span><button type="button" class="fx-btn" data-fx-copy>복사</button><button type="button" class="fx-btn" data-fx-cut>옮기기</button>` + TOLIB_BTN
     + (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '') + lookButtonsHtml(p)
     + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
     + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
@@ -2009,6 +2012,57 @@ function paintJobs() {
     + (list.length ? `<ul class="fx-jobs-list">${list.map(jobRowHtml).join('')}</ul>` : '<p class="fx-jobs-none">보낸 것이 없어요(하루 지난 것은 지워져요).</p>');
   if (keep) (box.querySelector(keep) || box.querySelector('[data-fx-jobs-close]'))?.focus({preventScroll: true});
 }
+// ---------- FILES-자료실로보내기(S52-26, 요청함 11/07 11:37, 시안 docs/design/mockups/files-to-library.html, 명진 11:41 '(가) 연결만') ----------
+// 파일 ⋯ · 미리보기 · 여러 개 고른 줄의 [자료실로] → 자료실 등록 창(library-upload.js, 같은 칸·같은 [등록]·같은 막대·%)에 그 파일들을 넣어 연다.
+// 원본은 그대로. 원드라이브·이 폰 파일은 이 화면이 바이트를 받아(원드라이브는 Edge media, 폰은 앱 다리) 자료실 Drive 폴더에 사본으로 올리고,
+// 구글 드라이브 파일은 사본 없이 연결만(서버 document-actions register-drive-file이 이 작업공간 [파일] 색인·Drive 원본을 확인).
+// 이미 자료실에 있는 파일은 넣지 않고 '이미 자료실에 있어요 · [보기]'. 폴더째 보내기·내 PC 파일은 이번엔 없다.
+// 새 버튼은 공용 6가지 중 작은 버튼(secondary, UI-버튼6가지)만 쓴다.
+const TOLIB_BTN = '<button type="button" class="secondary" data-fx-tolib>자료실로</button>';
+const LIBRARY_MAX_BYTES = 100 * 1024 * 1024;
+function openLibraryDoc(id) { if (!id) return; requestLibraryDocument(id); window.KPTURouter?.go?.('library', {source: 'delegated'}); }
+async function libraryReady() {
+  const loader = window.KPTUViewLoader;
+  if (loader?.load && !loader.isLoaded?.('library')) await loader.load('library');
+  return !!(await window.__KPTU_LIBRARY_UPLOAD_READY__) && typeof window.KPTULibrary?.startUploadFromFiles === 'function';
+}
+async function sendToLibrary(rows) {
+  const list = (rows || []).filter(Boolean);
+  if (list.some(r => r.is_folder)) notify('폴더째 보내기는 아직 없어요(파일만). 폴더를 열어 파일을 골라 주세요.', {record: false});
+  if (list.some(r => r.source === PC)) notify('내 PC 파일은 아직 자료실로 보내지 못해요. 자료실 화면에 끌어다 놓아 주세요.', {record: false});
+  const files = list.filter(r => !r.is_folder && r.source !== PC);
+  if (!files.length) return;
+  const big = files.filter(r => r.source !== 'gd' && Number(r.size_bytes) > LIBRARY_MAX_BYTES);
+  if (big.length) notify(`자료실은 파일당 100MB까지예요: ${big.map(r => r.name).join(', ')}`, {error: true, record: false});
+  const had = files.filter(r => r.library_doc_id), rest = files.filter(r => !r.library_doc_id && !big.includes(r));
+  const scope = state.scope, items = [];
+  const copies = rest.filter(r => r.source !== 'gd');
+  if (copies.length) { state.busy = '자료실로 보낼 파일 가져오는 중'; paintBar(); }
+  try {
+    for (const r of rest) {
+      if (r.source === 'gd') { items.push({link: {source: 'gd', id: r.item_id}, name: r.name, size: Number(r.size_bytes) || 0, type: r.mime || ''}); continue; }
+      try {
+        const blob = r.source === PH ? await phone.blob(r.item_id) : await bytes({action: 'media', source: r.source, id: r.item_id});
+        items.push(new File([blob], r.name, {type: r.mime || blob.type || '', lastModified: Date.parse(r.modified_at || '') || Date.now()}));
+      } catch (e) { notify(`${r.name}: ${errorText(codeOf(e))}`, {error: true, record: false}); }
+      if (state.scope !== scope) return;
+    }
+  } finally { if (state.scope === scope && copies.length) { state.busy = ''; paintBar(); } }
+  let out = {opened: false, already: []};
+  if (items.length) {
+    let ready = false;
+    try { ready = await libraryReady(); } catch { ready = false; }
+    if (state.scope !== scope) return;
+    if (!ready) { notify('자료실을 열지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true, record: false}); return; }
+    out = window.KPTULibrary.startUploadFromFiles(items) || out;
+  }
+  const already = [...had.map(r => ({name: r.name, id: r.library_doc_id})), ...(out.already || [])];
+  if (already.length) {
+    const one = already.length === 1 ? already[0] : null;
+    notify(one ? `이미 자료실에 있어요 · ${one.name}` : `${already.length}개는 이미 자료실에 있어요`, {record: false, ...(one ? {actions: [{label: '보기', run: ({close}) => { close(); openLibraryDoc(one.id); }}]} : {})});
+  }
+  if (out.opened) unpick();
+}
 // ---------- 올리기(FILES-통합 2-④, S49-33, 명진 결정 H-3·H-4·H-6, 시안 ⑦) ----------
 // PC: 바탕화면 파일을 목록 칸(그 칸의 지금 폴더)이나 폴더 줄에 끌어 놓기 → 점선 '여기 놓으면 ○○에 올리기'. 폰·폴드: 위 줄 [올리기] → 고르기 창.
 // 같은 이름은 한 번 묻기(H-3, [그래도 하기] = 서버가 '이름 (2)'로 둘 다 둠), 200MB 넘으면 한 번 묻기(H-4, 2GB까지).
@@ -2520,7 +2574,9 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-cut-one]') && p) { const d = oppDest(); if (d) { closePreview(); moveRows([p.row], d, b); } else openDest('move', [p.row]); return; }
   if (b.matches('[data-fx-copy-one]') && p) { const d = oppDest(); if (d) { closePreview(); xferRun('copy', [p.row], d); } else openDest('copy', [p.row]); return; }
   if (b.matches('[data-fx-trash-one]') && p) { trashRows([p.row], b); return; }
-  if (b.matches('[data-fx-library]')) { requestLibraryDocument(b.dataset.fxLibrary); window.KPTURouter?.go?.('library', {source: 'delegated'}); return; }
+  if (b.matches('[data-fx-library]')) { openLibraryDoc(b.dataset.fxLibrary); return; }
+  if (b.matches('[data-fx-tolib-one]') && state.preview) { sendToLibrary([state.preview.row]); return; }
+  if (b.matches('[data-fx-tolib]')) { sendToLibrary(pickedRows()); return; }
   if (b.matches('[data-fx-retry]')) { const q = P(); if (!state.status) enter(true); else if (q.query) refind(q); else loadList(q); }
 });
 // 두 손가락 손짓은 이 한 곳이 나눈다(손짓 주인 하나, 부품 folder-pinch.js).
