@@ -1,7 +1,6 @@
-// FAMILY-잊지말기 4단계 + S51-26 FAMILY-노트로(시안 docs/design/mockups/family-forget-panel.html·family-forget-to-note.html): 홈 [하루]의 '잊지 말기' 칸.
-// - S52-09 UI-요청상자통일: 상자·줄·버튼은 '나한테 온 요청'과 같은 공용 부품(notice-box.mjs, 클래스 nbx-*), 색만 노랑.
-// - 운영자 기능 family가 있을 때만 보인다. 한 겹 칸: 머리 줄 '잊지 말기 n · AI가 뽑음 · 노트 열기 ›', 제안 없으면 한 줄.
-// - 제안마다 [할 일로]·[이미 함]·[일정으로]·[노트로]·[×]. [기억만]·[기억] 탭은 없다.
+// FAMILY-잊지말기 4단계 + S51-26 FAMILY-노트로 → S52-20 HOME-잊지말기한목록 ②(시안 docs/design/mockups/forget-one-list.html):
+// 가족 '잊지 말기' 제안은 홈 칸이 아니라 정리함(잊지 말기) 한 목록의 같은 줄(꼬리표 '가족')이다. 홈에는 '잊지 말기' 한 줄 + 숫자만.
+// - 운영자 기능 family가 있을 때만 읽고 보인다(서버 app_my_features). 줄마다 [할 일로][일정으로][노트로][이미 함] ×. [기억만]·[기억] 없음.
 // - S51-30 [이미 함]: 창 없이 '잊지 말기' 노트에 '☑ 내용 (출처 날짜)' 한 줄을 더하고 제안에서 뺀다(할 일·일정 없음). 되돌리면 제안이 돌아오고 그 줄도 빠진다.
 // - [노트로] → 작은 창(폴더 처음 '가족', '잊지 말기' 노트에 한 줄 더하기 또는 새 노트) → [보내기]해야 노트에 '☐ 내용 (출처 날짜)' 한 줄이 생기고 제안에서 빠진다.
 // - 상태 칸(status·decided_at·updated_at)만 고친다. 노트는 기존 노트 저장 길(app_notes). 서버는 흉내, 글은 모두 지어낸 것.
@@ -50,30 +49,32 @@ async function fixture(page,{features=['calls','telegram','family'],notes=NOTES(
     });
   }});
   await expect(page.locator('#homeView [data-home-summary]')).toBeVisible();
+  await page.evaluate(()=>window.KPTURouter.go('basket'));
+  await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();
   return {patches,reads,notes,notePosts,notePatches,folderPosts};
 }
-const box=page=>page.locator('#homeView [data-home-family]');
+const box=page=>page.locator('#basketView [data-forget-section]');
+const undo=page=>page.locator('[data-undo-notice] [data-undo-action]');
 const sheet=page=>page.locator('#familyNoteSend');
 
-test('운영자 기능 family가 없으면 칸도 표 읽기도 없다',async({page})=>{
+test('운영자 기능 family가 없으면 가족 줄도 표 읽기도 없다',async({page})=>{
   const {reads}=await fixture(page,{features:['calls','telegram']});
   await page.waitForTimeout(300);
-  await expect(box(page)).toBeHidden();
+  await expect(box(page).locator('[data-forget-src="family"]')).toHaveCount(0);
   expect(reads).toEqual([]);
 });
 
-test('한 겹 칸: 머리 줄 하나, 줄마다 [할 일로][이미 함][일정으로][노트로] ✕, 예정만 작은 글자, [기억만]·[기억] 없음, 글은 글자로만',async({page})=>{
+test('한 목록의 가족 줄: [할 일로][일정으로][노트로][이미 함] ×, 예정만 작은 글자, [기억만]·[기억] 없음, 글은 글자로만',async({page})=>{
   const {reads}=await fixture(page);
-  await expect(box(page)).toBeVisible();
-  await expect(box(page).locator('.nbx-head')).toHaveText('잊지 말기2· AI가 뽑음 ·노트 열기 ›');
+  await expect(box(page).locator('[data-forget-src="family"]')).toHaveCount(2);
   expect(reads[0]).toMatchObject({status:'eq.new',select:'id,kind,body,said_when,firmness,origin,origin_day,status,created_at'});
   await expect(box(page).locator('details,summary,[data-nbx-act="kept"]')).toHaveCount(0);
   await expect(box(page)).not.toContainText('기억만');
-  const first=box(page).locator(`[data-nbx-row="${id(1)}"]`);
+  const first=box(page).locator(`[data-nbx-row="f:${id(1)}"]`);
   await expect(first.locator('.nbx-tag')).toHaveText('예정');
-  await expect(first.locator('.nbx-meta')).toHaveText('말한 때: 토요일 저녁 · 텔레그램 · 10/5');
+  await expect(first.locator('.nbx-meta')).toHaveText('가족말한 때: 토요일 저녁 · 텔레그램 · 10/5');
   await expect(first.locator('.nbx-acts button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×']);
-  const second=box(page).locator(`[data-nbx-row="${id(2)}"]`);
+  const second=box(page).locator(`[data-nbx-row="f:${id(2)}"]`);
   await expect(second.locator('.nbx-tag')).toHaveCount(0);
   await expect(second.locator('b')).toHaveCount(0);
   await expect(second).toContainText('<b>새로 생긴 빵집</b>');
@@ -85,38 +86,35 @@ test('한 겹 칸: 머리 줄 하나, 줄마다 [할 일로][이미 함][일정�
 
 test('접은 폰 폭(344): 버튼 다섯 개가 한 줄(공용 줄 버튼), 가로 넘침 없음',async({page})=>{
   await fixture(page,{width:344});
-  const first=box(page).locator(`[data-nbx-row="${id(1)}"]`);
+  const first=box(page).locator(`[data-nbx-row="f:${id(1)}"]`);
   await expect(first.locator('.nbx-acts button')).toHaveCount(5);
   const mids=await first.locator('.nbx-acts button').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2;}));
   expect(Math.max(...mids)-Math.min(...mids)).toBeLessThanOrEqual(2);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
-test('제안이 없으면 한 줄: 잊지 말기 · 새 제안 없음 · 노트 열기 ›',async({page})=>{
+test('제안이 없으면 가족 줄이 없다(빈 칸·안내 없음)',async({page})=>{
   await fixture(page,{notes:[]});
   await expect(box(page)).toBeVisible();
-  await expect(box(page).locator('.nbx-head')).toHaveText('잊지 말기· 새 제안 없음 ·노트 열기 ›');
-  await expect(box(page).locator('.nbx-list')).toHaveCount(0);
-  const h=await box(page).evaluate(el=>el.getBoundingClientRect().height);
-  expect(h).toBeLessThan(44);
+  await expect(box(page).locator('[data-forget-src="family"]')).toHaveCount(0);
 });
 
 test('[×](5초 되돌리기): 상태 칸만 고친다',async({page})=>{
   const {patches}=await fixture(page);
-  await box(page).locator(`[data-nbx-row="${id(1)}"] [data-nbx-act="dismissed"]`).click();
+  await box(page).locator(`[data-nbx-row="f:${id(1)}"] [data-nbx-act="dismissed"]`).click();
   await expect.poll(()=>patches.length).toBe(1);
   expect(Object.keys(patches[0].body).sort()).toEqual(['decided_at','status','updated_at']);
   expect(patches[0]).toMatchObject({id:id(1),body:{status:'dismissed'}});
-  await expect(box(page).locator(`[data-nbx-row="${id(1)}"]`)).toHaveCount(0);
-  await box(page).locator('[data-nbx-undo]').click();
+  await expect(box(page).locator(`[data-nbx-row="f:${id(1)}"]`)).toHaveCount(0);
+  await undo(page).click();
   await expect.poll(()=>patches.length).toBe(2);
   expect(patches[1]).toMatchObject({id:id(1),body:{status:'new',decided_at:null}});
-  await expect(box(page).locator(`[data-nbx-row="${id(1)}"]`)).toBeVisible();
+  await expect(box(page).locator(`[data-nbx-row="f:${id(1)}"]`)).toBeVisible();
 });
 
 test('[할 일로]: 할 일 창에 제목만 채워 열고, 저장 전에는 상태를 바꾸지 않는다',async({page})=>{
   const {patches}=await fixture(page,{width:1280});
-  await box(page).locator(`[data-nbx-row="${id(1)}"] [data-nbx-act="task"]`).click();
+  await box(page).locator(`[data-nbx-row="f:${id(1)}"] [data-nbx-act="task"]`).click();
   await expect(page.locator('#gtTaskModal')).toBeVisible();
   await expect(page.locator('#gtEditTitle')).toHaveValue('토요일 저녁에 동네 산책 가자고 함');
   await expect(page.locator('#gtEditNotes')).toHaveValue('말한 때: 토요일 저녁');
@@ -128,12 +126,12 @@ test('[노트로]: 가족 폴더의 잊지 말기 노트에 체크 한 줄을 �
   const lists=[{id:LIST,title:'잊지 말기',doc:LIST_DOC,raw_text:'☐ 예전 줄 (통화 10/1)',updated_at:'2026-10-05T00:00:00Z',metadata:{family_list:true,folder_id:FOLDER,folder:'가족'}}];
   const {patches,notePatches,notePosts}=await fixture(page,{lists});
   // 먼저 열었다 닫기: 쓰기 없음.
-  await box(page).locator(`[data-nbx-row="${id(2)}"] [data-nbx-act="note"]`).click();
+  await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="note"]`).click();
   await expect(sheet(page)).toBeVisible();
   await sheet(page).locator('[data-fs-close]').first().click();
   await expect(sheet(page)).toBeHidden();
   expect(notePatches.length+notePosts.length+patches.length).toBe(0);
-  await box(page).locator(`[data-nbx-row="${id(2)}"] [data-nbx-act="note"]`).click();
+  await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="note"]`).click();
   await expect(sheet(page).locator('[data-fs-line]')).toHaveText('☐ <b>새로 생긴 빵집</b> 소금빵이 맛있었다고 함 (통화 10/5)');
   await expect(sheet(page).locator('[data-fs-folder]')).toHaveText('가족 ▾');
   await expect(sheet(page).locator('[data-fs-where="list"]')).toHaveAttribute('aria-pressed','true');
@@ -151,13 +149,13 @@ test('[노트로]: 가족 폴더의 잊지 말기 노트에 체크 한 줄을 �
   expect(texts).toEqual(['☐ 예전 줄 (통화 10/1)','☐ <b>새로 생긴 빵집</b> 소금빵이 맛있었다고 함 (통화 10/5)']);
   expect(notePatches[0].body.raw_text).toBe('☐ 예전 줄 (통화 10/1)\n\n☐ <b>새로 생긴 빵집</b> 소금빵이 맛있었다고 함 (통화 10/5)');
   expect(Object.keys(notePatches[0].body).sort()).toEqual(['doc','raw_text','title','updated_at']);
-  await expect(box(page).locator(`[data-nbx-row="${id(2)}"]`)).toHaveCount(0);
-  await expect(box(page).locator('.nbx-status')).toContainText("'가족' 폴더 노트에 넣었어요");
+  await expect(box(page).locator(`[data-nbx-row="f:${id(2)}"]`)).toHaveCount(0);
+  await expect(page.locator('#basketView [data-forget-status]')).toContainText("'가족' 폴더 노트에 넣었어요");
 });
 
 test('[노트로]: 가족 폴더·잊지 말기 노트가 없으면 만들어 넣는다. [새 노트]는 표시 없이 그 줄 제목으로',async({page})=>{
   const {patches,notePosts,folderPosts}=await fixture(page,{folders:[]});
-  await box(page).locator(`[data-nbx-row="${id(1)}"] [data-nbx-act="note"]`).click();
+  await box(page).locator(`[data-nbx-row="f:${id(1)}"] [data-nbx-act="note"]`).click();
   await expect(sheet(page).locator('[data-fs-folder]')).toHaveText('가족 ▾');
   await sheet(page).locator('[data-fs-send]').click();
   await expect.poll(()=>patches.length).toBe(1);
@@ -166,7 +164,7 @@ test('[노트로]: 가족 폴더·잊지 말기 노트가 없으면 만들어 �
   expect(notePosts).toHaveLength(1);
   expect(notePosts[0]).toMatchObject({kind:'note',title:'잊지 말기',ai_export_allowed:false,raw_text:'☐ 토요일 저녁에 동네 산책 가자고 함 (텔레그램 10/5 · 말한 때: 토요일 저녁)',
     metadata:{family_list:true,folder:'가족',folder_id:'a0000000-0000-4000-8000-000000000009'}});
-  await box(page).locator(`[data-nbx-row="${id(2)}"] [data-nbx-act="note"]`).click();
+  await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="note"]`).click();
   await expect(sheet(page).locator('[data-fs-folder]')).toHaveText('가족 ▾');
   await sheet(page).locator('[data-fs-where="new"]').click();
   await expect(sheet(page).locator('[data-fs-where="new"]')).toHaveAttribute('aria-pressed','true');
@@ -180,7 +178,7 @@ test('[노트로]: 가족 폴더·잊지 말기 노트가 없으면 만들어 �
 test('[이미 함]: 창 없이 잊지 말기 노트에 체크된 줄(☑)을 더하고 제안에서 뺀다. 할 일·일정은 안 만든다. 되돌리면 그 줄도 뺀다',async({page})=>{
   const lists=[{id:LIST,title:'잊지 말기',doc:LIST_DOC,raw_text:'☐ 예전 줄 (통화 10/1)',updated_at:'2026-10-05T00:00:00Z',metadata:{family_list:true,folder_id:FOLDER,folder:'가족'}}];
   const {patches,notePatches,notePosts}=await fixture(page,{lists});
-  await box(page).locator(`[data-nbx-row="${id(2)}"] [data-nbx-act="done"]`).click();
+  await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="done"]`).click();
   await expect.poll(()=>patches.length).toBe(1);
   expect(patches[0]).toMatchObject({id:id(2),body:{status:'kept'}});
   await expect(sheet(page)).toHaveCount(0);
@@ -190,31 +188,22 @@ test('[이미 함]: 창 없이 잊지 말기 노트에 체크된 줄(☑)을 더
   expect(notePatches[0].query).toMatchObject({updated_at:'eq.2026-10-05T00:00:00Z',kind:'eq.note'});
   const texts=notePatches[0].body.doc.doc.content.map(p=>p.content?.[0]?.text);
   expect(texts).toEqual(['☐ 예전 줄 (통화 10/1)','☑ <b>새로 생긴 빵집</b> 소금빵이 맛있었다고 함 (통화 10/5)']);
-  await expect(box(page).locator(`[data-nbx-row="${id(2)}"]`)).toHaveCount(0);
-  await expect(box(page).locator('.nbx-status')).toContainText('이미 한 일로 표시함');
+  await expect(box(page).locator(`[data-nbx-row="f:${id(2)}"]`)).toHaveCount(0);
+  await expect(page.locator('[data-undo-notice]')).toContainText('이미 한 일로 표시함');
   // 되돌리기: 제안이 돌아오고, 노트에 더한 그 줄 하나만 빠진다(읽은 판일 때만).
-  await box(page).locator('[data-nbx-undo]').click();
+  await undo(page).click();
   await expect.poll(()=>notePatches.length).toBe(2);
   expect(patches[1]).toMatchObject({id:id(2),body:{status:'new',decided_at:null}});
   expect(notePatches[1].body.doc.doc.content.map(p=>p.content?.[0]?.text)).toEqual(['☐ 예전 줄 (통화 10/1)']);
-  await expect(box(page).locator(`[data-nbx-row="${id(2)}"]`)).toBeVisible();
-  await expect(box(page).locator('.nbx-status')).toContainText('되돌렸어요');
+  await expect(box(page).locator(`[data-nbx-row="f:${id(2)}"]`)).toBeVisible();
+  await expect(page.locator('[data-undo-notice]')).toContainText('되돌렸어요');
 });
 
 test('[이미 함]: 잊지 말기 노트가 없으면 가족 폴더에 만들어 체크된 줄로 넣는다',async({page})=>{
   const {patches,notePosts}=await fixture(page);
-  await box(page).locator(`[data-nbx-row="${id(1)}"] [data-nbx-act="done"]`).click();
+  await box(page).locator(`[data-nbx-row="f:${id(1)}"] [data-nbx-act="done"]`).click();
   await expect.poll(()=>patches.length).toBe(1);
   expect(notePosts).toHaveLength(1);
   expect(notePosts[0]).toMatchObject({kind:'note',title:'잊지 말기',ai_export_allowed:false,raw_text:'☑ 토요일 저녁에 동네 산책 가자고 함 (텔레그램 10/5 · 말한 때: 토요일 저녁)',
     metadata:{family_list:true,folder:'가족',folder_id:FOLDER}});
-});
-
-test('머리 줄 [노트 열기 ›]: 가장 최근 잊지 말기 노트를 노트 화면에서 연다',async({page})=>{
-  const lists=[{id:LIST,title:'잊지 말기',doc:LIST_DOC,raw_text:'☐ 예전 줄 (통화 10/1)',updated_at:'2026-10-05T00:00:00Z',metadata:{family_list:true,folder_id:FOLDER,folder:'가족'}}];
-  await fixture(page,{lists});
-  const asked=page.waitForRequest(r=>r.url().startsWith(SB+'/rest/v1/app_notes')&&new URL(r.url()).searchParams.get('metadata->>family_list')==='eq.true');
-  await box(page).locator('[data-family-open]').click();
-  await asked;
-  await expect(page).toHaveURL(/view=basket/);
 });

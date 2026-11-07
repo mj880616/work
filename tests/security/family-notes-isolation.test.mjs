@@ -21,7 +21,7 @@ const ALLOWED=new Set([
  // S51-26 FAMILY-노트로: 옛 [기억만] 줄을 노트로 한 번 옮기는 운영 SQL(커맨드센터가 실행, 건수만 출력).
  'docs/ops/family-kept-to-note.sql',
  // S52-09 UI-요청상자통일: 홈 두 상자(나한테 온 요청·잊지 말기)가 같은 부품인지 보는 화면 시험(지어낸 잊지 말기 줄을 흉내 낸 서버로만 돌려줌).
- 'tests/app-e2e/home-asks-box.spec.mjs',
+ 'tests/app-e2e/home-forget-line.spec.mjs',
  // S52-20 HOME-잊지말기한목록: 정리함 한 목록에 가족 줄이 같은 줄로 보이는지 보는 화면 시험(지어낸 줄을 흉내 낸 서버로만 돌려줌).
  'tests/app-e2e/forget-one-list.spec.mjs',
 ]);
@@ -47,14 +47,17 @@ test('no work-side reader names the table (ai-assist, weekly, journal, search, f
 });
 // S52-20 HOME-잊지말기한목록(명진 11/07 14:43 '가족 얘기든 업무 얘기든 … 구분해서 보여 줄 필요가 없다'): 정리함 화면의 '잊지 말기' 한 목록(forget-list.js)도
 // 가족 줄을 보인다. 그 목록은 줄을 보이고 상태만 바꾸며(데이터 모듈 하나), 업데이트·원장·주간보고·업무일지·AI 길(basket.js 등)에는 넘기지 않는다.
-test('잊지 말기 화면 모듈은 홈과 잊지 말기 한 목록에서만 부르고, 업무 화면(원장·주간보고·검색·정리함 본체·업무 소식)은 부르지 않는다',()=>{
+test('잊지 말기 자료는 홈 한 줄(숫자만)과 잊지 말기 한 목록에서만 부르고, 업무 화면(원장·주간보고·검색·정리함 본체·업무 소식)은 부르지 않는다',()=>{
  const app=walk(join(root,'app')).map(p=>relative(root,p));
  const users=app.filter(f=>/\.m?js$/.test(f)&&/family-notes-data|home-family|family-notes-model/.test(readFileSync(join(root,f),'utf8'))).sort();
- assert.deepEqual(users,['app/family-notes-data.js','app/family-notes-model.mjs','app/forget-list.js','app/home-family.js','app/journal.js'],users.join(', '));
+ assert.deepEqual(users,['app/family-notes-data.js','app/family-notes-model.mjs','app/forget-list.js','app/home-summary.js'],users.join(', '));
+ // S52-20 ②: 홈은 '잊지 말기' 한 줄의 숫자만 센다(내용은 그리지 않음). 옛 홈 칸(home-family.js)은 지웠다.
+ const hs=readFileSync(join(root,'app/home-summary.js'),'utf8');
+ assert.match(hs,/readNotes\(rt, ws\)\)\.length/);
+ assert.doesNotMatch(hs,/n\.body|\.body\b|metaLine|noteLine/,'홈 한 줄은 가족 줄 내용을 그리지 않는다');
  const list=readFileSync(join(root,'app/forget-list.js'),'utf8');
  assert.doesNotMatch(list,/ai-assist|basket-ai|weekly|ledger-|journal-data|journal-hwpx|\/export|ai_export/i,'잊지 말기 한 목록은 가족 줄을 AI·원장·주간보고·내보내기 길에 넘기지 않는다');
  assert.doesNotMatch(readFileSync(join(root,'app/basket.js'),'utf8'),/family-notes/,'정리함 본체(업데이트 길)는 가족 자료를 직접 읽지 않는다');
  const journal=readFileSync(join(root,'app/journal.js'),'utf8');
- assert.equal([...journal.matchAll(/home-family/g)].length>=1,true);
- assert.doesNotMatch(journal,/family-notes-data|family-notes-model/,'업무일지 본체는 잊지 말기 자료를 직접 읽지 않는다(칸 모듈만 불러 둠)');
+ assert.doesNotMatch(journal,/family-notes-data|family-notes-model|home-family/,'업무일지 본체는 잊지 말기 자료를 읽지 않는다');
 });

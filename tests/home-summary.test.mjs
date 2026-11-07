@@ -4,22 +4,21 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 globalThis.window ??= {KPTURuntime: null, addEventListener() {}};
-const {summaryParts, tomorrowOf} = await import('../app/home-summary.js');
+const {forgetCount, tomorrowOf} = await import('../app/home-summary.js');
 const {tomorrowCommitmentsPath} = await import('../app/ledger-browse-model.mjs');
 const read = rel => readFileSync(new URL('../app/' + rel, import.meta.url), 'utf8');
 
-test('요약 줄: 나한테 온 요청 = asks, 챙길 것 = 나머지 처리 전, 정리 안 된 것 = 업데이트 미분류; 모르면 숨김', () => {
-  assert.deepEqual(summaryParts({update: 4, todo: 2, asks: 2}), {asks: 2, todos: 0, unsorted: 4});
-  assert.deepEqual(summaryParts({update: 0, todo: 5, asks: 1}), {asks: 1, todos: 4, unsorted: 0});
-  assert.deepEqual(summaryParts({update: 3, todo: 0, asks: null}), {asks: 0, todos: 0, unsorted: 3});
-  assert.equal(summaryParts({update: null, todo: 1, asks: 0}), null);
-  assert.equal(summaryParts({}), null);
+test('잊지 말기 한 줄 숫자(S52-20): 업데이트 미분류 + 처리 전 후보(요청 포함) + 가족 제안; 모르면 숨김', () => {
+  assert.equal(forgetCount({update: 4, todo: 2}), 6);
+  assert.equal(forgetCount({update: 0, todo: 5, family: 2}), 7);
+  assert.equal(forgetCount({update: null, todo: 1}), null);
+  assert.equal(forgetCount({}), null);
 });
 
-test('홈 순서: 날짜 줄 → 업데이트 입력줄 → [하루] 카드 맨 위 나한테 온 요청 → 잊지 말기 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료·그 밖의 기록', () => {
+test('홈 순서: 날짜 줄 → 업데이트 입력줄 → [하루] 카드 맨 위 잊지 말기 한 줄 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료·그 밖의 기록', () => {
   const src = read('journal.js');
   const at = s => { const i = src.indexOf(s); assert.ok(i > 0, s); return i; };
-  const order = ['data-journal-days', 'home-quick-placeholder', 'data-journal-day>', 'data-home-summary', 'data-home-family', 'data-journal-schedule', 'data-journal-tasks', 'data-journal-done-day', 'data-journal-materials'].map(at);
+  const order = ['data-journal-days', 'home-quick-placeholder', 'data-journal-day>', 'data-home-summary', 'data-journal-schedule', 'data-journal-tasks', 'data-journal-done-day', 'data-journal-materials'].map(at);
   assert.deepEqual([...order].sort((a, b) => a - b), order);
   assert.doesNotMatch(src, /mountRadar|data-journal-radar/);
   assert.match(read('index.html'), /<section id="homeView" class="view-panel hidden">\s*<div id="journalRoot" class="journal"><\/div>/);

@@ -13,8 +13,10 @@ export const NB_UNDO_MS = 5000;
 
 // open: {attr: 'data-…', label: '정리함 열기 ›'} — 머리 줄 오른쪽 글자 버튼. faint: 흐린 글(예 '· 텔레그램 ·', '· 새 요청 없음 ·').
 // countAttr: 개수 칸에 붙일 data 이름(시험·다른 화면이 읽음, 없으면 생략).
-export function headHtml({title, count = 0, faint = '', open = null, countAttr = ''}) {
-  const n = Number.isInteger(count) && count > 0 ? `<span class="nbx-n"${countAttr ? ` ${countAttr}` : ''}>${count}</span>` : '';
+// badge: 빨간 바탕 흰 글자 숫자 동그라미(앱 안 읽은 알림처럼, S52-20 홈 '잊지 말기' 한 줄). 0이면 그리지 않는다. 99를 넘으면 '99+'.
+export function headHtml({title, count = 0, faint = '', open = null, countAttr = '', badge = 0}) {
+  const n = Number.isInteger(count) && count > 0 ? `<span class="nbx-n"${countAttr ? ` ${countAttr}` : ''}>${count}</span>`
+    : Number.isInteger(badge) && badge > 0 ? `<span class="nbx-badge" data-nbx-badge>${badge > 99 ? '99+' : badge}</span>` : '';
   const btn = open ? `<button type="button" class="row-act nbx-open" ${open.attr}>${esc(open.label)}</button>` : '';
   return `<div class="nbx-head${n ? '' : ' is-one'}"><span class="nbx-title">${esc(title)}</span>${n}${faint ? `<span class="nbx-faint">${esc(faint)}</span>` : ''}${btn}</div>`;
 }

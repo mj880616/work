@@ -25,7 +25,7 @@ body.kptu-notice-bar-open{padding-top:var(--kptu-notice-bar-height,33px)}
   body.kptu-notice-bar-open #appView{--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap) + var(--kptu-notice-bar-height,33px))}
   body.kptu-notice-bar-open #appView>.app-nav{top:calc(12px + var(--kptu-notice-bar-height,33px));height:calc(100dvh - 24px - var(--kptu-notice-bar-height,33px))}
 }
-/* UI-앱안알림 3단계(A4): '나한테 온 요청'이 1건 이상이면 메뉴 '홈' 표시. 값은 home-asks.js가 #appView에 둔다(data-home-asks, --kptu-home-asks).
+/* UI-앱안알림 3단계(A4) → S52-20: '잊지 말기'(처리 안 한 것)가 1건 이상이면 메뉴 '홈' 표시(홈 한 줄과 같은 숫자). 값은 home-asks.js가 #appView에 둔다(data-home-asks, --kptu-home-asks).
    빨간 배지·종 모양 없음 — 홈 요약 줄의 '나한테 온 요청'과 같은 톤다운 주목색(--kptu-warning). */
 @media (max-width:760px){
   /* 폰(폴드 접음): 하단바 '홈' 그림 오른쪽 위 작은 점, 숫자 없음. */
