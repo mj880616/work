@@ -153,6 +153,7 @@ test.describe('윈도우 PC 1440', () => {
     const { errors } = await begin(page);
     await root(page).locator('[data-fx-two]').click();
     await expect(pane(page, 1)).toBeVisible();
+    await root(page).locator('[data-fx-tree-tog]').click(); // S52-41 ③: 두 칸이면 나무는 접혀 있다
     // 왼쪽 칸(지금 칸)에서 나무 '내 PC' → C:.
     await pane(page, 0).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
     await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
@@ -210,6 +211,7 @@ test.describe('윈도우 PC 1440', () => {
 async function twoPanes(page) {
   await root(page).locator('[data-fx-two]').click();
   await expect(pane(page, 1)).toBeVisible();
+  await root(page).locator('[data-fx-tree-tog]').click(); // S52-41 ③: 두 칸이면 나무는 접혀 있다
   await pane(page, 0).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
   await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
   await pane(page, 0).locator(at('data-fx-row', 'pc:C:\\')).click();
