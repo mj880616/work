@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — 표시할 Google 캘린더: 색 단추 작게</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--pri:#5c5470;--tonal:#ecebf3}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:20px;padding:0 16px 24px}
+  .col{width:360px}
+  .col h2{font-size:14px;margin:8px 0}
+  .card{background:#fcfcfd;border:1px solid #d6d4dd;border-radius:14px;padding:10px 12px}
+  .lbl{font-size:12.5px;color:var(--faint);margin:0 0 6px}
+  .now{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+  .now label{display:flex;align-items:center;gap:6px;font-size:13px}
+  .now .cb{width:20px;height:20px;border-radius:4px;background:var(--pri);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+  .now .cb.off{background:#fff;border:1.5px solid #9a96a3}
+  .now .sw{width:26px;height:52px;border-radius:13px;border:1px solid var(--line)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 10px 4px 8px;font-size:13px;background:#fff}
+  .chip .dot{width:12px;height:12px;border-radius:50%}
+  .chip.off{color:var(--faint);background:transparent}
+  .chip.off .dot{background:transparent!important;border:1.5px solid currentColor}
+  .rows .r{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13.5px}
+  .rows .r:first-child{border-top:0}
+  .rows .cb{width:16px;height:16px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:11px}
+  .rows .cb.off{background:#fff!important;border:1.5px solid}
+  .rows .m{margin-left:auto;color:var(--faint)}
+  .pop{margin-top:8px;border:1px solid var(--line);border-radius:10px;padding:8px;background:#fff;display:flex;gap:6px;flex-wrap:wrap;width:max-content}
+  .pop i{width:18px;height:18px;border-radius:50%;display:inline-block}
+  .tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:1px 5px;margin-left:4px}
+  .btns{display:flex;gap:8px;margin-top:10px}
+  .btns button{font:inherit;font-size:13px;font-weight:600;height:32px;padding:0 12px;border-radius:9px;border:0;background:var(--tonal)}
+</style>
+</head>
+<body>
+<h1>시안 — 일정 › 구글 캘린더 › '표시할 Google 캘린더' 색 단추 작게</h1>
+<p class="note">명진 11/07 14:33: "캘린더 종류 옆에 색상 표시 버튼 크기." (캡처: 이름 옆 색 단추가 세로로 긴 큰 알약이라 줄이 들쭉날쭉) 캘린더 이름은 시안용이에요.</p>
+
+<div class="wrap">
+  <div class="col">
+    <h2>지금</h2>
+    <div class="card"><p class="lbl">표시할 Google 캘린더</p>
+      <div class="now">
+        <label><span class="cb">✓</span>내 캘린더</label><span class="sw" style="background:#1d4fae"></span>
+        <label><span class="cb">✓</span>조직 캘린더</label><span class="sw" style="background:#f2452a"></span>
+        <label><span class="cb">✓</span>가족 캘린더</label><span class="sw" style="background:#f6e58a"></span>
+        <label><span class="cb off"></span>행사 캘린더</label><span class="sw" style="background:#c9a3ab"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>A — 칩 하나(색 점 + 이름) <span class="tag">명진 14:35 확정</span></h2>
+    <div class="card"><p class="lbl">표시할 Google 캘린더</p>
+      <div class="chips">
+        <span class="chip"><span class="dot" style="background:#1d4fae"></span>내 캘린더</span>
+        <span class="chip"><span class="dot" style="background:#f2452a"></span>조직 캘린더</span>
+        <span class="chip"><span class="dot" style="background:#f6e58a;border:1px solid #d8c45a"></span>가족 캘린더</span>
+        <span class="chip"><span class="dot" style="background:#9fc6e8"></span>음력</span>
+        <span class="chip"><span class="dot" style="background:#cc6158"></span>축구</span>
+        <span class="chip off"><span class="dot"></span>행사 캘린더</span>
+      </div>
+      <div class="pop"><i style="background:#1d4fae"></i><i style="background:#f2452a"></i><i style="background:#f6e58a"></i><i style="background:#9fc6e8"></i><i style="background:#cc6158"></i><i style="background:#c9a3ab"></i><i style="background:#5c8a5e"></i><i style="background:#8a6fb0"></i></div>
+      <div class="btns"><button>연결 해제</button></div>
+    </div>
+    <p class="note" style="margin:6px 0">칩 누르기 = 보이기/숨기기(숨기면 빈 점·흐린 글자). 색 점 누르기(또는 길게 누르기) = 작은 색 고르기 상자. 색 점 12px. 칩은 '칩' 부품(UI-버튼6가지).</p>
+  </div>
+
+  <div class="col">
+    <h2>B — 줄 목록(작은 네모에 색)</h2>
+    <div class="card"><p class="lbl">표시할 Google 캘린더</p>
+      <div class="rows">
+        <div class="r"><span class="cb" style="background:#1d4fae">✓</span>내 캘린더<span class="m">⋯</span></div>
+        <div class="r"><span class="cb" style="background:#f2452a">✓</span>조직 캘린더<span class="m">⋯</span></div>
+        <div class="r"><span class="cb" style="background:#d8c45a">✓</span>가족 캘린더<span class="m">⋯</span></div>
+        <div class="r"><span class="cb off" style="color:#c9a3ab"></span>행사 캘린더<span class="m">⋯</span></div>
+      </div>
+    </div>
+    <p class="note" style="margin:6px 0">구글 캘린더처럼 체크 네모 자체가 그 색. 색 바꾸기는 ⋯ 작은 메뉴. 줄이 많아 세로로 길어짐.</p>
+  </div>
+</div>
+<p class="note">공통: '자동 저장'은 글자 버튼이 아니라 저장되면 잠깐 '저장됨' 표시만(누를 버튼처럼 보이지 않게). 같은 종류 전수: 사진 출처·자료실 분류처럼 이름 옆 색 표시가 있는 곳은 같은 12px 색 점.</p>
+</body>
+</html>
