@@ -322,3 +322,13 @@
 .fx.fx-split-scroll .fx-listcol.kptu-follow-pane { position:sticky; overflow-y:auto; overscroll-behavior:contain; }
 .fx.fx-split-scroll .fx-listcol.kptu-follow-pane > .fx-ptop { position:sticky; top:0; z-index:2; }
 .fx.fx-split-scroll .fx-prev { top:calc(var(--fx-head-h,40px) + 4px); max-height:calc(100dvh - var(--fx-head-h,40px) - 16px); }
+
+/* FILES-두칸나무접기(S52-41 ③, 명진 결정 (가)): 두 칸 보기면 왼쪽 나무를 접어 두고(두 칸이 화면을 반씩), 맨 위 줄 왼쪽 ◫(공용 icon-btn)로 연다.
+   폴드 두 칸도 같게 — 열면 나무 | 두 칸. 한 칸 보기·폰은 그대로. */
+.fx-tree-tog[hidden] { display:none; }
+.fx[data-fx-two][data-fx-tree-shut] .fx-tree { display:none; }
+.fx[data-fx-two][data-fx-tree-shut] .fx-cols { display:block; }
+@media (min-width:600px) {
+  .fx[data-fx-two="fold"]:not([data-fx-tree-shut]) .fx-cols { display:grid; grid-template-columns:minmax(180px, 26%) minmax(0, 1fr); }
+  .fx[data-fx-two="fold"]:not([data-fx-tree-shut]) .fx-tree { display:block; }
+}

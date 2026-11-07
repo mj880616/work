@@ -60,7 +60,8 @@ test('PC 1440 두 칸: 칸마다 따로 스크롤(오른쪽 칸을 끝까지 내
   test.setTimeout(90000);
   const { errors } = await begin(page, 1440, { files_two: { pc: { wide: true } } });
   await expect(pane(page, 1)).toBeVisible();
-  // 오른쪽 칸을 원드라이브 맨 위로(가짜 폴더 80개).
+  // 오른쪽 칸을 원드라이브 맨 위로(가짜 폴더 80개). 두 칸이면 나무는 접혀 있어 ◫로 연다(S52-41 ③).
+  await root(page).locator('[data-fx-tree-tog]').click();
   await pane(page, 1).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
   await tree(page).locator('[data-fx-go="od"][data-fx-id=""]').click();
   await expect(pane(page, 1).locator('[data-fx-row="od:OD!F79"]')).toBeAttached();

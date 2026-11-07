@@ -84,6 +84,13 @@ test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무�
   await root(page).locator('[data-fx-two]').click();
   await expect(root(page)).toHaveAttribute('data-fx-two', 'wide');
   await expect.poll(() => prefs.value?.files_two).toEqual({ pc: { wide: true } });
+  // S52-41 ③ FILES-두칸나무접기(명진 결정 (가)): 두 칸이면 나무는 접혀 있고 맨 위 ◫로 연다(서버 files_tree에 기억).
+  await expect(root(page).locator('[data-fx-tree]')).toBeHidden();
+  const tog = root(page).locator('[data-fx-tree-tog]');
+  await expect(tog).toHaveAttribute('aria-pressed', 'false');
+  await tog.click();
+  await expect(tog).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => prefs.value?.files_tree).toEqual({ pc: { wide: true } });
   await expect(root(page).locator('[data-fx-tree]')).toBeVisible();
   // 왼쪽(지금 칸): 나무에서 원드라이브 › 가짜 문서함.
   await treeGo(page, 'od', '');
