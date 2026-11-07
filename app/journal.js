@@ -500,6 +500,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   weekModel.picks = picksModel(start);
   weekModel.orgLines = weekOrgLines();
   lastWeekModel = weekModel;
+  weekModel.scheduleView = hwpx?.scheduleView?.(start) ?? null; // S52-31: 5. 주요 일정 줄 제자리 고치기(열린 줄·표 아래 한 줄)
   W.renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi, overlapUi);
   // WEEKLY-주요일정칸 B: 1. 2) 주요 일정 수기 표(weekly-hq-schedule.js가 그 자리만 그림). 쓰면 그 주 임시저장 행을 바꾸고 열린 한글 파일 상자도 맞춘다.
   const hqWeek = start;
@@ -510,7 +511,10 @@ function renderWeekly_({refreshBox = true} = {}) {
   for (const table of host.querySelectorAll('table[data-wk-cols]')) W.mountWeeklyCols(table, table.dataset.wkCols);
   // WEEKLY-한흐름확정 ⑤ 남은 부분: 5. 주요 일정·참고 [+ 추가](손으로 더한 줄, weekly-hand-lines.js가 그 자리만 그림) — 같은 저장·같은 맞춤.
   W.paintDetailLines(host.querySelector('[data-journal-weekly-detail-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
-  for (const part of ['calendar', 'notes']) W.paintHandLines(host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
+  // S52-31: 5. 주요 일정 제목 줄 [AI로 다듬기](달력 일정이 있을 때, + 추가 옆 작은 글자 버튼) — 아래로 따로 빠진 칸 고치기 덩어리에서 옮김.
+  const aiLead = weekModel.calendar?.rows?.length ? [{text:'AI로 다듬기', data:'journalScheduleAi', aria:'5. 주요 일정 제목 AI로 다듬기', disabled:!!weekModel.scheduleView?.aiBusy}] : [];
+  for (const part of ['calendar', 'notes']) W.paintHandLines(host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek), lead:part === 'calendar' ? aiLead : []});
+  hwpx?.afterRender?.(); // 열린 일정 고치기 칸의 초점을 되돌린다
   // WEEKLY-한흐름확정 ②: 보고서 칸 줄(2. 1) 요약·3. 투쟁 사업장·4. 산하 조직)은 그 주 draft 한 벌에서(weekly-flow-cells.js),
   // 맨 위 한 줄과 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 줄은 journal-hwpx.js 가 그리는 그대로의 마디를 그 자리로 옮겨 붙인다.
   paintFlow(host, weekModel);
@@ -615,6 +619,8 @@ let hwpx = null;
 const mountHwpx = () => W.mountWeeklyHwpx(hwpxHost, {rt, onCopy: () => copyDraft(), onCarry: (week, items) => carryRequests(week, items),
   // [확정] 뒤 [기억하기]: the box wrote my profile's memory; the screen follows the saved list.
   onMemory: list => { memory = {status:'ok', list}; renderWeekly_(); },
+  // S52-31: 5. 주요 일정 줄 제자리 고치기가 열리거나 닫혔다(저장됨·AI 한 줄 포함): 화면만 다시.
+  onSchedule: () => renderWeekly_({refreshBox:false}),
   // WEEKLY-주요일정칸: 상자가 임시저장을 쓴 뒤(일정 칸별 고침 등) [주간 정리] 2) 주요 일정·5. 주요 일정 화면도 같은 판으로.
   onDraft: (week, row) => { if (week !== start || !row) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_({refreshBox:false}); },
   // 바탕을 연 뒤 팀 확정본과 견준 결과('확정본에서 바뀜')가 왔다: 칸 줄만 다시.
@@ -1501,6 +1507,11 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-schedule-fix]')) { hwpx?.schedule(button.dataset.journalScheduleFix, 'fix'); return; }
   if (button.matches('[data-journal-schedule-drop]')) { hwpx?.schedule(button.dataset.journalScheduleDrop, 'drop'); return; }
   if (button.matches('[data-journal-schedule-put]')) { hwpx?.schedule(button.dataset.journalSchedulePut, 'put'); return; }
+  // S52-31 WEEKLY-주요일정제자리고치기: 줄 ⋯ [이번 주만 원래대로]·열린 줄 [저장]·[취소]·제목 줄 [AI로 다듬기].
+  if (button.matches('[data-journal-schedule-origin]')) { hwpx?.schedule(button.dataset.journalScheduleOrigin, 'origin'); return; }
+  if (button.matches('[data-journal-sched-save]')) { hwpx?.schedule(button.dataset.journalSchedSave, 'save'); return; }
+  if (button.matches('[data-journal-sched-cancel]')) { hwpx?.schedule(button.dataset.journalSchedCancel, 'cancel'); return; }
+  if (button.matches('[data-journal-schedule-ai]')) { hwpx?.schedule('', 'ai'); return; }
   // JOURNAL-다음주준비: [지금 만들기]·[다시 만들기], 줄 → 그 기록, '근거 ›' → 근거 묶음 하나만 열고 그 줄로(잠깐 옅게 칠함, 공용 jumpToPrepRef).
   // 브라우저는 한 번 받기에 실패한 모듈을 같은 페이지에서 다시 받지 않는다 → 앱의 다른 화면 받기 실패와 같이 다시 연다(주소에 [주간 정리]가 남아 그 화면으로).
   if (button.matches('[data-journal-kit-retry]')) { location.reload(); return; }
