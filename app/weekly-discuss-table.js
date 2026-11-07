@@ -60,17 +60,18 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
   const was = doc.activeElement, keepField = slot.contains(was) ? was?.dataset?.journalDiscussField : '';
 
   const table = el('table', 'journal-weekly-table journal-exec-table journal-discuss-table'); table.dataset.journalDiscussTable = '';
-  table.innerHTML = '<thead><tr><th scope="col">안건</th><th scope="col">설명</th><th scope="col">관련 조직</th><th scope="col" class="journal-exec-tools-head" aria-label="고치기"></th></tr></thead>';
+  // WEEKLY-손잡이왼쪽(요청함 11/08 00:18): ⠿는 줄 맨 왼쪽 칸, ⋯는 줄 맨 오른쪽 칸.
+  table.innerHTML = '<thead><tr><th scope="col" class="journal-grip-head" aria-label="순서"></th><th scope="col">안건</th><th scope="col">설명</th><th scope="col">관련 조직</th><th scope="col" class="journal-exec-tools-head" aria-label="고치기"></th></tr></thead>';
   const body = el('tbody'); body.dataset.reorderList = 'discuss';
   for (const row of rows) {
     if (ui.editing === row.id) { body.append(editRow(row)); continue; }
     const tr = el('tr'); tr.dataset.journalDiscussRow = row.id; tr.dataset.reorderId = row.id;
     const th = el('th', 'journal-weekly-what journal-discuss-title', row.title); th.scope = 'row';
-    tr.append(th, el('td', 'journal-discuss-note', row.note ?? ''), el('td', 'journal-discuss-org', row.org ?? ''));
-    const tools = el('td', 'journal-exec-tools');
+    const gripCell = el('td', 'journal-grip-cell'), tools = el('td', 'journal-exec-tools');
     const grip = el('button', 'mini journal-hwpx-grip', '⠿'); grip.type = 'button'; grip.dataset.reorderHandle = ''; grip.setAttribute('aria-label', `${row.title} 순서 옮기기(위·아래 화살표)`);
-    // 줄 끝 ⠿ + 작은 ⋯([고치기]·[빼기]). 고치는 중·저장 중에는 ⋯ 를 그리지 않는다(같은 버튼이 두 곳에 생기지 않게).
-    tools.append(grip);
+    // WEEKLY-손잡이왼쪽: 줄 맨 왼쪽 ⠿ · 줄 끝 작은 ⋯([고치기]·[빼기]). 고치는 중·저장 중에는 ⋯ 를 그리지 않는다(같은 버튼이 두 곳에 생기지 않게).
+    gripCell.append(grip);
+    tr.append(gripCell, th, el('td', 'journal-discuss-note', row.note ?? ''), el('td', 'journal-discuss-org', row.org ?? ''));
     if (busy || ui.editing) grip.disabled = true;
     else tools.append(rowMore(doc, {label:`${row.title} 고치기·빼기`, data:{journalDiscussMore:row.id}, items:[
       {text:'고치기', data:{journalDiscussEdit:row.id}, aria:`${row.title} 고치기`},
@@ -100,7 +101,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
 
   function editRow(row) {
     const tr = el('tr', 'journal-exec-edit-row'); tr.dataset.journalDiscussEditRow = row?.id ?? 'new';
-    const td = el('td'); td.colSpan = 4;
+    const td = el('td'); td.colSpan = 5;
     const form = el('div', 'journal-exec-form journal-discuss-form'); form.dataset.journalDiscussForm = row?.id ?? 'new';
     const v = ui.draft, key = row?.id ?? 'new';
     // WEEKLY-요청사항버튼정리(11/01 01:09): [안건]·[설명]은 여러 줄 글상자(내용만큼 커짐, 줄바꿈 그대로 저장). 관련 조직은 그 앞 작은 칸, 설명은 한 줄 전체 폭.

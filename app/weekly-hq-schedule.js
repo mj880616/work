@@ -64,7 +64,8 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   const eventOf = key => hq.events.get(key);
 
   const table = el('table', 'journal-weekly-table journal-exec-table journal-hq-table'); table.dataset.journalHqTable = '';
-  table.innerHTML = '<thead><tr><th scope="col">일</th><th scope="col">시간 / 내용 / 장소</th><th scope="col" class="journal-exec-tools-head" aria-label="고치기"></th></tr></thead>';
+  // WEEKLY-손잡이왼쪽(요청함 11/08 00:18): ⠿는 줄 맨 왼쪽 칸(첫 칸 '일' 앞), ⋯는 줄 맨 오른쪽 칸 — 2. 1) 요약 줄과 같은 자리.
+  table.innerHTML = '<thead><tr><th scope="col" class="journal-grip-head" aria-label="순서"></th><th scope="col">일</th><th scope="col">시간 / 내용 / 장소</th><th scope="col" class="journal-exec-tools-head" aria-label="고치기"></th></tr></thead>';
   const body = el('tbody'); body.dataset.reorderList = 'hq';
   for (const row of rows) {
     if (ui.editing === row.id) { body.append(editRow(row)); continue; }
@@ -72,15 +73,15 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     const th = el('th', 'journal-weekly-area', row.day ? formDay(row.day) : '—'); th.scope = 'row';
     const what = el('td', 'journal-weekly-what', [row.time, row.title, row.place].filter(Boolean).join(' / '));
     if (row.linked) { const tag = el('span', 'journal-exec-carried', '달력'); tag.title = '달력에서 넣은 줄 — 한글 파일 상자 5. 주요 일정과 같은 값'; tag.dataset.journalHqLinked = ''; what.append(' ', tag); }
-    const tools = el('td', 'journal-exec-tools');
+    const gripCell = el('td', 'journal-grip-cell'), tools = el('td', 'journal-exec-tools');
     const grip = el('button', 'mini journal-hwpx-grip', '⠿'); grip.type = 'button'; grip.dataset.reorderHandle = ''; grip.setAttribute('aria-label', `${row.title} 순서 옮기기(위·아래 화살표)`);
-    // WEEKLY-화면디자인정리: 줄 끝 ⠿ + 작은 ⋯([고치기]·[빼기]). 고치는 중·저장 중에는 ⋯ 를 그리지 않는다(같은 버튼이 두 곳에 생기지 않게).
-    tools.append(grip);
+    // WEEKLY-손잡이왼쪽: 줄 맨 왼쪽 ⠿ · 줄 끝 작은 ⋯([고치기]·[빼기]). 고치는 중·저장 중에는 ⋯ 를 그리지 않는다(같은 버튼이 두 곳에 생기지 않게).
+    gripCell.append(grip);
     if (busy || ui.editing || ui.picking) grip.disabled = true;
     else tools.append(rowMore(doc, {label:`${row.title} 고치기·빼기`, data:{journalHqMore:row.id}, items:[
       {text:'고치기', data:{journalHqEdit:row.id}, aria:`${row.title} 고치기`},
       {text:'빼기', data:{journalHqDelete:row.id}, aria:`${row.title} 줄 빼기`, danger:true}]}));
-    tr.append(th, what, tools); body.append(tr);
+    tr.append(gripCell, th, what, tools); body.append(tr);
   }
   if (ui.editing === 'new') body.append(editRow(null));
   table.append(body);
@@ -126,7 +127,7 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
 
   function editRow(row) {
     const tr = el('tr', 'journal-exec-edit-row'); tr.dataset.journalHqEditRow = row?.id ?? 'new';
-    const td = el('td'); td.colSpan = 3;
+    const td = el('td'); td.colSpan = 4;
     const form = dayRowForm(doc, {values:ui.draft, busy, invalid:ui.invalid, idBase:`journalHq-${place}-${row?.id ?? 'new'}`, field:'journalHqField', cancel:'journalHqCancel', save:'journalHqSave'});
     form.dataset.journalHqForm = row?.id ?? 'new';
     td.append(form); tr.append(td);

@@ -3353,7 +3353,7 @@ for(const width of [412,1440])test(`S46-27 → 한흐름 ②: 1. 요청사항 �
  await expect(d.locator('[data-journal-discuss-status]')).toHaveText('저장했어요.');
  await expect(d.locator('[data-journal-discuss-row] th')).toHaveText(['가상 안건 갑']);
  await expect.poll(()=>f.exec.rows.find(r=>r.week_start==='2026-10-05')?.draft?.discuss?.map(r=>[r.title,r.note,r.org])).toEqual([['가상 안건 갑','가상 설명','가상 노동조합']]);
- await expect(d.locator('[data-journal-discuss-row] td').first()).toHaveText('가상 설명');
+ await expect(d.locator('[data-journal-discuss-row] td.journal-discuss-note').first()).toHaveText('가상 설명');
  await discussBox(page).locator('[data-journal-discuss-add]').click();
  await discussBox(page).locator('[data-journal-discuss-field="title"]').fill('가상 안건 을');
  await discussBox(page).locator('[data-journal-discuss-save]').click();
@@ -4118,4 +4118,40 @@ test('WEEKLY-투쟁사업장참고: 주별 조직보고 표 쪽도 참고 한 �
  // 표의 줄은 지우거나 고치지 않았다.
  expect(f.db.patches).toEqual([]);expect(f.db.posts).toEqual([]);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+// WEEKLY-손잡이왼쪽(요청함 11/08 00:18 "pc버전 주간 정리 위치 바꾸는 버튼 맨 왼쪽"): 주간 정리의 끌어 옮기는 줄은 모두 ⠿가 줄 맨 왼쪽(표는 첫 칸 앞),
+// ⋯는 줄 맨 오른쪽 — 2. 1) 요약 줄·3. 투쟁 사업장 칸과 같은 자리. 폰·폴드·PC 세 폭 모두. 가짜 이름·일정만.
+for(const width of [390,884,1280])test(`WEEKLY-손잡이왼쪽: 2) 주요 일정·3) 상집 논의 표·요약 줄의 ⠿는 맨 왼쪽, ⋯는 맨 오른쪽 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ const hq=hqBox(page),d=discussBox(page);
+ for(const [day,title] of [['2026-10-16','가상 공동 점검'],['2026-10-17','가상 현장 순회']]){
+  await hq.locator('[data-journal-hq-add]').click();
+  await hqField(page,'day').fill(day);await hqField(page,'title').fill(title);
+  await hq.locator('[data-journal-hq-save]').click();
+ }
+ await expect(hq.locator('[data-journal-hq-row]')).toHaveCount(2);
+ await d.locator('[data-journal-discuss-add]').click();
+ await d.locator('[data-journal-discuss-field="title"]').fill('가상 안건 갑');
+ await d.locator('[data-journal-discuss-save]').click();
+ await expect(d.locator('[data-journal-discuss-row]')).toHaveCount(1);
+ const box=l=>l.evaluate(e=>{const r=e.getBoundingClientRect();return {l:r.left,r:r.right,t:r.top,b:r.bottom};});
+ // 표 줄: ⠿는 그 줄의 맨 왼쪽(첫 칸 글보다 왼쪽), ⋯는 맨 오른쪽(마지막 칸 글보다 오른쪽), 둘 다 같은 줄 위쪽.
+ for(const row of [...await hq.locator('[data-journal-hq-row]').all(),...await d.locator('[data-journal-discuss-row]').all()]){
+  const grip=await box(row.locator('[data-reorder-handle]')),more=await box(row.locator('details.row-more > summary'));
+  const cells=await row.locator(':scope > :is(th,td):not(.journal-grip-cell):not(.journal-exec-tools)').evaluateAll(els=>els.filter(e=>e.textContent.trim()).map(e=>{const r=document.createRange();r.selectNodeContents(e);const b=r.getBoundingClientRect();return {l:b.left,r:b.right};}));
+  await expect(row.locator(':scope > :first-child [data-reorder-handle]')).toHaveCount(1); // 첫 칸이 손잡이 칸
+  await expect(row.locator(':scope > :last-child details.row-more')).toHaveCount(1); // 끝 칸이 ⋯
+  for(const c of cells){expect(grip.r).toBeLessThanOrEqual(c.l+0.5);expect(more.l).toBeGreaterThanOrEqual(c.r-0.5);}
+  const rb=await box(row);expect(grip.l-rb.l).toBeLessThan(12);expect(rb.r-more.r).toBeLessThan(12);
+ }
+ // 머리줄도 손잡이 칸이 맨 앞(글 없는 칸), 그다음 '일'·'안건'.
+ await expect(hq.locator('thead th')).toHaveText(['','일','시간 / 내용 / 장소','']);
+ await expect(d.locator('thead th')).toHaveText(['','안건','설명','관련 조직','']);
+ // 2. 1) 요약 줄: ⠿ 맨 왼쪽 · ⋯ 맨 오른쪽(원래 자리 그대로).
+ const line=flowCell(page,'사업영역 가 › 세부 과제 가-1').locator('[data-flow-line]').first();
+ const lg=await box(line.locator('[data-reorder-handle]')),lt=await box(line.locator('.weekly-flow-text')),lm=await box(line.locator('details.row-more > summary'));
+ expect(lg.r).toBeLessThanOrEqual(lt.l+0.5);expect(lm.l).toBeGreaterThanOrEqual(lt.r-0.5);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
 });
