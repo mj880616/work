@@ -58,8 +58,9 @@ for (const width of [412, 884, 1440]) {
     const tr = head.locator('[data-nd-translate]');
     await expect(tr).toHaveText('번역');
     await expect(tr).toHaveAttribute('aria-pressed', 'false');
-    const kids = await head.evaluate(el => [...el.children].map(c => c.matches('[data-nd-translate]') ? 'tr' : c.matches('.nd-size') ? 'size' : c.tagName.toLowerCase()));
-    expect(kids.indexOf('tr')).toBe(kids.indexOf('size') - 1);
+    // 머리 줄 오른쪽 차례(S52-39 NEWS-원문복사선택): [복사] [번역] [가 가 가] ⋯.
+    const kids = await head.locator('.nd-ob-r').evaluate(el => [...el.children].map(c => c.matches('[data-nd-copy]') ? 'copy' : c.matches('[data-nd-translate]') ? 'tr' : c.matches('.nd-size') ? 'size' : c.matches('[data-nd-ob-more]') ? 'more' : c.tagName.toLowerCase()));
+    expect(kids).toEqual(['copy', 'tr', 'size', 'more']);
     const tb = await tr.boundingBox(), sb = await head.locator('.nd-size').boundingBox();
     expect(tb.x + tb.width).toBeLessThanOrEqual(sb.x + 1);
     expect(Math.abs((tb.y + tb.height / 2) - (sb.y + sb.height / 2))).toBeLessThan(4);

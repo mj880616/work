@@ -127,14 +127,14 @@ test('텔레그램 390: [텔레그램에서 열기] = 방 주소 → 번호 링�
  expect(f.errors).toEqual([]);
 });
 
-test('텔레그램 390: 소식 ⋯ 메뉴(고정·요약 복사·요약 고치기·조직 연결·삭제), 삭제는 한 줄 되돌리기, 고정은 서버 저장',async({page})=>{
+test('텔레그램 390: 소식 ⋯ 메뉴(고정·요약 복사·원문 복사·원문 모두 선택·요약 고치기·조직 연결·삭제), 삭제는 한 줄 되돌리기, 고정은 서버 저장',async({page})=>{
  const f=await fixture(page,{width:390});
  await page.context().grantPermissions(['clipboard-read','clipboard-write']);
  await openMenu(page,390,'텔레그램 소식');
  const view=page.locator('#telegramView'),detail=view.locator('#tgDetail');
  await tap(page,rd(view,A6).locator('.feed-rdb'),390);
  await tap(page,detail.locator(`[data-tg-more="${T.a1}"]`),390);
- const menu=page.locator('#tgMenu');await expect(menu.locator('button')).toHaveText(['고정','요약 복사','요약 고치기','조직 연결','삭제']);
+ const menu=page.locator('#tgMenu');await expect(menu.locator('button')).toHaveText(['고정','요약 복사','원문 복사','원문 모두 선택','요약 고치기','조직 연결','삭제']);
  await tap(page,menu.getByRole('button',{name:'고정',exact:true}),390);
  await expect.poll(()=>f.writes.filter(w=>w.id===T.a1&&w.body.pinned_at).length).toBe(1);
  await expect(detail.locator(`[data-tg-di="${T.a1}"] .feed-pin`)).toHaveText('고정');
@@ -142,6 +142,18 @@ test('텔레그램 390: 소식 ⋯ 메뉴(고정·요약 복사·요약 고치�
  await tap(page,menu.getByRole('button',{name:'요약 복사',exact:true}),390);
  await expect(detail.locator('[data-tg-detail-status]')).toHaveText('복사했어요');
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('가상지부 단톡\n10. 6. (화) 09:31\n\n가상 교섭 다음 주 화요일로 미뤄짐. 서면 회신 월요일까지.');
+ // S52-39 NEWS-원문복사선택: [원문 복사] = 방 이름 / 날짜·시각 / 원문 글 그대로(펼치지 않은 소식도 원문을 읽어 와서).
+ await tap(page,detail.locator(`[data-tg-more="${T.a1}"]`),390);
+ await tap(page,menu.getByRole('button',{name:'원문 복사',exact:true}),390);
+ await expect.poll(()=>page.evaluate(()=>navigator.clipboard.readText())).toBe('가상지부 단톡\n10. 6. (화) 09:31\n\n09:31 A: 사측에서 목요일 어렵다고 연락 왔습니다\n09:33 B: 그럼 언제로요?\n09:40 A (전달): 다음 주 화요일 두 시로 잡혔어요');
+ // [원문 모두 선택] = 그 소식 원문을 펼쳐 전체를 선택된 상태로(요약·다른 소식은 들지 않음).
+ await tap(page,detail.locator(`[data-tg-more="${T.a1}"]`),390);
+ await tap(page,menu.getByRole('button',{name:'원문 모두 선택',exact:true}),390);
+ await expect(detail.locator(`[data-tg-di="${T.a1}"] [data-tg-raw]`)).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>String(window.getSelection()))).toContain('다음 주 화요일 두 시로 잡혔어요');
+ {const sel=await page.evaluate(()=>String(window.getSelection()));expect(sel).toContain('사측에서 목요일 어렵다고');expect(sel).not.toContain('서면 회신 월요일까지');expect(sel).not.toContain('자료집 초안');}
+ await page.evaluate(()=>window.getSelection().removeAllRanges());
+ await tap(page,detail.locator(`[data-tg-di="${T.a1}"] [data-tg-open]`),390);
  // 삭제: 상세에서 빠지고 서버에 휴지통 저장, 되돌리기 줄은 하단바 위.
  await tap(page,detail.locator(`[data-tg-more="${T.a2}"]`),390);
  await tap(page,menu.getByRole('button',{name:'삭제',exact:true}),390);
@@ -172,7 +184,7 @@ test('텔레그램 1280: 목록 1/3 · 상세 2/3, 고른 줄 표시, 소식 ⋯
  const l=await list.boundingBox(),d=await detail.boundingBox();expect(l.x+l.width).toBeLessThanOrEqual(d.x+1);expect(l.width).toBeLessThan(d.width);
  // 소식 줄에서 오른쪽 클릭 = 그 소식의 ⋯ 메뉴가 누른 자리에.
  await detail.locator(`[data-tg-di="${T.a2}"] .feed-tx`).click({button:'right'});
- const menu=page.locator('#tgMenu');await expect(menu).toBeVisible();await expect(menu.locator('button')).toHaveText(['고정','요약 복사','요약 고치기','조직 연결','삭제']);
+ const menu=page.locator('#tgMenu');await expect(menu).toBeVisible();await expect(menu.locator('button')).toHaveText(['고정','요약 복사','원문 복사','원문 모두 선택','요약 고치기','조직 연결','삭제']);
  await menu.getByRole('button',{name:'삭제',exact:true}).click();
  await expect.poll(()=>f.writes.filter(w=>w.id===T.a2&&w.body.state==='trashed').length).toBe(1);
  await expect(detail.locator('.feed-di')).toHaveCount(1);

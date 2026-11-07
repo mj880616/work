@@ -145,6 +145,23 @@ export function legacyBody(text, {lead = false} = {}) {
   if (!blocks.length) return {state: 'failed', blocks: [], reason: '본문을 읽지 못함'};
   return lead ? {state: 'lead', blocks, reason: '공개된 앞부분만'} : {state: 'ok', blocks, reason: ''};
 }
+// S52-39 NEWS-원문복사선택(시안 docs/design/mockups/news-copy-select.html): 원문 칸 [복사]가 클립보드에 넣는 글.
+// 제목 / 매체 · 날짜 / 본문 전체(글자 블록 p·h·quote, 문단 사이 빈 줄) / 원래 주소(https만). 사진·캡션은 넣지 않는다.
+// blocks: 지금 화면에 보이는 블록(번역해서 보는 중이면 한국어 블록). 화면 안에서만 쓴다(서버 저장·전송 없음).
+const oneLine = v => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
+export function copyArticleText(head, blocks) {
+  const title = oneLine(head?.title);
+  const meta = [head?.meta?.[0], head?.meta?.[2]].map(oneLine).filter(Boolean).join(' · ');
+  const body = (Array.isArray(blocks) ? blocks : []).filter(b => b && (b.t === 'p' || b.t === 'h' || b.t === 'quote') && typeof b.text === 'string')
+    .map(b => b.text.replace(/[ \t\f\v ]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim()).filter(Boolean).join('\n\n');
+  const url = httpsUrl(head?.url);
+  return [[title, meta].filter(Boolean).join('\n'), body, url].filter(Boolean).join('\n\n');
+}
+// ⋯ [공유]로 폰 공유 창에 넘길 것: 제목·주소만(본문은 넘기지 않는다). 주소가 없으면 제목만.
+export function shareArticleData(head) {
+  const title = oneLine(head?.title).slice(0, 300), url = httpsUrl(head?.url);
+  return url ? {title, url} : title ? {title, text: title} : null;
+}
 // 글자 크기 세 단계(서버 view_prefs.news_font, 없으면 보통).
 export const NEWS_FONT_STEPS = Object.freeze([{id: 's', label: '글자 작게'}, {id: 'm', label: '글자 보통'}, {id: 'l', label: '글자 크게'}]);
 export const keepNewsFont = v => (NEWS_FONT_STEPS.some(f => f.id === v) ? v : 'm');
