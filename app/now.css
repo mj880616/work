@@ -67,7 +67,7 @@
 #nwMediaPicker .lu-move-item{ justify-content:flex-start; gap:6px; }
 #nwMediaPicker .lu-move-item .lu-move-tag{ margin-left:auto; }
 #nwMediaPicker .lu-move-item[aria-current="true"]{ opacity:1; cursor:pointer; font-weight:var(--ds-weight-medium,500); }
-#nwMediaPicker .lu-move-dot{ flex:none; width:8px; height:8px; border-radius:50%; background:var(--lu-dot); }
+#nwMediaPicker .lu-move-dot{ background:var(--lu-dot); } /* 크기·모양은 공용 .ui-color-dot */
 #appView #outsideView .now-cand{ display:flex; align-items:center; gap:8px; margin:2px 0 0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 
 /* 글 줄 전체가 눌린다: 제목 단추의 ::after가 줄을 덮고, 줄 안 다른 단추·접기·칩은 그 위에 둔다(키보드는 제목 단추 하나에 Enter). */

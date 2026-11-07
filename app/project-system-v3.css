@@ -180,7 +180,7 @@
 #ps3CreateModal :is(.ps3-type-row b,.ps3-type-row small){font-size:var(--kptu-text-meta)}
 
 /* PRJ-색: 이름 앞 8px 점. 메인은 고른 색, 하위는 메인 색의 연한 톤, 색 없으면 회색. 값은 theme-tokens.css의 --ds-project-*. */
-.ps3-color-dot{display:inline-block;width:8px;height:8px;flex:0 0 8px;border-radius:999px;background:var(--ds-project-gray)}
+.ps3-color-dot{background:var(--ds-project-gray)} /* 크기·모양은 공용 .ui-color-dot */
 .ps3-color-dot[data-color="green"]{background:var(--ds-project-green)}.ps3-color-dot[data-color="green"][data-tone="soft"]{background:var(--ds-project-green-soft)}
 .ps3-color-dot[data-color="blue"]{background:var(--ds-project-blue)}.ps3-color-dot[data-color="blue"][data-tone="soft"]{background:var(--ds-project-blue-soft)}
 .ps3-color-dot[data-color="orange"]{background:var(--ds-project-orange)}.ps3-color-dot[data-color="orange"][data-tone="soft"]{background:var(--ds-project-orange-soft)}

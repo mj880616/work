@@ -26,9 +26,8 @@ const COLORISH = /colou?r|swatch/i;
 // 색 견본 칸이 아닌 것: 편집기 글자색·형광펜 메뉴는 '가' 글자 견본이 든 목록 줄(✓ 표시, 바탕이 견본을 덮지 않음).
 const NOT_A_SWATCH = [/data-ed-colou?r/, /data-ed-highlight/];
 // 아직 공용 부품이 아닌 곳(이름을 적어 둔 예외만 허용, 새로 생기면 실패):
-// 캘린더 목록의 캘린더별 색(calendar-persistence.js .cp-color)은 브라우저 기본 자유 색 칸이다. 칸 자체가 고른 색이고 덮는 표시가 없다.
-// 정해진 색 줄로 바꿀지는 따로 정한다(PR 본문 '사용자 결정').
-const NATIVE_ALLOWED = new Set(["calendar-persistence.js .type='color'"]);
+// CAL-캘린더색칩(S52-18): 캘린더별 색도 브라우저 기본 색 칸을 없애고 공용 색 칸(작은 색 고르기 상자)으로 옮겼다. 예외 없음.
+const NATIVE_ALLOWED = new Set();
 
 test('공용 부품: 칸은 고른 색 그대로 채운 네모이고, 고름은 표시만 바뀐다', () => {
   const ids = ['#a4bdfc', '#7ae7bf', '#dbadff', '#ff887c', '#fbd75b', '#ffb878', '#46d6db', '#e1e1e1', '#5484ed', '#51b749', '#dc2127'];
@@ -72,9 +71,9 @@ test('색 고르기 칸은 모두 공용 부품을 쓴다(단추를 직접 만�
   assert.deepEqual(bad, [], '색 고르기 칸은 app/color-swatch.mjs(swatchHtml·createSwatch)로 그린다');
 });
 
-test('공용 부품을 쓰는 곳(일정 색·프로젝트 색·폴더 색)', () => {
+test('공용 부품을 쓰는 곳(일정 색·캘린더 색·프로젝트 색·폴더 색)', () => {
   const users = code.filter(f => /from\s+['"]\.\/color-swatch\.mjs['"]/.test(f.text)).map(f => f.name).sort();
-  assert.deepEqual(users, ['calendar-plus.js', 'folder-look.js', 'project-system-v3.js']);
+  assert.deepEqual(users, ['calendar-persistence.js', 'calendar-plus.js', 'folder-look.js', 'project-system-v3.js']);
 });
 
 test('색 칸의 모양·고름 표시는 ui-standard.css 공용 규칙만 정하고, 고름이 색을 덮지 않는다', () => {

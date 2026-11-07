@@ -608,7 +608,7 @@
 #appView #basketView .basket-note-meta time{ margin-left:auto; }
 #appView #basketView .basket-note-state{ display:contents; }
 #appView #basketView .basket-chip{ display:inline-flex; align-items:center; gap:6px; min-height:24px; padding:0 8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--kptu-radius-pill,999px); color:var(--kptu-ink); background:var(--kptu-surface); }
-#appView #basketView .basket-chip-dot{ flex:0 0 8px; width:8px; height:8px; border-radius:50%; background:var(--ds-kind-other-ink); }
+#appView #basketView .basket-chip-dot{ background:var(--ds-kind-other-ink); } /* 크기·모양은 공용 .ui-color-dot */
 #appView #basketView .basket-chip[data-chip-kind="project"] .basket-chip-dot{ background:var(--ds-kind-note-ink); }
 #appView #basketView .basket-chip[data-chip-kind="organization"] .basket-chip-dot{ background:var(--ds-kind-journal-ink); }
 #appView #basketView .basket-chip[data-chip-kind="meeting"] .basket-chip-dot{ background:var(--ds-kind-diary-ink); }
@@ -1757,6 +1757,17 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 .nbx-plain .nbx-foot{ margin:0; padding:0; border-top:0; }
 .nbx .row-act.nbx-foot-open,.nbx-plain .row-act.nbx-foot-open{ font-size:var(--ds-text-meta); color:var(--kptu-faint); }
 
+/* ===== UI-색점·색점칩(S52-18 CAL-캘린더색칩, 2026-11-07 명진 14:33 '캘린더 종류 옆에 색상 표시 버튼 크기', 시안 docs/design/mockups/calendar-color-chip.html 14:35 'A') =====
+   이름 옆 색 표시는 사이트 어디서나 같은 점 하나: .ui-color-dot = 지름 --ds-color-dot(12px) 동그라미 + 옅은 테두리 한 겹(연한 색도 바탕에서 보이게).
+   점의 색은 화면이 정한다(화면 규칙의 background, 또는 --ui-dot 변수). 화면 CSS는 점의 크기·모양을 따로 정하지 않는다.
+   색점칩: ④ 칩(button.ds-chip) 안 맨 앞에 점을 둔 것. data-dot-toggle 칩은 눌림 = 보이기라서, 꺼지면(aria-pressed=false) 빈 점 + 흐린 글자.
+   쓰는 곳: 일정 '표시할 Google 캘린더' 칩, 사업영역 색(.ps3-color-dot), 사업 보고 종류(.mcol-dot), 필터 칩 색(.filter-chip-dot), 정리함 연결 칩(.basket-chip-dot), 지금 매체 고르기(.lu-move-dot). */
+:root .ui-color-dot{ box-sizing:border-box; display:inline-block; flex:0 0 var(--ds-color-dot); width:var(--ds-color-dot); height:var(--ds-color-dot); min-width:var(--ds-color-dot); margin:0; padding:0; border-radius:50%; box-shadow:inset 0 0 0 var(--ds-line-width,1px) color-mix(in srgb,var(--kptu-ink) 18%,transparent); vertical-align:middle; }
+:root .ui-color-dot[style*="--ui-dot"]{ background:var(--ui-dot); }
+button.ds-chip[data-dot-toggle]{ color:var(--kptu-ink); background:var(--kptu-surface); border-color:var(--ds-line); }
+button.ds-chip[data-dot-toggle][aria-pressed="false"]{ color:var(--kptu-faint); background:transparent; }
+button.ds-chip[data-dot-toggle][aria-pressed="false"] > .ui-color-dot{ background:transparent; box-shadow:inset 0 0 0 1.5px currentColor; }
+
 /* ===== UI-버튼6가지(2026-11-06 명진 요청 23:23 '버튼 모양 크기 색깔 테두리 등 전수조사 통일감', 시안 docs/design/mockups/button-six-kinds.html 승인 'ㅇ') =====
    사이트 버튼은 이 6가지뿐이고 모양(높이·모서리·바탕·테두리·글자)은 여기 한 곳이 정한다. 화면 CSS는 자리(간격·순서)만 정한다.
    ① 주 동작 button.primary — 진한 주 색 채움, 한 화면·창에 하나(UI-저장자리), 높이 --kptu-control-height(위 'UI-버튼통일' 그대로)
@@ -1824,3 +1835,4 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 @media (hover:hover){
   :is(.modal-action-footer,.save-row) button:is(.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(:disabled,.primary,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini):hover{ background:var(--kptu-danger-soft) !important; }
 }
+

@@ -51,7 +51,7 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     },true);
   }
   const items=()=>[...(list?.querySelectorAll('.lu-move-item')||[])];
-  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${r.dot?`<span class="lu-move-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:pickIconHtml(r)}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?`<span class="lu-move-tag">${esc(currentTag)}</span>`:''}</button>`;
+  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${r.dot?`<span class="lu-move-dot ui-color-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:pickIconHtml(r)}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?`<span class="lu-move-tag">${esc(currentTag)}</span>`:''}</button>`;
 
   function paint(){
     if(!state)return;

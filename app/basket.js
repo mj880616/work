@@ -543,7 +543,7 @@ function chipInfo(link) {
 }
 function linkChip(link, {open = false} = {}) {
   const {kind, label, name, removable} = chipInfo(link);
-  const body = `<span class="basket-chip-dot" aria-hidden="true"></span><span class="a11y-only">${esc(label)}: </span>${esc(name)}`;
+  const body = `<span class="basket-chip-dot ui-color-dot" aria-hidden="true"></span><span class="a11y-only">${esc(label)}: </span>${esc(name)}`;
   const main = open && removable ? `<button type="button" class="basket-chip-open" data-basket-chip-open="${esc(link.id)}">${body}</button>` : `<span class="basket-chip-name">${body}</span>`;
   const remove = removable ? `<button type="button" class="basket-chip-x" data-basket-unlink="${esc(link.id)}" aria-label="${esc(disconnectLabel(name))}"><span aria-hidden="true">×</span></button>` : '';
   return `<span class="basket-chip" data-chip-kind="${esc(kind)}"${removable ? ` data-basket-chip="${esc(link.id)}"` : ''}>${main}${remove}</span>`;
@@ -551,7 +551,7 @@ function linkChip(link, {open = false} = {}) {
 // BUG-자료넣기미분류: a project holding this memo's files ([자료로 넣기]) is one plain chip "○○ · 자료".
 // Moving or removing the documents elsewhere changes it on the next read; there is nothing to undo here.
 function filedChips(note) {
-  const chip = (kind, id, name, label) => `<span class="basket-chip" data-chip-kind="${kind}" data-basket-filed${kind === 'organization' ? '-org' : ''}="${esc(id)}"><span class="basket-chip-name"><span class="basket-chip-dot" aria-hidden="true"></span><span class="a11y-only">${label} 자료: </span>${esc(name)} · 자료</span></span>`;
+  const chip = (kind, id, name, label) => `<span class="basket-chip" data-chip-kind="${kind}" data-basket-filed${kind === 'organization' ? '-org' : ''}="${esc(id)}"><span class="basket-chip-name"><span class="basket-chip-dot ui-color-dot" aria-hidden="true"></span><span class="a11y-only">${label} 자료: </span>${esc(name)} · 자료</span></span>`;
   return [...filedOrganizations(note, docs).map(o => chip('organization', o.organization_id, o.name, '담당조직')), ...filedProjects(note, docs).map(p => chip('project', p.project_id, p.name, '사업영역'))];
 }
 // UI-바구니거르기: under [분류], one row of place chips (shared filter-chips.js) narrows by where the memo went.
@@ -579,7 +579,7 @@ function paintSubFilter() {
 // Tasks made from the memo have no link chip; the row names them in the same chip row ("할 일 N개").
 function taskPlaceLine(note) {
   const count = noteTasks(note).length;
-  return count ? `<span class="basket-chip" data-chip-kind="task"><span class="basket-chip-name"><span class="basket-chip-dot" aria-hidden="true"></span>할 일 ${count}개</span></span>` : '';
+  return count ? `<span class="basket-chip" data-chip-kind="task"><span class="basket-chip-name"><span class="basket-chip-dot ui-color-dot" aria-hidden="true"></span>할 일 ${count}개</span></span>` : '';
 }
 function renderList() {
   const active=document.activeElement,kept=rowMenu&&{noteId:rowMenu.noteId,focusAct:rowMenuEl.contains(active)?active.dataset.basketRowAct||'':null};

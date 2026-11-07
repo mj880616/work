@@ -7,8 +7,8 @@ test('rapid calendar preference changes persist the latest state',async({page})=
   await page.goto(fixture);
   await page.evaluate(()=>window.__KPTU_CALENDAR_PERSISTENCE_READY__);
   const a=page.locator('[data-google-cal="cal-a"]'),b=page.locator('[data-google-cal="cal-b"]');
-  await a.uncheck();
-  await b.check();
+  await a.click();
+  await b.click();
   await expect.poll(()=>page.evaluate(()=>window.__preferenceCalls),{timeout:3000}).toBeGreaterThanOrEqual(2);
   await page.waitForTimeout(300);
   expect(await page.evaluate(()=>window.__serverPrefs.calendar_ids)).toEqual(['cal-b']);
@@ -29,13 +29,13 @@ test('multiple, single and zero calendar selections update only Google event sta
   await page.goto(fixture);
   await page.evaluate(()=>window.__KPTU_CALENDAR_PERSISTENCE_READY__);
   const a=page.locator('[data-google-cal="cal-a"]'),b=page.locator('[data-google-cal="cal-b"]');
-  await b.check();
+  await b.click();
   await expect.poll(()=>page.evaluate(()=>window.__serverPrefs.calendar_ids)).toEqual(['cal-a','cal-b']);
   await expect.poll(()=>page.evaluate(()=>window.__KPTU_GOOGLE_EVENTS__?.length||0)).toBe(4);
-  await a.uncheck();
+  await a.click();
   await expect.poll(()=>page.evaluate(()=>window.__serverPrefs.calendar_ids)).toEqual(['cal-b']);
   expect(await page.evaluate(()=>window.__KPTU_GOOGLE_EVENTS__.map(x=>x.title))).toEqual(['B timed']);
-  await b.uncheck();
+  await b.click();
   await expect.poll(()=>page.evaluate(()=>window.__serverPrefs.calendar_ids)).toEqual([]);
   await expect.poll(()=>page.evaluate(()=>window.__KPTU_GOOGLE_EVENTS__?.length||0)).toBe(0);
 });
