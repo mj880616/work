@@ -11,11 +11,12 @@
 import {missingTable} from './feed-model.mjs';
 import {readStatusRows} from './org-status-table.js';
 import {splitRows} from './org-status-model.mjs';
-import {cellParts, sortLines, dayText, cleanBody, checkDraft, nextOrder, hasRoom, importPlan, conflictOf, mondayOf, shiftWeek, weekLabel, lineText, sourceRecord, BODY_MAX, SHOWN} from './weekly-org-lines-model.mjs';
+import {cellParts, sortLines, dayText, cleanBody, checkDraft, nextOrder, hasRoom, importPlan, conflictOf, mondayOf, shiftWeek, weekLabel, lineText, sourceRecord, weekSuggestions, sameBody, SUG_SHOWN, BODY_MAX, SHOWN} from './weekly-org-lines-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
 import {fillMissing} from './weekly-org-suggest.js';
 import {waitHtml, emptyHtml} from './wait-state.js';
 import { chevHtml } from './fold-chevron.mjs';
+import {rowMore} from './row-more.js';
 
 const TABLE = '/rest/v1/app_weekly_org_lines';
 const COLS = 'id,organization_id,week_start,day,end_day,body,sort_order,state,origin,edited,source_update_ids,source_note_ids,source_status_ids,updated_at';
@@ -25,7 +26,7 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '
 export const TEXT = {
   missing: '주별 조직보고 표는 준비 중이에요.', failed: '조직보고를 불러오지 못했어요.', saveFailed: '저장하지 못했어요. 다시 눌러 주세요.',
   noBody: '내용을 적어 주세요.', badDay: '날짜를 다시 골라 주세요.', badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', full: '이 조직의 이번 주 줄이 가득 찼어요.',
-  saved: '저장했어요.', added: '줄을 넣었어요.', placed: '주간보고에 넣었어요.', dropped: '뺐어요.', imported: n => `지난주 ${n}줄을 가져왔어요.`, importNone: '가져올 새 줄이 없었어요.',
+  saved: '저장했어요.', added: '줄을 넣었어요.', placed: '주간보고에 넣었어요.', dropped: '뺐어요.', had: '이미 있는 내용으로 치웠어요.', imported: n => `지난주 ${n}줄을 가져왔어요.`, importNone: '가져올 새 줄이 없었어요.',
   conflict: '다른 화면에서 먼저 고쳤어요', gone: '다른 화면에서 이 줄이 없어졌어요.',
 };
 export const thisWeek = () => mondayOf(seoulDateKey(Date.now()));
@@ -60,7 +61,7 @@ async function insertLines(c, orgId, week, list) {
   if (!list.length) return [];
   const rows = await c.rt.api(`${TABLE}?select=${COLS}`, {method: 'POST', prefer: 'return=representation', singleFlight: false,
     body: list.map(l => ({workspace_id: c.workspaceId, week_start: week, organization_id: orgId, day: l.day ?? null, end_day: l.end_day ?? null, body: l.body,
-      sort_order: l.sort_order, state: 'in', origin: l.origin || 'user', edited: false}))});
+      sort_order: l.sort_order, state: l.state === 'dropped' ? 'dropped' : 'in', origin: l.origin || 'user', edited: false}))});
   if (!Array.isArray(rows) || rows.length !== list.length) throw new Error('insert');
   return rows;
 }
@@ -72,7 +73,7 @@ let seq = 0;
 export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'desk', repaint = () => {}, say = () => {}, openSource = null} = {}) {
   const ctl = {
     id: `wl${++seq}`, rt, workspaceId, week, mode, openSource, status: 'idle', orgIds: [], lines: new Map(), last: new Map(), lastFromStatus: new Set(),
-    open: new Set(), lastOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, conflicts: new Map(), run: 0, host: null, focus: '',
+    open: new Set(), lastOpen: new Set(), sugOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, conflicts: new Map(), run: 0, host: null, focus: '',
   };
   const c = () => ({rt: ctl.rt, workspaceId: ctl.workspaceId});
   const announce = orgId => window.dispatchEvent(new CustomEvent(EVENT, {detail: {week: ctl.week, organization_id: orgId, source: ctl.id}}));
@@ -107,11 +108,29 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     } catch { if (run !== ctl.run) return; ctl.status = 'error'; }
     repaint();
   };
-  ctl.setWeek = week => { if (!week || week === ctl.week) return; ctl.week = week; ctl.editing = null; ctl.draft = null; ctl.conflicts.clear(); ctl.open.clear(); ctl.lastOpen.clear(); void ctl.load(ctl.orgIds); };
+  ctl.setWeek = week => { if (!week || week === ctl.week) return; ctl.week = week; ctl.editing = null; ctl.draft = null; ctl.conflicts.clear(); ctl.open.clear(); ctl.lastOpen.clear(); ctl.sugOpen.clear(); void ctl.load(ctl.orgIds); };
   ctl.reportLines = orgId => cellParts(ctl.lines.get(orgId) || []).placed;
   ctl.disabled = () => ctl.busy || !!ctl.editing;
 
   // ---- 그리기 ----
+  // S52-25 WEEKLY-조직현황폰: 주간 정리(weekly)의 ⋯ 는 공용 rowMore(row-more.js) — 글 그리기(innerHTML) 뒤 afterPaint 에서 이 자리표를 그 부품으로 바꾼다.
+  // spec = {label, data, items:[{text, data, aria, danger}]}. 누르기는 메뉴 버튼의 data-* 그대로 아래 host click 이 받는다.
+  const moreSlot = spec => `<span class="wl-more-slot" data-wl-more="${esc(JSON.stringify(spec))}"></span>`;
+  // 공용 '제안 줄' 메뉴 순서(주간 정리의 다른 제안 줄과 같음): [넣기][이미 있음][고쳐서 넣기][빼기].
+  const sugMore = (label, d, text) => moreSlot({label: `제안: ${text}`, data: {wlSugMore: ''}, items: [
+    {text: '넣기', data: d.take, aria: `넣기: ${text}`}, {text: '이미 있음', data: d.have, aria: `이미 있음(이미 쓴 내용): ${text}`},
+    {text: '고쳐서 넣기', data: d.edit, aria: `고쳐서 넣기: ${text}`}, {text: '빼기', data: d.drop, danger: true, aria: `제안 빼기: ${text}`}]});
+  const tagHtml = t => `<span class="weekly-flow-tag wl-tag">${esc(t)}</span>`;
+  // 주간 정리 흐린 제안 줄 하나: 출처 꼬리표 · 날짜 · 글 · ⋯. kind 'line' = 표의 제안 행, 'last' = 지난주·현황 표 줄.
+  const sugHtml = (orgId, x) => {
+    const l = x.line, label = cleanBody(l.body), day = dayText(l.day, l.end_day);
+    if (x.kind === 'line' && ctl.editing?.id === l.id) return formHtml(orgId, l);
+    const tag = x.kind === 'last' ? (ctl.lastFromStatus.has(orgId) ? '현황 표' : '지난주') : l.origin === 'ai' ? 'AI 제안' : '기록';
+    const d = x.kind === 'line'
+      ? {take: {wlIn: l.id}, have: {wlHave: l.id}, edit: {wlEdit: l.id}, drop: {wlDrop: l.id}}
+      : {take: {wlSugTake: orgId, wlKey: l.id}, have: {wlSugHave: orgId, wlKey: l.id}, edit: {wlSugEdit: orgId, wlKey: l.id}, drop: {wlSugDrop: orgId, wlKey: l.id}};
+    return `<div class="wl-line is-sug" data-wl-sug="${esc(l.id)}" data-wl-sug-kind="${x.kind}"${x.kind === 'line' ? ` data-wl-line="${esc(l.id)}" data-wl-state="suggested"` : ''}>${tagHtml(tag)}${day ? `<span class="wl-day">${esc(day)}</span>` : ''}<span class="wl-text">${esc(label)}</span>${ctl.disabled() ? '' : sugMore(label, d, label)}</div>`;
+  };
   const lineHtml = (orgId, l, {sug = false} = {}) => {
     if (ctl.editing && ctl.editing.id === l.id) return formHtml(orgId, l);
     const label = esc(cleanBody(l.body)), dis = ctl.disabled(), day = dayText(l.day, l.end_day);
@@ -141,20 +160,48 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     return `${toggle}<div class="wl-last" data-wl-last-box="${esc(orgId)}">${last.map((l, i) => `<div class="wl-line is-last"><span class="wl-day">- ${esc(dayText(l.day, l.end_day))}</span><span class="wl-text">${esc(cleanBody(l.body))}</span><span class="wl-btns btn-row"><button type="button" class="wl-btn" data-wl-take="${esc(orgId)}" data-wl-i="${i}"${dis ? ' disabled' : ''}>가져오기</button></span></div>`).join('')}</div>`;
   };
   // 조직 이름 옆: '주간보고 3줄 넘음', 주간 정리에서 부실 조직은 [지난주 모두 가져오기].
+  // 주간 정리(weekly): 조직 이름 뒤 ' · n줄'(넣은 줄 없으면 ' · 빈 칸') + 줄 끝 ⋯ 하나 — [현황 표(지난주) 모두 가져오기]·[줄 추가]·[현황 표 보기].
+  const weeklyName = orgId => {
+    const list = ctl.lines.get(orgId) || [], parts = cellParts(list), room = hasRoom(list), dis = ctl.disabled();
+    const lastLeft = weekSuggestions(list, ctl.last.get(orgId) || []).filter(x => x.kind === 'last').length;
+    const name = ctl.lastFromStatus.has(orgId) ? '현황 표' : '지난주', items = [];
+    if (lastLeft && room) items.push({text: `${name} 모두 가져오기`, data: {wlTakeAll: orgId}});
+    if (room && !(ctl.editing?.orgId === orgId && ctl.editing.id === 'new')) items.push({text: '줄 추가', data: {wlAdd: orgId}});
+    if (typeof ctl.openSource === 'function') items.push({text: '현황 표 보기', data: {wlOpenOrg: orgId}});
+    const more = !dis && items.length ? moreSlot({label: '조직 칸 메뉴', data: {wlOrgMore: orgId}, items}) : '';
+    return `<span class="wl-count" data-wl-count>· ${parts.placed.length ? `${parts.placed.length}줄` : '빈 칸'}</span>${parts.over ? '<span class="wl-warn">주간보고 3줄 넘음</span>' : ''}${more}`;
+  };
   ctl.nameHtml = orgId => {
     if (ctl.status !== 'ready') return '';
+    if (ctl.mode === 'weekly') return weeklyName(orgId);
     const parts = cellParts(ctl.lines.get(orgId) || []), last = ctl.last.get(orgId) || [];
     let html = parts.over ? '<span class="wl-warn">주간보고 3줄 넘음</span>' : '';
     if (ctl.mode === 'weekly' && parts.thin && last.length) html += `<button type="button" class="wl-btn" data-wl-take-all="${esc(orgId)}"${ctl.disabled() ? ' disabled' : ''}>${ctl.lastFromStatus.has(orgId) ? '현황 표' : '지난주'} 모두 가져오기</button>`;
     return html;
   };
+  // 넣은 줄(앞 줄은 '외 n줄 ▾' 뒤) — 담당조직·주간 정리 같은 그리기.
+  const placedHtml = (orgId, parts, open) => (parts.older.length ? `<button type="button" class="wl-more" data-wl-toggle="${esc(orgId)}" aria-expanded="${open}">외 ${parts.older.length}줄 ${chevHtml(open)}</button>` : '')
+    + (open ? parts.older.map(l => lineHtml(orgId, l)).join('') : '') + parts.shown.map(l => lineHtml(orgId, l)).join('');
+  // 주간 정리(weekly) 한 조직 칸: 넣은 줄(보통 글자) → 흐린 제안 줄(공용 '제안 줄', 3개 넘으면 '제안 n개 더 ▾'). 표·지난주 덩어리·[+ 줄]은 없다(⋯ 안).
+  const weeklyCell = orgId => {
+    const list = ctl.lines.get(orgId) || [], parts = cellParts(list), sugs = weekSuggestions(list, ctl.last.get(orgId) || []);
+    const open = parts.older.length > 0 && (ctl.open.has(orgId) || parts.older.some(l => l.id === ctl.editing?.id));
+    const adding = ctl.editing?.orgId === orgId && ctl.editing.id === 'new';
+    let html = '';
+    html += placedHtml(orgId, parts, open);
+    if (!parts.placed.length && !sugs.length && !adding) html += '<span class="wl-empty">—</span>';
+    const all = ctl.sugOpen.has(orgId) || sugs.slice(SUG_SHOWN).some(x => x.line.id === ctl.editing?.id);
+    html += (all ? sugs : sugs.slice(0, SUG_SHOWN)).map(x => sugHtml(orgId, x)).join('');
+    if (sugs.length > SUG_SHOWN) html += `<button type="button" class="row-act wl-sug-more" data-wl-sug-toggle="${esc(orgId)}" aria-expanded="${all}">${all ? '제안 접기' : `제안 ${sugs.length - SUG_SHOWN}개 더`} ${chevHtml(all)}</button>`;
+    if (adding) html += formHtml(orgId, null);
+    return `<div class="wl-cell" data-wl-cell="${esc(orgId)}">${html}</div>`;
+  };
   ctl.cellHtml = orgId => {
+    if (ctl.mode === 'weekly') return weeklyCell(orgId);
     const parts = cellParts(ctl.lines.get(orgId) || []), dis = ctl.disabled();
     const open = parts.older.length > 0 && (ctl.open.has(orgId) || parts.older.some(l => l.id === ctl.editing?.id));
     let html = '';
-    if (parts.older.length) html += `<button type="button" class="wl-more" data-wl-toggle="${esc(orgId)}" aria-expanded="${open}">외 ${parts.older.length}줄 ${chevHtml(open)}</button>`;
-    if (open) html += parts.older.map(l => lineHtml(orgId, l)).join('');
-    html += parts.shown.map(l => lineHtml(orgId, l)).join('');
+    html += placedHtml(orgId, parts, open);
     if (!parts.placed.length && !parts.suggested.length && !(ctl.editing?.orgId === orgId)) html += '<span class="wl-empty">—</span>';
     html += parts.suggested.map(l => lineHtml(orgId, l, {sug: true})).join('');
     if (ctl.editing && ctl.editing.orgId === orgId && ctl.editing.id === 'new') html += formHtml(orgId, null);
@@ -163,6 +210,10 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     return `<div class="wl-cell" data-wl-cell="${esc(orgId)}">${html}</div>`;
   };
   ctl.afterPaint = () => {
+    for (const slot of ctl.host?.querySelectorAll('[data-wl-more]') ?? []) {
+      let spec = null; try { spec = JSON.parse(slot.dataset.wlMore); } catch { /* 자리표가 깨졌으면 ⋯ 를 그리지 않는다 */ }
+      if (spec) slot.replaceWith(rowMore(document, spec)); else slot.remove();
+    }
     if (!ctl.host || !ctl.focus) return;
     const el = ctl.host.querySelector(ctl.focus);
     el?.focus({preventScroll: true});
@@ -197,7 +248,11 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     if (id === 'new') {
       const list = ctl.lines.get(orgId) || [];
       if (!hasRoom(list)) { say(TEXT.full, true); return; }
-      await work(async () => { (await insertLines(c(), orgId, ctl.week, [{...v.value, sort_order: nextOrder(list)}])).forEach(replace); }, TEXT.added, orgId);
+      // 지난주·현황 표 제안을 [고쳐서 넣기]로 고쳐 넣으면 원래 글은 뺀 줄로 함께 남긴다(같은 제안이 다시 나오지 않게, 지우지 않음).
+      const from = ctl.editing.from, rows = [{...v.value, sort_order: nextOrder(list)}];
+      if (from && !sameBody(from.body, v.value.body)) rows.push({day: from.day || null, end_day: from.end_day || null, body: cleanBody(from.body), sort_order: Math.min(1000, nextOrder(list) + 1), state: 'dropped', origin: 'last_week'});
+      if (!hasRoom(list, rows.length)) { say(TEXT.full, true); return; }
+      await work(async () => { (await insertLines(c(), orgId, ctl.week, rows)).forEach(replace); }, TEXT.added, orgId);
       return;
     }
     const hit = find(id); if (!hit) return;
@@ -239,6 +294,21 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
       else if (d.wlSrc) { const hit = find(d.wlSrc), record = hit ? sourceRecord(hit.line) : null; if (hit && record !== null && typeof ctl.openSource === 'function') ctl.openSource({org: hit.org, record}, b); }
       else if ('wlCancel' in d) ctl.cancel();
       else if ('wlSave' in d) void ctl.save();
+      else if (d.wlHave) { const hit = find(d.wlHave); if (hit) void patch(hit.line, {state: 'dropped'}, TEXT.had); }
+      else if (d.wlSugToggle) { if (ctl.sugOpen.has(d.wlSugToggle)) ctl.sugOpen.delete(d.wlSugToggle); else ctl.sugOpen.add(d.wlSugToggle); ctl.focus = `[data-wl-sug-toggle="${d.wlSugToggle}"]`; repaint(); ctl.afterPaint(); }
+      else if (d.wlOpenOrg) { if (typeof ctl.openSource === 'function') ctl.openSource({org: d.wlOpenOrg, record: ''}, b); }
+      else if (d.wlSugTake || d.wlSugHave || d.wlSugDrop || d.wlSugEdit) {
+        const org = d.wlSugTake || d.wlSugHave || d.wlSugDrop || d.wlSugEdit, l = (ctl.last.get(org) || []).find(x => x.id === d.wlKey);
+        if (!l || ctl.disabled()) return;
+        if (d.wlSugTake) void take(org, [l]);
+        else if (d.wlSugEdit) { ctl.editing = {orgId: org, id: 'new', from: l}; ctl.draft = {day: l.day || '', end_day: l.end_day || '', body: cleanBody(l.body)}; ctl.invalid = ''; ctl.focus = '[data-wl-field="body"]'; say(''); repaint(); ctl.afterPaint(); }
+        else {
+          // [이미 있음]·[빼기]: 그 주 표에 뺀 줄(state dropped, origin last_week)로 남긴다 — 지우지 않고, 같은 글은 다시 제안하지 않는다(importPlan 과 같은 규칙).
+          const list = ctl.lines.get(org) || [];
+          if (!hasRoom(list)) { say(TEXT.full, true); return; }
+          void work(async () => { (await insertLines(c(), org, ctl.week, [{day: l.day || null, end_day: l.end_day || null, body: cleanBody(l.body), sort_order: nextOrder(list), state: 'dropped', origin: 'last_week'}])).forEach(replace); }, d.wlSugHave ? TEXT.had : TEXT.dropped, org);
+        }
+      }
       else if (d.wlIn) { const hit = find(d.wlIn); if (hit) void patch(hit.line, {state: 'in'}, TEXT.placed); }
       else if (d.wlDrop) { const hit = find(d.wlDrop); if (hit) void patch(hit.line, {state: 'dropped'}, TEXT.dropped); }
       else if (d.wlKeep) { ctl.conflicts.delete(d.wlKeep); say(''); repaint(); }

@@ -5,6 +5,7 @@
 // - 넣은 줄이 SHOWN(3)줄을 넘으면 '주간보고 3줄 넘음'(자르지 않음). 칸에는 가장 최근 3줄, 그 앞 줄은 '외 n줄 ▾'.
 // - '부실' = 넣은 줄 THIN_MAX(1)줄 이하 → 주간 정리에서 지난주 줄을 펼쳐 [가져오기](16:58·17:34 결정).
 import {cleanBody, similarBody} from './org-status-model.mjs';
+import {lineIn} from './weekly-cell-names.mjs';
 
 export const SHOWN = 3;
 export const THIN_MAX = 1;
@@ -106,3 +107,24 @@ export function sourceRecord(line) {
   const note = firstId(line?.source_note_ids); if (note) return `note:${note}`;
   return firstId(line?.source_status_ids) ? '' : null;
 }
+
+// S52-25 WEEKLY-조직현황폰(요청함 11/07 19:20): [주간 정리] 한 조직의 흐린 제안 줄 — 공용 '제안 줄'(줄 끝 ⋯ 하나).
+// 1) 그 주 흐린 제안(state suggested) 가운데 넣은 줄과 같지 않은 것, 2) 넣은 줄이 1줄 이하면 지난주 줄(처음 쓰는 주는 현황 표 줄) 가운데
+// 그 주 줄(넣은·제안·뺀 줄 모두)·앞 제안과 같지 않은 것. '같다' = 같은 글이거나 부호·띄어쓰기만 다르거나(lineIn), 한쪽이 다른 쪽에 든 글(similarBody).
+// 반환 [{kind:'line'|'last', line}] — 'line'은 표의 행, 'last'는 지난주·현황 표 줄(아직 이 주 행이 아님). 같은 글이 두 번 나오지 않는다.
+//   표의 제안 행끼리·넣은 줄과는 lineIn(부호·띄어쓰기만 다르거나 한쪽 글이 다른 쪽에 그대로 든 것)만 — 서로 다른 제안을 비슷하다고 숨기지 않는다.
+//   지난주·현황 표 줄은 [가져오기](importPlan)가 건너뛸 글(similarBody)도 뺀다 — 눌러도 들어가지 않을 제안을 보이지 않게.
+export const sameLineBody = (a, b) => { const x = cleanBody(a), y = cleanBody(b); return !!x && !!y && (lineIn([x], y) || lineIn([y], x)); };
+export const sameBody = (a, b) => sameLineBody(a, b) || similarBody(cleanBody(a), cleanBody(b));
+export function weekSuggestions(lines, last = []) {
+  const parts = cellParts(lines), all = sortLines(lines), out = [];
+  for (const l of parts.suggested) if (!parts.placed.some(x => sameLineBody(x.body, l.body)) && !out.some(x => sameLineBody(x.line.body, l.body))) out.push({kind: 'line', line: l});
+  if (!parts.thin) return out;
+  for (const l of sortLines(last)) {
+    if (!cleanBody(l.body) || all.some(x => sameBody(x.body, l.body)) || out.some(x => sameLineBody(x.line.body, l.body))) continue;
+    out.push({kind: 'last', line: l});
+  }
+  return out;
+}
+// 한 번에 보이는 제안 줄 수(넘으면 '제안 n개 더 ▾').
+export const SUG_SHOWN = 3;

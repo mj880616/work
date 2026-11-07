@@ -570,7 +570,7 @@ const weekLinesSlot = () => $('[data-journal-weekly] [data-weekly-flow-cells="or
 function drawWeekLines() {
   const slot = weekLinesSlot(); if (!slot || !weekLines || !weekLinesMod) return;
   weekLines.bind(slot);
-  slot.innerHTML = weekLinesMod.weekTableHtml(weekLines, weekLinesOrgs, weekLinesMsg);
+  slot.innerHTML = weekLinesMod.weekTableHtml(weekLines, weekLinesOrgs, {msg:weekLinesMsg.text, error:weekLinesMsg.error, tableClass:'wl-weekly'}); // 상태 한 줄은 다시 그려도 남게(전에는 이름이 달라 지워졌음)
   weekLines.afterPaint();
 }
 // 넣은 줄(조직 id → '- 11.2. 글' 줄들) — 복사·캘린더 추천 거르기가 읽는다. 표를 아직 못 읽었으면 null(예전처럼 기록).

@@ -740,13 +740,10 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
           const item = x.raw, pick = x.key ? JSON.stringify({kind:x.kind, from:x.from, cell:x.cell, org:x.org, text:x.text, key:x.key}) : '';
           const li = el('li', 'journal-org-ref'); li.dataset.journalOrgRef = item.key;
           li.append(el('span', 'journal-org-ref-mark', '캘린더 추천'), doc.createTextNode(` · ${item.label} `));
-          const add = el('button', 'mini', '+'); add.type = 'button'; add.dataset.journalOrgRefAdd = section.id; add.dataset.journalOrgRefText = item.label; // 요약 줄은 글머리 없이(복사·한글 파일이 '- '를 붙임)
-          add.setAttribute('aria-label', `${section.name} 요약에 넣기: ${item.label}`);
-          li.append(add);
-          if (pick) {
-            const x_ = el('button', 'mini journal-pick-x', '×'); x_.type = 'button'; x_.dataset.journalPickDrop = ''; x_.dataset.journalPick = pick; x_.disabled = !!picks.busy;
-            x_.title = '이 제안 빼기'; x_.setAttribute('aria-label', `제안 빼기: ${item.label}`); li.append(' ', x_);
-          }
+          // S52-25 공용 '제안 줄': 줄 끝 ⋯ 하나 → [넣기]·[빼기](빼기 = 이번 주 제안에서 빠짐, 한글 파일 상자와 같은 열쇠). 요약 줄은 글머리 없이(복사·한글 파일이 '- '를 붙임).
+          const items = [{text:'넣기', data:{journalOrgRefAdd:section.id, journalOrgRefText:item.label}, aria:`${section.name} 요약에 넣기: ${item.label}`}];
+          if (pick) items.push({text:'빼기', data:{journalPickDrop:'', journalPick:pick}, disabled:!!picks.busy, danger:true, aria:`제안 빼기: ${item.label}`});
+          li.append(rowMore(doc, {label:`제안: ${item.label}`, data:{journalOrgRefMore:item.key}, items}));
           ul.append(li);
         }
         part.append(ul);

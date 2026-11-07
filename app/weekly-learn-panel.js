@@ -71,8 +71,9 @@ export function candidateList(doc, week, rules, {busy = false, fixing = null, dr
     if (fixing === c.text) li.append(inlineForm(doc, {value:value ?? c.text, max:RULE_CHARS, aria:'후보 고쳐서 넣기', inputData:{learnRuleFixInput:c.text}, goText:'넣기', goData:{learnRuleFixGo:week, learnRule:c.text}, busy}));
     else if (dropping === c.text) li.append(el('span', null, c.text), ' ', inlineForm(doc, {value:value ?? '', max:WHY_MAX, aria:`빼는 이유(안 써도 돼요): ${c.text}`, placeholder:'이유(안 써도 돼요)', inputData:{learnWhyInput:c.text}, goText:'빼기 확인', goData:{learnRuleDrop:week, learnRule:c.text}, busy}));
     else {
-      const take = el('button', 'mini', '넣기'); take.type = 'button'; take.dataset.learnRuleTake = week; take.dataset.learnRule = c.text; take.disabled = busy; take.setAttribute('aria-label', `규칙으로 넣기: ${c.text}`);
-      li.append(el('span', null, c.text), ' ', take, rowMore(doc, {label:`후보 고쳐서 넣기·빼기: ${c.text}`, data:{learnRuleMore:''}, items:[
+      // S52-25 공용 '제안 줄': 줄 끝 ⋯ 하나 → [넣기][고쳐서 넣기][빼기](규칙 후보에는 [이미 있음]을 두지 않는다).
+      li.append(el('span', null, c.text), ' ', rowMore(doc, {label:`후보: ${c.text}`, data:{learnRuleMore:''}, items:[
+        {text:'넣기', data:{learnRuleTake:week, learnRule:c.text}, disabled:busy, aria:`규칙으로 넣기: ${c.text}`},
         {text:'고쳐서 넣기', data:{learnRuleFix:week, learnRule:c.text}, disabled:busy, aria:`고쳐서 넣기: ${c.text}`},
         {text:'빼기', data:{learnRuleDropAsk:week, learnRule:c.text}, disabled:busy, danger:true, aria:`후보 빼기: ${c.text}`}]}));
     }
