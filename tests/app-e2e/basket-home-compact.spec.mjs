@@ -58,9 +58,9 @@ for (const width of [390, 1280]) {
       zoneHeight: el.querySelector('[data-basket-clip]').getBoundingClientRect().height,
       zoneTouch: parseFloat(getComputedStyle(el.querySelector('[data-basket-clip]'), '::after').height) || 0,
     }));
-    // UI-업데이트편집한줄: the edit screen's [📎 첨부] is a small button (32px) in the one button row, touch area 44px.
+    // UI-업데이트편집한줄: the edit screen's [📎 첨부] sits in the one button row, touch area 44px. UI-창아래버튼통일(11/07): that row is one family, 36px.
     expect(values.detail.pickerHeight).toBeLessThanOrEqual(width === 390 ? 46 : 80);
-    expect(values.detail.zoneHeight).toBe(32);expect(values.detail.zoneTouch).toBe(44);
+    expect(values.detail.zoneHeight).toBe(36);expect(values.detail.zoneTouch).toBe(44);
     await saveShot('detail');
     await verifySelection(detail, 'detail');
     expect(errors).toEqual([]);
@@ -91,7 +91,7 @@ for (const width of [390, 1280]) {
         // UI-업데이트편집한줄: on the edit screen it is a small 32px button whose touch area (::after) is 44px.
         // HOME-모바일정리④: the home phone clip paints 34px inside the 36px input, touch area (::after) 44px.
         if (name === 'home') { expect(button.height).toBeGreaterThanOrEqual(34); expect(await zone.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44); }
-        else { expect(button.height).toBe(32); expect(await zone.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44); }
+        else { expect(button.height).toBe(36); /* UI-창아래버튼통일: 수정 줄 [📎 첨부] 36px */ expect(await zone.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44); }
         expect(button.width).toBeGreaterThanOrEqual(44);
         await zone.focus();
         await expect(zone).toBeFocused();
