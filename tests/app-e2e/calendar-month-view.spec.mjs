@@ -534,20 +534,21 @@ test('desktop month view enlarges typography, bars and lane capacity across supp
   }
 });
 
-// S48-6 UI-폰달력월보기(2026-11-02 명진 결정, #1708 질문 1): 폰 칸 글자를 읽히게 키운다 — 날짜 11px, 제목 11px, 시각 10px, 줄 15px(막대 14px).
+// S48-6 UI-폰달력월보기(2026-11-02 명진 결정, #1708 질문 1): 폰 칸 글자를 읽히게 키운다 — 날짜 11px, 제목 11px, 줄 15px(막대 14px).
+// S52-11 CAL-제목먼저(2026-11-07 명진): 폰 칸 안 줄은 제목만 — 시각 글자는 칸에 없다(읽기 이름에는 남음).
 test('mobile month density stays compact but readable at 360, 390, 412 and 430 pixels',async({page})=>{
   for(const width of [360,390,412,430]){
     await page.setViewportSize({width,height:844});
     await page.goto(url);
     const metrics=await page.locator('#calendarGrid').evaluate(el=>{
-      const event=el.querySelector('.cmv-event'),day=el.querySelector('.cal-day'),time=el.querySelector('.cmv-event-time'),css=getComputedStyle(el);
-      return {laneStep:parseFloat(css.getPropertyValue('--cmv-lane-step')),bar:event.getBoundingClientRect().height,day:parseFloat(getComputedStyle(day).fontSize),event:parseFloat(getComputedStyle(event).fontSize),time:parseFloat(getComputedStyle(time).fontSize)};
+      const event=el.querySelector('.cmv-event'),day=el.querySelector('.cal-day'),css=getComputedStyle(el);
+      return {laneStep:parseFloat(css.getPropertyValue('--cmv-lane-step')),bar:event.getBoundingClientRect().height,day:parseFloat(getComputedStyle(day).fontSize),event:parseFloat(getComputedStyle(event).fontSize),times:el.querySelectorAll('.cmv-event-time').length};
     });
     expect(metrics.laneStep).toBe(15);
     expect(metrics.bar).toBe(14);
     expect(metrics.day).toBe(11);
     expect(metrics.event).toBe(11);
-    expect(metrics.time).toBe(10);
+    expect(metrics.times).toBe(0);
   }
 });
 
