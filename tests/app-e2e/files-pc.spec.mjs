@@ -128,7 +128,7 @@ test.describe('윈도우 PC 1440', () => {
     await pane(page, 1).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
     await expect(pane(page, 1)).toHaveClass(/fx-cur/);
     await tree(page).locator('[data-fx-go="od"][data-fx-id=""]').click();
-    await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('원드라이브');
+    await expect(pane(page, 1).locator('.fx-ptop .fx-psrc-name')).toHaveText('원드라이브');
     await expect(pane(page, 1).locator('[data-fx-row^="od:"]').first()).toBeVisible();
     await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('C:');
     // 오른쪽(원드라이브) 줄을 골라 '← 왼쪽에 복사' → 받을 곳이 내 PC라 막고 안내.
