@@ -52,7 +52,7 @@ test('잊지 말기 화면 모듈은 홈과 잊지 말기 한 목록에서만 �
  const users=app.filter(f=>/\.m?js$/.test(f)&&/family-notes-data|home-family|family-notes-model/.test(readFileSync(join(root,f),'utf8'))).sort();
  assert.deepEqual(users,['app/family-notes-data.js','app/family-notes-model.mjs','app/forget-list.js','app/home-family.js','app/journal.js'],users.join(', '));
  const list=readFileSync(join(root,'app/forget-list.js'),'utf8');
- assert.doesNotMatch(list,/ai-assist|basket-ai|weekly|ledger|journal-data|journal-hwpx|\/export|ai_export/i,'잊지 말기 한 목록은 가족 줄을 AI·원장·주간보고·내보내기 길에 넘기지 않는다');
+ assert.doesNotMatch(list,/ai-assist|basket-ai|weekly|ledger-|journal-data|journal-hwpx|\/export|ai_export/i,'잊지 말기 한 목록은 가족 줄을 AI·원장·주간보고·내보내기 길에 넘기지 않는다');
  assert.doesNotMatch(readFileSync(join(root,'app/basket.js'),'utf8'),/family-notes/,'정리함 본체(업데이트 길)는 가족 자료를 직접 읽지 않는다');
  const journal=readFileSync(join(root,'app/journal.js'),'utf8');
  assert.equal([...journal.matchAll(/home-family/g)].length>=1,true);

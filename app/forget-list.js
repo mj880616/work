@@ -10,7 +10,7 @@
 import {createAnchoredMenu} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
 import {esc, rowHtml} from './notice-box.mjs';
-import {waitHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {seoulDateKey} from './meeting-time.js';
@@ -133,7 +133,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   function linkingHtml(c) {
     const l = linking.get(c.id); if (!l) return '';
     const id = esc(c.id), dis = busy.has(c.id) ? ' disabled' : '';
-    const picks = l.tasks === null ? '<span class="nbx-faint">할 일 읽는 중…</span>'
+    const picks = l.tasks === null ? waitInlineHtml()
       : l.tasks.length ? l.tasks.map(t => `<button type="button" class="row-act" data-forget-link-task="${esc(t.id)}" data-forget-link-for="${id}"${dis}>${esc(t.title)}</button>`).join('')
       : `<span class="nbx-faint">${l.failed ? '할 일을 못 읽었어요.' : '비슷한 할 일을 못 찾았어요.'}</span>${l.failed ? `<button type="button" class="row-act" data-forget-link-retry="${id}"${dis}>다시</button>` : ''}`;
     return `<div class="nbx-below" data-forget-link="${id}" role="group" aria-label="이미 있는 할 일 고르기">${picks}<button type="button" class="row-act" data-forget-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="row-act" data-forget-link-cancel="${id}"${dis}>취소</button></div>`;
