@@ -9,8 +9,8 @@ export function folderIconHtml(row, {open = false, className = 'nx-ico'} = {}) {
   const color = colorOf(row);
   return `<span class="${className} fl-ico"${color ? ` data-fc="${color}"` : ''} aria-hidden="true">${folderShapeHtml(open ? 'open' : 'closed')}</span>`;
 }
-// 폴더 고르기 창 줄 앞의 작은 그림(색 고른 폴더만 보인다. 안 고른 폴더는 지금 모양 그대로 그림 없음).
-export const pickIconHtml = row => (colorOf(row) ? folderIconHtml(row, {className: 'lu-move-ico'}) : '');
+// 폴더 고르기 창 줄 앞의 작은 그림. S52-27(11/07 21:13 명진): 색 안 고른 폴더도 나무·목록과 같은 기본 노란 폴더 그림(색 고른 폴더는 그 색).
+export const pickIconHtml = row => folderIconHtml(row, {className: 'lu-move-ico'});
 // data-fc 속성(꼬리표·포스트잇 칸에 다는 값). 안 고른 폴더는 빈 글자.
 export const fcAttr = row => { const c = colorOf(row); return c ? ` data-fc="${c}"` : ''; };
 

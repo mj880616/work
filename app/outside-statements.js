@@ -124,7 +124,7 @@ const newsKeys = () => newsKeysOf(state.media, newsCatalog());
 const dotOf = (kind, id) => (kind === 's' ? outsideColor(id, state.catalog || []) : kind === 'n' ? newsColor({source_key: id}, newsCatalog()) : kind === 'g' ? colorVar(familyOfGroup(id), 0) : colorVar('press', id === 'foreign' ? 1 : 0));
 const search = createOutsideSearch({box: $('[data-os-search]'), nameOf, workspaceOf, keysOf: () => outsideKeys()});
 let mediaPicker = null;
-const picker = () => (mediaPicker ||= createMovePicker({esc, id: 'nwMediaPicker', label: '매체 고르기', findLabel: '매체 찾기', foot: false, currentTag: '고름'}));
+const picker = () => (mediaPicker ||= createMovePicker({esc, id: 'nwMediaPicker', label: '매체 고르기', findLabel: '매체 찾기', foot: false, currentTag: '고름', folderIcons: false}));
 function paintMediaButton() {
   const b = $('[data-nw-media]');
   if (!b) return;
