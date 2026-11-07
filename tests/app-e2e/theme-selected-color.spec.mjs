@@ -20,6 +20,8 @@ const ratio=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min
 const shadow=loc=>loc.evaluate(el=>getComputedStyle(el).boxShadow);
 // 가로 전환의 아래 얇은 선은 ::before 막대(버튼 자체 그림자는 없음).
 const underline=loc=>loc.evaluate(el=>{const s=getComputedStyle(el,'::before');return s.content==='none'?'':s.backgroundColor});
+// UI-보기탭한모양(S52-17): 보기 바꾸기(.ds-seg)는 고른 칸만 흰 알약(--ds-seg-on) + 진한 글자, 밑줄 없음. 한 알약으로 붙은 두 칸(.ds-seg-group)은 묶음이 알약.
+const segPill=loc=>loc.evaluate(el=>{const p=el.closest('.ds-seg-group')||el;return {bg:getComputedStyle(p).backgroundColor,fg:getComputedStyle(el).color,line:getComputedStyle(el,'::before').content==='none'}});
 for(const theme of THEMES){
  test(`${theme}: 고른 쪽은 연한 바탕 + 얇은 선, 꽉 칠한 색은 [추가]만, 글자 대비 4.5:1 이상`,async({page})=>{
   const errors=await open(page,1280,theme);
@@ -27,14 +29,15 @@ for(const theme of THEMES){
   const soft=await rgb(page,'var(--ds-select-bg)'),ink=await rgb(page,'var(--ds-select-ink)'),line=await rgb(page,'var(--ds-select-line)');
   expect(ratio(primary,on)).toBeGreaterThanOrEqual(4.5);expect(ratio(soft,ink)).toBeGreaterThanOrEqual(4.5);
   expect(soft).not.toBe(primary);
-  // 고른 [바구니|할 일|업데이트] 쪽: 연한 바탕 + 아래 얇은 선. 홈 빠른 입력 [추가]만 주 색으로 채운다.
+  // 고른 [업데이트 ▾|할 일] 쪽: 보기 바꾸기 한 모양(흰 알약 + 진한 글자, 밑줄 없음). 홈 빠른 입력 [추가]만 주 색으로 채운다.
+  const segOn=await rgb(page,'var(--ds-seg-on)'),segInk=await rgb(page,'var(--kptu-ink)');expect(ratio(segOn,segInk)).toBeGreaterThanOrEqual(4.5);
   const modes=page.locator('#homeView .home-quick-modes [data-quick-mode][aria-pressed="true"]').first();
   await expect(modes).toBeVisible();
-  expect(await bg(modes)).toBe(soft);expect(await fg(modes)).toBe(ink);expect(await underline(modes)).toBe(line);expect(await shadow(modes)).toBe('none');
+  expect(await segPill(modes)).toEqual({bg:segOn,fg:segInk,line:true});
   const save=page.locator('#homeView .home-quick button.home-quick-save').first();
   expect(await bg(save)).toBe(primary);
   const unsel=page.locator('#homeView .home-quick-modes [data-quick-mode][aria-pressed="false"]').first();
-  expect(await bg(unsel)).not.toBe(soft);
+  expect(await bg(unsel)).not.toBe(segOn);
   // 사이드바: 지금 화면 하나만 연한 바탕 + 왼쪽 얇은 선, 주 색으로 채운 항목은 없다.
   const filled=await nav(page).locator('button,a').evaluateAll(els=>els.filter(e=>e.getClientRects().length&&getComputedStyle(e).backgroundColor!=='rgba(0, 0, 0, 0)').map(e=>e.textContent.trim()));
   expect(filled).toEqual(['홈']);
@@ -102,12 +105,12 @@ test('폰 390: 메뉴 판 타일 열이 같은 모양이고 낮다(FILES-클라�
  expect(errors).toEqual([]);
 });
 
-test('폰 390: 일정 전환·자료실 칩의 고른 쪽이 연한 바탕 + 얇은 선',async({page})=>{
+test('폰 390: 일정 전환은 보기 바꾸기 한 모양(흰 알약), 자료실 칩의 고른 쪽은 연한 바탕 + 얇은 선',async({page})=>{
  const errors=await open(page,390,'navy');
  const primary=await rgb(page,'var(--ds-select-bg)'),on=await rgb(page,'var(--ds-select-ink)'),line=await rgb(page,'var(--ds-select-line)');
  await page.evaluate(()=>window.KPTURouter.go('calendar'));await expect(page.locator('#calendarView')).toBeVisible();
  const sw=page.locator('#appView .schedule-switch button[aria-pressed="true"]').first();await expect(sw).toBeVisible();
- expect(await bg(sw)).toBe(primary);expect(await fg(sw)).toBe(on);expect(await underline(sw)).toBe(line);
+ expect(await segPill(sw)).toEqual({bg:await rgb(page,'var(--ds-seg-on)'),fg:await rgb(page,'var(--kptu-ink)'),line:true});
  await page.evaluate(()=>window.KPTURouter.go('library'));await expect(page.locator('#libraryView')).toBeVisible();
  const chip=page.locator('#libraryView .filter-chips button[aria-checked="true"], #libraryView #libraryCategoryFilter button[aria-pressed="true"]').first();
  if(await chip.count()){expect(await bg(chip)).toBe(primary);expect(await fg(chip)).toBe(on);expect(await chip.evaluate(el=>getComputedStyle(el).borderTopColor)).toBe(line)}

@@ -12,11 +12,9 @@ test('6가지 공용 규칙이 ui-standard.css 한 곳에 있고 값은 토큰�
   // ④ 칩: 알약, 28px, 고른 것만 선택 표시 색(연한 바탕 + 선)
   assert.match(block, /button\.ds-chip\{[^}]*height:var\(--ds-compact-height-sm\)[^}]*border-radius:var\(--ds-chip-radius\)/);
   assert.match(block, /button\.ds-chip:is\(\[aria-pressed="true"\],\[aria-checked="true"\]\)\{[^}]*background:var\(--ds-select-bg\)[^}]*border-color:var\(--ds-select-line\)/);
-  // ⑤ 보기 바꾸기: 붙은 칸, 32px, 고른 칸은 연한 바탕 + 아래 선
-  assert.match(block, /\.ds-seg\{[^}]*height:var\(--ds-compact-height\)[^}]*border-radius:var\(--ds-radius-control\)/);
-  assert.match(block, /\.ds-seg button\.ds-seg-btn\[aria-pressed="true"\],\.ds-seg-group > button\.ds-seg-btn\[aria-pressed="true"\] \+ button\.ds-seg-btn\{[^}]*background:var\(--ds-select-bg\)/);
-  assert.match(block, /\.ds-seg button\.ds-seg-btn\[aria-pressed="true"\]::before\{[^}]*background:var\(--ds-select-line\)/);
-  assert.match(block, /\.ds-seg > :is\(button\.ds-seg-btn,\.ds-seg-group\) \+ :is\(button\.ds-seg-btn,\.ds-seg-group\)\{ border-left:/, '칸 사이 선, 붙은 두 칸 안은 선 없음');
+  // ⑤ 보기 바꾸기(UI-보기탭한모양): 연한 알약 바탕 안 칸, 고른 칸만 흰 알약 — 자세한 검사는 tests/view-tabs-one-look.test.mjs
+  assert.match(block, /\.ds-seg\{[^}]*border-radius:var\(--ds-chip-radius\)[^}]*background:var\(--ds-seg-track\) content-box/);
+  assert.match(block, /\.ds-seg > button\.ds-seg-btn:is\(\[aria-pressed="true"\],\[aria-selected="true"\]\),\.ds-seg > \.ds-seg-group:has\(> button\.ds-seg-btn\[aria-pressed="true"\]\)\{ background:var\(--ds-seg-on\)/);
   // ⑥ 아이콘: 선·바탕 없음
   assert.match(block, /button\.icon-btn\{[^}]*border-color:transparent;[^}]*background:transparent;/);
   // 누르는 범위 44px(보이는 크기와 상관없이)

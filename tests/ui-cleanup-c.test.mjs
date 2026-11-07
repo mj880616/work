@@ -25,12 +25,13 @@ test('④ 화면 칸 전체의 버튼 기본 모양(#화면 button)이 글 편�
   for (const f of files.filter(x => x.endsWith('.css') && x !== 'ed-doc.css')) {
     for (const s of selectorsOf(read(f))) {
       // 화면 id(들)만으로 그 아래 아무 버튼·아무 눌린 칸을 잡는 넓은 규칙은 ed-doc.css의 도구줄 규칙(.ed-bar button)보다 세서, 노트만 테두리 버튼이 되었다.
-      if (/^(?:#appView\s+)?#[\w-]+View\s+(?:button|\[aria-pressed=["']?true["']?\])(?::(?:hover|focus|focus-visible|active))?$/.test(s) && !s.includes(':not(.ed-editor *)')) bad.push(`${f}: ${s}`);
+      if (/^(?:#appView\s+)?#[\w-]+View\s+(?:button|\[aria-pressed=["']?true["']?\])(?::(?:hover|focus|focus-visible|active))?$/.test(s) && !/:not\(\.ed-editor \*(?:, [.\w-]+)*\)/.test(s)) bad.push(`${f}: ${s}`);
     }
   }
   assert.deepEqual(bad, [], '넓은 버튼 규칙에는 :not(.ed-editor *)를 붙이세요(편집 도구줄 모양은 ed-doc.css 한 곳)');
   // FOLDER-나무새기준(S51-12): 공용 폴더 나무 단추(.ft-btn)도 이 넓은 규칙에서 뺀다(모양은 folder-tree.css 한 곳).
-  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*(?:, \.ft-btn)?\) \{/);
+  // UI-보기탭한모양(S52-17): 공용 ⑤ 보기 바꾸기 칸(.ds-seg-btn)도 뺀다(모양은 ui-standard.css 한 곳).
+  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*(?:, \.ft-btn)?(?:, \.ds-seg-btn)?\) \{/);
 });
 
 test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [·][▾] 두 칸 없음)', () => {

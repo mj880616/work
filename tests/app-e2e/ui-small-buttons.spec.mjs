@@ -6,6 +6,7 @@ import {noteMenuAction} from './helpers/note-menu.mjs';
 import { chooseBasketKind, basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import { closeNote } from './helpers/note-close.mjs';
+import { segBox } from './helpers/seg-box.mjs';
 // UI-버튼작게(2026-10-18 사용자 결정):
 // ① 바구니 노트·메모 읽기 화면 아래 버튼은 한 줄, 보이는 높이 32px(누르는 범위 44px), [연결하기]만 주 버튼 색. 첨부만 있는 메모도 같음. 노트는 UI-노트메뉴정리로 이 줄이 없어지고 [⋯] 안으로 들어갔다.
 // ② (옛 큰 창의 서식 도구줄 28px 시험은 창과 함께 지웠다.)
@@ -105,19 +106,19 @@ for(const width of [390,1280]){
 test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 32px, 고른 쪽 테마 주 색), 고르면 화면이 바뀌고 [+]는 그 위',async({page})=>{
  const f=await fixture(page);
  const tabs=page.locator('#appView > .mobile-tabs'),tabsTop=(await tabs.boundingBox()).y;
- const gray=await paint(page,'backgroundColor','--ds-select-bg'),white=await paint(page,'backgroundColor','--kptu-surface');
+ const segOn=await paint(page,'backgroundColor','--ds-seg-on'),clear='rgba(0, 0, 0, 0)';
  async function dock(switchSel,labels,picked){
   const sw=page.locator(switchSel);await expect(sw).toBeVisible();
   // APP-위여백: 폰 머리줄은 화면 이름이 있을 때만 자리를 차지한다(홈은 없음). 이 화면(일정·할 일·일기)의 머리줄을 잰다.
   const header=await page.locator('.mobile-shell-header').boundingBox();
   await expect(sw.getByRole('button')).toHaveText(labels);
-  const b=await sw.boundingBox();
+  const b=await segBox(sw);
   // A 44px row right on top of the tabs; the 32px pill sits in its middle, centred across the screen.
   expect(Math.round(b.height)).toBe(32);expect(Math.round(tabsTop-(b.y+b.height))).toBe(6);expect(Math.abs(b.x+b.width/2-195)).toBeLessThanOrEqual(1);
   expect(b.y).toBeGreaterThan(header.y+header.height+300);
   const cells=[];for(const c of await sw.getByRole('button').all())cells.push(await measure(c));
-  // Cells sit inside the pill's 0.5px border (like every segment, ui-standard-buttons.spec: 30~32px).
-  for(const [i,c] of cells.entries()){expect(c.h).toBeGreaterThanOrEqual(30);expect(c.h).toBeLessThanOrEqual(32);expect(c.hit).toBe(44);expect(c.hits).toEqual([true,true,true]);expect(c.bg).toBe(labels[i]===picked?gray:white);}
+  // UI-보기탭한모양(S52-17): 칸은 연한 알약 바탕 안쪽(위아래 3px 여백)의 작은 알약, 고른 칸만 흰 알약(--ds-seg-on), 안 고른 칸은 바탕 그대로.
+  for(const [i,c] of cells.entries()){expect(c.h).toBe(26);expect(c.hit).toBe(44);expect(c.hits).toEqual([true,true,true]);expect(c.bg).toBe(labels[i]===picked?segOn:clear);}
   expect(cells[0].radius).toBe('999px');
   // The row behind the pill is filled (nothing from the page shows through between the pill and the tabs).
   expect(await page.evaluate(([x,y])=>!!document.elementFromPoint(x,y)?.closest('.schedule-switch'),[20,b.y+b.height/2])).toBe(true);
@@ -211,7 +212,7 @@ test('③ 폰: 전환 줄이 있는 정리함·일정에서 고르기 시트는 
  const f=await fixture(page);
  const settle=sheet=>sheet.evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
  async function aboveRow(sheet,row){
-  const box=await sheet.boundingBox(),r=await row.boundingBox(),tabs=await page.locator('#appView > .mobile-tabs').boundingBox();
+  const box=await sheet.boundingBox(),r=await segBox(row),tabs=await page.locator('#appView > .mobile-tabs').boundingBox();
   // The row is 44px on the tabs; the sheet ends where that row starts.
   expect(Math.round(box.y+box.height)).toBe(Math.round(tabs.y-44));expect(box.y+box.height).toBeLessThanOrEqual(r.y-6+0.5);
   for(const item of await sheet.locator('[data-sheet-value]').filter({visible:true}).all()){const b=await item.boundingBox();expect(b.y+b.height).toBeLessThanOrEqual(tabs.y-44);}

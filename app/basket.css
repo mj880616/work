@@ -9,11 +9,11 @@
 #basketView [hidden] { display:none; }
 /* UI-화면정리 C(B④ 편집 도구줄 하나로): 이 화면의 기본 버튼 모양은 글 편집 칸(.ed-editor, 노트 편집기) 안에는 쓰지 않는다.
    편집 도구줄은 어디서나(노트·일기·창 편집·공유 페이지) ed-doc.css 한 곳의 모양(테두리 없는 작은 글자 버튼)이다. */
-#basketView button:not(.ed-editor *, .ft-btn) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
+#basketView button:not(.ed-editor *, .ft-btn, .ds-seg-btn) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
 .basket-filters,.basket-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
-#basketView [aria-pressed="true"]:not(.ed-editor *) { color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); font-weight:700; }
+#basketView [aria-pressed="true"]:not(.ed-editor *, .ds-seg-btn) { color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); font-weight:700; }
 #basketView .basket-row { display:grid; width:100%; gap:6px; margin:10px 0; padding:14px; text-align:left; overflow-wrap:anywhere; }
 .basket-preview { white-space:pre-wrap; font-size:15px; }
 .basket-row time,.basket-destination,[data-basket-detail]>time { color:var(--kptu-muted); font-size:12px; }
@@ -283,13 +283,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 }
 /* NOTE-보기3가지 (요청함 10/29 15:05, 명진 15:10 '추천대로'): 검색 칸 오른쪽 작은 3칸 전환 [폴더|목록|포스트잇](옛 '노트 · n' 자리), 목록 보기 폴더 꼬리표,
    포스트잇 보드(같은 크기 네모 칸·살짝 기울어짐·아래 모서리 접힘). 색은 폴더마다 연한 색 여덟 가지(노랑 없음 — 노랑은 '나한테 온 요청' 주목 표시), 폴더 없음은 회색. 작고 낮게, 톤다운. */
-.nv-switch { display:inline-flex; flex:none; height:var(--ds-compact-height,32px); box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); }
-#appView #basketView .nv-switch button { position:relative; min-width:0; min-height:0; height:auto; margin:0; padding:0 8px; border:0; border-left:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:0; background:transparent; box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:var(--ds-compact-text,13px); line-height:1; white-space:nowrap; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-#appView #basketView .nv-switch button:first-child { border-left:0; border-radius:var(--ds-radius-control,8px) 0 0 var(--ds-radius-control,8px); }
-#appView #basketView .nv-switch button:last-child { border-radius:0 var(--ds-radius-control,8px) var(--ds-radius-control,8px) 0; }
-#appView #basketView .nv-switch button::after { content:""; position:absolute; left:0; right:0; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
-#appView #basketView .nv-switch button[aria-pressed="true"] { background:var(--kptu-primary-soft); color:var(--kptu-primary-ink,var(--kptu-primary)); font-weight:var(--ds-weight-medium,500); }
-@media (max-width:420px) { #appView #basketView .nv-switch button { padding:0 6px; font-size:12px; } }
 /* 폴더 연한 색(꼬리표·포스트잇 바탕). 글자는 늘 진한 잉크라 어두운 화면에서도 읽힌다(보드는 종이처럼 밝은 채로 둠, 채도는 낮춤). */
 .nb-card, .nx-path[data-tone] { --nb-paper:var(--ds-note-paper-none); }
 :is(.nb-card,.nx-path)[data-tone="0"] { --nb-paper:var(--ds-note-paper-0); } /* 연두 */

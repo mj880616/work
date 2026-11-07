@@ -4,6 +4,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
+import { segBox } from './helpers/seg-box.mjs';
 // UI-디자인기준 3/3 2부(8-9e-2): 폰(760px 이하) 배치만 바꾼다. 하단 탭 6칸(홈·바구니·일정·사업 보고·담당조직·메뉴; MTG-프로젝트합치기 3단계 전에는 프로젝트),
 // [일정] 탭 하나에 [달력 | 할 일], 홈·바구니 입력칸 하단 고정(자판 위로), 동그란 [+], 담당조직 추가 링크, 바구니 [⋯] 메뉴와
 // [분류 요청] → 조용히 복사 + 한 줄 알림 + [분류 결과 입력] 창(#577). PC(1280)는 그대로.
@@ -83,13 +84,14 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  await expect(schedule).toHaveAttribute('aria-current','page');await expect(name).toHaveText('할 일'); // UI-화면정리 B ①: 일정 하위 화면은 머리줄에 제 이름
  const toTasks=page.locator('#tasksView .schedule-switch [data-view="tasks"]'),toCalendar=page.locator('#tasksView .schedule-switch [data-view="calendar"]');
  await expect(toTasks).toHaveAttribute('aria-pressed','true');await expect(toCalendar).toHaveAttribute('aria-pressed','false');
+ // UI-보기탭한모양(S52-17): 고른 칸은 흰 알약(--ds-seg-on) + 진한 글자(공용 ⑤ 보기 바꾸기).
  const pressed=await toTasks.evaluate(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor}));
- expect(pressed).toEqual({fg:await token(page,'--ds-select-ink'),bg:await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-select-bg)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;})});
+ expect(pressed).toEqual({fg:await token(page,'--kptu-ink'),bg:await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-seg-on)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;})});
  await toCalendar.click();await loaded(page,'calendar');await expect(schedule).toHaveAttribute('aria-current','page');await expect(name).toHaveText('일정');
  await expect(page.locator('#calendarView .schedule-switch [data-view="calendar"]')).toHaveAttribute('aria-pressed','true');
- // UI-선택표시통일: 고른 [달력]도 [할 일]과 같은 회색, 안 고른 [할 일]은 흰 바탕.
+ // 고른 [달력]도 [할 일]과 같은 흰 알약, 안 고른 [할 일]은 바탕을 칠하지 않는다(연한 알약 바탕이 비침).
  expect(await page.locator('#calendarView .schedule-switch [data-view="calendar"]').evaluate(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor}))).toEqual(pressed);
- expect(await page.locator('#calendarView .schedule-switch [data-view="tasks"]').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--kptu-surface)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
+ expect(await page.locator('#calendarView .schedule-switch [data-view="tasks"]').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
  // 탭은 마지막으로 본 쪽을 연다(새 저장소 없이 라우터가 탭의 data-view를 맞춘다).
  await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await schedule.click();await loaded(page,'calendar');
  await page.locator('#calendarView .schedule-switch [data-view="tasks"]').click();await loaded(page,'tasks');
@@ -98,7 +100,7 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await page.locator('#calendarView .schedule-switch [data-view="calendar"]').evaluate(el=>el.click());await loaded(page,'calendar');
  await page.locator('.mobile-tabs [data-view="home"]').click();await page.locator('#homeView [data-journal-tasks-open]').click();await loaded(page,'tasks');await expect(schedule).toHaveAttribute('aria-current','page');
  // UI-버튼작게 ③: [달력 | 할 일 | 일기](HOME-업무일지홈: 업무일지는 홈)는 아래 탭 바로 위 한 줄(가운데, 줄 높이 44px 안 32px 알약).
- const switchBox=await box(page.locator('#tasksView .schedule-switch')),tabsBox=await box(page.locator('.mobile-tabs'));
+ const switchBox=await segBox(page.locator('#tasksView .schedule-switch')),tabsBox=await box(page.locator('.mobile-tabs'));
  expect(Math.round(tabsBox.top-switchBox.bottom)).toBe(6);expect(Math.round(switchBox.height)).toBe(32);
  expect(Math.abs((switchBox.left+switchBox.right)/2-195)).toBeLessThanOrEqual(1);
  // UI-밀기탭이동삭제: 탭 이동은 하단 탭 누르기로만 한다. 할 일 쪽에서도 [일정] 자리가 그대로 이어진다.

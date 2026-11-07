@@ -804,6 +804,9 @@ jobs:
       - name: Check six button kinds rule and debt ratchet (UI-버튼6가지)
         run: node --test tests/button-six-kinds.test.mjs
 
+      - name: Check view tabs one look (UI-보기탭한모양)
+        run: node --test tests/view-tabs-one-look.test.mjs
+
       - name: Check save button place rule (UI-저장자리)
         run: node --test tests/save-button-rule.test.mjs
 
