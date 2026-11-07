@@ -370,7 +370,7 @@
   #appView :is(#homeView,#basketView,#tasksView) .home-quick > *{ grid-row:auto; margin-top:0; }
   /* 하단 탭에 [바구니]가 있으므로 "바구니 전체 보기"는 뺀다. */
   #appView #homeView .home-quick .home-basket-link{ display:none; }
-  #appView #homeView.view-panel,#appView #tasksView.view-panel,#appView #basketView.view-panel:has([data-basket-list]:not([hidden])),#appView #basketView.view-panel:has(> [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])){ padding-bottom:calc(var(--kptu-quick-dock,120px) + var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
+  #appView #homeView.view-panel:has(.home-quick[data-home-quick]),#appView #tasksView.view-panel,#appView #basketView.view-panel:has([data-basket-list]:not([hidden])),#appView #basketView.view-panel:has(> [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])){ padding-bottom:calc(var(--kptu-quick-dock,120px) + var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
   /* UI-작은알림자리: 작은 알림은 화면 위쪽(base-ui.css --kptu-notice-top)이라 화면별 bottom 올리기는 없앴다. */
 
   /* 바구니 입력칸: 홈과 같은 한 줄(테두리 하나, 크기 조절 손잡이 없음). 첨부 클립은 입력칸 왼쪽 그대로(글자 시작은 UI-입력칸첨부간격 규칙). */

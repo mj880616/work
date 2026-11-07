@@ -1,6 +1,6 @@
 // WEEKLY-한흐름확정 ② 화면(docs/design/weekly-one-flow.md 4.1절, 시안 안 B): [주간 정리] 2. 1) 요약 · 3. 2) 투쟁 사업장 현황 · 4. 산하 조직 현황의
 // '보고서 칸'을 그 주 임시저장(draft) 한 벌에서 그린다. 보이는 줄 = 한글 파일에 들어갈 줄(weekly-draft-store.js weekCells: 바탕 proposed 위에 고친 rows).
-// - 줄 끝 작은 ⋯ → [고치기]·[빼기], 칸 이름 줄 오른쪽 작은 [+ 추가], 칸 아래 흐린 '제안'(이번 주 기록·자료·조직 AI 요약·캘린더 추천) → [넣기]·[이미 있음]·⋯([고쳐서 넣기]·[빼기] — 빼기는 이유 한 줄, 안 써도 됨).
+// - 줄 끝 작은 ⋯ → [고치기]·[빼기], 칸 이름 줄 오른쪽 작은 [+ 추가], 칸 아래 흐린 '제안'(이번 주 기록·자료·조직 AI 요약·캘린더 추천) → 줄 끝 ⋯ 하나([넣기]·[이미 있음]·[고쳐서 넣기]·[빼기] — 빼기는 이유 한 줄, 안 써도 됨, S52-25).
 //   S52-24: [이미 있음] = 이미 보고서에 쓴 내용(동작 기록 act 'have' — '빼기 = 쓸모없음'과 따로 셈). 칸에 든 글·[이미 있음]으로 치운 글과 부호·띄어쓰기만 다른
 //   비슷한 제안은 보이지 않는다(weekly-cell-names.mjs lineIn). 같은 주제인데 이름 부호만 다른 칸은 한 칸(weekly-draft-store.js weekCells).
 // - 누름 한 번 = 서버 쓰기 한 번(changeWeekCell: rows + picks 를 한 PATCH). 실패하면 그 칸에 "저장 못 함 [다시]", 화면 값은 그대로.
@@ -255,10 +255,12 @@ export function paintFlowCells(slot, ctx) {
         // [빼기]를 누르면 그 자리에 작은 한 줄 '이유(안 써도 돼요)' + [빼기 확인](요청함 11/01 23:42). 빈 칸이면 그냥 빠진다.
         if (ui.dropping?.key === x.key) { li.append(el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text), ' ', whyForm(c.id, x.text)); sg.append(li); continue; }
         li.append(el('span', 'weekly-flow-tag', x.raw.carried ? CARRIED_TAG : TAG[ai ? 'line' : x.raw.orgRef ? 'calendar' : x.from] ?? '기록'), el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text));
-        const take = btn('넣기', {flowTake:c.id}, 'mini weekly-flow-take'); take.disabled = busy; take.setAttribute('aria-label', ai ? `${x.raw.index + 1}번째 줄을 이렇게 바꾸기: ${x.raw.text}` : `넣기: ${x.text}`);
-        // S52-24: [이미 있음] — 이미 보고서에 쓴 내용이라 치움(빼기와 따로 기록, 학습에서 '쓸모없음'으로 세지 않음). 공용 ② 작은 버튼.
-        const had = btn('이미 있음', {flowHave:c.id}, 'secondary weekly-flow-have'); had.disabled = busy; had.setAttribute('aria-label', `이미 있음(이미 쓴 내용): ${ai ? x.raw.text : x.text}`);
-        li.append(take, had, rowMore(doc, {label:`제안 고쳐서 넣기·빼기: ${x.text}`, data:{flowSuggestMore:''}, items:[
+        // S52-25 공용 '제안 줄'(요청함 11/07 19:20 ②·⑥, 명진 19:22 '넣기·이미 있음도 ⋯ 누르면'): 줄 끝은 ⋯ 하나 → [넣기][이미 있음][고쳐서 넣기][빼기].
+        //   [이미 있음] = 이미 보고서에 쓴 내용(S52-24, 빼기와 따로 기록 — 학습에서 '쓸모없음'으로 세지 않음).
+        const said = ai ? x.raw.text : x.text;
+        li.append(rowMore(doc, {label:`제안: ${x.text}`, data:{flowSuggestMore:''}, items:[
+          {text:'넣기', data:{flowTake:c.id}, disabled:busy, aria:ai ? `${x.raw.index + 1}번째 줄을 이렇게 바꾸기: ${x.raw.text}` : `넣기: ${x.text}`},
+          {text:'이미 있음', data:{flowHave:c.id}, disabled:busy, aria:`이미 있음(이미 쓴 내용): ${said}`},
           {text:'고쳐서 넣기', data:{flowEdit:c.id}, disabled:busy}, {text:'빼기', data:{flowDrop:c.id}, disabled:busy, danger:true, aria:`제안 빼기: ${x.text}`}]}));
         sg.append(li);
       }

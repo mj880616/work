@@ -415,12 +415,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (from === 'picked') return [['data-nx-sel-move', `${pick.size}개 — 폴더로 옮기기`], ['data-nx-sel-delete', '지우기', 'basket-menu-danger'], ['data-nx-sel-close', '선택 끝내기']];
     if (from === 'folder') {
       const step = folderStepState(folderId);
-      return [['data-nx-select', '선택'], ['data-nx-enter', '이 폴더로 들어가기'], ...(canEditFolders() ? [['data-nx-new-in', '새 폴더'], ['data-nx-rename', '이름 바꾸기'], ['data-nx-color', '색 고르기…'],
+      // NOTE-폴더메뉴새노트(11/07): 맨 위 [새 노트] — 기존 새 노트 창이 이 폴더가 골라진 채로 열린다(newNoteIn).
+      return [['data-nx-new-note', '새 노트'], ['data-nx-select', '선택'], ['data-nx-enter', '이 폴더로 들어가기'], ...(canEditFolders() ? [['data-nx-new-in', '새 폴더'], ['data-nx-rename', '이름 바꾸기'], ['data-nx-color', '색 고르기…'],
         ...(step.up ? [['data-nx-folder-up', '위로']] : []), ...(step.down ? [['data-nx-folder-down', '아래로']] : []),
         ['data-nx-move-folder', '옮기기…'], ['data-nx-delete-folder', '폴더 지우기', 'basket-menu-danger']] : [])];
     }
     // FEAT-1029 ④: [성명·보도자료 초안] opens the draft window (press-draft.js); it saves a note only when [노트로 저장] is pressed.
-    if (from === 'head') return [...(canEditFolders() ? [['data-nx-new-in', folderAt() ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(folderAt() ? [['data-nx-up', '위 폴더로']] : []),
+    if (from === 'head') return [...(folderAt() ? [['data-nx-new-note', '이 폴더에 새 노트']] : []), ...(canEditFolders() ? [['data-nx-new-in', folderAt() ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(folderAt() ? [['data-nx-up', '위 폴더로']] : []),
       ...(view === 'folder' && canEditFolders() ? [['data-nx-sort', noteSort === 'manual' ? `노트 정렬: ${NOTE_SORT_NAMES.changed} 순으로` : `노트 정렬: ${NOTE_SORT_NAMES.manual}로`]] : []), ['data-press-draft-open', '성명·보도자료 초안']];
     return [
       ...(from === 'list' ? [['data-nx-select', '선택']] : []),
@@ -869,6 +870,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       onPick:id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.(); },
       onOut:() => { addPick = {at, folder:null}; quick.setFolder(null); bigWriter?.paint?.(); }});
   }
+  // NOTE-폴더메뉴새노트: 폴더 ⋯ [새 노트] = 입력 줄 [폴더 ▾]에서 그 폴더를 고른 것과 같게 한 뒤, 입력 줄의 [크게]로 기존 새 노트 창을 연다
+  // (쓰던 글·파일도 그대로 넘어감). 저장은 noteAdded → addTarget 그대로 — 새 저장 길 없음.
+  function newNoteIn(id) {
+    if (!id || !folderById(id)) return;
+    addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.();
+    host.querySelector('[data-note-list] [data-quick-big]')?.click();
+  }
   // The big edit window's [폴더 ▾]: the same folder list; the window writes the change after its text save (moveFromWindow).
   function windowFolderPick(initial) {
     let value = initial, watchers = [];
@@ -1254,6 +1262,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const id = from.from === 'folder' ? from.folderId : at === OUTSIDE ? null : at;
       if (b.hasAttribute('data-press-draft-open')) { const trigger = from.trigger; void import('./press-draft.js').then(m => m.openPressDraft({trigger})); return; }
       if (b.hasAttribute('data-nx-select')) startSelect(from.from === 'folder' ? 'f:' + id : null);
+      else if (b.hasAttribute('data-nx-new-note')) newNoteIn(id);
       else if (b.hasAttribute('data-nx-enter')) enter(id);
       else if (b.hasAttribute('data-nx-up')) enter(folderById(at)?.parent_id || null);
       else if (b.hasAttribute('data-nx-new-in')) void newFolder(id);

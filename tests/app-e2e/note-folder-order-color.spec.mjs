@@ -146,7 +146,12 @@ test.describe('PC 1440', () => {
     await page.locator('#noteDocMenu [data-note-folder-move]').click();
     const item = page.locator('#luMovePicker .lu-move-item', { hasText: '을 폴더' });
     await expect(item.locator('.lu-move-ico')).toHaveAttribute('data-fc', '4');
-    await expect(page.locator('#luMovePicker .lu-move-item', { hasText: '갑 폴더' }).locator('.lu-move-ico')).toHaveCount(0);
+    // S52-27(11/07 21:13): 색 안 고른 폴더도 기본 노란 폴더 그림(색 번호 없음), 이름은 그림 바로 옆 왼쪽.
+    const plain = page.locator('#luMovePicker .lu-move-item', { hasText: '갑 폴더' });
+    await expect(plain.locator('.lu-move-ico svg')).toHaveCount(1);
+    await expect(plain.locator('.lu-move-ico')).not.toHaveAttribute('data-fc', /./);
+    const gap = await plain.evaluate(b => b.querySelector('.lu-move-name').getBoundingClientRect().left - b.querySelector('.lu-move-ico').getBoundingClientRect().right);
+    expect(gap).toBeLessThan(20);
     expect(f.errors).toEqual([]);
   });
 
@@ -192,7 +197,7 @@ test.describe('PC 1440', () => {
   test('폴더 ⋯ 메뉴: 색 고르기·위로·아래로(맨 앞은 위로 없음, 맨 끝은 아래로 없음)', async ({ page }) => {
     const f = await fixture(page, 1440);
     await more(page, U(1)).click();
-    await expect(rootMenu(page).locator('button')).toHaveText(['선택', '이 폴더로 들어가기', '새 폴더', '이름 바꾸기', '색 고르기…', '아래로', '옮기기…', '폴더 지우기']);
+    await expect(rootMenu(page).locator('button')).toHaveText(['새 노트', '선택', '이 폴더로 들어가기', '새 폴더', '이름 바꾸기', '색 고르기…', '아래로', '옮기기…', '폴더 지우기']);
     await page.keyboard.press('Escape');
     await more(page, U(3)).click();
     await expect(rootMenu(page).locator('[data-nx-folder-up]')).toHaveText('위로');
@@ -226,7 +231,9 @@ test.describe('폰 412', () => {
     const c = await center(rowSel(2));
     await touch('touchStart', [{ x: c.x, y: c.y }]); await page.waitForTimeout(650); await touch('touchEnd', []);
     await expect(rootMenu(page)).toBeVisible();
-    await expect(rootMenu(page).locator('button').first()).toHaveText('선택');
+    // NOTE-폴더메뉴새노트: 맨 위 [새 노트], 그다음 [선택].
+    await expect(rootMenu(page).locator('button').first()).toHaveText('새 노트');
+    await expect(rootMenu(page).locator('button').nth(1)).toHaveText('선택');
     await expect(rootMenu(page).locator('[data-nx-folder-up]')).toHaveText('위로');
     await rootMenu(page).locator('[data-nx-folder-up]').tap();
     await expect.poll(order).toEqual([U(3), U(2), U(1)]);

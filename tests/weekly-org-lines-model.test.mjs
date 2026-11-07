@@ -67,7 +67,7 @@ test('공용 부품 연결: 조건 쓰기(updated_at)·지우기 없음·같은 
   assert.doesNotMatch(wl, /method: 'DELETE'/, '빼기는 state dropped');
   assert.match(wl, /kptu:weekly-org-lines-changed/);
   assert.match(wl, /visibilitychange/);
-  assert.match(wl, /state: 'in', origin: l\.origin \|\| 'user'/);
+  assert.match(wl, /state: l\.state === 'dropped' \? 'dropped' : 'in', origin: l\.origin \|\| 'user'/); // S52-25: 넣은 줄 또는 뺀 줄(지난주 제안 [이미 있음]·[빼기])만 — 제안 행은 화면이 만들지 않음
   for (const f of ['app/weekly-org-lines.js', 'app/week-pick.js', 'app/weekly-org-lines-model.mjs']) assert.doesNotMatch(read(f), /\?v=|\b(?:local|session)Storage\b/);
 });
 
@@ -80,4 +80,17 @@ test('S50-25 ⑨ sourceRecord: 담당조직 기록 먼저, 그다음 업데이�
   assert.equal(sourceRecord({source_update_ids: [1, ''], source_note_ids: null}), null);
   assert.equal(sourceRecord({}), null);
   assert.equal(sourceRecord(null), null);
+});
+
+// S52-25 WEEKLY-조직현황폰: 주간 정리 흐린 제안 줄 — 넣은 줄과 같은(부호만 다른 것 포함) 글은 다시 나오지 않는다.
+test('weekSuggestions: 제안 행 + (넣은 줄 1줄 이하면) 지난주·현황 표 줄, 같은 글 두 번 없음', async () => {
+  const {weekSuggestions, SUG_SHOWN} = await import('../app/weekly-org-lines-model.mjs');
+  const L = (id, body, state = 'in', day = null) => ({id, body, state, day, end_day: null, sort_order: 0});
+  const got = weekSuggestions([L('a', '가상 보도자료 배포는 5일로 순연'), L('b', '가상 AI 제안 줄', 'suggested'), L('c', '가상 보도자료 배포는 5일로 순연.', 'suggested'), L('d', '가상 뺀 줄', 'dropped')],
+    [{id: 'st1', body: '- 가상 보도자료 배포는 5일로 순연'}, {id: 'st2', body: '가상 준법투쟁 돌입'}, {id: 'st3', body: '가상 뺀 줄'}, {id: 'st4', body: '가상 AI 제안 줄!'}]);
+  assert.deepEqual(got.map(x => [x.kind, x.line.id]), [['line', 'b'], ['last', 'st2']]);
+  // 넣은 줄이 2줄이면 지난주 줄은 제안하지 않는다(서로 다른 제안 행은 비슷해 보여도 둘 다 남는다).
+  const two = weekSuggestions([L('a', '가상 하나'), L('b', '가상 둘'), L('c', '가상 제안 하나', 'suggested'), L('e', '가상 제안 둘', 'suggested')], [{id: 'st2', body: '가상 준법투쟁 돌입'}]);
+  assert.deepEqual(two.map(x => x.line.id), ['c', 'e']);
+  assert.equal(SUG_SHOWN, 3);
 });

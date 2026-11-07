@@ -349,18 +349,20 @@
 /* LIB-폴더로옮기기: [폴더로 옮기기 ›]로 여는 작은 폴더 목록. PC는 누른 버튼 옆, 폰은 아래 시트. */
 .lu-move-picker{position:fixed;inset:auto;margin:0;z-index:110;box-sizing:border-box;display:flex;flex-direction:column;width:248px;max-width:calc(100vw - 16px);padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:hidden}
 .lu-move-picker[hidden]{display:none}
-.lu-move-picker.lu-move-sheet{left:8px;right:8px;bottom:calc(8px + var(--kptu-keyboard-inset,0px));top:auto;width:auto;max-width:none}
+/* S52-27 UI-창스크롤: 폰 시트는 아래 바(하단바·전환 줄) 위에서 올라온다. 자판이 뜨면 하단바 높이는 0이 되고 자판 높이만큼 올라간다. */
+.lu-move-picker.lu-move-sheet{left:8px;right:8px;bottom:calc(8px + var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + var(--kptu-keyboard-inset,0px));top:auto;width:auto;max-width:none}
+.lu-move-picker:focus{outline:none}
 .lu-move-find{flex:none;box-sizing:border-box;width:100%;height:var(--ds-compact-height,32px);margin:0 0 4px;padding:0 8px;font:inherit;font-size:var(--ds-compact-text,13px)}
 .lu-move-list{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
 .lu-move-sec{margin:6px 8px 2px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-.lu-move-picker button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:32px;margin:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);text-align:left;cursor:pointer}
+.lu-move-picker button{display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;min-height:32px;margin:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);text-align:left;cursor:pointer}
 .lu-move-item{padding:0 8px 0 calc(8px + var(--lu-depth,0) * 14px)}
 .lu-move-picker button:is(:hover,:focus-visible):not([aria-disabled="true"]){background:var(--kptu-primary-soft)}
 .lu-move-picker button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 .lu-move-picker button[aria-disabled="true"]{opacity:.5;cursor:default}
 .lu-move-item[aria-current="true"]{opacity:.6;cursor:default}
 .lu-move-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lu-move-tag{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-move-tag{flex:none;margin-left:auto;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .lu-move-note{flex:none;margin:4px 8px 0;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
 .lu-move-note[hidden]{display:none}
 .lu-move-foot{flex:none;margin-top:4px;padding-top:4px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
