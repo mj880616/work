@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { testOrigin } from './helpers/test-origin.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 
 // BASKET-일지로남기기: an update that fits no organization or project can be kept as a work-journal memo from its list row ⋯ or
 // its detail ⋯ ([업무일지에 남기기]). The mark is metadata.journal_at on the same row (no copy of the text, no new column): the
@@ -97,7 +98,7 @@ for (const width of [390, 1280]) {
     expect(f.writes[0].query).toMatchObject({ id: 'eq.' + A, kind: 'eq.basket', updated_at: 'eq.' + stamp, 'metadata->>journal_at': 'is.null' });
     expect(f.rows.find(r => r.id === A).updated_at).toBe(stamp);
     // 분류 완료 · [업무일지] holds it, stated as 업무일지 메모. An update sent to an organization is not offered the item.
-    await press(page, page.locator('[data-basket-filter="classified"]'), width);
+    await pickBasketView(page,'classified');
     await expect(row(page, A)).toContainText('업무일지 메모');
     await press(page, page.locator('[data-basket-place-filter]').getByRole('radio', { name: '업무일지' }), width);
     await expect(page.locator('[data-basket-rows] [data-basket-row]')).toHaveCount(1);
@@ -132,7 +133,7 @@ for (const width of [390, 1280]) {
     // [업무일지에서 빼기] from the row ⋯ removes only the mark: back in 미분류, and the journal has no 기타 메모 box.
     await page.evaluate(() => window.KPTURouter.go('basket'));
     await expect(row(page, B)).toBeVisible(); await expect(row(page, A)).toHaveCount(0);
-    await press(page, page.locator('[data-basket-filter="classified"]'), width);
+    await pickBasketView(page,'classified');
     await press(page, rowMore(page, A), width);
     await expect(rowMenu(page).locator('button')).toHaveText(['복사', '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '일기로 보내기', '사업 보고로 옮기기', '업무일지에서 빼기', '보류로', '삭제']);
     await press(page, rowMenu(page).getByRole('button', { name: '업무일지에서 빼기', exact: true }), width);
@@ -140,7 +141,7 @@ for (const width of [390, 1280]) {
     await expect(notice(page)).toContainText('업무일지에서 뺐어요.');
     expect(f.writes.at(-1).body.metadata).toEqual({ tasks: [], other: 'keep' });
     expect(f.writes.at(-1).query['metadata->>journal_at']).toBe('eq.2026-10-06T01:00:00.000Z');
-    await press(page, page.locator('[data-basket-filter="unclassified"]'), width);
+    await pickBasketView(page,'unclassified');
     await expect(row(page, A)).toBeVisible();
     // HOME-업무일지홈: 두 번째 방문도 홈(업무일지).
     await page.evaluate(() => window.KPTURouter.go('home'));
@@ -171,7 +172,7 @@ for (const width of [390, 1280]) {
     expect(f.writes.map(w => w.body.metadata)).toEqual([{ journal_at: '2026-10-06T01:00:00.000Z' }, {}]);
     // An update sent to an organization: its detail ⋯ has no journal item.
     await press(page, detail.locator('[data-basket-close]'), width);
-    await press(page, page.locator('[data-basket-filter="classified"]'), width);
+    await pickBasketView(page,'classified');
     await press(page, row(page, C), width);
     await press(page, more, width);
     await expect(menu.getByRole('button')).toHaveText(['수정', '보류로', '일기로 보내기', '삭제']);

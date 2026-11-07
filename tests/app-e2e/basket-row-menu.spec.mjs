@@ -5,6 +5,7 @@ import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { closeNote } from './helpers/note-close.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 
 // UI-업데이트목록메뉴: every update row has [복사] and [⋯] at its top right (same look and behavior as the note rows, UI-노트메뉴정리).
 // The ⋯ holds 수정 · 연결하기 · 할 일 만들기 · 노트로 옮기기 · 삭제 (삭제 last, danger color) and opens right under the pressed ⋯.
@@ -218,7 +219,7 @@ for (const width of [390, 1280]) test(`a list re-read that lands while the ⋯ m
 
 test('an archived update leaves 연결하기 out of its row menu, as the detail refuses it', async ({ page }) => {
   const f = await fixture(page, 1280, { archived: '2026-10-06T05:00:00Z' });
-  await page.locator('[data-basket-filter="archived"]').click();
+  await pickBasketView(page,'archived');
   await expect(rowMore(page, B)).toBeVisible();
   await rowMore(page, B).click();
   await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '할 일 만들기', '노트로 옮기기', '일기로 보내기', '사업 보고로 옮기기', '보류 해제', '삭제']);

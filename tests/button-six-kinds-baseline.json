@@ -1,6 +1,6 @@
 {
  "css": {
-  "basket.css": 66,
+  "basket.css": 52,
   "calendar-ui.css": 29,
   "choice-sheet.css": 7,
   "compact-list.css": 1,
@@ -48,7 +48,7 @@
   "basket-notes.js": 26,
   "basket-record-delete.js": 1,
   "basket-upload.js": 1,
-  "basket.js": 38,
+  "basket.js": 27,
   "business-area-fields.js": 3,
   "calendar-interactions-v2.js": 1,
   "call-feed.js": 36,

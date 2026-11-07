@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import {noteAction} from './helpers/basket-more.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 import { openHome } from './helpers/home-entry.mjs';
+import { pickBasketView, expectBasketView } from './helpers/forget-view.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 test.use({hasTouch:true});
 const quick=page=>page.locator('#homeView [data-home-quick]');
@@ -42,24 +43,24 @@ for(const width of [390,1280]){
   // UI-바구니거르기: [미분류] holds the new memo, the plain one and the one with only a stored suggestion; [분류] the linked one.
   await expect(page.locator('[data-basket-row]')).toHaveCount(3);await expect(page.locator('#basketView')).not.toContainText('AI 제외');
   await expect(page.locator('[data-basket-row="s"]')).toContainText('정리 제안 있음');
-  await page.locator('[data-basket-filter="classified"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(1);
+  await pickBasketView(page,'classified');await expect(page.locator('[data-basket-row]')).toHaveCount(1);
   await expect(page.locator('[data-basket-place-filter]')).toBeVisible();
   // BUG-바구니연결해제: link chips sit under the row button, inside the row item.
   const confirmed=page.locator('[data-basket-row-item="c"]');await expect(confirmed).toContainText('분류 완료');await expect(confirmed).toContainText('테스트 프로젝트');await expect(confirmed).toContainText('테스트 조직');await expect(confirmed).toContainText('연결 대상 없음');
-  await page.locator('[data-basket-filter="unclassified"]').click();await expect(page.locator('[data-basket-place-filter]')).toBeHidden();
+  await pickBasketView(page,'unclassified');await expect(page.locator('[data-basket-place-filter]')).toBeHidden();
   await page.locator('[data-basket-row="new"]').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-basket-read-text]')).toHaveText(raw.trim());await expect(page.locator('[data-basket-text]')).toBeHidden();await page.locator('[data-basket-note-more]').press('Enter');await expect(page.locator('#basketNoteMenu [data-basket-edit]')).toBeFocused();await page.keyboard.press('Enter');await expect(page.locator('[data-basket-text]')).toBeFocused();await expect(page.locator('[data-basket-text]')).toHaveValue(raw);const editor=await page.locator('[data-basket-text]').boundingBox();expect(editor.width).toBeGreaterThanOrEqual(width===1280?600:300);
   const revised=' 수정한 원문\n\n마지막  ';await page.locator('[data-basket-text]').fill(revised);await page.locator('[data-basket-save]').click();await expect(page.locator('#toast')).toContainText('저장');expect(f.writes.at(-1).body.raw_text).toBe(revised);expect(f.writes.at(-1).body.updated_at).toBeTruthy();
   await expect(page.locator('[data-basket-ai-excluded]')).toHaveCount(0);expect(f.writes.at(-1).body).not.toHaveProperty('ai_export_allowed');expect(f.notes.find(n=>n.id==='n').ai_export_allowed).toBe(false);
   await noteAction(page,'[data-basket-archive]');await expect(page.locator('[data-basket-archive]')).toHaveText('보류 해제');expect(f.notes[0].archived_at).toBeTruthy();
-  await page.locator('[data-basket-close]').click();await page.locator('[data-basket-filter="archived"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(2);await expect(page.locator('[data-basket-row="new"]')).toContainText('보류');await expect(page.locator('[data-basket-filter="archived"]')).toHaveText('보류');
+  await page.locator('[data-basket-close]').click();await pickBasketView(page,'archived');await expect(page.locator('[data-basket-row]')).toHaveCount(2);await expect(page.locator('[data-basket-row="new"]')).toContainText('보류');await expect(page.locator('[data-basket-filter="archived"]')).toHaveText('보류');
   await page.locator('[data-basket-row="new"]').click();await noteAction(page,'[data-basket-archive]');await expect(page.locator('[data-basket-archive]')).toHaveText('보류로');expect(f.notes[0].archived_at).toBeNull();await page.screenshot({path:info.outputPath(`basket-detail-${width}.png`),fullPage:true});await page.locator('[data-basket-close]').click();
-  await page.locator('[data-basket-filter="unclassified"]').click();await page.screenshot({path:info.outputPath(`basket-${width}.png`),fullPage:true});
+  await pickBasketView(page,'unclassified');await page.screenshot({path:info.outputPath(`basket-${width}.png`),fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   const b=await page.locator('[data-basket-row="new"]').boundingBox();expect(b.height).toBeGreaterThanOrEqual(44);
   if(width===390){await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);await expect(page.locator('[data-basket-read-text]')).toHaveText(revised.trim());await expect(page.locator('[data-basket-text]')).toBeHidden();await page.keyboard.press('Escape');await expect(page.locator('[data-basket-row="new"]')).toBeFocused();}
   expect(await page.locator('#basketView').getByRole('button',{name:'삭제',exact:true}).count()).toBe(0);
   await page.evaluate(()=>window.KPTURouter.go('home'));await enter(page,width,3);
-  await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');
+  await expectBasketView(page,'unclassified');
   expect(f.errors).toEqual([]);expect(f.writes.every(w=>w.method!=='DELETE')).toBe(true);
  });
  test(`basket validation and RLS failures keep draft and AI hidden ${width}`,async({page})=>{
@@ -82,8 +83,8 @@ test('basket links failure shows error and retry rather than false unclassified 
 test('basket raw text and drafts never enter permanent browser storage',async({page})=>{await fixture(page);await quick(page).locator('[data-quick-input]').fill('BASKET_PRIVATE_DRAFT');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');await quick(page).locator('[data-quick-input]').fill('BASKET_PRIVATE_UNSAVED');await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-row="new"]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('BASKET_PRIVATE_EDIT');const cdp=await page.context().newCDPSession(page);const stored=JSON.stringify(await Promise.all([true,false].map(isLocalStorage=>cdp.send('DOMStorage.getDOMStorageItems',{storageId:{securityOrigin:testOrigin,isLocalStorage}}))));expect(stored).not.toContain('BASKET_PRIVATE');});
 test('basket direct URL and home return refresh new notes without saving view choice',async({page})=>{
  const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket');await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(2);
- await page.locator('[data-basket-filter="archived"]').click();await expect(page.locator('[data-basket-row="a"]')).toBeVisible();
- await page.reload();await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
+ await pickBasketView(page,'archived');await expect(page.locator('[data-basket-row="a"]')).toBeVisible();
+ await page.reload();await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
  await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible,.app-nav .sidebar-brand:visible').click();await quick(page).locator('[data-quick-input]').fill('새 글');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');
  await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();await expect(page.locator('[data-basket-row]')).toHaveCount(3);expect(f.writes).toHaveLength(1);
 });
@@ -105,11 +106,11 @@ test('session scope change clears basket content and prevents a delayed response
  await expect(page.locator('[data-basket-row]')).toHaveCount(0);await expect(page.locator('#basketView')).not.toContainText('BASKET_STALE_PRIVATE');
 });
 test('unsaved detail survives canceled list/Escape dismissal and navigation until explicit discard',async({page})=>{
- await fixture(page);await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();await page.locator('[data-basket-filter="classified"]').click();await page.locator('[data-basket-filter="unclassified"]').click();await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');const input=page.locator('[data-basket-text]');await input.fill('수정 중인 원문');
+ await fixture(page);await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();await pickBasketView(page,'classified');await pickBasketView(page,'unclassified');await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');const input=page.locator('[data-basket-text]');await input.fill('수정 중인 원문');
  await page.locator('[data-basket-close]').click();await answerAsk(page,false);await expect(input).toHaveValue('수정 중인 원문');
  await input.press('Escape');await answerAsk(page,false);await expect(input).toHaveValue('수정 중인 원문');
  const address=page.url();page.once('dialog',d=>d.dismiss());await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#basketView')).toBeVisible();expect(page.url()).toBe(address);await expect(input).toHaveValue('수정 중인 원문');
- await page.locator('[data-basket-close]').click();await answerAsk(page,true);await expect(page.locator('[data-basket-row="n"]')).toBeFocused();await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(2);await page.locator('[data-basket-filter="classified"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(1);await page.locator('[data-basket-filter="unclassified"]').click();await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(2);await page.locator('[data-basket-row="n"]').click();await expect(page.locator('[data-basket-read-text]')).toHaveText(' 첫 줄\n\n둘째 줄  ');await expect(input).toBeHidden();await expect(input).toHaveValue(' 첫 줄\n\n둘째 줄  ');
+ await page.locator('[data-basket-close]').click();await answerAsk(page,true);await expect(page.locator('[data-basket-row="n"]')).toBeFocused();await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row]')).toHaveCount(2);await pickBasketView(page,'classified');await expect(page.locator('[data-basket-row]')).toHaveCount(1);await pickBasketView(page,'unclassified');await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row]')).toHaveCount(2);await page.locator('[data-basket-row="n"]').click();await expect(page.locator('[data-basket-read-text]')).toHaveText(' 첫 줄\n\n둘째 줄  ');await expect(input).toBeHidden();await expect(input).toHaveValue(' 첫 줄\n\n둘째 줄  ');
 });
 test('explicit task and update modes still save directly when preference storage is blocked',async({page})=>{
  const f=await fixture(page),q=quick(page);await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('blocked');};});

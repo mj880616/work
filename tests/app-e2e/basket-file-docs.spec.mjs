@@ -6,6 +6,7 @@ import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 
 // UI-바구니첨부메모 PR 1: 글 없는 첨부 메모 화면(①~⑥), 프로젝트 [자료로 넣기](⑦⑧), 프로젝트 [자료] 묶음·전체 보기(⑩),
 // 분류 7개 칩·꼬리표(⑪, 저장 값은 그대로). Supabase REST·Edge 경계만 합성이고 화면은 실제 앱이다.
@@ -200,7 +201,7 @@ for(const width of [390,1280])test(`[자료로 넣기] takes the memo out of 미
  await tap(page,unclassified,width);
  await expect(page.locator(`[data-basket-row="${ONLY}"]`)).toHaveCount(0);
  await expect(page.locator(`[data-basket-row="${TEXT}"]`)).toBeVisible();
- await page.locator('[data-basket-filter="classified"]').click();
+ await pickBasketView(page,'classified');
  const row=page.locator(`[data-basket-row-item="${ONLY}"]`);
  await expect(row.locator('.basket-row')).toContainText('분류 완료');
  await expect(filedChip(row)).toHaveText('사업영역 자료: 합성 임단협 · 자료');
@@ -209,7 +210,7 @@ for(const width of [390,1280])test(`[자료로 넣기] takes the memo out of 미
  await expect(page.locator(`[data-basket-row="${TEXT}"]`)).toBeVisible();
  await expect(page.locator(`[data-basket-row="${ONLY}"]`)).toHaveCount(0);
  await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 1');
- await page.locator('[data-basket-filter="classified"]').click();
+ await pickBasketView(page,'classified');
  await expect(filedChip(page.locator(`[data-basket-row-item="${ONLY}"]`))).toHaveText('사업영역 자료: 합성 임단협 · 자료');
  expect(f.errors).toEqual([]);
 });
@@ -220,7 +221,7 @@ test('an already filed memo (no record link) is not 미분류 on load, and follo
  await page.evaluate(()=>window.KPTURouter.go('basket'));
  // ONLY's files are both in OLD; TEXT's single PDF is too, so both memos are classified.
  await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 0');
- await page.locator('[data-basket-filter="classified"]').click();
+ await pickBasketView(page,'classified');
  const only=page.locator(`[data-basket-row-item="${ONLY}"]`);
  await expect(filedChip(only,OLD)).toHaveText('사업영역 자료: 합성 지난 교섭 · 자료');
  await expect(only.locator('[data-basket-filed]')).toHaveCount(1);
@@ -235,7 +236,7 @@ test('an already filed memo (no record link) is not 미분류 on load, and follo
  await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 2');
  // UI-바구니거르기: it leaves [분류] and is back in [미분류].
  await expect(only).toHaveCount(0);
- await page.locator('[data-basket-filter="unclassified"]').click();await expect(only.locator('.basket-row')).toBeVisible();
+ await pickBasketView(page,'unclassified');await expect(only.locator('.basket-row')).toBeVisible();
  // UI-화면정리 C4(S48-46): [미분류] 칩을 고른 동안은 줄에 '미분류'를 또 쓰지 않는다(칩이 이미 말함).
  await expect(only.locator('.basket-row')).not.toContainText('미분류');
  expect(f.calls('app_documents','PATCH')).toEqual([]);

@@ -5,6 +5,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import {linkAction} from './helpers/basket-link-menu.mjs';
 import {noteTrash} from './helpers/note-trash.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // BUG-바구니연결해제: one wording on every screen, naming the place. Actions live in the line's ⋯ (helpers/basket-link-menu.mjs).
@@ -147,7 +148,7 @@ for(const width of [390,1280])test(`basket read view moves the update to the tra
  await expect(detail).toBeHidden();await expect(page.locator('[data-basket-row="n"]')).toHaveCount(0);
  const notice=page.locator('[data-undo-notice]');await expect(notice).toContainText('업데이트를 휴지통으로 옮겼어요.');await expect(notice.getByRole('button',{name:'되돌리기'})).toBeVisible();
  // UI-바구니거르기: the kept memo (no link) sits in [미분류]; the list stayed on [분류] where the deleted one was.
- await page.locator('[data-basket-filter="unclassified"]').click();await expect(page.locator('[data-basket-row="keep"]')).toBeVisible();
+ await pickBasketView(page,'unclassified');await expect(page.locator('[data-basket-row="keep"]')).toBeVisible();
  if(width===390)await page.screenshot({path:info.outputPath('basket-delete-result-390.png')});
  expect(messages).toEqual([CONFIRM]);
  // 예전 서버 note-delete 경로는 더 쓰지 않고, owner-RLS DELETE 한 번(가로채기가 휴지통 표시로 바꿈)만 보낸다.
@@ -156,7 +157,7 @@ for(const width of [390,1280])test(`basket read view moves the update to the tra
  await notice.getByRole('button',{name:'되돌리기'}).click();
  await expect(notice).toContainText('되돌렸습니다.');
  expect(f.trash.rpc.filter(r=>r.fn==='app_trash_restore')).toEqual([{fn:'app_trash_restore',kind:'note',id:'n'}]);
- await page.locator('[data-basket-filter="classified"]').click();await expect(page.locator('[data-basket-row="n"]')).toHaveCount(1);expect(f.trash.trash).toEqual([]);expect(f.links.length).toBe(1);
+ await pickBasketView(page,'classified');await expect(page.locator('[data-basket-row="n"]')).toHaveCount(1);expect(f.trash.trash).toEqual([]);expect(f.links.length).toBe(1);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);
 });
 

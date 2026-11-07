@@ -103,9 +103,9 @@ test('C4 업데이트 줄: 복사 아이콘 없이 ⋯ 하나, [복사]는 폰·
   const js = read('basket.js');
   assert.doesNotMatch(js, /data-basket-row-copy/);
   assert.match(js, /function rowMenuItems\(note\)\{\s*return \[\.\.\.\(String\(note\.raw_text\|\|''\)\.trim\(\)\?\[\['copy','복사'\]\]:\[\]\)/);
-  assert.match(js, /filter === 'unclassified' && label === '미분류' \? '' : label/);
-  const ui = noComments(read('ui-standard.css'));
-  assert.match(ui, /@media \(hover:hover\) and \(pointer:fine\)\{\s*#appView #basketView #basketRows \.basket-row-item > button\.basket-row-more\{ opacity:0;/);
+  // S52-20 HOME-잊지말기한목록: 업데이트 줄도 한 목록의 공용 줄(notice-box rowHtml)이고 ⋯은 줄 끝 ⑥ 아이콘(늘 보임). [미분류]=처리 전 보기에서는 '미분류'를 쓰지 않는다.
+  assert.match(js, /filter === 'unclassified' && label !== '미분류' \? label : ''/);
+  assert.match(js, /tail: `<button type="button" class="icon-btn" data-basket-row-more=/);
 });
 
 test('C3 일기 달력은 폰·PC 모두 둥근 상자 대신 격자선 한 겹(칸 사이 0)', () => {

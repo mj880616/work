@@ -61,8 +61,8 @@ for(const width of [344,390,884,1280])test(`${width}px: 요청 상자 → 잊지
   await expect(row(asks(page),1).locator('.nbx-body')).toHaveText('가짜 요청 1');
   await expect(row(asks(page),1).locator('.nbx-meta')).toHaveText('가상 지부방 · 10/6');
   await expect(row(asks(page),2).locator('.nbx-meta')).toHaveText('텔레그램 · 10/6');
-  await expect(row(asks(page),1).locator('.nbx-acts button')).toHaveText(['할 일로','이미 함','일정으로','노트로','×']);
-  await expect(fam(page).locator('[data-nbx-row] .nbx-acts button')).toHaveText(['할 일로','이미 함','일정으로','노트로','×']);
+  await expect(row(asks(page),1).locator('.nbx-acts button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×']);
+  await expect(fam(page).locator('[data-nbx-row] .nbx-acts button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×']);
   await expect(asks(page).locator('.nbx-foot')).toHaveText('챙길 것 1 · 정리 안 된 것 0 ›');
   // 자리: [하루] 카드 맨 위에 요청 → 잊지 말기 → 그날 일정. 날짜 줄 밑 옛 요약 줄은 없다.
   const [a,f,s]=await Promise.all([asks(page),fam(page),page.locator('#homeView [data-journal-schedule]')].map(l=>l.boundingBox()));
@@ -92,8 +92,9 @@ test('운영자 기능 telegram이 없으면 상자 없이 흐린 한 줄만(요
   await expect(asks(page)).not.toHaveClass(/(^|\s)nbx(\s|$)/);
   await expect(asks(page).locator('.nbx-head,[data-nbx-row]')).toHaveCount(0);
   await asks(page).locator('[data-goto="basket"]').click();
-  await expect(page.locator('#basketView [data-inbox-asks-host]')).toBeHidden();
-  await expect(page.locator('#basketView [data-inbox-todo-row]')).toHaveCount(3);
+  // S52-20: 정리함은 상자 없이 한 목록 — 요청·챙길 것이 같은 줄로 함께 있다.
+  await expect(page.locator('#basketView [data-forget-section] [data-forget-src="telegram"]')).toHaveCount(2);
+  await expect(page.locator('#basketView [data-forget-section] [data-forget-src="todo"]')).toHaveCount(1);
 });
 
 test('[×]: 바로 빠지고 5초 되돌리기(챙길 것 상태 칸만, 결과 기록도 지움)',async({page})=>{
@@ -138,25 +139,18 @@ test('[할 일로]·[일정으로]·[노트로]: 그 창을 내용으로 채워 
   await expect(row(asks(page),1)).toBeVisible();
 });
 
-for(const width of [390,1280])test(`${width}px 정리함: 나한테 온 요청은 홈과 같은 상자·같은 줄·같은 버튼(아래 챙길 것 목록에서 빠짐)`,async({page},info)=>{
+for(const width of [390,1280])test(`${width}px 정리함: 나한테 온 요청은 한 목록 안에서 홈과 같은 줄·같은 버튼(S52-20)`,async({page},info)=>{
   const {patches}=await fixture(page,{width});
   await asks(page).locator('.nbx-head [data-goto="basket"]').click();
   await expect(page.locator('#basketView')).toBeVisible();
-  const box=page.locator('#basketView [data-inbox-asks-host]');
-  await expect(box.locator('.nbx-head')).toHaveText('나한테 온 요청2· 텔레그램 ·');
-  await expect(row(box,1).locator('.nbx-acts button')).toHaveText(['할 일로','이미 함','일정으로','노트로','×']);
-  await expect(page.locator('#basketView [data-inbox-todo-row]')).toHaveCount(1);
-  await expect(page.locator(`#basketView [data-inbox-todo-row="${cid(1)}"]`)).toHaveCount(0);
-  // 홈 상자와 같은 모양(같은 부품).
-  await page.evaluate(()=>window.KPTURouter.go('home'));
-  const home=await look(asks(page));
-  await page.evaluate(()=>window.KPTURouter.go('basket'));
-  const inbox=await look(box);
-  for(const k of ['box','bg','head','title','body','meta','act','x'])expect(inbox[k],k).toBe(home[k]);
-  await page.screenshot({path:info.outputPath(`inbox-asks-box-${width}.png`)});
-  // 같은 처리: [이미 함]이면 상자에서 빠지고 [이미 함] 칩에 보인다.
-  await row(box,1).locator('[data-nbx-act="done"]').click();
-  await expect(row(box,1)).toHaveCount(0);
+  const box=page.locator('#basketView [data-forget-section]');
+  await expect(box.locator('[data-forget-src="telegram"]')).toHaveCount(2);
+  const line=box.locator(`[data-nbx-row="c:${cid(1)}"]`);
+  await expect(line.locator('.nbx-acts button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×']);
+  await expect(page.locator('#basketView [data-inbox-asks-host],#basketView [data-inbox-todo-row]')).toHaveCount(0);
+  await page.screenshot({path:info.outputPath(`inbox-asks-list-${width}.png`)});
+  await line.locator('[data-nbx-act="done"]').click();
+  await expect(line).toHaveCount(0);
   expect(patches[0]).toMatchObject({id:cid(1),body:{status:'done'}});
   expect(await noWide(page)).toBe(true);
 });

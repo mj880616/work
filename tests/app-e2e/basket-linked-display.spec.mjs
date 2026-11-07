@@ -3,6 +3,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {noteAction} from './helpers/basket-more.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
+import { pickBasketView, expectBasketView } from './helpers/forget-view.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-12T01:00:00Z';
 // UI-디자인기준 3/3: the organization list shows the last record only as the colored dot before the name; the dot keeps the
 // record time (data-so-at), read here as the KST month.day the list used to print on the right.
@@ -50,9 +51,9 @@ for(const width of [390,1280])test.describe(`original list return ${width}`,()=>
  await page.locator('[data-basket-close]').focus();await page.keyboard.press('Enter');
  // BUG-뒤로가기: the opened note was one entry over the list; closing returns to the list entry under it.
  await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(new URL(page.url()).searchParams.get('unrelated')).toBe('keep');expect(new URL(page.url()).hash).toBe('#anchor');expect(await page.evaluate(()=>history.state?.kptuLayers)).toBeUndefined();
- await page.evaluate(()=>history.replaceState({...history.state,custom:'preserve'},'',location.href));await page.locator('[data-basket-filter="classified"]').click();await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(await page.evaluate(()=>history.state.custom)).toBe('preserve');expect(new URL(page.url()).searchParams.get('unrelated')).toBe('keep');
- await page.reload();await expect(page.locator('[data-basket-detail]')).toBeHidden();await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(0);
- const activate=control=>width===390?control.tap():control.click();await activate(page.locator('[data-basket-filter="classified"]'));await activate(page.locator('[data-basket-row]'));await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);expect(f.errors).toEqual([]);
+ await page.evaluate(()=>history.replaceState({...history.state,custom:'preserve'},'',location.href));await pickBasketView(page,'classified');await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(await page.evaluate(()=>history.state.custom)).toBe('preserve');expect(new URL(page.url()).searchParams.get('unrelated')).toBe('keep');
+ await page.reload();await expect(page.locator('[data-basket-detail]')).toBeHidden();await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row]')).toHaveCount(0);
+ const activate=control=>width===390?control.tap():control.click();await pickBasketView(page,'classified');await activate(page.locator('[data-basket-row]'));await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);expect(f.errors).toEqual([]);
  });
 });
 test('cancelled dirty menu movement preserves URL and editor; accepted movement clears note',async({page})=>{
@@ -94,12 +95,12 @@ for(const retire of ['screen','session'])test(`list ${retire} transition retires
  expect(f.errors).toEqual([]);
 });
 test('archived original and browser Back remain explicit choices',async({page})=>{
- const f=await fixture(page);f.note.archived_at=stamp;f.links.push({id:'l',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});await page.evaluate(()=>KPTURouter.go('basket'));await expect(page.locator('[data-basket-list]')).toBeVisible();await page.locator('[data-basket-filter="archived"]').click();await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();
+ const f=await fixture(page);f.note.archived_at=stamp;f.links.push({id:'l',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});await page.evaluate(()=>KPTURouter.go('basket'));await expect(page.locator('[data-basket-list]')).toBeVisible();await pickBasketView(page,'archived');await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();
  await page.goto(testOrigin+'/app/?view=basket&note='+n);await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();await page.evaluate(async()=>{await KPTUViewLoader.load('home');KPTURouter.go('home',{source:'delegated'});});await expect(page.locator('#homeView')).toBeVisible();await page.goBack();await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(f.errors).toEqual([]);
 });
 
 test('Back declined while editing restores the original URL, history state, and text',async({page})=>{
- const f=await fixture(page);await page.evaluate(async()=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket');});await page.locator('[data-basket-filter="unclassified"]').click();
+ const f=await fixture(page);await page.evaluate(async()=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket');});await pickBasketView(page,'unclassified');
  await page.evaluate(id=>{history.replaceState({marker:'prior'},'','?view=home&keep=yes#here');history.pushState({marker:'editor'},'','?view=basket&note='+id+'&keep=yes#here');},n);
  await page.locator('[data-basket-row]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('뒤로가기 취소 원문');const address=page.url();page.once('dialog',d=>d.dismiss());await page.evaluate(()=>history.back());
  await expect(page).toHaveURL(address);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('뒤로가기 취소 원문');expect(await page.evaluate(()=>history.state.marker)).toBe('editor');expect(f.errors).toEqual([]);
@@ -111,7 +112,7 @@ test('failed destination loading preserves note URL and the opened original',asy
 });
 
 test('Back declined after lazy-loading an unopened target still restores note URL and text',async({page})=>{
- const f=await fixture(page);await page.evaluate(async()=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket');});await page.locator('[data-basket-filter="unclassified"]').click();expect(await page.evaluate(()=>KPTUViewLoader.isLoaded('calendar'))).toBe(false);
+ const f=await fixture(page);await page.evaluate(async()=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket');});await pickBasketView(page,'unclassified');expect(await page.evaluate(()=>KPTUViewLoader.isLoaded('calendar'))).toBe(false);
  await page.evaluate(id=>{history.replaceState({marker:'calendar'},'','?view=calendar&keep=yes#here');history.pushState({marker:'editor'},'','?view=basket&note='+id+'&keep=yes#here');},n);
  await page.locator('[data-basket-row]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('지연 뒤로가기 취소 원문');const address=page.url();let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.back());await expect.poll(()=>prompted).toBe(true);
  await expect(page).toHaveURL(address);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('지연 뒤로가기 취소 원문');expect(await page.evaluate(()=>history.state.marker)).toBe('editor');expect(f.errors).toEqual([]);

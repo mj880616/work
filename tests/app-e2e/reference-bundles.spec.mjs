@@ -4,6 +4,7 @@ import {test,expect} from '@playwright/test';
 import {answerAsk} from './helpers/small-notice.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {showBasketRow} from './helpers/basket-more.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-06T01:00:00Z';
 const n='10000000-0000-4000-8000-0000000000a1',o='30000000-0000-4000-8000-0000000000a1';
@@ -124,7 +125,7 @@ for(const width of [390,1280])test(`[연결하기] [참고 ▾]로 고르기 →
  // 연결 줄은 id로 가리키므로 그대로이고, 바구니 칩도 새 이름으로 보인다.
  expect(f.links).toHaveLength(1);
  await page.evaluate(()=>window.KPTURouter.go('basket'));
- await tap(page,page.locator('[data-basket-filter="classified"]'),width);
+ await pickBasketView(page,'classified');
  await expect(page.locator(`[data-basket-row-item="${n}"]`)).toContainText('합성 본부 사업(바뀐 이름)');
 
  // 주간 정리: 참고에만 붙인 소식은 조직 소식('미분류')·[복사] 글 어디에도 없다.

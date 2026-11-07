@@ -27,6 +27,8 @@ export function cleanNote(r) {
     origin: ORIGIN_LABEL[r.origin] ? r.origin : 'telegram',
     day: DAY.test(String(r.origin_day || '')) ? r.origin_day : '',
     status: ['new', ...DECISIONS].includes(r.status) ? r.status : 'new',
+    // S52-20: '잊지 말기' 한 목록이 새 것을 위로 둘 때 쓰는 시각(없으면 빈 글).
+    at: typeof r.created_at === 'string' && Number.isFinite(Date.parse(r.created_at)) ? r.created_at : '',
   };
 }
 export const cleanNotes = rows => (Array.isArray(rows) ? rows : []).map(cleanNote).filter(Boolean);

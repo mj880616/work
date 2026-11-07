@@ -211,12 +211,12 @@ test('홈: 입력칸은 하단 탭 바로 위, 그 위로 탭·버튼, 카드가
  expect(errors).toEqual([]);
 });
 
-test('정리함: 업데이트가 없으면 회색 한 줄 "업데이트 없음"',async({page})=>{
+test('정리함: 처리할 것이 없으면 회색 한 줄 "없음"(공용 없음 부품, S52-20 한 목록)',async({page})=>{
  const {errors}=await boot(page,390,{notes:[]});
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');
- const empty=page.locator('#basketView [data-basket-list-status]');await expect(empty).toHaveText('업데이트 없음');
- await expect(empty).toHaveCSS('text-align','start');expect(await empty.evaluate(el=>getComputedStyle(el).color)).toBe(await token(page,'--kptu-muted'));
- await expect(page.locator('#basketView [data-basket-filter="unclassified"]')).toHaveText('미분류 0');
+ const empty=page.locator('#basketView [data-forget-empty]');await expect(empty).toHaveText('없음');
+ await expect(empty).toHaveCSS('text-align','start');
+ await expect(page.locator('#basketView [data-forget-view-open]')).toHaveText('처리 전 ▾');
  expect(errors).toEqual([]);
 });
 
