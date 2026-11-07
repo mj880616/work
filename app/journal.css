@@ -285,6 +285,8 @@
 /* PC: 1. 요청사항·2. 요약 표는 한 줄 전체, 4. 산하 조직 현황과 참고는 2칸으로 나란히. */
 @media(min-width:761px){
   #appView #homeView .journal-weekly-body{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 24px; align-items:start; }
+  /* S52-34 UI-전체정리(주간 정리): '■ 일시 … ⋯' 줄이 두 칸 중 왼쪽 칸에만 있어 ⋯이 화면 가운데에 떠 있던 것 → 두 칸 폭 전체, ⋯은 오른쪽 끝. */
+  #appView #homeView .journal-weekly-body > .weekly-flow-top{ grid-column:1 / -1; }
   #appView #homeView .journal-weekly-chapter:is([data-journal-weekly-chapter="requests"],[data-journal-weekly-chapter="business"]){ grid-column:1/-1; }
   #appView #homeView .journal-weekly-date{ grid-column:1/-1; }
 }

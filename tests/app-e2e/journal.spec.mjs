@@ -2282,7 +2282,7 @@ test('[주간 정리] 열어 둔 줄 끝 ⋯ 는 늦은 읽기로 다시 그려�
  const toggle=kindLines(page).nth(1).locator('[data-journal-kind-toggle]');
  await expect(toggle).toBeVisible();
  // 다른 곳을 누르면 닫히고, 다음 다시 그리기에서 혼자 열리지 않는다.
- await page.locator('#journalRoot [data-journal-weekly-title]').click();
+ await page.locator('#journalRoot [data-journal-title]').click(); // S52-34: 주간 정리 제목 줄은 읽기 프로그램용(머리줄 기간과 중복)이라 머리줄 제목을 누른다.
  await expect(more).toHaveJSProperty('open',false);
  await expect(page.locator('#journalRoot details.row-more[open]')).toHaveCount(0);
  expect(f.errors).toEqual([]);

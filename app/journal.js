@@ -97,7 +97,7 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 </section>
 <div class="journal-materials" data-journal-materials></div>
 </section>
-<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" tabindex="-1" data-journal-weekly-title></h3><section class="journal-next-week" data-journal-next-week aria-label="다음 주 준비"></section><div class="journal-weekly-body" data-journal-weekly></div></section>
+<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" class="a11y-only" tabindex="-1" data-journal-weekly-title></h3><section class="journal-next-week" data-journal-next-week aria-label="다음 주 준비"></section><div class="journal-weekly-body" data-journal-weekly></div></section>
 <section class="home-quiet" data-home-quiet aria-labelledby="home-quiet-title" hidden></section>`;
 const $ = selector => root.querySelector(selector);
 // HOME-업무일지홈: 요약 한 줄과 업데이트 입력줄(home-summary.js · home-quick.js). 이 화면은 자리만 둔다.
