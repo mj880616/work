@@ -1965,7 +1965,7 @@ function folderRowHtml(r, {wide, a = OD_ATTR, cur = r.id === at && pAt === null 
   const tog = wide && r.kids && !r.top, on = r.enabled !== false, now = cur && wide, x = k => `data-photos-${a[k]}`;
   // S51-25 FOLDER-PC나무: PC 나무는 세모 없이 폴더 아이콘이 접기·펼치기 단추(열린 그림 = 펼침). 이름을 누르면 지금처럼 그 폴더로.
   const ico = folderIconHtml({color: r.top ? null : folderLook.color(a === GD_ATTR ? 'gd' : 'od', r.id)}, {open: wide ? !!(r.open && r.kids) : (r.open && r.kids) || now});
-  return `<div class="nx-row nx-folder photos-fx-row${now ? ' nx-current' : ''}${sw && !on ? ' is-off' : ''}" ${x('row')}="${esc(r.id)}" style="--nx-indent:${r.indent}"${wide ? ' role="treeitem"' : ''}${wide && r.kids ? ` aria-expanded="${r.open}"` : ''}>`
+  return `<div class="nx-row nx-folder photos-fx-row ${r.indent >= 2 ? 'nx-sub' : 'nx-top'}${now ? ' nx-current' : ''}${sw && !on ? ' is-off' : ''}" ${x('row')}="${esc(r.id)}" style="--nx-indent:${r.indent}"${wide ? ' role="treeitem"' : ''}${wide && r.kids ? ` aria-expanded="${r.open}"` : ''}>`
     + (wide ? (tog ? `<button type="button" class="ft-tog photos-fx-tog" ${x('tog')}="${esc(r.id)}" aria-expanded="${!!r.open}" aria-label="${esc(r.name)} ${r.open ? '접기' : '펼치기'}">${ico}</button>` : `<span class="ft-tog ft-tog-none photos-fx-tog">${ico}</span>`) : '')
     + `<button type="button" class="nx-main" ${x('open')}="${esc(r.id)}"${now ? ' aria-current="true"' : ''}>${wide ? '' : ico}<span class="nx-name">${esc(r.name)}${placeHtml(r.id)}</span>${countHtml(r.total)}</button>`
     + (sw ? switchHtml(r.id, r.name, on).replace('data-photos-fx-sw=', `${x('sw')}=`) : '')
@@ -2011,7 +2011,7 @@ const phoneFolderOf = id => phoneFolderList().find(f => f.id === id) || null;
 const phoneSwHtml = f => switchHtml('ph:' + f.id, f.name, !phoneOff.has(f.id)).replace('data-photos-fx-sw=', 'data-photos-pf-sw=');
 function phoneFolderRowHtml(f, {wide}) {
   const cur = wide && pAt === f.id, sw = phoneSw() && !f.pending, off = sw && phoneOff.has(f.id);
-  return `<div class="nx-row nx-folder photos-fx-row${cur ? ' nx-current' : ''}${off ? ' is-off' : ''}" data-photos-pf="${esc(f.id)}" style="--nx-indent:0"${wide ? ' role="treeitem"' : ''}>`
+  return `<div class="nx-row nx-folder photos-fx-row nx-top${cur ? ' nx-current' : ''}${off ? ' is-off' : ''}" data-photos-pf="${esc(f.id)}" style="--nx-indent:0"${wide ? ' role="treeitem"' : ''}>`
     + (wide ? `<span class="ft-tog ft-tog-none photos-fx-tog">${treeIconHtml('folder')}</span>` : '')
     + `<button type="button" class="nx-main" data-photos-pf-open="${esc(f.id)}"${cur ? ' aria-current="true"' : ''}>${wide ? '' : treeIconHtml('folder', {open: cur})}<span class="nx-name">${esc(f.name)}${placeHtml('ph:' + f.id)}${tidy.unbackedIds().has(f.id) ? '<span class="photos-fx-place photos-unbacked"> · 백업 안 됨</span>' : ''}${f.pending ? '<span class="photos-fx-place"> · 사진을 옮기면 생겨요</span>' : ''}</span>${countHtml(f.count)}</button>`
     + (sw ? phoneSwHtml(f) : '')

@@ -98,7 +98,8 @@
 #appView #photosView .photos-fx-tree{ top:var(--follow-top,calc(var(--kptu-touch-target,44px) + 8px)); } /* 따라오는 자리는 photos.js followPane(top 52) */
 #appView #photosView .photos-fx-here{ display:flex; align-items:center; gap:6px; margin:2px 0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #photosView .photos-fx-here b{ font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); }
-#appView #photosView .photos-fx-row .nx-main{ min-height:36px; height:auto; margin:0; box-shadow:none; font-weight:var(--ds-weight-regular,400); }
+/* 줄 높이·글자·굵기는 공용 folder-tree.css(.nx-main·.nx-top·.nx-sub, UI-폴더나무촘촘 A안). 여기는 공용 버튼 꾸밈을 지우는 것만. */
+#appView #photosView .photos-fx-row .nx-main{ height:auto; margin:0; box-shadow:none; font-weight:var(--ds-weight-regular,400); }
 /* S51-25 FOLDER-PC나무: PC 나무 줄 앞 폴더 아이콘 단추(공용 .ft-tog 모양, folder-tree.css). 세모 없음. */
 #appView #photosView .photos-fx-row .photos-fx-tog{ width:28px; min-width:0; height:28px; min-height:0; margin:0 2px 0 0; padding:0; border:1px solid transparent; background:none; box-shadow:none; font-size:15px; }
 #appView #photosView .photos-fx-row button.photos-fx-tog:hover{ border-color:color-mix(in srgb, var(--kptu-primary) 40%, transparent); background:color-mix(in srgb, var(--kptu-primary) 7%, transparent); }
@@ -156,7 +157,7 @@
 /* PHOTO-폴더스위치(10/31): 폴더 줄 오른쪽 작은 스위치(일기 설정 창과 같은 .diary-od-switch), 꺼진 줄은 흐림, 같은 이름 폴더는 위치 이름을 흐리게. */
 #appView #photosView .photos-fx-row .photos-fx-sw,#appView #photosView .photos-fx-here .photos-fx-sw{ height:32px; }
 #appView #photosView .photos-fx-row.is-off .nx-main{ opacity:.5; }
-#appView #photosView .photos-fx-place{ color:var(--kptu-muted); font-size:12px; }
+#appView #photosView .photos-fx-place{ color:var(--kptu-muted); font-size:12px; font-weight:var(--ds-weight-regular,400); }
 #appView #photosView .photos-fx-hint{ margin:2px 0 4px; color:var(--kptu-muted); font-size:12px; }
 #appView #photosView .photos-fx-here.has-sw{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 /* S46-20 사진 정리 제안 ①: [정리 n] 칩(펼치면 칩 색) + 접힌 칸. 줄마다 한 줄 요약 + [보기](details), 작은 글·낮은 버튼. */
