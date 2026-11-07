@@ -70,6 +70,12 @@ for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그�
       await check(`${view} 칸 ${i+1}(${text})`);
       await page.keyboard.press('Escape');
     }
+    // S52-22 TEAM-맨위한줄: 사업 보고 1200px 아래는 종류·사업영역·기간이 공용 고르기 상자다. 상자의 줄을 하나씩 골라 보며 같은 넘침 검사를 한다.
+    if(view==='meetings')for(const id of ['reportKindSelect','reportAreaSelect','reportNameSelect']){
+      const box=page.locator('#'+id);if(!await box.isVisible().catch(()=>false))continue;
+      const values=(await box.locator('option:not([hidden])').evaluateAll(els=>els.map(e=>e.value))).slice(0,20);
+      for(const v of values){await box.selectOption(v,{timeout:3000}).catch(()=>{});await page.waitForTimeout(120);clicks.meetings++;await check(`meetings ${id} ${v.slice(0,12)}`)}
+    }
   }
   test.info().annotations.push({type:'checked',description:checked.join(' | ')});
   expect(bad,bad.join('\n')).toEqual([]);
