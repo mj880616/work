@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NOW_TABS, NOW_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK} from '../app/now-model.mjs';
+import {NOW_TABS, NOW_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody} from '../app/now-model.mjs';
 import {NEWS_TABS} from '../app/view-prefs.js';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 화면 순수 계산.
 
@@ -181,11 +181,23 @@ test('S51-17 P5: 잠깐의 오류(늦은 답·사이트 오류)로 실패한 저
 });
 
 // S52-12 NEWS-원문먼저번역: 원문 칸 [번역] — 외국어 뉴스 기사만, 번역 줄은 같은 순서의 글자 블록에(사진·캡션 자리 그대로).
-test('번역 단추는 외국어 뉴스 기사에만', () => {
+test('번역 단추는 외국어 뉴스 기사와 사회운동 영어 소식에만(S52-36), 저장 길은 함수마다', () => {
   assert.equal(canTranslate({type: 'news'}, {lang: 'en'}), true);
   assert.equal(canTranslate({type: 'news'}, {lang: 'ko'}), false);
   assert.equal(canTranslate({type: 'news'}, {lang: ''}), false);
-  assert.equal(canTranslate({type: 'outside'}, {lang: 'en'}), false);
+  assert.equal(canTranslate({type: 'outside'}, {lang: 'en'}), true);
+  assert.equal(canTranslate({type: 'outside'}, {lang: 'ko'}), false);
+  assert.equal(canTranslate({type: 'update'}, {lang: 'en'}), false);
+  assert.equal(canTranslate({type: 'toString'}, {lang: 'en'}), false);
+  assert.deepEqual({...TRANSLATE_FUNCTION}, {news: 'news-feed', outside: 'outside-feed'});
+});
+test('사회운동 소식 번역 줄 맞추기: 저장 블록의 글자 블록을 한 줄씩(서버 blocksText와 같은 줄)', () => {
+  const blocks = [{t: 'p', text: ' First  line. '}, {t: 'img', src: 'https://x/a.jpg', cap: 'Cap'}, {t: 'h', text: 'Head'}, {t: 'quote', text: 'Q.'}];
+  assert.equal(blocksBody(blocks), 'First line.\nHead\nQ.');
+  assert.equal(blocksBody(null), '');
+  const r = translatedBlocks(blocks, blocksBody(blocks), '첫 줄.\n소제목\n인용.');
+  assert.equal(r.aligned, true);
+  assert.deepEqual(r.blocks.map(b => b.text ?? b.cap), ['첫 줄.', 'Cap', '소제목', '인용.']);
 });
 test('번역 줄은 글자 블록 자리에 하나씩, 사진·캡션은 그대로', () => {
   const blocks = [{t: 'p', text: 'One.'}, {t: 'img', src: 'https://x/a.jpg', cap: 'Cap', alt: ''}, {t: 'h', text: 'Head'}, {t: 'quote', text: 'Q.'}, {t: 'p', text: 'Two.'}];

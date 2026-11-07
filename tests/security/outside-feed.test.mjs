@@ -166,14 +166,15 @@ const respond=(body,status=200,headers={})=>new Response(typeof body==='string'?
 const html=(body,status=200,headers={})=>new Response(body,{status,headers:{'Content-Type':'text/html; charset=utf-8',...headers}});
 const KEY_CHECK=/^[a-z0-9][a-z0-9-]{1,39}$/;
 
-function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,workspace_id:WS,role:'owner'}],sites={},robots={},ai,env={},failSentences=false}={}){
-  const db={app_outside_sources:sources.map(r=>({enabled:true,last_ok_at:null,last_error:null,...r})),app_outside_posts:posts.map(p=>({...p})),app_outside_sentences:sentences.map(s=>({...s})),app_workspace_members:members,app_feed_bodies:[]};
-  const calls={site:[],rest:[],ai:[],auth:0,logs:[]};
+function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,workspace_id:WS,role:'owner'}],sites={},robots={},ai,env={},failSentences=false,bodies=[],days=[],google}={}){
+  const db={app_outside_sources:sources.map(r=>({enabled:true,last_ok_at:null,last_error:null,...r})),app_outside_posts:posts.map(p=>({...p})),app_outside_sentences:sentences.map(s=>({...s})),app_workspace_members:members,app_feed_bodies:bodies.map(b=>({...b})),app_news_days:days.map(d=>({...d}))};
+  const calls={site:[],rest:[],ai:[],auth:0,logs:[],google:[]};
   let seq=0;
   const inList=v=>{const m=/^in\.\((.*)\)$/.exec(v);if(!m)return null;const out=[];const re=/"((?:[^"\\]|\\.)*)"|([^,]+)/g;let x;while((x=re.exec(m[1])))out.push(x[1]!==undefined?x[1].replace(/\\(.)/g,'$1'):x[2]);return out;};
   const match=(row,q)=>{for(const [k,v] of q){if(['select','limit','on_conflict','or','order'].includes(k))continue;
     if(v==='is.null'){if(row[k]!=null)return false;}
     else if(v.startsWith('eq.')){if(String(row[k])!==v.slice(3))return false;}
+    else if(v.startsWith('gte.')){if(!(String(row[k])>=v.slice(4)))return false;}
     else if(v==='is.true'){if(row[k]!==true)return false;}
     else if(v.startsWith('in.')){if(!inList(v).includes(String(row[k])))return false;}
     else throw new Error('unsupported filter '+k+'='+v);}
@@ -206,6 +207,12 @@ function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,worksp
       for(const s of body){const post=db.app_outside_posts.find(p=>p.id===s.post_id&&p.workspace_id===s.workspace_id);
         assert.ok(post,'sentence must point to a post of the same workspace');assert.equal(post.lang,'ko','DB: no sentence rows for foreign posts');assert.equal(s.lang,'ko');
         assert.ok(s.idx>=0&&s.idx<=3000&&s.text.length>=1&&[...s.text].length<=500);rows.push(s);}return new Response(null,{status:201});}
+    if(table==='app_news_days'&&method==='POST'){rows.push({...body});return new Response(null,{status:201});}
+    if(table==='app_outside_posts'&&method==='PATCH'&&'body_ko' in (body??{})){
+      // S52-36 [번역]: body_ko(·비어 있을 때만 title_ko) 한 줄만, 그 작업공간 글만 고친다.
+      assert.ok(q.get('id')&&q.get('workspace_id'),'translate patch names the post and its workspace');
+      assert.deepEqual(Object.keys(body).filter(k=>!['body_ko','title_ko'].includes(k)),[]);
+      assert.ok(typeof body.body_ko==='string'&&[...body.body_ko].length>=1&&[...body.body_ko].length<=100000&&!/[\u0000-\u0009\u000b-\u001f\u007f]/.test(body.body_ko));}
     if(method==='POST'&&table==='app_feed_bodies'){
       // NEWS-전면개편 P2b: 칸 이름·같은 작업공간 글·DB 모양(20261106050000)·글마다 한 줄(겹치면 그대로 둠).
       assert.equal(q.get('on_conflict'),'outside_post_id');assert.match(init.headers.Prefer,/resolution=ignore-duplicates/);
@@ -231,6 +238,8 @@ function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,worksp
     if(u.origin===SB&&u.pathname.startsWith('/rest/v1/'))return rest(url,init);
     if(u.origin===SB&&u.pathname==='/auth/v1/user'){calls.auth++;const a=init.headers.Authorization;
       return a===`Bearer ${JWT_OK}`?respond({id:USER}):a===`Bearer ${JWT_STRANGER}`?respond({id:STRANGER}):respond({msg:'bad jwt'},401);}
+    if(url==='https://translation.googleapis.com/language/translate/v2'){const b=JSON.parse(init.body);calls.google.push({headers:init.headers,body:b});
+      if(google)return google(b);return respond({data:{translations:b.q.map(t=>({translatedText:'번역 '+t}))}});}
     if(url==='https://api.openai.com/v1/responses'){const b=JSON.parse(init.body);const name=b.text.format.name;calls.ai.push({name,input:b.input[1].content});
       const out=(ai??defaultAi)(name,b.input[1].content);if(out instanceof Response)return out;
       return respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(out)}]}],usage:{input_tokens:100,output_tokens:50}});}
@@ -1104,4 +1113,66 @@ test('S50-26 옛 글 다시 정돈: 정돈 전에 들어간 제목(꼬리표·�
   // 다음 실행: 이미 정돈된 제목이라 다시 고치지 않는다.
   const again=await (await h.cron('run',{source:'laborparty'})).json();
   assert.equal(again.refilled,0);assert.equal(again.fresh,0);
+});
+
+// ---- S52-36 NEWS-바깥소식번역: 사회운동 영어 소식 [번역](news-feed translate와 같은 엔진·규칙, 저장은 app_outside_posts.body_ko) ----------
+
+const POST_EN='d0000000-0000-4000-8000-000000000001',POST_KO='d0000000-0000-4000-8000-000000000002',POST_OTHER='d0000000-0000-4000-8000-000000000003';
+const GKEY='synthetic_google_key_0123456789abcdef';
+const enPost={id:POST_EN,workspace_id:WS,source_key:'jacobin',kind:'article',lang:'en',title:'Synthetic strike wave',title_ko:'가상 파업 물결',url:'https://jacobin.com/2026/11/synthetic',body_ko:null};
+const enBody={workspace_id:WS,outside_post_id:POST_EN,news_item_id:null,state:'ok',blocks:[{t:'p',text:'First line.'},{t:'img',src:'https://images.jacobin.com/a.jpg',cap:'Cap',alt:''},{t:'h',text:'Head'},{t:'quote',text:'Quoted.'},{t:'p',text:'Last line.'}]};
+const trAi=(name)=>{if(name==='outside_translate')return{title_ko:'가상 제목',body_ko:'첫 줄.\n소제목\n인용.\n끝 줄.'};throw new Error('unknown ai '+name);};
+
+test('translate (Google): 글자 블록만 줄 순서대로 보내고 줄 수 맞춘 body_ko 저장, 제목 번역이 있으면 그대로, AI 없음, 하루 횟수 1', async () => {
+  const h=harness({posts:[enPost],bodies:[enBody],env:{GOOGLE_TRANSLATE_API_KEY:GKEY},ai:trAi});
+  const r=await h.user('translate',{id:POST_EN});const j=await r.json();
+  assert.equal(r.status,200,JSON.stringify(j));assert.equal(j.status,'translated');assert.equal(j.engine,'google');
+  assert.equal(h.calls.google.length,1);assert.deepEqual(h.calls.google[0].body.q,['First line.','Head','Quoted.','Last line.'],'사진·캡션은 보내지 않음, 제목은 이미 있어 안 보냄');
+  assert.equal(h.calls.google[0].headers['x-goog-api-key'],GKEY);assert.equal(h.calls.google[0].body.source,'en');
+  assert.equal(h.calls.ai.length,0);
+  const p=h.db.app_outside_posts[0];assert.equal(p.body_ko,'번역 First line.\n번역 Head\n번역 Quoted.\n번역 Last line.');assert.equal(p.title_ko,'가상 파업 물결');
+  assert.equal(h.db.app_news_days.length,1);assert.equal(h.db.app_news_days[0].translate_n,1);assert.equal(h.db.app_news_days[0].day,'2026-10-31');
+  assert.ok(!h.calls.logs.some(l=>JSON.stringify(l).includes('First line')),'로그에 본문 없음');
+  // 두 번째는 저장본: 엔진을 다시 부르지 않고 횟수도 쓰지 않음.
+  const again=await h.user('translate',{id:POST_EN});assert.equal((await again.json()).status,'stored');
+  assert.equal(h.calls.google.length,1);assert.equal(h.db.app_news_days[0].translate_n,1);
+});
+
+test('translate (AI 대신): 비밀값이 없으면 outside_translate AI, 토큰·횟수는 app_news_days에, 빈 제목 번역은 채움', async () => {
+  const h=harness({posts:[{...enPost,title_ko:null}],bodies:[enBody],ai:trAi});
+  const r=await h.user('translate',{id:POST_EN});const j=await r.json();
+  assert.equal(r.status,200,JSON.stringify(j));assert.equal(j.engine,'ai');assert.equal(h.calls.google.length,0);
+  assert.deepEqual(h.calls.ai.map(a=>a.name),['outside_translate']);assert.match(h.calls.ai[0].input,/^제목: Synthetic strike wave\n\n본문:\nFirst line\.\nHead\nQuoted\.\nLast line\.$/);
+  const p=h.db.app_outside_posts[0];assert.equal(p.body_ko,'첫 줄.\n소제목\n인용.\n끝 줄.');assert.equal(p.title_ko,'가상 제목');
+  const d=h.db.app_news_days[0];assert.equal(d.translate_n,1);assert.equal(d.ai_requests,1);assert.equal(d.ai_input_tokens,100);assert.equal(d.ai_output_tokens,50);
+});
+
+test('translate: 한국어 글 409·본문 블록 없음 409·하루 한도 429·월 한도 429·다른 작업공간 글 404·남 403·비로그인 401·예약 입구 400·몸통은 id만', async () => {
+  const ko={...enPost,id:POST_KO,lang:'ko',source_key:'kctu',title_ko:null};
+  const other={...enPost,id:POST_OTHER,workspace_id:WS2};
+  const h=harness({posts:[enPost,ko,other],bodies:[{...enBody,outside_post_id:POST_KO},{...enBody,outside_post_id:POST_OTHER,workspace_id:WS2}],ai:trAi});
+  const code=async(r)=>[r.status,(await r.json()).error];
+  assert.deepEqual(await code(await h.user('translate',{id:POST_KO})),[409,'NOT_FOREIGN']);
+  assert.deepEqual(await code(await h.user('translate',{id:POST_OTHER})),[404,'NOT_FOUND'],'다른 작업공간 글은 없는 글과 같다');
+  assert.deepEqual(await code(await h.user('translate',{id:POST_EN},JWT_STRANGER)),[403,'FORBIDDEN']);
+  assert.equal((await h.user('translate',{id:POST_EN},'synthetic.user.jwt-bad-000000')).status,401);
+  assert.equal((await h.handler(new Request(`${FN}?action=translate`,{method:'POST',body:JSON.stringify({id:POST_EN})}))).status,401,'비로그인');
+  assert.equal((await h.cron('translate',{id:POST_EN})).status,400,'예약 입구에는 없음');
+  for(const bad of[{},{id:'x'},{id:POST_EN,workspace_id:WS},{id:POST_EN,url:'https://evil.example/'}])assert.equal((await h.user('translate',bad)).status,400,JSON.stringify(bad));
+  assert.equal(h.calls.ai.length+h.calls.google.length,0);assert.ok(!h.db.app_outside_posts.some(p=>p.body_ko));
+  assert.ok(!h.calls.rest.some(c=>c.startsWith('PATCH app_outside_posts')));
+  const noBody=harness({posts:[enPost],ai:trAi});assert.deepEqual(await code(await noBody.user('translate',{id:POST_EN})),[409,'NOTHING_TO_TRANSLATE']);
+  const full=harness({posts:[enPost],bodies:[enBody],days:[{workspace_id:WS,day:'2026-10-31',translate_n:H.TRANSLATE_DAILY}],ai:trAi});
+  assert.deepEqual(await code(await full.user('translate',{id:POST_EN})),[429,'DAILY_LIMIT']);assert.equal(full.calls.ai.length,0);
+  const capped=harness({posts:[enPost],bodies:[enBody],days:[{workspace_id:WS,day:'2026-10-01',ai_input_tokens:1e9,ai_output_tokens:1e9}],ai:trAi});
+  assert.deepEqual(await code(await capped.user('translate',{id:POST_EN})),[429,'MONTHLY_LIMIT']);assert.equal(capped.calls.ai.length,0);
+});
+
+test('translate 공용 엔진: news-feed·outside-feed가 같은 _shared 번역 모듈을 쓰고, 하루 한도 값은 하나', async () => {
+  const news=readFileSync('supabase/functions/news-feed/handler.ts','utf8'),feed=readFileSync('supabase/functions/outside-feed/handler.ts','utf8');
+  for(const src of[news,feed]){assert.match(src,/from "\.\.\/_shared\/feed-translate\.ts"/);assert.match(src,/from "\.\.\/_shared\/news-days\.ts"/);assert.match(src,/translateText\(/);}
+  const N=await import('../../supabase/functions/news-feed/handler.ts');assert.equal(N.TRANSLATE_DAILY,H.TRANSLATE_DAILY);
+  const T=await import('../../supabase/functions/_shared/feed-translate.ts');
+  assert.equal(T.blocksText([{t:'p',text:' A  b '},{t:'img',src:'https://x/a.jpg'},{t:'h',text:'H'},{t:'quote',text:'Q'},{t:'x',text:'no'}]),'A b\nH\nQ');
+  assert.equal(T.blocksText(null),'');
 });
