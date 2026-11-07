@@ -310,17 +310,21 @@ test('같은 날은 하나: [+]는 있는 날을 고치기로, 날짜를 있는 
  expect(f.errors).toEqual([]);
 });
 
-test('21장째는 넣지 않고 안내, 중간에 실패하면 올린 사진은 남고 [저장]으로 이어 올림',async({page})=>{
+// S52-21 DIARY-사진바로올리기: 사진은 고르자마자 올라가므로 실패도 [저장] 전에 그 사진 칸·상태 줄에 보이고, [저장]이 다시 올린다.
+test('21장째는 넣지 않고 안내, 고르자마자 올리다 실패하면 올린 사진은 남고 [저장]으로 이어 올림',async({page})=>{
  const rows=store();rows[1].attachments=Array.from({length:18},(_,i)=>photo('p'+i));
  const f=await fixture(page,{rows,failUploadAt:2});await openDiary(page,390);
  await cell(page,'2026-10-03').click();await page.locator('#diaryRoot [data-diary-edit]').click();
  const ed=page.locator('#diaryRoot [data-diary-editor]');
+ // 올리기 답을 잠시 잡아 둔다(고른 직후 화면을 본 뒤 놓음).
+ let release;const gate=new Promise(r=>{release=r;});
+ await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files',async r=>{if(r.request().method()==='POST'&&!new URL(r.request().url()).searchParams.get('action'))await gate;return r.fallback();});
  await ed.locator('[data-diary-input]').setInputFiles(await photoFiles(page,3,{w:300,h:200}));
  await expect(ed.locator('[data-diary-editor-status]')).toHaveText('일기 사진은 하루 20장까지예요. 1장은 넣지 않았어요.');
  await expect(ed.locator('.diary-thumb.pending')).toHaveCount(2);await expect(ed.locator('[data-diary-count]')).toContainText('20/20');
  await expect(ed.locator('[data-diary-pick]')).toBeDisabled();
- await ed.locator('[data-diary-save]').click();
- await expect(ed.locator('[data-diary-editor-status]')).toContainText("1장은 올렸어요. 'IMG_2.png'부터 올리지 못했어요.");
+ release();
+ await expect(ed.locator('[data-diary-editor-status]')).toContainText("'IMG_2.png' 사진을 올리지 못했어요.");
  await expect(ed).toBeVisible();await expect(ed.locator('.diary-thumb.pending')).toHaveCount(1);
  expect(f.rows[1].attachments).toHaveLength(19);
  await ed.locator('[data-diary-save]').click();
