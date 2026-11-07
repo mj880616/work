@@ -12,7 +12,7 @@
 // - 칸 하나의 그리기 주인은 이 모듈 하나(journal.js는 자리만 주고 다시 그릴 때 부른다). AI 를 부르지 않는다. 브라우저 저장소에 아무것도 두지 않는다.
 import {weekCells, parseCellId, cellId, summaryKey, changeWeekCell, changeWeekDocs, changeWeekMove, withSiteLayout, draftSiteLayout, readCarriedLayout, readCarriedAreas, areaNameKey, lineDone, lineKey, visibleLines, CELL_LINE_MAX} from './weekly-draft-store.js';
 import {sortPicks, droppedOf, keptOf, pickKey, hadTexts, HAVE_ACT, WHY_MAX} from './weekly-picks.mjs';
-import {lineIn, areaInKeys} from './weekly-cell-names.mjs';
+import {lineIn, areaInKeys, inSites, SITE_REF_LINE} from './weekly-cell-names.mjs';
 import {learnFor} from './weekly-picks.js';
 import {arrangeSites, siteHidden, siteShown, siteMoved, siteKey, readSiteLayout} from './weekly-schedule-rows.mjs';
 import {mountReorder} from './reorder-drag.js';
@@ -50,6 +50,17 @@ export function flowCells(draft, section) {
   const out = [];
   for (const [id, lines] of weekCells(draft)) { const c = parseCellId(id); if (c.section === section) out.push({id, ...c, lines:visibleLines(lines)}); }
   return out;
+}
+// S52-25 WEEKLY-투쟁사업장참고: 지금 '3. 투쟁 사업장 현황'에 들어간 사업장 이름(구성 = 이번 주 것, 없으면 읽어 둔 지난주 구성 — 3장 칸과 같은 계산).
+// slot = 주간 정리 안 아무 칸 자리(같은 화면 상태를 씀), row = 그 주 임시저장 행. 아직 그리기 전이면 draft 구성만으로.
+export function shownSiteNames(slot, row) {
+  const draft = row?.draft ?? null; if (!draft) return [];
+  const root = slot?.closest?.('[data-journal-weekly-root]') ?? slot?.closest?.('.journal-weekly-body') ?? slot, ui = root ? uiOf.get(root) : null;
+  return siteNamesOf(draft, draftSiteLayout(draft) ?? ui?.carried?.layout ?? null);
+}
+function siteNamesOf(draft, layout) {
+  const cells = siteCells(draft, layout);
+  return arrangeSites(cells.map((c, index) => ({index, org:c.key})), layout).shown.map(r => r.org);
 }
 // 투쟁 사업장: 바탕에 없지만 구성(order)에 넣은 사업장(내 담당 조직 = 4번 칸 이름만)은 빈 칸으로 더한다(한글 파일 상자 missingSites 와 같은 규칙).
 export function siteCells(draft, layout) {
@@ -166,7 +177,11 @@ export function paintFlowCells(slot, ctx) {
     cells.forEach(c => list.append(cellBox(c, [])));
     parts.push(list);
     if (ui.siteNote) { const p = el('p', 'journal-line-status', ui.siteNote); p.dataset.flowSiteNote = ''; p.setAttribute('role', 'status'); parts.push(p); }
-  } else for (const c of cells) parts.push(cellBox(c, material.get(c.id) ?? []));
+  } else {
+    // S52-25 WEEKLY-투쟁사업장참고: 4장(표 준비 전 칸 줄)에서 3장에 들어간 조직 칸은 '참고' 한 줄(제안 없음). 쓴 줄은 지우지 않고 접어 보인다.
+    const sitesNow = section === 'orgs' ? siteNamesOf(draft, draftSiteLayout(draft) ?? ui.carried.layout) : [];
+    for (const c of cells) parts.push(section === 'orgs' && inSites(sitesNow, c.key) ? refBox(c) : cellBox(c, material.get(c.id) ?? []));
+  }
   if (!cells.length) parts.push(emptyEl(section === 'sites' ? '넣은 사업장이 없어요' : '내 칸이 없어요'));
   if (section === 'sites') {
     const bar = el('div', 'weekly-flow-site-add');
@@ -188,6 +203,18 @@ export function paintFlowCells(slot, ctx) {
   if (ui.focusLine && !ui.busy && section !== 'sites') { const k = ui.focusLine; ui.focusLine = null; [...slot.querySelectorAll('li[data-flow-line-id]')].find(n => n.dataset.flowLineId === k)?.querySelector('[data-flow-line-grip]')?.focus(); }
   if (ui.focusSite && !ui.busy && section === 'sites') { const name = ui.focusSite; ui.focusSite = null; [...slot.querySelectorAll('[data-reorder-id]')].find(n => n.dataset.reorderId === name)?.querySelector('[data-reorder-handle]')?.focus(); }
 
+  function refBox(c) {
+    const box = el('div', 'weekly-flow-cell'); box.dataset.flowCell = c.id; box.dataset.flowSiteRef = '';
+    const head = el('div', 'weekly-flow-name'), name = el('span', 'weekly-flow-label'); name.append(el('b', null, labelOf(section, c.key, c.n))); head.append(name); box.append(head);
+    const ul = el('ul', 'weekly-flow-lines'), li = el('li'); li.append(el('span', 'weekly-flow-text', SITE_REF_LINE)); li.dataset.flowSiteRefLine = ''; ul.append(li); box.append(ul);
+    if (c.lines.length) {
+      const fold = el('details', 'journal-org-raw weekly-flow-records'); fold.dataset.flowRefFold = c.id;
+      fold.open = !!slot.querySelector(`details[data-flow-ref-fold="${CSS.escape(c.id)}"]`)?.open;
+      const kept = el('ul', 'weekly-flow-lines weekly-flow-suggest'); for (const t of c.lines) kept.append(el('li', null, t));
+      fold.append(el('summary', null, `쓴 줄 ${c.lines.length}개`), kept); box.append(fold);
+    }
+    return box;
+  }
   function cellBox(c, list) {
     const box = el('div', 'weekly-flow-cell'); box.dataset.flowCell = c.id;
     const head = el('div', 'weekly-flow-name');

@@ -17,6 +17,7 @@ import {fillMissing} from './weekly-org-suggest.js';
 import {waitHtml, emptyHtml} from './wait-state.js';
 import { chevHtml } from './fold-chevron.mjs';
 import {rowMore} from './row-more.js';
+import {SITE_REF_LINE} from './weekly-cell-names.mjs';
 
 const TABLE = '/rest/v1/app_weekly_org_lines';
 const COLS = 'id,organization_id,week_start,day,end_day,body,sort_order,state,origin,edited,source_update_ids,source_note_ids,source_status_ids,updated_at';
@@ -73,7 +74,7 @@ let seq = 0;
 export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'desk', repaint = () => {}, say = () => {}, openSource = null} = {}) {
   const ctl = {
     id: `wl${++seq}`, rt, workspaceId, week, mode, openSource, status: 'idle', orgIds: [], lines: new Map(), last: new Map(), lastFromStatus: new Set(),
-    open: new Set(), lastOpen: new Set(), sugOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, conflicts: new Map(), run: 0, host: null, focus: '',
+    open: new Set(), lastOpen: new Set(), sugOpen: new Set(), siteRefIds: new Set(), refOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, conflicts: new Map(), run: 0, host: null, focus: '',
   };
   const c = () => ({rt: ctl.rt, workspaceId: ctl.workspaceId});
   const announce = orgId => window.dispatchEvent(new CustomEvent(EVENT, {detail: {week: ctl.week, organization_id: orgId, source: ctl.id}}));
@@ -162,6 +163,8 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
   // 조직 이름 옆: '주간보고 3줄 넘음', 주간 정리에서 부실 조직은 [지난주 모두 가져오기].
   // 주간 정리(weekly): 조직 이름 뒤 ' · n줄'(넣은 줄 없으면 ' · 빈 칸') + 줄 끝 ⋯ 하나 — [현황 표(지난주) 모두 가져오기]·[줄 추가]·[현황 표 보기].
   const weeklyName = orgId => {
+    // S52-25 WEEKLY-투쟁사업장참고: 3장에 들어간 조직은 이름 줄에 '참고'만, ⋯ 는 [현황 표 보기]만(줄 추가·가져오기 없음 — 보고서에는 참고 한 줄).
+    if (ctl.siteRefIds.has(orgId)) return typeof ctl.openSource === 'function' && !ctl.disabled() ? moreSlot({label: '조직 칸 메뉴', data: {wlOrgMore: orgId}, items: [{text: '현황 표 보기', data: {wlOpenOrg: orgId}}]}) : '';
     const list = ctl.lines.get(orgId) || [], parts = cellParts(list), room = hasRoom(list), dis = ctl.disabled();
     const lastLeft = weekSuggestions(list, ctl.last.get(orgId) || []).filter(x => x.kind === 'last').length;
     const name = ctl.lastFromStatus.has(orgId) ? '현황 표' : '지난주', items = [];
@@ -183,7 +186,14 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
   const placedHtml = (orgId, parts, open) => (parts.older.length ? `<button type="button" class="wl-more" data-wl-toggle="${esc(orgId)}" aria-expanded="${open}">외 ${parts.older.length}줄 ${chevHtml(open)}</button>` : '')
     + (open ? parts.older.map(l => lineHtml(orgId, l)).join('') : '') + parts.shown.map(l => lineHtml(orgId, l)).join('');
   // 주간 정리(weekly) 한 조직 칸: 넣은 줄(보통 글자) → 흐린 제안 줄(공용 '제안 줄', 3개 넘으면 '제안 n개 더 ▾'). 표·지난주 덩어리·[+ 줄]은 없다(⋯ 안).
+  // 3장(투쟁 사업장 현황)에 들어간 조직 칸: '- 투쟁 사업장 보고 참고' 한 줄 + 이 주에 넣은 줄은 지우지 않고 흐린 접힌 줄 '쓴 줄 n개 ▾'(공용 접기). 제안 없음.
+  const refCell = orgId => {
+    const placed = cellParts(ctl.lines.get(orgId) || []).placed, open = ctl.refOpen.has(orgId);
+    const fold = placed.length ? `<details class="journal-org-raw weekly-flow-records wl-ref-fold" data-wl-ref-fold="${esc(orgId)}"${open ? ' open' : ''}><summary>쓴 줄 ${placed.length}개</summary>${placed.map(l => `<div class="wl-line is-last"><span class="wl-day">${esc(dayText(l.day, l.end_day))}</span><span class="wl-text">${esc(cleanBody(l.body))}</span></div>`).join('')}</details>` : '';
+    return `<div class="wl-cell" data-wl-cell="${esc(orgId)}" data-wl-site-ref><div class="wl-line" data-wl-site-ref-line><span class="wl-text">${esc(SITE_REF_LINE)}</span></div>${fold}</div>`;
+  };
   const weeklyCell = orgId => {
+    if (ctl.siteRefIds.has(orgId)) return refCell(orgId);
     const list = ctl.lines.get(orgId) || [], parts = cellParts(list), sugs = weekSuggestions(list, ctl.last.get(orgId) || []);
     const open = parts.older.length > 0 && (ctl.open.has(orgId) || parts.older.some(l => l.id === ctl.editing?.id));
     const adding = ctl.editing?.orgId === orgId && ctl.editing.id === 'new';
@@ -277,6 +287,7 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
   ctl.bind = host => {
     if (ctl.host === host) return;
     ctl.host = host;
+    host.addEventListener('toggle', e => { const d = e.target; if (!d?.matches?.('details[data-wl-ref-fold]')) return; if (d.open) ctl.refOpen.add(d.dataset.wlRefFold); else ctl.refOpen.delete(d.dataset.wlRefFold); }, true);
     host.addEventListener('input', e => { const t = e.target; if (!t.matches?.('[data-wl-field]')) return; ctl.draft = {...(ctl.draft || {}), [t.dataset.wlField]: t.value}; if (ctl.invalid === t.dataset.wlField) { ctl.invalid = ''; t.removeAttribute('aria-invalid'); } });
     host.addEventListener('change', e => { const t = e.target; if (!t.matches?.('[data-wl-field]')) return; ctl.draft = {...(ctl.draft || {}), [t.dataset.wlField]: t.value}; if (t.dataset.wlField === 'day') t.closest('.wl-form')?.querySelector('[data-wl-field="end_day"]')?.setAttribute('min', t.value); });
     host.addEventListener('keydown', e => {

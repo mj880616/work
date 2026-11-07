@@ -570,6 +570,9 @@ const weekLinesSlot = () => $('[data-journal-weekly] [data-weekly-flow-cells="or
 function drawWeekLines() {
   const slot = weekLinesSlot(); if (!slot || !weekLines || !weekLinesMod) return;
   weekLines.bind(slot);
+  // S52-25 WEEKLY-투쟁사업장참고: 3장에 들어간 조직(이름 맞추기 = 칸 이름 기준)은 4장 칸을 '참고' 한 줄로(표의 줄은 그대로).
+  const sites = W.shownSiteNames(slot, weekRow());
+  weekLines.siteRefIds = new Set(weekLinesOrgs.filter(o => W.inSites(sites, o.name)).map(o => o.id));
   slot.innerHTML = weekLinesMod.weekTableHtml(weekLines, weekLinesOrgs, {msg:weekLinesMsg.text, error:weekLinesMsg.error, tableClass:'wl-weekly'}); // 상태 한 줄은 다시 그려도 남게(전에는 이름이 달라 지워졌음)
   weekLines.afterPaint();
 }
