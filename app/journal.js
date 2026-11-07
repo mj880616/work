@@ -506,6 +506,8 @@ function renderWeekly_({refreshBox = true} = {}) {
   W.paintHqSchedule(host.querySelector('[data-journal-weekly-hq-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // S46-27 3) 상집 논의 요청(weekly-discuss-table.js가 그 자리만 그림) — 2) 주요 일정과 같은 저장·같은 맞춤.
   W.paintDiscuss(host.querySelector('[data-journal-weekly-discuss-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
+  // WEEKLY-조직이름한줄 덧붙임: 표 칸 폭 끌기(1) 임원 배정·2) 주요 일정·3) 상집 논의·5. 주요 일정) — 공용 col-resize.js, 서버 저장(화면 종류별).
+  for (const table of host.querySelectorAll('table[data-wk-cols]')) W.mountWeeklyCols(table, table.dataset.wkCols);
   // WEEKLY-한흐름확정 ⑤ 남은 부분: 5. 주요 일정·참고 [+ 추가](손으로 더한 줄, weekly-hand-lines.js가 그 자리만 그림) — 같은 저장·같은 맞춤.
   W.paintDetailLines(host.querySelector('[data-journal-weekly-detail-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   for (const part of ['calendar', 'notes']) W.paintHandLines(host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
@@ -561,8 +563,11 @@ function drawWeekLines() {
   // S52-25 WEEKLY-투쟁사업장참고: 3장에 들어간 조직(이름 맞추기 = 칸 이름 기준)은 4장 칸을 '참고' 한 줄로(표의 줄은 그대로).
   const sites = W.shownSiteNames(slot, weekRow());
   weekLines.siteRefIds = new Set(weekLinesOrgs.filter(o => W.inSites(sites, o.name)).map(o => o.id));
-  slot.innerHTML = weekLinesMod.weekTableHtml(weekLines, weekLinesOrgs, {msg:weekLinesMsg.text, error:weekLinesMsg.error, tableClass:'wl-weekly'}); // 상태 한 줄은 다시 그려도 남게(전에는 이름이 달라 지워졌음)
+  // WEEKLY-조직이름한줄(요청함 11/08 00:19): [조직] 머리 칸 경계를 끌어 칸 폭 조절(공용 col-resize.js, 서버 저장), 기본 폭은 가장 긴 이름 줄에 맞춤.
+  slot.innerHTML = weekLinesMod.weekTableHtml(weekLines, weekLinesOrgs, {msg:weekLinesMsg.text, error:weekLinesMsg.error, tableClass:'wl-weekly', headOrg:`조직${W.colGripHtml('org', 1)}`}); // 상태 한 줄은 다시 그려도 남게(전에는 이름이 달라 지워졌음)
   weekLines.afterPaint();
+  const wlTable = slot.querySelector('table.wl-weekly');
+  if (wlTable) { W.mountWeeklyCols(wlTable, 'org'); W.fitOrgColumn(wlTable); }
 }
 // 넣은 줄(조직 id → '- 11.2. 글' 줄들) — 복사·캘린더 추천 거르기가 읽는다. 표를 아직 못 읽었으면 null(예전처럼 기록).
 function weekOrgLines() {

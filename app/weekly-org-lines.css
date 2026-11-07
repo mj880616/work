@@ -83,3 +83,14 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
   .wl-table.wl-weekly tbody th.wl-c-org{background:none;padding-top:6px;border-top:1px solid var(--kptu-border)}
   .wl-table.wl-weekly td{border-top:0;padding-bottom:6px}
 }
+/* S52-31 WEEKLY-조직이름한줄(요청함 11/08 00:19 "조직 명 폰트크기 너무 큼. 한줄로 딱딱"): [주간 정리] 4. 산하 조직 현황 표는 3. 투쟁 사업장 현황과 같은 글자 눈금.
+   조직 이름 = 3장 사업장 이름과 같은 크기·굵기(--ds-text-meta·보통), 한 줄(줄 바꿈 없음) — 넘치면 끝 …(이름에 올리면 전체 이름, title).
+   '· 빈 칸'·⋯ 는 이름과 같은 줄 오른쪽 끝. [조직현황] 칸 글은 3장 줄과 같은 --ds-text-row. [조직] 칸 폭은 가장 긴 이름 줄에 맞춤(--wk-w-org-fit, weekly-cols.js),
+   머리 칸 경계를 끌어 바꾸면 그 값(--wk-w-org, 서버 저장). 담당조직 [전체 표](org-overview)는 바꾸지 않는다. 숫자는 토큰만, 여기서는 자리만. */
+.wl-table.wl-weekly{font-size:var(--ds-text-row)}
+.wl-table.wl-weekly .wl-c-org{width:var(--wk-w-org,var(--wk-w-org-fit,9.5em))}
+.wl-table.wl-weekly .wl-org-line{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap}
+.wl-table.wl-weekly .wl-org{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular)}
+.wl-table.wl-weekly .wl-org-line > :not(.wl-org){flex:none}
+.wl-table.wl-weekly .wl-org-line .wl-count{margin-left:0}
+#appView #homeView .wl-table.wl-weekly .wl-org-line > .row-more{float:none;margin-left:auto} /* 홈 공용 ⋯ 여백 규칙보다 앞서게 */
