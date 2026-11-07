@@ -12,7 +12,7 @@
 
 :where(#basketView) label{ font-weight:var(--ds-weight-medium); }
 /* HOME-업무일지홈: 홈 본문(업무일지)은 journal.css가 굵기를 정하고, 빠른 입력 버튼만 정리함과 같은 중간 굵기. */
-#appView #homeView .home-quick :is(button,[aria-pressed="true"]):not(.ds-seg-btn){ font-weight:var(--ds-weight-medium); }
+#appView #homeView .home-quick :is(button,[aria-pressed="true"]):where(:not(.ds-seg-btn)){ font-weight:var(--ds-weight-medium); }
 
 /* 화면 제목 18px */
 #appView #basketView .basket-head h2{ font-size:var(--ds-text-title); line-height:1.4; }
