@@ -37,8 +37,8 @@ async function sameButtons(region,height,quickHeight=height){
   const want=await control.evaluate(el=>{
    const seg=el.closest('.home-quick-modes');
    const r='8px';
-   // UI-보기탭한모양(S52-17): 공용 ⑤ 보기 바꾸기 — 칸은 연한 알약(32px) 안의 26px 알약.
-   if(seg)return {min:26,max:26,radius:'999px'};
+   // UI-보기탭한모양(S52-17): 공용 ⑤ 보기 바꾸기 — 칸은 연한 알약(32px) 안의 26px 알약(누른 직후 눌림 움직임으로 조금 작게 잴 수 있음).
+   if(seg)return {min:24,max:26,radius:'999px'};
    // UI-창아래버튼통일(11/07): 창 아래 줄(.save-row) 안 저장·보조·지우기는 한 가족 36px.
    if(el.matches(':is(.modal-action-footer,.save-row) button:is(.primary,.secondary,.ghost,.danger)'))return {min:36,max:36,radius:'8px'};
    // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px. UI-업데이트편집한줄: 수정 화면 버튼 줄과 [첨부 저장]도 32px.
@@ -52,7 +52,9 @@ async function sameButtons(region,height,quickHeight=height){
   // UI-PC버튼36: the quick input's [추가] is the input height on PC (quickHeight); other main buttons keep --ds-control-height.
   // UI-버튼전수조사(2026-10-24): 46px(--ds-control-height) 버튼은 없앴다. 채운 버튼(주 동작)은 36px(--kptu-control-height), 나머지는 작은 버튼 32px. 누르는 범위 44px.
   else{const h=await control.evaluate((el,q)=>el.matches('.home-quick-save')?q:el.matches('.primary,.quick-pill-primary,[data-basket-save]')?36:32,quickHeight);expect(Math.abs(s.height-h),label).toBeLessThanOrEqual(0.5);expect(s.radius,label).toBe('8px');expect(await control.evaluate(el=>{const r=el.getBoundingClientRect().height,a=getComputedStyle(el,'::after');return a.content==='none'?r:Math.max(r,parseFloat(a.height)||0,parseFloat(a.minHeight)||0)}),label+' 누르는 범위').toBeGreaterThanOrEqual(44);}
-  expect(s.fontSize).toBe('13px');expect(s.fontWeight).toBe('500');expect(s.shadow).toBe('none');expect(s.image).toBe('none');
+  // UI-보기탭한모양(S52-17): 보기 바꾸기의 고른 칸만 굵게(600)·흰 알약 그림자(--ds-seg-on-shadow).
+  const strong=await control.evaluate(el=>el.matches('.ds-seg .ds-seg-btn:is([aria-pressed="true"],[aria-checked="true"]),.ds-seg-group:has(> [aria-pressed="true"]) > [aria-pressed="true"]'));
+  expect(s.fontSize).toBe('13px');expect(s.fontWeight).toBe(strong?'600':'500');if(!strong)expect(s.shadow).toBe('none');expect(s.image).toBe('none');
  }
  return shaped;
 }
