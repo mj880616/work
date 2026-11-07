@@ -1718,32 +1718,6 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
 .gs-row-folder .ui-ico { margin-right:2px; color:var(--ds-folder-0-ico,var(--kptu-muted)); }
 .nx-clip svg, .feed-pinmark svg, .tp-here svg, .diary-lv-find svg { display:inline-block; vertical-align:-0.15em; }
 
-/* ===== UI-요청상자통일(S52-09, 요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html 명진 'ㅇ') =====
-   홈 '나한테 온 요청'·'잊지 말기' 상자와 정리함 '나한테 온 요청' 상자가 함께 쓰는 공용 부품(app/notice-box.mjs) 한 곳의 모양.
-   같은 둥근 상자·머리 줄·줄·버튼, 색만 tone(ask = 톤다운 파랑 --kptu-info, forget = 톤다운 노랑 --kptu-warning). 버튼 모양은 'UI-버튼6가지'
-   (② secondary·③ row-act·⑥ icon-btn) 그대로이고 여기서는 자리(간격·줄바꿈)만 정한다. 화면 id를 쓰지 않는다(홈·정리함 같은 규칙). */
-.nbx{ --nbx-ink:var(--kptu-info); --nbx-bg:var(--kptu-info-soft); box-sizing:border-box; margin:0 0 8px; padding:2px 10px 4px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--nbx-bg); font-size:var(--ds-text-meta); }
-.nbx[data-nbx-tone="forget"]{ --nbx-ink:var(--kptu-warning); --nbx-bg:var(--kptu-warning-soft); }
-.nbx[hidden],.nbx-plain[hidden]{ display:none; }
-.nbx-head{ display:flex; align-items:center; gap:6px; min-height:var(--ds-compact-height-sm); color:var(--nbx-ink); }
-.nbx-title{ font-weight:var(--ds-weight-medium); }
-.nbx-n{ font-weight:var(--ds-weight-medium); font-variant-numeric:tabular-nums; }
-.nbx-faint{ color:var(--kptu-faint); }
-.nbx-head .nbx-open{ margin-left:auto; }
-.nbx-list{ list-style:none; margin:0; padding:0; }
-.nbx-item{ padding:6px 0 4px; border-top:var(--ds-line-width) solid var(--ds-line); }
-.nbx-body{ margin:0; color:var(--kptu-ink); font-size:var(--ds-text-row); line-height:1.4; overflow-wrap:anywhere; }
-.nbx-tag{ color:var(--nbx-ink); font-size:var(--ds-text-meta); }
-.nbx-row2{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:3px; }
-.nbx-meta{ flex:1 1 6em; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-faint); }
-.nbx-acts{ flex:none; display:flex; align-items:center; gap:4px; margin-left:auto; }
-.nbx-status{ margin:0; padding:2px 0 0; color:var(--kptu-faint); }
-.nbx-status:empty{ display:none; }
-.nbx-foot{ display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin-top:2px; padding-top:2px; border-top:var(--ds-line-width) dashed var(--ds-line); color:var(--kptu-faint); }
-.nbx-plain{ margin:0 0 8px; font-size:var(--ds-text-meta); }
-.nbx-plain .nbx-foot{ margin:0; padding:0; border-top:0; }
-.nbx .row-act.nbx-foot-open,.nbx-plain .row-act.nbx-foot-open{ font-size:var(--ds-text-meta); color:var(--kptu-faint); }
-
 /* UI-올리기진행표시(S52-15, 시안 docs/design/mockups/upload-progress.html): 올리는 중 표시 공용 부품(app/upload-progress.js) 한 곳.
    ① 첨부 줄(.up-rows): 합계 줄 + 파일마다 얇은 막대·%·✕ / 실패 [다시]. ② 흐린 미리보기 위 막대(.up-tile·.up-tile-over). ③ 하단바 위 한 줄(#uploadDock).
    색은 주 색 하나(막대) + 옅은 바탕(막대 길) + 회색 글자. 버튼은 공용 .row-act(글자)·.icon-btn(✕)만 쓴다. */
@@ -1797,6 +1771,32 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 #uploadDock .up-bar{ margin-top:2px; background:color-mix(in srgb, var(--kptu-surface) 25%, transparent); }
 #uploadDock .up-bar > i{ background:var(--kptu-surface); }
 #uploadDock :is(button.row-act,button.icon-btn){ color:var(--kptu-surface); }
+
+/* ===== UI-요청상자통일(S52-09, 요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html 명진 'ㅇ') =====
+   홈 '나한테 온 요청'·'잊지 말기' 상자와 정리함 '나한테 온 요청' 상자가 함께 쓰는 공용 부품(app/notice-box.mjs) 한 곳의 모양.
+   같은 둥근 상자·머리 줄·줄·버튼, 색만 tone(ask = 톤다운 파랑 --kptu-info, forget = 톤다운 노랑 --kptu-warning). 버튼 모양은 'UI-버튼6가지'
+   (② secondary·③ row-act·⑥ icon-btn) 그대로이고 여기서는 자리(간격·줄바꿈)만 정한다. 화면 id를 쓰지 않는다(홈·정리함 같은 규칙). */
+.nbx{ --nbx-ink:var(--kptu-info); --nbx-bg:var(--kptu-info-soft); box-sizing:border-box; margin:0 0 8px; padding:2px 10px 4px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--nbx-bg); font-size:var(--ds-text-meta); }
+.nbx[data-nbx-tone="forget"]{ --nbx-ink:var(--kptu-warning); --nbx-bg:var(--kptu-warning-soft); }
+.nbx[hidden],.nbx-plain[hidden]{ display:none; }
+.nbx-head{ display:flex; align-items:center; gap:6px; min-height:var(--ds-compact-height-sm); color:var(--nbx-ink); }
+.nbx-title{ font-weight:var(--ds-weight-medium); }
+.nbx-n{ font-weight:var(--ds-weight-medium); font-variant-numeric:tabular-nums; }
+.nbx-faint{ color:var(--kptu-faint); }
+.nbx-head .nbx-open{ margin-left:auto; }
+.nbx-list{ list-style:none; margin:0; padding:0; }
+.nbx-item{ padding:6px 0 4px; border-top:var(--ds-line-width) solid var(--ds-line); }
+.nbx-body{ margin:0; color:var(--kptu-ink); font-size:var(--ds-text-row); line-height:1.4; overflow-wrap:anywhere; }
+.nbx-tag{ color:var(--nbx-ink); font-size:var(--ds-text-meta); }
+.nbx-row2{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:3px; }
+.nbx-meta{ flex:1 1 6em; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-faint); }
+.nbx-acts{ flex:none; display:flex; align-items:center; gap:4px; margin-left:auto; }
+.nbx-status{ margin:0; padding:2px 0 0; color:var(--kptu-faint); }
+.nbx-status:empty{ display:none; }
+.nbx-foot{ display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin-top:2px; padding-top:2px; border-top:var(--ds-line-width) dashed var(--ds-line); color:var(--kptu-faint); }
+.nbx-plain{ margin:0 0 8px; font-size:var(--ds-text-meta); }
+.nbx-plain .nbx-foot{ margin:0; padding:0; border-top:0; }
+.nbx .row-act.nbx-foot-open,.nbx-plain .row-act.nbx-foot-open{ font-size:var(--ds-text-meta); color:var(--kptu-faint); }
 
 /* ===== UI-버튼6가지(2026-11-06 명진 요청 23:23 '버튼 모양 크기 색깔 테두리 등 전수조사 통일감', 시안 docs/design/mockups/button-six-kinds.html 승인 'ㅇ') =====
    사이트 버튼은 이 6가지뿐이고 모양(높이·모서리·바탕·테두리·글자)은 여기 한 곳이 정한다. 화면 CSS는 자리(간격·순서)만 정한다.
