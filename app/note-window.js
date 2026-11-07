@@ -13,6 +13,7 @@ import {NOTE_TEXT_MAX} from './note-doc.mjs';
 import {requestNoteAiTitle} from './note-ai-title.js';
 import {WAIT_PREFIX, waitingSrcs, swapWaiting} from './note-pending-media.mjs';
 import {toPlain} from './ed-text.mjs';
+import {mountUploadRows} from './upload-progress.js'; // UI-올리기진행표시: 저장 뒤 올라가는 글 안 사진·파일의 막대 + %
 
 function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
@@ -72,6 +73,8 @@ export function waitingMedia() {
       },
     },
     file: src => kept.get(src)?.file || null,
+    has: file => [...kept.values()].some(entry => entry.file === file),
+    preview: file => [...kept.values()].find(entry => entry.file === file)?.url || null,
     clear() { for (const entry of kept.values()) if (entry.url) URL.revokeObjectURL(entry.url); kept.clear(); },
   };
 }
@@ -119,6 +122,10 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
   // The title box's Enter goes on to the text (it is not a save).
   head.input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle?.editor?.focus(); } });
   const files = attachRow({id: 'edwNoteAttach', getBatch: batch, isBusy: () => busy || !!upload?.isBusy?.(), say: message => { upload?.onChange?.(); say(message); }});
+  // 저장을 누른 뒤 글 안 사진·파일이 새 노트의 첨부로 올라가는 동안: 첨부 줄 위에 같은 올리는 줄(사진은 흐린 미리보기 위 막대).
+  const waitingHost = document.createElement('div');
+  files.node.prepend(waitingHost);
+  const waitingRows = mountUploadRows(waitingHost, {has: job => media.has(job.file), preview: job => media.preview(job.file)});
   async function run({value, text: typed}) {
     if (rt.session.read()?.user?.id !== owner) return {ok: false, message: '로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
     const list = batch(), count = files.pending(), heading = head.input.value;
@@ -153,7 +160,7 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
     dirty: () => !!head.input.value.trim() || files.pending() > 0,
     photos: media.photos, files: media.files,
     placeholder: '노트 본문을 쓰세요', save: {aria: '새 노트로 저장', run},
-    onClose: ({text: letters}) => { media.clear(); noteFolder?.close?.(); onClose({saved, text: letters}); }});
+    onClose: ({text: letters}) => { waitingRows.destroy(); media.clear(); noteFolder?.close?.(); onClose({saved, text: letters}); }});
   if (handle) { handle.paintFolder = head.paint; queueMicrotask(() => head.input.focus()); }
   return handle;
 }

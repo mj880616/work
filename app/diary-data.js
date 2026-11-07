@@ -212,28 +212,33 @@ const uploadText = error => {
   if (error?.status === 401) return '로그인이 필요해요. 다시 로그인한 뒤 올려 주세요.';
   if (error?.code === 'too_many_attachments') return '일기 사진은 하루 20장까지예요.';
   if (error?.code === 'note_changed') return '일기가 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.';
+  if (error?.code === 'upload_not_sent' || error?.code === 'upload_timeout_sending') return '연결이 끊겨 다 보내지 못했어요. 연결을 확인해 주세요.';
   if (error?.code === 'note_save_result_unknown' || !error?.status || error.status >= 500) return '저장 결과를 확인하지 못했어요. 일기를 다시 불러와 확인해 주세요.';
   return '사진을 올리지 못했어요. Drive 연결 상태를 확인해 주세요.';
 };
 // Photos one at a time onto the day's row. A failure stops the rest; photos already up stay on the row.
+// UI-올리기진행표시: 사진마다 올리는 중 표시(upload-progress.js)가 고른 사진(file)을 열쇠로 막대 + %를 그린다(보내는 것은 줄인 사진).
+// ✕로 취소한 사진은 건너뛰고 다음 사진을 이어서 올린다. uploaded = 올라간 사진의 고른 순서 번호(댓글을 그 사진에 붙이는 데 씀).
 export async function uploadDiaryPhotos(row, files, {rt = window.KPTURuntime, isCurrent = () => true, onProgress = () => {}, shrink = shrinkPhoto, request = uploadBasketFile} = {}) {
   let attachments = row.attachments || [], done = 0;
+  const uploaded = [];
   if (attachments.length + files.length > DIARY_MAX_PHOTOS) throw new Error(`일기 사진은 하루 ${DIARY_MAX_PHOTOS}장까지예요.`);
-  for (const file of files) {
+  for (const [index, file] of files.entries()) {
     if (!isCurrent()) break;
     onProgress({done, total:files.length, attachments});
     try {
       const photo = await shrink(file);
       const fd = new FormData(); fd.append('file', photo); fd.append('note_id', row.id);
-      const result = await request(fd, photo, rt, fetch, isCurrent);
+      const result = await request(fd, photo, rt, null, isCurrent, {source:file});
       if (!result?.ok || result.note_id !== row.id || !Array.isArray(result.attachments)) throw Object.assign(new Error(), {code:'note_save_result_unknown'});
-      attachments = result.attachments; done++;
+      attachments = result.attachments; done++; uploaded.push(index);
     } catch (error) {
-      return {done, attachments, failed:file.name || `${done + 1}번째 사진`, message:error instanceof Error && error.message && !error.code && !error.status ? error.message : uploadText(error)};
+      if (error?.code === 'upload_cancelled') continue;
+      return {done, attachments, uploaded, failed:file.name || `${done + 1}번째 사진`, message:error instanceof Error && error.message && !error.code && !error.status ? error.message : uploadText(error)};
     }
   }
   onProgress({done, total:files.length, attachments});
-  return {done, attachments};
+  return {done, attachments, uploaded};
 }
 
 // Owner-only reduced photo from basket-files (PR 1). Kept as object URLs in memory for this sign-in only.
