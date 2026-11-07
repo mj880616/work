@@ -11,6 +11,7 @@ import { buildReport, readReport, CHANGED_COLOR } from '../../app/weekly-hwpx/re
 import {expectJournalDay} from './helpers/screen-title.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 import {laidOutBox,pseudoContent} from './helpers/laid-out.mjs';
+import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // JOURNAL-주간정리다듬기 ①(2026-10-22 사용자 결정): 위 줄 [주간보고 초안 복사]는 없어졌다. WEEKLY-한흐름확정 ②: 초안 복사는 [주간 정리]
 // 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 옆 ⋯ 안 [글로 복사]다. 이 도우미는 [주간 정리]로 가서 ⋯ → [글로 복사]를 누르고, 복사 안내가 뜬 뒤 [하루]로 돌아온다.
@@ -4154,4 +4155,72 @@ for(const width of [390,884,1280])test(`WEEKLY-손잡이왼쪽: 2) 주요 일정
  expect(lg.r).toBeLessThanOrEqual(lt.l+0.5);expect(lm.l).toBeGreaterThanOrEqual(lt.r-0.5);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
+});
+// WEEKLY-조직이름한줄(요청함 11/08 00:19 "조직 명 폰트크기 너무 큼. 한줄로 딱딱나왔으면" + "칸 크기 드래그조절 가능하게"): 4. 산하 조직 현황 조직 이름은
+// 3. 투쟁 사업장 현황과 같은 글자 크기·굵기, 한 줄(넘치면 끝 …, 올리면 전체 이름), '· 빈 칸'·⋯ 는 같은 줄 오른쪽 끝, [조직현황] 글도 3장 줄과 같은 크기.
+// [조직] 칸 폭은 가장 긴 이름 줄에 맞추고(표 폭 45%까지), 머리 칸 경계를 끌어 바꾸면 서버(view_prefs.col_widths.weekly)에 화면 종류별로 남는다. 가짜 이름만.
+const LONG_ORG='나 지역 아주 긴 이름의 가상 산하 조직 모임';
+for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 이름은 3장과 같은 작은 글자 한 줄, 빈 칸·⋯ 같은 줄, 칸 폭 끌기는 서버 저장 ${width}`,async({page})=>{
+ const prefs=await installViewPrefsServer(page);
+ const f=await weekLinesFixture(page,{width,hwpx:true,team:{sites:[{org:['가상 노동조합'],status:['- 지난주 현황 줄']}]}});
+ for(const o of f.more.orgs)if(o.id===OB)o.name=LONG_ORG;
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ const a=orgRow(page,OA),b=orgRow(page,OB);
+ await expect(b.locator('[data-wl-count]')).toHaveText('· 빈 칸');
+ const siteName=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-name').first();
+ const siteLine=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-lines > li').first();
+ const look=l=>l.evaluate(e=>{const s=getComputedStyle(e);return {size:s.fontSize,weight:s.fontWeight};});
+ // ① 글자 눈금: 조직 이름 = 3장 사업장 이름, 조직현황 글 = 3장 줄.
+ expect(await look(b.locator('.wl-org'))).toEqual(await look(siteName));
+ expect((await look(b.locator('td.wl-c-rows .wl-text').first())).size).toBe((await look(siteLine)).size);
+ // ② 한 줄: 이름·'· 빈 칸'·⋯ 가 같은 줄(위아래 겹침), ⋯ 는 칸 오른쪽 끝, 긴 이름은 끝 …·올리면 전체 이름.
+ for(const row of [a,b]){
+  const parts=await row.locator('.wl-org-line > *').evaluateAll(els=>els.filter(e=>e.getClientRects().length).map(e=>{const r=e.getBoundingClientRect();return {t:r.top,b:r.bottom,l:r.left,r:r.right};}));
+  const mid=parts.map(p=>(p.t+p.b)/2);expect(Math.max(...mid)-Math.min(...mid)).toBeLessThan(6);
+  const cell=await row.locator('th.wl-c-org').evaluate(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.right-parseFloat(s.paddingRight);});
+  const more=await row.locator('.wl-org-line > .row-more > summary').boundingBox();
+  expect(Math.abs(cell-(more.x+more.width))).toBeLessThan(4);
+ }
+ const name=b.locator('.wl-org');
+ await expect(name).toHaveAttribute('title',LONG_ORG);
+ expect(await name.evaluate(e=>getComputedStyle(e).whiteSpace)).toBe('nowrap');
+ if(width>760){
+  expect(await name.evaluate(e=>e.scrollWidth>e.clientWidth)).toBe(true); // 넘치는 이름은 끝 …
+  expect(await name.evaluate(e=>getComputedStyle(e).textOverflow)).toBe('ellipsis');
+  // ③ 칸 폭: 처음엔 가장 긴 이름 줄에 맞춘 폭(표 폭 45% 안), 짧은 이름 줄은 다 보임.
+  const table=orgTable(page).locator('table.wl-weekly');
+  const tw=(await table.boundingBox()).width,orgHead=table.locator('thead th.wl-c-org');
+  const w0=(await orgHead.boundingBox()).width;expect(w0).toBeLessThanOrEqual(tw*0.45+2);expect(w0).toBeGreaterThan(80);
+  expect(await a.locator('.wl-org').evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
+  // ④ 끌기: [조직] 머리 칸 오른쪽 금을 왼쪽으로 40px → 칸이 좁아지고 서버에 화면 종류별로 남음(폴드 _f · PC 꼬리 없음).
+  const grip=orgHead.locator('[data-col-grip="org"]');
+  await expect(grip).toHaveAttribute('role','separator');
+  await grip.scrollIntoViewIfNeeded();
+  const g=await grip.boundingBox(),y=g.y+g.height/2,x=g.x+g.width/2;
+  await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x-20,y,{steps:4});await page.mouse.move(x-40,y,{steps:4});await page.mouse.up();
+  await expect.poll(async()=>(await orgHead.boundingBox()).width).toBeLessThan(w0-30);
+  const key=width>=1200?'org':'org_f';
+  await expect.poll(()=>prefs.value?.col_widths?.weekly?.[key]??0).toBeGreaterThan(0);
+  expect(Math.abs(prefs.value.col_widths.weekly[key]-(w0-40))).toBeLessThan(6);
+  expect(Object.keys(prefs.value.col_widths.weekly)).toEqual([key]);
+  // 다른 표(1) 임원 배정·2) 주요 일정·3) 상집 논의·5. 주요 일정)도 같은 손잡이 부품.
+  for(const k of ['exec_day','exec_who','hq_day','disc_title','disc_org'])await expect(page.locator(`#journalRoot [data-col-grip="${k}"]`),k).toHaveCount(1);
+  // 5. 주요 일정 표는 보고 캘린더가 정해진 때만 있다(이 흉내 서버는 설정 없음) — 표가 있으면 [일] 손잡이도 있다.
+  await expect(page.locator('#journalRoot [data-col-grip="cal_day"]')).toHaveCount(await page.locator('#journalRoot table.journal-weekly-schedule').count());
+ }else{
+  await expect(orgTable(page).locator('[data-col-grip]')).toBeHidden(); // 폰은 머리줄 없음 — 끌기 없음
+ }
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+// 다시 열면 저장된 폭(PC 값)으로 그린다 — 다른 화면 종류 값은 섞이지 않는다.
+test('WEEKLY-조직이름한줄: 저장된 칸 폭(PC)으로 다시 그리고, 1) 임원 배정 [일] 칸도 같은 저장 길 1280',async({page})=>{
+ await installViewPrefsServer(page,{col_widths:{weekly:{org:180,org_f:300,hq_day:140}}});
+ const f=await weekLinesFixture(page,{width:1280,hwpx:true});
+ await openJournal(page,1280);await openWeekly(page);await openDraft(page);
+ const head=orgTable(page).locator('table.wl-weekly thead th.wl-c-org');
+ await expect(head).toBeVisible();await expect(page.locator('#journalRoot [data-journal-hq-table]')).toBeVisible();
+ await expect.poll(async()=>Math.round((await head.boundingBox()).width)).toBe(180);
+ await expect.poll(async()=>Math.round((await page.locator('#journalRoot [data-journal-hq-table] thead th').nth(1).boundingBox()).width)).toBe(140);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
