@@ -283,7 +283,8 @@
 
 /* ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기(report-views.js). 콤팩트·톤다운, 색은 토큰만.
    UI-보기탭한모양(S52-17): 보기 전환은 공용 ⑤ 보기 바꾸기(filter-chips.js seg:true) 한 모양. 여기는 자리만. */
-#meetingsView #reportViewFilter{flex:none;max-width:100%}
+/* 머리 줄 높이는 옆 ⋯·추가 버튼의 누르는 범위(44px)를 지키도록 44px 그대로: 보기 탭의 누르는 범위 여백을 줄 높이에 넣는다(바깥 여백 0). */
+#meetingsView #reportViewFilter{flex:none;max-width:100%;margin:0}
 #meetingList .rv-dot{flex:none;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
 #meetingList .rv-day-title{margin:0;padding:6px 2px 4px;font-size:var(--ds-text-section,13px);font-weight:var(--ds-weight-medium,500);color:var(--ds-section-ink,var(--kptu-ink))}
 #meetingList .rv-cal-head{display:flex;align-items:center;gap:var(--kptu-space-2);margin:0 0 var(--kptu-space-2)}
