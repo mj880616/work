@@ -16,7 +16,8 @@ import {offerUndoNotice} from './basket-record-delete.js';
 import {seoulDateKey} from './meeting-time.js';
 import {dueLabel} from './task-due.mjs';
 import {readInboxCandidates, dismissCandidate, reopenCandidate, markDone, markTasked, markNotMine, undoNotMine, candidateToTask, validateTaskDraft,
-  notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText} from './todo-radar-data.js';
+  notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText, linkCandidateToTask, unlinkCandidate, dropCandidateOnly, taskLinks, sourceText} from './todo-radar-data.js';
+import {similarTasks} from './todo-link-model.mjs';
 import {FIRM_LABEL, draftOf, metaLine, noteLine} from './family-notes-model.mjs';
 import {decide as decideFamily, hasFamily, readNotes} from './family-notes-data.js';
 
@@ -66,10 +67,10 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 // updates(): {loading, items:[{id, at, body, meta, done, below, tail, attrs, open}]} — basket.js가 지금 보기의 업데이트 줄 재료를 준다.
 // onUpdateAct(id, act, button): 업데이트 줄 버튼(org·area·task·event·note·done·dismissed). onView(view): 보기가 바뀌면(업데이트 거르기를 맞춤).
 // radarPromises(): 찾기가 돌려준 상대 약속(저장하지 않음, todo-radar.js) — 처리 전 맨 아래 같은 줄로, 버튼은 [원장으로](쓰기요청 글 복사) 하나. 세지 않는다.
-export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, viewButton = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, onView = () => {}, radarPromises = () => []} = {}) {
+export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, viewButton = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, onView = () => {}, radarPromises = () => [], openSource = () => {}} = {}) {
   if (!host) return null;
   let view = 'open', src = 'all', rows = [], cState = 'loading', notes = [], fOn = false, fWs = '', run = 0, status = '', scope = radarScope(rt);
-  const busy = new Set(), unknown = new Set();
+  const busy = new Set(), unknown = new Set(), linking = new Map();
   const ws = () => rt.context?.read?.()?.workspace?.id || '';
   const changed = () => win.dispatchEvent(new CustomEvent(CHANGED, {detail: {reload: true}}));
   const byId = id => rows.find(r => r.id === id);
@@ -85,11 +86,15 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       if (button.dataset.forgetView) setView(button.dataset.forgetView);
       else if (button.dataset.forgetSrc) { src = button.dataset.forgetSrc; status = ''; paint(); }
     }}) : null;
-  // 줄 ⋯(챙길 것 줄만, 기존 [내 일 아님] 길 하나).
+  // 줄 ⋯(챙길 것 줄만, 기존 길 셋): [고쳐서 할 일로] 할 일 창에서 고쳐 넣기 · [이미 할 일에 있음] 비슷한 할 일과 잇기 · [내 일 아님].
   const more = createAnchoredMenu({id: 'forgetRowMenu', className: 'radar-row-menu', label: '챙길 것 줄 메뉴', historyKey: 'kptuForgetRowMenu',
     key: trigger => trigger.dataset.forgetMore, canOpen: trigger => !trigger.disabled,
-    render: () => '<button type="button" class="row-act" data-forget-menu="not-mine">내 일 아님</button>',
-    onAction: (button, active) => { const c = byId(active.trigger.dataset.forgetMore); if (c && button.dataset.forgetMenu === 'not-mine') void notMine(c); }});
+    render: () => '<button type="button" class="row-act" data-forget-menu="edit">고쳐서 할 일로</button><button type="button" class="row-act" data-forget-menu="already">이미 할 일에 있음</button><button type="button" class="row-act" data-forget-menu="not-mine">내 일 아님</button>',
+    onAction: (button, active) => {
+      const c = byId(active.trigger.dataset.forgetMore), act = button.dataset.forgetMenu;
+      if (!c || c.status !== 'open' || busy.has(c.id)) return;
+      if (act === 'not-mine') void notMine(c); else if (act === 'already') void startLinking(c); else if (act === 'edit') void editToTask(c);
+    }});
 
   function paintViewButton() {
     if (!viewButton) return;
@@ -105,7 +110,9 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
         const open = c.status === 'open', isBusy = busy.has(c.id);
         const tail = open && s === 'todo' ? `<button type="button" class="icon-btn nbx-more" data-forget-more="${esc(c.id)}" aria-label="더 보기" aria-haspopup="true" aria-expanded="false"${isBusy ? ' disabled' : ''}><span class="more-dots" aria-hidden="true">⋯</span></button>` : '';
         out.push({at: open ? c.created_at : (c.decided_at || c.created_at), html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: isBusy,
-          done: !open ? candidateDone(c) : unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '', tail, attrs: `data-forget-src="${s}"`})});
+          // 내용을 누르면 원래 기록(업데이트·노트·사업 보고·조직 기록·텔레그램 방)을 연다 — 기존 출처 열기 길(todo-radar.js openSource).
+          open: {attrs: `data-forget-source="${esc(c.id)}" aria-label="${esc(`${c.summary} — 출처 열기: ${sourceText(c)}`)}"`},
+          done: !open ? candidateDone(c) : unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '', tail, attrs: `data-forget-src="${s}"`, below: open ? linkingHtml(c) : ''})});
       }
     }
     if (view === 'open' && fOn && (src === 'all' || src === 'family')) {
@@ -121,6 +128,15 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (view === 'open' && src === 'all' && cState === 'ok') (radarPromises() || []).forEach((p, i) => sorted.push({html: rowHtml({id: `p:${i}`, body: p.summary, src: SOURCE_TAG.promise,
       meta: [RADAR_SOURCE_LABEL[p.source_kind] || '', dueLabel(p.due) ? `기한 ${dueLabel(p.due)}` : ''].filter(Boolean).join(' · '), acts: [['ledger', '원장으로']], attrs: 'data-forget-src="promise" data-inbox-promise'})}));
     return sorted;
+  }
+  // ⋯ [이미 할 일에 있음]: 제목이 비슷한 열린 할 일 몇 개(같은 ③ 글자 버튼). 고르면 그 할 일과 잇고 목록에서 뺀다. 새 할 일은 만들지 않는다.
+  function linkingHtml(c) {
+    const l = linking.get(c.id); if (!l) return '';
+    const id = esc(c.id), dis = busy.has(c.id) ? ' disabled' : '';
+    const picks = l.tasks === null ? '<span class="nbx-faint">할 일 읽는 중…</span>'
+      : l.tasks.length ? l.tasks.map(t => `<button type="button" class="row-act" data-forget-link-task="${esc(t.id)}" data-forget-link-for="${id}"${dis}>${esc(t.title)}</button>`).join('')
+      : `<span class="nbx-faint">${l.failed ? '할 일을 못 읽었어요.' : '비슷한 할 일을 못 찾았어요.'}</span>${l.failed ? `<button type="button" class="row-act" data-forget-link-retry="${id}"${dis}>다시</button>` : ''}`;
+    return `<div class="nbx-below" data-forget-link="${id}" role="group" aria-label="이미 있는 할 일 고르기">${picks}<button type="button" class="row-act" data-forget-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="row-act" data-forget-link-cancel="${id}"${dis}>취소</button></div>`;
   }
   function paint() {
     paintViewButton();
@@ -169,7 +185,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     try { ok = await runIt(); } catch { ok = false; }
     busy.delete(c.id);
     if (!ok) { say('저장하지 못했어요. 다시 눌러 주세요'); return; }
-    c.status = outcome === 'dismissed' ? 'dismissed' : outcome === 'tasked' ? 'tasked' : 'done'; c.outcome = outcome; c.decided_at = new Date().toISOString();
+    c.status = outcome === 'dismissed' || outcome === 'already_tasked' ? 'dismissed' : outcome === 'tasked' ? 'tasked' : 'done'; c.outcome = outcome; c.decided_at = new Date().toISOString();
     const feedbackId = await logFeedback(c, outcome, {rt});
     say(done); changed();
     if (undo) offerUndoNotice({text: done, onUndo: async () => {
@@ -222,6 +238,55 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
         openNoteWindow({rt, text: `${c.summary}\n\n${draft.memo}`, onClose: ({saved}) => { if (saved && live()) void decideCandidate(c, () => markDone(c.id, rt), 'done', '노트로 저장했어요'); }});
       } catch { say('노트 창을 열지 못했어요'); }
     }
+  }
+  // 할 일 모듈(google-tasks.js)은 첫 화면 뒤에 불러오므로 아직 없을 수 있다. 없으면 그 자리에서 불러온다(기존 읽기 길 그대로).
+  async function openTasks() {
+    try {
+      if (!win.KPTUGoogleTasks) await import('./google-tasks.js');
+      const gt = win.KPTUGoogleTasks, copy = gt?.peekTasks?.();
+      if (copy && Array.isArray(copy.tasks)) return {ok: true, tasks: copy.tasks};
+      const r = await gt?.listTasks?.();
+      return r?.status === 'ok' ? {ok: true, tasks: r.tasks} : {ok: false, tasks: []};
+    } catch { return {ok: false, tasks: []}; }
+  }
+  async function startLinking(c) {
+    linking.set(c.id, {tasks: null}); status = ''; paint();
+    const mine = radarScope(rt), got = await openTasks();
+    if (mine !== radarScope(rt) || !linking.has(c.id)) return;
+    linking.set(c.id, {tasks: similarTasks(c.summary, got.tasks), failed: !got.ok}); paint();
+  }
+  async function linkTask(c, task) {
+    busy.add(c.id); paint();
+    const due = /^\d{4}-\d{2}-\d{2}/.test(String(task.due || '')) ? String(task.due).slice(0, 10) : null;
+    let ok = false;
+    try { ok = await linkCandidateToTask(c.id, task.id, due, rt); } catch { ok = false; }
+    busy.delete(c.id);
+    if (!ok) { say('이어 두지 못했어요. 다시 눌러 주세요.'); return; }
+    linking.delete(c.id);
+    c.status = 'tasked'; c.task_id = task.id; c.task_due = due; c.outcome = 'already_tasked'; c.decided_at = new Date().toISOString(); status = ''; paint(); changed();
+    const feedbackId = await logFeedback(c, 'already_tasked', {rt});
+    offerUndoNotice({text: '이미 있는 할 일로 묶었어요.', onUndo: async () => {
+      let back = false;
+      try { back = await unlinkCandidate(c.id, rt); } catch { back = false; }
+      if (!back) return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'};
+      if (feedbackId) await dropFeedback(feedbackId, rt);
+      c.status = 'open'; c.task_id = null; c.task_due = null; c.decided_at = null; delete c.outcome; paint(); changed();
+      return {status: 'done', message: '다시 보이게 했어요.'};
+    }});
+  }
+  // 이어 둘 할 일이 없을 때: 새 할 일 없이 목록에서만 뺀다(결과 기록은 같은 'already_tasked').
+  async function dropAlready(c) {
+    linking.delete(c.id);
+    await decideCandidate(c, () => dropCandidateOnly(c.id, rt), 'already_tasked', '이미 할 일에 있는 것으로 뺐어요.', 'dismissed');
+  }
+  // ⋯ [고쳐서 할 일로]: 할 일 창에 제목·출처 연결을 채워 열고, 저장되면 tasked(결과 기록 tasked).
+  async function editToTask(c) {
+    const draft = candidateDraft(c), mine = radarScope(rt);
+    try {
+      await Promise.all([import('./organization-order.js'), import('./google-tasks.js')]);
+      win.KPTUGoogleTasks.openEditor(null, {title: c.summary, memo: draft.memo, links: taskLinks(c),
+        onCreated: taskId => { if (mine === radarScope(rt)) void decideCandidate(c, () => markTasked(c.id, taskId, rt, new Date(), null), 'tasked', '할 일로 만들었어요'); }});
+    } catch { say('할 일 창을 열지 못했어요'); }
   }
   // [내 일 아님]: [무시]처럼 빼고, 다음 찾기에서 비슷한 것을 거르는 예시를 남긴다(기존 길). [되돌리기]는 둘 다 되돌린다.
   async function notMine(c) {
@@ -301,6 +366,12 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const b = event.target.closest?.('button');
     if (!b || !host.contains(b) || b.disabled) return;
     if (b.dataset.forgetMore) { more.open(b); return; }
+    const d = b.dataset;
+    if (d.forgetSource) { const c = byId(d.forgetSource); if (c) openSource(c); return; }
+    if (d.forgetLinkTask) { const c = byId(d.forgetLinkFor), t = c && linking.get(c.id)?.tasks?.find(x => x.id === d.forgetLinkTask); if (c && t && !busy.has(c.id)) void linkTask(c, t); return; }
+    if (d.forgetLinkNone) { const c = byId(d.forgetLinkNone); if (c && c.status === 'open' && !busy.has(c.id)) void dropAlready(c); return; }
+    if (d.forgetLinkRetry) { const c = byId(d.forgetLinkRetry); if (c && linking.has(c.id)) void startLinking(c); return; }
+    if (d.forgetLinkCancel) { linking.delete(d.forgetLinkCancel); paint(); return; }
     const act = b.dataset.nbxAct, row = b.closest('[data-nbx-row]')?.dataset.nbxRow || '';
     if (!act || !row) return;
     const [kind, id] = [row.slice(0, 1), row.slice(2)];
@@ -320,7 +391,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   win.addEventListener('kptu:google-tasks-changed', () => { if (cState === 'ok') paint(); });
   win.addEventListener('kptu:session-changed', () => {
     if (scope === radarScope(rt)) return;
-    run++; rows = []; notes = []; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); scope = radarScope(rt);
+    run++; rows = []; notes = []; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
     onView(view); paint();
   });
   paint();

@@ -11,7 +11,7 @@ import { noteRequests, requestTagsHtml } from './update-requests.js';
 import { renderFilterChips } from './filter-chips.js';
 import { mountNotes } from './basket-notes.js';
 import { mountForgetList } from './forget-list.js';
-import { radarFindState, radarFindAgain, radarClock, radarPromises } from './todo-radar.js';
+import { radarFindState, radarFindAgain, radarClock, radarPromises, openSource as openTodoSource } from './todo-radar.js';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest, takeBasketKindRequest, basketNoteOrigin, basketBackHtml } from './basket-note-tasks.js';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel, offerUndoNotice } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
@@ -387,7 +387,7 @@ paintSummary();
 const UPDATE_FILTER={open:'unclassified',linked:'classified',dismissed:'archived'};
 forget=mountForgetList(root.querySelector('[data-basket-rows]'),{rt,statusEl:root.querySelector('[data-forget-status]'),viewButton:root.querySelector('[data-forget-view-open]'),
   updates:()=>({loading:!!loadingRun&&!notes.length,items:updateItems()}),
-  onUpdateAct:(id,act,button)=>void updateAct(id,act,button),radarPromises,
+  onUpdateAct:(id,act,button)=>void updateAct(id,act,button),radarPromises,openSource:openTodoSource,
   onView:view=>{filter=UPDATE_FILTER[view]||'none';place='all';sub='all';renderList();}});
 void forget.refresh();
 // [다시 찾기]: the same finder as the work journal (todo-radar.js); its change event makes the list read its 챙길 것 rows again.

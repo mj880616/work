@@ -1,9 +1,10 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {pickBasketView} from './helpers/forget-view.mjs';
 // JOURNAL-챙길것 / AI-서버연동 S5 → HOME-업무일지홈(2026-10-30): 홈·업무일지의 '챙길 것' 상자는 화면째 없앴다. 남은 것:
 // ① 그날 이 탭에서 홈을 처음 열 때 서버에 한 번 찾기(D7, home-summary.js → todo-radar.js autoFindToday)
 // ② 홈 [하루] 카드 맨 위 '나한테 온 요청' 상자(S52-09) + 맨 아래 흐린 한 줄 '챙길 것 n · 정리 안 된 것 n ›'(누르면 정리함)
-// ③ 후보 줄은 정리함 [챙길 것](inbox-todos.js) 하나: [할 일로]·[무시]·[다시 찾기]·출처 열기·텔레그램 방 이름, 제안 기한은 공용 기한 글자.
+// ③ 후보 줄은 정리함 한 목록(forget-list.js, S52-20) 하나: [할 일로]·×·[다시 찾기]·내용 눌러 출처 열기·텔레그램 방 이름, 제안 기한은 작은 줄 글.
 // app_todo_candidates, app_todo_radar_state and ai-assist kind=todo_radar are mocked. Synthetic IDs and text only.
 // The clock is 2026-10-06 10:00 KST (openHome). Nothing here calls a real server.
 test.use({hasTouch:true});
@@ -50,8 +51,10 @@ async function fixture(page,{rows=[cand(1,{kind:'deadline',due:'2026-10-09',summ
  await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
  return {...f,db,calls,errors,queue};
 }
-const inbox=page=>page.locator('#basketView [data-inbox-todo-host]');
-const openInbox=async page=>{await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView')).toBeVisible();await expect(inbox(page).locator('[data-inbox-todo-row]').first()).toBeVisible();};
+// S52-20 HOME-잊지말기한목록: 후보 줄은 정리함 한 목록(forget-list.js)의 같은 줄 — 텔레그램 요청·챙길 것·가족·업데이트가 함께.
+const inbox=page=>page.locator('#basketView [data-forget-section]');
+const line=(page,n)=>page.locator(`#basketView [data-nbx-row="c:${id(n)}"]`);
+const openInbox=async page=>{await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView')).toBeVisible();await expect(inbox(page).locator('[data-forget-src="todo"],[data-forget-src="telegram"]').first()).toBeVisible();};
 // Phone: a real touch tap (locator.tap waits again when the box redraws after the automatic find); PC: a click.
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();}
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
@@ -84,9 +87,9 @@ for(const width of [412,884,1440])test(`home: the first open of the day asks onc
  await page.screenshot({path:info.outputPath(`home-summary-${width}.png`)});
  await tap(page,line.locator('.nbx-foot-open'),width);
  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
- // 정리함: 텔레그램 요청은 같은 상자(위), 나머지 두 줄은 챙길 것 목록.
- await expect(inbox(page).locator('[data-inbox-todo-row]')).toHaveCount(2);
- await expect(page.locator('#basketView [data-inbox-asks-host] [data-nbx-row] .nbx-body')).toHaveText(['가상 나한테 온 요청']);
+ // 정리함: 텔레그램 요청과 챙길 것이 한 목록의 같은 줄.
+ await expect(inbox(page).locator('[data-forget-src="todo"]')).toHaveCount(2);
+ await expect(inbox(page).locator('[data-forget-src="telegram"] .nbx-body')).toHaveText(['가상 나한테 온 요청']);
  // Back home again in the same tab: no second automatic look.
  await page.evaluate(()=>window.KPTURouter.go('home'));
  await expect(page.locator('#homeView')).toBeVisible();
@@ -107,72 +110,63 @@ test('home: no number can be read → the summary line stays hidden; nothing els
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`정리함: the suggested due is the shared due text; [할 일로] goes in with that due and moves to 할 일로 보냄 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`정리함: the suggested due is in the small line; [할 일로] goes in with that due and moves to 보냄 ${width}`,async({page})=>{
  const creates=createsOf(page);
  const f=await fixture(page,{width});
  await openInbox(page);
- const row=inbox(page).locator(`[data-inbox-todo-row="${id(1)}"]`);
- await expect(row.locator('.inbox-todo-summary')).toHaveText('가상 의견 제출');
- const due=row.locator('[data-inbox-todo-due]');
- await expect(due).toHaveText('10.9 (금)');await expect(due).toHaveClass(/task-due-text/);
- const look=await due.evaluate(el=>{const c=getComputedStyle(el),t=getComputedStyle(el.closest('.inbox-todo-row').querySelector('.inbox-todo-summary'));return {size:c.fontSize,color:c.color,ink:t.color};});
- expect(look.size).toBe('12px');expect(look.color).not.toBe(look.ink);
+ const row=line(page,1);
+ await expect(row.locator('.nbx-body')).toHaveText('가상 의견 제출');
+ await expect(row.locator('.nbx-meta')).toHaveText('챙길 것업데이트에서 · 10/6 · 기한 10.9 (금)');
  // No due → no due text.
- await expect(inbox(page).locator(`[data-inbox-todo-row="${id(2)}"] [data-inbox-todo-due]`)).toHaveCount(0);
- await tap(page,row.getByRole('button',{name:'할 일로',exact:true}),width);
+ await expect(line(page,2).locator('.nbx-meta')).not.toContainText('기한');
+ await tap(page,btn(row,'할 일로'),width);
  await expect.poll(()=>creates.length).toBe(1);
- await expect(inbox(page).locator('[data-inbox-todo-line]')).toHaveText('할 일로 보냈어요.');
- await expect(inbox(page).locator(`[data-inbox-todo-row="${id(1)}"]`)).toHaveCount(0);
+ await expect(page.locator('#basketView [data-forget-status]')).toHaveText('할 일로 보냈어요.');
+ await expect(line(page,1)).toHaveCount(0);
  // Without a suggested due: today (2026-10-06 KST).
- await tap(page,inbox(page).locator(`[data-inbox-todo-row="${id(2)}"]`).getByRole('button',{name:'할 일로',exact:true}),width);
+ await tap(page,btn(line(page,2),'할 일로'),width);
  await expect.poll(()=>creates.length).toBe(2);
  expect(creates).toEqual([{action:'create',task_id:null,title:'가상 의견 제출',notes:'',due:'2026-10-09',links:[]},{action:'create',task_id:null,title:'가상 조직 회신',notes:'',due:'2026-10-06',links:[{organization_id:ORG}]}]);
  await expect.poll(()=>f.calls.patch.map(p=>[p.query.status,p.body.status])).toEqual([['eq.open','tasked'],['eq.open','tasked']]);
  expect(f.calls.patch[0].body).toMatchObject({task_due:'2026-10-09'});
- await page.locator('#basketView [data-inbox-chip="tasked"]').click();
- await expect(inbox(page).locator(`[data-inbox-todo-row="${id(1)}"] .inbox-todo-done`)).toHaveText('할 일로 보냄 · 10.9');
- await expect(inbox(page).locator(`[data-inbox-todo-row="${id(2)}"] .inbox-todo-done`)).toHaveText('할 일로 보냄 · 10.6');
+ await pickBasketView(page,'tasked');
+ await expect(line(page,1).locator('.nbx-done')).toHaveText('할 일로 보냄 · 10.9');
+ await expect(line(page,2).locator('.nbx-done')).toHaveText('할 일로 보냄 · 10.6');
  expect(await noWideScroll(page)).toBe(true);
  expect(f.errors).toEqual([]);
 });
 
-test('정리함: [무시] moves the row to 무시함 with a 5 s [되돌리기] that brings it back',async({page})=>{
+test('정리함: [×] moves the row to 무시 with a 5 s [되돌리기] that brings it back',async({page})=>{
  const f=await fixture(page);
  await openInbox(page);
- const row=inbox(page).locator(`[data-inbox-todo-row="${id(2)}"]`);
- await row.getByRole('button',{name:'무시',exact:true}).click();
- await expect(row).toHaveCount(0);
+ await line(page,2).locator('[data-nbx-act="dismissed"]').click();
+ await expect(line(page,2)).toHaveCount(0);
  await expect(page.locator('[data-undo-notice]')).toContainText('무시했어요.');
  expect(f.calls.patch[0].body).toMatchObject({status:'dismissed'});
- await page.locator('#basketView [data-inbox-chip="dismissed"]').click();
- await expect(inbox(page).locator(`[data-inbox-todo-row="${id(2)}"] .inbox-todo-done`)).toHaveText('무시함');
  await page.locator('[data-undo-notice] [data-undo-action]').click();
- await page.locator('#basketView [data-inbox-chip="open"]').click();
- await expect(inbox(page).locator(`[data-inbox-todo-row="${id(2)}"]`)).toBeVisible();
+ await expect(line(page,2)).toBeVisible();
  await expect.poll(()=>f.calls.patch.length).toBe(2);
  expect(f.calls.patch[1]).toMatchObject({query:{status:'eq.dismissed'},body:{status:'open',decided_at:null}});
+ await pickBasketView(page,'dismissed');await expect(line(page,2)).toHaveCount(0);
  expect(f.errors).toEqual([]);
 });
 
-// TODO-이미함·환류: [이미 함]은 할 일을 만들지 않고 빼며 결과 한 줄을 남긴다. [되돌리기]는 둘 다 되돌린다. 처리 전 위 지난주 비율 한 줄.
-for(const width of [390,1280])test(`정리함: [이미 함] moves the row to 이미 함, logs one result, undo brings both back; week line; ⋯ edit form ${width}`,async({page})=>{
+// TODO-이미함·환류: [이미 함]은 할 일을 만들지 않고 빼며 결과 한 줄을 남긴다. [되돌리기]는 둘 다 되돌린다.
+// S52-20: 처리 전 위 '지난주 챙길 것 …' 숫자 줄은 없다(명진 11/07 '챙길 것 정리 숫자 안 보여줘도 돼'). ⋯ [고쳐서 할 일로]는 할 일 창.
+for(const width of [390,1280])test(`정리함: [이미 함] moves the row to 이미 함, logs one result, undo brings both back; ⋯ edit opens the task window ${width}`,async({page})=>{
  const fb={posts:[],deletes:[]};
- const lastWeek='2026-09-30T03:00:00Z'; // 시계는 2026-10-06(화) 한국 → 지난주 = 9.28~10.4
  const f=await fixture(page,{width,routes:async()=>{
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_feedback',async route=>{
    const req=route.request(),method=req.method();
    if(method==='POST'){fb.posts.push(req.postDataJSON());return route.fulfill({status:201,json:[{id:'f0000000-0000-4000-8000-000000000001'}]});}
    if(method==='DELETE'){fb.deletes.push(new URL(req.url()).searchParams.get('id'));return route.fulfill({status:204,body:''});}
-   const q=new URL(req.url()).searchParams;
-   if(q.has('created_at'))return route.fulfill({json:[{outcome:'tasked',summary:'가상 지난 제안',edited:null,created_at:lastWeek},{outcome:'done',summary:'가상 지난 일',edited:null,created_at:lastWeek}]});
    return route.fulfill({json:[]});
   });
  }});
  await openInbox(page);
- const week=inbox(page).locator('[data-inbox-todo-week] > summary');
- await expect(week).toHaveText('지난주 챙길 것 2건 · 할 일로 50% · 이미 함 50%');
- const row=inbox(page).locator(`[data-inbox-todo-row="${id(2)}"]`);
- await expect(row.locator('.inbox-todo-actions button')).toHaveText(['할 일로','이미 함','무시','⋯']);
+ await expect(page.locator('#basketView')).not.toContainText('지난주 챙길 것');
+ const row=line(page,2);
+ await expect(row.locator('.nbx-acts > button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×','⋯']);
  expect(await noWideScroll(page)).toBe(true);
  await tap(page,btn(row,'이미 함'),width);
  await expect(row).toHaveCount(0);
@@ -180,22 +174,18 @@ for(const width of [390,1280])test(`정리함: [이미 함] moves the row to 이
  expect(f.calls.patch[0]).toMatchObject({query:{status:'eq.open'},body:{status:'done'}});
  await expect.poll(()=>fb.posts.length).toBe(1);
  expect(fb.posts[0]).toMatchObject({outcome:'done',kind:'request',source_kind:'org_update',summary:'가상 조직 회신',edited:null});
- await page.locator('#basketView [data-inbox-chip="done"]').click();
- await expect(inbox(page).locator(`[data-inbox-todo-row="${id(2)}"] .inbox-todo-done`)).toContainText('이미 함');
  await page.locator('[data-undo-notice] [data-undo-action]').click();
  await expect.poll(()=>f.calls.patch.length).toBe(2);
  expect(f.calls.patch[1]).toMatchObject({query:{status:'eq.done'},body:{status:'open',decided_at:null}});
  await expect.poll(()=>fb.deletes).toEqual(['eq.f0000000-0000-4000-8000-000000000001']);
- await page.locator('#basketView [data-inbox-chip="open"]').click();
- const back=inbox(page).locator(`[data-inbox-todo-row="${id(2)}"]`);
+ const back=line(page,2);
  await expect(back).toBeVisible();
- // ⋯ 안 [고쳐서 할 일로]: 제목·기한 입력 한 줄, [취소]로 닫힘(만들기 없음).
- await tap(page,back.locator('[data-inbox-todo-more]'),width);
- await page.locator('#inboxTodoRowMenu [data-inbox-todo-menu="edit"]').click();
- await expect(back.locator('[data-inbox-todo-edit-title]')).toHaveValue('가상 조직 회신');
- expect(await noWideScroll(page)).toBe(true);
- await back.getByRole('button',{name:'취소',exact:true}).click();
- await expect(back.locator('[data-inbox-todo-edit]')).toHaveCount(0);
+ // ⋯ 안 [고쳐서 할 일로]: 할 일 창이 제목으로 채워져 열리고, 저장 전에는 상태를 바꾸지 않는다.
+ await tap(page,back.locator('[data-forget-more]'),width);
+ await page.locator('#forgetRowMenu [data-forget-menu="edit"]').click();
+ await expect(page.locator('#gtTaskModal')).toBeVisible();
+ await expect(page.locator('#gtEditTitle')).toHaveValue('가상 조직 회신');
+ expect(f.calls.patch).toHaveLength(2);
  expect(f.errors).toEqual([]);
 });
 
@@ -208,27 +198,27 @@ test('정리함 [다시 찾기]: new candidates appear; a limit is one plain not
  f.db.rows.push(cand(9,{summary:'새로 찾은 가상 요청'}));f.db.state={last_success_at:'2026-10-06T01:00:00Z',last_partial:false};
  await find.click();
  await expect(page.locator('#toast')).toHaveText('새로 1개 찾았어요.');
- await expect(inbox(page).locator(`[data-inbox-todo-row="${id(9)}"]`)).toBeVisible();
+ await expect(line(page,9)).toBeVisible();
  f.queue.push({status:429,json:{ok:false,error:'daily_limit',message:'서버 문구'}});
  await expect(find).toBeEnabled();await find.click();
  await expect(page.locator('#toast')).toHaveText('오늘 챙길 것을 찾을 수 있는 횟수를 다 썼어요. 내일 다시 찾아요.');
- await expect(inbox(page).locator('[data-inbox-todo-row]')).toHaveCount(3);
+ await expect(inbox(page).locator('[data-forget-src="todo"]')).toHaveCount(3);
  await page.waitForTimeout(300);
  expect(f.calls.ai.map(a=>a.mode)).toEqual(['auto','again','again']);
  expect(f.errors).toEqual([]);
 });
 
-test('정리함: the source button opens the update in the basket view',async({page})=>{
+test('정리함: pressing the row text opens its source (the update in the basket view)',async({page})=>{
  const f=await fixture(page);
  await openInbox(page);
- await inbox(page).locator(`[data-inbox-todo-row="${id(1)}"] [data-inbox-todo-source]`).click();
+ await line(page,1).locator('[data-forget-source]').click();
  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
  expect(f.errors).toEqual([]);
 });
 
-// FEAT-1029 ⑤ 텔레그램에서 나한테 온 요청: 출처 버튼은 '텔레그램 · 방 이름'(소식 표 한 번 읽기), 누르면 텔레그램 화면.
+// FEAT-1029 ⑤ 텔레그램에서 나한테 온 요청: 작은 줄은 '텔레그램' 꼬리표 + 방 이름(소식 표 한 번 읽기), 내용을 누르면 텔레그램 화면.
 const TG_FEED='c0000000-0000-4000-8000-000000000301';
-for(const width of [412,884,1440])test(`정리함 telegram candidate: room in the source, opens the telegram view ${width}`,async({page})=>{
+for(const width of [412,884,1440])test(`정리함 telegram candidate: room in the small line, opens the telegram view ${width}`,async({page})=>{
  const feedReads=[];
  const routes=()=>page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_feed_items',route=>{
   const q=new URL(route.request().url()).searchParams;
@@ -237,14 +227,13 @@ for(const width of [412,884,1440])test(`정리함 telegram candidate: room in th
  });
  const f=await fixture(page,{width,routes,rows:[cand(1,{source_kind:'telegram',source_id:TG_FEED,due:'2026-10-09',summary:'가상 교섭 자료 보내기'}),cand(2,{summary:'가상 조직 회신'})]});
  await openInbox(page);
- const row=inbox(page).locator(`[data-inbox-todo-row="${id(1)}"]`);
- await expect(row.locator('[data-inbox-todo-source]')).toHaveText('텔레그램 · 가상 간부방');
- await expect(row.locator('[data-inbox-todo-due]')).toHaveText('10.9 (금)');
- await expect(inbox(page).locator(`[data-inbox-todo-row="${id(2)}"] [data-inbox-todo-source]`)).toHaveText('업데이트');
+ const row=line(page,1);
+ await expect(row.locator('.nbx-meta')).toHaveText('텔레그램가상 간부방 · 10/6 · 기한 10.9 (금)');
+ await expect(line(page,2).locator('.nbx-meta')).toHaveText('챙길 것업데이트에서 · 10/6');
  expect(feedReads.length).toBeGreaterThanOrEqual(1);
  expect(feedReads[0]).toMatchObject({source:'eq.telegram',id:`in.(${TG_FEED})`,select:'id,room_key,room_label'});
  expect(await noWideScroll(page)).toBe(true);
- await tap(page,row.locator('[data-inbox-todo-source]'),width);
+ await tap(page,row.locator('[data-forget-source]'),width);
  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('telegram');
  expect(f.errors.filter(e=>!/telegram|feed/i.test(e))).toEqual([]);
 });
@@ -258,14 +247,14 @@ for(const width of [412,1280])test(`정리함: 할 일 모듈이 아직 안 불�
  }});
  await openInbox(page);
  expect(await page.evaluate(()=>typeof window.KPTUGoogleTasks)).toBe('undefined');
- const row=inbox(page).locator(`[data-inbox-todo-row="${id(1)}"]`);
- await tap(page,row.locator('[data-inbox-todo-more]'),width);
- await page.locator('#inboxTodoRowMenu [data-inbox-todo-menu="already"]').click();
- const box=inbox(page).locator(`[data-inbox-todo-link="${id(1)}"]`);
+ const row=line(page,1);
+ await tap(page,row.locator('[data-forget-more]'),width);
+ await page.locator('#forgetRowMenu [data-forget-menu="already"]').click();
+ const box=inbox(page).locator(`[data-forget-link="${id(1)}"]`);
  await expect(box).toBeVisible();
  await expect(box).not.toContainText('읽지 못했어요');
  release();
- await expect(box.locator('[data-inbox-todo-link-task]').first()).toHaveText('오늘 항목');
+ await expect(box.locator('[data-forget-link-task]').first()).toHaveText('오늘 항목');
  await expect(box).not.toContainText('못 읽었어요');
  expect(await noWideScroll(page)).toBe(true);
  expect(f.errors).toEqual([]);
@@ -275,13 +264,13 @@ test('정리함: 할 일을 정말 못 읽으면 "할 일을 못 읽었어요 [�
  const f=await fixture(page,{width:412,rows:[cand(1,{summary:'오늘 항목 정리'})]});
  await openInbox(page);
  await page.evaluate(()=>{window.__gtReal=window.KPTUGoogleTasks;window.KPTUGoogleTasks={peekTasks:()=>null,listTasks:async()=>window.__gtFail?{status:'error',tasks:[]}:window.__gtReal.listTasks()};window.__gtFail=true;});
- const row=inbox(page).locator(`[data-inbox-todo-row="${id(1)}"]`);
- await tap(page,row.locator('[data-inbox-todo-more]'),412);
- await page.locator('#inboxTodoRowMenu [data-inbox-todo-menu="already"]').click();
- const box=inbox(page).locator(`[data-inbox-todo-link="${id(1)}"]`);
+ const row=line(page,1);
+ await tap(page,row.locator('[data-forget-more]'),412);
+ await page.locator('#forgetRowMenu [data-forget-menu="already"]').click();
+ const box=inbox(page).locator(`[data-forget-link="${id(1)}"]`);
  await expect(box).toContainText('할 일을 못 읽었어요');
  await page.evaluate(()=>{window.__gtFail=false;});
  await box.getByRole('button',{name:'다시',exact:true}).click();
- await expect(box.locator('[data-inbox-todo-link-task]').first()).toHaveText('오늘 항목');
+ await expect(box.locator('[data-forget-link-task]').first()).toHaveText('오늘 항목');
  expect(f.errors).toEqual([]);
 });
