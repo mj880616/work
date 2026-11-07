@@ -39,15 +39,9 @@
 #appView #outsideView .os-src-note.is-bad{ color:var(--kptu-danger); }
 @media (prefers-reduced-motion:reduce){ #appView #outsideView :is(.os-switch-dot,.os-switch-dot::after){ transition:none; } }
 
-/* 탭 줄 [전체][사회운동][언론][보관]: PC는 위 밑줄 탭(작은 글, 굵은 단추 없음). 폰·폴드 자리는 now.css. 단체 켜고 끄기 칸에서는 감춘다(hidden). */
-#appView #outsideView .os-tabs{ display:flex; gap:12px; min-width:0; border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
+/* 탭 줄 [전체][사회운동][언론][보관]: 공용 ⑤ 보기 바꾸기(.ds-seg) 한 모양(UI-보기탭한모양 S52-17). PC는 위, 폰·폴드 자리는 now.css. 단체 켜고 끄기 칸에서는 감춘다(hidden). */
 #appView #outsideView .os-tabs[hidden],#appView #outsideView [data-os-panel-new][hidden],#appView #outsideView .osq[hidden]{ display:none; }
 #appView #outsideView [data-os-panel-new]{ display:flex; flex-direction:column; gap:4px; min-width:0; }
-#appView #outsideView .os-tabs > [role="tab"]{ position:relative; min-height:0; height:30px; margin:0 0 -1px; padding:0 2px; font:inherit; font-size:13px; color:var(--kptu-muted);
-  background:transparent; border:0; border-bottom:2px solid transparent; border-radius:0; box-shadow:none; cursor:pointer; }
-#appView #outsideView .os-tabs > [role="tab"]::after{ content:""; position:absolute; inset:-7px -4px; }
-#appView #outsideView .os-tabs > [aria-selected="true"]{ color:var(--kptu-ink); border-bottom-color:var(--ds-select-line); }
-#appView #outsideView .os-tabs > [role="tab"]:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
 
 /* 문장 찾기 결과 칸(위 찾기 칸에서 Enter): 거르기 칩 줄 + 결과(문장 하나씩, 앞뒤 문장 흐리게, 칠하기) + 아래 '초안에 쓸 문장 n/5' 줄. */
 #appView #outsideView .osq{ display:flex; flex-direction:column; gap:4px; min-width:0; padding-top:2px; }

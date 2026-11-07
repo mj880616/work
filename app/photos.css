@@ -5,8 +5,7 @@
    1줄 보기 칩, 2줄(.photos-tools) [정리][전체 ▾][찍은 날 ↓][－][＋] … 출처 아이콘(앨범 탭은 그 뒤에 [+ 새 앨범]).
    둘째 줄은 높이가 고정이고 줄바꿈하지 않아, 탭을 옮겨도 위쪽 높이가 같다(좁으면 고르기 칸·정렬 글자가 줄어든다). */
 #appView #photosView .photos-bar{ position:sticky; top:0; z-index:2; display:flex; flex-direction:column; align-items:stretch; gap:4px; padding:2px 0; background:var(--kptu-bg); }
-/* UI-칩줄두줄(10/31): 보기 칩 줄은 옆으로 밀지 않고 줄바꿈(칩 다섯이라 두 줄을 넘지 않아 [더보기]는 없다). */
-#appView #photosView .photos-chips{ display:flex; flex-wrap:wrap; gap:var(--ds-chip-row-gap,4px); min-width:0; }
+/* UI-보기탭한모양(S52-17): 1줄 보기 탭 [사진|달력|폴더|앨범|휴지통]은 공용 ⑤ 보기 바꾸기(.ds-seg) 한 모양 — 넘치면 옆으로 밀기. */
 #appView #photosView .photos-tools{ display:flex; flex-wrap:nowrap; align-items:center; gap:6px; height:var(--ds-compact-height,32px); min-width:0; }
 #appView #photosView .photos-tools > *{ flex:none; }
 #appView #photosView .photos-tools > .photos-sp{ flex:1 1 0; min-width:0; }
@@ -15,10 +14,6 @@
 #appView #photosView .photos-srcs[hidden],#appView #photosView .photos-al-new[hidden]{ display:none; }
 #appView #photosView button.photos-al-new{ position:relative; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 10px; font-size:var(--ds-compact-text,13px); white-space:nowrap; }
 #appView #photosView button.photos-al-new::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-#appView #photosView .photos-chip{ position:relative; flex:none; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 12px; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-pill,999px);
-  color:var(--kptu-muted); background:transparent; box-shadow:none; font-size:var(--ds-compact-text,13px); font-weight:var(--ds-weight-regular,400); }
-#appView #photosView .photos-chip[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
-#appView #photosView .photos-chip::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #photosView .photos-sp{ flex:1; }
 #appView #photosView .photos-filter{ min-height:0; height:var(--ds-compact-height,32px); width:auto; padding:0 6px; font-size:var(--ds-compact-text,13px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); }
 #appView #photosView .photos-filter[hidden],#appView #photosView .photo-size[hidden],#appView #photosView .photos-sort[hidden]{ display:none; }

@@ -140,7 +140,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
  await expect(page.locator('#libraryView')).not.toContainText('회의자료만');
  // LIB-토글트리: 프로젝트 칩 줄은 트리가 대신하고, 그 자리에 [묶기] 줄이 있다.
- await expect(page.locator('#libraryGroupBy .filter-chips, #libraryGroupBy.filter-chips').first()).toBeVisible();await expect(page.locator('#documentProject')).toBeHidden();
+ await expect(page.locator('#libraryGroupBy.ds-seg')).toBeVisible();await expect(page.locator('#documentProject')).toBeHidden();
  // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글(aria-pressed). 들어올 때는 [회의]만 꺼져 회의 자료가 숨는다.
  const category=page.locator('#libraryCategoryFilter');await expect(category.locator('[data-lu-category]')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
  await expect(page.locator('[data-lu-document="meeting-doc"]')).toHaveCount(0);await expandLibraryTree(page);await expect(docRows.first()).toBeVisible();
