@@ -504,7 +504,7 @@ function luBulkOrganizations(cur){const order=window.KPTUOrganizationOrder,mine=
 const luKindKey=k=>k==='파일'?'other':k==='그림'?'img':k==='웹'?'web':k.toLowerCase();
 function luRenderGroupBy(){
   const host=document.querySelector('#libraryGroupBy');if(!host)return;
-  renderFilterChips(host,{label:'묶기',controls:'documentList',small:true,value:luGroupBy,options:orderedGroups(luGroupOrder).filter(value=>value!=='folder'||luFoldersReady).map(value=>({value,label:GROUP_LABELS[value]})),onChange:value=>{if(value===luGroupBy)return;luGroupBy=value;luInFolder=null;luSessionFolder=value==='folder';luUserChangedView('groupBy');luOpened.clear();luFilterOpen.clear();luShowAll.clear();if(value==='organization')luLoadOrganizations();luRenderLibrary()}});
+  renderFilterChips(host,{label:'묶기',controls:'documentList',seg:true,value:luGroupBy,options:orderedGroups(luGroupOrder).filter(value=>value!=='folder'||luFoldersReady).map(value=>({value,label:GROUP_LABELS[value]})),onChange:value=>{if(value===luGroupBy)return;luGroupBy=value;luInFolder=null;luSessionFolder=value==='folder';luUserChangedView('groupBy');luOpened.clear();luFilterOpen.clear();luShowAll.clear();if(value==='organization')luLoadOrganizations();luRenderLibrary()}});
   // 칩 끌기 표시: 칩 자체가 손잡이(PC는 4px 넘게 끌면, 폰은 꾹 누르면 잡힘 — reorder-drag.js 공용 약속). 칩 줄을 다시 그릴 때마다 붙인다.
   host.dataset.reorderList='groups';
   for(const b of host.children)if(b.dataset.filterValue){b.dataset.reorderId=b.dataset.filterValue;b.setAttribute('data-reorder-handle','');b.setAttribute('data-lu-group-chip','')}

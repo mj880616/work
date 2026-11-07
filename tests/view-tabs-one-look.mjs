@@ -19,11 +19,13 @@ export function findViewTabs(file, src) {
     const rest = src.slice(m.index + m[0].length);
     const end = rest.search(new RegExp(`</${m[1]}>`));
     const inner = end < 0 ? '' : rest.slice(0, end);
-    const buttons = [...inner.matchAll(/<button\b([^>]*)>/g)].map(b => hasClass(b[1], 'ds-seg-btn'));
-    out.push({file, key, label, seg: hasClass(tag, 'ds-seg'), buttons});
+    const tags = [...inner.matchAll(/<button\b([^>]*)>/g)].map(b => b[1]);
+    const buttons = tags.map(t => hasClass(t, 'ds-seg-btn'));
+    const classes = [...new Set([...classOf(tag).split(/\s+/), ...tags.flatMap(t => classOf(t).split(/\s+/))].filter(c => /^[\w-]+$/.test(c)))];
+    out.push({file, key, label, seg: hasClass(tag, 'ds-seg'), buttons, classes});
   }
   for (const m of src.matchAll(/<button\b([^>]*\brole=(["'])tab\2[^>]*)>/g)) {
-    out.push({file, key: 'role=tab ' + (classOf(m[1]).split(/\s+/)[0] || '?'), label: '', seg: hasClass(m[1], 'ds-seg-btn'), buttons: []});
+    out.push({file, key: 'role=tab ' + (classOf(m[1]).split(/\s+/)[0] || '?'), label: '', seg: hasClass(m[1], 'ds-seg-btn'), buttons: [], classes: classOf(m[1]).split(/\s+/).filter(c => /^[\w-]+$/.test(c))});
   }
   return out;
 }

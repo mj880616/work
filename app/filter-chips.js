@@ -1,10 +1,12 @@
 import {fitChipRows,refitChipRows} from './chip-rows.js';
 // One renderer for list filters. Keep nodes during selection so focus and touch survive refreshes.
 // UI-칩줄두줄: 줄은 줄바꿈으로 두 줄 + [더보기 ▾](공용 chip-rows.js). 고른 칩은 접혀 있어도 보인다. 옆으로 밀기는 없앴다.
-export function renderFilterChips(host,{options,value='all',label,onChange,small=false,controls}={}){
+// UI-보기탭한모양(S52-17): 거르기가 아니라 보기를 바꾸는 줄(사업 보고 [목록|달력|사진]·자료실 묶기)은 seg:true — 공용 ⑤ 보기 바꾸기(.ds-seg) 한 모양,
+// 두 줄 접기 없이 한 줄(넘치면 옆으로 밀기). 고르는 방식(라디오·화살표 키)은 거르기 칩과 같다.
+export function renderFilterChips(host,{options,value='all',label,onChange,small=false,controls,seg=false}={}){
   if(!host)return;
   const selected=options.some(o=>o.value===value)?value:options[0]?.value;
-  host.classList.add('filter-chips','quick-mode-group');host.classList.toggle('filter-chips-small',small);
+  if(seg)host.classList.add('ds-seg');else{host.classList.add('filter-chips','quick-mode-group');host.classList.toggle('filter-chips-small',small);}
   host.setAttribute('role','radiogroup');host.setAttribute('aria-label',label);
   if(controls)host.setAttribute('aria-controls',controls);
   host.value=selected;host._filterChange=onChange;
@@ -12,7 +14,7 @@ export function renderFilterChips(host,{options,value='all',label,onChange,small
   if(host._filterSignature!==signature){
     const focused=host.contains(document.activeElement)?document.activeElement?.dataset.filterValue:null;
     host.replaceChildren(...options.map(o=>{
-      const button=document.createElement('button');button.type='button';button.className='quick-pill-button';button.setAttribute('role','radio');button.dataset.filterValue=o.value;
+      const button=document.createElement('button');button.type='button';button.className=seg?'ds-seg-btn':'quick-pill-button';button.setAttribute('role','radio');button.dataset.filterValue=o.value;
       if(o.color){const dot=document.createElement('span');dot.className='filter-chip-dot ui-color-dot';dot.style.backgroundColor=o.color;dot.setAttribute('aria-hidden','true');button.append(dot)}
       button.append(document.createTextNode(o.label));return button;
     }));
@@ -20,7 +22,7 @@ export function renderFilterChips(host,{options,value='all',label,onChange,small
     if(focused)Array.from(host.children).find(b=>b.dataset.filterValue===focused)?.focus({preventScroll:true});
   }
   const buttons=()=>Array.from(host.children).filter(b=>b.dataset.filterValue!==undefined);
-  function update(){for(const b of buttons()){const checked=b.dataset.filterValue===host.value;b.setAttribute('aria-checked',String(checked));b.tabIndex=checked?0:-1}refitChipRows(host)}
+  function update(){for(const b of buttons()){const checked=b.dataset.filterValue===host.value;b.setAttribute('aria-checked',String(checked));b.tabIndex=checked?0:-1}if(!seg)refitChipRows(host)}
   function choose(button,focus=false){if(!button)return;if(focus)button.focus({preventScroll:true});host.value=button.dataset.filterValue;update();host._filterChange?.(host.value);host.dispatchEvent(new Event('change',{bubbles:true}))}
   if(!host._filterBound){
     host.addEventListener('click',e=>{const b=e.target.closest('[data-filter-value]');if(b?.parentElement===host)choose(b)});
@@ -33,5 +35,5 @@ export function renderFilterChips(host,{options,value='all',label,onChange,small
     host._filterBound=true;
   }
   update();
-  fitChipRows(host);
+  if(!seg)fitChipRows(host);
 }
