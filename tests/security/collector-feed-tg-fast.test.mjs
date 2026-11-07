@@ -132,7 +132,7 @@ function makeEnv(opts={}){
   env.G=sandbox.module.exports;
   env.set=(code)=>vm.runInContext(code,sandbox);
   env.run=(name='tgFeed_run')=>{logs.length=0;sandbox[name]();return logs.join('\n');};
-  env.state=()=>JSON.parse(props.get('TG_FEED_STATE'));
+  env.state=()=>JSON.parse(env.G.tgFeedJoinStateParts(props.get('TG_FEED_STATE'),i=>props.has(`TG_FEED_STATE_PART_${i}`)?props.get(`TG_FEED_STATE_PART_${i}`):null));
   env.hasContinue=()=>triggers.some((t)=>t.name==='tgFeed_continue');
   /** tgFeed_run 뒤 이어 하기가 예약돼 있으면 10분 뒤 tgFeed_continue를 부른다. 끝나면 (실행 로그 목록) 반환 */
   env.drain=(max=20)=>{const outs=[env.run('tgFeed_run')];let k=0;while(env.hasContinue()&&k++<max){clock.now+=600000;outs.push(env.run('tgFeed_continue'));}return outs;};
@@ -289,7 +289,7 @@ test('86개 방을 끝까지 돌린 뒤의 진행 기록이 저장되고(9 KB �
   assert.ok(env.props.get('TG_FEED_STATE').length<9000);
   assert.equal(sentMsgs(env),85*2,'이미 끝난 방은 다시 보내지 않음');
   const chk=env.run('tgFeed_check');
-  assert.match(chk,/진행 기록 크기: \d+ \/ 9000바이트/);
+  assert.match(chk,/진행 기록 크기: \d+자 · \d+칸 \/ 최대 40칸/);
 });
 
 test('빠진 날 다시 보내기(tgFeed_rewind)가 새 구조에서도 동작하고, 서버는 같은 묶음을 중복으로 거른다',()=>{
@@ -479,4 +479,34 @@ test('TG-1시간수집: 같은 날 매시 실행은 새 메시지만 보내고, 
   assert.equal(st.d,'2026-10-26');assert.equal(st.m,'1006');
   assert.equal(sentMsgs(env),6,'같은 메시지를 두 번 보내지 않는다');
   assert.ok(env.posts.every(p=>!p.dup));
+});
+
+test('11/07: 방 135개처럼 진행 기록이 9 KB를 넘어도 여러 칸에 나눠 저장되고, 다시 읽으면 같은 기록 · 옛 한 칸 기록도 읽는다',()=>{
+  const env=makeEnv({startDay:'2026-10-25',cap:2000});const G=env.G;
+  for(let i=1;i<=135;i++) env.addRoom({key:`-100${String(1000000000+i)}`,name:`가상 방 ${i}`,days:{'2026-10-25':1}});
+  env.drain();
+  const st=env.state();
+  assert.equal(Object.keys(st.rooms).length,135);
+  const head=env.props.get('TG_FEED_STATE');
+  for(const [k,v] of env.props) if(String(k).startsWith('TG_FEED_STATE')) assert.ok(String(v).length<=3000,`${k} ${String(v).length}자`);
+  // 길면 머리 칸은 조각 수만 가리킨다
+  const full=JSON.stringify(G.tgFeedCompactState(st));
+  if(full.length>3000){ assert.deepEqual(JSON.parse(head),{parts:Math.ceil(full.length/3000)}); }
+  // 순수 함수: 나누기·잇기
+  const big='x'.repeat(9036);
+  const plan=G.tgFeedStatePlan(big,3000,40);
+  assert.equal(plan.parts.length,4);assert.equal(plan.parts.join(''),big);
+  assert.equal(G.tgFeedJoinStateParts(plan.head,i=>plan.parts[i-1]),big);
+  // 옛 한 칸 기록은 그대로
+  const old=JSON.stringify({startDay:'2026-10-25',rooms:{a:{d:'2026-10-24'}}});
+  assert.equal(G.tgFeedJoinStateParts(old,()=>{throw new Error('읽지 않아야 함')}),old);
+  assert.equal(G.tgFeedStatePlan(old,3000,40).head,old);
+  // 조각이 빠지면 멈춘다(처음부터 다시 보내지 않게)
+  assert.throws(()=>G.tgFeedJoinStateParts(plan.head,i=>i===2?null:plan.parts[i-1]),/조각 2\/4/);
+  assert.throws(()=>G.tgFeedStatePlan('y'.repeat(3000*40+1),3000,40),/40칸/);
+  // 짧아지면 남은 조각 칸을 지운다
+  env.props.set('TG_FEED_STATE_PART_9','찌꺼기');
+  const env2=makeEnv({startDay:'2026-10-25'});
+  env2.props.set('TG_FEED_STATE',plan.head);plan.parts.forEach((p,i)=>env2.props.set(`TG_FEED_STATE_PART_${i+1}`,p));
+  assert.equal(G.tgFeedJoinStateParts(env2.props.get('TG_FEED_STATE'),i=>env2.props.get(`TG_FEED_STATE_PART_${i}`)??null),big);
 });

@@ -441,6 +441,31 @@ function callFeed_runCore_() {
   return { source: 'call_send', lastAt: rep.lastAt, state: rep.state };
 }
 
+// ── 진행 기록 여러 칸 나누기(순수, node 시험) ─────────────────────────
+/** 진행 기록 글 → {head: TG_FEED_STATE 칸에 쓸 글, parts: 조각 칸들}. 한 칸에 들면 head가 글 자체, parts는 []. */
+function tgFeedStatePlan(text, partChars, maxParts) {
+  var t = String(text || '');
+  if (t.length <= partChars) return { head: t, parts: [] };
+  var parts = [];
+  for (var i = 0; i < t.length; i += partChars) parts.push(t.slice(i, i + partChars));
+  if (parts.length > maxParts) throw new Error('진행 기록이 ' + t.length + '자로 ' + maxParts + '칸(' + (maxParts * partChars) + '자)을 넘었습니다. 개발에 알려 주세요.');
+  return { head: JSON.stringify({ parts: parts.length }), parts: parts };
+}
+/** TG_FEED_STATE 칸 글과 조각 읽기 함수 → 진행 기록 글. 예전 한 칸 기록도 그대로 받는다. 조각이 빠졌으면 멈춘다(처음부터 다시 보내지 않게). */
+function tgFeedJoinStateParts(head, readPart) {
+  if (!head) return head;
+  var marker = null;
+  try { marker = JSON.parse(head); } catch (e) { return head; }
+  if (!marker || typeof marker !== 'object' || typeof marker.parts !== 'number' || marker.rooms) return head;
+  var n = Math.floor(marker.parts), out = '';
+  for (var i = 1; i <= n; i++) {
+    var part = readPart(i);
+    if (part === null || part === undefined) throw new Error('진행 기록 조각 ' + i + '/' + n + '이 없습니다. 개발에 알려 주세요(처음부터 다시 보내지 않도록 멈춤).');
+    out += part;
+  }
+  return out;
+}
+
 // ── Apps Script 도우미 (고칠 필요 없음) ─────────────────────────────────
 
 function callFeed_testMode_() {
@@ -875,7 +900,12 @@ var TG_FEED_SENDERS_MAX = 40;                   // 서버가 받는 senders 최�
 var TG_FEED_SENDER_NAME_CHARS = 40;             // 서버가 받는 이름 최대 글자
 var TG_FEED_STATE_KEY = 'TG_FEED_STATE';        // 어디까지 보냈는지(JSON)
 var TG_FEED_REWIND_KEY = 'TG_FEED_REWIND_DAY';  // tgFeed_rewind가 읽는 1회용 날짜(YYYY-MM-DD). 쓰고 나면 지운다
-var TG_FEED_STATE_MAX_BYTES = 9000;             // 앱 스크립트 속성 한 칸 상한(약 9 KB). 방이 늘어 넘으면 저장이 실패해 진행이 멈춘다
+var TG_FEED_STATE_MAX_BYTES = 9000;             // 앱 스크립트 속성 한 칸 상한(약 9 KB)
+// 11/07 고침: 방이 135개로 늘어 진행 기록이 9 KB를 넘자 매시 저장이 실패해 11/3부터 보내기가 멈췄다.
+// 이제 길면 여러 칸(TG_FEED_STATE_PART_1…n)에 나눠 적고, TG_FEED_STATE에는 {"parts":n}만 적는다. 짧으면 예전처럼 한 칸.
+var TG_FEED_STATE_PART_PREFIX = 'TG_FEED_STATE_PART_';
+var TG_FEED_STATE_PART_CHARS = 3000;            // 한 칸에 넣는 글자 수(한글이 섞여도 9 KB 안: 3000 × 3바이트)
+var TG_FEED_STATE_MAX_PARTS = 40;               // 최대 칸 수(약 120,000자). 넘으면 저장하지 않고 알린다
 var TG_FEED_TIME_LIMIT_MS = 4.5 * 60 * 1000;    // 앱 스크립트 6분 제한 전에 새 일을 시작하지 않는다
 var TG_FEED_SEND_EXTRA_MS = 45 * 1000;         // 이미 읽은 방은 시간 한도 뒤에도 이만큼 더 보낸다(읽고 나서 보내지 못해 버리는 일을 줄임)
 var TG_FEED_FIRST_EXTRA_MS = 30 * 1000;         // 첫 방은 읽기를 이만큼 더 길게 쓴다
@@ -971,7 +1001,7 @@ function tgFeed_check() {
     '오늘 URL 호출: ' + (state.fetch.d === nowDay ? state.fetch.n : 0) + ' / ' + tgFeed_fetchBudget_() + ' (파일 읽기·목록, 한국 날짜 기준)',
     '마지막 실행: ' + tgFeedLastRunText(state.lastRun),
     feedReportCheckText_(state.stall),
-    '진행 기록 크기: ' + JSON.stringify(tgFeedCompactState(state)).length + ' / ' + TG_FEED_STATE_MAX_BYTES + '바이트' + (JSON.stringify(tgFeedCompactState(state)).length > TG_FEED_STATE_MAX_BYTES * 0.8 ? ' — 한도에 가깝습니다(방이 더 늘면 저장이 실패해 멈춥니다)' : ''),
+    (function () { var len = JSON.stringify(tgFeedCompactState(state)).length, cap = TG_FEED_STATE_PART_CHARS * TG_FEED_STATE_MAX_PARTS; return '진행 기록 크기: ' + len + '자 · ' + Math.max(1, Math.ceil(len / TG_FEED_STATE_PART_CHARS)) + '칸 / 최대 ' + TG_FEED_STATE_MAX_PARTS + '칸' + (len > cap * 0.8 ? ' — 한도에 가깝습니다' : ''); })(),
   ].join('\n'));
 }
 
@@ -1337,7 +1367,8 @@ function tgFeed_testMode_() {
 }
 
 function tgFeed_loadState_() {
-  var raw = PropertiesService.getScriptProperties().getProperty(TG_FEED_STATE_KEY);
+  var props = PropertiesService.getScriptProperties();
+  var raw = tgFeedJoinStateParts(props.getProperty(TG_FEED_STATE_KEY), function (i) { return props.getProperty(TG_FEED_STATE_PART_PREFIX + i); });
   var s = {};
   try { s = raw ? JSON.parse(raw) : {}; } catch (e) { s = {}; }
   return {
@@ -1356,8 +1387,15 @@ function tgFeed_loadState_() {
 
 function tgFeed_saveState_(state) {
   var text = JSON.stringify(tgFeedCompactState(state));
-  if (text.length > TG_FEED_STATE_MAX_BYTES) throw new Error('진행 기록이 ' + text.length + '바이트로 한도(' + TG_FEED_STATE_MAX_BYTES + ')를 넘었습니다. 방 수를 줄이거나 개발에 알려 주세요.');
-  PropertiesService.getScriptProperties().setProperty(TG_FEED_STATE_KEY, text);
+  var plan = tgFeedStatePlan(text, TG_FEED_STATE_PART_CHARS, TG_FEED_STATE_MAX_PARTS);
+  var props = PropertiesService.getScriptProperties();
+  // 조각을 먼저 쓰고 머리 칸을 나중에 바꾼다: 중간에 멈춰도 머리 칸이 가리키는 기록은 온전하다.
+  for (var i = 0; i < plan.parts.length; i++) props.setProperty(TG_FEED_STATE_PART_PREFIX + (i + 1), plan.parts[i]);
+  props.setProperty(TG_FEED_STATE_KEY, plan.head);
+  for (var j = plan.parts.length + 1; j <= TG_FEED_STATE_MAX_PARTS; j++) {
+    if (props.getProperty(TG_FEED_STATE_PART_PREFIX + j) === null) break;
+    props.deleteProperty(TG_FEED_STATE_PART_PREFIX + j);
+  }
 }
 
 /** 수집 폴더의 `원문` 아래에서 허용 목록에 있는 방 폴더만 찾는다. 목록에 없는 폴더는 이름만 보고 열지 않는다. */
@@ -2628,6 +2666,7 @@ function feedReport_test() {
 // node 시험에서만 쓰는 내보내기(앱 스크립트에는 module이 없어서 아무 일도 하지 않는다).
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    tgFeedStatePlan: tgFeedStatePlan, tgFeedJoinStateParts: tgFeedJoinStateParts,
     callFeedNormalizeNumber: callFeedNormalizeNumber, callFeedNormalizeName: callFeedNormalizeName, callFeedParseList: callFeedParseList,
     callFeedTranscriptName: callFeedTranscriptName, callFeedIsPersonal: callFeedIsPersonal, callFeedKstDay: callFeedKstDay,
     callFeedDayInRange: callFeedDayInRange, callFeedTooOld: callFeedTooOld, callFeedRecentStartMs: callFeedRecentStartMs, callFeedShiftSpeakers: callFeedShiftSpeakers, callFeedHasSpeakerZero: callFeedHasSpeakerZero, callFeedBytes: callFeedBytes, callFeedCapBytes: callFeedCapBytes,
