@@ -112,6 +112,7 @@
   --ds-button-gap:8px;
   /* UI-칩줄두줄(2026-10-31 명진 결정): 칩 줄의 칩은 더 작고 낮게(26px·12px·좌우 8px), 칩 사이 4px(줄 사이도 4px). 줄이 두 줄이라 누르는 범위는 칩 + 둘레 2px(이웃 줄과 겹치지 않음). */
   --ds-chip-row-height:26px;--ds-chip-row-pad-x:8px;--ds-chip-row-gap:4px;
+  --ds-color-dot:12px; /* UI-색점(S52-18): 이름 옆 색 표시 점 하나의 크기(.ui-color-dot) */
   --ds-row-pad-y:9px;--ds-row-pad-x:12px;
   --ds-section-ink:var(--kptu-primary-ink);
   /* 종류별 색: 연한 바탕 + 같은 계열 진한 글자. 그 밖에는 회색. */
