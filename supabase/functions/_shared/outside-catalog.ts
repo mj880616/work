@@ -48,6 +48,13 @@ export type OutsideSource = {
   categoryClass?: RegExp;
   // 목록 링크 안 title="…" 값을 제목으로(카드 제목 칸은 줄임표로 잘려 있고 그림 title에 제목 전체가 있는 단체).
   titleAttr?: boolean;
+  // 지난 쪽 목록(S52-37): 첫 쪽(lists)만 읽으면 그보다 오래된 글은 영영 안 들어온다. 예약 실행마다 이 배열에서 OLDER_PER_RUN개를 차례로 더 읽는다
+  // (handler.ts olderPick: 8시간 칸 번호로 돌림 — 상태 저장 없음, 한 바퀴 돌면 다시 처음부터라 빠진 글도 다시 줍는다). 바로 읽기(read_now)는 첫 쪽만.
+  // 새 글 상한(MAX_NEW_PER_RUN)은 첫 쪽 글이 먼저 쓰고 남은 자리만 지난 글이 쓴다. 범위를 넘은 쪽은 빈 목록이라 요청 한 번으로 끝난다.
+  older?: readonly string[];
+  // 같은 게시판만(S52-37): 목록 쪽 옆 칸에 다른 게시판 최신 글이 붙는 단체. 목록 주소와 글 주소의 이 쿼리 값(예: board)이 같은 글만 받는다
+  // (옆 칸 글은 제 게시판 목록에서 날짜와 함께 읽는다 — 다른 쪽 옆 칸에서 날짜 없이·다른 호스트 주소로 두 번 들어오지 않게).
+  sameBoard?: string;
   // 목록 링크 안 날짜 칸(class 이름) — 글 쪽 머리의 '최종편집' 같은 다른 날짜를 게시일로 잘못 읽지 않게.
   dateClass?: RegExp;
   // 글 쪽 본문 칸(class 이름 또는 id). 맞는 칸의 안쪽만 본문으로 읽는다(없거나 비면 흔한 본문 칸·<article>·페이지 전체 순서).
@@ -96,6 +103,34 @@ function keepQuery(keys: string[]) {
   };
 }
 const plain = (u: URL) => `${u.protocol}//${u.host}${u.pathname}`;
+// 지난 쪽 목록 주소를 깊이(쪽 번호) 차례로 섞는다: 2쪽을 게시판마다 먼저, 그다음 3쪽 … (최근 글부터 게시판 고르게 채움).
+function interleave(groups: readonly (readonly string[])[]): readonly string[] {
+  const out: string[] = [];
+  for (let d = 0; d < Math.max(0, ...groups.map((g) => g.length)); d++) for (const g of groups) if (d < g.length) out.push(g[d]);
+  return Object.freeze(out);
+}
+const pagesOf = (url: (n: number) => string, last: number) => Array.from({ length: Math.max(0, last - 1) }, (_, i) => url(i + 2));
+// 사회진보연대 글 게시판(S52-37, 2026-11-07 사이트 메뉴 확인 — 사회운동포커스·자료실(공지·성명·보고서·소책자 및 도서·자료실)·계간 사회진보연대).
+// 쪽 수(10개씩): 공지·성명 총 1367건 → 137쪽, 자료실 217건 → 22쪽, 보고서 12쪽, 소책자 3쪽, 사회운동포커스는 총 건수 표시가 없어 80쪽까지(넘은 쪽은 빈 목록).
+// 유튜브 게시판은 영상이라 넣지 않는다. 옛 '성명' 게시판(board=statement, 2019년에 멈춤)도 넣지 않는다(S50-32).
+const PSSP_LIST = "https://pssp.org/bbs/list.php?board=";
+const PSSP_BOARDS = ["notice", "focus", "j2021", "report", "pamphlet", "document"] as const;
+// 계간 사회진보연대(기관지, board=j2021): 목록 첫 쪽은 최신 호. 지난 호는 호 번호(category1)마다 1·2쪽(사이트 '계간 사회진보연대' 쪽의 호 목록, 2019 여름호~).
+const PSSP_ISSUES = [432, 431, 430, 429, 427, 426, 425, 424, 423, 422, 421, 420, 419, 418, 417, 416, 415, 414, 412, 411, 410, 409, 407, 406, 405, 404, 403, 402, 401];
+const PSSP_OLDER = interleave([
+  pagesOf((n) => `${PSSP_LIST}notice&page=${n}`, 137),
+  pagesOf((n) => `${PSSP_LIST}focus&page=${n}`, 80),
+  [`${PSSP_LIST}j2021&page=2`, ...PSSP_ISSUES.flatMap((i) => [`${PSSP_LIST}j2021&category1=${i}`, `${PSSP_LIST}j2021&page=2&category1=${i}`])],
+  pagesOf((n) => `${PSSP_LIST}document&page=${n}`, 22),
+  pagesOf((n) => `${PSSP_LIST}report&page=${n}`, 12),
+  pagesOf((n) => `${PSSP_LIST}pamphlet&page=${n}`, 3),
+]);
+// 전국결집(S52-37): 공지사항 말고 '소식지'(전국결집통신·이슈페이퍼 등) 게시판에도 글이 올라온다(2026-11-07 확인: 6쪽). 둘 다 8쪽까지.
+const LEFTALL_LIST = "https://leftall.com/bbs/board.php?bo_table=";
+const LEFTALL_OLDER = interleave([
+  pagesOf((n) => `${LEFTALL_LIST}notice&page=${n}`, 8),
+  pagesOf((n) => `${LEFTALL_LIST}newsletter&page=${n}`, 8),
+]);
 // 진보당 목록의 `javascript:js_board_view('번호')`(사이트 board.js: 목록 폼에 bn=번호·m=read를 넣어 GET으로 다시 보냄)
 // → 같은 게시판의 글 주소 `/pages/?p=..&b=..&bn=번호&m=read`. p·b는 목록 주소의 값을 쓴다.
 function jinboView(href: string, base: URL): string | null {
@@ -214,16 +249,22 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
     // S50-32(11/05 확인): '성명' 게시판(board=statement)은 첫 쪽 최신 글이 2019-04-15에서 멈춤. 사이트 메뉴 '자료실 › 공지·성명'은
     // board=notice이고 요즘 성명·기자회견은 여기에 올라온다(목록 줄: 링크 안 `<span class="category-board">공지|성명</span>` + 제목, 날짜 칸 2026.10.14).
-    // 그래서 공지·성명 게시판을 읽는다. 분류 '성명'은 성명(머리말이 있으면 그대로), 분류 '공지'는 머리말([기자회견]·[성명]·[논평] 등)이 있는 글만
+    // 분류 '성명'은 성명(머리말이 있으면 그대로), 분류 '공지'는 머리말([기자회견]·[성명]·[논평] 등)이 있는 글만
     // (공연·모집·추모행사 안내 같은 머리말 없는 공지는 넣지 않음). 옛 성명 게시판에서 이미 들어간 글은 지우지 않는다(날짜순이라 아래로 내려감).
+    // S52-37(11/07 확인): 공지·성명 게시판 최신 글은 2026.10.14 한 건이고, 단체의 글 대부분은 다른 게시판에 올라온다
+    // (사회운동포커스 2026-09-23, 계간 사회진보연대 2026.09.12, 자료실 2026.05.21 …). 글 게시판을 모두 읽고(PSSP_BOARDS), 지난 쪽도 차례로 읽는다(older).
+    // 공지·성명 밖 게시판 글은 종류 칸 '기사'(article — 머리말이 [성명]·[논평]이면 그 종류).
     key: "pssp", name: "사회진보연대", group: "movement", lang: "ko", mode: "html",
     extract: { version: 1 },
-    lists: ["https://pssp.org/bbs/list.php?board=notice"], hosts: ["pssp.org", "www.pssp.org"],
+    lists: PSSP_BOARDS.map((b) => `${PSSP_LIST}${b}`), hosts: ["pssp.org", "www.pssp.org"],
+    older: PSSP_OLDER,
+    sameBoard: "board",
     // 글 번호는 nid(`./view.php?board=notice&nid=번호&page=1`). 옛 모양(id·no·idx)도 받는다.
-    item: /^https:\/\/(www\.)?pssp\.org\/bbs\/view\.php\?(?=[^#]*\bboard=notice\b)(?=[^#]*\b(nid|id|no|idx)=\d+\b)/,
+    item: /^https:\/\/(www\.)?pssp\.org\/bbs\/view\.php\?(?=[^#]*\bboard=(notice|focus|j2021|report|pamphlet|document)(&|$))(?=[^#]*\b(nid|id|no|idx)=\d+\b)/,
     canon: keepQuery(["board", "nid", "id", "no", "idx"]),
     categoryClass: /^category-board$/,
-    kindOf: (title, _url, category) => {
+    kindOf: (title, url, category) => {
+      if (/[?&]board=(?!notice(&|$))/.test(url)) return byPrefix("article")(title); // 공지·성명 밖 게시판
       const c = (category ?? "").replace(/\s+/g, "");
       if (c === "성명") return byPrefix("statement")(title);
       return byPrefix(null)(title);
@@ -251,16 +292,22 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     kindOf: byPrefix("article"),
   },
   {
-    // 성명 게시판이 없고 공지사항에 [입장] 머리말로 올라온다(Q3). [입장]만 성명으로 넣는다(공지·토론회 안내는 거름).
+    // 성명 게시판이 없고 공지사항에 [입장] 머리말로 올라온다(Q3). 공지사항은 [입장]만 성명으로 넣는다(공지·토론회 안내는 거름).
+    // S52-37: 소식지 게시판(전국결집통신·이슈페이퍼 등) 글도 읽는다 — 종류 칸 '기사'(머리말이 [입장]·[성명]이면 성명).
     key: "leftall", name: "전국결집", group: "movement", lang: "ko", mode: "html",
     extract: { version: 1, drop: /^(bo_v_sns|bo_v_share|bo_v_file|bo_v_link|bo_vc|bo_v_nb)$/ },
-    lists: ["https://leftall.com/bbs/board.php?bo_table=notice"], hosts: ["leftall.com", "www.leftall.com"],
-    item: /^https:\/\/(www\.)?leftall\.com\/(notice\/\d+\/?$|bbs\/board\.php\?(?=[^#]*\bbo_table=notice\b)(?=[^#]*\bwr_id=\d+\b))/,
+    lists: [`${LEFTALL_LIST}notice`, `${LEFTALL_LIST}newsletter`], hosts: ["leftall.com", "www.leftall.com"],
+    older: LEFTALL_OLDER,
+    item: /^https:\/\/(www\.)?leftall\.com\/((notice|newsletter)\/\d+\/?$|bbs\/board\.php\?(?=[^#]*\bbo_table=(notice|newsletter)(&|$))(?=[^#]*\bwr_id=\d+\b))/,
     canon: (u) => {
-      const id = u.searchParams.get("wr_id") ?? /\/notice\/(\d+)/.exec(u.pathname)?.[1] ?? "";
-      return `https://leftall.com/notice/${id}`;
+      const board = u.searchParams.get("bo_table") ?? /^\/(notice|newsletter)\//.exec(u.pathname)?.[1] ?? "notice";
+      const id = u.searchParams.get("wr_id") ?? /\/(?:notice|newsletter)\/(\d+)/.exec(u.pathname)?.[1] ?? "";
+      return `https://leftall.com/${board}/${id}`;
     },
-    kindOf: (title) => (/입장/.test(prefixOf(title)) ? "statement" : null),
+    kindOf: (title, url) => {
+      if (/입장/.test(prefixOf(title))) return "statement";
+      return /\/newsletter\//.test(url) ? byPrefix("article")(title) : null;
+    },
   },
   {
     key: "socialism", name: "사회주의를향한전진", group: "movement", lang: "ko", mode: "html",

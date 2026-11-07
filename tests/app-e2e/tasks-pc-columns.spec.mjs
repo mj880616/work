@@ -348,11 +348,12 @@ test('PC: 하위 프로젝트는 상위 바로 아래 한 줄씩 들여쓰기(3�
   await expect(page.locator('#gtDetailPane [data-aop-chip="p:p3"] .aop-chip-text')).toHaveText('합성 하위 › 합성 하위의 하위');
 });
 
-test('PC 1024(좁은 PC): 좌 1/3 : 우 2/3(왼쪽 최소 폭 안), 연결 두 줄, 가로 넘김 없음',async({page})=>{
+// S52-34 UI-전체정리(할 일): 할 일 목록 최소 폭 300px — 좁은 PC(1024)에서는 1/3이 300px보다 좁아 왼쪽은 300px, 오른쪽이 나머지.
+test('PC 1024(좁은 PC): 왼쪽은 최소 폭 300px, 오른쪽이 나머지, 연결 두 줄, 가로 넘김 없음',async({page})=>{
   const projects=Array.from({length:4},(_,i)=>({...PROJECT,id:'p'+i,name:'프로젝트 '+i}));
   await open(page,1024,[task('a','2026-10-08'),task('b','2026-10-12')],{projects,height:768});
   const now=await col(page,'now').boundingBox(),pane=await page.locator('#gtDetailPane').boundingBox();
-  expect(Math.abs(pane.width/now.width-2)).toBeLessThan(0.15);expect(now.width).toBeGreaterThanOrEqual(239);expect(Math.abs(pane.y-now.y)).toBeLessThanOrEqual(1);
+  expect(now.width).toBeGreaterThanOrEqual(299);expect(now.width).toBeLessThan(312);expect(pane.width).toBeGreaterThan(now.width);expect(Math.abs(pane.y-now.y)).toBeLessThanOrEqual(1);
   await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtDetailPane .aop-row')).toHaveCount(2);
   const m=await page.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,sh:document.documentElement.scrollHeight,ih:innerHeight}));
   // UI-칸안스크롤하나로(시안 A): 화면보다 길면 화면(문서)이 세로로 넘어가고, 칸 안에는 따로 세로 스크롤이 없다(예전: 화면 높이 한 페이지 + 칸 안 스크롤).

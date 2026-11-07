@@ -145,12 +145,33 @@ export function legacyBody(text, {lead = false} = {}) {
   if (!blocks.length) return {state: 'failed', blocks: [], reason: '본문을 읽지 못함'};
   return lead ? {state: 'lead', blocks, reason: '공개된 앞부분만'} : {state: 'ok', blocks, reason: ''};
 }
+// S52-39 NEWS-원문복사선택(시안 docs/design/mockups/news-copy-select.html): 원문 칸 [복사]가 클립보드에 넣는 글.
+// 제목 / 매체 · 날짜 / 본문 전체(글자 블록 p·h·quote, 문단 사이 빈 줄) / 원래 주소(https만). 사진·캡션은 넣지 않는다.
+// blocks: 지금 화면에 보이는 블록(번역해서 보는 중이면 한국어 블록). 화면 안에서만 쓴다(서버 저장·전송 없음).
+const oneLine = v => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
+export function copyArticleText(head, blocks) {
+  const title = oneLine(head?.title);
+  const meta = [head?.meta?.[0], head?.meta?.[2]].map(oneLine).filter(Boolean).join(' · ');
+  const body = (Array.isArray(blocks) ? blocks : []).filter(b => b && (b.t === 'p' || b.t === 'h' || b.t === 'quote') && typeof b.text === 'string')
+    .map(b => b.text.replace(/[ \t\f\v ]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim()).filter(Boolean).join('\n\n');
+  const url = httpsUrl(head?.url);
+  return [[title, meta].filter(Boolean).join('\n'), body, url].filter(Boolean).join('\n\n');
+}
+// ⋯ [공유]로 폰 공유 창에 넘길 것: 제목·주소만(본문은 넘기지 않는다). 주소가 없으면 제목만.
+export function shareArticleData(head) {
+  const title = oneLine(head?.title).slice(0, 300), url = httpsUrl(head?.url);
+  return url ? {title, url} : title ? {title, text: title} : null;
+}
 // 글자 크기 세 단계(서버 view_prefs.news_font, 없으면 보통).
 export const NEWS_FONT_STEPS = Object.freeze([{id: 's', label: '글자 작게'}, {id: 'm', label: '글자 보통'}, {id: 'l', label: '글자 크게'}]);
 export const keepNewsFont = v => (NEWS_FONT_STEPS.some(f => f.id === v) ? v : 'm');
 // S52-12 NEWS-원문먼저번역(시안 docs/design/mockups/news-detail-translate.html): 원문 칸 [번역].
-// 번역은 뉴스 기사(app_news_items)만 서버에 저장 길이 있다(news-feed translate → body_ko). 외국어 글에만 단추를 둔다.
-export const canTranslate = (item, head) => item?.type === 'news' && !!head?.lang && head.lang !== 'ko';
+// 번역 저장 길(S52-36 NEWS-바깥소식번역): 뉴스 기사는 news-feed translate → app_news_items.body_ko,
+// 사회운동 영어 소식은 outside-feed translate → app_outside_posts.body_ko(엔진·규칙은 서버 _shared/feed-translate.ts 공용). 외국어 글에만 단추를 둔다.
+export const TRANSLATE_FUNCTION = Object.freeze({news: 'news-feed', outside: 'outside-feed'});
+export const canTranslate = (item, head) => Object.hasOwn(TRANSLATE_FUNCTION, item?.type || '') && !!head?.lang && head.lang !== 'ko';
+// 사회운동 소식은 따로 저장한 body 글자가 없다: 저장 본문 블록의 글자 블록(p·h·quote)을 한 줄씩(서버가 번역에 보낸 것과 같은 줄).
+export const blocksBody = blocks => (Array.isArray(blocks) ? blocks : []).filter(b => b && (b.t === 'p' || b.t === 'h' || b.t === 'quote') && typeof b.text === 'string').map(b => b.text.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
 // 서버 본문 번역 body_ko는 기사 body(글자 블록 p·h·quote를 한 줄씩 이은 것)를 줄 순서대로 옮긴 것이다.
 // 그 줄을 같은 순서의 글자 블록에 하나씩 넣어 문단·소제목·인용·사진·캡션 자리는 그대로 두고 글만 바꾼다.
 // 줄 수가 맞지 않으면(옛 번역이 문단을 합침 등) 번역 문단만 차례로 보이고 사진은 아래에 모은다(aligned:false).

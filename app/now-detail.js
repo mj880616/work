@@ -3,13 +3,18 @@ import {sendSignal, setMark} from './now-marks.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
 import {viewPrefs} from './view-prefs.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError} from './now-model.mjs';
+import {createAnchoredMenu} from './anchored-menu.js';
+import {copyText} from './copy-text.js';
+import {notify} from './small-notice.js';
+import {flashDone} from './press-feedback.js';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from './now-model.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
 // - 위에서 아래(S52-12 NEWS-원문먼저번역, 시안 docs/design/mockups/news-detail-translate.html): 꼬리 줄(매체·분류·날짜·글쓴이) → 제목 → [원문 전체]
 //   (머리 줄 [번역] — 외국어 뉴스 기사만 · 글자 크기 [가 가 가] 세 단계 — 서버 view_prefs.news_font) → [요약] → [시사점](주요 문장·나와의 연관은 이 칸 안 접기)
 //   → '함께 볼 것'(접기) → [☆ 별표][보관][메모][관심 없음] … [원래 사이트 ↗].
-// - [번역]: 누르면 news-feed translate(로그인·owner·하루 한도·저장은 서버, 한 번 번역한 글은 저장본을 바로) 뒤 그 기사 줄의 body·body_ko를 읽어
+// - [번역]: 누르면 news-feed translate(뉴스 기사) 또는 outside-feed translate(사회운동 영어 소식, S52-36)(로그인·owner·하루 한도·저장은 서버,
+//   한 번 번역한 글은 저장본을 바로) 뒤 그 글 줄의 body_ko(뉴스는 body도)를 읽어
 //   글자 블록만 한국어로 바꿔 그린다(문단·소제목·인용·사진·캡션 자리는 그대로, now-model.mjs translatedBlocks). 다시 누르면 원문. 번역 중엔 원문 칸에 기다림 표시.
 // - 누르면 원문 전체가 바로: 저장 원문(app_feed_bodies 블록 — 문단·소제목·인용·사진·캡션)을 사용자 로그인으로 읽는다(작업공간 소유자 RLS).
 //   동시에 요약·시사점 만들기를 시작한다(ai-assist kind now_detail — 서버가 저장 원문을 재료로 먼저 씀). 기다림 표시는 요약·시사점 칸에만,
@@ -20,6 +25,10 @@ import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit
 // - 사진: https 주소만, referrerpolicy="no-referrer"·loading="lazy", 글을 열었을 때만 그린다. 안 뜨면 '사진 ↗' 링크.
 // - 아래 작은 단추 줄: 사회운동 글은 app_outside_marks(글마다 한 줄), 뉴스는 기존 app_news_items 칸(starred_at·hidden_at). 메모는 노트
 //   (app_notes, metadata.outside_post_id|news_item_id). 누를 때마다 환류 기록 한 줄(app_now_signals). [원래 사이트 ↗] 열기도 기록한다.
+// - 원문 칸 머리 줄 [복사] ⋯(S52-39 NEWS-원문복사선택, 시안 docs/design/mockups/news-copy-select.html): [복사](공용 칩)는 제목 / 매체·날짜 / 본문 전체(문단 그대로) /
+//   원래 주소를 한 번에 클립보드로(번역해서 보는 중이면 한국어 본문, now-model.mjs copyArticleText). ⋯ 작은 메뉴(UI-⋯작은메뉴) = [모두 선택](원문 본문 전체를
+//   선택된 상태로 → 폰 기본 메뉴 복사·공유·검색)·[복사]·[공유](폰 공유 창 navigator.share — 제목·주소만, 그 길이 없는 화면에는 [공유]를 두지 않는다).
+//   PC 우클릭은 공용 context-menu.js가 이 ⋯를 누른다(글자를 고른 채면 브라우저 기본 메뉴). 복사·선택은 이 화면 안에서만(서버 저장·전송 없음).
 // - 저장은 모두 서버. 기기 저장 없음. 상세·원문은 이 탭 메모리에만 다시 쓰려고 둔다. 바깥 글자는 모두 esc로 그린다. 로그에 제목·본문을 남기지 않는다.
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -70,7 +79,9 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const text = (Array.isArray(rows) ? rows : []).filter(r => r && typeof r.text === 'string').sort((a, b) => a.idx - b.idx).map(r => r.text.trim()).filter(Boolean).join(' ');
     return legacyBody(text);
   }
-  const readTranslation = item => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=body,body_ko&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
+  const readTranslation = item => rt().api(item.type === 'news'
+    ? `/rest/v1/app_news_items?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=body,body_ko&limit=1`
+    : `/rest/v1/app_outside_posts?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=body_ko&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
   const readNewsRow = item => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=${NEWS_ROW_COLS}&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
   const signal = (item, action) => sendSignal(item, action, onSignal);
 
@@ -121,18 +132,28 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const f = fontNow();
     return `<span class="nd-size" role="group" aria-label="글자 크기">${NEWS_FONT_STEPS.map(s => `<button type="button" class="nd-size-btn" data-nd-font="${s.id}" aria-label="${s.label}" aria-pressed="${s.id === f}">가</button>`).join('')}</span>`;
   }
-  // 원문 칸 머리 줄 [번역]: 외국어 뉴스 기사에서 글자 블록이 있을 때만. 누른 상태는 aria-pressed.
+  // 원문 칸 머리 줄 [번역]: 외국어 뉴스 기사·사회운동 영어 소식에서 글자 블록이 있을 때만. 누른 상태는 aria-pressed.
   function trHtml(b) {
     if (!canTranslate(cur.item, cur.head) || !b || b.failedLoad || !b.blocks.some(x => x.t !== 'img')) return '';
     const t = cur.tr;
     return `${t.note ? `<span class="nd-tr-note" data-nd-tr-note role="status">${esc(t.note)}</span>` : ''}<button type="button" class="ds-chip nd-tr" data-nd-translate aria-pressed="${!!t.on}"${t.busy ? ' disabled aria-busy="true"' : ''} aria-label="${t.on ? '원문으로 보기' : '한국어로 번역'}">번역</button>`;
+  }
+  // [복사]·⋯: 원문을 다 읽었을 때만(기다림·불러오기 실패·번역 중에는 없음).
+  const canCopy = b => !!b && !b.failedLoad && !cur.tr.busy;
+  const copyHtml = b => (canCopy(b) ? '<button type="button" class="ds-chip nd-copy" data-nd-copy aria-label="원문 복사 — 제목·본문·주소">복사</button>' : '');
+  const moreHtmlOb = b => (canCopy(b) ? '<button type="button" class="icon-btn nd-ob-more" data-nd-ob-more aria-haspopup="true" aria-expanded="false" aria-label="원문 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button>' : '');
+  // 지금 화면에 보이는 블록(번역해서 보는 중이면 한국어).
+  function shownBlocks() {
+    const key = itemKey(cur.item), b = bodies.get(key), tv = cur.tr.on ? translations.get(key) : null;
+    if (tv) return tv.blocks;
+    return b && b.state !== 'failed' ? b.blocks : [];
   }
   function bodyHtml() {
     const key = itemKey(cur.item), b = bodies.get(key);
     const tv = cur.tr.on ? translations.get(key) : null;
     const src = tv ? '한국어 번역' : cur.head.meta?.[0] || '';
     const tr = trHtml(b);
-    const head = `<div class="nd-ob${tr ? ' has-tr' : ''}"><b>원문 전체</b>${src ? `<span class="nd-ob-src">${esc(src)}</span>` : ''}${tr}${fontHtml()}</div>`;
+    const head = `<div class="nd-ob"><b>원문 전체</b>${src ? `<span class="nd-ob-src">${esc(src)}</span>` : ''}<span class="nd-ob-r">${copyHtml(b)}${tr}${fontHtml()}${moreHtmlOb(b)}</span></div>`;
     let inner;
     if (!b) inner = `<div aria-busy="true">${waitHtml({rows: 4})}</div>`;
     else if (cur.tr.busy) inner = `<div class="nd-wait" data-nd-tr-wait aria-busy="true"><p class="nd-faint" role="status">번역하는 중</p>${waitHtml({rows: 4})}</div>`;
@@ -324,10 +345,10 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (c.tr.on || translations.has(key)) { c.tr.on = !c.tr.on; c.tr.note = ''; paintBody(); focusTr(); return; }
     c.tr.busy = true; c.tr.note = ''; paintBody();
     try {
-      await rt().api('/functions/v1/news-feed?action=translate', {method: 'POST', body: {id: c.item.id}, singleFlight: false, timeoutMs: 130000});
+      await rt().api(`/functions/v1/${TRANSLATE_FUNCTION[c.item.type]}?action=translate`, {method: 'POST', body: {id: c.item.id}, singleFlight: false, timeoutMs: 130000});
       const row = await readTranslation(c.item);
       const b = bodies.get(key);
-      const tv = translatedBlocks(b?.blocks, row?.body, row?.body_ko);
+      const tv = translatedBlocks(b?.blocks, c.item.type === 'news' ? row?.body : blocksBody(b?.blocks), row?.body_ko);
       if (!tv) throw Object.assign(new Error('NOTHING_TO_TRANSLATE'), {status: 0});
       translations.set(key, tv);
       c.tr.on = true;
@@ -335,6 +356,38 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     c.tr.busy = false;
     if (cur === c) { paintBody(); focusTr(); }
   }
+  // [복사]: 제목 / 매체·날짜 / 본문 / 주소. 누른 칩이 잠깐 ✓, 위쪽 작은 알림 '복사했어요'.
+  async function copyArticle(button = null) {
+    if (!cur) return;
+    const text = copyArticleText(cur.head, shownBlocks());
+    const ok = text ? await copyText(text) : false;
+    if (ok && button?.isConnected) flashDone(button);
+    notify(ok ? '복사했어요 · 제목·본문·주소' : '복사하지 못했어요. 다시 눌러 주세요.', {error: !ok, record: false});
+  }
+  // [모두 선택]: 원문 본문 전체를 선택된 상태로(폰은 그 위에 기본 메뉴 복사·공유·검색).
+  function selectAll() {
+    const prose = cur && part('[data-nd-prose]');
+    const sel = window.getSelection?.();
+    if (!prose || !sel) return;
+    sel.removeAllRanges();
+    const range = document.createRange();
+    range.selectNodeContents(prose);
+    sel.addRange(range);
+  }
+  const canShare = () => typeof navigator.share === 'function';
+  async function shareArticle() {
+    const data = cur && shareArticleData(cur.head);
+    if (!data || !canShare()) return;
+    try { await navigator.share(data); } catch (e) { if (e?.name !== 'AbortError') notify('공유 창을 열지 못했어요', {error: true, record: false}); }
+  }
+  const obMenu = createAnchoredMenu({id: 'ndObMenu', className: 'topline-add-menu os-menu nd-ob-menu', label: '원문 메뉴', historyKey: 'kptuNowDetailMenu', key: () => (cur ? itemKey(cur.item) : ''),
+    canOpen: () => !!cur,
+    render: () => `${part('[data-nd-prose]') ? '<button type="button" class="row-act" data-nd-menu="select">모두 선택</button>' : ''}<button type="button" class="row-act" data-nd-menu="copy">복사</button>${canShare() && shareArticleData(cur?.head) ? '<button type="button" class="row-act" data-nd-menu="share">공유</button>' : ''}`,
+    onAction: (button, active) => {
+      if (!cur || active.id !== itemKey(cur.item)) return;
+      const a = button.dataset.ndMenu;
+      if (a === 'select') selectAll(); else if (a === 'copy') void copyArticle(part('[data-nd-copy]')); else if (a === 'share') void shareArticle();
+    }});
   const focusTr = () => box?.querySelector('[data-nd-translate]')?.focus({preventScroll: true});
   function setFont(id) {
     const f = keepNewsFont(id);
@@ -353,6 +406,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-close]')) { onClose?.(); return; }
     if (b.matches('[data-nd-font]')) { setFont(b.dataset.ndFont); return; }
     if (b.matches('[data-nd-translate]')) { toggleTranslate(); return; }
+    if (b.matches('[data-nd-copy]')) { void copyArticle(b); return; }
+    if (b.matches('[data-nd-ob-more]')) { obMenu.open(b); return; }
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
     if (b.matches('[data-nd-act="memo"]')) { cur.memoOpen = true; cur.memoNote = ''; paintActs(); box.querySelector('[data-nd-memo-input],[data-nd-memo-cancel]')?.focus({preventScroll: true}); return; }

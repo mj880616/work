@@ -1,10 +1,10 @@
-// news-feed translate 엔진(S52-12 NEWS-원문먼저번역 ②): Google Cloud Translation v2 REST(서버에서만 부름).
+// 번역 엔진(S52-12 NEWS-원문먼저번역 ②, S52-36부터 news-feed·outside-feed 공용 — 흐름은 feed-translate.ts): Google Cloud Translation v2 REST(서버에서만 부름).
 // - 열쇠는 Edge 비밀값 GOOGLE_TRANSLATE_API_KEY에서만 읽는다(값은 코드·로그·응답 어디에도 쓰지 않음, 주소가 아닌 x-goog-api-key 헤더로 보냄).
-//   비밀값이 없거나 Google이 실패하면 null을 돌려주고, 부르는 쪽(handler.ts translate)이 기존 AI 번역으로 돌아간다.
+//   비밀값이 없거나 Google이 실패하면 null을 돌려주고, 부르는 쪽(feed-translate.ts translateText)이 기존 AI 번역으로 돌아간다.
 // - 기사 body(글자 블록 p·h·quote를 한 줄씩 이은 것)를 줄 단위로 보내고 같은 순서로 받아, 줄 수를 그대로 맞춘 body_ko를 만든다.
 //   화면(app/now-model.mjs translatedBlocks)은 이 줄을 같은 순서의 글자 블록에 하나씩 넣어 문단·사진 자리를 그대로 둔다.
 // - 글자 수 상한(maxChars)을 넘는 뒷부분은 보내지 않고 표시 줄(TRANSLATE_REST_MARK)을 붙인다. 로그에는 단계 코드·HTTP 상태만.
-import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { readBoundedJson } from "./bounded-json.mjs";
 
 export const GOOGLE_KEY_NAME = "GOOGLE_TRANSLATE_API_KEY";
 export const GOOGLE_TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2";

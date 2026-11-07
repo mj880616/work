@@ -5,6 +5,8 @@
 // - 한 문장 요약: 한 줄, 같은 길이 상한.
 // 쓰는 곳: outside-feed(사회운동 Now 수집)와 news-feed(뉴스 클리핑, 제목만). 종류(kind) 판정은 꼬리표를 떼기 전 제목으로 한다(카탈로그 kindOf).
 
+import { decodeText } from "./html-entities.ts";
+
 export const TITLE_SOFT_MAX = 100;   // 이보다 긴 제목은 부제를 떼고, 그래도 길면 낱말 경계에서 자르고 '…'
 export const SUBTITLE_MAX = 200;
 export const SUMMARY_MAX = 200;
@@ -37,7 +39,8 @@ function isKindTag(inner: string, name: string): boolean {
 
 // 제목 한 줄 정돈. name: 단체 이름(카탈로그 name, 없으면 ""). split=false면 '제목 - 부제' 나누기를 하지 않는다(뉴스 기사 제목).
 export function tidyTitle(raw: string, name = "", opts: { split?: boolean } = {}): { title: string; subtitle: string | null } {
-  const lines = String(raw ?? "").split(/\r?\n/).map(one).filter(Boolean);
+  // 글자 풀기 한 번(S52-38): 어느 길로 들어온 제목이든 'quot;'·'&amp;quot;' 같은 표기를 글자로(공용 _shared/html-entities.ts).
+  const lines = decodeText(String(raw ?? "")).split(/\r?\n/).map(one).filter(Boolean);
   let t = lines[0] ?? "";
   let subtitle: string | null = lines.length > 1 && chars(lines[1]) <= SUBTITLE_MAX ? lines[1] : null;
   const nameRe = name ? loose(name) : "";
@@ -83,12 +86,7 @@ export function pageTitleFrom(html: string): string | null {
   const v = og ? /\bcontent\s*=\s*(?:"([^"]{1,1000})"|'([^']{1,1000})')/i.exec(og) : null;
   const raw = v ? (v[1] ?? v[2]) : /<title\b[^>]*>([^<]{1,1000})<\/title\s*>/i.exec(html)?.[1];
   if (!raw) return null;
-  const named: Record<string, string> = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">", nbsp: " ", ndash: "–", mdash: "—", middot: "·", hellip: "…" };
-  const t = one(raw.replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{2,8});/gi, (m, e: string) => {
-    if (e[0] !== "#") return named[e.toLowerCase()] ?? m;
-    const n = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-    return Number.isFinite(n) && n > 31 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : " ";
-  }));
+  const t = one(decodeText(raw));
   return t || null;
 }
 export function betterTitle(listTitle: string, pageTitle: string | null, name = ""): string | null {
@@ -113,6 +111,6 @@ export function isNoiseLine(line: string): boolean {
 
 // 한 문장 요약 정돈: 한 줄, '요약:' 머리 떼기, SUMMARY_MAX자 상한(낱말 경계 + '…'). 비면 null.
 export function tidySummary(raw: string | null | undefined): string | null {
-  const s = one(String(raw ?? "")).replace(/^(한\s?문장\s?)?요약\s*[:：]\s*/, "");
+  const s = one(decodeText(String(raw ?? ""))).replace(/^(한\s?문장\s?)?요약\s*[:：]\s*/, "");
   return s ? cutWord(s, SUMMARY_MAX) : null;
 }

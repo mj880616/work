@@ -6,7 +6,8 @@ import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 // 마우스로 끌어 폭을 바꾼다(공용 app/split-resize.js). 기본 1/3 : 2/3, 화면별로 서버(프로필 view_prefs.split_ratio)에 기억, 칸 최소 폭(왼쪽 240·오른쪽 360),
 // 경계선을 두 번 누르면 기본으로, 사이드바를 숨겨도 비율 유지, 키보드(경계선에 초점 → ←→), role=separator·aria-valuenow.
 const SCREENS={
- tasks:{container:'#gtTaskSection',list:'#gtTaskSection .gt-cols',pane:'#gtDetailPane',ready:async page=>{
+ // S52-34: 할 일 목록 최소 폭은 300px(google-tasks.css), 나머지는 공용 240px.
+ tasks:{min:300,container:'#gtTaskSection',list:'#gtTaskSection .gt-cols',pane:'#gtDetailPane',ready:async page=>{
   await expect(page.locator('#gtTaskSection.gt-pc')).toBeVisible();
   // 입력창이 늦게 나타나면 아래 칸이 밀리므로, 배치를 재기 전에 입력창부터 기다린다.
   await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible();
@@ -77,7 +78,7 @@ for(const width of [1280,1440,1920]){
    m=await measure(page,s);expect(Math.abs(m.ratio-0.5)).toBeLessThan(0.02);
 
    // 최소 폭: 맨 왼쪽·맨 오른쪽 끝까지 끌어도 왼쪽 240·오른쪽 360 아래로 줄지 않는다.
-   await dragTo(page,handleSel,5);m=await measure(page,s);expect(m.list).toBeGreaterThanOrEqual(239);expect(m.list).toBeLessThan(250);
+   await dragTo(page,handleSel,5);m=await measure(page,s);expect(m.list).toBeGreaterThanOrEqual((s.min||240)-1);expect(m.list).toBeLessThan((s.min||240)+10);
    await dragTo(page,handleSel,width-5);m=await measure(page,s);expect(m.pane).toBeGreaterThanOrEqual(359);expect(m.pane).toBeLessThan(370);
    expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 
@@ -93,7 +94,7 @@ for(const width of [1280,1440,1920]){
    await expect.poll(()=>Math.abs(Number(stored(page,name))-(1/3+0.1))).toBeLessThan(0.02);
    await page.keyboard.press('ArrowLeft');await settle(page);
    expect(Math.abs((await measure(page,s)).ratio-(1/3+0.08))).toBeLessThan(0.02);
-   await page.keyboard.press('Home');await settle(page);expect((await measure(page,s)).list).toBeLessThan(250);
+   await page.keyboard.press('Home');await settle(page);expect((await measure(page,s)).list).toBeLessThan((s.min||240)+10);
    expect(errors).toEqual([]);
   });
  }

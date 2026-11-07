@@ -21,7 +21,7 @@ const FN='https://synthetic.supabase.test/functions/v1/outside-feed';
 
 // 단체 키 → 목록 표본(카탈로그 lists 순서대로).
 const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],kmwu:['kmwu.html'],kfsu:['kfsu.html'],hakbi:['hakbi.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
-  jinboparty:['jinboparty-comment.html','jinboparty-press.html'],justice:['justice-telegram.html'],pssp:['pssp.html'],ws:['ws.xml'],platformc:['platformc.html'],leftall:['leftall.html'],
+  jinboparty:['jinboparty-comment.html','jinboparty-press.html'],justice:['justice-telegram.html'],pssp:['pssp.html','pssp-focus.html','pssp-j2021.html','pssp-report.html','pssp-pamphlet.html','pssp-document.html'],ws:['ws.xml'],platformc:['platformc.html'],leftall:['leftall.html','leftall-newsletter.html'],
   socialism:['socialism.html'],socialist:['socialist-telegram.html'],jacobin:['jacobin.xml'],labornotes:['labornotes.xml'],redpepper:['redpepper.xml'],socialistworker:['socialistworker.xml']};
 // 단체별 기대: [정규화한 주소, 종류] 순서.
 const EXPECT={
@@ -34,10 +34,12 @@ const EXPECT={
   kgreens:[['https://kgreens.org/statement/?bmode=view&idx=777','comment'],['https://kgreens.org/press/?bmode=view&idx=778','press']],
   jinboparty:[['https://jinboparty.com/pages/?p=15&b=b_1_2&bn=3001&m=read','comment'],['https://jinboparty.com/pages/?p=286&b=b_1_111&bn=4001&m=read','press']],
   justice:[['https://t.me/justicekr/9006','comment'],['https://t.me/justicekr/9005','comment'],['https://t.me/justicekr/9001','statement']],
-  pssp:[['https://pssp.org/bbs/view.php?board=notice&nid=6003','press'],['https://pssp.org/bbs/view.php?board=notice&nid=6001','statement']],
+  pssp:[['https://pssp.org/bbs/view.php?board=notice&nid=6003','press'],['https://pssp.org/bbs/view.php?board=notice&nid=6001','statement'],
+    ['https://pssp.org/bbs/view.php?board=focus&nid=9641','article'],['https://pssp.org/bbs/view.php?board=focus&nid=9640','article'],['https://pssp.org/bbs/view.php?board=j2021&nid=9638','article'],
+    ['https://pssp.org/bbs/view.php?board=report&nid=9872','article'],['https://pssp.org/bbs/view.php?board=pamphlet&nid=9460','article'],['https://pssp.org/bbs/view.php?board=document&nid=9714','article']],
   ws:[['https://ws.or.kr/article/40001','statement'],['https://ws.or.kr/article/40000','article'],['https://ws.or.kr/article/39999','statement']],
   platformc:[['https://platformc.kr/2026/10/fake-reading-one','article']],
-  leftall:[['https://leftall.com/notice/120','statement'],['https://leftall.com/notice/118','statement']],
+  leftall:[['https://leftall.com/notice/120','statement'],['https://leftall.com/notice/118','statement'],['https://leftall.com/newsletter/93','article'],['https://leftall.com/newsletter/92','article']],
   socialism:[['https://socialism.jinbo.net/bbs/board.php?bo_table=news&wr_id=55','comment']],
   socialist:[['https://t.me/ksocialist/1203','article'],['http://socialist.kr/fake-statement-1201/','statement']],
   jacobin:[['https://jacobin.com/2026/10/fictional-strike-wave','article']],
@@ -166,14 +168,15 @@ const respond=(body,status=200,headers={})=>new Response(typeof body==='string'?
 const html=(body,status=200,headers={})=>new Response(body,{status,headers:{'Content-Type':'text/html; charset=utf-8',...headers}});
 const KEY_CHECK=/^[a-z0-9][a-z0-9-]{1,39}$/;
 
-function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,workspace_id:WS,role:'owner'}],sites={},robots={},ai,env={},failSentences=false}={}){
-  const db={app_outside_sources:sources.map(r=>({enabled:true,last_ok_at:null,last_error:null,...r})),app_outside_posts:posts.map(p=>({...p})),app_outside_sentences:sentences.map(s=>({...s})),app_workspace_members:members,app_feed_bodies:[]};
-  const calls={site:[],rest:[],ai:[],auth:0,logs:[]};
+function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,workspace_id:WS,role:'owner'}],sites={},robots={},ai,env={},failSentences=false,bodies=[],days=[],google}={}){
+  const db={app_outside_sources:sources.map(r=>({enabled:true,last_ok_at:null,last_error:null,...r})),app_outside_posts:posts.map(p=>({...p})),app_outside_sentences:sentences.map(s=>({...s})),app_workspace_members:members,app_feed_bodies:bodies.map(b=>({...b})),app_news_days:days.map(d=>({...d}))};
+  const calls={site:[],rest:[],ai:[],auth:0,logs:[],google:[]};
   let seq=0;
   const inList=v=>{const m=/^in\.\((.*)\)$/.exec(v);if(!m)return null;const out=[];const re=/"((?:[^"\\]|\\.)*)"|([^,]+)/g;let x;while((x=re.exec(m[1])))out.push(x[1]!==undefined?x[1].replace(/\\(.)/g,'$1'):x[2]);return out;};
   const match=(row,q)=>{for(const [k,v] of q){if(['select','limit','on_conflict','or','order'].includes(k))continue;
     if(v==='is.null'){if(row[k]!=null)return false;}
     else if(v.startsWith('eq.')){if(String(row[k])!==v.slice(3))return false;}
+    else if(v.startsWith('gte.')){if(!(String(row[k])>=v.slice(4)))return false;}
     else if(v==='is.true'){if(row[k]!==true)return false;}
     else if(v.startsWith('in.')){if(!inList(v).includes(String(row[k])))return false;}
     else throw new Error('unsupported filter '+k+'='+v);}
@@ -206,6 +209,12 @@ function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,worksp
       for(const s of body){const post=db.app_outside_posts.find(p=>p.id===s.post_id&&p.workspace_id===s.workspace_id);
         assert.ok(post,'sentence must point to a post of the same workspace');assert.equal(post.lang,'ko','DB: no sentence rows for foreign posts');assert.equal(s.lang,'ko');
         assert.ok(s.idx>=0&&s.idx<=3000&&s.text.length>=1&&[...s.text].length<=500);rows.push(s);}return new Response(null,{status:201});}
+    if(table==='app_news_days'&&method==='POST'){rows.push({...body});return new Response(null,{status:201});}
+    if(table==='app_outside_posts'&&method==='PATCH'&&'body_ko' in (body??{})){
+      // S52-36 [번역]: body_ko(·비어 있을 때만 title_ko) 한 줄만, 그 작업공간 글만 고친다.
+      assert.ok(q.get('id')&&q.get('workspace_id'),'translate patch names the post and its workspace');
+      assert.deepEqual(Object.keys(body).filter(k=>!['body_ko','title_ko'].includes(k)),[]);
+      assert.ok(typeof body.body_ko==='string'&&[...body.body_ko].length>=1&&[...body.body_ko].length<=100000&&!/[\u0000-\u0009\u000b-\u001f\u007f]/.test(body.body_ko));}
     if(method==='POST'&&table==='app_feed_bodies'){
       // NEWS-전면개편 P2b: 칸 이름·같은 작업공간 글·DB 모양(20261106050000)·글마다 한 줄(겹치면 그대로 둠).
       assert.equal(q.get('on_conflict'),'outside_post_id');assert.match(init.headers.Prefer,/resolution=ignore-duplicates/);
@@ -231,6 +240,8 @@ function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,worksp
     if(u.origin===SB&&u.pathname.startsWith('/rest/v1/'))return rest(url,init);
     if(u.origin===SB&&u.pathname==='/auth/v1/user'){calls.auth++;const a=init.headers.Authorization;
       return a===`Bearer ${JWT_OK}`?respond({id:USER}):a===`Bearer ${JWT_STRANGER}`?respond({id:STRANGER}):respond({msg:'bad jwt'},401);}
+    if(url==='https://translation.googleapis.com/language/translate/v2'){const b=JSON.parse(init.body);calls.google.push({headers:init.headers,body:b});
+      if(google)return google(b);return respond({data:{translations:b.q.map(t=>({translatedText:'번역 '+t}))}});}
     if(url==='https://api.openai.com/v1/responses'){const b=JSON.parse(init.body);const name=b.text.format.name;calls.ai.push({name,input:b.input[1].content});
       const out=(ai??defaultAi)(name,b.input[1].content);if(out instanceof Response)return out;
       return respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(out)}]}],usage:{input_tokens:100,output_tokens:50}});}
@@ -521,7 +532,8 @@ test('사회진보연대: 공지·성명 게시판(board=notice) nid 링크를 �
 
 test('사회진보연대(S50-32): 목록은 공지·성명 게시판, 분류 칸은 제목에서 빼고 종류로 쓰며, 머리말 없는 공지는 넣지 않는다', () => {
   const s=sourceByKey('pssp');
-  assert.deepEqual(s.lists,['https://pssp.org/bbs/list.php?board=notice'],'2019년에 멈춘 성명 게시판(board=statement)은 읽지 않는다');
+  assert.equal(s.lists[0],'https://pssp.org/bbs/list.php?board=notice','공지·성명 게시판이 첫 목록');
+  assert.ok(!s.lists.some(l=>/board=statement/.test(l)),'2019년에 멈춘 성명 게시판(board=statement)은 읽지 않는다');
   const r=listOf('pssp','pssp.html','https://pssp.org/bbs/list.php?board=notice');
   assert.deepEqual(r.map(i=>i.title),['[기자회견] 가상 법 개정 촉구 기자회견(10/14)','가상 전쟁 반대 공동성명'],'분류 글자(공지·성명)는 제목에 붙지 않는다');
   assert.deepEqual(r.map(i=>i.published_at),['2026-10-13T15:00:00.000Z','2026-03-25T15:00:00.000Z'],'목록 날짜 칸(2026.10.14)을 게시 날짜로');
@@ -531,6 +543,101 @@ test('사회진보연대(S50-32): 목록은 공지·성명 게시판, 분류 칸
   assert.equal(s.kindOf('가상 성명','u','성명'),'statement');
   assert.equal(s.kindOf('[공동성명] 가상','u','성명'),'statement');
   assert.equal(s.kindOf('[취재요청] 가상','u','성명'),null);
+});
+
+// ---- S52-37 사회진보연대 모든 글: 글 게시판 전부 + 지난 쪽 차례로 + 옆 칸 다른 게시판 거르기 -------------------------------
+
+test('사회진보연대(S52-37): 글 게시판 6개(공지·성명·사회운동포커스·계간·보고서·소책자·자료실)를 읽고, 유튜브·옛 성명 게시판은 읽지 않는다', () => {
+  const s=sourceByKey('pssp');
+  assert.deepEqual(s.lists.map(l=>new URL(l).searchParams.get('board')),['notice','focus','j2021','report','pamphlet','document']);
+  for(const l of [...s.lists,...s.older])assert.ok(allowedUrl(s,l),`허용 주소: ${l}`);
+  assert.ok(![...s.lists,...s.older].some(l=>/board=(youtube|statement)\b/.test(l)));
+  assert.equal(new Set(s.older).size,s.older.length,'지난 쪽 목록은 겹치지 않는다');
+  assert.ok(!s.older.some(l=>s.lists.includes(l)),'첫 쪽은 지난 쪽 목록에 없다');
+  // 깊이 차례: 앞쪽은 게시판마다 2쪽부터(최근 글부터 고르게).
+  assert.deepEqual(s.older.slice(0,3),['https://pssp.org/bbs/list.php?board=notice&page=2','https://pssp.org/bbs/list.php?board=focus&page=2','https://pssp.org/bbs/list.php?board=j2021&page=2']);
+  assert.ok(s.older.includes('https://pssp.org/bbs/list.php?board=notice&page=137')&&s.older.includes('https://pssp.org/bbs/list.php?board=j2021&page=2&category1=401'));
+});
+
+test('사회진보연대(S52-37): 게시판마다 그 게시판 글만(옆 칸 다른 게시판·www 주소 거름), 목록 날짜를 게시 날짜로, 주소는 board·nid만', () => {
+  const at=(y,m,d)=>new Date(Date.UTC(y,m-1,d)-9*3600000).toISOString();
+  const f=listOf('pssp','pssp-focus.html','https://pssp.org/bbs/list.php?board=focus');
+  assert.deepEqual(f.map(i=>[i.url,i.title,i.kind,i.published_at]),[
+    ['https://pssp.org/bbs/view.php?board=focus&nid=9641','가상 변화한 세계와 우리의 미래','article',at(2026,9,23)],
+    ['https://pssp.org/bbs/view.php?board=focus&nid=9640','가상 정부 정책의 문제는 그대로다','article',at(2026,9,22)]],'옆 칸 j2021·notice·youtube 글은 이 쪽에서 받지 않는다');
+  const j=listOf('pssp','pssp-j2021.html','https://pssp.org/bbs/list.php?board=j2021');
+  assert.deepEqual(j.map(i=>[i.url,i.published_at]),[['https://pssp.org/bbs/view.php?board=j2021&nid=9638',at(2026,9,12)]],'호 번호(category1)·쪽 번호는 주소에서 뺀다');
+  const j2=listOf('pssp','pssp-j2021.html','https://pssp.org/bbs/list.php?board=j2021&category1=432');
+  assert.deepEqual(j2.map(i=>i.url),['https://pssp.org/bbs/view.php?board=j2021&nid=9638'],'지난 호 목록도 같은 게시판으로 본다');
+  for(const [b,nid,d] of [['report',9872,at(2024,9,9)],['pamphlet',9460,at(2025,10,25)],['document',9714,at(2026,5,21)]]){
+    const r=listOf('pssp',`pssp-${b}.html`,`https://pssp.org/bbs/list.php?board=${b}`);
+    assert.deepEqual(r.map(i=>[i.url,i.kind,i.published_at]),[[`https://pssp.org/bbs/view.php?board=${b}&nid=${nid}`,'article',d]],b);
+  }
+  // 공지·성명 게시판은 그대로(S50-32): 옆 칸 www 주소의 같은 글은 http라 거르고, pamphlet·statement 링크는 다른 게시판이라 거른다.
+  const n=listOf('pssp','pssp.html','https://pssp.org/bbs/list.php?board=notice');
+  assert.deepEqual(n.map(i=>i.url),['https://pssp.org/bbs/view.php?board=notice&nid=6003','https://pssp.org/bbs/view.php?board=notice&nid=6001']);
+  // 종류: 공지·성명 밖 게시판은 기사, 머리말이 성명·논평이면 그 종류. 안내 머리말([모집] 등)은 넣지 않는다.
+  const s=sourceByKey('pssp');
+  assert.equal(s.kindOf('[성명] 가상','https://pssp.org/bbs/view.php?board=focus&nid=1',null),'statement');
+  assert.equal(s.kindOf('[모집] 가상','https://pssp.org/bbs/view.php?board=document&nid=1',null),null);
+  assert.equal(s.kindOf('가상 공연','https://pssp.org/bbs/view.php?board=notice&nid=1','공지'),null,'공지 게시판 규칙은 그대로');
+});
+
+test('전국결집(S52-37): 공지사항 + 소식지 게시판, 소식지는 기사(안내 머리말은 뺌), 주소는 /게시판/번호 하나로', () => {
+  const s=sourceByKey('leftall');
+  assert.deepEqual(s.lists,['https://leftall.com/bbs/board.php?bo_table=notice','https://leftall.com/bbs/board.php?bo_table=newsletter']);
+  for(const l of s.older)assert.ok(allowedUrl(s,l));
+  const r=listOf('leftall','leftall-newsletter.html','https://leftall.com/bbs/board.php?bo_table=newsletter');
+  assert.deepEqual(r.map(i=>[i.url,i.kind,i.published_at]),[['https://leftall.com/newsletter/93','article','2026-10-21T15:00:00.000Z'],['https://leftall.com/newsletter/92','article','2026-10-20T15:00:00.000Z']],
+    '목록 날짜 칸(제목 안 날짜 아님)');
+  assert.deepEqual(listOf('leftall','leftall.html','https://leftall.com/bbs/board.php?bo_table=notice').map(i=>i.url),['https://leftall.com/notice/120','https://leftall.com/notice/118'],'공지사항은 그대로');
+  assert.equal(s.kindOf('[입장] 가상','https://leftall.com/newsletter/1'),'statement');
+  assert.equal(s.kindOf('가상 공지','https://leftall.com/notice/1'),null);
+});
+
+test('지난 쪽 차례(S52-37): 예약 세 번(08:07·13:07·18:07 KST)이 서로 다른 칸 → 실행마다 다음 2쪽, 한 바퀴에 모든 쪽을 한 번씩', () => {
+  const s=sourceByKey('pssp');
+  const day=Date.parse('2026-11-07T23:07:00Z');
+  const runs=[0,5,10].map(h=>H.olderPick(s,day+h*3600000));
+  assert.deepEqual(runs.flat(),s.older.slice(...(()=>{const slot=Math.floor(day/H.OLDER_SLOT_MS);const st=(slot*2)%s.older.length;return [st,st+6];})()),'이어지는 6쪽');
+  const seen=new Set();const slot0=Math.floor(day/H.OLDER_SLOT_MS);
+  for(let k=0;k<Math.ceil(s.older.length/H.OLDER_PER_RUN);k++)for(const u of H.olderPick(s,(slot0+k)*H.OLDER_SLOT_MS))seen.add(u);
+  assert.equal(seen.size,s.older.length,'한 바퀴 안에 모든 지난 쪽');
+  assert.deepEqual(H.olderPick(sourceByKey('kctu'),day),[],'지난 쪽 목록이 없는 단체는 첫 쪽만');
+});
+
+test('지난 쪽 실행(S52-37): 예약 실행은 첫 쪽 글 다음에 지난 쪽 글을 넣고, 지난 쪽을 못 읽어도 고장으로 적지 않으며, 바로 읽기는 첫 쪽만', async () => {
+  const s=sourceByKey('leftall');const ko=FX('article-ko.html');
+  const [o1,o2]=H.olderPick(s,NOW);
+  const older=`<ul><li><a href="https://leftall.com/newsletter/40">[전국결집통신] 가상 지난 소식</a> <span>2026-01-05</span></li></ul>`;
+  const sites={[s.lists[0]]:FX('leftall.html'),[s.lists[1]]:FX('leftall-newsletter.html'),[o1]:older,[o2]:()=>html('down',503)};
+  for(const u of ['https://leftall.com/notice/120','https://leftall.com/notice/118','https://leftall.com/newsletter/93','https://leftall.com/newsletter/92','https://leftall.com/newsletter/40'])sites[u]=ko;
+  const h=harness({sources:[{workspace_id:WS,source_key:'leftall'}],sites});
+  const out=await (await h.cron('run',{source:'leftall'})).json();
+  assert.equal(out.status,'ok');assert.equal(out.listed,5);assert.equal(out.inserted,5);
+  assert.deepEqual(h.db.app_outside_posts.map(p=>p.url).at(-1),'https://leftall.com/newsletter/40','지난 쪽 글은 첫 쪽 글 뒤');
+  assert.equal(h.db.app_outside_posts.find(p=>p.url.endsWith('/40')).published_at,'2026-01-04T15:00:00.000Z');
+  assert.equal(h.db.app_outside_sources[0].last_error,null,'지난 쪽 503은 단체 고장이 아니다');
+  assert.ok(h.calls.site.includes(o1)&&h.calls.site.includes(o2));
+  const u=harness({sources:[{workspace_id:WS,source_key:'leftall'}],sites});
+  await u.user('read_now',{source:'leftall'});
+  assert.ok(!u.calls.site.includes(o1)&&!u.calls.site.includes(o2),'바로 읽기는 지난 쪽을 읽지 않는다');
+  // 첫 쪽을 못 읽은 실행은 지난 쪽도 읽지 않는다(첫 쪽 고장을 지난 쪽 글이 가리지 않게).
+  const f=harness({sources:[{workspace_id:WS,source_key:'leftall'}],sites:{...sites,[s.lists[1]]:()=>html('down',503)}});
+  await f.cron('run',{source:'leftall'});
+  assert.ok(!f.calls.site.includes(o1),'첫 쪽 실패 → 지난 쪽 안 읽음');
+});
+
+test('이미 있는 글 묻기는 주소 30개씩 나눠 묻는다(게시판이 많은 단체의 요청 주소 길이)', async () => {
+  const many='<table>'+Array.from({length:20},(_,i)=>`<tr><td><a href="./view.php?board=focus&nid=${8000+i}&page=1">가상 글 ${i}번 제목</a></td><td>2026.09.${String(i+1).padStart(2,'0')}</td></tr>`).join('')+'</table>';
+  const s=sourceByKey('pssp');const sites={};
+  s.lists.forEach((l,i)=>{sites[l]=i===0?FX('pssp.html'):many.replaceAll('board=focus',`board=${new URL(l).searchParams.get('board')}`).replaceAll('nid=8',`nid=${i}8`);});
+  const h=harness({sources:[{workspace_id:WS,source_key:'pssp'}],sites});
+  const out=await (await h.cron('run',{source:'pssp'})).json();
+  assert.equal(out.listed,102);
+  const asks=h.calls.rest.filter(c=>c.startsWith('GET app_outside_posts?')&&c.includes('url=in.'));
+  assert.equal(asks.length,4);
+  assert.equal(out.inserted+out.deferred+out.skipped,102);
 });
 
 test('플랫폼C: 첫 화면 카드 제목(h2 …__title)만 제목으로, 스크립트 속 주소는 안 읽음, 목록 주소는 2MB 아래 첫 화면', () => {
@@ -1104,4 +1211,66 @@ test('S50-26 옛 글 다시 정돈: 정돈 전에 들어간 제목(꼬리표·�
   // 다음 실행: 이미 정돈된 제목이라 다시 고치지 않는다.
   const again=await (await h.cron('run',{source:'laborparty'})).json();
   assert.equal(again.refilled,0);assert.equal(again.fresh,0);
+});
+
+// ---- S52-36 NEWS-바깥소식번역: 사회운동 영어 소식 [번역](news-feed translate와 같은 엔진·규칙, 저장은 app_outside_posts.body_ko) ----------
+
+const POST_EN='d0000000-0000-4000-8000-000000000001',POST_KO='d0000000-0000-4000-8000-000000000002',POST_OTHER='d0000000-0000-4000-8000-000000000003';
+const GKEY='synthetic_google_key_0123456789abcdef';
+const enPost={id:POST_EN,workspace_id:WS,source_key:'jacobin',kind:'article',lang:'en',title:'Synthetic strike wave',title_ko:'가상 파업 물결',url:'https://jacobin.com/2026/11/synthetic',body_ko:null};
+const enBody={workspace_id:WS,outside_post_id:POST_EN,news_item_id:null,state:'ok',blocks:[{t:'p',text:'First line.'},{t:'img',src:'https://images.jacobin.com/a.jpg',cap:'Cap',alt:''},{t:'h',text:'Head'},{t:'quote',text:'Quoted.'},{t:'p',text:'Last line.'}]};
+const trAi=(name)=>{if(name==='outside_translate')return{title_ko:'가상 제목',body_ko:'첫 줄.\n소제목\n인용.\n끝 줄.'};throw new Error('unknown ai '+name);};
+
+test('translate (Google): 글자 블록만 줄 순서대로 보내고 줄 수 맞춘 body_ko 저장, 제목 번역이 있으면 그대로, AI 없음, 하루 횟수 1', async () => {
+  const h=harness({posts:[enPost],bodies:[enBody],env:{GOOGLE_TRANSLATE_API_KEY:GKEY},ai:trAi});
+  const r=await h.user('translate',{id:POST_EN});const j=await r.json();
+  assert.equal(r.status,200,JSON.stringify(j));assert.equal(j.status,'translated');assert.equal(j.engine,'google');
+  assert.equal(h.calls.google.length,1);assert.deepEqual(h.calls.google[0].body.q,['First line.','Head','Quoted.','Last line.'],'사진·캡션은 보내지 않음, 제목은 이미 있어 안 보냄');
+  assert.equal(h.calls.google[0].headers['x-goog-api-key'],GKEY);assert.equal(h.calls.google[0].body.source,'en');
+  assert.equal(h.calls.ai.length,0);
+  const p=h.db.app_outside_posts[0];assert.equal(p.body_ko,'번역 First line.\n번역 Head\n번역 Quoted.\n번역 Last line.');assert.equal(p.title_ko,'가상 파업 물결');
+  assert.equal(h.db.app_news_days.length,1);assert.equal(h.db.app_news_days[0].translate_n,1);assert.equal(h.db.app_news_days[0].day,'2026-10-31');
+  assert.ok(!h.calls.logs.some(l=>JSON.stringify(l).includes('First line')),'로그에 본문 없음');
+  // 두 번째는 저장본: 엔진을 다시 부르지 않고 횟수도 쓰지 않음.
+  const again=await h.user('translate',{id:POST_EN});assert.equal((await again.json()).status,'stored');
+  assert.equal(h.calls.google.length,1);assert.equal(h.db.app_news_days[0].translate_n,1);
+});
+
+test('translate (AI 대신): 비밀값이 없으면 outside_translate AI, 토큰·횟수는 app_news_days에, 빈 제목 번역은 채움', async () => {
+  const h=harness({posts:[{...enPost,title_ko:null}],bodies:[enBody],ai:trAi});
+  const r=await h.user('translate',{id:POST_EN});const j=await r.json();
+  assert.equal(r.status,200,JSON.stringify(j));assert.equal(j.engine,'ai');assert.equal(h.calls.google.length,0);
+  assert.deepEqual(h.calls.ai.map(a=>a.name),['outside_translate']);assert.match(h.calls.ai[0].input,/^제목: Synthetic strike wave\n\n본문:\nFirst line\.\nHead\nQuoted\.\nLast line\.$/);
+  const p=h.db.app_outside_posts[0];assert.equal(p.body_ko,'첫 줄.\n소제목\n인용.\n끝 줄.');assert.equal(p.title_ko,'가상 제목');
+  const d=h.db.app_news_days[0];assert.equal(d.translate_n,1);assert.equal(d.ai_requests,1);assert.equal(d.ai_input_tokens,100);assert.equal(d.ai_output_tokens,50);
+});
+
+test('translate: 한국어 글 409·본문 블록 없음 409·하루 한도 429·월 한도 429·다른 작업공간 글 404·남 403·비로그인 401·예약 입구 400·몸통은 id만', async () => {
+  const ko={...enPost,id:POST_KO,lang:'ko',source_key:'kctu',title_ko:null};
+  const other={...enPost,id:POST_OTHER,workspace_id:WS2};
+  const h=harness({posts:[enPost,ko,other],bodies:[{...enBody,outside_post_id:POST_KO},{...enBody,outside_post_id:POST_OTHER,workspace_id:WS2}],ai:trAi});
+  const code=async(r)=>[r.status,(await r.json()).error];
+  assert.deepEqual(await code(await h.user('translate',{id:POST_KO})),[409,'NOT_FOREIGN']);
+  assert.deepEqual(await code(await h.user('translate',{id:POST_OTHER})),[404,'NOT_FOUND'],'다른 작업공간 글은 없는 글과 같다');
+  assert.deepEqual(await code(await h.user('translate',{id:POST_EN},JWT_STRANGER)),[403,'FORBIDDEN']);
+  assert.equal((await h.user('translate',{id:POST_EN},'synthetic.user.jwt-bad-000000')).status,401);
+  assert.equal((await h.handler(new Request(`${FN}?action=translate`,{method:'POST',body:JSON.stringify({id:POST_EN})}))).status,401,'비로그인');
+  assert.equal((await h.cron('translate',{id:POST_EN})).status,400,'예약 입구에는 없음');
+  for(const bad of[{},{id:'x'},{id:POST_EN,workspace_id:WS},{id:POST_EN,url:'https://evil.example/'}])assert.equal((await h.user('translate',bad)).status,400,JSON.stringify(bad));
+  assert.equal(h.calls.ai.length+h.calls.google.length,0);assert.ok(!h.db.app_outside_posts.some(p=>p.body_ko));
+  assert.ok(!h.calls.rest.some(c=>c.startsWith('PATCH app_outside_posts')));
+  const noBody=harness({posts:[enPost],ai:trAi});assert.deepEqual(await code(await noBody.user('translate',{id:POST_EN})),[409,'NOTHING_TO_TRANSLATE']);
+  const full=harness({posts:[enPost],bodies:[enBody],days:[{workspace_id:WS,day:'2026-10-31',translate_n:H.TRANSLATE_DAILY}],ai:trAi});
+  assert.deepEqual(await code(await full.user('translate',{id:POST_EN})),[429,'DAILY_LIMIT']);assert.equal(full.calls.ai.length,0);
+  const capped=harness({posts:[enPost],bodies:[enBody],days:[{workspace_id:WS,day:'2026-10-01',ai_input_tokens:1e9,ai_output_tokens:1e9}],ai:trAi});
+  assert.deepEqual(await code(await capped.user('translate',{id:POST_EN})),[429,'MONTHLY_LIMIT']);assert.equal(capped.calls.ai.length,0);
+});
+
+test('translate 공용 엔진: news-feed·outside-feed가 같은 _shared 번역 모듈을 쓰고, 하루 한도 값은 하나', async () => {
+  const news=readFileSync('supabase/functions/news-feed/handler.ts','utf8'),feed=readFileSync('supabase/functions/outside-feed/handler.ts','utf8');
+  for(const src of[news,feed]){assert.match(src,/from "\.\.\/_shared\/feed-translate\.ts"/);assert.match(src,/from "\.\.\/_shared\/news-days\.ts"/);assert.match(src,/translateText\(/);}
+  const N=await import('../../supabase/functions/news-feed/handler.ts');assert.equal(N.TRANSLATE_DAILY,H.TRANSLATE_DAILY);
+  const T=await import('../../supabase/functions/_shared/feed-translate.ts');
+  assert.equal(T.blocksText([{t:'p',text:' A  b '},{t:'img',src:'https://x/a.jpg'},{t:'h',text:'H'},{t:'quote',text:'Q'},{t:'x',text:'no'}]),'A b\nH\nQ');
+  assert.equal(T.blocksText(null),'');
 });

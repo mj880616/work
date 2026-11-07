@@ -102,8 +102,9 @@ test('phone 390: long press opens the menu (fold and 순서 바꾸기), a short 
  const {state,errors}=await fixture(page,{width:390,height:844});
  await clickView(page,'projects');
  const toggle=page.locator('#ps3OrderBtn');await expect(toggle).toHaveText('순서 바꾸기');
- expect((await toggle.boundingBox()).height).toBeLessThan(24);
- expect((await row(page,'pb').boundingBox()).height).toBeLessThanOrEqual(44);
+ // STAB(S52-34): 화면이 목록을 다시 그리는 사이 boundingBox()(찾기 → 자리 묻기 두 걸음)가 사라진 요소를 잡아 null이 되던 것 → 한 번에 잰다(split-resize.spec STAB-분할시험과 같은 방식).
+ expect(await toggle.evaluate(e=>e.getBoundingClientRect().height)).toBeLessThan(24);
+ expect(await row(page,'pb').evaluate(e=>e.getBoundingClientRect().height)).toBeLessThanOrEqual(44);
  await row(page,'pb').dispatchEvent('pointerdown',{pointerType:'touch',clientX:50,clientY:300,button:0});
  await expect(menu(page).locator('button')).toHaveText(['아래로 접기','순서 바꾸기'],{timeout:3000});
  await menu(page).locator('[data-ps3-fold-action="fold"]').click();
