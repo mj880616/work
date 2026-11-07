@@ -48,8 +48,8 @@ export function cleanRecentFolders(list,max=RECENT_FOLDER_MAX){
 // free: 폴더 묶기(프로젝트 틀을 보지 않음). free가 아니면 자료의 프로젝트 틀과 같은 폴더에만 넣을 수 있고 나머지는 흐리게(enabled=false) 보인다.
 // recent: 최근 넣은 폴더 id 목록. query: 폴더 찾기 글자(폴더 경로 이름에서 찾음).
 // 돌려주는 줄: {id,name,label(경로),depth,enabled,current,reason,recent}. recent 칸이 먼저, all 칸은 트리 차례(상위 → 그 안).
-export const FRAME_REASON='프로젝트가 달라 넣을 수 없어요';
-export const MIXED_REASON='프로젝트가 다른 자료가 섞여 있어요';
+export const FRAME_REASON='사업영역이 달라 넣을 수 없어요'; // S52-05 B: 화면 글자만 사업영역(저장 값 project_id는 그대로)
+export const MIXED_REASON='사업영역이 다른 자료가 섞여 있어요';
 export function pickerRows({folders=[],docs=[],itemFolder=new Map(),free=false,recent=[],query=''}){
   const byId=new Map(folders.map(f=>[f.id,f]));
   const frames=new Set(docs.map(d=>d.project_id||null));
