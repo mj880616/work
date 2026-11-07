@@ -156,6 +156,11 @@
 #appView #outsideView .nd-ob b{ font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); }
 #appView #outsideView .nd-ob-src::before{ content:"·"; margin-right:6px; }
 #appView #outsideView .nd-size{ display:inline-flex; gap:1px; margin-left:auto; }
+/* S52-12 NEWS-원문먼저번역: 원문 칸 머리 줄 [번역] — 모양은 공용 칩(button.ds-chip, UI-버튼6가지), 여기는 자리만(글자 크기 단추 왼쪽). */
+#appView #outsideView .nd-ob.has-tr .nd-size{ margin-left:2px; }
+#appView #outsideView .nd-tr-note{ margin-left:auto; font-size:11px; color:var(--kptu-muted); }
+#appView #outsideView .nd-ob.has-tr .nd-tr{ margin-left:auto; }
+#appView #outsideView .nd-ob.has-tr .nd-tr-note + .nd-tr{ margin-left:4px; }
 #appView #outsideView .nd-size-btn{ min-height:0; width:28px; height:26px; padding:0; font:inherit; line-height:1; color:var(--kptu-muted); background:transparent; border:0; border-radius:var(--ds-radius-control,6px); box-shadow:none; cursor:pointer; }
 #appView #outsideView .nd-size-btn[data-nd-font="s"]{ font-size:11px; }
 #appView #outsideView .nd-size-btn[data-nd-font="m"]{ font-size:13px; }

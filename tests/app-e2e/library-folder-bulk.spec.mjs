@@ -1,3 +1,4 @@
+import {SHEET,pressName} from './helpers/area-org-picker.mjs';
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryTopMenu} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,SB,press} from './helpers/library-folder-server.mjs';
@@ -62,9 +63,10 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
     const {s,errors}=await boot(page,width);
     await pick(page,['a-2','a1-1'],width);
     await press(page,bar(page).getByRole('button',{name:'사업영역 바꾸기',exact:true}),width);
-    await expect(page.locator('#luBulkMenu')).toBeVisible();
-    await expect(menuItem(page,'사업영역 없음')).toBeVisible();
-    await press(page,menuItem(page,'민자철도 정책 대응'),width);
+    // S52-01 ③c: 사업영역·담당조직은 공용 고르기 창(하나만, 맨 위 '사업영역 없음', 누르면 바로 바꿈).
+    await expect(page.locator(SHEET)).toBeVisible();await expect(page.locator(SHEET+' h2')).toHaveText('사업영역 바꾸기');
+    await expect(page.locator(SHEET+' .aop-list [data-sheet-value=""]')).toHaveText('사업영역 없음');
+    await pressName(page,'민자철도 정책 대응');await expect(page.locator(SHEET)).toBeHidden();
     await expect.poll(()=>s.patches.length).toBe(2);
     expect(s.patches.map(p=>p.id)).toEqual(['a-2','a1-1']);
     for(const p of s.patches){
@@ -97,8 +99,8 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
     s.patches.length=0;
     await pick(page,['a-1','n-1'],width);
     await press(page,bar(page).getByRole('button',{name:'담당조직 바꾸기',exact:true}),width);
-    await expect(menuItem(page,'가상 조직')).toBeVisible();await expect(menuItem(page,'담당조직 없음')).toBeVisible();
-    await press(page,menuItem(page,'가상 조직'),width);
+    await expect(page.locator(SHEET)).toBeVisible();await expect(page.locator(SHEET+' .aop-list [data-sheet-value=""]')).toHaveText('담당조직 없음');
+    await pressName(page,'가상 조직');await expect(page.locator(SHEET)).toBeHidden();
     await expect.poll(()=>s.patches.length).toBe(2);
     for(const p of s.patches){expect(p.body.organization_id).toBe('org-1');expect(p.body.classification_note).toBe('사용자 수정')}
     expect(errors).toEqual([]);

@@ -384,6 +384,7 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // S52-01 ③b·③c: 일정 추가·Google 일정 수정 '관련 담당조직'은 체크 목록 대신 한 줄(.aop-*), 자료 올리기·정보 수정 사업영역은 <select> 옆 칸 단추.
   // 그 모양은 area-org-picker.spec 등이 확인한다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
   for(const sel of ['#soEventOrganizations','#soGoogleEditOrganizations']){if(!(await page.locator(sel).count())||!(await original.locator(sel).count()))continue;const html=await page.locator(sel).evaluate(el=>el.outerHTML);await original.locator(sel).evaluate((el,html)=>{el.outerHTML=html},html)}
+  for(const id of ['docProject','libraryEditProject']){const html=await page.locator('#'+id).evaluate(el=>el.closest('label').outerHTML);await original.locator('#'+id).evaluate((el,html)=>{el.closest('label').outerHTML=html},html)}
   // UI-디자인손질 1 (2026-10-16 사용자 결정): "차수" has no separate "선택" tag any more; drop that removed node from
   // the baseline only. Every other optional tag (특이사항·약칭 etc.) is still compared.
   await original.evaluate(()=>document.querySelectorAll('#meetingRoundNo,#mrdEditRound').forEach(input=>input.closest('label')?.querySelector(':scope > .optional')?.remove()));
