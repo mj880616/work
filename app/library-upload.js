@@ -1,5 +1,6 @@
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {renderFilterChips} from './filter-chips.js';
+import {uploadTimeoutMs} from './upload-budget.mjs';
 import {readView,saveView,orderedGroups,moveGroup} from './library-view-pref.js';
 import {mountReorder} from './reorder-drag.js';
 import {recentFolded,toggleRecentFolded} from './recent-fold.js';
@@ -333,10 +334,9 @@ function luEnhanceUpload(){const modal=document.querySelector('#documentModal .m
   bindDropTarget(modal,luSetSelectedFiles,()=>!luUploading);input.addEventListener('change',()=>luSetSelectedFiles(input.files));picker.querySelector('#librarySelectedFiles').addEventListener('click',e=>{const b=e.target.closest('[data-lu-remove-file]');if(!b||luUploading)return;const index=Number(b.dataset.luRemoveFile);if(luUploadEntries[index]?.kind==='success')return;luUploadEntries.splice(index,1);input.value='';luRenderSelectedFiles();const next=picker.querySelectorAll('[data-lu-remove-file]');(next[Math.min(index,next.length-1)]||zone).focus()});luRenderSelectedFiles()}
 function luSetStatus(st,msg,error=false){if(!st)return;st.textContent=msg||'';st.className='status'+(error?' error':msg?' ok':'');if(error){st.setAttribute('role','alert');st.removeAttribute('aria-live')}else{st.setAttribute('role','status');st.setAttribute('aria-live','polite')}}
 function luSetBusy(btn,value){if(!btn)return;btn.disabled=!!value;if(value)btn.setAttribute('aria-busy','true');else btn.removeAttribute('aria-busy')}
-// 업로드 전용 timeout: 서버 처리(Drive 중계·제목 추출 20초 제한·DB 기록) 여유 90초 + 느린 업링크(약 2Mbps) 기준 MB당 4초, 최대 10분.
-// 100MB 파일은 약 8분 10초. 공용 runtime의 15초 기본값은 다른 API에 그대로 둔다.
+// 업로드 전용 timeout: 공용 올리기 한도(upload-budget.mjs, 파일 크기 기준). 공용 runtime의 15초 기본값은 다른 API에 그대로 둔다.
 const LU_MAX_FILE_BYTES=100*1024*1024;
-function luUploadTimeoutMs(file){return Math.min(600000,90000+Math.ceil((Number(file?.size)||0)/1048576)*4000)}
+function luUploadTimeoutMs(file){return uploadTimeoutMs(file?.size)}
 async function luUploadRequest(fd,file){
   const runtime=window.KPTURuntime,path='/functions/v1/library-files';
   const error=(message,options)=>runtime?.RuntimeError?new runtime.RuntimeError(message,options):Object.assign(new Error(message),{status:0,retryable:false,...options});
