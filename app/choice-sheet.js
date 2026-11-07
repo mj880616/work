@@ -123,5 +123,6 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
   // A wide↔phone switch while open moves the sheet between the two forms.
   window.matchMedia(WIDE_QUERY).addEventListener?.('change',place);window.matchMedia(SPLIT_QUERY).addEventListener?.('change',place);
   window.addEventListener('popstate',e=>{if(active&&e.state?.[historyKey]!==active.id)void close(true);});
-  return {open,close,dismiss,render:paint,sync};
+  // closed(): settles once a close under way has given focus back (at once when none is).
+  return {open,close,dismiss,render:paint,sync,closed:()=>closing||Promise.resolve()};
 }

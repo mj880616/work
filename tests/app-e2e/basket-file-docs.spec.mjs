@@ -1,3 +1,4 @@
+import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helpers/area-org-picker.mjs';
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import {onlyLibraryCategories,showAllLibraryCategories} from './helpers/library-categories.mjs';
@@ -72,8 +73,8 @@ async function openNote(page,id,width){
 }
 async function pick(page,detail,kind,name,width){
  await tap(page,detail.locator(`[data-manual-pick="${kind}"]`),width);
- const sheet=page.locator('#basketLinkChoiceSheet');await expect(sheet).toBeVisible();
- await tap(page,sheet.getByRole('button',{name,exact:true}),width);await expect(sheet).toBeHidden();
+ // S52-01 ③a: 담당조직·사업영역은 공용 고르기 창(여러 개 고르기 + [넣기]).
+ await pressNamesAndSave(page,name);
 }
 async function capture(page,info,name,locator=null){
  const path=reviewDir?`${reviewDir}/${name}.png`:info.outputPath(name+'.png');

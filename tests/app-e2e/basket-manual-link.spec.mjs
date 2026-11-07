@@ -1,3 +1,4 @@
+import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helpers/area-org-picker.mjs';
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
@@ -51,8 +52,8 @@ async function openNote(page,width){
 }
 async function pick(page,detail,kind,name,width){
  await tap(page,detail.locator(`[data-manual-pick="${kind}"]`),width);
- const sheet=page.locator('#basketLinkChoiceSheet');await expect(sheet).toBeVisible();
- await tap(page,sheet.getByRole('button',{name,exact:true}),width);await expect(sheet).toBeHidden();
+ // S52-01 ③a: 담당조직·사업영역은 공용 고르기 창(여러 개 고르기 + [넣기]).
+ await pressNamesAndSave(page,name);
  // The new summary takes focus once the sheet's close settles; type only after that.
  await expect(detail.locator(`[data-manual-summary^="${kind}:"]`).last()).toBeFocused();
 }
@@ -91,10 +92,10 @@ test('organization and project linked together in one call, each with its own su
 
 test('an already linked place is shown as linked and cannot be chosen again; a removed pick is not sent',async({page})=>{
  const f=await fixture(page,{linked:[{organization_id:o}]}),detail=await openNote(page,1280);await detail.getByRole('button',{name:'연결하기'}).click();
- await detail.locator('[data-manual-pick="organization"]').click();const sheet=page.locator('#basketLinkChoiceSheet');await expect(sheet).toBeVisible();
- await expect(sheet.getByText('합성 한빛지부 · 이미 연결됨')).toBeVisible();await expect(sheet.getByRole('button',{name:/합성 한빛지부/})).toHaveCount(0);
- await sheet.getByText('합성 한빛지부 · 이미 연결됨').click();await expect(sheet).toBeVisible();await expect(detail.locator('[data-manual-target]')).toHaveCount(0);
- await sheet.getByRole('button',{name:'합성 새벽지부',exact:true}).click();await expect(sheet).toBeHidden();
+ await detail.locator('[data-manual-pick="organization"]').click();const sheet=page.locator(AOP_SHEET);await openFolds(sheet);
+ const done=sheet.locator(`[data-aop-done="o:${o}"]`);await expect(done).toBeVisible();await expect(done).toHaveText('합성 한빛지부 · 이미 연결됨');await expect(sheet.locator(`[data-sheet-value="o:${o}"]`)).toHaveCount(0);
+ await done.click();await expect(sheet).toBeVisible();await expect(detail.locator('[data-manual-target]')).toHaveCount(0);
+ await pressNamesAndSave(page,'합성 새벽지부');
  await pick(page,detail,'project','합성 기자회견 준비',1280);await detail.getByRole('button',{name:'합성 기자회견 준비 빼기'}).click();
  await summary(detail,o2,'organization').fill('새벽지부 요약');await detail.getByRole('button',{name:'연결',exact:true}).click();
  await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요.');expect(f.calls[0].p_targets).toEqual([{kind:'organization',target_id:o2,reason:'직접 연결',summary:'새벽지부 요약'}]);expect(f.errors).toEqual([]);
@@ -189,7 +190,7 @@ for(const width of [390,1280])test(`a Google task is made from the note with the
  await expect(detail.locator('[data-manual-task-title]')).toHaveValue('10/20 기자회견 준비 회의');await expect(detail.locator('[data-manual-task-notes]')).toHaveValue(RAW);
  await detail.locator('[data-manual-task-title]').fill('기자회견 장소 확정');
  await tap(page,detail.locator('[data-manual-task-day="tomorrow"]'),width);await expect(detail.locator('[data-manual-task-day="tomorrow"]')).toHaveAttribute('aria-pressed','true');
- await tap(page,detail.locator('[data-manual-task-project]'),width);const sheet=page.locator('#basketLinkChoiceSheet');await tap(page,sheet.getByRole('button',{name:'합성 기자회견 준비'}),width);await expect(sheet).toBeHidden();
+ await tap(page,detail.locator('[data-manual-task-project]'),width);await pressName(page,'합성 기자회견 준비');await expect(page.locator(AOP_SHEET)).toBeHidden();
  await expect(detail.locator('[data-manual-task-project]')).toHaveText('합성 기자회견 준비 ▾');await expect(detail).not.toContainText('에 기록돼요');
  expect(await noWideScroll(page)).toBe(true);
  if(width===390)await page.screenshot({path:info.outputPath('manual-task-form-390.png'),fullPage:true});
@@ -233,4 +234,30 @@ test('the task form is not rebuilt when the project list arrives, so a tap in pr
  await expect(detail.locator('[data-manual-task-day="tomorrow"][data-marker="same"]')).toHaveCount(1);
  await expect(detail.locator('[data-manual-task-title][data-marker="same"]')).toHaveValue('쓰는 중');await expect(detail.locator('[data-manual-task-title]')).toBeFocused();
  await expect(detail.locator('[data-manual-task-project]')).toHaveText('사업영역 ▾');expect(f.errors).toEqual([]);
+});
+
+// S52-01 ③a UI-사업영역조직고르기창: [연결하기]의 담당조직·사업영역은 모든 화면과 같은 고르기 창 하나(찾기·여러 개·[넣기], 바깥·✕ = 취소).
+for(const width of [390,1280])test(`S52-01 ③a: [연결하기] 담당조직은 같은 고르기 창 — 여러 개 [넣기], 다시 열면 눌린 채, 빼면 빠짐, 닫기는 취소 ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:900});const f=await fixture(page),detail=await openNote(page,width);
+ await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
+ await tap(page,detail.locator('[data-manual-pick="organization"]'),width);
+ const sheet=page.locator(AOP_SHEET);await expect(sheet).toBeVisible();await expect(sheet.locator('h2')).toHaveText('담당조직 고르기');
+ // 찾기 칸은 폰에도 있다. 찾으면 접힌 묶음 안의 조직도 보인다.
+ const find=sheet.locator('[data-sheet-search]');await expect(find).toBeVisible();await find.fill('새벽');
+ await expect(sheet.locator(`[data-sheet-value="o:${o2}"]`)).toBeVisible();await expect(sheet.locator(`[data-sheet-value="o:${o}"]`)).toBeHidden();await find.fill('');
+ await pressName(page,'합성 한빛지부');await pressName(page,'합성 새벽지부');
+ await expect(sheet.locator('[data-sheet-count]')).toHaveText('2개 고름');
+ await sheet.locator('[data-sheet-save]').click();await expect(sheet).toBeHidden();
+ await expect(detail.locator('[data-manual-target]')).toHaveCount(2);await expect(summary(detail,o,'organization')).toBeFocused();
+ // 다시 열면 고른 두 곳이 눌린 채. 하나를 빼고 ✕로 닫으면 그대로(취소).
+ await tap(page,detail.locator('[data-manual-pick="organization"]'),width);await expect(sheet).toBeVisible();
+ await expect(sheet.locator(`.aop-list [data-sheet-value="o:${o}"]`)).toHaveAttribute('aria-pressed','true');await expect(sheet.locator(`.aop-list [data-sheet-value="o:${o2}"]`)).toHaveAttribute('aria-pressed','true');
+ await pressName(page,'합성 한빛지부');await sheet.locator('[data-sheet-close]').click();await expect(sheet).toBeHidden();
+ await expect(detail.locator('[data-manual-target]')).toHaveCount(2);
+ // 빼고 [넣기]면 그 곳만 빠진다.
+ await tap(page,detail.locator('[data-manual-pick="organization"]'),width);await pressNamesAndSave(page,'합성 한빛지부');
+ await expect(detail.locator('[data-manual-target]')).toHaveCount(1);await expect(detail.locator(`[data-manual-target="organization:${o2}"]`)).toBeVisible();
+ await summary(detail,o2,'organization').fill('새벽지부 요약');await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);
+ await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요.');
+ expect(f.calls[0].p_targets).toEqual([{kind:'organization',target_id:o2,reason:'직접 연결',summary:'새벽지부 요약'}]);expect(f.errors).toEqual([]);
 });

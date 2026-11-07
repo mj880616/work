@@ -46,3 +46,8 @@
 .home-choice-sheet :is(.aop-org-items, .aop-org) .home-choice-pick .home-choice-name { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
 .home-choice-sheet.home-choice-anchored :is(.aop-org-items, .aop-org) .home-choice-pick { min-height:32px; padding-top:4px; padding-bottom:4px; line-height:20px; }
 .home-choice-sheet.home-choice-split [data-sheet-all] .aop-node { break-inside:avoid; }
+/* S52-01 ③: 이미 연결된 곳은 회색 글자 줄로 남는다(누를 수 없음, 찾기는 됨). */
+.home-choice-sheet .aop-done { display:flex; align-items:center; gap:0; min-height:var(--kptu-touch-target,44px); padding-left:calc(12px + var(--home-choice-depth,0)*16px); color:var(--kptu-muted); cursor:default; flex:1 1 auto; min-width:0; }
+.home-choice-sheet.home-choice-anchored .aop-done { min-height:32px; padding-left:calc(30px + var(--home-choice-depth,0)*16px); font-size:13px; }
+.home-choice-sheet .aop-done .home-choice-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.home-choice-sheet .aop-done-note { flex:none; color:var(--kptu-faint); font-size:var(--ds-text-meta,12px); white-space:pre; }

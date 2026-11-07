@@ -63,23 +63,26 @@ export function forgetUsedKeys(){usedCache.clear()}
 if(typeof window!=='undefined')['kptu:google-tasks-changed','kptu:basket-links-changed'].forEach(n=>window.addEventListener(n,forgetUsedKeys));
 
 const check='<span class="home-choice-check" aria-hidden="true"></span>';
-const rowHtml=(key,name,depth,{path='',pressed=false}={})=>`<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:${depth}" data-depth="${depth}" data-sheet-value="${esc(key)}"${path?` data-sheet-path="${esc(path)}"`:''} aria-pressed="${!!pressed}" title="${esc(name)}">${check}<span class="home-choice-name">${esc(name)}</span></button>`;
+// S52-01 ③: a place that cannot be chosen again (already linked, locked = Map key → '이미 연결됨' …) stays in the list as gray text
+// (searchable, not pressable), so the tree and the groups keep their shape.
+const rowHtml=(key,name,depth,{path='',pressed=false,locked=''}={})=>locked?`<span class="home-choice-row aop-done" style="--home-choice-depth:${depth}" data-depth="${depth}" data-sheet-item data-aop-done="${esc(key)}"${path?` data-sheet-path="${esc(path)}"`:''} title="${esc(name)}"><span class="home-choice-name">${esc(name)}</span><span class="aop-done-note"> · ${esc(locked)}</span></span>`:`<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:${depth}" data-depth="${depth}" data-sheet-value="${esc(key)}"${path?` data-sheet-path="${esc(path)}"`:''} aria-pressed="${!!pressed}" title="${esc(name)}">${check}<span class="home-choice-name">${esc(name)}</span></button>`;
 const foldHtml=(label,n,open)=>`<button type="button" class="aop-fold" data-aop-toggle aria-expanded="${open}" aria-label="${esc(label)} 하위 ${n}개 ${open?'접기':'펼치기'}"><span class="aop-fold-n">${n}</span><span class="aop-fold-mark" aria-hidden="true"></span></button>`;
-function areaNodeHtml(n,open,pressed){
-  const row=rowHtml(n.key,n.name,n.depth,{path:n.depth?pathOf(n):'',pressed:pressed(n.key)});
+function areaNodeHtml(n,open,pressed,locked){
+  const row=rowHtml(n.key,n.name,n.depth,{path:n.depth?pathOf(n):'',pressed:pressed(n.key),locked:locked(n.key)});
   if(!n.kids.length)return `<div class="aop-node" data-sheet-section><div class="aop-line">${row}</div></div>`;
   const isOpen=open.has(n.key);
-  return `<div class="aop-node${isOpen?' is-open':''}" data-sheet-section><div class="aop-line">${row}${foldHtml(n.name,n.kids.length,isOpen)}</div><div class="aop-kids">${n.kids.map(k=>areaNodeHtml(k,open,pressed)).join('')}</div></div>`;
+  return `<div class="aop-node${isOpen?' is-open':''}" data-sheet-section><div class="aop-line">${row}${foldHtml(n.name,n.kids.length,isOpen)}</div><div class="aop-kids">${n.kids.map(k=>areaNodeHtml(k,open,pressed,locked)).join('')}</div></div>`;
 }
 // The folding area list: the top areas only, a chevron opens one's children. tree: areaTree(); open: keys of open areas.
-export function areaListHtml(tree,{open=new Set(),pressed=()=>false}={}){return (tree?.roots||[]).map(n=>areaNodeHtml(n,open,pressed)).join('')}
+const noLock=()=>'';
+export function areaListHtml(tree,{open=new Set(),pressed=()=>false,locked=noLock}={}){return (tree?.roots||[]).map(n=>areaNodeHtml(n,open,pressed,locked)).join('')}
 // The folding organization list: each group (organization-order.js) is one big line, a press opens its organizations. When no
 // organization falls in a named group (only the "그 외" tail) the organizations are plain rows. groups: [[{key,name,group}]].
-export function orgListHtml(groups,{open=new Set(),pressed=()=>false}={}){
+export function orgListHtml(groups,{open=new Set(),pressed=()=>false,locked=noLock}={}){
   const list=(groups||[]).filter(g=>g?.length),named=list.length>1||!!(list[0]?.[0]?.group&&list[0][0].group!==window.KPTUOrganizationOrder?.GROUP_NAMES?.at(-1));
-  if(!named)return list.flat().map(o=>`<div class="aop-node aop-org" data-sheet-section><div class="aop-line">${rowHtml(o.key,o.name,0,{pressed:pressed(o.key)})}</div></div>`).join('');
+  if(!named)return list.flat().map(o=>`<div class="aop-node aop-org" data-sheet-section><div class="aop-line">${rowHtml(o.key,o.name,0,{pressed:pressed(o.key),locked:locked(o.key)})}</div></div>`).join('');
   return list.map((g,i)=>{const name=g[0].group||'그 외',id='g'+i,isOpen=open.has(id);
-    return `<div class="aop-node aop-group${isOpen?' is-open':''}" data-sheet-section data-aop-group="${id}"><div class="aop-line"><button type="button" class="aop-group-name" data-aop-toggle aria-expanded="${isOpen}"><span class="aop-group-label">${esc(name)}</span><span class="aop-fold-n">${g.length}</span><span class="aop-fold-mark" aria-hidden="true"></span></button></div><div class="aop-kids aop-org-items">${g.map(o=>rowHtml(o.key,o.name,0,{pressed:pressed(o.key)})).join('')}</div></div>`}).join('');
+    return `<div class="aop-node aop-group${isOpen?' is-open':''}" data-sheet-section data-aop-group="${id}"><div class="aop-line"><button type="button" class="aop-group-name" data-aop-toggle aria-expanded="${isOpen}"><span class="aop-group-label">${esc(name)}</span><span class="aop-fold-n">${g.length}</span><span class="aop-fold-mark" aria-hidden="true"></span></button></div><div class="aop-kids aop-org-items">${g.map(o=>rowHtml(o.key,o.name,0,{pressed:pressed(o.key),locked:locked(o.key)})).join('')}</div></div>`}).join('');
 }
 // Which areas and organization groups start open: the ones holding a chosen key.
 export function openKeysFor(tree,groups,keys){
@@ -91,12 +94,12 @@ export function openKeysFor(tree,groups,keys){
 // What the open sheet shows: current = {kind, multi, none, pending:Set, tree, orgGroups, areaKnown, orgKnown, used, host, commit(set)}.
 function render(kind){
   const c=current,t=KINDS[kind];if(!c)return {title:t.title,html:''};
-  const known=kind==='area'?c.areaKnown:c.orgKnown,pressed=k=>c.pending.has(k);
-  const recent=frequentKeys(c.used,known).map(k=>`<button type="button" class="home-choice-chip" data-sheet-value="${esc(k)}" aria-pressed="${pressed(k)}">${esc(known.get(k))}</button>`);
+  const known=kind==='area'?c.areaKnown:c.orgKnown,pressed=k=>c.pending.has(k),locked=k=>c.locked?.get(k)||'';
+  const recent=frequentKeys(c.used,new Map([...known].filter(([k])=>!locked(k)))).map(k=>`<button type="button" class="home-choice-chip" data-sheet-value="${esc(k)}" aria-pressed="${pressed(k)}">${esc(known.get(k))}</button>`);
   const open=openKeysFor(c.tree,c.orgGroups,c.pending);
-  const body=kind==='area'?areaListHtml(c.tree,{open,pressed}):orgListHtml(c.orgGroups,{open,pressed});
+  const body=kind==='area'?areaListHtml(c.tree,{open,pressed,locked}):orgListHtml(c.orgGroups,{open,pressed,locked});
   const none=c.none&&!c.multi?`<div class="aop-node" data-sheet-section><div class="aop-line">${rowHtml('',noneLabel(kind),0,{pressed:!c.pending.size})}</div></div>`:'';
-  return {title:t.title,search:'찾기',searchAlways:true,
+  return {title:c.title||t.title,search:'찾기',searchAlways:true,
     html:`${recent.length?`<div class="aop-recent" data-sheet-hide-on-search><p class="home-choice-label">자주 쓴 것</p><div class="home-choice-group home-choice-group-plain">${recent.join('')}</div></div>`:''}<div class="aop-list">${none}${body||(none?'':emptyHtml(`${t.label} 없음`,{attrs:'data-aop-empty'}))}</div>`};
 }
 
@@ -107,8 +110,10 @@ function ensureSheet(){
     onSelect:(kind,value)=>{const c=current;if(!c)return;
       // One choice: a press picks it (or '' = none) and the sheet closes on its own (choice-sheet.js, no multi).
       if(!c.multi){c.pending=new Set(value?[value]:[]);c.commit(c.pending);return}
-      if(c.pending.has(value))c.pending.delete(value);else c.pending.add(value)},
-    multi:kind=>current?.multi?{pressed:v=>current.pending.has(v),label:current.pending.size?`${current.pending.size}개 고름`:''}:null,
+      if(c.locked?.has(value))return;
+      c.full=false;if(c.pending.has(value))c.pending.delete(value);else if(c.max&&c.pending.size>=c.max)c.full=true;else c.pending.add(value)},
+    // max: how many may be kept at once (a press past it keeps the choice and says so in the count).
+    multi:kind=>current?.multi?{pressed:v=>current.pending.has(v),label:current.full?`한 번에 ${current.max}곳까지`:current.pending.size?`${current.pending.size}개 고름`:''}:null,
     onCommit:kind=>{const c=current;if(c?.multi)c.commit(c.pending)}});
   return sheet;
 }
@@ -121,13 +126,19 @@ function choiceState({areas=[],orgGroups=[],used=[]}){
 // kind: 'area' | 'org'. areas / orgGroups / used as in the lines' set(). selected: the chosen keys. multi:false = one choice (a press
 // picks and closes); none:true adds a first row that picks nothing (one choice only: '사업영역 없음' / '조직 없음').
 // onCommit(keys:Set) runs on [넣기] (or the one press); cancelling runs nothing.
-export function openAreaOrgPicker({kind='area',trigger,anchor=null,areas=[],orgGroups=[],selected=[],used=[],multi=true,none='',onCommit=()=>{}}={}){
+// locked: Map key → short text ('이미 연결됨') for places shown but not choosable. max: the most keys kept at once (multi only).
+// title: the sheet's title when the screen names it otherwise (default '사업영역 고르기' / '조직 고르기').
+export function openAreaOrgPicker({kind='area',trigger,anchor=null,areas=[],orgGroups=[],selected=[],used=[],multi=true,none='',locked=null,max=0,title='',onCommit=()=>{}}={}){
   if(!trigger)return;ensureStyles();
   const st=choiceState({areas,orgGroups,used}),known=kind==='area'?st.areaKnown:st.orgKnown;
-  current={...st,kind,multi:!!multi,none,host:trigger,pending:new Set([...selected].map(String).filter(k=>known.has(k))),commit:keys=>onCommit(new Set(keys))};
+  current={...st,kind,multi:!!multi,none,locked:locked instanceof Map?locked:null,max:Math.max(0,Number(max)||0),title,full:false,host:trigger,pending:new Set([...selected].map(String).filter(k=>known.has(k))),commit:keys=>onCommit(new Set(keys))};
   return ensureSheet().open(kind,trigger,anchor);
 }
 
+// Settles once the sheet has closed and given focus back (a screen that moves focus elsewhere after [넣기] waits for it).
+export const areaOrgPickerClosed=()=>sheet?sheet.closed():Promise.resolve();
+// Organization groups (organization-order.js groups()) of {id,name} as the picker's orgGroups, keyed 'o:<id>'.
+export const orderedOrgGroups=(groups,order=typeof window!=='undefined'?window.KPTUOrganizationOrder:null)=>(groups||[]).map(g=>(g||[]).map(o=>({key:'o:'+o.id,name:o.name||'이름 없는 조직',group:order?.groupName?.(o)||''})));
 // Closes the sheet (as a Back press would) when it was opened for this trigger (or any, with none given): a screen left behind.
 export function dismissAreaOrgPicker(trigger=null){if(sheet&&current&&(!trigger||current.host===trigger))sheet.dismiss()}
 // The keys of the saved links of the signed-in workspace (loadUsedKeys), for a screen that has no workspace id at hand.
