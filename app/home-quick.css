@@ -31,6 +31,12 @@
 
 .home-quick [data-quick-new-note],.home-quick [data-basket-remove] { min-height:44px; }
 .home-quick[data-mode="basket"] [data-goto="basket"] { grid-row:3; margin-top:-4px; }
+/* S52-34 UI-전체정리(홈): PC 홈 빠른 입력의 [잊지 말기 전체 보기 ›]가 혼자 한 줄(빈 띠 약 40px)이던 것을 [업데이트 ▾ | 할 일] 줄 오른쪽 끝으로. 폰은 하단 탭에 [잊지 말기]가 있어 원래 없다(ui-standard.css). */
+@media(min-width:761px){
+  #homeView .home-quick[data-mode="basket"] > .home-quick-modes { grid-row:1; grid-column:1; justify-self:start; }
+  #homeView .home-quick[data-mode="basket"] > .home-quick-entry { grid-row:2; grid-column:1; }
+  #homeView .home-quick[data-mode="basket"] > [data-goto="basket"] { grid-row:1; grid-column:1; justify-self:end; align-self:center; min-height:32px; margin:0; }
+}
 .home-quick-lock:not([hidden]) { display:grid; gap:6px; }
 .home-quick-lock p { margin:0; font-size:13px; line-height:1.5; color:var(--kptu-ink); overflow-wrap:anywhere; }
 #homeView .home-quick .home-quick-new-note { justify-self:start; padding:0 14px; border:0; border-radius:8px; font-size:13px; font-weight:700; background:var(--kptu-primary); color:var(--kptu-on-primary); }

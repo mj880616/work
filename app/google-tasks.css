@@ -277,3 +277,8 @@ div.gt-main{cursor:default}
 @media(min-width:600px) and (max-width:760px){
   #appView #tasksView #gtTaskSection.gt-pc{--ds-split-list-min:260px;--ds-split-detail-min:300px}
 }
+/* S52-34 UI-전체정리(할 일): PC 틀(761px~)의 할 일 목록 최소 폭 240→300px. 폴드 펼침(884)에서 목록이 1/3(약 240px)로 좁아 제목이 '가상 할 일 회의…'로
+   잘리던 것. PC 넓은 화면은 1/3이 이미 300px보다 넓어 그대로이고, 끌어 바꾼 비율·서버 기억은 split-resize.js 그대로. */
+@media(min-width:761px){
+  #appView #tasksView #gtTaskSection.gt-pc{--ds-split-list-min:300px}
+}
