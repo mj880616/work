@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — [파일]에서 자료실로 보내기</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--pri:#5c5470;--tonal:#ecebf3;--bg:#f4f3f7}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:20px;padding:0 16px 24px}
+  .col{width:340px}
+  .col h2{font-size:14px;margin:8px 0}
+  .phone{background:var(--bg);border:1px solid #d6d4dd;border-radius:18px;padding:10px;position:relative;min-height:420px}
+  .box{background:#fcfcfd;border:1px solid var(--line);border-radius:12px;padding:4px 10px;margin-bottom:8px}
+  .bh{display:flex;align-items:center;gap:6px;font-weight:700;padding:6px 0}
+  .bh .r{margin-left:auto;font-weight:400;color:var(--faint);font-size:12px}
+  .row{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}
+  .row .k{font-size:11px;color:var(--faint);background:var(--tonal);border-radius:4px;padding:1px 5px}
+  .row .d{margin-left:auto;color:var(--faint);font-size:12px}
+  .row .m{color:var(--faint);padding:0 2px}
+  .row.on{background:#f1eff7;border-radius:6px}
+  .menu{position:absolute;right:16px;top:150px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.12);padding:4px 0;width:170px;font-size:13.5px}
+  .menu div{padding:7px 12px}
+  .menu .hl{background:#f1eff7;font-weight:600}
+  .menu hr{border:0;border-top:1px solid var(--line);margin:3px 0}
+  .sheet{position:absolute;left:0;right:0;bottom:0;background:#fcfcfd;border-radius:16px 16px 0 0;border-top:1px solid var(--line);padding:12px;box-shadow:0 -6px 18px rgba(0,0,0,.08)}
+  .sheet h3{margin:0 0 8px;font-size:15px}
+  .f{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .f .l{width:62px;color:var(--faint);font-size:12.5px}
+  .f .v{flex:1}
+  .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:1px 8px;font-size:12px;margin-right:3px}
+  .chip.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+  .faint{color:var(--faint);font-size:12px}
+  .bar{display:flex;gap:8px;margin-top:10px}
+  .bar .sp{flex:1}
+  .bar button{font:inherit;font-size:14px;font-weight:600;height:38px;padding:0 16px;border-radius:10px;border:0}
+  .bar .done{background:var(--tonal)} .bar .save{background:var(--pri);color:#fff}
+  .dim{position:absolute;inset:0;background:rgba(43,41,48,.35);border-radius:18px}
+  .sel{position:absolute;left:10px;right:10px;bottom:10px;background:#2b2930;color:#fff;border-radius:12px;padding:8px 12px;font-size:13px;display:flex;gap:12px;align-items:center}
+  .sel b{margin-left:auto;background:#fff;color:var(--ink);border-radius:8px;padding:4px 10px;font-size:12.5px}
+  .tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:1px 5px;margin-left:4px}
+  ul.k{margin:0 16px 24px;padding-left:18px;font-size:13px;line-height:1.7}
+</style>
+</head>
+<body>
+<h1>시안 — [파일]에서 자료실로 보내기</h1>
+<p class="note">명진 11/07 11:37: "파일에서 자료실로 보내는 기능이 있었으면 좋겠어." 파일 이름은 시안용으로 지어낸 것이에요.</p>
+
+<div class="wrap">
+  <div class="col">
+    <h2>① 줄 ⋯ → [자료실로 보내기]</h2>
+    <div class="phone">
+      <div class="box"><div class="bh">원드라이브<span class="r">펼침</span></div>
+        <div class="row"><span class="k">PDF</span>교섭 요구안 초안.pdf<span class="d">11/05</span><span class="m">⋯</span></div>
+        <div class="row on"><span class="k">한글</span>정책 토론회 자료집.hwpx<span class="d">11/04</span><span class="m">⋯</span></div>
+        <div class="row"><span class="k">사진</span>현장 사진 01.jpg<span class="d">11/03</span><span class="m">⋯</span></div>
+      </div>
+      <div class="menu"><div>열기</div><div class="hl">자료실로 보내기</div><div>이름 바꾸기</div><div>옮기기·복사</div><hr><div style="color:#a8382f">지우기</div></div>
+    </div>
+    <p class="note" style="margin:6px 0">⋯는 그 줄 옆 작은 메뉴 상자(UI-⋯작은메뉴). 이미 자료실에 있는 파일이면 이 자리가 [자료실에서 보기].</p>
+  </div>
+
+  <div class="col">
+    <h2>② 보내기 창 — 칸은 AI가 미리 채움 <span class="tag">명진 11:41 확정</span></h2>
+    <div class="phone">
+      <div class="box"><div class="bh">원드라이브</div><div class="row">…</div></div>
+      <div class="dim"></div>
+      <div class="sheet">
+        <h3>자료실로 보내기 · 1개</h3>
+        <div class="f"><span class="l">파일</span><span class="v">정책 토론회 자료집.hwpx</span></div>
+        <div class="f"><span class="l">제목</span><span class="v">정책 토론회 자료집 <span class="faint">· AI</span></span></div>
+        <div class="f"><span class="l">분류</span><span class="v"><span class="chip on">자료집</span><span class="faint">바꾸기 ▾</span></span></div>
+        <div class="f"><span class="l">사업영역</span><span class="v">없음 <span class="faint">+ 고르기</span></span></div>
+        <div class="f"><span class="l">조직</span><span class="v">○○지부 ✕ <span class="faint">+</span></span></div>
+        <div class="f"><span class="l">폴더</span><span class="v">폴더 밖 <span class="faint">▾</span></span></div>
+        <p class="faint" style="margin:6px 0 0">원본은 그대로 두고 자료실 저장소(구글 드라이브)에 사본을 넣어요.</p>
+        <div class="bar"><span class="sp"></span><button class="done">취소</button><button class="save">보내기</button></div>
+      </div>
+    </div>
+    <p class="note" style="margin:6px 0">칸은 자료실 등록과 같은 부품(분류 드롭다운·사업영역·조직 고르기 창·폴더). 비워 둬도 보내지고 AI가 채움(LIB-AI자동분류).</p>
+  </div>
+
+  <div class="col">
+    <h2>③ 여러 개 한꺼번에</h2>
+    <div class="phone">
+      <div class="box"><div class="bh">원드라이브<span class="r">2개 고름</span></div>
+        <div class="row on"><span class="k">PDF</span>☑ 교섭 요구안 초안.pdf<span class="d">11/05</span></div>
+        <div class="row on"><span class="k">한글</span>☑ 정책 토론회 자료집.hwpx<span class="d">11/04</span></div>
+        <div class="row"><span class="k">사진</span>☐ 현장 사진 01.jpg<span class="d">11/03</span></div>
+      </div>
+      <div class="sel">2개 고름<b>자료실로</b></div>
+    </div>
+    <p class="note" style="margin:6px 0">길게 눌러 고르기 → 아래 줄 [자료실로] → ② 창(공통 칸은 한 번에, 제목은 파일마다 AI). 끝나면 '2개 보냄 · 자료실에서 보기'.</p>
+  </div>
+</div>
+
+<ul class="k">
+  <li>어디서든 같은 메뉴: 원드라이브·구글 드라이브·이 폰·내 PC 파일, '최근' 상자, 찾기 결과, 폰·폴드·PC(PC는 우클릭 메뉴에도).</li>
+  <li>원본은 그대로. 자료실 저장소(구글 드라이브 자료실 폴더)에 사본을 넣고 자료실 목록에 올림. 구글 드라이브에 이미 있는 파일은 복사 없이 그 파일을 자료실에 연결만(명진 11:41 (가)).</li>
+  <li>같은 파일을 두 번 보내면 새로 만들지 않고 '이미 자료실에 있어요 · 보기'.</li>
+  <li>폴더째 보내기는 이번엔 하지 않음(파일만).</li>
+</ul>
+</body>
+</html>
