@@ -1,7 +1,7 @@
 // UI-앱안알림 3단계(docs/design/in-app-notices.md 5절, 명진 결정 A4·A5):
 // - '나한테 온 요청'이 1건 이상이면 폰 하단바 '홈'에 작은 점(숫자 없음), 폴드 펼침·PC 왼쪽 메뉴 '홈' 옆에 옅은 숫자. 0이면 아무것도 없다.
 // - 숫자는 홈 요약 줄·정리함 목록이 이미 센 값(새 읽기 없음). 정리함에서 처리하면 다른 화면에서도 바로 사라진다.
-// - 홈 요약 줄 끝 '내일 약속 n'(원장 약속, 있을 때만). 서버는 흉내, 글은 지어낸 것.
+// - 홈 '나한테 온 요청' 상자 맨 아래 흐린 한 줄 끝 '내일 약속 n'(원장 약속, 있을 때만, S52-09). 서버는 흉내, 글은 지어낸 것.
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -17,6 +17,7 @@ async function fixture(page,{width,cands=[cand(1),cand(2),cand(3,'update')],prom
       if(q.get('status')==='eq.open')out=out.filter(c=>c.status==='open');if(q.get('source_kind')==='eq.telegram')out=out.filter(c=>c.source_kind==='telegram');
       return r.fulfill({json:out});
     });
+    await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:['telegram']}));
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_ledger_records'&&u.searchParams.get('kind')==='eq.commitment'&&u.searchParams.has('or'),r=>{
       ledgerAsked.push(Object.fromEntries(new URL(r.request().url()).searchParams));return r.fulfill({json:promises});
     });
@@ -35,7 +36,7 @@ const warning=page=>page.evaluate(()=>{const p=document.createElement('p');p.sty
 
 test('phone (fold folded): a small dot on the bottom bar home, no number',async({page})=>{
   await fixture(page,{width:390});
-  await expect(page.locator('#homeView [data-home-summary-asks]')).toHaveText('나한테 온 요청 2');
+  await expect(page.locator('#homeView [data-home-summary] [data-asks-count]')).toHaveText('2');
   await page.evaluate(()=>window.KPTURouter.go('calendar'));
   const m=await mark(page);
   expect(m).toMatchObject({attr:'2',content:'""',w:'6px',redBadge:0,overflow:false});
@@ -52,7 +53,7 @@ for(const width of [900,1280])test(`${width}px: a faint number beside the menu h
 });
 for(const width of [390,1280])test(`${width}px: no request → no mark`,async({page})=>{
   await fixture(page,{width,cands:[cand(3,'update')]});
-  await expect(page.locator('#homeView [data-home-summary-asks]')).toHaveText('나한테 온 요청 0');
+  await expect(page.locator('#homeView [data-home-summary] .nbx-head')).toHaveText('나한테 온 요청· 새 요청 없음 ·정리함 열기 ›');
   const m=await mark(page);
   expect(m.attr).toBeNull();expect(['none','normal']).toContain(m.content);
 });
@@ -71,13 +72,13 @@ test('home summary line ends with tomorrow promises only when there are some',as
   await expect(btn).toHaveText('내일 약속 2 ›');
   // 폰 알림 '원장 약속 D-1'과 같은 기준: 대기 중·유효·후속확인일(없으면 끝난 날)이 내일(서울). 시험 시계는 10/06 → 내일 10/07.
   expect(ledgerAsked.at(-1)).toMatchObject({commitment_status:'eq.waiting',validity:'in.(current,needs_check)',or:'(follow_up_on.eq.2026-10-07,and(follow_up_on.is.null,date_end.eq.2026-10-07))',select:'id'});
-  const line=await page.locator('#homeView [data-home-summary]').boundingBox();expect(line.height).toBeLessThanOrEqual(40);
+  const line=await page.locator('#homeView [data-home-summary] .nbx-foot').boundingBox();expect(line.height).toBeLessThanOrEqual(40);
   await btn.click();
   await expect(page.locator('#ledgerView')).toBeVisible();
 });
 test('no tomorrow promise → nothing appended',async({page})=>{
   await fixture(page,{width:1280});
-  await expect(page.locator('#homeView [data-home-summary-asks]')).toBeVisible();
+  await expect(page.locator('#homeView [data-home-summary] .nbx-head')).toBeVisible();
   await expect(page.locator('#homeView [data-home-summary-promises]')).toHaveCount(0);
   await expect(page.locator('#homeView [data-home-summary]')).not.toContainText('내일 약속');
 });

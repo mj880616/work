@@ -27,7 +27,7 @@
 /* 버튼(8-9c2): 높이 하나(--ds-control-height = 홈 빠른 입력 [추가] 높이)·모서리 8px·13px·굵기 500, 그림자·그라데이션 없음.
    종류는 넷만: ① 채운 버튼(계정 테마색, 화면당 1개) ② 종류 색(연한 바탕 + 진한 글자) ③ 흰 바탕 + 0.5px 테두리(기본) ④ 빨간 테두리(삭제).
    목록 행·첨부 클립·× 아이콘·글자 링크·글 본문 안 요소·고르기 시트의 칩은 버튼 모양이 아니므로 뺀다. */
-#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.kptu-act,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip,.ft-btn),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
+#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.kptu-act,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip,.ft-btn,.nbx *),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
 #appView #homeView .home-quick :is(.home-quick-save,.home-quick-new-note,[data-quick-options] button):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
   height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
@@ -1715,6 +1715,32 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
 .ui-ico-star { color:var(--kptu-warning); }
 .gs-row-folder .ui-ico { margin-right:2px; color:var(--ds-folder-0-ico,var(--kptu-muted)); }
 .nx-clip svg, .feed-pinmark svg, .tp-here svg, .diary-lv-find svg { display:inline-block; vertical-align:-0.15em; }
+
+/* ===== UI-요청상자통일(S52-09, 요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html 명진 'ㅇ') =====
+   홈 '나한테 온 요청'·'잊지 말기' 상자와 정리함 '나한테 온 요청' 상자가 함께 쓰는 공용 부품(app/notice-box.mjs) 한 곳의 모양.
+   같은 둥근 상자·머리 줄·줄·버튼, 색만 tone(ask = 톤다운 파랑 --kptu-info, forget = 톤다운 노랑 --kptu-warning). 버튼 모양은 'UI-버튼6가지'
+   (② secondary·③ row-act·⑥ icon-btn) 그대로이고 여기서는 자리(간격·줄바꿈)만 정한다. 화면 id를 쓰지 않는다(홈·정리함 같은 규칙). */
+.nbx{ --nbx-ink:var(--kptu-info); --nbx-bg:var(--kptu-info-soft); box-sizing:border-box; margin:0 0 8px; padding:2px 10px 4px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--nbx-bg); font-size:var(--ds-text-meta); }
+.nbx[data-nbx-tone="forget"]{ --nbx-ink:var(--kptu-warning); --nbx-bg:var(--kptu-warning-soft); }
+.nbx[hidden],.nbx-plain[hidden]{ display:none; }
+.nbx-head{ display:flex; align-items:center; gap:6px; min-height:var(--ds-compact-height-sm); color:var(--nbx-ink); }
+.nbx-title{ font-weight:var(--ds-weight-medium); }
+.nbx-n{ font-weight:var(--ds-weight-medium); font-variant-numeric:tabular-nums; }
+.nbx-faint{ color:var(--kptu-faint); }
+.nbx-head .nbx-open{ margin-left:auto; }
+.nbx-list{ list-style:none; margin:0; padding:0; }
+.nbx-item{ padding:6px 0 4px; border-top:var(--ds-line-width) solid var(--ds-line); }
+.nbx-body{ margin:0; color:var(--kptu-ink); font-size:var(--ds-text-row); line-height:1.4; overflow-wrap:anywhere; }
+.nbx-tag{ color:var(--nbx-ink); font-size:var(--ds-text-meta); }
+.nbx-row2{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:3px; }
+.nbx-meta{ flex:1 1 6em; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-faint); }
+.nbx-acts{ flex:none; display:flex; align-items:center; gap:4px; margin-left:auto; }
+.nbx-status{ margin:0; padding:2px 0 0; color:var(--kptu-faint); }
+.nbx-status:empty{ display:none; }
+.nbx-foot{ display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin-top:2px; padding-top:2px; border-top:var(--ds-line-width) dashed var(--ds-line); color:var(--kptu-faint); }
+.nbx-plain{ margin:0 0 8px; font-size:var(--ds-text-meta); }
+.nbx-plain .nbx-foot{ margin:0; padding:0; border-top:0; }
+.nbx .row-act.nbx-foot-open,.nbx-plain .row-act.nbx-foot-open{ font-size:var(--ds-text-meta); color:var(--kptu-faint); }
 
 /* ===== UI-버튼6가지(2026-11-06 명진 요청 23:23 '버튼 모양 크기 색깔 테두리 등 전수조사 통일감', 시안 docs/design/mockups/button-six-kinds.html 승인 'ㅇ') =====
    사이트 버튼은 이 6가지뿐이고 모양(높이·모서리·바탕·테두리·글자)은 여기 한 곳이 정한다. 화면 CSS는 자리(간격·순서)만 정한다.

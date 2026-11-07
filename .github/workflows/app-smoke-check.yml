@@ -514,6 +514,9 @@ jobs:
       - name: Check home is the work journal (summary line numbers, screen order, menu, due text)
         run: node --test tests/home-summary.test.mjs
 
+      - name: Check home request box and forget box share one part (UI-요청상자통일)
+        run: node --test tests/notice-box.test.mjs
+
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs
 

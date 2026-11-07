@@ -21,6 +21,8 @@ import {offerUndoNotice} from './basket-record-delete.js';
 import {copyText} from './copy-text.js';
 import {flashDone} from './press-feedback.js';
 import {bindRowSwipe} from './row-swipe.js';
+import {mountAsksBox} from './asks-box.js';
+import {hasFeature} from './my-features.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
 export const INBOX_CHIPS = Object.freeze([['open', '처리 전'], ['tasked', '할 일로 보냄'], ['done', '이미 함'], ['dismissed', '무시함']]);
@@ -44,7 +46,9 @@ function inboxRowMenu() {
     onAction:(button, active) => { const list = listOf(active.trigger); if (list) menuLists.get(list)?.(active.id, button.dataset.inboxTodoMenu); }});
   return rowMenu;
 }
-export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read, quietEmpty = false, hideSource = false, withPromises = true, openSource = () => {}, radarPromises = () => []}) {
+// S52-09 UI-요청상자통일: asksHost(정리함 본 목록만)가 있으면 처리 전의 텔레그램 '나한테 온 요청'은 홈과 같은 상자(asks-box.js)에 그리고 아래 목록에서 뺀다.
+// 운영자 기능 telegram이 없는 작업공간은 상자 없이 전처럼 목록에 둔다(서버 허용 표, 화면 숨김은 보안이 아님).
+export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read, quietEmpty = false, hideSource = false, withPromises = true, openSource = () => {}, radarPromises = () => [], asksHost = null}) {
   const readInboxCandidates = read || readAllInbox;
   let rows = [], state = 'loading', chip = 'open', run = 0, scope = radarScope(rt), status = '';
   const copied = new Set(), busy = new Set(), unknown = new Map(), unmarked = new Map(), dues = new Map(), rowStatus = new Map(), editing = new Map(), linking = new Map();
@@ -53,10 +57,13 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
   host.hidden = true;
 
   const openRows = () => notPlanned(rows.filter(r => r.status === 'open'), taskTitles());
+  const asks = asksHost && !read ? mountAsksBox(asksHost, {rt, where: 'inbox'}) : null;
+  let asksOn = false;
+  const boxed = () => !!asks && asksOn && chip === 'open';
   // TODO-이미할일있음: 이어 둘 할 일이 없어 그냥 뺀 '이미 할 일에 있음'(무시 상태)도 [할 일로 보냄] 칩에 함께 보인다.
   const alreadyDropped = r => r.status === 'dismissed' && r.outcome === 'already_tasked';
   const handledRows = which => rows.filter(r => which === 'tasked' ? (r.status === 'tasked' || alreadyDropped(r)) : which === 'dismissed' ? r.status === 'dismissed' && !alreadyDropped(r) : r.status === which).sort((a, b) => String(b.decided_at || '').localeCompare(String(a.decided_at || '')));
-  const shownRows = () => chip === 'open' ? openRows() : handledRows(chip);
+  const shownRows = () => chip === 'open' ? openRows().filter(r => !(boxed() && r.source_kind === 'telegram')) : handledRows(chip);
   const count = () => state === 'ok' ? openRows().length : null;
   let told;
   // UI-앱안알림 3단계(A4): 정리함 본 목록(남의 읽기 read가 없는 것)은 '나한테 온 요청'(텔레그램 후보) 수를 메뉴 '홈' 표시에 알린다 —
@@ -112,6 +119,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
   }
   function paint() {
     tell(); paintChips();
+    asks?.set(!host.hidden && state === 'ok' && boxed() ? {on: true, rows: openRows().filter(r => r.source_kind === 'telegram')} : null);
     if (host.hidden) return;
     const focusAttr = host.contains(document.activeElement) ? [...document.activeElement.attributes].find(a => a.name.startsWith('data-inbox-todo-')) : null;
     const list = shownRows();
@@ -141,8 +149,9 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
   async function load() {
     scope = radarScope(rt);
     const mine = ++run;
-    const [result] = await Promise.all([readInboxCandidates(rt), loadWeek().catch(() => { week = null; })]);
+    const [result, on] = await Promise.all([readInboxCandidates(rt), asks ? hasFeature(rt, 'telegram') : false, loadWeek().catch(() => { week = null; })]);
     if (mine !== run || scope !== radarScope(rt)) return;
+    asksOn = on;
     if (result.missing) state = 'missing';
     else if (result.ok) { state = 'ok'; rows = result.rows; }
     else state = 'failed';
@@ -344,7 +353,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
 
   return {
     // The side is shown or hidden by the screen; showing it reads again.
-    show(value) { host.hidden = !value; if (value) { chip = 'open'; status = ''; paint(); void load(); } },
+    show(value) { host.hidden = !value; if (value) { chip = 'open'; status = ''; paint(); void load(); } else paint(); },
     // The count is also needed while the other side is shown, so the screen asks for a read without showing.
     refresh: () => load(),
     count,

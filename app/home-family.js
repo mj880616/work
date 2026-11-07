@@ -1,6 +1,7 @@
 // FAMILY-잊지말기 4단계(설계 docs/design/tg-personal.md 5·6절, 명진 결정 11/05 시안 A) + S51-26 FAMILY-노트로(11/06 08:26 '2'·08:35 'ㅇ',
 // 시안 docs/design/mockups/family-forget-panel.html): 홈 [하루]의 '잊지 말기' 칸 하나(한 겹).
 // - 운영자 기능 family가 있을 때만 그린다(서버 app_my_features).
+// - S52-09 UI-요청상자통일: 상자·줄·버튼은 홈 '나한테 온 요청'(asks-box.js)과 같은 공용 부품(notice-box.mjs) — 색만 다르다.
 // - 머리 줄 '잊지 말기 n · AI가 뽑음 · 노트 열기 ›'(톤다운 노랑). 제안이 없으면 한 줄 '잊지 말기 · 새 제안 없음 · 노트 열기 ›'.
 // - 제안 줄 = 내용 한 줄 + 아래 작은 줄(왼쪽 말한 때·출처·날짜, 오른쪽 작은 [할 일로][이미 함][일정으로][노트로] ✕). '확정'은 꼬리표 없이, 예정·확인만 작은 글자.
 //   누르기 전에는 아무것도 만들지 않는다. [할 일로]·[일정으로]는 그 창에서 저장돼야, [노트로]는 그 창에서 보내야 상태가 바뀐다. [×]는 5초 되돌리기.
@@ -11,41 +12,27 @@
 // 이 파일이 이 칸의 유일한 renderer다.
 import {FIRM_LABEL, draftOf, metaLine, noteLine, openedFromPush, suggestions} from './family-notes-model.mjs';
 import {decide, hasFamily, readNotes} from './family-notes-data.js';
+import {NB_UNDO_MS, boxHtml, esc, headHtml, markBox, rowHtml} from './notice-box.mjs';
 
-const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-const UNDO_MS = 5000;
-const OPEN = '<button type="button" class="home-family-open" data-family-open>노트 열기 ›</button>';
+const UNDO_MS = NB_UNDO_MS;
+const OPEN = {attr: 'data-family-open', label: '노트 열기 ›'};
 
 export function mountHomeFamily(host, {rt = window.KPTURuntime, win = window} = {}) {
   if (!host) return null;
   let state = {phase: 'off', notes: [], busy: '', status: '', undo: null};
   let run = 0, undoTimer = 0, feature = {ws: '', on: false}, pushShown = false;
   const ws = () => rt.context?.read?.()?.workspace?.id || '';
+  markBox(host, 'forget');
 
-  function noteRow(n) {
-    const busy = state.busy === n.id ? ' disabled' : '';
-    const firm = FIRM_LABEL[n.firmness] ? `<span class="home-family-firm">${esc(FIRM_LABEL[n.firmness])}</span> ` : '';
-    return `<li class="home-family-item" data-family-note="${esc(n.id)}"><p class="home-family-body">${firm}${esc(n.body)}</p>`
-      + `<div class="home-family-row2"><span class="home-family-meta">${esc(metaLine(n))}</span>`
-      + `<span class="home-family-acts" role="group" aria-label="${esc(n.body)}">`
-      + `<button type="button" class="home-family-act" data-family-act="task"${busy}>할 일로</button>`
-      + `<button type="button" class="home-family-act" data-family-act="done"${busy}>이미 함</button>`
-      + `<button type="button" class="home-family-act" data-family-act="event"${busy}>일정으로</button>`
-      + `<button type="button" class="home-family-act" data-family-act="note"${busy}>노트로</button>`
-      + `<button type="button" class="home-family-act home-family-x" data-family-act="dismissed" aria-label="제안 지우기: ${esc(n.body)}"${busy}>×</button></span></div></li>`;
-  }
+  // S52-09 UI-요청상자통일: 상자·머리 줄·줄·버튼은 '나한테 온 요청'과 같은 공용 부품(notice-box.mjs). 색만 노랑.
+  const noteRow = n => rowHtml({id: n.id, body: n.body, meta: metaLine(n), busy: state.busy === n.id,
+    prefix: FIRM_LABEL[n.firmness] ? `<span class="nbx-tag">${esc(FIRM_LABEL[n.firmness])}</span> ` : ''});
   function render() {
     if (state.phase !== 'ready') { host.hidden = true; host.replaceChildren(); return; }
     const fresh = suggestions(state.notes);
-    const undo = state.undo ? ` <button type="button" class="home-family-open" data-family-undo>되돌리기</button>` : '';
-    const status = `<p class="home-family-status" role="status" aria-live="polite">${esc(state.status)}${undo}</p>`;
     host.hidden = false;
-    if (!fresh.length) {
-      host.innerHTML = `<div class="home-family-head is-one"><span class="home-family-title">잊지 말기</span><span class="home-family-faint">· 새 제안 없음 ·</span>${OPEN}</div>${status}`;
-      return;
-    }
-    host.innerHTML = `<div class="home-family-head"><span class="home-family-title">잊지 말기</span><span class="home-family-n">${fresh.length}</span><span class="home-family-faint">· AI가 뽑음 ·</span>${OPEN}</div>`
-      + `<ul class="home-family-list">${fresh.map(noteRow).join('')}</ul>${status}`;
+    const head = headHtml({title: '잊지 말기', count: fresh.length, faint: fresh.length ? '· AI가 뽑음 ·' : '· 새 제안 없음 ·', open: OPEN});
+    host.innerHTML = boxHtml({head, rows: fresh.map(noteRow), status: state.status, undo: !!state.undo});
   }
   const set = patch => { state = {...state, ...patch}; render(); };
 
@@ -130,7 +117,7 @@ export function mountHomeFamily(host, {rt = window.KPTURuntime, win = window} = 
       try { const {openListNote} = await import('./family-note-send.js'); await openListNote(rt); } catch { set({status: '노트를 열지 못했어요'}); }
       return;
     }
-    if ('familyUndo' in b.dataset) {
+    if ('nbxUndo' in b.dataset) {
       const u = state.undo; clearTimeout(undoTimer); set({undo: null});
       if (!u) return;
       const n = u.note;
@@ -147,8 +134,8 @@ export function mountHomeFamily(host, {rt = window.KPTURuntime, win = window} = 
       catch { set({status: '되돌리지 못했어요'}); }
       return;
     }
-    const row = b.closest('[data-family-note]'), note = row && state.notes.find(n => n.id === row.dataset.familyNote);
-    if (note && b.dataset.familyAct) await act(note, b.dataset.familyAct, b);
+    const row = b.closest('[data-nbx-row]'), note = row && state.notes.find(n => n.id === row.dataset.nbxRow);
+    if (note && b.dataset.nbxAct) await act(note, b.dataset.nbxAct, b);
   });
   win.addEventListener('kptu:session-changed', () => { run++; feature = {ws: '', on: false}; clearTimeout(undoTimer); state = {phase: 'off', notes: [], busy: '', status: '', undo: null}; render(); });
   return {refresh, state: () => state};

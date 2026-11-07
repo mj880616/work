@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 // JOURNAL-챙길것 / AI-서버연동 S5 → HOME-업무일지홈(2026-10-30): 홈·업무일지의 '챙길 것' 상자는 화면째 없앴다. 남은 것:
 // ① 그날 이 탭에서 홈을 처음 열 때 서버에 한 번 찾기(D7, home-summary.js → todo-radar.js autoFindToday)
-// ② 홈 요약 한 줄 '나한테 온 요청 n · 챙길 것 n · 정리 안 된 것 n ›'(누르면 정리함)
+// ② 홈 [하루] 카드 맨 위 '나한테 온 요청' 상자(S52-09) + 맨 아래 흐린 한 줄 '챙길 것 n · 정리 안 된 것 n ›'(누르면 정리함)
 // ③ 후보 줄은 정리함 [챙길 것](inbox-todos.js) 하나: [할 일로]·[무시]·[다시 찾기]·출처 열기·텔레그램 방 이름, 제안 기한은 공용 기한 글자.
 // app_todo_candidates, app_todo_radar_state and ai-assist kind=todo_radar are mocked. Synthetic IDs and text only.
 // The clock is 2026-10-06 10:00 KST (openHome). Nothing here calls a real server.
@@ -60,33 +60,38 @@ const btn=(row,name)=>row.getByRole('button',{name,exact:true});
 
 
 for(const width of [412,884,1440])test(`home: the first open of the day asks once (auto), and the summary line counts and opens the 정리함 ${width}`,async({page},info)=>{
- const f=await fixture(page,{width,rows:[cand(1,{kind:'deadline',due:'2026-10-09',summary:'가상 의견 제출'}),cand(2,{source_kind:'org_update',organization_id:ORG,summary:'가상 조직 회신'}),cand(3,{source_kind:'telegram',source_id:id(301),summary:'가상 나한테 온 요청'})]});
+ const f=await fixture(page,{width,routes:()=>page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:['telegram']})),rows:[cand(1,{kind:'deadline',due:'2026-10-09',summary:'가상 의견 제출'}),cand(2,{source_kind:'org_update',organization_id:ORG,summary:'가상 조직 회신'}),cand(3,{source_kind:'telegram',source_id:id(301),summary:'가상 나한테 온 요청'})]});
  await expect(page.locator('#homeView')).toBeVisible();
  // ① one automatic look a day, kind + mode only.
- await expect.poll(()=>f.calls.ai.length).toBe(1);expect(f.calls.ai[0]).toEqual({kind:'todo_radar',mode:'auto'});
- // ② the summary line: 나한테 온 요청 = the telegram ask, 챙길 것 = the other open ones, 정리 안 된 것 = unsorted updates (none here).
+ // (운영자 기능 telegram이 있으면 업무일지 '기억할 만한 일' 읽기도 ai-assist를 부르므로 챙길 것 찾기만 센다.)
+ const radarCalls=()=>f.calls.ai.filter(c=>c.kind==='todo_radar');
+ await expect.poll(()=>radarCalls().length).toBe(1);expect(radarCalls()[0]).toEqual({kind:'todo_radar',mode:'auto'});
+ // ② S52-09 UI-요청상자통일: 카드 맨 위 '나한테 온 요청' 상자(운영자 기능 telegram) — 요청 줄은 상자 안, 맨 아래 흐린 한 줄 '챙길 것 n · 정리 안 된 것 n ›'.
  const line=page.locator('#homeView [data-home-summary]');
  await expect(line).toBeVisible();
- await expect(line.locator('[data-home-summary-asks]')).toHaveText('나한테 온 요청 1');
- await expect(line.locator('[data-home-summary-asks]')).toHaveClass(/is-on/);
+ await expect(line).toHaveClass(/(^|\s)nbx(\s|$)/);
+ await expect(line.locator('.nbx-head')).toHaveText('나한테 온 요청1· 텔레그램 ·정리함 열기 ›');
+ await expect(line.locator('[data-nbx-row] .nbx-body')).toHaveText(['가상 나한테 온 요청']);
  await expect(line.locator('[data-home-summary-todos]')).toHaveText('2');
  await expect(line.locator('[data-home-summary-unsorted]')).toHaveText('0');
- await expect(line).toHaveText('나한테 온 요청 1 · 챙길 것 2 · 정리 안 된 것 0 ›');
- // 노란 주목은 요청만, 나머지는 흐린 글씨(같은 색 아님), 한 줄, 가로 넘침 없음.
- const colors=await line.evaluate(el=>({ask:getComputedStyle(el.querySelector('[data-home-summary-asks]')).color,rest:getComputedStyle(el.querySelector('.home-summary-rest')).color,h:el.getBoundingClientRect().height}));
- expect(colors.ask).not.toBe(colors.rest);expect(colors.h).toBeLessThanOrEqual(24);
+ await expect(line.locator('.nbx-foot')).toHaveText('챙길 것 2 · 정리 안 된 것 0 ›');
+ // 날짜 밑 옛 요약 줄은 없다(상자는 [하루] 카드 안).
+ expect(await line.evaluate(el=>!!el.closest('[data-journal-day]'))).toBe(true);
+ await expect(page.locator('#homeView .home-summary-open,#homeView .home-summary-rest')).toHaveCount(0);
  expect(await noWideScroll(page)).toBe(true);
  // 옛 챙길 것 상자는 홈 어디에도 없다.
  await expect(page.locator('#homeView [data-journal-radar],#homeView [data-home-card="radar"],#homeView [data-radar-row]')).toHaveCount(0);
  await page.screenshot({path:info.outputPath(`home-summary-${width}.png`)});
- await tap(page,line.locator('.home-summary-open'),width);
+ await tap(page,line.locator('.nbx-foot-open'),width);
  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
- await expect(inbox(page).locator('[data-inbox-todo-row]')).toHaveCount(3);
+ // 정리함: 텔레그램 요청은 같은 상자(위), 나머지 두 줄은 챙길 것 목록.
+ await expect(inbox(page).locator('[data-inbox-todo-row]')).toHaveCount(2);
+ await expect(page.locator('#basketView [data-inbox-asks-host] [data-nbx-row] .nbx-body')).toHaveText(['가상 나한테 온 요청']);
  // Back home again in the same tab: no second automatic look.
  await page.evaluate(()=>window.KPTURouter.go('home'));
  await expect(page.locator('#homeView')).toBeVisible();
  await page.waitForTimeout(300);
- expect(f.calls.ai).toHaveLength(1);
+ expect(radarCalls()).toHaveLength(1);
  expect(f.calls.patch).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -96,8 +101,9 @@ test('home: no number can be read → the summary line stays hidden; nothing els
  await page.waitForTimeout(300);
  const line=page.locator('#homeView [data-home-summary]');
  // A table that is not applied counts as 0 (inbox-count.js), so the line shows zeros instead of failing.
- await expect(line).toHaveText('나한테 온 요청 0 · 챙길 것 0 · 정리 안 된 것 0 ›');
- await expect(line.locator('[data-home-summary-asks]')).not.toHaveClass(/is-on/);
+ // 운영자 기능 telegram이 없는 작업공간(기본): 상자 없이 흐린 한 줄만.
+ await expect(line).toHaveText('챙길 것 0 · 정리 안 된 것 0 ›');
+ await expect(line).not.toHaveClass(/(^|\s)nbx(\s|$)/);
  expect(f.errors).toEqual([]);
 });
 
