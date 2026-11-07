@@ -2,6 +2,7 @@
 // 받은 HTML은 글자만 뽑는다(태그·스크립트는 버림). 화면도 글자로만 그린다(설계 6절).
 import { allowedUrl, type Kind, type OutsideSource } from "../_shared/outside-catalog.ts";
 import { isNoiseLine } from "../_shared/outside-tidy.ts";
+import { decodeEntities, decodeEntitiesDeep, decodeText } from "../_shared/html-entities.ts";
 
 export const BODY_MAX_CHARS = 60000;      // 글 한 건 본문 상한(설계 3.1)
 export const SENTENCE_MAX_CHARS = 500;    // DB 검사와 같음
@@ -19,16 +20,9 @@ export const CONTENT_HTML_MAX = 400000;
 
 // ---- 글자 다듬기 ----------------------------------------------------------------------------------------------------
 
-const NAMED: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", middot: "·", hellip: "…", ndash: "–", mdash: "—", lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”", laquo: "«", raquo: "»", copy: "©" };
-export function decodeEntities(s: string): string {
-  return s.replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{2,8});/gi, (m, e: string) => {
-    if (e[0] === "#") {
-      const n = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-      return Number.isFinite(n) && n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : " ";
-    }
-    return NAMED[e.toLowerCase()] ?? m;
-  });
-}
+// 글자 풀기(엔티티)는 공용 한 곳 _shared/html-entities.ts(S52-38). decodeEntities(한 번)는 주소·속성값용, decodeText는 글자 칸용
+// (두 번 감싼 표기 끝까지 + '&' 빠진 'quot;' 되살리기). 예전 이름으로 부르는 곳을 위해 여기서도 내보낸다.
+export { decodeEntities, decodeText };
 // 제어 문자를 빈칸으로, 빈칸 여러 개를 하나로.
 export function oneLine(s: string): string {
   // deno-lint-ignore no-control-regex
@@ -48,7 +42,7 @@ export function htmlToText(html: string): string {
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|table|section|article|blockquote|header|footer|nav|aside|dd|dt|figure|figcaption|pre|hr)\b[^>]*>/gi, "\n")
     .replace(/<[^>]*>/g, " ");
-  return decodeEntities(t)
+  return decodeText(t)
     .split("\n")
     // deno-lint-ignore no-control-regex
     .map((l) => l.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f​﻿]/g, " ").replace(/[ \t\r\f\v ]+/g, " ").trim())
@@ -60,7 +54,7 @@ export function htmlToText(html: string): string {
 // ITF 같은 RSS는 description 안 HTML을 한 번 더 이스케이프해 보내서, 풀기 없이 태그만 걷으면 '<span …>'·'&nbsp;'가 글자로 남는다(11/04 명진 캡처).
 // 제목·요약·본문·텔레그램 미리보기가 모두 이 함수 하나를 쓴다. 문단 줄바꿈은 htmlToText가 남긴다.
 export function feedText(raw: string): string {
-  return htmlToText(decodeEntities(raw));
+  return htmlToText(decodeEntitiesDeep(raw));
 }
 
 // ---- 날짜 ----------------------------------------------------------------------------------------------------------
@@ -151,7 +145,7 @@ export function usableTitle(t: string | null | undefined): boolean {
 }
 export function cleanTitle(raw: string): string | null {
   // RSS·Atom(type="html") 제목은 한 번 더 이스케이프돼 오기도 해서 풀고 → 태그 걷고 → 다시 푼다.
-  const t = cut(oneLine(decodeEntities(decodeEntities(raw).replace(/<[^>]*>/g, " "))), TITLE_MAX_CHARS);
+  const t = cut(oneLine(decodeText(decodeEntitiesDeep(raw).replace(/<[^>]*>/g, " "))), TITLE_MAX_CHARS);
   return t ? t : null;
 }
 

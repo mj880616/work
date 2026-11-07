@@ -6,6 +6,7 @@
 // - 모양 상한은 DB 검사(app_feed_bodies, migration 20261106050000)와 같다: 블록 400개·글자 10만 자·사진 20개·주소 2000자·캡션 300자·제어 문자 없음.
 // - 사진 주소는 저장만 한다. 서버가 받으러 가지 않는다(화면이 https로만, 리퍼러 없이 띄움 — 4.5절).
 import { bodyRange, bodyScopeHtml, cut, decodeEntities, htmlToText, isBodyNoise, isFileLine, oneLine } from "../outside-feed/parse.ts";
+import { decodeText } from "./html-entities.ts";
 
 // 출처마다 카탈로그 `extract` 칸(모양은 outside-catalog.ts의 ExtractRule). 본문 칸은 지금 카탈로그 `bodyClass`를 그대로 쓴다(ai-assist가 같은 칸을 읽음 — 두 벌 금지).
 import type { ExtractRule } from "./outside-catalog.ts";
@@ -104,6 +105,8 @@ function attr(tag: string, name: string): string | null {
   const v = m ? m[1] ?? m[2] ?? m[3] ?? "" : null;
   return v === null ? null : decodeEntities(v).trim();
 }
+// 사진 대체 글은 글자 칸: 속성값 한 번 풀기 뒤 남은 두 번 감싼·'&' 빠진 표기까지(S52-38, 공용 html-entities.ts).
+const altText = (v: string | null) => v === null ? null : decodeText(v).trim();
 export function imageSrc(tag: string, base: string, skip?: RegExp): string | null {
   const w = Number(attr(tag, "width") ?? NaN), h = Number(attr(tag, "height") ?? NaN);
   if ((Number.isFinite(w) && w <= 2) || (Number.isFinite(h) && h <= 2)) return null;
@@ -221,7 +224,7 @@ function extractScope(input: ExtractInput, raw: string, scope: { html: string; o
   html = html.replace(/<img\b[^>]*>/gi, (tag) => {
     const src = imageSrc(tag, input.base, input.rule.skipImage);
     if (!src) return " ";
-    pics.push({ src, alt: attr(tag, "alt") || attr(tag, "title") });
+    pics.push({ src, alt: altText(attr(tag, "alt")) || altText(attr(tag, "title")) });
     return `<p>${MARK_IMG}${pics.length - 1}${MARK_IMG}</p>`;
   });
   const key = (l: string) => clean(l);
