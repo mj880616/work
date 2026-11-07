@@ -51,20 +51,17 @@
 #appView #outsideView .nw-star{ margin-left:auto; color:var(--kptu-warning); }
 #appView #outsideView .nw-row .ns-mark{ align-self:center; font-size:11px; color:var(--kptu-muted); }
 
-/* 탭 자리(명진 11/06 01:25): 폰 세로 = 아래 가운데 떠 있는 둥근 탭 줄(하단바 위), 폴드 펼침(761~1199px) = 오른쪽 아래, PC(1200px~) = 위 밑줄 탭(outside-statements.css). */
+/* 탭 자리(명진 11/06 01:25): 폰 세로 = 아래 가운데 떠 있는 둥근 탭 줄(하단바 위), 폴드 펼침(761~1199px) = 오른쪽 아래, PC(1200px~) = 위. 모양은 어디서나 공용 ⑤ 보기 바꾸기(UI-보기탭한모양). */
 @media (max-width:1199px){
-  #appView #outsideView .os.now > .os-tabs{ position:fixed; z-index:30; gap:0; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:16px; background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float); overflow:hidden; white-space:nowrap; }
-  #appView #outsideView .os.now > .os-tabs > [role="tab"]{ height:28px; margin:0; padding:0 11px; font-size:12px; border-bottom:0; }
-  #appView #outsideView .os.now > .os-tabs > [aria-selected="true"]{ font-weight:700; color:var(--kptu-ink); background:var(--ds-select-bg); }
-  #appView #outsideView .os.now > .os-tabs > [role="tab"]::after{ inset:-8px 0; }
+  #appView #outsideView .os.now > .os-tabs{ position:fixed; z-index:30; margin:0; }
   /* 떠 있는 탭 줄에 마지막 줄이 가리지 않게 목록 아래 여백 */
   #appView #outsideView .now-main{ padding-bottom:52px; }
 }
 @media (max-width:760px){
-  #appView #outsideView .os.now > .os-tabs{ left:50%; transform:translateX(-50%); bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + 10px); }
+  #appView #outsideView .os.now > .os-tabs{ left:50%; transform:translateX(-50%); bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px)); }
 }
 @media (min-width:761px) and (max-width:1199px){
-  #appView #outsideView .os.now > .os-tabs{ right:12px; bottom:calc(12px + env(safe-area-inset-bottom,0px)); }
+  #appView #outsideView .os.now > .os-tabs{ right:12px; bottom:calc(6px + env(safe-area-inset-bottom,0px)); }
 }
 /* 매체 고르기 창(library-move-picker.js 같은 부품): 고른 줄은 흐리지 않고 굵게, 색 점. */
 #nwMediaPicker .lu-move-item{ justify-content:flex-start; gap:6px; }

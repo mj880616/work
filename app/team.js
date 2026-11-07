@@ -189,7 +189,7 @@ let reportPlaceReady=false;
 // 달력은 사업 보고 화면 안에서만 쓴다(일정 탭 달력과 섞지 않음). 보기 선택은 이 화면 안 상태이고 서버(view-prefs report_view)에 기억한다.
 // 서버에서 읽은 기억은 사용자가 이번에 직접 고르기 전까지 그릴 때마다 따른다(팀 모듈이 기억을 읽기 전에 불러와질 수 있어 처음 값은 그릴 때 읽는다).
 let reportView='list',reportViewChosen=false,reportMonth=(()=>{const p=seoulParts();return {year:p.year,month:p.month}})(),reportDay='',photoFocusId=null;
-function renderReportViewChips(){const host=$('#reportViewFilter');if(!host)return;renderFilterChips(host,{label:'보기',controls:'meetingList',value:reportView,options:REPORT_VIEW_OPTIONS.map(o=>({value:o.value,label:o.label})),small:true,onChange:value=>selectReportView(value)})}
+function renderReportViewChips(){const host=$('#reportViewFilter');if(!host)return;renderFilterChips(host,{label:'보기',controls:'meetingList',value:reportView,options:REPORT_VIEW_OPTIONS.map(o=>({value:o.value,label:o.label})),seg:true,onChange:value=>selectReportView(value)})}
 // MTG-고치기바로: 세 번째 칸에서 고치던 내용이 있으면, 다른 줄·종류·칸·보기를 누를 때 그 자리에서 [저장] [버리기]를 묻고 고른 뒤에 간다(meeting-round-detail.js 문지기). 없으면 바로 간다.
 // 물어서 멈췄으면(false) 눌린 칩은 원래 상태로 되돌려 그린다.
 function leaveReport(go){const guard=window.KPTUMeetingRoundDetail?.guardLeave;if(!guard){go();return true}return guard(go)}

@@ -101,11 +101,9 @@
 .ps3-person input{width:auto;min-height:0}
 .ps3-person select{padding:7px 8px}
 .ps3-archive-list{display:grid;gap:3px}
-.ps3-archive-tabs{display:flex;gap:var(--kptu-space-3);margin:0 0 var(--kptu-space-2)}
+/* UI-보기탭한모양(S52-17): [보관|휴지통]은 공용 ⑤ 보기 바꾸기(.ds-seg). 여기는 자리만. */
+.ps3-archive-tabs{margin-bottom:calc(var(--kptu-space-2) - var(--ds-seg-hit))}
 .ps3-archive-tabs[hidden]{display:none}
-.ps3-archive-tabs button{position:relative;border:0;background:transparent;padding:0 var(--kptu-space-1);min-height:var(--kptu-action-compact-height);color:var(--kptu-muted);font-size:12px;font-weight:400;cursor:pointer}
-.ps3-archive-tabs button::after{content:"";position:absolute;inset:-8px -4px}
-.ps3-archive-tabs button[aria-pressed="true"]{color:var(--kptu-ink);font-weight:600;text-decoration:underline}
 .ps3-trash-hint{color:var(--kptu-danger)}
 [data-ps3-archive-hint][hidden],[data-ps3-delete-note][hidden]{display:none}
 @media(max-width:760px){

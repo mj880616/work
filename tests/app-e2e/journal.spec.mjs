@@ -1208,12 +1208,12 @@ for(const width of [390,1280])test(`업무일지 위 조작 줄: 버튼 높이·
  await openJournal(page,width);
  const metrics=await page.evaluate(()=>{
   const token=n=>{const e=document.createElement('i');e.style.cssText=`display:block;height:var(${n})`;document.body.append(e);const v=e.getBoundingClientRect().height;e.remove();return v};
-  const root=document.querySelector('#journalRoot'),pick=s=>[...root.querySelectorAll(s)].filter(b=>b.getBoundingClientRect().width>0).map(b=>{const r=(b.matches('[data-journal-mode]')?b.parentElement:b).getBoundingClientRect(),c=getComputedStyle(b);return {name:(b.getAttribute('aria-label')||b.textContent).trim(),h:Math.round(r.height*10)/10,size:c.fontSize,weight:Number(c.fontWeight)}});
+  const root=document.querySelector('#journalRoot'),pick=s=>[...root.querySelectorAll(s)].filter(b=>b.getBoundingClientRect().width>0).map(b=>{const seg=b.matches('[data-journal-mode]'),p=getComputedStyle(b.parentElement),r=(seg?b.parentElement:b).getBoundingClientRect(),c=getComputedStyle(b);/* UI-보기탭한모양(S52-17): [하루|주간 정리]는 공용 ⑤ — 보이는 알약 높이(누르는 범위 여백 제외), 고른 칸만 굵게 */return {name:(b.getAttribute('aria-label')||b.textContent).trim(),h:Math.round((r.height-(seg?parseFloat(p.paddingTop)+parseFloat(p.paddingBottom):0))*10)/10,size:c.fontSize,weight:Number(c.fontWeight),on:seg&&b.getAttribute('aria-pressed')==='true'}});
   return {compact:token('--ds-compact-height'),bar:pick('.journal-head [data-journal-mode],.journal-head [data-journal-prev],.journal-head [data-journal-next],.journal-head [data-journal-today]')};
  });
  // HOME-업무일지홈: 머리줄은 날짜 제목 · ‹ 날짜 줄 › · 이번 주 · (오른쪽 끝) [하루|주간 정리] 순서다.
  expect(metrics.bar.map(b=>b.name)).toEqual(['이전 주','다음 주','이번 주','하루','주간 정리']);
- for(const b of metrics.bar){expect(b.h,`${b.name} 높이`).toBe(metrics.compact);expect(b.size,`${b.name} 글자`).toBe('13px');expect(b.weight,`${b.name} 굵기`).toBe(500)}
+ for(const b of metrics.bar){expect(b.h,`${b.name} 높이`).toBe(metrics.compact);expect(b.size,`${b.name} 글자`).toBe('13px');expect(b.weight,`${b.name} 굵기`).toBe(b.on?600:500)}
  // JOURNAL-주간정리다듬기 ①: 위 줄 [주간보고 초안 복사]는 [하루]·[주간 정리] 모두 없다. [한글 파일 만들기] 옆 [복사]는 [주간 정리]에서만 보인다.
  await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeHidden();
  await page.locator('#journalRoot [data-journal-mode="week"]').click();

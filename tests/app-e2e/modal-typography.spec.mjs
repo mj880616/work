@@ -89,7 +89,8 @@ const newStandard=p=>p.evaluate(()=>{
   if(!e.checkVisibility()||e.closest('#calendarGrid,#calendarWeek,.md-body,.a11y-only,#ps3DetailPane,#wdDetailPane'))continue;
   const s=getComputedStyle(e),text=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
   // LIB-목록간격(2026-10-23 사용자 확정 11:02): 자료실 트리의 맨 위 단 이름(프로젝트·'프로젝트 없음')만 굵게(700) — 두 가지 굵기 기준의 유일한 예외.
-  if(text&&!['400','500'].includes(s.fontWeight)&&!(s.fontWeight==='700'&&e.matches('summary[data-lu-top] > .lu-node-name')))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
+  // UI-보기탭한모양(S52-17, 시안 승인): 보기 바꾸기 탭의 고른 칸만 굵게(--ds-weight-strong) — 두 번째 예외.
+  if(text&&!['400','500'].includes(s.fontWeight)&&!(s.fontWeight==='700'&&e.matches('summary[data-lu-top] > .lu-node-name'))&&!(s.fontWeight==='600'&&e.matches('.ds-seg button.ds-seg-btn:is([aria-pressed="true"],[aria-selected="true"],[aria-checked="true"])')))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
   if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button')&&!e.matches('.icon-btn,.chip-rows-more,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn,[data-sp-new],.lb-add'))){
    // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px. UI-버튼전수조사: 채운 버튼은 36px, 나머지 버튼도 32px.
    // UI-칩줄두줄(2026-10-31): 칩 줄의 칩은 26px·12px.
@@ -187,7 +188,8 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter):not(.report-period-chips)');// REPORT-기간고르기: 기간 칩 줄은 report-period.spec이 따로 본다
     // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
     // UI-전수디자인점검 F01: 사업 보고(폰)는 위쪽 칸 칩 줄 하나(사업영역·회의명은 줄 끝 [거르기 ▾] 창으로 접었다).
-    await expect(groups).toHaveCount(name==='library'?2:1);
+    // UI-보기탭한모양(S52-17): 자료실 묶기 줄은 보기 탭(공용 ⑤ .ds-seg)이 되어 칩 줄에서 빠졌다 — 남는 칩 줄은 분류 하나.
+    await expect(groups).toHaveCount(1);
     // The home view is hidden here, so its tabs (height:auto) are compared by their declared min-height; the filters' real height is checked too.
     const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.minHeight,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
     // UI-버튼크기(2026-10-17): meeting/library filters are pill chips (32px, 999px corners, 13px/500, 12px side padding),

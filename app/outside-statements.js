@@ -39,13 +39,13 @@ const NEWS_COLS = 'id,lane,url,title,lang,publisher,source_key,published_at,scra
 const SOURCE_COLS = 'source_key,enabled,last_ok_at,last_error';
 const PANEL = Object.freeze({all: 'nowPanelAll', movement: 'osPanelNew', media: 'nowPanelNews', archive: 'nowPanelSaved'});
 
-const TABS_HTML = NOW_TABS.map((t, i) => `<button type="button" role="tab" id="osTab-${t.id}" data-os-tab="${t.id}" aria-selected="${i === 0}" aria-controls="${PANEL[t.id]}"${i ? ' tabindex="-1"' : ''}>${t.label}</button>`).join('');
+const TABS_HTML = NOW_TABS.map((t, i) => `<button type="button" role="tab" class="ds-seg-btn" id="osTab-${t.id}" data-os-tab="${t.id}" aria-selected="${i === 0}" aria-controls="${PANEL[t.id]}"${i ? ' tabindex="-1"' : ''}>${t.label}</button>`).join('');
 function install() {
   if (document.getElementById('outsideView')) return;
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="outsideView" class="view-panel hidden" aria-labelledby="osTitle">
 <h2 id="osTitle" class="screen-title">News</h2>
 <div id="outsideRoot" class="os now" data-mode="list" data-tab="all" data-detail="closed">
-<div class="os-tabs" role="tablist" aria-label="News 보기" data-os-tabs>${TABS_HTML}</div>
+<div class="os-tabs ds-seg" role="tablist" aria-label="News 보기" data-os-tabs>${TABS_HTML}</div>
 <div class="now-main" id="nowMain">
 <form class="nw-top" data-nw-top role="search" aria-label="News 찾기"><input type="search" class="nw-find" data-nw-find maxlength="100" enterkeyhint="search" placeholder="News 찾기 — 제목·문장" aria-label="News 찾기 — 제목·문장" autocomplete="off"><button type="button" class="nw-dd" data-nw-media aria-haspopup="dialog" aria-expanded="false"></button><button type="button" class="os-more" data-os-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="News 메뉴">${MORE}</button></form>
 <p class="now-cand" data-now-cand hidden></p>
