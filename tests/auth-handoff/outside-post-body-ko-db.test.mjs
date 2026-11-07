@@ -55,7 +55,8 @@ test('outside post body_ko: plan, dry-run, apply, server-only write, owner-only 
    for(const mode of ['apply','dry-run']){const p=prepareMigration({mode,version,runId:'1',root});assert.equal(p.rules,'expanded');assert.equal(p.flow,'full');assert.deepEqual(p.targets,['app_outside_posts']);}
    const summary=(await read('docs/'+stem+'.summary.md')).trim().split('\n');
    assert.deepEqual(summary.map(l=>l.split(':')[0]),['무엇이 바뀌나','잘못되면','되돌리는 법']);
-   const code=migration.replace(/--.*$/gm,'');
+   // 주석·글자 값(기록 설명 문장 등)은 빼고 SQL 문장만 본다.
+   const code=migration.replace(/--.*$/gm,'').replace(/'[^']*'/g,"''");
    assert.doesNotMatch(code,/security definer|disable row level|\bgrant\b|\brevoke\b|create policy|create (or replace )?function|create trigger|rtw_|\bdelete\s+from\b|\bupdate\s+public\./i);
    pre=await check(precheck);
    for(const k of ['new migration absent','previous step applied','body_ko column and check absent','posts RLS on, no anon privilege, no authenticated write'])assert.equal(pre[k],'예',k);
