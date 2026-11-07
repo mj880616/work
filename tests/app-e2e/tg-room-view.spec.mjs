@@ -126,3 +126,39 @@ test('PC 1440: 서버에 방별이 기억돼 있으면 방별로 열리고, 폴�
  expect(f.errors).toEqual([]);
 });
 });
+
+// TG-보기바꿈높이같게(요청함 11/08 00:26): [날짜별]↔[방별]을 바꿔도 목록 위 머리 줄 높이가 같아 첫 방 줄이 같은 높이에서 시작하고,
+// 방 줄도 같은 세 줄 부품(방 이름 / 한 줄 요약 / 작은 줄)이라 줄 높이가 같다. 방별 머리 줄은 글자 없는 빈 줄.
+const rowBoxes=view=>view.locator('#tgList .feed-feed [data-tg-rd]').evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return {y:Math.round(r.top),h:Math.round(r.height)};}));
+for(const width of [1440,884,412])test.describe(`보기 바꿈 높이 ${width}`,()=>{
+ test.use({hasTouch:width<761});
+ test(`[날짜별]↔[방별]: 첫 줄 위치·줄 높이 같음, 방별 머리 줄은 빈 줄 ${width}`,async({page})=>{
+  const f=await fixture(page,{width});
+  await openTelegram(page,width);
+  const view=page.locator('#telegramView'),sw=view.locator('[data-tg-bysw]');
+  await expect(view.locator('[data-tg-day]').first()).toBeVisible();
+  const day=await rowBoxes(view);
+  const dayHead=await view.locator('[data-tg-day]').first().boundingBox();
+  await press(page,sw.locator('[data-tg-by="room"]'),width);
+  await expect(view.locator('[data-tg-roomrow]').first()).toBeVisible();
+  const head=view.locator('[data-tg-roomhead]');
+  await expect(head).toHaveCount(1);
+  expect((await head.textContent()).trim()).toBe('');
+  const hb=await head.boundingBox();
+  expect(Math.abs(hb.y-dayHead.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(hb.height-dayHead.height)).toBeLessThanOrEqual(1);
+  const room=await rowBoxes(view);
+  expect(Math.abs(room[0].y-day[0].y)).toBeLessThanOrEqual(1);
+  // 줄 높이: 두 보기의 모든 줄이 같은 높이(내용만 다름). 방별 날짜·날 수는 작은 줄(.feed-ft) 자리.
+  const hs=[...new Set([...day,...room].map(r=>r.h))];
+  expect(Math.max(...hs)-Math.min(...hs)).toBeLessThanOrEqual(1);
+  await expect(view.locator('[data-tg-roomrow="room-a"] .feed-ft [data-tg-roomday]')).toHaveText('10.06 (화) · 2일');
+  await expect(view.locator('[data-tg-roomrow="room-a"] .feed-rn [data-tg-roomday]')).toHaveCount(0);
+  // 돌아가도 같은 자리.
+  await press(page,sw.locator('[data-tg-by="day"]'),width);
+  await expect(view.locator('[data-tg-day]').first()).toBeVisible();
+  await expect(view.locator('[data-tg-roomhead]')).toHaveCount(0);
+  expect(Math.abs((await rowBoxes(view))[0].y-day[0].y)).toBeLessThanOrEqual(1);
+  expect(f.errors).toEqual([]);
+ });
+});
