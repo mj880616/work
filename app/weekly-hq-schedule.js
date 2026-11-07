@@ -93,7 +93,7 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     parts.unshift(partAdd(doc, [pick, add]));
   }
   if (ui.picking) parts.push(picker());
-  // 기준에 맞는 달력 일정 제안(흐린 줄, 줄 끝 [넣기] · ⋯[빼기]). 고치는 중·고르는 중에는 그리지 않는다.
+  // 기준에 맞는 달력 일정 제안(흐린 줄, 줄 끝 ⋯ 하나 — [넣기]·[이미 있음]·[빼기]). 고치는 중·고르는 중에는 그리지 않는다.
   const picks = hq.row?.draft?.picks ?? null;
   const suggested = !ui.editing && !ui.picking ? hqSuggestions(events, rows, hq.titles, picks, learnFor(start, picks, {rt, redraw}).learn) : [];
   if (suggested.length) {
@@ -102,11 +102,11 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
       const {item, f} = x.raw, text = x.text;
       const li = el('li'); li.dataset.journalHqSuggestItem = item.key;
       li.append(el('span', 'weekly-flow-tag', '캘린더'), el('span', 'weekly-flow-text', f.day ? text : `${item.label} ${text}`)); // 줄 글에 날짜가 들어 있다(hqLine)
-      const take = el('button', 'mini weekly-flow-take', '넣기'); take.type = 'button'; take.dataset.journalHqSuggestTake = item.key; take.disabled = busy || rows.length >= HQ_MAX;
-      take.setAttribute('aria-label', `2) 주요 일정에 넣기: ${text}`);
-      // S52-24: [이미 있음] — 이미 적은 일정이라 치움(빼기와 따로 기록). 공용 ② 작은 버튼.
-      const had = el('button', 'secondary weekly-flow-have', '이미 있음'); had.type = 'button'; had.dataset.journalHqSuggestHave = item.key; had.disabled = busy; had.setAttribute('aria-label', `이미 있음(이미 적은 일정): ${text}`);
-      li.append(take, had, rowMore(doc, {label:`제안 빼기: ${text}`, data:{journalHqSuggestMore:item.key}, items:[{text:'빼기', data:{journalHqSuggestDrop:item.key}, disabled:busy, danger:true, aria:`제안 빼기: ${text}`}]}));
+      // S52-25 공용 '제안 줄': 줄 끝 ⋯ 하나 → [넣기][이미 있음][빼기](달력 일정 제안은 [고쳐서 넣기]가 없다 — 넣은 뒤 표 줄 ⋯ [고치기]).
+      li.append(rowMore(doc, {label:`제안: ${text}`, data:{journalHqSuggestMore:item.key}, items:[
+        {text:'넣기', data:{journalHqSuggestTake:item.key}, disabled:busy || rows.length >= HQ_MAX, aria:`2) 주요 일정에 넣기: ${text}`},
+        {text:'이미 있음', data:{journalHqSuggestHave:item.key}, disabled:busy, aria:`이미 있음(이미 적은 일정): ${text}`},
+        {text:'빼기', data:{journalHqSuggestDrop:item.key}, disabled:busy, danger:true, aria:`제안 빼기: ${text}`}]}));
       sg.append(li);
     }
     parts.push(sg);

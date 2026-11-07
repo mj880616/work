@@ -15,7 +15,6 @@
 .wl-text.is-edit{cursor:text}.wl-text.is-edit:hover{background:var(--kptu-surface-subtle)}
 .wl-text.is-edit:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .wl-line.is-sug .wl-text,.wl-line.is-sug .wl-day{color:var(--kptu-muted)}
-.wl-line.is-sug .wl-text{font-style:italic}
 .wl-line.is-last .wl-text,.wl-line.is-last .wl-day{color:var(--kptu-muted);opacity:.8}
 .wl-ai{flex:0 0 auto;padding:0 3px;border:1px solid var(--kptu-border);border-radius:3px;color:var(--kptu-muted);font-size:10px;line-height:14px}
 .wl-btns{flex:0 0 auto}
@@ -66,3 +65,21 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
 .wl-src:hover{color:var(--kptu-info)}
 .wl-src:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .wl-src:disabled{opacity:.5;cursor:default}
+/* S52-25 WEEKLY-조직현황폰(요청함 11/07 19:20, 시안 docs/design/mockups/weekly-org-status-phone.html): [주간 정리] 조직 칸은 이름 줄('이름 · n줄 · ⋯')
+   → 넣은 줄(보통 글자) → 흐린 제안 줄(출처 꼬리표 · 날짜 · 글 · ⋯). 제안 글은 기울이지 않는다(위 is-sug 기울임 없앰 — 담당조직 표도 같음).
+   ⋯ 는 공용 rowMore(.row-more, journal.css), 꼬리표는 주간 정리 공용 .weekly-flow-tag. 여기서는 자리(간격·순서)만 정한다. */
+.wl-count{margin-left:4px;color:var(--kptu-muted);font-size:var(--ds-text-meta);font-weight:400;white-space:nowrap}
+.wl-c-org .row-more{float:right}
+.wl-line .row-more{margin-left:auto}
+.wl-line.is-sug{align-items:flex-start;padding:2px 0}
+.wl-line.is-sug .weekly-flow-tag{margin-top:2px}
+.wl-line.is-sug .wl-text{flex:1 1 0}
+.wl-more-slot{display:none}
+.wl-sug-more{display:block}
+@media (max-width:760px){
+  /* 폰: 표 칸 선 대신 조직마다 위쪽 선 한 줄(촘촘한 몇 줄). 폴드 펼침·PC는 표 그대로. */
+  .wl-table.wl-weekly{border:0}
+  .wl-table.wl-weekly th,.wl-table.wl-weekly td{border:0;padding:2px 0}
+  .wl-table.wl-weekly tbody th.wl-c-org{background:none;padding-top:6px;border-top:1px solid var(--kptu-border)}
+  .wl-table.wl-weekly td{border-top:0;padding-bottom:6px}
+}

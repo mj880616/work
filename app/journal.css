@@ -644,9 +644,6 @@
 #appView #homeView .weekly-flow-text{ flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
 #appView #homeView .weekly-flow-suggest > li{ color:var(--kptu-faint, var(--kptu-muted)); font-size:var(--ds-text-meta); }
 #appView #homeView .weekly-flow-tag{ flex:none; padding:0 4px; border:var(--ds-line-width) solid var(--kptu-border-strong); border-radius:6px; font-size:11px; line-height:1.5; color:var(--kptu-muted); }
-#appView #homeView .weekly-flow-take{ flex:none; color:var(--kptu-primary-ink); }
-/* S52-24 제안 줄 [이미 있음]: 공용 ② 작은 버튼(button.secondary) — 여기서는 자리만(줄지 않게) */
-#appView .weekly-flow-have{ flex:none; }
 #appView #homeView .weekly-flow-empty{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .weekly-flow-edit{ display:flex; align-items:center; gap:4px; flex:1 1 auto; min-width:0; }
 #appView #homeView .weekly-flow-edit > input{ flex:1 1 auto; min-width:0; }
