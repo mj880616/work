@@ -79,14 +79,15 @@ const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const length = text => [...String(text ?? '')].length;
 
 // HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 이 화면이 홈이다(#homeView, 라우터 이름 home). 위에서부터
-//   날짜 제목·이번 주 날짜 줄(‹ 26 … 1 › 이번 주, 오늘은 갈색 테두리) → 요약 한 줄(home-summary.js) → 업데이트 입력줄(home-quick.js, 폰은 아래 고정)
+//   날짜 제목·이번 주 날짜 줄(‹ 26 … 1 › 이번 주, 오늘은 갈색 테두리) → 업데이트 입력줄(home-quick.js, 폰은 아래 고정)
+//   → [하루] 카드 맨 위 '나한테 온 요청' 상자(asks-box.js, 재료는 home-summary.js) → '잊지 말기' 상자 — 같은 공용 부품(S52-09)
 //   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료·그 밖의 기록(접힘).
 //   그날 나온 챙길 것 상자는 없앴다(요약 줄의 '챙길 것 n'이 정리함으로 간다). [하루 | 주간 정리]는 머리줄 오른쪽 끝.
 root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">주간 정리</button></div></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
-<p class="home-summary" data-home-summary hidden></p>
 <div class="home-quick-placeholder" aria-hidden="true"></div>
 <section class="journal-day" data-journal-day>
+<section class="home-asks" data-home-summary aria-label="나한테 온 요청" hidden></section>
 <section class="home-family" data-home-family aria-label="잊지 말기" hidden></section>
 <div class="journal-top-cols" data-journal-top-cols><section class="journal-group journal-schedule" data-journal-schedule aria-label="그날 일정"></section><section class="journal-tasks" data-journal-tasks aria-label="할 일"></section></div>
 <section class="journal-done-day" data-journal-done-day aria-labelledby="journalDoneTitle"><h4 class="journal-heading" id="journalDoneTitle" data-journal-done-title>오늘 한 일</h4>

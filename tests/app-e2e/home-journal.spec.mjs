@@ -48,8 +48,8 @@ for (const [width, height] of WIDTHS) {
     await expect(date(page, '2026-10-06')).toHaveAttribute('aria-current', 'date');
     await expect(date(page, '2026-10-06')).toHaveAttribute('aria-pressed', 'true');
     await expect(root(page).locator('[data-journal-mode="day"]')).toHaveAttribute('aria-pressed', 'true');
-    // 순서: 날짜 줄 → 요약 → 입력줄 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료·그 밖의 기록.
-    const order = await page.evaluate(() => ['[data-journal-days]', '[data-home-summary]', '[data-home-quick]', '[data-journal-top-cols]', '[data-journal-done-day]', '[data-journal-materials]']
+    // 순서: 날짜 줄 → 입력줄 → [하루] 카드 맨 위 '나한테 온 요청' 상자(S52-09) → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료·그 밖의 기록.
+    const order = await page.evaluate(() => ['[data-journal-days]', '[data-home-quick]', '[data-home-summary]', '[data-journal-top-cols]', '[data-journal-done-day]', '[data-journal-materials]']
       .map(sel => { const all = [...document.querySelectorAll('#journalRoot *')]; return all.indexOf(document.querySelector('#journalRoot ' + sel)); }));
     expect(order.every(i => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);

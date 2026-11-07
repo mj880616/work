@@ -20,6 +20,8 @@ const ALLOWED=new Set([
  'supabase/functions/phone-push/handler.ts','app/family-notes-data.js','tests/app-e2e/home-family.spec.mjs',
  // S51-26 FAMILY-노트로: 옛 [기억만] 줄을 노트로 한 번 옮기는 운영 SQL(커맨드센터가 실행, 건수만 출력).
  'docs/ops/family-kept-to-note.sql',
+ // S52-09 UI-요청상자통일: 홈 두 상자(나한테 온 요청·잊지 말기)가 같은 부품인지 보는 화면 시험(지어낸 잊지 말기 줄을 흉내 낸 서버로만 돌려줌).
+ 'tests/app-e2e/home-asks-box.spec.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
 function walk(dir,out=[]){
