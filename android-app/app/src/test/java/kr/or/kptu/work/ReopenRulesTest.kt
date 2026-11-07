@@ -74,4 +74,22 @@ class ReopenRulesTest {
         val rules = File("src/main/java/kr/or/kptu/work/ReopenRules.kt").readText()
         assertTrue(!rules.contains("SharedPreferences") && !rules.contains("openFileOutput"))
     }
+
+    @Test
+    fun mainActivityKeepsWebAcrossFoldAndDarkModeChanges() {
+        // S52-35: 폴드 접기·펴기·다크 모드 자동 전환으로 화면(Activity)을 다시 만들면 웹2를 처음부터 다시 연다. 이 설정들은 앱이 직접 받는다.
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+        val block = manifest.substring(manifest.indexOf("android:name=\".MainActivity\""))
+        val changes = Regex("android:configChanges=\"([^\"]*)\"").find(block)!!.groupValues[1].split("|").toSet()
+        for (need in listOf("orientation", "screenSize", "screenLayout", "smallestScreenSize", "density", "uiMode", "colorMode", "keyboardHidden")) {
+            assertTrue("configChanges에 $need 없음", need in changes)
+        }
+        // 받은 설정 바뀜에서 앱 바탕색을 다시 칠하고, 웹 화면은 다시 열지 않는다.
+        val main = File("src/main/java/kr/or/kptu/work/MainActivity.kt").readText()
+        val start = main.indexOf("override fun onConfigurationChanged")
+        assertTrue(start > 0)
+        val body = main.substring(start, main.indexOf("override fun onSaveInstanceState", start))
+        assertTrue(body.contains("R.color.web_bg") && body.contains("syncBarColor()"))
+        assertTrue(!body.contains("loadUrl") && !body.contains("reload") && !body.contains("recreate"))
+    }
 }
