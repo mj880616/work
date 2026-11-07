@@ -28,7 +28,7 @@ export function mountMeetingTodos({button, host, line, rt = window.KPTURuntime, 
     busy = false; button.disabled = false; button.removeAttribute('aria-busy');
     if (meetingId() !== id) return;
     if (!result.ok) { say(result.message || '후보를 찾지 못했어요. 다시 눌러 주세요.', 'error'); return; }
-    say(result.added ? `후보 ${result.added}개를 올렸어요. 정리함 [챙길 것]에도 있어요.` : '새로 올릴 후보는 없어요.');
+    say(result.added ? `후보 ${result.added}개를 올렸어요. 잊지 말기 목록에도 있어요.` : '새로 올릴 후보는 없어요.');
     window.dispatchEvent(new CustomEvent(CHANGED, {detail: {reload: true}}));
   });
   window.addEventListener('kptu:google-tasks-changed', () => { if (meetingId()) onTasksChanged(); });

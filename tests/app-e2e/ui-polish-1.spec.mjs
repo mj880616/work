@@ -191,7 +191,7 @@ for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ �
  await openWriteFromEntry(page,width);
  await expect(page.locator('#edWindow .ed-window-body .ProseMirror')).toContainText('쓰기에서 저장');
  await page.locator('#edWindow [data-edw-save]').click();
- await expect(page.locator('#edWindow')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('정리함에 저장했어요.');
+ await expect(page.locator('#edWindow')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했어요.');
  expect(state.posts).toHaveLength(1);expect(state.posts[0]).toMatchObject({workspace_id:ws.id,raw_text:'# 새 메모\n쓰기에서 저장'});expect(state.posts[0].doc).toMatchObject({v:'ed1'});
  // The basket list on screen shows the new note without leaving it.
  await showBasketRow(page,'10000000-0000-4000-8000-000000000099');
@@ -203,7 +203,7 @@ for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ �
  expect(errors).toEqual([]);
 });
 
-for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽기·수정: "‹ 정리함", 이 메모의 [⋯] 메뉴, 큰 버튼 둘, 연결·날짜 한 줄 ${width}${dark?' 어두운 화면':''}`,async({page})=>{
+for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽기·수정: "‹ 잊지 말기", 이 메모의 [⋯] 메뉴, 큰 버튼 둘, 연결·날짜 한 줄 ${width}${dark?' 어두운 화면':''}`,async({page})=>{
  const {errors,state}=await boot(page,width,{dark});
  await view(page,'basket');
  const listMore=page.locator('#basketView [data-inbox-find]');await expect(listMore).toBeVisible();await expect(page.locator('[data-basket-more]')).toHaveCount(0);
@@ -211,9 +211,9 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  const detail=page.locator('[data-basket-detail]');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
  // The list's top line ([다시 찾기]) is the list's only; the note has its own [⋯].
  await expect(listMore).toBeHidden();
- const back=detail.locator('.basket-back');await expect(back).toHaveText('‹ 정리함');await expect(back).toHaveAccessibleName('정리함 목록으로');
+ const back=detail.locator('.basket-back');await expect(back).toHaveText('‹ 잊지 말기');await expect(back).toHaveAccessibleName('잊지 말기 목록으로');
  if(width<761){
-  // UI-머리줄겹침: 빈 위 머리줄은 접히고 '‹ 정리함' 줄이 화면 첫 줄(음수 여백 없이 제자리).
+  // UI-머리줄겹침: 빈 위 머리줄은 접히고 '‹ 잊지 말기' 줄이 화면 첫 줄(음수 여백 없이 제자리).
   await expect(page.locator('#appView > .mobile-shell-header')).toBeHidden();
   const [b,panel]=await Promise.all([rect(back),rect(page.locator('#basketView'))]);
   expect(b.top).toBeGreaterThanOrEqual(panel.top-1);expect(b.top-panel.top).toBeLessThanOrEqual(24);

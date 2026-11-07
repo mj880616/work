@@ -318,7 +318,7 @@ async function openDrive(target){
     watchEdits();
     const notes=[
       file.info.format==='hwpx'?'HWPX 원본은 새 HWP 파일로만 저장해요.':'',
-      file.info.shared?'이 파일은 정리함과 자료실이 같은 원본을 써요.':'',
+      file.info.shared?'이 파일은 잊지 말기와 자료실이 같은 원본을 써요.':'',
     ].filter(Boolean).join(' ');
     status(shown.target.template
       ?`노조 양식 · ${result?.pageCount??'?'}쪽을 열었어요. 양식 원본은 그대로 두고, 고친 뒤 [새 파일로 저장]에서 제목을 정해요. 스타일은 Ctrl+1~0(예비 Alt+1~0) 또는 위쪽 스타일 버튼으로 입혀요.`
@@ -540,7 +540,7 @@ async function overwrite(){
   const shown=drive;
   if(!shown?.info?.can_overwrite||busy||shown.lockOverwrite)return;
   const notes=['바꾸기 전 원본 사본을 Drive "Web2 편집 백업" 폴더에 보관해요.'];
-  if(shown.info.shared)notes.push('정리함과 자료실 양쪽에 반영돼요.');
+  if(shown.info.shared)notes.push('잊지 말기와 자료실 양쪽에 반영돼요.');
   if(!(await askConfirm(anchorFor('hwpDriveOverwrite'),{text:`원본 "${shown.info.file_name}"을 지금 고친 내용으로 바꿔요. 덮어쓸까요?`,note:notes.join(' '),ok:'덮어쓰기',danger:true})))return;
   if(drive!==shown||busy||shown.lockOverwrite)return;
   busy=true;sync();

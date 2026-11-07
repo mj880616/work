@@ -41,7 +41,7 @@ for(const width of [390,1280])test(`여러 곳 고르기: 눌러도 창이 열�
  const labels=await dialog(page).locator('[data-sheet-content] .home-choice-label').allTextContents();expect(labels[0]).toBe('최근');
  await expect(dialog(page).locator('[data-sheet-basket] button')).toHaveAttribute('aria-pressed','true');
  await expect(dialog(page).locator('[data-sheet-recent] [data-sheet-value]')).toHaveText(['서울교통공사노동조합']);
- await expect(dialog(page).locator('[data-sheet-count]')).toHaveText('정리함(미분류) 선택됨');
+ await expect(dialog(page).locator('[data-sheet-count]')).toHaveText('잊지 말기(미분류) 선택됨');
  // ① groups as small headings, one organization per line with a check box.
  await expect(dialog(page).locator('[data-sheet-all] .aop-group-label')).toHaveText(['철도','지하철','민자철도']);
  // ② presses keep the sheet open and mark each place; the recent chip and its list row move together.
@@ -98,13 +98,13 @@ test('[취소]·×·Esc는 고른 것을 버리고 이전 선택을 유지',asyn
  }
 });
 
-test('정리함(미분류)는 다른 곳과 함께 고를 수 없음(정리함을 고르면 나머지 해제, 반대도)',async({page})=>{
+test('잊지 말기(미분류)는 다른 곳과 함께 고를 수 없음(정리함을 고르면 나머지 해제, 반대도)',async({page})=>{
  const {q,f}=await setup(page,1280);
  await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));const basket=dialog(page).locator('[data-sheet-basket] button');
  await org(page,'전국철도노동조합').click();await org(page,'공항철도지부').click();
  await expect(basket).toHaveAttribute('aria-pressed','false');await expect(dialog(page).locator('[data-sheet-count]')).toHaveText('2곳 선택됨');
  await basket.click();await expect(basket).toHaveAttribute('aria-pressed','true');
- await expect(dialog(page).locator('[data-sheet-content] button[aria-pressed="true"]')).toHaveCount(1);await expect(dialog(page).locator('[data-sheet-count]')).toHaveText('정리함(미분류) 선택됨');
+ await expect(dialog(page).locator('[data-sheet-content] button[aria-pressed="true"]')).toHaveCount(1);await expect(dialog(page).locator('[data-sheet-count]')).toHaveText('잊지 말기(미분류) 선택됨');
  await org(page,'공항철도지부').click();await expect(basket).toHaveAttribute('aria-pressed','false');await expect(dialog(page).locator('[data-sheet-count]')).toHaveText('1곳 선택됨');
  await basket.click();await save(page).click();await expect(q).toHaveAttribute('data-mode','basket');
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
@@ -137,7 +137,7 @@ test('연결이 거절되면 업데이트는 정리함에 남고 안내(두 번 
  await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));await org(page,'공항철도지부').click();await org(page,'서해선지부').click();await save(page).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  await expect(q.locator('[data-quick-status]')).toHaveText('업데이트는 정리함에 저장했지만 고른 곳에 연결하지 못했어요. 정리함에서 [연결하기]로 다시 연결해 주세요.');
- await expect(page.locator('#toast')).toContainText('정리함에 저장했습니다.');
+ await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
  expect(f.notes).toHaveLength(1);expect(f.links).toHaveLength(1);await expect(q).toHaveAttribute('data-mode','basket');
 });
 

@@ -42,7 +42,7 @@ test('home top has no empty header gap, and the header comes back on other tabs'
   // 날짜 제목이 main 위 여백(8px) 바로 아래에 붙는다(빈 머리줄 56px이 끼면 60px 넘게 내려간다).
   expect((await page.locator('#homeView [data-journal-title]').boundingBox()).y).toBeLessThan(24);
   await go(page,'basket');
-  await expect(head).toBeVisible();await expect(head.locator('[data-mobile-view-name]')).toHaveText('정리함');
+  await expect(head).toBeVisible();await expect(head.locator('[data-mobile-view-name]')).toHaveText('잊지 말기');
   await go(page,'home');
   await expect(head).toBeHidden();
   expect((await page.locator('#homeView [data-journal-title]').boundingBox()).y).toBeLessThan(24);

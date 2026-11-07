@@ -100,7 +100,7 @@ test('the update input saves an update from the home', async ({page}) => {
   await expect.poll(() => posts.length).toBe(1);
   expect(posts[0]).toMatchObject({workspace_id: 'w', raw_text: '홈에서 쓴 업데이트'});
   await expect(quick.locator('[data-quick-input]')).toHaveValue('');
-  await expect(page.locator('#toast')).toContainText('정리함에 저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
 });
 
 test('old addresses, reload and back all land on the new home (day kept in the address)', async ({page}) => {

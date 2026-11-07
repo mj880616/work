@@ -6,7 +6,7 @@ import {sendUpload} from './upload-send.mjs';
 import {trackUpload, setUploadRetry, mountUploadRows, paintUploadLine, watchUploads} from './upload-progress.js';
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
-const UNKNOWN = '저장 결과를 확인하지 못했습니다. 정리함에서 확인 후 다시 시도하세요';
+const UNKNOWN = '저장 결과를 확인하지 못했습니다. 잊지 말기에서 확인 후 다시 시도하세요';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // UI-바구니상세개편: shown as KB·MB (1024 steps, the everyday labels) instead of KiB·MiB.
 export const fileSize = size => size >= 1048576 ? `${(size / 1048576).toFixed(1)} MB` : size >= 1024 ? `${(size / 1024).toFixed(1)} KB` : `${size || 0} B`;

@@ -186,7 +186,7 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
  {
   await add.click();await menu.getByRole('button',{name:'업데이트'}).click();
   const editor=page.locator('#edWindow');await expect(editor).toBeVisible();
-  await expect(editor.locator('[data-edw-place]')).toContainText('정리함(미분류)');
+  await expect(editor.locator('[data-edw-place]')).toContainText('잊지 말기(미분류)');
   await expect(editor.locator('.ed-window-body .ProseMirror')).toBeVisible();
   await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  }

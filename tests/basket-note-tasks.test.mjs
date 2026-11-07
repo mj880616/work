@@ -116,7 +116,7 @@ test('the manual task form records on the note after creation and never re-creat
 // UI-돌아가기머리줄(시안 B): 다른 화면에서 연 글은 머리 줄 뒤로 가기 자리가 '‹ (온 곳 이름)'이 되고, 따로 있던 돌아가기 줄은 없다.
 test('head back: the list keeps its own button; opened from another screen it is "‹ (name)", short on phones and for long names',()=>{
   const rt={context:{read:()=>({user:{id:'u1'},workspace:{id:'w1'}})}};
-  const fallback='<button type="button" class="basket-back" data-basket-close>‹ 정리함</button>';
+  const fallback='<button type="button" class="basket-back" data-basket-close>‹ 잊지 말기</button>';
   const id='10000000-0000-4000-8000-0000000000b1';
   assert.equal(mod.basketBackHtml(id,fallback,rt,{narrow:false}),fallback);
   mod.requestBasketNoteFrom(id,{view:'team',id:'o1',name:'전국철도노동조합'},rt);

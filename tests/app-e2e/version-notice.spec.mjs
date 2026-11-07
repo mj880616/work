@@ -44,7 +44,7 @@ async function response(page,version){
 const notice=page=>page.locator('#versionNotice');
 async function editLinkSummary(page){
   const row=page.locator('#ps3-progress [data-basket-link="version-link"]');
-  await row.getByRole('button',{name:'정리함 기록 메뉴'}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
+  await row.getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
   const input=row.locator('[data-link-summary-input]');await expect(input).toBeVisible();return input;
 }
 test('equal version has no notice; newer version appears after visibility change',async({page})=>{
