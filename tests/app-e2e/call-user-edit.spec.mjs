@@ -1,3 +1,4 @@
+import {pressRow} from './helpers/area-org-picker.mjs';
 // CALL-손고치기 (docs/design/call-user-edit.md): 통화 제목(줄 안 바로 고치기·F2)·조직/이름·핵심내용을 손으로 고치고, 고친 값이 서버에 사용자 값으로 저장돼
 // AI가 다시 채워도 덮이지 않는지, [업무 · 개인] 버튼이 작은 글자 버튼인지 본다. 서버는 흉내(app_feed_items·app_call_edits·app_call_edit·원장 처리 표)다.
 // 이름·내용은 모두 지어낸 것이다.
@@ -152,7 +153,7 @@ for(const width of [390,1280])test(`통화 ${width}: 조직·이름 고치기 �
  await box.locator('[data-cf-who-name]').fill('김가상');
  await box.locator('[data-cf-who-role]').fill('지부장');
  await tap(page,box.locator('[data-cf-who-pick]'),width);
- await page.locator('[data-sheet-value="'+ORG2+'"]').click();
+ await pressRow(page,'o:'+ORG2); // S52-01 ③c: 공용 고르기 창(하나만, 누르면 닫힘)
  await expect(box.locator('[data-cf-who-pick]')).toContainText('가상본부');
  await tap(page,box.locator('[data-cf-who-save]'),width);
  await expect.poll(()=>f.calls).toEqual([{p_id:W1,p_patch:{counterpart:'김가상 지부장',organization_id:ORG2}}]);
