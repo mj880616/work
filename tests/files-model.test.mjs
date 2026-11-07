@@ -154,8 +154,11 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   // 읽기: 색인 읽기 함수 3개 + Edge 읽기 동작. 쓰기(S48-45): Edge write()로 다섯 가지만(confirm:true를 붙임). 표에 직접 쓰지 않는다.
   assert.deepEqual([...new Set([...js.matchAll(/rpc\('(\w+)'/g)].map(m => m[1]))].sort(), ['app_cloud_find_in', 'app_cloud_list', 'app_cloud_trail']);
   // S51-20 ③: 같은 저장소 옮기기 알림의 [되돌리기]는 사람이 누른 것만 같은 move(confirm:true)로 원래 폴더에 보낸다.
-  assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['folder', 'job_add', 'job_list', 'job_pause', 'media', 'move', 'open-url', 'preview', 'status', 'sync', 'thumb',
+  assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['folder', 'job_add', 'job_list', 'job_pause', 'media', 'mkdir', 'move', 'open-url', 'preview', 'rename', 'status', 'sync', 'thumb',
     'upload_done', 'upload_open', 'upload_progress', 'upload_resume']);
+  // S52-43 ②: 이름 바꾸기 [되돌리기](원래 이름으로 rename)·폴더째 다른 저장소로(받을 곳에 같은 폴더 모양 mkdir)도 사람이 누른 것만 confirm:true.
+  assert.match(js, /body: \{action: 'rename', source: r\.source, id: r\.item_id, name: r\.name, confirm: true\}/);
+  assert.match(js, /body: \{action: 'mkdir', source: at\.source, parent: at\.parent, name, confirm: true\}/);
   assert.match(js, /body: \{action: 'move', source: dest\.source, ids: rows\.map\(r => r\.item_id\), to: parent \|\| null, confirm: true\}/);
   // 올리기(2-④): 네 동작 모두 confirm:true, 화면을 숨기거나 닫을 때 멈춤(job_pause)은 keepalive 한 번.
   for (const a of ['upload_open', 'upload_resume', 'upload_progress', 'upload_done']) assert.match(js, new RegExp(`action: '${a}', confirm: true`), a);
@@ -253,8 +256,15 @@ test('복사·옮기기 거르기: 다른 저장소로 폴더·구글 문서·�
   const a = {source: 'od', item_id: 'A', parent_id: 'F1', name: 'a.pdf', is_folder: false, size_bytes: 10};
   const g = {source: 'gd', item_id: 'G', parent_id: null, name: '문서', is_folder: false, mime: 'application/vnd.google-apps.document', size_bytes: null};
   const across = m.xferPlan([f, a, g], {source: 'gd', parent: null}, 'copy');
-  assert.deepEqual(across.ok.map(r => r.item_id), ['A', 'G'], 'file across, Google doc stays in Google (same cloud)');
-  assert.match(across.blocked.find(b => b.row === f).reason, /폴더는 같은 저장소 안에서만 통째로 복사돼요/);
+  assert.deepEqual(across.ok.map(r => r.item_id), ['F1', 'A', 'G'], 'S52-43 ②: folder across between the two clouds goes too (expanded by the screen), Google doc stays in Google');
+  const toPc = m.xferPlan([f], {source: 'pc', parent: 'C:\\'}, 'copy');
+  assert.equal(toPc.ok.length, 0);
+  assert.match(toPc.reason, /내 PC·이 폰과는 폴더째 복사하지 않아요/);
+  assert.match(m.xferPlan([f], {source: 'ph', parent: 'Download'}, 'move').reason, /폴더째 옮기지 않아요/);
+  assert.equal(m.treeAcrossBig(500, 100), false);
+  assert.equal(m.treeAcrossBig(501, 1), true);
+  assert.equal(m.treeAcrossBig(1, 101), true);
+  assert.match(m.treeDoneText('move', {folders: 2, files: 5, skipped: 1}), /^폴더 2개 · 파일 5개 옮기기 시작 .* 1개 건너뜀$/);
   const toOd = m.xferPlan([g], {source: 'od', parent: null}, 'copy');
   assert.equal(toOd.ok.length, 0); assert.match(toOd.reason, /구글 문서/);
   const same = m.xferPlan([f, a], {source: 'od', parent: null}, 'copy');
@@ -262,7 +272,7 @@ test('복사·옮기기 거르기: 다른 저장소로 폴더·구글 문서·�
   assert.match(m.xferPlan([f], {source: 'od', parent: 'F1'}, 'copy').reason, /자기 안으로 복사할 수 없습니다/);
   assert.match(m.xferPlan([a], {source: 'od', parent: 'F1'}, 'move').reason, /이미 이 폴더에 있습니다/);
   assert.deepEqual(m.xferPlan([a], {source: 'od', parent: 'F1'}, 'copy').ok, [a], 'copy into the same folder is allowed (gets a number)');
-  assert.match(m.xferPlan([f], {source: 'gd', parent: null}, 'move').reason, /통째로 옮겨요/);
+  assert.deepEqual(m.xferPlan([f], {source: 'gd', parent: null}, 'move').ok, [f], 'S52-43 ②: folder move between the two clouds');
   assert.equal(m.xferPlan([a], null).reason, '받을 곳을 고르세요');
 });
 test('같은 이름·큰 파일 묻는 글(H-3·H-4), 전송 줄·끝 한 줄', async () => {

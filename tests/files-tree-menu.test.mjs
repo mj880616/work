@@ -27,7 +27,7 @@ test('S51-22 나무 ⋯ 메뉴: 클라우드 파일·폴더는 예전 고르기 
 
 test('S51-22 나무 ⋯ 메뉴: 이 폰은 클라우드에 복사(+쓸 수 있으면 이름·휴지통, 폴더는 지우지 않음), 내 PC는 보기·열기만', () => {
   assert.deepEqual(ids({source: 'ph'}), ['open', 'tolib', 'tocloud']);
-  assert.deepEqual(ids({source: 'ph'}, {phoneWrite: true}), ['open', 'tolib', 'tocloud', 'rename', 'trash']);
+  assert.deepEqual(ids({source: 'ph'}, {phoneWrite: true}), ['open', 'tolib', 'tocloud', 'move', 'rename', 'trash']); // S52-43 ②: 폰 ↔ 클라우드 옮기기
   assert.deepEqual(ids({source: 'ph', is_folder: true}, {phoneWrite: true}), ['only', 'mkdir', 'tocloud', 'rename']);
   assert.deepEqual(ids({source: 'pc'}), ['open']);
   assert.deepEqual(ids({source: 'pc', is_folder: true}), ['only']);

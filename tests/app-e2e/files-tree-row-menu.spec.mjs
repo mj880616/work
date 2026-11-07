@@ -70,6 +70,10 @@ test('파일 폰 412: 펼친 폴더 안 파일 ⋯ = 그 줄 바로 옆 작은 �
   await ask(page).getByRole('button', { name: '바꾸기' }).click();
   await expect.poll(() => edgeCalls(server, 'rename').length).toBe(1);
   expect(edgeCalls(server, 'rename')[0].body).toMatchObject({ action: 'rename', source: 'od', id: 'OD!11', name: '가짜 안내문 고침.pdf' });
+  // S52-43 ②: 알림 [되돌리기] = 원래 이름으로 같은 rename(confirm:true).
+  await page.locator('.kptu-notice-undo').click();
+  await expect.poll(() => edgeCalls(server, 'rename').length).toBe(2);
+  expect(edgeCalls(server, 'rename')[1].body).toEqual({ action: 'rename', source: 'od', id: 'OD!11', name: '가짜 안내문.pdf', confirm: true });
   await stillTree(page);
   // 휴지통: 맨 아래 항목 → 한 번 묻기 → 보냄, 나무 그대로.
   const memo = od.locator('[data-ft-parent="od:OD!1"]').filter({ hasText: '가짜 메모.txt' });

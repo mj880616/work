@@ -550,4 +550,30 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     expect(JSON.stringify(server.calls)).not.toContain('D:\\\\');
     expect(errors).toEqual([]);
   });
+
+  // S52-43 ② FILES-저장소사이·되돌리기: 이름 바꾸기·내 PC 안 옮기기 알림의 [되돌리기] = 같은 문 길로 원래대로.
+  test('이름 바꾸기·옮기기 [되돌리기]: 원래 이름·원래 폴더로 되돌린다(문 /v1/rename·/v1/move)', async ({ page }) => {
+    test.setTimeout(90000);
+    const { errors, st } = await begin(page, { edit: true });
+    await openDocs(page);
+    const memo = list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'));
+    await memo.click({ modifiers: ['Control'] });
+    await root(page).locator('[data-fx-bar] [data-fx-rename]').click();
+    await ask(page).locator('.kptu-ask-field').fill('가짜 메모_잠깐');
+    await ask(page).getByRole('button', { name: '바꾸기' }).click();
+    await expect(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_잠깐.txt'))).toBeVisible();
+    await page.locator('.kptu-notice-undo').click();
+    await expect(memo).toBeVisible();
+    expect(st.calls.filter(c => c.path === '/v1/rename').map(c => JSON.parse(c.body))).toEqual([
+      { path: 'C:\\문서\\가짜 메모_연습.txt', name: '가짜 메모_잠깐.txt' }, { path: 'C:\\문서\\가짜 메모_잠깐.txt', name: '가짜 메모_연습.txt' }]);
+    await expect(page.getByText(/되돌렸어요/).first()).toBeVisible();
+    // 같은 칸 폴더로 끌어 옮긴 뒤 [되돌리기] = 원래 폴더로.
+    await memo.dragTo(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시')));
+    await expect(memo).toHaveCount(0);
+    await page.locator('.kptu-notice-undo').click();
+    await expect(memo).toBeVisible();
+    expect(st.calls.filter(c => c.path === '/v1/move').map(c => JSON.parse(c.body))).toEqual([
+      { path: 'C:\\문서\\가짜 메모_연습.txt', dir: 'C:\\문서\\하위_예시' }, { path: 'C:\\문서\\하위_예시\\가짜 메모_연습.txt', dir: 'C:\\문서' }]);
+    expect(errors).toEqual([]);
+  });
 });

@@ -1,7 +1,7 @@
 // S51-22 [파일] 폰 나무 줄 ⋯ 메뉴 항목(순수 함수, node --test로 시험). 화면은 바뀌지 않고 그 자리 메뉴(row-menu.js)로 연다.
 // 항목은 예전 '⋯ → 폴더 안으로 들어가 고르기 줄'에 있던 기능 그대로다(빼지 않음):
 //  클라우드(원드라이브·구글): 파일 = 열기·복사·옮기기·이름 바꾸기·별표·휴지통 / 폴더 = 이 폴더만 보기·새 폴더·올리기·복사·옮기기·이름 바꾸기·색·위로·아래로·별표·휴지통
-//  이 폰: 파일 = 열기·클라우드에 복사·이름 바꾸기·휴지통(폰에 쓸 수 있을 때) / 폴더 = 이 폴더만 보기·새 폴더·클라우드에 복사·이름 바꾸기(폰 폴더는 지우지 않음)
+//  이 폰: 파일 = 열기·클라우드에 복사·(S52-43 ②) 옮기기·이름 바꾸기·휴지통(폰에 쓸 수 있을 때) / 폴더 = 이 폴더만 보기·새 폴더·클라우드에 복사·이름 바꾸기(폰 폴더는 지우지 않음)
 //  내 PC: 파일 = 열기(+ 바구니 PC 앱 0.4.0+면 클라우드로 복사·옮기기, S52-41 FILES-내PC클라우드옮기기), 폴더 = 이 폴더만 보기.
 //   FILES-내PC쓰기(S52-43 ①, 0.5.0+ 문 pcEdit): 클라우드와 같은 항목 — 파일 = 열기·복사·옮기기·이름 바꾸기·휴지통,
 //   폴더 = 이 폴더만 보기·새 폴더·옮기기·이름 바꾸기·휴지통(드라이브 줄은 이 폴더만 보기·새 폴더). 폴더째 복사는 다음 PR(저장소사이).
@@ -29,7 +29,7 @@ export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, pcEdit 
   } else if (row.source === 'pc') ids.push(...(folder ? ['only'] : ['open', ...(pcWrite ? ['copy', 'move'] : [])]));
   else if (row.source === 'ph') {
     if (folder) ids.push('only', ...(phoneWrite ? ['mkdir'] : []), 'tocloud', ...(phoneWrite ? ['rename'] : []));
-    else ids.push('open', 'tolib', 'tocloud', ...(phoneWrite ? ['rename', 'trash'] : []));
+    else ids.push('open', 'tolib', 'tocloud', ...(phoneWrite ? ['move', 'rename', 'trash'] : []));
   } else if (CLOUD.includes(row.source)) {
     if (folder) {
       ids.push('only', 'mkdir', 'upload', 'copy', 'move', 'rename', 'color');
