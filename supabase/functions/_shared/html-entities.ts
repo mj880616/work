@@ -5,7 +5,7 @@
 //
 // 세 가지를 푼다.
 // 1) 이름·숫자 표기: &quot; &middot; &hellip; &lsquo; &rsquo; &#39; &#x27; …
-// 2) 두 번(세 번) 감싼 표기: &amp;quot; → &quot; → "   (decodeEntitiesDeep, 바뀌지 않을 때까지 최대 4번)
+// 2) 두 번(세 번) 감싼 표기: &amp;quot; → &quot; → "   (decodeEntitiesDeep, 바뀌지 않을 때까지 최대 9번)
 // 3) '&'가 빠진 채 온 표기: 'quot;'·'middot;'·'hellip;'·'#39;' (repairBareEntities)
 //    프레시안 RSS(/api/v3/site/rss/news)는 제목의 따옴표·가운뎃점·말줄임표를 '&' 없이 'quot;'·'middot;'·'hellip;'로 보낸다
 //    (11/08 요청함 캡처 3장, 피드 원문 확인 — 같은 글의 description은 정상 따옴표). 수집기 잘못이 아니라 피드 글자 자체라서
@@ -40,8 +40,8 @@ export function decodeEntities(s: string): string {
   });
 }
 
-// 바뀌지 않을 때까지(최대 4번) 풀기: 두 번·세 번 감싼 표기(&amp;quot;·&amp;amp;quot;).
-export function decodeEntitiesDeep(s: string, max = 4): string {
+// 바뀌지 않을 때까지(최대 9번) 풀기: 두 번·세 번 감싼 표기(&amp;quot;·&amp;amp;quot;·&#38;quot;). DB 고침 SQL은 '&'를 만드는 표기(amp·#38)를 8번 되풀이해 같은 결과를 낸다.
+export function decodeEntitiesDeep(s: string, max = 9): string {
   let t = String(s ?? "");
   for (let i = 0; i < max && t.includes("&"); i++) {
     const next = decodeEntities(t);

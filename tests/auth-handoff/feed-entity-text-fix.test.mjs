@@ -2,7 +2,7 @@
 // S52-38 NEWS-글자표기깨짐 DB(20261108010000_feed_entity_text_fix): 이미 저장된 News·사회운동 글 글자의 'quot;'·'&amp;quot;'·'#39;' 같은 표기를
 // 수집기 공용 글자 풀기(_shared/html-entities.ts decodeText)와 같은 규칙으로 글자로 바꾼다.
 // - 승인형 workflow 실행기(dry-run·apply)로 돌린다. 확인 SQL은 건수·예/아니오·해시만 내보낸다.
-// - SQL 규칙 68단계 = TS 목록(BARE_NAMED·BARE_NUMERIC)에서 만든 순서, SQL 결과 = decodeText 결과(지어낸 글자 묶음).
+// - SQL 규칙 89단계 = TS 목록(BARE_NAMED·BARE_NUMERIC)에서 만든 순서, SQL 결과 = decodeText 결과(지어낸 글자 묶음).
 // - 고친 칸 밖의 칸·행 수·사진 주소는 그대로. 옛 값은 비공개 표에만. 20000칸 넘으면 멈춤. 되돌리기는 옛 값 복원 + 표·기록 삭제.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,10 +35,11 @@ const prerequisites=`
   revoke all on table public.app_notes from public, anon, authenticated, service_role;`;
 const EARLIER=['20261031230000_outside_statements','20261101233000_news_clipping','20261106050000_feed_bodies'];
 
-// SQL 규칙 순서: ① '&' 붙은 표기(이름 → 숫자, amp·#38은 끝) ② '&' 빠진 숫자 ③ '&' 빠진 이름(amp 끝).
+// SQL 규칙 순서: ① '&'를 만드는 표기(amp·#38·#038) 8번 → '&' 붙은 나머지 표기 ② '&' 빠진 숫자(#38 끝) ③ '&' 빠진 이름(amp 끝).
 const lastly=(list,re)=>[...list.filter(([k])=>!re.test(k)),...list.filter(([k])=>re.test(k))];
 const NAMED=lastly(E.BARE_NAMED,/^amp$/),NUM=lastly(E.BARE_NUMERIC,/^#0?38$/);
-const WANT_RULES=[...[...NAMED,...NUM].map(([k,c])=>['&(amp;)*'+k+';',c,'gi']),...NUM.map(([k,c])=>['(?<!&)(amp;)*'+k+';',c,'g']),...NAMED.map(([k,c])=>['(?<![A-Za-z0-9&])(amp;)*'+k+';',c,'g'])];
+const AMPS=[...E.BARE_NAMED,...E.BARE_NUMERIC].filter(([k])=>/^(amp|#0?38)$/.test(k)),REST=[...E.BARE_NAMED,...E.BARE_NUMERIC].filter(([k])=>!/^(amp|#0?38)$/.test(k));
+const WANT_RULES=[...Array.from({length:8},()=>AMPS).flat().map(([k,c])=>['&(amp;)*'+k+';',c,'gi']),...REST.map(([k,c])=>['&(amp;)*'+k+';',c,'gi']),...NUM.map(([k,c])=>['(?<!&)(amp;)*'+k+';',c,'g']),...NAMED.map(([k,c])=>['(?<![A-Za-z0-9&])(amp;)*'+k+';',c,'g'])];
 const rulesOf=sql=>[...sql.slice(sql.indexOf('r(ord, pat, ch, flags) as (values'),sql.indexOf('\n),\n',sql.indexOf('r(ord, pat, ch, flags) as (values'))).matchAll(/\((\d+), '((?:[^']|'')*)', '((?:[^']|'')*)', '(gi?)'\)/g)]
   .map(m=>[Number(m[1]),m[2].replace(/''/g,"'"),m[3].replace(/''/g,"'"),m[4]]);
 
