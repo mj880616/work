@@ -771,6 +771,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   if (!endsOpen(state.doc)) state = state.apply(state.tr.insert(state.doc.content.size, N.paragraph.create({style: DEFAULT_BODY})).setMeta('addToHistory', false));
 
   let pendingPaste = null, pastingLetters = false, pointerHeld = false;
+  // The letters of a paste are only the names of the files that came with it (one per line, a path's last part counts).
+  const onlyFileNames = (data, text) => {
+    const names = new Set(clipboardFiles(data).map(file => file.name).filter(Boolean));
+    const lines = String(text).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    return names.size > 0 && lines.length > 0 && lines.every(line => names.has(line) || names.has(line.split(/[\\/]/).pop()));
+  };
   const isFileTransfer = data => !!data && ([...(data.types || [])].includes('Files') || (data.files && data.files.length > 0));
   const view = new pm.EditorView(box, {
     state,
@@ -798,7 +804,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       const text = data?.getData('text/plain') || '';
       const html = data?.getData('text/html') || '';
       // A copied picture or file (no letters with it): photos go to [사진], other files to [파일] (where the opener gives them).
-      if (isFileTransfer(data) && !text && !html) { void filesFrom(onFiles ? namePasted(clipboardFiles(data)) : data.files); return true; }
+      // S52-21 ④: a phone's copy of a photo (gallery, keyboard clipboard) can carry the file's name as its letters (e.g. 20261107_161200.jpg)
+      // or only a picture tag: that is still the photo, never the name typed into the text.
+      if (isFileTransfer(data) && (!text.trim() || onlyFileNames(data, text))) { void filesFrom(onFiles ? namePasted(clipboardFiles(data)) : data.files); return true; }
       if (pastingLetters) return false;
       // Decide after the paste lands: mark its range when the letters look like markdown and no formatted copy came with them,
       // or the formatted copy only wraps the same letters (signs and all; a phone's copy). Then those letters are pasted.

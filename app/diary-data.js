@@ -150,16 +150,32 @@ export async function saveDiaryText(row, text, rt = window.KPTURuntime, {doc, st
   return one(rows);
 }
 // The photo leaves this day (saved first). Its Drive original is then sent to the Drive trash by pruneDiaryPhotos below.
-export async function removeDiaryPhoto(row, fileId, rt = window.KPTURuntime) {
-  const attachments = (row.attachments || []).filter(file => file.drive_file_id !== fileId);
+export function removeDiaryPhoto(row, fileId, rt = window.KPTURuntime) { return removeDiaryPhotos(row, [fileId], rt); }
+// DIARY-사진바로올리기(S52-21): several photos out of the day in one write (the photos picked and already sent, then taken out with ✕
+// before [저장], or the ones sent in an editor closed without saving). Same rules as one photo: their comments go in the same write.
+export async function removeDiaryPhotos(row, fileIds, rt = window.KPTURuntime) {
+  const gone = new Set(fileIds);
+  const attachments = (row.attachments || []).filter(file => !gone.has(file.drive_file_id));
   if (attachments.length === (row.attachments || []).length) throw new Error('이미 빠진 사진이에요.');
   if (!attachments.length && !diaryText(row)) throw Object.assign(new Error('글 없이 사진 한 장만 있는 일기라 이 사진은 뺄 수 없어요. 일기를 지우려면 [일기 지우기]를 눌러 주세요.'), {code:'last_photo'});
   // The comment of the removed photo goes in the same write, so no orphan comment stays behind.
   const body = {attachments};
-  if (row.metadata?.photo_comments !== undefined) { const {[fileId]: gone, ...rest} = photoComments(row); body.metadata = withComments(row.metadata, rest); }
+  if (row.metadata?.photo_comments !== undefined) { const rest = {...photoComments(row)}; for (const id of gone) delete rest[id]; body.metadata = withComments(row.metadata, rest); }
   const rows = await patch(row, body, rt, {strict:true});
   if (Array.isArray(rows) && !rows.length) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.'), {code:'note_changed'});
   return one(rows);
+}
+// DIARY-사진바로올리기: a diary made in this editor only to hold the photos sent right away (no text saved yet) follows the date chosen
+// afterwards. The day's unique key refuses a day that already has a diary (409 → diary_exists).
+export async function moveDiaryDay(row, day, rt = window.KPTURuntime) {
+  try {
+    const rows = await patch(row, {journal_day:checkDay(day)}, rt, {strict:true});
+    if (Array.isArray(rows) && !rows.length) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.'), {code:'note_changed'});
+    return one(rows);
+  } catch (error) {
+    if (error?.status === 409) throw Object.assign(new Error('그 날은 이미 일기가 있어 날짜를 바꾸지 않았어요.'), {code:'diary_exists'});
+    throw error;
+  }
 }
 // JOURNAL-일기사진정리: after a photo was taken out of the day, ask basket-files to send its Drive original to the Drive trash
 // (30 days, never a permanent delete). The server trashes a file only when no other note or document still lists it. Best effort:
@@ -216,7 +232,21 @@ const uploadText = error => {
   if (error?.code === 'note_save_result_unknown' || !error?.status || error.status >= 500) return '저장 결과를 확인하지 못했어요. 일기를 다시 불러와 확인해 주세요.';
   return '사진을 올리지 못했어요. Drive 연결 상태를 확인해 주세요.';
 };
-// Photos one at a time onto the day's row. A failure stops the rest; photos already up stay on the row.
+// One photo onto the day's row. photo: the shrunk photo (or a promise of it — the next photos are shrunk while one is being sent).
+// source: the picked photo (the upload display's key). job: a display made before (S52-21: shown from the moment its turn starts,
+// shrinking included). Returns the row's attachments after the save and the new one.
+// basket-files saves a note's attachments only while they are still what it read (compare-and-swap), so photos of one day go up one
+// request at a time: two at once would make the later one fail (note_changed) after its bytes were sent.
+export async function uploadDiaryPhoto(row, photo, {rt = window.KPTURuntime, isCurrent = () => true, source = null, job = null, request = uploadBasketFile} = {}) {
+  const file = await photo;
+  const fd = new FormData(); fd.append('file', file); fd.append('note_id', row.id);
+  const result = await request(fd, file, rt, null, isCurrent, {source: source || file, job});
+  if (!result?.ok || result.note_id !== row.id || !Array.isArray(result.attachments)) throw Object.assign(new Error(), {code:'note_save_result_unknown'});
+  const had = new Set((row.attachments || []).map(item => item.drive_file_id));
+  return {attachments:result.attachments, added:result.attachments.find(item => !had.has(item.drive_file_id)) || null};
+}
+export const diaryUploadText = error => error instanceof Error && error.message && !error.code && !error.status ? error.message : uploadText(error);
+// Photos one at a time onto the day's row (note → diary send). A failure stops the rest; photos already up stay on the row.
 // UI-올리기진행표시: 사진마다 올리는 중 표시(upload-progress.js)가 고른 사진(file)을 열쇠로 막대 + %를 그린다(보내는 것은 줄인 사진).
 // ✕로 취소한 사진은 건너뛰고 다음 사진을 이어서 올린다. uploaded = 올라간 사진의 고른 순서 번호(댓글을 그 사진에 붙이는 데 씀).
 export async function uploadDiaryPhotos(row, files, {rt = window.KPTURuntime, isCurrent = () => true, onProgress = () => {}, shrink = shrinkPhoto, request = uploadBasketFile} = {}) {
@@ -227,14 +257,11 @@ export async function uploadDiaryPhotos(row, files, {rt = window.KPTURuntime, is
     if (!isCurrent()) break;
     onProgress({done, total:files.length, attachments});
     try {
-      const photo = await shrink(file);
-      const fd = new FormData(); fd.append('file', photo); fd.append('note_id', row.id);
-      const result = await request(fd, photo, rt, null, isCurrent, {source:file});
-      if (!result?.ok || result.note_id !== row.id || !Array.isArray(result.attachments)) throw Object.assign(new Error(), {code:'note_save_result_unknown'});
-      attachments = result.attachments; done++; uploaded.push(index);
+      const sent = await uploadDiaryPhoto({...row, attachments}, shrink(file), {rt, isCurrent, source:file, request});
+      attachments = sent.attachments; done++; uploaded.push(index);
     } catch (error) {
       if (error?.code === 'upload_cancelled') continue;
-      return {done, attachments, uploaded, failed:file.name || `${done + 1}번째 사진`, message:error instanceof Error && error.message && !error.code && !error.status ? error.message : uploadText(error)};
+      return {done, attachments, uploaded, failed:file.name || `${done + 1}번째 사진`, message:diaryUploadText(error)};
     }
   }
   onProgress({done, total:files.length, attachments});

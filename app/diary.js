@@ -5,14 +5,15 @@ import {waitInlineHtml, emptyHtml} from './wait-state.js';
 // note-delete path (attachments to the Drive trash). Back closes the top open thing first (router layers).
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {seoulParts, seoulDate, addSeoulDays, seoulDateKey, formatSeoulTime} from './meeting-time.js';
-import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPhoto, pruneDiaryPhotos, dropEmptyDiary, uploadDiaryPhotos, photoElement,
+import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPhoto, removeDiaryPhotos, moveDiaryDay, pruneDiaryPhotos, dropEmptyDiary, uploadDiaryPhoto, shrinkPhoto, diaryUploadText, photoElement,
   diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
   photoComments, cleanComments, saveDiaryComments} from './diary-data.js';
 import {SIZE_BUTTONS, WIDE_QUERY, paintGrid, paintButtons, changeCols, attachPinch} from './photo-grid-size.js';
 import {putBack} from './photo-viewer-model.mjs';
 import {splitPictures} from './picture-file.mjs';
 // UI-올리기진행표시: 고른 사진 칸 위 막대 + %, 위쪽 합계 줄, 실패 [다시](공용 부품 하나).
-import {mountUploadRows, paintUploadOverlay, watchUploads, setUploadRetry} from './upload-progress.js';
+import {mountUploadRows, paintUploadOverlay, watchUploads, setUploadRetry, trackUpload, uploadJobs} from './upload-progress.js';
+import {percent} from './upload-send.mjs';
 // OD-크게보기: 크게 보기는 공용 부품(사진 메뉴와 같은 것).
 import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh} from './photo-strip.js';
 import {deleteNoteOriginal, offerUndoNotice} from './basket-record-delete.js';
@@ -571,7 +572,7 @@ const commentsChanged = () => { const now = cleanLive(), was = edit.startComment
 const cleanLive = () => { const out = {}; for (const [id, text] of Object.entries(edit.comments)) { const line = String(text ?? '').replace(/\s+/g, ' ').trim(); if (line) out[id] = line; } return out; };
 // The text changed since the editor opened (or since the last save). Opening an old diary writes nothing: it is converted in memory.
 const textChanged = () => !!edit?.field && JSON.stringify(edit.field.getValue()) !== edit.baseJson;
-const dirty = () => !!edit && (edit.pending.length > 0 || textChanged() || commentsChanged());
+const dirty = () => !!edit && (edit.pending.length > 0 || edit.dropped.length > 0 || textChanged() || commentsChanged());
 const EDITOR_LOADING = '\u0000wait'; // UI-기다림표시통일 2차: 편집기를 받는 동안 상태 줄은 글자 없는 회색 칸
 async function openEditor(day) {
   if (edit) return;
@@ -579,7 +580,7 @@ async function openEditor(day) {
   if (!row && loadedMonth !== monthOf(day)) {
     try { row = await readDiaryDay(day, rt); } catch { row = null; }
   }
-  edit = {day, row, pending:[], busy:false, comments:photoComments(row), startComments:photoComments(row),
+  edit = {day, row, pending:[], dropped:[], createdHere:false, pump:null, current:null, waiting:false, discarded:false, keepUploads:false, owner:ownerScope(rt), busy:false, comments:photoComments(row), startComments:photoComments(row),
     host:document.createElement('div'), field:null, baseJson:'', startDoc:diaryStartDoc(row), baseRaw:row ? row.raw_text : null, baseDoc:row ? row.doc ?? null : null, hadRow:!!row};
   edit.host.className = 'diary-doc-host'; edit.host.dataset.diaryText = '';
   cal.hidden = true; detail.hidden = true; list.hidden = true; $('[data-diary-new]').hidden = true; $('.diary-head').hidden = true; status.hidden = true;
@@ -600,7 +601,9 @@ async function mountField(session) {
     const {createDocEditor} = await import('./ed-editor.js');
     if (edit !== session) return;
     const used = session.startDoc;
-    const field = await createDocEditor({host:session.host, value:used, label:'일기 글', placeholder:'오늘 있었던 일을 적어 보세요(사진만 남겨도 돼요)', shortcuts:true, onBox});
+    const field = await createDocEditor({host:session.host, value:used, label:'일기 글', placeholder:'오늘 있었던 일을 적어 보세요(사진만 남겨도 돼요)', shortcuts:true, onBox,
+      // S52-21 ④: 글 칸에 붙여 넣거나 끌어 놓은 사진은 글자(파일 이름)가 아니라 일기 사진으로 넣는다(고른 사진과 같은 길).
+      onFiles:files => { if (edit === session && !session.busy) void pick(files); }});
     if (edit !== session) { field.destroy(); return; }
     if (session.startDoc !== used) field.setValue(session.startDoc);
     session.field = field; session.baseJson = JSON.stringify(field.getValue());
@@ -614,12 +617,13 @@ function dropField() {
   try { edit?.field?.destroy(); } catch { /* the editor is gone with the panel */ }
 }
 function renderEditor(message = '') {
-  const {row, day} = edit, photos = diaryPhotos(row), count = photos.length + edit.pending.length;
+  // S52-21: a diary made here only to hold the photos sent right away still reads as a new one (title, no ⋯, date can change).
+  const {day} = edit, row = edit.createdHere ? null : edit.row, photos = keptPhotos(), count = photos.length + edit.pending.length;
   editor.hidden = false;
   // UI-버튼통일(2026-10-28 19:16 시안 승인): 위 줄 제목 · [⋯](일기 지우기) · ✕(테두리 없음). 날짜는 달력이 열리는 공용 칸 하나(이름표 없음, app/date-field.js)이고
   // 그 옆에 작은 [📷 사진 0/20]. 글 칸도 이름표 없이 편집기만. 아래 줄은 오른쪽에 [취소](작은 버튼)·[저장](진한 버튼 하나).
   editor.innerHTML = `<div class="diary-panel-head"><h3 id="diaryEditorTitle" tabindex="-1">${row ? '일기 수정' : '일기 쓰기'}</h3><span class="diary-head-ends">${row ? '<span class="diary-head-menu-wrap"><button type="button" class="icon-btn diary-head-more" data-diary-editor-more aria-haspopup="true" aria-expanded="false" aria-controls="diaryEditorMenu" aria-label="일기 관리"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="diaryEditorMenu" class="diary-lv-menu diary-head-menu" role="group" aria-label="일기 관리" data-diary-editor-menu hidden><button type="button" class="diary-menu-danger" data-diary-delete>일기 지우기</button></span></span>' : ''}<button type="button" class="icon-btn" data-diary-editor-close aria-label="일기 창 닫기">×</button></span></div>
-<div class="diary-edit-top"><input type="date" data-diary-date value="${esc(day)}" min="2000-01-01" max="2100-12-31" aria-label="일기 날짜"${row ? ' disabled' : ''}><input id="diaryPhotoInput" class="a11y-only" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true" data-diary-input><button type="button" class="secondary diary-photo-pick" data-diary-pick aria-controls="diaryPhotoInput" aria-label="사진 고르기, ${count}장 / 최대 ${DIARY_MAX_PHOTOS}장"${count >= DIARY_MAX_PHOTOS ? ' disabled' : ''}>${iconHtml('camera')} 사진 <span data-diary-count>${count}/${DIARY_MAX_PHOTOS}</span></button></div>
+<div class="diary-edit-top"><input type="date" data-diary-date value="${esc(day)}" min="2000-01-01" max="2100-12-31" aria-label="일기 날짜"${dateLocked() ? ' disabled' : ''}><input id="diaryPhotoInput" class="a11y-only" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true" data-diary-input><button type="button" class="secondary diary-photo-pick" data-diary-pick aria-controls="diaryPhotoInput" aria-label="사진 고르기, ${count}장 / 최대 ${DIARY_MAX_PHOTOS}장"${count >= DIARY_MAX_PHOTOS ? ' disabled' : ''}>${iconHtml('camera')} 사진 <span data-diary-count>${count}/${DIARY_MAX_PHOTOS}</span></button></div>
 <div class="diary-done" data-diary-done></div>
 <div class="diary-thumbs" data-diary-thumbs></div>
 <div data-diary-uploads hidden></div>
@@ -639,14 +643,14 @@ function renderEditor(message = '') {
   photos.forEach((file, i) => {
     const cell = document.createElement('div'); cell.className = 'diary-thumb-cell';
     const item = document.createElement('div'); item.className = 'diary-thumb'; item.dataset.diaryThumb = file.drive_file_id;
-    item.append(photoElement(row, file, 'small', {label:`사진 ${i + 1}`}));
+    item.append(photoElement(edit.row, file, 'small', {label:`사진 ${i + 1}`}));
     const out = document.createElement('button'); out.type = 'button'; out.className = 'icon-btn'; out.dataset.diaryRemove = file.drive_file_id;
     out.setAttribute('aria-label', `사진 ${i + 1} 빼기`); out.textContent = '×'; item.append(out);
     cell.append(item, commentInput(edit.comments[file.drive_file_id], `사진 ${i + 1}`, 'data-diary-comment', file.drive_file_id)); thumbs.append(cell);
   });
   edit.pending.forEach((entry, i) => {
     const cell = document.createElement('div'); cell.className = 'diary-thumb-cell';
-    const item = document.createElement('div'); item.className = 'diary-thumb pending'; item.dataset.diaryPending = String(i);
+    const item = document.createElement('div'); item.className = 'diary-thumb' + (entry.up ? '' : ' pending'); item.dataset.diaryPending = String(i);
     const img = document.createElement('img'); img.alt = entry.file.name; img.src = entry.url; item.append(img);
     const out = document.createElement('button'); out.type = 'button'; out.className = 'icon-btn'; out.dataset.diaryUnpick = String(i);
     out.setAttribute('aria-label', `${entry.file.name} 선택 취소`); out.textContent = '×'; item.append(out);
@@ -665,17 +669,153 @@ const setEditorStatus = message => { const line = editor.querySelector('[data-di
 let uploadRows = null;
 function paintPendingUploads() {
   if (!edit || editor.hidden) return;
-  editor.querySelectorAll('[data-diary-pending]').forEach(tile => { const entry = edit.pending[Number(tile.dataset.diaryPending)]; if (entry) paintUploadOverlay(tile, entry.file); });
+  // 올라간 사진은 점선(올리기 전 표시)이 빠진다. 날짜는 올리는 동안 잠근다.
+  editor.querySelectorAll('[data-diary-pending]').forEach(tile => { const entry = edit.pending[Number(tile.dataset.diaryPending)]; if (!entry) return; tile.classList.toggle('pending', !entry.up); paintUploadOverlay(tile, entry.file); });
+  const date = editor.querySelector('[data-diary-date]'); if (date) date.disabled = dateLocked();
+  if (edit.waiting) setEditorStatus(waitText(edit));
 }
 watchUploads(paintPendingUploads);
 function releasePending() { edit?.pending.forEach(entry => URL.revokeObjectURL(entry.url)); }
+// ── DIARY-사진바로올리기(S52-21, 요청함 11/07 16:16) ──
+// 고른 사진은 고르자마자 올린다. [저장]은 글·코멘트만 쓰고, 아직 올리는 중이면 '사진 1/2 올리는 중 64%'로 무엇을 기다리는지 보인다.
+// 보내기는 한 장씩: basket-files는 한 노트의 첨부를 읽은 그대로일 때만 저장하므로(비교 후 저장) 같은 일기에 둘을 동시에 보내면 늦은 쪽이
+// 다 보낸 뒤 거절된다. 대신 다음 사진(2장까지)은 앞 사진을 보내는 동안 미리 줄여 둬 차례가 오면 바로 보낸다.
+// 고른 사진 칸 entry = {file, url, comment, up:올라간 첨부|null, failed:'실패 이유'|'' , photo:줄이는 중(promise)|null}.
+// 새 일기는 첫 사진을 올릴 때 그 날 일기를 먼저 만든다(createdHere — 글 없이 사진만 붙든 상태, 날짜는 아직 바꿀 수 있음).
+// 저장하지 않고 닫으면(취소·✕·뒤로가기) 이 창에서 올린 사진을 일기에서 다시 빼고 Drive 원본은 휴지통으로 보낸다(pruneDiaryPhotos).
+// 이 창에서 만든 일기면 일기째 지운다(기존 삭제 길 note-delete — 사진은 Drive 휴지통). 다 보낸 뒤 마무리 중인 사진은 서버가 이미
+// 받았을 수 있어 끝까지 기다린 뒤 뺀다. 창(탭)을 닫아 버리면 이미 올라간 사진은 그 날 일기에 남는다(떠도는 파일은 없음).
+const UPLOAD_AHEAD = 2;
+// 이 창에서 올린 사진(아직 고른 칸에 있음)·뺀 사진의 Drive 파일 ID. 위의 '있던 사진' 칸에는 그리지 않는다.
+const sessionIds = session => new Set([...session.pending.filter(entry => entry.up).map(entry => entry.up.drive_file_id), ...session.dropped]);
+const keptPhotos = (session = edit) => { const mine = sessionIds(session); return diaryPhotos(session.row).filter(file => !mine.has(file.drive_file_id)); };
+const dateLocked = () => !!edit && (edit.busy || !!edit.pump || (!!edit.row && !edit.createdHere));
+const uploadsLeft = session => !!session.pump || session.pending.some(entry => !entry.up && !entry.failed);
+// [저장]을 누른 뒤 기다리는 줄: '사진 1/2 올리는 중 64%'(다 보낸 뒤 서버 답을 기다리면 '마무리 중…').
+function waitText(session) {
+  const total = session.pending.length, done = session.pending.filter(entry => entry.up).length;
+  const job = session.current ? uploadJobs().find(item => item.file === session.current.file) : null;
+  const state = job?.phase === 'finishing' ? '마무리 중…' : `${job ? percent(job.loaded, job.total) : 0}%`;
+  return `사진 ${Math.min(total, done + 1)}/${total} 올리는 중 ${state}`;
+}
+function pumpUploads(session = edit) {
+  if (!session || session.discarded || session.pump) return session?.pump || null;
+  session.pump = (async () => {
+    try { await runUploads(session); } catch { /* 한 장의 실패는 그 칸에 남고, 다른 일은 막지 않는다 */ }
+    session.pump = null;
+    if (session.discarded) await discardUploads(session);
+    else if (edit === session) paintPendingUploads();
+  })();
+  return session.pump;
+}
+async function runUploads(session) {
+  const alive = () => !session.discarded && session.owner === ownerScope(rt);
+  while (alive()) {
+    const queue = session.pending.filter(entry => !entry.up && !entry.failed), entry = queue[0];
+    if (!entry) return;
+    // 다음 사진은 미리 줄여 둔다(줄이는 동안 실패는 그 사진 차례에 알린다).
+    for (const next of queue.slice(0, UPLOAD_AHEAD)) if (!next.photo) { next.photo = shrinkPhoto(next.file); next.photo.catch(() => {}); }
+    if (!session.row && !await makeRow(session)) return;
+    if (!alive() || !session.pending.includes(entry)) continue;
+    session.current = entry;
+    // 차례가 오면 바로 막대를 보인다(줄이기가 남아 있어도 0%부터).
+    const job = trackUpload({file:entry.file, name:entry.file.name, size:entry.file.size});
+    if (edit === session) paintPendingUploads();
+    try {
+      const sent = await uploadDiaryPhoto(session.row, entry.photo, {rt, isCurrent:alive, source:entry.file, job});
+      session.row = {...session.row, attachments:sent.attachments};
+      if (!sent.added) throw Object.assign(new Error(), {code:'note_save_result_unknown'});
+      entry.up = sent.added;
+    } catch (error) {
+      if (error?.code === 'upload_cancelled') { dropEntry(session, entry); continue; }
+      if (job.phase === 'sending') job.fail(diaryUploadText(error));
+      // 다 보낸 뒤 답을 못 받음: 일기를 다시 읽어 새로 붙은 사진이 하나면 그것이 이 사진이다(한 장씩 보내므로).
+      if (error?.code === 'note_save_result_unknown' && alive() && await recoverUpload(session, entry)) { job.cancel(); continue; }
+      entry.failed = diaryUploadText(error);
+      setUploadRetry(entry.file, () => { if (edit !== session || !session.pending.includes(entry)) return; entry.failed = ''; pumpUploads(session); });
+      if (edit === session && !session.busy) setEditorStatus(`'${entry.file.name}' 사진을 올리지 못했어요. ${entry.failed} [다시]를 눌러 주세요.`);
+    } finally {
+      entry.photo = null;
+      if (session.current === entry) session.current = null;
+      if (edit === session) paintPendingUploads();
+    }
+  }
+}
+async function recoverUpload(session, entry) {
+  try {
+    const fresh = await readDiaryDay(session.day, rt);
+    const known = new Set((session.row?.attachments || []).map(file => file.drive_file_id));
+    const added = (fresh?.attachments || []).filter(file => !known.has(file.drive_file_id));
+    if (!fresh || fresh.id !== session.row?.id || added.length !== 1) return false;
+    session.row = {...session.row, attachments:fresh.attachments}; entry.up = added[0];
+    return true;
+  } catch { return false; }
+}
+// 새 일기: 첫 사진 차례에 그 날 일기를 만든다. 그 사이 다른 곳에서 그 날 일기가 생겼으면 그 일기를 열어 거기에 올린다.
+async function makeRow(session) {
+  try {
+    const row = await createDiary({day:session.day}, rt);
+    if (session.discarded || session.row) { session.row ||= row; session.createdHere = true; return !session.discarded; }
+    session.row = row; session.createdHere = true;
+    return true;
+  } catch (error) {
+    if (error?.code === 'diary_exists') {
+      const existing = await readDiaryDay(session.day, rt).catch(() => null);
+      if (existing && edit === session && !session.discarded) { adoptExisting(existing, error.message); return true; }
+    }
+    const message = diaryUploadText(error);
+    for (const entry of session.pending) if (!entry.up) entry.failed ||= message;
+    for (const entry of session.pending) setUploadRetry(entry.file, () => {});
+    if (edit === session && !session.busy) setEditorStatus(`사진을 올릴 일기를 만들지 못했어요. ${message} [저장]을 누르면 다시 올려요.`);
+    return false;
+  }
+}
+// ✕(보내는 중 취소)·칸의 [선택 취소]: 그 사진을 고른 칸에서 뺀다. 이미 올라간 사진이면 [저장] 때 일기에서도 뺀다.
+function dropEntry(session, entry) {
+  const at = session.pending.indexOf(entry);
+  if (at < 0) return;
+  session.pending.splice(at, 1); URL.revokeObjectURL(entry.url);
+  if (entry.up) session.dropped.push(entry.up.drive_file_id);
+  for (const job of uploadJobs()) if (job.file === entry.file && (job.phase === 'sending' || job.phase === 'failed')) job.cancel();
+  if (edit === session && !editor.hidden) renderEditor(session.busy ? '저장하는 중…' : '');
+}
+// 저장하지 않고 닫은 창: 보내는 중인 사진은 멈추고(다 보낸 뒤 마무리 중인 것은 끝까지 기다림), 끝나면 올린 사진을 일기에서 뺀다.
+function discardSession(session) {
+  session.discarded = true;
+  for (const job of uploadJobs()) if (session.pending.some(entry => entry.file === job.file) && (job.phase === 'sending' || job.phase === 'failed')) job.cancel();
+  if (!session.pump) void discardUploads(session);
+}
+async function discardUploads(session) {
+  if (session.keepUploads || session.owner !== ownerScope(rt)) return;
+  const ids = [...sessionIds(session)];
+  if (!session.createdHere && !ids.length) return;
+  try {
+    if (session.createdHere) {
+      // 이 창에서 사진을 붙들려고 만든 일기(글은 아직 저장 전): 일기째 지운다(사진은 Drive 휴지통, 기존 note-delete 길).
+      const result = await deleteNoteOriginal(session.row.id, {rt, confirmed:true});
+      if (!['deleted', 'missing'].includes(result?.status)) throw new Error('delete');
+      if (rows.get(session.day)?.id === session.row.id) { rows.delete(session.day); listDirty = true; renderMonth(); }
+      return;
+    }
+    const fresh = await readDiaryDay(session.day, rt);
+    const there = ids.filter(id => (fresh?.attachments || []).some(file => file.drive_file_id === id));
+    if (!fresh || !there.length) return;
+    const row = await removeDiaryPhotos(fresh, there, rt);
+    if (session.owner !== ownerScope(rt)) return;
+    rows.set(row.journal_day, row); listDirty = true; renderMonth();
+    void pruneDiaryPhotos(there, {rt});
+  } catch {
+    if (session.owner === ownerScope(rt)) notifySmall(`${shortDay(session.day)} 일기에 올리던 사진을 다시 빼지 못했어요. 일기를 열어 확인해 주세요.`, {error:true});
+  }
+}
 // 뒤로가기(fromBack)는 라우터가 그 자리에서 닫을지 정하므로 브라우저 기본 확인창으로 묻는다. [닫기] 버튼은 askCloseEditor가 작은 확인창으로 묻는다.
 const CLOSE_TEXT = '쓰던 일기를 저장하지 않고 닫을까요?';
 function closeEditor({fromBack = false, force = false} = {}) {
   if (!edit) return true;
   if (edit.busy) return false;
   if (!force && dirty() && !window.confirm(CLOSE_TEXT)) return false;
-  releasePending(); dropField(); edit = null; editor.hidden = true; editor.replaceChildren(); listDirty = true;
+  const session = edit;
+  releasePending(); dropField(); edit = null; discardSession(session); editor.hidden = true; editor.replaceChildren(); listDirty = true;
   cal.hidden = false; renderList(); renderOdPanel(); $('[data-diary-new]').hidden = false; $('.diary-head').hidden = false; status.hidden = false;
   const opened = editLayer; editLayer = null; if (!fromBack) opened?.close();
   if (selected) renderDetail();
@@ -694,16 +834,19 @@ async function pick(files) {
   // UPLOAD-올리기안됨: a photo from the phone app can come with an empty type; splitPictures also looks at the name and first bytes.
   const {pictures:images} = await splitPictures(files);
   if (!edit || edit !== open) return;
-  const have = diaryPhotos(edit.row).length + edit.pending.length, room = Math.max(0, DIARY_MAX_PHOTOS - have);
+  const have = keptPhotos().length + edit.pending.length, room = Math.max(0, DIARY_MAX_PHOTOS - have);
   const skipped = files.length - images.length;
   const taken = images.slice(0, room);
-  edit.pending.push(...taken.map(file => ({file, url:URL.createObjectURL(file), comment:''})));
+  edit.pending.push(...taken.map(file => ({file, url:URL.createObjectURL(file), comment:'', up:null, failed:'', photo:null})));
   const notes = [];
   if (images.length > room) notes.push(`일기 사진은 하루 ${DIARY_MAX_PHOTOS}장까지예요. ${images.length - room}장은 넣지 않았어요.`);
   if (skipped) notes.push(`사진이 아닌 파일 ${skipped}개는 넣지 않았어요.`);
   renderEditor(notes.join(' '));
+  // S52-21: 고르자마자 올린다.
+  if (taken.length) pumpUploads(edit);
 }
 async function changeDay(day) {
+  if (edit?.createdHere && day) return moveMadeDay(day);
   if (!edit || edit.row || !day) return;
   edit.day = day;
   paintDone(editor.querySelector('[data-diary-done]'), day);
@@ -711,6 +854,21 @@ async function changeDay(day) {
   if (!existing) { try { existing = await readDiaryDay(day, rt); } catch { existing = null; } }
   if (!edit || edit.day !== day) return;
   if (existing) adoptExisting(existing, '이 날 일기가 이미 있어 수정으로 열었어요.');
+}
+// S52-21: 이 창에서 사진을 붙들려고 만든 일기는 고른 날짜를 따라간다(그 날 일기가 이미 있으면 바꾸지 않음).
+async function moveMadeDay(day) {
+  const session = edit, input = editor.querySelector('[data-diary-date]');
+  if (day === session.day) return;
+  const back = message => { if (edit !== session) return; if (input) input.value = session.day; setEditorStatus(message); };
+  if (session.pump || session.busy) return back('사진을 다 올린 뒤 날짜를 바꿔 주세요.');
+  try {
+    const fresh = await readDiaryDay(session.day, rt);
+    if (!fresh || fresh.id !== session.row.id) throw new Error('일기를 다시 불러오지 못했어요. 닫고 다시 열어 주세요.');
+    const moved = await moveDiaryDay(fresh, day, rt);
+    if (edit !== session) return;
+    session.row = moved; session.day = moved.journal_day;
+    paintDone(editor.querySelector('[data-diary-done]'), session.day); setEditorStatus('');
+  } catch (error) { back(error?.message && !error.status ? error.message : '날짜를 바꾸지 못했어요. 다시 시도해 주세요.'); }
 }
 // A typed text is kept: appended below the day's saved text.
 function adoptExisting(row, message) {
@@ -730,63 +888,73 @@ async function save() {
   if (!edit || edit.busy) return;
   // [저장] pressed while the editor is still loading waits for it (a text field that is not there yet can not be saved from).
   if (!edit.field) { const session = edit; await session.mounting; if (edit !== session || !edit.field) return edit && setEditorStatus('편집기를 불러오지 못했어요. 닫고 다시 열어 주세요.'); }
-  const text = edit.field.getText(), value = edit.field.getValue(), changed = textChanged(), day = edit.day;
-  try { validateDiaryText(text); const bad = diaryDocError(diaryDocToStore(value, text)); if (bad) throw new Error(bad); cleanComments(edit.comments, diaryPhotos(edit.row)); edit.pending.forEach(entry => cleanComments({x:entry.comment}, [{drive_file_id:'x'}])); } catch (error) { return setEditorStatus(error.message); }
-  if (!text.trim() && !edit.pending.length && !diaryPhotos(edit.row).length) return setEditorStatus('사진이나 글을 넣어 주세요.');
-  const run = owner, mine = () => run === ownerScope(rt) && !!edit;
-  edit.busy = true; renderEditor('저장하는 중…');
-  let created = false, result = {done:0};
+  const text = edit.field.getText(), value = edit.field.getValue(), changed = textChanged();
+  try { validateDiaryText(text); const bad = diaryDocError(diaryDocToStore(value, text)); if (bad) throw new Error(bad); cleanComments(edit.comments, keptPhotos()); edit.pending.forEach(entry => cleanComments({x:entry.comment}, [{drive_file_id:'x'}])); } catch (error) { return setEditorStatus(error.message); }
+  if (!text.trim() && !edit.pending.length && !keptPhotos().length) return setEditorStatus('사진이나 글을 넣어 주세요.');
+  const session = edit, run = owner, mine = () => run === ownerScope(rt) && edit === session;
+  session.busy = true;
+  let failed = [];
   try {
-    if (!edit.row) {
-      try { edit.row = await createDiary({day, text, doc:value}, rt); created = true; }
+    // S52-21: 사진은 고를 때 이미 올라가고 있다. 남은 것만 기다린다(못 올린 사진은 한 번 더 올려 본다).
+    for (const entry of session.pending) if (entry.failed) { entry.failed = ''; for (const job of uploadJobs()) if (job.file === entry.file && job.phase === 'failed') job.cancel(); }
+    if (uploadsLeft(session)) {
+      session.waiting = true; renderEditor(waitText(session));
+      while (uploadsLeft(session) && mine()) await (pumpUploads(session) || Promise.resolve());
+      session.waiting = false;
+      if (!mine()) return;
+    }
+    renderEditor('저장하는 중…');
+    const day = session.day;
+    failed = session.pending.filter(entry => entry.failed);
+    let created = session.createdHere;
+    if (!session.row) {
+      try { session.row = await createDiary({day, text, doc:value}, rt); created = true; }
       catch (error) {
         if (error?.code !== 'diary_exists') throw error;
         const existing = await readDiaryDay(day, rt);
-        edit.busy = false;
+        session.busy = false;
         if (existing && mine()) return adoptExisting(existing, error.message);
         throw error;
       }
     }
-    const comments = {...cleanLive()};
-    if (edit.pending.length) {
-      const files = edit.pending.map(entry => entry.file), have = (edit.row.attachments || []).length;
-      // 사진마다 보낸 양은 칸 위 막대와 위 합계 줄(UI-올리기진행표시)이 보이므로 상태 줄은 '저장하는 중…' 그대로 둔다.
-      result = await uploadDiaryPhotos(edit.row, files, {rt, isCurrent:mine});
-      if (!mine()) return;
-      // The photos that went up are the last ones on the row, in the order they were picked: their comments follow them.
-      // A photo cancelled with ✕ (UI-올리기진행표시) did not go up: it stays picked, and the next ones went up after it.
-      const up = result.uploaded || [], went = new Set(up);
-      (result.attachments || []).slice(have, have + up.length).forEach((file, i) => { const line = String(edit.pending[up[i]]?.comment ?? '').replace(/\s+/g, ' ').trim(); if (line) comments[file.drive_file_id] = line; });
-      edit.pending = edit.pending.filter((entry, i) => { if (!went.has(i)) return true; URL.revokeObjectURL(entry.url); return false; });
-    }
     let fresh = await readDiaryDay(day, rt);
     if (!mine()) return;
+    // 올렸다가 ✕로 뺀 사진은 이제 일기에서도 뺀다(Drive 원본은 휴지통으로).
+    const out = session.dropped.filter(id => (fresh?.attachments || []).some(file => file.drive_file_id === id));
+    if (fresh && out.length) {
+      const left = (fresh.attachments || []).filter(file => !out.includes(file.drive_file_id));
+      if (!left.length && !text.trim() && created) { await deleteNoteOriginal(fresh.id, {rt, confirmed:true}); fresh = null; session.row = null; }
+      else fresh = await removeDiaryPhotos(fresh, out, rt);
+      void pruneDiaryPhotos(out, {rt});
+    }
+    session.dropped = [];
+    if (!mine()) return;
+    const comments = {...cleanLive()};
+    for (const entry of session.pending) { const line = String(entry.comment ?? '').replace(/\s+/g, ' ').trim(); if (entry.up && line) comments[entry.up.drive_file_id] = line; }
     const desired = text.trim() ? text : '';
     if (fresh && created && !fresh.attachments?.length && !desired) {
       // Nothing could be attached to a photo-only day: remove the empty row again.
       await dropEmptyDiary(fresh, rt).catch(() => {});
-      fresh = null; edit.row = null;
+      fresh = null; session.row = null;
     } else if (fresh && (created ? fresh.raw_text !== desired : changed) && (desired || fresh.attachments?.length)) {
       // A diary that was there when the editor opened is written only while its text is still what the editor opened: a diary changed on
       // another device is refused, nothing is overwritten (the phone shows the newer one after closing).
-      if (!created && edit.hadRow && (fresh.raw_text !== edit.baseRaw || JSON.stringify(fresh.doc ?? null) !== JSON.stringify(edit.baseDoc ?? null))) {
+      if (!created && session.hadRow && (fresh.raw_text !== session.baseRaw || JSON.stringify(fresh.doc ?? null) !== JSON.stringify(session.baseDoc ?? null))) {
         rows.set(day, fresh);
         throw Object.assign(new Error('일기 글이 그사이 다른 곳에서 바뀌었어요. 쓴 글을 복사해 두고, 닫았다가 다시 열어 확인해 주세요.'), {code:'note_changed'});
       }
       fresh = await saveDiaryText(fresh, text, rt, {doc:value, strict:true});
     }
     if (fresh) fresh = await saveDiaryComments(fresh, comments, rt);
-    if (fresh) { rows.set(day, fresh); edit.row = fresh; edit.baseRaw = fresh.raw_text; edit.baseDoc = fresh.doc ?? null; edit.hadRow = true; edit.baseJson = JSON.stringify(value); edit.comments = photoComments(fresh); edit.startComments = photoComments(fresh); } else rows.delete(day);
-    edit.busy = false;
-    if (result.failed) {
-      const done = result.done ? `${result.done}장은 올렸어요. ` : '';
-      renderEditor(`${done}'${result.failed}'부터 올리지 못했어요. ${result.message} 남은 사진은 [저장]을 다시 누르면 이어서 올려요.`);
-      // 실패 줄의 [다시] = [저장]을 다시 누름(남은 사진을 이어서 올림).
-      for (const entry of edit.pending) setUploadRetry(entry.file, () => save());
-      return renderMonth();
-    }
-    if (edit.pending.length) {
-      renderEditor(`취소한 사진 ${edit.pending.length}장은 올리지 않았어요. 빼거나 [저장]을 다시 눌러 올려 주세요.`);
+    if (!mine()) return;
+    // 올라간 사진은 이제 일기의 사진이다(창을 닫아도 빼지 않음). 못 올린 사진만 고른 칸에 남는다.
+    session.pending = session.pending.filter(entry => { if (!entry.up) return true; URL.revokeObjectURL(entry.url); return false; });
+    session.createdHere = false;
+    if (fresh) { rows.set(day, fresh); session.row = fresh; session.baseRaw = fresh.raw_text; session.baseDoc = fresh.doc ?? null; session.hadRow = true; session.baseJson = JSON.stringify(value); session.comments = photoComments(fresh); session.startComments = photoComments(fresh); } else rows.delete(day);
+    session.busy = false;
+    if (failed.length) {
+      renderEditor(`글은 저장했어요. 사진 ${failed.length}장은 올리지 못했어요. ${failed[0].failed} [다시]를 누르거나 [저장]을 다시 눌러 주세요.`);
+      for (const entry of failed) setUploadRetry(entry.file, () => { if (edit !== session || !session.pending.includes(entry)) return; entry.failed = ''; pumpUploads(session); });
       return renderMonth();
     }
     closeEditor({force:true});
@@ -794,8 +962,8 @@ async function save() {
     else { const [y, m] = day.split('-').map(Number); cursor = {year:y, month:m - 1}; loadedMonth = ''; await loadMonth(); selectDay(day); }
     status.textContent = '일기를 저장했어요.';
   } catch (error) {
-    if (!edit) return;
-    edit.busy = false;
+    if (edit !== session) return;
+    session.busy = false; session.waiting = false;
     renderEditor(error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : error?.message && !error.status ? error.message : '일기를 저장하지 못했어요. 다시 시도해 주세요.');
   }
 }
@@ -810,11 +978,19 @@ async function removePhoto(fileId, anchor) {
   edit.busy = true; renderEditor('사진을 빼는 중…');
   let row;
   try {
-    row = await removeDiaryPhoto(edit.row, fileId, rt);
+    // S52-21: 고른 사진을 올리는 중이면 다 올린 뒤 뺀다(같은 일기에 두 쓰기가 겹치지 않게). 올린 뒤라 일기를 다시 읽어 쓴다.
+    while (open.pump) await open.pump;
+    if (edit !== open) return;
+    const fresh = open.pending.some(entry => entry.up) || open.dropped.length ? await readDiaryDay(open.day, rt) : open.row;
+    if (edit !== open) return;
+    if (!fresh) throw new Error('일기를 다시 불러오지 못했어요. 닫고 다시 열어 주세요.');
+    row = await removeDiaryPhoto(fresh, fileId, rt);
   } catch (error) {
     edit.busy = false; return renderEditor(error?.message && !error.status ? error.message : '사진을 빼지 못했어요. 다시 시도해 주세요.');
   }
-  rows.set(row.journal_day, row); edit.row = row;
+  if (edit !== open) return;
+  if (!open.createdHere) rows.set(row.journal_day, row);
+  edit.row = row;
   delete edit.comments[fileId]; delete edit.startComments[fileId];
   renderMonth();
   // The photo is out of the day for good now; its Drive original goes to the Drive trash (best effort, never throws).
@@ -865,7 +1041,8 @@ async function removeDiary(row) {
   if (pendingDelete) await commitDiaryDelete(pendingDelete);
   const day = row.journal_day;
   rows.delete(day); listView.dropDay(day); listDirty = true;
-  if (edit) closeEditor({force:true});
+  // S52-21: 이 창에서 올린 사진은 일기와 함께 지운다(따로 빼는 쓰기가 지우기와 겹치지 않게). [되돌리기]면 일기에 남는다.
+  if (edit) { edit.keepUploads = true; closeEditor({force:true}); }
   closeDetail(); renderMonth();
   const job = {row, owner:ownerScope(rt), done:false, undone:false};
   pendingDelete = job;
@@ -908,7 +1085,7 @@ root.addEventListener('click', event => {
   if (button.matches('[data-diary-delete]')) return removeDiary(edit ? edit.row : rows.get(selected));
   if (button.matches('[data-diary-editor-close]')) return askCloseEditor(button);
   if (button.matches('[data-diary-pick]')) return editor.querySelector('[data-diary-input]')?.click();
-  if (button.matches('[data-diary-unpick]')) { const [entry] = edit.pending.splice(Number(button.dataset.diaryUnpick), 1); if (entry) URL.revokeObjectURL(entry.url); renderEditor(); return; }
+  if (button.matches('[data-diary-unpick]')) { const entry = edit.pending[Number(button.dataset.diaryUnpick)]; if (entry && !edit.busy) dropEntry(edit, entry); return; }
   if (button.matches('[data-diary-remove]')) return removePhoto(button.dataset.diaryRemove, button);
   if (button.matches('[data-diary-save]')) return save();
 });
