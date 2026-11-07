@@ -50,6 +50,10 @@ function fakeWorld(opts={}){
    if(p==='rpc/app_news_prune')return res(3);
    return res(null,204);
   }
+  if(u.hostname==='translation.googleapis.com'){
+   if(opts.google)return opts.google(u,init,body);
+   return res({error:{code:403}},403);
+  }
   if(u.hostname==='api.openai.com'){
    return res({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(ai)}]}],usage:{input_tokens:100,output_tokens:20}});
   }
@@ -58,11 +62,12 @@ function fakeWorld(opts={}){
   if(typeof site==='function')return site(u);
   return new Response(site.body??'',{status:site.status??200,headers:site.headers??{'content-type':'text/html; charset=utf-8'}});
  };
- const env=n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,NEWS_FEED_CRON_SECRET:SECRET,WEB2_OPENAI_API_KEY:'synthetic-openai-key-000000000000'}[n]);
- const handler=H.createNewsFeedHandler({env,fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:()=>{}});
+ const env=n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,NEWS_FEED_CRON_SECRET:SECRET,WEB2_OPENAI_API_KEY:'synthetic-openai-key-000000000000',GOOGLE_TRANSLATE_API_KEY:opts.googleKey}[n]);
+ const logs=[];
+ const handler=H.createNewsFeedHandler({env,fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>logs.push(JSON.stringify({code,...(detail??{})}))});
  const writes=()=>calls.filter(c=>c.url.startsWith(SB+'/rest/')&&c.method!=='GET');
  const outbound=()=>calls.filter(c=>!c.url.startsWith(SB)&&!c.url.startsWith('https://api.openai.com'));
- return {handler,calls,writes,outbound};
+ return {handler,calls,writes,outbound,logs};
 }
 const cronReq=(action,body={},headers={})=>new Request(`${FN}?action=${action}`,{method:'POST',headers:{[H.CRON_HEADER]:SECRET,'content-type':'application/json',...headers},body:JSON.stringify(body)});
 const userReq=(action,body={},headers={})=>new Request(`${FN}?action=${action}`,{method:'POST',headers:{authorization:`Bearer ${JWT}`,'content-type':'application/json',...headers},body:JSON.stringify(body)});
@@ -271,4 +276,89 @@ test('pending: 영상(youtu.be)은 기사로 읽지 않고 공개 oEmbed 제목�
 test('titles step: 소개(summary)는 한국어만 받고, 영어 소개를 한국어로 바꿔 쓴다',()=>{
  const ok=H.readTitleSums({titles:[{i:1,ko:'',sum_ko:'합성 소개 요약.'},{i:2,ko:'x',sum_ko:'English only'},{i:3,ko:'x',sum_ko:''},{i:9,ko:'x',sum_ko:'범위 밖'}]},3);
  assert.deepEqual([...ok.entries()],[[1,'합성 소개 요약.']]);
+});
+
+// S52-12 NEWS-원문먼저번역 ②: translate 엔진 Google Cloud Translation(가짜 fetch). 열쇠는 비밀값에서만·헤더로만, 없거나 실패하면 AI 번역.
+const G=await import('../../supabase/functions/news-feed/google-translate.ts');
+const GKEY='synthetic-google-key-0123456789abcdef';
+const gEcho=(seen)=>async(u,init,body)=>{seen.push({url:u.href,headers:init.headers,body});return new Response(JSON.stringify({data:{translations:body.q.map(t=>({translatedText:'번역 '+t}))}}),{status:200,headers:{'content-type':'application/json'}});};
+const gItem={id:ITEM_EN,workspace_id:WS,lane:'channel',url:'https://example.org/en',title:'Synthetic headline',lang:'en',body:'First line.\nSecond line.\n\nThird line.',body_kind:'full',translated_at:null,title_ko:null,body_ko:null};
+
+test('translate google: one call, key in header only, lines kept in order, title only when missing, no AI',async()=>{
+ const seen=[];
+ const w=fakeWorld({items:[gItem],googleKey:GKEY,google:gEcho(seen)});
+ const r=await call(w,userReq('translate',{id:ITEM_EN}));
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.status,'translated');assert.equal(r.body.engine,'google');
+ assert.equal(seen.length,1);
+ assert.equal(seen[0].url,G.GOOGLE_TRANSLATE_URL,'key not in address');
+ assert.equal(seen[0].headers['x-goog-api-key'],GKEY);
+ assert.deepEqual(seen[0].body,{q:['Synthetic headline','First line.','Second line.','Third line.'],target:'ko',format:'text',source:'en'});
+ const patch=w.writes().find(c=>c.url.includes('app_news_items?id=eq.'+ITEM_EN)).body;
+ assert.equal(patch.title_ko,'번역 Synthetic headline');
+ assert.equal(patch.body_ko,'번역 First line.\n번역 Second line.\n번역 Third line.');
+ assert.ok(patch.translated_at);
+ assert.ok(!w.calls.some(c=>c.url.includes('openai')),'no AI');
+ const text=JSON.stringify(r.body)+w.logs.join('')+JSON.stringify(w.writes());
+ assert.ok(!text.includes(GKEY),'key never in response, log or DB');
+ // 제목 번역이 이미 있으면 본문 줄만 보내고 제목·첫 번역 시각은 그대로.
+ const seen2=[];
+ const w2=fakeWorld({items:[{...gItem,title_ko:'배경 제목',translated_at:'2026-11-01T00:00:00Z'}],googleKey:GKEY,google:gEcho(seen2)});
+ await call(w2,userReq('translate',{id:ITEM_EN}));
+ assert.deepEqual(seen2[0].body.q,['First line.','Second line.','Third line.']);
+ const p2=w2.writes().find(c=>c.url.includes('app_news_items?id=eq.'+ITEM_EN)).body;
+ assert.equal(p2.title_ko,'배경 제목');assert.equal(p2.translated_at,'2026-11-01T00:00:00Z');
+ // 저장본이 있으면 Google도 부르지 않는다. 한글 글·하루 한도도 그대로.
+ const seen3=[];
+ const stored=fakeWorld({items:[{...gItem,body_ko:'이미'}],googleKey:GKEY,google:gEcho(seen3)});
+ assert.equal((await call(stored,userReq('translate',{id:ITEM_EN}))).body.status,'stored');assert.equal(seen3.length,0);
+ assert.equal((await call(fakeWorld({items:[{...gItem,lang:'ko'}],googleKey:GKEY,google:gEcho(seen3)}),userReq('translate',{id:ITEM_EN}))).status,409);
+ assert.equal((await call(fakeWorld({items:[gItem],googleKey:GKEY,google:gEcho(seen3),days:[{workspace_id:WS,day:'2026-11-01',translate_n:H.TRANSLATE_DAILY}]}),userReq('translate',{id:ITEM_EN}))).status,429);
+ assert.equal(seen3.length,0);
+ // 로그인 없음·다른 작업공간 기사: 막힘, Google 안 부름.
+ assert.equal((await call(fakeWorld({items:[],googleKey:GKEY,google:gEcho(seen3)}),userReq('translate',{id:ITEM_EN}))).status,404);
+ const anon=fakeWorld({items:[gItem],googleKey:GKEY,google:gEcho(seen3)});
+ assert.equal((await call(anon,new Request(`${FN}?action=translate`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:ITEM_EN})}))).status,401);
+ assert.equal(seen3.length,0);
+});
+
+test('translate google: failure or bad shape or no key falls back to AI translation (same entrance, same save)',async()=>{
+ for(const google of [async()=>new Response('{}',{status:500}),async()=>new Response(JSON.stringify({data:{translations:[{translatedText:'하나'}]}}),{status:200}),async()=>{throw new Error('net');}]){
+  const w=fakeWorld({items:[gItem],googleKey:GKEY,google,ai:{title_ko:'AI 제목',body_ko:'AI 본문.'}});
+  const r=await call(w,userReq('translate',{id:ITEM_EN}));
+  assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.engine,'ai');
+  assert.ok(w.calls.some(c=>c.url.includes('openai')));
+  assert.equal(w.writes().find(c=>c.url.includes('app_news_items?id=eq.'+ITEM_EN)).body.body_ko,'AI 본문.');
+  assert.ok(w.logs.some(l=>l.includes('google_translate_failed')));
+  assert.ok(!w.logs.join('').includes(GKEY));
+ }
+ for(const key of [undefined,'','has space key 0123456789abcdef']){
+  const seen=[];
+  const w=fakeWorld({items:[gItem],googleKey:key,google:gEcho(seen),ai:{title_ko:'AI 제목',body_ko:'AI 본문.'}});
+  const r=await call(w,userReq('translate',{id:ITEM_EN}));
+  assert.equal(r.body.engine,'ai');assert.equal(seen.length,0,'no google without a valid key');
+ }
+});
+
+test('translate google: long body sends only lines up to the limit (in batches) and marks the rest',async()=>{
+ const line='x'.repeat(250);
+ const body=Array.from({length:150},()=>line).join('\n');
+ const seen=[];
+ const w=fakeWorld({items:[{...gItem,title_ko:'제목',body}],googleKey:GKEY,google:gEcho(seen)});
+ await call(w,userReq('translate',{id:ITEM_EN}));
+ const sent=seen.flatMap(s=>s.body.q);
+ assert.equal(sent.length,H.TRANSLATE_MAX_CHARS/250,'whole lines up to the limit');
+ assert.ok(seen.length>1&&seen.every(s=>s.body.q.length<=G.GOOGLE_BATCH_SEGMENTS&&s.body.q.join('').length<=G.GOOGLE_BATCH_CHARS));
+ const ko=w.writes().find(c=>c.url.includes('app_news_items?id=eq.'+ITEM_EN)).body.body_ko.split('\n').filter(Boolean);
+ assert.equal(ko.at(-1),G.TRANSLATE_REST_MARK);assert.equal(ko.length,sent.length+1);
+});
+
+test('google helpers: key shape, line picking, batches',()=>{
+ assert.equal(G.googleKeyFrom(()=>GKEY),GKEY);
+ for(const v of [undefined,'','short','has space 0123456789abcdefghij','a'.repeat(201)])assert.equal(G.googleKeyFrom(()=>v),null);
+ assert.deepEqual(G.bodyLines(' a \n\n b\n'),['a','b']);
+ assert.deepEqual(G.pickLines(['aa','bb','cc'],4),{take:['aa','bb'],rest:true});
+ assert.deepEqual(G.pickLines(['aaaaaa'],4),{take:['aaaa'],rest:true});
+ assert.deepEqual(G.pickLines(['a','b'],4),{take:['a','b'],rest:false});
+ assert.deepEqual(G.batches(['aa','bb','cc'],2,100),[['aa','bb'],['cc']]);
+ assert.deepEqual(G.batches(['aaaa','b','cccccc'],10,5),[['aaaa','b'],['cccccc']]);
 });
