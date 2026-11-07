@@ -145,7 +145,10 @@ test.describe('폰 앱 412 · 사진 정리 지우기 안전장치', () => {
     const junk = await openJunk(await openTidy(page));
     await junk.locator('[data-photos-tidy-see="junk:kakao"]').click();
     const pane = junk.locator('[data-photos-tidy-pane="junk:kakao"]');
-    await pane.locator('[data-photos-id="ph:80003"]').click();
+    // 빠른 이동 막대·위 칩 줄이 칸 위에 겹칠 수 있어(CI 화면) 누르기 대신 칸 단추에 초점 → Enter(키보드로 여는 길과 같음).
+    const cell = pane.locator('[data-photos-id="ph:80003"]');
+    await cell.focus();
+    await page.keyboard.press('Enter');
     const viewer = page.locator('[data-diary-viewer]');
     await expect(viewer).toBeVisible();
     await viewer.locator('[data-od-delete]').click();
