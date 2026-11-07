@@ -11,12 +11,17 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // S52-07 FILES-칸출처고르기: DB 먼저(20261107110000) files_panes를 받고, ②에서 화면 허용 목록에도 더했다.
 // S52-14 FILES-상자접힘기억: DB 먼저(20261107130000) box_shut을 받고, ②에서 화면 허용 목록에도 더했다.
 // S52-41 FILES-두칸나무접기·FILES-폴더고정: DB(20261108030000) files_tree·files_pins와 화면 허용 목록을 같은 PR에서 더했다(적용 전에는 화면이 이번 접속만 기억). DB에만 있는 칸은 없다.
+// S52-44 ② FILES-관리자마무리: DB(20261108060000) files_last와 화면 허용 목록을 같은 PR에서 더했다(적용 전에는 화면이 이번 접속만 기억). DB에만 있는 칸은 없다.
 const DB_ONLY = [];
-test('허용 칸이 DB 검사(마지막 migration, S52-14 box_shut 위에 S52-41 files_tree·files_pins 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261108030000_profile_view_prefs_files_tree_pins.sql');
+test('허용 칸이 DB 검사(마지막 migration, S52-41 files_tree·files_pins 위에 S52-44 files_last 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261108060000_profile_view_prefs_files_last.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 49);
+  assert.equal(KEYS.length, 50);
+  // files_last 모양(DB 검사와 같음).
+  for (const v of [[], [{}], [{}, {gd: 'x'}], [{od: 'F1', gd: '1AbC-_x'}, {od: 'A'.repeat(200)}]]) assert.equal(validValue('files_last', v), true, JSON.stringify(v).slice(0, 40));
+  for (const v of [true, null, {od: 'F1'}, 'F1', [{}, {}, {}], [null], ['F1'], [[]], [{pc: 'C:\\a'}], [{ph: 'DCIM'}], [{od: ''}], [{od: 1}], [{od: 'A'.repeat(201)}], [{od: 'a\nb'}], [{od: 'F1', name: '문서'}]])
+    assert.equal(validValue('files_last', v), false, JSON.stringify(v).slice(0, 40));
   // files_tree·files_pins 모양(DB 검사와 같음).
   for (const v of [{}, {pc: {}}, {pc: {wide: true}}, {app: {fold: false, wide: true}}]) assert.equal(validValue('files_tree', v), true, JSON.stringify(v));
   for (const v of [true, [], {pc: true}, {tablet: {wide: true}}, {pc: {narrow: true}}, {pc: {wide: 1}}]) assert.equal(validValue('files_tree', v), false, JSON.stringify(v));
