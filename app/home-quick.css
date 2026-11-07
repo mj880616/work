@@ -1,6 +1,6 @@
 @import url('./quick-controls.css');
 /* HOME-업무일지홈: 옛 홈 칸 화면(home-read.css)을 지우며 남긴 공용 부분. 빠른 입력(home-quick.js — 홈·정리함·할 일),
-   홈 한 줄 요약(home-summary.js), 수집 상태·AI 사용량(collection-status.js·ai-usage-line.js — 내 프로필·폰 메뉴 판), 연락 없는 조직(org-quiet.js). */
+   홈 '나한테 온 요청' 상자(asks-box.js, 모양은 ui-standard.css UI-요청상자통일), 수집 상태·AI 사용량(collection-status.js·ai-usage-line.js — 내 프로필·폰 메뉴 판), 연락 없는 조직(org-quiet.js). */
 .home-quick { min-width:0; background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:12px; padding:10px; margin-bottom:0; display:grid; gap:8px; }
 .home-quick [data-quick-options][hidden],.home-quick [data-quick-task-options][hidden] { display:none; }
 .home-quick button,.home-quick select { font-family:inherit; font-size:12px; cursor:pointer; }

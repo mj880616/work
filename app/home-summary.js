@@ -1,16 +1,20 @@
-// HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 홈 날짜 줄 아래 요약 한 줄과 업데이트 입력줄.
-// - 요약 한 줄: '나한테 온 요청 n · 챙길 것 n · 정리 안 된 것 n ›'. 누르면 정리함. 내일 약속이 있으면 끝에 ' · 내일 약속 n ›'(누르면 원장, UI-앱안알림 A5). '나한테 온 요청'만 노란 주목 글씨(1건 이상일 때),
-//   나머지는 흐린 글씨. 숫자는 정리함 숫자와 같은 한 곳(inbox-count.js readInboxCount)에서 센다:
+// HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 홈 '나한테 온 요청' 상자의 재료와 업데이트 입력줄.
+// - S52-09 UI-요청상자통일(요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html): 날짜 밑 요약 한 줄은 지우고, 홈 [하루] 카드 맨 위
+//   '나한테 온 요청' 상자(asks-box.js가 유일한 renderer, '잊지 말기'와 같은 공용 부품)로 옮겼다. 이 파일은 숫자·요청 줄 재료만 넘긴다:
+//   상자 = 요청 줄(텔레그램 ask_me 후보) + 맨 아래 흐린 한 줄 '챙길 것 n · 정리 안 된 것 n ›'(+ ' · 내일 약속 n ›', UI-앱안알림 A5).
+//   숫자는 정리함 숫자와 같은 한 곳(inbox-count.js readInboxCount)에서 센다:
 //   나한테 온 요청 = 텔레그램 ask_me 후보(asks), 챙길 것 = 처리 전 후보 중 나머지(todo - asks), 정리 안 된 것 = 업데이트 미분류(update).
-//   못 읽으면 줄을 숨긴다. 옛 폰 홈 요약('새 소식 n')과 놓친 약속·정리 안 된 것·내일 칸(home-fill.js)은 이 줄로 바꾸고 지웠다.
+//   운영자 기능 telegram이 없는 작업공간은 상자 없이 흐린 한 줄만(챙길 것 = 처리 전 전부). 못 읽으면 자리를 숨긴다.
 // - 업데이트 입력줄: home-quick.js 그대로([업데이트 ▾ | 할 일], 폰은 하단 탭 위 고정). 고르기 시트 목록 읽기(dependencies)만 여기서 준다.
 // - 챙길 것 찾기(D7): 이 탭에서 그날 처음 홈을 열 때 서버에 한 번(todo-radar.js autoFindToday).
-// 이 파일이 요약 줄의 유일한 renderer다. 기기 저장 없음.
+// 기기 저장 없음.
 import {readInboxCount, readInboxParts} from './inbox-count.js';
 import {readRecordPages} from './basket-link-records.js';
 import {mountQuick} from './home-quick.js';
 import {autoFindToday} from './todo-radar.js';
 import {setHomeAsks} from './home-asks.js';
+import {mountAsksBox} from './asks-box.js';
+import {hasFeature} from './my-features.js';
 import {tomorrowCommitmentsPath, seoulDay} from './ledger-browse-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -36,25 +40,21 @@ export function mountHomeSummary({root, line, rt = window.KPTURuntime, onTasksCh
   if (!root || !line) return null;
   let run = 0;
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-  // promises: 내일 약속 수(UI-앱안알림 A5). 0이면 줄 끝에 붙이지 않는다.
-  function paint(parts, promises = 0) {
+  const box = mountAsksBox(line, {rt, where: 'home'});
+  // promises: 내일 약속 수(UI-앱안알림 A5). 0이면 흐린 줄 끝에 붙이지 않는다. on: 운영자 기능 telegram(서버). rows: 처리 전 요청 줄.
+  function paint(parts, promises = 0, on = false, rows = []) {
     // UI-앱안알림 3단계(A4): 같은 숫자로 메뉴 '홈' 표시(home-asks.js). 모르면 표시를 내린다.
     setHomeAsks(parts ? parts.asks : null);
-    if (!parts) { line.hidden = true; line.replaceChildren(); return; }
-    line.hidden = false;
-    const label = `나한테 온 요청 ${parts.asks}, 챙길 것 ${parts.todos}, 정리 안 된 것 ${parts.unsorted}. 정리함 열기`;
-    line.innerHTML = `<button type="button" class="home-summary-open" data-goto="basket" aria-label="${esc(label)}">`
-      + `<span class="home-summary-ask${parts.asks ? ' is-on' : ''}" data-home-summary-asks>나한테 온 요청 ${parts.asks}</span>`
-      + `<span class="home-summary-rest"> · 챙길 것 <span data-home-summary-todos>${parts.todos}</span> · 정리 안 된 것 <span data-home-summary-unsorted>${parts.unsorted}</span> ›</span></button>`
-      + (promises > 0 ? `<span class="home-summary-sep" aria-hidden="true"> · </span><button type="button" class="home-summary-open home-summary-promise" data-goto="ledger" data-home-summary-promises aria-label="${esc(`내일 약속 ${promises}. 원장 열기`)}">내일 약속 ${promises} ›</button>` : '');
+    if (!parts) { box.set(null); return; }
+    box.set({on, rows, foot: {todos: on ? parts.todos : parts.todos + parts.asks, unsorted: parts.unsorted, promises}});
   }
   // early: 들어올 때 미리 시작한 읽기(PERF-첫로딩 요청 합치기, S48-59). 빼야 할 할 일 제목은 할 일을 읽은 뒤에야 알므로 세기만 그 뒤에 한다.
   async function refresh(early = null) {
     const mine = ++run, owner = scope();
     const titles = (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).filter(t => t?.status !== 'completed').map(t => t.title);
-    const [out, promises] = await Promise.all([readInboxCount(rt, {taskTitles: titles, parts: early?.parts}), early?.promises || readTomorrowPromises(rt)]);
+    const [out, promises, on] = await Promise.all([readInboxCount(rt, {taskTitles: titles, parts: early?.parts}), early?.promises || readTomorrowPromises(rt), hasFeature(rt, 'telegram')]);
     if (mine !== run || owner !== scope()) return;
-    paint(out?.ok ? summaryParts(out) : null, promises);
+    paint(out?.ok ? summaryParts(out) : null, promises, on, out?.askRows || []);
   }
   // 고르기 시트([업데이트 ▾]·[할 일]의 사업영역)가 쓰는 목록. 정리함·쓰기 창과 같은 읽기(update-places.js readPlaces).
   const flights = new Map();
