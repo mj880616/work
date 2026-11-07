@@ -89,7 +89,8 @@ const newStandard=p=>p.evaluate(()=>{
   if(!e.checkVisibility()||e.closest('#calendarGrid,#calendarWeek,.md-body,.a11y-only,#ps3DetailPane,#wdDetailPane'))continue;
   const s=getComputedStyle(e),text=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
   // LIB-목록간격(2026-10-23 사용자 확정 11:02): 자료실 트리의 맨 위 단 이름(프로젝트·'프로젝트 없음')만 굵게(700) — 두 가지 굵기 기준의 유일한 예외.
-  if(text&&!['400','500'].includes(s.fontWeight)&&!(s.fontWeight==='700'&&e.matches('summary[data-lu-top] > .lu-node-name')))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
+  // UI-보기탭한모양(S52-17, 시안 승인): 보기 바꾸기 탭의 고른 칸만 굵게(--ds-weight-strong) — 두 번째 예외.
+  if(text&&!['400','500'].includes(s.fontWeight)&&!(s.fontWeight==='700'&&e.matches('summary[data-lu-top] > .lu-node-name'))&&!(s.fontWeight==='600'&&e.matches('.ds-seg button.ds-seg-btn:is([aria-pressed="true"],[aria-selected="true"],[aria-checked="true"])')))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
   if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button')&&!e.matches('.icon-btn,.chip-rows-more,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn,[data-sp-new],.lb-add'))){
    // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px. UI-버튼전수조사: 채운 버튼은 36px, 나머지 버튼도 32px.
    // UI-칩줄두줄(2026-10-31): 칩 줄의 칩은 26px·12px.

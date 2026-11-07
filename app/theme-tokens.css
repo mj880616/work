@@ -108,6 +108,10 @@
   --ds-compact-height:32px;--ds-compact-pad-x:12px;--ds-compact-text:13px;--ds-chip-radius:999px;
   /* UI-버튼작게(2026-10-18 사용자 결정): 쓰기 창 서식 도구줄 버튼은 한 단계 더 작게 28px(누르는 범위는 그대로 44px). */
   --ds-compact-height-sm:28px;
+  /* UI-보기탭한모양(S52-17, 2026-11-07 명진 'ㅇ', 시안 docs/design/mockups/bottom-view-tabs.html): ⑤ 보기 바꾸기 한 모양 —
+     연한 알약 바탕(--ds-seg-track) 안에서 고른 칸만 흰 알약(--ds-seg-on)·굵게(--ds-weight-strong). 바탕과 칸 사이 여백 --ds-seg-inset, 칸 사이 --ds-seg-gap. */
+  --ds-seg-track:var(--ds-kind-other-soft);--ds-seg-on:var(--kptu-surface);--ds-seg-on-shadow:0 1px 2px rgb(0 0 0 / 12%);
+  --ds-seg-inset:3px;--ds-seg-gap:2px;--ds-weight-strong:600;
   /* UI-버튼간격(S49-40): 같은 줄에 나란한 버튼·글자 버튼 사이 간격은 이 값 하나(공용 버튼 줄 .btn-row). */
   --ds-button-gap:8px;
   /* UI-칩줄두줄(2026-10-31 명진 결정): 칩 줄의 칩은 더 작고 낮게(26px·12px·좌우 8px), 칩 사이 4px(줄 사이도 4px). 줄이 두 줄이라 누르는 범위는 칩 + 둘레 2px(이웃 줄과 겹치지 않음). */
@@ -217,6 +221,8 @@
     --ds-kind-diary-soft:#2b2440;--ds-kind-diary-ink:#c8b5ee;
     --ds-kind-task-soft:#16332b;--ds-kind-task-ink:#8ad6bd;
     --ds-kind-other-soft:#2d2c27;--ds-kind-other-ink:#cbc8bd;
+    /* 보기 바꾸기: 어두운 바탕에서는 고른 칸이 바탕보다 밝은 회색으로 떠오른다. */
+    --ds-seg-on:var(--kptu-border-strong);--ds-seg-on-shadow:none;
     /* S51-8 News 매체 색·꼬리표 어두운 값: 같은 색 계열, 어두운 바탕에서 읽히게 밝게. */
     --ds-news-labor-1:#e59a8a;--ds-news-labor-2:#e8909a;--ds-news-labor-3:#e6a07e;--ds-news-labor-4:#d19a8c;
     --ds-news-party-1:#72c6c2;--ds-news-party-2:#80d0c8;--ds-news-party-3:#86b8c8;--ds-news-party-4:#7cbca9;

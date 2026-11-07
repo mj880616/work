@@ -5,6 +5,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
+import { segBox } from './helpers/seg-box.mjs';
 
 // UI-PC버튼36(2026-10-20 사용자 결정): PC(≥1024) 큰 버튼은 회의 [+ 회의 결과]와 같은 입력칸 높이(--kptu-control-height 36px).
 // 같은 줄 입력칸·칸 안 아이콘도 36px로 맞춰 줄이 어긋나지 않는다. 누르는 범위는 44px(::after). 폰 동그란 [+]·폰 버튼·중간 폭은 그대로.
@@ -80,7 +81,7 @@ test('UI-PC다듬기묶음 ① 폰 390: ☰ 메뉴에 [쓰기]가 없고 회의�
 for(const width of [1024,1280,1440,1920])test(`UI-PC다듬기묶음 ② PC ${width}: [+ 일정 등록]은 같은 줄 [오늘]·보기 전환과 같은 높이, 누르는 범위 44`,async({page})=>{
  await boot(page,width,`${appOrigin}/app/?view=calendar`);
  const tb=page.locator('#calendarView .calendar-toolbar');
- const add=await box(tb.locator('#newEventBtn')),today=await box(tb.locator('#calendarTodayBtn')),group=await box(tb.locator('.calendar-view-switch'));
+ const add=await box(tb.locator('#newEventBtn')),today=await box(tb.locator('#calendarTodayBtn')),group=await segBox(tb.locator('.calendar-view-switch')); // UI-보기탭한모양(S52-17): 보기 전환은 보이는 알약으로 잰다
  expect(add.height).toBe(32);expect(add.height).toBe(today.height);expect(add.height).toBe(group.height);
  expect(Math.abs(add.top-today.top)).toBeLessThanOrEqual(.5);expect(Math.abs(add.top-group.top)).toBeLessThanOrEqual(.5);
  expect(await tb.locator('#newEventBtn').evaluate(el=>getComputedStyle(el).fontSize)).toBe(await tb.locator('#calendarTodayBtn').evaluate(el=>getComputedStyle(el).fontSize));
