@@ -59,7 +59,7 @@ test('홈: [하루] 맨 위 잊지 말기 한 줄 + 빨간 숫자(0이면 없음
   assert.equal(forgetCount({update: null, todo: 1}), null);
   assert.equal(forgetCount({update: 1, todo: 1, family: null}), 2, '가족 기능 없음·못 읽음은 0');
   const four = forgetLineHtml(4);
-  assert.match(four, /^<div class="nbx-head"><button type="button" class="nbx-title-btn" data-goto="basket" data-home-forget-open aria-label="잊지 말기 4건. 열기"><span class="nbx-title">잊지 말기<\/span><span class="nbx-badge" data-nbx-badge>4<\/span><\/button><\/div>$/);
+  assert.match(four, /^<div class="nbx-head"><button type="button" class="row-act nbx-title-btn" data-goto="basket" data-home-forget-open aria-label="잊지 말기 4건. 열기"><span class="nbx-title">잊지 말기<\/span><span class="nbx-badge" data-nbx-badge>4<\/span><\/button><\/div>$/);
   assert.doesNotMatch(four + forgetLineHtml(0), /열기 ›|nbx-open/, '명진 11/07 22:31: 오른쪽 [열기 ›] 없음, 제목을 누르면 열림');
   assert.doesNotMatch(four + forgetLineHtml(0), /놓친|챙길 것|정리 안 된/);
   assert.doesNotMatch(forgetLineHtml(0), /nbx-badge/);

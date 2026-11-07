@@ -21,7 +21,7 @@ export function headHtml({title, count = 0, faint = '', open = null, countAttr =
     : Number.isInteger(badge) && badge > 0 ? `<span class="nbx-badge" data-nbx-badge>${badge > 99 ? '99+' : badge}</span>` : '';
   const btn = open ? `<button type="button" class="row-act nbx-open" ${open.attr}>${esc(open.label)}</button>` : '';
   const lead = titleOpen
-    ? `<button type="button" class="nbx-title-btn" ${titleOpen.attr}><span class="nbx-title">${esc(title)}</span>${n}</button>`
+    ? `<button type="button" class="row-act nbx-title-btn" ${titleOpen.attr}><span class="nbx-title">${esc(title)}</span>${n}</button>`
     : `<span class="nbx-title">${esc(title)}</span>${n}`;
   return `<div class="nbx-head${n ? '' : ' is-one'}">${lead}${faint ? `<span class="nbx-faint">${esc(faint)}</span>` : ''}${btn}${end}</div>`;
 }
