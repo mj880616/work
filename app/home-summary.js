@@ -28,13 +28,12 @@ export function forgetCount({update, todo, family = 0} = {}) {
   if (u === null || t === null) return null;
   return u + t + (n(family) || 0);
 }
-// 한 줄 HTML: 제목 '잊지 말기' · 빨간 숫자(0이면 없음) · 오른쪽 [열기 ›](정리함), 내일 약속이 있으면 그 앞 흐린 '내일 약속 n ›'(원장).
+// 한 줄 HTML: 제목 '잊지 말기' · 빨간 숫자(0이면 없음) — 제목과 숫자를 누르면 정리함(명진 11/07 22:31: 오른쪽 [열기 ›] 없앰).
+// 내일 약속이 있으면 오른쪽 끝에 흐린 '내일 약속 n ›'(원장).
 export function forgetLineHtml(count, promises = 0) {
   const label = count > 0 ? `잊지 말기 ${count}건. 열기` : '잊지 말기 열기';
-  const head = headHtml({title: '잊지 말기', badge: count, open: {attr: `data-goto="basket" data-home-forget-open aria-label="${escHtml(label)}"`, label: '열기 ›'}});
-  return promises > 0
-    ? head.replace('<button type="button" class="row-act nbx-open"', `<button type="button" class="row-act nbx-foot-open" data-goto="ledger" data-home-summary-promises aria-label="${escHtml(`내일 약속 ${promises}. 원장 열기`)}">내일 약속 ${promises} ›</button><button type="button" class="row-act nbx-open"`)
-    : head;
+  const end = promises > 0 ? `<button type="button" class="row-act nbx-foot-open" data-goto="ledger" data-home-summary-promises aria-label="${escHtml(`내일 약속 ${promises}. 원장 열기`)}">내일 약속 ${promises} ›</button>` : '';
+  return headHtml({title: '잊지 말기', badge: count, titleOpen: {attr: `data-goto="basket" data-home-forget-open aria-label="${escHtml(label)}"`}, end});
 }
 // '내일 약속 n': 원장 약속 중 대기 중·유효(current·needs_check)이고 후속확인일(없으면 끝난 날)이 내일(서울)인 것(폰 알림 '원장 약속 D-1'과 같은 기준,
 // docs/design/phone-notifications.md). 홈에 들어올 때 요약 숫자와 함께 한 번 센다. 못 읽으면 0(줄 끝에 붙이지 않음).

@@ -73,7 +73,7 @@ for(const width of [412,884,1440])test(`home: the first open of the day asks onc
  const line=page.locator('#homeView [data-home-summary]');
  await expect(line).toBeVisible();
  await expect(line).toHaveClass(/(^|\s)nbx(\s|$)/);
- await expect(line.locator('.nbx-head')).toHaveText('잊지 말기3열기 ›');
+ await expect(line.locator('.nbx-head')).toHaveText('잊지 말기3');
  await expect(line.locator('[data-nbx-row],.nbx-foot')).toHaveCount(0);
  // 날짜 밑 옛 요약 줄은 없다(상자는 [하루] 카드 안).
  expect(await line.evaluate(el=>!!el.closest('[data-journal-day]'))).toBe(true);
@@ -101,7 +101,7 @@ test('home: a candidate table that is not applied counts as 0; nothing else brea
  await page.waitForTimeout(300);
  const line=page.locator('#homeView [data-home-summary]');
  // A table that is not applied counts as 0 (inbox-count.js), so the line shows no number instead of failing.
- await expect(line.locator('.nbx-head')).toHaveText('잊지 말기열기 ›');
+ await expect(line.locator('.nbx-head')).toHaveText('잊지 말기');
  await expect(line.locator('[data-nbx-badge]')).toHaveCount(0);
  expect(f.errors).toEqual([]);
 });

@@ -14,11 +14,16 @@ export const NB_UNDO_MS = 5000;
 // open: {attr: 'data-…', label: '정리함 열기 ›'} — 머리 줄 오른쪽 글자 버튼. faint: 흐린 글(예 '· 텔레그램 ·', '· 새 요청 없음 ·').
 // countAttr: 개수 칸에 붙일 data 이름(시험·다른 화면이 읽음, 없으면 생략).
 // badge: 빨간 바탕 흰 글자 숫자 동그라미(앱 안 읽은 알림처럼, S52-20 홈 '잊지 말기' 한 줄). 0이면 그리지 않는다. 99를 넘으면 '99+'.
-export function headHtml({title, count = 0, faint = '', open = null, countAttr = '', badge = 0}) {
+// titleOpen: {attr} — 제목(과 숫자) 자체가 여는 버튼(오른쪽 [열기 ›] 없음). 명진 11/07 22:31 홈 '잊지 말기': "그냥 잊지말기 텍스트 클릭하면 되게, 열기 텍스트는 삭제".
+// end: 머리 줄 맨 오른쪽에 더 붙일 HTML(이미 esc된 것, 예 '내일 약속 n ›').
+export function headHtml({title, count = 0, faint = '', open = null, countAttr = '', badge = 0, titleOpen = null, end = ''}) {
   const n = Number.isInteger(count) && count > 0 ? `<span class="nbx-n"${countAttr ? ` ${countAttr}` : ''}>${count}</span>`
     : Number.isInteger(badge) && badge > 0 ? `<span class="nbx-badge" data-nbx-badge>${badge > 99 ? '99+' : badge}</span>` : '';
   const btn = open ? `<button type="button" class="row-act nbx-open" ${open.attr}>${esc(open.label)}</button>` : '';
-  return `<div class="nbx-head${n ? '' : ' is-one'}"><span class="nbx-title">${esc(title)}</span>${n}${faint ? `<span class="nbx-faint">${esc(faint)}</span>` : ''}${btn}</div>`;
+  const lead = titleOpen
+    ? `<button type="button" class="row-act nbx-title-btn" ${titleOpen.attr}><span class="nbx-title">${esc(title)}</span>${n}</button>`
+    : `<span class="nbx-title">${esc(title)}</span>${n}`;
+  return `<div class="nbx-head${n ? '' : ' is-one'}">${lead}${faint ? `<span class="nbx-faint">${esc(faint)}</span>` : ''}${btn}${end}</div>`;
 }
 // 줄 하나. id는 줄 표시(data-nbx-row), prefix는 내용 앞 작은 꼬리표(HTML, 이미 esc된 것), meta는 아래 작은 줄 왼쪽 글.
 // S52-20 HOME-잊지말기한목록(시안 docs/design/mockups/forget-one-list.html): 들어오는 곳이 달라도 같은 줄 하나.

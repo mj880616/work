@@ -1739,6 +1739,8 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 .nbx-n{ font-weight:var(--ds-weight-medium); font-variant-numeric:tabular-nums; }
 .nbx-faint{ color:var(--kptu-faint); }
 .nbx-head .nbx-open{ margin-left:auto; }
+/* 제목이 여는 버튼(홈 '잊지 말기'): 글자 버튼 모양 없이 제목 그대로, 남은 폭을 다 차지해 줄 어디를 눌러도 열림. 오른쪽 끝 버튼(내일 약속)은 그 뒤. */
+.nbx-head button.row-act.nbx-title-btn{ display:flex; align-items:center; flex:1 1 auto; min-width:0; justify-content:flex-start; gap:6px; padding:0; color:inherit; font-size:inherit; text-align:left; }
 .nbx-list{ list-style:none; margin:0; padding:0; }
 .nbx-item{ padding:6px 0 4px; border-top:var(--ds-line-width) solid var(--ds-line); }
 .nbx-body{ margin:0; color:var(--kptu-ink); font-size:var(--ds-text-row); line-height:1.4; overflow-wrap:anywhere; }

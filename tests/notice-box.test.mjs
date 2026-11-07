@@ -59,11 +59,12 @@ test('홈: [하루] 맨 위 잊지 말기 한 줄 + 빨간 숫자(0이면 없음
   assert.equal(forgetCount({update: null, todo: 1}), null);
   assert.equal(forgetCount({update: 1, todo: 1, family: null}), 2, '가족 기능 없음·못 읽음은 0');
   const four = forgetLineHtml(4);
-  assert.match(four, /^<div class="nbx-head"><span class="nbx-title">잊지 말기<\/span><span class="nbx-badge" data-nbx-badge>4<\/span><button type="button" class="row-act nbx-open" data-goto="basket" data-home-forget-open aria-label="잊지 말기 4건. 열기">열기 ›<\/button><\/div>$/);
+  assert.match(four, /^<div class="nbx-head"><button type="button" class="row-act nbx-title-btn" data-goto="basket" data-home-forget-open aria-label="잊지 말기 4건. 열기"><span class="nbx-title">잊지 말기<\/span><span class="nbx-badge" data-nbx-badge>4<\/span><\/button><\/div>$/);
+  assert.doesNotMatch(four + forgetLineHtml(0), /열기 ›|nbx-open/, '명진 11/07 22:31: 오른쪽 [열기 ›] 없음, 제목을 누르면 열림');
   assert.doesNotMatch(four + forgetLineHtml(0), /놓친|챙길 것|정리 안 된/);
   assert.doesNotMatch(forgetLineHtml(0), /nbx-badge/);
   assert.match(nb.headHtml({title: 'x', badge: 120}), /<span class="nbx-badge" data-nbx-badge>99\+<\/span>/);
-  assert.match(forgetLineHtml(1, 2), /data-goto="ledger" data-home-summary-promises[^>]*>내일 약속 2 ›<\/button><button type="button" class="row-act nbx-open"/);
+  assert.match(forgetLineHtml(1, 2), /<\/button><button type="button" class="row-act nbx-foot-open" data-goto="ledger" data-home-summary-promises[^>]*>내일 약속 2 ›<\/button><\/div>$/);
   // 빨간 바탕 흰 글자(토큰만).
   assert.match(read('ui-standard.css'), /\.nbx-badge\{[^}]*background:var\(--kptu-danger\); color:var\(--kptu-on-primary\);/);
   assert.match(read('my-features.js'), /\/rest\/v1\/rpc\/app_my_features/);
