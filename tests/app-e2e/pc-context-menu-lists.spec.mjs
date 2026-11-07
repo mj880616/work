@@ -32,9 +32,9 @@ test('파일 1280: 목록 줄 우클릭 → 그 줄 메뉴(고르기 아님), �
   await expect(page.locator('#filesRoot [data-fx-row="od:OD!1"][aria-pressed="true"], #filesRoot .fx-picked')).toHaveCount(0);
   await menu(page).getByRole('button',{name:'열기',exact:true}).click();
   await expect(page.locator('#filesRoot [data-fx-list] [data-fx-row="od:OD!11"]')).toBeVisible();
-  // 파일 줄: [열기][자료실로 보내기][복사][옮기기][이름 바꾸기][별표] … [휴지통] (FILES-자료실로보내기 S52-26)
+  // 파일 줄: [열기][자료실로 보내기][복사][옮기기][이름 바꾸기][경로 복사][별표] … [휴지통] (FILES-자료실로보내기 S52-26, S52-43 ③ 경로 복사)
   await rightAt(page,page.locator('#filesRoot [data-fx-list] [data-fx-row="od:OD!11"]'));
-  expect(await labels(menu(page))).toEqual(['열기','자료실로 보내기','복사','옮기기','이름 바꾸기','별표','휴지통']);
+  expect(await labels(menu(page))).toEqual(['열기','자료실로 보내기','복사','옮기기','이름 바꾸기','경로 복사','별표','휴지통']);
   await page.keyboard.press('Escape');await expect(menu(page)).toBeHidden();
   expect(errors).toEqual([]);
 });
