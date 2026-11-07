@@ -1115,6 +1115,8 @@
   font-size:var(--ds-compact-text); line-height:1; white-space:nowrap;
 }
 #appView #basketView .basket-edit-actions .basket-clip{ gap:4px; }
+/* UI-창아래버튼통일(11/07): 수정 화면 아래 줄의 [📎 첨부]도 같은 줄 [큰 창에서 수정][취소]와 한 가족 — 36px·선 없음·연한 채움. */
+#appView #basketView .basket-edit-actions .basket-clip{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); border-color:transparent; background:var(--kptu-primary-soft); }
 #appView #basketView .basket-edit-actions > button::after,
 #appView #basketView .basket-edit-actions .basket-clip::after,
 #appView #basketView .basket-editor-files [data-basket-upload]::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
@@ -1242,10 +1244,9 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 .modal :is(#saveEventBtn,#saveTaskBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#ps3DeleteConfirm,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate):where(:not([hidden])){
   display:flex; width:max-content; max-width:100%; height:var(--kptu-control-height); min-height:var(--kptu-control-height); margin:var(--kptu-space-2) 0 0 auto; padding:0 var(--ds-control-pad-x);
 }
-/* ①-2 폰 할 일 수정 창 아래 [저장](이미 글자 폭): 46 → 36px. */
-.modal .gt-modal-actions > #gtSaveBtn{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+/* ①-2 할 일 수정 창 아래 줄 [삭제][완료][저장]의 모양은 끝 'UI-창아래버튼통일' 한 곳(창 아래 버튼 줄 공용 부품). */
 /* ② 창 안 보조 버튼: 작은 버튼(32px). 일정·할 일 창 [프로젝트 선택 안 함 ▾]은 폭도 글자만큼. */
-.modal :is(#eventTaskProject,#gtDeleteBtn,#gtToggleBtn):where(:not([hidden])),
+.modal :is(#eventTaskProject):where(:not([hidden])),
 :is(#eventModal,#gtTaskModal) .gt-pick .gt-pick-btn{
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1;
 }
@@ -1752,3 +1753,24 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 @media (hover:hover){ button.icon-btn:not(:disabled):hover,button.ds-chip:not(:disabled,[aria-pressed="true"],[aria-checked="true"]):hover,.ds-seg button.ds-seg-btn:not(:disabled,[aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
 :is(button.ds-chip,.ds-seg button.ds-seg-btn,button.icon-btn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:var(--ds-line-width); }
 :is(button.ds-chip,.ds-seg button.ds-seg-btn,button.icon-btn):disabled{ opacity:.5; cursor:default; }
+
+/* ===== UI-창아래버튼통일(2026-11-07 명진 요청 10:55 '삭제 완료 저장 … 같은 디자인에서의 배리에이션으로 안느껴짐', 시안 docs/design/mockups/sheet-footer-buttons.html 'A') =====
+   창 아래 버튼 줄은 공용 부품 하나다: 팝업·아래에서 올라오는 창의 .modal-action-footer(base-ui.css)와 화면 안 창·칸의 .save-row(위 UI-저장자리).
+   그 줄 안의 ① 주 동작·② 작은 버튼·지우기는 한 가족 — 높이(--kptu-control-height)·모서리(--ds-radius-control)·글자(--ds-text-button / --ds-weight-medium)·
+   안쪽 여백(--ds-control-pad-x)이 똑같고 테두리 선이 없다. 다른 것은 채움 정도 하나뿐이다.
+     저장(주 동작 .primary) = 진한 주 색 채움 · 완료·취소 같은 보조(.secondary·.ghost) = 연한 주 색 채움(--kptu-primary-soft) · 삭제(.danger·.tl-danger 등 지우기 클래스) = 바탕 없는 빨간 글자.
+   자리: 삭제는 줄 왼쪽 끝(글 순서도 맨 앞), 보조는 오른쪽, 저장은 맨 오른쪽(UI-저장자리 그대로). 지우기를 확인하는 창의 주 동작(.primary)은 채움 그대로다.
+   화면 CSS에 남은 줄 안 버튼의 높이·바탕·테두리 규칙이 많아(#id·#appView …) 여기 한 곳이 !important로 고정한다(.save-row-start와 같은 방식).
+   ③ 글자 버튼·④ 칩·⑥ 아이콘·.mini는 이 가족이 아니다. 재발 방지: tests/sheet-footer-buttons.test.mjs, tests/app-e2e/sheet-footer-buttons.spec.mjs. */
+:is(.modal-action-footer,.save-row) button:is(.primary,.secondary,.ghost,.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){
+  box-sizing:border-box !important; height:var(--kptu-control-height) !important; min-height:var(--kptu-control-height) !important;
+  padding:0 var(--ds-control-pad-x) !important; border:0 !important; border-radius:var(--ds-radius-control) !important;
+  font-size:var(--ds-text-button) !important; font-weight:var(--ds-weight-medium) !important;
+}
+:is(.modal-action-footer,.save-row) button.primary:not(.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:var(--kptu-primary) !important; color:var(--kptu-on-primary) !important; }
+:is(.modal-action-footer,.save-row) button:is(.secondary,.ghost):not(.primary,.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:var(--kptu-primary-soft) !important; color:var(--kptu-ink) !important; }
+:is(.modal-action-footer,.save-row) button:is(.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(.primary,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:transparent !important; color:var(--kptu-danger) !important; margin-right:auto !important; margin-left:0 !important; }
+/* 마우스를 올리면 삭제만 옅은 빨강 바탕(저장·보조는 창 안 기존대로 바탕 그대로, 누름은 공용 눌림). */
+@media (hover:hover){
+  :is(.modal-action-footer,.save-row) button:is(.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(:disabled,.primary,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini):hover{ background:var(--kptu-danger-soft) !important; }
+}
