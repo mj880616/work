@@ -134,7 +134,7 @@ test('민트(.notice) 상자를 안내·기다림에 쓰지 않는다(완료 알
 
 test('옮긴 화면은 공용 부품을 쓴다', () => {
   for (const rel of ['journal.js', 'telegram-feed.js', 'call-feed.js', 'photos.js', 'diary-list.js', 'ledger-browse.js',
-    'google-tasks.js', 'workplace-detail.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js', 'team.js', 'meeting-round-detail.js', 'calendar-day-items.js', 'basket.js',
+    'google-tasks.js', 'workplace-detail.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js', 'team.js', 'meeting-round-detail.js', 'calendar-day-items.js', 'forget-list.js' /* S52-20: 정리함 목록의 기다림·없음은 한 목록(forget-list.js)이 그린다 */,
     // 2차
     'data-freshness.js', 'global-search.js', 'calendar-list-view.js', 'calendar-interactions-v2.js', 'calendar-plus.js', 'project-system-v3.js',
     'basket-manual-link.js', 'business-area-fields.js', 'home-quick.js', 'meeting-todo-candidates.js', 'workflow-ai-v3.js',

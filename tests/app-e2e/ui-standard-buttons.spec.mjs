@@ -30,7 +30,8 @@ async function sameButtons(region,height,quickHeight=height){
   // UI-업데이트목록메뉴: the update row's [⋯] beside [복사] is the same small icon (as the note row's).
   // UI-PC바구니첨부버튼: the [📎 첨부] shared button (46px) is checked in basket-attach-button.spec.
   // UI-점검1030손질 C5: 정리함 '챙길 것'의 [다시 찾기]는 홈과 같은 글자 버튼(칩·상자 모양 아님, 28px·누르는 범위 44px은 ui-audit-1030.spec).
-  if(await control.evaluate(el=>el.matches('.inbox-find,.basket-row,.basket-clip,.home-quick-big,.icon-btn,.quick-text-link,.inbox-todo-link,.inbox-todo-source,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more],.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
+  // S52-20: 정리함 한 목록의 줄 버튼(공용 notice-box 줄, ③ 글자 버튼·⑥ 아이콘)과 다른 ③ 글자 버튼은 모양 시험(notice-box·forget-one-list)이 따로 본다.
+  if(await control.evaluate(el=>el.matches('.inbox-find,.nbx *,.row-act,.basket-row,.basket-clip,.home-quick-big,.icon-btn,.quick-text-link,.inbox-todo-link,.inbox-todo-source,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more],.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
   const s=await look(control);shaped.push(s);
   // UI-버튼크기: 주 동작 버튼만 [추가] 높이(46px). 전환(홈 [업데이트 ▾|할 일]·바구니 [메모|노트])은 32px 상자 안 칸으로
   // 바깥쪽 모서리만 8px, 필터([미분류·전체·보관])는 32px 알약, PC [⋯ 더보기]는 32px 보조 버튼. 작은 것은 누르는 범위(::after) 44px.
@@ -43,8 +44,6 @@ async function sameButtons(region,height,quickHeight=height){
    if(el.matches(':is(.modal-action-footer,.save-row) button:is(.primary,.secondary,.ghost,.danger)'))return {min:36,max:36,radius:'8px'};
    // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px. UI-업데이트편집한줄: 수정 화면 버튼 줄과 [첨부 저장]도 32px.
    if(el.closest('.basket-read-actions,.basket-edit-actions')||el.matches('[data-basket-upload]'))return {min:32,max:32,radius:'8px'};
-   if(el.matches('[data-basket-filter]'))return {min:32,max:32,radius:'999px'};
-   if(el.matches('.inbox-chip'))return {min:32,max:32,radius:'8px'};
    return null;
   });
   const label=await control.textContent();
@@ -97,7 +96,6 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  const filled=[];for(const c of await basket.locator('button:visible').all())if((await look(c)).bg===primary&&!(await c.evaluate(el=>el.matches('[aria-pressed="true"],[aria-checked="true"],.active'))))filled.push(await c.textContent());
  expect(filled).toEqual(['추가']);
  // UI-선택표시톤다운: 고른 필터는 연한 선택 바탕 + 테두리 선(주 색 채움은 [추가]만).
- {const on=await look(basket.locator('[data-basket-filter="unclassified"]'));expect(on.bg).toBe(await token(page,'--ds-select-bg'));expect(on.border).toBe(await token(page,'--ds-select-line'));expect(on.bg).not.toBe(primary);}
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 
  // Read view: actions and attachment controls share the height; 연결하기 filled, 할 일 만들기 task kind (UI-디자인손질 6),

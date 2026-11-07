@@ -3,6 +3,7 @@ import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-06T01:00:00Z',changedStamp='2026-10-06T02:00:00Z';
 const n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001',o='30000000-0000-4000-8000-000000000001',o2='30000000-0000-4000-8000-000000000002';
@@ -76,7 +77,7 @@ for(const width of [390,1280])test(`one organization linked by hand shows its wr
  await expect(detail.locator('[data-basket-state]')).toContainText('담당조직: 합성 한빛지부');await expect(detail.locator('[data-basket-link-open]')).toBeFocused();
  expect(f.calls).toEqual([{p_note_id:n,p_note_updated_at:stamp,p_targets:[{kind:'organization',target_id:o,reason:'직접 연결',summary:'10/20 14시 본사 앞 기자회견, 한빛지부 30명 참석'}]}]);
  expect(await page.evaluate(()=>window.__linkEvents)).toBe(1);
- await tap(page,detail.locator('[data-basket-close]'),width);await page.locator('[data-basket-filter="unclassified"]').click();await expect(page.locator(`[data-basket-row="${n}"]`)).toHaveCount(0);
+ await tap(page,detail.locator('[data-basket-close]'),width);await pickBasketView(page,'unclassified');await expect(page.locator(`[data-basket-row="${n}"]`)).toHaveCount(0);
  await page.evaluate(async id=>{await window.KPTUViewLoader.load('team');await window.KPTUWorkplace.open(id);},o);await expect(page.locator('#wdModal')).toBeVisible();
  await expect(page.locator('#wdUpdates')).toContainText('10/20 14시 본사 앞 기자회견, 한빛지부 30명 참석');expect(f.errors).toEqual([]);
 });

@@ -3,6 +3,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 // BUG-바구니연결해제: the same disconnect on four screens — organization detail, project detail, basket list, note screen.
 // One confirmation ("○○ 연결을 해제할까요? 메모는 남아요"), one owner-RLS row delete, then 5 seconds of [되돌리기]
 // that re-links through the existing app_basket_confirm_links RPC.
@@ -120,7 +121,7 @@ async function basket(page){
   return r.fulfill({json:{ok:true,created:1,existing:0}});});
  return {errors,deleted,confirmed,links};
 }
-async function openList(page,width){await tap(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await page.locator('[data-basket-filter="classified"]').click();await expect(page.locator('[data-basket-row="n"]')).toBeVisible();return page.locator('[data-basket-row-item="n"]');}
+async function openList(page,width){await tap(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await pickBasketView(page,'classified');await expect(page.locator('[data-basket-row="n"]')).toBeVisible();return page.locator('[data-basket-row-item="n"]');}
 // The × paints 24px but answers anywhere in a 44px square around its center.
 async function hitArea(locator){return locator.evaluate(el=>{const r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;return [[-21,0],[21,0],[0,-21],[0,21]].every(([dx,dy])=>el.contains(document.elementFromPoint(cx+dx,cy+dy)));});}
 

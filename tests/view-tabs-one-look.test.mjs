@@ -8,10 +8,8 @@ const ui = readFileSync('app/ui-standard.css', 'utf8');
 const six = ui.slice(ui.indexOf('/* ===== UI-버튼6가지'));
 
 // 이름에 '보기'가 들었지만 보기 탭이 아니라 목록 거르기 칩(④ 칩)인 줄. 보기 탭이 아니므로 ⑤ 대상이 아니다.
-const FILTERS = {
-  'app/basket.js inbox-chips': '챙길 것 [처리 전·보냄·이미 함·…] 상태 거르기',
-  'app/basket.js basket-filters': '업데이트 [미분류·분류 완료·보류] 거르기',
-};
+// S52-20: 정리함 칩(inbox-chips·basket-filters)은 한 목록 [처리 전 ▾]로 바뀌어 없어짐 — 지금은 없다.
+const FILTERS = {};
 // 이름에 '보기'가 없거나 화면 코드가 그때그때 그리는 보기 탭 — 따로 확인한다.
 const MORE = [
   ['app/diary.js', /<div class="diary-source ds-seg" role="group" aria-label="일기 고르기"><button type="button" class="ds-seg-btn" data-diary-lv-filter="all"[^>]*>전체<\/button><button type="button" class="ds-seg-btn" data-diary-lv-filter="star"/],

@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import {noteAction} from './helpers/basket-more.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { closeNote } from './helpers/note-close.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // BUG-뒤로가기: whatever is open, Back closes the top one first; only with nothing open does it reach the
 // previous tab. Browser/PWA Back and Android back (KPTUNativeBack.handle) give the same result.
@@ -20,7 +21,7 @@ async function fixture(page){
 }
 async function enterBasket(page){
  await page.locator('.mobile-tabs [data-view="basket"]').click();await expect(page.locator('#basketView')).toBeVisible();
- await page.locator('[data-basket-filter="unclassified"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(notes.length);
+ await pickBasketView(page,'unclassified');await expect(page.locator('[data-basket-row]')).toHaveCount(notes.length);
 }
 const view=page=>page.evaluate(()=>KPTURouter.current);
 

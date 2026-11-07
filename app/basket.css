@@ -130,40 +130,14 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView > .basket-head:not([hidden]) { display:flex; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); margin:0 0 4px; }
 /* NOTE-최근5개 ③: 보일 것이 없는 머리줄(제목은 읽기 프로그램용, 요약·[다시 찾기]는 감춤 — PC 노트 쪽)은 높이 없이 둔다(위쪽 빈 띠 56px). 제목은 읽기 프로그램에 그대로 남는다. */
 #appView #basketView > .basket-head:not([hidden]):not(:has(> :not(.a11y-only,[hidden]))) { min-height:0; margin:0; }
-#appView #basketView .inbox-chip { position:relative; flex:none; height:var(--ds-compact-height,32px); min-height:var(--ds-compact-height,32px); margin:0; padding:0 var(--ds-compact-pad-x,10px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:8px; box-shadow:none; background-image:none; font-size:13px; font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; }
+/* S52-20: 정리함 머리 줄 [처리 전 ▾](② 작은 버튼, 모양은 공용) 오른쪽 끝 정렬. */
+#appView #basketView .forget-head:not([hidden]) { justify-content:flex-end; }
+#forgetViewMenu .forget-view-sep { margin:4px 0; border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
+#forgetViewMenu button[aria-checked="true"] { color:var(--ds-select-ink); font-weight:var(--ds-weight-medium); }
 /* UI-점검1030손질 C5: [다시 찾기]는 거르기 칩(처리 전·보냄·무시)이 아니라 동작이므로 칩 모양이 아니라 홈·업무일지 '챙길 것'의 [다시 찾기]와 같은 글자 버튼(todo-radar.css .radar-find). 누르는 범위 44px은 아래 ::after. */
 #appView #basketView .inbox-find { position:relative; flex:none; height:var(--ds-compact-height-sm,28px); min-height:0; margin:0; padding:0 2px; border:0; border-radius:0; background:transparent; background-image:none; box-shadow:none; color:var(--kptu-primary-ink); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; cursor:pointer; }
 #appView #basketView .inbox-find:disabled { color:var(--kptu-muted); cursor:default; }
-#appView #basketView :is(.inbox-find,.inbox-chip)::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-#appView #basketView .inbox-chip[aria-pressed="true"] { color:var(--ds-select-ink); background:var(--ds-select-bg); border-color:var(--ds-select-line); }
-#appView #basketView .inbox-section-head:not([hidden]) { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-height:var(--kptu-touch-target,44px); }
-#appView #basketView .inbox-section > .inbox-section-head { margin:0; }
-#appView #basketView .inbox-section-head h3 { margin:0 auto 0 0; font-size:var(--ds-text-row,15px); font-weight:var(--ds-weight-medium,500); }
-#appView #basketView .inbox-chips { display:flex; gap:4px; }
-#appView #basketView .inbox-section[hidden] { display:none; }
-#appView #basketView .inbox-section { margin:0 0 10px; }
-#basketView .inbox-pane-count { margin-left:4px; color:var(--kptu-muted); font-variant-numeric:tabular-nums; font-weight:400; }
-/* 챙길 것 줄: 왼쪽 출처(작은 글자 버튼) · 가운데 글 · 오른쪽 작은 [할 일로][무시](UI-버튼기준: 보이는 32px, 누르는 범위 44px, 두 버튼 크기 같음). */
-#basketView .inbox-todo-host:not([hidden]) { display:block; margin:4px 0 0; }
-#basketView .inbox-todo-list { display:flex; flex-direction:column; margin:0; padding:0; list-style:none; }
-#basketView .inbox-todo-row { display:flex; flex-direction:column; gap:2px; min-width:0; padding:8px 0; border-top:var(--ds-line-width) solid var(--ds-line); }
-#basketView .inbox-todo-row:first-child { border-top:0; }
-#basketView .inbox-todo-line { display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap; }
-#basketView .inbox-todo-text { display:flex; flex-direction:column; flex:1 1 12em; min-width:0; }
-#basketView .inbox-todo-summary { font-size:14px; line-height:1.5; color:var(--kptu-ink); overflow-wrap:anywhere; }
-#basketView .inbox-todo-meta,#basketView .inbox-todo-status,#basketView .inbox-todo-empty,#basketView .inbox-todo-done { margin:0; font-size:var(--ds-text-meta); line-height:1.5; color:var(--kptu-muted); overflow-wrap:anywhere; }
-#basketView .inbox-todo-status:empty { display:none; }
-#basketView .inbox-todo-row[data-inbox-todo-status="tasked"] .inbox-todo-summary,#basketView .inbox-todo-row[data-inbox-todo-status="dismissed"] .inbox-todo-summary,#basketView .inbox-todo-row[data-inbox-todo-status="done"] .inbox-todo-summary { color:var(--kptu-muted); text-decoration:line-through; }
-#appView #basketView button.inbox-todo-source { position:relative; flex:0 0 auto; box-sizing:border-box; width:auto; max-width:100%; height:auto; min-height:var(--ds-compact-height-sm); margin:0; padding:0 8px; white-space:nowrap; font:inherit; font-size:var(--ds-text-meta); color:var(--kptu-muted); background:var(--kptu-surface-subtle); border:0; border-radius:var(--ds-chip-radius); cursor:pointer; }
-#appView #basketView .inbox-todo-actions { display:inline-flex; flex:0 0 auto; gap:8px; margin-left:auto; }
-#appView #basketView button.inbox-todo-btn { position:relative; box-sizing:border-box; width:auto; min-width:0; height:var(--ds-compact-height); min-height:0; margin:0; padding:0 var(--ds-compact-pad-x); font:inherit; font-size:var(--ds-compact-text); line-height:1; white-space:nowrap; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); cursor:pointer; }
-#appView #basketView button.inbox-todo-btn:disabled { opacity:.6; cursor:default; }
-#appView #basketView button.inbox-todo-link { position:relative; min-height:0; margin:0; padding:0; font:inherit; font-size:var(--ds-text-meta); color:var(--kptu-primary-ink); background:transparent; border:0; cursor:pointer; }
-/* UI-표잘림전수: 출처 표는 '…'로 자르지 않는다. 폰에서는 줄바꿈한다. */
-@media(max-width:760px){#appView #basketView button.inbox-todo-source { white-space:normal; overflow-wrap:anywhere; text-align:left; }}
-#appView #basketView :is(button.inbox-todo-source,button.inbox-todo-btn,button.inbox-todo-link)::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-#appView #basketView .inbox-todo-tag { cursor:default; }
-#basketView .inbox-todo-below { display:flex; gap:8px; margin-top:2px; }
+#appView #basketView .inbox-find::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #basketView .note-host { --ds-section-ink:var(--ds-kind-note-ink); }
 /* [노트] 위쪽: 검색칸 + [+ 노트]. 폰에서는 [+ 노트]가 다른 화면과 같은 동그란 [+]로 뜬다(ui-standard.css). */
 .note-list-head { display:flex; align-items:center; gap:8px; margin:8px 0; }
@@ -266,21 +240,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 /* 17:45 ③: 노트 줄에 [복사] 아이콘이 없으니 오른쪽은 ⋯ 한 칸만 비운다(PC·폰 같음). */
 #appView #basketView .note-row-item.nx-note > .basket-row { padding-right:48px; }
 
-/* UI-전수디자인점검 F04: 업데이트 목록 한 줄 높이를 줄인다(이 목록만, 노트 목록은 그대로).
-   폰·좁은 화면: 글 / 날짜 · 분류 두 줄. PC(761px~): 한 줄 — 글(말줄임) · 둘째 줄 미리보기(말줄임) · 오른쪽 작은 날짜 · 분류.
-   칸은 자리를 정해 두어 미리보기가 없는 줄도 날짜·분류가 같은 세로줄에 선다. 요청 꼬리표·연결 칩은 그 아래 줄 그대로. */
-#appView #basketView #basketRows .basket-row-item > .basket-row { grid-template-columns:auto minmax(0,1fr); column-gap:8px; align-items:baseline; }
-#appView #basketView #basketRows .basket-row > :is(.basket-title,.basket-preview,.update-request-tags) { grid-column:1 / -1; }
-#appView #basketView #basketRows .basket-row > time { grid-column:1; white-space:nowrap; }
-#appView #basketView #basketRows .basket-row > .basket-row-state { grid-column:2; min-width:0; color:var(--kptu-muted); }
-@media (min-width:761px) {
-  #appView #basketView #basketRows .basket-row-item > .basket-row { grid-template-columns:fit-content(60%) minmax(0,1fr) auto auto; column-gap:12px; align-items:center; }
-  #appView #basketView #basketRows .basket-row > :is(.basket-title,.basket-preview) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  #appView #basketView #basketRows .basket-row > .basket-title { grid-column:1; }
-  #appView #basketView #basketRows .basket-row > .basket-preview { grid-column:2; }
-  #appView #basketView #basketRows .basket-row > time { grid-column:3; font-variant-numeric:tabular-nums; }
-  #appView #basketView #basketRows .basket-row > .basket-row-state { grid-column:4; white-space:nowrap; }
-}
 /* NOTE-보기3가지 (요청함 10/29 15:05, 명진 15:10 '추천대로'): 검색 칸 오른쪽 작은 3칸 전환 [폴더|목록|포스트잇](옛 '노트 · n' 자리), 목록 보기 폴더 꼬리표,
    포스트잇 보드(같은 크기 네모 칸·살짝 기울어짐·아래 모서리 접힘). 색은 폴더마다 연한 색 여덟 가지(노랑 없음 — 노랑은 '나한테 온 요청' 주목 표시), 폴더 없음은 회색. 작고 낮게, 톤다운. */
 /* 폴더 연한 색(꼬리표·포스트잇 바탕). 글자는 늘 진한 잉크라 어두운 화면에서도 읽힌다(보드는 종이처럼 밝은 채로 둠, 채도는 낮춤). */
@@ -370,14 +329,6 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #basketView .basket-manual-task-files .gt-pick-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
 #basketView .basket-manual-task-files.is-drop{outline:1px dashed var(--kptu-link);outline-offset:2px;border-radius:var(--kptu-radius-sm)}
 
-/* TODO-이미함·환류: ⋯ [고쳐서 할 일로] 한 줄 입력, 처리 전 위 '지난주 챙길 것' 옅은 한 줄(누르면 결과별 최근 문장). */
-#basketView .inbox-todo-edit { display:flex; flex-wrap:wrap; align-items:center; gap:6px; width:100%; }
-#basketView .inbox-todo-edit-title { flex:1 1 12em; min-width:0; height:var(--ds-compact-height); padding:0 8px; font:inherit; font-size:var(--ds-compact-text); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); }
-#basketView .inbox-todo-edit-due { flex:0 0 auto; height:var(--ds-compact-height); padding:0 6px; font:inherit; font-size:var(--ds-compact-text); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); }
-#basketView .inbox-todo-week { margin:0 0 6px; font-size:var(--ds-text-meta); line-height:1.5; color:var(--kptu-muted); }
-#basketView .inbox-todo-week > summary { cursor:pointer; overflow-wrap:anywhere; }
-#basketView .inbox-todo-week-head { margin:4px 0 0; font-weight:600; }
-#basketView .inbox-todo-week-list { margin:0; padding-left:1.2em; }
 
 /* NOTE-읽생기아이디어 1단계: [태그]·[댓글] 모아 보기 칩 줄(공용 filter-chips 알약, 고른 칩만 연한 바탕), 노트 읽기의 #태그·댓글 칸. 작고 촘촘하게. */
 #appView #basketView .nt-chips:not([hidden]) { margin:0 0 6px; }
@@ -412,7 +363,3 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .note-cm button.note-cm-del { width:auto; min-width:0; height:auto; min-height:0; padding:0 2px; border:0; background:transparent; box-shadow:none; }
 #appView #basketView .note-cm .note-cm-actions select { height:var(--ds-compact-height,32px); min-height:var(--ds-compact-height,32px); padding-top:0; padding-bottom:0; font-size:var(--ds-compact-text,13px); }
 #appView #basketView [data-note-list] button.nt-cm-open { justify-content:flex-start; width:100%; height:auto; min-height:0; padding:6px 4px; border:0; border-bottom:var(--ds-line-width,1px) solid var(--ds-line); border-radius:0; background:transparent; box-shadow:none; font-weight:400; }
-#basketView .inbox-todo-link { display:flex; flex-direction:column; gap:4px; width:100%; }
-#basketView .inbox-todo-link-head { margin:0; font-size:var(--ds-compact-text); color:var(--ds-muted, inherit); }
-#basketView .inbox-todo-link-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
-#basketView .inbox-todo-link-pick { width:100%; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

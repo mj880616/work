@@ -7,7 +7,7 @@
 /* 굵기: 보통(400)과 중간(500) 두 가지만. 글 본문(.md-body) 안의 강조는 내용이므로 그대로 둔다. */
 /* 일정의 월간·주간 칸(#calendarGrid·#calendarWeek)은 이번 단계에서 모양을 바꾸지 않으므로 굵기도 그대로 둔다. */
 /* 목록 줄(행 버튼)과 그 안의 이름은 아래 '목록 글자' 규칙이 굵기를 정한다(3/3). */
-#appView :is(#basketView,#calendarView,#tasksView,#projectsView,#teamView,#libraryView,#meetingsView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"],[aria-checked="true"]):not(.md-body *,#calendarGrid *,#calendarWeek *,.basket-row,.basket-row *,.kptu-list-name,.lu-row-title,.meeting-list-title h3,.gt-main b,.clv-title,.ds-seg-btn),
+#appView :is(#basketView,#calendarView,#tasksView,#projectsView,#teamView,#libraryView,#meetingsView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"],[aria-checked="true"]):not(.md-body *,#calendarGrid *,#calendarWeek *,.basket-row,.basket-row *,.nbx-body-btn,.kptu-list-name,.lu-row-title,.meeting-list-title h3,.gt-main b,.clv-title,.ds-seg-btn),
 #ps3DetailModal :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *,.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b,.ps3-rec-line,.ps3-rec-line *,.ps3-line-main b,.ps3-add-plus){ font-weight:var(--ds-weight-medium); }
 
 :where(#basketView) label{ font-weight:var(--ds-weight-medium); }
@@ -992,13 +992,6 @@
 #appView #basketView .note-row-item > .basket-row{ padding-right:calc(var(--kptu-touch-target,44px) * 2 + 4px); }
 #appView #basketView .note-row-item:has(> button.basket-row-copy[hidden]) > .basket-row{ padding-right:48px; }
 #appView #basketView button:is([data-note-row-more],[data-basket-row-more]){ font-size:22px; line-height:1; }
-/* UI-업데이트목록메뉴 → UI-화면정리 C4(S48-46): 업데이트 줄은 오른쪽 위 [⋯](44px) 하나. 줄의 [복사] 아이콘은 없고 [복사]는 ⋯·우클릭 메뉴 맨 위(노트 줄과 같음),
-   줄 글은 ⋯ 바로 왼쪽까지(위 .basket-row-item > .basket-row 48px). PC(마우스)는 노트 줄처럼 마우스를 올리거나 키보드로 갔을 때만 ⋯가 보인다(누르는 자리는 그대로). */
-@media (hover:hover) and (pointer:fine){
-  #appView #basketView #basketRows .basket-row-item > button.basket-row-more{ opacity:0; transition:opacity .12s; }
-  #appView #basketView #basketRows .basket-row-item:is(:hover,:focus-within) > button.basket-row-more,
-  #appView #basketView #basketRows .basket-row-item > button.basket-row-more[aria-expanded="true"]{ opacity:1; }
-}
 /* UI-모바일노트복사메뉴: 폰(760px 이하)에서는 목록 줄의 [복사] 버튼을 없애고(⋯ 메뉴 맨 위 [복사]로 이동), 줄 글은 ⋯ 바로 왼쪽까지 넓게 쓴다. ⋯ 아래 세로 줄은 비워 둔다. PC는 그대로. */
 @media(max-width:760px){
   #appView #basketView .basket-row-item > button.basket-row-copy{ display:none; }
@@ -1756,6 +1749,16 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 .nbx-plain{ margin:0 0 8px; font-size:var(--ds-text-meta); }
 .nbx-plain .nbx-foot{ margin:0; padding:0; border-top:0; }
 .nbx .row-act.nbx-foot-open,.nbx-plain .row-act.nbx-foot-open{ font-size:var(--ds-text-meta); color:var(--kptu-faint); }
+/* S52-20 HOME-잊지말기한목록(시안 docs/design/mockups/forget-one-list.html 명진 14:44 '좋은데'): 같은 줄을 상자 없이 화면 목록으로(tone list),
+   아래 작은 줄 맨 앞 흐린 출처 꼬리표, 처리한 줄의 오른쪽 상태 글, 내용을 누르면 기록을 여는 글자 버튼, 업데이트 줄만의 [조직][사업]. */
+.nbx[data-nbx-tone="list"]{ --nbx-ink:var(--kptu-muted); --nbx-bg:transparent; margin:0; padding:0; border:0; border-radius:0; font-size:var(--ds-text-meta); }
+.nbx[data-nbx-tone="list"] > .nbx-list > .nbx-item:first-child{ border-top:0; }
+.nbx[data-nbx-tone="list"] > .nbx-list > li{ padding-left:var(--ds-row-pad-x); padding-right:var(--ds-row-pad-x); }
+.nbx-src{ display:inline-block; margin-right:4px; padding:0 4px; border-radius:var(--ds-radius-control); background:var(--kptu-surface-subtle); color:var(--kptu-muted); }
+.nbx-done{ flex:none; margin-left:auto; color:var(--kptu-faint); }
+.nbx .row-act.nbx-body-btn{ display:inline; width:auto; height:auto; min-height:0; padding:0; color:var(--kptu-ink); font-size:var(--ds-text-row); font-weight:inherit; line-height:inherit; text-align:left; white-space:normal; overflow-wrap:anywhere; }
+.nbx .row-act.nbx-lead{ color:var(--kptu-info); }
+.nbx-below{ position:relative; z-index:1; display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:6px; padding-bottom:var(--ds-row-pad-y); }
 
 /* ===== UI-색점·색점칩(S52-18 CAL-캘린더색칩, 2026-11-07 명진 14:33 '캘린더 종류 옆에 색상 표시 버튼 크기', 시안 docs/design/mockups/calendar-color-chip.html 14:35 'A') =====
    이름 옆 색 표시는 사이트 어디서나 같은 점 하나: .ui-color-dot = 지름 --ds-color-dot(12px) 동그라미 + 옅은 테두리 한 겹(연한 색도 바탕에서 보이게).

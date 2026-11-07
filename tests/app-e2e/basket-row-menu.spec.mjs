@@ -5,6 +5,7 @@ import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { closeNote } from './helpers/note-close.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 
 // UI-업데이트목록메뉴: every update row has [복사] and [⋯] at its top right (same look and behavior as the note rows, UI-노트메뉴정리).
 // The ⋯ holds 수정 · 연결하기 · 할 일 만들기 · 노트로 옮기기 · 삭제 (삭제 last, danger color) and opens right under the pressed ⋯.
@@ -63,18 +64,13 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, width);
     const more = rowMore(page, A), copy = page.locator(`[data-basket-row-copy="${A}"]`), row = page.locator(`[data-basket-row="${A}"]`);
     await expect(more).toHaveAccessibleName('합성 교섭 결과 공유 메뉴');
-    const mb = await more.boundingBox(), rb = await row.boundingBox();
-    expect(mb.width).toBeGreaterThanOrEqual(44); expect(mb.height).toBeGreaterThanOrEqual(44);
-    expect(mb.x + mb.width).toBeGreaterThan(rb.x + rb.width - 8);
-    const title = await row.locator('.basket-title').boundingBox();
-    // UI-화면정리 C4(S48-46): 폰·PC 모두 줄에 [복사] 버튼이 없다([복사]는 ⋯ 메뉴 맨 위). 제목은 ⋯ 바로 왼쪽까지 쓰고 ⋯ 아래로 들어가지 않는다.
+    // S52-20 한 목록: ⋯는 줄 아래 작은 줄 맨 끝 ⑥ 아이콘(누르는 범위 44px은 ::after). 줄에 [복사] 버튼은 없다([복사]는 ⋯ 메뉴 맨 위).
+    const item = page.locator(`[data-basket-row-item="${A}"]`);
+    const mb = await more.boundingBox(), ib = await item.boundingBox();
+    expect(mb.x + mb.width).toBeGreaterThan(ib.x + ib.width - 24);
+    const xb = await item.locator('.nbx-x').boundingBox(); expect(Math.round(mb.height)).toBe(Math.round(xb.height)); // 같은 ⑥ 아이콘(× 와 같은 크기)
     await expect(copy).toHaveCount(0); await expect(page.locator('[data-basket-row-copy]')).toHaveCount(0);
-    expect(title.x + title.width).toBeLessThanOrEqual(mb.x + 1);
-    if (width < 761) {
-      expect(title.x + title.width).toBeGreaterThan(mb.x - 8);
-      expect(title.width).toBeGreaterThanOrEqual(rb.width - 48 - 16 - 2);
-      for (const sel of ['time']) { const b = await row.locator(sel).first().boundingBox(); expect(b.x + b.width).toBeLessThanOrEqual(mb.x + 1); }
-    }
+    await expect(row).toBeVisible();
     // A row with nothing to copy keeps only the ⋯, in the same place.
     const mc = await rowMore(page, C).boundingBox(); expect(Math.round(mc.x)).toBe(Math.round(mb.x));
     { await press(page, rowMore(page, C), width); await expect(menu(page).getByRole('button', { name: '복사', exact: true })).toHaveCount(0); await expect(menu(page).locator('button').first()).toHaveText('수정'); await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden(); }
@@ -109,7 +105,7 @@ for (const width of [390, 1280]) {
     await page.keyboard.press('Enter'); await expect(menu(page)).toBeVisible(); await expect(rowMore(page, B)).toHaveAttribute('aria-expanded', 'true');
     await expect(menu(page).locator('[aria-expanded]')).toHaveCount(0);
     // An outside press closes it without opening anything.
-    await press(page, page.locator('#inboxUpdateTitle'), width);
+    await press(page, page.locator('#basketView .forget-head'), width); // S52-20: 머리 줄 빈 곳(옛 '업데이트' 칸 제목 자리)
     await expect(menu(page)).toBeHidden(); await expect(detail(page)).toBeHidden();
     // [복사] (the menu's first item, phone and PC) copies without opening the update, and closes the menu.
     { await press(page, more, width); await press(page, menu(page).getByRole('button', { name: '복사', exact: true }), width); await expect(more).toBeFocused(); }
@@ -218,7 +214,7 @@ for (const width of [390, 1280]) test(`a list re-read that lands while the ⋯ m
 
 test('an archived update leaves 연결하기 out of its row menu, as the detail refuses it', async ({ page }) => {
   const f = await fixture(page, 1280, { archived: '2026-10-06T05:00:00Z' });
-  await page.locator('[data-basket-filter="archived"]').click();
+  await pickBasketView(page,'archived');
   await expect(rowMore(page, B)).toBeVisible();
   await rowMore(page, B).click();
   await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '할 일 만들기', '노트로 옮기기', '일기로 보내기', '사업 보고로 옮기기', '보류 해제', '삭제']);

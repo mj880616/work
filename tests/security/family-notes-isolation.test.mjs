@@ -22,6 +22,8 @@ const ALLOWED=new Set([
  'docs/ops/family-kept-to-note.sql',
  // S52-09 UI-요청상자통일: 홈 두 상자(나한테 온 요청·잊지 말기)가 같은 부품인지 보는 화면 시험(지어낸 잊지 말기 줄을 흉내 낸 서버로만 돌려줌).
  'tests/app-e2e/home-asks-box.spec.mjs',
+ // S52-20 HOME-잊지말기한목록: 정리함 한 목록에 가족 줄이 같은 줄로 보이는지 보는 화면 시험(지어낸 줄을 흉내 낸 서버로만 돌려줌).
+ 'tests/app-e2e/forget-one-list.spec.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
 function walk(dir,out=[]){
@@ -43,10 +45,15 @@ test('no work-side reader names the table (ai-assist, weekly, journal, search, f
  // 화면은 family-notes-data.js 하나, phone-push는 알림 건수 세기만.
  assert.deepEqual(hits.sort(),['app/family-notes-data.js','supabase/functions/collector-feed/handler.ts','supabase/functions/phone-push/handler.ts'],`이 표를 부르는 앱·Edge 파일: ${hits.join(', ')}`);
 });
-test('잊지 말기 화면 모듈은 홈 하나에서만 부르고, 업무 화면(원장·주간보고·검색·정리함·업무 소식)은 부르지 않는다',()=>{
+// S52-20 HOME-잊지말기한목록(명진 11/07 14:43 '가족 얘기든 업무 얘기든 … 구분해서 보여 줄 필요가 없다'): 정리함 화면의 '잊지 말기' 한 목록(forget-list.js)도
+// 가족 줄을 보인다. 그 목록은 줄을 보이고 상태만 바꾸며(데이터 모듈 하나), 업데이트·원장·주간보고·업무일지·AI 길(basket.js 등)에는 넘기지 않는다.
+test('잊지 말기 화면 모듈은 홈과 잊지 말기 한 목록에서만 부르고, 업무 화면(원장·주간보고·검색·정리함 본체·업무 소식)은 부르지 않는다',()=>{
  const app=walk(join(root,'app')).map(p=>relative(root,p));
  const users=app.filter(f=>/\.m?js$/.test(f)&&/family-notes-data|home-family|family-notes-model/.test(readFileSync(join(root,f),'utf8'))).sort();
- assert.deepEqual(users,['app/family-notes-data.js','app/family-notes-model.mjs','app/home-family.js','app/journal.js'],users.join(', '));
+ assert.deepEqual(users,['app/family-notes-data.js','app/family-notes-model.mjs','app/forget-list.js','app/home-family.js','app/journal.js'],users.join(', '));
+ const list=readFileSync(join(root,'app/forget-list.js'),'utf8');
+ assert.doesNotMatch(list,/ai-assist|basket-ai|weekly|ledger-|journal-data|journal-hwpx|\/export|ai_export/i,'잊지 말기 한 목록은 가족 줄을 AI·원장·주간보고·내보내기 길에 넘기지 않는다');
+ assert.doesNotMatch(readFileSync(join(root,'app/basket.js'),'utf8'),/family-notes/,'정리함 본체(업데이트 길)는 가족 자료를 직접 읽지 않는다');
  const journal=readFileSync(join(root,'app/journal.js'),'utf8');
  assert.equal([...journal.matchAll(/home-family/g)].length>=1,true);
  assert.doesNotMatch(journal,/family-notes-data|family-notes-model/,'업무일지 본체는 잊지 말기 자료를 직접 읽지 않는다(칸 모듈만 불러 둠)');

@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {pickBasketView} from './helpers/forget-view.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 // MTG-사업보고 2단계(화면만): '회의' 화면의 이름을 '사업 보고'로 바꾸고, 주소 ?view=reports(옛 ?view=meetings도 열림), PC 사이드바는 [프로젝트] 바로 아래.
@@ -74,7 +75,7 @@ for(const width of [390,1280])test(`basket list opens with the meeting link chip
  });
  await page.evaluate(async()=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket')});
  await expect(page.locator('#basketView')).toBeVisible();
- await page.locator('#basketView').getByRole('button',{name:/분류 완료/}).first().click();
+ await pickBasketView(page,'classified'); // S52-20: 연결 완료 보기([처리 전 ▾])
  const chip=page.locator('#basketView .basket-chip[data-chip-kind="meeting"]').first();
  await expect(chip).toContainText('합성 정기 회의');
  await expect(chip.locator('.a11y-only')).toHaveText('사업 보고: ');

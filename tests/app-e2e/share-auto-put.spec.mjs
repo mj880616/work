@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {noteTrash} from './helpers/note-trash.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 
 // SHARE-바로넣기(2026-10-30 명진 결정): 폰 앱에서 공유하면 확인 줄·[넣기] 없이 바로 정리함에 들어가고,
 // 위쪽 작은 알림 "업데이트로 보냈어요(S49-9, 옛 정리함에 넣었어요) [메모 달기] [되돌리기]", 실패하면 "넣지 못했어요 [다시]". 앱 다리·파일은 시험용 흉내(서버 키 없음).
@@ -97,7 +98,7 @@ test('사진 여러 장·파일을 공유하면 버튼 없이 한 번에 정리�
   await page.screenshot({path:info.outputPath('share-saved-412.png')});
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   // 목록에 방금 넣은 업데이트가 보인다.
-  await page.locator('[data-basket-filter="unclassified"]').click();
+  await pickBasketView(page,'unclassified');
   await expect(page.locator(`[data-basket-row="${NOTE}"]`)).toBeVisible();
 
   expect(state.deletes).toEqual([]);
@@ -112,7 +113,7 @@ test('[되돌리기]는 묻지 않고 정리함 [지우기]와 같은 휴지통 
   await expect.poll(() => state.deletes).toEqual([NOTE]);
   expect(trash().trash.map(n => n.id)).toEqual([NOTE]);
   await expect(page.locator('[data-undo-notice]')).toContainText('휴지통');
-  await page.locator('[data-basket-filter="unclassified"]').click();
+  await pickBasketView(page,'unclassified');
   await expect(page.locator(`[data-basket-row="${NOTE}"]`)).toHaveCount(0);
   expect(dialogs).toBe(0);
   expect(errors).toEqual([]);

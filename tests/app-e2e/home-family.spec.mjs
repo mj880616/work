@@ -72,7 +72,7 @@ test('한 겹 칸: 머리 줄 하나, 줄마다 [할 일로][이미 함][일정�
   const first=box(page).locator(`[data-nbx-row="${id(1)}"]`);
   await expect(first.locator('.nbx-tag')).toHaveText('예정');
   await expect(first.locator('.nbx-meta')).toHaveText('말한 때: 토요일 저녁 · 텔레그램 · 10/5');
-  await expect(first.locator('.nbx-acts button')).toHaveText(['할 일로','이미 함','일정으로','노트로','×']);
+  await expect(first.locator('.nbx-acts button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×']);
   const second=box(page).locator(`[data-nbx-row="${id(2)}"]`);
   await expect(second.locator('.nbx-tag')).toHaveCount(0);
   await expect(second.locator('b')).toHaveCount(0);

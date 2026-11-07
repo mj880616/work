@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // NAV-PC앞뒤통일(요청함 10/30 05:39, 결정 A): PC 위쪽 줄 ‹ › 는 폰·브라우저 뒤로/앞으로와 같은 길이다.
 // ‹ 는 열린 것(노트·상세·창)부터 하나씩 닫고 그다음 이전 화면, › 는 그 반대(닫은 것을 다시 연다). 폰 412·884의 뒤로/앞으로도 같은 결과.
@@ -46,7 +47,7 @@ for(const width of [1440,412,884]){
  test(`${width}: 정리함 업데이트 열기 → ‹ 목록 → › 그 업데이트`,async({page})=>{
   const errors=await fixture(page,width),step=stepper(page,width);
   await clickView(page,'basket');await expect(page.locator('#basketView')).toBeVisible();
-  await page.locator('[data-basket-filter="unclassified"]').click();
+  await pickBasketView(page,'unclassified');
   const row=page.locator('[data-basket-row="n3"]');await expect(row).toBeVisible();await row.click();
   await expect(memoDetail(page)).toBeVisible();await expect(page.locator('#basketView [data-basket-read-text]')).toContainText('메모 3');
   await step.back();

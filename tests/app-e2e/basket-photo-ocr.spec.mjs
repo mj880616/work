@@ -3,6 +3,7 @@ import {noteAction} from './helpers/basket-more.mjs';
 import {readFileSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
+import { pickBasketView } from './helpers/forget-view.mjs';
 // Native disclosure coverage includes real touchscreen taps at 390px.
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',noteId='11111111-1111-4111-8111-111111111111',attempt='22222222-2222-4222-8222-222222222222';
@@ -47,7 +48,7 @@ for(const width of [390,1280]){
   await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('수정 원문');await page.locator('[data-basket-save]').click();await expect(page.locator('#toast')).toContainText('저장');await expect(page.locator('[data-basket-ocr-read]').first()).toBeDisabled();
   await noteAction(page,'[data-basket-archive]');await expect(page.locator('[data-basket-archive]')).toHaveText('보류 해제');await expect(page.locator('[data-basket-ocr-read]').first()).toBeDisabled();
   await noteAction(page,'[data-basket-edit]');await page.locator('#detailBasketFiles').setInputFiles({name:'new.jpg',mimeType:'image/jpeg',buffer:Buffer.from('fixture')});await page.locator('[data-basket-upload]').click();await expect(page.locator('#toast')).toContainText('첨부를 저장');await expect(page.locator('[data-basket-ocr-read]').first()).toBeDisabled();expect(f.calls).toHaveLength(1);
-  await page.locator('[data-basket-close]').click();await page.locator('[data-basket-filter="archived"]').click();await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-ocr-read]').first()).toBeDisabled();expect(f.errors).toEqual([]);
+  await page.locator('[data-basket-close]').click();await pickBasketView(page,'archived');await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-ocr-read]').first()).toBeDisabled();expect(f.errors).toEqual([]);
  });
 }
 test('isolated enabled fixture adopts only successful matching raw anchor and preserves dirty editor',async({page})=>{

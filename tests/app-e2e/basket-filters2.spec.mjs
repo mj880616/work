@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
+import { pickBasketView, expectBasketView } from './helpers/forget-view.mjs';
 
 // UI-바구니거르기2: 바구니 [분류] 아래 분류된 곳 칩 중 [담당조직]·[프로젝트]는 그 아래 한 줄에 이름 칩
 // ([모든 ○○ N] + 연결된 메모가 있는 곳만, 많은 순), [자료실]은 자료 분류 7개 칩. [전체]·[할 일]은 그 줄이 없다.
@@ -65,7 +66,7 @@ async function capture(page,info,name){
 async function enter(page,width){
  await tap(page,page.locator('.mobile-tabs [data-view="basket"]:visible,.app-nav [data-view="basket"]:visible'),width);
  await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('#basketView [data-basket-row]').first()).toBeVisible();await expect(page.locator('[data-basket-list-status]')).toHaveText('');
- await tap(page,page.locator('#basketView [data-basket-filter="classified"]'),width);
+ await pickBasketView(page,'classified');
 }
 
 for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[분류] second row: organization and project names, 7 categories ${width} ${scheme}`,async({page},info)=>{
@@ -112,7 +113,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[분류
   await expect.poll(()=>shown(page),label).toEqual(want);
   if(label==='회의')await capture(page,info,`basket-sub-library-${width}-${scheme}`);
  }
- await expect(page.locator('[data-basket-list-status]')).toHaveText('업데이트 없음');
+ await expect(page.locator('#basketView [data-forget-empty]')).toHaveText('없음');
 
  // ④ [할 일] has no second row; [전체] neither.
  await tap(page,place('할 일'),width);await expect(subs).toBeHidden();await expect.poll(()=>shown(page)).toEqual([TASK]);
@@ -120,9 +121,9 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[분류
 
  // ⑤ Choosing another segment hides both rows; coming back starts at [전체] with no second row.
  await tap(page,place('담당조직'),width);await tap(page,subChip('합성 두리지부'),width);
- await tap(page,page.locator('#basketView [data-basket-filter="unclassified"]'),width);await expect(places).toBeHidden();await expect(subs).toBeHidden();
+ await pickBasketView(page,'unclassified');await expect(places).toBeHidden();await expect(subs).toBeHidden();
  expect(await shown(page)).toEqual([PLAIN]);
- await tap(page,page.locator('#basketView [data-basket-filter="classified"]'),width);await expect(subs).toBeHidden();
+ await pickBasketView(page,'classified');await expect(subs).toBeHidden();
  await tap(page,place('담당조직'),width);await expect(subs.locator('[aria-checked="true"]')).toHaveText('모든 조직 3');
  // Opening a memo hides the rows; closing brings them back with the same choice.
  await tap(page,subChip('합성 두리지부'),width);await tap(page,page.locator(`[data-basket-row="${ORG_B}"]`),width);
@@ -132,7 +133,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[분류
  // Leaving the basket and coming back starts again at [미분류].
  await page.evaluate(()=>window.KPTURouter.go('home'));
  await tap(page,page.locator('.mobile-tabs [data-view="basket"]:visible,.app-nav [data-view="basket"]:visible'),width);
- await expect(page.locator('#basketView [data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(subs).toBeHidden();
+ await expectBasketView(page,'unclassified');await expect(subs).toBeHidden();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });

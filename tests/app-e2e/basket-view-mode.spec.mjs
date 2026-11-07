@@ -62,7 +62,7 @@ for(const width of [390,1280]){
   await expect(read).toBeVisible();expect(await read.innerText()).toBe('고친 원문\n둘째 줄');await expect(text).toBeHidden();
   await expect(page.locator('#toast')).toContainText('수정한 글을 저장했습니다');expect(f.writes.at(-1)).toMatchObject({method:'PATCH',body:{raw_text:'고친 원문\n둘째 줄'}});
   expect(await editableFocused(page)).toBe(false);
-  noDialog(page);await press(page,detail.locator('[data-basket-close]'),width);await expect(page.locator('[data-basket-row="n"]')).toContainText('고친 원문');
+  noDialog(page);await press(page,detail.locator('[data-basket-close]'),width);await expect(page.locator('[data-basket-row-item="n"]')).toContainText('고친 원문');
   expect(f.errors).toEqual([]);
  });
 

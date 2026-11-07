@@ -110,7 +110,7 @@ for(const dark of [false,true])test(`눌림 색: 탭 하이라이트 없음, :ac
  await box.locator('[data-quick-mode="update"]').click();
  // 보기 바꾸기 칸은 누르는 동안 글자만 진하게(바탕은 연한 알약 그대로), 탭 하이라이트 없음.
  expect(await pressed('#homeView [data-quick-mode="task"]')).toEqual({bg:'rgba(0, 0, 0, 0)',fg:await token(page,'--kptu-ink'),tap:'rgba(0, 0, 0, 0)'});
- await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView [data-basket-filter="classified"]')).toBeVisible();
- expect(await pressed('#basketView [data-basket-filter="classified"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView [data-forget-view-open]')).toBeVisible();
+ expect((await pressed('#basketView [data-forget-view-open]')).tap).toBe('rgba(0, 0, 0, 0)'); // S52-20: 정리함 보기는 칩이 아니라 [처리 전 ▾](② 작은 버튼) — 탭 하이라이트만 없음을 본다
  expect(errors).toEqual([]);
 });

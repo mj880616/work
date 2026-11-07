@@ -55,18 +55,18 @@ test('PC 1280: [정리함]은 하위 줄 없는 한 줄, [노트]는 [일정] �
  expect(errors).toEqual([]);
 });
 
-test('PC 1280: 정리함 한 화면 — 맨 위 한 줄과 [다시 찾기], 위 챙길 것 칸·아래 업데이트 칸, 옛 ?pane=todo 주소는 챙길 것 칸으로',async({page})=>{
+test('PC 1280: 정리함 한 화면 — 맨 위 [처리 전 ▾]와 [다시 찾기] 한 줄, 그 아래 한 목록(칸 나눔 없음), 옛 ?pane=todo 주소도 같은 목록',async({page})=>{
  const errors=await open(page,1280),basket=page.locator('#basketView');
  await nav(page).locator('.nav-btn[data-view="basket"]').click();await expect(basket).toBeVisible();
  await expect(basket.locator('[data-inbox-find]')).toBeVisible();await expect(basket.locator('[data-inbox-find]')).toHaveText('다시 찾기');
  await expect(basket.locator('[data-basket-more]')).toHaveCount(0);
- const todo=basket.locator('[data-inbox-todo-section]'),update=basket.locator('.basket-switch-row');
- await expect(todo).toBeVisible();await expect(update).toBeVisible();
- expect((await todo.boundingBox()).y).toBeLessThan((await update.boundingBox()).y);
- await expect(todo.locator('[data-inbox-chip]')).toHaveText(['처리 전','보냄','이미 함','무시']);
- await expect(update.locator('h3')).toContainText('업데이트');
+ const head=basket.locator('.forget-head'),list=basket.locator('[data-forget-section]');
+ await expect(head).toBeVisible();await expect(list).toBeVisible();
+ expect((await head.boundingBox()).y).toBeLessThan((await list.boundingBox()).y);
+ await expect(head.locator('[data-forget-view-open]')).toHaveText('처리 전 ▾');
+ await expect(basket.locator('[data-inbox-todo-section],[data-inbox-chip],h3')).toHaveCount(0);
  await page.evaluate(()=>window.KPTURouter.go('basket',{sub:'todo'}));
- await expect(todo).toBeVisible();await expect(page).not.toHaveURL(/pane=/);
+ await expect(list).toBeVisible();await expect(page).not.toHaveURL(/pane=/);
  expect(errors).toEqual([]);
 });
 
