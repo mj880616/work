@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — 홈 '나한테 온 요청'을 '잊지 말기'와 같은 상자로</title>
+<style>
+  :root{--bg:#f4f3f7;--card:#fcfcfd;--line:#e3e1ea;--ink:#2b2930;--faint:#7d7986;--btn:#efedf4;
+        --yellow:#8a6a12;--yellowbg:#fbf7ea;--blue:#3f5f8a;--bluebg:#eef2f8}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:20px;padding:0 16px 24px}
+  .col{width:360px}
+  .col h2{font-size:14px;margin:8px 0}
+  .phone{background:var(--bg);border-radius:18px;padding:12px;border:1px solid #d6d4dd}
+  .date{font-size:18px;font-weight:600;margin:2px 2px 10px}
+  .old-sum{font-size:13px;color:var(--faint);margin:0 2px 10px}
+  .old-sum b{color:#9a7a1a;font-weight:500}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px}
+  /* 같은 부품: 알림 상자 */
+  .box{border:1px solid var(--line);border-radius:10px;padding:7px 10px;margin-bottom:8px}
+  .box.y{background:var(--yellowbg)} .box.b{background:var(--bluebg)}
+  .head{display:flex;align-items:center;gap:6px;font-size:13px}
+  .title{font-weight:700}
+  .y .title{color:var(--yellow)} .b .title{color:var(--blue)}
+  .n{font-weight:600}
+  .y .n{color:var(--yellow)} .b .n{color:var(--blue)}
+  .faint{color:var(--faint);font-size:12px}
+  .open{margin-left:auto;background:none;border:0;color:var(--faint);font-size:12px;padding:4px 0}
+  ul{list-style:none;margin:6px 0 0;padding:0}
+  li{padding:6px 0;border-top:1px solid var(--line)}
+  .body{margin:0 0 3px;font-size:13.5px;line-height:1.35}
+  .row2{display:flex;align-items:center;gap:6px}
+  .meta{color:var(--faint);font-size:11.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .act{border:1px solid var(--line);background:var(--btn);border-radius:6px;font-size:11.5px;padding:2px 6px;color:var(--ink)}
+  .x{border:0;background:none;color:var(--faint);font-size:14px;padding:0 2px}
+  .rest{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);font-size:12px;color:var(--faint);display:flex}
+  .rest span:last-child{margin-left:auto}
+  .sec{font-weight:700;font-size:15px;margin:10px 2px 4px}
+  .tag{display:inline-block;font-size:11px;color:#fff;background:#5c5470;border-radius:4px;padding:1px 5px;margin-left:4px}
+  table{border-collapse:collapse;margin:0 16px 24px;font-size:13px;background:#fff}
+  td,th{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{background:#f3f2f6}
+</style>
+</head>
+<body>
+<h1>시안 — 홈 '나한테 온 요청'을 '잊지 말기'와 같은 상자로</h1>
+<p class="note">명진 11/07 10:50: "나한테 온 요청과 잊지 말기가 같은 층위 메뉴라 디자인 통일 — 제목뿐 아니라 안의 화면 구성·버튼까지. 잊지 말기 박스 디자인이 더 좋음."<br>
+→ '잊지 말기' 상자를 기준 부품으로 하고, '나한테 온 요청'도 같은 상자·같은 줄·같은 작은 버튼으로 바꾼다. 색만 구분(잊지 말기 = 톤다운 노랑, 요청 = 톤다운 파랑).</p>
+
+<div class="wrap">
+  <div class="col">
+    <h2>지금</h2>
+    <div class="phone">
+      <div class="date">11월 7일 토요일</div>
+      <div class="old-sum"><b>나한테 온 요청 2</b> · 챙길 것 3 · 정리 안 된 것 5 ›</div>
+      <div class="card">
+        <div class="box y"><div class="head"><span class="title">잊지 말기</span><span class="faint">· 새 제안 없음 ·</span><button class="open">노트 열기 ›</button></div></div>
+        <div class="sec">그날 일정 2</div>
+        <p class="faint" style="margin:2px">… (아래는 그대로)</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>바꾼 뒤 — 요청 있을 때 <span class="tag">명진 10:52 확정</span></h2>
+    <div class="phone">
+      <div class="date">11월 7일 토요일</div>
+      <div class="card">
+        <div class="box b">
+          <div class="head"><span class="title">나한테 온 요청</span><span class="n">2</span><span class="faint">· 텔레그램 ·</span><button class="open">정리함 열기 ›</button></div>
+          <ul>
+            <li><p class="body">회의 자료를 미리 보내 달라는 요청</p>
+              <div class="row2"><span class="meta">○○지부 · 텔레그램 · 11/06</span>
+                <button class="act">할 일로</button><button class="act">이미 함</button><button class="act">일정으로</button><button class="act">노트로</button><button class="x">×</button></div></li>
+            <li><p class="body">다음 주 간담회 참석 여부를 알려 달라는 요청</p>
+              <div class="row2"><span class="meta">○○지부 · 텔레그램 · 11/07</span>
+                <button class="act">할 일로</button><button class="act">이미 함</button><button class="act">일정으로</button><button class="act">노트로</button><button class="x">×</button></div></li>
+          </ul>
+          <div class="rest"><span>챙길 것 3 · 정리 안 된 것 5</span><span>정리함 ›</span></div>
+        </div>
+        <div class="box y">
+          <div class="head"><span class="title">잊지 말기</span><span class="n">1</span><span class="faint">· AI가 뽑음 ·</span><button class="open">노트 열기 ›</button></div>
+          <ul>
+            <li><p class="body">(가족과 나눈 말 한 줄)</p>
+              <div class="row2"><span class="meta">가족 이름 · 텔레그램 · 11/06</span>
+                <button class="act">할 일로</button><button class="act">이미 함</button><button class="act">일정으로</button><button class="act">노트로</button><button class="x">×</button></div></li>
+          </ul>
+        </div>
+        <div class="sec">그날 일정 2</div>
+        <p class="faint" style="margin:2px">… (아래는 그대로)</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>바꾼 뒤 — 둘 다 없을 때</h2>
+    <div class="phone">
+      <div class="date">11월 7일 토요일</div>
+      <div class="card">
+        <div class="box b">
+          <div class="head"><span class="title">나한테 온 요청</span><span class="faint">· 새 요청 없음 ·</span><button class="open">정리함 열기 ›</button></div>
+          <div class="rest"><span>챙길 것 0 · 정리 안 된 것 0</span><span>정리함 ›</span></div>
+        </div>
+        <div class="box y"><div class="head"><span class="title">잊지 말기</span><span class="faint">· 새 제안 없음 ·</span><button class="open">노트 열기 ›</button></div></div>
+        <div class="sec">그날 일정 2</div>
+        <p class="faint" style="margin:2px">… (아래는 그대로)</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<table>
+  <tr><th>같게 맞추는 것</th><th>나한테 온 요청</th><th>잊지 말기</th></tr>
+  <tr><td>자리</td><td colspan="2">홈 [하루] 카드 맨 위, 위아래로 나란히(요청 → 잊지 말기)</td></tr>
+  <tr><td>상자</td><td colspan="2">같은 둥근 상자·같은 머리 줄(제목 · 개수 · 출처 · 열기 ›)·같은 글자 크기</td></tr>
+  <tr><td>줄</td><td colspan="2">내용 한 줄 + 아래 작은 줄(왼쪽 누가·출처·날짜, 오른쪽 작은 버튼 + ×). ×는 5초 되돌리기</td></tr>
+  <tr><td>버튼</td><td colspan="2">[할 일로][이미 함][일정으로][노트로] × (같은 4개 + ×, 명진 10:52)</td></tr>
+  <tr><td>없을 때</td><td>한 줄 '· 새 요청 없음 ·'</td><td>한 줄 '· 새 제안 없음 ·'</td></tr>
+  <tr><td>열기 ›</td><td>정리함 '나한테 온 요청' 목록 — 같은 줄·같은 버튼</td><td>'잊지 말기' 노트</td></tr>
+  <tr><td>색</td><td>톤다운 파랑</td><td>톤다운 노랑</td></tr>
+</table>
+</body>
+</html>
