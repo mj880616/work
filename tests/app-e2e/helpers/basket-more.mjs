@@ -14,7 +14,7 @@ export async function showBasketRow(page,id){
  const row=page.locator(`[data-basket-row="${id}"]`);
  for(const segment of ['unclassified','classified','archived']){
   await pickBasketView(page,segment);
-  await expect(page.locator('#basketView [data-forget-section] [data-wait]')).toHaveCount(0);
+  await expect(page.locator('[data-basket-list-status] [data-wait]')).toHaveCount(0);
   if(await row.count())return row;
  }
  await expect(row).toBeVisible();

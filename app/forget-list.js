@@ -123,7 +123,9 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const list = items(), u = updates();
     const focus = host.contains(document.activeElement) ? {row: document.activeElement.closest('[data-nbx-row]')?.dataset.nbxRow, act: document.activeElement.dataset.nbxAct || ''} : null;
     if (list.length) host.innerHTML = list.map(x => x.html).join('');
-    else if (cState === 'loading' || u.loading) host.innerHTML = `<li>${waitHtml({rows: 2})}</li>`;
+    // 업데이트를 읽는 동안의 기다림은 정리함의 상태 줄(basket.js)이 보인다. 여기서는 후보만 기다릴 때 그린다(기다림 표시 하나).
+    else if (u.loading) host.innerHTML = '';
+    else if (cState === 'loading') host.innerHTML = `<li>${waitHtml({rows: 2})}</li>`;
     else host.innerHTML = `<li>${emptyHtml('없음', {attrs: 'data-forget-empty'})}</li>`;
     if (statusEl) {
       const fail = cState === 'failed' ? '챙길 것을 불러오지 못했어요. <button type="button" class="row-act" data-forget-retry>다시 시도</button>' : '';

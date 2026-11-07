@@ -1,3 +1,4 @@
+import {waitInlineHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {basketOcrFor} from './basket-ocr-runtime.js';
@@ -613,6 +614,7 @@ function renderList() {
   closeRowMenu({keepLayer:true});
   paintPlaceFilter(); paintSubFilter();
   forget?.paint();
+  if (!loadingRun && listStatus.querySelector('[data-wait]')) listStatus.textContent = '';
   keepRowMenu(kept);
   if(!rowMenu)dropRowLayer();
 }
@@ -922,7 +924,7 @@ async function refresh() {
   if (busy) return;
   const run = ++epoch, owner = scope();
   loadingRun = run;
-  listStatus.textContent = ''; root.querySelector('[data-basket-retry]').hidden = true; forget?.paint(); // S52-20: the list draws its own wait
+  listStatus.innerHTML = waitInlineHtml(); root.querySelector('[data-basket-retry]').hidden = true; forget?.paint(); // the read's wait stays on the list's line (rows already shown stay)
   // UI-바구니첨부메모 PR 3: 자료실 분류 칩은 내 분류 목록을 따른다(목록이 오면 'kptu:document-categories-changed'로 다시 그린다).
   void loadDocumentCategories();
   try {

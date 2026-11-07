@@ -155,11 +155,11 @@ test('a view change during the first basket read keeps the loading line and then
  let release;const gate=new Promise(resolve=>{release=resolve});
  await page.route(SB+'/rest/v1/app_notes?**',async route=>{await gate;return route.fallback();});
  await page.evaluate(()=>window.KPTURouter.go('basket'));
- const status=page.locator('#basketView [data-forget-section]');
- await expect(status.locator('[data-wait]')).toHaveCount(1);
+ const status=page.locator('[data-basket-list-status]');
+ await expect(status.locator('[data-wait]')).toHaveCount(1);await expect(status).toHaveText('');
  for(const segment of ['classified','unclassified']){
   await pickBasketView(page,segment);
-  await expect(status.locator('[data-wait]')).toHaveCount(1);await expect(status.locator('[data-forget-empty]')).toHaveCount(0);
+  await expect(status.locator('[data-wait]')).toHaveCount(1);await expect(page.locator('#basketView [data-forget-empty]')).toHaveCount(0);
  }
  release();
  await expect(page.locator(`[data-basket-row="${PLAIN}"]`)).toBeVisible();
