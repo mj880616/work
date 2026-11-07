@@ -168,9 +168,11 @@ for(const width of [390,1280]){
   const [ib,bb,ab,cb,fb]=await Promise.all([input.boundingBox(),big.boundingBox(),add.boundingBox(),clip.boundingBox(),folder.boundingBox()]);
   // [크게] sits at the right end of the input, right before [추가] (on a PC with the clip between them); one row.
   expect(bb.x+bb.width).toBeLessThanOrEqual(ab.x+1);expect(Math.abs((bb.y+bb.height/2)-(ib.y+Math.min(ib.height,46)/2))).toBeLessThan(24);
-  if(width<=760){expect(ab.x-(bb.x+bb.width)).toBeLessThan(16);expect(cb.x+cb.width).toBeLessThanOrEqual(bb.x);
-   // Phone: [폴더 ▾] is a small row of its own right above the input, left-aligned, not overlapping it.
-   expect(fb.y+fb.height).toBeLessThanOrEqual(ib.y+1);expect(ib.y-(fb.y+fb.height)).toBeLessThan(16);expect(Math.abs(fb.x-ib.x)).toBeLessThan(2);}
+  if(width<=760){expect(cb.x+cb.width).toBeLessThanOrEqual(bb.x);
+   // Phone (S52-34 UI-전체정리): one row — input ([크게] at its end) → [폴더 ▾] → [추가], each gap small, [폴더 ▾] on the [추가] line.
+   expect(fb.x).toBeGreaterThanOrEqual(bb.x+bb.width-1);expect(ab.x).toBeGreaterThanOrEqual(fb.x+fb.width-1);
+   for(const gap of [fb.x-(bb.x+bb.width),ab.x-(fb.x+fb.width)]){expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThan(16);}
+   expect(Math.abs((fb.y+fb.height/2)-(ab.y+ab.height/2))).toBeLessThan(8);}
   else{
    // PC row: input ([크게] at its end) → [폴더 ▾] → [📎 첨부] → [추가], in that order, each gap small (8px by design; < 16).
    expect(fb.x).toBeGreaterThanOrEqual(bb.x+bb.width-1);expect(cb.x).toBeGreaterThanOrEqual(fb.x+fb.width-1);expect(ab.x).toBeGreaterThanOrEqual(cb.x+cb.width-1);

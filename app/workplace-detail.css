@@ -132,6 +132,10 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 .wd-stage-note,.wd-stage-now{color:var(--kptu-muted)}.wd-stage-now{color:var(--kptu-ink);font-size:var(--ds-text-row)}
 .wd-stage-select{flex:1 1 6em;min-width:0;height:var(--ds-compact-height);padding:0 6px;font-size:var(--ds-text-button)}
 .wd-stage-date{flex:0 0 auto;width:9.5em;height:var(--ds-compact-height);padding:0 6px;font-size:var(--ds-text-button)}
+/* S52-34 UI-전체정리(담당조직): 날짜 칸(공용 date-field 블록형)이 줄 폭을 다 차지해 [~ 끝 날짜]가 혼자 다음 줄로 밀리던 것 →
+   [쟁의 단계 ▾][날짜][~ 끝 날짜]를 한 줄로. 날짜 칸은 글자 폭(9.5em)만, 좁은 폰에서는 줄바꿈으로 자연스럽게 내려간다. */
+.wd-stage>.date-field.is-block{flex:0 0 9.5em;width:9.5em;min-width:0}
+.wd-stage>.date-field.is-block>.wd-stage-date{width:100%}
 .wd-stage-btn{position:relative;flex:0 0 auto;height:var(--ds-compact-height);min-height:0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-text-button)}
 .wd-stage-btn::after{content:"";position:absolute;inset:-6px 0}
 .wd-stage-msg{flex:1 0 100%;color:var(--kptu-muted)}.wd-stage-msg:empty{display:none}.wd-stage-msg.error{color:var(--kptu-danger)}

@@ -11,6 +11,7 @@ export {paintFlowCells, FLOW_SECTIONS, shownSiteNames} from './weekly-flow-cells
 export {inSites} from './weekly-cell-names.mjs';
 export {paintHqSchedule} from './weekly-hq-schedule.js';
 export {paintDiscuss} from './weekly-discuss-table.js';
+export {colGripHtml, mountWeeklyCols, fitOrgColumn} from './weekly-cols.js'; // WEEKLY-조직이름한줄: 주간 정리 표 칸 폭 끌기
 export {paintHandLines} from './weekly-hand-lines.js';
 export {paintDetailLines} from './weekly-detail-lines.js';
 export {readWeekDraft, changeWeekDocs, withDocEdit, withLinePick} from './weekly-draft-store.js';

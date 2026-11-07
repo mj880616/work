@@ -170,6 +170,7 @@
   #calendarView .calendar-grid.cmv-zoomed .cal-day{width:calc(19px * var(--cmv-fs));height:calc(19px * var(--cmv-fs));font-size:calc(11px * var(--cmv-fs))}
   #calendarView .calendar-grid.cmv-zoomed .cal-event.cmv-event,#calendarView .calendar-grid.cmv-zoomed .cmv-cell-task{height:auto;min-height:calc(14px * var(--cmv-fs));padding-top:1px;padding-bottom:1px;align-items:flex-start;font-size:calc(11px * var(--cmv-fs));line-height:1.25;white-space:normal;text-overflow:clip}
   #calendarView .calendar-grid.cmv-zoomed .cmv-event-title{white-space:normal;overflow:visible;text-overflow:clip;word-break:keep-all;overflow-wrap:anywhere}
+  #calendarView .calendar-grid.cmv-zoomed .cmv-event-time{flex:0 0 auto;margin-right:calc(3px * var(--cmv-fs));font-size:calc(9.5px * var(--cmv-fs));line-height:calc(11px * var(--cmv-fs) * 1.25);opacity:.75}
   #calendarView .calendar-grid.cmv-zoomed .cmv-cell-task-box{width:calc(8px * var(--cmv-fs));height:calc(8px * var(--cmv-fs));margin-top:calc((1.25em - 8px * var(--cmv-fs)) / 2)}
   /* S52-19 CAL-확대높이따로(명진 11/07): 커진 동안 여러 날 띠만 위쪽 가로 줄(--cmv-band-lanes줄)로 잇고, 하루짜리 일정·할 일은 날마다 따로 쌓는다
      (.cmv-day-stack, calendar-month-view.js appendZoomStacks). 날 묶음은 맨 아래 늘어나는 줄(1fr)까지 걸쳐 띠 줄 높이를 늘리지 않는다. */

@@ -279,7 +279,7 @@ test('titles step: 소개(summary)는 한국어만 받고, 영어 소개를 한�
 });
 
 // S52-12 NEWS-원문먼저번역 ②: translate 엔진 Google Cloud Translation(가짜 fetch). 열쇠는 비밀값에서만·헤더로만, 없거나 실패하면 AI 번역.
-const G=await import('../../supabase/functions/news-feed/google-translate.ts');
+const G=await import('../../supabase/functions/_shared/google-translate.ts');
 const GKEY='synthetic-google-key-0123456789abcdef';
 const gEcho=(seen)=>async(u,init,body)=>{seen.push({url:u.href,headers:init.headers,body});return new Response(JSON.stringify({data:{translations:body.q.map(t=>({translatedText:'번역 '+t}))}}),{status:200,headers:{'content-type':'application/json'}});};
 const gItem={id:ITEM_EN,workspace_id:WS,lane:'channel',url:'https://example.org/en',title:'Synthetic headline',lang:'en',body:'First line.\nSecond line.\n\nThird line.',body_kind:'full',translated_at:null,title_ko:null,body_ko:null};
