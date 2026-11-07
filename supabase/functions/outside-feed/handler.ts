@@ -7,24 +7,29 @@
 //   비밀값이 없거나 짧거나 틀리면 401. 어느 작업공간에 넣을지는 서버가 app_outside_sources.enabled로 정한다(요청 값 안 받음).
 //   `probe`(NEWS-전면개편 P2b, 설계 news-overhaul 4.4절): 단체 키 하나 → 목록 1쪽 + 최신 글 1개를 읽어 본문 추출 결과를 숫자·코드로만 돌려준다
 //   (제목·주소·본문 없음, 저장 없음). 몸통 {}이면 카탈로그 키 목록만.
-// - 화면 입구(`catalog`·`expand`·`read_now`): 사용자 로그인(Authorization)을 Auth 서버로 확인 + 그 사람이 작업공간 owner인지 서버에서 확인.
+// - 화면 입구(`catalog`·`expand`·`read_now`·`translate`): 사용자 로그인(Authorization)을 Auth 서버로 확인 + 그 사람이 작업공간 owner인지 서버에서 확인.
 //   `read_now`(OUTSIDE-이름·바로읽기): 화면에서 단체를 켜면 그 단체 하나를 그 사람 작업공간에만 바로 한 번 읽는다. 단체 키 하나만 받고
 //   (주소 없음), 그 작업공간에서 켜져 있어야 하며, 마지막으로 읽은 지 READ_NOW_COOLDOWN_MS 안이면 다시 읽지 않고, 사람마다 하루
 //   READ_NOW_DAILY_PER_USER번까지. 읽는 일은 예약 입구와 같은 runSource(허용 호스트·robots·크기 상한 그대로)다.
+//   `translate`(S52-36 NEWS-바깥소식번역): 그 사람 작업공간의 영어 소식 하나(글 id만)의 저장 본문 블록(app_feed_bodies)을 한국어로 옮겨
+//   app_outside_posts.body_ko에 저장한다(줄 수를 맞춘 글자, 한 번 번역하면 저장본). 엔진·규칙은 news-feed translate와 공용(_shared/feed-translate.ts:
+//   Google 번역 → 실패하면 AI). 하루 한도·AI 월 한도는 뉴스 [번역]과 같은 app_news_days(translate_n·토큰, _shared/news-days.ts)로 함께 센다.
 //   두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙으면 401. 열쇠가 하나도 없으면 401.
 // 읽는 주소: _shared/outside-catalog.ts 고정 목록의 허용 호스트만(요청 몸통·화면은 단체 키만 보냄 — SSRF 차단).
 //   리다이렉트도 같은 단체 허용 호스트만, 응답 2MB·10초 상한, GET만. robots.txt를 먼저 읽고 막힌 경로는 건너뛴다(last_error='robots').
 // 저장(2절 경계): 국내 글 = 제목·종류·시각·원문 주소·AI 한 문장 요약·본문 문장(2년 지난 글은 문장 없이). 외국 글 = 제목·한국어 제목·
-//   한국어 요약·핵심 문장 3개까지(원문+번역). 전문 번역은 저장하지 않는다.
+//   한국어 요약·핵심 문장 3개까지(원문+번역). 수집 때는 전문 번역을 하지 않는다 — 사람이 [번역]을 누른 글만 body_ko(작업공간 소유자 비공개)에 저장.
 //   본문 블록(NEWS-전면개편 P2b, D1): 국내·외국 글 모두 본문 문단·사진 주소·캡션을 app_feed_bodies에 작업공간 소유자 비공개로(카탈로그 extract=false 단체는 빼고).
 // DB는 service role로 migration 20261031230000의 grant(네 표 select·insert·update·delete) 안에서만 쓴다. 다른 표는 owner 확인용
-//   app_workspace_members 읽기뿐이다. 로그·응답에는 단계 코드·건수·단체 키만(제목·본문·주소 없음).
+//   app_workspace_members 읽기, 본문 블록 app_feed_bodies, [번역] 하루 사용량 app_news_days(읽기·넣기·고치기)뿐이다. 로그·응답에는 단계 코드·건수·단체 키만(제목·본문·주소 없음).
 import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSource } from "../_shared/outside-catalog.ts";
-import { aiConfigFrom, callOpenAi, outputText, type Env, type Log } from "../_shared/openai-responses.ts";
+import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env, type Log } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { bodyNumbers, bodyRow, extractBlocks, failedBody, readFailReason, ruleId, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
+import { blocksText, googleKeyFrom, translateText, TRANSLATE_DAILY, TRANSLATE_INSTRUCTIONS, TRANSLATE_SCHEMA } from "../_shared/feed-translate.ts";
+import { addDay, kstDay, monthKrw, MONTHLY_LIMIT_KRW, takeDaily } from "../_shared/news-days.ts";
 import { betterTitle, pageTitleFrom, tidySummary, tidyTitle } from "../_shared/outside-tidy.ts";
 import { BODY_MAX_CHARS, cut, decodeBody, isUrlTitle, looksLikeBotCheck, NO_TITLE, oneLine, pageDate, parseFeed, parseListHtml, parseTelegram, robotsAllows, splitSentences, usableTitle, type ListItem, type ListStats } from "./parse.ts";
 
@@ -52,6 +57,7 @@ export const READ_NOW_COOLDOWN_MS = 10 * 60000;    // 바로 읽기: 마지막�
 export const READ_NOW_BUDGET_MS = 60000;           // 바로 읽기: 화면이 기다리는 요청이라 예약보다 짧게
 export const READ_NOW_MAX_NEW = 5;                 // 바로 읽기: 새 글 상한(나머지는 다음 예약 실행)
 export const MAX_BODY_BYTES = 4096;
+export { TRANSLATE_DAILY }; // [번역] 하루 횟수(뉴스와 합계, _shared/feed-translate.ts)
 export const MIN_BODY_CHARS = 60;                  // 이보다 짧은 본문은 본문이 없는 것으로 본다(글쓴이·등록일 줄만 뽑힌 경우 등) — AI에 보내지 않음
 // robots.txt 예외(명진 결정 11/01 16:49): 이 목록에 있고 카탈로그에도 robotsException이 적힌 단체만 robots.txt를 읽지 않는다.
 // 지금은 공공운수노조(kptu, 명진 결정 11/01 16:49)와 노동당(laborparty, 명진 결정 11/01 21:08) 두 곳뿐이다.
@@ -284,16 +290,19 @@ const EXPAND_INSTRUCTIONS = [
 const EXPAND_SCHEMA = { type: "object", additionalProperties: false, required: ["terms"], properties: { terms: { type: "array", items: { type: "string" } } } };
 
 type AiDeps = { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: Log; env: Env };
-async function askAi(deps: AiDeps, name: string, instructions: string, material: string, schema: unknown, maxOut: number): Promise<unknown | null> {
+// opts(S52-36 [번역]만 씀): 시간·응답 크기 상한을 늘리고, 쓴 토큰 수를 onUsage로 알려 준다(월 한도 계산용, 숫자만).
+type AskOpts = { timeoutMs?: number; maxBytes?: number; onUsage?: (u: { input: number; output: number }) => void };
+async function askAi(deps: AiDeps, name: string, instructions: string, material: string, schema: unknown, maxOut: number, opts: AskOpts = {}): Promise<unknown | null> {
   const config = aiConfigFrom(deps.env, { keyName: KEY_NAME, model: DEFAULT_AI_MODEL, priceIn: DEFAULT_PRICE_IN_KRW_PER_MTOK, priceOut: DEFAULT_PRICE_OUT_KRW_PER_MTOK });
   if (!config) { deps.log("ai_not_configured"); return null; }
   const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
     model: config.model, store: false, max_output_tokens: maxOut + AI_REASONING_TOKEN_HEADROOM,
     input: [{ role: "developer", content: instructions }, { role: "user", content: material }],
     text: { format: { type: "json_schema", name, strict: true, schema } },
-  }, { url: OPENAI_URL, timeoutMs: AI_TIMEOUT_MS, retryDelayMs: 1000, maxResponseBytes: AI_RESPONSE_BYTES });
+  }, { url: OPENAI_URL, timeoutMs: opts.timeoutMs ?? AI_TIMEOUT_MS, retryDelayMs: 1000, maxResponseBytes: opts.maxBytes ?? AI_RESPONSE_BYTES });
   if (!result.ok) { deps.log("ai_failed", { stage: result.code }); return null; }
-  const text = outputText(result.raw);
+  opts.onUsage?.({ input: tokenCount(result.usage.input), output: tokenCount(result.usage.output) });
+  const text = opts.maxBytes ? outputText(result.raw, opts.maxBytes) : outputText(result.raw);
   if (!text) { deps.log("ai_failed", { stage: "ai_invalid_response" }); return null; }
   try { return JSON.parse(text); } catch { deps.log("ai_failed", { stage: "ai_invalid_json" }); return null; }
 }
@@ -336,7 +345,6 @@ export function readTerms(v: unknown, query: string): string[] | null {
 
 // ---- 예약 실행 ------------------------------------------------------------------------------------------------------
 
-const kstDay = (ms: number) => new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
 
 // 2년 지난 국내 글의 문장 행을 지우고 has_body=false(제목·요약은 남김, Q7). 한 번에 PRUNE_BATCH건.
 async function pruneOld(db: Db, nowMs: number): Promise<number> {
@@ -708,7 +716,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!m) throw new Fail(401, "UNAUTHORIZED");
       }
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
-      if (cron ? action !== "run_plan" && action !== "run" && action !== "probe" && action !== "refill" : action !== "catalog" && action !== "expand" && action !== "read_now") throw new Fail(400, "UNKNOWN_ACTION");
+      if (cron ? action !== "run_plan" && action !== "run" && action !== "probe" && action !== "refill" : action !== "catalog" && action !== "expand" && action !== "read_now" && action !== "translate") throw new Fail(400, "UNKNOWN_ACTION");
       if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown = {};
       try { body = await readBoundedJson(req, { maxBytes: MAX_BODY_BYTES }); } catch { throw new Fail(400, "INVALID_BODY"); }
@@ -772,6 +780,43 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         const out = await runSource(db, reader, { doFetch, sleep, log, env: deps.env }, source, nowMs, now(), now,
           { onlyWorkspace: who.workspaceId, budgetMs: READ_NOW_BUDGET_MS, maxNew: READ_NOW_MAX_NEW });
         return json({ ok: true, source: out.source, status: out.status, inserted: out.inserted, deferred: out.deferred });
+      }
+      if (action === "translate") {
+        // [번역](S52-36): 그 사람 작업공간의 영어 소식 하나(글 id만 받음, 주소·작업공간 값 없음). 본문 번역이 이미 있으면 저장본(다시 부르지 않음).
+        if (!exactKeys(b, ["id"]) || typeof b.id !== "string" || !UUID.test(b.id)) throw new Fail(400, "INVALID_BODY");
+        const ws = who.workspaceId;
+        const post = (await db.get(`app_outside_posts?id=eq.${b.id}&workspace_id=eq.${ws}&select=id,lang,title,title_ko,body_ko&limit=1`))[0];
+        if (!post) throw new Fail(404, "NOT_FOUND");
+        if (typeof post.body_ko === "string" && post.body_ko) return json({ ok: true, status: "stored" });
+        if (post.lang === "ko") throw new Fail(409, "NOT_FOREIGN");
+        const fb = (await db.get(`app_feed_bodies?outside_post_id=eq.${post.id}&workspace_id=eq.${ws}&select=blocks&limit=1`))[0];
+        const text = blocksText(fb?.blocks);
+        if (!text) throw new Fail(409, "NOTHING_TO_TRANSLATE");
+        const google = googleKeyFrom(deps.env);
+        if (!google && await monthKrw(db, ws, nowMs) >= MONTHLY_LIMIT_KRW) throw new Fail(429, "MONTHLY_LIMIT");
+        if (!await takeDaily(db, ws, "translate_n", TRANSLATE_DAILY, nowMs)) throw new Fail(429, "DAILY_LIMIT");
+        const hadTitle = typeof post.title_ko === "string" && !!post.title_ko;
+        const got = await translateText({
+          doFetch, log, google, title: String(post.title ?? ""), text, lang: post.lang, needTitle: !hadTitle,
+          monthCapped: async () => await monthKrw(db, ws, nowMs) >= MONTHLY_LIMIT_KRW,
+          askAi: async (material, maxOut, timeoutMs) => {
+            let used = { input: 0, output: 0 };
+            const v = await askAi({ doFetch, sleep, log, env: deps.env }, "outside_translate", TRANSLATE_INSTRUCTIONS, material, TRANSLATE_SCHEMA, maxOut,
+              { timeoutMs, maxBytes: 1024 * 1024, onUsage: (u) => { used = u; } });
+            if (used.input || used.output) {
+              try { await addDay(db, ws, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: used.input, ai_output_tokens: used.output }, nowMs); }
+              catch { log("usage_record_failed"); }
+            }
+            return v;
+          },
+        });
+        if (!got.ok) throw new Fail(got.code === "MONTHLY_LIMIT" ? 429 : 503, got.code);
+        if (!got.tr.body_ko) throw new Fail(503, "AI_UNAVAILABLE");
+        // 제목 번역은 소개(title_ko)가 비어 있을 때만 채운다. 본문 번역은 body_ko 한 칸(그 작업공간 글 줄만).
+        const patch: Record<string, unknown> = { body_ko: got.tr.body_ko };
+        if (!hadTitle && got.tr.title_ko) patch.title_ko = got.tr.title_ko;
+        await db.send("PATCH", `app_outside_posts?id=eq.${post.id}&workspace_id=eq.${ws}`, patch, "return=minimal");
+        return json({ ok: true, status: "translated", engine: got.engine });
       }
       // expand: 찾는 말 하나 → 비슷한 말 3~6개(설계 3.3). 1~100자, 사람마다 하루 EXPAND_DAILY_PER_USER번.
       if (!exactKeys(b, ["query"]) || typeof b.query !== "string") throw new Fail(400, "INVALID_BODY");
