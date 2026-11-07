@@ -144,7 +144,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const chips = note => links.filter(l => l.note_id === note.id && l.status === 'confirmed').map(link => {
     const [kind, label] = chipKinds.find(([key]) => link[key + '_id']) || ['other', '연결'];
     const name = link[kind]?.name || link[kind]?.title || link[kind]?.series_name || '연결 대상 없음';
-    return `<span class="basket-chip" data-chip-kind="${esc(kind)}"><span class="basket-chip-dot" aria-hidden="true"></span><span class="a11y-only">${esc(label)}: </span>${esc(name)}</span>`;
+    return `<span class="basket-chip" data-chip-kind="${esc(kind)}"><span class="basket-chip-dot ui-color-dot" aria-hidden="true"></span><span class="a11y-only">${esc(label)}: </span>${esc(name)}</span>`;
   }).join('');
   // 검색은 제목·본문(해시태그 포함)과 그 노트 댓글까지.
   const matches = note => !query || `${note.title || ''}\n${note.raw_text || ''}\n${commentText(comments, note.id)}`.toLowerCase().includes(query);

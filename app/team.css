@@ -77,7 +77,6 @@ body.kptu-workspace-shell .topbar{display:none!important}
 .action-box{background:var(--kptu-surface-subtle);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:var(--kptu-space-3);margin:var(--kptu-space-4) 0}
 .muted{color:var(--kptu-muted);font-size:12px;margin:3px 0}
 .google-bar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:9px 11px;margin-bottom:var(--kptu-space-3)}
-.toggle-line{display:flex;flex-direction:row;align-items:center;gap:5px;margin:0;font-size:11px}
 .google-cal-list{background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:var(--kptu-space-3);margin:-3px 0 var(--kptu-space-3);display:flex;gap:var(--kptu-space-3);align-items:center;flex-wrap:wrap}
 .google-cal-list>b{width:100%;font-size:11px}
 .badge.google{background:var(--kptu-success-soft);color:var(--kptu-success)}

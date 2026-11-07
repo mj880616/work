@@ -15,14 +15,13 @@
 .calendar-google-panel .updated{margin-left:auto;font-size:10px;font-weight:600;color:var(--kptu-muted);max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .google-bar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:transparent;border:0;border-radius:var(--kptu-radius-sm);padding:4px 0;margin:0}
 .google-bar .secondary{min-height:32px;padding:5px 9px;font-size:11px}
-.google-cal-list{background:transparent;border:0;border-radius:var(--kptu-radius-sm);padding:3px 0 7px;margin:0;display:flex;gap:6px 10px;align-items:center;flex-wrap:wrap}
+/* CAL-캘린더색칩(S52-18): 표시할 캘린더는 공용 칩(④ button.ds-chip + 12px 색 점 .ui-color-dot, 모양은 ui-standard.css) 한 줄. 여기는 자리만. */
+.google-cal-list{background:transparent;border:0;border-radius:var(--kptu-radius-sm);padding:3px 0 7px;margin:0;display:flex;gap:var(--ds-chip-row-gap,4px) 6px;align-items:center;flex-wrap:wrap}
 .google-cal-list>b{width:100%;font-size:10px;color:var(--kptu-muted)}
-.google-cal-list #saveGooglePrefs:disabled{opacity:.55}
-.toggle-line{display:flex;flex-direction:row;align-items:center;gap:4px;margin:0;font-size:10px;min-width:0}
-.toggle-line span{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cp-color{width:18px!important;height:18px!important;min-width:18px;padding:0!important;border:0!important;border-radius:var(--kptu-radius-pill)!important;overflow:hidden}
-.cp-color::-webkit-color-swatch-wrapper{padding:0}
-.cp-color::-webkit-color-swatch{border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-pill)}
+.google-cal-list .cal-chip-name{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.google-cal-list .cal-saved{font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+.google-cal-list .cal-saved:empty{display:none}
+.google-cal-list #disconnectGoogle{margin-left:auto}
 .cp-cal-msg{margin:1px 0 5px;padding:4px 7px;border-radius:var(--kptu-radius-sm);background:var(--kptu-info-soft);color:var(--kptu-info);font-size:9px}
 .cp-cal-msg.error{background:var(--kptu-danger-soft);color:var(--kptu-danger)}
 
@@ -150,8 +149,8 @@
   .calendar-toolbar #monthTitle{font-size:15px;min-width:86px}
   .calendar-google-panel{margin-bottom:3px}
   .calendar-google-panel>summary{min-height:27px}
-  .google-cal-list{gap:5px 8px;padding-bottom:5px}
-  .toggle-line span{max-width:118px}
+  .google-cal-list{padding-bottom:5px}
+  .google-cal-list .cal-chip-name{max-width:118px}
   .cal-cell{padding-left:1px;padding-right:1px}
   /* 날짜 칸 19px·왼쪽 여백 0: 좁은 칸(360px)에서도 날짜 숫자와 오른쪽 ✓N이 겹치지 않게. */
   .cal-day{width:19px;height:19px;margin-left:0;font-size:11px}

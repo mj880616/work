@@ -13,7 +13,7 @@ export function renderFilterChips(host,{options,value='all',label,onChange,small
     const focused=host.contains(document.activeElement)?document.activeElement?.dataset.filterValue:null;
     host.replaceChildren(...options.map(o=>{
       const button=document.createElement('button');button.type='button';button.className='quick-pill-button';button.setAttribute('role','radio');button.dataset.filterValue=o.value;
-      if(o.color){const dot=document.createElement('span');dot.className='filter-chip-dot';dot.style.backgroundColor=o.color;dot.setAttribute('aria-hidden','true');button.append(dot)}
+      if(o.color){const dot=document.createElement('span');dot.className='filter-chip-dot ui-color-dot';dot.style.backgroundColor=o.color;dot.setAttribute('aria-hidden','true');button.append(dot)}
       button.append(document.createTextNode(o.label));return button;
     }));
     host._filterSignature=signature;
