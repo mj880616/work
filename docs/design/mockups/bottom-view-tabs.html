@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — 아래 보기 탭 한 모양으로(일정·노트·사진·파일 …)</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--pri:#5c5470;--tonal:#ecebf3;--bg:#f4f3f7}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:20px;padding:0 16px 24px}
+  .col{width:360px}
+  .col h2{font-size:14px;margin:8px 0}
+  .strip{background:var(--bg);border:1px solid #d6d4dd;border-radius:14px;padding:10px 8px;margin-bottom:10px}
+  .lbl{font-size:12px;color:var(--faint);margin:0 0 6px 2px}
+  .row{display:flex;align-items:center}
+  /* 지금: 일정 */
+  .cal{display:inline-flex;margin:0 auto;border:1px solid var(--line);border-radius:999px;background:#fff;overflow:hidden}
+  .cal span{padding:8px 16px;font-size:14px;border-left:1px solid var(--line)}
+  .cal span:first-child{border-left:0}
+  .cal .on{background:var(--tonal);box-shadow:inset 0 -3px 0 var(--pri)}
+  .plus{margin-left:auto;border:1px solid var(--line);border-radius:10px;width:40px;height:36px;display:flex;align-items:center;justify-content:center;background:#fff;font-size:20px}
+  /* 지금: 노트 */
+  .note5{display:flex;gap:0;width:100%}
+  .note5 span{flex:1;text-align:center;padding:9px 0;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:14px;margin-left:-1px}
+  .note5 .on{background:var(--tonal);color:var(--faint)}
+  /* 한 모양(보기 바꾸기 부품) */
+  .vt{display:inline-flex;margin:0 auto;background:var(--tonal);border-radius:999px;padding:3px;gap:2px;max-width:100%;overflow-x:auto}
+  .vt span{padding:6px 14px;font-size:13.5px;border-radius:999px;white-space:nowrap;color:var(--faint)}
+  .vt .on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+  .tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:1px 5px;margin-left:4px}
+  table{border-collapse:collapse;margin:0 16px 24px;font-size:13px;background:#fff}
+  td,th{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{background:#f3f2f6}
+</style>
+</head>
+<body>
+<h1>시안 — 아래 '보기 바꾸기' 탭을 사이트 전체 한 모양으로</h1>
+<p class="note">명진 11/07 13:26: "하단 탭 디자인 통일. 제발 뭘 할 때 기존 디자인과 통일감 있게." (캡처: 일정 [달력|할 일|일기]는 가운데 둥근 알약 + 밑줄, 노트 [폴더|목록|포스트잇|태그|댓글]은 화면 꽉 찬 네모 다섯 개 + 회색 칠 — 같은 역할인데 모양이 다름)</p>
+
+<div class="wrap">
+  <div class="col">
+    <h2>지금 — 둘이 다름</h2>
+    <div class="strip"><p class="lbl">일정</p><div class="row"><span style="flex:1"></span><div class="cal"><span class="on">달력</span><span>할 일</span><span>일기</span></div><span style="flex:1"></span><span class="plus">＋</span></div></div>
+    <div class="strip"><p class="lbl">노트</p><div class="note5"><span class="on">폴더</span><span>목록</span><span>포스트잇</span><span>태그</span><span>댓글</span></div></div>
+    <p class="note" style="margin:0">테두리·모서리·폭·고른 표시(밑줄 vs 회색 칠)·글자색이 제각각.</p>
+  </div>
+
+  <div class="col">
+    <h2>한 모양 — '보기 바꾸기' 부품 하나 <span class="tag">명진 13:28 확정</span></h2>
+    <div class="strip"><p class="lbl">일정</p><div class="row"><span style="flex:1"></span><div class="vt"><span class="on">달력</span><span>할 일</span><span>일기</span></div><span style="flex:1"></span><span class="plus">＋</span></div></div>
+    <div class="strip"><p class="lbl">노트</p><div class="row"><div class="vt"><span class="on">폴더</span><span>목록</span><span>포스트잇</span><span>태그</span><span>댓글</span></div></div></div>
+    <div class="strip"><p class="lbl">사진·파일·담당조직·News 등 아래 탭 전부</p><div class="row"><div class="vt"><span class="on">사진</span><span>앨범</span><span>달력</span></div></div></div>
+    <p class="note" style="margin:0">연한 알약 바탕 안에서 고른 것만 흰 알약으로 떠오름. 테두리 선·밑줄 없음. 글자 크기·높이·여백 같음. 칸 수에 맞춰 폭이 정해지고 가운데, 칸이 많아 넘치면 옆으로 밀기.</p>
+  </div>
+</div>
+
+<table>
+  <tr><th>같게</th><td>높이 · 모서리(알약) · 글자 13.5px · 고른 표시(흰 알약 + 굵게) · 안 고른 글자색(흐림) · 자리(폰 세로 = 아래 가운데, 폴드 펼침 = 오른쪽 아래, PC = 위 — UI 탭 자리 규칙 그대로)</td></tr>
+  <tr><th>부품</th><td>UI-버튼6가지의 '보기 바꾸기' 하나로만 그림(화면마다 따로 CSS 금지). 홈 위 [하루|주간 정리]도 같은 부품</td></tr>
+  <tr><th>같은 종류 전수</th><td>일정·노트·사진·파일·자료실·담당조직·사업 보고·News·할 일·홈 — 보기 탭이 있는 모든 화면, 폰·폴드·PC</td></tr>
+  <tr><th>재발 방지</th><td>새 화면·새 탭은 이 부품만 쓰게 시험(모양 다른 탭이 생기면 실패)</td></tr>
+</table>
+</body>
+</html>
