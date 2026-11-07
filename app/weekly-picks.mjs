@@ -5,6 +5,8 @@
 //     'take'(제안 그대로 [수용]) | 'edit'([고쳐서 수용], before = 제안 글) | 'drop'(제안 [빼기]·[×]) — 제안에 대한 답(학습 셈에 들어감)
 //     'fix'(보고서 줄 ⋯ [고치기], before = 고치기 전 줄) | 'cut'(보고서 줄 ⋯ [빼기]) | 'add'(묶음 [+ 추가] 수기 줄) — 보고서 줄 동작(kind 'line', 학습 셈 밖)
 //     'none'(되돌리기·다시 넣기 — 앞 동작을 지운 표시, 합칠 때 더 나중 것이 이김)
+//     'have'(S52-24, 요청함 11/07 19:03: 제안 [이미 있음] — 이미 보고서에 쓴 내용이라 치움). '빼기(drop) = 쓸모없음'과 다르다:
+//       이번 주에는 뺀 것처럼 다시 보이지 않지만 학습 셈의 거절(drop)에 넣지 않는다(그 종류를 '안 냄'으로 만들지 않음). 서버 환류 정리는 '이미 있음'으로 읽는다.
 //   why(WEEKLY-환류전칸 ⑤, 요청함 11/01 23:42): 'drop'(제안 [빼기])에 사람이 적은 이유 한 줄(안 써도 됨, WHY_MAX자까지). 서버 환류 정리가 참고한다.
 //   reviews: 이 주에 환류 정리(ai-assist weekly_review)를 부른 시각들 — 정리 시점 셈(reviewDue: 확정 때 1회 + 동작 30건·6시간, 주 3회 상한, 명진 결정 11/01).
 // - 학습: 지난 주들 + 이번 주 picks 를 모아 '종류'(sig = 제안 종류|출처|칸)마다 거절·받음을 센다. 여러 주에 걸쳐 계속 거절한 종류는
@@ -14,9 +16,10 @@
 export const PICK_KIND = Object.freeze({material:'칸 후보', calendar:'캘린더 추천', unmatched:'줄 못 찾은 기록', mismatch:'본문·일정표 다름', ai_line:'AI 줄 제안', review:'환류 규칙 후보',
   doc:'자료 줄', org_ai:'조직 AI 요약', ai_draft:'AI 초안 줄', line:'보고서 줄', carried:'지난주 줄', work_line:'오늘 한 일 줄'});
 export const PICK_FROM = Object.freeze({record:'기록', doc:'자료', calendar:'달력', ai:'AI', hand:'손'});
-export const PICK_ACTS = Object.freeze(['take', 'edit', 'drop', 'fix', 'cut', 'add', 'none']);
+export const PICK_ACTS = Object.freeze(['take', 'edit', 'drop', 'fix', 'cut', 'add', 'none', 'have']);
 export const ANSWER_ACTS = Object.freeze(['take', 'edit', 'drop']);     // 제안에 대한 답 — 학습 셈(learnPicks)에 들어감
 export const LINE_ACTS = Object.freeze(['fix', 'cut', 'add']);          // 보고서 줄 동작
+export const HAVE_ACT = 'have';                                         // 제안 [이미 있음](이미 쓴 내용) — 학습 셈 밖, 이번 주엔 다시 안 보임
 export const BEFORE_ACTS = Object.freeze(['edit', 'fix']);              // before(바꾸기 전 글)를 남기는 동작
 export const WHY_ACTS = Object.freeze(['drop']);                        // why(빼는 이유, 안 써도 됨)를 남기는 동작
 export const WHY_MAX = 100;
@@ -111,8 +114,14 @@ export function mergePicks(a, b) {
   if (!x || !y) return x ?? y ?? null;
   return readPicks({items:[...x.items, ...y.items], released:[...x.released, ...y.released], reviews:[...(x.reviews ?? []), ...(y.reviews ?? [])]});
 }
-// 이번 주에 뺀 제안 열쇠 → 항목.
-export const droppedOf = picks => new Map((readPicks(picks)?.items ?? []).filter(x => x.act === 'drop').map(x => [x.key, x]));
+// 이번 주에 뺀 제안 열쇠 → 항목. [이미 있음](have)도 이번 주엔 다시 보이지 않게 함께 둔다(항목의 act 로 둘을 가른다).
+export const droppedOf = picks => new Map((readPicks(picks)?.items ?? []).filter(x => x.act === 'drop' || x.act === HAVE_ACT).map(x => [x.key, x]));
+// 이번 주 그 칸에서 [이미 있음]으로 치운 제안 글(칸 이름 → 글[]). 부호·띄어쓰기만 다른 비슷한 제안도 함께 거르는 데 쓴다.
+export function hadTexts(picks) {
+  const out = new Map();
+  for (const x of readPicks(picks)?.items ?? []) if (x.act === HAVE_ACT && x.text) { const list = out.get(x.cell) ?? []; list.push(x.text); out.set(x.cell, list); }
+  return out;
+}
 // 이번 주에 '다시 넣기'·받은 제안 열쇠(기억으로 빠지는 종류라도 이번 주엔 보임). 보고서 줄 동작(fix·cut·add)은 제안이 아니라 넣지 않는다.
 export const keptOf = picks => new Set((readPicks(picks)?.items ?? []).filter(x => x.act === 'take' || x.act === 'edit' || x.act === 'none').map(x => x.key));
 
@@ -184,7 +193,7 @@ export function sortPicks(list, describe, {dropped = new Map(), learn = emptyLea
     if (seen.has(key)) return;
     seen.add(key);
     const item = {...d, key, raw:x, i};
-    if (dropped.has(key)) gone.push({...item, why:'drop'});
+    if (dropped.has(key)) gone.push({...item, why:dropped.get(key)?.act === HAVE_ACT ? 'have' : 'drop'});
     else if (!kept.has(key) && learn.blocks(d)) gone.push({...item, why:'learn'});
     else shown.push(item);
   });

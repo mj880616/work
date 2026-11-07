@@ -15,6 +15,7 @@ import {matchOrgs, matchOrg, orgAllNames, sameOrgName} from '../org-name-match.m
 import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './delta.mjs';
 import {sitePlan, isStageLine, stageOfOrg, weekOf} from '../org-dispute-stage-model.mjs';
 import {issuedFromSections} from '../weekly-lines.mjs';
+import {nameKey as cellNameKey, sameName} from '../weekly-cell-names.mjs';
 
 // 브라우저 기본 압축(CompressionStream 'deflate-raw'). Node 20에도 있어 시험이 같은 길을 쓴다.
 const pipe = (bytes, Kind) => new Response(new Blob([bytes]).stream().pipeThrough(new Kind('deflate-raw'))).arrayBuffer().then(b => new Uint8Array(b));
@@ -24,7 +25,8 @@ export const browserZlib = Object.freeze({
 });
 export const canCompress = () => typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
 
-const norm = s => String(s ?? '').replace(/\s+/g, '').replace(/[‧·․]/g, '·');
+// S52-24: 이름 비교는 띄어쓰기·부호('/'·'·' 등)를 무시(weekly-cell-names.mjs nameKey 한 곳).
+const norm = s => cellNameKey(s);
 export const DRAFT_TEXT = Object.freeze({
   noSummary: '확정본에서 요약 표(사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당 팀원)를 찾지 못해 멈췄어요. 아무것도 만들지 않았어요.',
   notBlank: '확정본에서 빈 서식을 뽑았는데 원본 글이 남아 멈췄어요. 아무것도 만들지 않았어요.',
@@ -284,8 +286,9 @@ export function editableRows(base, me) {
 }
 // WEEKLY-한흐름확정 ③(확정 규칙 '내 담당 사업은 사업 요약표에 모두 들어간다', 요청함 11/01 01:12):
 // 내 사업영역(사업 목록 1단 이름, 순서대로) 가운데 바탕 요약 표에 내 줄이 하나도 없는 것. 이름은 띄어쓰기·가운뎃점 모양을 무시하고 견준다.
+// S52-24: 바탕 줄의 세부 과제 이름이 그 사업영역 이름과 같으면(예: '의제 › 주제/A' 줄) 이미 있는 칸이다 — 새 줄을 더하지 않는다.
 export function missingAreas(rows, names) {
-  const have = new Set((rows ?? []).map(r => norm(r.area)));
+  const have = new Set((rows ?? []).flatMap(r => [norm(r.area), norm(r.task)]).filter(Boolean));
   const seen = new Set();
   return (names ?? []).map(n => String(n ?? '').trim()).filter(n => n && !have.has(norm(n)) && !seen.has(norm(n)) && seen.add(norm(n)));
 }
@@ -341,8 +344,11 @@ export function weekMaterial(model, rows, orgs, {aliases = new Map()} = {}) {
     // 세부 과제 이름이 맞는 줄이 없으면 그 사업영역의 세부 과제 빈 줄(WEEKLY-한흐름확정 ③: 바탕에 없던 사업영역에 더한 내 줄 등)에.
     // 그 줄에는 세부 과제 이름이 없으므로 줄 앞에 '세부 과제: '를 붙인다.
     const exact = rows.find(r => norm(r.area) === norm(area.name) && (task ? norm(r.task) === norm(task) : true));
-    const hit = exact ?? (task ? rows.find(r => norm(r.area) === norm(area.name) && !norm(r.task)) : undefined);
-    const line = {day: item.day, text: exact || !hit ? candidateLine(item) : `- ${item.label || task}: ${item.text}`, from: [area.name, task].filter(Boolean).join(' › '), src: item.file ? 'doc' : 'record'};
+    // S52-24: 사업영역 이름이 바탕 줄의 세부 과제 이름과 같으면(예: '의제 › 주제/A') 그 줄이 그 주제 칸이다(새 칸보다 먼저).
+    const topic = exact ? undefined : rows.find(r => sameName(r.task, area.name));
+    const hit = exact ?? topic ?? (task ? rows.find(r => norm(r.area) === norm(area.name) && !norm(r.task)) : undefined);
+    const plain = exact || !hit || (topic && !task);
+    const line = {day: item.day, text: plain ? candidateLine(item) : `- ${item.label || task}: ${item.text}`, from: [area.name, task].filter(Boolean).join(' › '), src: item.file ? 'doc' : 'record'};
     if (hit) byRow.get(hit.index).push(line); else unmatched.push(line);
   }
   for (const other of model?.summary?.others ?? []) for (const item of other.items) unmatched.push({day: item.day, text: `- ${item.text}`, from: other.name, src: item.file ? 'doc' : 'record'});

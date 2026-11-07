@@ -3754,6 +3754,46 @@ for(const width of [390,1280])test(`[주간 정리] 2. 1) 요약: 내 사업영�
  expect(f.errors).toEqual([]);
 });
 
+// S52-24 WEEKLY-칸합치기·이미있음(요청함 11/07 19:03): 사업 목록의 사업영역 이름이 바탕 칸의 세부 과제 이름과 부호·띄어쓰기만 다르면 새 칸을 만들지 않고
+// 그 칸에 제안·넣기가 간다(한글 파일에도 새 묶음 없음). [넣기] 뒤 끝 점만 다른 제안은 남지 않고, [이미 있음]은 제안을 치우며 'have'로 따로 기록. 글은 모두 가짜.
+for(const width of [390,1280])test(`[주간 정리] 2. 1) 요약: 부호만 다른 주제 이름은 한 칸 · [넣기] 뒤 비슷한 제안 없음 · [이미 있음] ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ const tree=[...weeklyTree,{id:'wt',name:'세부 과제·가-1',parent_id:null,status:'active',sort_order:3,metadata:{project_system:'v2'}}];
+ f.more.spaces.push({id:'wt',workspace_id:'w',name:'세부 과제·가-1'});
+ f.more.progress.push({id:'pt1',project_id:'wt',summary:'주제 칸 수요일 기록',effective_on:'2026-10-07',created_at:'2026-10-07T05:00:00Z'},
+  {id:'pt2',project_id:'wa1',summary:'가-1 목요일 기록.',effective_on:'2026-10-09',created_at:'2026-10-09T05:00:00Z'});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_spaces',async r=>{const q=new URL(r.request().url()).searchParams;if(r.request().method()!=='GET'||q.get('select')!=='*')return r.fallback();return r.fulfill({json:tree.map(p=>({...p,workspace_id:'w',owner_id:'home-test',created_at:at}))});});
+ await openJournal(page,width);await openWeekly(page);
+ await openDraft(page);
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"] .weekly-flow-label')).toHaveText(['사업영역 가 › 세부 과제 가-1','사업영역 나 › 세부 과제 나-1']);
+ const a1=flowCell(page,'사업영역 가 › 세부 과제 가-1');
+ const items=a1.locator('[data-flow-suggest-item]');
+ await expect(items.filter({hasText:'주제 칸 수요일 기록'})).toHaveCount(1);
+ // [넣기] 한 번 → 끝 점만 다른 같은 기록 제안도 함께 사라진다.
+ await expect(items.filter({hasText:/가-1 목요일 기록/})).toHaveCount(2);
+ await items.filter({has:page.locator('.weekly-flow-text',{hasText:/가-1 목요일 기록$/})}).getByRole('button',{name:/^넣기/}).click();
+ await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행','- 가-1 목요일 기록']);
+ await expect(items.filter({hasText:/가-1 목요일 기록/})).toHaveCount(0);
+ // [이미 있음]: 칸은 그대로, 제안만 치우고 서버 동작 기록에 'have'(빼기와 따로).
+ const before=f.exec.calls.filter(x=>x.method==='PATCH').length;
+ const topic=items.filter({hasText:'주제 칸 수요일 기록'});
+ await expect(topic.getByRole('button',{name:/^이미 있음/})).toHaveClass(/secondary/);
+ await topic.getByRole('button',{name:/^이미 있음/}).click();
+ await expect(items.filter({hasText:'주제 칸 수요일 기록'})).toHaveCount(0);
+ await expect(a1.locator('p[data-flow-undo]')).toContainText('이미 있는 내용으로 치웠어요');
+ await expect(cellLines(a1)).toHaveCount(2);
+ expect(f.exec.calls.filter(x=>x.method==='PATCH').length).toBe(before+1);
+ const row=f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ expect(row.draft.picks.items.find(x=>x.act==='have')).toMatchObject({kind:'material',cell:'summary:사업영역 가›세부 과제 가-1'});
+ expect(row.draft.picks.items.some(x=>x.act==='drop')).toBe(false);
+ // 한글 파일: 새 사업영역 묶음 없이 같은 칸에.
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ const {report}=await savedReport(download);
+ expect(report.summary.map(a=>a.area.join(' '))).toEqual(['사업영역 가','사업영역 나']);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
+});
+
 // WEEKLY-사업영역칸 2)(S48-35, 요청함 11/01 01:12): 바탕에 줄이 없는 사업영역 칸에는 바로 앞 주 임시저장의 그 사업영역 줄을 '지난주에서' 제안으로
 // 먼저 보여 준다(칸에 저절로 넣지 않음 — 한 벌). [넣기]하면 칸 줄이 되고 동작 기록은 '지난주 줄' 넣음(carried take). 글은 모두 가짜.
 for(const width of [390,1280])test(`[주간 정리] 2. 1) 요약: 바탕에 없던 사업영역 빈 칸에 앞 주 임시저장 줄 '지난주에서' 제안 → [넣기] ${width}`,async({page})=>{

@@ -253,7 +253,7 @@ test('weekly_review: no feedback yet but this week\'s actions → reviews the ac
   const sent=JSON.parse(calls.openai[0].input[1].content);
   assert.equal(sent.this_week,null);
   assert.equal(sent.this_week_actions.total,6,'none·broken items are not counted');
-  assert.deepEqual(sent.this_week_actions.counts.find(c=>c.group==='2. 사업 요약'&&c.kind==='material'),{group:'2. 사업 요약',kind:'material',take:2,edit:1,drop:1,fix:0,cut:0,add:0,kept_percent:50});
+  assert.deepEqual(sent.this_week_actions.counts.find(c=>c.group==='2. 사업 요약'&&c.kind==='material'),{group:'2. 사업 요약',kind:'material',take:2,edit:1,drop:1,fix:0,cut:0,add:0,have:0,kept_percent:50});
   assert.ok(sent.this_week_actions.counts.some(c=>c.group==='5. 주요 일정'&&c.cut===1));
   assert.ok(sent.this_week_actions.examples.some(e=>e.how==='뺌'&&e.why==='가상 지난주에 쓴 일'&&e.before==='가상 뺀 제안'));
   assert.ok(sent.this_week_actions.examples.some(e=>e.how==='고쳐서 넣음'&&e.before==='가상 원래 제안'&&e.after==='가상 고친 글'));

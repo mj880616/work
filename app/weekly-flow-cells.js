@@ -1,6 +1,8 @@
 // WEEKLY-한흐름확정 ② 화면(docs/design/weekly-one-flow.md 4.1절, 시안 안 B): [주간 정리] 2. 1) 요약 · 3. 2) 투쟁 사업장 현황 · 4. 산하 조직 현황의
 // '보고서 칸'을 그 주 임시저장(draft) 한 벌에서 그린다. 보이는 줄 = 한글 파일에 들어갈 줄(weekly-draft-store.js weekCells: 바탕 proposed 위에 고친 rows).
-// - 줄 끝 작은 ⋯ → [고치기]·[빼기], 칸 이름 줄 오른쪽 작은 [+ 추가], 칸 아래 흐린 '제안'(이번 주 기록·자료·조직 AI 요약·캘린더 추천) → [넣기]·⋯([고쳐서 넣기]·[빼기] — 빼기는 이유 한 줄, 안 써도 됨).
+// - 줄 끝 작은 ⋯ → [고치기]·[빼기], 칸 이름 줄 오른쪽 작은 [+ 추가], 칸 아래 흐린 '제안'(이번 주 기록·자료·조직 AI 요약·캘린더 추천) → [넣기]·[이미 있음]·⋯([고쳐서 넣기]·[빼기] — 빼기는 이유 한 줄, 안 써도 됨).
+//   S52-24: [이미 있음] = 이미 보고서에 쓴 내용(동작 기록 act 'have' — '빼기 = 쓸모없음'과 따로 셈). 칸에 든 글·[이미 있음]으로 치운 글과 부호·띄어쓰기만 다른
+//   비슷한 제안은 보이지 않는다(weekly-cell-names.mjs lineIn). 같은 주제인데 이름 부호만 다른 칸은 한 칸(weekly-draft-store.js weekCells).
 // - 누름 한 번 = 서버 쓰기 한 번(changeWeekCell: rows + picks 를 한 PATCH). 실패하면 그 칸에 "저장 못 함 [다시]", 화면 값은 그대로.
 // - 투쟁 사업장 칸 구성(이번 주 보고에서 빼기·[+ 사업장 추가])은 draft.site_layout(없으면 지난주 구성을 이어 씀)에 쓴다.
 //   WEEKLY-뺀목록삭제(빠짐2·요청함 11/01 23:43): 뺀 사업장 접힌 목록과 [다시 넣기]는 없앴다 — 뺀 사업장은 [+ 사업장 추가] 고르기 목록에 나온다.
@@ -9,7 +11,8 @@
 // - 제안 거르기·학습 열쇠는 한글 파일 상자와 같다(weekly-picks.mjs sortPicks, 칸 이름 'section:key#n', 캘린더 추천 'orgref:조직 id').
 // - 칸 하나의 그리기 주인은 이 모듈 하나(journal.js는 자리만 주고 다시 그릴 때 부른다). AI 를 부르지 않는다. 브라우저 저장소에 아무것도 두지 않는다.
 import {weekCells, parseCellId, cellId, summaryKey, changeWeekCell, changeWeekDocs, changeWeekMove, withSiteLayout, draftSiteLayout, readCarriedLayout, readCarriedAreas, areaNameKey, lineDone, lineKey, visibleLines, CELL_LINE_MAX} from './weekly-draft-store.js';
-import {sortPicks, droppedOf, keptOf, pickKey, WHY_MAX} from './weekly-picks.mjs';
+import {sortPicks, droppedOf, keptOf, pickKey, hadTexts, HAVE_ACT, WHY_MAX} from './weekly-picks.mjs';
+import {lineIn, areaInKeys} from './weekly-cell-names.mjs';
 import {learnFor} from './weekly-picks.js';
 import {arrangeSites, siteHidden, siteShown, siteMoved, siteKey, readSiteLayout} from './weekly-schedule-rows.mjs';
 import {mountReorder} from './reorder-drag.js';
@@ -58,26 +61,27 @@ export function siteCells(draft, layout) {
 }
 // WEEKLY-한흐름확정 ③(확정 규칙 '내 담당 사업은 사업 요약표에 모두 들어간다'): 내 사업영역(사업 목록 1단 이름, names) 가운데 칸이 하나도 없는
 // 사업영역은 빈 칸(사업영역 › —)을 뒤에 더한다. 칸 이름은 한글 파일 쪽(journal-hwpx.js withAreaRows 로 더한 줄)과 같은 summaryKey.
-const areaNorm = s => String(s ?? '').replace(/\s+/g, '').replace(/[‧·․]/g, '·');
+// S52-24: 사업영역 이름이 칸의 사업영역 이름이나 세부 과제 이름(예: '의제 › 주제/A')과 부호·띄어쓰기만 다르면 이미 있는 칸이다(weekly-cell-names.mjs areaInKeys).
 export const areaCellKey = name => summaryKey({area:name, task:''});
 export function summaryCells(draft, names = []) {
   const cells = flowCells(draft, 'summary');
-  const have = new Set(cells.map(c => areaNorm(c.key.split('›')[0])));
+  const keys = cells.map(c => c.key);
   for (const name of names ?? []) {
-    const n = areaNorm(name); if (!n || have.has(n)) continue;
-    have.add(n); const key = areaCellKey(name);
+    if (!String(name ?? '').trim() || areaInKeys(name, keys)) continue;
+    const key = areaCellKey(name); keys.push(key);
     cells.push({id:cellId('summary', key, 0), section:'summary', key, n:0, lines:[], added:true});
   }
   return cells;
 }
-// 칸 줄 + 이번 주 재료 → 칸마다 제안(draft.mjs weekMaterial 과 같은 이름 맞춤). 이미 칸에 든 글은 빼다.
+// 칸 줄 + 이번 주 재료 → 칸마다 제안(draft.mjs weekMaterial 과 같은 이름 맞춤). 이미 칸에 든 글·[이미 있음]으로 치운 글과 같거나 부호만 다른 글은 뺀다.
 export function flowMaterial(weekMaterial, model, draft) {
   const summary = summaryCells(draft, model?.summary?.names), orgs = flowCells(draft, 'orgs');
   const rows = summary.map((c, index) => { const [area, task = ''] = c.key.split('›'); return {index, area, task}; });
   const orgRows = orgs.map((c, index) => ({index, org:c.key}));
   const m = weekMaterial(model, rows, orgRows, {});
   const out = new Map();
-  const put = (cell, list) => { const have = new Set(cell.lines.map(strip)); out.set(cell.id, list.filter(x => !have.has(strip(x.text)))); };
+  const had = hadTexts(draft?.picks);
+  const put = (cell, list) => { const have = [...cell.lines, ...(had.get(cellName(cell.section, cell.key, cell.n)) ?? [])]; out.set(cell.id, list.filter(x => !lineIn(have, x.text))); };
   summary.forEach((c, i) => put(c, m.byRow.get(i) ?? []));
   orgs.forEach((c, i) => put(c, m.byOrg.get(i) ?? []));
   // CAL-조직참고캘린더: 내 프로필에서 고른 조직 칸에만 캘린더 추천(상자 rawMaterial 과 같은 줄·같은 열쇠).
@@ -139,13 +143,13 @@ export function paintFlowCells(slot, ctx) {
   // 제안 재료(draft.mjs weekMaterial — 무거워서 처음 쓸 때 한 번 가져옴).
   if (section !== 'sites' && !ui.mat && !ui.matFlight) ui.matFlight = import('./weekly-hwpx/draft.mjs').then(m => { ui.mat = m.weekMaterial; ui.matFlight = null; ctx.redraw?.(); }, () => { ui.matFlight = null; });
   const material = section !== 'sites' && ui.mat && ctx.model ? flowMaterial(ui.mat, ctx.model, draft) : new Map();
-  const prevAreas = section === 'summary' ? ui.prevAreas?.data?.areas : null;
+  const prevAreas = section === 'summary' ? ui.prevAreas?.data?.areas : null, hadLines = hadTexts(draft?.picks);
   if (prevAreas?.size) for (const c of cells) {
     if (c.lines.length) continue;
     const prev = prevAreas.get(areaNameKey(c.key.split('›')[0])) ?? [];
     if (!prev.length) continue;
-    const list = material.get(c.id) ?? [], have = new Set(list.map(x => strip(x.text)));
-    material.set(c.id, [...prev.filter(l => !have.has(strip(l))).map(l => ({day:'', text:l, carried:true})), ...list]);
+    const list = material.get(c.id) ?? [], have = [...list.map(x => x.text), ...(hadLines.get(cellName(c.section, c.key, c.n)) ?? [])];
+    material.set(c.id, [...prev.filter(l => !lineIn(have, l)).map(l => ({day:'', text:l, carried:true})), ...list]);
   }
   const picks = draft?.picks ?? null;
   const opts = {dropped:droppedOf(picks), kept:keptOf(picks), learn:learnFor(ctx.start, picks, {rt:ctx.rt, redraw:ctx.redraw}).learn};
@@ -252,14 +256,16 @@ export function paintFlowCells(slot, ctx) {
         if (ui.dropping?.key === x.key) { li.append(el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text), ' ', whyForm(c.id, x.text)); sg.append(li); continue; }
         li.append(el('span', 'weekly-flow-tag', x.raw.carried ? CARRIED_TAG : TAG[ai ? 'line' : x.raw.orgRef ? 'calendar' : x.from] ?? '기록'), el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text));
         const take = btn('넣기', {flowTake:c.id}, 'mini weekly-flow-take'); take.disabled = busy; take.setAttribute('aria-label', ai ? `${x.raw.index + 1}번째 줄을 이렇게 바꾸기: ${x.raw.text}` : `넣기: ${x.text}`);
-        li.append(take, rowMore(doc, {label:`제안 고쳐서 넣기·빼기: ${x.text}`, data:{flowSuggestMore:''}, items:[
+        // S52-24: [이미 있음] — 이미 보고서에 쓴 내용이라 치움(빼기와 따로 기록, 학습에서 '쓸모없음'으로 세지 않음). 공용 ② 작은 버튼.
+        const had = btn('이미 있음', {flowHave:c.id}, 'secondary weekly-flow-have'); had.disabled = busy; had.setAttribute('aria-label', `이미 있음(이미 쓴 내용): ${ai ? x.raw.text : x.text}`);
+        li.append(take, had, rowMore(doc, {label:`제안 고쳐서 넣기·빼기: ${x.text}`, data:{flowSuggestMore:''}, items:[
           {text:'고쳐서 넣기', data:{flowEdit:c.id}, disabled:busy}, {text:'빼기', data:{flowDrop:c.id}, disabled:busy, danger:true, aria:`제안 빼기: ${x.text}`}]}));
         sg.append(li);
       }
       box.append(sg);
     }
     // WEEKLY-뺀목록삭제(S48-3b): '뺀 제안 n' 접힘은 두지 않는다 — 방금 뺀 것만 아래 [되돌리기](picks 데이터는 그대로).
-    if (ui.undo?.cell === c.id) { const p = el('p', 'journal-line-status'); p.dataset.flowUndo = ''; p.setAttribute('role', 'status'); p.append(ui.undo.pick ? '제안을 뺐어요 ' : '줄을 뺐어요 ', btn('되돌리기', {flowUndo:c.id})); box.append(p); }
+    if (ui.undo?.cell === c.id) { const p = el('p', 'journal-line-status'); p.dataset.flowUndo = ''; p.setAttribute('role', 'status'); p.append(ui.undo.have ? '이미 있는 내용으로 치웠어요 ' : ui.undo.pick ? '제안을 뺐어요 ' : '줄을 뺐어요 ', btn('되돌리기', {flowUndo:c.id})); box.append(p); }
     if (ui.failed?.cell === c.id) { const p = el('p', 'journal-line-status journal-failed', `저장 못 함 — ${ui.failed.text} `); p.dataset.flowFailed = ''; p.setAttribute('role', 'alert'); p.append(btn('다시', {flowRetry:c.id})); box.append(p); }
     return box;
   }
@@ -268,7 +274,8 @@ export function paintFlowCells(slot, ctx) {
     const g = ui.line, f = g.focus;
     if (!f || f.cell !== c.id) return [];
     const before = c.lines[f.index], text = before != null ? g.cache.get(suggestKey(c.id, before)) : null;
-    return text ? [{lineAi:true, index:f.index, before, text, day:''}] : [];
+    // S52-24: 바꿀 글이 이미 칸에 있으면(부호만 다른 글 포함) 내지 않는다.
+    return text && !lineIn(c.lines, text) ? [{lineAi:true, index:f.index, before, text, day:''}] : [];
   }
   // 제안 빼기 이유 한 줄(안 써도 됨). [취소]·[빼기 확인], Enter = 확인, Esc = 취소.
   function whyForm(cell, text) {
@@ -438,6 +445,14 @@ export function paintFlowCells(slot, ctx) {
         ui.dropping = null; clearTimeout(ui.undo?.timer);
         // 뺀 제안 목록은 두지 않으므로(WEEKLY-뺀목록삭제) 방금 뺀 제안 하나만 잠깐 [되돌리기] — 되돌리면 'none'(picks 데이터는 남음).
         ui.undo = {cell:id, pick:true, item:u.item, timer:setTimeout(() => { if (ui.undo?.cell === id) { ui.undo = null; ctx.redraw?.(); } }, UNDO_MS)};
+      }});
+      return;
+    }
+    if (d.flowHave) {
+      const it = pick(), id = d.flowHave;
+      void write(id, {act:HAVE_ACT, item:{...it, text:it?.text ?? li?.dataset.flowText ?? ''}}, {after:() => {
+        clearTimeout(ui.undo?.timer);
+        ui.undo = {cell:id, pick:true, have:true, item:it, timer:setTimeout(() => { if (ui.undo?.cell === id) { ui.undo = null; ctx.redraw?.(); } }, UNDO_MS)};
       }});
       return;
     }

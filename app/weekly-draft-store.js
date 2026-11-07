@@ -9,12 +9,13 @@
 
 import {readIssued, newerIssued} from './weekly-lines.mjs';
 import {readExtras, mergeExtras, EXTRA_KEYS, readProposed, FEEDBACK_LINE_CHARS} from './weekly-feedback.mjs';
-import {withPick, pickKey, readPicks, PICK_KIND, ANSWER_ACTS, LINE_ACTS} from './weekly-picks.mjs';
+import {withPick, pickKey, readPicks, PICK_KIND, ANSWER_ACTS, LINE_ACTS, HAVE_ACT} from './weekly-picks.mjs';
 import {cleanTitleEdit, titleFields, readHq, readSiteLayout} from './weekly-schedule-rows.mjs';
 import {readDiscuss} from './weekly-discuss.mjs';
 import {readHand} from './weekly-hand.mjs';
 import {readOwners, withOwner, summaryCellKey} from './weekly-summary-hand.mjs';
 import {requestLine} from './weekly-exec-requests.js';
+import {foldCells, foldTargetKey, nameKey} from './weekly-cell-names.mjs';
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -121,12 +122,17 @@ export function cleanDocEdit(e) {
 export const CELL_LINE_MAX = FEEDBACK_LINE_CHARS; // 줄 하나 길이(환류 비교가 자르는 길이와 같음)
 const proposedOf = draft => readProposed(draft?.proposed);
 // draft → Map(cellId → 줄 배열): proposed 칸 위에 rows(고친 칸)를 덮는다.
-export function weekCells(draft) {
+// S52-24 WEEKLY-칸합치기: 같은 주제인데 이름의 부호만 달라 둘로 나뉘어 저장된 요약 칸(뒤에 더해진 '주제·A › —')은 앞의 같은 주제 칸에 묶어 보인다
+// (weekly-cell-names.mjs foldCells — 저장된 값은 그대로, 그 칸을 다음에 저장할 때 한 칸으로: putCellLines).
+function rawWeekCells(draft) {
   const out = new Map();
   for (const c of proposedOf(draft)?.cells ?? []) out.set(cellId(c.section, c.key, c.n), [...c.lines]);
   for (const r of draft?.rows ?? []) if (SECTIONS.includes(r?.section)) out.set(cellId(r.section, r.key, r.n), cleanLines(r.lines));
   return out;
 }
+const foldIdOf = key => cellId('summary', key, 0);
+export const foldedWeekCells = draft => foldCells(rawWeekCells(draft), parseCellId, foldIdOf);
+export function weekCells(draft) { return foldedWeekCells(draft).cells; }
 export const cellLinesOf = (draft, {section, key, n = 0}) => weekCells(draft).get(cellId(section, key, n)) ?? [];
 // 화면에 보이는 줄(빈 줄 뺌). [주간 정리] 칸 줄의 번호(index)는 늘 이 목록의 번호다 — 고치기·빼기·끌기·아래에 줄 추가가 모두 이것을 쓴다.
 // WEEKLY-줄끌기·지우기버그(요청함 11/01 23:39): 전에는 화면은 빈 줄을 뺀 번호, 저장은 빈 줄을 포함한 번호를 써서, 칸에 빈 줄(상자에서 고친 칸 등)이
@@ -149,18 +155,18 @@ const badLine = code => Object.assign(new Error(code === 'too_long' ? `한 줄�
 // 누름 하나를 draft 에 반영한다(원본은 건드리지 않음). op:
 //   {section, key, n=0, act, index?, text?, item?, lines?, at}
 //   act 'take'·'edit'·'add': 칸 끝에 text 한 줄을 더함(edit 은 item.text = 제안 글 → before). take·edit 에 index 를 주면 그 줄을 바꿈(줄 제안, item.line = 바꾸기 전 줄). 'fix': index 줄을 text 로. 'cut': index 줄을 뺌.
-//   'drop': 칸은 그대로, 제안 거절 표시만. 'none': 앞 동작 지움 — lines 를 주면 칸을 그 줄들로 되돌린다(5초 [되돌리기]).
+//   'drop': 칸은 그대로, 제안 거절 표시만. 'have'(S52-24 [이미 있음]): 칸은 그대로, '이미 쓴 내용' 표시만(학습 거절 셈 밖). 'none': 앞 동작 지움 — lines 를 주면 칸을 그 줄들로 되돌린다(5초 [되돌리기]).
 //   item: 제안 동작(take·edit·drop)의 제안 {key?, kind, from, cell, org, text}. 보고서 줄 동작(fix·cut·add)은 item 없이 kind 'line'으로 남긴다.
 //   'none'(되돌리기)은 앞 동작의 기록 항목(제안이면 그 제안, 줄 동작이면 lineDone 이 돌려준 항목)을 item 으로 넘겨 그 기록을 지운다.
 // 반환 draft. 칸 글이 바탕(proposed)과 같아지면 rows 에서 그 칸을 뺀다(바탕을 모르면 빈 칸이라도 남김 — 상자가 바탕 글로 되살리지 않게).
 export function withCellLine(draft, {section, key, n = 0, act, index = -1, insertAt = -1, text = '', item = null, lines = null, at = new Date().toISOString()} = {}) {
   if (!SECTIONS.includes(section) || typeof key !== 'string' || !Number.isInteger(n) || n < 0) throw badLine('cell');
-  if (!['take', 'edit', 'add', 'fix', 'cut', 'drop', 'none'].includes(act)) throw badLine('act');
+  if (!['take', 'edit', 'add', 'fix', 'cut', 'drop', 'none', HAVE_ACT].includes(act)) throw badLine('act');
   // 번호는 보이는 줄(빈 줄 뺌) 기준 — 화면과 같은 목록(visibleLines). 고쳐 쓰면 빈 줄은 없어진다(한글 파일 칸에도 빈 줄이 들어가지 않음).
   const id = cellId(section, key, n), now = cellVisibleLines(draft, {section, key, n}), line = lineText(text);
   if (['take', 'edit', 'add', 'fix'].includes(act)) { if (!line) throw badLine('empty'); if ([...line].length > CELL_LINE_MAX) throw badLine('too_long'); }
   if (['fix', 'cut'].includes(act) && !(Number.isInteger(index) && index >= 0 && index < now.length)) throw badLine('index');
-  if (ANSWER_ACTS.includes(act) && !(item && PICK_KIND[item.kind])) throw badLine('item');
+  if ([...ANSWER_ACTS, HAVE_ACT].includes(act) && !(item && PICK_KIND[item.kind])) throw badLine('item');
   let next = now;
   // 줄 제안(ai_line) [수용]·[고쳐서 수용]은 index 줄을 바꾼다(그새 줄이 바뀌었으면 거절 — 엉뚱한 줄을 바꾸지 않음).
   if ((act === 'take' || act === 'edit') && index >= 0) {
@@ -184,8 +190,10 @@ export function withCellLine(draft, {section, key, n = 0, act, index = -1, inser
   return putExtras(out, {...extras, picks:withPick(extras.picks ?? null, pick, act, at)});
 }
 // 칸 하나의 줄을 next 로 둔다(바탕과 같아지면 rows 에서 그 칸을 뺌 — 바탕을 모르면 빈 칸이라도 남김). out 을 바꿔 돌려준다.
+// S52-24: 이 칸에 묶여 보이던 칸(foldedWeekCells into)의 고친 줄은 이 칸 줄에 이미 들어 있으므로 rows 에서 뺀다 — 다음 저장부터 한 칸.
 function putCellLines(out, {section, key, n}, next) {
-  const id = cellId(section, key, n), base = proposedCell(out, id), rows = (Array.isArray(out.rows) ? out.rows : []).filter(r => cellId(r.section, r.key, r.n) !== id);
+  const id = cellId(section, key, n), base = proposedCell(out, id), folded = new Set([...foldedWeekCells(out).into].filter(([, to]) => to === id).map(([from]) => from));
+  const rows = (Array.isArray(out.rows) ? out.rows : []).filter(r => { const x = cellId(r.section, r.key, r.n); return x !== id && !folded.has(x); });
   out.rows = base && sameLines(next, base) ? rows : [...rows, {section, key, n, lines:next}];
   return out;
 }
@@ -257,7 +265,7 @@ export const changeWeekOwner = ({start, area, task, text, known = null}, rt = wi
 export const LINE_PICK_CELLS = Object.freeze(['requests:ask', 'requests:hq', 'requests:discuss', 'calendar', 'notes', 'details']);
 export function withLinePick(draft, {cell, act, text = '', before = '', kind = 'line', from = '', at = new Date().toISOString()} = {}) {
   const answer = kind !== 'line';
-  if (!LINE_PICK_CELLS.includes(cell) || !PICK_KIND[kind] || ![...(answer ? ANSWER_ACTS : LINE_ACTS), 'none'].includes(act) || !lineText(text)) return draft;
+  if (!LINE_PICK_CELLS.includes(cell) || !PICK_KIND[kind] || ![...(answer ? [...ANSWER_ACTS, HAVE_ACT] : LINE_ACTS), 'none'].includes(act) || !lineText(text)) return draft;
   if ((act === 'fix' || act === 'edit') && lineText(before) === lineText(text)) return draft;
   const out = draft ? {...draft} : emptyDraft(), extras = readExtras(out);
   const keyText = act === 'fix' || act === 'edit' ? before : text;
@@ -408,11 +416,22 @@ export function readDraft(raw) {
 
 // ---- draft → 지금 바탕 칸 ----
 // ids: 지금 바탕에 있는 cellId 집합. 이름이 맞는 칸만 넣고, 못 넣은 칸은 unplaced(접어서 보여 주고 다시 저장할 때 그대로 둠).
-export function placeDraft(draft, ids) {
-  const cells = new Map(), unplaced = [];
+// initial(선택): 바탕 칸 글(Map cellId → 줄). S52-24: 바탕에 없는 요약 칸이 같은 주제 칸(weekly-cell-names.mjs foldTargetKey)에 묶이면
+// 버리지 않고 그 칸 줄 뒤에 붙인다(한글 파일·확정본에도 한 칸). 묶을 칸이 없으면 전처럼 unplaced.
+export function placeDraft(draft, ids, initial = null) {
+  const cells = new Map(), unplaced = [], later = [];
   for (const r of draft?.rows ?? []) {
     const id = cellId(r.section, r.key, r.n);
-    if (ids.has(id)) cells.set(id, cleanLines(r.lines)); else unplaced.push(r);
+    if (ids.has(id)) cells.set(id, cleanLines(r.lines)); else later.push(r);
+  }
+  const summaryKeys = [...ids].map(parseCellId).filter(c => c.section === 'summary').map(c => c.key);
+  for (const r of later) {
+    const target = r.section === 'summary' && !r.n ? foldTargetKey(r.key, [...summaryKeys, r.key]) : null;
+    const to = target != null ? [...ids].find(id => { const c = parseCellId(id); return c.section === 'summary' && c.key === target; }) : null;
+    if (!to) { unplaced.push(r); continue; }
+    const have = cells.has(to) ? cells.get(to) : [...(initial?.get(to) ?? [])];
+    const {cells:merged} = foldCells([[to, have], [cellId('summary', r.key, 0), cleanLines(r.lines)]], parseCellId, foldIdOf);
+    cells.set(to, merged.get(to) ?? have);
   }
   return {cells, unplaced, titles:new Map((draft?.titles ?? []).map(t => [t.event, titleFields(t)])), drops:draftDrops(draft)};
 }
@@ -577,7 +596,7 @@ export async function readCarriedLayout(start, rt = window.KPTURuntime) {
 // WEEKLY-사업영역칸 2)(요청함 11/01 01:12, S48-35): 이번 주 바탕(지난 개인본, 없으면 팀 확정본)에 줄이 없는 내 사업영역 칸에는
 // 바로 앞 주 임시저장(그 주 바탕 + 고친 칸)의 그 사업영역 줄을 '지난주에서' 제안으로 먼저 보여 준다(바탕에 없으니 칸에 저절로 넣지 않음 — 한 벌 유지).
 // 반환 {week, areas: Map(사업영역 이름(띄어쓰기·가운뎃점 맞춤) → 줄[])} | null(앞 주 임시저장 없음·읽기 실패). 글은 로그에 쓰지 않는다.
-export const areaNameKey = s => String(s ?? '').replace(/\s+/g, '').replace(/[‧·․]/g, '·');
+export const areaNameKey = s => nameKey(s); // S52-24: 부호·띄어쓰기만 다른 이름은 같은 이름(weekly-cell-names.mjs)
 export function carriedAreaLines(draft) {
   const areas = new Map();
   for (const [id, lines] of weekCells(draft)) {
