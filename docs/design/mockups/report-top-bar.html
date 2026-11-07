@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — 사업 보고 맨 위 정리(폰)</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--pri:#5c5470;--tonal:#ecebf3;--bg:#f4f3f7}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:20px;padding:0 16px 24px}
+  .col{width:360px}
+  .col h2{font-size:14px;margin:8px 0}
+  .phone{background:var(--bg);border:1px solid #d6d4dd;border-radius:18px;padding:10px;min-height:520px;position:relative}
+  .t{font-size:18px;font-weight:700;margin:2px 2px 10px}
+  .chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:3px 9px;font-size:12.5px;background:#fff}
+  .chip.on{background:var(--tonal)}
+  .old .btn{border:1px solid var(--line);border-radius:10px;padding:4px 8px;font-size:12.5px;background:#fff}
+  .bar{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+  .dd{border:1px solid var(--line);border-radius:9px;padding:5px 9px;font-size:13px;background:#fff;white-space:nowrap}
+  .dd.on{border-color:var(--pri);color:var(--pri);font-weight:600}
+  .ic{margin-left:auto;border:0;background:none;color:var(--faint);font-size:16px}
+  .rec{border:1px solid var(--line);border-radius:9px;padding:5px 9px;font-size:13px;background:#fff;white-space:nowrap}
+  .rec i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#b8322a;margin-right:4px}
+  .wk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);margin:4px 2px 8px}
+  .wk .a{color:var(--faint);padding:0 6px}
+  .wk .n{color:var(--faint);font-size:12px}
+  .tag{border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:#fbf7ea;font-size:12.5px;display:flex;margin-bottom:6px}
+  .tag span:last-child{margin-left:auto;color:var(--pri);font-weight:600}
+  .card{background:#fcfcfd;border:1px solid var(--line);border-radius:12px;padding:6px 10px}
+  .row{padding:7px 0;border-top:1px solid var(--line)}
+  .row:first-child{border-top:0}
+  .row b{font-weight:500;font-size:13.5px;display:block}
+  .row span{font-size:11.5px;color:var(--faint)}
+  .fold{font-size:13px;padding:6px 0;color:var(--ink)}
+  .vt{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;display:inline-flex;background:var(--tonal);border-radius:999px;padding:3px;gap:2px}
+  .vt span{padding:5px 13px;font-size:13px;border-radius:999px;color:var(--faint)}
+  .vt .on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+  .fab{position:absolute;right:12px;bottom:12px;width:40px;height:40px;border-radius:50%;background:var(--pri);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px}
+  .pop{position:absolute;left:10px;top:84px;width:170px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.12);font-size:13px;padding:4px 0;z-index:2}
+  .pop div{padding:6px 12px}
+  .pop .on{background:var(--tonal);font-weight:600}
+  .pop .h{font-size:11px;color:var(--faint);padding:4px 12px 2px}
+  .tag2{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:1px 5px;margin-left:4px}
+</style>
+</head>
+<body>
+<h1>시안 — 사업 보고 맨 위: 늘 한 줄 + 기간 한 줄</h1>
+<p class="note">명진 11/07 16:18: "사업 보고 맨 위 언제는 두 줄 언제는 세 줄, 거르기는 무슨 뜻인지 모르겠고, 디자인 개선안." (캡처: 종류 칩 9개가 [거르기] 단추 때문에 두 줄이 되거나 한 줄이 됨, 아래 [전체|주간 보기|기간 설정][‹ 11.2~11.8 ›], 그 아래 상자 안 [목록|달력|사진][녹음][⋯]. '거르기' 창 = 사업영역 고르기 + '사업영역 없음'·'안 단 보고') 보고 이름은 시안용이에요.</p>
+
+<div class="wrap">
+  <div class="col">
+    <h2>지금</h2>
+    <div class="phone old">
+      <div class="t">사업 보고</div>
+      <div class="chips"><span class="chip">전체</span><span class="chip">회의</span><span class="chip">정책</span><span class="chip">교섭</span><span class="chip">언론</span><span class="chip">국회</span><span class="chip on">투쟁</span><span class="btn">거르기 ▾</span><span class="chip">교육</span><span class="chip">기타</span></div>
+      <div class="chips"><span class="chip">전체</span><span class="chip on">주간 보기</span><span class="chip">기간 설정</span><span class="btn">‹</span><span style="font-size:12.5px">11.2~11.8 0건</span><span class="btn">›</span></div>
+      <div class="card"><div class="chips" style="margin:4px 0"><span class="chip on">목록</span><span class="chip">달력</span><span class="chip">사진</span><span class="btn" style="margin-left:auto">● 녹음</span><span class="btn">⋯</span></div><div class="fold">▾ 이번 주 주간보고</div><p class="note" style="margin:0">없음</p></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>바꾼 뒤 <span class="tag2">명진 16:33 확정</span></h2>
+    <div class="phone">
+      <div class="t">사업 보고</div>
+      <div class="bar"><span class="dd">종류: 전체 ▾</span><span class="dd on">사업영역: 철도지하철 ▾</span><span class="rec"><i></i>녹음</span><span class="ic">⋯</span></div>
+      <div class="wk"><span class="a">‹</span><b>11.2(월) ~ 11.8(일)</b><span class="n">· 4건</span><span class="a">›</span><span class="dd" style="margin-left:auto;font-size:12px;padding:3px 7px">이번 주 ▾</span></div>
+      <div class="tag"><span>사업영역 안 단 보고 3건</span><span>달기</span></div>
+      <div class="card">
+        <div class="fold">▾ 이번 주 주간보고</div>
+        <div class="row"><b>궤도협의회 대표자 회의</b><span>회의 · 8차 · 11. 7. 13:00 · 철도지하철</span></div>
+        <div class="row"><b>본부 집행위</b><span>회의 · 42차 · 11. 3. 10:10 · 정책연구</span></div>
+      </div>
+      <div class="vt"><span class="on">목록</span><span>달력</span><span>사진</span></div>
+      <div class="fab">＋</div>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>종류 ▾ 누름(작은 고르기 상자)</h2>
+    <div class="phone">
+      <div class="t">사업 보고</div>
+      <div class="bar"><span class="dd on">종류: 회의 ▾</span><span class="dd">사업영역: 전체 ▾</span><span class="rec"><i></i>녹음</span><span class="ic">⋯</span></div>
+      <div class="pop"><div>전체</div><div class="on">회의</div><div>정책</div><div>교섭</div><div>언론</div><div>국회</div><div>투쟁</div><div>교육</div><div>기타</div></div>
+      <div class="wk" style="margin-top:8px"><span class="a">‹</span><b>11.2(월) ~ 11.8(일)</b><span class="n">· 2건</span><span class="a">›</span></div>
+    </div>
+    <p class="note" style="margin:6px 0">사업영역 ▾도 같은 작은 상자: 전체 · 각 사업영역 · 사업영역 없음. '이번 주 ▾' = 이번 주 / 전체 기간 / 기간 정하기(달력).</p>
+  </div>
+</div>
+
+<ul style="margin:0 16px 24px;padding-left:18px;font-size:13px;line-height:1.7">
+  <li>맨 위는 언제나 <b>한 줄</b>: [종류 ▾][사업영역 ▾][● 녹음][⋯]. 칩 9개 줄 없앰(폰·폴드 = 드롭다운, PC = 칩 — 분류 고르기 규칙). 고른 값이 있으면 그 칸 글자가 진하게.</li>
+  <li>'거르기'라는 말 없앰 → '사업영역'으로. 그 안의 '안 단 보고'는 따로 빼서 목록 위 노란 한 줄 '사업영역 안 단 보고 n건 · 달기'(있을 때만, 지금 기능 그대로).</li>
+  <li>기간은 한 줄: ‹ 날짜 · n건 › + 오른쪽 작은 [이번 주 ▾](이번 주·전체 기간·기간 정하기). [전체|주간 보기|기간 설정] 칩 줄 없앰.</li>
+  <li>[목록|달력|사진]은 아래 가운데 '보기 바꾸기'(UI-보기탭한모양 부품, 폰 세로 탭 자리 규칙). 녹음은 맨 위 줄로.</li>
+  <li>같은 종류 전수: 담당조직·자료실·노트 등 맨 위에 칩이 여러 줄로 넘치는 화면 같은 규칙. 폴드 펼침·PC는 같은 한 줄(PC는 종류를 칩으로).</li>
+</ul>
+</body>
+</html>
