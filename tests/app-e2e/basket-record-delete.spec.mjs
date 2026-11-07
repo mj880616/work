@@ -147,9 +147,6 @@ for(const width of [390,1280])test(`basket read view moves the update to the tra
  await noteAction(page,'[data-basket-delete]',{press:l=>tap(page,l,width)});messages.push(await answerAsk(page,true));
  await expect(detail).toBeHidden();await expect(page.locator('[data-basket-row="n"]')).toHaveCount(0);
  const notice=page.locator('[data-undo-notice]');await expect(notice).toContainText('업데이트를 휴지통으로 옮겼어요.');await expect(notice.getByRole('button',{name:'되돌리기'})).toBeVisible();
- // UI-바구니거르기: the kept memo (no link) sits in [미분류]; the list stayed on [분류] where the deleted one was.
- await pickBasketView(page,'unclassified');await expect(page.locator('[data-basket-row="keep"]')).toBeVisible();
- if(width===390)await page.screenshot({path:info.outputPath('basket-delete-result-390.png')});
  expect(messages).toEqual([CONFIRM]);
  // 예전 서버 note-delete 경로는 더 쓰지 않고, owner-RLS DELETE 한 번(가로채기가 휴지통 표시로 바꿈)만 보낸다.
  expect(f.posts).toEqual([]);expect(f.writes).toEqual([{id:'eq.n',workspace_id:'eq.w',select:'id'}]);
@@ -158,6 +155,9 @@ for(const width of [390,1280])test(`basket read view moves the update to the tra
  await expect(notice).toContainText('되돌렸습니다.');
  expect(f.trash.rpc.filter(r=>r.fn==='app_trash_restore')).toEqual([{fn:'app_trash_restore',kind:'note',id:'n'}]);
  await pickBasketView(page,'classified');await expect(page.locator('[data-basket-row="n"]')).toHaveCount(1);expect(f.trash.trash).toEqual([]);expect(f.links.length).toBe(1);
+ // UI-바구니거르기 → S52-20: the kept memo (no link) sits in 처리 전 (= 미분류). Checked after the undo (the view menu takes a moment, the notice would time out).
+ await pickBasketView(page,'unclassified');await expect(page.locator('[data-basket-row="keep"]')).toBeVisible();
+ if(width===390)await page.screenshot({path:info.outputPath('basket-delete-result-390.png')});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);
 });
 

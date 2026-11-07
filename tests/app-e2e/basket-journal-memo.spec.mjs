@@ -99,7 +99,7 @@ for (const width of [390, 1280]) {
     expect(f.rows.find(r => r.id === A).updated_at).toBe(stamp);
     // 분류 완료 · [업무일지] holds it, stated as 업무일지 메모. An update sent to an organization is not offered the item.
     await pickBasketView(page,'classified');
-    await expect(row(page, A)).toContainText('업무일지 메모');
+    await expect(page.locator(`[data-basket-row-item="${A}"]`)).toContainText('업무일지 메모');
     await press(page, page.locator('[data-basket-place-filter]').getByRole('radio', { name: '업무일지' }), width);
     await expect(page.locator('[data-basket-rows] [data-basket-row]')).toHaveCount(1);
     await expect(row(page, A)).toBeVisible();

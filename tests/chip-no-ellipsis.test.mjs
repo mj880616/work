@@ -9,7 +9,6 @@ const CHIPS = [
   ['app/google-tasks.css', '#appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag'],
   ['app/meeting-ui.css', '#meetingList .meeting-list-title .badge'],
   ['app/suborganizations.css', '.so-stage-tag'],
-  ['app/basket.css', '#appView #basketView button.inbox-todo-source'],
   ['app/base-ui.css', '.user-badge'],
 ];
 const rulesOf = (css, selector) => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(m => m[1].split(',').some(s => s.trim() === selector)).map(m => m[2]);

@@ -99,7 +99,7 @@ for (const width of [390, 1280]) test(`an old update's saved marks still show as
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await showBasketRow(page, 'b1');
   // The list row keeps the small tags of the saved marks (read side unchanged).
-  await expect(page.locator('[data-basket-row="b1"] [data-request-tag]')).toHaveText(['임원 요청', '논의 요청']);
+  await expect(page.locator('[data-basket-row-item="b1"] [data-request-tag]')).toHaveText(['임원 요청', '논의 요청']);
   await expect(page.locator('[data-basket-row="b2"] [data-request-tag]')).toHaveCount(0);
   await press(page, page.locator('[data-basket-row="b1"]'), width);
   const detail = page.locator('[data-basket-detail]');
@@ -120,7 +120,7 @@ for (const width of [390, 1280]) test(`an old update's saved marks still show as
   await noToggles(detail);
   // Back to the list: the tags are still there.
   await press(page, page.locator('[data-basket-close]'), width);
-  await expect(page.locator('[data-basket-row="b1"] [data-request-tag]')).toHaveText(['임원 요청', '논의 요청']);
+  await expect(page.locator('[data-basket-row-item="b1"] [data-request-tag]')).toHaveText(['임원 요청', '논의 요청']);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(f.errors).toEqual([]);
 });
