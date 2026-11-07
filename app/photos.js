@@ -312,17 +312,17 @@ async function trashLogged(list, copyOf, {keep}) {
 // 폰 원본을 지우는 모든 길이 지나는 문: 원드라이브 사본 짝 → 서버가 사본을 다시 확인(copy-check) → 확인된 것만 기본으로 지운다.
 // 백업 없음(짝 없음·서버가 못 찾음·확인 못 함)은 따로 세어 체크 한 줄로만 함께 지운다. 지우기 전 개수·용량 요약 확인 한 번. 폰 휴지통(30일 되살림)으로만.
 // 사본 확인을 DEL_CHECK_MS 안에 못 끝내면 확인 못 함(= 백업 없음)으로 본다.
-const within = (p, fallback) => { let t = 0; return Promise.race([p, new Promise(ok => { t = setTimeout(() => ok(fallback), DEL_CHECK_MS); })]).finally(() => clearTimeout(t)); };
+const delWithin = (p, fallback) => { let t = 0; return Promise.race([p, new Promise(ok => { t = setTimeout(() => ok(fallback), DEL_CHECK_MS); })]).finally(() => clearTimeout(t)); };
 async function gatePairs(list) {
   const known = tidy.copyPairs(list); // 사진 정리가 읽은 원드라이브 목록(오래됐어도 서버가 다시 확인하므로 안전 — 새로 올라간 사본만 백업 없음으로 보일 수 있음)
   if (known) return known;
   if (!ready()) return null;
   let stop = false;
-  const got = await within(pairCheck(list, [], () => !stop).then(r => r?.pairs || null), null);
+  const got = await delWithin(pairCheck(list, [], () => !stop).then(r => r?.pairs || null), null);
   stop = true;
   return got;
 }
-const checkedWithin = (pairs, missing) => within(copyChecked(pairs, missing), {list:[], copyOf:new Map(), kept:''});
+const checkedWithin = (pairs, missing) => delWithin(copyChecked(pairs, missing), {list:[], copyOf:new Map(), kept:''});
 // 답: {list(지울 폰 칸), copyOf(칸 id → 사본 id)} 또는 null(취소).
 async function phoneGate(anchor, list, {what = '사진'} = {}) {
   let copyOf = new Map(), why = '';
