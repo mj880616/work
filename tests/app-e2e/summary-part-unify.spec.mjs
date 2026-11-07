@@ -1,3 +1,4 @@
+import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helpers/area-org-picker.mjs';
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
@@ -44,10 +45,10 @@ async function openLink(page,width){
 }
 async function pick(page,detail,kind,name,width){
  await tap(page,detail.locator(`[data-manual-pick="${kind}"]`),width);
+ // S52-01 ③a: 담당조직·사업영역은 공용 고르기 창(여러 개 + [넣기]), 참고 묶음은 그 화면의 고르기 창(누르면 닫힘).
+ if(kind!=='reference'){await pressNamesAndSave(page,name);return;}
  const sheet=page.locator('#basketLinkChoiceSheet');await expect(sheet).toBeVisible();
- await tap(page,sheet.getByRole('button',{name,exact:true}),width);
- const save=sheet.getByRole('button',{name:/^저장/});if(await save.isVisible().catch(()=>false))await tap(page,save,width);
- await expect(sheet).toBeHidden();
+ await tap(page,sheet.getByRole('button',{name,exact:true}),width);await expect(sheet).toBeHidden();
 }
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 

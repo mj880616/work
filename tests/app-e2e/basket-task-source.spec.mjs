@@ -1,3 +1,4 @@
+import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helpers/area-org-picker.mjs';
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
@@ -85,7 +86,7 @@ test('after a recorded task the AI and link flows keep the same note version',as
  // The AI handoff copies updated_at as the version a pasted result must match; it must not move.
  expect(await page.evaluate(id=>import('./basket-data.js').then(m=>m.readBasket()).then(r=>r.notes.find(x=>x.id===id).updated_at),n)).toBe(stamp);
  await detail.getByRole('button',{name:'연결하기'}).click();
- await detail.locator('[data-manual-pick="organization"]').click();await page.locator('#basketLinkChoiceSheet').getByRole('button',{name:'합성 한빛지부',exact:true}).click();
+ await detail.locator('[data-manual-pick="organization"]').click();await pressNamesAndSave(page,'합성 한빛지부');
  await detail.locator(`[data-manual-summary="organization:${o}"]`).fill('10/20 본사 앞 30명');
  await detail.getByRole('button',{name:'연결',exact:true}).click();await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요.');
  expect(f.confirms).toHaveLength(1);expect(f.confirms[0].p_note_updated_at).toBe(stamp);expect(f.errors).toEqual([]);

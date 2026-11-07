@@ -6,7 +6,9 @@ import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the 
 import {confirmLinks,ERROR_TEXT} from './basket-classification.js';
 import {validateLinkSummary,isBlankLinkSummary,readRecordPages} from './basket-link-records.js';
 import {selectMyOrganizations} from './my-organizations.js';
-import {createChoiceSheet,projectRows,projectRow,orgGroupRows,orgRow} from './choice-sheet.js';
+import {createChoiceSheet,orgRow} from './choice-sheet.js';
+// S52-01 ③a UI-사업영역조직고르기창: 담당조직·사업영역과 할 일 사업영역은 모든 화면과 같은 고르기 창(area-org-picker.js) 하나. 참고 묶음은 이 창의 자기 고르기 창.
+import {openAreaOrgPicker,dismissAreaOrgPicker,areaOrgPickerClosed,usedKeysNow,catalogAreas,orderedOrgGroups,areaTree,areaChipText} from './area-org-picker.js';
 import {readReferenceBundles} from './reference-bundles-data.js';
 import {createGoogleTask} from './quick-save.js';
 import {announceRecordSaved,basketDetail} from './record-saved.js';
@@ -116,6 +118,8 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   // The first chosen project and the first chosen organization take the files (a document belongs to one project and one organization).
   const fileTargets=()=>{const has=fileState().files.length>0;return {project:has?link.targets.find(t=>t.kind==='project')||null:null,organization:has?link.targets.find(t=>t.kind==='organization')||null:null};};
   const projectName=id=>choices?.projects.find(x=>x.project.id===id)?.project.name||window.KPTUProjectCatalog?.describe?.(id)?.name||'다른 사업영역';
+  // S52-01 ③a: a chosen child area reads '상위 › 하위' (the shared picker's tag text).
+  const projectPath=id=>(choices?.projects?areaChipText(areaTree(catalogAreas(choices.projects)),'p:'+id):'')||projectName(id);
   const organizationName=id=>choices?.organizationNames?.get(id)||choices?.organizations.find(o=>o.id===id)?.name||'다른 조직';
   const bundleName=id=>choices?.bundles?.find(b=>b.id===id)?.name||'참고 묶음';
   const placeName={project:projectName,organization:organizationName,reference:bundleName};
@@ -129,29 +133,19 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   const sheet=createChoiceSheet({id:sheetId+'Sheet',titleId:sheetId+'Title',historyKey:'kptu'+sheetId[0].toUpperCase()+sheetId.slice(1),
     canOpen:()=>!!mode&&!!note()&&!isBusy()&&window.KPTURouter.current==='basket',
     choices:loadChoices,
-    render:kind=>{
-      if(kind==='task-project')return {title:'사업영역 선택',search:'사업영역 이름 검색',html:projectRows(choices.projects,task?.project||'',esc)};
+    render:()=>{
       const done=linked(),picked=new Set(link.targets.map(t=>linkKey(t.kind,t.id)));
       // Already linked places stay visible as text and cannot be chosen again.
-      const doneItem=(state,name,cls,extra='')=>`<span class="${cls} basket-choice-done" data-sheet-item ${extra}>${esc(name)} · ${state==='suggested'?'이미 제안됨':'이미 연결됨'}</span>`;
-      // UPD-여러곳고르기 ①: organizations are rows with a check box under their group heading, as in the 기록할 곳 sheet.
-      const chip=o=>{const name=o.name||'이름 없는 조직',state=done.get(linkKey('organization',o.id));return state?doneItem(state,name,'home-choice-row','style="--home-choice-depth:0"'):orgRow(o,picked.has(linkKey('organization',o.id)),esc);};
-      const row=x=>{const state=done.get(linkKey('project',x.project.id));if(!state){const pressed=picked.has(linkKey('project',x.project.id));return projectRow(x,pressed?x.project.id:null,esc);}return doneItem(state,x.project.name||'이름 없는 사업영역','home-choice-row',`style="--home-choice-depth:${x.depth}" title="${esc(x.project.name||'')}"`);};
-      if(kind==='organization')return {title:'담당조직 선택',search:'조직 이름 검색',html:choices.groups.some(g=>g.length)?orgGroupRows(choices.groups,chip):'<p class="home-choice-label">고를 수 있는 담당조직이 없어요.</p>'};
+      const doneItem=(state,name)=>`<span class="home-choice-row basket-choice-done" data-sheet-item style="--home-choice-depth:0">${esc(name)} · ${state==='suggested'?'이미 제안됨':'이미 연결됨'}</span>`;
       // REF-참고묶음 (질문 3: an update may be in an organization and a bundle at once): bundles are rows with a check box, like organizations.
-      const ref=b=>{const name=b.name||'이름 없는 묶음',state=done.get(linkKey('reference',b.id));return state?doneItem(state,name,'home-choice-row','style="--home-choice-depth:0"'):orgRow(b,picked.has(linkKey('reference',b.id)),esc);};
-      if(kind==='reference')return {title:'참고 묶음 선택',search:'묶음 이름 검색',html:choices.bundles?.length?choices.bundles.map(ref).join(''):'<p class="home-choice-label">고를 수 있는 참고 묶음이 없어요.</p>'};
-      return {title:'사업영역 꼬리표 달기',search:'사업영역 이름 검색',html:choices.projects.length?choices.projects.map(row).join(''):'<p class="home-choice-label">고를 수 있는 사업영역이 없어요.</p>'};
+      const ref=b=>{const name=b.name||'이름 없는 묶음',state=done.get(linkKey('reference',b.id));return state?doneItem(state,name):orgRow(b,picked.has(linkKey('reference',b.id)),esc);};
+      return {title:'참고 묶음 선택',search:'묶음 이름 검색',html:choices.bundles?.length?choices.bundles.map(ref).join(''):'<p class="home-choice-label">고를 수 있는 참고 묶음이 없어요.</p>'};
     },
     onSelect:(kind,value)=>{
-      if(kind==='task-project'){if(task)task.project=value;paint();return;}
       if(linked().has(linkKey(kind,value)))return;
-      const existing=link.targets.find(t=>t.kind===kind&&t.id===value);
-      if(!existing){
+      if(!link.targets.some(t=>t.kind===kind&&t.id===value)){
         if(link.targets.length>=MANUAL_LINK_LIMIT){link.status=`한 번에 ${MANUAL_LINK_LIMIT}곳까지 연결할 수 있어요.`;paint();return;}
-        const name=kind==='organization'?choices.organizations.find(o=>o.id===value)?.name:kind==='reference'?choices.bundles?.find(b=>b.id===value)?.name:choices.projects.find(x=>x.project.id===value)?.project.name;
-        // A reference link is the whole point of picking a bundle, so it is always made (no [기록도 남기기] choice for it).
-        link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:kind==='reference'||!filesOnly(note()),ai:newAiState(),files:newAiState()});link.status='';
+        addTarget(kind,value);
       }
       paint();
       // The sheet returns focus to its trigger once its history entry is gone; the new summary is
@@ -160,6 +154,54 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     },
     onError:error=>{const message=error?.message||'고를 목록을 불러오지 못했어요. 다시 눌러 주세요.';if(mode==='link')link.status=message;else if(task)task.status=message;paint();}
   });
+  function addTarget(kind,value){
+    const name=kind==='organization'?organizationName(value):kind==='reference'?choices?.bundles?.find(b=>b.id===value)?.name:projectPath(value);
+    // A reference link is the whole point of picking a bundle, so it is always made (no [기록도 남기기] choice for it).
+    link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:kind==='reference'||!filesOnly(note()),ai:newAiState(),files:newAiState()});link.status='';
+  }
+  // S52-01 ③a: [담당조직 고르기 ▾]·[사업영역 꼬리표 달기 ▾] open the shared sheet with many choices: the places picked so far start
+  // pressed, already linked ones are gray text, and [넣기] keeps the new set of that kind (a place unpressed there is taken out, one
+  // pressed is added after the others, as one press did before). The values (kind, id) and the save path are unchanged.
+  let pickTrigger=null;
+  const PICK_PREFIX={organization:'o:',project:'p:'};
+  async function openPlaces(kind,button){
+    if(!mode||!note()||isBusy()||window.KPTURouter.current!=='basket')return;
+    const draft=link,id=noteId;
+    try{await loadChoices();}catch(error){link.status=error?.message||'고를 목록을 불러오지 못했어요. 다시 눌러 주세요.';paint();return;}
+    const used=await usedKeysNow(rt).catch(()=>[]);
+    if(draft!==link||mode!=='link'||noteId!==id||!button.isConnected||isBusy())return;
+    const prefix=PICK_PREFIX[kind],locked=new Map();
+    for(const [key,state] of linked())if(key.startsWith(kind+':'))locked.set(prefix+key.slice(kind.length+1),state==='suggested'?'이미 제안됨':'이미 연결됨');
+    const mine=link.targets.filter(t=>t.kind===kind).map(t=>prefix+t.id);
+    pickTrigger=button;
+    await openAreaOrgPicker({kind:kind==='project'?'area':'org',trigger:button,used,locked,selected:mine,max:MANUAL_LINK_LIMIT-(link.targets.length-mine.length),
+      title:kind==='project'?'사업영역 꼬리표 달기':'담당조직 고르기',
+      areas:kind==='project'?catalogAreas(choices.projects):[],orgGroups:kind==='organization'?orderedOrgGroups(choices.groups):[],
+      onCommit:keys=>{
+        if(draft!==link||mode!=='link'||noteId!==id||isBusy())return;
+        const ids=new Set([...keys].filter(k=>k.startsWith(prefix)).map(k=>k.slice(2)).filter(v=>!linked().has(linkKey(kind,v))));
+        const before=new Set(link.targets.filter(t=>t.kind===kind).map(t=>t.id));
+        link.targets=link.targets.filter(t=>t.kind!==kind||ids.has(t.id));
+        const added=[...ids].filter(v=>!before.has(v));
+        for(const v of added){if(link.targets.length>=MANUAL_LINK_LIMIT){link.status=`한 번에 ${MANUAL_LINK_LIMIT}곳까지 연결할 수 있어요.`;break;}addTarget(kind,v);}
+        paint();
+        // The first new place's summary is the next thing to write: focus it once the sheet has given focus back.
+        const first=added[0];
+        queueMicrotask(()=>void areaOrgPickerClosed().then(()=>{const box=first&&host?.querySelector(`[data-manual-summary="${CSS.escape(linkKey(kind,first))}"]`);(box||host?.querySelector(`[data-manual-pick="${kind}"]`))?.focus();}));
+      }});
+  }
+  // The task's 사업영역: one choice (a press picks and closes, '사업영역 없음' first), the same sheet.
+  async function openTaskProject(button){
+    if(mode!=='task'||!task||!note()||isBusy()||window.KPTURouter.current!=='basket')return;
+    const mine=task;
+    try{await loadChoices();}catch(error){task.status=error?.message||'고를 목록을 불러오지 못했어요. 다시 눌러 주세요.';paint();return;}
+    const used=await usedKeysNow(rt).catch(()=>[]);
+    if(task!==mine||mode!=='task'||!button.isConnected||isBusy())return;
+    pickTrigger=button;
+    await openAreaOrgPicker({kind:'area',trigger:button,used,multi:false,none:true,areas:catalogAreas(choices.projects),selected:mine.project?['p:'+mine.project]:[],
+      onCommit:keys=>{if(task!==mine||mode!=='task')return;const k=[...keys][0]||'';mine.project=k.startsWith('p:')?k.slice(2):'';paint();}});
+  }
+  const dismissPicker=()=>{if(pickTrigger)dismissAreaOrgPicker(pickTrigger);pickTrigger=null;};
   function targetFiles(t){
     const {files,docs}=fileState();if(!files.length||t.kind==='reference')return '';
     const into=fileTargets()[t.kind];
@@ -232,7 +274,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
 <p data-manual-status role="status">${statusHtml(link.status)}</p>
 <div class="basket-actions save-row"><button type="button" class="secondary" data-manual-cancel>취소</button><button type="button" class="quick-pill-primary" data-manual-confirm data-enter-save-submit>${confirmLabel(n)}</button></div></section>`;
   }
-  const taskProjectName=()=>task?.project?choices?.projects.find(x=>x.project.id===task.project)?.project.name||'사업영역':'사업영역';
+  const taskProjectName=()=>task?.project&&choices?.projects.some(x=>x.project.id===task.project)?projectPath(task.project):'사업영역';
   function paintTaskProject(){
     const button=host?.querySelector('[data-manual-task-project]');if(!button)return;
     const project=taskProjectName();button.textContent=project+' ▾';button.setAttribute('aria-label',task.project?'사업영역: '+project:'사업영역');
@@ -326,7 +368,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     if(next==='task')void loadChoices().then(()=>{if(mode==='task')paintTaskProject();}).catch(()=>{});
     return '';
   }
-  function reset(){++seq;mode=null;noteId=null;link={targets:[],status:''};task=null;sheet.dismiss();taskFilesPick?.clear();}
+  function reset(){++seq;mode=null;noteId=null;link={targets:[],status:''};task=null;sheet.dismiss();dismissPicker();taskFilesPick?.clear();}
   function hasDraft(){
     if(mode==='link')return link.targets.length>0;
     if(mode==='task'&&task)return !!task.unknown||task.title!==task.initial.title||task.notes!==task.initial.notes||(task.due||'')!==(task.initial.due||'')||!!task.project||!!(taskFilesOn&&taskFilesPick?.files().length);
@@ -457,7 +499,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     host=next;
     host.addEventListener('click',event=>{
       const b=event.target.closest('button');if(!b||b.disabled||isBusy())return;
-      if(b.dataset.manualPick)void sheet.open(b.dataset.manualPick,b);
+      if(b.dataset.manualPick){if(b.dataset.manualPick==='reference')void sheet.open('reference',b);else void openPlaces(b.dataset.manualPick,b);}
       else if(b.dataset.manualRemove){link.targets=link.targets.filter(t=>linkKey(t.kind,t.id)!==b.dataset.manualRemove);link.status='';paint();host.querySelector('[data-manual-pick="organization"]')?.focus();}
       else if(b.dataset.manualRecord){const t=link.targets.find(x=>linkKey(x.kind,x.id)===b.dataset.manualRecord);if(t){t.record=!t.record;paint();if(t.record){host.querySelector(`[data-manual-summary="${CSS.escape(b.dataset.manualRecord)}"]`)?.focus();void prefillBrief(t);}}}
       else if(b.dataset.manualAiRun)void runAi(b.dataset.manualAiRun);
@@ -469,7 +511,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
       else if(b.hasAttribute('data-manual-confirm'))void confirmManual();
       else if(b.hasAttribute('data-manual-cancel')||b.hasAttribute('data-manual-task-cancel'))void cancel({anchor:b});
       else if(b.hasAttribute('data-manual-task-save'))void saveTask();
-      else if(b.hasAttribute('data-manual-task-project'))void sheet.open('task-project',b);
+      else if(b.hasAttribute('data-manual-task-project'))void openTaskProject(b);
       else if(b.dataset.manualTaskDay&&task){
         const kind=b.dataset.manualTaskDay;
         if(task.dateKind===kind){task.due='';task.dateKind='';paint();return;}
@@ -492,7 +534,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     const n=getNote();if(mode&&(!n||n.id!==noteId))reset();
     paint();
   }
-  window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='basket')sheet.dismiss();});
+  window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='basket'){sheet.dismiss();dismissPicker();}});
   window.addEventListener('kptu:session-changed',()=>{if(choices&&choices.owner!==scope())choices=null;});
   window.addEventListener('kptu:project-catalog-updated',()=>{choices=null;});
   return {attach,open,cancel,reset:()=>{reset();paint();},isOpen:()=>!!mode,hasDraft,controls};

@@ -56,3 +56,9 @@ export async function openFolds(sheet) {
     await t.click();
   }
 }
+// S52-01 ③: 여러 개 고르는 창에서 이름들을 눌러 [넣기]로 닫는다(창은 이미 열려 있어야 한다).
+export async function pressNamesAndSave(page, names) {
+  for (const name of [].concat(names)) await pressName(page, name);
+  await page.locator(`${SHEET} [data-sheet-save]`).click();
+  await expect(page.locator(SHEET)).toBeHidden();
+}

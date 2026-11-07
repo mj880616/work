@@ -1,3 +1,4 @@
+import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helpers/area-org-picker.mjs';
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
@@ -54,8 +55,7 @@ async function openLink(page,width){
  const detail=page.locator('[data-basket-detail]');
  await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
  await tap(page,detail.locator('[data-manual-pick="organization"]'),width);
- const sheet=page.locator('#basketLinkChoiceSheet');await expect(sheet).toBeVisible();
- await tap(page,sheet.getByRole('button',{name:'합성 한빛지부',exact:true}),width);await expect(sheet).toBeHidden();
+ await pressNamesAndSave(page,'합성 한빛지부');
  await expect(detail.locator(`[data-manual-summary="organization:${o}"]`)).toBeFocused();
  return detail;
 }
