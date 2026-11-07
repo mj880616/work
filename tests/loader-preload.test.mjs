@@ -101,3 +101,32 @@ test('P5-c: 쉬는 틈 미리 받기는 화면마다 차례로', () => {
   // 화면을 누르면 prepare가 같은 사슬을 바로 받는다.
   assert.match(views, /if\(!loaded\.has\(key\)\)for\(const path of firstModules\[key\]\|\|warmModules\[key\]\|\|\[\]\)hint\('modulepreload',path\);/);
 });
+
+// S52-08 ①(docs/design/perf-first-load-1107.md 6절): 폰 달력 첫 전환이 1.5초였던 까닭은 달력이 사업 보고·공유 페이지 파일을 부른 것이 아니라
+// (1) 화면이 보이기 전에 기다리는 달력 모듈 3개(+자료 모듈)가 미리 받기 목록에 없어 클릭 뒤 새로 받았고 (2) 그동안 뒤 화면(사업 보고·공유 페이지·담당조직)
+// 미리 받기가 같은 연결을 다퉜기 때문이다. 그래서 (1) 화면 불러오기가 보이기 전에 기다리는 모듈은 모두 그 화면 미리 받기 사슬 안에 있고
+// (2) 화면을 부르는 동안에는 다음 화면 미리 받기를 걸지 않는다.
+const warmBlock = views.slice(views.indexOf('const warmModules={'), views.indexOf('const warmed=new Set();'));
+const warmRoots = view => [...(warmBlock.match(new RegExp('\\n\\s*' + view + ':\\/\\*static-chain\\*\\/\\[([^\\]]*)\\]'))?.[1] || '').matchAll(/'\.\/([^'?]+)[^']*'/g)].map(m => m[1]);
+const awaitedBeforeShown = name => {
+  const start = views.indexOf(`async function ${name}(){`);
+  const body = views.slice(start, views.indexOf('return {ok:true}', start));
+  return body.split('\n').filter(line => !line.includes('background(')).flatMap(line => [...line.matchAll(/module\('\.\/([^']+)'/g)].map(m => m[1]));
+};
+test('S52-08 ①: 화면이 보이기 전에 기다리는 모듈은 그 화면 미리 받기 사슬 안에 있다', () => {
+  for (const [view, fn] of [['calendar', 'calendar'], ['meetings', 'meetings'], ['ledger', 'ledger'], ['tasks', 'tasks'], ['library', 'library']]) {
+    assert.ok(warmRoots(view).length, view + ' 미리 받기 목록 없음');
+    // 미리 받기는 목록 순서대로 차례로 받으므로, 앞 화면 사슬에 든 모듈(예: 할 일의 google-tasks.js)은 이미 받아 둔 것으로 본다.
+    const order = [...warmBlock.matchAll(/\n\s*(\w+):\/\*static-chain\*\//g)].map(m => m[1]);
+    const chain = new Set();
+    for (const earlier of order.slice(0, order.indexOf(view) + 1)) for (const root of warmRoots(earlier)) { chain.add(root); for (const dep of closure(root)) chain.add(dep); }
+    for (const file of awaitedBeforeShown(fn)) assert.ok(chain.has(file), `${view}: ${file}이 미리 받기 사슬에 없음`);
+  }
+  for (const file of ['calendar-interactions-v2.js', 'calendar-mobile-ui.js', 'calendar-day-overflow.js', 'calendar-persistence.js']) assert.ok(warmRoots('calendar').includes(file), file);
+});
+test('S52-08 ①: 화면을 부르는 동안에는 다음 화면 미리 받기를 걸지 않고, 다 부른 뒤 잇는다', () => {
+  const warm = views.slice(views.indexOf('function warm(){'), views.indexOf('// PERF-첫로딩 P5-c: 화면 안에서'));
+  assert.match(warm, /while\(queue\.length\)\{\n[^\n]*\n\s*if\(flights\.size\)\{warmPaused=next;return\}/);
+  assert.match(views, /function resumeWarm\(\)\{if\(flights\.size\|\|!warmPaused\)return;const next=warmPaused;warmPaused=null;idle\(next\)\}/);
+  assert.match(views, /\.finally\(\(\)=>\{flights\.delete\(key\);resumeWarm\(\)\}\);/);
+});

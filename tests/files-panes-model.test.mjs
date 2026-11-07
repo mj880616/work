@@ -54,3 +54,38 @@ test('S51-20 ②: 폰 위·아래 두 칸 — narrow 칸, 칸 이름 위·아래
   assert.equal(sendLabel(0, 'copy', true), '↓ 아래에 복사'); assert.equal(sendLabel(1, 'copy', true), '↑ 위에 복사');
   assert.equal(sendLabel(0, 'move', true), '↓ 옮기기'); assert.equal(sendLabel(0, 'copy'), '→ 오른쪽에 복사');
 });
+
+// S52-07 FILES-칸출처고르기: 칸마다 고른 출처(서버 files_panes.<기기> = [첫 칸, 둘째 칸]).
+import {panesSaved, panesValue, paneStart, paneChoices, paneSourceLabel, PANE_SOURCES} from '../app/files-panes-model.mjs';
+import {validValue as prefsValid, parsePrefs as prefsParse} from '../app/view-prefs.js';
+test('files_panes: 저장값 읽기·고른 뒤 값·첫 위치', () => {
+  assert.deepEqual(PANE_SOURCES, ['od', 'gd', 'ph', 'pc']);
+  assert.deepEqual(panesSaved(['gd', 'od']), ['gd', 'od']);
+  for (const v of [undefined, null, [], ['od'], ['od', 'gd', 'ph'], ['od', 'xx'], 'od', {0: 'od', 1: 'gd'}]) assert.equal(panesSaved(v), null, JSON.stringify(v));
+  // 칸 1에서 gd를 고름: 반대 칸은 지금 보이는 출처 → 저장값 → 고른 것.
+  assert.deepEqual(panesValue(undefined, 1, 'gd', 'od'), ['od', 'gd']);
+  assert.deepEqual(panesValue(['pc', 'ph'], 0, 'gd', ''), ['gd', 'ph']);
+  assert.deepEqual(panesValue(undefined, 0, 'od', ''), ['od', 'od']);
+  assert.equal(panesValue(undefined, 0, 'dropbox', 'od'), null);
+  // 첫 위치: 기억한 출처가 켜져 있으면 그것, 아니면 지금 규칙(칸 0 = 첫 출처, 칸 1 = 왼쪽과 다른 출처).
+  assert.deepEqual(paneStart(0, ['gd', 'od'], ['od', 'gd']), {source: 'gd', parent: null});
+  assert.deepEqual(paneStart(1, ['gd', 'od'], ['od', 'gd'], {source: 'gd'}), {source: 'od', parent: null});
+  assert.deepEqual(paneStart(1, ['gd', 'ph'], ['od', 'gd'], {source: 'od'}), {source: 'gd', parent: null});
+  assert.deepEqual(paneStart(0, ['ph', 'od'], ['od', 'gd']), {source: 'od', parent: null});
+  assert.deepEqual(paneStart(1, null, ['od', 'gd'], {source: 'od'}), {source: 'gd', parent: null});
+  assert.equal(paneStart(0, ['od', 'gd'], []), null);
+  assert.equal(paneSourceLabel({source: 'ph'}), '이 폰');
+  assert.equal(paneSourceLabel({shelf: 'starred'}), '출처');
+});
+test('files_panes: 칸 머리 네 줄 — 못 쓰는 출처는 흐리게 + 이유', () => {
+  const rows = paneChoices({cur: 'od', on: ['od'], linked: ['od', 'gd'], phone: {usable: false}, pc: {usable: true, ok: false}});
+  assert.deepEqual(rows.map(r => [r.src, r.usable, r.why, r.cur]), [['od', true, '', true], ['gd', false, '위 줄에서 끔', false], ['ph', false, '폰 앱에서만', false], ['pc', false, 'PC 앱이 켜졌을 때만', false]]);
+  const app = paneChoices({cur: 'ph', on: ['od', 'gd', 'ph'], linked: ['od'], phone: {usable: true, all: true}, pc: {usable: false}});
+  assert.deepEqual(app.map(r => [r.src, r.usable, r.why]), [['od', true, ''], ['gd', false, '연결 안 됨'], ['ph', true, ''], ['pc', false, 'PC 브라우저에서만']]);
+  assert.equal(paneChoices({phone: {usable: true, all: false}}).find(r => r.src === 'ph').why, '파일 접근 허락 필요');
+});
+test('files_panes: 화면 쪽 모양 검사는 DB 검사와 같다(기기 종류 app·phone·pc, 길이 2, od·gd·ph·pc)', () => {
+  assert.equal(prefsValid('files_panes', {pc: ['od', 'gd'], app: ['ph', 'ph'], phone: ['pc', 'od']}), true);
+  for (const v of [{tablet: ['od', 'gd']}, {pc: ['od']}, {pc: ['od', 'gd', 'ph']}, {pc: ['OD', 'gd']}, {pc: 'od'}, [], null]) assert.equal(prefsValid('files_panes', v), false, JSON.stringify(v));
+  assert.deepEqual(prefsParse({files_panes: {pc: ['od', 'gd'], app: ['xx', 'od']}}).files_panes, {pc: ['od', 'gd']});
+});

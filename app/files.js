@@ -42,7 +42,7 @@ import {PHONE_SOURCE as PH, phoneTrail, phoneParent, phoneWriteText, PHONE_SAVE_
 import {createPcFiles} from './pc-files.js';
 import {PC_SOURCE as PC, pcTrail, pcStateText, pcOffRowName, pcDeviceOk, PC_READONLY_TEXT, PC_PREVIEW_TEXT} from './pc-files-model.mjs';
 import {NARROW_QUERY, SPLIT_QUERY} from './screen-width.mjs';
-import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest, otherStart, DROP_ASK_TEXT} from './files-panes-model.mjs';
+import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest, DROP_ASK_TEXT, FILES_PANES_KEY, panesValue, paneStart, paneChoices, paneSourceLabel} from './files-panes-model.mjs';
 import {within, isLoadTimeout} from './load-deadline.js';
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
 // - 목록은 서버 색인(app_cloud_list·app_cloud_find·app_cloud_trail, owner + 운영자 기능 files일 때만 읽힘)에서 바로 그린다. 클라우드는 부르지 않는다.
@@ -130,6 +130,9 @@ let pcOff = false;
 const PC_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 14h4M8 11v3" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>';
 const PHONE_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="1.5" width="8" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="12.2" r=".8" fill="currentColor"/></svg>';
 
+// S52-07 칸 머리 출처 그림(위 줄 출처 아이콘과 같은 그림).
+const PANE_SRC_SVG = {od: brandIconSvg('onedrive', {size: 16, cls: 'fx-src-ic'}), gd: GDRIVE_SVG, ph: PHONE_SVG, pc: PC_SVG};
+
 // 목록 칸 하나(칸 0 = 한 칸 화면의 그 칸 / 두 칸이면 왼쪽, 칸 1 = 두 칸일 때만 있는 오른쪽). 칸 위 줄(fx-ptop)은 두 칸일 때만 보인다.
 const paneHtml = i => `<div class="fx-listcol" data-fx-pane-i="${i}"><div class="fx-ptop" data-fx-ptop hidden></div><nav class="fx-ptree nx-tree" data-fx-ptree aria-label="${i ? '오른쪽' : '왼쪽'} 칸 폴더" hidden></nav>`
   + `<div class="fx-wait" data-fx-wait hidden></div><section class="fx-list" data-fx-list aria-label="${i ? '오른쪽 칸 파일 목록' : '파일 목록'}"></section></div>`;
@@ -154,7 +157,7 @@ const rt = () => window.KPTURuntime;
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 // 칸 하나의 상태(S49-30 두 칸): 위치·목록·정렬·찾기·고르기. pane = 폰 칸 0의 나무/목록(첫 화면은 나무), drop = 폴드 두 칸의 ▾ 나무가 내려와 있는가. seq·fseq·ftimer = 늦게 온 응답 거르기.
 const freshPane = () => ({where: null, rows: [], loaded: false, failed: '', failedWhy: '', trail: [], sort: 'name', dir: 'asc',
-  query: '', found: null, findFailed: '', findWhy: '', sel: '', picked: new Set(), anchor: '', pane: 'tree', drop: false, seq: 0, fseq: 0, ftimer: 0});
+  query: '', found: null, findFailed: '', findWhy: '', sel: '', picked: new Set(), anchor: '', pane: 'tree', drop: false, srcOpen: false, seq: 0, fseq: 0, ftimer: 0});
 const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', panes: [freshPane(), freshPane()], cur: 0,
   children: new Map(), open: new Set(), stars: null, syncedAt: null, syncing: false,
   // FOLDER-나무새기준 ②: 폴더 안 파일(폰 나무 그 자리 펼치기), 접은 저장소 상자, 'n개 더 보기'를 누른 폴더, '최근' 상자(서버 p_shelf 'recent'),
@@ -497,7 +500,7 @@ function paint() {
 }
 function paintPane(p) { paintPaneTop(p); paintList(p); }
 // 위치 줄(빵부스러기): 한 칸 화면은 위 줄, 두 칸이면 칸마다 칸 위 줄에 같은 글자.
-function crumbHtml(p) {
+function crumbHtml(p, {noRoot = false} = {}) {
   const w = p.where;
   if (p.query) return `<span class="fx-crumb-now">${esc(p.found ? findSummary(foundShown(p)) : `'${p.query}' 찾기`)}</span>`;
   // S50-33: 폰 나무 화면에는 위치 줄이 없다(중복 제목 '폴더' 뺌). 폰 목록의 ‹ 는 어느 단계에서든 나무로 돌아온다(S51-24, 위 단계는 위치 줄 글자로).
@@ -507,11 +510,14 @@ function crumbHtml(p) {
   if (focusBox(p)) return '';
   const back = solo() && p === state.panes[0];
   if (w.shelf) return (back ? '<button type="button" class="fx-up" data-fx-up aria-label="폴더 나무">‹</button>' : '') + `<span class="fx-crumb-now">${esc(SHELF_NAME[w.shelf])}</span>`;
-  const names = trailNames(w.source, p.trail), ids = [null, ...trailIds(p.trail)];
+  // S52-07: 두 칸 칸 머리는 출처 이름이 [출처 ▾] 단추에 있어 위치 줄은 출처 다음 단계부터(맨 위면 비움, 맨 위로 = 같은 출처 다시 고르기).
+  const all = trailNames(w.source, p.trail), allIds = [null, ...trailIds(p.trail)];
+  const names = noRoot ? all.slice(1) : all, ids = noRoot ? allIds.slice(1) : allIds;
+  if (!names.length) return '';
   let html = names.map((n, i) => i === names.length - 1
     ? `<span class="fx-crumb-now" aria-current="location">${esc(n)}</span>`
     : `<button type="button" class="fx-crumb-step" data-fx-go="${esc(w.source)}" data-fx-id="${esc(ids[i] || '')}">${esc(n)}</button>`).join('<span class="fx-crumb-sep" aria-hidden="true">›</span>');
-  if (names.length > 1 || back) html = `<button type="button" class="fx-up" data-fx-up aria-label="${back ? '폴더 나무' : '위 폴더'}">‹</button>` + html;
+  if (names.length > 1 || back || (noRoot && names.length)) html = `<button type="button" class="fx-up" data-fx-up aria-label="${back ? '폴더 나무' : '위 폴더'}">‹</button>` + html;
   return html;
 }
 const sortHtml = p => `<select class="fx-sort" data-fx-sort aria-label="${p ? side(idxOf(p)) + ' 칸 ' : ''}정렬">${SORTS.map(k => `<option value="${k}"${p?.sort === k ? ' selected' : ''}>${SORT_NAME[k]}</option>`).join('')}</select>`;
@@ -523,8 +529,37 @@ function paintPaneTop(p) {
   top.hidden = false;
   const fold = !WIDE.matches, i = idxOf(p);
   top.innerHTML = (fold ? `<button type="button" class="mini fx-pdrop" data-fx-pdrop aria-expanded="${p.drop}" aria-label="${side(i)} 칸 폴더 나무">${treeIconHtml('folder', {open: p.drop, className: 'ft-ico'})}</button>` : '')
-    + `<nav class="fx-crumb" aria-label="${side(i)} 칸 위치">${crumbHtml(p)}</nav>${sortHtml(p)}`;
+    + paneSrcHtml(p, i)
+    + `<nav class="fx-crumb" aria-label="${side(i)} 칸 위치">${crumbHtml(p, {noRoot: !!p.where?.source && !p.query})}</nav>${sortHtml(p)}`;
   paintPaneTree(p);
+}
+// S52-07 FILES-칸출처고르기(시안 morning-1107/4 1-A): 칸 머리 '원드라이브 ⌄'(고르기 꺾쇠, 폴더 세모 아님) → 출처 네 줄 목록. 쓸 수 없는 출처는 흐리게 + 이유. 고르면 그 칸만 그 출처 맨 위.
+// 목록 열림(srcOpen)은 칸 상태 하나가 주인이고 그리기는 paintPaneTop 한 곳.
+function paneSrcHtml(p, i) {
+  const src = !p.query && p.where?.source ? p.where.source : '';
+  const label = `${src ? PANE_SRC_SVG[src] || '' : ''}<span class="fx-psrc-name">${esc(paneSourceLabel(src ? p.where : null))}</span><span class="fx-psrc-caret" aria-hidden="true"></span>`;
+  const btn = `<button type="button" class="row-act fx-psrc" data-fx-psrc aria-haspopup="true" aria-expanded="${p.srcOpen}" aria-label="${side(i)} 칸 출처: ${esc(paneSourceLabel(src ? p.where : null))}">${label}</button>`;
+  if (!p.srcOpen) return `<span class="fx-psrc-wrap">${btn}</span>`;
+  const items = paneChoices({cur: src, on: onSources(), linked: connected(), phone: {usable: phone.usable, all: phoneLinked()}, pc: {usable: pc.usable, ok: !!pc.state.ok}})
+    .map(c => `<button type="button" class="row-act fx-psrc-item${c.cur ? ' on' : ''}" data-fx-psrc-pick="${c.src}"${c.usable ? '' : ' disabled'}${c.cur ? ' aria-current="true"' : ''}>${PANE_SRC_SVG[c.src] || ''}<span class="fx-psrc-name">${esc(c.name)}</span>${c.cur ? '<span class="fx-psrc-on" aria-hidden="true">✓</span>' : ''}${c.why ? `<span class="fx-psrc-why">${esc(c.why)}</span>` : ''}</button>`).join('');
+  return `<span class="fx-psrc-wrap">${btn}<span class="fx-psrc-menu" data-fx-psrc-menu role="group" aria-label="${side(i)} 칸 출처 고르기">${items}</span></span>`;
+}
+function paneSrcClose(focus = false) {
+  let any = false;
+  for (const q of state.panes) if (q.srcOpen) { q.srcOpen = false; any = true; if (two()) paintPaneTop(q); if (focus) inPane(q, '[data-fx-psrc]')?.focus({preventScroll: true}); }
+  return any;
+}
+// 칸 i에서 출처를 골랐을 때: 그 칸만 그 출처 맨 위로, 고른 값은 서버에 기억(기기 종류마다). 거절되면 칸은 그대로(이번 접속만).
+function paneSrcPick(p, src) {
+  const i = idxOf(p);
+  p.srcOpen = false;
+  if (!onSources().includes(src)) { paintPaneTop(p); return; }
+  const other = otherOf(p)?.where?.source || '';
+  const value = panesValue(viewPrefs.getFilesPanes?.(DEVICE), i, src, other);
+  if (value) viewPrefs.setFilesPanes?.(DEVICE, value);
+  state.open.add(folderKey(src, null));
+  setWhere(p, {source: src, parent: null}, {keepPreview: i !== state.cur});
+  inPane(p, '[data-fx-psrc]')?.focus({preventScroll: true});
 }
 function paintPaneTree(p) {
   const pt = inPane(p, '[data-fx-ptree]');
@@ -678,7 +713,9 @@ function goHome(p) {
     toTree({release: true});
     return;
   }
-  const first = onSources()[0];
+  // S52-07: 두 칸이면 그 칸에 기억한 출처(켜져 있을 때)의 맨 위, 아니면 켜진 첫 출처.
+  const start = two() ? paneStart(idxOf(p), viewPrefs.getFilesPanes?.(DEVICE), onSources(), otherOf(p)?.where) : null;
+  const first = start?.source || onSources()[0];
   if (first) { state.open.add(folderKey(first, null)); return setWhere(p, {source: first, parent: null}); }
   p.where = null; paint();
 }
@@ -2278,6 +2315,7 @@ function layoutChanged() {
   if (!two()) {
     if (state.cur === 1) { state.panes.reverse(); state.cur = 0; window.KPTURouter?.setPlace?.('files', placeOf(state.panes[0].where)); }
     state.panes[1].picked.clear(); state.panes[1].drop = false;
+    for (const q of state.panes) q.srcOpen = false;
     state.dropAsk = null;
     // 폰 한 칸으로 돌아오면 칸 0은 그 폴더 목록(뒤로가기 = 한 단계 위·나무).
     if (solo()) { const a = state.panes[0]; if (a.where) { a.pane = 'list'; listLayerOpen(); } }
@@ -2292,7 +2330,7 @@ function layoutChanged() {
   paint();
   if (!state.status) return;
   if (b.where) { loadList(b, {quiet: true}); return; }
-  const start = otherStart(state.panes[0].where, onSources());
+  const start = paneStart(1, viewPrefs.getFilesPanes?.(DEVICE), onSources(), state.panes[0].where);
   if (start) setWhere(b, start, {keepPreview: true});
 }
 function setTwo(on) {
@@ -2375,6 +2413,8 @@ root?.addEventListener('focusin', event => { const i = paneOfEl(event.target); i
 root?.addEventListener('click', event => {
   const b = event.target.closest('button');
   if (state.dropAsk && !event.target.closest('[data-fx-dropask]')) dropAskClose();
+  // 칸 머리 출처 목록: 목록 밖을 누르면 닫는다(목록 안 단추는 아래에서 처리).
+  if (!event.target.closest('.fx-psrc-wrap')) paneSrcClose();
   if (!b || !root.contains(b)) return;
   { const i = paneOfEl(b); if (i >= 0) setCur(i); }
   if (b.matches('[data-fx-row]')) {
@@ -2387,6 +2427,8 @@ root?.addEventListener('click', event => {
     activate(key); return;
   }
   if (b.matches('[data-fx-two]')) { setTwo(!two()); return; }
+  if (b.matches('[data-fx-psrc]')) { const p = P(), open = !p.srcOpen; paneSrcClose(); p.srcOpen = open; paintPaneTop(p); inPane(p, open ? '[data-fx-psrc-pick]:not([disabled])' : '[data-fx-psrc]')?.focus({preventScroll: true}); return; }
+  if (b.matches('[data-fx-psrc-pick]')) { paneSrcPick(P(), b.dataset.fxPsrcPick); return; }
   if (b.matches('[data-fx-pdrop]')) { const p = P(); p.drop = !p.drop; paintPaneTop(p); inPane(p, '[data-fx-pdrop]')?.focus({preventScroll: true}); return; }
   if (b.matches('[data-fx-send]')) { sendOpp(b.dataset.fxSend === 'move' ? 'move' : 'copy', b); return; }
   if (b.matches('[data-fx-drop-go]')) { dropGo(b.dataset.fxDropGo === 'move' ? 'move' : 'copy', b); return; }
@@ -2521,6 +2563,7 @@ root?.addEventListener('keydown', event => {
   const p = P(), rows = [...(paneEl(p)?.querySelectorAll('[data-fx-row]') || [])];
   const mod = event.ctrlKey || event.metaKey, k = String(event.key).toLowerCase();
   if (event.key === 'Escape' && state.dropAsk) { event.preventDefault(); dropAskClose(); return; }
+  if (event.key === 'Escape' && state.panes.some(q => q.srcOpen)) { event.preventDefault(); paneSrcClose(true); return; }
   if (event.key === 'F2') { const list = actRows(); if (list.length === 1) { event.preventDefault(); renameRow(list[0], event.target.closest('button') || root); } return; }
   if (event.key === 'Delete') { const list = actRows(); if (list.length) { event.preventDefault(); trashRows(list, event.target.closest('button') || root); } return; }
   if (mod && k === 'a' && rows.length) { event.preventDefault(); for (const b of rows) p.picked.add(b.dataset.fxRow); paintPicks(p); return; }
@@ -2688,7 +2731,7 @@ async function enter(force = false) {
     if (two()) {
       const b = state.panes[1];
       if (b.where) await loadList(b, {quiet: true});
-      else { const start = otherStart(a.where, first); if (start) await setWhere(b, start, {keepPreview: true}); }
+      else { const start = paneStart(1, viewPrefs.getFilesPanes?.(DEVICE), first, a.where); if (start) await setWhere(b, start, {keepPreview: true}); }
     }
     paint();
     for (const s of first) if (!state.children.has(folderKey(s, null))) loadChildren(s, null);

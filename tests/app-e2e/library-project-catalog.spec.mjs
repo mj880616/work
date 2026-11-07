@@ -1,3 +1,4 @@
+import {SHEET,pressRow,pickSelectArea} from './helpers/area-org-picker.mjs';
 import {openLibraryCategoryEditor} from './helpers/library-categories.mjs';
 import { appOrigin } from './helpers/test-origin.mjs';
 import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
@@ -193,7 +194,7 @@ test('upload sends the exact selected parent or child project id and rejects sta
   for(const pid of ['top-a','child-a2']){
     await page.locator('#newDocumentBtn').click();
     await page.locator('#libraryFileInput').setInputFiles({name:`${pid}.pdf`,mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4')});
-    await page.locator('#docProject').selectOption(pid);
+    await pickSelectArea(page,'#docProject',pid);
     await page.locator('#saveDocumentBtn').click();
     await expect(page.locator('#documentModal')).toBeHidden();
   }
@@ -221,7 +222,7 @@ test('real runtime maps structured upload failures, keeps completed child upload
     {name:'child-first-'+'공공기관_기능개혁_대응_회의자료_최종본_'.repeat(3)+'.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4')},
     {name:'child-second.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 second')}
   ]);
-  await page.locator('#docProject').selectOption('child-a1');
+  await pickSelectArea(page,'#docProject','child-a1');
   await page.locator('#saveDocumentBtn').click();
   // 관리자라 Drive 다시 연결을 공용 작은 확인창으로 한 번 묻는다 → 지금은 하지 않음.
   expect(await answerAsk(page,false)).toContain('Google Drive 연결이 만료됐습니다');
@@ -255,7 +256,7 @@ test('server-side missing project maps to the stale project message and refreshe
   await waitLibraryTree(page);
   await page.locator('#newDocumentBtn').click();
   await page.locator('#libraryFileInput').setInputFiles({name:'parent.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4')});
-  await page.locator('#docProject').selectOption('top-b');
+  await pickSelectArea(page,'#docProject','top-b');
   state.spaces=state.spaces.map(x=>x.id==='top-b'?{...x,status:'archived'}:x);
   await page.locator('#saveDocumentBtn').click();
   await expect(page.locator('#documentStatus')).toHaveText('선택한 사업영역을 더 이상 사용할 수 없습니다. 사업영역을 다시 선택해 주세요.');
@@ -288,13 +289,18 @@ test('metadata edit keeps archived links and moves documents between parent, chi
   expect(state.patches.at(-1).body.project_id).toBe('legacy-1');
 
   await edit('doc-a');
-  await page.locator('#libraryEditProject').selectOption('child-a1');await save();
+  // S52-01 ③c: 칸 단추를 누르면 공용 고르기 창(하나만, 맨 위 '사업영역 없음', 하위는 꺾쇠로). 고르면 칸은 '상위 › 하위'.
+  await page.locator('#libraryEditProject + .lu-area-pick').click();
+  await expect(page.locator(SHEET+' .aop-list [data-sheet-value=""]')).toHaveText('사업영역 없음');await expect(page.locator(SHEET+' .aop-list [data-sheet-value="p:child-a1"]')).toBeHidden();
+  await pressRow(page,'p:child-a1');await expect(page.locator(SHEET)).toBeHidden();
+  await expect(page.locator('#libraryEditProject')).toHaveValue('child-a1');await expect(page.locator('#libraryEditProject + .lu-area-pick')).toHaveText('공공기관 기능개혁 대응 › 국토부 대응');
+  await save();
   expect(state.patches.at(-1)).toMatchObject({id:'doc-a',body:{project_id:'child-a1'}});
   await edit('doc-a1');
-  await page.locator('#libraryEditProject').selectOption('top-a');await save();
+  await pickSelectArea(page,'#libraryEditProject','top-a');await save();
   expect(state.patches.at(-1)).toMatchObject({id:'doc-a1',body:{project_id:'top-a'}});
   await edit('doc-a');
-  await page.locator('#libraryEditProject').selectOption('');await save();
+  await pickSelectArea(page,'#libraryEditProject','');await save();
   expect(state.patches.at(-1)).toMatchObject({id:'doc-a',body:{project_id:null}});
 });
 
@@ -366,8 +372,8 @@ for(const width of [360,390,412,430]){
     expect(await overflow()).toBeLessThanOrEqual(1);
     await expect(page.locator('#libraryGroupBy')).toBeVisible();
     await page.locator('#newDocumentBtn').click();
-    await expect(page.locator('#docProject')).toBeVisible();
-    await page.locator('#docProject').selectOption('child-a2');
+    await expect(page.locator('#docProject + .lu-area-pick')).toBeVisible(); // S52-01 ③c: 값은 <select>, 보이는 것은 칸 단추
+    await pickSelectArea(page,'#docProject','child-a2');
     await expect(page.locator('#docProject')).toHaveValue('child-a2');
     expect(await overflow()).toBeLessThanOrEqual(1);
     await page.locator('#documentModal [data-close="documentModal"]').click();
@@ -378,7 +384,7 @@ for(const width of [360,390,412,430]){
     // LIB-분류칸삭제: '자료별 분류' 칸이 없어졌으므로 자료 수정 창은 줄 ⋯ 메뉴의 [수정…]으로 연다.
     await page.locator('[data-lu-menu="doc-archived"]').click();
     await page.locator('[data-lu-edit="doc-archived"]').click();
-    await expect(page.locator('#libraryEditProject')).toBeVisible();
+    await expect(page.locator('#libraryEditProject + .lu-area-pick')).toBeVisible();
     await expect(page.locator('#libraryEditProject')).toHaveValue('top-c');
     expect(await overflow()).toBeLessThanOrEqual(1);
   });

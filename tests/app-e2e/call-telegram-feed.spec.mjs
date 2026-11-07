@@ -1,3 +1,4 @@
+import {SHEET,pressName} from './helpers/area-org-picker.mjs';
 // CALL-통화메뉴 4단계 (docs/design/call-telegram-feed.md 10절 시안): 사이드바 맨 아래 [통화]·[텔레그램 소식]. 텔레그램 화면 본 시험은 tg-room-day.spec.mjs.
 // 서버는 흉내(app_feed_items·app_feed_days·조직 기록)이고 고정·지우기·조직 연결을 기억한다. 이름·방·내용은 모두 지어낸 것이다.
 import {test,expect} from '@playwright/test';
@@ -235,9 +236,11 @@ test('통화 1280: 조직 연결은 핵심내용을 요약 기본값으로, 저�
  const text=page.locator('#cfDetail [data-cf-link-text]');
  await expect(text).toHaveValue('- 원고 금요일 마감');
  await page.locator('#cfDetail [data-cf-link-pick]').click();
- const sheet=page.locator('#feedOrgSheet');await expect(sheet).toBeVisible();
- await expect(sheet.getByRole('button',{name:'테스트 조직',exact:true})).toHaveCount(0);
- await sheet.getByRole('button',{name:'예시지부',exact:true}).click();await expect(sheet).toBeHidden();
+ // S52-01 ③c: 공용 고르기 창(하나만) — 맨 위 '연결 안 함', 내 담당조직만, 누르면 고르고 닫힘.
+ const sheet=page.locator(SHEET);await expect(sheet).toBeVisible();await expect(sheet.locator('h2')).toHaveText('연결할 조직');
+ await expect(sheet.locator('.aop-list [data-sheet-value=""]')).toHaveText('연결 안 함');
+ await expect(sheet.locator('.aop-list .home-choice-name',{hasText:'테스트 조직'})).toHaveCount(0);
+ await pressName(page,'예시지부');await expect(sheet).toBeHidden();
  await expect(page.locator('#cfDetail [data-cf-link-pick]')).toHaveText('예시지부 ▾');
  await page.locator('#cfDetail [data-cf-link-save]').click();
  await expect.poll(()=>f.writes.find(w=>w.id===C2&&w.body.organization_id)?.body.organization_id).toBe(ORG);

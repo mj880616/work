@@ -157,12 +157,19 @@ for(const width of [390,1440]){
       await openApp(page,'tasks',{entryView:'tasks'});
       // UI-할일입력: [할 일] adds through its always-visible input ([추가]), not a [+ 할 일] button.
       await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
-      expect(calendarUiRequests).toEqual([]);
+      // S52-08 ①: 쉬는 틈 미리 받기(view-loader.js warm, modulepreload — 받기만, 실행 안 함)는 달력 사슬에 calendar-mobile-ui.js를 담는다.
+      // 그래서 "할 일 화면이 달력 화면 프로그램을 띄우지 않는다"는 실행 여부(준비 표시·달력 불러옴)로 보고, 요청은 미리 받기 밖의 것만 센다.
+      const calendarUiRan=()=>page.evaluate(()=>({ready:window.__KPTU_CALENDAR_MOBILE_UI_READY__!==undefined,loaded:!!window.KPTUViewLoader?.isLoaded?.('calendar')}));
+      const notWarm=()=>page.evaluate(urls=>{const warm=new Set([...document.querySelectorAll('link[rel="modulepreload"][data-kptu-warm]')].map(l=>new URL(l.href).pathname));return urls.filter(u=>!warm.has(new URL(u).pathname))},calendarUiRequests);
+      expect(await calendarUiRan()).toEqual({ready:false,loaded:false});
+      expect(await notWarm()).toEqual([]);
+      calendarUiRequests.length=0;
       await page.reload();
       await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
       await expect(page.locator('#tasksView')).toBeVisible();
       await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
-      expect(calendarUiRequests).toEqual([]);
+      expect(await calendarUiRan()).toEqual({ready:false,loaded:false});
+      expect(await notWarm()).toEqual([]);
     });
     test('Google task card has no [+], the always-visible input adds and the editor still opens',async({page})=>{
       await openApp(page,'tasks');
