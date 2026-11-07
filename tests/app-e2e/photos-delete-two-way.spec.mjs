@@ -26,7 +26,7 @@ const PHONE = [
   { id: '1', name: 'IMG_1.jpg', day: '2026-10-31', taken_at: '2026-10-31T03:00:00.000Z', size_bytes: 10, folder: 'DCIM/Camera/' },
 ].map(m => ({ ...m, approx: false, kind: 'photo', width: 10, height: 10, duration_ms: null, screenshot: false, uploaded_at: m.taken_at }));
 
-async function fixture(page, { app = false } = {}) {
+async function fixture(page, { app = false, connected = true, copyMissing = [] } = {}) {
   const state = { errors: [], edge: [], bodies: [], kept: [{ log_id: L1, phone_id: '9', rel_path: 'DCIM/Camera/', taken_at: '2026-10-20T03:00:00.000Z', photo: OD[1] }] };
   page.on('pageerror', e => state.errors.push(e.message));
   await page.addInitScript(() => { window.KPTUOdWarm = { run: () => null }; });
@@ -61,14 +61,14 @@ async function fixture(page, { app = false } = {}) {
       const body = r.request().postDataJSON();
       state.edge.push(body.action + (body.purpose ? ':' + body.purpose : ''));
       state.bodies.push(body);
-      if (body.action === 'status') return r.fulfill({ json: { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true } });
+      if (body.action === 'status') return r.fulfill({ json: connected ? { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true } : { configured: true, connected: false } });
       if (body.action === 'sync') return r.fulfill({ json: { more: false, indexing: false, changed: 0 } });
       if (body.action === 'photo-urls') return r.fulfill({ json: { urls: Object.fromEntries(body.ids.map(id => [id, `${CDN}/${body.size}/${id}.png`])), failed: {} } });
       if (body.action === 'media-url') return r.fulfill({ json: { url: `${CDN}/orig/${body.id}.jpg`, kind: 'photo', name: 'IMG_9.jpg', expires_in: 3000 } });
       if (body.action === 'library') return r.fulfill({ json: { items: OD, next_cursor: null, indexing: false } });
       if (body.action === 'months') return r.fulfill({ json: { months: { '2026-10': OD.length }, total: OD.length } });
       if (body.action === 'trash-watch') return r.fulfill({ json: { gone: 0, checked: 0 } });
-      if (body.action === 'copy-check') return r.fulfill({ json: { ok: body.pairs.map(p => p.id), missing: [], unsure: [] } });
+      if (body.action === 'copy-check') return r.fulfill({ json: { ok: body.pairs.map(p => p.id).filter(id => !copyMissing.includes(id)), missing: body.pairs.map(p => p.id).filter(id => copyMissing.includes(id)), unsure: [] } });
       if (body.action === 'trash-log') {
         for (const p of body.pairs) if (p.keep) state.kept.push({ log_id: L2, phone_id: p.phone_id, rel_path: p.rel_path, taken_at: p.taken_at, photo: OD.find(o => o.id === p.copy_id) });
         return r.fulfill({ json: { saved: body.pairs.length } });
@@ -147,9 +147,11 @@ test.describe('폰 앱 412', () => {
     const picks = choice(page).locator('[data-ask-pick]');
     await expect(picks.nth(0)).toContainText('폰 공간만 비우기 · 1장');
     await expect(picks.nth(0)).toContainText('목록에 남고, 나중에 [폰으로 되돌리기]로 제자리에');
-    await expect(picks.nth(1)).toContainText('완전히 지우기 · 2장');
+    // S52-06: 백업 없음(ph:2)은 완전히 지우기에서도 기본으로 빠지고, 체크 한 줄로만 함께.
+    await expect(picks.nth(1)).toContainText('완전히 지우기 · 1장');
     await expect(picks.nth(1)).toHaveClass(/is-danger/);
-    await expect(choice(page).locator('.kptu-ask-foot')).toHaveText('원드라이브에 원본이 없는 1장은 공간만 비우기에서 빠져요');
+    await expect(choice(page).locator('.kptu-ask-foot')).toHaveText('백업 없음 1장(원드라이브에서 같은 사진을 못 찾음)은 기본으로 지우지 않아요');
+    await expect(choice(page).locator('[data-ask-check]')).not.toBeChecked();
     // 창이 하단바에 가리지 않는다.
     const box = await choice(page).boundingBox(), bar = await page.locator('.mobile-tabs').boundingBox();
     if (bar) expect(box.y + box.height).toBeLessThanOrEqual(bar.y + 1);
@@ -291,6 +293,81 @@ test.describe('폰 앱 412 · 원드라이브 칸', () => {
     await expect(viewer.locator('[data-diary-undo]')).toBeVisible();
     await expect(choice(page)).toHaveCount(0);
     expect(await sentOf(page, /^photos:trash:/)).toEqual([]);
+    expect(state.errors).toEqual([]);
+  });
+});
+
+// S52-06 PHOTO-폰지우기안전장치(명진 11/07 '모두 추천대로'): 백업 없는 폰 원본은 기본으로 지우지 않고, 지우기 전 개수·용량 요약 한 번.
+test.describe('폰 앱 412 · 지우기 안전장치', () => {
+  test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
+  const trashedIds = async page => (await sentOf(page, /^photos:trash:/)).flatMap(m => m.slice('photos:trash:'.length).split(',')).sort();
+
+  test('[완전히 지우기] 기본: 백업 없음은 남기고 백업 있는 폰 사진만 폰 휴지통', async ({ page }) => {
+    const { state } = await fixture(page, { app: true });
+    await phoneOnly(page);
+    await hold(page, cellOf(page, 'ph:2'));
+    await cellOf(page, 'ph:1').click();
+    await root(page).locator('[data-photos-act-delete]').click();
+    const picks = choice(page).locator('[data-ask-pick]');
+    await expect(picks.nth(0)).toContainText('폰 공간만 비우기 · 1장 · 1KB');
+    // 서버 사본 확인은 고르기 창이 뜨기 전에 끝나 있다(창의 장수 = 실제로 지울 것).
+    expect(state.bodies.filter(b => b.action === 'copy-check').length).toBe(1);
+    await expect(picks.nth(1)).toContainText('완전히 지우기 · 1장 · 1KB');
+    await expect(choice(page).locator('.kptu-ask-check')).toContainText('백업 없음 1장 · 1KB도 완전히 지우기에 넣기');
+    await picks.nth(1).click();
+    await expect.poll(() => trashedIds(page)).toEqual(['1']);
+    await expect.poll(() => state.bodies.filter(b => b.action === 'photo-delete').flatMap(b => b.ids)).toEqual(['O1']);
+    await expect.poll(() => ids(page)).toEqual(['ph:2', 'K9']);
+    expect(state.errors).toEqual([]);
+  });
+
+  test('[완전히 지우기] 체크하면 백업 없음도 함께(장수 글이 바뀜)', async ({ page }) => {
+    const { state } = await fixture(page, { app: true });
+    await phoneOnly(page);
+    await hold(page, cellOf(page, 'ph:2'));
+    await cellOf(page, 'ph:1').click();
+    await root(page).locator('[data-photos-act-delete]').click();
+    const picks = choice(page).locator('[data-ask-pick]');
+    await choice(page).locator('[data-ask-check]').check();
+    await expect(picks.nth(1)).toContainText('완전히 지우기 · 2장 · 1KB');
+    await picks.nth(1).click();
+    await expect.poll(() => trashedIds(page)).toEqual(['1', '2']);
+    expect(state.errors).toEqual([]);
+  });
+
+  test('서버가 사본을 못 찾으면 공간만 비우기·완전히 지우기 모두 막히고, 체크해야만 완전히 지우기', async ({ page }) => {
+    const { state } = await fixture(page, { app: true, copyMissing: ['O1'] });
+    await phoneOnly(page);
+    await hold(page, cellOf(page, 'ph:1'));
+    await root(page).locator('[data-photos-act-delete]').click();
+    const picks = choice(page).locator('[data-ask-pick]');
+    await expect(picks.nth(0)).toContainText('폰 공간만 비우기 · 0장');
+    await expect(picks.nth(0)).toBeDisabled();
+    await expect(picks.nth(1)).toContainText('완전히 지우기 · 0장');
+    await expect(picks.nth(1)).toBeDisabled();
+    await choice(page).locator('[data-ask-check]').check();
+    await expect(picks.nth(1)).toBeEnabled();
+    await expect(picks.nth(1)).toContainText('완전히 지우기 · 1장');
+    await picks.nth(1).click();
+    await expect.poll(() => trashedIds(page)).toEqual(['1']);
+    expect(state.edge).not.toContain('trash-log');
+    expect(state.errors).toEqual([]);
+  });
+
+  test('원드라이브 연결 없음: 폰 사진 [지우기]는 모두 백업 없음 — 체크 없이는 지우지 않음', async ({ page }) => {
+    const { state } = await fixture(page, { app: true, connected: false });
+    await openPhotos(page, 412);
+    await expect.poll(() => ids(page)).toEqual(['ph:2', 'ph:1']);
+    await hold(page, cellOf(page, 'ph:2'));
+    await root(page).locator('[data-photos-act-delete]').click();
+    const picks = choice(page).locator('[data-ask-pick]');
+    await expect(picks.nth(0)).toBeDisabled();
+    await expect(picks.nth(1)).toBeDisabled();
+    await expect(choice(page).locator('.kptu-ask-foot')).toContainText('백업 없음 1장');
+    await page.keyboard.press('Escape');
+    await expect(choice(page)).toHaveCount(0);
+    expect(await sentOf(page, /^photos:trash:/)).toEqual([]);
+    expect(state.edge).not.toContain('copy-check');
     expect(state.errors).toEqual([]);
   });
 });

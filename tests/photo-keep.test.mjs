@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import {PHOTO_BAR_MENUS} from '../app/photo-menu-items.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {keptItem, keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor, folderKey, twinPairs} from '../app/photo-keep-model.mjs';
+import {keptItem, keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor, folderKey, twinPairs, backupSplit, gateText} from '../app/photo-keep-model.mjs';
 import {createPhonePhotos, restoreType} from '../app/phone-photos.js';
 import {sortCompare} from '../app/photos-model.mjs';
 
@@ -56,10 +56,16 @@ test('지우기 두 갈래 계획: 공간만 비우기 = 원본 짝 있는 폰 �
   // 원드라이브 사진만(비운 사진 아님)이면 두 갈래 창이 아니다(예전 지우기).
   assert.equal(deletePlan([o, g], null).twoWay, false);
   assert.equal(deletePlan([k], null).twoWay, true);
+  // S52-06: 백업 없음(p2)은 완전히 지우기에서도 기본으로 빠지고, 체크하면 함께. 장수 옆에 용량.
   const t = deleteChoices(plan);
-  assert.equal(t.space.label, '폰 공간만 비우기 · 1장'); assert.equal(t.full.label, '완전히 지우기 · 5장');
-  assert.equal(t.foot, '원드라이브에 원본이 없는 1장은 공간만 비우기에서 빠져요');
+  assert.equal(t.space.label, '폰 공간만 비우기 · 1장 · 1KB'); assert.equal(t.full.label, '완전히 지우기 · 4장 · 1KB');
+  assert.equal(t.full.labelChecked, '완전히 지우기 · 5장 · 1KB'); assert.equal(t.full.needCheck, false);
+  assert.equal(t.foot, '백업 없음 1장(원드라이브에서 같은 사진을 못 찾음)은 기본으로 지우지 않아요');
+  assert.equal(t.check, '백업 없음 1장 · 1KB도 완전히 지우기에 넣기'); assert.equal(t.bare, 1); assert.equal(t.spaceCount, 1);
   assert.equal(deleteChoices(deletePlan([p1], {pairs:[{item:p1, copy:{id:'C1'}}]})).foot, '');
+  // 서버가 사본을 못 찾으면(backed 빈 것) 공간만 비우기 0장, 폰 사진만 고른 완전히 지우기는 체크해야만.
+  const none = deleteChoices(deletePlan([p1, p2], {pairs:[{item:p1, copy:{id:'C1'}}], noCopy:[p2]}), new Set());
+  assert.equal(none.spaceCount, 0); assert.equal(none.full.label, '완전히 지우기 · 0장'); assert.equal(none.full.needCheck, true); assert.equal(none.bare, 2);
 });
 
 test('S48-32 고른 원드라이브 칸의 폰 원본 짝: 같은 크기 + 같은 사진만, 칸 하나에 짝 하나, 두 갈래·완전히 지우기에 폰 짝 포함', () => {
@@ -78,7 +84,7 @@ test('S48-32 고른 원드라이브 칸의 폰 원본 짝: 같은 크기 + 같�
   assert.deepEqual(plan.phone.map(x => x.id), ['ph:1']); assert.deepEqual(plan.od.map(x => x.id), ['O1', 'O2']);
   assert.equal(plan.full, 2); assert.equal(plan.noCopy, 0); assert.deepEqual(plan.copies, []); assert.equal(plan.twins, 1);
   assert.equal(plan.twinOf.get('O1'), 'ph:1');
-  assert.equal(deleteChoices(plan).space.label, '폰 공간만 비우기 · 1장'); assert.equal(deleteChoices(plan).foot, '');
+  assert.equal(deleteChoices(plan).space.label, '폰 공간만 비우기 · 1장 · 1KB'); assert.equal(deleteChoices(plan).foot, '');
   // 짝 없는 원드라이브 칸만 → 두 갈래 아님(예전 지우기).
   assert.equal(deletePlan([o2], null, twinPairs([p1], [o2])).twoWay, false);
   // 폰 칸을 직접 고른 사진과 겹치는 짝은 두 번 넣지 않는다.
@@ -142,7 +148,7 @@ test('화면 연결: [지우기] 두 갈래 창·[폰으로 되돌리기] 단추
   const src = read('app/photos.js'), notice = read('app/small-notice.js'), css = read('app/base-ui.css');
   assert.match(src, /if \(needTwoWay\(all\)\) \{ chooseDelete\(anchor, all\); return; \}/);
   assert.match(src, /const needTwoWay = all => phone\.usable && \(deletePlan\(all, null\)\.twoWay \|\| \(odPlain\(all\)\.length > 0 && ready\(\) && !!phone\.state\(\)\.trash\)\);/);
-  assert.match(src, /choose:own \? null : \(item, anchor, plain\) => \{/);
+  assert.match(src, /choose:own \? \(own\.choose \|\| null\) : \(item, anchor, plain\) => \{/);
   assert.match(src, /if \(!needTwoWay\(\[item\]\)\) return false; chooseDelete\(anchor, \[item\], \(\) => plain\(\)\); return true;/);
   assert.ok(PHOTO_BAR_MENUS.selectBar.more.includes('restore') && PHOTO_BAR_MENUS.viewBar.more.includes('restore')); // 아래 줄 [더보기] 안 항목
   assert.match(src, /if \(u\.phone && !u\.onedrive && kept\?\.length\)/);
@@ -203,4 +209,30 @@ test('화면 연결: [지우기]는 사진 전체 다시 읽기를 하지 않고
   const pc = src.slice(src.indexOf('async function pairCheck('), src.indexOf('async function chooseDelete('));
   assert.match(pc, /readNear\(nearWindows\(phonePart\)/);
   assert.match(pc, /readNear\(nearWindows\(odPart\)/);
+});
+
+test('S52-06 PHOTO-폰지우기안전장치: 백업 있음/없음 나누기와 요약 확인 글', () => {
+  const p1 = ph(1, '2026-10-31T00:00:00.000Z', {size_bytes:2e6}), p2 = ph(2, '2026-10-30T00:00:00.000Z', {size_bytes:3e6}), p3 = ph(3, '2026-10-29T00:00:00.000Z', {size_bytes:0});
+  const sp = backupSplit([p1, p2, p3], new Map([['ph:1', 'C1']]));
+  assert.deepEqual(sp.ok.map(x => x.id), ['ph:1']); assert.deepEqual(sp.bare.map(x => x.id), ['ph:2', 'ph:3']);
+  assert.equal(sp.okBytes, 2e6); assert.equal(sp.bareBytes, 3e6);
+  const t = gateText(sp, {what:'카톡 받은 사진'});
+  assert.equal(t.text, '카톡 받은 사진 1장(2MB)을 폰 휴지통으로 옮길까요?');
+  assert.equal(t.note, '원드라이브에 같은 사진이 있는 것만 지워요 · 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요');
+  assert.equal(t.check, '백업 없음 2장(3MB)도 함께 지우기');
+  // 모두 백업 없음(원드라이브 연결 없음 등): 체크해야만 지운다는 글 + 까닭.
+  const all = gateText(backupSplit([p2], null), {why:'원드라이브가 연결되지 않아 백업을 확인하지 못했어요'});
+  assert.equal(all.text, '사진 1장 모두 백업 없음이에요');
+  assert.match(all.note, /그래도 지우려면 아래를 체크하세요 · 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요 · 원드라이브가 연결되지 않아/);
+  assert.equal(gateText(backupSplit([p1], new Map([['ph:1', 'C1']]))).check, '');
+});
+
+test('S52-06 폰 원본을 지우는 길은 모두 안전장치를 지난다(phone.trash 직접 부름은 trashLogged·전체 지우기 안쪽뿐)', () => {
+  const src = read('app/photos.js');
+  const calls = [...src.matchAll(/phone\.trash\(/g)].map(m => src.lastIndexOf('\nasync function ', m.index)).map(i => src.slice(i + 16, src.indexOf('(', i + 16)));
+  assert.deepEqual(calls.sort(), ['fullDelete', 'trashLogged']);
+  // fullDelete는 서버가 사본을 확인한 것(copyOf)이나 체크한 백업 없음만 폰 휴지통으로.
+  assert.match(src, /const phoneList = plan\.phone\.filter\(x => withBare \|\| copyOf\.has\(x\.id\)\);/);
+  // trashLogged를 부르는 곳은 서버 확인(copyChecked) 또는 안전장치(phoneGate) 결과만 넘긴다.
+  for (const m of src.matchAll(/await trashLogged\((g\.list|c\.list|list)\b/g)) assert.ok(m[1]); assert.equal([...src.matchAll(/await trashLogged\(/g)].length, [...src.matchAll(/await trashLogged\((g\.list|c\.list|list)\b/g)].length);
 });

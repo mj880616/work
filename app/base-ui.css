@@ -312,6 +312,10 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-ask-text{margin:0 0 4px;line-height:1.45;white-space:pre-line}
 .kptu-ask-note{display:block;margin:0 0 6px;font-size:11px;color:var(--kptu-muted)}
 .kptu-ask-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:6px}
+/* S52-06 확인창 안 체크 한 줄(백업 없음 함께 지우기 등). 촘촘하게, 누르기 쉽게 줄 전체가 체크. */
+.kptu-ask-check{display:flex;align-items:center;gap:6px;min-height:28px;margin:2px 0;font-size:12px;color:var(--kptu-ink);cursor:pointer}
+.kptu-ask-check input{margin:0;flex:0 0 auto}
+.kptu-ask.kptu-ask-choice .kptu-ask-check{padding:0 6px}
 .kptu-ask-actions button{min-height:var(--kptu-action-compact-height)}
 /* S48-17 작은 고르기창(askChoice): 줄마다 [아이콘 | 굵은 글 + 작은 설명]. 위험한 줄은 빨간 글자. 맨 아래 흐린 글자 한 줄. */
 .kptu-ask.kptu-ask-choice{padding:6px}
