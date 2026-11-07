@@ -473,14 +473,6 @@
   #appView #homeView .journal-head .journal-date{ min-width:0; flex:1 1 0; padding:0; }
   #appView #homeView .journal-head .journal-num{ min-width:22px; padding:0 2px; }
 }
-/* 요약 한 줄(home-summary.js): '나한테 온 요청 n'만 노란 주목 글씨, 나머지 흐린 글씨. 누르면 정리함. */
-#appView #homeView .home-summary{ margin:0; font-size:var(--ds-text-meta,12px); line-height:1.5; }
-#appView #homeView .home-summary-open{ position:relative; display:inline; margin:0; padding:0; border:0; background:transparent; box-shadow:none; font:inherit; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-faint); text-align:left; cursor:pointer; }
-#appView #homeView .home-summary-open::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-#appView #homeView .home-summary-ask{ color:var(--kptu-muted); }
-#appView #homeView .home-summary-ask.is-on{ color:var(--kptu-warning); font-weight:var(--ds-weight-medium); }
-#appView #homeView .home-summary-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
-@media(hover:hover){ #appView #homeView .home-summary-open:hover .home-summary-rest{ text-decoration:underline; } }
 /* [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료·그 밖의 기록. */
 #appView #homeView .journal-top-cols{ display:grid; grid-template-columns:minmax(0,1fr); gap:12px 16px; }
 @media(min-width:761px){ #appView #homeView .journal-top-cols{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
@@ -676,27 +668,7 @@
 #appView #homeView .journal-memorable-org{ font-weight:var(--ds-weight-medium); }
 #appView #homeView .journal-memorable-edit{ display:flex; gap:4px; width:100%; }
 #appView #homeView .journal-memorable-edit input{ flex:1; min-width:0; }
-/* FAMILY-잊지말기 4단계 + S51-26(시안 family-forget-panel): 홈 [하루]의 '잊지 말기' 칸 한 겹. 머리 줄 톤다운 노랑, 줄 버튼은 작은 28px(UI-버튼기준, 누르는 범위 44px). */
-#appView #homeView .home-family{ margin:4px 0 6px; padding:2px 10px 4px; border:.5px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface); font-size:var(--ds-text-meta,12px); }
-#appView #homeView .home-family-head{ display:flex; align-items:center; gap:6px; min-height:var(--ds-compact-height-sm,28px); color:var(--kptu-warning); }
-#appView #homeView .home-family-title{ font-weight:var(--ds-weight-bold,700); }
-#appView #homeView .home-family-n{ background:var(--kptu-warning-soft); color:var(--kptu-warning); border-radius:9px; padding:0 6px; font-size:11px; }
-#appView #homeView .home-family-faint{ color:var(--kptu-faint); font-size:11px; }
-#appView #homeView .home-family-head .home-family-open{ margin-left:auto; }
-#appView #homeView button.home-family-open{ position:relative; min-height:0; height:auto; padding:0 2px; border:0; background:transparent; color:var(--kptu-muted); font-size:11px; font-weight:400; cursor:pointer; }
-#appView #homeView button.home-family-open::after{ content:""; position:absolute; inset:-8px -4px; }
-#appView #homeView .home-family-list{ list-style:none; margin:0; padding:0; }
-#appView #homeView .home-family-item{ border-top:.5px solid var(--kptu-border); padding:6px 0 4px; }
-#appView #homeView .home-family-body{ margin:0; color:var(--kptu-ink); line-height:1.4; font-size:var(--ds-text-row,13px); overflow-wrap:anywhere; }
-#appView #homeView .home-family-firm{ color:var(--kptu-warning); font-size:11px; }
-#appView #homeView .home-family-row2{ display:flex; align-items:center; gap:4px; margin-top:3px; }
-#appView #homeView .home-family-meta{ min-width:0; flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:var(--kptu-faint); }
-#appView #homeView .home-family-acts{ flex:none; display:flex; gap:4px; }
-#appView #homeView button.home-family-act{ position:relative; flex:none; height:var(--ds-compact-height-sm,28px); min-height:0; padding:0 7px; border:.5px solid var(--kptu-border-strong,var(--kptu-border)); border-radius:6px; background:var(--kptu-surface); color:var(--kptu-ink); font-size:11px; font-weight:400; line-height:1; white-space:nowrap; cursor:pointer; }
-#appView #homeView button.home-family-act::after{ content:""; position:absolute; inset:-8px -2px; }
-#appView #homeView button.home-family-x{ border-color:transparent; background:transparent; color:var(--kptu-faint); padding:0 4px; font-size:13px; }
-#appView #homeView .home-family-status{ margin:0; padding:2px 0 0; color:var(--kptu-faint); font-size:11px; }
-#appView #homeView .home-family-status:empty{ display:none; }
+/* 홈 [하루]의 '나한테 온 요청'·'잊지 말기' 상자 모양은 ui-standard.css 'UI-요청상자통일' 한 곳(S52-09, 공용 부품 notice-box.mjs). */
 /* S51-26 [노트로] 작은 창(family-note-send.js): 폰은 하단바 바로 위에서 올라오고, PC는 가운데 작은 창. */
 .modal.family-send{ z-index:60; }
 .family-send-card{ width:min(100%,380px); padding:10px 14px; font-size:var(--ds-text-row,13px); }

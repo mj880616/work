@@ -27,7 +27,7 @@
 /* 버튼(8-9c2): 높이 하나(--ds-control-height = 홈 빠른 입력 [추가] 높이)·모서리 8px·13px·굵기 500, 그림자·그라데이션 없음.
    종류는 넷만: ① 채운 버튼(계정 테마색, 화면당 1개) ② 종류 색(연한 바탕 + 진한 글자) ③ 흰 바탕 + 0.5px 테두리(기본) ④ 빨간 테두리(삭제).
    목록 행·첨부 클립·× 아이콘·글자 링크·글 본문 안 요소·고르기 시트의 칩은 버튼 모양이 아니므로 뺀다. */
-#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.kptu-act,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip,.ft-btn,.ds-seg-btn),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
+#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.kptu-act,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip,.ft-btn,.nbx *,.ds-seg-btn),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
 #appView #homeView .home-quick :is(.home-quick-save,.home-quick-new-note,[data-quick-options] button):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
   height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
@@ -1083,6 +1083,8 @@
   font-size:var(--ds-compact-text); line-height:1; white-space:nowrap;
 }
 #appView #basketView .basket-edit-actions .basket-clip{ gap:4px; }
+/* UI-창아래버튼통일(11/07): 수정 화면 아래 줄의 [📎 첨부]도 같은 줄 [큰 창에서 수정][취소]와 한 가족 — 36px·선 없음·연한 채움. */
+#appView #basketView .basket-edit-actions .basket-clip{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); border-color:transparent; background:var(--kptu-primary-soft); }
 #appView #basketView .basket-edit-actions > button::after,
 #appView #basketView .basket-edit-actions .basket-clip::after,
 #appView #basketView .basket-editor-files [data-basket-upload]::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
@@ -1204,10 +1206,9 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 .modal :is(#saveEventBtn,#saveTaskBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#ps3DeleteConfirm,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate):where(:not([hidden])){
   display:flex; width:max-content; max-width:100%; height:var(--kptu-control-height); min-height:var(--kptu-control-height); margin:var(--kptu-space-2) 0 0 auto; padding:0 var(--ds-control-pad-x);
 }
-/* ①-2 폰 할 일 수정 창 아래 [저장](이미 글자 폭): 46 → 36px. */
-.modal .gt-modal-actions > #gtSaveBtn{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+/* ①-2 할 일 수정 창 아래 줄 [삭제][완료][저장]의 모양은 끝 'UI-창아래버튼통일' 한 곳(창 아래 버튼 줄 공용 부품). */
 /* ② 창 안 보조 버튼: 작은 버튼(32px). 일정·할 일 창 [프로젝트 선택 안 함 ▾]은 폭도 글자만큼. */
-.modal :is(#eventTaskProject,#gtDeleteBtn,#gtToggleBtn):where(:not([hidden])),
+.modal :is(#eventTaskProject):where(:not([hidden])),
 :is(#eventModal,#gtTaskModal) .gt-pick .gt-pick-btn{
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1;
 }
@@ -1678,6 +1679,32 @@ button.row-act:disabled{ opacity:.5; cursor:default; }
 .gs-row-folder .ui-ico { margin-right:2px; color:var(--ds-folder-0-ico,var(--kptu-muted)); }
 .nx-clip svg, .feed-pinmark svg, .tp-here svg, .diary-lv-find svg { display:inline-block; vertical-align:-0.15em; }
 
+/* ===== UI-요청상자통일(S52-09, 요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html 명진 'ㅇ') =====
+   홈 '나한테 온 요청'·'잊지 말기' 상자와 정리함 '나한테 온 요청' 상자가 함께 쓰는 공용 부품(app/notice-box.mjs) 한 곳의 모양.
+   같은 둥근 상자·머리 줄·줄·버튼, 색만 tone(ask = 톤다운 파랑 --kptu-info, forget = 톤다운 노랑 --kptu-warning). 버튼 모양은 'UI-버튼6가지'
+   (② secondary·③ row-act·⑥ icon-btn) 그대로이고 여기서는 자리(간격·줄바꿈)만 정한다. 화면 id를 쓰지 않는다(홈·정리함 같은 규칙). */
+.nbx{ --nbx-ink:var(--kptu-info); --nbx-bg:var(--kptu-info-soft); box-sizing:border-box; margin:0 0 8px; padding:2px 10px 4px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--nbx-bg); font-size:var(--ds-text-meta); }
+.nbx[data-nbx-tone="forget"]{ --nbx-ink:var(--kptu-warning); --nbx-bg:var(--kptu-warning-soft); }
+.nbx[hidden],.nbx-plain[hidden]{ display:none; }
+.nbx-head{ display:flex; align-items:center; gap:6px; min-height:var(--ds-compact-height-sm); color:var(--nbx-ink); }
+.nbx-title{ font-weight:var(--ds-weight-medium); }
+.nbx-n{ font-weight:var(--ds-weight-medium); font-variant-numeric:tabular-nums; }
+.nbx-faint{ color:var(--kptu-faint); }
+.nbx-head .nbx-open{ margin-left:auto; }
+.nbx-list{ list-style:none; margin:0; padding:0; }
+.nbx-item{ padding:6px 0 4px; border-top:var(--ds-line-width) solid var(--ds-line); }
+.nbx-body{ margin:0; color:var(--kptu-ink); font-size:var(--ds-text-row); line-height:1.4; overflow-wrap:anywhere; }
+.nbx-tag{ color:var(--nbx-ink); font-size:var(--ds-text-meta); }
+.nbx-row2{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:3px; }
+.nbx-meta{ flex:1 1 6em; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-faint); }
+.nbx-acts{ flex:none; display:flex; align-items:center; gap:4px; margin-left:auto; }
+.nbx-status{ margin:0; padding:2px 0 0; color:var(--kptu-faint); }
+.nbx-status:empty{ display:none; }
+.nbx-foot{ display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin-top:2px; padding-top:2px; border-top:var(--ds-line-width) dashed var(--ds-line); color:var(--kptu-faint); }
+.nbx-plain{ margin:0 0 8px; font-size:var(--ds-text-meta); }
+.nbx-plain .nbx-foot{ margin:0; padding:0; border-top:0; }
+.nbx .row-act.nbx-foot-open,.nbx-plain .row-act.nbx-foot-open{ font-size:var(--ds-text-meta); color:var(--kptu-faint); }
+
 /* ===== UI-버튼6가지(2026-11-06 명진 요청 23:23 '버튼 모양 크기 색깔 테두리 등 전수조사 통일감', 시안 docs/design/mockups/button-six-kinds.html 승인 'ㅇ') =====
    사이트 버튼은 이 6가지뿐이고 모양(높이·모서리·바탕·테두리·글자)은 여기 한 곳이 정한다. 화면 CSS는 자리(간격·순서)만 정한다.
    ① 주 동작 button.primary — 진한 주 색 채움, 한 화면·창에 하나(UI-저장자리), 높이 --kptu-control-height(위 'UI-버튼통일' 그대로)
@@ -1724,3 +1751,24 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 :is(button.ds-chip,button.icon-btn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:var(--ds-line-width); }
 .ds-seg button.ds-seg-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:calc(var(--ds-line-width) * -4); }
 :is(button.ds-chip,.ds-seg button.ds-seg-btn,button.icon-btn):disabled{ opacity:.5; cursor:default; }
+
+/* ===== UI-창아래버튼통일(2026-11-07 명진 요청 10:55 '삭제 완료 저장 … 같은 디자인에서의 배리에이션으로 안느껴짐', 시안 docs/design/mockups/sheet-footer-buttons.html 'A') =====
+   창 아래 버튼 줄은 공용 부품 하나다: 팝업·아래에서 올라오는 창의 .modal-action-footer(base-ui.css)와 화면 안 창·칸의 .save-row(위 UI-저장자리).
+   그 줄 안의 ① 주 동작·② 작은 버튼·지우기는 한 가족 — 높이(--kptu-control-height)·모서리(--ds-radius-control)·글자(--ds-text-button / --ds-weight-medium)·
+   안쪽 여백(--ds-control-pad-x)이 똑같고 테두리 선이 없다. 다른 것은 채움 정도 하나뿐이다.
+     저장(주 동작 .primary) = 진한 주 색 채움 · 완료·취소 같은 보조(.secondary·.ghost) = 연한 주 색 채움(--kptu-primary-soft) · 삭제(.danger·.tl-danger 등 지우기 클래스) = 바탕 없는 빨간 글자.
+   자리: 삭제는 줄 왼쪽 끝(글 순서도 맨 앞), 보조는 오른쪽, 저장은 맨 오른쪽(UI-저장자리 그대로). 지우기를 확인하는 창의 주 동작(.primary)은 채움 그대로다.
+   화면 CSS에 남은 줄 안 버튼의 높이·바탕·테두리 규칙이 많아(#id·#appView …) 여기 한 곳이 !important로 고정한다(.save-row-start와 같은 방식).
+   ③ 글자 버튼·④ 칩·⑥ 아이콘·.mini는 이 가족이 아니다. 재발 방지: tests/sheet-footer-buttons.test.mjs, tests/app-e2e/sheet-footer-buttons.spec.mjs. */
+:is(.modal-action-footer,.save-row) button:is(.primary,.secondary,.ghost,.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){
+  box-sizing:border-box !important; height:var(--kptu-control-height) !important; min-height:var(--kptu-control-height) !important;
+  padding:0 var(--ds-control-pad-x) !important; border:0 !important; border-radius:var(--ds-radius-control) !important;
+  font-size:var(--ds-text-button) !important; font-weight:var(--ds-weight-medium) !important;
+}
+:is(.modal-action-footer,.save-row) button.primary:not(.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:var(--kptu-primary) !important; color:var(--kptu-on-primary) !important; }
+:is(.modal-action-footer,.save-row) button:is(.secondary,.ghost):not(.primary,.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:var(--kptu-primary-soft) !important; color:var(--kptu-ink) !important; }
+:is(.modal-action-footer,.save-row) button:is(.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(.primary,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:transparent !important; color:var(--kptu-danger) !important; margin-right:auto !important; margin-left:0 !important; }
+/* 마우스를 올리면 삭제만 옅은 빨강 바탕(저장·보조는 창 안 기존대로 바탕 그대로, 누름은 공용 눌림). */
+@media (hover:hover){
+  :is(.modal-action-footer,.save-row) button:is(.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(:disabled,.primary,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini):hover{ background:var(--kptu-danger-soft) !important; }
+}

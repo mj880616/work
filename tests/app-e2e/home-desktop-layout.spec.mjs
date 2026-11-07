@@ -23,7 +23,7 @@ for (const [width, phone] of [[1440, false], [884, false], [412, true]]) {
     await expect(today).toHaveClass(/ds-today/);
     await expect(page.locator('#homeView [data-journal-days] [data-journal-date]')).toHaveCount(7);
     await expect(page.locator('#homeView [data-journal-today]')).toHaveText('이번 주');
-    // 순서: 날짜 줄 → 요약 → (PC) 입력줄 → 두 칸 → 오늘 한 일 → 재료.
+    // 순서: 날짜 줄 → (PC) 입력줄 → [하루] 카드 맨 위 '나한테 온 요청' 자리(S52-09) → 두 칸 → 오늘 한 일 → 재료.
     const head = await box(page, '#homeView .journal-head');
     const summary = await box(page, '#homeView [data-home-summary]');
     const quick = await box(page, '#homeView .home-quick[data-home-quick]');
@@ -37,11 +37,12 @@ for (const [width, phone] of [[1440, false], [884, false], [412, true]]) {
       const tabs = await box(page, '.mobile-tabs');
       expect(Math.abs(quick.bottom - tabs.y)).toBeLessThanOrEqual(2);
       expect(await page.locator('#homeView .home-quick[data-home-quick]').evaluate(el => getComputedStyle(el).position)).toBe('fixed');
+      expect(sched.y).toBeGreaterThanOrEqual(summary.bottom - 1);
       expect(tasks.y).toBeGreaterThanOrEqual(sched.bottom - 1);
       expect(Math.abs(tasks.x - sched.x)).toBeLessThanOrEqual(1);
     } else {
-      expect(quick.y).toBeGreaterThanOrEqual(summary.bottom - 1);
-      expect(sched.y).toBeGreaterThanOrEqual(quick.bottom - 1);
+      expect(summary.y).toBeGreaterThanOrEqual(quick.bottom - 1);
+      expect(sched.y).toBeGreaterThanOrEqual(summary.bottom - 1);
       // PC 틀: 좌우 두 칸, 같은 줄에서 시작.
       expect(Math.abs(tasks.y - sched.y)).toBeLessThanOrEqual(2);
       expect(tasks.x).toBeGreaterThanOrEqual(sched.right - 1);
