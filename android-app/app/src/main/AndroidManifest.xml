@@ -48,11 +48,14 @@
         android:roundIcon="@drawable/app_icon"
         android:theme="@style/AppTheme">
         <!-- singleTask: 로그인 복귀(kptuwork://auth)가 오면 위에 떠 있던 브라우저 탭을 닫고 이 화면으로 돌아온다. -->
+        <!-- APP-다시열림(S52-35): 여기 적은 설정이 바뀌어도 화면(Activity)을 다시 만들지 않는다(다시 만들면 웹2를 처음부터 다시 연다).
+             폴드 접기·펴기(screenSize·smallestScreenSize·screenLayout·density), 다크 모드 자동 전환(uiMode), 색 모드, 터치, 통신사(mcc·mnc).
+             앱 바탕색은 MainActivity.onConfigurationChanged가 다시 칠한다. 웹2 색은 웹이 정한다(AppTheme이 밝은 테마라 웹뷰 prefers-color-scheme은 그대로). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboard|keyboardHidden|navigation"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboard|keyboardHidden|navigation|uiMode|colorMode|touchscreen|mcc|mnc"
             android:windowSoftInputMode="adjustResize"
             android:enableOnBackInvokedCallback="true">
             <intent-filter>

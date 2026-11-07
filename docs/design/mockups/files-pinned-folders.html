@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — [파일] 자주 보는 폴더 고정(즐겨찾기)</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--pri:#5c5470;--tonal:#ecebf3;--bg:#f4f3f7}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:20px;padding:0 16px 24px}
+  .col{width:360px}
+  .col h2{font-size:14px;margin:8px 0}
+  .tree{background:var(--bg);border:1px solid #d6d4dd;border-radius:14px;padding:8px;position:relative}
+  .box{background:#fcfcfd;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:visible;position:relative}
+  .bh{display:flex;align-items:center;gap:6px;padding:7px 10px;font-weight:700;font-size:13.5px}
+  .bh .r{margin-left:auto;font-weight:400;color:var(--faint);font-size:12px}
+  .row{display:flex;align-items:center;gap:7px;padding:5px 10px;border-top:1px solid var(--line);font-size:13px}
+  .row .src{font-size:11px;color:var(--faint)}
+  .row .m{margin-left:auto;color:var(--faint)}
+  .row .h{color:#b1adb9;font-size:12px}
+  .ico{width:14px;height:11px;border-radius:2px;background:#d8a64a;display:inline-block}
+  .ico.od{background:#3d7cc9;border-radius:6px}
+  .ico.gd{background:linear-gradient(90deg,#34a853,#fbbc04,#4285f4)}
+  .ico.pc{background:#6d6a74;height:10px}
+  .pin{color:#c79a2a}
+  .menu{position:absolute;right:8px;top:30px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.12);font-size:13px;padding:4px 0;width:170px;z-index:2}
+  .menu div{padding:6px 12px}
+  .menu .on{background:var(--tonal);font-weight:600}
+  .tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:1px 5px;margin-left:4px}
+  ul.k{margin:0 16px 24px;padding-left:18px;font-size:13px;line-height:1.7}
+</style>
+</head>
+<body>
+<h1>시안 — [파일] 자주 보는 폴더 고정(즐겨찾기 폴더)</h1>
+<p class="note">명진 11/08 01:54: "특정 폴더 고정·즐겨찾기 가능해야 함. 원드라이브·구글 드라이브·내 컴퓨터 안에서도 자주 보는 폴더가 따로 있음." 폴더 이름은 시안용이에요.</p>
+
+<div class="wrap">
+  <div class="col">
+    <h2>① 나무 맨 위 '고정한 폴더' 상자 <span class="tag">명진 01:56 확정</span></h2>
+    <div class="tree">
+      <div class="box">
+        <div class="bh"><span class="pin">📌</span>고정한 폴더<span class="r">4</span></div>
+        <div class="row"><span class="h">⠿</span><span class="ico od"></span>교섭 자료<span class="src">원드라이브</span><span class="m">⋯</span></div>
+        <div class="row"><span class="h">⠿</span><span class="ico gd"></span>주간보고<span class="src">구글 드라이브</span><span class="m">⋯</span></div>
+        <div class="row"><span class="h">⠿</span><span class="ico pc"></span>Desktop<span class="src">내 PC</span><span class="m">⋯</span></div>
+        <div class="row"><span class="h">⠿</span><span class="ico pc"></span>다운로드<span class="src">내 PC</span><span class="m">⋯</span></div>
+      </div>
+      <div class="box"><div class="bh">★ 별표<span class="r">0개</span></div><div class="row">큰 파일</div></div>
+      <div class="box"><div class="bh">원드라이브<span class="r">접힘</span></div></div>
+      <div class="box"><div class="bh">구글 드라이브<span class="r">접힘</span></div></div>
+      <div class="box"><div class="bh">내 PC<span class="r">펼침</span></div></div>
+    </div>
+    <p class="note" style="margin:6px 0">누르면 그 폴더가 오른쪽(폰은 같은 자리)에 바로 열림. ⠿로 순서 바꾸기(손잡이 왼쪽).</p>
+  </div>
+
+  <div class="col">
+    <h2>② 폴더 ⋯ → [고정]</h2>
+    <div class="tree">
+      <div class="box" style="margin-bottom:0">
+        <div class="bh">내 PC</div>
+        <div class="row"><span class="ico"></span>Users<span class="m">⋯</span></div>
+        <div class="row" style="background:#f1eff7"><span class="ico"></span>&nbsp;&nbsp;Documents<span class="m">⋯</span></div>
+        <div class="menu"><div class="on">📌 위에 고정</div><div>열기</div><div>이름 바꾸기</div><div>자료실로 보내기</div></div>
+        <div class="row"><span class="ico"></span>&nbsp;&nbsp;Desktop <span class="pin" style="font-size:11px">📌</span><span class="m">⋯</span></div>
+      </div>
+    </div>
+    <p class="note" style="margin:6px 0">고정한 폴더는 나무에서도 이름 옆 작은 📌. 다시 ⋯ → [고정 풀기]. PC는 우클릭 메뉴에도.</p>
+  </div>
+</div>
+
+<ul class="k">
+  <li>원드라이브·구글 드라이브·내 PC 어디 폴더든 고정. 출처는 줄 오른쪽 흐린 글자. 출처를 꺼 두었거나(아이콘) 내 PC가 꺼져 있으면 그 줄은 흐리게 '연결 안 됨'(지우지 않음).</li>
+  <li>고정 목록은 서버에 저장(한 기기 저장 금지). 클라우드 '별표'(파일 별표)와는 따로 — 별표는 그대로.</li>
+  <li>내 PC 폴더는 PC마다 다르므로 고정한 그 PC에서만 목록에 나옴(다른 PC·폰에서는 안 나옴) — 명진 01:56 (가).</li>
+  <li>같은 종류 전수: 자료실·노트 나무의 '자주 쓰는 폴더'도 같은 부품·같은 자리(필요하면 다음 단계로 보고).</li>
+</ul>
+</body>
+</html>

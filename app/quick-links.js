@@ -3,7 +3,7 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 // - 창은 그 줄 오른쪽에서 위쪽으로 열린다(창 아래끝 = 줄 아래끝, 화면 밖으로 나가지 않음; anchored-popup.js beside:'up').
 // - 바깥 누르기·Esc로 닫힌다. 링크는 새 탭(rel="noopener noreferrer").
 // - 분류(처음엔 '업무'·'담당조직 홈페이지') 아래 링크가 2열. 창 오른쪽 위 [편집]으로 편집 상태.
-// UI-자주가는링크편집 (2026-10-27 사용자 승인 시안): 편집 상태에서 오른쪽 위 작은 [+ 추가](링크·분류), 분류 줄 '이름 ⠿ … ✎ ⋯'
+// UI-자주가는링크편집 (2026-10-27 사용자 승인 시안): 편집 상태에서 오른쪽 위 작은 [+ 추가](링크·분류), 분류 줄 '⠿ 이름 … ✎ ⋯'(11/08 손잡이 왼쪽)
 //   (✎ 이름 바꾸기, ⋯ 위로·아래로·지우기, ⠿ 끌어서 분류 순서), 링크 줄마다 ⠿(끌어서 순서·다른 분류로 옮기기, 키보드는 ↑↓).
 //   링크가 든 분류를 지우면 '같이 지울까요 / 기타로 옮길까요'를 묻고 기본은 '기타'로 옮기기. 모든 고침은 [저장]을 눌러야 서버에 저장되고 [취소]로 버린다.
 // 저장: 내 프로필 행의 quick_links(링크)·quick_link_groups(분류 목록·순서) 두 칸을 한 번의 PATCH로 같이 저장한다
@@ -324,8 +324,9 @@ function editHtml() {
         + `<button type="button" class="ql-btn ql-remove" data-ql-remove="${index}" aria-label="${esc(row.name || '새 링크')} 삭제">삭제</button></li>`).join('')}</ol>`
       : emptyHtml();
     return `<section class="ql-group" data-ql-group="${esc(id)}" aria-label="${esc(name)} 편집"><div class="ql-group-head">`
-      + `<h3 class="ql-gname" data-ql-gname="${esc(id)}">${esc(name)}</h3>`
+      // WEEKLY-손잡이왼쪽(요청함 11/08 00:18 같은 종류 전수): 끌어 옮기는 줄의 ⠿는 줄 맨 왼쪽 — 분류 제목 줄도 '⠿ 이름 … ✎ ⋯'.
       + `<button type="button" class="ql-handle" draggable="true" data-ql-ghandle="${esc(id)}" aria-label="분류 순서 바꾸기(끌거나 위·아래 화살표)">⠿</button>`
+      + `<h3 class="ql-gname" data-ql-gname="${esc(id)}">${esc(name)}</h3>`
       + '<span class="ql-spacer"></span>'
       + `<button type="button" class="ql-icon" data-ql-rename="${esc(id)}" aria-label="분류 이름 바꾸기">✎</button>`
       + `<button type="button" class="ql-icon" data-ql-menu="g:${esc(id)}" aria-haspopup="menu" aria-expanded="false" aria-label="분류 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`

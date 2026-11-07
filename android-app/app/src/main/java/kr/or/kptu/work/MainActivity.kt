@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.graphics.Color
 import android.net.Uri
@@ -1384,6 +1385,16 @@ class MainActivity : ComponentActivity() {
         AppUpdater.onBackground(this)
         // 앱을 닫거나 뒤로 보낼 때 위젯을 한 번 새로 그린다(같은 이름 작업은 KEEP).
         if (WidgetHub.session(this).signedIn() && HomeWidgets.any(this)) WidgetJobs.refreshNow(this)
+    }
+
+    /**
+     * APP-다시열림(S52-35): 매니페스트 configChanges에 적은 설정(폴드 접기·펴기, 다크 모드 자동 전환 등)은 화면을 다시 만들지 않고 여기로 온다.
+     * 웹2 화면은 그대로 이어진다. 앱이 칠하는 바탕·바 색만 새 설정(values-night 등)에 맞춘다. 웹2가 떠 있으면 웹이 정한 색을 다시 읽는다.
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (ShellRules.isInternalApp(webView.url)) syncBarColor()
+        else applyBarColor(ContextCompat.getColor(this, R.color.web_bg))
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

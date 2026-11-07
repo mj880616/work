@@ -508,9 +508,8 @@
 #appView #homeView .journal-hwpx-title-fields > .time-input-hint{ flex:1 1 100%; margin-top:0; }
 #appView #homeView .journal-hwpx-who-input{ flex:1 1 96px; }
 #appView #homeView .journal-hwpx-title-fields > input[aria-invalid="true"]{ border-color:var(--kptu-danger); }
-#appView #homeView .journal-hq-table thead th:nth-child(1){ width:24%; }
-#appView #homeView .journal-hq-table thead th:nth-child(2){ width:auto; }
-#appView #homeView .journal-hq-table thead th:nth-child(3){ width:112px; }
+#appView #homeView .journal-hq-table thead th:nth-child(2){ width:24%; }
+#appView #homeView .journal-hq-table thead th:nth-child(3){ width:auto; }
 #appView #homeView .journal-hq-table .journal-exec-tools{ white-space:nowrap; }
 #appView #homeView .journal-hwpx-grip{ cursor:grab; touch-action:none; color:var(--kptu-muted); }
 #appView #homeView .journal-hq-table tr.re-dragging,
@@ -526,10 +525,9 @@
 #appView #homeView .journal-hwpx-undo{ margin:0 0 6px; font-size:var(--kptu-text-body); color:var(--kptu-ink); }
 /* S46-27 3) 상집 논의 요청 표(weekly-discuss-table.js): 안건 | 설명 | 관련 조직 | 고치기 — 2) 주요 일정 표와 같은 작은 모양.
    한글 파일 상자 1. 요청사항: [주간 정리]와 같은 세 칸 표(제목은 작은 글씨, 칸 사이 좁게). */
-#appView #homeView .journal-discuss-table thead th:nth-child(1){ width:34%; }
-#appView #homeView .journal-discuss-table thead th:nth-child(2){ width:auto; }
-#appView #homeView .journal-discuss-table thead th:nth-child(3){ width:18%; }
-#appView #homeView .journal-discuss-table thead th:nth-child(4){ width:112px; }
+#appView #homeView .journal-discuss-table thead th:nth-child(2){ width:34%; }
+#appView #homeView .journal-discuss-table thead th:nth-child(3){ width:auto; }
+#appView #homeView .journal-discuss-table thead th:nth-child(4){ width:18%; }
 #appView #homeView .journal-discuss-table .journal-exec-tools{ white-space:nowrap; }
 #appView #homeView .journal-discuss-table tr.re-dragging{ opacity:.55; }
 #appView #homeView .journal-discuss-table .journal-discuss-title{ font-weight:400; text-align:left; }
@@ -584,10 +582,14 @@
 #appView #homeView .journal-part-add-button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #homeView .journal-part-add-button:disabled{ color:var(--kptu-muted); opacity:.6; }
 @media(hover:hover){ #appView #homeView .journal-part-add-button:hover:not(:disabled){ background:var(--kptu-surface-subtle); } }
-/* 표 끝 고치기 칸: ⠿·⋯ 두 개만이라 좁게, 오른쪽 맞춤. 그 칸의 작은 버튼은 28px. */
-#appView #homeView .journal-exec-table thead th:nth-child(4),
-#appView #homeView .journal-hq-table thead th:nth-child(3),
-#appView #homeView .journal-discuss-table thead th:nth-child(4){ width:64px; }
+/* 표 끝 고치기 칸: ⋯ 하나라 좁게, 오른쪽 맞춤. 그 칸의 작은 버튼은 28px.
+   WEEKLY-손잡이왼쪽(요청함 11/08 00:18): 끌어 옮기는 표(2) 주요 일정·3) 상집 논의)는 ⠿가 줄 맨 왼쪽 칸(첫 칸 앞), ⋯는 맨 오른쪽 칸 — 2. 1) 요약 줄과 같은 자리. */
+#appView #homeView .journal-exec-table:not(.journal-hq-table,.journal-discuss-table) thead th:nth-child(4){ width:64px; }
+#appView #homeView .journal-hq-table thead th:nth-child(4),
+#appView #homeView .journal-discuss-table thead th:nth-child(5){ width:40px; }
+#appView #homeView :is(.journal-hq-table,.journal-discuss-table) thead th.journal-grip-head{ width:28px; padding-left:0; padding-right:0; }
+#appView #homeView :is(.journal-hq-table,.journal-discuss-table) td.journal-grip-cell{ width:28px; padding-left:0; padding-right:0; text-align:center; vertical-align:top; }
+#appView #homeView .journal-grip-cell > .journal-hwpx-grip{ border-color:transparent; background:transparent; box-shadow:none; padding:0 2px; vertical-align:middle; }
 #appView #homeView .journal-exec-table .journal-exec-tools{ text-align:right; white-space:nowrap; vertical-align:top; }
 #appView #homeView .journal-exec-tools > .journal-kind-more{ margin-left:2px; }
 #appView #homeView .journal-exec-tools > .journal-hwpx-grip{ border-color:transparent; background:transparent; box-shadow:none; vertical-align:middle; }
@@ -617,6 +619,9 @@
   #appView #homeView :is(.journal-exec-table,.journal-hq-table,.journal-discuss-table) tbody tr[data-journal-hq-row],
   #appView #homeView :is(.journal-exec-table,.journal-hq-table,.journal-discuss-table) tbody tr[data-journal-discuss-row]{ position:relative; padding-right:64px; min-height:var(--ds-compact-height-sm); }
   #appView #homeView :is(.journal-exec-table,.journal-hq-table,.journal-discuss-table) tbody tr > td.journal-exec-tools{ position:absolute; top:4px; right:0; padding:0; text-align:right; }
+  /* 폰도 ⠿는 그 줄 왼쪽 위, ⋯는 오른쪽 위(WEEKLY-손잡이왼쪽). 글은 손잡이 자리만큼 왼쪽을 비운다. */
+  #appView #homeView :is(.journal-hq-table,.journal-discuss-table) tbody tr:is([data-journal-hq-row],[data-journal-discuss-row]){ padding-left:28px; padding-right:36px; }
+  #appView #homeView :is(.journal-hq-table,.journal-discuss-table) tbody tr > td.journal-grip-cell{ position:absolute; top:4px; left:0; width:28px; padding:0; }
   #appView #homeView .journal-discuss-table .journal-discuss-org:empty,
   #appView #homeView .journal-discuss-table .journal-discuss-note:empty{ display:none; }
 }
