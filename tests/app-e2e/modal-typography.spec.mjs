@@ -188,7 +188,8 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter):not(.report-period-chips)');// REPORT-기간고르기: 기간 칩 줄은 report-period.spec이 따로 본다
     // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
     // UI-전수디자인점검 F01: 사업 보고(폰)는 위쪽 칸 칩 줄 하나(사업영역·회의명은 줄 끝 [거르기 ▾] 창으로 접었다).
-    await expect(groups).toHaveCount(name==='library'?2:1);
+    // UI-보기탭한모양(S52-17): 자료실 묶기 줄은 보기 탭(공용 ⑤ .ds-seg)이 되어 칩 줄에서 빠졌다 — 남는 칩 줄은 분류 하나.
+    await expect(groups).toHaveCount(1);
     // The home view is hidden here, so its tabs (height:auto) are compared by their declared min-height; the filters' real height is checked too.
     const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.minHeight,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
     // UI-버튼크기(2026-10-17): meeting/library filters are pill chips (32px, 999px corners, 13px/500, 12px side padding),

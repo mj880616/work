@@ -58,7 +58,8 @@ const root = page => page.locator('#photosRoot');
 // 위쪽 묶음 높이와 줄 수(보이는 칸의 서로 다른 top 개수), 둘째 줄 칸이 한 줄 안에 있는지.
 const barShape = page => root(page).locator('[data-photos-bar]').evaluate(bar => {
   const box = bar.getBoundingClientRect();
-  const chips = bar.querySelector('.photos-chips').getBoundingClientRect(), tools = bar.querySelector('[data-photos-tools]');
+  // UI-보기탭한모양(S52-17): 보기 탭은 공용 ⑤ — 누르는 범위 여백(padding)을 뺀 보이는 알약 아래끝으로 잰다.
+  const chipsEl = bar.querySelector('.photos-chips'), chips = {bottom: chipsEl.getBoundingClientRect().bottom - parseFloat(getComputedStyle(chipsEl).paddingBottom)}, tools = bar.querySelector('[data-photos-tools]');
   const shown = [...tools.children].filter(el => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0);
   const mids = shown.map(el => el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2);
   const tb = tools.getBoundingClientRect();

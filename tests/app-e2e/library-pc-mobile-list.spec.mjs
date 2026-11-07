@@ -4,6 +4,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
 import {showAllLibraryCategories} from './helpers/library-categories.mjs';
+import { segBox } from './helpers/seg-box.mjs';
 
 const OPEN=`${appOrigin}/tests/app-e2e/library-open-fixture.html`;
 const LONG='가상 예시 자료 — 아주 긴 이름이 줄 끝을 넘어갈 때 잘리는지 확인하기 위한 시험용 제목 '.repeat(4).trim();
@@ -191,7 +192,8 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 차례(묶기 → �
   const labels=page.locator('#libraryView .library-filter-toolbar .lu-filter-label:visible'),group=page.locator('#libraryGroupBy'),category=page.locator('#libraryCategoryFilter');
   await expect(labels).toHaveCount(0);await expect(page.locator('#documentProject')).toBeHidden();
   await expect(group.getByRole('radio')).toHaveText(['폴더','사업영역','담당조직','분류','월별']);await expect(group.getByRole('radio',{name:'사업영역'})).toHaveAttribute('aria-checked','true');
-  const search=await box(page.locator('#documentSearch')),top=await box(group),cat=await box(category);
+  // UI-보기탭한모양(S52-17): 묶기 줄은 공용 ⑤ 보기 바꾸기 — 보이는 알약 자리로 잰다(누르는 범위 여백 제외).
+  const search=await box(page.locator('#documentSearch')),top=await segBox(group),cat=await box(category);
   expect(top.y).toBeGreaterThanOrEqual(search.y+search.height-1);expect(cat.y).toBeGreaterThanOrEqual(top.y+top.height-1);
   // 이름표가 없으니 묶기·분류 칩 줄은 찾기 칸과 같은 왼쪽 끝에서 시작한다.
   expect(Math.round(top.x)).toBe(Math.round(cat.x));expect(Math.abs(top.x-search.x)).toBeLessThan(2);
@@ -224,7 +226,7 @@ test('폰 거르기 줄: 위 한 줄 [찾기][분류 ▾][⋯], 이름표 없음
   const search=await box(page.locator('#documentSearch')),pick=await box(page.locator('#libraryCategoryPick')),more=await box(page.locator('#libraryTopMenuBtn'));
   expect(Math.abs((search.y+search.height/2)-(pick.y+pick.height/2))).toBeLessThan(4);expect(Math.abs((more.y+more.height/2)-(pick.y+pick.height/2))).toBeLessThan(4);
   const group=page.locator('#libraryGroupBy');await expect(group).toHaveCSS('position','fixed');await expect(group).toHaveCSS('flex-wrap','nowrap');
-  const g=await box(group);expect(g.y).toBeGreaterThan(search.y+300);
+  const g=await segBox(group);expect(g.y).toBeGreaterThan(search.y+300);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 

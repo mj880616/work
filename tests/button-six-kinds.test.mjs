@@ -14,7 +14,7 @@ test('6가지 공용 규칙이 ui-standard.css 한 곳에 있고 값은 토큰�
   assert.match(block, /button\.ds-chip:is\(\[aria-pressed="true"\],\[aria-checked="true"\]\)\{[^}]*background:var\(--ds-select-bg\)[^}]*border-color:var\(--ds-select-line\)/);
   // ⑤ 보기 바꾸기(UI-보기탭한모양): 연한 알약 바탕 안 칸, 고른 칸만 흰 알약 — 자세한 검사는 tests/view-tabs-one-look.test.mjs
   assert.match(block, /\.ds-seg\{[^}]*border-radius:var\(--ds-chip-radius\)[^}]*background:var\(--ds-seg-track\) content-box/);
-  assert.match(block, /\.ds-seg > button\.ds-seg-btn:is\(\[aria-pressed="true"\],\[aria-selected="true"\]\),\.ds-seg > \.ds-seg-group:has\(> button\.ds-seg-btn\[aria-pressed="true"\]\)\{ background:var\(--ds-seg-on\)/);
+  assert.match(block, /\.ds-seg > button\.ds-seg-btn:is\(\[aria-pressed="true"\],\[aria-selected="true"\],\[aria-checked="true"\]\),\.ds-seg > \.ds-seg-group:has\(> button\.ds-seg-btn:is\(\[aria-pressed="true"\],\[aria-checked="true"\]\)\)\{ background:var\(--ds-seg-on\)/);
   // ⑥ 아이콘: 선·바탕 없음
   assert.match(block, /button\.icon-btn\{[^}]*border-color:transparent;[^}]*background:transparent;/);
   // 누르는 범위 44px(보이는 크기와 상관없이)
