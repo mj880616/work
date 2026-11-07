@@ -3,11 +3,14 @@ import {sendSignal, setMark} from './now-marks.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
 import {viewPrefs} from './view-prefs.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError} from './now-model.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
-// - 위에서 아래: 꼬리 줄(매체·분류·날짜·글쓴이) → 제목 → [요약] → [시사점](주요 문장·나와의 연관은 이 칸 안 접기) → [원문 전체]
-//   (글자 크기 [가 가 가] 세 단계 — 서버 view_prefs.news_font) → '함께 볼 것'(접기) → [☆ 별표][보관][메모][관심 없음] … [원래 사이트 ↗].
+// - 위에서 아래(S52-12 NEWS-원문먼저번역, 시안 docs/design/mockups/news-detail-translate.html): 꼬리 줄(매체·분류·날짜·글쓴이) → 제목 → [원문 전체]
+//   (머리 줄 [번역] — 외국어 뉴스 기사만 · 글자 크기 [가 가 가] 세 단계 — 서버 view_prefs.news_font) → [요약] → [시사점](주요 문장·나와의 연관은 이 칸 안 접기)
+//   → '함께 볼 것'(접기) → [☆ 별표][보관][메모][관심 없음] … [원래 사이트 ↗].
+// - [번역]: 누르면 news-feed translate(로그인·owner·하루 한도·저장은 서버, 한 번 번역한 글은 저장본을 바로) 뒤 그 기사 줄의 body·body_ko를 읽어
+//   글자 블록만 한국어로 바꿔 그린다(문단·소제목·인용·사진·캡션 자리는 그대로, now-model.mjs translatedBlocks). 다시 누르면 원문. 번역 중엔 원문 칸에 기다림 표시.
 // - 누르면 원문 전체가 바로: 저장 원문(app_feed_bodies 블록 — 문단·소제목·인용·사진·캡션)을 사용자 로그인으로 읽는다(작업공간 소유자 RLS).
 //   동시에 요약·시사점 만들기를 시작한다(ai-assist kind now_detail — 서버가 저장 원문을 재료로 먼저 씀). 기다림 표시는 요약·시사점 칸에만,
 //   다 되면 그 칸만 채운다(원문 칸은 다시 그리지 않음). 이미 만든 것(app_now_details)은 서버가 바로 돌려준다. 화면은 글 id만 보낸다.
@@ -30,9 +33,10 @@ const saveFailNote = e => (e?.status ? `저장하지 못함 · HTTP ${e.status}`
 
 // head: {meta: [글자…], title, origTitle, titleLang, lang, url}. item: {type:'outside'|'news', id}.
 export function createNowDetail({box, topics = () => [], onClose, onChanged, onSignal, onRelated, onRead} = {}) {
-  let cur = null; // {item, head, body, detail, failed, unread, making, reading, note, marks, memo, memoOpen, memoBusy, memoNote, busy}
+  let cur = null; // {item, head, body, detail, failed, unread, making, reading, note, marks, memo, memoOpen, memoBusy, memoNote, busy, tr:{on, busy, note}}
   const details = new Map(); // itemKey → 서버 답(이 탭 메모리만)
   const bodies = new Map(); // itemKey → bodyView 모양(이 탭 메모리만)
+  const translations = new Map(); // itemKey → translatedBlocks 답(이 탭 메모리만 — 원본 저장은 서버 body_ko)
   let seq = 0;
   let font = null; // 이번 접속에서 고른 값(서버에 쓰는 중에도 바로 보이게). 처음엔 서버 기억 값.
   const fontNow = () => keepNewsFont(font ?? viewPrefs.get('news_font'));
@@ -66,6 +70,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const text = (Array.isArray(rows) ? rows : []).filter(r => r && typeof r.text === 'string').sort((a, b) => a.idx - b.idx).map(r => r.text.trim()).filter(Boolean).join(' ');
     return legacyBody(text);
   }
+  const readTranslation = item => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=body,body_ko&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
   const readNewsRow = item => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=${NEWS_ROW_COLS}&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
   const signal = (item, action) => sendSignal(item, action, onSignal);
 
@@ -116,11 +121,26 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const f = fontNow();
     return `<span class="nd-size" role="group" aria-label="글자 크기">${NEWS_FONT_STEPS.map(s => `<button type="button" class="nd-size-btn" data-nd-font="${s.id}" aria-label="${s.label}" aria-pressed="${s.id === f}">가</button>`).join('')}</span>`;
   }
+  // 원문 칸 머리 줄 [번역]: 외국어 뉴스 기사에서 글자 블록이 있을 때만. 누른 상태는 aria-pressed.
+  function trHtml(b) {
+    if (!canTranslate(cur.item, cur.head) || !b || b.failedLoad || !b.blocks.some(x => x.t !== 'img')) return '';
+    const t = cur.tr;
+    return `${t.note ? `<span class="nd-tr-note" data-nd-tr-note role="status">${esc(t.note)}</span>` : ''}<button type="button" class="ds-chip nd-tr" data-nd-translate aria-pressed="${!!t.on}"${t.busy ? ' disabled aria-busy="true"' : ''} aria-label="${t.on ? '원문으로 보기' : '한국어로 번역'}">번역</button>`;
+  }
   function bodyHtml() {
-    const b = bodies.get(itemKey(cur.item));
-    const head = `<div class="nd-ob"><b>원문 전체</b>${cur.head.meta?.[0] ? `<span class="nd-ob-src">${esc(cur.head.meta[0])}</span>` : ''}${fontHtml()}</div>`;
+    const key = itemKey(cur.item), b = bodies.get(key);
+    const tv = cur.tr.on ? translations.get(key) : null;
+    const src = tv ? '한국어 번역' : cur.head.meta?.[0] || '';
+    const tr = trHtml(b);
+    const head = `<div class="nd-ob${tr ? ' has-tr' : ''}"><b>원문 전체</b>${src ? `<span class="nd-ob-src">${esc(src)}</span>` : ''}${tr}${fontHtml()}</div>`;
     let inner;
     if (!b) inner = `<div aria-busy="true">${waitHtml({rows: 4})}</div>`;
+    else if (cur.tr.busy) inner = `<div class="nd-wait" data-nd-tr-wait aria-busy="true"><p class="nd-faint" role="status">번역하는 중</p>${waitHtml({rows: 4})}</div>`;
+    else if (tv) {
+      const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}</p>` : '';
+      const note = !tv.aligned ? '<p class="nd-faint" data-nd-tr-loose>문단 나눔이 원문과 달라 사진은 아래에 모았어요</p>' : tv.partial ? '<p class="nd-faint" data-nd-tr-rest>번역은 앞부분까지 · 나머지는 원문 그대로</p>' : '';
+      inner = `<div class="nd-prose" lang="ko" data-nd-prose data-nd-translated>${tv.blocks.map(blockHtml).join('')}</div>${note}${why}`;
+    }
     else if (b.failedLoad) inner = failHtml({text: '원문을 불러오지 못함', retry: 'data-nd-body-retry'});
     else {
       const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}</p>` : '';
@@ -168,9 +188,9 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     box.innerHTML = `<article class="nd" data-nd="${esc(itemKey(cur.item))}" data-font="${fontNow()}" aria-label="글 상세">
 <div class="nd-top"><button type="button" class="nd-back" data-nd-close aria-label="목록으로"><span aria-hidden="true">‹</span></button><p class="nd-meta">${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</p></div>
 <h3 class="nd-title" tabindex="-1"${h.titleLang ? ` lang="${esc(h.titleLang)}"` : ''}>${esc(h.title)}</h3>${h.origTitle ? `<p class="nd-orig" lang="${esc(h.lang || 'en')}">${esc(h.origTitle)}</p>` : ''}
+<section class="nd-box nd-orig-box" data-nd-body aria-label="원문 전체">${bodyHtml()}</section>
 <section class="nd-box" data-nd-summary aria-label="요약">${sumHtml()}</section>
 <section class="nd-box" data-nd-implications aria-label="시사점"${imp ? '' : ' hidden'}>${imp}</section>
-<section class="nd-box nd-orig-box" data-nd-body aria-label="원문 전체">${bodyHtml()}</section>
 <div data-nd-relslot>${relatedHtml()}</div>
 <div class="nd-acts" data-nd-acts role="group" aria-label="이 글 표시">${actsHtml()}</div><div data-nd-memo>${memoHtml()}</div></article>`;
   }
@@ -256,7 +276,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   function open(item, head) {
     if (!item || !head) return;
     const same = cur && itemKey(cur.item) === itemKey(item);
-    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false};
+    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false, tr: {on: false, busy: false, note: ''}};
     else cur.head = head;
     paint();
     box?.querySelector('.nd-title')?.focus({preventScroll: true});
@@ -296,6 +316,26 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     c.memoBusy = false;
     if (cur === c) { paintActs(); box?.querySelector(c.memoOpen ? '[data-nd-memo-input]' : '[data-nd-act="memo"]')?.focus({preventScroll: true}); }
   }
+  // [번역]: 번역본이 있으면 켜고 끄기만. 없으면 서버 translate(저장본이면 바로 stored) → 줄 읽기 → 블록에 넣기.
+  async function toggleTranslate() {
+    const c = cur;
+    if (!c || c.tr.busy || !canTranslate(c.item, c.head)) return;
+    const key = itemKey(c.item);
+    if (c.tr.on || translations.has(key)) { c.tr.on = !c.tr.on; c.tr.note = ''; paintBody(); focusTr(); return; }
+    c.tr.busy = true; c.tr.note = ''; paintBody();
+    try {
+      await rt().api('/functions/v1/news-feed?action=translate', {method: 'POST', body: {id: c.item.id}, singleFlight: false, timeoutMs: 130000});
+      const row = await readTranslation(c.item);
+      const b = bodies.get(key);
+      const tv = translatedBlocks(b?.blocks, row?.body, row?.body_ko);
+      if (!tv) throw Object.assign(new Error('NOTHING_TO_TRANSLATE'), {status: 0});
+      translations.set(key, tv);
+      c.tr.on = true;
+    } catch (e) { c.tr.note = translateError(e); }
+    c.tr.busy = false;
+    if (cur === c) { paintBody(); focusTr(); }
+  }
+  const focusTr = () => box?.querySelector('[data-nd-translate]')?.focus({preventScroll: true});
   function setFont(id) {
     const f = keepNewsFont(id);
     if (f === fontNow()) return;
@@ -312,6 +352,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (!b || !box.contains(b) || !cur) return;
     if (b.matches('[data-nd-close]')) { onClose?.(); return; }
     if (b.matches('[data-nd-font]')) { setFont(b.dataset.ndFont); return; }
+    if (b.matches('[data-nd-translate]')) { toggleTranslate(); return; }
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
     if (b.matches('[data-nd-act="memo"]')) { cur.memoOpen = true; cur.memoNote = ''; paintActs(); box.querySelector('[data-nd-memo-input],[data-nd-memo-cancel]')?.focus({preventScroll: true}); return; }
@@ -335,5 +376,5 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   // 서버 기억 값이 늦게 오면(첫 로딩) 그 값으로.
   window.addEventListener('kptu:view-prefs-ready', () => { if (font === null && cur) { const art = box?.querySelector('.nd'); if (art) art.dataset.font = fontNow(); box?.querySelectorAll('[data-nd-font]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ndFont === fontNow()))); } });
   paint();
-  return {open, close, paint, setHead: head => { if (cur && head) { cur.head = head; paint(); } }, current: () => (cur ? cur.item : null), reset: () => { details.clear(); bodies.clear(); close(); }};
+  return {open, close, paint, setHead: head => { if (cur && head) { cur.head = head; paint(); } }, current: () => (cur ? cur.item : null), reset: () => { details.clear(); bodies.clear(); translations.clear(); close(); }};
 }

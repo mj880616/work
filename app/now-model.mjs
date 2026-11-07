@@ -148,6 +148,40 @@ export function legacyBody(text, {lead = false} = {}) {
 // 글자 크기 세 단계(서버 view_prefs.news_font, 없으면 보통).
 export const NEWS_FONT_STEPS = Object.freeze([{id: 's', label: '글자 작게'}, {id: 'm', label: '글자 보통'}, {id: 'l', label: '글자 크게'}]);
 export const keepNewsFont = v => (NEWS_FONT_STEPS.some(f => f.id === v) ? v : 'm');
+// S52-12 NEWS-원문먼저번역(시안 docs/design/mockups/news-detail-translate.html): 원문 칸 [번역].
+// 번역은 뉴스 기사(app_news_items)만 서버에 저장 길이 있다(news-feed translate → body_ko). 외국어 글에만 단추를 둔다.
+export const canTranslate = (item, head) => item?.type === 'news' && !!head?.lang && head.lang !== 'ko';
+// 서버 본문 번역 body_ko는 기사 body(글자 블록 p·h·quote를 한 줄씩 이은 것)를 줄 순서대로 옮긴 것이다.
+// 그 줄을 같은 순서의 글자 블록에 하나씩 넣어 문단·소제목·인용·사진·캡션 자리는 그대로 두고 글만 바꾼다.
+// 줄 수가 맞지 않으면(옛 번역이 문단을 합침 등) 번역 문단만 차례로 보이고 사진은 아래에 모은다(aligned:false).
+export const TRANSLATE_REST_MARK = '(이후 부분은 원문만 있음)';
+const lines = v => String(v ?? '').split(/\n+/).map(t => t.trim()).filter(Boolean);
+export function translatedBlocks(blocks, body, bodyKo) {
+  const ko = lines(bodyKo);
+  const partial = ko.length > 0 && ko[ko.length - 1] === TRANSLATE_REST_MARK;
+  if (partial) ko.pop();
+  if (!ko.length) return null;
+  const list = Array.isArray(blocks) ? blocks : [];
+  const textAt = list.map((b, i) => (b && (b.t === 'p' || b.t === 'h' || b.t === 'quote') ? i : -1)).filter(i => i >= 0);
+  const src = lines(body);
+  const fits = textAt.length > 0 && ko.length <= textAt.length && (partial || ko.length === src.length || ko.length === textAt.length);
+  if (fits) {
+    const out = list.map(b => ({...b}));
+    ko.forEach((text, n) => { out[textAt[n]].text = text; });
+    return {blocks: out, aligned: true, partial: partial || ko.length < textAt.length};
+  }
+  return {blocks: [...ko.map(text => ({t: 'p', text})), ...list.filter(b => b?.t === 'img').map(b => ({...b}))], aligned: false, partial};
+}
+// [번역] 실패 한 줄(서버 오류 코드 → 일상어).
+export function translateError(e) {
+  const code = String(e?.message || '').toUpperCase();
+  if (code.includes('MONTHLY_LIMIT')) return '이번 달 번역 한도를 다 씀';
+  if (e?.status === 429 || code.includes('DAILY_LIMIT')) return '오늘 번역을 다 씀 · 내일 다시';
+  if (code.includes('NOT_FOREIGN')) return '한글 글이라 번역하지 않아요';
+  if (code.includes('NOTHING_TO_TRANSLATE')) return '번역할 본문이 없어요';
+  if (e?.status === 404) return '글을 찾지 못함';
+  return e?.status ? `번역하지 못함 · HTTP ${e.status}` : '번역하지 못함 · 잠시 뒤 다시';
+}
 // 상세가 실패했을 때 한 줄.
 export function detailError(e) {
   const code = String(e?.message || '');
