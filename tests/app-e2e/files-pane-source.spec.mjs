@@ -6,7 +6,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // 시안 docs/design/mockups/morning-1107/4-files-pane-source.html 1-A, 설계 docs/design/files-pane-source.md).
 // 두 칸 [파일]의 칸 머리마다 출처 이름 ▾ → 네 줄(원드라이브·구글 드라이브·이 폰·내 PC). 이 기기에서 못 쓰는 출처는 흐리게 + 이유.
 // 고르면 그 칸만 그 출처 맨 위. 고른 값은 서버 view_prefs.files_panes.<기기> = [첫 칸, 둘째 칸](migration 20261107110000).
-// DB 적용 전(서버가 그 칸을 거절)에도 칸은 그 자리에서 바뀌고, 기기 저장소에는 남기지 않는다. 서버는 흉내(파일 이름은 모두 가짜).
+// DB 적용 전(서버가 그 칸을 거절)에도 칸은 그 자리에서 바뀐다(기기 저장 없음은 browser-storage-audit가 앱 코드 전체로 본다). 서버는 흉내(파일 이름은 모두 가짜).
 const root = page => page.locator('#filesRoot');
 const pane = (page, i) => root(page).locator(`[data-fx-pane-i="${i}"]`);
 const head = (page, i) => pane(page, i).locator('.fx-ptop [data-fx-psrc]');
@@ -20,7 +20,6 @@ async function begin(page, width, value, { denyKeys = [] } = {}) {
   await page.reload();
   return { errors, server, prefs };
 }
-const storageKeys = page => page.evaluate(() => { const out = []; try { for (let i = 0; i < localStorage.length; i++) out.push(localStorage.key(i)); } catch {} return out.filter(k => /pane|files_panes/i.test(k)); });
 
 test('폴드 884: 칸 머리 이름 ▾ → 네 줄 목록(못 쓰는 출처는 흐리게 + 이유) → 그 칸만 바뀜 · 서버 기억 · 다시 열면 그 출처', async ({ page }) => {
   test.setTimeout(90000);
@@ -68,7 +67,6 @@ test('폴드 884: 칸 머리 이름 ▾ → 네 줄 목록(못 쓰는 출처는 
   await expect(head(page, 0)).toContainText('구글 드라이브');
   await expect(head(page, 1)).toContainText('원드라이브');
   await expect(pane(page, 1).locator('[data-fx-row="od:OD!1"]')).toBeVisible();
-  expect(await storageKeys(page)).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
@@ -126,7 +124,7 @@ test('폰 412: 위·아래 두 칸도 칸 머리 이름 ▾ · 아래 칸만 바
   expect(errors).toEqual([]);
 });
 
-test('DB 적용 전(서버가 files_panes 거절): 칸은 그 자리에서만 바뀌고 오류 없이, 기기 저장도 없음 · 다시 열면 지금 규칙', async ({ page }) => {
+test('DB 적용 전(서버가 files_panes 거절): 칸은 그 자리에서만 바뀌고 오류 없이 · 다시 열면 지금 규칙', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, prefs } = await begin(page, 884, { files_two: { pc: { fold: true } } }, { denyKeys: ['files_panes'] });
   await openFiles(page, 884, { two: true });
@@ -139,7 +137,6 @@ test('DB 적용 전(서버가 files_panes 거절): 칸은 그 자리에서만 �
   expect(prefs.value?.files_panes).toBeUndefined();
   expect(prefs.value?.files_two).toEqual({ pc: { fold: true } });
   await expect(head(page, 1)).toContainText('원드라이브');
-  expect(await storageKeys(page)).toEqual([]);
   await page.reload();
   await openFiles(page, 884, { two: true });
   await expect(head(page, 1)).toContainText('구글 드라이브');
