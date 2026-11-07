@@ -13,6 +13,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
   starWant, starLabel, applyStars, boxRows} from './files-model.mjs';
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
+import {boxShut, toggleBoxShut} from './box-fold.js';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
 import {bindFolderPinch} from './folder-pinch.js';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
@@ -162,7 +163,7 @@ const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', 
   children: new Map(), open: new Set(), stars: null, syncedAt: null, syncing: false,
   // FOLDER-나무새기준 ②: 폴더 안 파일(폰 나무 그 자리 펼치기), 접은 저장소 상자, 'n개 더 보기'를 누른 폴더, '최근' 상자(서버 p_shelf 'recent'),
   // 두 손가락으로 그 폴더만 보기 전 나무 화면 위치. 모두 화면 메모리만(기기 저장 없음).
-  files: new Map(), boxShut: new Set(), more: new Set(), recent: null, recentAll: false, treeBack: null, treeRows: new Map(),
+  files: new Map(), more: new Set(), recent: null, recentAll: false, treeBack: null, treeRows: new Map(),
   // S51-22 나무 ⋯ 메뉴: 색을 바꿀 폴더·올릴 폴더(그 메뉴에서 고른 것, 화면 메모리만).
   lookRow: null, upTo: null,
   preview: null, clip: null, busy: '', hint: '', xfer: null, run: null, ask: null, dropAsk: null,
@@ -745,11 +746,11 @@ function treeHtml(p) {
   html += ftBoxHtml({body: shelves, label: '모아 보기', attrs: {'data-fx-box': 'shelves'}});
   const sources = onSources();
   // 상자가 열린 저장소는 맨 위 폴더들이 늘 보인다(옛 '뿌리 줄 펼치기'가 상자 머리 접기로 바뀜).
-  const open = new Set([...state.open, ...sources.filter(s => !state.boxShut.has(s)).map(s => folderKey(s, null))]);
+  const open = new Set([...state.open, ...sources.filter(s => !boxShut('files', s)).map(s => folderKey(s, null))]);
   const rows = treeRows({sources: onSources(), children: state.children, open, order: lookOrder});
   const parents = [];
   for (const source of sources) {
-    const shut = state.boxShut.has(source);
+    const shut = boxShut('files', source);
     const mine = shut ? [] : rows.filter(r => r.type === 'folder' && r.source === source).map(r => { parents[r.depth] = r.id; return {...r, parentId: r.depth > 1 ? parents[r.depth - 1] : null}; });
     const loading = !shut && !state.children.has(folderKey(source, null));
     const body = loading ? waitHtml({rows: 2}) : mine.length ? mine.map(r => pcFolderRowHtml(r, curKey)).join('') : emptyHtml('빈 폴더');
@@ -821,7 +822,7 @@ function phoneTreeHtml() {
   const sync = syncTreeHtml();
   let syncPut = false;
   for (const source of onSources()) {
-    const shut = state.boxShut.has(source);
+    const shut = boxShut('files', source);
     const rows = shut ? [] : boxRows({source, children: state.children, files: state.files, open: state.open, more: state.more, order: lookOrder, limit: FT_PREVIEW});
     const tail = !syncPut && SOURCES.includes(source) && sync ? (syncPut = true, sync) : '';
     const loading = !shut && !state.children.has(folderKey(source, null));
@@ -2458,7 +2459,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-uncut]')) { uncut(); return; }
   // FOLDER-나무새기준 ②: 폰 나무(공용 줄) — 펼치기·접기, 상자 접기, n개 더 보기, 최근 더보기, 파일 미리보기, ⋯ 그 자리 메뉴(S51-22).
   if (b.matches('[data-fx-tog]')) { toggle(b.dataset.fxTog, b.closest('.nx-tree')); return; }
-  if (b.matches('[data-fx-box-tog]')) { const s0 = b.dataset.fxBoxTog; if (state.boxShut.has(s0)) state.boxShut.delete(s0); else state.boxShut.add(s0); paintTree(); return; }
+  if (b.matches('[data-fx-box-tog]')) { toggleBoxShut('files', b.dataset.fxBoxTog); paintTree(); return; } // S52-14: 상자 접힘은 서버 view_prefs.box_shut(기기 종류별, box-fold.js)
   if (b.matches('[data-fx-tmore]')) { state.more.add(b.dataset.fxTmore); paintTree(); return; }
   if (b.matches('[data-fx-recent-more]')) { state.recentAll = !state.recentAll; paintTree(); return; }
   if (b.matches('[data-fx-recent-fold]')) { toggleRecentFolded('files'); paintTree(); root?.querySelector('[data-fx-recent-fold]')?.focus({preventScroll: true}); return; }
@@ -2752,6 +2753,7 @@ window.addEventListener('kptu:view-changed', event => {
 });
 window.addEventListener('kptu:view-prefs-rejected', e => {
   const paths = e.detail?.paths || [];
+  if (paths.includes(`box_shut.${DEVICE}`) && state.status) paintTree(); // S52-14: 상자 접힘 저장 거절 → 서버 값으로(알림 없음)
   if (paths.includes(`${FILES_LOOK_KEY}.${DEVICE}`)) { notify('보기 크기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true, record: false}); if (state.status) paintLists(); }
   if (paths.includes(`${FILES_TWO_KEY}.${DEVICE}`)) { notify('두 칸 켜기/끄기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true, record: false}); if (state.status) layoutChanged(); }
   if (!paths.includes(`${FILES_SOURCES_KEY}.${DEVICE}`)) return;
@@ -2761,7 +2763,7 @@ window.addEventListener('kptu:view-prefs-rejected', e => {
 // 서버 화면 설정이 늦게 오면(두 칸 켬이 바뀌었을 수 있음) 한 번 맞춘다.
 let twoSeen = null;
 const twoCheck = () => { const now = two(); if (twoSeen !== null && now !== twoSeen && state.status) layoutChanged(); twoSeen = now; };
-window.addEventListener('kptu:view-prefs-ready', () => { if (state.status) { twoCheck(); paintLists(); } });
+window.addEventListener('kptu:view-prefs-ready', () => { if (state.status) { twoCheck(); paintLists(); paintTree(); } });
 // 접고 펼 때: 펼쳐서(폰 → 폴드) 칸 0이 비어 있으면(폰 나무 첫 화면) 첫 저장소 맨 위를 연다.
 PHONE.addEventListener?.('change', () => { if (state.status) { twoCheck(); if (!solo() && !state.panes[0].where) goHome(state.panes[0]); else paint(); } });
 WIDE.addEventListener?.('change', () => { if (state.status) { twoCheck(); paint(); } });

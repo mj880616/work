@@ -262,3 +262,36 @@ test('사진 메뉴 ② 폴더 PC 1440: 나무 | 사진 경계 끌기·키보드
   await checkSplit(page, { container: '#photosRoot .photos-fx.is-wide', left: ':scope>.photos-fx-tree', right: ':scope>.photos-fx-pane', name: 'photos', share: 0.24, server, reopen: open });
   expect(f.errors).toEqual([]);
 });
+
+// S52-14 FILES-상자접힘기억: 폰(760 이하) [폴더] 첫 화면의 저장소 상자(원드라이브·폰·구글 드라이브)도 [파일]과 같은 기억 — 서버 view_prefs.box_shut.<기기>.photos(od·ph·gd).
+// 상자만 기억(안쪽 폴더 펼침은 기억하지 않음). 폴드 펼침·PC(761~)는 왼쪽 폴더 나무라 저장소 상자가 없다.
+for (const [width, device] of [[412, 'phone']]) {
+  test(`사진 [폴더] ${width}: 원드라이브 상자 접기 → 다른 화면 갔다 와도·새로고침해도 접힘, 펼치면 펼친 채(box_shut.${device}.photos)`, async ({ page }) => {
+    const f = await fixture(page, width);
+    const prefs = await installViewPrefsServer(page);
+    const box = () => root(page).locator('[data-photos-box="onedrive"]');
+    const tog = () => box().locator('[data-photos-fxbox="onedrive"]');
+    const openFolders = async () => { await openPhotos(page); await root(page).locator('[data-photos-tab="folders"]').click(); await expect(tog()).toBeVisible(); };
+    await openFolders();
+    await expect(tog()).toHaveAttribute('aria-expanded', 'true');
+    await box().locator('[data-photos-ftog="o:S2"]').click();
+    await expect(box().locator('.ft-folder .ft-name')).toHaveText(['2026', '여행', '제주']);
+    await tog().click();
+    await expect(tog()).toHaveAttribute('aria-expanded', 'false');
+    await expect(box().locator('.ft-folder')).toHaveCount(0);
+    await expect.poll(() => prefs.value?.box_shut).toEqual({ [device]: { photos: ['od'] } });
+    await clickView(page, 'files');
+    await expect(page.locator('#photosView')).toBeHidden();
+    await openFolders();
+    await expect(tog()).toHaveAttribute('aria-expanded', 'false');
+    await page.reload();
+    await openFolders();
+    await expect(tog()).toHaveAttribute('aria-expanded', 'false');
+    await tog().click();
+    await expect(tog()).toHaveAttribute('aria-expanded', 'true');
+    await expect.poll(() => prefs.value?.box_shut?.[device]?.photos ?? []).toEqual([]);
+    // 안쪽 폴더 펼침은 기억하지 않는다: 다시 펼친 상자는 맨 위 폴더만.
+    await expect(box().locator('.ft-folder .ft-name')).toHaveText(['2026', '여행']);
+    expect(f.errors).toEqual([]);
+  });
+}
