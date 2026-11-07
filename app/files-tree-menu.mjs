@@ -2,7 +2,7 @@
 // 항목은 예전 '⋯ → 폴더 안으로 들어가 고르기 줄'에 있던 기능 그대로다(빼지 않음):
 //  클라우드(원드라이브·구글): 파일 = 열기·복사·옮기기·이름 바꾸기·별표·휴지통 / 폴더 = 이 폴더만 보기·새 폴더·올리기·복사·옮기기·이름 바꾸기·색·위로·아래로·별표·휴지통
 //  이 폰: 파일 = 열기·클라우드에 복사·이름 바꾸기·휴지통(폰에 쓸 수 있을 때) / 폴더 = 이 폴더만 보기·새 폴더·클라우드에 복사·이름 바꾸기(폰 폴더는 지우지 않음)
-//  내 PC: 보기·열기만(파일 = 열기, 폴더 = 이 폴더만 보기).
+//  내 PC: 파일 = 열기(+ 바구니 PC 앱 0.4.0+면 클라우드로 복사·옮기기, S52-41 FILES-내PC클라우드옮기기), 폴더 = 이 폴더만 보기.
 // FILES-자료실로보내기(S52-26): 파일(폴더 아님)은 [자료실로 보내기] — 구글 드라이브 파일이 이미 자료실에 있으면 그 자리가 [자료실에서 보기].
 //   내 PC 파일은 아직 다리가 바이트를 읽지 못해(보기·열기만) 넣지 않는다. 폴더째 보내기는 이번엔 없다.
 // S51-31 UI-⋯작은메뉴(요청함 11/06 23:28): 세 묶음으로 나눠 보인다 — 열기·올리기·복사·옮기기·이름 바꾸기 | 별표·색·위로·아래로 | 휴지통.
@@ -14,11 +14,11 @@ export const TREE_MENU_LABEL = Object.freeze({
 });
 const CLOUD = ['od', 'gd'];
 const SECOND = ['star', 'unstar', 'color', 'up', 'down']; // 둘째 묶음은 이 순서(요청함 원문 '별표·색·위로·아래로')
-// row: 나무 줄의 원래 줄(source·is_folder·starred), opt: phoneWrite(폰에 쓸 수 있나), sibIndex·sibCount(같은 부모 안 폴더 순서, 모르면 -1·0).
-export function treeMenuItems(row, {phoneWrite = false, sibIndex = -1, sibCount = 0} = {}) {
+// row: 나무 줄의 원래 줄(source·is_folder·starred), opt: phoneWrite(폰에 쓸 수 있나)·pcWrite(내 PC 문이 복사·옮기기를 앎), sibIndex·sibCount(같은 부모 안 폴더 순서, 모르면 -1·0).
+export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, sibIndex = -1, sibCount = 0} = {}) {
   if (!row || !row.source) return [];
   const folder = !!row.is_folder, ids = [];
-  if (row.source === 'pc') ids.push(folder ? 'only' : 'open');
+  if (row.source === 'pc') ids.push(...(folder ? ['only'] : ['open', ...(pcWrite ? ['copy', 'move'] : [])]));
   else if (row.source === 'ph') {
     if (folder) ids.push('only', ...(phoneWrite ? ['mkdir'] : []), 'tocloud', ...(phoneWrite ? ['rename'] : []));
     else ids.push('open', 'tolib', 'tocloud', ...(phoneWrite ? ['rename', 'trash'] : []));
