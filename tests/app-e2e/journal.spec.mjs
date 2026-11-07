@@ -4142,7 +4142,8 @@ test('WEEKLY-투쟁사업장참고: 주별 조직보고 표 쪽도 참고 한 �
  await a.locator('details[data-wl-ref-fold] > summary').click();
  await expect(a.locator('details[data-wl-ref-fold] .wl-text')).toHaveText(['가상 교섭 상견례','가상 찬반투표 간담회']);
  await expect(b.locator('[data-wl-site-ref-line]')).toHaveCount(0);
- await expect(b.locator('[data-wl-count]')).toHaveText('· 빈 칸');
+ // 나 지역 모임은 넣은 줄은 없지만 지난주 제안 줄이 있어 '빈 칸'을 띄우지 않는다(S52-42).
+ await expect(b.locator('.wl-line.is-sug')).not.toHaveCount(0);await expect(b.locator('[data-wl-count]')).toHaveCount(0);
  const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  expect(report.orgs.find(o=>o.org.join(' ')==='가상 노동조합').status).toEqual(['- 투쟁 사업장 보고 참고']);
@@ -4196,7 +4197,8 @@ for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 �
  for(const o of f.more.orgs)if(o.id===OB)o.name=LONG_ORG;
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  const a=orgRow(page,OA),b=orgRow(page,OB);
- await expect(b.locator('[data-wl-count]')).toHaveText('· 빈 칸');
+ await expect(b.locator('.wl-line.is-sug').first()).toBeVisible(); // 지난주 제안 줄이 있어 '빈 칸' 없음(S52-42) — 이름 줄은 이름·⋯
+ await expect(b.locator('[data-wl-count]')).toHaveCount(0);
  const siteName=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-name').first();
  const siteLine=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-lines > li').first();
  const look=l=>l.evaluate(e=>{const s=getComputedStyle(e);return {size:s.fontSize,weight:s.fontWeight};});
@@ -4214,7 +4216,7 @@ for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 �
  const name=b.locator('.wl-org');
  await expect(name).toHaveAttribute('title',LONG_ORG);
  expect(await name.evaluate(e=>getComputedStyle(e).whiteSpace)).toBe('nowrap');
- if(width>760){
+ if(width>=1200){ // 표 모양은 4장 칸이 넓은 PC만(S52-42: 폴드 펼침은 3장·4장이 나란해 칸이 좁아 폰처럼 쌓는다)
   expect(await name.evaluate(e=>e.scrollWidth>e.clientWidth)).toBe(true); // 넘치는 이름은 끝 …
   expect(await name.evaluate(e=>getComputedStyle(e).textOverflow)).toBe('ellipsis');
   // ③ 칸 폭: 처음엔 가장 긴 이름 줄에 맞춘 폭(표 폭 45% 안), 짧은 이름 줄은 다 보임.
@@ -4238,7 +4240,7 @@ for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 �
   // 5. 주요 일정 표는 보고 캘린더가 정해진 때만 있다(이 흉내 서버는 설정 없음) — 표가 있으면 [일] 손잡이도 있다.
   await expect(page.locator('#journalRoot [data-col-grip="cal_day"]')).toHaveCount(await page.locator('#journalRoot table.journal-weekly-schedule').count());
  }else{
-  await expect(orgTable(page).locator('[data-col-grip]')).toBeHidden(); // 폰은 머리줄 없음 — 끌기 없음
+  await expect(orgTable(page).locator('[data-col-grip]')).toBeHidden(); // 폰·폴드(좁은 4장 칸)는 머리줄 없음 — 끌기 없음
  }
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
@@ -4252,6 +4254,40 @@ test('WEEKLY-조직이름한줄: 저장된 칸 폭(PC)으로 다시 그리고, 1
  await expect(head).toBeVisible();await expect(page.locator('#journalRoot [data-journal-hq-table]')).toBeVisible();
  await expect.poll(async()=>Math.round((await head.boundingBox()).width)).toBe(180);
  await expect.poll(async()=>Math.round((await page.locator('#journalRoot [data-journal-hq-table] thead th').nth(1).boundingBox()).width)).toBe(140);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+// S52-42 WEEKLY-조직현황폰다시(요청함 11/08 04:05 "주간 정리 산하조직 현황이 계속 이상햐"): 4장 칸이 좁으면(폰, 3장·4장이 나란한 폴드 펼침) 조직마다 쌓고
+// [조직] 이름 줄도 칸 폭 그대로(PC 칸 폭 — 이름에 맞춘 폭·끌어 정한 폭 — 은 머리줄 있는 넓은 PC 표에서만). 이름은 한 줄, 넘칠 때만 끝 …, ⋯ 는 줄 오른쪽 끝.
+// '· 빈 칸'은 정말 빈 조직에만 한 번(아래 '—' 없음). 넣은 줄은 없어도 제안 줄이 있으면 '빈 칸'을 띄우지 않는다. 저장된 폭이 있어도 폰은 화면 폭. 가짜 이름만.
+for(const width of [412,884,1440])test(`WEEKLY-조직현황폰다시: 폰은 조직 이름 줄 = 소식 줄 폭, 소식 있으면 '빈 칸' 없음, 빈 조직은 한 번만 ${width}`,async({page},info)=>{
+ await installViewPrefsServer(page,{col_widths:{weekly:{org:180,org_f:290,org_p:290}}});
+ const seed=[WL('s1',OA,'2026-10-05','2026-10-06','가상 제안 줄 하나','suggested',{origin:'ai'}),WL('s2',OA,'2026-10-05','2026-10-07','가상 제안 줄 둘','suggested',{origin:'plain',sort_order:1})];
+ const f=await weekLinesFixture(page,{width,seed});
+ for(const o of f.more.orgs)if(o.id===OB)o.name=LONG_ORG;
+ await openJournal(page,width);await openWeekly(page);
+ const a=orgRow(page,OA),b=orgRow(page,OB);
+ await expect(a.locator('.wl-line.is-sug')).toHaveCount(2);
+ // 소식(제안 줄)이 있는 조직: '빈 칸' 없음. 정말 빈 조직: 이름 줄 '· 빈 칸' 한 번, 칸 안 '—' 없음.
+ await expect(a.locator('[data-wl-count]')).toHaveCount(0);
+ await expect(b.locator('[data-wl-count]')).toHaveText('· 빈 칸');
+ await expect(orgTable(page).locator('.wl-empty')).toHaveCount(0);
+ await expect(b.locator('.wl-line')).toHaveCount(0);
+ // 자리는 다시 그리기가 끝난 뒤 한 번에 잰다(조직 칸 두 줄·소식 줄·⋯).
+ const geo=()=>orgTable(page).evaluate((t,[oa,ob])=>{const r=s=>{const e=t.querySelector(s);if(!e)return null;const b=e.getBoundingClientRect();return {l:b.left,r:b.right,w:b.width};};
+  const A=`[data-wl-org-row="${oa}"]`,B=`[data-wl-org-row="${ob}"]`;
+  return {line:r(`${A} .wl-org-line`),lineB:r(`${B} .wl-org-line`),cell:r(`${A} td.wl-c-rows`),sug:r(`${A} .wl-line.is-sug`),more:r(`${A} .wl-org-line > .row-more > summary`),head:r('thead th.wl-c-org')};},[OA,OB]);
+ if(width<1200){
+  // 폰·폴드 펼침(3장·4장이 나란해 4장 칸이 좁음): 표 대신 쌓기. 이름 줄 = 소식 줄 폭·같은 들여쓰기(저장된 290px·이름 맞춤 폭에 갇히지 않음), ⋯ 는 줄 오른쪽 끝.
+  await expect.poll(async()=>{const g=await geo();return g.line&&g.cell&&g.sug&&g.more&&g.line.w>0?Math.max(Math.abs(g.line.w-g.cell.w),Math.abs(g.line.l-g.sug.l),Math.abs(g.line.r-g.sug.r),Math.abs(g.lineB.w-g.cell.w),g.line.r-g.more.r):99;}).toBeLessThan(4);
+  // 긴 이름도 화면 폭 안에 들면 … 없음(넘칠 때만 …).
+  for(const row of [a,b])expect(await row.locator('.wl-org').evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
+ }else{
+  // PC: 표 그대로 — [조직] 칸은 저장된 폭(PC 180), 오른쪽 [조직현황] 칸은 따로.
+  await expect.poll(async()=>Math.round((await geo()).head?.w??0)).toBe(180);
+  await expect.poll(async()=>{const g=await geo();return g.cell&&g.line&&g.cell.w>0?g.cell.l-g.line.r:-1;}).toBeGreaterThan(0);
+ }
+ await page.screenshot({path:info.outputPath(`weekly-org-again-${width}.png`),fullPage:true});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 // S52-31 WEEKLY-주요일정제자리고치기(요청함 11/08 00:19): '원래: …'·'기억' 표시는 고치기 칸 위, [이번 주만 원래대로]는 그 줄 ⋯ 작은 메뉴,

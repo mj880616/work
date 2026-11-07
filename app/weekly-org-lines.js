@@ -161,18 +161,21 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     return `${toggle}<div class="wl-last" data-wl-last-box="${esc(orgId)}">${last.map((l, i) => `<div class="wl-line is-last"><span class="wl-day">- ${esc(dayText(l.day, l.end_day))}</span><span class="wl-text">${esc(cleanBody(l.body))}</span><span class="wl-btns btn-row"><button type="button" class="wl-btn" data-wl-take="${esc(orgId)}" data-wl-i="${i}"${dis ? ' disabled' : ''}>가져오기</button></span></div>`).join('')}</div>`;
   };
   // 조직 이름 옆: '주간보고 3줄 넘음', 주간 정리에서 부실 조직은 [지난주 모두 가져오기].
-  // 주간 정리(weekly): 조직 이름 뒤 ' · n줄'(넣은 줄 없으면 ' · 빈 칸') + 줄 끝 ⋯ 하나 — [현황 표(지난주) 모두 가져오기]·[줄 추가]·[현황 표 보기].
+  // 주간 정리(weekly): 조직 이름 뒤 ' · n줄' + 줄 끝 ⋯ 하나 — [현황 표(지난주) 모두 가져오기]·[줄 추가]·[현황 표 보기].
+  // S52-42 WEEKLY-조직현황폰다시: 넣은 줄이 없어도 아래 제안 줄(기록·AI 제안·지난주·현황 표)이 있으면 아무것도 붙이지 않는다('빈 칸'인데 소식이 보이는 모순).
+  // 넣은 줄도 제안도 없는 정말 빈 조직만 ' · 빈 칸'(흐린 글자) 한 번 — 칸 안에는 '—'를 따로 두지 않는다(weeklyCell).
   const weeklyName = orgId => {
     // S52-25 WEEKLY-투쟁사업장참고: 3장에 들어간 조직은 이름 줄에 '참고'만, ⋯ 는 [현황 표 보기]만(줄 추가·가져오기 없음 — 보고서에는 참고 한 줄).
     if (ctl.siteRefIds.has(orgId)) return typeof ctl.openSource === 'function' && !ctl.disabled() ? moreSlot({label: '조직 칸 메뉴', data: {wlOrgMore: orgId}, items: [{text: '현황 표 보기', data: {wlOpenOrg: orgId}}]}) : '';
     const list = ctl.lines.get(orgId) || [], parts = cellParts(list), room = hasRoom(list), dis = ctl.disabled();
-    const lastLeft = weekSuggestions(list, ctl.last.get(orgId) || []).filter(x => x.kind === 'last').length;
+    const sugs = weekSuggestions(list, ctl.last.get(orgId) || []), lastLeft = sugs.filter(x => x.kind === 'last').length;
     const name = ctl.lastFromStatus.has(orgId) ? '현황 표' : '지난주', items = [];
     if (lastLeft && room) items.push({text: `${name} 모두 가져오기`, data: {wlTakeAll: orgId}});
     if (room && !(ctl.editing?.orgId === orgId && ctl.editing.id === 'new')) items.push({text: '줄 추가', data: {wlAdd: orgId}});
     if (typeof ctl.openSource === 'function') items.push({text: '현황 표 보기', data: {wlOpenOrg: orgId}});
     const more = !dis && items.length ? moreSlot({label: '조직 칸 메뉴', data: {wlOrgMore: orgId}, items}) : '';
-    return `<span class="wl-count" data-wl-count>· ${parts.placed.length ? `${parts.placed.length}줄` : '빈 칸'}</span>${parts.over ? '<span class="wl-warn">주간보고 3줄 넘음</span>' : ''}${more}`;
+    const count = parts.placed.length ? `${parts.placed.length}줄` : sugs.length ? '' : '빈 칸';
+    return `${count ? `<span class="wl-count" data-wl-count>· ${count}</span>` : ''}${parts.over ? '<span class="wl-warn">주간보고 3줄 넘음</span>' : ''}${more}`;
   };
   ctl.nameHtml = orgId => {
     if (ctl.status !== 'ready') return '';
@@ -199,7 +202,7 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     const adding = ctl.editing?.orgId === orgId && ctl.editing.id === 'new';
     let html = '';
     html += placedHtml(orgId, parts, open);
-    if (!parts.placed.length && !sugs.length && !adding) html += '<span class="wl-empty">—</span>';
+    // 빈 조직은 이름 줄 ' · 빈 칸' 한 번이면 된다(S52-42 — 예전에는 아래 '—'까지 두 번).
     const all = ctl.sugOpen.has(orgId) || sugs.slice(SUG_SHOWN).some(x => x.line.id === ctl.editing?.id);
     html += (all ? sugs : sugs.slice(0, SUG_SHOWN)).map(x => sugHtml(orgId, x)).join('');
     if (sugs.length > SUG_SHOWN) html += `<button type="button" class="row-act wl-sug-more" data-wl-sug-toggle="${esc(orgId)}" aria-expanded="${all}">${all ? '제안 접기' : `제안 ${sugs.length - SUG_SHOWN}개 더`} ${chevHtml(all)}</button>`;
