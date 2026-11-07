@@ -312,6 +312,9 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
   const order: string[] = [];
   const body = html.replace(/<!--[\s\S]*?-->/g, " ").replace(/<(script|style|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, " ");
   const cats = new Map<string, string>();
+  // 같은 게시판만(단체 규칙 sameBoard): 목록 주소의 그 쿼리 값. 목록 주소에 값이 없으면 거르지 않는다.
+  let board: string | null = null;
+  if (source.sameBoard) { try { board = new URL(base).searchParams.get(source.sameBoard); } catch { board = null; } }
   type Hit = { url: string; title: string; sub: string | null; inner: string; start: number; end: number };
   const hits: Hit[] = [];
   for (const m of body.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)) {
@@ -328,6 +331,7 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
     let abs: string;
     try { abs = new URL(decodeEntities(raw), base).href; } catch { continue; }
     if (!source.item.test(abs)) continue;
+    if (board !== null && new URL(abs).searchParams.get(source.sameBoard!) !== board) continue;
     const url = canonicalUrl(source, abs);
     // 분류 칸이 있는 단체: 분류 글자를 따로 두고 제목 재료(inner)에서는 그 칸을 뺀다.
     let inner = m[2];

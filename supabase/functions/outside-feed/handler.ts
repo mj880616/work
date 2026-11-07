@@ -51,6 +51,17 @@ export const RUN_BUDGET_MS = 100000;   // 한 번 실행 시간 예산(Edge 제�
 export const OLD_DAYS = 730;           // 2년 지난 글은 문장 없이(Q7)
 export const REDATE_PER_RUN = 5;       // 한 번 실행에 날짜 모르는 옛 글을 글 쪽에서 다시 읽는 수(목록에서 날짜를 찾은 것은 요청 없이 고침)
 export const PRUNE_BATCH = 200;
+export const HAVE_CHUNK = 30;          // 이미 있는 글 묻기: 한 번에 묻는 주소 수
+export const OLDER_PER_RUN = 2;        // 예약 실행마다 더 읽는 지난 쪽 목록 수(카탈로그 older, S52-37)
+export const OLDER_SLOT_MS = 8 * 3600000; // 지난 쪽 차례를 돌리는 칸(8시간): 예약 시각 08:07·13:07·18:07 KST(UTC 23·4·9시)는 서로 다른 칸이라 실행마다 다음 차례
+// 이번 실행에 읽을 지난 쪽 목록(상태 저장 없이 시각으로 차례를 정함 — 한 바퀴 돌면 처음부터 다시: 그 사이 빠진 글도 다시 줍는다).
+export function olderPick(source: OutsideSource, nowMs: number): string[] {
+  const all = source.older ?? [];
+  if (!all.length) return [];
+  const slot = Math.floor(nowMs / OLDER_SLOT_MS);
+  const n = Math.min(OLDER_PER_RUN, all.length);
+  return Array.from({ length: n }, (_, k) => all[(((slot * n + k) % all.length) + all.length) % all.length]);
+}
 export const EXPAND_DAILY_PER_USER = 100;
 export const READ_NOW_DAILY_PER_USER = 30;         // 바로 읽기: 사람마다 하루 횟수
 export const READ_NOW_COOLDOWN_MS = 10 * 60000;    // 바로 읽기: 마지막으로 읽은 지 10분 안이면 다시 읽지 않음
@@ -540,6 +551,18 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
     if (stats.candidates === before && looksLikeBotCheck(got.text)) listError = "bot_check";
     for (const it of found) if (!seen.has(it.url)) { seen.add(it.url); items.push(it); }
   }
+  // 1-2) 지난 쪽 목록(S52-37): 예약 실행이고 첫 쪽을 모두 읽었을 때만. 첫 쪽 글 뒤에 붙인다(새 글 상한은 첫 쪽 글이 먼저 씀).
+  //      지난 쪽을 못 읽거나 비어도 고장으로 적지 않는다(범위를 넘은 쪽은 빈 목록) — 첫 쪽 상태(last_error)만 단체 상태다.
+  let olderRead = 0;
+  if (!limits.onlyWorkspace && !listError && source.mode === "html") {
+    for (const list of olderPick(source, nowMs)) {
+      if (clock() - startMs > budget) break;
+      const got = await reader.get(source, list, false);
+      if (!got.ok) continue;
+      olderRead++;
+      for (const it of parseListHtml(source, got.text, got.url, LIST_LIMIT, undefined, nowMs)) if (!seen.has(it.url)) { seen.add(it.url); items.push(it); }
+    }
+  }
   out.listed = items.length;
   // 목록은 잘 읽었는데 이번 첫 쪽에 넣을 종류의 글이 없을 때(예: 첫 쪽이 공지·취재요청 글뿐일 때)는
   // 고장이 아니다: 읽기 성공으로 적고(last_error 비움) 새 글 0건으로 끝낸다.
@@ -556,7 +579,11 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
 
   // 2) 작업공간마다 이미 있는 글 빼기. 단, 이미 들어간 글 가운데 제목이 주소·뜻 없는 한 낱말인 글은 이번에 제목·요약을 다시 채운다
   //    (OUTSIDE-텔레그램미리보기제목 ③, 11/02). '제목 없음 · 원문 링크'로 남은 글은 텔레그램만 다시 본다(목록 글자만 쓰므로 새 요청 없음).
-  const have = await db.get(`app_outside_posts?workspace_id=in.(${workspaces.join(",")})&url=in.${encodeURIComponent(quoteIn(items.map((i) => i.url)))}&select=id,workspace_id,url,title,summary_ko`);
+  //    주소 목록은 HAVE_CHUNK개씩 나눠 묻는다(게시판이 많은 단체 — 요청 주소 길이 상한 안쪽, S52-37).
+  const have: Record<string, unknown>[] = [];
+  for (let i = 0; i < items.length; i += HAVE_CHUNK) {
+    have.push(...await db.get(`app_outside_posts?workspace_id=in.(${workspaces.join(",")})&url=in.${encodeURIComponent(quoteIn(items.slice(i, i + HAVE_CHUNK).map((x) => x.url)))}&select=id,workspace_id,url,title,summary_ko`));
+  }
   const has = new Set(have.map((r) => `${r.workspace_id} ${r.url}`));
   //    정돈 전에 들어간 글(꼬리표·단체명·날짜 꼬리가 남은 제목, 100자 넘는 한 덩어리 제목)도 같은 정돈 함수로 다시 맞춘다
   //    (OUTSIDE-노동묶음·정돈 '옛 글 다시 정돈', S50-26): 지금 제목을 정돈 함수에 넣어 달라지면 고칠 글이다. 고친 제목은 정돈 함수의 결과라 다음 실행에는 다시 걸리지 않는다.
@@ -664,7 +691,7 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
   }
   try { out.redated = await redateUndated(db, reader, source, workspaces, items, pageTried, nowMs, startMs, budget, clock); } catch { ai.log("redate_failed", { source: source.key }); }
   await markSources(db, source.key, workspaces, null, nowIso);
-  ai.log("source_done", { source: source.key, listed: out.listed, fresh: out.fresh, inserted: out.inserted, skipped: out.skipped, deferred: out.deferred, refilled: out.refilled });
+  ai.log("source_done", { source: source.key, older: olderRead, listed: out.listed, fresh: out.fresh, inserted: out.inserted, skipped: out.skipped, deferred: out.deferred, refilled: out.refilled });
   return out;
 }
 

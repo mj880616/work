@@ -21,7 +21,7 @@ const FN='https://synthetic.supabase.test/functions/v1/outside-feed';
 
 // 단체 키 → 목록 표본(카탈로그 lists 순서대로).
 const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],kmwu:['kmwu.html'],kfsu:['kfsu.html'],hakbi:['hakbi.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
-  jinboparty:['jinboparty-comment.html','jinboparty-press.html'],justice:['justice-telegram.html'],pssp:['pssp.html'],ws:['ws.xml'],platformc:['platformc.html'],leftall:['leftall.html'],
+  jinboparty:['jinboparty-comment.html','jinboparty-press.html'],justice:['justice-telegram.html'],pssp:['pssp.html','pssp-focus.html','pssp-j2021.html','pssp-report.html','pssp-pamphlet.html','pssp-document.html'],ws:['ws.xml'],platformc:['platformc.html'],leftall:['leftall.html','leftall-newsletter.html'],
   socialism:['socialism.html'],socialist:['socialist-telegram.html'],jacobin:['jacobin.xml'],labornotes:['labornotes.xml'],redpepper:['redpepper.xml'],socialistworker:['socialistworker.xml']};
 // 단체별 기대: [정규화한 주소, 종류] 순서.
 const EXPECT={
@@ -34,10 +34,12 @@ const EXPECT={
   kgreens:[['https://kgreens.org/statement/?bmode=view&idx=777','comment'],['https://kgreens.org/press/?bmode=view&idx=778','press']],
   jinboparty:[['https://jinboparty.com/pages/?p=15&b=b_1_2&bn=3001&m=read','comment'],['https://jinboparty.com/pages/?p=286&b=b_1_111&bn=4001&m=read','press']],
   justice:[['https://t.me/justicekr/9006','comment'],['https://t.me/justicekr/9005','comment'],['https://t.me/justicekr/9001','statement']],
-  pssp:[['https://pssp.org/bbs/view.php?board=notice&nid=6003','press'],['https://pssp.org/bbs/view.php?board=notice&nid=6001','statement']],
+  pssp:[['https://pssp.org/bbs/view.php?board=notice&nid=6003','press'],['https://pssp.org/bbs/view.php?board=notice&nid=6001','statement'],
+    ['https://pssp.org/bbs/view.php?board=focus&nid=9641','article'],['https://pssp.org/bbs/view.php?board=focus&nid=9640','article'],['https://pssp.org/bbs/view.php?board=j2021&nid=9638','article'],
+    ['https://pssp.org/bbs/view.php?board=report&nid=9872','article'],['https://pssp.org/bbs/view.php?board=pamphlet&nid=9460','article'],['https://pssp.org/bbs/view.php?board=document&nid=9714','article']],
   ws:[['https://ws.or.kr/article/40001','statement'],['https://ws.or.kr/article/40000','article'],['https://ws.or.kr/article/39999','statement']],
   platformc:[['https://platformc.kr/2026/10/fake-reading-one','article']],
-  leftall:[['https://leftall.com/notice/120','statement'],['https://leftall.com/notice/118','statement']],
+  leftall:[['https://leftall.com/notice/120','statement'],['https://leftall.com/notice/118','statement'],['https://leftall.com/newsletter/93','article'],['https://leftall.com/newsletter/92','article']],
   socialism:[['https://socialism.jinbo.net/bbs/board.php?bo_table=news&wr_id=55','comment']],
   socialist:[['https://t.me/ksocialist/1203','article'],['http://socialist.kr/fake-statement-1201/','statement']],
   jacobin:[['https://jacobin.com/2026/10/fictional-strike-wave','article']],
@@ -530,7 +532,8 @@ test('사회진보연대: 공지·성명 게시판(board=notice) nid 링크를 �
 
 test('사회진보연대(S50-32): 목록은 공지·성명 게시판, 분류 칸은 제목에서 빼고 종류로 쓰며, 머리말 없는 공지는 넣지 않는다', () => {
   const s=sourceByKey('pssp');
-  assert.deepEqual(s.lists,['https://pssp.org/bbs/list.php?board=notice'],'2019년에 멈춘 성명 게시판(board=statement)은 읽지 않는다');
+  assert.equal(s.lists[0],'https://pssp.org/bbs/list.php?board=notice','공지·성명 게시판이 첫 목록');
+  assert.ok(!s.lists.some(l=>/board=statement/.test(l)),'2019년에 멈춘 성명 게시판(board=statement)은 읽지 않는다');
   const r=listOf('pssp','pssp.html','https://pssp.org/bbs/list.php?board=notice');
   assert.deepEqual(r.map(i=>i.title),['[기자회견] 가상 법 개정 촉구 기자회견(10/14)','가상 전쟁 반대 공동성명'],'분류 글자(공지·성명)는 제목에 붙지 않는다');
   assert.deepEqual(r.map(i=>i.published_at),['2026-10-13T15:00:00.000Z','2026-03-25T15:00:00.000Z'],'목록 날짜 칸(2026.10.14)을 게시 날짜로');
@@ -540,6 +543,101 @@ test('사회진보연대(S50-32): 목록은 공지·성명 게시판, 분류 칸
   assert.equal(s.kindOf('가상 성명','u','성명'),'statement');
   assert.equal(s.kindOf('[공동성명] 가상','u','성명'),'statement');
   assert.equal(s.kindOf('[취재요청] 가상','u','성명'),null);
+});
+
+// ---- S52-37 사회진보연대 모든 글: 글 게시판 전부 + 지난 쪽 차례로 + 옆 칸 다른 게시판 거르기 -------------------------------
+
+test('사회진보연대(S52-37): 글 게시판 6개(공지·성명·사회운동포커스·계간·보고서·소책자·자료실)를 읽고, 유튜브·옛 성명 게시판은 읽지 않는다', () => {
+  const s=sourceByKey('pssp');
+  assert.deepEqual(s.lists.map(l=>new URL(l).searchParams.get('board')),['notice','focus','j2021','report','pamphlet','document']);
+  for(const l of [...s.lists,...s.older])assert.ok(allowedUrl(s,l),`허용 주소: ${l}`);
+  assert.ok(![...s.lists,...s.older].some(l=>/board=(youtube|statement)\b/.test(l)));
+  assert.equal(new Set(s.older).size,s.older.length,'지난 쪽 목록은 겹치지 않는다');
+  assert.ok(!s.older.some(l=>s.lists.includes(l)),'첫 쪽은 지난 쪽 목록에 없다');
+  // 깊이 차례: 앞쪽은 게시판마다 2쪽부터(최근 글부터 고르게).
+  assert.deepEqual(s.older.slice(0,3),['https://pssp.org/bbs/list.php?board=notice&page=2','https://pssp.org/bbs/list.php?board=focus&page=2','https://pssp.org/bbs/list.php?board=j2021&page=2']);
+  assert.ok(s.older.includes('https://pssp.org/bbs/list.php?board=notice&page=137')&&s.older.includes('https://pssp.org/bbs/list.php?board=j2021&page=2&category1=401'));
+});
+
+test('사회진보연대(S52-37): 게시판마다 그 게시판 글만(옆 칸 다른 게시판·www 주소 거름), 목록 날짜를 게시 날짜로, 주소는 board·nid만', () => {
+  const at=(y,m,d)=>new Date(Date.UTC(y,m-1,d)-9*3600000).toISOString();
+  const f=listOf('pssp','pssp-focus.html','https://pssp.org/bbs/list.php?board=focus');
+  assert.deepEqual(f.map(i=>[i.url,i.title,i.kind,i.published_at]),[
+    ['https://pssp.org/bbs/view.php?board=focus&nid=9641','가상 변화한 세계와 우리의 미래','article',at(2026,9,23)],
+    ['https://pssp.org/bbs/view.php?board=focus&nid=9640','가상 정부 정책의 문제는 그대로다','article',at(2026,9,22)]],'옆 칸 j2021·notice·youtube 글은 이 쪽에서 받지 않는다');
+  const j=listOf('pssp','pssp-j2021.html','https://pssp.org/bbs/list.php?board=j2021');
+  assert.deepEqual(j.map(i=>[i.url,i.published_at]),[['https://pssp.org/bbs/view.php?board=j2021&nid=9638',at(2026,9,12)]],'호 번호(category1)·쪽 번호는 주소에서 뺀다');
+  const j2=listOf('pssp','pssp-j2021.html','https://pssp.org/bbs/list.php?board=j2021&category1=432');
+  assert.deepEqual(j2.map(i=>i.url),['https://pssp.org/bbs/view.php?board=j2021&nid=9638'],'지난 호 목록도 같은 게시판으로 본다');
+  for(const [b,nid,d] of [['report',9872,at(2024,9,9)],['pamphlet',9460,at(2025,10,25)],['document',9714,at(2026,5,21)]]){
+    const r=listOf('pssp',`pssp-${b}.html`,`https://pssp.org/bbs/list.php?board=${b}`);
+    assert.deepEqual(r.map(i=>[i.url,i.kind,i.published_at]),[[`https://pssp.org/bbs/view.php?board=${b}&nid=${nid}`,'article',d]],b);
+  }
+  // 공지·성명 게시판은 그대로(S50-32): 옆 칸 www 주소의 같은 글은 http라 거르고, pamphlet·statement 링크는 다른 게시판이라 거른다.
+  const n=listOf('pssp','pssp.html','https://pssp.org/bbs/list.php?board=notice');
+  assert.deepEqual(n.map(i=>i.url),['https://pssp.org/bbs/view.php?board=notice&nid=6003','https://pssp.org/bbs/view.php?board=notice&nid=6001']);
+  // 종류: 공지·성명 밖 게시판은 기사, 머리말이 성명·논평이면 그 종류. 안내 머리말([모집] 등)은 넣지 않는다.
+  const s=sourceByKey('pssp');
+  assert.equal(s.kindOf('[성명] 가상','https://pssp.org/bbs/view.php?board=focus&nid=1',null),'statement');
+  assert.equal(s.kindOf('[모집] 가상','https://pssp.org/bbs/view.php?board=document&nid=1',null),null);
+  assert.equal(s.kindOf('가상 공연','https://pssp.org/bbs/view.php?board=notice&nid=1','공지'),null,'공지 게시판 규칙은 그대로');
+});
+
+test('전국결집(S52-37): 공지사항 + 소식지 게시판, 소식지는 기사(안내 머리말은 뺌), 주소는 /게시판/번호 하나로', () => {
+  const s=sourceByKey('leftall');
+  assert.deepEqual(s.lists,['https://leftall.com/bbs/board.php?bo_table=notice','https://leftall.com/bbs/board.php?bo_table=newsletter']);
+  for(const l of s.older)assert.ok(allowedUrl(s,l));
+  const r=listOf('leftall','leftall-newsletter.html','https://leftall.com/bbs/board.php?bo_table=newsletter');
+  assert.deepEqual(r.map(i=>[i.url,i.kind,i.published_at]),[['https://leftall.com/newsletter/93','article','2026-10-21T15:00:00.000Z'],['https://leftall.com/newsletter/92','article','2026-10-20T15:00:00.000Z']],
+    '목록 날짜 칸(제목 안 날짜 아님)');
+  assert.deepEqual(listOf('leftall','leftall.html','https://leftall.com/bbs/board.php?bo_table=notice').map(i=>i.url),['https://leftall.com/notice/120','https://leftall.com/notice/118'],'공지사항은 그대로');
+  assert.equal(s.kindOf('[입장] 가상','https://leftall.com/newsletter/1'),'statement');
+  assert.equal(s.kindOf('가상 공지','https://leftall.com/notice/1'),null);
+});
+
+test('지난 쪽 차례(S52-37): 예약 세 번(08:07·13:07·18:07 KST)이 서로 다른 칸 → 실행마다 다음 2쪽, 한 바퀴에 모든 쪽을 한 번씩', () => {
+  const s=sourceByKey('pssp');
+  const day=Date.parse('2026-11-07T23:07:00Z');
+  const runs=[0,5,10].map(h=>H.olderPick(s,day+h*3600000));
+  assert.deepEqual(runs.flat(),s.older.slice(...(()=>{const slot=Math.floor(day/H.OLDER_SLOT_MS);const st=(slot*2)%s.older.length;return [st,st+6];})()),'이어지는 6쪽');
+  const seen=new Set();const slot0=Math.floor(day/H.OLDER_SLOT_MS);
+  for(let k=0;k<Math.ceil(s.older.length/H.OLDER_PER_RUN);k++)for(const u of H.olderPick(s,(slot0+k)*H.OLDER_SLOT_MS))seen.add(u);
+  assert.equal(seen.size,s.older.length,'한 바퀴 안에 모든 지난 쪽');
+  assert.deepEqual(H.olderPick(sourceByKey('kctu'),day),[],'지난 쪽 목록이 없는 단체는 첫 쪽만');
+});
+
+test('지난 쪽 실행(S52-37): 예약 실행은 첫 쪽 글 다음에 지난 쪽 글을 넣고, 지난 쪽을 못 읽어도 고장으로 적지 않으며, 바로 읽기는 첫 쪽만', async () => {
+  const s=sourceByKey('leftall');const ko=FX('article-ko.html');
+  const [o1,o2]=H.olderPick(s,NOW);
+  const older=`<ul><li><a href="https://leftall.com/newsletter/40">[전국결집통신] 가상 지난 소식</a> <span>2026-01-05</span></li></ul>`;
+  const sites={[s.lists[0]]:FX('leftall.html'),[s.lists[1]]:FX('leftall-newsletter.html'),[o1]:older,[o2]:()=>html('down',503)};
+  for(const u of ['https://leftall.com/notice/120','https://leftall.com/notice/118','https://leftall.com/newsletter/93','https://leftall.com/newsletter/92','https://leftall.com/newsletter/40'])sites[u]=ko;
+  const h=harness({sources:[{workspace_id:WS,source_key:'leftall'}],sites});
+  const out=await (await h.cron('run',{source:'leftall'})).json();
+  assert.equal(out.status,'ok');assert.equal(out.listed,5);assert.equal(out.inserted,5);
+  assert.deepEqual(h.db.app_outside_posts.map(p=>p.url).at(-1),'https://leftall.com/newsletter/40','지난 쪽 글은 첫 쪽 글 뒤');
+  assert.equal(h.db.app_outside_posts.find(p=>p.url.endsWith('/40')).published_at,'2026-01-04T15:00:00.000Z');
+  assert.equal(h.db.app_outside_sources[0].last_error,null,'지난 쪽 503은 단체 고장이 아니다');
+  assert.ok(h.calls.site.includes(o1)&&h.calls.site.includes(o2));
+  const u=harness({sources:[{workspace_id:WS,source_key:'leftall'}],sites});
+  await u.user('read_now',{source:'leftall'});
+  assert.ok(!u.calls.site.includes(o1)&&!u.calls.site.includes(o2),'바로 읽기는 지난 쪽을 읽지 않는다');
+  // 첫 쪽을 못 읽은 실행은 지난 쪽도 읽지 않는다(첫 쪽 고장을 지난 쪽 글이 가리지 않게).
+  const f=harness({sources:[{workspace_id:WS,source_key:'leftall'}],sites:{...sites,[s.lists[1]]:()=>html('down',503)}});
+  await f.cron('run',{source:'leftall'});
+  assert.ok(!f.calls.site.includes(o1),'첫 쪽 실패 → 지난 쪽 안 읽음');
+});
+
+test('이미 있는 글 묻기는 주소 30개씩 나눠 묻는다(게시판이 많은 단체의 요청 주소 길이)', async () => {
+  const many='<table>'+Array.from({length:20},(_,i)=>`<tr><td><a href="./view.php?board=focus&nid=${8000+i}&page=1">가상 글 ${i}번 제목</a></td><td>2026.09.${String(i+1).padStart(2,'0')}</td></tr>`).join('')+'</table>';
+  const s=sourceByKey('pssp');const sites={};
+  s.lists.forEach((l,i)=>{sites[l]=i===0?FX('pssp.html'):many.replaceAll('board=focus',`board=${new URL(l).searchParams.get('board')}`).replaceAll('nid=8',`nid=${i}8`);});
+  const h=harness({sources:[{workspace_id:WS,source_key:'pssp'}],sites});
+  const out=await (await h.cron('run',{source:'pssp'})).json();
+  assert.equal(out.listed,102);
+  const asks=h.calls.rest.filter(c=>c.startsWith('GET app_outside_posts?')&&c.includes('url=in.'));
+  assert.equal(asks.length,4);
+  assert.equal(out.inserted+out.deferred+out.skipped,102);
 });
 
 test('플랫폼C: 첫 화면 카드 제목(h2 …__title)만 제목으로, 스크립트 속 주소는 안 읽음, 목록 주소는 2MB 아래 첫 화면', () => {
