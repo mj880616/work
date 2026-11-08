@@ -26,7 +26,7 @@ async function boot(page,width,{group='폴더',docs=DOCS}={}){
 async function pick(page,ids,width){
   await libraryTopMenu(page,'select',{tap:width<761});
   for(const id of ids)await page.locator(`[data-lu-pick="${id}"]`).check();
-  await expect(page.locator('#librarySelectCount')).toHaveText(`${ids.length}개 선택했음`);
+  await expect(page.locator('#librarySelectCount')).toHaveText(`${ids.length}개 선택됨`);
 }
 const menuItem=(page,name)=>page.locator('#luBulkMenu').getByRole('button',{name,exact:true});
 
@@ -114,7 +114,7 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
     await expect(line(page)).toContainText('1개의 분류을(를) 바꿨고 1개는 바꾸지 못했어요');await expect(line(page)).toHaveClass(/error/);
     expect(s.docs.find(d=>d.id==='a-2').category).toBe('기타');expect(s.docs.find(d=>d.id==='a1-1').category).toBe('정책자료');
     // 실패한 것만 고른 채로 남는다.
-    await expect(page.locator('#librarySelectCount')).toHaveText('1개 선택했음');await expect(page.locator('[data-lu-pick="a1-1"]')).toBeChecked();await expect(page.locator('[data-lu-pick="a-2"]')).not.toBeChecked();
+    await expect(page.locator('#librarySelectCount')).toHaveText('1개 선택됨');await expect(page.locator('[data-lu-pick="a1-1"]')).toBeChecked();await expect(page.locator('[data-lu-pick="a-2"]')).not.toBeChecked();
     expect(errors.filter(e=>!/500|fail/i.test(e))).toEqual([]);
   });
 
@@ -139,17 +139,17 @@ test.describe('PC Ctrl/Shift+클릭',()=>{
     const {errors}=await boot(page,1280);
     const row=id=>page.locator(`[data-lu-document="${id}"]`);
     await row('a-2').click({modifiers:['Control']});
-    await expect(bar(page)).toBeVisible();await expect(page.locator('[data-lu-pick="a-2"]')).toBeChecked();await expect(page.locator('#librarySelectCount')).toHaveText('1개 선택했음');
+    await expect(bar(page)).toBeVisible();await expect(page.locator('[data-lu-pick="a-2"]')).toBeChecked();await expect(page.locator('#librarySelectCount')).toHaveText('1개 선택됨');
     await expect(page.locator('#documentModal')).toBeHidden();
     await row('n-1').click({modifiers:['Shift']});
     // 폴더 밖(a-2, a1-1) 다음의 줄들 중 a-2부터 n-1까지 보이는 줄 모두.
     const order=await page.locator('#documentList [data-lu-document]').evaluateAll(xs=>xs.filter(x=>x.checkVisibility()).map(x=>x.dataset.luDocument));
     const want=order.slice(order.indexOf('a-2'),order.indexOf('n-1')+1);
-    await expect(page.locator('#librarySelectCount')).toHaveText(`${want.length}개 선택했음`);
+    await expect(page.locator('#librarySelectCount')).toHaveText(`${want.length}개 선택됨`);
     for(const id of want)await expect(page.locator(`[data-lu-pick="${id}"]`)).toBeChecked();
     // Ctrl+클릭은 그 줄만 뺀다.
     await row('a-2').click({modifiers:['Control']});
-    await expect(page.locator('[data-lu-pick="a-2"]')).not.toBeChecked();await expect(page.locator('#librarySelectCount')).toHaveText(`${want.length-1}개 선택했음`);
+    await expect(page.locator('[data-lu-pick="a-2"]')).not.toBeChecked();await expect(page.locator('#librarySelectCount')).toHaveText(`${want.length-1}개 선택됨`);
     expect(errors).toEqual([]);
   });
 });
@@ -194,7 +194,7 @@ test.describe('LIB-후속1 PC 선택',()=>{
     await expect(bar(page)).toBeVisible();await expect(page.locator('[data-lu-pick="a-2"]')).toBeChecked();
     await page.locator('[data-lu-document="n-1"]').click();
     await page.locator('[data-lu-document="n-1"] .lu-row-title').click({button:'right'});
-    await expect(panel.locator('.lu-menu-head')).toHaveText('2개 선택했음');
+    await expect(panel.locator('.lu-menu-head')).toHaveText('2개 선택됨');
     await panel.getByRole('button',{name:/^분류 바꾸기/}).click();
     await expect(page.locator('#luBulkMenu')).toBeVisible();
     await page.locator('#luBulkMenu').getByRole('button',{name:'기타',exact:true}).click();

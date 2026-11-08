@@ -141,10 +141,10 @@ for (const width of [390, 1280]) test(`select mode: [선택] → pick rows → m
   await press(page, page.locator('[data-note-row-more="n1"]'), width);
   await press(page, page.locator('#noteDocMenu [data-nx-select]'), width);
   await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
-  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택했음');
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
   // In select mode pressing a row picks it (it does not open).
   await press(page, noteRow(page, 'n3'), width);
-  await expect(page.locator('[data-nx-select-count]')).toHaveText('2개 선택했음');
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('2개 선택됨');
   await expect(page.locator('[data-note-detail]')).toBeHidden();
   await press(page, page.locator('[data-nx-select-bar] [data-nx-sel-move]'), width);
   await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);
