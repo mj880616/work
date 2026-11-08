@@ -41,7 +41,7 @@ begin
      or to_regclass('public.app_suborganization_updates_source_once') is null
      or (select count(*) from pg_attribute where attrelid = 'public.app_suborganization_updates'::regclass and attnum > 0 and not attisdropped
            and ((attname = 'raw_text' and atttypid = 'text'::regtype)
-             or (attname = 'created_by' and atttypid = 'uuid'::regtype and not attnotnull)
+             or (attname = 'created_by' and atttypid = 'uuid'::regtype)
              or (attname = 'created_at' and atttypid = 'timestamptz'::regtype)
              or (attname = 'end_day' and atttypid = 'date'::regtype)
              or (attname = 'source_kind' and atttypid = 'text'::regtype)
