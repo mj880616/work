@@ -1,0 +1,130 @@
+// S53-20 MTG-비정기회의접기(시안 docs/design/mockups/meeting-name-irregular.html): 사업 보고 입력 창 회의명 상자를 누르면
+// 정기 회의만 보이고 상위 아래 비정기가 접혀 있으며, '회의 찾기'로 비정기까지 찾아 고르고, ⋯로 비정기에 두고, 상위 목록에 상위를 추가한다(폰·PC).
+// 지어낸 이름만 쓴다(실제 회의·단체 이름 없음).
+import {test, expect} from '@playwright/test';
+import {signInWithSession} from './helpers/session-login.mjs';
+
+test.use({timezoneId: 'Asia/Seoul'});
+const BASE = process.env.APP_E2E_ORIGIN || 'http://127.0.0.1:8123';
+const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+const P1 = 'gaaaaaa1';
+const row = (id, name, at) => ({id, workspace_id: 'mn-ws', project_id: null, activity_kind: 'meeting', title: name, series_name: name, meeting_at: at, notes: '', transcript_text: '', created_by: 'mn-user', result_status: 'final'});
+const meetings = [
+  row('m1', '샘플 정기회의', '2026-11-03T01:00:00Z'),
+  row('m2', '가상협의회 대표자 회의', '2026-11-01T01:00:00Z'),
+  row('m3', '하반기 공동 기획회의(2차)', '2026-11-06T01:00:00Z'),
+  row('m4', '하반기 공동 기획회의(1차)', '2026-10-20T01:00:00Z'),
+  row('m5', '가상지부 점검 회의', '2026-11-04T01:00:00Z'),
+  row('m6', '한 번 모임', '2026-09-01T01:00:00Z'),
+];
+const key = s => s.replace(/\s+/g, '').toLowerCase();
+
+async function mock(page, state) {
+  await page.route(`${SB}/**`, async route => {
+    const req = route.request(), url = new URL(req.url()), path = url.pathname, method = req.method();
+    const ok = data => route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(data ?? null)});
+    if (path === '/auth/v1/token') return ok({access_token: 'mn-access', refresh_token: 'mn-refresh', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: {id: 'mn-user'}});
+    if (path === '/auth/v1/user') return ok({id: 'mn-user', email: 'mn@example.org', user_metadata: {display_name: '회의명 QA'}});
+    if (path === '/rest/v1/app_workspace_members') return ok([{workspace_id: 'mn-ws', user_id: 'mn-user', role: 'owner', workspace: {id: 'mn-ws', name: 'QA'}}]);
+    if (path === '/rest/v1/app_workspaces') return ok([{id: 'mn-ws', name: 'QA'}]);
+    if (path === '/rest/v1/app_profiles') {
+      if (method === 'PATCH') { const body = req.postDataJSON(); if ('meeting_name_sorts' in body) { state.sorts = body.meeting_name_sorts; state.writes.push(body.meeting_name_sorts); } return ok([{user_id: 'mn-user', meeting_name_sorts: state.sorts}]); }
+      if ((url.searchParams.get('select') || '').includes('meeting_name_sorts')) return ok([{meeting_name_sorts: state.sorts}]);
+      return ok([{user_id: 'mn-user', display_name: '회의명 QA'}]);
+    }
+    if (path === '/rest/v1/app_meetings') return ok(method === 'GET' ? meetings : []);
+    if (path === '/functions/v1/google-calendar') return ok({connected: false, enabled: false, selected: [], calendars: [], events: []});
+    if (path === '/functions/v1/google-tasks') return ok({tasks: [], needs_reconnect: false});
+    if (path === '/functions/v1/push-notifications') return ok({enabled: false, web_enabled: false, native_enabled: false, public_key: 'qa'});
+    if (path.startsWith('/rest/v1/rpc/')) return ok(null);
+    if (path.startsWith('/rest/v1/') || path.startsWith('/functions/v1/')) return ok([]);
+    return ok({});
+  });
+}
+async function openEntry(page, state) {
+  await mock(page, state);
+  await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(`${BASE}/app/?view=meetings`)}`);
+  await signInWithSession(page, 'mn@example.org');
+  await expect(page.locator('#meetingsView')).toBeVisible({timeout: 15000});
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, {timeout: 15000});
+  await page.locator('#newMeetingBtn').click();
+  await expect(page.locator('#meetingModal')).toBeVisible();
+  await expect(page.locator('#meetingNameSelect')).toHaveAttribute('data-name-panel', '1');
+}
+const panel = page => page.locator('#kptuNamePanel');
+const picks = page => panel(page).locator('.mnp-pick .mnp-name');
+
+for (const [label, size] of [['폰', {width: 390, height: 844}], ['PC', {width: 1280, height: 900}]]) {
+  test(`${label}: 회의명 목록은 정기만 + 상위 아래 접힌 비정기, 찾기로 비정기 선택, ⋯로 비정기 두기, 상위 추가`, async ({page}) => {
+    await page.setViewportSize(size);
+    const state = {sorts: {parents: [{id: P1, name: '가상협의회'}], names: {[key('가상지부 점검 회의')]: P1, [key('하반기 공동 기획회의(2차)')]: P1, [key('하반기 공동 기획회의(1차)')]: P1}}, writes: []};
+    await openEntry(page, state);
+
+    // ② 평소: 정기만 + 상위 줄 바로 아래 접힌 묶음(차수만 다른 회의는 한 줄).
+    await page.locator('#meetingNameSelect').click();
+    await expect(panel(page)).toBeVisible();
+    await expect(panel(page).locator('[data-mnp-find]')).toBeVisible();
+    await expect(picks(page)).toHaveText(['샘플 정기회의', '가상협의회 대표자 회의', '한 번 모임']);
+    const group = panel(page).locator(`[data-mnp-group="${P1}"]`);
+    await expect(group).toContainText('가상협의회 비정기 회의 2');
+    await expect(group).toHaveAttribute('aria-expanded', 'false');
+    // 펼치면 그 아래만 날짜와 함께(최근 차수가 위).
+    await group.click();
+    await expect(panel(page).locator('.mnp-sub .mnp-name')).toHaveText(['하반기 공동 기획회의(2차)', '가상지부 점검 회의']);
+    await expect(panel(page).locator('.mnp-sub').first()).toContainText('11/6');
+    // 패널은 화면 안에 있다.
+    const box = await panel(page).boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(size.width);
+
+    // ③ 찾기: 비정기도 나오고 꼬리표가 붙는다 → 고르면 상자 값.
+    await panel(page).locator('[data-mnp-find]').fill('점검');
+    await expect(picks(page)).toHaveText(['가상지부 점검 회의']);
+    await expect(panel(page).locator('.mnp-tag')).toHaveText('비정기 · 가상협의회');
+    await panel(page).locator('.mnp-pick').first().click();
+    await expect(panel(page)).toBeHidden();
+    await expect(page.locator('#meetingNameSelect')).toHaveValue('가상지부 점검 회의');
+    await expect(page.locator('#meetingTitle')).toHaveValue('가상지부 점검 회의');
+
+    // ④ ⋯ → 비정기로 두기 → 기타 비정기: 서버에 그 회의명 열쇠가 'etc'로 저장되고 목록에서 접힌다.
+    await page.locator('#meetingNameSelect').click();
+    const once = panel(page).locator('.mnp-row', {hasText: '한 번 모임'});
+    await once.locator('.mnp-more').click();
+    await panel(page).locator('[data-mnp-act="irregular"]').click();
+    await panel(page).locator('[data-mnp-parent="etc"]').click();
+    await expect(panel(page).locator('[data-mnp-group="etc"]')).toContainText('기타 비정기 회의 1');
+    expect(state.writes.at(-1).names[key('한 번 모임')]).toBe('etc');
+    await expect(panel(page).locator('.mnp-row:not(.mnp-sub) .mnp-name', {hasText: '한 번 모임'})).toHaveCount(0);
+
+    // ⑧⑨ 상위 목록 수정 → 상위 추가(서버 저장).
+    await panel(page).locator('[data-mnp-parents]').click();
+    await expect(page.locator('#meetingParentsModal')).toBeVisible();
+    await page.locator('#meetingParentsModal [data-mtgp-add-input]').fill('샘플 모임');
+    await page.locator('#meetingParentsModal [data-mtgp-add-form] button[type="submit"]').click();
+    await expect(page.locator('#meetingParentsModal [data-le-rename]')).toHaveText(['가상협의회', '샘플 모임']);
+    expect(state.writes.at(-1).parents.map(p => p.name)).toEqual(['가상협의회', '샘플 모임']);
+    await page.locator('#meetingParentsModal [data-mtgp-close]').click();
+    await expect(page.locator('#meetingParentsModal')).toBeHidden();
+    await expect(page.locator('#meetingModal')).toBeVisible();
+
+    // ④ 새 회의명(기타(직접 입력))은 처음부터 비정기·상위를 고를 수 있다.
+    await page.locator('#meetingNameSelect').click();
+    await panel(page).locator('[data-mnp-pick="__other__"]').click();
+    await page.locator('#meetingTitle').fill('새로 만든 모임');
+    await expect(page.locator('#meetingNameSort')).toBeVisible();
+    await expect(page.locator('#meetingNameSort option')).toHaveText(['정기 회의', '비정기 · 가상협의회', '비정기 · 샘플 모임', '비정기 · 기타']);
+    await page.locator('#meetingTitle').fill('샘플 정기회의');
+    await expect(page.locator('#meetingNameSort')).toBeHidden();
+  });
+}
+
+test('정리 칸을 못 읽으면(적용 전 서버) 모든 회의명을 펼쳐 보인다', async ({page}) => {
+  await page.setViewportSize({width: 390, height: 844});
+  const state = {sorts: undefined, writes: []};
+  await openEntry(page, state);
+  await page.locator('#meetingNameSelect').click();
+  await expect(panel(page)).toBeVisible();
+  await expect(picks(page)).toHaveText(['하반기 공동 기획회의(2차)', '가상지부 점검 회의', '샘플 정기회의', '가상협의회 대표자 회의', '한 번 모임']);
+  await expect(panel(page).locator('.mnp-grp')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(panel(page)).toBeHidden();
+});

@@ -242,7 +242,7 @@ test('[파일]: 두 번째 로딩 글자(맞추는 중) 없음, 불러오는 동
 test('전수 도구: 로딩 확인 없이 빈 결과 글을 그리는 곳은 기준표(검토 끝난 곳)보다 늘지 않는다', async () => {
   const {audit} = await import('../scripts/ops/loading-audit.mjs');
   // 검토 끝: 모두 읽은 뒤에만 부르는 그리기 함수(호출한 쪽이 기다림·실패를 먼저 처리). 새 곳이 생기면 호출하는 쪽의 로딩 처리를 확인하고 여기에 올린다.
-  const REVIEWED = {'calendar-tasks.js': 1, 'google-tasks.js': 1, 'library-folders.js': 1, 'meeting-columns.js': 2, 'note-boards.js': 1, 'project-system-v3.js': 1, 'report-views.js': 3, 'team.js': 1};
+  const REVIEWED = {'calendar-tasks.js': 1, 'google-tasks.js': 1, 'library-folders.js': 1, 'meeting-columns.js': 2, 'meeting-name-panel.js': 1 /* S53-20 회의 찾기 결과 없음 — 이미 받은 회의명 목록 안에서만 찾음(불러오기 없음) */, 'note-boards.js': 1, 'project-system-v3.js': 1, 'report-views.js': 3, 'team.js': 1};
   const over = [];
   for (const r of audit()) if (r.suspects.length > (REVIEWED[r.file] || 0)) over.push(`${r.file}: 로딩 확인 없는 빈 결과 글 ${r.suspects.length}곳(줄 ${r.suspects.join(', ')}) — 불러오는 동안 '없음'이 뜨지 않는지 확인하세요.`);
   assert.deepEqual(over, []);
