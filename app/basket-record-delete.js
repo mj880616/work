@@ -24,12 +24,12 @@ export const UNDO_MS=NOTICE_UNDO_MS; // UI-작은알림자리(2026-10-28 명진 
 export const RECORD_DELETE_TEXT=Object.freeze({
   DISCONNECT_FAILED:'연결을 해제하지 못했어요. 다시 시도해 주세요.',
   DISCONNECT_MISSING:'이미 해제된 연결이에요. 목록을 다시 불러왔어요.',
-  NOTE_FAILED:'업데이트를 지우지 못했어요. 다시 시도해 주세요.',
-  NOTE_MISSING:'업데이트를 찾을 수 없어요. 이미 지워졌을 수 있어요.',
+  NOTE_FAILED:'업데이트를 삭제하지 못했어요. 다시 시도해 주세요.',
+  NOTE_MISSING:'업데이트를 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
   NOTE_READ_FAILED:'업데이트 정보를 확인하지 못했어요. 다시 시도해 주세요.',
-  NOTE_DELETED:'업데이트를 지웠어요. 첨부 파일은 Drive에 남아 있어요.',
-  NOTE_DELETED_PLAIN:'업데이트를 지웠어요.',
-  NOTE_TRASHED:'업데이트를 지우고 첨부를 Drive 휴지통으로 옮겼어요.',
+  NOTE_DELETED:'업데이트를 삭제했어요. 첨부 파일은 Drive에 남아 있어요.',
+  NOTE_DELETED_PLAIN:'업데이트를 삭제했어요.',
+  NOTE_TRASHED:'업데이트를 삭제하고 첨부를 Drive 휴지통으로 옮겼어요.',
   NOTE_CHANGED:'업데이트가 바뀌었어요. 다시 불러온 뒤 확인해 주세요.',
   RESULT_UNKNOWN:'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.',
   BUSY:'처리 중이에요. 잠시 기다려 주세요.',
@@ -39,7 +39,7 @@ export const RECORD_DELETE_TEXT=Object.freeze({
   RESTORE_NOTE_MISSING:'업데이트를 찾을 수 없어 연결을 되돌리지 못했어요.',
   RESTORE_ARCHIVED:'보류한 업데이트라 연결을 되돌리지 못했어요. 보류를 해제한 뒤 다시 이어 주세요.',
   RESTORE_AI_EXCLUDED:'AI 제외로 표시된 업데이트라 연결을 되돌리지 못했어요.',
-  RESTORE_TARGET:'연결했던 곳을 찾거나 고를 수 없어 되돌리지 못했어요.',
+  RESTORE_TARGET:'연결했던 곳을 찾거나 선택할 수 없어 되돌리지 못했어요.',
 });
 
 export function noteDeleteConfirmText({places=0,otherLinks=0,attachments=0}={}){
@@ -56,11 +56,11 @@ export function noteDocDeleteConfirmText({places=0,otherLinks=0,attachments=0}={
     otherLinks?`사업 보고·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
     attachments?`첨부 파일 ${attachments}개는 노트에서만 빠지고 Drive에는 그대로 남아요.`:''].filter(Boolean).join(' ');
 }
-export const NOTE_DOC_DELETED=Object.freeze({plain:'노트를 지웠어요.',files:'노트를 지웠어요. 첨부 파일은 Drive에 그대로 남아 있어요.'});
+export const NOTE_DOC_DELETED=Object.freeze({plain:'노트를 삭제했어요.',files:'노트를 삭제했어요. 첨부 파일은 Drive에 그대로 남아 있어요.'});
 // Trash counts from the server. Unknown PATCH outcomes are named separately, never as success.
 export function noteDeleteResultText({failed=0,unknown=0}={}){
   if(!failed&&!unknown)return RECORD_DELETE_TEXT.NOTE_TRASHED;
-  return ['업데이트를 지웠어요.',failed?`첨부 ${failed}개는 Drive에 남았어요.`:'',
+  return ['업데이트를 삭제했어요.',failed?`첨부 ${failed}개는 Drive에 남았어요.`:'',
     unknown?`첨부 ${unknown}개는 휴지통 이동 결과를 확인하지 못했어요. Drive에서 확인해 주세요.`:''].filter(Boolean).join(' ');
 }
 
@@ -136,7 +136,7 @@ export const isLegacyNoteDeleteReply=({data,status})=>status===400&&data?.code==
 // Shared outcome shape: deleted | missing | failed | unknown | cancelled | busy | stale.
 // A thrown write is never guessed: the row is read again to report the real state.
 // S48-28: 확인은 공용 작은 확인창(anchor = 누른 버튼 근처, 기본은 부를 때 초점 둔 곳). ask(text)를 넘기면 그것으로 묻는다(Promise<boolean> 또는 boolean).
-const askFor=(kind,anchor)=>text=>askConfirm(anchor,{text,ok:kind==='link'?'해제':'지우기',danger:kind!=='link'});
+const askFor=(kind,anchor)=>text=>askConfirm(anchor,{text,ok:kind==='link'?'해제':'삭제',danger:kind!=='link'});
 async function remove(kind,id,{rt,isCurrent,confirmText,write,confirmed=false,ask}){
   const key=`${kind}:${id}`;
   if(pending.has(key))return {status:'busy',message:RECORD_DELETE_TEXT.BUSY};
@@ -323,6 +323,6 @@ async function readBack(path,rt,expectedSessionEpoch){
   try{
     return await exists(path,rt,expectedSessionEpoch)
       ?{status:'failed',message:RECORD_DELETE_TEXT.NOTE_FAILED}
-      :{status:'deleted',message:'업데이트를 지웠어요. 첨부의 휴지통 이동 결과는 Drive에서 확인해 주세요.'};
+      :{status:'deleted',message:'업데이트를 삭제했어요. 첨부의 휴지통 이동 결과는 Drive에서 확인해 주세요.'};
   }catch{return {status:'unknown',message:RECORD_DELETE_TEXT.RESULT_UNKNOWN};}
 }

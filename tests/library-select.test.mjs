@@ -36,7 +36,7 @@ test('delete runs one at a time, in order, and keeps only the failures', async (
   assert.equal(peak, 1);
   assert.deepEqual(order, ['a', 'b', 'c', 'd']);
   assert.deepEqual(r, {done: ['a', 'c'], failed: ['b', 'd'], skipped: []});
-  assert.match(resultText(r), /^2개를 지웠고 2개는 지우지 못했어요/);
+  assert.match(resultText(r), /^2개를 삭제했고 2개는 삭제하지 못했어요/);
 });
 test('a login or Drive connection problem stops the rest instead of retrying each', async () => {
   const calls = [];
@@ -50,6 +50,6 @@ test('leaving the screen stops further requests; a throwing delete counts as fai
   assert.deepEqual(r, {done: [], failed: ['a'], skipped: ['b', 'c']});
 });
 test('messages', () => {
-  assert.equal(confirmText(3), '3개를 지울까요?\nDrive 파일은 휴지통으로 이동해요(30일 뒤 사라짐).');
-  assert.equal(resultText({done: ['a', 'b'], failed: [], skipped: []}), '2개를 지웠어요.');
+  assert.equal(confirmText(3), '3개를 삭제할까요?\nDrive 파일은 휴지통으로 이동해요(30일 뒤 사라짐).');
+  assert.equal(resultText({done: ['a', 'b'], failed: [], skipped: []}), '2개를 삭제했어요.');
 });

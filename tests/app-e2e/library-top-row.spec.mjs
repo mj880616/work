@@ -14,7 +14,7 @@ const shownDocs=page=>page.locator('#documentList [data-lu-document]').evaluateA
 const tap=async(_page,locator)=>locator.click();
 const box=locator=>locator.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}});
 
-for(const width of [412,700,884])test(`자료실 ${width}: 위 한 줄 [찾기][분류 ▾][⋯] · 묶기는 아래 알약 · [분류 ▾] 창에서 고르고 [적용]`,async({page})=>{
+for(const width of [412,700,884])test(`자료실 ${width}: 위 한 줄 [찾기][분류 ▾][⋯] · 묶기는 아래 알약 · [분류 ▾] 창에서 선택하고 [적용]`,async({page})=>{
   test.setTimeout(90000);
   const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:DOCS});
   // 큰 제목·이름표 없음, 분류 칩 줄·[편집]은 숨음.
@@ -70,7 +70,7 @@ for(const width of [412,700,884])test(`자료실 ${width}: 위 한 줄 [찾기][
   expect(errors).toEqual([]);
 });
 
-test('자료실 PC 1280: 묶기 칩 줄·분류 칩 줄 + [편집] 그대로, [분류 ▾]는 없음, 이름표 없음',async({page})=>{
+test('자료실 PC 1280: 묶기 칩 줄·분류 칩 줄 + [수정] 그대로, [분류 ▾]는 없음, 이름표 없음',async({page})=>{
   test.setTimeout(60000);
   const {errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,docs:DOCS});
   await expect(pick(page)).toBeHidden();
@@ -82,7 +82,7 @@ test('자료실 PC 1280: 묶기 칩 줄·분류 칩 줄 + [편집] 그대로, [�
   expect(errors).toEqual([]);
 });
 
-test('자료실 폰 412: [분류 ▾] 창 소분류는 들여 쓴 줄, 고르면 그 소분류만',async({page})=>{
+test('자료실 폰 412: [분류 ▾] 창 소분류는 들여 쓴 줄, 선택하면 그 소분류만',async({page})=>{
   test.setTimeout(60000);
   const docs=[libDoc('w-1',null,{category:'주간보고›확정본'}),libDoc('w-2',null,{category:'주간보고›개인본'}),libDoc('p-1',null,{category:'정책'})];
   const {errors}=await bootLibrary(page,412,{docs});

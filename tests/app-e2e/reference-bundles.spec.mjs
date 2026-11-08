@@ -71,10 +71,10 @@ async function openNote(page,width){
 }
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
-for(const width of [390,1280])test(`[연결하기] [참고 ▾]로 고르기 → 저장 → 참고 묶음 화면 → 이름 바꾸기 → 주간 정리에 없음 ${width}`,async({page},info)=>{
+for(const width of [390,1280])test(`[연결하기] [참고 ▾]로 선택 → 저장 → 참고 묶음 화면 → 이름 바꾸기 → 주간 정리에 없음 ${width}`,async({page},info)=>{
  const f=await fixture(page,{width}),detail=await openNote(page,width);
  await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
- await expect(detail.locator('[data-manual-pick]')).toHaveText(['담당조직 고르기 ▾','사업영역 꼬리표 달기 ▾','참고 ▾']);
+ await expect(detail.locator('[data-manual-pick]')).toHaveText(['담당조직 선택 ▾','사업영역 꼬리표 달기 ▾','참고 ▾']);
  await tap(page,detail.locator('[data-manual-pick="reference"]'),width);
  const sheet=page.locator('#basketLinkChoiceSheet');await expect(sheet).toBeVisible();
  await expect(sheet.locator('h2')).toHaveText('참고 묶음 선택');
@@ -138,7 +138,7 @@ for(const width of [390,1280])test(`[연결하기] [참고 ▾]로 고르기 →
  expect(f.errors).toEqual([]);
 });
 
-test('참고 묶음 화면: 담당조직 목록 맨 아래 입구, 묶음 더하기·순서 바꾸기·빈 묶음만 지우기, 연결 해제 5초 되돌리기 1280',async({page})=>{
+test('참고 묶음 화면: 담당조직 목록 맨 아래 입구, 묶음 더하기·순서 바꾸기·빈 묶음만 삭제, 연결 해제 5초 되돌리기 1280',async({page})=>{
  const f=await fixture(page,{width:1280});
  f.links.push({id:'40000000-0000-4000-8000-000000000101',workspace_id:'w',note_id:n,status:'confirmed',summary:'합성 참고 요약',organization_id:null,project_id:null,bundle_id:b1,meeting_id:null,document_id:null});
  await page.locator('.app-nav [data-view="team"]').click();
@@ -177,9 +177,9 @@ test('참고 묶음 화면: 담당조직 목록 맨 아래 입구, 묶음 더하
  const fresh=f.bundles.find(b=>b.name==='합성 새 묶음');
  await page.locator(`#rbList [data-rb-bundle="${fresh.id}"]`).click();
  await page.locator('#rbDetail [data-rb-detail-more]').click();
- await expect(page.locator('#rbMenu button')).toHaveText(['이름 바꾸기','묶음 지우기']);
+ await expect(page.locator('#rbMenu button')).toHaveText(['이름 바꾸기','묶음 삭제']);
  await page.locator('#rbMenu [data-rb-act="delete"]').click();
- expect(await answerAsk(page,true)).toContain('묶음을 지울까요?');
+ expect(await answerAsk(page,true)).toContain('묶음을 삭제할까요?');
  await expect(page.locator('#rbList [data-rb-bundle]')).toHaveCount(3);
  expect(f.writes.filter(w=>w.method==='DELETE'&&w.table==='bundles')).toHaveLength(1);
 
@@ -236,7 +236,7 @@ test('폰: 참고 묶음 목록 → 상세, 뒤로 가기 한 칸이면 목록�
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`홈 [업데이트 ▾] 기록할 곳 시트: 맨 아래 참고 덩어리, 참고만 고르면 정리함 업데이트 + 참고 연결 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`홈 [업데이트 ▾] 기록할 곳 시트: 맨 아래 참고 덩어리, 참고만 선택하면 정리함 업데이트 + 참고 연결 ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  const posted=[];
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();posted.push(body);return r.fulfill({status:201,json:[{id:'10000000-0000-4000-8000-0000000000b1',workspace_id:'w',kind:'basket',occurred_at:stamp,created_at:stamp,updated_at:stamp,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{},...body}]});});

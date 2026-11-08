@@ -14,12 +14,12 @@ async function openEditor(page,width){
   await expect(modal(page)).toBeVisible();await expect(row(page,'교섭')).toBeVisible();
 }
 
-for(const width of [412,884,1280])test(`분류 고치기 ${width}: 한 줄 모양 · 그 자리 이름 고치기 · ⋯ 메뉴 · 지우기 한 번 묻기 · ⠿ 순서 서버 저장`,async({page})=>{
+for(const width of [412,884,1280])test(`분류 수정 ${width}: 한 줄 모양 · 그 자리 이름 수정 · ⋯ 메뉴 · 삭제 한 번 묻기 · ⠿ 순서 서버 저장`,async({page})=>{
   test.setTimeout(90000);
   const {s,errors}=await bootLibrary(page,width,{docs:DOCS,init:{documentCategories:[...CATS]}});
   await openEditor(page,width);
   // 제목·수, 긴 안내문·큰 버튼·빨강 없음.
-  await expect(modal(page).locator('h2')).toHaveText('분류 고치기12개');
+  await expect(modal(page).locator('h2')).toHaveText('분류 수정12개');
   await expect(modal(page).locator('.dce-note,.danger,[data-dce-delete],[data-dce-add-sub]')).toHaveCount(0);
   await expect(modal(page).locator('.le-row:not(.le-editing) button:not(.le-handle):not(.le-name):not(.le-more)')).toHaveCount(0);
   // 줄: ⠿ · 이름 · 수 · ⋯. 소분류는 들여 쓴 줄, 큰 분류는 '수 · 소분류 n'.
@@ -45,8 +45,8 @@ for(const width of [412,884,1280])test(`분류 고치기 ${width}: 한 줄 모�
   await row(page,'선전').locator('.le-name').click();await input.press('Escape');await expect(input).toHaveCount(0);await expect(row(page,'선전')).toBeVisible();
   // ⋯ 메뉴: [+ 소분류]·[이름 바꾸기]·[지우기](같은 색). 지우기는 한 번 묻고(빨강 없음) 지운다.
   await row(page,'투쟁').locator('.le-more').click();
-  const menu=page.locator('#dceMenu');await expect(menu.getByRole('button')).toHaveText(['+ 소분류','이름 바꾸기','지우기']);
-  await menu.getByRole('button',{name:'지우기'}).click();
+  const menu=page.locator('#dceMenu');await expect(menu.getByRole('button')).toHaveText(['+ 소분류','이름 바꾸기','삭제']);
+  await menu.getByRole('button',{name:'삭제'}).click();
   const ask=page.locator('.kptu-ask');await expect(ask).toBeVisible();await expect(ask.locator('.danger')).toHaveCount(0);
   await ask.locator('.kptu-ask-actions button').nth(1).click();
   await expect(row(page,'투쟁')).toHaveCount(0);
@@ -72,7 +72,7 @@ for(const width of [412,884,1280])test(`분류 고치기 ${width}: 한 줄 모�
   expect(errors).toEqual([]);
 });
 
-test('분류 고치기: 다른 기기에서 목록이 바뀐 뒤 순서를 바꾸면 덮어쓰지 않고 최신 목록을 다시 그린다',async({page})=>{
+test('분류 수정: 다른 기기에서 목록이 바뀐 뒤 순서를 바꾸면 덮어쓰지 않고 최신 목록을 다시 그린다',async({page})=>{
   test.setTimeout(60000);
   const {s,errors}=await bootLibrary(page,1280,{docs:DOCS,init:{documentCategories:[...CATS]}});
   await openEditor(page,1280);

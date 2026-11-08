@@ -169,20 +169,20 @@ function cleanPastedHtml(html) {
 
 // The row: [key, label, aria, group]. Under [⋯]: MORE.
 const BUTTONS = [
-  ['style', '본문 2 ▾', '글 단계 고르기', 'style'],
+  ['style', '본문 2 ▾', '글 단계 선택', 'style'],
   ['strong', '굵게', null, 'mark'], ['em', '기울임', null, 'mark'], ['underline', '밑줄', null, 'mark'],
-  ['color', '글자색 ▾', '글자색 고르기', 'paint'], ['highlight', '형광펜 ▾', '형광펜 고르기', 'paint'],
-  ['align', '왼쪽 ▾', '정렬 고르기', 'align'],
-  ['bullet', '목록 ▾', '글머리 목록 고르기', 'list'], ['ordered', '번호 ▾', '번호 목록 고르기', 'list'],
+  ['color', '글자색 ▾', '글자색 선택', 'paint'], ['highlight', '형광펜 ▾', '형광펜 선택', 'paint'],
+  ['align', '왼쪽 ▾', '정렬 선택', 'align'],
+  ['bullet', '목록 ▾', '글머리 목록 선택', 'list'], ['ordered', '번호 ▾', '번호 목록 선택', 'list'],
   ['table', '표 ▾', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['file', '파일', '파일 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
-  ['symDot', '· ▾', '점 기호 고르기', 'sym'], ['symNote', '※ ▾', '참고 기호 고르기', 'sym'], ['symArrow', '→ ▾', '화살표 고르기', 'sym'], ['symCircled', '① ▾', '동그라미 번호 고르기', 'sym'],
+  ['symDot', '· ▾', '점 기호 선택', 'sym'], ['symNote', '※ ▾', '참고 기호 선택', 'sym'], ['symArrow', '→ ▾', '화살표 선택', 'sym'], ['symCircled', '① ▾', '동그라미 번호 선택', 'sym'],
   ['undo', '↶', '되돌리기', 'history'], ['redo', '↷', '다시하기', 'history'],
 ];
 const PLAIN_PASTE_HINT = '복사한 글의 색·크기·표는 빼고 글자만 붙여요 (Ctrl+Shift+V)';
 const MORE = [
   ['strike', '취소선', null], ['quote', '인용', null], ['rule', '구분선', null],
-  ['indent', '들여쓰기', null], ['outdent', '내어쓰기', null], ['clear', '서식 지우기', null],
-  ['plainPaste', '서식 없이 붙여넣기', null], ['symBracket', '「」 ▾', '괄호·단위 기호 고르기'],
+  ['indent', '들여쓰기', null], ['outdent', '내어쓰기', null], ['clear', '서식 삭제', null],
+  ['plainPaste', '서식 없이 붙여넣기', null], ['symBracket', '「」 ▾', '괄호·단위 기호 선택'],
 ];
 const ALIGNS = [['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽'], ['justify', '양쪽']];
 // Signs that open a row of similar signs (사용자 19:33: 비슷한 기호 펼치기). The first one is the button's own sign.
@@ -197,15 +197,15 @@ const TABLE_TOOLS = [
   ['rowBefore', '위에 줄', '위에 줄 넣기'], ['rowAfter', '아래에 줄', '아래에 줄 넣기'],
   ['colBefore', '왼쪽에 칸', '왼쪽에 칸 넣기'], ['colAfter', '오른쪽에 칸', '오른쪽에 칸 넣기'],
   ['rowDel', '줄 삭제', null], ['colDel', '칸 삭제', null], ['merge', '칸 합치기', null], ['split', '칸 나누기', null],
-  ['head', '머리줄', null], ['fit', '글자에 맞추기', '표 폭을 글자에 맞추기'], ['select', '표 선택', '표 전체 선택'], ['tableDel', '표 지우기', null],
+  ['head', '머리줄', null], ['fit', '글자에 맞추기', '표 폭을 글자에 맞추기'], ['select', '표 선택', '표 전체 선택'], ['tableDel', '표 삭제', null],
 ];
 const GRID = {rows: 6, cols: 8};
 // ED-서식줄묶음: [key, label, aria, items (button keys, in order)] — a phone's grouped row (see the top of this file).
 const GROUPS = [
-  ['gText', '글자 ▾', '글자 서식 고르기', ['em', 'underline', 'strike', 'color', 'highlight', 'clear']],
-  ['gPara', '문단 ▾', '문단 서식 고르기', ['align', 'bullet', 'ordered', 'indent', 'outdent', 'quote', 'rule']],
-  ['gInsert', '넣기 ▾', '넣을 것 고르기', ['table', 'photo', 'file', 'link', 'plainPaste']],
-  ['gSym', '기호 ▾', '기호 고르기', ['symNote', 'symArrow', 'symCircled', 'symBracket']],
+  ['gText', '글자 ▾', '글자 서식 선택', ['em', 'underline', 'strike', 'color', 'highlight', 'clear']],
+  ['gPara', '문단 ▾', '문단 서식 선택', ['align', 'bullet', 'ordered', 'indent', 'outdent', 'quote', 'rule']],
+  ['gInsert', '넣기 ▾', '넣을 것 선택', ['table', 'photo', 'file', 'link', 'plainPaste']],
+  ['gSym', '기호 ▾', '기호 선택', ['symNote', 'symArrow', 'symCircled', 'symBracket']],
 ];
 const GROUP_KEYS = GROUPS.map(g => g[0]);
 // UI-화면정리 C(2026-10-28 명진 요청 20:03 B④): 폰도 PC와 같은 [· ▾] 한 칸(따로 있던 [·][▾] 두 칸은 하나로). 점은 펼친 목록 맨 앞.
@@ -362,7 +362,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   panels.symCircled = panel('ed-sym-menu', '동그라미 번호', true);
   for (const sign of CIRCLED_PICK) panels.symCircled.append(btn(sign, {edSym: sign}, `${sign} 넣기`));
   // [표]: a grid of rows × columns; the picked size shows beside it.
-  panels.grid = panel('ed-grid-menu', '표 크기 고르기', true);
+  panels.grid = panel('ed-grid-menu', '표 크기 선택', true);
   const grid = document.createElement('div'); grid.className = 'ed-grid';
   grid.style.setProperty('--ed-grid-cols', String(GRID.cols));
   for (let r = 1; r <= GRID.rows; r++) for (let c = 1; c <= GRID.cols; c++) grid.append(btn('', {edGridR: String(r), edGridC: String(c)}, `${r}줄 ${c}칸 표`));
@@ -374,7 +374,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const linkInput = Object.assign(document.createElement('input'), {type: 'url', className: 'ed-link-input', placeholder: 'https://…', autocomplete: 'off'});
   linkInput.setAttribute('aria-label', '링크 주소'); linkInput.spellcheck = false;
   const linkOk = btn('넣기', {edLinkOk: ''}, '링크 넣기 확인'), linkOff = btn('링크 빼기', {edLinkOff: ''});
-  const tableRow = panel('ed-table-tools', '표 고치기');
+  const tableRow = panel('ed-table-tools', '표 수정');
   for (const [key, text, aria] of TABLE_TOOLS) tableRow.append(btn(text, {edTable: key}, aria));
   // S48-21 사진 나란히: shown while one photo is chosen (like the table tools row).
   const photoTools = panel('ed-photo-tools', '사진 놓기');
@@ -705,7 +705,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       const map = pm.TableMap.get(other);
       dispatch(state.tr.setSelection(pm.CellSelection.create(state.doc, at + 1 + map.map[0], at + 1 + map.map[map.map.length - 1])).scrollIntoView());
     } else dispatch(state.tr.setSelection(pm.NodeSelection.create(state.doc, at)).scrollIntoView());
-    say(other.type === N.table ? '표를 선택했어요. 한 번 더 누르면 지워요.' : '선택했어요. 한 번 더 누르면 지워요.');
+    say(other.type === N.table ? '표를 선택했어요. 한 번 더 누르면 삭제해요.' : '선택했어요. 한 번 더 누르면 삭제해요.');
     return true;
   };
   // ↑ in a table's first row / ↓ in its last row: out of the table. When no line is there (the table starts the text, or
@@ -1018,7 +1018,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (depth < 0) return;
     const $f = st.selection.$from, table = $f.node(depth), start = $f.start(depth), map = pm.TableMap.get(table);
     view.dispatch(st.tr.setSelection(pm.CellSelection.create(st.doc, start + map.map[0], start + map.map[map.map.length - 1])));
-    say('표를 선택했어요. Delete나 Backspace로 지워요.');
+    say('표를 선택했어요. Delete나 Backspace로 삭제해요.');
   }
   function tableCmd(key) {
     const st = view.state;
@@ -1034,7 +1034,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const cmds = {rowBefore: pm.addRowBefore, rowAfter: pm.addRowAfter, colBefore: pm.addColumnBefore, colAfter: pm.addColumnAfter,
       rowDel: pm.deleteRow, colDel: pm.deleteColumn, merge: pm.mergeCells, split: pm.splitCell, tableDel: pm.deleteTable};
     if (cmds[key] && !cmds[key](st, view.dispatch) && (key === 'merge' || key === 'split'))
-      say(key === 'merge' ? '합칠 칸을 끌어서 둘 이상 골라 주세요.' : '나눌 수 있는 합친 칸이 아니에요.');
+      say(key === 'merge' ? '합칠 칸을 끌어서 둘 이상 선택해 주세요.' : '나눌 수 있는 합친 칸이 아니에요.');
   }
   // ED-폰표칸버튼: [넓게] [좁게] change the cursor's column by STEP px, [고르게] makes all columns the same; saved as the cells'
   // colwidth (one undo step), like the corner handle. A full table gives the room from its widest other column.
@@ -1316,7 +1316,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const pickPhotos = () => pickFrom('image/*', async chosen => {
     const {pictures} = await splitPictures(chosen);
     if (view.isDestroyed) return;
-    if (!pictures.length) { if (chosen.length) showNote('고른 파일을 사진으로 알아보지 못했어요. JPEG·PNG 같은 사진을 골라 주세요.'); return; }
+    if (!pictures.length) { if (chosen.length) showNote('선택한 파일을 사진으로 알아보지 못했어요. JPEG·PNG 같은 사진을 선택해 주세요.'); return; }
     return filesFrom(pictures);
   });
   const pickFiles = () => pickFrom('', chosen => files ? filesIn(chosen) : chosen.length && onFiles?.(chosen));

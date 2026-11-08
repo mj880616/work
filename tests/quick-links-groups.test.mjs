@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-// UI-자주가는링크편집: 분류 목록 읽기·검사, 링크/분류 옮기기·지우기 계산, 분류 칸이 없을 때(적용 전)의 읽기, 한 번의 PATCH 저장. 화면 없이 모델만.
+// UI-자주가는링크편집: 분류 목록 읽기·검사, 링크/분류 옮기기·삭제 계산, 분류 칸이 없을 때(적용 전)의 읽기, 한 번의 PATCH 저장. 화면 없이 모델만.
 const mod = import('../app/quick-links.js');
 const L = (group, name = group + '링크', url = 'https://a.org/' + name) => ({group, name, url});
 const G = (id, name = id) => ({id, name});

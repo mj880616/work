@@ -73,7 +73,7 @@ export const SUMMARY_BLANK_TEXT='요약을 비워 저장하는 기능은 아직 
 // Korean IME composition is ignored. The coming common Enter-save rule (UI-엔터저장) uses the same keys.
 export const SUMMARY_ERROR_TEXT=Object.freeze({
   NOT_FOUND:'이 연결 기록을 찾거나 열 수 없어요.',
-  PERMISSION_DENIED:'이 기록 요약을 고칠 권한이 없어요.',
+  PERMISSION_DENIED:'이 기록 요약을 수정할 권한이 없어요.',
   FUNCTION_UNAVAILABLE:'요약 수정 기능이 아직 준비되지 않았어요.',
   INVALID_INPUT:'기록 요약의 글자와 길이를 확인해 주세요.',
   SUMMARY_CHANGED:'다른 곳에서 요약이 바뀌었어요. 최신 내용을 확인해 주세요.',
@@ -181,7 +181,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
   }
   function applyAi(state,form,use){
     if(!state.ai.proposal)return;
-    if(use){form.querySelector('textarea').value=state.ai.proposal;state.ai.status='제안으로 바꿨어요. 아직 저장 전이에요. 고친 뒤 [저장]을 눌러 주세요.';}else state.ai.status='';
+    if(use){form.querySelector('textarea').value=state.ai.proposal;state.ai.status='제안으로 바꿨어요. 아직 저장 전이에요. 수정한 뒤 [저장]을 눌러 주세요.';}else state.ai.status='';
     state.ai.proposal='';paintAi(state,form,use?'input':'run');
   }
   async function latest(state,form,run,owner){

@@ -13,7 +13,7 @@ for(const width of [390,1280]){
     await expect(rows(page)).toHaveCount(5);
     await remove(page,'n1');
     await expect(rows(page)).toHaveCount(4);
-    await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('지웠어요');
+    await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('삭제했어요');
     await page.locator('#kptuNotice .kptu-notice-undo').click();
     await expect(rows(page)).toHaveCount(5);
     await page.waitForTimeout(7000);
@@ -38,7 +38,7 @@ for(const width of [390,1280]){
     await remove(page,'n1');
     await expect(rows(page)).toHaveCount(4);
     await expect(page.locator('[data-lu-document="n1"]')).toHaveCount(1,{timeout:15000});
-    await expect(page.locator('#kptuNotice.error .kptu-notice-text')).toHaveText('지우지 못해 목록에 되살렸어요.');
+    await expect(page.locator('#kptuNotice.error .kptu-notice-text')).toHaveText('삭제하지 못해 목록에 되살렸어요.');
     expect(state.deletes).toEqual([{action:'delete',document_id:'n1'}]);expect(dialogs).toEqual([]);expect(state.errors).toEqual([]);
   });
   test(`library quick delete: leaving the library sends at once ${width}px`,async({page})=>{

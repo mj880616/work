@@ -288,7 +288,7 @@ function menuHtml(key) {
   return '<button type="button" data-ql-act="rename">이름 바꾸기</button>'
     + (index > 0 ? '<button type="button" data-ql-act="up">위로</button>' : '')
     + (index < state.draftGroups.length - 1 ? '<button type="button" data-ql-act="down">아래로</button>' : '')
-    + (state.draftGroups.length > 1 ? '<hr class="ql-menu-sep" role="separator"><button type="button" class="ql-menu-danger" data-ql-act="delete">분류 지우기</button>' : '');
+    + (state.draftGroups.length > 1 ? '<hr class="ql-menu-sep" role="separator"><button type="button" class="ql-menu-danger" data-ql-act="delete">분류 삭제</button>' : '');
 }
 
 function viewHtml() {
@@ -301,16 +301,16 @@ function viewHtml() {
     return `<section class="ql-group" aria-label="${esc(name)}"><h3>${esc(name)}</h3>${list}</section>`;
   }).join('');
   const loading = state.status === 'loading' && !state.links;
-  return `<div class="ql-head anchored-drag-title"><h2>자주 가는 링크</h2><button type="button" class="ql-btn" data-ql-edit ${loading ? 'disabled' : ''}>편집</button></div>`
+  return `<div class="ql-head anchored-drag-title"><h2>자주 가는 링크</h2><button type="button" class="ql-btn" data-ql-edit ${loading ? 'disabled' : ''}>수정</button></div>`
     + (loading ? waitHtml({rows:3}) : sections)
     + `<p class="ql-note" role="status" aria-live="polite">${esc(state.note)}</p>`;
 }
 
 function confirmHtml(id) {
   const target = moveTarget(state.draftGroups, id), count = state.draft.filter(row => row.group === id).length;
-  return `<div class="ql-confirm" role="group" aria-label="분류 지우기 확인"><p>링크 ${count}개가 들어 있어요. 같이 지울까요, '${esc(target?.name || ETC_NAME)}'로 옮길까요?</p>`
+  return `<div class="ql-confirm" role="group" aria-label="분류 삭제 확인"><p>링크 ${count}개가 들어 있어요. 같이 삭제할까요, '${esc(target?.name || ETC_NAME)}'로 옮길까요?</p>`
     + `<div class="ql-confirm-btns"><button type="button" class="ql-btn" data-ql-confirm="move">'${esc(target?.name || ETC_NAME)}'로 옮기기</button>`
-    + '<button type="button" class="ql-btn ql-remove" data-ql-confirm="delete">같이 지우기</button><button type="button" class="ql-btn" data-ql-confirm="cancel">취소</button></div></div>';
+    + '<button type="button" class="ql-btn ql-remove" data-ql-confirm="delete">같이 삭제</button><button type="button" class="ql-btn" data-ql-confirm="cancel">취소</button></div></div>';
 }
 
 function editHtml() {
@@ -323,7 +323,7 @@ function editHtml() {
         + `<input class="ql-url" data-ql-field="url" data-ql-index="${index}" value="${esc(row.url)}" placeholder="https://" aria-label="주소" inputmode="url" spellcheck="false" autocomplete="off">`
         + `<button type="button" class="ql-btn ql-remove" data-ql-remove="${index}" aria-label="${esc(row.name || '새 링크')} 삭제">삭제</button></li>`).join('')}</ol>`
       : emptyHtml();
-    return `<section class="ql-group" data-ql-group="${esc(id)}" aria-label="${esc(name)} 편집"><div class="ql-group-head">`
+    return `<section class="ql-group" data-ql-group="${esc(id)}" aria-label="${esc(name)} 수정"><div class="ql-group-head">`
       // WEEKLY-손잡이왼쪽(요청함 11/08 00:18 같은 종류 전수): 끌어 옮기는 줄의 ⠿는 줄 맨 왼쪽 — 분류 제목 줄도 '⠿ 이름 … ✎ ⋯'.
       + `<button type="button" class="ql-handle" draggable="true" data-ql-ghandle="${esc(id)}" aria-label="분류 순서 바꾸기(끌거나 위·아래 화살표)">⠿</button>`
       + `<h3 class="ql-gname" data-ql-gname="${esc(id)}">${esc(name)}</h3>`
@@ -332,7 +332,7 @@ function editHtml() {
       + `<button type="button" class="ql-icon" data-ql-menu="g:${esc(id)}" aria-haspopup="menu" aria-expanded="false" aria-label="분류 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`
       + (state.confirm === id ? confirmHtml(id) : '') + list + '</section>';
   }).join('');
-  return '<div class="ql-head anchored-drag-title"><h2>자주 가는 링크 편집</h2><button type="button" class="ql-btn ql-add" data-ql-menu="add" aria-haspopup="menu" aria-expanded="false">+ 추가</button></div>'
+  return '<div class="ql-head anchored-drag-title"><h2>자주 가는 링크 수정</h2><button type="button" class="ql-btn ql-add" data-ql-menu="add" aria-haspopup="menu" aria-expanded="false">+ 추가</button></div>'
     + sections
     + `<p class="ql-note" role="status" aria-live="polite">${esc(state.note)}</p>`
     + `<div class="ql-foot"><button type="button" class="ql-btn" data-ql-cancel>취소</button><button type="button" class="ql-btn ql-primary" data-ql-save ${state.saving ? 'disabled aria-busy="true"' : ''}>${state.saving ? '저장 중…' : '저장'}</button></div>`;
@@ -399,7 +399,7 @@ function dirty() {
 function onOutside(event) {
   if (panel.contains(event.target) || state.trigger?.contains(event.target) || event.target.closest?.('.ql-menu')) return;
   // 고치던 내용이 있으면 바깥을 눌러도 버리지 않는다(저장 또는 취소).
-  if (state.editing && dirty()) { state.note = '고친 내용이 있어요. [저장] 또는 [취소]를 눌러 주세요.'; render(); return; }
+  if (state.editing && dirty()) { state.note = '수정한 내용이 있어요. [저장] 또는 [취소]를 눌러 주세요.'; render(); return; }
   close({focus: false});
 }
 function onEscape(event) {
@@ -413,8 +413,8 @@ function onEscape(event) {
   close();
 }
 function enterEdit() {
-  if (state.status === 'pending') { state.note = '저장 준비 중이에요. 저장 칸이 준비되면 편집할 수 있어요(지금은 저장된 링크를 그대로 보여 줘요).'; render({focus: '[data-ql-edit]'}); return; }
-  if (state.status !== 'ok') { state.note = '목록을 불러오지 못해 편집할 수 없어요. 창을 닫았다 다시 열어 주세요.'; render({focus: '[data-ql-edit]'}); return; }
+  if (state.status === 'pending') { state.note = '저장 준비 중이에요. 저장 칸이 준비되면 수정할 수 있어요(지금은 저장된 링크를 그대로 보여 줘요).'; render({focus: '[data-ql-edit]'}); return; }
+  if (state.status !== 'ok') { state.note = '목록을 불러오지 못해 수정할 수 없어요. 창을 닫았다 다시 열어 주세요.'; render({focus: '[data-ql-edit]'}); return; }
   state.editing = true; state.note = ''; state.confirm = ''; state.lastGroup = '';
   state.draft = state.links.map(link => ({...link}));
   state.draftGroups = copyGroups(state.groups);
@@ -486,7 +486,7 @@ function finishRename(commit) {
   heading.textContent = name;
   if (input.isConnected) input.replaceWith(heading);
   const section = heading.closest('[data-ql-group]');
-  section?.setAttribute('aria-label', `${name} 편집`);
+  section?.setAttribute('aria-label', `${name} 수정`);
   const note = panel.querySelector('.ql-note');
   if (note) note.textContent = state.note;
 }
@@ -537,7 +537,7 @@ function applyRemove(id, mode) {
   if (!result) { render(); return; }
   state.draftGroups = result.groups; state.draft = result.rows;
   state.note = mode === 'move' && result.moved ? `링크 ${result.moved}개를 '${result.target.name}'로 옮겼어요. [저장]을 눌러야 반영돼요.`
-    : mode === 'delete' && result.deleted ? `분류와 링크 ${result.deleted}개를 지웠어요. [저장]을 눌러야 반영돼요.` : '';
+    : mode === 'delete' && result.deleted ? `분류와 링크 ${result.deleted}개를 삭제했어요. [저장]을 눌러야 반영돼요.` : '';
   render({focus: '[data-ql-menu="add"]'});
 }
 

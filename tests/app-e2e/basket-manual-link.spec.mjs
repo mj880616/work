@@ -104,7 +104,7 @@ test('an already linked place is shown as linked and cannot be chosen again; a r
 
 test('no pick never calls the database',async({page})=>{
  const f=await fixture(page),detail=await openNote(page,1280);await detail.getByRole('button',{name:'연결하기'}).click();
- await detail.getByRole('button',{name:'연결',exact:true}).click();await expect(detail.locator('[data-manual-status]')).toHaveText('연결할 담당조직이나 사업영역을 골라 주세요.');
+ await detail.getByRole('button',{name:'연결',exact:true}).click();await expect(detail.locator('[data-manual-status]')).toHaveText('연결할 담당조직이나 사업영역을 선택해 주세요.');
  expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -160,7 +160,7 @@ test('cancel asks only when something was picked, and leaving the view asks abou
  page.once('dialog',d=>{asked.push(d.message());d.dismiss();});await page.evaluate(()=>window.KPTURouter.go('home'));
  await expect(page.locator('#basketView')).toBeVisible();await expect(summary(detail,o,'organization')).toHaveValue('쓰던 요약');
  await page.keyboard.press('Escape');asked.push(await answerAsk(page,true));await expect(detail.locator('[data-manual-link]')).toHaveCount(0);
- expect(asked).toEqual(['고른 곳과 쓰던 요약을 버리고 닫을까요?','작성 중인 연결·할 일 입력을 버리고 다른 화면으로 갈까요?','고른 곳과 쓰던 요약을 버리고 닫을까요?']);
+ expect(asked).toEqual(['선택한 곳과 쓰던 요약을 삭제하고 닫을까요?','작성 중인 연결·할 일 입력을 버리고 다른 화면으로 갈까요?','선택한 곳과 쓰던 요약을 삭제하고 닫을까요?']);
  expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -238,11 +238,11 @@ test('the task form is not rebuilt when the project list arrives, so a tap in pr
 });
 
 // S52-01 ③a UI-사업영역조직고르기창: [연결하기]의 담당조직·사업영역은 모든 화면과 같은 고르기 창 하나(찾기·여러 개·[넣기], 바깥·✕ = 취소).
-for(const width of [390,1280])test(`S52-01 ③a: [연결하기] 담당조직은 같은 고르기 창 — 여러 개 [넣기], 다시 열면 눌린 채, 빼면 빠짐, 닫기는 취소 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`S52-01 ③a: [연결하기] 담당조직은 같은 선택 창 — 여러 개 [넣기], 다시 열면 눌린 채, 빼면 빠짐, 닫기는 취소 ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await fixture(page),detail=await openNote(page,width);
  await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
  await tap(page,detail.locator('[data-manual-pick="organization"]'),width);
- const sheet=page.locator(AOP_SHEET);await expect(sheet).toBeVisible();await expect(sheet.locator('h2')).toHaveText('담당조직 고르기');
+ const sheet=page.locator(AOP_SHEET);await expect(sheet).toBeVisible();await expect(sheet.locator('h2')).toHaveText('담당조직 선택');
  // 찾기 칸은 폰에도 있다. 찾으면 접힌 묶음 안의 조직도 보인다.
  const find=sheet.locator('[data-sheet-search]');await expect(find).toBeVisible();await find.fill('새벽');
  await expect(sheet.locator(`[data-sheet-value="o:${o2}"]`)).toBeVisible();await expect(sheet.locator(`[data-sheet-value="o:${o}"]`)).toBeHidden();await find.fill('');

@@ -14,7 +14,7 @@ const mark=(page,key)=>libraryNodeHead(page,key).locator('.lu-folder-shape .ft-i
 const colorOfMark=el=>el.locator('svg').first().evaluate(x=>getComputedStyle(x).color);
 async function pickColor(page,key,name,width){
   await press(page,menuButton(page,key),width);
-  await press(page,folderMenuItem(page,'색 고르기…'),width);
+  await press(page,folderMenuItem(page,'색 선택…'),width);
   const choice=page.locator('#luFolderMenu .fl-choice');await expect(choice).toBeVisible();
   await press(page,choice.getByRole('radio',{name,exact:true}),width);
   await expect(page.locator('#luFolderMenu')).toBeHidden();
@@ -22,12 +22,12 @@ async function pickColor(page,key,name,width){
 
 for(const width of [1440,412])test.describe(`자료실 폴더 색 ${width}`,()=>{
   test.use({hasTouch:width<761});
-  test(`색을 고르면 저장되고 새로고침해도 유지, [기본]으로 되돌림, 같은 폴더는 다른 화면에서 같은 색 ${width}`,async({page},info)=>{
+  test(`색을 선택하면 저장되고 새로고침해도 유지, [기본]으로 되돌림, 같은 폴더는 다른 화면에서 같은 색 ${width}`,async({page},info)=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     // 안 고른 폴더는 기본 노랑 폴더 그림, 색 번호 속성 없음.
     await expect(mark(page,'f:fa').locator('svg')).toBeVisible();await expect(page.locator('#documentList [data-fc]')).toHaveCount(0);
     // 메뉴: [색 고르기…]가 있고, 고르는 줄은 동그라미 8개 + [기본]이며 이름이 붙어 있다.
-    await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'색 고르기…'),width);
+    await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'색 선택…'),width);
     const choice=page.locator('#luFolderMenu .fl-choice');await expect(choice.getByRole('radio')).toHaveCount(9);
     await expect(choice.getByRole('radio',{name:'청록',exact:true})).toBeVisible();await expect(choice.getByRole('radio',{name:'기본',exact:true})).toHaveAttribute('aria-checked','true');
     const box=await page.locator('#luFolderMenu').boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);
@@ -40,7 +40,7 @@ for(const width of [1440,412])test.describe(`자료실 폴더 색 ${width}`,()=>
     expect(await colorOfMark(mark(page,'f:fa'))).toBe(RGB.light[4]);
     await expect(mark(page,'f:fa').locator('svg')).toBeVisible();
     // 다시 열면 고른 색에 표시(aria-checked).
-    await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'색 고르기…'),width);
+    await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'색 선택…'),width);
     await expect(page.locator('#luFolderMenu .fl-choice').getByRole('radio',{name:'청록',exact:true})).toHaveAttribute('aria-checked','true');
     await page.keyboard.press('Escape');
 

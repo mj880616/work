@@ -10,13 +10,13 @@ const rowSel=id=>`#documentList [data-lu-document="${id}"]`;
 
 for(const width of [390,1280])test.describe(`자료실 맨 위 ⋯ · 같은 글 한 줄 ${width}`,()=>{
   test.use({hasTouch:width<761});
-  test(`맨 위 ⋯ 메뉴 하나로 새 폴더·여러 개 고르기·모두 펴기/접기 ${width}`,async({page})=>{
+  test(`맨 위 ⋯ 메뉴 하나로 새 폴더·여러 개 선택·모두 펴기/접기 ${width}`,async({page})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더'});
     await expect(page.locator('#libraryExpandAll,#librarySelectBtn')).toHaveCount(0);
     await expect(page.locator('#libraryListCard .lu-select-row')).toBeHidden();
     // 메뉴 항목과 차례.
     await press(page,page.locator('#libraryTopMenuBtn'),width);
-    await expect(page.locator('#luTopMenu button')).toHaveText(['새 폴더','여러 개 고르기','모두 펴기']);
+    await expect(page.locator('#luTopMenu button')).toHaveText(['새 폴더','여러 개 선택','모두 펴기']);
     await page.keyboard.press('Escape');await expect(page.locator('#luTopMenu')).toBeHidden();
     // 모두 펴기 ↔ 모두 접기.
     await libraryTopMenu(page,'expand',{tap:width<761});await expect(page.locator('#documentList details[data-lu-node]:not([open])')).toHaveCount(0);
@@ -33,7 +33,7 @@ for(const width of [390,1280])test.describe(`자료실 맨 위 ⋯ · 같은 글
     expect(errors).toEqual([]);
   });
 
-  test(`같은 글 원본 두 줄은 한 줄 + [원본 2], 펼치면 둘 다, 접힌 줄을 고르면 둘 다 ${width}`,async({page})=>{
+  test(`같은 글 원본 두 줄은 한 줄 + [원본 2], 펼치면 둘 다, 접힌 줄을 선택하면 둘 다 ${width}`,async({page})=>{
     const {errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더'});
     await expandLibraryTree(page);
     // 대표는 PDF 줄, 웹 줄은 접혀 있다(자료 행은 그대로).
@@ -49,9 +49,9 @@ for(const width of [390,1280])test.describe(`자료실 맨 위 ⋯ · 같은 글
     // 접힌 줄을 고르면 같은 글 둘 다 골라지고, 보이지 않는 것은 '접힌 n개 포함'.
     await libraryTopMenu(page,'select',{tap:width<761});
     await page.locator('[data-lu-pick="p-1"]').check();
-    await expect(page.locator('#librarySelectCount')).toHaveText('2개 골랐음 — 접힌 1개 포함');
+    await expect(page.locator('#librarySelectCount')).toHaveText('2개 선택했음 — 접힌 1개 포함');
     await page.locator('[data-lu-pick="p-1"]').uncheck();
-    await expect(page.locator('#librarySelectCount')).toHaveText('0개 골랐음');
+    await expect(page.locator('#librarySelectCount')).toHaveText('0개 선택했음');
     expect(errors).toEqual([]);
   });
 });

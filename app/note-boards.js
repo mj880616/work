@@ -48,7 +48,7 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
   // 보드 칸 줄. 고른 보드는 aria-pressed. 이름 붙은 보드 칸은 우클릭·꾹 누르기로 메뉴(보드 칸 자체가 메뉴를 연다, ⋯ 없음).
   function paintBar() {
     const phoneAdd = named() && !wide.matches;
-    bar.innerHTML = `<button type="button" class="nbb-chip" data-nbb-board="${ALL}" aria-pressed="${current === ALL}">전체</button>${boards.map(b => `<button type="button" class="nbb-chip" data-nbb-board="${esc(b.id)}" aria-pressed="${current === b.id}" aria-haspopup="true" title="우클릭(폰은 꾹 누르기): 이름 바꾸기·지우기">${esc(b.name)}</button>`).join('')}${boards.length < BOARD_LIMITS.count ? '<button type="button" class="nbb-new" data-nbb-new>+ 새 보드</button>' : ''}${phoneAdd ? '<button type="button" class="nbb-new nbb-attach" data-nbb-pick>+ 노트 붙이기</button>' : ''}`;
+    bar.innerHTML = `<button type="button" class="nbb-chip" data-nbb-board="${ALL}" aria-pressed="${current === ALL}">전체</button>${boards.map(b => `<button type="button" class="nbb-chip" data-nbb-board="${esc(b.id)}" aria-pressed="${current === b.id}" aria-haspopup="true" title="우클릭(폰은 꾹 누르기): 이름 바꾸기·삭제">${esc(b.name)}</button>`).join('')}${boards.length < BOARD_LIMITS.count ? '<button type="button" class="nbb-new" data-nbb-new>+ 새 보드</button>' : ''}${phoneAdd ? '<button type="button" class="nbb-new nbb-attach" data-nbb-pick>+ 노트 붙이기</button>' : ''}`;
     // UI-칩줄두줄: 보드 칸 줄도 두 줄 + [더보기 ▾](공용 chip-rows.js). 접히는 것은 고르지 않은 보드 칸뿐, [전체]·[+ 새 보드]·[+ 노트 붙이기]는 늘 보인다.
     fitChipRows(bar, { key: 'noteboards', keep: el => el.dataset.nbbBoard === undefined || el.dataset.nbbBoard === ALL || el.getAttribute('aria-pressed') === 'true' });
   }
@@ -85,7 +85,7 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
     if (!named()) return null;
     const id = current;
     return {notes:notesOnBoard(notes.get(), id), placeOf:n => boardPlaceOf(n, id), removable:true,
-      emptyText:wide.matches ? '왼쪽 노트를 끌어다 놓으세요' : '[+ 노트 붙이기]로 노트를 고르세요'};
+      emptyText:wide.matches ? '왼쪽 노트를 끌어다 놓으세요' : '[+ 노트 붙이기]로 노트를 선택하세요'};
   }
 
   // 붙이기·빼기·옮기기. 화면은 바로 바꾸고(서버 답을 기다리지 않음) 실패하면 알리고 다시 불러온다.
@@ -149,13 +149,13 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
   }
   async function remove(id, trigger) {
     const name = boardName(id), on = notesOnBoard(notes.get(), id);
-    if (!await askConfirm(trigger || bar, {text:`'${name}' 보드를 지울까요?`, note:`붙은 노트 ${on.length}개는 지우지 않아요(보드에서만 빠져요).`, ok:'지우기', danger:true})) return;
+    if (!await askConfirm(trigger || bar, {text:`'${name}' 보드를 삭제할까요?`, note:`붙은 노트 ${on.length}개는 삭제하지 않아요(보드에서만 빠져요).`, ok:'삭제', danger:true})) return;
     boards = removeBoard(boards, id); saveBoards();
     if (current === id) { current = ALL; viewPrefs.set('note_board', ALL, {rejectable:true}); }
     for (const n of on) localPlace(n.id, id, null);
     rerender();
     // 지운 보드의 자리도 노트에서 지운다(남아도 화면은 무시하지만, 노트 metadata를 깨끗이).
-    void store(on.map(n => [n.id, id, null]), '지운 보드의 노트 자리를 다 정리하지 못했어요. 노트는 그대로예요.');
+    void store(on.map(n => [n.id, id, null]), '삭제한 보드의 노트 자리를 다 정리하지 못했어요. 노트는 그대로예요.');
   }
 
   // 보드 칸 메뉴(노트 메뉴와 같은 모양의 작은 창).
@@ -168,7 +168,7 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
     const id = chip.dataset.nbbBoard; if (!id || id === ALL) return;
     closeMenu();
     const el = menuEl();
-    el.innerHTML = '<button type="button" data-nbb-rename>이름 바꾸기</button><button type="button" class="basket-menu-danger" data-nbb-delete>보드 지우기</button>';
+    el.innerHTML = '<button type="button" data-nbb-rename>이름 바꾸기</button><button type="button" class="basket-menu-danger" data-nbb-delete>보드 삭제</button>';
     el.hidden = false;
     const place = () => placeAnchored(el, chip, {maxWidth:200, maxHeight:200});
     place();

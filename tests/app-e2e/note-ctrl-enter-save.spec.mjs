@@ -51,7 +51,7 @@ const noOverflow=el=>el.evaluate(n=>n.scrollWidth<=n.clientWidth+1&&n.getBoundin
 // 서식 편집기는 공용 규칙이 캡처 단계에서 먼저 읽는다. 저장 요청은 한 번, Enter·Shift+Enter는 줄바꿈, 한글 조합 중에는 저장 안 함.
 const composingCtrlEnter=loc=>loc.evaluate(el=>{const e=new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true,cancelable:true,composed:true,isComposing:true,ctrlKey:true});Object.defineProperty(e,'keyCode',{get:()=>229});el.dispatchEvent(e);});
 for(const width of [1440,412]){
- test(`노트 편집: 본문 Ctrl+Enter = 저장 한 번, Enter·조합 중은 저장 안 함 ${width}`,async({page})=>{
+ test(`노트 수정: 본문 Ctrl+Enter = 저장 한 번, Enter·조합 중은 저장 안 함 ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   const detail=await openNote(page,'합성 쟁점 정리');
   await noteMenuAction(page,'data-note-edit');
@@ -63,7 +63,7 @@ for(const width of [1440,412]){
   expect(f.writes).toHaveLength(1);expect(f.writes[0].body.raw_text).toContain('기본급 인상 요구');
   expect(f.errors).toEqual([]);
  });
- test(`노트 편집: 큰 창에서 수정에서도 본문 Ctrl+Enter = 저장 ${width}`,async({page})=>{
+ test(`노트 수정: 큰 창에서 수정에서도 본문 Ctrl+Enter = 저장 ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   await openNote(page,'합성 쟁점 정리');
   await noteMenuAction(page,'data-note-edit');

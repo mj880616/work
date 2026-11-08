@@ -36,7 +36,7 @@ const PICKERS = Object.freeze({
   'app/update-places.js': '기록할 곳 고르기(홈 업데이트·크게 쓰기)',
   'app/google-tasks.js': '할 일 연결',
   'app/feed-data.js': '통화·텔레그램 소식 조직 연결(내 담당 표시)',
-  'app/suborganizations.js': '일정 등록·Google 일정 수정의 관련 담당조직 고르기',
+  'app/suborganizations.js': '일정 등록·Google 일정 수정의 관련 담당조직 선택',
   'app/library-upload.js': '자료실 일괄 바꾸기 담당조직',
   'app/basket-manual-link.js': '정리함 [연결하기]',
   'app/weekly-discuss-table.js': '주간보고 3) 상집 논의 요청 줄의 관련 조직 고르기',

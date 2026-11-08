@@ -20,8 +20,8 @@ export const SHARE_AI_TEXT = Object.freeze({
   ...AI_SUMMARY_TEXT,
   not_ready:'공유 페이지 AI 초안은 아직 준비 중이에요.',
   invalid_request:'공유 페이지 AI 초안은 아직 준비 중이에요.',
-  not_found:'고른 기록을 찾지 못했어요. 목록을 다시 확인해 주세요.',
-  share_no_source:'고른 기록에 초안에 쓸 글이 없어요.',
+  not_found:'선택한 기록을 찾지 못했어요. 목록을 다시 확인해 주세요.',
+  share_no_source:'선택한 기록에 초안에 쓸 글이 없어요.',
   daily_limit:'오늘 AI를 쓸 수 있는 횟수를 다 썼어요.',
   monthly_limit:'이번 달 AI 한도에 닿았어요.',
 });
@@ -107,7 +107,7 @@ function onChange(e) {
     return paint();
   }
   const key = box.dataset.saPick;
-  if (box.checked) { if (state.picked.length >= SHARE_AI_MAX_PICK) { box.checked = false; state.message = `재료는 ${SHARE_AI_MAX_PICK}건까지 고를 수 있어요.`; paint(); return; } if (!state.picked.includes(key)) state.picked.push(key); }
+  if (box.checked) { if (state.picked.length >= SHARE_AI_MAX_PICK) { box.checked = false; state.message = `재료는 ${SHARE_AI_MAX_PICK}건까지 선택할 수 있어요.`; paint(); return; } if (!state.picked.includes(key)) state.picked.push(key); }
   else state.picked = state.picked.filter(x => x !== key);
   state.message = ''; paint();
 }
@@ -140,10 +140,10 @@ async function make() {
 function insert() {
   const mine = state; if (!mine?.draft) return;
   const nodes = draftNodes(mine.draft, mine.keys);
-  if (!nodes.length) { mine.message = '넣을 칸을 골라 주세요.'; return paint(); }
+  if (!nodes.length) { mine.message = '넣을 칸을 선택해 주세요.'; return paint(); }
   let ok = false;
   try { ok = mine.onInsert?.(nodes) === true; } catch { ok = false; }
-  if (!ok) { mine.message = '본문에 넣지 못했어요. 편집 화면을 다시 열어 주세요.'; return paint(); }
+  if (!ok) { mine.message = '본문에 넣지 못했어요. 수정 화면을 다시 열어 주세요.'; return paint(); }
   close({refocus:false}); // 커서는 본문(넣은 곳)에 둔다
 }
 
@@ -157,14 +157,14 @@ function pickHtml() {
   const item = r => ({name:`${r.name} ${r.meta}`, html:pickRow(r)});
   const list = s.records === null ? waitHtml({rows:4, h:36})
     : s.failed ? `<p class="pd-muted">기록을 불러오지 못했어요. <button type="button" class="pd-link" data-sa-retry>다시</button></p>`
-    : !all.length ? emptyHtml('고를 기록 없음')
+    : !all.length ? emptyHtml('선택할 기록 없음')
     : pickFoldHtml({key:'sa', picked:s.picked.map(k => all.find(r => r.key === k)).filter(Boolean).map(pickRow).join(''),
       others:[{label:'사업 보고', items:s.records.meetings.filter(r => !s.picked.includes(r.key)).map(item)},
         {label:'노트·업데이트', items:s.records.notes.filter(r => !s.picked.includes(r.key)).map(item)}],
-      state:s.pick, othersLabel:'최근 기록', noneText:'고른 재료 없음'});
-  return `<section class="pd-pane pd-pick-pane" aria-label="재료 고르기">
+      state:s.pick, othersLabel:'최근 기록', noneText:'선택한 재료 없음'});
+  return `<section class="pd-pane pd-pick-pane" aria-label="재료 선택">
 <label class="pd-direction"><span class="a11y-only">한 줄 초점(선택)</span><input type="text" data-sa-focus maxlength="${SHARE_AI_FOCUS_MAX}" placeholder="한 줄 초점(선택)" value="${esc(s.focus)}"></label>
-<p class="pd-muted pd-count">재료 고르기 (최대 ${SHARE_AI_MAX_PICK}건) · ${s.picked.length}건 고름</p>
+<p class="pd-muted pd-count">재료 선택 (최대 ${SHARE_AI_MAX_PICK}건) · ${s.picked.length}건 고름</p>
 ${list}
 <div class="pd-bar"><button type="button" class="primary" data-sa-make${!s.picked.length || s.busy ? ' disabled' : ''}${s.busy ? ' aria-busy="true"' : ''}>${s.draft ? '다시 만들기' : '초안 만들기'}</button></div>
 </section>`;
@@ -173,7 +173,7 @@ function previewHtml() {
   const s = state, d = s.draft;
   const tag = refs => refs.map(r => `<span class="pd-ref">[근거 ${r}]</span>`).join(' ');
   const put = d ? `<button type="button" class="primary" data-sa-insert${s.keys.length ? '' : ' disabled'}>넣기</button>` : '';
-  const head = `<div class="pd-preview-head">${wide() ? '' : '<button type="button" class="pd-icon" data-sa-back aria-label="재료 고르기로">‹</button>'}<span class="pd-preview-name" data-sa-preview-name tabindex="-1">미리보기</span><span class="pd-muted">${d ? `AI 초안 · 근거 ${d.sources.length}건 · 넣기 전` : ''}</span>${put}</div>`;
+  const head = `<div class="pd-preview-head">${wide() ? '' : '<button type="button" class="pd-icon" data-sa-back aria-label="재료 선택으로">‹</button>'}<span class="pd-preview-name" data-sa-preview-name tabindex="-1">미리보기</span><span class="pd-muted">${d ? `AI 초안 · 근거 ${d.sources.length}건 · 넣기 전` : ''}</span>${put}</div>`;
   let body;
   if (s.busy) body = waitHtml({rows:6});
   else if (!d) body = s.message ? '' : '';

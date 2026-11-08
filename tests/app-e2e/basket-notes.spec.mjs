@@ -311,10 +311,10 @@ test('note edit draft is protected when leaving with Escape',async({page})=>{
  await chooseBasketKind(page,'note');
  await noteList(page).filter({hasText:'오래된 노트'}).click();
  await noteMenuAction(page,'data-note-edit');
- await typeInto(page,noteField(page),'고치는 중');
+ await typeInto(page,noteField(page),'수정하는 중');
  let asked=0;page.on('dialog',d=>{asked++;d.dismiss();});
  await page.keyboard.press('Escape');
- await answerAsk(page,false);expect(asked).toBe(0);await expect(noteField(page)).toHaveText('고치는 중');
+ await answerAsk(page,false);expect(asked).toBe(0);await expect(noteField(page)).toHaveText('수정하는 중');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -387,26 +387,26 @@ for(const width of [390,1280]){
   await detail.locator('[data-note-big-write]').click();
   const editor=edWin(page);await expect(editor).toBeVisible();
   await expectIconNextToClose(editor,'노트 저장');
-  await typeInto(page,edWinText(page),'큰 창에서 고친 본문');
+  await typeInto(page,edWinText(page),'큰 창에서 수정한 본문');
   // A failed save keeps the window, the text and the message.
   let failed=false;
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>{if(r.request().method()==='PATCH'&&!failed){failed=true;return r.fulfill({status:500,json:{}});}return r.fallback();});
   await editor.locator(EDW_SAVE).click();
   await expect(editor.locator('.ed-window-status')).toContainText('저장하지 못했어요');
-  await expect(editor).toBeVisible();await expect(edWinText(page)).toHaveText('큰 창에서 고친 본문');
+  await expect(editor).toBeVisible();await expect(edWinText(page)).toHaveText('큰 창에서 수정한 본문');
   await expect(editor.locator(EDW_SAVE)).toBeEnabled();expect(f.writes).toEqual([]);
   // The second press goes the same path as [저장]: PATCH, and the window stays with a short 저장했어요.
   await editor.locator(EDW_SAVE).click();
   await expect(editor.locator('.ed-window-status')).toHaveText('저장했어요');
-  await expect(editor).toBeVisible();await expect(edWinText(page)).toHaveText('큰 창에서 고친 본문');
+  await expect(editor).toBeVisible();await expect(edWinText(page)).toHaveText('큰 창에서 수정한 본문');
   // ✕ right after the save closes without asking, and the note shows its read view with the new text.
   await editor.locator('[data-close="edWindow"]').click();
   await expect(edWin(page)).toHaveCount(0);
   await expect(page.locator('#edwCloseSheet[open]')).toHaveCount(0);
-  await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 고친 본문');
+  await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 수정한 본문');
   await expect(detail.locator('[data-note-editor]')).toBeHidden();
   expect(f.writes).toHaveLength(1);
-  expect(f.writes[0].query).toMatchObject({id:'eq.n-old',kind:'eq.note'});expect(f.writes[0].body.raw_text).toBe('큰 창에서 고친 본문');
+  expect(f.writes[0].query).toMatchObject({id:'eq.n-old',kind:'eq.note'});expect(f.writes[0].body.raw_text).toBe('큰 창에서 수정한 본문');
   expect(f.errors.filter(e=>!/500/.test(e))).toEqual([]);
  });
 
@@ -439,12 +439,12 @@ for(const width of [390,1280]){
   // ED③ 업데이트: an update's big window is the new one too. Letters and the saved form go in one PATCH that applies only to the version read.
   const editor=edWin(page);await expect(editor).toBeVisible();
   await expectIconNextToClose(editor,'업데이트 저장');
-  await typeInto(page,edWinText(page),'큰 창에서 고친 메모');
+  await typeInto(page,edWinText(page),'큰 창에서 수정한 메모');
   await editor.locator(EDW_SAVE).click();
   await expect(edWin(page)).toHaveCount(0);
   await expect(page.locator('#toast')).toContainText('수정한 글을 저장했습니다.');
-  await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 고친 메모');
-  expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toMatchObject({raw_text:'큰 창에서 고친 메모'});expect(f.writes[0].body.doc).toMatchObject({v:'ed1'});
+  await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 수정한 메모');
+  expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toMatchObject({raw_text:'큰 창에서 수정한 메모'});expect(f.writes[0].body.doc).toMatchObject({v:'ed1'});
   expect(f.writes[0].query).toMatchObject({id:'eq.m1',workspace_id:'eq.w',kind:'eq.basket',updated_at:'eq.2026-10-17T01:00:00Z'});
   expect(f.errors).toEqual([]);
  });

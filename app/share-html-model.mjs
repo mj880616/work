@@ -14,7 +14,7 @@ export function htmlBytes(text) { return new TextEncoder().encode(String(text ??
 
 // What is wrong with this file, in everyday words; '' when it can be sent.
 export function fileProblem(file) {
-  if (!file) return '파일을 골라 주세요.';
+  if (!file) return '파일을 선택해 주세요.';
   const name = String(file.name || '');
   const type = String(file.type || '');
   if (!/\.html?$/i.test(name) && type !== 'text/html') return 'HTML 파일(.html)만 올릴 수 있어요.';
@@ -70,9 +70,9 @@ export function expiryOf(choice, day, now = Date.now()) {
     return `${ymd}T23:59:59+09:00`;
   }
   if (choice === 'date') {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day ?? ''))) throw new Error('기한 날짜를 골라 주세요.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day ?? ''))) throw new Error('기한 날짜를 선택해 주세요.');
     const iso = `${day}T23:59:59+09:00`;
-    if (!(Date.parse(iso) > now)) throw new Error('기한은 오늘이나 그 뒤 날짜로 골라 주세요.');
+    if (!(Date.parse(iso) > now)) throw new Error('기한은 오늘이나 그 뒤 날짜로 선택해 주세요.');
     return iso;
   }
   throw new Error('기한을 확인해 주세요.');

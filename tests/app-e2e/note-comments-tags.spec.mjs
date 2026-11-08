@@ -80,11 +80,11 @@ for (const width of [412, 1440]) {
     await expect(page.locator('[data-cm-text]')).toHaveValue('');
     await expect(page.locator('[data-cm-kind]')).toHaveValue('thought');
     // 생각 댓글 하나 더 쓰고 지우기.
-    await page.locator('[data-cm-text]').fill('지울 생각');
+    await page.locator('[data-cm-text]').fill('삭제할 생각');
     await press(page, page.locator('[data-cm-save]'), width);
     await expect(page.locator('[data-cm-count]')).toHaveText('댓글 2');
-    expect(posts[1]).toEqual({ workspace_id: 'w', note_id: 'n1', kind: 'thought', quote: null, body: '지울 생각' });
-    await press(page, page.locator('.note-cm-row').filter({ hasText: '지울 생각' }).locator('[data-cm-del]'), width);
+    expect(posts[1]).toEqual({ workspace_id: 'w', note_id: 'n1', kind: 'thought', quote: null, body: '삭제할 생각' });
+    await press(page, page.locator('.note-cm-row').filter({ hasText: '삭제할 생각' }).locator('[data-cm-del]'), width);
     await expect(page.locator('[data-cm-count]')).toHaveText('댓글 1');
     expect(deletes).toEqual(['c3']);
     // [댓글] 모아 보기: 최근 쓴 순, 유형 칩으로 거르기, 누르면 그 노트.

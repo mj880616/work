@@ -70,7 +70,7 @@ async function signIn(page, state) {
 async function pickPhoto(page, editor) {
   const chooser = page.waitForEvent('filechooser');
   // A phone's grouped row (ED-서식줄묶음) keeps [사진] under [넣기 ▾].
-  if ((page.viewportSize()?.width || 1280) < 761) await editor.locator('.ed-tools').getByRole('button', {name:'넣을 것 고르기', exact:true}).click();
+  if ((page.viewportSize()?.width || 1280) < 761) await editor.locator('.ed-tools').getByRole('button', {name:'넣을 것 선택', exact:true}).click();
   await editor.locator('.ed-bar').getByRole('button', {name:'사진 넣기', exact:true}).click();
   await (await chooser).setFiles({name:'현장.png', mimeType:'image/png', buffer:PNG});
 }

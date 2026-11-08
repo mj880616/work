@@ -58,11 +58,11 @@ for(const width of [390,1280]){
   const text=detail.locator('[data-basket-text]');await expect(text).toBeFocused();await expect(text).toHaveValue(LONG);
   await expect(read).toBeHidden();await expect(detail.locator('[data-basket-archive]')).toBeHidden();await expect(detail.locator('[data-basket-cancel]')).toBeVisible();/* UI-업데이트편집한줄: [첨부 저장]은 파일을 고른 뒤에만 */await expect(detail.locator('[data-basket-upload]')).toBeHidden();await expect(detail.locator('[data-basket-edit-actions]').getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();
   await page.screenshot({path:info.outputPath(`basket-edit-${width}.png`),fullPage:true});
-  await text.fill('고친 원문\n둘째 줄');await press(page,detail.locator('[data-basket-save]'),width);
-  await expect(read).toBeVisible();expect(await read.innerText()).toBe('고친 원문\n둘째 줄');await expect(text).toBeHidden();
-  await expect(page.locator('#toast')).toContainText('수정한 글을 저장했습니다');expect(f.writes.at(-1)).toMatchObject({method:'PATCH',body:{raw_text:'고친 원문\n둘째 줄'}});
+  await text.fill('수정한 원문\n둘째 줄');await press(page,detail.locator('[data-basket-save]'),width);
+  await expect(read).toBeVisible();expect(await read.innerText()).toBe('수정한 원문\n둘째 줄');await expect(text).toBeHidden();
+  await expect(page.locator('#toast')).toContainText('수정한 글을 저장했습니다');expect(f.writes.at(-1)).toMatchObject({method:'PATCH',body:{raw_text:'수정한 원문\n둘째 줄'}});
   expect(await editableFocused(page)).toBe(false);
-  noDialog(page);await press(page,detail.locator('[data-basket-close]'),width);await expect(page.locator('[data-basket-row-item="n"]')).toContainText('고친 원문');
+  noDialog(page);await press(page,detail.locator('[data-basket-close]'),width);await expect(page.locator('[data-basket-row-item="n"]')).toContainText('수정한 원문');
   expect(f.errors).toEqual([]);
  });
 

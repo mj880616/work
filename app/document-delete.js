@@ -71,7 +71,7 @@ export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionE
   const token={};
   documents.set(id,token);
   try{
-    if(!isCurrent()||(!bulk&&!(await ask({text:`“${d.file_name||d.title}” 자료 등록을 삭제할까요?`,note:'파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.',ok:'지우기',danger:true})))||!isCurrent())return false;
+    if(!isCurrent()||(!bulk&&!(await ask({text:`“${d.file_name||d.title}” 자료 등록을 삭제할까요?`,note:'파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.',ok:'삭제',danger:true})))||!isCurrent())return false;
     let data;
     try{
       data=await api('/functions/v1/document-actions',{method:'POST',body:{action:'delete',document_id:id},refreshSession:false,expectedSessionEpoch});
