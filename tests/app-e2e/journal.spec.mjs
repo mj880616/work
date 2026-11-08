@@ -2400,8 +2400,8 @@ async function originals(page,f){
   const q=new URL(r.request().url()).searchParams,key=q.has('organization_id')?'organization_id':'project_id',ids=q.get(key).replace(/^(eq\.|in\.\()/,'').replace(/\)$/,'').split(',');
   return r.fulfill({json:f.more.links.filter(l=>ids.includes(l[key])).map(l=>({...l,note:note(l.note_id)}))});
  });
- // 회의 화면 자기 목록(전체 회의).
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_meetings'&&u.searchParams.get('select')==='*'&&!u.searchParams.has('id'),r=>r.fulfill({json:f.more.meetings}));
+ // 회의 화면 자기 목록(전체 회의). APP-낭비줄이기 ①: 목록은 select=* 대신 쓰는 열만 받으므로 둘 다 받는다.
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_meetings'&&/^(\*|id,)/.test(u.searchParams.get('select')||'')&&!u.searchParams.has('id'),r=>r.fulfill({json:f.more.meetings}));
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_meetings'&&/^eq\./.test(u.searchParams.get('id')||''),r=>{const id=new URL(r.request().url()).searchParams.get('id').slice(3);return r.fulfill({json:f.more.meetings.filter(m=>m.id===id)});});
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_project_progress_updates'&&u.searchParams.has('project_id'),r=>r.fulfill({json:f.more.progress.map(x=>({...x,workstream_id:null}))}));
 }
