@@ -19,7 +19,8 @@
 #appView #homeView .journal-days{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
 #appView #homeView .journal-date{ position:relative; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; width:100%; height:auto;
   min-height:60px; margin:0; padding:6px 0 14px; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line);
-  border-radius:var(--ds-radius-control); box-shadow:none; font:inherit; cursor:pointer; }
+  border-radius:var(--ds-radius-control); box-shadow:none; font:inherit; font-size:var(--ds-text-meta); cursor:pointer; }
+/* 날짜 칸 버튼 자체 글자 크기: 안의 요일·날짜 글자는 각자 크기를 정하므로 보이는 모양은 그대로다. 버튼 전수 규칙(14px 이하, button-census.spec)에 맞춘다. */
 #appView #homeView .journal-weekday{ color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1.2; }
 #appView #homeView .journal-date.sunday .journal-weekday{ color:var(--kptu-danger); }
 #appView #homeView .journal-num{ box-sizing:border-box; display:grid; place-items:center; min-width:24px; height:24px; padding:0 4px; font-size:var(--ds-text-row); line-height:1; border-radius:999px; }
