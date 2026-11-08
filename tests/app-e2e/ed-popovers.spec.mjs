@@ -242,7 +242,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
     test('table: pressing its border chooses the whole table (hand + faint outline over the border); [표 선택] does the same', async ({page}) => {
       const box = await open(page, ed1(para('앞'), table(2, 3), para('뒤')));
       const wrap = box.locator('.ed-table-wrap'), tbl = wrap.locator('table');
-      await expect(page.getByRole('button', {name: '표 선택'})).toHaveCount(0);
+      await expect(page.getByRole('button', {name: '표 선택', exact: true})).toHaveCount(0);
       const r = await rect(tbl);
       const y = r.top + r.height / 2;
       if (!touch) {
@@ -273,7 +273,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       // [표 선택] (named so everywhere) chooses it from the table row.
       const sel = page.locator('.ed-table-tools').getByRole('button', {name: '표 전체 선택'});
       await expect(sel).toHaveText('표 선택');
-      await expect(page.locator('.ed-table-tools').getByRole('button', {name: '표 선택'})).toHaveCount(0);
+      await expect(page.locator('.ed-table-tools').getByRole('button', {name: '표 선택', exact: true})).toHaveCount(0);
       await press(sel);
       await expect(box.locator('.selectedCell')).toHaveCount(6);
     });
