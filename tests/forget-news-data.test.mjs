@@ -47,7 +47,10 @@ test('구조: 서버 표만 쓰고(쓰는 칸은 표가 허락한 것만), 기�
   assert.match(src, /kind: 'journal_memorable'/);
   assert.match(src, /body = \{status, final_line: status === 'kept' \? finalLine : null, drop_reason: null, decided_at:/);
   assert.match(list, /saveOrganizationUpdate\(\{organization_id: org\.id/);
-  assert.match(list, /saveProjectProgress\(\{project_id: project\.id/);
+  // BIZ-기록하나로 B-3: [사업]은 사업 기록(app_business_records) 한 줄 — 소식은 원래 소식 줄 번호를 함께(source_kind memorable).
+  assert.match(list, /saveBusinessRecord\(\{space_id: project\.id/);
+  assert.match(list, /source_kind: 'memorable', source_id: news\.id/);
+  assert.doesNotMatch(list, /saveProjectProgress/);
   assert.ok(!existsSync(new URL('../app/journal-memorable.js', import.meta.url)));
   assert.doesNotMatch(read('app/journal.js'), /memorable/i);
   // 홈 칩·메뉴 '홈' 표시가 처리 전 소식을 센다.

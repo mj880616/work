@@ -528,3 +528,10 @@ button.record-raw-toggle{font-size:12px;font-weight:500;line-height:1}
 .mrd-special-fold>summary::-webkit-details-marker{display:none}
 .mrd-special-fold:not([open])>summary{margin-bottom:0}
 .mrd-special-size{margin-right:auto;margin-left:var(--kptu-space-2,8px);color:var(--kptu-muted);font-size:12px}
+/* BIZ-기록하나로 B-3: 사업요약표 '진행' 칸 = 지금 상황(이어 씀) + 칸 아래 흐린 '이번 주 기록 n'(누르면 그 주 사업 기록·사업 보고 줄을 펼침, 읽기만). 작고 흐리게. */
+.biz-now-empty{color:var(--kptu-muted)}
+.biz-rec-n{display:inline-flex;align-items:center;gap:2px;margin:2px 8px 0 0}
+.biz-rec-list{margin:2px 0 0;padding-left:6px;border-left:2px solid var(--kptu-border);color:var(--kptu-muted);font-size:12px}
+.biz-rec-list .biz-cell-line{color:inherit}
+.biz-rec-line{margin:0;padding:1px 0;overflow-wrap:anywhere}
+.biz-now-foot{margin-top:2px}

@@ -87,13 +87,16 @@ test('one organization record is saved with its saved form in the same insert; o
     const one = await saveUpdate({places:[{kind:'project', id:'p'}], text:'글', owner:'u', doc:DOC}, rt);
     await saveUpdate({places:[{kind:'organization', id:'o'}], text:'글', owner:'u'}, rt);
     await saveUpdate({places:[{kind:'project', id:'p'}], text:'글', owner:'u'}, rt);
-    assert.deepEqual(calls.map(c => c.path.split('?')[0]), ['/rest/v1/app_suborganization_updates', '/rest/v1/app_notes', '/rest/v1/rpc/app_basket_confirm_links', '/rest/v1/app_suborganization_updates', '/rest/v1/app_notes', '/rest/v1/rpc/app_basket_confirm_links']);
+    // BIZ-기록하나로 B-3: 연결이 된 뒤 같은 저장에서 그 사업의 사업 기록 한 줄(source_kind update, 원래 메모 id) — 진행 기록 표가 아님.
+    assert.deepEqual(calls.map(c => c.path.split('?')[0]), ['/rest/v1/app_suborganization_updates', '/rest/v1/app_notes', '/rest/v1/rpc/app_basket_confirm_links', '/rest/v1/app_business_records', '/rest/v1/app_suborganization_updates', '/rest/v1/app_notes', '/rest/v1/rpc/app_basket_confirm_links', '/rest/v1/app_business_records']);
     assert.deepEqual(calls[0].body, {organization_id:'o', raw_text:'글', created_by:'u', doc:DOC});
     assert.deepEqual(calls[1].body, {workspace_id:'w', raw_text:'글', doc:DOC});
     assert.deepEqual(calls[2].body, {p_note_id:'n', p_note_updated_at:'2026-10-28T00:00:00Z', p_targets:[{kind:'project', target_id:'p', reason:'직접 연결'}]});
     assert.equal(one.linkError, '');
-    assert.deepEqual(calls[3].body, {organization_id:'o', raw_text:'글', created_by:'u'});
-    assert.deepEqual(calls[4].body, {workspace_id:'w', raw_text:'글'});
+    assert.deepEqual({...calls[3].body, day:'d'}, {workspace_id:'w', space_id:'p', day:'d', body:'글', source_kind:'update', source_id:'n'});
+    assert.match(calls[3].body.day, /^\d{4}-\d{2}-\d{2}$/);
+    assert.deepEqual(calls[4].body, {organization_id:'o', raw_text:'글', created_by:'u'});
+    assert.deepEqual(calls[5].body, {workspace_id:'w', raw_text:'글'});
     assert.ok(!calls.some(c => c.path.includes('app_project_progress_updates')));
   } finally { globalThis.window = prev.window; globalThis.CustomEvent = prev.CustomEvent; }
 });

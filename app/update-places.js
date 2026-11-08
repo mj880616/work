@@ -17,6 +17,7 @@ import { announceRecordSaved, basketDetail } from './record-saved.js';
 import { readReferenceBundles } from './reference-bundles-data.js';
 import { pickMyOrganizations } from './my-organizations.js';
 import { fallbackFileLine } from './record-file-line.mjs';
+import { seoulDateKey } from './meeting-time.js';
 
 // place: null (basket) | {kind:'organization'|'project'|'reference', id}
 // REF-참고묶음: 'reference' is a reference bundle (app_reference_bundles). It has no record table of its own, so an update for it is
@@ -167,7 +168,18 @@ export async function saveUpdate({place, places, text, owner, doc = null}, rt = 
   window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
   if (!linkError) window.dispatchEvent(new CustomEvent('kptu:basket-links-changed'));
   if (!linkError) announceRecordSaved(basketDetail(note, list)); // MTG-기록겹침거르기: 연결이 모두 끝난 뒤에만 비슷한 사업 보고를 확인한다
+  if (!linkError) await addBusinessRecord(note, list, text, rt);
   return {note, linkError};
+}
+// BIZ-기록하나로 B-3(설계 record-one.md 2-3): 업데이트 [사업] = 정리함 메모 + 확정 연결(그대로) + 같은 저장에서 사업 기록 한 줄(source_kind update, source_id 메모 id).
+// 원래 줄 하나에 사업 기록은 한 줄뿐이라(DB 고유 색인) 처음 고른 사업에 넣는다. 사업 기록을 못 넣어도 업데이트 저장·연결은 그대로다(기다리되 실패를 던지지 않음).
+async function addBusinessRecord(note, list, text, rt) {
+  const project = list.find(p => p.kind === 'project');
+  if (!project || !note?.id || !String(text || '').trim()) return;
+  try {
+    const {saveBusinessRecord} = await import('./business-now-data.js');
+    await saveBusinessRecord({space_id:project.id, day:seoulDateKey(), body:text, source_kind:'update', source_id:note.id}, rt);
+  } catch { /* 사업 기록은 덤 — 업데이트 저장·연결 결과를 바꾸지 않는다 */ }
 }
 export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
 export const linkFailText = '업데이트는 잊지 말기에 저장했지만 선택한 곳에 연결하지 못했어요. 잊지 말기에서 [연결하기]로 다시 연결해 주세요.';
@@ -216,7 +228,7 @@ export async function saveUpdateWithFiles({places, text, batch, doc = null, isCu
         const result = await confirmLinks(noteId, note.updated_at, linkTo.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON, ...(line && p.kind !== 'reference' ? {summary:line} : {})})), rt);
         if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
       } catch (error) { linkError = error?.message || 'UNKNOWN'; }
-      if (!linkError) { window.dispatchEvent(new CustomEvent('kptu:basket-links-changed')); announceRecordSaved(basketDetail(note, linkTo)); }
+      if (!linkError) { window.dispatchEvent(new CustomEvent('kptu:basket-links-changed')); announceRecordSaved(basketDetail(note, linkTo)); if (sameOwner()) await addBusinessRecord(note, linkTo, lettered ? text : line, rt); }
     }
   }
   const project = list.find(p => p.kind === 'project') || null, organization = list.find(p => p.kind === 'organization') || null;

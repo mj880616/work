@@ -4,7 +4,7 @@
 // - 저장은 그대로 서버 표 app_journal_memorable(owner RLS + 운영자 기능 restrictive 정책, 새 표·새 칸 없음). 상태: suggested = 처리 전,
 //   kept = 조직·사업에 넣음(연결 완료), dropped = 무시. 쓰는 칸은 표가 허락한 status·final_line·drop_reason·decided_at뿐이다.
 // - [조직]·[사업]은 기존 기록 길을 그대로 쓴다: 담당조직 기록 = quick-save.js saveOrganizationUpdate(app_suborganization_updates, 저장 뒤
-//   그 주 조직보고 제안 suggestOrgWeek), 사업 기록 = saveProjectProgress(app_project_progress_updates → 사업 보고·주간보고 사업 칸).
+//   그 주 조직보고 제안 suggestOrgWeek), 사업 기록 = business-now-data.js saveBusinessRecord(app_business_records, BIZ-기록하나로 B-3).
 // - 운영자 기능(통화·텔레그램)은 서버가 판정한다(app_my_features·표 정책·ai-assist). 여기서 app_my_features를 읽는 것은 줄을 읽을지 정하는 편의일 뿐.
 // - AI 고르기: 정리함·홈을 열 때 오늘 날짜로 ai-assist(kind=journal_memorable)를 부른다. 서버가 '마지막 실행 1시간 뒤 + 새 기록'일 때만 AI를 부른다.
 //   이 탭도 같은 날은 1시간 안에 다시 묻지 않는다(탭 메모리만).
