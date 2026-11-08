@@ -86,7 +86,7 @@ for(const [width,height] of [[390,844]])test(`폭 ${width}: 위아래 순서 그
  await expect(sheet).not.toHaveClass(/home-choice-split/);
  // The phone sheet rises in (choice-sheet.css): measure once it has settled, as home-selection-sheet.spec does.
  await sheet.evaluate(async d=>{await Promise.all(d.getAnimations().map(a=>a.finished));});
- if(width<761){await expect(sheet).not.toHaveClass(/home-choice-anchored/);/* S52-01 ②: 폰도 찾기 칸 */await expect(sheet.getByRole('searchbox')).toBeVisible();}
+ if(width<761){/* S54-05: 폰도 버튼 아래 작은 창(전에는 아래 시트) */await expect(sheet).toHaveClass(/home-choice-anchored/);/* S52-01 ②: 폰도 찾기 칸 */await expect(sheet.getByRole('searchbox')).toBeVisible();}
  else{await expect(sheet).toHaveClass(/home-choice-anchored/);expect((await box(sheet)).width).toBeLessThanOrEqual(480);
   // The search box stays above the list (not on the title line).
   const s=await box(sheet.getByRole('searchbox')),title=await box(sheet.locator('h2'));expect(s.y).toBeGreaterThan(title.y+title.height-1);}

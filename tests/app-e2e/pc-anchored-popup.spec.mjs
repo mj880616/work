@@ -31,7 +31,8 @@ test('PC: list opens right below the pressed button, no dimming, Esc and outside
  await expect(sheet).toBeHidden();await expect(trigger).toHaveText('자식 프로젝트 ▾');await expect(trigger).toBeFocused();
 });
 
-test('PC: the list follows the button when the window is resized, and becomes the bottom sheet at phone width',async({page})=>{
+// S54-05(11/08 명진 결정): 폰도 버튼으로 연 고르기 창은 누른 버튼 아래 작은 창이라, 폰 폭으로 줄여도 아래 시트가 되지 않고 버튼 아래에 머문다(전에는 아래 시트로 바뀌었다).
+test('PC: the list follows the button when the window is resized, and stays below the button at phone width',async({page})=>{
  const trigger=await projectTrigger(page,1280);
  await trigger.click();const sheet=dialog(page);await expect(sheet).toHaveClass(/home-choice-anchored/);
  await page.setViewportSize({width:1000,height:700});
@@ -39,16 +40,18 @@ test('PC: the list follows the button when the window is resized, and becomes th
  // UI-폴드PC틀: 1000px도 PC 틀이라 기록할 곳 창은 넓은 나란한 목록(home-choice-split)일 수 있다. 그때는 화면 안에 맞춰 왼쪽 끝이 버튼과 다를 수 있다.
  const {t,d}=await near(trigger,sheet),split=await sheet.evaluate(el=>el.classList.contains('home-choice-split'));if(!split)expect(Math.abs(d.x-t.x)).toBeLessThanOrEqual(1);expect(d.x).toBeGreaterThanOrEqual(0);expect(d.x+d.width).toBeLessThanOrEqual(1000);
  await page.setViewportSize({width:390,height:844});
- await expect(sheet).not.toHaveClass(/home-choice-anchored/);
- const b=await sheet.boundingBox();expect(b.width).toBeGreaterThanOrEqual(380);expect(b.y+b.height).toBeGreaterThan(844-200);
+ await expect(sheet).toHaveClass(/home-choice-anchored/);
+ await expect.poll(async()=>(await near(trigger,sheet)).gap).toBeLessThanOrEqual(12);
+ const b=await sheet.boundingBox();expect(b.width).toBeLessThanOrEqual(360);
 });
 
-test('phone keeps the bottom sheet with the dimmed backdrop',async({page})=>{
+// S54-05: 폰도 버튼 아래 작은 창이라 어둡게 덮는 바탕은 없다(전에는 아래 시트 + 어두운 바탕). 시트 모양 시험은 이 결정에 맞게 바꿨다.
+test('phone opens below the button with no dimmed backdrop',async({page})=>{
  const trigger=await projectTrigger(page,390);
  await trigger.click();const sheet=dialog(page);await expect(sheet).toBeVisible();
- await expect(sheet).not.toHaveClass(/home-choice-anchored/);
- expect(await sheet.evaluate(el=>getComputedStyle(el,'::backdrop').backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
- const b=await sheet.boundingBox();expect(b.width).toBeGreaterThanOrEqual(380);
+ await expect(sheet).toHaveClass(/home-choice-anchored/);
+ expect(await sheet.evaluate(el=>getComputedStyle(el,'::backdrop').backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+ const b=await sheet.boundingBox();expect(b.width).toBeLessThanOrEqual(360);
 });
 
 // Placement rules of the shared module, with measured boxes standing in for buttons at the window edges.

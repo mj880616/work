@@ -5,6 +5,7 @@ import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { SHEET, chosenKeys, openPicker, offeredKeys, pressRow, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
+import { expectChoiceAtButton } from './helpers/choice-anchor.mjs';
 import { OPERATOR_ORG_ORDER } from '../org-order-fixture.mjs';
 const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -67,13 +68,9 @@ test('폰: 두 줄만 → [+ 고르기] 아래 창(찾기·자주 쓴 것·큰 �
   expect((await page.locator(LINKS).boundingBox()).height).toBeLessThan(100);
   await openPicker(page,LINKS,'area');
   const sheet=page.locator(SHEET);
-  // 폰: 아래에서 올라오는 창, 찾기 칸 있음, 아래 탭에 가리지 않음.
-  await expect(sheet).not.toHaveClass(/home-choice-anchored/);
+  // 폰: S54-05(11/08 명진 결정)로 누른 버튼 아래 작은 창(전에는 아래에서 올라오는 창). 찾기 칸 있음, 아래 탭에 가리지 않음.
+  await expectChoiceAtButton(page,sheet,page.locator(`${LINKS} [data-aop-line="area"]`));
   await expect(sheet.locator('[data-sheet-search]')).toBeVisible();
-  await sheet.evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
-  const sb=await sheet.boundingBox();expect(sb.y).toBeGreaterThan(200);
-  if(await page.locator('.mobile-tabs').isVisible())expect(Math.round(sb.y+sb.height)).toBeLessThanOrEqual(Math.round((await page.locator('.mobile-tabs').boundingBox()).y));
-  else expect(Math.round(sb.y+sb.height)).toBeLessThanOrEqual(844);
   // 자주 쓴 것: 저장된 연결에서 많이 쓴 순(보관·안 보이는 대상 제외).
   await expect(sheet.locator('.aop-recent [data-sheet-value]')).toHaveText(['민자철도 사업','정책연구']);
   // 큰 묶음만: 하위는 접혀 있다. 보관된 사업영역은 없다.

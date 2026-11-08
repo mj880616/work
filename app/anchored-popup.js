@@ -6,6 +6,8 @@
 // can use the same two calls: placeAnchored() for the position and followAnchor() to keep it there while the page moves.
 export const WIDE_QUERY='(min-width:761px)';
 export const isWide=()=>window.matchMedia(WIDE_QUERY).matches;
+// S54-04·S54-05: 아래 바(하단바·전환 줄)와 자판이 창 아래를 덮는 높이(px). 버튼 아래 창은 그 위에서 끝난다(placeAnchored의 bottomInset).
+export function bottomInset(){const cs=getComputedStyle(document.documentElement),v=n=>parseFloat(cs.getPropertyValue(n))||0;return v('--kptu-mobile-tab-height')+v('--kptu-switch-dock')+v('--kptu-keyboard-inset')}
 const anchorable=anchor=>typeof anchor?.getBoundingClientRect==='function';
 
 // Sets the panel's inline position (position:fixed is the caller's CSS) from the anchor's box and returns the side it took
