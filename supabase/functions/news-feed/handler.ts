@@ -59,6 +59,9 @@ export const KEYWORD_ITEMS_DAILY = 30;
 // 채널 기사 채우기(NEWS-채널밀림 ①, 11/02): 새 것부터, 한 번에 PENDING_PER_RUN건까지 — 실제로는 시간 예산(RUN_BUDGET_MS) 안에서 멈춘다.
 // 남은 대기 건수는 PENDING_COUNT_CAP까지 세어 실행 기록에 적는다(그 이상은 'cap+1'로).
 export const PENDING_PER_RUN = 60;
+// 대기 기사는 동시에 PENDING_PARALLEL건까지 읽는다(S54-16). 같은 사이트는 reader가 출처별 GAP_MS 간격을 그대로 지키고,
+// 다른 사이트끼리만 겹친다. 시간 예산은 기사 하나를 시작하기 전에 본다.
+export const PENDING_PARALLEL = 3;
 export const PENDING_COUNT_CAP = 1000;
 export const PENDING_STALE_DAYS = 3;
 // 수집 때 본문 읽기(P2b): 매체마다 한 번에 새 기사 MEDIA_BODY_PER_RUN건(사이트마다 한 번 30건 상한 그대로), 키워드 기사 relay 표시는 RELAY_PER_RUN건.
@@ -588,14 +591,18 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
   // 새 것부터(오늘 들어온 채널 기사 먼저). 옛 대기 줄은 그 뒤에 — 옛 것부터 채우면 오늘 기사가 계속 밀린다(11/02).
   const rows = await db.get(`app_news_items?state=eq.pending&lane=eq.channel${only}&select=id,workspace_id,lane,url,title,publisher,published_at,summary&order=created_at.desc&limit=${max}`);
   const reader = readers.open();
-  let done = 0, deferred = 0;
+  let done = 0, deferred = 0, next = 0;
   const states: Record<string, number> = {};
-  for (const r of rows) {
-    if (clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
-    const s = await fillItem(db, reader, ai, r, nowMs, { rule: openRule });
-    states[s] = (states[s] ?? 0) + 1;
-    done++;
-  }
+  const worker = async () => {
+    while (next < rows.length) {
+      const r = rows[next++];
+      if (clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
+      const s = await fillItem(db, reader, ai, r, nowMs, { rule: openRule });
+      states[s] = (states[s] ?? 0) + 1;
+      done++;
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(PENDING_PARALLEL, rows.length) }, worker));
   // 남은 대기 건수(이번에 못 채운 것 포함)와 그 가운데 PENDING_STALE_DAYS일 넘은 것. 건수만 — 주소·제목은 적지 않는다.
   let remaining = 0, stale = 0;
   try {

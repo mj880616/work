@@ -2,7 +2,9 @@
 // '허용 주소 판정 함수'만 바꿔 끼울 수 있게 뺀 것이다(설계 docs/design/news-clipping.md 2.3).
 // - 매 요청·매 리다이렉트 단계마다 allow()로 주소를 다시 검사한다(리다이렉트 MAX_REDIRECTS번까지).
 // - robots.txt를 먼저 읽고(출처마다 한 번, 실행 하나 안에서만 기억) 막힌 경로는 읽지 않는다. 우회 없음.
-// - 응답 FETCH_MAX_BYTES·FETCH_TIMEOUT_MS 상한, 쿠키·인증 헤더 없음, 정직한 User-Agent, 요청 사이 gapMs.
+// - 응답 FETCH_MAX_BYTES·FETCH_TIMEOUT_MS 상한, 쿠키·인증 헤더 없음, 정직한 User-Agent.
+// - 요청 사이 gapMs는 출처(사이트)마다 따로 지킨다(S54-16): 같은 사이트는 gapMs 간격 그대로, 다른 사이트끼리는 기다리지 않는다.
+//   여러 요청이 동시에 와도 출처별 다음 차례 시각을 먼저 잡아 두므로 같은 사이트 간격은 줄지 않는다.
 // outside-feed는 아직 자기 읽기를 쓴다(그 함수의 다른 PR과 겹치지 않게 이번에는 손대지 않음 — 옮기기는 후속).
 import { decodeBody, robotsAllows } from "../outside-feed/parse.ts";
 import { cleanArticleUrl, openArticleUrl, urlKey } from "./news-url.ts";
@@ -31,12 +33,14 @@ export const ACCEPT_HTML = "text/html, application/xhtml+xml;q=0.9";
 
 export function makeFeedReader(o: ReaderOptions): FeedReader {
   const now = o.now ?? Date.now;
-  const robots = new Map<string, { text: string | null; code: string }>();
-  let lastAt = 0;
+  const robots = new Map<string, Promise<{ text: string | null; code: string }>>();
+  // 출처별 다음 요청을 보내도 되는 시각. 기다리기 전에 자기 차례를 잡아 둔다(동시 요청이 같은 간격을 함께 쓰지 않게).
+  const nextAt = new Map<string, number>();
   async function raw(url: URL, accept: string): Promise<{ res: Response | null; code?: string }> {
-    const wait = lastAt + o.gapMs - now();
-    if (lastAt && wait > 0) await o.sleep(wait);
-    lastAt = now();
+    const origin = url.origin, t = now();
+    const slot = Math.max(t, nextAt.get(origin) ?? t);
+    nextAt.set(origin, slot + o.gapMs);
+    if (slot > t) await o.sleep(slot - t);
     try {
       const res = await o.doFetch(url.href, {
         method: "GET", redirect: "manual", credentials: "omit",
@@ -90,9 +94,16 @@ export function makeFeedReader(o: ReaderOptions): FeedReader {
     }
     return { ok: false, code: "redirect_loop" };
   }
-  async function robotsFor(u: URL): Promise<{ text: string | null; code: string }> {
+  // 출처마다 robots.txt는 한 번만 읽는다. 동시에 물어도 같은 읽기를 함께 기다린다.
+  function robotsFor(u: URL): Promise<{ text: string | null; code: string }> {
     const origin = `${u.protocol}//${u.host}`;
-    if (robots.has(origin)) return robots.get(origin)!;
+    const known = robots.get(origin);
+    if (known) return known;
+    const p = readRobots(origin);
+    robots.set(origin, p);
+    return p;
+  }
+  async function readRobots(origin: string): Promise<{ text: string | null; code: string }> {
     let text: string | null = null, code = "robots_unreachable";
     const start = o.allow(new URL("/robots.txt", origin).href);
     const got = start ? await follow(start, "text/plain") : { ok: false as const, code: "url_outside" };
@@ -105,9 +116,7 @@ export function makeFeedReader(o: ReaderOptions): FeedReader {
       const b = await readCapped(got.res);
       text = b ? new TextDecoder("utf-8").decode(b) : null;
     }
-    const out = { text, code };
-    robots.set(origin, out);
-    return out;
+    return { text, code };
   }
   return {
     async get(rawUrl, accept) {
