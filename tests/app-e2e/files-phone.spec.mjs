@@ -154,8 +154,7 @@ test.describe('폰 앱 412', () => {
     await prev.locator('[data-fx-copy-one]').click();
     const sheet = root(page).locator('[data-fx-dest]');
     await expect(sheet).toBeVisible();
-    // S53-8: 폰에 쓸 수 있으면 받을 곳에 이 폰도(폰 안끼리 옮기기). 여기서는 원드라이브로.
-    await expect(sheet.locator('[data-fx-dest-pick="ph:"]')).toBeVisible();
+    await expect(sheet.locator('[data-fx-dest-pick^="ph:"]')).toHaveCount(0);
     await sheet.locator('[data-fx-dest-pick="od:"]').first().click();
     await sheet.locator('[data-fx-dest-go]').click();
     await expect.poll(() => edgeCalls(server, 'upload_open').length).toBe(1);
