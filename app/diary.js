@@ -26,7 +26,7 @@ import {renderDoc} from './ed-render.mjs';
 import {diaryHasDoc, diaryStartDoc, joinDiaryDocs, diaryDocToStore, diaryDocError} from './diary-doc.mjs';
 // JOURNAL-일기목록: [달력 / 목록] 바꾸기. 목록 칸은 diary-list.js가 그리고, 고른 보기는 서버(view_prefs.diary_view)에 기억한다(기기 저장 없음).
 import {createDiaryList} from './diary-list.js';
-import {doneLine} from './diary-list-model.mjs';
+import {doneLine, inDiaryPhoto} from './diary-list-model.mjs';
 import {viewPrefs} from './view-prefs.js';
 import {iconSvg, iconHtml} from './tree-icons.js';
 // OD-연결아이콘: 원드라이브 연결 표시는 [오늘] 오른쪽 아이콘 하나 + 드롭다운(공용 부품, 사진 메뉴도 같은 부품).
@@ -366,8 +366,10 @@ function renderPhotos() {
   shown.forEach((item, i) => {
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'diary-grid-item'; button.dataset.diaryOpen = String(i);
-    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기${isStarred(item) ? ', 별표' : ''}`);
+    const inDiary = inDiaryPhoto(item, row);
+    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기${inDiary ? ', 일기에 넣은 사진' : ''}${isStarred(item) ? ', 별표' : ''}`);
     button.append(itemElement(item, 'small', {label:'', link:false}));
+    if (inDiary) { const inMark = document.createElement('span'); inMark.className = 'diary-in-mark'; inMark.setAttribute('aria-hidden', 'true'); inMark.textContent = '일기'; button.append(inMark); }
     const mark = document.createElement('span');
     mark.className = 'diary-star-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = '★'; mark.hidden = !isStarred(item);
     button.append(mark); grid.append(button);
@@ -397,7 +399,7 @@ function paintStars() {
     if (!item) return;
     const on = isStarred(item);
     const mark = button.querySelector('.diary-star-mark'); if (mark) mark.hidden = !on;
-    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기${on ? ', 별표' : ''}`);
+    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기${inDiaryPhoto(item, rows.get(selected)) ? ', 일기에 넣은 사진' : ''}${on ? ', 별표' : ''}`);
   });
   photoStripRefresh();
 }
