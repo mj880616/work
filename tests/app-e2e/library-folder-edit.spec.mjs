@@ -136,7 +136,11 @@ for(const width of [390,1280])test.describe(`폴더 수정 ${width}`,()=>{
     // 지우기(휴지통으로): 확인 창이 아래 폴더·자료 수와 '함께 들어간다'를 알린다. 취소하면 아무것도 안 바뀐다.
     const before=s.writes.length;let message='';
     await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 삭제'),width);message=await answerAsk(page,false);
+<<<<<<< HEAD
     expect(message).toContain('“가상 B” 폴더를 휴지통으로 옮길까요?');expect(message).toContain('아래 폴더 1개·자료 1개도 함께 들어가고');expect(message).toContain('자료와 Drive 파일은 삭제되지 않고, 휴지통에서 되돌리면 원래 자리로');expect(message).not.toContain('한 단 위');expect(s.writes.length).toBe(before);
+=======
+    expect(message).toContain('“가상 B” 폴더를 휴지통으로 옮길까요?');expect(message).toContain('아래 폴더 1개·자료 1개도 함께 들어가고');expect(message).toContain('자료와 Drive 파일은 지워지지 않고, 휴지통에서 되돌리면 원래대로');expect(message).not.toContain('한 단 위');expect(s.writes.length).toBe(before);
+>>>>>>> s53-14-ui-words-3
     await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 삭제'),width);await answerAsk(page,true);
     await expect(libraryNode(page,'f:fb')).toHaveCount(0);
     expect(s.writes.at(-1)).toEqual({table:'folders',method:'DELETE',id:'fb',body:null});
