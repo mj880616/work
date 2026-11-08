@@ -5,13 +5,13 @@ import {readFileSync} from 'node:fs';
 // UI-표잘림전수: 작은 표·칩 안 글자는 '…'로 자르지 않는다(줄여야 하면 옆 본문 제목을 자른다, 폰은 줄바꿈).
 // 아래 표는 그 규칙을 지키는 칩이다. 일부러 자르는 곳(제목·본문·고정 폭 표)은 docs가 아니라 PR 본문 예외 표에 있다.
 const CHIPS = [
+  ['app/google-tasks.css', '#appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag'],
   ['app/meeting-ui.css', '#meetingList .meeting-list-title .badge'],
   ['app/suborganizations.css', '.so-stage-tag'],
   ['app/base-ui.css', '.user-badge'],
 ];
 // 예외: 통화 목록 꼬리표(.feed-view .feed-call .feed-org)는 이름 하나라 늘 한 줄, 길면 끝 '…'(CALL-상대표시정리 ①, 2026-11-08 사용자 결정).
 // 그 규칙은 tests/call-row-tag.test.mjs가 본다.
-// 예외: 할 일 줄 연결 칩(.gt-card .gt-tag)도 같은 규칙(TASK-연결칩한줄, 2026-11-08): 늘 날짜 옆 한 줄, 길면 칩 안에서 '…'. tests/app-e2e/google-tasks-chip-line.spec.mjs가 본다.
 const rulesOf = (css, selector) => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(m => m[1].split(',').some(s => s.trim() === selector)).map(m => m[2]);
 
 for (const [file, selector] of CHIPS) {

@@ -56,7 +56,7 @@
 @media(prefers-reduced-motion:reduce){#gtTaskBody .gt-row .gt-check::before{animation:none!important}}
 .gt-main{min-width:0;border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer}
 .gt-main b{display:block;font-size:13px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gt-meta{display:flex;gap:var(--kptu-space-2);align-items:center;margin-top:3px;font-size:10px;color:var(--kptu-muted);min-width:0}.gt-meta span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gt-meta .gt-more{flex:none;overflow:visible}
+.gt-meta{display:flex;gap:var(--kptu-space-2);align-items:center;margin-top:3px;font-size:10px;color:var(--kptu-muted);min-width:0}.gt-meta span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gt-group{min-width:0;border-bottom:1px solid var(--kptu-border)}
 .gt-group-head{margin:0;padding:var(--kptu-space-2) 3px 4px;font-size:12px;font-weight:750;color:var(--kptu-muted)}
 .gt-overdue .gt-group-head,.gt-row.overdue .gt-due{color:var(--kptu-danger);font-weight:700}
@@ -94,15 +94,19 @@ div.gt-main{cursor:default}
 [data-gt-show-all]::after { content:''; position:absolute; top:50%; left:0; width:100%; min-width:44px; height:44px; transform:translateY(-50%); }
 
 /* Only the task screen and calendar date dialog adopt D-할일화면정리 typography. */
-#gtTaskBody .gt-main b{font-size:14px;line-height:1.4;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+/* TASK-제목날짜만(2026-11-09): 할 일 줄은 '○ 제목… 날짜 ⋯' 한 줄. 날짜는 모든 줄에서 같은 폭의 오른쪽 칸(같은 세로줄), 줄 높이는 모두 같다. 연결 이름은 줄에 쓰지 않는다. */
+:root{--gt-date-w:78px}
+:is(#gtTaskBody,.gt-linked) .gt-main{display:grid;grid-template-columns:minmax(0,1fr) var(--gt-date-w);column-gap:var(--kptu-space-2);align-items:center}
+:is(#gtTaskBody,.gt-linked) .gt-main>.gt-meta{margin:0;justify-content:flex-end;text-align:right}
+:is(#gtTaskBody,.gt-linked) .gt-main>.gt-meta span{max-width:none;overflow:visible}
+#gtTaskBody .gt-main b{font-size:14px;line-height:1.4;white-space:nowrap;display:block;overflow:hidden;text-overflow:ellipsis}
 :is(#gtTaskBody,#calendarDayTasks) .gt-meta{display:flex;gap:4px;min-width:0;font-size:12px;color:var(--kptu-muted)}
 :is(#gtTaskBody,#calendarDayTasks) .gt-meta .gt-due{flex:none;max-width:none}
-:is(#gtTaskBody,#calendarDayTasks) .gt-meta .gt-more{flex:none;max-width:none;white-space:nowrap;color:var(--kptu-muted)}
-:is(#gtTaskBody,#calendarDayTasks) .gt-meta .gt-project{min-width:0;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--kptu-primary-ink)}
-#calendarDayTasks .gt-day-main{min-width:0;display:block;flex:1}
+#calendarDayTasks .gt-day-main{min-width:0;flex:1;display:grid;grid-template-columns:minmax(0,1fr) var(--gt-date-w);column-gap:var(--kptu-space-2);align-items:center}
+#calendarDayTasks .gt-day-main>.gt-meta{margin:0;justify-content:flex-end;text-align:right}
 #calendarDayTasks{min-width:0}
 #calendarDayTasks .cmv-task{min-width:0;max-width:100%}
-#calendarDayTasks .cmv-event-title{font-size:14px;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+#calendarDayTasks .cmv-event-title{font-size:14px;white-space:nowrap;display:block;overflow:hidden;text-overflow:ellipsis}
 /* 날짜 목록의 동그라미: 모양은 그대로 두고 누르는 영역만 44px로 넓힌다(완료·완료 취소). */
 #calendarDayTasks .cmv-task-mark{position:relative}
 #calendarDayTasks .cmv-task-mark::after{content:"";position:absolute;inset:-13px}
@@ -194,11 +198,8 @@ div.gt-main{cursor:default}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main{display:flex;align-items:center;gap:8px;min-width:0;min-height:36px;padding:0;border-radius:var(--kptu-radius-sm)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main b{flex:1 1 auto;min-width:0;font-size:var(--ds-text-row);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-line-clamp:unset;display:block}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-meta{flex:0 1 auto;display:flex;flex-wrap:nowrap;gap:2px 6px;align-items:center;justify-content:flex-end;min-width:0;max-width:55%;margin:0;font-size:var(--ds-text-meta);line-height:1.4;color:var(--kptu-muted)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-meta{flex:0 0 var(--gt-date-w);display:flex;align-items:center;justify-content:flex-end;min-width:0;margin:0;font-size:var(--ds-text-meta);line-height:1.4;color:var(--kptu-muted)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-due{flex:none}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag{display:block;flex:0 1 auto;min-width:0;max-width:min(11em,100%);box-sizing:border-box;padding:0 6px;border-radius:var(--kptu-radius-pill);font-size:11px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;word-break:keep-all;color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft)}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag-more{flex:none;max-width:none;overflow:visible;text-overflow:clip}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag-project{color:var(--kptu-primary-ink);background:var(--kptu-primary-soft)}
   /* ⋯: 누르는 범위 44×44(동그라미와 같이 위아래 4px 겹침), 보이는 바탕은 28px. */
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-menu-trigger{width:44px;height:44px;min-width:44px;min-height:44px;margin:-4px 0;padding:0;font-size:18px;line-height:44px}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-menu-trigger::before{inset:8px}

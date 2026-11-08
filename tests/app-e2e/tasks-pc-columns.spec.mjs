@@ -52,9 +52,10 @@ for(const width of [1280,1440]){
     const red=await col(page,'now').locator('[data-google-task="late"] .gt-due').evaluate(e=>getComputedStyle(e).color);
     const plain=await col(page,'now').locator('[data-google-task="today"] .gt-due').evaluate(e=>getComputedStyle(e).color);
     expect(red).not.toBe(plain);expect(danger).not.toBe('');
-    // 카드 태그: 프로젝트·담당조직 이름.
-    await expect(col(page,'now').locator('[data-google-task="today"] .gt-tag-project')).toHaveText('시험 프로젝트');
-    await expect(col(page,'week').locator('[data-google-task="soon"] .gt-tag-org')).toHaveText('시험 조직');
+    // TASK-제목날짜만: 카드에는 연결 이름표(프로젝트·담당조직)가 없고 제목·날짜만 있다.
+    await expect(page.locator('#gtTaskSection .gt-tag,#gtTaskSection .gt-tag-more')).toHaveCount(0);
+    await expect(col(page,'now').locator('[data-google-task="today"]')).not.toContainText('시험 프로젝트');
+    await expect(col(page,'week').locator('[data-google-task="soon"]')).not.toContainText('시험 조직');
     // "일주일 안" 열 맨 아래 접기 줄: "나중 2 ▸"(먼 기한 1 + 기한 없음 1)·"완료 1 ▸". 접힌 동안 항목은 안 보이고, 펼치면 모두 보인다.
     const later=col(page,'week').locator('#gtLater'),done=col(page,'week').locator('#gtCompleted');
     await expect(later.locator('summary')).toContainText('나중 2');await expect(done.locator('summary')).toContainText('완료 1');
