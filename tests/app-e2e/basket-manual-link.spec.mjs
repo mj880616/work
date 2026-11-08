@@ -160,7 +160,7 @@ test('cancel asks only when something was picked, and leaving the view asks abou
  page.once('dialog',d=>{asked.push(d.message());d.dismiss();});await page.evaluate(()=>window.KPTURouter.go('home'));
  await expect(page.locator('#basketView')).toBeVisible();await expect(summary(detail,o,'organization')).toHaveValue('쓰던 요약');
  await page.keyboard.press('Escape');asked.push(await answerAsk(page,true));await expect(detail.locator('[data-manual-link]')).toHaveCount(0);
- expect(asked).toEqual(['선택한 곳과 쓰던 요약을 삭제하고 닫을까요?','작성 중인 연결·할 일 입력을 버리고 다른 화면으로 갈까요?','선택한 곳과 쓰던 요약을 삭제하고 닫을까요?']);
+ expect(asked).toEqual(['선택한 곳과 쓰던 요약을 삭제하고 닫을까요?','작성 중인 연결·할 일 입력을 삭제하고 다른 화면으로 갈까요?','선택한 곳과 쓰던 요약을 삭제하고 닫을까요?']);
  expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
 });
 
