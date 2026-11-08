@@ -85,7 +85,7 @@ function beginProjectSave(e,body){
   attempt.liveDraft=readSaveDraft(e);attempt.pending=true;attempt.done=new Promise(resolve=>r.finish=resolve);attempt.request=r;e.attempt=attempt;e.request=r;saveAttempts.set(attemptKey(e),attempt);saveBusy(e,true);saveNotice(e,'저장 중…');return r;
 }
 function finishProjectSave(r){const e=r.editor,a=r.attempt;if(a.request===r){a.pending=false;a.request=null;r.finish()}if(e.request===r){e.request=null;if(saveEditorCurrent(e)&&e.seq===r.seq)saveBusy(e,false)}}
-const saveCall=(r,path,options={})=>{if(!projectSaveCurrent(r))throw new Error('편집창이 바뀌었습니다.');return api(path,{...options,expectedSessionEpoch:r.epoch})};
+const saveCall=(r,path,options={})=>{if(!projectSaveCurrent(r))throw new Error('수정 창이 바뀌었습니다.');return api(path,{...options,expectedSessionEpoch:r.epoch})};
 const savedId=id=>typeof id==='string'&&!!id||typeof id==='number'&&Number.isFinite(id);
 function validSaveRow(e,row,id=null){return !!row&&savedId(row.id)&&(id==null||row.id===id)&&Object.entries(saveScope(e)).every(([key,value])=>row[key]===value)}
 function sameSavedValue(a,b){if(a===b)return true;if(!a||!b||typeof a!=='object'||typeof b!=='object'||Array.isArray(a)!==Array.isArray(b))return false;const keys=Object.keys(a);return keys.length===Object.keys(b).length&&keys.every(key=>Object.hasOwn(b,key)&&sameSavedValue(a[key],b[key]))}
@@ -99,7 +99,7 @@ function failedSave(r,error,stage='body'){const a=r.attempt,e=r.editor;if(!sameS
 function saveReadPath(e,a,id=null){const scope=saveScope({...e,projectId:a.projectId,workstreamId:a.workstreamId}),q=new URLSearchParams({select:'*',...Object.fromEntries(Object.entries(scope).map(([k,v])=>[k,v===null?'is.null':'eq.'+v]))});if(id!=null)q.set('id','eq.'+id);return '/rest/v1/'+SAVE_TABLE[e.kind]+'?'+q}
 async function recoverSave(e){
   const a=e.attempt||saveAttempts.get(attemptKey(e));if(!a||a.pending||e.reading||e.request||!saveEditorCurrent(e))return;
-  const run=++e.readRun,active=()=>saveEditorCurrent(e)&&run===e.readRun,read=async path=>{if(!active())throw new Error('편집창이 바뀌었습니다.');const d=await api(path,{singleFlight:false,expectedSessionEpoch:e.epoch});if(!active())throw new Error('편집창이 바뀌었습니다.');return d};
+  const run=++e.readRun,active=()=>saveEditorCurrent(e)&&run===e.readRun,read=async path=>{if(!active())throw new Error('수정 창이 바뀌었습니다.');const d=await api(path,{singleFlight:false,expectedSessionEpoch:e.epoch});if(!active())throw new Error('수정 창이 바뀌었습니다.');return d};
   const accept=async row=>{
     const scopeEditor={...e,projectId:a.projectId,workstreamId:a.workstreamId};
     const exact=await read(saveReadPath(e,a,row.id));if(!Array.isArray(exact)||exact.length!==1||!validSaveRow(scopeEditor,exact[0],row.id))throw new Error('선택한 항목의 저장 결과를 확인하지 못했습니다.');
@@ -113,7 +113,7 @@ async function recoverSave(e){
     if(a.knownId!=null)await accept({id:a.knownId});
     else{
       const scopeEditor={...e,projectId:a.projectId,workstreamId:a.workstreamId};const rows=await readRecordPages(saveReadPath(e,a),{...rt,api:read});if(!active())return;
-      const candidates=rows.filter(row=>validSaveRow(scopeEditor,row));saveNotice(e,candidates.length?'저장된 항목을 직접 골라 주세요. 제목만으로 저장을 판단하지 않습니다.':'목록에서 결과를 찾지 못했습니다. 입력은 유지했습니다.',{confirm:!candidates.length});
+      const candidates=rows.filter(row=>validSaveRow(scopeEditor,row));saveNotice(e,candidates.length?'저장된 항목을 직접 선택해 주세요. 제목만으로 저장을 판단하지 않습니다.':'목록에서 결과를 찾지 못했습니다. 입력은 유지했습니다.',{confirm:!candidates.length});
       for(const row of candidates){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=String(row.name||row.title||row.summary||row.body||'제목 없음')+' · 이 항목 사용';b.onclick=async()=>{if(!active()||e.reading)return;e.reading=true;saveBusy(e,true);b.disabled=true;try{await accept(row)}catch(error){if(active())saveNotice(e,error.message||String(error),{confirm:true})}finally{if(active()){e.reading=false;saveBusy(e,false)}}};e.status.append(document.createTextNode(' '),b);const hint=document.createElement('small');hint.textContent=row.effective_on||row.created_at||'';e.status.append(hint)}
     }
   }catch(error){if(active())saveNotice(e,error.message||String(error),{confirm:true})}
@@ -140,7 +140,7 @@ const depthOf=p=>ancestors(p).length;
 function descendants(p,{activeOnly=false}={}){const out=[],seen=new Set([p?.id]);const walk=(x,d)=>{for(const c of (activeOnly?kids(x):projects.filter(y=>y.parent_id===x.id)))if(!seen.has(c.id)){seen.add(c.id);out.push({project:c,depth:d});walk(c,d+1)}};if(p)walk(p,1);return out}
 const heightOf=p=>Math.max(0,...descendants(p).map(x=>x.depth));
 // Why p cannot become the parent of self (null for a new project), or '' when it can.
-function parentProblem(p,self){if(!p||p.status==='archived')return '상위 사업영역을 다시 골라 주세요.';if(self&&(p.id===self.id||descendants(self).some(x=>x.project.id===p.id)))return '자기 자신이나 그 아래 사업영역 밑으로는 옮길 수 없어요.';if(depthOf(p)+1+(self?heightOf(self):0)>MAX_DEPTH)return '사업영역은 3단까지만 둘 수 있어요.';return ''}
+function parentProblem(p,self){if(!p||p.status==='archived')return '상위 사업영역을 다시 선택해 주세요.';if(self&&(p.id===self.id||descendants(self).some(x=>x.project.id===p.id)))return '자기 자신이나 그 아래 사업영역 밑으로는 옮길 수 없어요.';if(depthOf(p)+1+(self?heightOf(self):0)>MAX_DEPTH)return '사업영역은 3단까지만 둘 수 있어요.';return ''}
 // The projects of the list in tree order (what the list shows and reads summaries for).
 const listedProjects=()=>catalog.tree(projects).map(x=>x.project);
 // PRJ-색: a main project stores one of these keys in metadata.color (the database accepts only these keys); theme-tokens.css maps
@@ -381,7 +381,7 @@ async function renderGrid({isCurrent=()=>true}={}){
  const old=grid.querySelector(':scope>.ps3-plist'),list=document.createElement('div');list.className='ps3-plist';
  list.innerHTML=`<div class="add-list-head"><span class="muted" data-ps3-total>사업영역 ${rows.length}개</span><div class="ps3-project-toolbar"></div></div>${rows.length?foldedListHtml():emptyHtml()}`;
  if(old){const top=old.scrollTop;old.replaceWith(list);list.scrollTop=top}else grid.prepend(list);
- if(!$('#ps3DetailPane'))grid.insertAdjacentHTML('beforeend','<aside id="ps3DetailPane" class="ps3-pane" aria-label="사업영역 상세"><p class="ps3-pane-empty">왼쪽에서 사업영역을 고르면 여기에 보입니다.</p></aside>');
+ if(!$('#ps3DetailPane'))grid.insertAdjacentHTML('beforeend','<aside id="ps3DetailPane" class="ps3-pane" aria-label="사업영역 상세"><p class="ps3-pane-empty">왼쪽에서 사업영역을 선택하면 여기에 보입니다.</p></aside>');
  const actions=list.querySelector('.add-list-head .ps3-project-toolbar');
  if(archiveBtn){paintArchiveBtn(archiveBtn);actions.append(archiveBtn);if(trash.merged!==TRASH_STATE.MISSING)void syncTrash()}if(add&&!add.closest('#areaWindow .area-window-head'))actions.append(add);
  if(orderAvailable())actions.prepend(orderToggle());
@@ -423,7 +423,7 @@ function ps3PaintFiles(){const host=$('#ps3Body');if(!host||!detail)return;paint
 // MTG-프로젝트합치기 결정 ⑥(10/28 19:38 '지난 진행 기록 화면 없음'): 옛 진행 기록(app_project_progress_updates)·기록 없는 진행 항목
 // 줄은 이 목록에 그리지 않는다(기록은 사업 보고 한 곳, 표·데이터는 보존). 정리함 업데이트·노트 연결 줄(결정 ⑦)만 날짜순으로 남는다.
 function recordItems(d){return (d.basketLinks||[]).map(b=>({key:keyOf(b.occurred_at),at:Date.parse(b.occurred_at)||0,html:basketRecord(b)})).sort((a,b)=>b.key.localeCompare(a.key)||b.at-a.at)}
-function recordRows(d){const rows=recordItems(d);return `${rows.length?rows.map(x=>x.html).join(''):(!d.basketError?emptyHtml('없음',{attrs:'data-ps3-rec-empty'}):'')}${d.basketError?'<div class="status error" role="status">잊지 말기 연결 기록을 불러오지 못했습니다. <button type="button" data-ps3-basket-retry>다시 불러오기</button></div>':''}`}
+function recordRows(d){const rows=recordItems(d);return `${rows.length?rows.map(x=>x.html).join(''):(!d.basketError?emptyHtml('없음',{attrs:'data-ps3-rec-empty'}):'')}${d.basketError?'<div class="status error" role="status">잊지 말기 연결 기록을 불러오지 못했습니다. <button type="button" data-ps3-basket-retry>다시</button></div>':''}`}
 function recordCount(d){return d.basketLinks?.length||0}
 // MTG-프로젝트합치기 3단계: 진행 기록 입력칸은 없다(기록은 사업 보고 한 곳). 목록에는 정리함 연결 줄만 보인다(표·데이터 보존).
 function progress(d){return `<section class="ps3-section ps3-records" id="ps3-progress"><div class="ps3-section-head"><h3>${esc(moduleTitle(d,'progress','진행상황'))} <span class="ps3-count" data-ps3-record-count>${recordCount(d)}</span></h3></div><div class="ps3-rec-list" data-ps3-records>${recordRows(d)}</div></section>`}
@@ -481,12 +481,12 @@ async function openProgressWindow(u){
         const base=`/rest/v1/app_project_progress_updates?id=eq.${encodeURIComponent(u.id)}&project_id=eq.${encodeURIComponent(p.id)}`;
         const fresh=await api(`${base}&select=id,summary,doc`);
         if(!Array.isArray(fresh)||fresh.length!==1)throw new Error('권한이 없거나 이미 없는 기록입니다.');
-        if(!sameRecord(fresh[0],u,'summary'))throw new Error('다른 곳에서 바뀐 기록이에요. 화면을 다시 불러온 뒤 고쳐 주세요.');
+        if(!sameRecord(fresh[0],u,'summary'))throw new Error('다른 곳에서 바뀐 기록이에요. 화면을 다시 불러온 뒤 수정해 주세요.');
         const rows=await api(`${base}${hasDoc(u)?'':'&doc=is.null'}&select=*`,{method:'PATCH',body:recordPatch('summary',{text:text.trim(),value}),prefer:'return=representation'});
-        if(!Array.isArray(rows)||rows.length!==1)throw new Error('기록이 그사이 바뀌었어요. 화면을 다시 불러온 뒤 고쳐 주세요.');
-        if(same()){Object.assign(u,rows[0]);toast('기록을 고쳤습니다.');await refreshDetail().catch(()=>{})}
+        if(!Array.isArray(rows)||rows.length!==1)throw new Error('기록이 그사이 바뀌었어요. 화면을 다시 불러온 뒤 수정해 주세요.');
+        if(same()){Object.assign(u,rows[0]);toast('기록을 수정했습니다.');await refreshDetail().catch(()=>{})}
         return {ok:true}}
-      catch(e){return {ok:false,message:e?.message||'기록을 고치지 못했어요. 다시 눌러 주세요.'}}}})}
+      catch(e){return {ok:false,message:e?.message||'기록을 수정하지 못했어요. 다시 눌러 주세요.'}}}})}
 function resetProgressRecord(row){if(!row?.isConnected)return;const id=row.dataset.ps3Record,item=row.dataset.ps3RecordKind==='item',source=item?detail?.workstreams.find(x=>x.id===id):detail?.progress.find(x=>x.id===id);if(source){row.dataset.saving='0';row.innerHTML=item?itemRecord(source):progressRecord(source)}}
 async function mutateProgressRecord(row,method,summary){
   if(!canEdit(current)||!row||row.dataset.saving==='1')return;
@@ -522,13 +522,13 @@ let docOff=detailDefaultOff(),docOffFor='',docSub='';
 function docOffSet(d){if(docOffFor!==d.p.id){docOffFor=d.p.id;docOff=detailDefaultOff();docSub=''}return docOff}
 // 숨길 분류(전체 이름) 모음: 꺼 둔 큰 분류 + 소분류를 골랐으면 그 밖의 것.
 function docHidden(d){const off=docOffSet(d);return hiddenCategories(topDocumentCategories(),off,docSub)}
-function docListHtml(d){const off=docHidden(d),rows=d.docs.filter(x=>!off.has(categoryOf(x.category))).slice(0,5);return d.docs.length?(rows.length?`<div class="ps3-lines">${rows.map(docRow).join('')}</div>`:emptyHtml('고른 종류 없음',{attrs:'data-ps3-doc-nokind'})):''}
+function docListHtml(d){const off=docHidden(d),rows=d.docs.filter(x=>!off.has(categoryOf(x.category))).slice(0,5);return d.docs.length?(rows.length?`<div class="ps3-lines">${rows.map(docRow).join('')}</div>`:emptyHtml('선택한 종류 없음',{attrs:'data-ps3-doc-nokind'})):''}
 function docsHtml(d){return `<section class="ps3-section" id="ps3-documents"><div class="ps3-section-head"><h3>${esc(moduleTitle(d,'documents','자료'))} ${count(d.docs.length)}</h3><div class="ps3-section-actions">${addPlus('자료 올리기','data-ps3-global="document"')}</div></div><div id="ps3DocKinds" class="doc-kind-chips"${d.docs.length?'':' hidden'}></div><div data-ps3-doc-list>${docListHtml(d)}</div>${d.docs.length?`<button type="button" class="ps3-text-btn ps3-docs-all" data-ps3-library>전체 ${d.docs.length}개 보기 <span aria-hidden="true">›</span></button>`:''}</section>`}
 // 종류 칩을 그리고 누르면 줄 목록만 다시 그린다(칩 단추는 그대로라 초점·터치가 유지됨).
 function mountDocKinds(d){
   const host=$('#ps3-documents #ps3DocKinds');if(!host||d!==detail||!d.docs.length)return;
   const redraw=()=>{const list=$('#ps3-documents [data-ps3-doc-list]');if(list)list.innerHTML=docListHtml(d);mountDocKinds(d)};
-  renderCategoryChips(host,{names:topDocumentCategories(),off:docOffSet(d),sub:docSub,label:'자료 종류 (여러 개 고르기)',controls:'ps3-documents',key:'docKind',counts:categoryCounts(topDocumentCategories(),d.docs),onToggle:value=>{
+  renderCategoryChips(host,{names:topDocumentCategories(),off:docOffSet(d),sub:docSub,label:'자료 종류 (여러 개 선택)',controls:'ps3-documents',key:'docKind',counts:categoryCounts(topDocumentCategories(),d.docs),onToggle:value=>{
     if(d!==detail)return;docOff=toggleCategoryOff(topDocumentCategories(),docOffSet(d),value);redraw()},
     onSub:value=>{if(d!==detail)return;docOffSet(d);docSub=value;redraw()}});
 }
@@ -687,7 +687,7 @@ function bindFoldMenu(){
 function moreMenu(p){return `<details class="ps3-more"><summary class="icon-btn" data-ctx="area" aria-label="사업영역 관리 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="ps3-more-panel" role="group" aria-label="사업영역 관리"><button type="button" data-ps3-toggle-done>${p.status==='done'?'완료 취소':'완료'}</button><button type="button" data-ps3-edit-project>수정</button>${foldMenuItem(p)}<button type="button" data-ps3-archive-project>보관</button><button type="button" class="ps3-danger" data-ps3-delete-project>삭제</button></div></details>`}
 function renderDetail(d){if(!d||d!==detail||d.p.id!==current?.id||d.p.id!==basketTargetId)return;if(recordMenu?.active){const epoch=detailEpoch;closeRecordMenu(()=>{if(epoch===detailEpoch)renderDetail(d)});return}listCounts[d.p.id]={...listCounts[d.p.id],progress:d.progress[0]?.effective_on||null,last:[d.progress[0]?.effective_on,...(d.basketLinks||[]).map(b=>keyOf(b.occurred_at))].filter(v=>/^\d{4}-\d{2}-\d{2}/.test(v||'')).map(v=>v.slice(0,10)).sort().pop()||null,milestone:d.milestones.find(m=>m.start_at>=new Date(ranges().start).toISOString()&&!['done','completed','cancelled','canceled'].includes(m.status))?.start_at||null};paintSummaries();const p=d.p,up=ancestors(p),ch=up.length<MAX_DEPTH?kids(p):[],manageable=canManage(p),body=$('#ps3Body');const keep=body.dataset.project===p.id?[...body.querySelectorAll('details[data-ps3-panel][open]')].map(x=>x.dataset.ps3Panel):[];$('#ps3Hierarchy').innerHTML=up.map((x,i)=>`${i?'<span class="ps3-hier-sep" aria-hidden="true">›</span>':''}<button class="ps3-parent-link" data-ps3-project="${esc(x.id)}">${i?'':'← '}${esc(x.name)}</button>`).join('');paintSelection();$('#ps3Summary').innerHTML=headSummary(d,ch);paintHead(p);$('#ps3Menu').innerHTML=manageable?moreMenu(p):'';disposeBasketEditor();const parts=[progress(d),childrenHtml(d,ch,manageable)];if(enabled(d,'tasks'))parts.push(tasksHtml(d));if(enabled(d,'documents'))parts.push(docsHtml(d));parts.push(meetingsHtml(d));if(enabled(d,'milestones'))parts.push(milestones(d));body.innerHTML=parts.join('');ps3PaintFiles();body.dataset.project=p.id;if(enabled(d,'documents'))mountDocKinds(d);mountReportPhotos(body,{rt,isCurrent:()=>d===detail});keep.forEach(k=>body.querySelector(`details[data-ps3-panel="${CSS.escape(k)}"]`)?.setAttribute('open',''));if(enabled(d,'tasks'))mountGoogleTasks(p.id);flushBasketLinks()}
 const unsavedContent=()=>!!current&&$('#ps3Body')?.dataset.project===current.id&&(!!basketEditor?.hasDraft()||!!$('#ps3Body [data-dirty="true"]:is([data-ps3-editing],[data-ps3-new-section],[data-ps3-new-block],[data-ps3-edit-record])'));
-const confirmDiscard=(extraDirty=false)=>!(unsavedContent()||extraDirty)||confirm('저장하지 않은 사업영역 내용이 있습니다. 이동하면서 버릴까요?');
+const confirmDiscard=(extraDirty=false)=>!(unsavedContent()||extraDirty)||confirm('저장하지 않은 사업영역 내용이 있습니다. 저장하지 않고 이동할까요?');
 window.addEventListener('kptu:before-reload',event=>{if(!confirmDiscard(event.detail?.projectDraft===true))event.preventDefault()});
 // PC projects screen: show in the right pane (a selection, no history entry of its own); elsewhere: the dialog as before.
 function showDetail(){if(placeDetail()){const m=$('#ps3DetailModal');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');$('#ps3DetailPane').classList.add('has-project');paintSelection();repaintHead();return true}openModal('ps3DetailModal');repaintHead();return false}
@@ -771,7 +771,7 @@ function milestoneGooglePayload(e,visible,source,before,address){
 }
 function googlePayloadSame(a,payload){return a.googleState==='confirmed'&&['title','memo','all_day','start_iso','end_iso','start_date','end_date'].every(k=>sameSavedValue(a.googleWanted?.[k],payload[k]))}
 function googleMatchesPayload(event,payload){return event.title===payload.title&&(event.description||'')===(payload.memo||'')&&!!event.allDay===!!payload.all_day&&(payload.all_day?event.start===payload.start_date&&event.end===new Date(Date.parse(payload.end_date)+86400000).toISOString().slice(0,10):Date.parse(event.start)===Date.parse(payload.start_iso)&&Date.parse(event.end)===Date.parse(payload.end_iso))}
-async function milestoneGoogleCall(r,body){if(!projectSaveCurrent(r))throw new Error('편집창이 바뀌었습니다.');return googleCalendarCall('',{method:'POST',body:freezeSave(structuredClone(body)),expectedSessionEpoch:r.epoch})}
+async function milestoneGoogleCall(r,body){if(!projectSaveCurrent(r))throw new Error('수정 창이 바뀌었습니다.');return googleCalendarCall('',{method:'POST',body:freezeSave(structuredClone(body)),expectedSessionEpoch:r.epoch})}
 async function compensateMilestone(r,error){
   const a=r.attempt;if(!projectSaveCurrent(r)||!r.didGoogleWrite||![401,403].includes(error?.status))return false;
   a.bodyState='idle';a.compensation='pending';
@@ -815,12 +815,12 @@ async function saveMilestone(){
 }
 async function recoverMilestone(e){
   const a=e.attempt;if(!a||a.pending||e.request||e.reading||!saveEditorCurrent(e))return;const run=++e.readRun,active=()=>saveEditorCurrent(e)&&run===e.readRun;
-  const read=async(path,google=false)=>{if(!active())throw new Error('편집창이 바뀌었습니다.');const result=google?await googleCalendarCall(path.action,{params:path.params,expectedSessionEpoch:e.epoch}):await api(path,{singleFlight:false,expectedSessionEpoch:e.epoch});if(!active())throw new Error('편집창이 바뀌었습니다.');return result};
+  const read=async(path,google=false)=>{if(!active())throw new Error('수정 창이 바뀌었습니다.');const result=google?await googleCalendarCall(path.action,{params:path.params,expectedSessionEpoch:e.epoch}):await api(path,{singleFlight:false,expectedSessionEpoch:e.epoch});if(!active())throw new Error('수정 창이 바뀌었습니다.');return result};
   const localPath=id=>saveReadPath(e,a,id),localRows=async id=>{const rows=await read(localPath(id));if(!Array.isArray(rows))throw new Error('사업영역 기록을 확인하지 못했습니다.');return rows.filter(row=>validSaveRow(e,row,id))};
   const getGoogle=async address=>{const status=await read({action:'status'},true);if(!writableGoogleCalendars(status).some(c=>c.id===address.calendarId))throw new Error('선택한 캘린더의 수정 권한을 확인해 주세요.');const d=await read({action:'event',params:{calendarId:address.calendarId,eventId:address.eventId}},true);if(!validGoogleAddress(d?.event,address)||!d.event.start||!d.event.end)throw new Error('정확한 Google 일정을 확인하지 못했습니다.');return d.event};
   const acceptGoogle=event=>{a.address=freezeSave({calendarId:event.calendarId,eventId:event.id});a.observedAddress=null;a.googleCurrent=freezeSave(structuredClone(event));e.googleBefore=a.googleCurrent;e.googleReady=true;a.googleState=googleMatchesPayload(event,a.googleWanted||{})?'confirmed':'idle'};
   const acceptLocal=async row=>{const rows=await localRows(row.id);if(rows.length!==1)throw new Error('선택한 사업영역 기록을 확인하지 못했습니다.');const fresh=rows[0];if(fresh.google_calendar_id&&fresh.google_event_id)acceptGoogle(await getGoogle(a.observedAddress||{calendarId:fresh.google_calendar_id,eventId:fresh.google_event_id}));else if(a.googleNeeded)throw new Error('선택한 기록의 Google 연결을 확인하지 못했습니다.');a.knownId=fresh.id;a.row=structuredClone(fresh);a.savedBody=structuredClone(fresh);a.bodyState='confirmed';a.needsReview=false;saveNotice(e,'선택한 기존 일정을 사용합니다. 입력을 확인한 뒤 저장해 주세요.')};
-  const pick=async(label,load,accept)=>{const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=label;b.onclick=async()=>{if(!active()||e.reading)return;e.reading=true;saveBusy(e,true);try{const rows=await load();saveNotice(e,rows.length?'확인할 기존 항목을 직접 골라 주세요.':'목록에서 찾지 못했습니다. 입력을 유지하며 새로 만들지 않습니다.',{confirm:!rows.length});for(const row of rows){const c=document.createElement('button');c.type='button';c.className='secondary';c.textContent=String(row.title||'제목 없음')+' · 이 항목 사용';c.onclick=async()=>{if(!active()||e.reading)return;e.reading=true;saveBusy(e,true);try{await accept(row)}catch(error){if(active())saveNotice(e,error.message||String(error),{confirm:true})}finally{if(active()){e.reading=false;saveBusy(e,false)}}};e.status.append(document.createTextNode(' '),c);const hint=document.createElement('small');hint.textContent=String(row.start||row.start_at||'')+' · '+String(row.calendarId||row.id);e.status.append(hint)}}catch(error){if(active())saveNotice(e,error.message||String(error),{confirm:true})}finally{if(active()){e.reading=false;saveBusy(e,false)}}};e.status.append(document.createTextNode(' '),b)};
+  const pick=async(label,load,accept)=>{const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=label;b.onclick=async()=>{if(!active()||e.reading)return;e.reading=true;saveBusy(e,true);try{const rows=await load();saveNotice(e,rows.length?'확인할 기존 항목을 직접 선택해 주세요.':'목록에서 찾지 못했습니다. 입력을 유지하며 새로 만들지 않습니다.',{confirm:!rows.length});for(const row of rows){const c=document.createElement('button');c.type='button';c.className='secondary';c.textContent=String(row.title||'제목 없음')+' · 이 항목 사용';c.onclick=async()=>{if(!active()||e.reading)return;e.reading=true;saveBusy(e,true);try{await accept(row)}catch(error){if(active())saveNotice(e,error.message||String(error),{confirm:true})}finally{if(active()){e.reading=false;saveBusy(e,false)}}};e.status.append(document.createTextNode(' '),c);const hint=document.createElement('small');hint.textContent=String(row.start||row.start_at||'')+' · '+String(row.calendarId||row.id);e.status.append(hint)}}catch(error){if(active())saveNotice(e,error.message||String(error),{confirm:true})}finally{if(active()){e.reading=false;saveBusy(e,false)}}};e.status.append(document.createTextNode(' '),b)};
   e.reading=true;saveBusy(e,true);saveWait(e);
   try{
     const rows=await localRows(a.knownId||a.localId);if(rows.length===1){await acceptLocal(rows[0]);return}
@@ -975,11 +975,11 @@ async function reportUnlink(id){
   if(!current)return;const target={kind:'project',id:current.id},anchor=document.activeElement;
   try{
     const now=await readReportTargets(id);const mine=now.find(t=>sameTarget(t,target));
-    if(mine?.hasSummary&&(!(await askConfirm(anchor,{text:'이 연결에 보낸 기록이 있어요. 연결을 해제하면 그 기록도 함께 지워져요. 해제할까요?',ok:'해제',danger:true}))||current?.id!==target.id))return;
+    if(mine?.hasSummary&&(!(await askConfirm(anchor,{text:'이 연결에 보낸 기록이 있어요. 연결을 해제하면 그 기록도 함께 삭제돼요. 해제할까요?',ok:'해제',danger:true}))||current?.id!==target.id))return;
     const r=await changeOneTarget(id,target,'remove');
     if(!r.ok){toast(r.message||'연결을 해제하지 못했습니다.');return}
     window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}}));await repaintReports();
-    if(mine?.hasSummary){toast('연결과 보낸 기록을 지웠습니다.');return}
+    if(mine?.hasSummary){toast('연결과 보낸 기록을 삭제했습니다.');return}
     offerUndoNotice({text:'연결을 해제했어요. 사업 보고는 남아요.',onUndo:async()=>{const back=await restoreTargets(id,r.previous);if(!back.ok)return {status:'failed',message:back.message||'되돌리지 못했어요.'};await repaintReports();window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}}));return {status:'restored',message:'연결을 되돌렸어요.'}}});
   }catch(e){toast(e.message||'연결을 해제하지 못했습니다.')}
 }

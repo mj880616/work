@@ -203,7 +203,7 @@ for(const width of [390,1280])test(`project documents show each kind and filter 
  await expect(chip(host,'공문')).toHaveAttribute('aria-pressed','false');
  // [전체] while only some are on turns all on; pressed again (all on) it turns all off.
  await tap(page,chip(host,'전체'),width);await expect(chip(host,'공문')).toHaveAttribute('aria-pressed','true');
- await tap(page,chip(host,'전체'),width);await expect(section.locator('[data-ps3-doc-nokind]')).toHaveText('고른 종류 없음');
+ await tap(page,chip(host,'전체'),width);await expect(section.locator('[data-ps3-doc-nokind]')).toHaveText('선택한 종류 없음');
  await tap(page,chip(host,'성명·보도자료'),width);
  await expect(section.locator('.ps3-doc-row b')).toHaveText(['합성 성명서']);
  await expect(section.getByRole('button',{name:'전체 7개 보기'})).toBeVisible();
