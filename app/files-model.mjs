@@ -70,7 +70,7 @@ export const kindIcon = row => KIND[kindOf(row)].icon;
 export const kindSvg = row => KIND[kindOf(row)].svg || '';
 
 // 오른쪽 칸(폰은 전체 화면) 미리보기 길. image = 큰 썸네일, pdf = 원본을 pdf.js로, office = 서버가 PDF로 바꾼 것(F4),
-// text = 앞 200KB 글, none = 이름·크기·위치만 + [열기]. 구글에 올린 오피스 파일은 서버가 바꾸지 않으므로 [열기]만(설계 Q4).
+// text = 앞 200KB 글, hwp = 한글 쪽 그림(S52-44), none = 이름·크기·위치만 + [열기]. 구글에 올린 오피스 파일은 서버가 바꾸지 않으므로 [열기]만(설계 Q4).
 export function previewKind(row) {
   if (!row || row.is_folder) return 'none';
   const kind = kindOf(row), src = row.source;
@@ -79,11 +79,14 @@ export function previewKind(row) {
   if (src === 'od' && OD_PDF_EXT.test(String(row.name || ''))) return 'office';
   if (src === 'gd' && GD_EXPORT_MIME.test(String(row.mime || ''))) return 'office';
   if (kind === 'text') return 'text';
+  // S52-44 ③ FILES-관리자마무리: 한글(HWP·HWPX)은 저장소의 한글 보기 엔진(칸막이 iframe)으로 쪽 그림을 그린다(HWP_PREVIEW_MAX까지, 앞 HWP_PREVIEW_PAGES쪽).
+  if (kind === 'hwp') return 'hwp';
   // S52-43 ③ FILES-관리자마무리: 동영상·소리는 미리보기 칸에서 재생(받은 바이트를 화면 메모리 blob:으로, MEDIA_PREVIEW_MAX까지).
   if (kind === 'video' || kind === 'audio') return kind;
   return 'none';
 }
 export const MEDIA_PREVIEW_MAX = 200 * 1024 * 1024;
+export const HWP_PREVIEW_MAX = 30 * 1024 * 1024, HWP_PREVIEW_PAGES = 10;
 // 재생할 때 붙일 종류(서버가 octet-stream으로 줘도 브라우저가 알아보게). 모르면 ''.
 const MEDIA_MIME = {mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mkv: 'video/x-matroska', avi: 'video/x-msvideo',
   mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac', amr: 'audio/amr'};
