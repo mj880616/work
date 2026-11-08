@@ -164,7 +164,7 @@ function pickHtml() {
       state:s.pick, othersLabel:'최근 기록', noneText:'선택한 재료 없음'});
   return `<section class="pd-pane pd-pick-pane" aria-label="재료 선택">
 <label class="pd-direction"><span class="a11y-only">한 줄 초점(선택)</span><input type="text" data-sa-focus maxlength="${SHARE_AI_FOCUS_MAX}" placeholder="한 줄 초점(선택)" value="${esc(s.focus)}"></label>
-<p class="pd-muted pd-count">재료 선택 (최대 ${SHARE_AI_MAX_PICK}건) · ${s.picked.length}건 고름</p>
+<p class="pd-muted pd-count">재료 선택 (최대 ${SHARE_AI_MAX_PICK}건) · ${s.picked.length}건 선택됨</p>
 ${list}
 <div class="pd-bar"><button type="button" class="primary" data-sa-make${!s.picked.length || s.busy ? ' disabled' : ''}${s.busy ? ' aria-busy="true"' : ''}>${s.draft ? '다시 만들기' : '초안 만들기'}</button></div>
 </section>`;
