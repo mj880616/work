@@ -108,7 +108,7 @@ export function createMemorable({onChange = () => {}, now = () => Date.now()} = 
       const li = document.createElement('li'); li.className = 'journal-item'; li.dataset.journalMemorable = row.id; li.dataset.memorableStatus = row.status;
       const busy = state.busy === row.id;
       if (state.editing === row.id) {
-        li.innerHTML = `<form class="journal-memorable-edit" data-memorable-edit="${esc(row.id)}"><input type="text" maxlength="${LINE_MAX}" value="${esc(row.line)}" aria-label="고쳐서 넣을 한 줄" data-memorable-input><button type="submit" class="mini"${busy ? ' disabled' : ''}>넣기</button><button type="button" class="mini" data-memorable-cancel>취소</button></form>`;
+        li.innerHTML = `<form class="journal-memorable-edit" data-memorable-edit="${esc(row.id)}" data-enter-save><textarea rows="1" maxlength="${LINE_MAX}" aria-label="고쳐서 넣을 한 줄" data-memorable-input data-autogrow data-enter-field="single">${esc(row.line)}</textarea><button type="submit" class="mini"${busy ? ' disabled' : ''}>넣기</button><button type="button" class="mini" data-memorable-cancel>취소</button></form>`;
         ul.append(li); continue;
       }
       // S52-29 공용 '제안 줄'(주간 정리와 같은 모양): 줄 앞 흐린 출처 꼬리표 · 글(줄 전체 폭, 누르면 원본) · 줄 끝 ⋯ 하나.
