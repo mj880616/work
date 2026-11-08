@@ -228,9 +228,10 @@
 .feed-view .feed-scope{justify-self:start;padding:1px 6px;border-radius:4px;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:11px}
 .feed-view .feed-scope.is-one{background:var(--kptu-surface-subtle);color:var(--kptu-muted)}
 .feed-view .feed-chips{display:flex;flex-wrap:wrap;gap:4px}
-.feed-view .feed-chip{position:relative;margin:0;padding:1px 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:10px;background:transparent;color:var(--kptu-ink);font:inherit;font-size:12px;cursor:pointer}
+/* LIB-맨위다듬기(S53-18) 같은 종류 전수: 폴더 칩도 공용 거르기 칩 모양(알약·흰 바탕·옅은 선, 고른 칩만 공용 선택 색). */
+.feed-view .feed-chip{position:relative;margin:0;padding:1px 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-chip-radius,999px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
 .feed-view .feed-chip::after{content:"";position:absolute;inset:-6px -2px}
-.feed-view .feed-chip[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--kptu-primary-ink)}
+.feed-view .feed-chip[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--ds-select-ink)}
 .feed-view .feed-chip:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .feed-view .feed-grp{padding:8px 0 2px;font-size:11px;color:var(--kptu-faint,var(--kptu-muted))}
 .feed-view .feed-person{display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:var(--ds-line-width) solid var(--kptu-border);font-size:var(--ds-text-row)}
@@ -248,7 +249,7 @@
 /* UI-칩줄두줄(10/31): 칸 줄은 옆으로 밀지 않고 두 줄 + [더보기 ▾](공용 chip-rows.js). 칩은 26px, 누르는 범위는 둘레 2px(두 줄이 겹치지 않게). */
 .feed-view .feed-chiprow .feed-chip{height:var(--ds-chip-row-height,26px);padding:0 var(--ds-chip-row-pad-x,8px)}
 .feed-view .feed-chiprow .feed-chip::after{inset:auto -2px;top:calc(50% - (var(--ds-chip-row-height,26px) + 4px) / 2);height:calc(var(--ds-chip-row-height,26px) + 4px)}
-.feed-view .feed-chiprow .feed-chip[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--kptu-primary-ink)}
+.feed-view .feed-chiprow .feed-chip[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--ds-select-ink)}
 .feed-view .feed-chiprow .feed-chip.is-add{background:transparent;border-style:dashed}
 .feed-view .feed-chiprow .feed-chip.is-box{margin-left:auto}
 .feed-view .feed-chiprow .feed-folder-more{width:var(--ds-compact-height-sm,24px);height:var(--ds-compact-height-sm,24px)}

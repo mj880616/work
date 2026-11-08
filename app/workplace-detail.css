@@ -169,9 +169,10 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 .okp{display:grid;gap:6px;font-size:var(--ds-text-row,14px)}
 .okp-faint{margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .okp-chips{display:flex;flex-wrap:wrap;gap:4px}
-.okp-chip,.okp-add{position:relative;height:var(--ds-compact-height-sm);min-height:0;padding:0 10px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);color:var(--kptu-ink);font-size:var(--ds-text-meta);-webkit-touch-callout:none;user-select:none}
+/* LIB-맨위다듬기(S53-18) 같은 종류 전수: 주요 인물 칩도 공용 거르기 칩 모양(26px·옅은 선, 고른 칩만 공용 선택 색, 굵게 하지 않음). */
+.okp-chip,.okp-add{position:relative;height:var(--ds-chip-row-height,26px);min-height:0;padding:0 var(--ds-chip-row-pad-x,8px);border:var(--ds-line-width,1px) solid var(--ds-line);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);color:var(--kptu-ink);font-size:var(--ds-text-meta);-webkit-touch-callout:none;user-select:none}
 .okp-chip::after,.okp-add::after{content:"";position:absolute;inset:-8px -2px}
-.okp-chip[aria-pressed="true"]{background:var(--kptu-surface-subtle);border-color:var(--kptu-ink);font-weight:600}
+.okp-chip[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--ds-select-ink)}
 .okp-add{border-style:dashed;color:var(--kptu-muted)}
 .okp-menu{display:flex;align-items:center;gap:8px;padding:4px 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);font-size:var(--ds-text-meta)}
 .okp-menu>span{color:var(--kptu-muted)}
