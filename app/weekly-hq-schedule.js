@@ -9,7 +9,7 @@
 import {changeWeekDocs, withHq, withTitleEdit, draftHq, withLinePick} from './weekly-draft-store.js';
 import {withHqRow, withoutHqRow, movedHqRow, withPicked, eventFields, editFrom, cleanTime, hqLine, HQ_MAX, TITLE_MAX, PLACE_MAX, WHO_MAX} from './weekly-schedule-rows.mjs';
 import {timeCell, TIME_HINT} from './time-input.js';
-import {scheduleItems} from './weekly-hwpx/schedule.mjs';
+import {scheduleItems, isWeekendLabel} from './weekly-hwpx/schedule.mjs';
 import {formDay} from './weekly-exec-requests.js';
 import {mountReorder} from './reorder-drag.js';
 import {emptyEl, waitHtml} from './wait-state.js';
@@ -71,7 +71,9 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   for (const row of rows) {
     if (ui.editing === row.id) { body.append(editRow(row)); continue; }
     const tr = el('tr'); tr.dataset.journalHqRow = row.id; tr.dataset.reorderId = row.id;
-    const th = el('th', 'journal-weekly-area', row.day ? formDay(row.day) : '—'); th.scope = 'row';
+    // WEEKLY-주말칸색: 토·일 줄 날짜 칸은 연회색(5. 주요 일정 표·한글 파일과 같은 판정).
+    const dayText = row.day ? formDay(row.day) : '—';
+    const th = el('th', `journal-weekly-area${isWeekendLabel(dayText) ? ' journal-weekend-day' : ''}`, dayText); th.scope = 'row';
     const what = el('td', 'journal-weekly-what', [row.time, row.title, row.place].filter(Boolean).join(' / '));
     if (row.linked) { const tag = el('span', 'journal-exec-carried', '달력'); tag.title = '달력에서 넣은 줄 — 한글 파일 상자 5. 주요 일정과 같은 값'; tag.dataset.journalHqLinked = ''; what.append(' ', tag); }
     const gripCell = el('td', 'journal-grip-cell'), tools = el('td', 'journal-exec-tools');
