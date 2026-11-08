@@ -40,7 +40,7 @@ async function saveEdit(page){await page.locator('#ciGoogleSave').click();await 
 for(const [name,viewport] of [['폰 412',{width:412,height:915}],['PC',{width:1280,height:800}]]){
   test.describe(name,()=>{
     test.use({viewport});
-    test('Google 일정 수정: 사업영역 두 개 고르기 → 저장 → 다시 열면 그대로, 하나 빼면 그 행만 지움',async({page})=>{
+    test('Google 일정 수정: 사업영역 두 개 선택 → 저장 → 다시 열면 그대로, 하나 빼면 그 행만 지움',async({page})=>{
       const s=await open(page);await openEdit(page);
       // 두 줄: 위 '사업영역', 아래 '관련 담당조직'. 고른 것이 없으면 '없음'.
       await expect(page.locator(`${BOX} .aop-label`)).toHaveText(['사업영역','관련 담당조직']);

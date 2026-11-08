@@ -206,7 +206,7 @@ function applyDraft(data,text,at){
   const rows=actionRows(draft);let added=0;
   for(const row of rows)if(addAction(row))added++;
   const warn=(data?.warnings||[]).length;
-  status(`초안을 채웠어요${added?` · 후속 할 일 ${added}개`:''}${warn?` · 확인할 것 ${warn}건`:''} · 전사 전문은 '회의록 전문' 칸에. 고친 뒤 [사업 보고 저장]을 누르세요.`,'ok');
+  status(`초안을 채웠어요${added?` · 후속 할 일 ${added}개`:''}${warn?` · 확인할 것 ${warn}건`:''} · 전사 전문은 '회의록 전문' 칸에. 수정한 뒤 [사업 보고 저장]을 누르세요.`,'ok');
   toggle(false);
 }
 

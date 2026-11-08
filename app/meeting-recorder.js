@@ -80,21 +80,21 @@ function paint(){
     const first=list[0],id=escapeText(first.session_id);
     l='일시 정지됨';
     m=escapeText(`${pendingText(first)}${list.length>1?` 외 ${list.length-1}건`:''}`);
-    a=`<button type="button" class="rec-btn" data-rec-continue="${id}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${id}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${id}">버리기</button>`;
+    a=`<button type="button" class="rec-btn" data-rec-continue="${id}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${id}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${id}">삭제</button>`;
   }else if(state==='starting'){l='녹음 준비 중';m=escapeText('마이크를 허락해 주세요.')}
   else if(state==='suspended'){
     l='일시 정지됨';
     t=clockText(sec);
     const q=queuedPieces(segments);
     m=escapeText(SUSPEND_NOTE+(q?` (조각 ${q}개 올리는 중)`:''));
-    a='<button type="button" class="rec-btn" data-rec="resume">이어 녹음</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 정리</button><button type="button" class="rec-btn rec-discard" data-rec="discard">버리기</button>';
+    a='<button type="button" class="rec-btn" data-rec="resume">이어 녹음</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 정리</button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제</button>';
   }
   else if(state==='recording'||state==='paused'){
     l=state==='paused'?'일시정지':'녹음 중';
     t=clockText(sec);
     const q=queuedPieces(segments);
     m=fails&&q?escapeText(`조각 ${q}개 올리기 다시 시도 중`):'';
-    a=`<button type="button" class="rec-btn" data-rec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 정리</button><button type="button" class="rec-btn rec-discard" data-rec="discard">버리기</button>`;
+    a=`<button type="button" class="rec-btn" data-rec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 정리</button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제</button>`;
   }else if(state==='finishing'||state==='done'){
     l=state==='done'?'정리 끝':'정리 중';
     t=sec?clockText(sec):'';
@@ -128,7 +128,7 @@ function paintOldLine(){
   line.hidden=!list.length;
   if(!list.length){setHtml(line,'');return}
   const first=list[0];
-  setHtml(line,`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">버리기</button>`);
+  setHtml(line,`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">삭제</button>`);
 }
 function onBandClick(e){
   const b=e.target.closest('[data-rec]');if(!b)return;
@@ -348,12 +348,12 @@ async function discardSession(sid){
   catch(e){
     console.warn('recording discard failed',e?.status||'',e?.code||'');
     // 서버에 올라간 조각이 없었다(1분 안쪽 녹음을 못 올림 등) = 버릴 것이 없음.
-    if(e?.status===404||e?.code==='not_found'){discarding=false;pending=pending.filter(s=>s.session_id!==sid);paint();notify('녹음을 버렸어요');return}
+    if(e?.status===404||e?.code==='not_found'){discarding=false;pending=pending.filter(s=>s.session_id!==sid);paint();notify('녹음을 삭제했어요');return}
   }finally{discarding=false}
   pending=pending.filter(s=>s.session_id!==sid);
   paint();
-  if(!ok){notify('녹음을 버리지 못했어요. 끝나지 않은 녹음 줄에서 다시 버려 주세요.',{error:true});void loadPending(true);return}
-  notify('녹음을 버렸어요',{label:'녹음 버리기',ms:DISCARD_NOTICE_MS,undo:async()=>{
+  if(!ok){notify('녹음을 삭제하지 못했어요. 끝나지 않은 녹음 줄에서 다시 삭제해 주세요.',{error:true});void loadPending(true);return}
+  notify('녹음을 삭제했어요',{label:'녹음 삭제',ms:DISCARD_NOTICE_MS,undo:async()=>{
     try{await call('rec_restore',{session_id:sid})}
     catch(e){console.warn('recording restore failed',e?.status||'',e?.code||'');return {status:'failed',message:'녹음을 되돌리지 못했어요.'}}
     await loadPending(true);

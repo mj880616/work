@@ -71,9 +71,9 @@ export function createNowInterests({box, onChanged} = {}) {
 
   function rowHtml(r, kind) {
     const dis = busy.has(r.id) ? ' disabled' : '';
-    if (editing === r.id) return `<form class="ni-row" data-ni-edit-form="${esc(r.id)}"><input type="text" data-ni-edit-input maxlength="30" value="${esc(r.topic)}" aria-label="주제 고치기"><button type="submit" class="secondary">저장</button><button type="button" class="secondary" data-ni-edit-cancel>취소</button></form>`;
+    if (editing === r.id) return `<form class="ni-row" data-ni-edit-form="${esc(r.id)}"><input type="text" data-ni-edit-input maxlength="30" value="${esc(r.topic)}" aria-label="주제 수정"><button type="submit" class="secondary">저장</button><button type="button" class="secondary" data-ni-edit-cancel>취소</button></form>`;
     const yes = kind === 'candidate' ? `<button type="button" class="ni-btn" data-ni-confirm="${esc(r.id)}"${dis}>ㅇ 확정</button>` : '';
-    return `<div class="ni-row" data-ni-row="${esc(r.id)}" data-state="${esc(r.state)}"><span class="ni-topic">${esc(r.topic)}</span>${r.reason && kind === 'candidate' ? `<span class="ni-reason">${esc(r.reason)}</span>` : ''}<span class="ni-acts">${yes}<button type="button" class="ni-btn" data-ni-edit="${esc(r.id)}"${dis}>고치기</button><button type="button" class="ni-btn" data-ni-drop="${esc(r.id)}"${dis}>빼기</button></span></div>`;
+    return `<div class="ni-row" data-ni-row="${esc(r.id)}" data-state="${esc(r.state)}"><span class="ni-topic">${esc(r.topic)}</span>${r.reason && kind === 'candidate' ? `<span class="ni-reason">${esc(r.reason)}</span>` : ''}<span class="ni-acts">${yes}<button type="button" class="ni-btn" data-ni-edit="${esc(r.id)}"${dis}>수정</button><button type="button" class="ni-btn" data-ni-drop="${esc(r.id)}"${dis}>빼기</button></span></div>`;
   }
   function paint() {
     if (!box) return;

@@ -142,7 +142,7 @@ test('텔레그램 390: [이름 붙이기] → 이름 상자(범위 안내·칩)
  expect(f.errors).toEqual([]);
 });
 
-test('텔레그램 1280: 이미 있는 사람 칩을 고르면 새로 생긴 열쇠 없는 사람을 그 사람에게 합친다(같은 사람을 날마다 새로 만들지 않음)',async({page})=>{
+test('텔레그램 1280: 이미 있는 사람 칩을 선택하면 새로 생긴 열쇠 없는 사람을 그 사람에게 합친다(같은 사람을 날마다 새로 만들지 않음)',async({page})=>{
  const f=await fixture(page,{width:1280,senderTables:'seed'});
  await openMenu(page,1280,'텔레그램 소식');
  const view=await openRaw(page,1280,T3);
@@ -161,7 +161,7 @@ test('텔레그램 1280: 이미 있는 사람 칩을 고르면 새로 생긴 열
  expect(f.errors).toEqual([]);
 });
 
-test('텔레그램 1280: 머리줄 ⋯ → 보낸 사람 이름: 목록, 이름 고치기, 합치기(열쇠 안내), 지우기',async({page})=>{
+test('텔레그램 1280: 머리줄 ⋯ → 보낸 사람 이름: 목록, 이름 수정, 합치기(열쇠 안내), 삭제',async({page})=>{
  const f=await fixture(page,{width:1280,senderTables:'seed'});
  await openMenu(page,1280,'텔레그램 소식');
  const view=page.locator('#telegramView');
@@ -177,7 +177,7 @@ test('텔레그램 1280: 머리줄 ⋯ → 보낸 사람 이름: 목록, 이름 
 
  // 이름 고치기.
  await row(P1).locator('[data-tg-person-more]').click();
- await page.locator('#tgPersonMenu').getByRole('button',{name:'이름 고치기',exact:true}).click();
+ await page.locator('#tgPersonMenu').getByRole('button',{name:'이름 수정',exact:true}).click();
  const box=view.locator('[data-tg-sbox]');await expect(box).toBeVisible();
  await expect(box.locator('.feed-scope')).toHaveText('같은 사람의 다른 소식에도 보입니다');
  await box.locator('[data-tg-sbox-input]').fill('새이름');

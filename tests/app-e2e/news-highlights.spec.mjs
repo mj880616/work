@@ -96,7 +96,7 @@ const pick = (page, text) => page.evaluate(t => {
 }, text);
 
 for (const width of [412, 1440]) {
-  test(`원문 고르기 줄 · 밑줄 저장 · [밑줄] 탭 ${width}`, async ({ page }) => {
+  test(`원문 선택 줄 · 밑줄 저장 · [밑줄] 탭 ${width}`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, s } = await start(page, width);
     await open(page, KO);
@@ -139,7 +139,7 @@ for (const width of [412, 1440]) {
     await mark.click();
     const menu = page.locator('#hlMarkMenu');
     await expect(menu).toBeVisible();
-    await expect(menu.locator('button')).toHaveText(['메모 달기', '노트로', '복사', '지우기']);
+    await expect(menu.locator('button')).toHaveText(['메모 달기', '노트로', '복사', '삭제']);
     await menu.getByRole('button', { name: '노트로' }).click();
     await expect.poll(() => s.notes.length).toBe(1);
     expect(s.notes[0].raw_text).toContain('> ' + QUOTE);

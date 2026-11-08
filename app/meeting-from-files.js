@@ -46,7 +46,7 @@ function install(){
   head.insertAdjacentHTML('afterend','<div class="meeting-create-modes" role="group" aria-label="만드는 방법"><button type="button" data-meeting-mode="manual" aria-pressed="true">직접 쓰기</button><button type="button" data-meeting-mode="files" aria-pressed="false">파일·글로 만들기</button></div>');
   const modes=host.querySelector('.meeting-create-modes');
   modes.insertAdjacentHTML('afterend',`<section id="mffPanel" class="mff-panel" data-enter-save aria-label="파일·글로 회의 만들기">
-<section class="mtg-group" aria-labelledby="mffFilesHead"><div class="mtg-group-head"><h3 id="mffFilesHead">파일</h3><button id="mffPick" class="mtg-add-plus" type="button" aria-label="회의자료·회의결과 파일 고르기">+</button><input id="mffFiles" type="file" multiple accept=".hwp,.hwpx,.pdf" hidden></div>
+<section class="mtg-group" aria-labelledby="mffFilesHead"><div class="mtg-group-head"><h3 id="mffFilesHead">파일</h3><button id="mffPick" class="mtg-add-plus" type="button" aria-label="회의자료·회의결과 파일 선택">+</button><input id="mffFiles" type="file" multiple accept=".hwp,.hwpx,.pdf" hidden></div>
 </section>
 <label class="mff-text-label">회의 결과 글 <span class="optional">붙여 넣기</span><textarea id="mffText" rows="5" placeholder="회의 결과 글을 붙여 넣으세요. 회의가 여럿이면 회의 제목 줄(예: 제5차 중앙집행위원회 결과 2025.10.15)로 나눠요."></textarea></label>
 <div id="mffList" class="mff-list" aria-live="polite"></div>
@@ -131,15 +131,15 @@ function plan(){
     const error=items.find(i=>i.error&&!isSaved(i))?.error||'';
     let state='ready',note=existing?'기존 회의에 결과·자료 더하기':'새로 만들기';
     if(done){state='done';note=existing?'더했어요':'만들었어요'}
-    else if(g.undecided.length){state='pick';note='결과인지 자료인지 골라 주세요'}
+    else if(g.undecided.length){state='pick';note='결과인지 자료인지 선택해 주세요'}
     else if(!g.results.length){state='no-result';note='결과를 더해 주세요'}
-    else if(!kind){state='pick';note='회의 종류를 골라 주세요'}
-    else if(!existing&&!date){state='pick';note='날짜를 골라 주세요'}
+    else if(!kind){state='pick';note='회의 종류를 선택해 주세요'}
+    else if(!existing&&!date){state='pick';note='날짜를 선택해 주세요'}
     else if(!existing&&!matched&&!confirmed.has(nameKey(kind))){state='new-kind';note='처음 보는 회의명이에요'}
     if(error&&state==='ready')note='실패 · '+error;
     const reading=g.results.some(i=>i.kind==='file'&&i.read==='reading');
     const candidates=kind?[]:[...new Set(items.flatMap(i=>i.cands||[]))];
-    if(state==='pick'&&candidates.length>1&&!g.undecided.length)note='회의 종류 후보가 여럿이에요. 골라 주세요';
+    if(state==='pick'&&candidates.length>1&&!g.undecided.length)note='회의 종류 후보가 여럿이에요. 선택해 주세요';
     return {...g,candidates,items,anchor:items[0]?.id||g.key,kind,isNew:!matched,existing,date,state,note,reading};
   });
 }
@@ -153,7 +153,7 @@ function rowHtml(g){
     if(item.kind==='text'){const first=item.text.split('\n').find(Boolean)||'';return `<div class="file-line mff-text-line"><span class="file-kind" data-kind="other" aria-hidden="true">글</span><span class="file-line-main"><b>${esc(first.slice(0,60))}</b><small>붙여 넣은 결과 글 · ${item.text.length}자</small></span><span class="file-line-state">결과</span></div>`}
     const meta=item.role==='result'?({done:'본문을 결과 칸에 넣어요',failed:(item.readNote||'본문 못 읽음')+' · 파일만 첨부'}[item.read]||''):'';
     const state=item.uploaded?'완료':item.error?'실패':'';
-    const end=locked||item.uploaded?'':`<select class="mff-role" data-mff-role="${esc(item.id)}" aria-label="${esc(item.file.name)} 결과·자료 고르기">${item.role?'':'<option value="" selected>고르기</option>'}<option value="result"${item.role==='result'?' selected':''}>결과</option><option value="material"${item.role==='material'?' selected':''}>자료</option></select><button class="icon-btn file-line-x" type="button" data-mff-remove="${esc(item.id)}" aria-label="${esc(item.file.name)} 빼기">×</button>`;
+    const end=locked||item.uploaded?'':`<select class="mff-role" data-mff-role="${esc(item.id)}" aria-label="${esc(item.file.name)} 결과·자료 선택">${item.role?'':'<option value="" selected>선택</option>'}<option value="result"${item.role==='result'?' selected':''}>결과</option><option value="material"${item.role==='material'?' selected':''}>자료</option></select><button class="icon-btn file-line-x" type="button" data-mff-remove="${esc(item.id)}" aria-label="${esc(item.file.name)} 빼기">×</button>`;
     return fileLine({name:item.file.name,meta,state:item.uploaded?'success':item.error?'error':item.read==='reading'?'uploading':'',label:state||(locked?ROLE_LABEL[item.role]||'':''),end,attrs:` data-mff-item="${esc(item.id)}"`});
   }).join('');
   const fields=`<div class="mff-fields"><label>종류<input type="text" data-mff-field="name" list="mffKinds" value="${esc(g.kind)}" autocomplete="off"${locked?' disabled':''}></label><label>차수<input type="number" min="1" inputmode="numeric" data-mff-field="round" value="${esc(g.round||'')}"${locked?' disabled':''}></label><label>날짜<input type="date" data-mff-field="date" value="${esc(g.date)}"${locked?' disabled':''}></label></div>`;

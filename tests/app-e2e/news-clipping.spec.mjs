@@ -56,7 +56,7 @@ for (const width of [412, 884, 1440]) {
 
     // ⋯ → 키워드 고치기: 더하기·끄기·지우기(서버 저장), 뒤로가기 한 번 = 목록. 위 찾기 줄은 감춘다.
     await page.locator('#outsideRoot [data-os-more]').click();
-    await page.locator('#osMenu').getByRole('button', { name: '키워드 고치기' }).click();
+    await page.locator('#osMenu').getByRole('button', { name: '키워드 수정' }).click();
     await expect(root(page).locator('[data-nc-kw]')).toHaveCount(1);
     await expect(items(page)).toHaveCount(0);
     await expect(page.locator('#outsideRoot [data-nw-top]')).toBeHidden();

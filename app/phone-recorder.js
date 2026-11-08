@@ -83,7 +83,7 @@ export function mountPhoneRecorder(win=window){
       l=state==='paused'?'일시정지':'녹음 중';t=clockText(sec);
       const q=view.native?.queued||0;
       m=view.note&&q?esc(`${view.note} · 조각 ${q}개`):'';
-      a=`<button type="button" class="rec-btn" data-prec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-prec="stop">멈추고 정리</button><button type="button" class="rec-btn rec-discard" data-prec="discard">버리기</button>`;
+      a=`<button type="button" class="rec-btn" data-prec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-prec="stop">멈추고 정리</button><button type="button" class="rec-btn rec-discard" data-prec="discard">삭제</button>`;
     }else if(state==='finishing'||state==='done'){
       l=state==='done'?'정리 끝':'정리 중';
       m=stepParts(view.step).map(p=>p.state==='now'?`<strong>${p.label}</strong>`:`<span class="rec-step-${p.state}">${p.label}</span>`).join('<span aria-hidden="true"> › </span>')+(view.note?` <span class="rec-sub">${esc(view.note)}</span>`:'');
@@ -112,7 +112,7 @@ export function mountPhoneRecorder(win=window){
       if(!list.length)setHtml(line,'');
       else{
         const first=list[0];
-        setHtml(line,`<span class="rec-pending-text">끝나지 않은 ${first.local?'폰 ':''}녹음 · ${esc(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-prec-resume="${esc(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-prec-discard="${esc(first.session_id)}">버리기</button>`);
+        setHtml(line,`<span class="rec-pending-text">끝나지 않은 ${first.local?'폰 ':''}녹음 · ${esc(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-prec-resume="${esc(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-prec-discard="${esc(first.session_id)}">삭제</button>`);
       }
     }
   }

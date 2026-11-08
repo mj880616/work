@@ -165,7 +165,7 @@ test('인증 만료 응답은 status 캐시를 즉시 버리고 다음 포커스
   await expect(page.locator('#cpCalMsg')).toContainText('Google 일정 3건 표시 중');
 });
 
-test('연결 해제 후에는 캐시를 쓰지 않고 Google 일정을 지운다',async({page})=>{
+test('연결 해제 후에는 캐시를 쓰지 않고 Google 일정을 삭제한다',async({page})=>{
   const state=newState();
   await openCalendar(page,state);
   page.on('dialog',d=>d.accept());

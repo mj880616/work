@@ -92,12 +92,12 @@ test('code shape: owner check first, guarded writes, Drive trash/untrash only in
  for(const l of index.matchAll(/console\.(?:log|warn|error)\(([^;]*)\);/g))assert.doesNotMatch(l[1],/name|piece|text|body|value/i,l[0]);
 });
 
-test('screen: [버리기] after [멈추고 정리] in the band and in the pending line, red, small notice with undo (no browser dialogs, no device storage)',()=>{
- assert.match(recorder,/data-rec="stop">멈추고 정리<\/button><button type="button" class="rec-btn rec-discard" data-rec="discard">버리기<\/button>/);
+test('screen: [삭제] after [멈추고 정리] in the band and in the pending line, red, small notice with undo (no browser dialogs, no device storage)',()=>{
+ assert.match(recorder,/data-rec="stop">멈추고 정리<\/button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제<\/button>/);
  assert.match(recorder,/data-rec-resume="[^"]*">이어서 정리<\/button><button type="button" class="rec-btn rec-discard" data-rec-discard="/);
  assert.match(readFileSync('app/meeting-recorder.css','utf8'),/\.rec-btn\.rec-discard\{color:var\(--kptu-danger\)\}/);
  assert.match(recorder,/import \{notify\} from '\.\/small-notice\.js';/);
- assert.match(recorder,/notify\('녹음을 버렸어요',\{label:'녹음 버리기',ms:DISCARD_NOTICE_MS,undo:/);
+ assert.match(recorder,/notify\('녹음을 삭제했어요',\{label:'녹음 삭제',ms:DISCARD_NOTICE_MS,undo:/);
  assert.match(recorder,/DISCARD_NOTICE_MS=10000/);
  assert.match(recorder,/call\('rec_discard',\{session_id:sid\}\)/);assert.match(recorder,/call\('rec_restore',\{session_id:sid\}\)/);
  assert.doesNotMatch(recorder,/\b(?:alert|confirm)\(/);

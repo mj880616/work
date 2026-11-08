@@ -51,7 +51,7 @@ function ciPopulateGoogleCalendars(event){
 // Google answers 404 Not Found / 410 "Resource has been deleted" for an event that is gone; the Edge passes the message on.
 const ciGoneError=e=>/not ?found|has been deleted|\bdeleted\b/i.test(String(e?.message||e||''));
 let ciGoogleGoneSeq=-1;
-function ciGoneEvent(eventId,calendarId){ciGoogleGoneSeq=ciGoogleOpenSeq;ciStatus('#ciGoogleStatus','삭제된 항목입니다. 다른 곳에서 지워져 목록에서 뺐습니다.',true);document.querySelector('#ciGoogleSave').disabled=true;document.querySelector('#ciGoogleDelete').disabled=true;window.KPTUCalendarPersistence?.forget?.(eventId,calendarId)}
+function ciGoneEvent(eventId,calendarId){ciGoogleGoneSeq=ciGoogleOpenSeq;ciStatus('#ciGoogleStatus','삭제된 항목입니다. 다른 곳에서 삭제돼 목록에서 뺐습니다.',true);document.querySelector('#ciGoogleSave').disabled=true;document.querySelector('#ciGoogleDelete').disabled=true;window.KPTUCalendarPersistence?.forget?.(eventId,calendarId)}
 async function ciOpenGoogle(eventId,calendarId,{fresh=false,fallback=null}={}){
   const seq=++ciGoogleOpenSeq,owner=window.KPTURuntime?.session?.read?.()?.user?.id,epoch=ciRuntime().session.epoch();ciSaveRequest=null;ciGoogleSavePending=false;const pending=ciPendingWrites.get(ciUncertainKey(eventId,calendarId));
   ciGoogleOwner=owner;
@@ -153,7 +153,7 @@ async function ciSaveGoogle(){
     // CAL-일정사업영역: 고른 사업영역과 주요 일정 행을 맞춘다(새로 고른 곳은 행 추가, 뺀 곳은 그 행만 삭제). 실패하면 창을 열어 둔 채 다시 저장하게 한다.
     if(areas&&areaRows){try{await syncEventAreas({had:areaRows,next:areas,title,start_at:allDay?toSeoulISO(startDate+'T00:00'):body.start_iso,notes:body.memo.trim()||null,google_calendar_id:result.event.calendarId,google_event_id:current.id,created_by:r.owner,expectedSessionEpoch:r.epoch},ciRuntime())}catch(e){if(!ciSaveActive(r))return;ciStatus('#ciGoogleStatus','일정은 저장했습니다. 사업영역 연결을 저장하지 못했습니다. 다시 저장해 주세요. '+(e?.message||''),true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return}if(!ciSaveActive(r))return}
     let closedSeq=null;if(unchanged){b.disabled=false;b.textContent=label;b.removeAttribute('aria-busy');document.querySelector('#ciGoogleDelete').disabled=false;ciClose('#ciGoogleModal');ciGoogleCurrent=null;closedSeq=ciGoogleOpenSeq}else ciStatus('#ciGoogleStatus','보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
-    try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{if(ciSameSession(r)&&closedSeq===ciGoogleOpenSeq)ciToast('일정은 저장했습니다. 목록을 새로고침해 주세요.');return}
+    try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{if(ciSameSession(r)&&closedSeq===ciGoogleOpenSeq)ciToast('일정은 저장했습니다. 목록을 최신화해 주세요.');return}
     if(ciSameSession(r)&&closedSeq===ciGoogleOpenSeq)ciToast('Google 일정을 수정했습니다.');
   }catch(e){
     if(!ciSaveActive(r))return;
@@ -176,7 +176,7 @@ async function ciLeaveReport(){
     await window.KPTUReportEntry.open({name:e.title||'',...when,location:e.location||'',trigger:document.activeElement===trigger?document.body:document.activeElement,dedupe:true});
   }catch(err){console.error('calendar report',err);ciStatus('#ciGoogleStatus','사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.',true)}
 }
-async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!(await askConfirm(document.activeElement,{text:'이 Google 일정을 삭제할까요?',ok:"지우기",danger:true})))return false;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});window.KPTUCalendarPersistence?.forget?.(ciGoogleCurrent.id,ciGoogleCurrent.calendarId||'primary');ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
+async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!(await askConfirm(document.activeElement,{text:'이 Google 일정을 삭제할까요?',ok:"삭제",danger:true})))return false;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});window.KPTUCalendarPersistence?.forget?.(ciGoogleCurrent.id,ciGoogleCurrent.calendarId||'primary');ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
 // CAL-빈칸시간채우기: 일정 만들기 창을 열고 누른 자리의 날짜·시간만 채운다(창 모양은 그대로). slot = calendar-create-slot.js 값.
 function ciCreateSlot(slot){const btn=document.querySelector('#newEventBtn');if(!btn||!slot)return;btn.click();const q=id=>document.querySelector('#event'+id),allDay=q('AllDay');if(allDay){allDay.checked=slot.kind==='allday';allDay.dispatchEvent(new Event('change',{bubbles:true}))}
   if(q('StartDate'))q('StartDate').value=slot.startDate;
@@ -210,9 +210,9 @@ async function ciSaveMoved(eventId,calendarId,expected,next){
   const r={};r.done=new Promise(resolve=>{r.finish=resolve});ciPendingWrites.set(key,r);
   let dispatched=false;
   try{
-    if(window.KPTUCalendarPersistence?.fromCopy?.()){const seen=await window.KPTUCalendarPersistence.confirm(eventId,calendarId).catch(()=>'unknown');if(!alive())return {status:'stale'};if(seen==='gone')return {status:'gone',text:'삭제된 항목입니다. 다른 곳에서 지워져 목록에서 뺐습니다.'}}
+    if(window.KPTUCalendarPersistence?.fromCopy?.()){const seen=await window.KPTUCalendarPersistence.confirm(eventId,calendarId).catch(()=>'unknown');if(!alive())return {status:'stale'};if(seen==='gone')return {status:'gone',text:'삭제된 항목입니다. 다른 곳에서 삭제돼 목록에서 뺐습니다.'}}
     let fresh;
-    try{fresh=(await ciGoogleCall('event',{expectedSessionEpoch:epoch,params:{eventId,calendarId}}))?.event}catch(e){if(!alive())return {status:'stale'};if(ciGoneError(e)){window.KPTUCalendarPersistence?.forget?.(eventId,calendarId);return {status:'gone',text:'삭제된 항목입니다. 다른 곳에서 지워져 목록에서 뺐습니다.'}}throw e}
+    try{fresh=(await ciGoogleCall('event',{expectedSessionEpoch:epoch,params:{eventId,calendarId}}))?.event}catch(e){if(!alive())return {status:'stale'};if(ciGoneError(e)){window.KPTUCalendarPersistence?.forget?.(eventId,calendarId);return {status:'gone',text:'삭제된 항목입니다. 다른 곳에서 삭제돼 목록에서 뺐습니다.'}}throw e}
     if(!alive())return {status:'stale'};
     if(fresh?.id!==eventId)throw new Error('Google 일정을 확인하지 못했습니다.');
     if(!ciSameTimes(fresh,expected))return {status:'changed',text:'다른 곳에서 시간이 바뀐 일정이라 옮기지 않았습니다. 최신 시간으로 다시 불러옵니다.'};
