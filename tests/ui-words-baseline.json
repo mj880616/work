@@ -21,7 +21,7 @@
  "app/document-categories.js": 1,
  "app/document-category-editor.js": 14,
  "app/document-delete.js": 1,
- "app/ed-editor.js": 28,
+ "app/ed-editor.js": 25,
  "app/feed-link.js": 2,
  "app/feed-model.mjs": 8,
  "app/file-rename.js": 5,
