@@ -91,7 +91,7 @@ async function openPhotos(page, width) {
 for (const width of [412, 1280]) {
   test.describe(`폰 앱 ${width}`, () => {
     test.use({ viewport: { width, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: width <= 760 });
-    test('비슷한 사진: 누를 때 작은 그림으로 계산·10분 안 같은 장면만 묶음·두 장 나란히 비교·남길 것 고르기', async ({ page }) => {
+    test('비슷한 사진: 누를 때 작은 그림으로 계산·10분 안 같은 장면만 묶음·두 장 나란히 비교·남길 것 선택', async ({ page }) => {
       const state = await fixture(page);
       await openPhotos(page, width);
       const box = page.locator('#photosRoot [data-photos-tidy]');
@@ -110,7 +110,7 @@ for (const width of [412, 1280]) {
       // 계산에 쓴 것은 작은 미리보기뿐, 원본은 받지 않는다.
       expect(state.thumbs.slice(before).every(x => x.endsWith(':small'))).toBe(true);
       expect(state.media).toBe(0);
-      await expect(dups.locator('.photos-tidy-line').first()).toHaveText('10분 안에 같은 장면을 조금씩 다르게 찍은 사진 · 묶음 1개 · 지울 수 있는 사진 2장 · 아낄 용량 2.3MB');
+      await expect(dups.locator('.photos-tidy-line').first()).toHaveText('10분 안에 같은 장면을 조금씩 다르게 찍은 사진 · 묶음 1개 · 삭제할 수 있는 사진 2장 · 아낄 용량 2.3MB');
       await expect(dups.locator('[data-photos-tidy-dup]')).toHaveCount(1);
       const g = dups.locator('[data-photos-tidy-dup="ph:1"]');
       await expect(g.locator('.photos-tidy-num').first()).toHaveText('비슷한 사진 3장 · 아낄 2.3MB');
@@ -129,7 +129,7 @@ for (const width of [412, 1280]) {
       await expect.poll(ids).toEqual(['ph:1', 'ph:2']);
       await expect(g.locator('.photos-tidy-pick[aria-pressed="true"]')).toHaveAttribute('data-photos-tidy-keep', 'ph:1|ph:1');
       // 지우기 단추는 19B와 같은 자리(원드라이브 사본 확인 안전장치를 거침).
-      await expect(g.locator('[data-photos-tidy-trash="dup|ph:1"]')).toHaveText('나머지 지우기');
+      await expect(g.locator('[data-photos-tidy-trash="dup|ph:1"]')).toHaveText('나머지 삭제');
       await expect(dups.locator('[data-photos-tidy-trash="dups"]')).toBeVisible();
       expect(state.errors).toEqual([]);
     });

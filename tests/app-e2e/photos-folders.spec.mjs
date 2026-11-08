@@ -129,9 +129,9 @@ for (const width of [412, 884, 1440]) {
     await expect.poll(() => ids(page)).toEqual(['B1', 'B2', 'B3']);
     // 여러 장 고르기 → [📁 옮기기] → 폴더 나무에서 고름 → 원드라이브에서도 옮김(서버 photos-move), 위쪽 '옮겼어요 · 되돌리기'.
     await hold(page, items(page).nth(0));
-    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
+    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 선택됨');
     await items(page).nth(1).click();
-    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
+    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 선택됨');
     await root(page).locator('[data-photos-act-move]').click();
     const pick = page.locator('#photosPickMenu');
     await expect(pick).toBeVisible();
@@ -160,7 +160,7 @@ for (const width of [412, 884, 1440]) {
       await root(page).locator('[data-photos-fx-more="S2"]').click();
     }
     await expect(fm).toBeVisible();
-    await expect(fm.locator('button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 고르기…', '위로', '지우기']);
+    await expect(fm.locator('button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '위로', '삭제']);
     await page.keyboard.press('Escape');
     await expect(fm).toBeHidden();
     // + 새 폴더: 지금 폴더(PC 2026, 폰 맨 위 카메라) 안에. 이름 줄에 쓰고 Enter.
@@ -174,7 +174,7 @@ for (const width of [412, 884, 1440]) {
   });
 }
 
-test('사진 메뉴 ② 폴더 PC 1440: 고른 사진을 왼쪽 폴더로 끌어 놓기 → 옮김·되돌리기, 사진 우클릭 메뉴 맨 위 [선택]', async ({ page }) => {
+test('사진 메뉴 ② 폴더 PC 1440: 선택한 사진을 왼쪽 폴더로 끌어 놓기 → 옮김·되돌리기, 사진 우클릭 메뉴 맨 위 [선택]', async ({ page }) => {
   const f = await fixture(page, 1440);
   await openPhotos(page);
   await root(page).locator('[data-photos-tab="folders"]').click();
@@ -185,11 +185,11 @@ test('사진 메뉴 ② 폴더 PC 1440: 고른 사진을 왼쪽 폴더로 끌어
   await items(page).nth(2).click({ button: 'right' });
   const pm = page.locator('#photosPhotoMenu');
   await expect(pm).toBeVisible();
-  await expect(pm.locator('button')).toHaveText(['선택', '별표', '공유', '일기에 넣기', '업데이트로 보내기', '폴더로 옮기기…', '앨범에 넣기…', '정보수정', '지우기']);
+  await expect(pm.locator('button')).toHaveText(['선택', '별표', '공유', '일기에 넣기', '업데이트로 보내기', '폴더로 옮기기…', '앨범에 넣기…', '정보수정', '삭제']);
   await pm.locator('button', { hasText: '선택' }).click();
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 선택됨');
   await items(page).nth(1).click();
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 선택됨');
   // 고른 것 중 하나를 잡아 왼쪽 '여행' 폴더에 놓는다.
   await items(page).nth(1).dragTo(tree.locator('[data-photos-folder="S2"] .nx-main'));
   await expect.poll(() => f.edge.filter(b => b.action === 'photos-move').length).toBe(1);
@@ -205,7 +205,7 @@ test('사진 메뉴 ② 폴더 PC 1440: 고른 사진을 왼쪽 폴더로 끌어
 });
 
 for (const width of [412, 1440]) {
-  test(`사진 메뉴 ② 앨범: 고른 사진을 새 앨범에 넣기 → 앨범 카드 → 앨범 사진 → 앨범에서 빼기 ${width}`, async ({ page }) => {
+  test(`사진 메뉴 ② 앨범: 선택한 사진을 새 앨범에 넣기 → 앨범 카드 → 앨범 사진 → 앨범에서 빼기 ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
     await openPhotos(page);
     await root(page).locator('[data-photos-tab="albums"]').click();
@@ -215,7 +215,7 @@ for (const width of [412, 1440]) {
     await expect.poll(() => ids(page)).toEqual(['A1', 'A2', 'B1', 'B2', 'B3', 'C1']);
     await hold(page, items(page).nth(0));
     await items(page).nth(2).click();
-    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
+    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 선택됨');
     await barPick(page, root(page).locator('[data-photos-act-more]'), '앨범에 넣기');
     const pick = page.locator('#photosPickMenu');
     await expect(pick).toBeVisible();

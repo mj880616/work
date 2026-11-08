@@ -231,7 +231,7 @@ export function dupStats(groups) {
   const list = groups || [];
   return {groups:list.length, extra:list.reduce((n, g) => n + g.items.length - 1, 0), bytes:list.reduce((n, g) => n + g.bytes, 0)};
 }
-export const dupStatText = ({groups, extra, bytes}) => `묶음 ${groups}개 · 지울 수 있는 사진 ${extra}장${bytes ? ` · 아낄 용량 ${sizeText(bytes)}` : ''}`;
+export const dupStatText = ({groups, extra, bytes}) => `묶음 ${groups}개 · 삭제할 수 있는 사진 ${extra}장${bytes ? ` · 아낄 용량 ${sizeText(bytes)}` : ''}`;
 // 사진이 있는 곳 한 줄씩: "폰 · DCIM/Camera", "원드라이브 · 사진/2024"(경로 모르면 '폴더 모름'). odCopies = 같은 사진인 원드라이브 칸들, odPath = 원드라이브 칸 → 폴더 경로(모르면 '').
 export const phonePath = f => String(f || '').replace(/\/+$/, '') || '폴더 모름';
 export function whereLines(item, odCopies = [], odPath = () => '') {
@@ -363,24 +363,24 @@ export function keptText(missing, unsure) {
   return out.join(' · ');
 }
 // 다음 사진 확인 때 사본이 사라진 경우의 경고 한 줄.
-export const goneText = n => `폰에서 지운 ${n}장이 원드라이브에서도 지워졌어요. 원드라이브 휴지통(30일)에서 되살리세요. 동기화 앱이 양방향이면 업로드만으로 바꾸세요`;
+export const goneText = n => `폰에서 삭제한 ${n}장이 원드라이브에서도 삭제됐어요. 원드라이브 휴지통(30일)에서 되살리세요. 동기화 앱이 양방향이면 업로드만으로 바꾸세요`;
 
 // ---- S47-20 정리 줄마다 쉬운 설명 + 할 일(요청함 11/01 12:57) · 찾은 결과 남겨 두기 ----
 // 줄마다 늘 보이는 한 줄(무엇을 어떻게 비교했나)과 펼치면 보이는 한 줄(무엇을 하면 되나).
 export const TIDY_HELP = Object.freeze({
   all:'폰 사진과 원드라이브 사진을 이름·크기(또는 크기·찍은 시각)로 맞춰 봤어요',
   phone:'원드라이브에서 못 찾은 폰 사진이에요 · 폰을 잃어버리면 사라져요(폴더별로는 아래 백업 안 됨)',
-  onedrive:'폰에서는 지웠고 원드라이브에만 남은 사진이에요 · 필요 없으면 원드라이브에서 지우면 돼요',
+  onedrive:'폰에서는 삭제했고 원드라이브에만 남은 사진이에요 · 필요 없으면 원드라이브에서 삭제하면 돼요',
   both:'폰과 원드라이브 양쪽에 있는 사진이에요 · 폰 공간이 모자라면 아래 공간 비우기를 보세요',
   unbacked:'이 폴더 사진은 원드라이브에서 한 장도 못 찾았어요. 폰을 잃어버리면 같이 사라져요',
   unbackedDo:"필요한 폴더면 동기화 앱(OneSync)에 이 폴더를 '업로드만'으로 추가하세요 · 필요 없는 폴더면 [폴더 끄기]로 목록에서 빼세요",
   partly:'일부만 있음 = 원드라이브에서 찾은 장수/전체 장수 · [보기]는 못 찾은 사진만 · 동기화 앱이 아직 올리는 중일 수 있어요',
-  space:'원드라이브에 똑같은 사진이 있어서 폰에서만 지워도 안전한 사진이에요(동기화 앱이 업로드만일 때)',
-  spaceDo:'1년 지난 사진과 한 달 지난 50MB 넘는 동영상만 골랐고 별표는 뺐어요 · 지우기 직전에 원드라이브에 있는지 다시 확인해요',
+  space:'원드라이브에 똑같은 사진이 있어서 폰에서만 삭제해도 안전한 사진이에요(동기화 앱이 업로드만일 때)',
+  spaceDo:'1년 지난 사진과 한 달 지난 50MB 넘는 동영상만 선택했고 별표는 뺐어요 · 삭제 직전에 원드라이브에 있는지 다시 확인해요',
   dups:'같은 사진 = 크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진, 연사 = 카메라로 1초 안에 이어 찍은 사진, 비슷한 사진 = 10분 안에 같은 장면을 조금씩 다르게 찍은 사진이에요',
-  dupsDo:'묶음마다 남길 한 장을 누르고 [나머지 지우기] · 원드라이브에 사본이 있는 사진만 지워요',
+  dupsDo:'묶음마다 남길 한 장을 누르고 [나머지 삭제] · 원드라이브에 사본이 있는 사진만 삭제해요',
   junk:'1년 지난 스크린샷과 카톡·텔레그램으로 받은 사진이에요',
-  junkDo:'필요 없으면 [지우기](폰 휴지통) · 지우기 싫으면 [숨기기]로 사진 목록에서만 빼요',
+  junkDo:'필요 없으면 [삭제](폰 휴지통) · 삭제 싫으면 [숨기기]로 사진 목록에서만 빼요',
 });
 export const JUNK_HELP = Object.freeze({shot:'찍은 지 1년 넘은 화면 캡처', kakao:'카톡 대화방에서 받아 저장된 사진(KakaoTalk 폴더)', telegram:'텔레그램에서 받아 저장된 사진(Telegram 폴더)'});
 // 일부만 있음 숫자 글.

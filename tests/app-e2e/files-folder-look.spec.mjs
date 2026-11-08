@@ -37,7 +37,7 @@ const icon = (page, key) => row(page, key).locator(':is(.fx-ico, .ft-ico)');
 
 for (const width of [1440, 412]) test.describe(`[파일] 폴더 색·순서 ${width}`, () => {
   test.use({ hasTouch: width < 761 });
-  test(`색 고르기·순서 바꾸기는 서버에 저장되고 새로고침해도 유지, 목록·나무·받을 곳 창이 같다 ${width}`, async ({ page }, info) => {
+  test(`색 선택·순서 바꾸기는 서버에 저장되고 새로고침해도 유지, 목록·나무·받을 곳 창이 같다 ${width}`, async ({ page }, info) => {
     test.setTimeout(120000);
     const { errors, server } = await start(page, width);
     await openFiles(page, width);

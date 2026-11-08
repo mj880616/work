@@ -90,18 +90,18 @@ async function openPhotos(page, width) {
 for (const width of [412, 1280]) {
   test.describe(`폰 앱 ${width}`, () => {
     test.use({ viewport: { width, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: width <= 760 });
-    test('같은 사진·연사 묶음: 종류 칩·뜻이 보이는 숫자·두 장 나란히 비교·넘기기·남길 것 고르기·있는 곳 한 줄씩', async ({ page }) => {
+    test('같은 사진·연사 묶음: 종류 칩·뜻이 보이는 숫자·두 장 나란히 비교·넘기기·남길 것 선택·있는 곳 한 줄씩', async ({ page }) => {
       const state = await fixture(page);
       await openPhotos(page, width);
       const box = page.locator('#photosRoot [data-photos-tidy]');
       await page.locator('#photosRoot [data-photos-tidy-chip]').click();
       await expect(box.locator('.photos-tidy-at')).toContainText(`폰 ${PHONE.length}장 · 원드라이브 1장 확인`, { timeout: 30_000 });
       const dups = box.locator('details[data-k="dups"]');
-      await expect(dups.locator('summary')).toContainText('같은 사진·연사 묶음 2개 · 지울 수 있는 3장');
+      await expect(dups.locator('summary')).toContainText('같은 사진·연사 묶음 2개 · 삭제할 수 있는 3장');
       await dups.locator('summary').click();
       await expect(dups.locator('[data-photos-tidy-dupkind="copy"]')).toHaveText('같은 사진 1');
       await expect(dups.locator('[data-photos-tidy-dupkind="burst"]')).toHaveText('연사 1');
-      await expect(dups.locator('.photos-tidy-line').first()).toHaveText('크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진 · 묶음 1개 · 지울 수 있는 사진 1장 · 아낄 용량 500KB');
+      await expect(dups.locator('.photos-tidy-line').first()).toHaveText('크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진 · 묶음 1개 · 삭제할 수 있는 사진 1장 · 아낄 용량 500KB');
       // 같은 사진: 비교 → 두 장 나란히, 있는 곳 한 줄씩(폰 폴더 + 원드라이브 사본).
       const copy = dups.locator('[data-photos-tidy-dup="ph:10"]');
       await copy.locator('[data-photos-tidy-see="dup:ph:10"]').click();
@@ -117,7 +117,7 @@ for (const width of [412, 1280]) {
       await expect(slots.nth(0).locator('.photos-tidy-num')).toContainText('500KB · 2026.10.05 10:01:00 · 400×300');
       // 연사 칩 → 비교 → 넘기기 → 이것 남기기.
       await dups.locator('[data-photos-tidy-dupkind="burst"]').click();
-      await expect(dups.locator('.photos-tidy-line').first()).toHaveText('카메라로 1초 안에 이어 찍은 사진 · 묶음 1개 · 지울 수 있는 사진 2장 · 아낄 용량 3MB');
+      await expect(dups.locator('.photos-tidy-line').first()).toHaveText('카메라로 1초 안에 이어 찍은 사진 · 묶음 1개 · 삭제할 수 있는 사진 2장 · 아낄 용량 3MB');
       await expect(dups.locator('[data-photos-tidy-dup]')).toHaveCount(1);
       const burst = dups.locator('[data-photos-tidy-dup="ph:1"]');
       await expect(burst.locator('.photos-tidy-num').first()).toHaveText('연사 3장 · 아낄 3MB');

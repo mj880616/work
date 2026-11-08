@@ -37,7 +37,7 @@ test('폰 412 한 칸: 꾹 눌러 폴더 위로 끌면 점선 → 놓으면 [복
   expect(errors).toEqual([]);
 });
 
-test('폰 412 한 칸: 꾹 누르고 움직이지 않고 떼면 지금처럼 고르기(끌기·고르기 창 없음)', async ({ page }) => {
+test('폰 412 한 칸: 꾹 누르고 움직이지 않고 떼면 지금처럼 선택(끌기·선택 창 없음)', async ({ page }) => {
   test.setTimeout(60000);
   const { errors } = await start(page, 412);
   await openFiles(page, 412);

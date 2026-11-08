@@ -287,7 +287,7 @@ test('복사·옮기기 거르기: 다른 저장소로 폴더·구글 문서·�
   assert.match(m.xferPlan([a], {source: 'od', parent: 'F1'}, 'move').reason, /이미 이 폴더에 있습니다/);
   assert.deepEqual(m.xferPlan([a], {source: 'od', parent: 'F1'}, 'copy').ok, [a], 'copy into the same folder is allowed (gets a number)');
   assert.deepEqual(m.xferPlan([f], {source: 'gd', parent: null}, 'move').ok, [f], 'S52-43 ②: folder move between the two clouds');
-  assert.equal(m.xferPlan([a], null).reason, '받을 곳을 고르세요');
+  assert.equal(m.xferPlan([a], null).reason, '받을 곳을 선택하세요');
 });
 test('같은 이름·큰 파일 묻는 글(H-3·H-4), 전송 줄·끝 한 줄', async () => {
   const m = await import('../app/files-model.mjs');
@@ -390,7 +390,7 @@ test('upload plan: name rule, 2GB cap, count cap; same name; big; resume match; 
   assert.equal(p.blocked.length, 3);
   assert.match(p.blocked.find(b => b.file.name === 'big.iso').reason, /2GB까지/);
   assert.equal(m.uploadPlan(Array.from({length: 201}, (_, i) => ({name: `f${i}`, size: 1})), ok).ok.length, 200);
-  assert.equal(m.uploadPlan([], ok).reason, '고른 파일이 없어요');
+  assert.equal(m.uploadPlan([], ok).reason, '선택한 파일이 없어요');
   assert.deepEqual(m.upSameName([{name: 'A.TXT', size: 1}, {name: 'b', size: 1}], [{name: 'a.txt'}, {name: 'b', trashed: true}]).map(f => f.name), ['A.TXT']);
   assert.equal(m.upBig({size: m.XFER_BIG_BYTES}), false);
   assert.equal(m.upBig({size: m.XFER_BIG_BYTES + 1}), true);
@@ -413,7 +413,7 @@ test('upload rows in the transfer list: device rows show %, [이어 올리기], 
   assert.equal(m.jobAction({...j, status: 'paused'}), 'reup');
   assert.equal(m.jobAction({...j, status: 'failed'}), 'reup');
   assert.equal(m.jobAction({...j, status: 'done'}), '');
-  assert.equal(m.deviceHint({...j, status: 'paused'}, false), '이어 올리려면 같은 파일을 다시 골라 주세요');
+  assert.equal(m.deviceHint({...j, status: 'paused'}, false), '이어 올리려면 같은 파일을 다시 선택해 주세요');
   assert.equal(m.deviceHint({...j, status: 'paused'}, true), '');
   assert.equal(m.deviceHint({...j, origin: 'cloud', status: 'paused'}, false), '');
   assert.match(m.jobLine(j), /^이 기기 → 원드라이브/);

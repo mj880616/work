@@ -112,7 +112,7 @@ const press = async (page, locator, { hold = 700, move = 0 } = {}) => {
 const bar = page => page.locator('[data-diary-viewer] .diary-viewer-actions');
 const barNames = async page => (await bar(page).locator('button:visible .kptu-act-tx').allTextContents()).map(t => t.replace('▾', '').trim());
 // PHOTO-아래줄정돈(S49-34, 명진 결정 11/04 12:06 A안): 아래 줄 다섯 칸, 나머지는 [공유 ▾]·[편집 ▾]·[더보기] 안 글자 항목.
-const BAR_NAMES = ['별표', '공유', '편집', '지우기', '더보기'];
+const BAR_NAMES = ['별표', '공유', '수정', '삭제', '메뉴'];
 const barMenu = page => page.locator('#photoBarMenu, #shareMenu').locator('button:visible');
 const menuTexts = async (page, trigger) => { await trigger.click(); const t = await barMenu(page).allTextContents(); await page.keyboard.press('Escape'); await expect(page.locator('#photoBarMenu, #shareMenu').locator('button:visible')).toHaveCount(0); return t; };
 const pickItem = async (page, trigger, text) => { await trigger.click(); await page.locator('#photoBarMenu, #shareMenu').getByRole('button', { name: text, exact: true }).click(); };
@@ -132,7 +132,7 @@ for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884,
       expect(await bar(page).locator('button:visible').count()).toBeLessThanOrEqual(5);
       const b = bar(page);
       expect(await menuTexts(page, b.locator('[data-diary-share]'))).toEqual(['사진 복사', '일기에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
-      expect(await menuTexts(page, b.locator('[data-strip-act="edit"]'))).toEqual(['사진 편집']); // 정보수정은 폰 앱 0.4.15(meta)부터라 이 흉내(0.4.7)에는 없다 — photos-info-edit.spec.mjs가 본다
+      expect(await menuTexts(page, b.locator('[data-strip-act="edit"]'))).toEqual(['사진 수정']); // 정보수정은 폰 앱 0.4.15(meta)부터라 이 흉내(0.4.7)에는 없다 — photos-info-edit.spec.mjs가 본다
       const more = await menuTexts(page, b.locator('[data-strip-act="more"]'));
       expect(more).toEqual(['정보', '폴더로 옮기기', '앨범에 넣기']);
       // 한 줄: 줄 바꿈·잘림 없음, 아이콘은 모두 선 아이콘(svg)
@@ -144,7 +144,7 @@ for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884,
       expect(state.errors).toEqual([]);
     });
 
-    test('항목이 지금 사진 1장에 동작: 별표·정보·앨범·옮기기·업데이트로 보내기(알림이 보임)·지우기', async ({ page }) => {
+    test('항목이 지금 사진 1장에 동작: 별표·정보·앨범·옮기기·업데이트로 보내기(알림이 보임)·삭제', async ({ page }) => {
       const state = await fixture(page, { app: true });
       await openPhotos(page, width);
       await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);

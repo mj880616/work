@@ -27,7 +27,7 @@ test("12장 '모두 −8시간': 모두 8시간 앞으로, 순서 그대로, 앱
   assert.deepEqual(rec[0], {workspace_id:'w', batch_id:'b', source:'phone', item_key:'ms:1', before_taken:new Date(T0 + 60000).toISOString(),
     after_taken:new Date(T0 + 60000 - 8 * H).toISOString(), loc_changed:false, before_lat:null, before_lon:null, after_lat:null, after_lon:null});
   assert.deepEqual(undoItems(rec)[0], {id:'1', taken:T0 + 60000});
-  // 앱이 못 고친 사진은 기록하지 않는다.
+  // 앱이 못 수정한 사진은 기록하지 않는다.
   assert.equal(recordRows(plan, {workspaceId:'w', batchId:'b', failed:['3', '4']}).length, 10);
 });
 
@@ -44,7 +44,7 @@ test('이 날짜로: 첫 장을 그 시각에, 나머지는 원래 간격 유지
   assert.equal(takenText(to), '2025.05.01 09:30');
 });
 
-test('이 장소로·위치 지우기: 위치만 보내고, 기록은 앞 위치를 남긴다', () => {
+test('이 장소로·위치 삭제: 위치만 보내고, 기록은 앞 위치를 남긴다', () => {
   const list = [item(1), item(2)];
   const rows = rowsOf(list, [info(1, undefined, {lat:37.5, lon:127}), info(2)]);
   const loc = parsePlace('https://www.google.com/maps/@35.1795543,129.0756416,15z');
@@ -56,7 +56,7 @@ test('이 장소로·위치 지우기: 위치만 보내고, 기록은 앞 위치
   assert.equal(rec[0].before_lat, 37.5);
   assert.equal(rec[0].after_taken, null);
   assert.deepEqual(undoItems(rec), [{id:'1', loc:{lat:37.5, lon:127}}, {id:'2', loc:null}]);
-  // 위치가 없던 사진의 '지우기'는 바뀐 것 없음.
+  // 위치가 없던 사진의 '삭제'는 바뀐 것 없음.
   const clear = planRows(rows, {kind:'clear'});
   assert.deepEqual(writeItems(clear), [{id:'1', loc:null}]);
   assert.equal(parsePlace('서울'), null);
@@ -65,14 +65,14 @@ test('이 장소로·위치 지우기: 위치만 보내고, 기록은 앞 위치
   assert.deepEqual(parsePlace('37.5665, 126.978'), {lat:37.5665, lon:126.978});
 });
 
-test('못 고치는 사진(동영상·HEIC·폰에 없음)은 표에 남고 빠진다 · 카메라 줄은 보기만', () => {
+test('못 수정하는 사진(동영상·HEIC·폰에 없음)은 표에 남고 빠진다 · 카메라 줄은 보기만', () => {
   const list = [item(1), item(2, undefined, {video:true}), item(3), item(4)];
   const rows = rowsOf(list, [info(1), info(2), info(3, undefined, {can:false, model:'SM-F946N', make:'samsung', lens:''})]);
-  assert.deepEqual(rows.map(r => [r.can, r.why]), [[true, ''], [false, '동영상'], [false, '이 종류는 못 고침'], [false, '폰에서 못 찾음']]);
+  assert.deepEqual(rows.map(r => [r.can, r.why]), [[true, ''], [false, '동영상'], [false, '이 종류는 수정 못 함'], [false, '폰에서 못 찾음']]);
   assert.deepEqual(writeItems(planRows(rows, {kind:'shift', ms:H})), [{id:'1', taken:T0 + 60000 + H}]);
   assert.equal(cameraLine(rows.slice(0, 1)), '카메라 SONY ILCE-7M4 · 렌즈 FE 24-70mm');
   assert.equal(cameraLine(rows), '카메라 여러 가지 · 렌즈 FE 24-70mm');
-  assert.equal(doneText({count:10, failed:['1', '2']}), '10장 고쳤어요 · 2장은 못 고쳤어요');
+  assert.equal(doneText({count:10, failed:['1', '2']}), '10장 수정했어요 · 2장은 못 수정했어요');
   assert.equal(infoRows(Array.from({length:300}, (_, i) => item(i + 1)), new Map()).length, INFO_MAX);
   assert.equal(shiftMs({hours:-1}), null);
   assert.equal(shiftMs({minutes:60}), null);
@@ -95,7 +95,7 @@ function fakeApp({meta = true, answer} = {}) {
   return {win, sent};
 }
 
-test('다리 말: 0.4.15(meta)만, 읽기·고치기 모양, 이상한 답 버림', async () => {
+test('다리 말: 0.4.15(meta)만, 읽기·수정 모양, 이상한 답 버림', async () => {
   const a = fakeApp({answer:(m, say) => {
     if (m.startsWith('photos:meta:read:')) say('photos:meta:{"ok":true,"items":[{"id":"5","taken":1760929200000,"lat":37.5,"lon":127.0,"make":"SONY","model":"A\\u0001B","lens":"","can":true},{"id":"x","taken":1}],"error":""}');
     else if (m.startsWith('photos:meta:write:')) say('photos:metadone:{"ok":true,"count":1,"failed":["6","bad"],"error":""}');
@@ -116,18 +116,18 @@ test('다리 말: 0.4.15(meta)만, 읽기·고치기 모양, 이상한 답 버�
   assert.deepEqual(metaItems([{id:'1', taken:5, lat:95, lon:1}]), [{id:'1', taken:5, lat:null, lon:null, make:'', model:'', lens:'', can:false}]);
 });
 
-test('연결: 사진 ⋯ 메뉴에 [정보 고치기…](폰 사진·앱 meta), 폰 앱 0.4.15, 위치 허락·EXIF 의존, DB 표 owner 전용', () => {
+test('연결: 사진 ⋯ 메뉴에 [정보 수정…](폰 사진·앱 meta), 폰 앱 0.4.15, 위치 허락·EXIF 의존, DB 표 owner 전용', () => {
   const photos = readFileSync(new URL('../app/photos.js', import.meta.url), 'utf8');
   assert.match(photos, /\(phItem \? phone\.canMeta\(\) : od\.canDelete\) && !inTrash \? menuBtn\('data-pm-info', PHOTO_ACT_TEXT\.info\)/);
   // S50-31 ②: 구글 드라이브 우클릭 메뉴에도, [정보수정] 보이기 규칙은 폰·원드라이브·드라이브.
-  // S53-12: [지우기]는 줄 맨 아래 같은 자리(del = delBtn — 못 지우면 흐리게·이유 한 줄).
+  // S53-12: [삭제]는 줄 맨 아래 같은 자리(del = delBtn — 못 삭제하면 흐리게·이유 한 줄).
   assert.match(photos, /menuBtn\('data-pm-move', '폴더로 옮기기…'\), menuBtn\('data-pm-info', PHOTO_ACT_TEXT\.info\)\]\.join\(''\) : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음<\/span><\/p>', del\]/);
   assert.match(photos, /const canInfo = list => tab !== 'trash' && list\.some\(x => \(x\.kind === 'phone' && phone\.canMeta\(\)\) \|\| \(x\.kind === 'od' && od\.canDelete\) \|\| \(x\.kind === 'gdrive' && gdUsable\(\)\)\)/);
   assert.doesNotMatch(photos, /photosSelMenu/);
   assert.match(photos, /data-photos-act-more/); // PHOTO-아래줄정돈(S49-34): 정보수정은 [더보기] 안 글자 항목
   assert.match(photos, /import\('\.\/photo-info-edit\.js'\)/);
   const gradle = readFileSync(new URL('../android-app/app/build.gradle', import.meta.url), 'utf8');
-  // 0.4.15에서 [정보 고치기]가 들어왔다 — 그 뒤 판(0.4.16+)이어야 한다(판 번호를 하나로 고정하지 않음).
+  // 0.4.15에서 [정보 수정]가 들어왔다 — 그 뒤 판(0.4.16+)이어야 한다(판 번호를 하나로 고정하지 않음).
   assert.ok(Number(gradle.match(/versionCode (\d+)/)?.[1]) >= 55);
   const [maj, min, pat] = (gradle.match(/versionName '(\d+)\.(\d+)\.(\d+)'/) || []).slice(1).map(Number);
   assert.ok(maj > 0 || min > 4 || (min === 4 && pat >= 15));
@@ -153,7 +153,7 @@ test('클라우드 ②: 섞인 선택 → 출처별 보내기(서버는 ISO 시�
     ['gd:G1', cloudInfo({id:'G1', can:false, why:'not_jpeg'})], ['ms:1', info(1, T0 + 120000)]]);
   const rows = infoRows([od, gd, ph], inf);
   assert.equal(rows[0].src, 'onedrive'); assert.equal(rows[0].can, true); assert.deepEqual(rows[0].loc, {lat:37.5, lon:127});
-  assert.equal(rows[1].can, false); assert.equal(rows[1].why, '이 종류는 못 고침(JPEG만)');
+  assert.equal(rows[1].can, false); assert.equal(rows[1].why, '이 종류는 못 수정(JPEG만)');
   assert.equal(rows[2].src, undefined, 'phone rows keep the old shape');
   const plan = planRows(rows, {kind:'shift', ms:-8 * H});
   const w = writeItems(plan);
@@ -166,7 +166,7 @@ test('클라우드 ②: 섞인 선택 → 출처별 보내기(서버는 ISO 시�
   assert.equal(rec.length, 1); assert.equal(rec[0].source, 'onedrive'); assert.equal(rec[0].item_key, 'od:ABC!1');
   assert.deepEqual(undoItems(rec), [{src:'onedrive', id:'ABC!1', taken:T0}]);
   assert.deepEqual(undoItems([{...rec[0], source:'gdrive'}]), [], 'source and key must agree');
-  // PC: 폰 앱이 없으면 폰 사진은 '폰 앱에서만'으로 빠지고 클라우드만 고친다.
+  // PC: 폰 앱이 없으면 폰 사진은 '폰 앱에서만'으로 빠지고 클라우드만 수정한다.
   const pc = infoRows([od, ph], inf, {noPhone:'폰 앱에서만'});
   assert.equal(pc[1].can, false); assert.equal(pc[1].why, '폰 앱에서만'); assert.equal(pc[0].can, true);
   assert.deepEqual(chunked([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);

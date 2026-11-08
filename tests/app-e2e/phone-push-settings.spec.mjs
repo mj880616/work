@@ -136,7 +136,7 @@ test('웹: 칩·조용한 시간은 바로 내 프로필 칸에만 저장, 시�
 test.describe('폰 앱', () => {
   test.use({viewport: {width: 412, height: 915}, userAgent: ANDROID, hasTouch: true, isMobile: true});
 
-  test('이 폰 꺼짐 → [시험 알림]이 알림 권한을 묻고 등록한 뒤 보낸다, [이 폰 끊기]는 서버에서 지우고 앱 토큰도 지운다', async ({page}) => {
+  test('이 폰 꺼짐 → [시험 알림]이 알림 권한을 묻고 등록한 뒤 보낸다, [이 폰 끊기]는 서버에서 삭제하고 앱 토큰도 삭제한다', async ({page}) => {
     const state = await boot(page, {app: true});
     const p = panel(page);
     await expect(p.locator('[data-ps-push-phone="off"]')).toContainText('꺼짐');

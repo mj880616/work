@@ -533,7 +533,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   // UI-칩줄두줄: [더보기 ▾]/[접기 ▴]는 앱 공용 칩 줄 부품(chip-rows.js)의 버튼, 접힌 칩은 data-chip-cut.
   const toggle=box.locator('[data-chip-rows-more]');
   await expect(toggle).toBeVisible();
-  await expect(toggle).toHaveText(/더보기/);
+  await expect(toggle).toHaveText(/펼치기/);
   // 보이는 칩은 두 줄 안(칩 줄 위치가 둘뿐), [더보기]는 둘째 줄 안.
   const rows=()=>box.evaluate(el=>{const tops=[...el.children].filter(c=>c.getClientRects().length).map(c=>Math.round(c.getBoundingClientRect().top));return [...new Set(tops)].length;});
   expect(await rows()).toBeLessThanOrEqual(2);
@@ -555,7 +555,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   const tracking=browse.locator('[data-lb-sec="tracking"]');
   await expect(tracking.locator('[data-lb-row]')).toHaveCount(6);
   const more=tracking.locator('[data-lb-action="list-more"]');
-  await expect(more).toContainText('더보기 3');
+  await expect(more).toContainText('펼치기 3');
   await more.click();
   await expect(tracking.locator('[data-lb-row]')).toHaveCount(9);
   await expect(tracking.locator('[data-lb-action="list-more"]')).toHaveCount(0);

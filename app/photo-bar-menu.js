@@ -6,7 +6,7 @@ import {barItemText} from './photo-menu-items.mjs';
 let ctx = null, menu = null;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function ensure() {
-  menu ||= createAnchoredMenu({id:'photoBarMenu', className:'od-link-menu photo-bar-menu', label:'사진 더보기', historyKey:'kptuPhotoBarMenu',
+  menu ||= createAnchoredMenu({id:'photoBarMenu', className:'od-link-menu photo-bar-menu', label:'사진 메뉴', historyKey:'kptuPhotoBarMenu',
     parent:trigger => trigger.closest('[role="dialog"]') || document.body,
     key:() => 'photo-bar',
     // S53-12: why가 있는 항목 = 지금은 못 함(권한·판) — 숨기지도 무반응으로 두지도 않고 흐리게(aria-disabled), 누르면 off(why)로 이유 한 줄.

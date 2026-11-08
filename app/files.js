@@ -189,12 +189,12 @@ function install() {
 <h2 id="fxTitle" class="screen-title">파일</h2>
 <div id="filesRoot" class="fx" data-fx-pane="list">
 <div class="fx-top"><button type="button" class="icon-btn fx-tree-tog" data-fx-tree-tog aria-pressed="false" aria-label="폴더 나무 열기" title="폴더 나무 열기" hidden>◫</button><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><button type="button" class="mini fx-two" data-fx-two title="두 칸으로 보기" hidden>두 칸 보기</button></div>
-<div class="fx-bar" data-fx-bar role="toolbar" aria-label="고른 것" hidden></div>
+<div class="fx-bar" data-fx-bar role="toolbar" aria-label="선택한 것" hidden></div>
 <p class="fx-note" data-fx-note role="status" hidden></p>
 <div class="fx-up" data-fx-uprows hidden></div>
 <div class="fx-cols" data-fx-cols><nav class="fx-tree nx-tree" data-fx-tree aria-label="폴더"></nav><div class="fx-main" data-fx-main>${paneHtml(0)}<aside class="fx-prev" data-fx-prev aria-label="미리보기" hidden></aside></div></div>
 <div class="fx-dim" data-fx-dim hidden></div><section class="fx-dest" data-fx-dest role="dialog" aria-modal="true" aria-labelledby="fxDestTitle" hidden></section>
-<div class="fx-askbox" data-fx-askbox hidden></div><div class="fx-drop-ask" data-fx-dropask role="dialog" aria-label="놓을 때 고르기" hidden></div><section class="fx-jobs" data-fx-jobs role="dialog" aria-labelledby="fxJobsTitle" hidden></section><div class="fx-xfer" data-fx-xfer role="status" aria-live="polite" hidden></div>
+<div class="fx-askbox" data-fx-askbox hidden></div><div class="fx-drop-ask" data-fx-dropask role="dialog" aria-label="놓을 때 선택" hidden></div><section class="fx-jobs" data-fx-jobs role="dialog" aria-labelledby="fxJobsTitle" hidden></section><div class="fx-xfer" data-fx-xfer role="status" aria-live="polite" hidden></div>
 </div></section>`);
 }
 install();
@@ -771,7 +771,7 @@ function paneSrcHtml(p, i) {
   const shelves = SHELVES.map(sh => `<button type="button" class="row-act fx-psrc-item${p.where?.shelf === sh ? ' on' : ''}" data-fx-psrc-shelf="${sh}">${treeIconHtml(sh, {className: 'ft-ico'})}<span class="fx-psrc-name">${esc(SHELF_NAME[sh])}</span></button>`).join('');
   // S52-41 ④: 고정한 폴더를 맨 위에(흐린 출처 글자, 연결 안 된 것은 흐리게).
   const pins = pinRows().map(x => `<button type="button" class="row-act fx-psrc-item fx-psrc-pin" data-fx-psrc-pin="${esc(x.key)}"${x.live ? '' : ' disabled'}>${treeIconHtml('folder', {className: 'ft-ico'})}<span class="fx-psrc-name">${esc(x.name)}</span><span class="fx-psrc-why">${esc(x.tag || SOURCE_NAME[x.source])}</span></button>`).join('');
-  return `<span class="fx-psrc-wrap">${btn}<span class="fx-psrc-menu" data-fx-psrc-menu role="group" aria-label="${side(i)} 칸 출처 고르기">${pins}${shelves}${items}</span></span>`;
+  return `<span class="fx-psrc-wrap">${btn}<span class="fx-psrc-menu" data-fx-psrc-menu role="group" aria-label="${side(i)} 칸 출처 선택">${pins}${shelves}${items}</span></span>`;
 }
 function paneSrcClose(focus = false) {
   let any = false;
@@ -1126,7 +1126,7 @@ function treeMenu(b) {
 function offText(code) {
   if (code === 'pc') return pcWrite() ? PC_WRITE_LATER_TEXT : PC_READONLY_TEXT;
   if (code === 'ph') return phoneOn() && phone.state.all ? PHONE_OLD_APP_TEXT : phoneWriteText('permission');
-  if (code === 'drive') return '드라이브는 휴지통으로 보내지 않아요. 드라이브를 열고 안의 파일·폴더를 골라 보내 주세요';
+  if (code === 'drive') return '드라이브는 휴지통으로 보내지 않아요. 드라이브를 열고 안의 파일·폴더를 선택해 보내 주세요';
   return '';
 }
 function offStop(items, id) {
@@ -1779,7 +1779,7 @@ function lookDo(act, button) {
 }
 // 고르기 막대 공용 단추(클라우드·내 PC 줄이 같은 단추): 한 칸 [복사][옮기기], 두 칸 '→ 오른쪽에 복사 / → 옮기기'(PC는 키 이름), 고르기 풀기 ✕.
 const COPY_CUT_HTML = '<button type="button" class="fx-btn" data-fx-copy>복사</button><button type="button" class="fx-btn" data-fx-cut>옮기기</button>';
-const UNPICK_HTML = '<button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
+const UNPICK_HTML = '<button type="button" class="fx-btn" data-fx-unpick aria-label="선택 풀기">✕</button>';
 // S53-12 메뉴 모양 통일(⋯ 메뉴와 같은 규칙): 고르기 막대·미리보기 아래 줄의 [휴지통]도 지금 못 보내면(폰에 쓸 수 없음 'ph' · 바구니 PC 앱이 휴지통을 모름 'pc')
 // 숨기지 않고 흐리게(aria-disabled) 두고, 누르면 이유·할 일 한 줄(offText — ⋯ 메뉴의 흐린 [휴지통]과 같은 글). 실제로 막는 것은 지금처럼 앱·바구니 문이다.
 //   흐린 단추는 같은 자리의 켜진 [휴지통] 글을 그대로 쓰고 표시만 더한다(모양을 새로 만들지 않음).
@@ -1812,7 +1812,7 @@ function paintBar() {
   if (hasPc(pickedRows(p))) {
     if (!pcWrite()) {
       bar.innerHTML = `<span class="fx-bar-t" title="${esc(PC_READONLY_TEXT)}">${n}개 · ${esc(SOURCE_NAME[PC])} · 보기·열기만</span>`
-        + trashOff(PH_TRASH_HTML, 'pc') + '<button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
+        + trashOff(PH_TRASH_HTML, 'pc') + '<button type="button" class="fx-btn" data-fx-unpick aria-label="선택 풀기">✕</button>';
       return;
     }
     const i = state.cur, dest = two() ? oppDest() : null, keys = WIDE.matches;
@@ -1834,7 +1834,7 @@ function paintBar() {
         + (phoneWrite() ? `<button type="button" class="secondary" data-fx-send="move"${off}>${esc(sendLabel(i, 'move', VERT()))}</button>` : '')
         : `<button type="button" class="fx-btn" data-fx-copy>${phoneWrite() ? '복사' : '클라우드에 복사'}</button>` + (phoneWrite() ? '<button type="button" class="secondary" data-fx-cut>옮기기</button>' : '')) + TOLIB_BTN
       + (phoneWrite() ? (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '') + PH_TRASH_HTML : trashOff(PH_TRASH_HTML, 'ph'))
-      + '<button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
+      + '<button type="button" class="fx-btn" data-fx-unpick aria-label="선택 풀기">✕</button>';
     return;
   }
   if (two()) {
@@ -1847,14 +1847,14 @@ function paintBar() {
       + TOLIB_BTN
       + (n === 1 ? `<button type="button" class="fx-btn" data-fx-rename>이름${keys ? ' (F2)' : ''}</button>` : '') + lookButtonsHtml(p)
       + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
-      + `<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통${keys ? ' (Del)' : ''}</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>`;
+      + `<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통${keys ? ' (Del)' : ''}</button><button type="button" class="fx-btn" data-fx-unpick aria-label="선택 풀기">✕</button>`;
     return;
   }
   // 시안 ③: 'N개 · [복사] [옮기기] [이름] [휴지통] ✕'(쓰지 않는 ⋯는 두지 않는다).
   bar.innerHTML = `<span class="fx-bar-t">${n}개</span>` + COPY_CUT_HTML + TOLIB_BTN
     + (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '') + lookButtonsHtml(p)
     + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
-    + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button><button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
+    + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button><button type="button" class="fx-btn" data-fx-unpick aria-label="선택 풀기">✕</button>';
 }
 function paintPicks(p = P()) {
   for (const b of paneEl(p)?.querySelectorAll('[data-fx-row]') || []) {
@@ -2090,7 +2090,7 @@ async function trashRows(rows, anchor) {
           if (treeAcrossBig(files.length, 0)) { notify(treeAcrossTooBigText(f.name), {error: true, record: false}); return; }
         }
       } finally { if (state.scope === scope) { state.busy = ''; paintBar(); } }
-      if (!files.length) { notify(folders.length === 1 ? `'${folders[0].name}' 폴더 안에 보낼 파일이 없어요(${PHONE_FOLDER_LEFT_NOTE})` : `고른 폴더 안에 보낼 파일이 없어요(${PHONE_FOLDER_LEFT_NOTE})`, {record: false}); return; }
+      if (!files.length) { notify(folders.length === 1 ? `'${folders[0].name}' 폴더 안에 보낼 파일이 없어요(${PHONE_FOLDER_LEFT_NOTE})` : `선택한 폴더 안에 보낼 파일이 없어요(${PHONE_FOLDER_LEFT_NOTE})`, {record: false}); return; }
     }
     const ask = phoneTrashAsk({files: files.length, folders: folders.map(r => r.name), one: files[0]?.name});
     if (!(await askConfirm(anchor, {text: ask.text, note: ask.note, ok: '휴지통으로', danger: true}))) return;
@@ -2222,7 +2222,7 @@ function paintDest() {
   box.innerHTML = `<div class="fx-dest-h"><span id="fxDestTitle">${esc(destTitle(x.rows.length, x.mode))}</span><button type="button" class="mini" data-fx-dest-close aria-label="닫기">✕</button></div>`
     + recent + `<nav class="fx-dest-tree nx-tree" aria-label="받을 곳 폴더">${tree || waitHtml({rows: 3})}</nav>`
     + (state.ask ? askHtml(state.ask) : '')
-    + `<div class="fx-dest-f"><span class="fx-dest-at">${x.dest ? esc(SOURCE_NAME[x.dest.source] + (x.dest.parent ? ' › ' + destNameOf(x.dest) : '')) : '받을 폴더를 고르세요'}</span>`
+    + `<div class="fx-dest-f"><span class="fx-dest-at">${x.dest ? esc(SOURCE_NAME[x.dest.source] + (x.dest.parent ? ' › ' + destNameOf(x.dest) : '')) : '받을 폴더를 선택하세요'}</span>`
     + `<button type="button" class="fx-btn" data-fx-dest-mkdir${can ? '' : ' disabled'}>새 폴더</button><button type="button" class="fx-btn fx-pri" data-fx-dest-go${can ? '' : ' disabled'}>${esc(destButton(x.mode))}</button></div>`;
 }
 function pickDest(key, name) {
@@ -2895,7 +2895,7 @@ function paintJobs() {
   const f = document.activeElement, keep = f && box.contains(f) ? ['data-fx-job-id', 'data-fx-job-act', 'data-fx-jobs-all', 'data-fx-jobs-close', 'data-fx-ask']
     .filter(n => f.hasAttribute(n)).map(n => `[${n}="${CSS.escape(f.getAttribute(n))}"]`).join('') : '';
   box.innerHTML = `<div class="fx-jobs-h"><span id="fxJobsTitle">${esc(jobsTitle(list))}</span>${all}<button type="button" class="mini" data-fx-jobs-close aria-label="닫기">✕</button></div>${asking}`
-    + (list.length ? `<ul class="fx-jobs-list">${list.map(jobRowHtml).join('')}</ul>` : '<p class="fx-jobs-none">보낸 것이 없어요(하루 지난 것은 지워져요).</p>');
+    + (list.length ? `<ul class="fx-jobs-list">${list.map(jobRowHtml).join('')}</ul>` : '<p class="fx-jobs-none">보낸 것이 없어요(하루 지난 것은 삭제돼요).</p>');
   if (keep) (box.querySelector(keep) || box.querySelector('[data-fx-jobs-close]'))?.focus({preventScroll: true});
 }
 // ---------- FILES-자료실로보내기(S52-26, 요청함 11/07 11:37, 시안 docs/design/mockups/files-to-library.html, 명진 11:41 '(가) 연결만') ----------

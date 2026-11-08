@@ -5,7 +5,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // - 폰 앱 412(앱 다리 흉내, 0.4.11 = 상태에 restore), 원드라이브 칩 끔(평소 쓰임):
 //   ① [폰 공간만 비우기 · 1장]: 원드라이브에 원본이 있는 폰 사진만(서버 copy-check) → 폰 휴지통 → 비운 기록(keep·원래 폴더·찍은 시각) → 목록 원래 자리에 원드라이브 칸 + 아이콘.
 //   ② 비운 사진 [폰으로 되돌리기]: 원본을 받아 photos:save:begin에 원래 폴더·찍은 시각 → 기록 지우기(kept-drop).
-//   ③ [완전히 지우기 · n장]: 폰 휴지통 + 짝 원드라이브 사본까지 Web2 휴지통(photo-delete) + 비운 기록 지우기.
+//   ③ [완전히 삭제 · n장]: 폰 휴지통 + 짝 원드라이브 사본까지 Web2 휴지통(photo-delete) + 비운 기록 지우기.
 // - PC 1280: 원드라이브 사진 [지우기]는 예전처럼 바로 빠지고 [되돌리기](고르기 창 없음).
 // 네트워크 없음(지어낸 서버·지어낸 앱), 사진은 1×1 그림.
 const barPick = async (page, trigger, name) => { await trigger.click(); await page.locator('#photoBarMenu').getByRole('button', { name, exact: true }).click(); }; // S49-34 PHOTO-아래줄정돈: 더보기·편집 ▾ 안 글자 항목
@@ -136,21 +136,21 @@ test.describe('폰 앱 412', () => {
     expect(state.errors).toEqual([]);
   });
 
-  test('[지우기] → 두 갈래 창 → 폰 공간만 비우기: 원본 있는 사진만 폰 휴지통, 원래 폴더·시각 기록, 목록 원래 자리에 남음', async ({ page }) => {
+  test('[삭제] → 두 갈래 창 → 폰 공간만 비우기: 원본 있는 사진만 폰 휴지통, 원래 폴더·시각 기록, 목록 원래 자리에 남음', async ({ page }) => {
     const { state } = await fixture(page, { app: true });
     await phoneOnly(page);
     await hold(page, cellOf(page, 'ph:2'));
     await cellOf(page, 'ph:1').click();
-    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
+    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 선택됨');
     await root(page).locator('[data-photos-act-delete]').click();
     await expect(choice(page)).toBeVisible();
     const picks = choice(page).locator('[data-ask-pick]');
     await expect(picks.nth(0)).toContainText('폰 공간만 비우기 · 1장');
     await expect(picks.nth(0)).toContainText('목록에 남고, 나중에 [폰으로 되돌리기]로 제자리에');
     // S52-06: 백업 없음(ph:2)은 완전히 지우기에서도 기본으로 빠지고, 체크 한 줄로만 함께.
-    await expect(picks.nth(1)).toContainText('완전히 지우기 · 1장');
+    await expect(picks.nth(1)).toContainText('완전히 삭제 · 1장');
     await expect(picks.nth(1)).toHaveClass(/is-danger/);
-    await expect(choice(page).locator('.kptu-ask-foot')).toHaveText('백업 없음 1장(원드라이브에서 같은 사진을 못 찾음)은 기본으로 지우지 않아요');
+    await expect(choice(page).locator('.kptu-ask-foot')).toHaveText('백업 없음 1장(원드라이브에서 같은 사진을 못 찾음)은 기본으로 삭제하지 않아요');
     await expect(choice(page).locator('[data-ask-check]')).not.toBeChecked();
     // 창이 하단바에 가리지 않는다.
     const box = await choice(page).boundingBox(), bar = await page.locator('.mobile-tabs').boundingBox();
@@ -168,7 +168,7 @@ test.describe('폰 앱 412', () => {
     expect(state.errors).toEqual([]);
   });
 
-  test('비운 사진 [폰으로 되돌리기]: 원본을 원래 폴더·찍은 시각으로 사진첩에 넣고 기록을 지운다', async ({ page }) => {
+  test('비운 사진 [폰으로 되돌리기]: 원본을 원래 폴더·찍은 시각으로 사진첩에 넣고 기록을 삭제한다', async ({ page }) => {
     const { state } = await fixture(page, { app: true });
     await phoneOnly(page);
     await hold(page, cellOf(page, 'K9'));
@@ -187,7 +187,7 @@ test.describe('폰 앱 412', () => {
     expect(state.errors).toEqual([]);
   });
 
-  test('[완전히 지우기]: 폰 휴지통 + 짝 원드라이브 사본과 비운 사진을 Web2 휴지통으로, 비운 기록도 지움', async ({ page }) => {
+  test('[완전히 삭제]: 폰 휴지통 + 짝 원드라이브 사본과 비운 사진을 Web2 휴지통으로, 비운 기록도 지움', async ({ page }) => {
     const { state } = await fixture(page, { app: true });
     await phoneOnly(page);
     await hold(page, cellOf(page, 'ph:1'));
@@ -195,7 +195,7 @@ test.describe('폰 앱 412', () => {
     await root(page).locator('[data-photos-act-delete]').click();
     const picks = choice(page).locator('[data-ask-pick]');
     await expect(picks.nth(0)).toContainText('폰 공간만 비우기 · 1장');
-    await expect(picks.nth(1)).toContainText('완전히 지우기 · 2장');
+    await expect(picks.nth(1)).toContainText('완전히 삭제 · 2장');
     await expect(choice(page).locator('.kptu-ask-foot')).toHaveCount(0);
     await picks.nth(1).click();
     await expect.poll(() => sentOf(page, /^photos:trash:/)).toEqual(['photos:trash:1']);
@@ -212,17 +212,17 @@ test.describe('폰 앱 412', () => {
 test.describe('폰 앱 412 · 원드라이브 칸', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
 
-  test('폰 짝 있는 원드라이브 칸 [지우기] → 두 갈래 창 → 폰 공간만 비우기: 폰 짝만 폰 휴지통, 원드라이브는 그대로', async ({ page }) => {
+  test('폰 짝 있는 원드라이브 칸 [삭제] → 두 갈래 창 → 폰 공간만 비우기: 폰 짝만 폰 휴지통, 원드라이브는 그대로', async ({ page }) => {
     const { state } = await fixture(page, { app: true });
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
     await hold(page, cellOf(page, 'O1'));
-    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
+    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 선택됨');
     await root(page).locator('[data-photos-act-delete]').click();
     await expect(choice(page)).toBeVisible();
     const picks = choice(page).locator('[data-ask-pick]');
     await expect(picks.nth(0)).toContainText('폰 공간만 비우기 · 1장');
-    await expect(picks.nth(1)).toContainText('완전히 지우기 · 1장');
+    await expect(picks.nth(1)).toContainText('완전히 삭제 · 1장');
     await picks.nth(0).click();
     await expect.poll(() => sentOf(page, /^photos:trash:/)).toEqual(['photos:trash:1']);
     expect(state.bodies.find(b => b.action === 'copy-check').pairs).toEqual([{ id: 'O1', size: 10 }]);
@@ -233,7 +233,7 @@ test.describe('폰 앱 412 · 원드라이브 칸', () => {
     expect(state.errors).toEqual([]);
   });
 
-  test('폰 짝 있는 원드라이브 칸 [완전히 지우기]: 폰 짝 + 원드라이브 둘 다', async ({ page }) => {
+  test('폰 짝 있는 원드라이브 칸 [완전히 삭제]: 폰 짝 + 원드라이브 둘 다', async ({ page }) => {
     const { state } = await fixture(page, { app: true });
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
@@ -243,12 +243,12 @@ test.describe('폰 앱 412 · 원드라이브 칸', () => {
     await expect.poll(() => sentOf(page, /^photos:trash:/)).toEqual(['photos:trash:1']);
     await expect.poll(() => state.bodies.filter(b => b.action === 'photo-delete').flatMap(b => b.ids)).toEqual(['O1']);
     await expect.poll(() => ids(page)).toEqual(['ph:2', 'K9']);
-    await expect(page.locator('.kptu-notice')).toContainText('1장을 지웠어요');
+    await expect(page.locator('.kptu-notice')).toContainText('1장을 삭제했어요');
     expect(state.edge).not.toContain('trash-log');
     expect(state.errors).toEqual([]);
   });
 
-  test('폰 짝 없는 원드라이브 칸만 [지우기]: 고르기 창 없이 예전처럼 바로 빠지고 [되돌리기]', async ({ page }) => {
+  test('폰 짝 없는 원드라이브 칸만 [삭제]: 선택 창 없이 예전처럼 바로 빠지고 [되돌리기]', async ({ page }) => {
     const { state } = await fixture(page, { app: true });
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
@@ -261,7 +261,7 @@ test.describe('폰 앱 412 · 원드라이브 칸', () => {
     expect(state.errors).toEqual([]);
   });
 
-  test('크게 보기 한 장 [지우기]: 폰 짝 있으면 같은 두 갈래 창(크게 보기 위에), 완전히 지우기', async ({ page }) => {
+  test('크게 보기 한 장 [삭제]: 폰 짝 있으면 같은 두 갈래 창(크게 보기 위에), 완전히 삭제', async ({ page }) => {
     const { state } = await fixture(page, { app: true });
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
@@ -273,7 +273,7 @@ test.describe('폰 앱 412 · 원드라이브 칸', () => {
     await expect(choice(page)).toBeVisible();
     const picks = choice(page).locator('[data-ask-pick]');
     await expect(picks.nth(0)).toContainText('폰 공간만 비우기 · 1장');
-    await expect(picks.nth(1)).toContainText('완전히 지우기 · 1장');
+    await expect(picks.nth(1)).toContainText('완전히 삭제 · 1장');
     await picks.nth(1).click();
     await expect.poll(() => sentOf(page, /^photos:trash:/)).toEqual(['photos:trash:1']);
     await expect.poll(() => state.bodies.filter(b => b.action === 'photo-delete').flatMap(b => b.ids)).toEqual(['O1']);
@@ -281,7 +281,7 @@ test.describe('폰 앱 412 · 원드라이브 칸', () => {
     expect(state.errors).toEqual([]);
   });
 
-  test('크게 보기 한 장 [지우기]: 폰 짝 없는 원드라이브 사진은 예전처럼 바로 [되돌리기]', async ({ page }) => {
+  test('크게 보기 한 장 [삭제]: 폰 짝 없는 원드라이브 사진은 예전처럼 바로 [되돌리기]', async ({ page }) => {
     const { state } = await fixture(page, { app: true });
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
@@ -298,11 +298,11 @@ test.describe('폰 앱 412 · 원드라이브 칸', () => {
 });
 
 // S52-06 PHOTO-폰지우기안전장치(명진 11/07 '모두 추천대로'): 백업 없는 폰 원본은 기본으로 지우지 않고, 지우기 전 개수·용량 요약 한 번.
-test.describe('폰 앱 412 · 지우기 안전장치', () => {
+test.describe('폰 앱 412 · 삭제 안전장치', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
   const trashedIds = async page => (await sentOf(page, /^photos:trash:/)).flatMap(m => m.slice('photos:trash:'.length).split(',')).sort();
 
-  test('[완전히 지우기] 기본: 백업 없음은 남기고 백업 있는 폰 사진만 폰 휴지통', async ({ page }) => {
+  test('[완전히 삭제] 기본: 백업 없음은 남기고 백업 있는 폰 사진만 폰 휴지통', async ({ page }) => {
     const { state } = await fixture(page, { app: true });
     await phoneOnly(page);
     await hold(page, cellOf(page, 'ph:2'));
@@ -312,8 +312,8 @@ test.describe('폰 앱 412 · 지우기 안전장치', () => {
     await expect(picks.nth(0)).toContainText('폰 공간만 비우기 · 1장 · 1KB');
     // 서버 사본 확인은 고르기 창이 뜨기 전에 끝나 있다(창의 장수 = 실제로 지울 것).
     expect(state.bodies.filter(b => b.action === 'copy-check').length).toBe(1);
-    await expect(picks.nth(1)).toContainText('완전히 지우기 · 1장 · 1KB');
-    await expect(choice(page).locator('.kptu-ask-check')).toContainText('백업 없음 1장 · 1KB도 완전히 지우기에 넣기');
+    await expect(picks.nth(1)).toContainText('완전히 삭제 · 1장 · 1KB');
+    await expect(choice(page).locator('.kptu-ask-check')).toContainText('백업 없음 1장 · 1KB도 완전히 삭제에 넣기');
     await picks.nth(1).click();
     await expect.poll(() => trashedIds(page)).toEqual(['1']);
     await expect.poll(() => state.bodies.filter(b => b.action === 'photo-delete').flatMap(b => b.ids)).toEqual(['O1']);
@@ -321,7 +321,7 @@ test.describe('폰 앱 412 · 지우기 안전장치', () => {
     expect(state.errors).toEqual([]);
   });
 
-  test('[완전히 지우기] 체크하면 백업 없음도 함께(장수 글이 바뀜)', async ({ page }) => {
+  test('[완전히 삭제] 체크하면 백업 없음도 함께(장수 글이 바뀜)', async ({ page }) => {
     const { state } = await fixture(page, { app: true });
     await phoneOnly(page);
     await hold(page, cellOf(page, 'ph:2'));
@@ -329,13 +329,13 @@ test.describe('폰 앱 412 · 지우기 안전장치', () => {
     await root(page).locator('[data-photos-act-delete]').click();
     const picks = choice(page).locator('[data-ask-pick]');
     await choice(page).locator('[data-ask-check]').check();
-    await expect(picks.nth(1)).toContainText('완전히 지우기 · 2장 · 1KB');
+    await expect(picks.nth(1)).toContainText('완전히 삭제 · 2장 · 1KB');
     await picks.nth(1).click();
     await expect.poll(() => trashedIds(page)).toEqual(['1', '2']);
     expect(state.errors).toEqual([]);
   });
 
-  test('서버가 사본을 못 찾으면 공간만 비우기·완전히 지우기 모두 막히고, 체크해야만 완전히 지우기', async ({ page }) => {
+  test('서버가 사본을 못 찾으면 공간만 비우기·완전히 삭제 모두 막히고, 체크해야만 완전히 삭제', async ({ page }) => {
     const { state } = await fixture(page, { app: true, copyMissing: ['O1'] });
     await phoneOnly(page);
     await hold(page, cellOf(page, 'ph:1'));
@@ -343,18 +343,18 @@ test.describe('폰 앱 412 · 지우기 안전장치', () => {
     const picks = choice(page).locator('[data-ask-pick]');
     await expect(picks.nth(0)).toContainText('폰 공간만 비우기 · 0장');
     await expect(picks.nth(0)).toBeDisabled();
-    await expect(picks.nth(1)).toContainText('완전히 지우기 · 0장');
+    await expect(picks.nth(1)).toContainText('완전히 삭제 · 0장');
     await expect(picks.nth(1)).toBeDisabled();
     await choice(page).locator('[data-ask-check]').check();
     await expect(picks.nth(1)).toBeEnabled();
-    await expect(picks.nth(1)).toContainText('완전히 지우기 · 1장');
+    await expect(picks.nth(1)).toContainText('완전히 삭제 · 1장');
     await picks.nth(1).click();
     await expect.poll(() => trashedIds(page)).toEqual(['1']);
     expect(state.edge).not.toContain('trash-log');
     expect(state.errors).toEqual([]);
   });
 
-  test('원드라이브 연결 없음: 폰 사진 [지우기]는 모두 백업 없음 — 체크 없이는 지우지 않음', async ({ page }) => {
+  test('원드라이브 연결 없음: 폰 사진 [삭제]는 모두 백업 없음 — 체크 없이는 삭제하지 않음', async ({ page }) => {
     const { state } = await fixture(page, { app: true, connected: false });
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:2', 'ph:1']);
@@ -374,12 +374,12 @@ test.describe('폰 앱 412 · 지우기 안전장치', () => {
 
 test.describe('PC 1280', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
-  test('원드라이브 사진 [지우기]는 고르기 창 없이 예전처럼 바로 빠지고 [되돌리기]', async ({ page }) => {
+  test('원드라이브 사진 [삭제]는 선택 창 없이 예전처럼 바로 빠지고 [되돌리기]', async ({ page }) => {
     const { state } = await fixture(page);
     await openPhotos(page, 1280);
     await expect.poll(() => ids(page)).toEqual(['O1', 'K9']);
     await hold(page, cellOf(page, 'O1'));
-    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
+    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 선택됨');
     await root(page).locator('[data-photos-act-delete]').click();
     await expect(choice(page)).toHaveCount(0);
     await expect.poll(() => ids(page)).toEqual(['K9']);

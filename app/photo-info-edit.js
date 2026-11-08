@@ -28,14 +28,14 @@ function ensureDialog() {
   if (dialog) return dialog;
   dialog = document.createElement('dialog');
   dialog.id = 'photoInfoDialog'; dialog.className = 'photo-info-dialog'; dialog.setAttribute('aria-labelledby', 'photoInfoTitle');
-  dialog.innerHTML = `<header class="pi-head"><h2 id="photoInfoTitle">정보 고치기 <span data-pi-count></span></h2><button type="button" class="icon-btn" data-pi-close aria-label="닫기">×</button></header>
+  dialog.innerHTML = `<header class="pi-head"><h2 id="photoInfoTitle">정보 수정 <span data-pi-count></span></h2><button type="button" class="icon-btn" data-pi-close aria-label="닫기">×</button></header>
 <div class="pi-body"><p class="pi-cam" data-pi-cam></p>
-<fieldset class="pi-how" data-pi-how><legend class="sr-only">고치는 방법</legend>
+<fieldset class="pi-how" data-pi-how><legend class="sr-only">수정하는 방법</legend>
 <label class="pi-opt"><input type="radio" name="piHow" value="shift" checked> 모두 <select data-pi-sign aria-label="앞으로 또는 뒤로"><option value="-1">−</option><option value="1">+</option></select>
 <input type="number" inputmode="numeric" min="0" max="87840" value="0" data-pi-h aria-label="시간"> 시간 <input type="number" inputmode="numeric" min="0" max="59" value="0" data-pi-m aria-label="분"> 분 밀기</label>
 <label class="pi-opt"><input type="radio" name="piHow" value="date"> 모두 이 날짜로 <input type="datetime-local" data-pi-date aria-label="찍은 날·시각"></label>
 <label class="pi-opt"><input type="radio" name="piHow" value="place"> 모두 이 장소로 <input type="text" data-pi-place placeholder="위도, 경도 또는 지도 주소" aria-label="장소(위도, 경도)" autocomplete="off"> <a data-pi-map target="_blank" rel="noopener noreferrer" hidden>지도</a></label>
-<label class="pi-opt"><input type="radio" name="piHow" value="clear"> 위치 지우기</label>
+<label class="pi-opt"><input type="radio" name="piHow" value="clear"> 위치 삭제</label>
 </fieldset>
 <div class="pi-table-wrap"><table class="pi-table"><thead><tr><th scope="col">사진</th><th scope="col">앞</th><th scope="col">뒤</th></tr></thead><tbody data-pi-rows></tbody></table></div>
 <p class="pi-last" data-pi-cloud hidden>원드라이브·구글 드라이브 사진은 파일의 새 판으로 올라가요. 옛 판은 각 서비스의 '판 기록'에도 남아요.</p>
@@ -78,10 +78,10 @@ function paint() {
   const map = $('[data-pi-map]');
   if (h.kind === 'place' && h.loc) { map.hidden = false; map.href = `https://www.google.com/maps?q=${h.loc.lat},${h.loc.lon}`; } else map.hidden = true;
   state.plan = planRows(state.rows, h);
-  $('[data-pi-rows]').innerHTML = state.plan.map(r => `<tr${r.changed ? ' class="pi-changed"' : ''}><th scope="row">${esc(r.name || '사진')}</th><td>${cell(r.taken, r.loc)}</td><td>${r.can && !r.why ? (r.changed ? cell(r.after.taken, r.after.loc) : '그대로') : `<span class="pi-no">${esc(r.why || '못 고침')}</span>`}</td></tr>`).join('');
+  $('[data-pi-rows]').innerHTML = state.plan.map(r => `<tr${r.changed ? ' class="pi-changed"' : ''}><th scope="row">${esc(r.name || '사진')}</th><td>${cell(r.taken, r.loc)}</td><td>${r.can && !r.why ? (r.changed ? cell(r.after.taken, r.after.loc) : '그대로') : `<span class="pi-no">${esc(r.why || '수정 못 함')}</span>`}</td></tr>`).join('');
   const n = state.plan.filter(r => r.changed).length;
   $('[data-pi-save]').disabled = !n || state.saving;
-  if (!state.saving) say(n ? `${n}장을 고쳐요` : '바꿀 값을 넣어 주세요');
+  if (!state.saving) say(n ? `${n}장을 수정해요` : '바꿀 값을 넣어 주세요');
 }
 
 // ---- 서버 기록(되돌리기) ----
@@ -148,7 +148,7 @@ export async function undoBatch({phone, rt, batchId, records, onDone}) {
   const items = undoItems(records);
   if (!items.length) return {status: 'ok'};
   const res = await writeAll({phone, rt}, items);
-  if (!res.count && res.failed.length) { notify(`되돌리지 못했어요: ${res.phoneError || res.cloudError || '고치지 못했어요'}`, {error: true}); return {silent: true}; }
+  if (!res.count && res.failed.length) { notify(`되돌리지 못했어요: ${res.phoneError || res.cloudError || '수정하지 못했어요'}`, {error: true}); return {silent: true}; }
   const bad = new Set(res.failed);
   const keyOf = o => (o.src === 'onedrive' ? `od:${o.id}` : o.src === 'gdrive' ? `gd:${o.id}` : `ms:${o.id}`);
   if (batchId) await markUndone(rt, batchId, items.map(keyOf).filter(k => !bad.has(k)));
@@ -170,7 +170,7 @@ async function paintLast() {
   const el = $('[data-pi-last]');
   if (!last) { el.hidden = true; el.textContent = ''; return; }
   el.hidden = false;
-  el.innerHTML = `지난번 고친 ${last.records.length}장 · <button type="button" class="mini" data-pi-undo>되돌리기</button>`;
+  el.innerHTML = `지난번 수정한 ${last.records.length}장 · <button type="button" class="mini" data-pi-undo>되돌리기</button>`;
 }
 
 async function save() {
@@ -178,11 +178,11 @@ async function save() {
   const items = writeItems(s.plan);
   if (!items.length) return;
   const hasPhone = items.some(o => !o.src);
-  s.saving = true; $('[data-pi-save]').disabled = true; say(hasPhone ? '폰에서 허락을 눌러 주세요…' : '고치는 중이에요…');
+  s.saving = true; $('[data-pi-save]').disabled = true; say(hasPhone ? '폰에서 허락을 눌러 주세요…' : '수정하는 중이에요…');
   const res = await writeAll(s, items);
   if (s !== state) return;
   s.saving = false;
-  if (!res.count) { say(res.phoneError || res.cloudError || '고치지 못했어요', true); paint(); return; }
+  if (!res.count) { say(res.phoneError || res.cloudError || '수정하지 못했어요', true); paint(); return; }
   const batchId = uuid(), plan = s.plan;
   const rows = recordRows(plan, {workspaceId: workspaceOf(s.rt), batchId, failed: res.failed});
   const kept = workspaceOf(s.rt) ? await saveRecords(s.rt, rows) : 'failed';
@@ -192,7 +192,7 @@ async function save() {
   // 되돌리기: 서버 기록이 있으면 그 묶음, 없으면 이 화면 메모리의 앞 값으로.
   const records = rows;
   notify(doneLine(res) + (kept === 'ok' ? '' : ' · 이번 화면에서만 되돌릴 수 있어요'), {
-    label: `사진 정보 고치기 ${rows.length}장`, error: res.failed.length > 0, ms: 8000,
+    label: `사진 정보 수정 ${rows.length}장`, error: res.failed.length > 0, ms: 8000,
     undo: () => undoBatch({phone, rt, batchId: kept === 'ok' ? batchId : '', records, onDone}),
   });
 }
@@ -225,8 +225,8 @@ export async function openPhotoInfo(trigger, items, {phone, rt = window.KPTURunt
   const all = (items || []).filter(it => sourceOf(it));
   const canPhone = !!phone?.canMeta?.();
   const usable = all.filter(it => it.kind !== 'phone' || canPhone);
-  if (!usable.length) { notify(all.length ? '폰 사진 정보는 폰 앱 새 판(0.4.15)에서 고쳐요.' : '이 사진은 정보를 고칠 수 없어요.'); return; }
-  if (all.length > INFO_MAX) notify(`한 번에 ${INFO_MAX}장까지 고쳐요. 앞 ${INFO_MAX}장만 열어요.`);
+  if (!usable.length) { notify(all.length ? '폰 사진 정보는 폰 앱 새 판(0.4.15)에서 수정해요.' : '이 사진은 정보를 수정할 수 없어요.'); return; }
+  if (all.length > INFO_MAX) notify(`한 번에 ${INFO_MAX}장까지 수정해요. 앞 ${INFO_MAX}장만 열어요.`);
   ensureDialog();
   const list = all.slice(0, INFO_MAX);
   state = {trigger, phone, rt, onDone, run: ++seq, saving: false, rows: null, plan: null, last: null};
@@ -244,7 +244,7 @@ export async function openPhotoInfo(trigger, items, {phone, rt = window.KPTURunt
   const r = await readAll(state, list);
   if (!state || state.run !== run) return;
   state.rows = infoRows(list, r.info, {noPhone: canPhone ? '' : '폰 앱에서만'});
-  if (!state.rows.some(x => x.can)) { paint(); say(r.phoneError || '고칠 수 있는 사진이 없어요', true); return; }
+  if (!state.rows.some(x => x.can)) { paint(); say(r.phoneError || '수정할 수 있는 사진이 없어요', true); return; }
   $('[data-pi-cam]').textContent = cameraLine(state.rows);
   const first = state.rows.find(x => Number.isFinite(x.taken));
   $('[data-pi-date]').value = first ? localValue(first.taken) : '';

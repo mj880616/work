@@ -200,7 +200,7 @@ test.describe('윈도우 PC 1440', () => {
     expect(errors).toEqual([]);
   });
 
-  test("두 칸: 칸마다 '내 PC'를 고를 수 있다(왼쪽 내 PC · 오른쪽 원드라이브), 내 PC로 보내기는 막고 안내(단추 흐림·F5 안내)", async ({ page }) => {
+  test("두 칸: 칸마다 '내 PC'를 선택할 수 있다(왼쪽 내 PC · 오른쪽 원드라이브), 내 PC로 보내기는 막고 안내(단추 흐림·F5 안내)", async ({ page }) => {
     test.setTimeout(90000);
     const { errors } = await begin(page);
     await root(page).locator('[data-fx-two]').click();
@@ -344,7 +344,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.4.0 문(내 PC ↔ 클라우드)
     expect(errors).toEqual([]);
   });
 
-  test('한 칸: 내 PC 줄 고르기 막대 [복사] → 받을 곳 창에 클라우드만, 클라우드 줄 [복사] → 받을 곳 창에 내 PC(드라이브 맨 위는 받을 곳 아님). 내 PC 이름·휴지통은 다음 판 안내', async ({ page }) => {
+  test('한 칸: 내 PC 줄 선택 막대 [복사] → 받을 곳 창에 클라우드만, 클라우드 줄 [복사] → 받을 곳 창에 내 PC(드라이브 맨 위는 받을 곳 아님). 내 PC 이름·휴지통은 다음 판 안내', async ({ page }) => {
     test.setTimeout(120000);
     const { errors } = await begin(page, { write: true });
     await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
@@ -444,7 +444,7 @@ async function openDocs(page, i = 0) {
 test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
   test.use({ userAgent: WINDOWS });
 
-  test('한 칸: 고르기 막대 [이름][휴지통]·F2 이름 바꾸기, [새 폴더], [휴지통] → 한 번 묻고 윈도우 휴지통(폴더도), 같은 이름·프로그램 이름은 거절', async ({ page }) => {
+  test('한 칸: 선택 막대 [이름][휴지통]·F2 이름 바꾸기, [새 폴더], [휴지통] → 한 번 묻고 윈도우 휴지통(폴더도), 같은 이름·프로그램 이름은 거절', async ({ page }) => {
     test.setTimeout(120000);
     const { errors, server, st } = await begin(page, { edit: true });
     st.pc['C:\\문서'].push({ name: '가짜 다른.txt', dir: false, size: 3, modified: '2026-11-06T00:00:00Z' });

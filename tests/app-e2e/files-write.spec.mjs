@@ -16,7 +16,7 @@ async function intoDocs(page, width) {
   await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
 }
 
-test('PC 1440: 이름 바꾸기(확장자 그대로)·새 폴더·여러 개 골라 휴지통(확인 창 · 원드라이브 휴지통 안내)·F2·Esc', async ({ page }) => {
+test('PC 1440: 이름 바꾸기(확장자 그대로)·새 폴더·여러 개 선택해 휴지통(확인 창 · 원드라이브 휴지통 안내)·F2·Esc', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 1440);
   await intoDocs(page, 1440);
@@ -112,7 +112,7 @@ test('PC 1440: 잘라 붙이기·끌어 놓기로 옮기기, 다른 클라우드
   expect(errors).toEqual([]);
 });
 
-test('폰 412: 꾹 눌러 고르기 → 막대에서 휴지통, 미리보기에서 이름 바꾸기, 가로 넘침 없음', async ({ page }) => {
+test('폰 412: 꾹 눌러 선택 → 막대에서 휴지통, 미리보기에서 이름 바꾸기, 가로 넘침 없음', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 412);
   await intoDocs(page, 412);
