@@ -130,7 +130,7 @@ for (const width of [412, 1440]) {
     expect(sent).toMatchObject({ source_type: 'outside', source_id: KO, quote: QUOTE, source_media: '민주노총', source_title: '가상 글 2', source_url: 'https://nodong.org/statement/2', memo: null });
     expect(sent.quote_prefix).toBe('첫 문장이 여기 있어요. '); expect(sent.quote_suffix).toBe(' 끝 문장이에요.');
     expect(Object.keys(sent).sort()).toEqual(['memo', 'quote', 'quote_prefix', 'quote_suffix', 'source_date', 'source_id', 'source_media', 'source_title', 'source_type', 'source_url', 'workspace_id']);
-    expect(await noticeText(page)).toContain('밑줄 저장함');
+    await expect.poll(() => noticeText(page)).toContain('밑줄 저장함');
     const mark = d.locator('[data-nd-prose] mark.hl-mark');
     await expect(mark).toHaveText(QUOTE);
     await expect(d.locator('[data-nd-prose] p').first()).toHaveText(QUOTE_LINE);
