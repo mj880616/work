@@ -14,6 +14,19 @@ async function boot(page,{connected=false}={}){
   // derives that value from the host's network interfaces, and a CI runner can report offline even
   // though every request here is mocked. Pin it online; the offline test below overrides it again.
   await page.addInitScript(()=>Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true}));
+  // STAB-업데이트안내: 화면이 index.html을 확인하는 중인지(시작 수와 끝난 수)를 센다. app/version-notice.js는 확인이 진행 중이면
+  // 새 요청을 보내지 않으므로, 시험이 '응답 도착'만 보고 다음 단계로 가면 아직 끝나지 않은 확인에 가로막힐 수 있다(response()가 기다린다).
+  // 끝난 수는 본문을 다 읽은 직후(앱이 flight를 비우는 같은 마이크로태스크 묶음)에 올라가므로, 시험이 이 값을 읽는 시점엔 이미 비어 있다.
+  await page.addInitScript(()=>{
+    const original=window.fetch,checks={started:0,done:0};window.__versionChecks=checks;
+    window.fetch=function(input){
+      const promise=original.apply(this,arguments);
+      if(!String(input?.url||input).includes('/app/index.html'))return promise;
+      checks.started++;
+      promise.then(res=>{if(!res.ok){checks.done++;return}const text=res.text.bind(res);res.text=()=>text().finally(()=>{checks.done++})},()=>{checks.done++});
+      return promise;
+    };
+  });
   await serveBuiltShell(page,origin);
   const user={id:'version-user',email:'version@example.org'},workspace={id:'version-workspace',name:'QA',slug:'qa'};
   await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/**',route=>{
@@ -40,7 +53,9 @@ async function boot(page,{connected=false}={}){
 async function visible(page){
   await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
 }
+const settled=page=>expect.poll(()=>page.evaluate(()=>window.__versionChecks.started===window.__versionChecks.done),{message:'진행 중인 업데이트 확인이 끝나기를 기다림'}).toBe(true);
 async function response(page,version){
+  await settled(page); // 앞 확인이 끝나기 전에 보낸 신호는 앱이 건너뛴다(진행 중인 확인 하나만 허용).
   await page.route(origin+'/app/index.html',route=>route.fulfill({contentType:'text/html',body:version===null?'bad html':`<script src="./app.js?v=${version}" defer></script>`}));
 }
 const notice=page=>page.locator('#versionNotice');
