@@ -433,6 +433,8 @@ test('new meeting suggests the next round from loaded names without extra reques
   // STAB-E2E간헐1104: showMeetings가 누르는 [전체]는 화면 선택(view_prefs)을 0.4초 뒤에 서버로 저장한다. 느린 실행에서는 그 저장(읽기+쓰기 2건)이 아래 '요청 0건' 세는 구간에 늦게 걸렸다. 화면 선택 저장은 회의 입력과 무관하니 흉내 서버로 받아 네트워크 요청으로 보이지 않게 한다.
   await installViewPrefsServer(page);
   await showMeetings(page,rows);
+  // BIZ-위쪽정돈(11/09): '이번 주 주간보고' 칸이 늘 펼쳐져 화면을 열 때 읽기를 한다 — 그 읽기가 끝난 뒤부터 [+]가 요청을 안 하는지 센다.
+  await expect(page.locator('#bizWeekBox [data-bp-paper]')).toContainText('1) 사업요약표');
   let requests=0;const seen=[];
   page.on('request',request=>{if(request.url().startsWith(SB)&&!startupRequest(request.url())){requests++;seen.push(request.method()+' '+request.url().slice(SB.length,SB.length+80))}});
   await page.locator('#newMeetingBtn').click();
