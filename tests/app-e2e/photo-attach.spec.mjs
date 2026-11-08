@@ -131,7 +131,7 @@ test.describe('폰 앱 412', () => {
     await openDetail(page);
     const line = page.locator('#mrdTimePhotos');
     await expect(line).toBeVisible();
-    await expect(line.locator('[data-tp-open]')).toHaveText('골라 붙이기');
+    await expect(line.locator('[data-tp-open]')).toHaveText('선택해 붙이기');
     // 열기 전에는 폰 사진 목록을 읽지 않는다.
     expect(state.phoneReads.filter(p => p.includes('/page?'))).toEqual([]);
     await line.locator('[data-tp-open]').click();
