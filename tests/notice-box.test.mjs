@@ -38,7 +38,7 @@ test('같은 부품 하나: 정리함 한 목록의 줄과 홈 잊지 말기 한
   assert.doesNotMatch(fl, /<li class=|class="[^"]*nbx-(act|x|head|item)/, 'forget-list.js: 줄·버튼 HTML은 공용 부품만');
   assert.match(read('basket.js'), /<section class="nbx forget-list" data-nbx-tone="list" data-forget-section[^>]*><ul class="nbx-list" data-basket-rows id="basketRows"><\/ul>/);
   const hs = read('home-summary.js');
-  assert.match(hs, /forgetChipHtml\(count, promises\)/); assert.doesNotMatch(hs, /headHtml|markBox/, 'S53-13: 홈은 상자 줄이 아니라 입력 칸 머리 줄 칩');
+  assert.match(hs, /line.innerHTML = forgetChipHtml\(/); assert.doesNotMatch(hs, /headHtml|markBox/, 'S53-13: 홈은 상자 줄이 아니라 입력 칸 머리 줄 칩');
   assert.doesNotMatch(hs, /mountAsksBox|<li |class="[^"]*nbx-(act|x|head|item)/);
   // 모양은 ui-standard.css 한 곳(화면 id 없음), 색만 tone으로. 옛 화면별 규칙·날짜 밑 요약 줄 규칙은 없다.
   const ui = read('ui-standard.css');
@@ -54,7 +54,7 @@ test('같은 부품 하나: 정리함 한 목록의 줄과 홈 잊지 말기 한
 test('홈: 잊지 말기 띠 줄 없음, 입력 칸 머리 줄 칩 [잊지 말기 n] + 빨간 숫자(0이면 흐리게), 누르면 정리함. 숫자 = 미분류 업데이트 + 처리 전 후보 + 가족 제안', () => {
   const j = read('journal.js'), quick = read('home-quick.js');
   assert.doesNotMatch(j, /class="home-summary"|data-home-family|home-family\.js|data-home-summary|class="home-forget"/, '띠 줄 자리 자체가 없다(숨김 아님)');
-  assert.match(quick, /<div class="home-quick-head"><div class="home-quick-modes ds-seg"[^`]*data-quick-mode="task">할 일<\/button><\/div><span class="home-forget-slot" data-home-summary role="group" aria-label="잊지 말기" hidden><\/span><\/div>/);
+  assert.match(quick, /<div class="home-quick-head"><div class="home-quick-modes ds-seg"[^`]*data-quick-mode="task">할 일<\/button><\/div><span class="home-forget-slot" data-home-summary role="group" aria-label="잊지 말기"><\/span><\/div>/);
   assert.doesNotMatch(quick, /잊지 말기 전체 보기|home-basket-link/, '옛 글자 링크는 칩으로 바뀜(같은 것이 두 곳 아님)');
   assert.equal(forgetCount({update: 2, todo: 3, family: 1}), 6);
   assert.equal(forgetCount({update: 0, todo: 0}), 0);

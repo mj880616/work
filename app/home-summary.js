@@ -51,14 +51,18 @@ export function mountHomeSummary({root, rt = window.KPTURuntime, onTasksChanged 
   let run = 0, line = null;
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
   let pushShown = false;
-  // count: 처리 안 한 수(null = 모름 → 줄을 숨김). promises: 내일 약속 수(UI-앱안알림 A5).
+  // 칩 그리기: 모르는 동안(null — 처음·세션 바뀜·못 읽음)도 칩은 늘 있다(정리함 가는 길, 옛 '전체 보기' 링크 자리). 숫자 없이 흐리게.
+  function draw(count, promises = 0) {
+    if (!line) return false;
+    if (count === null) delete line.dataset.homeForgetCount; else line.dataset.homeForgetCount = String(count);
+    line.innerHTML = forgetChipHtml(count === null ? 0 : count, count === null ? 0 : promises);
+    return true;
+  }
+  // count: 처리 안 한 수(null = 모름 → 숫자 없는 흐린 칩). promises: 내일 약속 수(UI-앱안알림 A5).
   function paint(count, promises = 0) {
     // UI-앱안알림 3단계(A4): 같은 숫자로 메뉴 '홈' 표시(home-asks.js). 모르면 표시를 내린다.
     setHomeAsks(count);
-    if (!line) return;
-    if (count === null) { line.hidden = true; line.replaceChildren(); delete line.dataset.homeForgetCount; return; }
-    line.hidden = false; line.dataset.homeForgetCount = String(count);
-    line.innerHTML = forgetChipHtml(count, promises);
+    if (!draw(count, promises) || count === null) return;
     // 폰 알림(가족 잊지 말기)을 눌러 연 홈(family=1): 이 줄이 보이게 한 번 옮긴다.
     if (!pushShown && openedFromPush(window.location?.search)) { pushShown = true; line.scrollIntoView?.({block: 'nearest'}); }
   }
@@ -94,6 +98,7 @@ export function mountHomeSummary({root, rt = window.KPTURuntime, onTasksChanged 
   mountQuick({root, dependencies, refreshTasks: () => onTasksChanged(), invalidateProjects: () => flights.delete('projects'), esc, view: 'home', idPrefix: 'home', onSaved: () => void refresh()});
   // 칩 자리: 입력 칸 머리 줄 오른쪽 빈 자리(home-quick.js가 놓기만 함). 이 파일이 그 자리의 유일한 renderer.
   line = root.querySelector('.home-quick[data-home-quick] [data-home-summary]');
+  draw(null);
   window.addEventListener('kptu:session-changed', () => { flights.clear(); run++; paint(null); });
   // 정리함(잊지 말기) 한 목록에서 처리하면 숫자를 다시 센다(홈이 보이는 동안만 읽음).
   window.addEventListener('kptu:todo-radar-changed', event => { if (event.detail?.reload && window.KPTURouter?.current === 'home') void refresh(); });

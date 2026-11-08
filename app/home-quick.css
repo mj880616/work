@@ -34,7 +34,6 @@
    그 자리 옮기기 규칙(S52-34)은 칩으로 바뀌어 지웠다. 폰(하단 탭 위 입력 칸)·폴드 펼침·PC 모두 같은 한 줄. 좁으면 칩이 다음 줄로 내려간다. */
 .home-quick-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0; }
 .home-quick-head .home-forget-slot { display:flex; align-items:center; gap:4px; margin-left:auto; min-width:0; }
-.home-quick-head .home-forget-slot[hidden] { display:none; }
 .home-quick-head .home-forget-promises { font-size:var(--ds-text-meta); color:var(--kptu-faint); }
 .home-quick-lock:not([hidden]) { display:grid; gap:6px; }
 .home-quick-lock p { margin:0; font-size:13px; line-height:1.5; color:var(--kptu-ink); overflow-wrap:anywhere; }
