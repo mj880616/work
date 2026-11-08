@@ -92,6 +92,17 @@ async function matchesManifest(pathname, version, bytes) {
   return Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('') === entry.sha256;
 }
 
+// LIB-편집열기느림: the HWP editor (app/hwp-lab/rhwp-<version>/, scripts/hwp-lab/rhwp-pin.json) is about 14MB, and
+// GitHub Pages gives every file a new ETag on each deploy, so under no-cache every deploy made the next [수정] fetch
+// all of it again. Its build files carry a content hash in the name (index-oVYSsgk_.js, rhwp_bg-BkVWMBaR.wasm): a
+// name never gets other bytes, so a successful answer for such a name may be kept. HTML, fonts, images and the
+// pages around the editor have no hash in the name and keep no-cache. tests/domain/bokdoong-router.test.mjs pins it.
+const EDITOR_HASHED_ASSET = /^\/work\/app\/hwp-lab\/rhwp-\d+\.\d+\.\d+\/studio\/assets\/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]{8}\.(?:js|css|wasm)$/;
+
+export function editorHashedAsset(host, url) {
+  return host === WEB2_HOST && !url.search && EDITOR_HASHED_ASSET.test(url.pathname);
+}
+
 // Browsers that already hold old bytes as immutable never ask again. Each browser gets one
 // Clear-Site-Data: "cache" on its next Web2 page load per epoch; a cookie remembers it was done.
 // Raise CACHE_EPOCH (and deploy) to flush every browser once more. The cookie is never forwarded.
@@ -335,9 +346,13 @@ export default {
       body = await upstream.arrayBuffer();
       immutableAsset = await matchesManifest(incoming.pathname, incoming.searchParams.get('v'), body);
     }
+    // A 304 confirms the browser already holds this name's only bytes, so it may keep them too. Errors never are kept.
+    const editorAsset = request.method === 'GET'
+      && (upstream.status === 200 || upstream.status === 304)
+      && editorHashedAsset(host, incoming);
     responseHeaders.set(
       'Cache-Control',
-      immutableAsset ? 'public, max-age=31536000, immutable' : (sharePage && incoming.search ? 'no-store' : 'no-cache, must-revalidate')
+      immutableAsset || editorAsset ? 'public, max-age=31536000, immutable' : (sharePage && incoming.search ? 'no-store' : 'no-cache, must-revalidate')
     );
     const location = responseHeaders.get('Location');
     if (location) {

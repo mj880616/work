@@ -18,6 +18,9 @@ export function shareFileName(item, type = 'image/jpeg') {
   const ext = /png/.test(type) ? 'png' : /webp/.test(type) ? 'webp' : /gif/.test(type) ? 'gif' : 'jpg';
   return `사진-${/^\d{4}-\d{2}-\d{2}$/.test(item?.day || '') ? item.day : 'photo'}.${ext}`;
 }
+// PHOTO-GIF움직임: GIF인가(파일 이름 .gif 또는 mime image/gif). 크게 보기의 큰 그림은 서버·원드라이브가 만든 줄인 그림이라 첫 장면만 보이므로,
+// GIF는 원본 주소로 보여 움직이게 한다(photo-strip.js·file-actions.js).
+export const isGifPhoto = x => /\.gif$/i.test(String(x?.name || x?.file_name || '')) || /^image\/gif$/i.test(String(x?.mime || x?.mime_type || x?.type || ''));
 // 지운 사진을 원래 자리로 되돌린 목록(같은 id가 이미 있으면 그대로).
 export function putBack(list, photo, index) {
   const out = Array.isArray(list) ? list.slice() : [];

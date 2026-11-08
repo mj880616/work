@@ -101,13 +101,12 @@ test('the journal day card: 기타 메모 holds the day\'s kept updates and they
   assert.deepEqual(journalMemosOn(basket, '2026-10-06'), ['가상 메모 앞', '가상 메모 하나']);
   assert.deepEqual(orgNewsOn({basket, orgUpdates:[]}, '2026-10-06'), [{name:'가상 지부', items:['연결된 메모']}, {name:'미분류', items:['그냥 업데이트']}]);
   const materials = {basket:{status:'ok', items:basket}, orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}};
-  // JOURNAL-하루개편: on the day card 기타 메모 is one part of 그 밖의 기록; the update sent nowhere is 어디에도 안 보낸 업데이트 there.
-  const others = dayCard(materials, '2026-10-06').others, part = key => others.find(g => g.key === key);
-  assert.equal(part('memos').label, '기타 메모');
-  assert.deepEqual(part('memos').items.map(i => i.text), ['가상 메모 앞', '가상 메모 하나']);
-  assert.deepEqual(part('unsent').items.map(i => i.text), ['그냥 업데이트']);
+  // JOURNAL-그밖의기록삭제: the day card keeps 기타 메모 only as 오늘 한 줄 AI 초안 재료 (card.memos, not drawn); no 그 밖의 기록.
+  const card = dayCard(materials, '2026-10-06');
+  assert.equal(card.others, undefined); assert.equal(card.memos.label, '기타 메모');
+  assert.deepEqual(card.memos.items.map(i => i.text), ['가상 메모 앞', '가상 메모 하나']);
   assert.deepEqual(dayCard(materials, '2026-10-06').report.find(g => g.key === 'orgs').sections.map(s => s.name), ['가상 지부']);
-  assert.equal(dayCard({...materials, basket:{status:'failed'}}, '2026-10-06').others.find(g => g.key === 'memos').failed[0], 'basket');
+  assert.equal(dayCard({...materials, basket:{status:'failed'}}, '2026-10-06').memos.failed[0], 'basket');
   // [주간보고 초안 복사] (form order, journal-weekly.js): 기타 메모 under 참고, day by day.
   const draft = weeklyReportText(weeklySummary({start:'2026-10-05', lines:new Map(), linesState:'ok', materials, today:'2026-10-06'})).split('\n');
   const memo = draft.indexOf('◦ 기타 메모');
