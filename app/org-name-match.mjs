@@ -38,13 +38,3 @@ export function matchOrg(text, orgs) {
 }
 // 조직 하나의 모든 이름(정식 + 별칭, 중복 없이) — 이름 목록이 필요한 곳용.
 export const orgAllNames = org => [...new Set(namesOf(org))];
-
-// CALL-상대표시정리 ④ [직접 쓰기]: 새 담당조직을 만들기 전에 보여 줄 '비슷한 이름' 조직들(중복 방지). 자동 규칙으로 같은 이름이거나,
-// 노조·노동조합·지부·지회 같은 끝말을 뗀 핵심(2자 이상)이 서로 들어 있으면 비슷하다고 본다. 정식 이름·별칭 모두 본다. 많아야 max개.
-const coreOf = s => orgKey(s).replace(/(노조|지부|지회|분회|본부|연맹|협의회)+$/, '');
-export function similarOrgs(text, orgs, max = 5) {
-  const key = orgKey(text), core = coreOf(text);
-  if (!key) return [];
-  const hit = name => sameOrgName(text, name) || ([...core].length >= 2 && (() => { const c = coreOf(name); return [...c].length >= 2 && (c.includes(core) || core.includes(c)); })());
-  return (orgs ?? []).filter(o => o && namesOf(o).some(hit)).slice(0, max);
-}

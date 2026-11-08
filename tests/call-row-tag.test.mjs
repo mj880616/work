@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {callWho, callTopic, callTag, personName} from '../app/feed-model.mjs';
-import {similarOrgs} from '../app/org-name-match.mjs';
+import {similarOrgs} from '../app/org-similar.mjs';
 
 const ORG = {id:'o1', name:'예시교통공사노동조합', aliases:['예시교통노조']};
 const read = f => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');

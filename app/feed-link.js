@@ -4,7 +4,7 @@
 // (feed-model.mjs linkSummaryDefault); [저장] sets the row's organization and adds that summary to the organization's 기록.
 import {openAreaOrgPicker, usedKeysNow, orderedOrgGroups} from './area-org-picker.js';
 import {linkOrganization, createMyOrganization} from './feed-data.js';
-import {similarOrgs} from './org-name-match.mjs';
+import {similarOrgs} from './org-similar.mjs';
 import {linkSummaryDefault} from './feed-model.mjs';
 
 export const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
