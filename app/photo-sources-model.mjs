@@ -149,7 +149,9 @@ export function dupFinder(odItems) {
 // streams = [{items(그 출처 정렬 순서로 받은 것), ended}]. 끝나지 않은 출처의 마지막 칸보다 뒤(정렬상)는 아직 보이지 않는다
 // (그 출처의 다음 쪽에 더 앞선 것이 있을 수 있어서). 끝나지 않았는데 아직 하나도 못 받은 출처가 있으면 아무것도 보이지 않는다.
 // 결과: {items(보일 것, 정렬·중복 제거), waiting(아직 받아야 하는 출처 번호들 — 가장 앞을 막는 출처 먼저), ended(모두 끝)}.
-export function mergeSources(streams, sort, {dropDup = true} = {}) {
+// S53-3 PHOTO-폰불러오기느림: late인 출처(아직 한 장도 없이 첫 답을 기다리는 중이거나 멈춘 출처)는 다른 출처를 막지 않는다 —
+// 준비된 출처부터 보이고, 늦은 출처가 오면 그 칸은 정렬 자리에 끼워진다. floor(이미 그린 마지막 칸)까지는 늘 보인다(그린 칸이 사라지지 않게).
+export function mergeSources(streams, sort, {dropDup = true, floor = null} = {}) {
   const cmp = sortCompare(sort);
   const live = streams.map((s, i) => ({i, s})).filter(({s}) => !s.ended);
   // 같은 사진 한 장: 원드라이브 > 구글 드라이브 > 폰 사진 순서로 남긴다(뒤 출처의 같은 사진을 뺀다).
@@ -166,12 +168,11 @@ export function mergeSources(streams, sort, {dropDup = true} = {}) {
   }
   all.sort(cmp);
   let items = all;
-  if (live.length) {
-    if (live.some(({s}) => !s.items.length)) items = [];
-    else {
-      const lasts = live.map(({s}) => s.items[s.items.length - 1]);
-      items = all.filter(it => lasts.every(last => cmp(it, last) <= 0));
-    }
+  const gate = live.filter(({s}) => !(s.late && !s.items.length));
+  if (gate.length) {
+    const lasts = gate.some(({s}) => !s.items.length) ? null : gate.map(({s}) => s.items[s.items.length - 1]);
+    const upto = it => (floor && cmp(it, floor) <= 0) || (!!lasts && lasts.every(last => cmp(it, last) <= 0));
+    items = all.filter(upto);
   }
   // 막는 출처: 아직 하나도 없는 것 먼저, 그다음 마지막 칸이 가장 앞(정렬상 작음)인 것.
   const waiting = live.slice().sort((a, b) => {

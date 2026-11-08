@@ -23,3 +23,14 @@ test('앱 판: 0.5.0 이상(versionCode 57 이상)', () => {
   assert.match(gradle, /versionName '0\.(?:[5-9]|[1-9][0-9])\.\d+'/);
   assert.ok(Number(gradle.match(/versionCode (\d+)/)?.[1]) >= 57);
 });
+
+test('S53-3 PHOTO-폰불러오기느림: 목록 읽기는 EXIF 파일 열기를 잠깐만, 나머지는 뒤에서 읽고 목록 기억을 비운다(앱 0.5.4+)', () => {
+  const media = read('android-app/app/src/main/java/kr/or/kptu/work/PhoneMedia.kt');
+  assert.match(media, /private const val EXIF_INLINE_MS = 300L/);
+  assert.match(media, /if \(SystemClock\.elapsedRealtime\(\) >= until\) \{\n\s+later\[id\] = /, '시간이 지나면 사진첩 값으로 먼저 답하고 뒤로 미룸');
+  assert.match(media, /exifLater\(context, later\)\n\s+return out/, '목록을 돌려주기 전에 뒤 읽기를 맡김');
+  assert.match(media, /newSingleThreadExecutor/, '뒤 읽기는 한 줄 일꾼(목록 잠금 밖)');
+  assert.match(media, /if \(changed\) forget\(\)/, '다 읽으면 목록 기억을 비워 다음 읽기가 EXIF 시각');
+  const gradle = read('android-app/app/build.gradle');
+  assert.ok(Number(gradle.match(/versionCode (\d+)/)?.[1]) >= 61);
+});

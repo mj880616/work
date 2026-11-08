@@ -175,3 +175,23 @@ test('기기별 출처·보기 단계 칸은 DB 검사와 같은 모양만 받�
   for (const v of ['year', 'month', 'day']) assert.ok(validValue('photo_level', v), v);
   for (const v of ['week', '', 1, null, ['year']]) assert.equal(validValue('photo_level', v), false, JSON.stringify(v));
 });
+
+test('S53-3 섞기: 첫 답을 기다리는(late) 출처는 다른 출처를 막지 않고, 늦게 오면 제자리에 끼워진다 · 그린 칸(floor)은 사라지지 않음', () => {
+  const it = (source, id, t) => ({source, kind:source, id, key:id, name:`${id}.jpg`, size_bytes:Number(t.replace(/\D/g, '').slice(-6)) + id.length, taken_at:t, day:t.slice(0, 10)});
+  const od = [it('onedrive', 'O1', '2026-10-30T03:00:00Z'), it('onedrive', 'O2', '2026-10-28T03:00:00Z'), it('onedrive', 'O3', '2026-10-20T03:00:00Z')];
+  const ph = [it('phone', 'ph:1', '2026-10-31T03:00:00Z'), it('phone', 'ph:2', '2026-10-29T03:00:00Z')];
+  // 예전: 폰이 아직 한 장도 없으면 아무것도 안 보임.
+  assert.deepEqual(mergeSources([{source:'onedrive', items:od, ended:false}, {source:'phone', items:[], ended:false}], 'taken_desc').items, []);
+  // 폰이 늦음(late) → 원드라이브는 바로 보임.
+  const early = mergeSources([{source:'onedrive', items:od, ended:false}, {source:'phone', items:[], ended:false, late:true}], 'taken_desc');
+  assert.deepEqual(early.items.map(x => x.id), ['O1', 'O2', 'O3']);
+  assert.deepEqual(early.waiting.map(i => ['onedrive', 'phone'][i]), ['phone', 'onedrive'], '한 장도 없는 출처가 먼저 받을 차례');
+  // 폰이 왔다(더 받을 것 있음): 폰 마지막(10/29)보다 뒤인 O2·O3도 이미 그렸으니(floor = O3) 그대로, 폰 칸은 정렬 자리에.
+  const late = mergeSources([{source:'onedrive', items:od, ended:false}, {source:'phone', items:ph, ended:false}], 'taken_desc', {floor:od[2]});
+  assert.deepEqual(late.items.map(x => x.id), ['ph:1', 'O1', 'ph:2', 'O2', 'O3']);
+  // floor 없으면 예전 규칙(폰 마지막까지만).
+  assert.deepEqual(mergeSources([{source:'onedrive', items:od, ended:false}, {source:'phone', items:ph, ended:false}], 'taken_desc').items.map(x => x.id), ['ph:1', 'O1', 'ph:2']);
+  // 모든 출처가 늦으면 아직 아무것도 없음, 늦은 출처가 이미 칸을 받았으면 그 출처도 막는다(late는 첫 답 전만).
+  assert.deepEqual(mergeSources([{source:'phone', items:[], ended:false, late:true}], 'taken_desc').items, []);
+  assert.deepEqual(mergeSources([{source:'onedrive', items:od, ended:false}, {source:'phone', items:ph, ended:false, late:true}], 'taken_desc').items.map(x => x.id), ['ph:1', 'O1', 'ph:2']);
+});

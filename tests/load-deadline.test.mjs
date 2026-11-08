@@ -62,6 +62,8 @@ test('전수: 시간 한도 없던 불러오기가 공용 도우미를 쓴다', 
   assert.match(read('app/files.js'), /body\.action === 'thumb' \? within\(job, BYTES_MS\)/);
   assert.match(read('app/team.js'), /await within\(job,API_MS\)/);
   assert.match(read('app/runtime-client.js'), /const data=await dataWithin\(r,timeoutMs\)/);
-  assert.match(read('app/photos.js'), /await within\(loadStream\(src, alive\), LOAD_STEP_MS\)/);
+  // S53-3: 출처마다 따로(함께 받기) 한 걸음 LOAD_STEP_MS 안에 끝난다.
+  assert.match(read('app/photos.js'), /return within\(job, LOAD_STEP_MS\)\.then\(/);
+  assert.match(read('app/photos.js'), /run:\(\) => loadStream\(name, alive\)/);
   assert.match(read('app/news-clipping.js'), /state\.foldersFailed \? failHtml/);
 });
