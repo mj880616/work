@@ -42,6 +42,7 @@ import {viewPrefs} from './view-prefs.js';
 import {tgViewOf, roomGroups, roomDays, roomPage, roomDayText, ROOM_DAY_PAGE} from './tg-room-view-model.mjs';
 // FEED-최신화즉시수집(S52-46): 머리 줄 작은 [최신화] — 누르면 서버가 수집기를 한 번 깨우고, 이 화면의 load()로 1~3분 새 줄을 다시 읽는다(feed-pull.js).
 import {createFeedPull} from './feed-pull.js';
+import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
@@ -365,7 +366,7 @@ function openLinkHtml(line, summary, room = state.sel?.room) {
 // 고치기 상자(그 자리에서 입력으로 바뀜): 아래 오른쪽 [취소][저장 Ctrl+↵], 아래 왼쪽 작은 [AI 원래 요약으로](고친 값이 있을 때만).
 function sumeditHtml(se) {
   const dis = se.busy ? ' disabled' : '';
-  const head = se.kind === 'day' ? `<input type="text" class="feed-edit-input" data-tg-se-head data-enter-field="single" autocomplete="off" aria-label="목록에 보이는 한 줄" placeholder="목록에 보이는 한 줄 (${SUMEDIT.HEADLINE_MAX}자까지)" value="${esc(se.headline)}"${dis}>` : '';
+  const head = se.kind === 'day' ? `<textarea rows="1" class="feed-edit-input" data-tg-se-head data-autogrow data-enter-field="single" autocomplete="off" aria-label="목록에 보이는 한 줄" placeholder="목록에 보이는 한 줄 (${SUMEDIT.HEADLINE_MAX}자까지)"${dis}>${esc(se.headline)}</textarea>` : '';
   const rows = se.kind === 'day' ? Math.min(10, Math.max(4, se.value.split('\n').length + 1)) : 3;
   const area = `<textarea class="feed-edit-input feed-se-area" data-tg-se-text rows="${rows}" aria-label="${se.kind === 'day' ? '그날 요약 (한 줄에 요약 한 줄)' : '요약'}" autocomplete="off"${dis}>${esc(se.value)}</textarea>`;
   const orig = se.edited ? `<button type="button" class="feed-text-btn feed-se-orig" data-tg-se-orig${dis}>AI 원래 요약으로</button>` : '';
@@ -401,7 +402,7 @@ function paintDetail() {
   const note = state.note ? `<p class="feed-notice" role="status" data-tg-note>${esc(state.note)}</p>` : '';
   roomSeen?.disconnect();
   box.innerHTML = `${head}${nav}${note}<div class="feed-detail" data-tg-detail="${esc(selKey())}">${dayBodyHtml(sel.room, sel.day, d, sum, dedit)}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>${undoHtml()}`;
-  paintTgMarks(box); fitRawFolds(box);
+  paintTgMarks(box); fitRawFolds(box); fitAll(box); // UI-줄입력늘어나기: 목록 한 줄 고치기 칸은 글 전체가 보이게
 }
 // 방·날 하나의 몸통: 요약 상자(고치기·복사) + 그날 소식 줄. 날짜별 상세와 방별 상세가 같이 쓴다. 단추의 값은 그 방·날 열쇠.
 function dayBodyHtml(room, day, d, sum, dedit) {

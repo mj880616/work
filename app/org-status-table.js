@@ -14,6 +14,7 @@ import {seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {suggestOrgWeek} from './weekly-org-suggest.js';
 import {sortRows, splitRows, periodLabel, cleanBody, validDay, validEnd, nextOrder, ROWS_MAX, BODY_MAX} from './org-status-model.mjs';
+import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 
 const TABLE = '/rest/v1/app_org_status_rows';
 const COLS = 'id,organization_id,day,end_day,body,sort_order,source,evidence,updated_at';
@@ -86,12 +87,10 @@ export function editFormHtml({key, draft = {}, invalid = '', busy = false, canDe
   return `<div class="wd-st-form" data-st-form="${esc(key)}">`
     + `<div class="wd-st-f-days"><label class="wd-st-f-day"><span>시작일</span><input type="date" data-st-field="day" value="${esc(d.day || '')}"${invalid === 'day' ? ' aria-invalid="true"' : ''}${dis}></label>`
     + `<span class="wd-st-f-tilde" aria-hidden="true">~</span><label class="wd-st-f-day"><span>끝나는 날(선택)</span><input type="date" data-st-field="end_day" value="${esc(d.end_day || '')}"${d.day ? ` min="${esc(d.day)}"` : ''}${invalid === 'end_day' ? ' aria-invalid="true"' : ''}${dis}></label></div>`
-    + `<label class="wd-st-f-body"><span>주요 일정·현황</span><textarea data-st-field="body" rows="2" maxlength="${BODY_MAX}" autocomplete="off"${invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body || '')}</textarea></label>`
+    + `<label class="wd-st-f-body"><span>주요 일정·현황</span><textarea data-st-field="body" rows="2" data-autogrow maxlength="${BODY_MAX}" autocomplete="off"${invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body || '')}</textarea></label>`
     + `<div class="wd-st-actions btn-row">${canDelete ? `<button type="button" class="wd-st-btn wd-st-del" data-st-delete="${esc(deleteId)}"${dis}>빼기</button>` : ''}<button type="button" class="wd-st-btn" data-st-cancel${dis}>취소</button><button type="button" class="wd-st-btn primary" data-st-save${dis}>저장</button></div>`
     + `</div>`;
 }
-// 글 길이만큼 높이를 늘린다(열 때 전체가 보이고, 쓰면서 늘어남).
-export function fitTextarea(el) { if (!el) return; el.style.height = 'auto'; el.style.height = `${el.scrollHeight + 2}px`; }
 function editHtml(row) {
   const key = row?.id ?? 'new';
   return `<tr class="wd-st-edit" data-st-edit-row="${esc(key)}"><td colspan="2">${editFormHtml({key, draft: ui.draft || {}, invalid: ui.invalid, busy: ui.busy, canDelete: !!row, deleteId: row?.id || ''})}</td></tr>`;
@@ -114,7 +113,7 @@ function paint() {
   html += `<p class="wd-st-status${msg.error ? ' is-error' : ''}" role="status" aria-live="polite" data-st-status>${esc(msg.text)}</p>`;
   host.innerHTML = html;
   mountColResize({host, name: 'orgst', vars: {day: '--st-w-day'}, dir: 1, labels: {day: '일'}, fit: key => Math.ceil(Math.max(0, ...[...host.querySelectorAll('.wd-st-day-text')].map(el => el.getBoundingClientRect().width)))});
-  host.querySelectorAll('textarea[data-st-field]').forEach(fitTextarea);
+  fitAll(host); // UI-줄입력늘어나기: 글 길이만큼(열 때 전체가 보이고, 쓰면서 늘어남) — 공용 auto-grow.js
   if (ui.focus) {
     const el = host.querySelector(ui.focus);
     el?.focus({preventScroll: true});
@@ -128,7 +127,7 @@ function say(text, error = false) { if (!ui) return; ui.msg = {text, error}; con
 function bind(host) {
   if (host.dataset.stBound) return;
   host.dataset.stBound = '1';
-  host.addEventListener('input', e => { const t = e.target; if (!ui || ui.host !== host || !t.matches?.('[data-st-field]')) return; if (t.tagName === 'TEXTAREA') fitTextarea(t); ui.draft = {...(ui.draft || {}), [t.dataset.stField]: t.value}; if (ui.invalid === t.dataset.stField) { ui.invalid = ''; t.removeAttribute('aria-invalid'); } });
+  host.addEventListener('input', e => { const t = e.target; if (!ui || ui.host !== host || !t.matches?.('[data-st-field]')) return; ui.draft = {...(ui.draft || {}), [t.dataset.stField]: t.value}; if (ui.invalid === t.dataset.stField) { ui.invalid = ''; t.removeAttribute('aria-invalid'); } });
   host.addEventListener('change', e => { const t = e.target; if (ui && ui.host === host && t.matches?.('[data-st-field]')) { ui.draft = {...(ui.draft || {}), [t.dataset.stField]: t.value}; if (t.dataset.stField === 'day') t.closest('.wd-st-form')?.querySelector('[data-st-field="end_day"]')?.setAttribute('min', t.value); } });
   host.addEventListener('keydown', e => { const sp = e.target.closest?.('[data-st-edit]'); if (sp && ui && ui.host === host && !ui.busy && !ui.editing && (e.key === 'Enter' || e.key === ' ') && e.target === sp) { e.preventDefault(); sp.click(); return; } if (e.key === 'Enter' && !e.isComposing && !e.shiftKey && e.target.matches?.('[data-st-field]')) { e.preventDefault(); void saveEdit(); } else if (e.key === 'Escape' && ui?.editing) { e.preventDefault(); cancel(); } });
   host.addEventListener('click', e => {

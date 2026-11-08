@@ -10,6 +10,13 @@ export const NO_PLACE = '미정';
 export const ALL_DAY = '종일';
 const one = s => String(s ?? '').replace(/\s+/g, ' ').trim();
 
+// WEEKLY-주말칸색: 날짜 글('11.14.(토)', 여러 날 '11.14.(토)~11.15.(일)')이 토·일 줄인지 — 적힌 요일이 모두 토·일일 때만.
+// 한글 파일 5. 주요 일정 표(report.mjs shadeWeekends)와 [주간 정리] 화면의 주요 일정 표가 같은 판정을 쓴다.
+export function isWeekendLabel(label) {
+  const days = [...String(label ?? '').matchAll(/\(\s*([월화수목금토일])\s*\)/g)].map(m => m[1]);
+  return days.length > 0 && days.every(d => d === '토' || d === '일');
+}
+
 // 일정 하나 → 칸 글. time = 'HH:MM' | '종일'. 제목이 비면 '(제목 없음)'.
 export const formWhat = ({time, title, place}) => [one(time) || ALL_DAY, one(title) || '(제목 없음)', one(place) || NO_PLACE].join(' / ');
 

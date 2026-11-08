@@ -26,6 +26,7 @@ import {rowMore} from './row-more.js';
 import {CARRIED_TAG} from './weekly-exec-requests.js';
 import {shortDay} from './journal-data.js';
 import {emptyEl, waitEl} from './wait-state.js';
+import {lineField, fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 긴 글 한 줄 칸 = 글만큼 늘어나는 공용 칸
 
 export const FLOW_SECTIONS = Object.freeze(['summary', 'sites', 'orgs']);
 const TAG = Object.freeze({record:'기록', doc:'자료', ai:'AI 요약', calendar:'캘린더', line:'AI 제안'});
@@ -198,6 +199,7 @@ export function paintFlowCells(slot, ctx) {
   // 줄 ⠿ 에 초점이 있는 채로 다시 그려지면(재료·학습을 늦게 읽어 다시 그림) 같은 줄 손잡이로 초점을 돌려준다 — 키보드로 옮기던 중 초점이 사라지지 않게.
   const active = doc.activeElement, held = active && slot.contains(active) && active.matches?.('[data-flow-line-grip]') ? active.closest('li[data-flow-line-id]')?.dataset.flowLineId : null;
   slot.replaceChildren(...parts);
+  fitAll(slot); // UI-줄입력늘어나기
   if (held && !ui.focusLine) [...slot.querySelectorAll('li[data-flow-line-id]')].find(n => n.dataset.flowLineId === held)?.querySelector('[data-flow-line-grip]:not(:disabled)')?.focus();
   if (!slot.dataset.flowWired) wire();
   if (ui.focusLine && !ui.busy && section !== 'sites') { const k = ui.focusLine; ui.focusLine = null; [...slot.querySelectorAll('li[data-flow-line-id]')].find(n => n.dataset.flowLineId === k)?.querySelector('[data-flow-line-grip]')?.focus(); }
@@ -309,7 +311,7 @@ export function paintFlowCells(slot, ctx) {
   // 제안 빼기 이유 한 줄(안 써도 됨). [취소]·[빼기 확인], Enter = 확인, Esc = 취소.
   function whyForm(cell, text) {
     const f = el('span', 'journal-file-edit weekly-flow-edit weekly-flow-why');
-    const input = el('input'); input.type = 'text'; input.value = ui.dropping?.value ?? ''; input.maxLength = WHY_MAX; input.placeholder = '이유(안 써도 돼요)';
+    const input = lineField(doc, {value: ui.dropping?.value ?? '', maxLength: WHY_MAX}); input.placeholder = '이유(안 써도 돼요)';
     input.dataset.flowInput = cell; input.dataset.flowWhy = ''; input.setAttribute('aria-label', `빼는 이유(안 써도 돼요): ${text}`); input.disabled = !!ui.busy;
     const cancel = btn('취소', {flowCancel:cell}); const go = btn('빼기 확인', {flowDropGo:cell}, 'mini primary'); cancel.disabled = go.disabled = !!ui.busy;
     f.append(input, ' ', cancel, go);
@@ -319,7 +321,7 @@ export function paintFlowCells(slot, ctx) {
   }
   function editForm(cell, value, data, aria) {
     const f = el('span', 'journal-file-edit weekly-flow-edit');
-    const input = el('input'); input.type = 'text'; input.value = value; input.maxLength = CELL_LINE_MAX; input.dataset.flowInput = cell; input.setAttribute('aria-label', aria); input.disabled = !!ui.busy;
+    const input = lineField(doc, {value, maxLength: CELL_LINE_MAX}); input.dataset.flowInput = cell; input.setAttribute('aria-label', aria); input.disabled = !!ui.busy;
     const cancel = btn('취소', {flowCancel:cell}); const save = btn('저장', data, 'mini primary'); cancel.disabled = save.disabled = !!ui.busy;
     f.append(input, ' ', cancel, save); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
     return f;
@@ -342,13 +344,13 @@ export function paintFlowCells(slot, ctx) {
       cur.click(b);
     });
     slot.addEventListener('keydown', event => {
-      const input = event.target.closest?.('input[data-flow-input]');
+      const input = event.target.closest?.('[data-flow-input]');
       if (!input) return;
       if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); input.parentElement.querySelector('button.primary')?.click(); }
       else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); input.parentElement.querySelector('[data-flow-cancel]')?.click(); }
     });
     slot.addEventListener('input', event => {
-      const input = event.target.closest?.('input[data-flow-input]'), cur = slot.__flow;
+      const input = event.target.closest?.('[data-flow-input]'), cur = slot.__flow;
       if (!input || !cur) return;
       const u = cur.ui;
       if (u.editing?.cell === input.dataset.flowInput) u.editing.value = input.value;
@@ -360,7 +362,7 @@ export function paintFlowCells(slot, ctx) {
   // 누르기 처리는 이번 그림의 ctx 로(그릴 때마다 바꿔 끼움).
   slot.__flow = {ui, click:b => onClick(b), pickLine:t => pickLine(t), moveSite:(name, index) => setLayout('move', name, index), stepSite:(name, dir) => stepSite(name, dir), addSite:name => setLayout('show', name),
     moveLine:(id, list, index) => moveLine(id, list, index), stepLine:(id, dir) => stepLine(id, dir)};
-  const focusInput = id => requestAnimationFrame(() => slot.querySelector(`input[data-flow-input="${CSS.escape(id)}"]`)?.focus());
+  const focusInput = id => requestAnimationFrame(() => slot.querySelector(`[data-flow-input="${CSS.escape(id)}"]`)?.focus());
   function cellOf(id) { const c = parseCellId(id); return {section:c.section, key:c.key, n:c.n, lines:flowCells(draft, c.section).find(x => x.id === id)?.lines ?? []}; }
   async function write(id, op, {after} = {}) {
     const c = cellOf(id);
@@ -456,7 +458,7 @@ export function paintFlowCells(slot, ctx) {
     if (d.flowAdd) { ui.adding = d.flowAdd; ui.addAt = -1; ui.addValue = ''; ui.editing = null; ui.taking = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowAdd); return; }
     if (d.flowAddBelow) { ui.adding = d.flowAddBelow; ui.addAt = Number(d.flowIndex) + 1; ui.addValue = ''; ui.editing = null; ui.taking = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowAddBelow); return; }
     if (d.flowEdit) { const it = pick(); ui.taking = {cell:d.flowEdit, key:it.key, value:null}; ui.editing = null; ui.adding = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowEdit); return; }
-    const value = () => String(b.parentElement.querySelector('input[data-flow-input]')?.value ?? '').trim();
+    const value = () => String(b.parentElement.querySelector('[data-flow-input]')?.value ?? '').trim();
     if (d.flowFixSave) { const v = value(); if (!v) return; const index = ui.editing.index; void write(d.flowFixSave, {act:'fix', index, text:v}, {after:() => { ui.editing = null; }}); return; }
     if (d.flowAddSave) { const v = value(); if (!v) return; const at = ui.addAt; void write(d.flowAddSave, {act:'add', text:v.startsWith('-') ? v : `- ${v}`, ...(at >= 0 ? {insertAt:at} : {})}, {after:() => { ui.adding = null; ui.addAt = -1; ui.addValue = ''; }}); return; }
     if (d.flowEditSave) { const v = value(); if (!v) return; const it = pick(), index = li?.dataset.flowIndex != null ? Number(li.dataset.flowIndex) : -1; void write(d.flowEditSave, {act:'edit', text:v.startsWith('-') ? v : `- ${v}`, item:it, index}, {after:() => { ui.taking = null; }}); return; }
@@ -468,7 +470,7 @@ export function paintFlowCells(slot, ctx) {
     if (d.flowDrop) { const it = pick(); ui.dropping = {cell:d.flowDrop, key:it.key, item:it, value:'', focus:true}; ui.editing = null; ui.adding = null; ui.taking = null; ctx.redraw?.(); return; }
     if (d.flowDropGo) {
       const u = ui.dropping; if (!u) return;
-      const why = String(b.parentElement.querySelector('input[data-flow-why]')?.value ?? '').trim();
+      const why = String(b.parentElement.querySelector('[data-flow-why]')?.value ?? '').trim();
       const id = d.flowDropGo;
       void write(id, {act:'drop', item:{...u.item, ...(why ? {why} : {})}}, {after:() => {
         ui.dropping = null; clearTimeout(ui.undo?.timer);
