@@ -7,7 +7,8 @@ import {readFileSync, readdirSync} from 'node:fs';
 const ui = readFileSync('app/ui-standard.css', 'utf8');
 const head = '/* ===== UI-창아래버튼통일';
 const block = ui.slice(ui.indexOf(head));
-const FOOT = ':is(.modal-action-footer,.save-row)';
+const FOOT = ':is(.modal-action-footer,.save-row,.home-choice-foot,.record-sheet-foot,.diary-od-foot)';
+const FOOT_CLASS = 'modal-action-footer|save-row|home-choice-foot|record-sheet-foot|diary-od-foot';
 const FAMILY = ['primary', 'secondary', 'ghost', 'danger', 'tl-danger', 'wd-danger', 'ps3-danger', 'ps3-danger-btn', 'ps3-record-danger', 'ps-danger', 'ci-delete'];
 const DANGER = FAMILY.slice(3);
 const NOT_FAMILY = ['icon-btn', 'row-act', 'ds-chip', 'ds-seg-btn', 'mini'];
@@ -33,7 +34,7 @@ function footers() {
   for (const f of readdirSync(dir).sort()) {
     if (!/\.(js|mjs|html)$/.test(f)) continue;
     const s = readFileSync(new URL(f, dir), 'utf8');
-    const re = /<(div|footer)\b[^>]*class=(["'`])([^"'`]*\b(?:modal-action-footer|save-row)\b[^"'`]*)\2[^>]*>/g;
+    const re = new RegExp(`<(div|footer)\\b[^>]*class=(["'\`])([^"'\`]*\\b(?:${FOOT_CLASS})\\b[^"'\`]*)\\2[^>]*>`, 'g');
     for (let m; (m = re.exec(s));) {
       const start = m.index + m[0].length, tag = /<\/?(div|footer)\b[^>]*>/g;
       let depth = 1, end = s.length;
@@ -45,7 +46,7 @@ function footers() {
   }
   return out;
 }
-// 아직 가족 클래스가 아닌 줄 안 버튼(다음 PR UI-창아래버튼통일 ②에서 정리). 줄기만 한다.
+// 가족 클래스가 아닌 줄 안 버튼 예외표. 업무일지 표·줄 안 버튼은 콤팩트 결정대로 작은 버튼(.mini) 유지(journal.spec 1835) — 새 예외를 더하지 않는다.
 const LEFTOVER = {'journal.js':3};
 
 test('줄 안 삭제는 맨 앞(왼쪽 끝), 저장(주 동작)은 맨 뒤(오른쪽 끝)', () => {
@@ -75,4 +76,12 @@ test('할 일 수정 창 줄: [삭제][완료][저장] 순서, 화면별 높이 
   assert.match(html, /<button id="taskModalDelete" class="ghost tl-danger hidden"[^>]*>삭제<\/button><button id="taskModalToggle" class="secondary"/);
   const css = ['ui-standard.css', 'google-tasks.css'].map(f => readFileSync('app/' + f, 'utf8')).join('\n');
   assert.doesNotMatch(css, /#gt(Delete|Toggle|Save)Btn[^{}]*\{[^}]*(height|border|background|padding)\s*:/, '[삭제][완료][저장] 모양은 공용 규칙 한 곳');
+});
+
+test('② 이름이 다른 창 아래 줄(고르기·노트 기록·원드라이브 설정)도 같은 부품, 화면 CSS에 그 버튼 모양 규칙 없음', () => {
+  const css = ['choice-sheet.css', 'record-sheet.css', 'diary.css'].map(f => readFileSync('app/' + f, 'utf8')).join('\n');
+  assert.doesNotMatch(css, /(home-choice-foot|record-sheet-foot|diary-od-foot)\s+(button(?![:\w])|\.home-choice-save)[^{]*\{[^}]*(height|border|background|padding|font-size)\s*:/, '모양은 UI-창아래버튼통일 한 곳');
+  const cs = readFileSync('app/choice-sheet.js', 'utf8');
+  assert.match(cs, /class="secondary home-choice-cancel" data-sheet-cancel/);
+  assert.match(cs, /class="primary home-choice-save" data-sheet-save/);
 });
