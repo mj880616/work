@@ -98,3 +98,15 @@ test('목록을 열 때 읽기 전 채널 기사가 있으면 바로 채우기(1
   assert.equal(M.needsAutoFill(pend, 1000, 1000 + M.AUTO_FILL_GAP_MS - 1), false);
   assert.equal(M.needsAutoFill(pend, 1000, 1000 + M.AUTO_FILL_GAP_MS), true);
 });
+
+test('기본 켬(S53-6): 줄이 없으면 카탈로그 on, 줄이 있으면 줄 값(끈 줄은 꺼진 채)', () => {
+  const cat = M.normalizeCatalog({sources: [{key: 'news-a', name: '가짜일보', region: 'domestic', on: true}, {key: 'news-b', name: '가짜신문', region: 'domestic'}, {key: 'news-c', name: '가짜방송', region: 'domestic', on: 'yes'}]});
+  assert.deepEqual(cat.map(s => s.on), [true, false, false], 'on은 true만');
+  const rows = new Map([['news-b', {source_key: 'news-b', enabled: true}]]);
+  assert.deepEqual(M.enabledSourceKeys(cat, rows), ['news-a', 'news-b']);
+  rows.set('news-a', {source_key: 'news-a', enabled: false});
+  assert.deepEqual(M.enabledSourceKeys(cat, rows), ['news-b']);
+  assert.equal(M.sourceOn(cat[0], undefined), true);
+  assert.equal(M.sourceOn(cat[1], undefined), false);
+  assert.deepEqual(M.enabledSourceKeys(null, rows), []);
+});
