@@ -229,8 +229,10 @@ export function paintFlowCells(slot, ctx) {
       const tag = el('span', 'journal-exec-carried', CARRIED_TAG); tag.dataset.flowCarried = ''; tag.title = '이 주 기록이 없어 지난주 보고서 줄 그대로예요'; head.append(tag);
     }
     const busy = !!ui.busy;
+    // ORG-기록하나로 O-4 ②: 전환 주부터 3. 2) 사업장 칸 안쪽 = 조직보고 창(쟁의 단계 줄 + 같은 조직 기록 3~7줄, journal.js가 줌). 칸 구성(빼기·순서·추가)은 그대로.
+    const win = section === 'sites' && typeof ctx.siteBody === 'function' ? ctx.siteBody(c) : null;
     const add = btn('+ 추가', {flowAdd:c.id}, 'journal-part-add-button'); add.disabled = busy; add.setAttribute('aria-label', `${labelOf(section, c.key, c.n)} 칸에 줄 추가`);
-    head.append(add);
+    if (!win) head.append(add);
     if (section === 'sites') {
       box.dataset.reorderId = c.key;
       const grip = btn('⠿', {reorderHandle:''}, 'mini journal-hwpx-grip'); grip.setAttribute('aria-label', `${c.key} 순서 옮기기(위·아래 화살표)`); grip.disabled = busy;
@@ -238,6 +240,7 @@ export function paintFlowCells(slot, ctx) {
       head.append(rowMore(doc, {label:`${c.key} 사업장 칸 메뉴`, data:{flowSiteMore:c.key}, items:[{text:'이번 주 보고에서 빼기', data:{flowSiteHide:c.key}, disabled:busy}]}));
     }
     box.append(head);
+    if (win) { box.append(win); return box; }
     // 바탕이 바뀌어 이름이 맞는 칸이 없는 고친 칸: 버리지 않고 보이되, 한글 파일에는 들어가지 않는다고 한 줄.
     if (proposed && section !== 'sites' && !inBase.has(c.id) && !(section === 'summary' && areaKeys.has(c.key))) { const p = el('p', 'journal-muted weekly-flow-orphan', '바탕에 없는 칸 — 파일에는 안 들어가요'); p.dataset.flowOrphan = ''; box.append(p); }
     // 바탕이 내 개인본이고 그보다 나중 팀 확정본에서 이 칸 글이 다르면 작은 '확정본에서 바뀜'(눌러 그 글 보기·[이 글로 바꾸기], 참고용).

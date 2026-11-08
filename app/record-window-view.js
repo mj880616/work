@@ -60,9 +60,11 @@ export function seedEvents(rt, from, to, events) {
 let seq = 0;
 // host = 칸들이 들어 있는 상자(클릭·키를 여기서 받음), repaint = 그 화면 다시 그리기, say(text, error) = 상태 한 줄.
 // openSource({org, record}, trigger) = [기록 열기](그 조직 상세를 열고 그 기록을 밝힘 — 화면 쪽).
-export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint = () => {}, say = () => {}, openSource = null, withEvents = true} = {}) {
+// section = 'org'(4. 1) 조직보고, 기본) | 'site'(3. 2) 투쟁 사업장 칸 — 같은 조직 기록, 표시는 section 'site'로 따로, 3~7줄, 일정 줄은 M.SITE_EVENTS일 때만).
+export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint = () => {}, say = () => {}, openSource = null, withEvents = true, section = 'org'} = {}) {
+  if (section !== 'org') { section = 'site'; withEvents = withEvents && M.SITE_EVENTS; }
   const ctl = {
-    id: `rw${++seq}`, rt, workspaceId, week, openSource, status: 'idle', orgs: [], orgIds: [], records: [], marks: [], marksOn: true, snaps: new Map(), legacy: new Map(),
+    id: `rw${++seq}`, rt, workspaceId, week, openSource, section, status: 'idle', orgs: [], orgIds: [], records: [], marks: [], marksOn: true, snaps: new Map(), legacy: new Map(),
     ev: {status: 'idle', items: [], partial: false, run: 0}, foldOpen: new Set(), outOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, run: 0, host: null, focus: '',
   };
   const c = () => ({rt: ctl.rt, ws: ctl.workspaceId});
@@ -84,7 +86,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   }
   async function readMarks() {
     try {
-      const rows = await ctl.rt.api(`${MARKS}?workspace_id=eq.${enc(ctl.workspaceId)}&section=eq.org&week_start=lte.${enc(ctl.week)}&select=${MARK_COLS}&order=week_start.asc&limit=5000`, {singleFlight: false});
+      const rows = await ctl.rt.api(`${MARKS}?workspace_id=eq.${enc(ctl.workspaceId)}&section=eq.${ctl.section}&week_start=lte.${enc(ctl.week)}&select=${MARK_COLS}&order=week_start.asc&limit=5000`, {singleFlight: false});
       return {rows: Array.isArray(rows) ? rows : [], on: true};
     } catch (e) { if (missingTable(e)) return {rows: [], on: false}; throw e; }
   }
@@ -149,7 +151,9 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     if (old()) return {mode: 'old', lines: ctl.legacy.get(orgId) || []};
     const base = {org: orgId, week: ctl.week, records: ctl.records, events: events(), marks: ctl.marks};
     const s = snap();
+    if (s && ctl.section === 'site') return {mode: 'snapshot', lines: M.snapshotCell(s, orgId, 'site')?.lines || [], after: []};
     if (s) { const v = M.snapshotView({...base, snapshot: s}); return {mode: 'snapshot', lines: v.lines, after: v.after}; }
+    if (ctl.section === 'site') return {mode: 'window', ...M.siteCell(base)};
     const prevWeek = M.shiftWeek(ctl.week, -1);
     const prevIds = M.isOldWeek(prevWeek) ? new Set() : M.shownIds({...base, week: prevWeek, snapshot: ctl.snaps.get(prevWeek) || null});
     return {mode: 'window', ...M.orgCell({...base, prevIds})};
@@ -262,7 +266,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   };
   // 그 주 표시 바꾸기(모델 nextMark가 넣기·고치기·지우기 중 하나를 정함).
   const mark = (l, change, done) => work(async () => {
-    const p = M.nextMark(ctl.marks, {section: 'org', kind: l.kind, key: l.key, week: ctl.week}, change);
+    const p = M.nextMark(ctl.marks, {section: ctl.section, kind: l.kind, key: l.key, week: ctl.week}, change);
     if (p.op === 'insert') {
       const rows = await ctl.rt.api(`${MARKS}?select=${MARK_COLS}`, {method: 'POST', prefer: 'return=representation', singleFlight: false, body: {workspace_id: ctl.workspaceId, ...p.row}});
       if (!Array.isArray(rows) || !rows[0]) throw new Error('mark');
@@ -348,11 +352,12 @@ export const RECORD_WINDOW_EVENT = EVENT;
 
 // 조직보고 표(조직 | 조직현황) — 담당조직 [전체 표]·홈 [주간 정리] 4.·업무일지가 이 함수 하나로 그린다.
 // orgs = [{id, name}] 보고 순서. orgHtml(o) 조직 칸 안쪽, stageOf(o) 조직 이름 밑 작은 글(쟁의 단계).
-export function windowTableHtml(ctl, orgs, {msg = '', error = false, orgHtml = null, stageOf = null, headOrg = '조직', headRows = '조직현황', tableClass = ''} = {}) {
+// cellHtml(o) = 그 조직 칸을 화면이 따로 그릴 때(예: 홈 [주간 정리] 4.의 '투쟁 사업장 보고 참고' 한 줄), null이면 창 칸.
+export function windowTableHtml(ctl, orgs, {msg = '', error = false, orgHtml = null, stageOf = null, headOrg = '조직', headRows = '조직현황', tableClass = '', cellHtml = null} = {}) {
   if (ctl.status === 'error') return `<p class="wl-note" role="alert">${TEXT.failed}</p>`;
   if (ctl.status !== 'ready') return waitHtml({rows: 2});
   if (!orgs.length) return emptyHtml('담당조직 없음');
-  const rows = orgs.map(o => { const stage = stageOf ? stageOf(o) : ''; return `<tr data-wl-org-row="${esc(o.id)}"><th scope="row" class="wl-c-org"><div class="wl-org-line">${orgHtml ? orgHtml(o) : `<span class="wl-org" title="${esc(o.name)}">${esc(o.name)}</span>`}</div>${stage ? `<span class="wl-stage">${esc(stage)}</span>` : ''}</th><td class="wl-c-rows">${ctl.cellHtml(o.id)}</td></tr>`; }).join('');
+  const rows = orgs.map(o => { const stage = stageOf ? stageOf(o) : ''; return `<tr data-wl-org-row="${esc(o.id)}"><th scope="row" class="wl-c-org"><div class="wl-org-line">${orgHtml ? orgHtml(o) : `<span class="wl-org" title="${esc(o.name)}">${esc(o.name)}</span>`}</div>${stage ? `<span class="wl-stage">${esc(stage)}</span>` : ''}</th><td class="wl-c-rows">${(cellHtml && cellHtml(o)) || ctl.cellHtml(o.id)}</td></tr>`; }).join('');
   return `${ctl.noteHtml()}<table class="wl-table${tableClass ? ` ${tableClass}` : ''}" data-wl-table data-rw-table><thead><tr><th scope="col" class="wl-c-org">${headOrg}</th><th scope="col">${esc(headRows)}</th></tr></thead><tbody>${rows}</tbody></table>`
     + `<p class="wl-status${error ? ' is-error' : ''}" role="status" aria-live="polite" data-wl-status>${esc(msg)}</p>`;
 }

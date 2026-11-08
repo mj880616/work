@@ -662,3 +662,15 @@
   html:has(body.kptu-workspace-shell) .modal.family-send{ bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); }
   .family-send-card{ width:100%; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); }
 }
+/* ORG/BIZ-기록하나로 O-4 ②·B-3 ②(JOURNAL-이번주보고표, 시안 docs/design/mockups/journal-week-tables.html): [하루] '이번 주 보고' = 표 두 개.
+   PC·폴드 펼침(761px~)은 왼쪽 4. 조직보고 | 오른쪽 2. 사업요약, 폰은 위아래. 제목은 주간보고 재료와 같은 모양, 칸 이름은 작은 제목. */
+#appView #homeView .journal-week-report{ display:flex; flex-direction:column; gap:6px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); min-width:0; }
+#appView #homeView .journal-week-report h4.journal-report-title{ margin:0; font-size:var(--ds-text-read); font-weight:700; line-height:1.4; color:var(--kptu-ink); }
+#appView #homeView .journal-week-report-head{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+#appView #homeView .journal-week-report-range{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #homeView .journal-week-report-cols{ display:grid; grid-template-columns:minmax(0,1fr); gap:12px 16px; }
+@media(min-width:761px){ #appView #homeView .journal-week-report-cols{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+#appView #homeView .journal-week-report-col{ min-width:0; }
+#appView #homeView .journal-week-report-col > h5.journal-heading{ margin:0 0 4px; font-size:var(--ds-text-row,14px); font-weight:500; }
+/* 3. 2) 사업장 칸 안쪽 창 줄([주간 정리]). */
+#appView #homeView .weekly-flow-window{ min-width:0; padding:2px 0 0; }
