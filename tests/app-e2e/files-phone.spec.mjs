@@ -145,7 +145,9 @@ test.describe('폰 앱 412', () => {
     expect(edgeCalls(server, 'media')).toEqual([]);
     expect(st.reads).toContain('files/raw?path=Download%2F%EA%B0%80%EC%A7%9C+%EB%A9%94%EB%AA%A8%EC%9E%A5.txt');
     await expect(prev.locator('[data-fx-rename-one]')).toHaveCount(0);
-    await expect(prev.locator('[data-fx-trash-one]')).toHaveCount(0);
+    // S53-12: [휴지통]은 숨기지 않고 흐리게(폰에 쓸 수 없는 판) — 누르면 이유 한 줄만, 폰 앱에 지우기를 보내지 않는다.
+    await expect(prev.locator('[data-fx-trash-one]')).toHaveAttribute('aria-disabled', 'true');
+    await expect(prev.locator('[data-fx-trash-one]')).toHaveAttribute('data-fx-off', 'ph');
     await expect(prev.locator('[data-fx-open]')).toHaveCount(0);
     await expect(prev.locator('[data-fx-star-one]')).toHaveCount(0);
     await shot(page, 'files-phone-preview-412');
