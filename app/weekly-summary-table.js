@@ -70,7 +70,8 @@ async function paint(){
   try{
     const [{placeRecords},{meetingLine},sheet,kinds,store]=await Promise.all([import('./journal-weekly.js'),import('./journal-data.js'),import('./report-places-sheet.js'),import('./journal-meeting-kinds.js'),import('./weekly-draft-store.js')]);
     const kit=await nowKit();
-    const places=await sheet.loadReportPlaces().catch(()=>null);
+    // 사업 나무: 화면이 이미 읽은 나무를 넘겨주면 그것(홈 — 따로 읽지 않음), 아니면 사업 보고의 연결할 곳 읽기.
+    const places=state.tree?{projects:state.treeSeen||null}:await sheet.loadReportPlaces().catch(()=>null);
     // 늘 빼는 회의 종류: 내부 정례 회의는 목록을 못 읽어도 빠진다(reportsMeeting). 주간 정리와 같은 한 곳.
     const read=await kinds.readKinds().catch(()=>({status:'unknown'}));
     const hidden=read?.status==='ok'?read.list:null;
@@ -281,19 +282,19 @@ function paperHtml(placed,records,untagged,all,lineOf){
 
 // meetings(): 사업 보고 화면이 읽어 둔 사업 보고 전체(select=*). 화면의 읽기를 그대로 쓰고 따로 읽지 않는다.
 // el = 사업 보고 화면의 늘 펼친 칸 #bizWeekBox. week = 위 주 고르기의 주(월요일 날짜). 화면이 다시 그려질 때마다 불린다.
-self.mount=(el,{meetings,week})=>{
+self.mount=(el,{meetings,week,tree=null})=>{
   ensureBox(el);
   const from=weekOf(week||seoulDateKey(Date.now())).from;
-  if(!state)state={meetings,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[]};
+  if(!state)state={meetings,tree,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[]};
   else{
     // 같은 주이고 사업 보고 자료(화면이 읽어 둔 배열)도 그대로면 이미 그린 것을 다시 읽지 않는다(화면이 다시 그려질 때마다·[+] 창을 열 때마다 서버를 부르지 않게).
-    const same=state.from===from&&state.seen===meetings()&&!!state.view&&!state.stale;
-    state.meetings=meetings;
+    const same=state.from===from&&state.seen===meetings()&&!!state.view&&!state.stale&&(!tree||state.treeSeen===tree());
+    state.meetings=meetings;state.tree=tree;
     if(same)return;
     if(state.editing&&state.from===from)return; // 쓰는 칸이 있으면 같은 주에서는 다시 그리지 않는다(쓰던 글 보호)
     state.from=from;state.to=shiftDays(from,6);
   }
-  state.seen=meetings();state.stale=false;
+  state.seen=meetings();state.stale=false;state.treeSeen=tree?tree():null;
   void paint();
 };
 return self;
@@ -306,9 +307,10 @@ export function mountWeekSummary(el,{meetings,week}){
   inst.mount(el,{meetings,week});
 }
 // 홈 [주간 정리] 2. 1): 같은 부품의 1) 사업요약표만. el은 부품이 가진 상자 하나 — 화면이 다시 그려도 그 자리에 옮겨 붙인다
-// (다시 읽지 않고 쓰던 칸도 그대로). update({meetings, week}): meetings() = 그 화면이 이미 읽은 그 주 사업 보고(따로 읽지 않음).
+// (다시 읽지 않고 쓰던 칸도 그대로). update({meetings, week, tree}): meetings() = 그 화면이 이미 읽은 그 주 사업 보고, tree() = 이미 읽은 활성 사업 나무
+// ([{project, depth}], 아직 없으면 null — 오면 다시 그림). 둘 다 따로 읽지 않는다.
 export function createBizSummaryBox(){
   const el=document.createElement('div');el.className='biz-week-box biz-week-compact';el.dataset.bizSummaryBox='';
   const inst=createBizSummary({compact:true});
-  return {el,update:({meetings,week})=>inst.mount(el,{meetings,week})};
+  return {el,update:({meetings,week,tree})=>inst.mount(el,{meetings,week,tree})};
 }

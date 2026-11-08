@@ -444,6 +444,14 @@ function renderDay() {
   fitAll(host); // UI-줄입력늘어나기: 고쳐서 넣을 한 줄 칸은 글 전체가 보이게
 }
 const isRecordWeek = week => !!week && week >= RECORD_ONE_FROM;
+// 사업요약표의 사업 나무 = 이 화면이 이미 읽은 사업 목록(활성만). 같은 읽기 결과면 같은 배열(다시 그릴 때 다시 읽지 않게).
+let treeMemo = {src:null, out:null};
+function activeTree() {
+  const src = materials.catalog?.status === 'ok' ? materials.catalog.items : null;
+  if (!src) return null;
+  if (treeMemo.src !== src) treeMemo = {src, out:src.filter(x => x?.project?.status === 'active')};
+  return treeMemo.out;
+}
 const NO_MEETINGS = Object.freeze([]);
 // ④ 주간보고 재료(옛 주): the three parts in the report's order; a part with nothing that day is not drawn.
 function dayReportBlock(card) {
@@ -665,7 +673,7 @@ function paintBizWeekly(host) {
   bizWeekly ||= RW.biz.createBizSummaryBox();
   if (bizWeekly.el.parentNode !== slot) slot.replaceChildren(bizWeekly.el);
   const meetings = materials.meetings?.status === 'ok' && Array.isArray(materials.meetings.items) ? materials.meetings.items : NO_MEETINGS;
-  bizWeekly.update({meetings:() => meetings, week:start});
+  bizWeekly.update({meetings:() => meetings, week:start, tree:activeTree});
 }
 // 표 줄이 바뀌면 캘린더 추천 거르기·복사 글만 맞춘다(주간 정리 전체를 다시 그리지 않음 — 표 안 입력 초점이 빠지지 않게).
 function redrawOrgText() { if (lastWeekModel) lastWeekModel.orgLines = weekOrgLines(); }
