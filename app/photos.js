@@ -2169,7 +2169,7 @@ function fxInlineLoad(key) {
       if (kind === 'p') { const page = await phone.page({sort, filter:'all', offset:0, limit:FT_PREVIEW, folder:id}); entry.items = page.items || []; }
       else { const page = await odLibrary(rt, {folderId:id, cursor:null, limit:FT_PREVIEW, sort}); entry.items = page.items.map(toItem); }
       entry.state = 'done';
-    } catch { entry.state = 'fail'; }
+    } catch (error) { entry.state = 'fail'; entry.why = kind === 'p' ? phoneErrorText(error) : odErrorText(error); }
     if (current(r) && tab === 'folders' && fxTreeShown()) renderFolders();
   })();
 }
@@ -2177,10 +2177,12 @@ function fxInlineLoad(key) {
 function fxStripHtml(key, depth, total) {
   const e = fxInline.get(key);
   if (!e) fxInlineLoad(key);
-  // 읽는 중에는 회색 칸 하나, 못 읽었거나 사진이 없으면 그림 줄을 두지 않는다(폴더 줄의 장수가 이미 말함).
-  const strip = `<div class="ft-row ft-item photos-fx-strip" style="--ft-depth:${depth}" data-ft-parent="${esc(key)}" data-photos-strip="${esc(key)}">${!e || e.state === 'wait' ? '<span class="photos-fx-strip-wait" aria-hidden="true"></span>' : ''}</div>`;
+  // 읽는 중에는 회색 칸 하나(끝이 있다: 폰 25초·원드라이브 15초), 사진이 없으면 그림 줄을 두지 않는다(폴더 줄의 장수가 이미 말함).
+  // 못 읽었으면 끝없는 회색 칸 대신 실패 글 + [다시](LOAD-끝있는불러오기: 사진 폴더 안 처음 몇 장).
+  const inner = !e || e.state === 'wait' ? '<span class="photos-fx-strip-wait" aria-hidden="true"></span>' : e.state === 'fail' ? failHtml({retry:'data-photos-fx-inline-retry', reason:e.why || ''}) : '';
+  const strip = `<div class="ft-row ft-item photos-fx-strip" style="--ft-depth:${depth}" data-ft-parent="${esc(key)}" data-photos-strip="${esc(key)}">${inner}</div>`;
   const shown = e?.items?.length || 0, rest = Number.isInteger(total) ? total - shown : 0;
-  return (e && e.state !== 'wait' && !shown ? '' : strip) + (rest > 0 ? ftMoreRowHtml({rest, depth, attrs:{'data-photos-fx-focus':key, 'data-ft-parent':key}}).replace('개 더 보기', '장 더 보기') : '');
+  return (e && e.state === 'done' && !shown ? '' : strip) + (rest > 0 ? ftMoreRowHtml({rest, depth, attrs:{'data-photos-fx-focus':key, 'data-ft-parent':key}}).replace('개 더 보기', '장 더 보기') : '');
 }
 // 상자 안을 그린 뒤 작은 그림을 채운다(photoEl은 그림 요소라 문자열로 못 그림). 누르면 그 묶음으로 크게 보기.
 function fxFillStrips() {
@@ -2604,6 +2606,7 @@ function afterMove(ids, target) {
 }
 function folderClick(b) {
   // FOLDER-나무새기준 ③: 폰 나무 — 펼치기·접기(줄 어디든), 상자 접기, 'n장 더 보기'(그 폴더만), [‹](나무로), 펼친 폴더의 작은 그림(크게 보기).
+  if (b.matches('[data-photos-fx-inline-retry]')) { const k = b.closest('[data-photos-strip]')?.dataset.photosStrip; if (k) { fxInline.delete(k); renderFolders(); } return true; }
   if (b.matches('[data-photos-ftog]')) { const k = b.dataset.photosFtog; if (fxOpen.has(k)) fxOpen.delete(k); else fxOpen.add(k); renderFolders(); return true; }
   if (b.matches('[data-photos-fxbox]')) { toggleBoxShut('photos', b.dataset.photosFxbox); renderFolders(); return true; } // S52-14: 상자 접힘은 서버 view_prefs.box_shut(box-fold.js)
   if (b.matches('[data-photos-fx-focus]')) { fxFocus(b.dataset.photosFxFocus); return true; }
