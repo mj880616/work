@@ -1,0 +1,29 @@
+/* S53-20 MTG-비정기회의접기: 회의명 고르기 작은 창(meeting-name-panel.js). 공용 고르기 목록(.kptu-select-menu)과 같은 줄 높이·글자·테두리. */
+.mnp{position:fixed;z-index:60;box-sizing:border-box;display:flex;flex-direction:column;padding:4px;overflow-y:auto;overscroll-behavior:contain;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);font-size:14px;outline:0}
+.mnp[hidden]{display:none}
+.mnp .mnp-find{width:100%;box-sizing:border-box;min-height:32px;margin:0 0 4px;padding:4px 8px;border:1px solid var(--kptu-border);border-radius:6px;font:inherit;background:var(--kptu-surface);color:inherit}
+.mnp-rows{display:flex;flex-direction:column}
+.mnp-row{display:flex;align-items:stretch;border-radius:6px}
+.mnp-row.is-on{background:var(--kptu-primary-soft)}
+.mnp-row.is-on .mnp-name{font-weight:700}
+.mnp-pick,.mnp-grp,.mnp-act{flex:1;min-width:0;display:flex;align-items:center;gap:4px;min-height:32px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.mnp-pick:hover,.mnp-grp:hover,.mnp-act:hover,.mnp-pick:focus-visible,.mnp-grp:focus-visible,.mnp-act:focus-visible{background:var(--kptu-primary-soft)}
+.mnp-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mnp-sub .mnp-pick{padding-left:22px;font-size:13px}
+.mnp-grp{padding-left:22px;color:var(--kptu-muted);font-size:13px}
+.mnp-day,.mnp-n{flex:none;color:var(--kptu-muted);font-size:12px}
+.mnp-tag{flex:none;margin-left:auto;padding:0 4px;border:1px solid var(--kptu-border);border-radius:4px;color:var(--kptu-muted);font-size:11px}
+.mnp-more{flex:none;width:30px;min-height:32px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--kptu-muted);cursor:pointer}
+.mnp-more:hover,.mnp-more:focus-visible{background:var(--kptu-primary-soft);color:var(--kptu-ink)}
+.mnp-act.is-on{font-weight:700}
+.mnp-head{display:flex;align-items:center;gap:4px;margin-bottom:2px}
+.mnp-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.mnp-note,.mnp-none,.mnp-msg{margin:4px 8px;color:var(--kptu-muted);font-size:12px}
+.mnp-foot{margin-top:2px;padding-top:2px;border-top:1px solid var(--kptu-border)}
+.mnp-link{border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:12px;padding:4px 8px;cursor:pointer}
+.mnp-link:hover,.mnp-link:focus-visible{color:var(--kptu-ink);text-decoration:underline}
+.mnp-rename{display:flex;gap:4px;align-items:center}
+.mnp-rename .mnp-find{margin:0}
+/* 새 회의명 종류 상자(기타(직접 입력) 옆) */
+select.mnp-new-sort{margin-top:4px;max-width:100%}
+select.mnp-new-sort[hidden]{display:none}
