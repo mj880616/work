@@ -3003,7 +3003,7 @@ for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기
  // 다시 열기(주를 넘겼다 돌아오기 = 다시 읽기): 고침이 그대로.
  await page.locator('#journalRoot [data-journal-next]').click();
  await page.locator('#journalRoot [data-journal-prev]').click();
- await expect.poll(()=>lineText(file)).toBe('10월 6일(화)자료 가상 요구안 확정 — 기본급 5% 인상, 1차 교섭 10.28.(화) 고침');
+ await expect.poll(()=>lineText(file)).toBe('10월 6일(화)자료 가상 요구안 확정 — 기본급 5% 인상, 1차 교섭 10.28.(화)');
  await expect(proj.locator('[data-journal-file-drop-undo]')).toHaveCount(1);
  // [되돌리기]·[원래대로].
  await proj.locator(`[data-journal-file-undrop="${DOCID(2)}"]`).click();
@@ -3026,7 +3026,7 @@ test('[주간 정리] 자료 줄 고침: 칸 줄 쓰기·[처음부터]가 docs�
   draft:{v:1,base:null,me:'',me_from:'',date:'',rows:[],titles:[],docs:[{id:DOCID(1),text:'다른 기기에서 고친 자료 줄'}]}});
  await openJournal(page,1280);await openWeekly(page);
  const file=weekly(page,'orgs').locator(`li[data-journal-weekly-file="${DOCID(1)}"]`);
- await expect.poll(()=>lineText(file)).toBe('10월 6일(화)자료 다른 기기에서 고친 자료 줄 고침');
+ await expect.poll(()=>lineText(file)).toBe('10월 6일(화)자료 다른 기기에서 고친 자료 줄');
  // 그 주 임시저장본(자료 고침만)이 있어도 칸 줄은 바탕에서 새로 — 그 조직 칸 아래 제안에 고친 자료 줄이 보인다.
  const org=page.locator('#journalRoot [data-weekly-flow-cells="orgs"] [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:/^가상 노동조합$/})});
  await expect(org.locator('[data-flow-suggest-item]').filter({hasText:'다른 기기에서 고친 자료 줄'})).toHaveCount(1);
