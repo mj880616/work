@@ -938,7 +938,7 @@ function luShowMenu(trigger,id){
 // 선택 모드 메뉴: 'n개 골랐음' 한 줄 + 고른 것 모두에 [폴더로 옮기기 ›][분류 바꾸기 ›][선택 풀기] + [n개 삭제]. 항목 이름·차례는 한 자료 메뉴와 같은 부품.
 function luManyMenuHtml(doc){
   const n=luPick.items.size,id=luEsc(doc.id);
-  return `<p class="lu-menu-head">${n}개 선택했음</p>${luFoldersReady?luFolders().moveMenuHtml(doc,n):''}<button type="button" data-lu-cat-open="${id}" aria-haspopup="true">분류 바꾸기<span class="lu-menu-key" aria-hidden="true">›</span></button><button type="button" data-lu-pick-stop="1">선택 풀기<span class="lu-menu-key" aria-hidden="true">Esc</span></button><hr class="lu-menu-sep" role="separator"><button type="button" class="lu-menu-danger" data-lu-delete-many="1">${n}개 삭제</button>`;
+  return `<p class="lu-menu-head">${n}개 선택됨</p>${luFoldersReady?luFolders().moveMenuHtml(doc,n):''}<button type="button" data-lu-cat-open="${id}" aria-haspopup="true">분류 바꾸기<span class="lu-menu-key" aria-hidden="true">›</span></button><button type="button" data-lu-pick-stop="1">선택 풀기<span class="lu-menu-key" aria-hidden="true">Esc</span></button><hr class="lu-menu-sep" role="separator"><button type="button" class="lu-menu-danger" data-lu-delete-many="1">${n}개 삭제</button>`;
 }
 function luBindMenu(){
   luMenuPanel=document.createElement('div');luMenuPanel.id='luMorePanel';luMenuPanel.className='lu-more-panel';luMenuPanel.hidden=true;luMenuPanel.setAttribute('role','group');luMenuPanel.setAttribute('aria-label','자료 관리');
