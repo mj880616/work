@@ -309,7 +309,7 @@ test('PC 1280: 자료실 결과 우클릭 [폴더로 옮기기 ›] → 그 자�
   expect(errors).toEqual([]);
 });
 
-// NOTE-탐색기 후속 ⑥(2026-10-28 10:44 ②): 노트 결과 줄 우클릭 = [폴더로 옮기기 ›]·[자료실 결과 n개 모두 선택]·[열기]. 노트는 노트 폴더(노트 화면과 같은
+// NOTE-탐색기 후속 ⑥(2026-10-28 10:44 ②): 노트 결과 줄 우클릭 = [폴더로 옮기기 ›]·[자료실 결과 n개 모두 고르기]·[열기]. 노트는 노트 폴더(노트 화면과 같은
 // 폴더 나무 고르기 창)로 그 자리에서 옮기고, 자료실 자료는 자료실 선택 모드로 넘긴다(종류별로 나눠 묻기). 옮긴 뒤 '되돌리기'는 원래 폴더(폴더 밖)로.
 test('PC 1280: 노트 결과 우클릭 [폴더로 옮기기 ›] → 노트 폴더 나무 창 → 옮기기·되돌리기',async({page})=>{
   await page.setViewportSize({width:1280,height:860});
@@ -330,7 +330,7 @@ test('PC 1280: 노트 결과 우클릭 [폴더로 옮기기 ›] → 노트 폴�
   await panel(page).locator('[data-gs-group="note"] .gs-row').first().click({button:'right'});
   const menu=page.locator('#gsRowMenu');
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('button')).toHaveText(['폴더로 옮기기 ›','자료실 결과 1개 모두 선택','열기']);
+  await expect(menu.getByRole('button')).toHaveText(['폴더로 옮기기 ›','자료실 결과 1개 모두 고르기','열기']);
   await menu.getByRole('button',{name:'폴더로 옮기기 ›'}).click();
   const picker=page.locator('.lu-move-picker:visible');
   await expect(picker).toBeVisible();
