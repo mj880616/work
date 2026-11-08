@@ -141,3 +141,16 @@ test('다리 쓰기: confirm:true를 붙이고, 받기는 begin → 384KB 조각
   assert.ok(sent.some(m => m.startsWith('pfiles:save:begin:{"dir":"Download","name":"a.bin","size":393226,"confirm":true}')));
   assert.equal((await ph.save('Android/data', 'a', blob)).error, 'blocked');
 });
+
+test('S53-10 이 폰 폴더 휴지통: 안 파일을 휴지통으로, 폴더는 빈 채로 남는다고 묻는 글에 적는다', async () => {
+  const {phoneTrashAsk, PHONE_TRASH_BATCH, PHONE_FOLDER_LEFT_NOTE} = await import('../app/phone-files-model.mjs');
+  assert.equal(PHONE_TRASH_BATCH, 50);
+  assert.equal(phoneTrashAsk({files: 1, one: 'a.jpg'}).text, "'a.jpg'을(를) 휴지통으로 보낼까요?");
+  assert.equal(phoneTrashAsk({files: 3}).text, '3개를 휴지통으로 보낼까요?');
+  assert.doesNotMatch(phoneTrashAsk({files: 3}).note, /빈 채로/);
+  const one = phoneTrashAsk({files: 12, folders: ['dcinside']});
+  assert.equal(one.text, "'dcinside' 폴더 안 파일 12개를 휴지통으로 보낼까요?");
+  assert.ok(one.note.includes(PHONE_FOLDER_LEFT_NOTE));
+  assert.match(phoneTrashAsk({files: 120, folders: ['a', 'b']}).text, /^폴더 2개를 포함해 파일 120개/);
+  assert.match(phoneTrashAsk({files: 120, folders: ['a']}).note, /50개마다 확인 창/);
+});

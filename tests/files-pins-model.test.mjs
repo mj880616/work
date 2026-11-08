@@ -52,7 +52,7 @@ test('⋯ 메뉴: 고정할 수 있는 폴더만 [위에 고정]·[고정 풀기
   assert.ok(!ids({source: 'od'}, {pinned: false}).includes('pin'));
   const items = treeMenuItems({source: 'od', is_folder: true}, {pinned: false});
   assert.equal(items.find(x => x.id === 'pin').sep, true);
-  assert.deepEqual(ids({source: 'pc', is_folder: true}, {pinned: false}), ['only', 'pin']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true}, {pinned: false}), ['only', 'pin', 'trash']); // S53-10: 휴지통은 늘 맨 아래(여기선 흐리게)
 });
 
 test('내 PC 고정 경로는 서버·브라우저 저장소로 가지 않는다(코드로 확인)', () => {

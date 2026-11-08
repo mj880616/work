@@ -55,7 +55,7 @@ import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoSt
 import {UNDO_MS, shareFileName} from './photo-viewer-model.mjs';
 import {photoFile} from './photo-share.js';
 import {shareFrom, wideShare} from './share-menu.js';
-import {PHOTO_ACT_TEXT, PHOTO_MENUS, PHOTO_BAR_MENUS, SEND_NOTE, diaryDoneText, basketDoneText, releaseAfter} from './photo-menu-items.mjs';
+import {PHOTO_ACT_TEXT, PHOTO_MENUS, PHOTO_BAR_MENUS, SEND_NOTE, diaryDoneText, basketDoneText, releaseAfter, FOLDER_DELETE_OFF, folderDeleteOff} from './photo-menu-items.mjs';
 import {openBarMenu} from './photo-bar-menu.js'; // PHOTO-아래줄정돈(S49-34): [더보기] 글자 메뉴
 import {photoActButtons} from './photo-act-bar.mjs'; // PHOTO-크게보기메뉴통일(S49-23): 아래 버튼줄 그리기 하나(고르기·크게 보기)
 import {appShare} from './app-share.js';
@@ -3082,6 +3082,14 @@ function albumClick(b) {
 
 // ---- 메뉴(공용 anchored-menu.js, 모양은 원드라이브 아이콘 메뉴와 같은 od-link-menu). PC 우클릭은 context-menu.js가 ⋯를 눌러 누른 자리에 연다. ----
 const menuBtn = (attr, label, cls = '') => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`;
+// S53-10 메뉴 모양 통일: 폴더 ⋯ [지우기]는 늘 맨 아래. 지금 못 지우면 흐리게(aria-disabled) — 누르면 이유 한 줄만(offPressed).
+const delBtn = (attr, off) => menuBtn(off ? `${attr} aria-disabled="true" data-off="${off}"` : attr, '지우기', 'od-link-danger');
+function offPressed(b) {
+  const off = b?.dataset?.off;
+  if (!off) return false;
+  notify(FOLDER_DELETE_OFF[off] || '지금은 지울 수 없어요');
+  return true;
+}
 // FOLDER-순서·색 ③-2: 사진 폴더(원드라이브·구글 드라이브) ⋯ 메뉴의 [색 고르기…][위로][아래로]. 값은 서버 app_folder_prefs에만 적고 클라우드의 실제 폴더는 바뀌지 않는다(이 앱에서만 보임).
 const lookMode = {od: createColorMode(), gd: createColorMode()};
 const sibsOf = (src, id) => { const t = src === 'gd' ? gdTree() : tree, f = photoFolderById(t, id); return f ? photoSubfolders(t, f.parent_id).map(x => x.id) : []; };
@@ -3108,9 +3116,10 @@ const folderMenu = createAnchoredMenu({id:'photosFolderMenu', className:'od-link
     const sw = tree?.whole && !top && !treeWide() ? menuBtn('data-fm-sw', photoFolderById(tree, id)?.enabled === false ? '켜기(사진에 보이기)' : '끄기(사진에 안 보이기)') : '';
     return [sw, can ? menuBtn('data-fm-new', '새 하위 폴더') : '', !top && can ? menuBtn('data-fm-rename', '이름 바꾸기') : '', !top && can ? menuBtn('data-fm-move', '옮기기…') : '',
       !top ? lookItems('od', id) : '',
-      !top && can ? menuBtn('data-fm-delete', '지우기', 'od-link-danger') : '', can ? '' : '<p class="od-link-status">바꾸려면 원드라이브를 다시 연결해 주세요</p>'].join('');
+      delBtn('data-fm-delete', folderDeleteOff('od', {top, can})), can ? '' : '<p class="od-link-status">바꾸려면 원드라이브를 다시 연결해 주세요</p>'].join('');
   },
   onAction:(b, {id, trigger}) => {
+    if (offPressed(b)) return;
     if (lookAction('od', b, id, trigger, folderMenu)) return;
     if (b.matches('[data-fm-sw]')) return toggleFolder(id);
     if (b.matches('[data-fm-new]')) return newFolder(id);
@@ -3125,9 +3134,10 @@ const phoneFolderMenu = createAnchoredMenu({id:'photosPhoneFolderMenu', classNam
     const f = phoneFolderOf(id), can = phoneOps() && !!f, mov = can && isPhoneMovable(id);
     const sw = phoneSw() && f && !f.pending && !treeWide() ? menuBtn('data-pfm-sw', phoneOff.has(id) ? '켜기(사진에 보이기)' : '끄기(사진에 안 보이기)') : '';
     return [sw, can ? menuBtn('data-pfm-new', '새 하위 폴더') : '', mov ? menuBtn('data-pfm-rename', '이름 바꾸기') : '', mov && !f.pending ? menuBtn('data-pfm-move', '옮기기…') : '',
-      can && (f.pending || isPhoneTrashable(id)) ? menuBtn('data-pfm-delete', '지우기', 'od-link-danger') : '', mov || !can ? '' : '<p class="od-link-status">DCIM·Pictures 아래 폴더만 이름·위치를 바꿀 수 있어요</p>'].join('');
+      f ? delBtn('data-pfm-delete', folderDeleteOff('phone', {ops: phoneOps(), trashable: !!f.pending || isPhoneTrashable(id)})) : '', mov || !can ? '' : '<p class="od-link-status">DCIM·Pictures 아래 폴더만 이름·위치를 바꿀 수 있어요</p>'].join('');
   },
   onAction:(b, {id, trigger}) => {
+    if (offPressed(b)) return;
     if (b.matches('[data-pfm-sw]')) return togglePhoneFolder(id);
     if (b.matches('[data-pfm-new]')) return newPhoneFolder(id);
     if (b.matches('[data-pfm-rename]')) return renamePhoneFolder(trigger, id);
@@ -3137,8 +3147,9 @@ const phoneFolderMenu = createAnchoredMenu({id:'photosPhoneFolderMenu', classNam
 // S46-24 ④: 구글 드라이브 폴더 ⋯ = 새 하위 폴더·이름 바꾸기·지우기(드라이브 휴지통, 확인 한 번).
 const gdFolderMenu = createAnchoredMenu({id:'photosGdFolderMenu', className:'od-link-menu', label:'구글 드라이브 폴더 메뉴', historyKey:'kptuPhotosGdFolderMenu',
   key:t => t.dataset.photosGfMore || '', onClose:() => lookMode.gd.onClose(),
-  render:id => (lookMode.gd.active(id) ? colorChoiceHtml(folderLook.color('gd', id)) : gdUsable() ? [menuBtn('data-gfm-new', '새 하위 폴더'), menuBtn('data-gfm-rename', '이름 바꾸기'), lookItems('gd', id), menuBtn('data-gfm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>' + lookItems('gd', id)),
+  render:id => (lookMode.gd.active(id) ? colorChoiceHtml(folderLook.color('gd', id)) : gdUsable() ? [menuBtn('data-gfm-new', '새 하위 폴더'), menuBtn('data-gfm-rename', '이름 바꾸기'), lookItems('gd', id), delBtn('data-gfm-delete', '')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>' + lookItems('gd', id) + delBtn('data-gfm-delete', folderDeleteOff('gd', {can: false}))),
   onAction:(b, {id, trigger}) => {
+    if (offPressed(b)) return;
     if (lookAction('gd', b, id, trigger, gdFolderMenu)) return;
     if (b.matches('[data-gfm-new]')) return gdNewFolder(id);
     if (b.matches('[data-gfm-rename]')) return gdRenameFolder(id);
