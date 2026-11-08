@@ -1729,6 +1729,26 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 #uploadDock .up-bar > i{ background:var(--kptu-surface); }
 #uploadDock :is(button.row-act,button.icon-btn){ color:var(--kptu-surface); }
 
+/* UI-줄⋯공용맞추기(요청함 11/09 07:36): 줄 끝 ⋯ (row-more.js)의 모양·작은 메뉴는 모든 화면 공용 — 예전에는 #homeView 안에서만 정해져 담당조직 등에서 ▶·▼와 큰 버튼 메뉴가 보였다. 홈 모양은 그대로, 규칙만 화면 밖으로 옮김.
+   ▶·▼ 펼침 표시는 없고 ⋯ 만 보인다. 줄(.wl-line)에서는 ⋯ 를 글 오른쪽 위(첫 줄 높이)에 고정해 긴 글에서도 아래로 내려가지 않고 줄 높이를 늘리지 않는다. */
+#appView .journal-kind-more{ display:inline-block; margin-left:6px; vertical-align:baseline; }
+#appView .journal-kind-more > summary{ list-style:none; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm); margin-block:-4px; cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1; border-radius:var(--kptu-radius-md); vertical-align:middle; }
+#appView .journal-kind-more > summary::-webkit-details-marker{ display:none; }
+#appView .row-more{ position:relative; }
+#appView .row-more-menu{ position:absolute; z-index:40; top:calc(100% + 2px); right:0; display:flex; flex-direction:column; min-width:7.5em; box-sizing:border-box; padding:4px;
+  border:var(--ds-line-width) solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float); }
+.row-more-menu.row-more-menu > button{ display:flex; align-items:center; width:100%; height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin:0; padding:0 10px;
+  border:0; border-radius:var(--kptu-radius-sm); background:transparent; box-shadow:none; color:var(--kptu-ink); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-regular); line-height:1; text-align:left; white-space:nowrap; }
+.row-more-menu.row-more-menu > button:is(:hover,:focus-visible):not(:disabled){ background:var(--kptu-primary-soft); outline:none; }
+.row-more-menu.row-more-menu > button.row-more-danger{ color:var(--kptu-danger); }
+.row-more-menu.row-more-menu > button:disabled{ color:var(--kptu-muted); opacity:.6; }
+#appView .row-more > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:1px; }
+#appView .journal-kind-more > summary::marker{ content:""; }
+#appView .journal-kind-more > summary::-webkit-details-marker{ display:none; }
+.wl-line{ position:relative; }
+.wl-line:has(> .row-more){ padding-right:calc(var(--ds-compact-height-sm) + 2px); }
+#appView .wl-line > .row-more{ position:absolute; top:2px; right:0; margin:0; }
+
 /* ===== UI-요청상자통일(S52-09, 요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html 명진 'ㅇ') =====
    홈 '나한테 온 요청'·'잊지 말기' 상자와 정리함 '나한테 온 요청' 상자가 함께 쓰는 공용 부품(app/notice-box.mjs) 한 곳의 모양.
    같은 둥근 상자·머리 줄·줄·버튼, 색만 tone(ask = 톤다운 파랑 --kptu-info, forget = 톤다운 노랑 --kptu-warning). 버튼 모양은 'UI-버튼6가지'
@@ -1787,26 +1807,6 @@ button.ds-chip[data-chip-tone="forget"][data-chip-empty]{ color:var(--kptu-faint
 button.ds-chip[data-dot-toggle]{ color:var(--kptu-ink); background:var(--kptu-surface); border-color:var(--ds-line); }
 button.ds-chip[data-dot-toggle][aria-pressed="false"]{ color:var(--kptu-faint); background:transparent; }
 button.ds-chip[data-dot-toggle][aria-pressed="false"] > .ui-color-dot{ background:transparent; box-shadow:inset 0 0 0 1.5px currentColor; }
-
-/* UI-줄⋯공용맞추기(요청함 11/09 07:36): 줄 끝 ⋯ (row-more.js)의 모양·작은 메뉴는 모든 화면 공용 — 예전에는 #homeView 안에서만 정해져 담당조직 등에서 ▶·▼와 큰 버튼 메뉴가 보였다. 홈 모양은 그대로, 규칙만 화면 밖으로 옮김.
-   ▶·▼ 펼침 표시는 없고 ⋯ 만 보인다. 줄(.wl-line)에서는 ⋯ 를 글 오른쪽 위(첫 줄 높이)에 고정해 긴 글에서도 아래로 내려가지 않고 줄 높이를 늘리지 않는다. */
-#appView .journal-kind-more{ display:inline-block; margin-left:6px; vertical-align:baseline; }
-#appView .journal-kind-more > summary{ list-style:none; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm); margin-block:-4px; cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1; border-radius:var(--kptu-radius-md); vertical-align:middle; }
-#appView .journal-kind-more > summary::-webkit-details-marker{ display:none; }
-#appView .row-more{ position:relative; }
-#appView .row-more-menu{ position:absolute; z-index:40; top:calc(100% + 2px); right:0; display:flex; flex-direction:column; min-width:7.5em; box-sizing:border-box; padding:4px;
-  border:var(--ds-line-width) solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float); }
-.row-more-menu.row-more-menu > button{ display:flex; align-items:center; width:100%; height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin:0; padding:0 10px;
-  border:0; border-radius:var(--kptu-radius-sm); background:transparent; box-shadow:none; color:var(--kptu-ink); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-regular); line-height:1; text-align:left; white-space:nowrap; }
-.row-more-menu.row-more-menu > button:is(:hover,:focus-visible):not(:disabled){ background:var(--kptu-primary-soft); outline:none; }
-.row-more-menu.row-more-menu > button.row-more-danger{ color:var(--kptu-danger); }
-.row-more-menu.row-more-menu > button:disabled{ color:var(--kptu-muted); opacity:.6; }
-#appView .row-more > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:1px; }
-#appView .journal-kind-more > summary::marker{ content:""; }
-#appView .journal-kind-more > summary::-webkit-details-marker{ display:none; }
-.wl-line{ position:relative; }
-.wl-line:has(> .row-more){ padding-right:calc(var(--ds-compact-height-sm) + 2px); }
-#appView .wl-line > .row-more{ position:absolute; top:2px; right:0; margin:0; }
 
 /* ===== UI-버튼6가지(2026-11-06 명진 요청 23:23 '버튼 모양 크기 색깔 테두리 등 전수조사 통일감', 시안 docs/design/mockups/button-six-kinds.html 승인 'ㅇ') =====
    사이트 버튼은 이 6가지뿐이고 모양(높이·모서리·바탕·테두리·글자)은 여기 한 곳이 정한다. 화면 CSS는 자리(간격·순서)만 정한다.
