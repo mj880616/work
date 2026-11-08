@@ -53,7 +53,8 @@ for (const [name, width, height] of [['폰', 390, 800], ['폴드 접힘', 344, 8
   // 폰: 찾기 칸에 저절로 초점이 가지 않는다(자판이 뜨지 않음). 창 자체가 초점을 받는다.
   await expect(picker(page).locator('.lu-move-find')).not.toBeFocused();
   await expect(picker(page)).toBeFocused();
-  // 창은 아래 바 위에서 올라온다(아래 바를 가리지 않음).
+  // 창은 아래 바를 가리지 않는다. S54-04 UI-고르기창버튼아래(11/08 명진 결정 B)로 이 창(노트 ⋯ [폴더로 옮기기], place 'below')은
+  // 아래 시트가 아니라 누른 ⋯ 버튼 아래 작은 창으로 바뀌었다 — 아래 바 위에서 끝나는 기준은 그대로라 이 검사도 그대로 둔다.
   const geo = await page.evaluate(() => ({ p: document.querySelector('#luMovePicker').getBoundingClientRect().bottom, bar: document.querySelector('nav.mobile-tabs')?.getBoundingClientRect().top ?? innerHeight }));
   expect(geo.p).toBeLessThanOrEqual(geo.bar);
   // 처음엔 목록이 넘친다(맨 아래 폴더는 안 보임).

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { expectPickerAtButton } from './helpers/picker-anchor.mjs';
 
 // NOTE-추가폴더표시 → NOTE-탐색기 (2026-10-28): the note input shows which folder a NEW note goes into as a small [폴더 ▾] button
 // ("회의 ▾" / "폴더 없음 ▾"): the entered folder (folder ⋯ [이 폴더로 들어가기]), unless another one is picked on the button, which opens
@@ -114,4 +115,14 @@ for (const width of [1280, 412]) test(`inside a folder the head ⋯ has [이 폴
   await expect(page.locator('#noteDocMenu button').first()).toHaveText('이 폴더에 새 노트');
   await press(page, page.locator('#noteDocMenu [data-nx-new-note]'), width);
   await expect(page.locator('#edWindow [data-edw-folder]')).toHaveText('회의 ▾');
+});
+
+// S54-04 UI-고르기창버튼아래(11/08 명진 결정 B): 노트 입력 줄 [폴더 ▾] 창은 폰·폴드·PC 모두 누른 버튼 바로 아래(자리가 모자라면 위) 작은 창.
+for (const width of [390, 884, 1280]) test(`노트 [폴더 ▾] 고르기 창은 누른 버튼에 붙어 열린다 ${width}`, async ({ page }) => {
+  const f = await fixture(page, width);
+  await press(page, folderBtn(page), width);
+  await expectPickerAtButton(page, picker(page), folderBtn(page));
+  await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);
+  await expect(folderBtn(page)).toHaveText('회의 ▾');
+  expect(f.errors).toEqual([]);
 });

@@ -1,7 +1,8 @@
 import {SHEET,pressName} from './helpers/area-org-picker.mjs';
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryTopMenu} from './helpers/library-tree.mjs';
-import {bootLibrary,libFolder,libDoc,SB,press} from './helpers/library-folder-server.mjs';
+import {bootLibrary,libFolder,libDoc,SB,press,movePicker,moveFolder} from './helpers/library-folder-server.mjs';
+import {expectPickerAtButton} from './helpers/picker-anchor.mjs';
 // LIB-폴더탐색기 화면 ③(docs/design/library-tree.md 12절): 선택 모드 일괄 수정 줄([프로젝트|담당조직|종류 바꾸기][폴더로 옮기기][삭제]),
 // 바꾼 칸은 칸별 기록 'user', '… 바꿨어요 · 되돌리기', 일부 실패, PC Ctrl/Shift+클릭 선택.
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
@@ -243,4 +244,19 @@ test('분류 묶기에서 끌어 분류 바꾸기, 놓일 묶음 전체 칠함, 
   });
   expect(again).toEqual({allowed:false,panel:true});
   expect(errors).toEqual([]);
+});
+
+// S54-04 UI-고르기창버튼아래(11/08 명진 결정 B): 선택 도구줄 [폴더로 옮기기] 창은 폰·폴드·PC 모두 누른 버튼에 붙은 작은 창(아래, 자리가 모자라면 위).
+for(const width of [390,884,1280])test.describe(`폴더로 옮기기 창 자리 ${width}`,()=>{
+  test.use({hasTouch:width<761});
+  test(`선택 도구줄 [폴더로 옮기기] 창은 누른 버튼에 붙어 열린다 ${width}`,async({page})=>{
+    const {errors,s}=await boot(page,width);
+    await pick(page,['a-2'],width);
+    const btn=page.locator('#librarySelectFolder');
+    await press(page,btn,width);
+    await expectPickerAtButton(page,movePicker(page),btn);
+    await press(page,moveFolder(page,'fn'),width);
+    await expect(movePicker(page)).toBeHidden();
+    expect(errors).toEqual([]);
+  });
 });

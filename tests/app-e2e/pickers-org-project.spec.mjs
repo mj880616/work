@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import { expectChoiceAtButton } from './helpers/choice-anchor.mjs';
 import { SHEET, openPicker, pressRow, openFolds } from './helpers/area-org-picker.mjs';
 // UI-고르기창개선 (PC만, 폰 그대로). A: 담당조직 선택은 묶음별 줄(왼쪽 묶음 이름, 오른쪽 낮은 칩) + 맨 위 검색칸, 고른 칩은 초록 + ✓,
 // 조직 이름은 전체 그대로. 묶음 순서는 철도 / 지하철 / 민자철도 / 민간도시철도, 묶음에 없는 조직은 맨 아래 "그 외".
@@ -35,6 +36,7 @@ async function homeProjectSheet(page,width){
  const trigger=q.locator('[data-quick-project]');await trigger.click();const sheet=dialog(page);await expect(sheet).toBeVisible();
  return {q,trigger,sheet};
 }
+const quickOrgButton=page=>quick(page).locator('[data-quick-org]');
 const below=async(trigger,sheet)=>{const t=await trigger.boundingBox(),d=await sheet.boundingBox();return {t,d,gap:d.y-(t.y+t.height)};};
 
 // UPD-여러곳고르기 ①: 담당조직도 프로젝트처럼 — 묶음 이름은 작은 소제목, 그 아래 조직이 한 줄에 하나씩 체크칸과 함께.
@@ -134,7 +136,8 @@ test('PC 프로젝트: 한 줄에 하나, 하위는 들여쓰기·흐린 글자(
 // row, since many can be chosen) with [취소] [저장] fixed at the bottom; still no search box.
 test('폰: 아래에서 올라오는 시트, 찾기 칸, 묶음 이름 + 조직 줄 44px, 체크칸, 아래 [취소] [저장]',async({page})=>{
  const {sheet}=await homeOrgSheet(page,390,NAMES);
- await expect(sheet).not.toHaveClass(/home-choice-anchored/);
+ // S54-05(11/08 명진 결정): 폰도 누른 버튼 아래 작은 창(전에는 아래에서 올라오는 시트). 폰 줄 높이·체크칸·아래 [취소] [저장]은 그대로.
+ await expectChoiceAtButton(page,sheet,quickOrgButton(page),{firstRow:false});
  /* S52-01 ②: 폰도 찾기 칸 */await expect(sheet.getByRole('searchbox')).toBeVisible();await expect(sheet.locator('[data-sheet-all] .aop-group-label')).toHaveText(['철도','지하철','민자철도','민간도시철도']);
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]').first()).toHaveCSS('min-height','44px');
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]')).toHaveText(NAMES);
@@ -144,7 +147,7 @@ test('폰: 아래에서 올라오는 시트, 찾기 칸, 묶음 이름 + 조직 
  // S52-01 ②: 찾기 칸은 폰에도 있어, PC에서 쓴 글자가 폰 폭으로 줄여도 그대로 거른다.
  await page.keyboard.press('Escape');await page.setViewportSize({width:1280,height:900});await quick(page).locator('[data-quick-org]').click();
  await sheet.getByRole('searchbox').fill('9호선');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(2);
- await page.setViewportSize({width:390,height:844});await expect(sheet).not.toHaveClass(/home-choice-anchored/);
+ await page.setViewportSize({width:390,height:844});await expect(sheet).toHaveClass(/home-choice-anchored/);
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(2);
 });
 
@@ -166,7 +169,7 @@ test('할 일 연결 고르기 창(PC): 하위는 ↳ 없이 들여쓰기·흐�
  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();
  await page.setViewportSize({width:390,height:844});
  await openPicker(page,'#gtEditLinkBody','org');
- await expect(sheet).not.toHaveClass(/home-choice-anchored/);await expect(sheet.locator('[data-sheet-search]')).toBeVisible();
+ await expect(sheet).toHaveClass(/home-choice-anchored/);await expect(sheet.locator('[data-sheet-search]')).toBeVisible(); // S54-05: 폰도 버튼 아래 작은 창
 });
 
 // UI-화면점검 ③ → S52-01: 연결 칸은 테두리 상자·legend 없이 두 줄. 줄 이름은 다른 칸 이름보다 크지 않고 한 줄, 안내 줄 없음(UI-당연한안내삭제).
