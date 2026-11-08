@@ -19,15 +19,77 @@ const LEGACY=Object.freeze({
   국회자료:['정책'],정부자료:['정책'],'토론회·발제자료':['정책'],
   회의자료:['회의'],회의결과:['회의'],
   // LIB-소분류: '주간보고 확정본·개인본'은 '주간보고›확정본·개인본'(소분류)으로 합친다(DB 20261031000000). 합치기 전후 같은 꼬리표.
-  '주간보고 확정본':['주간보고›확정본'],'주간보고›확정본':['주간보고 확정본'],
-  '주간보고 개인본':['주간보고›개인본'],'주간보고›개인본':['주간보고 개인본'],
+  // S53-16 WEEKLY-분류이름바뀜(명진 11/08): 소분류 이름을 '팀 확정본'·'개인 확정본'으로 바꿨다. 옛 이름의 자료도 지금 이름의 꼬리표로 보인다.
+  '주간보고 확정본':['주간보고›팀 확정본','주간보고›확정본'],'주간보고›확정본':['주간보고›팀 확정본','주간보고 확정본'],'주간보고›팀 확정본':['주간보고›확정본','주간보고 확정본'],
+  '주간보고 개인본':['주간보고›개인 확정본','주간보고›개인본'],'주간보고›개인본':['주간보고›개인 확정본','주간보고 개인본'],'주간보고›개인 확정본':['주간보고›개인본','주간보고 개인본'],
 });
-// LIB-소분류: 주간보고 상자가 찾고 저장하는 분류 값. 합치기(DB) 전에는 옛 이름, 뒤에는 새 이름이 자료에 있으므로 두 이름을 모두 찾는다.
-export const WEEKLY_CATEGORY_NAMES=Object.freeze({confirmed:Object.freeze(['주간보고 확정본','주간보고›확정본']),personal:Object.freeze(['주간보고 개인본','주간보고›개인본'])});
-// PostgREST 조건(category=…): 두 이름 중 하나.
-export const weeklyCategoryFilter=kind=>'in.('+encodeURIComponent(WEEKLY_CATEGORY_NAMES[kind].map(name=>`"${name}"`).join(','))+')';
-// 저장할 값: 내 목록에 새 이름이 있으면 새 이름, 아니면 옛 이름(지금 목록의 꼬리표와 맞게).
-export const weeklySaveCategory=kind=>{const [old,next]=WEEKLY_CATEGORY_NAMES[kind];return current.includes(next)?next:old;};
+// ---- 환류에 쓰는 분류(역할) — S53-16 WEEKLY-분류이름바뀜 ----
+// 주간보고 상자·환류(바탕 찾기·[확정] 저장·학습 시험)는 분류를 이름 글자로 맞추지 않고 '역할'로 찾는다. 역할 → 지금 내 목록의 이름을 고르는 차례:
+//   ① 표식: 내 프로필 화면 기억 category_roles(view-prefs.js, DB 20261108080000) {weekly_team, weekly_personal: 분류 이름}. 분류 고치기에서 이름을 바꾸면 표식도 새 이름으로 고친다.
+//   ② 알려진 이름: 지금 이름('주간보고›팀 확정본'·'주간보고›개인 확정본') → 소분류 합치기 이름('›확정본'·'›개인본') → 옛 큰 분류 이름(' 확정본'·' 개인본').
+//   ③ 모양: 표식·알려진 이름이 다 없으면, '주간보고'가 든 큰 분류(또는 다른 역할 분류의 큰 분류) 아래 소분류 중 이름에 '개인'(개인 확정본)·'팀'(팀 확정본, 없으면 '개인' 없는 '확정')이 든 것이 하나뿐일 때 그것.
+// 자료를 찾을 때는 지금 이름과 옛 이름을 모두 찾는다(옛 이름 그대로 남은 자료도 바탕이 됨). 저장할 때는 지금 이름(없으면 옛 큰 분류 이름 — 꼬리표는 위 LEGACY로 맞음).
+// 역할 분류는 분류 고치기에서 '환류' 표시가 붙고 지우기가 막힌다(이름 바꾸기는 됨, document-category-editor.js). 표식에는 분류 이름만 담고 보고 글·사람 이름은 담지 않는다.
+export const CATEGORY_ROLE_KEYS=Object.freeze({confirmed:'weekly_team',personal:'weekly_personal'});
+const WEEKLY_KNOWN=Object.freeze({
+  confirmed:Object.freeze(['주간보고›팀 확정본','주간보고›확정본','주간보고 확정본']),
+  personal:Object.freeze(['주간보고›개인 확정본','주간보고›개인본','주간보고 개인본']),
+});
+export const WEEKLY_ROLE_LABEL=Object.freeze({confirmed:'팀 확정본',personal:'개인 확정본'});
+// 지금 표식(서버 화면 기억). 시험·다른 화면은 marks를 직접 넘긴다.
+const liveMarks=()=>{try{const v=typeof window!=='undefined'?window.KPTUViewPrefs?.getCategoryRoles?.():null;return v&&typeof v==='object'?v:{};}catch{return {};}};
+const leafHas=(name,word)=>categoryLeaf(name).includes(word);
+function shapeMatch(kind,list,parents){
+  const subs=list.filter(name=>isSubcategory(name)&&parents.has(categoryParent(name)));
+  const hit=kind==='personal'?subs.filter(name=>leafHas(name,'개인'))
+    :(found=>found.length?found:subs.filter(name=>leafHas(name,'확정')&&!leafHas(name,'개인')))(subs.filter(name=>leafHas(name,'팀')&&!leafHas(name,'개인')));
+  return hit.length===1?hit[0]:'';
+}
+// 역할(kind: 'confirmed' = 팀 확정본, 'personal' = 개인 확정본) → 지금 목록의 분류 이름. 못 찾으면 ''.
+export function weeklyCategoryOf(kind,{list=current,marks=liveMarks()}={}){
+  const mark=marks?.[CATEGORY_ROLE_KEYS[kind]];
+  if(typeof mark==='string'&&list.includes(mark))return mark;
+  const known=WEEKLY_KNOWN[kind].find(name=>list.includes(name));
+  if(known)return known;
+  const parents=new Set(shapeOf(list).tops.filter(name=>name.includes('주간보고')));
+  const other=kind==='personal'?'confirmed':'personal',otherName=marks?.[CATEGORY_ROLE_KEYS[other]];
+  if(typeof otherName==='string'&&list.includes(otherName)&&isSubcategory(otherName))parents.add(categoryParent(otherName));
+  for(const name of WEEKLY_KNOWN[other])if(list.includes(name)&&isSubcategory(name))parents.add(categoryParent(name));
+  return shapeMatch(kind,list,parents);
+}
+// 이 분류 이름이 맡은 역할('confirmed'·'personal'·''). 분류 고치기의 '환류' 표시·지우기 막기·이름 바꾼 뒤 표식 고치기에 쓴다.
+export function weeklyRoleOf(name,opts={}){
+  for(const kind of Object.keys(CATEGORY_ROLE_KEYS))if(name&&weeklyCategoryOf(kind,opts)===name)return kind;
+  return '';
+}
+// 자료를 찾을 분류 값들: 지금 이름 + 표식 + 알려진 옛 이름(겹침 없이, 지금 이름이 맨 앞).
+export function weeklyCategoryNames(kind,opts={}){
+  const now=weeklyCategoryOf(kind,opts),mark=(opts.marks??liveMarks())?.[CATEGORY_ROLE_KEYS[kind]];
+  return Object.freeze([...new Set([now,typeof mark==='string'?mark:'',...WEEKLY_KNOWN[kind]].filter(Boolean))]);
+}
+// 화면에 보일 이름(안내 문구): 지금 이름('주간보고 › 개인 확정본'), 없으면 역할 이름.
+export const weeklyCategoryLabel=(kind,opts={})=>{const now=weeklyCategoryOf(kind,opts);return now?categoryLabel(now):WEEKLY_ROLE_LABEL[kind];};
+// 바탕을 못 찾았을 때 한 줄: 어느 분류를 찾았는지(목록에 없는 역할은 그렇다고).
+export function weeklySearchNote(kinds=['personal','confirmed'],opts={}){
+  return kinds.map(kind=>{const now=weeklyCategoryOf(kind,opts);return now?`‘${categoryLabel(now)}’`:`${WEEKLY_ROLE_LABEL[kind]}(분류 목록에 없음)`;}).join('·');
+}
+// 옛 이름표(LIB-소분류 때부터 쓰던 모양). 찾기는 weeklyCategoryNames를 쓴다.
+export const WEEKLY_CATEGORY_NAMES=Object.freeze({confirmed:WEEKLY_KNOWN.confirmed,personal:WEEKLY_KNOWN.personal});
+// PostgREST 조건(category=…): 찾을 이름 중 하나.
+export const weeklyCategoryFilter=(kind,opts={})=>'in.('+encodeURIComponent(weeklyCategoryNames(kind,opts).map(name=>`"${name.replace(/["\\]/g,c=>'\\'+c)}"`).join(','))+')';
+// 저장할 값: 지금 목록의 역할 이름, 없으면 옛 큰 분류 이름(목록에 없는 값은 위 LEGACY·앞부분 규칙으로 꼬리표가 맞춰진다).
+export const weeklySaveCategory=(kind,opts={})=>weeklyCategoryOf(kind,opts)||WEEKLY_KNOWN[kind][WEEKLY_KNOWN[kind].length-1];
+// 분류 이름을 바꾼 뒤(분류 고치기): 역할 분류였으면 표식을 새 이름으로. renamed = [[옛 이름, 새 이름], …](큰 분류를 바꾸면 그 소분류들도).
+// roles = 바꾸기 전에 잰 {kind: 옛 이름}. 바뀐 표식(없으면 null)을 돌려준다 — 저장은 부르는 쪽이 view-prefs로.
+export function rolesAfterRename(roles,renamed,marks=liveMarks()){
+  const next={...(marks&&typeof marks==='object'?marks:{})};let changed=false;
+  for(const [kind,name] of Object.entries(roles||{})){
+    const hit=(renamed||[]).find(([from])=>from===name);if(!hit)continue;
+    const key=CATEGORY_ROLE_KEYS[kind];if(!key||next[key]===hit[1])continue;
+    next[key]=hit[1];changed=true;
+  }
+  return changed?next:null;
+}
 // LIB-소분류: 소분류는 내 목록에 '큰분류›소분류' 한 칸으로 둔다(구분 글자 '›' U+203A, DB 20261031000000). 자료 값도 같은 모양.
 // 한 단계까지만 쓴다. 칸 하나의 20자 한도는 '큰분류›소분류' 전체에 걸린다(DB 검사 그대로).
 export const SUB_SEPARATOR='›';

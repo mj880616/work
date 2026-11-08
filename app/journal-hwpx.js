@@ -68,7 +68,7 @@ import {notify, askConfirm} from './small-notice.js'; // 환류 보고 답 뒤 �
 import {materialLine} from './weekly-ai-material.mjs';
 import {isDropped, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 import {matchOrg} from './org-name-match.mjs';
-import {weeklyCategoryFilter} from './document-categories.js'; // LIB-소분류: 옛 이름·새 소분류 이름 모두 찾기
+import {weeklyCategoryFilter, weeklyCategoryLabel, weeklySearchNote, loadDocumentCategories} from './document-categories.js'; // S53-16: 분류는 역할(팀·개인 확정본)로 찾기 — 이름이 바뀌어도
 import {readStatusRows} from './org-status-table.js'; // DESK-현황표: 담당조직 [현황 표] 줄 → 3. 2) 투쟁 사업장 그 조직 칸
 import {siteLinesFromTable} from './org-status-model.mjs';
 import {readWeekLines} from './weekly-org-lines.js'; // WEEKLY-메뉴짝짓기 P6: 주별 조직보고 표 → 4. 1) 산하조직·3. 2) 투쟁 사업장 칸
@@ -79,14 +79,14 @@ import {reportLine as orgRefLine, materialLine as orgRefMaterial, alreadyIn as o
 import {sortPicks, droppedOf, keptOf, withPick, pickKey, reviewDue, withReview} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {learnFor} from './weekly-picks.js';
 
-const CONFIRMED_CATEGORY = '주간보고 확정본';
-// WEEKLY-환류학습 1(docs/design/weekly-draft-feedback.md 10절): 다음 주 바탕은 내가 최종으로 올린 최신 '주간보고 개인본'(보고일 앞의 것). 없으면 지금처럼 팀 확정본.
-const PERSONAL_CATEGORY = '주간보고 개인본';
+// WEEKLY-환류학습 1(docs/design/weekly-draft-feedback.md 10절): 다음 주 바탕은 내가 최종으로 올린 최신 개인 확정본(보고일 앞의 것). 없으면 지금처럼 팀 확정본.
+// S53-16: 두 분류는 이름 글자가 아니라 역할로 찾는다(document-categories.js weeklyCategoryOf). 안내 문구도 지금 분류 이름으로.
 const encode = encodeURIComponent;
 const TEXT = Object.freeze({
   // WEEKLY-한글파일다듬기 ①(2026-10-23 사용자 요청 11:35): 안내문 쉽게, 바탕 확정본이 있을 때·없을 때 따로.
   noBrowser: '이 브라우저는 한글 파일 만들기(압축)를 지원하지 않아요. 최신 크롬·사파리·엣지에서 열어 주세요.',
-  noConfirmed: `자료실에 바탕(지난 개인본·"${CONFIRMED_CATEGORY}")이 없어요. 팀 확정본을 그 분류로 올리거나 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 써 주세요.`,
+  // S53-16 ③: 바탕을 못 찾으면 어느 분류를 찾았는지 한 줄(분류 이름이 바뀌었거나 목록에 없을 때 바로 보이게).
+  noConfirmed: () => `자료실에 바탕이 없어요(찾은 분류: ${weeklySearchNote()}). 지난 팀 확정본을 ‘${weeklyCategoryLabel('confirmed')}’ 분류로 올리거나 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 써 주세요.`,
   readFailed: '자료실을 읽지 못했어요. 잠시 뒤 다시 시도하거나 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 써 주세요.',
   // WEEKLY-한글파일다듬기 ②: 자동 변환(칸막이 편집기 엔진)이 안 될 때만. 괄호 안은 다음에 원인을 좁히려는 짧은 이유(시간 초과 등).
   engineFailed: '이 파일은 옛 한글 형식(.hwp)이라 쓸 수 없어요. 한글에서 열어 ‘다른 이름으로 저장’ → 파일 형식 HWPX로 저장한 뒤 다시 골라 주세요.',
@@ -279,7 +279,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const date = s ? s.date : (d?.date || (week.start ? reportDateText(week.start) : ''));
     const me = s ? s.me : (d?.me_from === 'typed' ? d.me : '');
     const from = s ? s.baseKind : (d?.proposed?.base?.from ?? '');
-    const base = from === 'personal' ? '지난 개인본' : from === 'file' ? '기기 파일' : from ? '팀 확정본' : '';
+    const base = from === 'personal' ? '지난 개인 확정본' : from === 'file' ? '기기 파일' : from ? '팀 확정본' : '';
     if (topEdit && s) {
       const input = el('input'); input.type = 'text'; input.value = topEdit === 'me' ? s.me : s.date; input.dataset.hwpxTopInput = topEdit;
       input.setAttribute('aria-label', topEdit === 'me' ? '담당 팀원 칸의 내 이름' : '■ 일시');
@@ -328,14 +328,14 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       const chosen = pinned ? (pick?.doc?.id === pinned.id ? pick : {doc:pinned, from:pinned.from === 'personal' ? 'personal' : 'confirmed', team:null}) : pick;
       const found = chosen?.doc ?? null;
       if (mine !== run) return;
-      if (!found) { say(TEXT.noConfirmed, 'error'); return; }
+      if (!found) { say(TEXT.noConfirmed(), 'error'); return; }
       const {drive} = await lazy();
       if (found.file_name && !drive.isHwpName(found.file_name)) { say(TEXT.notHwp, 'error'); return; }
       say('바탕을 여는 중…');
       const {bytes, info} = await drive.openHwpFromDrive({kind:'library', document:{id:found.id}}, {rt});
       if (mine !== run) return;
       const personal = chosen.from === 'personal';
-      await load(bytes, found.file_name, info.format, `자료실${personal ? ' 개인본' : ''} · ${found.title || found.file_name}`, mine, {from:'library', document_id:String(found.id), file_name:String(found.file_name || ''), title:String(found.title || '')}, personal ? 'personal' : 'confirmed');
+      await load(bytes, found.file_name, info.format, `자료실${personal ? ' 개인 확정본' : ''} · ${found.title || found.file_name}`, mine, {from:'library', document_id:String(found.id), file_name:String(found.file_name || ''), title:String(found.title || '')}, personal ? 'personal' : 'confirmed');
       if (mine !== run || !state) return;
       if (personal && teamIsNewer(found, chosen.team)) void loadTeamChanges(state, chosen.team);
     } catch (error) {
@@ -960,13 +960,13 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     let b;
     try { b = await build(); } catch (error) { say(error?.code ? error.message : '한글 파일을 만들지 못했어요.', 'error'); return; }
     const prev = s.store?.confirmed?.document_id || getWeek().row?.draft?.confirmed?.document_id || '';
-    const ask = prev ? {text:'이 주 개인본을 새 판으로 바꿀까요?', note:'옛 판은 30일 동안 자료실 [이전 파일]에 남아요.', ok:'바꾸기'} : {text:`"${b.name}"을(를) 자료실 개인본으로 저장하고 받을까요?`, ok:'저장'};
+    const ask = prev ? {text:'이 주 개인 확정본을 새 판으로 바꿀까요?', note:'옛 판은 30일 동안 자료실 [이전 파일]에 남아요.', ok:'바꾸기'} : {text:`"${b.name}"을(를) 자료실 개인 확정본으로 저장하고 받을까요?`, ok:'저장'};
     if (!await askConfirm(trigger, ask)) return;
     // 묻는 동안 다른 주로 바뀌었거나 이미 확정이 시작됐으면 하지 않는다.
     if (mine !== run || state !== s || s.confirming) return;
     const {drive} = await lazy();
     s.confirming = true; paintConfirm(); trigger.setAttribute('aria-busy', 'true');
-    say(prev ? '자료실 개인본을 새 판으로 바꾸는 중…' : '자료실에 저장하는 중…');
+    say(prev ? '자료실 개인 확정본을 새 판으로 바꾸는 중…' : '자료실에 저장하는 중…');
     try {
       let result = prev ? await drive.replaceWeeklyReport(b.bytes, {fileName:b.name, documentId:prev}, {rt}) : null;
       if (!result || result.kind === 'gone') result = await drive.saveWeeklyReport(b.bytes, {fileName:b.name, title:fileNameTitle(b.name), documentDate:reportDay(s.start)}, {rt});
@@ -1126,18 +1126,19 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // 이번 주(보고일이 같은) 개인본을 찾아 연다. 재료는 지금 바탕(이번 주 개인본을 뺀 것)과 이번 주 기록, 서버가 읽는 앞 주들 기록뿐이다.
   async function thisWeekPersonal(s) {
     const workspace = rt.context.read()?.workspace?.id, day = reportDay(s.start);
+    await loadDocumentCategories({rt}).catch(() => {});
     const rows = await rt.api(`/rest/v1/app_documents?workspace_id=eq.${encode(workspace)}&category=${weeklyCategoryFilter('personal')}&document_date=eq.${day}&select=id,title,file_name,document_date,created_at&order=created_at.desc,id.desc&limit=1`);
     return Array.isArray(rows) && rows[0] ? rows[0] : null;
   }
   async function learnTest(s, trigger) {
-    const t = s.learn = {status:'running', note:'이번 주 개인본과 견줄 준비를 해요.'}; paintLearn();
+    const t = s.learn = {status:'running', note:'이번 주 개인 확정본과 견줄 준비를 해요.'}; paintLearn();
     trigger.disabled = true;
     try {
       const doc_ = await thisWeekPersonal(s).catch(() => undefined);
       if (state !== s || s.learn !== t) return;
       if (doc_ === undefined) { t.status = 'failed'; t.note = '자료실을 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.'; return; }
-      if (!doc_) { t.status = 'failed'; t.note = `이번 주 "${PERSONAL_CATEGORY}"가 자료실에 없어요. 개인본을 올린 뒤 눌러 주세요.`; return; }
-      t.note = 'AI가 이번 주 재료로 초안을 새로 쓰는 중…(이번 주 개인본은 보지 않아요)'; paintLearn();
+      if (!doc_) { t.status = 'failed'; t.note = `이번 주 "${weeklyCategoryLabel('personal')}"가 자료실에 없어요(찾은 분류: ${weeklySearchNote(['personal'])}). 개인 확정본을 올린 뒤 눌러 주세요.`; return; }
+      t.note = 'AI가 이번 주 재료로 초안을 새로 쓰는 중…(이번 주 개인 확정본은 보지 않아요)'; paintLearn();
       const [ai, mine] = await Promise.all([callLearn(s, 'test'), (async () => {
         const {drive} = await lazy();
         const {bytes} = await drive.openHwpFromDrive({kind:'library', document:{id:doc_.id}}, {rt});
@@ -1146,7 +1147,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       })().catch(() => null)]);
       if (state !== s || s.learn !== t) return;
       if (!ai.ok) { t.status = 'failed'; t.note = ai.code === 'empty' ? '시험할 칸이 없어요.' : (LEARN_TEXT[ai.code] || LEARN_TEXT.internal_error); return; }
-      if (!mine) { t.status = 'failed'; t.note = '이번 주 개인본을 열지 못했어요.'; return; }
+      if (!mine) { t.status = 'failed'; t.note = '이번 주 개인 확정본을 열지 못했어요.'; return; }
       const aiCells = cellsNow(s, 'initial');
       for (const [id, lines] of ai.cells) aiCells.set(id, lines);
       t.status = 'done'; t.result = compareTest(aiCells, mine); t.learned = ai.learned; t.title = String(doc_.title || doc_.file_name || ''); t.note = '';
@@ -1165,14 +1166,14 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const r = t.result, counts = Object.fromEntries(Object.keys(TEST_STATUS).map(k => [k, r.rows.filter(x => x.status === k).length]));
     const fold = el('details', 'journal-hwpx-plans'); fold.open = true; fold.dataset.hwpxLearnResult = '';
     const head = el('summary', '', `학습 시험 — 그대로 쓸 수 있는 줄 ${r.usable}/${r.total}(${r.pct}%)`); head.dataset.hwpxLearnScore = ''; fold.append(head);
-    if ((t.learned?.weeks ?? 0) < 3) { const few = el('p', 'journal-muted', `학습 기록이 아직 ${t.learned?.weeks ?? 0}주뿐이에요(지난 개인본·규칙 ${t.learned?.rules ?? 0}줄로만 만들었어요).`); few.dataset.hwpxLearnFew = ''; fold.append(few); }
-    const sum = el('p', 'journal-muted', `${Object.entries(TEST_STATUS).map(([k, label]) => `${label} ${counts[k]}`).join(' · ')} · 비교: 이번 주 개인본 "${t.title}" (저장하지 않음)`); sum.dataset.hwpxLearnCounts = ''; fold.append(sum);
+    if ((t.learned?.weeks ?? 0) < 3) { const few = el('p', 'journal-muted', `학습 기록이 아직 ${t.learned?.weeks ?? 0}주뿐이에요(지난 개인 확정본·규칙 ${t.learned?.rules ?? 0}줄로만 만들었어요).`); few.dataset.hwpxLearnFew = ''; fold.append(few); }
+    const sum = el('p', 'journal-muted', `${Object.entries(TEST_STATUS).map(([k, label]) => `${label} ${counts[k]}`).join(' · ')} · 비교: 이번 주 개인 확정본 "${t.title}" (저장하지 않음)`); sum.dataset.hwpxLearnCounts = ''; fold.append(sum);
     const ul = el('ul', 'journal-hwpx-material'); let where = '';
     for (const row of r.rows) {
       if (row.where !== where) { where = row.where; const h = el('li', 'journal-weekly-label', where); h.dataset.hwpxLearnWhere = ''; ul.append(h); }
       const li = el('li'); li.dataset.hwpxLearnRow = row.status;
       const tag = el('span', 'journal-weekly-day', TEST_STATUS[row.status]);
-      const text = row.status === 'same' ? row.mine : row.status === 'missing' ? `내 개인본: ${row.mine}` : row.status === 'ai_only' ? `AI: ${row.ai}` : `AI: ${row.ai}  /  내 개인본: ${row.mine}`;
+      const text = row.status === 'same' ? row.mine : row.status === 'missing' ? `내 개인 확정본: ${row.mine}` : row.status === 'ai_only' ? `AI: ${row.ai}` : `AI: ${row.ai}  /  내 개인 확정본: ${row.mine}`;
       li.append(tag, ' ', doc.createTextNode(text)); ul.append(li);
     }
     fold.append(ul);

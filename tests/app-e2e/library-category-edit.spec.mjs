@@ -83,3 +83,29 @@ test('분류 고치기: 다른 기기에서 목록이 바뀐 뒤 순서를 바�
   expect(s.documentCategories).toEqual([...CATS.slice(0,-1),'다른기기','기타']);
   expect(errors).toEqual([]);
 });
+
+// S53-16 WEEKLY-분류이름바뀜: 주간보고 환류에 쓰는 두 분류는 '환류' 표시 · 삭제 막힘(이유 한 줄) · 이름 바꾸기는 됨(바꾸면 표식도 새 이름으로 — 환류가 계속 찾음). 이름은 지어낸 것.
+test('분류 고치기: 환류에 쓰는 분류는 표시 · 삭제 막힘 · 이름을 바꿔도 역할이 따라감',async({page})=>{
+  test.setTimeout(60000);
+  const cats=['교섭','주간보고','주간보고›팀 확정본','주간보고›개인 확정본','기타'];
+  const {s,errors}=await bootLibrary(page,1280,{docs:DOCS,init:{documentCategories:[...cats]}});
+  await openEditor(page,1280);
+  await expect(row(page,'주간보고›팀 확정본').locator('[data-dce-role]')).toHaveText('환류');
+  await expect(row(page,'주간보고›개인 확정본').locator('[data-dce-role]')).toHaveText('환류');
+  await expect(row(page,'교섭').locator('[data-dce-role]')).toHaveCount(0);
+  // 삭제: 묻지 않고 이유 한 줄, 서버 함수 부르지 않음. 그 분류를 품은 큰 분류도 같다.
+  const menu=page.locator('#dceMenu');
+  for(const name of ['주간보고›개인 확정본','주간보고']){
+    await row(page,name).locator('.le-more').click();
+    await menu.getByRole('button').last().click();
+    await expect(modal(page).locator('[data-dce-status]')).toContainText('환류');
+    await expect(page.locator('.kptu-ask')).toHaveCount(0);
+  }
+  expect((s.categoryCalls||[]).filter(c=>/delete/.test(c.fn))).toEqual([]);
+  // 이름 바꾸기: 아무 이름으로 바꿔도 '환류' 표시가 새 이름에 남고, 주간보고 상자가 그 이름으로 찾는다.
+  await row(page,'주간보고›개인 확정본').locator('.le-name').click();
+  const input=modal(page).locator('[data-dce-rename-input]');await input.fill('내 최종판');await input.press('Enter');
+  await expect(row(page,'주간보고›내 최종판').locator('[data-dce-role]')).toHaveText('환류');
+  expect(await page.evaluate(async()=>{const m=await import('./document-categories.js');return [m.weeklyCategoryOf('personal'),m.weeklySaveCategory('personal')];})).toEqual(['주간보고›내 최종판','주간보고›내 최종판']);
+  expect(errors).toEqual([]);
+});
