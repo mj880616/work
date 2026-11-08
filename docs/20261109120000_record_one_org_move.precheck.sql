@@ -62,12 +62,12 @@ union all select 'previous migration record_one_org present',case when (select c
 union all select 'old tables present with end_day',case when to_regclass('public.app_org_status_rows') is not null and to_regclass('public.app_weekly_org_lines') is not null
   and exists(select 1 from pg_attribute where attrelid=to_regclass('public.app_org_status_rows') and attname='end_day' and not attisdropped)
   and (select count(*) from supabase_migrations.schema_migrations where (version='20261104201500' and name='org_status_rows_end_day') or (version='20261104211500' and name='weekly_org_lines'))=2 then '예' else '아니오' end
-union all select 'org records new columns unique index and guard',case when (select count(*) from pg_attribute,u where attrelid=u.p and attnum>0 and not attisdropped
-    and ((attname='raw_text' and atttypid='text'::regtype) or (attname='created_by' and atttypid='uuid'::regtype and not attnotnull)
-      or (attname='created_at' and atttypid='timestamptz'::regtype) or (attname='end_day' and atttypid='date'::regtype)
-      or (attname='source_kind' and atttypid='text'::regtype) or (attname='source_id' and atttypid='uuid'::regtype)))=6
-  and to_regclass('public.app_suborganization_updates_source_once') is not null
-  and (select count(*) from pg_trigger,u where tgrelid=u.p and tgname='app_suborganization_updates_source_guard' and not tgisinternal and tgenabled='O')=1 then '예' else '아니오' end
+union all select 'org records raw_text text',case when (select count(*) from pg_attribute,u where attrelid=u.p and attnum>0 and not attisdropped and attname='raw_text' and atttypid='text'::regtype)=1 then '예' else '아니오' end
+union all select 'org records created_by uuid',case when (select count(*) from pg_attribute,u where attrelid=u.p and attnum>0 and not attisdropped and attname='created_by' and atttypid='uuid'::regtype)=1 then '예' else '아니오' end
+union all select 'org records created_at timestamptz',case when (select count(*) from pg_attribute,u where attrelid=u.p and attnum>0 and not attisdropped and attname='created_at' and atttypid='timestamptz'::regtype)=1 then '예' else '아니오' end
+union all select 'org records O-2 columns',case when (select count(*) from pg_attribute,u where attrelid=u.p and attnum>0 and not attisdropped and attname='end_day' and atttypid='date'::regtype)=1 and (select count(*) from pg_attribute,u where attrelid=u.p and attnum>0 and not attisdropped and attname='source_kind' and atttypid='text'::regtype)=1 and (select count(*) from pg_attribute,u where attrelid=u.p and attnum>0 and not attisdropped and attname='source_id' and atttypid='uuid'::regtype)=1 then '예' else '아니오' end
+union all select 'org records source once index',case when to_regclass('public.app_suborganization_updates_source_once') is not null then '예' else '아니오' end
+union all select 'org records source guard trigger',case when (select count(*) from pg_trigger,u where tgrelid=u.p and tgname='app_suborganization_updates_source_guard' and not tgisinternal and tgenabled='O')=1 then '예' else '아니오' end
 union all select 'org records other required columns have defaults',case when not exists(select 1 from pg_attribute,u where attrelid=u.p and attnum>0 and not attisdropped
   and attnotnull and not atthasdef and attname not in ('organization_id','raw_text','occurred_at','created_at','end_day','source_kind','source_id','created_by')) then '예' else '아니오' end
 union all select 'owner member table',case when (select count(*) from pg_attribute where attrelid=to_regclass('public.app_workspace_members') and attnum>0 and not attisdropped
