@@ -1166,7 +1166,7 @@ test('TRASH-다른삭제 3단계: 휴지통 탭에 자료실 폴더가 프로젝
   await first.locator('[data-ps3-trash-purge]').click();
   const asked=(await askWithNote(page,false)).join(' ');
   expect(asked).toContain('“합성 폴더” 폴더를 영구 삭제할까요');
-  expect(asked).toContain('아래 폴더 2개·자료 5개는 한 단 위로 올라갑니다');expect(asked).toContain('Drive 파일은 지우지 않으며');
+  expect(asked).toContain('아래 폴더 2개·자료 5개는 한 단 위로 올라갑니다');expect(asked).toContain('Drive 파일은 삭제하지 않으며');
   expect(state.trash.others.library_folder.length).toBe(2);
   await first.locator('summary').click();
   // 되돌리기는 그 종류로 가고, 이미 열려 있는 자료실에는 폴더 표를 다시 읽으라고 알린다.
