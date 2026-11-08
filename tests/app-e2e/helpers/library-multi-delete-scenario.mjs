@@ -77,7 +77,7 @@ export async function run(page,base,width,check,{shot=null}={}){
   const dialogs=[];page.on('dialog',async d=>{dialogs.push(d.type());await d.dismiss()});
   await page.locator('#librarySelectDelete').click();
   check(await rows(),0,'rows leave at once');
-  check(await page.locator('#kptuNotice .kptu-notice-text').textContent(),'5개를 지웠어요','small notice');
+  check(await page.locator('#kptuNotice .kptu-notice-text').textContent(),'5개를 삭제했어요','small notice');
   check(state.deletes.length,0,'nothing sent before undo window ends');
   // 되돌리기: 요청 없이 모두 되살림
   await page.locator('#kptuNotice .kptu-notice-undo').click();
@@ -94,7 +94,7 @@ export async function run(page,base,width,check,{shot=null}={}){
   check(state.deletes.every(x=>x.action==='delete'),true,'action delete');
   check(state.peak,1,'one request at a time');
   check(await page.locator('[data-lu-document="a2"]').count(),1,'failed row comes back');
-  check(/^4개를 지웠고 1개는 지우지 못해 되살렸어요/.test(await page.locator('#kptuNotice .kptu-notice-text').textContent()),true,'partial failure notice');
+  check(/^4개를 삭제했고 1개는 삭제하지 못해 되살렸어요/.test(await page.locator('#kptuNotice .kptu-notice-text').textContent()),true,'partial failure notice');
   check(dialogs,[],'no browser dialogs');
   check(await page.locator('#documentList .lu-pick').count(),0,'select mode ends after delete');
   check(await page.locator('#librarySelectBar').isVisible(),false,'bar hidden');
