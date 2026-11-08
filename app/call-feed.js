@@ -17,7 +17,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
 import {createFeedHold} from './feed-hold.js';
-import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, kstDay, splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveErrorText, moveDoneText, callWho, callTopic, callTag, REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText,
+import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, splitPersonal, moveToPersonalWarning, moveErrorText, moveDoneText, callWho, callTopic, callTag, REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText,
   applyCallEdit, cleanEditVals, isEdited, splitPerson, joinPerson, cleanTitleInput, cleanPointLines, samePoints, undoPatch, patchKeys, editErrorText, EDIT_DONE, EDIT_NOOP, EDIT_LEDGER_NOTE, EDIT_NAME_MAX, EDIT_ROLE_MAX, EDIT_TITLE_MAX, EDIT_POINT_MAX, EDIT_POINTS_MAX} from './feed-model.mjs';
 import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, scopeOf, readPersonal, readPersonalRaw, setPersonalHidden, moveCall, readLedgerSeen, refillCall, readCallEdits, editCall} from './feed-data.js';
 // FEED-최신화즉시수집(S52-46): 머리 줄 작은 [최신화](S53-11: 개인 통화함 머리 줄에도 — 같은 통화 수집기·같은 부품) — 누르면 서버가 수집기를 한 번 깨우고, 이 화면의 load()로 1~3분 새 줄을 다시 읽는다(feed-pull.js).
@@ -166,8 +166,7 @@ function paintListNow() {
   const editFail = state.editFail ? `<p class="feed-note" data-cf-editfail role="status">수정한 값을 불러오지 못해 AI가 채운 값이 보일 수 있어요. <button type="button" class="feed-text-btn" data-cf-retry>다시 시도</button></p>` : '';
   if (personalBox) {
     if (state.pfail) { box.innerHTML = head + `<p class="feed-empty" role="status">개인 통화함을 불러오지 못했어요. <button type="button" class="feed-text-btn" data-cf-retry>다시 시도</button></p>${status}`; return; }
-    const legacy = legacyFilteredNote(state.days, kstDay());
-    box.innerHTML = head + editFail + `<p class="feed-note" data-cf-note>업무 기록(원장·주간보고·챙길 것·업무일지)에 쓰이지 않고, 전체 검색에도 나오지 않아요.</p>${legacy ? `<p class="feed-note" data-cf-legacy>${esc(legacy)}</p>` : ''}<div class="feed-rows">${listHtml(personalRows(), emptyHtml('없음', {attrs: 'data-cf-empty="personal"'}))}</div>${status}`;
+    box.innerHTML = head + editFail + `<div class="feed-rows">${listHtml(personalRows(), emptyHtml('없음', {attrs: 'data-cf-empty="personal"'}))}</div>${status}`;
     return;
   }
   const ask = unsureRows();
