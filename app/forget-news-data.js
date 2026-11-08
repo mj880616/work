@@ -11,6 +11,7 @@
 // - 가족 줄은 이 길에 없다(서버가 업무 통화함·업무 텔레그램만 고름). 기기 저장 없음.
 import {callAiAssist} from './basket-ai-summary.js';
 import {seoulDateKey} from './meeting-time.js';
+import {myFeatures} from './my-features.js';
 
 export const NEWS_DAYS = 14; // 처리 전 소식은 최근 2주 것만 목록에 둔다(그 전 줄은 표에 그대로 남음).
 export const NEWS_REFRESH_MS = 60 * 60 * 1000;
@@ -41,15 +42,11 @@ export function matchOrg(name, orgs, mine) {
 }
 export const openNews = rows => (rows || []).filter(r => r.status === 'suggested');
 
-let features = null, featureScope = '';
-// 운영자 기능 calls·telegram 중 하나라도 있는가(서버 app_my_features). 못 읽으면 없음으로 본다(줄을 안 읽을 뿐, 보안은 서버).
+// 운영자 기능 calls·telegram 중 하나라도 있는가(서버 app_my_features — 공용 my-features.js 한 곳에서 GET으로 한 번만 묻는다).
+// 못 읽으면 없음으로 본다(줄을 안 읽을 뿐, 보안은 서버).
 export async function newsOn(rt = window.KPTURuntime) {
-  const scope = scopeOf(rt);
-  if (featureScope !== scope) { featureScope = scope; features = null; }
-  if (!features) features = rt.api('/rest/v1/rpc/app_my_features', {method: 'POST', body: {}, singleFlight: false})
-    .then(v => new Set(Array.isArray(v) ? v.filter(x => typeof x === 'string') : []), () => new Set());
-  const got = await features;
-  return got.has('calls') || got.has('telegram');
+  const got = await myFeatures(rt);
+  return got.includes('calls') || got.includes('telegram');
 }
 // 최근 NEWS_DAYS일 줄(처리 전·넣음·무시 모두). 표가 없으면(404) {missing:true}.
 export async function readNews(rt = window.KPTURuntime, today = seoulDateKey()) {
