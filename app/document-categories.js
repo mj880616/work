@@ -225,7 +225,7 @@ const ERROR_TEXT=Object.freeze({
   INVALID_NAME:'분류 이름을 확인해 주세요. 1~20자, 쉼표 없이, 앞뒤 빈칸 없이 적어 주세요. 아무것도 바뀌지 않았어요.',
   CATEGORY_EXISTS:'이미 있는 분류 이름이에요. 아무것도 바뀌지 않았어요.',
   CATEGORY_NOT_FOUND:'그 분류가 목록에 없어요. 목록을 다시 불러왔어요. 아무것도 바뀌지 않았어요.',
-  CATEGORY_LOCKED:`‘${LOCKED_CATEGORY}’는 이름을 바꾸거나 지울 수 없어요. 아무것도 바뀌지 않았어요.`,
+  CATEGORY_LOCKED:`‘${LOCKED_CATEGORY}’는 이름을 바꾸거나 삭제할 수 없어요. 아무것도 바뀌지 않았어요.`,
   INVALID_INPUT:'이 분류에 묶인 예전 이름이 너무 많아 바꾸지 않았어요. 아무것도 바뀌지 않았어요.',
   FUNCTION_UNAVAILABLE:'분류 목록 기능이 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.',
   UNKNOWN:'저장했는지 확인하지 못했어요. 목록을 다시 불러온 뒤 확인해 주세요.',

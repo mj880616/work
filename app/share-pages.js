@@ -109,7 +109,7 @@ function renderList() {
   if (listState === 'loading' && !pages) status.innerHTML = waitInlineHtml();
   else if (listState === 'error') {
     status.textContent = '공유 페이지 목록을 불러오지 못했어요.';
-    body.push(el('button', {type:'button', class:'secondary', dataset:{spReload:''}, text:'다시 불러오기'}));
+    body.push(el('button', {type:'button', class:'secondary', dataset:{spReload:''}, text:'다시'}));
   } else if (pages && !pages.length) body.push(emptyEl());
   if (pages?.length) body.push(el('ul', {class:'sp-list', 'aria-label':'내 공유 페이지'}, pages.map(page => el('li', {},
     el('button', {type:'button', class:'sp-row', dataset:isHtml(page.id) ? {spPreview:page.id} : {spOpen:page.id}},
@@ -303,7 +303,7 @@ function itemRow(block, b, i) {
     if (multiline) input.value = item[field] ?? '';
     row.append(input);
   }
-  row.append(el('button', {type:'button', class:'sp-tool', dataset:{spItemDel:`${b}:${i}`}, 'aria-label':`${BLOCK_LABELS[block.type]} ${n}번째 줄 지우기`, text:'줄 삭제'}));
+  row.append(el('button', {type:'button', class:'sp-tool', dataset:{spItemDel:`${b}:${i}`}, 'aria-label':`${BLOCK_LABELS[block.type]} ${n}번째 줄 삭제`, text:'줄 삭제'}));
   return row;
 }
 // SHARE-보이는편집: the blocks are shown exactly as the Web1 reader draws them (sr-render.mjs + sr-blocks.css, from the
@@ -314,11 +314,11 @@ function blockTools(block, b, count) {
   return [
     el('button', {type:'button', class:'sp-tool', disabled:b === 0, dataset:{spMove:`${b}:-1`}, 'aria-label':`${n}번째 블록 ${label} 위로`, text:'위로'}),
     el('button', {type:'button', class:'sp-tool', disabled:b === count - 1, dataset:{spMove:`${b}:1`}, 'aria-label':`${n}번째 블록 ${label} 아래로`, text:'아래로'}),
-    el('button', {type:'button', class:'sp-tool sp-danger', dataset:{spBlockDel:String(b)}, 'aria-label':`${n}번째 블록 ${label} 지우기`, text:'삭제'})];
+    el('button', {type:'button', class:'sp-tool sp-danger', dataset:{spBlockDel:String(b)}, 'aria-label':`${n}번째 블록 ${label} 삭제`, text:'삭제'})];
 }
 function editNode(block, b, count) {
   const label = BLOCK_LABELS[block.type], n = b + 1;
-  const tools = el('div', {class:'sp-block-tools', role:'group', 'aria-label':`${n}번째 블록 (${label}) 옮기기·지우기`}, blockTools(block, b, count));
+  const tools = el('div', {class:'sp-block-tools', role:'group', 'aria-label':`${n}번째 블록 (${label}) 옮기기·삭제`}, blockTools(block, b, count));
   const box = el('section', {class:`sp-block sp-block-${block.type} is-editing`, 'aria-label':`${n}번째 블록 ${label}`, dataset:{spBlock:String(b), spType:block.type}},
     el('div', {class:'sp-block-head'}, el('h3', {text:label}), tools));
   if (block.type === 'doc') {
@@ -331,7 +331,7 @@ function editNode(block, b, count) {
       host.querySelector('.sp-hint')?.remove();
       docEditor = ed;
       if (editing?.focusDoc) { editing.focusDoc = false; ed.focus(); }
-    }).catch(() => { if (mount === docMount && host.isConnected) host.replaceChildren(el('p', {class:'sp-hint', role:'alert', text:'편집기를 열지 못했어요. [취소] 뒤 다시 눌러 주세요.'})); });
+    }).catch(() => { if (mount === docMount && host.isConnected) host.replaceChildren(el('p', {class:'sp-hint', role:'alert', text:'수정 화면을 열지 못했어요. [취소] 뒤 다시 눌러 주세요.'})); });
   } else if (block.type === 'summary') {
     box.append(el('textarea', {class:'sp-input', rows:2, maxLength:LIMITS.summary, placeholder:'예: 3차 교섭 결렬, 10월 말 조정 신청 예정',
       'aria-label':`${n}번째 블록 한 줄 현황 글`, value:block.text || '', dataset:{spB:String(b), spF:'text'}}));
@@ -344,8 +344,8 @@ function editNode(block, b, count) {
       'aria-label':`${n}번째 블록 ${label}에 줄 추가`, text:'+ 줄 추가'}));
   }
   box.append(el('div', {class:'sp-block-done'},
-    el('button', {type:'button', class:'sp-tool', dataset:{spCancel:String(b)}, 'aria-label':`${n}번째 블록 ${label} 고친 것 취소`, text:'취소'}),
-    el('button', {type:'button', class:'sp-tool sp-done', dataset:{spDone:String(b)}, 'aria-label':`${n}번째 블록 ${label} 고치기 완료`, text:'완료'})));
+    el('button', {type:'button', class:'sp-tool', dataset:{spCancel:String(b)}, 'aria-label':`${n}번째 블록 ${label} 수정한 것 취소`, text:'취소'}),
+    el('button', {type:'button', class:'sp-tool sp-done', dataset:{spDone:String(b)}, 'aria-label':`${n}번째 블록 ${label} 수정 완료`, text:'완료'})));
   return box;
 }
 // ED-② share photos: asked from the Edge function with the saved page's id, never kept in this browser. The preview of a 글 block
@@ -398,11 +398,11 @@ function viewNode(block, b, count) {
   const box = el('div', {class:`sp-vblock${empty ? ' is-empty' : ''}`, role:'group', 'aria-label':`${n}번째 블록 ${label}`, dataset:{spBlock:String(b), spType:block.type}},
     drawn,
     empty ? el('p', {class:'sp-vblock-empty', 'aria-hidden':'true', text:'비어 있어요. 눌러서 채워 주세요.'}) : null,
-    el('button', {type:'button', class:'sp-vblock-edit', dataset:{spEdit:String(b)}, 'aria-label':`${n}번째 블록 ${label} 고치기`},
-      el('span', {class:'sp-vblock-hint', 'aria-hidden':'true', text:'고치기'})),
+    el('button', {type:'button', class:'sp-vblock-edit', dataset:{spEdit:String(b)}, 'aria-label':`${n}번째 블록 ${label} 수정`},
+      el('span', {class:'sp-vblock-hint', 'aria-hidden':'true', text:'수정'})),
     el('details', {class:'sp-more', dataset:{spMore:String(b)}},
       el('summary', {class:'sp-more-button', 'aria-label':`${n}번째 블록 ${label} 메뉴`}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'})),
-      el('div', {class:'sp-more-panel', role:'group', 'aria-label':`${n}번째 블록 ${label} 옮기기·지우기`}, blockTools(block, b, count))));
+      el('div', {class:'sp-more-panel', role:'group', 'aria-label':`${n}번째 블록 ${label} 옮기기·삭제`}, blockTools(block, b, count))));
   return box;
 }
 // [+ 블록] between two blocks: the picked kind goes in at that place and opens.
@@ -462,7 +462,7 @@ function renderLinks() {
   const items = [];
   if (editing.linksState === 'loading') items.push(waitEl({rows:2}));
   else if (editing.linksState === 'error') items.push(el('p', {class:'sp-hint', text:'링크 목록을 불러오지 못했어요.'}),
-    el('button', {type:'button', class:'secondary', dataset:{spLinksReload:''}, text:'다시 불러오기'}));
+    el('button', {type:'button', class:'secondary', dataset:{spLinksReload:''}, text:'다시'}));
   else if (!editing.links.length) items.push(emptyEl('링크 없음'));
   else items.push(el('ul', {class:'sp-link-list', 'aria-label':'만든 링크'}, editing.links.map(link => {
     const state = linkState(link), name = link.label || '이름표 없음';
@@ -475,7 +475,7 @@ function renderLinks() {
         state === 'off' ? null : el('button', {type:'button', class:'sp-tool sp-danger', dataset:{spLinkOff:link.id}, 'aria-label':`${name} 링크 끄기`, text:'끄기'})));
   })));
   host.replaceChildren(form, el('p', {class:'sp-status', role:'status', 'aria-live':'polite', dataset:{spLinkStatus:''}}), ...items,
-    el('p', {class:'sp-hint', text:'링크를 끄면 그 링크로는 바로 못 열어요. 이미 본 내용이나 캡처는 지울 수 없어요. 자료 칸의 Drive 파일은 Drive 공유 설정을 따로 확인하세요.'}));
+    el('p', {class:'sp-hint', text:'링크를 끄면 그 링크로는 바로 못 열어요. 이미 본 내용이나 캡처는 삭제할 수 없어요. 자료 칸의 Drive 파일은 Drive 공유 설정을 따로 확인하세요.'}));
 }
 function paintStatusButtons() {
   for (const button of editorView.querySelectorAll('[data-sp-set-status]')) button.setAttribute('aria-pressed', String(button.dataset.spSetStatus === editing.status));
@@ -523,7 +523,7 @@ function renderEditor() {
   editorView.replaceChildren(
     el('div', {class:'sp-editor-head'},
       el('button', {type:'button', class:'sp-back', dataset:{spClose:''}, 'aria-label':'공유 페이지 목록으로'}, el('span', {'aria-hidden':'true', text:'‹'}), ' 공유 페이지'),
-      el('h2', {class:'a11y-only', id:'spEditorTitle', text:editing.id ? '공유 페이지 고치기' : '새 공유 페이지'})),
+      el('h2', {class:'a11y-only', id:'spEditorTitle', text:editing.id ? '공유 페이지 수정' : '새 공유 페이지'})),
     el('div', {class:'sp-settings'},
       el('div', {class:'sp-field'}, el('span', {id:'spStatusLabel', text:'상태'}),
         el('div', {class:'sp-seg', role:'group', 'aria-labelledby':'spStatusLabel'},
@@ -537,7 +537,7 @@ function renderEditor() {
       el('div', {class:'sp-add', role:'group', 'aria-label':'블록 추가'}, ['doc', ...BLOCK_TYPES].map(type =>
         el('button', {type:'button', class:'sp-tool', dataset:{spAddBlock:type}, text:`+ ${BLOCK_LABELS[type]}`}))),
       el('div', {class:'sp-convert', hidden:true, dataset:{spConvertRow:''}},
-        el('button', {type:'button', class:'sp-tool', dataset:{spConvert:''}, text:'새 편집기로 바꾸기'}),
+        el('button', {type:'button', class:'sp-tool', dataset:{spConvert:''}, text:'새 수정 화면으로 바꾸기'}),
         el('button', {type:'button', class:'sp-tool', hidden:true, dataset:{spConvertUndo:''}, text:'바꾸기 취소'}),
         el('p', {class:'sp-hint', dataset:{spConvertHint:''}}))),
     el('div', {class:'sp-save-row'},
@@ -557,7 +557,7 @@ function renderFull() {
   const top = el('div', {class:'sp-topline', role:'group', 'aria-label':'페이지 설정'},
     el('button', {type:'button', class:'sp-back', dataset:{spClose:''}, 'aria-label':'공유 페이지 목록으로'},
       el('span', {'aria-hidden':'true', text:'‹'}), el('span', {class:'sp-back-text', 'aria-hidden':'true', text:'공유 페이지'})),
-    el('h2', {class:'a11y-only', id:'spEditorTitle', text:page.id ? '공유 페이지 고치기' : '새 공유 페이지'}),
+    el('h2', {class:'a11y-only', id:'spEditorTitle', text:page.id ? '공유 페이지 수정' : '새 공유 페이지'}),
     el('div', {class:'sp-seg', role:'group', 'aria-label':'상태'},
       el('button', {type:'button', dataset:{spSetStatus:'draft'}, text:'초안'}),
       el('button', {type:'button', dataset:{spSetStatus:'published'}, text:'게시'})),
@@ -593,7 +593,7 @@ function renderFull() {
     if (focus === 'title') title.focus(); else if (focus === 'doc') ed.focus();
   }).catch(() => {
     if (mount !== docMount || !host.isConnected) return;
-    host.querySelector('.sp-hint')?.replaceWith(el('p', {class:'sp-hint', role:'alert', text:'편집기를 열지 못했어요. 목록으로 나갔다가 다시 열어 주세요.'}));
+    host.querySelector('.sp-hint')?.replaceWith(el('p', {class:'sp-hint', role:'alert', text:'수정 화면을 열지 못했어요. 목록으로 나갔다가 다시 열어 주세요.'}));
   });
 }
 // 빠짐32: AI 초안 창의 [넣기] — 받은 블록(ed1)을 지금 연 글 칸의 끝(마지막 빈 줄 앞)에 넣는다. 한 번의 ↶로 되돌릴 수 있고,
@@ -647,7 +647,7 @@ function showEditor(page) {
   if (!focusDoc) editorView.querySelector('[data-sp-title]')?.focus();
   if (editing.id) void loadLinks();
 }
-const CLOSE_TEXT = '저장하지 않은 내용이 있어요. 버리고 목록으로 돌아갈까요?';
+const CLOSE_TEXT = '저장하지 않은 내용이 있어요. 저장하지 않고 목록으로 돌아갈까요?';
 // 뒤로가기(fromBack)는 라우터가 그 자리에서 닫을지 정하므로 브라우저 기본 확인창으로 묻는다. [닫기] 버튼은 askCloseEditor가 작은 확인창으로 묻고 asked로 부른다.
 function closeEditor({fromBack = false, force = false, asked = false} = {}) {
   if (!editing) return true;
@@ -668,7 +668,7 @@ function closeEditor({fromBack = false, force = false, asked = false} = {}) {
 async function askCloseEditor(anchor) {
   if (!editing || busy) return;
   const page = editing;
-  if (dirty() && !await askConfirm(anchor, {text:CLOSE_TEXT, ok:'버리기', danger:true})) return;
+  if (dirty() && !await askConfirm(anchor, {text:CLOSE_TEXT, ok:'저장 안 함', danger:true})) return;
   if (editing !== page || busy) return;
   closeEditor({asked:true});
 }
@@ -730,7 +730,7 @@ async function save() {
       Object.assign(page, {id:row.id, status:row.status, project_id:row.project_id || null, updated_at:row.updated_at});
       page.saved = snapshotOf({title, status:row.status, project_id:row.project_id || null, blocks});
       if (first) { page.linksState = 'ready'; page.links = []; renderLinks(); }
-      const heading = editorView.querySelector('#spEditorTitle'); if (heading) heading.textContent = '공유 페이지 고치기';
+      const heading = editorView.querySelector('#spEditorTitle'); if (heading) heading.textContent = '공유 페이지 수정';
       paintStatusButtons(); paintDirty();
       editorStatus(page.status === 'published' ? '저장했어요. 게시 중이에요.' : '저장했어요. 아직 초안이라 링크로는 안 보여요.');
       // Keep what was saved and what the open editor has now (it may already be newer than what was sent).
@@ -831,14 +831,14 @@ function paintConvert() {
 async function convertBlocks(anchor) {
   if (!editing || !editing.blocks.some(b => b.type !== 'doc')) return;
   const page = editing;
-  if (!await askConfirm(anchor, {text:'모든 블록을 새 편집기 글 하나로 바꿀까요?', note:'글은 모두 남고, 진행 단계 막대 같은 모양은 번호 목록·표로 바뀌어요. 저장하기 전에는 [바꾸기 취소]로 되돌릴 수 있어요.', ok:'바꾸기'})) return;
+  if (!await askConfirm(anchor, {text:'모든 블록을 새 수정 화면 글 하나로 바꿀까요?', note:'글은 모두 남고, 진행 단계 막대 같은 모양은 번호 목록·표로 바뀌어요. 저장하기 전에는 [바꾸기 취소]로 되돌릴 수 있어요.', ok:'바꾸기'})) return;
   if (editing !== page || !editing.blocks.some(b => b.type !== 'doc')) return;
   if (docEditor && editing.blocks[editing.open]?.type === 'doc') editing.blocks[editing.open].doc = docEditor.getValue();
   editing.converted = JSON.parse(JSON.stringify(editing.blocks));
   editing.blocks = [blocksToDoc(editing.blocks)];
   editing.open = -1; editing.openBefore = null;
   renderBlocks();
-  editorStatus('새 편집기 글 하나로 바꿨어요. 확인한 뒤 [저장]을 눌러 주세요.');
+  editorStatus('새 수정 화면 글 하나로 바꿨어요. 확인한 뒤 [저장]을 눌러 주세요.');
   editorView.querySelector('[data-sp-convert-undo]')?.focus();
 }
 function undoConvert() {
@@ -860,7 +860,7 @@ function focusAfterMove(index, delta) {
 async function deleteBlock(index, anchor) {
   const page = editing, block = page?.blocks[index];
   if (!block) return;
-  if (hasContent(block) && !await askConfirm(anchor, {text:`${BLOCK_LABELS[block.type]} 블록을 지울까요?`, ok:'지우기', danger:true})) return;
+  if (hasContent(block) && !await askConfirm(anchor, {text:`${BLOCK_LABELS[block.type]} 블록을 삭제할까요?`, ok:'삭제', danger:true})) return;
   // 묻는 동안 다른 페이지를 열었거나 블록 순서가 바뀌었으면 지우지 않는다.
   if (editing !== page || page.blocks[index] !== block) return;
   editing.blocks.splice(index, 1);

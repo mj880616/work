@@ -14,7 +14,7 @@ const PROJECT='22000000-0000-4000-8000-000000000001',ORG='23000000-0000-4000-800
 const AI={document_date:'2026-10-20',source:'공공운수노조'};
 
 function doc(n,over={}){
-  return {id:DOC(n),workspace_id:'workspace-1',project_id:PROJECT,organization_id:ORG,meeting_id:null,title:'고친 제목',category:'교섭',source:null,document_date:null,
+  return {id:DOC(n),workspace_id:'workspace-1',project_id:PROJECT,organization_id:ORG,meeting_id:null,title:'수정한 제목',category:'교섭',source:null,document_date:null,
     description:null,tags:[],file_id:'oldDriveFile'+n,file_name:'옛 파일.hwpx',mime_type:'application/x-hwp',file_size:2048,drive_url:'https://drive.google.com/file/d/oldDriveFile'+n+'/view',
     created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z',field_origin:{title:'user',project_id:'user',organization_id:'user'},classification_note:'사용자 수정',
     extracted_text:'옛 글자',extraction_status:'ready',previous_files:[],reclassify_needed:false,...over};
@@ -124,7 +124,7 @@ for(const width of [390,1280]){
     await page.locator('#libraryEditReplaceInput').setInputFiles(pdf());
     await expect(page.locator('#libraryEditFileLine')).toContainText('새 파일.pdf');
     await expect(page.locator('#libraryEditFileLine')).toContainText('교체 예정');
-    await expect(page.locator('.library-edit-file-note')).toContainText('지우지 않고 이전 파일에 남깁니다');
+    await expect(page.locator('.library-edit-file-note')).toContainText('삭제하지 않고 이전 파일에 남깁니다');
     // Choosing alone sends nothing.
     expect(state.log).toEqual([]);
     await page.locator('#libraryEditSave').click();
@@ -137,11 +137,11 @@ for(const width of [390,1280]){
     expect(state.texts).toEqual([{action:'document-text',document_id:DOC(1)}]);
     expect(state.tidies[0]).toEqual({kind:'library_fill',mode:'tidy',document_ids:[DOC(1)]});
     const d=state.docs[0];
-    expect([d.title,d.category,d.project_id,d.organization_id]).toEqual(['고친 제목','교섭',PROJECT,ORG]);
+    expect([d.title,d.category,d.project_id,d.organization_id]).toEqual(['수정한 제목','교섭',PROJECT,ORG]);
     expect([d.document_date,d.source]).toEqual(['2026-10-20','공공운수노조']);
     expect(d.reclassify_needed).toBe(false);
     // No AI marker anywhere; the list still shows the same title.
-    await expect(page.locator('.lu-row-title',{hasText:'고친 제목'})).toHaveCount(1);
+    await expect(page.locator('.lu-row-title',{hasText:'수정한 제목'})).toHaveCount(1);
     expect(await page.locator('#libraryView').innerText()).not.toMatch(/AI|자동 ?채움|✨/);
     // Reopen: the old file is listed under 이전 파일 ▾ with a link that opens it through the file rules (PDF/photo: Drive view, others: download).
     await openEdit(page);
@@ -163,15 +163,15 @@ test('replacing together with an edited title: file first, then the info save (t
   const state=await boot(page);
   await openEdit(page);
   await page.locator('#libraryEditReplaceInput').setInputFiles(pdf());
-  await page.locator('#libraryEditTitle').fill('다시 고친 제목');
+  await page.locator('#libraryEditTitle').fill('다시 수정한 제목');
   await page.locator('#libraryEditSave').click();
   await expect(page.locator('#libraryEditModal')).toBeHidden();
   await expect.poll(()=>state.log.join(',')).toBe('replace,patch,text,tidy');
   const patch=state.patches[0].body;
-  expect(patch.title).toBe('다시 고친 제목');
+  expect(patch.title).toBe('다시 수정한 제목');
   expect(patch.field_origin.title).toBe('user');
   expect('file_id' in patch||'previous_files' in patch||'reclassify_needed' in patch).toBe(false);
-  expect(state.docs[0].title).toBe('다시 고친 제목');
+  expect(state.docs[0].title).toBe('다시 수정한 제목');
   expect(state.docs[0].file_name).toBe('새 파일.pdf');
 });
 
@@ -225,7 +225,7 @@ test('before the DB columns exist the dialog has no file line and no 이전 파�
   await boot(page,{docs:[old]});
   await openEdit(page);
   await expect(page.locator('#libraryEditFile')).toBeHidden();
-  await expect(page.locator('#libraryEditTitle')).toHaveValue('고친 제목');
+  await expect(page.locator('#libraryEditTitle')).toHaveValue('수정한 제목');
 });
 
 test('safety net: a document still marked for re-judgement is read and re-judged when the library opens',async({page})=>{
@@ -233,5 +233,5 @@ test('safety net: a document still marked for re-judgement is read and re-judged
   await expect.poll(()=>state.tidies.length).toBe(1);
   expect(state.log).toEqual(['text','tidy']);
   expect(state.docs[0].reclassify_needed).toBe(false);
-  expect([state.docs[0].document_date,state.docs[0].title]).toEqual(['2026-10-20','고친 제목']);
+  expect([state.docs[0].document_date,state.docs[0].title]).toEqual(['2026-10-20','수정한 제목']);
 });

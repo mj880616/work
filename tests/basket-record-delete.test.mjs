@@ -44,7 +44,7 @@ test('note delete targets exactly that note id and workspace; links go by cascad
   events.length=0;const calls=[];
   const rt=rtFor(async(path,options={})=>{calls.push({path,...options});if(options.method==='DELETE')return [{id:'n1'}];return path.includes('app_notes')?[{id:'n1',attachments:[]}]:[{id:'l1',organization_id:'o'},{id:'l2',meeting_id:'m'}];});
   const {result,calls:asked}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt}));
-  assert.equal(result.status,'deleted');assert.equal(result.message,'업데이트를 지웠어요.');
+  assert.equal(result.status,'deleted');assert.equal(result.message,'업데이트를 삭제했어요.');
   assert.match(asked[0],/조직·사업영역 1곳/);assert.match(asked[0],/사업 보고·자료실 연결 1곳/);assert.doesNotMatch(asked[0],/첨부/);
   const writes=calls.filter(call=>call.method==='DELETE');
   assert.equal(writes.length,1);
@@ -118,7 +118,7 @@ test('note with attachments posts once to basket-files note-delete with the user
   events.length=0;const c=serverCase({reply:{status:200,body:body()}});
   const {result,calls:asked}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:c.rt,fetcher:c.fetcher}));
   assert.deepEqual(asked,['업데이트 원문을 지웁니다. 연결된 조직·사업영역 1곳에서도 사라집니다. 첨부 파일 2개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).']);
-  assert.deepEqual(result,{status:'deleted',message:'업데이트를 지우고 첨부를 Drive 휴지통으로 옮겼어요.'});
+  assert.deepEqual(result,{status:'deleted',message:'업데이트를 삭제하고 첨부를 Drive 휴지통으로 옮겼어요.'});
   assert.equal(c.posts.length,1);
   assert.equal(c.posts[0].url,'https://sb.invalid/functions/v1/basket-files?action=note-delete');
   assert.equal(c.posts[0].init.method,'POST');assert.equal(c.posts[0].init.headers.Authorization,'Bearer jwt');
@@ -127,9 +127,9 @@ test('note with attachments posts once to basket-files note-delete with the user
 });
 
 test('partial and unknown trash results are named in plain words',async()=>{
-  for(const [extra,message] of [[{trashed:1,failed:1},'업데이트를 지웠어요. 첨부 1개는 Drive에 남았어요.'],
-    [{trashed:0,failed:2},'업데이트를 지웠어요. 첨부 2개는 Drive에 남았어요.'],
-    [{trashed:0,failed:1,unknown:1},'업데이트를 지웠어요. 첨부 1개는 Drive에 남았어요. 첨부 1개는 휴지통 이동 결과를 확인하지 못했어요. Drive에서 확인해 주세요.']]){
+  for(const [extra,message] of [[{trashed:1,failed:1},'업데이트를 삭제했어요. 첨부 1개는 Drive에 남았어요.'],
+    [{trashed:0,failed:2},'업데이트를 삭제했어요. 첨부 2개는 Drive에 남았어요.'],
+    [{trashed:0,failed:1,unknown:1},'업데이트를 삭제했어요. 첨부 1개는 Drive에 남았어요. 첨부 1개는 휴지통 이동 결과를 확인하지 못했어요. Drive에서 확인해 주세요.']]){
     const c=serverCase({reply:{status:200,body:body(extra)}});
     const {result}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:c.rt,fetcher:c.fetcher}));
     assert.deepEqual(result,{status:'deleted',message});
@@ -140,7 +140,7 @@ test('legacy server reply falls back to the owner-RLS REST delete and says attac
   events.length=0;
   const c=serverCase({reply:{status:400,body:{ok:false,code:'OCR_REQUEST_INVALID',retryable:false,result_unknown:false,ocr_saved:false,text_changed:false}}});
   const {result}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:c.rt,fetcher:c.fetcher}));
-  assert.deepEqual(result,{status:'deleted',message:'업데이트를 지웠어요. 첨부 파일은 Drive에 남아 있어요.'});
+  assert.deepEqual(result,{status:'deleted',message:'업데이트를 삭제했어요. 첨부 파일은 Drive에 남아 있어요.'});
   const writes=c.calls.filter(x=>x.method==='DELETE');assert.equal(writes.length,1);
   assert.equal(q(writes[0].path).pathname,'/rest/v1/app_notes');assert.equal(q(writes[0].path).searchParams.get('id'),'eq.n1');
   assert.equal(c.posts.length,1);assert.deepEqual(events,['kptu:basket-links-changed']);
@@ -150,8 +150,8 @@ test('only the exact legacy refusal falls back; other server failures never REST
   for(const [reply,status,message] of [
     [{status:400,body:{ok:false,code:'OCR_REQUEST_INVALID',action:'note-delete'}},'deleted',null],
     [{status:409,body:body({ok:false,note_deleted:false,code:'note_changed',trashed:2})},'failed','업데이트가 바뀌었어요. 다시 불러온 뒤 확인해 주세요. 첨부 2개는 이미 Drive 휴지통으로 옮겼어요(30일 안에 복구 가능).'],
-    [{status:404,body:body({ok:false,note_deleted:false,code:'note_not_found',trashed:0})},'missing','업데이트를 찾을 수 없어요. 이미 지워졌을 수 있어요.'],
-    [{status:503,body:body({ok:false,note_deleted:false,code:'note_delete_unavailable',trashed:0})},'failed','업데이트를 지우지 못했어요. 다시 시도해 주세요.'],
+    [{status:404,body:body({ok:false,note_deleted:false,code:'note_not_found',trashed:0})},'missing','업데이트를 찾을 수 없어요. 이미 삭제됐을 수 있어요.'],
+    [{status:503,body:body({ok:false,note_deleted:false,code:'note_delete_unavailable',trashed:0})},'failed','업데이트를 삭제하지 못했어요. 다시 시도해 주세요.'],
     [{status:502,body:'<html>gateway</html>'},'deleted',null],
     [{status:401,body:{code:'session_required'}},'deleted',null]]){
     const c=serverCase({reply});
@@ -204,7 +204,7 @@ test(`restore re-links the same place ${summary?'with':'without'} its summary`,a
   assert.deepEqual(events,['kptu:basket-links-changed']);
 });
 
-for(const [error,message] of [['NOTE_ARCHIVED','보류한 업데이트라 연결을 되돌리지 못했어요. 보류를 해제한 뒤 다시 이어 주세요.'],['AI_EXCLUDED','AI 제외로 표시된 업데이트라 연결을 되돌리지 못했어요.'],['TARGET_UNSELECTABLE','연결했던 곳을 찾거나 고를 수 없어 되돌리지 못했어요.'],['SUGGESTED_EXISTS','연결을 되돌리지 못했어요. 업데이트에서 [연결하기]로 다시 이어 주세요.']])
+for(const [error,message] of [['NOTE_ARCHIVED','보류한 업데이트라 연결을 되돌리지 못했어요. 보류를 해제한 뒤 다시 이어 주세요.'],['AI_EXCLUDED','AI 제외로 표시된 업데이트라 연결을 되돌리지 못했어요.'],['TARGET_UNSELECTABLE','연결했던 곳을 찾거나 선택할 수 없어 되돌리지 못했어요.'],['SUGGESTED_EXISTS','연결을 되돌리지 못했어요. 업데이트에서 [연결하기]로 다시 이어 주세요.']])
 test(`restore refusal ${error} explains and sends nothing else`,async()=>{
   events.length=0;const calls=[];
   const rt=rtFor(async(path,options={})=>{calls.push(path);return path.startsWith('/rest/v1/app_notes')?[{id:'n1',updated_at:'t'}]:{ok:false,error,created:0,existing:0};});
@@ -296,7 +296,7 @@ test('trash: cancelling sends nothing; a missing note does not ask',async()=>{
 test('trash: a refused delete is failed, and a delete that is neither in the trash nor readable is never called a success',async()=>{
   const refused=trashApi({deleteFails:true});
   const first=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(refused.api),trash:true}));
-  assert.equal(first.result.status,'failed');assert.equal(first.result.message,'업데이트를 지우지 못했어요. 다시 시도해 주세요.');
+  assert.equal(first.result.status,'failed');assert.equal(first.result.message,'업데이트를 삭제하지 못했어요. 다시 시도해 주세요.');
   const lost=trashApi({lands:false});
   const base=lost.api;
   const api=async(path,options={})=>{if(!options.method&&path.includes('app_notes')&&lost.calls.some(c=>c.method==='DELETE'))return [];return base(path,options);};

@@ -73,7 +73,7 @@ export function bundleStats(links) {
 }
 // The database's refusals in plain words (409 = the same name already exists, or the bundle still holds links).
 export function bundleErrorText(error, action = 'save') {
-  if (error?.status === 409) return action === 'delete' ? '이 묶음에 붙은 소식이 있어 지울 수 없어요. 연결을 먼저 풀어 주세요.' : '같은 이름의 묶음이 이미 있어요. 다른 이름을 써 주세요.';
+  if (error?.status === 409) return action === 'delete' ? '이 묶음에 붙은 소식이 있어 삭제할 수 없어요. 연결을 먼저 풀어 주세요.' : '같은 이름의 묶음이 이미 있어요. 다른 이름을 써 주세요.';
   if (error?.status === 400 || error?.status === 422) return '묶음 이름을 확인해 주세요(1~30자).';
   if (error?.status === 401 || error?.status === 403) return '이 묶음을 바꿀 권한이 없어요.';
   return error?.message && !error?.status ? error.message : '저장하지 못했어요. 다시 시도해 주세요.';

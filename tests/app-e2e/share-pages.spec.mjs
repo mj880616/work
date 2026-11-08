@@ -226,7 +226,7 @@ test('old blocks: add, move with the ⋯ menu, delete, saved in the shown order 
   expect(await editor.locator('[data-sp-block]').evaluateAll(n => n.map(x => x.dataset.spType))).toEqual(['stages', 'summary', 'links']);
   // Delete then re-add a block (an empty block goes without asking).
   await editor.getByRole('button', {name:'+ 일정', exact:true}).click();
-  await editor.getByRole('button', {name:'4번째 블록 일정 지우기', exact:true}).click();
+  await editor.getByRole('button', {name:'4번째 블록 일정 삭제', exact:true}).click();
   await expect(editor.locator('[data-sp-block]')).toHaveCount(3);
   await editor.getByRole('button', {name:'저장', exact:true}).click();
   await expect(editor.locator('[data-sp-status-line]')).toContainText('저장했어요');
@@ -393,7 +393,7 @@ test('Web1 reader keeps the title and other blocks when one block cannot be draw
   await expect(page.locator('.sr-schedule')).toHaveCount(0);
   const notice = page.locator('.sr-block-error');
   await expect(notice).toHaveCount(1);
-  await expect(notice).toHaveText('일정 칸을 표시하지 못했어요. 새로고침하거나 보낸 사람에게 알려 주세요.');
+  await expect(notice).toHaveText('일정 칸을 표시하지 못했어요. 페이지를 다시 열거나 보낸 사람에게 알려 주세요.');
   await expect(notice).toHaveAttribute('role', 'note');
   // Blocks after the failing one still show, in order.
   await expect(page.locator('#srMain > *')).toHaveCount(1 + samplePage.blocks.length);

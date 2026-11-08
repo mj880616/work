@@ -47,9 +47,9 @@ test.describe('PC 1280', () => {
     await open(page);
     await page.keyboard.type('정렬 글');
     for (const [name, align] of [['가운데', 'center'], ['오른쪽', 'right'], ['양쪽', 'justify'], ['왼쪽', null]]) {
-      await tool(page, '정렬 고르기').click();
+      await tool(page, '정렬 선택').click();
       await menu(page, '정렬').getByRole('button', {name: `${name} 정렬`}).click();
-      await expect(tool(page, '정렬 고르기')).toHaveText(`${name} ▾`);
+      await expect(tool(page, '정렬 선택')).toHaveText(`${name} ▾`);
       expect((await content(page))[0].attrs.align).toBe(align ?? undefined);
       if (align) expect(await page.evaluate(() => window.renderOut())).toContain(`ed-${align}`);
     }
@@ -72,22 +72,22 @@ test.describe('PC 1280', () => {
     // In a list: Tab nests the item instead.
     await page.keyboard.press('End'); await page.keyboard.press('Enter');
     await page.keyboard.type('하나');
-    await tool(page, '글머리 목록 고르기').click();
+    await tool(page, '글머리 목록 선택').click();
     await menu(page, '글머리 목록').getByRole('button', {name: '글머리 •', exact: true}).click();
     await page.keyboard.press('Enter'); await page.keyboard.type('둘');
     await page.keyboard.press('Tab');
     await expect(box.locator('ul ul li')).toHaveText('둘');
   });
 
-  test('글자색·형광펜: 고르고 지우기, 다크 모드는 테마 색, 읽는 쪽도 같은 이름', async ({page}) => {
+  test('글자색·형광펜: 선택하고 삭제, 다크 모드는 테마 색, 읽는 쪽도 같은 이름', async ({page}) => {
     const box = await open(page);
     await page.keyboard.type('빨간 글');
     await page.keyboard.press('Shift+Home');
     await expect.poll(async () => (await stateSel(page)).empty).toBe(false);
-    await tool(page, '글자색 고르기').click();
+    await tool(page, '글자색 선택').click();
     await menu(page, '글자색').getByRole('button', {name: '글자색 빨강'}).click();
     await expect(box.locator('span.ed-c-red')).toHaveText('빨간 글');
-    await tool(page, '형광펜 고르기').click();
+    await tool(page, '형광펜 선택').click();
     await menu(page, '형광펜').getByRole('button', {name: '형광펜 노랑'}).click();
     await expect(box.locator('mark.ed-hl-yellow')).toHaveText('빨간 글');
     const marks = (await content(page))[0].content[0].marks;
@@ -95,7 +95,7 @@ test.describe('PC 1280', () => {
     const html = await page.evaluate(() => window.renderOut());
     expect(html).toContain('ed-c ed-c-red');
     expect(html).toContain('<mark class="ed-hl ed-hl-yellow">');
-    await tool(page, '글자색 고르기').click();
+    await tool(page, '글자색 선택').click();
     await menu(page, '글자색').getByRole('button', {name: '색 없음'}).click();
     await expect(box.locator('span.ed-c-red')).toHaveCount(0);
     // Colors come from theme tokens: the dark scheme changes them.
@@ -104,7 +104,7 @@ test.describe('PC 1280', () => {
     expect(await box.locator('mark').evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(light);
   });
 
-  test('링크: 고른 글에 주소 넣기·빼기, 위험한 주소는 안 받음, Ctrl+K', async ({page}) => {
+  test('링크: 선택한 글에 주소 넣기·빼기, 위험한 주소는 안 받음, Ctrl+K', async ({page}) => {
     const box = await open(page);
     await page.keyboard.type('누리집');
     await page.keyboard.press('Shift+Home');
@@ -128,11 +128,11 @@ test.describe('PC 1280', () => {
     await expect(box).toHaveText('누리집');
   });
 
-  test('서식 지우기: 굵게·색·정렬·들여쓰기를 걷고 글자는 남김', async ({page}) => {
+  test('서식 삭제: 굵게·색·정렬·들여쓰기를 걷고 글자는 남김', async ({page}) => {
     const box = await open(page, ed1({type: 'paragraph', attrs: {style: 'body2', align: 'center', indent: 2}, content: [
       {type: 'text', text: '꾸민 글', marks: [{type: 'strong'}, {type: 'em'}, {type: 'color', attrs: {color: 'blue'}}, {type: 'highlight', attrs: {color: 'pink'}}]}]}));
     await page.keyboard.press('Control+a');
-    await press(page, '서식 지우기');
+    await press(page, '서식 삭제');
     const c = await content(page);
     expect(c[0]).toEqual(para('꾸민 글'));
     await expect(box.locator('strong,em,mark,span.ed-c')).toHaveCount(0);
@@ -170,40 +170,40 @@ test.describe('PC 1280', () => {
 
   test('기호: [·][※][→] 비슷한 기호 펼치기, [①]은 ①~⑩ 펼치고 다음 번호 표시', async ({page}) => {
     const box = await open(page);
-    await tool(page, '동그라미 번호 고르기').click();
+    await tool(page, '동그라미 번호 선택').click();
     const circles = menu(page, '동그라미 번호');
     await expect(circles.getByRole('button')).toHaveText(['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩']);
     await expect(circles.locator('.is-next')).toHaveText('①');
     await circles.getByRole('button', {name: '① 넣기'}).click();
     await page.keyboard.type('첫째');
     await page.keyboard.press('Enter');
-    await tool(page, '동그라미 번호 고르기').click();
+    await tool(page, '동그라미 번호 선택').click();
     await expect(circles.locator('.is-next')).toHaveText('②');
     await circles.getByRole('button', {name: '② 넣기'}).click();
     await page.keyboard.type('둘째');
     await page.keyboard.press('Enter');
-    await tool(page, '점 기호 고르기').click();
+    await tool(page, '점 기호 선택').click();
     await expect(menu(page, '점 기호').getByRole('button')).toHaveCount(13);
     await menu(page, '점 기호').getByRole('button', {name: '■ 넣기'}).click();
-    await tool(page, '참고 기호 고르기').click();
+    await tool(page, '참고 기호 선택').click();
     await menu(page, '참고 기호').getByRole('button', {name: '※ 넣기'}).click();
-    await tool(page, '화살표 고르기').click();
+    await tool(page, '화살표 선택').click();
     await menu(page, '화살표').getByRole('button', {name: '⇒ 넣기'}).click();
-    await press(page, '괄호·단위 기호 고르기');
+    await press(page, '괄호·단위 기호 선택');
     await menu(page, '괄호·단위 기호').getByRole('button', {name: '「」 넣기'}).click();
     await page.keyboard.type('안');
     expect(await page.evaluate(() => window.plain())).toBe('① 첫째\n\n② 둘째\n\n■ ※ ⇒ 「안」');
     await expect(box).toBeFocused();
     // Esc closes a sign row.
-    await tool(page, '화살표 고르기').click();
+    await tool(page, '화살표 선택').click();
     await page.keyboard.press('Escape');
     await expect(menu(page, '화살표')).toBeHidden();
   });
 
-  test('표: 격자로 줄×칸 골라 넣기, 넣은 표 아래 빈 줄과 앞뒤로 쓰기', async ({page}) => {
+  test('표: 격자로 줄×칸 선택해 넣기, 넣은 표 아래 빈 줄과 앞뒤로 쓰기', async ({page}) => {
     const box = await open(page);
     await tool(page, '표 넣기').click();
-    const grid = menu(page, '표 크기 고르기');
+    const grid = menu(page, '표 크기 선택');
     await grid.getByRole('button', {name: '3줄 4칸 표'}).hover();
     await expect(grid.locator('.ed-grid-size')).toHaveText('3 × 4');
     await expect(grid.locator('.is-on')).toHaveCount(12);
@@ -259,7 +259,7 @@ test.describe('PC 1280', () => {
     await page.keyboard.press('Shift+Tab');
     await page.keyboard.type('위');
     await expect(box.locator('table tr').nth(1).locator('td').last()).toContainText('위');
-    await tool(page, '정렬 고르기').click();
+    await tool(page, '정렬 선택').click();
     await menu(page, '정렬').getByRole('button', {name: '오른쪽 정렬'}).click();
     await expect(box.locator('table tr').nth(1).locator('td').last().locator('p')).toHaveClass(/ed-right/);
   });
@@ -296,7 +296,7 @@ test.describe('PC 1280', () => {
     await expect(box).toBeFocused();
   });
 
-  test('표 선택·지우기: 모서리 손잡이로 전체 선택 → Delete, 여러 칸 끌어 고르면 내용만 지움, ↶로 복구', async ({page}) => {
+  test('표 선택·삭제: 모서리 손잡이로 전체 선택 → Delete, 여러 칸 끌어 선택하면 내용만 지움, ↶로 복구', async ({page}) => {
     const box = await open(page, ed1(para('앞'), table(2, 3)));
     // Several cells chosen: Backspace empties them, the table stays.
     const a = await box.locator('td').nth(0).boundingBox(), b = await box.locator('td').nth(2).boundingBox();
@@ -315,7 +315,7 @@ test.describe('PC 1280', () => {
     await expect(box.locator('table')).toHaveCount(1);
   });
 
-  test('표 아래 빈 줄에서 Backspace: 먼저 표를 고르고, 한 번 더 누르면 지움, ↶로 복구', async ({page}) => {
+  test('표 아래 빈 줄에서 Backspace: 먼저 표를 선택하고, 한 번 더 누르면 지움, ↶로 복구', async ({page}) => {
     const box = await open(page, ed1(para('앞'), table(2, 2)));
     await toEnd(page);
     await page.keyboard.press('Backspace');
@@ -463,7 +463,7 @@ test.describe('PC 1280', () => {
     expect(await row.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
     for (const h of await row.locator('button:visible').evaluateAll(l => l.map(b => Math.round(b.getBoundingClientRect().height)))) expect(h).toBeLessThanOrEqual(28);
     await page.locator('.ed-more').click();
-    await expect(menu(page, '서식 더 보기').getByRole('button')).toHaveText(['취소선', '인용', '구분선', '들여쓰기', '내어쓰기', '서식 지우기', '서식 없이 붙여넣기', '「」 ▾']);
+    await expect(menu(page, '서식 더 보기').getByRole('button')).toHaveText(['취소선', '인용', '구분선', '들여쓰기', '내어쓰기', '서식 삭제', '서식 없이 붙여넣기', '「」 ▾']);
     await page.screenshot({path: 'test-results/ed-basics-1280.png'});
   });
 });
@@ -483,9 +483,9 @@ test.describe('폰 390', () => {
       await expect.poll(() => row.evaluate(el => el.scrollWidth - el.clientWidth), `row at ${width}`).toBeLessThanOrEqual(0);
       expect(await row.locator('button:visible').evaluateAll(l => new Set(l.map(b => Math.round(b.getBoundingClientRect().top))).size)).toBe(1);
     }
-    const GROUPS = {'글자 서식 고르기': ['기울임', '밑줄', '취소선', '글자색 ▾', '형광펜 ▾', '서식 지우기'],
-      '문단 서식 고르기': ['정렬 왼쪽 ▾', '목록 ▾', '번호 ▾', '들여쓰기', '내어쓰기', '인용', '구분선'],
-      '넣을 것 고르기': ['표 ▾', '링크', '서식 없이 붙여넣기'], '기호 고르기': ['※ ▾', '→ ▾', '① ▾', '「」 ▾']};
+    const GROUPS = {'글자 서식 선택': ['기울임', '밑줄', '취소선', '글자색 ▾', '형광펜 ▾', '서식 삭제'],
+      '문단 서식 선택': ['정렬 왼쪽 ▾', '목록 ▾', '번호 ▾', '들여쓰기', '내어쓰기', '인용', '구분선'],
+      '넣을 것 선택': ['표 ▾', '링크', '서식 없이 붙여넣기'], '기호 선택': ['※ ▾', '→ ▾', '① ▾', '「」 ▾']};
     for (const [name, texts] of Object.entries(GROUPS)) {
       await row.getByRole('button', {name, exact: true}).tap();
       await expect(page.locator('.ed-pop:not([hidden])').first().getByRole('button')).toHaveText(texts);
@@ -557,9 +557,9 @@ test.describe('폰 390', () => {
 
   test('[표] 격자는 폰에서도 눌러 고름', async ({page}) => {
     const box = await open(page);
-    await tool(page, '넣을 것 고르기').tap();
+    await tool(page, '넣을 것 선택').tap();
     await page.locator('.ed-pop:not([hidden])').getByRole('button', {name: '표 넣기', exact: true}).tap();
-    await menu(page, '표 크기 고르기').getByRole('button', {name: '2줄 3칸 표'}).tap();
+    await menu(page, '표 크기 선택').getByRole('button', {name: '2줄 3칸 표'}).tap();
     await expect(box.locator('tr')).toHaveCount(2);
     await expect(box.locator('tr').first().locator('th')).toHaveCount(3);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

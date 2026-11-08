@@ -39,7 +39,7 @@ test('④ 화면 칸 전체의 버튼 기본 모양(#화면 button)이 글 편�
 test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [·][▾] 두 칸 없음)', () => {
   const ed = read('ed-editor.js');
   assert.match(ed, /const PHONE_ORDER = \['style', 'strong', 'symDot', \.\.\.GROUP_KEYS, 'undo', 'redo'\];/);
-  assert.match(ed, /\['symDot', '· ▾', '점 기호 고르기', 'sym'\]/);
+  assert.match(ed, /\['symDot', '· ▾', '점 기호 선택', 'sym'\]/);
   assert.doesNotMatch(ed, /dotNow|ed-pair|setLabel\(buttons\.symDot/);
   assert.doesNotMatch(read('ed-doc.css'), /ed-pair/);
 });

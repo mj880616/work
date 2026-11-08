@@ -14,7 +14,7 @@ const PROJECT='22000000-0000-4000-8000-000000000001',ORG='23000000-0000-4000-800
 const AI={document_date:'2026-10-20',source:'공공운수노조'};
 
 function doc(n,over={}){
-  return {id:DOC(n),workspace_id:'workspace-1',project_id:PROJECT,organization_id:ORG,meeting_id:null,title:'고친 제목',category:'교섭',source:null,document_date:null,
+  return {id:DOC(n),workspace_id:'workspace-1',project_id:PROJECT,organization_id:ORG,meeting_id:null,title:'수정한 제목',category:'교섭',source:null,document_date:null,
     description:null,tags:[],file_id:'oldDriveFile'+n,file_name:'옛 파일.hwpx',mime_type:'application/x-hwp',file_size:2048,drive_url:'https://drive.google.com/file/d/oldDriveFile'+n+'/view',
     created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z',field_origin:{title:'user',project_id:'user',organization_id:'user'},classification_note:'사용자 수정',
     extracted_text:'옛 글자',extraction_status:'ready',previous_files:[],reclassify_needed:false,...over};

@@ -43,7 +43,7 @@ export function syncMoreToggle(host,selector){
     const needs=clampCut(el)||el.classList.contains('is-open');
     if(needs&&!btn){btn=document.createElement('button');btn.type='button';btn.className='kptu-clamp-more';owners.set(btn,el);anchor.after(btn)}
     else if(!needs&&btn){btn.remove();return}
-    if(btn){const open=el.classList.contains('is-open');btn.textContent=open?'접기':'더보기';btn.setAttribute('aria-expanded',String(open))}
+    if(btn){const open=el.classList.contains('is-open');btn.textContent=open?'접기':'펼치기';btn.setAttribute('aria-expanded',String(open))}
   });
 }
 export function bindMoreToggle(host,selector){

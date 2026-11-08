@@ -141,10 +141,10 @@ for (const width of [390, 1280]) test(`select mode: [선택] → pick rows → m
   await press(page, page.locator('[data-note-row-more="n1"]'), width);
   await press(page, page.locator('#noteDocMenu [data-nx-select]'), width);
   await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
-  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 골랐음');
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
   // In select mode pressing a row picks it (it does not open).
   await press(page, noteRow(page, 'n3'), width);
-  await expect(page.locator('[data-nx-select-count]')).toHaveText('2개 골랐음');
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('2개 선택됨');
   await expect(page.locator('[data-note-detail]')).toBeHidden();
   await press(page, page.locator('[data-nx-select-bar] [data-nx-sel-move]'), width);
   await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);
@@ -181,7 +181,7 @@ for (const width of [390, 1280]) test(`new folder inside a folder, delete moves 
   // Delete the sub folder: its note goes up to 회의 (not deleted); [되돌리기] makes the folder again with the same id.
   await press(page, page.locator(`[data-nx-folder-more="${sub.id}"]`).first(), width);
   await press(page, page.locator('#noteDocMenu [data-nx-delete-folder]'), width);
-  await press(page, page.locator('.kptu-ask button', { hasText: '지우기' }), width);
+  await press(page, page.locator('.kptu-ask button', { hasText: '삭제' }), width);
   await expect.poll(() => f.folders.map(x => x.name)).toEqual(['회의']);
   expect(f.rows.find(r => r.id === 'n2').metadata).toEqual({ folder_id: U(1), folder: '회의' });
   await press(page, page.locator('#kptuNotice .kptu-notice-undo'), width);
@@ -311,7 +311,7 @@ test('PC 1280: 폴더 나무 | 노트 경계 끌기·키보드·새로고침 유
 });
 
 // UI-고르기줄(S48-54, 요청함 11/03 07:44 ③): 노트 고르기 줄도 사진과 같은 공용 부품(.kptu-actbar-text) — 칸 같은 너비·같은 간격·최대 120px·글자 잘림 없음, 지우기 글자 빨강.
-for (const width of [412, 768, 1280]) test(`UI-고르기줄: 노트 고르기 줄 같은 칸·같은 간격 ${width}`, async ({ page }) => {
+for (const width of [412, 768, 1280]) test(`UI-선택줄: 노트 선택 줄 같은 칸·같은 간격 ${width}`, async ({ page }) => {
   const { measureActBar, checkActBar } = await import('./helpers/act-bar-measure.mjs');
   const { mkdirSync } = await import('node:fs');
   const DIR = 'test-results/ui-audit'; mkdirSync(DIR, { recursive: true });
@@ -321,9 +321,9 @@ for (const width of [412, 768, 1280]) test(`UI-고르기줄: 노트 고르기 �
   await press(page, page.locator('#noteDocMenu [data-nx-select]'), width);
   await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
   const m = await measureActBar(page, '[data-nx-select-bar] .nx-sel-acts');
-  checkActBar(m, (a, e, l) => expect(a, l).toEqual(e), `노트 고르기 줄 ${width}`);
+  checkActBar(m, (a, e, l) => expect(a, l).toEqual(e), `노트 선택 줄 ${width}`);
   expect(m.n).toBe(3);
-  expect(m.dangerText, '지우기 글자도 다른 버튼과 같은 색').toBe(await page.locator('[data-nx-sel-move]').evaluate(b => getComputedStyle(b).color));
+  expect(m.dangerText, '삭제 글자도 다른 버튼과 같은 색').toBe(await page.locator('[data-nx-sel-move]').evaluate(b => getComputedStyle(b).color));
   for (const b of await page.locator('[data-nx-select-bar] .kptu-act').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(26);
   await page.screenshot({ path: `${DIR}/s48-54-notes-select-${width}.png` });
   process.stdout.write(`::notice title=s48-54 notes ${width}::${JSON.stringify({n: m.n, widths: m.widths, rows: m.rows, bar: m.barWidth})}\n`);

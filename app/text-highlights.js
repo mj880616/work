@@ -76,10 +76,10 @@ export async function noteWithNotice(list) {
   catch (e) { notify(e?.message && !e?.status ? e.message : '노트로 보내지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); return false; }
 }
 export async function editMemo(h, anchor) {
-  const value = await askText(anchor, {text: h.memo ? '메모 고치기' : '메모 달기', value: h.memo || '', placeholder: '생각을 한 줄', max: MEMO_MAX, ok: '저장'});
+  const value = await askText(anchor, {text: h.memo ? '메모 수정' : '메모 달기', value: h.memo || '', placeholder: '생각을 한 줄', max: MEMO_MAX, ok: '저장'});
   if (value === null || (value.trim() || null) === (h.memo || null)) return null;
-  try { const row = await setMemo(h.id, value); notify(row.memo ? '메모를 저장했어요' : '메모를 지웠어요', {record: false}); return row; }
-  catch (e) { notify(e?.code === 'gone' ? '이미 지운 밑줄이에요' : failNote(e), {error: true, record: false}); if (e?.code === 'gone') void loadHighlights({force: true}).catch(() => {}); return null; }
+  try { const row = await setMemo(h.id, value); notify(row.memo ? '메모를 저장했어요' : '메모를 삭제했어요', {record: false}); return row; }
+  catch (e) { notify(e?.code === 'gone' ? '이미 삭제한 밑줄이에요' : failNote(e), {error: true, record: false}); if (e?.code === 'gone') void loadHighlights({force: true}).catch(() => {}); return null; }
 }
 export async function copyHighlight(h) {
   const ok = await copyText(copyOf(h));
@@ -87,11 +87,11 @@ export async function copyHighlight(h) {
 }
 // 지우기: 작은 확인 → 지움 + [되돌리기](같은 글·메모·출처로 다시 저장).
 export async function deleteHighlight(h, anchor) {
-  if (!(await askConfirm(anchor, {text: '이 밑줄을 지울까요?', note: h.memo ? '메모도 함께 지워져요' : '', ok: '지우기'}))) return false;
+  if (!(await askConfirm(anchor, {text: '이 밑줄을 삭제할까요?', note: h.memo ? '메모도 함께 삭제돼요' : '', ok: '삭제'}))) return false;
   try { await removeHighlight(h.id); }
   catch (e) { notify(failNote(e), {error: true, record: false}); return false; }
   const src = {type: h.source_type, id: h.source_id, title: h.source_title, media: h.source_media, date: h.source_date, url: h.source_url};
-  notify('밑줄을 지웠어요', {label: '밑줄 지우기', undo: async () => { await addHighlight(src, h.quote, {prefix: h.quote_prefix || '', suffix: h.quote_suffix || ''}, h.memo); }});
+  notify('밑줄을 삭제했어요', {label: '밑줄 삭제', undo: async () => { await addHighlight(src, h.quote, {prefix: h.quote_prefix || '', suffix: h.quote_suffix || ''}, h.memo); }});
   return true;
 }
 
@@ -101,7 +101,7 @@ export async function saveFromSelection(info) {
   const full = info.zoneEl?.textContent || '';
   let row;
   try { row = await addHighlight(info.source, info.quote, edgesOf(full, info.start, info.end)); }
-  catch (e) { notify(e?.message === 'shape' ? '고른 글을 저장할 수 없어요' : failNote(e), {error: true, record: false}); return null; }
+  catch (e) { notify(e?.message === 'shape' ? '선택한 글을 저장할 수 없어요' : failNote(e), {error: true, record: false}); return null; }
   notify('밑줄 저장함', {ms: 8000, label: '밑줄 저장', undo: async () => { await removeHighlight(row.id); },
     actions: [
       {label: '메모', run: ({close}) => { close(); const h = highlightById(row.id); if (h) void editMemo(h, null); }},
@@ -154,8 +154,8 @@ export function paintMarks(zoneEl, list) {
 const markMenu = createAnchoredMenu({id: 'hlMarkMenu', className: 'topline-add-menu os-menu hl-menu', label: '밑줄 메뉴', historyKey: 'kptuHighlightMenu', key: t => t?.dataset?.hlId || '', boxWidth: 240, actDetached: true,
   render: id => {
     const h = highlightById(id);
-    if (!h) return '<p class="hl-menu-memo">이미 지운 밑줄이에요</p>';
-    return `${h.memo ? `<p class="hl-menu-memo"><span class="hl-menu-k">메모</span>${esc(h.memo)}</p>` : ''}<button type="button" class="row-act" data-hl-menu="memo">${h.memo ? '메모 고치기' : '메모 달기'}</button><button type="button" class="row-act" data-hl-menu="note">노트로</button><button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="delete">지우기</button>`;
+    if (!h) return '<p class="hl-menu-memo">이미 삭제한 밑줄이에요</p>';
+    return `${h.memo ? `<p class="hl-menu-memo"><span class="hl-menu-k">메모</span>${esc(h.memo)}</p>` : ''}<button type="button" class="row-act" data-hl-menu="memo">${h.memo ? '메모 수정' : '메모 달기'}</button><button type="button" class="row-act" data-hl-menu="note">노트로</button><button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="delete">삭제</button>`;
   },
   onAction: (button, active) => {
     const h = highlightById(active.id);

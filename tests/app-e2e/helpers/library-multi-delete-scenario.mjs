@@ -53,31 +53,31 @@ export async function run(page,base,width,check,{shot=null}={}){
   await libraryTopMenu(page,'select');
   check(await page.locator('#documentList [data-lu-pick]').count(),5,'row boxes');
   check(await page.locator('#librarySelectBar').isVisible(),true,'bar visible');
-  check(await count(page),'0개 골랐음','count zero');
+  check(await count(page),'0개 선택됨','count zero');
   check(await page.locator('#librarySelectDelete').isDisabled(),true,'delete disabled at zero');
   // 한 줄 고르기
   await page.locator('[data-lu-pick="n1"]').click();
-  check(await count(page),'1개 골랐음','one');
+  check(await count(page),'1개 선택됨','one');
   check(state.deletes.length,0,'row pick does not delete');
   check(await page.locator('#documentList [data-lu-pick-node]').count()>0,true,'folder boxes');
   // 폴더 칸 → 그 안 자료 모두
   const folderBox=page.locator('[data-lu-node="p:p1"] > summary [data-lu-pick-node]');
   await folderBox.click();
-  check(await count(page),'4개 골랐음','folder selects its documents');
+  check(await count(page),'4개 선택됨','folder selects its documents');
   check(await page.locator('[data-lu-pick="a1"]').isChecked(),true,'folder child checked');
   // 전체 칩: 모두 → 해제
   await page.locator('#librarySelectAll').click();
-  check(await count(page),'5개 골랐음','all');
+  check(await count(page),'5개 선택됨','all');
   check(await page.locator('#librarySelectAll').getAttribute('aria-checked'),'true','all chip on');
   if(shot)await page.screenshot({path:shot,fullPage:false});
   await page.locator('#librarySelectAll').click();
-  check(await count(page),'0개 골랐음','all off');
+  check(await count(page),'0개 선택됨','all off');
   // LIB-바로지우기: 묻지 않고 바로 목록에서 빠지고 작은 알림 '5개를 지웠어요 · 되돌리기'. 서버 요청은 알림이 사라진 뒤에 보낸다.
   await page.locator('#librarySelectAll').click();
   const dialogs=[];page.on('dialog',async d=>{dialogs.push(d.type());await d.dismiss()});
   await page.locator('#librarySelectDelete').click();
   check(await rows(),0,'rows leave at once');
-  check(await page.locator('#kptuNotice .kptu-notice-text').textContent(),'5개를 지웠어요','small notice');
+  check(await page.locator('#kptuNotice .kptu-notice-text').textContent(),'5개를 삭제했어요','small notice');
   check(state.deletes.length,0,'nothing sent before undo window ends');
   // 되돌리기: 요청 없이 모두 되살림
   await page.locator('#kptuNotice .kptu-notice-undo').click();
@@ -94,7 +94,7 @@ export async function run(page,base,width,check,{shot=null}={}){
   check(state.deletes.every(x=>x.action==='delete'),true,'action delete');
   check(state.peak,1,'one request at a time');
   check(await page.locator('[data-lu-document="a2"]').count(),1,'failed row comes back');
-  check(/^4개를 지웠고 1개는 지우지 못해 되살렸어요/.test(await page.locator('#kptuNotice .kptu-notice-text').textContent()),true,'partial failure notice');
+  check(/^4개를 삭제했고 1개는 삭제하지 못해 되살렸어요/.test(await page.locator('#kptuNotice .kptu-notice-text').textContent()),true,'partial failure notice');
   check(dialogs,[],'no browser dialogs');
   check(await page.locator('#documentList .lu-pick').count(),0,'select mode ends after delete');
   check(await page.locator('#librarySelectBar').isVisible(),false,'bar hidden');

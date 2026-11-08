@@ -12,7 +12,7 @@ export function createNoteComments({esc, rt = window.KPTURuntime, list, state, s
   const say = text => { const p = box?.querySelector('[data-cm-status]'); if (p) { p.textContent = text; p.hidden = !text; } };
   const kindOptions = selected => COMMENT_KINDS.map(k => `<option value="${k.key}"${k.key === selected ? ' selected' : ''}>${esc(k.name)}</option>`).join('');
   function rowHtml(c) {
-    return `<li class="note-cm-row" data-cm-row="${esc(c.id)}"><span class="note-cm-kind" data-kind="${esc(c.kind)}">${esc(kindName(c.kind))}</span><div class="note-cm-text">${c.quote ? `<q class="note-cm-quote">${esc(c.quote)}</q>` : ''}<p>${esc(c.body)}</p></div><time datetime="${esc(c.created_at || '')}">${esc(noteLineDate(c.created_at))}</time><button type="button" class="note-cm-del" data-cm-del="${esc(c.id)}" aria-label="댓글 지우기" title="지우기">✕</button></li>`;
+    return `<li class="note-cm-row" data-cm-row="${esc(c.id)}"><span class="note-cm-kind" data-kind="${esc(c.kind)}">${esc(kindName(c.kind))}</span><div class="note-cm-text">${c.quote ? `<q class="note-cm-quote">${esc(c.quote)}</q>` : ''}<p>${esc(c.body)}</p></div><time datetime="${esc(c.created_at || '')}">${esc(noteLineDate(c.created_at))}</time><button type="button" class="note-cm-del" data-cm-del="${esc(c.id)}" aria-label="댓글 삭제" title="삭제">✕</button></li>`;
   }
   function paintQuote() {
     const q = box?.querySelector('[data-cm-quote]'); if (!q) return;
@@ -56,11 +56,11 @@ export function createNoteComments({esc, rt = window.KPTURuntime, list, state, s
       await deleteNoteComment(id, rt);
       if (owner !== scope()) return;
       list.set(rows => rows.filter(x => x.id !== id)); onChange(); paint();
-      notify('댓글을 지웠어요', {undo: async () => {
+      notify('댓글을 삭제했어요', {undo: async () => {
         try { const back = await addNoteComment({note_id: c.note_id, kind: c.kind, quote: c.quote, body: c.body}, rt); if (owner !== scope()) return; list.set(rows => [back, ...rows]); onChange(); paint(); }
         catch { notify('댓글을 되돌리지 못했어요.', {error: true}); }
       }});
-    } catch { if (owner === scope()) say('댓글을 지우지 못했어요. 다시 눌러 주세요.'); }
+    } catch { if (owner === scope()) say('댓글을 삭제하지 못했어요. 다시 눌러 주세요.'); }
     finally { busy = false; }
   }
   // 본문에서 고른 문장: 고른 곳이 이 노트 본문 안일 때만 인용으로 붙인다.

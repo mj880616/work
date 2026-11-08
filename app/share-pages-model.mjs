@@ -126,7 +126,7 @@ export function expiresAt(day, now = Date.now()) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error('기한 날짜를 확인해 주세요.');
   const iso = `${day}T23:59:59+09:00`, at = Date.parse(iso);
   if (!Number.isFinite(at)) throw new Error('기한 날짜를 확인해 주세요.');
-  if (at <= now) throw new Error('기한은 오늘이나 그 뒤 날짜로 골라 주세요.');
+  if (at <= now) throw new Error('기한은 오늘이나 그 뒤 날짜로 선택해 주세요.');
   return iso;
 }
 export function linkState(link, now = Date.now()) {

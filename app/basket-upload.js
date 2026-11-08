@@ -188,7 +188,7 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, pasteTarget 
         if (at < 0 || entry.kind !== 'pending') return;
         getBatch().entries.splice(at, 1);
         render(); onChange();
-        onError(`사진을 못 받았어요 · 다시 골라 주세요 (${entry.file.name || '이름 없음'})`);
+        onError(`사진을 못 받았어요 · 다시 선택해 주세요 (${entry.file.name || '이름 없음'})`);
       });
     }
   }

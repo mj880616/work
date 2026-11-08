@@ -481,7 +481,7 @@ for(const width of [390,1280]){
     state.status=400;state.result={error:'invalid_grant'};state.driveGate=gate();
     await startConsumerDelete(page,'library');await expect.poll(()=>state.driveCalls).toBe(1);
     // LIB-바로지우기: 결과 안내는 알림창 대신 작은 알림(줄 되살림), 그다음 Drive 다시 연결을 한 번 묻는다.
-    expect(seen.map(d=>d.type)).toEqual(['confirm']);await expect(page.locator('#kptuNotice.error .kptu-notice-text')).toHaveText('지우지 못해 목록에 되살렸어요.');
+    expect(seen.map(d=>d.type)).toEqual(['confirm']);await expect(page.locator('#kptuNotice.error .kptu-notice-text')).toHaveText('삭제하지 못해 목록에 되살렸어요.');
     await actualAwayBack(page,'library');state.driveGate.release();await settleOrOAuth(page);
     await state.cdp.send('Page.getFrameTree');expect(state.oauthNavigations).toBe(0);
     expect(state.oauthRequests).toBe(0);expect(page.url()).toContain('runtime-client-fixture.html');

@@ -58,7 +58,7 @@ test('PC 1280: [정리함]은 하위 줄 없는 한 줄, [노트]는 [일정] �
 test('PC 1280: 정리함 한 화면 — 맨 위 [처리 전 ▾]와 [다시 찾기] 한 줄, 그 아래 한 목록(칸 나눔 없음), 옛 ?pane=todo 주소도 같은 목록',async({page})=>{
  const errors=await open(page,1280),basket=page.locator('#basketView');
  await nav(page).locator('.nav-btn[data-view="basket"]').click();await expect(basket).toBeVisible();
- await expect(basket.locator('[data-inbox-find]')).toBeVisible();await expect(basket.locator('[data-inbox-find]')).toHaveText('다시 찾기');
+ await expect(basket.locator('[data-inbox-find]')).toBeVisible();await expect(basket.locator('[data-inbox-find]')).toHaveText('최신화');
  await expect(basket.locator('[data-basket-more]')).toHaveCount(0);
  const head=basket.locator('.forget-head'),list=basket.locator('[data-forget-section]');
  await expect(head).toBeVisible();await expect(list).toBeVisible();

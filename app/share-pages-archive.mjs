@@ -20,7 +20,7 @@ export function archiveConfirmText(page) {
     ? `「${name}」 페이지를 보관할까요?\n게시가 멈춰 링크로 보던 사람도 더 이상 볼 수 없어요.`
     : `「${name}」 초안을 보관할까요?`;
 }
-export const purgeConfirmText = page => `「${shortTitle(page && page.title)}」 페이지를 영구 삭제할까요?\n페이지·링크·사진이 모두 지워지고 되살릴 수 없어요.`;
+export const purgeConfirmText = page => `「${shortTitle(page && page.title)}」 페이지를 영구 삭제할까요?\n페이지·링크·사진이 모두 삭제되고 되살릴 수 없어요.`;
 export const archivePatch = {
   where: (id, workspaceId, updatedAt) => `id=eq.${q(id)}&workspace_id=eq.${q(workspaceId)}&${archiveFilter}${updatedAt ? `&updated_at=eq.${q(updatedAt)}` : ''}`,
   body: now => ({status:ARCHIVED, updated_at:now}),
@@ -39,7 +39,7 @@ export const restorePatch = {
 const PURGE_ERRORS = {
   401: '로그인이 끝났어요. 다시 로그인해 주세요.',
   404: '이미 휴지통에 없거나 찾을 수 없는 페이지예요. 목록을 다시 불러왔어요.',
-  503: '일부를 지우지 못했어요. 페이지는 휴지통에 남아 있어요. 다시 [영구 삭제]를 누르면 남은 것부터 지워요.',
+  503: '일부를 삭제하지 못했어요. 페이지는 휴지통에 남아 있어요. 다시 [영구 삭제]를 누르면 남은 것부터 삭제해요.',
 };
 // One call to share-page-media (휴지통의 [영구 삭제]). Returns {ok:true} or {ok:false, status, message}; never throws.
 export async function purgePage(pageId, {rt = globalThis.window?.KPTURuntime, fetcher = globalThis.fetch?.bind(globalThis)} = {}) {

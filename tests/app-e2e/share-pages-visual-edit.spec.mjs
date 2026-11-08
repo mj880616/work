@@ -9,7 +9,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ORIGIN = testOrigin;
-const user = {id:'visual-user', email:'visual@example.org', user_metadata:{display_name:'보이는 편집 QA'}};
+const user = {id:'visual-user', email:'visual@example.org', user_metadata:{display_name:'보이는 수정 QA'}};
 const WS = 'visual-workspace';
 const TOKEN = 'c'.repeat(64);
 const PAGE = {id:'page-1', title:'○○민자철도 교섭 현황', status:'published', project_id:null, updated_at:'2026-10-20T01:00:00.000Z', blocks:[
@@ -112,7 +112,7 @@ for (const width of [390, 1280]) test('editor shows each block exactly as the re
 for (const width of [390, 1280]) test('press a block to edit it in place, then 완료 or 취소 ' + width, async ({page}) => {
   const {state, editor, errors} = await openEditor(page, width);
   // Press the schedule block: only that block becomes fields, at the same place.
-  await editor.getByRole('button', {name:'3번째 블록 일정 고치기', exact:true}).click();
+  await editor.getByRole('button', {name:'3번째 블록 일정 수정', exact:true}).click();
   const open = editor.locator('[data-sp-block="2"]');
   await expect(open).toHaveClass(/is-editing/);
   await expect(editor.locator('.sp-block.is-editing')).toHaveCount(1);
@@ -123,33 +123,33 @@ for (const width of [390, 1280]) test('press a block to edit it in place, then �
   await editor.getByRole('button', {name:'3번째 블록 일정에 줄 추가', exact:true}).click();
   await editor.getByLabel('일정 3번째 줄 날짜', {exact:true}).fill('11/7');
   await editor.getByLabel('일정 3번째 줄 내용', {exact:true}).fill('결의대회');
-  await editor.getByRole('button', {name:'3번째 블록 일정 고치기 완료', exact:true}).click();
+  await editor.getByRole('button', {name:'3번째 블록 일정 수정 완료', exact:true}).click();
   // Back to the reader look with the new rows; focus returns to the block.
   await expect(editor.locator('.sp-block.is-editing')).toHaveCount(0);
   await expect(editor.locator('[data-sp-block="2"] .sr-table tr')).toHaveCount(3);
   await expect(editor.locator('[data-sp-block="2"] .sr-table')).toContainText('결의대회');
-  await expect(editor.getByRole('button', {name:'3번째 블록 일정 고치기', exact:true})).toBeFocused();
+  await expect(editor.getByRole('button', {name:'3번째 블록 일정 수정', exact:true})).toBeFocused();
 
   // 취소 puts back what the block was when it was opened.
-  await editor.getByRole('button', {name:'1번째 블록 한 줄 현황 고치기', exact:true}).click();
-  await editor.getByLabel('1번째 블록 한 줄 현황 글', {exact:true}).fill('지우면 안 되는 글?');
-  await editor.getByRole('button', {name:'1번째 블록 한 줄 현황 고친 것 취소', exact:true}).click();
+  await editor.getByRole('button', {name:'1번째 블록 한 줄 현황 수정', exact:true}).click();
+  await editor.getByLabel('1번째 블록 한 줄 현황 글', {exact:true}).fill('삭제하면 안 되는 글?');
+  await editor.getByRole('button', {name:'1번째 블록 한 줄 현황 수정한 것 취소', exact:true}).click();
   await expect(editor.locator('[data-sp-block="0"] .sr-summary')).toHaveText(PAGE.blocks[0].text);
 
   // Keyboard: Tab to a block, Enter opens it, Esc finishes it keeping what was typed.
-  await editor.getByRole('button', {name:'2번째 블록 진행 단계 고치기', exact:true}).focus();
+  await editor.getByRole('button', {name:'2번째 블록 진행 단계 수정', exact:true}).focus();
   await page.keyboard.press('Enter');
   await expect(editor.getByLabel('2번째 블록 제목', {exact:true})).toBeFocused();
   await editor.locator('[data-sp-block="1"] input[type="radio"]').nth(2).check();
   await editor.getByLabel('2번째 블록 제목', {exact:true}).focus();
   await page.keyboard.press('Escape');
-  await expect(editor.getByRole('button', {name:'2번째 블록 진행 단계 고치기', exact:true})).toBeFocused();
+  await expect(editor.getByRole('button', {name:'2번째 블록 진행 단계 수정', exact:true})).toBeFocused();
   await expect(editor.locator('[data-sp-block="1"] .sr-stage[aria-current="step"]')).toHaveText('조정');
 
   // Opening another block finishes the open one (nothing typed is lost).
-  await editor.getByRole('button', {name:'6번째 블록 업데이트 기록 고치기', exact:true}).click();
+  await editor.getByRole('button', {name:'6번째 블록 업데이트 기록 수정', exact:true}).click();
   await editor.getByLabel('업데이트 기록 1번째 줄 내용', {exact:true}).fill('교섭 결렬, 조정 신청 결정');
-  await editor.getByRole('button', {name:'4번째 블록 쟁점·요구 고치기', exact:true}).click();
+  await editor.getByRole('button', {name:'4번째 블록 쟁점·요구 수정', exact:true}).click();
   await expect(editor.locator('[data-sp-block="5"] .sr-update-text')).toHaveText('교섭 결렬, 조정 신청 결정');
   await expect(editor.locator('[data-sp-block="3"]')).toHaveClass(/is-editing/);
 
@@ -175,7 +175,7 @@ test('[+ 블록] between blocks, ⋯ move and delete, saved in the shown order',
   await expect(editor.locator('[data-sp-block="1"]')).toHaveAttribute('data-sp-type', 'issues');
   await expect(editor.getByLabel('2번째 블록 제목', {exact:true})).toBeFocused();
   await editor.getByLabel('쟁점·요구 1번째 줄 쟁점', {exact:true}).fill('안전 인력');
-  await editor.getByRole('button', {name:'2번째 블록 쟁점·요구 고치기 완료', exact:true}).click();
+  await editor.getByRole('button', {name:'2번째 블록 쟁점·요구 수정 완료', exact:true}).click();
   await expect(editor.locator('[data-sp-block="1"] .sr-issue-title')).toHaveText('안전 인력');
   // The ⋯ menu moves a shown block; it stays open on the moved block for the next press.
   await editor.getByLabel('2번째 블록 쟁점·요구 메뉴', {exact:true}).click();
@@ -186,15 +186,15 @@ test('[+ 블록] between blocks, ⋯ move and delete, saved in the shown order',
   await expect(editor.getByLabel('3번째 블록 쟁점·요구 메뉴', {exact:true})).toBeFocused();
   // Delete a block with content asks first.
   await editor.getByLabel('6번째 블록 자료·링크 메뉴', {exact:true}).click();
-  await editor.getByRole('button', {name:'6번째 블록 자료·링크 지우기', exact:true}).click();
+  await editor.getByRole('button', {name:'6번째 블록 자료·링크 삭제', exact:true}).click();
   await answerAsk(page, false);
   await expect(editor.locator('[data-sp-block]')).toHaveCount(7);
   // 작은 확인창을 누르면 ⋯ 메뉴는 닫힌다(바깥 누르기) — 다시 연다.
-  if (!await editor.getByRole('button', {name:'6번째 블록 자료·링크 지우기', exact:true}).isVisible()) await editor.getByLabel('6번째 블록 자료·링크 메뉴', {exact:true}).click();
-  await editor.getByRole('button', {name:'6번째 블록 자료·링크 지우기', exact:true}).click();
+  if (!await editor.getByRole('button', {name:'6번째 블록 자료·링크 삭제', exact:true}).isVisible()) await editor.getByLabel('6번째 블록 자료·링크 메뉴', {exact:true}).click();
+  await editor.getByRole('button', {name:'6번째 블록 자료·링크 삭제', exact:true}).click();
   await answerAsk(page, true);
   await expect(editor.locator('[data-sp-block]')).toHaveCount(6);
-  await expect(editor.getByRole('button', {name:'6번째 블록 업데이트 기록 고치기', exact:true})).toBeFocused();
+  await expect(editor.getByRole('button', {name:'6번째 블록 업데이트 기록 수정', exact:true})).toBeFocused();
   // Add at the end with the bottom bar: opens there.
   await editor.getByRole('button', {name:'+ 한 줄 현황', exact:true}).click();
   await expect(editor.locator('[data-sp-block="6"]')).toHaveClass(/is-editing/);
@@ -209,7 +209,7 @@ test('[+ 블록] between blocks, ⋯ move and delete, saved in the shown order',
 
 test('a failed save keeps the open block and what was typed', async ({page}) => {
   const {state, editor, errors} = await openEditor(page, 1280);
-  await editor.getByRole('button', {name:'1번째 블록 한 줄 현황 고치기', exact:true}).click();
+  await editor.getByRole('button', {name:'1번째 블록 한 줄 현황 수정', exact:true}).click();
   await editor.getByLabel('1번째 블록 한 줄 현황 글', {exact:true}).fill('저장 실패해도 남는 글');
   state.failNext = true;
   await editor.getByRole('button', {name:'저장', exact:true}).click();

@@ -19,9 +19,9 @@ function ensureBar() {
   bar.className = 'hl-bar';
   bar.dataset.hlBar = '';
   bar.setAttribute('role', 'toolbar');
-  bar.setAttribute('aria-label', '고른 글');
+  bar.setAttribute('aria-label', '선택한 글');
   bar.hidden = true;
-  bar.innerHTML = '<span class="hl-bar-label">고른 글</span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="ghost kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="ghost kptu-act" data-hl-bar="note">노트로</button><button type="button" class="ghost kptu-act" data-hl-bar="copy">복사</button><button type="button" class="ghost kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="icon-btn hl-bar-close" data-hl-bar="close" aria-label="고르기 끝내기">✕</button>';
+  bar.innerHTML = '<span class="hl-bar-label">선택한 글</span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="ghost kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="ghost kptu-act" data-hl-bar="note">노트로</button><button type="button" class="ghost kptu-act" data-hl-bar="copy">복사</button><button type="button" class="ghost kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="icon-btn hl-bar-close" data-hl-bar="close" aria-label="선택 끝내기">✕</button>';
   // 줄을 누를 때 PC는 고른 글이 풀리지 않게(폰은 풀려도 받아 둔 글로 실행).
   const keep = e => { pressAt = Date.now(); if (e.target.closest('button')) e.preventDefault(); };
   bar.addEventListener('pointerdown', keep);
@@ -74,7 +74,7 @@ async function act(kind, button) {
   const p = picked;
   if (kind === 'close') { window.getSelection?.()?.removeAllRanges(); hide(); return; }
   if (!p) return;
-  if (tooLong(p.text) && (kind === 'save' || kind === 'note')) { notify('고른 글이 너무 길어요 · 4000자까지', {error: true, record: false}); return; }
+  if (tooLong(p.text) && (kind === 'save' || kind === 'note')) { notify('선택한 글이 너무 길어요 · 4000자까지', {error: true, record: false}); return; }
   const src = p.z.source?.(p.zoneEl) || null;
   const draft = draftOf(src, p.text);
   if (!draft.quote && kind !== 'copy' && kind !== 'share') return;
@@ -87,7 +87,7 @@ async function act(kind, button) {
   if (kind === 'share') {
     if (!canShare()) return;
     const text = copyOf({...draft, quote: cleanQuote(p.text) || p.text.trim()});
-    try { await navigator.share({title: draft.source_title || '고른 글', text}); hide(); }
+    try { await navigator.share({title: draft.source_title || '선택한 글', text}); hide(); }
     catch (e) { if (e?.name !== 'AbortError') notify('공유 창을 열지 못했어요', {error: true, record: false}); }
     return;
   }

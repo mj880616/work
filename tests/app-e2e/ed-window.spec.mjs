@@ -28,7 +28,7 @@ async function start(page, {width, doc = null, text = '', limit = 0, textOnly = 
 }
 // A small box of the editor: the color list on PC, the 글자 group list on a phone.
 const openBox = async (page, width) => {
-  const name = width < 700 ? '글자 서식 고르기' : '글자색 고르기';
+  const name = width < 700 ? '글자 서식 선택' : '글자색 선택';
   await win(page).locator('.ed-tools').getByRole('button', {name, exact: true}).click();
   await expect(win(page).locator('.ed-pop:visible').first()).toBeVisible();
 };
@@ -50,7 +50,7 @@ for (const width of [390, 1280]) {
       expect(errors).toEqual([]);
     });
 
-    test('열었다 안 고치고 닫으면 저장 콜백을 부르지 않음(× 와 저장 아이콘 모두)', async ({page}) => {
+    test('열었다 안 수정하고 닫으면 저장 콜백을 부르지 않음(× 와 저장 아이콘 모두)', async ({page}) => {
       await start(page, {width, text: LINES});
       await win(page).getByRole('button', {name: '닫기', exact: true}).click();
       await expect(win(page)).toHaveCount(0);
@@ -63,7 +63,7 @@ for (const width of [390, 1280]) {
       expect(await saves(page)).toEqual([]);
     });
 
-    test('고치고 저장: 서식과 글자를 함께 넘기고 창이 닫힘, 글자만 저장이면 서식은 null', async ({page}) => {
+    test('수정하고 저장: 서식과 글자를 함께 넘기고 창이 닫힘, 글자만 저장이면 서식은 null', async ({page}) => {
       await start(page, {width, text: LINES});
       await input(page).click();
       await page.keyboard.press('Control+End');
@@ -104,7 +104,7 @@ for (const width of [390, 1280]) {
       expect((await saves(page))[0].text).toBe('가나다라마');
     });
 
-    test('고친 글을 ×로 닫으면 "저장하지 않고 닫을까요?"를 묻고, 계속 쓰기는 그대로·닫기는 저장 없이 닫힘', async ({page}) => {
+    test('수정한 글을 ×로 닫으면 "저장하지 않고 닫을까요?"를 묻고, 계속 쓰기는 그대로·닫기는 저장 없이 닫힘', async ({page}) => {
       await start(page, {width, text: LINES});
       await input(page).click();
       await page.keyboard.type('수정');
@@ -152,7 +152,7 @@ for (const width of [390, 1280]) {
       await expect(win(page)).toHaveCount(0);
     });
 
-    test('뒤로 가기로 닫으면 고친 글은 onClose로 넘어옴(잃지 않음)', async ({page}) => {
+    test('뒤로 가기로 닫으면 수정한 글은 onClose로 넘어옴(잃지 않음)', async ({page}) => {
       await start(page, {width, text: ''});
       await input(page).click();
       await page.keyboard.type('쓰던 글');
@@ -211,7 +211,7 @@ test.describe('폰 390: 하단바', () => {
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--kptu-mobile-tab-height').trim())).toBe('48px');
   });
 
-  test('창 맨 아래(옛 하단 탭 자리)를 눌러도 다른 화면으로 가지 않음, 고친 글은 ✕가 먼저 물음', async ({page}) => {
+  test('창 맨 아래(옛 하단 탭 자리)를 눌러도 다른 화면으로 가지 않음, 수정한 글은 ✕가 먼저 물음', async ({page}) => {
     await start(page, {width: 390, text: LINES});
     const before = await page.evaluate(() => window.KPTURouter.current);
     expect(await page.evaluate(() => !!document.elementFromPoint(300, 844 - 10)?.closest('#edWindow'))).toBe(true);
@@ -230,7 +230,7 @@ test.describe('폰 390: 하단바', () => {
 
 // The leave-by-menu path stays for the PC menu beside the window (the phone tabs are hidden while it is open).
 test.describe('PC 1280: 앱 메뉴 누르기', () => {
-  test('메뉴를 누르면 창이 먼저 닫히고 그 화면으로 감, 고친 글이 있으면 먼저 물음', async ({page}) => {
+  test('메뉴를 누르면 창이 먼저 닫히고 그 화면으로 감, 수정한 글이 있으면 먼저 물음', async ({page}) => {
     await start(page, {width: 1280, text: LINES});
     await win(page).locator('.ed-input').click();
     await page.keyboard.type('수정');
@@ -243,7 +243,7 @@ test.describe('PC 1280: 앱 메뉴 누르기', () => {
     expect(await saves(page)).toEqual([]);
   });
 
-  test('고치지 않았으면 묻지 않고 바로 그 화면으로 감', async ({page}) => {
+  test('수정하지 않았으면 묻지 않고 바로 그 화면으로 감', async ({page}) => {
     await start(page, {width: 1280, text: LINES});
     await page.locator('#appView>.app-nav [data-view="basket"]').first().click();
     await expect(win(page)).toHaveCount(0);

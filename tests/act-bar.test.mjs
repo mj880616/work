@@ -8,7 +8,7 @@ import { ACT_ICON, actInner } from '../app/action-bar.mjs';
 const read = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8');
 const noComments = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('공용 부품: 옮기기·지우기는 글자색 선 아이콘(SVG), 아이콘 칸은 화면 읽기에서 뺀다', () => {
+test('공용 부품: 옮기기·삭제는 글자색 선 아이콘(SVG), 아이콘 칸은 화면 읽기에서 뺀다', () => {
   for (const k of ['move', 'delete']) { assert.match(ACT_ICON[k], /^<svg [^>]*stroke="currentColor"[^>]*fill="none"|^<svg [^>]*fill="none"[^>]*stroke="currentColor"/); assert.match(ACT_ICON[k], /aria-hidden="true"/); }
   assert.equal(actInner('☆', '별표'), '<span class="kptu-act-ic" aria-hidden="true">☆</span> <span class="kptu-act-tx">별표</span>');
 });

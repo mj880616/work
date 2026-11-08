@@ -16,16 +16,16 @@ import {
 // '기타'는 고정이다. 이름을 바꾸면 그 분류 자료도 새 이름으로, 지우면 그 분류 자료는 '기타'로 함께 바뀐다(함수가 한 번에 한다).
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const CATEGORY_EDITOR_TEXT=Object.freeze({
-  deleteConfirm:(name,count)=>`‘${name}’ 분류를 지울까요?\n\n${count?`이 분류의 자료 ${count}개는 ‘${LOCKED_CATEGORY}’로 옮겨져요. `:''}자료와 파일은 지워지지 않아요.`,
-  loadFailed:'분류 목록을 불러오지 못했어요. 목록을 모르는 채로 고치지 않도록 잠시 막아 두었어요.',
+  deleteConfirm:(name,count)=>`‘${name}’ 분류를 삭제할까요?\n\n${count?`이 분류의 자료 ${count}개는 ‘${LOCKED_CATEGORY}’로 옮겨져요. `:''}자료와 파일은 삭제되지 않아요.`,
+  loadFailed:'분류 목록을 불러오지 못했어요. 목록을 모르는 채로 수정하지 않도록 잠시 막아 두었어요.',
   saving:'저장하는 중…',
   // LIB-소분류: 소분류는 큰 분류 줄 바로 아래에 한 칸 들여 보인다. 지워도 그 자료는 큰 분류에 그대로 남는다(DB 함수).
-  groupDeleteConfirm:(name,count,subs)=>`‘${name}’ 분류와 소분류 ${subs}개를 지울까요?\n\n${count?`이 분류의 자료 ${count}개는 ‘${LOCKED_CATEGORY}’로 옮겨져요. `:''}자료와 파일은 지워지지 않아요.`,
+  groupDeleteConfirm:(name,count,subs)=>`‘${name}’ 분류와 소분류 ${subs}개를 삭제할까요?\n\n${count?`이 분류의 자료 ${count}개는 ‘${LOCKED_CATEGORY}’로 옮겨져요. `:''}자료와 파일은 삭제되지 않아요.`,
   // S53-16 WEEKLY-분류이름바뀜: 주간보고 환류에 쓰는 분류(팀·개인 확정본)는 '환류' 표시가 붙고 삭제가 막힌다(이름 바꾸기는 됨 — 바꾸면 표식도 새 이름으로).
   roleTag:'환류',
   roleTitle:'주간보고 환류에 쓰는 분류예요. 이름은 바꿀 수 있고 삭제는 막혀 있어요.',
   roleLocked:name=>`‘${categoryLabel(name)}’은(는) 주간보고 환류(다음 주 바탕 찾기)에 쓰는 분류라 삭제할 수 없어요. 이름 바꾸기는 돼요.`,
-  subDeleteConfirm:(name,count)=>`‘${categoryLabel(name)}’ 소분류를 지울까요?\n\n${count?`이 소분류의 자료 ${count}개는 ‘${categoryParent(name)}’에 그대로 남아요. `:''}자료와 파일은 지워지지 않아요.`,
+  subDeleteConfirm:(name,count)=>`‘${categoryLabel(name)}’ 소분류를 삭제할까요?\n\n${count?`이 소분류의 자료 ${count}개는 ‘${categoryParent(name)}’에 그대로 남아요. `:''}자료와 파일은 삭제되지 않아요.`,
 });
 // host 안에 편집 화면을 그린다. documents(): 지금 불러온 자료들. refresh(): 자료를 다시 읽는다(이름 바꾸기·삭제 직전). onChanged(): 목록이나 자료가 바뀐 뒤.
 // S51-28 LIB-화면정리 ②(시안 docs/design/mockups/library-category-edit.html): 공용 '목록 고치기' 모양(list-edit.mjs·list-edit.js) —
@@ -37,7 +37,7 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
   const countOf=name=>documentCountOf(name,documents());
   const groupCountOf=name=>documentCountOf(name,documents(),{group:true});
   // 지우기는 빨강 없이 한 번 묻기(UI-지우기빨강빼기). 다시 그려져 단추가 바뀌었으면 같은 이름의 새 ⋯에 붙인다.
-  const ask=(text,name)=>askConfirm(host.querySelector(`[data-le-menu="${CSS.escape(name)}"]`)||host,{text,ok:'지우기'});
+  const ask=(text,name)=>askConfirm(host.querySelector(`[data-le-menu="${CSS.escape(name)}"]`)||host,{text,ok:'삭제'});
   // 큰 분류의 ⋯ → [+ 소분류]: 그 묶음 끝(소분류들 뒤)에 이름 칸이 열린다.
   function subForm(parent){
     return leInlineHtml({label:`‘${parent}’에 만들 소분류 이름`,value:subDraft,limit:Math.max(subcategoryNameLimit(parent),1),sub:true,button:'추가',disabled:busy,formAttrs:{'data-dce-sub-form':parent},inputAttrs:{'data-dce-sub-input':true}});
@@ -68,7 +68,7 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
     if(loading){host.innerHTML='<section class="dce" aria-label="분류 목록">'+waitHtml({rows:3})+'</section>';return;}
     if(!documentCategoriesLoaded()){
       onCount(null);
-      host.innerHTML=`<section class="dce" aria-label="분류 목록"><p class="le-status" role="status">${esc(CATEGORY_EDITOR_TEXT.loadFailed)}</p><button type="button" class="le-add-btn" data-dce-reload ${busy?'disabled':''}>다시 불러오기</button></section>`;
+      host.innerHTML=`<section class="dce" aria-label="분류 목록"><p class="le-status" role="status">${esc(CATEGORY_EDITOR_TEXT.loadFailed)}</p><button type="button" class="le-add-btn" data-dce-reload ${busy?'disabled':''}>다시</button></section>`;
       return;
     }
     const list=documentCategories();onCount(list.length);
@@ -170,14 +170,14 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
       // 소분류 지우기: 목록에서만 빼고 그 자료는 큰 분류로 남는다.
       busy=true;say(CATEGORY_EDITOR_TEXT.saving);paint();
       const result=await deleteDocumentSubcategory(name,{rt});
-      await finish(result,{success:r=>`‘${categoryLabel(name)}’ 소분류를 지웠어요.${r.documents?` 자료 ${r.documents}개는 ‘${categoryParent(name)}’에 그대로 있어요.`:''}`,focusAfter:`[data-le-menu="${CSS.escape(categoryParent(name))}"]`});
+      await finish(result,{success:r=>`‘${categoryLabel(name)}’ 소분류를 삭제했어요.${r.documents?` 자료 ${r.documents}개는 ‘${categoryParent(name)}’에 그대로 있어요.`:''}`,focusAfter:`[data-le-menu="${CSS.escape(categoryParent(name))}"]`});
       return;
     }
     const stored=storedValuesOf(name,docs,{group:subs>0});
     if(stored===null){say(categoryErrorText('INVALID_INPUT'),true);paint();return;}
     busy=true;say(CATEGORY_EDITOR_TEXT.saving);paint();
     const result=await (subs?deleteDocumentCategoryGroup:deleteDocumentCategory)(name,stored,{rt});
-    await finish(result,{success:r=>`‘${name}’ 분류를 지웠어요.${r.documents?` 자료 ${r.documents}개는 ‘${LOCKED_CATEGORY}’로 옮겼어요.`:''}`,focusAfter:'#dceNewName'});
+    await finish(result,{success:r=>`‘${name}’ 분류를 삭제했어요.${r.documents?` 자료 ${r.documents}개는 ‘${LOCKED_CATEGORY}’로 옮겼어요.`:''}`,focusAfter:'#dceNewName'});
   }
   function startAddSub(parent){
     if(!topDocumentCategories().includes(parent))return;
@@ -193,8 +193,8 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
     const result=await reorderDocumentCategories(next,{rt});
     await finish(result,{success:()=>'순서를 바꿨어요.',focusAfter:`[data-reorder-id="${CSS.escape(name)}"] [data-reorder-handle]`});
   }
-  mountListEdit(host,{key:'dce',label:'분류 고치기',
-    items:name=>isSubcategory(name)?[{key:'rename',label:'이름 바꾸기'},{key:'delete',label:'지우기'}]:[{key:'sub',label:'+ 소분류'},{key:'rename',label:'이름 바꾸기'},{key:'delete',label:'지우기'}],
+  mountListEdit(host,{key:'dce',label:'분류 수정',
+    items:name=>isSubcategory(name)?[{key:'rename',label:'이름 바꾸기'},{key:'delete',label:'삭제'}]:[{key:'sub',label:'+ 소분류'},{key:'rename',label:'이름 바꾸기'},{key:'delete',label:'삭제'}],
     onAct:(name,act)=>{if(busy||!documentCategories().includes(name))return;if(act==='sub')startAddSub(name);else if(act==='rename')startRename(name);else if(act==='delete')void remove(name);},
     onMove:(name,index)=>void move(leMove(movable(),name,index),name),
     onStep:(name,dir)=>void move(leStep(movable(),name,dir),name),
