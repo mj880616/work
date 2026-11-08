@@ -21,7 +21,7 @@ const maxLinesOf = el => { const n = Number.parseInt(el?.getAttribute?.('data-au
 // 칸 하나를 글에 맞춘다. 숨은 칸(높이 0)은 건드리지 않는다. overflow: false 면 스크롤 표시를 칸 CSS 에 맡긴다(홈 빠른 입력 그대로).
 export function fitHeight(el, {maxLines = maxLinesOf(el), overflow = true} = {}) {
   if (!el || el.tagName !== 'TEXTAREA') return;
-  if (isAutoGrow(el)) watchWidth(el); // 숨은 칸도 지켜보다가 보이면(폭이 생기면) 맞춘다
+  if (isAutoGrow(el)) { watchWidth(el); keepOneLine(el); } // 숨은 칸도 지켜보다가 보이면(폭이 생기면) 맞춘다. 한 줄 칸에 넣은 글의 줄바꿈은 한 줄 칸(input)처럼 정리
   el.style.height = '';
   const min = el.offsetHeight;
   if (!min) return;

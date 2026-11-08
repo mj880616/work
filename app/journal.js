@@ -471,6 +471,7 @@ function renderDay() {
     blocks.unshift(line);
   }
   host.replaceChildren(...blocks);
+  fitAll(host); // UI-줄입력늘어나기: 고쳐서 넣을 한 줄 칸은 글 전체가 보이게
 }
 // [주간 정리]: the week in report order. Drawn only while that side is shown; every read that lands redraws it.
 function renderWeekly_({refreshBox = true} = {}) {

@@ -58,3 +58,22 @@ test('주간 정리 긴 글 칸 전부 = 공용 칸(화면마다 따로 늘리�
   assert.match(read('app/journal-hwpx.js'), /e\.target\.matches\?\.\('input, textarea'\)\) \{ e\.preventDefault\(\); void saveSchedEdit\(\)/);
   assert.match(read('app/weekly-flow-cells.js'), /closest\?\.\('\[data-flow-input\]'\)/);
 });
+
+test('나머지 긴 글 한 줄 칸 = 공용 칸(PR 2)', () => {
+  const cases = [
+    ['app/inbox-todos.js', /<textarea rows="1" class="inbox-todo-edit-title" data-inbox-todo-edit-title data-autogrow data-enter-field="single"/],
+    ['app/basket-manual-link.js', /<textarea rows="1" data-manual-task-title data-autogrow data-enter-field="single"/],
+    ['app/call-feed.js', /<textarea rows="1" class="\$\{cls\}" data-cf-title-input data-autogrow/],
+    ['app/call-feed.js', /<textarea rows="1" class="feed-edit-input" data-cf-sum-line="\$\{i\}" data-autogrow/],
+    ['app/telegram-feed.js', /<textarea rows="1" class="feed-edit-input" data-tg-se-head data-autogrow data-enter-field="single"/],
+    ['app/journal-memorable.js', /data-memorable-input data-autogrow data-enter-field="single"/],
+    ['app/basket-notes.js', /<textarea rows="1" data-note-title-input data-autogrow data-enter-field="single"/],
+    ['app/project-system-v3.js', /<textarea rows="1" maxlength="500" aria-label="기록 요약" data-autogrow data-enter-field="single">/],
+    ['app/google-tasks.js', /<textarea id="gtEditTitle" rows="1" data-autogrow data-enter-field="single">/],
+    ['app/report-oneline.js', /data-ol-text data-autogrow/],
+  ];
+  for (const [f, re] of cases) assert.match(read(f), re, f);
+  // form 안 한 줄 칸은 공용 Enter 저장(enter-save.js)이 넣기 버튼을 누른다
+  assert.match(read('app/inbox-todos.js'), /<form class="inbox-todo-edit" data-inbox-todo-edit="\$\{id\}" data-enter-save>/);
+  assert.match(read('app/journal-memorable.js'), /<form class="journal-memorable-edit" data-memorable-edit="\$\{esc\(row\.id\)\}" data-enter-save>/);
+});

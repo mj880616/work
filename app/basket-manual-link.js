@@ -16,6 +16,7 @@ import {dayKey} from './home-read-model.js';
 import {quickDueDay,weekdayLabel,newTaskDue} from './task-due.mjs';
 import {openWeekPick} from './task-week-pick.js'; // S46-30 [다음주] 요일 목록
 import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js';
+import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 import {aiSummaryAllowed,aiSummaryMarkup,appliedText,attachmentTextState,newAiState,placeAiSummary,readDocumentBrief,requestLinkSummary} from './basket-ai-summary.js';
 
 // BASKET-수동연결: the user picks destinations and writes each summary in the
@@ -283,7 +284,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     const project=taskProjectName();
     const dateLabel=task.dateKind==='date'&&task.due?`${Number(task.due.slice(5,7))}.${Number(task.due.slice(8,10))}`:'날짜';
     return `<section class="basket-manual" data-manual-task data-enter-save aria-labelledby="basketManualTaskTitle"><h3 id="basketManualTaskTitle">Google 할 일 만들기</h3>
-<label class="basket-text-label">할 일 제목<input type="text" data-manual-task-title maxlength="${TASK_LIMITS.title}" value="${esc(task.title)}"></label>
+<label class="basket-text-label">할 일 제목<textarea rows="1" data-manual-task-title data-autogrow data-enter-field="single" maxlength="${TASK_LIMITS.title}">${esc(task.title)}</textarea></label>
 <label class="basket-text-label">할 일 메모<textarea data-manual-task-notes rows="6" spellcheck="false">${esc(task.notes)}</textarea></label>
 <div data-manual-task-files-slot></div>
 <div class="basket-actions basket-manual-task-options"><button type="button" data-manual-task-project aria-haspopup="dialog" aria-expanded="false" aria-label="${task.project?esc('사업영역: '+project):'사업영역'}">${esc(project)} ▾</button><button type="button" data-manual-task-day="today" aria-pressed="${task.dateKind==='today'}">오늘</button><button type="button" data-manual-task-day="tomorrow" aria-pressed="${task.dateKind==='tomorrow'}">내일</button><button type="button" data-manual-task-day="after" aria-pressed="${task.dateKind==='after'}">모레</button><button type="button" data-manual-task-day="week" aria-haspopup="true" aria-pressed="${task.dateKind==='week'}">${esc(task.dateKind==='week'&&task.due?weekdayLabel(task.due):'다음주')}</button><button type="button" data-manual-task-day="date" aria-pressed="${task.dateKind==='date'}">${esc(dateLabel)}</button><input type="date" class="basket-manual-date" data-manual-task-date aria-label="기한 날짜" tabindex="-1" value="${esc(task.dateKind==='date'?task.due:'')}"></div>
@@ -297,7 +298,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     // Keep native disclosure state and the caret across repaints.
     const open=host.querySelector('[data-manual-original]')?.open,focused=document.activeElement&&host.contains(document.activeElement)?document.activeElement:null;
     const focusKey=focused&&[...focused.attributes].find(a=>a.name.startsWith('data-manual'))?.name,focusValue=focusKey?focused.getAttribute(focusKey):null,caret=focused&&'selectionStart' in focused?[focused.selectionStart,focused.selectionEnd]:null;
-    host.hidden=false;host.innerHTML=mode==='link'?linkMarkup(n):taskMarkup();
+    host.hidden=false;host.innerHTML=mode==='link'?linkMarkup(n):taskMarkup();fitAll(host); // UI-줄입력늘어나기: 할 일 제목 칸은 글 전체가 보이게
     if(open)host.querySelector('[data-manual-original]').open=true;
     if(mode==='task'&&task.recover)paintRecover();
     if(mode==='task')placeTaskFiles();

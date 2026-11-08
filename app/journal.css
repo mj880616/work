@@ -657,7 +657,7 @@
 #appView #homeView .journal-memorable-row > .weekly-flow-tag{ margin-top:7px; }
 #appView #homeView .journal-memorable-org{ font-weight:var(--ds-weight-medium); }
 #appView #homeView .journal-memorable-edit{ display:flex; gap:4px; width:100%; }
-#appView #homeView .journal-memorable-edit input{ flex:1; min-width:0; }
+#appView #homeView .journal-memorable-edit :is(input, textarea){ flex:1; min-width:0; }
 /* 홈 [하루]의 '나한테 온 요청'·'잊지 말기' 상자 모양은 ui-standard.css 'UI-요청상자통일' 한 곳(S52-09, 공용 부품 notice-box.mjs). */
 /* S51-26 [노트로] 작은 창(family-note-send.js): 폰은 하단바 바로 위에서 올라오고, PC는 가운데 작은 창. */
 .modal.family-send{ z-index:60; }
