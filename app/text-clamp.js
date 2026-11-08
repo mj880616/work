@@ -40,7 +40,8 @@ export function syncMoreToggle(host,selector){
     el.classList.add('kptu-clamp');
     const anchor=el.closest('.basket-link-line')||el,next=anchor.nextElementSibling;
     let btn=next?.classList.contains('kptu-clamp-more')?next:null;
-    const needs=clampCut(el)||el.classList.contains('is-open');
+    // RECORD-한줄: data-oneline = 한 줄만 보이는 기록(원문은 data-md-raw·data-written-raw) — 잘리지 않아도 [펼치기]로 원문을 연다.
+    const needs=clampCut(el)||el.classList.contains('is-open')||el.dataset.oneline==='1';
     if(needs&&!btn){btn=document.createElement('button');btn.type='button';btn.className='kptu-clamp-more';owners.set(btn,el);anchor.after(btn)}
     else if(!needs&&btn){btn.remove();return}
     if(btn){const open=el.classList.contains('is-open');btn.textContent=open?'접기':'펼치기';btn.setAttribute('aria-expanded',String(open))}

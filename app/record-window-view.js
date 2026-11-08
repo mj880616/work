@@ -100,7 +100,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     const {readWeekLines} = await import('./weekly-org-lines.js');
     const r = await readWeekLines({rt: ctl.rt, workspaceId: ctl.workspaceId, week: ctl.week, orgIds: ctl.orgIds});
     const out = new Map();
-    for (const id of ctl.orgIds) out.set(id, (r.rows?.get(id) || []).filter(l => l.state === 'in').map(l => ({id: `old:${l.id}`, kind: 'old', key: l.id, day: l.day || '', end_day: l.end_day || null, text: M.cleanBody(l.body)})).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')));
+    for (const id of ctl.orgIds) out.set(id, (r.rows?.get(id) || []).filter(l => l.state === 'in').map(l => ({id: `old:${l.id}`, kind: 'old', key: l.id, day: l.day || '', end_day: l.end_day || null, text: M.oneLine(l.body), full: String(l.body ?? '')})).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')));
     return out;
   }
   // orgs = [{id, name, aliases}] 화면 순서. quiet = 이미 보이는 표를 지우지 않고 다시 읽기.
@@ -169,7 +169,10 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       items.push({text: '보고에서 빼기', data: {rwOut: l.id}, danger: true, aria: `보고에서 빼기: ${l.text}`});
     }
     if (l.kind === 'event') { items.push({text: '기록으로 남기기', data: {rwKeep: l.id}}); items.push({text: '일정 열기', data: {rwEvent: l.id}}); }
-    else if (typeof ctl.openSource === 'function') items.push({text: '기록 열기', data: {rwOpen: l.id}});
+    else {
+      if (l.full) items.push({text: '원문 보기', data: {rwRaw: l.id}}); // RECORD-한줄: 표는 한 줄, 원문은 작은 창에 그대로
+      if (typeof ctl.openSource === 'function') items.push({text: '기록 열기', data: {rwOpen: l.id}});
+    }
     return items.length ? moreSlot({label: `줄 메뉴: ${l.text}`, data: {rwMore: l.id}, items}) : '';
   };
   const lineHtml = (orgId, l, where = 'shown') => {
@@ -319,7 +322,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       if ('rwCancel' in d) { ctl.cancel(); return; }
       if ('rwSave' in d) { void ctl.save(); return; }
       if (d.rwFold) { const set = d.rwFold === 'out' ? ctl.outOpen : ctl.foldOpen, org = d.rwOrg; if (set.has(org)) set.delete(org); else set.add(org); ctl.focus = `[data-rw-fold="${d.rwFold}"][data-rw-org="${CSS.escape(org)}"]`; redraw(); return; }
-      const id = d.rwEdit || d.rwOrig || d.rwOut || d.rwIn || d.rwBack || d.rwOpen || d.rwKeep || d.rwEvent;
+      const id = d.rwEdit || d.rwOrig || d.rwOut || d.rwIn || d.rwBack || d.rwOpen || d.rwKeep || d.rwEvent || d.rwRaw;
       if (!id || ctl.disabled()) return;
       const hit = findLine(id); if (!hit) return;
       const l = hit.line;
@@ -327,9 +330,15 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       // [기록 열기]: 메뉴 항목 누름(작은 메뉴 겹 닫기 → 다시 누름, details-menu-back.js) 처리가 다 끝난 다음 차례에 연다.
       // 같은 누름 안에서 열면 폰에서 막 연 조직 상세가 그 누름의 뒷정리와 겹쳐 열리지 않는다(E2E 412px로 확인).
       if (d.rwOpen) { if (typeof ctl.openSource === 'function' && l.kind === 'org_update') setTimeout(() => ctl.openSource({org: hit.org, record: `up:${l.key}`}, b), 0); return; }
+      // [원문 보기]: 기록 열기와 같은 까닭으로 다음 차례에 연다. 닫으면 초점은 그 줄 ⋯로.
+      if (d.rwRaw) {
+        const back = box?.querySelector('summary') || b, place = ctl.orgs.find(o => String(o.id) === hit.org)?.name || '';
+        setTimeout(() => void import('./record-raw-view.js').then(m => m.openRawRecord({text: l.full, day: M.dayText(l.day, l.end_day), line: l.text, place, trigger: back})).catch(() => say('원문을 열지 못했어요.', true)), 0);
+        return;
+      }
       if (d.rwEvent) { void import('./event-open.js').then(m => m.openGoogleEvent(l.key, l.cal)).catch(() => say('일정을 열지 못했어요.', true)); return; }
       if (ctl.readOnly()) return;
-      if (d.rwKeep) { openAdd(hit.org, {day: l.day, end_day: l.end_day || '', body: l.orig || l.text}); return; }
+      if (d.rwKeep) { openAdd(hit.org, {day: l.day, end_day: l.end_day || '', body: l.full || l.orig || l.text}); return; }
       if (d.rwEdit) { ctl.editing = {orgId: hit.org, id}; ctl.draft = {body: l.text}; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw(); return; }
       if (d.rwOrig) void mark(l, {report_body: null}, TEXT.orig);
       else if (d.rwOut) void mark(l, {choice: 'out'}, TEXT.out);

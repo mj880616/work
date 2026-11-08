@@ -42,6 +42,8 @@ async function onClick(e){
   if(e.target.closest('[data-bp-edit-cancel]')){state.editing=null;return renderPaper()}
   if(e.target.closest('[data-bp-edit-save]'))return saveEdit();
   const recs=e.target.closest('[data-bp-recs]');if(recs)return toggleRecs(recs.dataset.bpRecs);
+  // RECORD-한줄: 사업 기록은 한 줄만 보이고, 한 줄이 원문과 다르면 누르면 원문이 그대로(작은 창, 읽기만).
+  const raw=e.target.closest('[data-bp-raw]');if(raw){const r=findRec(raw.dataset.bpRaw);if(!r)return;const mod=await import('./record-raw-view.js');return mod.openRawRecord({text:r.full,day:state.kit.NM.dayText(r.day,r.end_day),line:r.text,trigger:raw})}
   const open=e.target.closest('[data-bp-open]');if(open){const mod=await import('./report-open.js');return mod.openReport(open.dataset.bpOpen)}
   if(e.target.closest('[data-bw-journal]')){const day=state.from;window.KPTURouter?.go?.('journal',{source:'delegated'});return waitJournal().then(j=>j?.showWeek?.(day))}
   // 칸을 누르면 글 칸(보고 줄 버튼·쓰는 중인 칸 안은 빼고).
@@ -219,12 +221,14 @@ function toggleRecs(space){
   renderPaper();
   box?.querySelector(`[data-bp-recs="${CSS.escape(space)}"]`)?.focus({preventScroll:true});
 }
+const findRec=key=>{for(const list of state?.now?.recs?.values?.()||[])for(const r of list)if(r.key===key)return r;return null};
+const recLineHtml=(NM,r)=>`<p class="biz-rec-line">${esc(NM.recordLine(r))}${r.full&&r.full.replace(/\s+/g,' ').trim()!==r.text?` <button type="button" class="row-act" data-bp-raw="${esc(r.key)}" aria-label="${esc(`원문 보기: ${r.text}`)}">원문</button>`:''}</p>`;
 function recsHtml(ref,items,records){
   const {NM,chev}=state.kit,recs=state.now.recs.get(ref.space)||[],n=items.length+recs.length;
   if(!n)return '';
   const open=!!state.openRecs?.has(ref.space);
   const btn=`<button type="button" class="row-act biz-rec-n" data-bp-recs="${esc(ref.space)}" aria-expanded="${open}" aria-label="${esc(`${ref.area} ${ref.task} 이번 주 기록 ${n}`)}">이번 주 기록 ${n} ${chev(open)}</button>`;
-  return open?`${btn}<div class="biz-rec-list" data-bp-rec-list>${factsHtml(items,records)}${recs.map(r=>`<p class="biz-rec-line">${esc(NM.recordLine(r))}</p>`).join('')}</div>`:btn;
+  return open?`${btn}<div class="biz-rec-list" data-bp-rec-list>${factsHtml(items,records)}${recs.map(r=>recLineHtml(NM,r)).join('')}</div>`:btn;
 }
 function nowProgressCell(ref,row,items,records){
   const {NM}=state.kit,ed=state.editing,v=NM.nowView(state.now.rows,ref.space,state.from);

@@ -36,15 +36,16 @@ function install(){
 
 // row: a readLinkRecords row. place: the project or organization name. trigger: the tapped line (focus returns there).
 // onOpenFull: the existing full open (basket note or note view), run once the sheet's history entry is gone.
-export function openRecordSheet({row,place='',trigger=null,onOpenFull=null}={}){
+// RECORD-한줄: title·meta·summaryLabel = 조직 기록 [원문 보기](record-raw-view.js)처럼 잊지 말기 연결이 아닌 기록을 같은 창으로 볼 때(표시 아이콘 없음).
+export function openRecordSheet({row,place='',trigger=null,onOpenFull=null,title:ownTitle=null,meta=null,summaryLabel='기록 요약'}={}){
   if(!row)return false;
   const sheet=install();if(state)close({focus:false,immediate:true});
   const note=isNoteRecord(row),summary=recordText(row)||'',raw=String(row.raw_text??''),title=note&&String(row.title||'').trim()?row.title:(note?'노트':'잊지 말기 업데이트');
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
-  sheet.querySelector('[data-record-sheet-title]').innerHTML=`${recordMark(row,'record-sheet-mark')} <span>${escape(title)}</span>`;
-  sheet.querySelector('[data-record-sheet-meta]').textContent=[note?'노트 연결':'잊지 말기 연결',date,place].filter(Boolean).join(' · ');
+  sheet.querySelector('[data-record-sheet-title]').innerHTML=ownTitle!=null?`<span>${escape(ownTitle)}</span>`:`${recordMark(row,'record-sheet-mark')} <span>${escape(title)}</span>`;
+  sheet.querySelector('[data-record-sheet-meta]').textContent=meta!=null?meta:[note?'노트 연결':'잊지 말기 연결',date,place].filter(Boolean).join(' · ');
   const showSummary=row.summary!=null&&String(row.summary).trim()&&String(row.summary).trim()!==raw.trim();
-  sheet.querySelector('[data-record-sheet-body]').innerHTML=`${showSummary?`<p class="record-sheet-summary"><b>기록 요약</b> ${escape(summary)}</p>`:''}<div class="record-sheet-text" data-record-sheet-text>${raw.trim()?escape(raw):emptyHtml()}</div>`;
+  sheet.querySelector('[data-record-sheet-body]').innerHTML=`${showSummary?`<p class="record-sheet-summary"><b>${escape(summaryLabel)}</b> ${escape(summary)}</p>`:''}<div class="record-sheet-text" data-record-sheet-text>${raw.trim()?escape(raw):emptyHtml()}</div>`;
   // BUG-미리보기기호: the opened sheet shows the written text as headings and tables (the plain text stays until the view is ready).
   const textBox=sheet.querySelector('[data-record-sheet-text]');
   if(textBox&&raw.trim()&&markdownSource(raw))import('./markdown-view.js').then(view=>view.renderMarkdownInto(textBox,raw,{isCurrent:()=>state?.row===row})).catch(()=>{});

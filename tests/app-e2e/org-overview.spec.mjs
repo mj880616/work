@@ -240,3 +240,27 @@ for(const width of [390,1280])test(`[전체 표] 줄 ⋯ [기록 열기] → 조
  await expect.poll(()=>row.evaluate(e=>e.hasAttribute('data-journal-flash')||e.getAnimations().length>0)).toBe(true);
  expect(errors).toEqual([]);
 });
+
+// RECORD-한줄 ①: 긴 기록(붙여 넣은 회의록·마크다운·표 기호)은 표에 한 줄만, 기호 없이. ⋯ [원문 보기] = 원문 그대로(작은 창, 읽기만).
+for(const width of [390,1280])test(`[전체 표] 긴 기록은 한 줄 + ⋯ [원문 보기] ${width}px`,async({page})=>{
+ const RAW='## 합성 쟁의대책회의 결과 요약 (11.16)\n\n### 1. 핵심 회의 결과\n- 합성 경고파업 추진 방향으로 의견을 모음&#x20;\n\n| 구분 | 내용 |\n|---|---|\n| 교섭 | 합성 근속승진 |\n'+'합성 문장 '.repeat(30);
+ const rec=U(OA,'2026-11-17',RAW);
+ const {db,errors}=await fixture(page,{width,records:[rec]});
+ await openTable(page);
+ const line=shown(oa(page));
+ await expect(line).toHaveCount(1);
+ await expect(line.locator('.wl-text')).toHaveText('합성 쟁의대책회의 결과 요약 (11.16)…');
+ expect((await oa(page).locator('.wl-cell').textContent())||'').not.toMatch(/##|\||&#x20;|합성 근속승진/);
+ await menu(page,oa(page),'합성 쟁의대책회의','원문 보기');
+ const sheet=page.locator('#kptuRecordSheet');
+ await expect(sheet).toBeVisible();
+ await expect(sheet.locator('[data-record-sheet-title]')).toHaveText('원문');
+ await expect(sheet.locator('[data-record-sheet-meta]')).toContainText('합성 가 지부');
+ await expect(sheet.locator('[data-record-sheet-text]')).toContainText('합성 근속승진');
+ await expect(sheet.locator('[data-record-sheet-full]')).toBeHidden();
+ await page.keyboard.press('Escape');
+ await expect(sheet).toBeHidden();
+ expect(db.records[0].raw_text).toBe(RAW); // 원문은 그대로
+ expect(db.posts).toEqual([]);expect(db.markWrites).toEqual([]);
+ expect(errors).toEqual([]);
+});
