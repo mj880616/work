@@ -388,11 +388,11 @@
 /* BIZ-위쪽정돈(B안, 11/09): 폰(~760px) 맨 위 줄 오른쪽은 작은 아이콘 셋 [● 녹음][+ 추가][⋯] — 글자 버튼과 아래에 떠 있던 동그란 [+]는 없다. 글자는 화면 읽기 이름으로만 남는다.
    (아이콘 버튼 ⑥과 같은 크기·선 없음·옅은 바탕은 마우스를 올릴 때만. 누르는 범위 44px은 위아래로만 ::after.) */
 @media(max-width:760px){
-  #appView #meetingsView .report-top-line .report-head-actions>:is(#newMeetingBtn,#phoneRecordBtn,#reportRecordBtn):not([hidden]){position:relative;box-sizing:border-box;display:inline-grid;place-items:center;width:var(--ds-compact-height);min-width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:var(--ds-compact-height);margin:0;padding:0;border:0;border-radius:var(--ds-radius-control);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:0;line-height:0}
+  #appView #meetingsView .report-top-line .report-head-actions>:is(#newMeetingBtn,#phoneRecordBtn,#reportRecordBtn):not([hidden]){position:relative;box-sizing:border-box;display:inline-grid;place-items:center;width:var(--ds-compact-height);min-width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:var(--ds-compact-height);margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:0;line-height:0}
   #appView #meetingsView .report-top-line .report-head-actions>:is(#newMeetingBtn,#phoneRecordBtn,#reportRecordBtn):is(:hover,[aria-pressed="true"]){background:var(--kptu-surface-subtle)}
   #appView #meetingsView .report-top-line .report-head-actions>:is(#newMeetingBtn,#phoneRecordBtn,#reportRecordBtn)::after{content:"";position:absolute;inset:auto;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
   #appView #meetingsView .report-top-line .report-head-actions>#newMeetingBtn::before{content:"";display:block;width:18px;height:18px;background:currentColor;-webkit-mask:var(--ds-fab-plus) center / 18px 18px no-repeat;mask:var(--ds-fab-plus) center / 18px 18px no-repeat}
-  #appView #meetingsView .report-top-line .report-head-actions>:is(#phoneRecordBtn,#reportRecordBtn)::before{content:"";display:block;width:10px;height:10px;margin:0;border-radius:50%;background:var(--kptu-danger)}
+  #appView #meetingsView .report-top-line .report-head-actions>:is(#phoneRecordBtn,#reportRecordBtn)::before{content:"";display:block;width:10px;height:10px;margin:0;border-radius:var(--kptu-radius-pill);background:var(--kptu-danger)}
 }
 @media(min-width:761px){
   #appView #meetingsView .report-head-actions>#newMeetingBtn{height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text)}
