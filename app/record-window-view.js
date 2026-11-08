@@ -1,0 +1,356 @@
+// ORG-기록하나로 O-4(설계 docs/design/record-one.md 2-5~2-9·4절): 조직보고 '창' 공용 부품 하나 — 읽기·쓰기·한 조직 칸 그리기. (설계의 'record-window.js'는 이미 있는 큰 창 고치기 부품 이름이라 이 이름으로 둔다.)
+// 담당조직 [전체 표] '이번 주 조직보고'(org-overview.js)가 쓰고, 홈 [주간 정리] 4.·업무일지 '이번 주 보고'도 이 부품을 붙인다(상태 주인 하나).
+// - 조직 칸 = 지난 3주~앞 2주 창의 조직 기록 줄 + 그 조직과 연결된 구글 캘린더 일정 줄(작은 '일정', 읽어서 보여 주기만, 저장 안 함).
+//   규칙은 record-window-model.mjs. 조직당 7줄, 넘친 지난 줄은 '지난 기록 n'에서 [넣기], 뺀 줄은 '뺀 줄 n'에서 [되돌리기].
+// - 쓰는 곳은 조직 기록 하나: [+ 쓰기] = app_suborganization_updates에 한 줄(기존 owner RLS 길 quick-save.js, source_kind user).
+//   보고에만 다른 것(보고용 글·빼기·넣기)은 app_report_line_marks에 '그 주부터 × 그 줄' 한 행(이어짐 규칙은 모델). 원래 기록·일정은 바꾸지 않는다.
+// - 확정 사진(app_report_snapshots)이 있는 주는 사진 줄 그대로(고칠 수 없음) + 흐린 '확정 뒤 추가'. 전환 주 앞은 옛 주별 조직보고 표 읽기 전용.
+// - 표를 먼저 그리고 일정은 뒤에 같은 주인이 한 번 다시 그린다. 일정 읽기는 이 화면 세션 메모리에 5분(브라우저 저장소 없음).
+// - 다른 화면과는 같은 탭 이벤트 kptu:record-window-changed, 다른 기기와는 화면이 다시 보일 때 다시 읽는다.
+import {missingTable} from './feed-model.mjs';
+import {seoulDateKey} from './meeting-time.js';
+import {chevHtml} from './fold-chevron.mjs';
+import {rowMore} from './row-more.js';
+import {fitAll} from './auto-grow.js';
+import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
+import {readChoice} from './calendar-ref-data.js';
+import * as M from './record-window-model.mjs';
+
+const UPD = '/rest/v1/app_suborganization_updates';
+const MARKS = '/rest/v1/app_report_line_marks';
+const SNAPS = '/rest/v1/app_report_snapshots';
+const UPD_COLS = 'id,organization_id,raw_text,occurred_at,end_day,source_kind,created_at';
+const MARK_COLS = 'id,week_start,section,ref_kind,ref_key,report_body,choice,detail,updated_at';
+const EVENT = 'kptu:record-window-changed';
+const EVENT_TTL = 5 * 60 * 1000, EVENT_CAP = 250;
+const enc = encodeURIComponent;
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const dayIso = day => new Date(`${day}T00:00:00+09:00`).toISOString();
+export const TEXT = {
+  failed: '조직보고를 불러오지 못했어요.', saveFailed: '저장하지 못했어요. 다시 눌러 주세요.', noBody: '내용을 적어 주세요.', badDay: '날짜를 다시 선택해 주세요.',
+  badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', saved: '저장했어요.', added: '기록을 남겼어요.', out: '이번 주부터 보고에서 뺐어요.', back: '보고에 다시 넣었어요.',
+  placed: '보고에 넣었어요.', orig: '원래 글로 되돌렸어요.', evFailed: '일정을 못 읽었어요', evPartial: '일정 일부만',
+};
+export const thisWeek = () => M.mondayOf(seoulDateKey(Date.now()));
+export {lineText} from './record-window-model.mjs';
+
+// ---- 일정 읽기(기존 google-calendar 로그인 사용자 길, 읽기만). 같은 범위는 5분 동안 다시 쓴다. ----
+const evCache = new Map();
+const userOf = rt => rt?.context?.read?.()?.user?.id || '';
+function readEvents(rt, from, to, cal = '') {
+  const key = `${userOf(rt)}|${from}|${to}|${cal}`, hit = evCache.get(key);
+  if (hit && Date.now() - hit.at < EVENT_TTL) return hit.flight;
+  const flight = rt.api(`/functions/v1/google-calendar?action=events${cal ? `&onlyCalendarId=${enc(cal)}` : ''}&timeMin=${enc(dayIso(from))}&timeMax=${enc(dayIso(to))}`).then(data => {
+    if (data?.connected === false || data?.needs_reconnect) return {off: true, events: [], partial: false};
+    if (!Array.isArray(data?.events) || data?.authorized === false) throw new Error('calendar');
+    const counts = new Map();
+    for (const e of data.events) counts.set(e?.calendarId, (counts.get(e?.calendarId) || 0) + 1);
+    return {events: data.events, partial: [...counts.values()].some(n => n >= EVENT_CAP)};
+  });
+  evCache.set(key, {at: Date.now(), flight});
+  flight.catch(() => { if (evCache.get(key)?.flight === flight) evCache.delete(key); });
+  return flight;
+}
+// 화면이 이미 읽어 둔 일정(그 범위 전체)을 넘겨주면 같은 범위를 다시 읽지 않는다.
+export function seedEvents(rt, from, to, events) {
+  if (!Array.isArray(events) || !from || !to) return;
+  evCache.set(`${userOf(rt)}|${from}|${to}|`, {at: Date.now(), flight: Promise.resolve({events, partial: false})});
+}
+
+let seq = 0;
+// host = 칸들이 들어 있는 상자(클릭·키를 여기서 받음), repaint = 그 화면 다시 그리기, say(text, error) = 상태 한 줄.
+// openSource({org, record}, trigger) = [기록 열기](그 조직 상세를 열고 그 기록을 밝힘 — 화면 쪽).
+export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint = () => {}, say = () => {}, openSource = null, withEvents = true} = {}) {
+  const ctl = {
+    id: `rw${++seq}`, rt, workspaceId, week, openSource, status: 'idle', orgs: [], orgIds: [], records: [], marks: [], marksOn: true, snaps: new Map(), legacy: new Map(),
+    ev: {status: 'idle', items: [], partial: false, run: 0}, foldOpen: new Set(), outOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, run: 0, host: null, focus: '',
+  };
+  const c = () => ({rt: ctl.rt, ws: ctl.workspaceId});
+  const announce = () => window.dispatchEvent(new CustomEvent(EVENT, {detail: {source: ctl.id, week: ctl.week}}));
+  const old = () => M.isOldWeek(ctl.week);
+  const snap = () => ctl.snaps.get(ctl.week) || null;
+  ctl.readOnly = () => ctl.status !== 'ready' || old() || !!snap();
+  ctl.disabled = () => ctl.busy || !!ctl.editing;
+
+  // ---- 읽기 ----
+  async function readRecords(ids, range) {
+    const out = [];
+    for (let i = 0; i < ids.length; i += 50) {
+      const rows = await ctl.rt.api(`${UPD}?organization_id=in.(${ids.slice(i, i + 50).map(enc).join(',')})&occurred_at=gte.${enc(dayIso(range.from))}&occurred_at=lt.${enc(dayIso(range.to))}&select=${UPD_COLS}&order=occurred_at.asc,id.asc&limit=3000`, {singleFlight: false});
+      if (!Array.isArray(rows)) throw new Error('records');
+      for (const r of rows) { const item = M.recordItem(r); if (item && ids.includes(item.org)) out.push(item); }
+    }
+    return out;
+  }
+  async function readMarks() {
+    try {
+      const rows = await ctl.rt.api(`${MARKS}?workspace_id=eq.${enc(ctl.workspaceId)}&section=eq.org&week_start=lte.${enc(ctl.week)}&select=${MARK_COLS}&order=week_start.asc&limit=5000`, {singleFlight: false});
+      return {rows: Array.isArray(rows) ? rows : [], on: true};
+    } catch (e) { if (missingTable(e)) return {rows: [], on: false}; throw e; }
+  }
+  async function readSnaps() {
+    const weeks = [ctl.week, M.shiftWeek(ctl.week, -1)].filter(w => !M.isOldWeek(w));
+    if (!weeks.length) return new Map();
+    try {
+      const rows = await ctl.rt.api(`${SNAPS}?workspace_id=eq.${enc(ctl.workspaceId)}&week_start=in.(${weeks.join(',')})&select=week_start,confirmed_at,rows&limit=2`, {singleFlight: false});
+      return new Map((Array.isArray(rows) ? rows : []).map(r => [r.week_start, r]));
+    } catch { return new Map(); } // 사진을 못 읽으면 창 규칙으로 보인다(작은 '사진 없음' 대신 그대로)
+  }
+  async function readLegacy() {
+    const {readWeekLines} = await import('./weekly-org-lines.js');
+    const r = await readWeekLines({rt: ctl.rt, workspaceId: ctl.workspaceId, week: ctl.week, orgIds: ctl.orgIds});
+    const out = new Map();
+    for (const id of ctl.orgIds) out.set(id, (r.rows?.get(id) || []).filter(l => l.state === 'in').map(l => ({id: `old:${l.id}`, kind: 'old', key: l.id, day: l.day || '', end_day: l.end_day || null, text: M.cleanBody(l.body)})).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')));
+    return out;
+  }
+  // orgs = [{id, name, aliases}] 화면 순서. quiet = 이미 보이는 표를 지우지 않고 다시 읽기.
+  ctl.load = async (orgs = ctl.orgs, {quiet = false} = {}) => {
+    ctl.orgs = [...orgs]; ctl.orgIds = ctl.orgs.map(o => o.id);
+    const run = ++ctl.run;
+    if (!quiet || ctl.status !== 'ready') { ctl.status = 'loading'; repaint(); }
+    try {
+      if (old()) {
+        const legacy = await readLegacy();
+        if (run !== ctl.run) return;
+        ctl.legacy = legacy; ctl.status = 'ready'; repaint(); return;
+      }
+      const [records, marks, snaps] = await Promise.all([ctl.orgIds.length ? readRecords(ctl.orgIds, M.readRange(ctl.week)) : [], readMarks(), readSnaps()]);
+      if (run !== ctl.run) return;
+      ctl.records = records; ctl.marks = marks.rows; ctl.marksOn = marks.on; ctl.snaps = snaps; ctl.status = 'ready';
+    } catch (e) { if (run !== ctl.run) return; console.warn('record window read failed', e?.message || e); ctl.status = 'error'; }
+    repaint();
+    if (ctl.status === 'ready' && withEvents) void loadEvents(run);
+  };
+  // 일정은 표를 그린 뒤에. 창 두 범위 + 조직 참고 캘린더(골랐을 때만). 실패해도 기록 줄은 그대로.
+  async function loadEvents(run) {
+    const evRun = ++ctl.ev.run, week = ctl.week;
+    if (ctl.ev.week !== week) { ctl.ev.items = []; ctl.ev.partial = false; }
+    ctl.ev.status = 'loading'; repaint();
+    try {
+      const ranges = M.eventRanges(week), win = M.orgWindow(week);
+      const [choice, ...parts] = await Promise.all([readChoice(ctl.rt).catch(() => ({choice: {}})), ...ranges.map(r => readEvents(ctl.rt, r.from, r.to))]);
+      const ref = choice?.choice?.calendar && choice?.choice?.org ? choice.choice : null;
+      if (parts.every(p => p.off)) { if (evRun === ctl.ev.run && run === ctl.run) { ctl.ev = {...ctl.ev, status: 'off', items: [], week}; repaint(); } return; }
+      const extra = ref ? await readEvents(ctl.rt, win.from, win.to, ref.calendar).catch(() => ({events: []})) : {events: []};
+      if (evRun !== ctl.ev.run || run !== ctl.run) return;
+      const all = [...parts.flatMap(p => p.events), ...extra.events.map(e => ({...e, calendarId: e.calendarId ?? ref.calendar}))];
+      ctl.ev = {...ctl.ev, status: 'ready', items: M.eventItems(all, ctl.orgs, ref), partial: parts.some(p => p.partial) || !!extra.partial, week};
+    } catch { if (evRun !== ctl.ev.run || run !== ctl.run) return; ctl.ev = {...ctl.ev, status: 'error', week}; }
+    // 쓰는 중에 일정이 와서 다시 그려도 입력 칸 초점은 그대로(글은 draft에 있음).
+    const f = document.activeElement;
+    if (!ctl.focus && f?.matches?.('[data-rw-field]') && ctl.host?.contains(f)) ctl.focus = `[data-rw-field="${f.dataset.rwField}"]`;
+    repaint(); ctl.afterPaint();
+  }
+  ctl.setWeek = week => { if (!week || week === ctl.week) return; ctl.week = week; ctl.editing = null; ctl.draft = null; ctl.foldOpen.clear(); ctl.outOpen.clear(); void ctl.load(ctl.orgs); };
+
+  // ---- 칸 계산 ----
+  const events = () => (ctl.ev.week === ctl.week ? ctl.ev.items : []);
+  ctl.cell = orgId => {
+    if (old()) return {mode: 'old', lines: ctl.legacy.get(orgId) || []};
+    const base = {org: orgId, week: ctl.week, records: ctl.records, events: events(), marks: ctl.marks};
+    const s = snap();
+    if (s) { const v = M.snapshotView({...base, snapshot: s}); return {mode: 'snapshot', lines: v.lines, after: v.after}; }
+    const prevWeek = M.shiftWeek(ctl.week, -1);
+    const prevIds = M.isOldWeek(prevWeek) ? new Set() : M.shownIds({...base, week: prevWeek, snapshot: ctl.snaps.get(prevWeek) || null});
+    return {mode: 'window', ...M.orgCell({...base, prevIds})};
+  };
+  // 보고 줄 글('- 11.2. 글') — 복사·한글 파일. 사진 주는 사진 줄, 옛 주는 옛 넣은 줄.
+  ctl.lineTexts = orgId => { const x = ctl.cell(orgId); return (x.mode === 'window' ? x.shown : x.lines).map(M.lineText); };
+  const findLine = id => { for (const o of ctl.orgIds) { const x = ctl.cell(o); for (const l of [...(x.shown || []), ...(x.folded || []), ...(x.out || []), ...(x.lines || [])]) if (l.id === id) return {org: o, line: l}; } return null; };
+
+  // ---- 그리기 ----
+  const moreSlot = spec => `<span class="wl-more-slot" data-wl-more="${esc(JSON.stringify(spec))}"></span>`;
+  const tags = l => `${l.edited ? '<span class="rw-ok" title="보고용으로 수정함" aria-label="보고용으로 수정함">✓</span>' : ''}${l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}${l.last ? '<span class="rw-last">지난주</span>' : ''}`;
+  const lineMore = l => {
+    const items = [];
+    if (ctl.marksOn) {
+      items.push({text: '보고용으로 수정', data: {rwEdit: l.id}, aria: `보고용으로 수정: ${l.text}`});
+      if (l.edited) items.push({text: '원래 글로', data: {rwOrig: l.id}});
+      items.push({text: '보고에서 빼기', data: {rwOut: l.id}, danger: true, aria: `보고에서 빼기: ${l.text}`});
+    }
+    if (l.kind === 'event') { items.push({text: '기록으로 남기기', data: {rwKeep: l.id}}); items.push({text: '일정 열기', data: {rwEvent: l.id}}); }
+    else if (typeof ctl.openSource === 'function') items.push({text: '기록 열기', data: {rwOpen: l.id}});
+    return items.length ? moreSlot({label: `줄 메뉴: ${l.text}`, data: {rwMore: l.id}, items}) : '';
+  };
+  const lineHtml = (orgId, l, where = 'shown') => {
+    if (ctl.editing?.id === l.id) return reportForm(l);
+    const faint = where !== 'shown' ? ' is-last' : '';
+    const ro = ctl.readOnly() || ctl.disabled();
+    const act = where === 'shown' ? (ro ? '' : lineMore(l))
+      : where === 'folded' ? `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-in="${esc(l.id)}"${ro ? ' disabled' : ''}>넣기</button></span>`
+        : where === 'out' ? `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-back="${esc(l.id)}"${ro ? ' disabled' : ''}>되돌리기</button></span>`
+          : where === 'after' ? '<span class="rw-after-tag">확정 뒤 추가</span>' : '';
+    return `<div class="wl-line rw-line${faint}${where === 'after' ? ' rw-after' : ''}" data-rw-line="${esc(l.id)}" data-rw-kind="${esc(l.kind)}"><span class="wl-day">- ${esc(M.dayText(l.day, l.end_day))}</span><span class="wl-text">${esc(l.text)}</span>${where === 'shown' || where === 'after' ? tags(l) : l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}${act}</div>`;
+  };
+  const reportForm = l => {
+    const dis = ctl.busy ? ' disabled' : '', d = ctl.draft || {};
+    return `<div class="wl-form" data-rw-form="${esc(l.id)}"><textarea rows="1" class="wl-f-body" data-rw-field="body" data-autogrow data-enter-field="single" aria-label="보고용 글" maxlength="${M.BODY_MAX}" autocomplete="off"${ctl.invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body ?? l.text)}</textarea>`
+      + `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-cancel${dis}>취소</button><button type="button" class="row-act wl-btn is-main" data-rw-save${dis}>저장</button></span></div>`;
+  };
+  const recordForm = orgId => {
+    const d = ctl.draft || {}, dis = ctl.busy ? ' disabled' : '', inv = f => (ctl.invalid === f ? ' aria-invalid="true"' : '');
+    return `<div class="wl-form" data-rw-form="new" data-rw-org="${esc(orgId)}">`
+      + `<span class="wl-f-days"><input type="date" data-rw-field="day" aria-label="날짜" value="${esc(d.day || '')}"${inv('day')}${dis}><span aria-hidden="true">~</span><input type="date" data-rw-field="end_day" aria-label="끝나는 날(선택)" value="${esc(d.end_day || '')}"${d.day ? ` min="${esc(d.day)}"` : ''}${inv('end_day')}${dis}></span>`
+      + `<textarea rows="1" class="wl-f-body" data-rw-field="body" data-autogrow data-enter-field="single" aria-label="조직 기록" maxlength="${M.RECORD_MAX}" autocomplete="off"${inv('body')}${dis}>${esc(d.body || '')}</textarea>`
+      + `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-cancel${dis}>취소</button><button type="button" class="row-act wl-btn is-main" data-rw-save${dis}>저장</button></span></div>`;
+  };
+  const fold = (orgId, kind, list, label) => {
+    if (!list.length) return '';
+    const set = kind === 'out' ? ctl.outOpen : ctl.foldOpen, open = set.has(orgId);
+    return `<button type="button" class="row-act wl-more" data-rw-fold="${kind}" data-rw-org="${esc(orgId)}" aria-expanded="${open}">${label} ${list.length} ${chevHtml(open)}</button>`
+      + (open ? `<div class="rw-fold" data-rw-fold-box="${kind}">${list.map(l => lineHtml(orgId, l, kind)).join('')}</div>` : '');
+  };
+  ctl.cellHtml = orgId => {
+    const x = ctl.cell(orgId), adding = ctl.editing?.id === 'new' && ctl.editing.orgId === orgId;
+    let html = '';
+    if (x.mode === 'old' || x.mode === 'snapshot') {
+      html += x.lines.map(l => `<div class="wl-line rw-line" data-rw-line="${esc(l.id)}"><span class="wl-day">- ${esc(M.dayText(l.day, l.end_day))}</span><span class="wl-text">${esc(l.text)}</span></div>`).join('');
+      if (x.mode === 'snapshot') html += x.after.map(l => lineHtml(orgId, l, 'after')).join('');
+      if (!html) html = '<span class="wl-empty">—</span>';
+      return `<div class="wl-cell" data-wl-cell="${esc(orgId)}">${html}</div>`;
+    }
+    html += x.shown.map(l => lineHtml(orgId, l)).join('');
+    if (!x.shown.length && !adding) html += '<span class="wl-empty">—</span>';
+    if (adding) html += recordForm(orgId);
+    html += fold(orgId, 'folded', x.folded, '지난 기록');
+    html += fold(orgId, 'out', x.out, '뺀 줄');
+    if (!adding) html += `<button type="button" class="row-act wl-add" data-rw-add="${esc(orgId)}"${ctl.disabled() ? ' disabled' : ''}>+ 쓰기</button>`;
+    return `<div class="wl-cell" data-wl-cell="${esc(orgId)}">${html}</div>`;
+  };
+  // 표 위 작은 한 줄: 옛 보고·개인 확정본 날짜·일정 읽기 상태.
+  ctl.noteHtml = () => {
+    if (ctl.status !== 'ready') return '';
+    const bits = [];
+    if (old()) bits.push(esc('옛 보고'));
+    const s = snap();
+    if (s) { const at = seoulDateKey(s.confirmed_at); bits.push(esc(`개인 확정본 ${M.dayText(at)}`)); }
+    if (!old() && !s) {
+      if (ctl.ev.status === 'loading') bits.push(`일정 ${waitInlineHtml()}`); // 일정 읽기 기다림(공용 부품)
+      else if (ctl.ev.status === 'error') bits.push(esc(TEXT.evFailed));
+      else if (ctl.ev.status === 'ready' && ctl.ev.partial) bits.push(esc(TEXT.evPartial));
+    }
+    return bits.length ? `<p class="wl-note rw-note" data-rw-note>${bits.join(' · ')}</p>` : '';
+  };
+  ctl.afterPaint = () => {
+    for (const slot of ctl.host?.querySelectorAll('[data-wl-more]') ?? []) {
+      let spec = null; try { spec = JSON.parse(slot.dataset.wlMore); } catch { /* 깨진 자리표는 ⋯ 없이 */ }
+      if (spec) slot.replaceWith(rowMore(document, spec)); else slot.remove();
+    }
+    fitAll(ctl.host);
+    if (!ctl.host || !ctl.focus) return;
+    const el = ctl.host.querySelector(ctl.focus);
+    el?.focus({preventScroll: true});
+    if (el?.matches('input, textarea')) el.scrollIntoView({block: 'nearest'});
+    ctl.focus = '';
+  };
+  const redraw = () => { repaint(); ctl.afterPaint(); };
+
+  // ---- 쓰기 ----
+  const work = async (fn, done) => {
+    if (ctl.busy) return false;
+    ctl.busy = true; say('저장하는 중…'); repaint();
+    let ok = true;
+    try { await fn(); } catch (e) { ok = false; console.warn('record window write failed', e?.message || e); }
+    ctl.busy = false;
+    if (ok) { ctl.editing = null; ctl.draft = null; ctl.invalid = ''; }
+    say(ok ? done : TEXT.saveFailed, !ok);
+    redraw();
+    if (ok) announce();
+    return ok;
+  };
+  // 그 주 표시 바꾸기(모델 nextMark가 넣기·고치기·지우기 중 하나를 정함).
+  const mark = (l, change, done) => work(async () => {
+    const p = M.nextMark(ctl.marks, {section: 'org', kind: l.kind, key: l.key, week: ctl.week}, change);
+    if (p.op === 'insert') {
+      const rows = await ctl.rt.api(`${MARKS}?select=${MARK_COLS}`, {method: 'POST', prefer: 'return=representation', singleFlight: false, body: {workspace_id: ctl.workspaceId, ...p.row}});
+      if (!Array.isArray(rows) || !rows[0]) throw new Error('mark');
+      ctl.marks = [...ctl.marks, rows[0]];
+    } else if (p.op === 'update') {
+      const rows = await ctl.rt.api(`${MARKS}?id=eq.${enc(p.id)}&workspace_id=eq.${enc(ctl.workspaceId)}&select=${MARK_COLS}`, {method: 'PATCH', prefer: 'return=representation', singleFlight: false, body: p.row});
+      if (!Array.isArray(rows) || !rows[0]) throw new Error('mark');
+      ctl.marks = ctl.marks.map(m => (m.id === p.id ? rows[0] : m));
+    } else if (p.op === 'delete') {
+      await ctl.rt.api(`${MARKS}?id=eq.${enc(p.id)}&workspace_id=eq.${enc(ctl.workspaceId)}`, {method: 'DELETE', singleFlight: false});
+      ctl.marks = ctl.marks.filter(m => m.id !== p.id);
+    }
+  }, done);
+  ctl.save = async () => {
+    const e = ctl.editing; if (!e || ctl.busy) return;
+    if (e.id === 'new') {
+      const v = M.checkRecord(ctl.draft);
+      if (!v.ok) { ctl.invalid = v.field; say(v.field === 'body' ? TEXT.noBody : v.field === 'end_day' ? TEXT.badEnd : TEXT.badDay, true); ctl.focus = `[data-rw-field="${v.field}"]`; redraw(); return; }
+      const user = userOf(ctl.rt);
+      await work(async () => {
+        const {saveOrganizationUpdate} = await import('./quick-save.js');
+        const rows = await saveOrganizationUpdate({organization_id: e.orgId, raw_text: v.value.body, created_by: user, occurred_at: M.occurredAt(v.value.day), end_day: v.value.end_day, source_kind: 'user'}, ctl.rt);
+        const item = Array.isArray(rows) ? M.recordItem({created_at: new Date().toISOString(), ...rows[0]}) : null;
+        if (item) ctl.records = [...ctl.records, item];
+      }, TEXT.added);
+      return;
+    }
+    const hit = findLine(e.id); if (!hit) return;
+    const v = M.checkReportBody(ctl.draft?.body ?? hit.line.text);
+    if (!v.ok) { ctl.invalid = 'body'; say(TEXT.noBody, true); ctl.focus = '[data-rw-field="body"]'; redraw(); return; }
+    await mark(hit.line, {report_body: v.value === hit.line.orig ? null : v.value}, TEXT.saved);
+  };
+  ctl.cancel = () => { const e = ctl.editing; ctl.editing = null; ctl.draft = null; ctl.invalid = ''; ctl.focus = e ? (e.id === 'new' ? `[data-rw-add="${e.orgId}"]` : '') : ''; say(''); redraw(); };
+  const openAdd = (orgId, d = null) => {
+    const today = seoulDateKey(Date.now());
+    ctl.editing = {orgId, id: 'new'}; ctl.draft = d || {day: today, end_day: '', body: ''}; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw();
+  };
+
+  // ---- 입력 받기(화면 상자 하나에 한 번) ----
+  ctl.bind = host => {
+    if (ctl.host === host) return;
+    ctl.host = host;
+    host.addEventListener('input', e => { const t = e.target; if (!t.matches?.('[data-rw-field]')) return; ctl.draft = {...(ctl.draft || {}), [t.dataset.rwField]: t.value}; if (ctl.invalid === t.dataset.rwField) { ctl.invalid = ''; t.removeAttribute('aria-invalid'); } });
+    host.addEventListener('change', e => { const t = e.target; if (!t.matches?.('[data-rw-field]')) return; ctl.draft = {...(ctl.draft || {}), [t.dataset.rwField]: t.value}; if (t.dataset.rwField === 'day') t.closest('.wl-form')?.querySelector('[data-rw-field="end_day"]')?.setAttribute('min', t.value); });
+    host.addEventListener('keydown', e => {
+      if (!e.target.matches?.('[data-rw-field]')) return;
+      if (e.key === 'Enter' && !e.isComposing && (e.ctrlKey || e.metaKey || e.target.dataset.rwField === 'body')) { e.preventDefault(); void ctl.save(); }
+      else if (e.key === 'Escape' && ctl.editing) { e.preventDefault(); ctl.cancel(); }
+    });
+    host.addEventListener('click', e => {
+      const b = e.target.closest?.('button'); if (!b || b.disabled || !host.contains(b)) return;
+      const d = b.dataset;
+      if (d.rwAdd) { if (!ctl.disabled() && !ctl.readOnly()) openAdd(d.rwAdd); return; }
+      if ('rwCancel' in d) { ctl.cancel(); return; }
+      if ('rwSave' in d) { void ctl.save(); return; }
+      if (d.rwFold) { const set = d.rwFold === 'out' ? ctl.outOpen : ctl.foldOpen, org = d.rwOrg; if (set.has(org)) set.delete(org); else set.add(org); ctl.focus = `[data-rw-fold="${d.rwFold}"][data-rw-org="${CSS.escape(org)}"]`; redraw(); return; }
+      const id = d.rwEdit || d.rwOrig || d.rwOut || d.rwIn || d.rwBack || d.rwOpen || d.rwKeep || d.rwEvent;
+      if (!id || ctl.disabled()) return;
+      const hit = findLine(id); if (!hit) return;
+      const l = hit.line;
+      const box = b.closest('details'); if (box) box.open = false; // 줄 메뉴는 여기서 닫는다
+      // [기록 열기]: 메뉴 항목 누름(작은 메뉴 겹 닫기 → 다시 누름, details-menu-back.js) 처리가 다 끝난 다음 차례에 연다.
+      // 같은 누름 안에서 열면 폰에서 막 연 조직 상세가 그 누름의 뒷정리와 겹쳐 열리지 않는다(E2E 412px로 확인).
+      if (d.rwOpen) { if (typeof ctl.openSource === 'function' && l.kind === 'org_update') setTimeout(() => ctl.openSource({org: hit.org, record: `up:${l.key}`}, b), 0); return; }
+      if (d.rwEvent) { void import('./event-open.js').then(m => m.openGoogleEvent(l.key, l.cal)).catch(() => say('일정을 열지 못했어요.', true)); return; }
+      if (ctl.readOnly()) return;
+      if (d.rwKeep) { openAdd(hit.org, {day: l.day, end_day: l.end_day || '', body: l.orig || l.text}); return; }
+      if (d.rwEdit) { ctl.editing = {orgId: hit.org, id}; ctl.draft = {body: l.text}; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw(); return; }
+      if (d.rwOrig) void mark(l, {report_body: null}, TEXT.orig);
+      else if (d.rwOut) void mark(l, {choice: 'out'}, TEXT.out);
+      else if (d.rwIn) void mark(l, {choice: 'in'}, TEXT.placed);
+      else if (d.rwBack) void mark(l, {choice: null}, TEXT.back);
+    });
+  };
+  // 다른 화면(같은 탭)이 바꾸면 다시 읽기, 화면이 다시 보이면 다시 읽기(캐시 지우기가 아니라 다시 읽기).
+  const quiet = () => { if (ctl.status === 'ready' && !ctl.busy && !ctl.editing && ctl.host?.isConnected) void ctl.load(ctl.orgs, {quiet: true}); };
+  window.addEventListener(EVENT, e => { if (e.detail?.source !== ctl.id) quiet(); });
+  window.addEventListener('kptu:api-saved', e => { if (!ctl.busy && String(e.detail?.path || '').includes('/app_suborganization_updates')) quiet(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') quiet(); });
+  return ctl;
+}
+export const RECORD_WINDOW_EVENT = EVENT;
+
+// 조직보고 표(조직 | 조직현황) — 담당조직 [전체 표]·홈 [주간 정리] 4.·업무일지가 이 함수 하나로 그린다.
+// orgs = [{id, name}] 보고 순서. orgHtml(o) 조직 칸 안쪽, stageOf(o) 조직 이름 밑 작은 글(쟁의 단계).
+export function windowTableHtml(ctl, orgs, {msg = '', error = false, orgHtml = null, stageOf = null, headOrg = '조직', headRows = '조직현황', tableClass = ''} = {}) {
+  if (ctl.status === 'error') return `<p class="wl-note" role="alert">${TEXT.failed}</p>`;
+  if (ctl.status !== 'ready') return waitHtml({rows: 2});
+  if (!orgs.length) return emptyHtml('담당조직 없음');
+  const rows = orgs.map(o => { const stage = stageOf ? stageOf(o) : ''; return `<tr data-wl-org-row="${esc(o.id)}"><th scope="row" class="wl-c-org"><div class="wl-org-line">${orgHtml ? orgHtml(o) : `<span class="wl-org" title="${esc(o.name)}">${esc(o.name)}</span>`}</div>${stage ? `<span class="wl-stage">${esc(stage)}</span>` : ''}</th><td class="wl-c-rows">${ctl.cellHtml(o.id)}</td></tr>`; }).join('');
+  return `${ctl.noteHtml()}<table class="wl-table${tableClass ? ` ${tableClass}` : ''}" data-wl-table data-rw-table><thead><tr><th scope="col" class="wl-c-org">${headOrg}</th><th scope="col">${esc(headRows)}</th></tr></thead><tbody>${rows}</tbody></table>`
+    + `<p class="wl-status${error ? ' is-error' : ''}" role="status" aria-live="polite" data-wl-status>${esc(msg)}</p>`;
+}

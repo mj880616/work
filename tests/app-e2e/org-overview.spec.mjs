@@ -2,46 +2,61 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
-// DESK-전체현황표 → WEEKLY-메뉴짝짓기 P3(설계 docs/design/weekly-menu-pairing.md 3.1): 담당조직 [전체 표] = '이번 주 조직보고'.
-// 조직 | 쟁의 단계 | 그 주 조직보고(주별 조직보고 표 한 곳). 넣은 줄·흐린 제안 줄([✓ 넣기]·[고치기]·[×])·[+ 줄]·줄 누르면 고치기·주 고르기·
-// 다른 화면이 먼저 고친 줄 안내·지난주(처음 쓰는 주는 현황 표) 줄 접어 두기·[가져오기]. AI 채우기 버튼은 없다. 서버는 가짜, 이름은 모두 합성 값.
-// 시계는 2026-10-06(화) → 이번 주 = 10.5~10.11.
-const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z',owner='home-test',W='2026-10-05';
-const orgs=[{id:'oa',workspace_id:'w',name:'합성 가 지부',active:true,created_by:owner,updated_at:stamp},{id:'ob',workspace_id:'w',name:'합성 나 지회',active:true,created_by:owner,updated_at:stamp}];
-const L=(id,org,day,body,state='in',x={})=>({id,organization_id:org,week_start:W,day,end_day:null,body,sort_order:0,state,origin:'user',edited:false,source_update_ids:[],source_note_ids:[],source_status_ids:[],updated_at:stamp,...x});
-const SEED=[
- L('l1','oa','2026-10-06','합성 교섭 상견례'),
- L('l2','oa','2026-10-07','합성 찬반투표 중간 투표율 공유 간담회','suggested',{origin:'ai',sort_order:1}),
- L('l3','oa','2026-10-08','합성 뺀 제안','dropped',{sort_order:2}),
- L('p1','oa','2026-09-30','합성 지난주 줄',undefined,{week_start:'2026-09-28'}),
-];
-const STATUS=[{id:'s1',organization_id:'ob',day:'2026-09-20',end_day:null,body:'합성 현황 줄',sort_order:0,source:'user',evidence:[],updated_at:stamp}];
-async function fixture(page,{width,missing=false,seed=SEED,order=null,updates=[]}){
+// ORG-기록하나로 O-4(설계 docs/design/record-one.md 2-5~2-9·4절): 담당조직 [전체 표] '이번 주 조직보고' = 조직보고 창(record-window-view.js).
+// 조직 칸 = 지난 3주~앞 2주의 조직 기록 줄 + 그 조직과 연결된 구글 캘린더 일정 줄(작은 '일정'), 조직당 7줄·'지난 기록 n' 접기·[넣기],
+// 줄 ⋯ [보고용으로 수정]·[보고에서 빼기](뺀 줄 n·되돌리기, 다음 주에도 빠짐)·[기록 열기], [+ 쓰기] = 그 조직 기록 한 줄.
+// 확정한 주 = 개인 확정본 사진 + 흐린 '확정 뒤 추가'. 전환 주(11.9) 앞 = 옛 주별 조직보고 표 읽기 전용. 서버는 가짜, 이름은 모두 합성 값.
+// 시계는 2026-11-17(화) → 이번 주 = 11.16~11.22(옛 주 시험만 2026-10-06).
+const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z',owner='home-test',W='2026-11-16',NOW='2026-11-17T01:00:00Z';
+const OA='0a0a0a0a-0000-4000-8000-00000000000a',OB='0b0b0b0b-0000-4000-8000-00000000000b';
+const orgs=[{id:OA,workspace_id:'w',name:'합성 가 지부',aliases:[],active:true,created_by:owner,updated_at:stamp},{id:OB,workspace_id:'w',name:'합성 나 지회',aliases:[],active:true,created_by:owner,updated_at:stamp}];
+let n=0;const uid=()=>`00000000-0000-4000-8000-${String(++n).padStart(12,'0')}`;
+const U=(org,day,text,x={})=>({id:uid(),organization_id:org,raw_text:text,occurred_at:`${day}T12:00:00+09:00`,end_day:null,source_kind:null,created_at:'2026-11-01T00:00:00Z',updated_at:'2026-11-01T00:00:00Z',workspace_id:'w',created_by:owner,detail_text:null,doc:null,...x});
+const EV=(id,start,title,x={})=>({id,title,start,end:null,allDay:true,calendarId:'primary',organizationIds:[],htmlLink:'',...x});
+async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFail=false,old=null,order=null}={}){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await installViewPrefsServer(page,null);
+ // 앱이 처음부터 이 시계로 뜨게(공용 openHome은 10.6으로 고정한다 — 옛 주 시험만 그대로). 가짜 로그인 만료(10.7)도 그 뒤로 맞춘다.
+ if(!old){
+  const set=page.clock.setFixedTime.bind(page.clock);page.clock.setFixedTime=()=>set(new Date(NOW));
+  await page.addInitScript(()=>{const k=Object.keys(localStorage).find(x=>/auth-token|session/i.test(x));if(k)try{const v=JSON.parse(localStorage.getItem(k));if(v&&v.expires_at){v.expires_at=4102444800;localStorage.setItem(k,JSON.stringify(v))}}catch{}});
+ }
  const f=await openHome(page);
- const db={rows:seed.map(r=>({...r})),seq:0,posts:[],patches:[],gets:[],tick:0};
+ if(!old)await page.route(u=>u.origin===SB&&u.pathname==='/auth/v1/token',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({access_token:'home-access',refresh_token:'home-refresh',expires_at:4102444800,user:{id:owner,email:'home@example.org'}})}));
+ const db={records:records.map(r=>({...r})),marks:marks.map(m=>({...m})),posts:[],markWrites:[],cal:[]};
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return json(route,q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner})))});
- await page.route(SB+'/rest/v1/app_suborganization_updates?**',route=>{const q=new URL(route.request().url()).searchParams.get('organization_id')||'';return json(route,updates.filter(u=>q.includes(u.organization_id)))});
- for(const t of ['app_notes','app_record_links'])await page.route(SB+`/rest/v1/${t}?**`,route=>json(route,[]));
- await page.route(/\/rest\/v1\/app_org_status_rows(\?|$)/,route=>{const q=new URL(route.request().url()).searchParams.get('organization_id')||'';return json(route,STATUS.filter(r=>q.includes(r.organization_id)))});
- await page.route(/\/rest\/v1\/app_weekly_org_lines(\?|$)/,async route=>{
-  const req=route.request(),url=new URL(req.url()),q=url.searchParams,m=req.method();
-  if(missing)return json(route,{code:'PGRST205',message:'Could not find the table in the schema cache'},404);
-  const eq=k=>{const v=q.get(k);return v&&v.startsWith('eq.')?v.slice(3):null};
-  if(m==='GET'){db.gets.push(url.search);const id=eq('id'),wk=eq('week_start'),org=q.get('organization_id')||'';return json(route,db.rows.filter(r=>id?r.id===id:(r.week_start===wk&&org.includes(r.organization_id))))}
-  if(m==='POST'){const list=[].concat(req.postDataJSON());db.posts.push(...list);const made=list.map(b=>({...L('n'+(++db.seq),b.organization_id,null,''),...b,updated_at:'2026-10-06T02:00:0'+(db.tick++%10)+'Z'}));db.rows.push(...made);return json(route,made,201)}
-  if(m==='PATCH'){const b=req.postDataJSON(),id=eq('id'),at=eq('updated_at');db.patches.push({id,at,...b});const hit=db.rows.filter(r=>r.id===id&&(!at||r.updated_at===at));hit.forEach(r=>Object.assign(r,b,{updated_at:'2026-10-06T03:00:0'+(db.tick++%10)+'Z'}));return json(route,hit)}
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',async route=>{
+  const req=route.request(),q=new URL(req.url()).searchParams;
+  if(req.method()==='POST'){const b=req.postDataJSON();db.posts.push(b);const row={id:uid(),created_at:'2026-11-17T01:00:05Z',detail_text:null,doc:null,end_day:null,source_kind:null,...b};db.records.push(row);return json(route,[row],201)}
+  const org=q.get('organization_id')||'',ids=org.startsWith('eq.')?[org.slice(3)]:org.replace(/^in\.\(|\)$/g,'').split(',');
+  return json(route,db.records.filter(r=>ids.includes(r.organization_id)));
+ });
+ for(const t of ['app_notes','app_record_links','app_org_status_rows'])await page.route(u=>u.origin===SB&&u.pathname===`/rest/v1/${t}`,route=>json(route,[]));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',async route=>{
+  const req=route.request(),q=new URL(req.url()).searchParams,m=req.method(),eq=k=>(q.get(k)||'').replace(/^eq\./,'');
+  if(m==='GET'){const lte=(q.get('week_start')||'').replace(/^lte\./,'');return json(route,db.marks.filter(r=>r.week_start<=lte))}
+  if(m==='POST'){const b=req.postDataJSON();db.markWrites.push({m,...b});const row={id:uid(),report_body:null,choice:null,detail:null,updated_at:NOW,...b};db.marks.push(row);return json(route,[row],201)}
+  if(m==='PATCH'){const b=req.postDataJSON();db.markWrites.push({m,id:eq('id'),...b});const hit=db.marks.filter(r=>r.id===eq('id'));hit.forEach(r=>Object.assign(r,b));return json(route,hit)}
+  if(m==='DELETE'){db.markWrites.push({m,id:eq('id')});db.marks=db.marks.filter(r=>r.id!==eq('id'));return route.fulfill({status:204,body:''})}
   return json(route,{message:'no'},405);
  });
- // 주간보고(개인본) 순서: 그 주 임시저장 바탕(proposed)의 산하조직 칸 순서. order = 조직 이름들(없으면 임시저장 없음 → 앱 조직 순서).
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_snapshots',route=>{const q=new URL(route.request().url()).searchParams.get('week_start')||'';return json(route,snaps.filter(s=>q.includes(s.week_start)))});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_org_lines',route=>json(route,old||[]));
  await page.route(/\/rest\/v1\/app_weekly_exec_requests(\?|$)/,route=>{
   if(route.request().method()!=='GET')return json(route,[]);
-  const draft=order?{v:1,rows:[],titles:[],proposed:{at:'2026-10-05T00:00:00.000Z',cells:order.map(k=>({section:'orgs',key:k,n:0,lines:[]}))}}:null;
+  const draft=order?{v:1,rows:[],titles:[],proposed:{at:'2026-11-16T00:00:00.000Z',cells:order.map(k=>({section:'orgs',key:k,n:0,lines:[]}))}}:null;
   return json(route,draft?[{id:'d1',draft,draft_saved_at:stamp}]:[]);
+ });
+ await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/google-calendar',route=>{
+  const q=new URL(route.request().url()).searchParams;
+  if(q.get('action')!=='events')return json(route,{connected:true,calendars:[]});
+  db.cal.push(q.get('timeMin')+'~'+q.get('timeMax'));
+  if(calFail)return json(route,{message:'calendar down'},502);
+  const from=Date.parse(q.get('timeMin')),to=Date.parse(q.get('timeMax'));
+  return json(route,{connected:true,events:events.filter(e=>{const t=Date.parse(`${e.start}T00:00:00+09:00`);return t>=from&&t<to})});
  });
  await page.route(SB+'/functions/v1/ai-assist',route=>json(route,{ok:true,kind:route.request().postDataJSON().kind,skipped:true}));
  return {f,db,errors};
@@ -52,164 +67,178 @@ async function openTable(page){
  await page.locator('#soTeamTabs').getByRole('tab',{name:'전체 표'}).click();
  await expect(page.locator('#soOverview')).toBeVisible();
 }
-const oa=page=>page.locator('#soOverview [data-wl-org-row="oa"]');
-const ob=page=>page.locator('#soOverview [data-wl-org-row="ob"]');
+const oa=page=>page.locator(`#soOverview [data-wl-org-row="${OA}"]`);
+const ob=page=>page.locator(`#soOverview [data-wl-org-row="${OB}"]`);
 const status=page=>page.locator('#soOverview [data-wl-status]');
+const shown=row=>row.locator('.wl-cell > .rw-line');
+async function menu(page,row,text,item){
+ const line=row.locator('.wl-cell > .rw-line',{hasText:text});
+ await line.locator('summary').click();
+ await line.locator('.row-more').getByText(item,{exact:true}).click();
+}
 
-for(const width of [412,1440])test(`[전체 표] 이번 주 조직보고: 넣은 줄·제안 줄 넣기/빼기·+ 줄·줄 수정·AI 채우기 버튼 없음 ${width}px`,async({page})=>{
- const {db,errors}=await fixture(page,{width});
+for(const width of [390,884,1280])test(`[전체 표] 조직보고 창: 쓰기 → 그 주 칸, 빼기 → 뺀 줄 n, 되돌리기, 일정 줄 ${width}px`,async({page})=>{
+ const records=[U(OA,'2026-11-17','합성 교섭 상견례'),U(OA,'2026-11-02','합성 찬반투표',{end_day:'2026-12-05'}),U(OA,'2026-10-20','합성 창 밖 줄')];
+ const events=[EV('ev1','2026-11-25','합성 가 지부 대의원대회')];
+ const {db,errors}=await fixture(page,{width,records,events});
  await openTable(page);
- await expect(page.locator('#soOverview .week-pick-label')).toHaveText('10.5~10.11');
- await expect(page.locator('#soOverview [data-week-step="0"]')).toHaveCount(0);
+ await expect(page.locator('#soOverview .week-pick-label')).toHaveText('11.16~11.22');
+ const ev=oa(page).locator('.rw-line[data-rw-kind="event"]');
+ await expect(ev).toContainText('합성 가 지부 대의원대회');
+ await expect(ev.locator('.rw-tag')).toHaveText('일정');
+ await expect(shown(oa(page))).toHaveCount(3);
+ await expect(oa(page)).not.toContainText('합성 창 밖 줄');
+ await expect(shown(oa(page)).first().locator('.wl-day')).toHaveText('- 11.2.~12.5.');
  await expect(page.locator('#soOverview')).not.toContainText('AI로 채우기');
- await expect(page.locator('#soOverview')).not.toContainText('모두 다시 채우기');
- // 넣은 줄 1, 흐린 제안 줄 1(AI 표시), 뺀 줄은 안 보임.
- await expect(oa(page).locator('.wl-line:not(.is-sug):not(.is-last)')).toHaveCount(1);
- await expect(oa(page).locator('.wl-line.is-sug')).toHaveCount(1);
- await expect(oa(page).locator('.wl-line.is-sug .wl-ai')).toHaveText('AI');
- await expect(oa(page)).not.toContainText('합성 뺀 제안');
- await expect(oa(page).locator('.wl-day').first()).toHaveText('- 10.6.');
- // [✓ 넣기] → 조건 쓰기로 state in.
- await oa(page).locator('[data-wl-in="l2"]').click();
- await expect(status(page)).toHaveText('주간보고에 넣었어요.');
- expect(db.patches.at(-1)).toMatchObject({id:'l2',at:stamp,state:'in'});
- await expect(oa(page).locator('.wl-line.is-sug')).toHaveCount(0);
- await expect(oa(page).locator('.wl-line:not(.is-last)')).toHaveCount(2);
- // 줄을 누르면 그 자리 글 칸 → Enter 저장(edited).
- await oa(page).locator('.wl-text[data-wl-edit="l1"]').click();
- const body=page.locator('#soOverview [data-wl-field="body"]');
- await expect(body).toBeFocused();await expect(body).toHaveValue('합성 교섭 상견례');
- await body.fill('합성 교섭 상견례 및 요구안 전달');await body.press('Enter');
+ // [+ 쓰기] → 그 조직 기록 한 줄(오늘 날짜, source_kind user) → 그 주 칸에 보임.
+ await ob(page).locator(`[data-rw-add="${OB}"]`).click();
+ const body=page.locator('#soOverview [data-rw-field="body"]');
+ await expect(body).toBeFocused();
+ await expect(page.locator('#soOverview [data-rw-field="day"]')).toHaveValue('2026-11-17');
+ await body.fill('합성 현안 설명회');await body.press('Enter');
+ await expect(status(page)).toHaveText('기록을 남겼어요.');
+ expect(db.posts.at(-1)).toMatchObject({organization_id:OB,raw_text:'합성 현안 설명회',occurred_at:'2026-11-17T12:00:00+09:00',source_kind:'user'});
+ expect(db.posts.at(-1).source_id).toBeUndefined();
+ await expect(shown(ob(page))).toHaveText([/11\.17\.합성 현안 설명회/]);
+ // 빼기 → '뺀 줄 1', 그 주 표시 한 행(choice out).
+ await menu(page,oa(page),'합성 교섭 상견례','보고에서 빼기');
+ await expect(status(page)).toHaveText('이번 주부터 보고에서 뺐어요.');
+ expect(db.markWrites.at(-1)).toMatchObject({m:'POST',workspace_id:'w',week_start:W,section:'org',ref_kind:'org_update',choice:'out'});
+ await expect(shown(oa(page))).toHaveCount(2);
+ const outBtn=oa(page).locator('[data-rw-fold="out"]');
+ await expect(outBtn).toContainText('뺀 줄 1');
+ await outBtn.click();
+ await oa(page).locator('[data-rw-back]').click();
+ await expect(status(page)).toHaveText('보고에 다시 넣었어요.');
+ expect(db.markWrites.at(-1)).toMatchObject({m:'DELETE'});
+ await expect(shown(oa(page))).toHaveCount(3);
+ await expect(oa(page).locator('[data-rw-fold="out"]')).toHaveCount(0);
+ // 보고용으로 수정 → ✓, 원래 기록은 그대로.
+ await menu(page,oa(page),'합성 교섭 상견례','보고용으로 수정');
+ await expect(body).toBeFocused();
+ await body.fill('합성 교섭 상견례(보고용)');await body.press('Enter');
  await expect(status(page)).toHaveText('저장했어요.');
- expect(db.patches.at(-1)).toMatchObject({id:'l1',body:'합성 교섭 상견례 및 요구안 전달',state:'in',edited:true});
- await expect(oa(page)).toContainText('요구안 전달');
- // [+ 줄]: 날짜 없이도 넣을 수 있다(이번 주·내 줄).
- await ob(page).locator('[data-wl-add="ob"]').click();
- await page.locator('#soOverview [data-wl-field="day"]').fill('');
- await body.fill('합성 현안 설명회 준비');await page.locator('#soOverview [data-wl-save]').click();
- await expect(status(page)).toHaveText('줄을 넣었어요.');
- expect(db.posts.at(-1)).toMatchObject({organization_id:'ob',week_start:W,day:null,body:'합성 현안 설명회 준비',state:'in',origin:'user'});
- await expect(ob(page).locator('.wl-day').first()).toHaveText('- ');
- // 빈 글은 저장 안 됨.
- await ob(page).locator('[data-wl-add="ob"]').click();
- await page.locator('#soOverview [data-wl-save]').click();
- await expect(status(page)).toHaveText('내용을 적어 주세요.');
- await page.keyboard.press('Escape');
- await expect(page.locator('#soOverview .wl-form')).toHaveCount(0);
- expect(errors).toEqual([]);
-});
-
-test('[전체 표] 다른 화면에서 먼저 수정한 줄: 그 자리 안내 + [내 글로 바꾸기]·[그대로 두기], 다른 줄은 그대로',async({page})=>{
- const {db,errors}=await fixture(page,{width:1440});
- await openTable(page);
- await oa(page).locator('.wl-text[data-wl-edit="l1"]').click();
- // 그사이 다른 화면이 같은 줄을 고침.
- Object.assign(db.rows.find(r=>r.id==='l1'),{body:'합성 교섭 상견례(다른 화면)',updated_at:'2026-10-06T05:00:00Z'});
- const body=page.locator('#soOverview [data-wl-field="body"]');
- await body.fill('합성 교섭 상견례(내 글)');await body.press('Enter');
- const conf=oa(page).locator('[data-wl-conflict="l1"]');
- await expect(conf).toContainText("다른 화면에서 먼저 수정했어요: '합성 교섭 상견례(다른 화면)'");
- await expect(oa(page).locator('.wl-line.is-sug')).toHaveCount(1);
- await conf.locator('[data-wl-mine="l1"]').click();
- await expect(status(page)).toHaveText('저장했어요.');
- expect(db.patches.at(-1)).toMatchObject({id:'l1',at:'2026-10-06T05:00:00Z',body:'합성 교섭 상견례(내 글)'});
- await expect(oa(page).locator('[data-wl-conflict]')).toHaveCount(0);
- await expect(oa(page)).toContainText('(내 글)');
- expect(errors).toEqual([]);
-});
-
-test('[전체 표] 주 선택: 지난 주를 선택하면 그 주 줄, [이번 주]로 돌아옴 · 지난주/현황 표 줄은 접혀 있다가 [가져오기]',async({page})=>{
- const {db,errors}=await fixture(page,{width:412});
- await openTable(page);
- // 평일 담당조직: 지난주 줄은 접힌 한 줄. 지난주 표가 빈 조직(ob)은 현황 표 최근 줄.
- await expect(oa(page).locator('[data-wl-last="oa"]')).toHaveText('지난주 1줄');
- await expect(ob(page).locator('[data-wl-last="ob"]')).toHaveText('현황 표 1줄');
- await ob(page).locator('[data-wl-last="ob"]').click();
- await expect(ob(page).locator('.wl-line.is-last')).toContainText('합성 현황 줄');
- await ob(page).locator('[data-wl-take="ob"]').click();
- await expect(status(page)).toHaveText('지난주 1줄을 가져왔어요.');
- expect(db.posts.at(-1)).toMatchObject({organization_id:'ob',week_start:W,day:'2026-09-20',body:'합성 현황 줄',origin:'last_week',state:'in'});
- // 지난 주로.
- await page.locator('#soOverview [data-week-step="-1"]').click();
- await expect(page.locator('#soOverview .week-pick-label')).toHaveText('9.28~10.4');
- await expect(oa(page)).toContainText('합성 지난주 줄');
- await expect(oa(page)).not.toContainText('합성 교섭 상견례');
- await page.locator('#soOverview [data-week-step="0"]').click();
- await expect(page.locator('#soOverview .week-pick-label')).toHaveText('10.5~10.11');
- await expect(oa(page)).toContainText('합성 교섭 상견례');
- expect(errors).toEqual([]);
-});
-
-test('[전체 표] 넣은 줄 3줄 넘음 표시·가장 최근 3줄 + 외 n줄 ▾',async({page})=>{
- const seed=['2026-10-05','2026-10-06','2026-10-07','2026-10-08','2026-10-09'].map((d,i)=>L('m'+i,'oa',d,'합성 줄 '+i,'in',{sort_order:i}));
- const {errors}=await fixture(page,{width:1440,seed});
- await openTable(page);
- await expect(oa(page).locator('.wl-warn')).toHaveText('주간보고 3줄 넘음');
- await expect(ob(page).locator('.wl-warn')).toHaveCount(0);
- const lines=oa(page).locator('.wl-line:not(.is-last)');
- await expect(lines).toHaveCount(3);
- await expect(lines.first()).toContainText('10.7.');
- await oa(page).locator('[data-wl-toggle="oa"]').click();
- await expect(lines).toHaveCount(5);
- await expect(lines.first()).toContainText('10.5.');
- expect(errors).toEqual([]);
-});
-
-test('[전체 표] 표가 없으면(DB 적용 전) 준비 중 한 줄',async({page})=>{
- await fixture(page,{width:412,missing:true});
- await openTable(page);
- await expect(page.locator('#soOverview [data-wl-missing]')).toHaveText('주별 조직보고 표는 준비 중이에요.');
-});
-
-for(const width of [412,1440])test(`[전체 표] 주간보고 조직보고 표와 같은 모양(조직 | 조직현황 칸 선) ${width}px`,async({page})=>{
- const {errors}=await fixture(page,{width});
- await openTable(page);
- const table=page.locator('#soOverview table.wl-table');
- await expect(table).toHaveCount(1);
- await expect(page.locator('#soOverview .oa-group')).toHaveCount(0);
- await expect(table.locator('thead th')).toHaveText(['조직','이번 주 조직보고']);
- await expect(page.locator('#soOverview')).not.toContainText('쟁의 단계');
- // 칸 선: 조직 칸과 현황 칸 모두 테두리가 있다(주간 정리 표와 같은 .wl-table).
- const cell=oa(page).locator('td.wl-c-rows'),head=oa(page).locator('th.wl-c-org');
- await expect(cell).toHaveCSS('border-top-width','1px');await expect(head).toHaveCSS('border-top-width','1px');
- await expect(oa(page).locator('.wl-day').first()).toHaveText('- 10.6.');
- const [h,c]=await Promise.all([head.boundingBox(),cell.boundingBox()]);
- if(width>760){expect(c.x).toBeGreaterThanOrEqual(h.x+h.width-1);expect(Math.abs(c.y-h.y)).toBeLessThan(2);} // 옆으로 나란히
- else{expect(c.y).toBeGreaterThanOrEqual(h.y+h.height-2);expect(Math.abs(c.x-h.x)).toBeLessThan(2);expect(c.width).toBeGreaterThan(300);} // 두 줄(조직 위, 현황 아래), 폭은 꽉 참
+ expect(db.markWrites.at(-1)).toMatchObject({m:'POST',report_body:'합성 교섭 상견례(보고용)'});
+ await expect(oa(page).locator('.rw-line',{hasText:'(보고용)'}).locator('.rw-ok')).toHaveCount(1);
+ expect(db.records.find(r=>r.raw_text==='합성 교섭 상견례')).toBeTruthy();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
  expect(errors).toEqual([]);
 });
 
-test('[전체 표] 조직 순서 = 주간보고(개인본) 순서(그 주 임시저장 바탕), 바탕이 없으면 앱 조직 순서',async({page})=>{
- const {errors}=await fixture(page,{width:1440,order:['합성 나 지회','합성 가 지부']});
+test('[전체 표] 7줄 상한: 넘친 지난 줄은 지난 기록 n에서 [넣기], 앞 주 표에 있던 줄은 흐린 지난주',async({page})=>{
+ const days=['2026-11-13','2026-11-11','2026-11-09','2026-11-05','2026-11-03','2026-10-30','2026-10-28','2026-10-27'];
+ const records=[U(OA,'2026-11-18','합성 이번 주'),...days.map((d,i)=>U(OA,d,'합성 지난 줄 '+i))];
+ const {db,errors}=await fixture(page,{width:1280,records});
  await openTable(page);
- await expect(page.locator('#soOverview tbody tr')).toHaveCount(2);
- await expect(page.locator('#soOverview tbody tr').first()).toHaveAttribute('data-wl-org-row','ob');
- await expect(page.locator('#soOverview tbody tr').nth(1)).toHaveAttribute('data-wl-org-row','oa');
+ await expect(shown(oa(page))).toHaveCount(7);
+ const more=oa(page).locator('[data-rw-fold="folded"]');
+ await expect(more).toContainText('지난 기록 2');
+ await expect(shown(oa(page)).filter({hasText:'합성 지난 줄 0'}).locator('.rw-last')).toHaveText('지난주');
+ await more.click();
+ await oa(page).locator('.rw-fold [data-rw-in]').first().click();
+ await expect(status(page)).toHaveText('보고에 넣었어요.');
+ expect(db.markWrites.at(-1)).toMatchObject({m:'POST',choice:'in',section:'org'});
+ await expect(shown(oa(page))).toHaveCount(8);
  expect(errors).toEqual([]);
 });
-test('[전체 표] 임시저장 바탕이 없으면 앱 조직 순서(가나다)',async({page})=>{
- await fixture(page,{width:1440});
+
+test('[전체 표] 일정: 빼면 다음 주에도 빠짐 · 기록과 같은 일은 일정 줄 감춤 · 같은 주 다시 열어도 일정 읽기 한 번',async({page})=>{
+ const records=[U(OA,'2026-11-19','합성 가 지부 집회 참석')];
+ const events=[EV('ev2','2026-11-19','합성 가 지부 집회'),EV('ev3','2026-11-24','공동 일정',{organizationIds:[OB]})];
+ const {db,errors}=await fixture(page,{width:1280,records,events});
  await openTable(page);
- await expect(page.locator('#soOverview tbody tr').first()).toHaveAttribute('data-wl-org-row','oa');
- await expect(page.locator('#soOverview tbody tr').nth(1)).toHaveAttribute('data-wl-org-row','ob');
+ const ev=ob(page).locator('.wl-cell > .rw-line[data-rw-kind="event"]');
+ await expect(ev).toContainText('공동 일정');
+ await expect(oa(page).locator('.rw-line[data-rw-kind="event"]')).toHaveCount(0);
+ await menu(page,ob(page),'공동 일정','보고에서 빼기');
+ await expect(status(page)).toHaveText('이번 주부터 보고에서 뺐어요.');
+ expect(db.markWrites.at(-1)).toMatchObject({m:'POST',ref_kind:'event',ref_key:'ev3',choice:'out'});
+ await expect(ev).toHaveCount(0);
+ await page.locator('#soOverview [data-week-step="1"]').click();
+ await expect(page.locator('#soOverview .week-pick-label')).toHaveText('11.23~11.29');
+ await expect(ob(page).locator('[data-rw-fold="out"]')).toContainText('뺀 줄 1');
+ await expect(ev).toHaveCount(0);
+ await page.locator('#soOverview [data-week-step="0"]').click();
+ await expect(page.locator('#soOverview .week-pick-label')).toHaveText('11.16~11.22');
+ await expect(ob(page).locator('[data-rw-fold="out"]')).toContainText('뺀 줄 1');
+ // 목록 → 전체 표 다시: 같은 주 일정은 5분 안에 다시 읽지 않는다.
+ const before=db.cal.length;
+ await page.locator('#soTeamTabs').getByRole('tab',{name:'목록'}).click();
+ await page.locator('#soTeamTabs').getByRole('tab',{name:'전체 표'}).click();
+ await expect(ob(page).locator('[data-rw-fold="out"]')).toContainText('뺀 줄 1');
+ expect(db.cal.length).toBe(before);
+ expect(errors).toEqual([]);
 });
 
-// S50-25 ⑨: 기록·업데이트에서 온 줄 끝 [↗] = 원래 기록 열기 — 그 조직 상세를 열고 그 기록 줄을 밝힌다. 손으로 넣은 줄에는 [↗] 없음.
-const UP='0f0e0d0c-0b0a-4908-8706-050403020100';
-for(const width of [412,1440])test(`[전체 표] 기록에서 온 줄 [↗] → 조직 상세의 그 기록 ${width}px`,async({page})=>{
- const seed=[L('l1','oa','2026-10-06','합성 교섭 상견례'),L('l2','oa','2026-10-07','합성 선전전','in',{origin:'ai',sort_order:1,source_update_ids:[UP]})];
- const updates=[{id:UP,organization_id:'oa',workspace_id:'w',occurred_at:'2026-10-07T01:00:00Z',raw_text:'합성 선전전 원래 기록',detail_text:null,created_by:owner,created_at:stamp,updated_at:stamp}];
- const {errors}=await fixture(page,{width,seed,updates});
+test('[전체 표] 일정을 못 읽어도 기록 줄은 보임',async({page})=>{
+ const {errors}=await fixture(page,{width:390,records:[U(OA,'2026-11-17','합성 교섭 상견례')],calFail:true});
  await openTable(page);
- await expect(oa(page).locator('[data-wl-line="l1"] [data-wl-src]')).toHaveCount(0);
- const src=oa(page).locator('[data-wl-line="l2"] [data-wl-src]');
- await expect(src).toHaveAccessibleName('합성 선전전 원래 기록 열기');
- const box=await src.boundingBox();expect(box.height).toBeLessThan(24);
- await src.click();
- const rec=page.locator(`#wdUpdates [data-wd-up="${UP}"]`);
- await expect(rec).toBeVisible();
- await expect(rec).toContainText('합성 선전전 원래 기록');
- await expect.poll(()=>rec.evaluate(e=>e.hasAttribute('data-journal-flash')||e.getAnimations().length>0)).toBe(true);
+ await expect(page.locator('#soOverview [data-rw-note]')).toHaveText('일정을 못 읽었어요');
+ await expect(shown(oa(page))).toHaveCount(1);
+ expect(errors).toEqual([]);
+});
+
+test('[전체 표] 확정한 주 = 개인 확정본 사진 + 흐린 확정 뒤 추가(고칠 수 없음)',async({page})=>{
+ const a=U(OA,'2026-11-11','합성 확정 전 줄',{created_at:'2026-11-10T00:00:00Z'}),b=U(OA,'2026-11-12','합성 확정 뒤 줄',{created_at:'2026-11-14T00:00:00Z'});
+ const snaps=[{week_start:'2026-11-09',confirmed_at:'2026-11-13T09:00:00Z',rows:[{section:'org',ref_kind:'org',ref_key:OA,lines:[{ref_kind:'org_update',ref_key:a.id,day:'2026-11-11',text:'합성 보고한 글'}],seen_events:[]}]}];
+ const {errors}=await fixture(page,{width:884,records:[a,b],snaps});
+ await openTable(page);
+ await page.locator('#soOverview [data-week-step="-1"]').click();
+ await expect(page.locator('#soOverview .week-pick-label')).toHaveText('11.9~11.15');
+ await expect(page.locator('#soOverview [data-rw-note]')).toHaveText('개인 확정본 11.13.');
+ await expect(oa(page).locator('.wl-cell > .rw-line:not(.rw-after)')).toHaveText([/합성 보고한 글/]);
+ await expect(oa(page).locator('.rw-after')).toContainText('합성 확정 뒤 줄');
+ await expect(oa(page).locator('.rw-after .rw-after-tag')).toHaveText('확정 뒤 추가');
+ await expect(oa(page).locator('summary')).toHaveCount(0);
+ await expect(page.locator('#soOverview [data-rw-add]')).toHaveCount(0);
+ expect(errors).toEqual([]);
+});
+
+test('[전체 표] 전환 주 앞(옛 주)은 옛 주별 조직보고 표 읽기 전용',async({page})=>{
+ const L=(id,org,day,body,state='in')=>({id,organization_id:org,week_start:'2026-10-05',day,end_day:null,body,sort_order:0,state,origin:'user',edited:false,source_update_ids:[],source_note_ids:[],source_status_ids:[],updated_at:stamp});
+ const {errors}=await fixture(page,{width:1280,old:[L('l1',OA,'2026-10-06','합성 옛 넣은 줄'),L('l2',OA,'2026-10-07','합성 옛 제안','suggested')]});
+ await openTable(page);
+ await expect(page.locator('#soOverview .week-pick-label')).toHaveText('10.5~10.11');
+ await expect(page.locator('#soOverview [data-rw-note]')).toHaveText('옛 보고');
+ await expect(shown(oa(page))).toHaveText([/10\.6\.합성 옛 넣은 줄/]);
+ await expect(oa(page)).not.toContainText('합성 옛 제안');
+ await expect(page.locator('#soOverview [data-rw-add]')).toHaveCount(0);
+ expect(errors).toEqual([]);
+});
+
+for(const width of [390,1280])test(`[전체 표] 주간보고 조직보고 표와 같은 모양(조직 | 조직현황 칸 선) ${width}px`,async({page})=>{
+ const {errors}=await fixture(page,{width,records:[U(OA,'2026-11-17','합성 교섭 상견례')]});
+ await openTable(page);
+ await expect(page.locator('#soOverview [data-rw-note]')).toHaveCount(0); // 일정 읽기가 끝나 다시 그린 뒤 잰다
+ const table=page.locator('#soOverview table.wl-table');
+ await expect(table).toHaveCount(1);
+ await expect(table.locator('thead th')).toHaveText(['조직','이번 주 조직보고']);
+ const cell=oa(page).locator('td.wl-c-rows'),head=oa(page).locator('th.wl-c-org');
+ await expect(cell).toHaveCSS('border-top-width','1px');await expect(head).toHaveCSS('border-top-width','1px');
+ await expect(oa(page).locator('.wl-day').first()).toHaveText('- 11.17.');
+ const [h,c]=await Promise.all([head.boundingBox(),cell.boundingBox()]);
+ if(width>760){expect(c.x).toBeGreaterThanOrEqual(h.x+h.width-1);expect(Math.abs(c.y-h.y)).toBeLessThan(2);}
+ else{expect(c.y).toBeGreaterThanOrEqual(h.y+h.height-2);expect(Math.abs(c.x-h.x)).toBeLessThan(2);expect(c.width).toBeGreaterThan(300);}
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+ expect(errors).toEqual([]);
+});
+
+test('[전체 표] 조직 순서 = 주간보고(개인본) 순서, 바탕이 없으면 앱 조직 순서',async({page})=>{
+ const {errors}=await fixture(page,{width:1280,order:['합성 나 지회','합성 가 지부']});
+ await openTable(page);
+ await expect(page.locator('#soOverview tbody tr')).toHaveCount(2);
+ await expect(page.locator('#soOverview tbody tr').first()).toHaveAttribute('data-wl-org-row',OB);
+ expect(errors).toEqual([]);
+});
+
+for(const width of [390,1280])test(`[전체 표] 줄 ⋯ [기록 열기] → 조직 상세의 그 기록 ${width}px`,async({page})=>{
+ const rec=U(OA,'2026-11-17','합성 선전전 원래 기록');
+ const {errors}=await fixture(page,{width,records:[rec]});
+ await openTable(page);
+ await menu(page,oa(page),'합성 선전전 원래 기록','기록 열기');
+ const row=page.locator(`#wdUpdates [data-wd-up="${rec.id}"]`);
+ await expect(row).toBeVisible();
+ await expect(row).toContainText('합성 선전전 원래 기록');
+ await expect.poll(()=>row.evaluate(e=>e.hasAttribute('data-journal-flash')||e.getAnimations().length>0)).toBe(true);
  expect(errors).toEqual([]);
 });
