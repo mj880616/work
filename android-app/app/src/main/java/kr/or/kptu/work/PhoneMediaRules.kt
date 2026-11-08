@@ -398,7 +398,15 @@ object PhoneMediaRules {
         return sb.append('}').toString()
     }
 
-    fun trashedMessage(ok: Boolean, count: Int): String = "photos:trashed:{\"ok\":$ok,\"count\":$count}"
+    /**
+     * 폰 휴지통 결과. error(S53-7, 0.5.4) = 못 한 이유 한 낱말: refused(확인 창에서 그만둠)·none(지금 목록에 그 사진이 없음)·old(안드로이드 10 이하)·failed.
+     * 성공이거나 이유가 없으면 붙이지 않는다(옛 웹은 ok·count만 읽는다).
+     */
+    fun trashedMessage(ok: Boolean, count: Int, error: String = ""): String {
+        val e = error.filter { it in 'a'..'z' }.take(20)
+        return if (ok || e.isEmpty()) "photos:trashed:{\"ok\":$ok,\"count\":$count}"
+        else "photos:trashed:{\"ok\":$ok,\"count\":$count,\"error\":\"$e\"}"
+    }
 
     // ── 목록 ──
 
