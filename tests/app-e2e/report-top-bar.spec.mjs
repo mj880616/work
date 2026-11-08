@@ -83,8 +83,8 @@ for (const width of [412, 884, 1280, 1440]) test(`${width}: 맨 위 한 줄 + �
   const bar = page.locator('#meetingsView .report-kind-bar');
   await expect(bar).toBeVisible();
   // 줄 안 보이는 것들이 모두 한 줄(가운데 높이 같음)이고 줄이 화면 안이다.
-  // 폰(~760px)의 [+ 사업 보고]는 하단 동그란 [+](화면 기준 고정)라 줄 높이 재기에서 뺀다.
-  const items = await lineCenters(page, '#meetingsView .report-kind-bar > :is(select,#reportKindFilter), #meetingsView .report-kind-bar .report-head-actions > :not([hidden])').then(xs => xs.filter(x => x.mid < 300));
+  // BIZ-위쪽정돈(11/09 01:22 확정안): [녹음][+][⋯]는 맨 윗줄(.report-top-line)로 올라가 이 둘째 줄은 종류·사업영역·[주 ▾]만이다.
+  const items = await lineCenters(page, '#meetingsView .report-kind-bar > :is(select,#reportKindFilter), #meetingsView .report-kind-bar #reportPeriodPick select').then(xs => xs.filter(x => x.mid < 300));
   expect(items.length).toBeGreaterThanOrEqual(2);
   const mids = items.map(x => x.mid);
   expect(Math.max(...mids) - Math.min(...mids)).toBeLessThanOrEqual(3);
@@ -96,13 +96,14 @@ for (const width of [412, 884, 1280, 1440]) test(`${width}: 맨 위 한 줄 + �
   if (width < 1200) { await expect(page.locator('#reportKindSelect')).toBeVisible(); await expect(page.locator('#reportKindFilter')).toBeHidden(); }
   else { await expect(page.locator('#reportKindFilter')).toBeVisible(); await expect(page.locator('#reportKindSelect')).toBeHidden(); }
   // 녹음·⋯는 맨 위 줄 안.
-  await expect(bar.locator('#reportMore')).toBeVisible();
-  // 기간 한 줄: ‹ 날짜 · n건 › + [이번 주 ▾].
-  const period = page.locator('#reportWeekFilter [data-report-period]');
+  await expect(page.locator('#meetingsView .report-top-line #reportMore')).toBeVisible();
+  // BIZ-위쪽정돈(11/09, B안): 기간은 두 줄로 나뉜다 — [이번 주 ▾]는 둘째 줄(종류·사업영역 옆), '‹ 날짜 › · n건'은 셋째 줄.
+  const period = page.locator('#reportPeriodPick [data-report-period]');
   await expect(period).toBeVisible();
   await expect(period).toHaveValue('week');
-  await expect(page.locator('#reportWeekFilter .report-week-label')).toContainText(/\(월\)~.*\(일\) · \d+건/);
-  const pmids = (await lineCenters(page, '#reportWeekFilter .report-week-nav > *, #reportWeekFilter [data-report-period]')).map(x => x.mid);
+  await expect(page.locator('#reportWeekFilter .report-week-label')).toContainText(/\(월\)~.*\(일\)/);
+  await expect(page.locator('#reportWeekFilter .report-week-count')).toContainText(/· \d+건/);
+  const pmids = (await lineCenters(page, '#reportWeekFilter .report-week-nav > *')).map(x => x.mid);
   expect(Math.max(...pmids) - Math.min(...pmids)).toBeLessThanOrEqual(3);
   // 보기 탭 자리: 폰 아래 가운데, 폴드(761~1199) 오른쪽 아래, PC 위(목록 상자 머리).
   const seg = await page.locator('#reportViewFilter').boundingBox(), vp = page.viewportSize();
@@ -136,7 +137,7 @@ test('412: [종류 ▾]로 선택하면 그 칸만 보이고 글자가 진해지
 test('412: [이번 주 ▾] — 전체 기간·기간 정하기·주 넘기면 주 단위, 이번 주로 돌아오기', async ({page}) => {
   const state = makeState();
   await open(page, state, 412);
-  const period = page.locator('#reportWeekFilter [data-report-period]'), label = page.locator('#reportWeekFilter .report-week-label');
+  const period = page.locator('#reportPeriodPick [data-report-period]'), label = page.locator('#reportWeekFilter .report-week-nav');
   await expect(period.locator('option:not([hidden])')).toHaveText(['이번 주', '전체 기간', '기간 정하기']);
   await page.locator('#reportWeekFilter [data-report-week="prev"]').click();
   await expect(period).toHaveValue('');
@@ -145,7 +146,7 @@ test('412: [이번 주 ▾] — 전체 기간·기간 정하기·주 넘기면 �
   await expect(period).toHaveValue('week');
   await expect(period).not.toHaveClass(/is-on/);
   await period.selectOption('all');
-  await expect(label).toContainText('전체 · ');
+  await expect(label).toContainText('전체');await expect(page.locator('#reportWeekFilter .report-week-count')).toContainText('건');
   await expect(page.locator('#reportWeekFilter [data-report-week="prev"]')).toHaveCount(0);
   await period.selectOption('range');
   await expect(page.locator('#reportWeekFilter [data-report-period-panel]')).toBeVisible();

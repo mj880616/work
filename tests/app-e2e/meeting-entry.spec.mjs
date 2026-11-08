@@ -433,6 +433,8 @@ test('new meeting suggests the next round from loaded names without extra reques
   // STAB-E2E간헐1104: showMeetings가 누르는 [전체]는 화면 선택(view_prefs)을 0.4초 뒤에 서버로 저장한다. 느린 실행에서는 그 저장(읽기+쓰기 2건)이 아래 '요청 0건' 세는 구간에 늦게 걸렸다. 화면 선택 저장은 회의 입력과 무관하니 흉내 서버로 받아 네트워크 요청으로 보이지 않게 한다.
   await installViewPrefsServer(page);
   await showMeetings(page,rows);
+  // BIZ-위쪽정돈(11/09): '이번 주 주간보고' 칸이 늘 펼쳐져 화면을 열 때 읽기를 한다 — 그 읽기가 끝난 뒤부터 [+]가 요청을 안 하는지 센다.
+  await expect(page.locator('#bizWeekBox [data-bp-paper]')).toContainText('1) 사업요약표');
   let requests=0;const seen=[];
   page.on('request',request=>{if(request.url().startsWith(SB)&&!startupRequest(request.url())){requests++;seen.push(request.method()+' '+request.url().slice(SB.length,SB.length+80))}});
   await page.locator('#newMeetingBtn').click();
@@ -548,25 +550,26 @@ for(const width of [320,360,390,760]){
   test(`meeting top line stays one line with the add button at ${width}px`,async({page})=>{
     await page.setViewportSize({width,height:800});
     await signIn(page);
-    // S52-22 TEAM-맨위한줄: 맨 위는 한 줄 [종류 ▾](공용 고르기 상자 32px) ……… [⋯]. 칩 줄·[거르기]는 없다. ⋯는 줄 오른쪽 끝.
-    const bar=page.locator('#meetingsView .report-kind-bar');
+    // S52-22 TEAM-맨위한줄 → BIZ-위쪽정돈(11/09 01:22 확정안): 맨 윗줄(.report-top-line)은 제목 ……… [녹음][+][⋯], 둘째 줄(.report-kind-bar)은 [종류 ▾][사업영역 ▾][주 ▾]. 칩 줄·[거르기]는 없다. ⋯는 맨 윗줄 오른쪽 끝.
+    const top=page.locator('#meetingsView .report-top-line'),bar=page.locator('#meetingsView .report-kind-bar');
     const select=page.locator('#reportKindSelect'),button=page.locator('#newMeetingBtn'),more=page.locator('#reportMore');
     await expect(page.locator('#meetingTypeFilter,#reportAreaFilter,#reportFilterBtn,#meetingsView .meeting-toolbar')).toHaveCount(0);
     await expect(page.locator('#reportKindFilter')).toBeHidden();
     await expect(button).toBeVisible();await expect(select).toBeVisible();
-    const [b,s,btn,m]=await Promise.all([bar.boundingBox(),select.boundingBox(),button.boundingBox(),more.boundingBox()]);
+    const [t,b,s,btn,m]=await Promise.all([top.boundingBox(),bar.boundingBox(),select.boundingBox(),button.boundingBox(),more.boundingBox()]);
     expect(s.height).toBeCloseTo(32,0);
     expect(s.x).toBeCloseTo(b.x,0);
-    expect(m.x+m.width).toBeCloseTo(b.x+b.width,0);
-    expect(m.y+m.height/2).toBeCloseTo(s.y+s.height/2,0);
+    expect(m.x+m.width).toBeCloseTo(t.x+t.width,0);
+    expect(m.y+m.height/2).toBeCloseTo(btn.y+btn.height/2,0);
+    expect(s.y).toBeGreaterThanOrEqual(t.y+t.height-1);
     expect(b.height).toBeLessThanOrEqual(48);
     if(width<=760){
-      expect(await button.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');expect(btn.width).toBe(36);expect(btn.height).toBe(36);
+      // 폰: [+]는 떠 있는 동그라미가 아니라 맨 윗줄 오른쪽 32px 작은 아이콘.
+      expect(await button.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');expect(btn.width).toBe(32);expect(btn.height).toBe(32);
       await expect(button).toHaveAttribute('aria-label','사업 보고 등록');
     }else{
       expect(btn.height).toBeCloseTo(32,0);/* BIZ-버튼줄정리: 채운 [+ 사업 보고]는 작고 낮게 32px, 그 오른쪽 줄 끝이 ⋯ */
       expect(btn.x+btn.width).toBeLessThanOrEqual(m.x);
-      expect(btn.y+btn.height/2).toBeCloseTo(s.y+s.height/2,0);
       expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
     }
     const row=page.locator('#meetingList .meeting-list-row').first();

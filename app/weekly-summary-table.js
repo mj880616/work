@@ -1,7 +1,7 @@
 import {emptyHtml} from './wait-state.js';
 // WEEKLY-메뉴짝짓기 P5(요청함 11/04 16:48 결정 B, 설계 docs/design/weekly-menu-pairing.md 3.2): 사업 보고 화면 위 접는 칸 '이번 주 주간보고'(팝업이 아님).
 // (전 report-summary-preview.js — MTG-프로젝트합치기 2단계 [사업요약표 미리보기] 팝업을 이 칸으로 옮김. 팝업·기간 바꾸기·[HWP로 내려받기]는 없앴다.)
-// - 주 고르기는 공용 부품 week-pick.js(월~일, 담당조직 '이번 주 조직보고'와 같은 모양). 한글 파일은 홈 [주간 정리] 한 곳에서만 만든다 → 맨 아래 [주간 정리에서 보기 ›].
+// - BIZ-위쪽정돈(B안, 11/09): 이 칸은 접는 칸이 아니라 늘 펼쳐 둔 칸이고 안쪽 주 고르기는 없다 — 사업 보고 화면 위의 주 고르기(‹ 11.9(월)~11.15(일) ›) 하나를 따른다(team.js가 week를 넘긴다). 한글 파일은 홈 [주간 정리] 한 곳에서만 만든다 → 맨 아래 [주간 정리에서 보기 ›].
 // - 1) 사업요약표: 사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당. '진행'·'담당' 칸을 누르면 글 칸(진행은 Ctrl+Enter, 담당은 Enter 저장, Esc 취소).
 //   진행 = 그 주 임시저장 summary 칸(홈 [주간 정리] 1) 요약과 같은 칸), 담당 = 그 주 임시저장 owners 칸(한글 파일 담당 칸) — 저장 자리 하나(weekly-draft-store.js).
 //   칸 아래 그 주 사업 보고 제목(사실 기록)은 누르면 그 보고가 열린다. AI 제안 없음(WEEKLY-요약표수기 S49-39). 예전에 저장된 AI 값은 보이지 않게만 두고 지우지 않는다.
@@ -10,7 +10,8 @@ import {emptyHtml} from './wait-state.js';
 // - 기기에 아무것도 저장하지 않는다. 글은 로그에 쓰지 않는다.
 import {previewRecords,weekOf,shiftDays,nextPlanLines,fullTable} from './business-area-model.mjs';
 import {summaryCellKey} from './weekly-summary-hand.mjs';
-import {weekPickHtml,bindWeekPick,currentWeek} from './week-pick.js';
+import {weekLabel} from './weekly-org-lines-model.mjs';
+import {seoulDateKey} from './meeting-time.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const shortDay=day=>{const [,m,d]=day.split('-');return `${Number(m)}.${Number(d)}`};
@@ -20,10 +21,9 @@ const $in=sel=>box?.querySelector(sel);
 function ensureBox(el){
   if(box===el)return box;
   box=el;
-  box.querySelector('[data-bw-body]').innerHTML=`<div class="biz-week-bar btn-row" data-bw-bar></div><div class="biz-paper biz-week-paper" data-bp-paper></div>
+  box.querySelector('[data-bw-body]').innerHTML=`<div class="biz-paper biz-week-paper" data-bp-paper></div>
 <p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p><div class="biz-week-foot"><button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button></div>`;
   box.addEventListener('click',onClick);
-  bindWeekPick(box.querySelector('[data-bw-bar]'),()=>state?.from,week=>{if(!state)return;state.from=week;state.to=shiftDays(week,6);void paint()});
   // 글 칸: 진행 = Ctrl+Enter(맥은 ⌘+Enter), 담당 한 줄 칸 = Enter 저장. Esc = 쓰던 칸만 닫기(저장 안 함).
   box.addEventListener('keydown',e=>{
     if(!state?.editing)return;
@@ -51,10 +51,12 @@ async function onClick(e){
 // 업무일지 부품이 아직 안 불러와졌으면 잠깐(최대 5초) 기다린다.
 async function waitJournal(){for(let i=0;i<50&&!window.KPTUJournal?.showWeek;i++)await new Promise(r=>setTimeout(r,100));return window.KPTUJournal}
 
+// 칸 이름: 이번 주면 '이번 주 주간보고', 위에서 다른 주를 골랐으면 그 주 이름을 붙인다(이름과 보이는 주가 어긋나지 않게).
+function setTitle(from){const h=box?.querySelector('.biz-week-title');if(!h)return;const now=weekOf(seoulDateKey(Date.now())).from;h.textContent=from===now?'이번 주 주간보고':`${weekLabel(from)} 주간보고`;box.setAttribute('aria-label',h.textContent)}
 const isWeek=(from,to)=>weekOf(from).from===from&&shiftDays(from,6)===to;
 async function paint(){
   const paper=$in('[data-bp-paper]'),{from,to}=state;
-  $in('[data-bw-bar]').innerHTML=weekPickHtml(from);say('');
+  setTitle(from);say('');
   const run=++state.run;state.editing=null;
   try{
     const [{placeRecords},{meetingLine},sheet,kinds,store]=await Promise.all([import('./journal-weekly.js'),import('./journal-data.js'),import('./report-places-sheet.js'),import('./journal-meeting-kinds.js'),import('./weekly-draft-store.js')]);
@@ -162,12 +164,19 @@ function paperHtml(placed,records,untagged,all,lineOf){
 }
 
 // meetings(): 사업 보고 화면이 읽어 둔 사업 보고 전체(select=*). 화면의 읽기를 그대로 쓰고 따로 읽지 않는다.
-// el = 사업 보고 화면의 접는 칸 #bizWeekBox(<details>). 처음 펼칠 때 이번 주로 그린다.
-export function mountWeekSummary(el,{meetings}){
+// el = 사업 보고 화면의 늘 펼친 칸 #bizWeekBox. week = 위 주 고르기의 주(월요일 날짜). 화면이 다시 그려질 때마다 불린다.
+export function mountWeekSummary(el,{meetings,week}){
   ensureBox(el);
-  if(!state){const week=weekOf(currentWeek());state={meetings,from:week.from,to:week.to,run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[]};}
-  else state.meetings=meetings;
+  const from=weekOf(week||seoulDateKey(Date.now())).from;
+  if(!state)state={meetings,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[]};
+  else{
+    // 같은 주이고 사업 보고 자료(화면이 읽어 둔 배열)도 그대로면 이미 그린 것을 다시 읽지 않는다(화면이 다시 그려질 때마다·[+] 창을 열 때마다 서버를 부르지 않게).
+    const same=state.from===from&&state.seen===meetings()&&!!state.view;
+    state.meetings=meetings;
+    if(same)return;
+    if(state.editing&&state.from===from)return; // 쓰는 칸이 있으면 같은 주에서는 다시 그리지 않는다(쓰던 글 보호)
+    state.from=from;state.to=shiftDays(from,6);
+  }
+  state.seen=meetings();
   void paint();
 }
-// 사업 보고가 바뀌면(펼쳐 있고 쓰는 칸이 없을 때만) 다시 그린다.
-export function refreshWeekSummary(){if(box?.open&&state&&!state.editing)void paint()}
