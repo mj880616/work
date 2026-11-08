@@ -24,6 +24,8 @@ const ALLOWED=new Set([
  'tests/app-e2e/home-forget-line.spec.mjs',
  // S52-20 HOME-잊지말기한목록: 정리함 한 목록에 가족 줄이 같은 줄로 보이는지 보는 화면 시험(지어낸 줄을 흉내 낸 서버로만 돌려줌).
  'tests/app-e2e/forget-one-list.spec.mjs',
+ // S53-9 CAL-다른화면일정등록: 달력을 안 연 채 잊지 말기 가족 줄 [일정으로]를 보는 화면 시험(지어낸 줄을 흉내 낸 서버로만 돌려줌).
+ 'tests/app-e2e/event-create-elsewhere.spec.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
 function walk(dir,out=[]){
