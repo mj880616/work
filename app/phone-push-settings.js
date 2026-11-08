@@ -8,6 +8,7 @@
 // - startDeviceSync: 폰 앱이 웹2를 열 때마다(loader-v2.js) 이 폰이 '켜짐'이면 다시 등록해 바뀐 토큰·마지막 시각을 맞춘다.
 // - 최근 알림 7일(UI-앱안알림 5단계, 설계 6절 A6): 폰 알림과 맨 위 알림 줄이 같은 기록(app_push_log)에서 phone-push recent로 읽어
 //   '시각 · 무엇' 한 줄씩. 누르면 그 자리(notice-place.js goPlace)로 가고 아직 안 연 것은 '열었음'을 남긴다.
+import {myFeatures} from './my-features.js';
 import {barHtml, failHtml} from './wait-state.js';
 import {goPlace} from './notice-place.js';
 import {KINDS, FAMILY_KIND, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems} from './phone-push-model.mjs';
@@ -186,7 +187,7 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     state = {...state, phase: 'loading', note: '', result: ''}; render();
     if (inApp) send('push:hello');
     const [prefs, devices, recent, features] = await Promise.allSettled([readPrefs(), readDevices(), readRecent(),
-      rt.api('/rest/v1/rpc/app_my_features', {singleFlight: false})]);
+      myFeatures(rt)]); // 공용 my-features.js: 홈에서 이미 읽은 답을 같이 쓴다
     if (mine !== run) return;
     state = {...state, family: features.status === 'fulfilled' && Array.isArray(features.value) && features.value.includes(FAMILY_KIND[0])};
     if (prefs.status !== 'fulfilled') { state = {...state, phase: 'failed'}; render(); return; }

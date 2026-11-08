@@ -305,6 +305,18 @@ test('Phone app release passes only the four Firebase app variables (APP-폰알�
   assert.doesNotMatch(source, /google-services/);
 });
 
+test('STAB-화면시험간헐: workers=2 화면 시험은 접속 대기 줄을 넓힌 정적 서버로 돈다(127.0.0.1에만 열고 읽기 전용)', () => {
+  const e2e = workflow('app-e2e-check.yml');
+  const shard = jobBlocks(e2e)['browser-e2e-shard'];
+  assert.match(shard, /python3 tests\/app-e2e\/helpers\/static-server\.py 8123 /);
+  assert.doesNotMatch(shard, /python3 -m http\.server 8123/);
+  const server = readFileSync(new URL('../app-e2e/helpers/static-server.py', import.meta.url), 'utf8');
+  assert.match(server, /request_queue_size = \d{3}/);
+  assert.match(server, /Server\(\('127\.0\.0\.1', port\), handler\)/);
+  assert.match(server, /SimpleHTTPRequestHandler, directory='\.'/);
+  assert.doesNotMatch(server, /do_POST|do_PUT|do_DELETE/);
+});
+
 test('S54-14 CI diet: nightly E2E skips unchanged commits without wider permissions, workers stay at 2, Deno binary is cached, Pages build check skips docs-only PRs', () => {
   const e2e = workflow('app-e2e-check.yml');
   assert.match(e2e, /--browser=chromium --workers=2 --reporter=line,github/);

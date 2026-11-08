@@ -92,7 +92,7 @@ test('[회의] 칸만 notes 칸 이름이 회의록 전문, 다른 칸은 특이
 
 test('AI 재료: 특이사항(=회의록 전문)은 맨 뒤 300자만',()=>{
   // S49-39: 서버의 사업영역 한 줄 요약(area_week_summary)을 없앴으므로 서버 재료 검사는 없다. 쓰기 창 추천의 화면 쪽 300자 자르기만 남긴다.
-  assert.match(read('app/report-area-tag.js'),/String\(m\.notes\|\|''\)\.slice\(0,300\)\]/);
+  assert.match(read('app/report-area-tag.js'),/String\(body\.notes\|\|''\)\.slice\(0,300\)\]/);
 });
 
 test('[원문]/[서식]: <> 아이콘 대신 작은 글자 버튼(사업 보고·업데이트 같게)',()=>{
