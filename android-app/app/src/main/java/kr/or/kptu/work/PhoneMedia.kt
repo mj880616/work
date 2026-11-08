@@ -58,12 +58,54 @@ object PhoneMedia {
         null
     }
 
-    private fun exifMs(context: Context, id: Long, modifiedSec: Long, size: Long): Long? {
+    /**
+     * PHOTO-폰불러오기느림(S53-3): 예전에는 목록 읽기 한 번이 아직 기억이 없는 사진 파일을 모두 열어 EXIF를 읽었다
+     * (앱을 켠 뒤 첫 읽기 = 사진 수만큼 파일 열기). 그동안 all()이 잠겨 쪽·폴더·미리보기 읽기가 모두 기다려 첫 화면이 수십 초 늦었다.
+     * 이제 목록 읽기 안에서는 EXIF_INLINE_MS 동안만 읽고(바뀐 파일 몇 장은 바로 맞게), 나머지는 사진첩 값으로 먼저 답한 뒤
+     * 뒤에서(한 줄 일꾼) 읽어 기억에 넣고 목록 기억을 비운다(다음 읽기부터 EXIF 시각). 시각·이름은 로그에 쓰지 않는다.
+     */
+    private fun exifMs(context: Context, id: Long, modifiedSec: Long, size: Long, until: Long, later: MutableMap<Long, PhoneMediaRules.ExifEntry>): Long? {
         val memo = exifMemo[id]
         if (!PhoneMediaRules.exifStale(memo, modifiedSec, size)) return memo!!.exifMs
+        if (SystemClock.elapsedRealtime() >= until) {
+            later[id] = PhoneMediaRules.ExifEntry(modifiedSec, size, null)
+            return null
+        }
         val ms = readExifMs(context, id)
         exifMemo[id] = PhoneMediaRules.ExifEntry(modifiedSec, size, ms)
         return ms
+    }
+
+    private const val EXIF_INLINE_MS = 300L
+    private val exifTodo = java.util.concurrent.ConcurrentHashMap<Long, PhoneMediaRules.ExifEntry>()
+    private val exifBusy = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val exifWorker = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "phone-exif").apply { isDaemon = true; priority = Thread.MIN_PRIORITY } }
+
+    /** 뒤에서 EXIF 읽기(목록 잠금 밖). 다 읽으면 목록 기억을 비워 다음 읽기가 새 시각을 쓴다. */
+    private fun exifLater(context: Context, todo: Map<Long, PhoneMediaRules.ExifEntry>) {
+        if (todo.isEmpty()) return
+        exifTodo.putAll(todo)
+        exifKick(context.applicationContext)
+    }
+
+    private fun exifKick(app: Context) {
+        if (!exifBusy.compareAndSet(false, true)) return
+        exifWorker.execute {
+            var changed = false
+            try {
+                while (true) {
+                    val id = exifTodo.keys.firstOrNull() ?: break
+                    val e = exifTodo.remove(id) ?: continue
+                    if (!PhoneMediaRules.exifStale(exifMemo[id], e.modifiedSec, e.size)) continue
+                    exifMemo[id] = PhoneMediaRules.ExifEntry(e.modifiedSec, e.size, readExifMs(app, id))
+                    changed = true
+                }
+            } finally {
+                if (changed) forget()
+                exifBusy.set(false)
+                if (exifTodo.isNotEmpty()) exifKick(app)
+            }
+        }
     }
 
     fun forget() {
@@ -156,6 +198,8 @@ object PhoneMedia {
         val cols = if (video) base + MediaStore.Video.VideoColumns.DURATION else base
         val out = ArrayList<PhoneMediaRules.Media>()
         val cursor = context.contentResolver.query(uri, cols, null, null, null) ?: throw IllegalStateException("cursor")
+        val until = SystemClock.elapsedRealtime() + EXIF_INLINE_MS
+        val later = HashMap<Long, PhoneMediaRules.ExifEntry>()
         cursor.use { c ->
             val iId = c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
             val iName = c.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
@@ -174,7 +218,7 @@ object PhoneMedia {
                 val name = str(iName) ?: ""
                 val id = c.getLong(iId)
                 // 사진(동영상 아님)은 파일 EXIF 시각을 먼저. 고친 시각·크기가 같으면 기억한 값을 쓴다(목록 읽기가 느려지지 않게).
-                val exif = if (video) null else exifMs(context, id, long(iMod) ?: 0L, long(iSize) ?: -1L)
+                val exif = if (video) null else exifMs(context, id, long(iMod) ?: 0L, long(iSize) ?: -1L, until, later)
                 val (takenMs, approx) = PhoneMediaRules.takenWithExif(exif, long(iTaken), long(iMod), long(iAdd))
                 out.add(
                     PhoneMediaRules.Media(
@@ -186,6 +230,7 @@ object PhoneMedia {
                 )
             }
         }
+        exifLater(context, later)
         return out
     }
 
