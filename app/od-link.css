@@ -30,3 +30,5 @@
 .row-menu-owner:not(.ft-row){outline:2px solid var(--ds-select-line,var(--kptu-info));outline-offset:-2px} /* 우클릭한 달력 칸·일정처럼 제 색이 있는 칸 */
 .row-menu .row-menu-title{margin:0;padding:6px 10px 4px;font-size:12px;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:var(--ds-line-width,1px) solid var(--kptu-border);margin-bottom:2px}
 .row-menu .row-menu-last{border-top:var(--ds-line-width,1px) solid var(--kptu-border);margin-top:3px}
+/* S53-10: 지금 할 수 없는 항목(off) — 숨기지 않고 흐리게, 누르면 이유 한 줄(부르는 화면). */
+.row-menu .row-menu-off,.row-menu .row-menu-off .row-menu-ico{opacity:.45}

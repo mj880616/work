@@ -101,6 +101,19 @@ export function phoneWriteText(code, {del = true} = {}) {
     default: return del ? '폰에 쓰지 못했어요. 다시 해 보고, 또 안 되면 폰 앱을 껐다 켜 주세요' : PHONE_TRASH_OLD_TEXT;
   }
 }
+// S53-10 FILES-이폰지우기 덧붙임: 이 폰 폴더 ⋯ [휴지통] = 안 파일(하위 폴더 포함)을 모두 안드로이드 휴지통으로.
+// 안드로이드는 폴더째 휴지통이 없고 영구 삭제는 쓰지 않으므로(H-3) 폴더는 빈 채로 남는다. 폰 앱은 한 번에 50개까지 받는다(PhoneFilesRules.TRASH_MAX).
+export const PHONE_TRASH_BATCH = 50;
+export const PHONE_FOLDER_LEFT_NOTE = '폴더는 빈 채로 남아요(안드로이드에는 폴더째 휴지통이 없어요)';
+// 묻는 글: 파일만 / 폴더 하나 / 섞임. files = 보낼 파일 수(폴더 안 포함), folders = 고른 폴더 이름들.
+export function phoneTrashAsk({files = 0, folders = [], one = ''} = {}) {
+  const n = Number(files) || 0, f = (folders || []).filter(Boolean);
+  const text = !f.length ? (n === 1 && one ? `'${one}'을(를) 휴지통으로 보낼까요?` : `${n}개를 휴지통으로 보낼까요?`)
+    : f.length === 1 ? `'${f[0]}' 폴더 안 파일 ${n}개를 휴지통으로 보낼까요?` : `폴더 ${f.length}개를 포함해 파일 ${n}개를 휴지통으로 보낼까요?`;
+  const note = '폰 휴지통(갤러리·내 파일 앱의 휴지통)에서 30일 안에 되돌릴 수 있어요'
+    + (f.length ? ' · ' + PHONE_FOLDER_LEFT_NOTE : '') + (n > PHONE_TRASH_BATCH ? ` · 사진·동영상은 폰이 ${PHONE_TRASH_BATCH}개마다 확인 창을 띄워요` : '');
+  return {text, note};
+}
 // '이 폰'에서 아직 안 되는 일. 옛 앱(쓰기 모름)은 보기·클라우드로 복사만.
 export const PHONE_READONLY_TEXT = '폰 파일은 지금은 보기·받기만 돼요';
 export const PHONE_OLD_APP_TEXT = '폰에 쓰려면 웹2 앱을 새 판으로 올려 주세요';
