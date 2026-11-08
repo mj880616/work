@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 잊지 말기에 소식 줄 합치기</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--bg:#eef5f2;--surface:#fbfdfc;--soft:#dcefe8;--pri:#2f6f5e;--red:#b4473c}
+*{box-sizing:border-box}body{margin:0;padding:12px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 12px;color:var(--muted)}
+.wrap{display:flex;gap:16px;flex-wrap:wrap}.col{flex:1 1 320px;max-width:380px}.col h2{font-size:13px;margin:0 0 6px}
+.phone{border:1px solid var(--line);border-radius:18px;background:var(--bg);padding:10px;min-height:520px}
+.head{display:flex;align-items:center;gap:6px;margin-bottom:6px}.head b{font-size:15px}
+.chip{border:1px solid var(--line);border-radius:999px;padding:1px 8px;background:var(--surface);font-size:12px}
+.chip .n{color:var(--red);font-weight:600}
+.sel{margin-left:auto;border:1px solid var(--line);border-radius:6px;padding:2px 8px;background:var(--surface);font-size:12px}
+.row{background:var(--surface);border-bottom:1px solid var(--line);padding:7px 8px;display:flex;gap:6px;align-items:flex-start}
+.row:first-of-type{border-radius:8px 8px 0 0}
+.lead{display:flex;gap:4px;flex:none;padding-top:1px}
+.lb{border:1px solid var(--pri);color:var(--pri);border-radius:6px;padding:0 6px;font-size:12px;background:transparent}
+.t{flex:1;min-width:0}.t small{display:block;color:var(--muted);font-size:11px}
+.tag{color:var(--muted);font-size:11px}
+.more{color:var(--muted);flex:none}
+.menu{margin:2px 0 6px auto;width:170px;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);padding:4px}
+.menu div{padding:5px 8px;border-radius:6px}.menu .on{background:var(--soft)}
+.note{margin-top:8px;color:var(--muted);font-size:12px}
+.old{background:var(--surface);border-radius:8px;padding:8px}
+.old h3{font-size:13px;margin:0 0 6px}.x{text-decoration:line-through;color:var(--muted)}
+</style></head><body>
+<h1>잊지 말기 한 곳으로 합치기</h1>
+<p class="s">업무일지 '기억할 통화·텔레그램' 묶음을 없애고, 같은 줄을 잊지 말기에 '소식'으로 넣어요. 업데이트 줄처럼 앞에 [조직][사업].</p>
+<div class="wrap">
+<div class="col"><h2>홈 › 잊지 말기 (바꾼 뒤)</h2>
+<div class="phone">
+<div class="head"><b>잊지 말기</b><span class="chip">처리 전 <span class="n">3</span></span><span class="sel">처리 전 ▾</span></div>
+<div class="row"><div class="lead"><span class="lb">조직</span><span class="lb">사업</span></div><div class="t">○○위원회 기능개혁 인센티브 지급 여부 논의 예정<small><span class="tag">소식 · 텔레그램</span> · 오늘 20:31</small></div><span class="more">⋯</span></div>
+<div class="row"><div class="lead"><span class="lb">조직</span><span class="lb">사업</span></div><div class="t">○○노조 임단협 쟁점 정리, 투쟁 필요성 밝힘<small><span class="tag">소식 · 텔레그램</span> · 오늘 20:31</small></div><span class="more">⋯</span></div>
+<div class="menu"><div class="on">조직 › ○○노조에 넣기</div><div>사업에 넣기</div><div>무시</div></div>
+<div class="row"><div class="lead"><span class="lb">조직</span><span class="lb">사업</span></div><div class="t">현장 인력 쟁점, 기자회견·결의대회 일정 공유<small><span class="tag">소식 · 통화</span> · 오늘 15:10</small></div><span class="more">⋯</span></div>
+<div class="row"><div class="t">토론회 자료 보내 달라는 요청<small><span class="tag">텔레그램</span> · 오늘 14:02</small></div><span class="more">⋯</span></div>
+<div class="row"><div class="lead"><span class="lb">조직</span><span class="lb">사업</span></div><div class="t">내가 쓴 업데이트 한 줄<small><span class="tag">업데이트</span> · 오늘 11:20</small></div><span class="more">⋯</span></div>
+<p class="note">· [조직] = 그 담당조직 기록으로 저장 → 이번 주 조직보고 제안에 올라감<br>· [사업] = 그 사업 기록으로 저장 → 사업 보고·주간보고 사업 칸에 올라감<br>· AI가 조직 이름을 알면 ⋯에 '조직 › ○○노조에 넣기'를 먼저 보여 줌<br>· 소식 줄도 빨간 숫자에 셈(처리 전이면) — 결정 ②</p>
+</div></div>
+<div class="col"><h2>업무일지 › 주간보고 재료 (바꾼 뒤)</h2>
+<div class="old"><h3>주간보고 재료</h3>
+<div>조직 소식 …(그대로)</div>
+<div class="x" style="margin-top:8px">기억할 통화·텔레그램 20:31 기준</div>
+<div class="x">텔레그램 ○○ … ⋯ [넣기][고쳐서 넣기][빼기]</div>
+<p class="note">이 묶음은 화면에서 없앰(서버 기록은 그대로 둠). 같은 줄은 잊지 말기로.</p>
+</div></div>
+</div></body></html>
