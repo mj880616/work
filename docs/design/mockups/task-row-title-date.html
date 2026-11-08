@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 할 일 줄 제목·날짜만</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--surface:#fbfdfc;--pri:#2f6f5e;--psoft:#dcefe8;--osoft:#efebe6;--oink:#5e554b}
+*{box-sizing:border-box}body{margin:0;padding:12px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 12px;color:var(--muted)}
+.wrap{display:flex;gap:16px;flex-wrap:wrap}.col{flex:1 1 380px;max-width:470px}.col h2{font-size:13px;margin:0 0 6px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.ch{display:flex;color:var(--pri);font-weight:600;margin-bottom:4px}.ch span{margin-left:auto;color:var(--muted);font-weight:400}
+.sub{color:var(--muted);font-size:12px;margin:6px 0 2px}
+.row{display:grid;grid-template-columns:28px minmax(0,1fr) 24px;align-items:center;min-height:36px;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.ck{width:16px;height:16px;border:2px solid var(--pri);border-radius:50%;margin-left:4px}
+.main{display:flex;align-items:center;gap:8px;min-width:0}
+.good .main{display:grid;grid-template-columns:minmax(0,1fr) 6.2em;gap:8px}
+.good .main .d{color:var(--muted);font-size:12px;white-space:nowrap;text-align:right}
+.good .main .c{min-width:0;display:flex;gap:3px;align-items:center;color:var(--muted);font-size:11px;white-space:nowrap}
+.good .main .c .tag{max-width:100%;min-width:0}
+.main b{flex:1 1 auto;min-width:0;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{flex:0 0 auto;display:flex;gap:6px;align-items:center;color:var(--muted);font-size:12px;white-space:nowrap}
+.tag{display:inline-block;max-width:7.5em;padding:0 6px;border-radius:999px;font-size:11px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--oink);background:var(--osoft);vertical-align:middle}
+.tag.p{color:var(--pri);background:var(--psoft)}
+.more{color:var(--muted);text-align:center}
+/* 지금(잘못) */
+.bad .meta{flex-wrap:wrap;justify-content:flex-end;max-width:42%;white-space:normal}
+.bad .tag{white-space:normal;overflow-wrap:anywhere;max-width:100%}
+.note{margin-top:8px;color:var(--muted);font-size:12px;line-height:1.6}.warn{color:#a5463c}
+</style></head><body>
+<h1>할 일 줄 — 제목·날짜만</h1>
+<p class="s">폴드 펼침 '일주일 안' 칸 너비 기준. 왼쪽 지금, 오른쪽 바꾼 뒤.</p>
+<div class="wrap">
+<div class="col"><h2>지금</h2>
+<div class="card bad"><div class="ch">일주일 안<span>8</span></div>
+<div class="sub">내일 6</div>
+<div class="row"><span class="ck"></span><div class="main"><b>18일 공동기자회견 진행 집행국 논의</b><span class="meta">11. 9. (월)</span></div><span class="more">⋯</span></div>
+<div class="row"><span class="ck"></span><div class="main"><b>○○의원실 연락 ○○철도…</b><span class="meta"><span>11. 9. (월)</span><span class="tag">○○철도지부</span></span></div><span class="more">⋯</span></div>
+<div class="sub">모레 이후 2</div>
+<div class="row"><span class="ck"></span><div class="main"><b>경고파업 ○○석 수석 발언 준비</b><span class="meta"><span>11. 11. (수)</span><span class="tag p">민자철도 사업</span></span></div><span class="more">⋯</span></div>
+<div class="row" style="min-height:60px"><span class="ck"></span><div class="main"><b>12일 깔판 넉넉히, 핫팩 넉넉히 챙겨서 가기</b><span class="meta" style="max-width:26%"><span>11. 12. (목)</span><span class="tag">○○철도지부</span></span></div><span class="more">⋯</span></div>
+</div>
+<p class="note warn">칩이 날짜 밑으로 내려가 그 줄만 높아짐 · 칩 글자가 중간에서 꺾임 · 제목이 더 짧게 잘림</p>
+</div>
+<div class="col"><h2>바꾼 뒤</h2>
+<div class="card good"><div class="ch">일주일 안<span>8</span></div><div class="sub">내일 6</div><div class="row"><span class="ck"></span><div class="main"><b>18일 공동기자회견 진행 집행국 논의</b><span class="d">11. 9. (월)</span></div><span class="more">⋯</span></div><div class="row"><span class="ck"></span><div class="main"><b>○○의원실 연락 ○○철도 건</b><span class="d">11. 9. (월)</span></div><span class="more">⋯</span></div><div class="row"><span class="ck"></span><div class="main"><b>식물 가지고 사무실 가기</b><span class="d">11. 9. (월)</span></div><span class="more">⋯</span></div><div class="sub">모레 이후 2</div><div class="row"><span class="ck"></span><div class="main"><b>경고파업 ○○석 수석 발언 준비</b><span class="d">11. 11. (수)</span></div><span class="more">⋯</span></div><div class="row"><span class="ck"></span><div class="main"><b>12일 깔판 넉넉히, 핫팩 넉넉히 챙겨서 가기</b><span class="d">11. 12. (목)</span></div><span class="more">⋯</span></div><div class="row"><span class="ck"></span><div class="main"><b>연결이 둘인 할 일</b><span class="d">11. 13. (금)</span></div><span class="more">⋯</span></div></div>
+<p class="note">· 할 일 줄에는 제목과 날짜만: ○ 제목… 날짜 ⋯ — 연결 조직·사업 칩은 줄에서 뺌<br>· 날짜는 모든 줄에서 같은 세로줄(오른쪽 맞춤), 줄 높이 모두 같음<br>· 연결은 지우지 않음 — 누르면 상세에서 보이고, 담당조직·사업 화면의 연결 할 일 목록도 그대로</p>
+</div>
+</div></body></html>
