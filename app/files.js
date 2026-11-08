@@ -2173,9 +2173,9 @@ function openDest(mode, rows) {
   if (state.run) { notify('보내는 중이에요. 끝난 뒤 다시 해 주세요.', {record: false}); return; }
   const on = destSources(list), here = hereDest();
   const dest = here && on.includes(here.source) ? here : null;
-  const open = new Set(on.map(s => folderKey(s, null)));
+  // S54-07 FILES-받을곳창접힘: 저장소가 모두 접힌 채 연다(펼치기는 로고 단추). 지금 폴더는 미리 고른 받을 곳이라 아래 '받을 곳' 줄에서 바로 보낸다. 접힘은 기억하지 않는다.
+  const open = new Set();
   const p = P();
-  if (dest) for (const id of [null, ...trailIds(p.trail)]) open.add(folderKey(dest.source, id));
   state.xfer = {mode, rows: list, dest, open, names: new Map(p.trail.map(t => [folderKey(p.where?.source, t.item_id), t.name]))};
   for (const s of on) if (!state.children.has(folderKey(s, null))) loadChildren(s, null);
   destLayer ||= window.KPTURouter?.layer?.open('files-dest', {reopen: () => paintDest(), close: () => { destLayer = null; dropDest(); return true; }}) || null;
