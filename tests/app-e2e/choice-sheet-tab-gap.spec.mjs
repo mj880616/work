@@ -38,14 +38,25 @@ async function touch(page,x,y){
  await cdp.detach();
 }
 const current=page=>page.evaluate(()=>window.KPTURouter.current);
+// S54-05 UI-고르기창버튼아래 ②(11/08 명진 결정): 폰도 고르기 창은 누른 버튼 바로 아래 작은 창이다(전에는 아래 탭 바로 위에서 올라오는 시트). 이 시험이 지키던
+// 것은 "창의 가장 아래 줄이 탭 위에 얹혀 같은 자리를 또 누르면 탭으로 가는 일이 없다"였고, 지금은 창이 아래 바 위에서 끝나고 화면 안에 다 들어오는 것으로 지킨다.
 async function expectAboveTabs(page,sheet){
- const box=await sheet.boundingBox(),bar=await page.locator('.mobile-tabs').boundingBox();
  await expect(page.locator('.mobile-tabs')).toBeVisible();
- expect(Math.round(box.y+box.height)).toBe(Math.round(bar.y));
+ await expect(sheet).toHaveClass(/home-choice-anchored/);
+ const box=await sheet.boundingBox(),bar=await page.locator('.mobile-tabs').boundingBox();
+ expect(box.y+box.height).toBeLessThanOrEqual(bar.y+1);
  for(const row of await sheet.locator('[data-sheet-value]').filter({visible:true}).all()){const r=await row.boundingBox();expect(r.y+r.height).toBeLessThanOrEqual(bar.y);}
 }
-// The write window's own sheets: the tabs are hidden while the window is open, the sheet sits on the screen's end, every row on screen.
+// The write window's own sheets: the tabs are hidden while the window is open; the small window is by its button, every row inside the screen.
 async function expectAtScreenEnd(page,sheet){
+ await expect(page.locator('.mobile-tabs')).toBeHidden();
+ await expect(sheet).toHaveClass(/home-choice-anchored/);
+ const box=await sheet.boundingBox(),h=page.viewportSize().height;
+ expect(Math.round(box.y+box.height)).toBeLessThanOrEqual(h);
+ for(const row of await sheet.locator('[data-sheet-value]').all()){const r=await row.boundingBox();expect(r.y+r.height).toBeLessThanOrEqual(h);}
+}
+// 닫기 확인(edwCloseSheet)은 누른 버튼이 없을 수 있는 확인 창이라 폰에서는 지금처럼 화면 끝의 아래 시트다(S54-05, ed-window.js).
+async function expectConfirmAtScreenEnd(page,sheet){
  await expect(page.locator('.mobile-tabs')).toBeHidden();
  const box=await sheet.boundingBox(),h=page.viewportSize().height;
  expect(Math.round(box.y+box.height)).toBe(h);
@@ -99,8 +110,8 @@ test('시트가 닫힌 뒤 [취소]를 누르면 기존대로 "저장 안 하고
  const cancel=await editor.getByRole('button',{name:'취소',exact:true}).boundingBox();
  await touch(page,cancel.x+cancel.width/2,cancel.y+cancel.height/2);
  const leave=page.locator('#edwCloseSheet');await expect(leave).toHaveAttribute('open','');await settle(leave);
- // The question sheet sits on the screen's end too.
- await expectAtScreenEnd(page,leave);
+ // The question sheet sits on the screen's end too (a confirmation, kept as the bottom sheet).
+ await expectConfirmAtScreenEnd(page,leave);
  expect(await current(page)).toBe('basket');
  const go=await leave.getByRole('button',{name:'저장하지 않고 닫기',exact:true}).boundingBox();
  await touch(page,go.x+go.width/2,go.y+go.height/2);

@@ -1,6 +1,6 @@
 import {pickIconHtml} from './folder-look.js';
 import {emptyHtml} from './wait-state.js';
-import {placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
+import {placeAnchored,followAnchor,clearAnchored,bottomInset} from './anchored-popup.js';
 // LIB-폴더로옮기기 (2026-10-27 17:01 사용자 요청): [폴더로 옮기기 ›]를 누르면 뜨는 작은 폴더 목록(PC·폰 공통, 그리는 곳은 여기 하나).
 // 맨 위 '폴더 찾기' 칸 → 최근 넣은 폴더 → 전체 폴더(하위는 들여쓰기) → 아래 [+ 새 폴더 만들어 넣기]·[폴더 밖으로].
 // 목록 줄은 library-move.mjs의 pickerRows()가 만든 것을 그대로 그리고, 옮기는 일은 부른 쪽(library-folders.js)이 한다(서버 길은 LIB-폴더탐색기와 같은 하나).
@@ -79,8 +79,6 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     position();
   }
 
-  // 아래 바(하단바·전환 줄)와 자판이 덮는 높이 — 버튼 아래 창은 그 위에서 끝난다(anchored-menu.js dock()과 같은 값 + 자판).
-  const bottomInset=()=>{const cs=getComputedStyle(document.documentElement),v=n=>parseFloat(cs.getPropertyValue(n))||0;return v('--kptu-mobile-tab-height')+v('--kptu-switch-dock')+v('--kptu-keyboard-inset')};
   function position(){
     if(!state||panel.hidden)return;
     const maxH=Math.max(160,Math.min(440,innerHeight-EDGE*2));

@@ -2,6 +2,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import {test,expect} from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
 import {openHome} from './helpers/home-entry.mjs';
+import {expectChoiceAtButton} from './helpers/choice-anchor.mjs';
 // UI-홈업데이트선택: [업데이트 ▾] picks one of 담당조직 or 프로젝트; each saves through its own existing path
 // (MTG-프로젝트합치기 3단계: 프로젝트 하나는 정리함 업데이트 + 연결).
 // BASKET-업데이트통합 PR 1: ▾ also offers [바구니(미분류)]; with no place chosen [업데이트] saves to the basket.
@@ -95,11 +96,11 @@ for(const width of [870,1280])test(`wide screen opens the sheet beside the butto
  await trigger.click();await expect(dialog(page)).toBeVisible();
  await page.mouse.click(2,2);await expect(dialog(page)).toBeHidden();
 });
-test('phone keeps the bottom sheet',async({page})=>{
+// S54-05(11/08 명진 결정): 폰도 누른 버튼 아래 작은 창이다(전에는 아래 시트였다).
+test('phone opens below the button',async({page})=>{
  const {q}=await ready(page,412);
  await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));await expect(dialog(page)).toBeVisible();
- await expect(dialog(page)).not.toHaveClass(/home-choice-anchored/);
- const d=await dialog(page).boundingBox();expect(d.width).toBeGreaterThanOrEqual(400);expect(d.y+d.height).toBeGreaterThan(844-120);
+ await expectChoiceAtButton(page,dialog(page),q.locator('[data-quick-org]'));
 });
 // UI-PC팝업위치: every choice sheet opens by its button on a wide screen, not only [업데이트 ▾].
 test('other choice sheets also open beside their button on a wide screen',async({page})=>{
