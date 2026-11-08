@@ -84,7 +84,7 @@ const cleanCtx = (v: unknown, n: number) => {
   const s = short(v, n).replace(new RegExp(EMAIL.source, "g"), "[이메일]").replace(new RegExp(PHONE.source, "g"), "[전화]");
   return s && !looksSecret(s) ? s : "";
 };
-export type MemorableContext = { orgs?: string[]; areas?: string[]; known?: string[]; max?: number };
+export type MemorableContext = { orgs?: unknown[]; areas?: unknown[]; known?: unknown[]; max?: number };
 // 보낼 재료: 번호는 1부터(서버가 번호↔기록 id를 기억한다 — AI에게 id를 주지 않는다). 맨 앞에 내 담당조직·내 사업·이미 있는 것, 고를 수 있는 수.
 export function memorableMaterial(day: string, rows: FeedRow[], ctx: MemorableContext = {}): string {
   if (!rows.length) return "";
