@@ -1,5 +1,9 @@
 # JOURNAL-기억할통화텔레그램 설계 (S49-12, 요청함 11/03 10:06 명진 덧붙임)
 
+> **2026-11-08 FORGET-소식합치기로 화면이 바뀜**: 업무일지 [하루]의 '기억할 통화·텔레그램' 묶음은 없앴다. 같은 줄(서버 표·AI 고르기는 그대로)은
+> 잊지 말기 한 목록의 출처 '소식'(꼬리표 '소식 · 텔레그램'/'소식 · 통화')으로 보이고, 줄 앞 [조직][사업]·⋯ '조직 › ○○에 넣기'로 담당조직 기록·사업 기록에
+> 넣는다(`app/forget-list.js`·`app/forget-news-data.js`, `docs/design-decisions.md` FORGET-소식합치기). 아래 [넣기]·[고쳐서 넣기]·[빼기(이유)] 화면 설명은 옛 것이다.
+
 - 앞 설계: [call-telegram-feed.md](call-telegram-feed.md)(통화·텔레그램 수집), [weekly-draft-feedback.md](weekly-draft-feedback.md)(주간보고 환류), 규칙 [AGENTS.md](../../AGENTS.md).
 - 앞 PR: JOURNAL-노트옮긴것빼기(#1827) — 그 밖의 기록에서 '업무 통화' 묶음을 뺐다. 이 설계가 그 자리를 대신한다.
 

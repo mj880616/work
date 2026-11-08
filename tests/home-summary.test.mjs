@@ -11,6 +11,9 @@ const read = rel => readFileSync(new URL('../app/' + rel, import.meta.url), 'utf
 test('잊지 말기 한 줄 숫자(S52-20): 업데이트 미분류 + 처리 전 후보(요청 포함) + 가족 제안; 모르면 숨김', () => {
   assert.equal(forgetCount({update: 4, todo: 2}), 6);
   assert.equal(forgetCount({update: 0, todo: 5, family: 2}), 7);
+  // FORGET-소식합치기(명진 '넣어'): 처리 전 소식도 센다. 모르면 0.
+  assert.equal(forgetCount({update: 1, todo: 1, family: 1, news: 2}), 5);
+  assert.equal(forgetCount({update: 1, todo: 1, news: null}), 2);
   assert.equal(forgetCount({update: null, todo: 1}), null);
   assert.equal(forgetCount({}), null);
 });

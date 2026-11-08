@@ -14,6 +14,7 @@ import {readRecordPages} from './basket-link-records.js';
 import {mountQuick} from './home-quick.js';
 import {autoFindToday} from './todo-radar.js';
 import {setHomeAsks} from './home-asks.js';
+import {countOpenNews} from './forget-news-data.js';
 import {esc as escHtml} from './notice-box.mjs';
 import {hasFamily, readNotes} from './family-notes-data.js';
 import {openedFromPush} from './family-notes-model.mjs';
@@ -22,11 +23,12 @@ import {tomorrowCommitmentsPath, seoulDay} from './ledger-browse-model.mjs';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
 // 순수: 숫자들 → '잊지 말기' 한 줄의 처리 안 한 수. 모르는 값(null)은 null(줄 숨김). family는 모르면 0(가족 기능 없음·못 읽음).
-export function forgetCount({update, todo, family = 0} = {}) {
+// news: 처리 전 소식(FORGET-소식합치기, 명진 '넣어') — 운영자 작업공간만, 모르면 0.
+export function forgetCount({update, todo, family = 0, news = 0} = {}) {
   const n = v => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : null);
   const u = n(update), t = n(todo);
   if (u === null || t === null) return null;
-  return u + t + (n(family) || 0);
+  return u + t + (n(family) || 0) + (n(news) || 0);
 }
 // HOME-잊지말기칩(S53-13, 요청함 11/08 13:54 '4글자를 위해 한 줄 전체', 시안 docs/design/mockups/home-forget-slim.html 명진 13:55 'A'):
 // 홈 [하루] 맨 위 '잊지 말기' 띠 한 줄을 없애고, 입력 칸 머리 줄([업데이트 ▾ | 할 일]) 오른쪽 칩 하나로 — ④ 칩(button.ds-chip) + 톤다운 노랑(forget),
@@ -76,9 +78,9 @@ export function mountHomeSummary({root, rt = window.KPTURuntime, onTasksChanged 
   async function refresh(early = null) {
     const mine = ++run, owner = scope();
     const titles = (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).filter(t => t?.status !== 'completed').map(t => t.title);
-    const [out, promises, family] = await Promise.all([readInboxCount(rt, {taskTitles: titles, parts: early?.parts}), early?.promises || readTomorrowPromises(rt), familyCount()]);
+    const [out, promises, family, news] = await Promise.all([readInboxCount(rt, {taskTitles: titles, parts: early?.parts}), early?.promises || readTomorrowPromises(rt), familyCount(), countOpenNews(rt).catch(() => 0)]);
     if (mine !== run || owner !== scope()) return;
-    paint(out?.ok ? forgetCount({update: out.update, todo: out.todo, family}) : null, promises);
+    paint(out?.ok ? forgetCount({update: out.update, todo: out.todo, family, news}) : null, promises);
   }
   // 고르기 시트([업데이트 ▾]·[할 일]의 사업영역)가 쓰는 목록. 정리함·쓰기 창과 같은 읽기(update-places.js readPlaces).
   const flights = new Map();

@@ -643,11 +643,6 @@
 #appView #homeView .weekly-flow-confirm{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 #appView #homeView .weekly-flow-confirm-state{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #homeView .weekly-flow-confirm-slot .journal-hwpx-panel{ padding:0; border:0; background:transparent; }
-/* S52-29 기억할 통화·텔레그램 줄 = 공용 '제안 줄': 줄 앞 출처 꼬리표(.weekly-flow-tag) · 글(줄 전체 폭) · 줄 끝 ⋯ 하나. 여기서는 자리만 정한다. */
-#appView #homeView .journal-memorable-row > .weekly-flow-tag{ margin-top:7px; }
-#appView #homeView .journal-memorable-org{ font-weight:var(--ds-weight-medium); }
-#appView #homeView .journal-memorable-edit{ display:flex; gap:4px; width:100%; }
-#appView #homeView .journal-memorable-edit :is(input, textarea){ flex:1; min-width:0; }
 /* 홈 [하루]의 '나한테 온 요청'·'잊지 말기' 상자 모양은 ui-standard.css 'UI-요청상자통일' 한 곳(S52-09, 공용 부품 notice-box.mjs). */
 /* S51-26 [노트로] 작은 창(family-note-send.js): 폰은 하단바 바로 위에서 올라오고, PC는 가운데 작은 창. */
 .modal.family-send{ z-index:60; }
