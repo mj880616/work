@@ -10,7 +10,7 @@ const USER='u0000000-0000-4000-8000-000000000001',OTHER='u0000000-0000-4000-8000
 const JWT='synthetic-user-jwt',JWT2='synthetic-other-jwt',ACCESS='synthetic-access-token',FULL='https://www.googleapis.com/auth/drive';
 const ENV={SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:'synthetic-service-key',SUPABASE_ANON_KEY:'synthetic-anon-key'};
 
-function world({pagedDup=false,features=['calls','gdrive_photos'],allowed=WS,driveWs=WS,scope=`${FULL}.file ${FULL}`,members={[USER]:WS,[OTHER]:WS2}}={}){
+function world({refresh={v:'synthetic-refresh'},tokenStatus=null,pagedDup=false,features=['calls','gdrive_photos'],allowed=WS,driveWs=WS,scope=`${FULL}.file ${FULL}`,members={[USER]:WS,[OTHER]:WS2}}={}){
  const db={folders:[],photos:[],sync:[]};
  const drive={
   F1:{id:'F1',name:'가상 사진',mimeType:'application/vnd.google-apps.folder',parents:['root'],trashed:false},
@@ -45,7 +45,7 @@ function world({pagedDup=false,features=['calls','gdrive_photos'],allowed=WS,dri
    const name=u.pathname.replace('/rest/v1/',''),p=u.searchParams;
    if(name==='app_workspace_members'){const id=p.get('user_id').slice(3);return ok(members[id]?[{workspace_id:members[id]}]:[]);}
    if(name==='app_workspaces')return ok(driveWs?[{id:driveWs}]:[]);
-   if(name==='public_policy_drive_config')return ok([{google_client_id:'c',google_client_secret:'s',google_refresh_token:'synthetic-refresh'}]);
+   if(name==='public_policy_drive_config')return ok([{google_client_id:'c',google_client_secret:'s',google_refresh_token:refresh.v}]);
    const t=tableOf(name);assert.ok(t,name);const list=db[t];
    if(method==='GET'){let r=list.filter(x=>match(x,p));if(t==='photos')r=r.sort((a,b)=>a.taken_at<b.taken_at?1:-1);
     if(/count=exact/.test(h.Prefer||'')){const n=r.length,lim=Number(p.get('limit')||n);return ok(r.slice(0,lim),200,{'content-range':n?`0-${Math.min(n,lim)-1}/${n}`:'*/0'});}
@@ -56,6 +56,7 @@ function world({pagedDup=false,features=['calls','gdrive_photos'],allowed=WS,dri
    if(method==='DELETE'){db[t]=list.filter(x=>!match(x,p));return ok(null,204);}
   }
   if(u.host==='oauth2.googleapis.com'&&u.pathname==='/token')return ok({access_token:ACCESS,scope,expires_in:3600});
+  if(tokenStatus&&u.host==='www.googleapis.com'&&tokenStatus.n-->0)return ok({error:'expired'},401);
   if(u.host==='lh3.googleusercontent.com')return new Response(new Uint8Array([1,2,3]),{headers:{'content-type':'image/jpeg'}});
   if(u.host==='www.googleapis.com'){
    assert.equal(h.Authorization,'Bearer '+ACCESS);
@@ -209,4 +210,33 @@ test('index: pages merged with a repeated id upsert each item_id once, the last 
  for(const c of posts){const ids=JSON.parse(c.body).map(r=>r.item_id);assert.equal(new Set(ids).size,ids.length,'one upsert carries each item_id once');}
  assert.equal(on.body.indexed,2);
  assert.equal(w.db.photos.find(r=>r.item_id==='P1').name,'a-renamed.jpg');
+});
+
+test('S54-16: access token kept per workspace+refresh fingerprint; gate and index checks still run every request',async()=>{
+ const refresh={v:'synthetic-refresh'},tokenStatus={n:0};
+ const w=world({refresh,tokenStatus});
+ await w.call({action:'folder-toggle',id:'F1',enabled:true});
+ const tokens=()=>w.calls.filter(c=>c.host==='oauth2.googleapis.com').length;
+ const gates=()=>w.calls.filter(c=>c.path==='/auth/v1/user').length;
+ const t0=tokens(),g0=gates();
+ const many=await Promise.all([1,2,3].map(()=>w.call({action:'thumb',id:'P1'})));
+ assert.ok(many.every(r=>r.status===200));
+ assert.equal(tokens(),t0,'cached token reused for thumbnails');
+ assert.equal(gates(),g0+3,'login check every request');
+ assert.equal(w.calls.filter(c=>c.path==='/rest/v1/app_gdrive_photos'&&/select=item_id%2Cparent_id%2Cname%2Cvideo|select=item_id,parent_id,name,video/.test(c.search)).length>=3,true,'index check every request');
+ // 다른 작업공간 사람은 문에서 막히고 토큰을 받지 않는다.
+ assert.equal((await w.call({action:'thumb',id:'P1'},{jwt:JWT2})).status,403);
+ assert.equal(tokens(),t0);
+ // 갱신 토큰이 바뀌면(다시 연결) 다른 키 → 새로 받는다.
+ refresh.v='synthetic-refresh-2';
+ assert.equal((await w.call({action:'thumb',id:'P1'})).status,200);
+ assert.equal(tokens(),t0+1);
+ // 구글이 401이면 기억한 토큰을 버리고 다음 요청에서 새로 받는다.
+ tokenStatus.n=1;
+ assert.equal((await w.call({action:'thumb',id:'P1'})).status,502);
+ assert.equal((await w.call({action:'thumb',id:'P1'})).status,200);
+ assert.equal(tokens(),t0+2);
+ // 폴더를 끄면 같은 토큰이 있어도 목록 밖 사진은 거절한다.
+ await w.call({action:'folder-toggle',id:'F1',enabled:false});
+ assert.equal((await w.call({action:'thumb',id:'P1'})).body.error,'photo_not_in_index');
 });

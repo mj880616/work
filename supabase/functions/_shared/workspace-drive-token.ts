@@ -76,8 +76,13 @@ export async function workspaceDriveToken(
   if (!isWorkspaceId(workspaceId)) throw new WorkspaceDriveError(500, "drive_workspace_missing");
   let cfg, cfgError, conn, connError;
   try {
-    ({ data: cfg, error: cfgError } = await readOne(admin, "public_policy_drive_config", "google_client_id,google_client_secret", "id", 1));
-    ({ data: conn, error: connError } = await readOne(admin, "app_drive_connections", "google_refresh_token", "workspace_id", workspaceId));
+    // 두 읽기는 서로 상관없어 함께 보낸다(S54-16). 오류 판정 순서(설정 → 연결)는 아래에서 그대로. 토큰은 보관하지 않는다.
+    const [c, w] = await Promise.all([
+      readOne(admin, "public_policy_drive_config", "google_client_id,google_client_secret", "id", 1),
+      readOne(admin, "app_drive_connections", "google_refresh_token", "workspace_id", workspaceId),
+    ]);
+    ({ data: cfg, error: cfgError } = c);
+    ({ data: conn, error: connError } = w);
   } catch {
     throw new WorkspaceDriveError(503, "drive_token_failed");
   }

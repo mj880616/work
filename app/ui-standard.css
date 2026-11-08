@@ -1831,23 +1831,24 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 :is(button.ds-chip,.ds-seg button.ds-seg-btn,button.icon-btn):disabled{ opacity:.5; cursor:default; }
 
 /* ===== UI-창아래버튼통일(2026-11-07 명진 요청 10:55 '삭제 완료 저장 … 같은 디자인에서의 배리에이션으로 안느껴짐', 시안 docs/design/mockups/sheet-footer-buttons.html 'A') =====
-   창 아래 버튼 줄은 공용 부품 하나다: 팝업·아래에서 올라오는 창의 .modal-action-footer(base-ui.css)와 화면 안 창·칸의 .save-row(위 UI-저장자리).
+   창 아래 버튼 줄은 공용 부품 하나다: 팝업·아래에서 올라오는 창의 .modal-action-footer(base-ui.css)와 화면 안 창·칸의 .save-row(위 UI-저장자리). ②(S54-08)에서 이름이 다른 같은 종류의 줄 .home-choice-foot(고르기 창)·.record-sheet-foot(노트 기록 창)·.diary-od-foot(원드라이브 설정 창)도 같은 부품으로 넣었다.
+   (작은 확인 말풍선 .kptu-ask-actions는 창이 아니라 누른 자리 옆 말풍선이라 이 가족에 넣지 않는다 — 6가지 작은 버튼 그대로.)
    그 줄 안의 ① 주 동작·② 작은 버튼·지우기는 한 가족 — 높이(--kptu-control-height)·모서리(--ds-radius-control)·글자(--ds-text-button / --ds-weight-medium)·
    안쪽 여백(--ds-control-pad-x)이 똑같고 테두리 선이 없다. 다른 것은 채움 정도 하나뿐이다.
      저장(주 동작 .primary) = 진한 주 색 채움 · 완료·취소 같은 보조(.secondary·.ghost) = 연한 주 색 채움(--kptu-primary-soft) · 삭제(.danger·.tl-danger 등 지우기 클래스) = 바탕 없는 빨간 글자.
    자리: 삭제는 줄 왼쪽 끝(글 순서도 맨 앞), 보조는 오른쪽, 저장은 맨 오른쪽(UI-저장자리 그대로). 지우기를 확인하는 창의 주 동작(.primary)은 채움 그대로다.
    화면 CSS에 남은 줄 안 버튼의 높이·바탕·테두리 규칙이 많아(#id·#appView …) 여기 한 곳이 !important로 고정한다(.save-row-start와 같은 방식).
    ③ 글자 버튼·④ 칩·⑥ 아이콘·.mini는 이 가족이 아니다. 재발 방지: tests/sheet-footer-buttons.test.mjs, tests/app-e2e/sheet-footer-buttons.spec.mjs. */
-:is(.modal-action-footer,.save-row) button:is(.primary,.secondary,.ghost,.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){
+:is(.modal-action-footer,.save-row,.home-choice-foot,.record-sheet-foot,.diary-od-foot) button:is(.primary,.secondary,.ghost,.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){
   box-sizing:border-box !important; height:var(--kptu-control-height) !important; min-height:var(--kptu-control-height) !important;
   padding:0 var(--ds-control-pad-x) !important; border:0 !important; border-radius:var(--ds-radius-control) !important;
   font-size:var(--ds-text-button) !important; font-weight:var(--ds-weight-medium) !important;
 }
-:is(.modal-action-footer,.save-row) button.primary:not(.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:var(--kptu-primary) !important; color:var(--kptu-on-primary) !important; }
-:is(.modal-action-footer,.save-row) button:is(.secondary,.ghost):not(.primary,.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:var(--kptu-primary-soft) !important; color:var(--kptu-ink) !important; }
-:is(.modal-action-footer,.save-row) button:is(.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(.primary,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:transparent !important; color:var(--kptu-danger) !important; margin-right:auto !important; margin-left:0 !important; }
+:is(.modal-action-footer,.save-row,.home-choice-foot,.record-sheet-foot,.diary-od-foot) button.primary:not(.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:var(--kptu-primary) !important; color:var(--kptu-on-primary) !important; }
+:is(.modal-action-footer,.save-row,.home-choice-foot,.record-sheet-foot,.diary-od-foot) button:is(.secondary,.ghost):not(.primary,.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:var(--kptu-primary-soft) !important; color:var(--kptu-ink) !important; }
+:is(.modal-action-footer,.save-row,.home-choice-foot,.record-sheet-foot,.diary-od-foot) button:is(.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(.primary,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:transparent !important; color:var(--kptu-danger) !important; margin-right:auto !important; margin-left:0 !important; }
 /* 마우스를 올리면 삭제만 옅은 빨강 바탕(저장·보조는 창 안 기존대로 바탕 그대로, 누름은 공용 눌림). */
 @media (hover:hover){
-  :is(.modal-action-footer,.save-row) button:is(.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(:disabled,.primary,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini):hover{ background:var(--kptu-danger-soft) !important; }
+  :is(.modal-action-footer,.save-row,.home-choice-foot,.record-sheet-foot,.diary-od-foot) button:is(.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(:disabled,.primary,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini):hover{ background:var(--kptu-danger-soft) !important; }
 }
 
