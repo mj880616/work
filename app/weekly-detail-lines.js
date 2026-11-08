@@ -42,10 +42,14 @@ export function paintDetailLines(slot, {model, start, rt = window.KPTURuntime, o
     const key = keyOf(item), li = el('li'); li.dataset.journalDetailItem = key;
     if (item.kind) li.dataset.journalKindLine = item.kind;
     if (item.day) li.append(el('span', 'journal-weekly-day', shortDay(item.day)));
-    if (ui.editing === key) { li.append(form(ui.value ?? item.text, '줄 고치기')); ul.append(li); continue; }
+    if (ui.editing === key) {
+      if (item.edited) { const o = el('span', 'journal-muted journal-hwpx-origin', `원래: ${item.original}`); o.dataset.journalDetailOrigin = ''; li.append(o, ' '); }
+      li.append(form(ui.value ?? item.text, '줄 고치기')); ul.append(li); continue;
+    }
     li.append(el('span', 'weekly-flow-text', item.text));
     if (item.hand) { const tag = el('span', 'journal-exec-carried', HAND_TAG); tag.title = '손으로 더한 줄'; tag.dataset.journalDetailHand = ''; li.append(' ', tag); }
-    if (item.edited) { const n = el('span', 'journal-file-note', '고침'); n.title = `원래: ${item.original}`; n.dataset.journalDetailEdited = ''; li.append(' ', n); }
+    // S53-1 WEEKLY-고침표시빼기: 고친 줄에 '고침' 꼬리표를 달지 않는다. 원래 글은 [고치기] 칸 위 '원래: …'와 ⋯ [원래대로].
+    if (item.edited) li.dataset.journalDetailEdited = '';
     const menu = [];
     if (can && key) {
       menu.push({text:'고치기', data:{journalDetailFix:key}, disabled:busy, aria:`고치기: ${item.text}`});

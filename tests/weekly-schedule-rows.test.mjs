@@ -127,3 +127,17 @@ test('구성은 다음 주에도 이어진다: 그 주에 구성이 없으면 �
   const fail = {context:{read:() => ({workspace:{id:'w'}})}, api:async () => { throw Object.assign(new Error('x'), {status:400}); }};
   assert.equal(await readCarriedLayout('2026-11-02', fail), null);
 });
+
+// S53-1 WEEKLY-고침표시빼기: 화면은 '고침' 꼬리표를 달지 않고, 줄 ⋯ [원래 값 보기]·[이번 주만 원래대로]는 달력 원래 값과 다를 때(changed)만.
+test('고친 일정 줄: changed는 원래 값과 다를 때만(원래대로 한 줄·기억 대신 원래 제목은 아님), 날짜만 옮겨도 changed', () => {
+  const view = titles => withTitleEdits(calendar(), new Map(titles)).rows.flatMap(r => r.items);
+  const [fixed] = view([['c:e1', {title:'가상 집행국 회의', place:'가상 회관'}]]);
+  assert.equal(fixed.edited, true); assert.equal(fixed.changed, true);
+  assert.equal(fixed.title, '가상 회의 40차'); // 원래 값(⋯ [원래 값 보기])은 그대로 들고 있다
+  // 기억한 이름 대신 이번 주만 원래 제목: 보이는 값은 바뀌었지만(edited) 원래 값과 같다.
+  const memoCal = calendar(); memoCal.rows[0].items[0] = {...memoCal.rows[0].items[0], what:'10:30 / 기억한 이름 / 가상 회관'};
+  const [back] = withTitleEdits(memoCal, new Map([['c:e1', {title:'가상 회의 40차', place:'가상 회관'}]])).rows[0].items;
+  assert.equal(back.edited, true); assert.equal(back.changed, false);
+  const moved = view([['c:e2', {title:'가상 교육', place:'', day:'2026-11-04'}]]).find(i => i.key === 'c:e2');
+  assert.equal(moved.changed, true);
+});

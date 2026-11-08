@@ -2345,13 +2345,19 @@ for(const width of [412,1280])test(`[주간 정리] 2) 세부 내용 줄: ⋯ �
  // 노조 상집(내부 정례 회의)은 없다.
  await expect(lines).toHaveText(['14:00 가상 기자회견','10:00 가상 정책 회의 2차','10:00 운영위원회 3차','14:00 가상 현장 결의대회']);
  const row=key=>meet.locator(`[data-journal-detail-item="meeting:${key}"]`);
- // 고치기: 그 줄 자리 한 줄 칸 → [저장]. '고침' 표시, 원래 기록은 그대로(서버 회의 행 쓰기 없음).
+ // 고치기: 그 줄 자리 한 줄 칸 → [저장]. '고침' 꼬리표는 없고(S53-1), 원래 기록은 그대로(서버 회의 행 쓰기 없음).
  await pressMore(row(U1),'[data-journal-detail-fix]');
  await meet.locator('[data-journal-detail-input]').fill('가상 정책 회의 2차 — 결과 요약');
  await meet.locator('[data-journal-detail-save]').click();
  await expect(meet.locator('[data-journal-detail-status]')).toContainText('고쳤어요.');
  await expect(row(U1).locator('.weekly-flow-text')).toHaveText('가상 정책 회의 2차 — 결과 요약');
- await expect(row(U1).locator('[data-journal-detail-edited]')).toHaveText('고침');
+ await expect(row(U1)).toHaveAttribute('data-journal-detail-edited','');
+ await expect(row(U1)).not.toContainText('고침');
+ // 원래 글은 [고치기] 칸 위 '원래: …'(⋯ 에 [원래대로]). 열어 보고 [취소].
+ await pressMore(row(U1),'[data-journal-detail-fix]');
+ await expect(row(U1).locator('[data-journal-detail-origin]')).toHaveText('원래: 10:00 가상 정책 회의 2차');
+ await meet.locator('[data-journal-detail-cancel]').click();
+ await expect(row(U1).locator('[data-journal-detail-origin]')).toHaveCount(0);
  // 빼기: 줄이 바로 사라지고, 뺀 목록은 없이 작은 [되돌리기]만.
  await pressMore(row(U2),'[data-journal-detail-drop]');
  await expect(row(U2)).toHaveCount(0);
@@ -2961,8 +2967,14 @@ for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기
  await input.fill('가상 요구안 확정 — 기본급 5% 인상, 1차 교섭 10.28.(화)');
  await input.press('Enter');
  await expect(orgs.locator('[data-journal-file-edit-input]')).toHaveCount(0);
- await expect.poll(()=>lineText(file)).toBe('10월 6일(화)자료 가상 요구안 확정 — 기본급 5% 인상, 1차 교섭 10.28.(화) 고침');
- await expect(file.locator('[data-journal-file-edited]')).toHaveAttribute('title','원래: 가상 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정');
+ // S53-1 WEEKLY-고침표시빼기: 고친 줄 끝에 '고침' 꼬리표가 없다. 원래 줄은 [고치기] 칸 위 '원래: …'.
+ await expect.poll(()=>lineText(file)).toBe('10월 6일(화)자료 가상 요구안 확정 — 기본급 5% 인상, 1차 교섭 10.28.(화)');
+ await expect(file.locator('[data-journal-file-edited]')).toHaveCount(0);
+ await openFileMenu(file);
+ await fileMenu(file).locator('[data-journal-file-edit]').click();
+ await expect(ga.locator('[data-journal-file-origin]')).toHaveText('원래: 가상 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정');
+ await ga.locator('[data-journal-file-edit-cancel]').click();
+ await expect(orgs.locator('[data-journal-file-edit-input]')).toHaveCount(0);
  const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
  expect(row().draft.docs).toEqual([{id:DOCID(1),text:'가상 요구안 확정 — 기본급 5% 인상, 1차 교섭 10.28.(화)'}]);
  // [빼기]: 프로젝트 줄 자료 → 뺀 자료 목록 없이 그 자리 '자료 줄을 뺐어요 [되돌리기]', 복사 글에서 빠짐.
@@ -4287,6 +4299,43 @@ for(const width of [412,884,1440])test(`WEEKLY-조직현황폰다시: 폰은 조
   await expect.poll(async()=>{const g=await geo();return g.cell&&g.line&&g.cell.w>0?g.cell.l-g.line.r:-1;}).toBeGreaterThan(0);
  }
  await page.screenshot({path:info.outputPath(`weekly-org-again-${width}.png`),fullPage:true});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+// S53-1 WEEKLY-고침표시빼기(요청함 11/08 08:45): 고친 주요 일정 줄에 '고침' 꼬리표가 없다(폰·폴드·PC). 고친 값은 그대로 보이고,
+// 원래 값은 줄 ⋯ [원래 값 보기](표 아래 한 줄)·[이번 주만 원래대로]. 가짜 일정·가짜 이름만.
+for(const width of [390,884,1280])test(`WEEKLY-고침표시빼기: 고친 주요 일정 줄에 '고침' 없음·⋯ [원래 값 보기]·[이번 주만 원래대로] ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ const cal=weekly(page,'calendar'),week=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ await editSchedule(page,'가상 다음 주 회의');
+ // 폰에서 두 줄로 넘어가는 긴 제목으로 고친다.
+ const long='가상 점검 회의 — 하반기 교섭 준비와 현장 순회 일정 함께 정리';
+ await schedField(page,'title').fill(long);
+ await saveSchedule(page);
+ await expect.poll(()=>week()?.draft?.titles,{timeout:15000}).toEqual([{event:'c:next',title:long,place:'가상 회의실'}]);
+ const row=cal.locator('tbody tr').filter({hasText:long});
+ await expect(row).toHaveAttribute('data-journal-schedule-edited','');
+ await expect(row.locator('.journal-weekly-what')).toHaveText(`10:30 / ${long} / 가상 회의실`);
+ // '고침' 글자·꼬리표가 표 어디에도 없다.
+ await expect(cal.locator('table')).not.toContainText('고침');
+ await expect(row.locator('.journal-exec-carried')).toHaveCount(0);
+ // ⋯ : [고치기] · [원래 값 보기] · [이번 주만 원래대로] · [빼기].
+ const more=row.locator('details.row-more');
+ await more.locator('summary').click();
+ await expect(more.locator('.row-more-menu > button')).toHaveText(['고치기','원래 값 보기','이번 주만 원래대로','빼기']);
+ await more.locator('[data-journal-schedule-peek]').click();
+ await expect(cal.locator('[data-journal-schedule-status]')).toHaveText('원래: 가상 다음 주 회의 / 가상 회의실');
+ // 보기만 하고 저장 값은 그대로.
+ expect(week().draft.titles).toEqual([{event:'c:next',title:long,place:'가상 회의실'}]);
+ await expect(row.locator('.journal-weekly-what')).toHaveText(`10:30 / ${long} / 가상 회의실`);
+ // [이번 주만 원래대로] → 원래 제목 줄, 그 줄 ⋯ 에는 다시 [고치기]·[빼기]만.
+ await pressMore(row,'[data-journal-schedule-origin]');
+ const back=cal.locator('tbody tr').filter({hasText:'가상 다음 주 회의'});
+ await expect(back).toHaveCount(1,{timeout:15000});
+ await expect.poll(()=>week().draft.titles,{timeout:15000}).toEqual([{event:'c:next',title:'가상 다음 주 회의',place:'가상 회의실'}]);
+ await back.locator('details.row-more summary').click();
+ await expect(back.locator('.row-more-menu > button')).toHaveText(['고치기','빼기']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
