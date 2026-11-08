@@ -38,6 +38,8 @@ import {readTelegramAsks} from './todo-radar-data.js';
 //   고른 보기는 서버 화면 기억(view_prefs.tg_view)뿐이고, 새로고침 제자리는 주소(?by=room&room=…)로 한다. 기기 저장 없음.
 import {viewPrefs} from './view-prefs.js';
 import {tgViewOf, roomGroups, roomDays, roomPage, roomDayText, ROOM_DAY_PAGE} from './tg-room-view-model.mjs';
+// FEED-최신화즉시수집(S52-46): 머리 줄 작은 [최신화] — 누르면 서버가 수집기를 한 번 깨우고, 이 화면의 load()로 1~3분 새 줄을 다시 읽는다(feed-pull.js).
+import {createFeedPull} from './feed-pull.js';
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
@@ -63,6 +65,7 @@ function install() {
 }
 install();
 const view = () => $('#telegramView');
+const pull = createFeedPull({source:'telegram', rt, scope:() => scopeOf(rt), reload:() => load(), paint:() => paintList(), attr:'data-tg-pull'});
 const itemOf = id => { for (const d of state.dcache.values()) { const r = d.items?.find(x => x.id === id); if (r) return r; } return state.pins.find(r => r.id === id) || state.trashed.find(r => r.id === id) || null; };
 const lineAt = (room, day) => state.lines.find(l => l.room_key === room && l.day === day) || state.pinLines.find(l => l.room_key === room && l.day === day) || null;
 const selKey = () => (state.sel ? rdKey(state.sel.room, state.sel.day) : '');
@@ -261,7 +264,7 @@ function headHtml() {
   const failed = today?.failed ? ` · 판정 실패 ${today.failed}` : '';
   const ready = state.loaded && !state.missing && !state.error;
   const more = ready ? `<button type="button" class="feed-more" data-tg-head-more aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴">${MORE}</button>` : '';
-  return `<div class="feed-head"><span class="feed-head-title screen-title" aria-hidden="true">텔레그램 소식</span><span class="feed-head-sub" data-tg-today>${ready ? esc(telegramHeadText(today) + failed) : ''}</span>${more}</div>${ready ? chipsHtml() + feditHtml() : ''}`;
+  return `<div class="feed-head"><span class="feed-head-title screen-title" aria-hidden="true">텔레그램 소식</span><span class="feed-head-sub" data-tg-today>${ready ? esc(telegramHeadText(today) + failed) : ''}</span>${ready ? pull.button() : ''}${more}</div>${ready ? pull.line() + chipsHtml() + feditHtml() : ''}`;
 }
 // 줄 밀기: 버튼은 닫혀 있으면 보이지도 눌리지도 않는다. mode: live | archive.
 const actBtn = (side, kind, open) => `<button type="button" class="feed-act feed-act-${kind}" data-tg-act-btn="${side}" data-tg-kind="${kind}" tabindex="-1"${open === side ? '' : ' aria-hidden="true"'} aria-label="${ACTION_LABEL[kind]}">${ICON[kind === 'unarchive' ? 'unarchive' : kind]}<span>${ACTION_LABEL[kind]}</span></button>`;
@@ -1022,6 +1025,7 @@ function bind() {
     else if (d.tgOpen) { const id = d.tgOpen; if (state.open.has(id)) { state.open.delete(id); if (state.link?.rowId === id && !dropLink(() => { if (!state.open.delete(id)) return; if (state.sedit?.rowId === id) endEdit(); paintDetail(); })) { state.open.add(id); return; } if (state.sedit?.rowId === id) endEdit(); } else { state.open.add(id); void loadRaw(id); } paintDetail(); }
     else if (d.tgMore) menu.open(b);
     else if (b.hasAttribute('data-tg-head-more')) menu.open(b);
+    else if (b.hasAttribute('data-tg-pull')) void pull.start();
     else if (d.tgPersonMore) pmenu.open(b);
     else if (d.tgNameOpen) startRawEdit(d.tgNameOpen, b.closest('[data-tg-di]')?.dataset.tgDi);
     else if (d.tgPersonName) startPersonEdit(d.tgPersonName);

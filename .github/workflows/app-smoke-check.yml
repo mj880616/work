@@ -885,6 +885,9 @@ jobs:
       - name: Check telegram room view model (TG-방별보기)
         run: node --test tests/tg-room-view-model.test.mjs
 
+      - name: Check feed pull now model and part (FEED-최신화즉시수집)
+        run: node --test tests/feed-pull-model.test.mjs
+
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs
 
