@@ -37,8 +37,8 @@ test('접힌 대표 줄을 고르면 같은 글도 함께, 펼친 묶음은 줄�
   assert.deepEqual(withTwins(['w'],plan),['w']);
 });
 test('고른 개수 글자: 접힌 것이 있을 때만 "접힌 n개 포함"',()=>{
-  assert.equal(pickCountText(3,0),'3개 골랐음');
-  assert.equal(pickCountText(37,27),'37개 골랐음 — 접힌 27개 포함');
+  assert.equal(pickCountText(3,0),'3개 선택됨');
+  assert.equal(pickCountText(37,27),'37개 선택됨 — 접힌 27개 포함');
 });
 test('자료실 화면이 이 규칙을 쓰고 자료 행은 지우지 않는다(화면에서만 묶음)',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
