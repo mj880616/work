@@ -227,6 +227,8 @@
 #appView #homeView .journal-weekly-table thead th:nth-child(2){ width:18%; }
 #appView #homeView .journal-weekly-area{ font-weight:var(--ds-weight-medium); }
 #appView #homeView .journal-weekly-table .journal-weekly-list{ padding-left:16px; }
+/* WEEKLY-주말칸색(요청함 11/08): 주요 일정 표(5. 주요 일정·1. 2) 주요 일정)의 토·일 줄 날짜 칸만 톤다운 연회색 — 한글 파일 표와 같게. */
+#appView #homeView .journal-weekly-table .journal-weekend-day{ background:var(--kptu-surface-subtle); }
 /* 5. 주요 일정 표: 일 | 시간/내용/장소 | 참석자(확정본 양식 칸). 참석자는 한글 파일에서 내 이름으로 채워 화면에서는 비어 있다. */
 /* WEEKLY-조직이름한줄 덧붙임: 칸 폭은 머리 칸 경계를 끌어 바꾼다(weekly-cols.js · 공용 col-resize.js). --wk-w-* 가 없으면 아래 기본 폭. */
 #appView #homeView .journal-weekly-schedule thead th:nth-child(1){ width:var(--wk-w-cal-day,30%); }
@@ -267,6 +269,7 @@
   #appView #homeView .journal-weekly-table th,
   #appView #homeView .journal-weekly-table td{ border:0; padding:2px 0; }
   #appView #homeView .journal-weekly-area{ font-size:var(--ds-text-read); }
+  #appView #homeView .journal-weekly-table .journal-weekend-day{ display:table; padding:0 6px; border-radius:var(--ds-chip-radius); }
   #appView #homeView .journal-weekly-task{ font-weight:var(--ds-weight-medium); color:var(--kptu-muted); }
   #appView #homeView .journal-weekly-day{ min-width:0; }
   #appView #homeView .journal-exec-tools{ text-align:left; }

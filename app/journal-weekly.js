@@ -33,7 +33,7 @@ import {annotateCalendar, memoryTitle, idleWeeks, visibleCalendar} from './weekl
 import {whoList, titleFields, hqFields, hqLines} from './weekly-schedule-rows.mjs';
 import {splitScheduleFields} from './schedule-line-split.mjs';
 import {timeCell} from './time-input.js';
-import {scheduleItems} from './weekly-hwpx/schedule.mjs';
+import {scheduleItems, isWeekendLabel} from './weekly-hwpx/schedule.mjs';
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
 import {docEdits, draftHq, draftDiscuss, draftDrops, draftHand} from './weekly-draft-store.js';
@@ -783,7 +783,8 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       const sv = model.scheduleView ?? null, editKey = sv?.edit?.key ?? '';
       for (const row of c.rows) row.items.forEach((item, index) => {
         const tr = el('tr'); tr.dataset.journalScheduleDay = row.day;
-        if (!index) { const th = el('th', 'journal-weekly-area', row.label); th.scope = 'rowgroup'; th.rowSpan = row.items.length; tr.append(th); }
+        // WEEKLY-주말칸색: 토·일 줄 날짜 칸은 연회색(한글 파일 표와 같은 판정 — weekly-hwpx/schedule.mjs isWeekendLabel).
+        if (!index) { const th = el('th', `journal-weekly-area${isWeekendLabel(row.label) ? ' journal-weekend-day' : ''}`, row.label); th.scope = 'rowgroup'; th.rowSpan = row.items.length; tr.append(th); }
         if (editKey && item.key === editKey && sv.edit.form) {
           tr.classList.add('journal-exec-edit-row'); tr.dataset.journalScheduleEditRow = item.key;
           const td = el('td'); td.colSpan = 2; td.append(sv.edit.form); tr.append(td); body.append(tr); return;

@@ -25,6 +25,7 @@ import {el, clone, kid, kids, walk, textOf} from './xml.mjs';
 import {readXml, setXml, clonePkg, headerStyles} from './hwpx.mjs';
 import {readPrototypes, renumber, isBoxTable, FORM_LABELS, BOX_LABELS, REQUEST_HEAD, SUMMARY_HEAD, RALLY_HEAD, SITE_HEAD, ORG_HEAD, SCHEDULE_HEAD} from './template.mjs';
 import {headerMetrics, layoutTable} from './layout.mjs';
+import {isWeekendLabel} from './schedule.mjs';
 
 export const CHANGED_COLOR = '#0000FF';
 export const lineText = line => (typeof line === 'string' ? line : line.text);
@@ -243,6 +244,41 @@ export function requestGrid(requests) {
   const cols = [0, 1, 2].map(c => spans(rows.map(r => r[c])));
   return rows.map((_, r) => cols.map(c => c[r]));
 }
+// WEEKLY-주말칸색(요청함 11/08 15:19): 5. 주요 일정 표의 토·일 줄은 날짜 칸만 연회색 바탕(확정본처럼 — 확정본은 평일 날짜 칸과 테두리가
+// 같고 바탕만 #F2F2F2 인 칸 모양을 쓴다). 내용·참석자 칸은 그대로. 여러 날 일정 줄('11.14.(토)~11.15.(일)')은 적힌 요일이 모두 토·일일 때만.
+// weekendFill = 날짜 칸 견본 테두리(baseId)와 바탕만 다른 연회색 칸 모양 번호. 양식 머리에 있으면 그것을, 없으면 같은 테두리에 바탕
+// WEEKEND_FACE 를 더한 칸 모양 하나를 머리에 더한다(그때만 머리가 바뀜). 견본 칸 모양을 못 찾으면 null(칠하지 않음).
+export const WEEKEND_FACE = '#F2F2F2';
+export {isWeekendLabel};
+const isLightGray = c => { const m = /^#([0-9A-F]{2})\1\1$/i.exec(String(c ?? '')); return !!m && parseInt(m[1], 16) >= 0xD0 && parseInt(m[1], 16) < 0xFF; };
+const faceOf = b => [...walk(b)].find(n => n.name === 'hc:winBrush')?.attrs.faceColor;
+export function weekendFill(header, baseId) {
+  const list = [...walk(header.root)].find(n => n.name === 'hh:borderFills');
+  if (!list) return null;
+  const fills = kids(list, 'hh:borderFill');
+  const base = fills.find(b => b.attrs.id === String(baseId));
+  if (!base) return null;
+  if (isLightGray(faceOf(base))) return base.attrs.id;
+  const sigOf = n => ('text' in n ? n.text : [n.name, Object.entries(n.attrs).filter(([k]) => k !== 'id'), n.children.filter(c => c.name !== 'hc:fillBrush').map(sigOf)]);
+  const want = JSON.stringify(sigOf(base));
+  const near = c => Math.abs(parseInt(c.slice(1, 3), 16) - parseInt(WEEKEND_FACE.slice(1, 3), 16));
+  const hits = fills.filter(b => b !== base && isLightGray(faceOf(b)) && JSON.stringify(sigOf(b)) === want).sort((a, b) => near(faceOf(a)) - near(faceOf(b)));
+  if (hits.length) return hits[0].attrs.id;
+  const add = clone(base);
+  add.attrs.id = String(Math.max(0, ...fills.map(b => Number(b.attrs.id) || 0)) + 1);
+  const oldBrush = kid(base, 'hc:fillBrush');
+  const hatch = oldBrush ? [...walk(oldBrush)].find(n => n.name === 'hc:winBrush')?.attrs.hatchColor : null;
+  add.children = add.children.filter(c => c.name !== 'hc:fillBrush').concat([el('hc:fillBrush', {}, [el('hc:winBrush', {faceColor: WEEKEND_FACE, hatchColor: hatch ?? '#999999', alpha: '0'})])]);
+  list.children.push(add);
+  list.attrs.itemCnt = String(kids(list, 'hh:borderFill').length);
+  return add.attrs.id;
+}
+// grid(requestGrid 결과)의 토·일 줄 날짜 칸(첫 칸)에 칸 모양 번호를 붙인다. 바뀐 grid 를 돌려준다(원본은 그대로).
+export function shadeWeekends(grid, fillId) {
+  if (!fillId) return grid;
+  return grid.map(row => (row[0] && isWeekendLabel(lineText(row[0].lines?.[0] ?? '')) ? [{...row[0], border: fillId}, ...row.slice(1)] : row));
+}
+
 // 병합 없는 표: rows = [[줄 목록, …]]
 export function plainGrid(rows, cols) {
   const out = rows.map(r => r.map(lines => ({lines, rs: 1})));
@@ -343,6 +379,16 @@ export function buildReport(template, data, {sectionTitles = DEFAULT_SECTIONS} =
   const changed = findChangedCharPr(header, cellCharPr);
   const borders = borderTools(header);
   const S = sectionTitles;
+  // WEEKLY-주말칸색: 토·일 날짜 칸 모양(양식에 없어 더했으면 머리를 다시 쓴다 — 토·일 줄이 있을 때만 찾는다).
+  let headerChanged = false;
+  const weekendCell = () => {
+    if (!(data.calendar ?? []).some(d => isWeekendLabel(d.day))) return null;
+    const baseId = tableProto(protos.scheduleTable).cells[0]?.attrs.borderFillIDRef;
+    const before = kids([...walk(header.root)].find(n => n.name === 'hh:borderFills') ?? el('x'), 'hh:borderFill').length;
+    const id = weekendFill(header, baseId);
+    headerChanged = kids([...walk(header.root)].find(n => n.name === 'hh:borderFills') ?? el('x'), 'hh:borderFill').length !== before;
+    return id;
+  };
   const blank = () => paragraph(protos.body, '');
   const lines = (proto, list) => (list?.length ? list.map(line => paragraph(proto, line, changed)) : [blank()]);
   const details = (data.details ?? []).flatMap(d => [paragraph(protos.small, d.heading ?? ''), fillBox(protos.boxTable, d.box ?? [], changed), blank()]);
@@ -380,7 +426,7 @@ export function buildReport(template, data, {sectionTitles = DEFAULT_SECTIONS} =
     paragraph(protos.mid, S.orgNotes),
     ...lines(protos.body, data.orgNotes),
     paragraph(protos.big, S.calendar),
-    fillTable(protos.scheduleTable, requestGrid(data.calendar ?? []), changed),
+    fillTable(protos.scheduleTable, shadeWeekends(requestGrid(data.calendar ?? []), weekendCell()), changed),
     // 확정본처럼 표 아래 빈 줄 하나 뒤에 "※ 휴가" 줄(WEEKLY-주요일정: 확정본·개인본 6주치 모두 표 → 빈 줄 → ※ 줄).
     ...((data.calendarNotes ?? []).length ? [blank(), ...data.calendarNotes.map(line => paragraph(protos.note, line, changed))] : []),
     blank(),
@@ -391,6 +437,7 @@ export function buildReport(template, data, {sectionTitles = DEFAULT_SECTIONS} =
   const metrics = headerMetrics(header);
   for (const tbl of [...walk(sec.root)].filter(n => n.name === 'hp:tbl')) layoutTable(tbl, metrics);
   setXml(pkg, 'Contents/section0.xml', sec);
+  if (headerChanged) setXml(pkg, 'Contents/header.xml', header);
   return {pkg, changedCharPr: changed};
 }
 
