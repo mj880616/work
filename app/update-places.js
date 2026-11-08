@@ -179,7 +179,7 @@ async function addBusinessRecord(note, list, text, rt) {
   try {
     const {saveBusinessRecord} = await import('./business-now-data.js');
     await saveBusinessRecord({space_id:project.id, day:seoulDateKey(), body:text, source_kind:'update', source_id:note.id}, rt);
-  } catch (error) { console.warn('business record not added', error?.status || error?.code || 'error'); }
+  } catch { /* 사업 기록은 덤 — 업데이트 저장·연결 결과를 바꾸지 않는다 */ }
 }
 export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
 export const linkFailText = '업데이트는 잊지 말기에 저장했지만 선택한 곳에 연결하지 못했어요. 잊지 말기에서 [연결하기]로 다시 연결해 주세요.';

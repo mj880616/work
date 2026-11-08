@@ -201,7 +201,7 @@ async function loadNow({kit,store,from,areas,tree}){
         if(list.length){await ND.fillNow(rt,list);rows=(await ND.readNow(rt)).rows}
       }
       filledWs=ws;
-    }catch(e){console.warn('business now fill skipped',e?.status||e?.code||'error')} // 못 채우면 다음에 다시(빈 칸으로 그림)
+    }catch{/* 못 채우면 다음에 다시(빈 칸으로 그림). 글은 로그에 쓰지 않는다 */}
   }
   if(!listening){
     listening=true;
