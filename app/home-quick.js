@@ -1,3 +1,4 @@
+import {fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
 import {requestNoteAiTitle} from './note-ai-title.js';
 import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
@@ -91,7 +92,8 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   });
   box.querySelector('[data-quick-new-note]').onclick=async e=>{if(saving)return;if((input.value||upload.entries.some(e=>e.kind!=='success'))&&(!(await askConfirm(e.currentTarget,{text:'잊지 말기에서 저장 여부를 확인한 후 새 업데이트를 입력할까요?',note:'현재 입력과 파일 선택은 비워집니다.',ok:'비우기',danger:true}))||saving))return;upload=createUploadBatch();input.value='';status.textContent='';paint();input.focus();};
   // UI-버튼크기: 홈은 세 모드 모두 한 줄 높이에서 시작해 글에 맞춰 늘고 5줄에서 멈춘다(그 뒤는 칸 안 스크롤). 바구니 화면은 CSS 높이 그대로.
-  function size(){ input.style.height=''; if(basketOnly||taskOnly||noteOnly)return; const s=getComputedStyle(input),edge=parseFloat(s.paddingTop)+parseFloat(s.paddingBottom)+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth),line=parseFloat(s.lineHeight)||21,min=input.offsetHeight;input.style.height=Math.max(min,Math.min(line*5+edge,input.scrollHeight+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth)))+'px'; }
+  // UI-줄입력늘어나기: 높이 셈은 공용 auto-grow.js(이 칸에서 끌어냄) — 많아야 5줄, 스크롤 표시는 칸 CSS 그대로.
+  function size(){ input.style.height=''; if(basketOnly||taskOnly||noteOnly)return; fitHeight(input,{maxLines:5,overflow:false}); }
   function paint(){
     pickerFiles.render();
     // A saved or unconfirmed note keeps its text; say why and offer the reset next to the input.
