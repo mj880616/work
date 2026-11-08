@@ -87,7 +87,7 @@ const open = (page, id) => root(page).locator(`[data-os-list] [data-nw-key="outs
 
 
 const copied = page => page.evaluate(() => window.__copied.at(-1) ?? null);
-const bar = page => page.locator('[data-hl-bar]');
+const bar = page => page.locator('div[data-hl-bar]');
 // 원문 글자 일부를 고른다(손가락으로 끈 것과 같은 선택 — 폰 기본 메뉴는 브라우저 몫이라 여기서는 보지 않는다).
 const pick = (page, text) => page.evaluate(t => {
   const p = document.querySelector('#outsideRoot [data-now-detail] [data-nd-prose] p'), node = [...p.childNodes].find(n => n.nodeType === 3 && n.data.includes(t));
