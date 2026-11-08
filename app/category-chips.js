@@ -4,7 +4,7 @@
 import {allState,afterAllTap} from './library-view-pref.js';
 import {fitChipRows} from './chip-rows.js';
 import {pickedToggles} from './chip-rows-model.mjs';
-import {documentCategories,subcategoriesOf,categoryParent,categoryLeaf} from './document-categories.js';
+import {documentCategories,subcategoriesOf,categoryParent,categoryLeaf,topCategoryOf,LOCKED_CATEGORY} from './document-categories.js';
 
 // 담당조직·프로젝트 상세 [자료]가 처음 열릴 때 꺼 둘 종류(2026-10-24 명진 결정: '회의' 기본 켜짐).
 // 자료실은 '회의'만 꺼진 채 열리지만(library-upload.js LU_DEFAULT_OFF, 서버에 기억한 설정이 있으면 그것), 상세 두 곳은
@@ -41,13 +41,39 @@ export function hiddenCategories(names,off,sub=''){
   return hidden;
 }
 
+// LIB-맨위다듬기(S53-18, 시안 docs/design/mockups/library-top-bar.html): 칩 줄에 보이는 순서. '기타'는 늘 맨 끝(분류 수정 창과 같은 순서).
+// 저장된 목록 순서는 바꾸지 않는다(보이는 순서만). 거르기·저장은 이름 모음(off)으로 하므로 순서와 상관없다.
+export function chipOrder(names){
+  const list=Array.isArray(names)?names:[...(names||[])];
+  return [...list.filter(name=>name!==LOCKED_CATEGORY),...list.filter(name=>name===LOCKED_CATEGORY)];
+}
+// LIB-맨위다듬기: 색을 채울 칩(고른 칩만 채움). 모두 켜졌으면 [전체] 하나, 일부만 켰으면 '고른 칩'(켠 칩과 끈 칩 중 적은 쪽, chip-rows-model.mjs)이
+// 켠 쪽일 때만 그 칩들. 몇 개만 꺼 둔 상태(처음 자료실: '회의'만 꺼짐)는 아무것도 채우지 않고 꺼진 칩만 흐리게 보인다.
+// 켜짐·꺼짐 자체(aria-pressed)는 그대로이고, 이것은 보이는 색만 정한다.
+export function filledChips(names,off){
+  const state=allState(names,off);
+  if(state==='all')return new Set(['all']);
+  if(state==='none')return new Set();
+  const picked=pickedToggles(names,off);
+  return [...picked].every(name=>!off.has(name))?picked:new Set();
+}
+
+// LIB-맨위다듬기: 칩에 붙일 자료 수. 큰 분류마다(소분류 자료 포함) 0부터 센다. 부른 쪽 세 곳(자료실·담당조직·프로젝트 상세)이 같은 함수로 센다.
+export function categoryCounts(names,docs){
+  const counts=new Map([...(names||[])].map(name=>[name,0]));
+  for(const d of docs||[]){const top=topCategoryOf(d?.category);if(counts.has(top))counts.set(top,counts.get(top)+1);}
+  return counts;
+}
+
 // host 안에 [전체]+종류 칩을 그린다. 종류 이름이 같으면 단추를 다시 만들지 않아 초점·터치가 유지된다.
 // key = 단추의 data 속성 이름(camelCase, 예 'luCategory' → data-lu-category). onToggle(value)는 누를 때마다 부른다('all'은 [전체]).
 // 소분류 줄(LIB-소분류): onSub(value)를 주면 그린다(value ''은 큰 분류 전체). onAddSub(parent)를 주면 끝에 [+ 소분류].
 // 켜진 큰 분류가 하나이고 그 큰 분류에 소분류가 있을 때만 보인다.
 // subAfter: 소분류 줄을 붙일 자리(이 요소 바로 뒤, 기본 host). 줄은 host와 같은 렌더러가 그리고 지운다.
-export function renderCategoryChips(host,{names,off,label,controls,key,onToggle,extraClass='',sub='',onSub=null,onAddSub=null,subAfter=null}={}){
+// counts(LIB-맨위다듬기): 큰 분류 이름 → 자료 수 Map. 주면 칩마다 작은 숫자(0도)를 붙인다(data-cc-count, 글자는 CSS가 그림 — 칩 이름은 그대로).
+export function renderCategoryChips(host,{names,off,label,controls,key,onToggle,extraClass='',sub='',onSub=null,onAddSub=null,subAfter=null,counts=null}={}){
   if(!host)return;
+  names=chipOrder(names);
   renderSubRow(host,{names,off,sub,onSub,onAddSub,subAfter,controls,key});
   const state=allState(names,off);
   host.classList.add('filter-chips','quick-mode-group','filter-chips-small');
@@ -62,10 +88,14 @@ export function renderCategoryChips(host,{names,off,label,controls,key,onToggle,
     host._ccSignature=signature;
     if(focused)[...host.children].find(b=>b.dataset[key]===focused)?.focus({preventScroll:true});
   }
+  const fill=filledChips(names,off);
   for(const b of host.children){
     const value=b.dataset[key];
     if(value===undefined)continue;
     b.setAttribute('aria-pressed',value==='all'?(state==='all'?'true':state==='none'?'false':'mixed'):String(!off.has(value)));
+    b.toggleAttribute('data-cc-fill',fill.has(value));
+    const count=value!=='all'&&counts?.get?counts.get(value):undefined;
+    if(count===undefined)delete b.dataset.ccCount;else b.dataset.ccCount=String(count||0);
   }
   if(!host._ccBound){
     host._ccBound=true;

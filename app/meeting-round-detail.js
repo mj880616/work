@@ -330,7 +330,7 @@ async function mrdSaveEdit(){
   try{Object.assign(body,await (mrdAreaFields?.body({only:true})??{}))}catch{}
   try{
     const rows=await mrdApi(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(e.id)}&workspace_id=eq.${encodeURIComponent(e.scope.workspace)}&select=*`,{method:'PATCH',body,prefer:'return=representation',expectedSessionEpoch:e.scope.epoch});
-    const row=mrdEditRow(e,rows,body);a.state='confirmed';if(!mrdEditSameScope(e.scope))return;if(mrdEditAttempts.get(key)===a)mrdEditAttempts.delete(key);
+    const row=mrdEditRow(e,rows,body);a.state='confirmed';if(renamed&&isMeetingKind(reportKindOf(mrdCurrent)))void window.KPTUMeetingNames?.commitSort?.('mrdEdit',name);if(!mrdEditSameScope(e.scope))return;if(mrdEditAttempts.get(key)===a)mrdEditAttempts.delete(key);
     // Keep the same-target saved model current without touching a replacement draft.
     let linkMsg='';
     {const {next,same,box,summaries,changedText}=mrdLinksChange();

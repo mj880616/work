@@ -147,10 +147,8 @@
 #libraryOrganizationFilter[hidden]{display:none}
 .library-category-editor{margin:0}
 
-/* UI-PC자료실 C: 분류 칩 여러 개 고르기. 고른 칩은 앱 공통 기준(회색 '그 밖' 색), 안 고른 칩은 흰 바탕. */
-#appView #libraryView #libraryCategoryFilter button[aria-pressed="true"]{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-color:var(--ds-kind-other-soft)}
-/* LIB-거르기전체 → UI-자료실걸러줄(2026-11-03): [전체]가 일부만 켜진 상태(aria-pressed="mixed")는 반쪽 칠 대신 '고르지 않은 칩'과 같은 흰 바탕. 색 바탕은 켜진 칩 하나뿐(고름 표시 한 가지). */
-#appView #libraryView #libraryCategoryFilter button[aria-pressed="mixed"]{color:var(--kptu-ink);background:var(--kptu-surface);border-color:color-mix(in srgb,var(--ds-line) 50%,transparent)}
+/* UI-PC자료실 C → LIB-맨위다듬기(S53-18): 분류 칩 여러 개 고르기. 색은 고른 칩(data-cc-fill)만 — 공용 선택 표시 색(ui-standard.css '선택 표시 규칙').
+   켜져 있어도 고르지 않은 칩·일부만 켜진 [전체]는 공용 칩 그대로 흰 바탕·옅은 선. */
 /* 꺼진 분류 칩은 흐리게: 글자는 보조 글자색(대비 4.5:1 이상), 테두리는 반쯤 옅게. 초점 표시는 공용 규칙 그대로. */
 #appView #libraryView #libraryCategoryFilter button[aria-pressed="false"]{color:var(--kptu-muted);border-color:color-mix(in srgb,var(--ds-line) 50%,transparent)}
 .lu-off-hint{margin:8px 0 0;padding-top:8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
@@ -166,8 +164,11 @@
 #appView #libraryView .lu-filter-label[hidden]{display:none}
 #appView #libraryView .lu-filter-row > .filter-chips{min-width:0}
 /* UI-자료실편집버튼(2026-10-21): [분류 수정]을 목록 머리에서 [종류] 칩 줄 맨 끝의 작은 [편집]으로 옮긴다. 칩 바로 오른쪽에 붙고, 칩이 많으면 칩 줄이 두 줄 + [더보기](UI-칩줄두줄). */
-#appView #libraryView .lu-filter-row[data-lu-filter-row="category"]{grid-template-columns:minmax(0,max-content) auto;justify-content:start}
-#appView #libraryView .lu-filter-row > .lu-category-edit{margin:0;white-space:nowrap}
+/* LIB-맨위다듬기(S53-18, 시안 docs/design/mockups/library-top-bar.html): 분류 줄 = 칩(두 줄 + [더보기]) | 줄 끝 글자 버튼 [✎ 분류 수정](공용 ③ row-act).
+   위 묶기 탭과는 --ds-chip-row-above만큼 띄운다(탭의 누르는 범위 여백과 칩이 겹치지 않는 자리). */
+#appView #libraryView .lu-filter-row[data-lu-filter-row="category"]{grid-template-columns:minmax(0,1fr) auto;justify-content:stretch;margin-top:var(--ds-chip-row-above,6px)}
+#appView #libraryView .lu-filter-row > .lu-category-edit{margin:0;white-space:nowrap;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500)}
+#appView #libraryView .lu-category-edit-icon{margin-right:3px}
 /* LIB-소분류: 소분류 줄은 [분류] 줄 바로 아래 한 줄(칩 시작 자리에 맞춤). 폰은 이름표가 없으므로 왼쪽 끝에서. */
 #appView #libraryView .library-filter-toolbar > .cc-sub-row{flex:1 1 100%;margin-left:0}
 @media(max-width:760px){
@@ -443,7 +444,6 @@
 /* UI-자료실걸러줄(2026-11-03): ① 검색·묶기·분류 줄이 한 덩이로 위에 모이고, '최근 올린 파일' 칸은 그 아래·목록 칸 위. 줄 사이 간격은 거르는 줄 사이와 같은 8px(toolbar gap).
    ② [편집]은 칩과 같은 높이·글자 크기. ③ 맨 위 ⋯는 검색 줄 오른쪽 끝([+ 자료 등록] 옆)이라 목록 칸 머리 빈 줄이 없다. */
 #appView #libraryView .library-filter-toolbar .lu-recent{margin:0}
-#appView #libraryView .lu-filter-row > .lu-category-edit{height:var(--ds-chip-row-height,26px);min-height:0;padding:0 var(--ds-chip-row-pad-x,8px);font-size:12px;line-height:1}
 #appView #libraryView #libraryListCard > .add-list-head.add-list-head{height:0;min-height:0;margin:0;padding:0}
 #appView #libraryView .lu-search-row > #libraryTopMenuBtn{margin-left:0}
 /* SEARCH-선택옮기기 ⑤: 검색칸 오른쪽 작은 [결과 n개 모두 고르기] */

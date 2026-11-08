@@ -128,7 +128,8 @@ for(const scheme of ['light','dark'])test(`꺼진 분류 칩은 흐리게(글자
   const off=await look(chip(page,'회의')),on=await look(chip(page,'교섭'));
   await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','false');
   expect(off.fg).toBe(await token('--kptu-muted'));expect(off.fg).not.toBe(on.fg);expect(off.border).not.toBe(on.border);
-  expect(on.bg).toBe(await token('--ds-select-bg'));
+  // LIB-맨위다듬기(S53-18): 처음('회의'만 꺼짐)은 고른 칩이 없어 켜진 칩도 흰 바탕(색은 고른 칩만, data-cc-fill).
+  expect(on.bg).toBe(await token('--kptu-surface'));await expect(chip(page,'교섭')).not.toHaveAttribute('data-cc-fill','');
   expect(contrast(off.fg,off.bg)).toBeGreaterThanOrEqual(4.5);
   // 키보드 초점은 꺼진 칩에서도 보인다.
   await chip(page,'정책').focus();await page.keyboard.press('Tab');await expect(chip(page,'회의')).toBeFocused();
@@ -235,7 +236,7 @@ test('폰 거르기 줄: 위 한 줄 [찾기][분류 ▾][⋯], 이름표 없음
 for(const width of [1280,1200])test(`종류 칩 줄 맨 끝 [수정] ${width}: 칩 오른쪽 같은 줄, 머리에는 [+ 자료 등록]만, 누르면 분류 수정 창`,async({page})=>{
   const {errors}=await boot(page,width);
   const edit=page.getByRole('button',{name:'분류 수정',exact:true}),category=page.locator('#libraryCategoryFilter');
-  await expect(edit).toHaveCount(1);await expect(edit).toBeVisible();await expect(edit).toHaveText('수정');await expect(edit).toHaveAttribute('id','manageLibraryBtn');
+  await expect(edit).toHaveCount(1);await expect(edit).toBeVisible();await expect(edit).toHaveText('✎분류 수정');await expect(edit).toHaveAttribute('id','manageLibraryBtn');
   // UI-전수디자인점검 F11: 목록 칸 머리에는 맨 위 ⋯ 하나만(빠짐9), [+ 자료 등록]은 검색 칸 오른쪽 하나.
   expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);
   expect(await page.locator('#libraryView .lu-search-row button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn','libraryTopMenuBtn']);
@@ -250,7 +251,8 @@ for(const width of [1280,1200])test(`종류 칩 줄 맨 끝 [수정] ${width}: �
   // 폰에서도 화면 안에 보이고(칩이 많아도 [편집]은 줄 끝에 남음) 보이는 높이는 작은 버튼 32px, 누르는 범위는 44px.
   // 폰: 칩 묶음은 두 줄까지 줄바꿈하고 [편집]은 그 오른쪽(칩과 겹치지 않음).
   if(width<761){const lastChip=await box(category.locator('[data-lu-category]').last());expect(e.x).toBeGreaterThanOrEqual(lastChip.x+lastChip.width-1);await edit.scrollIntoViewIfNeeded();const e2=await box(edit);expect(e2.x+e2.width).toBeLessThanOrEqual(width+1);}
-  expect(Math.round(e.height)).toBe(32);
+  // LIB-맨위다듬기(S53-18): 줄 끝 [✎ 분류 수정]은 공용 ③ 글자 버튼(row-act) — 선·바탕 없이 칩보다 낮고, 누르는 범위는 44px.
+  expect(Math.round(e.height)).toBeLessThanOrEqual(26);expect(await edit.evaluate(n=>[getComputedStyle(n).borderTopWidth,getComputedStyle(n).backgroundColor])).toEqual(['0px','rgba(0, 0, 0, 0)']);
   expect(await edit.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBe(44);
   await edit.click();await expect(page.locator('#libraryManageModal')).toBeVisible();
   await page.locator('#libraryManageClose').click();await expect(page.locator('#libraryManageModal')).toBeHidden();

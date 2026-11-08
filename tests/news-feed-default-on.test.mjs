@@ -40,7 +40,7 @@ function world({sources, keywords, sites}) {
 }
 
 test('카탈로그: 종합지는 기본 켬·키워드만·수집 때 본문 안 읽음, 주소는 https, 화면 목록에 on이 실림', () => {
-  for (const key of ['news-khan', 'news-ohmynews', 'news-hankyung']) {
+  for (const key of ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain', 'news-newstapa']) {
     const s = C.newsSourceByKey(key);
     assert.ok(s, key);
     assert.equal(s.on, true); assert.equal(s.take, 'keywords'); assert.equal(s.extract, false); assert.equal(s.region, 'domestic');
@@ -99,7 +99,7 @@ test('run_plan: 기본 켬 매체는 뉴스 쓰는 작업공간이 있을 때만
     return (await h(new Request(`${FN}?action=run_plan`, {method: 'POST', headers: {[H.CRON_HEADER]: SECRET, 'content-type': 'application/json'}, body: '{}'}))).json();
   };
   const on = await plan([], [{workspace_id: WS1, word: '철도'}]);
-  assert.deepEqual(on.media.sort(), ['news-hankyung', 'news-khan', 'news-ohmynews']);
+  assert.deepEqual(on.media.sort(), ['news-hankyung', 'news-khan', 'news-mk', 'news-newstapa', 'news-ohmynews', 'news-sisain']);
   const off = await plan([], []);
   assert.deepEqual(off.media, [], '뉴스를 안 쓰는 작업공간뿐이면 읽지 않음');
 });
