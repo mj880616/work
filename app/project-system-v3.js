@@ -17,7 +17,7 @@ import {recordLines} from './note-preview.mjs';
 import {readRecordPages,readLinkRecords,recordMark,recordText,isNoteRecord,mountLinkSummaryEditor} from './basket-link-records.js';
 import {recordFilesHtml,paintRecordFiles,bindRecordFiles} from './record-files.js';
 import {categoryTag,categoryOf,topDocumentCategories,loadDocumentCategories} from './document-categories.js';
-import {renderCategoryChips,toggleCategoryOff,detailDefaultOff,hiddenCategories} from './category-chips.js';
+import {renderCategoryChips,toggleCategoryOff,detailDefaultOff,hiddenCategories,categoryCounts} from './category-chips.js';
 import {disconnectWithUndo,offerUndoNotice} from './basket-record-delete.js';
 import {readLinkedReports,readAllReports,readReportTargets,changeOneTarget,restoreTargets} from './report-links.js';
 import {readReportPhotos,reportPhotosHtml,mountReportPhotos} from './report-photos.js';
@@ -527,7 +527,7 @@ function docsHtml(d){return `<section class="ps3-section" id="ps3-documents"><di
 function mountDocKinds(d){
   const host=$('#ps3-documents #ps3DocKinds');if(!host||d!==detail||!d.docs.length)return;
   const redraw=()=>{const list=$('#ps3-documents [data-ps3-doc-list]');if(list)list.innerHTML=docListHtml(d);mountDocKinds(d)};
-  renderCategoryChips(host,{names:topDocumentCategories(),off:docOffSet(d),sub:docSub,label:'자료 종류 (여러 개 고르기)',controls:'ps3-documents',key:'docKind',onToggle:value=>{
+  renderCategoryChips(host,{names:topDocumentCategories(),off:docOffSet(d),sub:docSub,label:'자료 종류 (여러 개 고르기)',controls:'ps3-documents',key:'docKind',counts:categoryCounts(topDocumentCategories(),d.docs),onToggle:value=>{
     if(d!==detail)return;docOff=toggleCategoryOff(topDocumentCategories(),docOffSet(d),value);redraw()},
     onSub:value=>{if(d!==detail)return;docOffSet(d);docSub=value;redraw()}});
 }

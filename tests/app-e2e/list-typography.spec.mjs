@@ -92,7 +92,7 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
   if(name!=='menu'){await view(page,name);await view(original,name);}
   // 8-9e-2: phone add buttons of calendar·tasks are the round [+] (no label text); covered by ui-standard-3b.
   for(const selector of selectorsForView){if(width<=760&&['#newEventBtn','#newTaskBtn','#libraryView #newDocumentBtn'].includes(selector))continue;// 폰의 자료실 머리 버튼은 글자 없는 동그란 [+](분류 편집은 종류 칩 줄로 옮김, 아래 #manageLibraryBtn으로 검사)
-  await expect(page.locator(selector).first()).toHaveCount(1);await expect(original.locator(selector).first()).toHaveCount(1);const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page),selector).toBe(selector==='#prevMonthBtn'?'24px':['#newEventBtn','#newTaskBtn','#libraryListCard h2','#libraryView #newDocumentBtn','#libraryView #manageLibraryBtn'].includes(selector)?'13px':selector==='#monthTitle'?'18px':await fonts(original));}
+  await expect(page.locator(selector).first()).toHaveCount(1);await expect(original.locator(selector).first()).toHaveCount(1);const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page),selector).toBe(selector==='#prevMonthBtn'?'24px':['#newEventBtn','#newTaskBtn','#libraryListCard h2','#libraryView #newDocumentBtn'].includes(selector)?'13px':selector==='#libraryView #manageLibraryBtn'?'12px'/* LIB-맨위다듬기: 칩 줄 끝 글자 버튼은 칩과 같은 12px */:selector==='#monthTitle'?'18px':await fonts(original));}
  }
  for(const p of [page,original])await p.goto(`${appOrigin}/press/`);
  for(const selector of ['h1','.item h3','.date','.tag','.filter']){

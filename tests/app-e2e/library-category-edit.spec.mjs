@@ -60,7 +60,7 @@ for(const width of [412,884,1280])test(`분류 수정 ${width}: 한 줄 모양 �
   await expect.poll(()=>s.documentCategories.join('|')).not.toBe(before.join('|'));
   expect(s.documentCategories.slice(-1)).toEqual(['기타']);
   const ia=s.documentCategories.indexOf('양식'),ib=s.documentCategories.indexOf('공문');expect(ia).toBeLessThan(ib);expect(s.documentCategories[ib+1]).toBe('공문›수신');
-  await expect(page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])')).toHaveText(s.documentCategories.filter(n=>!n.includes('›')));
+  await expect(page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])')).toHaveText(s.documentCategories.filter(n=>!n.includes('›')&&n!=='기타').concat(s.documentCategories.includes('기타')?['기타']:[]));// LIB-맨위다듬기: 칩 줄의 '기타'는 늘 맨 끝
   // PC: 손잡이를 마우스로 끌어 맨 위로.
   if(width>=761){
     const h=await box(row(page,'회의').locator('.le-handle')),top=await box(row(page,'교섭'));

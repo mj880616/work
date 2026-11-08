@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — 자료실 맨 위(보기 탭·분류 칩) 다듬기</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--pri:#1f6f5c;--tonal:#efebe6}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  h2{font-size:15px;margin:16px 16px 6px}
+  p.note{margin:0 16px 10px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:18px;padding:0 16px 10px;align-items:flex-start}
+  .dev{background:#eef6f3;border:1px solid #d6d4dd;border-radius:16px;padding:10px}
+  .pc{width:900px}.phone{width:350px}
+  .cap{font-size:12px;color:var(--faint);margin:0 0 6px}
+  .top{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .search{flex:1;background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--faint);font-size:13px}
+  .btn{background:var(--pri);color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;white-space:nowrap}
+  .more{color:var(--faint);padding:0 4px}
+  .seg{display:inline-flex;background:var(--tonal);border-radius:999px;padding:2px}
+  .seg span{padding:4px 11px;border-radius:999px;font-size:12.5px;color:var(--faint)}
+  .seg .on{background:#fff;color:var(--ink);font-weight:600}
+  /* 지금 */
+  .old .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .old .chip{border:1.5px solid #2f6f62;border-radius:999px;padding:3px 9px;font-size:12.5px;background:#e4f1ec}
+  .old .ed{border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 12px;font-size:12.5px;margin-left:6px}
+  /* 바꾼 뒤 */
+  .row{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .chips{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+  .chip{flex:0 0 auto;border:1px solid var(--line);background:#fcfcfd;border-radius:999px;padding:2px 9px;font-size:12.5px;color:#4a4752;white-space:nowrap}
+  .chip.on{background:var(--pri);border-color:var(--pri);color:#fff}
+  .chip .n{color:var(--faint);font-size:11px;margin-left:2px}
+  .chip.on .n{color:#d5ebe4}
+  .pen{flex:0 0 auto;color:var(--faint);font-size:12.5px;padding:2px 4px}
+  .lbl{font-size:12px;color:var(--faint);flex:0 0 auto}
+  ul.k{margin:4px 16px 24px;padding-left:18px;font-size:13px;line-height:1.7}
+</style>
+</head>
+<body>
+<h1>시안 — 자료실 맨 위: 보기 탭 · 분류 칩 · [편집]</h1>
+<p class="note">명진 11/08 15:25 "위에 이 부분 디자인. 신경써요". 분류·폴더 이름은 시안용.</p>
+
+<h2>지금</h2>
+<div class="wrap"><div class="dev pc old"><p class="cap">PC</p>
+  <div class="top"><div class="search">제목·출처·태그 검색</div><span class="btn">+ 자료 등록</span><span class="more">⋯</span></div>
+  <span class="seg"><span class="on">폴더</span><span>사업영역</span><span>담당조직</span><span>분류</span><span>월별</span></span>
+  <div class="chips"><span class="chip">전체</span><span class="chip">교섭·합의</span><span class="chip">투쟁</span><span class="chip">교육</span><span class="chip">선전</span><span class="chip">정책</span><span class="chip">회의</span><span class="chip">기타</span><span class="chip">주간보고</span><span class="chip">공문</span><span class="chip">성명·보도자료</span><span class="chip">양식</span><span class="ed">편집</span></div>
+</div></div>
+<p class="note">진한 테두리 칩 12개가 빽빽하고 위 탭과 딱 붙음 · [편집]만 네모 버튼이라 모양이 다름 · '분류' 탭과 분류 칩이 같은 일을 두 번 · '기타'가 중간에 끼어 있음.</p>
+
+<h2>바꾼 뒤 <span style="font-size:12px;color:var(--pri)">추천</span></h2>
+<div class="wrap">
+  <div class="dev pc"><p class="cap">PC</p>
+    <div class="top"><div class="search">제목·출처·태그 검색</div><span class="btn">+ 자료 등록</span><span class="more">⋯</span></div>
+    <div class="row"><span class="seg"><span class="on">폴더</span><span>사업영역</span><span>담당조직</span><span>분류</span><span>월별</span></span></div>
+    <div class="row"><span class="lbl">분류</span><div class="chips"><span class="chip on">전체</span><span class="chip">교섭·합의<span class="n">10</span></span><span class="chip">투쟁<span class="n">17</span></span><span class="chip">교육<span class="n">4</span></span><span class="chip">선전<span class="n">5</span></span><span class="chip">정책<span class="n">7</span></span><span class="chip">회의<span class="n">49</span></span><span class="chip">주간보고<span class="n">7</span></span><span class="chip">공문<span class="n">0</span></span><span class="chip">성명·보도자료<span class="n">49</span></span><span class="chip">양식<span class="n">2</span></span><span class="chip">기타<span class="n">11</span></span></div><span class="pen">✎ 분류 수정</span></div>
+  </div>
+  <div class="dev phone"><p class="cap">폰 — 칩은 한 줄, 옆으로 밀기</p>
+    <div class="top"><div class="search">제목·출처·태그</div><span class="btn">+ 등록</span></div>
+    <div class="row"><span class="seg"><span class="on">폴더</span><span>사업영역</span><span>담당조직</span><span>분류</span><span>월별</span></span></div>
+    <div class="row"><div class="chips"><span class="chip on">전체</span><span class="chip">교섭·합의<span class="n">10</span></span><span class="chip">투쟁<span class="n">17</span></span><span class="chip">교육<span class="n">4</span></span><span class="chip">선전<span class="n">5</span></span></div><span class="pen">✎</span></div>
+  </div>
+</div>
+<ul class="k">
+  <li>칩: 진한 테두리 대신 옅은 테두리·흰 바탕, 고른 칩만 채움(다른 화면 거르기 칩과 같은 공용 모양). 칸 사이 간격·위 탭과 간격을 다른 화면과 같게.</li>
+  <li>칩에 자료 수(작게, 0인 것도 보임). '기타'는 늘 맨 끝(분류 수정 창과 같은 순서).</li>
+  <li>[편집] 네모 버튼 → 줄 끝 '✎ 분류 수정' 글자 버튼(폰은 ✎만). 누르면 지금 '분류 수정' 창. (용어 기준: 고치기·편집 → 수정)</li>
+  <li>폰: 칩 줄은 한 줄로 옆으로 밀기(여러 줄로 쌓이지 않게).</li>
+  <li>같은 종류 전수: 거르기 칩 줄이 있는 화면 전부(News 매체·텔레그램 폴더·사진·파일·담당조직·잊지 말기)의 칩 모양·간격·[편집] 버튼 자리 통일.</li>
+</ul>
+</body>
+</html>

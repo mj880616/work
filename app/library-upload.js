@@ -9,7 +9,7 @@ import {recentFolded,toggleRecentFolded} from './recent-fold.js';
 import {ftCaretHtml} from './folder-tree-ui.mjs';
 import {MORE_LABEL,chevHtml} from './fold-chevron.mjs';
 import {RECENT_UPLOAD_LIMIT,RECENT_UPLOAD_MORE,recentUploads,isNewUpload,uploadTimeLabel,rememberFolder,cleanRecentFolders} from './library-move.mjs';
-import {renderCategoryChips,toggleCategoryOff,hiddenCategories,activeSubcategory} from './category-chips.js';
+import {renderCategoryChips,toggleCategoryOff,hiddenCategories,activeSubcategory,chipOrder,categoryCounts} from './category-chips.js';
 import {createChoiceSheet} from './choice-sheet.js';
 // S52-01 ③c UI-사업영역조직고르기창: 자료 올리기·정보 수정의 사업영역, 여러 개 바꾸기의 사업영역·담당조직은 모든 화면과 같은 고르기 창.
 import {openAreaOrgPicker,usedKeysNow,catalogAreas,orderedOrgGroups,areaTree,areaChipText} from './area-org-picker.js';
@@ -199,18 +199,20 @@ async function luRefreshView(){
   if(!luOrganization){const next=luDefaultOff(),same=next.size===luCategoryOff.size&&[...next].every(n=>luCategoryOff.has(n));if(!same){luCategoryOff=next;changed=true}}
   if(changed)luRenderLibrary();
 }
-function luRenderCategoryFilter(){
+// LIB-맨위다듬기(S53-18): 칩마다 붙는 자료 수 = 지금 찾기·사업영역·담당조직으로 거른 자료 중 그 큰 분류(소분류 포함)의 수. 분류 칩으로 거르기 전 숫자라
+// 꺼 둔 칩도 켜면 몇 개가 보일지 알 수 있다. 0도 보인다.
+function luRenderCategoryFilter(counts=null){
   // LIB-조직프로젝트자료종류: 칩 그리기·상태 표시는 담당조직·프로젝트 상세의 [자료]와 함께 쓰는 category-chips.js 하나다.
   // 소분류 줄은 [분류 … 편집] 줄 바로 아래에 붙고, [+ 소분류]는 [편집] 창을 그 큰 분류의 소분류 만들기로 연다.
   const host=document.querySelector('#libraryCategoryFilter');
-  renderCategoryChips(host,{names:topDocumentCategories(),off:luCategoryOff,sub:luCategorySub,label:'자료 분류 (여러 개 선택)',controls:'documentList',key:'luCategory',onToggle:luToggleCategory,
+  renderCategoryChips(host,{names:topDocumentCategories(),off:luCategoryOff,sub:luCategorySub,label:'자료 분류 (여러 개 선택)',controls:'documentList',key:'luCategory',onToggle:luToggleCategory,counts,
     onSub:luPickCategorySub,onAddSub:parent=>luManage({addSubTo:parent}),subAfter:host?.closest('.lu-filter-row')||null});
   // S51-28 LIB-화면정리: 폰·폴드(1199px까지)는 칩 줄 대신 위 한 줄 [분류: … ▾] 하나(CSS가 둘 중 하나만 보임). 글자는 같은 상태에서 만든다.
   const pick=document.querySelector('#libraryCategoryPick');
   if(pick){const names=topDocumentCategories(),sub=activeSubcategory(names,luCategoryOff,luCategorySub);const text=pickLabel(names,luCategoryOff,sub?categoryLabel(sub):'');if(pick.dataset.label!==text){pick.dataset.label=text;pick.innerHTML=`<span class="lu-cat-pick-text">${luEsc(text)}</span><span class="lu-cat-caret" aria-hidden="true"></span>`;}}
 }
 // [분류 ▾] 고르기 창: 공용 고르기 창(choice-sheet.js — 폰은 아래에서 올라오는 판, 폴드 펼침·PC 폭은 단추 아래 작은 창) 하나.
-// 줄을 누르면 창 안에서만 바뀌고 [적용]을 눌러야 자료실에 걸린다(기억은 지금처럼 서버 library_view.categories_off). [편집]은 분류 고치기 창.
+// 줄을 누르면 창 안에서만 바뀌고 [적용]을 눌러야 자료실에 걸린다(기억은 지금처럼 서버 library_view.categories_off). [✎ 분류 수정]은 분류 수정 창(LIB-맨위다듬기: PC 칩 줄 끝과 같은 글자).
 let luCatSheet=null,luCatPending=null;
 function luCategorySheet(){
   if(luCatSheet)return luCatSheet;
@@ -219,7 +221,7 @@ function luCategorySheet(){
     canOpen:()=>window.KPTURouter?.current==='library',choices:async()=>{},
     render:()=>{
       const row=(value,label,depth=0)=>`<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:${depth}" data-depth="${depth}" data-sheet-value="${luEsc(value)}" aria-pressed="false"><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${luEsc(label)}</span></button>`;
-      const rows=[row('all','전체'),...topDocumentCategories().flatMap(name=>[row(name,name),...subcategoriesOf(name).map(s=>row('sub:'+s,categoryLeaf(s),1))])];
+      const rows=[row('all','전체'),...chipOrder(topDocumentCategories()).flatMap(name=>[row(name,name),...subcategoriesOf(name).map(s=>row('sub:'+s,categoryLeaf(s),1))])];
       return {title:'분류 선택',html:`<div class="lu-cat-sheet-tools"><button type="button" class="lu-cat-sheet-clear" data-lu-cat-clear>모두 풀기</button></div><div class="lu-cat-sheet-list">${rows.join('')}</div>`};
     },
     onSelect:(_kind,value)=>{if(luCatPending)luCatPending=togglePick(luCatPending,value,parentOf)},
@@ -231,7 +233,7 @@ function luCategorySheet(){
   const el=document.getElementById('libraryCategorySheet');el.classList.add('lu-cat-sheet');
   const save=el.querySelector('[data-sheet-save]');if(save)save.textContent='적용';
   const foot=el.querySelector('[data-sheet-foot]');
-  if(foot&&!foot.querySelector('[data-lu-cat-edit]'))foot.insertAdjacentHTML('afterbegin','<button type="button" class="lu-cat-sheet-edit" data-lu-cat-edit>수정</button>');
+  if(foot&&!foot.querySelector('[data-lu-cat-edit]'))foot.insertAdjacentHTML('afterbegin','<button type="button" class="lu-cat-sheet-edit" data-lu-cat-edit aria-label="분류 수정"><span aria-hidden="true">✎ </span>분류 수정</button>');
   el.addEventListener('click',e=>{
     if(e.target.closest('[data-lu-cat-clear]')){if(luCatPending){luCatPending={picked:[],sub:''};luCatSheet.sync()}return}
     if(e.target.closest('[data-lu-cat-edit]')){luCatPending=null;void luCatSheet.close().then(()=>luManage())}
@@ -711,7 +713,7 @@ document.addEventListener('dblclick',e=>{
   const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:')||key==='f:'+luInFolder)return;
   e.preventDefault();window.getSelection?.()?.removeAllRanges?.();luEnterFolder(key.slice(2));
 });
-function luRenderLibrary(){const box=document.querySelector('#documentList');if(!box)return;const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';luApplyPlaceFolder();luCloseMenu();luRenderGroupBy();luRenderProjectFilter();luRenderOrganizationFilter();luRenderCategoryFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
+function luRenderLibrary(){const box=document.querySelector('#documentList');if(!box)return;const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';luApplyPlaceFolder();luCloseMenu();luRenderGroupBy();luRenderProjectFilter();luRenderOrganizationFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));luRenderCategoryFilter(categoryCounts(topDocumentCategories(),found));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
 luSyncSearchPickAll(q,matches);
 const filtering=luFiltering(q,pid),signature=filtering?JSON.stringify([q,[...luCategoryOff].sort(),luCategorySub,luOrganization?.id||'',pid,luGroupBy]):'-';if(signature!==luFilterSignature){luFilterOpen.clear();luFilterSignature=signature}
 if(luGroupBy==='organization'&&!luOrganizations)luLoadOrganizations();

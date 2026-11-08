@@ -81,7 +81,9 @@ async function sameButtons(page,region){
   // UI-버튼크기: 필터 칩(자료실·회의)은 32px 알약, 보조 버튼([분류 수정])은 32px. 둘 다 누르는 범위 44px. 나머지는 46px·8px.
   // LIB-토글트리: [모두 펴기/접기]·[N건 더]는 안내 줄 안의 작은 글자 버튼(28px, 테두리 없음, 누르는 범위 44px, UI-버튼기준).
   if(await control.evaluate(el=>el.matches('.lu-expand-all,.lu-more-files,.lu-select-btn,.lu-select-act'))){expect(s.height,label).toBe(28);expect(s.borderWidth,label).toBe('0px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);expect(s.shadow,label).toBe('none');continue}
-  const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('#manageLibraryBtn')?'compact':'button');
+  // LIB-맨위다듬기(S53-18): 자료실 분류 줄 끝 [✎ 분류 수정]은 공용 ③ 글자 버튼(row-act) — 선 없음, 칩과 같은 12px, 누르는 범위 44px.
+  if(await control.evaluate(el=>el.matches('#manageLibraryBtn'))){expect(s.borderWidth,label).toBe('0px');expect(s.fontSize,label).toBe('12px');expect(s.shadow,label).toBe('none');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);continue}
+  const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':'button');
   // UI-PC버튼36: PC(≥1024) 목록 머리 추가 버튼은 입력칸 높이(36px), 누르는 범위 44px.
   // UI-버튼전수조사(2026-10-24): 채운 버튼(주 동작·목록 머리 추가)은 36px, 나머지 버튼은 작은 버튼 32px. 둘 다 누르는 범위 44px.
   if(kind==='button'){const pcAdd=await control.evaluate(el=>innerWidth>=761&&el.matches('#newDocumentBtn,#newMeetingBtn,#newProjectBtn'));const want=await control.evaluate(el=>el.matches('.primary')&&!(innerWidth>=761&&el.matches('#newMeetingBtn'))?36:32);/* BIZ-버튼줄정리: [+ 사업 보고]는 32px */expect(s.height,label).toBe(want);expect(s.radius,label).toBe('8px');if(pcAdd)expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight)),label).toBe(44);}
