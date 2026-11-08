@@ -825,6 +825,9 @@ jobs:
       - name: Check six button kinds rule and debt ratchet (UI-버튼6가지)
         run: node --test tests/button-six-kinds.test.mjs
 
+      - name: Check UI words standard ratchet (UI-용어통일)
+        run: node --test tests/ui-words.test.mjs
+
       - name: Check view tabs one look (UI-보기탭한모양)
         run: node --test tests/view-tabs-one-look.test.mjs
 
