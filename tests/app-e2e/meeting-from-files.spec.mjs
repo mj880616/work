@@ -145,7 +145,7 @@ test('four cases, a result-less bundle, an existing meeting and a new kind are g
   expect(p5).toMatchObject({workspace_id:'ws',title:'중앙집행위원회',project_id:null,result_status:'final',created_by:'u1',meeting_at:'2025-10-14T15:00:00.000Z'});
   expect(p5.transcript_text).toBe('제5차 중앙집행위원회 결과 (2025.10.15)\n1. 안건 승인');
   expect(post({series:'본부 운영위원회',round:2}).transcript_text).toBe('Op committee result\nBudget approved');
-  expect(post({series:'중앙집행위원회',round:6}).transcript_text).toBe('HWP 편집기 시험 문서입니다. 이 문장을 수정해 보세요.');
+  expect(post({series:'중앙집행위원회',round:6}).transcript_text).toBe('HWP 편집기 시험 문서입니다. 이 문장을 고쳐 보세요.');
   expect(post({series:'대의원대회',round:1}).transcript_text).toMatch(/^제1차 대의원대회 결과 2025\.08\.20\n- 규약 개정$/);
   expect(f.posts.some(p=>p.round_no===7)).toBe(false);
   // 기존 3차 회의: 새로 만들지 않고 결과를 뒤에 더한다.

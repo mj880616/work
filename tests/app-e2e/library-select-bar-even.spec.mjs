@@ -14,7 +14,7 @@ for(const width of [412,768,1280])test(`UI-선택줄: 자료실 선택 줄 같�
   await libraryTopMenu(page,'select');
   await expect(page.locator('#librarySelectBar')).toBeVisible();
   await page.locator('[data-lu-pick="n1"]').click();
-  await expect(page.locator('#librarySelectCount')).toHaveText('1개 선택했음');
+  await expect(page.locator('#librarySelectCount')).toHaveText('1개 선택됨');
   const m=await measureActBar(page,'#librarySelectBar .lu-select-acts');
   checkActBar(m,(a,e,l)=>expect(a,l).toEqual(e),`자료실 선택 줄 ${width}`);
   expect(m.n,'바꾸기 셋·(옮기기)·삭제·취소').toBeGreaterThanOrEqual(5);
