@@ -6,14 +6,14 @@ import {readFileSync, readdirSync, statSync} from 'node:fs';
 
 // [찾는 말, 기준 말] — 예외(이름 바꾸기·HWP 편집·빼기·완료·새 폴더·되살리기·방금 맞춤·접기/펼치기·보관/숨기기)는 처음부터 패턴에 넣지 않는다.
 export const RULES = [
-  [/고치기|고쳐|고칠|고침|고친|고쳤/g, '수정'],
-  [/(?<!HWP\s?)편집(?!기\s?\(HWP)/g, '수정'],
-  [/지우기|지워|지울|지웠|지운/g, '삭제'],
-  [/버리기|버려|버릴|버렸|버린/g, '삭제(창이면 취소)'],
+  [/고치기|고쳐|고칠|고침|고친|고쳤|고치(?=[면고는려세지게며니])/g, '수정'],
+  [/(?<!HWP\s?)편집/g, '수정'],
+  [/지우기|지워|지울|지웠|지운|지우(?=[면고는려세지게며니])/g, '삭제'],
+  [/(?<![어아])(?:버리기|버려|버릴|버렸|버린|버리(?=[면고는려세지게며니]))/g, '삭제(창이면 취소)'],
   [/원래대로/g, '되돌리기'],
   [/다시\s?불러오기|다시\s?찾기|새로고침/g, '최신화·다시'],
   [/더보기/g, '⋯'],
-  [/고르기|골라(?=[\s요주서야']|$)/g, '선택'],
+  [/고르기|골라(?=[\s요주서야']|$)|고른|고를|골랐|고르(?=[면고는려세지게며니])/g, '선택'],
 ];
 
 export const NOTES_FROM = '20261108-1530-~'; // 이 이름보다 뒤에 오는 기록만 검사
@@ -23,7 +23,7 @@ const SKIP_FILE = /(^|\/)(vendor|rhwp-[\d.]+|node_modules|release-notes|arsenal\
 export function jsStrings(src) {
   const out = []; let i = 0, line = 1, prev = '';
   const stack = []; // 템플릿 안 ${ } 깊이
-  const push = (text, ln) => { if (/[가-힣]/.test(text)) out.push({text, line: ln}); };
+  const push = (text, ln, start, end) => { if (/[가-힣]/.test(text)) out.push({text, line: ln, start, end}); };
   const n = src.length;
   while (i < n) {
     const c = src[i];
@@ -33,7 +33,7 @@ export function jsStrings(src) {
     if (c === '"' || c === "'") {
       let j = i + 1, buf = ''; const ln = line;
       while (j < n && src[j] !== c && src[j] !== '\n') { if (src[j] === '\\') { buf += src[j + 1] || ''; j += 2; } else buf += src[j++]; }
-      push(buf, ln); i = j + 1; prev = 'x'; continue;
+      push(buf, ln, i + 1, j); i = j + 1; prev = 'x'; continue;
     }
     if (c === '`' || (c === '}' && stack.length && stack[stack.length - 1] === 0)) {
       if (c === '}') stack.pop();
@@ -45,7 +45,7 @@ export function jsStrings(src) {
         if (src[j] === '\n') line++;
         buf += src[j++];
       }
-      push(buf, ln); i = j; prev = src[j - 1] === '{' ? '{' : 'x'; continue;
+      push(buf, ln, i + 1, src[j - 1] === '{' ? j - 2 : src[j - 1] === '`' ? j - 1 : j); i = j; prev = src[j - 1] === '{' ? '{' : 'x'; continue;
     }
     if (c === '{' && stack.length) stack[stack.length - 1]++;
     if (c === '}' && stack.length) stack[stack.length - 1]--;
