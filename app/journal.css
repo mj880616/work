@@ -242,12 +242,12 @@
 #appView #homeView .journal-exec-carried{ display:inline-block; margin-left:2px; padding:0 5px; border-radius:var(--ds-chip-radius); background:var(--kptu-surface-subtle); color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1.6; white-space:nowrap; vertical-align:baseline; }
 #appView #homeView .journal-exec-form{ display:flex; flex-wrap:wrap; gap:6px 8px; align-items:flex-end; }
 #appView #homeView .journal-exec-field{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1 1 140px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
-#appView #homeView .journal-exec-field input{ box-sizing:border-box; width:100%; min-height:var(--ds-compact-height); font-size:var(--kptu-text-body); color:var(--kptu-ink); }
+#appView #homeView .journal-exec-field :is(input, textarea){ box-sizing:border-box; width:100%; min-height:var(--ds-compact-height); font-size:var(--kptu-text-body); color:var(--kptu-ink); }
 #appView #homeView .journal-exec-time{ flex:0 1 128px; }
 #appView #homeView .journal-exec-field .time-cell > input{ width:auto; }
 #appView #homeView .journal-exec-what{ flex:2 1 220px; }
 #appView #homeView .journal-exec-form .journal-edit-actions{ flex:1 1 100%; }
-#appView #homeView .journal-exec-form input[aria-invalid="true"]{ border-color:var(--kptu-danger); }
+#appView #homeView .journal-exec-form :is(input, textarea)[aria-invalid="true"]{ border-color:var(--kptu-danger); }
 /* S52-31 5. 주요 일정 줄 제자리 고치기: 칸 위 '원래: … · 기억' 한 줄은 칸 줄 전체 폭(자리만). */
 #appView #homeView .journal-exec-form > .journal-hwpx-title-head{ flex:1 1 100%; margin:0; }
 #appView #homeView .journal-weekly-vacation{ margin:0; font-size:var(--kptu-text-body); line-height:1.5; }
@@ -387,6 +387,9 @@
 /* WEEKLY-자료요약 화면 ②: 자료 줄 [고치기] 한 줄 칸(줄 자리에서), ⋯ 안 작은 버튼은 회의 종류 ⋯와 같은 모양. */
 #appView #homeView .journal-file-edit{ display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px; max-width:100%; }
 #appView #homeView .journal-file-edit > input{ box-sizing:border-box; flex:1 1 220px; min-width:0; height:var(--ds-compact-height); font:inherit; font-size:var(--kptu-text-body); }
+#appView #homeView .journal-file-edit > textarea{ box-sizing:border-box; flex:1 1 220px; min-width:0; font:inherit; font-size:var(--kptu-text-body); }
+/* UI-줄입력늘어나기: 긴 글 한 줄 칸(auto-grow.js lineField) — 한 줄 칸과 같은 높이에서 시작해 글만큼 아래로. */
+#appView #homeView textarea[data-autogrow][data-enter-field="single"]{ min-height:var(--ds-compact-height); padding:5px 6px; line-height:1.4; resize:none; vertical-align:middle; color:var(--kptu-ink); }
 /* JOURNAL-하루일정다시: [하루] 맨 위 '그날 일정' — 줄마다 시각 + 달력과 같은 색 막대 + 제목(달력 목록 줄과 같은 모양), 제목 줄 오른쪽 작은 [달력 ›]. */
 #appView #homeView .journal-schedule{ border-top:0; padding-top:0; gap:2px; }
 #appView #homeView .journal-schedule-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
@@ -634,7 +637,7 @@
 #appView #homeView .weekly-flow-tag{ flex:none; padding:0 4px; border:var(--ds-line-width) solid var(--kptu-border-strong); border-radius:6px; font-size:11px; line-height:1.5; color:var(--kptu-muted); }
 #appView #homeView .weekly-flow-empty{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .weekly-flow-edit{ display:flex; align-items:center; gap:4px; flex:1 1 auto; min-width:0; }
-#appView #homeView .weekly-flow-edit > input{ flex:1 1 auto; min-width:0; }
+#appView #homeView .weekly-flow-edit > :is(input, textarea){ flex:1 1 auto; min-width:0; }
 #appView #homeView .weekly-flow-records{ margin-top:4px; }
 #appView #homeView .weekly-flow-sites{ display:flex; flex-direction:column; }
 #appView #homeView .weekly-flow-name > .journal-hwpx-grip{ flex:none; border-color:transparent; background:transparent; box-shadow:none; padding:0 2px; }

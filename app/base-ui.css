@@ -416,3 +416,5 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
 .hl-bar-close{flex:0 0 auto;min-height:28px;padding:0 6px;border:0;background:transparent;color:inherit;font:inherit;opacity:.7;cursor:pointer}
 mark.hl-mark{background:var(--kptu-warning-soft);color:inherit;border-radius:2px;cursor:pointer;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 mark.hl-mark:focus-visible{outline:2px solid currentColor;outline-offset:1px}
+/* UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸(auto-grow.js). 높이는 그 모듈이 글에 맞추고, 손잡이로 끌지 않는다. */
+textarea[data-autogrow]{box-sizing:border-box;resize:none}

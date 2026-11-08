@@ -47,6 +47,7 @@ import {slashDay as nextSlashDay} from './next-week-sheet-model.mjs';
 import {renderPrepSheet} from './prep-sheet-view.js';
 import {reportCalendarName, calendarKey, UNSET_TEXT as UNSET_CALENDAR_TEXT} from './report-calendar.mjs'; // MULTI ②-3: 보고 캘린더 이름(사람마다)
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
+import {lineField, fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 긴 글 한 줄 칸 = 글만큼 늘어나는 공용 칸
 // 화면·복사용 '시간 / 제목 / 장소'(WEEKLY-장소칸: 한 줄 모양 제목은 나눠 읽음 — '종일 / 10:30 / …'가 되지 않게).
 const lineWhat = f => { const x = splitScheduleFields(f); return [x.time, x.title, x.place].filter(Boolean).join(' / '); };
 
@@ -594,7 +595,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   // [고치기]: 그 줄 자리의 한 줄 칸 + [저장][취소]([원래대로]는 고친 줄일 때). Enter 저장·Escape 취소는 journal.js.
   function fileEditForm(item) {
     const box = el('span', 'journal-file-edit'); box.dataset.journalFileEditRow = item.file.id;
-    const input = el('input'); input.type = 'text'; input.maxLength = FILE_EDIT_MAX; input.value = fileUi.value ?? item.text; input.dataset.journalFileEditInput = item.file.id;
+    const input = lineField(doc, {value: fileUi.value ?? item.text, maxLength: FILE_EDIT_MAX}); input.dataset.journalFileEditInput = item.file.id;
     input.setAttribute('aria-label', '자료 줄 고치기(이번 주 보고 글만)'); input.disabled = !!fileUi.saving;
     const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalFileEditSave = item.file.id; save.disabled = !!fileUi.saving;
     const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalFileEditCancel = item.file.id; cancel.disabled = !!fileUi.saving;
@@ -877,6 +878,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   // WEEKLY-환류학습: '주간보고 규칙·환류' 자리 — 그림은 weekly-learn-panel.js 가 채운다(journal.js 가 그린 뒤 부름).
   const learn = el('div', 'journal-weekly-learn'); learn.dataset.journalWeeklyLearnSlot = '';
   host.replaceChildren(when, one, two, three, four, five, ref, ...memoryBox(doc, el, model.remembered, memoryUi, model.picks), learn);
+  fitAll(host); // UI-줄입력늘어나기: 자료 줄·요청 표 고치기 칸은 열자마자 글 전체가 보이게
 }
 
 // WEEKLY-환류 (설계 3.7, Q6 ①): [주간 정리] 맨 아래 접힌 '주간보고 기억' — 일정 이름·일정 빼기(지우기)·거절해서 안 내는 제안.
@@ -1000,7 +1002,9 @@ function execEditRow(doc, el, ui, item) {
   const draft = ui.draft ?? {}, key = item?.id ?? 'new';
   for (const [name, label, type] of EXEC_FIELDS) {
     const wrap = el('label', `journal-exec-field journal-exec-${name}`); wrap.append(el('span', null, label));
-    const input = el('input'); input.type = type; input.value = draft[name] ?? ''; input.dataset.journalExecField = name;
+    // UI-줄입력늘어나기: 내용·참석(긴 글)은 글만큼 늘어나는 공용 칸, 날짜·시간·장소는 한 줄 그대로.
+    const grow = name === 'what' || name === 'who';
+    const input = grow ? lineField(doc) : el('input'); if (!grow) input.type = type; input.value = draft[name] ?? ''; input.dataset.journalExecField = name;
     input.id = `journalExec-${key}-${name}`;
     if (type === 'text') { input.maxLength = EXEC_LIMITS[name]; input.autocomplete = 'off'; }
     if (ui.invalid === name) input.setAttribute('aria-invalid', 'true');

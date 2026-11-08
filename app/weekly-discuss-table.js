@@ -10,6 +10,7 @@ import {mountReorder} from './reorder-drag.js';
 import {emptyEl, waitHtml} from './wait-state.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
 import {colGripHtml} from './weekly-cols.js'; // WEEKLY-조직이름한줄 덧붙임: 칸 폭 끌기 손잡이
+import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
 
 const TEXT = Object.freeze({
   missing:'3) 상집 논의 요청 저장 칸이 아직 준비되지 않았어요(서버 적용 전).',
@@ -95,7 +96,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
   if (!ui.editing && !busy) own.drag = mountReorder(slot, {listSelector:'[data-reorder-list="discuss"]', itemSelector:'tr[data-reorder-id]',
     onDrop:({id, index}) => save(list => movedDiscussRow(list, id, index), '순서를 바꿨어요.'),
     onStep:(id, dir) => { const at = rows.findIndex(r => r.id === id); if (at >= 0) save(list => movedDiscussRow(list, id, Math.max(0, at + dir)), '순서를 바꿨어요.', `tr[data-reorder-id="${id}"] [data-reorder-handle]`); }});
-  for (const t of slot.querySelectorAll('textarea.journal-discuss-text')) fitText(t);
+  fitAll(slot); // UI-줄입력늘어나기: 여러 줄 글상자를 글만큼(한 줄에서 시작, 화면 높이 절반 넘으면 칸 안 스크롤) — 공용 auto-grow.js
   if (ui.focus) { slot.querySelector(ui.focus)?.focus(); ui.focus = ''; }
   else if (keepField) slot.querySelector(`[data-journal-discuss-field="${keepField}"]`)?.focus();
   return;
@@ -109,7 +110,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
     const fields = [];
     for (const [name, label, max] of [['title', '안건', DISCUSS_LIMITS.title], ['note', '설명', DISCUSS_LIMITS.note]]) {
       const wrap = el('label', `journal-exec-field journal-discuss-${name}`); wrap.append(el('span', null, label));
-      const input = el('textarea', 'journal-discuss-text'); input.rows = 1; input.value = v[name] ?? ''; input.dataset.journalDiscussField = name; input.id = `journalDiscuss-${place}-${key}-${name}`;
+      const input = el('textarea', 'journal-discuss-text'); input.rows = 1; input.dataset.autogrow = ''; input.value = v[name] ?? ''; input.dataset.journalDiscussField = name; input.id = `journalDiscuss-${place}-${key}-${name}`;
       input.maxLength = max; input.autocomplete = 'off';
       if (ui.invalid === name) input.setAttribute('aria-invalid', 'true');
       if (busy) input.disabled = true;
@@ -134,7 +135,6 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
   function onInput(event) {
     const t = event.target;
     if (!t.matches?.('[data-journal-discuss-field]')) return;
-    if (t.localName === 'textarea') fitText(t);
     ui.draft[t.dataset.journalDiscussField] = t.value;
     if (ui.invalid === t.dataset.journalDiscussField) { ui.invalid = ''; t.removeAttribute('aria-invalid'); }
   }
@@ -170,11 +170,4 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
       ui.saving = false; ui.status = TEXT.saveFailed; ui.error = true; redraw();
     }
   }
-}
-// 여러 줄 글상자를 글만큼 키운다(한 줄에서 시작, 줄을 붙여 넣으면 그만큼). 화면 높이의 절반을 넘으면 칸 안 스크롤.
-function fitText(t) {
-  t.style.height = '';
-  if (!t.isConnected) return;
-  const s = getComputedStyle(t), edge = parseFloat(s.borderTopWidth) + parseFloat(s.borderBottomWidth);
-  t.style.height = `${Math.min(t.scrollHeight + edge, Math.max(160, Math.round(innerHeight / 2)))}px`;
 }

@@ -31,6 +31,7 @@ import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
 // and the same scroll and focus.
 import {createMemorable} from './journal-memorable.js';
 import {rowMore} from './row-more.js';
+import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
@@ -571,7 +572,7 @@ function drawWeekLines() {
   slot.innerHTML = weekLinesMod.weekTableHtml(weekLines, weekLinesOrgs, {msg:weekLinesMsg.text, error:weekLinesMsg.error, tableClass:'wl-weekly', headOrg:`조직${W.colGripHtml('org', 1)}`}); // 상태 한 줄은 다시 그려도 남게(전에는 이름이 달라 지워졌음)
   weekLines.afterPaint();
   const wlTable = slot.querySelector('table.wl-weekly');
-  if (wlTable) { W.mountWeeklyCols(wlTable, 'org'); W.fitOrgColumn(wlTable); }
+  if (wlTable) { W.mountWeeklyCols(wlTable, 'org'); W.fitOrgColumn(wlTable); fitAll(slot); } // UI-줄입력늘어나기: 칸 폭이 정해진 뒤 한 번 더 맞춤
 }
 // 넣은 줄(조직 id → '- 11.2. 글' 줄들) — 복사·캘린더 추천 거르기가 읽는다. 표를 아직 못 읽었으면 null(예전처럼 기록).
 function weekOrgLines() {
