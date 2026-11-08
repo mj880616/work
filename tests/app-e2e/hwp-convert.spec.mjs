@@ -67,7 +67,7 @@ async function fixture(page,width,{ai}={}){
   });
   await page.route(SB+'/functions/v1/library-files',route=>{const body=multipart(route.request());sent.library.push(body);return route.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}})});
   await expect(page.locator('#hwpView')).toBeVisible();
-  await expect(page.locator('#hwpLabStatus')).toHaveText(/편집기가 준비됐습니다/,{timeout:60000});
+  await expect(page.locator('#hwpLabStatus')).toHaveText(/HWP 편집이 준비됐습니다/,{timeout:60000});
   return {sent,errors,external};
 }
 // HWP-화면가득: 이름(문자열)으로 주면 HWP 편집 위 줄 메뉴 안의 버튼도 누른다(helpers/hwp-editor.mjs hwpPress).
@@ -96,7 +96,7 @@ for(const width of [390,1280])test(`paste a text, make it in the union form, che
   // The server got the type and the pasted text only, and the form for 공문 was opened by its document ID.
   expect(f.sent.ai).toEqual([{kind:'hwp_convert',doc_type:'letter',text:PASTED.trim()}]);
   expect(f.sent.open).toEqual([{action:'hwp-open',document_id:'tpl-letter'}]);
-  await expect(page.locator('#hwpLabStatus')).toHaveText(/^공문_\d{4}\.hwp · \d+쪽 · 5문단을 넣었어요\. 확인하고 고친 뒤 \[내려받기\] 또는 \[자료실에 저장\]을 누르세요\./,{timeout:60000});
+  await expect(page.locator('#hwpLabStatus')).toHaveText(/^공문_\d{4}\.hwp · \d+쪽 · 5문단을 넣었어요\. 확인하고 수정한 뒤 \[내려받기\] 또는 \[자료실에 저장\]을 누르세요\./,{timeout:60000});
   // Top line: the file name and, on the right, [내려받기] [자료실에 저장].
   if(width<761){
     // 폰: 만든 문서 이름은 위 얇은 줄에, [내려받기]·[자료실에 저장]은 [저장 ▾] 안에.
