@@ -330,7 +330,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // Popovers (ed-pop): a vertical list with a ✓ on the current choice (글 단계·정렬·목록·번호), or a small block of swatches
   // and signs (글자색·형광펜·기호·표 격자). Each opens right under the button that was pressed.
   // The group popovers hold the grouped buttons as a vertical list (filled by setGrouped).
-  for (const [key, , aria] of GROUPS) panels[key] = panel('ed-group-menu', aria.replace(/ 고르기$/, ''), true);
+  for (const [key, , aria] of GROUPS) panels[key] = panel('ed-group-menu', aria.replace(/ (?:고르기|선택)$/, ''), true);
   panels.style = panel('ed-style-menu', '글 단계', true);
   for (const [v, text] of TEXT_STYLES) { const b = btn(text, {edStyle: v}); b.append(checkMark()); panels.style.append(b); }
   panels.color = panel('ed-color-menu', '글자색', true);
@@ -356,7 +356,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     panels[kind].append(off);
   }
   for (const key of ['symDot', 'symNote', 'symArrow', 'symBracket']) {
-    panels[key] = panel('ed-sym-menu', buttons[key].getAttribute('aria-label').replace(/ 고르기$/, ''), true);
+    panels[key] = panel('ed-sym-menu', buttons[key].getAttribute('aria-label').replace(/ (?:고르기|선택)$/, ''), true);
     for (const sign of SYMBOLS[key]) panels[key].append(btn(sign, {edSym: sign}, `${sign} 넣기`));
   }
   panels.symCircled = panel('ed-sym-menu', '동그라미 번호', true);
