@@ -41,6 +41,7 @@ async function onClick(e){
   if(!state)return;
   if(e.target.closest('[data-bp-edit-cancel]')){state.editing=null;return renderPaper()}
   if(e.target.closest('[data-bp-edit-save]'))return saveEdit();
+  const recs=e.target.closest('[data-bp-recs]');if(recs)return toggleRecs(recs.dataset.bpRecs);
   const open=e.target.closest('[data-bp-open]');if(open){const mod=await import('./report-open.js');return mod.openReport(open.dataset.bpOpen)}
   if(e.target.closest('[data-bw-journal]')){const day=state.from;window.KPTURouter?.go?.('journal',{source:'delegated'});return waitJournal().then(j=>j?.showWeek?.(day))}
   // 칸을 누르면 글 칸(보고 줄 버튼·쓰는 중인 칸 안은 빼고).
@@ -58,23 +59,37 @@ async function paint(){
   const run=++state.run;state.editing=null;
   try{
     const [{placeRecords},{meetingLine},sheet,kinds,store]=await Promise.all([import('./journal-weekly.js'),import('./journal-data.js'),import('./report-places-sheet.js'),import('./journal-meeting-kinds.js'),import('./weekly-draft-store.js')]);
+    const kit=await nowKit();
     const places=await sheet.loadReportPlaces().catch(()=>null);
     // 늘 빼는 회의 종류: 내부 정례 회의는 목록을 못 읽어도 빠진다(reportsMeeting). 주간 정리와 같은 한 곳.
     const read=await kinds.readKinds().catch(()=>({status:'unknown'}));
     const hidden=read?.status==='ok'?read.list:null;
-    // 이 주 임시저장(홈 [주간 정리]와 같은 칸): 한 주(월~일)를 볼 때만 읽는다. 칸이 없거나 못 읽으면 쓰기만 막고 표는 그대로.
+    // BIZ-기록하나로 B-3: 전환 주(RECORD_ONE_FROM)부터 진행·담당 칸 = 사업 '지금 상황'(app_business_now, 이어 씀). 그 앞 주는 옛 임시저장 칸을 읽기만(옛 보고).
+    const fresh=isWeek(from,to)&&!kit.NM.isOldWeek(from);
     let draft=null,editable=false,note='';
-    if(isWeek(from,to)){
-      try{const d=await store.readWeekDraft(from);if(d.missing)note='저장 칸이 아직 준비되지 않아 지금은 쓸 수 없어요.';else{draft=d.row?.draft??null;editable=true}}
-      catch{note='저장 칸을 불러오지 못해 지금은 쓸 수 없어요.'}
+    if(fresh){/* 아래에서 지금 상황을 읽는다 */}
+    else if(isWeek(from,to)){
+      try{const d=await store.readWeekDraft(from);if(!d.missing)draft=d.row?.draft??null}catch{/* 옛 보고를 못 읽으면 사업 보고 줄만 */}
+      note='옛 보고라 수정할 수 없어요.';
     }else note='한 주(월~일)를 볼 때 칸에 직접 쓸 수 있어요.';
     if(!state||run!==state.run)return;
     const meetings=state.meetings().filter(m=>kinds.reportsMeeting(m,hidden));
     const lineOf=mt=>meetingLine({...mt,meeting_at:null}); // 표·세부 줄은 시각 없이(날짜는 세부 줄 앞에 따로)
     const {records,untagged,all}=previewRecords(meetings,{from,to,lineOf});
     const placed=placeRecords(records,places?.projects||null);
-    state.view={placed:{...placed,areas:fullTable(placed.areas,places?.projects||null)},records,untagged,all,lineOf};
-    state.draft=draft;state.editable=editable;state.store=store;
+    const areas=fullTable(placed.areas,places?.projects||null);
+    let now=null;
+    if(fresh){
+      now=await loadNow({kit,store,from,areas,tree:places?.projects||null});
+      if(!state||run!==state.run)return;
+      editable=now.status==='ready';
+      if(now.status==='missing')note='저장 칸이 아직 준비되지 않아 지금은 쓸 수 없어요.';
+      else if(now.status==='error')note='지금 상황을 불러오지 못해 지금은 쓸 수 없어요.';
+      else if(now.recsFailed)note='이번 주 기록을 불러오지 못했어요.';
+      if(now.status!=='ready')now=null;
+    }
+    state.view={placed:{...placed,areas},records,untagged,all,lineOf};
+    state.draft=draft;state.editable=editable;state.store=store;state.now=now;state.kit=kit;
     renderPaper();say(note);
   }catch(err){if(state&&run===state.run)paper.innerHTML=`<p class="journal-muted">${esc(err?.message||'미리보기를 만들지 못했어요.')}</p>`}
 }
@@ -106,6 +121,7 @@ function startEdit(kind,row){
 async function saveEdit(){
   const ed=state?.editing;if(!ed)return;
   const field=$in('[data-bp-field]'),ref=rowRefs()[ed.row];if(!field||!ref)return;
+  if(state.now)return saveNowEdit(ed,field,ref);
   const text=String(field.value||''),run=state.run,week=state.from;
   for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel]'))b.disabled=true;
   say('저장 중…');
@@ -126,12 +142,13 @@ function factsHtml(items,records){
   const ones=progress.filter(p=>p.rec?.oneline),rest=progress.filter(p=>!p.rec?.oneline);
   return `${[...ones,...rest].map(lineHtml).join('')}${plans.length?`<p class="biz-cell-plan">→ 이후: ${plans.map(esc).join(' / ')}</p>`:''}`;
 }
-function editBox(kind,value,label){
-  const input=kind==='owner'?`<input type="text" maxlength="60" value="${esc(value)}" data-bp-field aria-label="${esc(label)}">`
-    :`<textarea rows="4" maxlength="2000" data-bp-field aria-label="${esc(label)}">${esc(value)}</textarea>`;
+function editBox(kind,value,label,max=kind==='owner'?60:2000){
+  const input=kind==='owner'?`<input type="text" maxlength="${max}" value="${esc(value)}" data-bp-field aria-label="${esc(label)}">`
+    :`<textarea rows="4" maxlength="${max}" data-bp-field aria-label="${esc(label)}">${esc(value)}</textarea>`;
   return `<div class="biz-write">${input}<span class="biz-write-btns"><button type="button" class="mini" data-bp-edit-save>저장</button><button type="button" class="mini secondary" data-bp-edit-cancel>취소</button></span><span class="biz-write-hint">${kind==='owner'?'Enter':'Ctrl+Enter'} 저장 · Esc 취소</span></div>`;
 }
 function progressCell(ref,row,items,records){
+  if(state.now)return nowProgressCell(ref,row,items,records);
   const ed=state.editing,mine=ed&&ed.kind==='progress'&&ed.row===row;
   const saved=savedProgress(ref.area,ref.task),facts=factsHtml(items,records);
   if(mine){
@@ -142,14 +159,102 @@ function progressCell(ref,row,items,records){
   return `${body}${state.editable?`<button type="button" class="biz-write-open" data-bp-cell="progress" data-bp-row="${row}" aria-label="${esc(`${ref.area} ${ref.task} 진행 상황 쓰기`)}">${saved.length||items.length?'수정':'쓰기'}</button>`:''}`;
 }
 function ownerCell(ref,row){
+  if(state.now)return nowOwnerCell(ref,row);
   const ed=state.editing,mine=ed&&ed.kind==='owner'&&ed.row===row,value=savedOwner(ref.area,ref.task);
   if(mine)return editBox('owner',value,`${ref.area} ${ref.task} 담당`);
   return `${esc(value)}${state.editable?`<button type="button" class="biz-write-open" data-bp-cell="owner" data-bp-row="${row}" aria-label="${esc(`${ref.area} ${ref.task} 담당 쓰기`)}">${value?'수정':'쓰기'}</button>`:''}`;
 }
+// ---- BIZ-기록하나로 B-3: 진행 칸 = 사업 '지금 상황'(설계 docs/design/record-one.md 2-4·2-7·3-1) ----
+// 그 주에 보이는 글 = 같은 사업의 week_start ≤ 그 주인 가장 나중 행(지난주 글이 이번 주에 이어 보임). 이번 주에 고치면 이번 주 행(지난주 행은 그대로).
+// 처음 한 번 채우기: 지금 상황 행이 하나도 없는 사업만 전환 주 행으로 — 전환 주(없으면 그 앞 주) 임시저장의 같은 칸 글(명진이 그 주에 직접 쓴 줄,
+// 없으면 weekly-base.js가 그 주에 깔아 둔 한글 파일 바탕 칸 글)·담당. 둘 다 없으면 '—'. 사람이 쓴 행은 덮지 않는다(DB 고유 색인 + 건너뛰기).
+// 칸 아래 흐린 '이번 주 기록 n' = 그 주 사업 보고 줄 + 그 주에 걸친 사업 기록(읽기만, 누르면 펼침, 보고 줄은 누르면 그 보고가 열림).
+const nowKit=()=>Promise.all([import('./business-now-model.mjs'),import('./business-now-data.js'),import('./fold-chevron.mjs')]).then(([NM,ND,F])=>({NM,ND,chev:F.chevHtml}));
+let filledWs='',listening=false;
+const spacesOf=areas=>areas.flatMap(a=>a.rows.map(r=>({id:String(r.task?.id??a.id),area:a.name,task:r.task?.name||''})));
+async function fillSource(NM,store){
+  let draft=null;
+  for(const w of [NM.RECORD_ONE_FROM,NM.shiftWeek(NM.RECORD_ONE_FROM,-1)]){
+    const d=await store.readWeekDraft(w);
+    if(d.missing)break;
+    const dr=d.row?.draft??null;
+    if(dr&&(store.summaryKeys(dr).length||Object.keys(store.draftOwners(dr)).length)){draft=dr;break}
+  }
+  return ({area,task})=>{
+    if(!draft)return null;
+    const key=summaryCellKey(store.summaryKeys(draft),area,task);
+    return {lines:store.cellVisibleLines(draft,{section:'summary',key,n:0}),owner:store.draftOwners(draft)[key]||''};
+  };
+}
+async function loadNow({kit,store,from,areas,tree}){
+  const {NM,ND}=kit,rt=window.KPTURuntime,ws=rt?.context?.read?.()?.workspace?.id||'';
+  let now,recs;
+  try{[now,recs]=await Promise.all([ND.readNow(rt),ND.readWeekRecords(rt,from).catch(()=>({missing:false,items:[],failed:true}))])}
+  catch{return {status:'error'}}
+  if(now.missing)return {status:'missing'};
+  let rows=now.rows;
+  if(filledWs!==ws){
+    try{
+      const need=spacesOf(areas).filter(sp=>!rows.some(r=>String(r.space_id)===sp.id));
+      if(need.length){
+        const list=NM.fillRows({spaces:need,rows,cellOf:await fillSource(NM,store)});
+        if(list.length){await ND.fillNow(rt,list);rows=(await ND.readNow(rt)).rows}
+      }
+      filledWs=ws;
+    }catch(e){console.warn('business now fill skipped',e?.status||e?.code||'error')} // 못 채우면 다음에 다시(빈 칸으로 그림)
+  }
+  if(!listening){
+    listening=true;
+    // 다른 화면(업데이트·소식 [사업])이 사업 기록을 더하면 펼쳐 보이는 이 칸의 '이번 주 기록 n'을 다시 읽는다(쓰는 칸이 있으면 그대로).
+    window.addEventListener(ND.BIZ_NOW_EVENT,e=>{if(e.detail?.records&&state?.now&&!state.editing&&box?.isConnected)void paint()});
+  }
+  return {status:'ready',rows,recs:NM.weekRecords(recs.items,from,NM.rowSpaceMap(tree)),recsFailed:!!recs.failed};
+}
+function toggleRecs(space){
+  if(!state?.now)return;
+  const set=state.openRecs||(state.openRecs=new Set());
+  if(set.has(space))set.delete(space);else set.add(space);
+  renderPaper();
+  box?.querySelector(`[data-bp-recs="${CSS.escape(space)}"]`)?.focus({preventScroll:true});
+}
+function recsHtml(ref,items,records){
+  const {NM,chev}=state.kit,recs=state.now.recs.get(ref.space)||[],n=items.length+recs.length;
+  if(!n)return '';
+  const open=!!state.openRecs?.has(ref.space);
+  const btn=`<button type="button" class="row-act biz-rec-n" data-bp-recs="${esc(ref.space)}" aria-expanded="${open}" aria-label="${esc(`${ref.area} ${ref.task} 이번 주 기록 ${n}`)}">이번 주 기록 ${n} ${chev(open)}</button>`;
+  return open?`${btn}<div class="biz-rec-list" data-bp-rec-list>${factsHtml(items,records)}${recs.map(r=>`<p class="biz-rec-line">${esc(NM.recordLine(r))}</p>`).join('')}</div>`:btn;
+}
+function nowProgressCell(ref,row,items,records){
+  const {NM}=state.kit,ed=state.editing,v=NM.nowView(state.now.rows,ref.space,state.from);
+  if(ed&&ed.kind==='progress'&&ed.row===row)return editBox('progress',v.body,`${ref.area} ${ref.task} 지금 상황`,NM.NOW_BODY_MAX);
+  const lines=v.body?v.body.split('\n'):[];
+  const body=lines.length?lines.map(l=>`<p class="biz-hand-line">${esc(l)}</p>`).join(''):'<span class="biz-now-empty">—</span>';
+  const btn=state.editable?`<button type="button" class="row-act biz-write-open" data-bp-cell="progress" data-bp-row="${row}" aria-label="${esc(`${ref.area} ${ref.task} 지금 상황 쓰기`)}">${lines.length?'수정':'쓰기'}</button>`:'';
+  return `${body}<div class="biz-now-foot">${recsHtml(ref,items,records)}${btn}</div>`;
+}
+function nowOwnerCell(ref,row){
+  const {NM}=state.kit,ed=state.editing,v=NM.nowView(state.now.rows,ref.space,state.from);
+  if(ed&&ed.kind==='owner'&&ed.row===row)return editBox('owner',v.owner,`${ref.area} ${ref.task} 담당`,NM.OWNER_MAX);
+  return `${esc(v.owner)}${state.editable?`<button type="button" class="row-act biz-write-open" data-bp-cell="owner" data-bp-row="${row}" aria-label="${esc(`${ref.area} ${ref.task} 담당 쓰기`)}">${v.owner?'수정':'쓰기'}</button>`:''}`;
+}
+async function saveNowEdit(ed,field,ref){
+  const {NM,ND}=state.kit,owner=ed.kind==='owner';
+  const v=owner?NM.checkOwner(field.value):NM.checkNowBody(field.value);
+  if(!v.ok){field.setAttribute('aria-invalid','true');say(`${owner?'담당':'지금 상황'}은 ${v.max}자까지 쓸 수 있어요.`);return}
+  const run=state.run,week=state.from;
+  for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel]'))b.disabled=true;
+  say('저장 중…');
+  try{
+    const rows=await ND.writeNow(window.KPTURuntime,{rows:state.now.rows,spaceId:ref.space,week,change:owner?{owner_text:v.value}:{body:v.value}});
+    if(!state||run!==state.run||!state.now)return;
+    state.now.rows=rows;state.editing=null;say('저장했어요.');renderPaper();
+  }catch{if(state&&run===state.run){say('저장하지 못했어요. 잠시 뒤 다시 해 주세요.');for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel]'))b.disabled=false}}
+}
 function paperHtml(placed,records,untagged,all,lineOf){
   const rows=[],refs=[];
+  for(const r of records)delete r.used; // 다시 그릴 때마다 보고 줄을 처음부터 짝지음(전에는 두 번째 그림부터 보고 열기 버튼이 빠졌음)
   for(const area of placed.areas)area.rows.forEach((row,i)=>{
-    const ref={area:area.name,task:row.task?.name||''},n=refs.push(ref)-1;
+    const ref={area:area.name,task:row.task?.name||'',space:String(row.task?.id??area.id)},n=refs.push(ref)-1;
     rows.push(`<tr>${i===0?`<th scope="rowgroup" rowspan="${area.rows.length}">${esc(area.name)}</th>`:''}<td>${esc(ref.task)}</td><td data-bp-box="progress">${progressCell(ref,n,row.items,records)}</td><td data-bp-box="owner">${ownerCell(ref,n)}</td></tr>`);
   });
   state.rowRefs=refs;

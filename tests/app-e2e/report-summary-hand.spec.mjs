@@ -1,11 +1,13 @@
 // WEEKLY-요약표수기(S49-39) → WEEKLY-메뉴짝짓기 P5: 사업 보고 위 접는 칸 '이번 주 주간보고'(팝업·[HWP로 내려받기] 없음, 맨 아래 [주간 정리에서 보기 ›])
 // ① 내부 정례 회의(상집·집행위·집행국 등)와 늘 빼기로 정한 종류는 표·세부 내용에 나오지 않는다(뺀 n건 안내 없음).
-// ② '진행 상황 및 이후 계획'·'담당' 칸을 누르면 글 칸, Ctrl+Enter 저장 — 서버 임시저장 칸에, 보고 없는 줄도 쓸 수 있다.
+// ② '진행 상황 및 이후 계획'·'담당' 칸을 누르면 글 칸, Ctrl+Enter 저장 — BIZ-기록하나로 B-3부터 사업 '지금 상황'(app_business_now)에, 보고 없는 줄도 쓸 수 있다.
+//    그 주 사업 보고 제목은 칸 아래 흐린 '이번 주 기록 n'을 펼치면 보인다(이어 쓰기·처음 채우기는 biz-summary-now.spec.mjs).
 // ③ AI 제안 없음(ai-assist 호출 0, [AI 초안]·(고침) 없음). 예전에 저장된 AI 값은 보이지 않고 데이터는 그대로.
 // PC 1440·폰 412. 모든 이름·글은 합성 값.
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {installBusinessNowServer} from './helpers/business-now-server.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -50,6 +52,7 @@ async function open(page,s,width){
       return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{weekly_hidden_meeting_kinds:s.hiddenKinds}])});
     return route.fallback();
   });
+  s.bizNow=await installBusinessNowServer(page);
   await page.route(`${SB}/functions/v1/ai-assist`,route=>{s.aiCalls.push(route.request().postDataJSON());return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})})});
   await signIn(page,testOrigin+'/app/?view=reports');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   await expect(page.locator('#meetingsView')).toBeVisible();
@@ -77,8 +80,12 @@ for(const width of [1440,412])test(`${width}: 이번 주 주간보고 칸 — �
   const rowOf=name=>dlg.locator('.biz-sum-table tbody tr',{has:page.locator('td:nth-child(1)',{hasText:name})});
   const withReport=dlg.locator('.biz-sum-table tbody tr',{hasText:TASK_WITH}).first();
   const empty=dlg.locator('.biz-sum-table tbody tr',{hasText:TASK_EMPTY}).first();
-  await expect(withReport).toContainText('합성 간담회');
+  await expect(withReport.locator('[data-bp-rec-list]')).toHaveCount(0); // 보고 제목은 칸 아래 '이번 주 기록 n'에 접혀 있다
+  await withReport.locator('[data-bp-recs]').click();
+  await expect(withReport.locator('[data-bp-recs]')).toHaveAttribute('aria-expanded','true');
+  await expect(withReport.locator('[data-bp-rec-list]')).toContainText('합성 간담회');
   await expect(empty).toBeVisible();
+  await expect(empty.locator('[data-bp-recs]')).toHaveCount(0); // 그 주 기록이 없으면 '이번 주 기록'도 없다
   // ② 보고 없는 줄의 진행 칸: 누르면 글 칸, Ctrl+Enter 저장.
   await empty.locator('[data-bp-cell="progress"]').click();
   const box=empty.locator('textarea[data-bp-field]');
@@ -86,11 +93,11 @@ for(const width of [1440,412])test(`${width}: 이번 주 주간보고 칸 — �
   await box.fill('직접 쓴 진행 첫 줄\n직접 쓴 둘째 줄');
   await box.press('Control+Enter');
   await expect(dlg.locator('[data-bp-status]')).toHaveText('저장했어요.');
-  await expect(empty.locator('.biz-hand-line')).toHaveText(['- 직접 쓴 진행 첫 줄','- 직접 쓴 둘째 줄']);
-  expect(s.draftWrites.length).toBe(1);
-  const saved=s.draftWrites[0].draft;
-  expect(saved.rows).toEqual([{section:'summary',key:`${AREA}›${TASK_EMPTY}`,n:0,lines:['- 직접 쓴 진행 첫 줄','- 직접 쓴 둘째 줄']}]);
-  expect(Object.keys(saved.area_summaries)).toHaveLength(1); // 예전 AI 값은 지우지 않고 그대로
+  await expect(empty.locator('.biz-hand-line')).toHaveText(['직접 쓴 진행 첫 줄','직접 쓴 둘째 줄']);
+  // 이번 주 행(그 사업·이번 주)에 저장한다. 임시저장(옛 칸)에는 쓰지 않는다.
+  const nowRow=space=>s.bizNow.now.filter(r=>r.space_id===space&&r.week_start<=s.week).sort((a,b)=>b.week_start.localeCompare(a.week_start))[0];
+  expect(nowRow('child-a2')).toMatchObject({week_start:s.week,body:'직접 쓴 진행 첫 줄\n직접 쓴 둘째 줄'});
+  expect(s.draftWrites).toEqual([]);
   // 담당 칸: 보고 있는 줄에도 쓸 수 있다(Enter 저장).
   await withReport.locator('[data-bp-cell="owner"]').click();
   const owner=withReport.locator('input[data-bp-field]');
@@ -98,15 +105,16 @@ for(const width of [1440,412])test(`${width}: 이번 주 주간보고 칸 — �
   await owner.fill('합성 담당 가');
   await owner.press('Enter');
   await expect(withReport.locator('[data-bp-box="owner"]')).toContainText('합성 담당 가');
-  expect(s.draftWrites.at(-1).draft.owners).toEqual({[`${AREA}›${TASK_WITH}`]:'합성 담당 가'});
-  expect(s.draftWrites.at(-1).draft.rows).toHaveLength(1); // 진행 칸 저장 값은 그대로 남음
+  expect(nowRow('child-a1')).toMatchObject({week_start:s.week,owner_text:'합성 담당 가'});
+  expect(nowRow('child-a2').body).toBe('직접 쓴 진행 첫 줄\n직접 쓴 둘째 줄'); // 진행 칸 저장 값은 그대로 남음
   // 쓰던 칸은 Esc 로 닫히고 저장하지 않는다.
+  const writes=s.bizNow.writes.length;
   await empty.locator('[data-bp-cell="progress"]').click();
   await empty.locator('textarea[data-bp-field]').fill('저장하지 않을 글');
   await page.keyboard.press('Escape');
   await expect(dlg).toBeVisible();
   await expect(dlg.locator('textarea[data-bp-field]')).toHaveCount(0);
-  expect(s.draftWrites.length).toBe(2);
+  expect(s.bizNow.writes.length).toBe(writes);
   // 팝업·HWP 버튼은 없고, 위 ⋯ 메뉴에도 미리보기 줄이 없다.
   await expect(dlg.locator('[data-bp-hwpx]')).toHaveCount(0);
   await expect(dlg.locator('[data-bw-journal]')).toHaveText('주간 정리에서 보기 ›');

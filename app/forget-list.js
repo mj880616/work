@@ -276,7 +276,10 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   }
   // ORG-기록하나로 O-4: 소식에서 온 기록은 원래 소식 줄을 함께 남긴다(source_kind memorable, 조직 상세 ⋯ [원래 글 보기]용).
   const saveOrg = async (org, text, from = null) => (await import('./quick-save.js')).saveOrganizationUpdate({organization_id: org.id, raw_text: text, created_by: user(), ...(from ? {source_kind: 'memorable', source_id: from} : {})}, rt);
-  const saveArea = async (project, text) => (await import('./quick-save.js')).saveProjectProgress({project_id: project.id, raw_text: text, created_by: user()}, rt);
+  // BIZ-기록하나로 B-3(설계 record-one.md 4절): [사업] = 그 사업의 사업 기록 한 줄(app_business_records). 소식 줄은 source_kind memorable·원래 소식 줄 번호·
+  // 날짜 = 소식 날짜, 챙길 것 후보는 원래 줄을 남기는 출처가 없어 직접 쓰기(user)·오늘 날짜. 옛 사업 진행 기록(app_project_progress_updates)에는 더 넣지 않는다.
+  const saveArea = async (project, text, news = null) => (await import('./business-now-data.js')).saveBusinessRecord({space_id: project.id, day: news?.day || seoulDateKey(), body: text,
+    ...(news?.id ? {source_kind: 'memorable', source_id: news.id} : {source_kind: 'user'})}, rt);
 
   // ── 소식 줄(FORGET-소식합치기 → 소식바로잡기): 다른 줄과 같은 일곱 버튼. 상태는 표가 허락한 셋뿐 — 처리하면 kept, ×는 dropped ──
   const newsById = id => news.find(r => r.id === id);
@@ -314,7 +317,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     // [조직]: 그 조직 이름이 이미 줄 앞에 있으면 줄만, 다른 조직에 넣으면 AI가 쓴 이름까지 그대로 남긴다.
     if (act === 'org') return pickOrg(button, {guess: read => matchOrg(r.org, read.orgs, read.mine),
       onPick: org => void newsKeep(r, () => saveOrg(org, matchOrg(r.org, [org], new Set([org.id])) ? r.line : text, r.id), orgDone(org))});
-    if (act === 'area') return pickArea(button, project => void newsKeep(r, () => saveArea(project, text), areaDone(project)));
+    if (act === 'area') return pickArea(button, project => void newsKeep(r, () => saveArea(project, text, r), areaDone(project)));
     if (act === 'task') {
       try {
         await Promise.all([import('./organization-order.js'), import('./google-tasks.js')]);
