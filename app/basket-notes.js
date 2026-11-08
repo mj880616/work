@@ -218,7 +218,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function paintSelectBar() {
     const bar = host.querySelector('[data-nx-select-bar]');
     bar.hidden = !pick.active;
-    if (pick.active) { host.querySelector('[data-nx-select-count]').textContent = `${pick.size}개 선택했음`; bar.querySelectorAll('[data-nx-sel-move],[data-nx-sel-delete]').forEach(b => { b.disabled = !pick.size || busy; }); }
+    if (pick.active) { host.querySelector('[data-nx-select-count]').textContent = `${pick.size}개 선택됨`; bar.querySelectorAll('[data-nx-sel-move],[data-nx-sel-delete]').forEach(b => { b.disabled = !pick.size || busy; }); }
     list.classList.toggle('nx-selecting', !!pick.active);
   }
 
