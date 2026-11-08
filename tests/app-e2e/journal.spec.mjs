@@ -1324,7 +1324,7 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행','- 가-1 목요일 기록(수정됨)']);
  // 짝 없는 기록(남의 줄 가-2)은 바탕을 연 뒤 확정 줄 아래 '줄을 찾지 못한 이번 주 기록'에서 칸을 골라 붙인다.
  const rest=hwpx(page).locator('[data-hwpx-unmatched] li').filter({hasText:'가-2 화요일 기록'});
- await expect(rest.locator('select option').first()).toHaveText('줄 고르기');
+ await expect(rest.locator('select option').first()).toHaveText('줄 선택');
  await rest.locator('select').selectOption({label:'사업영역 나 › 세부 과제 나-1'});
  await rest.getByRole('button',{name:/붙이기/}).click();
  await expect(cellLines(flowCell(page,'사업영역 나 › 세부 과제 나-1'))).toHaveText(['- 지난주 나-1 진행','- 가-2 화요일 기록']);
@@ -1508,7 +1508,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(cellLines(b1)).toHaveText(['- AI 나-1 줄']);
  await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행','- 가-1 목요일 기록']);
  await expect(topLine(page)).toContainText('바탕 팀 확정본');
- await expect(hwpx(page).locator('[data-hwpx-ai-draft]')).toContainText('AI 초안: 지난 1주 고침 기록·규칙 2줄을 보고 2칸을 고쳐 썼어요');
+ await expect(hwpx(page).locator('[data-hwpx-ai-draft]')).toContainText('AI 초안: 지난 1주 수정 기록·규칙 2줄을 보고 2칸을 수정해 썼어요');
  const draftAsk=ai.find(x=>x.kind==='weekly_draft');
  expect(draftAsk.mode).toBe('draft');
  expect(draftAsk.cells.find(c=>c.where.includes('가-1'))).toMatchObject({lines:['- 지난주 가-1 진행'],material:expect.arrayContaining([expect.stringContaining('가-1 목요일 기록')])});
@@ -1531,7 +1531,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
  const card=hwpx(page).locator('[data-hwpx-review] [data-learn-review]');
  await expect(card.locator('[data-learn-review-head]')).toHaveText('이번 주 환류 보고 — AI 초안 줄 4개 중 4개 그대로(100%)');
- await expect(card.locator('[data-learn-review-counts]')).toHaveText('① 남김 4 · 고침 0 · 뺌 0 · 더함 0');
+ await expect(card.locator('[data-learn-review-counts]')).toHaveText('① 남김 4 · 수정됨 0 · 뺌 0 · 더함 0');
  await expect(card.locator('[data-learn-candidates] li')).toHaveCount(1);
  await expect(card.locator('[data-learn-candidates] li').first()).toContainText('가상 규칙 후보');
  // WEEKLY-환류입력창 ①: 개선 제안은 분류 표시와 함께 — 꼬리표는 쉬운 말(S48-3b: 입력창 → 입력 화면).
@@ -1551,7 +1551,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  // 뺀 후보는 폐기(그 행 rules.retired)로, 학습 기록(picks)에는 이유와 함께 거절로 남는다.
  const cand=card.locator('[data-learn-candidates] li').first();
  await expect(cand.locator('[data-learn-rule-take]')).toHaveText('넣기',{timeout:15000});
- await expect(cand.locator('[data-learn-rule-fix]')).toHaveText('고쳐서 넣기');
+ await expect(cand.locator('[data-learn-rule-fix]')).toHaveText('수정해서 넣기');
  await pressMore(cand,'[data-learn-rule-drop-ask]');
  const why=cand.locator('[data-learn-why-input]');
  await expect(why).toBeFocused();await expect(why).toHaveAttribute('placeholder','이유(안 써도 돼요)');
@@ -1583,7 +1583,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(learn.locator('[data-learn-cell-rates]')).toHaveAttribute('data-learn-cell-rates','2');
  await expect(learn.locator('[data-learn-cell-rates]')).toContainText('1. 요청사항 100%(1) · 2. 세부 내용 100%(1)');
  await pressMore(learn.locator('[data-journal-learn-rule="0"]'),'[data-journal-learn-delete]');
- await expect(page.locator('#kptuNotice')).toContainText('규칙을 지웠어요.');
+ await expect(page.locator('#kptuNotice')).toContainText('규칙을 삭제했어요.');
  await expect(learn.locator('[data-journal-learn-status]')).toHaveText('');
  await expect.poll(()=>row().draft.rules.lines.map(l=>l.text)).toEqual(['가상 규칙 둘']);
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(1);
@@ -1607,7 +1607,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(fixIn).toBeFocused();await fixIn.fill('가상 개선 제안(고침)');await fixIn.press('Enter');
  await expect.poll(()=>row().draft.feedback.review.suggestions[0]).toMatchObject({answer:'yes',text:'가상 개선 제안(고침)',before:'가상 개선 제안'});
  expect(row().draft.picks.items.find(i=>i.cell==='개선 제안'&&i.from==='ai')).toMatchObject({act:'edit',text:'가상 개선 제안(고침)',before:'가상 개선 제안'});
- await expect(page.locator('#kptuNotice')).toContainText('고쳐서 만들기로 보냈어요. 요청함에 전했어요.');
+ await expect(page.locator('#kptuNotice')).toContainText('수정해서 만들기로 보냈어요. 요청함에 전했어요.');
  expect(f.sent.inbox).toEqual([{action:'dev-inbox',week_start:'2026-10-05',id:'s1'},{action:'dev-inbox',week_start:'2026-10-05',id:'s1'}]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
@@ -1700,7 +1700,7 @@ test('[주간 정리] 담당 팀원 칸 이름: 직전 확정본 표기 우선, 
  await expect(input).toHaveValue('가상 담당');
  await input.fill('없는 이름');await input.press('Enter');
  await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('없는 이름');
- await expect(topLine(page).locator('[data-hwpx-me]')).toHaveAttribute('title','담당 팀원 칸 이름을 직접 고쳤어요.');
+ await expect(topLine(page).locator('[data-hwpx-me]')).toHaveAttribute('title','담당 팀원 칸 이름을 직접 수정했어요.');
  await expect(hwpx(page).locator('[data-hwpx-no-mine]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
@@ -1878,7 +1878,7 @@ test('[주간 정리] 임원 참석 요청 표: 저장 칸이 아직 없으면(4
  // 임시저장 칸(그 주 행)도 없으니 칸 줄 자리는 한 줄 안내, 바탕은 파일을 만들 때 연다(칸 줄 = 바탕 그대로).
  await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"]')).toContainText('임시저장 칸이 아직 준비 전이에요');
  const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
- await expect(page.locator('#journalRoot [data-hwpx-requests]')).toContainText('지난주 확정본에서 1줄을 골랐어요(뺀 줄: 지난 날짜 1, 관련 없음 1). 저장 칸 준비 전이라 이 파일에만 넣어요.');
+ await expect(page.locator('#journalRoot [data-hwpx-requests]')).toContainText('지난주 확정본에서 1줄을 선택했어요(뺀 줄: 지난 날짜 1, 관련 없음 1). 저장 칸 준비 전이라 이 파일에만 넣어요.');
  const {report}=await savedReport(download);
  expect(report.requests).toEqual([{day:'10.14.(수)',items:[{what:'10:00 / 가상 노동조합 결의대회 / 가상 광장',who:['가상 임원 갑','가상 임원 을']}]}]);
  expect(execWrites(f)).toEqual([]);
@@ -1936,7 +1936,7 @@ for(const width of [390,1280])test(`[주간 정리] 임시저장: 칸 줄·일�
  // [처음부터](맨 위 ⋯)는 묻고 서버 임시저장(고친 칸·일정)을 비운다. 이미 내준 초안 기록(issued)은 그 주 비교 기준이라 남는다. 칸은 바탕부터 다시.
  await topMore(page,'[data-hwpx-restart]');
  await answerAsk(page,true);
- await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 지웠어요. 바탕부터 다시 만들어요.');
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 삭제했어요. 바탕부터 다시 만들어요.');
  expect(row.draft.rows).toEqual([]);expect(row.draft.titles).toEqual([]);expect(row.draft.issued.lines.map(l=>l.text)).toContain('- 임시저장할 조직 소식');
  await expect(cellLines(flowCell(page,'가상 노동조합'))).toHaveText(['- 지난주 조직 소식']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -1965,7 +1965,7 @@ test('[주간 정리] 다른 주에서 여는 중이던 바탕이 늦게 와도 
  await topMore(page,'[data-hwpx-restart]');
  await answerAsk(page,true);
  const status=hwpx(page).locator('[data-hwpx-status]');
- await expect(status).toHaveText('임시저장본을 지웠어요. 바탕부터 다시 만들어요.');
+ await expect(status).toHaveText('임시저장본을 삭제했어요. 바탕부터 다시 만들어요.');
  await expect(cellLines(flowCell(page,'가상 노동조합'))).toHaveText(['- 지난주 조직 소식']);
  expect(row.draft.rows).toEqual([]);
  // 바탕 열기: 처음 1번 + [처음부터] 앞(돌아온 주는 아직 안 엶) 1번 + 지운 뒤 다시 1번 = 3번. 다음 주 열기는 읽기에서 멈춰 있어 보내지 않았다.
@@ -1975,7 +1975,7 @@ test('[주간 정리] 다른 주에서 여는 중이던 바탕이 늦게 와도 
  const late=page.waitForResponse(r=>r.url().includes('week_start=eq.2026-10-12')&&r.request().method()==='GET');
  release();await late;
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,0)))));
- await expect(status).toHaveText('임시저장본을 지웠어요. 바탕부터 다시 만들어요.');
+ await expect(status).toHaveText('임시저장본을 삭제했어요. 바탕부터 다시 만들어요.');
  expect(f.sent.open.length).toBe(opened);
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
  // 다음 주에 다시 가면 그 주 바탕을 다시 연다(멈춘 열기를 '못 엶'으로 남기지 않음).
@@ -2025,7 +2025,7 @@ test('[주간 정리] 임시저장 칸이 아직 없으면(DB 적용 전) "준�
  await openJournal(page,1280);await openWeekly(page);
  await expect(page.locator('#journalRoot [data-weekly-flow-cells="orgs"]')).toContainText('임시저장 칸이 아직 준비 전이에요');
  const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
- await expect(draftLine(page)).toHaveText('임시저장은 준비 중이에요. 상자를 닫으면 고친 내용은 사라져요.');
+ await expect(draftLine(page)).toHaveText('임시저장은 준비 중이에요. 상자를 닫으면 수정한 내용은 사라져요.');
  const {report}=await savedReport(download);
  expect(report.orgs[0].status).toEqual(['- 지난주 조직 소식']);
  await page.waitForTimeout(2600);
@@ -3039,7 +3039,7 @@ test('[주간 정리] 자료 줄 수정: 칸 줄 쓰기·[처음부터]가 docs�
  // [처음부터]도 칸 줄만 비우고 자료 줄 고침은 남긴다.
  await topMore(page,'[data-hwpx-restart]');
  await answerAsk(page,true);
- await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 지웠어요. 바탕부터 다시 만들어요.');
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 삭제했어요. 바탕부터 다시 만들어요.');
  expect(row.draft.rows).toEqual([]);
  expect(row.draft.docs).toEqual([{id:DOCID(1),text:'다른 기기에서 수정한 자료 줄'}]);
  expect(f.errors).toEqual([]);
@@ -3599,7 +3599,7 @@ for(const width of [412,1440])test(`[주간 정리] 투쟁 사업장 현황: ⋯
  await pressMore(site('나 지역 모임'),'[data-flow-site-hide]');
  await expect(siteNames(page)).toHaveText(['가상 노동조합']);
  await sites.locator('[data-flow-site-add]').click();
- await expect(sites.locator('[data-flow-site-pick] option')).toHaveText(['사업장 고르기','나 지역 모임']);
+ await expect(sites.locator('[data-flow-site-pick] option')).toHaveText(['사업장 선택','나 지역 모임']);
  await sites.locator('[data-flow-site-pick]').selectOption('나 지역 모임');
  await expect(siteNames(page)).toHaveText(['가상 노동조합','나 지역 모임']);
  await expect(cellLines(site('나 지역 모임'))).toHaveText(['- 쟁의발생 결의(10.8)','- 지난 투쟁 소식']);
@@ -3637,7 +3637,7 @@ test('[주간 정리] 투쟁 사업장 현황: 바탕에 없는 담당 조직 [+
  const sites=page.locator('#journalRoot [data-weekly-flow-cells="sites"]');
  await expect(siteNames(page)).toHaveText(['가상 노동조합']);
  await sites.locator('[data-flow-site-add]').click();
- await expect(sites.locator('[data-flow-site-pick] option')).toHaveText(['사업장 고르기','나 지역 모임']);
+ await expect(sites.locator('[data-flow-site-pick] option')).toHaveText(['사업장 선택','나 지역 모임']);
  await sites.locator('[data-flow-site-pick]').selectOption('나 지역 모임');
  await expect(siteNames(page)).toHaveText(['가상 노동조합','나 지역 모임']);
  await expect(siteCell(page,'나 지역 모임').locator('[data-flow-empty]')).toHaveText('빈 칸');

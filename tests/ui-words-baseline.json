@@ -1,7 +1,3 @@
 {
- "app/journal-hwpx.js": 40,
- "app/project-system-v3.js": 20,
- "app/weekly-feedback.mjs": 1,
- "app/weekly-flow-cells.js": 6,
- "app/weekly-learn-panel.js": 19
+ "app/project-system-v3.js": 20
 }
