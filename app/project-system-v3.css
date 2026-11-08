@@ -163,7 +163,7 @@
 .ps3-fold-body{margin-top:var(--kptu-space-2)}
 .ps3-fold-actions{display:flex;justify-content:flex-end}
 
-.ps3-pg-editor input{min-width:0;width:100%;margin:0}
+.ps3-pg-editor :is(input,textarea){min-width:0;width:100%;margin:0}
 
 .ps3-record-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
 .ps3-record-menu[hidden]{display:none}

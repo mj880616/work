@@ -102,3 +102,16 @@ export function folderDeleteOff(kind, {top = false, can = true, ops = true, tras
   if (kind === 'gd') return can ? '' : 'gdLink';
   return '';
 }
+
+// S53-12 FILES-이폰지우기 덧붙임 남은 것(메뉴 모양 통일): 사진 한 장 ⋯·고르기 아래 줄·크게 보기 줄에서 지금 할 수 없는 [지우기]·[옮기기]·[이름]은
+// 빼거나 무반응으로 두지 않고 흐리게(aria-disabled) 두고, 누르면 아래 이유·할 일 한 줄(하지 않음). kind = 사진 출처(phone·gdrive·그 밖 = 원드라이브).
+// 실제로 막는 것은 지금처럼 폰 앱·서버다(화면에서 권한을 넓히지 않음).
+export const PHOTO_OFF_TEXT = Object.freeze({
+  delete: Object.freeze({phone: '이 폰은 여기서 지우지 못해요. 갤러리 앱에서 지워 주세요.', gdrive: '구글 드라이브 권한이 없어 지우지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '지우려면 원드라이브를 다시 연결해 주세요.'}),
+  move: Object.freeze({phone: '폰 사진을 옮기려면 웹2 앱을 새 판으로 올려 주세요.', gdrive: '구글 드라이브 권한이 없어 옮기지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '옮기려면 원드라이브를 다시 연결해 주세요.'}),
+  rename: Object.freeze({gdrive: '구글 드라이브 권한이 없어 이름을 바꾸지 못해요. 사진 › 출처에서 다시 연결해 주세요.'}),
+});
+export function photoOffWhy(act, kind) {
+  const t = PHOTO_OFF_TEXT[act]; if (!t) return '';
+  return t[kind === 'phone' || kind === 'gdrive' ? kind : 'od'] || '';
+}

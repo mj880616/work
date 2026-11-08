@@ -88,6 +88,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView .basket-manual-target-head b { min-width:0; }
 #basketView .basket-manual-target-head button { flex-shrink:0; }
 #basketView .basket-manual-summary textarea,#basketView [data-manual-task-notes] { min-height:96px; }
+/* UI-줄입력늘어나기: 한 줄 칸(할 일 제목·노트 제목)은 글 상자 높이가 아니라 한 줄에서 시작해 글만큼(auto-grow.js). */
+#basketView textarea[data-autogrow][data-enter-field] { min-height:var(--kptu-control-height); padding:8px 12px; line-height:1.4; resize:none; }
 #basketView .basket-manual input[type="text"] { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:15px; font-weight:400; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
 #basketView .basket-manual-task-options { position:relative; }
 #basketView .basket-manual-date { position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
@@ -143,7 +145,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .note-list-head { display:flex; align-items:center; gap:8px; margin:8px 0; }
 .note-list-head .note-search { flex:1; min-width:0; margin:0; }
 .note-search { display:block; margin:8px 0; }
-#basketView :is(.note-search input,.note-editor input[type="text"],.basket-to-note input) { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
+#basketView :is(.note-search input,.note-editor input[type="text"],.note-editor textarea[data-note-title-input],.basket-to-note input) { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
 /* NOTE-마크다운선택: 노트 수정 칸의 [☐ 마크다운] 체크(노트마다 따로 저장). 누르는 범위 44px. */
 #appView #basketView .note-editor label.note-md-toggle { display:flex; flex-direction:row; width:max-content; align-items:center; gap:8px; min-height:44px; margin:2px 0 0; font-size:14px; font-weight:500; color:var(--kptu-ink); cursor:pointer; }
 .note-row-chips { display:flex; flex-wrap:wrap; gap:6px; }

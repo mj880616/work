@@ -129,7 +129,7 @@ test('press draft: server not deployed yet or no text shows one plain line; at m
  await expect(d.locator('[data-pd-status]')).toHaveText('성명·보도자료 초안은 아직 준비 중이에요.');
  reply={status:422,json:{ok:false,error:'press_no_source'}};
  await d.locator('[data-pd-make]').click();
- await expect(d.locator('[data-pd-status]')).toHaveText('선택한 기록에 초안에 쓸 글이 없어요.');
+ await expect(d.locator('[data-pd-status]')).toHaveText('고른 기록에 초안에 쓸 글이 없어요.');
  await expect(d.getByRole('button',{name:'노트로 저장'})).toHaveCount(0);
  expect(f.calls.notes).toEqual([]);
  expect(f.errors).toEqual([]);

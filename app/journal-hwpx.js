@@ -50,6 +50,7 @@ import {loadDisputeState} from './org-dispute-stage.js';
 import {shortDay, reportDay, todayKey} from './journal-data.js';
 import {scheduleForm, reportDateText} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
+import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 import {dayRowForm} from './weekly-hq-schedule.js'; // S52-31: 5. 주요 일정 줄 제자리 고치기 칸 = 2) 주요 일정과 같은 공용 줄
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
@@ -745,7 +746,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     form.addEventListener('keydown', e => {
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key === 'Escape') { e.preventDefault(); closeSchedEdit(); }
-      else if (e.key === 'Enter' && e.target.matches?.('input')) { e.preventDefault(); void saveSchedEdit(); }
+      else if (e.key === 'Enter' && e.target.matches?.('input, textarea')) { e.preventDefault(); void saveSchedEdit(); }
     });
     form.addEventListener('focusin', e => { if (schedEdit?.form === form) schedEdit.focus = e.target.dataset?.journalSchedField || ''; });
     return form;
@@ -792,6 +793,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   function afterRender() {
     const ed = schedEdit;
     if (!ed || !ed.form.isConnected || ed.saving) return;
+    fitAll(ed.form); // UI-줄입력늘어나기: 내용·참석 칸은 열자마자 글 전체가 보이게
     const want = ed.form.querySelector(`[data-journal-sched-field="${ed.focus || 'title'}"]`);
     if (want && doc.activeElement !== want && !ed.form.contains(doc.activeElement)) want.focus({preventScroll:false});
   }
@@ -1199,7 +1201,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!box) return;
     box.hidden = !v;
     if (!v) { box.replaceChildren(); return; }
-    const typing = box.querySelector('.journal-learn-inline input'), typed = typing && typing === doc.activeElement;
+    const typing = box.querySelector('.journal-learn-inline :is(input, textarea)'), typed = typing && typing === doc.activeElement;
     if (typing) v.value = typing.value; // 다시 그려도 쓰던 글(고치는 후보·이유·내 생각)은 그대로
     // 새 규칙 후보는 이 주 행 규칙 칸(환류 보고가 거기에 더함)에서 [넣기]·⋯[고쳐서 넣기]·[빼기]. 칸을 아직 못 읽었으면 글만.
     const rules = state.store?.extras?.rules ? {week:state.start, rules:state.store.extras.rules} : null;
@@ -1210,7 +1212,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (v.msg) { const p = el('p', 'journal-line-status', v.msg); p.setAttribute('role', 'status'); parts.push(p); }
     box.replaceChildren(...parts);
     if (card) card.querySelector('[data-learn-review-pending]')?.remove();
-    if (typed || v.focus) { box.querySelector('.journal-learn-inline input')?.focus(); v.focus = false; }
+    fitAll(box); // UI-줄입력늘어나기
+    if (typed || v.focus) { box.querySelector('.journal-learn-inline :is(input, textarea)')?.focus(); v.focus = false; }
   }
   // 새 규칙 후보·개선 제안의 [넣기]·[고쳐서 넣기]·[빼기](이유)·[+ 추가]: 이 주 행의 규칙 칸·환류 칸·picks 를 서버에서 다시 읽고 바꿔 쓴다
   // (weekly-learn-panel.js learnPress — [주간 정리] '주간보고 규칙·환류'와 같은 길). 쓴 뒤 이 상자 임시저장을 다시 읽어 합치고, 목록에도 알린다.

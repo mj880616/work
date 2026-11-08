@@ -129,3 +129,40 @@ test('S53-10 사진 [폴더] ⋯ [지우기]는 늘 맨 아래 — 못 지우면
   assert.match(s, /aria-disabled="true" data-off="\$\{off\}"/);
   assert.match(readFileSync(new URL('../app/od-link.css', import.meta.url), 'utf8'), /\.od-link-menu button\[aria-disabled="true"\]/);
 });
+
+test('S53-12 사진 한 장 ⋯·고르기 줄·크게 보기·파일 고르기 막대 — 못 하는 [지우기]·[옮기기]·[휴지통]은 숨기지 않고 흐리게, 누르면 이유 한 줄', async () => {
+  const {photoOffWhy, PHOTO_OFF_TEXT} = await import('../app/photo-menu-items.mjs');
+  for (const act of ['delete', 'move']) for (const kind of ['phone', 'gdrive', 'od', undefined]) {
+    const t = photoOffWhy(act, kind);
+    assert.ok(t && t.length <= 100, `${act}/${kind}`);
+  }
+  assert.equal(photoOffWhy('delete', 'gdrive'), PHOTO_OFF_TEXT.delete.gdrive);
+  assert.equal(photoOffWhy('delete', 'od'), photoOffWhy('delete', undefined)); // 출처 표시 없는 사진 = 원드라이브
+  assert.ok(photoOffWhy('rename', 'gdrive'));
+  assert.equal(photoOffWhy('nope', 'od'), '');
+  const photos = read('app/photos.js');
+  // 사진 한 장 ⋯: [지우기]는 조건으로 빼지 않고 맨 아래(del), 못 지우면 흐리게(pm-<출처>) — 누르면 offPressed가 이유 한 줄.
+  const menu = photos.slice(photos.indexOf('const photoMenu'), photos.indexOf('const canInfo'));
+  assert.match(menu, /delBtn\('data-pm-delete', canDel \? '' : `pm-\$\{kind\}`\)/);
+  assert.match(menu, /if \(offPressed\(b\)\) return;/);
+  assert.match(menu, /, del\]\.join\(''\)/);
+  assert.match(photos, /off\.startsWith\('pm-'\) \? photoOffWhy\('delete', off\.slice\(3\)\)/);
+  // 고르기 줄·크게 보기: actAvail이 why를 주면 칸은 눌리고(aria-disabled) 누르면 그 한 줄. 예전 deleteWhy는 photoOffWhy 한 곳으로.
+  assert.doesNotMatch(photos, /function deleteWhy/);
+  assert.match(photos, /case 'move': \{ const blocked = !group\.some\(ownable\); return \{disabled: none \|\| busy \|\| blocked, \.\.\.off\('move', blocked\)\}; \}/);
+  assert.match(photos, /if \(id === 'delete' \|\| id === 'move'\) \{ b\.setAttribute\('aria-disabled', String\(!!why\)\)/);
+  assert.match(photos, /\[data-photos-act-move\]'\)\) \{ if \(b\.getAttribute\('aria-disabled'\) === 'true'\) \{ notify\(b\.dataset\.photosWhy/);
+  assert.match(photos, /openBarMenu\(b, selectMoreRows\(pickedItems\(\)\), id => runBarItem\(id, b\), why => notify\(why\)\)/);
+  const strip = read('app/photo-strip.js');
+  assert.match(strip, /disabled:!!a\.disabled && !a\.why, \.\.\.\(a\.why \? \{why:a\.why\} : \{\}\)/);
+  assert.match(strip, /why => note\(why, 3000\)\)/);
+  const bar = read('app/photo-bar-menu.js');
+  assert.match(bar, /r\.why \? ' aria-disabled="true"' : ''/);
+  assert.match(bar, /if \(row\?\.why\) ctx\?\.off\?\.\(row\.why\); else ctx\?\.run\(id\);/);
+  // [파일] 고르기 막대·미리보기 줄: 폰에 못 씀·바구니 PC 앱이 휴지통을 모름 → 흐린 [휴지통](data-fx-off), 누르면 ⋯ 메뉴와 같은 글(offText).
+  const files = read('app/files.js');
+  assert.match(files, /const trashOff = \(html, code\) => html\.replace\('>휴지통<', ` aria-disabled="true" data-fx-off="\$\{code\}">휴지통<`\);/);
+  for (const re of [/trashOff\(PH_TRASH_HTML, 'pc'\) \+ '<button/, /: trashOff\(PH_TRASH_HTML, 'pc'\);/, /\+ PH_TRASH_HTML : trashOff\(PH_TRASH_HTML, 'ph'\)\)/, /: trashOff\(PV_TRASH_HTML, 'pc'\)\)/, /\+ PV_TRASH_HTML : trashOff\(PV_TRASH_HTML, 'ph'\)\)/]) assert.match(files, re);
+  const click = files.indexOf("b.matches('[data-fx-trash],[data-fx-trash-one]') && b.dataset.fxOff");
+  assert.ok(click > 0 && click < files.indexOf("if (b.matches('[data-fx-trash]')) { trashRows") && click < files.indexOf("if (b.matches('[data-fx-trash-one]') && p)"));
+});

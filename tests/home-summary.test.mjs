@@ -15,10 +15,10 @@ test('잊지 말기 한 줄 숫자(S52-20): 업데이트 미분류 + 처리 전 
   assert.equal(forgetCount({}), null);
 });
 
-test('홈 순서: 날짜 줄 → 업데이트 입력줄 → [하루] 카드 맨 위 잊지 말기 한 줄 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료·그 밖의 기록', () => {
+test('홈 순서: 날짜 줄 → 업데이트 입력줄(머리 줄에 잊지 말기 칩, S53-13) → [하루] 카드 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료·그 밖의 기록', () => {
   const src = read('journal.js');
   const at = s => { const i = src.indexOf(s); assert.ok(i > 0, s); return i; };
-  const order = ['data-journal-days', 'home-quick-placeholder', 'data-journal-day>', 'data-home-summary', 'data-journal-schedule', 'data-journal-tasks', 'data-journal-done-day', 'data-journal-materials'].map(at);
+  const order = ['data-journal-days', 'home-quick-placeholder', 'data-journal-day>', 'data-journal-schedule', 'data-journal-tasks', 'data-journal-done-day', 'data-journal-materials'].map(at);
   assert.deepEqual([...order].sort((a, b) => a - b), order);
   assert.doesNotMatch(src, /mountRadar|data-journal-radar/);
   assert.match(read('index.html'), /<section id="homeView" class="view-panel hidden">\s*<div id="journalRoot" class="journal"><\/div>/);

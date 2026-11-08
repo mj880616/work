@@ -31,6 +31,7 @@ import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
 // and the same scroll and focus.
 import {createMemorable} from './journal-memorable.js';
 import {rowMore} from './row-more.js';
+import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
@@ -88,7 +89,6 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="home-quick-placeholder" aria-hidden="true"></div>
 <section class="journal-day" data-journal-day>
-<section class="home-forget" data-home-summary aria-label="잊지 말기" hidden></section>
 <div class="journal-top-cols" data-journal-top-cols><section class="journal-group journal-schedule" data-journal-schedule aria-label="그날 일정"></section><section class="journal-tasks" data-journal-tasks aria-label="할 일"></section></div>
 <section class="journal-done-day" data-journal-done-day aria-labelledby="journalDoneTitle"><h4 class="journal-heading" id="journalDoneTitle" data-journal-done-title>오늘 한 일</h4>
 <form class="journal-line" data-journal-line data-enter-save novalidate><label class="a11y-only" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 고쳐서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
@@ -103,7 +103,7 @@ const $ = selector => root.querySelector(selector);
 // HOME-업무일지홈: 요약 한 줄과 업데이트 입력줄(home-summary.js · home-quick.js). 이 화면은 자리만 둔다.
 // FEAT-1029묶음 ③ 연락 없는 조직: 홈 맨 아래 한 줄(org-quiet.js가 유일한 renderer, 무거운 읽기라 나중에 불러온다). 기준은 내 프로필 '수집·사용량' 칸.
 void appShown().then(() => import('./org-quiet.js')).then(({mountOrgQuiet}) => mountOrgQuiet(root.querySelector('[data-home-quiet]'))?.refresh()).catch(error => console.warn('org quiet load', error?.message || error));
-const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || root, line:root.querySelector('[data-home-summary]'), rt, onTasksChanged:() => refreshTasks()});
+const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || root, rt, onTasksChanged:() => refreshTasks()});
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 
 let owner = ownerScope(rt), epoch = 0, sharedEpoch = 0;
@@ -470,6 +470,7 @@ function renderDay() {
     blocks.unshift(line);
   }
   host.replaceChildren(...blocks);
+  fitAll(host); // UI-줄입력늘어나기: 고쳐서 넣을 한 줄 칸은 글 전체가 보이게
 }
 // [주간 정리]: the week in report order. Drawn only while that side is shown; every read that lands redraws it.
 function renderWeekly_({refreshBox = true} = {}) {
@@ -571,7 +572,7 @@ function drawWeekLines() {
   slot.innerHTML = weekLinesMod.weekTableHtml(weekLines, weekLinesOrgs, {msg:weekLinesMsg.text, error:weekLinesMsg.error, tableClass:'wl-weekly', headOrg:`조직${W.colGripHtml('org', 1)}`}); // 상태 한 줄은 다시 그려도 남게(전에는 이름이 달라 지워졌음)
   weekLines.afterPaint();
   const wlTable = slot.querySelector('table.wl-weekly');
-  if (wlTable) { W.mountWeeklyCols(wlTable, 'org'); W.fitOrgColumn(wlTable); }
+  if (wlTable) { W.mountWeeklyCols(wlTable, 'org'); W.fitOrgColumn(wlTable); fitAll(slot); } // UI-줄입력늘어나기: 칸 폭이 정해진 뒤 한 번 더 맞춤
 }
 // 넣은 줄(조직 id → '- 11.2. 글' 줄들) — 복사·캘린더 추천 거르기가 읽는다. 표를 아직 못 읽었으면 null(예전처럼 기록).
 function weekOrgLines() {

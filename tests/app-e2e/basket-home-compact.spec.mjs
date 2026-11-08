@@ -33,7 +33,7 @@ for (const width of [390, 1280]) {
         pickerHeight: picker.getBoundingClientRect().height,
         zoneHeight: zone.getBoundingClientRect().height,
         zoneTouch: parseFloat(getComputedStyle(zone, '::after').height) || 0,
-        inputToLink: link.getBoundingClientRect().top - entry.getBoundingClientRect().bottom,
+        linkToInput: entry.getBoundingClientRect().top - link.getBoundingClientRect().bottom, // S53-13: [잊지 말기] 칩은 입력 칸 위 머리 줄
         background: style.backgroundColor, padding: style.padding,
       };
     }) };
@@ -42,14 +42,14 @@ for (const width of [390, 1280]) {
     // HOME-모바일정리④: the phone input is 36px, so the phone clip paints inside its borders (34px), also with a 44px ::after.
     expect(values.home.zoneHeight).toBeGreaterThanOrEqual(width === 390 ? 34 : 36);
     expect(values.home.zoneTouch).toBeGreaterThanOrEqual(44);
-    expect(values.home.inputToLink).toBeLessThanOrEqual(8);
+    expect(values.home.linkToInput).toBeGreaterThanOrEqual(0);
     if (width === 390) {
       expect(values.home.background).toBe('rgba(0, 0, 0, 0)');
       expect(values.home.padding).toBe('0px');
     }
     await saveShot('home');
     await verifySelection(q, 'home');
-    await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click(); // HOME-업무일지홈: 홈 요약 줄도 정리함으로 가므로 빠른 입력 안의 링크로 좁힌다
+    await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click(); // HOME-업무일지홈: 홈 요약 줄도 정리함으로 가므로 빠른 입력 안의 링크로 좁힌다
     await page.locator('[data-basket-row="n"]').click();
     await noteAction(page,'[data-basket-edit]');
     const detail = page.locator('[data-basket-detail]');

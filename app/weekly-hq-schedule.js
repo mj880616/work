@@ -9,7 +9,7 @@
 import {changeWeekDocs, withHq, withTitleEdit, draftHq, withLinePick} from './weekly-draft-store.js';
 import {withHqRow, withoutHqRow, movedHqRow, withPicked, eventFields, editFrom, cleanTime, hqLine, HQ_MAX, TITLE_MAX, PLACE_MAX, WHO_MAX} from './weekly-schedule-rows.mjs';
 import {timeCell, TIME_HINT} from './time-input.js';
-import {scheduleItems} from './weekly-hwpx/schedule.mjs';
+import {scheduleItems, isWeekendLabel} from './weekly-hwpx/schedule.mjs';
 import {formDay} from './weekly-exec-requests.js';
 import {mountReorder} from './reorder-drag.js';
 import {emptyEl, waitHtml} from './wait-state.js';
@@ -19,6 +19,7 @@ import {sortPicks, droppedOf, keptOf, hadTexts, HAVE_ACT} from './weekly-picks.m
 import {lineIn} from './weekly-cell-names.mjs';
 import {learnFor} from './weekly-picks.js';
 import {colGripHtml} from './weekly-cols.js'; // WEEKLY-조직이름한줄 덧붙임: 칸 폭 끌기 손잡이
+import {lineField, fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 
 const TEXT = Object.freeze({
   missing:'2) 주요 일정 저장 칸이 아직 준비되지 않았어요(서버 적용 전).',
@@ -71,7 +72,9 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   for (const row of rows) {
     if (ui.editing === row.id) { body.append(editRow(row)); continue; }
     const tr = el('tr'); tr.dataset.journalHqRow = row.id; tr.dataset.reorderId = row.id;
-    const th = el('th', 'journal-weekly-area', row.day ? formDay(row.day) : '—'); th.scope = 'row';
+    // WEEKLY-주말칸색: 토·일 줄 날짜 칸은 연회색(5. 주요 일정 표·한글 파일과 같은 판정).
+    const dayText = row.day ? formDay(row.day) : '—';
+    const th = el('th', `journal-weekly-area${isWeekendLabel(dayText) ? ' journal-weekend-day' : ''}`, dayText); th.scope = 'row';
     const what = el('td', 'journal-weekly-what', [row.time, row.title, row.place].filter(Boolean).join(' / '));
     if (row.linked) { const tag = el('span', 'journal-exec-carried', '달력'); tag.title = '달력에서 넣은 줄 — 한글 파일 상자 5. 주요 일정과 같은 값'; tag.dataset.journalHqLinked = ''; what.append(' ', tag); }
     const gripCell = el('td', 'journal-grip-cell'), tools = el('td', 'journal-exec-tools');
@@ -119,6 +122,7 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   if (ui.undo && !busy) { const back = el('button', 'mini', '되돌리기'); back.type = 'button'; back.dataset.journalHqSuggestUndo = ''; say.append(' ', back); }
   parts.push(say);
   slot.replaceChildren(...parts);
+  fitAll(slot); // UI-줄입력늘어나기
   slot.onclick = onClick; slot.oninput = onInput;
   if (!ui.editing && !busy) own.drag = mountReorder(slot, {listSelector:'[data-reorder-list="hq"]', itemSelector:'tr[data-reorder-id]',
     onDrop:({id, index}) => save(list => movedHqRow(list, id, index), '순서를 바꿨어요.'),
@@ -239,7 +243,9 @@ export function dayRowForm(doc, {values = {}, busy = false, invalid = '', idBase
   const fields = [['day', '일', 'date'], ['time', '시간', 'text', 5], ['title', '내용', 'text', TITLE_MAX], ['place', '장소', 'text', PLACE_MAX], ...(who ? [['who', '참석', 'text', WHO_MAX]] : [])];
   for (const [name, label, type, maxLen] of fields) {
     const wrap = el('label', `journal-exec-field journal-exec-${name === 'title' ? 'what' : name}`); wrap.append(el('span', null, label));
-    const input = el('input'); input.type = type; input.value = values[name] ?? ''; input.dataset[field] = name; input.id = `${idBase}-${name}`;
+    // UI-줄입력늘어나기: 내용·참석(긴 글)은 글만큼 늘어나는 공용 칸(auto-grow.js), 날짜·시간·장소는 한 줄 그대로.
+    const grow = name === 'title' || name === 'who';
+    const input = grow ? lineField(doc, {value: values[name] ?? '', maxLength: maxLen}) : el('input'); if (!grow) { input.type = type; input.value = values[name] ?? ''; } input.dataset[field] = name; input.id = `${idBase}-${name}`;
     if (maxLen) { input.maxLength = maxLen; input.autocomplete = 'off'; }
     if (type === 'date') { if (min) input.min = min; if (max) input.max = max; }
     if (invalid === name) input.setAttribute('aria-invalid', 'true');
