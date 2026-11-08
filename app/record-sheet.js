@@ -49,7 +49,7 @@ export function openRecordSheet({row,place='',trigger=null,onOpenFull=null,title
   // BUG-미리보기기호: the opened sheet shows the written text as headings and tables (the plain text stays until the view is ready).
   const textBox=sheet.querySelector('[data-record-sheet-text]');
   if(textBox&&raw.trim()&&markdownSource(raw))import('./markdown-view.js').then(view=>view.renderMarkdownInto(textBox,raw,{isCurrent:()=>state?.row===row})).catch(()=>{});
-  const full=sheet.querySelector('[data-record-sheet-full]');full.textContent=note?'노트 열기':'잊지 말기에서 열기';full.hidden=typeof onOpenFull!=='function';
+  const full=sheet.querySelector('[data-record-sheet-full]');full.textContent=note?'노트 열기':'잊지 말기에서 열기';full.hidden=typeof onOpenFull!=='function';full.closest('.record-sheet-foot').hidden=full.hidden; // 여는 곳이 없으면(RECORD-한줄 [원문 보기]) 아래 줄째 감춘다(record-sheet.css [hidden])
   state={row,trigger,onOpenFull,drag:null};
   const card=sheet.querySelector('[data-record-sheet-card]');card.style.transform='';card.scrollTop=0;
   sheet.classList.remove('hidden');sheet.setAttribute('aria-hidden','false');
