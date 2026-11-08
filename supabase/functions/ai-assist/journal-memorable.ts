@@ -27,6 +27,12 @@ export const MEMORABLE_LINE_CHARS = 160;
 export const MEMORABLE_ORG_CHARS = 60;
 export const MEMORABLE_MAX_OUTPUT_TOKENS = 1200;
 export const MEMORABLE_BACK_DAYS = 7; // 오늘부터 이만큼 지난 날까지만 새로 고른다.
+// FORGET-소식바로잡기 ④ 쌓인 소식 한 번 다시 판정(journal_memorable_recheck): 종류·이유가 없는(옛 기준) 처리 전 소식을 같은 지시문으로 다시 거른다.
+export const MEMORABLE_RECHECK_DAYS = 14; // 잊지 말기 목록과 같은 최근 2주(app/forget-news-data.js NEWS_DAYS).
+export const MEMORABLE_RECHECK_KEEP_MAX = 10; // 새 기준에 드는 줄이 이보다 많으면 최근 것부터 이만큼만 남긴다(하루 5개 상한은 이 정리에 쓰지 않음).
+export const MEMORABLE_RECHECK_AI_CALLS = 3; // 한 번 요청에서 AI를 부르는 횟수 상한(한 번에 MEMORABLE_MAX_ITEMS줄씩, 최근 것부터).
+export const MEMORABLE_RECHECK_LINES_MAX = 300; // 한 번에 읽는 처리 전 소식 줄 상한.
+export const MEMORABLE_RECHECK_MAX_OUTPUT_TOKENS = 2400; // 한 번에 10개까지 고르므로 일반 고르기(MEMORABLE_MAX_OUTPUT_TOKENS)의 두 배.
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -59,6 +65,7 @@ export function memorableDue(lastRunAt: string | null, nowMs: number): boolean {
 
 export type FeedRow = {
   id: string; source: "call" | "telegram"; title: string; summary: string; points: string[]; room: string; counterpart: string;
+  day?: string; // 여러 날을 한 번에 보낼 때(④ 다시 판정)만 줄마다 날짜를 붙인다.
 };
 const short = (v: unknown, n: number) => typeof v === "string" ? [...v.replace(/\s+/g, " ").trim()].slice(0, n).join("") : "";
 
@@ -84,18 +91,21 @@ const cleanCtx = (v: unknown, n: number) => {
   const s = short(v, n).replace(new RegExp(EMAIL.source, "g"), "[이메일]").replace(new RegExp(PHONE.source, "g"), "[전화]");
   return s && !looksSecret(s) ? s : "";
 };
-export type MemorableContext = { orgs?: unknown[]; areas?: unknown[]; known?: unknown[]; max?: number };
+// cap: 고를 수 있는 수의 위 한계(기본 MEMORABLE_MAX_PICKS, ④ 다시 판정은 MEMORABLE_RECHECK_KEEP_MAX).
+export type MemorableContext = { orgs?: unknown[]; areas?: unknown[]; known?: unknown[]; max?: number; cap?: number };
 // 보낼 재료: 번호는 1부터(서버가 번호↔기록 id를 기억한다 — AI에게 id를 주지 않는다). 맨 앞에 내 담당조직·내 사업·이미 있는 것, 고를 수 있는 수.
 export function memorableMaterial(day: string, rows: FeedRow[], ctx: MemorableContext = {}): string {
   if (!rows.length) return "";
   const list = (xs: unknown[] | undefined, n: number, max: number) => [...new Set((xs || []).map((x) => cleanCtx(x, n)).filter(Boolean))].slice(0, max);
   const orgs = list(ctx.orgs, 40, 30), areas = list(ctx.areas, 40, 30), known = list(ctx.known, 80, MEMORABLE_KNOWN_MAX);
-  const max = Math.max(1, Math.min(MEMORABLE_MAX_PICKS, Number.isInteger(ctx.max) ? ctx.max as number : MEMORABLE_MAX_PICKS));
+  const cap = ctx.cap === MEMORABLE_RECHECK_KEEP_MAX ? MEMORABLE_RECHECK_KEEP_MAX : MEMORABLE_MAX_PICKS;
+  const max = Math.max(1, Math.min(cap, Number.isInteger(ctx.max) ? ctx.max as number : cap));
   const head = [`날짜: ${day}`, `고를 수 있는 수: 최대 ${max}개`,
     `내 담당조직: ${orgs.length ? orgs.join(", ") : "(없음)"}`, `내 사업: ${areas.length ? areas.join(", ") : "(없음)"}`,
     `이미 있는 것(같은 내용이면 고르지 않음):${known.length ? "\n" + known.map((k) => `- ${k}`).join("\n") : " (없음)"}`].join("\n");
   const body = rows.map((r, i) => {
-    const h = `${i + 1}. [${r.source === "call" ? "통화" : "텔레그램"}]${r.room ? ` 방: ${r.room}` : ""}`;
+    const d = r.day && DAY.test(r.day) ? ` 날짜: ${r.day}` : "";
+    const h = `${i + 1}. [${r.source === "call" ? "통화" : "텔레그램"}]${d}${r.room ? ` 방: ${r.room}` : ""}`;
     return [h, r.title && `제목: ${r.title}`, r.summary && `요약: ${r.summary}`, ...r.points.map((p) => `점: ${p}`)].filter(Boolean).join("\n");
   });
   return [head, "기록:", ...body].join("\n\n");
@@ -142,7 +152,9 @@ const cleanLine = (t: unknown, max: number): string | null => {
 export type Pick = { feed_item_id: string; source: "call" | "telegram"; org_name: string | null; line: string; kind: MemorableKind; reason: string };
 // AI 답 검사. 보낸 번호만 받고, 같은 번호는 한 번만, 종류가 다섯 밖이거나 줄·이유가 틀리면 그 항목만 버린다. max개까지. 전체가 깨졌으면 null.
 // 저장할 이유 = '종류 이름 · why'(why가 비면 종류 이름만, 60자 안).
-export function parseMemorable(raw: string, sent: FeedRow[], max = MEMORABLE_MAX_PICKS): Pick[] | null {
+// cap: ④ 다시 판정만 MEMORABLE_RECHECK_KEEP_MAX(그 밖의 값은 MEMORABLE_MAX_PICKS로 본다).
+export function parseMemorable(raw: string, sent: FeedRow[], max = MEMORABLE_MAX_PICKS, cap = MEMORABLE_MAX_PICKS): Pick[] | null {
+  const limit = Math.min(max, cap === MEMORABLE_RECHECK_KEEP_MAX ? MEMORABLE_RECHECK_KEEP_MAX : MEMORABLE_MAX_PICKS);
   let data: unknown;
   try { data = JSON.parse(raw); } catch { return null; }
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
@@ -150,7 +162,7 @@ export function parseMemorable(raw: string, sent: FeedRow[], max = MEMORABLE_MAX
   if (!Array.isArray(items)) return null;
   const out: Pick[] = [], seen = new Set<number>();
   for (const it of items) {
-    if (out.length >= Math.min(max, MEMORABLE_MAX_PICKS)) break;
+    if (out.length >= limit) break;
     if (!it || typeof it !== "object") continue;
     const { n, org, line, kind, why } = it as Record<string, unknown>;
     if (typeof n !== "number" || !Number.isInteger(n) || n < 1 || n > sent.length || seen.has(n)) continue;
@@ -162,4 +174,26 @@ export function parseMemorable(raw: string, sent: FeedRow[], max = MEMORABLE_MAX
     out.push({ feed_item_id: sent[n - 1].id, source: sent[n - 1].source, org_name: o || null, line: l, kind: kind as MemorableKind, reason: w ? `${label} · ${w}` : label });
   }
   return out;
+}
+
+// ④ 다시 판정 요청: {kind, mode}만. mode = preview(바꾸지 않고 수만) | run(실행). 틀리면 null(400).
+export function parseJournalMemorableRecheckRequest(b: Record<string, unknown>): { mode: "preview" | "run" } | null {
+  if (Object.keys(b).sort().join(",") !== "kind,mode") return null;
+  return b.mode === "preview" || b.mode === "run" ? { mode: b.mode } : null;
+}
+
+// ④ 한 번 정리의 나눔(순수 함수). lines = 판정할 옛 줄(최근 것부터), judged = AI가 본 줄 id 순서대로(묶음 순서), kept = AI가 고른 줄 id.
+// - AI가 고른 줄: 남김(최대 MEMORABLE_RECHECK_KEEP_MAX — 최근 묶음 것이 먼저).
+// - AI가 보고 고르지 않은 줄, 판정할 수 없는 줄(원본이 없거나 숨김·비밀 모양·텔레그램 요청과 같은 기록): 무시.
+// - 남길 자리가 다 찼으면 아직 보지 않은 줄도 무시(더 오래된 것). 자리가 남았는데 AI 횟수 상한으로 못 본 줄은 그대로 둠(다음에 다시).
+export function recheckSplit(lines: string[], judged: string[], kept: string[], unjudgeable: string[]) {
+  const keep = kept.slice(0, MEMORABLE_RECHECK_KEEP_MAX), keepSet = new Set(keep), seen = new Set(judged), bad = new Set(unjudgeable);
+  const full = keep.length >= MEMORABLE_RECHECK_KEEP_MAX;
+  const drop: string[] = [], left: string[] = [];
+  for (const id of lines) {
+    if (keepSet.has(id)) continue;
+    if (bad.has(id) || seen.has(id) || full) drop.push(id);
+    else left.push(id);
+  }
+  return { keep, drop, left };
 }
