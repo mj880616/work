@@ -430,7 +430,7 @@ test('category list: when the list cannot be read the window does not let the pe
  await expect(editor).toContainText('분류 목록을 불러오지 못했어요.');
  await expect(editor.locator('#dceNewName')).toHaveCount(0);await expect(editor.getByRole('button',{name:'추가',exact:true})).toHaveCount(0);
  f.server.profileFails=false;
- await editor.getByRole('button',{name:'다시'}).click();
+ await editor.getByRole('button',{name:'다시',exact:true}).click();
  await expect(editor.locator('.dce-list')).toBeVisible();await expect(names(editor)).toHaveText(DEFAULT);
 });
 
