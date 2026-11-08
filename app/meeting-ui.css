@@ -400,7 +400,13 @@
 /* WEEKLY-메뉴짝짓기 P5 → BIZ-위쪽정돈: 사업 보고 위 늘 펼친 칸 '이번 주 주간보고'(전 [사업요약표 미리보기] 팝업). 주 고르기는 없고 위 주 고르기를 따르는 종이 모양 표. */
 .biz-week{margin:0 0 var(--kptu-space-2);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
 .biz-week-title{margin:0;padding:6px var(--kptu-space-3) 2px;font-size:var(--ds-text-section,13px);font-weight:var(--ds-weight-medium,500);color:var(--ds-section-ink,var(--kptu-ink))}
-.biz-week [data-bw-body]{padding:0 var(--kptu-space-3) var(--kptu-space-2);overflow-x:auto}
+/* BIZ-주간표스크롤(11/09): 이 칸은 따로 스크롤하는 칸이 아니다 — 표 전체가 펼쳐지고 화면 전체가 위아래로 스크롤된다(높이 제한·가로 스크롤 없음, 표는 폭에 맞춰 줄바꿈).
+   전에는 overflow-x:auto 때문에 세로도 스크롤 칸이 되어, [주간 정리에서 보기 ›]의 누름 자리(::after, 아래로 12px)만큼 생긴 몇 px 세로 넘침을 폰이 먼저 잡아 표 위에서 밀면 화면이 안 내려갔다. */
+.biz-week [data-bw-body]{padding:0 var(--kptu-space-3) var(--kptu-space-2)}
+/* 접힌 한 줄(전체 기간·정한 기간): 제목 줄 전체가 공용 ③ 글자 버튼(row-act). 글자는 제목과 같게, 날짜는 흐리게. */
+.biz-week-title .biz-week-fold{display:flex;align-items:center;gap:6px;width:100%;padding:2px 0;color:inherit;font-size:inherit;font-weight:inherit;text-align:left}
+.biz-week-fold .biz-week-range{color:var(--kptu-muted);font-weight:var(--ds-weight-regular,400);font-variant-numeric:tabular-nums}
+.biz-week-title:has(.biz-week-fold){padding-bottom:6px}
 .biz-week .biz-paper{max-width:none;margin:0;padding:8px 10px}
 .biz-week-status{margin:4px 0 0;font-size:12px}
 .biz-week-foot{display:flex;justify-content:flex-end}
@@ -410,7 +416,7 @@
 .biz-paper{max-width:794px;margin:0 auto;padding:24px 28px;background:var(--kptu-surface);border:1px solid var(--kptu-border);font-size:13px;line-height:1.5}
 .biz-paper h3{font-size:14px;margin:12px 0 6px}
 .biz-sum-table{width:100%;border-collapse:collapse;table-layout:fixed}
-.biz-sum-table th,.biz-sum-table td{border:1px solid var(--kptu-border-strong);padding:4px 6px;vertical-align:top;text-align:left;font-weight:400;overflow-wrap:anywhere}
+.biz-sum-table th,.biz-sum-table td{border:1px solid var(--kptu-border-strong);padding:4px 6px;vertical-align:top;text-align:left;font-weight:400;word-break:keep-all;overflow-wrap:anywhere}
 .biz-sum-table thead th{font-weight:var(--ds-weight-medium,500);text-align:center;background:var(--kptu-surface-subtle)}
 .biz-sum-table th:nth-child(1),.biz-sum-table td:nth-child(1){width:18%}
 .biz-sum-table thead th:nth-child(2){width:18%}
