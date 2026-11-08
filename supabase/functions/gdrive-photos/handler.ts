@@ -171,11 +171,33 @@ export function createGdriveHandler(options: GdriveOptions) {
     return { userId: user.id as string, workspaceId };
   }
 
-  // ---- Drive 토큰(한 번 요청에 한 번만 새로 받음). 권한(scope)도 함께 확인 ----
-  async function driveToken(): Promise<{ token: string; full: boolean }> {
+  // ---- Drive 토큰. 권한(scope)도 함께 확인 ----
+  // S54-16: 접근 토큰만 이 인스턴스 안에서 약 50분 기억한다(사진 한 장마다 구글 토큰을 새로 받지 않게, onedrive-photos와 같은 방식).
+  // 키 = 작업공간 id + 갱신 토큰 지문(SHA-256 앞 16자). 갱신 토큰이 바뀌거나(다시 연결) 작업공간이 다르면 다른 키라 섞이지 않는다.
+  // 설정 1행(갱신 토큰)은 요청마다 그대로 읽는다 — 연결을 끊으면 바로 drive_not_connected. 위 문(authorize)도 요청마다 그대로다.
+  // 같은 순간 여러 요청(썸네일 묶음)은 토큰 교환 하나를 함께 기다린다. 구글이 401을 주면 기억한 토큰을 버린다(drive()).
+  const tokenCache = new Map<string, { token: string; full: boolean; until: number }>();
+  const tokenFlights = new Map<string, Promise<{ token: string; full: boolean }>>();
+  const TOKEN_KEEP_MS = 50 * 60 * 1000;
+  async function fingerprint(refresh: string) {
+    const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(refresh)));
+    return [...d.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  async function driveToken(workspaceId: string): Promise<{ token: string; full: boolean }> {
     const cfg = await rows("drive_cfg", "public_policy_drive_config?id=eq.1&select=google_client_id,google_client_secret,google_refresh_token");
     const c = cfg[0];
     if (!c?.google_refresh_token) throw new Fail(424, "drive_not_connected");
+    const key = workspaceId + ":" + await fingerprint(String(c.google_refresh_token));
+    const hit = tokenCache.get(key);
+    if (hit && hit.until > now()) return { token: hit.token, full: hit.full };
+    const going = tokenFlights.get(key);
+    if (going) return await going;
+    const flight = exchangeToken(key, c).finally(() => { if (tokenFlights.get(key) === flight) tokenFlights.delete(key); });
+    tokenFlights.set(key, flight);
+    return await flight;
+  }
+  async function exchangeToken(key: string, c: Record<string, unknown>): Promise<{ token: string; full: boolean }> {
+    tokenCache.delete(key);
     const r = await call("drive_token", "https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -198,16 +220,25 @@ export function createGdriveHandler(options: GdriveOptions) {
       });
       full = ti.ok && scopeHas((await body(ti))?.scope);
     }
+    // 만료 10분 전까지만, 길어도 50분. 만료 정보가 없거나 짧으면 기억하지 않는다.
+    const expires = Number(d.expires_in);
+    if (Number.isFinite(expires) && expires > 900) {
+      tokenCache.set(key, { token: d.access_token, full, until: now() + Math.min((expires - 600) * 1000, TOKEN_KEEP_MS) });
+    }
     return { token: d.access_token, full };
   }
-  async function fullToken() {
-    const t = await driveToken();
+  const forgetToken = (token: string) => {
+    for (const [k, v] of tokenCache) if (v.token === token) tokenCache.delete(k);
+  };
+  async function fullToken(workspaceId: string) {
+    const t = await driveToken(workspaceId);
     if (!t.full) throw new Fail(403, "scope_missing");
     return t.token;
   }
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
   async function drive(stage: string, token: string, url: string, init: RequestInit = {}) {
     const r = await call("drive_" + stage, url, { ...init, headers: { ...auth(token), ...(init.headers || {}) } });
+    if (r.status === 401) forgetToken(token);
     if (r.status === 404) throw new Fail(404, "not_found");
     if (r.status === 403 && stage !== "media") throw new Fail(403, "drive_denied");
     if (!r.ok) {
@@ -310,8 +341,12 @@ export function createGdriveHandler(options: GdriveOptions) {
     return v as string[];
   }
   async function indexedPhotos(workspaceId: string, ids: string[]) {
-    const on = new Set(await enabledIds(workspaceId));
-    const got = await rows("photos_pick", `app_gdrive_photos?workspace_id=eq.${workspaceId}&item_id=${inList(ids)}&select=item_id,parent_id,name,video`);
+    // 켠 폴더 목록과 사진 줄은 서로 기다릴 필요가 없어 함께 읽는다(S54-16). 판단(켠 폴더 안 사진인지)은 그대로.
+    const [onIds, got] = await Promise.all([
+      enabledIds(workspaceId),
+      rows("photos_pick", `app_gdrive_photos?workspace_id=eq.${workspaceId}&item_id=${inList(ids)}&select=item_id,parent_id,name,video`),
+    ]);
+    const on = new Set(onIds);
     const ok = got.filter((r) => on.has(r.parent_id as string));
     if (ok.length !== ids.length) throw new Fail(404, "photo_not_in_index");
     return new Map(ok.map((r) => [r.item_id as string, r]));
@@ -367,8 +402,11 @@ export function createGdriveHandler(options: GdriveOptions) {
   }
   // 이번 목록 안에 있는 사진만(없는 것은 실패 이름 missing으로). indexedPhotos와 같은 판단을 사진별로.
   async function inIndex(workspaceId: string, ids: string[]) {
-    const on = new Set(await enabledIds(workspaceId));
-    const got = await rows("photos_pick", `app_gdrive_photos?workspace_id=eq.${workspaceId}&item_id=${inList(ids)}&select=item_id,parent_id`);
+    const [onIds, got] = await Promise.all([
+      enabledIds(workspaceId),
+      rows("photos_pick", `app_gdrive_photos?workspace_id=eq.${workspaceId}&item_id=${inList(ids)}&select=item_id,parent_id`),
+    ]);
+    const on = new Set(onIds);
     return new Map(got.filter((r) => on.has(r.parent_id as string)).map((r) => [r.item_id as string, r.parent_id as string]));
   }
   const place = (m: { taken: string | null; lat: number | null; lon: number | null }) => ({ taken: m.taken, lat: m.lat, lon: m.lon });
@@ -381,7 +419,7 @@ export function createGdriveHandler(options: GdriveOptions) {
   const actions: Record<string, (c: Ctx) => Promise<Response>> = {
     // 상태: 권한이 없으면 오류 대신 scope:false로 답한다(화면이 [Drive 다시 연결] 안내).
     async status({ workspaceId }) {
-      const t = await driveToken();
+      const t = await driveToken(workspaceId);
       const sync = await rows("sync_read", `app_gdrive_sync?workspace_id=eq.${workspaceId}&select=synced_at`);
       return json({ ok: true, scope: t.full, folders_on: t.full ? (await enabledIds(workspaceId)).length : 0, synced_at: sync[0]?.synced_at ?? null });
     },
@@ -389,7 +427,7 @@ export function createGdriveHandler(options: GdriveOptions) {
     async folders({ workspaceId, body: b }) {
       const parent = b.parent === undefined ? "root" : b.parent;
       if (parent !== "root" && !isDriveId(parent)) throw new Fail(400, "parent_invalid");
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       const here = await liveFolder(token, parent as string);
       const { files, complete } = await listAll(token, `'${q(parent as string)}' in parents and mimeType='${FOLDER_MIME}' and trashed=false`,
         "id,name", 3);
@@ -410,7 +448,7 @@ export function createGdriveHandler(options: GdriveOptions) {
     // 폴더 켜기·끄기. 켜면 그 폴더 바로 안 사진·동영상만 목록에 넣고, 끄면 그 폴더 사진을 목록에서 뺀다(Drive 파일은 그대로).
     async "folder-toggle"({ workspaceId, body: b }) {
       if (!isDriveId(b.id) || b.id === "root" || typeof b.enabled !== "boolean") throw new Fail(400, "folder_invalid");
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       const f = await liveFolder(token, b.id);
       const at = new Date(now()).toISOString();
       if (b.enabled) {
@@ -429,7 +467,7 @@ export function createGdriveHandler(options: GdriveOptions) {
     },
     // 켠 폴더들을 Drive에서 다시 받는다(동시에 두 번 받지 않게 잠금). 사라진 폴더는 끈다.
     async sync({ workspaceId }) {
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       if (!(await lock(workspaceId))) return json({ ok: true, busy: true });
       let done = false;
       try {
@@ -481,7 +519,7 @@ export function createGdriveHandler(options: GdriveOptions) {
       if (!isDriveId(b.id)) throw new Fail(400, "id_invalid");
       const size = b.size === "large" ? "large" : "small";
       await indexedPhotos(workspaceId, [b.id]);
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       const f = await getFile(token, b.id, "id,mimeType,trashed,thumbnailLink");
       if (f.trashed === true) throw new Fail(404, "not_found");
       const link = typeof f.thumbnailLink === "string" ? new URL(f.thumbnailLink) : null;
@@ -496,7 +534,7 @@ export function createGdriveHandler(options: GdriveOptions) {
     async media({ workspaceId, body: b, req }) {
       if (!isDriveId(b.id)) throw new Fail(400, "id_invalid");
       await indexedPhotos(workspaceId, [b.id]);
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       const range = req.headers.get("range");
       const headers: Record<string, string> = range && /^bytes=\d*-\d*$/.test(range) ? { Range: range } : {};
       const r = await drive("media", token, `${DRIVE}/${encodeURIComponent(b.id)}?alt=media`, { headers });
@@ -519,7 +557,7 @@ export function createGdriveHandler(options: GdriveOptions) {
       const name = cleanName(b.name);
       if (!name) throw new Fail(400, "name_invalid");
       await indexedPhotos(workspaceId, [b.id]);
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       await patchFile("rename", token, b.id, "", { name });
       await db("photo_rename", `app_gdrive_photos?workspace_id=eq.${workspaceId}&item_id=eq.${b.id}`,
         { method: "PATCH", body: JSON.stringify({ name, updated_at: new Date(now()).toISOString() }) }, "return=minimal");
@@ -531,7 +569,7 @@ export function createGdriveHandler(options: GdriveOptions) {
       const ids = idList(b.ids);
       if (b.to !== "root" && !isDriveId(b.to)) throw new Fail(400, "target_invalid");
       await indexedPhotos(workspaceId, ids);
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       const target = b.to as string;
       await liveFolder(token, target);
       const targetOn = (await enabledIds(workspaceId)).includes(target);
@@ -559,7 +597,7 @@ export function createGdriveHandler(options: GdriveOptions) {
       needConfirm(b);
       const ids = idList(b.ids);
       await indexedPhotos(workspaceId, ids);
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       const trashed: string[] = [], failed: string[] = [];
       for (const id of ids) {
         try {
@@ -579,7 +617,7 @@ export function createGdriveHandler(options: GdriveOptions) {
       const ids = metaList(b.ids);
       if (!ids.every(isDriveId) || new Set(ids).size !== ids.length) throw new Fail(400, "ids_invalid");
       const known = await inIndex(workspaceId, ids as string[]);
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       const items: Record<string, unknown>[] = [];
       for (const id of ids as string[]) {
         if (!known.has(id)) {
@@ -621,7 +659,7 @@ export function createGdriveHandler(options: GdriveOptions) {
         return { id: it.id, change: { ...(taken !== undefined ? { taken: taken as string } : {}), ...(loc !== undefined ? { loc: loc as { lat: number; lon: number } | null } : {}) } };
       });
       const known = await inIndex(workspaceId, wants.map((w) => w.id));
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       const done: Record<string, unknown>[] = [], failed: Record<string, string> = {};
       for (const want of wants) {
         const parent = known.get(want.id);
@@ -686,13 +724,13 @@ export function createGdriveHandler(options: GdriveOptions) {
       return json({ ok: Object.keys(failed).length === 0, done, failed });
     },
     // 폴더 만들기(맨 위 또는 실제 폴더 안). 새 폴더는 꺼진 채.
-    async "folder-create"({ body: b }) {
+    async "folder-create"({ workspaceId, body: b }) {
       needConfirm(b);
       const parent = b.parent === undefined ? "root" : b.parent;
       if (parent !== "root" && !isDriveId(parent)) throw new Fail(400, "parent_invalid");
       const name = cleanName(b.name);
       if (!name) throw new Fail(400, "name_invalid");
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       await liveFolder(token, parent as string);
       const r = await drive("folder_create", token, `${DRIVE}?fields=id,name`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -707,7 +745,7 @@ export function createGdriveHandler(options: GdriveOptions) {
       if (!isDriveId(b.id) || b.id === "root") throw new Fail(400, "folder_invalid");
       const name = cleanName(b.name);
       if (!name) throw new Fail(400, "name_invalid");
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       await liveFolder(token, b.id);
       await patchFile("folder_rename", token, b.id, "", { name });
       await db("folder_renamed", `app_gdrive_folders?workspace_id=eq.${workspaceId}&item_id=eq.${b.id}`,
@@ -718,7 +756,7 @@ export function createGdriveHandler(options: GdriveOptions) {
     async "folder-trash"({ workspaceId, body: b }) {
       needConfirm(b);
       if (!isDriveId(b.id) || b.id === "root") throw new Fail(400, "folder_invalid");
-      const token = await fullToken();
+      const token = await fullToken(workspaceId);
       await liveFolder(token, b.id);
       const r = await patchFile("folder_trash", token, b.id, "", { trashed: true });
       if (r?.trashed !== true) throw new Fail(502, "trash_unconfirmed");
