@@ -50,7 +50,7 @@ import {SOURCES_OFF_TEXT} from './source-flags.mjs';
 import {checkFileBase, splitFileName, numberedName, FILE_BASE_MAX} from './file-rename-name.mjs';
 import {bindPaste} from './paste-files.mjs';
 import {createPhoneFiles} from './phone-files.js';
-import {PHONE_SOURCE as PH, phoneTrail, phoneParent, phoneWriteText, PHONE_SAVE_MAX, PHONE_OLD_APP_TEXT, PHONE_MOVE_TEXT, PHONE_ASK_TEXT, PHONE_CANNOT_TEXT} from './phone-files-model.mjs';
+import {PHONE_SOURCE as PH, phoneTrail, phoneParent, phoneWriteText, PHONE_SAVE_MAX, PHONE_OLD_APP_TEXT, PHONE_MOVE_TEXT, PHONE_ASK_TEXT, PHONE_CANNOT_TEXT, PHONE_TRASH_BATCH, PHONE_FOLDER_LEFT_NOTE, phoneTrashAsk} from './phone-files-model.mjs';
 import {createPcFiles} from './pc-files.js';
 import {PC_SOURCE as PC, pcTrail, pcStateText, pcOffRowName, pcDeviceOk, pcParent, pcXferWhy, PC_READONLY_TEXT, PC_PREVIEW_TEXT, PC_PREVIEW_BIG_TEXT, PC_PREVIEW_MAX, PC_WRITE_LATER_TEXT, PC_XFER_MAX, PC_FILE_MAX} from './pc-files-model.mjs';
 import {NARROW_QUERY, SPLIT_QUERY} from './screen-width.mjs';
@@ -1120,7 +1120,20 @@ function treeMenu(b) {
   if (!r) return;
   const sib = r.is_folder && SOURCES.includes(r.source) ? treeSibs(r.source, inKey) : [];
   const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length, pinned: pinState(r)});
-  openRowMenu(b, {key, label: r.name, items, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '', run: id => treeAct(id, r, inKey, liveMenuButton(key, b))});
+  openRowMenu(b, {key, label: r.name, items, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '', run: id => { if (!offStop(items, id)) treeAct(id, r, inKey, liveMenuButton(key, b)); }});
+}
+// S53-10 메뉴 모양 통일: 흐린 항목(off — 지금은 지울 수 없는 줄의 [휴지통])을 누르면 지우지 않고 이유·할 일 한 줄만.
+function offText(code) {
+  if (code === 'pc') return pcWrite() ? PC_WRITE_LATER_TEXT : PC_READONLY_TEXT;
+  if (code === 'ph') return phoneOn() && phone.state.all ? PHONE_OLD_APP_TEXT : phoneWriteText('permission');
+  if (code === 'drive') return '드라이브는 휴지통으로 보내지 않아요. 드라이브를 열고 안의 파일·폴더를 골라 보내 주세요';
+  return '';
+}
+function offStop(items, id) {
+  const code = (items || []).find(x => x.id === id)?.off;
+  if (!code) return false;
+  notify(offText(code) || '지금은 할 수 없어요', {record: false});
+  return true;
 }
 // [경로 복사](S52-43 ③): 클립보드에 위치 글자만(내 PC는 실제 경로 — 그 PC 화면 안에서만, 서버·로그로 가지 않음).
 const canCopyPath = () => typeof navigator.clipboard?.writeText === 'function';
@@ -2052,16 +2065,39 @@ async function trashRows(rows, anchor) {
     if (done) notify(writeDoneText('trash', {done, failed: items.length - done}), {error: done < items.length, record: false});
     return;
   }
-  // 폰 파일: 확인 한 번 → 안드로이드 휴지통(폴더는 지우지 않음). 클라우드 줄과 섞여 있으면 따로 하게.
+  // 폰 파일: 확인 한 번 → 안드로이드 휴지통. 클라우드 줄과 섞여 있으면 따로 하게.
+  // S53-10: 폰 폴더는 안 파일(하위 폴더 포함, 폴더째 복사와 같은 한도)을 모두 휴지통으로 — 폴더는 빈 채로 남는다(phoneTrashAsk).
   if (hasPhone(list)) {
     if (list.some(r => r.source !== PH)) { notify('폰 파일과 클라우드 파일은 따로 휴지통으로 보내 주세요', {record: false}); return; }
-    const files = list.filter(r => !r.is_folder);
-    if (!files.length) { notify('폰 폴더는 지우지 않아요(파일만)', {record: false}); return; }
-    const one = files.length === 1;
-    if (!(await askConfirm(anchor, {text: one ? `'${files[0].name}'을(를) 휴지통으로 보낼까요?` : `${files.length}개를 휴지통으로 보낼까요?`,
-      note: '폰 휴지통(갤러리·내 파일 앱의 휴지통)에서 30일 안에 되돌릴 수 있어요' + (files.length < list.length ? ' · 폴더는 빼고 보냅니다' : ''), ok: '휴지통으로', danger: true}))) return;
-    const d = await phoneOp({op: 'trash', paths: files.map(r => r.item_id)}, '휴지통으로 보내는 중');
-    if (d) { await phoneRefresh([...new Set(files.map(r => phoneParent(r.item_id)))], {gone: files.map(rowKey)}); notify(writeDoneText('trash', {done: d.count, failed: files.length - d.count}), {error: d.count < files.length, record: false}); }
+    const folders = list.filter(r => r.is_folder), files = list.filter(r => !r.is_folder), dirs = new Set(files.map(r => phoneParent(r.item_id)));
+    if (folders.length) {
+      const scope = state.scope;
+      state.busy = '폴더 안 파일을 세는 중'; paintBar();
+      try {
+        for (const f of folders) {
+          let tree;
+          try { tree = await treeWalk(f); } catch (e) { notify(`${f.name}: ${phoneWriteText(e?.message, {del: phone.state.del === true})}`, {error: true, record: false}); return; }
+          if (state.scope !== scope) return;
+          if (tree === null) { notify(treeAcrossTooBigText(f.name), {error: true, record: false}); return; }
+          files.push(...tree.files);
+          dirs.add(f.item_id); for (const sub of tree.folders) dirs.add(sub.item_id);
+          if (treeAcrossBig(files.length, 0)) { notify(treeAcrossTooBigText(f.name), {error: true, record: false}); return; }
+        }
+      } finally { if (state.scope === scope) { state.busy = ''; paintBar(); } }
+      if (!files.length) { notify(folders.length === 1 ? `'${folders[0].name}' 폴더 안에 보낼 파일이 없어요(${PHONE_FOLDER_LEFT_NOTE})` : `고른 폴더 안에 보낼 파일이 없어요(${PHONE_FOLDER_LEFT_NOTE})`, {record: false}); return; }
+    }
+    const ask = phoneTrashAsk({files: files.length, folders: folders.map(r => r.name), one: files[0]?.name});
+    if (!(await askConfirm(anchor, {text: ask.text, note: ask.note, ok: '휴지통으로', danger: true}))) return;
+    let done = 0;
+    for (let i = 0; i < files.length; i += PHONE_TRASH_BATCH) {
+      const part = files.slice(i, i + PHONE_TRASH_BATCH);
+      const d = await phoneOp({op: 'trash', paths: part.map(r => r.item_id)}, `휴지통으로 보내는 중 (${done}/${files.length})`);
+      if (!d) break;
+      done += d.count;
+      if (d.error) break; // 확인 창에서 그만둠·일부 못 감: 이유는 phoneOp가 한 줄로 보였다. 남은 묶음은 보내지 않는다.
+    }
+    if (done || folders.length) await phoneRefresh([...dirs], {gone: files.map(rowKey)});
+    if (done) notify(writeDoneText('trash', {done, failed: files.length - done}) + (folders.length ? ' · ' + PHONE_FOLDER_LEFT_NOTE : ''), {error: done < files.length, record: false});
     return;
   }
   const ask = trashAsk(list);
@@ -3795,7 +3831,7 @@ function listMenu(b, event) {
   const p = P(), many = p.picked.has(key) && p.picked.size > 1 ? pickedRows(p) : [];
   const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), pinned: pinState(r), zip: many.some(x => !x.is_folder)}).map(it => (it.id === 'only' ? {...it, id: 'go', label: '열기'} : it));
   return openRowMenu(b, {key: 'list:' + key, title: r.name, items, at, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '',
-    run: id => { if (id === 'go') goFolder(r.source, r.item_id); else if (id === 'zip') void zipDownload(many); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});
+    run: id => { if (offStop(items, id)) return; if (id === 'go') goFolder(r.source, r.item_id); else if (id === 'zip') void zipDownload(many); else void treeAct(id, r, '', b.isConnected ? b : root?.querySelector(`[data-fx-row="${CSS.escape(key)}"]`) || b); }});
 }
 // PC: 줄을 폴더(목록의 폴더 줄·나무의 폴더)로 끌어 놓아 옮기기. 끈 줄이 고른 것 안이면 고른 것 모두.
 // 두 칸: 반대 칸(그 칸의 지금 폴더 또는 그 칸의 폴더 줄)에 놓으면 '복사 · 옮기기' 작은 고르기.

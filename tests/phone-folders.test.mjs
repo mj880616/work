@@ -108,7 +108,8 @@ test('사진 화면: 폰 폴더 스위치·⋯ 메뉴·바꾸기·원드라이�
   // 폰 폴더 메뉴는 원드라이브 폴더 메뉴와 같은 모양(od-link-menu)·같은 항목.
   const menu = s.slice(s.indexOf('const phoneFolderMenu'), s.indexOf('const photoMenu'));
   assert.match(menu, /className:'od-link-menu'/);
-  for (const t of ['새 하위 폴더', '이름 바꾸기', '옮기기…', '지우기']) assert.ok(menu.includes(`'${t}'`), t);
+  for (const t of ['새 하위 폴더', '이름 바꾸기', '옮기기…']) assert.ok(menu.includes(`'${t}'`), t);
+  assert.match(menu, /delBtn\('data-pfm-delete'/); // S53-10: [지우기]는 늘 맨 아래(못 지우면 흐리게, 공용 delBtn이 '지우기' 글자)
   // 처음 한 번 '미디어 관리 허용' 안내, 지우기는 확인 뒤 폰 휴지통.
   assert.match(s, /미디어 관리 허용/);
   assert.match(s, /phone\.folderOp\(op\)/);

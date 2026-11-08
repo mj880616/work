@@ -1,7 +1,7 @@
 // S51-22 [파일] 폰 나무 줄 ⋯ 메뉴 항목(순수 함수, node --test로 시험). 화면은 바뀌지 않고 그 자리 메뉴(row-menu.js)로 연다.
 // 항목은 예전 '⋯ → 폴더 안으로 들어가 고르기 줄'에 있던 기능 그대로다(빼지 않음):
 //  클라우드(원드라이브·구글): 파일 = 열기·복사·옮기기·이름 바꾸기·별표·휴지통 / 폴더 = 이 폴더만 보기·새 폴더·올리기·복사·옮기기·이름 바꾸기·색·위로·아래로·별표·휴지통
-//  이 폰: 파일 = 열기·클라우드에 복사·(S52-43 ②) 옮기기·이름 바꾸기·휴지통(폰에 쓸 수 있을 때) / 폴더 = 이 폴더만 보기·새 폴더·클라우드에 복사·이름 바꾸기(폰 폴더는 지우지 않음)
+//  이 폰: 파일 = 열기·클라우드에 복사·(S52-43 ②) 옮기기·이름 바꾸기·휴지통(폰에 쓸 수 있을 때) / 폴더 = 이 폴더만 보기·새 폴더·클라우드에 복사·이름 바꾸기·휴지통(S53-10: 안 파일을 휴지통으로)
 //  내 PC: 파일 = 열기(+ 바구니 PC 앱 0.4.0+면 클라우드로 복사·옮기기, S52-41 FILES-내PC클라우드옮기기), 폴더 = 이 폴더만 보기.
 //   FILES-내PC쓰기(S52-43 ①, 0.5.0+ 문 pcEdit): 클라우드와 같은 항목 — 파일 = 열기·복사·옮기기·이름 바꾸기·휴지통,
 //   폴더 = 이 폴더만 보기·새 폴더·옮기기·이름 바꾸기·휴지통(드라이브 줄은 이 폴더만 보기·새 폴더).
@@ -11,6 +11,10 @@
 //   이 폰: 폰에 쓸 수 있으면 받을 곳에 이 폰도 있어 [클라우드에 복사] 대신 [복사](폰 안끼리도), 폴더도 [옮기기]. 클라우드 폴더도 [자료실로 보내기].
 // S51-31 UI-⋯작은메뉴(요청함 11/06 23:28): 세 묶음으로 나눠 보인다 — 열기·올리기·복사·옮기기·이름 바꾸기 | 별표·색·위로·아래로 | 휴지통.
 // 휴지통은 맨 아래 한 줄(last, 빨강 — 한 번 묻기는 trashRows). 둘째 묶음 첫 항목에 sep(가는 선).
+// S53-10 FILES-이폰지우기 덧붙임(메뉴 모양 통일): [휴지통]은 모든 저장소·모든 파일·폴더 ⋯에 늘 같은 자리(맨 아래)에 있다.
+//   지울 수 없는 줄은 빼지 않고 off(흐리게, 누르면 이유·할 일 한 줄 — 글은 화면이 off 코드로 고른다):
+//   'ph' = 폰에 쓸 수 없음(옛 앱·권한), 'pc' = 바구니 PC 앱이 휴지통을 모르는 판, 'drive' = 내 PC 드라이브 줄(C:\ 등).
+//   이 폰 폴더는 폰에 쓸 수 있으면 [휴지통] = 안 파일을 모두 안드로이드 휴지통으로(폴더는 빈 채로 남음 — files.js trashRows).
 export const TREE_MENU_LABEL = Object.freeze({
   open: '열기', only: '이 폴더만 보기', mkdir: '새 폴더', upload: '올리기', copy: '복사', move: '옮기기', tocloud: '클라우드에 복사',
   rename: '이름 바꾸기', color: '색', up: '위로', down: '아래로', star: '별표', unstar: '별표 빼기', trash: '휴지통',
@@ -25,18 +29,24 @@ const SECOND = ['pin', 'unpin', 'star', 'unstar', 'color', 'up', 'down']; // 둘
 export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, pcEdit = false, sibIndex = -1, sibCount = 0, pinned = null, copyPath = false, zip = false} = {}) {
   if (!row || !row.source) return [];
   const folder = !!row.is_folder, ids = [];
+  let off = '';
   if (row.source === 'pc' && pcEdit) {
     // 드라이브 줄(C:\ 처럼 부모가 없는 줄)은 복사·옮기기·이름·휴지통이 없다.
     const drive = folder && !row.parent_id;
-    if (folder) ids.push('only', 'mkdir', ...(drive ? [] : ['tolib', 'copy', 'move', 'rename', 'trash']));
-    else ids.push('open', 'tolib', 'copy', 'move', 'rename', 'trash');
+    if (folder) ids.push('only', 'mkdir', ...(drive ? [] : ['tolib', 'copy', 'move', 'rename']));
+    else ids.push('open', 'tolib', 'copy', 'move', 'rename');
+    ids.push('trash');
+    if (drive) off = 'drive';
   } else if (row.source === 'pc') {
     const drive = folder && !row.parent_id;
-    ids.push(...(folder ? ['only', ...(pcWrite && !drive ? ['tolib', 'copy', 'move'] : [])] : ['open', ...(pcWrite ? ['tolib', 'copy', 'move'] : [])]));
+    ids.push(...(folder ? ['only', ...(pcWrite && !drive ? ['tolib', 'copy', 'move'] : [])] : ['open', ...(pcWrite ? ['tolib', 'copy', 'move'] : [])]), 'trash');
+    off = drive ? 'drive' : 'pc';
   } else if (row.source === 'ph') {
     const send = phoneWrite ? 'copy' : 'tocloud';
     if (folder) ids.push('only', ...(phoneWrite ? ['mkdir'] : []), 'tolib', send, ...(phoneWrite ? ['move', 'rename'] : []));
-    else ids.push('open', 'tolib', send, ...(phoneWrite ? ['move', 'rename', 'trash'] : []));
+    else ids.push('open', 'tolib', send, ...(phoneWrite ? ['move', 'rename'] : []));
+    ids.push('trash');
+    if (!phoneWrite) off = 'ph';
   } else if (CLOUD.includes(row.source)) {
     if (folder) {
       ids.push('only', 'mkdir', 'upload', 'tolib', 'copy', 'move', 'rename', 'color');
@@ -51,6 +61,6 @@ export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, pcEdit 
   const group = id => (SECOND.includes(id) ? 2 : id === 'trash' ? 3 : 1);
   const rank = (id, i) => (group(id) === 2 ? SECOND.indexOf(id) : i);
   const sorted = ids.map((id, i) => ({id, i})).sort((a, b) => group(a.id) - group(b.id) || rank(a.id, a.i) - rank(b.id, b.i)).map(x => x.id);
-  return sorted.map((id, i) => ({id, label: TREE_MENU_LABEL[id], ...(id === 'trash' ? {last: true} : {}), ...(id === 'color' ? {popup: true} : {}),
+  return sorted.map((id, i) => ({id, label: TREE_MENU_LABEL[id], ...(id === 'trash' ? {last: true, ...(off ? {off} : {})} : {}), ...(id === 'color' ? {popup: true} : {}),
     ...(i && group(id) === 2 && group(sorted[i - 1]) !== 2 ? {sep: true} : {})}));
 }

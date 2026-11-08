@@ -3,6 +3,7 @@
 // 누른 ⋯ 바로 아래(모자라면 위), 그 줄은 가리지 않고 연보라(선택 색)로 표시, 아래 바 위. 폭 약 180px·줄 34px·작은 선 아이콘 + 글자 13px.
 // 뒤로가기 한 번 = 닫힘, Esc, 바깥 누름(공용 anchored-menu). 항목 목록·순서는 부르는 화면이 정한다(그 화면의 기존 기능 그대로).
 // 항목: sep:true = 그 위에 가는 선(묶음 나눔), last:true = 맨 아래 한 줄(휴지통·삭제 — 빨강, 묻기는 부르는 쪽). icon은 id로 고르고(ROW_MENU_ICON), 따로 주면 그것.
+// off(S53-10 메뉴 모양 통일): 지금은 할 수 없는 항목 — 빼지 않고 흐리게(aria-disabled), 누르면 run이 불려 부르는 쪽이 이유·할 일 한 줄을 보인다.
 // S51-27 UI-PC우클릭(시안 docs/design/mockups/pc-rightclick-menu.html): PC 우클릭·Shift+F10·메뉴 키도 이 부품을 누른 자리에 연다(at).
 import {createAnchoredMenu} from './anchored-menu.js';
 
@@ -38,8 +39,8 @@ export function rowMenuHtml({title = '', items = [], note = ''} = {}) {
   const list = (items || []).filter(Boolean), icons = list.some(it => it.icon || ROW_MENU_ICON[it.id]);
   return (title ? `<p class="row-menu-title">${esc(title)}</p>` : '')
     + list.map((it, i) => {
-      const cls = [it.last ? 'row-menu-last' : '', it.sep && i && !it.last ? 'row-menu-sep' : ''].filter(Boolean).join(' ');
-      return `<button type="button" data-row-item="${esc(it.id)}"${cls ? ` class="${cls}"` : ''}${it.disabled ? ' disabled' : ''}${it.popup ? ' aria-haspopup="true"' : ''}>`
+      const cls = [it.last ? 'row-menu-last' : '', it.sep && i && !it.last ? 'row-menu-sep' : '', it.off ? 'row-menu-off' : ''].filter(Boolean).join(' ');
+      return `<button type="button" data-row-item="${esc(it.id)}"${cls ? ` class="${cls}"` : ''}${it.disabled ? ' disabled' : ''}${it.off ? ' aria-disabled="true"' : ''}${it.popup ? ' aria-haspopup="true"' : ''}>`
         + `${icons ? icoHtml(it.icon || ROW_MENU_ICON[it.id]) : ''}<span>${esc(it.label)}</span></button>`;
     }).join('')
     + (note ? `<p class="od-link-status">${esc(note)}</p>` : '');
@@ -59,7 +60,7 @@ function ensure() {
     onAction: (button, previous) => { const c = ctx; if (c && button.dataset.rowItem) c.run(button.dataset.rowItem, previous?.trigger); }});
   return menu;
 }
-// trigger: 누른 ⋯(우클릭이면 그 줄·칸), key: 그 줄 이름(같은 ⋯를 다시 누르면 닫힘), items: [{id, label, icon?, sep?, last?, disabled?, popup?}], run(id, trigger),
+// trigger: 누른 ⋯(우클릭이면 그 줄·칸), key: 그 줄 이름(같은 ⋯를 다시 누르면 닫힘), items: [{id, label, icon?, sep?, last?, disabled?, off?, popup?}], run(id, trigger),
 // at: {x, y} = 누른 자리(appMenuPoint 결과). 없으면 ⋯ 바로 아래. row: 연보라로 표시할 줄(없으면 ⋯가 든 줄, 우클릭이면 누른 칸).
 // title: 메뉴 머리 글자(달력 날짜 칸처럼 누른 자리만으로 무엇인지 모를 때만). 줄이 표시되면 이름을 되풀이하지 않는다. 읽기 프로그램용 이름은 늘 붙는다.
 export function openRowMenu(trigger, {key = '', title = '', label = '', items = [], note = '', run, at = null, row = null} = {}) {

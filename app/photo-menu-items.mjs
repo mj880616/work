@@ -85,3 +85,20 @@ export const PHOTO_BAR_MENUS = Object.freeze({
 // 아래 줄 칸 안 펼침 항목의 글자(아이콘 없이 글자만). 칸 이름과 달리 '무엇을 하는지' 풀어 쓴 이름. 없으면 PHOTO_ACT_TEXT 이름.
 export const PHOTO_BAR_TEXT = Object.freeze({edit: '사진 편집', move: '폴더로 옮기기', tag: '앨범에 넣기', untag: '앨범에서 빼기', detail: '정보'});
 export const barItemText = id => PHOTO_BAR_TEXT[id] || PHOTO_ACT_TEXT[id] || id;
+
+// S53-10 FILES-이폰지우기 덧붙임(메뉴 모양 통일): 사진 [폴더] ⋯(원드라이브·폰·구글 드라이브)의 [지우기]는 늘 맨 아래 같은 자리.
+// 지금 지울 수 없는 폴더는 빼지 않고 흐리게(aria-disabled) 두고, 누르면 아래 이유·할 일 한 줄(지우지 않음).
+export const FOLDER_DELETE_OFF = Object.freeze({
+  odTop: '맨 위 폴더는 지울 수 없어요. 안의 폴더를 지워 주세요',
+  odLink: '지우려면 원드라이브를 다시 연결해 주세요',
+  phoneOld: '폰 폴더를 지우려면 웹2 앱을 새 판으로 올려 주세요',
+  phoneTop: 'DCIM·Pictures 같은 맨 위 폴더는 지울 수 없어요. 안의 폴더를 지워 주세요',
+  gdLink: '지우려면 구글 드라이브를 다시 연결해 주세요(위 구글 드라이브 아이콘)'
+});
+// 원드라이브 폴더: top = 사진 맨 위 폴더, can = 원드라이브에 쓸 수 있음. 폰 폴더: ops = 앱이 폴더 일을 앎, trashable = 지울 수 있는 경로(만들기 전 폴더 포함).
+export function folderDeleteOff(kind, {top = false, can = true, ops = true, trashable = true} = {}) {
+  if (kind === 'od') return top ? 'odTop' : can ? '' : 'odLink';
+  if (kind === 'phone') return !ops ? 'phoneOld' : trashable ? '' : 'phoneTop';
+  if (kind === 'gd') return can ? '' : 'gdLink';
+  return '';
+}

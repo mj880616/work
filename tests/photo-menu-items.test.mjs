@@ -107,3 +107,25 @@ test('크게 보기가 열려 있으면 작은 알림·되돌리기 알림·확�
   for (const sel of ['.kptu-ask', '.kptu-notice', '.kptu-undo-notice', '.toast']) assert.match(css, new RegExp(`body:has\\(\\[data-diary-viewer\\]\\) > :is\\([^)]*${sel.replace('.', '\\.')}`), sel);
   assert.equal(SEND_NOTE.basketOpen, '잊지 말기 보기');
 });
+
+test('S53-10 사진 [폴더] ⋯ [지우기]는 늘 맨 아래 — 못 지우면 흐리게, 누르면 이유 한 줄', async () => {
+  const {folderDeleteOff, FOLDER_DELETE_OFF} = await import('../app/photo-menu-items.mjs');
+  assert.equal(folderDeleteOff('od', {top: false, can: true}), '');
+  assert.equal(folderDeleteOff('od', {top: true, can: true}), 'odTop');
+  assert.equal(folderDeleteOff('od', {top: false, can: false}), 'odLink');
+  assert.equal(folderDeleteOff('phone', {ops: true, trashable: true}), '');
+  assert.equal(folderDeleteOff('phone', {ops: false}), 'phoneOld');
+  assert.equal(folderDeleteOff('phone', {ops: true, trashable: false}), 'phoneTop');
+  assert.equal(folderDeleteOff('gd', {can: false}), 'gdLink');
+  for (const k of ['odTop', 'odLink', 'phoneOld', 'phoneTop', 'gdLink']) assert.ok(FOLDER_DELETE_OFF[k].length <= 100, k);
+  const {readFileSync} = await import('node:fs');
+  const s = readFileSync(new URL('../app/photos.js', import.meta.url), 'utf8');
+  for (const [from, to, attr] of [['const folderMenu', 'const phoneFolderMenu', 'data-fm-delete'], ['const phoneFolderMenu', 'const gdFolderMenu', 'data-pfm-delete'], ['const gdFolderMenu', 'const gdMenu', 'data-gfm-delete']]) {
+    const menu = s.slice(s.indexOf(from), s.indexOf(to));
+    assert.match(menu, new RegExp(`delBtn\\('${attr}'`), attr);
+    assert.match(menu, /if \(offPressed\(b\)\) return;/, from);
+    assert.doesNotMatch(menu, new RegExp(`\\? menuBtn\\('${attr}'`), attr); // 조건으로 빼지 않는다
+  }
+  assert.match(s, /aria-disabled="true" data-off="\$\{off\}"/);
+  assert.match(readFileSync(new URL('../app/od-link.css', import.meta.url), 'utf8'), /\.od-link-menu button\[aria-disabled="true"\]/);
+});

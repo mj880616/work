@@ -26,23 +26,23 @@ test('S51-22 나무 ⋯ 메뉴: 클라우드 파일·폴더는 예전 고르기 
   assert.equal(items.filter(x => x.last).length, 1);
 });
 
-test('S51-22 나무 ⋯ 메뉴: 이 폰은 클라우드에 복사(+쓸 수 있으면 이름·휴지통, 폴더는 지우지 않음), 내 PC는 보기·열기만', () => {
-  assert.deepEqual(ids({source: 'ph'}), ['open', 'tolib', 'tocloud']);
+test('S51-22 나무 ⋯ 메뉴: 이 폰은 클라우드에 복사(+쓸 수 있으면 이름·휴지통), 내 PC는 보기·열기만 — S53-10 휴지통은 늘 맨 아래(못 하면 흐리게)', () => {
+  assert.deepEqual(ids({source: 'ph'}), ['open', 'tolib', 'tocloud', 'trash']);
   // S52-43 ②: 폰 ↔ 클라우드 옮기기. S53-8: 폰에 쓸 수 있으면 받을 곳에 이 폰도 있어 [복사], 폴더도 [옮기기]·[자료실로 보내기](폴더째).
   assert.deepEqual(ids({source: 'ph'}, {phoneWrite: true}), ['open', 'tolib', 'copy', 'move', 'rename', 'trash']);
-  assert.deepEqual(ids({source: 'ph', is_folder: true}, {phoneWrite: true}), ['only', 'mkdir', 'tolib', 'copy', 'move', 'rename']);
-  assert.deepEqual(ids({source: 'ph', is_folder: true}), ['only', 'tolib', 'tocloud']);
-  assert.deepEqual(ids({source: 'pc'}), ['open']);
-  assert.deepEqual(ids({source: 'pc', is_folder: true}), ['only']);
+  assert.deepEqual(ids({source: 'ph', is_folder: true}, {phoneWrite: true}), ['only', 'mkdir', 'tolib', 'copy', 'move', 'rename', 'trash']);
+  assert.deepEqual(ids({source: 'ph', is_folder: true}), ['only', 'tolib', 'tocloud', 'trash']);
+  assert.deepEqual(ids({source: 'pc'}), ['open', 'trash']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true}), ['only', 'trash']);
   // S52-41: 바구니 문 0.4.0+면 내 PC 파일도 클라우드로 복사·옮기기(이름·휴지통은 다음 판이라 없음). S53-8: 폴더째·자료실로 보내기도.
-  assert.deepEqual(ids({source: 'pc'}, {pcWrite: true}), ['open', 'tolib', 'copy', 'move']);
-  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {pcWrite: true}), ['only', 'tolib', 'copy', 'move']);
-  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: null}, {pcWrite: true}), ['only']);
+  assert.deepEqual(ids({source: 'pc'}, {pcWrite: true}), ['open', 'tolib', 'copy', 'move', 'trash']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {pcWrite: true}), ['only', 'tolib', 'copy', 'move', 'trash']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: null}, {pcWrite: true}), ['only', 'trash']);
   // S52-43 ① FILES-내PC쓰기: 0.5.0+ 문(pcEdit)이면 클라우드와 같은 항목(S53-8: 폴더째 복사도, 드라이브 줄은 이 폴더만·새 폴더).
   const edit = {pcWrite: true, pcEdit: true};
   assert.deepEqual(ids({source: 'pc', parent_id: 'C:\\'}, edit), ['open', 'tolib', 'copy', 'move', 'rename', 'trash']);
   assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, edit), ['only', 'mkdir', 'tolib', 'copy', 'move', 'rename', 'trash']);
-  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: null}, edit), ['only', 'mkdir']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: null}, edit), ['only', 'mkdir', 'trash']);
   assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {...edit, pinned: false}), ['only', 'mkdir', 'tolib', 'copy', 'move', 'rename', 'pin', 'trash']);
   assert.equal(treeMenuItems({source: 'pc'}, edit).filter(x => x.last).map(x => x.id).join(), 'trash');
   assert.deepEqual(ids(null), []);
@@ -83,4 +83,39 @@ test('S52-44 ⑤ 여러 개 골랐을 때만 첫 묶음 끝에 [여러 개 받�
   assert.ok(list.indexOf('zip') > list.indexOf('path') && list.indexOf('zip') < list.indexOf('star'), list.join(','));
   assert.equal(treeMenuItems(file, {zip: true}).find(it => it.id === 'zip').label, '여러 개 받기');
   assert.match(rowMenuHtml({items: [{id: 'zip', label: '여러 개 받기'}]}), /row-menu-ico/);
+});
+
+test('S53-10 FILES-이폰지우기 덧붙임: 모든 저장소·파일·폴더 ⋯에 [휴지통]이 맨 아래 같은 자리, 못 지우면 흐리게(off) — 이유는 화면이', () => {
+  const trashOf = (row, opt) => treeMenuItems(row, opt).find(x => x.id === 'trash');
+  const rows = [
+    {source: 'od'}, {source: 'od', is_folder: true}, {source: 'gd'}, {source: 'gd', is_folder: true},
+    {source: 'ph'}, {source: 'ph', is_folder: true}, {source: 'pc', parent_id: 'C:\\'}, {source: 'pc', is_folder: true, parent_id: 'C:\\'}, {source: 'pc', is_folder: true, parent_id: null}
+  ];
+  const opts = [{}, {phoneWrite: true}, {pcWrite: true}, {pcWrite: true, pcEdit: true}, {copyPath: true, zip: true, pinned: false}];
+  for (const row of rows) for (const opt of opts) {
+    const items = treeMenuItems(row, opt);
+    assert.equal(items.at(-1).id, 'trash', JSON.stringify([row, opt]));
+    assert.equal(items.filter(x => x.id === 'trash').length, 1);
+    assert.equal(items.at(-1).label, '휴지통');
+  }
+  // 지울 수 있으면 off 없음.
+  for (const [row, opt] of [[{source: 'od'}, {}], [{source: 'gd', is_folder: true}, {}], [{source: 'ph'}, {phoneWrite: true}], [{source: 'ph', is_folder: true}, {phoneWrite: true}],
+    [{source: 'pc', parent_id: 'C:\\'}, {pcWrite: true, pcEdit: true}], [{source: 'pc', is_folder: true, parent_id: 'C:\\'}, {pcWrite: true, pcEdit: true}]]) assert.equal(trashOf(row, opt).off, undefined, JSON.stringify(row));
+  // 못 지우면 이유 코드: 폰에 쓸 수 없음·PC 앱 옛 판·드라이브 줄.
+  assert.equal(trashOf({source: 'ph'}).off, 'ph');
+  assert.equal(trashOf({source: 'ph', is_folder: true}).off, 'ph');
+  assert.equal(trashOf({source: 'pc'}).off, 'pc');
+  assert.equal(trashOf({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {pcWrite: true}).off, 'pc');
+  assert.equal(trashOf({source: 'pc', is_folder: true, parent_id: null}, {pcWrite: true, pcEdit: true}).off, 'drive');
+  // 흐린 항목: 숨기지 않고 aria-disabled(누르면 run이 불림 — disabled 아님).
+  const html = rowMenuHtml({items: treeMenuItems({source: 'ph', is_folder: true})});
+  assert.match(html, /data-row-item="trash" class="row-menu-last row-menu-off" aria-disabled="true"/);
+  assert.doesNotMatch(html, /data-row-item="trash"[^>]* disabled/);
+  assert.match(read('app/od-link.css'), /\.row-menu \.row-menu-off/);
+  // 화면: 두 ⋯ 메뉴(나무·목록 우클릭) 모두 흐린 항목을 누르면 지우지 않고 이유 한 줄(offStop), 폰 폴더 휴지통은 안 파일을 휴지통으로.
+  const src = read('app/files.js');
+  assert.equal((src.match(/if \(!?offStop\(items, id\)\)/g) || []).length, 2);
+  assert.doesNotMatch(src, /폰 폴더는 지우지 않아요/);
+  assert.match(src, /phoneTrashAsk\(/);
+  assert.match(src, /PHONE_TRASH_BATCH/);
 });
