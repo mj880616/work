@@ -1197,7 +1197,7 @@ test('TRASH-다른삭제 5단계: 휴지통에 노트·업데이트가 종류·�
   await first.locator('[data-ps3-trash-purge]').click();
   const asked=(await askWithNote(page,false)).join(' ');
   expect(asked).toContain('“합성 교섭 결과 공유” 업데이트를 영구 삭제할까요');
-  expect(asked).toContain('연결 2곳도 함께 지워지고');expect(asked).toContain('첨부 파일 1개는 Drive에 그대로 남습니다');
+  expect(asked).toContain('연결 2곳도 함께 삭제되고');expect(asked).toContain('첨부 파일 1개는 Drive에 그대로 남습니다');
   expect(state.trash.others.note.length).toBe(2);
   await first.locator('summary').click();
   // 되돌리기는 그 종류로 가고, 열려 있는 정리함에는 목록을 다시 읽으라고 알린다.
