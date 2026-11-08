@@ -75,8 +75,9 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
 }
 const view = (page, label) => page.locator('#reportViewFilter').getByRole('radio', {name: label});
 const chip = (page, v) => page.locator(`#reportWeekFilter [data-report-week="${v}"]`);
-const period = page => page.locator('#reportWeekFilter [data-report-period]');
-const label = page => page.locator('#reportWeekFilter .report-week-label');
+const period = page => page.locator('#reportPeriodPick [data-report-period]');
+// BIZ-위쪽정돈(11/09): 건수는 › 뒤로 나가 label 옆 .report-week-count로 갔으므로 이 시험의 '라벨'은 주 줄 전체(‹ 날짜 › · n건)다.
+const label = page => page.locator('#reportWeekFilter .report-week-nav');
 const kindNamesIn = page => page.locator('#meetingList .mcol-kinds .mcol-name, #meetingList .meeting-list-title h3');
 const daysAgo = n => seoulKey(new Date(Date.now() - n * 86400000));
 
@@ -86,7 +87,7 @@ for (const width of [1440, 390]) test(`${width}: 기간 한 줄 — 기본은 �
   await expect(period(page).locator('option:not([hidden])')).toHaveText(['이번 주', '전체 기간', '기간 정하기']);
   await expect(period(page)).toHaveValue('week');
   await expect(chip(page, 'prev')).toBeVisible();
-  const tops = await page.locator('#reportWeekFilter .report-week-nav > *, #reportWeekFilter [data-report-period]').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
+  const tops = await page.locator('#reportWeekFilter .report-week-nav > *').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
   await period(page).selectOption('all');
   await expect(period(page)).toHaveValue('all');

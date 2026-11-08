@@ -333,7 +333,7 @@
      같은 버튼(같은 창을 엶)의 모양만 바꾼다. 보이는 원 36px(버튼 자체), 누르는 범위 44px(::after, 앱의 다른 버튼과 같은 방식). 자판이 열리면 감춘다.
      위치는 이 규칙 하나가 정한다(화면 기준 fixed). 그래서 [+]를 품은 화면 칸(.view-panel)과 그 조상에는 transform·will-change·filter·contain처럼
      fixed의 기준을 칸으로 바꾸는 값을 두지 않는다. 자판이 열리면 숨는 규칙은 맨 아래 UI-자판가림 한 곳. */
-  #appView #calendarView .calendar-toolbar #newEventBtn,#appView #libraryView #newDocumentBtn,#appView #meetingsView #newMeetingBtn,#appView #diaryView #newDiaryBtn,#appView #ledgerView button.lb-add,#appView #pagesView .sp-root button.primary[data-sp-new]{
+  #appView #calendarView .calendar-toolbar #newEventBtn,#appView #libraryView #newDocumentBtn,#appView #diaryView #newDiaryBtn,#appView #ledgerView button.lb-add,#appView #pagesView .sp-root button.primary[data-sp-new]{
     position:fixed; z-index:28; right:calc(16px + (var(--kptu-touch-target,44px) - var(--ds-fab-size)) / 2 + env(safe-area-inset-right));
     bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom) + var(--ds-fab-gap) + (var(--kptu-touch-target,44px) - var(--ds-fab-size)) / 2);
     box-sizing:border-box; display:grid; place-items:center; width:var(--ds-fab-size); min-width:var(--ds-fab-size); height:var(--ds-fab-size); min-height:var(--ds-fab-size);
@@ -341,16 +341,16 @@
   }
   #appView #calendarView .calendar-toolbar #newEventBtn > *{ display:none; }
   /* + 는 글자 대신 선으로 그린 SVG 아이콘(8-9e-3): 글꼴 높이 때문에 위로 치우치지 않게 가로·세로 정가운데. 장식이라 낭독되지 않는다(이름은 aria-label). */
-  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new])::before{
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new])::before{
     content:""; position:absolute; inset:0; margin:auto; display:block; width:20px; height:20px; background:var(--kptu-on-primary);
     -webkit-mask:var(--ds-fab-plus) center / 20px 20px no-repeat; mask:var(--ds-fab-plus) center / 20px 20px no-repeat;
   }
-  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new])::after{
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new])::after{
     content:""; position:absolute; inset:calc((var(--ds-fab-size) - var(--kptu-touch-target,44px)) / 2); width:auto; height:auto; border-radius:50%;
   }
-  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new]):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new]):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
   /* 목록 마지막 줄이 [+]에 가리지 않게 아래 여백(누르는 범위 + 간격 + 여유). */
-  #appView :is(#projectsView,#libraryView,#meetingsView,#diaryView,#ledgerView,#pagesView).view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + var(--kptu-touch-target,44px) + var(--ds-fab-gap) + 16px + env(safe-area-inset-bottom))!important; }
+  #appView :is(#projectsView,#libraryView,#diaryView,#ledgerView,#pagesView).view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + var(--kptu-touch-target,44px) + var(--ds-fab-gap) + 16px + env(safe-area-inset-bottom))!important; }
   /* 일정은 달력 칸이 화면 아래까지 차도록 높이를 재므로(calendar-month-view.js) 여백 대신 기존 끝 여백(::after)을 탭·전환 줄만큼 둔다.
      S48-6: [+]는 전환 줄 안(아래 'UI-폰달력월보기 결정 6')이라 [+] 몫은 더하지 않는다 — 달력 아래끝이 전환 줄 바로 위(8px 띄움). */
   #appView #calendarView:not(.hidden)::after{ height:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + 8px); }
@@ -824,8 +824,7 @@
   html:has(:where(#appView #basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-list]:not([hidden]) .nv-switch)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   /* S51-28 LIB-화면정리: 자료실 묶기 알약(library-upload.css)도 아래 탭 바로 위라 동그란 [+]는 그 위로. 큰 제목(앱 머리 '자료실')은 없다. */
   html:has(:where(#appView #libraryView:not(.hidden) #libraryGroupBy)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
-  /* S52-22 TEAM-맨위한줄: 사업 보고 [목록|달력|사진](meeting-ui.css 자리)도 아래 탭 바로 위라 동그란 [+]는 그 위로. */
-  html:has(:where(#appView #meetingsView:not(.hidden) #reportViewFilter)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
+  /* BIZ-위쪽정돈(B안, 11/09): 사업 보고 [목록|달력|사진]은 맨 위 줄로 올라가 아래에 떠 있지 않다 — 이 화면은 --kptu-switch-dock을 올리지 않고 동그란 [+]도 없다(사업 보고만 예외). */
   html:has(#appView #libraryView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
   html:has(body.kptu-mobile-keyboard){ --kptu-switch-dock:0px; }
   /* 전체 화면 쓰기 창(ed-window.js)이 열려 있으면 전환 줄은 창 아래에 가려지므로 0(하단 탭도 숨음, topbar-actions.css S48-6b). */
@@ -1568,7 +1567,7 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
     .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev,
-    .biz-week,#appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold)>summary::before,
+    #appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold)>summary::before,
 .ps3-fold>.ps3-fold-summary::before,#appView #arsenalView .ars-sec summary::before,#appView #pagesView .sp-box-summary::before,
 .tl-status-group>summary span::before,.mrd-special-fold>summary h3::before,
 /* 이름 뒤 꺾쇠(::after) */
@@ -1580,7 +1579,7 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
     .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev,
-    .biz-week,#appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold)[open]>summary::before,
+    #appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold)[open]>summary::before,
 .ps3-fold[open]>.ps3-fold-summary::before,#appView #arsenalView .ars-sec[open] summary::before,#appView #pagesView .sp-box[open]>.sp-box-summary::before,
 .tl-status-group[open]>summary span::before,.mrd-special-fold[open]>summary h3::before,
 .ps3-fold[open]>summary:not(.ps3-fold-summary)::after,#appView #photosView .photos-tidy-row[open]>summary .photos-tidy-see::after{ transform:rotate(180deg); }
@@ -1620,7 +1619,7 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
    목록: 아래 탭, 동그란 [+], 빠른 입력(홈·정리함·할 일), 전환 줄([달력·할 일·업무일지·일기]), 긴 글 저장 줄, 사진 도구줄·빠른 넘김 막대, 되돌리기 알림, [파일] 전송 줄, 원문 고른 글 줄(S53-5 .hl-bar). */
 body.kptu-mobile-keyboard :is(
   .mobile-tabs,
-  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new]),
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new]),
   #appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick],
   #appView :is(.schedule-switch,.nv-switch),
   #appView #libraryView #libraryGroupBy,

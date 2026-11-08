@@ -1,0 +1,160 @@
+import { appOrigin } from './helpers/test-origin.mjs';
+import { test, expect } from '@playwright/test';
+import { enterLogin } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+
+// S54-21 BIZ-위쪽정돈(요청함 11/09 00:10~00:25, 시안 docs/design/mockups/biz-report-top.html B안, 명진 00:25 'B안'):
+// 사업 보고 위쪽은 세 줄 — ① [목록|달력|사진] ……… [녹음][+][⋯] ② [회의 ▾][사업영역 ▾][주 ▾] ③ ‹ 11.9(월)~11.15(일) › · n건.
+// 주 고르기는 이 화면에 하나, '이번 주 주간보고'는 늘 펼친 채 같은 주를 따르고, 아래에 떠 있는 보기 바꾸기·동그란 [+]는 없다.
+// (가짜 서버·가짜 보고는 report-period.spec.mjs와 같은 틀. 모든 이름·번호는 합성 값.)
+test.use({timezoneId: 'Asia/Seoul'});
+const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+const ID = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+const M1 = ID(901), M2 = ID(902), M3 = ID(903), M4 = ID(904), M5 = ID(905);
+const now = () => new Date().toISOString();
+const seoulKey = d => new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Seoul'}).format(d);
+
+function makeState() {
+  const at = new Date(Date.now()), today = at.toISOString();
+  const [y, mo] = seoulKey(at).split('-').map(Number);
+  const meeting = (id, title, kind, when) => ({id, workspace_id: 'workspace-1', title, series_name: title, round_no: null, meeting_at: when, activity_kind: kind, created_by: 'user-1', notes: '', decisions: '', transcript_text: '원문'});
+  const doc = (n, mid, name = `s${n}.jpg`) => ({id: ID(n), workspace_id: 'workspace-1', project_id: null, title: '사진 ' + n, file_name: name, mime_type: 'image/jpeg', category: '회의', tags: [], meeting_id: mid, file_id: 'drive-' + n, created_at: `2026-10-0${n % 9 + 1}T00:00:00Z`, document_date: '2026-10-20'});
+  const docs = [];
+  for (let k = 1; k <= 5; k++) docs.push(doc(10 + k, M1));
+  docs.push(doc(21, M2), doc(31, M5));
+  return {
+    year: y, month: mo - 1, photoCalls: [], meetingOpens: [], docs,
+    user: {id: 'user-1', email: 'owner@example.org', user_metadata: {display_name: '관리자'}},
+    workspace: {id: 'workspace-1', slug: 'team', name: '웹2'},
+    meetings: [meeting(M1, '○○ 대표자 회의', 'meeting', today), meeting(M2, '□□ 실무 회의', 'meeting', today), meeting(M3, '△△ 점검 회의', 'meeting', today),
+      meeting(M4, '지난 회의', 'meeting', new Date(Date.now() - 40 * 86400000).toISOString()), meeting(M5, '◇◇ 결의대회', 'struggle', today)]
+  };
+}
+
+async function mock(page, state) {
+  await page.route(`${SB}/**`, async route => {
+    const req = route.request(), url = new URL(req.url()), path = url.pathname;
+    const ok = data => route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(data ?? null)});
+    if (path === '/auth/v1/token') return ok({access_token: 'e2e-access', refresh_token: 'e2e-refresh', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: state.user});
+    if (path === '/auth/v1/user') return ok(state.user);
+    if (path === '/auth/v1/logout') return ok({});
+    if (path === '/functions/v1/library-files' && req.method() === 'GET') {
+      state.photoCalls.push({id: url.searchParams.get('document_id'), size: url.searchParams.get('size')});
+      return route.fulfill({status: 200, contentType: 'image/png', body: PNG});
+    }
+    if (path === '/functions/v1/google-calendar') return ok({connected: false, enabled: false, selected: [], calendars: [], events: [], eventColors: {}});
+    if (path.startsWith('/functions/v1/')) return ok({});
+    if (path.startsWith('/rest/v1/rpc/')) return ok(null);
+    if (path === '/rest/v1/app_workspace_members') return ok([{workspace_id: 'workspace-1', user_id: state.user.id, role: 'owner', workspace: state.workspace, created_at: now()}]);
+    if (path === '/rest/v1/app_workspaces') return ok([state.workspace]);
+    if (path === '/rest/v1/app_documents' && req.method() === 'GET') return ok(state.docs);
+    if (path === '/rest/v1/app_meetings' && req.method() === 'GET') {
+      const id = url.searchParams.get('id') || '';
+      if (!id || id.startsWith('in.(')) return ok(state.meetings);
+      state.meetingOpens.push(id);
+      return ok(state.meetings.filter(m => 'eq.' + m.id === id));
+    }
+    if (path === '/rest/v1/app_profiles') return ok([{user_id: state.user.id, display_name: '관리자'}]);
+    if (path.startsWith('/rest/v1/')) return ok([]);
+    return ok({});
+  });
+}
+
+async function open(page, state, width, prefsInitial = null, prefsOptions = {}) {
+  await page.setViewportSize({width, height: 900});
+  const prefs = await installViewPrefsServer(page, prefsInitial, prefsOptions);
+  await mock(page, state);
+  await page.goto(`${appOrigin}/app/?view=meetings`);
+  await enterLogin(page);
+  await signInWithSession(page, 'owner@example.org');
+  await page.waitForFunction(() => window.KPTUViewLoader?.isLoaded('meetings'));
+  await expect(page.locator('#reportViewFilter [data-filter-value]')).toHaveCount(3);
+  return prefs;
+}
+
+const mids = async (page, sel) => (await page.locator(sel).evaluateAll(els => els.filter(e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map(e => { const r = e.getBoundingClientRect(); return {mid: Math.round(r.top + r.height / 2), top: r.top, bottom: r.bottom, right: r.right, h: r.height}; })));
+for (const width of [390, 884, 1280]) test(`${width}: 위쪽 세 줄 · 주 고르기 하나 · 이번 주 주간보고 늘 펼침 · 떠 있는 버튼 없음`, async ({page}) => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  const state = makeState();
+  await open(page, state, width);
+  const vp = page.viewportSize();
+  // ① 첫 줄: 왼쪽 보기 바꾸기 [목록|달력|사진], 오른쪽 ⋯ (녹음·추가는 폰 아이콘 / 넓은 화면 글자 버튼). 모두 같은 가운데 높이.
+  const line1 = await mids(page, '#meetingsView .report-top-line > #reportViewFilter, #meetingsView .report-top-line .report-head-actions > :not([hidden])');
+  expect(line1.length).toBeGreaterThanOrEqual(2);
+  expect(Math.max(...line1.map(x => x.mid)) - Math.min(...line1.map(x => x.mid))).toBeLessThanOrEqual(3);
+  await expect(page.locator('#meetingsView .report-top-line #reportViewFilter [data-filter-value]')).toHaveCount(3);
+  await expect(page.locator('#meetingsView .report-top-line #newMeetingBtn')).toBeVisible();
+  await expect(page.locator('#meetingsView .report-top-line #reportMore')).toBeVisible();
+  // ② 둘째 줄: 종류(폰·폴드는 [회의 ▾] 상자, PC는 칩)·[사업영역 ▾]·[주 ▾]가 한 줄이고 첫 줄 아래다.
+  const kindSel = width < 1200 ? '#reportKindSelect' : '#reportKindFilter';
+  const line2 = await mids(page, `#meetingsView .report-kind-bar > ${kindSel}, #meetingsView .report-kind-bar > #reportAreaSelect, #meetingsView .report-kind-bar #reportPeriodPick select`);
+  expect(line2.length).toBeGreaterThanOrEqual(2);
+  expect(Math.max(...line2.map(x => x.mid)) - Math.min(...line2.map(x => x.mid))).toBeLessThanOrEqual(3);
+  expect(Math.min(...line2.map(x => x.top))).toBeGreaterThanOrEqual(Math.max(...line1.map(x => x.bottom)) - 1);
+  // 작은 버튼 상자 높이가 같다(고르기 상자끼리).
+  const selH = (await mids(page, '#meetingsView .report-kind-bar select.report-top-select')).map(x => Math.round(x.h));
+  expect(new Set(selH).size).toBe(1);
+  // ③ 셋째 줄: ‹ 11.9(월)~11.15(일) › · n건 — 둘째 줄 아래.
+  const nav = page.locator('#reportWeekFilter .report-week-nav');
+  await expect(nav.locator('.report-week-label')).toContainText(/\(월\)~.*\(일\)/);
+  await expect(nav.locator('.report-week-count')).toContainText(/· \d+건/);
+  const line3 = await mids(page, '#reportWeekFilter .report-week-nav > *');
+  expect(Math.max(...line3.map(x => x.mid)) - Math.min(...line3.map(x => x.mid))).toBeLessThanOrEqual(3);
+  expect(Math.min(...line3.map(x => x.top))).toBeGreaterThanOrEqual(Math.max(...line2.map(x => x.bottom)) - 1);
+  // 주 고르기는 이 화면에 하나(‹ › 짝 하나, 안쪽 [이번 주 ▾] 아닌 주 고르기 부품 없음).
+  await expect(page.locator('#meetingsView [data-report-week="prev"]')).toHaveCount(1);
+  await expect(page.locator('#meetingsView [data-report-week="next"]')).toHaveCount(1);
+  await expect(page.locator('#meetingsView .week-pick, #meetingsView [data-week-pick], #meetingsView [data-week-step]')).toHaveCount(0);
+  // '이번 주 주간보고'는 접는 칸이 아니라 늘 펼친 칸이다: summary·details 없음, 표가 바로 보인다.
+  const week = page.locator('#meetingsView #bizWeekBox');
+  await expect(week).toBeVisible();
+  expect(await week.evaluate(el => el.tagName.toLowerCase())).not.toBe('details');
+  await expect(week.locator(':scope > summary')).toHaveCount(0);
+  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
+  await expect(week.locator('[data-bp-paper]')).toContainText('1) 사업요약표');
+  // 위 주 고르기를 넘기면 이 칸도 같은 주를 보여 준다(이름이 그 주로 바뀐다).
+  const label = page.locator('#reportWeekFilter .report-week-label');
+  const before = (await label.textContent()).trim();
+  await page.locator('#reportWeekFilter [data-report-week="prev"]').click();
+  const after = (await label.textContent()).trim();
+  expect(after).not.toBe(before);
+  const dayOf = t => t.match(/(\d+)\.(\d+)/).slice(1).map(Number).join('.');
+  await expect(week.locator('.biz-week-title')).toContainText(dayOf(after));
+  await page.locator('#reportWeekFilter [data-report-week="next"]').click();
+  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
+  // 떠 있는(position:fixed) 버튼이 사업 보고 화면에 없다: 보기 바꾸기·[+]는 첫 줄 안, 화면 아래 절반에 없다.
+  const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button, #reportViewFilter')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
+  expect(floating).toEqual([]);
+  const seg = await page.locator('#reportViewFilter').boundingBox(), add = await page.locator('#newMeetingBtn').boundingBox();
+  expect(seg.y).toBeLessThan(vp.height / 3); expect(add.y).toBeLessThan(vp.height / 3);
+  // 옆으로 넘치지 않는다.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
+  expect(errors).toEqual([]);
+  if (process.env.SHOT_DIR) await page.screenshot({path: `${process.env.SHOT_DIR}/biz-top-${width}.png`});
+});
+
+test('390: 달력·사진 보기에서도 위 두 줄은 그대로고 기간 줄만 빠지며, 보기를 바꿔도 아래에 떠 있는 것이 없다', async ({page}) => {
+  const state = makeState();
+  await open(page, state, 390);
+  await page.locator('#reportViewFilter [data-filter-value="calendar"]').click();
+  await expect(page.locator('#reportViewFilter [data-filter-value="calendar"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#meetingsView .report-week-bar')).toBeHidden();
+  await expect(page.locator('#meetingsView #reportPeriodPick select')).toHaveCount(0);
+  const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button, #reportViewFilter')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
+  expect(floating).toEqual([]);
+  await page.locator('#reportViewFilter [data-filter-value="list"]').click();
+  await expect(page.locator('#reportPeriodPick select')).toBeVisible();
+});
+
+test('390: 추가 +를 누르면 사업 보고 등록 창이 열리고, 작은 아이콘(글자 없음)이다', async ({page}) => {
+  const state = makeState();
+  await open(page, state, 390);
+  const add = page.locator('#newMeetingBtn');
+  const box = await add.boundingBox();
+  expect(box.width).toBeLessThanOrEqual(34); expect(box.height).toBeLessThanOrEqual(34);
+  await expect(add).toHaveAttribute('aria-label', '사업 보고 등록');
+  await add.click();
+  await expect(page.locator('#meetingModal')).toBeVisible();
+});

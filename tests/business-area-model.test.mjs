@@ -76,10 +76,12 @@ test('화면 연결: 쓰기 창·고치기 창·보기 면·미리보기·⋯ �
   // WEEKLY-메뉴짝짓기 P5: 미리보기 팝업 → 사업 보고 위 접는 칸 '이번 주 주간보고'. ⋯ 메뉴에는 사업영역 관리만.
   assert.match(team, /render:\(\)=>'<button type="button" data-report-areas>사업영역 관리<\/button>'/);
   assert.doesNotMatch(team, /data-report-preview/);
-  assert.match(html, /<details id="bizWeekBox" class="biz-week" hidden><summary>이번 주 주간보고<\/summary>/);
+  // BIZ-위쪽정돈(B안, 11/09): 접는 칸(details·summary)이 아니라 늘 펼친 칸. 바뀐 동작이라 기대를 새로 쓴다(지우지 않음).
+  assert.match(html, /<section id="bizWeekBox" class="biz-week" aria-label="이번 주 주간보고" hidden><h3 class="biz-week-title">이번 주 주간보고<\/h3>/);
+  assert.doesNotMatch(html, /<details id="bizWeekBox"/);
   assert.match(team, /createAnchoredMenu\(\{id:'reportMoreMenu',className:'topline-add-menu report-more-menu'/);
   assert.match(team, /activity_kind:entryKind\(\),project_id:projectId,\.\.\.areaBody,/);
-  assert.match(team, /m\.mountWeekSummary\(el,\{meetings:\(\)=>meetings\}\)/);
+  assert.match(team, /m\.mountWeekSummary\(el,\{meetings:\(\)=>meetings,week\}\)/);
   assert.match(mrd, /id="mrdEditArea"/); assert.match(mrd, /id="mrdAreaView"/);
   assert.match(mrd, /Object\.assign\(body,await \(mrdAreaFields\?\.body\(\{only:true\}\)/);
   // [할 일로]는 기존 할 일 만들기 길(google-tasks create)만 쓴다(기기 저장 금지는 audit 검사가 본다).

@@ -111,9 +111,11 @@ for(const width of [390,1440]){
     });
     test('meeting list card keeps filter and opens the same form',async({page})=>{
       await openApp(page,'meetings');
-      // UI-선택표시통일: 폰은 다른 탭과 같은 동그란 [+](하단 탭 위). S52-22 TEAM-맨위한줄: PC는 맨 위 한 줄 오른쪽 [녹음][+ 사업 보고][⋯] 안.
-      if(width===390)await assertFloating(page,'#newMeetingBtn');
-      else{const bar=page.locator('#meetingsView .report-kind-bar');await expect(bar.locator('#newMeetingBtn')).toBeVisible();const [b,btn,more]=await Promise.all([bar.boundingBox(),bar.locator('#newMeetingBtn').boundingBox(),page.locator('#reportMore').boundingBox()]);
+      // BIZ-위쪽정돈(B안, 11/09, 사업 보고만 예외): 폰도 다른 탭의 동그란 [+](하단 탭 위)가 아니라 맨 위 줄 오른쪽 작은 아이콘 [+]다(떠 있지 않음).
+      // 모든 너비에서 맨 위 줄 .report-top-line 안 [녹음][+][⋯]이고 ⋯가 줄 끝이다(이전: 폰 동그란 [+], PC는 report-kind-bar 안).
+      {const bar=page.locator('#meetingsView .report-top-line');await expect(bar.locator('#newMeetingBtn')).toBeVisible();
+        expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
+        const [b,btn,more]=await Promise.all([bar.boundingBox(),bar.locator('#newMeetingBtn').boundingBox(),page.locator('#reportMore').boundingBox()]);
         expect(btn.x+btn.width).toBeLessThanOrEqual(more.x);expect(more.x+more.width).toBeCloseTo(b.x+b.width,0);expect(btn.y+btn.height/2).toBeCloseTo(b.y+b.height/2,0)}
       // MEET-결과정리 ⑤: PC(≥1024)는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록, 폰은 지금 회의명 필터.
       // S52-22 TEAM-맨위한줄: 폰의 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음이다.
