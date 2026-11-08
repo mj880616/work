@@ -972,7 +972,7 @@ class MainActivity : ComponentActivity() {
             val edit = Intent(plan.action).setDataAndType(uri, plan.mime).addFlags(plan.flags)
             edit.clipData = android.content.ClipData.newRawUri("", uri)
             plan.pkg?.let { edit.setPackage(it) }
-            return if (plan.chooser) Intent.createChooser(edit, "편집할 앱").addFlags(plan.flags) else edit
+            return if (plan.chooser) Intent.createChooser(edit, "수정할 앱").addFlags(plan.flags) else edit
         }
         editGen = PhoneMedia.generation(this).let { if (it == EDIT_IDLE) -1L else it }
         editReturned = false

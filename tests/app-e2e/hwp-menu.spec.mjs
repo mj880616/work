@@ -148,7 +148,7 @@ test('leaving with unsaved edits asks first; a downloaded file leaves without as
   // HWP-화면가득: 폰은 [✕](= 뒤로가기)로 이전 화면. 저장 안 한 내용이 있으면 한 번 묻는다.
   await page.locator('#hwpLabClose').click();
   await expect.poll(()=>asked.length).toBe(1);
-  expect(asked[0]).toContain('저장하지 않은 고친 내용');
+  expect(asked[0]).toContain('저장하지 않은 수정 내용');
   await expect(page.locator('#hwpView')).toBeVisible();
 
   const [file]=await Promise.all([page.waitForEvent('download'),hwpPress(page,'hwpLabSave')]);

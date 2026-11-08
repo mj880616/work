@@ -213,7 +213,7 @@ for (const width of [390, 1280]) {
   });
 }
 
-test('연결 전: 한 줄 안내 → 연결 버튼은 마이크로소프트 로그인으로, 돌아오면 폴더를 고르고, 연결 끊기는 확인 뒤', async ({ page }) => {
+test('연결 전: 한 줄 안내 → 연결 버튼은 마이크로소프트 로그인으로, 돌아오면 폴더를 선택하고, 연결 끊기는 확인 뒤', async ({ page }) => {
   const f = await fixture(page, { status: { configured: true, connected: false, folder: null, can_delete: false }, days: {} });
   await page.route('https://login.microsoftonline.com/**', r => r.fulfill({ contentType: 'text/html', body: '<p>ms</p>' }));
   await openDiary(page, 390);
@@ -230,7 +230,7 @@ test('연결 전: 한 줄 안내 → 연결 버튼은 마이크로소프트 로�
   expect(f.edge.some(b => b.action === 'auth-start')).toBe(true);
   // 돌아오는 페이지: 코드를 # 뒤로 옮겨 일기로 보낸다.
   await page.goto(`${testOrigin}/app/onedrive-return.html?code=abc12345&state=s.t`);
-  await expect(page.locator('#diaryRoot [data-diary-od]')).toContainText('연결됐어요. 사진을 읽을 폴더를 골라 주세요.');
+  await expect(page.locator('#diaryRoot [data-diary-od]')).toContainText('연결됐어요. 사진을 읽을 폴더를 선택해 주세요.');
   expect(f.edge.find(b => b.action === 'auth-finish')).toEqual({ action: 'auth-finish', code: 'abc12345', state: 's.t' });
   expect(new URL(page.url()).hash).toBe('');
   const panel = page.locator('#diaryRoot [data-diary-od]');

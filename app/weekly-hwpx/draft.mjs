@@ -64,7 +64,7 @@ export function hwpKind(bytes) {
 export function engineReason(error) {
   const text = String(error?.message ?? error ?? '');
   if (/timeout|시간/i.test(text)) return '시간 초과';
-  if (/편집기|Editor|initiali|불러오지|connect|destroyed/i.test(text)) return '변환기를 불러오지 못함';
+  if (/편집기|HWP 편집|Editor|initiali|불러오지|connect|destroyed/i.test(text)) return '변환기를 불러오지 못함';
   return '파일을 열지 못함';
 }
 // HWP 5 FileHeader(256바이트: 서명 32 + 판 4 + 속성 4 …). 속성 비트 1 = 암호, 비트 2 = 배포용. 읽지 못하면 null(그래도 엔진에 맡김).

@@ -1,4 +1,4 @@
-// APP-당겨서새로고침: 폰 앱 당겨서 새로고침을 켜고 끄는 웹 쪽(app/phone-pull-refresh.js).
+// APP-당겨서새로고침: 폰 앱 당겨서 최신화를 켜고 끄는 웹 쪽(app/phone-pull-refresh.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';

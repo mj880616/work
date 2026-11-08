@@ -113,7 +113,7 @@ class OneWidget : AppWidgetProvider() {
             if (action == null) {
                 // 고르지 않은 채 놓였으면(설정 창을 건너뛴 홈 화면) 누르면 고르기 창을 연다.
                 views.setImageViewResource(R.id.one_icon, R.drawable.ic_w_update)
-                views.setTextViewText(R.id.one_label, "고르기")
+                views.setTextViewText(R.id.one_label, "선택")
                 val pick = Intent(context, OneWidgetConfigActivity::class.java)
                     .setAction(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
                     .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)

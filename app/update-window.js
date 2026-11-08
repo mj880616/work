@@ -22,7 +22,7 @@ function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
   box.textContent = message; kptuHoldToast(box);
 }
-export const savedMessage = saved => saved.places?.length || saved.place ? `${saved.name || '고른 곳'} 기록에 저장했어요.` : '잊지 말기에 저장했어요.';
+export const savedMessage = saved => saved.places?.length || saved.place ? `${saved.name || '선택한 곳'} 기록에 저장했어요.` : '잊지 말기에 저장했어요.';
 let sheet = null, active = null;
 function placeSheet() {
   sheet ||= createChoiceSheet({id:'edwPlaceSheet', titleId:'edwPlaceSheetTitle', historyKey:'kptuEdwPlace',
@@ -76,13 +76,13 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
     },
     toggle(value) {
       const next = togglePlace(state.pending, value);
-      if (next) state.pending = next; else say(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`);
+      if (next) state.pending = next; else say(`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`);
     },
     choose() { state.chosen = [...state.pending]; onPlace(state.chosen); paint(); say(state.chosen.length ? `${name()} 기록에 저장돼요.` : '잊지 말기에 저장돼요.'); },
   };
   const name = () => placesLabel(state.places, state.chosen, p => ownPlace && samePlace(p, ownPlace) ? own.name || '' : '');
   function paint() {
-    const label = state.chosen.length ? name() || '고른 곳' : '잊지 말기(미분류)';
+    const label = state.chosen.length ? name() || '선택한 곳' : '잊지 말기(미분류)';
     head.button.textContent = label + ' ▾'; head.button.title = '기록할 곳: ' + label;
     head.button.setAttribute('aria-label', state.chosen.length && name() ? '기록할 곳 선택: ' + name() : '기록할 곳 선택');
   }

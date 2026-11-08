@@ -30,17 +30,17 @@ test('twinPlan은 토글마다 따로(다른 폴더의 같은 제목은 묶지 �
   assert.deepEqual(plan.get('w'),{primary:'p',members:['p','w'],isPrimary:false});
   assert.equal(plan.get('p').isPrimary,true);
 });
-test('접힌 대표 줄을 고르면 같은 글도 함께, 펼친 묶음은 줄마다',()=>{
+test('접힌 대표 줄을 선택하면 같은 글도 함께, 펼친 묶음은 줄마다',()=>{
   const plan=twinPlan([{files:[doc('w','가상','a.html'),doc('p','가상','a.pdf'),doc('z','다른','z.pdf')],children:[]}]);
   assert.deepEqual(withTwins(['p','z'],plan),['p','w','z']);
   assert.deepEqual(withTwins(['p'],plan,id=>id==='p'),['p']);
   assert.deepEqual(withTwins(['w'],plan),['w']);
 });
-test('고른 개수 글자: 접힌 것이 있을 때만 "접힌 n개 포함"',()=>{
-  assert.equal(pickCountText(3,0),'3개 골랐음');
-  assert.equal(pickCountText(37,27),'37개 골랐음 — 접힌 27개 포함');
+test('선택한 개수 글자: 접힌 것이 있을 때만 "접힌 n개 포함"',()=>{
+  assert.equal(pickCountText(3,0),'3개 선택했음');
+  assert.equal(pickCountText(37,27),'37개 선택했음 — 접힌 27개 포함');
 });
-test('자료실 화면이 이 규칙을 쓰고 자료 행은 지우지 않는다(화면에서만 묶음)',()=>{
+test('자료실 화면이 이 규칙을 쓰고 자료 행은 삭제하지 않는다(화면에서만 묶음)',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
   assert.match(src,/luTwins=twinPlan\(shown\)/);
   assert.match(src,/pickCountText\(/);

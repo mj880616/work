@@ -596,10 +596,10 @@ function gsRowMenu() {
     render: key => {
       const host = resultsHost(key), docs = docKeys(host), notes = noteKeys(host);
       if (isNoteDoc(key)) {
-        return `<button type="button" data-gs-act="note-move">폴더로 옮기기 ›</button>${notes.length > 1 ? `<button type="button" data-gs-act="note-all">노트 결과 ${notes.length}개 폴더로 옮기기 ›</button>` : ''}${docs.length ? `<button type="button" data-gs-act="all">자료실 결과 ${docs.length}개 모두 고르기</button>` : ''}<button type="button" data-gs-act="open">열기</button>`;
+        return `<button type="button" data-gs-act="note-move">폴더로 옮기기 ›</button>${notes.length > 1 ? `<button type="button" data-gs-act="note-all">노트 결과 ${notes.length}개 폴더로 옮기기 ›</button>` : ''}${docs.length ? `<button type="button" data-gs-act="all">자료실 결과 ${docs.length}개 모두 선택</button>` : ''}<button type="button" data-gs-act="open">열기</button>`;
       }
       // 빠짐11: 자료실 자료도 검색 결과 안에서 바로 폴더로(자료실 화면으로 넘어가지 않음) — 이 자료 하나, 또는 자료실 결과 모두.
-      return `<button type="button" data-gs-act="pick">선택</button><button type="button" data-gs-act="doc-move">폴더로 옮기기 ›</button>${docs.length > 1 ? `<button type="button" data-gs-act="doc-all">자료실 결과 ${docs.length}개 폴더로 옮기기 ›</button><button type="button" data-gs-act="all">자료실 결과 ${docs.length}개 모두 고르기</button>` : ''}<button type="button" data-gs-act="open">열기</button>`;
+      return `<button type="button" data-gs-act="pick">선택</button><button type="button" data-gs-act="doc-move">폴더로 옮기기 ›</button>${docs.length > 1 ? `<button type="button" data-gs-act="doc-all">자료실 결과 ${docs.length}개 폴더로 옮기기 ›</button><button type="button" data-gs-act="all">자료실 결과 ${docs.length}개 모두 선택</button>` : ''}<button type="button" data-gs-act="open">열기</button>`;
     },
     onAction: (button, active) => {
       const act = button.dataset.gsAct, option = active.trigger, item = rowsByKey.get(active.id);

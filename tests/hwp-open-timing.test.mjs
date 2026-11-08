@@ -9,10 +9,10 @@ test('3초 안에 열리면 시간 글을 붙이지 않는다', () => {
   assert.equal(openTimingText({}), '');
 });
 test('오래 걸리면 단계별 초와 전체 초를 보인다', () => {
-  assert.equal(openTimingText({file: 1200, editor: 45000, load: 2500, total: 48000}), ' (걸린 시간: 파일 1.2초 · 편집기 45.0초 · 펼침 2.5초 · 전체 48.0초)');
+  assert.equal(openTimingText({file: 1200, editor: 45000, load: 2500, total: 48000}), ' (걸린 시간: 파일 1.2초 · HWP 편집 45.0초 · 펼침 2.5초 · 전체 48.0초)');
 });
 test('빠진 단계는 건너뛴다', () => {
-  assert.equal(openTimingText({editor: 4000, total: 4200}), ' (걸린 시간: 편집기 4.0초 · 전체 4.2초)');
+  assert.equal(openTimingText({editor: 4000, total: 4200}), ' (걸린 시간: HWP 편집 4.0초 · 전체 4.2초)');
 });
 test('자료실 검색 결과 모두 고르기 버튼이 검색칸 옆에 연결돼 있다', () => {
   const js = readFileSync(new URL('../app/library-upload.js', import.meta.url), 'utf8');

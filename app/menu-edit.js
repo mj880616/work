@@ -61,7 +61,7 @@ export function openMenuEdit({trigger} = {}) {
         const id = (hide || show).dataset.menuEditHide || (hide || show).dataset.menuEditShow;
         const r = (hide ? hideItem : showItem)(window.KPTUMenuLayout.current(), id);
         if (r.ok && r.changed !== false) window.KPTUMenuLayout.setLayout(r.layout);
-        note = hide ? `${itemOf(id)?.label}을(를) 숨겼어요. 메뉴 편집에서 다시 꺼낼 수 있어요.` : `${itemOf(id)?.label}을(를) 위 메뉴로 꺼냈어요.`;
+        note = hide ? `${itemOf(id)?.label}을(를) 숨겼어요. 메뉴 수정에서 다시 꺼낼 수 있어요.` : `${itemOf(id)?.label}을(를) 위 메뉴로 꺼냈어요.`;
         paint(id); return;
       }
       if (event.target.closest('[data-menu-edit-reset]')) { window.KPTUMenuLayout.resetLayout(); note = '처음 순서로 되돌렸어요.'; paint(); }

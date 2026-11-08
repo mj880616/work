@@ -98,7 +98,7 @@ export async function readWorkDay(day, rt = window.KPTURuntime) {
 function locate(lines, index, before) {
   if (lines[index] === before) return index;
   const found = lines.indexOf(before);
-  if (found < 0) throw Object.assign(new Error('이 줄이 그사이 바뀌거나 지워졌어요. 다시 불러온 목록에서 확인해 주세요.'), {code:'line_missing'});
+  if (found < 0) throw Object.assign(new Error('이 줄이 그사이 바뀌거나 삭제됐어요. 다시 불러온 목록에서 확인해 주세요.'), {code:'line_missing'});
   return found;
 }
 export const addLine = text => lines => [...lines, validateWorkLine(text)];

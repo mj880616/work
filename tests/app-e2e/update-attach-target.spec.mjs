@@ -139,7 +139,7 @@ test('연결이 거절되면 업데이트·파일은 정리함에 남고 안내,
  await q.locator('[data-quick-input]').fill('거절될 기록');await choose(q,'파일.txt');
  await q.locator('[data-quick-org]').click();await org(page,'시험지부').click();await save(page).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
- await expect(q.locator('[data-quick-status]')).toContainText('고른 곳에 연결하지 못했어요');
+ await expect(q.locator('[data-quick-status]')).toContainText('선택한 곳에 연결하지 못했어요');
  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
  expect(f.uploads).toHaveLength(1);expect(f.links).toHaveLength(1);
  await expect(q).toHaveAttribute('data-mode','basket');await expect(fileRows(q)).toHaveCount(0);
