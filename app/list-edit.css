@@ -18,6 +18,8 @@ button.le-name:hover{background:var(--kptu-surface-subtle)}
 .le-sub .le-name{font-size:13px}
 .le-sub .le-name::before{content:"└ ";color:var(--kptu-muted)}
 .le-meta{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* S53-16: 주간보고 환류에 쓰는 분류 표시(분류 고치기). 작은 글자 꼬리표 하나, 눌리지 않음 */
+.le-role{flex:none;font-size:var(--ds-text-meta,12px);line-height:1.2;padding:0 4px;border:1px solid var(--kptu-border);border-radius:3px;color:var(--kptu-muted);white-space:nowrap}
 .le-tag{flex:none;padding:1px 6px;font-size:11px;color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-radius:var(--kptu-radius-pill,999px)}
 .le-more{position:relative;flex:none;width:var(--ds-compact-height-sm,28px);height:var(--ds-compact-height-sm,28px);min-height:0;margin:0 0 0 auto;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:13px;line-height:1;cursor:pointer}
 .le-more::after{content:"";position:absolute;inset:calc((var(--ds-compact-height-sm,28px) - var(--kptu-touch-target,44px)) / 2)}

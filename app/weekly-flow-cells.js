@@ -242,7 +242,7 @@ export function paintFlowCells(slot, ctx) {
     const theirs = team?.get(c.id);
     if (theirs && theirs.map(strip).filter(Boolean).join('\n') !== c.lines.map(strip).filter(Boolean).join('\n')) {
       const fold = el('details', 'journal-hwpx-team-fold weekly-flow-team'); fold.dataset.flowTeam = c.id;
-      const mark = el('summary', 'journal-exec-carried', '확정본에서 바뀜'); mark.title = `팀 확정본${ctx.teamTitle ? `(${ctx.teamTitle})` : ''}에서 이 칸 글이 달라요`;
+      const mark = el('summary', 'journal-exec-carried', '팀 확정본에서 바뀜'); mark.title = `팀 확정본${ctx.teamTitle ? `(${ctx.teamTitle})` : ''}에서 이 칸 글이 달라요`;
       const use = btn('이 글로 바꾸기', {flowTeamUse:c.id}); use.disabled = busy;
       fold.append(mark, el('p', 'journal-muted', theirs.join(' / ') || '(빈 칸)'), use);
       box.append(fold);
