@@ -161,12 +161,12 @@ const mainBox = root?.querySelector('#nowMain'), detailBox = root?.querySelector
 function describe(type, row) {
   if (type === 'news') {
     const v = itemView(row || {});
-    return {meta: [v.publisher, tagLabel(newsTag(row)) || '기사', dateText(row?.published_at || row?.created_at)], title: v.title, origTitle: v.origTitle, titleLang: v.titleLang, lang: row?.lang || 'ko', url: v.url};
+    return {meta: [v.publisher, tagLabel(newsTag(row)) || '기사', dateText(row?.published_at || row?.created_at)], title: v.title, origTitle: v.origTitle, titleLang: v.titleLang, lang: row?.lang || 'ko', url: v.url, at: row?.published_at || row?.created_at || null};
   }
   const v = postView(row || {}), tag = postTag(row || {});
   // 꼬리 줄 = 매체 · 분류(성명은 글 종류 그대로, 국제는 '국제 · 종류') · 날짜 · 글쓴이(있을 때만).
   const kind = tag === 'intl' ? `${tagLabel(tag)} · ${v.kind}` : (tag && tag !== 'statement' ? tagLabel(tag) : v.kind);
-  return {meta: [nameOf(row?.source_key), kind, dateText(row?.published_at), typeof row?.author === 'string' ? row.author.trim().slice(0, 60) : ''], title: v.title, origTitle: v.origTitle, titleLang: row?.lang === 'en' && !row?.title_ko ? 'en' : '', lang: row?.lang || 'ko', url: v.url};
+  return {meta: [nameOf(row?.source_key), kind, dateText(row?.published_at), typeof row?.author === 'string' ? row.author.trim().slice(0, 60) : ''], title: v.title, origTitle: v.origTitle, titleLang: row?.lang === 'en' && !row?.title_ko ? 'en' : '', lang: row?.lang || 'ko', url: v.url, at: row?.published_at || row?.fetched_at || null};
 }
 // 줄 하나(세 목록 공통 모양 news-row.mjs). 사회운동 글·언론 기사 → 그릴 값.
 function rowOf(type, row, {openAttr, rowAttr, acts = '', star = false} = {}) {

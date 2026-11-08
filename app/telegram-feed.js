@@ -21,6 +21,7 @@ import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {copyText} from './copy-text.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 import {askConfirm} from './small-notice.js';
+import {bindSelectZone} from './text-select-bar.js';
 import {buildIndex, rawRows, peopleRows, chipsOf, cleanName, linkKey, dayShort, NAME_ERROR_TEXT, SENDER_FAIL_TEXT, MERGE_NOTE, MERGE_BOTH_KEYED} from './tg-sender-model.mjs';
 import {readSenders, setSenderName, mergeSenders, forgetSender, setSenderSelf} from './tg-sender-data.js';
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
@@ -62,6 +63,9 @@ function install() {
   $('#appView')?.insertAdjacentHTML('beforeend', `<section id="telegramView" class="view-panel feed-view hidden" aria-labelledby="tgTitle"><h2 id="tgTitle" class="a11y-only">텔레그램 소식</h2><div class="feed-split" id="tgSplit"><div class="feed-list" id="tgList"></div><section class="feed-pane" id="tgDetail" aria-label="텔레그램 방 상세"></section></div></section>`);
 }
 install();
+// S53-5 NEWS-밑줄모으기: 소식 원문([data-tg-raw])에서 글을 고르면(끌기·⋯ [원문 모두 선택]) 하단바 위 공용 줄 [복사][공유] ✕(text-select-bar.js). 출처 = 방 이름·시각.
+const tgSource = el => { const r = itemOf(el.closest('[data-tg-di]')?.dataset.tgDi || ''); return r ? {type:'telegram', id:r.id, title:oneLineOf(r.room_label) || '텔레그램', media:'텔레그램', date:r.occurred_at || null, url:''} : null; };
+bindSelectZone($('#telegramView'), {zone:'[data-tg-raw]', source:tgSource});
 const view = () => $('#telegramView');
 const itemOf = id => { for (const d of state.dcache.values()) { const r = d.items?.find(x => x.id === id); if (r) return r; } return state.pins.find(r => r.id === id) || state.trashed.find(r => r.id === id) || null; };
 const lineAt = (room, day) => state.lines.find(l => l.room_key === room && l.day === day) || state.pinLines.find(l => l.room_key === room && l.day === day) || null;

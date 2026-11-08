@@ -409,3 +409,10 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
    아래 여백 당김(감싼 칸들의 아래 여백이 아래 바 자리보다 많으면 그만큼, 화면이 더 길어지지 않게)은 gesture-fill.js가 잰다.
    늘어난 칸 안의 줄은 위에 붙는다(격자 칸이 줄 사이를 벌리지 않게). */
 .gesture-fill{align-content:start}
+/* S53-5 NEWS-밑줄모으기: 원문에서 글을 고르면 하단바 위에 뜨는 줄(app/text-select-bar.js). 버튼은 공용 고르기 줄(.kptu-actbar-text). 저장한 밑줄은 노란 바탕(.hl-mark). */
+.hl-bar{position:fixed;left:50%;transform:translateX(-50%);z-index:60;box-sizing:border-box;width:min(calc(100vw - 16px),480px);bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + 8px);display:flex;align-items:center;gap:4px;padding:3px 6px;border:var(--ds-line-width,1px) solid var(--kptu-border-strong,var(--kptu-border));border-radius:var(--kptu-radius-md,10px);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float,none);font-size:13px}
+.hl-bar[hidden]{display:none}
+.hl-bar-label{flex:0 0 auto;font-size:12px;color:var(--kptu-muted)}
+.hl-bar-close{flex:0 0 auto;min-height:28px;padding:0 6px;border:0;background:transparent;color:inherit;font:inherit;opacity:.7;cursor:pointer}
+mark.hl-mark{background:var(--kptu-warning-soft,#f6e7a6);color:inherit;border-radius:2px;cursor:pointer;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+mark.hl-mark:focus-visible{outline:2px solid currentColor;outline-offset:1px}
