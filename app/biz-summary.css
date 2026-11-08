@@ -1,4 +1,4 @@
-/* ORG/BIZ-기록하나로 B-3 ②: 사업요약표 부품(weekly-summary-table.js) 모양 한 곳 — 사업 보고 '이번 주 주간보고'·홈 [주간 정리] 2. 1)·업무일지 '이번 주 보고'가 같이 부른다(meeting-ui.css에서 옮김). */
+/* ORG/BIZ-기록하나로 B-3 ②: 사업요약표 부품(weekly-summary-table.js) 모양 한 곳 — 사업 보고 '이번 주 주간보고'·홈 [주간 정리] 2. 1)가 같이 부른다(meeting-ui.css에서 옮김). */
 .biz-paper{max-width:794px;margin:0 auto;padding:24px 28px;background:var(--kptu-surface);border:1px solid var(--kptu-border);font-size:13px;line-height:1.5}
 .biz-paper h3{font-size:14px;margin:12px 0 6px}
 .biz-sum-table{width:100%;border-collapse:collapse;table-layout:fixed}
@@ -29,7 +29,7 @@
 .biz-rec-list .biz-cell-line{color:inherit}
 .biz-rec-line{margin:0;padding:1px 0;overflow-wrap:anywhere}
 .biz-now-foot{margin-top:2px}
-/* 홈·업무일지 안의 1) 표만(createBizSummaryBox): 종이 테두리·여백 없이 표만, 좁으면 가로로 밀림. */
+/* 홈 안의 1) 표만(createBizSummaryBox): 종이 테두리·여백 없이 표만, 좁으면 가로로 밀림. */
 .biz-week-compact{min-width:0;overflow-x:auto}
 .biz-week-compact .biz-paper{max-width:none;margin:0;padding:0;border:0;background:transparent}
 .biz-week-compact .biz-week-status{margin:2px 0 0;font-size:12px;color:var(--kptu-muted)}

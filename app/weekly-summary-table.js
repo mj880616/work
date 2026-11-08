@@ -8,7 +8,7 @@ import {emptyHtml} from './wait-state.js';
 // - 2) 주요 사업·회의결과: 그 주 사업 보고 줄(날짜순). 내부 정례 회의와 내가 '늘 빼기'로 정한 종류는 journal-meeting-kinds.js reportsMeeting 한 곳으로 뺀다(주간 정리와 같음).
 //   한 줄 업데이트(칸 oneline)는 표 칸 맨 위, 세부 내용에는 넣지 않는다(MTG-한줄업데이트).
 // - 기기에 아무것도 저장하지 않는다. 글은 로그에 쓰지 않는다.
-// - ORG/BIZ-기록하나로 O-4 ②·B-3 ②(설계 docs/design/record-one.md 4절): 같은 부품을 홈 [주간 정리] 2. 1)과 업무일지 '이번 주 보고' 오른쪽 표가 함께 쓴다
+// - ORG/BIZ-기록하나로 O-4 ②·B-3 ②(설계 docs/design/record-one.md 4절): 같은 부품을 사업 보고와 홈 [주간 정리] 2. 1)이 함께 쓴다
 //   (createBizSummaryBox — 1) 사업요약표만). 어느 화면에서 지금 상황을 고쳐도 같은 자료(app_business_now)라 다른 화면 표도 다시 읽어 같은 글이 된다.
 //   부품 하나가 한 화면 상자의 상태 주인이고 그리는 곳도 그 하나다(화면마다 따로 만든 표 없음).
 import {previewRecords,weekOf,shiftDays,nextPlanLines,fullTable} from './business-area-model.mjs';
@@ -305,7 +305,7 @@ export function mountWeekSummary(el,{meetings,week}){
   if(!inst){inst=createBizSummary();boxes.set(el,inst)}
   inst.mount(el,{meetings,week});
 }
-// 홈 [주간 정리] 2. 1)·업무일지 '이번 주 보고' 오른쪽: 같은 부품의 1) 사업요약표만. el은 부품이 가진 상자 하나 — 화면이 다시 그려도 그 자리에 옮겨 붙인다
+// 홈 [주간 정리] 2. 1): 같은 부품의 1) 사업요약표만. el은 부품이 가진 상자 하나 — 화면이 다시 그려도 그 자리에 옮겨 붙인다
 // (다시 읽지 않고 쓰던 칸도 그대로). update({meetings, week}): meetings() = 그 화면이 이미 읽은 그 주 사업 보고(따로 읽지 않음).
 export function createBizSummaryBox(){
   const el=document.createElement('div');el.className='biz-week-box biz-week-compact';el.dataset.bizSummaryBox='';

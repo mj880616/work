@@ -21,18 +21,9 @@ async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFai
  if(!old){
   const set=page.clock.setFixedTime.bind(page.clock);page.clock.setFixedTime=()=>set(new Date(NOW));
  }
+ const f=await openHome(page,{beforeLoad:old?null:()=>page.route(u=>u.origin===SB&&u.pathname==='/auth/v1/token',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({access_token:'home-access',refresh_token:'home-refresh',expires_at:4102444800,user:{id:owner,email:'home@example.org'}})}))});
  const db={records:records.map(r=>({...r})),marks:marks.map(m=>({...m})),posts:[],markWrites:[],cal:[]};
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
- // O-4 ②: 홈 업무일지 '이번 주 보고'도 같은 창 부품이라 앱이 뜨자마자 일정을 읽고 5분 메모리에 둔다 → 가짜 일정 답은 앱이 뜨기 전에 건다.
- const calendar=()=>page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/google-calendar',route=>{
-  const q=new URL(route.request().url()).searchParams;
-  if(q.get('action')!=='events')return json(route,{connected:true,calendars:[]});
-  db.cal.push(q.get('timeMin')+'~'+q.get('timeMax'));
-  if(calFail)return json(route,{message:'calendar down'},502);
-  const from=Date.parse(q.get('timeMin')),to=Date.parse(q.get('timeMax'));
-  return json(route,{connected:true,events:events.filter(e=>{const t=Date.parse(`${e.start}T00:00:00+09:00`);return t>=from&&t<to})});
- });
- const f=await openHome(page,{beforeLoad:old?calendar:async()=>{await calendar();await page.route(u=>u.origin===SB&&u.pathname==='/auth/v1/token',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({access_token:'home-access',refresh_token:'home-refresh',expires_at:4102444800,user:{id:owner,email:'home@example.org'}})}))}});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return json(route,q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner})))});
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',async route=>{
@@ -56,6 +47,14 @@ async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFai
   if(route.request().method()!=='GET')return json(route,[]);
   const draft=order?{v:1,rows:[],titles:[],proposed:{at:'2026-11-16T00:00:00.000Z',cells:order.map(k=>({section:'orgs',key:k,n:0,lines:[]}))}}:null;
   return json(route,draft?[{id:'d1',draft,draft_saved_at:stamp}]:[]);
+ });
+ await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/google-calendar',route=>{
+  const q=new URL(route.request().url()).searchParams;
+  if(q.get('action')!=='events')return json(route,{connected:true,calendars:[]});
+  db.cal.push(q.get('timeMin')+'~'+q.get('timeMax'));
+  if(calFail)return json(route,{message:'calendar down'},502);
+  const from=Date.parse(q.get('timeMin')),to=Date.parse(q.get('timeMax'));
+  return json(route,{connected:true,events:events.filter(e=>{const t=Date.parse(`${e.start}T00:00:00+09:00`);return t>=from&&t<to})});
  });
  await page.route(SB+'/functions/v1/ai-assist',route=>json(route,{ok:true,kind:route.request().postDataJSON().kind,skipped:true}));
  return {f,db,errors};

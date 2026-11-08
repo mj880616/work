@@ -20,7 +20,7 @@ export function orderForReport(orgs, names, fallback = list => list) {
   }
   return [...placed, ...fallback(list.filter(o => !seen.has(o)))];
 }
-// 보고 표에 늘 나오는 내 담당조직 [{id(소문자), name}] — 홈 [주간 정리] 4.·업무일지 '이번 주 보고'가 같이 쓴다(한 곳).
+// 보고 표에 늘 나오는 내 담당조직 [{id(소문자), name}] — 홈 [주간 정리] 4.가 쓴다(순서 계산은 이 모듈 한 곳).
 // orgRead = 업무일지 조직 읽기 결과({orgs, mine: Set(조직 id) | null}), draft = 그 주 임시저장 draft(순서), sort = 앱 조직 순서(없으면 그대로).
 export function myReportOrgs(orgRead, draft, sort = null) {
   const all = orgRead?.orgs || [], mineSet = orgRead?.mine instanceof Set ? new Set([...orgRead.mine].map(x => String(x).toLowerCase())) : null;

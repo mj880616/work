@@ -54,7 +54,6 @@ import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {mountHomeSummary} from './home-summary.js';
 import {readAutoPromises} from './journal-ledger.js';
 import {RECORD_ONE_FROM} from './record-window-model.mjs'; // ORG/BIZ-기록하나로: 전환 주부터 보고 표 = 창 부품(옛 주는 옛 화면 그대로)
-import {myReportOrgs} from './weekly-org-order-model.mjs';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -428,43 +427,24 @@ function renderDay() {
   renderSchedule(card);
   renderTasks(card);
   const host = $('[data-journal-materials]');
-  // ORG/BIZ-기록하나로 O-4 ②·B-3 ②(JOURNAL-이번주보고표, 요청함 11/08 21:26): 전환 주(RECORD_ONE_FROM)부터 ④ 자리 = '이번 주 보고' 표 두 개
-  // (왼쪽 4. 조직보고 창 · 오른쪽 2. 사업요약 창, journal-week-report.js). 같은 자료라 담당조직 전체 표·사업 보고·[주간 정리]와 같은 글이 보인다.
-  // 그 앞 주(옛 보고)는 예전 주간보고 재료 그대로(창 부품도 옛 주는 읽기 전용 옛 표라 하루 재료가 더 쓸모 있음).
-  const report = isRecordWeek(start) ? weekReportBlock() : dayReportBlock(card);
+  // ORG/BIZ-기록하나로 O-4 ②(JOURNAL-이번주보고표 결정 11/09): 전환 주(RECORD_ONE_FROM)부터는 [하루]에 ④ 주간보고 재료를 그리지 않는다
+  // (보고는 [주간 정리]·담당조직 전체 표·사업 보고에서). 그 앞 주(옛 보고)는 예전 주간보고 재료 그대로.
+  const report = isRecordWeek(start) ? null : dayReportBlock(card);
   // JOURNAL-그밖의기록삭제(11/08): ⑤ 그 밖의 기록(자료실 새 자료·공유 페이지·기타 메모·참고·어디에도 안 보낸 업데이트)은 없앴다 — 모두 원래 자리가 있다.
   // LEDGER-자동기록: 그날 원장에 자동으로 기록된 약속이 있을 때만 한 줄(누르면 원장 화면의 약속 목록). 0건·못 읽음은 줄 없음.
   const promises = materials.ledgerPromises?.status === 'ok' ? materials.ledgerPromises.items.get(selected) || 0 : 0;
-  const blocks = [report];
+  const blocks = report ? [report] : [];
   if (promises > 0) {
     const line = document.createElement('p');
     line.className = 'journal-muted journal-ledger-line'; line.dataset.journalLedger = '';
     line.innerHTML = `<button type="button" class="journal-item-open" data-journal-ledger-open>새로 기록된 약속 ${promises}</button>`;
     blocks.unshift(line);
   }
-  if (blocks.some((b, i) => host.children[i] !== b) || host.children.length !== blocks.length) host.replaceChildren(...blocks);
+  host.replaceChildren(...blocks);
   fitAll(host); // UI-줄입력늘어나기: 고쳐서 넣을 한 줄 칸은 글 전체가 보이게
 }
 const isRecordWeek = week => !!week && week >= RECORD_ONE_FROM;
-// '이번 주 보고' 상자(마디 하나 — 다시 그려도 쓰던 칸·펼친 줄이 그대로). 부품은 처음 쓸 때 한 번 부른다(하루 첫 화면 받기와 겹치지 않게).
-let weekReport = null, weekReportFlight = null;
 const NO_MEETINGS = Object.freeze([]);
-function weekReportBlock() {
-  if (!weekReport) {
-    const wait = document.createElement('section'); wait.className = 'journal-week-report'; wait.dataset.journalWeekReport = ''; wait.dataset.journalWeekReportWait = '';
-    wait.innerHTML = `<h4 class="journal-heading journal-report-title">이번 주 보고</h4>${waitHtml({rows:2})}`;
-    weekReportFlight ||= appShown().then(() => import('./journal-week-report.js')).then(m => { // 앱 첫 화면이 보인 뒤에(첫 화면 받기와 겹치지 않게)
-      weekReport = m.createWeekReport({rt, openOrg:({org, record}, trigger) => void openOriginal({type:'org', org, record:record || null}, trigger)});
-      if (mode === 'day') renderDay();
-    }, error => { weekReportFlight = null; console.warn('week report load', error?.message || error); });
-    return wait;
-  }
-  const draftRead = materials.weekDraft?.status === 'ok' ? materials.weekDraft.items : null;
-  const orgs = materials.orgUpdates?.status === 'ok' ? myReportOrgs(materials.orgUpdates.items, draftRead && !draftRead.missing ? draftRead.row?.draft : null, window.KPTUOrganizationOrder?.sort ? l => window.KPTUOrganizationOrder.sort(l) : null) : [];
-  const meetings = materials.meetings?.status === 'ok' && Array.isArray(materials.meetings.items) ? materials.meetings.items : NO_MEETINGS;
-  weekReport.show({week:start, orgs, meetings:() => meetings});
-  return weekReport.el;
-}
 // ④ 주간보고 재료(옛 주): the three parts in the report's order; a part with nothing that day is not drawn.
 function dayReportBlock(card) {
   const report = document.createElement('section');
@@ -613,7 +593,7 @@ function paintWeekLines_() { if (lastWeekModel) redrawFlow(); }
 // ── ORG/BIZ-기록하나로 O-4 ②·B-3 ②(설계 docs/design/record-one.md 4절): 전환 주(RECORD_ONE_FROM)부터 [주간 정리]의 세 칸 ──
 // 4. 조직보고 = 담당조직 [전체 표]와 같은 조직보고 창(record-window-view.js), 3. 2) 투쟁 사업장 칸 안쪽 = 같은 창의 section 'site'(쟁의 단계 줄 +
 // 같은 조직 기록 3~7줄, 사업장 빼기·순서·추가는 draft.site_layout 그대로), 2. 1) 사업요약 = 사업 보고 '이번 주 주간보고'와 같은 사업요약 창
-// (weekly-summary-table.js createBizSummaryBox, app_business_now 이어 쓰기). 세 칸 모두 업무일지 '이번 주 보고'와 같은 자료라 어디서 고쳐도 같은 글.
+// (weekly-summary-table.js createBizSummaryBox, app_business_now 이어 쓰기). 세 칸 모두 담당조직 전체 표·사업 보고와 같은 자료라 어디서 고쳐도 같은 글.
 // 한글 파일(journal-hwpx.js)은 O-6까지 지금 길(주별 조직보고 표·임시저장 칸) 그대로다.
 let RW = null, rwFlight = null, weekWin = null, siteWin = null, winMsg = {text:'', error:false}, siteMsg = {text:'', error:false}, winOrgs = [], bizWeekly = null;
 const winSlot = () => $('[data-journal-weekly] [data-weekly-flow-cells="orgs"]');
