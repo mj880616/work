@@ -79,13 +79,13 @@ for(const width of [412,1440])test(`[현황 표] 예전 AI 줄 그대로·줄 �
  expect('end_day' in db.posts.at(-1)).toBe(false); // 끝나는 날을 비우면 보내지 않는다(하루 일정)
  // AI 줄을 고치면 내 줄이 된다.
  const second=table.locator('tbody tr[data-st-row]').nth(0);
- await second.getByRole('button',{name:/고치기$/}).click();
+ await second.getByRole('button',{name:/수정$/}).click();
  await page.locator('#wdStatusTable [data-st-field="body"]').fill('합성 지노위 조정 종료 — 쟁의권 확보');
  await page.locator('#wdStatusTable [data-st-save]').click();
  await expect(page.locator('#wdStatusTable [data-st-status]')).toHaveText('저장했어요.');
  expect(db.patches.at(-1)).toMatchObject({body:'합성 지노위 조정 종료 — 쟁의권 확보',source:'user'});
  // 빼기.
- await table.locator('tbody tr[data-st-row]').filter({hasText:'2차 조정회의'}).getByRole('button',{name:/고치기$/}).click();
+ await table.locator('tbody tr[data-st-row]').filter({hasText:'2차 조정회의'}).getByRole('button',{name:/수정$/}).click();
  await page.locator('#wdStatusTable [data-st-delete]').click();
  await expect(page.locator('#wdStatusTable [data-st-status]')).toHaveText('줄을 뺐어요.');
  await expect(table.locator('tbody tr[data-st-row]')).toHaveCount(2);
@@ -121,7 +121,7 @@ test('[현황 표] 시작일~끝나는 날: 달력 두 칸으로 저장하면 11
  expect(db.posts.at(-1)).toMatchObject({day:'2026-11-02',end_day:'2026-11-05',body:'합성 파업 찬반투표'});
  await expect(f.locator('tbody tr[data-st-row]').filter({hasText:'합성 파업'}).locator('.wd-st-day-text')).toHaveText('11.2.~11.5.');
  // 고쳐서 끝나는 날을 비우면 하루 일정으로 돌아간다.
- await f.locator('tbody tr[data-st-row]').filter({hasText:'합성 파업'}).getByRole('button',{name:/고치기$/}).click();
+ await f.locator('tbody tr[data-st-row]').filter({hasText:'합성 파업'}).getByRole('button',{name:/수정$/}).click();
  await f.locator('[data-st-field="end_day"]').fill('');
  await f.locator('[data-st-save]').click();
  await expect(f.locator('[data-st-status]')).toHaveText('저장했어요.');
