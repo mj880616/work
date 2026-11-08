@@ -74,7 +74,7 @@ import {
   journalDraftMaterial, parseJournalDraft, parseJournalDraftRequest, seoulHour,
 } from "./journal-draft.ts";
 import {
-  MEMORABLE_INSTRUCTIONS, MEMORABLE_MAX_ITEMS, MEMORABLE_MAX_OUTPUT_TOKENS, MEMORABLE_SCHEMA, memorableDayInRange, memorableDue,
+  MEMORABLE_DAY_CAP, MEMORABLE_INSTRUCTIONS, MEMORABLE_MAX_ITEMS, MEMORABLE_MAX_OUTPUT_TOKENS, MEMORABLE_SCHEMA, memorableDayInRange, memorableDue,
   memorableMaterial, parseJournalMemorableRequest, parseMemorable, toFeedRow,
 } from "./journal-memorable.ts";
 import { parseWorkScope, parseWorkScopeRequest, WORK_SCOPE_INSTRUCTIONS, WORK_SCOPE_MAX_OUTPUT_TOKENS, WORK_SCOPE_SCHEMA, weekDayKeys, userLineDrops, withUserDrops, workScopeLines, workScopeMaterial } from "./work-scope.ts";
@@ -3899,12 +3899,35 @@ async function runJournalMemorable(ctx: Ctx, input: JournalMemorableInput, deps:
       ? await readRows(`app_feed_items?workspace_id=eq.${ws}&source=eq.call&day=eq.${day}&hidden_at=is.null${since}&select=id,workspace_id,source,title,summary,points,room_label&order=updated_at.asc&limit=100`)
       : await readRows(`app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&day=eq.${day}&hidden_at=is.null${since}&select=id,workspace_id,source,title,summary,points,room_label&order=updated_at.asc&limit=100`)));
   }
-  const done = new Set((await readRows(`app_journal_memorable?workspace_id=eq.${ws}&day=eq.${day}&select=feed_item_id&limit=200`))
-    .map((r) => String((r as Record<string, unknown>)?.feed_item_id ?? "").toLowerCase()));
+  const dayRows = (await readRows(`app_journal_memorable?workspace_id=eq.${ws}&day=eq.${day}&select=id,feed_item_id&limit=200`)) as Record<string, unknown>[];
+  const done = new Set(dayRows.map((r) => String(r?.feed_item_id ?? "").toLowerCase()));
+  // FORGET-소식바로잡기 ③ 하루 상한: 그날 새 기준(종류·이유가 있는) 소식이 이미 MEMORABLE_DAY_CAP개면 AI를 부르지 않는다.
+  const dayIds = dayRows.map((r) => String(r?.id ?? "")).filter((id) => UUID.test(id));
+  let picked = 0;
+  for (let i = 0; i < dayIds.length; i += 50) {
+    picked += (await readRows(`app_journal_memorable_picks?workspace_id=eq.${ws}&memorable_id=in.(${dayIds.slice(i, i + 50).join(",")})&select=memorable_id&limit=50`)).length;
+  }
+  const room = MEMORABLE_DAY_CAP - picked;
+  if (room <= 0) return skip("day_full");
+  // 이미 있는 것: 처리 전 챙길 것·텔레그램 요청 후보와 최근 2주 잊지 말기 소식(같은 내용은 고르지 않게 AI에 함께 보냄).
+  // 텔레그램 요청 후보가 이미 가리키는 같은 기록은 아예 보내지 않는다(같은 글이면 하나만). 맥락은 못 읽어도 고르기는 돈다(빈 목록).
+  const soft = async (path: string): Promise<Record<string, unknown>[]> => { try { const r = await rest(ctx, path); return Array.isArray(r) ? r as Record<string, unknown>[] : []; } catch { return []; } };
+  const from = new Date(Date.parse(`${day}T00:00:00Z`) - 14 * 86400000).toISOString().slice(0, 10);
+  const [cands, recent, orgs, assigned, areas] = await Promise.all([
+    soft(`app_todo_candidates?workspace_id=eq.${ws}&status=eq.open&select=source_kind,source_id,summary&order=created_at.desc&limit=60`),
+    soft(`app_journal_memorable?workspace_id=eq.${ws}&day=gte.${from}&status=in.(suggested,kept)&select=org_name,line&order=picked_at.desc&limit=40`),
+    soft(`app_suborganizations?workspace_id=eq.${ws}&active=eq.true&select=id,name&order=name.asc&limit=200`),
+    soft(`app_suborganization_assignees?user_id=eq.${encodeURIComponent(ctx.userId)}&select=organization_id&limit=500`),
+    soft(`app_spaces?workspace_id=eq.${ws}&status=eq.active&select=name&order=name.asc&limit=200`),
+  ]);
+  const asked = new Set(cands.filter((c) => c?.source_kind === "telegram").map((c) => String(c?.source_id ?? "").toLowerCase()));
+  const mineIds = new Set(assigned.map((m) => String(m?.organization_id ?? "")));
+  const myOrgs = orgs.filter((o) => !mineIds.size || mineIds.has(String(o?.id ?? ""))).map((o) => o?.name);
+  const known = [...cands.map((c) => c?.summary), ...recent.map((r) => [r?.org_name, r?.line].filter(Boolean).join(" · "))];
   const rows = feed
     .filter((r) => String((r as Record<string, unknown>)?.workspace_id).toLowerCase() === ctx.workspaceId && sources.includes(String((r as Record<string, unknown>)?.source)))
-    .map(toFeedRow).filter((r): r is NonNullable<typeof r> => !!r && !done.has(r.id)).slice(0, MEMORABLE_MAX_ITEMS);
-  const material = memorableMaterial(day, rows);
+    .map(toFeedRow).filter((r): r is NonNullable<typeof r> => !!r && !done.has(r.id) && !asked.has(r.id)).slice(0, MEMORABLE_MAX_ITEMS);
+  const material = memorableMaterial(day, rows, { orgs: myOrgs, areas: areas.map((a) => a?.name), known, max: room });
   if (!material) return skip("no_new");
   const config = aiConfig(deps.env);
   if (!config) {
@@ -3961,7 +3984,7 @@ async function runJournalMemorable(ctx: Ctx, input: JournalMemorableInput, deps:
     const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
     throw new Fail(status, result.code);
   }
-  const picks = parseMemorable(outputText(result.raw, 16 * 1024) ?? "", rows);
+  const picks = parseMemorable(outputText(result.raw, 16 * 1024) ?? "", rows, room);
   if (!picks) {
     await release();
     return skip("bad_answer");
@@ -3972,6 +3995,14 @@ async function runJournalMemorable(ctx: Ctx, input: JournalMemorableInput, deps:
         method: "POST", prefer: "resolution=ignore-duplicates,return=minimal",
         body: picks.map((p) => ({ workspace_id: ctx.workspaceId, day, source: p.source, feed_item_id: p.feed_item_id, org_name: p.org_name, line: p.line })),
       });
+      // 넣은 줄의 id를 다시 읽어 종류·이유를 붙인다(같은 줄은 한 번만 — 다른 기기가 먼저 넣었으면 그 줄에 붙거나 이미 있어 건너뜀).
+      const byFeed = new Map(picks.map((p) => [p.feed_item_id, p]));
+      const saved = await rest(ctx, `app_journal_memorable?workspace_id=eq.${ws}&feed_item_id=in.(${picks.map((p) => p.feed_item_id).join(",")})&select=id,feed_item_id&limit=${picks.length}`);
+      const marks = (Array.isArray(saved) ? saved as Record<string, unknown>[] : [])
+        .map((r) => ({ id: String(r?.id ?? ""), pick: byFeed.get(String(r?.feed_item_id ?? "").toLowerCase()) }))
+        .filter((x) => UUID.test(x.id) && x.pick)
+        .map((x) => ({ memorable_id: x.id, workspace_id: ctx.workspaceId, kind: x.pick!.kind, reason: x.pick!.reason }));
+      if (marks.length) await rest(ctx, "app_journal_memorable_picks?on_conflict=memorable_id", { method: "POST", prefer: "resolution=ignore-duplicates,return=minimal", body: marks });
     } catch {
       await release();
       throw new Fail(503, "journal_memorable_unavailable");

@@ -245,6 +245,25 @@ test('텔레그램 요청 [조직]: 고른 담당조직 기록으로 넣고 후�
   expect(patches[0]).toMatchObject({id:cid(1),from:'open',body:{status:'done'}});
   await expect(line(page,`c:${cid(1)}`)).toHaveCount(0);
 });
+// FORGET-소식바로잡기 ②⑤: AI가 정한 종류·이유(app_journal_memorable_picks를 붙여 읽음) — 줄 밑 이유 한 줄, 맞는 버튼만 굵게(누르는 건 사람).
+// 종류가 없는 옛 기준 줄은 처리 전·빨간 숫자에 들지 않는다.
+for(const width of [390,1280])test(`소식 줄 새 기준: 이유 한 줄 + 맞는 버튼 굵게, 옛 기준 줄은 처리 전·숫자에 없음 ${width}`,async({page})=>{
+  const news=[newsRow(2,{org_name:'가상 지부',app_journal_memorable_picks:{kind:'org',reason:'조직보고 · 가상 지부'}}),
+    newsRow(4,{line:'가상 일정 소식',app_journal_memorable_picks:{kind:'event',reason:'일정 · 11.14. 14:00'}}),
+    newsRow(5,{line:'옛 기준 소식',app_journal_memorable_picks:null})];
+  await fixture(page,{width,news});
+  await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(2);
+  await expect(line(page,`n:${nid(5)}`)).toHaveCount(0);
+  await expect(line(page,`n:${nid(2)}`).locator('.nbx-why')).toHaveText('조직보고 · 가상 지부');
+  await expect(line(page,`n:${nid(2)}`).locator('[data-nbx-hint]')).toHaveText('조직');
+  await expect(line(page,`n:${nid(4)}`).locator('[data-nbx-hint]')).toHaveText('일정으로');
+  await expect(line(page,`n:${nid(4)}`).locator('.nbx-acts > button')).toHaveText(['할 일로','일정으로','노트로','조직','사업','이미 함','×']);
+  const w=await line(page,`n:${nid(2)}`).locator('[data-nbx-hint]').evaluate(b=>Number(getComputedStyle(b).fontWeight));
+  expect(w).toBeGreaterThan(400);expect(w).toBeLessThanOrEqual(500);
+  // 업데이트 1 + 챙길 것 1 + 텔레그램 요청 1 + 가족 1 + 새 기준 소식 2 = 6(옛 기준 1은 세지 않음).
+  await expect(page.locator('#appView')).toHaveAttribute('data-home-asks','6');
+  for(const r of await list(page).locator('[data-forget-src="news"] .nbx-acts').evaluateAll(oneLine)){expect(r.one).toBe(true);expect(r.right).toBeLessThanOrEqual(width);}
+});
 test('운영자 기능(통화·텔레그램)이 없는 작업공간은 소식 줄도 소식 읽기·AI 요청도 없다',async({page})=>{
   const {asked}=await fixture(page,{features:[],news:[newsRow(2)]});
   await expect(list(page).locator('[data-nbx-row]')).toHaveCount(3);

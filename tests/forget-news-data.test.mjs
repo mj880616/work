@@ -15,7 +15,17 @@ test('rows: malformed rows are dropped; a kept line shows the kept text; every s
     {id:'4', day:'2026-10-06', line:'', status:'suggested'}, {id:'5', day:'x', line:'a', status:'suggested'}, {id:'6', day:'2026-10-06', line:'a', status:'odd'}, null,
   ]);
   assert.deepEqual(rows.map(r => [r.id, r.org, r.line, r.status, r.source]), [['1', '가상지부', '일정 확정함.', 'suggested', 'call'], ['2', '', '고친 글', 'kept', 'telegram'], ['3', '', '뺀 줄', 'dropped', 'call']]);
-  assert.deepEqual(m.openNews(rows).map(r => r.id), ['1']);
+  // 종류·이유를 못 읽으면(표 적용 전) 처리 전 줄 모두.
+  assert.deepEqual(m.openNews(rows, false).map(r => r.id), ['1']);
+  // FORGET-소식바로잡기 ⑤: 종류·이유를 읽으면 새 기준(종류 있는) 줄만 처리 전·빨간 숫자에.
+  assert.deepEqual(m.openNews(rows).map(r => r.id), []);
+  assert.equal(m.picksKnown([{id: '1'}]), false);
+  const picked = m.newsRows([{id:'7', day:'2026-10-06', source:'call', line:'가상 줄', status:'suggested', app_journal_memorable_picks: {kind: 'org', reason: '조직보고 · 가상지부'}},
+    {id:'8', day:'2026-10-06', source:'call', line:'옛 기준 줄', status:'suggested', app_journal_memorable_picks: null},
+    {id:'9', day:'2026-10-06', source:'call', line:'다섯 밖', status:'suggested', app_journal_memorable_picks: [{kind: 'weekly', reason: 'x'}]}]);
+  assert.equal(m.picksKnown([{id:'8', app_journal_memorable_picks: null}]), true);
+  assert.deepEqual(picked.map(r => [r.id, r.kind, r.reason]), [['7', 'org', '조직보고 · 가상지부'], ['8', '', ''], ['9', '', '']]);
+  assert.deepEqual(m.openNews(picked, true).map(r => r.id), ['7']);
   assert.deepEqual(m.newsRows(null), []);
   assert.equal(m.newsText(rows[0]), '가상지부 · 일정 확정함.');
   assert.equal(m.newsText(rows[1]), '고친 글');
@@ -42,5 +52,7 @@ test('구조: 서버 표만 쓰고(쓰는 칸은 표가 허락한 것만), 기�
   assert.doesNotMatch(read('app/journal.js'), /memorable/i);
   // 홈 칩·메뉴 '홈' 표시가 처리 전 소식을 센다.
   assert.match(read('app/home-summary.js'), /countOpenNews\(rt\)/);
-  assert.match(list, /\(nOn \? openNews\(news\)\.length : 0\)/);
+  assert.match(list, /\(nOn \? openNews\(news, nPicks\)\.length : 0\)/);
+  assert.match(src, /return r\.ok \? openNews\(r\.rows, r\.picks\)\.length : 0;/);
+  assert.match(src, /const PICK = 'app_journal_memorable_picks';/); assert.match(src, /\$\{base\},\$\{PICK\}\(kind,reason\)/);
 });

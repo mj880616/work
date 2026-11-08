@@ -36,7 +36,10 @@ export const FORGET_SOURCES = Object.freeze([['all', '모든 출처'], ['telegra
 export const SOURCE_TAG = Object.freeze({telegram: '텔레그램', news: '소식', family: '가족', update: '업데이트', todo: '챙길 것', promise: '상대 약속'});
 // FORGET-소식합치기: 소식 줄이 그 보기에 드는가(처리 전 = suggested, 연결 완료 = 조직·사업에 넣음 kept, 무시 = dropped).
 export const NEWS_VIEW = Object.freeze({open: 'suggested', linked: 'kept', dismissed: 'dropped'});
-export const newsFor = (view, rows) => (rows || []).filter(r => NEWS_VIEW[view] && r.status === NEWS_VIEW[view]);
+// 처리 전은 새 기준(AI가 종류를 정한) 줄만 — 빨간 숫자와 같은 기준(forget-news-data.js openNews). picks: 종류를 읽을 수 있었는가.
+export const newsFor = (view, rows, picks = false) => view === 'open' ? openNews(rows, picks) : (rows || []).filter(r => NEWS_VIEW[view] && r.status === NEWS_VIEW[view]);
+// AI가 정한 종류 → 굵게 보일 버튼(같은 이름). 누르는 건 사람이다.
+export const NEWS_HINT = Object.freeze({task: 'task', event: 'event', note: 'note', org: 'org', area: 'area'});
 export const newsDone = r => { const d = shortDay(r.decidedAt ? seoulDateKey(new Date(r.decidedAt)) : ''); const t = r.status === 'kept' ? '처리함' : '무시함'; return d ? `${t} · ${d}` : t; };
 
 const shortDay = v => { const m = String(v ?? '').match(/^\d{4}-(\d{2})-(\d{2})/); return m ? `${Number(m[1])}/${Number(m[2])}` : ''; };
@@ -80,7 +83,7 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, viewButton = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, onView = () => {}, radarPromises = () => [], openSource = () => {}, updateCount = () => null} = {}) {
   if (!host) return null;
   let view = 'open', src = 'all', rows = [], cState = 'loading', notes = [], fOn = false, fWs = '', run = 0, status = '', scope = radarScope(rt);
-  let news = [], nOn = false, nRun = 0, orgRead = null; // 소식 줄(FORGET-소식합치기)과 조직 이름 맞추기에 쓰는 내 담당조직(readOrganizations, 한 번)
+  let news = [], nOn = false, nPicks = false, nRun = 0, orgRead = null; // 소식 줄(FORGET-소식합치기)과 조직 이름 맞추기에 쓰는 내 담당조직(readOrganizations, 한 번)
   const busy = new Set(), unknown = new Set(), linking = new Map();
   const ws = () => rt.context?.read?.()?.workspace?.id || '';
   const changed = () => win.dispatchEvent(new CustomEvent(CHANGED, {detail: {reload: true}}));
@@ -131,11 +134,11 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
         prefix: FIRM_LABEL[n.firmness] ? `<span class="nbx-tag">${esc(FIRM_LABEL[n.firmness])}</span> ` : '', attrs: 'data-forget-src="family"'})});
     }
     if (nOn && (src === 'all' || src === 'news')) {
-      for (const r of newsFor(view, news)) {
+      for (const r of newsFor(view, news, nPicks)) {
         const open = r.status === 'suggested', label = newsText(r);
         out.push({at: open ? r.at : (r.decidedAt || r.at), html: rowHtml({id: `n:${r.id}`, body: label, meta: shortDay(r.day), src: NEWS_SOURCE_TAG[r.source], busy: busy.has(`n:${r.id}`),
           open: {attrs: `data-forget-news-open="${esc(r.id)}" aria-label="${esc(`${label} — 원본 ${r.source === 'telegram' ? '텔레그램' : '통화'} 열기`)}"`},
-          report: true, done: open ? '' : newsDone(r), attrs: `data-forget-src="news"`})});
+          report: true, hint: open ? NEWS_HINT[r.kind] || '' : '', why: open ? r.reason : '', done: open ? '' : newsDone(r), attrs: `data-forget-src="news"`})});
       }
     }
     if (src === 'all' || src === 'update') {
@@ -205,8 +208,8 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const first = await readNews(rt);
     if (!live()) return;
     if (first.missing) { nOn = false; news = []; paint(); return; }
-    if (first.ok) { news = first.rows; paint(); }
-    if (await pickTodayNews(rt) && live()) { const again = await readNews(rt); if (live() && again.ok) { news = again.rows; paint(); } }
+    if (first.ok) { news = first.rows; nPicks = !!first.picks; paint(); }
+    if (await pickTodayNews(rt) && live()) { const again = await readNews(rt); if (live() && again.ok) { news = again.rows; nPicks = !!again.picks; paint(); } }
   }
   const refresh = () => Promise.all([loadCandidates(), loadFamily(), loadNews()]);
 
@@ -527,13 +530,13 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   win.addEventListener('kptu:google-tasks-changed', () => { if (cState === 'ok') paint(); });
   win.addEventListener('kptu:session-changed', () => {
     if (scope === radarScope(rt)) return;
-    run++; nRun++; rows = []; notes = []; news = []; nOn = false; orgRead = null; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
+    run++; nRun++; rows = []; notes = []; news = []; nOn = false; nPicks = false; orgRead = null; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
     onView(view); paint();
   });
   const api = {refresh, paint, setView, view: () => view, source: () => src,
     // 처리 안 한 줄 수(연결 안 된 업데이트 포함, 홈 한 줄과 같은 기준 — 상대 약속은 세지 않음). 모르면 null.
     // FORGET-소식합치기(명진 '넣어'): 처리 전 소식도 센다.
-    openCount: count => cState === 'ok' && Number.isInteger(count) ? candidatesFor('open', rows, taskTitles()).length + (fOn ? notes.length : 0) + (nOn ? openNews(news).length : 0) + count : null};
+    openCount: count => cState === 'ok' && Number.isInteger(count) ? candidatesFor('open', rows, taskTitles()).length + (fOn ? notes.length : 0) + (nOn ? openNews(news, nPicks).length : 0) + count : null};
   paint();
   return api;
 }
