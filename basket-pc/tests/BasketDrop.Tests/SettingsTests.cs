@@ -2,48 +2,6 @@ using Xunit;
 
 namespace BasketDrop.Tests;
 
-public class HotkeyChoiceTests
-{
-    [Fact]
-    public void The_default_is_Ctrl_and_the_key_left_of_the_number_1()
-    {
-        Assert.Equal("Ctrl+`", HotkeyChoice.Default.Label);
-        Assert.Equal(0xC0u, HotkeyChoice.Default.VirtualKey); // VK_OEM_3: same physical key on Korean and US keyboards
-        Assert.Equal(HotkeyChoice.ModControl, HotkeyChoice.Default.Modifiers);
-    }
-
-    [Fact]
-    public void The_choices_are_Ctrl_backtick_Q_and_Space_only()
-    {
-        Assert.Equal(new[] { "Ctrl+`", "Ctrl+Q", "Ctrl+Space" }, HotkeyChoice.All.Select(c => c.Label));
-        Assert.Equal(0x51u, HotkeyChoice.CtrlQ.VirtualKey);
-        Assert.Equal(0x20u, HotkeyChoice.CtrlSpace.VirtualKey);
-    }
-
-    [Fact]
-    public void Every_choice_needs_a_modifier_and_has_its_own_id()
-    {
-        Assert.All(HotkeyChoice.All, c => Assert.NotEqual(0u, c.Modifiers));
-        Assert.Equal(HotkeyChoice.All.Count, HotkeyChoice.All.Select(c => c.Id).Distinct().Count());
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("CtrlShiftB")]
-    [InlineData("A")]
-    public void An_unknown_saved_value_falls_back_to_the_default(string? saved)
-    {
-        Assert.Equal(HotkeyChoice.Default, HotkeyChoice.FromId(saved));
-    }
-
-    [Fact]
-    public void A_saved_choice_is_found_again()
-    {
-        foreach (var c in HotkeyChoice.All) Assert.Equal(c, HotkeyChoice.FromId(c.Id));
-    }
-}
-
 public class SettingsStoreTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "bd-settings-" + Guid.NewGuid().ToString("N"));
@@ -58,7 +16,8 @@ public class SettingsStoreTests : IDisposable
     public void Without_a_file_the_defaults_apply()
     {
         var s = new SettingsStore(PathOf).Load();
-        Assert.Equal(HotkeyChoice.Default.Id, s.Hotkey);
+        Assert.False(s.LegacyEntriesCleaned);
+        Assert.False(s.WebDoor);
         Assert.True(s.AutoStart);
         Assert.False(s.AutoStartDecided);
     }
@@ -67,10 +26,25 @@ public class SettingsStoreTests : IDisposable
     public void Choices_survive_a_restart()
     {
         var store = new SettingsStore(PathOf);
-        store.Save(new AppSettings { Hotkey = HotkeyChoice.CtrlQ.Id, AutoStart = false, AutoStartDecided = true });
+        store.Save(new AppSettings { LegacyEntriesCleaned = true, AutoStart = false, AutoStartDecided = true });
         var s = new SettingsStore(PathOf).Load();
-        Assert.Equal(HotkeyChoice.CtrlQ.Id, s.Hotkey);
+        Assert.True(s.LegacyEntriesCleaned);
         Assert.False(s.AutoStart);
+    }
+
+    [Fact]
+    public void A_settings_file_from_an_older_version_loads_and_drops_the_removed_entrance_values_on_save()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(PathOf, "{\"Hotkey\":\"CtrlQ\",\"Corner\":\"Off\",\"DesktopTile\":false,\"DesktopTileX\":10,\"DesktopTileY\":20,\"AutoStart\":false,\"AutoStartDecided\":true,\"WebDoor\":true}");
+        var store = new SettingsStore(PathOf);
+        var s = store.Load();
+        Assert.False(s.AutoStart);
+        Assert.True(s.WebDoor);
+        Assert.False(s.LegacyEntriesCleaned);
+        store.Save(s);
+        var text = File.ReadAllText(PathOf);
+        foreach (var gone in new[] { "Hotkey", "Corner", "DesktopTile" }) Assert.DoesNotContain(gone, text);
     }
 
     [Fact]
@@ -78,7 +52,7 @@ public class SettingsStoreTests : IDisposable
     {
         Directory.CreateDirectory(_dir);
         File.WriteAllText(PathOf, "{ broken");
-        Assert.Equal(HotkeyChoice.Default.Id, new SettingsStore(PathOf).Load().Hotkey);
+        Assert.False(new SettingsStore(PathOf).Load().LegacyEntriesCleaned);
     }
 }
 
