@@ -11,11 +11,8 @@ export const GD_TIMEOUT_MS = 45000;
 const PARALLEL = 4, KEEP = 300;
 
 export const gdCall = (rt, body) => rt.api(GD_FN, {method:'POST', body, singleFlight:false, timeoutMs:GD_TIMEOUT_MS});
-// 운영자 기능 목록(서버 app_my_features, 로그인 토큰으로). 실패하면 빈 목록(칩 안 보임).
-export async function myFeatures(rt) {
-  try { const v = await rt.api('/rest/v1/rpc/app_my_features', {method:'POST', body:{}, singleFlight:false}); return Array.isArray(v) ? v.filter(x => typeof x === 'string') : []; }
-  catch { return []; }
-}
+// 운영자 기능 목록은 공용 my-features.js 한 곳에서 한 번만 읽는다(APP-낭비줄이기 ①). 실패하면 빈 목록(칩 안 보임).
+export {myFeatures} from './my-features.js';
 export const gdStatus = rt => gdCall(rt, {action:'status'});
 export const gdFolders = (rt, parent = 'root') => gdCall(rt, {action:'folders', parent});
 export const gdFolderToggle = (rt, id, enabled) => gdCall(rt, {action:'folder-toggle', id, enabled});

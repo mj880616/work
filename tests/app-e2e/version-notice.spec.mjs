@@ -7,11 +7,26 @@ import {answerAsk} from './helpers/small-notice.mjs';
 
 const origin=appOrigin;
 const current=shellVersion;
+// APP-낭비줄이기 ①: 앱 업데이트 확인의 최소 간격(version-notice.js)은 60초다. 시험 시계를 그만큼 보낸다.
+const CHECK_GAP=60001;
 async function boot(page,{connected=false}={}){
   // BUG-main브라우저시험: version-notice.js skips checks while navigator.onLine is false. Chromium
   // derives that value from the host's network interfaces, and a CI runner can report offline even
   // though every request here is mocked. Pin it online; the offline test below overrides it again.
   await page.addInitScript(()=>Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true}));
+  // STAB-업데이트안내: 화면이 index.html을 확인하는 중인지(시작 수와 끝난 수)를 센다. app/version-notice.js는 확인이 진행 중이면
+  // 새 요청을 보내지 않으므로, 시험이 '응답 도착'만 보고 다음 단계로 가면 아직 끝나지 않은 확인에 가로막힐 수 있다(response()가 기다린다).
+  // 끝난 수는 본문을 다 읽은 직후(앱이 flight를 비우는 같은 마이크로태스크 묶음)에 올라가므로, 시험이 이 값을 읽는 시점엔 이미 비어 있다.
+  await page.addInitScript(()=>{
+    const original=window.fetch,checks={started:0,done:0};window.__versionChecks=checks;
+    window.fetch=function(input){
+      const promise=original.apply(this,arguments);
+      if(!String(input?.url||input).includes('/app/index.html'))return promise;
+      checks.started++;
+      promise.then(res=>{if(!res.ok){checks.done++;return}const text=res.text.bind(res);res.text=()=>text().finally(()=>{checks.done++})},()=>{checks.done++});
+      return promise;
+    };
+  });
   await serveBuiltShell(page,origin);
   const user={id:'version-user',email:'version@example.org'},workspace={id:'version-workspace',name:'QA',slug:'qa'};
   await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/**',route=>{
@@ -38,7 +53,9 @@ async function boot(page,{connected=false}={}){
 async function visible(page){
   await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
 }
+const settled=page=>expect.poll(()=>page.evaluate(()=>window.__versionChecks.started===window.__versionChecks.done),{message:'진행 중인 업데이트 확인이 끝나기를 기다림'}).toBe(true);
 async function response(page,version){
+  await settled(page); // 앞 확인이 끝나기 전에 보낸 신호는 앱이 건너뛴다(진행 중인 확인 하나만 허용).
   await page.route(origin+'/app/index.html',route=>route.fulfill({contentType:'text/html',body:version===null?'bad html':`<script src="./app.js?v=${version}" defer></script>`}));
 }
 const notice=page=>page.locator('#versionNotice');
@@ -50,22 +67,22 @@ async function editLinkSummary(page){
 test('equal version has no notice; newer version appears after visibility change',async({page})=>{
   await boot(page);await response(page,current);const checked=page.waitForResponse(origin+'/app/index.html');await visible(page);await checked;
   await expect(notice(page)).toHaveCount(0);
-  await page.clock.install();await page.clock.runFor(1001);
+  await page.clock.install();await page.clock.runFor(CHECK_GAP);
   await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
 });
 test('dismissed deployment stays dismissed in this tab; later deployment appears',async({page})=>{
   await boot(page);await page.clock.install();await response(page,current+1);await visible(page);
   await expect(notice(page)).toBeVisible();await notice(page).getByRole('button',{name:'닫기',exact:true}).click();
-  await page.clock.runFor(1001);const next=page.waitForResponse(origin+'/app/index.html');await visible(page);await next;
+  await page.clock.runFor(CHECK_GAP);const next=page.waitForResponse(origin+'/app/index.html');await visible(page);await next;
   await expect(notice(page)).toHaveCount(0);
-  await page.clock.runFor(1001);await response(page,current+2);await visible(page);await expect(notice(page)).toBeVisible();
+  await page.clock.runFor(CHECK_GAP);await response(page,current+2);await visible(page);await expect(notice(page)).toBeVisible();
 });
 test('content-hash and rollback deployments differ from the running version; a dismissed hash stays dismissed',async({page})=>{
   await boot(page);await page.clock.install();await response(page,'0123abcdef');await visible(page);
   await expect(notice(page)).toBeVisible();await notice(page).getByRole('button',{name:'닫기',exact:true}).click();
-  await page.clock.runFor(1001);const same=page.waitForResponse(origin+'/app/index.html');await visible(page);await same;
+  await page.clock.runFor(CHECK_GAP);const same=page.waitForResponse(origin+'/app/index.html');await visible(page);await same;
   await expect(notice(page)).toHaveCount(0);
-  await page.clock.runFor(1001);await response(page,current-1);await visible(page);await expect(notice(page)).toBeVisible();
+  await page.clock.runFor(CHECK_GAP);await response(page,current-1);await visible(page);await expect(notice(page)).toBeVisible();
 });
 test('reload without draft navigates; changed calendar input confirms first and cancel keeps draft',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
@@ -142,7 +159,7 @@ test('project draft uses existing confirmDiscard; accepting reloads',async({page
   const field=await editLinkSummary(page);await field.fill('QA draft');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
   await notice(page).getByRole('button',{name:'최신화',exact:true}).click();
-  expect(message).toBe('저장하지 않은 사업영역 내용이 있습니다. 이동하면서 버릴까요?');await expect(field).toHaveValue('QA draft');
+  expect(message).toBe('저장하지 않은 사업영역 내용이 있습니다. 저장하지 않고 이동할까요?');await expect(field).toHaveValue('QA draft');
   page.once('dialog',d=>d.accept());const reloaded=page.waitForEvent('framenavigated',f=>f===page.mainFrame());
   await notice(page).getByRole('button',{name:'최신화',exact:true}).click();await reloaded;
 });
@@ -156,7 +173,7 @@ test('network abort is silent and a later focus check recovers',async({page})=>{
   await page.clock.install();await boot(page);const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route(origin+'/app/index.html',r=>r.abort());const failed=page.waitForEvent('requestfailed',r=>r.url()===origin+'/app/index.html');await visible(page);await failed;
   await expect(notice(page)).toHaveCount(0);expect(errors).toEqual([]);
-  await page.clock.runFor(1001);await response(page,current+1);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(notice(page)).toBeVisible();
+  await page.clock.runFor(CHECK_GAP);await response(page,current+1);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(notice(page)).toBeVisible();
 });
 
 test('session loss removes notice and stops checks',async({page})=>{
@@ -174,7 +191,7 @@ test('same owner token refresh keeps deployment checks alive',async({page})=>{
   await page.evaluate(()=>{const s=window.KPTURuntime.session.read();window.KPTURuntime.session.write({...s,access_token:'qa-refreshed'})});
   await visible(page);await expect(notice(page)).toBeVisible();
   await notice(page).getByRole('button',{name:'닫기',exact:true}).click();
-  await page.clock.runFor(1001);await response(page,current+2);await visible(page);await expect(notice(page)).toBeVisible();
+  await page.clock.runFor(CHECK_GAP);await response(page,current+2);await visible(page);await expect(notice(page)).toBeVisible();
 });
 
 async function openProject(page){

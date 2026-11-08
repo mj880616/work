@@ -15,9 +15,11 @@ test('쓰기 동작은 모두 confirm:true를 붙여 gdrive-photos 함수에만 
   }
   for (const action of ['status', 'folders', 'folder-toggle', 'sync', 'list', 'thumb', 'media']) assert.match(s, new RegExp(`action:'${action}'`));
   assert.doesNotMatch(s, /files\.delete|emptyTrash|action:'delete'|permanent/i);
-  // 부르는 곳: gdrive-photos·자료실과 같은 Drive 다시 연결(public-policy-drive drive-start)·app_my_features 뿐.
+  // 부르는 곳: gdrive-photos·자료실과 같은 Drive 다시 연결(public-policy-drive drive-start) 뿐. app_my_features는 공용 my-features.js 한 곳(APP-낭비줄이기 ①).
   const urls = [...s.matchAll(/'(\/(?:functions|rest)\/v1\/[^']+)'/g)].map(m => m[1]).sort();
-  assert.deepEqual(urls, ['/functions/v1/gdrive-photos', '/functions/v1/public-policy-drive', '/rest/v1/rpc/app_my_features']);
+  assert.deepEqual(urls, ['/functions/v1/gdrive-photos', '/functions/v1/public-policy-drive']);
+  assert.match(s, /export \{myFeatures\} from '\.\/my-features\.js'/);
+  assert.match(code(read('app/my-features.js')), /'\/rest\/v1\/rpc\/app_my_features'/);
   assert.match(s, /action:'drive-start'/);
 });
 

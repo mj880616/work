@@ -20,6 +20,7 @@ test('startup requests only the signed-in user profile', async () => {
   const context = vm.createContext({
     workspace: {id: 'workspace-1'}, user: {id: 'owner-1'},
     api: async path => { calls.push(path); return []; },
+    readMeetings: async () => [], readDocuments: async () => [], // APP-낭비줄이기 ①: 목록 읽기는 report-list-read.js로 옮겼다(이 시험은 프로필 요청만 본다)
   });
   vm.runInContext(`${functionSource(read('team.js'), 'loadAll')}; this.loadAll=loadAll`, context);
   await context.loadAll();
