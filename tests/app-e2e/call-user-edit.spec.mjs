@@ -251,7 +251,7 @@ test('통화 1280: 수정한 값 표가 아직 없으면(DB 적용 전) 수정 �
  await expect(view.locator('[data-cf-row]')).toHaveCount(3);
  await view.locator(`[data-cf-row="${W1}"]`).click({button:'right'});
  await expect(page.locator('#cfMenu')).toBeVisible();
- await expect(page.locator('#cfMenu').getByRole('button',{name:/제목 바꾸기|고치기/})).toHaveCount(0);
+ await expect(page.locator('#cfMenu').getByRole('button',{name:/제목 바꾸기|수정/})).toHaveCount(0);
  await page.keyboard.press('Escape');
  await view.locator(`[data-cf-row="${W1}"]`).click();
  await expect(view.locator('#cfDetail [data-cf-who-open],#cfDetail [data-cf-sum-open]')).toHaveCount(0);

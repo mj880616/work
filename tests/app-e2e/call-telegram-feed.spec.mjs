@@ -182,7 +182,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
 
  // 지우기: 목록에서 빠지고 hidden_at 저장, 되돌리기 가능.
  await tap(page,detail.locator('[data-cf-more]'),width);
- await tap(page,page.locator('#cfMenu').getByRole('button',{name:/^지우기/}),width);
+ await tap(page,page.locator('#cfMenu').getByRole('button',{name:/^삭제/}),width);
  await expect.poll(()=>f.writes.filter(w=>w.id===C2&&w.body.hidden_at).length).toBe(1);
  await expect(view.locator(`[data-cf-row="${C2}"]`)).toHaveCount(0);
  await expect(view.locator('[data-cf-status]')).toContainText('목록에서 삭제했어요');
@@ -211,7 +211,7 @@ test('통화 1280: 삭제한 통화에서 원장에 들어간 기록 안내와 [
  await openMenu(page,1280,'통화');
  await page.locator(`#callsView [data-cf-row="${C1}"]`).click();
  await page.locator('#cfDetail [data-cf-more]').click();
- await page.locator('#cfMenu').getByRole('button',{name:/^지우기/}).click();
+ await page.locator('#cfMenu').getByRole('button',{name:/^삭제/}).click();
  const status=page.locator('#callsView [data-cf-status]');
  await expect(status).toContainText('목록에서 삭제했어요');
  await expect(status).toContainText('원장에 들어간 기록 2개는 남아요');
