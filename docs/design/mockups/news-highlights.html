@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — News 글에서 끌어 고른 문장을 '밑줄'로 모으기 · 노트로</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--pri:#5c5470;--tonal:#ecebf3;--bg:#f4f3f7;--hl:#fbeeb4;--sel:#cfe0f7}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:20px;padding:0 16px 24px}
+  .col{width:350px}
+  .col h2{font-size:14px;margin:8px 0}
+  .phone{background:var(--bg);border:1px solid #d6d4dd;border-radius:18px;padding:10px;position:relative;min-height:520px}
+  .box{background:#fcfcfd;border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:13.5px;line-height:1.7}
+  .sel{background:var(--sel)}
+  .hl{background:var(--hl);border-radius:2px}
+  .os{position:absolute;left:14px;right:14px;top:96px;background:#ececf0;border-radius:22px;display:flex;justify-content:space-around;font-size:12.5px;padding:8px 4px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+  .bar{position:absolute;left:10px;right:10px;bottom:10px;background:#2b2930;color:#fff;border-radius:12px;padding:7px 10px;font-size:12.5px;display:flex;align-items:center;gap:6px}
+  .bar .b{background:#fff;color:var(--ink);border-radius:7px;padding:3px 8px;font-weight:600}
+  .bar .g{background:rgba(255,255,255,.18);border-radius:7px;padding:3px 8px}
+  .bar .x{margin-left:auto;opacity:.7}
+  .memo{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px}
+  .memo .in{border:1px solid var(--line);border-radius:8px;padding:6px;color:var(--faint);font-size:12.5px;margin:6px 0}
+  .vt{display:inline-flex;background:var(--tonal);border-radius:999px;padding:3px;gap:2px;margin-bottom:8px}
+  .vt span{padding:4px 11px;font-size:12.5px;border-radius:999px;color:var(--faint)}
+  .vt .on{background:#fff;color:var(--ink);font-weight:600}
+  .q{background:#fcfcfd;border:1px solid var(--line);border-radius:10px;padding:7px 10px;margin-bottom:6px}
+  .q .t{font-size:13.5px;line-height:1.55;border-left:3px solid #e2c24a;padding-left:8px}
+  .q .m{font-size:12.5px;color:#4a4752;margin:4px 0 0 11px}
+  .q .s{font-size:11.5px;color:var(--faint);margin:4px 0 0 11px;display:flex}
+  .q .s span:last-child{margin-left:auto}
+  .tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:1px 5px;margin-left:4px}
+  ul.k{margin:0 16px 24px;padding-left:18px;font-size:13px;line-height:1.7}
+</style>
+</head>
+<body>
+<h1>시안 — News 글: 끌어 고른 문장을 '밑줄'로 저장·모아보기 · 노트로 · 메모 (읽생기 방식)</h1>
+<p class="note">명진 11/08 09:55: "드래그해서 노트로 저장할 수 있었으면, 드래그한 부분만 저장해서 모아볼 수 있었으면, 필요하면 메모도 달고 — 읽생기 참고." / 09:56: "원문 모두 선택 누르면 선택은 되는데 복사·공유 메뉴가 안 뜸." 글은 시안용.</p>
+
+<div class="wrap">
+  <div class="col">
+    <h2>① 끌어 고르면 — 폰 메뉴 + 아래 Web2 줄 <span class="tag">추천</span></h2>
+    <div class="phone">
+      <div class="box">어떤 글의 첫 문장이 여기에 있어요. <span class="sel">권력의 냉소와 부정의를 정상적인 것으로 받아들이지 않는 태도가 중요하다.</span> 이어지는 문장은 고르지 않았어요.</div>
+      <div class="os"><span>번역</span><span>복사</span><span>모두 선택</span><span>공유</span><span>⋮</span></div>
+      <div class="bar">고른 글<span class="b">밑줄 저장</span><span class="g">노트로</span><span class="g">복사</span><span class="g">공유</span><span class="x">✕</span></div>
+    </div>
+    <p class="note" style="margin:6px 0">글을 고르면 하단바 위에 Web2 줄이 떠요(폰 메뉴는 그대로). [모두 선택] 뒤에도 같은 줄이 떠서 복사·공유가 됨 — 09:56 문제 해결.</p>
+  </div>
+
+  <div class="col">
+    <h2>② [밑줄 저장] → 노란 밑줄 + 메모(선택)</h2>
+    <div class="phone">
+      <div class="box">어떤 글의 첫 문장이 여기에 있어요. <span class="hl">권력의 냉소와 부정의를 정상적인 것으로 받아들이지 않는 태도가 중요하다.</span> 이어지는 문장은 고르지 않았어요.</div>
+      <div class="memo"><b style="font-size:12.5px">밑줄 저장함</b><div class="in">메모(선택) — 생각을 한 줄</div><span style="font-size:12px;color:var(--faint)">[노트로도 보내기] · 닫기</span></div>
+    </div>
+    <p class="note" style="margin:6px 0">글을 다시 열면 저장한 곳은 노란 밑줄로 보임. 밑줄을 누르면 메모 보기·고치기·지우기·노트로.</p>
+  </div>
+
+  <div class="col">
+    <h2>③ 모아보기 — News [밑줄] 탭</h2>
+    <div class="phone">
+      <div class="vt"><span>전체</span><span>사회운동</span><span>언론</span><span>보관</span><span class="on">밑줄</span></div>
+      <div class="q"><div class="t">권력의 냉소와 부정의를 정상적인 것으로 받아들이지 않는 태도가 중요하다.</div><div class="m">메모: 우리 투쟁 메시지에도 쓸 만함</div><div class="s"><span>매체 · 11/07 · (글 제목)</span><span>⋯</span></div></div>
+      <div class="q"><div class="t">두 번째로 저장한 문장이 여기 있어요.</div><div class="s"><span>매체 · 11/06 · (글 제목)</span><span>⋯</span></div></div>
+    </div>
+    <p class="note" style="margin:6px 0">새 것이 위. 누르면 그 글의 그 자리로. ⋯ = 메모·노트로·복사·지우기. 찾기 칸에서 밑줄·메모 글자도 찾음.</p>
+  </div>
+</div>
+
+<ul class="k">
+  <li>[노트로] = 고른 글 + 출처(매체·제목·날짜·원래 주소)를 노트 하나로(폴더는 마지막으로 고른 곳, 바꿀 수 있음). 여러 밑줄을 한꺼번에 노트로도(③에서 고르기).</li>
+  <li>저장은 서버(내 작업공간만, 한 기기 저장 금지). 원문이 바뀌어도 밑줄 글은 그대로 남음.</li>
+  <li>같은 종류 전수: 원문이 있는 글 보기 전부(뉴스·사회운동·텔레그램 원문), 폰·폴드·PC(PC는 고르면 같은 줄 + 우클릭 메뉴).</li>
+  <li>읽생기(별도 제품)의 밑줄·메모 방식을 참고만 — 읽생기 표·기능은 건드리지 않음(AGENTS 5절).</li>
+</ul>
+</body>
+</html>
