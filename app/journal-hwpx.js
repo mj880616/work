@@ -54,7 +54,7 @@ import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 import {dayRowForm} from './weekly-hq-schedule.js'; // S52-31: 5. 주요 일정 줄 제자리 고치기 칸 = 2) 주요 일정과 같은 공용 줄
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
-import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftHand, draftOwners, draftSiteLayout, readCarriedLayout, changeWeekDocs, changeWeekCell, withDetailTakes, withRequestTakes} from './weekly-draft-store.js';
+import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, putExtras, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftHand, draftOwners, draftSiteLayout, readCarriedLayout, changeWeekDocs, changeWeekCell, withDetailTakes, withRequestTakes} from './weekly-draft-store.js';
 import {discussLines} from './weekly-discuss.mjs';
 import {rowMore} from './row-more.js';
 import {eventFields, editFrom, hqLines, arrangeSites, missingSites, siteHidden, siteShown, siteMoved, layoutSiteData, readSiteLayout, siteKey} from './weekly-schedule-rows.mjs';
@@ -62,7 +62,7 @@ import {sameIssuedLines} from './weekly-lines.mjs';
 // LIB-파일이름그대로(2026-10-30 사용자 결정 A): [확정] 자료명은 파일 이름 그대로(주간보고_YYYYMMDD_이름 → "주간보고 YYYYMMDD 이름"). 본문 ■ 일시 글자(손으로 고칠 수 있음)로 정하지 않는다.
 import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
-import {teamIsNewer, teamChanges, cellList, feedbackRecord, compareTest, whereOf, TEST_STATUS, readFeedback, readRules} from './weekly-feedback.mjs';
+import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, whereOf, TEST_STATUS, readFeedback, readRules, readExtras} from './weekly-feedback.mjs';
 import {reviewCard, readLearnRows, learnPress, learnKeys, devInboxNotice} from './weekly-learn-panel.js';
 import {notify, askConfirm} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)·확정·처음부터 확인창
 import {materialLine} from './weekly-ai-material.mjs';
@@ -338,6 +338,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       await load(bytes, found.file_name, info.format, `자료실${personal ? ' 개인 확정본' : ''} · ${found.title || found.file_name}`, mine, {from:'library', document_id:String(found.id), file_name:String(found.file_name || ''), title:String(found.title || '')}, personal ? 'personal' : 'confirmed');
       if (mine !== run || !state) return;
       if (personal && teamIsNewer(found, chosen.team)) void loadTeamChanges(state, chosen.team);
+      if (personal) void learnFromLibrary(state, found);
     } catch (error) {
       if (mine === run) say(error?.kind ? error.message : TEXT.readFailed, 'error');
     }
@@ -414,6 +415,24 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     engine ||= createEngine();
     return engine.toHwpx(bytes, name);
   }
+  // ---- S53-16 WEEKLY-환류정교화: 자료실 개인 확정본(앱 밖에서 한글로 더 다듬어 올린 판)에서도 배우기 ----
+  // 이번 주 바탕이 지난주 개인 확정본이면, 이미 연 그 판의 칸 글을 지난주 '최종'으로 보고 지난주 처음 초안(proposed)과 다시 견준다(libraryFeedback).
+  // 그 결과를 지난주 행 draft.feedback 에 쓴다 — 서버 AI 초안·줄 제안이 앞 주들의 고침 기록을 읽으므로 다음 초안이 손본 꼴을 배운다.
+  // 바탕 파일을 다시 열지 않고(이미 연 것), 지난주 행 읽기 한 번 + 쓰기 한 번(바뀔 때만). 화면을 기다리게 하지 않는다. 글은 owner 전용 행에만, 로그는 숫자도 남기지 않는다.
+  const weekBefore = start => { const d = new Date(`${start}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 7); return d.toISOString().slice(0, 10); };
+  async function learnFromLibrary(s, doc) {
+    try {
+      if (!s?.team || !doc?.id) return;
+      const prev = weekBefore(s.start), day = String(doc.document_date ?? '');
+      if (day && day !== reportDay(prev)) return; // 바로 앞 주 보고일의 판만(오래된 판으로 기록을 덮지 않게)
+      const read = await readWeekDraft(prev, rt);
+      if (read.missing || !read.row) return;
+      const next = libraryFeedback({extras:readExtras(read.row.draft), week:prev, at:nowIso(), final:rawCells(s, s.team), doc:String(doc.id)});
+      if (!next) return;
+      await changeWeekDocs({start:prev, known:read.row, change:draft => putExtras({...(draft ?? {})}, {...readExtras(draft), feedback:next})}, rt);
+    } catch { /* 배우기는 덤 — 실패해도 바탕·화면은 그대로 */ }
+  }
+
   async function loadTeamChanges(s, teamDoc) {
     try {
       const {drive} = await lazy();
