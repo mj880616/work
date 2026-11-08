@@ -55,7 +55,7 @@ import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoSt
 import {UNDO_MS, shareFileName} from './photo-viewer-model.mjs';
 import {photoFile} from './photo-share.js';
 import {shareFrom, wideShare} from './share-menu.js';
-import {PHOTO_ACT_TEXT, PHOTO_MENUS, PHOTO_BAR_MENUS, SEND_NOTE, diaryDoneText, basketDoneText, releaseAfter, FOLDER_DELETE_OFF, folderDeleteOff} from './photo-menu-items.mjs';
+import {PHOTO_ACT_TEXT, PHOTO_MENUS, PHOTO_BAR_MENUS, SEND_NOTE, diaryDoneText, basketDoneText, releaseAfter, FOLDER_DELETE_OFF, folderDeleteOff, photoOffWhy} from './photo-menu-items.mjs';
 import {openBarMenu} from './photo-bar-menu.js'; // PHOTO-아래줄정돈(S49-34): [더보기] 글자 메뉴
 import {photoActButtons} from './photo-act-bar.mjs'; // PHOTO-크게보기메뉴통일(S49-23): 아래 버튼줄 그리기 하나(고르기·크게 보기)
 import {appShare} from './app-share.js';
@@ -1422,9 +1422,10 @@ function openViewer(index, own = null) {
     diary:(item, trigger) => sendItemsTo('diary', [item], trigger),
     play:async item => (item.kind === 'phone' ? phone.mediaUrl(item) : item.kind === 'gdrive' ? gdPlay(item) : (await odMediaUrl(rt, item.id, 'play')).url), badge:item => durationLabel(item.duration_ms),
     isStarred, toggleStar:item => { starsChanged(); return toggleStar(item); },
-    deletable:item => (item?.kind === 'phone' ? {ok:phone.state().trash, title:phone.state().trash ? '폰 휴지통으로' : '이 폰은 여기서 지우지 못해요. 갤러리 앱에서 지워 주세요.'}
-      : item?.kind === 'gdrive' ? {ok:gdUsable() && !busy, title:gdUsable() ? '구글 드라이브 휴지통으로(확인 한 번)' : '구글 드라이브 · 권한 없음'}
-      : {ok:od.canDelete, title:od.canDelete ? 'Web2 휴지통으로' : '지우려면 원드라이브를 다시 연결해 주세요'}),
+    // 못 지우는 까닭 글은 고르기 줄·사진 ⋯와 같은 한 곳(photoOffWhy, S53-12).
+    deletable:item => (item?.kind === 'phone' ? {ok:phone.state().trash, title:phone.state().trash ? '폰 휴지통으로' : photoOffWhy('delete', 'phone')}
+      : item?.kind === 'gdrive' ? {ok:gdUsable() && !busy, title:!gdUsable() ? photoOffWhy('delete', 'gdrive') : busy ? '다른 일을 하는 중이에요. 잠시 뒤 다시 눌러 주세요.' : '구글 드라이브 휴지통으로(확인 한 번)'}
+      : {ok:od.canDelete, title:od.canDelete ? 'Web2 휴지통으로' : photoOffWhy('delete', 'od')}),
     take:own?.take || takeOne, restore:own?.restore || restoreTaken, commit:own?.commit || commitOne,
     // S48-32: 폰 앱 크게 보기 한 장 [지우기]도 고른 사진 [지우기]와 같은 판단(두 갈래 창). 두 갈래가 아니면 plain(예전 5초 되돌리기).
     choose:own ? (own.choose || null) : (item, anchor, plain) => {
@@ -1464,26 +1465,22 @@ const canShare = () => (typeof navigator.share === 'function' && typeof navigato
 function actAvail(id, group, on = true) {
   const none = !group.length, inTrash = tab === 'trash', canGd = x => x.kind === 'gdrive' && gdUsable();
   const ownable = x => (x.kind === 'phone' ? phoneOps() : x.kind === 'gdrive' ? canGd(x) : od.canDelete);
+  // S53-12 메뉴 모양 통일: 권한·판 때문에 못 하는 [지우기]·[옮기기]·[이름]은 why(이유·할 일 한 줄)를 함께 준다 — 그리는 쪽이 흐리게 두고 누르면 이 한 줄.
+  // 고른 것이 없거나 다른 일을 하는 중(busy)이면 why 없이 그냥 못 누름(지금처럼). 까닭 글은 photo-menu-items.mjs photoOffWhy 한 곳(첫 사진의 출처 기준).
+  const off = (act, blocked) => (blocked && !none && !busy ? {why: photoOffWhy(act, group[0].kind)} : {});
   switch (id) {
-    case 'delete': return {disabled: none || busy || !group.some(x => (x.kind === 'phone' ? phone.state().trash : ownable(x)))};
+    case 'delete': { const blocked = !group.some(x => (x.kind === 'phone' ? phone.state().trash : ownable(x))); return {disabled: none || busy || blocked, ...off('delete', blocked)}; }
     case 'restore': return {hidden: !(on && !inTrash && phone.canRestore() && group.some(x => x.kept)), disabled: busy || restoring};
-    case 'rename': return {hidden: !(on && group.length === 1 && group[0].kind === 'gdrive'), disabled: busy || !gdUsable()};
+    case 'rename': return {hidden: !(on && group.length === 1 && group[0].kind === 'gdrive'), disabled: busy || !gdUsable(), ...off('rename', !gdUsable())};
     case 'star': case 'down': return {disabled: none};
     case 'share': return {disabled: none}; // PHOTO-아래줄정돈: [공유 ▾] 메뉴에 받기·일기·업데이트가 있어 늘 보인다
-    case 'move': return {disabled: none || busy || !group.some(ownable)};
+    case 'move': { const blocked = !group.some(ownable); return {disabled: none || busy || blocked, ...off('move', blocked)}; }
     case 'tag': return {disabled: none || busy};
     case 'info': return {hidden: !(on && canInfo(group)), disabled: none || busy};
     case 'untag': return {hidden: !(tab === 'albums' && album), disabled: none || busy};
     case 'edit': return {hidden: !(on && group.length === 1 && editable(group[0])), disabled: busy};
     default: return {};
   }
-}
-// 고른 사진 [지우기]가 막힌 까닭 한 줄(크게 보기 deletable과 같은 말). 첫 사진의 출처 기준.
-function deleteWhy(group) {
-  const x = group[0]; if (!x) return '';
-  if (x.kind === 'phone') return '이 폰은 여기서 지우지 못해요. 갤러리 앱에서 지워 주세요.';
-  if (x.kind === 'gdrive') return '구글 드라이브 권한이 없어 지우지 못해요. 사진 › 출처에서 다시 연결해 주세요.';
-  return '지우려면 원드라이브를 다시 연결해 주세요.';
 }
 // [더보기] 안 항목(PHOTO_BAR_MENUS.selectBar.more 순서, 쓸 수 있는 것만). 보이는 규칙은 actAvail 한 곳.
 // [더보기] 항목 → 고른 사진들에 같은 동작(예전 아래 줄 버튼이 하던 일).
@@ -1497,8 +1494,9 @@ function runBarItem(id, btn) {
     default: return undefined;
   }
 }
+// why가 있는 항목은 흐리게 보이되 눌리고(photo-bar-menu.js), 누르면 그 한 줄(S53-12). 칸([더보기])은 눌리는 항목이 하나라도 있으면 눌린다.
 function selectMoreRows(group, on = true) {
-  return PHOTO_BAR_MENUS.selectBar.more.flatMap(id => { const a = actAvail(id, group, on); return a.hidden ? [] : [{id, disabled:!!a.disabled}]; });
+  return PHOTO_BAR_MENUS.selectBar.more.flatMap(id => { const a = actAvail(id, group, on); return a.hidden ? [] : [{id, disabled:!!a.disabled && !a.why, ...(a.why ? {why:a.why} : {})}]; });
 }
 function paintSelect() {
   const on = select.active && tab !== 'calendar', inTrash = tab === 'trash';
@@ -1522,10 +1520,10 @@ function paintSelect() {
     const b = $(`[data-photos-act-${id}]`); if (!b) continue;
     const a = id === 'more' ? (() => { const rows = selectMoreRows(group, on); return {hidden:!rows.length, disabled:!rows.some(r => !r.disabled)}; })() : actAvail(id, group, on);
     if ('hidden' in a) b.hidden = a.hidden;
-    // S53-7: 고른 사진을 지울 수 없는 까닭(폰·드라이브·원드라이브 권한)이 있으면 [지우기]는 눌리게 두고(흐리게) 누르면 그 까닭 한 줄.
-    const why = id === 'delete' && a.disabled && !none && !busy ? deleteWhy(group) : '';
+    // S53-7·S53-12: 고른 사진을 지우거나 옮길 수 없는 까닭(폰·드라이브·원드라이브 권한)이 있으면 그 칸은 눌리게 두고(흐리게) 누르면 그 까닭 한 줄.
+    const why = a.why || '';
     b.disabled = !!a.disabled && !why;
-    if (id === 'delete') { b.setAttribute('aria-disabled', String(!!why)); b.dataset.photosWhy = why; }
+    if (id === 'delete' || id === 'move') { b.setAttribute('aria-disabled', String(!!why)); b.dataset.photosWhy = why; }
   }
   $('[data-photos-restore]').disabled = none || !od.canDelete; $('[data-photos-purge]').disabled = none || !od.canDelete;
   photoStripPaintBar(); // 크게 보기가 열려 있으면 그 아래 줄도 같은 규칙으로 다시 칠한다(busy 같은 상태가 바뀔 때)
@@ -3087,7 +3085,8 @@ const delBtn = (attr, off) => menuBtn(off ? `${attr} aria-disabled="true" data-o
 function offPressed(b) {
   const off = b?.dataset?.off;
   if (!off) return false;
-  notify(FOLDER_DELETE_OFF[off] || '지금은 지울 수 없어요');
+  // 'pm-<출처>' = 사진 한 장 ⋯ [지우기](S53-12), 나머지는 폴더 ⋯ 코드(FOLDER_DELETE_OFF).
+  notify(FOLDER_DELETE_OFF[off] || (off.startsWith('pm-') ? photoOffWhy('delete', off.slice(3)) : '') || '지금은 지울 수 없어요');
   return true;
 }
 // FOLDER-순서·색 ③-2: 사진 폴더(원드라이브·구글 드라이브) ⋯ 메뉴의 [색 고르기…][위로][아래로]. 값은 서버 app_folder_prefs에만 적고 클라우드의 실제 폴더는 바뀌지 않는다(이 앱에서만 보임).
@@ -3173,9 +3172,17 @@ function sendMenuBtns(id) {
 }
 const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-menu', label:'사진 메뉴', historyKey:'kptuPhotosPhotoMenu',
   key:t => t.dataset.photosId || '',
-  render:id => String(id).startsWith('gd:') ? [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), gdUsable() && tab !== 'trash' ? [menuBtn('data-pm-rename', '이름 바꾸기…'), menuBtn('data-pm-move', '폴더로 옮기기…'), menuBtn('data-pm-info', PHOTO_ACT_TEXT.info), menuBtn('data-pm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>'].join('') : [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), (String(id).startsWith('ph:') ? phoneOps() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'), (String(id).startsWith('ph:') ? phone.canMeta() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-info', PHOTO_ACT_TEXT.info) : '',
-    od.canDelete || phone.state().trash ? menuBtn('data-pm-delete', '지우기', 'od-link-danger') : ''].join(''),
+  // S53-12 메뉴 모양 통일: [지우기]는 늘 맨 아래 같은 자리. 지금 못 지우면(구글 권한 없음·폰 앱이 지우기를 모름·원드라이브 쓰기 권한 없음) 흐리게, 누르면 이유 한 줄.
+  //   휴지통 칸에서는 예전처럼(원드라이브·폰 사진만 — 구글 사진은 휴지통 칸에 없음).
+  render:id => {
+    const gdItem = String(id).startsWith('gd:'), phItem = String(id).startsWith('ph:'), inTrash = tab === 'trash';
+    const kind = gdItem ? 'gdrive' : phItem ? 'phone' : 'od', canDel = gdItem ? gdUsable() : phItem ? phone.state().trash : od.canDelete;
+    const del = inTrash ? (!gdItem && (od.canDelete || phone.state().trash) ? menuBtn('data-pm-delete', '지우기', 'od-link-danger') : '') : delBtn('data-pm-delete', canDel ? '' : `pm-${kind}`);
+    return gdItem ? [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), gdUsable() && !inTrash ? [menuBtn('data-pm-rename', '이름 바꾸기…'), menuBtn('data-pm-move', '폴더로 옮기기…'), menuBtn('data-pm-info', PHOTO_ACT_TEXT.info)].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>', del].join('')
+      : [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), (phItem ? phoneOps() : od.canDelete) && !inTrash ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'), (phItem ? phone.canMeta() : od.canDelete) && !inTrash ? menuBtn('data-pm-info', PHOTO_ACT_TEXT.info) : '', del].join('');
+  },
   onAction:(b, {trigger}) => {
+    if (offPressed(b)) return;
     const it = itemOf(trigger); if (!it) return;
     // 고른 사진 위에서 연 메뉴는 고른 것 모두, 아니면 그 사진 하나.
     const group = select.active && select.has(it.id) ? pickedItems() : [it];
@@ -3431,8 +3438,8 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-sort]')) return sortMenu.open(b);
   if (b.matches('[data-photos-act-share]')) return shareButton(b);
   if (b.matches('[data-photos-act-delete]')) { if (b.getAttribute('aria-disabled') === 'true') { notify(b.dataset.photosWhy || '지금은 지울 수 없어요.'); return; } return deletePicked(b); }
-  if (b.matches('[data-photos-act-move]')) return openPick(b, {kind:'photos', ids:pickedItems().map(x => x.id)});
-  if (b.matches('[data-photos-act-more]')) { openBarMenu(b, selectMoreRows(pickedItems()), id => runBarItem(id, b)); return; }
+  if (b.matches('[data-photos-act-move]')) { if (b.getAttribute('aria-disabled') === 'true') { notify(b.dataset.photosWhy || '지금은 옮길 수 없어요.'); return; } return openPick(b, {kind:'photos', ids:pickedItems().map(x => x.id)}); }
+  if (b.matches('[data-photos-act-more]')) { openBarMenu(b, selectMoreRows(pickedItems()), id => runBarItem(id, b), why => notify(why)); return; }
   if (tidyClick(b)) return;
   if (folderClick(b)) return;
   if (albumClick(b)) return;

@@ -163,7 +163,8 @@ export function openPhotoStrip(opts) {
     if (id === 'detail') return [{id}];
     if (id === 'edit') return editable && edit && editable(item) ? [{id}] : [];
     const a = acts.avail(id, item);
-    return a.hidden ? [] : [{id, disabled:!!a.disabled}];
+    // S53-12: 권한·판 때문에 못 하는 항목(why)은 흐리게 보이되 누르면 이유 한 줄(photo-bar-menu.js off).
+    return a.hidden ? [] : [{id, disabled:!!a.disabled && !a.why, ...(a.why ? {why:a.why} : {})}];
   });
   const toggleInfo = () => { infoEl.hidden = !infoEl.hidden; infoBtn?.setAttribute('aria-expanded', String(!infoEl.hidden)); paintInfo(); };
   const runMenuItem = (id, btn) => {
@@ -467,7 +468,7 @@ export function openPhotoStrip(opts) {
     else if (event.target.closest('[data-strip-act]')) {
       const b = event.target.closest('[data-strip-act]'), item = items[at];
       if (item && b.getAttribute('aria-disabled') === 'true') note('지금 이 사진에는 쓸 수 있는 항목이 없어요', 3000);
-      else if (item && !b.disabled) openBarMenu(b, menuRows(b.dataset.stripAct, item), id => runMenuItem(id, b));
+      else if (item && !b.disabled) openBarMenu(b, menuRows(b.dataset.stripAct, item), id => runMenuItem(id, b), why => note(why, 3000));
     }
     else if (event.target.closest('[data-diary-info]')) toggleInfo();
   });
