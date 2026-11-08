@@ -67,6 +67,23 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     extract: false,
     lists: ["https://www.hankyung.com/feed/society", "https://www.hankyung.com/feed/economy", "https://www.hankyung.com/feed/politics"],
     hosts: ["www.hankyung.com", "hankyung.com"], kindOf: article },
+  // ---- 2차(S54-02, 11/08 CC가 크롬으로 직접 열어 확인). 안내 쪽·피드에 AI 금지 문구가 없는 곳만 넣었다(설계 3.1b 2차 표).
+  //   hosts의 기사 주소 호스트는 이 세션에서 피드를 열지 못해 [추정]이다 — 배포 뒤 probe에서 글이 0건이면 링크 호스트·https 여부부터 본다(PR 본문).
+  { key: "news-mk", name: "매일경제", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 안내 쪽 www.mk.co.kr/rss [사실, 11/08 CC 크롬 확인]: AI 금지 문구 없음. 사회 피드 열림(application/xml·item 50·description 있음, copyright 'Copyright 2026 MK').
+    extract: false,
+    lists: ["https://www.mk.co.kr/rss/50400012/", "https://www.mk.co.kr/rss/30100041/", "https://www.mk.co.kr/rss/30200030/"],
+    hosts: ["www.mk.co.kr", "mk.co.kr"], kindOf: article },
+  { key: "news-sisain", name: "시사IN", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 홈 머리 공식 RSS 링크(cdn.sisain.co.kr/rss/…) [사실, 11/08 CC 크롬 확인]: 전체 피드 열림(item 50·description 있음), AI 문구 없음.
+    extract: false,
+    lists: ["https://cdn.sisain.co.kr/rss/gns_allArticle.xml"],
+    hosts: ["cdn.sisain.co.kr", "www.sisain.co.kr", "sisain.co.kr"], kindOf: article },
+  { key: "news-newstapa", name: "뉴스타파", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 홈 공식 링크 /rss [사실, 11/08 CC 크롬 확인]: 피드 열림(text/xml·item 20·description 있음), AI 문구 없음.
+    extract: false,
+    lists: ["https://newstapa.org/rss"],
+    hosts: ["newstapa.org", "www.newstapa.org"], kindOf: article },
   { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss",
     extract: { version: 1 },
     lists: ["https://publicservices.international/feed.xml"], hosts: ["publicservices.international"], kindOf: article },
