@@ -463,6 +463,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // 같은 줄을 main 쪽에서도 글자로 찾아 뺀다(main 기준 판의 옛 글자 포함, 남은 요소는 그대로 양쪽 스타일로 비교한다). 다시 생기지 않는지는 obvious-hints-removed.test가 본다.
   await original.evaluate(()=>{const gone=['목록에 저장됩니다','고르지 않아도 됩니다','연결하지 않은 미완료 할 일입니다','연결 안 된 미완료 할 일입니다','담당자를 지정합니다','내 담당조직만 표시됩니다','함께 고를 수 있습니다','동시에 지정할 수 있습니다','중복 소속 가능'];
    document.querySelectorAll('p,small').forEach(el=>{if(!el.children.length&&gone.some(t=>el.textContent.includes(t)))el.remove()})});
+  // UI-줄입력늘어나기(S53-15): 할 일 수정 창 제목 칸이 글만큼 늘어나는 한 줄 칸(textarea)으로 바뀌었다. 현재 칸을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
+  if(await original.locator('#gtEditTitle').count()){const html=await page.locator('#gtEditTitle').evaluate(el=>el.outerHTML);await original.locator('#gtEditTitle').evaluate((el,html)=>{el.outerHTML=html},html)}
   const before=await d6bSnapshot(original,d6bCurrentSelectors),after=await d6bSnapshot(page,d6bCurrentSelectors);
   // Line 202: main styled #ps3Objective by this rule; the same header line (#ps3Summary) keeps that font size.
   const headerRow=before[d6bSelectors.indexOf(d6bProgressLine)];

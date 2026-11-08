@@ -37,12 +37,14 @@ for (const [width, phone] of [[1440, false], [884, false], [412, true]]) {
       const tabs = await box(page, '.mobile-tabs');
       expect(Math.abs(quick.bottom - tabs.y)).toBeLessThanOrEqual(2);
       expect(await page.locator('#homeView .home-quick[data-home-quick]').evaluate(el => getComputedStyle(el).position)).toBe('fixed');
-      expect(sched.y).toBeGreaterThanOrEqual(summary.bottom - 1);
+      // S53-13: '잊지 말기'는 입력줄 머리 줄 칩(입력줄 안).
+      expect(summary.y).toBeGreaterThanOrEqual(quick.y - 1); expect(summary.bottom).toBeLessThanOrEqual(quick.bottom + 1);
       expect(tasks.y).toBeGreaterThanOrEqual(sched.bottom - 1);
       expect(Math.abs(tasks.x - sched.x)).toBeLessThanOrEqual(1);
     } else {
-      expect(summary.y).toBeGreaterThanOrEqual(quick.bottom - 1);
-      expect(sched.y).toBeGreaterThanOrEqual(summary.bottom - 1);
+      // S53-13: '잊지 말기'는 입력줄 머리 줄 칩(입력줄 안), 그 아래 바로 [하루] 카드.
+      expect(summary.y).toBeGreaterThanOrEqual(quick.y - 1); expect(summary.bottom).toBeLessThanOrEqual(quick.bottom + 1);
+      expect(sched.y).toBeGreaterThanOrEqual(quick.bottom - 1);
       // PC 틀: 좌우 두 칸, 같은 줄에서 시작.
       expect(Math.abs(tasks.y - sched.y)).toBeLessThanOrEqual(2);
       expect(tasks.x).toBeGreaterThanOrEqual(sched.right - 1);

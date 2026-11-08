@@ -18,6 +18,7 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 import { chevHtml } from './fold-chevron.mjs';
 import {rowMore} from './row-more.js';
 import {SITE_REF_LINE} from './weekly-cell-names.mjs';
+import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 
 const TABLE = '/rest/v1/app_weekly_org_lines';
 const COLS = 'id,organization_id,week_start,day,end_day,body,sort_order,state,origin,edited,source_update_ids,source_note_ids,source_status_ids,updated_at';
@@ -147,7 +148,7 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
     const d = ctl.draft || {}, dis = ctl.busy ? ' disabled' : '', key = l?.id || 'new', inv = f => (ctl.invalid === f ? ' aria-invalid="true"' : '');
     return `<div class="wl-form" data-wl-form="${esc(key)}" data-wl-org="${esc(orgId)}">`
       + `<span class="wl-f-days"><input type="date" data-wl-field="day" aria-label="날짜(선택)" value="${esc(d.day || '')}"${inv('day')}${dis}><span aria-hidden="true">~</span><input type="date" data-wl-field="end_day" aria-label="끝나는 날(선택)" value="${esc(d.end_day || '')}"${d.day ? ` min="${esc(d.day)}"` : ''}${inv('end_day')}${dis}></span>`
-      + `<input type="text" class="wl-f-body" data-wl-field="body" aria-label="조직보고 줄" maxlength="${BODY_MAX}" autocomplete="off" value="${esc(d.body || '')}"${inv('body')}${dis}>`
+      + `<textarea rows="1" class="wl-f-body" data-wl-field="body" data-autogrow data-enter-field="single" aria-label="조직보고 줄" maxlength="${BODY_MAX}" autocomplete="off"${inv('body')}${dis}>${esc(d.body || '')}</textarea>`
       + `<span class="wl-btns btn-row">${l ? `<button type="button" class="wl-btn" data-wl-drop="${esc(l.id)}"${dis}>빼기</button>` : ''}<button type="button" class="wl-btn" data-wl-cancel${dis}>취소</button><button type="button" class="wl-btn is-main" data-wl-save${dis}>저장</button></span></div>`;
   };
   const lastHtml = (orgId, parts) => {
@@ -227,10 +228,11 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
       let spec = null; try { spec = JSON.parse(slot.dataset.wlMore); } catch { /* 자리표가 깨졌으면 ⋯ 를 그리지 않는다 */ }
       if (spec) slot.replaceWith(rowMore(document, spec)); else slot.remove();
     }
+    fitAll(ctl.host); // UI-줄입력늘어나기: 줄 고치기 칸은 열자마자 글 전체가 보이게(auto-grow.js)
     if (!ctl.host || !ctl.focus) return;
     const el = ctl.host.querySelector(ctl.focus);
     el?.focus({preventScroll: true});
-    if (el?.matches('input')) el.scrollIntoView({block: 'nearest'});
+    if (el?.matches('input, textarea')) el.scrollIntoView({block: 'nearest'});
     ctl.focus = '';
   };
 

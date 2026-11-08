@@ -97,7 +97,7 @@ test('홈 잊지 말기 한 줄 숫자에 요청이 들고(정리함 숫자와 �
  }});
  const line=page.locator('#homeView [data-home-summary]');
  await expect(line.locator('[data-nbx-badge]')).toHaveText(/^\d+$/);
- await expect(line.locator('.nbx-head')).toContainText('잊지 말기');
+ await expect(line.locator('[data-home-forget-open]')).toContainText('잊지 말기');
  await expect(line).not.toContainText('새 소식');
  await line.locator('[data-home-forget-open]').click();
  await expect(page.locator('#basketView')).toBeVisible();
