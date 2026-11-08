@@ -424,23 +424,23 @@ for(const width of [390,1280]){
   await box.fill('가'.repeat(301));await expect(items(page).nth(1).locator('[data-journal-edit-count]')).toHaveText('301/300자');
   await items(page).nth(1).getByRole('button',{name:'저장'}).click();
   await expect(items(page).nth(1).locator('[data-journal-edit-status]')).toHaveText('한 줄은 300자까지 쓸 수 있어요.');await expect(box).toHaveAttribute('aria-invalid','true');
-  await box.fill('둘째 줄 수정됨');await box.press('Shift+Enter');
+  await box.fill('둘째 줄 고침');await box.press('Shift+Enter');
   await expect(items(page).nth(1).locator('[data-journal-edit-status]')).toHaveText('한 줄로 써 주세요. 줄바꿈은 넣을 수 없어요.');
   expect(f.writes).toEqual([]);
   await box.press('Enter');
   await expect(page.locator('#journalRoot [data-journal-line-status]')).toHaveText('줄을 수정했어요.');
-  await expect(lineTexts(page)).toHaveText(['첫 줄','둘째 줄 수정됨','셋째 줄']);
-  expect(f.writes[0]).toMatchObject({method:'PATCH',query:{id:'eq.k6',kind:'eq.work',workspace_id:'eq.w',updated_at:'eq.2026-10-06T00:50:00Z'},body:{raw_text:'첫 줄\n둘째 줄 수정\n셋째 줄'}});
+  await expect(lineTexts(page)).toHaveText(['첫 줄','둘째 줄 고침','셋째 줄']);
+  expect(f.writes[0]).toMatchObject({method:'PATCH',query:{id:'eq.k6',kind:'eq.work',workspace_id:'eq.w',updated_at:'eq.2026-10-06T00:50:00Z'},body:{raw_text:'첫 줄\n둘째 줄 고침\n셋째 줄'}});
   // 삭제: 바로 지우고 5초 [되돌리기] 안내(앱 공용 되돌리기), 누르면 같은 자리로.
   await page.locator('#journalRoot [data-journal-edit="0"]').click();
   await items(page).nth(0).getByRole('button',{name:'삭제'}).click();
-  await expect(lineTexts(page)).toHaveText(['둘째 줄 수정됨','셋째 줄']);
+  await expect(lineTexts(page)).toHaveText(['둘째 줄 고침','셋째 줄']);
   const undo=page.locator('[data-undo-notice]');
   await expect(undo.locator('[data-undo-text]')).toHaveText('한 줄을 삭제했어요.');
   await undo.getByRole('button',{name:'되돌리기'}).click();
   await expect(undo.locator('[data-undo-text]')).toHaveText('삭제한 줄을 되돌렸어요.');
-  await expect(lineTexts(page)).toHaveText(['첫 줄','둘째 줄 수정됨','셋째 줄']);
-  expect(work(f,'2026-10-06').raw_text).toBe('첫 줄\n둘째 줄 수정\n셋째 줄');
+  await expect(lineTexts(page)).toHaveText(['첫 줄','둘째 줄 고침','셋째 줄']);
+  expect(work(f,'2026-10-06').raw_text).toBe('첫 줄\n둘째 줄 고침\n셋째 줄');
   // 마지막 줄까지 지우면 그날 행이 지워지고 초록 점도 사라진다.
   for(let i=0;i<3;i++){await page.locator('#journalRoot [data-journal-edit="0"]').click();await items(page).nth(0).getByRole('button',{name:'삭제'}).click();await expect(items(page)).toHaveCount(2-i);}
   await expect(page.locator('#journalRoot [data-journal-lines]')).toBeHidden();
@@ -2856,7 +2856,7 @@ for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 더는 투
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 지난 투쟁 소식']);
  const fix=hwpx(page).locator('[data-hwpx-stage-fix]');await expect(fix).toBeVisible();
- await expect(fix.locator('li')).toHaveCount(1);await expect(fix.locator('li')).toContainText('나 지역 모임');await expect(fix).toContainText('삭제할까요');
+ await expect(fix.locator('li')).toHaveCount(1);await expect(fix.locator('li')).toContainText('나 지역 모임');await expect(fix).toContainText('지울까요');
  await fix.locator('[data-hwpx-stage-clear]').click();
  await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveCount(0);await expect(siteCell(page,'나 지역 모임').locator('[data-flow-empty]')).toHaveText('빈 칸');
  await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
@@ -3824,7 +3824,7 @@ for(const width of [390,1280])test(`[주간 정리] 2. 1) 요약: 부호만 다�
  const before=f.exec.calls.filter(x=>x.method==='PATCH').length;
  const topic=items.filter({hasText:'주제 칸 수요일 기록'});
  // S52-25: [넣기][이미 있음][고쳐서 넣기][빼기]는 줄 끝 ⋯ 하나 안(공용 '제안 줄').
- await expect(topic.locator('.row-more-menu button')).toHaveText(['넣기','이미 있음','수정해서 넣기','빼기']);
+ await expect(topic.locator('.row-more-menu button')).toHaveText(['넣기','이미 있음','고쳐서 넣기','빼기']);
  await expect(topic.locator('button.weekly-flow-take,button.weekly-flow-have')).toHaveCount(0);
  await pressMore(topic,'[data-flow-have]');
  await expect(items.filter({hasText:'주제 칸 수요일 기록'})).toHaveCount(0);
