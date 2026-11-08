@@ -142,7 +142,7 @@
 | 국토교통부(부처) | 확인 못 함 | — | 무료 | 정책브리핑 목록으로 대신 |
 
 
-### 3.1b 종합지·방송사 늘리기 (11/04 요청함, NEWS-매체늘리기 → 11/08 S53-6에서 3곳, S54-02 2차에서 3곳 더 넣음)
+### 3.1b 종합지·방송사 늘리기 (11/04 요청함, NEWS-매체늘리기 → 11/08 S53-6에서 3곳, S54-02 2차에서 3곳, S54-03 3차에서 7곳 더 넣음)
 
 **확인 방법(11/08, S53-6 웹 세션)**: WebSearch로 매체의 공식 'RSS 안내' 쪽을 찾아 WebFetch로 열었다. 이 세션 도구는 검색 결과에 나온 주소만 열 수 있어서 **피드 주소 자체(XML)는 하나도 직접 열지 못했다**(경향 영문 피드만 검색 결과에 나와 열림). 그래서 '넣음'은 **공식 안내 쪽에 [사실]로 적힌 피드 주소**만이고, 피드가 실제로 열리는지·robots는 배포 뒤 news-feed `probe`(저장 안 함)로 CC가 확인한다(안 열리면 그 매체 줄 한 줄을 빼는 작은 PR). 검색 도구가 "사이트가 허락하지 않음"으로 아예 거절한 매체는 안내 쪽을 볼 수 없었다(도구 거절 = 사이트 robots 판단으로 보이나 우리 수집기 기준과 같은지는 [추정]). 제3자 모음(블로그·gist·feeder.co 등)의 옛 주소는 쓰지 않았다(추측·우회 금지).
 
@@ -151,8 +151,8 @@
 | 경향신문 | 종합지 | `khan.co.kr/help/help_rss.html` [사실] | `/rss/rssdata/society_news.xml`·`economy_news.xml`·`politic_news.xml` [사실: 안내 쪽]. 같은 경로 영문 피드는 RSS 2.0·`dc:date`·요약 description으로 열림 [사실] | 개인 구독 목적, 다수와 공유·영리는 허락 필요 [사실] | **넣음**(키워드만·기본 켬) |
 | 오마이뉴스 | 인터넷 매체 | `m.ohmynews.com/NWS_Web/Help/srv/h_help_rss.aspx` [사실] | `rss.ohmynews.com/rss/society.xml`·`economy.xml`·`politics.xml` [사실: 안내 쪽] | 개인적 이용에 한정, 재배포·재RSS 금지 [사실] | **넣음**(키워드만·기본 켬) |
 | 한국경제 | 경제지 | `hankyung.com/feed` [사실] | `/feed/society`·`/feed/economy`·`/feed/politics` [사실: 안내 쪽] | 안내 쪽에 RSS 조건 문구 없음(약관 링크만) [사실] | **넣음**(키워드만·기본 켬) |
-| 노컷뉴스 | 인터넷 매체 | `nocutnews.co.kr/rss/` [사실] | `rss.nocutnews.co.kr/category/society.xml` 등 [사실: 안내 쪽] | 개인 비상업적 사용만, **'AI 학습 및 활용 금지'** [사실] | 안 넣음 — 우리 앱은 소개 없는 기사를 열 때 AI 한 줄 요약을 만든다. 명진 결정(아래) |
-| SBS | 방송사 | `news.sbs.co.kr/news/rss.do` [사실] | `SectionRssFeed.do?sectionId=01`(정치)·`02`(경제)·`03`(사회) [사실: 안내 쪽] | 개인 비상업적 사용만, **'AI학습 이용 금지'** [사실] | 안 넣음 — 노컷과 같은 까닭 |
+| 노컷뉴스 | 인터넷 매체 | `nocutnews.co.kr/rss/` [사실] | `rss.nocutnews.co.kr/category/society.xml` 등 [사실: 안내 쪽] | 개인 비상업적 사용만, **'AI 학습 및 활용 금지'** [사실] | 1차엔 안 넣음 → **3차에서 넣음**(아래 3차 표) |
+| SBS | 방송사 | `news.sbs.co.kr/news/rss.do` [사실] | `SectionRssFeed.do?sectionId=01`(정치)·`02`(경제)·`03`(사회) [사실: 안내 쪽] | 개인 비상업적 사용만, **'AI학습 이용 금지'** [사실] | 1차엔 안 넣음 → **3차에서 넣음** |
 | MBC | 방송사 | `imnews.imbc.com/rss/index.html`(검색 결과) | — | 안내 쪽·피드 모두 **robots가 막음**(도구가 robots_disallowed로 거절) [사실] | 안 넣음 → 구글 뉴스 검색(3.3)으로만 |
 | Guardian(노조 피드) | 해외 | 확인 못 함 — 검색 도구가 사이트 검색 거절 [사실: 도구 응답] | — | 확인 못 함 | 안 넣음 |
 
@@ -165,18 +165,32 @@
 | 매일경제 | 공식 안내 쪽 `www.mk.co.kr/rss` [사실] | 사회 `/rss/50400012/`·경제 `/rss/30100041/`·정치 `/rss/30200030/`. 사회 피드 열림(application/xml·item 50·description 있음, copyright 'Copyright 2026 MK') [사실] | 안내 쪽·피드에 AI 금지 문구 없음 [사실] | **넣음**(`news-mk`, 키워드만·기본 켬) |
 | 시사IN | 홈 머리의 공식 RSS 링크(`cdn.sisain.co.kr/rss/…`) [사실] | 전체 `cdn.sisain.co.kr/rss/gns_allArticle.xml` 열림(item 50·description 있음) [사실] | AI 문구 없음 [사실] | **넣음**(`news-sisain`, 키워드만·기본 켬) |
 | 뉴스타파 | 홈의 공식 링크 `/rss` [사실] | `newstapa.org/rss` 열림(text/xml·item 20·description 있음) [사실] | AI 문구 없음 [사실] | **넣음**(`news-newstapa`, 키워드만·기본 켬) |
-| 한겨레 | 피드 `www.hani.co.kr/rss/` [사실] | — | 피드 copyright에 **'무단 전재, 재배포, AI 학습 및 활용 금지'** [사실] | 안 넣음 — 명진 결정(아래 'AI 문구' 묶음) |
-| 연합뉴스 | 안내 쪽 `www.yna.co.kr/rss/index`(비상업 개인 용도만) [사실] | — | 피드 copyright **'AI 학습 및 활용 금지'** [사실] | 안 넣음 — 명진 결정 |
-| 동아일보 | 안내 쪽 `rss.donga.com`(개인 비상업만) [사실] | — | 하단 **'AI학습 이용 금지'** [사실] | 안 넣음 — 명진 결정 |
-| JTBC | 사이트 하단 [사실] | — | **'AI 학습 등을 금합니다'** [사실] | 안 넣음 — 명진 결정 |
-| KBS | 사이트 하단 [사실], RSS 링크는 못 찾음 | — | **'이용(AI 학습 포함) 금지'** [사실] | 안 넣음 — 명진 결정(링크도 없음) |
-| 조선일보 | 홈에 RSS 안내·링크 없음 [사실]. 사이트 자체 주소의 피드는 열림(AI 문구 없음, 소개 거의 없음) [사실] | — | 공식 안내 쪽 없음 | 안 넣음 — 설계 규칙(안내 쪽·공식 링크에 있는 주소만) |
+| 한겨레 | 피드 `www.hani.co.kr/rss/` [사실] | — | 피드 copyright에 **'무단 전재, 재배포, AI 학습 및 활용 금지'** [사실] | 2차엔 안 넣음 → **3차에서 넣음**(`news-hani`) |
+| 연합뉴스 | 안내 쪽 `www.yna.co.kr/rss/index`(비상업 개인 용도만) [사실] | — | 피드 copyright **'AI 학습 및 활용 금지'** [사실] | 2차엔 안 넣음 → **3차에서 넣음**(`news-yna`) |
+| 동아일보 | 안내 쪽 `rss.donga.com`(개인 비상업만) [사실] | — | 하단 **'AI학습 이용 금지'** [사실] | 2차엔 안 넣음 → **3차에서 넣음**(`news-donga`) |
+| JTBC | 사이트 하단 [사실] | — | **'AI 학습 등을 금합니다'** [사실] | 2차엔 안 넣음 → **3차에서 넣음**(`news-jtbc`) |
+| KBS | 사이트 하단 [사실], RSS 링크는 못 찾음 | — | **'이용(AI 학습 포함) 금지'** [사실] | 안 넣음 — RSS 링크를 못 찾음(3차도 같음) → 구글 뉴스 |
+| 조선일보 | 홈에 RSS 안내·링크 없음 [사실]. 사이트 자체 주소의 피드는 열림(AI 문구 없음, 소개 거의 없음) [사실] | — | 공식 안내 쪽 없음 | 2차엔 안 넣음 → **3차에서 넣음**(`news-chosun`, 공식 안내 쪽 없음·사이트 자체 주소·명진 결정) |
 | 중앙일보·한국일보·민중의소리 | 홈에 RSS 링크 없음 [사실] | — | — | 안 넣음 → 구글 뉴스(3.3) |
 | 서울신문 | `/rss`가 403 [사실] | — | — | 안 넣음 → 구글 뉴스 |
 
-- **양 조절**: 넣은 3곳(2차 3곳도 같음)은 `take: "keywords"` — 사회·경제·정치 섹션 피드만 읽고, 제목+소개에 **내 키워드가 글자 그대로 든 글만** 저장한다(AI 없이, `matchedKeywords`). 키워드가 하나도 없는 작업공간은 이 매체 글을 받지 않는다. 운동·노동 매체는 `all`.
-- **본문**: 넣은 곳(1·2차 모두)은 `extract: false` — 수집 때 글 쪽을 읽지 않고 피드의 제목·소개·주소만 둔다(5절 ③ 매체 경계). 사람이 [본문]을 누를 때 열기는 다른 매체와 같다.
-- **명진 결정('AI 문구' 묶음 — 노컷·SBS·한겨레·연합뉴스·동아일보·JTBC·KBS)**: 이 일곱 곳은 안내 쪽·피드·사이트 하단에 'AI 학습·활용 금지'가 적혀 있다. 넣으면 키워드에 맞는 기사 제목·소개는 들어오지만, 소개가 비어 있는 기사를 열 때 앱이 AI 한 줄 요약을 만들 수 있다. 추천: 지금처럼 빼고 구글 뉴스 검색으로만 받기(조건과 부딪치지 않음). 한 묶음으로 같은 결정을 받는다(매체마다 따로 묻지 않음).
+- **양 조절**: 넣은 곳(1차 3곳·2차 3곳·3차 7곳 모두)은 `take: "keywords"` — 사회·경제·정치 섹션 피드만 읽고, 제목+소개에 **내 키워드가 글자 그대로 든 글만** 저장한다(AI 없이, `matchedKeywords`). 키워드가 하나도 없는 작업공간은 이 매체 글을 받지 않는다. 운동·노동 매체는 `all`.
+- **본문**: 넣은 곳(1·2·3차 모두)은 `extract: false` — 수집 때 글 쪽을 읽지 않고 피드의 제목·소개·주소만 둔다(5절 ③ 매체 경계). 사람이 [본문]을 누를 때 열기는 다른 매체와 같다.
+- **명진 결정(11/08 19:46)**: "AI 문구 매체도 넣어. 그런데도 다 수집해, 어차피 개인 용도잖아." → 11/08 명진: AI 문구 매체도 개인 용도로 넣음. 이용 조건에 'AI 학습·활용 금지'가 있는 매체(노컷·SBS·한겨레·연합뉴스·동아일보·JTBC)와 공식 안내 쪽은 없지만 사이트 자체 주소 피드가 열리는 조선일보를 3차에서 넣었다. 공개로 다시 내보내는 길은 없다(개인 작업공간 안에서만 봄). KBS는 RSS 링크를 못 찾아 넣지 않는다.
+
+**3차 확인(11/08 19:50, S54-03)**: CC가 명진 크롬에서 피드를 직접 받아 봤다 — 모두 HTTP 200, item·description 있음 [사실]. 기사 링크 호스트는 피드의 `<link>` 기준이며, 연합뉴스·SBS는 이 세션에서 피드를 열지 못해 [추정]이다(배포 뒤 probe로 확인). 피드 주소의 쿼리(`?sectionId`·`?outputType`)는 수집기 주소 검사(`allowedUrl`: https·호스트·포트·계정만 봄)를 그대로 통과한다 — 규칙을 넓히지 않았다.
+
+| 매체(key) | 피드(사회·경제·정치) | item 수 | 기사 호스트 | 확인한 곳·조건 | 결과 |
+| --- | --- | --- | --- | --- | --- |
+| 한겨레(`news-hani`) | `www.hani.co.kr/rss/society/`·`/economy/`·`/politics/` | 각 30 | `www.hani.co.kr` | 피드 copyright 'AI 학습 및 활용 금지' | **넣음**(키워드만·기본 켬) |
+| 연합뉴스(`news-yna`) | `www.yna.co.kr/rss/society.xml`·`economy.xml`·`politics.xml` | 각 120 | `www.yna.co.kr` [추정] | 안내 쪽 `yna.co.kr/rss/index`(비상업·개인), 'AI 학습 및 활용 금지' | **넣음** |
+| 동아일보(`news-donga`) | `rss.donga.com/national.xml`·`economy.xml`·`politics.xml` | 각 50 | `www.donga.com` | 안내 쪽 `rss.donga.com`(개인 비상업), 'AI학습 이용 금지' | **넣음** |
+| JTBC(`news-jtbc`) | `news-ex.jtbc.co.kr/v1/get/rss/section/society`·`economy`·`politics` | 11·4·14 | `news.jtbc.co.kr` | 안내 쪽 `news.jtbc.co.kr/rss`, 'AI 학습 등 금함' | **넣음** |
+| SBS(`news-sbs`) | `news.sbs.co.kr/news/SectionRssFeed.do?sectionId=03`(사회)·`02`(경제)·`01`(정치) `&plink=RSSREADER` | 각 29 | `news.sbs.co.kr` [추정] | 안내 쪽 `news.sbs.co.kr/news/rss.do`, 'AI학습 이용 금지' | **넣음** |
+| 노컷뉴스(`news-nocut`) | `rss.nocutnews.co.kr/category/society.xml`·`economy.xml`·`politics.xml` | 각 50 | `www.nocutnews.co.kr` | 안내 쪽 `nocutnews.co.kr/rss/`, 'AI 학습 및 활용 금지' | **넣음** |
+| 조선일보(`news-chosun`) | `www.chosun.com/arc/outboundfeeds/rss/category/national/?outputType=xml`·`/economy/`·`/politics/` | 각 100 | `www.chosun.com` | 공식 안내 쪽 없음, 사이트 자체 주소, AI 문구 없음 | **넣음**(명진 결정) |
+| KBS | — | — | — | RSS 링크 못 찾음 | 안 넣음 → 구글 뉴스 |
+| 중앙일보·한국일보·민중의소리·서울신문 | — | — | — | RSS 없음 | 안 넣음 → 구글 뉴스 |
 - 고른 '등등' 후보(11/04): 연합뉴스 · 한국일보 · 한국경제 · 매일경제 · 서울신문 · 노컷뉴스. 성향 표시는 균형 확인용이며 화면에는 쓰지 않는다.
 
 ### 3.1c 매체 고르기·같은 사건 묶기 — 남은 구현 (이 PR에 안 들어감)

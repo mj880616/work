@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 const H = await import('../supabase/functions/news-feed/handler.ts');
 const C = await import('../supabase/functions/_shared/news-catalog.ts');
+const O = await import('../supabase/functions/_shared/outside-catalog.ts');
 const NOW = Date.parse('2026-11-08T03:00:00Z');
 const SB = 'https://synthetic.supabase.test', SERVICE = 'synthetic-service-role-key', SECRET = 'synthetic-news-feed-cron-secret-0123456789abc';
 const WS1 = 'a0000000-0000-4000-8000-000000000001', WS2 = 'a0000000-0000-4000-8000-000000000002', WS3 = 'a0000000-0000-4000-8000-000000000003', WS4 = 'a0000000-0000-4000-8000-000000000004';
@@ -40,11 +41,12 @@ function world({sources, keywords, sites}) {
 }
 
 test('카탈로그: 종합지는 기본 켬·키워드만·수집 때 본문 안 읽음, 주소는 https, 화면 목록에 on이 실림', () => {
-  for (const key of ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain', 'news-newstapa']) {
+  for (const key of ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain', 'news-newstapa',
+    'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun']) {
     const s = C.newsSourceByKey(key);
     assert.ok(s, key);
     assert.equal(s.on, true); assert.equal(s.take, 'keywords'); assert.equal(s.extract, false); assert.equal(s.region, 'domestic');
-    for (const l of s.lists) { const u = new URL(l); assert.equal(u.protocol, 'https:'); assert.ok(s.hosts.includes(u.hostname), l); }
+    for (const l of s.lists) { const u = new URL(l); assert.equal(u.protocol, 'https:'); assert.ok(s.hosts.includes(u.hostname), l); assert.ok(O.allowedUrl(s, l), `주소 검사 통과(쿼리 포함): ${l}`); }
   }
   // 앞서 있던 매체는 기본 켬이 아니다(사용자가 켠 것만 — 지금 동작 유지).
   for (const key of ['news-labortoday', 'news-beminor', 'news-pressian', 'news-psi', 'news-itf', 'news-labourstart']) assert.equal(C.newsSourceByKey(key).on, undefined, key);
@@ -99,7 +101,7 @@ test('run_plan: 기본 켬 매체는 뉴스 쓰는 작업공간이 있을 때만
     return (await h(new Request(`${FN}?action=run_plan`, {method: 'POST', headers: {[H.CRON_HEADER]: SECRET, 'content-type': 'application/json'}, body: '{}'}))).json();
   };
   const on = await plan([], [{workspace_id: WS1, word: '철도'}]);
-  assert.deepEqual(on.media.sort(), ['news-hankyung', 'news-khan', 'news-mk', 'news-newstapa', 'news-ohmynews', 'news-sisain']);
+  assert.deepEqual(on.media.sort(), ['news-chosun', 'news-donga', 'news-hani', 'news-hankyung', 'news-jtbc', 'news-khan', 'news-mk', 'news-newstapa', 'news-nocut', 'news-ohmynews', 'news-sbs', 'news-sisain', 'news-yna']);
   const off = await plan([], []);
   assert.deepEqual(off.media, [], '뉴스를 안 쓰는 작업공간뿐이면 읽지 않음');
 });
