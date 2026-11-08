@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 일기에 넣은 사진 표시</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#1f2a27;background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:#6b7773}h2{font-size:13px;margin:14px 0 6px}
+.g{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;max-width:380px}
+.t{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden}
+.c1{background:linear-gradient(135deg,#9bb7c9,#566f7d)}.c2{background:linear-gradient(135deg,#d9b48a,#8a5b3a)}.c3{background:linear-gradient(135deg,#b9c9a0,#5f7a48)}.c4{background:linear-gradient(135deg,#c9a0b9,#7a486a)}
+.star{position:absolute;right:4px;top:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.35);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+/* A 작은 초록 원 + 연필 */
+.a{position:absolute;left:4px;top:4px;width:20px;height:20px;border-radius:50%;background:#2f6f5e;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1.5px #fff}
+/* B 테두리 */
+.b{box-shadow:inset 0 0 0 3px #2f6f5e}
+.b::after{content:"";position:absolute;left:4px;top:4px;width:8px;height:8px;border-radius:50%;background:#2f6f5e;box-shadow:0 0 0 1.5px #fff}
+/* C 글자 띠 */
+.cc{position:absolute;left:4px;top:4px;padding:0 5px;height:17px;border-radius:5px;background:rgba(47,111,94,.92);color:#fff;font-size:10.5px;display:flex;align-items:center}
+.note{margin:6px 2px 0;color:#6b7773;font-size:12px;line-height:1.6;max-width:380px}
+</style></head><body>
+<h1>일기에 넣은 사진 표시 — 세 가지</h1>
+<p class="s">오른쪽 위 ☆는 지금 있는 별표. 왼쪽 위가 새 표시.</p>
+<h2>A (추천) 작은 초록 원 + ✎</h2>
+<div class="g"><div class="t c1"><span class="a">✎</span><span class="star">☆</span></div><div class="t c2"><span class="star">☆</span></div><div class="t c3"><span class="a">✎</span><span class="star">★</span></div><div class="t c4"><span class="star">☆</span></div></div>
+<p class="note">별표와 같은 크기 원, 일기 연필 모양. 작아서 사진을 덜 가림.</p>
+<h2>B 초록 테두리 + 작은 점</h2>
+<div class="g"><div class="t c1 b"><span class="star">☆</span></div><div class="t c2"><span class="star">☆</span></div><div class="t c3 b"><span class="star">★</span></div><div class="t c4"><span class="star">☆</span></div></div>
+<p class="note">한눈에 가장 잘 보임. 대신 '고른 사진'처럼 보일 수 있음.</p>
+<h2>C 글자 '일기'</h2>
+<div class="g"><div class="t c1"><span class="cc">일기</span><span class="star">☆</span></div><div class="t c2"><span class="star">☆</span></div><div class="t c3"><span class="cc">일기</span><span class="star">★</span></div><div class="t c4"><span class="star">☆</span></div></div>
+<p class="note">뜻은 가장 분명. 대신 작은 사진에서 글자가 사진을 조금 더 가림.</p>
+</body></html>
