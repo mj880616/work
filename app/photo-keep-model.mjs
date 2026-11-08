@@ -3,7 +3,7 @@
 //   폰 사진 목록(쪽으로 받음)에 원래 날짜 자리로 섞는다. 칸은 원드라이브 사진이고(작은 그림·크게 보기 = 원드라이브), kept 표시만 더한다.
 // - 지우기 두 갈래 계획: 고른 사진 → 폰 공간만 비우기(원드라이브에 원본이 확인된 폰 사진만) / 완전히 지우기(폰 + 원드라이브, 짝 사본까지).
 import {toItem} from './photos-model.mjs';
-import {copyFinder, sizeText, totalBytes} from './photo-tidy-model.mjs';
+import {backupMap, sizeText, totalBytes} from './photo-tidy-model.mjs';
 import {SAME_MS} from './photo-sources-model.mjs';
 
 const pad = n => String(n).padStart(2, '0');
@@ -44,9 +44,10 @@ export function twinPairs(phItems, odPicked) {
   if (!Array.isArray(phItems)) return null;
   const od = (odPicked || []).filter(x => x && x.kind !== 'phone' && x.kind !== 'gdrive' && !x.kept);
   if (!od.length) return [];
-  const find = copyFinder(od), seen = new Set(), out = [];
+  // S53-2: 한 원드라이브 칸을 폰 사진 여러 장이 가리키면(내용 확인 없이) 짝으로 두지 않는다(backupMap).
+  const map = backupMap(phItems, od), seen = new Set(), out = [];
   for (const p of phItems) {
-    const o = p?.phoneId ? find(p) : null;
+    const o = p?.phoneId ? map.get(p.id) : null;
     if (o && !seen.has(o.id)) { seen.add(o.id); out.push({item:p, copy:o}); }
   }
   return out;

@@ -248,7 +248,7 @@ test('통화 1280: 개인→업무로 옮기면 그 한 건만 call_refill로 �
  await view.locator('[data-cf-box="work"]').click();
  const row=view.locator(`[data-cf-row="${P1}"]`);
  await expect(row.locator('.feed-title')).toContainText('임금교섭 3차 일정 협의');
- await expect(row.locator('.feed-org')).toHaveText('예시지부');// UI-선택표시톤다운 ③: 목록 꼬리표는 조직 약칭 하나
+ await expect(row.locator('.feed-org')).toHaveText('김가상');// CALL-상대표시정리 ①: 목록 꼬리표는 이름만(직책 빼고), 이름을 모르면 조직
  await row.click();
  await expect(view.locator('#cfDetail [data-cf-points] li')).toHaveText(['토요일 저녁 7시']);
  expect(f.refills.length).toBe(1);

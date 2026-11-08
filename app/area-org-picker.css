@@ -54,3 +54,14 @@
 .home-choice-sheet .aop-done-note { flex:none; color:var(--kptu-faint); font-size:var(--ds-text-meta,12px); white-space:pre; }
 /* 하나만 고르는 창 맨 위의 회색 줄(사업 보고 '없음' 등, openAreaOrgPicker top attrs). */
 .home-choice-sheet [data-aop-muted] .home-choice-name { color:var(--kptu-muted); }
+
+/* CALL-상대표시정리 ④: 하나만 고르는 조직 창 맨 아래 [직접 쓰기] 칸. 작은 글자 칸 + 작은 글자 버튼(UI-버튼기준), 공용 토큰만. */
+.home-choice-sheet .aop-create { margin-top:6px; padding:6px 4px 2px; border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
+.home-choice-sheet .aop-create-row { display:flex; align-items:center; gap:6px; }
+.home-choice-sheet .aop-create-input { flex:1 1 auto; min-width:0; box-sizing:border-box; height:var(--ds-compact-height,32px); margin:0; padding:0 8px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:14px; }
+/* [만들기]·['…' 새로 만들기]는 공용 줄 안 글자 버튼(button.row-act, ui-standard.css). 여기서는 자리만 정한다. */
+.home-choice-sheet .aop-create-go { font-size:var(--ds-compact-text,13px); }
+.home-choice-sheet .aop-create-force { display:block; max-width:100%; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-compact-text,13px); }
+.home-choice-sheet .aop-create-input:disabled { opacity:.5; }
+.home-choice-sheet .aop-create-note { margin:4px 2px 0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+.home-choice-sheet .aop-create-note:empty { display:none; }

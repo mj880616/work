@@ -45,6 +45,7 @@ function fakeWin(state) {
     sent.push(t);
     if (t === 'photos:hello') queueMicrotask(() => onMessage?.({data:'photos:state:' + state}));
     if (t.startsWith('photos:op:')) queueMicrotask(() => onMessage?.({data:'photos:done:{"ok":true,"count":3,"error":"","path":"Pictures/B/"}'}));
+    if (t.startsWith('photos:trash:')) queueMicrotask(() => onMessage?.({data:'photos:trashed:{"ok":false,"count":0,"error":"refused"}'}));
   }, addEventListener: (_, fn) => { onMessage = fn; }};
   const ok = body => ({ok:true, status:200, text: async () => JSON.stringify(body), json: async () => body});
   return {sent, urls, win:{navigator:{userAgent:'KPTUAndroid'}, KPTUAppShell:bridge, document:{baseURI:'https://bokdoong.com/work/app/'}, location:{href:'https://bokdoong.com/work/app/'},
@@ -288,4 +289,26 @@ test('S53-3 사진 읽기는 맞춰 보기를 잠깐만 기다린다: 늦으면 
   s2.onLateAdded(r => heard2.push(r.added));
   assert.deepEqual((await s2.quick(quickPhone)).added, ['Pictures/또/']);
   assert.deepEqual(heard2, []);
+});
+
+// S53-7 FILES-이폰지우기: 폰 사진 휴지통이 안 됐을 때 무반응·막연한 글 대신 이유와 할 일 한 줄(앱 0.5.4 trash 답 error).
+test('폰 사진 지우기 못 한 이유 글', async () => {
+  const {phoneTrashText} = await import('../app/phone-folders-model.mjs');
+  assert.match(phoneTrashText('refused'), /확인 창에서 취소/);
+  assert.match(phoneTrashText('none'), /다시 열고/);
+  assert.match(phoneTrashText('old'), /갤러리 앱에서/);
+  assert.match(phoneTrashText('timeout'), /다시 해 주세요/);
+  assert.match(phoneTrashText('failed'), /껐다 켠 뒤/);
+  assert.equal(phoneTrashText(''), '폰에서 지우지 않았어요.');
+});
+
+test('폰 사진 휴지통 답: 앱이 준 이유를 넘기고, 못 보내는 폰은 old', async () => {
+  const {win} = fakeWin(`{"access":"full","key":"${KEY}","trash":true}`);
+  const api = createPhonePhotos(win);
+  await api.hello();
+  assert.deepEqual(await api.trash([{phoneId:'7'}]), {ok:false, count:0, error:'refused'});
+  assert.deepEqual(await api.trash([]), {ok:false, count:0, error:'none'});
+  const old = createPhonePhotos(fakeWin(`{"access":"full","key":"${KEY}","trash":false}`).win);
+  await old.hello();
+  assert.deepEqual(await old.trash([{phoneId:'7'}]), {ok:false, count:0, error:'old'});
 });

@@ -150,9 +150,9 @@ class PhoneFilesRulesTest {
         assertNull(PhoneFilesRules.message("pfiles:write:x"))
         assertNull(PhoneFilesRules.message(null))
         // 열쇠는 켜져 있을 때만.
-        assertEquals("pfiles:state:{\"v\":2,\"write\":true,\"can\":true,\"all\":false}", PhoneFilesRules.stateMessage(false, true, key))
-        assertEquals("pfiles:state:{\"v\":2,\"write\":true,\"can\":false,\"all\":false}", PhoneFilesRules.stateMessage(true, false, key))
-        assertEquals("pfiles:state:{\"v\":2,\"write\":true,\"can\":true,\"all\":true,\"key\":\"$key\"}", PhoneFilesRules.stateMessage(true, true, key))
+        assertEquals("pfiles:state:{\"v\":2,\"write\":true,\"del\":true,\"can\":true,\"all\":false}", PhoneFilesRules.stateMessage(false, true, key))
+        assertEquals("pfiles:state:{\"v\":2,\"write\":true,\"del\":true,\"can\":false,\"all\":false}", PhoneFilesRules.stateMessage(true, false, key))
+        assertEquals("pfiles:state:{\"v\":2,\"write\":true,\"del\":true,\"can\":true,\"all\":true,\"key\":\"$key\"}", PhoneFilesRules.stateMessage(true, true, key))
     }
 
     @Test
@@ -237,5 +237,25 @@ class PhoneFilesRulesTest {
         assertEquals(listOf("s.temp.delete()", "s.temp.delete()", "s.temp.delete()"), Regex("[A-Za-z.]+\\.delete\\(\\)").findAll(text).map { it.value }.toList())
         val logs = Regex("Log\\.w\\(TAG, \"([^\"]*)\"").findAll(text).map { it.groupValues[1] }.toList()
         assertEquals(listOf("fail stage=\$stage cls=\${PhoneMediaRules.detailOf(e)}"), logs)
+    }
+
+    // S53-7 FILES-이폰지우기: 확인 창은 사진·동영상·음악 모음 주소만 받는다. 나머지(문서·PDF·없음)는 직접 휴지통.
+    @Test
+    fun trashWayByMediaType() {
+        assertEquals(PhoneFilesRules.TrashWay.IMAGE, PhoneFilesRules.trashWay(1))
+        assertEquals(PhoneFilesRules.TrashWay.AUDIO, PhoneFilesRules.trashWay(2))
+        assertEquals(PhoneFilesRules.TrashWay.VIDEO, PhoneFilesRules.trashWay(3))
+        for (t in listOf(null, 0, 4, 5, 6, 99)) assertEquals(PhoneFilesRules.TrashWay.DIRECT, PhoneFilesRules.trashWay(t))
+    }
+
+    @Test
+    fun trashDoneSaysWhy() {
+        assertEquals("pfiles:done:{\"ok\":true,\"op\":\"trash\",\"count\":3}", PhoneFilesRules.trashDone(3, refused = false, missing = 0, direct = 0))
+        assertEquals("pfiles:done:{\"ok\":true,\"op\":\"trash\",\"count\":2,\"error\":\"direct\"}", PhoneFilesRules.trashDone(2, refused = false, missing = 1, direct = 1))
+        assertEquals("pfiles:done:{\"ok\":true,\"op\":\"trash\",\"count\":2,\"error\":\"missing\"}", PhoneFilesRules.trashDone(2, refused = false, missing = 1, direct = 0))
+        assertEquals("pfiles:done:{\"ok\":false,\"op\":\"trash\",\"count\":0,\"error\":\"refused\"}", PhoneFilesRules.trashDone(0, refused = true, missing = 0, direct = 0))
+        assertEquals("pfiles:done:{\"ok\":false,\"op\":\"trash\",\"count\":0,\"error\":\"direct\"}", PhoneFilesRules.trashDone(0, refused = false, missing = 0, direct = 2))
+        assertEquals("pfiles:done:{\"ok\":false,\"op\":\"trash\",\"count\":0,\"error\":\"missing\"}", PhoneFilesRules.trashDone(0, refused = false, missing = 1, direct = 0))
+        assertEquals("pfiles:done:{\"ok\":false,\"op\":\"trash\",\"count\":0,\"error\":\"write\"}", PhoneFilesRules.trashDone(0, refused = false, missing = 0, direct = 0))
     }
 }

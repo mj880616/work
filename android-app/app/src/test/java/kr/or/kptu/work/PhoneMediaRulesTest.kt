@@ -79,6 +79,11 @@ class PhoneMediaRulesTest {
         assertNull(PhoneMediaRules.message("photos:trash:5;rm"))
         assertNull(PhoneMediaRules.message("photos:other"))
         assertEquals("photos:trashed:{\"ok\":true,\"count\":2}", PhoneMediaRules.trashedMessage(true, 2))
+        // S53-7: 못 한 이유 한 낱말(성공이면 붙이지 않음).
+        assertEquals("photos:trashed:{\"ok\":false,\"count\":0,\"error\":\"refused\"}", PhoneMediaRules.trashedMessage(false, 0, "refused"))
+        assertEquals("photos:trashed:{\"ok\":false,\"count\":0}", PhoneMediaRules.trashedMessage(false, 0))
+        assertEquals("photos:trashed:{\"ok\":true,\"count\":1}", PhoneMediaRules.trashedMessage(true, 1, "none"))
+        assertEquals("photos:trashed:{\"ok\":false,\"count\":0,\"error\":\"none\"}", PhoneMediaRules.trashedMessage(false, 0, "no\"ne"))
     }
 
     @Test
