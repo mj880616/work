@@ -89,15 +89,25 @@ test('요청·챙길 것 줄 글(한 목록): 방 이름·원래 기록 · 날�
 });
 
 // S52-20 HOME-잊지말기한목록(시안 docs/design/mockups/forget-one-list.html): 출처가 달라도 같은 줄. 다른 점은 출처 꼬리표·업데이트 줄의 [조직][사업]뿐.
-test('한 목록 줄: 출처 꼬리표 · 앞에 붙는 [조직][사업] · 처리한 줄의 상태 글 · 누르면 기록을 여는 내용', () => {
-  const html = nb.rowHtml({id: 'u:1', body: '<i>가짜</i> 업데이트', meta: '11/7 09:00', src: '업데이트', lead: [['org', '조직'], ['area', '사업']],
+test('한 목록 줄: 출처 꼬리표 · 버튼 일곱 [할 일로][일정으로][노트로][조직][사업][이미 함] × · 처리한 줄의 상태 글 · 누르면 기록을 여는 내용', () => {
+  const html = nb.rowHtml({id: 'u:1', body: '<i>가짜</i> 업데이트', meta: '11/7 09:00', src: '업데이트', report: true,
     open: {attrs: 'data-basket-row="1"', label: '<i>가짜</i> 업데이트'}, attrs: 'data-basket-row-item="1"', tail: '<button type="button" class="icon-btn">⋯</button>', below: '<div class="nbx-below"></div>'});
   assert.match(html, /^<li class="nbx-item" data-nbx-row="u:1" data-basket-row-item="1"><p class="nbx-body"><button type="button" class="row-act nbx-body-btn" data-basket-row="1">&lt;i&gt;가짜&lt;\/i&gt; 업데이트<\/button><\/p>/);
   assert.match(html, /<span class="nbx-meta"><span class="nbx-src">업데이트<\/span>11\/7 09:00<\/span>/);
-  const acts = [...html.matchAll(/data-nbx-act="([a-z]+)"/g)].map(m => m[1]);
-  assert.deepEqual(acts, ['org', 'area', 'task', 'event', 'note', 'done', 'dismissed']);
-  assert.equal([...html.matchAll(/class="row-act nbx-act nbx-lead"/g)].length, 2);
+  const acts = [...html.matchAll(/data-nbx-act="([a-z]+)"[^>]*>([^<]*)</g)].map(m => [m[1], m[2]]);
+  // FORGET-소식바로잡기(시안 forget-news-fix.html): 원래 다섯 그대로 + [조직][사업]만 더함, 순서 고정. 모두 ③ 글자 버튼(×만 ⑥).
+  assert.deepEqual(acts, [['task', '할 일로'], ['event', '일정으로'], ['note', '노트로'], ['org', '조직'], ['area', '사업'], ['done', '이미 함'], ['dismissed', '×']]);
+  assert.deepEqual(nb.NB_REPORT_ACTS.filter(([a]) => a !== 'org' && a !== 'area'), [...nb.NB_ACTS], '원래 넷(+×)의 순서는 그대로');
+  assert.equal([...html.matchAll(/class="row-act nbx-act"/g)].length, 6);
+  assert.doesNotMatch(html, /nbx-lead|nbx-hint|nbx-why/);
   assert.match(html, /×<\/button><button type="button" class="icon-btn">⋯<\/button><\/span><\/div><div class="nbx-below"><\/div><\/li>$/);
+  // 가족 줄(report 없음)은 다섯 그대로.
+  assert.deepEqual([...nb.rowHtml({id: 'f:1', body: 'x'}).matchAll(/data-nbx-act="([a-z]+)"/g)].map(m => m[1]), ['task', 'event', 'note', 'done', 'dismissed']);
+  // AI가 고른 맞는 버튼 하나만 굵게(누르는 건 사람), 내용 아래 이유 한 줄(글자로만).
+  const hinted = nb.rowHtml({id: 'n:1', body: '가짜 소식', report: true, hint: 'org', why: '조직보고 · <가상> 지부'});
+  assert.match(hinted, /<button type="button" class="row-act nbx-act nbx-hint" data-nbx-act="org" data-nbx-hint>조직<\/button>/);
+  assert.equal([...hinted.matchAll(/data-nbx-hint/g)].length, 1);
+  assert.match(hinted, /<\/p><p class="nbx-why">조직보고 · &lt;가상&gt; 지부<\/p><div class="nbx-row2">/);
   // 처리한 줄: 버튼 없이 상태 글.
   const done = nb.rowHtml({id: 'c:2', body: '가짜 요청', src: '텔레그램', done: '할 일로 보냄 · 11.7'});
   assert.doesNotMatch(done, /data-nbx-act/);
