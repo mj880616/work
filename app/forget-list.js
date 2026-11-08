@@ -27,7 +27,7 @@ import {readInboxCandidates, dismissCandidate, reopenCandidate, markDone, markTa
 import {similarTasks} from './todo-link-model.mjs';
 import {FIRM_LABEL, draftOf, metaLine, noteLine} from './family-notes-model.mjs';
 import {decide as decideFamily, hasFamily, readNotes} from './family-notes-data.js';
-import {newsOn, readNews, pickTodayNews, decideNews, openNews, newsText, matchOrg, openNewsSource, NEWS_SOURCE_TAG} from './forget-news-data.js';
+import {newsOn, readNews, pickTodayNews, decideNews, openNews, oldNews, recheckNews, newsText, matchOrg, openNewsSource, NEWS_SOURCE_TAG} from './forget-news-data.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
 // 보기(처리 상태)와 출처. 이름은 시안 그대로.
@@ -83,7 +83,8 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, viewButton = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, onView = () => {}, radarPromises = () => [], openSource = () => {}, updateCount = () => null} = {}) {
   if (!host) return null;
   let view = 'open', src = 'all', rows = [], cState = 'loading', notes = [], fOn = false, fWs = '', run = 0, status = '', scope = radarScope(rt);
-  let news = [], nOn = false, nPicks = false, nRun = 0, orgRead = null; // 소식 줄(FORGET-소식합치기)과 조직 이름 맞추기에 쓰는 내 담당조직(readOrganizations, 한 번)
+  // fix: 옛 소식 정리(FORGET-소식바로잡기 ④) 한 줄의 상태 — null(안 함) · {phase:'preview'|'confirm'|'run', keep, drop, left}.
+  let news = [], nOn = false, nPicks = false, nRun = 0, orgRead = null, fix = null; // 소식 줄(FORGET-소식합치기)과 조직 이름 맞추기에 쓰는 내 담당조직(readOrganizations, 한 번)
   const busy = new Set(), unknown = new Set(), linking = new Map();
   const ws = () => rt.context?.read?.()?.workspace?.id || '';
   const changed = () => win.dispatchEvent(new CustomEvent(CHANGED, {detail: {reload: true}}));
@@ -173,9 +174,38 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     else host.innerHTML = `<li>${emptyHtml('없음', {attrs: 'data-forget-empty'})}</li>`;
     if (statusEl) {
       const fail = cState === 'failed' ? '챙길 것을 불러오지 못했어요. <button type="button" class="row-act" data-forget-retry>다시 시도</button>' : '';
-      statusEl.innerHTML = [esc(status), fail].filter(Boolean).join(' ');
+      statusEl.innerHTML = [esc(status), fail, fixHtml()].filter(Boolean).join(' ');
     }
     if (focus?.row) host.querySelector(`[data-nbx-row="${CSS.escape(focus.row)}"] ${focus.act ? `[data-nbx-act="${CSS.escape(focus.act)}"]` : 'button'}`)?.focus({preventScroll: true});
+  }
+  // FORGET-소식바로잡기 ④: 옛 기준으로 쌓인 처리 전 소식이 있을 때만 상태 줄에 작은 한 줄. [정리] → 서버 미리 보기 수 → [확인]으로 실행.
+  // 판정·바꾸기는 모두 서버가 한다(forget-news-data.js recheckNews). 끝나면 옛 줄이 없어져 이 줄도 사라진다(한 번만 보임).
+  function fixHtml() {
+    if (!nOn || !nPicks || view !== 'open' || (src !== 'all' && src !== 'news')) return '';
+    const n = oldNews(news, nPicks).length;
+    if (!n && !fix) return '';
+    if (fix?.phase === 'preview') return `<span class="nbx-faint" data-forget-fix>옛 소식 ${n}개 살펴보는 중…</span>`;
+    if (fix?.phase === 'run') return `<span class="nbx-faint" data-forget-fix>옛 소식 정리하는 중…</span>`;
+    if (fix?.phase === 'confirm') {
+      const wait = fix.left ? ` · ${fix.left}개는 다음에` : '';
+      return `<span data-forget-fix>옛 소식 ${n}개 중 ${fix.keep}개 남기고 ${fix.drop}개는 무시로${wait} <button type="button" class="row-act" data-forget-fix-go>확인</button><button type="button" class="row-act" data-forget-fix-cancel>취소</button></span>`;
+    }
+    return n ? `<span data-forget-fix>옛 소식 ${n}개 새 기준으로 정리 <button type="button" class="row-act" data-forget-fix-ask>정리</button></span>` : '';
+  }
+  async function fixNews(mode) {
+    const owner = radarScope(rt);
+    fix = {...(fix || {}), phase: mode}; status = ''; paint();
+    const r = await recheckNews(rt, mode);
+    if (owner !== radarScope(rt)) return;
+    if (!r.ok) { fix = null; say('옛 소식을 정리하지 못했어요. 잠시 뒤 다시 눌러 주세요.'); return; }
+    if (mode === 'preview') {
+      if (!r.keep && !r.drop) { fix = null; say(r.left ? '지금은 정리할 옛 소식이 없어요.' : '정리할 옛 소식이 없어요.'); return; }
+      fix = {phase: 'confirm', keep: r.keep, drop: r.drop, left: r.left}; paint(); return;
+    }
+    fix = null;
+    status = `옛 소식 정리: ${r.keep}개 남김 · ${r.drop}개 무시`;
+    await loadNews();
+    paint();
   }
   function setView(next) {
     if (!FORGET_VIEWS.some(([v]) => v === next)) return;
@@ -521,6 +551,11 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   });
   statusEl?.addEventListener('click', event => {
     if (event.target.closest?.('[data-forget-retry]')) { cState = 'loading'; paint(); void loadCandidates(); }
+    if (fix?.phase !== 'preview' && fix?.phase !== 'run') {
+      if (event.target.closest?.('[data-forget-fix-ask]')) void fixNews('preview');
+      else if (event.target.closest?.('[data-forget-fix-go]') && fix?.phase === 'confirm') void fixNews('run');
+      else if (event.target.closest?.('[data-forget-fix-cancel]')) { fix = null; paint(); }
+    }
   });
   viewButton?.addEventListener('click', () => menu.open(viewButton));
   win.addEventListener(CHANGED, event => {
@@ -530,7 +565,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   win.addEventListener('kptu:google-tasks-changed', () => { if (cState === 'ok') paint(); });
   win.addEventListener('kptu:session-changed', () => {
     if (scope === radarScope(rt)) return;
-    run++; nRun++; rows = []; notes = []; news = []; nOn = false; nPicks = false; orgRead = null; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
+    run++; nRun++; rows = []; notes = []; news = []; nOn = false; nPicks = false; orgRead = null; fix = null; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
     onView(view); paint();
   });
   const api = {refresh, paint, setView, view: () => view, source: () => src,

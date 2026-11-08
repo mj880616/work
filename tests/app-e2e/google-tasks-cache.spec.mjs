@@ -43,8 +43,11 @@ async function mockTasks(page,handler){
   return calls;
 }
 
+// STAB-화면시험간헐: 자료 화면에서 시작한다. 달력은 보인 지 1.2초가 지나면 달력용으로 할 일을 따로 한 번 읽으므로(calendar-tasks.js),
+// 달력에서 시작하면 로그인·화면 준비가 느린 실행에서만 google-tasks 요청이 하나 더 생겨 요청 수를 세는 시험이 흔들렸다.
+// 자료 화면은 Google 할 일을 읽지 않아, 아래 요청 수는 할 일 화면이 보낸 것만 센다.
 async function login(page){
-  await page.goto(loginEntry(`${TEST_ORIGIN}/app/?view=calendar`));
+  await page.goto(loginEntry(`${TEST_ORIGIN}/app/?view=library`));
   await signInWithSession(page,'qa@example.org');
   await ready(page);
 }
@@ -251,7 +254,7 @@ test('each task-view visit refreshes once and reentry shares the in-flight load 
     return {body:{connected:true,authorized:true,needs_reconnect:false,tasks:[task('t1','fixture')]}};
   });
   await login(page);
-  // Load the real module while the calendar is visible; hold the real session readiness boundary.
+  // Load the real module while another view (library) is visible; hold the real session readiness boundary.
   await page.evaluate(async()=>{
     await window.KPTUViewLoader.load('tasks');
     const session=window.KPTURuntime.session,ensure=session.ensure;

@@ -4,6 +4,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { closeNote } from './helpers/note-close.mjs';
+import { noteField } from './helpers/note-editor.mjs';
 // UI-상단줄제목(1차 = 노트): on a PC (1024px~) the open note's title goes to the top line's place ("바구니 › 노트 › 제목") through
 // kptu:where-item (same signal and renderer as 담당조직); closing the note or leaving the screen clears it; a title edit updates it;
 // the note's head has no title line of its own there (the title input in the edit view stays). 390 keeps the head title and no top line.
@@ -50,6 +51,9 @@ for (const width of [1280, 1440]) test(`PC ${width}: 노트를 열면 상단 줄
   // Edit the title: the edit field stays for editing; saving updates the place.
   await noteMenuAction(page, 'data-note-edit', { width });
   await expect(detail.locator('[data-note-title-input]')).toHaveValue('합성 회의 준비 메모');
+  // 본문 편집기는 따로 받아 붙는다. 붙기 전에 [저장]을 누르면 앱이 '수정 화면을 여는 중이에요'로 거절하므로(사람도 같음),
+  // 편집기가 보인 뒤 저장한다(STAB-화면시험간헐: 느린 실행에서 저장이 거절돼 토스트가 안 뜸).
+  await expect(noteField(page)).toBeVisible();
   await detail.locator('[data-note-title-input]').fill('합성 회의 준비 메모 v2');
   await detail.locator('[data-note-save]').click();
   await expect(page.locator('#toast')).toContainText('노트를 저장했습니다.');
