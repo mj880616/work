@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — 회의명 목록: 비정기 회의는 숨기되 찾을 수 있게</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--pri:#1f6f5c;--sel:#dff1ea}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 10px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:18px;padding:0 16px 10px;align-items:flex-start}
+  .col{width:400px}
+  .col h2{font-size:14px;margin:6px 0}
+  .box{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px;font-size:13.5px}
+  .find{border:1px solid var(--line);border-radius:8px;padding:6px 8px;color:var(--faint);margin-bottom:4px}
+  .it{padding:6px 8px;border-radius:6px}
+  .it.on{background:var(--sel);font-weight:600;color:var(--pri)}
+  .sub{padding:5px 8px 5px 22px;color:#4a4752;font-size:13px}
+  .grp{padding:5px 8px 5px 22px;color:var(--faint);font-size:12.5px}
+  .tag{font-size:11px;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:4px}
+  .hl{background:#fbeeb4}
+  .menu{margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:4px;font-size:13px;width:230px}
+  .menu div{padding:6px 8px}
+  ul.k{margin:4px 16px 24px;padding-left:18px;font-size:13px;line-height:1.7}
+</style>
+</head>
+<body>
+<h1>시안 — 사업 보고 '회의명' 목록: 비정기 회의는 평소 안 보이고, 찾으면 나옴</h1>
+<p class="note">명진 11/08 17:58: 비정기 회의(앞으로 없을 수도, 몇 차례 더 있을 수도)를 죄다 목록에 올려두긴 싫고, 원할 땐 찾을 수 있게. 모두 상위 회의에서 파생. 회의 이름은 시안용.</p>
+<div class="wrap">
+  <div class="col">
+    <h2>① 평소 — 정기 회의만 + 상위 아래 접힌 줄</h2>
+    <div class="box">
+      <div class="find">회의 찾기 (비정기 포함)</div>
+      <div class="it">○○협의회 대표자 회의</div>
+      <div class="grp">└ ○○협의회 비정기 회의 2 ›</div>
+      <div class="it">본부 집행위</div>
+      <div class="it">노조 상집</div>
+      <div class="it">○○ 집행국 회의</div>
+      <div class="it">○○협의회 집행위원회</div>
+      <div class="it">기타(직접 입력)</div>
+    </div>
+  </div>
+  <div class="col">
+    <h2>② 찾기 칸에 '투쟁' → 숨은 비정기 회의도 나옴</h2>
+    <div class="box">
+      <div class="find" style="color:var(--ink)">투쟁</div>
+      <div class="it">○○협의회 하반기 공동 준법<span class="hl">투쟁</span> 기획회의(2차)<span class="tag">비정기 · ○○협의회</span></div>
+      <div class="it">○○지부 <span class="hl">투쟁</span> 점검 회의<span class="tag">비정기 · ○○협의회</span></div>
+    </div>
+    <h2 style="margin-top:14px">③ 접힌 줄을 누르면 그 아래만 펼침</h2>
+    <div class="box">
+      <div class="it">○○협의회 대표자 회의</div>
+      <div class="grp">└ ○○협의회 비정기 회의 2 ⌄</div>
+      <div class="sub">하반기 공동 준법투쟁 기획회의(2차) · 11/6</div>
+      <div class="sub">○○지부 투쟁 점검 회의 · 11/4</div>
+      <div class="it">본부 집행위</div>
+    </div>
+  </div>
+  <div class="col">
+    <h2>④ 비정기로 돌리기 — 회의 이름 ⋯</h2>
+    <div class="box"><div class="it on">○○지부 투쟁 점검 회의</div></div>
+    <div class="menu"><div>비정기로 두기 (상위: ○○협의회 ▾)</div><div>정기 목록에 두기</div><div>이름 바꾸기</div><div>삭제</div></div>
+    <p class="note" style="margin:6px 0">'기타(직접 입력)'로 새 회의명을 쓸 때도 처음부터 [정기/비정기]와 상위 회의를 고를 수 있게.</p>
+  </div>
+</div>
+<ul class="k">
+  <li>비정기 회의는 지우지 않음 — 지난 보고·검색·환류에는 그대로 연결. 목록에서만 접힘.</li>
+  <li>상위 회의 정하기: 고른 상위가 없으면 '기타 비정기' 묶음. 차수만 다른 같은 회의(1차·2차)는 한 줄로 묶어 최근 차수가 위.</li>
+  <li>저장은 서버(내 작업공간), 회의명 목록이 쓰이는 곳 한 군데에서 읽음.</li>
+  <li>같은 종류 전수: 회의명 목록을 쓰는 곳 전부(사업 보고 입력 창·회의 녹음·회의 전사 가져오기·주간 정리 회의 칸), 폰·폴드·PC. 비슷한 '죄다 쌓이는 목록'(장소·연결할 곳 최근 목록)도 점검해 보고.</li>
+</ul>
+</body>
+</html>
