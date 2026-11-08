@@ -160,18 +160,63 @@ test('2026-10-23 list change: 교섭 and 교섭·합의 read as the same categor
   resetDocumentCategories();
 });
 
-// LIB-소분류: 주간보고 상자는 옛 이름('주간보고 확정본')과 합친 소분류 이름('주간보고›확정본')을 모두 찾고, 저장은 내 목록에 있는 이름으로 한다.
-test('weekly report categories read both names and save the listed one', async () => {
+// LIB-소분류 + S53-16 WEEKLY-분류이름바뀜: 주간보고 상자는 지금 이름·소분류 합치기 이름·옛 이름을 모두 찾고, 저장은 내 목록에 있는 역할 이름으로 한다.
+test('weekly report categories read every known name and save the listed one', async () => {
   const {weeklyCategoryFilter, weeklySaveCategory} = await import('../app/document-categories.js');
-  assert.equal(decodeURIComponent(weeklyCategoryFilter('confirmed')), 'in.("주간보고 확정본","주간보고›확정본")');
-  assert.equal(decodeURIComponent(weeklyCategoryFilter('personal')), 'in.("주간보고 개인본","주간보고›개인본")');
+  const none = {marks: {}};
+  assert.equal(decodeURIComponent(weeklyCategoryFilter('confirmed', none)), 'in.("주간보고›팀 확정본","주간보고›확정본","주간보고 확정본")');
+  assert.equal(decodeURIComponent(weeklyCategoryFilter('personal', none)), 'in.("주간보고›개인 확정본","주간보고›개인본","주간보고 개인본")');
   setDocumentCategories(['교섭', '기타', '주간보고 확정본', '주간보고 개인본']);
-  assert.equal(weeklySaveCategory('personal'), '주간보고 개인본');
+  assert.equal(weeklySaveCategory('personal', none), '주간보고 개인본');
   assert.equal(categoryOf('주간보고›개인본'), '주간보고 개인본');
+  assert.equal(decodeURIComponent(weeklyCategoryFilter('personal', none)), 'in.("주간보고 개인본","주간보고›개인 확정본","주간보고›개인본")');
   setDocumentCategories(['교섭', '기타', '주간보고', '주간보고›확정본', '주간보고›개인본']);
-  assert.equal(weeklySaveCategory('personal'), '주간보고›개인본');
+  assert.equal(weeklySaveCategory('personal', none), '주간보고›개인본');
   assert.equal(categoryOf('주간보고 확정본'), '주간보고›확정본');
+  // 명진 11/08: 이름을 '팀 확정본'·'개인 확정본'으로 바꿈 → 그 이름으로 찾고 저장, 옛 이름 자료도 같은 꼬리표.
+  setDocumentCategories(['교섭', '주간보고', '주간보고›팀 확정본', '주간보고›개인 확정본', '기타']);
+  assert.equal(weeklySaveCategory('personal', none), '주간보고›개인 확정본');
+  for (const old of ['주간보고 개인본', '주간보고›개인본']) assert.equal(categoryOf(old), '주간보고›개인 확정본', old);
+  for (const old of ['주간보고 확정본', '주간보고›확정본']) assert.equal(categoryOf(old), '주간보고›팀 확정본', old);
   resetDocumentCategories();
+});
+
+// S53-16 ②: 분류 이름을 또 바꿔도 환류가 끊기지 않는다 — 표식(category_roles) → 알려진 이름 → 모양 순서. 이름은 지어낸 것.
+test('weekly roles survive any later rename: marks first, then known names, then shape', async () => {
+  const m = await import('../app/document-categories.js');
+  const list = ['교섭', '주간보고', '주간보고›팀 확정본', '주간보고›개인 확정본', '기타'];
+  assert.equal(m.weeklyCategoryOf('confirmed', {list, marks: {}}), '주간보고›팀 확정본');
+  assert.equal(m.weeklyCategoryOf('personal', {list, marks: {}}), '주간보고›개인 확정본');
+  assert.equal(m.weeklyRoleOf('주간보고›개인 확정본', {list, marks: {}}), 'personal');
+  assert.equal(m.weeklyRoleOf('교섭', {list, marks: {}}), '');
+  // 이름을 아무렇게나 바꾸면(알려진 이름도 모양도 안 맞음) 표식만이 찾는다. 분류 고치기가 바꾼 뒤 표식을 새 이름으로 고친다.
+  const renamed = ['교섭', '보고서', '보고서›가', '보고서›나', '기타'];
+  assert.equal(m.weeklyCategoryOf('personal', {list: renamed, marks: {}}), '');
+  const roles = {confirmed: '주간보고›팀 확정본', personal: '주간보고›개인 확정본'};
+  const marks = m.rolesAfterRename(roles, [['주간보고', '보고서'], ['주간보고›팀 확정본', '보고서›가'], ['주간보고›개인 확정본', '보고서›나']], {});
+  assert.deepEqual(marks, {weekly_team: '보고서›가', weekly_personal: '보고서›나'});
+  assert.equal(m.weeklyCategoryOf('confirmed', {list: renamed, marks}), '보고서›가');
+  assert.equal(m.weeklyCategoryOf('personal', {list: renamed, marks}), '보고서›나');
+  assert.equal(m.weeklySaveCategory('personal', {list: renamed, marks}), '보고서›나');
+  assert.deepEqual([...m.weeklyCategoryNames('personal', {list: renamed, marks})], ['보고서›나', '주간보고›개인 확정본', '주간보고›개인본', '주간보고 개인본']);
+  // 역할 아닌 분류의 이름 바꾸기는 표식을 바꾸지 않는다. 같은 이름이면 null.
+  assert.equal(m.rolesAfterRename(roles, [['교섭', '교섭·합의']], {}), null);
+  assert.equal(m.rolesAfterRename({personal: '보고서›나'}, [['보고서›나', '보고서›나']], marks), null);
+  // 표식이 목록에 없는 이름(다른 기기에서 지움 등)이면 무시하고 다음 차례로.
+  assert.equal(m.weeklyCategoryOf('personal', {list, marks: {weekly_personal: '없는 분류'}}), '주간보고›개인 확정본');
+  // 표식이 없어도 모양으로: '주간보고' 아래 '개인'·'팀'이 든 소분류가 하나씩이면 그것.
+  const shaped = ['주간보고 묶음', '주간보고 묶음›우리 팀 최종', '주간보고 묶음›내 개인 판', '기타'];
+  assert.equal(m.weeklyCategoryOf('confirmed', {list: shaped, marks: {}}), '주간보고 묶음›우리 팀 최종');
+  assert.equal(m.weeklyCategoryOf('personal', {list: shaped, marks: {}}), '주간보고 묶음›내 개인 판');
+  // 한쪽 표식만 남아도 그 큰 분류 아래에서 다른 쪽을 모양으로 찾는다. 둘 이상 맞으면 고르지 않는다(엉뚱한 분류 금지).
+  assert.equal(m.weeklyCategoryOf('confirmed', {list: ['보고', '보고›팀 판', '보고›나', '기타'], marks: {weekly_personal: '보고›나'}}), '보고›팀 판');
+  assert.equal(m.weeklyCategoryOf('personal', {list: ['주간보고', '주간보고›개인 1', '주간보고›개인 2', '기타'], marks: {}}), '');
+  // 바탕을 못 찾았을 때 한 줄: 어느 분류를 찾았는지.
+  assert.equal(m.weeklySearchNote(['personal', 'confirmed'], {list, marks: {}}), '‘주간보고 › 개인 확정본’·‘주간보고 › 팀 확정본’');
+  assert.equal(m.weeklySearchNote(['personal'], {list: ['기타'], marks: {}}), '개인 확정본(분류 목록에 없음)');
+  assert.equal(m.weeklyCategoryLabel('personal', {list: renamed, marks}), '보고서 › 나');
+  // 따옴표가 든 이름도 PostgREST 조건이 깨지지 않게.
+  assert.ok(decodeURIComponent(m.weeklyCategoryFilter('personal', {list: ['보고', '보고›"나"', '기타'], marks: {weekly_personal: '보고›"나"'}})).startsWith('in.("보고›\\"나\\""'));
 });
 
 // LIB-소분류 ②: 소분류는 '큰분류›소분류' 한 칸. 칩은 큰 분류만, 고르기 목록은 큰 분류 바로 뒤에 소분류, 꼬리표는 '선전 › 투쟁속보'.
