@@ -66,7 +66,8 @@ test.describe('폰 412',()=>{
     const bar=page.locator('#meetingsView .report-kind-bar'),kind=page.locator('#reportKindSelect'),more=page.locator('#reportMore');
     await expect(page.locator('#reportKindFilter')).toBeHidden();await expect(page.locator('#reportFilterBtn')).toHaveCount(0);await expect(kind).toBeVisible();
     const b=await bar.boundingBox(),k=await kind.boundingBox(),m=await more.boundingBox();
-    expect(b.height).toBeLessThanOrEqual(48);expect(Math.abs((k.y+k.height/2)-(m.y+m.height/2))).toBeLessThanOrEqual(2);expect(k.x+k.width).toBeLessThanOrEqual(m.x);
+    // BIZ-위쪽정돈(11/09 01:22 확정안): [⋯]는 맨 윗줄(제목 줄) 오른쪽 끝으로 올라갔다 — 둘째 줄은 종류·사업영역·[주 ▾]뿐이고 그 위에 ⋯ 줄이 있다.
+    expect(b.height).toBeLessThanOrEqual(48);expect(m.y+m.height).toBeLessThanOrEqual(k.y+1);expect(k.x+k.width).toBeLessThanOrEqual(412);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   });
 });

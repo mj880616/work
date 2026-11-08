@@ -49,7 +49,7 @@ const ADD = [
   ['#calendarView .calendar-toolbar #newEventBtn', 'index.html', /id="newEventBtn"/],
   // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄 버튼이라 이 묶음에서 빠졌다.
   ['#libraryView #newDocumentBtn', 'index.html', /id="newDocumentBtn"[^>]*>\+ /],
-  ['#meetingsView #newMeetingBtn', 'index.html', /id="newMeetingBtn"[^>]*>\+ /],
+  // BIZ-위쪽정돈(B안, 11/09): 사업 보고 [+]는 폰에서도 맨 위 줄 오른쪽 작은 아이콘이라 이 동그란 [+] 목록에서 뺐다(사업 보고만 예외, 별도 시험 biz-top-tidy.spec.mjs).
   ['#diaryView #newDiaryBtn', 'diary.js', /id="newDiaryBtn"/],
   ['#ledgerView button.lb-add', 'ledger-browse.js', /class="lb-add"[^>]*>\+ 기록하기</],
   ['#pagesView .sp-root button.primary[data-sp-new]', 'share-pages.js', /dataset:\{spNew:''\}, text:'\+ 새 공유 페이지'/],

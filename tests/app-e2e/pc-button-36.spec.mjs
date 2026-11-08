@@ -126,10 +126,13 @@ test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버
  await boot(page,390);
  // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄의 작은 [+](32px)라 둥근 [+] 묶음에서 뺀다.
  await open(page,'projects');expect((await page.locator('#newProjectBtn').boundingBox()).height).toBe(32);
- for(const [view,selector] of [['library','#newDocumentBtn'],['meetings','#newMeetingBtn']]){
+ for(const [view,selector] of [['library','#newDocumentBtn']]){
   await open(page,view);const b=await page.locator(selector).boundingBox();expect([b.width,b.height],selector).toEqual([36,36]);
   expect(await page.locator(selector).evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
  }
+ // BIZ-위쪽정돈(11/09 01:22 확정안, 사업 보고만 예외): 사업 보고 [+]는 떠 있는 36px 동그라미가 아니라 맨 위 줄 오른쪽 32px 작은 아이콘(떠 있지 않음).
+ await open(page,'meetings');{const b=await page.locator('#newMeetingBtn').boundingBox();expect([b.width,b.height],'#newMeetingBtn').toEqual([32,32]);
+  expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');}
  await open(page,'home');const home=page.locator('#homeView [data-home-quick]');
  expect((await home.locator('[data-quick-save]').boundingBox()).height).toBe(36);expect((await home.locator('[data-quick-input]').boundingBox()).height).toBe(36);/* HOME-모바일정리④ */
  await open(page,'tasks');const tq=page.locator('#tasksView [data-home-quick]');

@@ -71,6 +71,7 @@ const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('sp
 async function sameButtons(page,region){
  const primary=await token(page,'--kptu-primary'),filled=[];
  for(const control of await region.locator('button:visible').all()){
+  if(await control.evaluate(el=>!!el.closest('#bizWeekBox')))continue; // BIZ-위쪽정돈: 늘 펼친 '이번 주 주간보고' 칸 표 버튼은 BIZ-기록하나로에서 표째 다룬다
   // 8-9e-2: on phones the add button is the floating round [+] and 담당조직 추가 is a small text link (ui-standard-3b).
   // ORG-PC좌우: the organization detail on the right of the PC 담당조직 screen keeps the detail's own buttons (as in its dialog).
   // REF-참고묶음 화면 2: the 참고 묶음 › entry at the bottom of the organization list is a list row (44px, no box), not a button.
@@ -184,6 +185,7 @@ for(const width of [390,760])test(`회의: 줄 단위 목록·색 점 없음·�
  expect(await rows.first().locator('.meeting-list-title').evaluate(el=>getComputedStyle(el,'::before').content)).toBe('none');
  const box=await look(page.locator('#meetingsListCard'));expect(box.borderWidth).toBe(await lineWidth(page));expect(box.radius).toBe('12px');
  // UI-선택표시통일: 폰의 [+ 회의]는 동그란 [+](버튼 모양 검사 밖), PC는 채운 버튼 하나.
+ // BIZ-위쪽정돈(11/09 01:22): 폰의 맨 윗줄 [+]는 작은 아이콘(글자 없음). '이번 주 주간보고' 칸 표의 [쓰기]·[수정]은 BIZ-기록하나로 설계에서 표째 다루므로 이 모양 검사에서 뺀다.
  expect(await sameButtons(page,page.locator('#meetingsView'))).toEqual(width<761?[]:['+ 사업 보고']);
  // 필터 고르기는 그대로 동작.
  await pickReportFilter(page,'name','정책위원회');
