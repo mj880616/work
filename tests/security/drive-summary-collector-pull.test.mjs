@@ -8,7 +8,7 @@ const now = new Date('2026-11-08T01:00:00Z');
 const WAKE = 'https://script.google.com/macros/s/' + 'A'.repeat(40) + '/exec';
 const SECRET = 's'.repeat(48);
 const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SERVICE_ROLE_KEY: 'service', SUPABASE_ANON_KEY: 'anon', COLLECTOR_HEARTBEAT_SECRET: 'beat-secret', DRIVE_SUMMARY_CRON_SECRET: 'cron', COLLECTOR_PULL_URL: WAKE, COLLECTOR_PULL_SECRET: SECRET };
-function harness({ featureWs = 'ws', take = { ok: true, left: 19 }, takeStatus = 200, wake = { ok: true }, wakeStatus = 200, wakeThrows = false, envOver = {} } = {}) {
+function harness({ featureWs = 'ws', take = { ok: true, left: 19 }, takeStatus = 200, wake = { ok: true }, wakeStatus = 200, wakeThrows = false, wakeText = null, envOver = {} } = {}) {
   const calls = [];
   const fetcher = async (input, init = {}) => {
     const url = new URL(input), method = init.method || 'GET';
@@ -22,7 +22,12 @@ function harness({ featureWs = 'ws', take = { ok: true, left: 19 }, takeStatus =
     if (url.pathname === '/rest/v1/app_workspace_members') return Response.json(url.searchParams.get('user_id') === 'eq.owner' ? [{ user_id: 'owner', role: 'owner' }] : []);
     if (url.pathname === '/rest/v1/rpc/app_operator_feature_workspace') return Response.json(featureWs);
     if (url.pathname === '/rest/v1/rpc/app_feed_pull_take') return takeStatus === 200 ? Response.json(take) : Response.json({ code: 'PGRST202' }, { status: takeStatus });
-    if (String(url) === WAKE) { if (wakeThrows) throw new Error('timeout'); return Response.json(wake, { status: wakeStatus }); }
+    if (String(url) === WAKE) {
+      if (wakeThrows === 'timeout') throw new DOMException('signal timed out', 'TimeoutError');
+      if (wakeThrows) throw new TypeError('error sending request');
+      if (wakeText !== null) return new Response(wakeText, { status: wakeStatus, headers: { 'Content-Type': 'text/html' } });
+      return Response.json(wake, { status: wakeStatus });
+    }
     return Response.json({ unexpected: true }, { status: 500 });
   };
   const handler = createHandler({ env: { ...env, ...envOver }, fetcher, now: () => now });
@@ -99,7 +104,7 @@ test('3분 안 두 번째·하루 21번째는 429, 웹 앱 안 부름', async ()
   let h = harness({ take: { ok: false, reason: 'cooldown', wait_s: 150, left: 18 } });
   let r = await h.post(owner);
   assert.equal(r.status, 429);
-  assert.deepEqual(await r.json(), { ok: false, error: 'PULL_COOLDOWN', wait_s: 150, left: 18, checked_at: now.toISOString() });
+  assert.deepEqual(await r.json(), { ok: false, error: 'PULL_COOLDOWN', wait_s: 150, retry_after: 150, left: 18, checked_at: now.toISOString() });
   assert.equal(h.wakes().length, 0);
   h = harness({ take: { ok: false, reason: 'daily', left: 0 } });
   r = await h.post(owner);
@@ -108,14 +113,27 @@ test('3분 안 두 번째·하루 21번째는 429, 웹 앱 안 부름', async ()
   assert.equal(h.wakes().length, 0);
 });
 
-test('웹 앱 실패·응답 모양 다름은 502, 비밀값·주소 없음은 503, 표 없음은 503', async () => {
-  for (const over of [{ wakeThrows: true }, { wakeStatus: 500, wake: { ok: true } }, { wake: { ok: false } }, { wake: '<html>' }]) {
+test('웹 앱 실패는 까닭별 코드로 502, 비밀값·주소 없음은 503, 표 없음은 503', async () => {
+  // S53-11: 까닭별 코드 — 거절({ok:false}) / 시간 초과 / 연결 안 됨 / HTTP 오류·알아볼 수 없는 답. 상태 번호는 모두 502.
+  const cases = [
+    [{ wake: { ok: false } }, 'PULL_WAKE_REFUSED'],
+    [{ wakeThrows: 'timeout' }, 'PULL_WAKE_TIMEOUT'],
+    [{ wakeThrows: 'net' }, 'PULL_WAKE_UNREACHABLE'],
+    [{ wakeStatus: 500, wake: { ok: true } }, 'PULL_WAKE_HTTP'],
+    [{ wakeStatus: 403, wake: { ok: false } }, 'PULL_WAKE_HTTP'],
+    [{ wake: '<html>' }, 'PULL_WAKE_HTTP'],
+    [{ wake: [{ ok: false }] }, 'PULL_WAKE_HTTP'],
+    [{ wakeText: '<html><body>sign in</body></html>' }, 'PULL_WAKE_HTTP'],
+  ];
+  for (const [over, code] of cases) {
     const h = harness(over);
     const r = await h.post(owner);
     assert.equal(r.status, 502, JSON.stringify(over));
     const body = await r.json();
-    assert.equal(body.error, 'PULL_WAKE_FAILED');
-    assert.doesNotMatch(JSON.stringify(body), /html|script\.google/);
+    assert.equal(body.error, code, JSON.stringify(over));
+    assert.deepEqual(Object.keys(body).sort(), ['checked_at', 'error', 'ok'], '코드 말고 다른 칸(원문·주소)을 싣지 않음');
+    assert.doesNotMatch(JSON.stringify(body), /html|sign in|script\.google|timed out|sending/);
+    assert.equal(JSON.stringify(body).includes(SECRET), false);
   }
   for (const envOver of [{ COLLECTOR_PULL_URL: undefined }, { COLLECTOR_PULL_SECRET: undefined }, { COLLECTOR_PULL_SECRET: 'short' }, { COLLECTOR_PULL_URL: 'https://evil.test/x' }]) {
     const h = harness({ envOver });

@@ -55,6 +55,23 @@ test('doPost: wrong or missing secret refused with the same short reply, no trig
   assert.equal(g.logs.some(l=>l.includes(SECRET)),false,'secret never logged');
 });
 
+// S53-11: 거절 까닭은 실행 기록에 한 줄 — 불일치 사실만(값·길이·앞자리 단서 없음). 답은 그대로 {ok:false}.
+test('doPost: secret mismatch logs one plain line without any hint; bad body logs its own line', () => {
+  const g=load();
+  g.props.COLLECTOR_PULL_SECRET=SECRET;
+  const given='z'.repeat(40);
+  assert.deepEqual(post(g,{secret:given,source:'call'}),{ok:false});
+  assert.deepEqual([...g.logs],['[최신화] 비밀값이 맞지 않음']);
+  g.logs.length=0;
+  assert.deepEqual(post(g,'garbage'),{ok:false});
+  assert.deepEqual([...g.logs],['[최신화] 몸통 모양이 다름']);
+  g.logs.length=0;
+  const h=load();
+  assert.deepEqual(post(h,{secret:SECRET,source:'telegram'}),{ok:false},'nothing stored');
+  assert.deepEqual([...h.logs],['[최신화] 비밀값이 맞지 않음']);
+  for(const l of [...g.logs,...h.logs])assert.doesNotMatch(l,/\d|k{4}|z{4}/,'no length or value hint');
+});
+
 test('doPost: right secret makes one one-shot trigger; repeats within 3 minutes ignored; feedPull_run runs one source at a time', () => {
   const g=load();g.props.COLLECTOR_PULL_SECRET=SECRET;
   assert.deepEqual(post(g,{secret:SECRET,source:'telegram'}),{ok:true});

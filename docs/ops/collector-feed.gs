@@ -2739,7 +2739,9 @@ function doPost(e) {
   try {
     var body = feedPullParse(e && e.postData ? e.postData.contents : '');
     var props = PropertiesService.getScriptProperties();
-    if (!body || !feedPullSecretOk(body.secret, props.getProperty(FEED_PULL_SECRET_KEY) || '')) return reply(false);
+    // S53-11: 거절 까닭은 실행 기록에만 한 줄(값·길이·앞자리 같은 단서는 남기지 않는다). 답은 늘 {ok:false} 그대로.
+    if (!body) { Logger.log('[최신화] 몸통 모양이 다름'); return reply(false); }
+    if (!feedPullSecretOk(body.secret, props.getProperty(FEED_PULL_SECRET_KEY) || '')) { Logger.log('[최신화] 비밀값이 맞지 않음'); return reply(false); }
     var now = Date.now();
     var decided = feedPullDecide(feedPullState(props.getProperty(FEED_PULL_STATE_KEY), now), body.source, now);
     if (!decided.take) { Logger.log('[최신화] 받지 않음(' + decided.why + '): ' + body.source); return reply(true); }

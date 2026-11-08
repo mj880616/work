@@ -341,10 +341,11 @@ test('통화 1280: [최신화] → 요청 한 번 → 다시 읽기로 새 통�
  expect(f.pulls).toHaveLength(1);
  expect(f.errors).toEqual([]);
 });
-for(const [width,error,text] of [[390,'PULL_COOLDOWN','방금 눌렀어요 · 3분 뒤에 다시 누를 수 있어요'],[1280,'PULL_WAKE_FAILED','수집기를 깨우지 못했어요 · 다음 매시 수집을 기다려 주세요'],[390,'NOT_OPERATOR','이 작업공간에서는 쓸 수 없어요']])
+// S53-11: 실패는 까닭별 한 줄(설정 안 됨 / 수집기가 거절 / 응답 없음 / 너무 자주 / 권한 없음).
+for(const [width,error,text] of [[390,'PULL_COOLDOWN','방금 눌렀어요 · 3분 뒤에 다시 누를 수 있어요'],[1280,'PULL_WAKE_REFUSED','수집기가 거절했어요 · Supabase와 앱 스크립트의 COLLECTOR_PULL_SECRET 값이 서로 달라요 · 매시 수집은 그대로 돌아요'],[390,'PULL_WAKE_TIMEOUT','수집기가 10초 안에 답하지 않았어요 · 3분 뒤 다시 눌러 보세요 · 매시 수집은 그대로 돌아요'],[1280,'SERVER_CONFIG_MISSING','연결 설정이 아직 안 끝났어요 · 지금은 눌러도 소용없어요 · 매시 수집은 그대로 돌아요'],[390,'NOT_OPERATOR','이 작업공간에서는 쓸 수 없어요']])
  test(`텔레그램 ${width}: [최신화] 거절(${error})은 한 줄, 버튼은 다시 눌림`,async({page})=>{
   const f=await fixture(page,{width,empty:true});
-  f.pull.status=error==='PULL_COOLDOWN'?429:error==='NOT_OPERATOR'?403:502;f.pull.error=error;
+  f.pull.status=error==='PULL_COOLDOWN'?429:error==='NOT_OPERATOR'?403:error==='SERVER_CONFIG_MISSING'?503:502;f.pull.error=error;
   await openMenu(page,width,'텔레그램 소식');
   const view=page.locator('#telegramView'),btn=view.locator('[data-tg-pull]');
   await tap(page,btn,width);

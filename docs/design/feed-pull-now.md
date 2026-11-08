@@ -137,3 +137,19 @@ feedPull_run → tgFeed_runCore_ / callFeed_runCore_ 한 번(기존 잠금·상�
 - 앱 스크립트 계정 종류(개인/업무용)를 저장소에서 확인할 수 없다 [추정: 개인]. (가)를 고르면 첫 주에 실행 기록에서 하루 총 실행 시간을 CC가 확인한다.
 - 1회용 트리거(`after`)가 도는 시각은 앱 스크립트가 약속하지 않는다 [공개 문서]. 늦으면 (나)도 몇 분 걸릴 수 있다 — 화면 문구는 "1~3분"으로 넉넉히.
 - 잦은 [최신화]는 텔레그램 묶음을 잘게 나눠 서버 AI 부르기 횟수를 늘린다(묶음마다 한 번). 하루 20번 상한이면 기존 `collector-feed` 한 달 AI 상한(6,000원) 안이라고 본다 [추정] — 구현 PR에서 하루 사용량 칸으로 확인.
+
+## 7. 실패 까닭 코드 (S53-11)
+
+`drive-summary ?action=collector_pull` 실패 응답의 `error` 코드와 화면 한 줄(`app/feed-pull-model.mjs`). 응답에는 코드·`checked_at`(간격이면 `wait_s`·`retry_after`·`left`)만 싣고, 웹 앱 주소·비밀값·웹 앱 응답 원문은 싣지 않는다.
+
+| 코드 | 상태 | 뜻 | 다시 누르면 |
+| --- | --- | --- | --- |
+| `SERVER_CONFIG_MISSING` / `PULL_NOT_READY` | 503 | 비밀값·주소 없음 또는 DB 함수 없음 | 소용없음(설정부터) |
+| `PULL_WAKE_REFUSED` | 502 | 웹 앱이 `{ok:false}` — 양쪽 `COLLECTOR_PULL_SECRET`이 다름(또는 몸통 모양 다름) | 소용없음(값 맞추기부터). 앱 스크립트 실행 기록에 `[최신화] 비밀값이 맞지 않음` 한 줄 |
+| `PULL_WAKE_HTTP` | 502 | 웹 앱이 HTTP 오류 또는 `{ok:…}`가 아닌 답(예: 접근 권한 화면) | 배포 설정 확인 |
+| `PULL_WAKE_TIMEOUT` / `PULL_WAKE_UNREACHABLE` | 502 | 10초 안에 답 없음 / 연결 안 됨 | 3분 뒤 다시 |
+| `PULL_COOLDOWN` | 429 | 3분 간격 — `retry_after` 초 | 남은 시간 뒤 |
+| `PULL_DAILY_LIMIT` | 429 | 하루 20번 | 내일 |
+
+- 횟수는 웹 앱을 부르기 전에 센다. 깨우기가 실패해도 한 번으로 세므로 3분 안에 다시 누르면 `PULL_COOLDOWN`이다.
+- 앱 공용 fetch(`auth-bootstrap.js`)는 message 없는 403 몸통만 바꾼다. 화면은 403을 상태 번호로 `NOT_OPERATOR`로 보고, 그 밖의 코드는 몸통 `error`(런타임이 message로 싣는다)로 본다.

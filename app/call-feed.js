@@ -20,7 +20,7 @@ import {createFeedHold} from './feed-hold.js';
 import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, kstDay, splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveErrorText, moveDoneText, callWho, callTopic, callTag, REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText,
   applyCallEdit, cleanEditVals, isEdited, splitPerson, joinPerson, cleanTitleInput, cleanPointLines, samePoints, undoPatch, patchKeys, editErrorText, EDIT_DONE, EDIT_NOOP, EDIT_LEDGER_NOTE, EDIT_NAME_MAX, EDIT_ROLE_MAX, EDIT_TITLE_MAX, EDIT_POINT_MAX, EDIT_POINTS_MAX} from './feed-model.mjs';
 import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, scopeOf, readPersonal, readPersonalRaw, setPersonalHidden, moveCall, readLedgerSeen, refillCall, readCallEdits, editCall} from './feed-data.js';
-// FEED-최신화즉시수집(S52-46): 머리 줄 작은 [최신화] — 누르면 서버가 수집기를 한 번 깨우고, 이 화면의 load()로 1~3분 새 줄을 다시 읽는다(feed-pull.js).
+// FEED-최신화즉시수집(S52-46): 머리 줄 작은 [최신화](S53-11: 개인 통화함 머리 줄에도 — 같은 통화 수집기·같은 부품) — 누르면 서버가 수집기를 한 번 깨우고, 이 화면의 load()로 1~3분 새 줄을 다시 읽는다(feed-pull.js).
 import {createFeedPull} from './feed-pull.js';
 import {callCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
@@ -155,7 +155,7 @@ function paintListNow() {
   const box = $('#cfList');
   const personalBox = state.box === 'personal';
   const head = personalBox
-    ? `<div class="feed-head"><button type="button" class="back-text" data-cf-box="work">‹ 업무 통화</button><span class="feed-head-title">개인 통화함</span><span class="feed-head-sub" data-cf-pcount>${state.pfail ? '' : `${personalRows().length}건`}</span></div>`
+    ? `<div class="feed-head"><button type="button" class="back-text" data-cf-box="work">‹ 업무 통화</button><span class="feed-head-title">개인 통화함</span><span class="feed-head-sub" data-cf-pcount>${state.pfail ? '' : `${personalRows().length}건`}</span>${state.loaded && !state.missing && !state.error ? pull.button() : ''}</div>${state.loaded && !state.missing && !state.error ? pull.line() : ''}`
     : `<div class="feed-head"><span class="feed-head-sub"></span>${state.loaded && !state.missing && !state.error ? pull.button() + boxChip() : ''}</div>${state.loaded && !state.missing && !state.error ? pull.line() : ''}`;
   if (!state.loaded) { box.innerHTML = head + waitHtml({rows:6, h:34}); return; }
   if (state.missing) { box.innerHTML = head + '<p class="feed-empty" data-cf-empty="ready">준비 중이에요. 통화 수집이 연결되면 여기에 보여요.</p>'; return; }

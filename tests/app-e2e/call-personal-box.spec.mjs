@@ -99,6 +99,8 @@ for(const width of [390,1280])test(`통화 ${width}: 업무 통화함 기본 + �
  // 개인 통화함: 같은 목록 모양, 개인 통화만, 안내 두 줄(옛 걸러짐 개수는 한 줄로).
  await tap(page,view.locator('[data-cf-box="personal"]'),width);
  await expect(view.locator('[data-cf-pcount]')).toHaveText('1건');
+ // S53-11: 개인 통화함 머리 줄에도 같은 [최신화](같은 통화 수집기).
+ await expect(view.locator('.feed-head [data-cf-pull]')).toHaveText('최신화');
  expect(await view.locator('[data-cf-row]').evaluateAll(a=>a.map(e=>e.dataset.cfRow))).toEqual([P1]);
  await expect(view.locator('[data-cf-note]')).toContainText('전체 검색에도 나오지 않아요');
  await expect(view.locator('[data-cf-legacy]')).toContainText('목록 도입 전 걸러진 3건은 개수만 있어요');
