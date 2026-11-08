@@ -37,10 +37,10 @@ test('위치 줄: 지금 폴더가 depth 0, 이름은 "이 폰 › …"', () => 
 });
 
 test('상태 글: 열쇠는 켜져 있을 때만, 모양이 틀리면 null', () => {
-  assert.deepEqual(phoneState(`pfiles:state:{"v":1,"can":true,"all":true,"key":"${KEY}"}`), {known: true, can: true, all: true, key: KEY, write: false});
-  assert.deepEqual(phoneState(`pfiles:state:{"v":2,"write":true,"can":true,"all":true,"key":"${KEY}"}`), {known: true, can: true, all: true, key: KEY, write: true});
-  assert.deepEqual(phoneState('pfiles:state:{"v":1,"can":true,"all":false}'), {known: true, can: true, all: false, key: '', write: false});
-  assert.deepEqual(phoneState('pfiles:state:{"all":true,"key":"short"}'), {known: true, can: false, all: false, key: '', write: false});
+  assert.deepEqual(phoneState(`pfiles:state:{"v":1,"can":true,"all":true,"key":"${KEY}"}`), {known: true, can: true, all: true, key: KEY, write: false, del: false});
+  assert.deepEqual(phoneState(`pfiles:state:{"v":2,"write":true,"can":true,"all":true,"key":"${KEY}"}`), {known: true, can: true, all: true, key: KEY, write: true, del: false});
+  assert.deepEqual(phoneState('pfiles:state:{"v":1,"can":true,"all":false}'), {known: true, can: true, all: false, key: '', write: false, del: false});
+  assert.deepEqual(phoneState('pfiles:state:{"all":true,"key":"short"}'), {known: true, can: false, all: false, key: '', write: false, del: false});
   assert.equal(phoneState('photos:state:{}'), null);
   assert.equal(phoneState('pfiles:state:nope'), null);
 });
@@ -90,7 +90,20 @@ test('쓰기 답 모양: 정해 둔 짧은 글만, 경로는 검사한 것만', 
   assert.equal(phoneDone('pfiles:save:{}'), null);
   assert.deepEqual(phoneSaved('pfiles:save:{"ok":true,"step":"end","got":5,"path":"a (2).pdf"}'), {ok: true, step: 'end', got: 5, path: 'a (2).pdf', error: ''});
   assert.equal(phoneWriteText('exists'), '같은 이름이 이미 있어요');
-  assert.equal(phoneWriteText('zzz'), '폰에 쓰지 못했어요');
+  assert.equal(phoneWriteText('zzz'), '폰에 쓰지 못했어요. 다시 해 보고, 또 안 되면 폰 앱을 껐다 켜 주세요');
+});
+
+// S53-7 FILES-이폰지우기: 폰 앱 0.5.4(del)는 휴지통이 문서까지 되고 못 한 이유를 준다. 막연한 '폰에 쓰지 못했어요'만 보이지 않게.
+test('휴지통 못 한 이유: 앱이 준 이유마다 할 일 한 줄, 옛 앱은 새 판 안내', () => {
+  assert.deepEqual(phoneState(`pfiles:state:{"v":2,"write":true,"del":true,"can":true,"all":true,"key":"${KEY}"}`), {known: true, can: true, all: true, key: KEY, write: true, del: true});
+  assert.match(phoneWriteText('refused'), /확인 창에서 그만둬서/);
+  assert.match(phoneWriteText('direct'), /내 파일' 앱에서 지워/);
+  assert.match(phoneWriteText('missing'), /잠시 뒤 다시/);
+  assert.match(phoneWriteText('permission'), /모든 파일 접근/);
+  assert.match(phoneWriteText('write', {del: false}), /새 판으로 올리면/);
+  assert.doesNotMatch(phoneWriteText('write', {del: true}), /새 판/);
+  for (const c of ['refused', 'direct', 'missing', 'write', 'permission', 'timeout']) assert.notEqual(phoneWriteText(c, {del: true}), '폰에 쓰지 못했어요');
+  assert.deepEqual(phoneDone('pfiles:done:{"ok":true,"op":"trash","count":2,"error":"direct"}'), {ok: true, op: 'trash', path: '', count: 2, error: 'direct'});
 });
 
 test('다리 쓰기: confirm:true를 붙이고, 받기는 begin → 384KB 조각 → end, 옛 앱(쓰기 모름)은 보내지 않음', async () => {
