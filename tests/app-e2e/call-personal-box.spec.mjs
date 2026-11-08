@@ -82,7 +82,7 @@ async function openCalls(page,width){
  else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'통화',exact:true}).click();}
  await expect(page.locator('#callsView')).toBeVisible();
 }
-async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
 for(const width of [390,1280])test(`통화 ${width}: 업무 통화함 기본 + 맨 위 '개인 통화함 n ›' + 확인할 통화, 개인 통화함은 같은 목록·상세, 조직 연결·고정 없음`,async({page})=>{
@@ -90,7 +90,8 @@ for(const width of [390,1280])test(`통화 ${width}: 업무 통화함 기본 + �
  await openCalls(page,width);
  const view=page.locator('#callsView');
  // 업무 통화함: 업무 통화만 날짜 목록에, 개인·애매는 목록에 섞이지 않는다.
- expect(await view.locator('.feed-rows:not(.feed-ask-rows) [data-cf-row]').evaluateAll(a=>a.map(e=>e.dataset.cfRow))).toEqual([W1,W2]);
+ // 목록은 통화함 읽기가 끝난 뒤 그려지므로, 화면이 보인 직후 한 번 읽지 않고 목록이 맞을 때까지 기다린다(STAB-화면시험간헐).
+ await expect.poll(()=>view.locator('.feed-rows:not(.feed-ask-rows) [data-cf-row]').evaluateAll(a=>a.map(e=>e.dataset.cfRow))).toEqual([W1,W2]);
  await expect(view.locator('[data-cf-box="personal"]')).toHaveText('개인 통화함 1 ›');
  await expect(view.locator('[data-cf-ask-head]')).toContainText('확인할 통화 2');
  await expect(view.locator('.feed-ask [data-cf-decide]')).toHaveText(['업무','개인','업무','개인']);

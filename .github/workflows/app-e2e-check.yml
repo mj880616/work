@@ -105,9 +105,11 @@ jobs:
       - name: Install Playwright
         uses: ./.github/actions/setup-playwright
 
+      # 접속 대기 줄을 넓힌 정적 서버(내주는 파일은 http.server와 같음). workers=2에서 기본 대기 줄 5칸이 넘쳐
+      # 접속이 1~3초씩 늦어지던 간헐 실패를 막는다(STAB-화면시험간헐, tests/app-e2e/helpers/static-server.py).
       - name: Start static app server
         run: |
-          python3 -m http.server 8123 >/tmp/kptu-e2e-http.log 2>&1 &
+          python3 tests/app-e2e/helpers/static-server.py 8123 >/tmp/kptu-e2e-http.log 2>&1 &
           echo $! > /tmp/kptu-e2e-http.pid
           for i in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:8123/app/ >/dev/null; then exit 0; fi

@@ -124,7 +124,7 @@ async function fixture(page,{width=390,scheme='light',docs=seedDocs(),categories
  });
  return state;
 }
-async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 async function openNote(page,id,width){
  await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,id);
  await tap(page,page.locator(`[data-basket-row="${id}"]`),width);

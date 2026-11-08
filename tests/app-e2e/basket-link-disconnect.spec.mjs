@@ -11,7 +11,7 @@ test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // Report captures go to CAPTURE_DIR when it is set (docs/review/basket-disconnect), else the test output folder.
 const shot=(info,name)=>process.env.CAPTURE_DIR?`${process.env.CAPTURE_DIR}/${name}`:info.outputPath(name);
-async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 // S48-28: 확인은 공용 작은 확인창. 누른 뒤 [해제]를 누르고 확인창 글을 돌려준다.
 const accept=async page=>[await answerAsk(page,true)];
 const undo=page=>page.locator('[data-undo-notice]');

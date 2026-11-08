@@ -74,7 +74,7 @@ async function openCalls(page,width){
  else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'통화',exact:true}).click();}
  await expect(page.locator('#callsView')).toBeVisible();
 }
-async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 // 상세 열기: 전문(사본)이 도착하면 상세를 한 번 다시 그린다. 그 뒤에 누른다.
 async function openDetail(page,view,id,width){
  await tap(page,view.locator(`[data-cf-row="${id}"]`),width);

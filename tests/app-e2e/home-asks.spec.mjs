@@ -44,6 +44,8 @@ test('phone (fold folded): a small dot on the bottom bar home, no number',async(
 });
 for(const width of [900,1280])test(`${width}px: a faint number beside the menu home`,async({page})=>{
   await fixture(page,{width});
+  // 숫자는 홈 한 줄이 센 뒤에 붙는다: 화면이 보인 직후 한 번 읽지 않고, 홈 한 줄 숫자가 나온 뒤 본다(STAB-화면시험간헐, 폰 시험과 같은 순서).
+  await expect(page.locator('#homeView [data-home-summary] [data-nbx-badge]')).toHaveText('2');
   await page.evaluate(()=>window.KPTURouter.go('calendar'));
   const m=await mark(page);
   expect(m).toMatchObject({attr:'2',content:'"2"',redBadge:0,overflow:false});
@@ -60,7 +62,7 @@ for(const width of [390,1280])test(`${width}px: nothing to handle → no mark`,a
 test('handling a request in the 정리함 updates the mark without a new count read',async({page})=>{
   const cands=[cand(1)];
   await fixture(page,{width:1280,cands});
-  expect((await mark(page)).attr).toBe('1');
+  await expect.poll(async()=>(await mark(page)).attr).toBe('1');
   // 서버 쪽에서 처리된 것처럼 바꾼 뒤 정리함을 연다(정리함 목록이 센 값으로 바로 맞춘다).
   cands[0]={...cands[0],status:'dismissed',decided_at:'2026-10-06T00:30:00Z'};
   await page.evaluate(()=>window.KPTURouter.go('basket'));
