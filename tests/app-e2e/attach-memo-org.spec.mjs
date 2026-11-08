@@ -366,7 +366,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`categor
  await expect(page.locator('.kptu-ask .danger')).toHaveCount(0);
  const message=await answerAsk(page,true);
  await expect(editor.locator('.dce-status')).toHaveText('‘투쟁’ 분류를 삭제했어요. 자료 1개는 ‘기타’로 옮겼어요.');
- expect(message).toContain('‘투쟁’ 분류를 지울까요?');expect(message).toContain('자료 1개는 ‘기타’로 옮겨져요.');expect(message).toContain('자료와 파일은 지워지지 않아요');
+ expect(message).toContain('‘투쟁’ 분류를 지울까요?');expect(message).toContain('자료 1개는 ‘기타’로 옮겨져요.');expect(message).toContain('자료와 파일은 삭제되지 않아요');
  await expect(names(editor)).toHaveText(['교섭','교육','선전','정책·법령','회의','홍보','기타']);
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_delete',body:{p_name:'투쟁',p_stored:[]}});
  expect(f.tables.app_documents.find(d=>d.id==='e5').category).toBe('기타');
