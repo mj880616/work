@@ -478,7 +478,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     const folder = list(page).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시'));
     await folder.click({ button: 'right' });
     await expect(menu(page)).toBeVisible();
-    await expect(menu(page).locator('[data-row-item]')).toHaveText(['열기', '새 폴더', '옮기기', '이름 바꾸기', '경로 복사', '위에 고정', '휴지통']);
+    await expect(menu(page).locator('[data-row-item]')).toHaveText(['열기', '새 폴더', '자료실로 보내기', '복사', '옮기기', '이름 바꾸기', '경로 복사', '위에 고정', '휴지통']); // S53-8: 폴더째 복사·자료실로 보내기
     await menu(page).getByRole('button', { name: '휴지통' }).click();
     await ask(page).getByRole('button', { name: '휴지통으로' }).click();
     await expect(folder).toHaveCount(0);
@@ -498,7 +498,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     await expect(prev.locator('.fx-pv-text')).toHaveText('AAAAAAAAAAAA');
     const read = st.calls.find(c => c.path === '/v1/read');
     expect(read.q).toBe('C:\\문서\\가짜 메모_연습.txt');
-    await expect(prev.locator('.fx-pv-acts button')).toHaveText(['이 PC에서 열기', '탐색기에서 위치', '복사', '옮기기', '이름', '휴지통']);
+    await expect(prev.locator('.fx-pv-acts button')).toHaveText(['이 PC에서 열기', '탐색기에서 위치', '복사', '옮기기', '자료실로 보내기', '이름', '휴지통']); // S53-8: 내 PC 파일도 자료실로
     await shot(page, 'files-pc-preview-text-1440');
     // 한글 문서(S52-44 ③부터 한글 미리보기 — 문에서 화면 메모리로 읽어 한글 엔진에 넘김). 흉내 문의 글자는 한글 파일이 아니라 엔진이 못 읽는다 = 한 줄 안내.
     await list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 회의자료_연습.hwpx')).click();

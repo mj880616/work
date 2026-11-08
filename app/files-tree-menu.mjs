@@ -4,9 +4,11 @@
 //  이 폰: 파일 = 열기·클라우드에 복사·(S52-43 ②) 옮기기·이름 바꾸기·휴지통(폰에 쓸 수 있을 때) / 폴더 = 이 폴더만 보기·새 폴더·클라우드에 복사·이름 바꾸기(폰 폴더는 지우지 않음)
 //  내 PC: 파일 = 열기(+ 바구니 PC 앱 0.4.0+면 클라우드로 복사·옮기기, S52-41 FILES-내PC클라우드옮기기), 폴더 = 이 폴더만 보기.
 //   FILES-내PC쓰기(S52-43 ①, 0.5.0+ 문 pcEdit): 클라우드와 같은 항목 — 파일 = 열기·복사·옮기기·이름 바꾸기·휴지통,
-//   폴더 = 이 폴더만 보기·새 폴더·옮기기·이름 바꾸기·휴지통(드라이브 줄은 이 폴더만 보기·새 폴더). 폴더째 복사는 다음 PR(저장소사이).
-// FILES-자료실로보내기(S52-26): 파일(폴더 아님)은 [자료실로 보내기] — 구글 드라이브 파일이 이미 자료실에 있으면 그 자리가 [자료실에서 보기].
-//   내 PC 파일은 아직 다리가 바이트를 읽지 못해(보기·열기만) 넣지 않는다. 폴더째 보내기는 이번엔 없다.
+//   폴더 = 이 폴더만 보기·새 폴더·옮기기·이름 바꾸기·휴지통(드라이브 줄은 이 폴더만 보기·새 폴더).
+// FILES-자료실로보내기(S52-26): 파일은 [자료실로 보내기] — 구글 드라이브 파일이 이미 자료실에 있으면 그 자리가 [자료실에서 보기].
+// S53-8 FILES-폴더째PC폰: 폴더째 복사·옮기기·자료실로 보내기가 내 PC·이 폰에도 —
+//   내 PC 폴더 = (0.4.0+) 클라우드로 복사·옮기기·자료실로 보내기, (0.5.0+) 내 PC 안 복사도. 내 PC 파일도 (0.4.0+) 자료실로 보내기.
+//   이 폰: 폰에 쓸 수 있으면 받을 곳에 이 폰도 있어 [클라우드에 복사] 대신 [복사](폰 안끼리도), 폴더도 [옮기기]. 클라우드 폴더도 [자료실로 보내기].
 // S51-31 UI-⋯작은메뉴(요청함 11/06 23:28): 세 묶음으로 나눠 보인다 — 열기·올리기·복사·옮기기·이름 바꾸기 | 별표·색·위로·아래로 | 휴지통.
 // 휴지통은 맨 아래 한 줄(last, 빨강 — 한 번 묻기는 trashRows). 둘째 묶음 첫 항목에 sep(가는 선).
 export const TREE_MENU_LABEL = Object.freeze({
@@ -24,17 +26,20 @@ export function treeMenuItems(row, {phoneWrite = false, pcWrite = false, pcEdit 
   if (!row || !row.source) return [];
   const folder = !!row.is_folder, ids = [];
   if (row.source === 'pc' && pcEdit) {
-    // 드라이브 줄(C:\ 처럼 부모가 없는 줄)은 옮기기·이름·휴지통이 없다.
+    // 드라이브 줄(C:\ 처럼 부모가 없는 줄)은 복사·옮기기·이름·휴지통이 없다.
     const drive = folder && !row.parent_id;
-    if (folder) ids.push('only', 'mkdir', ...(drive ? [] : ['move', 'rename', 'trash']));
-    else ids.push('open', 'copy', 'move', 'rename', 'trash');
-  } else if (row.source === 'pc') ids.push(...(folder ? ['only'] : ['open', ...(pcWrite ? ['copy', 'move'] : [])]));
-  else if (row.source === 'ph') {
-    if (folder) ids.push('only', ...(phoneWrite ? ['mkdir'] : []), 'tocloud', ...(phoneWrite ? ['rename'] : []));
-    else ids.push('open', 'tolib', 'tocloud', ...(phoneWrite ? ['move', 'rename', 'trash'] : []));
+    if (folder) ids.push('only', 'mkdir', ...(drive ? [] : ['tolib', 'copy', 'move', 'rename', 'trash']));
+    else ids.push('open', 'tolib', 'copy', 'move', 'rename', 'trash');
+  } else if (row.source === 'pc') {
+    const drive = folder && !row.parent_id;
+    ids.push(...(folder ? ['only', ...(pcWrite && !drive ? ['tolib', 'copy', 'move'] : [])] : ['open', ...(pcWrite ? ['tolib', 'copy', 'move'] : [])]));
+  } else if (row.source === 'ph') {
+    const send = phoneWrite ? 'copy' : 'tocloud';
+    if (folder) ids.push('only', ...(phoneWrite ? ['mkdir'] : []), 'tolib', send, ...(phoneWrite ? ['move', 'rename'] : []));
+    else ids.push('open', 'tolib', send, ...(phoneWrite ? ['move', 'rename', 'trash'] : []));
   } else if (CLOUD.includes(row.source)) {
     if (folder) {
-      ids.push('only', 'mkdir', 'upload', 'copy', 'move', 'rename', 'color');
+      ids.push('only', 'mkdir', 'upload', 'tolib', 'copy', 'move', 'rename', 'color');
       if (sibIndex > 0) ids.push('up');
       if (sibIndex >= 0 && sibIndex < sibCount - 1) ids.push('down');
     } else ids.push('open', row.library_doc_id && row.source === 'gd' ? 'libview' : 'tolib', 'copy', 'move', 'rename');

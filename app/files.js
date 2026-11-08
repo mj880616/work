@@ -12,7 +12,8 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
   pushRecentDest, recentDestOf, xferLine, xferPercent, xferDoneText, XFER_BIG_HOW,
   jobsActive, jobReason, jobStatusText, jobLine, jobPercent, jobStrip, jobsTitle, jobAction, mergeJobs, newlyDone, deviceJobOnReopen,
   UPLOAD_BIG_HOW, UPLOAD_REOPEN_TEXT, upDropText, upStartText, uploadPlan, upBig, upSameName, sameUpFile, upPiece, deviceHint, upResultId,
-  starWant, starLabel, applyStars, boxRows, MEDIA_PREVIEW_MAX, HWP_PREVIEW_MAX, HWP_PREVIEW_PAGES, mediaMime, stepFile, pathCopyText, treeAcrossBig, treeAcrossTooBigText, treeBigAsk, treeDoneText, TREE_MOVE_NOTE} from './files-model.mjs';
+  starWant, starLabel, applyStars, boxRows, MEDIA_PREVIEW_MAX, HWP_PREVIEW_MAX, HWP_PREVIEW_PAGES, mediaMime, stepFile, pathCopyText, treeAcrossBig, treeAcrossTooBigText, treeBigAsk, treeDoneText, TREE_MOVE_NOTE,
+  TREE_DEV_MOVE_NOTE, treeDevKeptText, treeDevDoneText, LIB_TREE_MAX, LIB_TREE_BYTES, libTreeTooBigText, UPLOAD_MAX_BYTES} from './files-model.mjs';
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {boxShut, toggleBoxShut} from './box-fold.js';
@@ -80,7 +81,7 @@ import {within, isLoadTimeout} from './load-deadline.js';
 // FILES-통합 2-① 복사(S49-27, 명진 결정 H-3·H-4·H-5, 시안 files-unified-mockup.html ③④⑤): 고르기 막대 'N개 · [복사][옮기기][이름][휴지통] ✕' →
 //   받을 곳 창(하단바 위, 최근 보낸 곳 칩 3개는 서버 view_prefs.files_dest_recent, 켜진 저장소 나무, [새 폴더][여기에 복사/옮기기]) → 같은 이름은 한 번 묻기
 //   ([그래도 하기] = 서버가 '이름 (2)'로 번호 붙여 둘 다 둠 / [건너뛰기], '남은 것도 모두 같게') → 200MB 넘는 클라우드 사이 파일은 묻고 이 판에서는 다음 판 안내로 건너뜀
-//   → 하단바 위 얇은 전송 줄 '2/5 보내는 중'(차례로 하나씩). 폴더째 복사는 같은 저장소 안에서만(다른 저장소로는 막고 안내). PC Ctrl+C·Ctrl+X → Ctrl+V.
+//   → 하단바 위 얇은 전송 줄 '2/5 보내는 중'(차례로 하나씩). 폴더째 복사는 S52-43 ②부터 원드라이브↔구글, S53-8부터 내 PC·이 폰과도(treeUp·treeDev). PC Ctrl+C·Ctrl+X → Ctrl+V.
 // FILES-통합 2-② 전송 목록(S49-28, 명진 결정 H-4·H-6, 시안 ⑤⑧): 복사와 다른 저장소로 옮기기는 서버 작업표(Edge job_add → app_cloud_jobs)에 한 건 = 한 줄로 넣고
 //   서버가 화면을 닫아도 차례로 잇는다(200MB 넘는 것은 [그래도 보내기]를 누른 것만 10MB 조각씩). 같은 저장소 안 옮기기는 지금처럼 move 한 번.
 //   하단바 위 전송 줄을 누르면 전송 목록(폰: 하단바 위 칸, PC: 오른쪽 아래 작은 칸) — 줄마다 진행 막대·[멈춤]/[이어 하기]/[다시], '모두 멈춤'.
@@ -108,7 +109,7 @@ import {within, isLoadTimeout} from './load-deadline.js';
 //   내 PC 줄도 끌기·놓기 대상(폴더 줄·드라이브 줄, '내 PC' 맨 위 목록은 받을 곳이 아님). 같은 이름은 한 번 묻고([그래도 하기] = '이름 (2)', 덮어쓰기 없음).
 //   내 PC → 클라우드: 문에서 4MB씩 읽어(화면 메모리) 지금 올리기 길(upload_open·전송 목록·올리기 진행 표시 그대로). 옮기기면 서버가 올린 파일을 맞춘 뒤(upload_done)에만 원본을 윈도우 휴지통으로.
 //   클라우드 → 내 PC: Edge media로 받아 문에 4MB씩 새 파일로 씀(문이 숨긴 조각 파일 → 크기가 맞으면 이름). 옮기기면 다 쓴 것만 클라우드 휴지통으로.
-//   한 번에 20개·한 파일 1GB까지, 폴더째·내 PC 안끼리·이 폰과 사이는 아직 없음(pcXferWhy가 한 줄로 막음). 내 PC 안 이름·새 폴더·휴지통은 다음 판(FILES-내PC쓰기).
+//   한 번에 20개·한 파일 1GB까지(폴더째는 S53-8 treeUp·treeDev — 폴더 하나에 파일 500개·폴더 100개까지). 내 PC와 이 폰 사이는 없음(pcXferWhy가 한 줄로 막음).
 //   문 검사(127.0.0.1·허용 출처·매 요청 로그인 토큰)는 그대로. PC 경로·이름은 서버·로그·'최근 보낸 곳'에 남기지 않는다. 쓰기는 사람이 누른 것만.
 // FILES-폰보기끌기 ①(S51-20, 시안 files-phone-grid-two-drag.html ①): 목록 위 두 손가락 벌리기 = 목록 → 격자 → 큰 격자, 오므리기 = 반대(폰·두 칸의 칸 3·2칸, 폴드·PC 한 칸 4·3칸).
 //   사진은 목록·격자 모두 작은 그림(Edge thumb small · 이 폰은 앱 다리, 화면에 들어온 칸만), 폴더는 큰 폴더. 마지막 보기는 서버 view_prefs.files_look(기기 칸 · 폭 칸).
@@ -1605,7 +1606,7 @@ function paintPreview() {
       + `<div class="fx-pv-view">${p.kind === 'none' ? `<p class="fx-pv-note">${esc(p.big ? p.bigText : big ? PC_PREVIEW_BIG_TEXT : PC_PREVIEW_TEXT)}</p>` : view}</div>`
       + `<dl class="fx-pv-meta"><dt>위치</dt><dd>${esc(where)}</dd><dt>크기</dt><dd>${esc(sizeText(r.size_bytes))}</dd><dt>바뀐 날</dt><dd>${esc(fullTime(r.modified_at))}</dd><dt>종류</dt><dd>${esc(kindLabel(r))}</dd></dl>`
       + '<div class="fx-pv-acts"><button type="button" class="fx-btn" data-fx-open>이 PC에서 열기</button><button type="button" class="fx-btn" data-fx-pc-reveal>탐색기에서 위치</button>'
-      + (pcWrite() ? '<button type="button" class="secondary" data-fx-copy-one>복사</button><button type="button" class="secondary" data-fx-cut-one>옮기기</button>' : '')
+      + (pcWrite() ? '<button type="button" class="secondary" data-fx-copy-one>복사</button><button type="button" class="secondary" data-fx-cut-one>옮기기</button><button type="button" class="secondary" data-fx-tolib-one>자료실로 보내기</button>' : '')
       + (pcEdit() ? '<button type="button" class="secondary" data-fx-rename-one>이름</button><button type="button" class="danger" data-fx-trash-one>휴지통</button>' : '') + '</div>';
     if (p.doc) { p.host = null; drawPages(p, Math.max(PDF_FIRST_PAGES, p.want || 0)); }
     const pcImg = box.querySelector('[data-fx-img]');
@@ -1626,8 +1627,8 @@ function paintPreview() {
     + `<div class="fx-pv-acts">${mine ? '' : '<button type="button" class="fx-btn" data-fx-open>열기</button>'}<button type="button" class="fx-btn" data-fx-down>받기</button>`
     + (canShare() ? '<button type="button" class="fx-btn fx-share" data-fx-share>공유</button>' : '')
     + (r.library_doc_id ? `<button type="button" class="fx-btn" data-fx-library="${esc(r.library_doc_id)}">자료실에서 보기</button>` : '<button type="button" class="secondary" data-fx-tolib-one>자료실로 보내기</button>')
-    // 폰 파일: [클라우드에 복사] + (앱 3-③ 판이면) 이름·휴지통. 폰이 낀 옮기기는 아직 없다.
-    + (mine ? '<button type="button" class="fx-btn" data-fx-copy-one>클라우드에 복사</button>'
+    // 폰 파일: [클라우드에 복사] + (앱 3-③ 판이면) 옮기기·이름·휴지통. 폰에 쓸 수 있으면 받을 곳에 이 폰도 있어 [복사](S53-8).
+    + (mine ? `<button type="button" class="fx-btn" data-fx-copy-one>${phoneWrite() ? '복사' : '클라우드에 복사'}</button>`
       + (phoneWrite() ? '<button type="button" class="secondary" data-fx-cut-one>옮기기</button>' : '')
       + (phoneWrite() ? '<button type="button" class="fx-btn" data-fx-rename-one>이름</button><button type="button" class="fx-btn fx-danger" data-fx-trash-one>휴지통</button>' : '') + '</div>'
       : `<button type="button" class="fx-btn" data-fx-rename-one>이름</button><button type="button" class="fx-btn" data-fx-copy-one>복사</button><button type="button" class="fx-btn" data-fx-cut-one>옮기기</button>`
@@ -1801,17 +1802,18 @@ function paintBar() {
     // 0.5.0+ 문(FILES-내PC쓰기)이면 클라우드 막대와 같은 [이름][휴지통]도.
     const edit = pcEdit() ? (n === 1 ? `<button type="button" class="secondary" data-fx-rename>이름${two() && keys ? ' (F2)' : ''}</button>` : '')
       + `<button type="button" class="danger" data-fx-trash>휴지통${two() && keys ? ' (Del)' : ''}</button>` : '';
-    bar.innerHTML = `<span class="fx-bar-t">${n}개 · ${esc(SOURCE_NAME[PC])}</span>` + (two() ? sendButtonsHtml(i, off, keys) : COPY_CUT_HTML) + edit + UNPICK_HTML;
+    bar.innerHTML = `<span class="fx-bar-t">${n}개 · ${esc(SOURCE_NAME[PC])}</span>` + (two() ? sendButtonsHtml(i, off, keys) : COPY_CUT_HTML) + TOLIB_BTN + edit + UNPICK_HTML;
     return;
   }
   // 폰 파일을 고르면 '클라우드에 복사'(받을 곳 창 / 두 칸이면 반대 칸이 클라우드 폴더일 때). 폰에 쓸 수 있는 앱이면 [옮기기]도(S52-43 ②, 복사 뒤 폰 원본 휴지통).
+  //   S53-8: 폰에 쓸 수 있으면 받을 곳에 이 폰도(폰 안끼리) — 단추는 [복사], 반대 칸이 이 폰 폴더여도 된다.
   if (hasPhone(pickedRows(p))) {
-    const i = state.cur, dest = two() ? oppDest() : null, ok = dest && dest.source !== PH && dest.source !== PC;
-    const off = ok ? '' : ` disabled title="${esc(side(i ^ 1))} 칸에서 받을 클라우드 폴더를 여세요"`;
+    const i = state.cur, dest = two() ? oppDest() : null, ok = dest && dest.source !== PC && (dest.source !== PH || phoneWrite());
+    const off = ok ? '' : ` disabled title="${esc(side(i ^ 1))} 칸에서 받을 ${phoneWrite() ? '' : '클라우드 '}폴더를 여세요"`;
     bar.innerHTML = `<span class="fx-bar-t">${n}개 · ${esc(SOURCE_NAME[PH])}</span>`
       + (two() ? `<button type="button" class="fx-btn" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy', VERT()))}</button>`
         + (phoneWrite() ? `<button type="button" class="secondary" data-fx-send="move"${off}>${esc(sendLabel(i, 'move', VERT()))}</button>` : '')
-        : '<button type="button" class="fx-btn" data-fx-copy>클라우드에 복사</button>' + (phoneWrite() ? '<button type="button" class="secondary" data-fx-cut>옮기기</button>' : '')) + TOLIB_BTN
+        : `<button type="button" class="fx-btn" data-fx-copy>${phoneWrite() ? '복사' : '클라우드에 복사'}</button>` + (phoneWrite() ? '<button type="button" class="secondary" data-fx-cut>옮기기</button>' : '')) + TOLIB_BTN
       + (phoneWrite() ? (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '') + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button>' : '')
       + '<button type="button" class="fx-btn" data-fx-unpick aria-label="고르기 풀기">✕</button>';
     return;
@@ -1901,8 +1903,8 @@ function pcStop(rows, dest, {write = false} = {}) {
   return true;
 }
 // 폰 ↔ 클라우드 옮기기(S52-43 ② FILES-저장소사이): 앱이 폰에 쓸 수 있을 때, 보낼 것이 모두 폰 파일이고 받을 곳이 클라우드(아직 안 골랐으면 통과)
-//   이거나, 모두 클라우드 줄이고 받을 곳이 이 폰일 때. 폰 안끼리·섞어 보내기는 아직 없다.
-const phoneMoveOk = (rows, dest) => phoneWrite() && ((rows.every(r => r.source === PH) && (!dest || SOURCES.includes(dest.source)))
+//   이거나, 모두 클라우드 줄이고 받을 곳이 이 폰일 때. S53-8: 폰 안끼리도(복사 뒤 원본 폰 휴지통). 섞어 보내기는 없다.
+const phoneMoveOk = (rows, dest) => phoneWrite() && ((rows.every(r => r.source === PH) && (!dest || SOURCES.includes(dest.source) || dest.source === PH))
   || (rows.every(r => SOURCES.includes(r.source)) && dest?.source === PH));
 function phoneStop(rows, dest, {write = false} = {}) {
   if (pcStop(rows, dest, {write})) return true;
@@ -2118,7 +2120,8 @@ let destLayer = null;
 //   내 PC 파일은 클라우드로만 보낸다.
 const destSources = rows => {
   if (hasPc(rows)) return pcEdit() ? [...cloudOn(), PC] : cloudOn(); // 0.5.0+ 문이면 내 PC 안으로도(FILES-내PC쓰기)
-  const base = phoneWrite() && !hasPhone(rows) ? onSources().filter(s => s !== PC) : cloudOn();
+  // S53-8: 폰 줄도 폰에 쓸 수 있으면 '이 폰' 안으로(폰 안끼리 복사·옮기기).
+  const base = phoneWrite() && (!hasPhone(rows) || rows.every(r => r.source === PH)) ? onSources().filter(s => s !== PC) : cloudOn();
   return pcWrite() && !hasPhone(rows) ? [...base, PC] : base;
 };
 const destKey = d => d ? folderKey(d.source, d.parent) : '';
@@ -2248,6 +2251,13 @@ function answer(choice) {
   a.resolve({choice, all});
   paintDest(); paintAsk();
 }
+// 폴더와 파일 나누기(S53-8): 폴더 중 보낼 수 없는 것(자기 안으로 등)은 한 줄로 알리고 뺀다. 파일은 그대로(각 길이 거른다).
+function splitTree(rows, dest, mode) {
+  const list = (rows || []).filter(Boolean), folders = list.filter(r => r.is_folder);
+  const plan = xferPlan(folders, dest, mode);
+  if (plan.blocked.length) notify(plan.blocked[0].reason, {error: true, record: false});
+  return {files: list.filter(r => !r.is_folder), dirs: plan.ok};
+}
 // 받을 곳 창 [여기에 복사/옮기기].
 async function destGo() {
   const x = state.xfer;
@@ -2264,23 +2274,29 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
   if (state.run || state.busy) return false;
   if (pcStop(rows, dest)) return false;
   // 내 PC ↔ 클라우드(S52-41): 내 PC 파일은 문에서 읽어 올리기 길로, 클라우드 파일은 Edge media로 받아 문에 쓴다. 옮기기는 다 된 것만 원본 휴지통.
+  //   S53-8 FILES-폴더째PC폰: 폴더는 폴더째 — 받는 쪽에 같은 폴더 모양을 만들고 안의 파일을 차례로(treeUp·treeDev). 파일은 지금 길 그대로.
   if (hasPc(rows) || dest?.source === PC) {
     if (inSheet) closeDest();
     P().picked.clear(); paintPicks();
-    if (hasPc(rows) && dest?.source === PC) await pcInPc(rows, dest, mode);
-    else if (hasPc(rows)) await pcToCloud(rows, dest, mode); else await cloudToPc(rows, dest, mode);
+    if (hasPc(rows) && dest?.source === PC) { await pcInPc(rows, dest, mode); return true; }
+    const {files, dirs} = splitTree(rows, dest, mode);
+    if (files.length) { if (hasPc(rows)) await pcToCloud(files, dest, mode); else await cloudToPc(files, dest, mode); }
+    if (dirs.length) { if (hasPc(rows)) await treeUp(mode, dirs, dest); else await treeDev(mode, dirs, dest); }
     return true;
   }
-  // 폰 → 클라우드 복사: 폰 앱 안에서 원본을 읽어 올리기 길(upload_open, 같은 이름·200MB 묻기·전송 목록 그대로)로. 폰이 낀 다른 일은 이 판에서 하지 않는다.
-  //   클라우드 → 폰 복사(3-③): Edge media로 받아 앱이 받을 폴더에 쓴다. 폰 → 폰·옮기기는 아직 없다.
+  // 폰 → 클라우드: 폰 앱 안에서 원본을 읽어 올리기 길(upload_open, 같은 이름·200MB 묻기·전송 목록 그대로)로.
+  //   클라우드 → 폰(3-③): Edge media로 받아 앱이 받을 폴더에 쓴다. S53-8: 폰 안끼리도(폰에서 읽어 받을 폴더에 새 파일로), 폴더는 폴더째.
   if (hasPhone(rows) || dest?.source === PH) {
     const okMode = mode === 'copy' || phoneMoveOk(rows, dest);
-    const up = okMode && dest?.source !== PH && rows.every(r => r.source === PH);
-    const down = okMode && dest?.source === PH && !hasPhone(rows) && phoneWrite();
+    const allPh = rows.every(r => r.source === PH);
+    const up = okMode && dest?.source !== PH && allPh;
+    const down = okMode && dest?.source === PH && (!hasPhone(rows) || allPh) && phoneWrite();
     if (!up && !down) { phoneStop(rows, dest); return false; }
     if (inSheet) closeDest();
     P().picked.clear(); paintPicks();
-    if (up) await phoneToCloud(rows, dest, mode); else await cloudToPhone(rows, dest, mode);
+    const {files, dirs} = splitTree(rows, dest, mode);
+    if (files.length) { if (up) await phoneToCloud(files, dest, mode); else await cloudToPhone(files, dest, mode); }
+    if (dirs.length) { if (up) await treeUp(mode, dirs, dest); else await treeDev(mode, dirs, dest); }
     return true;
   }
   const plan = xferPlan(rows, dest, mode);
@@ -2389,16 +2405,22 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
 // 색인(app_cloud_list)으로 폴더 안을 끝까지 읽고 → 받을 곳에 같은 이름 폴더(같은 이름이면 [그래도 하기]를 고른 것만 '이름 (2)')와 안쪽 폴더를 차례로 만들고(mkdir)
 // → 안의 파일을 폴더마다 전송 목록(job_add)에 넣는다(서버가 화면을 닫아도 잇고, 200MB 넘는 것은 한 번 물어 [그래도 보내기]만). 구글 문서·크기 모름은 건너뜀.
 // 옮기기면 파일마다 서버가 맞춘 뒤 원본을 그 클라우드 휴지통으로 보낸다(지금 작업표 그대로). 원래 폴더는 빈 폴더로 남는다(한 줄 안내).
+// S53-8 FILES-폴더째PC폰: 폴더 안 목록은 저장소마다 — 클라우드 = 색인, 내 PC = 바구니 문, 이 폰 = 앱 다리. 줄마다 _at = 그 줄이 든 폴더 id(읽은 자리).
+const listIn = async (source, id) => {
+  if (source === PC) return pc.list(id);
+  if (source === PH) return phone.list(id);
+  const v = await rpc('app_cloud_list', {p_source: source, p_parent_id: id});
+  return Array.isArray(v) ? v : [];
+};
 async function treeWalk(f) {
   const folders = [], files = [];
   let wave = [f.item_id];
   while (wave.length) {
     const next = [];
     for (const id of wave) {
-      const v = await rpc('app_cloud_list', {p_source: f.source, p_parent_id: id});
-      for (const r of Array.isArray(v) ? v : []) {
+      for (const r of await listIn(f.source, id)) {
         if (!r || r.trashed) continue;
-        if (r.is_folder) { folders.push(r); next.push(r.item_id); } else files.push(r);
+        if (r.is_folder) { folders.push({...r, _at: id}); next.push(r.item_id); } else files.push({...r, _at: id});
       }
       if (treeAcrossBig(files.length, folders.length)) return null;
     }
@@ -2442,7 +2464,7 @@ async function treeAcross(mode, folders, dest, {numbered = new Set(), destRows =
     try {
       map.set(f.item_id, await treeMkdir(dest, name));
       // 부모가 먼저 오도록(treeWalk가 바깥부터 읽음) 차례로 만든다.
-      for (const sub of tree.folders) map.set(sub.item_id, await treeMkdir({source: dest.source, parent: map.get(sub.parent_id)}, sub.name));
+      for (const sub of tree.folders) map.set(sub.item_id, await treeMkdir({source: dest.source, parent: map.get(sub._at)}, sub.name));
     } catch (e) {
       if (state.scope === scope) notify(`${f.name}: ${writeErrorText(codeOf(e))}`, {error: true, record: false});
       skipped++;
@@ -2451,7 +2473,7 @@ async function treeAcross(mode, folders, dest, {numbered = new Set(), destRows =
     if (state.scope !== scope) return;
     doneFolders++;
     const groups = new Map();
-    for (const r of send) { const at = map.get(r.parent_id); if (!at) { skipped++; continue; } if (!groups.has(at)) groups.set(at, []); groups.get(at).push(r); }
+    for (const r of send) { const at = map.get(r._at); if (!at) { skipped++; continue; } if (!groups.has(at)) groups.set(at, []); groups.get(at).push(r); }
     for (const [parent, rows] of groups) {
       const ok = await addJobs(mode, {source: dest.source, parent}, rows.map(r => ({source: r.source, id: r.item_id, ...(bigOk && xferBig(r, dest) ? {big: true} : {})})));
       if (state.scope !== scope) return;
@@ -2464,6 +2486,253 @@ async function treeAcross(mode, folders, dest, {numbered = new Set(), destRows =
   for (const p of panesOn()) if (p.where?.source === dest.source && (p.where.parent || null) === (dest.parent || null) && !p.query) await loadList(p, {quiet: true});
   if (!doneFolders) return;
   notify(treeDoneText(mode, {folders: doneFolders, files: doneFiles + extra, skipped}), {record: false, ...(mode === 'move' ? {note: TREE_MOVE_NOTE} : {})});
+}
+// ---------- 폴더째 내 PC·이 폰과(S53-8 FILES-폴더째PC폰, S52-43 ② 저장소사이와 같은 방식) ----------
+// 받는 쪽에 같은 폴더 모양을 먼저 만들고(클라우드 = mkdir, 내 PC = 바구니 문 mkdir(0.5.0+), 이 폰 = 앱 mkdir) 안의 파일을 차례로 보낸다.
+//   기기(내 PC·이 폰·바탕화면에서 끌어 놓은 폴더) → 클라우드(treeUp): 안의 파일을 올리기 길(upload_open → 전송 목록·올리는 중 표시)에 차례로 넣는다.
+//     바이트는 그 파일을 보낼 차례가 되어서야 읽는다(upStub — 폴더째여도 화면 메모리에 한꺼번에 쥐지 않음).
+//   클라우드·기기 → 기기(treeDev): 하나씩 받아 그 기기에 쓴다(전송 줄 state.run). 내 PC 안끼리는 문이 복사(pc.copy).
+// 옮기기: 안의 파일이 하나도 빠짐없이 다 복사된 뒤에만 원본 파일을 그 저장소 휴지통으로(중간에 하나라도 못 하면 원본 그대로, 한 줄 알림).
+//   원래 폴더는 빈 폴더로 남는다(저장소사이와 같게). 같은 이름 폴더가 받을 곳에 있으면 한 번 묻고 [그래도 하기]면 '이름 (2)'.
+// 한도(폴더 하나에 파일 500개·폴더 100개, 기기에서 읽거나 기기로 받는 한 파일 1GB)를 넘으면 자르지 않고 한 줄로 알린다. 폰 쓰기 권한이 없으면 권한 안내.
+// 파일 이름·경로는 서버·로그에 남기지 않는다(목록·바이트는 화면 메모리에서만 — 지금 PC·폰 길 그대로).
+const DROP = 'drop';
+const devWhere = source => (source === PC ? '내 PC' : source === PH ? '폰' : SOURCE_NAME[source] || '');
+const treeErr = e => {
+  if (e?.phoneWrite) return phoneWriteText(e.phoneWrite, {del: phone.state.del === true});
+  const c = codeOf(e);
+  return /^(pc|phone)_/.test(c) ? errorText(c) : writeErrorText(c);
+};
+// 바탕화면에서 끌어 놓은 폴더(브라우저 FileSystemEntry): 안을 끝까지 읽어 같은 모양 줄로. 파일 손잡이는 이 탭 메모리에만.
+const entryFile = e => new Promise((res, rej) => e.file(res, rej));
+async function entryKids(e) {
+  const rd = e.createReader(), out = [];
+  for (;;) {
+    const part = await new Promise((res, rej) => rd.readEntries(res, rej));
+    if (!part.length) return out;
+    out.push(...part);
+  }
+}
+async function dropWalk(entry) {
+  const folders = [], files = [];
+  let wave = [entry];
+  while (wave.length) {
+    const next = [];
+    for (const d of wave) {
+      for (const e of await entryKids(d)) {
+        if (e.isDirectory) { folders.push({source: DROP, item_id: e.fullPath, name: e.name, is_folder: true, _at: d.fullPath}); next.push(e); }
+        else if (e.isFile) {
+          const file = await entryFile(e);
+          files.push({source: DROP, item_id: e.fullPath, name: file.name, is_folder: false, size_bytes: file.size, mime: file.type || '', file, _at: d.fullPath});
+        }
+        if (treeAcrossBig(files.length, folders.length)) return null;
+      }
+    }
+    wave = next;
+  }
+  return {folders, files};
+}
+// 받을 곳에 같은 이름 폴더가 있으면 한 번 묻기('남은 것도 모두 같게'). 답 null = 창을 닫음.
+async function askSameFolders(folders, destRows, mode) {
+  const same = new Set(sameNameRows(folders, destRows).map(rowKey)), numbered = new Set(), go = [];
+  let sameAll = null, skipped = 0;
+  for (const f of folders) {
+    if (same.has(rowKey(f))) {
+      let c = sameAll;
+      if (!c) {
+        const res = await ask({name: f.name, text: sameNameAsk(mode), go: '그래도 하기', many: folders.filter(y => same.has(rowKey(y))).length > 1});
+        if (res.closed) return null;
+        c = res.choice; if (res.all) sameAll = c;
+      }
+      if (c === 'skip') { skipped++; continue; }
+      numbered.add(rowKey(f));
+    }
+    go.push(f);
+  }
+  return {go, numbered, skipped};
+}
+async function treeRead(f, scope) {
+  state.busy = `'${f.name}' 폴더 안 파일 모으는 중`; paintBar();
+  try { return f.source === DROP ? await dropWalk(f.entry) : await treeWalk(f); }
+  catch (e) { if (state.scope === scope) notify(`${f.name}: ${errorText(codeOf(e))}`, {error: true, record: false}); return undefined; }
+  finally { if (state.scope === scope) { state.busy = ''; paintBar(); } }
+}
+// 받을 기기에 폴더 하나 만들기 → 새 폴더 id(경로).
+async function devMkdir(at, name) {
+  if (at.source === PC) return pc.mkdir(at.parent, name);
+  if (at.source === PH) {
+    const d = await phone.op({op: 'mkdir', dir: at.parent || '', name});
+    if (!d?.ok || !d.path) throw Object.assign(new Error('phone_write'), {phoneWrite: d?.error || 'write'});
+    return d.path;
+  }
+  return treeMkdir(at, name);
+}
+// 파일 하나를 기기 폴더(dir)에 쓰기. 내 PC 안끼리는 문이 복사, 그 밖은 바이트를 받아 새 파일로(새로 만든 폴더라 같은 이름 없음).
+async function devPut(r, to, dir) {
+  if (r.source === PC && to === PC) return pc.copy(r.item_id, dir);
+  const blob = await rowBlob(r, 'media');
+  if (to === PC) return pc.save(dir, r.name, blob);
+  const res = await phone.save(dir, r.name, blob);
+  if (!res.ok) throw Object.assign(new Error('phone_write'), {phoneWrite: res.error});
+}
+// 옮기기 뒤 원본 파일을 그 저장소 휴지통으로. 답 = 못 보낸 개수(원본이 남음). 이 폰은 앱이 한 번에 50개까지(안드로이드 확인 창).
+async function trashOriginals(source, rows) {
+  if (!rows.length) return 0;
+  if (SOURCES.includes(source)) return trashLanded(rows);
+  let bad = 0;
+  if (source === PC) { for (const r of rows) { try { await pc.trash(r.item_id); } catch { bad++; } } return bad; }
+  const parts = [];
+  for (const r of rows) {
+    const last = parts.at(-1);
+    if (last && last.length < 50 && JSON.stringify(last).length + r.item_id.length < 30000) last.push(r.item_id); else parts.push([r.item_id]);
+  }
+  for (const paths of parts) {
+    const d = await phone.op({op: 'trash', paths});
+    bad += paths.length - (d?.ok ? Math.min(paths.length, Number(d.count) || 0) : 0);
+  }
+  return bad;
+}
+// 클라우드·기기 폴더 → 기기(내 PC·이 폰) 폴더. asked = 같은 이름을 이미 물었으면 {numbered}(내 PC 안 옮기기가 다른 드라이브라 여기로 넘긴 것).
+async function treeDev(mode, folders, dest, {asked = null} = {}) {
+  const where = devWhere(dest.source);
+  if (dest.source === PC && !pcEdit()) { notify(PC_WRITE_LATER_TEXT, {record: false}); return; }
+  if (dest.source === PH && !phoneWrite()) { notify(phoneOn() && phone.state.all ? PHONE_OLD_APP_TEXT : phoneWriteText('permission'), {record: false}); return; }
+  let destRows = [];
+  try { destRows = await listIn(dest.source, dest.parent); } catch { /* 모르면 묻지 않는다: 같은 이름이면 폴더 만들기에서 못 함 */ }
+  const pick = asked ? {go: folders, numbered: asked.numbered || new Set(), skipped: 0} : await askSameFolders(folders, destRows, mode);
+  if (!pick) return;
+  const scope = state.scope, taken = destRows.filter(d => d && !d.trashed).map(d => String(d.name));
+  for (const f of pick.go) {
+    const tree = await treeRead(f, scope);
+    if (state.scope !== scope) return;
+    if (tree === undefined) continue;
+    if (tree === null) { notify(treeAcrossTooBigText(f.name), {error: true, record: false}); continue; }
+    const sameDev = f.source === PC && dest.source === PC;
+    // 보낼 수 없는 파일(구글 문서·크기 모름)·한 파일 1GB 넘는 것은 건너뛰고 한 줄로 알린다(몰래 자르지 않음).
+    const plan = xferPlan(tree.files, {source: dest.source, parent: '_'}, 'copy');
+    const big = plan.ok.filter(r => !sameDev && Number(r.size_bytes) > PC_FILE_MAX);
+    if (big.length) notify(`${f.name}: 한 파일 1GB가 넘는 ${big.length}개는 ${where}로 받지 않아요`, {error: true, record: false});
+    else if (plan.blocked.length) notify(`${f.name}: ${plan.blocked[0].reason} (${plan.blocked.length}개 건너뜀)`, {error: true, record: false});
+    const send = plan.ok.filter(r => !big.includes(r)), fileSkip = plan.blocked.length + big.length;
+    const name = pick.numbered.has(rowKey(f)) ? numberedName(f.name, taken) : f.name;
+    taken.push(name);
+    const map = new Map();
+    state.busy = `'${name}' 폴더 만드는 중`; paintBar();
+    try {
+      map.set(f.item_id, await devMkdir(dest, name));
+      for (const sub of tree.folders) map.set(sub.item_id, await devMkdir({source: dest.source, parent: map.get(sub._at)}, sub.name));
+    } catch (e) {
+      if (state.scope === scope) notify(`${f.name}: ${treeErr(e)}`, {error: true, record: false});
+      continue;
+    } finally { if (state.scope === scope) { state.busy = ''; paintBar(); } }
+    if (state.scope !== scope) return;
+    const landed = [];
+    let failed = 0, code = '';
+    if (send.length) {
+      const run = state.run = {mode, total: send.length, at: 1, done: 0, failed: 0, name: send[0].name, code: '', pending: false};
+      paintXfer();
+      try {
+        for (const r of send) {
+          run.name = r.name; run.at = run.done + run.failed + 1; paintXfer();
+          try { await devPut(r, dest.source, map.get(r._at)); run.done++; landed.push(r); }
+          catch (e) { run.failed++; run.code ||= e?.phoneWrite ? 'w:' + e.phoneWrite : codeOf(e); }
+          if (state.scope !== scope) return;
+        }
+      } finally {
+        if (state.run === run) state.run = null;
+        paintXfer(); paintBar();
+      }
+      failed = run.failed; code = run.code;
+    }
+    await phoneRefresh([dest.parent], {source: dest.source});
+    // 옮기기: 하나도 빠짐없이 다 받았을 때만 원본 파일을 휴지통으로(원래 폴더는 빈 폴더로 남음).
+    let kept = 0;
+    const keptAll = mode === 'move' && failed > 0;
+    if (mode === 'move' && !failed && landed.length) {
+      kept = await trashOriginals(f.source, landed);
+      if (!SOURCES.includes(f.source)) await phoneRefresh([...new Set(landed.map(r => r._at))], {source: f.source, gone: landed.map(rowKey)});
+    }
+    const why = code ? (code.startsWith('w:') ? phoneWriteText(code.slice(2), {del: phone.state.del === true}) : errorText(code)) : '';
+    const note = keptAll ? treeDevKeptText(devWhere(f.source)) : kept ? `${kept}개는 받았지만 원본을 휴지통으로 보내지 못해 그대로 있어요` : failed ? why : mode === 'move' ? TREE_DEV_MOVE_NOTE : '';
+    notify(`${name}: ${treeDevDoneText(keptAll ? 'copy' : mode, {folders: 1 + tree.folders.length, files: landed.length, failed, skipped: fileSkip})}`,
+      {error: !!failed || !!kept, note: [why && keptAll ? why : '', note].filter(Boolean).join(' · '), record: false});
+  }
+  if (pick.skipped && !pick.go.length) notify(xferDoneText(mode, {skipped: pick.skipped}), {record: false});
+}
+// 기기 파일 줄 → 올리기 길의 파일. 끌어 놓은 파일은 그 손잡이 그대로, 내 PC·이 폰은 보낼 차례에 읽는다(load).
+const upStub = r => r.file || {name: r.name, size: Number(r.size_bytes), type: r.mime || '', lastModified: Date.parse(r.modified_at || '') || Date.now(),
+  load: async () => { const b = await rowBlob(r, 'media'); return new File([b], r.name, {type: r.mime || b.type || '', lastModified: Date.parse(r.modified_at || '') || Date.now()}); }};
+// 내 PC·이 폰·끌어 놓은 폴더 → 클라우드 폴더.
+async function treeUp(mode, folders, dest) {
+  if (!dest?.source || !SOURCES.includes(dest.source)) return;
+  let destRows = [];
+  try { destRows = await listIn(dest.source, dest.parent); } catch { /* 모르면 묻지 않는다: 같은 이름이면 서버가 번호를 붙인다 */ }
+  const pick = await askSameFolders(folders, destRows, mode);
+  if (!pick) return;
+  const scope = state.scope, taken = destRows.filter(d => d && !d.trashed).map(d => String(d.name));
+  let doneFolders = 0, doneFiles = 0, skipped = pick.skipped;
+  for (const f of pick.go) {
+    const drop = f.source === DROP, tree = await treeRead(f, scope);
+    if (state.scope !== scope) return;
+    if (tree === undefined) { skipped++; continue; }
+    if (tree === null) { notify(treeAcrossTooBigText(f.name), {error: true, record: false}); skipped++; continue; }
+    // 보낼 수 없는 파일: 크기 모름·쓸 수 없는 이름·한 파일 한도(기기에서 읽는 것 1GB, 끌어 놓은 파일 2GB). 건너뛰고 한 줄로.
+    const max = drop ? UPLOAD_MAX_BYTES : PC_FILE_MAX;
+    const bad = tree.files.filter(r => !Number.isSafeInteger(Number(r.size_bytes ?? NaN)) || Number(r.size_bytes) > max || !checkFileBase(String(r.name || '')).ok);
+    if (bad.length) notify(`${f.name}: ${bad.length}개는 보내지 않아요(크기를 모르거나 한 파일 ${drop ? '2GB' : '1GB'}가 넘거나 쓸 수 없는 이름)`, {error: true, record: false});
+    skipped += bad.length;
+    let send = tree.files.filter(r => !bad.includes(r));
+    const bigs = send.filter(r => upBig({size: r.size_bytes}));
+    if (bigs.length) {
+      const res = await ask({name: f.name, text: treeBigAsk(bigs.length), note: UPLOAD_BIG_HOW, go: '그래도 올리기'});
+      if (res.closed) return;
+      if (res.choice !== 'go') { skipped += bigs.length; send = send.filter(r => !bigs.includes(r)); }
+    }
+    const name = pick.numbered.has(rowKey(f)) ? numberedName(f.name, taken) : f.name;
+    taken.push(name);
+    const map = new Map();
+    state.busy = `'${name}' 폴더 만드는 중`; paintBar();
+    try {
+      map.set(f.item_id, await treeMkdir(dest, name));
+      for (const sub of tree.folders) map.set(sub.item_id, await treeMkdir({source: dest.source, parent: map.get(sub._at)}, sub.name));
+    } catch (e) {
+      if (state.scope === scope) notify(`${f.name}: ${writeErrorText(codeOf(e))}`, {error: true, record: false});
+      skipped++;
+      continue;
+    } finally { if (state.scope === scope) { state.busy = ''; paintBar(); } }
+    if (state.scope !== scope) return;
+    doneFolders++;
+    // 옮기기 묶음: 이 폴더 안 줄이 모두 서버에서 맞춰진 뒤(upload_done)에만 원본을 휴지통으로(groupGone). 끌어 놓은 폴더는 옮기기가 없다.
+    const group = mode === 'move' && !drop ? {source: f.source, left: new Set(), rows: [], failed: false, sealed: false, warned: false, trashed: false} : null;
+    const groups = new Map();
+    for (const r of send) { const at = map.get(r._at); if (!at) { skipped++; if (group) group.failed = true; continue; } if (!groups.has(at)) groups.set(at, []); groups.get(at).push(r); }
+    for (const [parent, rows] of groups) {
+      const n = await openUploads(rows.map(upStub), {source: dest.source, parent}, {group, rows});
+      if (state.scope !== scope) return;
+      doneFiles += n; skipped += rows.length - n;
+    }
+    if (group) { group.sealed = true; groupGone(group); }
+  }
+  if (state.scope !== scope) return;
+  await applyWrite({changed: [], removed: []}, [folderKey(dest.source, dest.parent)]);
+  for (const p of panesOn()) if (p.where?.source === dest.source && (p.where.parent || null) === (dest.parent || null) && !p.query) await loadList(p, {quiet: true});
+  if (doneFolders) notify(treeDoneText(mode, {folders: doneFolders, files: doneFiles, skipped}), {record: false, ...(mode === 'move' ? {note: TREE_DEV_MOVE_NOTE} : {})});
+  else if (skipped && !pick.go.length) notify(xferDoneText(mode, {skipped}), {record: false});
+  if (doneFiles) upPump();
+}
+// 옮기기 묶음 하나가 다 끝났나: 모두 맞춰졌으면 원본 파일을 그 기기 휴지통으로, 하나라도 못 했으면 원본 그대로(한 번 알림).
+async function groupGone(g) {
+  if (!g.sealed || g.left.size || g.trashed) return;
+  if (g.failed) {
+    if (!g.warned) { g.warned = true; notify(treeDevKeptText(devWhere(g.source)), {error: true, record: false}); }
+    return;
+  }
+  g.trashed = true;
+  if (!g.rows.length) return;
+  let bad = g.rows.length;
+  try { bad = await trashOriginals(g.source, g.rows); } catch { /* 아래 한 줄 */ }
+  await phoneRefresh([...new Set(g.rows.map(r => r._at))], {source: g.source, gone: g.rows.map(rowKey)});
+  if (bad) notify(`올렸지만 ${devWhere(g.source)} 원본 ${bad}개는 휴지통으로 보내지 못했어요`, {error: true, record: false});
 }
 // 전송 줄(하단바 위): 같은 저장소 안 옮기기(state.run, 화면이 직접)가 먼저, 아니면 서버 작업표 묶음(jobStrip). 누르면 전송 목록.
 function paintXfer() {
@@ -2591,7 +2860,9 @@ function paintJobs() {
 // 파일 ⋯ · 미리보기 · 여러 개 고른 줄의 [자료실로] → 자료실 등록 창(library-upload.js, 같은 칸·같은 [등록]·같은 막대·%)에 그 파일들을 넣어 연다.
 // 원본은 그대로. 원드라이브·이 폰 파일은 이 화면이 바이트를 받아(원드라이브는 Edge media, 폰은 앱 다리) 자료실 Drive 폴더에 사본으로 올리고,
 // 구글 드라이브 파일은 사본 없이 연결만(서버 document-actions register-drive-file이 이 작업공간 [파일] 색인·Drive 원본을 확인).
-// 이미 자료실에 있는 파일은 넣지 않고 '이미 자료실에 있어요 · [보기]'. 폴더째 보내기·내 PC 파일은 이번엔 없다.
+// 이미 자료실에 있는 파일은 넣지 않고 '이미 자료실에 있어요 · [보기]'.
+// S53-8 ②: 폴더째 — 안의 파일(하위 폴더까지)을 모아 같은 길로(이미 있는 것은 건너뜀). 폴더 하나에 50개·합쳐 1GB까지, 넘으면 자르지 않고 한 줄.
+//   내 PC 파일·폴더도(바구니 문 0.4.0+ — 문에서 읽어 사본으로).
 // 새 버튼은 공용 6가지 중 작은 버튼(secondary, UI-버튼6가지)만 쓴다.
 const TOLIB_BTN = '<button type="button" class="secondary" data-fx-tolib>자료실로</button>';
 const LIBRARY_MAX_BYTES = 100 * 1024 * 1024;
@@ -2602,22 +2873,31 @@ async function libraryReady() {
   return !!(await window.__KPTU_LIBRARY_UPLOAD_READY__) && typeof window.KPTULibrary?.startUploadFromFiles === 'function';
 }
 async function sendToLibrary(rows) {
-  const list = (rows || []).filter(Boolean);
-  if (list.some(r => r.is_folder)) notify('폴더째 보내기는 아직 없어요(파일만). 폴더를 열어 파일을 골라 주세요.', {record: false});
-  if (list.some(r => r.source === PC)) notify('내 PC 파일은 아직 자료실로 보내지 못해요. 자료실 화면에 끌어다 놓아 주세요.', {record: false});
-  const files = list.filter(r => !r.is_folder && r.source !== PC);
+  const list = (rows || []).filter(Boolean), scope = state.scope;
+  const pcOk = r => r.source !== PC || pc.canXfer;
+  if (!list.every(pcOk)) notify('바구니 PC 앱을 새 판(0.4.0)으로 올리면 내 PC 파일도 자료실로 보내요', {record: false});
+  const files = list.filter(r => !r.is_folder && pcOk(r));
+  for (const f of list.filter(r => r.is_folder && pcOk(r))) {
+    const tree = await treeRead(f, scope);
+    if (state.scope !== scope) return;
+    if (tree === undefined) continue;
+    const bytesOf = t => t.files.reduce((n, r) => n + (r.source === 'gd' ? 0 : Number(r.size_bytes) || 0), 0);
+    if (tree === null || tree.files.length > LIB_TREE_MAX || bytesOf(tree) > LIB_TREE_BYTES) { notify(libTreeTooBigText(f.name), {error: true, record: false}); continue; }
+    if (!tree.files.length) { notify(`${f.name}: 폴더 안에 보낼 파일이 없어요`, {record: false}); continue; }
+    files.push(...tree.files);
+  }
   if (!files.length) return;
   const big = files.filter(r => r.source !== 'gd' && Number(r.size_bytes) > LIBRARY_MAX_BYTES);
   if (big.length) notify(`자료실은 파일당 100MB까지예요: ${big.map(r => r.name).join(', ')}`, {error: true, record: false});
   const had = files.filter(r => r.library_doc_id), rest = files.filter(r => !r.library_doc_id && !big.includes(r));
-  const scope = state.scope, items = [];
+  const items = [];
   const copies = rest.filter(r => r.source !== 'gd');
   if (copies.length) { state.busy = '자료실로 보낼 파일 가져오는 중'; paintBar(); }
   try {
     for (const r of rest) {
       if (r.source === 'gd') { items.push({link: {source: 'gd', id: r.item_id}, name: r.name, size: Number(r.size_bytes) || 0, type: r.mime || ''}); continue; }
       try {
-        const blob = r.source === PH ? await phone.blob(r.item_id) : await bytes({action: 'media', source: r.source, id: r.item_id});
+        const blob = await rowBlob(r, 'media'); // 이 폰 = 앱 다리, 내 PC = 바구니 문, 원드라이브 = Edge media
         items.push(new File([blob], r.name, {type: r.mime || blob.type || '', lastModified: Date.parse(r.modified_at || '') || Date.now()}));
       } catch (e) { notify(`${r.name}: ${errorText(codeOf(e))}`, {error: true, record: false}); }
       if (state.scope !== scope) return;
@@ -2670,10 +2950,12 @@ function upLetGo(item, how, why = '') {
 }
 let refileFor = '';
 const upOurs = id => up.cur?.id === id || up.queue.some(q => q.id === id);
-// 클라우드 → 폰(3-③): 파일만(폴더·구글 문서·크기 모름은 xferPlan이 거름). 같은 이름은 한 번 묻고 [그래도 하기]면 앱이 '이름 (2)'로 둘 다 둔다(덮어쓰기 없음).
+// 클라우드 → 폰(3-③): 파일(폴더는 xferRun이 treeDev로 — S53-8, 구글 문서·크기 모름은 xferPlan이 거름). 같은 이름은 한 번 묻고 [그래도 하기]면 앱이 '이름 (2)'로 둘 다 둔다(덮어쓰기 없음).
+//   S53-8: 폰 안끼리도 같은 길(폰에서 읽어 받을 폴더에 새 파일로, 옮기기면 다 쓴 것만 원본을 폰 휴지통으로).
 //   하나씩 차례로: Edge media로 받은 바이트를 앱 다리로 384KB씩 넘긴다(화면이 열린 동안). 전송 줄은 같은 저장소 옮기기와 같은 state.run.
 async function cloudToPhone(rows, dest, mode = 'copy') {
-  const plan = xferPlan(rows, dest, 'copy');
+  const inPhone = rows.every(r => r.source === PH);
+  const plan = xferPlan(rows, dest, inPhone ? mode : 'copy');
   if (!plan.ok.length) { notify(plan.reason, {error: true, record: false}); return; }
   if (plan.blocked.length) notify(plan.blocked[0].reason, {error: true, record: false});
   let destRows = [];
@@ -2715,18 +2997,19 @@ async function cloudToPhone(rows, dest, mode = 'copy') {
     paintXfer(); paintBar();
   }
   await phoneRefresh([dest.parent]);
-  // 옮기기(S52-43 ②): 폰에 다 쓴 것만 원본을 그 클라우드 휴지통으로(확인은 moveRows가 한 번 물음).
-  const kept = mode === 'move' ? await trashLanded(landed) : 0;
+  // 옮기기(S52-43 ②): 폰에 다 쓴 것만 원본을 그 클라우드(폰 안끼리면 폰) 휴지통으로(확인은 moveRows가 한 번 물음).
+  const kept = mode !== 'move' ? 0 : inPhone ? await trashOriginals(PH, landed) : await trashLanded(landed);
+  if (mode === 'move' && inPhone && landed.length) await phoneRefresh([...new Set(landed.map(r => r.parent_id))], {gone: landed.map(rowKey)});
   const why = run.code ? (run.code.startsWith('w:') ? phoneWriteText(run.code.slice(2), {del: phone.state.del === true}) : errorText(run.code)) : '';
   const note = kept ? `${kept}개는 폰에 받았지만 원본을 휴지통으로 보내지 못해 그대로 있어요` : run.failed ? why : '';
   notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped}), {error: !!run.failed || !!kept, note, record: false});
 }
-// 폰 파일 → 클라우드: 파일만(폴더는 열어 파일을 고르게, H-5). 한 번에 PHONE_UP_MAX개까지 폰에서 읽어 올리기 길로 넘긴다.
+// 폰 파일 → 클라우드: 파일(폴더는 xferRun이 treeUp으로 — S53-8). 한 번에 PHONE_UP_MAX개까지 폰에서 읽어 올리기 길로 넘긴다(넘으면 한 줄 알림).
 const PHONE_UP_MAX = 20;
 // 옮기기(S52-43 ②): 서버가 올린 파일을 맞춘 뒤(upload_done)에만 폰 원본을 안드로이드 휴지통으로(내 PC 옮기기와 같은 길, devGone).
 async function phoneToCloud(rows, dest, mode = 'copy') {
-  const files = rows.filter(r => !r.is_folder), dirs = rows.length - files.length;
-  if (!files.length) { notify('폴더는 보내지 않아요(파일만). 폴더를 열어 파일을 골라 주세요.', {record: false}); return; }
+  const files = rows.filter(r => !r.is_folder);
+  if (!files.length) return;
   if (files.length > PHONE_UP_MAX) notify(`폰 파일은 한 번에 ${PHONE_UP_MAX}개까지 보내요. 앞 ${PHONE_UP_MAX}개만 보냅니다.`, {record: false});
   const scope = state.scope, out = [], from = new Map();
   state.busy = '폰 파일 가져오는 중'; paintBar();
@@ -2740,7 +3023,7 @@ async function phoneToCloud(rows, dest, mode = 'copy') {
       if (state.scope !== scope) return;
     }
   } finally { if (state.scope === scope) { state.busy = ''; paintBar(); } }
-  if (out.length) await uploadFiles(out, dest, {skipDirs: dirs, devMove: mode === 'move' ? from : null});
+  if (out.length) await uploadFiles(out, dest, {devMove: mode === 'move' ? from : null});
 }
 // ---------- 내 PC ↔ 클라우드(S52-41 FILES-내PC클라우드옮기기) ----------
 // 옮기기로 올리는 기기 파일(내 PC·이 폰): 작업표 줄 id → {source, path}(이 탭 메모리만). 서버가 올린 파일을 맞춘 뒤(upload_done)에만
@@ -2750,6 +3033,7 @@ async function devGone(jobId) {
   const it = upDevMove.get(jobId);
   if (!it) return;
   upDevMove.delete(jobId);
+  if (it.group) { it.group.left.delete(jobId); await groupGone(it.group); return; }
   const where = it.source === PC ? '내 PC' : '폰';
   try {
     if (it.source === PC) await pc.trash(it.path);
@@ -2760,7 +3044,15 @@ async function devGone(jobId) {
     notify(`올렸지만 ${where} 원본은 휴지통으로 보내지 못했어요`, {error: true, note: it.source === PC ? errorText(codeOf(e)) : phoneWriteText(e?.message, {del: phone.state.del === true}), record: false});
   }
 }
-// 내 PC 파일 → 클라우드: 파일만(폴더는 열어 파일을 고르게), 한 번에 20개·한 파일 1GB까지. 문에서 4MB씩 읽어 지금 올리기 길(같은 이름·200MB 묻기·전송 목록·진행 표시 그대로)로.
+// 폴더째 옮기기 묶음 안의 줄이 실패: 묶음은 원본을 지우지 않는다(다 끝나면 한 번 알림).
+function devFailed(jobId) {
+  const it = upDevMove.get(jobId);
+  if (!it?.group) return;
+  upDevMove.delete(jobId);
+  it.group.failed = true; it.group.left.delete(jobId);
+  groupGone(it.group);
+}
+// 내 PC 파일 → 클라우드: 파일(폴더는 xferRun이 treeUp으로 — S53-8), 한 번에 20개·한 파일 1GB까지. 문에서 4MB씩 읽어 지금 올리기 길(같은 이름·200MB 묻기·전송 목록·진행 표시 그대로)로.
 async function pcToCloud(rows, dest, mode) {
   const plan = xferPlan(rows, dest, 'copy');
   if (!plan.ok.length) { notify(plan.reason, {error: true, record: false}); return; }
@@ -2786,22 +3078,24 @@ async function pcToCloud(rows, dest, mode) {
   } finally { if (state.scope === scope) { state.busy = ''; paintBar(); } }
   if (out.length) await uploadFiles(out, dest, {devMove: mode === 'move' ? from : null});
 }
-// 내 PC 안 옮기기·복사(S52-43 ① FILES-내PC쓰기, 0.5.0+ 문): 옮기기는 파일·폴더(폴더는 같은 드라이브 안 — 문이 거절하면 한 줄), 복사는 파일만.
+// 내 PC 안 옮기기·복사(S52-43 ① FILES-내PC쓰기, 0.5.0+ 문): 옮기기는 파일·폴더(폴더는 같은 드라이브 안은 문이 한 번에).
+//   S53-8 FILES-폴더째PC폰: 폴더 복사는 treeDev(같은 폴더 모양을 만들고 안의 파일을 문이 하나씩 복사), 다른 드라이브로 폴더 옮기기도 treeDev(다 복사된 뒤에만 원본 휴지통).
 //   같은 이름은 한 번 묻고 [그래도 하기]면 문이 '이름 (2)'로 둘 다 둔다(덮어쓰기 없음). 하나씩 차례로, 끝나면 보낸 곳·받은 곳 목록을 문에서 다시 읽는다.
 async function pcInPc(rows, dest, mode) {
   const plan = xferPlan(rows, dest, mode);
-  let list = plan.ok;
-  if (mode === 'copy' && list.some(r => r.is_folder)) {
-    notify('내 PC 안 폴더 복사는 다음 판에서 돼요(지금은 파일만 복사)', {record: false});
-    list = list.filter(r => !r.is_folder);
-  }
+  const dirCopies = mode === 'copy' ? plan.ok.filter(r => r.is_folder) : [];
+  const list = plan.ok.filter(r => !dirCopies.includes(r));
   if (plan.blocked.length) notify(plan.blocked[0].reason, {error: true, record: false});
-  if (!list.length) { if (!plan.blocked.length && !rows.some(r => r.is_folder)) notify(plan.reason, {error: true, record: false}); return; }
+  if (!plan.ok.length && !plan.blocked.length) notify(plan.reason, {error: true, record: false});
+  if (list.length) await pcInPcRun(list, dest, mode);
+  if (dirCopies.length) await treeDev('copy', dirCopies, dest);
+}
+async function pcInPcRun(list, dest, mode) {
   let destRows = [];
   try { destRows = await pc.list(dest.parent); } catch { /* 모르면 묻지 않는다: 문이 같은 이름을 거절하면 그 줄은 못 함 */ }
   const same = new Set(sameNameRows(list, destRows).map(rowKey)), numbered = new Set();
   const go = [];
-  let sameAll = null, skipped = plan.blocked.length;
+  let sameAll = null, skipped = 0;
   for (const r of list) {
     if (same.has(rowKey(r))) {
       let c = sameAll;
@@ -2816,7 +3110,7 @@ async function pcInPc(rows, dest, mode) {
     go.push(r);
   }
   if (!go.length) { if (skipped) notify(xferDoneText(mode, {skipped}), {record: false}); return; }
-  const scope = state.scope, moved = [];
+  const scope = state.scope, moved = [], farDirs = [];
   const run = state.run = {mode, total: go.length, at: 1, done: 0, failed: 0, name: go[0].name, code: '', pending: false};
   paintXfer();
   try {
@@ -2827,7 +3121,11 @@ async function pcInPc(rows, dest, mode) {
         if (mode === 'move') { const to = await pc.move(r.item_id, dest.parent, opt); moved.push({...r, to}); if (r.is_folder) pcRenamed(r, to); }
         else await pc.copy(r.item_id, dest.parent, opt);
         run.done++;
-      } catch (e) { run.failed++; run.code ||= codeOf(e); }
+      } catch (e) {
+        // 다른 드라이브로 폴더 옮기기: 문이 한 번에 못 하니 폴더째 복사 뒤 원본 휴지통(treeDev)으로 넘긴다.
+        if (mode === 'move' && r.is_folder && codeOf(e) === 'pc_other_drive') { farDirs.push(r); run.total--; }
+        else { run.failed++; run.code ||= codeOf(e); }
+      }
       if (state.scope !== scope) return;
     }
   } finally {
@@ -2836,6 +3134,8 @@ async function pcInPc(rows, dest, mode) {
   }
   await phoneRefresh([dest.parent, ...moved.map(r => r.parent_id)], {source: PC, gone: moved.map(rowKey)});
   for (const r of moved) if (r.is_folder) state.children.delete(folderKey(PC, r.item_id));
+  if (farDirs.length) await treeDev('move', farDirs, dest, {asked: {numbered}});
+  if (!run.total) return;
   if (run.failed) { notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped}), {error: true, note: errorText(run.code), record: false}); return; }
   // S52-43 ②: 내 PC 안 옮기기는 [되돌리기] = 옮긴 것을 원래 폴더로(이름에 번호가 붙은 것은 빼고, 사람이 누른 것만).
   const back = moved.filter(r => !numbered.has(rowKey(r)));
@@ -2849,7 +3149,7 @@ async function pcInPc(rows, dest, mode) {
   } : null;
   notify(xferDoneText(mode, {done: run.done, skipped}), {record: false, ...(undo ? {undo, label: `옮기기 ${back.length}개`} : {})});
 }
-// 클라우드 파일 → 내 PC 폴더: 파일만(폴더·구글 문서·크기 모름은 xferPlan이 거름). 같은 이름은 한 번 묻고 [그래도 하기]면 문이 '이름 (2)'로 둘 다 둔다(덮어쓰기 없음).
+// 클라우드 파일 → 내 PC 폴더: 파일(폴더는 xferRun이 treeDev로 — S53-8, 구글 문서·크기 모름은 xferPlan이 거름). 같은 이름은 한 번 묻고 [그래도 하기]면 문이 '이름 (2)'로 둘 다 둔다(덮어쓰기 없음).
 //   하나씩 차례로: Edge media로 받은 바이트를 문에 4MB씩 새 파일로 쓴다(화면이 열린 동안). 옮기기면 다 쓴 것만 그 클라우드 휴지통으로.
 async function cloudToPc(rows, dest, mode) {
   const plan = xferPlan(rows, dest, 'copy');
@@ -2915,11 +3215,10 @@ async function trashLanded(landed) {
   }
   return kept;
 }
-async function uploadFiles(files, dest, {skipDirs = 0, devMove = null} = {}) {
+async function uploadFiles(files, dest, {devMove = null} = {}) {
   if (!dest?.source || !SOURCES.includes(dest.source)) return;
   if (state.ask || state.busy) { notify('다른 일을 묻는 중이에요. 끝난 뒤 다시 해 주세요.', {record: false}); return; }
   const plan = uploadPlan(files, n => checkFileBase(n).ok);
-  if (skipDirs) notify('폴더는 올리지 않아요(파일만). 폴더를 열어 파일을 골라 주세요.', {record: false});
   if (!plan.ok.length) { if (plan.blocked.length) notify(plan.reason, {error: true, record: false}); return; }
   if (plan.blocked.length) notify(plan.blocked[0].reason, {error: true, record: false});
   const scope = state.scope;
@@ -2951,29 +3250,36 @@ async function uploadFiles(files, dest, {skipDirs = 0, devMove = null} = {}) {
   }
   if (state.scope !== scope) return;
   if (!go.length) { if (skipped) notify(`${skipped}개 건너뜀`, {record: false}); return; }
-  // 줄을 모두 먼저 연다(전송 목록에 한 줄씩 '기다림'으로 보이게) → 차례로 보낸다.
+  const opened = await openUploads(go, dest, {devMove});
+  if (!opened || state.scope !== scope) return;
+  notify(upStartText(opened), {note: skipped ? `${skipped}개 건너뜀` : '', record: false});
+  upPump();
+}
+// 줄을 모두 먼저 연다(전송 목록에 한 줄씩 '기다림'으로 보이게) → 부른 곳이 upPump로 차례로 보낸다. 답 = 연 줄 수.
+//   group·rows(S53-8 폴더째 옮기기): 연 줄을 묶음에 넣고(rows[i] = go[i]의 원본 줄), 하나라도 못 열면 묶음은 원본을 지우지 않는다.
+async function openUploads(go, dest, {devMove = null, group = null, rows = null} = {}) {
+  const scope = state.scope;
   state.jobsBusy = true; paintBar();
   let opened = 0;
   try {
-    for (const f of go) {
+    for (const [i, f] of go.entries()) {
       let d;
       try {
         d = await rt().api(FN, {method: 'POST', body: {action: 'upload_open', confirm: true, to_source: dest.source, to: dest.parent, name: f.name, size: f.size,
           ...(f.type ? {mime: f.type} : {}), ...(upBig(f) ? {big: true} : {})}, singleFlight: false, timeoutMs: 60000});
-      } catch (e) { if (state.scope === scope) notify(`${f.name}: ${writeErrorText(codeOf(e))}`, {error: true, record: false}); continue; }
-      if (state.scope !== scope) return;
-      if (!d?.job?.id) continue;
+      } catch (e) { if (group) group.failed = true; if (state.scope === scope) notify(`${f.name}: ${writeErrorText(codeOf(e))}`, {error: true, record: false}); continue; }
+      if (state.scope !== scope) return opened;
+      if (!d?.job?.id) { if (group) group.failed = true; continue; }
       opened++;
       setJobs(mergeJobs(state.jobs, [d.job]));
       if (devMove?.has(f)) upDevMove.set(d.job.id, devMove.get(f));
+      if (group) { group.left.add(d.job.id); group.rows.push(rows[i]); upDevMove.set(d.job.id, {group}); }
       if (d.job.status === 'done') { applyWrite(d); devGone(d.job.id); continue; }
       upFiles.set(d.job.id, f);
       up.queue.push({id: d.job.id, file: f});
     }
   } finally { if (state.scope === scope) { state.jobsBusy = false; paintBar(); } }
-  if (!opened) return;
-  notify(upStartText(opened), {note: skipped ? `${skipped}개 건너뜀` : '', record: false});
-  upPump();
+  return opened;
 }
 // 차례로 하나씩: 서버에 '보내는 중'으로 바꾸며 자리·이어 갈 곳을 받고(upload_resume — 처음이면 0), 남은 조각을 보낸다.
 async function upPump() {
@@ -3006,21 +3312,31 @@ async function upPump() {
 async function upSend(item, slot) {
   const out = await upSendPieces(item, slot);
   if (out === 'done') devGone(item.id); // 내 PC·이 폰에서 옮긴 파일: 서버가 맞춘 뒤에만 원본을 휴지통으로
+  else if (out === 'failed') devFailed(item.id); // 폴더째 옮기기 묶음이면 원본 그대로
   upLetGo(item, out === 'done' ? 'done' : out === 'failed' ? 'failed' : 'stop', out === 'failed' ? jobReason(item.failCode || 'upload_failed') : '');
   return out;
 }
 async function upSendPieces(item, slot) {
+  const fail = async code => {
+    item.failCode = code;
+    try { const v = await rt().api(FN, {method: 'POST', body: {action: 'upload_progress', confirm: true, id: item.id, error: code}, singleFlight: false, timeoutMs: 30000}); if (v?.job) setJobs(mergeJobs(state.jobs, [v.job])); } catch { loadJobs(); }
+    return 'failed';
+  };
+  // S53-8: 폴더째 올리기의 내 PC·이 폰 파일은 보낼 차례가 되어서야 바이트를 읽는다(upStub). 그사이 바뀌었으면(크기 다름) 이 줄은 못 함.
+  if (item.file?.load) {
+    try {
+      const f = await item.file.load();
+      if (f.size !== item.file.size) throw new Error('changed');
+      item.file = f;
+      if (upFiles.has(item.id)) upFiles.set(item.id, f);
+    } catch { return fail('upload_failed'); }
+  }
   const file = item.file, size = file.size, ctrl = new AbortController();
   up.cur = {id: item.id, ctrl};
   let off = Math.max(0, Number(slot.offset) || 0), tries = 0;
   const job = upJob(item);
   job.signal.addEventListener('abort', () => ctrl.abort(), {once: true});
   job.progress({loaded: off, total: size, phase: 'sending'});
-  const fail = async code => {
-    item.failCode = code;
-    try { const v = await rt().api(FN, {method: 'POST', body: {action: 'upload_progress', confirm: true, id: item.id, error: code}, singleFlight: false, timeoutMs: 30000}); if (v?.job) setJobs(mergeJobs(state.jobs, [v.job])); } catch { loadJobs(); }
-    return 'failed';
-  };
   for (;;) {
     const piece = upPiece(off, size, Number(slot.chunk) || 5 * 1024 * 1024);
     if (!piece) return fail('upload_failed');
@@ -3545,10 +3861,12 @@ root?.addEventListener('drop', event => {
   if (upHit) {
     event.preventDefault();
     dropOff(null);
-    const items = [...(event.dataTransfer?.items || [])];
-    const dirs = new Set(items.map((it, i) => (it.webkitGetAsEntry?.()?.isDirectory ? i : -1)).filter(i => i >= 0));
+    // S53-8: 끌어 놓은 폴더는 폴더째(받을 곳에 같은 폴더 모양 + 안의 파일을 전송 목록에). 손잡이는 놓는 순간에만 읽을 수 있어 여기서 받아 둔다.
+    const entries = [...(event.dataTransfer?.items || [])].map(it => it.webkitGetAsEntry?.() || null);
+    const dirs = new Set(entries.map((e, i) => (e?.isDirectory ? i : -1)).filter(i => i >= 0));
     const files = [...(event.dataTransfer?.files || [])].filter((_, i) => !dirs.has(i));
-    uploadFiles(files, upHit.dest, {skipDirs: dirs.size});
+    const folders = entries.filter(e => e?.isDirectory).map(e => ({source: DROP, item_id: e.fullPath, name: e.name, is_folder: true, entry: e}));
+    void (async () => { if (files.length) await uploadFiles(files, upHit.dest); if (folders.length) await treeUp('copy', folders, upHit.dest); })();
     return;
   }
   const hit = dropAt(event.target);

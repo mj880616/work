@@ -154,7 +154,8 @@ test.describe('폰 앱 412', () => {
     await prev.locator('[data-fx-copy-one]').click();
     const sheet = root(page).locator('[data-fx-dest]');
     await expect(sheet).toBeVisible();
-    await expect(sheet.locator('[data-fx-dest-pick^="ph:"]')).toHaveCount(0);
+    // S53-8: 폰에 쓸 수 있으면 받을 곳에 이 폰도(폰 안끼리 옮기기). 여기서는 원드라이브로.
+    await expect(sheet.locator('[data-fx-dest-pick="ph:"]')).toBeVisible();
     await sheet.locator('[data-fx-dest-pick="od:"]').first().click();
     await sheet.locator('[data-fx-dest-go]').click();
     await expect.poll(() => edgeCalls(server, 'upload_open').length).toBe(1);
@@ -257,7 +258,8 @@ test.describe('폰 앱 412', () => {
     await expect(prev.locator('[data-fx-cut-one]')).toHaveText('옮기기');
     await prev.locator('[data-fx-cut-one]').click();
     const sheet = root(page).locator('[data-fx-dest]');
-    await expect(sheet.locator('[data-fx-dest-pick^="ph:"]')).toHaveCount(0);
+    // S53-8: 폰에 쓸 수 있으면 받을 곳에 이 폰도(폰 안끼리 옮기기). 여기서는 원드라이브로.
+    await expect(sheet.locator('[data-fx-dest-pick="ph:"]')).toBeVisible();
     await sheet.locator('[data-fx-dest-pick="od:"]').first().click();
     await sheet.locator('[data-fx-dest-go]').click();
     await expect.poll(() => server.jobs.filter(j => j.status === 'done').length, { timeout: 15000 }).toBe(1);
