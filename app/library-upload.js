@@ -233,7 +233,7 @@ function luCategorySheet(){
   const el=document.getElementById('libraryCategorySheet');el.classList.add('lu-cat-sheet');
   const save=el.querySelector('[data-sheet-save]');if(save)save.textContent='적용';
   const foot=el.querySelector('[data-sheet-foot]');
-  if(foot&&!foot.querySelector('[data-lu-cat-edit]'))foot.insertAdjacentHTML('afterbegin','<button type="button" class="lu-cat-sheet-edit" data-lu-cat-edit aria-label="분류 수정"><span aria-hidden="true">✎ </span>분류 수정</button>');
+  if(foot&&!foot.querySelector('[data-lu-cat-edit]'))foot.insertAdjacentHTML('afterbegin','<button type="button" class="secondary lu-cat-sheet-edit" data-lu-cat-edit aria-label="분류 수정"><span aria-hidden="true">✎ </span>분류 수정</button>');
   el.addEventListener('click',e=>{
     if(e.target.closest('[data-lu-cat-clear]')){if(luCatPending){luCatPending={picked:[],sub:''};luCatSheet.sync()}return}
     if(e.target.closest('[data-lu-cat-edit]')){luCatPending=null;void luCatSheet.close().then(()=>luManage())}
