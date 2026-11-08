@@ -32,7 +32,8 @@ export function linkBoxHtml(box, orgs, prefix) {
 // S52-01 ③c UI-사업영역조직고르기창: the sheet is the shared picker (area-org-picker.js), one choice: '연결 안 함' first, the groups
 // folded (a press opens one), search and the most used. onPick(id | '') as before.
 let pick = null;
-export async function openOrgPicker(trigger, {orgs, mine, selected, onPick}) {
+// top·title(FORGET-소식바로잡기, 잊지 말기 [조직]): 창 맨 위 한 번에 고르는 줄(예 '조직 › ○○에 넣기')과 창 이름. top이 있으면 '연결 안 함' 줄은 없다.
+export async function openOrgPicker(trigger, {orgs, mine, selected, onPick, top = null, title = '연결할 조직'}) {
   pick = {orgs, mine, selected, onPick};
   const order = window.KPTUOrganizationOrder, sel = selected || '';
   const offered = (orgs || []).filter(o => (o.active !== false && mine?.has(o.id)) || o.id === sel);
@@ -45,7 +46,7 @@ export async function openOrgPicker(trigger, {orgs, mine, selected, onPick}) {
   // 이 화면의 조직 목록·내 담당에 더한 뒤 고른 것으로 한다(onPick). 만들기는 feed-data.js createMyOrganization(담당조직 추가와 같은 표) 한 곳.
   const create = {similar:name => similarOrgs(name, (orgs || []).filter(o => o.active !== false)).map(o => ({key:'o:' + o.id, name:o.name || '이름 없는 조직'})),
     make:async name => { const {org} = await createMyOrganization(name); if (Array.isArray(orgs) && !orgs.some(o => o.id === org.id)) orgs.push(org); mine?.add?.(org.id); return {key:'o:' + org.id, name:org.name}; }};
-  return openAreaOrgPicker({kind:'org', trigger, used, multi:false, none:'연결 안 함', title:'연결할 조직', orgGroups:orderedOrgGroups(groups), selected:sel ? ['o:' + sel] : [], create,
+  return openAreaOrgPicker({kind:'org', trigger, used, multi:false, none:'연결 안 함', top, title, orgGroups:orderedOrgGroups(groups), selected:sel ? ['o:' + sel] : [], create,
     onCommit:keys => { if (pick !== mineNow) return; const k = [...keys][0] || ''; mineNow.onPick(k.startsWith('o:') ? k.slice(2) : ''); }});
 }
 

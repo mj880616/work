@@ -162,7 +162,7 @@ for(const width of [390,1280])test(`정리함: [이미 함] moves the row to 이
  await openInbox(page);
  await expect(page.locator('#basketView')).not.toContainText('지난주 챙길 것');
  const row=line(page,2);
- await expect(row.locator('.nbx-acts > button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×','⋯']);
+ await expect(row.locator('.nbx-acts > button')).toHaveText(['할 일로','일정으로','노트로','조직','사업','이미 함','×','⋯']);
  expect(await noWideScroll(page)).toBe(true);
  await tap(page,btn(row,'이미 함'),width);
  await expect(row).toHaveCount(0);
