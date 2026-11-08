@@ -23,7 +23,7 @@ export const PRESS_TEXT = Object.freeze({
   not_ready:'성명·보도자료 초안은 아직 준비 중이에요.',
   invalid_request:'성명·보도자료 초안은 아직 준비 중이에요.',
   not_found:'고른 근거(사업 보고·바깥 문장)를 찾지 못했어요. 목록을 다시 확인해 주세요.',
-  press_no_source:'고른 기록에 초안에 쓸 글이 없어요.',
+  press_no_source:'선택한 기록에 초안에 쓸 글이 없어요.',
   daily_limit:'오늘 AI를 쓸 수 있는 횟수를 다 썼어요.',
   monthly_limit:'이번 달 AI 한도에 닿았어요.',
 });
