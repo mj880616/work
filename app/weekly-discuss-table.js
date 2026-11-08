@@ -126,7 +126,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
     if (busy) select.disabled = true;
     wrap.append(select); form.append(wrap, fields[1]);
     const actions = el('div', 'journal-edit-actions save-row');
-    const cancel = btn('취소', 'journalDiscussCancel', 'secondary'), ok = btn('저장', 'journalDiscussSave', 'primary');
+    const cancel = btn('취소', 'journalDiscussCancel'), ok = btn('저장', 'journalDiscussSave', 'mini primary');
     actions.append(cancel, ok);
     if (busy) for (const b of actions.children) b.disabled = true;
     form.append(actions); td.append(form); tr.append(td);

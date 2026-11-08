@@ -67,6 +67,7 @@
 #appView #homeView .journal-edit-meta small{ color:var(--kptu-muted); font-size:var(--ds-text-meta); font-variant-numeric:tabular-nums; }
 #appView #homeView .journal-edit-meta small.over{ color:var(--kptu-danger); }
 #appView #homeView .journal-edit-actions{ gap:6px; margin-top:0; }
+#appView #homeView .journal-edit-actions .journal-delete{ color:var(--kptu-danger); border-color:var(--kptu-danger); background:var(--kptu-surface); }
 #appView #homeView .journal-materials{ display:flex; flex-direction:column; gap:10px; }
 #appView #homeView .journal-group{ display:flex; flex-direction:column; gap:4px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #homeView .journal-group h4{ margin:0; font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); }

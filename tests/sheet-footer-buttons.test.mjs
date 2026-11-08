@@ -46,8 +46,8 @@ function footers() {
   }
   return out;
 }
-// 가족 클래스가 아닌 줄 안 버튼 예외표. ②(S54-08)에서 비웠다 — 새 예외를 더하지 않는다.
-const LEFTOVER = {};
+// 가족 클래스가 아닌 줄 안 버튼 예외표. 업무일지 표·줄 안 버튼은 콤팩트 결정대로 작은 버튼(.mini) 유지(journal.spec 1835) — 새 예외를 더하지 않는다.
+const LEFTOVER = {'journal.js':3};
 
 test('줄 안 삭제는 맨 앞(왼쪽 끝), 저장(주 동작)은 맨 뒤(오른쪽 끝)', () => {
   const list = footers();
@@ -84,13 +84,4 @@ test('② 이름이 다른 창 아래 줄(고르기·노트 기록·원드라이
   const cs = readFileSync('app/choice-sheet.js', 'utf8');
   assert.match(cs, /class="secondary home-choice-cancel" data-sheet-cancel/);
   assert.match(cs, /class="primary home-choice-save" data-sheet-save/);
-});
-
-test('② 업무일지 줄 수정·실행 일정·다음 주 본사 고르기·논의 줄의 [삭제][취소][저장]은 .mini 아닌 가족 클래스', () => {
-  const src = f => readFileSync('app/' + f, 'utf8');
-  assert.match(src('journal.js'), /class="danger journal-delete save-row-start" data-journal-edit-delete>삭제<\/button><button type="button" class="secondary" data-journal-edit-cancel>취소<\/button><button type="button" class="primary" data-journal-edit-save/);
-  assert.match(src('journal-weekly.js'), /el\('button', 'primary', '저장'\); save\.type = 'button'; save\.dataset\.journalExecSave/);
-  assert.match(src('journal-weekly.js'), /el\('button', 'secondary', '취소'\); cancel\.type = 'button'; cancel\.dataset\.journalExecCancel/);
-  assert.match(src('weekly-hq-schedule.js'), /btn\('취소', 'journalHqPickCancel', 'secondary'\), ok = btn\('넣기', 'journalHqPickSave', 'primary'\)/);
-  assert.match(src('weekly-discuss-table.js'), /btn\('취소', 'journalDiscussCancel', 'secondary'\), ok = btn\('저장', 'journalDiscussSave', 'primary'\)/);
 });

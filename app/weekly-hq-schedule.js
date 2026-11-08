@@ -153,7 +153,7 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     }
     box.append(list);
     const actions = el('div', 'journal-edit-actions save-row');
-    const cancel = btn('취소', 'journalHqPickCancel', 'secondary'), ok = btn('넣기', 'journalHqPickSave', 'primary');
+    const cancel = btn('취소', 'journalHqPickCancel'), ok = btn('넣기', 'journalHqPickSave', 'mini primary');
     ok.disabled = busy || !ui.picked.size;
     actions.append(cancel, ok); box.append(actions);
     return box;

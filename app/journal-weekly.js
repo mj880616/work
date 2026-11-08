@@ -1014,8 +1014,8 @@ function execEditRow(doc, el, ui, item) {
     wrap.append(name === 'time' ? timeCell(input, {label, allDay:true}) : input); form.append(wrap);
   }
   const actions = el('div', 'journal-edit-actions save-row');
-  const save = el('button', 'primary', '저장'); save.type = 'button'; save.dataset.journalExecSave = key;
-  const cancel = el('button', 'secondary', '취소'); cancel.type = 'button'; cancel.dataset.journalExecCancel = key;
+  const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalExecSave = key;
+  const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalExecCancel = key;
   actions.append(cancel, save);
   if (ui.saving) for (const b of actions.children) b.disabled = true;
   form.append(actions); td.append(form); tr.append(td);
