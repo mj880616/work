@@ -17,7 +17,6 @@
 .record-sheet-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--kptu-text-body);line-height:1.65;color:var(--kptu-ink)}
 .record-sheet-text.md-body{white-space:normal}
 .record-sheet-foot{flex:none;display:flex;justify-content:flex-end;gap:var(--kptu-space-2);padding:var(--kptu-space-2) var(--kptu-space-4) calc(var(--kptu-space-2) + env(safe-area-inset-bottom));border-top:1px solid var(--kptu-border)}
-.record-sheet-foot button{min-height:var(--kptu-touch-target,44px)}
 @media(max-width:760px){
   html:has(body.kptu-workspace-shell) .modal.record-sheet{bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom))}
   .record-sheet-card{width:100%;max-height:min(82dvh,calc(100dvh - var(--kptu-mobile-tab-height,0px) - 40px))}
