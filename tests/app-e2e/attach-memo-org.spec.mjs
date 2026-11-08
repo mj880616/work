@@ -350,7 +350,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`categor
  await expect(page.locator('#libraryCategoryFilter [data-lu-category]')).toHaveText(['전체',...DEFAULT,'홍보']);
  await expect(page.locator('#docCategory option')).toHaveText(['자동 분류',...DEFAULT,'홍보']);
  // Rename: the screen tells that this category's documents get the new name; the old stored values go along.
- await tap(page,editor.getByRole('button',{name:'정책 이름 고치기'}),width);
+ await tap(page,editor.getByRole('button',{name:'정책 이름 수정'}),width);
  const form=editor.locator('[data-dce-rename-form="정책"]');
  await form.locator('input').fill('정책·법령');
  await form.getByRole('button',{name:'완료'}).click();
@@ -399,7 +399,7 @@ test('category list: client checks, server refusals and an unknown result are ex
  await expect(status).toHaveText('이미 있는 분류 이름이에요. 아무것도 바뀌지 않았어요.');
  await expect(names(editor)).toHaveText([...DEFAULT.slice(0,-1),'홍보','기타']);
  // Rename to an existing name, and renaming a name that is gone: refused with nothing changed.
- await editor.getByRole('button',{name:'교육 이름 고치기'}).click();
+ await editor.getByRole('button',{name:'교육 이름 수정'}).click();
  const form=editor.locator('[data-dce-rename-form="교육"]');await form.locator('input').fill('선전');await form.getByRole('button',{name:'완료'}).click();
  await expect(status).toHaveText('이미 있는 분류 이름이에요.');
  await expect(form.locator('input')).toHaveValue('선전');
