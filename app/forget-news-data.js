@@ -52,6 +52,22 @@ export function matchOrg(name, orgs, mine) {
 // 처리 전 소식. 종류·이유를 읽을 수 있으면(picks) 새 기준(종류가 있는) 줄만 — 옛 기준 줄은 셈·목록에 넣지 않는다(정리는 서버 쪽 한 번, PR 본문 ④).
 export const openNews = (rows, picks = true) => (rows || []).filter(r => r.status === 'suggested' && (!picks || !!r.kind));
 
+// FORGET-소식바로잡기 ④: 옛 기준으로 골라 종류·이유가 없는 처리 전 소식(종류를 읽을 수 있을 때만 셈 — 표 적용 전이면 0).
+export const oldNews = (rows, picks = true) => picks ? (rows || []).filter(r => r.status === 'suggested' && !r.kind) : [];
+export const RECHECK_TIMEOUT_MS = 140000; // 서버가 AI를 세 번까지 부를 수 있어 일반 AI 요청보다 길게 기다린다.
+// 쌓인 소식 한 번 다시 판정(서버 ai-assist journal_memorable_recheck). mode: 'preview'(바꾸지 않고 수만) | 'run'(실행).
+// 대상 줄·원본은 서버가 로그인 토큰으로 읽고 소유자·운영자 기능을 다시 판정한다. 화면은 mode만 보낸다.
+// 돌려줌: {ok:true, keep, drop, left} 또는 {ok:false}.
+export async function recheckNews(rt, mode, opts = {}) {
+  if (mode !== 'preview' && mode !== 'run') return {ok: false};
+  try {
+    const r = await callAiAssist({kind: 'journal_memorable_recheck', mode}, {rt, timeoutMs: RECHECK_TIMEOUT_MS, ...opts});
+    const d = r?.ok ? r.data : null;
+    const n = v => Number.isInteger(v) && v >= 0 ? v : null;
+    if (!d || d.mode !== mode || [d.keep, d.drop, d.left].some(v => n(v) === null)) return {ok: false};
+    return {ok: true, keep: d.keep, drop: d.drop, left: d.left};
+  } catch { return {ok: false}; }
+}
 // 운영자 기능 calls·telegram 중 하나라도 있는가(서버 app_my_features — 공용 my-features.js 한 곳에서 GET으로 한 번만 묻는다).
 // 못 읽으면 없음으로 본다(줄을 안 읽을 뿐, 보안은 서버).
 export async function newsOn(rt = window.KPTURuntime) {

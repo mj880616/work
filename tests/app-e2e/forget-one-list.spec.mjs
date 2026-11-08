@@ -22,7 +22,7 @@ const nid=n=>`b0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const newsRow=(n,over={})=>({id:nid(n),day:'2026-10-06',source:'telegram',feed_item_id:fid(n),org_name:null,line:`가상 소식 ${n}`,status:'suggested',final_line:null,picked_at:`2026-10-06T0${n}:10:00Z`,decided_at:null,...over});
 async function fixture(page,{width=390,features=['telegram','family'],news=[],cands=[cand(1),cand(3,{source_kind:'basket',summary:'지어낸 챙길 것'}),cand(5,{status:'tasked',decided_at:'2026-10-06T06:00:00Z'})]}={}){
   await page.setViewportSize({width,height:900});
-  const patches=[],feedback=[],famPatches=[],notePatches=[],rows=notes(),newsPatches=[],orgPosts=[],asked=[];
+  const patches=[],feedback=[],famPatches=[],notePatches=[],rows=notes(),newsPatches=[],orgPosts=[],asked=[],fixes=[];
   await openHome(page,{beforeLoad:async()=>{
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:features}));
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',async r=>{
@@ -71,12 +71,18 @@ async function fixture(page,{width=390,features=['telegram','family'],news=[],ca
     await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/ai-assist',r=>{
       let body=null;try{body=r.request().postDataJSON();}catch{body=null;}
       if(body?.kind==='journal_memorable'){asked.push(body);return r.fulfill({json:{ok:true,kind:'journal_memorable',day:body.day,skipped:'fresh'}});}
+      // FORGET-소식바로잡기 ④ 흉내: 옛 기준(종류 없는) 처리 전 줄은 모두 안 듦 → 미리 보기는 수만, 실행은 상태만 무시로.
+      if(body?.kind==='journal_memorable_recheck'){
+        fixes.push(body);const old=news.filter(x=>x.status==='suggested'&&!x.app_journal_memorable_picks);
+        if(body.mode==='run')old.forEach(x=>{x.status='dropped';x.decided_at='2026-10-06T09:00:00Z';});
+        return r.fulfill({json:{ok:true,kind:'journal_memorable_recheck',mode:body.mode,target:old.length,keep:0,drop:old.length,left:0}});
+      }
       return r.fallback();
     });
   }});
   await page.evaluate(()=>window.KPTURouter.go('basket'));
   await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();
-  return {patches,feedback,famPatches,notePatches,cands,newsPatches,orgPosts,asked};
+  return {patches,feedback,famPatches,notePatches,cands,newsPatches,orgPosts,asked,fixes};
 }
 const list=page=>page.locator('#basketView [data-forget-section] .nbx-list');
 const line=(page,key)=>page.locator(`#basketView [data-nbx-row="${key}"]`);
@@ -263,6 +269,35 @@ for(const width of [390,1280])test(`소식 줄 새 기준: 이유 한 줄 + 맞�
   // 업데이트 1 + 챙길 것 1 + 텔레그램 요청 1 + 가족 1 + 새 기준 소식 2 = 6(옛 기준 1은 세지 않음).
   await expect(page.locator('#appView')).toHaveAttribute('data-home-asks','6');
   for(const r of await list(page).locator('[data-forget-src="news"] .nbx-acts').evaluateAll(oneLine)){expect(r.one).toBe(true);expect(r.right).toBeLessThanOrEqual(width);}
+});
+// FORGET-소식바로잡기 ④: 옛 기준으로 쌓인 처리 전 소식이 있으면 상태 줄에 작은 한 줄 '옛 소식 n개 새 기준으로 정리 [정리]'.
+// [정리] → 서버 미리 보기 수 → [확인]으로 실행(판정·바꾸기는 서버). 끝나면 옛 줄이 없어져 이 줄도 사라진다.
+for(const width of [390,1280])test(`옛 소식 정리: [정리] → 미리 보기 수 → [확인] 실행, 끝나면 한 줄이 사라짐 ${width}`,async({page})=>{
+  const news=[newsRow(2,{app_journal_memorable_picks:{kind:'task',reason:'할 일'}}),newsRow(5,{line:'옛 기준 소식',app_journal_memorable_picks:null}),newsRow(6,{line:'옛 기준 둘',app_journal_memorable_picks:null})];
+  const {fixes}=await fixture(page,{width,news});
+  const fix=page.locator('#basketView [data-forget-status] [data-forget-fix]');
+  await expect(fix).toHaveText(/옛 소식 2개 새 기준으로 정리\s*정리/);
+  expect(fixes).toEqual([]);
+  await fix.getByRole('button',{name:'정리',exact:true}).click();
+  await expect(fix).toHaveText(/옛 소식 2개 중 0개 남기고 2개는 무시로\s*확인\s*취소/);
+  expect(fixes).toEqual([{kind:'journal_memorable_recheck',mode:'preview'}]);
+  expect(news.filter(x=>x.status==='dropped')).toHaveLength(0);
+  await fix.getByRole('button',{name:'취소'}).click();
+  await expect(fix).toHaveText(/옛 소식 2개 새 기준으로 정리/);
+  await fix.getByRole('button',{name:'정리',exact:true}).click();
+  await fix.getByRole('button',{name:'확인'}).click();
+  await expect(page.locator('#basketView [data-forget-status]')).toHaveText('옛 소식 정리: 0개 남김 · 2개 무시');
+  await expect(fix).toHaveCount(0);
+  expect(fixes.map(f=>f.mode)).toEqual(['preview','preview','run']);
+  await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(1);
+  expect(await noWide(page)).toBe(true);
+  await pickView(page,'무시');
+  await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(2);
+});
+test('옛 소식 정리 줄은 옛 기준 줄이 없으면 보이지 않는다',async({page})=>{
+  await fixture(page,{news:[newsRow(2,{app_journal_memorable_picks:{kind:'task',reason:'할 일'}})]});
+  await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(1);
+  await expect(page.locator('#basketView [data-forget-fix]')).toHaveCount(0);
 });
 test('운영자 기능(통화·텔레그램)이 없는 작업공간은 소식 줄도 소식 읽기·AI 요청도 없다',async({page})=>{
   const {asked}=await fixture(page,{features:[],news:[newsRow(2)]});

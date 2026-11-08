@@ -56,3 +56,21 @@ test('구조: 서버 표만 쓰고(쓰는 칸은 표가 허락한 것만), 기�
   assert.match(src, /return r\.ok \? openNews\(r\.rows, r\.picks\)\.length : 0;/);
   assert.match(src, /const PICK = 'app_journal_memorable_picks';/); assert.match(src, /\$\{base\},\$\{PICK\}\(kind,reason\)/);
 });
+
+// FORGET-소식바로잡기 ④: 옛 기준 줄 세기와 서버 다시 판정 부르기(화면은 mode만 보낸다 — 대상 줄·작업공간은 서버가 정함).
+test('옛 소식 정리: 종류를 읽을 수 있을 때만 옛 줄을 세고, 서버에는 kind·mode만 보낸다', async () => {
+  const rows = m.newsRows([{id:'1', day:'2026-10-06', source:'call', line:'새 줄', status:'suggested', app_journal_memorable_picks: {kind:'task', reason:'할 일'}},
+    {id:'2', day:'2026-10-06', source:'call', line:'옛 줄', status:'suggested', app_journal_memorable_picks: null},
+    {id:'3', day:'2026-10-06', source:'call', line:'뺀 옛 줄', status:'dropped', app_journal_memorable_picks: null}]);
+  assert.deepEqual(m.oldNews(rows).map(r => r.id), ['2']);
+  assert.deepEqual(m.oldNews(rows, false), [], 'picks table not readable → no cleanup line');
+  const sent = [];
+  const rt = {session: {ensure: async () => true, read: () => ({access_token: 't'})}, config: {url: 'https://x.test', key: 'k'}};
+  const fetcher = async (url, init) => { sent.push(JSON.parse(init.body)); const b = JSON.parse(init.body);
+    return new Response(JSON.stringify({ok: true, kind: b.kind, mode: b.mode, target: 2, keep: 1, drop: 1, left: 0}), {status: 200}); };
+  assert.deepEqual(await m.recheckNews(rt, 'preview', {fetcher}), {ok: true, keep: 1, drop: 1, left: 0});
+  assert.deepEqual(sent, [{kind: 'journal_memorable_recheck', mode: 'preview'}]);
+  assert.deepEqual(await m.recheckNews(rt, 'delete', {fetcher}), {ok: false});
+  const bad = async () => new Response(JSON.stringify({ok: true, kind: 'journal_memorable_recheck', mode: 'run', keep: -1, drop: 1, left: 0}), {status: 200});
+  assert.deepEqual(await m.recheckNews(rt, 'run', {fetcher: bad}), {ok: false});
+});

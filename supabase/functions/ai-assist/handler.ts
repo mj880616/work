@@ -75,8 +75,10 @@ import {
 } from "./journal-draft.ts";
 import {
   MEMORABLE_DAY_CAP, MEMORABLE_INSTRUCTIONS, MEMORABLE_MAX_ITEMS, MEMORABLE_MAX_OUTPUT_TOKENS, MEMORABLE_SCHEMA, memorableDayInRange, memorableDue,
-  memorableMaterial, parseJournalMemorableRequest, parseMemorable, toFeedRow,
+  memorableMaterial, parseJournalMemorableRecheckRequest, parseJournalMemorableRequest, parseMemorable, MEMORABLE_RECHECK_AI_CALLS, MEMORABLE_RECHECK_DAYS,
+  MEMORABLE_RECHECK_KEEP_MAX, MEMORABLE_RECHECK_LINES_MAX, MEMORABLE_RECHECK_MAX_OUTPUT_TOKENS, recheckSplit, toFeedRow,
 } from "./journal-memorable.ts";
+import type { FeedRow } from "./journal-memorable.ts";
 import { parseWorkScope, parseWorkScopeRequest, WORK_SCOPE_INSTRUCTIONS, WORK_SCOPE_MAX_OUTPUT_TOKENS, WORK_SCOPE_SCHEMA, weekDayKeys, userLineDrops, withUserDrops, workScopeLines, workScopeMaterial } from "./work-scope.ts";
 import {
   autoTime, NEXT_WEEK_SHEET_BODY_BYTES, NEXT_WEEK_SHEET_INSTRUCTIONS, NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS, NEXT_WEEK_SHEET_SCHEMA,
@@ -186,7 +188,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, journal_memorable: 24, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_suggest: 60, org_people_brief: 60, org_week_lines: ORG_WEEK_DAILY_AI, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, journal_memorable: 24, journal_memorable_recheck: 6, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_suggest: 60, org_people_brief: 60, org_week_lines: ORG_WEEK_DAILY_AI, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -516,6 +518,7 @@ type NoteTitleInput = { kind: "note_title"; id: string };
 type FileNameInput = { kind: "file_name" } & FileNameRequest;
 type JournalDraftInput = { kind: "journal_draft"; day: string; lines: string[] };
 type JournalMemorableInput = { kind: "journal_memorable"; day: string };
+type JournalMemorableRecheckInput = { kind: "journal_memorable_recheck"; mode: "preview" | "run" };
 // JOURNAL-오늘한일업무개인: 그 주 월요일만. 그 주 업무일지 줄은 서버가 로그인 토큰으로 읽는다(판단은 저장하지 않음).
 type WorkScopeInput = { kind: "work_scope"; week_start: string };
 type NextWeekSheetInput = { kind: "next_week_sheet"; week_start: string; mode: "auto" | "user"; items: NextWeekItem[] };
@@ -557,7 +560,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | OrgWeekLinesInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | JournalMemorableInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput | NowInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | OrgWeekLinesInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | JournalMemorableInput | JournalMemorableRecheckInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput | NowInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -622,6 +625,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     const parsed = parseJournalMemorableRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "journal_memorable", ...parsed };
+  }
+  // FORGET-소식바로잡기 ④ 쌓인 소식 한 번 다시 판정: mode(preview|run)만 받는다. 대상 줄·원본은 서버가 로그인 토큰으로 읽는다.
+  if (b.kind === "journal_memorable_recheck") {
+    const parsed = parseJournalMemorableRecheckRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "journal_memorable_recheck", ...parsed };
   }
   // 다음 주 준비 한 장(next_week_sheet): 다음 주 월요일·만든 방식·재료 줄(150줄까지)만 받는다. 이미 있는 장은 서버가 로그인 토큰으로 읽는다.
   if (b.kind === "work_scope") {
@@ -3851,6 +3860,29 @@ async function runJournalDraft(ctx: Ctx, input: JournalDraftInput, deps: RadarDe
   return json({ ok: true, kind: "journal_draft", day, draft: saved });
 }
 
+// 소식 고르기 맥락(journal_memorable·journal_memorable_recheck 같이 씀).
+// 이미 있는 것: 처리 전 챙길 것·텔레그램 요청 후보와 최근 2주 잊지 말기 소식(같은 내용은 고르지 않게 AI에 함께 보냄).
+// 텔레그램 요청 후보가 이미 가리키는 같은 기록은 아예 보내지 않는다(같은 글이면 하나만). 맥락은 못 읽어도 고르기는 돈다(빈 목록).
+// skip: '이미 있는 것'에서 뺄 소식 줄 id(④ 다시 판정할 줄 자신은 '이미 있는 것'이 아니다).
+async function memorableContext(ctx: Ctx, day: string, skip: Set<string> = new Set()) {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const soft = async (path: string): Promise<Record<string, unknown>[]> => { try { const r = await rest(ctx, path); return Array.isArray(r) ? r as Record<string, unknown>[] : []; } catch { return []; } };
+  const from = new Date(Date.parse(`${day}T00:00:00Z`) - 14 * 86400000).toISOString().slice(0, 10);
+  const [cands, recent, orgs, assigned, areas] = await Promise.all([
+    soft(`app_todo_candidates?workspace_id=eq.${ws}&status=eq.open&select=source_kind,source_id,summary&order=created_at.desc&limit=60`),
+    soft(`app_journal_memorable?workspace_id=eq.${ws}&day=gte.${from}&status=in.(suggested,kept)&select=id,org_name,line&order=picked_at.desc&limit=${40 + skip.size}`),
+    soft(`app_suborganizations?workspace_id=eq.${ws}&active=eq.true&select=id,name&order=name.asc&limit=200`),
+    soft(`app_suborganization_assignees?user_id=eq.${encodeURIComponent(ctx.userId)}&select=organization_id&limit=500`),
+    soft(`app_spaces?workspace_id=eq.${ws}&status=eq.active&select=name&order=name.asc&limit=200`),
+  ]);
+  const asked = new Set(cands.filter((c) => c?.source_kind === "telegram").map((c) => String(c?.source_id ?? "").toLowerCase()));
+  const mineIds = new Set(assigned.map((m) => String(m?.organization_id ?? "")));
+  const myOrgs = orgs.filter((o) => !mineIds.size || mineIds.has(String(o?.id ?? ""))).map((o) => o?.name);
+  const kept = recent.filter((r) => !skip.has(String(r?.id ?? "").toLowerCase())).slice(0, 40);
+  const known = [...cands.map((c) => c?.summary), ...kept.map((r) => [r?.org_name, r?.line].filter(Boolean).join(" · "))];
+  return { asked, myOrgs, areas: areas.map((a) => a?.name), known };
+}
+
 // ---- 쓰임 journal_memorable: 업무일지 [하루] '기억할 통화·텔레그램'(S49-13, journal-memorable.ts, 설계 docs/design/journal-memorable.md) ----------
 // 화면을 열 때 부른다. 그날 마지막 실행(app_journal_memorable_runs)에서 1시간이 지났고 그 뒤 새로 들어오거나 바뀐 기록이 있을 때만 새 것만 AI에 보낸다.
 // 운영자 기능(calls·telegram)은 서버 허용 표로 판정하고 허용된 출처만 읽는다(표 restrictive 정책이 한 번 더 막는다). 결과는 owner RLS 표
@@ -3909,25 +3941,11 @@ async function runJournalMemorable(ctx: Ctx, input: JournalMemorableInput, deps:
   }
   const room = MEMORABLE_DAY_CAP - picked;
   if (room <= 0) return skip("day_full");
-  // 이미 있는 것: 처리 전 챙길 것·텔레그램 요청 후보와 최근 2주 잊지 말기 소식(같은 내용은 고르지 않게 AI에 함께 보냄).
-  // 텔레그램 요청 후보가 이미 가리키는 같은 기록은 아예 보내지 않는다(같은 글이면 하나만). 맥락은 못 읽어도 고르기는 돈다(빈 목록).
-  const soft = async (path: string): Promise<Record<string, unknown>[]> => { try { const r = await rest(ctx, path); return Array.isArray(r) ? r as Record<string, unknown>[] : []; } catch { return []; } };
-  const from = new Date(Date.parse(`${day}T00:00:00Z`) - 14 * 86400000).toISOString().slice(0, 10);
-  const [cands, recent, orgs, assigned, areas] = await Promise.all([
-    soft(`app_todo_candidates?workspace_id=eq.${ws}&status=eq.open&select=source_kind,source_id,summary&order=created_at.desc&limit=60`),
-    soft(`app_journal_memorable?workspace_id=eq.${ws}&day=gte.${from}&status=in.(suggested,kept)&select=org_name,line&order=picked_at.desc&limit=40`),
-    soft(`app_suborganizations?workspace_id=eq.${ws}&active=eq.true&select=id,name&order=name.asc&limit=200`),
-    soft(`app_suborganization_assignees?user_id=eq.${encodeURIComponent(ctx.userId)}&select=organization_id&limit=500`),
-    soft(`app_spaces?workspace_id=eq.${ws}&status=eq.active&select=name&order=name.asc&limit=200`),
-  ]);
-  const asked = new Set(cands.filter((c) => c?.source_kind === "telegram").map((c) => String(c?.source_id ?? "").toLowerCase()));
-  const mineIds = new Set(assigned.map((m) => String(m?.organization_id ?? "")));
-  const myOrgs = orgs.filter((o) => !mineIds.size || mineIds.has(String(o?.id ?? ""))).map((o) => o?.name);
-  const known = [...cands.map((c) => c?.summary), ...recent.map((r) => [r?.org_name, r?.line].filter(Boolean).join(" · "))];
+  const { asked, myOrgs, areas, known } = await memorableContext(ctx, day);
   const rows = feed
     .filter((r) => String((r as Record<string, unknown>)?.workspace_id).toLowerCase() === ctx.workspaceId && sources.includes(String((r as Record<string, unknown>)?.source)))
     .map(toFeedRow).filter((r): r is NonNullable<typeof r> => !!r && !done.has(r.id) && !asked.has(r.id)).slice(0, MEMORABLE_MAX_ITEMS);
-  const material = memorableMaterial(day, rows, { orgs: myOrgs, areas: areas.map((a) => a?.name), known, max: room });
+  const material = memorableMaterial(day, rows, { orgs: myOrgs, areas, known, max: room });
   if (!material) return skip("no_new");
   const config = aiConfig(deps.env);
   if (!config) {
@@ -4011,6 +4029,150 @@ async function runJournalMemorable(ctx: Ctx, input: JournalMemorableInput, deps:
   const sentChars = chars(material);
   deps.log("journal_memorable_done", { sent: rows.length, size: sentChars, picked: picks.length });
   return json({ ok: true, kind: "journal_memorable", day, sent: rows.length, picked: picks.length });
+}
+
+// ---- 쓰임 journal_memorable_recheck: FORGET-소식바로잡기 ④ 쌓인 소식 한 번 다시 판정(요청함 11/09 01:45) ----------
+// 종류·이유가 없는(옛 기준으로 고른) 최근 2주 처리 전 소식 줄을 #2172와 같은 지시문(MEMORABLE_INSTRUCTIONS)·같은 검사(parseMemorable)로 다시 거른다.
+// - 로그인한 소유자 본인 작업공간만(ownerWorkspace), 운영자 기능(calls·telegram)은 서버 허용 표로 판정 — 없으면 거절(403). 표 정책도 한 번 더 막는다.
+// - mode=preview: 아무것도 바꾸지 않고 남을 수·무시로 갈 수만 돌려준다. mode=run: 남는 줄에 종류·이유(picks 행)를 넣고, 안 드는 줄은 상태만
+//   'dropped'(무시)로 바꾼다(지우지 않음, 내용 칸 그대로). 바꾼 줄 id(무시로 옮긴 줄·종류를 붙인 줄)와 시각(decided_at)을 응답·기록에 남긴다(내용 없이 id·수만) — 되돌리기용.
+// - 같은 줄은 두 번 판정하지 않는다: 판정이 끝난 줄은 picks가 있거나 처리 전이 아니므로 다음 요청의 대상이 아니다.
+// - 하루 5개 상한은 쓰지 않고, 새 기준에 드는 줄은 최근 것부터 MEMORABLE_RECHECK_KEEP_MAX개까지만 남긴다. AI는 한 번 요청에 MEMORABLE_RECHECK_AI_CALLS번까지.
+async function runJournalMemorableRecheck(ctx: Ctx, input: JournalMemorableRecheckInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId), mode = input.mode;
+  const features = await myFeatures(ctx);
+  if (features === "missing") throw new Fail(503, "journal_memorable_not_ready");
+  if (features === "error") throw new Fail(503, "journal_memorable_unavailable");
+  const sources = [features.has("calls") ? "call" : "", features.has("telegram") ? "telegram" : ""].filter(Boolean);
+  if (!sources.length) throw new Fail(403, "forbidden");
+  const readRows = async (path: string): Promise<Record<string, unknown>[]> => {
+    let rows: unknown;
+    try {
+      rows = await rest(ctx, path);
+    } catch (e) {
+      throw new Fail(503, e instanceof Error && e.message === "rest_404" ? "journal_memorable_not_ready" : "journal_memorable_unavailable");
+    }
+    if (!Array.isArray(rows)) throw new Fail(503, "journal_memorable_unavailable");
+    return rows as Record<string, unknown>[];
+  };
+  const today = seoulDays(started).day;
+  const from = new Date(Date.parse(`${today}T00:00:00Z`) - MEMORABLE_RECHECK_DAYS * 86400000).toISOString().slice(0, 10);
+  const lines = (await readRows(`app_journal_memorable?workspace_id=eq.${ws}&status=eq.suggested&day=gte.${from}&select=id,workspace_id,day,source,feed_item_id,status&order=day.desc,picked_at.desc,id.asc&limit=${MEMORABLE_RECHECK_LINES_MAX}`))
+    .filter((r) => String(r?.workspace_id ?? "").toLowerCase() === ctx.workspaceId && r?.status === "suggested" && UUID.test(String(r?.id ?? ""))
+      && UUID.test(String(r?.feed_item_id ?? "")) && sources.includes(String(r?.source)))
+    .map((r) => ({ id: String(r.id).toLowerCase(), day: String(r.day ?? ""), source: String(r.source), feed: String(r.feed_item_id).toLowerCase() }));
+  // 종류·이유가 이미 있는 줄(새 기준)은 대상이 아니다.
+  const withPick = new Set<string>();
+  for (let i = 0; i < lines.length; i += 50) {
+    const ids = lines.slice(i, i + 50).map((l) => l.id).join(",");
+    for (const p of await readRows(`app_journal_memorable_picks?workspace_id=eq.${ws}&memorable_id=in.(${ids})&select=memorable_id&limit=50`)) withPick.add(String(p?.memorable_id ?? "").toLowerCase());
+  }
+  const old = lines.filter((l) => !withPick.has(l.id));
+  const done = (out: { keep: string[]; drop: string[]; left: string[] }, extra: Record<string, unknown> = {}) => {
+    deps.log("journal_memorable_recheck_done", { mode, target: old.length, keep: out.keep.length, drop: out.drop.length, left: out.left.length, ...extra });
+    return json({ ok: true, kind: "journal_memorable_recheck", mode, target: old.length, keep: out.keep.length, drop: out.drop.length, left: out.left.length, ...extra });
+  };
+  if (!old.length) return done({ keep: [], drop: [], left: [] });
+
+  // 원본(통화·텔레그램 기록)은 출처마다 따로 읽는다(source=eq.call / source=eq.telegram). 숨긴 기록은 읽지 않는다.
+  const feedById = new Map<string, FeedRow>();
+  for (const src of sources) {
+    const ids = old.filter((l) => l.source === src).map((l) => l.feed);
+    for (let i = 0; i < ids.length; i += 50) {
+      const chunk = ids.slice(i, i + 50).join(",");
+      const got = src === "call"
+        ? await readRows(`app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&id=in.(${chunk})&select=id,workspace_id,source,title,summary,points,room_label&limit=50`)
+        : await readRows(`app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&hidden_at=is.null&id=in.(${chunk})&select=id,workspace_id,source,title,summary,points,room_label&limit=50`);
+      for (const raw of got) {
+        if (String(raw?.workspace_id ?? "").toLowerCase() !== ctx.workspaceId || raw?.source !== src) continue;
+        const row = toFeedRow(raw);
+        if (row) feedById.set(row.id, row);
+      }
+    }
+  }
+  const { asked, myOrgs, areas, known } = await memorableContext(ctx, today, new Set(old.map((l) => l.id)));
+  const judgeable = old.filter((l) => feedById.has(l.feed) && !asked.has(l.feed));
+  const unjudgeable = old.filter((l) => !feedById.has(l.feed) || asked.has(l.feed)).map((l) => l.id);
+  const lineByFeed = new Map(judgeable.map((l) => [l.feed, l]));
+
+  // 최근 것부터 MEMORABLE_MAX_ITEMS줄씩 AI에 보내고, 남길 자리가 다 차거나 AI 횟수 상한이면 멈춘다. 쓰기는 모두 끝난 뒤 한 번에(중간 실패 = 아무것도 안 바꿈).
+  const judged: string[] = [], kept: string[] = [];
+  const picksByLine = new Map<string, { kind: string; reason: string }>();
+  let sentLines = 0, calls = 0;
+  if (judgeable.length) {
+    const config = aiConfig(deps.env);
+    if (!config) {
+      deps.log("ai_not_configured");
+      throw new Fail(503, "ai_not_configured");
+    }
+    for (let i = 0; i < judgeable.length && calls < MEMORABLE_RECHECK_AI_CALLS && kept.length < MEMORABLE_RECHECK_KEEP_MAX; i += MEMORABLE_MAX_ITEMS) {
+      const batch = judgeable.slice(i, i + MEMORABLE_MAX_ITEMS);
+      const rows = batch.map((l) => ({ ...feedById.get(l.feed)!, day: l.day }));
+      const room = MEMORABLE_RECHECK_KEEP_MAX - kept.length;
+      const material = memorableMaterial(`${from}~${today}`, rows, { orgs: myOrgs, areas, known, max: room, cap: MEMORABLE_RECHECK_KEEP_MAX });
+      const budget = await checkBudget(ctx, "journal_memorable_recheck", deps.now(), config.price);
+      try {
+        await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+      } catch {
+        throw new Fail(503, "usage_unavailable");
+      }
+      calls++;
+      const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+        model: config.model,
+        store: false,
+        max_output_tokens: MEMORABLE_RECHECK_MAX_OUTPUT_TOKENS,
+        input: [
+          { role: "developer", content: MEMORABLE_INSTRUCTIONS },
+          { role: "user", content: material },
+        ],
+        text: { format: { type: "json_schema", name: "journal_memorable", strict: true, schema: MEMORABLE_SCHEMA } },
+      });
+      const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: MEMORABLE_RECHECK_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+      if (used.input || used.output) {
+        try {
+          await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+        } catch {
+          deps.log("usage_record_failed");
+        }
+      }
+      if (!result.ok) {
+        deps.log(result.code);
+        const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+        throw new Fail(status, result.code);
+      }
+      const picks = parseMemorable(outputText(result.raw, 16 * 1024) ?? "", rows, room, MEMORABLE_RECHECK_KEEP_MAX);
+      if (!picks) {
+        deps.log("ai_invalid_response");
+        throw new Fail(502, "ai_invalid_response");
+      }
+      sentLines += batch.length;
+      judged.push(...batch.map((l) => l.id));
+      for (const p of picks) {
+        const line = lineByFeed.get(p.feed_item_id);
+        if (!line || picksByLine.has(line.id)) continue;
+        picksByLine.set(line.id, { kind: p.kind, reason: p.reason });
+        kept.push(line.id);
+      }
+    }
+  }
+  const split = recheckSplit(old.map((l) => l.id), judged, kept, unjudgeable);
+  if (mode === "preview") return done(split, { calls, sent: sentLines });
+
+  // 실행: 남는 줄에 종류·이유(같은 줄은 한 번만), 안 드는 줄은 처리 전일 때만 상태를 무시로(그 사이 사람이 정한 줄은 그대로).
+  const at = new Date(started).toISOString();
+  try {
+    const marks = split.keep.map((id) => ({ memorable_id: id, workspace_id: ctx.workspaceId, kind: picksByLine.get(id)!.kind, reason: picksByLine.get(id)!.reason }));
+    if (marks.length) await rest(ctx, "app_journal_memorable_picks?on_conflict=memorable_id", { method: "POST", prefer: "resolution=ignore-duplicates,return=minimal", body: marks });
+    for (let i = 0; i < split.drop.length; i += 50) {
+      await rest(ctx, `app_journal_memorable?workspace_id=eq.${ws}&status=eq.suggested&id=in.(${split.drop.slice(i, i + 50).join(",")})`, {
+        method: "PATCH", prefer: "return=minimal", body: { status: "dropped", decided_at: at },
+      });
+    }
+  } catch {
+    throw new Fail(503, "journal_memorable_unavailable");
+  }
+  return done(split, { calls, sent: sentLines, at, dropped_ids: split.drop, kept_ids: split.keep });
 }
 
 // ---- 쓰임 work_scope: '오늘 한 일' 줄 업무·개인 가르기(JOURNAL-오늘한일업무개인, work-scope.ts) ---------------------------------
@@ -5074,6 +5236,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "file_name") return await runFileName(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_draft") return await runJournalDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_memorable") return await runJournalMemorable(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "journal_memorable_recheck") return await runJournalMemorableRecheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "work_scope") return await runWorkScope(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "next_week_sheet") return await runNextWeekSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "pre_meeting_sheet") return await runPreMeetingSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
