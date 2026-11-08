@@ -68,7 +68,7 @@ test('P5-b: 사업 보고 전용 묶음은 team.js 정적 사슬 밖, 사업 보
   assert.ok(staticImports('team.js').includes('time-input.js'));
   assert.match(team, /import\('\.\/team-report-kit\.js'\)/);
   // 사업 보고 자료 읽기와 함께 묶음을 기다린다(그리기 전), 연결 다시 읽기도 묶음을 먼저 부른다.
-  assert.match(team, /created_at\.desc'\),\s*reportKit\(\)\s*\]\);/);
+  assert.match(team, /readDocuments\(api,wid\),\s*reportKit\(\)\s*\]\);/);
   assert.match(team, /async function loadReportLinks\(\)\{\s*try\{await reportKit\(\)\}/);
   // 묶음 전에는 사업 보고 화면을 그리지 않는다(그리는 주인 renderMeetings 하나는 그대로).
   assert.match(team, /function renderMeetings\(opts\)\{const box=\$\('#meetingList'\);if\(!box\|\|!reportKitLoaded\)return;/);
