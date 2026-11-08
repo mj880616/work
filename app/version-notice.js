@@ -102,7 +102,7 @@ export function startVersionNotice(scriptUrl){
   function check(){
     if(stopped||!visible()||navigator.onLine===false)return;
     if(flight)return flight;
-    if(Date.now()-lastCheck<1000)return;
+    if(Date.now()-lastCheck<60*1000)return; // APP-낭비줄이기 ①: 창에 돌아올 때마다 index.html(36KB)을 다시 받지 않게 최소 간격 60초(10분 타이머는 그대로)
     lastCheck=Date.now();
     flight=(async()=>{
       try{
