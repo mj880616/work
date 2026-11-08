@@ -2,7 +2,7 @@
 // - 재료: 폰 사진 전부(앱 다리 page, 끈 폴더 포함)와 원드라이브 사진 전부(서버 library). 모두 이 화면 메모리에만 둔다(기기·서버 저장 없음).
 // - 같은 사진 판정은 섞어 보기의 '같은 사진이면 한 장' 규칙(photo-sources-model.mjs sameMedia·dupFinder)을 그대로 쓴다.
 // - 제안은 보여 주기만 한다. 지우기·숨기기는 명진이 눌러야만(이 파일은 목록만 만든다).
-import {dupFinder, sameMedia} from './photo-sources-model.mjs';
+import {dupFinder, sameMedia, SAME_MS} from './photo-sources-model.mjs';
 
 export const PLACES = Object.freeze(['all', 'phone', 'onedrive', 'both']);
 export const PLACE_TEXT = Object.freeze({all:'전체', phone:'폰에만', onedrive:'원드라이브에만', both:'둘 다'});
@@ -13,12 +13,13 @@ export const JUNK_DAYS = 365;
 const DAY_MS = 86400000;
 
 // 폰 칸 ↔ 원드라이브 칸 짝 찾기. 답: {phoneHas: Set(폰 칸 id — 원드라이브에 있음), odHas: Set(원드라이브 칸 id — 폰에 있음)}.
-export function matchIndex(odItems, phItems) {
+// S53-2 PHOTO-같은사진오판: '원드라이브에 있음'(phoneHas)은 지우기 짝과 같은 기준(backupMap: 같은 크기 + 같은 이름 또는 2초 안 찍은 시각,
+// 사본 하나를 여러 폰 사진이 가리키면 서로 내용이 같다고 확인된 때만). '폰에 있음'(odHas)은 넓게 둔다(원드라이브에만 = 지울 후보로 잘못 보이지 않게).
+export function matchIndex(odItems, phItems, hashes = null) {
   const od = odItems || [], ph = phItems || [];
-  const inOd = od.length ? dupFinder(od) : () => false;
   const inPh = ph.length ? dupFinder(ph) : () => false;
-  const phoneHas = new Set(), odHas = new Set();
-  for (const p of ph) if (inOd(p)) phoneHas.add(p.id);
+  const backup = od.length && ph.length ? backupMap(ph, od, hashes) : new Map();
+  const phoneHas = new Set(backup.keys()), odHas = new Set([...backup.values()].map(o => o.id));
   for (const o of od) if (inPh(o)) odHas.add(o.id);
   return {phoneHas, odHas};
 }
@@ -159,7 +160,8 @@ export const FRESH_MS = 10 * 60 * 1000;
 export const scanFresh = (at, now = Date.now()) => Number.isFinite(at) && now - at < FRESH_MS;
 
 // ④ 묶음(S47-19B 요청함 11/01 12:54·12:55에서 좁힘): 두 종류를 섞지 않는다.
-// - 'copy' 같은 사진 여러 번 저장: 같은 크기·같은 가로세로(가로세로를 알 때만, 50KB 이상)·같은 종류(사진/동영상).
+// - 'copy' 같은 사진 여러 번 저장: 같은 크기·같은 가로세로(가로세로를 알 때만, 50KB 이상)·같은 종류(사진/동영상)는 후보만,
+//   S53-2부터 작은 미리보기 해시가 같고 찍은 시각이 2초 안이어야 묶는다(contentGroups).
 // - 'burst' 연사: 카메라 폴더(DCIM/… — 받은 사진·스크린샷 폴더 제외)에서 찍은 시각이 정확한(approx 아님) 사진만, 묶음 첫 장과 1초 안,
 //   한 묶음 최대 BURST_MAX장. 예전처럼 줄줄이 엮지 않는다(받은 사진처럼 저장 시각이 붙은 것들이 큰 묶음이 되던 것).
 //   같은 사진 묶음에 든 사진은 연사로 다시 묶지 않는다.
@@ -172,14 +174,40 @@ const groupOf = (items, kind) => {
   const keep = defaultKeep(items, kind);
   return {id:items[0].id, kind, items, keep, bytes:items.filter(p => p.id !== keep).reduce((n, p) => n + bytesOf(p), 0)};
 };
+// S53-2 PHOTO-같은사진오판(요청함 11/08 10:26 — 다른 사진 4장이 '같은 사진'으로 묶임): 크기·가로세로는 후보 고르기만 한다.
+// 최종 '같은 사진'은 작은 미리보기 해시(hashThumb, dHash)가 COPY_DIST 이하로 같고 찍은 시각이 SAME_MS(2초) 안이어야 한다.
+// 해시를 아직 못 만들었거나 못 만든 사진, 찍은 시각을 모르는 사진은 묶지 않는다(지우기 후보가 되지 않는다).
+export const COPY_DIST = 2, COPY_HASH_MAX = 3000;
+const copyKey = p => (bytesOf(p) >= COPY_MIN_BYTES && p.width > 0 && p.height > 0 ? `${p.video ? 'v' : 'p'}:${p.size_bytes}:${p.width}x${p.height}` : '');
+function copyBuckets(list) {
+  const by = new Map();
+  for (const p of list) { const k = copyKey(p); if (k) (by.get(k) || by.set(k, []).get(k)).push(p); }
+  return [...by.values()].filter(x => x.length > 1);
+}
+// 해시를 만들 사진: 크기·가로세로·종류가 같은 사진이 또 있는 폰 사진(찍은 시각을 아는 것만), COPY_HASH_MAX장까지.
+export const copyCandidates = phItems => copyBuckets((phItems || []).filter(p => p && p.id && Number.isFinite(Date.parse(p.taken_at || ''))))
+  .flat().slice(0, COPY_HASH_MAX);
+// 두 폰 사진이 내용까지 같은가: 해시가 둘 다 있고 COPY_DIST 이하 + 찍은 시각을 둘 다 알고 SAME_MS 안.
+export function sameContent(a, b, hashes) {
+  const ha = hashes?.get?.(a?.id) || '', hb = hashes?.get?.(b?.id) || '';
+  const ta = Date.parse(a?.taken_at || ''), tb = Date.parse(b?.taken_at || '');
+  return HEX_RE.test(ha) && HEX_RE.test(hb) && hamming(ha, hb) <= COPY_DIST && Number.isFinite(ta) && Number.isFinite(tb) && Math.abs(ta - tb) <= SAME_MS;
+}
+// 한 후보 묶음(크기·가로세로 같음) → 내용까지 같은 2장 이상 묶음들. 묶음 첫 장과 sameContent여야 들어간다.
+function contentGroups(same, hashes) {
+  const out = [];
+  const list = same.filter(p => HEX_RE.test(hashes?.get?.(p.id) || '') && Number.isFinite(Date.parse(p.taken_at || '')))
+    .sort((a, b) => Date.parse(a.taken_at) - Date.parse(b.taken_at) || a.id.localeCompare(b.id));
+  for (const p of list) { const g = out.find(x => sameContent(x[0], p, hashes)); if (g) g.push(p); else out.push([p]); }
+  return out.filter(g => g.length > 1);
+}
 const bigFirst = (a, b) => b.bytes - a.bytes || String(b.items[0].taken_at).localeCompare(String(a.items[0].taken_at));
-export function dupGroups(phItems) {
+export function dupGroups(phItems, hashes = null) {
   const list = (phItems || []).filter(p => p && p.id);
   // 같은 사진 여러 번 저장
   const bySize = new Map();
-  for (const p of list) if (bytesOf(p) >= COPY_MIN_BYTES && p.width > 0 && p.height > 0) { const k = `${p.video ? 'v' : 'p'}:${p.size_bytes}:${p.width}x${p.height}`; (bySize.get(k) || bySize.set(k, []).get(k)).push(p); }
   const copies = [], inCopy = new Set();
-  for (const same of bySize.values()) if (same.length > 1) { copies.push(groupOf(same.slice(), 'copy')); for (const p of same) inCopy.add(p.id); }
+  for (const same of copyBuckets(list)) for (const g of contentGroups(same, hashes)) { copies.push(groupOf(g, 'copy')); for (const p of g) inCopy.add(p.id); }
   // 연사
   const byFolder = new Map(), at = p => Date.parse(p.taken_at);
   for (const p of list) {
@@ -232,7 +260,7 @@ export function dupTrashList(groups, keeps = new Map()) {
 }
 export const DUP_TEXT = Object.freeze({copy:'같은 사진', burst:'연사', similar:'비슷한 사진'});
 // 묶는 기준 한 줄(명진 12:54 '어떤 원리로 같은 사진을 추리는지').
-export const DUP_HOW = Object.freeze({copy:'파일 크기·가로세로가 똑같은 사진', burst:'카메라로 1초 안에 이어 찍은 사진', similar:'10분 안에 같은 장면을 조금씩 다르게 찍은 사진'});
+export const DUP_HOW = Object.freeze({copy:'크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진', burst:'카메라로 1초 안에 이어 찍은 사진', similar:'10분 안에 같은 장면을 조금씩 다르게 찍은 사진'});
 
 // ---- S47-32 PHOTO-비슷한사진(명진 11/01 '비슷한 사진 추리는 기능 있나?') ----
 // 판정은 기기에서만: 화면이 받는 작은 미리보기(폰 앱 thumb small)를 9×8 회색으로 줄여 64비트 지각 해시(dHash, 16자리 16진수)를 만들고,
@@ -296,7 +324,7 @@ export function similarGroups(cands, hashes) {
 }
 
 // ---- S47-16 PHOTO-폰지우기안전장치(요청함 10/31 22:52): [폰에서만 지우기]·[나머지 지우기] 전 원드라이브 사본 짝 ----
-// 폰 사진마다 원드라이브에서 같은 크기(그리고 같은 이름 또는 찍은 시각)인 사본을 찾는다. 크기를 모르면 짝이 없다(지우지 않음).
+// 폰 사진마다 원드라이브에서 같은 크기(그리고 같은 이름 또는 찍은 시각, S53-2부터 가로세로도 — sameMedia)인 사본을 찾는다. 크기를 모르면 짝이 없다(지우지 않음).
 // 지우기 전 서버(onedrive-photos copy-check)가 이 사본이 지금도 있고 크기가 같은지 다시 본다. 여기서는 짝만 만든다.
 export const COPY_BATCH = 50, LOG_BATCH = 100;
 export function copyFinder(odItems) {
@@ -304,10 +332,27 @@ export function copyFinder(odItems) {
   for (const o of odItems || []) if (o && bytesOf(o) > 0 && o.id) (bySize.get(o.size_bytes) || bySize.set(o.size_bytes, []).get(o.size_bytes)).push(o);
   return p => (p && bytesOf(p) > 0 ? (bySize.get(p.size_bytes) || []).find(o => sameMedia(p, o)) || null : null);
 }
-// 답: {pairs:[{item(폰 칸), copy(원드라이브 칸)}], noCopy:[폰 칸]}.
-export function copyPairs(items, odItems) {
-  const find = copyFinder(odItems), pairs = [], noCopy = [];
-  for (const p of items || []) { const o = p?.phoneId ? find(p) : null; if (o) pairs.push({item:p, copy:o}); else noCopy.push(p); }
+// S53-2 PHOTO-같은사진오판: 폰 칸 id → 원드라이브 사본(copyFinder). 사본 하나를 폰 사진 여러 장이 가리키면(크기·이름이나 시각이 우연히 같은 다른 사진일 수 있음)
+// 그 폰 사진들이 서로 내용까지 같다고 확인된 때만(sameContent, 같은 사진 여러 번 저장) 짝으로 둔다. 아니면 모두 짝 없음(= 백업 없음, 지우지 않음).
+export function backupMap(phItems, odItems, hashes = null) {
+  const find = copyFinder(odItems), claims = new Map(), out = new Map(), seen = new Set();
+  for (const p of phItems || []) {
+    if (!p?.id || seen.has(p.id)) continue;
+    seen.add(p.id);
+    const o = find(p);
+    if (o) (claims.get(o.id) || claims.set(o.id, []).get(o.id)).push([p, o]);
+  }
+  for (const list of claims.values()) {
+    if (list.length > 1 && !list.every(([p]) => sameContent(p, list[0][0], hashes))) continue;
+    for (const [p, o] of list) out.set(p.id, o);
+  }
+  return out;
+}
+// 답: {pairs:[{item(폰 칸), copy(원드라이브 칸)}], noCopy:[폰 칸]}. phItems = 사진 정리가 읽은 폰 사진 전부(사본을 함께 가리키는 다른 폰 사진을 보려고),
+// hashes = 미리보기 해시(같은 사진 여러 번 저장 확인). 모르면 items만 본다.
+export function copyPairs(items, odItems, {phItems = null, hashes = null} = {}) {
+  const map = backupMap([...(items || []), ...(phItems || [])], odItems, hashes), pairs = [], noCopy = [];
+  for (const p of items || []) { const o = p?.phoneId ? map.get(p.id) : null; if (o) pairs.push({item:p, copy:o}); else noCopy.push(p); }
   return {pairs, noCopy};
 }
 // 남긴 사진 안내(사본 없음·확인 못 함).
@@ -332,7 +377,7 @@ export const TIDY_HELP = Object.freeze({
   partly:'일부만 있음 = 원드라이브에서 찾은 장수/전체 장수 · [보기]는 못 찾은 사진만 · 동기화 앱이 아직 올리는 중일 수 있어요',
   space:'원드라이브에 똑같은 사진이 있어서 폰에서만 지워도 안전한 사진이에요(동기화 앱이 업로드만일 때)',
   spaceDo:'1년 지난 사진과 한 달 지난 50MB 넘는 동영상만 골랐고 별표는 뺐어요 · 지우기 직전에 원드라이브에 있는지 다시 확인해요',
-  dups:'같은 사진 = 파일 크기·가로세로가 똑같은 사진, 연사 = 카메라로 1초 안에 이어 찍은 사진, 비슷한 사진 = 10분 안에 같은 장면을 조금씩 다르게 찍은 사진이에요',
+  dups:'같은 사진 = 크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진, 연사 = 카메라로 1초 안에 이어 찍은 사진, 비슷한 사진 = 10분 안에 같은 장면을 조금씩 다르게 찍은 사진이에요',
   dupsDo:'묶음마다 남길 한 장을 누르고 [나머지 지우기] · 원드라이브에 사본이 있는 사진만 지워요',
   junk:'1년 지난 스크린샷과 카톡·텔레그램으로 받은 사진이에요',
   junkDo:'필요 없으면 [지우기](폰 휴지통) · 지우기 싫으면 [숨기기]로 사진 목록에서만 빼요',

@@ -22,6 +22,7 @@ const PHS = [
   ph(8, 'Screenshot_2.png', 10, '2026-10-20T01:00:00.000Z', 'Pictures/Screenshots/', {screenshot:true}),
 ];
 
+const settle = async (n = 8) => { for (let i = 0; i < n; i++) await new Promise(ok => setTimeout(ok, 0)); };
 test('같은 사진 짝: 섞어 보기 규칙(이름·크기·찍은 시각 2초) 그대로, 양쪽 방향', () => {
   const ix = matchIndex(ODS, PHS);
   assert.deepEqual([...ix.phoneHas].sort(), ['ph:1', 'ph:2']);
@@ -137,7 +138,7 @@ test('공간 비우기: 원드라이브에 확인된 것만, 1년 지난 사진�
 
 test('같은 사진 묶음: 여러 번 저장(같은 크기·가로세로)·연사(카메라 폴더, 첫 장과 1초 안), 남길 것 고르기', () => {
   const list = [
-    ph(20, 'a.jpg', 300e3, '2026-10-01T01:00:00.000Z', 'Pictures/KakaoTalk/', {width:100, height:80}),
+    ph(20, 'a.jpg', 300e3, '2026-09-30T01:00:01.000Z', 'Pictures/KakaoTalk/', {width:100, height:80}),
     ph(21, 'IMG_a.jpg', 300e3, '2026-09-30T01:00:00.000Z', 'DCIM/Camera/', {width:100, height:80}),
     ph(22, 'b.jpg', 300e3, '2026-10-01T01:00:00.000Z', 'Pictures/X/', {width:80, height:100}), // 가로세로 다르면 다른 사진
     ph(30, 'B1.jpg', 2e6, '2026-10-05T01:00:00.000Z', 'DCIM/Camera/'),
@@ -146,7 +147,9 @@ test('같은 사진 묶음: 여러 번 저장(같은 크기·가로세로)·연�
     ph(33, 'B4.jpg', 2e6, '2026-10-05T01:00:05.000Z', 'DCIM/Camera/'),
     ph(34, 'S.png', 10e3, '2026-10-05T01:00:00.100Z', 'DCIM/Camera/', {screenshot:true}),
   ];
-  const g = dupGroups(list);
+  // S53-2: 같은 사진은 작은 그림 해시가 같아야(해시 없으면 묶지 않음).
+  assert.ok(!dupGroups(list).some(x => x.kind === 'copy'), '해시 없으면 크기·가로세로만으로 묶지 않는다');
+  const g = dupGroups(list, new Map([['ph:20', 'ff00ff00ff00ff00'], ['ph:21', 'ff00ff00ff00ff01'], ['ph:22', 'ff00ff00ff00ff00']]));
   const burst = g.find(x => x.kind === 'burst'), copy = g.find(x => x.kind === 'copy');
   // S47-19B: 첫 장과 1초 안만(예전엔 0.6초 간격으로 줄줄이 엮어 ph:32까지 묶었다).
   assert.deepEqual(burst.items.map(x => x.id), ['ph:30', 'ph:31']);
@@ -409,7 +412,7 @@ test('연사 좁히기: 카메라 폴더·정확한 시각만, 받은 사진·�
   assert.ok(cameraFolder('DCIM/Camera/') && cameraFolder('DCIM/100ANDRO/') && !cameraFolder('DCIM/Screenshots/') && !cameraFolder('Pictures/') && !cameraFolder(''));
   // 같은 사진 묶음에 든 사진은 연사로 다시 묶지 않는다.
   const a = ph(300, 'A.jpg', 2e6, at(500_000), 'DCIM/Camera/', {width:10, height:10}), b = ph(301, 'A copy.jpg', 2e6, at(500_200), 'DCIM/Camera/', {width:10, height:10});
-  const g2 = dupGroups([a, b]);
+  const g2 = dupGroups([a, b], new Map([['ph:300', 'ff00ff00ff00ff00'], ['ph:301', 'ff00ff00ff00ff00']]));
   assert.deepEqual(g2.map(x => [x.kind, x.items.length]), [['copy', 2]]);
   assert.deepEqual(dupStats(g), {groups:g.length, extra:g.reduce((n, x) => n + x.items.length - 1, 0), bytes:g.reduce((n, x) => n + x.bytes, 0)});
   assert.equal(dupStatText({groups:3, extra:7, bytes:12.5e6}), '묶음 3개 · 지울 수 있는 사진 7장 · 아낄 용량 13MB');
@@ -429,17 +432,18 @@ test('묶음 사진이 있는 곳: 폰 폴더 + 원드라이브 사본마다 한
 test('묶음 칸: 종류 칩(같은 사진·연사)·뜻이 보이는 숫자·비교 칸(두 장 나란히, 넘기기, 이것 남기기)', async () => {
   const t0 = Date.parse('2026-10-05T01:00:00.000Z'), at = ms => new Date(t0 + ms).toISOString();
   const c1 = ph(50, 'IMG_1.jpg', 100e3, '2026-10-01T01:00:00.000Z', 'DCIM/Camera/', {width:10, height:10});
-  const c2 = ph(51, 'IMG_1(1).jpg', 100e3, '2026-10-02T01:00:00.000Z', 'Pictures/KakaoTalk/', {width:10, height:10});
+  const c2 = ph(51, 'IMG_1(1).jpg', 100e3, '2026-10-01T01:00:01.000Z', 'Pictures/KakaoTalk/', {width:10, height:10});
   const big = n => ph(n, `B${n}.jpg`, 1e6, at(0), 'X/');
   const cpy = [70, 71].map(n => ({...big(n), size_bytes:60e3, width:4, height:3}));
   const b = [0, 300, 600].map((ms, i) => ph(60 + i, `S${i}.jpg`, (i + 1) * 1e6, at(ms), 'DCIM/Camera/'));
   const t = createPhotoTidy({phone:{page:async () => ({items:[c1, c2, ...cpy, ...b], next:null})}, odReady:() => true, readOd:async () => ({items:[od('A', 'IMG_1.jpg', 100e3, '2026-10-01T01:00:00.000Z')], next:null}),
-    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW});
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW, hashThumb:async () => 'ff00ff00ff00ff00'});
   await t.rescan();
+  await settle();
   let html = t.html({canTrash:true});
   assert.match(html, /data-photos-tidy-dupkind="copy" aria-pressed="true">같은 사진 2<\/button>/);
   assert.match(html, /data-photos-tidy-dupkind="burst" aria-pressed="false">연사 1<\/button>/);
-  assert.match(html, /파일 크기·가로세로가 똑같은 사진 · 묶음 2개 · 지울 수 있는 사진 2장 · 아낄 용량 160KB/);
+  assert.match(html, /크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진 · 묶음 2개 · 지울 수 있는 사진 2장 · 아낄 용량 160KB/);
   assert.doesNotMatch(html, /data-photos-tidy-dup="ph:60"/, '다른 종류 묶음은 칩을 바꿔야 보인다');
   t.dupKind('burst');
   html = t.html({canTrash:true});
@@ -467,7 +471,8 @@ test('묶음 칸: 종류 칩(같은 사진·연사)·뜻이 보이는 숫자·�
   // 같은 사진 묶음 비교: 원드라이브 사본 줄.
   t.dupKind('copy'); t.toggle('dup:ph:50');
   assert.match(t.html(), /<span class="photos-tidy-where">폰 · DCIM\/Camera<\/span><span class="photos-tidy-where">원드라이브 · 폴더 모름<\/span>/);
-  assert.match(t.html(), /<span class="photos-tidy-where">폰 · Pictures\/KakaoTalk<\/span><span class="photos-tidy-num">/);
+  // 내용까지 같다고 확인된 두 장은 같은 원드라이브 사본을 함께 가리킬 수 있다.
+  assert.match(t.html(), /<span class="photos-tidy-where">폰 · Pictures\/KakaoTalk<\/span><span class="photos-tidy-where">원드라이브 · 폴더 모름<\/span>/);
   t.dupKind('nope'); assert.match(t.html(), /data-photos-tidy-dupkind="copy" aria-pressed="true"/);
   const src = read('app/photos.js');
   assert.match(src, /if \(b\.matches\('\[data-photos-tidy-dupkind\]'\)\)/);
@@ -573,4 +578,75 @@ test('비슷한 사진: 원드라이브를 읽었으면 [나머지 지우기]는
   assert.match(src, /hashThumb:\(\(\) => \{ const h = createThumbHasher\(document\); return it => h\(phone\.thumbUrl\(it, 'small'\)\); \}\)\(\)/);
   const hash = read('app/photo-hash.js');
   assert.doesNotMatch(hash, /Storage|IDB|fetch\(/, '해시는 메모리에만, 서버로 보내지 않음');
+});
+
+// ---- S53-2 PHOTO-같은사진오판: 크기·가로세로가 같아도 내용(작은 그림 해시)·찍은 시각이 다르면 같은 사진이 아니다, 백업 짝도 크기만으로 정하지 않는다 ----
+import {copyCandidates, sameContent, backupMap, copyPairs as pairsOf, COPY_DIST} from '../app/photo-tidy-model.mjs';
+import {sameMedia as sameM, dimsClash} from '../app/photo-sources-model.mjs';
+test('S53-2 같은 사진: 크기·가로세로 같은 다른 사진 4장(25MB)은 묶지 않고, 같은 파일 두 번 저장만 묶는다', () => {
+  const big = (n, t, name) => ph(n, name, 25_000_000, t, 'DCIM/Camera/', {width:4000, height:3000});
+  // 난로 음식·장미·화분처럼 다른 날 찍은 다른 사진 — 크기·가로세로가 우연히(압축 안 한 파일) 똑같다.
+  const four = [big(1, '2026-11-01T01:00:00.000Z', 'a.jpg'), big(2, '2026-11-02T05:00:00.000Z', 'b.jpg'), big(3, '2026-11-03T07:00:00.000Z', 'c.jpg'), big(4, '2026-11-04T09:00:00.000Z', 'd.jpg')];
+  const hashes = new Map([['ph:1', 'ff00ff00ff00ff00'], ['ph:2', '0f0f0f0f0f0f0f0f'], ['ph:3', 'aaaaaaaaaaaaaaaa'], ['ph:4', '5555555555555555']]);
+  assert.deepEqual(copyCandidates(four).map(p => p.id).sort(), ['ph:1', 'ph:2', 'ph:3', 'ph:4'], '후보(해시를 만들 사진)는 크기·가로세로로 고른다');
+  assert.ok(!dupGroups(four).some(g => g.kind === 'copy'), '해시 없으면 안 묶음');
+  assert.ok(!dupGroups(four, hashes).some(g => g.kind === 'copy'), '내용이 다르면 안 묶음');
+  // 같은 그림이어도 찍은 시각이 다르면(다른 날) 묶지 않는다.
+  const same = new Map(four.map(p => [p.id, 'ff00ff00ff00ff00']));
+  assert.ok(!dupGroups(four, same).some(g => g.kind === 'copy'), '찍은 시각이 다르면 안 묶음');
+  // 같은 파일을 두 번 저장(같은 크기·가로세로·찍은 시각·그림) → 묶음. 해시 거리 COPY_DIST 넘으면 안 묶음.
+  const a = big(10, '2026-11-05T01:00:00.000Z', 'IMG_10.jpg'), b = {...big(11, '2026-11-05T01:00:00.000Z', 'IMG_10(1).jpg'), folder:'Pictures/KakaoTalk/'};
+  const g = dupGroups([...four, a, b], new Map([...hashes, ['ph:10', 'ff00ff00ff00ff00'], ['ph:11', 'ff00ff00ff00ff01']]));
+  assert.deepEqual(g.filter(x => x.kind === 'copy').map(x => x.items.map(p => p.id)), [['ph:10', 'ph:11']]);
+  assert.ok(COPY_DIST < 4);
+  assert.equal(sameContent(a, b, new Map([['ph:10', 'ff00ff00ff00ff00'], ['ph:11', 'ff00ff00ff00ff0f']])), false, '4비트 다르면 다른 사진');
+  assert.equal(sameContent(a, b, new Map([['ph:10', 'ff00ff00ff00ff00'], ['ph:11', '']])), false, '해시를 못 만들면 다른 사진으로 본다');
+  assert.equal(sameContent({...a, taken_at:null}, b, new Map([['ph:10', 'ff00ff00ff00ff00'], ['ph:11', 'ff00ff00ff00ff00']])), false, '찍은 시각 모르면 아님');
+  assert.equal(TIDY_HELP.dups.includes('작은 그림까지 똑같은 사진'), true);
+  assert.doesNotMatch(TIDY_HELP.dups, /파일 크기·가로세로가 똑같은 사진/);
+  assert.equal(DUP_HOW.copy, '크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진');
+});
+test('S53-2 백업 짝: 가로세로가 다르면 같은 사진 아님, 원드라이브 한 장을 다른 폰 사진 여러 장이 가리키면 짝 없음(지우지 않음)', () => {
+  const o = {...od('O', 'x.jpg', 25_000_000, '2026-11-01T01:00:00.000Z'), width:4000, height:3000};
+  const p = ph(1, 'a.jpg', 25_000_000, '2026-11-01T01:00:00.500Z', 'DCIM/Camera/', {width:4000, height:3000});
+  assert.ok(sameM(p, o), '크기 + 2초 안');
+  assert.ok(sameM({...p, width:3000, height:4000}, o), '돌린 사진(가로·세로 바뀜)은 같음');
+  assert.equal(sameM({...p, width:4000, height:2000}, o), false, '가로세로가 다르면 아님');
+  assert.equal(dimsClash({width:0, height:0}, o), false, '모르면 따지지 않음');
+  assert.equal(sameM({...p, taken_at:'2026-11-03T01:00:00.000Z'}, o), false, '크기만 같으면 아님');
+  // 같은 크기·2초 안의 다른 폰 사진 두 장(q는 백업 없음)이 원드라이브 O 하나를 가리킨다 → 둘 다 짝 없음.
+  const q = ph(2, 'b.jpg', 25_000_000, '2026-11-01T01:00:01.500Z', 'DCIM/Camera/', {width:4000, height:3000});
+  assert.deepEqual([...backupMap([p, q], [o]).keys()], []);
+  const r = pairsOf([q], [o], {phItems:[p, q]});
+  assert.deepEqual([r.pairs.length, r.noCopy.map(x => x.id)], [0, ['ph:2']], '지울 목록에 q만 있어도 다른 폰 사진 p를 함께 본다');
+  assert.deepEqual(matchIndex([o], [p, q]).phoneHas.size, 0, "'원드라이브에 있음'으로 보지 않는다");
+  assert.ok(matchIndex([o], [p, q]).odHas.has('O'), '원드라이브 칸은 폰에 있음(원드라이브에만으로 지울 후보가 되지 않게)');
+  // 두 장이 내용까지 같다고 확인되면(같은 사진 두 번 저장) 둘 다 짝.
+  const h = new Map([['ph:1', 'ff00ff00ff00ff00'], ['ph:2', 'ff00ff00ff00ff00']]);
+  assert.deepEqual([...backupMap([p, q], [o], h).keys()].sort(), ['ph:1', 'ph:2']);
+  assert.deepEqual(pairsOf([q], [o], {phItems:[p, q], hashes:h}).pairs.map(x => x.copy.id), ['O']);
+  // 한 장만 가리키면 그대로 짝(예전과 같음).
+  assert.deepEqual(pairsOf([p], [o]).pairs.map(x => x.item.id), ['ph:1']);
+  assert.deepEqual(matchIndex([o], [p]).phoneHas.has('ph:1'), true);
+  // 사진 정리 화면은 지우기 짝에 사진 정리가 읽은 폰 사진 전부와 해시를 넘긴다.
+  assert.match(read('app/photo-tidy.js'), /copyPairs\(items, st\.od, \{phItems:st\.ph, hashes\}\)/);
+  assert.match(read('app/photo-tidy.js'), /matchIndex\(st\.od, st\.ph, hashes\)/);
+});
+test('S53-2 사진 정리 화면: 같은 사진 후보만 해시를 만들고(찾기가 끝난 뒤 바로), 해시가 같아야 같은 사진 묶음이 생긴다', async () => {
+  const c = (n, name, t) => ph(n, name, 5e6, t, 'DCIM/Camera/', {width:40, height:30});
+  const list = [c(1, 'a.jpg', '2026-10-01T01:00:00.000Z'), c(2, 'b.jpg', '2026-10-01T01:00:00.000Z'), c(3, 'c.jpg', '2026-10-02T01:00:00.000Z'), ph(4, 'z.jpg', 7e6, '2026-10-03T01:00:00.000Z', 'Pictures/')];
+  const asked = [];
+  const draw = {'ph:1':'ff00ff00ff00ff00', 'ph:2':'00ff00ff00ff00ff', 'ph:3':'ff00ff00ff00ff00'};
+  const make = hashThumb => createPhotoTidy({phone:{page:async () => ({items:list, next:null})}, odReady:() => false, readOd:async () => ({items:[], next:null}),
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW, hashThumb});
+  const t = make(async p => { asked.push(p.id); return draw[p.id]; });
+  await t.rescan(); await settle();
+  assert.deepEqual(asked.sort(), ['ph:1', 'ph:2', 'ph:3'], '크기·가로세로가 같은 사진만 그림을 본다');
+  assert.ok(!t.state.dups.some(g => g.kind === 'copy'), '같은 시각이지만 그림이 다른 1·2, 그림은 같지만 다른 날인 1·3은 안 묶음');
+  draw['ph:2'] = 'ff00ff00ff00ff00';
+  asked.length = 0; await t.rescan(); await settle();
+  assert.deepEqual(t.state.dups.filter(g => g.kind === 'copy').map(g => g.items.map(p => p.id)), [['ph:1', 'ph:2']]);
+  const none = make(null);
+  await none.rescan(); await settle();
+  assert.ok(!none.state.dups.some(g => g.kind === 'copy'), '그림을 볼 수 없으면 같은 사진 묶음이 없다');
 });
