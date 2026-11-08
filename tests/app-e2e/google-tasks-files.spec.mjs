@@ -112,7 +112,7 @@ test('phone: saved file names sit under the task and open Drive; ⋯ → 파일 
   await context.close();
 });
 
-test('PC: names sit under the card, the menu lists 편집·파일 붙이기·삭제, and an editor save keeps the link line on the server',async({browser})=>{
+test('PC: names sit under the card, the menu lists 수정·파일 붙이기·삭제, and an editor save keeps the link line on the server',async({browser})=>{
   const {context,page,state,google}=await openTasks(browser,{viewport:{width:1280,height:900},files:[{google_task_id:'a',drive_file_id:'old1',file_name:'기존 자료.pdf',size_bytes:9}]});
   await expect(page.locator('#gtTaskSection')).toHaveClass(/gt-pc/);
   const card=row(page,'a');
@@ -121,19 +121,19 @@ test('PC: names sit under the card, the menu lists 편집·파일 붙이기·삭
   expect(name.y).toBeGreaterThanOrEqual(title.y+title.height-8);
   expect(await noSideScroll(page)).toBe(true);
   await openMenu(page,'a');
-  await expect(page.locator('#gtTaskMenu button')).toHaveText(['편집','파일 붙이기','삭제']);
+  await expect(page.locator('#gtTaskMenu button')).toHaveText(['수정','파일 붙이기','삭제']);
   await page.keyboard.press('Escape');
   // The editor sends whatever the notes box holds; the server answer (with the link line kept) is what the list shows.
   await card.locator('.gt-main').click();
   const notes=page.locator('#gtEditNotes');
   await expect(notes).toHaveValue('원래 메모');
-  await notes.fill('고친 메모');
+  await notes.fill('수정한 메모');
   // S51-13: PC 오른쪽 칸은 [저장] 없이 바로 저장 — 메모는 칸을 떠나면 저장된다.
   await notes.blur();
   await expect.poll(()=>state.calls.updates.length).toBe(1);
-  expect(state.calls.updates[0].notes).toBe('고친 메모');
+  expect(state.calls.updates[0].notes).toBe('수정한 메모');
   // The server (google-tasks Edge, notesForUpdate) adds the file line back; the editor keeps what was typed.
-  await expect.poll(()=>google.a.notes).toBe('고친 메모\n'+line('old1','기존 자료.pdf'));
+  await expect.poll(()=>google.a.notes).toBe('수정한 메모\n'+line('old1','기존 자료.pdf'));
   await expect(card.locator('.gt-files a.gt-file')).toHaveText('기존 자료.pdf');
   await context.close();
 });
@@ -173,16 +173,16 @@ test('phone: edit window shows 첨부 under 할 일, the memo box holds only the
 test('saving puts the memo and the attachment lines back together once, and keeps lines that only the notes hold',async({browser})=>{
   const {context,page,state,google}=await openTasks(browser,{viewport:{width:390,height:844},notes:withLines,files:[{google_task_id:'a',drive_file_id:'n1',file_name:'회의록 최종.pdf',size_bytes:9}]});
   await row(page,'a').locator('[data-gt-edit]').click();
-  await page.locator('#gtEditNotes').fill('고친 메모');
+  await page.locator('#gtEditNotes').fill('수정한 메모');
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>state.calls.updates.length).toBe(1);
-  expect(state.calls.updates[0].notes).toBe(['고친 메모',line('n1','회의록 최종.pdf'),line('n2','자료 모음.xlsx')].join('\n'));
-  await expect.poll(()=>google.a.notes).toBe(['고친 메모',line('n2','자료 모음.xlsx'),line('n1','회의록 최종.pdf')].join('\n'));
+  expect(state.calls.updates[0].notes).toBe(['수정한 메모',line('n1','회의록 최종.pdf'),line('n2','자료 모음.xlsx')].join('\n'));
+  await expect.poll(()=>google.a.notes).toBe(['수정한 메모',line('n2','자료 모음.xlsx'),line('n1','회의록 최종.pdf')].join('\n'));
   expect((google.a.notes.match(/첨부: /g)||[]).length).toBe(2);
   // Reopen: still two rows, memo box without lines.
   await page.waitForTimeout(300);
   await row(page,'a').locator('[data-gt-edit]').click();
-  await expect(page.locator('#gtEditNotes')).toHaveValue('고친 메모');
+  await expect(page.locator('#gtEditNotes')).toHaveValue('수정한 메모');
   await expect(page.locator('#gtEditAttach .gt-att-row')).toHaveCount(2);
   await context.close();
 });

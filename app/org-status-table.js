@@ -22,7 +22,7 @@ const enc = encodeURIComponent;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const TEXT = {
   missing: '현황 표는 준비 중이에요.', failed: '현황 표를 불러오지 못했어요.', saveFailed: '저장하지 못했어요. 다시 눌러 주세요.',
-  noBody: '내용을 적어 주세요.', noDay: '시작일을 골라 주세요.', badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', full: `줄은 ${ROWS_MAX}개까지예요.`,
+  noBody: '내용을 적어 주세요.', noDay: '시작일을 선택해 주세요.', badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', full: `줄은 ${ROWS_MAX}개까지예요.`,
 };
 
 // 여러 조직의 표 줄(주간보고가 씀). 표가 없으면 {missing:true}, 읽지 못하면 throw. 반환 Map(조직 id → 줄들).
@@ -77,9 +77,9 @@ function rowHtml(r, disabled) {
   const day = esc(periodLabel(r.day, r.end_day) || '—');
   const dayCell = `<th scope="row" class="wd-st-day"><span class="wd-st-day-text">${day}</span></th>`;
   const text = ui.canEdit && !disabled
-    ? `<span class="wd-st-text" role="button" tabindex="0" data-st-edit="${esc(r.id)}" aria-label="${label} 고치기">${label}</span>`
+    ? `<span class="wd-st-text" role="button" tabindex="0" data-st-edit="${esc(r.id)}" aria-label="${label} 수정">${label}</span>`
     : `<span class="wd-st-text">${label}</span>`;
-  return `<tr data-st-row="${esc(r.id)}">${dayCell}<td class="wd-st-body">${text}${r.source === 'ai' ? '<span class="wd-st-tag" title="AI가 기록에서 뽑은 줄 — 고치면 내 줄이 돼요">AI</span>' : ''}${evidenceHtml(r)}</td></tr>`;
+  return `<tr data-st-row="${esc(r.id)}">${dayCell}<td class="wd-st-body">${text}${r.source === 'ai' ? '<span class="wd-st-tag" title="AI가 기록에서 뽑은 줄 — 수정하면 내 줄이 돼요">AI</span>' : ''}${evidenceHtml(r)}</td></tr>`;
 }
 // 고치기·넣기 칸(상세 표와 전체 표가 함께 씀): 시작일 ~ 끝나는 날(선택)(달력 둘) + 주요 일정·현황(글 길이만큼 늘어나는 여러 줄 칸) + [빼기][취소][저장](같은 크기, 저장만 색).
 export function editFormHtml({key, draft = {}, invalid = '', busy = false, canDelete = false, deleteId = ''}) {

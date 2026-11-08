@@ -98,7 +98,7 @@ test('1280 월간: 일정 우클릭 → [수정][담당조직 연결][결과 남
   await rightAt(page,chip);
   const taskMenu=page.locator('#calendarTaskMenu');
   await expect(taskMenu).toBeVisible();
-  expect(await taskMenu.locator('button').allTextContents().then(a=>a.map(s=>s.trim()))).toEqual(['내일로','기한 바꾸기','고치기','완료','지우기']);
+  expect(await taskMenu.locator('button').allTextContents().then(a=>a.map(s=>s.trim()))).toEqual(['내일로','기한 바꾸기','수정','완료','삭제']);
   expect(await page.evaluate(()=>window.__kept)).toEqual([false,false]);
 });
 

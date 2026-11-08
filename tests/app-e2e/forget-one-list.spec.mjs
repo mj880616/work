@@ -132,7 +132,7 @@ test('버튼 동작은 기존 길 그대로: 후보 [이미 함]·[×], 가족 [
   await expect(line(page,`u:${uid(1)}`)).toBeVisible();
 });
 
-test('업데이트 줄: 내용을 누르면 그 업데이트가 열리고, [조직]은 연결하기와 조직 고르기 창을 연다',async({page})=>{
+test('업데이트 줄: 내용을 누르면 그 업데이트가 열리고, [조직]은 연결하기와 조직 선택 창을 연다',async({page})=>{
   await fixture(page,{width:1280});
   await line(page,`u:${uid(1)}`).locator('[data-basket-row]').click();
   await expect(page.locator('[data-basket-detail]')).toBeVisible();

@@ -155,7 +155,7 @@ test('바뀐 것만 고치기: 내 줄·원문이 정확할 때만 적용, 나�
     {op: 'replace', at, old: '- 가짜 계획 하나 완료', text: '두 번 고치기'},
   ], '가짜담당 갑');
   assert.equal(applied.length, 3);
-  assert.deepEqual(rejected.map(r => r.reason), ['바꿀 줄 원문이 바탕에 없음', '내 담당 줄이 아님', '이번 주에 이미 고친 줄']);
+  assert.deepEqual(rejected.map(r => r.reason), ['바꿀 줄 원문이 바탕에 없음', '내 담당 줄이 아님', '이번 주에 이미 수정한 줄']);
   const lines = summary[0].rows[0].progress;
   assert.deepEqual(lines.map(lineText), ['- 가짜 진행 하나 완료', '- 가짜 계획 하나 완료', '- 가짜 새 줄']);
   assert.deepEqual(lines.map(isChanged), [false, true, true]);

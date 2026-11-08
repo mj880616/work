@@ -1,26 +1,7 @@
 {
- "app/forget-list.js": 4,
- "app/google-tasks.js": 5,
- "app/home-quick.js": 3,
  "app/journal-hwpx.js": 40,
- "app/journal-memorable.js": 5,
- "app/journal-weekly.js": 23,
- "app/journal.js": 15,
- "app/org-status-table.js": 3,
- "app/photo-menu-items.mjs": 15,
  "app/project-system-v3.js": 20,
- "app/report-oneline.js": 1,
- "app/task-inline.js": 3,
- "app/task-week-pick.js": 1,
- "app/weekly-detail-lines.js": 12,
- "app/weekly-discuss-table.js": 5,
- "app/weekly-exec-requests.js": 1,
  "app/weekly-feedback.mjs": 1,
  "app/weekly-flow-cells.js": 6,
- "app/weekly-hand-lines.js": 10,
- "app/weekly-hq-schedule.js": 5,
- "app/weekly-hwpx/delta.mjs": 2,
- "app/weekly-learn-panel.js": 19,
- "app/weekly-org-lines.js": 6,
- "app/weekly-summary-table.js": 2
+ "app/weekly-learn-panel.js": 19
 }

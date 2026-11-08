@@ -26,7 +26,7 @@ async function press(page){return {bg:await token(page,'--ds-kind-other-soft','b
 async function gray(page){return {bg:await token(page,'--ds-seg-on','backgroundColor'),fg:await token(page,'--kptu-ink')};} // 고른 칸: 흰 알약 + 진한 글자
 const shot=(info,name)=>process.env.KPTU_SHOT_DIR?`${process.env.KPTU_SHOT_DIR}/${name}.png`:info.outputPath(`${name}.png`);
 
-for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입력 배치와 고른 쪽 테마색 ${width}${dark?' 다크':''}`,async({page},info)=>{
+for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입력 배치와 선택한 쪽 테마색 ${width}${dark?' 다크':''}`,async({page},info)=>{
  const errors=await open(page,width,dark),box=q(page),selected=await gray(page),white='rgba(0, 0, 0, 0)'; // 안 고른 칸은 칠하지 않음(연한 알약 바탕이 비침)
  const modes=box.locator('.home-quick-modes'),update=box.locator('[data-quick-mode="update"]'),org=box.locator('[data-quick-org]'),input=box.locator('[data-quick-input]');
  // 안내 화살표 글자는 어느 모드에서도 없다.

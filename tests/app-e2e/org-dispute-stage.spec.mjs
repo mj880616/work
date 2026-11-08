@@ -200,7 +200,7 @@ test('기본 단계가 없을 때 관리 창을 처음 열면 11개를 채운다
  await expect(page.locator('#soStageModal .le-list > .le-row')).toHaveCount(11);expect(db.stages[0]).toMatchObject({is_default:true});
 });
 
-// ORG-쟁의단계 다듬기(2026-10-24 11:05~11:08): ① 단계 기간(끝 날짜) ② 이력 한 줄 고치기·지우기 ③ 화면 전체 ⋯는 제목 '담당조직' 줄 오른쪽.
+// ORG-쟁의단계 다듬기(2026-10-24 11:05~11:08): ① 단계 기간(끝 날짜) ② 이력 한 줄 수정·삭제 ③ 화면 전체 ⋯는 제목 '담당조직' 줄 오른쪽.
 for(const width of [390,1280])test(`단계 기간 저장: [~ 끝 날짜] → 이력 '11.3 ~ 11.5', 끝 < 시작은 저장 전에 막음 ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width});
  await openOrg(page,'oa',width);

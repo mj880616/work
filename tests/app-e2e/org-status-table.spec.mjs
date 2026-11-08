@@ -45,7 +45,7 @@ async function openOrg(page){
 }
 const sub=(page,name)=>page.locator('#wdSubTabs').getByRole('tab',{name});
 
-for(const width of [412,1440])test(`[현황 표] 예전 AI 줄 그대로·줄 추가·고치기·빼기·AI 버튼 없음·소탭 기억 ${width}px`,async({page})=>{
+for(const width of [412,1440])test(`[현황 표] 예전 AI 줄 그대로·줄 추가·수정·빼기·AI 버튼 없음·소탭 기억 ${width}px`,async({page})=>{
  const {db,vp,errors}=await fixture(page,{width});
  await openOrg(page);
  // 소탭은 쟁의 단계 줄 바로 아래, [기록]이 기본이고 기록 화면은 그대로.

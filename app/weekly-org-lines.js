@@ -27,9 +27,9 @@ const enc = encodeURIComponent;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 export const TEXT = {
   missing: '주별 조직보고 표는 준비 중이에요.', failed: '조직보고를 불러오지 못했어요.', saveFailed: '저장하지 못했어요. 다시 눌러 주세요.',
-  noBody: '내용을 적어 주세요.', badDay: '날짜를 다시 골라 주세요.', badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', full: '이 조직의 이번 주 줄이 가득 찼어요.',
+  noBody: '내용을 적어 주세요.', badDay: '날짜를 다시 선택해 주세요.', badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', full: '이 조직의 이번 주 줄이 가득 찼어요.',
   saved: '저장했어요.', added: '줄을 넣었어요.', placed: '주간보고에 넣었어요.', dropped: '뺐어요.', had: '이미 있는 내용으로 치웠어요.', imported: n => `지난주 ${n}줄을 가져왔어요.`, importNone: '가져올 새 줄이 없었어요.',
-  conflict: '다른 화면에서 먼저 고쳤어요', gone: '다른 화면에서 이 줄이 없어졌어요.',
+  conflict: '다른 화면에서 먼저 수정했어요', gone: '다른 화면에서 이 줄이 없어졌어요.',
 };
 export const thisWeek = () => mondayOf(seoulDateKey(Date.now()));
 export {mondayOf, shiftWeek, weekLabel, lineText};
@@ -121,7 +121,7 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
   // 공용 '제안 줄' 메뉴 순서(주간 정리의 다른 제안 줄과 같음): [넣기][이미 있음][고쳐서 넣기][빼기].
   const sugMore = (label, d, text) => moreSlot({label: `제안: ${text}`, data: {wlSugMore: ''}, items: [
     {text: '넣기', data: d.take, aria: `넣기: ${text}`}, {text: '이미 있음', data: d.have, aria: `이미 있음(이미 쓴 내용): ${text}`},
-    {text: '고쳐서 넣기', data: d.edit, aria: `고쳐서 넣기: ${text}`}, {text: '빼기', data: d.drop, danger: true, aria: `제안 빼기: ${text}`}]});
+    {text: '수정해서 넣기', data: d.edit, aria: `수정해서 넣기: ${text}`}, {text: '빼기', data: d.drop, danger: true, aria: `제안 빼기: ${text}`}]});
   const tagHtml = t => `<span class="weekly-flow-tag wl-tag">${esc(t)}</span>`;
   // 주간 정리 흐린 제안 줄 하나: 출처 꼬리표 · 날짜 · 글 · ⋯. kind 'line' = 표의 제안 행, 'last' = 지난주·현황 표 줄.
   const sugHtml = (orgId, x) => {
@@ -136,10 +136,10 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
   const lineHtml = (orgId, l, {sug = false} = {}) => {
     if (ctl.editing && ctl.editing.id === l.id) return formHtml(orgId, l);
     const label = esc(cleanBody(l.body)), dis = ctl.disabled(), day = dayText(l.day, l.end_day);
-    const text = dis ? `<span class="wl-text">${label}</span>` : `<span class="wl-text is-edit" role="button" tabindex="0" data-wl-edit="${esc(l.id)}" aria-label="${label} 고치기">${label}</span>`;
+    const text = dis ? `<span class="wl-text">${label}</span>` : `<span class="wl-text is-edit" role="button" tabindex="0" data-wl-edit="${esc(l.id)}" aria-label="${label} 수정">${label}</span>`;
     const ai = l.origin === 'ai' ? '<span class="wl-ai" title="AI가 기록을 한 줄로 줄인 제안">AI</span>' : '';
     const src = typeof ctl.openSource === 'function' && sourceRecord(l) !== null ? `<button type="button" class="wl-src" data-wl-src="${esc(l.id)}" aria-label="${label} 원래 기록 열기" title="원래 기록 열기"${dis ? ' disabled' : ''}>↗</button>` : '';
-    const btns = sug ? `<span class="wl-btns btn-row"><button type="button" class="wl-btn is-main" data-wl-in="${esc(l.id)}"${dis ? ' disabled' : ''}>✓ 넣기</button><button type="button" class="wl-btn" data-wl-edit="${esc(l.id)}"${dis ? ' disabled' : ''}>고치기</button><button type="button" class="wl-btn" data-wl-drop="${esc(l.id)}" aria-label="${label} 빼기"${dis ? ' disabled' : ''}>×</button></span>` : '';
+    const btns = sug ? `<span class="wl-btns btn-row"><button type="button" class="wl-btn is-main" data-wl-in="${esc(l.id)}"${dis ? ' disabled' : ''}>✓ 넣기</button><button type="button" class="wl-btn" data-wl-edit="${esc(l.id)}"${dis ? ' disabled' : ''}>수정</button><button type="button" class="wl-btn" data-wl-drop="${esc(l.id)}" aria-label="${label} 빼기"${dis ? ' disabled' : ''}>×</button></span>` : '';
     const conf = ctl.conflicts.get(l.id);
     const confHtml = conf ? `<div class="wl-conf" role="alert" data-wl-conflict="${esc(l.id)}">${conf.gone ? TEXT.gone : `${TEXT.conflict}: '${esc(conf.body)}'`} <span class="wl-conf-btns btn-row"><button type="button" class="wl-btn" data-wl-keep="${esc(l.id)}">그대로 두기</button>${conf.gone ? '' : `<button type="button" class="wl-btn" data-wl-mine="${esc(l.id)}">내 글로 바꾸기</button>`}</span></div>` : '';
     return `<div class="wl-line${sug ? ' is-sug' : ''}" data-wl-line="${esc(l.id)}" data-wl-state="${esc(l.state)}"><span class="wl-day">- ${esc(day)}</span>${text}${ai}${src}${btns}</div>${confHtml}`;

@@ -25,13 +25,13 @@ for(const width of [390,1280]){
  });
 }
 
-test('홈에서 기한을 고르면 그날로 저장(내일·다음주는 오늘 할 일 칸에 안 섞임)',async({page})=>{
+test('홈에서 기한을 선택하면 그날로 저장(내일·다음주는 오늘 할 일 칸에 안 섞임)',async({page})=>{
  await openHome(page);const bodies=await watchCreates(page),q=await taskMode(page),input=q.locator('[data-quick-input]');
  await input.fill('합성 내일 할 일');await q.getByRole('button',{name:'내일',exact:true}).click();await input.press('Enter');
  await expect.poll(()=>bodies.length).toBe(1);expect(bodies[0].due).toBe('2026-10-07');
  await expect(input).toHaveValue('');
  // 날짜 칸으로 고른 날
- await input.fill('합성 고른 날 할 일');await q.locator('[data-quick-date]').evaluate(el=>{el.value='2026-10-20';el.dispatchEvent(new Event('change',{bubbles:true}));});
+ await input.fill('합성 선택한 날 할 일');await q.locator('[data-quick-date]').evaluate(el=>{el.value='2026-10-20';el.dispatchEvent(new Event('change',{bubbles:true}));});
  await input.press('Enter');await expect.poll(()=>bodies.length).toBe(2);expect(bodies[1].due).toBe('2026-10-20');
  const card=page.locator('#homeView [data-journal-group="todo"]');
  await expect(card.locator('li[data-journal-task]').filter({hasText:'합성 새'})).toHaveCount(0);
@@ -42,7 +42,7 @@ test('홈에서 기한을 고르면 그날로 저장(내일·다음주는 오늘
  await input.press('Enter');await expect.poll(()=>bodies.length).toBe(3);expect(bodies[2].due).toBe('2026-10-06');
 });
 
-test('이미 있는 할 일을 홈에서 고치면 기한은 그대로(오늘로 바뀌지 않음)',async({page})=>{
+test('이미 있는 할 일을 홈에서 수정하면 기한은 그대로(오늘로 바뀌지 않음)',async({page})=>{
  const c=await openHome(page);
  const updates=[];
  await page.route(SB+'/functions/v1/google-tasks?**',route=>{const req=route.request();if(new URL(req.url()).searchParams.get('action')!=='update')return route.fallback();
@@ -53,9 +53,9 @@ test('이미 있는 할 일을 홈에서 고치면 기한은 그대로(오늘로
  await expect(fold).toBeVisible();await fold.locator(':scope > summary').click();
  const row=fold.locator('li[data-journal-task="overdue"]');
  await expect(row).toBeVisible();await row.hover();await row.locator('[data-journal-task-menu]').click();
- await page.locator('#journalTaskMenu').getByRole('button',{name:'고치기'}).click();
+ await page.locator('#journalTaskMenu').getByRole('button',{name:'수정'}).click();
  await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditDue')).toHaveValue('2026-10-03');
- await page.locator('#gtEditTitle').fill('합성 고친 제목');await page.locator('#gtSaveBtn').click();
+ await page.locator('#gtEditTitle').fill('합성 수정한 제목');await page.locator('#gtSaveBtn').click();
  await expect.poll(()=>updates.length).toBe(1);
- expect(updates[0]).toMatchObject({action:'update',task_id:'overdue',title:'합성 고친 제목',due:'2026-10-03'});
+ expect(updates[0]).toMatchObject({action:'update',task_id:'overdue',title:'합성 수정한 제목',due:'2026-10-03'});
 });

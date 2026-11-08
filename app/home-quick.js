@@ -91,7 +91,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     if(!pickerFiles.add([new File([found.html],htmlFileName(),{type:'text/html'})]))return;
     input.setRangeText([found.before,HTML_MARK,found.after].filter(Boolean).join('\n'),input.selectionStart,input.selectionEnd,'end');
     input.dispatchEvent(new Event('input',{bubbles:true}));
-    status.textContent=toBasket()||noteOnly?'HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 잊지 말기에 저장돼요.':'HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 고른 곳 자료로 넣어요.';
+    status.textContent=toBasket()||noteOnly?'HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 잊지 말기에 저장돼요.':'HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 선택한 곳 자료로 넣어요.';
   });
   box.querySelector('[data-quick-new-note]').onclick=async e=>{if(saving)return;if((input.value||upload.entries.some(e=>e.kind!=='success'))&&(!(await askConfirm(e.currentTarget,{text:'잊지 말기에서 저장 여부를 확인한 후 새 업데이트를 입력할까요?',note:'현재 입력과 파일 선택은 비워집니다.',ok:'비우기',danger:true}))||saving))return;upload=createUploadBatch();input.value='';status.textContent='';paint();input.focus();};
   // UI-버튼크기: 홈은 세 모드 모두 한 줄 높이에서 시작해 글에 맞춰 늘고 5줄에서 멈춘다(그 뒤는 칸 안 스크롤). 바구니 화면은 CSS 높이 그대로.
@@ -155,7 +155,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       return {title:'기록할 곳 선택',search:'조직·사업영역 이름 검색',searchAlways:true,split:true,html:placeSheetHtml(placeChoices(),pendingPlaces,esc)};
     },
     multi:kind=>kind==='org'?{pressed:value=>value==='basket'?!pendingPlaces.length:pendingPlaces.some(p=>placeValue(p)===value),label:choiceCountText(pendingPlaces)}:null,
-    onSelect:(kind,value)=>{if(kind==='org'){const next=togglePlace(pendingPlaces,value);if(next)pendingPlaces=next;else status.textContent=`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`;}},
+    onSelect:(kind,value)=>{if(kind==='org'){const next=togglePlace(pendingPlaces,value);if(next)pendingPlaces=next;else status.textContent=`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`;}},
     onCommit:kind=>{if(kind!=='org')return;setPlaces(pendingPlaces);status.textContent='';paint();}
   });
   const openSheet=kind=>picker.open(kind,orgSelect);
@@ -224,7 +224,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     taskReading=true;saving=true;taskControls(true);status.innerHTML=waitInlineHtml();
     try{
       if(a.task)await accept(a.task);
-      else{const rows=await tasks();taskNotice(rows.length?'저장된 할 일을 직접 골라 주세요. 제목만으로 저장을 판단하지 않습니다.':'목록에서 결과를 찾지 못했습니다. 입력은 유지하며 새로 만들지 않습니다.',{confirm:!rows.length});for(const row of rows){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=row.title+' · 이 항목 사용';b.onclick=async()=>{if(!active()||taskReading)return;taskReading=true;saving=true;taskControls(true);try{await accept(row)}catch(error){if(active())taskNotice(error.message||String(error),{confirm:true})}finally{if(active()){taskReading=false;saving=false;taskControls(false);paint()}}};status.append(document.createTextNode(' '),b);const hint=document.createElement('small');hint.textContent=[row.taskListTitle||'Google 할 일',row.due?String(row.due).slice(0,10):'기한 없음',row.notes||''].join(' · ');status.append(hint)}}
+      else{const rows=await tasks();taskNotice(rows.length?'저장된 할 일을 직접 선택해 주세요. 제목만으로 저장을 판단하지 않습니다.':'목록에서 결과를 찾지 못했습니다. 입력은 유지하며 새로 만들지 않습니다.',{confirm:!rows.length});for(const row of rows){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=row.title+' · 이 항목 사용';b.onclick=async()=>{if(!active()||taskReading)return;taskReading=true;saving=true;taskControls(true);try{await accept(row)}catch(error){if(active())taskNotice(error.message||String(error),{confirm:true})}finally{if(active()){taskReading=false;saving=false;taskControls(false);paint()}}};status.append(document.createTextNode(' '),b);const hint=document.createElement('small');hint.textContent=[row.taskListTitle||'Google 할 일',row.due?String(row.due).slice(0,10):'기한 없음',row.notes||''].join(' · ');status.append(hint)}}
     }catch(error){if(active())taskNotice('저장 결과를 확인하지 못했습니다. '+(error.message||error),{confirm:true})}
     finally{if(active()){taskReading=false;saving=false;taskControls(false);paint()}}
   }

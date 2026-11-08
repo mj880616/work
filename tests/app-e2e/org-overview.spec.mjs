@@ -56,7 +56,7 @@ const oa=page=>page.locator('#soOverview [data-wl-org-row="oa"]');
 const ob=page=>page.locator('#soOverview [data-wl-org-row="ob"]');
 const status=page=>page.locator('#soOverview [data-wl-status]');
 
-for(const width of [412,1440])test(`[전체 표] 이번 주 조직보고: 넣은 줄·제안 줄 넣기/빼기·+ 줄·줄 고치기·AI 채우기 버튼 없음 ${width}px`,async({page})=>{
+for(const width of [412,1440])test(`[전체 표] 이번 주 조직보고: 넣은 줄·제안 줄 넣기/빼기·+ 줄·줄 수정·AI 채우기 버튼 없음 ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width});
  await openTable(page);
  await expect(page.locator('#soOverview .week-pick-label')).toHaveText('10.5~10.11');
@@ -99,7 +99,7 @@ for(const width of [412,1440])test(`[전체 표] 이번 주 조직보고: 넣은
  expect(errors).toEqual([]);
 });
 
-test('[전체 표] 다른 화면에서 먼저 고친 줄: 그 자리 안내 + [내 글로 바꾸기]·[그대로 두기], 다른 줄은 그대로',async({page})=>{
+test('[전체 표] 다른 화면에서 먼저 수정한 줄: 그 자리 안내 + [내 글로 바꾸기]·[그대로 두기], 다른 줄은 그대로',async({page})=>{
  const {db,errors}=await fixture(page,{width:1440});
  await openTable(page);
  await oa(page).locator('.wl-text[data-wl-edit="l1"]').click();
@@ -108,7 +108,7 @@ test('[전체 표] 다른 화면에서 먼저 고친 줄: 그 자리 안내 + [�
  const body=page.locator('#soOverview [data-wl-field="body"]');
  await body.fill('합성 교섭 상견례(내 글)');await body.press('Enter');
  const conf=oa(page).locator('[data-wl-conflict="l1"]');
- await expect(conf).toContainText("다른 화면에서 먼저 고쳤어요: '합성 교섭 상견례(다른 화면)'");
+ await expect(conf).toContainText("다른 화면에서 먼저 수정했어요: '합성 교섭 상견례(다른 화면)'");
  await expect(oa(page).locator('.wl-line.is-sug')).toHaveCount(1);
  await conf.locator('[data-wl-mine="l1"]').click();
  await expect(status(page)).toHaveText('저장했어요.');
@@ -118,7 +118,7 @@ test('[전체 표] 다른 화면에서 먼저 고친 줄: 그 자리 안내 + [�
  expect(errors).toEqual([]);
 });
 
-test('[전체 표] 주 고르기: 지난 주를 고르면 그 주 줄, [이번 주]로 돌아옴 · 지난주/현황 표 줄은 접혀 있다가 [가져오기]',async({page})=>{
+test('[전체 표] 주 선택: 지난 주를 선택하면 그 주 줄, [이번 주]로 돌아옴 · 지난주/현황 표 줄은 접혀 있다가 [가져오기]',async({page})=>{
  const {db,errors}=await fixture(page,{width:412});
  await openTable(page);
  // 평일 담당조직: 지난주 줄은 접힌 한 줄. 지난주 표가 빈 조직(ob)은 현황 표 최근 줄.
