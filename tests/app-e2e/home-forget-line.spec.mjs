@@ -1,5 +1,7 @@
-// S52-20 HOME-잊지말기한목록 ②(요청함 11/07 14:37, 시안 docs/design/mockups/forget-one-list.html ①, 명진 14:44 '좋은데'):
-// - 홈 [하루] 맨 위는 '잊지 말기' 한 줄 + 빨간 바탕 흰 글자 숫자 동그라미(처리 안 한 수, 0이면 숫자 없음, '놓친 것' 글자 없음), 누르면 정리함 한 목록.
+// S52-20 HOME-잊지말기한목록 ②(요청함 11/07 14:37, 시안 docs/design/mockups/forget-one-list.html ①, 명진 14:44 '좋은데')
+// → S53-13 HOME-잊지말기칩(요청함 11/08 13:54, 시안 docs/design/mockups/home-forget-slim.html, 명진 13:55 'A'):
+// - 홈 '잊지 말기'는 따로 한 줄이 아니라 입력 칸 머리 줄 오른쪽 칩 하나 + 빨간 바탕 흰 글자 숫자(처리 안 한 수, 0이면 숫자 없이 칩만 흐리게), 누르면 정리함 한 목록.
+// - 옛 띠 줄·옛 [잊지 말기 전체 보기 ›] 글자 링크는 없다.
 // - 옛 '나한테 온 요청' 상자·'잊지 말기' 상자·'챙길 것 n · 정리 안 된 것 n' 줄은 없다.
 // - 숫자 = 미분류 업데이트 + 처리 전 후보(텔레그램 요청 포함) + 가족 제안(운영자 기능 family). 메뉴 '홈' 표시(UI-앱안알림)도 같은 숫자.
 // 서버는 흉내, 글·이름은 모두 지어낸 것.
@@ -37,22 +39,31 @@ async function fixture(page,{width=390,features=['telegram','family'],cands=[can
 const line=page=>page.locator('#homeView [data-home-summary]');
 const noWide=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
-for(const width of [344,390,884,1280])test(`${width}px: [하루] 맨 위 '잊지 말기' 한 줄 + 빨간 숫자, 옛 상자 없음, 가로 넘침 없음`,async({page},info)=>{
+for(const width of [344,390,884,1280])test(`${width}px: '잊지 말기' 띠 줄 없음, 입력 칸 머리 줄 오른쪽 칩 + 빨간 숫자, 옛 상자 없음, 가로 넘침 없음`,async({page},info)=>{
   await fixture(page,{width});
+  const chip=line(page).locator('[data-home-forget-open]');
   // 요청 2 + 챙길 것 1 + 가족 1 + 미분류 업데이트 0 = 4.
   await expect(line(page).locator('[data-nbx-badge]')).toHaveText('4');
-  await expect(line(page).locator('.nbx-head')).toHaveText('잊지 말기4');
+  await expect(chip).toHaveText('잊지 말기4');
+  await expect(chip).toHaveClass(/\bds-chip\b/);
+  await expect(chip).not.toHaveAttribute('data-chip-empty','');
   await expect(line(page)).not.toContainText(/놓친|챙길 것|정리 안 된|나한테 온 요청/);
   await expect(line(page).locator('[data-nbx-row]')).toHaveCount(0);
-  await expect(page.locator('#homeView [data-home-family],#homeView .nbx-foot')).toHaveCount(0);
-  // 빨간 바탕 흰 글자 동그라미.
-  const look=await line(page).locator('[data-nbx-badge]').evaluate(el=>{const s=getComputedStyle(el),p=document.createElement('i');p.style.color='var(--kptu-danger)';document.body.append(p);const red=getComputedStyle(p).color;p.style.color='var(--kptu-on-primary)';const white=getComputedStyle(p).color;p.remove();return {bg:s.backgroundColor,fg:s.color,red,white,round:parseFloat(s.borderTopLeftRadius)>=8};});
-  expect(look.bg).toBe(look.red);expect(look.fg).toBe(look.white);expect(look.round).toBe(true);
-  // 자리: [하루] 카드 맨 위(그날 일정 위), 한 줄 높이.
-  const [l,s]=await Promise.all([line(page),page.locator('#homeView [data-journal-schedule]')].map(x=>x.boundingBox()));
-  expect(s.y).toBeGreaterThanOrEqual(l.y+l.height-1);expect(l.height).toBeLessThan(48);
+  await expect(page.locator('#homeView [data-home-family],#homeView .nbx-foot,#homeView .home-forget,#homeView [data-journal-day] .nbx,#homeView .home-basket-link')).toHaveCount(0);
+  await expect(page.locator('#homeView')).not.toContainText('잊지 말기 전체 보기');
+  // 칩 색: 공용 칩 + 톤다운 노랑(forget), 숫자는 빨간 바탕 흰 글자 동그라미.
+  const look=await line(page).locator('[data-nbx-badge]').evaluate(el=>{const s=getComputedStyle(el),c=getComputedStyle(el.closest('button')),p=document.createElement('i');document.body.append(p);const tok=v=>{p.style.color=`var(${v})`;return getComputedStyle(p).color;};const out={bg:s.backgroundColor,fg:s.color,red:tok('--kptu-danger'),white:tok('--kptu-on-primary'),round:parseFloat(s.borderTopLeftRadius)>=8,chipInk:c.color,warn:tok('--kptu-warning')};p.remove();return out;});
+  expect(look.bg).toBe(look.red);expect(look.fg).toBe(look.white);expect(look.round).toBe(true);expect(look.chipInk).toBe(look.warn);
+  // 자리: 입력 칸 머리 줄([업데이트 ▾ | 할 일])과 같은 줄 오른쪽, 입력 칸 위. 칩 높이는 한 줄.
+  const quick=page.locator('#homeView .home-quick[data-home-quick]');
+  const [c,m,e,q]=await Promise.all([chip,quick.locator('.home-quick-modes'),quick.locator('.home-quick-entry'),quick].map(x=>x.boundingBox()));
+  expect(c.height).toBeLessThanOrEqual(40);
+  expect(Math.abs((c.y+c.height/2)-(m.y+m.height/2))).toBeLessThanOrEqual(4);
+  expect(c.x).toBeGreaterThan(m.x+m.width);
+  expect(c.y+c.height).toBeLessThanOrEqual(e.y+1);
+  expect(c.x+c.width).toBeLessThanOrEqual(q.x+q.width+1);
   expect(await noWide(page)).toBe(true);
-  await page.screenshot({path:info.outputPath(`home-forget-line-${width}.png`)});
+  await page.screenshot({path:info.outputPath(`home-forget-chip-${width}.png`)});
 });
 
 test('누르면 정리함 한 목록이 열리고, 같은 숫자의 줄이 있다',async({page})=>{
@@ -62,10 +73,16 @@ test('누르면 정리함 한 목록이 열리고, 같은 숫자의 줄이 있�
   await expect(page.locator('#basketView [data-forget-section] [data-forget-src="telegram"],#basketView [data-forget-section] [data-forget-src="todo"],#basketView [data-forget-section] [data-forget-src="family"]')).toHaveCount(4);
 });
 
-test('처리할 것이 없으면 숫자 없이 "잊지 말기"만',async({page})=>{
+test('처리할 것이 없으면 숫자 없이 흐린 칩 "잊지 말기"만, 눌러도 정리함',async({page})=>{
   await fixture(page,{features:[],cands:[]});
-  await expect(line(page).locator('.nbx-head')).toHaveText('잊지 말기');
+  const chip=line(page).locator('[data-home-forget-open]');
+  await expect(chip).toHaveText('잊지 말기');
+  await expect(chip).toHaveAttribute('data-chip-empty','');
   await expect(line(page).locator('[data-nbx-badge]')).toHaveCount(0);
+  const faint=await chip.evaluate(el=>{const p=document.createElement('i');p.style.color='var(--kptu-faint)';document.body.append(p);const f=getComputedStyle(p).color;p.remove();return getComputedStyle(el).color===f;});
+  expect(faint).toBe(true);
+  await chip.click();
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
 });
 
 test('가족 기능이 없으면 가족 제안은 세지 않는다(서버 기능 목록)',async({page})=>{
