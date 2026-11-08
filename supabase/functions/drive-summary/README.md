@@ -134,3 +134,12 @@
 ## AI-사용량줄 (`?action=ai_usage`)
 - `POST ?action=ai_usage`: 수집 점검 신호와 같은 `x-collector-heartbeat-secret` 머리글만. 몸통(1KB 이하) `{ref, source: transcript|analysis, model, calls, input_tokens, audio_tokens, output_tokens}` — 숫자·모델 이름·보고 번호만. `app_ai_external_usage`에 한 행 넣기(같은 ref는 무시). Drive는 건드리지 않음.
 - `GET ?action=ai_usage`: 소유자 JWT만. 소유자 토큰 + anon 키로 `app_ai_daily_usage`·`app_feed_days`·`app_ai_external_usage`·`app_ai_cost_entries`를 읽어 이번 달 원(추정)·상한·잔액·보정 비율을 돌려줌. Gemini 단가는 `_shared/ai-prices.mjs` 한 곳, OpenAI 기본 단가·상한은 `_shared/ai-model.ts`·ai-assist·collector-feed와 같은지 시험이 대조.
+
+## [최신화] 지금 한 번 수집 (S52-46 FEED-최신화즉시수집, `collector-pull.mjs`)
+
+- `POST ?action=collector_pull`, 몸통 `{"source":"telegram"|"call"}`만. 소유자 JWT만(cron·수집 비밀 머리글은 401). 작업공간·주소 값은 받지 않는다.
+- 서버가 `app_operator_feature_workspace('telegram'|'calls')`가 로그인 본인 작업공간과 같을 때만 진행(아니면 403 `NOT_OPERATOR`).
+- 횟수는 DB 함수 `app_feed_pull_take`(migration `20261108040000`)가 센다: 사람마다 하루 20번(두 출처 합계), 같은 출처 3분 간격. 넘으면 429 `PULL_COOLDOWN`(`wait_s`)·`PULL_DAILY_LIMIT`, 웹 앱을 부르지 않는다.
+- 앱 스크립트 웹 앱(`COLLECTOR_PULL_URL`, `https://script.google.com/macros/s/…/exec` 모양만)에 `{secret: COLLECTOR_PULL_SECRET, source}`를 10초 제한으로 한 번 보낸다. 응답은 `{ok:true}`인지만 본다. 실패 502 `PULL_WAKE_FAILED`, 비밀값·주소 없음 503 `SERVER_CONFIG_MISSING`, 표 없음 503 `PULL_NOT_READY`.
+- 성공 응답은 `{ok, source, requested_at, left}`뿐. 주소·비밀값·웹 앱 응답 원문은 응답·로그에 남지 않는다. DB 쓰기는 횟수 한 줄(service role)뿐, Drive는 건드리지 않는다.
+- 시험: `tests/security/drive-summary-collector-pull.test.mjs`, 웹 앱 쪽 `tests/security/collector-feed-pull-gas.test.mjs`.

@@ -2,6 +2,7 @@
 // No Google permissions creation or source-content logging. DB writes: AI-사용량줄 usage reports (POST ?action=ai_usage, collector
 // secret only, one insert-only row in app_ai_external_usage) and the nightly text path
 // (POST ?action=text_backfill, cron secret only): the four text columns of app_documents, workspace-scoped (text-backfill.mjs).
+// FEED-최신화즉시수집 (POST ?action=collector_pull, owner JWT only): one row of press counts via app_feed_pull_take (service role).
 // LIB-이전파일정리 (POST ?action=library_prev_prune, cron secret only): moves expired previous library files to the Drive trash and marks
 // them in app_documents.previous_files only (library-prev-prune.mjs).
 import { createHandler } from './core.mjs';
@@ -17,6 +18,9 @@ Deno.serve(withWebCors(createHandler({
     SUPABASE_ANON_KEY: Deno.env.get('SUPABASE_ANON_KEY'),
     DRIVE_SUMMARY_CRON_SECRET: Deno.env.get('DRIVE_SUMMARY_CRON_SECRET'),
     COLLECTOR_HEARTBEAT_SECRET: Deno.env.get('COLLECTOR_HEARTBEAT_SECRET'),
+    // S52-46 FEED-최신화즉시수집: the Apps Script web app address and its body secret (POST ?action=collector_pull wakes it once).
+    COLLECTOR_PULL_URL: Deno.env.get('COLLECTOR_PULL_URL'),
+    COLLECTOR_PULL_SECRET: Deno.env.get('COLLECTOR_PULL_SECRET'),
     // AI-사용량줄: the same price overrides ai-assist·collector-feed use (optional; defaults in _shared/ai-prices.mjs, checked against _shared/ai-model.ts by tests).
     WEB2_AI_PRICE_IN_KRW_PER_MTOK: Deno.env.get('WEB2_AI_PRICE_IN_KRW_PER_MTOK'),
     WEB2_AI_PRICE_OUT_KRW_PER_MTOK: Deno.env.get('WEB2_AI_PRICE_OUT_KRW_PER_MTOK'),
