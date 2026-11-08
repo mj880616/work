@@ -80,6 +80,11 @@ export { TRANSLATE_DAILY, TRANSLATE_MAX_CHARS };
 export const TITLE_BATCH = 40;
 export const TITLES_DAILY = 150;
 export const TITLE_WINDOW_DAYS = 2;
+// 번역을 다 받지 못한 줄(AI가 답했는데 그 줄 제목·소개가 비어 옴)은 title_tried_at에 시각을 적고 TITLE_RETRY_HOURS시간 뒤에만 다시 보낸다(S54-16).
+// 매시간 같은 줄을 다시 보내지 않게 — 2일 창 안에서 하루 1~2번. AI 호출 자체가 실패(답 없음·토큰 0)하면 적지 않는다(장애 뒤 바로 다시).
+// 줄마다 고치기(PATCH)는 TITLE_PATCH_PARALLEL개씩 함께 보낸다.
+export const TITLE_RETRY_HOURS = 12;
+export const TITLE_PATCH_PARALLEL = 8;
 export { MONTHLY_LIMIT_KRW };
 export const RUN_BUDGET_MS = 100000;
 export const PRUNE_LIMIT = 2000;
@@ -628,7 +633,10 @@ async function runTitles(db: Db, ai: AiDeps, nowMs: number, startMs: number, clo
   const since = new Date(nowMs - TITLE_WINDOW_DAYS * 86400000).toISOString();
   // ① 제목 번역이 아직 없는 외국어 기사 ② 제목은 있지만 소개(summary)가 아직 외국어 그대로인 기사(11/04: 해외 기사 본문 줄이 영어로 보임).
   // 소개 원문은 body(앞부분)에 그대로 남아 있어서 summary만 한국어로 바꿔도 원문은 [본문]·[번역]에서 본다.
-  const base = `lang=neq.ko&title=not.is.null&created_at=gte.${encodeURIComponent(since)}${only}&select=id,workspace_id,title,title_ko,summary&order=created_at.desc&limit=1000`;
+  const retryBefore = new Date(nowMs - TITLE_RETRY_HOURS * 3600000).toISOString();
+  const base = `lang=neq.ko&title=not.is.null&created_at=gte.${encodeURIComponent(since)}${only}` +
+    `&or=(title_tried_at.is.null,title_tried_at.lt.${encodeURIComponent(retryBefore)})` +
+    `&select=id,workspace_id,title,title_ko,summary&order=created_at.desc&limit=1000`;
   const titleRows = await db.get(`app_news_items?title_ko=is.null&${base}`);
   const sumRows = (await db.get(`app_news_items?title_ko=not.is.null&summary=not.is.null&${base}`)).filter((r) => typeof r.summary === "string" && r.summary.trim() && !HANGUL.test(r.summary));
   const byWs = new Map<string, Row[]>();
@@ -656,18 +664,33 @@ async function runTitles(db: Db, ai: AiDeps, nowMs: number, startMs: number, clo
     const got = readTitles(out.value, batch.length);
     const sums = readTitleSums(out.value, batch.length);
     const nowIso = new Date(nowMs).toISOString();
+    // AI가 답했는지(답 글이 있거나 토큰을 썼음). 답하지 않았으면 시도 시각을 적지 않는다.
+    const answered = out.value !== null || out.usage.input > 0 || out.usage.output > 0;
+    const patches: { r: Row; patch: Row }[] = [], tried: string[] = [];
     for (const [k, r] of batch.entries()) {
       const i = k + 1, ko = got.get(i), sum = sums.get(i);
+      const wantSum = typeof r.summary === "string" && !!r.summary.trim() && !HANGUL.test(r.summary);
       const patch: Row = {};
       if (!r.title_ko && ko) patch.title_ko = ko;
-      if (sum && typeof r.summary === "string" && !HANGUL.test(r.summary)) patch.summary = sum;
-      if (!Object.keys(patch).length) continue;
+      if (sum && wantSum) patch.summary = sum;
+      // 부탁한 것(제목이 없으면 제목, 소개가 외국어면 소개) 가운데 하나라도 못 받았으면 시도 시각을 적는다.
+      const missing = answered && ((!r.title_ko && !ko) || (wantSum && !sum));
+      if (!Object.keys(patch).length) { if (missing) tried.push(String(r.id)); continue; }
       // 하루 상한은 translated_at 줄 수로 센다 — 제목을 새로 채운 줄만 찍는다.
       if (patch.title_ko) patch.translated_at = nowIso;
+      if (missing) patch.title_tried_at = nowIso;
       patch.updated_at = nowIso;
-      // 그 사이 다른 실행·번역 버튼이 먼저 채웠으면 덮지 않는다(제목은 title_ko=is.null, 소개만이면 title_ko가 이미 있는 줄).
-      await db.send("PATCH", `app_news_items?id=eq.${r.id}&workspace_id=eq.${ws}&${r.title_ko ? "title_ko=not.is.null" : "title_ko=is.null"}`, patch, "return=minimal");
-      done++;
+      patches.push({ r, patch });
+    }
+    // 그 사이 다른 실행·번역 버튼이 먼저 채웠으면 덮지 않는다(제목은 title_ko=is.null, 소개만이면 title_ko가 이미 있는 줄).
+    for (let p = 0; p < patches.length; p += TITLE_PATCH_PARALLEL) {
+      await Promise.all(patches.slice(p, p + TITLE_PATCH_PARALLEL).map(({ r, patch }) =>
+        db.send("PATCH", `app_news_items?id=eq.${r.id}&workspace_id=eq.${ws}&${r.title_ko ? "title_ko=not.is.null" : "title_ko=is.null"}`, patch, "return=minimal")));
+    }
+    done += patches.length;
+    // 아무것도 못 받은 줄은 시도 시각만 한 번에 적는다(번역 칸은 건드리지 않음).
+    if (tried.length) {
+      await db.send("PATCH", `app_news_items?workspace_id=eq.${ws}&id=in.(${tried.join(",")})`, { title_tried_at: nowIso }, "return=minimal");
     }
   }
   log("titles_done", { done, deferred, calls });
