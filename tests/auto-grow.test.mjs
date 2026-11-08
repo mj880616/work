@@ -77,3 +77,12 @@ test('나머지 긴 글 한 줄 칸 = 공용 칸(PR 2)', () => {
   assert.match(read('app/inbox-todos.js'), /<form class="inbox-todo-edit" data-inbox-todo-edit="\$\{id\}" data-enter-save>/);
   assert.match(read('app/journal-memorable.js'), /<form class="journal-memorable-edit" data-memorable-edit="\$\{esc\(row\.id\)\}" data-enter-save>/);
 });
+
+test('공용 칸을 쓰는 파일은 모두 auto-grow.js 를 불러온다', async () => {
+  const {readdirSync} = await import('node:fs');
+  for (const f of readdirSync(new URL('../app/', import.meta.url))) {
+    if (!f.endsWith('.js') || f === 'auto-grow.js') continue;
+    const src = read(`app/${f}`);
+    if (/\b(fitHeight|fitAll|lineField)\(/.test(src)) assert.match(src, /from '\.\/auto-grow\.js'/, f);
+  }
+});

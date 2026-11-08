@@ -1,4 +1,5 @@
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
+import {fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기: 할 일 제목 칸은 열자마자 글 전체가 보이게
 import {reportLink} from './link-state.js'; // UI-앱안알림 2단계: Google 연결 끊김을 맨 위 알림 줄로
 import {holdToast as kptuHoldToast,askConfirm,notify} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
