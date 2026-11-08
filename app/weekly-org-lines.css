@@ -119,3 +119,5 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
 .wl-line.rw-after .wl-text,.wl-line.rw-after .wl-day{color:var(--kptu-muted);opacity:.7}
 .rw-fold{margin:0 0 2px}
 .rw-note{margin:0 0 4px}
+.rw-foot{display:flex;flex-wrap:wrap;align-items:baseline;margin:2px 0 0}
+.rw-foot .wl-more,.rw-foot .wl-add{display:inline-block;margin:0}

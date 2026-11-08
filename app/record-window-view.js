@@ -195,10 +195,10 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       + `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-cancel${dis}>취소</button><button type="button" class="row-act wl-btn is-main" data-rw-save${dis}>저장</button></span></div>`;
   };
   const fold = (orgId, kind, list, label) => {
-    if (!list.length) return '';
+    if (!list.length) return {btn: '', box: ''};
     const set = kind === 'out' ? ctl.outOpen : ctl.foldOpen, open = set.has(orgId);
-    return `<button type="button" class="row-act wl-more" data-rw-fold="${kind}" data-rw-org="${esc(orgId)}" aria-expanded="${open}">${label} ${list.length} ${chevHtml(open)}</button>`
-      + (open ? `<div class="rw-fold" data-rw-fold-box="${kind}">${list.map(l => lineHtml(orgId, l, kind)).join('')}</div>` : '');
+    return {btn: `<button type="button" class="row-act wl-more" data-rw-fold="${kind}" data-rw-org="${esc(orgId)}" aria-expanded="${open}">${label} ${list.length} ${chevHtml(open)}</button>`,
+      box: open ? `<div class="rw-fold" data-rw-fold-box="${kind}">${list.map(l => lineHtml(orgId, l, kind)).join('')}</div>` : ''};
   };
   ctl.cellHtml = orgId => {
     const x = ctl.cell(orgId), adding = ctl.editing?.id === 'new' && ctl.editing.orgId === orgId;
@@ -212,9 +212,11 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     html += x.shown.map(l => lineHtml(orgId, l)).join('');
     if (!x.shown.length && !adding) html += '<span class="wl-empty">—</span>';
     if (adding) html += recordForm(orgId);
-    html += fold(orgId, 'folded', x.folded, '지난 기록');
-    html += fold(orgId, 'out', x.out, '뺀 줄');
-    if (!adding) html += `<button type="button" class="row-act wl-add" data-rw-add="${esc(orgId)}"${ctl.disabled() ? ' disabled' : ''}>+ 쓰기</button>`;
+    // 칸 아래 한 줄: [지난 기록 n] [뺀 줄 n] [+ 쓰기] — 펼친 줄은 그 아래.
+    const f1 = fold(orgId, 'folded', x.folded, '지난 기록'), f2 = fold(orgId, 'out', x.out, '뺀 줄');
+    const add = adding ? '' : `<button type="button" class="row-act wl-add" data-rw-add="${esc(orgId)}"${ctl.disabled() ? ' disabled' : ''}>+ 쓰기</button>`;
+    if (f1.btn || f2.btn || add) html += `<div class="rw-foot btn-row">${f1.btn}${f2.btn}${add}</div>`;
+    html += f1.box + f2.box;
     return `<div class="wl-cell" data-wl-cell="${esc(orgId)}">${html}</div>`;
   };
   // 표 위 작은 한 줄: 옛 보고·개인 확정본 날짜·일정 읽기 상태.

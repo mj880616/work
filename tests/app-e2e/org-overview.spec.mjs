@@ -17,13 +17,11 @@ async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFai
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await installViewPrefsServer(page,null);
- // 앱이 처음부터 이 시계로 뜨게(공용 openHome은 10.6으로 고정한다 — 옛 주 시험만 그대로). 가짜 로그인 만료(10.7)도 그 뒤로 맞춘다.
+ // 앱이 처음부터 이 시계로 뜨게(공용 openHome은 10.6으로 고정한다 — 옛 주 시험만 그대로). 가짜 로그인 만료(10.7)는 토큰 갱신 답을 먼 뒤로 줘서 맞춘다.
  if(!old){
   const set=page.clock.setFixedTime.bind(page.clock);page.clock.setFixedTime=()=>set(new Date(NOW));
-  await page.addInitScript(()=>{const k=Object.keys(localStorage).find(x=>/auth-token|session/i.test(x));if(k)try{const v=JSON.parse(localStorage.getItem(k));if(v&&v.expires_at){v.expires_at=4102444800;localStorage.setItem(k,JSON.stringify(v))}}catch{}});
  }
- const f=await openHome(page);
- if(!old)await page.route(u=>u.origin===SB&&u.pathname==='/auth/v1/token',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({access_token:'home-access',refresh_token:'home-refresh',expires_at:4102444800,user:{id:owner,email:'home@example.org'}})}));
+ const f=await openHome(page,{beforeLoad:old?null:()=>page.route(u=>u.origin===SB&&u.pathname==='/auth/v1/token',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({access_token:'home-access',refresh_token:'home-refresh',expires_at:4102444800,user:{id:owner,email:'home@example.org'}})}))});
  const db={records:records.map(r=>({...r})),marks:marks.map(m=>({...m})),posts:[],markWrites:[],cal:[]};
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
