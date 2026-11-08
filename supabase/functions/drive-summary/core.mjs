@@ -6,6 +6,7 @@ import { LedgerError, LEDGER_LIMITS, LEDGER_TITLE, readLedger, buildBackup, rend
 import { basketState, prepareBasket, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
 import { runTextBackfill, textBackfillStatus, TextBackfillError, DONE_AT, DONE_COUNT, DISMISSED_AT } from './text-backfill.mjs';
 import { runLibraryPrevPrune, PrevPruneError } from './library-prev-prune.mjs';
+import { createCollectorPull } from './collector-pull.mjs';
 import { AI_USAGE_BODY_BYTES, parseAiUsageReport, readAiUsage, seoulDay, summarizeAiUsage, openAiPrice } from './ai-usage.mjs';
 export { basketState, BASKET_LIMITS };
 const WORKSPACE = 'kptu-work';
@@ -700,12 +701,18 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
     }
   }
   const actionOf = req => { try { return new URL(req.url).searchParams.get('action'); } catch { return null; } };
+  // S52-46 FEED-최신화즉시수집: POST ?action=collector_pull. Owner JWT only; cron and collector secrets are refused (collector-pull.mjs).
+  const collectorPull = createCollectorPull({
+    env, fetcher, now, authorize,
+    secretHeadersPresent: req => req.headers.get('x-drive-summary-cron-secret') !== null || req.headers.get('x-collector-heartbeat-secret') !== null,
+  });
   return async req => {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     if (req.method === 'GET') return actionOf(req) === 'ledger_status' ? ledgerStatusRead(req) : actionOf(req) === 'ai_usage' ? aiUsageRead(req) : statusRead(req);
     if (req.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED', updated_at: null, documents: {} }, 405);
     if (actionOf(req) === 'heartbeat') return heartbeat(req);
     if (actionOf(req) === 'ai_usage') return aiUsageReport(req);
+    if (actionOf(req) === 'collector_pull') { const out = await collectorPull(req); return json(out.body, out.status); }
     // A collector secret never reaches the copy rebuild path, even next to another credential.
     if (req.headers.get('x-collector-heartbeat-secret') !== null) return json({ ok: false, error: 'UNAUTHORIZED', updated_at: null, documents: {} }, 401);
     if (actionOf(req) === 'ledger_export') return ledgerExport(req);

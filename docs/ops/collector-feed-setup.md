@@ -347,3 +347,25 @@ Web2 **뉴스 클리핑**에 구독 채널 기사(내부 lane은 channel, 화면
 - 서버 비밀값 `FAMILY_NAME`(Supabase **Edge Functions → Secrets**): 가족 1명의 부르는 이름(1~20자, 글자·숫자·빈칸). 저장소·PR·로그에 쓰지 않는다. 커맨드센터가 넣는다.
 - 있으면 collector-feed가 '잊지 말기' 줄을 저장할 때 주어 '상대'를 이 이름으로 바꾼다(받침에 맞춰 조사도). AI에는 이름을 보내지 않는다(재료에 붙는 옛 줄도 '상대'로 되돌려 붙임).
 - 없거나 모양이 틀리면 지금처럼 '상대' 그대로다. 이미 저장된 줄은 `docs/ops/family-subject-name.sql`로 한 번 고친다.
+
+## [최신화] 지금 한 번 수집 — 웹 앱 (S52-46 FEED-최신화즉시수집)
+
+Web2 통화·텔레그램 화면의 [최신화]를 누르면 Web2 서버(`drive-summary ?action=collector_pull`)가 이 프로젝트의 웹 앱을 깨워 '보내기'를 한 번 앞당긴다. 설계: `docs/design/feed-pull-now.md` 2절 (나).
+웹 앱 주소·비밀값은 저장소·로그·채팅에 쓰지 않는다. 주소는 Supabase 비밀값에만, 비밀값은 스크립트 속성과 Supabase 비밀값에만 둔다.
+
+### P1단계 — 코드 새로 붙여넣기
+저장소의 `docs/ops/collector-feed.gs`를 통째로 붙여 넣는다(맨 위 실제 폴더 주소 두 줄 `CALL_FEED_CALL_ROOT_FOLDER`·`TG_FEED_ROOT_FOLDER`는 지금 운영 값 그대로 둔다). 저장.
+
+### P2단계 — 비밀값 만들기
+함수 목록에서 `feedPull_makeSecret` → [실행]. 스크립트 속성에 `COLLECTOR_PULL_SECRET`이 생긴다(값은 로그에 안 나옴). 프로젝트 설정 → 스크립트 속성에서 값을 복사해 Supabase → Edge Functions → Secrets에 같은 이름 `COLLECTOR_PULL_SECRET`으로 넣는다.
+
+### P3단계 — 웹 앱 배포
+[배포 → 새 배포] → 유형 톱니바퀴 → [웹 앱] → 설명 "Web2 최신화" → 실행 사용자 **나** → 액세스 권한 **모든 사용자** → [배포] → 권한 허용(구글 로그인). 나온 웹 앱 주소(`https://script.google.com/macros/s/…/exec`)를 Supabase Secrets에 `COLLECTOR_PULL_URL`로 넣는다.
+- '모든 사용자'여야 Web2 서버가 로그인 없이 부를 수 있다. 웹 앱이 할 수 있는 일은 비밀값이 맞을 때 '보내기 한 번 앞당기기'뿐이고 자료를 돌려주지 않는다.
+- 나중에 코드를 다시 붙여 넣으면 [배포 → 배포 관리 → 연필 → 버전 '새 버전' → 배포]로 같은 주소를 유지한다(새 배포를 만들면 주소가 바뀜).
+
+### P4단계 — 확인
+`feedPull_check` → [실행]: "비밀값 있음 · 오늘 받은 수 0/30". Web2 통화 또는 텔레그램 화면에서 [최신화] → 1~3분 뒤 이 프로젝트 실행 기록에 `feedPull_run`이 보이고 화면 줄이 갱신된다.
+
+### 멈추기·되돌리기
+[배포 → 배포 관리]에서 웹 앱 배포를 [보관](archive)하면 [최신화]는 "수집기를 깨우지 못했어요"로 끝나고 매시 보내기는 그대로다. Supabase Secrets의 `COLLECTOR_PULL_URL`·`COLLECTOR_PULL_SECRET`을 지워도 같다(서버는 "준비 안 됨"). 스크립트 속성 `FEED_PULL_STATE`는 지워도 된다(받은 수 기록뿐).

@@ -2663,6 +2663,131 @@ function feedReport_test() {
   feedReport_({ source: 'call_send', lastAt: call.lastAt, state: call.state });
 }
 
+// ── [최신화] 지금 한 번 수집 — 웹 앱 (FEED-최신화즉시수집, S52-46) ─────────────────
+// 설계 docs/design/feed-pull-now.md 2절 (나). Web2 서버(drive-summary ?action=collector_pull)만 이 웹 앱을 부른다.
+// - 배포: [배포 → 새 배포 → 유형 웹 앱], 실행 사용자 '나', 액세스 '모든 사용자'(서버가 로그인 없이 부를 수 있어야 함). 주소는 Supabase 비밀값 COLLECTOR_PULL_URL에만.
+// - 비밀값: 스크립트 속성 COLLECTOR_PULL_SECRET(feedPull_makeSecret가 만듦, 로그에 안 찍음). Supabase 비밀값 COLLECTOR_PULL_SECRET에 같은 값.
+//   웹 앱은 요청 머리글을 읽지 못하므로 비밀값은 몸통 {secret, source}로 받는다.
+// - doPost는 자료를 돌려주지 않는다. 늘 {ok:true} 또는 {ok:false} 한 줄. 할 수 있는 일은 '정해진 보내기 한 번 앞당기기'뿐.
+// - 3분 안 같은 출처 두 번째·하루 30번 넘음은 조용히 무시({ok:true}, 서버가 먼저 20번·3분으로 막음 — 이것은 비밀값이 샜을 때의 두 번째 둑).
+// - 일은 doPost에서 하지 않고 1회용 트리거 feedPull_run(1초 뒤)을 하나만 만든다. feedPull_run이 출처 하나를 돌리고(기존 잠금·상태·멈춤 알림 그대로),
+//   남은 출처가 있으면 1회용 트리거를 다시 하나 만든다(한 실행 6분 제한 안). 한국 0~7시에도 누르면 돈다(설계 3절 권함).
+var FEED_PULL_SECRET_KEY = 'COLLECTOR_PULL_SECRET';
+var FEED_PULL_STATE_KEY = 'FEED_PULL_STATE';   // {d: 한국 날짜, n: 그날 받은 수, last: {telegram: ms, call: ms}, want: [출처…]}
+var FEED_PULL_SOURCES = ['telegram', 'call'];
+var FEED_PULL_WAIT_MS = 3 * 60 * 1000;
+var FEED_PULL_DAILY_MAX = 30;
+var FEED_PULL_BODY_MAX = 512;
+
+/** 몸통 읽기(순수 함수): 정확히 {secret, source}. 아니면 null. */
+function feedPullParse(text) {
+  if (typeof text !== 'string' || !text || text.length > FEED_PULL_BODY_MAX) return null;
+  var body;
+  try { body = JSON.parse(text); } catch (e) { return null; }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  var keys = Object.keys(body).sort();
+  if (keys.length !== 2 || keys[0] !== 'secret' || keys[1] !== 'source') return null;
+  if (typeof body.secret !== 'string' || FEED_PULL_SOURCES.indexOf(body.source) < 0) return null;
+  return { secret: body.secret, source: body.source };
+}
+
+/** 비밀값 비교(순수 함수): 저장값이 32자 이상일 때만, 길이와 상관없이 끝까지 비교한다. */
+function feedPullSecretOk(given, expected) {
+  if (typeof given !== 'string' || typeof expected !== 'string' || expected.length < 32 || given.length > 256) return false;
+  var diff = given.length ^ expected.length;
+  for (var i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ (i < given.length ? given.charCodeAt(i) : 0);
+  return diff === 0;
+}
+
+/** 상태 정리(순수 함수): 모양이 다르면 빈 상태. 날짜가 바뀌면 n을 0으로. */
+function feedPullState(raw, nowMs) {
+  var st = null;
+  try { st = raw ? JSON.parse(raw) : null; } catch (e) { st = null; }
+  var today = callFeedKstDay(nowMs);
+  var out = { d: today, n: 0, last: {}, want: [] };
+  if (!st || typeof st !== 'object') return out;
+  if (st.d === today && typeof st.n === 'number' && st.n >= 0 && st.n <= 1000) out.n = Math.floor(st.n);
+  FEED_PULL_SOURCES.forEach(function (s) {
+    var v = st.last && st.last[s];
+    if (typeof v === 'number' && isFinite(v) && v > 0) out.last[s] = v;
+  });
+  if (Array.isArray(st.want)) out.want = FEED_PULL_SOURCES.filter(function (s) { return st.want.indexOf(s) >= 0; });
+  return out;
+}
+
+/** 받을지 정하기(순수 함수). {take, state, why}. take가 거짓이면 state는 그대로. */
+function feedPullDecide(state, source, nowMs) {
+  var last = state.last[source] || 0;
+  if (nowMs - last < FEED_PULL_WAIT_MS) return { take: false, state: state, why: 'recent' };
+  if (state.n >= FEED_PULL_DAILY_MAX) return { take: false, state: state, why: 'daily' };
+  var lastNext = {};
+  FEED_PULL_SOURCES.forEach(function (s) { if (state.last[s]) lastNext[s] = state.last[s]; });
+  lastNext[source] = nowMs;
+  var want = state.want.indexOf(source) >= 0 ? state.want.slice() : state.want.concat([source]);
+  return { take: true, state: { d: state.d, n: state.n + 1, last: lastNext, want: FEED_PULL_SOURCES.filter(function (s) { return want.indexOf(s) >= 0; }) }, why: '' };
+}
+
+/** 다음에 돌릴 출처 하나와 남은 목록(순수 함수). */
+function feedPullNext(want) {
+  var list = FEED_PULL_SOURCES.filter(function (s) { return (want || []).indexOf(s) >= 0; });
+  return { source: list.length ? list[0] : '', rest: list.slice(1) };
+}
+
+/** 웹 앱 입구. Web2 서버만 부른다. 응답은 늘 한 줄({ok}), 자료·오류 원문 없음. */
+function doPost(e) {
+  var reply = function (ok) { return ContentService.createTextOutput(JSON.stringify({ ok: ok })).setMimeType(ContentService.MimeType.JSON); };
+  try {
+    var body = feedPullParse(e && e.postData ? e.postData.contents : '');
+    var props = PropertiesService.getScriptProperties();
+    if (!body || !feedPullSecretOk(body.secret, props.getProperty(FEED_PULL_SECRET_KEY) || '')) return reply(false);
+    var now = Date.now();
+    var decided = feedPullDecide(feedPullState(props.getProperty(FEED_PULL_STATE_KEY), now), body.source, now);
+    if (!decided.take) { Logger.log('[최신화] 받지 않음(' + decided.why + '): ' + body.source); return reply(true); }
+    props.setProperty(FEED_PULL_STATE_KEY, JSON.stringify(decided.state));
+    feedPull_schedule_();
+    Logger.log('[최신화] 받음: ' + body.source);
+    return reply(true);
+  } catch (err) {
+    Logger.log('[최신화] 실패: ' + (err && err.message ? err.message : err));
+    return reply(false);
+  }
+}
+
+/** 1회용 트리거 feedPull_run을 하나만 둔다(이미 있으면 그대로). */
+function feedPull_schedule_() {
+  var has = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'feedPull_run'; });
+  if (!has) ScriptApp.newTrigger('feedPull_run').timeBased().after(1000).create();
+}
+
+/** 1회용 트리거가 부른다. 원하는 출처 하나를 돌리고, 남으면 다시 1회용 트리거를 만든다. 보내기 잠금은 기존 runCore가 잡는다(이미 돌고 있으면 건너뜀). */
+function feedPull_run() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'feedPull_run') ScriptApp.deleteTrigger(t); });
+  var props = PropertiesService.getScriptProperties();
+  var st = feedPullState(props.getProperty(FEED_PULL_STATE_KEY), Date.now());
+  var next = feedPullNext(st.want);
+  st.want = next.rest;
+  props.setProperty(FEED_PULL_STATE_KEY, JSON.stringify(st));
+  if (next.rest.length) feedPull_schedule_();
+  if (next.source === 'telegram') feedGuard_('tg', function () { return tgFeed_runCore_(false); });
+  else if (next.source === 'call') feedGuard_('call', callFeed_runCore_);
+}
+
+/** 손으로 [실행] 한 번: 웹 앱 비밀값을 만든다(있으면 바꾸지 않음, 값은 로그에 안 찍음). 그 값을 Supabase 비밀값 COLLECTOR_PULL_SECRET에도 넣는다. */
+function feedPull_makeSecret() {
+  var props = PropertiesService.getScriptProperties();
+  if ((props.getProperty(FEED_PULL_SECRET_KEY) || '').length >= 32) { Logger.log('[최신화] 비밀값이 이미 있습니다. 바꾸지 않았습니다.'); return; }
+  props.setProperty(FEED_PULL_SECRET_KEY, (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''));
+  Logger.log('[최신화] 새 비밀값을 스크립트 속성 ' + FEED_PULL_SECRET_KEY + '에 넣었습니다(값은 로그에 남기지 않음). Supabase에도 같은 값을 넣으세요.');
+}
+
+/** 손으로 [실행]: [최신화] 상태 한 줄(비밀값 유무·오늘 받은 수·기다리는 출처). */
+function feedPull_check() {
+  var props = PropertiesService.getScriptProperties();
+  var st = feedPullState(props.getProperty(FEED_PULL_STATE_KEY), Date.now());
+  Logger.log('[최신화] 비밀값 ' + ((props.getProperty(FEED_PULL_SECRET_KEY) || '').length >= 32 ? '있음' : '없음 — feedPull_makeSecret 먼저') +
+    ' · 오늘 받은 수 ' + st.n + '/' + FEED_PULL_DAILY_MAX + ' · 기다리는 출처 ' + (st.want.length ? st.want.join(', ') : '없음'));
+}
+
 // node 시험에서만 쓰는 내보내기(앱 스크립트에는 module이 없어서 아무 일도 하지 않는다).
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -2687,6 +2812,7 @@ if (typeof module !== 'undefined' && module.exports) {
     tgScrapParseRooms: tgScrapParseRooms, tgScrapLookDays: tgScrapLookDays, tgScrapDays: tgScrapDays, tgScrapLines: tgScrapLines, tgScrapPlan: tgScrapPlan,
     tgScrapStateClean: tgScrapStateClean, tgScrapLastRunText: tgScrapLastRunText,
     tgFeedCompactRoom: tgFeedCompactRoom, tgFeedCompactState: tgFeedCompactState, tgFeedRemaining: tgFeedRemaining, tgFeedRemainingText: tgFeedRemainingText,
+    feedPullParse: feedPullParse, feedPullSecretOk: feedPullSecretOk, feedPullState: feedPullState, feedPullDecide: feedPullDecide, feedPullNext: feedPullNext,
     callFeedFamilyList: callFeedFamilyList, callFeedFamilyText: callFeedFamilyText, tgFeedFamilyPick: tgFeedFamilyPick, tgFeedFamilyState: tgFeedFamilyState,
     tgFeedFamilyText: tgFeedFamilyText, tgFeedFamilyRoomState: tgFeedFamilyRoomState, tgFeedSelfLabels: tgFeedSelfLabels, tgFeedFamilyBody: tgFeedFamilyBody,
   };
