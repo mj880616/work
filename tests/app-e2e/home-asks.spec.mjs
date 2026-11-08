@@ -53,7 +53,7 @@ for(const width of [900,1280])test(`${width}px: a faint number beside the menu h
 });
 for(const width of [390,1280])test(`${width}px: nothing to handle → no mark`,async({page})=>{
   await fixture(page,{width,cands:[cand(3,'update')]});
-  await expect(page.locator('#homeView [data-home-summary] .nbx-head')).toHaveText('잊지 말기');
+  await expect(page.locator('#homeView [data-home-summary] [data-home-forget-open]')).toHaveText('잊지 말기');
   const m=await mark(page);
   expect(m.attr).toBeNull();expect(['none','normal']).toContain(m.content);
 });
@@ -72,13 +72,13 @@ test('home summary line ends with tomorrow promises only when there are some',as
   await expect(btn).toHaveText('내일 약속 2 ›');
   // 폰 알림 '원장 약속 D-1'과 같은 기준: 대기 중·유효·후속확인일(없으면 끝난 날)이 내일(서울). 시험 시계는 10/06 → 내일 10/07.
   expect(ledgerAsked.at(-1)).toMatchObject({commitment_status:'eq.waiting',validity:'in.(current,needs_check)',or:'(follow_up_on.eq.2026-10-07,and(follow_up_on.is.null,date_end.eq.2026-10-07))',select:'id'});
-  const line=await page.locator('#homeView [data-home-summary] .nbx-head').boundingBox();expect(line.height).toBeLessThanOrEqual(40);
+  const line=await page.locator('#homeView [data-home-summary] [data-home-forget-open]').boundingBox(),end=await btn.boundingBox();expect(line.height).toBeLessThanOrEqual(40);expect(Math.abs((end.y+end.height/2)-(line.y+line.height/2))).toBeLessThanOrEqual(4); // S53-13: 칩 뒤 같은 줄
   await btn.click();
   await expect(page.locator('#ledgerView')).toBeVisible();
 });
 test('no tomorrow promise → nothing appended',async({page})=>{
   await fixture(page,{width:1280});
-  await expect(page.locator('#homeView [data-home-summary] .nbx-head')).toBeVisible();
+  await expect(page.locator('#homeView [data-home-summary] [data-home-forget-open]')).toBeVisible();
   await expect(page.locator('#homeView [data-home-summary-promises]')).toHaveCount(0);
   await expect(page.locator('#homeView [data-home-summary]')).not.toContainText('내일 약속');
 });

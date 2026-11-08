@@ -193,6 +193,8 @@
 .feed-view .feed-editing .feed-call{align-items:center;cursor:default}
 .feed-view .feed-title-input,.feed-view .feed-edit-input{flex:1 1 auto;min-width:0;width:100%;height:var(--ds-compact-height);margin:0;padding:0 6px;border:var(--ds-line-width) solid var(--kptu-primary);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row);box-sizing:border-box}
 .feed-view .feed-edit-input{border-color:var(--ds-line)}
+/* UI-줄입력늘어나기: 글만큼 늘어나는 한 줄 칸(auto-grow.js) — 한 줄 높이에서 시작, 높이는 그 모듈이 맞춤. */
+.feed-view textarea[data-autogrow]:is(.feed-title-input,.feed-edit-input){display:block;padding:6px;line-height:1.35;resize:none;overflow-y:hidden}
 .feed-view .feed-title-input:focus-visible,.feed-view .feed-edit-input:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .feed-view .feed-detail-title-input{font-size:15px;font-weight:var(--ds-weight-medium)}
 .feed-view .feed-whoname{position:relative;display:inline;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}

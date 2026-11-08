@@ -9,15 +9,20 @@ function ensure() {
   menu ||= createAnchoredMenu({id:'photoBarMenu', className:'od-link-menu photo-bar-menu', label:'사진 더보기', historyKey:'kptuPhotoBarMenu',
     parent:trigger => trigger.closest('[role="dialog"]') || document.body,
     key:() => 'photo-bar',
-    render:() => (ctx?.rows || []).map(r => `<button type="button" data-bar-item="${esc(r.id)}"${r.disabled ? ' disabled' : ''}>${esc(barItemText(r.id))}</button>`).join(''),
-    onAction:(button, previous) => { ctx?.run(button.dataset.barItem); previous?.trigger?.focus?.({preventScroll:true}); }}); // 닫힌 뒤 눌렀던 칸으로 포커스(S 키 별표·키보드 이어서 쓰기)
+    // S53-12: why가 있는 항목 = 지금은 못 함(권한·판) — 숨기지도 무반응으로 두지도 않고 흐리게(aria-disabled), 누르면 off(why)로 이유 한 줄.
+    render:() => (ctx?.rows || []).map(r => `<button type="button" data-bar-item="${esc(r.id)}"${r.disabled ? ' disabled' : ''}${r.why ? ' aria-disabled="true"' : ''}>${esc(barItemText(r.id))}</button>`).join(''),
+    onAction:(button, previous) => {
+      const id = button.dataset.barItem, row = (ctx?.rows || []).find(r => r.id === id);
+      if (row?.why) ctx?.off?.(row.why); else ctx?.run(id);
+      previous?.trigger?.focus?.({preventScroll:true}); // 닫힌 뒤 눌렀던 칸으로 포커스(S 키 별표·키보드 이어서 쓰기)
+    }});
   return menu;
 }
-// rows = [{id, disabled?}] (이미 걸러진 것), run(id)가 항목을 처리. 보일 항목이 없으면 열지 않고 false.
-export function openBarMenu(trigger, rows, run) {
+// rows = [{id, disabled?, why?}] (이미 걸러진 것), run(id)가 항목을 처리, off(why)가 흐린 항목(why)의 이유 한 줄을 보인다. 보일 항목이 없으면 열지 않고 false.
+export function openBarMenu(trigger, rows, run, off = null) {
   const list = (rows || []).filter(Boolean);
   if (!trigger || !list.length) return false;
-  ctx = {rows:list, run};
+  ctx = {rows:list, run, off};
   ensure().open(trigger);
   return true;
 }
