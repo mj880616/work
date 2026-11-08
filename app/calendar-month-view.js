@@ -14,7 +14,8 @@ import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-m
   const clickClock=()=>globalThis.performance?.now?.()??Date.now();
   let layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
   // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks().
-  let tasks=[],tasksSig='';
+  // tasksSig starts as the signature of the empty list, so the first fetch that finds no tasks does not redraw the grid a second time (S54-11).
+  let tasks=[],tasksSig='[]';
   // CAL-끌어옮기기(PC 월간): 끄는 동안 옮겨 갈 날짜 칸 표시도 이 renderer가 그린다. 상태는 calendar-drag.js가 setDrag로 넘긴다(메모리만).
   let drag=null;
   // S46-23: 폰 월 보기의 펼침 상태(메모리만). monthKey가 바뀌면(달 바꾸기) 한 화면 크기로 돌아간다.
