@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import { SHEET, openPicker, pressRow, openFolds } from './helpers/area-org-picker.mjs';
-// UI-고르기창개선 (PC만, 폰 그대로). A: 담당조직 고르기는 묶음별 줄(왼쪽 묶음 이름, 오른쪽 낮은 칩) + 맨 위 검색칸, 고른 칩은 초록 + ✓,
+// UI-고르기창개선 (PC만, 폰 그대로). A: 담당조직 선택은 묶음별 줄(왼쪽 묶음 이름, 오른쪽 낮은 칩) + 맨 위 검색칸, 고른 칩은 초록 + ✓,
 // 조직 이름은 전체 그대로. 묶음 순서는 철도 / 지하철 / 민자철도 / 민간도시철도, 묶음에 없는 조직은 맨 아래 "그 외".
 // B: 프로젝트 고르기는 한 줄에 하나 + 검색칸, 하위는 들여쓰기·흐린 글자("↳" 없음), 작은 체크칸, 고른 줄은 연한 초록, 줄 전체 누름.
 // 창은 누른 버튼 바로 아래(anchored-popup.js). C: 같은 창을 쓰는 화면(바구니 [연결하기], 홈 [업데이트 ▾]·[할 일] 프로젝트)과

@@ -140,7 +140,7 @@ test('업데이트 줄: 내용을 누르면 그 업데이트가 열리고, [조�
   await expect(line(page,`u:${uid(1)}`)).toBeVisible();
   await line(page,`u:${uid(1)}`).locator('[data-nbx-act="org"]').click();
   await expect(page.locator('[data-basket-detail] [data-manual-pick="organization"]')).toBeVisible();
-  await expect(page.getByRole('dialog',{name:'담당조직 고르기'})).toBeVisible();
+  await expect(page.getByRole('dialog',{name:'담당조직 선택'})).toBeVisible();
 });
 
 test('가족 기능이 없는 작업공간은 가족 줄이 없고(서버 기능 목록), 나머지는 같은 한 목록',async({page})=>{

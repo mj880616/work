@@ -85,7 +85,7 @@ function paintList(){
 }
 function paintDetail(){
   const box=$('#rbDetail'),b=bundleOf(state.selected);
-  if(!b){box.innerHTML='<p class="rb-empty rb-pane-empty">왼쪽에서 묶음을 고르면 붙인 소식이 보여요.</p>';return;}
+  if(!b){box.innerHTML='<p class="rb-empty rb-pane-empty">왼쪽에서 묶음을 선택하면 붙인 소식이 보여요.</p>';return;}
   const rows=linksOf(b.id),count=rows.length;
   const title=state.mode==='rename'?`<div class="rb-inline" data-rb-rename-form data-enter-save><input type="text" class="rb-input" data-rb-rename-input maxlength="${BUNDLE_NAME_MAX}" aria-label="묶음 이름" value="${esc(state.draft)}"><button type="button" class="rb-small" data-rb-rename-cancel>취소</button><button type="button" class="rb-small primary" data-rb-rename-save data-enter-save-submit>저장</button></div>`
     :`<h3 class="rb-detail-name" id="rbDetailName">${esc(b.name)}</h3><span class="rb-meta">${count}개</span><button type="button" class="rb-more" data-rb-detail-more data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-label="${esc(b.name)} 메뉴"${state.busy?' disabled':''}>${MORE}</button>`;
@@ -108,7 +108,7 @@ function closeDetail({fromBack=false}={}){
   paint();$(`#rbList [data-rb-bundle="${CSS.escape(id||'')}"]`)?.focus({preventScroll:true});
 }
 // S48-28: 바꾸던 이름·순서를 버릴지는 공용 작은 확인창으로 묻는다(누른 묶음 근처).
-async function confirmDrop(anchor){const changed=state.order||(state.mode&&state.draft.trim());if(changed&&!(await askConfirm(anchor,{text:'바꾸던 내용을 버릴까요?',ok:'버리기',danger:true})))return false;state.mode='';state.draft='';state.order=null;return true;}
+async function confirmDrop(anchor){const changed=state.order||(state.mode&&state.draft.trim());if(changed&&!(await askConfirm(anchor,{text:'바꾸던 내용을 저장하지 않을까요?',ok:'저장 안 함',danger:true})))return false;state.mode='';state.draft='';state.order=null;return true;}
 const say=(text,detail=false)=>{if(detail)state.detailStatus=text;else state.status=text;const el=$(detail?'#rbDetail [data-rb-detail-status]':'#rbList [data-rb-status]');if(el)el.textContent=text;};
 
 async function guarded(fn){
@@ -139,11 +139,11 @@ function renameBundle(){
 }
 async function removeBundle(){
   const b=bundleOf(state.selected);if(!b||linksOf(b.id).length)return;
-  if(!(await askConfirm(document.activeElement,{text:`'${b.name}' 묶음을 지울까요? 붙은 소식이 없는 빈 묶음이에요.`,ok:"지우기",danger:true})))return;
+  if(!(await askConfirm(document.activeElement,{text:`'${b.name}' 묶음을 삭제할까요? 붙은 소식이 없는 빈 묶음이에요.`,ok:"삭제",danger:true})))return;
   return guarded(async current=>{
     try{const gone=await deleteReferenceBundle(b.id,rt);if(!current())return;
-      if(!gone){state.detailStatus='지우지 못했어요. 목록을 다시 불러와 확인해 주세요.';await load();return;}
-      state.bundles=state.bundles.filter(x=>x.id!==b.id);state.selected=null;state.status=`'${b.name}' 묶음을 지웠어요.`;const l=layer;layer=null;l?.close();
+      if(!gone){state.detailStatus='삭제하지 못했어요. 목록을 다시 불러와 확인해 주세요.';await load();return;}
+      state.bundles=state.bundles.filter(x=>x.id!==b.id);state.selected=null;state.status=`'${b.name}' 묶음을 삭제했어요.`;const l=layer;layer=null;l?.close();
     }catch(error){if(current())state.detailStatus=bundleErrorText(error,'delete');}
   }).then(()=>$('#rbList [data-rb-list-more]')?.focus());
 }
@@ -188,7 +188,7 @@ const menu=createAnchoredMenu({id:'rbMenu',className:'rb-menu',label:'참고 묶
   key:t=>t.dataset.rbItemMore?'item:'+t.dataset.rbItemMore:t.hasAttribute('data-rb-detail-more')?'detail':'list',
   render:id=>{
     if(id==='list')return '<button type="button" data-rb-act="add">묶음 더하기</button><button type="button" data-rb-act="order">순서 바꾸기</button>';
-    if(id==='detail'){const b=bundleOf(state.selected);return '<button type="button" data-rb-act="rename">이름 바꾸기</button>'+(b&&!linksOf(b.id).length?'<button type="button" class="rb-menu-danger" data-rb-act="delete">묶음 지우기</button>':'');}
+    if(id==='detail'){const b=bundleOf(state.selected);return '<button type="button" data-rb-act="rename">이름 바꾸기</button>'+(b&&!linksOf(b.id).length?'<button type="button" class="rb-menu-danger" data-rb-act="delete">묶음 삭제</button>':'');}
     return '<button type="button" data-rb-act="open">업데이트 열기</button><button type="button" class="rb-menu-danger" data-rb-act="disconnect">연결 해제</button>';
   },
   onAction:(button,active)=>{

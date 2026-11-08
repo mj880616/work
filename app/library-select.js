@@ -37,9 +37,9 @@ export async function deleteSequentially(ids,deleteOne,{isCurrent=()=>true,onPro
   }
   return {done,failed,skipped};
 }
-export const confirmText=n=>`${n}개를 지울까요?\nDrive 파일은 휴지통으로 이동해요(30일 뒤 사라짐).`;
+export const confirmText=n=>`${n}개를 삭제할까요?\nDrive 파일은 휴지통으로 이동해요(30일 뒤 사라짐).`;
 export function resultText({done,failed,skipped}){
-  if(!failed.length&&!skipped.length)return `${done.length}개를 지웠어요.`;
+  if(!failed.length&&!skipped.length)return `${done.length}개를 삭제했어요.`;
   const left=failed.length+skipped.length;
-  return `${done.length}개를 지웠고 ${left}개는 지우지 못했어요. 남은 ${left}개는 그대로 골라 두었어요. 자료 목록과 Drive 원본 상태를 확인한 뒤 다시 시도해 주세요.`;
+  return `${done.length}개를 삭제했고 ${left}개는 삭제하지 못했어요. 남은 ${left}개는 그대로 선택해 두었어요. 자료 목록과 Drive 원본 상태를 확인한 뒤 다시 시도해 주세요.`;
 }

@@ -54,7 +54,7 @@ for(const width of [390,1280])test(`active modal titles survive eyebrow removal 
   await page.evaluate(()=>window.KPTUDeferredFeatures.load());
   for(const [id,title] of [
     ['documentModal','자료 등록'],['meetingModal','사업 보고'],
-    ['libraryManageModal','분류 고치기'],['libraryEditModal','자료 수정'],
+    ['libraryManageModal','분류 수정'],['libraryEditModal','자료 수정'],
     ['meetingRoundDetailModal','사업 보고'],['ps3CreateModal','사업영역 만들기'],
     ['ps3DeleteModal','사업영역 삭제'],['ps3ArchiveModal','보관한 사업영역'],
     ['soEditModal','담당조직 추가'],['soAssignModal','담당자 지정'],['wdAffModal','협의회·사업단 소속']

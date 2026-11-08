@@ -18,5 +18,5 @@ export async function addNoteComment({note_id, kind, quote, body}, rt = window.K
 }
 export async function deleteNoteComment(id, rt = window.KPTURuntime) {
   const rows = await rt.api(`/rest/v1/app_note_comments?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(ws(rt))}&select=id`, {method: 'DELETE', prefer: 'return=representation'});
-  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('댓글을 지우지 못했어요.');
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('댓글을 삭제하지 못했어요.');
 }

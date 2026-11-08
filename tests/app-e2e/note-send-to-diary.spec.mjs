@@ -76,7 +76,7 @@ for (const width of [390, 1280]) {
     expect(f.errors).toEqual([]);
   });
 }
-test('일기 저장이 실패하면 노트는 지우지 않고 그대로 둔다 1280', async ({ page }) => {
+test('일기 저장이 실패하면 노트는 삭제하지 않고 그대로 둔다 1280', async ({ page }) => {
   const f = await fixture(page, 1280);
   const posts = await diaryRoute(page, f, { fail: true });
   await press(page, rowMore(page, 'n-plain'), 1280);

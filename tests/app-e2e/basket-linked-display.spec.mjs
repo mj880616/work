@@ -40,7 +40,7 @@ for(const width of [390,1280])test(`organization list combines occurred_at and r
  await page.setViewportSize({width,height:900});const f=await fixture(page);
  f.links.push({id:'linked',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});f.note.archived_at=stamp;f.note.ai_export_allowed=false;
  await team(page);await expect.poll(()=>recordDay(page)).toBe('10.12');
- f.links[0].summary='오늘 고친 요약';await page.evaluate(()=>dispatchEvent(new Event('kptu:basket-links-changed')));
+ f.links[0].summary='오늘 수정한 요약';await page.evaluate(()=>dispatchEvent(new Event('kptu:basket-links-changed')));
  await expect.poll(()=>f.linkReads.length).toBeGreaterThan(1);await expect.poll(()=>recordDay(page)).toBe('10.12');expect(f.errors).toEqual([]);
 });
 for(const width of [390,1280])test.describe(`original list return ${width}`,()=>{

@@ -67,7 +67,7 @@ test('PC 중간 폭(900px)도 한 줄 배치·가로 넘침 없음',async({page}
 });
 
 // S51-28: 폰·폴드(1199px까지)는 칩 줄 대신 [분류 ▾] 창(library-top-row.spec.mjs). 칩 줄 규칙은 칩이 보이는 폭(1200·1280)에서 본다.
-for(const width of [1200,1280])test(`분류 칩: 기본은 회의만 꺼짐, 여러 개 고르기, [전체] 두 번, 검색 안내와 [켜기] ${width}`,async({page})=>{
+for(const width of [1200,1280])test(`분류 칩: 기본은 회의만 꺼짐, 여러 개 선택, [전체] 두 번, 검색 안내와 [켜기] ${width}`,async({page})=>{
   const {errors}=await boot(page,width);
   const group=page.locator('#libraryCategoryFilter');await expect(group).toHaveAttribute('role','group');
   await expect(group.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
@@ -79,9 +79,9 @@ for(const width of [1200,1280])test(`분류 칩: 기본은 회의만 꺼짐, 여
   await expect(chip(page,'교섭')).toHaveAttribute('aria-pressed','false');await expect(chip(page,'기타')).toHaveAttribute('aria-pressed','false');
   expect((await ids(page)).sort()).toEqual(['dated-prefix','policy','short']);
   await chip(page,'회의').click();expect((await ids(page)).sort()).toEqual(['dated-prefix','meeting','policy','short']);
-  // [전체](LIB-거르기전체): 일부 켜짐 → 누르면 모두 켬 → 다시 누르면 모두 끔(고른 분류 없음) → 누르면 모두 켬. 기본 상태는 [회의]를 다시 끄면 된다.
+  // [전체](LIB-거르기전체): 일부 켜짐 → 누르면 모두 켬 → 다시 누르면 모두 끔(선택한 분류 없음) → 누르면 모두 켬. 기본 상태는 [회의]를 다시 끄면 된다.
   await chip(page,'all').click();await expect(chip(page,'all')).toHaveAttribute('aria-pressed','true');await expect(group.locator('[aria-pressed="false"]')).toHaveCount(0);await expect(rows(page)).toHaveCount(8);
-  await chip(page,'all').click();await expect(chip(page,'all')).toHaveAttribute('aria-pressed','false');await expect(group.locator('[aria-pressed="true"]')).toHaveCount(0);await expect(rows(page)).toHaveCount(0);await expect(page.locator('#documentList')).toHaveText('고른 분류 없음');
+  await chip(page,'all').click();await expect(chip(page,'all')).toHaveAttribute('aria-pressed','false');await expect(group.locator('[aria-pressed="true"]')).toHaveCount(0);await expect(rows(page)).toHaveCount(0);await expect(page.locator('#documentList')).toHaveText('선택한 분류 없음');
   await chip(page,'all').click();await expect(rows(page)).toHaveCount(8);
   await chip(page,'회의').click();await expect(group.locator('[aria-pressed="false"]')).toHaveText(['회의']);await expect(rows(page)).toHaveCount(7);
   // 검색은 칩을 따르고, 꺼진 분류에 걸린 자료는 목록 아래에 알린다. [켜기]는 그 분류만 켠다.
@@ -204,7 +204,7 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 차례(묶기 → �
   const more=page.locator('#libraryTopMenuBtn'),m=await box(more),head=await box(page.locator('#libraryView .lu-search-row'));
   expect(m.x+m.width).toBeGreaterThan(head.x+head.width-40);expect(Math.round(m.height)).toBe(28);expect(await more.evaluate(n=>Math.round(parseFloat(getComputedStyle(n,'::after').height)))).toBe(44);
   // 칩 묶음의 이름(aria-label)은 그대로이고, 보이는 이름표는 읽기 도구에 겹쳐 읽히지 않는다.
-  await expect(group).toHaveAttribute('aria-label','묶기');await expect(category).toHaveAttribute('aria-label','자료 분류 (여러 개 고르기)');
+  await expect(group).toHaveAttribute('aria-label','묶기');await expect(category).toHaveAttribute('aria-label','자료 분류 (여러 개 선택)');
   expect(await page.locator('#libraryView .lu-filter-label').evaluateAll(els=>els.every(el=>el.getAttribute('aria-hidden')==='true'))).toBe(true);
   // 담당조직으로 걸러 들어오면 그 줄도 같은 모양(이름표 + 칩)으로 끼운다.
   await page.evaluate(()=>{window.KPTULibrary.showOrganization('org-1','가상 지부')});
@@ -232,10 +232,10 @@ test('폰 거르기 줄: 위 한 줄 [찾기][분류 ▾][⋯], 이름표 없음
 
 // UI-자료실편집버튼(2026-10-21): [분류 수정]이 목록 머리에서 [종류] 칩 줄 맨 끝의 작은 [편집]으로 옮겨 갔다. 동작(분류 편집 창 열기)은 그대로, 접근성 이름은 "분류 편집".
 // S51-28: 폰·폴드(1199px까지)는 [편집]이 [분류 ▾] 창 안(library-top-row.spec.mjs). 칩 줄 끝 [편집]은 1200px~.
-for(const width of [1280,1200])test(`종류 칩 줄 맨 끝 [편집] ${width}: 칩 오른쪽 같은 줄, 머리에는 [+ 자료 등록]만, 누르면 분류 편집 창`,async({page})=>{
+for(const width of [1280,1200])test(`종류 칩 줄 맨 끝 [수정] ${width}: 칩 오른쪽 같은 줄, 머리에는 [+ 자료 등록]만, 누르면 분류 수정 창`,async({page})=>{
   const {errors}=await boot(page,width);
-  const edit=page.getByRole('button',{name:'분류 편집',exact:true}),category=page.locator('#libraryCategoryFilter');
-  await expect(edit).toHaveCount(1);await expect(edit).toBeVisible();await expect(edit).toHaveText('편집');await expect(edit).toHaveAttribute('id','manageLibraryBtn');
+  const edit=page.getByRole('button',{name:'분류 수정',exact:true}),category=page.locator('#libraryCategoryFilter');
+  await expect(edit).toHaveCount(1);await expect(edit).toBeVisible();await expect(edit).toHaveText('수정');await expect(edit).toHaveAttribute('id','manageLibraryBtn');
   // UI-전수디자인점검 F11: 목록 칸 머리에는 맨 위 ⋯ 하나만(빠짐9), [+ 자료 등록]은 검색 칸 오른쪽 하나.
   expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);
   expect(await page.locator('#libraryView .lu-search-row button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn','libraryTopMenuBtn']);

@@ -19,7 +19,7 @@ const value = page => page.evaluate(() => window.ed.getValue());
 const content = async page => (await value(page)).doc.content;
 // A button of the editor's bar (the row or, on a phone, a group popover: ED-서식줄묶음).
 const tool = (page, name) => page.locator('.ed-bar').getByRole('button', {name, exact: true});
-const GROUP_BUTTONS = ['글자 서식 고르기', '문단 서식 고르기', '넣을 것 고르기', '기호 고르기'];
+const GROUP_BUTTONS = ['글자 서식 선택', '문단 서식 선택', '넣을 것 선택', '기호 선택'];
 // On a phone most buttons sit in a group popover: open the group that holds this button (a no-op wider than a phone or when it shows).
 const showTool = async (page, locator) => {
   if (page.viewportSize().width > 760 || await locator.isVisible()) return;
@@ -47,9 +47,9 @@ const reveal = async (page, name) => {
 
 // [button on the row, popover group, a choice inside to press]
 const OPENERS = [
-  ['글 단계 고르기', '글 단계'], ['글자색 고르기', '글자색'], ['형광펜 고르기', '형광펜'], ['정렬 고르기', '정렬'],
-  ['글머리 목록 고르기', '글머리 목록'], ['번호 목록 고르기', '번호 목록'], ['표 넣기', '표 크기 고르기'],
-  ['점 기호 고르기', '점 기호'], ['참고 기호 고르기', '참고 기호'], ['화살표 고르기', '화살표'], ['동그라미 번호 고르기', '동그라미 번호'],
+  ['글 단계 선택', '글 단계'], ['글자색 선택', '글자색'], ['형광펜 선택', '형광펜'], ['정렬 선택', '정렬'],
+  ['글머리 목록 선택', '글머리 목록'], ['번호 목록 선택', '번호 목록'], ['표 넣기', '표 크기 선택'],
+  ['점 기호 선택', '점 기호'], ['참고 기호 선택', '참고 기호'], ['화살표 선택', '화살표'], ['동그라미 번호 선택', '동그라미 번호'],
   ['링크 넣기', '링크'],
 ];
 
@@ -103,7 +103,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
 
     test('every button that opens choices carries a small ▾; [⌄] is the only full-width row and turns to [⌃] while open', async ({page}) => {
       await open(page);
-      for (const name of ['글 단계 고르기', '글자색 고르기', '형광펜 고르기', '정렬 고르기', '글머리 목록 고르기', '번호 목록 고르기', '표 넣기', '점 기호 고르기', '참고 기호 고르기', '화살표 고르기', '동그라미 번호 고르기']) {
+      for (const name of ['글 단계 선택', '글자색 선택', '형광펜 선택', '정렬 선택', '글머리 목록 선택', '번호 목록 선택', '표 넣기', '점 기호 선택', '참고 기호 선택', '화살표 선택', '동그라미 번호 선택']) {
         const b = tool(page, name);
         await showTool(page, b);
         await expect(b, name).toContainText('▾');
@@ -129,7 +129,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       const b = await rect(band), bar = await rect(page.locator('.ed-bar'));
       expect(Math.abs(b.width - bar.width)).toBeLessThanOrEqual(1);
       // 「」 under it opens its own popover under itself.
-      await press(band.getByRole('button', {name: '괄호·단위 기호 고르기'}));
+      await press(band.getByRole('button', {name: '괄호·단위 기호 선택'}));
       const pop = group(page, '괄호·단위 기호');
       await expect(pop).toBeVisible();
       expect((await rect(pop)).width).toBeLessThanOrEqual(bar.width - 16);
@@ -139,7 +139,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
     test('a popover is never cut off at the bottom: it goes above the button or scrolls inside itself', async ({page}) => {
       await page.setViewportSize({width: viewport.width, height: 250});
       await open(page);
-      const trigger = await reveal(page, '번호 목록 고르기');
+      const trigger = await reveal(page, '번호 목록 선택');
       await press(trigger);
       const pop = group(page, '번호 목록');
       await expect(pop).toBeVisible();
@@ -157,7 +157,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
     test('정렬: a vertical list with an icon, the name and ✓ on the current one', async ({page}) => {
       await open(page);
       await page.keyboard.type('정렬 글');
-      await press(tool(page, '정렬 고르기'));
+      await press(tool(page, '정렬 선택'));
       const pop = group(page, '정렬'), items = pop.getByRole('button');
       await expect(items).toHaveCount(4);
       await expect(items).toHaveText(['왼쪽', '가운데', '오른쪽', '양쪽'].map(t => `${t}✓`));
@@ -169,7 +169,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       expect(await checks()).toEqual(['visible', 'hidden', 'hidden', 'hidden']);
       await press(items.nth(1));
       await expect(pop).toBeHidden();
-      await press(tool(page, '정렬 고르기'));
+      await press(tool(page, '정렬 선택'));
       expect(await checks()).toEqual(['hidden', 'visible', 'hidden', 'hidden']);
       expect((await content(page))[0].attrs.align).toBe('center');
     });
@@ -177,7 +177,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
     test('목록 ▾ and 번호 ▾: shapes with a preview, ✓ on the current one, saved on the list; 목록 풀기 takes the item out', async ({page}) => {
       const box = await open(page);
       await page.keyboard.type('항목');
-      await press(tool(page, '글머리 목록 고르기'));
+      await press(tool(page, '글머리 목록 선택'));
       const bullets = group(page, '글머리 목록');
       await expect(bullets.locator('button[data-ed-list-marker]')).toHaveCount(4);
       await expect(bullets.getByRole('button', {name: /^글머리 /})).toHaveText(['• 항목\n• 항목✓', '- 항목\n- 항목✓', '◦ 항목\n◦ 항목✓', '▪ 항목\n▪ 항목✓'].map(t => t.replace('\n', '')));
@@ -185,27 +185,27 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       await press(bullets.getByRole('button', {name: '글머리 ◦', exact: true}));
       await expect(box.locator('ul.ed-ul-circle li')).toHaveCount(1);
       expect((await content(page))[0]).toMatchObject({type: 'bullet_list', attrs: {marker: 'circle'}});
-      await press(tool(page, '글머리 목록 고르기'));
+      await press(tool(page, '글머리 목록 선택'));
       const ticked = await bullets.locator('button[data-ed-list-marker]').evaluateAll(list => list.map(b => getComputedStyle(b.querySelector('.ed-check')).visibility));
       expect(ticked).toEqual(['hidden', 'hidden', 'visible', 'hidden']);
       await press(bullets.getByRole('button', {name: '글머리 -', exact: true}));
       await expect(box.locator('ul.ed-ul-dash li')).toHaveCount(1);
       // The other kind changes the list in place.
-      await press(tool(page, '번호 목록 고르기'));
+      await press(tool(page, '번호 목록 선택'));
       const numbers = group(page, '번호 목록');
       await expect(numbers.getByRole('button', {name: /^번호 /})).toHaveText(['1. 항목2. 항목✓', '1) 항목2) 항목✓', '(1) 항목(2) 항목✓', '① 항목② 항목✓', '가. 항목나. 항목✓']);
       await press(numbers.getByRole('button', {name: '번호 (1)', exact: true}));
       await expect(box.locator('ol.ed-ol-parens li')).toHaveCount(1);
       await expect(box.locator('ul')).toHaveCount(0);
       expect((await content(page))[0]).toMatchObject({type: 'ordered_list', attrs: {order: 1, marker: 'parens'}});
-      await press(tool(page, '번호 목록 고르기'));
+      await press(tool(page, '번호 목록 선택'));
       await press(numbers.getByRole('button', {name: '목록 풀기'}));
       await expect(box.locator('ol,ul')).toHaveCount(0);
     });
 
     test('nested numbered items continue 1. → 1) → (1) → ① by themselves; bullets • → ◦ → ▪; readers and exports keep the shapes', async ({page}) => {
       const box = await open(page);
-      await press(tool(page, '번호 목록 고르기'));
+      await press(tool(page, '번호 목록 선택'));
       await press(group(page, '번호 목록').getByRole('button', {name: '번호 1.', exact: true}));
       for (const text of ['가', '나', '다', '라']) {
         await page.keyboard.type(text);
@@ -230,7 +230,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
 
     test('Tab-nested bullets follow • → ◦ → ▪ and an explicit shape is kept in the saved document', async ({page}) => {
       const box = await open(page);
-      await press(tool(page, '글머리 목록 고르기'));
+      await press(tool(page, '글머리 목록 선택'));
       await press(group(page, '글머리 목록').getByRole('button', {name: '글머리 •', exact: true}));
       for (const text of ['가', '나', '다']) { await page.keyboard.type(text); await page.keyboard.press('Enter'); await page.keyboard.press('Tab'); }
       const styles = await box.locator('ul').evaluateAll(list => list.map(o => getComputedStyle(o).listStyleType));
@@ -242,7 +242,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
     test('table: pressing its border chooses the whole table (hand + faint outline over the border); [표 선택] does the same', async ({page}) => {
       const box = await open(page, ed1(para('앞'), table(2, 3), para('뒤')));
       const wrap = box.locator('.ed-table-wrap'), tbl = wrap.locator('table');
-      await expect(page.getByRole('button', {name: '표 선택'})).toHaveCount(0);
+      await expect(page.getByRole('button', {name: '표 선택', exact: true})).toHaveCount(0);
       const r = await rect(tbl);
       const y = r.top + r.height / 2;
       if (!touch) {
@@ -273,7 +273,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       // [표 선택] (named so everywhere) chooses it from the table row.
       const sel = page.locator('.ed-table-tools').getByRole('button', {name: '표 전체 선택'});
       await expect(sel).toHaveText('표 선택');
-      await expect(page.locator('.ed-table-tools').getByRole('button', {name: '표 고르기'})).toHaveCount(0);
+      await expect(page.locator('.ed-table-tools').getByRole('button', {name: '표 선택', exact: true})).toHaveCount(0);
       await press(sel);
       await expect(box.locator('.selectedCell')).toHaveCount(6);
     });
@@ -285,7 +285,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       await page.keyboard.press('End');
       await expect.poll(async () => (await stateSel(page)).empty).toBe(true);
       await press(tool(page, '표 넣기'));
-      await press(group(page, '표 크기 고르기').getByRole('button', {name: '2줄 2칸 표', exact: true}));
+      await press(group(page, '표 크기 선택').getByRole('button', {name: '2줄 2칸 표', exact: true}));
       let types = (await content(page)).map(n => n.type);
       expect(types.slice(0, 3)).toEqual(['paragraph', 'table', 'paragraph']);
       expect((await content(page))[0].content[0].text).toBe('앞줄');
@@ -297,7 +297,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
       await expect.poll(async () => (await stateSel(page)).from).toBe(3);
       await press(tool(page, '표 넣기'));
-      await press(group(page, '표 크기 고르기').getByRole('button', {name: '2줄 2칸 표', exact: true}));
+      await press(group(page, '표 크기 선택').getByRole('button', {name: '2줄 2칸 표', exact: true}));
       types = (await content(page)).map(n => n.type);
       expect(types.slice(0, 3)).toEqual(['paragraph', 'table', 'paragraph']);
       expect((await content(page))[0].content[0].text).toBe('가나');
@@ -307,7 +307,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       await b3.locator('p').nth(1).click();
       await expect.poll(async () => (await stateSel(page)).from).toBe(4);
       await press(tool(page, '표 넣기'));
-      await press(group(page, '표 크기 고르기').getByRole('button', {name: '2줄 2칸 표', exact: true}));
+      await press(group(page, '표 크기 선택').getByRole('button', {name: '2줄 2칸 표', exact: true}));
       const doc = await content(page);
       expect(doc.map(n => n.type).slice(0, 3)).toEqual(['paragraph', 'table', 'paragraph']);
       expect(doc[0].content[0].text).toBe('위');

@@ -132,17 +132,17 @@ test('a field the person corrects is recorded as user and never overwritten by a
   await upload(page);
   await expect(page.locator('.lu-row-title',{hasText:AI.title})).toHaveCount(1);
   await revealLibraryRow(page,DOC_ID(1));await page.locator(`[data-lu-document="${DOC_ID(1)}"] .lu-more-trigger`).click();await page.locator('[data-lu-edit]').click();
-  await page.locator('#libraryEditTitle').fill('내가 고친 제목');await page.locator('#libraryEditSave').click();
+  await page.locator('#libraryEditTitle').fill('내가 수정한 제목');await page.locator('#libraryEditSave').click();
   await expect(page.locator('#libraryEditModal')).toBeHidden();
   const patch=state.patches.at(-1).body;
-  expect(patch.title).toBe('내가 고친 제목');
+  expect(patch.title).toBe('내가 수정한 제목');
   // Only the corrected field moves to user; the other AI records stay (hidden, never rendered).
   expect(patch.field_origin).toEqual({title:'user',source:'ai',category:'ai',document_date:'user'});
   // A later fill of the same document (e.g. a repeated request) keeps the corrected title.
   await page.evaluate(async id=>{const m=await import('/app/library-ai-fill.js');await m.fillLibraryDocument(id)},DOC_ID(1));
   await expect.poll(()=>state.fills.length).toBe(2);
-  expect(state.docs.find(d=>d.id===DOC_ID(1)).title).toBe('내가 고친 제목');
-  await expect(page.locator('.lu-row-title',{hasText:'내가 고친 제목'})).toHaveCount(1);
+  expect(state.docs.find(d=>d.id===DOC_ID(1)).title).toBe('내가 수정한 제목');
+  await expect(page.locator('.lu-row-title',{hasText:'내가 수정한 제목'})).toHaveCount(1);
   await expectNoAiMarker(page);
 });
 

@@ -56,5 +56,5 @@ export function withTwins(ids,plan,isOpen=()=>false){
 
 // 고른 개수 글자. hidden = 고른 것 중 지금 목록에 줄로 보이지 않는 것(접힌 토글·'n건 더'·접힌 같은 글).
 export function pickCountText(total,hidden){
-  return hidden>0?`${total}개 골랐음 — 접힌 ${hidden}개 포함`:`${total}개 골랐음`;
+  return hidden>0?`${total}개 선택됨 — 접힌 ${hidden}개 포함`:`${total}개 선택됨`;
 }

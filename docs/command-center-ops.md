@@ -61,6 +61,7 @@
 - CC가 PR의 변경 파일·diff·CI를 직접 검토하고 **문제 없으면 사용자에게 묻지 않고 merge**한다.
 - `.github/` 변경은 CC가 diff를 직접 본다(권한·비밀값·트리거·필수 검사 삭제 여부). 필수 검사(`publication-gate`·`dropzone`·`browser-e2e`)를 지우거나 우회하는 변경은 merge하지 않는다.
 - 같은 시험이 다른 실행에서 두 번 흔들리면 재실행하지 않고 안정화 과제로 고친다.
+- **줄 뒤 PR은 초안(draft)으로 둔다**(2026-11-08 명진 승인, S54-01): 줄 세운 PR이 한꺼번에 최신 main으로 올라가면 검사가 몰려 동시 실행 한도를 넘는다. 그래서 줄 뒤에 선 PR은 초안으로 두고, 초안일 때는 화면 시험(Playwright E2E) job만 skipped로 건너뛴다(빠른 검사·보안·node 시험·build는 그대로 돈다). 차례가 오면 CC가 초안을 풀고(ready_for_review) → 화면 시험을 포함한 전체 검사가 다시 돈다 → 녹색을 확인한 뒤 merge한다. 초안은 merge가 안 되므로 검사가 빠진 채 들어가지 않는다. 화면 시험은 필수 검사가 아니므로 초안을 푼 뒤 그 실행이 끝날 때까지 기다린다(skipped를 통과로 보지 않는다). 대상 workflow 목록은 `tests/security/ci-draft-e2e-skip.test.mjs`가 지킨다.
 - (2026-10-31부터 0절이 우선: 아래 승인 버튼이 걸려 있지 않으면 CC가 끝까지 하고, 걸려 있으면 그때만 명진에게 링크를 준다.) **CC가 시작하고 사용자는 승인만**(2026-10-21 사용자 결정): CC 세션은 workflow를 시작할 수 있고(`workflow_dispatch`), 승인(environment reviewer)은 할 수 없다. 그래서
   - Edge 배포: CC가 `edge-function-deploy`를 정확한 function·ref·옵션으로 시작 → 사용자는 GitHub 알림에서 [Approve] 한 번 → CC가 결과(버전·401·OPTIONS)를 확인하고 되돌리기 ref를 기록.
   - basket-pc 릴리스: CC가 태그를 만들어 시작 → 사용자 승인 한 번.

@@ -1,4 +1,4 @@
-// ED-통합편집기 ①b: share page 글(doc) block — edited in place with the new editor, [새 편집기로 바꾸기]·[바꾸기 취소],
+// ED-통합편집기 ①b: share page 글(doc) block — edited in place with the new editor, [새 수정 화면으로 바꾸기]·[바꾸기 취소],
 // and the Web1 reader drawing a doc block the same way (cleaned, text only, old-Samsung syntax). Mock Supabase only.
 import {test, expect} from '@playwright/test';
 import {answerAsk} from './helpers/small-notice.mjs';
@@ -92,9 +92,9 @@ for (const width of [390, 1280]) test('a new page is one 글 block on the full s
   await tools.getByRole('button', {name:'굵게', exact:true}).click();
   await page.keyboard.type('굵게');
   await expect(box).toBeFocused();
-  if (width < 761) await tools.getByRole('button', {name:'넣을 것 고르기', exact:true}).click();
+  if (width < 761) await tools.getByRole('button', {name:'넣을 것 선택', exact:true}).click();
   await editor.getByRole('button', {name:'표 넣기', exact:true}).click();
-  await editor.getByRole('group', {name:'표 크기 고르기', exact:true}).getByRole('button', {name:'2줄 2칸 표', exact:true}).click();
+  await editor.getByRole('group', {name:'표 크기 선택', exact:true}).getByRole('button', {name:'2줄 2칸 표', exact:true}).click();
   await page.keyboard.type('항목');
   await expect(box.locator('h3.ed-h2')).toHaveText('회의 결과');
   await expect(box.locator('strong')).toHaveText('굵게');
@@ -125,14 +125,14 @@ test('[취소] puts the 글 block back as it was; a moved block keeps what was t
   const errors = await signIn(page, state);
   await page.locator('.sp-row').first().click();
   const editor = page.locator('[data-sp-editor]');
-  await editor.getByRole('button', {name:'1번째 블록 글 고치기', exact:true}).click();
+  await editor.getByRole('button', {name:'1번째 블록 글 수정', exact:true}).click();
   const box = editor.getByRole('textbox', {name:'1번째 블록 글', exact:true});
   await expect(box).toBeFocused();
   await page.keyboard.press('End');
   await page.keyboard.type(' 더함');
-  await editor.getByRole('button', {name:'1번째 블록 글 고친 것 취소', exact:true}).click();
+  await editor.getByRole('button', {name:'1번째 블록 글 수정한 것 취소', exact:true}).click();
   await expect(editor.locator('[data-sp-block="0"] .ed-doc')).toHaveText('처음 글');
-  await editor.getByRole('button', {name:'1번째 블록 글 고치기', exact:true}).click();
+  await editor.getByRole('button', {name:'1번째 블록 글 수정', exact:true}).click();
   await expect(box).toBeFocused();
   await page.keyboard.press('End');
   await page.keyboard.type(' 남김');
@@ -145,17 +145,17 @@ test('[취소] puts the 글 block back as it was; a moved block keeps what was t
   expect(errors).toEqual([]);
 });
 
-test('[새 편집기로 바꾸기] turns the old blocks into one 글 block keeping every letter; [바꾸기 취소] before saving puts them back', async ({page}) => {
+test('[새 수정 화면으로 바꾸기] turns the old blocks into one 글 block keeping every letter; [바꾸기 취소] before saving puts them back', async ({page}) => {
   await page.setViewportSize({width:390, height:844});
   const state = {pages:[structuredClone(OLD)]};
   const errors = await signIn(page, state);
   await page.locator('.sp-row').first().click();
   const editor = page.locator('[data-sp-editor]');
   await expect(editor.locator('.sp-vblock')).toHaveCount(6);
-  await editor.getByRole('button', {name:'새 편집기로 바꾸기', exact:true}).click();
+  await editor.getByRole('button', {name:'새 수정 화면으로 바꾸기', exact:true}).click();
   await answerAsk(page, false);
   await expect(editor.locator('.sp-vblock')).toHaveCount(6);
-  await editor.getByRole('button', {name:'새 편집기로 바꾸기', exact:true}).click();
+  await editor.getByRole('button', {name:'새 수정 화면으로 바꾸기', exact:true}).click();
   await answerAsk(page, true);
   await expect(editor.locator('[data-sp-block]')).toHaveCount(1);
   const doc = editor.locator('[data-sp-block="0"] .ed-doc');
@@ -165,13 +165,13 @@ test('[새 편집기로 바꾸기] turns the old blocks into one 글 block keepi
   await expect(doc.locator('ol li strong')).toHaveText('교섭 (지금)');
   await expect(doc.locator('table tr')).toHaveCount(2);
   await expect(doc.locator('a.ed-link')).toHaveAttribute('href', 'https://example.org/demand.pdf');
-  await expect(editor.getByRole('button', {name:'새 편집기로 바꾸기', exact:true})).toBeHidden();
+  await expect(editor.getByRole('button', {name:'새 수정 화면으로 바꾸기', exact:true})).toBeHidden();
   await editor.getByRole('button', {name:'바꾸기 취소', exact:true}).click();
   await expect(editor.locator('.sp-vblock')).toHaveCount(6);
   expect(await editor.locator('[data-sp-block]').evaluateAll(n => n.map(x => x.dataset.spType))).toEqual(OLD.blocks.map(b => b.type));
   expect(state.writes).toEqual([]);
   // Convert again and save: one doc block is written.
-  await editor.getByRole('button', {name:'새 편집기로 바꾸기', exact:true}).click();
+  await editor.getByRole('button', {name:'새 수정 화면으로 바꾸기', exact:true}).click();
   await answerAsk(page, true);
   await editor.getByRole('button', {name:'저장', exact:true}).click();
   await expect(editor.locator('[data-sp-status-line]')).toContainText('저장했어요');

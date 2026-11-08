@@ -244,7 +244,7 @@ test('revoked Google Drive token starts reconnect through the canonical function
   await expect.poll(()=>page.evaluate(()=>window.__driveReconnectCalls.at(-1))).toEqual({action:'drive-start'});
   await expect(page).toHaveURL(/#drive-auth$/);
   await expect(page.locator('[data-lu-document="doc-1"]')).toBeVisible();
-  await expect(page.locator('#kptuNotice.error .kptu-notice-text')).toHaveText('지우지 못해 목록에 되살렸어요.');
+  await expect(page.locator('#kptuNotice.error .kptu-notice-text')).toHaveText('삭제하지 못해 목록에 되살렸어요.');
 });
 
 
@@ -254,7 +254,7 @@ test('mobile library upload opens the native file picker from the visible tap ta
   // UI-회의결과창정리: 큰 점선 상자 대신 [📎 파일 고르기] 작은 버튼 한 줄 + 짧은 안내(폰은 끌어다 놓기 안내 없음).
   const zone=page.locator('#libraryDropzone');
   await expect(zone).toBeVisible();
-  await expect(zone).toHaveText(/파일 고르기/);
+  await expect(zone).toHaveText(/파일 선택/);
   expect((await zone.boundingBox()).height).toBeLessThanOrEqual(34);
   await expect(page.locator('.library-picker-hint')).toContainText('여러 개 · 파일당 100MB');
   await expect(page.locator('.library-drop-hint')).toBeHidden();
