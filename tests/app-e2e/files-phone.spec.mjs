@@ -223,7 +223,10 @@ test.describe('폰 앱 412', () => {
       await prev.locator('[data-fx-copy-one]').click();
       const sheet = root(page).locator('[data-fx-dest]');
       await expect(sheet.locator('[data-fx-dest-pick="ph:"]')).toBeVisible();
-      // 받을 곳 창은 켜진 저장소 맨 위를 펼친 채 연다('이 폰'도).
+      // S54-07: 받을 곳 창은 접힌 채 열린다 — 이 폰 로고(펼치기 단추)를 눌러 펼친 뒤 폴더를 고른다.
+      const twist = sheet.locator('[data-fx-dest-twist="ph:"]');
+      await twist.click();
+      await expect(twist).toHaveAttribute('aria-expanded', 'true');
       await sheet.locator('[data-fx-dest-pick="ph:Download"]').click();
       await sheet.locator('[data-fx-dest-go]').click();
       if (round === 2) {
@@ -272,6 +275,8 @@ test.describe('폰 앱 412', () => {
     await list(page).locator('[data-fx-row="od:OD!1"]').click();
     await list(page).locator('[data-fx-row="od:OD!13"]').click();
     await prev.locator('[data-fx-cut-one]').click();
+    await sheet.locator('[data-fx-dest-twist="ph:"]').click();
+    await expect(sheet.locator('[data-fx-dest-twist="ph:"]')).toHaveAttribute('aria-expanded', 'true');
     await sheet.locator('[data-fx-dest-pick="ph:Download"]').click();
     await sheet.locator('[data-fx-dest-go]').click();
     await expect.poll(() => Object.keys(st.saved)).toEqual(['Download/가짜 메모.txt']);
@@ -295,6 +300,8 @@ test.describe('폰 앱 412', () => {
     await tree(page).locator('[data-fx-fold="od:OD!1"] [data-fx-tmenu]').click();
     await expect(menu.getByRole('button', { name: '자료실로 보내기' })).toBeVisible();
     await menu.getByRole('button', { name: '복사', exact: true }).click();
+    await sheet.locator('[data-fx-dest-twist="ph:"]').click();
+    await expect(sheet.locator('[data-fx-dest-twist="ph:"]')).toHaveAttribute('aria-expanded', 'true');
     await sheet.locator('[data-fx-dest-pick="ph:Download"]').click();
     await sheet.locator('[data-fx-dest-go]').click();
     await expect.poll(() => Object.keys(st.saved).sort(), { timeout: 30000 }).toEqual([
