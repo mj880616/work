@@ -95,6 +95,7 @@
 - 삭제 요청은 사용처·의존성을 확인한 뒤 정리한다. UI만 숨기지도, 조사 없이 공용 구조를 지우지도 않는다.
 - 사용자가 폐기한 구조를 편의상 되살리지 않는다.
 - UI 변경: 기존 컴포넌트를 재사용하고, 모바일·데스크톱을 함께 확인한다. 키보드·터치 접근성을 유지하고, 요청 없는 대규모 디자인 변경을 하지 않는다.
+- 화면 글자(버튼·메뉴·안내·알림)는 `docs/design/ui-words.md` 용어 기준표를 따른다.
 - Do not independently change Supabase schemas, RLS, existing data, visibility policy, URL structure, or Edge Function authentication boundaries. Record a proposal instead. Do not add product features or redesign the application as part of stabilization work.
 
 ### 범위
