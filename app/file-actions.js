@@ -15,6 +15,7 @@
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {fileKind} from './meeting-compact.js';
 import {isViewableImage} from './library-tree.js';
+import {isGifPhoto} from './photo-viewer-model.mjs';
 
 // Drive 보기 주소(번호가 올바를 때만). 할 일 첨부(task-files.js)도 이것을 다시 내보내 쓴다.
 export function driveFileUrl(id) {
@@ -86,14 +87,16 @@ export async function downloadFile(file, {api = (...a) => window.KPTURuntime.api
 export const isHtmlFile = file => /\.html?$/i.test(String(file?.name || ''));
 // 자료 번호가 있는 사진: 앱 안 크게 보기. 주소는 열 때마다 새로 받는다(한 번 쓰면 끝나는 주소).
 // 크게 보기 그림: 서버가 줄여 주는 큰 그림(library-files photo, large)을 먼저 쓰고, 못 받으면 원본 내려받기 주소로 대신한다.
-async function documentPhotoUrl(documentId, api) {
+// PHOTO-GIF움직임: GIF는 서버가 줄여 주는 그림이 첫 장면 정지 그림이라, 원본 내려받기 주소(움직임이 살아 있음)로 바로 연다. 미리 뜨는 작은 그림은 그대로.
+async function documentPhotoUrl(documentId, api, file = null) {
+  if (isGifPhoto(file)) { try { return await documentTokenUrl(documentId, api); } catch { /* 원본 주소를 못 받으면 아래 줄인 그림 */ } }
   try { return await (await import('./library-photo.js')).libraryPhotoUrl(documentId, 'large'); } catch { return documentTokenUrl(documentId, api); }
 }
 // PHOTO-크게보기빨리: 목록에서 이미 받은 작은 그림(없으면 빈 값, 요청 없음). 큰 그림을 받는 동안 먼저 띄운다.
 const documentPhotoPreview = async documentId => { try { return (await import('./library-photo.js')).cachedLibraryPhotoUrl(documentId, 'small'); } catch { return ''; } };
 export async function viewDocumentPhoto(file, {api = (...a) => window.KPTURuntime.api(...a), trigger = null} = {}) {
   const {openDocumentPhotoView} = await import('./photo-view.js');
-  return openDocumentPhotoView({file, trigger, driveHref: driveOpenUrl(file), getUrl: () => documentPhotoUrl(file.documentId, api), preview: () => documentPhotoPreview(file.documentId)});
+  return openDocumentPhotoView({file, trigger, driveHref: driveOpenUrl(file), getUrl: () => documentPhotoUrl(file.documentId, api, file), preview: () => documentPhotoPreview(file.documentId)});
 }
 // ACT-사진 3단계: 사업 보고 사진 줄의 크게 보기. files = 같은 사업 보고의 사진들({name,mime,documentId,driveId,driveUrl}), index = 누른 사진.
 // 좌우로 넘기고(‹ › / ←→), ⋯ 에 [Drive에서 열기] [내려받기]와 부른 화면이 주는 extraActions(file)(예: [지우기], run()이 true를 주면 닫힘)가 든다.
@@ -102,7 +105,7 @@ export async function viewDocumentPhotos(files, index, {api = (...a) => window.K
   if (!list.length) return false;
   const at = Math.min(Math.max(0, index | 0), list.length - 1);
   const {openDocumentPhotoView} = await import('./photo-view.js');
-  const itemOf = i => ({file: list[i], getUrl: () => documentPhotoUrl(list[i].documentId, api), preview: () => documentPhotoPreview(list[i].documentId), driveHref: driveOpenUrl(list[i])});
+  const itemOf = i => ({file: list[i], getUrl: () => documentPhotoUrl(list[i].documentId, api, list[i]), preview: () => documentPhotoPreview(list[i].documentId), driveHref: driveOpenUrl(list[i])});
   return openDocumentPhotoView({...itemOf(at), trigger, nav: {count: list.length, index: at, item: itemOf}, actions: item => [
     ...(canOpenInDrive(item.file) ? [{label: 'Drive에서 열기', href: driveOpenUrl(item.file)}] : []),
     ...(canDownload(item.file) ? [{label: '내려받기', run: async () => { await downloadFile(item.file, {api, onError}); return false; }}] : []),
