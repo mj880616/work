@@ -125,6 +125,12 @@ export const FILES_LAST_PANES = 2;
 export const FILES_LAST_ID_RE = /^[^\p{Cc}]{1,200}$/u;
 const filesLastOk = v => Array.isArray(v) && v.length <= FILES_LAST_PANES && v.every(o => !!o && typeof o === 'object' && !Array.isArray(o)
   && Object.keys(o).every(k => FILES_SOURCE_NAMES.includes(k) && typeof o[k] === 'string' && FILES_LAST_ID_RE.test(o[k])));
+// S53-16 WEEKLY-분류이름바뀜: category_roles = 환류에 쓰는 분류 표식 {역할: 분류 이름}(역할 소문자 영문 1~30자, 8개까지, 이름 1~20자 — 분류 이름 한도와 같음).
+// 분류 이름을 바꿔도 표식을 새 이름으로 고쳐 주간보고 바탕 찾기가 끊기지 않게 한다. migration 20261108080000. 뜻은 document-categories.js(categoryRoleOf 등).
+// 쓰기는 category_roles 통째로. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌린다(그동안 바탕은 알려진 분류 이름으로 찾는다).
+export const CATEGORY_ROLES_MAX = 8;
+const categoryRolesOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length <= CATEGORY_ROLES_MAX
+  && Object.keys(v).every(k => /^[a-z][a-z0-9_]{0,29}$/.test(k) && textOk(v[k], 20));
 const DEVICE_KEYS = Object.freeze({files_sources: filesFlagsOk, files_two: filesTwoOk, photo_zoom: photoZoomOk, files_look: filesLookOk, files_panes: filesPanesOk, box_shut: boxShutOk, files_tree: filesTreeOk});
 export const REPORT_PERIOD_MODES = Object.freeze(['all', 'week', 'range']);
 export const PHOTO_LEVELS = Object.freeze(['year', 'month', 'day']);
@@ -155,7 +161,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -208,6 +214,7 @@ export function validValue(key, value) {
       && Object.keys(value).every(name => name === 'mode' || name === 'from' || name === 'to') && REPORT_PERIOD_MODES.includes(value.mode)
       && (value.mode === 'range' ? DATE_RE.test(String(value.from)) && DATE_RE.test(String(value.to)) && typeof value.from === 'string' && typeof value.to === 'string' && value.from <= value.to : !('from' in value) && !('to' in value));
     case 'files_last': return filesLastOk(value);
+    case 'category_roles': return categoryRolesOk(value);
     case 'files_pins': return Array.isArray(value) && value.length <= FILES_PINS_MAX && new Set(value).size === value.length && value.every(v => typeof v === 'string' && FILES_PIN_RE.test(v));
     case 'files_dest_recent': return Array.isArray(value) && value.length <= FILES_DEST_RECENT_MAX && value.every(filesDestOk);
     case 'photo_zoom':
@@ -492,6 +499,8 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
     setFilesPins: value => set('files_pins', value.length ? value : null, {rejectable: true}),
     getFilesLast: () => (Array.isArray(prefs.files_last) ? prefs.files_last : []),
     setFilesLast: value => set('files_last', value.some(o => Object.keys(o).length) ? value : null, {rejectable: true}),
+    getCategoryRoles: () => (prefs.category_roles && typeof prefs.category_roles === 'object' ? prefs.category_roles : {}),
+    setCategoryRoles: value => set('category_roles', Object.keys(value).length ? value : null, {rejectable: true}),
     flush,
     flushHidden,
     status: () => state,
