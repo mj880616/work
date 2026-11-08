@@ -213,15 +213,6 @@ export function callTopic(title, {organization = null, counterpart = ''} = {}) {
 // 요약 글 안의 '상대방(화자0)'처럼 이름표 없이 남은 화자 번호 꼬리표는 번호를 떼고 '상대방'만 보인다(이름표가 있는 새 통화는 서버가 저장 전에 이름으로 바꾼다).
 export const plainSpeakerMention = text => String(text ?? '').replace(/(상대방?)\s*[(（]\s*화자\s?\d{1,2}\s*[)）]/g, '$1');
 
-// One line inside the 개인 통화함: calls counted before the list existed have only a number (app_feed_days), no row. '' when none.
-export function legacyFilteredNote(days, today = kstDay()) {
-  const f = callFiltered(days, today);
-  if (!f.total && !f.failed) return '';
-  const parts = [];
-  if (f.total) parts.push(`목록 도입 전 걸러진 ${f.total}건은 개수만 있어요. 원본은 Drive 통화 녹음·전사 폴더에 있어요.`);
-  if (f.failed) parts.push(`판정 실패 ${f.failed}건`);
-  return parts.join(' ');
-}
 // 업무→개인으로 옮기기 전 확인 문구. ledger: true (원장에 이미 쓰임) / false / null (확인 못 함). linked: 고정·조직 연결이 있음.
 // '' when nothing needs saying (the move goes ahead without asking).
 export function moveToPersonalWarning({ledger = false, linked = false} = {}) {
