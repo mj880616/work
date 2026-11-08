@@ -82,13 +82,13 @@ for(const width of [390,1280]){
   await expect(page.locator('#wdModal')).toBeVisible();
   const long=page.locator('[data-wd-up="u-long"] .wd-log-main p').first(),short=page.locator('[data-wd-up="u-short"]');
   await expect(long).toHaveClass(/kptu-clamp/);
-  const more=page.locator('[data-wd-up="u-long"] .kptu-clamp-more');await expect(more).toHaveText('더보기');
+  const more=page.locator('[data-wd-up="u-long"] .kptu-clamp-more');await expect(more).toHaveText('펼치기');
   await expect(short.locator('.kptu-clamp-more')).toHaveCount(0);
   const lh=await long.evaluate(e=>parseFloat(getComputedStyle(e).lineHeight));
   expect((await long.boundingBox()).height).toBeLessThanOrEqual(lh*4+2);
   await more.click();await expect(long).toHaveClass(/is-open/);await expect(more).toHaveText('접기');await expect(more).toHaveAttribute('aria-expanded','true');
   expect((await long.boundingBox()).height).toBeGreaterThan(lh*10);
-  await more.click();await expect(long).not.toHaveClass(/is-open/);await expect(more).toHaveText('더보기');
+  await more.click();await expect(long).not.toHaveClass(/is-open/);await expect(more).toHaveText('펼치기');
   expect((await long.boundingBox()).height).toBeLessThanOrEqual(lh*4+2);
   expect(await noOverflow(page)).toBe(true);expect(f.errors).toEqual([]);
  });
