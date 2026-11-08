@@ -9,6 +9,7 @@ import {changeWeekDocs, draftHand, withHand, withLinePick} from './weekly-draft-
 import {withHandRow, withoutHandRow, handText, HAND_CALENDAR_MAX, HAND_NOTES_MAX, HAND_NOTE_MAX} from './weekly-hand.mjs';
 import {cleanTime} from './weekly-schedule-rows.mjs';
 import {dayRowForm} from './weekly-hq-schedule.js';
+import {lineField, fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 import {formDay} from './weekly-exec-requests.js';
 import {TIME_HINT} from './time-input.js';
 import {rowMore, partAdd} from './row-more.js';
@@ -71,6 +72,7 @@ export function paintHandLines(slot, {part, model, start, rt = window.KPTURuntim
   if (ui.error) say.classList.add('journal-failed');
   parts.push(say);
   slot.replaceChildren(...parts);
+  fitAll(slot); // UI-줄입력늘어나기
   // 5. 주요 일정 표 줄의 ⋯ 는 자리 밖(같은 묶음 안 표)에 있어 묶음에서 받는다.
   const box = slot.closest('[data-journal-weekly]') ?? slot;
   box.onclick = onClick; box.oninput = onInput; box.onkeydown = onKey;
@@ -83,7 +85,7 @@ export function paintHandLines(slot, {part, model, start, rt = window.KPTURuntim
   }
   function noteForm() {
     const f = el('span', 'journal-file-edit weekly-flow-edit');
-    const input = el('input'); input.type = 'text'; input.value = ui.draft.text ?? ''; input.maxLength = HAND_NOTE_MAX; input.dataset.journalHandField = 'text';
+    const input = lineField(doc, {value: ui.draft.text ?? '', maxLength: HAND_NOTE_MAX}); input.dataset.journalHandField = 'text'; // UI-줄입력늘어나기
     input.setAttribute('aria-label', ui.editing === 'new' ? '메모 줄 추가' : '메모 줄 고치기'); input.disabled = busy; input.autocomplete = 'off';
     if (ui.invalid === 'text') input.setAttribute('aria-invalid', 'true');
     const cancel = btn('취소', 'journalHandCancel'), ok = btn('저장', 'journalHandSave', 'mini primary'); cancel.disabled = ok.disabled = busy;
@@ -99,7 +101,7 @@ export function paintHandLines(slot, {part, model, start, rt = window.KPTURuntim
   function onKey(event) {
     const t = event.target;
     if (!t.matches?.('[data-journal-hand-field]') || event.isComposing) return;
-    if (event.key === 'Enter' && t.type === 'text') { event.preventDefault(); void saveEdit(); }
+    if (event.key === 'Enter' && (t.type === 'text' || t.localName === 'textarea')) { event.preventDefault(); void saveEdit(); }
     else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); cancelEdit(); }
   }
   function onClick(event) {

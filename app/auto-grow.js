@@ -49,6 +49,16 @@ function watchWidth(el) {
   ro.observe(el);
 }
 
+// 한 줄 칸을 마디로 만들 때(el('input') 자리): 처음 한 줄, Enter 는 그 화면의 저장 그대로, 줄바꿈은 들어가지 않는다.
+export function lineField(doc, {value = '', maxLength = 0, className = ''} = {}) {
+  const t = doc.createElement('textarea');
+  t.rows = 1; t.dataset.autogrow = ''; t.dataset.enterField = 'single'; t.autocomplete = 'off';
+  if (className) t.className = className;
+  if (maxLength) t.maxLength = maxLength;
+  t.value = oneLine(value);
+  return t;
+}
+
 export const isAutoGrow = el => !!el && el.tagName === 'TEXTAREA' && el.hasAttribute('data-autogrow');
 
 // 한 줄 칸에 들어온 줄바꿈: 끝의 것은 지우고(한글 조합 중 Enter 가 남긴 것) 가운데 것(붙여 넣기)은 빈칸 하나로. 커서는 같은 자리.

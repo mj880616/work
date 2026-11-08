@@ -12,6 +12,7 @@ import {validKindKey} from './journal-meeting-kinds.js';
 import {shortDay} from './task-due.mjs';
 import {rowMore, partAdd} from './row-more.js';
 import {emptyEl} from './wait-state.js';
+import {lineField, fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 
 const TEXT = Object.freeze({saveFailed:'저장하지 못했어요. 잠시 뒤 다시 해 주세요.', full:`줄은 ${handMax('details')}개까지예요.`, empty:'내용을 적어 주세요.'});
 const states = new Map(); // start → ui (기기 메모리만)
@@ -68,12 +69,13 @@ export function paintDetailLines(slot, {model, start, rt = window.KPTURuntime, o
   if (ui.undo && !busy) say.append(' ', btn('되돌리기', {journalDetailUndo:''}));
   parts.push(say);
   slot.replaceChildren(...parts);
+  fitAll(slot); // UI-줄입력늘어나기
   slot.onclick = onClick; slot.oninput = onInput; slot.onkeydown = onKey;
   if (ui.focus) { slot.querySelector(ui.focus)?.focus(); ui.focus = ''; }
 
   function form(value, aria) {
     const f = el('span', 'journal-file-edit weekly-flow-edit');
-    const input = el('input'); input.type = 'text'; input.value = value; input.maxLength = HAND_NOTE_MAX; input.dataset.journalDetailInput = '';
+    const input = lineField(doc, {value, maxLength: HAND_NOTE_MAX}); input.dataset.journalDetailInput = ''; // UI-줄입력늘어나기
     input.setAttribute('aria-label', aria); input.disabled = busy; input.autocomplete = 'off';
     const cancel = btn('취소', {journalDetailCancel:''}), ok = btn('저장', {journalDetailSave:''}, 'mini primary'); cancel.disabled = ok.disabled = busy;
     f.append(input, ' ', cancel, ok); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽

@@ -18,6 +18,7 @@ import {notify} from './small-notice.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 규칙 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
 import {readFeedback, readRules, withRuleText, withoutRule, withRule, takeCandidate, dropCandidate, withAnswer, answerState, madeOf, feedbackTrend, keptRate, RULES_MAX, RULE_CHARS, SUGGESTION_AREA} from './weekly-feedback.mjs';
 import {cellKeptRates} from './weekly-picks.mjs';
+import {lineField, fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 긴 글 한 줄 칸 = 글만큼 늘어나는 공용 칸
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
 const encode = encodeURIComponent;
@@ -50,7 +51,7 @@ const mkEl = doc => (tag, cls, text) => { const n = doc.createElement(tag); if (
 function inlineForm(doc, {value, max, aria, placeholder = '', inputData, goText, goData, cancelData = {learnRuleCancel:''}, busy}) {
   const el = mkEl(doc);
   const f = el('span', 'journal-file-edit weekly-flow-edit journal-learn-inline');
-  const input = el('input', 'journal-learn-input'); input.type = 'text'; input.value = value ?? ''; input.maxLength = max; input.setAttribute('aria-label', aria);
+  const input = lineField(doc, {value: value ?? '', maxLength: max, className: 'journal-learn-input'}); input.setAttribute('aria-label', aria);
   if (placeholder) input.placeholder = placeholder;
   for (const [k, v] of Object.entries(inputData)) input.dataset[k] = v;
   const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; for (const [k, v] of Object.entries(cancelData)) cancel.dataset[k] = v;
@@ -245,10 +246,10 @@ export function learnPress(b, root, ui, at = nowIso()) {
   }
   return rc;
 }
-export const learnFocus = root => root?.querySelector('.journal-learn-inline input');
+export const learnFocus = root => root?.querySelector('.journal-learn-inline :is(input, textarea)');
 // 한 줄 칸에서 Enter = 확인, Esc = 취소.
 export function learnKeys(event) {
-  const input = event.target.closest?.('.journal-learn-inline input');
+  const input = event.target.closest?.('.journal-learn-inline :is(input, textarea)');
   if (!input) return;
   if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); input.parentElement.querySelector('button.primary')?.click(); }
   else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); input.parentElement.querySelector('[data-learn-rule-cancel], [data-learn-answer-cancel]')?.click(); }
@@ -323,7 +324,7 @@ function draw(slot, start, s, rt) {
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   const open = slot.querySelector('details')?.open ?? s.ui.open;
   // 다시 그려도 쓰던 글은 그대로(업무일지가 자료를 받아 다시 그릴 때).
-  const typing = slot.querySelector('[data-journal-learn-rule-input], [data-journal-learn-add-input], .journal-learn-inline input');
+  const typing = slot.querySelector('[data-journal-learn-rule-input], [data-journal-learn-add-input], .journal-learn-inline :is(input, textarea)');
   if (typing) s.ui.value = typing.value;
   s.ui.open = open;
   if (s.status === 'missing' || s.status === 'loading') { slot.replaceChildren(); return; }
@@ -347,7 +348,7 @@ function draw(slot, start, s, rt) {
   rules.forEach((rule, i) => {
     const li = el('li'); li.dataset.journalLearnRule = String(i);
     if (s.ui.editing === i) {
-      const input = el('input', 'journal-learn-input'); input.type = 'text'; input.value = s.ui.value ?? rule.text; input.maxLength = RULE_CHARS; input.dataset.journalLearnRuleInput = String(i); input.setAttribute('aria-label', '규칙 고치기');
+      const input = lineField(doc, {value: s.ui.value ?? rule.text, maxLength: RULE_CHARS, className: 'journal-learn-input'}); input.dataset.journalLearnRuleInput = String(i); input.setAttribute('aria-label', '규칙 고치기');
       const save = el('button', 'mini', '저장'); save.type = 'button'; save.dataset.journalLearnSave = String(i);
       const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalLearnCancel = '';
       li.append(input, ' ', save, ' ', cancel);
@@ -363,7 +364,7 @@ function draw(slot, start, s, rt) {
   part.append(ul);
   if (s.ui.adding) {
     const row = el('div', 'journal-learn-add');
-    const input = el('input', 'journal-learn-input'); input.type = 'text'; input.value = s.ui.value ?? ''; input.maxLength = RULE_CHARS; input.dataset.journalLearnAddInput = ''; input.setAttribute('aria-label', '새 규칙'); input.placeholder = '예: 끝난 일은 결과부터 쓴다';
+    const input = lineField(doc, {value: s.ui.value ?? '', maxLength: RULE_CHARS, className: 'journal-learn-input'}); input.dataset.journalLearnAddInput = ''; input.setAttribute('aria-label', '새 규칙'); input.placeholder = '예: 끝난 일은 결과부터 쓴다';
     const go = el('button', 'mini', '더하기'); go.type = 'button'; go.dataset.journalLearnAddGo = '';
     const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalLearnCancel = '';
     row.append(input, ' ', go, ' ', cancel); part.append(row);
@@ -394,7 +395,8 @@ function draw(slot, start, s, rt) {
   box.addEventListener('click', event => { const b = event.target.closest('button'); if (b && !b.disabled) void act(b, start, s, rt); });
   box.addEventListener('keydown', learnKeys);
   slot.replaceChildren(box);
-  const focus = slot.querySelector('[data-journal-learn-rule-input], [data-journal-learn-add-input], .journal-learn-inline input');
+  fitAll(slot); // UI-줄입력늘어나기: 열자마자 글 전체가 보이게
+  const focus = slot.querySelector('[data-journal-learn-rule-input], [data-journal-learn-add-input], .journal-learn-inline :is(input, textarea)');
   if (focus && (s.ui.focus || typing === doc.activeElement)) { focus.focus(); s.ui.focus = false; }
 }
 

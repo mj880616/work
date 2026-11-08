@@ -43,3 +43,18 @@ test('주간 정리 조직보고 줄 고치기 칸 = 늘어나는 공용 칸', (
   assert.match(src, /fitAll\(ctl\.host\)/);
   assert.match(read('app/base-ui.css'), /textarea\[data-autogrow\]\{box-sizing:border-box;resize:none\}/);
 });
+
+test('주간 정리 긴 글 칸 전부 = 공용 칸(화면마다 따로 늘리는 셈 없음)', () => {
+  for (const f of ['weekly-learn-panel.js', 'weekly-flow-cells.js', 'weekly-detail-lines.js', 'weekly-hand-lines.js', 'weekly-hq-schedule.js', 'journal-weekly.js']) {
+    assert.match(read(`app/${f}`), /lineField\(doc/, f);
+  }
+  for (const f of ['org-status-table.js', 'weekly-discuss-table.js']) {
+    const src = read(`app/${f}`);
+    assert.match(src, /fitAll\((host|slot)\)/, f);
+    assert.doesNotMatch(src, /function fitText|function fitTextarea|scrollHeight/, f);
+  }
+  // 줄바꿈이 필요 없는 칸은 Enter = 저장 그대로(textarea 도 받는다)
+  assert.match(read('app/weekly-hand-lines.js'), /t\.type === 'text' \|\| t\.localName === 'textarea'/);
+  assert.match(read('app/journal-hwpx.js'), /e\.target\.matches\?\.\('input, textarea'\)\) \{ e\.preventDefault\(\); void saveSchedEdit\(\)/);
+  assert.match(read('app/weekly-flow-cells.js'), /closest\?\.\('\[data-flow-input\]'\)/);
+});
