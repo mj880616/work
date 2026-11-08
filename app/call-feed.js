@@ -20,6 +20,8 @@ import {createFeedHold} from './feed-hold.js';
 import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, kstDay, splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveErrorText, moveDoneText, callWho, callTopic, REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText,
   applyCallEdit, cleanEditVals, isEdited, splitPerson, joinPerson, cleanTitleInput, cleanPointLines, samePoints, undoPatch, patchKeys, editErrorText, EDIT_DONE, EDIT_NOOP, EDIT_LEDGER_NOTE, EDIT_NAME_MAX, EDIT_ROLE_MAX, EDIT_TITLE_MAX, EDIT_POINT_MAX, EDIT_POINTS_MAX} from './feed-model.mjs';
 import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, scopeOf, readPersonal, readPersonalRaw, setPersonalHidden, moveCall, readLedgerSeen, refillCall, readCallEdits, editCall} from './feed-data.js';
+// FEED-최신화즉시수집(S52-46): 머리 줄 작은 [최신화] — 누르면 서버가 수집기를 한 번 깨우고, 이 화면의 load()로 1~3분 새 줄을 다시 읽는다(feed-pull.js).
+import {createFeedPull} from './feed-pull.js';
 import {callCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {callLedgerRecords, retireCallRecords} from './call-ledger.js';
@@ -42,6 +44,7 @@ function install() {
 }
 install();
 const view = () => $('#callsView');
+const pull = createFeedPull({source:'call', rt, scope:() => scopeOf(rt), reload:() => load(), paint:() => paintList(), attr:'data-cf-pull'});
 // A personal-box row (kind personal | unsure) carries box:'personal' from feed-data.js readPersonal; a work row has no such mark.
 const isPersonal = r => r?.box === 'personal';
 // 오른쪽 상대 표와 제목의 주제는 feed-model.mjs 한 곳의 규칙(callWho·callTopic)으로 가른다. 조직은 연결 조직(organization_id)을 우선 쓴다.
@@ -150,7 +153,7 @@ function paintListNow() {
   const personalBox = state.box === 'personal';
   const head = personalBox
     ? `<div class="feed-head"><button type="button" class="back-text" data-cf-box="work">‹ 업무 통화</button><span class="feed-head-title">개인 통화함</span><span class="feed-head-sub" data-cf-pcount>${state.pfail ? '' : `${personalRows().length}건`}</span></div>`
-    : `<div class="feed-head"><span class="feed-head-sub"></span>${state.loaded && !state.missing && !state.error ? boxChip() : ''}</div>`;
+    : `<div class="feed-head"><span class="feed-head-sub"></span>${state.loaded && !state.missing && !state.error ? pull.button() + boxChip() : ''}</div>${state.loaded && !state.missing && !state.error ? pull.line() : ''}`;
   if (!state.loaded) { box.innerHTML = head + waitHtml({rows:6, h:34}); return; }
   if (state.missing) { box.innerHTML = head + '<p class="feed-empty" data-cf-empty="ready">준비 중이에요. 통화 수집이 연결되면 여기에 보여요.</p>'; return; }
   if (state.error) { box.innerHTML = head + `<p class="feed-empty" role="status">${esc(state.error)} <button type="button" class="feed-text-btn" data-cf-retry>다시 시도</button></p>`; return; }
@@ -536,6 +539,7 @@ function bind() {
     else if (b.hasAttribute('data-cf-back')) { if (!state.link || dropLink(() => closeDetail())) closeDetail(); }
     else if (b.hasAttribute('data-cf-copy')) { const r = rowOf(state.selected); if (r) void copyCall(r, b); }
     else if (b.hasAttribute('data-cf-retry')) void load();
+    else if (b.hasAttribute('data-cf-pull')) void pull.start();
     else if (b.hasAttribute('data-cf-undo')) void restore();
     else if (b.hasAttribute('data-cf-ledger-retire')) void retireLedger();
     else if (b.hasAttribute('data-cf-more')) menu.open(b);

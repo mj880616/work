@@ -28,7 +28,7 @@ const days=[
 
 async function fixture(page,{width=1280,missing=false,empty=false,many=0}={}){
  await page.setViewportSize({width,height:860});
- const items=empty?[]:rows(),writes=[],errors=[];
+ const items=empty?[]:rows(),writes=[],errors=[],pulls=[],pull={status:200,error:'',reported:null};
  // UI-칸안스크롤하나로 시험: 목록이 화면보다 길도록 지어낸 통화 줄을 더한다(10. 4. 하루, 시각만 다름).
  for(let i=0;i<many;i++)items.push({...base,id:`61000000-0000-4000-8000-${String(i).padStart(12,'0')}`,source:'call',day:'2026-10-04',occurred_at:`2026-10-04T0${Math.floor(i/60)%4}:${String(i%60).padStart(2,'0')}:00Z`,room_key:null,room_label:null,title:`가상 통화 ${i+1}`,summary:null,points:[],counterpart:null,speaker_split:false,raw_count:0,organization_id:null,raw_text:null});
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error'&&!/Failed to load resource/.test(e.text()))errors.push(e.text());});
@@ -58,6 +58,19 @@ async function fixture(page,{width=1280,missing=false,empty=false,many=0}={}){
   // TG-방날짜묶기: 텔레그램 화면의 방·날 목록 함수(이 파일의 텔레그램 시험은 빈 상태뿐이고, 본 시험은 tg-room-day.spec.mjs).
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_feed_room_day_lines',r=>missing?r.fulfill({status:404,json:{code:'PGRST202',message:'Could not find the function'}}):r.fulfill({json:[]}));
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_call_personal',r=>r.fulfill({json:[]}));
+  // FEED-최신화즉시수집: [최신화] → drive-summary ?action=collector_pull(요청만 기록), 끝 판정은 ?action=status의 call_send·telegram_send 알린 시각.
+  await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/drive-summary',r=>{
+   const req=r.request(),action=new URL(req.url()).searchParams.get('action');
+   if(action==='collector_pull'){
+    const body=req.postDataJSON();pulls.push({body,auth:req.headers().authorization||''});
+    if(pull.status!==200)return r.fulfill({status:pull.status,json:{ok:false,error:pull.error,checked_at:'2026-10-06T01:00:00Z'}});
+    return r.fulfill({json:{ok:true,source:body.source,requested_at:'2026-10-06T01:00:00Z',left:19}});
+   }
+   if(action==='status'){const at=pull.reported;const beat=at?{last_at:at,state:'ok',reported_at:at}:null;
+    return r.fulfill({json:{ok:true,checked_at:'2026-10-06T01:00:00Z',copy:{state:'none',last_success_at:null,last_failure_at:null,last_failure_code:null},
+     collectors:{telegram:null,transcript:at?{last_at:'2026-10-06T00:55:00Z',count:null,reported_at:at}:null,telegram_send:beat,call_send:beat},text_backfill:null,ai_usage:null}});}
+   return r.fulfill({status:404,json:{ok:false}});
+  });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_call_edits',r=>r.fulfill({json:[]}));
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_feed_days',r=>{
    if(missing)return r.fulfill({status:404,json:{code:'PGRST205'}});
@@ -72,7 +85,7 @@ async function fixture(page,{width=1280,missing=false,empty=false,many=0}={}){
    return r.fulfill({json:[]});
   });
  }});
- return {items,writes,errors};
+ return {items,writes,errors,pulls,pull};
 }
 async function openMenu(page,width,label){
  if(width>=761){
@@ -306,3 +319,38 @@ test('통화 PC 1440: 목록이 길어도 칸 안 스크롤 없이 화면 스크
  expect(await innerScrollers(page,'#callsView')).toEqual([]);
  expect(f.errors).toEqual([]);
 });
+
+// FEED-최신화즉시수집(S52-46): 머리 줄 작은 [최신화] → 서버 한 번(몸통은 출처만) → 20초 뒤 다시 읽어 새 줄이 보이고 '수집 끝' 한 줄. 거절은 한 줄.
+test('통화 1280: [최신화] → 요청 한 번 → 다시 읽기로 새 통화 줄 → 수집 끝 한 줄',async({page})=>{
+ test.setTimeout(120000);
+ const f=await fixture(page,{width:1280});
+ await openMenu(page,1280,'통화');
+ const view=page.locator('#callsView'),btn=view.locator('[data-cf-pull]');
+ await expect(btn).toHaveText('최신화');
+ await expect(view.locator('[data-cf-row]')).toHaveCount(3);
+ await btn.click();
+ await expect(view.locator('[data-feed-pull="call"]')).toHaveText('수집 요청함 · 1~3분 안에 새 줄이 보여요');
+ expect(f.pulls).toHaveLength(1);expect(f.pulls[0].body).toEqual({source:'call'});expect(f.pulls[0].auth).toMatch(/^Bearer /);
+ await expect(btn).toBeDisabled();
+ // 그사이 수집기가 새 통화를 보냈고 보내기 실행이 끝났다고 알렸다.
+ f.items.push({...base,id:'60000000-0000-4000-8000-0000000000aa',source:'call',day:'2026-10-06',occurred_at:'2026-10-06T00:58:00Z',room_key:null,room_label:null,title:'가상 새 통화',summary:null,points:[],counterpart:null,speaker_split:false,raw_count:0,organization_id:null,raw_text:null});
+ f.pull.reported='2026-10-06T01:00:40Z';
+ await expect(view.locator('[data-cf-row]')).toHaveCount(4,{timeout:40000});
+ await expect(view.locator('[data-feed-pull="call"]')).toHaveText('수집 끝 · 전사가 마지막으로 끝난 시각 09:55');
+ await expect(btn).toBeEnabled();
+ expect(f.pulls).toHaveLength(1);
+ expect(f.errors).toEqual([]);
+});
+for(const [width,error,text] of [[390,'PULL_COOLDOWN','방금 눌렀어요 · 3분 뒤에 다시 누를 수 있어요'],[1280,'PULL_WAKE_FAILED','수집기를 깨우지 못했어요 · 다음 매시 수집을 기다려 주세요'],[390,'NOT_OPERATOR','이 작업공간에서는 쓸 수 없어요']])
+ test(`텔레그램 ${width}: [최신화] 거절(${error})은 한 줄, 버튼은 다시 눌림`,async({page})=>{
+  const f=await fixture(page,{width,empty:true});
+  f.pull.status=error==='PULL_COOLDOWN'?429:error==='NOT_OPERATOR'?403:502;f.pull.error=error;
+  await openMenu(page,width,'텔레그램 소식');
+  const view=page.locator('#telegramView'),btn=view.locator('[data-tg-pull]');
+  await tap(page,btn,width);
+  await expect(view.locator('[data-feed-pull="telegram"]')).toHaveText(text);
+  expect(f.pulls.map(p=>p.body)).toEqual([{source:'telegram'}]);
+  await expect(btn).toBeEnabled();
+  expect(await noWideScroll(page)).toBe(true);
+  expect(f.errors).toEqual([]);
+ });
