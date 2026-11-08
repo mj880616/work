@@ -170,9 +170,13 @@ export function mountWeekSummary(el,{meetings,week}){
   const from=weekOf(week||seoulDateKey(Date.now())).from;
   if(!state)state={meetings,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[]};
   else{
+    // 같은 주이고 사업 보고 자료(화면이 읽어 둔 배열)도 그대로면 이미 그린 것을 다시 읽지 않는다(화면이 다시 그려질 때마다·[+] 창을 열 때마다 서버를 부르지 않게).
+    const same=state.from===from&&state.seen===meetings()&&!!state.view;
     state.meetings=meetings;
+    if(same)return;
     if(state.editing&&state.from===from)return; // 쓰는 칸이 있으면 같은 주에서는 다시 그리지 않는다(쓰던 글 보호)
     state.from=from;state.to=shiftDays(from,6);
   }
+  state.seen=meetings();
   void paint();
 }
