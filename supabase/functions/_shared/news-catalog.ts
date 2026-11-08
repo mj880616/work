@@ -84,6 +84,47 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     extract: false,
     lists: ["https://newstapa.org/rss"],
     hosts: ["newstapa.org", "www.newstapa.org"], kindOf: article },
+  // ---- 3차(S54-03, 11/08 19:50 CC가 명진 크롬으로 피드를 직접 받아 확인: 모두 HTTP 200·item·description 있음 [사실]).
+  //   'AI 학습·활용 금지' 문구가 있는 매체도 넣는다 — 11/08 19:46 명진 결정 "AI 문구 매체도 넣어, 어차피 개인 용도"(설계 3.1b 3차).
+  //   take: 'keywords'·extract: false(글 쪽은 수집 때 읽지 않음)는 1·2차와 같다. hosts에는 피드 호스트와 기사 호스트를 모두 넣는다.
+  //   주소에 쿼리(?sectionId·?outputType)가 있어도 allowedUrl은 호스트·https·포트·계정만 보므로 그대로 통과한다(규칙을 넓히지 않음).
+  { key: "news-hani", name: "한겨레", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 피드 www.hani.co.kr/rss/ [사실, 11/08 CC 크롬 확인: 섹션마다 item 30, 기사 링크 www.hani.co.kr]. AI 문구 있음(피드 copyright 'AI 학습 및 활용 금지'), 명진 결정으로 넣음(개인 용도).
+    extract: false,
+    lists: ["https://www.hani.co.kr/rss/society/", "https://www.hani.co.kr/rss/economy/", "https://www.hani.co.kr/rss/politics/"],
+    hosts: ["www.hani.co.kr", "hani.co.kr"], kindOf: article },
+  { key: "news-yna", name: "연합뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 안내 쪽 www.yna.co.kr/rss/index(비상업·개인) [사실, 11/08 CC 크롬 확인: 섹션마다 item 120]. 기사 호스트 www.yna.co.kr는 [추정] — 이 세션은 피드를 열지 못함, 배포 뒤 probe로 확인.
+    // AI 문구 있음(피드 copyright 'AI 학습 및 활용 금지'), 명진 결정으로 넣음(개인 용도).
+    extract: false,
+    lists: ["https://www.yna.co.kr/rss/society.xml", "https://www.yna.co.kr/rss/economy.xml", "https://www.yna.co.kr/rss/politics.xml"],
+    hosts: ["www.yna.co.kr", "yna.co.kr", "m.yna.co.kr"], kindOf: article },
+  { key: "news-donga", name: "동아일보", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 안내 쪽 rss.donga.com(개인 비상업) [사실, 11/08 CC 크롬 확인: 섹션마다 item 50, 기사 링크 www.donga.com]. AI 문구 있음(하단 'AI학습 이용 금지'), 명진 결정으로 넣음(개인 용도).
+    extract: false,
+    lists: ["https://rss.donga.com/national.xml", "https://rss.donga.com/economy.xml", "https://rss.donga.com/politics.xml"],
+    hosts: ["rss.donga.com", "www.donga.com", "donga.com"], kindOf: article },
+  { key: "news-jtbc", name: "JTBC", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 안내 쪽 news.jtbc.co.kr/rss [사실, 11/08 CC 크롬 확인: item 사회 11·경제 4·정치 14, 기사 링크 news.jtbc.co.kr]. AI 문구 있음(하단 'AI 학습 등 금함'), 명진 결정으로 넣음(개인 용도).
+    extract: false,
+    lists: ["https://news-ex.jtbc.co.kr/v1/get/rss/section/society", "https://news-ex.jtbc.co.kr/v1/get/rss/section/economy", "https://news-ex.jtbc.co.kr/v1/get/rss/section/politics"],
+    hosts: ["news-ex.jtbc.co.kr", "news.jtbc.co.kr"], kindOf: article },
+  { key: "news-sbs", name: "SBS", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 안내 쪽 news.sbs.co.kr/news/rss.do [사실, 11/08 CC 크롬 확인: 섹션마다 item 29]. 기사 호스트 news.sbs.co.kr는 [추정] — 배포 뒤 probe로 확인.
+    // AI 문구 있음('AI학습 이용 금지'), 명진 결정으로 넣음(개인 용도). sectionId 03 사회·02 경제·01 정치.
+    extract: false,
+    lists: ["https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=03&plink=RSSREADER", "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02&plink=RSSREADER", "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01&plink=RSSREADER"],
+    hosts: ["news.sbs.co.kr", "mnews.sbs.co.kr"], kindOf: article },
+  { key: "news-nocut", name: "노컷뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 안내 쪽 nocutnews.co.kr/rss/ [사실, 11/08 CC 크롬 확인: 섹션마다 item 50, 기사 링크 www.nocutnews.co.kr]. AI 문구 있음('AI 학습 및 활용 금지'), 명진 결정으로 넣음(개인 용도).
+    extract: false,
+    lists: ["https://rss.nocutnews.co.kr/category/society.xml", "https://rss.nocutnews.co.kr/category/economy.xml", "https://rss.nocutnews.co.kr/category/politics.xml"],
+    hosts: ["rss.nocutnews.co.kr", "www.nocutnews.co.kr", "nocutnews.co.kr"], kindOf: article },
+  { key: "news-chosun", name: "조선일보", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 공식 안내 쪽 없음 — 사이트 자체 주소(arc outboundfeeds) [사실, 11/08 CC 크롬 확인: 섹션마다 item 100, 기사 링크 www.chosun.com]. AI 문구 없음. 명진 결정으로 넣음(개인 용도).
+    extract: false,
+    lists: ["https://www.chosun.com/arc/outboundfeeds/rss/category/national/?outputType=xml", "https://www.chosun.com/arc/outboundfeeds/rss/category/economy/?outputType=xml", "https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml"],
+    hosts: ["www.chosun.com", "chosun.com"], kindOf: article },
   { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss",
     extract: { version: 1 },
     lists: ["https://publicservices.international/feed.xml"], hosts: ["publicservices.international"], kindOf: article },
