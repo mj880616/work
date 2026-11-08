@@ -60,6 +60,8 @@ for (const [label, size] of [['폰', {width: 390, height: 844}], ['PC', {width: 
     const state = {sorts: {parents: [{id: P1, name: '가상협의회'}], names: {[key('가상지부 점검 회의')]: P1, [key('하반기 공동 기획회의(2차)')]: P1, [key('하반기 공동 기획회의(1차)')]: P1}}, writes: []};
     await openEntry(page, state);
 
+    // PC는 입력 창이 가장 최근 회의명(비정기)을 미리 고른 채 열린다 — 지금 고른 이름은 정기 줄처럼 보이므로, 빈 이름에서 시작한다.
+    await page.locator('#meetingNameSelect').selectOption('__other__');
     // ② 평소: 정기만 + 상위 줄 바로 아래 접힌 묶음(차수만 다른 회의는 한 줄).
     await page.locator('#meetingNameSelect').click();
     await expect(panel(page)).toBeVisible();

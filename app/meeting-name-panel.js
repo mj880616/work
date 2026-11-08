@@ -258,8 +258,8 @@ export function bindPicker(select, {entries}) {
   select._nameEntries = entries;
   select.dataset.namePanel = '1';
   select.setAttribute('aria-haspopup', 'dialog');
+  // 정리는 창을 처음 열 때 읽는다(입력 창을 여는 것만으로는 서버에 묻지 않음 — 기존 '추가 요청 0건' 약속). 읽은 뒤에는 모든 상자에 바로 맞춘다.
   paintOptions(select);
-  if (peekSorts()?.status !== 'ok') void readSorts().then(() => paintOptions(select));
 }
 const opener = {match: s => s.hasAttribute('data-name-panel') && s.options.length > 0, open};
 if (window.KPTUSelectMenu?.addOpener) window.KPTUSelectMenu.addOpener(opener);
