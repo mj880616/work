@@ -304,3 +304,29 @@ test('Phone app release passes only the four Firebase app variables (APP-폰알�
   assert.doesNotMatch(source, /(?:echo|printf)[^\n]*WEB2_FCM_/);
   assert.doesNotMatch(source, /google-services/);
 });
+
+test('S54-14 CI diet: nightly E2E skips unchanged commits without wider permissions, workers stay at 2, Deno binary is cached, Pages build check skips docs-only PRs', () => {
+  const e2e = workflow('app-e2e-check.yml');
+  assert.match(e2e, /--browser=chromium --workers=2 --reporter=line,github/);
+  assert.doesNotMatch(e2e, /--retries|actions: read/);
+  assert.match(e2e, /^permissions:\n  contents: read\n/m);
+  const decide = jobBlocks(e2e).changes;
+  assert.match(decide, /if \[ "\$EVENT_NAME" = "schedule" \]; then[\s\S]*?event=schedule&status=success&branch=main[\s\S]*?"\$last_sha" = "\$HEAD_COMMIT"[\s\S]*?e2e=false[\s\S]*?GITHUB_STEP_SUMMARY[\s\S]*?exit 0[\s\S]*?e2e=true/);
+  assert.doesNotMatch(decide, /GITHUB_TOKEN|secrets\./);
+
+  const authz = workflow('authz-security-check.yml');
+  assert.match(authz, /actions\/cache\/restore@[0-9a-f]{40} # v[\d.]+\n(?:.*\n)*?          key: deno-bin-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}-v2\.9\.6/);
+  assert.match(authz, /deno-version: v2\.9\.6/);
+  assert.match(authz, /actions\/cache\/save@[0-9a-f]{40}/);
+
+  const pages = workflow('pages-build-check.yml');
+  const build = jobBlocks(pages)['build-output'];
+  assert.doesNotMatch(build, /^    if:/m, 'job name and verdict stay; steps are skipped instead');
+  assert.match(build, /id: scope[\s\S]*?grep -zqvE '\^docs\/\|\\\.md\$'/);
+  const after = build.slice(build.indexOf('id: scope'));
+  const steps = after.split(/^      - /m).slice(2);
+  assert.ok(steps.length >= 10);
+  for (const step of steps) assert.match(step, /^        if: steps\.scope\.outputs\.needed == 'true'/m, step.split('\n')[0]);
+  // personal-data scan in loader-cache-check must stay unconditional even for docs-only PRs
+  assert.doesNotMatch(workflow('loader-cache-check.yml'), /steps\.scope|^        if:/m);
+});

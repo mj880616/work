@@ -29,34 +29,63 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+      # S54-14: docs/ 또는 *.md만 바뀐 PR은 빌드 확인이 필요 없으므로 job은 그대로 두고 아래 단계를 건너뛴다("바뀐 곳 없음 → 바로 통과").
+      # 수동 실행은 항상 확인한다. 판정에 실패하면 확인을 한다.
+      - name: Decide whether the Pages build check is needed
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -uo pipefail
+          needed=true
+          if [ "$EVENT_NAME" = "pull_request" ] && git diff --no-renames --name-only -z "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/pages-changed-files"; then
+            tr '\0' '\n' < "$RUNNER_TEMP/pages-changed-files"
+            if ! grep -zqvE '^docs/|\.md$' "$RUNNER_TEMP/pages-changed-files"; then
+              needed=false
+              echo "docs/·*.md만 바뀜: Pages 빌드 확인 불필요, 바로 통과" | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+          echo "needed=$needed" >> "$GITHUB_OUTPUT"
       # The same Jekyll build GitHub Pages runs for a branch deployment.
       - name: Jekyll build
+        if: steps.scope.outputs.needed == 'true'
         uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13
         with:
           source: ./
           destination: ./_site
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.scope.outputs.needed == 'true'
         with:
           node-version: 20
           package-manager-cache: false
       - name: Install locked checker parser
+        if: steps.scope.outputs.needed == 'true'
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
       - name: Test build scripts
+        if: steps.scope.outputs.needed == 'true'
         run: node --test scripts/build-pages.test.mjs scripts/build-pages-repo.test.mjs scripts/compare-pages.test.mjs
       - name: Build Jekyll output
+        if: steps.scope.outputs.needed == 'true'
         run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
       - name: Check hashed references, manifest and Worker fingerprints
+        if: steps.scope.outputs.needed == 'true'
         run: node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"
       - name: Check Worker deploy URL extraction on the output
+        if: steps.scope.outputs.needed == 'true'
         run: node scripts/cloudflare-check-urls.mjs "$RUNNER_TEMP/pages-out"
       # Since 2단계 Pages serves the build output, so that is what production is compared with.
       - name: Compare build output with current GitHub Pages (report only)
-        if: github.event_name == 'workflow_dispatch' && inputs.compare_live
+        if: steps.scope.outputs.needed == 'true' && (github.event_name == 'workflow_dispatch' && inputs.compare_live)
         run: node scripts/compare-pages.mjs --live "$RUNNER_TEMP/pages-out"
       - name: Install Playwright
+        if: steps.scope.outputs.needed == 'true'
         uses: ./.github/actions/setup-playwright
       - name: Serve build output
+        if: steps.scope.outputs.needed == 'true'
         run: |
           (cd "$RUNNER_TEMP/pages-out" && python3 -m http.server 8125 >"$RUNNER_TEMP/pages-http.log" 2>&1 &)
           for i in $(seq 1 20); do
@@ -66,4 +95,5 @@ jobs:
           cat "$RUNNER_TEMP/pages-http.log"
           exit 1
       - name: Boot built output in the browser
+        if: steps.scope.outputs.needed == 'true'
         run: npx playwright test tests/build-pages --browser=chromium --workers=1 --reporter=line,github

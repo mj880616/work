@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 조직보고 표(새 설계: 기록을 보여 주는 창)</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--tline:#c9d3cf;--surface:#fbfdfc;--bg:#eef5f2;--head:#eef4f1;--pri:#2f6f5e}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}
+h2{font-size:13px;margin:14px 0 6px}
+.phone{width:100%;max-width:380px;border:1px solid var(--line);border-radius:16px;background:var(--bg);padding:10px 0}
+.r{display:flex;align-items:center;gap:6px;padding:3px 10px}
+.seg{display:inline-flex;background:#efebe6;border-radius:999px;padding:3px}.seg span{padding:3px 11px;border-radius:999px;color:var(--muted)}.seg .on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.btn{height:30px;padding:0 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;gap:8px}
+.btn i{font-style:normal;color:var(--muted)}
+.tt{margin:6px 10px 3px;font-weight:600}.tt small{margin-left:6px;font-weight:400;color:var(--muted)}
+.tw{margin:0 10px;background:#fff}
+table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12.5px;word-break:keep-all}
+th,td{border:1px solid var(--tline);padding:4px 6px;vertical-align:top;text-align:left}
+th{background:var(--head);text-align:center;font-weight:600}
+td.k{background:#f7f9f8;font-weight:500}td.k small{display:block;font-weight:400;color:var(--muted);font-size:11px;line-height:1.3;margin-top:2px}
+td p{margin:0;display:flex;gap:4px;align-items:baseline}td p span{flex:1}td p i{font-style:normal;color:var(--muted);flex:none}
+td p+p{margin-top:2px}
+.ed{font-size:9px;color:#9aa49f;flex:none}
+.add{color:var(--pri);font-size:12px;margin-top:2px}
+.out{color:#9aa49f;font-size:11px;margin-top:2px}
+.mn{margin:2px 0 4px auto;width:170px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);padding:3px;font-size:12px}.mn div{padding:4px 8px;border-radius:6px}.mn .on{background:#dcefe8}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6;max-width:380px}
+.flow{max-width:380px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:12.5px;line-height:1.7}
+.flow b{color:var(--pri)}
+</style></head><body>
+<h1>조직보고 표 — 새 설계</h1>
+<p class="s">쓰는 곳은 '조직 기록' 하나. 이 표는 이번 주 기록을 보여 주는 창.</p>
+
+<div class="flow">
+<b>주중</b> 조직 기록에 한 줄 / 잊지 말기·통화·텔레그램에서 [조직]<br>
+&nbsp;&nbsp;↓ 날짜가 이번 주인 기록<br>
+<b>이 표</b> 조직 칸에 저절로 들어옴 → 빼거나 보고용으로 다듬기만<br>
+&nbsp;&nbsp;↓<br>
+<b>금요일</b> 한글 주간보고 '4. 조직보고'에 이 표 그대로
+</div>
+
+<h2>담당조직 › 전체 표 (폰)</h2>
+<div class="phone">
+<div class="r"><span class="seg"><span>목록</span><span class="on">전체 표</span></span></div>
+<div class="r"><span class="btn"><i>‹</i>11.9~11.15<i>›</i></span><span class="btn">복사</span></div>
+<div class="tt">4. 조직보고<small>1) 산하조직</small></div>
+<div class="tw"><table><colgroup><col style="width:30%"><col></colgroup>
+<tr><th>조직</th><th>내용</th></tr>
+<tr><td class="k">○○철도노조<small>파업 찬반투표(11.5)</small></td><td>
+<p><span>- 11.11. 파업 경고 기자회견(○○역)</span><i>⋯</i></p>
+<div class="mn"><div class="on">보고용으로 수정</div><div>이번 보고에서 빼기</div><div>기록 열기</div></div>
+<div class="add">+ 쓰기</div></td></tr>
+<tr><td class="k">○○교통공사노조<small>파업 찬반투표(11.5)</small></td><td>
+<p><span>- 11.10. 임단투 승리 확대간부 결의대회</span><span class="ed" title="보고용으로 수정함">✓</span><i>⋯</i></p>
+<p><span>- 11.12. 서울시 협의 답변 반복, 투쟁 필요성 밝힘</span><i>⋯</i></p>
+<div class="add">+ 쓰기</div><div class="out">뺀 줄 1 ⌄</div></td></tr>
+<tr><td class="k">○○지하철노조<small>잠정합의(10.23)</small></td><td><div class="add">+ 쓰기</div></td></tr>
+<tr><td class="k">○○교통공사노조<small>쟁의발생 결의(11.6)</small></td><td>
+<p><span>- 11.9. 임금협약 실무 집중교섭</span><i>⋯</i></p>
+<p><span>- 11.12. ○○ 포럼 개최</span><i>⋯</i></p>
+<div class="add">+ 쓰기</div></td></tr>
+<tr><td class="k">○○지부<small>파업 찬반투표(11.2~12.5)</small></td><td><div class="add">+ 쓰기</div></td></tr>
+</table></div>
+</div>
+<p class="note">· 칸에 보이는 줄 = 그 조직 기록 중 날짜가 이번 주(월~일)인 줄. 따로 저장하는 '주간 줄'·제안·지난주·현황 표·이전 기록 접기 모두 없음<br>· [+ 쓰기] = 그 조직 기록에 한 줄 더함(날짜 = 오늘, 바꿀 수 있음) → 바로 이 칸에도 보임<br>· 줄 ⋯ = [보고용으로 수정](이번 보고에만 다른 글, 원래 기록 그대로, 줄 끝에 아주 작은 ✓만(글자 없음)) · [이번 보고에서 빼기](기록은 그대로, 칸 아래 '뺀 줄 n ⌄'에서 되돌리기) · [기록 열기]<br>· 상태 칩은 조직 칸 아래 그대로, 조직 순서는 주간보고 순서<br>· 업무일지 '이번 주 보고'·주간 정리 4. 조직보고도 똑같은 이 표</p>
+
+<h2>조직 상세 (폰) — [기록]·[현황 표] 둘 → '기록' 하나</h2>
+<div class="phone">
+<div class="r" style="font-weight:600;font-size:15px">○○교통공사노조 <span class="btn" style="height:24px;font-size:11.5px;margin-left:4px">파업 찬반투표 ▾</span></div>
+<div class="tw" style="margin-top:4px"><table><colgroup><col style="width:24%"><col></colgroup>
+<tr><th>날짜</th><th>기록</th></tr>
+<tr><td>11.12.</td><td><p><span>서울시 협의 답변 반복, 투쟁 필요성 밝힘</span><i>⋯</i></p></td></tr>
+<tr><td>11.10.</td><td><p><span>임단투 승리 확대간부 결의대회 서울시의회 앞</span><i>⋯</i></p></td></tr>
+<tr><td>11.5.</td><td><p><span>파업 찬반투표 가결</span><i>⋯</i></p></td></tr>
+<tr><td colspan="2" class="out" style="text-align:center">지난 기록 24 ⌄</td></tr>
+</table></div>
+<div class="r"><span class="add">+ 쓰기</span></div>
+</div>
+<p class="note">· 한 조직의 모든 일이 날짜순 한 표 — 통화·텔레그램·업데이트에서 [조직]으로 넣은 것도 여기 같이<br>· 줄 ⋯ = [수정][삭제][원래 통화·글 보기(있을 때)]<br>· 주간보고 '3. 2) 투쟁 사업장 현황'은 이 표의 최근 줄을 씀</p>
+</body></html>
