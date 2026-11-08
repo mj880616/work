@@ -194,3 +194,42 @@ test('Drive를 쓰는 Web2 Edge(운영자 전용 제외)는 id=1의 갱신 열�
     assert.match(src, /workspace-drive-token\.ts/, f);
   }
 });
+
+test('helper(S54-16): 설정·연결 두 읽기는 함께 나가고, 판정 순서(설정 없음 → 503, 연결 없음 → 424)는 그대로, 토큰은 보관하지 않는다', async () => {
+  const { workspaceDriveToken, WorkspaceDriveError } = await import('../../supabase/functions/_shared/workspace-drive-token.ts');
+  // 두 읽기 모두 시작돼야 풀리는 관리자 흉내: 하나씩 기다리면 이 시험은 멈춘다(시간 초과).
+  const started = [];
+  let release;
+  const gate = new Promise(r => { release = r; });
+  const slow = (cfg, conn) => ({
+    from(table) {
+      const b = { select: () => b, eq: () => b, limit: () => b, maybeSingle: async () => {
+        started.push(table);
+        if (started.length === 2) release();
+        await gate;
+        if (table === 'public_policy_drive_config') return { data: cfg, error: null };
+        return { data: conn, error: null };
+      } };
+      return b;
+    },
+  });
+  const calls = [];
+  const ok = await Promise.race([
+    workspaceDriveToken(slow({ google_client_id: 'c', google_client_secret: 's' }, { google_refresh_token: B_REFRESH }), WS_B, { fetch: googleFetch(calls), log: () => {} }),
+    new Promise((_, no) => setTimeout(() => no(new Error('reads were not sent together')), 2000)),
+  ]);
+  assert.equal(ok, 'synthetic-access');
+  assert.deepEqual(started.sort(), ['app_drive_connections', 'public_policy_drive_config']);
+  // 같은 작업공간을 다시 부르면 토큰을 다시 받는다(보관 없음).
+  started.length = 0;
+  await workspaceDriveToken(slow({ google_client_id: 'c', google_client_secret: 's' }, { google_refresh_token: B_REFRESH }), WS_B, { fetch: googleFetch(calls), log: () => {} });
+  assert.equal(tokenBodies(calls).length, 2);
+  // 설정도 연결도 없으면 설정 오류가 먼저(원래 순서).
+  started.length = 0;
+  await assert.rejects(workspaceDriveToken(slow(null, null), WS_B, { fetch: googleFetch(calls), log: () => {} }),
+    e => e instanceof WorkspaceDriveError && e.code === 'drive_config_missing');
+  started.length = 0;
+  await assert.rejects(workspaceDriveToken(slow({ google_client_id: 'c', google_client_secret: 's' }, null), WS_B, { fetch: googleFetch(calls), log: () => {} }),
+    e => e instanceof WorkspaceDriveError && e.status === 424 && e.code === 'drive_not_connected');
+  assert.equal(tokenBodies(calls).length, 2, 'no token exchange when not connected');
+});

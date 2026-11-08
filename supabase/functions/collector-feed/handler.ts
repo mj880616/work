@@ -552,11 +552,15 @@ async function runCall(db: Db, ws: string, input: CallInput, nowMs: number, fami
   const today = kstDay(nowMs);
   await claimBatch(db, ws, today, "call", nowMs);
   // 같은 원본은 업무·개인 두 통화함을 통틀어 한 번만(DB 트리거도 막는다).
-  const dup = await db.get(`app_feed_items?workspace_id=eq.${ws}&source=eq.call&source_ref=eq.${input.ref}&select=source_ref&limit=1`);
-  if (dup.length) return callResult({ duplicate: true });
-  const dupBox = await db.get(`app_call_personal?workspace_id=eq.${ws}&source_ref=eq.${input.ref}&select=source_ref&limit=1`);
-  if (dupBox.length) return callResult({ duplicate: true });
-  const orgs = await readOrgs(db, ws);
+  // 중복 확인 두 곳과 조직 읽기는 서로 상관없어 함께 보낸다(S54-16). 판정 순서는 그대로(중복이면 조직 읽기 결과는 버림).
+  const settled = await Promise.allSettled([
+    db.get(`app_feed_items?workspace_id=eq.${ws}&source=eq.call&source_ref=eq.${input.ref}&select=source_ref&limit=1`),
+    db.get(`app_call_personal?workspace_id=eq.${ws}&source_ref=eq.${input.ref}&select=source_ref&limit=1`),
+    readOrgs(db, ws),
+  ] as const);
+  if (settledValue(settled[0]).length) return callResult({ duplicate: true });
+  if (settledValue(settled[1]).length) return callResult({ duplicate: true });
+  const orgs = settledValue(settled[2]);
   if (input.family) return await runFamilyCall(db, ws, input, orgs, nowMs, family);
   // CALL-업무기본: 분석이 '애매'로 본 통화만 서버 규칙으로 다시 가른다(새 AI 호출 없음, 순서는 ① 명진이 고른 상대 기억 → ② 연락처 이름 규칙).
   // 개인(분석이 개인으로 본 것·개인 번호 목록 통화)은 그대로 개인이고, 규칙에 안 걸린 애매만 '확인할 통화'로 남는다.
@@ -626,6 +630,12 @@ async function runCallSkip(db: Db, ws: string, input: SkipInput, nowMs: number) 
 // ---- 텔레그램 ------------------------------------------------------------------------------------------------------
 
 type AiDeps = { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: Log; env: Env };
+
+// Promise.allSettled 결과에서 값을 꺼낸다. 실패면 그 오류를 그대로 던진다(순서대로 꺼내면 원래 순서의 첫 실패가 나간다).
+function settledValue<T>(r: PromiseSettledResult<T>): T {
+  if (r.status === "rejected") throw r.reason;
+  return r.value;
+}
 
 async function monthUsage(db: Db, ws: string, nowMs: number) {
   const today = kstDay(nowMs), monthStart = `${today.slice(0, 7)}-01`;
@@ -784,15 +794,23 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   }
   const config = aiConfigFrom(deps.env, { keyName: KEY_NAME, model: DEFAULT_MODEL, priceIn: DEFAULT_PRICE_IN_KRW_PER_MTOK, priceOut: DEFAULT_PRICE_OUT_KRW_PER_MTOK });
   if (!config) throw new Fail(503, "AI_NOT_CONFIGURED");
-  const used = await monthUsage(db, ws, nowMs);
+  // 서로 상관없는 읽기 6개는 함께 보낸다(S54-16). 판정 순서는 그대로: 한 달 한도를 먼저 보고, 그다음 실패를 원래 순서대로 낸다.
+  const settled = await Promise.allSettled([
+    monthUsage(db, ws, nowMs),
+    readOrgs(db, ws),
+    db.get(`app_spaces?workspace_id=eq.${ws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`),
+    senderNames(db, ws, input, deps.log),
+    earlierItems(db, ws, input, deps.log),
+    askFilter(db, ws, input, deps.log),
+  ] as const);
+  const used = settledValue(settled[0]);
   if (estimateKrw(used.input, used.output, config.price) >= MONTHLY_LIMIT_KRW) throw new Fail(429, "AI_MONTHLY_LIMIT");
-
-  const orgs = organizationOptions(await readOrgs(db, ws));
-  const projects = projectOptions(await db.get(`app_spaces?workspace_id=eq.${ws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`));
+  const orgs = organizationOptions(settledValue(settled[1]));
+  const projects = projectOptions(settledValue(settled[2]));
   // 한 방·하루가 여러 묶음이면(둘째 묶음부터, 또는 보낸 메시지가 하루 전체보다 적을 때) 요약을 그 묶음 몫으로 쓰게 한다(설계 3.2절).
-  const { names, self } = await senderNames(db, ws, input, deps.log);
-  const earlier = await earlierItems(db, ws, input, deps.log);
-  const filter = await askFilter(db, ws, input, deps.log);
+  const { names, self } = settledValue(settled[3]);
+  const earlier = settledValue(settled[4]);
+  const filter = settledValue(settled[5]);
   const partial = input.part > 1 || input.cont || input.total > input.messages.length;
   const material = telegramMaterial(input.day, input.room_label, input.messages, orgs, projects, partial, names, earlier.items, self, input.chat_kind, filter.notMine);
   // 부르기 전에 횟수를 먼저 센다(ai-assist와 같음).
@@ -1108,10 +1126,14 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
         contextUse.n++;
         const cdb = makeDb(sb, key, doFetch);
         const cws = await workspaceId(cdb, "calls"); // 맥락(조직·프로젝트·사람)은 통화 분석용
-        const orgs = await readOrgs(cdb, cws);
-        const spaces = await cdb.get(`app_spaces?workspace_id=eq.${cws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`);
         // CALL-맥락사람: 사람 목록은 읽기 전용 DB 함수에서만 받는다. 함수가 아직 없으면(DB 적용 전) 이름만 돌려준다.
-        const found = await cdb.rpc(CONTEXT_PEOPLE_FN, { p_workspace: cws, p_limit: CONTEXT_PEOPLE_ROWS });
+        // 세 읽기는 서로 상관없어 함께 보낸다(S54-16). 실패는 원래 순서대로 낸다.
+        const got = await Promise.allSettled([
+          readOrgs(cdb, cws),
+          cdb.get(`app_spaces?workspace_id=eq.${cws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`),
+          cdb.rpc(CONTEXT_PEOPLE_FN, { p_workspace: cws, p_limit: CONTEXT_PEOPLE_ROWS }),
+        ] as const);
+        const orgs = settledValue(got[0]), spaces = settledValue(got[1]), found = settledValue(got[2]);
         const ctx = buildContext(orgs, spaces, found === "missing" ? [] : found.rows);
         log("context_served", { organizations: ctx.organizations.length, projects: ctx.projects.length, people: ctx.people.length, people_fn: found === "missing" ? "missing" : "ok" });
         return json({ ok: true, ...ctx });

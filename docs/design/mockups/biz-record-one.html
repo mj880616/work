@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 사업 쪽 새 설계(사업 기록 하나 + 표는 보여 주는 창)</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--tline:#c9d3cf;--surface:#fbfdfc;--bg:#eef5f2;--head:#eef4f1;--pri:#2f6f5e}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}
+h2{font-size:13px;margin:16px 0 6px}
+.box{width:100%;max-width:380px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:12.5px;line-height:1.7}
+.box b{color:var(--pri)}
+.phone{width:100%;max-width:380px;border:1px solid var(--line);border-radius:16px;background:var(--bg);padding:10px 0}
+.tt{margin:2px 10px 4px;font-weight:600}.tt small{margin-left:6px;font-weight:400;color:var(--muted)}
+.tw{margin:0 10px;background:#fff}
+table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;word-break:keep-all}
+th,td{border:1px solid var(--tline);padding:4px 5px;vertical-align:top;text-align:left}
+th{background:var(--head);text-align:center;font-weight:600}
+td.k{background:#f7f9f8;font-weight:500}
+td p{margin:0;display:flex;gap:4px;align-items:baseline}td p span{flex:1}td p i{font-style:normal;color:var(--muted);flex:none}
+td p+p{margin-top:2px}
+.ref{color:#9aa49f;font-size:11px;margin-top:3px;border-top:1px dashed var(--line);padding-top:2px}
+.ref div{display:flex;gap:4px}.ref div span{flex:1}
+.e{color:#b5bdb9}
+.add{color:var(--pri);font-size:12px;margin-top:2px}
+.ck{font-size:9px;color:#9aa49f;flex:none}
+.sub{margin:0 10px;font-size:12px}.sub .h{font-weight:600;margin:4px 0 2px}
+.ln{display:flex;gap:4px;padding:2px 0;border-bottom:1px solid #edf1ef}.ln span{flex:1}.ln i{font-style:normal;color:var(--muted)}
+details{margin:0 0 4px 12px;color:var(--muted);font-size:11.5px}details pre{white-space:pre-wrap;font:inherit;margin:2px 0;color:var(--ink);background:#f7f9f8;border-left:2px solid var(--line);padding:3px 6px}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6;max-width:380px}
+</style></head><body>
+<h1>사업 쪽 새 설계</h1>
+<p class="s">조직 쪽과 같은 원리: 쓰는 곳은 하나, 보고 표는 보여 주는 창.</p>
+
+<div class="box">
+<b>사업 기록</b> (사업=세부 과제마다 하나, '날짜 + 한 줄' 쌓임)<br>
+&nbsp;← 사업 보고를 저장하면 그 보고가 한 줄로 자동<br>
+&nbsp;← 잊지 말기·통화·텔레그램·업데이트에서 [사업]<br>
+&nbsp;← 직접 쓰기<br>
+<b>사업 '지금 상황'</b> (사업마다 한 칸, 계속 이어 씀 — 조직의 상태 칩과 같은 자리)<br>
+<b>담당</b> (사업마다 정해 둔 사람, 바뀔 때만)<br>
+<br>
+<b>주간보고 2. 1) 사업요약표</b> = 지금 상황 칸 그대로 + 담당<br>
+<b>주간보고 2. 2) 주요 사업·회의결과</b> = 그 주 사업 기록 줄 (상세보고 있으면 상세 포함)<br>
+<b>AI</b> = 통화·텔레그램 → 잊지 말기 '소식'까지만. 표 안 제안 없음
+</div>
+
+<h2>2. 1) 사업요약표 — '지금 상황'을 보여 주는 창</h2>
+<div class="phone">
+<div class="tt">1) 사업요약표<small>11.9~11.15</small></div>
+<div class="tw"><table><colgroup><col style="width:19%"><col style="width:22%"><col><col style="width:13%"></colgroup>
+<tr><th>사업영역</th><th>세부 과제</th><th>진행 상황 및 이후 계획</th><th>담당</th></tr>
+<tr><td class="k" rowspan="2">정책연구</td><td class="k">통합교통체계 구축 연구</td><td><p><span>- 연구진 구성 완료, 11월 말 중간보고</span><i>⋯</i></p><div class="ref">이번 주 기록 1<div><span>11.10. 연구진 회의</span></div></div></td><td>○○</td></tr>
+<tr><td class="k">5차 국가철도망 연구</td><td><p><span>- 12.3. 국회 토론회 준비(발제·토론자 섭외 중)</span><span class="ck">✓</span><i>⋯</i></p></td><td>○○</td></tr>
+<tr><td class="k" rowspan="2">철도지하철</td><td class="k">궤도 공동투쟁</td><td><p><span>- 11.18. 공동기자회견, 집중교섭 공동 대응</span><i>⋯</i></p><div class="ref">이번 주 기록 2<div><span>11.10. 궤도 대표자회의</span></div><div><span>11.12. 공동기자회견 제안</span></div></div></td><td>○○</td></tr>
+<tr><td class="k">민자철도 사업</td><td class="e">—</td><td class="e">—</td></tr>
+</table></div>
+</div>
+<p class="note">· 칸 글 = 그 사업의 '지금 상황' 하나(지난주 글이 그대로 이어짐 — 바뀐 것만 고치면 됨). 누르면 그 자리에서 수정<br>· 칸 아래 흐린 '이번 주 기록 n' = 고칠 때 볼 참고(읽기만, 넣기 버튼 없음). 누르면 그 기록·보고가 열림<br>· 줄 ⋯ = [보고용으로 수정](이번 보고에만, 아주 작은 ✓) · [이번 보고에서 빼기]<br>· 표의 줄(사업영역·세부 과제)은 '사업영역 관리' 목록 그대로 — 지난주 한글 파일을 바탕으로 깔지 않음<br>· 담당은 사업마다 한 번 정하면 계속</p>
+
+<h2>2. 2) 주요 사업·회의결과 — 그 주 사업 기록을 보여 주는 창</h2>
+<div class="phone">
+<div class="sub">
+<div class="h">궤도 공동투쟁</div>
+<div class="ln"><span>- 11.10. 궤도 대표자회의</span><i>⋯</i></div>
+<details open><summary>상세보고 포함</summary><pre>① 일시·장소: 11.10.(화) 14:00 / ○○
+② 주요 결정: 12.3. 토론회 공동 주최 …</pre></details>
+<div class="ln"><span>- 11.12. 공동기자회견 제안(11.18.)</span><i>⋯</i></div>
+<div class="h">통합교통체계 구축 연구</div>
+<div class="ln"><span>- 11.10. 연구진 회의</span><i>⋯</i></div>
+<div class="add">+ 쓰기</div>
+</div>
+</div>
+<p class="note">· 그 주 날짜의 사업 기록 줄이 사업별로 저절로 — 사업 보고 저장분은 상세보고가 있으면 '상세 포함'(WEEKLY-상세보고넣기와 같음)<br>· 줄 ⋯ = [보고용으로 수정] · [이번 보고에서 빼기] · [한 줄만 ↔ 상세 포함] · [기록 열기]<br>· 내부 정례 회의·'늘 빼기' 종류는 지금처럼 자동으로 빠짐</p>
+
+<h2>없어지는 것</h2>
+<div class="box">
+· 지난주 한글 파일을 바탕으로 까는 것(칸 구성은 사업영역 관리, 글은 '지금 상황'이 이어짐)<br>
+· 칸 아래 제안 다섯 종류([기록][자료][AI 요약][AI 제안][캘린더])와 [넣기][이미 있음][고쳐서 넣기][빼기]<br>
+· 주간 정리 쪽 따로 저장하던 요약 칸 글 → '지금 상황'으로 옮김(옛 글 지우지 않음)
+</div>
+</body></html>
