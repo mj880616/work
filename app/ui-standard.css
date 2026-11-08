@@ -1746,7 +1746,7 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 .nbx-tag{ color:var(--nbx-ink); font-size:var(--ds-text-meta); }
 .nbx-row2{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:3px; }
 .nbx-meta{ flex:1 1 6em; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-faint); }
-.nbx-acts{ flex:none; display:flex; align-items:center; gap:4px; margin-left:auto; }
+.nbx-acts{ flex:none; display:flex; align-items:center; gap:2px; margin-left:auto; }
 .nbx-status{ margin:0; padding:2px 0 0; color:var(--kptu-faint); }
 .nbx-status:empty{ display:none; }
 .nbx-foot{ display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin-top:2px; padding-top:2px; border-top:var(--ds-line-width) dashed var(--ds-line); color:var(--kptu-faint); }
@@ -1754,14 +1754,18 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 .nbx-plain .nbx-foot{ margin:0; padding:0; border-top:0; }
 .nbx .row-act.nbx-foot-open,.nbx-plain .row-act.nbx-foot-open{ font-size:var(--ds-text-meta); color:var(--kptu-faint); }
 /* S52-20 HOME-잊지말기한목록(시안 docs/design/mockups/forget-one-list.html 명진 14:44 '좋은데'): 같은 줄을 상자 없이 화면 목록으로(tone list),
-   아래 작은 줄 맨 앞 흐린 출처 꼬리표, 처리한 줄의 오른쪽 상태 글, 내용을 누르면 기록을 여는 글자 버튼, 업데이트 줄만의 [조직][사업]. */
+   아래 작은 줄 맨 앞 흐린 출처 꼬리표, 처리한 줄의 오른쪽 상태 글, 내용을 누르면 기록을 여는 글자 버튼. */
 .nbx[data-nbx-tone="list"]{ --nbx-ink:var(--kptu-muted); --nbx-bg:transparent; margin:0; padding:0; border:0; border-radius:0; font-size:var(--ds-text-meta); }
 .nbx[data-nbx-tone="list"] > .nbx-list > .nbx-item:first-child{ border-top:0; }
 .nbx[data-nbx-tone="list"] > .nbx-list > li{ padding-left:var(--ds-row-pad-x); padding-right:var(--ds-row-pad-x); }
 .nbx-src{ display:inline-block; margin-right:4px; padding:0 4px; border-radius:var(--ds-radius-control); background:var(--kptu-surface-subtle); color:var(--kptu-muted); }
 .nbx-done{ flex:none; margin-left:auto; color:var(--kptu-faint); }
 .nbx .row-act.nbx-body-btn{ display:inline; width:auto; height:auto; min-height:0; padding:0; color:var(--kptu-ink); font-size:var(--ds-text-row); font-weight:inherit; line-height:inherit; text-align:left; white-space:normal; overflow-wrap:anywhere; }
-.nbx .row-act.nbx-lead{ color:var(--kptu-info); }
+/* FORGET-소식바로잡기(시안 docs/design/mockups/forget-news-fix.html 명진 'ㅇ'): 줄 버튼 일곱([할 일로][일정으로][노트로][조직][사업][이미 함] ×)이
+   폰 390·폴드에서도 한 줄(위 .nbx-acts 버튼 사이 2px, 줄바꿈 없음 — 누르는 범위 44px는 그대로). 버튼 모양은 ③ 글자 버튼 그대로.
+   AI가 고른 맞는 버튼만 중간 굵기·밑줄, 내용 아래 흐린 이유 한 줄. */
+.nbx .row-act.nbx-hint{ color:var(--kptu-ink); font-weight:var(--ds-weight-medium); text-decoration:underline; text-underline-offset:2px; }
+.nbx-why{ margin:1px 0 0; color:var(--kptu-info); font-size:var(--ds-text-meta); line-height:1.4; overflow-wrap:anywhere; }
 .nbx-badge{ display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:1.5em; height:1.5em; padding:0 .4em; border-radius:999px; background:var(--kptu-danger); color:var(--kptu-on-primary); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); font-variant-numeric:tabular-nums; line-height:1; }
 .nbx-below{ position:relative; z-index:1; display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:6px; padding-bottom:var(--ds-row-pad-y); }
 /* S53-13 HOME-잊지말기칩(요청함 11/08 13:54, 시안 docs/design/mockups/home-forget-slim.html 명진 13:55 'A'): 홈 '잊지 말기' 띠 한 줄 대신
