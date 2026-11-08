@@ -2072,7 +2072,7 @@ async function trashRows(rows, anchor) {
     const folders = list.filter(r => r.is_folder), files = list.filter(r => !r.is_folder), dirs = new Set(files.map(r => phoneParent(r.item_id)));
     if (folders.length) {
       const scope = state.scope;
-      state.busy = '폴더 안을 읽는 중'; paintBar();
+      state.busy = '폴더 안 파일을 세는 중'; paintBar();
       try {
         for (const f of folders) {
           let tree;
