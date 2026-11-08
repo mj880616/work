@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {readFeed, readPersonal, readPersonalRaw, setPersonalHidden, moveCall, readLedgerSeen, refillCall, PERSONAL_FIELDS} from '../app/feed-data.js';
-import {splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveDoneText, moveErrorText, MOVE_ERRORS, REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText} from '../app/feed-model.mjs';
+import {splitPersonal, moveToPersonalWarning, moveDoneText, moveErrorText, MOVE_ERRORS, REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText} from '../app/feed-model.mjs';
 
 const WS = '10000000-0000-4000-8000-000000000001', ID = '60000000-0000-4000-8000-000000000009';
 function fakeRt(handler) {
@@ -68,13 +68,10 @@ test('원장에 이미 쓰였는지: 있음/없음/모름', async () => {
   assert.match(rt.calls[0].path, /app_ledger_auto_sources\?workspace_id=eq\.[^&]+&source_kind=eq\.call&source_id=eq\./);
 });
 
-test('순수 규칙: 개인·애매 나누기, 옛 안내 한 줄, 옮기기 문구', () => {
+test('순수 규칙: 개인·애매 나누기, 옮기기 문구', () => {
   const rows = [{id:'a', kind:'personal'}, {id:'b', kind:'unsure'}, {id:'c', kind:'personal'}, {id:'d'}];
   const s = splitPersonal(rows);
   assert.deepEqual([s.personal.map(r => r.id), s.unsure.map(r => r.id)], [['a', 'c'], ['b']]);
-  const days = [{source:'call', day:'2026-10-24', personal_count:2, unsure_count:1, failed_count:1}];
-  assert.match(legacyFilteredNote(days, '2026-10-25'), /^목록 도입 전 걸러진 3건은 개수만 있어요\..*판정 실패 1건$/);
-  assert.equal(legacyFilteredNote([], '2026-10-25'), '');
   assert.match(moveToPersonalWarning({ledger:true}), /원장 기록은 삭제되지 않아요/);
   assert.match(moveToPersonalWarning({ledger:null}), /확인하지 못했어요/);
   assert.match(moveToPersonalWarning({ledger:false, linked:true}), /고정과 조직 연결은/);
