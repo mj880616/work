@@ -49,9 +49,9 @@ for(const width of [390,1280])test.describe(`자료실 맨 위 ⋯ · 같은 글
     // 접힌 줄을 고르면 같은 글 둘 다 골라지고, 보이지 않는 것은 '접힌 n개 포함'.
     await libraryTopMenu(page,'select',{tap:width<761});
     await page.locator('[data-lu-pick="p-1"]').check();
-    await expect(page.locator('#librarySelectCount')).toHaveText('2개 선택했음 — 접힌 1개 포함');
+    await expect(page.locator('#librarySelectCount')).toHaveText('2개 선택됨 — 접힌 1개 포함');
     await page.locator('[data-lu-pick="p-1"]').uncheck();
-    await expect(page.locator('#librarySelectCount')).toHaveText('0개 선택했음');
+    await expect(page.locator('#librarySelectCount')).toHaveText('0개 선택됨');
     expect(errors).toEqual([]);
   });
 });
