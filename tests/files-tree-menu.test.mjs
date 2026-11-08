@@ -70,3 +70,13 @@ test('S51-22 [파일] 나무 ⋯는 옛 고르기 길(폴더 안으로 + 고르�
   assert.match(src, /'data-fx-tmenu'/);
   assert.match(src, /openRowMenu\(b,/);
 });
+
+test('S52-44 ⑤ 여러 개 골랐을 때만 첫 묶음 끝에 [여러 개 받기](받기 아이콘)', () => {
+  const file = {source: 'od', is_folder: false, name: '가짜.pdf'};
+  const ids = o => treeMenuItems(file, o).map(it => it.id);
+  assert.equal(ids({}).includes('zip'), false);
+  const list = ids({zip: true, copyPath: true});
+  assert.ok(list.indexOf('zip') > list.indexOf('path') && list.indexOf('zip') < list.indexOf('star'), list.join(','));
+  assert.equal(treeMenuItems(file, {zip: true}).find(it => it.id === 'zip').label, '여러 개 받기');
+  assert.match(rowMenuHtml({items: [{id: 'zip', label: '여러 개 받기'}]}), /row-menu-ico/);
+});

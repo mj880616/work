@@ -500,9 +500,10 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     expect(read.q).toBe('C:\\문서\\가짜 메모_연습.txt');
     await expect(prev.locator('.fx-pv-acts button')).toHaveText(['이 PC에서 열기', '탐색기에서 위치', '복사', '옮기기', '이름', '휴지통']);
     await shot(page, 'files-pc-preview-text-1440');
-    // 한글 문서(미리보기 없는 종류)는 이름·크기만.
+    // 한글 문서(S52-44 ③부터 한글 미리보기 — 문에서 화면 메모리로 읽어 한글 엔진에 넘김). 흉내 문의 글자는 한글 파일이 아니라 엔진이 못 읽는다 = 한 줄 안내.
     await list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 회의자료_연습.hwpx')).click();
-    await expect(prev).toContainText('미리보기 없이 이름·크기만');
+    await expect.poll(() => st.calls.some(c => c.path === '/v1/read' && c.q === 'C:\\문서\\가짜 회의자료_연습.hwpx')).toBe(true);
+    await expect(prev.locator('.fx-pv-note')).toBeVisible({ timeout: 60000 });
     // 미리보기 [이름]도 같은 길.
     await prev.locator('[data-fx-rename-one]').click();
     await ask(page).locator('.kptu-ask-field').fill('가짜 회의자료_고침');
