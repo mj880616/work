@@ -86,7 +86,7 @@ for(const [label,width] of [['폰 412',412],['폰 884',884],['PC 1440',1440]]){
   });
 }
 
-test('담당 체크를 풀면 저장 전까지 흐리게 남고, 다시 체크하면 돌아온다. 새로 고른 것을 풀면 그 외로 돌아간다',async({page})=>{
+test('담당 체크를 풀면 저장 전까지 흐리게 남고, 다시 체크하면 돌아온다. 새로 선택한 것을 풀면 그 외로 돌아간다',async({page})=>{
   await openProfile(page);
   await unfold(page);
   const a=page.locator('#psWorkplaceList .ps-org-row',{hasText:'철도노조'}).first();
@@ -246,7 +246,7 @@ test('프로필 저장이 실패하면 사업장은 건드리지 않고 입력�
   await expect(page.locator('#psState')).toHaveText('바뀐 것 2곳');
 });
 
-test('저장하지 않고 떠나려 하면 확인창이 한 번 뜨고, 머물면 그대로이고 떠나면 고친 것은 버려진다',async({page})=>{
+test('저장하지 않고 떠나려 하면 확인창이 한 번 뜨고, 머물면 그대로이고 떠나면 수정한 것은 버려진다',async({page})=>{
   await openProfile(page);
   const messages=[];
   let accept=false;

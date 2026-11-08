@@ -61,12 +61,12 @@ export const validId=value=>typeof value==='string'&&UUID.test(value);
 
 export const SET_LINKS_ERROR=Object.freeze({
   INVALID_INPUT:'연결 정보를 확인해 주세요.',
-  INVALID_TARGETS:'연결할 곳을 확인해 주세요. 한 번에 20곳까지 고를 수 있어요.',
-  MEETING_MISSING:'사업 보고를 찾을 수 없어요. 이미 지워졌을 수 있어요.',
+  INVALID_TARGETS:'연결할 곳을 확인해 주세요. 한 번에 20곳까지 선택할 수 있어요.',
+  MEETING_MISSING:'사업 보고를 찾을 수 없어요. 이미 삭제됐을 수 있어요.',
   MEETING_CHANGED:'다른 곳에서 사업 보고가 바뀌었어요. 다시 열어 확인한 뒤 연결해 주세요.',
-  TARGET_MISSING:'연결할 곳을 찾을 수 없어요. 지워졌거나 고를 수 없는 곳이에요.',
+  TARGET_MISSING:'연결할 곳을 찾을 수 없어요. 삭제됐거나 선택할 수 없는 곳이에요.',
   TARGET_WORKSPACE:'연결할 곳이 이 업무 공간에 없어요.',
-  TARGET_UNSELECTABLE:'고를 수 없는 곳이 들어 있어요(보관된 사업영역 등).',
+  TARGET_UNSELECTABLE:'선택할 수 없는 곳이 들어 있어요(보관된 사업영역 등).',
   PERMISSION_DENIED:'연결을 바꿀 권한이 없어요.',
   FUNCTION_UNAVAILABLE:'연결 기능이 아직 서버에 준비되지 않았어요.',
   RESULT_UNKNOWN:'연결 결과를 확인하지 못했어요. 목록을 다시 불러와 확인해 주세요.',
@@ -100,7 +100,7 @@ export function linkedReportRows(linkRows,legacyRows=[]){
 // 사업 보고 하나의 '연결' 줄 글자: 첫 곳 이름 외 N. names: (target)=>이름.
 export function targetsLabel(targets,nameOf,empty=''){
   const list=targetList(targets);if(!list.length)return empty;
-  const first=nameOf(list[0])||'고른 곳';
+  const first=nameOf(list[0])||'선택한 곳';
   return list.length>1?`${first} 외 ${list.length-1}`:first;
 }
 // 연결 고르기 창의 목록 줄: 이미 이 곳에 연결된 보고는 빼고, 최근 순, 이름·종류로 찾기 쉽게 한 줄 글자를 만든다.

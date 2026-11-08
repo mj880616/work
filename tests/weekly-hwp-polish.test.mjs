@@ -174,7 +174,7 @@ test('② 바탕 파일 종류: 내용으로 판정(HWPX ZIP·HWP 5 OLE·HWP 3),
 
 test('② 엔진 실패 이유(짧은 말, 파일 내용 없음)', () => {
   assert.equal(engineReason(new Error('Request timeout: loadFile')), '시간 초과');
-  assert.equal(engineReason(new Error('편집기를 불러오지 못했습니다.')), '변환기를 불러오지 못함');
+  assert.equal(engineReason(new Error('HWP 편집을 불러오지 못했습니다.')), '변환기를 불러오지 못함');
   assert.equal(engineReason(new Error('Editor initialization timeout')), '시간 초과');
   assert.equal(engineReason(new Error('파일 로드 실패: 손상')), '파일을 열지 못함');
 });

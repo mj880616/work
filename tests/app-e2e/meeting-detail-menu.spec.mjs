@@ -48,7 +48,7 @@ for(const width of [412,870,1280])test(`no basket button or guide text, one ⋯ 
   const modal=page.locator('#meetingRoundDetailModal');
   await expect(page.locator('#mrdResult')).toContainText('첫째 줄 알파');
   await expect(modal.locator('#mrdToBasket,#mrdBasketStatus,#mrdEdit,#mrdKind,#mrdDelete')).toHaveCount(0);
-  await expect(modal).not.toContainText('정리함에 담');await expect(modal).not.toContainText('글을 길게 눌러 고르면');await expect(modal).not.toContainText('자료실 올리기 창이 열리고');
+  await expect(modal).not.toContainText('정리함에 담');await expect(modal).not.toContainText('글을 길게 눌러 선택하면');await expect(modal).not.toContainText('자료실 올리기 창이 열리고');
   const more=modal.locator('#mrdMore');await expect(more).toBeVisible();await expect(more).toHaveAttribute('aria-haspopup','true');
   const inside=await page.evaluate(()=>{const b=document.querySelector('#mrdMore').getBoundingClientRect(),c=document.querySelector('#meetingRoundDetailModal .modal-card').getBoundingClientRect();return b.left>=c.left&&b.right<=c.right&&b.top>=c.top});
   expect(inside).toBe(true);

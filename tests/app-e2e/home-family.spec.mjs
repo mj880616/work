@@ -99,7 +99,7 @@ test('제안이 없으면 가족 줄이 없다(빈 칸·안내 없음)',async({p
   await expect(box(page).locator('[data-forget-src="family"]')).toHaveCount(0);
 });
 
-test('[×](5초 되돌리기): 상태 칸만 고친다',async({page})=>{
+test('[×](5초 되돌리기): 상태 칸만 수정한다',async({page})=>{
   const {patches}=await fixture(page);
   await box(page).locator(`[data-nbx-row="f:${id(1)}"] [data-nbx-act="dismissed"]`).click();
   await expect.poll(()=>patches.length).toBe(1);

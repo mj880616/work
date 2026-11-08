@@ -226,8 +226,8 @@ export function legacyFilteredNote(days, today = kstDay()) {
 // '' when nothing needs saying (the move goes ahead without asking).
 export function moveToPersonalWarning({ledger = false, linked = false} = {}) {
   const parts = [];
-  if (ledger === true) parts.push('이 통화는 이미 원장에 기록된 내용이 있어요. 개인으로 옮겨도 원장 기록은 지워지지 않아요. 필요하면 원장 수정 요청에서 따로 고치세요.');
-  else if (ledger === null) parts.push('원장에 이미 기록됐는지 확인하지 못했어요. 기록됐다면 개인으로 옮겨도 원장 기록은 지워지지 않아요.');
+  if (ledger === true) parts.push('이 통화는 이미 원장에 기록된 내용이 있어요. 개인으로 옮겨도 원장 기록은 삭제되지 않아요. 필요하면 원장 수정 요청에서 따로 수정하세요.');
+  else if (ledger === null) parts.push('원장에 이미 기록됐는지 확인하지 못했어요. 기록됐다면 개인으로 옮겨도 원장 기록은 삭제되지 않아요.');
   if (linked) parts.push('고정과 조직 연결은 개인 통화함에 없어서 사라지고, 이미 조직 기록에 더한 요약은 남아요.');
   return parts.join(' ');
 }
@@ -306,13 +306,13 @@ export function undoPatch(prev, keys) {
 export const patchKeys = patch => Object.entries(patch || {}).flatMap(([k, v]) => k === 'reset' ? v : [k]);
 export const EDIT_ERRORS = Object.freeze({
   GONE:'이 통화가 그사이 사라졌어요. 목록을 다시 불러왔어요.',
-  UNAVAILABLE:'고치기 기능이 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.',
-  INVALID:'고칠 수 없는 글이에요. 길이나 모양을 확인해 주세요. 아무것도 바뀌지 않았어요.',
+  UNAVAILABLE:'수정 기능이 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.',
+  INVALID:'수정할 수 없는 글이에요. 길이나 모양을 확인해 주세요. 아무것도 바뀌지 않았어요.',
   REFUSED:'저장하지 못했어요. 아무것도 바뀌지 않았어요.',
   UNKNOWN:'저장됐는지 확인하지 못했어요. 목록을 다시 불러왔어요.',
 });
 export const editErrorText = code => EDIT_ERRORS[code] || EDIT_ERRORS.REFUSED;
-export const EDIT_DONE = Object.freeze({title:'제목을 바꿨어요.', who:'조직·이름을 고쳤어요.', points:'핵심내용을 고쳤어요.', reset:'AI가 채운 값으로 되돌렸어요.', undo:'되돌렸어요.'});
+export const EDIT_DONE = Object.freeze({title:'제목을 바꿨어요.', who:'조직·이름을 수정했어요.', points:'핵심내용을 수정했어요.', reset:'AI가 채운 값으로 되돌렸어요.', undo:'되돌렸어요.'});
 export const EDIT_NOOP = '바뀐 게 없어요.';
 // 이미 원장에 읽힌 통화를 고쳤을 때 한 줄 제안(원장은 손대지 않는다).
-export const EDIT_LEDGER_NOTE = '이 통화는 고치기 전 내용이 이미 원장에 들어갔어요. 원장은 그대로예요. 필요하면 원장의 수정 요청에서 바로잡아 주세요.';
+export const EDIT_LEDGER_NOTE = '이 통화는 수정 전 내용이 이미 원장에 들어갔어요. 원장은 그대로예요. 필요하면 원장의 수정 요청에서 바로잡아 주세요.';

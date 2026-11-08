@@ -57,9 +57,9 @@ test('failed next page keeps the shown days and retries the same 14 day interval
   });
   // 빈 날이 한 줄이라 14일이 한 화면에 들어올 수 있다: 열자마자 저절로 받지 않고, 한 번 내린(scroll) 뒤부터 끝에 닿으면 받는다.
   await page.locator('#calendarListMore').scrollIntoViewIfNeeded();await page.evaluate(()=>document.dispatchEvent(new Event('scroll')));
-  await expect(page.getByRole('button',{name:'다시 불러오기'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'다시',exact:true})).toBeVisible();
   await expect(page.locator('.clv-day')).toHaveCount(14);
-  await page.getByRole('button',{name:'다시 불러오기'}).click();
+  await page.getByRole('button',{name:'다시',exact:true}).click();
   await expect(page.locator('.clv-day')).toHaveCount(28);
   const last=calls.filter(c=>c.action==='events').at(-1);
   expect(last.min).toBe('2026-10-28T15:00:00.000Z');

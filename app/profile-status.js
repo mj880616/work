@@ -39,7 +39,7 @@ export function mountProfileStatus(panel) {
   window.addEventListener('kptu:view-prefs-ready', paintWeeks);
   window.addEventListener('kptu:view-prefs-rejected', event => {
     if (!event.detail?.paths?.includes('quiet_weeks')) return;
-    note.textContent = '서버가 아직 이 기준을 받지 못해 원래대로 되돌렸어요.'; paintWeeks();
+    note.textContent = '서버가 아직 이 기준을 받지 못해 이전 값으로 되돌렸어요.'; paintWeeks();
     window.dispatchEvent(new CustomEvent('kptu:quiet-weeks-changed'));
   });
   paintWeeks();

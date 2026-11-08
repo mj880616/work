@@ -1166,7 +1166,7 @@ test('TRASH-다른삭제 3단계: 휴지통 탭에 자료실 폴더가 프로젝
   await first.locator('[data-ps3-trash-purge]').click();
   const asked=(await askWithNote(page,false)).join(' ');
   expect(asked).toContain('“합성 폴더” 폴더를 영구 삭제할까요');
-  expect(asked).toContain('아래 폴더 2개·자료 5개는 한 단 위로 올라갑니다');expect(asked).toContain('Drive 파일은 지우지 않으며');
+  expect(asked).toContain('아래 폴더 2개·자료 5개는 한 단 위로 올라갑니다');expect(asked).toContain('Drive 파일은 삭제하지 않으며');
   expect(state.trash.others.library_folder.length).toBe(2);
   await first.locator('summary').click();
   // 되돌리기는 그 종류로 가고, 이미 열려 있는 자료실에는 폴더 표를 다시 읽으라고 알린다.
@@ -1197,7 +1197,7 @@ test('TRASH-다른삭제 5단계: 휴지통에 노트·업데이트가 종류·�
   await first.locator('[data-ps3-trash-purge]').click();
   const asked=(await askWithNote(page,false)).join(' ');
   expect(asked).toContain('“합성 교섭 결과 공유” 업데이트를 영구 삭제할까요');
-  expect(asked).toContain('연결 2곳도 함께 지워지고');expect(asked).toContain('첨부 파일 1개는 Drive에 그대로 남습니다');
+  expect(asked).toContain('연결 2곳도 함께 삭제되고');expect(asked).toContain('첨부 파일 1개는 Drive에 그대로 남습니다');
   expect(state.trash.others.note.length).toBe(2);
   await first.locator('summary').click();
   // 되돌리기는 그 종류로 가고, 열려 있는 정리함에는 목록을 다시 읽으라고 알린다.
@@ -1346,7 +1346,7 @@ test('V3 project task section completes, edits and unlinks linked Google tasks',
   await expect(page.locator('#gtTaskModal')).toBeHidden();
   // TASK-바로처리통일: [연결 해제] is in the row's ⋯ (the shared task line).
   await panel.locator('[data-gt-linked-more="g1"]').click();
-  await expect(page.locator('#gtLinkedMenu').getByRole('button')).toHaveText(['다시 할 일로','고치기','연결 해제']);
+  await expect(page.locator('#gtLinkedMenu').getByRole('button')).toHaveText(['다시 할 일로','수정','연결 해제']);
   await page.locator('#gtLinkedMenu').getByRole('button',{name:'연결 해제'}).click();
   await expect.poll(()=>state.gtCalls.find(x=>x.action==='unlink')?.body).toEqual(expect.objectContaining({task_id:'g1',links:[{project_id:'child-1'}]}));
   await expect(panel.locator('[data-wait-empty]')).toHaveText('없음');

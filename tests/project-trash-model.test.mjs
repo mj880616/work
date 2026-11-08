@@ -69,7 +69,7 @@ test('서버 오류 코드를 화면 글로 바꾼다', () => {
 test('영구 삭제 확인에 연결 풀림·진행기록 삭제 안내와 하위 수가 들어간다', () => {
   const text = purgeConfirmText({name: '합성 사업', child_count: 2});
   assert.match(text, /“합성 사업” 사업영역을 영구 삭제할까요\?/);
-  assert.match(text, /하위 사업영역 2개도 지워집니다/);
+  assert.match(text, /하위 사업영역 2개도 삭제됩니다/);
   assert.match(text, /사업영역 연결만 풀립니다/);
   assert.match(text, /되돌릴 수 없습니다/);
   assert.doesNotMatch(purgeConfirmText({name: 'a', child_count: 0}), /하위 사업영역 0개/);
@@ -85,7 +85,7 @@ test('보관 단추 이름과 처음 탭', () => {
   assert.equal(firstArchiveTab({archived: 0}), 'trash');
 });
 
-test('화면 코드: 판정은 한 곳, 브라우저 저장소·땜질 없음, 바로 지우던 연결 끊기 요청 없음', () => {
+test('화면 코드: 판정은 한 곳, 브라우저 저장소·땜질 없음, 바로 삭제하던 연결 끊기 요청 없음', () => {
   const js = readFileSync(new URL('../app/project-system-v3.js', import.meta.url), 'utf8');
   const start = js.indexOf('async function openDelete');
   const end = js.indexOf('async function archiveProject');
@@ -160,12 +160,12 @@ test('자료실 폴더 삭제 글: 휴지통으로, 아래 폴더·자료 수를
   assert.doesNotMatch(plain.confirm, /함께 들어가고/);
   const withInside = otherDeleteText('library_folder', '합성 폴더', {folders: 2, files: 5});
   assert.match(withInside.confirm, /아래 폴더 2개·자료 5개도 함께 들어가고, 자료는 자료실 목록에서 함께 숨습니다/);
-  assert.match(withInside.confirm, /자료와 Drive 파일은 지워지지 않고, 휴지통에서 되돌리면 원래대로/);
+  assert.match(withInside.confirm, /자료와 Drive 파일은 삭제되지 않고, 휴지통에서 되돌리면 원래 자리로/);
   assert.doesNotMatch(withInside.confirm, /삭제할까요|한 단 위/);
   assert.equal(withInside.moved, '폴더를 휴지통으로 옮겼습니다.');
   assert.match(otherDeleteText('library_folder', '합성', {folders: 0, files: 1}).confirm, /자료 1개도 함께/);
   assert.match(otherDeleteBlockedText('library_folder', TRASH_STATE.MISSING), /자료실 폴더 휴지통은 준비 중입니다.*삭제할 수 없습니다/);
-  assert.match(purgeConfirmText({kind: 'library_folder', name: '합성 폴더', child_count: 1, file_count: 4}), /“합성 폴더” 폴더를 영구 삭제할까요.*안의 아래 폴더 1개·자료 4개는 한 단 위로 올라갑니다.*Drive 파일은 지우지 않으며/s);
+  assert.match(purgeConfirmText({kind: 'library_folder', name: '합성 폴더', child_count: 1, file_count: 4}), /“합성 폴더” 폴더를 영구 삭제할까요.*안의 아래 폴더 1개·자료 4개는 한 단 위로 올라갑니다.*Drive 파일은 삭제하지 않으며/s);
   assert.match(purgeConfirmText({kind: 'library_folder', name: '합성', child_count: 0, file_count: 0}), /안의 것은 한 단 위로/);
   assert.equal(restoredText('library_folder'), '폴더를 되돌렸습니다.');
   assert.equal(parentFirstText('library_folder'), '상위 폴더를 먼저 되돌려 주세요.');
@@ -200,7 +200,7 @@ test('화면 코드: 조직·보고 삭제는 공용 동작 한 곳, 준비 중�
   for (const [file, kind] of [['../app/suborganizations.js', 'organization'], ['../app/meeting-round-detail.js', 'report'], ['../app/library-folders.js', 'library_folder']]) {
     const js = read(file);
     assert.ok(js.includes(`deleteToTrash({kind:'${kind}'`), file);
-    assert.doesNotMatch(js, /담당조직을 삭제할까요|사업 보고를 삭제할까요|폴더를 지울까요/, file);
+    assert.doesNotMatch(js, /(담당조직을|사업 보고를|폴더를) (지울|삭제할)까요/, file);
   }
 });
 
@@ -230,16 +230,16 @@ test('노트 종류: DB 적용 전(옛 함수가 거절)이면 준비 중이고 
   assert.match(otherDeleteBlockedText('note', TRASH_STATE.FAILED), /확인하지 못해 삭제하지 않았습니다/);
 });
 
-test('노트 종류: 확인창은 첨부 Drive 파일이 남고 연결이 이어진다고, 영구 삭제는 연결이 함께 지워진다고 말한다', () => {
+test('노트 종류: 확인창은 첨부 Drive 파일이 남고 연결이 이어진다고, 영구 삭제는 연결이 함께 삭제된다고 말한다', () => {
   const both = otherDeleteText('note', '', {noteKind: 'basket', attachments: 2, links: 3});
-  assert.equal(both.confirm, '업데이트를 휴지통으로 옮길까요?\n첨부 파일 2개는 Drive에 그대로 남습니다.\n연결된 3곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.');
+  assert.equal(both.confirm, '업데이트를 휴지통으로 옮길까요?\n첨부 파일 2개는 Drive에 그대로 남습니다.\n연결된 3곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래 자리로 돌아옵니다.');
   assert.equal(both.moved, '업데이트를 휴지통으로 옮겼어요.');
   const plain = otherDeleteText('note', '', {noteKind: 'note', attachments: 0, links: 0});
   assert.equal(plain.confirm, '노트를 휴지통으로 옮길까요?\n휴지통에서 되돌릴 수 있습니다.');
   assert.equal(plain.moved, '노트를 휴지통으로 옮겼어요.');
   const purge = purgeConfirmText({kind: 'note', name: '합성 글', note_kind: 'basket', link_count: 2, file_count: 1});
   assert.match(purge, /“합성 글” 업데이트를 영구 삭제할까요/);
-  assert.match(purge, /연결 2곳도 함께 지워지고/);
+  assert.match(purge, /연결 2곳도 함께 삭제되고/);
   assert.match(purge, /첨부 파일 1개는 Drive에 그대로 남습니다/);
   assert.equal(restoredText('note'), '글을 되돌렸습니다.');
 });
@@ -268,7 +268,7 @@ test('공유 페이지 종류: DB 적용 전이면 준비 중이고, 확인창�
   assert.equal(otherDeleteBlockedText('share_page', TRASH_STATE.MISSING), '공유 페이지 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');
   const live = otherDeleteText('share_page', '교섭 현황', {status: 'published'});
   assert.match(live.confirm, /“교섭 현황” 공유 페이지를 휴지통으로 옮길까요/);
-  assert.match(live.confirm, /링크·사진은 지워지지 않습니다/);
+  assert.match(live.confirm, /링크·사진은 삭제되지 않습니다/);
   assert.match(live.confirm, /같은 링크가 다시 열립니다/);
   assert.equal(live.moved, '공유 페이지를 휴지통으로 옮겼어요.');
   const draft = otherDeleteText('share_page', '메모', {status: 'draft'});
@@ -276,6 +276,6 @@ test('공유 페이지 종류: DB 적용 전이면 준비 중이고, 확인창�
   assert.match(draft.confirm, /휴지통에서 되돌릴 수 있습니다/);
   const purge = purgeConfirmText({kind: 'share_page', name: '교섭 현황', file_count: 3, link_count: 1});
   assert.match(purge, /“교섭 현황” 공유 페이지를 영구 삭제할까요/);
-  assert.match(purge, /사진 3장이 모두 지워지고 되돌릴 수 없습니다/);
+  assert.match(purge, /사진 3장이 모두 삭제되고 되돌릴 수 없습니다/);
   assert.equal(restoredText('share_page'), '공유 페이지를 되돌렸습니다.');
 });

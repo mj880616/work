@@ -1,6 +1,6 @@
 // HWP-서식변환: [HWP 편집] > [노조 서식으로 만들기]의 작은 창과 편집기 칸막이 안 보조 스크립트(studio-convert.js)와의 주고받기.
 // 창: 문서 종류 칩(보고서·공문·회의자료) + 글 넣는 칸(붙여 넣기·글 파일 끌어 놓기) + 오른쪽 아래 [취소][만들기].
-// 이 파일은 화면과 메시지만 맡고, 일(양식 찾기 → AI → 칸막이에서 채우기 → 편집기에 열기)은 hwp-lab.js가 한다.
+// 이 파일은 화면과 메시지만 맡고, 일(양식 찾기 → AI → 칸막이에서 채우기 → HWP 편집에 열기)은 hwp-lab.js가 한다.
 // 넣은 글은 이 창 안(메모리)에만 있다: 기기·서버 저장소에 남기지 않고, 닫으면 사라진다. 서버로는 [만들기] 때 AI 요청 한 번만 간다.
 import {AI_SUMMARY_TEXT,aiSummaryRetryable} from './basket-ai-summary.js';
 import {DOC_TYPES,CONVERT_MAX_CHARS,cleanPasted,textState,dropProblem} from './hwp-convert-model.mjs';
@@ -19,12 +19,12 @@ export const convertRetryable=code=>aiSummaryRetryable(code);
 // 칸막이 안 보조 스크립트에 양식 바이트와 문단 목록을 보내고 HWP 바이트를 받는다. 한 번만 보내고 시간이 지나면 포기한다.
 export const CONVERT_ENGINE_TIMEOUT_MS=60000;
 export const ENGINE_TEXT=Object.freeze({
-  no_engine:'편집기 엔진을 찾지 못했어요. 페이지를 새로 열어 다시 시도해 주세요.',
+  no_engine:'HWP 편집 엔진을 찾지 못했어요. 페이지를 새로 열어 다시 시도해 주세요.',
   empty_template:'양식 파일에 본문 자리가 없어요. 다른 양식 파일을 등록해 주세요.',
   paragraph_count:'문단을 넣는 중 어긋났어요. 다시 시도해 주세요. 아무것도 바뀌지 않았어요.',
   paragraph_empty:'문단을 넣는 중 어긋났어요. 다시 시도해 주세요. 아무것도 바뀌지 않았어요.',
   bad_request:'양식 파일이나 글 형식이 맞지 않아요. 아무것도 바뀌지 않았어요.',
-  timeout:'편집기가 답하지 않아요. 페이지를 새로 열어 다시 시도해 주세요.',
+  timeout:'HWP 편집이 답하지 않아요. 페이지를 새로 열어 다시 시도해 주세요.',
   engine_error:'양식에 글을 넣지 못했어요. 다른 양식 파일로 시도해 주세요. 아무것도 바뀌지 않았어요.',
 });
 export function requestEngineBuild(frameWindow,base,plan,{timeoutMs=CONVERT_ENGINE_TIMEOUT_MS,host=window}={}){

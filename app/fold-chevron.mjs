@@ -5,5 +5,5 @@
 // - 읽어 주는 이름은 버튼의 aria-expanded가 말하므로 그림은 aria-hidden.
 export const chevHtml = (open = false, className = '') => `<i class="kptu-chev${open ? ' is-open' : ''}${className ? ` ${className}` : ''}" aria-hidden="true"></i>`;
 // '더보기 ›': 더 보여 주는 글자 버튼(UI-버튼6가지 ③ 글자 버튼). 세모 없이 › 하나.
-export const MORE_LABEL = '더보기 ›';
-export const moreLabel = (count = '') => `더보기${count === '' || count === null || count === undefined ? '' : ` ${count}`} ›`;
+export const MORE_LABEL = '펼치기 ›';
+export const moreLabel = (count = '') => `펼치기${count === '' || count === null || count === undefined ? '' : ` ${count}`} ›`;

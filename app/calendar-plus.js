@@ -108,14 +108,14 @@ async function cmRecover(kind){
       if(!Array.isArray(d?.events))throw new Error('일정 목록을 확인하지 못했습니다.');rows=d.events.filter(e=>e.calendarId===body.calendar_id);
     }
     if(attempt.record)rows=rows.filter(x=>x.id===attempt.record.id);
-    cmStatus('저장된 항목을 직접 골라 주세요. 같은 제목만으로 저장됐다고 판단하지 않습니다.');
+    cmStatus('저장된 항목을 직접 선택해 주세요. 같은 제목만으로 저장됐다고 판단하지 않습니다.');
     if(!rows.length)return cmUnknownNotice(kind,'목록에서 결과를 찾지 못했습니다. Google에서 먼저 확인해 주세요. 새로 만들지 않았습니다.');
     for(const row of rows.filter(x=>typeof x.id==='string'&&x.id)){
       const button=document.createElement('button');button.type='button';button.className='mini';button.textContent=(row.title||'제목 없음')+' · 이 항목에 이어서 저장';
       button.onclick=async()=>{button.disabled=true;try{
         const result=kind==='task'?await cmRuntime().api('/functions/v1/google-tasks?action=links&task_id='+encodeURIComponent(row.id),{singleFlight:false,expectedSessionEpoch:epoch}):await cmGoogleCall('event',{expectedSessionEpoch:epoch,params:{eventId:row.id,calendarId:row.calendarId}});if(!active())return;
         if(kind==='event'&&result?.event?.id!==row.id)throw new Error('일정 결과를 확인하지 못했습니다.');
-        cmSaved={kind,record:kind==='task'?row:result.event,body:null,links:kind==='task'?cmTaskLinks(result):[],managedProject:attempt.body.links?.[0]?.project_id||'',unknown:false};cmAttempts.delete(kind);cmStatus('고른 항목에 이어서 저장합니다. 입력을 확인한 뒤 저장해 주세요.');
+        cmSaved={kind,record:kind==='task'?row:result.event,body:null,links:kind==='task'?cmTaskLinks(result):[],managedProject:attempt.body.links?.[0]?.project_id||'',unknown:false};cmAttempts.delete(kind);cmStatus('선택한 항목에 이어서 저장합니다. 입력을 확인한 뒤 저장해 주세요.');
       }catch(e){if(active())cmUnknownNotice(kind,e.message||String(e))}};
       document.querySelector('#eventStatus').append(document.createTextNode(' '),button);
     }
@@ -221,7 +221,7 @@ async function cmSaveGoogle(){
     if(!await cmLinkProject(r)){try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return false}
     if(d.event.location!==body.location){cmStatus('일정은 저장했습니다. 장소 저장은 확인하지 못했습니다. 장소와 수정 입력은 유지했습니다. 확인한 뒤 다시 저장해 주세요.',true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return false}
     const linked=!!cmSaved.areaRows?.length,unchanged=r.snapshot===cmSnapshot();if(unchanged){cmSetBusy(false);button.textContent=label;cmCloseModal()}else cmStatus('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
-    try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast('일정은 저장했습니다. 목록을 새로고침해 주세요.');return true}
+    try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast('일정은 저장했습니다. 목록을 최신화해 주세요.');return true}
     if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast(linked?'저장하고 사업영역 주요 일정에 등록했습니다.':'Google Calendar에 저장했습니다.');return true;
   }catch(e){
     if(attempt)attempt.pending=false;if(!cmActive(r))return false;

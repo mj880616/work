@@ -86,7 +86,7 @@ export function cleanItem(input, {id = input?.id || newId()} = {}) {
   const out = {id: String(id)};
   if (!ID.test(out.id)) fail('줄을 확인할 수 없어요.', 'id');
   const day = String(input?.day ?? '').trim();
-  if (!realDay(day)) fail('날짜를 골라 주세요.', 'day');
+  if (!realDay(day)) fail('날짜를 선택해 주세요.', 'day');
   out.day = day;
   const until = String(input?.until ?? '').trim();
   if (until) {

@@ -16,7 +16,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export function readInput(raw) {
   const value = String(raw ?? '');
   const trimmed = value.trim();
-  if (!trimmed) return { error: '고칠 내용이나 새로 넣을 내용을 써 주세요.' };
+  if (!trimmed) return { error: '수정할 내용이나 새로 넣을 내용을 써 주세요.' };
   if (trimmed.startsWith('{')) {
     if (trimmed.length > PASTE_MAX) return { error: '붙여 넣은 글이 너무 길어요.' };
     let parsed;
@@ -110,9 +110,9 @@ export function previewLine(item, names = {}) {
     const plain = kind ? plainChange(changes, kind) : null;
     if (plain) return plain;
     const parts = changes.map(c => `${FIELD_LABEL[c.field] || '칸'} ${valueText(c.field, c.before, names)} → ${valueText(c.field, c.after, names)}`);
-    return `${title(item.target)}: ${parts.join(', ') || '내용'}로 고침. 옛 기록은 대체됨으로 남김.`;
+    return `${title(item.target)}: ${parts.join(', ') || '내용'}로 수정. 옛 기록은 대체됨으로 남김.`;
   }
-  if (item?.do === 'retire') return `${title(item.target)}을(를) 틀린 기록으로 폐기(지우지 않음).`;
+  if (item?.do === 'retire') return `${title(item.target)}을(를) 틀린 기록으로 폐기(삭제하지 않음).`;
   if (item?.do === 'add_source') {
     const already = changes.some(c => c.after === 'already attached');
     return already ? `${title(item.target)}: 그 근거는 이미 붙어 있어요.` : `${title(item.target)}에 근거 추가.`;
@@ -143,7 +143,7 @@ export function appliedText(result) {
 // DB·서버 거절 → 일상어(코드 글자는 화면에 쓰지 않음).
 export function fixErrorText(e) {
   const m = String(e?.message || e?.code || '');
-  if (e?.status === 404 || /PGRST202|42883/.test(m)) return '원장 고치기 준비 전이에요.';
+  if (e?.status === 404 || /PGRST202|42883/.test(m)) return '원장 수정 준비 전이에요.';
   if (/NOT_OWNER|42501/.test(m) || e?.status === 401 || e?.status === 403) return '로그인한 소유자만 할 수 있어요.';
   if (/TARGET_INACTIVE/.test(m)) return '이미 대체됐거나 폐기된 기록이에요.';
   if (/BROKEN_REF/.test(m)) return '가리킨 기록·조직·주제를 원장에서 찾지 못했어요.';

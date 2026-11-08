@@ -155,7 +155,7 @@ test('phone: many organization names wrap to two lines with [더보기]',async({
  if(await more.isVisible()){await tap(page,more,390);await expect(more).toHaveText(/접기/);}
  const last=subs.getByRole('radio').last();await tap(page,last,390);
  await expect(last).toHaveAttribute('aria-checked','true');
- if(await more.isVisible()){await tap(page,more,390);await expect(more).toHaveText(/더보기/);await expect(last).toBeVisible();expect(await lines()).toBeLessThanOrEqual(2);}
+ if(await more.isVisible()){await tap(page,more,390);await expect(more).toHaveText(/펼치기/);await expect(last).toBeVisible();expect(await lines()).toBeLessThanOrEqual(2);}
  await expect.poll(()=>shown(page)).toHaveLength(1);
  await capture(page,info,'basket-sub-organization-many-390-light');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

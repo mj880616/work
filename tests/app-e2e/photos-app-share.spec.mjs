@@ -125,7 +125,7 @@ test.describe('폰 앱 412', () => {
     expect(state.errors).toEqual([]);
   });
 
-  test('알림 칸: 공유 기다림 회색 칸을 눌러도 아무 일 없다(지우기로 넘어가지 않음)', async ({ page }) => {
+  test('알림 칸: 공유 기다림 회색 칸을 눌러도 아무 일 없다(삭제로 넘어가지 않음)', async ({ page }) => {
     const state = await fixture(page, { app: true, out: false });
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);

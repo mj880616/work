@@ -4,7 +4,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S48-52 PHOTO-지우기멈춤(요청함 11/03 07:41 ★급★): 폰 앱에서 고른 사진 [지우기]가 반응 없거나 '확인하는 중…'에서 멈추던 것.
 // - 폰 사진 5000장 + 원드라이브 5000장, 원드라이브 응답은 한 번에 0.8초(느림 흉내) — 예전처럼 전체를 다시 읽으면 25번 × 0.8초 = 20초.
 //   고른 사진의 찍은 시각 근처만 읽으므로 3초 안에 두 갈래 고르기 창이 뜬다.
-// - 원드라이브가 답하지 않으면 15초 뒤 '확인이 오래 걸려 지우지 않았어요 [다시]', 그동안 다시 누르면 '확인 중이에요'. [다시]는 다시 확인한다.
+// - 원드라이브가 답하지 않으면 15초 뒤 '확인이 오래 걸려 삭제하지 않았어요 [다시]', 그동안 다시 누르면 '확인 중이에요'. [다시]는 다시 확인한다.
 // - 같은 PR ⑤(요청함 11/03 07:46): 작은 알림이 고르기 창 뒤에 남지 않고, 화면을 옮기면 닫힌다.
 // 네트워크 없음(지어낸 서버·지어낸 앱), 사진은 1×1 그림.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -117,13 +117,13 @@ async function pickPhoneOne(page) {
   await expect(root(page).locator('[data-photos-src="onedrive"]')).toHaveAttribute('aria-pressed', 'false');
   await expect(cellOf(page, 'ph:1')).toBeVisible({ timeout: 15000 });
   await hold(page, cellOf(page, 'ph:1'));
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 선택됨');
 }
 
 test.describe('폰 앱 412 · 사진 5000장 · 느린 원드라이브', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
 
-  test('[지우기] → 3초 안 두 갈래 고르기 창(고른 사진 근처만 읽음), 확인 알림은 창 뒤에 남지 않음', async ({ page }) => {
+  test('[삭제] → 3초 안 두 갈래 선택 창(선택한 사진 근처만 읽음), 확인 알림은 창 뒤에 남지 않음', async ({ page }) => {
     test.setTimeout(90000);
     const state = await fixture(page);
     await pickPhoneOne(page);
@@ -165,7 +165,7 @@ test.describe('폰 앱 412 · 사진 5000장 · 느린 원드라이브', () => {
     await root(page).locator('[data-photos-act-delete]').click();
     await expect(notice(page)).toContainText('확인 중이에요');
     // 15초 뒤: 지우지 않고 안내 + [다시].
-    await expect(notice(page)).toContainText('확인이 오래 걸려 지우지 않았어요', { timeout: 20000 });
+    await expect(notice(page)).toContainText('확인이 오래 걸려 삭제하지 않았어요', { timeout: 20000 });
     expect(Date.now() - t).toBeGreaterThanOrEqual(14500);
     await expect(choice(page)).toHaveCount(0);
     expect(await page.evaluate(() => window.__photoSent.filter(m => m.startsWith('photos:trash:')))).toEqual([]);
@@ -179,14 +179,14 @@ test.describe('폰 앱 412 · 사진 5000장 · 느린 원드라이브', () => {
     expect(state.errors).toEqual([]);
   });
 
-  test('[취소]: 확인을 멈추고 지우지 않음, 다시 누르면 다시 확인', async ({ page }) => {
+  test('[취소]: 확인을 멈추고 삭제하지 않음, 다시 누르면 다시 확인', async ({ page }) => {
     test.setTimeout(90000);
     const state = await fixture(page);
     await pickPhoneOne(page);
     state.hang = true;
     await root(page).locator('[data-photos-act-delete]').click();
     await notice(page).getByRole('button', { name: '취소' }).click();
-    await expect(notice(page)).toContainText('지우지 않았어요');
+    await expect(notice(page)).toContainText('삭제하지 않았어요');
     state.hang = false;
     await root(page).locator('[data-photos-act-delete]').click();
     await expect(choice(page)).toBeVisible({ timeout: 5000 });

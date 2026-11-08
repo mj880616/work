@@ -96,7 +96,7 @@ test('[확정] 뒤 후보: 달력과 다르게 확정한 일정·이번 주 뺀 
     [['가상다른일정', '가상 다른 일정 (고침)', '곳', false, true], ['회의', null, null, true, false]]);
   // 기억으로 이름이 바뀐 결의대회(두 회차)·기억으로 뺀 점검은 적용된 기억.
   assert.deepEqual(r.used.sort(), ['가상결의대회', '가상정기점검']);
-  // 이번 주만 원래대로(달력 제목으로 확정) → 후보 없음, 적용도 아님.
+  // 이번 주만 되돌리기(달력 제목으로 확정) → 후보 없음, 적용도 아님.
   const back = m.memoryCandidates(items, {titles:new Map([[by('가상 결의대회')[0].key, {title:'가상 결의대회', place:''}]]), drops:new Map()});
   assert.equal(back.candidates.length, 0);
   // 기억으로 뺀 일정을 이번 주만 넣었으면 적용 안 됨.

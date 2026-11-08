@@ -89,9 +89,9 @@ const TEXT = Object.freeze({
   noConfirmed: () => `자료실에 바탕이 없어요(찾은 분류: ${weeklySearchNote()}). 지난 팀 확정본을 ‘${weeklyCategoryLabel('confirmed')}’ 분류로 올리거나 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 써 주세요.`,
   readFailed: '자료실을 읽지 못했어요. 잠시 뒤 다시 시도하거나 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 써 주세요.',
   // WEEKLY-한글파일다듬기 ②: 자동 변환(칸막이 편집기 엔진)이 안 될 때만. 괄호 안은 다음에 원인을 좁히려는 짧은 이유(시간 초과 등).
-  engineFailed: '이 파일은 옛 한글 형식(.hwp)이라 쓸 수 없어요. 한글에서 열어 ‘다른 이름으로 저장’ → 파일 형식 HWPX로 저장한 뒤 다시 골라 주세요.',
-  locked: '암호가 걸린 한글 파일이라 열 수 없어요. 한글에서 암호를 푼 뒤 ‘다른 이름으로 저장’ → 파일 형식 HWPX로 저장해 다시 골라 주세요.',
-  notHwp: 'HWP(.hwp) 또는 한글 파일(.hwpx)만 고를 수 있어요.',
+  engineFailed: '이 파일은 옛 한글 형식(.hwp)이라 쓸 수 없어요. 한글에서 열어 ‘다른 이름으로 저장’ → 파일 형식 HWPX로 저장한 뒤 다시 선택해 주세요.',
+  locked: '암호가 걸린 한글 파일이라 열 수 없어요. 한글에서 암호를 푼 뒤 ‘다른 이름으로 저장’ → 파일 형식 HWPX로 저장해 다시 선택해 주세요.',
+  notHwp: 'HWP(.hwp) 또는 한글 파일(.hwpx)만 선택할 수 있어요.',
   tooBig: '30MB가 넘는 파일은 열지 않아요.',
   noMine: '담당 팀원 칸에서 이 이름을 찾지 못했어요. 이름을 확인해 주세요(요약 표는 틀만 들어가요).',
 });
@@ -100,15 +100,15 @@ const TITLE_TEXT = Object.freeze({
   ...AI_SUMMARY_TEXT,
   not_ready: 'AI 제목 다듬기는 아직 준비 중이에요. 원래 제목으로 만들어요.',
   unsupported_kind: 'AI 제목 다듬기는 아직 준비 중이에요. 원래 제목으로 만들어요.',
-  daily_limit: '오늘 AI를 쓸 수 있는 횟수를 다 썼어요. 제목은 칸에서 직접 고쳐 주세요.',
-  monthly_limit: '이번 달 AI 한도에 닿았어요. 제목은 칸에서 직접 고쳐 주세요.',
+  daily_limit: '오늘 AI를 쓸 수 있는 횟수를 다 썼어요. 제목은 칸에서 직접 수정해 주세요.',
+  monthly_limit: '이번 달 AI 한도에 닿았어요. 제목은 칸에서 직접 수정해 주세요.',
 });
 // WEEKLY-환류학습 3·4·6: ai-assist weekly_draft(AI 초안·학습 시험)·weekly_review(환류 보고) 답의 일상어. 배포 전이면 바탕 그대로.
 const LEARN_TEXT = Object.freeze({
   ...AI_SUMMARY_TEXT,
   not_ready: 'AI 초안은 아직 준비 중이에요. 바탕 그대로 시작해요.',
   unsupported_kind: 'AI 초안은 아직 준비 중이에요. 바탕 그대로 시작해요.',
-  not_found: '이 주 고침 기록을 서버에서 찾지 못했어요.',
+  not_found: '이 주 수정 기록을 서버에서 찾지 못했어요.',
   daily_limit: '오늘 AI를 쓸 수 있는 횟수를 다 썼어요. 바탕 그대로 시작해요.',
   monthly_limit: '이번 달 AI 한도에 닿았어요. 바탕 그대로 시작해요.',
 });
@@ -116,13 +116,13 @@ const LEARN_BODY_BYTES = 60 * 1024; // 서버 상한(64KB)보다 조금 작게
 const MAX_BYTES = 30 * 1024 * 1024;
 const DRAFT_DELAY = 2000;
 // 담당 팀원 칸 이름이 어디서 왔나(맨 위 한 줄 이름에 title 로, 프로필 이름을 쓴 때만 바탕 아래 한 줄로도).
-const ME_FROM = Object.freeze({confirmed:'담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.', profile:'직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.', typed:'담당 팀원 칸 이름을 직접 고쳤어요.'});
+const ME_FROM = Object.freeze({confirmed:'담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.', profile:'직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.', typed:'담당 팀원 칸 이름을 직접 수정했어요.'});
 const SECTION_NAME = Object.freeze({summary:'요약', orgs:'산하조직', sites:'투쟁 사업장'});
 const DRAFT_TEXT = Object.freeze({
-  missing: '임시저장은 준비 중이에요. 상자를 닫으면 고친 내용은 사라져요.',
+  missing: '임시저장은 준비 중이에요. 상자를 닫으면 수정한 내용은 사라져요.',
   saving: '저장 중…',
   failed: '저장 못 함 — ',
-  readFailed: '임시저장본을 읽지 못했어요. 고치면 서버 것과 맞춰 저장해요.',
+  readFailed: '임시저장본을 읽지 못했어요. 수정하면 서버 것과 맞춰 저장해요.',
 });
 const seoulParts = iso => {
   try { return Object.fromEntries(new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit', hourCycle:'h23'}).formatToParts(new Date(iso)).map(p => [p.type, p.value])); }
@@ -213,7 +213,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const topLine = el('div', 'weekly-flow-top'); topLine.dataset.weeklyFlowTop = '';
   // 맨 위 글 한 줄과 ⋯ 는 한 번만 만든다. 다시 그릴 때는 글만 바꿔, 저장·바탕 열기로 다시 그려도 열어 둔 ⋯ 가 닫히지 않는다.
   const topText = el('span', 'weekly-flow-top-text');
-  const topMenu = rowMore(doc, {label:'일시·이름·바탕 고치기', data:{hwpxTopMore:''}, items:[{text:'이름 고치기', data:{hwpxTopMe:''}}, {text:'일시 고치기', data:{hwpxTopDate:''}}, {text:'바탕 바꾸기(기기 파일)', data:{hwpxPick:''}}, {text:'처음부터', data:{hwpxRestart:''}, danger:true}]});
+  const topMenu = rowMore(doc, {label:'일시·이름·바탕 수정', data:{hwpxTopMore:''}, items:[{text:'이름 수정', data:{hwpxTopMe:''}}, {text:'일시 수정', data:{hwpxTopDate:''}}, {text:'바탕 바꾸기(기기 파일)', data:{hwpxPick:''}}, {text:'처음부터', data:{hwpxRestart:''}, danger:true}]});
   // 1. 요청사항 › 1) 위 한 줄: 바탕(지난주 확정본)에서 가져온 요청 줄 안내. [주간 정리]가 그 자리에 붙인다. 바탕을 연 판에서만 보인다.
   const reqNote = el('p', 'journal-muted journal-hwpx-requests-note'); reqNote.dataset.hwpxRequests = ''; reqNote.hidden = true;
   const panel = el('section', 'journal-hwpx-panel'); panel.hidden = true; panel.setAttribute('aria-label', '주간보고 한글 파일');
@@ -265,7 +265,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       if (stale()) return null;
       const d = saved?.row?.draft, p = d?.proposed?.base ?? null, b = d?.base ?? null;
       const id = p?.document_id ?? (b?.from === 'library' ? b.document_id : '');
-      if (!id && (p?.from === 'file' || b?.from === 'file')) { say(`이 주 바탕이 기기 파일${b?.file_name ? `(${b.file_name})` : ''}이었어요. 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]로 같은 파일을 골라 주세요.`, 'error'); return null; }
+      if (!id && (p?.from === 'file' || b?.from === 'file')) { say(`이 주 바탕이 기기 파일${b?.file_name ? `(${b.file_name})` : ''}이었어요. 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]로 같은 파일을 선택해 주세요.`, 'error'); return null; }
       await fromLibrary(id ? {id, file_name:b?.document_id === id ? b?.file_name ?? '' : '', title:b?.document_id === id ? b?.title ?? '' : '', from:p?.from ?? ''} : null);
       return !stale() && state && state.start === week ? state : null;
     })().finally(() => { if (flight?.promise === promise) flight = null; paintTop(); paintConfirm(); });
@@ -522,9 +522,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const dropped = [n.past ? `지난 날짜 ${n.past}` : '', n.unrelated ? `관련 없음 ${n.unrelated}` : '', n.unread ? `날짜·내용을 못 읽음 ${n.unread}` : ''].filter(Boolean).join(', ');
     const took = c.status === 'before' ? '이 주는 이미 지난주 줄을 가져와서 다시 가져오지 않았어요.'
       : c.status === 'saved' ? `지난주 확정본에서 ${c.added}줄을 가져왔어요${dropped ? `(뺀 줄: ${dropped})` : ''}.`
-      : c.status === 'saving' ? '지난주 확정본에서 고른 줄을 저장하는 중이에요.'
-      : c.status === 'failed' ? '지난주에서 고른 줄을 저장하지 못했어요. 파일에는 고른 줄만 넣어요.'
-      : `지난주 확정본에서 ${c.items.length}줄을 골랐어요${dropped ? `(뺀 줄: ${dropped})` : ''}. 저장 칸 준비 전이라 이 파일에만 넣어요.`;
+      : c.status === 'saving' ? '지난주 확정본에서 선택한 줄을 저장하는 중이에요.'
+      : c.status === 'failed' ? '지난주에서 선택한 줄을 저장하지 못했어요. 파일에는 선택한 줄만 넣어요.'
+      : `지난주 확정본에서 ${c.items.length}줄을 선택했어요${dropped ? `(뺀 줄: ${dropped})` : ''}. 저장 칸 준비 전이라 이 파일에만 넣어요.`;
     note.textContent = `1) 임원 배정 요청 ${rows.items.length}줄(아래 표 그대로). ${took} 기준: ${formDay(c.cutoff)}부터, 내 '임원 요청' 기록이 가리키거나 내 담당 사업장·사업 관련 줄만.`;
   }
   // 5. 주요 일정: 기억으로 뺀 일정까지 든 달력(allRows)과 이 주에 실제 들어가는 달력(이번 주 빼기·넣기 반영).
@@ -646,7 +646,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
         // 줄을 고르기 전엔 누를 수 없다. (전에는 빈 값이 없어 목록 첫 줄이 기본으로 골라져 있었다.)
         const pickId = `journalHwpxPick-${n}`;
         const select = el('select', 'journal-hwpx-target'); select.id = pickId; select.setAttribute('aria-label', '붙일 줄'); select.dataset.hwpxPick = '';
-        const none = el('option', '', '줄 고르기'); none.value = ''; select.append(none);
+        const none = el('option', '', '줄 선택'); none.value = ''; select.append(none);
         for (const t of targets) { const o = el('option', '', t.label); o.value = t.value; select.append(o); }
         select.value = state.draft.nearestTarget(item.from, targets);
         const add = button('붙이기', 'hwpxAppend'); add.dataset.hwpxText = item.text; add.dataset.hwpxPickFrom = pickId; add.dataset.hwpxPickKey = indexPick(state, item.pick);
@@ -695,7 +695,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (stageState && stageState !== 'ready') { const n = el('p', 'journal-muted', stageState === 'preparing' ? '쟁의 단계가 아직 준비 중이라 투쟁 사업장 칸은 직전 확정본 그대로예요.' : '단계를 불러오지 못했어요. 투쟁 사업장 칸은 직전 확정본 그대로예요.'); n.dataset.hwpxStageNote = stageState; parts.push(n); }
     if (s.stageFixes?.length) {
       const fix = el('details', 'journal-hwpx-plans'); fix.dataset.hwpxStageFix = ''; fix.open = true;
-      fix.append(el('summary', '', `고칠 목록: 직전 확정본에 있던 투쟁 사업장 줄 ${s.stageFixes.length}곳이 더는 투쟁 중이 아니에요. 지울까요?`));
+      fix.append(el('summary', '', `수정할 목록: 직전 확정본에 있던 투쟁 사업장 줄 ${s.stageFixes.length}곳이 더는 투쟁 중이 아니에요. 삭제할까요?`));
       const list = el('ul', 'journal-hwpx-material');
       for (const f of s.stageFixes) {
         const li = el('li'); li.dataset.hwpxStageFixRow = String(f.index);
@@ -712,7 +712,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // S48-33(요청함 11/01 23:43 '뺀 것 목록 두지 않기'): '기억으로 뺀 일정 n개 [이번 주만 넣기]' 접힘은 없앴다(기억 칸·draft 값은 그대로).
     parts.push(diff);
     const rest = el('section', 'journal-hwpx-part'); rest.dataset.hwpxUnmatched = ''; rest.hidden = true;
-    rest.append(el('h5', 'journal-weekly-sub', '줄을 찾지 못한 이번 주 기록'), el('p', 'journal-muted', '이름이 바탕 칸과 달라요. 붙일 칸을 골라 주세요.'), el('ul', 'journal-hwpx-material'));
+    rest.append(el('h5', 'journal-weekly-sub', '줄을 찾지 못한 이번 주 기록'), el('p', 'journal-muted', '이름이 바탕 칸과 달라요. 붙일 칸을 선택해 주세요.'), el('ul', 'journal-hwpx-material'));
     parts.push(rest);
     // 환류학습 6·4: [학습 시험] 결과(저장하지 않음)와 [확정] 뒤 이번 주 환류 보고 한 장.
     const learn = el('div', 'journal-hwpx-learn'); learn.dataset.hwpxLearn = ''; learn.hidden = true; parts.push(learn);
@@ -852,7 +852,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!p || !state) return;
     const n = hqFileLines().length;
     const k = discussFileLines().length;
-    p.textContent = `1. 요청사항: 2) 주요 일정 ${n ? `${n}줄` : '빈 칸'}, 3) 상집 논의 요청 ${k ? `${k}줄` : '빈 칸'}을 넣어요(아래 표에서 고쳐요). 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.`;
+    p.textContent = `1. 요청사항: 2) 주요 일정 ${n ? `${n}줄` : '빈 칸'}, 3) 상집 논의 요청 ${k ? `${k}줄` : '빈 칸'}을 넣어요(아래 표에서 수정해요). 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.`;
   }
   // ---- 3. 2) 투쟁 사업장 현황 구성 ----
   const siteRows = s => s.sites.map(r => ({index:r.index, org:r.org}));
@@ -871,7 +871,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     syncTitles(fullCalendar());
     renderMismatches();
     typed(how === 'origin' ? `title:${key}` : `drop:${key}`);
-    say(how === 'drop' ? '이번 주 파일에서 뺐어요. [확정] 뒤 다음 주에도 뺄지 고를 수 있어요.' : how === 'origin' ? '이번 주만 원래 제목으로 넣어요.' : '이번 주 파일에 넣어요.');
+    say(how === 'drop' ? '이번 주 파일에서 뺐어요. [확정] 뒤 다음 주에도 뺄지 선택할 수 있어요.' : how === 'origin' ? '이번 주만 원래 제목으로 넣어요.' : '이번 주 파일에 넣어요.');
   }
   function renderMismatches() {
     const box = body.querySelector('[data-hwpx-mismatch]');
@@ -887,7 +887,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     box.querySelector('[data-hwpx-gone]')?.remove();
     box.hidden = !shown.length && !gone.length;
     if (box.hidden) return;
-    box.querySelector('summary').textContent = shown.length ? `본문과 일정표가 다른 곳 ${shown.length}개 — 확인해 주세요(자동으로 고치지 않아요)` : '본문과 일정표가 다른 곳 — 모두 뺐어요';
+    box.querySelector('summary').textContent = shown.length ? `본문과 일정표가 다른 곳 ${shown.length}개 — 확인해 주세요(자동으로 수정하지 않아요)` : '본문과 일정표가 다른 곳 — 모두 뺐어요';
     box.querySelector('ul').replaceChildren(...shown.map(x => {
       const f = x.raw, li = el('li'); li.dataset.hwpxMismatchItem = f.day;
       const cal = f.events.length ? `일정표: ${f.events.join(', ')}` : '일정표: 그날 일정 없음';
@@ -925,7 +925,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (changed && s.store) { touchDraft(); clearTimeout(s.store.timer); void saveDraft(s); }
     syncTitles(getWeek().model?.calendar);
     renderMismatches();
-    setSchedNote(s.start, `${changed ? `${changed}개 일정 제목을 다듬었어요. 줄 ⋯ [고치기]로 원래 제목과 비교해 고칠 수 있어요.` : '다듬을 제목이 없었어요.'}${more > 0 ? ` 한 번에 ${items.length - more}개까지라 ${more}개는 그대로예요.` : ''}${r.data.partial ? ' 기록이 많아 일부만 봤어요.' : ''}`);
+    setSchedNote(s.start, `${changed ? `${changed}개 일정 제목을 다듬었어요. 줄 ⋯ [수정]으로 원래 제목과 비교해 수정할 수 있어요.` : '다듬을 제목이 없었어요.'}${more > 0 ? ` 한 번에 ${items.length - more}개까지라 ${more}개는 그대로예요.` : ''}${r.data.partial ? ' 기록이 많아 일부만 봤어요.' : ''}`);
   }
 
   async function build() {
@@ -1039,7 +1039,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!box) return;
     box.hidden = !m || m.status === 'none';
     if (box.hidden) { box.replaceChildren(); return; }
-    if (m.status === 'saved') { const p = el('p', 'journal-muted', `${m.saved}개를 기억했어요. 다음 주 초안에 먼저 넣어요([주간 정리] 맨 아래 ‘주간보고 기억’에서 지울 수 있어요).`); p.dataset.hwpxRememberDone = ''; box.replaceChildren(p); return; }
+    if (m.status === 'saved') { const p = el('p', 'journal-muted', `${m.saved}개를 기억했어요. 다음 주 초안에 먼저 넣어요([주간 정리] 맨 아래 ‘주간보고 기억’에서 삭제할 수 있어요).`); p.dataset.hwpxRememberDone = ''; box.replaceChildren(p); return; }
     const fold = el('details', 'journal-hwpx-plans'); fold.open = true; fold.dataset.hwpxRememberAsk = '';
     fold.append(el('summary', '', `다음 주에도 쓸까요? 달력 제목과 다르게 확정한 일정·뺀 일정 ${m.candidates.length}개`));
     // UI-체크칸통일: 공용 체크 목록(.check-list, ui-standard.css) — 줄마다 작은 체크칸 + 한 줄 글자, 목록 점 없음, 줄 아무 곳이나 누르면 체크.
@@ -1106,7 +1106,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // again=true: [AI 초안 다시 쓰기]. 사람이 손대지 않은 칸(지금 글 = 바탕)만 바꾼다. 처음 초안은 AI 칸으로 다시 정한다.
   async function aiDraft(s, again) {
     if (!s?.ai || s.ai.status === 'running') return;
-    s.ai.status = 'running'; s.ai.note = 'AI가 지난 고침 기록과 규칙을 보고 이번 주 초안을 쓰는 중…'; paintAi();
+    s.ai.status = 'running'; s.ai.note = 'AI가 지난 수정 기록과 규칙을 보고 이번 주 초안을 쓰는 중…'; paintAi();
     const r = await callLearn(s, 'draft');
     if (state !== s) return;
     const st = s.store;
@@ -1129,7 +1129,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (st?.extras) st.extras.proposed = {...proposedNow(s), ai:true, cells:cellList(proposed)};
     s.built = null;
     s.ai.status = 'done';
-    s.ai.note = `AI 초안: 지난 ${r.learned.weeks}주 고침 기록·규칙 ${r.learned.rules}줄을 보고 ${changed}칸을 고쳐 썼어요(바탕과 다른 줄은 파란 글씨). 칸에서 고쳐 주세요.`;
+    s.ai.note = `AI 초안: 지난 ${r.learned.weeks}주 수정 기록·규칙 ${r.learned.rules}줄을 보고 ${changed}칸을 수정해 썼어요(바탕과 다른 줄은 파란 글씨). 칸에서 수정해 주세요.`;
     if (st) { st.dirty = true; void saveDraft(s); } // 처음 초안·고친 칸을 바로 서버에([주간 정리] 칸 줄이 읽음)
     paintAi(); renderMismatches();
   }
@@ -1228,7 +1228,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy, rules, fixing:v.fixing ?? null, dropping:v.dropping ?? null, value:v.value ?? null, sfix:v.sfix ?? null, sdrop:v.sdrop ?? null, sadd:!!v.sadd, picks:state.store?.extras?.picks ?? null});
     const parts = card ? [card] : [];
     if (v.status === 'running') { const p = el('p', 'journal-muted', '규칙 후보·개선 제안을 정리하는 중…'); p.dataset.hwpxReviewNote = 'running'; parts.push(p); }
-    if (v.status === 'failed') { const p = el('p', 'journal-muted', `규칙 후보·개선 제안은 만들지 못했어요(${v.note}). 고침 기록은 저장했어요.`); p.dataset.hwpxReviewNote = 'failed'; parts.push(p); }
+    if (v.status === 'failed') { const p = el('p', 'journal-muted', `규칙 후보·개선 제안은 만들지 못했어요(${v.note}). 수정 기록은 저장했어요.`); p.dataset.hwpxReviewNote = 'failed'; parts.push(p); }
     if (v.msg) { const p = el('p', 'journal-line-status', v.msg); p.setAttribute('role', 'status'); parts.push(p); }
     box.replaceChildren(...parts);
     if (card) card.querySelector('[data-learn-review-pending]')?.remove();
@@ -1468,7 +1468,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     : typeof value === 'object' ? [value.day, value.time, value.title, value.place, value.who].filter(Boolean).join(' / ') : String(value));
   function conflictBox(s) {
     const box = el('details', 'journal-hwpx-plans'); box.dataset.hwpxConflicts = ''; box.open = true;
-    box.append(el('summary', '', `다른 기기에서도 고친 칸 ${s.store.conflicts.length}개 — 어느 쪽으로 할까요? (고를 때까지 다른 기기 것을 둬요)`));
+    box.append(el('summary', '', `다른 기기에서도 수정한 칸 ${s.store.conflicts.length}개 — 어느 쪽으로 할까요? (선택할 때까지 다른 기기 것을 둬요)`));
     const list = el('ul', 'journal-hwpx-material');
     s.store.conflicts.forEach((c, i) => {
       const li = el('li'); li.dataset.hwpxConflictItem = c.cell;
@@ -1505,7 +1505,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   }
   function unplacedBox(s) {
     const box = el('details', 'journal-hwpx-plans'); box.dataset.hwpxUnplaced = '';
-    box.append(el('summary', '', `넣지 못한 임시저장 칸 ${s.store.keep.length}개 — 바탕에 같은 이름 칸이 없어요(지우지 않고 남겨 둬요, 복사해 붙일 수 있어요)`));
+    box.append(el('summary', '', `넣지 못한 임시저장 칸 ${s.store.keep.length}개 — 바탕에 같은 이름 칸이 없어요(삭제하지 않고 남겨 둬요, 복사해 붙일 수 있어요)`));
     const list = el('ul', 'journal-hwpx-material');
     for (const r of s.store.keep) { const li = el('li'); li.append(el('span', 'journal-weekly-label', `${cellLabel(`row:${cellId(r.section, r.key, r.n)}`)}: `), doc.createTextNode(r.lines.filter(l => l.trim()).join('\n'))); list.append(li); }
     box.append(list);
@@ -1517,19 +1517,19 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const s = state, st = s?.store;
     const saved = st && st.status !== 'missing' && (hasContent(st.last) || (st.dirty && hasContent(currentDraft(s))));
     if (saved) {
-      if (!await askConfirm(trigger, {text:'이 주 임시저장본을 지우고 처음부터 할까요?', ok:'지우기', danger:true})) return;
+      if (!await askConfirm(trigger, {text:'이 주 임시저장본을 삭제하고 처음부터 할까요?', ok:'삭제', danger:true})) return;
       if (state !== s) return;
       clearTimeout(st.timer); st.dirty = false;
       await st.flight;
       try {
         const r = await writeWeekDraft({start:s.start, known:st.known ?? {exists:true, saved_at:null}, draft:keepDocsOnly(putIssued(st.known?.draft ?? st.last, st.issued))}, rt);
         if (r.conflict) { say('다른 기기가 그사이 임시저장했어요. 다시 [처음부터]를 눌러 주세요.', 'error'); st.known = r.row; return; }
-      } catch { say('임시저장본을 지우지 못했어요. 잠시 뒤 다시 해 주세요.', 'error'); st.dirty = true; return; }
+      } catch { say('임시저장본을 삭제하지 못했어요. 잠시 뒤 다시 해 주세요.', 'error'); st.dirty = true; return; }
     }
     if (state !== s) return;
     if (!saved && st?.dirty) void saveDraft(s); // 아직 못 쓴 받은 초안 기록(issued)만 있을 때
     // 칸이 비면 [주간 정리]가 바탕을 다시 열어 처음 초안부터 만든다(prepare → ensure).
-    const note = saved ? '임시저장본을 지웠어요. 바탕부터 다시 만들어요.' : '';
+    const note = saved ? '임시저장본을 삭제했어요. 바탕부터 다시 만들어요.' : '';
     close(note); reopenNote = note ? {week:s.start, text:note} : null; onDraft?.(s.start, null); onFlow({restart:s.start});
   }
   doc.addEventListener('visibilitychange', () => {
@@ -1574,7 +1574,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     else if (b.matches('[data-hwpx-stage-clear]') && state) void clearStage(state, Number(b.dataset.hwpxIndex), b);
     else if (b.matches('[data-hwpx-draft-retry]')) { if (state?.store) { state.store.dirty = true; void saveDraft(state); } }
     else if (b.matches('[data-hwpx-conflict-pick]')) pickConflict(Number(b.dataset.hwpxConflict), b.dataset.hwpxConflictPick);
-    else if (b.matches('[data-hwpx-append]')) { const key = b.dataset.hwpxTarget || doc.getElementById(b.dataset.hwpxPickFrom)?.value; if (!key) return; append(key, b.dataset.hwpxText); const took = state && markPick(state, pickIndex(state).get(b.dataset.hwpxPickKey), 'take'); if (b.closest('[data-hwpx-org-ref]') || took) renderMaterial(); say('붙였어요. 칸에서 고칠 수 있어요.'); }
+    else if (b.matches('[data-hwpx-append]')) { const key = b.dataset.hwpxTarget || doc.getElementById(b.dataset.hwpxPickFrom)?.value; if (!key) return; append(key, b.dataset.hwpxText); const took = state && markPick(state, pickIndex(state).get(b.dataset.hwpxPickKey), 'take'); if (b.closest('[data-hwpx-org-ref]') || took) renderMaterial(); say('붙였어요. 칸에서 수정할 수 있어요.'); }
     else if (b.matches('[data-hwpx-pick-drop], [data-hwpx-pick-put], [data-hwpx-pick-undo]') && state) onPick(b);
     else if (!state) return;
     else if (b.matches('[data-hwpx-remember-go]') && state?.remember) void writeMemory(state, state.remember.candidates.filter(c => c.checked));

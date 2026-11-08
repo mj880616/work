@@ -23,7 +23,7 @@ for(const width of [360,599]){
   if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-menu-360.png'});await expect(page.locator('#gtTaskMenu button').first()).toBeFocused();
   await page.keyboard.press('Escape');await expect(page.locator('#gtTaskMenu')).toBeHidden();await expect(row.locator('[data-gt-menu]')).toBeFocused();
   await row.locator('[data-gt-menu]').click();await page.goBack();await expect(page.locator('#gtTaskMenu')).toBeHidden();await expect(row.locator('[data-gt-menu]')).toBeFocused();
-  await row.locator('[data-gt-menu]').click();await page.locator('#gtTaskMenu').getByRole('button',{name:'편집',exact:true}).click();await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditTitle')).toHaveValue(title);await page.locator('[data-gt-close]').click();
+  await row.locator('[data-gt-menu]').click();await page.locator('#gtTaskMenu').getByRole('button',{name:'수정',exact:true}).click();await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditTitle')).toHaveValue(title);await page.locator('[data-gt-close]').click();
   await row.locator('[data-gt-edit]').click();await expect(page.locator('#gtTaskModal')).toBeVisible();await page.locator('[data-gt-close]').click();
   await page.evaluate(()=>window.KPTURouter.go('calendar'));await page.locator('[data-date="2026-10-08"] .clv-tasks').first().click();await expect(page.locator('#calendarDayTasks .gt-project')).toContainText('아주 긴 연결 프로젝트 이름');await expect(page.locator('#calendarDayTasks')).not.toContainText('연결 안 됨');
  });
@@ -53,7 +53,7 @@ for(const dismiss of ['Escape','edit'])test(`late link lookup keeps open menu an
  await trigger.click();await expect(menu.locator('button').first()).toBeFocused();
  release();await expect.poll(()=>page.evaluate(()=>window.KPTUGoogleTasks.peekTasks().tasks.find(t=>t.id==='delayed')?.unlinked)).toBe(true);
  await expect(menu).toBeVisible();await expect(menu.locator('button').first()).toBeFocused();
- if(dismiss==='Escape')await page.keyboard.press('Escape');else{await menu.getByRole('button',{name:'편집',exact:true}).click();await expect(page.locator('#gtTaskModal')).toBeVisible();await page.locator('[data-gt-close]').click();}
+ if(dismiss==='Escape')await page.keyboard.press('Escape');else{await menu.getByRole('button',{name:'수정',exact:true}).click();await expect(page.locator('#gtTaskModal')).toBeVisible();await page.locator('[data-gt-close]').click();}
  await expect(menu).toBeHidden();await expect(trigger).toBeFocused();
 });
 
@@ -64,7 +64,7 @@ test('a task removed during menu use closes without opening a blank editor',asyn
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  await expect.poll(()=>page.evaluate(()=>window.KPTUGoogleTasks.peekTasks().tasks.length)).toBe(0);
- await page.locator('#gtTaskMenu').getByRole('button',{name:'편집',exact:true}).click();
+ await page.locator('#gtTaskMenu').getByRole('button',{name:'수정',exact:true}).click();
  await expect(page.locator('#gtTaskMenu')).toBeHidden();await expect(page.locator('#gtTaskModal')).toBeHidden();
  await expect(page.locator('#gtTaskBody [data-wait-empty]')).toHaveText('없음');await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toBeFocused();expect(errors).toEqual([]);
 });

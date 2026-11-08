@@ -474,7 +474,7 @@ function shellHtml() {
         <div class="lb-line2">
           <label class="lb-f"><span class="lb-fl">범위</span><select id="lbScope" class="lg-select lb-select">${SCOPE_CHOICES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
           <label class="lb-check"><input id="lbInactive" type="checkbox"><span>지난 기록도 보기</span></label>
-          <button type="button" class="lb-clear" data-lb-action="clear">조건 지우기</button>
+          <button type="button" class="lb-clear" data-lb-action="clear">조건 삭제</button>
         </div>
       </div>
     </form>
@@ -581,7 +581,7 @@ function sourcesHtml(d, at) {
     if (!src) return '<li>(읽을 수 없는 출처)</li>';
     if (s.original) {
       const o = s.original;
-      const open = o.target && at ? ` <button type="button" class="lg-text-btn" data-lb-action="original" data-lb-id="${esc(at)}" data-lb-src="${esc(s.id)}">‹원문›</button>` : o.gone ? ' <span class="lg-muted" data-lb-gone>원문이 지워졌어요</span>' : '';
+      const open = o.target && at ? ` <button type="button" class="lg-text-btn" data-lb-action="original" data-lb-id="${esc(at)}" data-lb-src="${esc(s.id)}">‹원문›</button>` : o.gone ? ' <span class="lg-muted" data-lb-gone>원문이 삭제됐어요</span>' : '';
       return `<li data-lb-web2="${esc(o.src.kind)}">${esc(o.label)}${open}</li>`;
     }
     const href = sourceHref(src);
@@ -619,7 +619,7 @@ function menuHtml(id, row, info) {
     ...plan.quick.map(k => item('quick', QUICK_ACTIONS[k].label, ` data-lb-quick-key="${k}"`)),
     plan.update ? item('fix', '내용 업데이트…') : ''
   ].filter(Boolean).join('');
-  const marks = plan.mark ? `<details class="lb-sub"><summary class="lb-menu-item" data-lb-sub>틀린 기록으로 표시 <span aria-hidden="true">▸</span></summary><div class="lb-sub-list" role="group" aria-label="틀린 기록으로 표시(폐기, 지우지 않음)">${RETIRE_REASONS.map(([k, l]) => item('retire', l, ` data-lb-reason="${k}"`)).join('')}</div></details>` : '';
+  const marks = plan.mark ? `<details class="lb-sub"><summary class="lb-menu-item" data-lb-sub>틀린 기록으로 표시 <span aria-hidden="true">▸</span></summary><div class="lb-sub-list" role="group" aria-label="틀린 기록으로 표시(폐기, 삭제하지 않음)">${RETIRE_REASONS.map(([k, l]) => item('retire', l, ` data-lb-reason="${k}"`)).join('')}</div></details>` : '';
   const runCancel = plan.undoRun ? `<button type="button" class="lb-menu-item" role="menuitem" data-lb-action="undo-run" data-lb-run="${esc(info.runId)}"${off}>${state.acting === 'run' ? '취소하는 중…' : '이번 자동 기록 취소'}</button>` : '';
   const bottom = marks + runCancel;
   if (!top && !bottom) return '';
@@ -631,7 +631,7 @@ function quickHtml(id) {
   if (!a) return '';
   const busy = state.acting === 'quick';
   return `<div class="lb-quick" data-lb-quick="${esc(qk.key)}">
-    <p class="lb-quick-line">${esc(a.line)} <span class="lg-muted">지우지 않고 이력을 남겨요.</span></p>
+    <p class="lb-quick-line">${esc(a.line)} <span class="lg-muted">삭제하지 않고 이력을 남겨요.</span></p>
     <div class="lb-quick-row"><input class="lb-quick-input" type="text" maxlength="${QUICK_NOTE_MAX}" value="${esc(qk.text)}" placeholder="${esc(a.placeholder)}" aria-label="${esc(a.placeholder)}" autocomplete="off" data-lb-quick-input${busy ? ' disabled' : ''}>
       <button type="button" class="primary" data-lb-action="quick-apply" data-lb-id="${esc(id)}"${state.acting ? ' disabled' : ''}>${busy ? '반영하는 중…' : '반영'}</button>
       <button type="button" class="lg-text-btn" data-lb-action="quick-cancel"${busy ? ' disabled' : ''}>취소</button></div></div>`;
@@ -718,7 +718,7 @@ function bind() {
       const label = (RETIRE_REASONS.find(([k]) => k === button.dataset.lbReason) || [])[1];
       const kebab = button.closest('details.lb-kebab'), anchor = kebab?.querySelector('summary') || button, reason = button.dataset.lbReason;
       kebab?.removeAttribute('open');
-      if (row && label) void askConfirm(anchor, {text:`${row.ledger_id}을(를) 틀린 기록으로 표시할까요? (${label})`, note:'지우지 않고 폐기로 남깁니다.', ok:'폐기로 표시'}).then(ok => { if (ok) void retireRecord(row, reason); });
+      if (row && label) void askConfirm(anchor, {text:`${row.ledger_id}을(를) 틀린 기록으로 표시할까요? (${label})`, note:'삭제하지 않고 폐기로 남깁니다.', ok:'폐기로 표시'}).then(ok => { if (ok) void retireRecord(row, reason); });
     }
     else if (action === 'undo-run') {
       const kebab = button.closest('details.lb-kebab'), anchor = kebab?.querySelector('summary') || button, runId = button.dataset.lbRun;

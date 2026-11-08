@@ -45,7 +45,7 @@ export function readPickState(root) {
 
 // picked: 고른 줄 HTML(이미 순서대로). others: [{label, items:[{name, html}]}] 묶음 목록(빈 label은 묶음 제목 없음).
 // state: readPickState()가 준 그 열쇠의 상태(없으면 접힌 채 시작).
-export function pickFoldHtml({key, title = '', count = 0, picked = '', others = [], state = null, othersLabel = '그 외', noneText = '고른 것 없음', extra = ''}) {
+export function pickFoldHtml({key, title = '', count = 0, picked = '', others = [], state = null, othersLabel = '그 외', noneText = '선택한 것 없음', extra = ''}) {
   const st = state || {open: false, othersOpen: false, query: ''};
   const groups = others.map(g => ({label: g.label || '', items: (g.items || []).filter(Boolean)})).filter(g => g.items.length);
   const total = groups.reduce((n, g) => n + g.items.length, 0);

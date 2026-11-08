@@ -5,7 +5,7 @@ const sec = ms => (Math.max(0, ms) / 1000).toFixed(1);
 export function openTimingText(lap = {}) {
   const total = Number(lap.total);
   if (!Number.isFinite(total) || total < TIMING_SHOW_AFTER_MS) return '';
-  const parts = [['파일', lap.file], ['편집기', lap.editor], ['펼침', lap.load]]
+  const parts = [['파일', lap.file], ['HWP 편집', lap.editor], ['펼침', lap.load]]
     .filter(([, v]) => Number.isFinite(Number(v)) && v != null)
     .map(([name, v]) => `${name} ${sec(Number(v))}초`);
   return ` (걸린 시간: ${parts.join(' · ')} · 전체 ${sec(total)}초)`;

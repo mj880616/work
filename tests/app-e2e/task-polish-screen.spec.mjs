@@ -33,7 +33,7 @@ for(const width of [390,1280]){
   });
 }
 
-test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·기한 없음, [다음주]는 요일 목록에서 고른 날, 기한이 있어도 오늘이 맨 앞에 보인다)',async({page})=>{
+test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·기한 없음, [다음주]는 요일 목록에서 선택한 날, 기한이 있어도 오늘이 맨 앞에 보인다)',async({page})=>{
   const tasks=[task('a','2026-10-08')];
   const calls=await open(page,1280,tasks);
   await page.locator('[data-gt-edit="a"]').click();

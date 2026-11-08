@@ -32,4 +32,4 @@ export function pickLabel(names,off,subLabel=''){
   return on.length===1?`분류: ${on[0]}`:`분류: ${on[0]} 외 ${on.length-1}`;
 }
 // 창 아래 셈 글자.
-export const pickCount=({picked,sub})=>sub?'소분류 1개 고름':picked.length?`${picked.length}개 고름`:'전체';
+export const pickCount=({picked,sub})=>sub?'소분류 1개 선택됨':picked.length?`${picked.length}개 선택됨`:'전체';

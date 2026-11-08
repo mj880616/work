@@ -19,7 +19,7 @@ async function begin(page, width, value) {
   return { errors, server, prefs };
 }
 
-test('폴드 884: 두 칸을 켜 둔 기기 — 칸마다 따로 위치(▾ 나무)·정렬, 지금 칸 밑선, 고르기 막대 → 오른쪽에 복사(받을 곳 창 없이 서버 작업표)', async ({ page }) => {
+test('폴드 884: 두 칸을 켜 둔 기기 — 칸마다 따로 위치(▾ 나무)·정렬, 지금 칸 밑선, 선택 막대 → 오른쪽에 복사(받을 곳 창 없이 서버 작업표)', async ({ page }) => {
   test.setTimeout(90000);
   // S50-33: 폴드 기본은 PC처럼 한 칸. 두 칸을 켜 둔 값(서버 files_two.pc.fold)이 있으면 두 칸.
   const { errors, server, prefs } = await begin(page, 884, { files_two: { pc: { fold: true } } });
@@ -75,7 +75,7 @@ test('폴드 884: 두 칸을 켜 둔 기기 — 칸마다 따로 위치(▾ 나�
   expect(errors).toEqual([]);
 });
 
-test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무는 지금 칸 · Tab 칸 바꾸기 · F5 반대 칸에 복사 · F6 옮기기 · 칸 사이 끌어 놓기 고르기', async ({ page }) => {
+test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무는 지금 칸 · Tab 칸 바꾸기 · F5 반대 칸에 복사 · F6 옮기기 · 칸 사이 끌어 놓기 선택', async ({ page }) => {
   test.setTimeout(120000);
   const { errors, server, prefs } = await begin(page, 1440);
   await openFiles(page, 1440);

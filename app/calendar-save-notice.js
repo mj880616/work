@@ -12,7 +12,7 @@ export function googleSaveFailure(error,{create=false}={}){
   // Otherwise a 400 comes from the Edge function's own check or from Google rejecting the whole request.
   if(status===400&&!TRANSPORT.test(raw)){
     const text=TIME_REJECTED.test(raw)?'Google 캘린더가 시작·종료 시각을 받지 않아 저장하지 않았습니다.':korean?'저장하지 않았습니다. '+raw:'Google 캘린더가 이 저장 요청을 받지 않았습니다.';
-    return {kind:'rejected',detail:raw,text:text+' '+unchanged+' 입력은 유지했습니다. 입력을 확인해 다시 저장해 주세요. 계속 안 되면 Google 캘린더에서 직접 고쳐 주세요.'};
+    return {kind:'rejected',detail:raw,text:text+' '+unchanged+' 입력은 유지했습니다. 입력을 확인해 다시 저장해 주세요. 계속 안 되면 Google 캘린더에서 직접 수정해 주세요.'};
   }
   return {kind:'unknown',detail:raw,text:'저장 결과를 확인하지 못했습니다. 입력은 유지했습니다.'+(korean?' '+raw:'')};
 }

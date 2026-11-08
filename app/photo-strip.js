@@ -84,7 +84,7 @@ const STRIP_MENU_ATTR = Object.freeze({edit:'data-strip-act="edit"', more:'data-
 export const stripPrio = d => (d === 0 ? -2 : Math.abs(d) === 1 ? -1 : 0);
 export function openPhotoStrip(opts) {
   const {host, list, index, title, layerName = 'diary-photo', element, label, when, caption = () => '', info, original, isStarred, toggleStar,
-    deletable, take, restore, commit, errorText = () => '지우지 못했어요.', onError, onClose, play = null, download = null, badge = () => '', hires = null,
+    deletable, take, restore, commit, errorText = () => '삭제하지 못했어요.', onError, onClose, play = null, download = null, badge = () => '', hires = null,
     editable = null, edit = null, choose = null, diary = null, acts = null} = opts;
   const first = list();
   if (!first[index] || viewer) return null;

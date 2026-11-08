@@ -143,17 +143,17 @@ const panelFail = () => (state.panelNote ? `<p class="nc-panel-note" role="statu
 
 function keywordsHtml() {
   const max = state.limits.keywords;
-  const head = panelHead('키워드 고치기', state.keywordsLoaded ? `${state.keywords.length}/${max} · 하루 ${state.limits.keyword_items}개까지` : '');
+  const head = panelHead('키워드 수정', state.keywordsLoaded ? `${state.keywords.length}/${max} · 하루 ${state.limits.keyword_items}개까지` : '');
   if (!state.keywordsLoaded) return head + (state.keywordsFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 4}));
   const full = state.keywords.length >= max;
   const add = `<form class="nc-kw-add" data-nc-kw-form><input type="text" data-nc-kw-input maxlength="${KEYWORD_MAX_CHARS}" placeholder="키워드" aria-label="새 키워드" value="${esc(state.draft)}"${full ? ' disabled' : ''}><button type="submit" class="secondary nc-kw-add-btn"${full ? ' disabled' : ''}>더하기</button></form>`;
-  const rows = state.keywords.map(k => `<div class="nc-row">${switchHtml('data-nc-kw', k.word, k.enabled === true, k.word, state.saving.has('kw:' + k.word))}<button type="button" class="nc-del" data-nc-kw-del="${esc(k.word)}" aria-label="${esc(k.word)} 지우기"${state.saving.has('kw:' + k.word) ? ' disabled' : ''}><span aria-hidden="true">×</span></button></div>`).join('');
+  const rows = state.keywords.map(k => `<div class="nc-row">${switchHtml('data-nc-kw', k.word, k.enabled === true, k.word, state.saving.has('kw:' + k.word))}<button type="button" class="nc-del" data-nc-kw-del="${esc(k.word)}" aria-label="${esc(k.word)} 삭제"${state.saving.has('kw:' + k.word) ? ' disabled' : ''}><span aria-hidden="true">×</span></button></div>`).join('');
   return head + add + panelFail() + (rows || emptyHtml('키워드 없음'));
 }
 
 function sourcesHtml() {
   const on = enabledSourceKeys(state.catalog, state.sources).length;
-  const head = panelHead('매체 고르기', state.catalog && state.sourcesLoaded ? `켬 ${on}` : '');
+  const head = panelHead('매체 선택', state.catalog && state.sourcesLoaded ? `켬 ${on}` : '');
   if (!state.catalog || !state.sourcesLoaded) return head + (state.catalogFailed || state.sourcesFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 6}));
   const groups = REGIONS.map(g => {
     const members = state.catalog.filter(s => s.region === g.key);
@@ -463,7 +463,7 @@ async function deleteFolder(id, trigger) {
   const w = workspaceOf(), f = state.folders.find(x => x.id === id), scope = state.scope;
   if (!w || !f) return;
   const up = f.parent_id ? state.folders.find(x => x.id === f.parent_id) : null;
-  if (!await askConfirm(trigger, {text: `'${f.name}' 폴더를 지울까요?`, note: `안의 기사·폴더는 ${up ? `'${up.name}'` : `'${OUTSIDE_NAME}'`}(으)로 가요. 기사는 지우지 않아요.`, ok: '지우기', danger: true})) return;
+  if (!await askConfirm(trigger, {text: `'${f.name}' 폴더를 삭제할까요?`, note: `안의 기사·폴더는 ${up ? `'${up.name}'` : `'${OUTSIDE_NAME}'`}(으)로 가요. 기사는 삭제하지 않아요.`, ok: '삭제', danger: true})) return;
   try {
     await rt().api(`/rest/v1/app_news_folders?workspace_id=eq.${q(w)}&id=eq.${q(id)}`, {method: 'DELETE', prefer: 'return=minimal', singleFlight: false});
     if (scope !== state.scope) return;
@@ -472,7 +472,7 @@ async function deleteFolder(id, trigger) {
   } catch (e) { if (scope === state.scope) { state.treeNote = folderErrorText(e); paint(); } }
 }
 const folderMenu = createAnchoredMenu({id: 'ncFolderMenu', className: 'topline-add-menu nc-menu', label: '폴더 메뉴', historyKey: 'kptuNewsFolderMenu', key: b => b.dataset.ncFolderMore,
-  render: () => '<button type="button" data-nc-fact="child">안에 폴더 만들기</button><button type="button" data-nc-fact="rename">이름 바꾸기</button><button type="button" data-nc-fact="delete">지우기</button>',
+  render: () => '<button type="button" data-nc-fact="child">안에 폴더 만들기</button><button type="button" data-nc-fact="rename">이름 바꾸기</button><button type="button" data-nc-fact="delete">삭제</button>',
   onAction: (button, active) => { const trigger = active?.trigger, id = trigger?.dataset?.ncFolderMore; if (!id) return; const a = button.dataset.ncFact; if (a === 'child') newFolder(id); else if (a === 'rename') renameFolder(id); else if (a === 'delete') deleteFolder(id, trigger); }});
 
 // ---------- 누르기·밀기 ----------

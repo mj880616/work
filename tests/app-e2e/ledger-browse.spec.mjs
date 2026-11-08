@@ -39,7 +39,7 @@ function candidates(){
 async function mockApp(page,{ready=true,undo=false}={}){
  const db={records:records(),candidates:candidates(),search:[],confirm:[],patch:[],ai:[],queue:[],undo:[]};
  // 확정 뒤 손으로 고친 기록을 가리키는 확정 후보(취소는 거절된다).
- if(undo)db.candidates.push({id:u(105),origin:'web2_ai',status:'confirmed',action:'new',kind:'event',target_record_id:null,title:'가상 고친 뒤 후보',sensitivity:'S1',dedup_key:null,import_id:null,
+ if(undo)db.candidates.push({id:u(105),origin:'web2_ai',status:'confirmed',action:'new',kind:'event',target_record_id:null,title:'가상 수정한 뒤 후보',sensitivity:'S1',dedup_key:null,import_id:null,
   created_at:'2026-10-19T00:00:00Z',decided_at:'2026-10-19T01:00:00Z',result_record_id:u(1),payload:{}});
  await page.route(`${SB}/**`,async route=>{
   const request=route.request(),url=new URL(request.url()),path=url.pathname,method=request.method();
@@ -295,7 +295,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   await expect.poll(()=>db.search.at(-1).p_include_inactive).toBe(true);
   await expect(browse.locator('.lb-tag',{hasText:'지난 기록 포함'})).toHaveCount(1);
   const clear=browse.locator('[data-lb-action="clear"]');
-  await expect(clear).toHaveText('조건 지우기');
+  await expect(clear).toHaveText('조건 삭제');
   expect((await box(clear)).h).toBeLessThanOrEqual(30);
   // 5. 날짜·선택 칸은 낮다(32px 안팎).
   expect((await box(browse.locator('#lbFrom'))).h).toBeLessThanOrEqual(34);

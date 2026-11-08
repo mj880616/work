@@ -73,11 +73,11 @@ test('reload without draft navigates; changed calendar input confirms first and 
   const field=page.locator('#eventTitle');await expect(field).toBeVisible();await field.fill('Unsaved QA');
   // S48-28: 확인은 공용 작은 확인창(.kptu-ask). 그 창이 쓰는 같은 문서 안 기록 이동은 새로고침이 아니므로 'load'만 센다.
   let loads=0;page.on('load',()=>{loads++});
-  await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
+  await notice(page).getByRole('button',{name:'최신화',exact:true}).click();
   expect(await answerAsk(page,false)).toContain('저장하지 않은 내용');expect(loads).toBe(0);await expect(field).toHaveValue('Unsaved QA');
   await field.fill('');
   const reloaded=page.waitForEvent('load');
-  await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();await reloaded;
+  await notice(page).getByRole('button',{name:'최신화',exact:true}).click();await reloaded;
 });
 for(const mode of ['failure','malformed'])test(`${mode} index response is silent`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));await boot(page);
@@ -141,10 +141,10 @@ test('project draft uses existing confirmDiscard; accepting reloads',async({page
   // MTG-프로젝트합치기 결정 ⑥: 옛 기록 고치기 칸 대신 정리함 연결 줄의 [요약 수정] 칸에 쓴 초안으로 본다.
   const field=await editLinkSummary(page);await field.fill('QA draft');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
-  await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
+  await notice(page).getByRole('button',{name:'최신화',exact:true}).click();
   expect(message).toBe('저장하지 않은 사업영역 내용이 있습니다. 이동하면서 버릴까요?');await expect(field).toHaveValue('QA draft');
   page.once('dialog',d=>d.accept());const reloaded=page.waitForEvent('framenavigated',f=>f===page.mainFrame());
-  await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();await reloaded;
+  await notice(page).getByRole('button',{name:'최신화',exact:true}).click();await reloaded;
 });
 
 test('running script version stays fixed even if the script tag is changed',async({page})=>{
@@ -186,7 +186,7 @@ async function openProject(page){
 test('unsaved linked summary draft still confirms before reload',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await openProject(page);
   const input=await editLinkSummary(page);await input.fill('QA record');
-  const dialog=page.waitForEvent('dialog');const click=notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
+  const dialog=page.waitForEvent('dialog');const click=notice(page).getByRole('button',{name:'최신화',exact:true}).click();
   const d=await dialog;expect(d.message()).toContain('저장하지 않은 사업영역 내용');await d.dismiss();await click;
   expect(await input.inputValue()).toBe('QA record');
 });
@@ -199,18 +199,18 @@ test('cancelled linked summary edit reloads without confirmation',async({page})=
   const row=page.locator('#ps3-progress [data-basket-link="version-link"]');await row.locator('[data-link-summary-cancel]').click();
   await expect(row.locator('[data-link-summary-form]')).toHaveCount(0);await expect(row).toContainText('QA linked summary');
   const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());return d.dismiss()});const reload=page.waitForEvent('framenavigated',f=>f===page.mainFrame());
-  await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();await reload;expect(dialogs).toEqual([]);
+  await notice(page).getByRole('button',{name:'최신화',exact:true}).click();await reload;expect(dialogs).toEqual([]);
 });
 test('calendar color-only draft confirms before reload',async({page})=>{
   await boot(page,{connected:true});await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await page.locator('#newEventBtn').click();
   const colors=page.locator('#eventGoogleColor [role="radio"]');await expect(colors.nth(1)).toBeVisible();await colors.nth(1).click();
-  await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
+  await notice(page).getByRole('button',{name:'최신화',exact:true}).click();
   expect(await answerAsk(page,false)).toContain('저장하지 않은 내용');await expect(colors.nth(1)).toHaveAttribute('aria-checked','true');
 });
 test('file dropped into library upload confirms before reload',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await clickView(page,'library');await page.locator('#newDocumentBtn').click();
   await page.locator('#libraryDropzone').evaluate(el=>{const data=new DataTransfer();data.items.add(new File(['QA'],'qa.txt',{type:'text/plain'}));el.dispatchEvent(new DragEvent('drop',{bubbles:true,dataTransfer:data}))});
-  await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
+  await notice(page).getByRole('button',{name:'최신화',exact:true}).click();
   expect(await answerAsk(page,false)).toContain('저장하지 않은 내용');
 });
 
@@ -225,7 +225,7 @@ test('connected calendar initializes without becoming an unsaved draft',async({p
   await boot(page,{connected:true});await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await page.locator('#newEventBtn').click();
   await expect(page.locator('#eventGoogleColor [role="radio"]').nth(1)).toBeVisible();
   const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());return d.dismiss()});const reload=page.waitForEvent('framenavigated',f=>f===page.mainFrame());
-  await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();await reload;expect(dialogs).toEqual([]);
+  await notice(page).getByRole('button',{name:'최신화',exact:true}).click();await reload;expect(dialogs).toEqual([]);
 });
 
 test('restoring original calendar color removes the unsaved draft',async({page})=>{
@@ -233,7 +233,7 @@ test('restoring original calendar color removes the unsaved draft',async({page})
   const colors=page.locator('#eventGoogleColor [role="radio"]');await expect(colors.nth(1)).toBeVisible();const original=await colors.evaluateAll(nodes=>nodes.findIndex(n=>n.getAttribute('aria-checked')==='true'));
   await colors.nth((original+1)%await colors.count()).click();await colors.nth(original).click();
   const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());return d.dismiss()});const reload=page.waitForEvent('framenavigated',f=>f===page.mainFrame());
-  await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();await reload;expect(dialogs).toEqual([]);
+  await notice(page).getByRole('button',{name:'최신화',exact:true}).click();await reload;expect(dialogs).toEqual([]);
 });
 
 test('late-created task modal connects its last control to the notice in both directions',async({page})=>{

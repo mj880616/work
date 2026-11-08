@@ -71,7 +71,7 @@ test('폴드 884: 칸 머리 이름 ▾ → 네 줄 목록(못 쓰는 출처는 
   expect(errors).toEqual([]);
 });
 
-test('PC 1440: 기억한 두 칸 출처로 시작 · Esc·밖 누르기로 목록 닫기 · 키보드로 고르기', async ({ page }) => {
+test('PC 1440: 기억한 두 칸 출처로 시작 · Esc·밖 누르기로 목록 닫기 · 키보드로 선택', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, prefs } = await begin(page, 1440, { files_two: { pc: { wide: true } }, files_panes: { pc: ['gd', 'od'] } });
   await openFiles(page, 1440);

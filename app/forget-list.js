@@ -89,7 +89,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   // 줄 ⋯(챙길 것 줄만, 기존 길 셋): [고쳐서 할 일로] 할 일 창에서 고쳐 넣기 · [이미 할 일에 있음] 비슷한 할 일과 잇기 · [내 일 아님].
   const more = createAnchoredMenu({id: 'forgetRowMenu', className: 'radar-row-menu', label: '챙길 것 줄 메뉴', historyKey: 'kptuForgetRowMenu',
     key: trigger => trigger.dataset.forgetMore, canOpen: trigger => !trigger.disabled,
-    render: () => '<button type="button" class="row-act" data-forget-menu="edit">고쳐서 할 일로</button><button type="button" class="row-act" data-forget-menu="already">이미 할 일에 있음</button><button type="button" class="row-act" data-forget-menu="not-mine">내 일 아님</button>',
+    render: () => '<button type="button" class="row-act" data-forget-menu="edit">수정해서 할 일로</button><button type="button" class="row-act" data-forget-menu="already">이미 할 일에 있음</button><button type="button" class="row-act" data-forget-menu="not-mine">내 일 아님</button>',
     onAction: (button, active) => {
       const c = byId(active.trigger.dataset.forgetMore), act = button.dataset.forgetMenu;
       if (!c || c.status !== 'open' || busy.has(c.id)) return;
@@ -136,7 +136,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const picks = l.tasks === null ? waitInlineHtml()
       : l.tasks.length ? l.tasks.map(t => `<button type="button" class="row-act" data-forget-link-task="${esc(t.id)}" data-forget-link-for="${id}"${dis}>${esc(t.title)}</button>`).join('')
       : `<span class="nbx-faint">${l.failed ? '할 일을 못 읽었어요.' : '비슷한 할 일을 못 찾았어요.'}</span>${l.failed ? `<button type="button" class="row-act" data-forget-link-retry="${id}"${dis}>다시</button>` : ''}`;
-    return `<div class="nbx-below" data-forget-link="${id}" role="group" aria-label="이미 있는 할 일 고르기">${picks}<button type="button" class="row-act" data-forget-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="row-act" data-forget-link-cancel="${id}"${dis}>취소</button></div>`;
+    return `<div class="nbx-below" data-forget-link="${id}" role="group" aria-label="이미 있는 할 일 선택">${picks}<button type="button" class="row-act" data-forget-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="row-act" data-forget-link-cancel="${id}"${dis}>취소</button></div>`;
   }
   function paint() {
     paintViewButton();
@@ -330,7 +330,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   async function familyAct(n, kind, trigger) {
     if (busy.has(`f:${n.id}`)) return;
     const draft = draftOf(n);
-    if (kind === 'dismissed') { if (await familyChange(n, 'dismissed', '지웠어요')) familyUndo(n, '지웠어요'); return; }
+    if (kind === 'dismissed') { if (await familyChange(n, 'dismissed', '삭제했어요')) familyUndo(n, '삭제했어요'); return; }
     if (kind === 'done') {
       const line = noteLine(n, true);
       busy.add(`f:${n.id}`); paint();

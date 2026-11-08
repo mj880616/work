@@ -58,10 +58,10 @@ export function sourceOf(it) {
   return null;
 }
 // 서버(Edge photos-meta-read) 답 한 장 → 앱 답과 같은 모양(taken ms, can, 못 고치는 까닭 why).
-const CLOUD_WHY = {not_jpeg: '이 종류는 못 고침(JPEG만)', too_big: '30MB가 넘음', missing: '못 찾음', outside: '고른 폴더 밖', trashed: '휴지통 안',
+const CLOUD_WHY = {not_jpeg: '이 종류는 못 수정(JPEG만)', too_big: '30MB가 넘음', missing: '못 찾음', outside: '선택한 폴더 밖', trashed: '휴지통 안',
   no_exif: '사진 정보 칸이 없음', exif_invalid: '사진 정보 칸이 깨짐', exif_too_big: '사진 정보 칸이 너무 큼', xmp_location: '위치가 다른 칸에도 있음',
   changed: '그 사이 바뀜', throttled: '요청이 많아 잠시 뒤에', forbidden: '권한이 없음', verify_failed: '확인에 실패함'};
-export const cloudWhyText = why => CLOUD_WHY[why] || '못 고침';
+export const cloudWhyText = why => CLOUD_WHY[why] || '수정 못 함';
 export function cloudInfo(v) {
   if (!v || typeof v !== 'object') return null;
   const taken = Date.parse(v.taken || '');
@@ -77,7 +77,7 @@ export function infoRows(items, info, {noPhone = ''} = {}) {
     const loc = v && validLoc(v.lat, v.lon) ? {lat: v.lat, lon: v.lon} : null;
     const taken = Number.isFinite(v?.taken) ? v.taken : Date.parse(it.taken_at || '');
     const blocked = s.src === 'phone' && noPhone;
-    const why = blocked ? noPhone : !v ? (s.src === 'phone' ? '폰에서 못 찾음' : '못 찾음') : it.video ? '동영상' : v.can !== true ? (v.why || '이 종류는 못 고침') : '';
+    const why = blocked ? noPhone : !v ? (s.src === 'phone' ? '폰에서 못 찾음' : '못 찾음') : it.video ? '동영상' : v.can !== true ? (v.why || '이 종류는 수정 못 함') : '';
     const row = {id: s.id, name: String(it.name || ''), taken: Number.isFinite(taken) ? taken : null, loc,
       can: !blocked && !!v && v.can === true && !it.video, why, make: v?.make || '', model: v?.model || '', lens: v?.lens || ''};
     return s.src === 'phone' ? row : {...row, src: s.src, key: s.key};
@@ -145,11 +145,11 @@ export function recordRows(plan, {workspaceId, batchId, failed = [], only = null
   });
 }
 // 앱 답 오류 → 화면 글.
-const WRITE_ERRORS = {refused: '폰에서 허락하지 않았어요', none: '고칠 수 있는 사진을 찾지 못했어요', old: '안드로이드 11 이상에서만 고칠 수 있어요', busy: '다른 고치기가 진행 중이에요',
-  bad: '앱이 요청 모양을 받지 않았어요', failed: '고치지 못했어요'};
+const WRITE_ERRORS = {refused: '폰에서 허락하지 않았어요', none: '수정할 수 있는 사진을 찾지 못했어요', old: '안드로이드 11 이상에서만 수정할 수 있어요', busy: '다른 수정이 진행 중이에요',
+  bad: '앱이 요청 모양을 받지 않았어요', failed: '수정하지 못했어요'};
 export const writeErrorText = e => WRITE_ERRORS[e] || WRITE_ERRORS.failed;
-export function doneText({count = 0, failed = []} = {}, verb = '고쳤어요') {
-  return failed.length ? `${count}장 ${verb} · ${failed.length}장은 못 고쳤어요` : `${count}장 ${verb}`;
+export function doneText({count = 0, failed = []} = {}, verb = '수정했어요') {
+  return failed.length ? `${count}장 ${verb} · ${failed.length}장은 못 수정했어요` : `${count}장 ${verb}`;
 }
 
 // 서버(Edge)에 보낼 고치기: 시각은 ISO 글자로(앱은 ms). src별로 나눈 뒤 쓴다.

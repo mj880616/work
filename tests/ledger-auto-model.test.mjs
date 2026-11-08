@@ -10,7 +10,7 @@ import { countByDay, kstDayStart } from '../app/journal-ledger.js';
 const BASE = 'https://example.supabase.co';
 const U = n => `e0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
-test('재료 저장만 센다: 여섯 재료 표의 POST·PATCH, 지우기·다른 표·다른 주소는 아님', () => {
+test('재료 저장만 센다: 여섯 재료 표의 POST·PATCH, 삭제·다른 표·다른 주소는 아님', () => {
   for (const t of ['app_notes', 'app_meetings', 'app_suborganization_updates', 'app_project_progress_updates']) {
     assert.equal(affectsLedger({ path: `/rest/v1/${t}`, method: 'POST' }, BASE), true, t);
     assert.equal(affectsLedger({ path: `/rest/v1/${t}?id=eq.${U(1)}`, method: 'PATCH' }, BASE), true, t);
@@ -111,7 +111,7 @@ test('앱을 열면 한 번(서버 처리 표 기준 밀린 것), 화면을 떠�
   const other = make([], { isOwner: () => false }); other.b.saved(); other.b.opened(); await other.c.advance(MAX_WAIT_MS); assert.equal(other.calls.length, 0);
 });
 
-test('근거 web2:<종류>:<id> → 원문 열기, 지워진 원문, 줄 글', () => {
+test('근거 web2:<종류>:<id> → 원문 열기, 삭제된 원문, 줄 글', () => {
   assert.deepEqual(web2Source(`web2:basket:${U(1).toUpperCase()}`), { kind: 'basket', id: U(1) });
   assert.equal(web2Source('web2:diary:' + U(1)), null);
   assert.equal(web2Source('https://x'), null);
@@ -139,7 +139,7 @@ test('변경 기록 → 자동 꼬리표·실행 번호·한 줄 글, 틀린 기
   assert.deepEqual(retireRequest('EVT-0901', 'duplicate'), { format: 'kptu-ledger-fix', version: 1, received_from: 'user', items: [{ target: 'EVT-0901', do: 'retire', reason: '같은 기록이 이미 있어요' }] });
   assert.equal(retireRequest('EVT-0901', 'other'), null);
   assert.equal(retireRequest('<x>', 'wrong'), null);
-  assert.match(undoErrorText({ message: 'LEDGER_AUTO_UNDO_CHANGED: x' }), /그 뒤에 고친/);
+  assert.match(undoErrorText({ message: 'LEDGER_AUTO_UNDO_CHANGED: x' }), /그 뒤에 수정한/);
   assert.match(undoErrorText({ status: 404, message: 'PGRST202' }), /준비 전/);
   assert.doesNotMatch(undoErrorText({ message: 'LEDGER_X' }), /LEDGER/);
 });
@@ -184,7 +184,7 @@ test('모듈: 본문은 kind 하나, 브라우저 저장소·서버 키 없음, 
   assert.match(strip('loader-v2.js'), /import\('\.\/ledger-auto\.js'\)/);
 });
 
-test('통화 근거: web2:call:<id> → 통화 열기(지웠으면 원문 없음), 줄 글', () => {
+test('통화 근거: web2:call:<id> → 통화 열기(삭제했으면 원문 없음), 줄 글', () => {
   assert.deepEqual(web2Source(`web2:call:${U(1)}`), { kind: 'call', id: U(1) });
   assert.deepEqual(web2OpenTarget({ kind: 'call', id: U(1) }, { id: U(1), hidden_at: null }), { view: 'calls', id: U(1) });
   assert.equal(web2OpenTarget({ kind: 'call', id: U(1) }, { id: U(1), hidden_at: '2026-10-25T00:00:00Z' }), null);

@@ -315,9 +315,9 @@ export function restoreRetired(rules, key, at) {
 //   쓰는 쪽은 서버(docs/design/weekly-draft-feedback.md 25.3 — 요청함 '→ 대조: 완료 #NNN' 줄을 서버가 읽어 남김, 정지 지점)이고 화면은 읽기만 한다.
 //   'yes' 답에만 붙고, [빼기]로 바꾸면 지운다.
 export const madeOf = v => (Number.isInteger(v) && v > 0 && v < 1e6 ? v : null);
-// 답한 제안 줄 끝 작은 상태 글: '만들기로 보냄' · '고쳐서 만들기로 보냄' (+ ' · 만듦 #NNN') | '뺌 — 이유'.
+// 답한 제안 줄 끝 작은 상태 글: '만들기로 보냄' · '수정해서 만들기로 보냄' (+ ' · 만듦 #NNN') | '뺌 — 이유'.
 export function answerState(s) {
-  if (s?.answer === 'yes') return `${s.before ? '고쳐서 만들기로 보냄' : '만들기로 보냄'}${madeOf(s.made) ? ` · 만듦 #${s.made}` : ''}`;
+  if (s?.answer === 'yes') return `${s.before ? '수정해서 만들기로 보냄' : '만들기로 보냄'}${madeOf(s.made) ? ` · 만듦 #${s.made}` : ''}`;
   if (s?.answer === 'no') return `뺌${s.why ? ` — ${s.why}` : ''}`;
   return '';
 }

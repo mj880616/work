@@ -117,7 +117,7 @@ for (const width of [412, 1280]) {
     await trigger.click();
     const menu = page.locator('#calendarTaskMenu');
     await expect(menu).toBeVisible();
-    await expect(menu.getByRole('button')).toHaveText(['내일로', '기한 바꾸기', '고치기', '지우기']);
+    await expect(menu.getByRole('button')).toHaveText(['내일로', '기한 바꾸기', '수정', '삭제']);
     // The menu stays inside the date list's window (its focus loop).
     expect(await menu.evaluate((m) => !!m.closest('#calendarDayModal'))).toBe(true);
     // Opens where it was pressed: right edge near the ⋯ button, inside the window.
@@ -142,7 +142,7 @@ for (const width of [412, 1280]) {
     await expect.poll(() => actions(calls, 'toggle').length).toBe(3);
     await line(page, 'cell').hover();
     await trigger.click();
-    await expect(menu.getByRole('button')).toHaveText(['다시 할 일로', '고치기']);
+    await expect(menu.getByRole('button')).toHaveText(['다시 할 일로', '수정']);
     await menu.getByRole('button', { name: '다시 할 일로' }).click();
     await expect(chip(page, 'cell')).not.toHaveClass(/cmv-task-done/);
     await expect.poll(() => actions(calls, 'toggle').length).toBe(4);
@@ -186,14 +186,14 @@ for (const width of [412, 1280]) {
     // Declined: nothing is sent and the row stays.
     await line(page, 'cell').hover();
     await menuButton(page, 'cell').click();
-    await page.locator('#calendarTaskMenu').getByRole('button', { name: '지우기', exact: true }).click();
+    await page.locator('#calendarTaskMenu').getByRole('button', { name: '삭제', exact: true }).click();
     await answerAsk(page, false);
     await expect(chip(page, 'cell')).toBeVisible();
     expect(actions(calls, 'delete')).toHaveLength(0);
     // Accepted: one delete for that task, the row goes, the other stays, the list stays open.
     await line(page, 'cell').hover();
     await menuButton(page, 'cell').click();
-    await page.locator('#calendarTaskMenu').getByRole('button', { name: '지우기', exact: true }).click();
+    await page.locator('#calendarTaskMenu').getByRole('button', { name: '삭제', exact: true }).click();
     expect(await answerAsk(page, true)).toContain('삭제');
     await expect(chip(page, 'cell')).toHaveCount(0);
     await expect(chip(page, 'other')).toBeVisible();
@@ -212,7 +212,7 @@ test('date list delete failure keeps the row and says so', async ({ page }) => {
   await showDay(page);
   await line(page, 'cell').hover();
   await menuButton(page, 'cell').click();
-  await page.locator('#calendarTaskMenu').getByRole('button', { name: '지우기', exact: true }).click();
+  await page.locator('#calendarTaskMenu').getByRole('button', { name: '삭제', exact: true }).click();
   await answerAsk(page, true);
   await expect.poll(() => actions(calls, 'delete').length).toBe(1);
   await expect(page.locator('#toast')).toContainText('삭제하지 못했습니다');

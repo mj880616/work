@@ -12,7 +12,7 @@ const six = ui.slice(ui.indexOf('/* ===== UI-버튼6가지'));
 const FILTERS = {};
 // 이름에 '보기'가 없거나 화면 코드가 그때그때 그리는 보기 탭 — 따로 확인한다.
 const MORE = [
-  ['app/diary.js', /<div class="diary-source ds-seg" role="group" aria-label="일기 고르기"><button type="button" class="ds-seg-btn" data-diary-lv-filter="all"[^>]*>전체<\/button><button type="button" class="ds-seg-btn" data-diary-lv-filter="star"/],
+  ['app/diary.js', /<div class="diary-source ds-seg" role="group" aria-label="일기 선택"><button type="button" class="ds-seg-btn" data-diary-lv-filter="all"[^>]*>전체<\/button><button type="button" class="ds-seg-btn" data-diary-lv-filter="star"/],
   ['app/project-system-v3.js', /class="ps3-archive-tabs ds-seg"[^>]*><button type="button" class="ds-seg-btn" data-ps3-archive-tab="archive">보관<\/button><button type="button" class="ds-seg-btn" data-ps3-archive-tab="trash">/],
   ['app/team.js', /renderFilterChips\(host,\{label:'보기',[^\n]*?seg:true/],
   ['app/library-upload.js', /renderFilterChips\(host,\{label:'묶기',[^)]*seg:true/],

@@ -114,7 +114,7 @@ test('PC 1280: 사이드바 맨 아래 [통화]·[텔레그램 소식], 자주 �
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세(핵심내용 머리표·전문 펼치기) → 뒤로, 걸러짐 개수, 고정·지우기 저장`,async({page})=>{
+for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세(핵심내용 머리표·전문 펼치기) → 뒤로, 걸러짐 개수, 고정·삭제 저장`,async({page})=>{
  const f=await fixture(page,{width});
  await openMenu(page,width,'통화');
  const view=page.locator('#callsView');await expect(view).toBeVisible();
@@ -161,7 +161,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  // 고정: ⋯ → 고정 → 서버에 pinned_at.
  await tap(page,detail.locator('[data-cf-more]'),width);
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText([/^제목 바꾸기/,'조직·이름 고치기','요약 고치기','고정','조직 연결','요약 복사','Drive 원본 열기','개인 통화로 옮기기','지우기 목록에서만']);
+ await expect(menu.locator('button')).toHaveText([/^제목 바꾸기/,'조직·이름 수정','요약 수정','고정','조직 연결','요약 복사','Drive 원본 열기','개인 통화로 옮기기','삭제 목록에서만']);
  await tap(page,menu.getByRole('button',{name:'고정',exact:true}),width);
  await expect.poll(()=>f.writes.filter(w=>w.id===C1&&w.body.pinned_at).length).toBe(1);
  await expect(detail.locator('[data-cf-meta]')).toContainText('· 고정');
@@ -182,10 +182,10 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
 
  // 지우기: 목록에서 빠지고 hidden_at 저장, 되돌리기 가능.
  await tap(page,detail.locator('[data-cf-more]'),width);
- await tap(page,page.locator('#cfMenu').getByRole('button',{name:/^지우기/}),width);
+ await tap(page,page.locator('#cfMenu').getByRole('button',{name:/^삭제/}),width);
  await expect.poll(()=>f.writes.filter(w=>w.id===C2&&w.body.hidden_at).length).toBe(1);
  await expect(view.locator(`[data-cf-row="${C2}"]`)).toHaveCount(0);
- await expect(view.locator('[data-cf-status]')).toContainText('목록에서 지웠어요');
+ await expect(view.locator('[data-cf-status]')).toContainText('목록에서 삭제했어요');
  await tap(page,view.locator('[data-cf-undo]'),width);
  await expect.poll(()=>f.writes.filter(w=>w.id===C2&&w.body.hidden_at===null).length).toBe(1);
  await expect(view.locator(`[data-cf-row="${C2}"]`)).toHaveCount(1);
@@ -195,7 +195,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
 });
 
 // CALL-원장재료 L-3: 지우기 뒤 "원장에 들어간 기록 N개는 남아요 · [원장에서도 틀림으로]" → 그 통화만 근거인 기록만 수정 요청 retire.
-test('통화 1280: 지운 통화에서 원장에 들어간 기록 안내와 [원장에서도 틀림으로](그 통화만 근거인 기록만)',async({page})=>{
+test('통화 1280: 삭제한 통화에서 원장에 들어간 기록 안내와 [원장에서도 틀림으로](그 통화만 근거인 기록만)',async({page})=>{
  const f=await fixture(page,{width:1280});
  const S1='80000000-0000-4000-8000-000000000001',R1='81000000-0000-4000-8000-000000000001',R2='81000000-0000-4000-8000-000000000002',R3='81000000-0000-4000-8000-000000000003',S2='80000000-0000-4000-8000-000000000002';
  const reads=[],fixes=[];
@@ -211,9 +211,9 @@ test('통화 1280: 지운 통화에서 원장에 들어간 기록 안내와 [원
  await openMenu(page,1280,'통화');
  await page.locator(`#callsView [data-cf-row="${C1}"]`).click();
  await page.locator('#cfDetail [data-cf-more]').click();
- await page.locator('#cfMenu').getByRole('button',{name:/^지우기/}).click();
+ await page.locator('#cfMenu').getByRole('button',{name:/^삭제/}).click();
  const status=page.locator('#callsView [data-cf-status]');
- await expect(status).toContainText('목록에서 지웠어요');
+ await expect(status).toContainText('목록에서 삭제했어요');
  await expect(status).toContainText('원장에 들어간 기록 2개는 남아요');
  expect(reads).toEqual([`web2:call:${C1}`]);
  await status.locator('[data-cf-ledger-retire]').click();

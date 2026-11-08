@@ -262,7 +262,7 @@ test('trash: after the confirmation one owner-RLS delete is sent, the trash list
   const fake=trashApi();
   const {result,calls:asked}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(fake.api),trash:true}));
   assert.equal(result.status,'deleted');assert.equal(result.message,'');
-  assert.deepEqual(asked,['업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.']);
+  assert.deepEqual(asked,['업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래 자리로 돌아옵니다.']);
   const writes=writesOf(fake.calls);assert.equal(writes.length,1);
   const url=q(writes[0].path);
   assert.equal(url.pathname,'/rest/v1/app_notes');assert.equal(url.searchParams.get('id'),'eq.n1');assert.equal(url.searchParams.get('workspace_id'),'eq.ws 1');
@@ -307,7 +307,7 @@ test('trash: a refused delete is failed, and a delete that is neither in the tra
 test('trash: notes (kind note) use the note wording, and the default call without trash keeps the diary path',async()=>{
   const fake=trashApi({kind:'note',attachments:[]});
   const {calls:asked}=await withConfirm(false,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(fake.api),trash:true}));
-  assert.equal(asked[0],'노트를 휴지통으로 옮길까요?\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.');
+  assert.equal(asked[0],'노트를 휴지통으로 옮길까요?\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래 자리로 돌아옵니다.');
   const diary=trashApi();
   await withConfirm(false,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(diary.api),describe:()=>'일기를 지웁니다.'}));
   assert.ok(diary.calls.every(call=>!call.path.endsWith('app_trash_list')),'일기(trash 없음)는 휴지통 함수를 부르지 않는다');

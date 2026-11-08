@@ -88,12 +88,12 @@ async function openPhotos(page, width) {
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));
 const viewer = page => page.locator('[data-diary-viewer]');
 const editBtn = page => viewer(page).locator('[data-strip-act="edit"]'); // S49-34: [편집 ▾] 칸
-const editClick = async page => { await editBtn(page).click(); await page.locator('#photoBarMenu').getByRole('button', { name: '사진 편집', exact: true }).click(); };
+const editClick = async page => { await editBtn(page).click(); await page.locator('#photoBarMenu').getByRole('button', { name: '사진 수정', exact: true }).click(); };
 const sent = page => page.evaluate(() => window.__photoSent.filter(m => /^photos:(edit|save)/.test(m)));
 
 test.describe('PC 1280', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
-  test('사진 편집: PC 브라우저 크게 보기에는 [편집]이 없다', async ({ page }) => {
+  test('사진 수정: PC 브라우저 크게 보기에는 [수정]이 없다', async ({ page }) => {
     const state = await fixture(page);
     await openPhotos(page, 1280);
     await expect.poll(() => ids(page)).toEqual(['O1']);
@@ -108,25 +108,25 @@ test.describe('PC 1280', () => {
 test.describe('폰 앱 412', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
 
-  test('사진 편집: 폰 사진 [편집] → 편집기 → 바뀌면 크게 보기를 닫고 사진 목록만 다시 읽기', async ({ page }) => {
+  test('사진 수정: 폰 사진 [수정] → 편집기 → 바뀌면 크게 보기를 닫고 사진 목록만 다시 읽기', async ({ page }) => {
     const state = await fixture(page, { app: true });
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
     await page.locator('#photosRoot [data-photos-id="ph:1"]').click();
     await expect(viewer(page)).toBeVisible();
     await expect(editBtn(page)).toBeVisible();
-    await expect(editBtn(page)).toContainText('편집');
+    await expect(editBtn(page)).toContainText('수정');
     const pages = state.phoneReads.filter(p => p.startsWith(`${KEY}/page?`)).length;
     await editClick(page);
     await expect.poll(() => sent(page)).toEqual(['photos:edit:{"id":"1"}']);
     await expect(viewer(page)).toHaveCount(0);
-    await expect(page.locator('.kptu-notice')).toContainText('편집한 사진을 반영했어요');
+    await expect(page.locator('.kptu-notice')).toContainText('수정한 사진을 반영했어요');
     await expect.poll(() => state.phoneReads.filter(p => p.startsWith(`${KEY}/page?`)).length).toBeGreaterThan(pages);
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
     expect(state.errors).toEqual([]);
   });
 
-  test('사진 편집: 원드라이브에만 있는 사진은 한 줄 확인 뒤 원본을 폰에 받아 편집', async ({ page }) => {
+  test('사진 수정: 원드라이브에만 있는 사진은 한 줄 확인 뒤 원본을 폰에 받아 수정', async ({ page }) => {
     const state = await fixture(page, { app: true });
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
@@ -149,7 +149,7 @@ test.describe('폰 앱 412', () => {
     expect(state.errors).toEqual([]);
   });
 
-  test('사진 편집: 옛 앱(편집 모름)에는 [편집]이 없다', async ({ page }) => {
+  test('사진 수정: 옛 앱(수정 모름)에는 [수정]이 없다', async ({ page }) => {
     const state = await fixture(page, { app: true, edit: false });
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);

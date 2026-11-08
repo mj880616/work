@@ -141,7 +141,7 @@ test('Google event create sends one request and requires explicit confirmation a
   await expect(page.locator('#eventStatus')).toContainText('임시 저장 실패');await expect(page.locator('#eventModal')).toBeVisible();await expect(page.locator('#eventTitle')).toHaveValue('잠금 일정');await expect(page.locator('#saveEventBtn')).toBeEnabled();
   await page.locator('#saveEventBtn').click();expect(state.writes.event).toBe(before+1);
   await page.getByRole('button',{name:'목록에서 저장 결과 확인',exact:true}).click();await page.getByRole('button',{name:'잠금 일정 · 이 항목에 이어서 저장',exact:true}).click();
-  await expect(page.locator('#eventStatus')).toContainText('고른 항목');await page.locator('#saveEventBtn').click();await expect(page.locator('#eventModal')).toBeHidden();expect(state.writes.event).toBe(before+1);expect(state.writes.googleEdit).toBe(1);
+  await expect(page.locator('#eventStatus')).toContainText('선택한 항목');await page.locator('#saveEventBtn').click();await expect(page.locator('#eventModal')).toBeHidden();expect(state.writes.event).toBe(before+1);expect(state.writes.googleEdit).toBe(1);
 });
 
 test('Google event edit sends one request and confirms an unknown address before retry',async({page})=>{

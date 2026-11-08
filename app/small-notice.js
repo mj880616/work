@@ -279,7 +279,7 @@ export function askChoice(anchor,{text='',choices=[],foot='',check=null,doc=glob
   return askPanel(anchor,{doc,none:null,maxHeight:320,build:(panel,finish)=>{
     panel.classList.add('kptu-ask-choice');
     if(text){const msg=doc.createElement('p');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text).trim();panel.setAttribute('aria-labelledby',msg.id);panel.append(msg)}
-    else panel.setAttribute('aria-label','고르기');
+    else panel.setAttribute('aria-label','선택');
     let first=null;
     const rows=[];
     const sync=()=>{for(const {c,b,l} of rows){const on=!!check?.checked;b.disabled=!!c.disabled||(!!c.needCheck&&!on);l.textContent=String((on&&c.labelChecked)||c.label||'')}};

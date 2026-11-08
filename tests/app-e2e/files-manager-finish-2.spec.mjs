@@ -24,7 +24,7 @@ async function search(page, q) {
   await expect(root(page).locator('[data-fx-find-bar]')).toBeVisible();
 }
 
-test('PC 1440 찾기 거르기: [이 폴더|전체] · 종류 · 날짜 · 크기 칩(작은 메뉴), 지우면 처음으로', async ({ page }) => {
+test('PC 1440 찾기 거르기: [이 폴더|전체] · 종류 · 날짜 · 크기 칩(작은 메뉴), 삭제하면 처음으로', async ({ page }) => {
   test.setTimeout(90000);
   const { errors } = await begin(page, { items: [fake({ source: 'od', item_id: 'OD!50', parent_id: 'OD!10', name: '가짜 큰 사진.jpg', mime: 'image/jpeg', size_bytes: 20 * 1024 * 1024, modified_at: '2026-10-05T01:00:00Z' })] });
   await treeGo(page, 'od', '');
@@ -90,7 +90,7 @@ test('PC 1440: 한글 파일 미리보기 = 쪽 그림(blob: SVG <img>), 화면 
   expect(errors).toEqual([]);
 });
 
-test('PC 1440: 여러 개 고른 뒤 ⋯(우클릭) [여러 개 받기] = 파일만 zip 하나(같은 이름은 번호)', async ({ page }) => {
+test('PC 1440: 여러 개 선택한 뒤 ⋯(우클릭) [여러 개 받기] = 파일만 zip 하나(같은 이름은 번호)', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await begin(page, { items: [fake({ source: 'od', item_id: 'OD!70', parent_id: 'OD!1', name: '가짜 메모.txt', mime: 'text/plain', size_bytes: 30 })] });
   await treeGo(page, 'od', '');
@@ -113,7 +113,7 @@ test('PC 1440: 여러 개 고른 뒤 ⋯(우클릭) [여러 개 받기] = 파일
   expect(errors).toEqual([]);
 });
 
-test('PC 1440: 3000개 폴더 — 화면 밖 줄은 그리지 않고(content-visibility) 끝까지 내려 고를 수 있다', async ({ page }) => {
+test('PC 1440: 3000개 폴더 — 화면 밖 줄은 그리지 않고(content-visibility) 끝까지 내려 선택할 수 있다', async ({ page }) => {
   test.setTimeout(120000);
   const many = Array.from({ length: 3000 }, (_, i) => fake({ source: 'od', item_id: `OD!B${i}`, parent_id: 'OD!2', name: `가짜 사진 ${String(i).padStart(4, '0')}.txt`, mime: 'text/plain', size_bytes: 10 }));
   const { errors } = await begin(page, { items: many });

@@ -22,8 +22,8 @@ export const PRESS_TEXT = Object.freeze({
   ...AI_SUMMARY_TEXT,
   not_ready:'성명·보도자료 초안은 아직 준비 중이에요.',
   invalid_request:'성명·보도자료 초안은 아직 준비 중이에요.',
-  not_found:'고른 근거(사업 보고·바깥 문장)를 찾지 못했어요. 목록을 다시 확인해 주세요.',
-  press_no_source:'고른 기록에 초안에 쓸 글이 없어요.',
+  not_found:'선택한 근거(사업 보고·바깥 문장)를 찾지 못했어요. 목록을 다시 확인해 주세요.',
+  press_no_source:'선택한 기록에 초안에 쓸 글이 없어요.',
   daily_limit:'오늘 AI를 쓸 수 있는 횟수를 다 썼어요.',
   monthly_limit:'이번 달 AI 한도에 닿았어요.',
 });
@@ -106,7 +106,7 @@ function onChange(e) {
   if (qbox) { if (qbox.checked) state.quotePicked.add(qbox.dataset.pdQuote); else state.quotePicked.delete(qbox.dataset.pdQuote); state.message = ''; paint(); return; }
   const box = e.target.closest('[data-pd-pick]'); if (!box) return;
   const id = box.dataset.pdPick;
-  if (box.checked) { if (state.picked.length >= PRESS_MAX_PICK) { box.checked = false; state.message = `근거는 ${PRESS_MAX_PICK}건까지 고를 수 있어요.`; paint(); return; } if (!state.picked.includes(id)) state.picked.push(id); }
+  if (box.checked) { if (state.picked.length >= PRESS_MAX_PICK) { box.checked = false; state.message = `근거는 ${PRESS_MAX_PICK}건까지 선택할 수 있어요.`; paint(); return; } if (!state.picked.includes(id)) state.picked.push(id); }
   else state.picked = state.picked.filter(x => x !== id);
   state.message = ''; paint();
 }
@@ -200,11 +200,11 @@ function pickHtml() {
     : !s.meetings.length ? emptyHtml('사업 보고 없음')
     : pickFoldHtml({key:'pd', picked:s.meetings.filter(m => s.picked.includes(m.id)).map(pickRow).join(''),
       others:[{label:'', items:s.meetings.filter(m => !s.picked.includes(m.id)).map(m => ({name:[m.name, m.meta].filter(Boolean).join(' '), html:pickRow(m)}))}],
-      state:s.pick, othersLabel:'최근 사업 보고', noneText:'고른 근거 없음'});
-  return `<section class="pd-pane pd-pick-pane" aria-label="근거 고르기">
+      state:s.pick, othersLabel:'최근 사업 보고', noneText:'선택한 근거 없음'});
+  return `<section class="pd-pane pd-pick-pane" aria-label="근거 선택">
 <div class="pd-types" role="group" aria-label="종류">${chips}</div>
 <label class="pd-direction"><span class="a11y-only">한 줄 방향(선택)</span><input type="text" data-pd-direction maxlength="${PRESS_DIRECTION_MAX}" placeholder="한 줄 방향(선택)" value="${esc(s.direction)}"></label>
-<p class="pd-muted pd-count">근거 고르기 (최대 ${PRESS_MAX_PICK}건) · <span data-pd-count>${s.picked.length}</span>건 고름</p>
+<p class="pd-muted pd-count">근거 선택 (최대 ${PRESS_MAX_PICK}건) · <span data-pd-count>${s.picked.length}</span>건 선택됨</p>
 ${quotesHtml()}
 ${list}
 <div class="pd-bar"><button type="button" class="primary" data-pd-make${(!s.picked.length && !chosenQuotes(s).length) || s.busy ? ' disabled' : ''}${s.busy ? ' aria-busy="true"' : ''}>${s.draft ? '다시 만들기' : '초안 만들기'}</button></div>
@@ -214,7 +214,7 @@ function previewHtml() {
   const s = state, d = s.draft;
   const tag = refs => refs.map(r => `<span class="pd-ref">[근거 ${r}]</span>`).join(' ');
   const save = d ? `<button type="button" class="primary" data-pd-save${s.saving || s.saved ? ' disabled' : ''}${s.saving ? ' aria-busy="true"' : ''}>${s.saved ? '저장함' : '노트로 저장'}</button>` : '';
-  const head = `<div class="pd-preview-head">${wide() ? '' : '<button type="button" class="pd-icon" data-pd-back aria-label="근거 고르기로">‹</button>'}<span class="pd-preview-name">미리보기</span><span class="pd-muted">${d ? `AI 초안 · 근거 ${d.sources.length}건 · 사실 확인 전` : ''}</span>${save}</div>`;
+  const head = `<div class="pd-preview-head">${wide() ? '' : '<button type="button" class="pd-icon" data-pd-back aria-label="근거 선택으로">‹</button>'}<span class="pd-preview-name">미리보기</span><span class="pd-muted">${d ? `AI 초안 · 근거 ${d.sources.length}건 · 사실 확인 전` : ''}</span>${save}</div>`;
   let body;
   if (s.busy) body = waitHtml({rows:6});
   else if (!d) body = s.message ? '' : '';

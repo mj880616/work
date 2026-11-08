@@ -143,7 +143,7 @@ async function swipeOn(locator, dx) {
 }
 
 for (const width of [412, 884, 1280]) {
-  test(`News 목록 ${width}: 탭 넷 자리·[전체] 한 줄·색 띠·꼬리표·읽음 굵기·찾기·매체 고르기·탭 서버 저장·단체 켜고 끄기`, async ({ page }) => {
+  test(`News 목록 ${width}: 탭 넷 자리·[전체] 한 줄·색 띠·꼬리표·읽음 굵기·찾기·매체 선택·탭 서버 저장·단체 켜고 끄기`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, server } = await start(page, width);
     await openOutside(page, width);

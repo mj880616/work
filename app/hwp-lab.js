@@ -4,7 +4,7 @@
 // - Drive 편집(2단계): 자료실·바구니의 [편집]이 hwp-drive.js 1회용 요청으로 넘긴 파일을 서버에서 열고,
 //   [새 파일로 저장](기본)·[원본에 덮어쓰기](HWP 원본만)로 Drive에 저장한다. 저장 형식은 HWP 하나다.
 // - 노조 서식으로 만들기(HWP-서식변환): 붙여 넣은 글을 AI(ai-assist hwp_convert)가 노조 문서 규칙 문단으로 나누고, 자료실 "양식"의 빈 양식에 칸막이 안
-//   보조 스크립트(studio-convert.js)가 채워 편집기에 연다. 위 줄의 [내려받기]·[자료실에 저장]으로 마친다(기기 저장소는 쓰지 않는다).
+//   보조 스크립트(studio-convert.js)가 채워 HWP 편집에 연다. 위 줄의 [내려받기]·[자료실에 저장]으로 마친다(기기 저장소는 쓰지 않는다).
 // 편집기는 hwp-frame.js의 sandbox iframe(allow-same-origin 없음)에서 돈다. Web2 창·저장소·API에 닿지 못한다.
 // HWP-화면가득: 폰·폴드(760px 이하)와 PC [전체 화면]에서는 카드가 화면을 가득 채우고(data-focus), 위 얇은 한 줄(#hwpLabBar:
 // [✕]·파일 이름·[파일 ▾]·[저장 ▾])과 편집기만 보인다. 두 메뉴는 공용 anchored-menu로 열고, 항목은 아래 기존 버튼을 그대로 누른다
@@ -175,17 +175,17 @@ function showMode(){
 function editor(){
   if(editorFlight)return editorFlight;
   const host=$('hwpLabEditor');
-  status('편집기를 불러오는 중입니다… 처음에는 시간이 걸릴 수 있습니다.');
+  status('HWP 편집을 불러오는 중입니다… 처음에는 시간이 걸릴 수 있습니다.');
   editorFlight=createSandboxedEditor(host)
     .then(instance=>{
-      if(!drive)status('편집기가 준비됐습니다. [파일 선택]으로 HWP·HWPX 파일을 여세요.');
+      if(!drive)status('HWP 편집이 준비됐습니다. [파일 선택]으로 HWP·HWPX 파일을 여세요.');
       return instance;
     })
     .catch(err=>{
       editorFlight=null;
       host?.replaceChildren();
       console.error('hwp-lab editor',err);
-      status('편집기를 불러오지 못했습니다. 네트워크를 확인한 뒤 다시 들어와 주세요.','error');
+      status('HWP 편집을 불러오지 못했습니다. 네트워크를 확인한 뒤 다시 들어와 주세요.','error');
       throw err;
     });
   return editorFlight;
@@ -214,10 +214,10 @@ window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!==VIEW
 
 async function open(file){
   if(!file||busy||drive)return;
-  if(file.size>MAX_BYTES){status('30MB보다 큰 파일은 편집기에서 열지 않습니다.','error');return}
+  if(file.size>MAX_BYTES){status('30MB보다 큰 파일은 HWP 편집에서 열지 않습니다.','error');return}
   await refreshDirty();
   if(busy||drive)return;
-  if(dirty()&&(!(await askDiscard(anchorFor('hwpLabPick'),'저장하지 않은 고친 내용이 있어요. 다른 파일을 열면 사라져요. 열까요?','열기'))||busy||drive))return;
+  if(dirty()&&(!(await askDiscard(anchorFor('hwpLabPick'),'저장하지 않은 수정 내용이 있어요. 다른 파일을 열면 사라져요. 열까요?','열기'))||busy||drive))return;
   busy=true;sync();
   let opening=true;
   const stopElapsed=trackElapsed(()=>opening&&!drive);
@@ -233,7 +233,7 @@ async function open(file){
     current={name:file.name,format,savedSeq:seq,latestSeq:seq};
     watchEdits();
     const note=format==='hwpx'?' 저장은 HWP로 합니다.':'';
-    status(`${file.name} · ${result?.pageCount??'?'}쪽을 열었습니다.${note} 고친 뒤 [내 기기에 저장] 또는 [자료실에 올리기]를 누르세요.`,'ok');
+    status(`${file.name} · ${result?.pageCount??'?'}쪽을 열었습니다.${note} 수정한 뒤 [내 기기에 저장] 또는 [자료실에 올리기]를 누르세요.`,'ok');
   }catch(err){
     console.error('hwp-lab open',err);
     status('파일을 열지 못했습니다. 다른 파일로 시도해 주세요.','error');
@@ -272,7 +272,7 @@ async function uploadToLibrary(){
     if(!requestLibraryUpload(file,rt)){status('로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.','error');return}
     // The file now sits in the library dialog; the editor keeps this copy until another file is opened.
     if(current===shown)shown.savedSeq=seq;
-    status(`${file.name}을 자료실 등록 창으로 넘겼습니다. 사업영역·분류를 고른 뒤 [등록]을 누르세요.`,'ok');
+    status(`${file.name}을 자료실 등록 창으로 넘겼습니다. 사업영역·분류를 선택한 뒤 [등록]을 누르세요.`,'ok');
     handed=true;
   }catch(err){
     console.error('hwp-lab upload',err?.kind||err);
@@ -292,7 +292,7 @@ async function openDrive(target){
   const got={file:false,editor:false};
   const stage=()=>{
     if(drive!==shown||shown.info)return;
-    status(`${shown.name||'파일'} 여는 중… 파일 ${got.file?'받음':'받는 중'} · 편집기 ${got.editor?'준비됨':'준비 중'}`);
+    status(`${shown.name||'파일'} 여는 중… 파일 ${got.file?'받음':'받는 중'} · HWP 편집 ${got.editor?'준비됨':'준비 중'}`);
   };
   const stopElapsed=trackElapsed(()=>drive===shown&&!shown.info);
   // LIB-편집열기느림: 단계별 걸린 시간(초)을 재서 열린 뒤 상태 글 끝에 보이고 콘솔에도 남긴다(내용·이름 없이 숫자만).
@@ -305,7 +305,7 @@ async function openDrive(target){
     fileFlight.then(()=>{got.file=true;mark('file');stage()},()=>{});
     const [instance,file]=await Promise.all([editorPromise,fileFlight]);
     if(drive!==shown)return;
-    if(file.bytes.length>HWP_EDIT_MAX_BYTES)throw Object.assign(new Error('30MB보다 큰 파일은 편집기에서 열지 않아요.'),{kind:'refused'});
+    if(file.bytes.length>HWP_EDIT_MAX_BYTES)throw Object.assign(new Error('30MB보다 큰 파일은 HWP 편집에서 열지 않아요.'),{kind:'refused'});
     status(`${file.info.file_name} 문서 펼치는 중…`);
     const tLoad=performance.now();
     const result=await instance.loadFile(file.bytes,file.info.file_name,{skipUnsavedGuard:true});
@@ -321,8 +321,8 @@ async function openDrive(target){
       file.info.shared?'이 파일은 잊지 말기와 자료실이 같은 원본을 써요.':'',
     ].filter(Boolean).join(' ');
     status(shown.target.template
-      ?`노조 양식 · ${result?.pageCount??'?'}쪽을 열었어요. 양식 원본은 그대로 두고, 고친 뒤 [새 파일로 저장]에서 제목을 정해요. 스타일은 Ctrl+1~0(예비 Alt+1~0) 또는 위쪽 스타일 버튼으로 입혀요.`
-      :`${file.info.file_name} · ${result?.pageCount??'?'}쪽을 열었어요. ${notes?notes+' ':''}고친 뒤 [새 파일로 저장]을 누르세요.${timing}`,'ok');
+      ?`노조 양식 · ${result?.pageCount??'?'}쪽을 열었어요. 양식 원본은 그대로 두고, 수정한 뒤 [새 파일로 저장]에서 제목을 정해요. 스타일은 Ctrl+1~0(예비 Alt+1~0) 또는 위쪽 스타일 버튼으로 입혀요.`
+      :`${file.info.file_name} · ${result?.pageCount??'?'}쪽을 열었어요. ${notes?notes+' ':''}수정한 뒤 [새 파일로 저장]을 누르세요.${timing}`,'ok');
   }catch(err){
     if(drive!==shown)return;
     console.error('hwp-lab drive open',err?.kind||err);
@@ -335,7 +335,7 @@ async function openTemplate(){
   if(busy||drive)return;
   await refreshDirty();
   if(busy||drive)return;
-  if(dirty()&&(!(await askDiscard(anchorFor('hwpLabTemplate'),'저장하지 않은 고친 내용이 있어요. 양식을 열면 사라져요. 열까요?','열기'))||busy||drive))return;
+  if(dirty()&&(!(await askDiscard(anchorFor('hwpLabTemplate'),'저장하지 않은 수정 내용이 있어요. 양식을 열면 사라져요. 열까요?','열기'))||busy||drive))return;
   busy=true;sync();
   try{
     status('자료실에서 노조 양식을 찾는 중…');
@@ -360,12 +360,12 @@ function requestTemplate(row){
 }
 
 // HWP-서식변환: [노조 서식으로 만들기]. 순서는 ① 자료실 "양식"에서 이 종류의 빈 양식 찾기·받기 ② AI가 글을 노조 문서 규칙 문단으로 나누기 ③ 칸막이 안 보조
-// 스크립트가 양식에 채우기 ④ 편집기에 열기. AI가 실패하면 편집기의 지금 문서는 그대로 둔다(양식을 편집기에 여는 것은 ③ 직전).
+// 스크립트가 양식에 채우기 ④ HWP 편집에 열기. AI가 실패하면 편집기의 지금 문서는 그대로 둔다(양식을 HWP 편집에 여는 것은 ③ 직전).
 async function startConvert(){
   if(busy)return;
   await refreshDirty();
   if(busy)return;
-  if(dirty()&&(!(await askDiscard(anchorFor('hwpLabConvert'),'저장하지 않은 고친 내용이 있어요. 노조 서식으로 새로 만들면 사라져요. 계속할까요?','계속'))||busy))return;
+  if(dirty()&&(!(await askDiscard(anchorFor('hwpLabConvert'),'저장하지 않은 수정 내용이 있어요. 노조 서식으로 새로 만들면 사라져요. 계속할까요?','계속'))||busy))return;
   openConvertDialog({onMake:runConvert});
 }
 async function runConvert({docType,text,progress,cancelled}){
@@ -391,7 +391,7 @@ async function runConvert({docType,text,progress,cancelled}){
     if(!answer||reply.data.doc_type!==docType)return {ok:false,message:CONVERT_TEXT.ai_invalid_response};
     const now=new Date(),plan=buildPlan(answer,now),name=convertedFileName(docType,now);
     progress('양식에 넣는 중…');
-    // 편집기에 지금 열린 문서(기기 파일·Drive 파일)는 여기서부터 새 문서로 바뀐다. 이전 Drive 문서 상태를 먼저 정리한다.
+    // HWP 편집에 지금 열린 문서(기기 파일·Drive 파일)는 여기서부터 새 문서로 바뀐다. 이전 Drive 문서 상태를 먼저 정리한다.
     if(drive){resetToDevice();showMode()}
     const instance=await editor();
     if(cancelled())return {ok:false,message:''};
@@ -401,7 +401,7 @@ async function runConvert({docType,text,progress,cancelled}){
     try{built=await requestEngineBuild(frame,file.bytes,plan)}
     catch(err){return {ok:false,message:err?.kind==='engine'?err.message:ENGINE_TEXT.engine_error}}
     if(cancelled())return {ok:false,message:''};
-    progress('편집기에 여는 중…');
+    progress('HWP 편집에 여는 중…');
     const result=await instance.loadFile(built.bytes,name,{skipUnsavedGuard:true});
     const seq=await changeSeq(instance);
     // 방금 만든 문서는 아직 저장 전이다: 나가거나 다른 파일을 열면 묻도록 저장 기준을 한 칸 뒤에 둔다.
@@ -412,11 +412,11 @@ async function runConvert({docType,text,progress,cancelled}){
       built.missing.length?`양식에 없는 스타일(${built.missing.join('·')})은 바탕글로 넣었어요.`:'',
       answer.dropped?`형식이 맞지 않은 문단 ${answer.dropped}개는 뺐어요. 원문과 대조해 주세요.`:'',
     ].filter(Boolean).join(' ');
-    status(`${name} · ${result?.pageCount??'?'}쪽 · ${built.inserted}문단을 넣었어요. 확인하고 고친 뒤 [내려받기] 또는 [자료실에 저장]을 누르세요.${notes?' '+notes:''}`,'ok');
+    status(`${name} · ${result?.pageCount??'?'}쪽 · ${built.inserted}문단을 넣었어요. 확인하고 수정한 뒤 [내려받기] 또는 [자료실에 저장]을 누르세요.${notes?' '+notes:''}`,'ok');
     return {ok:true};
   }catch(err){
     console.error('hwp-lab convert',err?.kind||err?.code||'error');
-    return {ok:false,message:err?.kind?err.message:'노조 서식으로 만들지 못했어요. 편집기를 확인하고 다시 시도해 주세요.'};
+    return {ok:false,message:err?.kind?err.message:'노조 서식으로 만들지 못했어요. HWP 편집을 확인하고 다시 시도해 주세요.'};
   }finally{busy=false;sync()}
 }
 // [자료실에 저장]: 만든 문서를 자료실에 새 자료로 등록한다(library-files). 결과를 모르면 다시 보내지 않고 자료실에서 먼저 확인하라고 안내한다.
@@ -438,7 +438,7 @@ async function saveConvertedToLibrary(){
   }finally{busy=false;sync()}
 }
 
-// 전체 화면 + 키보드 잠금: 일반 크롬 탭은 Ctrl+1~9를 탭 전환에 먼저 쓰므로, 전체 화면에서 숫자 키만 잠가 편집기가 받게 한다.
+// 전체 화면 + 키보드 잠금: 일반 크롬 탭은 Ctrl+1~9를 탭 전환에 먼저 쓰므로, 전체 화면에서 숫자 키만 잠가 HWP 편집이 받게 한다.
 // 잠금은 이 창(맨 바깥)에서만 걸 수 있다. HWP-화면가득: 전체 화면은 카드(위 한 줄 + 편집기)를 채운다. 브라우저 전체 화면을 쓸 수
 // 없는 곳에서도 카드가 창 안을 꽉 채운다(같은 모양). Esc(브라우저 전체 화면)·[✕]로 원래 화면. 폰 폭은 늘 화면 가득이라 버튼이 없다.
 const DIGIT_KEYS=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8','Digit9','Digit0'];
@@ -541,7 +541,7 @@ async function overwrite(){
   if(!shown?.info?.can_overwrite||busy||shown.lockOverwrite)return;
   const notes=['바꾸기 전 원본 사본을 Drive "Web2 편집 백업" 폴더에 보관해요.'];
   if(shown.info.shared)notes.push('잊지 말기와 자료실 양쪽에 반영돼요.');
-  if(!(await askConfirm(anchorFor('hwpDriveOverwrite'),{text:`원본 "${shown.info.file_name}"을 지금 고친 내용으로 바꿔요. 덮어쓸까요?`,note:notes.join(' '),ok:'덮어쓰기',danger:true})))return;
+  if(!(await askConfirm(anchorFor('hwpDriveOverwrite'),{text:`원본 "${shown.info.file_name}"을 지금 수정한 내용으로 바꿔요. 덮어쓸까요?`,note:notes.join(' '),ok:'덮어쓰기',danger:true})))return;
   if(drive!==shown||busy||shown.lockOverwrite)return;
   busy=true;sync();
   try{
@@ -562,7 +562,7 @@ async function overwrite(){
   }finally{if(drive===shown){busy=false;sync()}}
 }
 
-const LEAVE_TEXT='저장하지 않은 고친 내용이 있어요. 나가면 사라져요. 나갈까요?';
+const LEAVE_TEXT='저장하지 않은 수정 내용이 있어요. 나가면 사라져요. 나갈까요?';
 // 화면 이동(kptu:before-view-change)은 라우터가 그 자리에서 막을지 정하므로 브라우저 기본 확인창으로 묻는다(작은 확인창은 기다려야 해서 쓸 수 없음).
 function leaveOk(){
   return !dirty()||window.confirm(LEAVE_TEXT);
@@ -583,7 +583,7 @@ async function back(){
   if(!drive||busy)return;
   await refreshDirty();
   if(!drive||busy||!(await askLeave(anchorFor('hwpDriveBack')))||!drive||busy)return;
-  if(drive.target.template){resetToDevice();showMode();status('편집기가 준비됐습니다. [파일 선택]으로 HWP·HWPX 파일을 열거나 [노조 양식으로 새 문서]를 누르세요.');editor().catch(()=>{});return}
+  if(drive.target.template){resetToDevice();showMode();status('HWP 편집이 준비됐습니다. [파일 선택]으로 HWP·HWPX 파일을 열거나 [노조 양식으로 새 문서]를 누르세요.');editor().catch(()=>{});return}
   leaving=true;
   if(drive.target.kind==='library'){requestLibraryDocument(drive.target.document.id,rt);window.KPTURouter.go('library',{source:'delegated'})}
   else{requestBasketNote(drive.target.noteId,rt);window.KPTURouter.go('basket',{source:'delegated'})}
@@ -628,12 +628,12 @@ async function start(){
   const target=takeHwpEditRequest(rt);
   if(target&&!busy){
     // 다른 화면에서 넘어온 것이라 누른 버튼이 없다: 화면 가운데 아래에 묻는다. 기다리는 사이 다른 화면으로 갔거나 다른 작업이 시작됐으면 열지 않는다.
-    if(dirty()&&(!(await askDiscard(null,'저장하지 않은 고친 내용이 있어요. 다른 파일을 열면 사라져요. 열까요?','열기'))||busy||!here())){showMode();watchEdits();return}
+    if(dirty()&&(!(await askDiscard(null,'저장하지 않은 수정 내용이 있어요. 다른 파일을 열면 사라져요. 열까요?','열기'))||busy||!here())){showMode();watchEdits();return}
     void openDrive(target);
     return;
   }
   if(drive&&!busy){
-    if(!returning&&dirty()&&(!(await askDiscard(null,'저장하지 않은 고친 내용이 있어요. 내 기기 파일 편집으로 바꾸면 사라져요. 바꿀까요?','바꾸기'))||!drive||busy||!here())){showMode();watchEdits();return}
+    if(!returning&&dirty()&&(!(await askDiscard(null,'저장하지 않은 수정 내용이 있어요. 내 기기 파일 수정으로 바꾸면 사라져요. 바꿀까요?','바꾸기'))||!drive||busy||!here())){showMode();watchEdits();return}
     resetToDevice();
   }
   showMode();

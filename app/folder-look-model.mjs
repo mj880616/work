@@ -85,7 +85,7 @@ export function sortNotesManual(notes, pinnedAt = () => null) {
   });
 }
 export const NOTE_SORTS = Object.freeze(['changed', 'manual']);
-export const NOTE_SORT_NAMES = Object.freeze({changed: '고친 날', manual: '내가 정한 순서'});
+export const NOTE_SORT_NAMES = Object.freeze({changed: '수정한 날', manual: '내가 정한 순서'});
 export const isNoteSort = v => NOTE_SORTS.includes(v);
 
 // ---- 칠한 폴더 그림(FOLDER-순서·색 ③): 노트·자료실·[파일]·사진 줄이 같은 그림을 쓴다. 열린 폴더는 앞판이 비스듬히 열린 모양. 색은 부모의 data-fc(--fl-ico)가 입힌다. ----

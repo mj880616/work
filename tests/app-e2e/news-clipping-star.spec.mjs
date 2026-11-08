@@ -15,7 +15,7 @@ async function openFolders(page) {
   await expect(root(page).locator('.nc-panel-head')).toContainText('별표 폴더');
 }
 for (const width of [412, 884, 1440]) {
-  test(`언론 별표 폴더 ${width}: 상세 별표 → ⋯ [별표 폴더] → 새 폴더에 넣기 → 안 폴더 · 이름 바꾸기 · 지우기 · 별표 빼기`, async ({ page }) => {
+  test(`언론 별표 폴더 ${width}: 상세 별표 → ⋯ [별표 폴더] → 새 폴더에 넣기 → 안 폴더 · 이름 바꾸기 · 삭제 · 별표 빼기`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, server } = await start(page, width);
     await openNews(page, width);
@@ -58,8 +58,8 @@ for (const width of [412, 884, 1440]) {
     await page.locator('#ncFolderMenu').getByRole('button', { name: '이름 바꾸기' }).click();
     await expect(root(page).locator('.nc-folder-name').nth(1)).toHaveText('바꾼 가짜 폴더');
     await root(page).locator(`[data-nc-folder-more="${server.folders[1].id}"]`).click();
-    await page.locator('#ncFolderMenu').getByRole('button', { name: '지우기' }).click();
-    await page.getByRole('button', { name: '지우기', exact: true }).last().click();
+    await page.locator('#ncFolderMenu').getByRole('button', { name: '삭제' }).click();
+    await page.getByRole('button', { name: '삭제', exact: true }).last().click();
     await expect(root(page).locator('[data-nc-folder-toggle]')).toHaveCount(1);
     await expect(item(page, 'c1').locator('[data-nc-folder]')).toHaveText('가짜 폴더');
     expect(await noWideScroll(page)).toBe(true);

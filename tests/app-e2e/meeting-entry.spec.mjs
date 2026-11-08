@@ -140,7 +140,7 @@ test('new meeting creates a Google follow-up linked to the meeting and project',
   await expect(page.locator('#meetingActionTitle')).toHaveValue('');
   await expect(page.locator('#meetingActionLine .due-chip')).toHaveText('기한 ▾');
   // ⋯ → 삭제 / 수정(입력 줄로 다시 올림)
-  await page.locator('#meetingActionTitle').fill('지울 할 일');
+  await page.locator('#meetingActionTitle').fill('삭제할 할 일');
   await page.locator('#meetingActionTitle').press('Enter');
   await expect(page.locator('#meetingActionList .meeting-action-row')).toHaveCount(2);
   await page.locator('#meetingActionList [data-meeting-action-menu]').nth(1).click();
@@ -224,7 +224,7 @@ test('meeting follow-ups without a picked day are due today, picked days stay',a
   await fillMeetingName(page,'기한 회의');
   await fillDateTime(page,'#meetingAt','2026-09-29T09:00');
   await page.locator('#meetingTranscript').fill('결과');
-  await page.locator('#meetingActionTitle').fill('고른 날 후속');
+  await page.locator('#meetingActionTitle').fill('선택한 날 후속');
   await page.locator('#meetingActionDue').fill('2026-09-30');
   await page.locator('#meetingActionAdd').click();
   await page.locator('#meetingActionTitle').fill('날짜 없는 후속');
@@ -232,7 +232,7 @@ test('meeting follow-ups without a picked day are due today, picked days stay',a
   await expect(page.locator('#meetingModal')).toBeHidden();
   await expect.poll(()=>creates.length).toBe(2);
   const today=await page.evaluate(()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10));
-  expect(creates.map(b=>[b.title,b.due])).toEqual([['고른 날 후속','2026-09-30'],['날짜 없는 후속',today]]);
+  expect(creates.map(b=>[b.title,b.due])).toEqual([['선택한 날 후속','2026-09-30'],['날짜 없는 후속',today]]);
 });
 
 test('failed meeting create restores its save button for a retry',async({page})=>{

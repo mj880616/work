@@ -587,21 +587,21 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (item.file.verdict === 'similar') { const n = el('span', 'journal-file-note', '비슷한 기록 있음'); n.dataset.journalFileSimilar = ''; li.append(' ', n); }
     if (item.file.kept) { const n = el('span', 'journal-file-note', '넣음'); n.dataset.journalFileKept = ''; li.append(' ', n); }
     if (!fe.editable || item.file.dropped || (item.file.verdict === 'same' && !item.file.kept)) return;
-    const items = [{text:'고치기', data:{journalFileEdit:item.file.id}, disabled:!canEdit},
+    const items = [{text:'수정', data:{journalFileEdit:item.file.id}, disabled:!canEdit},
       {text:'빼기', data:{journalFileDrop:item.file.id}, disabled:!canEdit, aria:`이번 주 보고에서 빼기: ${text}`, danger:true, onClick:() => { lastFileDrop = item.file.id; }}];
     // S48-49 A: '기록과 같아 뺀 자료' 접힘이 없어져 [다시 접기]도 두지 않는다(접으면 화면에서 되돌릴 자리가 없음).
-    li.append(' ', rowMore(doc, {label:`${text} 자료 줄 고치기·빼기`, data:{journalFileMore:item.file.id}, items}));
+    li.append(' ', rowMore(doc, {label:`${text} 자료 줄 수정·빼기`, data:{journalFileMore:item.file.id}, items}));
   }
   // [고치기]: 그 줄 자리의 한 줄 칸 + [저장][취소]([원래대로]는 고친 줄일 때). Enter 저장·Escape 취소는 journal.js.
   function fileEditForm(item) {
     const box = el('span', 'journal-file-edit'); box.dataset.journalFileEditRow = item.file.id;
     const input = lineField(doc, {value: fileUi.value ?? item.text, maxLength: FILE_EDIT_MAX}); input.dataset.journalFileEditInput = item.file.id;
-    input.setAttribute('aria-label', '자료 줄 고치기(이번 주 보고 글만)'); input.disabled = !!fileUi.saving;
+    input.setAttribute('aria-label', '자료 줄 수정(이번 주 보고 글만)'); input.disabled = !!fileUi.saving;
     const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalFileEditSave = item.file.id; save.disabled = !!fileUi.saving;
     const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalFileEditCancel = item.file.id; cancel.disabled = !!fileUi.saving;
     if (item.file.edited) { const origin = el('span', 'journal-muted journal-hwpx-origin', `원래: ${item.file.original}`); origin.dataset.journalFileOrigin = ''; box.append(origin, ' '); }
     box.append(input, ' ');
-    if (item.file.edited) { const reset = el('button', 'mini', '원래대로'); reset.type = 'button'; reset.dataset.journalFileEditReset = item.file.id; reset.disabled = !!fileUi.saving; box.append(reset); }
+    if (item.file.edited) { const reset = el('button', 'mini', '되돌리기'); reset.type = 'button'; reset.dataset.journalFileEditReset = item.file.id; reset.disabled = !!fileUi.saving; box.append(reset); }
     box.append(cancel, save); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
     return box;
   }
@@ -800,15 +800,15 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
         // WEEKLY-환류전칸 ⑤(요청함 11/01 01:20): 줄 끝 작은 ⋯ → [고치기](날짜·시간·제목·장소·참석 칸)·[빼기](이번 주 파일에서). 값은 한글 파일 칸 고치기와 같은 임시저장.
         //   ⋯ 는 줄 끝(참석자 칸 — 화면에서는 비어 있고 한글 파일에서 내 이름으로 채움) 오른쪽에 둔다.
         const owner = el('td', 'journal-weekly-owner');
-        if (item.hand) owner.append(rowMore(doc, {label:`고치기·지우기: ${item.what}`, data:{journalHandMore:`calendar:${item.hand}`}, items:[
-          {text:'고치기', data:{journalHandFix:`calendar:${item.hand}`}, aria:`고치기: ${item.what}`},
-          {text:'지우기', data:{journalHandDelete:`calendar:${item.hand}`}, danger:true, aria:`지우기: ${item.what}`}]}));
+        if (item.hand) owner.append(rowMore(doc, {label:`수정·삭제: ${item.what}`, data:{journalHandMore:`calendar:${item.hand}`}, items:[
+          {text:'수정', data:{journalHandFix:`calendar:${item.hand}`}, aria:`수정: ${item.what}`},
+          {text:'삭제', data:{journalHandDelete:`calendar:${item.hand}`}, danger:true, aria:`삭제: ${item.what}`}]}));
         // 고치는 줄이 열려 있으면 다른 줄 ⋯ 는 그리지 않는다(한 번에 한 줄). 기억한 이름으로 바뀐 줄·고친 줄은 ⋯ 에 [이번 주만 원래대로],
         // 고친 줄은 그 앞에 [원래 값 보기](표 아래 한 줄에 '원래: …').
-        else if (item.key && !editKey) owner.append(rowMore(doc, {label:`일정 고치기·빼기: ${item.what}`, data:{journalScheduleMore:''}, items:[
-          {text:'고치기', data:{journalScheduleFix:item.key}, aria:`일정 고치기: ${item.what}`},
+        else if (item.key && !editKey) owner.append(rowMore(doc, {label:`일정 수정·빼기: ${item.what}`, data:{journalScheduleMore:''}, items:[
+          {text:'수정', data:{journalScheduleFix:item.key}, aria:`일정 수정: ${item.what}`},
           ...(item.changed ? [{text:'원래 값 보기', data:{journalSchedulePeek:item.key}, aria:`원래 값 보기: ${item.what}`}] : []),
-          ...(item.changed || (item.memo?.title && !item.edited) ? [{text:'이번 주만 원래대로', data:{journalScheduleOrigin:item.key}, aria:`이번 주만 원래 값으로: ${item.title}`}] : []),
+          ...(item.changed || (item.memo?.title && !item.edited) ? [{text:'이번 주만 되돌리기', data:{journalScheduleOrigin:item.key}, aria:`이번 주만 원래 값으로: ${item.title}`}] : []),
           {text:'빼기', data:{journalScheduleDrop:item.key}, danger:true, aria:`이번 주 보고에서 빼기: ${item.what}`, onClick:() => { lastScheduleDrop = item.key; }}]}));
         tr.append(what, owner);
         body.append(tr);
@@ -905,7 +905,7 @@ function memoryBox(doc, el, r_, ui = {}, picks = null) {
     for (const e of entries) {
       const li = el('li'); li.dataset.journalMemoryEntry = e.key;
       li.append(el('span', null, line(e)), ' ', el('small', 'journal-muted', used(e)));
-      li.append(rowMore(doc, {label:`${e.origin} 기억 메뉴`, items:[{text:'지우기', data:{journalMemoryDelete:e.key}, disabled:!!ui.busy, aria:`기억 지우기: ${e.origin}`, danger:true}]}));
+      li.append(rowMore(doc, {label:`${e.origin} 기억 메뉴`, items:[{text:'삭제', data:{journalMemoryDelete:e.key}, disabled:!!ui.busy, aria:`기억 삭제: ${e.origin}`, danger:true}]}));
       ul.append(li);
     }
     part.append(ul); return part;
@@ -963,7 +963,7 @@ function execTable(doc, el, items, ui) {
   const table = el('table', 'journal-weekly-table journal-exec-table'); table.dataset.journalExecTable = ''; table.dataset.wkCols = 'exec';
   const head = el('thead'), hr = el('tr');
   EXEC_HEAD.forEach((name, i) => { const th = el('th', null, name); th.scope = 'col'; th.insertAdjacentHTML?.('beforeend', colGripHtml('exec', i + 1)); hr.append(th); });
-  const tools = el('th', 'journal-exec-tools-head'); tools.scope = 'col'; tools.setAttribute('aria-label', '고치기'); hr.append(tools);
+  const tools = el('th', 'journal-exec-tools-head'); tools.scope = 'col'; tools.setAttribute('aria-label', '수정'); hr.append(tools);
   head.append(hr); table.append(head);
   const body = el('tbody');
   for (const item of items) {
@@ -975,9 +975,9 @@ function execTable(doc, el, items, ui) {
     const who = el('td', 'journal-exec-who', item.who);
     const cell = el('td', 'journal-exec-tools');
     // WEEKLY-화면디자인정리: 줄 끝 작은 ⋯([고치기]·[지우기]). 고치는 중·저장 중에는 그리지 않는다(같은 버튼이 두 곳에 생기지 않게).
-    if (!busy && !editing) cell.append(rowMore(doc, {label:`${dayLabel(item)} ${item.what} 고치기·지우기`, data:{journalExecMore:item.id}, items:[
-      {text:'고치기', data:{journalExecEdit:item.id}, aria:`${dayLabel(item)} ${item.what} 고치기`},
-      {text:'지우기', data:{journalExecDelete:item.id}, aria:`${dayLabel(item)} ${item.what} 지우기`, danger:true}]}));
+    if (!busy && !editing) cell.append(rowMore(doc, {label:`${dayLabel(item)} ${item.what} 수정·삭제`, data:{journalExecMore:item.id}, items:[
+      {text:'수정', data:{journalExecEdit:item.id}, aria:`${dayLabel(item)} ${item.what} 수정`},
+      {text:'삭제', data:{journalExecDelete:item.id}, aria:`${dayLabel(item)} ${item.what} 삭제`, danger:true}]}));
     tr.append(th, what, who, cell); body.append(tr);
   }
   if (editing === 'new') body.append(execEditRow(doc, el, ui, null));

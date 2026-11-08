@@ -36,7 +36,7 @@ const chips=page=>page.locator('#reportKindFilter');
 const chip=(page,name)=>chips(page).getByRole('radio',{name,exact:true});
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
-test('폰 390: 종류는 맨 위 [종류 ▾] 고르기 상자 하나(칩 줄 없음, S52-22)·페이지는 넘치지 않는다 / 종류별 거르기 / [회의]만 회의명 묶음',async({page})=>{
+test('폰 390: 종류는 맨 위 [종류 ▾] 선택 상자 하나(칩 줄 없음, S52-22)·페이지는 넘치지 않는다 / 종류별 거르기 / [회의]만 회의명 묶음',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=kindState();await open(page,s,390);
   await expect(chips(page)).toBeHidden();
@@ -63,7 +63,7 @@ test('폰 390: 종류는 맨 위 [종류 ▾] 고르기 상자 하나(칩 줄 �
   expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 고르기 → 칸 채워진 창, 저장 본문에 activity_kind / 칩에서 [+]는 칸 자동`,async({page})=>{
+for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 선택 → 칸 채워진 창, 저장 본문에 activity_kind / 칩에서 [+]는 칸 자동`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=kindState();await open(page,s,width);
   await pickReportKind(page,'전체');
@@ -168,7 +168,7 @@ test('PC 1280: 결과 ⋯ → [칸 바꾸기] PATCH activity_kind, 바꾼 건은
   await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toContainText('투쟁 칸');
 });
 
-test('폰 390: 결과 창에 칸 표시·[칸 바꾸기] PATCH, 뒤로가기는 고르기 창부터 닫는다',async({page})=>{
+test('폰 390: 결과 창에 칸 표시·[칸 바꾸기] PATCH, 뒤로가기는 선택 창부터 닫는다',async({page})=>{
   const s=kindState();await open(page,s,390);
   await pickReportKind(page,'언론');await page.locator('#meetingList [data-mrd-meeting="p-1"]').click();
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await expect(page.locator('#mrdMeta')).toContainText('언론 칸');
@@ -209,7 +209,7 @@ for(const width of [390,1280])test(`${width}: 상세 창 - 정리함 담기·안
   const modal=page.locator('#meetingRoundDetailModal');await expect(modal).toBeVisible();
   await expect(modal.locator('#mrdResultSection')).toBeHidden();await expect(modal.locator('#mrdTextHead')).toBeHidden();
   await expect(modal.locator('#mrdToBasket,#mrdBasketStatus,#mrdEdit,#mrdKind,#mrdDelete')).toHaveCount(0);
-  await expect(modal).not.toContainText('정리함에 담기');await expect(modal).not.toContainText('글을 길게 눌러 고르면');await expect(modal).not.toContainText('자료실 올리기 창이 열리고');
+  await expect(modal).not.toContainText('정리함에 담기');await expect(modal).not.toContainText('글을 길게 눌러 선택하면');await expect(modal).not.toContainText('자료실 올리기 창이 열리고');
   expect(await noSideScroll(page)).toBe(true);
   // ⋯ 하나에 [수정][칸 바꾸기][삭제], 제목 줄 오른쪽(×의 왼쪽)에 있다.
   const more=modal.locator('#mrdMore'),close=modal.locator('#mrdClose');
@@ -255,8 +255,8 @@ test('수정 창: 다른 칸은 차수 줄이 없고, 옛 차수가 든 기록�
   const modal=page.locator('#meetingRoundDetailModal');await expect(modal).toBeVisible();
   await mrdMenu(page,'edit');
   await expect(modal.locator('#mrdEditRound')).toHaveCount(0);await expect(modal.locator('#mrdEditShortName')).toHaveCount(0);
-  await modal.locator('#mrdEditTranscript').fill('고친 합성 원문');await modal.locator('#mrdSaveEdit').click();
-  await expect.poll(()=>s.meetingWrites.at(-1)?.transcript_text).toBe('고친 합성 원문');
+  await modal.locator('#mrdEditTranscript').fill('수정한 합성 원문');await modal.locator('#mrdSaveEdit').click();
+  await expect.poll(()=>s.meetingWrites.at(-1)?.transcript_text).toBe('수정한 합성 원문');
   expect('round_no' in s.meetingWrites.at(-1)).toBe(false);
   await closeMeetingResult(page);
   await pickReportKind(page,'정책');await page.locator('#meetingList [data-mrd-meeting="r-1"]').click();

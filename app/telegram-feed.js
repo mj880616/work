@@ -252,8 +252,8 @@ function feditHtml() {
   const e = state.fedit; if (!e) return '';
   if (e.kind === 'delete') {
     const f = state.folders.find(x => x.id === e.id);
-    return `<div class="feed-sbox" data-tg-fedit data-enter-save="[data-tg-fedit-save]"><p class="feed-sbox-title">'${esc(f?.name || '')}' 폴더를 지울까요?</p><p class="feed-sbox-note">폴더만 지워져요. 안에 있던 방과 소식은 그대로 전체에 남아요.</p>
-<div class="feed-link-actions"><span class="feed-status" role="status">${esc(e.status)}</span><button type="button" class="feed-small" data-tg-fedit-cancel${e.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-tg-fedit-save${e.busy ? ' disabled' : ''}>지우기</button></div></div>`;
+    return `<div class="feed-sbox" data-tg-fedit data-enter-save="[data-tg-fedit-save]"><p class="feed-sbox-title">'${esc(f?.name || '')}' 폴더를 삭제할까요?</p><p class="feed-sbox-note">폴더만 삭제돼요. 안에 있던 방과 소식은 그대로 전체에 남아요.</p>
+<div class="feed-link-actions"><span class="feed-status" role="status">${esc(e.status)}</span><button type="button" class="feed-small" data-tg-fedit-cancel${e.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-tg-fedit-save${e.busy ? ' disabled' : ''}>삭제</button></div></div>`;
   }
   return `<div class="feed-sbox" data-tg-fedit data-enter-save="[data-tg-fedit-save]"><p class="feed-sbox-title">${e.kind === 'rename' ? '폴더 이름 바꾸기' : e.room ? `'${esc(labelOfRoom(e.room))}' 방을 넣을 새 폴더` : '새 폴더'}</p>
 <input type="text" class="feed-edit-input" data-tg-fedit-input value="${esc(e.value)}" placeholder="폴더 이름 (20자까지)" aria-label="폴더 이름" autocomplete="off"${e.busy ? ' disabled' : ''}>
@@ -377,7 +377,7 @@ function itemHtml(r) {
   const on = state.open.has(r.id);
   const body = on ? `${state.link?.rowId === r.id ? linkBoxHtml(state.link, state.orgs, 'tg') : ''}${rawHtml(r)}` : '';
   const ask = state.asks?.byItem.get(String(r.id).toLowerCase()) || '';
-  return `<div class="feed-di${on ? ' is-open' : ''}${ask ? ' is-ask' : ''}" data-tg-di="${esc(r.id)}"><div class="feed-di-row"><span class="feed-at">${esc(hhmm(r.occurred_at))}</span><button type="button" class="feed-dib" data-tg-open="${esc(r.id)}" aria-expanded="${on}"><span class="feed-tx">${esc(sumOf(r) || r.title || '')}</span>${ask ? `<span class="feed-ask" data-tg-ask>${esc(`${ASK_TAG} · ${ask}`)}</span>` : ''}<span class="feed-ft"><span>원문 ${Number(r.raw_count) || 0}</span>${isItemEdited(r, state.edits) ? '<span class="feed-edited">고침</span>' : ''}${r.pinned_at ? '<span class="feed-pin">고정</span>' : ''}${r.organization_id ? `<span>${esc(orgName(state.orgs, r.organization_id) || '')}</span>` : ''}</span></button><button type="button" class="feed-more" data-tg-more="${esc(r.id)}" aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴">${MORE}</button></div>${body}</div>`;
+  return `<div class="feed-di${on ? ' is-open' : ''}${ask ? ' is-ask' : ''}" data-tg-di="${esc(r.id)}"><div class="feed-di-row"><span class="feed-at">${esc(hhmm(r.occurred_at))}</span><button type="button" class="feed-dib" data-tg-open="${esc(r.id)}" aria-expanded="${on}"><span class="feed-tx">${esc(sumOf(r) || r.title || '')}</span>${ask ? `<span class="feed-ask" data-tg-ask>${esc(`${ASK_TAG} · ${ask}`)}</span>` : ''}<span class="feed-ft"><span>원문 ${Number(r.raw_count) || 0}</span>${isItemEdited(r, state.edits) ? '<span class="feed-edited">수정됨</span>' : ''}${r.pinned_at ? '<span class="feed-pin">고정</span>' : ''}${r.organization_id ? `<span>${esc(orgName(state.orgs, r.organization_id) || '')}</span>` : ''}</span></button><button type="button" class="feed-more" data-tg-more="${esc(r.id)}" aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴">${MORE}</button></div>${body}</div>`;
 }
 function rawHtml(r) {
   const raw = state.raw.get(r.id);
@@ -413,8 +413,8 @@ function dayBodyHtml(room, day, d, sum, dedit) {
   const editing = state.se?.kind === 'day' && state.se.room === room && state.se.day === day;
   const lines = editing ? sumeditHtml(state.se) : sum.lines.length ? `${sum.shown.map(t => `<p class="feed-dl">${esc(t)}</p>`).join('')}${sum.rest.length ? `<details class="feed-sumrest"><summary>더 보기</summary>${sum.rest.map(t => `<p class="feed-dl">${esc(t)}</p>`).join('')}</details>` : ''}` : emptyHtml('요약 없음');
   const kind = sum.kind === 'titles' ? `${sum.old ? ' <span class="feed-badge" data-tg-old>AI 요약 이전 날</span>' : ''}` : '';
-  const mark = dedit ? ' <span class="feed-edited">고침</span>' : '';
-  const pen = editsOn() && !editing && sum.kind !== 'none' ? `<button type="button" class="copy-mini" data-tg-sumedit-day="${esc(key)}" aria-label="요약 고치기" title="요약 고치기"><span aria-hidden="true">✎</span></button>` : '';
+  const mark = dedit ? ' <span class="feed-edited">수정됨</span>' : '';
+  const pen = editsOn() && !editing && sum.kind !== 'none' ? `<button type="button" class="copy-mini" data-tg-sumedit-day="${esc(key)}" aria-label="요약 수정" title="요약 수정"><span aria-hidden="true">✎</span></button>` : '';
   const sumBox = `<div class="feed-daybox" data-tg-daybox data-kind="${sum.kind}"><div class="feed-k-row"><p class="feed-k">${title}${kind}${mark}</p><span class="feed-k-btns">${pen}${sum.lines.length && !editing ? copyButtonHtml(`data-tg-daycopy="${esc(key)}"`) : ''}</span></div>${lines}</div>`;
   return sumBox + (items.length ? `<div class="feed-ditems">${items.map(itemHtml).join('')}</div>` : emptyHtml('소식 없음'));
 }
@@ -451,7 +451,7 @@ function rawLineHtml(l, editing, moreKey) {
   const k = l.shown.kind, cls = `feed-who${k === 'label' ? '' : ' is-named'}${k === 'self' ? ' is-self' : ''}${l.same ? ' is-same' : ''}`;
   const fold = rawFoldable(l.text), more = fold && state.more.has(moreKey);
   const tag = l.tag ? `<button type="button" class="feed-whotag" data-tg-name-open="${esc(l.who)}" aria-label="${esc(l.who)} 이름 붙이기">이름 붙이기</button>` : '';
-  const row = `<div class="feed-rm"><span class="feed-at">${esc(l.at)}</span><span class="${cls}" title="${esc(l.shown.text)}">${esc(l.shown.text)}${tag}</span><span class="feed-rt${fold ? ` is-fold${more ? ' is-more' : ''}` : ''}">${l.forwarded ? '<span class="feed-faint">(전달)</span> ' : ''}${esc(l.text)}</span>${fold ? `<button type="button" class="feed-rt-more" data-tg-rt-more="${esc(moreKey)}" aria-expanded="${more}">${more ? '접기' : '더보기'}</button>` : ''}</div>`;
+  const row = `<div class="feed-rm"><span class="feed-at">${esc(l.at)}</span><span class="${cls}" title="${esc(l.shown.text)}">${esc(l.shown.text)}${tag}</span><span class="feed-rt${fold ? ` is-fold${more ? ' is-more' : ''}` : ''}">${l.forwarded ? '<span class="feed-faint">(전달)</span> ' : ''}${esc(l.text)}</span>${fold ? `<button type="button" class="feed-rt-more" data-tg-rt-more="${esc(moreKey)}" aria-expanded="${more}">${more ? '접기' : '펼치기'}</button>` : ''}</div>`;
   return l.tag && editing === l.who ? row + sboxHtml() : row;
 }
 
@@ -466,20 +466,20 @@ function sboxHtml() {
   const chipHtml = chips.length ? `<div class="feed-chips" role="group" aria-label="이미 있는 사람">${chips.map(c => `<button type="button" class="feed-chip" data-tg-sbox-chip="${esc(c.id)}" aria-pressed="${c.id === e.chipId}"${e.busy ? ' disabled' : ''}>${esc(c.text)}</button>`).join('')}</div>` : '';
   const scope = e.keyed ? '<span class="feed-scope">같은 사람의 다른 소식에도 보입니다</span>' : '<span class="feed-scope is-one">이 방 이 날 소식에만 적용돼요</span>';
   return `<div class="feed-sbox" data-tg-sbox data-enter-save="[data-tg-sbox-save]"><p class="feed-sbox-title">${esc(e.title)}</p>${scope}
-<input type="text" class="feed-edit-input" data-tg-sbox-input value="${esc(e.value)}" placeholder="${e.allowEmpty ? '비우면 직접 붙인 이름을 지워요' : '이름 (40자까지)'}" aria-label="이름" autocomplete="off"${e.busy ? ' disabled' : ''}>${chipHtml}
+<input type="text" class="feed-edit-input" data-tg-sbox-input value="${esc(e.value)}" placeholder="${e.allowEmpty ? '비우면 직접 붙인 이름을 삭제해요' : '이름 (40자까지)'}" aria-label="이름" autocomplete="off"${e.busy ? ' disabled' : ''}>${chipHtml}
 <div class="feed-link-actions"><span class="feed-status" role="status">${esc(e.status)}</span><button type="button" class="feed-small" data-tg-sbox-cancel${e.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-tg-sbox-save${e.busy ? ' disabled' : ''}>저장</button></div></div>`;
 }
 function manHtml(p, people) {
   const m = state.sman; if (!m) return '';
   if (m.kind === 'forget') {
-    return `<div class="feed-sbox" data-tg-sman><p class="feed-sbox-title">'${esc(p.unnamed ? '이름 없음' : p.shown.text)}' 이름표를 지울까요?</p><p class="feed-sbox-note">소식 글은 그대로예요. 이 사람이 나온 ${p.rooms ? '곳은' : '자리는'} 다시 A·B로 보여요.</p>
-<div class="feed-link-actions"><span class="feed-status" role="status">${esc(m.status)}</span><button type="button" class="feed-small" data-tg-sman-cancel${m.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-tg-sman-save${m.busy ? ' disabled' : ''}>지우기</button></div></div>`;
+    return `<div class="feed-sbox" data-tg-sman><p class="feed-sbox-title">'${esc(p.unnamed ? '이름 없음' : p.shown.text)}' 이름표를 삭제할까요?</p><p class="feed-sbox-note">소식 글은 그대로예요. 이 사람이 나온 ${p.rooms ? '곳은' : '자리는'} 다시 A·B로 보여요.</p>
+<div class="feed-link-actions"><span class="feed-status" role="status">${esc(m.status)}</span><button type="button" class="feed-small" data-tg-sman-cancel${m.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-tg-sman-save${m.busy ? ' disabled' : ''}>삭제</button></div></div>`;
   }
   const others = people.filter(x => x.id !== p.id), to = others.find(x => x.id === m.to);
   const opts = others.map(x => `<option value="${esc(x.id)}"${x.id === m.to ? ' selected' : ''}>${esc(x.unnamed ? `이름 없음 · ${x.roomLabel} ${dayShort(x.last?.day)}` : x.shown.text)}</option>`).join('');
   return `<div class="feed-sbox" data-tg-sman data-enter-save="[data-tg-sman-save]"><p class="feed-sbox-title">다른 사람과 합치기</p>
 <label class="feed-link-label" for="tgMergeTo">이 사람을 어느 사람 쪽으로 합칠까요</label>
-<select id="tgMergeTo" class="feed-select" data-tg-sman-to${m.busy ? ' disabled' : ''}><option value="">고르세요</option>${opts}</select>
+<select id="tgMergeTo" class="feed-select" data-tg-sman-to${m.busy ? ' disabled' : ''}><option value="">선택하세요</option>${opts}</select>
 <p class="feed-sbox-note">${esc(MERGE_NOTE)}${p.keyed && to?.keyed ? ` <strong>${esc(MERGE_BOTH_KEYED)}</strong>` : ''}</p>
 <div class="feed-link-actions"><span class="feed-status" role="status">${esc(m.status)}</span><button type="button" class="feed-small" data-tg-sman-cancel${m.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-tg-sman-save${m.busy || !to ? ' disabled' : ''}>합치기</button></div></div>`;
 }
@@ -513,7 +513,7 @@ function startPersonEdit(id) {
   const p = personOf(id); if (!p || state.busy) return;
   if (!p.last) { state.status = '이 사람이 나온 소식이 없어서 이름을 붙일 수 없어요.'; paintList(); return; }
   endEdit(); state.sman = null;
-  state.sedit = {kind:'person', personId:id, room_key:p.last.room_key, day:p.last.day, label:p.last.label, title:p.unnamed ? '이름 붙이기' : '이름 고치기', value:p.hasName ? p.shown.text : '', chipId:'', keyed:p.keyed, excludeId:id, allowEmpty:p.hasName, status:'', busy:false};
+  state.sedit = {kind:'person', personId:id, room_key:p.last.room_key, day:p.last.day, label:p.last.label, title:p.unnamed ? '이름 붙이기' : '이름 수정', value:p.hasName ? p.shown.text : '', chipId:'', keyed:p.keyed, excludeId:id, allowEmpty:p.hasName, status:'', busy:false};
   state.status = ''; paintList(); $('#tgList [data-tg-sbox-input]')?.focus({preventScroll:false});
 }
 function startMan(id, kind) {
@@ -541,7 +541,7 @@ function saveName() {
     if (!clear && e.chipId && res.keyed === false && res.id && res.id !== e.chipId) { const m = await mergeSenders(res.id, e.chipId, rt); if (!current()) return; if (!m.ok) note = ' 같은 사람으로 묶지는 못했어요.'; }
     const ok = await reloadSenders(); if (!current()) return;
     state.sedit = null; const l = editLayer; editLayer = null; l?.close();
-    state.status = (clear ? '직접 붙인 이름을 지웠어요.' : '이름을 붙였어요.') + note + (ok ? '' : ' 목록은 다시 불러오지 못했어요.');
+    state.status = (clear ? '직접 붙인 이름을 삭제했어요.' : '이름을 붙였어요.') + note + (ok ? '' : ' 목록은 다시 불러오지 못했어요.');
   }).then(() => { if (!state.sedit) (state.mode === 'senders' ? $('#tgList [data-tg-shelf-back]') : $('#tgDetail [data-tg-more]'))?.focus({preventScroll:true}); });
 }
 function saveMan() {
@@ -552,7 +552,7 @@ function saveMan() {
     const res = m.kind === 'merge' ? await mergeSenders(m.id, m.to, rt) : await forgetSender(m.id, rt); if (!current()) return;
     if (!res.ok) { m.busy = false; m.status = SENDER_FAIL_TEXT[res.error] || SENDER_FAIL_TEXT.REFUSED; if (res.error === 'GONE' || res.error === 'UNKNOWN') await reloadSenders(); return; }
     const ok = await reloadSenders(); if (!current()) return;
-    state.sman = null; state.status = (m.kind === 'merge' ? '합쳤어요.' : '이름표를 지웠어요.') + (ok ? '' : ' 목록은 다시 불러오지 못했어요.');
+    state.sman = null; state.status = (m.kind === 'merge' ? '합쳤어요.' : '이름표를 삭제했어요.') + (ok ? '' : ' 목록은 다시 불러오지 못했어요.');
   }).then(() => { if (!state.sman) $('#tgList [data-tg-shelf-back]')?.focus({preventScroll:true}); });
 }
 
@@ -625,7 +625,7 @@ async function navDay(dir) {
   paint(); void ensureDetail();
 }
 // 쓰던 요약이 있으면 작은 확인창으로 묻는다. 화면을 멈추지 않으므로 일단 false(닫지 않음)를 돌려주고, [버리기]면 버린 뒤 again()으로 같은 동작을 다시 한다.
-function dropLink(again) { const link = state.link, r = itemOf(link?.rowId), changed = link && r && link.summary.trim() !== newLinkBox(r).summary.trim(); if (changed) { void askConfirm(document.activeElement, {text:'쓰던 요약을 버릴까요?', ok:'버리기', danger:true}).then(ok => { if (!ok || state.link !== link) return; state.link = null; if (again) again(); else paintDetail(); }); return false; } state.link = null; return true; }
+function dropLink(again) { const link = state.link, r = itemOf(link?.rowId), changed = link && r && link.summary.trim() !== newLinkBox(r).summary.trim(); if (changed) { void askConfirm(document.activeElement, {text:'쓰던 요약을 저장하지 않을까요?', ok:'저장 안 함', danger:true}).then(ok => { if (!ok || state.link !== link) return; state.link = null; if (again) again(); else paintDetail(); }); return false; } state.link = null; return true; }
 const replaceRow = saved => {
   for (const d of state.dcache.values()) if (d.items) d.items = d.items.map(r => r.id === saved.id ? {...r, ...saved} : r);
   state.pins = state.pins.map(r => r.id === saved.id ? {...r, ...saved} : r);
@@ -756,7 +756,7 @@ function saveFolder() {
       const res = await deleteFolder(e.id, rt); if (!current()) return; if (!res.ok) return void fail(res);
       state.folders = state.folders.filter(f => f.id !== e.id); const rooms = new Map(state.rooms);
       for (const [k, r] of rooms) if (r.folder_id === e.id) rooms.set(k, {...r, folder_id:null});
-      applyRooms(rooms); if (state.folder === e.id) state.folder = ''; state.fedit = null; state.status = '폴더를 지웠어요. 방은 그대로 전체에 있어요.';
+      applyRooms(rooms); if (state.folder === e.id) state.folder = ''; state.fedit = null; state.status = '폴더를 삭제했어요. 방은 그대로 전체에 있어요.';
     }).then(() => $('#tgList [data-tg-folder=""]')?.focus({preventScroll:true}));
   }
   const c = cleanFolderName(e.value);
@@ -889,7 +889,7 @@ const menu = createAnchoredMenu({id:'tgMenu', className:'feed-menu', label:'소�
     if (id === 'head:') return `<button type="button" data-tg-act="senders">보낸 사람 이름</button>${trashCount() ? `<button type="button" data-tg-act="trash-view">휴지통 ${trashCount()}</button>` : ''}`;
     const r = itemOf(id.slice(id.indexOf(':') + 1)); if (!r) return '';
     const copy = `${tgText(r) ? '<button type="button" data-tg-act="copy">요약 복사</button>' : ''}${state.raw.get(r.id)?.error || (state.raw.has(r.id) && !state.raw.get(r.id).loading && !state.raw.get(r.id).raw_text) ? '' : '<button type="button" class="row-act" data-tg-act="rawcopy">원문 복사</button><button type="button" class="row-act" data-tg-act="rawselect">원문 모두 선택</button>'}`;
-    const fix = editsOn() && r.id ? '<button type="button" data-tg-act="sumedit">요약 고치기</button>' : '';
+    const fix = editsOn() && r.id ? '<button type="button" data-tg-act="sumedit">요약 수정</button>' : '';
     return `<button type="button" data-tg-act="pin">${r.pinned_at ? '고정 풀기' : '고정'}</button>${copy}${fix}<button type="button" data-tg-act="link">조직 연결</button><button type="button" class="feed-menu-danger" data-tg-act="trash">삭제</button>`;
   },
   onAction:(button, active) => {
@@ -904,7 +904,7 @@ const pmenu = createAnchoredMenu({id:'tgPersonMenu', className:'feed-menu', labe
   render:id => {
     const p = personOf(id.slice(id.indexOf(':') + 1)); if (!p) return '';
     const self = personSelf(p.id) ? '<button type="button" data-tg-pact="unself">나 표시 빼기</button>' : '<button type="button" data-tg-pact="self">나로 표시 <span class="feed-faint">내가 한 부탁은 챙길 것에서 빠짐</span></button>';
-    return `<button type="button" data-tg-pact="rename">${p.unnamed ? '이름 붙이기' : '이름 고치기'}</button>${self}${peopleList().length > 1 ? '<button type="button" data-tg-pact="merge">다른 사람과 합치기</button>' : ''}<button type="button" class="feed-menu-danger" data-tg-pact="forget">지우기 <span class="feed-faint">소식 글은 그대로</span></button>`;
+    return `<button type="button" data-tg-pact="rename">${p.unnamed ? '이름 붙이기' : '이름 수정'}</button>${self}${peopleList().length > 1 ? '<button type="button" data-tg-pact="merge">다른 사람과 합치기</button>' : ''}<button type="button" class="feed-menu-danger" data-tg-pact="forget">삭제 <span class="feed-faint">소식 글은 그대로</span></button>`;
   },
   onAction:(button, active) => {
     const id = active.id.slice(active.id.indexOf(':') + 1), act = button.dataset.tgPact;
@@ -933,7 +933,7 @@ const rmenu = createAnchoredMenu({id:'tgRowMenu', className:'feed-menu', label:'
   },
   onClose:() => { if (wantPicker) { wantPicker = false; return; } hold.unpin(); }});
 // [폴더로]: 작은 폴더 목록 + 폴더에서 빼기 + 새 폴더. 밀기 버튼이나 ⋯를 누른 자리 아래에 뜬다.
-const fmenu = createAnchoredMenu({id:'tgFolderPick', className:'feed-menu', label:'폴더 고르기', historyKey:'kptuTelegramFolderPick',
+const fmenu = createAnchoredMenu({id:'tgFolderPick', className:'feed-menu', label:'폴더 선택', historyKey:'kptuTelegramFolderPick',
   key:t => 'pick:' + (t.closest('[data-tg-swipe]')?.dataset.room || ''),
   render:id => {
     const room = id.slice(5), cur = roomRow(room).folder_id || '';
@@ -949,7 +949,7 @@ const fmenu = createAnchoredMenu({id:'tgFolderPick', className:'feed-menu', labe
   onClose:() => hold.unpin()});
 const femenu = createAnchoredMenu({id:'tgFolderMenu', className:'feed-menu', label:'폴더 메뉴', historyKey:'kptuTelegramFolderMenu',
   key:() => 'folder:' + state.folder,
-  render:() => '<button type="button" data-tg-fact="rename">이름 바꾸기</button><button type="button" class="feed-menu-danger" data-tg-fact="delete">폴더 지우기 <span class="feed-faint">방은 그대로</span></button>',
+  render:() => '<button type="button" data-tg-fact="rename">이름 바꾸기</button><button type="button" class="feed-menu-danger" data-tg-fact="delete">폴더 삭제 <span class="feed-faint">방은 그대로</span></button>',
   onAction:button => { if (state.folder) startFolderEdit(button.dataset.tgFact === 'rename' ? 'rename' : 'delete'); }});
 const hold = createFeedHold({menu:rmenu, itemSelector:'[data-tg-rd]', moreSelector:'[data-tg-rdmore]', skipSelector:'[data-tg-act-btn],[data-tg-unarchive],[data-tg-unpin]', busy:() => state.busy, isPhone:() => !pc.matches});
 

@@ -115,7 +115,7 @@ for (const width of [412, 884, 1280, 1440]) test(`${width}: 맨 위 한 줄 + �
   if (process.env.SHOT_DIR) await page.screenshot({path: `${process.env.SHOT_DIR}/report-top-${width}.png`});
 });
 
-test('412: [종류 ▾]로 고르면 그 칸만 보이고 글자가 진해지며, [회의]일 때 회의명도 같은 상자에서 고른다', async ({page}) => {
+test('412: [종류 ▾]로 선택하면 그 칸만 보이고 글자가 진해지며, [회의]일 때 회의명도 같은 상자에서 선택한다', async ({page}) => {
   const state = makeState();
   await open(page, state, 412);
   const kind = page.locator('#reportKindSelect');

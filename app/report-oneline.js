@@ -18,7 +18,7 @@ function ensureDialog(){
   if(dialog)return dialog;
   dialog=document.createElement('dialog');dialog.id='reportOnelineDialog';dialog.className='oneline-dialog';dialog.setAttribute('aria-labelledby','reportOnelineTitle');dialog.setAttribute('data-enter-save','');/* UI-빠른입력Ctrl엔터 전수: 한 줄 업데이트 창도 공용 엔터 저장(PC Ctrl+엔터 = 저장) */
   dialog.innerHTML=`<header class="oneline-head"><h2 id="reportOnelineTitle">한 줄 업데이트</h2><button type="button" class="icon-btn" data-ol-close aria-label="닫기">×</button></header>
-<div class="oneline-body"><div class="oneline-row"><button type="button" class="secondary field-btn oneline-area" data-ol-area aria-haspopup="dialog" aria-label="사업영역 고르기">사업영역 ▾</button><input type="date" class="oneline-day" data-ol-day aria-label="날짜" required></div>
+<div class="oneline-body"><div class="oneline-row"><button type="button" class="secondary field-btn oneline-area" data-ol-area aria-haspopup="dialog" aria-label="사업영역 선택">사업영역 ▾</button><input type="date" class="oneline-day" data-ol-day aria-label="날짜" required></div>
 <textarea rows="2" maxlength="${ONELINE_MAX}" data-ol-text data-autogrow aria-label="한 줄" placeholder="진행 상황 한 줄 — 주간보고 사업 요약 표 '진행' 칸에 그대로 들어가요"></textarea>
 <details class="biz-next-plan" data-ol-plan-box><summary>+ 다음 할 일 <span class="optional">안 써도 됨</span></summary><textarea rows="2" maxlength="${NEXT_PLAN_MAX}" data-ol-plan data-autogrow aria-label="다음 할 일" placeholder="한 줄에 하나 — '이후 계획'에 들어가요"></textarea></details>
 <button type="button" class="mini secondary oneline-orgs" data-ol-orgs aria-haspopup="dialog">+ 담당조직 연결 <span class="optional">안 써도 됨</span></button></div>

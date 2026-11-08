@@ -30,7 +30,7 @@ test('같은 사진 짝: 섞어 보기 규칙(이름·크기·찍은 시각 2초
   assert.deepEqual([...matchIndex([], PHS).phoneHas], []);
 });
 
-test('어디에 있나: 폰에만·원드라이브에만(폰에서 지웠지만 남은 것)·둘 다(한 장)', () => {
+test('어디에 있나: 폰에만·원드라이브에만(폰에서 삭제했지만 남은 것)·둘 다(한 장)', () => {
   const ctx = {odItems:ODS, phItems:PHS};
   assert.deepEqual(placeItems('phone', ctx).map(x => x.id), ['ph:3', 'ph:4', 'ph:5', 'ph:6', 'ph:7', 'ph:8']);
   assert.deepEqual(placeItems('onedrive', ctx).map(x => x.id), ['C']);
@@ -61,7 +61,7 @@ test('잡동사니: 1년 지난 스크린샷·카톡·텔레그램 받은 사진
   assert.equal(tidyCount({unbacked:[], junk:[g[1]]}, new Set(['Pictures/KakaoTalk/'])), 0);
 });
 
-test('지운 칸 빼기·화면 거르기·크기 글', () => {
+test('삭제한 칸 빼기·화면 거르기·크기 글', () => {
   assert.deepEqual(forgetIds(PHS, ['ph:1', 'ph:2']).length, 6);
   assert.deepEqual(typeFilter(PHS, 'shot').map(x => x.id), ['ph:7', 'ph:8']);
   assert.equal(sizeText(1.5e9), '1.5GB'); assert.equal(sizeText(3.4e8), '340MB'); assert.equal(sizeText(0), '');
@@ -105,7 +105,7 @@ test('정리 읽기: 폰(끈 폴더 포함)·원드라이브를 끝까지 쪽마
   assert.doesNotMatch(t2.html({canTrash:false}), /data-photos-tidy-trash/);
 });
 
-test('사진 메뉴 연결: [정리] 칩·접힌 칸·누를 때만 지우기·숨기기, 기기 저장 없음', () => {
+test('사진 메뉴 연결: [정리] 칩·접힌 칸·누를 때만 삭제·숨기기, 기기 저장 없음', () => {
   const src = read('app/photos.js'), tidy = read('app/photo-tidy.js'), model = read('app/photo-tidy-model.mjs');
   assert.match(src, /data-photos-tidy-chip aria-expanded="false" aria-controls="photosTidy" hidden>정리<\/button>/);
   assert.match(src, /askConfirm\(b, \{text:`\$\{g\.label\} \$\{n\}장\$\{size \? `\(\$\{size\}\)` : ''\}을 폰 휴지통으로 옮길까요\?`/); // S52-06 용량 요약
@@ -115,7 +115,7 @@ test('사진 메뉴 연결: [정리] 칩·접힌 칸·누를 때만 지우기·�
   // 기기 저장 낱말은 저장소 검사(browser-storage-audit)가 시험 글에서도 막으므로 조각으로 만든다.
   const deviceStore = new RegExp(['local', 'session'].map(x => x + 'Storage').concat('indexed' + 'DB').join('|'));
   for (const s of [src, tidy, model]) assert.doesNotMatch(s, deviceStore);
-  // 정리 읽기는 화면에서 [정리]를 열 때만 시작한다(자동 지우기 없음).
+  // 정리 읽기는 화면에서 [정리]를 열 때만 시작한다(자동 삭제 없음).
   assert.doesNotMatch(tidy, /phone\.trash|folderOp/);
 });
 
@@ -136,7 +136,7 @@ test('공간 비우기: 원드라이브에 확인된 것만, 1년 지난 사진�
   assert.ok(scanFresh(NOW - 1000, NOW) && !scanFresh(NOW - FRESH_MS - 1, NOW) && !scanFresh(0, NaN));
 });
 
-test('같은 사진 묶음: 여러 번 저장(같은 크기·가로세로)·연사(카메라 폴더, 첫 장과 1초 안), 남길 것 고르기', () => {
+test('같은 사진 묶음: 여러 번 저장(같은 크기·가로세로)·연사(카메라 폴더, 첫 장과 1초 안), 남길 것 선택', () => {
   const list = [
     ph(20, 'a.jpg', 300e3, '2026-09-30T01:00:01.000Z', 'Pictures/KakaoTalk/', {width:100, height:80}),
     ph(21, 'IMG_a.jpg', 300e3, '2026-09-30T01:00:00.000Z', 'DCIM/Camera/', {width:100, height:80}),
@@ -158,12 +158,12 @@ test('같은 사진 묶음: 여러 번 저장(같은 크기·가로세로)·연�
   assert.equal(copy.keep, 'ph:21', '같은 사진은 카메라 폴더 것');
   assert.equal(g.length, 2);
   assert.deepEqual(dupTrashList(g).map(x => x.id).sort(), ['ph:20', 'ph:30']);
-  assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:30']])).map(x => x.id), ['ph:31'], '명진이 고른 것이 남는다');
+  assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:30']])).map(x => x.id), ['ph:31'], '명진이 선택한 것이 남는다');
   assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:99']])).map(x => x.id), ['ph:30'], '묶음 밖 id는 무시');
   assert.equal(defaultKeep([list[0]], 'copy'), 'ph:20');
 });
 
-test('정리 칸 ②: 공간 비우기 줄·묶음 그림 줄·지우기는 누를 때만', async () => {
+test('정리 칸 ②: 공간 비우기 줄·묶음 그림 줄·삭제는 누를 때만', async () => {
   const vid = ph(9, 'VID_1.mp4', 80e6, '2026-09-01T01:00:00.000Z', 'DCIM/Camera/', {video:true});
   const vOd = {...od('E', 'VID_1.mp4', 80e6, '2026-09-01T01:00:00.000Z'), video:true};
   const b1 = ph(30, 'B1.jpg', 2e6, '2026-10-05T01:00:00.000Z', 'DCIM/Camera/'), b2 = ph(31, 'B2.jpg', 3e6, '2026-10-05T01:00:00.600Z', 'DCIM/Camera/');
@@ -172,9 +172,9 @@ test('정리 칸 ②: 공간 비우기 줄·묶음 그림 줄·지우기는 누�
     odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => clock});
   await t.rescan();
   const html = t.html({canTrash:true});
-  assert.match(html, /폰에서만 지우면 <b>80MB<\/b> 비워져요/);
+  assert.match(html, /폰에서만 삭제하면 <b>80MB<\/b> 비워져요/);
   assert.match(html, /data-photos-tidy-trash="space"/);
-  assert.match(html, /같은 사진·연사 <b>묶음 1개<\/b> · 지울 수 있는 1장 · 2MB/);
+  assert.match(html, /같은 사진·연사 <b>묶음 1개<\/b> · 삭제할 수 있는 1장 · 2MB/);
   assert.match(html, /data-photos-tidy-keep="ph:30\|ph:31" aria-pressed="true"/);
   assert.match(html, /data-photos-tidy-keep="ph:30\|ph:30" aria-pressed="false"/);
   assert.deepEqual(t.group('dups').items.map(x => x.id), ['ph:30']);
@@ -184,7 +184,7 @@ test('정리 칸 ②: 공간 비우기 줄·묶음 그림 줄·지우기는 누�
   // S47-19: 공간 비우기는 [보기] 단추 없이 그 줄 안(<details>)에 펼친 칸(기본 용량 큰 순).
   assert.match(html, /<div class="photos-tidy-pane" data-photos-tidy-pane="space">.*data-photos-tidy-sort="space\|size" aria-pressed="true"/);
   assert.doesNotMatch(html, /data-photos-tidy-see="space"/);
-  assert.ok(t.fresh()); clock += 11 * 60 * 1000; assert.ok(!t.fresh(), '10분 지나면 지우기 전에 다시 확인');
+  assert.ok(t.fresh()); clock += 11 * 60 * 1000; assert.ok(!t.fresh(), '10분 지나면 삭제 전에 다시 확인');
   assert.doesNotMatch(t.html({canTrash:false}), /data-photos-tidy-trash/);
   const src = read('app/photos.js');
   assert.match(src, /if \(needCopy && !tidy\.fresh\(\)\)/);
@@ -192,7 +192,7 @@ test('정리 칸 ②: 공간 비우기 줄·묶음 그림 줄·지우기는 누�
 
 // ---- S47-16 PHOTO-폰지우기안전장치 ----
 import {copyPairs, keptText, goneText, TIDY_HELP} from '../app/photo-tidy-model.mjs';
-test('지우기 전 사본 짝: 같은 크기 + (같은 이름 또는 찍은 시각)만, 크기를 모르면 짝 없음', () => {
+test('삭제 전 사본 짝: 같은 크기 + (같은 이름 또는 찍은 시각)만, 크기를 모르면 짝 없음', () => {
   const noSize = ph(40, 'IMG_1.jpg', null, '2026-10-01T01:00:00.000Z', 'DCIM/Camera/');
   const otherSize = ph(41, 'IMG_2.jpg', 201, '2026-10-02T01:00:00.000Z', 'DCIM/Camera/');
   const {pairs, noCopy} = copyPairs([PHS[0], PHS[1], PHS[2], noSize, otherSize], ODS);
@@ -202,9 +202,9 @@ test('지우기 전 사본 짝: 같은 크기 + (같은 이름 또는 찍은 시
   assert.equal(keptText(2, 0), '원드라이브에 없음 2장은 남겼어요');
   assert.equal(keptText(0, 3), '원드라이브 확인 못 한 3장은 남겼어요');
   assert.equal(keptText(0, 0), '');
-  assert.match(goneText(4), /^폰에서 지운 4장이 원드라이브에서도 지워졌어요\. 원드라이브 휴지통\(30일\)에서 되살리세요\. 동기화 앱이 양방향이면 업로드만으로 바꾸세요$/);
+  assert.match(goneText(4), /^폰에서 삭제한 4장이 원드라이브에서도 삭제됐어요\. 원드라이브 휴지통\(30일\)에서 되살리세요\. 동기화 앱이 양방향이면 업로드만으로 바꾸세요$/);
 });
-test('다음 사진 확인 때 사본 사라짐 경고 한 줄·[알았어요], 원드라이브를 못 읽으면 검사·[나머지 지우기] 없음', async () => {
+test('다음 사진 확인 때 사본 사라짐 경고 한 줄·[알았어요], 원드라이브를 못 읽으면 검사·[나머지 삭제] 없음', async () => {
   const vid = ph(9, 'VID_1.mp4', 80e6, '2026-09-01T01:00:00.000Z', 'DCIM/Camera/', {video:true});
   const vOd = {...od('E', 'VID_1.mp4', 80e6, '2026-09-01T01:00:00.000Z'), video:true};
   const b1 = ph(30, 'B1.jpg', 2e6, '2026-10-05T01:00:00.000Z', 'DCIM/Camera/'), b2 = ph(31, 'B2.jpg', 3e6, '2026-10-05T01:00:00.600Z', 'DCIM/Camera/');
@@ -215,7 +215,7 @@ test('다음 사진 확인 때 사본 사라짐 경고 한 줄·[알았어요], 
   await t.rescan(); await new Promise(r => setTimeout(r, 0));
   assert.equal(watched, 1);
   let html = t.html({canTrash:true});
-  assert.match(html, /class="photos-tidy-line photos-tidy-warn" role="alert">폰에서 지운 3장이 원드라이브에서도 지워졌어요\..*<button type="button" class="mini" data-photos-tidy-gone-ok>알았어요<\/button>/);
+  assert.match(html, /class="photos-tidy-line photos-tidy-warn" role="alert">폰에서 삭제한 3장이 원드라이브에서도 삭제됐어요\..*<button type="button" class="mini" data-photos-tidy-gone-ok>알았어요<\/button>/);
   assert.ok(html.includes(`<span class="photos-tidy-help">${TIDY_HELP.space}</span>`), '공간 비우기 설명 한 줄(접혀도 보임)');
   assert.match(html, /data-photos-tidy-trash="dups"/);
   assert.deepEqual(t.copyPairs(t.group('space').items).pairs.map(x => x.copy.id), ['E']);
@@ -224,7 +224,7 @@ test('다음 사진 확인 때 사본 사라짐 경고 한 줄·[알았어요], 
   assert.doesNotMatch(t.html({canTrash:true}), /photos-tidy-warn/);
   gone = 0; await t.rescan(); await new Promise(r => setTimeout(r, 0));
   assert.equal(watched, 2); assert.doesNotMatch(t.html({canTrash:true}), /photos-tidy-warn/);
-  // 원드라이브 없음: 사본 검사 안 함, 짝 없음(null), 묶음 [나머지 지우기] 없음(잡동사니 지우기는 그대로).
+  // 원드라이브 없음: 사본 검사 안 함, 짝 없음(null), 묶음 [나머지 삭제] 없음(잡동사니 삭제는 그대로).
   let w2 = 0;
   const t2 = createPhotoTidy({phone:{page:async () => ({items:[...PHS, b1, b2], next:null})}, odReady:() => false, readOd:async () => ({items:[], next:null}),
     odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW, watchTrash:async () => { w2++; return 5; }});
@@ -233,15 +233,15 @@ test('다음 사진 확인 때 사본 사라짐 경고 한 줄·[알았어요], 
   const h2 = t2.html({canTrash:true});
   assert.doesNotMatch(h2, /data-photos-tidy-trash="dup/); assert.match(h2, /data-photos-tidy-trash="kakao"/);
 });
-test('사진 메뉴 지우기 연결: 사본 확인된 것만 폰 휴지통, 지운 뒤 서버 기록, 경고 [알았어요]', () => {
+test('사진 메뉴 삭제 연결: 사본 확인된 것만 폰 휴지통, 삭제한 뒤 서버 기록, 경고 [알았어요]', () => {
   const src = read('app/photos.js'), od = read('app/diary-onedrive.js');
   assert.match(src, /const needCopy = kind === 'space' \|\| kind\.startsWith\('dup'\);/);
-  // S48-17: 사본 확인은 고른 사진 [지우기]와 같이 쓰는 copyChecked(짝 {item, copyId}), 기록 줄은 photo-keep-model.mjs keepLogRows.
+  // S48-17: 사본 확인은 선택한 사진 [삭제]와 같이 쓰는 copyChecked(짝 {item, copyId}), 기록 줄은 photo-keep-model.mjs keepLogRows.
   const keep = read('app/photo-keep-model.mjs');
   assert.match(src, /odCopyCheck\(rt, part\.map\(x => \(\{id:x\.copyId, size:x\.item\.size_bytes\}\)\)\)/);
   assert.match(src, /copyChecked\(pl\.pairs\.map\(x => \(\{item:x\.item, copyId:x\.copy\.id\}\)\), pl\.noCopy\.length\)/);
   assert.match(src, /list:pairs\.map\(x => x\.item\)\.filter\(x => copyOf\.has\(x\.id\)\)/);
-  // 확인 실패(네트워크)는 지우지 않음(확인 못 함).
+  // 확인 실패(네트워크)는 삭제하지 않음(확인 못 함).
   assert.match(src, /catch \{ res = \{ok:\[\], missing:\[\], unsure:part\.map\(x => x\.copyId\)\}; \}/);
   assert.match(keep, /phone_id:String\(x\.phoneId\), copy_id:copyOf\.get\(x\.id\), keep/);
   assert.match(src, /trashLogged\(list, copyOf, \{keep:kind === 'space'\}\)/);
@@ -328,7 +328,7 @@ test('정리 줄마다 설명(접혀도 보임)·대안 줄·[폴더 끄기]·�
   await t.rescan();
   let html = t.html({canHide:true, canTrash:true});
   assert.equal((html.match(/data-photos-tidy-rescan/g) || []).length, 1, '[다시 찾기] 하나');
-  assert.match(html, /^<p class="photos-tidy-at">방금 찾음 · 폰 13장 · 원드라이브 4장 확인 <button type="button" class="mini" data-photos-tidy-rescan>다시 찾기<\/button><\/p>/);
+  assert.match(html, /^<p class="photos-tidy-at">방금 찾음 · 폰 13장 · 원드라이브 4장 확인 <button type="button" class="mini" data-photos-tidy-rescan>최신화<\/button><\/p>/);
   assert.doesNotMatch(html, /photos-tidy-foot|>다시 확인</);
   for (const k of ['all', 'unbacked', 'space', 'dups', 'junk']) assert.ok(html.includes(TIDY_HELP[k]), k);
   for (const k of ['unbackedDo', 'partly', 'dupsDo', 'junkDo']) assert.ok(html.includes(TIDY_HELP[k].replace(/'/g, '&#39;')), k);
@@ -366,7 +366,7 @@ test('찾은 결과 남겨 두기: 다시 열기·stale·forget·폴더 바꿈�
   assert.equal(reads, 1, '다시 열어도 지난 결과');
   t.stale();
   assert.equal(reads, 1); assert.ok(t.ready());
-  assert.match(t.html(), /확인 · 그 뒤 폰이 바뀌었어요 <button type="button" class="mini" data-photos-tidy-rescan>다시 찾기/);
+  assert.match(t.html(), /확인 · 그 뒤 폰이 바뀌었어요 <button type="button" class="mini" data-photos-tidy-rescan>최신화/);
   t.forget(['ph:4']);
   assert.equal(reads, 1); assert.ok(!t.state.ph.some(p => p.id === 'ph:4'));
   await t.rescan();
@@ -376,7 +376,7 @@ test('찾은 결과 남겨 두기: 다시 열기·stale·forget·폴더 바꿈�
   t.open(); await new Promise(r => setTimeout(r, 0));
   assert.equal(reads, 3);
 });
-test('사진 메뉴 연결: 폰 상태 알림·폴더 바꿈은 정리 결과를 지우지 않고, 계정이 바뀔 때만 지운다', () => {
+test('사진 메뉴 연결: 폰 상태 알림·폴더 바꿈은 정리 결과를 삭제하지 않고, 계정이 바뀔 때만 삭제한다', () => {
   const src = read('app/photos.js');
   const onChange = src.slice(src.indexOf('phone.onChange(s => {'), src.indexOf('async function enter()'));
   assert.ok(onChange.length > 20);
@@ -386,7 +386,7 @@ test('사진 메뉴 연결: 폰 상태 알림·폴더 바꿈은 정리 결과를
   assert.equal((src.match(/tidy\.reset\(\)/g) || []).length, 1, '계정 바뀜(session-changed) 한 곳만');
   assert.match(src, /tidy\.reset\(\); tidyOpen = false; tidyShown\.clear\(\); tidyGone\.clear\(\);/);
   assert.match(src, /if \(b\.matches\('\[data-photos-tidy-off\]'\)\) \{ tidyFolderOff\(b\.dataset\.photosTidyOff\); return true; \}/);
-  // 지우기 직전 10분 확인(안전장치)은 그대로.
+  // 삭제 직전 10분 확인(안전장치)은 그대로.
   assert.match(src, /if \(needCopy && !tidy\.fresh\(\)\)/);
 });
 
@@ -415,8 +415,8 @@ test('연사 좁히기: 카메라 폴더·정확한 시각만, 받은 사진·�
   const g2 = dupGroups([a, b], new Map([['ph:300', 'ff00ff00ff00ff00'], ['ph:301', 'ff00ff00ff00ff00']]));
   assert.deepEqual(g2.map(x => [x.kind, x.items.length]), [['copy', 2]]);
   assert.deepEqual(dupStats(g), {groups:g.length, extra:g.reduce((n, x) => n + x.items.length - 1, 0), bytes:g.reduce((n, x) => n + x.bytes, 0)});
-  assert.equal(dupStatText({groups:3, extra:7, bytes:12.5e6}), '묶음 3개 · 지울 수 있는 사진 7장 · 아낄 용량 13MB');
-  assert.equal(dupStatText({groups:1, extra:1, bytes:0}), '묶음 1개 · 지울 수 있는 사진 1장');
+  assert.equal(dupStatText({groups:3, extra:7, bytes:12.5e6}), '묶음 3개 · 삭제할 수 있는 사진 7장 · 아낄 용량 13MB');
+  assert.equal(dupStatText({groups:1, extra:1, bytes:0}), '묶음 1개 · 삭제할 수 있는 사진 1장');
   assert.ok(DUP_HOW.copy && DUP_HOW.burst);
 });
 test('묶음 사진이 있는 곳: 폰 폴더 + 원드라이브 사본마다 한 줄(경로 모르면 폴더 모름)', () => {
@@ -443,12 +443,12 @@ test('묶음 칸: 종류 칩(같은 사진·연사)·뜻이 보이는 숫자·�
   let html = t.html({canTrash:true});
   assert.match(html, /data-photos-tidy-dupkind="copy" aria-pressed="true">같은 사진 2<\/button>/);
   assert.match(html, /data-photos-tidy-dupkind="burst" aria-pressed="false">연사 1<\/button>/);
-  assert.match(html, /크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진 · 묶음 2개 · 지울 수 있는 사진 2장 · 아낄 용량 160KB/);
+  assert.match(html, /크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진 · 묶음 2개 · 삭제할 수 있는 사진 2장 · 아낄 용량 160KB/);
   assert.doesNotMatch(html, /data-photos-tidy-dup="ph:60"/, '다른 종류 묶음은 칩을 바꿔야 보인다');
   t.dupKind('burst');
   html = t.html({canTrash:true});
   assert.match(html, /data-photos-tidy-dup="ph:60"><span class="photos-tidy-num">연사 3장 · 아낄 3MB<\/span><button type="button" class="mini" data-photos-tidy-see="dup:ph:60" aria-expanded="false">비교<\/button>/);
-  assert.deepEqual(t.group('dups').items.map(x => x.id), ['ph:60', 'ph:61'], '[나머지 모두 지우기]는 보이는 종류만');
+  assert.deepEqual(t.group('dups').items.map(x => x.id), ['ph:60', 'ph:61'], '[나머지 모두 삭제]는 보이는 종류만');
   assert.match(html, /보이는 연사 묶음에서 남길 사진만 두고/);
   // 비교: 왼쪽 = 남길 사진(가장 큰 ph:62), 오른쪽 = 나머지 1/2, ‹ ›로 넘김, [이것 남기기].
   t.toggle('dup:ph:60');
@@ -523,7 +523,7 @@ test('비슷한 사진 묶기: 해밍 거리 기준 이하·묶음 첫 장과 10
   const gm = similarGroups(many, new Map(many.map(p => [p.id, H.a])));
   assert.deepEqual(gm.map(x => x.items.length).sort((a, b) => b - a), [SIMILAR_MAX, 3]);
 });
-test('비슷한 사진 칩: 누를 때 나눠서 계산(가짜 해시)·진행 줄·묶음·[나머지 모두 지우기]는 그 종류만, 다시 찾기에 해시 지움', async () => {
+test('비슷한 사진 칩: 누를 때 나눠서 계산(가짜 해시)·진행 줄·묶음·[나머지 모두 삭제]는 그 종류만, 다시 찾기에 해시 지움', async () => {
   const ps = [cam(1, 0), cam(2, 30_000), cam(3, 90_000), cam(4, 3 * 3600e3), cam(9, 3 * 3600e3 + 400)];
   const want = {'ph:1':H.a, 'ph:2':H.a2, 'ph:3':H.a3};
   const asked = [];
@@ -545,23 +545,23 @@ test('비슷한 사진 칩: 누를 때 나눠서 계산(가짜 해시)·진행 �
   html = t.html({canTrash:true});
   assert.doesNotMatch(html, /data-photos-tidy-sim/);
   assert.match(html, /data-photos-tidy-dupkind="similar" aria-pressed="true">비슷한 사진 1<\/button>/);
-  assert.match(html, /10분 안에 같은 장면을 조금씩 다르게 찍은 사진 · 묶음 1개 · 지울 수 있는 사진 2장/);
+  assert.match(html, /10분 안에 같은 장면을 조금씩 다르게 찍은 사진 · 묶음 1개 · 삭제할 수 있는 사진 2장/);
   assert.match(html, /data-photos-tidy-dup="ph:1"><span class="photos-tidy-num">비슷한 사진 3장/);
-  assert.doesNotMatch(html, /data-photos-tidy-trash/, '원드라이브를 못 읽으면 지우기 단추 없음(안전장치 그대로)');
-  assert.equal(t.copyPairs(t.group('dups').items), null, '사본 확인 없이 지우지 않음');
+  assert.doesNotMatch(html, /data-photos-tidy-trash/, '원드라이브를 못 읽으면 삭제 단추 없음(안전장치 그대로)');
+  assert.equal(t.copyPairs(t.group('dups').items), null, '사본 확인 없이 삭제하지 않음');
   t.toggle('dup:ph:1');
   assert.match(t.html(), /data-photos-tidy-cmp="ph:1"/);
   assert.equal(t.count(), 1);
   // 다시 누르면 다시 계산하지 않는다.
   t.dupKind('similar'); await new Promise(ok => setTimeout(ok, 0));
   assert.equal(asked.length, 3);
-  // 다시 찾기 = 해시 지우고 처음부터(누를 때).
+  // 다시 찾기 = 해시 삭제하고 처음부터(누를 때).
   await t.rescan();
   assert.match(t.html(), /data-photos-tidy-dupkind="similar" aria-pressed="true">비슷한 사진<\/button>/);
   assert.match(t.html(), /data-photos-tidy-sim>사진 3장의 작은 그림을 비교해요 <button type="button" class="mini" data-photos-tidy-dupkind="similar">찾기<\/button>/);
   assert.equal(asked.length, 3);
 });
-test('비슷한 사진: 원드라이브를 읽었으면 [나머지 지우기]는 남길 것 말고(비슷한 사진 묶음만), hashThumb 없으면 칩 없음', async () => {
+test('비슷한 사진: 원드라이브를 읽었으면 [나머지 삭제]는 남길 것 말고(비슷한 사진 묶음만), hashThumb 없으면 칩 없음', async () => {
   const ps = [cam(1, 0), cam(2, 30_000)];
   const t = createPhotoTidy({phone:{page:async () => ({items:ps, next:null})}, odReady:() => true, readOd:async () => ({items:[], next:null}),
     odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW, hashThumb:async () => H.a, pause:async () => {}});
@@ -588,7 +588,7 @@ test('S53-2 같은 사진: 크기·가로세로 같은 다른 사진 4장(25MB)�
   // 난로 음식·장미·화분처럼 다른 날 찍은 다른 사진 — 크기·가로세로가 우연히(압축 안 한 파일) 똑같다.
   const four = [big(1, '2026-11-01T01:00:00.000Z', 'a.jpg'), big(2, '2026-11-02T05:00:00.000Z', 'b.jpg'), big(3, '2026-11-03T07:00:00.000Z', 'c.jpg'), big(4, '2026-11-04T09:00:00.000Z', 'd.jpg')];
   const hashes = new Map([['ph:1', 'ff00ff00ff00ff00'], ['ph:2', '0f0f0f0f0f0f0f0f'], ['ph:3', 'aaaaaaaaaaaaaaaa'], ['ph:4', '5555555555555555']]);
-  assert.deepEqual(copyCandidates(four).map(p => p.id).sort(), ['ph:1', 'ph:2', 'ph:3', 'ph:4'], '후보(해시를 만들 사진)는 크기·가로세로로 고른다');
+  assert.deepEqual(copyCandidates(four).map(p => p.id).sort(), ['ph:1', 'ph:2', 'ph:3', 'ph:4'], '후보(해시를 만들 사진)는 크기·가로세로로 선택한다');
   assert.ok(!dupGroups(four).some(g => g.kind === 'copy'), '해시 없으면 안 묶음');
   assert.ok(!dupGroups(four, hashes).some(g => g.kind === 'copy'), '내용이 다르면 안 묶음');
   // 같은 그림이어도 찍은 시각이 다르면(다른 날) 묶지 않는다.
@@ -606,7 +606,7 @@ test('S53-2 같은 사진: 크기·가로세로 같은 다른 사진 4장(25MB)�
   assert.doesNotMatch(TIDY_HELP.dups, /파일 크기·가로세로가 똑같은 사진/);
   assert.equal(DUP_HOW.copy, '크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진');
 });
-test('S53-2 백업 짝: 가로세로가 다르면 같은 사진 아님, 원드라이브 한 장을 다른 폰 사진 여러 장이 가리키면 짝 없음(지우지 않음)', () => {
+test('S53-2 백업 짝: 가로세로가 다르면 같은 사진 아님, 원드라이브 한 장을 다른 폰 사진 여러 장이 가리키면 짝 없음(삭제하지 않음)', () => {
   const o = {...od('O', 'x.jpg', 25_000_000, '2026-11-01T01:00:00.000Z'), width:4000, height:3000};
   const p = ph(1, 'a.jpg', 25_000_000, '2026-11-01T01:00:00.500Z', 'DCIM/Camera/', {width:4000, height:3000});
   assert.ok(sameM(p, o), '크기 + 2초 안');
@@ -618,9 +618,9 @@ test('S53-2 백업 짝: 가로세로가 다르면 같은 사진 아님, 원드�
   const q = ph(2, 'b.jpg', 25_000_000, '2026-11-01T01:00:01.500Z', 'DCIM/Camera/', {width:4000, height:3000});
   assert.deepEqual([...backupMap([p, q], [o]).keys()], []);
   const r = pairsOf([q], [o], {phItems:[p, q]});
-  assert.deepEqual([r.pairs.length, r.noCopy.map(x => x.id)], [0, ['ph:2']], '지울 목록에 q만 있어도 다른 폰 사진 p를 함께 본다');
+  assert.deepEqual([r.pairs.length, r.noCopy.map(x => x.id)], [0, ['ph:2']], '삭제할 목록에 q만 있어도 다른 폰 사진 p를 함께 본다');
   assert.deepEqual(matchIndex([o], [p, q]).phoneHas.size, 0, "'원드라이브에 있음'으로 보지 않는다");
-  assert.ok(matchIndex([o], [p, q]).odHas.has('O'), '원드라이브 칸은 폰에 있음(원드라이브에만으로 지울 후보가 되지 않게)');
+  assert.ok(matchIndex([o], [p, q]).odHas.has('O'), '원드라이브 칸은 폰에 있음(원드라이브에만으로 삭제할 후보가 되지 않게)');
   // 두 장이 내용까지 같다고 확인되면(같은 사진 두 번 저장) 둘 다 짝.
   const h = new Map([['ph:1', 'ff00ff00ff00ff00'], ['ph:2', 'ff00ff00ff00ff00']]);
   assert.deepEqual([...backupMap([p, q], [o], h).keys()].sort(), ['ph:1', 'ph:2']);
@@ -628,7 +628,7 @@ test('S53-2 백업 짝: 가로세로가 다르면 같은 사진 아님, 원드�
   // 한 장만 가리키면 그대로 짝(예전과 같음).
   assert.deepEqual(pairsOf([p], [o]).pairs.map(x => x.item.id), ['ph:1']);
   assert.deepEqual(matchIndex([o], [p]).phoneHas.has('ph:1'), true);
-  // 사진 정리 화면은 지우기 짝에 사진 정리가 읽은 폰 사진 전부와 해시를 넘긴다.
+  // 사진 정리 화면은 삭제 짝에 사진 정리가 읽은 폰 사진 전부와 해시를 넘긴다.
   assert.match(read('app/photo-tidy.js'), /copyPairs\(items, st\.od, \{phItems:st\.ph, hashes\}\)/);
   assert.match(read('app/photo-tidy.js'), /matchIndex\(st\.od, st\.ph, hashes\)/);
 });

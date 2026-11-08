@@ -54,7 +54,7 @@ async function setup(page,{saved=new Map(),used=[]}={}){
 }
 const closedSettled=async page=>{await expect(page.locator('#gtTaskModal')).toBeHidden();await page.waitForFunction(()=>history.state?.kptuOverlay!=='gtTaskModal')};
 
-test('폰: 두 줄만 → [+ 고르기] 아래 창(찾기·자주 쓴 것·큰 묶음만·꺾쇠 펼침·여러 개) → [넣기] 꼬리표 → 새 할 일 저장 값 그대로',async({page})=>{
+test('폰: 두 줄만 → [+ 선택] 아래 창(찾기·자주 쓴 것·큰 묶음만·꺾쇠 펼침·여러 개) → [넣기] 꼬리표 → 새 할 일 저장 값 그대로',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   const calls=await setup(page,{used:[{project_id:'p2'},{organization_id:'o3'},{project_id:'p2'},{project_id:'p4'},{project_id:'p9'},{organization_id:'o0'}]});
   await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
@@ -62,7 +62,7 @@ test('폰: 두 줄만 → [+ 고르기] 아래 창(찾기·자주 쓴 것·큰 �
   await expect(lines).toHaveCount(2);
   await expect(lines.locator('.aop-label')).toHaveText(['사업영역','조직']);
   await expect(lines.locator('[data-aop-none]')).toHaveText(['없음','없음']);
-  await expect(page.locator(`${LINKS} [data-aop-add]`)).toHaveText(['+ 고르기','+ 고르기']);
+  await expect(page.locator(`${LINKS} [data-aop-add]`)).toHaveText(['+ 선택','+ 선택']);
   // 두 줄은 칸을 거의 차지하지 않는다(예전 체크 목록은 펼쳐져 칸을 다 차지).
   expect((await page.locator(LINKS).boundingBox()).height).toBeLessThan(100);
   await openPicker(page,LINKS,'area');

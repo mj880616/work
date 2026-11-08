@@ -7,7 +7,7 @@ export const PHOTO_ACT_TEXT = Object.freeze({
   select: '선택',
   star: '별표',
   share: '공유',
-  more: '더보기',
+  more: '메뉴',
   copy: '사진 복사',
   diary: '일기에 넣기',
   basket: '업데이트로 보내기',
@@ -22,9 +22,9 @@ export const PHOTO_ACT_TEXT = Object.freeze({
   untag: '앨범에서 빼기',
   restore: '폰으로 되돌리기',
   rename: '이름',
-  edit: '편집',
+  edit: '수정',
   detail: '정보',
-  delete: '지우기',
+  delete: '삭제',
 });
 
 // 아이콘 줄처럼 칸이 좁은 곳에서 보이는 앞부분. PHOTO-아래줄정돈(S49-34)부터 아래 줄에 [일기]·[업데이트] 단추가 없어 비어 있다(메뉴 안에서는 온이름).
@@ -83,17 +83,17 @@ export const PHOTO_BAR_MENUS = Object.freeze({
   }),
 });
 // 아래 줄 칸 안 펼침 항목의 글자(아이콘 없이 글자만). 칸 이름과 달리 '무엇을 하는지' 풀어 쓴 이름. 없으면 PHOTO_ACT_TEXT 이름.
-export const PHOTO_BAR_TEXT = Object.freeze({edit: '사진 편집', move: '폴더로 옮기기', tag: '앨범에 넣기', untag: '앨범에서 빼기', detail: '정보'});
+export const PHOTO_BAR_TEXT = Object.freeze({edit: '사진 수정', move: '폴더로 옮기기', tag: '앨범에 넣기', untag: '앨범에서 빼기', detail: '정보'});
 export const barItemText = id => PHOTO_BAR_TEXT[id] || PHOTO_ACT_TEXT[id] || id;
 
 // S53-10 FILES-이폰지우기 덧붙임(메뉴 모양 통일): 사진 [폴더] ⋯(원드라이브·폰·구글 드라이브)의 [지우기]는 늘 맨 아래 같은 자리.
 // 지금 지울 수 없는 폴더는 빼지 않고 흐리게(aria-disabled) 두고, 누르면 아래 이유·할 일 한 줄(지우지 않음).
 export const FOLDER_DELETE_OFF = Object.freeze({
-  odTop: '맨 위 폴더는 지울 수 없어요. 안의 폴더를 지워 주세요',
-  odLink: '지우려면 원드라이브를 다시 연결해 주세요',
-  phoneOld: '폰 폴더를 지우려면 웹2 앱을 새 판으로 올려 주세요',
-  phoneTop: 'DCIM·Pictures 같은 맨 위 폴더는 지울 수 없어요. 안의 폴더를 지워 주세요',
-  gdLink: '지우려면 구글 드라이브를 다시 연결해 주세요(위 구글 드라이브 아이콘)'
+  odTop: '맨 위 폴더는 삭제할 수 없어요. 안의 폴더를 삭제해 주세요',
+  odLink: '삭제하려면 원드라이브를 다시 연결해 주세요',
+  phoneOld: '폰 폴더를 삭제하려면 웹2 앱을 새 판으로 올려 주세요',
+  phoneTop: 'DCIM·Pictures 같은 맨 위 폴더는 삭제할 수 없어요. 안의 폴더를 삭제해 주세요',
+  gdLink: '삭제하려면 구글 드라이브를 다시 연결해 주세요(위 구글 드라이브 아이콘)'
 });
 // 원드라이브 폴더: top = 사진 맨 위 폴더, can = 원드라이브에 쓸 수 있음. 폰 폴더: ops = 앱이 폴더 일을 앎, trashable = 지울 수 있는 경로(만들기 전 폴더 포함).
 export function folderDeleteOff(kind, {top = false, can = true, ops = true, trashable = true} = {}) {
@@ -107,7 +107,7 @@ export function folderDeleteOff(kind, {top = false, can = true, ops = true, tras
 // 빼거나 무반응으로 두지 않고 흐리게(aria-disabled) 두고, 누르면 아래 이유·할 일 한 줄(하지 않음). kind = 사진 출처(phone·gdrive·그 밖 = 원드라이브).
 // 실제로 막는 것은 지금처럼 폰 앱·서버다(화면에서 권한을 넓히지 않음).
 export const PHOTO_OFF_TEXT = Object.freeze({
-  delete: Object.freeze({phone: '이 폰은 여기서 지우지 못해요. 갤러리 앱에서 지워 주세요.', gdrive: '구글 드라이브 권한이 없어 지우지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '지우려면 원드라이브를 다시 연결해 주세요.'}),
+  delete: Object.freeze({phone: '이 폰은 여기서 삭제하지 못해요. 갤러리 앱에서 삭제해 주세요.', gdrive: '구글 드라이브 권한이 없어 삭제하지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '삭제하려면 원드라이브를 다시 연결해 주세요.'}),
   move: Object.freeze({phone: '폰 사진을 옮기려면 웹2 앱을 새 판으로 올려 주세요.', gdrive: '구글 드라이브 권한이 없어 옮기지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '옮기려면 원드라이브를 다시 연결해 주세요.'}),
   rename: Object.freeze({gdrive: '구글 드라이브 권한이 없어 이름을 바꾸지 못해요. 사진 › 출처에서 다시 연결해 주세요.'}),
 });

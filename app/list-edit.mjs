@@ -17,8 +17,8 @@ export function leAddHtml({name,value='',limit=20,disabled=false,inputId='',form
 export function leRowHtml({id,label,shown=label,meta='',drag=false,locked=false,sub=false,disabled=false,extra='',rowAttrs={}}){
   const cls=`le-row${sub?' le-sub':''}${locked?' le-locked':''}`;
   const handle=drag&&!disabled?`<button type="button" class="le-handle" data-reorder-handle aria-label="${esc(label)} 순서 바꾸기(끌거나 위·아래 화살표)">⠿</button>`:'<span class="le-handle le-handle-off" aria-hidden="true"></span>';
-  const name=locked?`<span class="le-name">${esc(shown)}</span>`:`<button type="button" class="le-name" data-le-rename="${esc(id)}" aria-label="${esc(label)} 이름 고치기"${disabled?' disabled':''}>${esc(shown)}</button>`;
-  const end=locked?`<span class="le-lock">${iconHtml('lock',{size:12})}고정</span>`:`<button type="button" class="le-more" data-le-menu="${esc(id)}" aria-label="${esc(label)} 더보기" aria-haspopup="true" aria-expanded="false"${disabled?' disabled':''}><span class="more-dots" aria-hidden="true">⋯</span></button>`;
+  const name=locked?`<span class="le-name">${esc(shown)}</span>`:`<button type="button" class="le-name" data-le-rename="${esc(id)}" aria-label="${esc(label)} 이름 수정"${disabled?' disabled':''}>${esc(shown)}</button>`;
+  const end=locked?`<span class="le-lock">${iconHtml('lock',{size:12})}고정</span>`:`<button type="button" class="le-more" data-le-menu="${esc(id)}" aria-label="${esc(label)} 메뉴" aria-haspopup="true" aria-expanded="false"${disabled?' disabled':''}><span class="more-dots" aria-hidden="true">⋯</span></button>`;
   return `<li class="${cls}"${drag?` data-reorder-id="${esc(id)}"`:''} data-le-row="${esc(id)}"${attrs(rowAttrs)}>${handle}${name}${extra}${meta!==''?`<span class="le-meta">${esc(meta)}</span>`:''}${end}</li>`;
 }
 

@@ -12,7 +12,7 @@ import {createChoiceSheet} from './choice-sheet.js';
 import {emptyHtml} from './wait-state.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const KINDS={area:{label:'사업영역',title:'사업영역 고르기'},org:{label:'조직',title:'조직 고르기'}};
+const KINDS={area:{label:'사업영역',title:'사업영역 선택'},org:{label:'조직',title:'조직 선택'}};
 const RECENT_MAX=4;
 // The first row of a one-choice sheet that picks nothing ('사업영역 없음' / '조직 없음').
 const noneLabel=kind=>`${KINDS[kind].label} 없음`;
@@ -111,7 +111,7 @@ function render(kind){
 function createHtml(c){
   const k=c?.create;if(!k||c.multi||c.kind!=='org')return '';
   const busy=k.busy?' disabled':'',ph='직접 쓰기 — 조직 이름';
-  const similar=k.similar?.length?`<p class="aop-create-note">비슷한 조직이 있어요. 맞으면 눌러 고르세요.</p>${k.similar.map(x=>rowHtml(x.key,x.name,0,{pressed:false})).join('')}<button type="button" class="row-act aop-create-force" data-aop-create-force${busy}>'${esc(k.text)}' 새로 만들기</button>`:'';
+  const similar=k.similar?.length?`<p class="aop-create-note">비슷한 조직이 있어요. 맞으면 눌러 선택하세요.</p>${k.similar.map(x=>rowHtml(x.key,x.name,0,{pressed:false})).join('')}<button type="button" class="row-act aop-create-force" data-aop-create-force${busy}>'${esc(k.text)}' 새로 만들기</button>`:'';
   return `<div class="aop-create" data-aop-create-box><div class="aop-create-row"><input type="text" class="aop-create-input" data-aop-create-input maxlength="120" autocomplete="off" placeholder="${ph}" aria-label="${ph}" value="${esc(k.text||'')}"${busy}><button type="button" class="row-act aop-create-go" data-aop-create${busy}>만들기</button></div>${similar}<p class="aop-create-note" data-aop-create-status role="status">${esc(k.status||'')}</p></div>`;
 }
 async function runCreate(force){
@@ -135,7 +135,7 @@ function ensureSheet(){
       if(c.locked?.has(value))return;
       c.full=false;if(c.pending.has(value))c.pending.delete(value);else if(c.max&&c.pending.size>=c.max)c.full=true;else c.pending.add(value)},
     // max: how many may be kept at once (a press past it keeps the choice and says so in the count).
-    multi:kind=>current?.multi?{pressed:v=>current.pending.has(v),label:current.full?`한 번에 ${current.max}곳까지`:current.pending.size?`${current.pending.size}개 고름`:''}:null,
+    multi:kind=>current?.multi?{pressed:v=>current.pending.has(v),label:current.full?`한 번에 ${current.max}곳까지`:current.pending.size?`${current.pending.size}개 선택됨`:''}:null,
     onCommit:kind=>{const c=current;if(c?.multi)c.commit(c.pending)}});
   const box=document.getElementById('areaOrgPickSheet');
   box?.addEventListener('click',e=>{const b=e.target.closest('[data-aop-create],[data-aop-create-force]');if(!b||!box.contains(b))return;e.stopPropagation();void runCreate(b.hasAttribute('data-aop-create-force'))});
@@ -184,7 +184,7 @@ export function mountAreaOrgLines(host,{onChange=()=>{},kinds=['area','org'],mul
   if(!host)return null;
   ensureStyles();host.classList.add('aop-lines');
   const shown=Object.entries(KINDS).filter(([k])=>kinds.includes(k));
-  host.innerHTML=shown.map(([k,t])=>{const label=esc(labels?.[k]||t.label);return `<div class="aop-row" data-aop-line="${k}"><span class="aop-label${labels?.[k]?' is-long':''}">${label}</span><span class="aop-chips" data-aop-chips="${k}"></span><button type="button" class="aop-add" data-aop-add="${k}" aria-haspopup="dialog" aria-expanded="false" aria-label="${label} 고르기"></button></div>`}).join('');
+  host.innerHTML=shown.map(([k,t])=>{const label=esc(labels?.[k]||t.label);return `<div class="aop-row" data-aop-line="${k}"><span class="aop-label${labels?.[k]?' is-long':''}">${label}</span><span class="aop-chips" data-aop-chips="${k}"></span><button type="button" class="aop-add" data-aop-add="${k}" aria-haspopup="dialog" aria-expanded="false" aria-label="${label} 선택"></button></div>`}).join('');
   let state={...choiceState({}),selected:new Set()};
   function commit(kind,pending){const known=kind==='area'?state.areaKnown:state.orgKnown;for(const k of known.keys()){if(pending.has(k))state.selected.add(k);else state.selected.delete(k)}paint();onChange()}
   function chipLabel(kind,k){return kind==='area'?chipText(state.tree.byKey.get(k)):state.orgKnown.get(k)}
@@ -192,7 +192,7 @@ export function mountAreaOrgLines(host,{onChange=()=>{},kinds=['area','org'],mul
     for(const [kind] of shown){
       const known=kind==='area'?state.areaKnown:state.orgKnown,keys=[...known.keys()].filter(k=>state.selected.has(k)),box=host.querySelector(`[data-aop-chips="${kind}"]`);
       box.innerHTML=keys.length?keys.map(k=>{const t=chipLabel(kind,k);return `<span class="aop-chip" data-aop-chip="${esc(k)}"><span class="aop-chip-text">${esc(t)}</span><button type="button" class="aop-chip-x" data-aop-remove="${esc(k)}" aria-label="${esc(t)} 빼기">✕</button></span>`}).join(''):emptyHtml('없음',{attrs:'data-aop-none'});
-      const add=host.querySelector(`[data-aop-add="${kind}"]`);add.textContent=keys.length?'+':'+ 고르기';add.classList.toggle('is-short',!!keys.length);
+      const add=host.querySelector(`[data-aop-add="${kind}"]`);add.textContent=keys.length?'+':'+ 선택';add.classList.toggle('is-short',!!keys.length);
     }
   }
   host.addEventListener('click',e=>{

@@ -49,10 +49,10 @@ export function odLinkMenuHtml({od = {}, fault = false, message = '', show = tru
     return status + (od.failed ? '<button type="button" data-od-act="retry">다시 확인</button>' : '<button type="button" data-od-act="connect">원드라이브 연결</button>');
   }
   const items = [];
-  if (!od.whole) items.push(`<button type="button" data-od-act="folder">${od.folder ? '폴더 바꾸기' : '폴더 고르기'}</button>`);
+  if (!od.whole) items.push(`<button type="button" data-od-act="folder">${od.folder ? '폴더 바꾸기' : '폴더 선택'}</button>`);
   if (od.folder && !od.whole) items.push('<button type="button" data-od-act="subfolders">하위 폴더 켜고 끄기</button>');
   if (od.folder) items.push(`<button type="button" role="menuitemcheckbox" aria-checked="${show ? 'true' : 'false'}" data-od-act="show"><span class="od-link-check" aria-hidden="true">${show ? '✓' : ''}</span>${esc(showLabel)}</button>`);
-  if (!od.canDelete) items.push('<button type="button" data-od-act="reconnect">지우기를 쓰려면 다시 연결</button>');
+  if (!od.canDelete) items.push('<button type="button" data-od-act="reconnect">삭제를 쓰려면 다시 연결</button>');
   items.push('<button type="button" class="od-link-danger" data-od-act="disconnect">연결 끊기</button>');
   return status + items.join('');
 }

@@ -163,7 +163,7 @@ function paintListNow() {
   if (state.missing) { box.innerHTML = head + '<p class="feed-empty" data-cf-empty="ready">준비 중이에요. 통화 수집이 연결되면 여기에 보여요.</p>'; return; }
   if (state.error) { box.innerHTML = head + `<p class="feed-empty" role="status">${esc(state.error)} <button type="button" class="feed-text-btn" data-cf-retry>다시 시도</button></p>`; return; }
   const status = `<p class="feed-status" data-cf-status role="status">${statusHtml()}</p>`;
-  const editFail = state.editFail ? `<p class="feed-note" data-cf-editfail role="status">고친 값을 불러오지 못해 AI가 채운 값이 보일 수 있어요. <button type="button" class="feed-text-btn" data-cf-retry>다시 시도</button></p>` : '';
+  const editFail = state.editFail ? `<p class="feed-note" data-cf-editfail role="status">수정한 값을 불러오지 못해 AI가 채운 값이 보일 수 있어요. <button type="button" class="feed-text-btn" data-cf-retry>다시 시도</button></p>` : '';
   if (personalBox) {
     if (state.pfail) { box.innerHTML = head + `<p class="feed-empty" role="status">개인 통화함을 불러오지 못했어요. <button type="button" class="feed-text-btn" data-cf-retry>다시 시도</button></p>${status}`; return; }
     const legacy = legacyFilteredNote(state.days, kstDay());
@@ -205,8 +205,8 @@ function paintDetailNow() {
   const personal = isPersonal(r), unsure = r.kind === 'unsure';
   const who = whoOf(r);
   const points = readPoints(r.points);
-  const pencil = state.editMissing ? '' : `<button type="button" class="feed-mini-edit" data-cf-sum-open aria-label="핵심내용 고치기" title="핵심내용 고치기"${state.busy ? ' disabled' : ''}><span aria-hidden="true">✎</span></button>`;
-  const pointsHtml = state.sum?.rowId === r.id ? sumBoxHtml(r) : points.length ? `<div class="feed-k-row"><p class="feed-k">핵심내용${r.edited?.points ? ' <span class="feed-faint">· 고친 값</span>' : ''}</p><span class="feed-k-tools">${pencil}${copyButtonHtml('data-cf-copy')}</span></div><ul class="feed-points" data-cf-points>${points.map(p => `<li>${esc(p.text)}${p.tag ? `<span class="feed-tag feed-tag-${p.kind}">${esc(p.tag)}</span>` : ''}</li>`).join('')}</ul>` : emptyHtml('핵심내용 없음').replace('</p>', `${r.edited?.points || state.editMissing ? '' : ' <button type="button" class="feed-text-btn" data-cf-sum-open>직접 쓰기</button>'}</p>`);
+  const pencil = state.editMissing ? '' : `<button type="button" class="feed-mini-edit" data-cf-sum-open aria-label="핵심내용 수정" title="핵심내용 수정"${state.busy ? ' disabled' : ''}><span aria-hidden="true">✎</span></button>`;
+  const pointsHtml = state.sum?.rowId === r.id ? sumBoxHtml(r) : points.length ? `<div class="feed-k-row"><p class="feed-k">핵심내용${r.edited?.points ? ' <span class="feed-faint">· 수정한 값</span>' : ''}</p><span class="feed-k-tools">${pencil}${copyButtonHtml('data-cf-copy')}</span></div><ul class="feed-points" data-cf-points>${points.map(p => `<li>${esc(p.text)}${p.tag ? `<span class="feed-tag feed-tag-${p.kind}">${esc(p.tag)}</span>` : ''}</li>`).join('')}</ul>` : emptyHtml('핵심내용 없음').replace('</p>', `${r.edited?.points || state.editMissing ? '' : ' <button type="button" class="feed-text-btn" data-cf-sum-open>직접 쓰기</button>'}</p>`);
   const full = fullHtml(r);
   const link = !personal && state.link?.rowId === r.id ? linkBoxHtml(state.link, state.orgs, 'cf') : '';
   const confirm = state.confirm?.id === r.id ? `<div class="feed-warn" data-cf-confirm role="alert"><p>${esc(state.confirm.text)}</p><div class="feed-link-actions"><button type="button" class="feed-small" data-cf-confirm-go>개인 통화로 옮기기</button><button type="button" class="feed-small" data-cf-confirm-cancel>취소</button></div></div>` : '';
@@ -214,8 +214,8 @@ function paintDetailNow() {
   // UI-더보기제목줄: ⋯는 빈 줄을 따로 차지하지 않고 상세 첫 줄(폰은 제목, PC는 날짜·시간 줄) 오른쪽 끝에 둔다(공용 .kptu-title-line, base-ui.css).
   const more = `<button type="button" class="feed-more" data-cf-more data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-label="통화 메뉴"${state.busy ? ' disabled' : ''}>${MORE}</button>`;
   // 조직·이름 표(날짜·시간 뒤의 상대)를 누르면 그 자리에서 고친다. 고친 값이 있으면 작게 '고침'을 붙인다.
-  const whoBtn = who ? (state.editMissing ? esc(who) : `<button type="button" class="feed-whoname" data-cf-who-open aria-label="조직·이름 고치기">${esc(who)}</button>`) : '';
-  const tail = `${r.pinned_at ? ' · 고정' : ''}${unsure ? ' · 애매' : personal ? ' · 개인' : ''}${r.edited?.counterpart || r.edited?.organization_id ? ' · 고침' : ''}`;
+  const whoBtn = who ? (state.editMissing ? esc(who) : `<button type="button" class="feed-whoname" data-cf-who-open aria-label="조직·이름 수정">${esc(who)}</button>`) : '';
+  const tail = `${r.pinned_at ? ' · 고정' : ''}${unsure ? ' · 애매' : personal ? ' · 개인' : ''}${r.edited?.counterpart || r.edited?.organization_id ? ' · 수정됨' : ''}`;
   const metaHtml = `${esc([dayLabel(r.day), hhmm(r.occurred_at)].filter(Boolean).join(' · '))}${whoBtn ? ' · ' + whoBtn : ''}${esc(tail)}`;
   const titleHtml = state.edit?.id === r.id && state.edit.where === 'detail' ? titleInputHtml('feed-title-input feed-detail-title-input') : `<h3 class="feed-detail-title" data-cf-title>${esc(topicOf(r))}</h3>`;
   const first = pc.matches
@@ -233,7 +233,7 @@ function newWhoBox(r) {
 }
 function whoBoxHtml(r) {
   const b = state.who, personal = isPersonal(r);
-  const orgRow = personal ? '' : `<div class="feed-link-row"><span class="feed-link-label">조직</span><button type="button" class="feed-small" data-cf-who-pick aria-haspopup="dialog" aria-expanded="false"${b.busy ? ' disabled' : ''}>${esc(b.orgId ? orgName(state.orgs, b.orgId) || '고른 조직' : '조직 고르기')} ▾</button></div>`;
+  const orgRow = personal ? '' : `<div class="feed-link-row"><span class="feed-link-label">조직</span><button type="button" class="feed-small" data-cf-who-pick aria-haspopup="dialog" aria-expanded="false"${b.busy ? ' disabled' : ''}>${esc(b.orgId ? orgName(state.orgs, b.orgId) || '선택한 조직' : '조직 선택')} ▾</button></div>`;
   const reset = (r.edited?.counterpart || r.edited?.organization_id) ? `<button type="button" class="feed-text-btn" data-cf-who-reset${b.busy ? ' disabled' : ''}>AI 값으로</button>` : '';
   return `<div class="feed-link feed-who-box" data-cf-who-box data-enter-save="[data-cf-who-save]">
 ${orgRow}<div class="feed-link-row"><label class="feed-link-label" for="cfWhoName">이름</label><input id="cfWhoName" type="text" class="feed-edit-input" data-cf-who-name maxlength="${EDIT_NAME_MAX}" autocomplete="off" value="${esc(b.name)}"${b.busy ? ' disabled' : ''}><label class="feed-link-label" for="cfWhoRole">직함</label><input id="cfWhoRole" type="text" class="feed-edit-input" data-cf-who-role maxlength="${EDIT_ROLE_MAX}" autocomplete="off" value="${esc(b.role)}"${b.busy ? ' disabled' : ''}></div>
@@ -244,9 +244,9 @@ ${orgRow}<div class="feed-link-row"><label class="feed-link-label" for="cfWhoNam
 function newSumBox(r) { return {rowId:r.id, lines:(Array.isArray(r.points) ? r.points : []).filter(p => typeof p === 'string'), start:cleanPointLines(Array.isArray(r.points) ? r.points : []), busy:false, status:'', focus:null}; }
 function sumBoxHtml(r) {
   const b = state.sum, full = b.lines.length >= EDIT_POINTS_MAX;
-  const items = b.lines.map((l, i) => `<li class="feed-sumedit-line"><textarea rows="1" class="feed-edit-input" data-cf-sum-line="${i}" data-autogrow data-enter-field="off" maxlength="${EDIT_POINT_MAX}" autocomplete="off" aria-label="핵심내용 ${i + 1}번째 줄"${b.busy ? ' disabled' : ''}>${esc(l)}</textarea><button type="button" class="feed-text-btn" data-cf-sum-del="${i}" aria-label="${i + 1}번째 줄 지우기"${b.busy ? ' disabled' : ''}>지우기</button></li>`).join('');
+  const items = b.lines.map((l, i) => `<li class="feed-sumedit-line"><textarea rows="1" class="feed-edit-input" data-cf-sum-line="${i}" data-autogrow data-enter-field="off" maxlength="${EDIT_POINT_MAX}" autocomplete="off" aria-label="핵심내용 ${i + 1}번째 줄"${b.busy ? ' disabled' : ''}>${esc(l)}</textarea><button type="button" class="feed-text-btn" data-cf-sum-del="${i}" aria-label="${i + 1}번째 줄 삭제"${b.busy ? ' disabled' : ''}>삭제</button></li>`).join('');
   const reset = r.edited?.points ? `<button type="button" class="feed-text-btn" data-cf-sum-reset${b.busy ? ' disabled' : ''}>AI 값으로</button>` : '';
-  return `<div class="feed-sumedit" data-cf-sum><p class="feed-k">핵심내용 고치기 <span class="feed-faint">· 줄마다 고치고, 비운 줄은 저장할 때 빠져요</span></p>
+  return `<div class="feed-sumedit" data-cf-sum><p class="feed-k">핵심내용 수정 <span class="feed-faint">· 줄마다 수정하고, 비운 줄은 저장할 때 빠져요</span></p>
 <ul class="feed-sumedit-lines">${items}</ul>
 <div class="feed-link-actions"><button type="button" class="feed-text-btn" data-cf-sum-add${b.busy || full ? ' disabled' : ''}>+ 줄 더하기</button><span class="feed-status" role="status">${esc(b.status)}</span>${reset}<button type="button" class="feed-small" data-cf-sum-cancel${b.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-cf-sum-save${b.busy ? ' disabled' : ''}>저장</button></div>
 </div>`;
@@ -295,13 +295,13 @@ function dropBoxes(again) {
   const who = state.who, sum = state.sum;
   const dirtyWho = who && (who.busy || who.orgId !== who.start.orgId || joinPerson(who.name, who.role) !== who.start.person);
   const dirtySum = sum && (sum.busy || !samePoints(cleanPointLines(sum.lines), sum.start));
-  if (dirtyWho || dirtySum) { askDrop('쓰던 내용을 버릴까요?', () => state.who === who && state.sum === sum, () => { state.who = null; state.sum = null; }, again); return false; }
+  if (dirtyWho || dirtySum) { askDrop('쓰던 내용을 저장하지 않을까요?', () => state.who === who && state.sum === sum, () => { state.who = null; state.sum = null; }, again); return false; }
   state.who = null; state.sum = null; return true;
 }
-function dropLink(again) { const link = state.link, r = rowOf(link?.rowId), changed = link && r && link.summary.trim() !== newLinkBox(r).summary.trim(); if (changed) { askDrop('쓰던 요약을 버릴까요?', () => state.link === link, () => { state.link = null; }, again); return false; } state.link = null; return true; }
+function dropLink(again) { const link = state.link, r = rowOf(link?.rowId), changed = link && r && link.summary.trim() !== newLinkBox(r).summary.trim(); if (changed) { askDrop('쓰던 요약을 저장하지 않을까요?', () => state.link === link, () => { state.link = null; }, again); return false; } state.link = null; return true; }
 // 묻는 사이 박스가 바뀌었으면(저장·다른 통화) 아무것도 하지 않는다.
 function askDrop(text, same, drop, again) {
-  void askConfirm(document.activeElement, {text, ok:'버리기', danger:true}).then(ok => { if (!ok || !same()) return; drop(); if (again) again(); else paintDetail(); });
+  void askConfirm(document.activeElement, {text, ok:'저장 안 함', danger:true}).then(ok => { if (!ok || !same()) return; drop(); if (again) again(); else paintDetail(); });
 }
 const say = text => { state.status = text; for (const el of view()?.querySelectorAll('[data-cf-status],[data-cf-detail-status]') || []) el.innerHTML = statusHtml(); };
 // 서버에서 새로 읽은 줄(AI 값)을 넣을 때도 손으로 고친 값을 다시 덧씌운다.
@@ -328,9 +328,9 @@ function hide(r) {
       if (!current()) return;
       const saved = await (isPersonal(r) ? setPersonalHidden(r.id, true, rt) : setHidden(r.id, true, rt)); if (!current()) return; if (!saved) return void await gone();
       dropFromList(r); if (state.selected === r.id) closeDetail({quiet:true});
-      undo = {type:'hide', id:r.id, row:{...r, hidden_at:null}}; state.status = '목록에서 지웠어요. 원본은 Drive에 있어요.';
+      undo = {type:'hide', id:r.id, row:{...r, hidden_at:null}}; state.status = '목록에서 삭제했어요. 원본은 Drive에 있어요.';
       ledgerAsk = found && found.total ? {...found} : null;
-    } catch { if (current()) state.status = '지우지 못했어요. 다시 시도해 주세요.'; }
+    } catch { if (current()) state.status = '삭제하지 못했어요. 다시 시도해 주세요.'; }
   }).then(() => $('#cfList [data-cf-undo]')?.focus({preventScroll:true}));
 }
 function retireLedger() {
@@ -513,9 +513,9 @@ const menu = createAnchoredMenu({id:'cfMenu', className:'feed-menu', label:'통�
     const r = rowOf(id.slice(id.indexOf(':') + 1)); if (!r) return '';
     const inDetail = id.startsWith('detail:'), personal = isPersonal(r);
     const copy = callText(r) ? '<button type="button" data-cf-act="copy">요약 복사</button>' : '', drive = r.drive_url ? '<button type="button" data-cf-act="drive">Drive 원본 열기</button>' : '';
-    const hideBtn = '<button type="button" class="feed-menu-danger" data-cf-act="hide">지우기 <span class="feed-faint">목록에서만</span></button>';
+    const hideBtn = '<button type="button" class="feed-menu-danger" data-cf-act="hide">삭제 <span class="feed-faint">목록에서만</span></button>';
     // CALL-손고치기: 고치기 항목은 맨 위(제목 바꾸기 · 조직·이름 · 요약). 고친 값 표가 아직 없으면(DB 적용 전) 보이지 않는다.
-    const edit = state.editMissing ? '' : `<button type="button" data-cf-act="title">제목 바꾸기${pc.matches ? ' <span class="feed-faint">F2</span>' : ''}</button><button type="button" data-cf-act="who">${personal ? '이름 고치기' : '조직·이름 고치기'}</button><button type="button" data-cf-act="sum">요약 고치기</button>`;
+    const edit = state.editMissing ? '' : `<button type="button" data-cf-act="title">제목 바꾸기${pc.matches ? ' <span class="feed-faint">F2</span>' : ''}</button><button type="button" data-cf-act="who">${personal ? '이름 수정' : '조직·이름 수정'}</button><button type="button" data-cf-act="sum">요약 수정</button>`;
     if (!personal) return `${edit}<button type="button" data-cf-act="pin">${r.pinned_at ? '고정 풀기' : '고정'}</button>${inDetail ? '<button type="button" data-cf-act="link">조직 연결</button>' : ''}${copy}${drive}<button type="button" data-cf-act="to-personal">개인 통화로 옮기기</button>${hideBtn}`;
     return `${edit}<button type="button" data-cf-act="to-work">업무 통화로 옮기기</button>${r.kind === 'unsure' ? '<button type="button" data-cf-act="to-personal">개인 통화로 정하기</button>' : ''}${copy}${drive}${hideBtn}`;
   },

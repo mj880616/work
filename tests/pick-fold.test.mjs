@@ -1,4 +1,4 @@
-// UI-고른것접기(PROFILE-담당사업장접기): 긴 체크 목록 공용 부품(app/pick-fold.mjs)과 '다시 생기지 않게' 검사.
+// UI-선택한것접기(PROFILE-담당사업장접기): 긴 체크 목록 공용 부품(app/pick-fold.mjs)과 '다시 생기지 않게' 검사.
 // 앱 안에서 항목마다 체크 칸을 그리는 목록은 이 부품을 쓰거나, 아래 SHORT_OR_OTHER 표에 이유와 함께 적혀 있어야 한다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,11 +38,11 @@ test('모양: 상태를 이어 그리면 펼침·찾기 글이 남고, 맞지 �
   assert.match(html, /data-pick-name="전국철도노동조합" hidden>/);
   assert.match(html, /data-pick-name="한국가스공사노조">/);
   assert.match(html, /<div class="pick-group" data-pick-group hidden>/);
-  assert.match(html, /고른 것 없음/);
+  assert.match(html, /선택한 것 없음/);
   assert.match(html, /data-pick-empty hidden>/);
 });
 
-test('모양: 제목이 없으면 접는 줄 없이 고른 것 + 그 외, 그 외가 비면 그 칸도 없다', () => {
+test('모양: 제목이 없으면 접는 줄 없이 선택한 것 + 그 외, 그 외가 비면 그 칸도 없다', () => {
   const html = pickFoldHtml({key: 'council', picked: 'A', others: []});
   assert.match(html, /^<div class="pick-fold-plain" data-pick-key="council">/);
   assert.doesNotMatch(html, /data-pick-others|data-pick-fold/);
@@ -55,11 +55,11 @@ const SKIP = /(^|\/)(hwp-lab|editor-lib|pdf-lib|markdown-lib|legacy)\//;
 const USES = /from '\.\/pick-fold\.mjs'|import\('\.\/pick-fold\.mjs'\)/;
 // 공용 부품을 쓰지 않아도 되는 체크 칸: 파일 → 이유. 새 긴 체크 목록은 여기에 적지 말고 pick-fold.mjs를 쓴다.
 const SHORT_OR_OTHER = {
-  'now-highlights.js': 'News [밑줄] 탭 [여러 개 고르기] — 밑줄 줄마다 고르기 칸(노트 하나로 묶기), 찾기는 위 News 찾기 칸',
+  'now-highlights.js': 'News [밑줄] 탭 [여러 개 선택] — 밑줄 줄마다 선택 칸(노트 하나로 묶기), 찾기는 위 News 찾기 칸',
   'ledger-browse.js': '기록 종류 칩(정해진 몇 개)',
-  'library-upload.js': '자료 여러 개 고르기 모드: 목록 자체에서 고르는 것이라 고르기 목록이 아님',
+  'library-upload.js': '자료 여러 개 선택 모드: 목록 자체에서 선택하는 것이라 선택 목록이 아님',
   'markdown-render.mjs': '글 안 할 일 표시(읽기 전용)',
-  'suborganizations.js': '일정의 관련 담당조직은 내 담당만(짧음), 담당자 고르기는 사람 몇 명',
+  'suborganizations.js': '일정의 관련 담당조직은 내 담당만(짧음), 담당자 선택은 사람 몇 명',
   'task-row-view.js': '할 일 완료 체크',
 };
 const walk = dir => readdirSync(dir).flatMap(name => { const p = join(dir, name); return statSync(p).isDirectory() ? walk(p) : [p]; });
@@ -69,9 +69,9 @@ const perItemCheckbox = src => [...src.matchAll(/<input\b[^<>]*?>/g)].some(m => 
 test('항목마다 체크 칸을 그리는 목록은 공용 부품을 쓰거나 이유가 적혀 있다', () => {
   const found = files.filter(f => perItemCheckbox(readFileSync(join(APP, f), 'utf8')));
   const bad = found.filter(f => !SHORT_OR_OTHER[f] && !USES.test(readFileSync(join(APP, f), 'utf8')));
-  assert.deepEqual(bad, [], `긴 체크 목록은 pick-fold.mjs(고른 것 + 접힌 그 외, 맨 위 찾기)로 그린다: ${bad.join(', ')}`);
+  assert.deepEqual(bad, [], `긴 체크 목록은 pick-fold.mjs(선택한 것 + 접힌 그 외, 맨 위 찾기)로 그린다: ${bad.join(', ')}`);
   const stale = Object.keys(SHORT_OR_OTHER).filter(f => !found.includes(f));
-  assert.deepEqual(stale, [], '체크 칸이 없어진 파일은 표에서 지운다');
+  assert.deepEqual(stale, [], '체크 칸이 없어진 파일은 표에서 삭제한다');
 });
 
 // 기기 저장을 쓰지 않는 것은 browser-storage-audit가 앱 전체에서 본다.

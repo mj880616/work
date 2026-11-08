@@ -50,7 +50,7 @@ function setup({failPieceOnce = false, discardStatus = 0} = {}) {
   return {core, st, sent, calls, notes, drafts, pieces:() => pieces, state};
 }
 
-test('앱 글 읽기: 상태·다음 일·기다림만, 그 밖은 버린다', () => {
+test('앱 글 읽기: 상태·다음 일·기다림만, 그 밖은 삭제한다', () => {
   assert.deepEqual(readMessage('rec:state:{"state":"recording"}'), {kind:'state', data:{state:'recording'}});
   assert.deepEqual(readMessage('rec:next:{"kind":"idle"}'), {kind:'next', data:{kind:'idle'}});
   assert.deepEqual(readMessage('rec:wait:3000'), {kind:'wait', data:3000});
@@ -105,7 +105,7 @@ test('녹음 → 조각 올리기(재시도 포함) → 멈추고 정리 → 회
   assert.ok(t.sent.includes('rec:sent:1:2'), '멈춘 뒤 마지막 조각까지 올린다');
   const order = t.calls.map(c => c.action);
   assert.ok(order.indexOf('rec_finish') > order.lastIndexOf('rec_piece'));
-  assert.ok(t.sent.indexOf('rec:clear') > t.sent.indexOf('rec:sent:1:2'), 'rec_finish 뒤 앱 임시 파일 지우기');
+  assert.ok(t.sent.indexOf('rec:clear') > t.sent.indexOf('rec:sent:1:2'), 'rec_finish 뒤 앱 임시 파일 삭제');
   assert.equal(t.drafts.length, 1);
   assert.match(t.drafts[0].text, /회의를 시작합니다/);
   assert.deepEqual(t.drafts[0].jobs, ['job-1']);
@@ -133,7 +133,7 @@ test('앱이 죽은 뒤 다시 열면 이어서 정리 줄 → 누르면 남은 
   assert.ok(t.sent.includes('rec:clear'));
 });
 
-test('녹음 중 [버리기]: 멈추고 남은 조각을 마저 올린 뒤 rec_discard, 앱 임시 파일 지움, 되돌리기 알림', async () => {
+test('녹음 중 [삭제]: 멈추고 남은 조각을 마저 올린 뒤 rec_discard, 앱 임시 파일 지움, 되돌리기 알림', async () => {
   const t = setup();
   await t.core.hello();
   await t.core.start();
@@ -144,7 +144,7 @@ test('녹음 중 [버리기]: 멈추고 남은 조각을 마저 올린 뒤 rec_d
   assert.equal(t.calls.some(c => c.action === 'rec_finish' || c.action === 'transcribe'), false, '전사·초안 없음');
   assert.equal(t.drafts.length, 0);
   const note = t.notes.at(-1);
-  assert.equal(note.text, '녹음을 버렸어요');
+  assert.equal(note.text, '녹음을 삭제했어요');
   assert.equal((await note.opts.undo()).status, 'restored');
   assert.ok(t.calls.some(c => c.action === 'rec_restore'));
 });

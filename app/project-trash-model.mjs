@@ -112,14 +112,14 @@ export function otherDeleteText(kind, name, detail = null) {
   if (kind === 'library_folder') {
     const inside = [detail?.folders ? `아래 폴더 ${detail.folders}개` : '', detail?.files ? `자료 ${detail.files}개` : ''].filter(Boolean).join('·');
     return {
-      confirm: `${q}폴더를 휴지통으로 옮길까요?${inside ? `\n${inside}도 함께 들어가고, 자료는 자료실 목록에서 함께 숨습니다.` : ''}\n자료와 Drive 파일은 지워지지 않고, 휴지통에서 되돌리면 원래대로 돌아옵니다.`,
+      confirm: `${q}폴더를 휴지통으로 옮길까요?${inside ? `\n${inside}도 함께 들어가고, 자료는 자료실 목록에서 함께 숨습니다.` : ''}\n자료와 Drive 파일은 삭제되지 않고, 휴지통에서 되돌리면 원래 자리로 돌아옵니다.`,
       moved: '폴더를 휴지통으로 옮겼습니다.',
     };
   }
   if (kind === 'note') {
     const word = noteKindWord(detail?.noteKind);
     const files = detail?.attachments ? `\n첨부 파일 ${detail.attachments}개는 Drive에 그대로 남습니다.` : '';
-    const links = detail?.links ? `\n연결된 ${detail.links}곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.` : '\n휴지통에서 되돌릴 수 있습니다.';
+    const links = detail?.links ? `\n연결된 ${detail.links}곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래 자리로 돌아옵니다.` : '\n휴지통에서 되돌릴 수 있습니다.';
     return {
       confirm: `${q}${word}를 휴지통으로 옮길까요?${files}${links}`,
       moved: `${word}를 휴지통으로 옮겼어요.`,
@@ -128,7 +128,7 @@ export function otherDeleteText(kind, name, detail = null) {
   if (kind === 'share_page') {
     const live = detail?.status === 'published' ? '\n게시가 멈춰 링크로 보던 사람도 볼 수 없게 되고, 휴지통에서 되돌리면 같은 링크가 다시 열립니다.' : '\n휴지통에서 되돌릴 수 있습니다.';
     return {
-      confirm: `${q}공유 페이지를 휴지통으로 옮길까요?\n링크·사진은 지워지지 않습니다.${live}`,
+      confirm: `${q}공유 페이지를 휴지통으로 옮길까요?\n링크·사진은 삭제되지 않습니다.${live}`,
       moved: '공유 페이지를 휴지통으로 옮겼어요.',
     };
   }
@@ -180,23 +180,23 @@ export function trashErrorText(error, fallback = '처리하지 못했습니다. 
 
 export function purgeConfirmText(row) {
   if (row.kind === 'organization') {
-    return `“${row.name}” 담당조직을 영구 삭제할까요?\n조직에 달린 기록·담당자·타임라인·쟁의단계와 메모·원장 연결이 함께 지워지며 되돌릴 수 없습니다.`;
+    return `“${row.name}” 담당조직을 영구 삭제할까요?\n조직에 달린 기록·담당자·타임라인·쟁의단계와 메모·원장 연결이 함께 삭제되며 되돌릴 수 없습니다.`;
   }
   if (row.kind === 'report') {
-    return `“${row.name}” 사업 보고를 영구 삭제할까요?\n보고에 달린 메모·원장 연결이 함께 지워지며 되돌릴 수 없습니다. 후속 할 일(Google 할 일)과 자료 파일은 지우지 않습니다.`;
+    return `“${row.name}” 사업 보고를 영구 삭제할까요?\n보고에 달린 메모·원장 연결이 함께 삭제되며 되돌릴 수 없습니다. 후속 할 일(Google 할 일)과 자료 파일은 삭제하지 않습니다.`;
   }
   if (row.kind === 'share_page') {
-    return `“${row.name}” 공유 페이지를 영구 삭제할까요?\n페이지·링크${row.file_count ? `·사진 ${row.file_count}장` : '·사진'}이 모두 지워지고 되돌릴 수 없습니다.`;
+    return `“${row.name}” 공유 페이지를 영구 삭제할까요?\n페이지·링크${row.file_count ? `·사진 ${row.file_count}장` : '·사진'}이 모두 삭제되고 되돌릴 수 없습니다.`;
   }
   if (row.kind === 'note') {
-    return `“${row.name}” ${noteKindWord(row.note_kind)}를 영구 삭제할까요?\n${row.link_count ? `조직·사업영역·사업 보고 연결 ${row.link_count}곳도 함께 지워지고 ` : ''}되돌릴 수 없습니다.${row.file_count ? ` 첨부 파일 ${row.file_count}개는 Drive에 그대로 남습니다.` : ''}`;
+    return `“${row.name}” ${noteKindWord(row.note_kind)}를 영구 삭제할까요?\n${row.link_count ? `조직·사업영역·사업 보고 연결 ${row.link_count}곳도 함께 삭제되고 ` : ''}되돌릴 수 없습니다.${row.file_count ? ` 첨부 파일 ${row.file_count}개는 Drive에 그대로 남습니다.` : ''}`;
   }
   if (row.kind === 'library_folder') {
     const inside = [row.child_count ? `아래 폴더 ${row.child_count}개` : '', row.file_count ? `자료 ${row.file_count}개` : ''].filter(Boolean).join('·');
-    return `“${row.name}” 폴더를 영구 삭제할까요?\n폴더만 지워지고${inside ? ` 안의 ${inside}는` : ' 안의 것은'} 한 단 위로 올라갑니다. 자료와 Drive 파일은 지우지 않으며 폴더는 되돌릴 수 없습니다.`;
+    return `“${row.name}” 폴더를 영구 삭제할까요?\n폴더만 삭제되고${inside ? ` 안의 ${inside}는` : ' 안의 것은'} 한 단 위로 올라갑니다. 자료와 Drive 파일은 삭제하지 않으며 폴더는 되돌릴 수 없습니다.`;
   }
-  const kids = row.child_count ? `\n함께 든 하위 사업영역 ${row.child_count}개도 지워집니다.` : '';
-  return `“${row.name}” 사업영역을 영구 삭제할까요?${kids}\n연결된 할 일·일정·사업 보고·자료·게시물은 지우지 않고 사업영역 연결만 풀립니다. 사업영역 전용 진행기록·주요 일정·의견은 함께 지워지며 되돌릴 수 없습니다.`;
+  const kids = row.child_count ? `\n함께 든 하위 사업영역 ${row.child_count}개도 삭제됩니다.` : '';
+  return `“${row.name}” 사업영역을 영구 삭제할까요?${kids}\n연결된 할 일·일정·사업 보고·자료·게시물은 삭제하지 않고 사업영역 연결만 풀립니다. 사업영역 전용 진행기록·주요 일정·의견은 함께 삭제되며 되돌릴 수 없습니다.`;
 }
 
 // 휴지통에 들어간 담당조직을 가리키는 연결의 이름자리. 조직 목록을 이미 읽었는데 이 조직만 없으면 휴지통에 있다.

@@ -37,7 +37,7 @@ test('PC 1440: 연 폴더를 서버에 기억 → 다시 열면 그 폴더, 맨 
   expect(errors).toEqual([]);
 });
 
-test('PC 1440: 기억한 폴더가 없어졌으면 맨 위로 열고 기억을 지운다', async ({ page }) => {
+test('PC 1440: 기억한 폴더가 없어졌으면 맨 위로 열고 기억을 삭제한다', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, prefs } = await begin(page, 1440, { files_last: [{ od: 'GONE!9' }] });
   await expect(row(page, 'od:OD!1')).toBeVisible();

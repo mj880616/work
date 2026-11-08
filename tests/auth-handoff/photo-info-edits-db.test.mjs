@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
-// S48-60 PHOTO-정보고치기 DB(20261103140000_photo_info_edits): 사진 정보 고치기 되돌리기 기록 표 — through the approved DB workflow runner.
+// S48-60 PHOTO-정보고치기 DB(20261103140000_photo_info_edits): 사진 정보 수정 되돌리기 기록 표 — through the approved DB workflow runner.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile} from 'node:fs/promises';

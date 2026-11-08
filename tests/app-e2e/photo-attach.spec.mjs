@@ -124,14 +124,14 @@ const itemIds = page => strip(page).evaluateAll(els => els.map(e => e.dataset.tp
 
 test.describe('폰 앱 412', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
-  test('그 시각 폰 사진: 앞뒤 3시간 것만 보이고, 고른 한 장만 기존 사진 올리기 길로 올라간다', async ({ page }) => {
+  test('그 시각 폰 사진: 앞뒤 3시간 것만 보이고, 선택한 한 장만 기존 사진 올리기 길로 올라간다', async ({ page }) => {
     const state = makeState();
     await mock(page, state);
     await phoneBridge(page);
     await openDetail(page);
     const line = page.locator('#mrdTimePhotos');
     await expect(line).toBeVisible();
-    await expect(line.locator('[data-tp-open]')).toHaveText('골라 붙이기');
+    await expect(line.locator('[data-tp-open]')).toHaveText('선택해 붙이기');
     // 열기 전에는 폰 사진 목록을 읽지 않는다.
     expect(state.phoneReads.filter(p => p.includes('/page?'))).toEqual([]);
     await line.locator('[data-tp-open]').click();
@@ -161,7 +161,7 @@ test.describe('폰 앱 412', () => {
 
 test.describe('PC 1280', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
-  test('그 시각 원드라이브 사진: 폰 사진 없이 원드라이브 것만, 고르지 않으면 올리지 않고 고른 한 장만 올린다', async ({ page }) => {
+  test('그 시각 원드라이브 사진: 폰 사진 없이 원드라이브 것만, 선택하지 않으면 올리지 않고 선택한 한 장만 올린다', async ({ page }) => {
     const state = makeState();
     await mock(page, state, { onedrive: true });
     await openDetail(page);
@@ -197,7 +197,7 @@ const OD_PLACE_DAYS = { '2026-10-24': [
 ] };
 test.describe('PC 1280 · 그 장소', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
-  test('그 장소 사진: 그날 같은 곳에서 찍은 사진은 3시간 밖이어도 📍로 보이고, 먼 곳 사진은 빠지며, 고른 것만 올린다', async ({ page }) => {
+  test('그 장소 사진: 그날 같은 곳에서 찍은 사진은 3시간 밖이어도 📍로 보이고, 먼 곳 사진은 빠지며, 선택한 것만 올린다', async ({ page }) => {
     const state = makeState();
     await mock(page, state, { onedrive: true, days: OD_PLACE_DAYS });
     await openDetail(page);
