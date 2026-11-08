@@ -46,7 +46,7 @@ for(const width of [412,700,884])test(`자료실 ${width}: 위 한 줄 [찾기][
   await tap(page,sheet(page).locator('[data-lu-cat-clear]'),width);
   await expect(row(page,'all')).toHaveAttribute('aria-pressed','true');await expect(row(page,'정책')).toHaveAttribute('aria-pressed','false');
   await tap(page,row(page,'정책'),width);await tap(page,row(page,'투쟁'),width);
-  await expect(sheet(page).locator('[data-sheet-count]')).toHaveText('2개 고름');
+  await expect(sheet(page).locator('[data-sheet-count]')).toHaveText('2개 선택됨');
   // 창이 아래 탭에 가리지 않는다(폰).
   if(width<=760){const sb=await box(sheet(page)),tabs=await box(page.locator('.mobile-tabs'));expect(sb.bottom).toBeLessThanOrEqual(tabs.y+1);}
   await tap(page,sheet(page).locator('[data-sheet-save]'),width);
