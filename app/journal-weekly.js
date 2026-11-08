@@ -226,7 +226,8 @@ export function withTitleEdits(calendar, titles) {
       const move = t.day && t.day !== row.day && days.has(t.day);
       // 고친 값이 지금 보이는 값(기억 포함)과 같으면 그대로 둔다(기억 표시가 남게).
       if (what === item.what && !move) return [item];
-      const next = {...item, edited:true, what};
+      // changed: 달력 원래 값(시간·제목·장소·날짜)과 다르다 — 줄 ⋯ [원래 값 보기]·[이번 주만 원래대로]는 이때만(기억 대신 원래대로 한 줄은 아님).
+      const next = {...item, edited:true, what, changed:move || what !== [item.time, item.title, item.place].filter(Boolean).join(' / ')};
       if (move) { moved.push(next); return []; }
       return [next];
     })}));
@@ -572,7 +573,8 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     return list;
   };
   // WEEKLY-자료요약: 자료 줄은 작은 '자료' 꼬리표(화면에만, Q5 ①) + 누르면 자료실의 그 자료가 열리는 글. 비슷한 기록이 있으면 작게 표시만.
-  // 화면 ②: 줄 끝 작은 ⋯ 안에 [고치기]·[빼기](그 주 임시저장 칸이 있을 때만). 고친 줄은 작은 '고침' 표시(원래 줄은 표시의 title).
+  // 화면 ②: 줄 끝 작은 ⋯ 안에 [고치기]·[빼기](그 주 임시저장 칸이 있을 때만).
+  // S53-1 WEEKLY-고침표시빼기: 고친 줄에 '고침' 꼬리표를 달지 않는다(줄 높이·자리가 들쭉날쭉). 원래 줄은 [고치기] 칸 위 '원래: …'와 [원래대로].
   const fe = model.fileEdits ?? {}, canEdit = !!fe.editable && !fileUi.saving;
   function fileLine(li, item, text) {
     li.dataset.journalWeeklyFile = item.file.id;
@@ -580,7 +582,6 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (fileUi.editing === item.file.id) { li.append(fileEditForm(item)); return; }
     const open = el('button', 'journal-file-open', text); open.type = 'button'; open.dataset.journalWeeklyFileOpen = item.file.id;
     open.setAttribute('aria-label', `${text} (자료실에서 열기)`); li.append(open);
-    if (item.file.edited) { const n = el('span', 'journal-file-note', '고침'); n.title = `원래: ${item.file.original}`; n.dataset.journalFileEdited = ''; li.append(' ', n); }
     if (item.file.same > 1) { const n = el('span', 'journal-file-note', `같은 파일 ${item.file.same}번`); n.dataset.journalFileSame = ''; li.append(' ', n); }
     if (item.file.verdict === 'similar') { const n = el('span', 'journal-file-note', '비슷한 기록 있음'); n.dataset.journalFileSimilar = ''; li.append(' ', n); }
     if (item.file.kept) { const n = el('span', 'journal-file-note', '넣음'); n.dataset.journalFileKept = ''; li.append(' ', n); }
@@ -597,6 +598,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     input.setAttribute('aria-label', '자료 줄 고치기(이번 주 보고 글만)'); input.disabled = !!fileUi.saving;
     const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalFileEditSave = item.file.id; save.disabled = !!fileUi.saving;
     const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalFileEditCancel = item.file.id; cancel.disabled = !!fileUi.saving;
+    if (item.file.edited) { const origin = el('span', 'journal-muted journal-hwpx-origin', `원래: ${item.file.original}`); origin.dataset.journalFileOrigin = ''; box.append(origin, ' '); }
     box.append(input, ' ');
     if (item.file.edited) { const reset = el('button', 'mini', '원래대로'); reset.type = 'button'; reset.dataset.journalFileEditReset = item.file.id; reset.disabled = !!fileUi.saving; box.append(reset); }
     box.append(cancel, save); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
@@ -790,7 +792,8 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
         if (item.hand) { what.append(item.what, ' '); const tag = el('span', 'journal-exec-carried', HAND_TAG); tag.title = '손으로 더한 줄 — 한글 파일 표에도 들어가요'; tag.dataset.journalScheduleHand = ''; what.append(tag); }
         else if (item.open?.id) { const b = el('button', 'journal-weekly-open', item.what); b.type = 'button'; b.dataset.journalWeeklyEvent = item.open.id; b.dataset.journalWeeklyCalendar = item.open.calendarId || 'primary'; b.setAttribute('aria-label', `${item.what} (일정 열기)`); what.append(b); }
         else what.append(item.what);
-        if (item.edited) { const tag = el('span', 'journal-exec-carried', '고침'); tag.title = `원래: ${item.title}${item.place ? ` / ${item.place}` : ''}`; tag.dataset.journalScheduleEdited = ''; what.append(' ', tag); }
+        // S53-1 WEEKLY-고침표시빼기: 고친 줄은 '고침' 꼬리표 없이 고친 값만(줄 높이 가지런히). 원래 값은 줄 ⋯ [원래 값 보기]·[이번 주만 원래대로].
+        if (item.edited) tr.dataset.journalScheduleEdited = '';
         else if (item.memo?.title) { const tag = el('span', 'journal-exec-carried', MEMORY_TAG); tag.title = `원래 제목: ${item.title}`; tag.dataset.journalScheduleMemory = ''; what.append(' ', tag); }
         // WEEKLY-환류전칸 ⑤(요청함 11/01 01:20): 줄 끝 작은 ⋯ → [고치기](날짜·시간·제목·장소·참석 칸)·[빼기](이번 주 파일에서). 값은 한글 파일 칸 고치기와 같은 임시저장.
         //   ⋯ 는 줄 끝(참석자 칸 — 화면에서는 비어 있고 한글 파일에서 내 이름으로 채움) 오른쪽에 둔다.
@@ -798,10 +801,12 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
         if (item.hand) owner.append(rowMore(doc, {label:`고치기·지우기: ${item.what}`, data:{journalHandMore:`calendar:${item.hand}`}, items:[
           {text:'고치기', data:{journalHandFix:`calendar:${item.hand}`}, aria:`고치기: ${item.what}`},
           {text:'지우기', data:{journalHandDelete:`calendar:${item.hand}`}, danger:true, aria:`지우기: ${item.what}`}]}));
-        // 고치는 줄이 열려 있으면 다른 줄 ⋯ 는 그리지 않는다(한 번에 한 줄). 기억한 이름으로 바뀐 줄은 ⋯ 에 [이번 주만 원래대로].
+        // 고치는 줄이 열려 있으면 다른 줄 ⋯ 는 그리지 않는다(한 번에 한 줄). 기억한 이름으로 바뀐 줄·고친 줄은 ⋯ 에 [이번 주만 원래대로],
+        // 고친 줄은 그 앞에 [원래 값 보기](표 아래 한 줄에 '원래: …').
         else if (item.key && !editKey) owner.append(rowMore(doc, {label:`일정 고치기·빼기: ${item.what}`, data:{journalScheduleMore:''}, items:[
           {text:'고치기', data:{journalScheduleFix:item.key}, aria:`일정 고치기: ${item.what}`},
-          ...(item.memo?.title && !item.edited ? [{text:'이번 주만 원래대로', data:{journalScheduleOrigin:item.key}, aria:`이번 주만 원래 제목으로: ${item.title}`}] : []),
+          ...(item.changed ? [{text:'원래 값 보기', data:{journalSchedulePeek:item.key}, aria:`원래 값 보기: ${item.what}`}] : []),
+          ...(item.changed || (item.memo?.title && !item.edited) ? [{text:'이번 주만 원래대로', data:{journalScheduleOrigin:item.key}, aria:`이번 주만 원래 값으로: ${item.title}`}] : []),
           {text:'빼기', data:{journalScheduleDrop:item.key}, danger:true, aria:`이번 주 보고에서 빼기: ${item.what}`, onClick:() => { lastScheduleDrop = item.key; }}]}));
         tr.append(what, owner);
         body.append(tr);

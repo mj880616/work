@@ -1575,12 +1575,21 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     refresh() { if (state) state.built = null; renderMaterial(); renderRequestNote(); paintHqNote(); },
     // [주간 정리]가 그 주 임시저장(2) 주요 일정 줄·일정 칸별 고침)을 썼다: 열린 상자는 서버 판과 맞춘다(3자 비교, 고치던 칸은 그대로).
     // WEEKLY-환류전칸 ⑤·S52-31: [주간 정리] 5. 주요 일정 줄 ⋯ — 'fix'(그 줄 자리에 고치기 칸) · 'drop'(이번 주 파일에서 빼기) · 'put'(다시 넣기)
-    //   · 'origin'(기억한 이름 대신 이번 주만 원래 제목). 'save'·'cancel' = 열린 칸의 [저장]·[취소]. 'ai' = 표 제목 줄 [AI로 다듬기].
+    //   · 'origin'(기억한 이름·고친 값 대신 이번 주만 원래 제목) · 'peek'(고친 줄의 원래 값을 표 아래 한 줄에). 'save'·'cancel' = 열린 칸의 [저장]·[취소]. 'ai' = 표 제목 줄 [AI로 다듬기].
     schedule(key, how) {
       if (how === 'fix') { openSchedEdit(key); return; }
       if (how === 'save') { void saveSchedEdit(); return; }
       if (how === 'cancel') { closeSchedEdit(); return; }
       if (how === 'ai') { void schedAiRun(); return; }
+      // S53-1 WEEKLY-고침표시빼기: 'peek' = 고친 줄의 원래 값(달력 제목·장소)을 표 아래 한 줄에 잠깐 보인다(저장 없음).
+      if (how === 'peek') {
+        void ensure().then(s => {
+          const item = s && schedItem(key);
+          if (!item) return;
+          setSchedNote(s.start, `원래: ${item.title}${item.place ? ` / ${item.place}` : ''}`, false, 8000); onSchedule();
+        });
+        return;
+      }
       void ensure().then(s => {
         if (!s) return;
         // 누름 한 번 = 바로 저장 한 번(타자 자동저장 2초를 기다리지 않음) → 저장되면 [주간 정리] 표가 다시 그려진다.

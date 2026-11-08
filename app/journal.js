@@ -1508,6 +1508,8 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-schedule-drop]')) { hwpx?.schedule(button.dataset.journalScheduleDrop, 'drop'); return; }
   if (button.matches('[data-journal-schedule-put]')) { hwpx?.schedule(button.dataset.journalSchedulePut, 'put'); return; }
   // S52-31 WEEKLY-주요일정제자리고치기: 줄 ⋯ [이번 주만 원래대로]·열린 줄 [저장]·[취소]·제목 줄 [AI로 다듬기].
+  // S53-1 WEEKLY-고침표시빼기: 고친 줄 ⋯ [원래 값 보기] → 표 아래 한 줄에 '원래: …'.
+  if (button.matches('[data-journal-schedule-peek]')) { hwpx?.schedule(button.dataset.journalSchedulePeek, 'peek'); return; }
   if (button.matches('[data-journal-schedule-origin]')) { hwpx?.schedule(button.dataset.journalScheduleOrigin, 'origin'); return; }
   if (button.matches('[data-journal-sched-save]')) { hwpx?.schedule(button.dataset.journalSchedSave, 'save'); return; }
   if (button.matches('[data-journal-sched-cancel]')) { hwpx?.schedule(button.dataset.journalSchedCancel, 'cancel'); return; }
