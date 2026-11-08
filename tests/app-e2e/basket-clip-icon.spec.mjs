@@ -108,9 +108,10 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
     await expect(root).not.toContainText('파일 추가');
     await expect(badge).toBeHidden();
     await expect(hint).toBeHidden();
-    // HOME-빠른입력정리 + BASKET-업데이트통합: the last control before the clip on home is [할 일], right of [업데이트 ▾].
+    // HOME-빠른입력정리 + BASKET-업데이트통합 → S53-13 HOME-잊지말기칩: the last control before the clip on home is the head row's
+    // [잊지 말기] chip, right of [업데이트 ▾ | 할 일].
     // UI-PC바구니첨부버튼: on PC the clip follows the input's [크게] icon (it sits right before [추가]).
-    await (name === 'home' ? root.locator(width === 1280 ? '[data-quick-big]' : '[data-quick-mode="task"]') : root.locator('textarea')).focus();
+    await (name === 'home' ? root.locator(width === 1280 ? '[data-quick-big]' : '[data-home-forget-open]') : root.locator('textarea')).focus();
     await page.keyboard.press('Tab');
     await expect(button).toBeFocused();
     const chooser = page.waitForEvent('filechooser');
