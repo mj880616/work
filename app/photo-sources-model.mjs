@@ -129,8 +129,11 @@ export const phoneIdOfKey = key => (/^ms:(\d{1,18})$/.exec(String(key || '')) ||
 // ---- 중복 판정: 이름(대소문자 무시)이 같고 크기나 찍은 시각(2초 안)이 같거나, 크기가 같고 찍은 시각이 2초 안 ----
 export const SAME_MS = 2000;
 const lower = v => String(v || '').trim().toLowerCase();
+// S53-2 PHOTO-같은사진오판: 가로세로를 둘 다 알면 같아야 한다(돌린 사진은 가로·세로가 바뀐 것도 같음으로 본다).
+export const dimsClash = (a, b) => a.width > 0 && a.height > 0 && b.width > 0 && b.height > 0
+  && !((a.width === b.width && a.height === b.height) || (a.width === b.height && a.height === b.width));
 export function sameMedia(a, b) {
-  if (!a || !b || a.video !== b.video) return false;
+  if (!a || !b || a.video !== b.video || dimsClash(a, b)) return false;
   const ta = Date.parse(a.taken_at || ''), tb = Date.parse(b.taken_at || '');
   const close = Number.isFinite(ta) && Number.isFinite(tb) && Math.abs(ta - tb) <= SAME_MS;
   const sizeEq = Number.isFinite(a.size_bytes) && a.size_bytes > 0 && a.size_bytes === b.size_bytes;

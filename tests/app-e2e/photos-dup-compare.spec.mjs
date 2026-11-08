@@ -16,8 +16,8 @@ const m = (id, name, ms, size, folder, extra = {}) => ({ id: String(id), name, f
 const PHONE = [
   // 연사 3장(0·0.4·0.8초) — 가장 큰 3번째가 기본 남김
   m(1, 'S1.jpg', 0, 1_000_000, 'DCIM/Camera/'), m(2, 'S2.jpg', 400, 2_000_000, 'DCIM/Camera/'), m(3, 'S3.jpg', 800, 3_000_000, 'DCIM/Camera/'),
-  // 같은 사진 2곳(카메라·카톡), 원드라이브에도 사본
-  m(10, 'IMG_10.jpg', 60_000, 500_000, 'DCIM/Camera/', { width: 400, height: 300 }), m(11, 'IMG_10(1).jpg', 120_000, 500_000, 'Pictures/KakaoTalk/', { width: 400, height: 300 }),
+  // 같은 사진 2곳(카메라·카톡, 찍은 시각 1초 차 · 같은 작은 그림), 원드라이브에도 사본
+  m(10, 'IMG_10.jpg', 60_000, 500_000, 'DCIM/Camera/', { width: 400, height: 300 }), m(11, 'IMG_10(1).jpg', 61_000, 500_000, 'Pictures/KakaoTalk/', { width: 400, height: 300 }),
   // 카톡 받은 사진 5장이 같은 저장 시각 — 연사 아님
   ...[21, 22, 23, 24, 25].map(n => m(n, `k${n}.jpg`, 200_000, 100_000 + n, 'Pictures/KakaoTalk/')),
 ].sort((a, b) => b.taken_at.localeCompare(a.taken_at));
@@ -101,7 +101,7 @@ for (const width of [412, 1280]) {
       await dups.locator('summary').click();
       await expect(dups.locator('[data-photos-tidy-dupkind="copy"]')).toHaveText('같은 사진 1');
       await expect(dups.locator('[data-photos-tidy-dupkind="burst"]')).toHaveText('연사 1');
-      await expect(dups.locator('.photos-tidy-line').first()).toHaveText('파일 크기·가로세로가 똑같은 사진 · 묶음 1개 · 지울 수 있는 사진 1장 · 아낄 용량 500KB');
+      await expect(dups.locator('.photos-tidy-line').first()).toHaveText('크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진 · 묶음 1개 · 지울 수 있는 사진 1장 · 아낄 용량 500KB');
       // 같은 사진: 비교 → 두 장 나란히, 있는 곳 한 줄씩(폰 폴더 + 원드라이브 사본).
       const copy = dups.locator('[data-photos-tidy-dup="ph:10"]');
       await copy.locator('[data-photos-tidy-see="dup:ph:10"]').click();
@@ -113,7 +113,7 @@ for (const width of [412, 1280]) {
       expect(b.x).toBeGreaterThan(a.x + a.width - 1);
       expect(a.x + a.width * 2).toBeLessThanOrEqual(width + 1);
       await expect(slots.nth(0).locator('.photos-tidy-where')).toHaveText(['폰 · DCIM/Camera', '원드라이브 · 폴더 모름']);
-      await expect(slots.nth(1).locator('.photos-tidy-where')).toHaveText(['폰 · Pictures/KakaoTalk']);
+      await expect(slots.nth(1).locator('.photos-tidy-where')).toHaveText(['폰 · Pictures/KakaoTalk', '원드라이브 · 폴더 모름']);
       await expect(slots.nth(0).locator('.photos-tidy-num')).toContainText('500KB · 2026.10.05 10:01:00 · 400×300');
       // 연사 칩 → 비교 → 넘기기 → 이것 남기기.
       await dups.locator('[data-photos-tidy-dupkind="burst"]').click();

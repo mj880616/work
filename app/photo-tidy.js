@@ -9,7 +9,7 @@
 import {matchIndex, placeItems, placeCounts, unbackedFolders, junkGroups, groupHidden, tidyCount, forgetIds, sizeText, PLACES, PLACE_TEXT, SCAN_MAX,
   spacePlan, dupGroups, dupTrashList, scanFresh, DUP_TEXT, copyPairs, goneText,
   TIDY_SORTS, DUP_SORTS, paneSortDefault, sortTidy, sortDupGroups, totalBytes, dupStats, dupStatText, whereLines, copiesFinder, DUP_HOW,
-  partlyBackedFolders, TIDY_HELP, JUNK_HELP, partlyText, foundText, similarCandidates, similarGroups, SIMILAR_BATCH} from './photo-tidy-model.mjs';
+  partlyBackedFolders, TIDY_HELP, JUNK_HELP, partlyText, foundText, similarCandidates, similarGroups, SIMILAR_BATCH, copyCandidates} from './photo-tidy-model.mjs';
 import {waitInlineHtml} from './wait-state.js';
 import {folderIconHtml} from './folder-look.js';
 
@@ -38,7 +38,8 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
   const shownDups = () => sortDupGroups(st.dups.filter(g => g.kind === dupKindOf()), sortOf('dups')).slice(0, SHOWN_DUPS);
   const keepOf = g => (g.items.some(p => p.id === keeps.get(g.id)) ? keeps.get(g.id) : g.keep);
   let copies = null; // 원드라이브 같은 사진 찾기(읽은 뒤 한 번 만든다)
-  const where = p => whereLines(p, st.odOn ? (copies ||= copiesFinder(st.od))(p) : []);
+  // S53-2: 폰 사진의 원드라이브 줄은 백업 짝이 확인된 사진만(phoneHas).
+  const where = p => whereLines(p, st.odOn && (p.kind !== 'phone' || st.index?.phoneHas.has(p.id)) ? (copies ||= copiesFinder(st.od))(p) : []);
   const when = p => { const t = Date.parse(p.taken_at); if (!Number.isFinite(t)) return ''; const d = new Date(t + 9 * 3600e3).toISOString(); return `${d.slice(0, 10).replace(/-/g, '.')} ${d.slice(11, 19)}`; };
   // 비교 칸: 왼쪽 = 남길 사진, 오른쪽 = 나머지 중 하나(‹ ›로 넘김). 사진마다 있는 곳·용량·찍은 시각, [이것 남기기].
   function cmpHtml(g, keep) {
@@ -52,17 +53,17 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       + (others.length > 1 ? `<div class="photos-tidy-cmp-nav"><button type="button" class="mini" data-photos-tidy-cmp-step="${esc(g.id)}|-1" aria-label="앞 사진">‹</button><span class="photos-tidy-num">${i + 1} / ${others.length}</span><button type="button" class="mini" data-photos-tidy-cmp-step="${esc(g.id)}|1" aria-label="다음 사진">›</button></div>` : '')
       + '</div>';
   }
-  const empty = () => ({running:false, done:false, partial:false, failed:'', odFailed:'', od:[], ph:[], odOn:false, index:null, unbacked:[], partly:[], junk:[], counts:null, space:null, dups:[], simCand:[], sim:{running:false, done:false, count:0}, at:0, gone:0, stale:false});
+  const empty = () => ({running:false, done:false, partial:false, failed:'', odFailed:'', od:[], ph:[], odOn:false, index:null, unbacked:[], partly:[], junk:[], counts:null, space:null, dups:[], simCand:[], sim:{running:false, done:false, count:0}, copyHash:{running:false, done:false, count:0, total:0}, at:0, gone:0, stale:false});
   const changed = () => { try { onChange?.(); } catch { /* 화면 다시 그리기 실패가 읽기를 막지 않게 */ } };
   function derive() {
     if (!st) return;
-    st.index = matchIndex(st.od, st.ph);
+    st.index = matchIndex(st.od, st.ph, hashes);
     st.unbacked = st.odOn ? unbackedFolders(st.ph, st.index) : [];
     st.partly = st.odOn ? partlyBackedFolders(st.ph, st.index) : [];
     st.junk = junkGroups(st.ph);
     st.counts = st.odOn ? placeCounts({odItems:st.od, phItems:st.ph, index:st.index, off:phoneOff()}) : null;
     st.space = st.odOn ? spacePlan(st.ph, st.index, {now:now(), isStarred}) : null;
-    const base = dupGroups(st.ph), skip = new Set(base.flatMap(g => g.items.map(p => p.id)));
+    const base = dupGroups(st.ph, hashes), skip = new Set(base.flatMap(g => g.items.map(p => p.id)));
     st.simCand = hashThumb ? similarCandidates(st.ph, skip) : [];
     st.dups = [...base, ...similarGroups(st.simCand, hashes)];
     copies = null;
@@ -92,6 +93,35 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       if (t !== token || !st) return;
     }
     st.sim.running = false; st.sim.done = true;
+    derive(); changed();
+  }
+  // S53-2 PHOTO-같은사진오판: 같은 사진 후보(크기·가로세로가 같은 사진이 또 있는 것)만 미리보기 해시를 만든다(찾기가 끝난 뒤 바로, 동시 6장).
+  // 해시가 생기기 전에는 '같은 사진' 묶음이 없다(크기만으로 묶지 않음). hashThumb가 없으면 같은 사진 묶음도 없다.
+  async function hashCopies(t) {
+    if (!st || !hashThumb) return;
+    const todo = copyCandidates(st.ph).filter(p => !hashes.has(p.id));
+    if (!todo.length) { st.copyHash = {running:false, done:true, count:0, total:0}; return; }
+    st.copyHash = {running:true, done:false, count:0, total:todo.length}; changed();
+    for (let i = 0; i < todo.length; i += SIMILAR_BATCH) {
+      const batch = todo.slice(i, i + SIMILAR_BATCH);
+      let next = 0;
+      const one = async () => {
+        while (next < batch.length) {
+          const p = batch[next++];
+          let h = '';
+          try { h = String(await hashThumb(p) || ''); } catch { h = ''; }
+          if (t !== token) return;
+          hashes.set(p.id, h);
+        }
+      };
+      await Promise.all(Array.from({length:Math.min(6, batch.length)}, one));
+      if (t !== token || !st) return;
+      st.copyHash.count = Math.min(todo.length, i + batch.length);
+      derive(); changed();
+      await pause();
+      if (t !== token || !st) return;
+    }
+    st.copyHash.running = false; st.copyHash.done = true;
     derive(); changed();
   }
   async function scanPhone(t) {
@@ -128,6 +158,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     if (t !== token) return;
     st.running = false; st.done = !st.failed; st.at = now();
     derive(); changed();
+    hashCopies(t).catch(() => {});
     // 지운 사진 사본 검사(원드라이브를 다시 읽은 뒤). 실패하면 경고 없이 넘어간다(다음 확인 때 다시).
     if (st.odOn) watchTrash().then(n => { if (t === token && Number.isInteger(n) && n > 0) { st.gone = n; changed(); } }).catch(() => {});
   }
@@ -177,7 +208,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       return st.junk.find(g => g.kind === kind) || null;
     },
     // S47-16: 지울 폰 사진의 원드라이브 사본 짝({pairs, noCopy}). 원드라이브를 읽지 못했으면 null(지우지 않음).
-    copyPairs: items => (ready() && st.odOn ? copyPairs(items, st.od) : null),
+    copyPairs: items => (ready() && st.odOn ? copyPairs(items, st.od, {phItems:st.ph, hashes}) : null),
     // S48-32: 사진 정리가 읽은 폰 사진 전부(고른 원드라이브 칸의 폰 원본 짝 찾기). 읽지 못했으면 null.
     phoneItems: () => (ready() ? st.ph : null),
     goneSeen() { if (!st?.gone) return; st.gone = 0; changed(); seenTrash().catch(() => {}); },
@@ -252,9 +283,9 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
           : '<p class="photos-tidy-line">공간 비우기 · 후보 없음</p>');
       }
       // ④ 같은 사진·연사 묶음(S47-19B): 종류 칩으로 나눠 보고, 묶음을 열면(그 줄 안) 두 장씩 나란히 비교·남길 것 고르기.
-      if (st.dups.length || simOn()) {
+      if (st.dups.length || simOn() || st.copyHash.running) {
         const kind = dupKindOf(), all = dupStats(st.dups), mine = st.dups.filter(g => g.kind === kind), shown = shownDups(), stat = dupStats(mine);
-        const sim = st.sim, simWait = kind === 'similar' && !sim.done;
+        const sim = st.sim, simWait = kind === 'similar' && !sim.done && simOn();
         rows.push(`<details class="photos-tidy-row" data-k="dups"><summary><span>같은 사진·연사 <b>묶음 ${all.groups}개</b> · 지울 수 있는 ${all.extra}장${all.bytes ? ' · ' + sizeText(all.bytes) : ''}${help(TIDY_HELP.dups)}</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">`
           + `<div class="photos-tidy-row photos-tidy-places" role="group" aria-label="묶음 종류">${Object.keys(DUP_TEXT).filter(k => k !== 'similar' || simOn()).map(k => {
             const n = st.dups.filter(g => g.kind === k).length;
@@ -263,6 +294,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
             return `<button type="button" class="photos-tidy-place" data-photos-tidy-dupkind="${k}" aria-pressed="${k === kind}"${n || k === 'similar' ? '' : ' disabled'}>${label}</button>`;
           }).join('')}</div>`
           + `<p class="photos-tidy-line">${DUP_HOW[kind]} · ${dupStatText(stat)}</p>`
+          + (st.copyHash.running ? `<p class="photos-tidy-line" data-photos-tidy-copyhash>같은 사진인지 작은 그림 비교 ${st.copyHash.count}/${st.copyHash.total}장 ${waitInlineHtml()}</p>` : '')
           + (simWait ? (sim.running ? `<p class="photos-tidy-line" data-photos-tidy-sim>비슷한 사진 비교 ${sim.count}/${st.simCand.length}장 ${waitInlineHtml()}</p>`
             : `<p class="photos-tidy-line" data-photos-tidy-sim>사진 ${st.simCand.length}장의 작은 그림을 비교해요 <button type="button" class="mini" data-photos-tidy-dupkind="similar">찾기</button></p>`) : '')
           + doLine(dupTrash ? TIDY_HELP.dupsDo : '묶음마다 남길 한 장을 고를 수 있어요 · 지우기는 원드라이브 연결·폰 휴지통이 있을 때만')

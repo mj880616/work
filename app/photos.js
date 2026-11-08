@@ -1608,7 +1608,8 @@ async function pairCheck(phonePart, odPart, alive) {
         const page = await odLibrary(rt, {filter:'all', cursor:cursor || {t:new Date(w.hi + 1).toISOString(), id:'!'}, limit:200});
         return {items:page.items.map(toItem), next:page.next};
       }, {alive});
-      return near ? copyPairs(phonePart, near) : null;
+      // S53-2: 사진 정리가 읽은 폰 사진이 있으면 함께 넘긴다(원드라이브 한 장을 다른 폰 사진도 가리키면 짝 없음).
+      return near ? copyPairs(phonePart, near, {phItems:tidy.phoneItems()}) : null;
     } catch { return null; }
   };
   const phoneNear = async () => {
