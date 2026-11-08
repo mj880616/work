@@ -258,7 +258,10 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
 
   async function call(stage: string, url: string, init: RequestInit = {}, ms = 25000) {
     try {
-      return await request(url, { redirect: "error", ...init, signal: AbortSignal.timeout(ms) });
+      const r = await request(url, { redirect: "error", ...init, signal: AbortSignal.timeout(ms) });
+      // 바깥(구글·원드라이브)이 기억한 접근 토큰을 401로 거절하면 그 토큰을 버린다(다음 요청에서 새로 받음).
+      if (r.status === 401) forgetToken((init.headers as Record<string, string> | undefined)?.Authorization);
+      return r;
     } catch {
       log(stage + "_unreachable");
       throw new Fail(503, "cloud_unavailable");
@@ -315,17 +318,61 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     return { workspaceId: members[0].workspace_id as string, userId: user.id as string };
   }
   // 구글: 그 작업공간이 files 허용 단 하나 + Drive 연결 작업공간일 때만(토큰이 프로젝트 전체 1개라서).
+  // 두 읽기는 서로 기다릴 필요가 없어 함께 읽는다(S54-16). 판정은 그대로 요청마다 한다.
   async function gdOwner(workspaceId: string) {
-    const allowed = await db("feature_ws", "rpc/app_operator_feature_workspace", { method: "POST", body: JSON.stringify({ p_feature: FEATURE }) });
-    const driveWs = await rows("drive_ws", `app_workspaces?slug=eq.${DRIVE_WORKSPACE_SLUG}&select=id&limit=2`);
+    const [allowed, driveWs] = await Promise.all([
+      db("feature_ws", "rpc/app_operator_feature_workspace", { method: "POST", body: JSON.stringify({ p_feature: FEATURE }) }),
+      rows("drive_ws", `app_workspaces?slug=eq.${DRIVE_WORKSPACE_SLUG}&select=id&limit=2`),
+    ]);
     if (allowed !== workspaceId || driveWs.length !== 1 || driveWs[0].id !== workspaceId) throw new Fail(403, "drive_owner_mismatch");
   }
 
-  // ---- 구글 토큰(요청마다 새로, drive 범위 확인) ----
+  // ---- 접근 토큰 기억(S54-16) ----
+  // 바깥 접근 토큰만 이 인스턴스 안에서 만료 10분 전까지(길어도 50분) 기억한다. 문(authorize)·gdOwner·연결 행 읽기는 요청마다 그대로.
+  // 키 = 출처 + 작업공간 id + 갱신 토큰 지문(SHA-256 앞 16자): 작업공간이 다르거나 다시 연결하면 다른 키라 섞이지 않는다.
+  // 같은 순간 같은 키 요청은 토큰 교환 하나를 함께 기다린다. 모범: onedrive-photos/handler.ts accessToken.
+  const tokenCache = new Map<string, { token: string; until: number }>();
+  const tokenFlights = new Map<string, Promise<string>>();
+  const TOKEN_KEEP_MS = 50 * 60 * 1000;
+  async function fingerprint(refresh: string) {
+    const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(refresh)));
+    return [...d.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  const tokenKey = async (source: Source, workspaceId: string, refresh: string) => `${source}:${workspaceId}:${await fingerprint(refresh)}`;
+  function keepToken(key: string, token: string, expiresIn: unknown) {
+    const expires = Number(expiresIn);
+    if (Number.isFinite(expires) && expires > 900) tokenCache.set(key, { token, until: now() + Math.min((expires - 600) * 1000, TOKEN_KEEP_MS) });
+  }
+  function forgetToken(authorization: unknown) {
+    if (typeof authorization !== "string" || !authorization.startsWith("Bearer ")) return;
+    const token = authorization.slice(7);
+    for (const [k, v] of tokenCache) if (v.token === token) tokenCache.delete(k);
+  }
+  async function cachedToken(key: string, fresh: () => Promise<string>): Promise<string> {
+    const hit = tokenCache.get(key);
+    if (hit && hit.until > now()) return hit.token;
+    const going = tokenFlights.get(key);
+    if (going) return await going;
+    const flight = fresh().finally(() => { if (tokenFlights.get(key) === flight) tokenFlights.delete(key); });
+    tokenFlights.set(key, flight);
+    return await flight;
+  }
+
+  // ---- 구글 토큰(drive 범위 확인). 주인 확인과 설정 읽기는 함께, 주인 확인 결과를 먼저 본다 ----
   async function gdToken(workspaceId: string): Promise<string> {
-    await gdOwner(workspaceId);
-    const c = (await rows("drive_cfg", "public_policy_drive_config?id=eq.1&select=google_client_id,google_client_secret,google_refresh_token"))[0];
+    const [owner, cfg] = await Promise.allSettled([
+      gdOwner(workspaceId),
+      rows("drive_cfg", "public_policy_drive_config?id=eq.1&select=google_client_id,google_client_secret,google_refresh_token"),
+    ]);
+    if (owner.status === "rejected") throw owner.reason;
+    if (cfg.status === "rejected") throw cfg.reason;
+    const c = cfg.value[0];
     if (!c?.google_refresh_token) throw new Fail(424, "gd_not_connected");
+    const key = await tokenKey("gd", workspaceId, String(c.google_refresh_token));
+    return await cachedToken(key, () => gdExchange(key, c));
+  }
+  async function gdExchange(key: string, c: Record<string, unknown>): Promise<string> {
+    tokenCache.delete(key);
     const r = await call("gd_token", "https://oauth2.googleapis.com/token", {
       method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -347,6 +394,7 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
       full = ti.ok && scopeHas((await body(ti))?.scope);
     }
     if (!full) throw new Fail(424, "gd_scope_missing");
+    keepToken(key, d.access_token, d.expires_in);
     return d.access_token;
   }
 
@@ -366,6 +414,9 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
   async function odToken(workspaceId: string): Promise<string> {
     const conn = await odConnection(workspaceId);
     const c = odConfig();
+    return await cachedToken(await tokenKey("od", workspaceId, conn.refresh_token), () => odExchange(workspaceId, conn, c));
+  }
+  async function odExchange(workspaceId: string, conn: { refresh_token: string }, c: { clientId: string; secret: string; tenant: string }): Promise<string> {
     const r = await call("od_token", `https://login.microsoftonline.com/${c.tenant}/oauth2/v2.0/token`, {
       method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ client_id: c.clientId, client_secret: c.secret, scope: OD_SCOPE, grant_type: "refresh_token", refresh_token: conn.refresh_token }),
@@ -376,10 +427,15 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
       if (d?.error === "invalid_grant" || [400, 401].includes(r.status)) throw new Fail(424, "od_auth_expired");
       throw new Fail(503, "cloud_unavailable");
     }
+    let refresh = conn.refresh_token;
     if (typeof d.refresh_token === "string" && d.refresh_token && d.refresh_token !== conn.refresh_token && d.refresh_token.length <= 4096) {
       await db("od_token_save", `app_onedrive_connections?workspace_id=eq.${workspaceId}`,
         { method: "PATCH", body: JSON.stringify({ refresh_token: d.refresh_token, updated_at: at() }) }, "return=minimal");
+      refresh = d.refresh_token;
     }
+    // 새 갱신 토큰을 저장했으면 다음 요청이 읽을 그 갱신 토큰의 키로 기억한다(onedrive-photos와 같음).
+    tokenCache.delete(await tokenKey("od", workspaceId, conn.refresh_token));
+    keepToken(await tokenKey("od", workspaceId, refresh), d.access_token, d.expires_in);
     return d.access_token;
   }
 
@@ -889,7 +945,7 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     if (size > ACROSS_MAX_BYTES) throw new Fail(413, "too_large");
     const to = await folderOrRoot(ws, dest, toRaw);
     const name = uniqueName(String(item.name), (await siblingNames(ws, dest, to)).map((r) => String(r.name)));
-    const srcToken = await tokenFor(ws, source), dstToken = await tokenFor(ws, dest);
+    const [srcToken, dstToken] = await Promise.all([tokenFor(ws, source), tokenFor(ws, dest)]);
     const dstRoot = await rootId(dest, dstToken);
     const src = source === "od"
       ? await odRedirect("od_across_get", srcToken, `${GRAPH}/me/drive/items/${encodeURIComponent(id)}/content`, {}, ACROSS_MS)
@@ -1174,7 +1230,7 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
   async function bigStep(ws: string, job: Record<string, unknown>, until: number): Promise<"more" | Record<string, unknown>> {
     const id = String(job.id), size = Number(job.size_bytes), src = job.src_source as Source, dest = job.dest_source as Source;
     const srcId = String(job.src_id);
-    const srcToken = await tokenFor(ws, src), dstToken = await tokenFor(ws, dest);
+    const [srcToken, dstToken] = await Promise.all([tokenFor(ws, src), tokenFor(ws, dest)]);
     const saved = (await rows("job_upload", `${UPLOADS}?job_id=eq.${id}&select=upload_url,hash_state&limit=1`))[0];
     let url = saved ? safeUploadUrl(dest, saved.upload_url) : null;
     let md5 = new Md5(), sha1 = new Sha1(), hashed = 0, remote = 0;
