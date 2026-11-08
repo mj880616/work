@@ -28,7 +28,7 @@ test('source and body follow the database checks', () => {
   const b = highlightBody(WS, {type: 'outside', id: ID, url: 'https://e.org/a'}, ' 고른 글 ', {prefix: 'p'.repeat(80), suffix: 's'.repeat(80)}, ' 메모 ');
   assert.equal(b.quote, '고른 글'); assert.equal(b.quote_prefix.length, EDGE); assert.equal(b.quote_suffix.length, EDGE); assert.equal(b.memo, '메모');
   assert.deepEqual(Object.keys(b).sort(), ['memo', 'quote', 'quote_prefix', 'quote_suffix', 'source_date', 'source_id', 'source_media', 'source_title', 'source_type', 'source_url', 'workspace_id']);
-  assert.equal(highlightBody('nope', {type: 'news', id: ID}, 'x'), null);
+  assert.equal(highlightBody('', {type: 'news', id: ID}, 'x'), null);
   assert.equal(highlightBody(WS, {type: 'news', id: ID}, '  '), null);
 });
 

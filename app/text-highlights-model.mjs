@@ -32,7 +32,7 @@ export function cleanSource(src) {
 // 서버에 넣을 한 줄(authenticated가 넣을 수 있는 열만). 모양이 틀리면 null.
 export function highlightBody(workspaceId, src, quote, {prefix = '', suffix = ''} = {}, memo = null) {
   const s = cleanSource(src), q = cleanQuote(quote);
-  if (!s || !q || !UUID.test(String(workspaceId || ''))) return null;
+  if (!s || !q || typeof workspaceId !== 'string' || !workspaceId) return null; // 작업공간 열쇠는 서버(외래 키·RLS)가 확인
   return {workspace_id: workspaceId, source_type: s.type, source_id: s.id, quote: q, quote_prefix: String(prefix).slice(-EDGE), quote_suffix: String(suffix).slice(0, EDGE),
     memo: cleanMemo(memo), source_title: s.title, source_media: s.media, source_date: s.date, source_url: s.url};
 }
