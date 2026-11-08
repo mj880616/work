@@ -3,9 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 // UI-표잘림전수: 작은 표·칩 안 글자는 '…'로 자르지 않는다(줄여야 하면 옆 본문 제목을 자른다, 폰은 줄바꿈).
-// 아래 표는 그 규칙을 지키는 칩이다. 일부러 자르는 곳(제목·본문·고정 폭 표)은 docs가 아니라 PR 본문 예외 표에 있다.
+// 아래 표는 그 규칙을 지키는 칩이다. (할 일 줄 연결 칩 .gt-tag는 TASK-제목날짜만, 2026-11-09에 줄에서 없어져 표에서 뺐다.) 일부러 자르는 곳(제목·본문·고정 폭 표)은 docs가 아니라 PR 본문 예외 표에 있다.
 const CHIPS = [
-  ['app/google-tasks.css', '#appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag'],
   ['app/meeting-ui.css', '#meetingList .meeting-list-title .badge'],
   ['app/suborganizations.css', '.so-stage-tag'],
   ['app/base-ui.css', '.user-badge'],
