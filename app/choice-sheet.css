@@ -12,7 +12,7 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-sheet header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; flex-shrink:0; }
 .home-choice-sheet h2 { margin:0; font-size:16px; font-weight:700; }
 .home-choice-sheet button { font-family:inherit; cursor:pointer; color:var(--kptu-ink); }
-.home-choice-sheet [data-sheet-close] { position:relative; box-sizing:border-box; width:32px; height:32px; padding:0; border:0; border-radius:var(--kptu-radius-pill); font-size:24px; color:var(--kptu-muted); background:transparent; }
+.home-choice-sheet [data-sheet-close] { position:relative; box-sizing:border-box; width:32px; height:32px; padding:0; font-size:24px; color:var(--kptu-muted); }
 .home-choice-sheet [data-sheet-close]::after { content:""; position:absolute; inset:-6px; }
 .home-choice-sheet [data-sheet-content] { overflow:auto; overscroll-behavior:contain; min-height:0; padding:6px; margin:-6px; }
 .home-choice-label { font-size:12px; color:var(--kptu-muted); margin:10px 0; }
@@ -88,11 +88,9 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-foot { display:flex; align-items:center; gap:8px; flex-shrink:0; margin:10px -16px 0; padding:10px 16px 0; border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); background:var(--kptu-surface); }
 .home-choice-foot[hidden] { display:none; }
 .home-choice-count { margin-right:auto; min-width:0; font-size:13px; color:var(--kptu-muted); }
-.home-choice-sheet .home-choice-foot button { box-sizing:border-box; min-width:64px; height:var(--kptu-touch-target,44px); padding:0 16px; border:1px solid var(--kptu-border-strong); border-radius:var(--ds-radius-control,8px); font-size:14px; background:var(--kptu-surface); }
-.home-choice-sheet .home-choice-foot .home-choice-save { border-color:var(--kptu-primary); background:var(--kptu-primary); color:var(--kptu-on-primary); font-weight:var(--ds-weight-medium,500); }
 @media (min-width:761px) {
-  .home-choice-sheet.home-choice-anchored .home-choice-foot button { height:32px; padding:0 14px; font-size:13px; }
-  /* PC: 아래 줄이 창 높이를 덜 쓰도록 간격을 줄인다(1280×800에서 두 열이 스크롤 없이 보이게). 누르는 범위는 ::after 44px. */
+  /* PC: 아래 줄이 창 높이를 덜 쓰도록 간격을 줄인다(1280×800에서 두 열이 스크롤 없이 보이게). 누르는 범위는 ::after 44px.
+     버튼 모양은 창 아래 버튼 공용 부품(ui-standard.css, S54-08)이 정한다. 폰은 S54-05대로 버튼 아래 창이어도 이 간격 줄이기를 쓰지 않는다. */
   .home-choice-sheet.home-choice-anchored.home-choice-multi { padding-bottom:12px; }
   .home-choice-sheet.home-choice-anchored .home-choice-foot { margin-top:6px; padding-top:8px; }
   .home-choice-sheet.home-choice-anchored .home-choice-foot button { position:relative; }
