@@ -72,7 +72,7 @@ async function editLibraryDocument(page,width){
   await expect(page.locator('#luMorePanel [data-lu-hwp-edit]')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await press(page,page.locator(`[data-lu-menu="${DOC}"]`),width);
-  await expect(page.locator('#luMorePanel button').first()).toHaveText('선택');await expect(page.locator('#luMorePanel button').nth(1)).toHaveText(/^이름 바꾸기/);await expect(page.locator('#luMorePanel button').nth(2)).toHaveText(/^폴더로 옮기기/);await expect(page.locator('#luMorePanel button').nth(3)).toHaveText(/^분류 바꾸기/);await expect(page.locator('#luMorePanel button').nth(4)).toHaveText('편집');
+  await expect(page.locator('#luMorePanel button').first()).toHaveText('선택');await expect(page.locator('#luMorePanel button').nth(1)).toHaveText(/^이름 바꾸기/);await expect(page.locator('#luMorePanel button').nth(2)).toHaveText(/^폴더로 옮기기/);await expect(page.locator('#luMorePanel button').nth(3)).toHaveText(/^분류 바꾸기/);await expect(page.locator('#luMorePanel button').nth(4)).toHaveText('수정');
   await press(page,page.locator('#luMorePanel [data-lu-hwp-edit]'),width);
   await expect(page.locator('#hwpView')).toBeVisible();
 }
@@ -152,7 +152,7 @@ for(const width of [390,1280])test(`a basket HWPX attachment is saved as a new H
   await showBasketRow(page,NOTE);
   await press(page,page.locator(`[data-basket-row="${NOTE}"]`),width);
   await expect(page.locator('[data-basket-hwp="drive-jpg"]')).toHaveCount(0);
-  await press(page,page.getByRole('button',{name:'안건.hwpx 편집'}),width);
+  await press(page,page.getByRole('button',{name:'안건.hwpx 수정'}),width);
   await expect(status(page)).toHaveText('안건.hwpx · 1쪽을 열었어요. HWPX 원본은 새 HWP 파일로만 저장해요. 고친 뒤 [새 파일로 저장]을 누르세요.',{timeout:60000});
   expect(f.sent.open).toEqual([{action:'hwp-open',note_id:NOTE,drive_file_id:'drive-hwpx'}]);
   await expect(page.locator('#hwpDriveOverwrite')).toHaveJSProperty('hidden',true);
