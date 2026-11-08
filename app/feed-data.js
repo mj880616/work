@@ -223,6 +223,26 @@ export async function readOrganizations(rt = window.KPTURuntime) {
   const rows = orgs.filter(o => o?.id);
   return {orgs:rows, mine:myOrganizationIds(rows, mine)};
 }
+// CALL-상대표시정리 ④ [직접 쓰기]: 쓴 이름으로 담당조직 한 곳을 새로 만든다. 담당조직 화면의 [담당조직 추가](suborganizations.js saveOrg)와
+// 같은 표·같은 칸(app_suborganizations, 작업공간 주인 RLS)이다. 내가 담당을 정해 둔 사람이면(담당 행이 하나라도 있으면) 새 조직도 내 담당에
+// 더해(내 프로필 담당 사업장과 같은 app_suborganization_assignees 행) 다음 고르기에도 보이게 한다. 담당을 안 정했으면 모든 조직이 내 것이라 더하지 않는다.
+export async function createMyOrganization(name, rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt), user = ctx(rt).user?.id || '', text = String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  if (!text) throw Error('조직 이름을 써 주세요.');
+  if (!user) throw Error('로그인을 확인할 수 없어요.');
+  const rows = await rt.api('/rest/v1/app_suborganizations?select=id,name,aliases,active', {method:'POST', prefer:'return=representation',
+    body:{workspace_id:ws, name:text, aliases:[], organization_type:'미분류', description:null, created_by:user, active:true, updated_at:new Date().toISOString()}});
+  const org = Array.isArray(rows) ? rows[0] : null;
+  if (!org?.id) throw Error('조직을 만들지 못했어요.');
+  let assigned = false;
+  try {
+    const had = await rt.api(`/rest/v1/app_suborganization_assignees?user_id=eq.${encode(user)}&select=organization_id&limit=1`);
+    if (Array.isArray(had) && had.length) { await rt.api('/rest/v1/app_suborganization_assignees', {method:'POST', body:{organization_id:org.id, user_id:user, assigned_by:user}}); assigned = true; }
+  } catch { /* 조직은 만들어졌다. 담당 더하기만 못 했으면 이번 연결은 그대로 되고, 내 프로필 › 담당 사업장에서 더할 수 있다. */ }
+  try { window.dispatchEvent(new Event('kptu:suborganization-updated')); } catch {}
+  return {org:{id:org.id, name:org.name || text, aliases:Array.isArray(org.aliases) ? org.aliases : [], active:org.active !== false}, assigned};
+}
+
 // 조직 연결 (요약 부품 통일 ②, minimal): the row's organization is set, and the summary (default: the core points) is added to that
 // organization's 기록 through the existing organization-record path (quick-save.js, app_suborganization_updates owner RLS).
 export async function linkOrganization(row, organizationId, summary, rt = window.KPTURuntime) {

@@ -3,7 +3,8 @@
 // 요약 부품 통일 ② (minimal, until the shared summary part lands on main): the summary box starts with the core points
 // (feed-model.mjs linkSummaryDefault); [저장] sets the row's organization and adds that summary to the organization's 기록.
 import {openAreaOrgPicker, usedKeysNow, orderedOrgGroups} from './area-org-picker.js';
-import {linkOrganization} from './feed-data.js';
+import {linkOrganization, createMyOrganization} from './feed-data.js';
+import {similarOrgs} from './org-similar.mjs';
 import {linkSummaryDefault} from './feed-model.mjs';
 
 export const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -40,7 +41,11 @@ export async function openOrgPicker(trigger, {orgs, mine, selected, onPick}) {
   const used = await usedKeysNow().catch(() => []);
   if (!trigger?.isConnected) return;
   const mineNow = pick;
-  return openAreaOrgPicker({kind:'org', trigger, used, multi:false, none:'연결 안 함', title:'연결할 조직', orgGroups:orderedOrgGroups(groups), selected:sel ? ['o:' + sel] : [],
+  // CALL-상대표시정리 ④: 맨 아래 [직접 쓰기]. 비슷한 이름의 조직(활동 중인 내 작업공간 조직 전체)이 있으면 먼저 보이고, 새로 만들면 그 조직을
+  // 이 화면의 조직 목록·내 담당에 더한 뒤 고른 것으로 한다(onPick). 만들기는 feed-data.js createMyOrganization(담당조직 추가와 같은 표) 한 곳.
+  const create = {similar:name => similarOrgs(name, (orgs || []).filter(o => o.active !== false)).map(o => ({key:'o:' + o.id, name:o.name || '이름 없는 조직'})),
+    make:async name => { const {org} = await createMyOrganization(name); if (Array.isArray(orgs) && !orgs.some(o => o.id === org.id)) orgs.push(org); mine?.add?.(org.id); return {key:'o:' + org.id, name:org.name}; }};
+  return openAreaOrgPicker({kind:'org', trigger, used, multi:false, none:'연결 안 함', title:'연결할 조직', orgGroups:orderedOrgGroups(groups), selected:sel ? ['o:' + sel] : [], create,
     onCommit:keys => { if (pick !== mineNow) return; const k = [...keys][0] || ''; mineNow.onPick(k.startsWith('o:') ? k.slice(2) : ''); }});
 }
 

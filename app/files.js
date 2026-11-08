@@ -1935,8 +1935,10 @@ async function phoneOp(body, label) {
   try {
     const d = await phone.op(body);
     if (state.scope !== scope) return null;
-    if (!d.ok) { notify(phoneWriteText(d.error), {error: true, record: false}); return null; }
-    if (d.error === 'missing') notify(phoneWriteText('missing'), {error: true, record: false});
+    // S53-7: 실패든 일부만 됐든 앱이 준 이유(refused·direct·missing…)를 한 줄로. 옛 앱(del 없음)의 막연한 실패는 새 판 안내.
+    const del = phone.state.del === true;
+    if (!d.ok) { notify(phoneWriteText(d.error, {del}), {error: true, record: false}); return null; }
+    if (d.error) notify(phoneWriteText(d.error, {del}), {error: true, record: false});
     return d;
   } finally {
     if (state.scope === scope) { state.busy = ''; paintBar(); paintTop(); }
@@ -2715,7 +2717,7 @@ async function cloudToPhone(rows, dest, mode = 'copy') {
   await phoneRefresh([dest.parent]);
   // 옮기기(S52-43 ②): 폰에 다 쓴 것만 원본을 그 클라우드 휴지통으로(확인은 moveRows가 한 번 물음).
   const kept = mode === 'move' ? await trashLanded(landed) : 0;
-  const why = run.code ? (run.code.startsWith('w:') ? phoneWriteText(run.code.slice(2)) : errorText(run.code)) : '';
+  const why = run.code ? (run.code.startsWith('w:') ? phoneWriteText(run.code.slice(2), {del: phone.state.del === true}) : errorText(run.code)) : '';
   const note = kept ? `${kept}개는 폰에 받았지만 원본을 휴지통으로 보내지 못해 그대로 있어요` : run.failed ? why : '';
   notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped}), {error: !!run.failed || !!kept, note, record: false});
 }
@@ -2755,7 +2757,7 @@ async function devGone(jobId) {
     const dir = it.source === PC ? pcParent(it.path) : phoneParent(it.path);
     await phoneRefresh([dir], {source: it.source, gone: [rowKey({source: it.source, item_id: it.path})]});
   } catch (e) {
-    notify(`올렸지만 ${where} 원본은 휴지통으로 보내지 못했어요`, {error: true, note: it.source === PC ? errorText(codeOf(e)) : '', record: false});
+    notify(`올렸지만 ${where} 원본은 휴지통으로 보내지 못했어요`, {error: true, note: it.source === PC ? errorText(codeOf(e)) : phoneWriteText(e?.message, {del: phone.state.del === true}), record: false});
   }
 }
 // 내 PC 파일 → 클라우드: 파일만(폴더는 열어 파일을 고르게), 한 번에 20개·한 파일 1GB까지. 문에서 4MB씩 읽어 지금 올리기 길(같은 이름·200MB 묻기·전송 목록·진행 표시 그대로)로.

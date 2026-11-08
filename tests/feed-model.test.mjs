@@ -124,7 +124,7 @@ test('callTopic: 조각 둘은 앞 조각이 그 줄의 조직·상대와 같은
   assert.equal(callTopic('', {}), '');
 });
 test('callWho: 연결 조직 이름이 상대 글 앞에 붙은 것은 한 번만, 조직은 약칭으로', () => {
-  assert.deepEqual(callWho({organization:ORG, counterpart:'예시교통공사노동조합 김가상 위원장'}), {org:'예시교통노조', person:'김가상 위원장', text:'예시교통노조 · 김가상 위원장'});
+  assert.deepEqual(callWho({organization:ORG, counterpart:'예시교통공사노동조합 김가상 위원장'}), {org:'예시교통노조', person:'김가상 위원장', name:'김가상', text:'예시교통노조 · 김가상 위원장'});
   assert.equal(orgShort({name:'예시지부'}), '예시지부');
   assert.equal(orgShort(ORG), '예시교통노조');
 });

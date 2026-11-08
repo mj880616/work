@@ -39,8 +39,9 @@
 .feed-view .feed-title{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* UI-선택표시톤다운 ③: 꼬리표는 제목보다 튀지 않게 차분한 회갈색(종류 '그 밖' 회색 짝 토큰), 글자는 조직 약칭 하나(call-feed.js tagOf). */
 .feed-view .feed-org{flex:0 0 auto;padding:1px 6px;border-radius:var(--ds-radius-control);background:var(--ds-kind-other-soft);font-size:var(--ds-text-meta);color:var(--ds-kind-other-ink);white-space:nowrap}
-/* UI-표잘림전수: 조직 표 글자는 '…'로 자르지 않는다. 줄여야 하면 옆 제목(.feed-title)이 줄어들고, 폰에서는 조직 이름이 줄바꿈한다. */
-@media(max-width:760px){.feed-view .feed-org{flex:0 1 auto;max-width:45%;white-space:normal;overflow-wrap:anywhere}}
+/* CALL-상대표시정리 ①(11/08 명진 결정, UI-표잘림전수의 이 꼬리표 예외): 꼬리표는 이름 하나라 늘 한 줄. 글자 중간에서 꺾지 않고, 길면 끝을 '…'로 줄인다.
+   옆 제목(.feed-title)이 먼저 줄고, 꼬리표는 줄 너비의 40%를 넘지 않는다(폰·폴드·PC 같음). 전체 '조직 · 이름 직책'은 상세 날짜 줄에 있다. */
+.feed-view .feed-call .feed-org{flex:0 1 auto;min-width:0;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal;word-break:keep-all}
 
 /* 상세 */
 .feed-view .feed-detail-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height)}
@@ -90,7 +91,7 @@
 .feed-view .feed-rdb{display:block;flex:1 1 auto;min-width:0;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-ink);font:inherit;text-align:left;cursor:pointer}
 .feed-view .feed-rdb:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .feed-view .feed-hov{position:absolute;top:4px;right:4px;display:none;width:24px;height:24px;border:var(--ds-line-width) solid var(--kptu-border);background:var(--kptu-surface)}
-.feed-view .feed-rn{display:block;margin-bottom:1px;font-size:12px;font-weight:var(--ds-weight-medium)}
+.feed-view .feed-rn{display:block;margin-bottom:1px;font-size:12px;font-weight:var(--ds-weight-medium);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .feed-view .feed-rl{display:block;font-size:var(--ds-text-row);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .feed-view .feed-rl:empty{display:none}
 .feed-view .feed-ft{display:flex;gap:10px;margin-top:1px;font-size:11px;color:var(--kptu-muted)}

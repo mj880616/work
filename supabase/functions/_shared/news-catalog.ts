@@ -10,12 +10,14 @@
 import type { OutsideSource } from "./outside-catalog.ts";
 
 // take: 'all'(그 매체 글을 키워드 상관없이 전부 받음 — 운동·노동 매체) / 'keywords'(키워드 목록에 글자가 맞는 글만 — 종합지·방송사, NEWS-매체늘리기).
-// 없으면 'all'. 지금 카탈로그는 모두 'all'.
+// 없으면 'all'. 운동·노동·해외 노조 매체는 'all', 종합지·방송사·통신사는 'keywords'(S53-6).
+// on: true = 기본 켬(S53-6, 설계 3.1c). 그 작업공간에 이 매체 줄(app_outside_sources)이 아직 없으면 켠 것으로 본다 — 끄면 enabled=false 줄이 남아 그대로 꺼진다.
+//   기본 켬은 뉴스를 쓰는 작업공간(키워드가 있거나 news- 매체 줄이 하나라도 있는 곳)에만 적용하고, 처음 읽을 때 서버가 켬 줄을 만들어 읽은 시각·실패를 남긴다.
 // 채널 기사(열린 주소 규칙, 매체가 정해져 있지 않음) 본문 규칙. 규칙 이름 `open@판`.
 // @2(S51-9): 흔한 유료벽 검사를 좁힘(문구는 본문 칸 안만, class는 정확히 `paywall`) + 본문 칸 고르기(빈 <article> 건너뛰기·폼 안 본문).
 export const OPEN_ARTICLE_RULE = Object.freeze({ version: 2 });
 export const OPEN_ARTICLE_KEY = "open";
-export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords" };
+export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords"; on?: true };
 
 const article = () => "article" as const;
 
@@ -46,6 +48,25 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     // https://www.pressian.com/rss 는 RSS 안내 HTML 쪽이라 0건이었다(11/04). 실제 피드는 /api/v3/site/rss/news(요청함은 http로 확인).
     // 카탈로그는 https만 허용(tests/security/news-feed.test.mjs)이라 https로 둔다 — 배포 전 CC가 이 주소가 열리는지 확인하고, 안 열리면 배포하지 말고 명진에게 보고(http 허용은 보안 시험을 바꾸는 결정).
     lists: ["https://www.pressian.com/api/v3/site/rss/news"], hosts: ["www.pressian.com", "pressian.com"], kindOf: article },
+  // ---- 종합지·통신사·방송사(S53-6, NEWS-매체늘리기). 설계 3.1b: 매체 공식 'RSS 안내' 쪽에 [사실]로 나온 피드 주소만 넣었다(안내 쪽 주소·날짜는 설계 12절).
+  //   take: 'keywords' — 사회·경제·정치 섹션 피드에서 내 키워드가 제목·소개에 글자 그대로 든 글만 받는다(AI 없이).
+  //   extract: false — 글 쪽(본문)은 수집 때 읽지 않는다(피드의 제목·소개·주소만, 설계 5절 ③ 매체 경계). 사람이 [본문]을 누를 때 열기는 다른 매체와 같다. 안내 쪽 이용 조건이 '개인 구독'이라 공개로 다시 내보내는 길은 없다.
+  //   robots.txt는 수집기가 실행 때마다 읽고 막혀 있으면 건너뛴다. 피드가 실제로 열리는지는 이 세션 도구로 열지 못해 배포 뒤 probe로 확인한다(PR 본문).
+  { key: "news-khan", name: "경향신문", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 안내 쪽 khan.co.kr/help/help_rss.html [사실]. 같은 경로의 영문 피드는 RSS 2.0·dc:date·요약 description으로 열림 [사실, 11/08].
+    extract: false,
+    lists: ["https://www.khan.co.kr/rss/rssdata/society_news.xml", "https://www.khan.co.kr/rss/rssdata/economy_news.xml", "https://www.khan.co.kr/rss/rssdata/politic_news.xml"],
+    hosts: ["www.khan.co.kr", "khan.co.kr"], kindOf: article },
+  { key: "news-ohmynews", name: "오마이뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 안내 쪽 m.ohmynews.com/NWS_Web/Help/srv/h_help_rss.aspx [사실]: '개인적 이용에 한정, 재배포·재RSS 금지'.
+    extract: false,
+    lists: ["https://rss.ohmynews.com/rss/society.xml", "https://rss.ohmynews.com/rss/economy.xml", "https://rss.ohmynews.com/rss/politics.xml"],
+    hosts: ["rss.ohmynews.com", "www.ohmynews.com", "m.ohmynews.com", "ohmynews.com"], kindOf: article },
+  { key: "news-hankyung", name: "한국경제", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "keywords", on: true,
+    // 안내 쪽 hankyung.com/feed [사실]. 경영계 시각 균형용(설계 3.1b).
+    extract: false,
+    lists: ["https://www.hankyung.com/feed/society", "https://www.hankyung.com/feed/economy", "https://www.hankyung.com/feed/politics"],
+    hosts: ["www.hankyung.com", "hankyung.com"], kindOf: article },
   { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss",
     extract: { version: 1 },
     lists: ["https://publicservices.international/feed.xml"], hosts: ["publicservices.international"], kindOf: article },
@@ -64,7 +85,7 @@ export function newsSourceByKey(key: unknown): NewsSource | null {
   return typeof key === "string" ? NEWS_CATALOG.find((s) => s.key === key) ?? null : null;
 }
 export function publicNewsCatalog() {
-  return NEWS_CATALOG.map((s) => ({ key: s.key, name: s.name, region: s.region, lang: s.lang }));
+  return NEWS_CATALOG.map((s) => ({ key: s.key, name: s.name, region: s.region, lang: s.lang, on: s.on === true }));
 }
 
 // 키워드 찾기: 구글 뉴스 검색 RSS 한 호스트·한 경로만. 검색어는 서버가 키워드로 만든다(화면은 주소를 보내지 않음).

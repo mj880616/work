@@ -50,7 +50,8 @@ export function createPhonePhotos(win = globalThis.window) {
       } else if (d.startsWith('photos:trashed:')) {
         let v = null; try { v = JSON.parse(d.slice('photos:trashed:'.length)); } catch { v = null; }
         const w = trashWait; trashWait = null;
-        w?.({ok:v?.ok === true, count:Number.isInteger(v?.count) ? v.count : 0});
+        // S53-7(앱 0.5.4+): 못 한 이유 한 낱말(refused·none·old·failed). 옛 앱은 없음.
+        w?.({ok:v?.ok === true, count:Number.isInteger(v?.count) ? v.count : 0, error:typeof v?.error === 'string' && /^[a-z]{1,20}$/.test(v.error) ? v.error : ''});
       } else if (d.startsWith('photos:edited:')) {
         let v = null; try { v = JSON.parse(d.slice('photos:edited:'.length)); } catch { v = null; }
         const w = editWait; editWait = null;
@@ -205,12 +206,15 @@ export function createPhonePhotos(win = globalThis.window) {
     // 폰 휴지통으로(안드로이드 11+). 시스템 확인 창에서 [허용]하면 {ok:true, count}.
     trash(list) {
       const ids = (list || []).map(it => it.phoneId).filter(Boolean).slice(0, 200);
-      if (!usable || !state.trash || !ids.length) return Promise.resolve({ok:false, count:0});
-      trashWait?.({ok:false, count:0});
-      return new Promise(ok => {
+      if (!usable || !state.trash) return Promise.resolve({ok:false, count:0, error:'old'});
+      if (!ids.length) return Promise.resolve({ok:false, count:0, error:'none'});
+      trashWait?.({ok:false, count:0, error:'busy'});
+      return new Promise(resolve => {
+        let timer = 0;
+        const ok = v => { clearTimeout(timer); resolve(v); };
         trashWait = ok;
-        setTimeout(() => { if (trashWait === ok) { trashWait = null; ok({ok:false, count:0}); } }, TRASH_MS);
-        if (!send(`photos:trash:${ids.join(',')}`)) { trashWait = null; ok({ok:false, count:0}); }
+        timer = setTimeout(() => { if (trashWait === ok) { trashWait = null; ok({ok:false, count:0, error:'timeout'}); } }, TRASH_MS);
+        if (!send(`photos:trash:${ids.join(',')}`)) { trashWait = null; ok({ok:false, count:0, error:'failed'}); }
       });
     },
     // PHOTO-폴더스위치: 폰 폴더 바꾸기 하나(앱 0.4.1+, 안드로이드 11+). op = {op:'rename', from, name} | {op:'movefolder', from, into}

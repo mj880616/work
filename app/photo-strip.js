@@ -178,9 +178,13 @@ export function openPhotoStrip(opts) {
     for (const id of barIds) {
       const b = actBtn(id); if (!b) continue;
       let a = {hidden:false};
-      if (id === 'delete') { const d = deletable(item); a = {hidden:false, disabled:!d.ok}; b.title = d.title; }
+      // S53-7: 못 지우는 사진도 [지우기]를 눌리게 두고(흐리게·aria-disabled) 누르면 이유를 한 줄 보인다 — 폰에서는 title(마우스 올림)이 안 보여 무반응처럼 보였다.
+      if (id === 'delete') { const d = deletable(item); b.title = d.title; b.hidden = false; b.disabled = false; b.setAttribute('aria-disabled', String(!d.ok)); continue; }
       else if (id === 'edit' && !acts) a = {hidden:!(editable && edit && editable(item))};
-      else if (acts && (id === 'edit' || id === 'more')) { const rows = menuRows(id, item); a = {hidden:!rows.length, disabled:!rows.some(r => !r.disabled)}; }
+      else if (acts && (id === 'edit' || id === 'more')) {
+        // [편집 ▾]·[더보기]도 안 항목이 모두 못 쓰는 때 무반응 대신 누르면 한 줄(S53-7).
+        const rows = menuRows(id, item); b.hidden = !rows.length; b.disabled = false; b.setAttribute('aria-disabled', String(!rows.some(r => !r.disabled))); continue;
+      }
       b.hidden = !!a.hidden; b.disabled = !!a.disabled;
     }
   };
@@ -462,7 +466,8 @@ export function openPhotoStrip(opts) {
     else if (event.target.closest('[data-strip-original]')) download?.(items[at]);
     else if (event.target.closest('[data-strip-act]')) {
       const b = event.target.closest('[data-strip-act]'), item = items[at];
-      if (item && !b.disabled) openBarMenu(b, menuRows(b.dataset.stripAct, item), id => runMenuItem(id, b));
+      if (item && b.getAttribute('aria-disabled') === 'true') note('지금 이 사진에는 쓸 수 있는 항목이 없어요', 3000);
+      else if (item && !b.disabled) openBarMenu(b, menuRows(b.dataset.stripAct, item), id => runMenuItem(id, b));
     }
     else if (event.target.closest('[data-diary-info]')) toggleInfo();
   });

@@ -242,7 +242,8 @@ object PhoneFilesRules {
      */
     fun stateMessage(all: Boolean, can: Boolean, key: String): String {
         // v2(3-③): write = 받기·새 폴더·이름·휴지통(pfiles:op·pfiles:save)을 안다.
-        val sb = StringBuilder("pfiles:state:{\"v\":2,\"write\":true,\"can\":").append(can).append(",\"all\":").append(all && can)
+        // del(S53-7, 0.5.4): 휴지통이 문서·PDF까지 되고, 못 한 이유(refused·direct·missing)를 답에 붙인다.
+        val sb = StringBuilder("pfiles:state:{\"v\":2,\"write\":true,\"del\":true,\"can\":").append(can).append(",\"all\":").append(all && can)
         if (all && can) sb.append(",\"key\":").append(ShellRules.jsonString(key))
         return sb.append('}').toString()
     }
@@ -375,6 +376,37 @@ object PhoneFilesRules {
         sb.append(",\"count\":").append(count)
         if (error.isNotEmpty()) sb.append(",\"error\":").append(ShellRules.jsonString(error))
         return sb.append('}').toString()
+    }
+
+    // ── 휴지통 길 고르기(S53-7 FILES-이폰지우기, 0.5.4) ──
+    // 안드로이드 휴지통 확인 창(MediaStore.createTrashRequest)은 사진·동영상·음악 모음 주소만 받는다. MediaStore.Files 주소를 넘기면
+    // IllegalArgumentException("All requested items must be Media items")으로 창이 뜨지 않는다 — 0.5.3까지 '이 폰' 휴지통이 모두 '폰에 쓰지 못했어요'였던 까닭.
+    // 그래서 줄마다 MEDIA_TYPE을 보고 사진·동영상·음악은 그 모음 주소로 확인 창, 문서·PDF 같은 나머지는 '모든 파일 접근'(이 앱이 이미 받은 권한)으로
+    // 색인 줄에 IS_TRASHED=1(안드로이드 휴지통, 30일 뒤 시스템이 지움)을 직접 쓴다. 영구 삭제(File.delete)는 쓰지 않는다(H-3).
+
+    enum class TrashWay { IMAGE, VIDEO, AUDIO, DIRECT }
+
+    /** MediaStore.Files.FileColumns.MEDIA_TYPE 값(1 사진·2 음악·3 동영상) → 휴지통 길. 값이 없거나 다른 종류(0 없음·4 재생목록·5 자막·6 문서)는 DIRECT. */
+    fun trashWay(mediaType: Int?): TrashWay = when (mediaType) {
+        1 -> TrashWay.IMAGE
+        2 -> TrashWay.AUDIO
+        3 -> TrashWay.VIDEO
+        else -> TrashWay.DIRECT
+    }
+
+    /**
+     * 휴지통 한 번의 답. trashed = 안드로이드 휴지통으로 간 개수, refused = 확인 창에서 그만둠, missing = 폰 색인에서 끝내 못 찾은 개수,
+     * direct = 직접 휴지통에 넣지 못한 문서·PDF 개수. 하나라도 갔으면 ok(못 간 것의 이유를 error로), 하나도 못 갔으면 그 이유.
+     */
+    fun trashDone(trashed: Int, refused: Boolean, missing: Int, direct: Int): String {
+        val why = when {
+            refused -> "refused"
+            direct > 0 -> "direct"
+            missing > 0 -> "missing"
+            else -> ""
+        }
+        return if (trashed > 0) doneMessage(true, "trash", count = trashed, error = why)
+        else doneMessage(false, "trash", error = why.ifEmpty { "write" })
     }
 
     fun saveMessage(ok: Boolean, step: String, got: Long = 0, path: String? = null, error: String = ""): String {

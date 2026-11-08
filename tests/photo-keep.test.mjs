@@ -72,8 +72,10 @@ test('S48-32 고른 원드라이브 칸의 폰 원본 짝: 같은 크기 + 같�
   const o1 = od('O1', '2026-10-31T03:00:00.000Z', {name:'IMG_1.jpg', size_bytes:10}), o2 = od('O2', '2026-10-30T03:00:00.000Z', {name:'IMG_2.jpg', size_bytes:20});
   const k = keptItem({logId:L(1), phoneId:'9', photo:od('K1', '2026-10-01T00:00:00.000Z')});
   const p1 = ph(1, '2026-10-31T03:00:00.000Z'), p1b = ph(11, '2026-10-31T03:00:00.000Z', {name:'IMG_1.jpg'}), p3 = ph(3, '2026-10-29T00:00:00.000Z', {size_bytes:30});
-  // 크기가 다르면(p3) 짝이 아니다. 같은 사진이 폰에 두 장이어도 짝은 하나(먼저 찾은 것). 비운 사진(K1)은 찾지 않는다.
-  const tw = twinPairs([p1, p1b, p3], [o1, o2, k]);
+  // 크기가 다르면(p3) 짝이 아니다. 비운 사진(K1)은 찾지 않는다.
+  // S53-2: 원드라이브 칸 하나를 폰 사진 두 장이 가리키면(내용 확인 없음) 어느 것이 원본인지 몰라 짝이 없다(예전엔 먼저 찾은 것).
+  assert.deepEqual(twinPairs([p1, p1b, p3], [o1, o2, k]), []);
+  const tw = twinPairs([p1, p3], [o1, o2, k]);
   assert.deepEqual(tw.map(x => [x.item.id, x.copy.id]), [['ph:1', 'O1']]);
   assert.equal(twinPairs(null, [o1]), null);
   assert.deepEqual(twinPairs([p1], []), []);

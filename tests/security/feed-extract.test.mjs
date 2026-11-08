@@ -148,6 +148,10 @@ const SAMPLES={
  'news-labortoday':l=>wrap(`<article class="article-view-header">합성 머리 칸</article><article id="article-view-content-div">${body(l)}${FIG('photo-layout')}<div class="view-copyright">빼는 칸 저작권</div></article>`),
  'news-beminor':l=>wrap(`<article id="article-view-content-div">${body(l)}${FIG('photo-layout')}<div class="view-editors">빼는 칸 기자</div></article><div class="paywall-layer"></div><aside>로그인 후 이용해 주세요</aside>`),
  'news-pressian':l=>wrap(`<article class="rel"><p>합성 머리 관련 칸</p></article><div class="article_body">${body(l)}${FIG()}<div class="byline">빼는 칸 기자</div></div><div class="comment">로그인 후 이용 가능합니다</div>`),
+ // 종합지(S53-6): extract:false라 수집 때 글 쪽을 읽지 않는다. 누를 때 열기는 흔한 규칙(@1)으로 <article>을 읽는다.
+ 'news-khan':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-ohmynews':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-hankyung':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-psi':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-itf':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-labourstart':l=>wrap(`<article>${body(l)}${FIG()}</article>`),

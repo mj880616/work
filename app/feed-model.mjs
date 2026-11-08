@@ -163,7 +163,9 @@ export function orgShort(org) {
 }
 // 오른쪽 상대 표: {org, person, text}. 공공운수노조(우리 쪽)는 조직 없이 이름·직함만, 조직을 모르면 이름만.
 // 상대 글이 '연결 조직 이름 + 사람'이거나 첫 낱말이 조직 꼴(…노조·…지부·…공사 등)이면 그 앞부분이 조직이다. 개인 통화는 조직이 없다(organization 비움, orgText 불가).
-export function callWho({organization = null, counterpart = '', personal = false, own = OWN_ORG} = {}) {
+// CALL-상대표시정리: name은 목록 꼬리표에 쓰는 이름만(직함 빼고, 조직 꼴 낱말 건너뜀). title을 주면 연결 조직·상대 글에 조직이 없을 때
+// 제목 맨 앞 조각이 조직 꼴(…노조·…지부·…공사 등)이면 그것을 상대의 조직으로 본다(callTopic이 같은 조각을 제목에서 뗀다).
+export function callWho({organization = null, counterpart = '', personal = false, own = OWN_ORG, title = ''} = {}) {
   const cp = squash(counterpart), full = squash(organization?.name);
   let person = cp, orgText = personal ? '' : full, cpOrg = '';
   if (!personal && cp) {
@@ -174,11 +176,26 @@ export function callWho({organization = null, counterpart = '', personal = false
     }
   }
   // 상대 글 앞의 조직(cpOrg)이 있으면 그것이 상대의 조직이다. 연결 조직과 같은 곳이면 연결 조직의 약칭을, 다른 곳이면 상대 글의 조직을 그대로 쓴다.
+  if (!personal && !cpOrg && !orgText) { const t = titleOrg(title); if (t && !(own && t.includes(OWN_CORE))) { cpOrg = t; orgText = t; } }
   const who = cpOrg || orgText, ownSide = !!own && !!who && who.startsWith(own);
   const related = !!organization && !!cpOrg && (cpOrg === full || commonPrefix(cpOrg, full) >= 4);
   const org = personal || ownSide ? '' : cpOrg ? (related ? orgShort(organization) : cpOrg) : (organization ? orgShort(organization) : '');
-  return {org, person, text:[org, person].filter(Boolean).join(' · ')};
+  return {org, person, name:personName(person), text:[org, person].filter(Boolean).join(' · ')};
 }
+const OWN_CORE = '공공운수';
+// 제목 '조직 · …'의 맨 앞 조각이 한 낱말짜리 조직 꼴이면 그 조각, 아니면 ''.
+function titleOrg(title) {
+  const parts = squash(title).split(/\s+·\s+/).map(p => p.trim()).filter(Boolean);
+  return parts.length >= 2 && !parts[0].includes(' ') && ORG_WORD.test(parts[0]) ? parts[0] : '';
+}
+// '김가상 위원장' → '김가상', '다른지부 이나연' → '이나연'. 낱말 하나면 그대로.
+export function personName(person) {
+  const w = squash(person).split(' ').filter(Boolean);
+  if (w.length < 2) return w[0] || '';
+  return w.find(x => !ORG_WORD.test(x)) || w[0];
+}
+// 목록 줄 오른쪽 꼬리표: 이름만, 이름을 모르면 조직, 둘 다 없으면 ''.
+export const callTag = who => who?.name || who?.org || '';
 // 제목에서 주제만: '조직 · 사람 직함 · 주제'(조각 셋 이상)는 앞 둘을 떼고, '○○ · 주제'(둘)는 앞 조각이 그 줄의 조직·상대와 같은 말일 때만 뗀다.
 // 그 밖(조각 하나, 앞 조각이 상대와 무관, 주제가 빔)은 제목 그대로. 화면에서 글자를 깎지 않고 이 규칙으로만 가른다.
 export function callTopic(title, {organization = null, counterpart = ''} = {}) {
@@ -188,7 +205,8 @@ export function callTopic(title, {organization = null, counterpart = ''} = {}) {
   if (parts.length === 2) {
     const known = [...wordsOf(organization?.name), ...(organization?.aliases || []).flatMap(wordsOf), ...wordsOf(counterpart)];
     const same = wordsOf(parts[0]).some(w => known.some(k => k.includes(w) || w.includes(k) || commonPrefix(k, w) >= 4));
-    return same ? parts[1] : t;
+    // 앞 조각이 조직 꼴 한 낱말이면 그 조직은 상대 칸(callWho title)에 보이므로 제목에서는 뗀다.
+    return same || titleOrg(t) ? parts[1] : t;
   }
   return t;
 }

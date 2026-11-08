@@ -150,7 +150,14 @@ export function cleanWord(raw, have = []) {
 export function normalizeCatalog(data) {
   const list = Array.isArray(data?.sources) ? data.sources : [];
   return list.filter(s => s && /^news-[a-z0-9-]{1,34}$/.test(String(s.key)) && typeof s.name === 'string')
-    .map(s => ({key: s.key, name: s.name.slice(0, 60), region: s.region === 'foreign' ? 'foreign' : 'domestic', lang: typeof s.lang === 'string' ? s.lang : 'ko'}));
+    .map(s => ({key: s.key, name: s.name.slice(0, 60), region: s.region === 'foreign' ? 'foreign' : 'domestic', lang: typeof s.lang === 'string' ? s.lang : 'ko', on: s.on === true}));
+}
+// 켬 여부: 그 매체 줄이 있으면 줄 값, 없으면 카탈로그 기본 켬(on, S53-6 — 서버 news-feed도 같은 규칙으로 읽는다).
+export function sourceOn(source, row) {
+  return row ? row.enabled === true : source?.on === true;
+}
+export function enabledSourceKeys(catalog, rows) {
+  return (catalog || []).filter(s => sourceOn(s, rows?.get?.(s.key))).map(s => s.key);
 }
 export function normalizeLimits(data) {
   const l = data?.limits || {};

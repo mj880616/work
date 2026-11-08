@@ -72,6 +72,20 @@ export function phoneOpText(res, done) {
   return '폰 폴더를 바꾸지 못했어요.';
 }
 
+// S53-7 FILES-이폰지우기: 폰 사진 휴지통이 안 됐을 때 이유와 할 일 한 줄(앱 0.5.4+가 이유를 준다, phone-photos trash 답 error).
+// 무반응·막연한 '못했어요' 대신 — 크게 보기·고르기·사진 정리·폴더째 지우기가 모두 이 글을 쓴다.
+export function phoneTrashText(error) {
+  switch (error) {
+    case 'refused': return '폰에서 지우지 않았어요(안드로이드 확인 창에서 취소).';
+    case 'none': return '폰에서 그 사진을 찾지 못해 지우지 않았어요. 사진 목록을 다시 열고 해 주세요.';
+    case 'old': return '이 폰(안드로이드 10 이하)은 여기서 지울 수 없어요. 갤러리 앱에서 지워 주세요.';
+    case 'timeout': return '폰이 답하지 않아 지우지 않았어요. 다시 해 주세요.';
+    case 'busy': return '앞의 지우기가 끝난 뒤 다시 해 주세요.';
+    case 'failed': return '폰에서 지우지 못했어요. 폰 앱을 껐다 켠 뒤 다시 해 주세요.';
+    default: return '폰에서 지우지 않았어요.';
+  }
+}
+
 // S48-31 새 폰 폴더는 꺼진 채(요청함 10/31 11:04 사진 폴더 [사용자 결정] '새로 생긴 폴더는 꺼진 채로 시작'을 폰 폴더까지).
 // - 아는 폴더 view_prefs.phone_folders_known = 보이는(끈 목록에 없는) 폰 폴더 경로의 지문(FNV-1a 32비트, 소문자 16진수 8자) 배열, 120개까지.
 //   경로 원문 대신 지문만 둔다(화면 기억 전체 4000바이트 상한 안에 들게). 서버 저장, 기기 저장 없음.
