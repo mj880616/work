@@ -1560,14 +1560,14 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
 .kptu-chev{ display:inline-block; flex:none; box-sizing:border-box; width:1em; height:1em; margin:0; padding:0; vertical-align:-.15em; background:currentColor; color:var(--kptu-muted); font-style:normal; -webkit-mask:var(--kptu-chev-mask) center / contain no-repeat; mask:var(--kptu-chev-mask) center / contain no-repeat; transition:transform .14s ease; pointer-events:none; }
 .kptu-chev.is-open,[aria-expanded="true"] > .kptu-chev,details[open] > summary .kptu-chev{ transform:rotate(180deg); }
 /* 가상 요소 꺾쇠를 쓰는 접는 칸: 기본 표시(브라우저 ▶)를 지운다. */
-:is(#appView #homeView details.journal-calref,#appView #homeView details.journal-others,#appView #homeView details.journal-overdue,
+:is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
     .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev)>summary{list-style:none}
-:is(#appView #homeView details.journal-calref,#appView #homeView details.journal-others,#appView #homeView details.journal-overdue,
+:is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
     .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev)>summary::-webkit-details-marker{display:none}
 /* 이름 앞 꺾쇠(::before) */
-:is(#appView #homeView details.journal-calref,#appView #homeView details.journal-others,#appView #homeView details.journal-overdue,
+:is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
     .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev,
     .biz-week,#appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold)>summary::before,
@@ -1579,7 +1579,7 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
   font-size:inherit; background:currentColor; color:var(--kptu-muted);
   -webkit-mask:var(--kptu-chev-mask) center / contain no-repeat; mask:var(--kptu-chev-mask) center / contain no-repeat; transform:none; transition:transform .14s ease; }
 .ps3-fold>summary:not(.ps3-fold-summary)::after,#appView #photosView .photos-tidy-row>summary .photos-tidy-see::after{ margin:0 0 0 4px; }
-:is(#appView #homeView details.journal-calref,#appView #homeView details.journal-others,#appView #homeView details.journal-overdue,
+:is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
     .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev,
     .biz-week,#appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold)[open]>summary::before,

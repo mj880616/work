@@ -19,7 +19,8 @@
 #appView #homeView .journal-days{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
 #appView #homeView .journal-date{ position:relative; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; width:100%; height:auto;
   min-height:60px; margin:0; padding:6px 0 14px; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line);
-  border-radius:var(--ds-radius-control); box-shadow:none; font:inherit; cursor:pointer; }
+  border-radius:var(--ds-radius-control); box-shadow:none; font:inherit; font-size:var(--ds-text-meta); cursor:pointer; }
+/* 날짜 칸 버튼 자체 글자 크기: 안의 요일·날짜 글자는 각자 크기를 정하므로 보이는 모양은 그대로다. 버튼 전수 규칙(14px 이하, button-census.spec)에 맞춘다. */
 #appView #homeView .journal-weekday{ color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1.2; }
 #appView #homeView .journal-date.sunday .journal-weekday{ color:var(--kptu-danger); }
 #appView #homeView .journal-num{ box-sizing:border-box; display:grid; place-items:center; min-width:24px; height:24px; padding:0 4px; font-size:var(--ds-text-row); line-height:1; border-radius:999px; }
@@ -345,21 +346,8 @@
 #appView #homeView .journal-report-parts{ display:flex; flex-direction:column; gap:8px; }
 #appView #homeView .journal-report-parts > .journal-group{ padding-top:6px; border-top:0; }
 #appView #homeView .journal-group h5.journal-heading{ margin:0; font-size:var(--kptu-text-body); font-weight:700; color:var(--kptu-muted); }
-/* 그 밖의 기록: 기본 접힘, 제목 옆에 개수 한 줄. 펼치면 PC는 2칸. */
-#appView #homeView .journal-others{ padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
-#appView #homeView .journal-others > summary{ display:flex; align-items:baseline; gap:8px; min-height:var(--kptu-touch-target,44px); align-items:center; cursor:pointer; }
-#appView #homeView .journal-others > summary .journal-heading{ margin:0; font-size:var(--ds-text-read); font-weight:700; color:var(--kptu-ink); }
+/* 접힌 묶음 제목 옆 개수 한 줄([주간 정리] 참고·주간보고 기억·규칙·환류). JOURNAL-그밖의기록삭제: 하루 '그 밖의 기록' 칸 모양은 없앴다. */
 #appView #homeView .journal-others-count{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
-#appView #homeView .journal-others > summary .journal-failed{ font-size:var(--ds-text-meta); }
-#appView #homeView .journal-others > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
-#appView #homeView .journal-others-parts{ display:flex; flex-direction:column; gap:8px; }
-#appView #homeView .journal-others-parts > .journal-group{ border-top:0; padding-top:4px; }
-@media(min-width:761px){
-  #appView #homeView .journal-others-parts{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 0; }
-  /* S49-8 JOURNAL-두칸구분선: 그 밖의 기록 두 칸도 사이에 엷은 세로선 */
-  #appView #homeView .journal-others-parts > :nth-child(odd){ padding-right:16px; }
-  #appView #homeView .journal-others-parts > :nth-child(even){ padding-left:16px; border-left:var(--ds-line-width) solid var(--ds-line); }
-}
 /* JOURNAL-조직현황AI요약: 4. 산하 조직 현황 > 1) 요약의 조직별 요약. [요약 만들기]는 묶음 제목 줄 오른쪽 작은 글자 버튼, 조직마다
    [요약 고치기]는 이름 줄 끝 ⋯ 안(WEEKLY-화면디자인정리, 아래 묶음). [원문 N건]은 낮은 글자 버튼(--ds-compact-height-sm).
    요약 줄은 일반 목록과 같은 글자, 원문은 <details>로 접어 둔다. 새 크기 값 없음. */
@@ -656,11 +644,6 @@
 #appView #homeView .weekly-flow-confirm{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 #appView #homeView .weekly-flow-confirm-state{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #homeView .weekly-flow-confirm-slot .journal-hwpx-panel{ padding:0; border:0; background:transparent; }
-/* S52-29 기억할 통화·텔레그램 줄 = 공용 '제안 줄': 줄 앞 출처 꼬리표(.weekly-flow-tag) · 글(줄 전체 폭) · 줄 끝 ⋯ 하나. 여기서는 자리만 정한다. */
-#appView #homeView .journal-memorable-row > .weekly-flow-tag{ margin-top:7px; }
-#appView #homeView .journal-memorable-org{ font-weight:var(--ds-weight-medium); }
-#appView #homeView .journal-memorable-edit{ display:flex; gap:4px; width:100%; }
-#appView #homeView .journal-memorable-edit :is(input, textarea){ flex:1; min-width:0; }
 /* 홈 [하루]의 '나한테 온 요청'·'잊지 말기' 상자 모양은 ui-standard.css 'UI-요청상자통일' 한 곳(S52-09, 공용 부품 notice-box.mjs). */
 /* S51-26 [노트로] 작은 창(family-note-send.js): 폰은 하단바 바로 위에서 올라오고, PC는 가운데 작은 창. */
 .modal.family-send{ z-index:60; }

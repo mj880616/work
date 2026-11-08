@@ -892,3 +892,58 @@ test('a preview bot on work /work/share/?s= also gets the title; malformed short
   const plain = await shareRequest('https://work.bokdoong.com/work/share/?s=minja-rail-k7q2');
   assert.equal(plain.reads.length, 0); assert.equal(ogTitle(plain.text), '공유 페이지');
 });
+
+// LIB-편집열기느림: GitHub Pages gives every file a new ETag on each deploy, so the ~14MB HWP editor was fetched again
+// after every deploy. Its build files have a content hash in the name, so only those may be kept by the browser.
+test('HWP editor build files with a content hash in the name are kept; everything around them still revalidates', async () => {
+  const base = 'https://bokdoong.com/work/app/hwp-lab/rhwp-0.8.7/studio/';
+  for (const name of ['assets/rhwp_bg-BkVWMBaR.wasm', 'assets/index-oVYSsgk_.js', 'assets/index-Dy0DTkWY.css', 'assets/canvaskit-renderer-C4Jx6T-v.js']) {
+    const ok = await request(base + name, { upstream: new Response('bytes', { headers: { ETag: '"deploy-1"' } }) });
+    assert.equal(ok.response.status, 200, name);
+    assert.equal(ok.calls[0].cache, 'no-store', name);
+    assert.equal(ok.response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', name);
+    const same = await request(base + name, { headers: { 'If-None-Match': '"deploy-1"' }, upstream: new Response(null, { status: 304, headers: { ETag: '"deploy-1"' } }) });
+    assert.equal(same.calls[0].headers.get('If-None-Match'), '"deploy-1"', name);
+    assert.equal(same.response.status, 304, name);
+    assert.equal(same.response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', name);
+  }
+  const kept = [
+    [base + 'index.html', 200, 'GET'],
+    [base + 'fonts/NotoSerifKR-Regular.woff2', 200, 'GET'],
+    [base + 'images/icon_small_ko.svg', 200, 'GET'],
+    [base + 'theme-init.js', 200, 'GET'],
+    ['https://bokdoong.com/work/app/hwp-lab/studio-guard.js', 200, 'GET'],
+    ['https://bokdoong.com/work/app/hwp-lab/rhwp-0.8.7/sdk/index.js', 200, 'GET'],
+    [base + 'assets/rhwp_bg-BkVWMBaR.wasm?x=1', 200, 'GET'],
+    [base + 'assets/rhwp_bg-BkVWMBaR.wasm', 404, 'GET'],
+    [base + 'assets/rhwp_bg-BkVWMBaR.wasm', 200, 'HEAD'],
+    [base + 'assets/rhwp_bg.wasm', 200, 'GET'],
+    ['https://bokdoong.com/work/app/hwp-lab/rhwp-next/studio/assets/index-oVYSsgk_.js', 200, 'GET'],
+    ['https://bokdoong.com/work/app/assets/index-oVYSsgk_.js', 200, 'GET']
+  ];
+  for (const [url, status, method] of kept) {
+    const { response } = await request(url, { method, upstream: new Response(method === 'HEAD' ? null : 'x', { status }) });
+    assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', `${method} ${status} ${url}`);
+  }
+  // desk only redirects to bokdoong.com, so nothing there is kept either.
+  const desk = await request('https://desk.bokdoong.com/work/app/hwp-lab/rhwp-0.8.7/studio/assets/rhwp_bg-BkVWMBaR.wasm');
+  assert.equal(desk.response.status, 302);
+  assert.equal(desk.calls.length, 0);
+});
+
+test('every HWP editor build file has a hashed name the keep rule matches; fonts and pages do not', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const { editorHashedAsset } = await import('../../cloudflare/bokdoong-router.mjs');
+  const pin = JSON.parse(await readFile(new URL('../../scripts/hwp-lab/rhwp-pin.json', import.meta.url), 'utf8'));
+  const dir = `app/hwp-lab/rhwp-${pin.version}/studio/`;
+  const at = path => new URL(`https://bokdoong.com/work/${dir}${path}`);
+  const assets = await readdir(new URL(`../../${dir}assets/`, import.meta.url));
+  assert.ok(assets.some(name => name.endsWith('.wasm')), 'the engine is in assets/');
+  for (const name of assets) assert.equal(editorHashedAsset('bokdoong.com', at(`assets/${name}`)), true, name);
+  for (const folder of ['fonts', 'images']) {
+    for (const name of await readdir(new URL(`../../${dir}${folder}/`, import.meta.url))) {
+      assert.equal(editorHashedAsset('bokdoong.com', at(`${folder}/${name}`)), false, `${folder}/${name}`);
+    }
+  }
+  assert.equal(editorHashedAsset('bokdoong.com', at('index.html')), false);
+});

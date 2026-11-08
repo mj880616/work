@@ -13,7 +13,7 @@
 // 🗑(원드라이브 사진만)은 묻지 않고 목록에서 바로 빼고 '휴지통으로 옮겼어요 · 되돌리기'를 몇 초 보여 준다. 그 시간이 지나거나 닫거나 화면을 떠나면
 // 원드라이브 휴지통으로 보낸다(영구 삭제 아님). 되돌리기는 보내기 전이라 같은 자리로 그대로 돌아온다. 기기 저장 없음.
 import {swipeKind, shareFileName, UNDO_MS, dragAxis, dragEnd, dragOffset, starFill, hintDue, hintNext, hintSeen, HINT_TEXT, loadTimeText,
-  ZOOM_ONE, isZoomed, clampPan, zoomAt, pinchTo, panBy, zoomToggle, wheelScale, isTap, isDoubleTap, settleZoom, zoomTransform} from './photo-viewer-model.mjs';
+  ZOOM_ONE, isZoomed, clampPan, zoomAt, pinchTo, panBy, zoomToggle, wheelScale, isTap, isDoubleTap, settleZoom, zoomTransform, isGifPhoto} from './photo-viewer-model.mjs';
 import {slotTimingOf} from './img-slot.js';
 import {viewPrefs} from './view-prefs.js';
 import {preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quietNote, PHOTO_WAIT} from './photo-share.js';
@@ -202,6 +202,8 @@ export function openPhotoStrip(opts) {
     }
     strip.querySelectorAll('video').forEach(v => { if (v.parentElement !== strip.children[at]) v.pause?.(); });
     refresh(); paintInfo(); prepareShown();
+    // PHOTO-GIF움직임: GIF는 큰 그림(줄인 정지 그림) 위에 원본을 바로 겹쳐 움직이게 한다(확대할 때 받는 원본 길과 같은 loadHires).
+    if (isGifPhoto(item)) loadHires();
   };
   const note = (text, ms = 0) => { clearTimeout(noteTimer); noteText(text); if (ms) noteTimer = setTimeout(() => { if (!pending) noteText(''); }, ms); };
   // 보는 장의 그림이 뜨면(load는 거품이 없어 잡기 단계로 듣는다) 그 그림의 바이트를 미리 준비해 [공유]를 바로 넘긴다.
@@ -363,7 +365,7 @@ export function openPhotoStrip(opts) {
   }
   // 원본 해상도: 확대한 장마다 한 번 받아 칸 위에 겹친다. 메모리를 아끼려고 최근 HIRES_KEEP장만 둔다.
   const HIRES_KEEP = 2, held = [];
-  const forget = h => { h.img.remove(); if (h.revoke) URL.revokeObjectURL(h.url); };
+  const forget = h => { h.img.remove(); if (h.revoke) URL.revokeObjectURL(h.url); if (h.slide?.isConnected) delete h.slide.dataset.stripHires; };
   function dropHires() { while (held.length) forget(held.shift()); }
   function loadHires() {
     const i = at, item = items[i], slide = strip.children[i];
@@ -379,7 +381,7 @@ export function openPhotoStrip(opts) {
         const el = slide.querySelector('.diary-photo');
         if (!ok || viewer?.box !== box || !slide.isConnected || !el) { if (revoke) URL.revokeObjectURL(url); if (slide.isConnected) slide.dataset.stripHires = 'failed'; return; }
         el.append(img); slide.dataset.stripHires = 'shown';
-        held.push({img, url, revoke});
+        held.push({img, url, revoke, slide});
         while (held.length > HIRES_KEEP) forget(held.shift());
         if (i === at) applyZoom(clampPan(zoom, zoomBox()));
       };

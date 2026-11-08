@@ -459,7 +459,7 @@ function basketPlaces(basket, day) {
 // update of any other organization goes under one '그 외' section as "조직 이름 · 내용", so it is still there. Without that
 // read (it failed) every organization keeps its own section as before.
 // JOURNAL-하루개편: the day card passes {open:true, unsorted:false} — its sections carry `opens`, and an update sent nowhere is
-// not a section here (it is "어디에도 안 보낸 업데이트" under 그 밖의 기록, unsentUpdatesOn). [주간 정리] keeps '미분류'.
+// not a section here (JOURNAL-그밖의기록삭제: the day card no longer lists it; it stays in the basket). [주간 정리] keeps '미분류'.
 export function orgNewsOn({basket, orgUpdates} = {}, day, {open = false, unsorted = true} = {}) {
   const entries = [], mine = orgUpdates?.mine instanceof Set ? orgUpdates.mine : null;
   const add = (id, name, at, text, requests, place = null) => {
@@ -502,22 +502,11 @@ export const projectNewsOn = (read = {}, day, tree = null, {open = false} = {}) 
 // BASKET-일지로남기기: 기타 메모 of one day — the day's updates kept as work-journal memos ([업무일지에 남기기], metadata.journal_at)
 // that went to no organization and no project, oldest first, one item each (its first line, as the other update groups).
 // They leave 조직 소식's '미분류'; an update linked to an organization or a project later shows there instead, never twice.
-// REF-참고묶음: one put in a reference bundle is not a 기타 메모 either (it shows under 참고, referenceItemsOn).
+// REF-참고묶음: one put in a reference bundle is not a 기타 메모 either (it stays in its bundle).
+// JOURNAL-그밖의기록삭제: the day card no longer draws 기타 메모; the items feed 오늘 한 줄 AI 초안 (card.memos) and [주간 정리] 참고.
 export const journalMemoItemsOn = (basket, day) => basketPlaces(basket, day)
   .filter(({orgs, projects, refs, journal}) => journal && !orgs.length && !projects.length && !refs.length).map(({memo, line}) => ({text:line, open:{type:'note', note:memo.id}}));
 export const journalMemosOn = (basket, day) => journalMemoItemsOn(basket, day).map(item => item.text);
-// JOURNAL-하루개편: 어디에도 안 보낸 업데이트 — the day's updates sent to no organization and no project and not kept as a
-// work-journal memo (what 조직 소식 showed as '미분류' before). Pressing one opens it in the basket.
-export const unsentUpdatesOn = (basket, day) => basketPlaces(basket, day)
-  .filter(({orgs, projects, refs, journal}) => !journal && !orgs.length && !projects.length && !refs.length)
-  .map(({memo, line, requests}) => ({text:line, requests, open:{type:'note', note:memo.id}}));
-// REF-참고묶음 (질문 2, 추천안): 참고 of one day under the day card's 그 밖의 기록 — the day's updates put in a reference bundle and
-// in no organization and no project (one also sent to an organization or a project shows there only, never twice), one item per
-// bundle: "묶음 이름 · 첫 줄" (the link's summary when there is one), oldest first. Pressing one opens the update in the basket.
-// Not part of [주간 정리] (weeklySummary never reads it), so never in the weekly draft, [복사] or the 한글 file candidates.
-export const referenceItemsOn = (basket, day) => basketPlaces(basket, day)
-  .filter(({orgs, projects, refs}) => refs.length && !orgs.length && !projects.length)
-  .flatMap(({memo, refs, line, requests}) => refs.map(ref => ({text:`${ref.name} · ${ref.summary || line}`, requests, open:{type:'note', note:memo.id}})));
 // 회의·행사 결과 of one day: every meeting row of this workspace whose meeting_at falls on that day (Korea time). Press
 // conferences and forums are meeting rows too (their series name says so), so no kind is filtered out.
 export const meetingsOn = (meetings, day) => (meetings || []).filter(meeting => onDay(meeting?.meeting_at, day)).sort((a, b) => byTime(a.meeting_at, b.meeting_at));
@@ -540,8 +529,9 @@ export const sharePageLine = page => `${String(page?.title || '').trim() || '제
 
 // JOURNAL-하루개편 (2026-10-22 요청함 14:26·12:55): the [하루] card from top to bottom —
 //   ① 오늘 한 줄 (journal.js) → ② 할 일 / 한 일 → ③ 그날 나온 챙길 것 (todo-radar.js, its own renderer) → ④ 주간보고 재료 in the
-//   report's order: 회의·활동 결과 → 사업 소식 → 조직 소식 → ⑤ 그 밖의 기록 (folded): 일정·자료실 새 자료·공유 페이지·노트로 옮긴 것·
-//   기타 메모·참고(REF-참고묶음)·어디에도 안 보낸 업데이트. '할 일 예정' and 조직 소식's '미분류' are gone from the day card ([주간 정리] keeps its own).
+//   report's order: 회의·활동 결과 → 사업 소식 → 조직 소식. '할 일 예정' and 조직 소식's '미분류' are gone from the day card ([주간 정리] keeps its own).
+//   JOURNAL-그밖의기록삭제(11/08): ⑤ 그 밖의 기록(자료실 새 자료·공유 페이지·기타 메모·참고·어디에도 안 보낸 업데이트)은 화면에서 없앴다 —
+//   모두 원래 자리(자료실·공유 페이지·정리함·참고 묶음·잊지 말기)가 있다. 기타 메모 묶음(memos)만 오늘 한 줄 AI 초안 재료로 남는다(화면엔 안 그림).
 // Every item can carry `open` (where its original is shown, see OPEN above); the screen only draws what this returns.
 
 // ② 할 일 / 한 일. todo = pending tasks due that day; overdue = pending tasks due before it (one folded line on screen);
@@ -578,14 +568,11 @@ const okItems = (materials, source) => materials?.[source]?.status === 'ok' ? ma
 // The parts of the day card and their reads (journal.js [다시 시도] uses these keys).
 export const DAY_SOURCES = Object.freeze({
   tasks:['tasks'], activities:ACTIVITY_SOURCES, business:['basket', 'projectUpdates'], orgs:['basket', 'orgUpdates'],
-  events:['events'], docs:['documents'], shares:['sharePages'], memos:['basket'], refs:['basket'], unsent:['basket'], calls:['calls'],
+  events:['events'], memos:['basket'], calls:['calls'],
 });
 export const REPORT_PARTS = Object.freeze([['activities', '회의·활동 결과'], ['business', '사업 소식'], ['orgs', '조직 소식']]);
-export const OTHER_PARTS = Object.freeze([['docs', '자료실 새 자료'], ['shares', '공유 페이지'],
-  ['memos', '기타 메모'], ['refs', '참고'], ['unsent', '어디에도 안 보낸 업데이트']]);
-// S49-12: '노트로 옮긴 것'(노트에 이미 있어 중복)과 '업무 통화'(주간보고 재료의 '기억할 통화·텔레그램'으로 옮김)는 그 밖의 기록에서 뺐다.
-// 'calls' 읽기(DAY_SOURCES)는 오늘 한 줄 초안 재료로 그대로 쓴다.
-// The whole day card: {tasks:{todo, overdue, done, ...state}, events:part, report:[part], others:[part]}; a part is {key, label, loading, failed,
+// S49-12·JOURNAL-그밖의기록삭제: 하루 카드에 '그 밖의 기록' 묶음은 없다. 'calls' 읽기(DAY_SOURCES)는 오늘 한 줄 초안 재료로 그대로 쓴다.
+// The whole day card: {tasks:{todo, overdue, done, ...state}, events:part, report:[part], memos:part}; a part is {key, label, loading, failed,
 // capped, items:[{text, open, ...}], sections:[{name, items, opens, tags?}]}. kinds: journal-meeting-kinds readKinds() result.
 export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
   const part = (key, label, build) => {
@@ -609,17 +596,10 @@ export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
     part('business', '사업 소식', () => (basket || okItems(materials, 'projectUpdates')) ? sectioned(projectNewsOn({basket, projectUpdates:okItems(materials, 'projectUpdates')}, day, tree, {open:true})) : {}),
     part('orgs', '조직 소식', () => (basket || okItems(materials, 'orgUpdates')) ? sectioned(orgNewsOn({basket, orgUpdates:okItems(materials, 'orgUpdates')}, day, {open:true, unsorted:false})) : {}),
   ];
-  const others = OTHER_PARTS.map(([key, label]) => part(key, label, () => {
-    if (key === 'docs') return {items:(okItems(materials, 'documents') || []).filter(doc => onDay(doc?.created_at, day)).map(doc => ({text:documentLine(doc), open:{type:'library'}}))};
-    if (key === 'shares') return {items:(okItems(materials, 'sharePages') || []).filter(page => onDay(page?.updated_at, day)).map(page => ({text:sharePageLine(page), open:{type:'pages'}}))};
-    if (key === 'memos') return {items:journalMemoItemsOn(basket, day)};
-    if (key === 'refs') return {items:referenceItemsOn(basket, day)};
-    return {items:unsentUpdatesOn(basket, day)};
-  }));
-  return {tasks, events, report, others};
+  // 기타 메모: 화면에는 그리지 않고 오늘 한 줄 AI 초안 재료(journal-draft-model.mjs draftMaterial)로만 쓴다.
+  const memos = part('memos', '기타 메모', () => ({items:journalMemoItemsOn(basket, day)}));
+  return {tasks, events, report, memos};
 }
-// The count line of 그 밖의 기록 ("일정 2 · 자료실 새 자료 1"): parts with items only.
-export const othersCount = others => others.filter(part => part.items.length).map(part => `${part.label} ${part.items.length}`).join(' · ');
 // 할 일 / 한 일 with nothing: the line under the empty column says when the reason is the reads' range, not the day.
 export function dayRangeNote(key, day, {doneDays = DONE_TASK_DAYS, today = todayKey()} = {}) {
   if (key === 'done' && day < doneCoverFrom(doneDays, today)) return `Google 할 일은 최근 ${doneDays}일 안에 끝낸 것만 모여요.`;

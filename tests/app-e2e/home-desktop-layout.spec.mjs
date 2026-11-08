@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 // HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 홈 = 업무일지. PC 1440·폴드 884(PC 틀)·폰 412에서
-// 앱을 열면 오늘 업무일지, 위에서부터 날짜 줄 → 요약 한 줄 → 업데이트 입력줄 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료·그 밖의 기록.
+// 앱을 열면 오늘 업무일지, 위에서부터 날짜 줄 → 요약 한 줄 → 업데이트 입력줄 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료(JOURNAL-그밖의기록삭제).
 // PC 틀(≥761)은 그날 일정·할 일이 좌우, 폰은 위아래이고 입력줄은 하단 탭 위 고정. 시계 2026-10-06(화) 10:00 KST(openHome).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const noOverflow = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
@@ -56,9 +56,9 @@ for (const [width, phone] of [[1440, false], [884, false], [412, true]]) {
     await expect(page.locator('#homeView [data-journal-schedule] [data-journal-calendar]')).toHaveText('달력 ›');
     await expect(page.locator('#homeView [data-journal-tasks] [data-journal-tasks-open]')).toHaveText('할 일 ›');
     await expect(page.locator('#homeView [data-journal-dday] .journal-dday-chip')).toHaveText(['D-1 주요 일정']);
-    // 주간보고 재료는 펼쳐 있고, 그 밖의 기록은 접힌 한 줄.
+    // 주간보고 재료는 펼쳐 있고, 그 밖의 기록은 없다(JOURNAL-그밖의기록삭제).
     await expect(page.locator('#homeView [data-journal-report]')).toBeVisible();
-    await expect(page.locator('#homeView details[data-journal-others]')).not.toHaveAttribute('open', '');
+    await expect(page.locator('#homeView [data-journal-others]')).toHaveCount(0);
     // 옛 홈 칸·옛 챙길 것 상자는 없다.
     await expect(page.locator('[data-home-card],[data-home-cards],[data-journal-radar],#journalView')).toHaveCount(0);
     expect(await noOverflow(page)).toBe(true);
