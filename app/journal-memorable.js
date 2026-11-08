@@ -4,6 +4,7 @@
 //   서버가 '마지막 실행 1시간 뒤 + 새 기록 있음'일 때만 AI를 부르고 결과를 표에 넣는다. 화면은 다시 읽어 그린다. 1시간 안에 다시 열면 AI를 부르지 않는다.
 // - 운영자 기능(통화·텔레그램)은 서버가 판정한다(app_my_features, 표 restrictive 정책, ai-assist). 여기서 app_my_features를 읽는 것은 묶음을 그릴지 정하는 편의일 뿐이다.
 // - 줄 = 공용 '제안 줄'(출처 꼬리표 · 글 · 줄 끝 ⋯ 하나, S52-29). ⋯ = [넣기][고쳐서 넣기][빼기 · 이유]. 빼기한 줄은 보이지 않는다. 표가 없으면(DB 적용 전) 묶음을 그리지 않는다.
+import {myFeatures} from './my-features.js';
 import {callAiAssist} from './basket-ai-summary.js';
 import {rowMore} from './row-more.js';
 
@@ -41,8 +42,7 @@ export function createMemorable({onChange = () => {}, now = () => Date.now()} = 
 
   async function readFeatures(rt) {
     if (features) return features;
-    try { const v = await rt.api('/rest/v1/rpc/app_my_features', {method:'POST', body:{}, singleFlight:false}); features = new Set(Array.isArray(v) ? v.filter(x => typeof x === 'string') : []); }
-    catch { features = new Set(); }
+    features = new Set(await myFeatures(rt)); // 공용 my-features.js(한 번만 읽음, 실패하면 빈 목록)
     return features;
   }
   async function readDay(day, rt) {
