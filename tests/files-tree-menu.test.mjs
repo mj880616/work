@@ -15,8 +15,9 @@ test('S51-22 나무 ⋯ 메뉴: 클라우드 파일·폴더는 예전 고르기 
   assert.equal(treeMenuItems({source: 'gd'}).find(x => x.id === 'tolib').label, '자료실로 보내기');
   assert.equal(treeMenuItems({source: 'gd', library_doc_id: 'd1'}).find(x => x.id === 'libview').label, '자료실에서 보기');
   // S51-31: 세 묶음 — 올리기·복사·옮기기·이름 바꾸기 | 별표·색·위로·아래로 | 휴지통.
-  assert.deepEqual(ids({source: 'od', is_folder: true}, {sibIndex: 1, sibCount: 3}), ['only', 'mkdir', 'upload', 'copy', 'move', 'rename', 'star', 'color', 'up', 'down', 'trash']);
-  assert.deepEqual(ids({source: 'od', is_folder: true}, {sibIndex: 0, sibCount: 1}), ['only', 'mkdir', 'upload', 'copy', 'move', 'rename', 'star', 'color', 'trash']);
+  // S53-8 ②: 클라우드 폴더도 [자료실로 보내기](폴더째, 안의 파일).
+  assert.deepEqual(ids({source: 'od', is_folder: true}, {sibIndex: 1, sibCount: 3}), ['only', 'mkdir', 'upload', 'tolib', 'copy', 'move', 'rename', 'star', 'color', 'up', 'down', 'trash']);
+  assert.deepEqual(ids({source: 'od', is_folder: true}, {sibIndex: 0, sibCount: 1}), ['only', 'mkdir', 'upload', 'tolib', 'copy', 'move', 'rename', 'star', 'color', 'trash']);
   const folder = treeMenuItems({source: 'od', is_folder: true}, {sibIndex: 1, sibCount: 3});
   assert.deepEqual(folder.filter(x => x.sep).map(x => x.id), ['star']);
   const items = treeMenuItems({source: 'od'});
@@ -27,24 +28,27 @@ test('S51-22 나무 ⋯ 메뉴: 클라우드 파일·폴더는 예전 고르기 
 
 test('S51-22 나무 ⋯ 메뉴: 이 폰은 클라우드에 복사(+쓸 수 있으면 이름·휴지통, 폴더는 지우지 않음), 내 PC는 보기·열기만', () => {
   assert.deepEqual(ids({source: 'ph'}), ['open', 'tolib', 'tocloud']);
-  assert.deepEqual(ids({source: 'ph'}, {phoneWrite: true}), ['open', 'tolib', 'tocloud', 'move', 'rename', 'trash']); // S52-43 ②: 폰 ↔ 클라우드 옮기기
-  assert.deepEqual(ids({source: 'ph', is_folder: true}, {phoneWrite: true}), ['only', 'mkdir', 'tocloud', 'rename']);
+  // S52-43 ②: 폰 ↔ 클라우드 옮기기. S53-8: 폰에 쓸 수 있으면 받을 곳에 이 폰도 있어 [복사], 폴더도 [옮기기]·[자료실로 보내기](폴더째).
+  assert.deepEqual(ids({source: 'ph'}, {phoneWrite: true}), ['open', 'tolib', 'copy', 'move', 'rename', 'trash']);
+  assert.deepEqual(ids({source: 'ph', is_folder: true}, {phoneWrite: true}), ['only', 'mkdir', 'tolib', 'copy', 'move', 'rename']);
+  assert.deepEqual(ids({source: 'ph', is_folder: true}), ['only', 'tolib', 'tocloud']);
   assert.deepEqual(ids({source: 'pc'}), ['open']);
   assert.deepEqual(ids({source: 'pc', is_folder: true}), ['only']);
-  // S52-41: 바구니 문 0.4.0+면 내 PC 파일도 클라우드로 복사·옮기기(이름·휴지통은 다음 판이라 없음).
-  assert.deepEqual(ids({source: 'pc'}, {pcWrite: true}), ['open', 'copy', 'move']);
-  assert.deepEqual(ids({source: 'pc', is_folder: true}, {pcWrite: true}), ['only']);
-  // S52-43 ① FILES-내PC쓰기: 0.5.0+ 문(pcEdit)이면 클라우드와 같은 항목(폴더째 복사는 다음 PR, 드라이브 줄은 이 폴더만·새 폴더).
+  // S52-41: 바구니 문 0.4.0+면 내 PC 파일도 클라우드로 복사·옮기기(이름·휴지통은 다음 판이라 없음). S53-8: 폴더째·자료실로 보내기도.
+  assert.deepEqual(ids({source: 'pc'}, {pcWrite: true}), ['open', 'tolib', 'copy', 'move']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {pcWrite: true}), ['only', 'tolib', 'copy', 'move']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: null}, {pcWrite: true}), ['only']);
+  // S52-43 ① FILES-내PC쓰기: 0.5.0+ 문(pcEdit)이면 클라우드와 같은 항목(S53-8: 폴더째 복사도, 드라이브 줄은 이 폴더만·새 폴더).
   const edit = {pcWrite: true, pcEdit: true};
-  assert.deepEqual(ids({source: 'pc', parent_id: 'C:\\'}, edit), ['open', 'copy', 'move', 'rename', 'trash']);
-  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, edit), ['only', 'mkdir', 'move', 'rename', 'trash']);
+  assert.deepEqual(ids({source: 'pc', parent_id: 'C:\\'}, edit), ['open', 'tolib', 'copy', 'move', 'rename', 'trash']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, edit), ['only', 'mkdir', 'tolib', 'copy', 'move', 'rename', 'trash']);
   assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: null}, edit), ['only', 'mkdir']);
-  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {...edit, pinned: false}), ['only', 'mkdir', 'move', 'rename', 'pin', 'trash']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {...edit, pinned: false}), ['only', 'mkdir', 'tolib', 'copy', 'move', 'rename', 'pin', 'trash']);
   assert.equal(treeMenuItems({source: 'pc'}, edit).filter(x => x.last).map(x => x.id).join(), 'trash');
   assert.deepEqual(ids(null), []);
   // S52-43 ③: [경로 복사]는 화면이 클립보드를 쓸 수 있을 때 첫 묶음 끝(둘째 묶음·휴지통 앞).
   assert.deepEqual(ids({source: 'od', is_folder: false}, {copyPath: true}), ['open', 'tolib', 'copy', 'move', 'rename', 'path', 'star', 'trash']);
-  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {pcWrite: true, pcEdit: true, pinned: false, copyPath: true}), ['only', 'mkdir', 'move', 'rename', 'path', 'pin', 'trash']);
+  assert.deepEqual(ids({source: 'pc', is_folder: true, parent_id: 'C:\\'}, {pcWrite: true, pcEdit: true, pinned: false, copyPath: true}), ['only', 'mkdir', 'tolib', 'copy', 'move', 'rename', 'path', 'pin', 'trash']);
 });
 
 test('S51-31 공용 줄 메뉴 HTML: 제목(줄 수 있을 때)·선 아이콘·묶음 선·맨 아래 줄·글자 막기', () => {

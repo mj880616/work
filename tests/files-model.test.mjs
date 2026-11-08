@@ -258,10 +258,23 @@ test('복사·옮기기 거르기: 다른 저장소로 폴더·구글 문서·�
   const g = {source: 'gd', item_id: 'G', parent_id: null, name: '문서', is_folder: false, mime: 'application/vnd.google-apps.document', size_bytes: null};
   const across = m.xferPlan([f, a, g], {source: 'gd', parent: null}, 'copy');
   assert.deepEqual(across.ok.map(r => r.item_id), ['F1', 'A', 'G'], 'S52-43 ②: folder across between the two clouds goes too (expanded by the screen), Google doc stays in Google');
-  const toPc = m.xferPlan([f], {source: 'pc', parent: 'C:\\'}, 'copy');
-  assert.equal(toPc.ok.length, 0);
-  assert.match(toPc.reason, /내 PC·이 폰과는 폴더째 복사하지 않아요/);
-  assert.match(m.xferPlan([f], {source: 'ph', parent: 'Download'}, 'move').reason, /폴더째 옮기지 않아요/);
+  // S53-8 FILES-폴더째PC폰: 내 PC·이 폰이 끼어도 폴더째(화면이 같은 폴더 모양을 만들고 안의 파일을 차례로).
+  assert.deepEqual(m.xferPlan([f], {source: 'pc', parent: 'C:\\'}, 'copy').ok, [f]);
+  assert.deepEqual(m.xferPlan([f], {source: 'ph', parent: 'Download'}, 'move').ok, [f]);
+  const pf = {source: 'pc', item_id: 'C:\\문서\\가짜', parent_id: 'C:\\문서', name: '가짜', is_folder: true};
+  assert.deepEqual(m.xferPlan([pf], {source: 'od', parent: null}, 'move').ok, [pf]);
+  assert.match(m.xferPlan([pf], {source: 'pc', parent: 'C:\\문서\\가짜\\안'}, 'copy').reason, /자기 안으로 복사할 수 없습니다/);
+  assert.match(m.xferPlan([pf], {source: 'pc', parent: 'c:\\문서\\가짜'}, 'move').reason, /자기 안으로 옮길 수 없습니다/);
+  assert.deepEqual(m.xferPlan([pf], {source: 'pc', parent: 'C:\\문서\\가짜2'}, 'copy').ok, [pf], '이름이 앞부분만 같은 옆 폴더는 됨');
+  const hf = {source: 'ph', item_id: 'Download/가짜', parent_id: 'Download', name: '가짜', is_folder: true};
+  assert.match(m.xferPlan([hf], {source: 'ph', parent: 'Download/가짜/안'}, 'copy').reason, /자기 안으로/);
+  assert.deepEqual(m.xferPlan([hf], {source: 'ph', parent: 'DCIM'}, 'copy').ok, [hf]);
+  assert.equal(m.treeInside('ph', 'Download/가짜', 'Download/가짜2'), false);
+  assert.equal(m.treeInside('pc', 'D:\\', 'D:\\가짜'), true);
+  assert.equal(m.treeDevDoneText('copy', {folders: 3, files: 7}), '폴더 3개 · 파일 7개 복사함');
+  assert.equal(m.treeDevDoneText('move', {folders: 1, files: 2, failed: 1, skipped: 2}), '폴더 1개 · 파일 2개 옮김 · 2개 건너뜀 · 1개 못 함');
+  assert.match(m.treeDevKeptText('폰'), /폰 원본은 그대로/);
+  assert.match(m.libTreeTooBigText('가짜'), /^가짜: .*50개·합쳐 1GB까지/);
   assert.equal(m.treeAcrossBig(500, 100), false);
   assert.equal(m.treeAcrossBig(501, 1), true);
   assert.equal(m.treeAcrossBig(1, 101), true);

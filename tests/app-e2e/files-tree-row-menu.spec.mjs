@@ -92,7 +92,7 @@ test('파일 폰 412: 폴더 줄 ⋯ = 새 폴더·올리기·복사·옮기기�
   await openFiles(page, 412);
   const od = tree(page).locator('[data-fx-box="od"]');
   await od.locator('[data-fx-fold="od:OD!1"] [data-fx-tmenu]').click();
-  await expect(menu(page).locator('button')).toHaveText(['이 폴더만 보기', '새 폴더', '올리기', '복사', '옮기기', '이름 바꾸기', '경로 복사', '위에 고정', '별표', '색', '아래로', '휴지통']); // S52-41 ④: 폴더는 [위에 고정]
+  await expect(menu(page).locator('button')).toHaveText(['이 폴더만 보기', '새 폴더', '올리기', '자료실로 보내기', '복사', '옮기기', '이름 바꾸기', '경로 복사', '위에 고정', '별표', '색', '아래로', '휴지통']); // S52-41 ④: 폴더는 [위에 고정] · S53-8 ②: 폴더째 [자료실로 보내기]
   await expect(menu(page).locator('.row-menu-sep')).toHaveText(['위에 고정']);
   await smallBoxBy(page, od.locator('[data-fx-fold="od:OD!1"]'));
   await page.screenshot({ path: 'test-results/files-tree-row-menu-folder-phone.png' });

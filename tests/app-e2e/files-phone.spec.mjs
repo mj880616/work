@@ -257,7 +257,8 @@ test.describe('폰 앱 412', () => {
     await expect(prev.locator('[data-fx-cut-one]')).toHaveText('옮기기');
     await prev.locator('[data-fx-cut-one]').click();
     const sheet = root(page).locator('[data-fx-dest]');
-    await expect(sheet.locator('[data-fx-dest-pick^="ph:"]')).toHaveCount(0);
+    // S53-8: 폰에 쓸 수 있으면 받을 곳에 이 폰도(폰 안끼리 옮기기). 여기서는 원드라이브로.
+    await expect(sheet.locator('[data-fx-dest-pick="ph:"]')).toBeVisible();
     await sheet.locator('[data-fx-dest-pick="od:"]').first().click();
     await sheet.locator('[data-fx-dest-go]').click();
     await expect.poll(() => server.jobs.filter(j => j.status === 'done').length, { timeout: 15000 }).toBe(1);
@@ -274,6 +275,48 @@ test.describe('폰 앱 412', () => {
     await expect.poll(() => Object.keys(st.saved)).toEqual(['Download/가짜 메모.txt']);
     await expect.poll(() => edgeCalls(server, 'trash').map(c => c.body)).toEqual([{ action: 'trash', source: 'od', ids: ['OD!13'], confirm: true }]);
     expect(JSON.stringify(server.calls)).not.toContain('Download');
+    expect(errors).toEqual([]);
+  });
+
+  // S53-8 FILES-폴더째PC폰: 원드라이브 폴더 → 이 폰 폴더째 복사(폰에 같은 폴더 모양을 만들고 안의 파일을 차례로),
+  //   이 폰 폴더 → 원드라이브 폴더째 옮기기(받는 쪽 mkdir + 안의 파일을 올리기 길로, 다 맞춰진 뒤에만 폰 원본 휴지통). 폰 경로는 서버로 가지 않는다.
+  test('앱 3-③ 판: 원드라이브 폴더 → 이 폰 폴더째 복사, 이 폰 폴더 → 원드라이브 폴더째 옮기기', async ({ page }) => {
+    test.setTimeout(120000);
+    const { errors, server } = await start(page, 412);
+    const st = await phoneApp(page, { granted: true, write: true });
+    await installViewPrefsServer(page);
+    await page.reload();
+    await openFiles(page, 412);
+    await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'true');
+    const menu = page.locator('#rowMenu'), sheet = root(page).locator('[data-fx-dest]');
+    // ① 원드라이브 '가짜 문서함'(안에 파일 3개 + 하위 폴더 '가짜 2026'에 1개) ⋯ [복사] → 이 폰 Download.
+    await tree(page).locator('[data-fx-fold="od:OD!1"] [data-fx-tmenu]').click();
+    await expect(menu.getByRole('button', { name: '자료실로 보내기' })).toBeVisible();
+    await menu.getByRole('button', { name: '복사', exact: true }).click();
+    await sheet.locator('[data-fx-dest-pick="ph:Download"]').click();
+    await sheet.locator('[data-fx-dest-go]').click();
+    await expect.poll(() => Object.keys(st.saved).sort(), { timeout: 30000 }).toEqual([
+      'Download/가짜 문서함/가짜 2026/가짜 계획안.hwpx', 'Download/가짜 문서함/가짜 메모.txt', 'Download/가짜 문서함/가짜 안내문.pdf', 'Download/가짜 문서함/가짜 예산표.xlsx']);
+    expect(st.ops.filter(o => o.includes('"op":"mkdir"'))).toEqual([
+      'pfiles:op:{"op":"mkdir","dir":"Download","name":"가짜 문서함","confirm":true}',
+      'pfiles:op:{"op":"mkdir","dir":"Download/가짜 문서함","name":"가짜 2026","confirm":true}']);
+    await expect(page.locator('#kptuNotice')).toContainText('폴더 2개 · 파일 4개 복사함');
+    // 복사라 원드라이브 원본은 그대로(휴지통 요청 없음).
+    expect(edgeCalls(server, 'trash')).toEqual([]);
+    // ② 이 폰 'Documents'에 파일 두 개를 두고 ⋯ [옮기기] → 원드라이브 맨 위.
+    st.fs.Documents.push({ p: 'Documents/가짜 하나.txt', n: '가짜 하나.txt', d: false, s: Buffer.byteLength(TEXT), m: ms('2026-10-02T00:00:00Z'), t: 'text/plain' },
+      { p: 'Documents/가짜 둘.txt', n: '가짜 둘.txt', d: false, s: Buffer.byteLength(TEXT), m: ms('2026-10-02T00:00:00Z'), t: 'text/plain' });
+    await tree(page).locator('[data-fx-fold="ph:Documents"] [data-fx-tmenu]').click();
+    await menu.getByRole('button', { name: '옮기기', exact: true }).click();
+    await sheet.locator('[data-fx-dest-pick="od:"]').first().click();
+    await sheet.locator('[data-fx-dest-go]').click();
+    await expect.poll(() => edgeCalls(server, 'mkdir').map(c => c.body), { timeout: 30000 }).toEqual([{ action: 'mkdir', source: 'od', parent: null, name: 'Documents', confirm: true }]);
+    await expect.poll(() => edgeCalls(server, 'upload_open').map(c => [c.body.to, c.body.name]).sort(), { timeout: 30000 }).toEqual([['OD!90', '가짜 둘.txt'], ['OD!90', '가짜 하나.txt']]);
+    await expect.poll(() => server.jobs.filter(j => j.origin === 'device' && j.status === 'done').length, { timeout: 30000 }).toBe(2);
+    // 둘 다 맞춰진 뒤에만 폰 원본을 휴지통으로(한 번에).
+    await expect.poll(() => st.ops.filter(o => o.includes('"op":"trash"')).map(o => JSON.parse(o.slice(10)).paths.sort())).toEqual([['Documents/가짜 둘.txt', 'Documents/가짜 하나.txt']]);
+    expect(st.fs.Documents).toEqual([]);
+    expect(JSON.stringify(server.calls)).not.toContain('Documents/');
     expect(errors).toEqual([]);
   });
 
