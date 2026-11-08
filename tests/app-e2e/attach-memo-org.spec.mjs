@@ -347,7 +347,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`categor
  // '기타'는 늘 맨 아래 줄(목록 값 순서는 서버 그대로).
  await expect(names(editor)).toHaveText(['교섭','투쟁','교육','선전','정책','회의','홍보','기타']);
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_add',body:{p_name:'홍보'}});
- await expect(page.locator('#libraryCategoryFilter [data-lu-category]')).toHaveText(['전체',...DEFAULT,'홍보']);
+ await expect(page.locator('#libraryCategoryFilter [data-lu-category]')).toHaveText(['전체',...DEFAULT.filter(n=>n!=='기타'),'홍보','기타']);/* LIB-맨위다듬기: 칩 줄의 '기타'는 늘 맨 끝 */
  await expect(page.locator('#docCategory option')).toHaveText(['자동 분류',...DEFAULT,'홍보']);
  // Rename: the screen tells that this category's documents get the new name; the old stored values go along.
  await tap(page,editor.getByRole('button',{name:'정책 이름 고치기'}),width);
