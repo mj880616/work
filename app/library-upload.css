@@ -499,3 +499,5 @@
 .home-choice-sheet.lu-cat-sheet .lu-cat-sheet-clear::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 .home-choice-sheet.lu-cat-sheet .home-choice-foot .lu-cat-sheet-edit{order:-1}
 .home-choice-sheet.lu-cat-sheet .home-choice-foot .home-choice-count{flex:1 1 auto;min-width:0}
+/* S53-19 LIB-화면끌어놓기 이어서: PC 파일을 왼쪽 폴더 나무 줄·위치 줄 칸 위로 끌면 오른쪽 목록 폴더 줄과 같은 놓을 곳 표시(점선 + 연한 강조색). */
+#libraryFolderNav .ft-row.lu-drop-place>.ft-main,#libraryPath .lu-drop-place{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-sm,6px)}

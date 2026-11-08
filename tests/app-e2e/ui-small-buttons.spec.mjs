@@ -208,13 +208,14 @@ test('③ 폰: 자판이 뜨면 전환 줄·아래 탭이 함께 숨고, 내려�
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('③ 폰: 전환 줄이 있는 정리함·일정에서 고르기 시트는 전환 줄 위에서 열리고, 고른 뒤 같은 자리 누름이 전환 줄로 가지 않음',async({page})=>{
+test('③ 폰: 전환 줄이 있는 정리함·일정에서 고르기 창은 전환 줄을 덮지 않고, 고른 뒤 같은 자리 누름이 전환 줄로 가지 않음',async({page})=>{
  const f=await fixture(page);
  const settle=sheet=>sheet.evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
  async function aboveRow(sheet,row){
   const box=await sheet.boundingBox(),r=await segBox(row),tabs=await page.locator('#appView > .mobile-tabs').boundingBox();
-  // The row is 44px on the tabs; the sheet ends where that row starts.
-  expect(Math.round(box.y+box.height)).toBe(Math.round(tabs.y-44));expect(box.y+box.height).toBeLessThanOrEqual(r.y-6+0.5);
+  // The row is 44px on the tabs. S54-04·05(명진 11/08 B안·21:20): 폰도 버튼으로 연 고르기 창은 누른 버튼 바로 아래 작은 창이라
+  // 창 아래 끝이 전환 줄 바로 위에 붙지 않는다(옛 '아래 시트' 기대 = tabs.y-44와 같음은 뺐다). 지키는 것은 그대로: 전환 줄·탭을 덮지 않음.
+  expect(box.y+box.height).toBeLessThanOrEqual(r.y-6+0.5);expect(box.y+box.height).toBeLessThanOrEqual(tabs.y-44+0.5);
   for(const item of await sheet.locator('[data-sheet-value]').filter({visible:true}).all()){const b=await item.boundingBox();expect(b.y+b.height).toBeLessThanOrEqual(tabs.y-44);}
  }
  // 바구니 빠른 입력은 [바구니] 한 가지라 고르기 시트가 없다. 전환 줄이 보이는 일정 화면에서 일정 창 [할 일]의 프로젝트 고르기로 본다.

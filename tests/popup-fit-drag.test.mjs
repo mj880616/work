@@ -23,7 +23,8 @@ test('no stylesheet widens an anchored choice sheet on its own',()=>{
 test('the shared parts measure the drawn box and drag by the title row only',()=>{
   const popup=read('anchored-popup.js'),sheet=read('choice-sheet.js'),menu=read('anchored-menu.js');
   assert.match(popup,/export function keepInside\(/);assert.match(popup,/export function dragByTitle\(/);
-  assert.match(popup,/keepInside\(panel,edge\);\n  return side;/);
+  // S54-04 UI-고르기창버튼아래: 아래 바·자판 높이(bottomInset)를 함께 넘긴다(기본 0 = 창 전체, 다른 쓰는 곳은 그대로).
+  assert.match(popup,/keepInside\(panel,edge,bottomInset\);\n  return side;/);
   assert.match(popup,/delete panel\.dataset\.anchorMoved/);
   // 기기 저장 없음: 옮긴 자리는 패널의 data-anchor-moved 표시뿐(공용 browser-storage-audit가 저장 API 사용을 따로 막는다).
   assert.doesNotMatch(popup,/Storage\b|DB\b/);

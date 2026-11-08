@@ -1,6 +1,6 @@
 import {emptyHtml} from './wait-state.js';
 // Shared native selection sheet, originally the home quick-input sheet (PR 428).
-import {WIDE_QUERY,isWide,placeAnchored,clearAnchored,followAnchor,dragByTitle} from './anchored-popup.js';
+import {WIDE_QUERY,placeAnchored,bottomInset,clearAnchored,followAnchor,dragByTitle} from './anchored-popup.js';
 // UI-고르기창개선 B: one project per line. A child is indented by its depth (no "↳"); on a PC list (anchored) it is also lighter and
 // every row has a small check box, green when chosen. Phones keep the plain rows. extra: more attributes for the button.
 // PRJ-3단: a third-level row given x.path (its parents, "1단 › 2단") shows that path in small gray text only while the search box
@@ -67,7 +67,10 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
   search.addEventListener('input',filter);
   // ↓ from the box goes to the first choice still shown.
   search.addEventListener('keydown',e=>{if(e.key!=='ArrowDown')return;const first=sheet.querySelector('[data-sheet-content] button[data-sheet-value]:not([hidden])');if(first){e.preventDefault();first.focus();}});
-  const wantAnchor=kind=>anchored?!!anchored(kind):isWide();
+  // S54-05 UI-고르기창버튼아래 ②(11/08 명진 결정): 버튼으로 연 고르기 창은 폰·폴드·PC 모두 누른 버튼 바로 아래 작은 창(아래 자리가 모자라면 위)이다.
+  // 자리는 공용 placeAnchored·followAnchor가 정하고(library-move-picker.js와 같은 방식), 아래 바·자판 높이(bottomInset) 위에서 끝난다.
+  // anchored(kind)가 false를 돌려주는 창(버튼 기준이 아닌 확인 창)과, 잴 수 있는 버튼이 없는 창만 아래 시트로 남는다.
+  const wantAnchor=kind=>anchored?!!anchored(kind):true;
   function place(){
     if(!active)return;
     const anchor=active.anchor||active.trigger;
@@ -80,7 +83,7 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
     // placeAnchored measures to keep the sheet inside the window is the one that stays on screen.
     if(!wantAnchor(active.kind)){unplace();filter();return;}
     sheet.classList.add('home-choice-anchored');sheet.classList.toggle('home-choice-split',split);moveSearch(split);filter();
-    if(!placeAnchored(sheet,anchor,split?{maxWidth:880,maxHeight:760,minHeight:320}:{maxWidth:width||(chips?480:360),maxHeight:chips?560:480})){unplace();filter();return;}
+    if(!placeAnchored(sheet,anchor,split?{maxWidth:880,maxHeight:760,minHeight:320}:{maxWidth:width||(chips?480:360),maxHeight:chips?560:480,bottomInset:bottomInset()})){unplace();filter();return;}
     unfollow||=followAnchor(sheet,anchor,{place,lost:()=>{if(active)void close();}});
   }
   // In a split sheet the search box sits in the header, right of the title (before ×, so Tab order follows what is seen).
