@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 사업 보고 주차 고르기</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--surface:#fbfdfc;--bg:#eef5f2;--pri:#2f6f5e}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}h2{font-size:13px;margin:14px 0 6px}
+.phone{width:100%;max-width:380px;border:1px solid var(--line);border-radius:16px;background:var(--bg);padding:10px 0}
+.r{display:flex;align-items:center;gap:6px;padding:3px 10px}
+.btn{height:30px;padding:0 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.btn.on{border-color:var(--pri);color:var(--pri);font-weight:600}.btn small{color:var(--muted);font-size:10px}
+.menu{margin:2px 10px 6px auto;width:170px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);padding:3px}
+.menu div{padding:5px 9px;border-radius:6px}.menu .on{background:#dcefe8;font-weight:600}
+.pop{margin:4px 10px 6px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.1);padding:8px}
+.two{display:grid;grid-template-columns:96px 1fr;gap:6px}
+.dd{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.dd .h{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;background:var(--surface);font-weight:600}
+.dd .l{max-height:170px;overflow:auto;border-top:1px solid var(--line)}
+.dd .l div{padding:4px 8px;white-space:nowrap}.dd .l .on{background:#dcefe8;font-weight:600}.dd .l small{color:var(--muted)}
+.foot{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+.main{height:30px;padding:0 12px;border-radius:8px;background:var(--pri);color:#fff;display:inline-flex;align-items:center}
+.wk{padding:3px 10px;color:var(--muted)}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6;max-width:380px}
+.q{max-width:380px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px;line-height:1.7}
+</style></head><body>
+<h1>주차 고르기</h1>
+<p class="s">기간 메뉴에 '주차 고르기'를 더함. 연도·주차 모두 내려 고르기.</p>
+<h2>① 기간 메뉴</h2>
+<div class="phone">
+<div class="r"><span class="btn">종류 전체<small>▾</small></span><span class="btn">사업영역 전체<small>▾</small></span><span class="btn on">이번 주<small>▴</small></span></div>
+<div class="menu"><div class="on">이번 주</div><div>주차 고르기</div><div>전체 기간</div><div>기간 정하기</div></div>
+</div>
+<h2>② 주차 고르기 창</h2>
+<div class="phone">
+<div class="r"><span class="btn">종류 전체<small>▾</small></span><span class="btn">사업영역 전체<small>▾</small></span><span class="btn on">46주차<small>▴</small></span></div>
+<div class="pop">
+<div class="two">
+<div class="dd"><div class="h">2026년 <small>▾</small></div><div class="l"><div>2027년</div><div class="on">2026년</div><div>2025년</div></div></div>
+<div class="dd"><div class="h">46주차 (11.09~11.15) <small>▾</small></div><div class="l">
+<div>48주차 <small>(11.23~11.29)</small></div><div>47주차 <small>(11.16~11.22)</small></div>
+<div class="on">46주차 <small>(11.09~11.15) · 이번 주</small></div>
+<div>45주차 <small>(11.02~11.08)</small></div><div>44주차 <small>(10.26~11.01)</small></div><div>43주차 <small>(10.19~10.25)</small></div><div>…</div></div></div>
+</div>
+<div class="foot"><span class="btn">닫기</span><span class="main">적용</span></div>
+</div>
+<div class="wk">‹ 46주차 · 11.9(월)~11.15(일) › · 0건</div>
+</div>
+<p class="note">· 연도 고르면 주차 목록이 그 해로 바뀜, 주차 목록은 이번 주에 맞춰 열리고 '이번 주' 표시<br>· 고른 뒤에도 ‹ › 로 한 주씩 넘김(주차 번호도 같이 바뀜)<br>· 기간 정하기 창과 같은 모양·같은 [닫기][적용]</p>
+<h2>주 기준(확정)</h2><div class="q">월~일, 국제 표준 주차(ISO) — 1주차 = 그 해 첫 목요일이 든 주(2026년 1주차 = 2025.12.29~2026.1.4, 46주차 = 11.09~11.15). 해에 따라 53주차가 있음. 구글 캘린더·폰 달력 주 번호와 같음.</div>
+</body></html>
