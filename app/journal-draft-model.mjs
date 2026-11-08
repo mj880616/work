@@ -26,7 +26,7 @@ export function callLine(row, clock = '') {
 
 // 그날 재료 줄: 하루 카드(journal-data.js dayCard)와 그날 업무 통화에서. 꼬리표 [일정]·[한 일]·[회의·활동]·[사업 소식]·[조직 소식]·[메모]·[업무 통화].
 // 할 일 예정·자료실·공유 페이지 등은 '한 일'이 아니라 넣지 않는다. 최대 60줄, 줄마다 160자.
-// 업무 통화는 하루 카드의 '업무 통화' 묶음(그 밖의 기록) 줄 {text, callSummary}에서 온다.
+// 기타 메모는 하루 카드의 memos 묶음(화면엔 안 그림, JOURNAL-그밖의기록삭제)에서, 업무 통화는 calls 묶음 줄 {text, callSummary}에서 온다.
 export function draftMaterial(card) {
   const out = [];
   const add = (tag, text) => { const line = clean(`[${tag}] ${text}`); if (line.length > tag.length + 3) out.push(line); };
@@ -36,9 +36,7 @@ export function draftMaterial(card) {
     if (part.key === 'activities') for (const item of part.items || []) { if (!item.hidden) add('회의·활동', item.summary ? `${item.text} — ${item.summary}` : item.text); }
     else for (const section of part.sections || []) for (const text of section.items || []) add(part.key === 'business' ? '사업 소식' : '조직 소식', `${section.name} · ${text}`);
   }
-  for (const part of card?.others || []) {
-    if (part.key === 'memos') for (const item of part.items || []) add('메모', item.text);
-    if (part.key === 'calls') for (const item of part.items || []) add('업무 통화', item.callSummary ? `${item.text} — ${firstLine(item.callSummary)}` : item.text);
-  }
+  for (const item of card?.memos?.items || []) add('메모', item.text);
+  for (const item of card?.calls?.items || []) add('업무 통화', item.callSummary ? `${item.text} — ${firstLine(item.callSummary)}` : item.text);
   return [...new Set(out)].slice(0, DRAFT_LINES);
 }

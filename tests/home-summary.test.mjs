@@ -11,11 +11,14 @@ const read = rel => readFileSync(new URL('../app/' + rel, import.meta.url), 'utf
 test('잊지 말기 한 줄 숫자(S52-20): 업데이트 미분류 + 처리 전 후보(요청 포함) + 가족 제안; 모르면 숨김', () => {
   assert.equal(forgetCount({update: 4, todo: 2}), 6);
   assert.equal(forgetCount({update: 0, todo: 5, family: 2}), 7);
+  // FORGET-소식합치기(명진 '넣어'): 처리 전 소식도 센다. 모르면 0.
+  assert.equal(forgetCount({update: 1, todo: 1, family: 1, news: 2}), 5);
+  assert.equal(forgetCount({update: 1, todo: 1, news: null}), 2);
   assert.equal(forgetCount({update: null, todo: 1}), null);
   assert.equal(forgetCount({}), null);
 });
 
-test('홈 순서: 날짜 줄 → 업데이트 입력줄(머리 줄에 잊지 말기 칩, S53-13) → [하루] 카드 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료·그 밖의 기록', () => {
+test('홈 순서: 날짜 줄 → 업데이트 입력줄(머리 줄에 잊지 말기 칩, S53-13) → [하루] 카드 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료', () => {
   const src = read('journal.js');
   const at = s => { const i = src.indexOf(s); assert.ok(i > 0, s); return i; };
   const order = ['data-journal-days', 'home-quick-placeholder', 'data-journal-day>', 'data-journal-schedule', 'data-journal-tasks', 'data-journal-done-day', 'data-journal-materials'].map(at);

@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
+import {waitHtml, emptyHtml, failHtml} from './wait-state.js';
 // JOURNAL-일지 2단계(업무일지): the [일지] side of the schedule tab (?view=journal). This module is the only renderer of
 // #journalRoot: the week's day-number row (Monday to Sunday, ‹ › moves a week, a green dot on days with a line — J4 ①)
 // → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·조직 소식·회의·행사 결과 — JOURNAL-일지카드정리,
@@ -22,21 +22,20 @@ import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
 // pressing it completes the task (the task screen's own toggleTask) and the line moves to 한 일 with a 5-second [되돌리기]; each line's
 // ⋯ holds [내일로 · 기한 바꾸기 · 고치기 · 지우기] (한 일: [다시 할 일로 · 고치기]) — on a PC (≥761) the ⋯ shows only on the line the
 // pointer is over or focus is in, on the phone it is always shown; results are a short toast, not a line under the list) → ③ 그날 나온 챙길 것 (todo-radar.js draws it; this module only gives it its place) →
-// ④ 주간보고 재료 in the report's order (회의·활동 결과 → 사업 소식 → 조직 소식) → ⑤ 그 밖의 기록, folded, with a count line.
+// ④ 주간보고 재료 in the report's order (회의·활동 결과 → 사업 소식 → 조직 소식) (JOURNAL-그밖의기록삭제: ⑤ 그 밖의 기록은 없앰).
 // journal-data.js dayCard() builds the model; renderDay() below is the one renderer of ② and ④⑤ (the parts above are unchanged).
 // ⑥ Every line opens its original (openOriginal): an organization or project record opens that screen at that record and
 // highlights it for a moment; an update's ⋯ has [원래 업데이트 보기]. On a PC (≥761) the organization/project opens on its own
 // screen (one history entry, so one back or the top line's ← returns here); on the phone it opens over this screen as the app's
 // usual window (its own history entry), so one back also returns. Coming back by back/← keeps this card as it was (no re-read)
 // and the same scroll and focus.
-import {createMemorable} from './journal-memorable.js';
 import {rowMore} from './row-more.js';
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
   readWeekMeetings, readWeekDocuments, readWeekSharePages, readScheduleEvents, DONE_TASK_DAYS, WEEK_READ_CAP,
-  dayCard, othersCount, DAY_SOURCES, dueDay, dayRangeNote, readWeekDrafts, requestDayDraft, readWeekCalls, readTaskMeetingNames, readUpcomingMilestones} from './journal-data.js';
+  dayCard, DAY_SOURCES, dueDay, dayRangeNote, readWeekDrafts, requestDayDraft, readWeekCalls, readTaskMeetingNames, readUpcomingMilestones} from './journal-data.js';
 import {dueLabel} from './task-due.mjs';
 import {openGoogleEvent, eventAttrs} from './event-open.js';
 import {shouldAskDraft, draftFor, draftMaterial} from './journal-draft-model.mjs';
@@ -83,7 +82,7 @@ const length = text => [...String(text ?? '')].length;
 // HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 이 화면이 홈이다(#homeView, 라우터 이름 home). 위에서부터
 //   날짜 제목·이번 주 날짜 줄(‹ 26 … 1 › 이번 주, 오늘은 갈색 테두리) → 업데이트 입력줄(home-quick.js, 폰은 아래 고정)
 //   → [하루] 카드 맨 위 '잊지 말기' 한 줄 + 빨간 숫자(home-summary.js, S52-20 — 누르면 정리함 한 목록)
-//   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료·그 밖의 기록(접힘).
+//   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료.
 //   그날 나온 챙길 것 상자는 없앴다(요약 줄의 '챙길 것 n'이 정리함으로 간다). [하루 | 주간 정리]는 머리줄 오른쪽 끝.
 root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">주간 정리</button></div></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
@@ -254,9 +253,9 @@ function count() {
   counter.textContent = `${n}/${WORK_LINE_MAX}자`;
   counter.classList.toggle('over', n > WORK_LINE_MAX || /[\r\n]/.test(input.value));
 }
-// ── JOURNAL-하루개편: ② 할 일 / 한 일 and ④ 주간보고 재료 · ⑤ 그 밖의 기록 (one renderer: renderDay) ──
+// ── JOURNAL-하루개편: ② 할 일 / 한 일 and ④ 주간보고 재료 (one renderer: renderDay) ──
 // Each drawn line that opens something gets a key into `opens` (rebuilt on every draw).
-let opens = new Map(), openSeq = 0, othersOpen = false;
+let opens = new Map(), openSeq = 0;
 // JOURNAL-할일바로처리: the Google task data stays where it is read (materials.tasks, one read for the whole week). The line's
 // circle and ⋯ are the shared task-inline.js (TASK-바로처리통일), which changes a task only through the task screen's own functions
 // (window.KPTUGoogleTasks toggleTask / deleteTask / openEditor) or the editor's update action (task-due.mjs moveTaskToDay) and asks
@@ -420,21 +419,9 @@ function ddayLine() {
   line.innerHTML = '<small class="journal-dday-label">다가오는 일</small>' + read.items.map(m => `<button type="button" class="journal-dday-chip${m.days <= 3 ? ' is-soon' : ''}" data-journal-dday-project="${esc(m.project_id)}" ${m.google_event_id ? eventAttrs(m.google_event_id, m.google_calendar_id) : ''}>${m.days === 0 ? 'D-day' : 'D-' + m.days} ${esc(m.title)}</button>`).join('');
   return line;
 }
-// S49-13 기억할 통화·텔레그램(journal-memorable.js): 이 묶음의 상태는 그 모듈이 갖고, 여기서는 자리만 준다.
-const memorable = createMemorable({onChange: () => { if (mode !== 'week') renderDay(); }});
-// 원본 열기: 통화는 통화 화면에서 그 통화를, 텔레그램은 그 방·날짜를 연다(방 구분값은 눌렀을 때 읽는다).
-async function openMemorable(row) {
-  try {
-    if (row.source === 'call') { goView('calls'); await window.KPTUCallFeed?.open?.(row.feedItemId); return; }
-    const found = await rt.api(`/rest/v1/app_feed_items?id=eq.${encodeURIComponent(row.feedItemId)}&select=room_key,day&limit=1`);
-    const item = Array.isArray(found) ? found[0] : null;
-    if (!item) return;
-    goView('telegram'); await window.KPTUTelegramFeed?.show?.(item.room_key, item.day, row.feedItemId);
-  } catch { status.textContent = '원본을 열지 못했어요. 다시 시도해 주세요.'; }
-}
+// FORGET-소식합치기(11/08): 옛 '기억할 통화·텔레그램' 묶음은 잊지 말기 '소식' 줄로 옮겼다(forget-list.js·forget-news-data.js). 서버 표는 그대로.
 function renderDay() {
   opens = new Map(); openSeq = 0;
-  void memorable.ensure(selected, rt);
   const card = dayCard(materials, selected, {kinds, tree:materials.catalog?.status === 'ok' ? materials.catalog.items : null});
   renderSchedule(card);
   renderTasks(card);
@@ -444,25 +431,12 @@ function renderDay() {
   report.className = 'journal-report'; report.dataset.journalReport = '';
   report.innerHTML = '<h4 class="journal-heading journal-report-title">주간보고 재료</h4>';
   const parts = card.report.filter(part => part.loading || part.failed || part.items.length);
-  const memorableBox = memorable.render(selected, rt, {open: openMemorable});
-  if (parts.length || memorableBox) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'})), ...(memorableBox ? [memorableBox] : [])); report.append(grid); }
+  if (parts.length) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'}))); report.append(grid); }
   else report.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-report-empty'}));
-  // ⑤ 그 밖의 기록: folded by default; the summary line counts what is inside.
-  const shown = card.others.filter(part => part.loading || part.failed || part.items.length);
-  const others = document.createElement('details');
-  others.className = 'journal-others'; others.dataset.journalOthers = ''; others.open = othersOpen;
-  const loading = card.others.some(part => part.loading), count = othersCount(card.others), failed = card.others.some(part => part.failed);
-  // Folded, the summary still says when a part could not be read (its [다시 시도] is inside).
-  others.innerHTML = `<summary><span class="journal-heading">그 밖의 기록</span> <small class="journal-others-count" data-journal-others-count>${count ? esc(count) : loading ? waitInlineHtml() : '없음'}</small>${failed ? '<small class="journal-failed" data-journal-others-failed>· 못 읽은 묶음 있음</small>' : ''}</summary>`;
-  // S49-12: 묶음 칸(flex·grid)을 <details>의 바로 아래 자식으로 두면 일부 브라우저에서 접어도 안쪽 제목이 보여, 꾸밈 없는 껍데기 하나를 사이에 둔다.
-  const shell = document.createElement('div'), body = document.createElement('div'); body.className = 'journal-others-parts';
-  body.append(...shown.map(part => partBox(part, {heading:'h5'})));
-  shell.append(body);
-  others.append(shell);
-  others.addEventListener('toggle', () => { othersOpen = others.open; });
+  // JOURNAL-그밖의기록삭제(11/08): ⑤ 그 밖의 기록(자료실 새 자료·공유 페이지·기타 메모·참고·어디에도 안 보낸 업데이트)은 없앴다 — 모두 원래 자리가 있다.
   // LEDGER-자동기록: 그날 원장에 자동으로 기록된 약속이 있을 때만 한 줄(누르면 원장 화면의 약속 목록). 0건·못 읽음은 줄 없음.
   const promises = materials.ledgerPromises?.status === 'ok' ? materials.ledgerPromises.items.get(selected) || 0 : 0;
-  const blocks = [report, others];
+  const blocks = [report];
   if (promises > 0) {
     const line = document.createElement('p');
     line.className = 'journal-muted journal-ledger-line'; line.dataset.journalLedger = '';
@@ -1570,7 +1544,7 @@ window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++; sharedEpoch++;
   kinds = {status:'loading'}; memory = {status:'loading'}; memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; pickUi = {busy:false, undo:null, status:'', error:false}; fileUi = freshFileUi(); overlapUi = freshOverlapUi(); overlapFor = -1; drafts = new Map(); lines = new Map(); lineScope = {key:'', status:'idle', drop:null}; materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
-  pendingReturn = null; taskLine.close(); selfBusy = 0; othersOpen = false; taskMeetings = new Map();
+  pendingReturn = null; taskLine.close(); selfBusy = 0; taskMeetings = new Map();
   start = weekStart(todayKey()); selected = todayKey();
   if (window.KPTURouter?.current === 'home') enter();
 });
