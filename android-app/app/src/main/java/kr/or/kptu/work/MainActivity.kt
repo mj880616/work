@@ -101,12 +101,34 @@ class MainActivity : ComponentActivity() {
     private var photoReply: JavaScriptReplyProxy? = null
     /** FILES-통합 3단계(S49-51): [파일] '이 폰'(app/phone-files.js)이 'pfiles:hello'로 연 다리. 설정에서 '모든 파일 접근'을 바꾸고 돌아오면 다시 알린다. */
     private var filesReply: JavaScriptReplyProxy? = null
-    /** FILES-통합 3-③: '이 폰' 휴지통(시스템 확인 창) 결과. 보낸 개수·못 찾은 개수. */
-    private var filesTrashCount = 0
-    private var filesTrashMissing = 0
+    /**
+     * FILES-통합 3-③: '이 폰' 휴지통(시스템 확인 창) 결과. S53-7(0.5.4): 사진·동영상·음악은 확인 창, 허락하면 그다음 문서·PDF를 직접 휴지통에.
+     * 확인 창에서 그만두면 문서도 넣지 않는다(사람이 그만둔 것 전체).
+     */
+    private var filesTrashPlan: PhoneFilesWrite.TrashPlan? = null
     private val filesTrash = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        val ok = result.resultCode == android.app.Activity.RESULT_OK
-        postFiles(PhoneFilesRules.doneMessage(ok, "trash", count = if (ok) filesTrashCount else 0, error = if (ok) (if (filesTrashMissing > 0) "missing" else "") else "refused"))
+        val plan = filesTrashPlan ?: return@registerForActivityResult
+        filesTrashPlan = null
+        if (result.resultCode != android.app.Activity.RESULT_OK) {
+            postFiles(PhoneFilesRules.trashDone(0, refused = true, missing = plan.missing, direct = 0))
+            return@registerForActivityResult
+        }
+        filesTrashRest(plan, plan.media.size)
+    }
+
+    /** 확인 창 뒤(또는 사진·동영상이 없을 때 바로): 문서·PDF를 직접 휴지통에 넣고 한 번에 답한다. */
+    private fun filesTrashRest(plan: PhoneFilesWrite.TrashPlan, mediaDone: Int) {
+        val app = applicationContext
+        PhoneFilesWrite.worker.execute {
+            val text = try {
+                val n = PhoneFilesWrite.trashDirect(app, plan.direct)
+                PhoneFilesRules.trashDone(mediaDone + n, refused = false, missing = plan.missing, direct = plan.direct.size - n)
+            } catch (e: Exception) {
+                PhoneFilesWrite.log("trash-direct", e)
+                PhoneFilesRules.trashDone(mediaDone, refused = false, missing = plan.missing, direct = plan.direct.size)
+            }
+            ui.post { if (alive) postFiles(text) }
+        }
     }
     private val photoPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
         PhoneMedia.forget()
@@ -116,7 +138,8 @@ class MainActivity : ComponentActivity() {
     private var trashCount = 0
     private val photoTrash = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         PhoneMedia.forget()
-        postPhotos(PhoneMediaRules.trashedMessage(result.resultCode == android.app.Activity.RESULT_OK, if (result.resultCode == android.app.Activity.RESULT_OK) trashCount else 0))
+        val ok = result.resultCode == android.app.Activity.RESULT_OK
+        postPhotos(PhoneMediaRules.trashedMessage(ok, if (ok) trashCount else 0, if (ok) "" else "refused"))
         trashCount = 0
     }
 
@@ -888,13 +911,13 @@ class MainActivity : ComponentActivity() {
             is PhoneMediaRules.Message.Op -> startFolderOp(m.op)
             is PhoneMediaRules.Message.Trash -> {
                 if (Build.VERSION.SDK_INT < 30) {
-                    postPhotos(PhoneMediaRules.trashedMessage(false, 0))
+                    postPhotos(PhoneMediaRules.trashedMessage(false, 0, "old"))
                     return
                 }
                 try {
                     val uris = PhoneMedia.trashUris(this, m.ids)
                     if (uris.isEmpty()) {
-                        postPhotos(PhoneMediaRules.trashedMessage(false, 0))
+                        postPhotos(PhoneMediaRules.trashedMessage(false, 0, "none"))
                         return
                     }
                     trashCount = uris.size
@@ -902,7 +925,7 @@ class MainActivity : ComponentActivity() {
                     photoTrash.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build())
                 } catch (_: Exception) {
                     trashCount = 0
-                    postPhotos(PhoneMediaRules.trashedMessage(false, 0))
+                    postPhotos(PhoneMediaRules.trashedMessage(false, 0, "failed"))
                 }
             }
         }
@@ -1282,15 +1305,19 @@ class MainActivity : ComponentActivity() {
                 })
                 is PhoneFilesRules.Write.Trash -> try {
                     if (Build.VERSION.SDK_INT < 30) throw PhoneFilesWrite.Failed("unsupported")
-                    val (uris, missing) = PhoneFilesWrite.trashUris(app, w)
-                    if (uris.isEmpty()) throw PhoneFilesWrite.Failed("missing")
+                    val plan = PhoneFilesWrite.trashPlan(app, w)
+                    if (plan.media.isEmpty() && plan.direct.isEmpty()) throw PhoneFilesWrite.Failed("missing")
                     ui.post {
+                        if (plan.media.isEmpty()) {
+                            filesTrashRest(plan, 0)
+                            return@post
+                        }
                         try {
-                            filesTrashCount = uris.size
-                            filesTrashMissing = missing
-                            val sender = android.provider.MediaStore.createTrashRequest(contentResolver, uris, true).intentSender
+                            filesTrashPlan = plan
+                            val sender = android.provider.MediaStore.createTrashRequest(contentResolver, plan.media, true).intentSender
                             filesTrash.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build())
                         } catch (e: Exception) {
+                            filesTrashPlan = null
                             PhoneFilesWrite.log("trash", e)
                             postFiles(PhoneFilesRules.doneMessage(false, "trash", error = "write"))
                         }
