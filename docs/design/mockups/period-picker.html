@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 사업 보고 기간 정하기</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--surface:#fbfdfc;--bg:#eef5f2;--pri:#2f6f5e}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}h2{font-size:13px;margin:14px 0 6px}
+.phone{width:100%;max-width:380px;border:1px solid var(--line);border-radius:16px;background:var(--bg);padding:10px 0}
+.r{display:flex;align-items:center;gap:6px;padding:3px 10px;flex-wrap:wrap}
+.ttl{font-size:17px;font-weight:600}.sp{margin-left:auto}
+.btn{height:30px;padding:0 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.btn.on{border-color:var(--pri);color:var(--pri);font-weight:600}
+.btn small{color:var(--muted);font-size:10px}
+.icon{width:30px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;justify-content:center;color:var(--muted)}
+.pop{margin:4px 10px 6px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.1);padding:8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{height:28px;padding:0 10px;border:1px solid var(--line);border-radius:999px;display:inline-flex;align-items:center;background:#fff;font-size:12.5px}
+.chip.on{background:#dcefe8;border-color:#dcefe8;font-weight:600}
+.dates{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;margin-top:8px}
+.df{height:32px;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;background:#fff}
+.df span{color:var(--muted);font-size:11px}
+.foot{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+.main{height:30px;padding:0 12px;border-radius:8px;background:var(--pri);color:#fff;display:inline-flex;align-items:center}
+.list{margin:6px 10px;height:80px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6;max-width:380px}
+</style></head><body>
+<h1>기간 정하기 — 정돈</h1>
+<p class="s">지금: 날짜 칸이 '날.. ▾'로 잘리고, 큰 버튼 다섯 개(이번 달·지난 달·최근 3달·적용·닫기)가 두 줄로 흩어짐.</p>
+<h2>바꾼 뒤 (폰)</h2>
+<div class="phone">
+<div class="r"><span class="ttl">사업 보고</span><span class="icon sp" style="color:#b4473c">●</span><span class="icon">+</span><span class="icon" style="border:0;background:none">⋯</span></div>
+<div class="r"><span class="btn">종류 전체<small>▾</small></span><span class="btn">사업영역 전체<small>▾</small></span><span class="btn on">기간 정하기<small>▴</small></span></div>
+<div class="pop">
+<div class="chips"><span class="chip">이번 주</span><span class="chip">이번 달</span><span class="chip on">지난 달</span><span class="chip">최근 3달</span><span class="chip">전체</span></div>
+<div class="dates"><span class="df">2026. 10. 1. <span>📅</span></span><span style="color:var(--muted)">~</span><span class="df">2026. 10. 31. <span>📅</span></span></div>
+<div class="foot"><span class="btn">닫기</span><span class="main">적용</span></div>
+</div>
+<div class="list">목록 · 10.1~10.31 · n건</div>
+</div>
+<p class="note">· [기간 정하기▾]를 누르면 바로 아래 작은 창 하나(폰은 화면 폭, 다른 고르기 창과 같은 모양)<br>· 맨 위: 자주 쓰는 기간 칩 한 줄 — 이번 주·이번 달·지난 달·최근 3달·전체. 칩을 누르면 아래 날짜가 채워짐<br>· 가운데: [시작 📅] ~ [끝 📅] 두 칸이 한 줄을 반씩 — 날짜가 잘리지 않게 '2026. 10. 1.' 전체, 누르면 공용 달력(date-field)<br>· 아래 오른쪽: [닫기][적용] 작은 버튼 나란히(적용만 초록 주 동작, 높이 30px)<br>· '시작'·'끝' 글자 칸은 없앰(~ 로 충분)</p>
+</body></html>
