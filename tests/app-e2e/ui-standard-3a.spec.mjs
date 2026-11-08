@@ -161,8 +161,10 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  expect((await look(rows.nth(1))).borderWidth).toBe(await lineWidth(page));
  // 버튼·필터: 한 높이, 채운 버튼은 [+ 자료] 하나, 고른 필터는 테마 주 색(UI-선택표시통일).
  expect(await sameButtons(page,page.locator('#libraryView'))).toEqual(width<761?[]:['+ 자료 등록']);
- const selected=await look(page.locator('#libraryCategoryFilter [aria-pressed="true"]').first());
- expect(selected.bg).toBe(await token(page,'--ds-select-bg'));expect(selected.fg).toBe(await token(page,'--ds-select-ink'));
+ // LIB-맨위다듬기(S53-18): 분류 칩은 고른 칩(data-cc-fill)만 선택 색, 켜져 있어도 고르지 않은 칩은 흰 바탕. 처음('회의'만 꺼짐)은 고른 칩 없음.
+ const filled=page.locator('#libraryCategoryFilter [data-cc-fill]');
+ if(await filled.count()){const selected=await look(filled.first());expect(selected.bg).toBe(await token(page,'--ds-select-bg'));expect(selected.fg).toBe(await token(page,'--ds-select-ink'));}
+ else expect((await look(page.locator('#libraryCategoryFilter [aria-pressed="true"]').first())).bg).toBe(await token(page,'--kptu-surface'));
  const search=await look(page.locator('#documentSearch'));expect(search.height).toBe(36);expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
  await noOverflow(page);
  expect(errors).toEqual([]);

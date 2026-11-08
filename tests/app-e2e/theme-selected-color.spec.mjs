@@ -112,7 +112,7 @@ test('폰 390: 일정 전환은 보기 바꾸기 한 모양(흰 알약), 자료�
  const sw=page.locator('#appView .schedule-switch button[aria-pressed="true"]').first();await expect(sw).toBeVisible();
  expect(await segPill(sw)).toEqual({bg:await rgb(page,'var(--ds-seg-on)'),fg:await rgb(page,'var(--kptu-ink)'),line:true});
  await page.evaluate(()=>window.KPTURouter.go('library'));await expect(page.locator('#libraryView')).toBeVisible();
- const chip=page.locator('#libraryView .filter-chips button[aria-checked="true"], #libraryView #libraryCategoryFilter button[aria-pressed="true"]').first();
+ const chip=page.locator('#libraryView .filter-chips button[aria-checked="true"], #libraryView #libraryCategoryFilter button[data-cc-fill]').first();// LIB-맨위다듬기: 분류 칩은 고른 칩(data-cc-fill)만 색
  if(await chip.count()){expect(await bg(chip)).toBe(primary);expect(await fg(chip)).toBe(on);expect(await chip.evaluate(el=>getComputedStyle(el).borderTopColor)).toBe(line)}
  expect(errors).toEqual([]);
 });
