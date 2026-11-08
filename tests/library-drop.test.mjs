@@ -77,7 +77,10 @@ test('library-upload.js wires the drop: no storage of its own, no hard-coded col
   // 폴더 묶기에서만 폴더를 고르고, 폴더에 넣기는 폴더 부품(putUploaded = 옮기기와 같은 자료 연결 표)이 한다.
   // S46-25: 다른 묶기(사업영역·담당조직·분류)는 묶음 머리 값(groupDropTarget + luDropValue 확인).
   assert.match(src,/pick:luDropTarget/);
-  assert.match(src,/function luDropTarget\(e\)\{if\(luGroupBy==='folder'\)return luFoldersReady\?luFolders\(\)\.fileTarget\(e\):null;return groupDropTarget\(e,luGroupBy,\{resolve:luDropValue\}\)\}/);
+  // S53-19: 폴더 묶기는 나무·위치 줄(placeDropTarget step) → 목록 폴더 줄(fileTarget) → 들어간 폴더 안 빈 곳(placeDropTarget) 순서.
+  const target=src.slice(src.indexOf('function luDropTarget(e){'),src.indexOf('function luMarkDrop('));
+  assert.match(target,/if\(luGroupBy!=='folder'\)return groupDropTarget\(e,luGroupBy,\{resolve:luDropValue\}\);\n\s*if\(!luFoldersReady\)return null;/);
+  assert.match(target,/placeDropTarget\(el,\{\.\.\.opt,step:true\}\)[\s\S]*luFolders\(\)\.fileTarget\(e\)[\s\S]*placeDropTarget\(el,\{\.\.\.opt,step:false\}\)/);
   assert.match(src,/luFolders\(\)\.putUploaded\(doc\?\.id,f\.id\)/);
   // 담당조직 연결을 끝낸 뒤 AI 채우기(사람이 놓은 값을 AI가 덮지 않게).
   assert.match(src,/async function luUploadDropped[\s\S]*?luUploadRequest\(fd,file\)[\s\S]*?linkUploadedDocument\([\s\S]*?luAiFill\(d\.document\.id,fd,file\.name\)/);
@@ -140,4 +143,49 @@ test('bindLibraryDrop: 값 묶음 안내 문구(hint)를 그대로 보인다',()
   doc.fire(dragEvent('dragenter'));doc.fire(dragEvent('dragover'));
   assert.equal(overlay.firstChild.textContent,'놓으면 ‘공공기관사업본부’로 올려요');
   doc.fire(dragEvent('drop',{list:[file('a.pdf')]}));assert.equal(got,t);
+});
+// S53-19 LIB-화면끌어놓기 이어서: 두 칸 폴더 보기의 나무 줄·위치 줄·들어간 폴더 안 빈 곳.
+const STEP='#libraryFolderNav [data-lu-nav], #libraryPath [data-lu-path]';
+// at: 손 아래 요소가 무엇 안에 있나({step,row,view,recent}). step은 dataset과 그 줄(.ft-row).
+function placeEl({step=null,view=true,recent=false}={}){
+  const row={kind:'ft-row'};
+  const at=step?{dataset:step,closest:sel=>sel==='.ft-row'?(step.noRow?null:row):null}:null;
+  return {row,at,el:{closest:sel=>sel===STEP?at:sel==='#libraryView'?(view?{}:null):sel==='#libraryRecent'?(recent?{}:null):null}};
+}
+test('placeDropTarget: 나무 줄·위치 줄은 그 폴더, 자료실 전체·자료실은 폴더 밖, 들어간 폴더 안 빈 곳은 그 폴더',()=>{
+  const folders={fa:{id:'fa',name:'가상 A'},fw:{id:'fw',name:'주간보고'}},folderOf=id=>folders[id]||null;
+  // ① 왼쪽 나무 줄 → 그 폴더(표시는 그 줄 .ft-row)
+  let p=placeEl({step:{luNav:'fw'}});let t=m.placeDropTarget(p.el,{folderOf});
+  assert.deepEqual({...t,place:t.place===p.row},{ok:true,kind:'into',target:'fw',name:'주간보고',place:true});
+  // '자료실 전체' 줄 → 폴더 밖(들어간 폴더가 있어도)
+  p=placeEl({step:{luNav:''}});t=m.placeDropTarget(p.el,{folderOf,inFolder:'fa'});assert.equal(t.out,true);assert.equal(t.target,undefined);assert.equal(t.place,p.row);
+  // 위치 줄: 위 폴더 칸 → 그 폴더, 맨 앞 '자료실' → 폴더 밖. 줄(.ft-row)이 없으면 칸 자체를 표시.
+  p=placeEl({step:{luPath:'fa',noRow:true}});t=m.placeDropTarget(p.el,{folderOf});assert.equal(t.target,'fa');assert.equal(t.place,p.at);
+  p=placeEl({step:{luPath:'',noRow:true}});assert.equal(m.placeDropTarget(p.el,{folderOf}).out,true);
+  // 없는 폴더 줄 → 폴더 밖
+  p=placeEl({step:{luNav:'gone'}});assert.equal(m.placeDropTarget(p.el,{folderOf}).out,true);
+  // 나무·위치 줄이 아니면 ①은 null
+  assert.equal(m.placeDropTarget(placeEl().el,{folderOf,inFolder:'fa'}),null);
+  // ③ 들어간 폴더 안 빈 곳(자료실 화면 안) → 그 폴더
+  assert.deepEqual(m.placeDropTarget(placeEl().el,{step:false,folderOf,inFolder:'fa'}),{ok:true,kind:'into',target:'fa',name:'가상 A',here:true});
+  // 들어간 폴더가 없거나, 최근 올린 파일 칸이거나, 자료실 화면 밖이거나, 없는 폴더면 폴더 밖(null)
+  assert.equal(m.placeDropTarget(placeEl().el,{step:false,folderOf,inFolder:null}),null);
+  assert.equal(m.placeDropTarget(placeEl({recent:true}).el,{step:false,folderOf,inFolder:'fa'}),null);
+  assert.equal(m.placeDropTarget(placeEl({view:false}).el,{step:false,folderOf,inFolder:'fa'}),null);
+  assert.equal(m.placeDropTarget(placeEl().el,{step:false,folderOf,inFolder:'gone'}),null);
+  assert.equal(m.placeDropTarget(null,{folderOf}),null);
+});
+test('bindLibraryDrop: 폴더 밖 표시({out})는 이름이 있어도 기본 안내, 놓으면 그 표시를 넘긴다',()=>{
+  const doc=fakeDoc(),overlay={hidden:true,firstChild:{textContent:''}};let got=null;
+  const t={out:true,name:'x'};
+  m.bindLibraryDrop({doc,overlay,active:()=>true,onFiles:(f,x)=>{got=x},pick:()=>t});
+  doc.fire(dragEvent('dragenter'));doc.fire(dragEvent('dragover'));
+  assert.equal(overlay.firstChild.textContent,m.DROP_HINT);
+  doc.fire(dragEvent('drop',{list:[file('a.pdf')]}));assert.equal(got,t);
+});
+test('자료실 화면 끌어놓기: 받는 폭은 공용 칸 나누기 판정(600px~), 옛 760px 폰 판정이 아니다',()=>{
+  const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
+  const line=src.split('\n').find(l=>l.startsWith('const luDropActive='));
+  assert.ok(line.includes('LU_NARROW'),line);assert.ok(!line.includes('luPhone()'),line);
+  assert.match(src,/const LU_NARROW=typeof matchMedia==='function'\?matchMedia\(NARROW_QUERY\):null;/);
 });
