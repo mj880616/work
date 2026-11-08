@@ -9,6 +9,9 @@
 // - AI 고르기: 정리함·홈을 열 때 오늘 날짜로 ai-assist(kind=journal_memorable)를 부른다. 서버가 '마지막 실행 1시간 뒤 + 새 기록'일 때만 AI를 부른다.
 //   이 탭도 같은 날은 1시간 안에 다시 묻지 않는다(탭 메모리만).
 // - 가족 줄은 이 길에 없다(서버가 업무 통화함·업무 텔레그램만 고름). 기기 저장 없음.
+// FORGET-소식바로잡기 ②⑤(요청함 11/09 01:45): 서버가 줄마다 AI가 정한 종류(task·event·note·org·area)와 이유 한 줄을 새 표
+// app_journal_memorable_picks에 남긴다. 읽을 때 같은 요청에 붙여 읽고(PostgREST 연결 읽기), 처리 전·빨간 숫자는 종류가 있는 줄(새 기준)만 센다.
+// 그 표가 아직 없으면(DB 적용 전) 예전처럼 처리 전 줄을 모두 센다(picks: false).
 import {callAiAssist} from './basket-ai-summary.js';
 import {seoulDateKey} from './meeting-time.js';
 import {myFeatures} from './my-features.js';
@@ -23,10 +26,16 @@ const enc = encodeURIComponent;
 export const NEWS_SOURCE_TAG = Object.freeze({telegram: '소식 · 텔레그램', call: '소식 · 통화'});
 
 // 서버 줄 → 목록 줄. 모양이 틀린 줄은 버린다.
+export const NEWS_KINDS = Object.freeze(['task', 'event', 'note', 'org', 'area']);
+const PICK = 'app_journal_memorable_picks';
+const pickOf = r => { const p = Array.isArray(r?.[PICK]) ? r[PICK][0] : r?.[PICK]; return p && NEWS_KINDS.includes(p.kind) ? p : null; };
+// 서버 줄에 종류·이유 칸이 붙어 왔는가(연결 읽기가 된 응답은 줄마다 그 칸이 있다 — 없으면 null).
+export const picksKnown = rows => Array.isArray(rows) && rows.some(r => r && Object.hasOwn(r, PICK));
 export function newsRows(rows) {
   return (Array.isArray(rows) ? rows : []).filter(r => r && typeof r.id === 'string' && typeof r.line === 'string' && r.line && DAY.test(r.day || '')
     && ['suggested', 'kept', 'dropped'].includes(r.status))
     .map(r => ({id: r.id, day: r.day, source: r.source === 'telegram' ? 'telegram' : 'call', feedItemId: r.feed_item_id || '',
+      kind: pickOf(r)?.kind || '', reason: typeof pickOf(r)?.reason === 'string' ? pickOf(r).reason.slice(0, 60) : '',
       org: typeof r.org_name === 'string' ? r.org_name.trim() : '', status: r.status,
       line: r.status === 'kept' && typeof r.final_line === 'string' && r.final_line ? r.final_line : r.line,
       at: r.picked_at || `${r.day}T00:00:00+09:00`, decidedAt: r.decided_at || ''}));
@@ -40,7 +49,8 @@ export function matchOrg(name, orgs, mine) {
   if (!key) return null;
   return (orgs || []).find(o => o?.id && o.active !== false && mine?.has?.(o.id) && [o.name, ...(Array.isArray(o.aliases) ? o.aliases : [])].some(n => norm(n) === key)) || null;
 }
-export const openNews = rows => (rows || []).filter(r => r.status === 'suggested');
+// 처리 전 소식. 종류·이유를 읽을 수 있으면(picks) 새 기준(종류가 있는) 줄만 — 옛 기준 줄은 셈·목록에 넣지 않는다(정리는 서버 쪽 한 번, PR 본문 ④).
+export const openNews = (rows, picks = true) => (rows || []).filter(r => r.status === 'suggested' && (!picks || !!r.kind));
 
 // 운영자 기능 calls·telegram 중 하나라도 있는가(서버 app_my_features — 공용 my-features.js 한 곳에서 GET으로 한 번만 묻는다).
 // 못 읽으면 없음으로 본다(줄을 안 읽을 뿐, 보안은 서버).
@@ -54,11 +64,16 @@ export async function readNews(rt = window.KPTURuntime, today = seoulDateKey()) 
   if (!ws) return {ok: false, rows: []};
   const from = seoulDateKey(new Date(Date.parse(`${today}T00:00:00+09:00`) - NEWS_DAYS * 86400000));
   try {
-    const rows = await rt.api(`/rest/v1/app_journal_memorable?workspace_id=eq.${enc(ws)}&day=gte.${from}&select=id,day,source,feed_item_id,org_name,line,status,final_line,picked_at,decided_at&order=day.desc,picked_at.desc,id.asc&limit=300`);
-    return {ok: true, rows: newsRows(rows)};
+    const path = cols => `/rest/v1/app_journal_memorable?workspace_id=eq.${enc(ws)}&day=gte.${from}&select=${cols}&order=day.desc,picked_at.desc,id.asc&limit=300`;
+    const base = 'id,day,source,feed_item_id,org_name,line,status,final_line,picked_at,decided_at';
+    let rows;
+    // 종류·이유 표가 아직 없으면(DB 적용 전) 연결 읽기가 400으로 거절된다 — 그때만 예전 칸으로 한 번 더 읽는다.
+    try { rows = await rt.api(path(`${base},${PICK}(kind,reason)`)); }
+    catch (error) { if (error?.status !== 400) throw error; rows = await rt.api(path(base)); }
+    return {ok: true, rows: newsRows(rows), picks: picksKnown(rows)};
   } catch (error) {
-    if (error?.status === 404 || error?.status === 403) return {ok: true, missing: true, rows: []};
-    return {ok: false, rows: []};
+    if (error?.status === 404 || error?.status === 403) return {ok: true, missing: true, rows: [], picks: false};
+    return {ok: false, rows: [], picks: false};
   }
 }
 // 오늘 소식 고르기를 서버에 한 번 부탁한다. 새로 골랐으면 true(다시 읽을 때). 같은 날 1시간 안에는 다시 묻지 않는다.
@@ -82,7 +97,7 @@ export async function countOpenNews(rt = window.KPTURuntime) {
   if (!(await newsOn(rt).catch(() => false))) return 0;
   await pickTodayNews(rt);
   const r = await readNews(rt);
-  return r.ok ? openNews(r.rows).length : 0;
+  return r.ok ? openNews(r.rows, r.picks).length : 0;
 }
 // 원본 열기: 통화는 통화 화면에서 그 통화를, 텔레그램은 그 방·날짜를 연다(방 구분값은 눌렀을 때 읽는다). 옛 업무일지 묶음과 같은 길.
 export async function openNewsSource(row, rt = window.KPTURuntime) {

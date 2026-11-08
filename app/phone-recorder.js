@@ -71,8 +71,16 @@ export function mountPhoneRecorder(win=window){
     doc.body.prepend(el);
     return el;
   }
+  // APP-낭비줄이기 ①: 시계 타이머는 녹음·일시정지 중에만 둔다(앱이 열려 있는 내내 1초마다 깨어나지 않게). 상태가 바뀔 때마다 paint가 켜고 끈다.
+  let clockTimer=0;
+  function syncClock(state){
+    const live=state==='recording'||state==='paused';
+    if(live&&!clockTimer)clockTimer=setInterval(()=>{if(doc.visibilityState!=='hidden')paint()},1000);
+    else if(!live&&clockTimer){clearInterval(clockTimer);clockTimer=0}
+  }
   function paint(view=core?.view){
     if(!view)return;
+    syncClock(view.state);
     const el=band(),state=view.state,on=state!=='idle';
     el.hidden=!on;el.dataset.state=state;
     doc.body.classList.toggle('phone-rec-on',on);
@@ -134,9 +142,8 @@ export function mountPhoneRecorder(win=window){
     if(d){e.preventDefault();core.discardPending(d.dataset.precDiscard)}
   });
   bridge.addEventListener('message',ev=>core.receive(typeof ev?.data==='string'?ev.data:''));
-  // 앱으로 돌아오면(화면 켬·알림에서 엶) 상태를 다시 묻는다. 녹음 중 1초마다 시계만 다시 그린다.
+  // 앱으로 돌아오면(화면 켬·알림에서 엶) 상태를 다시 묻는다. 녹음 중 1초마다 시계만 다시 그린다(그 시계는 녹음·일시정지 동안만 돈다 — paint 끝의 syncClock).
   doc.addEventListener('visibilitychange',()=>{if(doc.visibilityState==='visible')void core.hello()});
-  setInterval(()=>{if(['recording','paused'].includes(core.view.state)&&doc.visibilityState!=='hidden')paint()},1000);
   win.addEventListener('kptu:session-changed',e=>{if(!e.detail?.session)core.reset()});
   win.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='meetings'){mountSlots();paint();void core.loadPending()}});
 

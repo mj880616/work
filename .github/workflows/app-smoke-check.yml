@@ -888,6 +888,9 @@ jobs:
       - name: MTG-결과마크다운 사업 보고 결과 원문 마크다운 보기·쓰기 창 글자 보존
         run: node --test tests/report-result-markdown.test.mjs
 
+      - name: Check list reads skip body columns (APP-낭비줄이기 ①)
+        run: node --test tests/report-list-read.test.mjs
+
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
 
@@ -1116,7 +1119,10 @@ jobs:
           grep -q "__KPTU_CALENDAR_MONTH_VIEW_READY__" app/view-loader.js
           grep -Fq "(window.KPTUCalendarView||window.KPTUCalendarMonthView)?.render?.(" app/team.js
           grep -Fq "window.KPTUCalendarMonthView?.render(next)" app/calendar-view.js
-          grep -q "window.__KPTU_RENDER_CALENDAR__=renderCalendar" app/team.js
+          # APP-낭비줄이기 ①: 바깥 요청 입구(__KPTU_RENDER_CALENDAR__)는 같은 프레임 요청을 한 번으로 합치는 scheduleCalendarRender다. 그리는 함수는 renderCalendar 하나이고, 직접 부르면 기다리던 예약을 취소한다.
+          grep -q "window.__KPTU_RENDER_CALENDAR__=scheduleCalendarRender" app/team.js
+          grep -Fq "function scheduleCalendarRender(){if(calendarFrame)return;calendarFrame=requestAnimationFrame(()=>{calendarFrame=0;renderCalendar()})}" app/team.js
+          grep -Fq "function renderCalendar(){if(calendarFrame){cancelAnimationFrame(calendarFrame);calendarFrame=0}" app/team.js
           grep -q "window.KPTUCalendarPersistence={paint:" app/calendar-persistence.js
           grep -q "window.KPTUCalendarDayOverflow={apply,open}" app/calendar-day-overflow.js
           grep -q "id=\"googleCalendarPanel\"" app/team.js

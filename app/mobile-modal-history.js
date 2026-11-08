@@ -52,9 +52,13 @@
     if(isVisible(modal))sync(modal);
   }
 
-  function attach(){document.querySelectorAll('.modal').forEach(watch)}
+  // APP-낭비줄이기 ①: 처음 한 번만 문서 전체에서 창을 찾고, 그 뒤 변화는 새로 붙은 가지 안에서만 찾는다(바뀔 때마다 문서 전체를 훑지 않게).
+  function attach(root=document){
+    if(root.nodeType===1&&root.matches('.modal'))watch(root);
+    root.querySelectorAll?.('.modal').forEach(watch);
+  }
   attach();
-  new MutationObserver(attach).observe(document.body,{childList:true,subtree:true});
+  new MutationObserver(list=>{for(const change of list)for(const node of change.addedNodes)if(node.nodeType===1)attach(node)}).observe(document.body,{childList:true,subtree:true});
 
   window.addEventListener('popstate',event=>{
     const open=[...document.querySelectorAll('.modal')].filter(m=>tracks(m)&&isVisible(m)&&m.dataset.kptuHistoryOpen==='1').pop();

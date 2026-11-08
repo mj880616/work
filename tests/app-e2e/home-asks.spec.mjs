@@ -44,7 +44,7 @@ test('phone (fold folded): a small dot on the bottom bar home, no number',async(
 });
 for(const width of [900,1280])test(`${width}px: a faint number beside the menu home`,async({page})=>{
   await fixture(page,{width});
-  // 숫자는 홈 한 줄이 센 뒤에 붙는다: 화면이 보인 직후 한 번 읽지 않고, 홈 한 줄 숫자가 나온 뒤 본다(STAB-화면시험간헐, 폰 시험과 같은 순서).
+  // 숫자는 홈 칩이 다 센 뒤에 붙는다(서버 읽기 여러 개). 그 숫자가 보인 다음 잰다 — 첫 그림 직후 재면 아직 셈 전이라 간헐로 비어 있었다.
   await expect(page.locator('#homeView [data-home-summary] [data-nbx-badge]')).toHaveText('2');
   await page.evaluate(()=>window.KPTURouter.go('calendar'));
   const m=await mark(page);

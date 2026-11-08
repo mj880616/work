@@ -12,6 +12,7 @@
 //   고르기 창(area-org-picker.js, 하나만 고르기: 맨 위 '고르기'·'없음', 큰 묶음만 + 꺾쇠, 찾기·자주 쓴 것)이 이 창 위에 뜬다(뒤로가기는 위 창부터).
 //   단추가 값(data-value: 사업영역 id | AREA_NONE | '')을 갖고, 저장 길은 그대로다.
 import {createChoiceSheet} from './choice-sheet.js';
+import {readMeetingBody} from './report-list-read.js';
 import {untaggedInWeek,presetArea,reportDay,AREA_NONE,hasAreaNone,areaBody} from './business-area-model.mjs';
 import {loadReportPlaces,areaNameIn} from './report-places-sheet.js';
 import {openAreaOrgPicker,dismissAreaOrgPicker,usedKeysNow,catalogAreas} from './area-org-picker.js';
@@ -70,11 +71,14 @@ function preset(m,aiId=''){
 
 // 미리 고르기: 연결에서 먼저, 남은 줄은 AI 추천을 차례로(창이 닫히거나 한도면 멈춤).
 async function suggestAll(mine){
+  const rt=window.KPTURuntime,workspace=rt?.context?.read?.()?.workspace?.id;if(!rt?.api||!workspace)return;
   const left=active.list.filter(m=>!preset(m));let asked=0;
   for(const m of left){
     if(mine!==run||!active||asked>=AI_ROWS)return;
     // S48-64: 특이사항(=[회의] 칸 '회의록 전문')은 맨 뒤 300자만(전사 전문이 추천 재료를 밀어내지 않게).
-    const title=titleOf(m),text=[m.transcript_text,m.decisions,String(m.next_plan||'').trim()&&`다음 할 일: ${m.next_plan}`,String(m.notes||'').slice(0,300)].map(x=>String(x||'').trim()).filter(Boolean).join('\n').slice(0,3000);
+    const body=await readMeetingBody(rt.api,workspace,m.id); // APP-낭비줄이기 ①: 목록은 본문 열을 받지 않으므로 추천 직전 이 줄의 글을 읽는다
+    if(mine!==run||!active)return;
+    const title=titleOf(m),text=[body.transcript_text,body.decisions,String(m.next_plan||'').trim()&&`다음 할 일: ${m.next_plan}`,String(body.notes||'').slice(0,300)].map(x=>String(x||'').trim()).filter(Boolean).join('\n').slice(0,3000);
     if(!text&&title==='제목 없음')continue;
     asked++;
     let r;try{const {callAiAssist}=await import('./basket-ai-summary.js');r=await callAiAssist({kind:'area_suggest',title:title.slice(0,200),text})}catch{r={ok:false,code:'internal_error'}}
