@@ -28,6 +28,7 @@ import {purgePage as purgeSharePage} from './share-pages-archive.mjs';
 import {bigWindowOpen} from './big-window-open.js';
 import {hasDoc,sameRecord,recordPatch} from './record-doc.mjs';
 import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn,basketNoteHref} from './basket-note-tasks.js';
+import {fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기
 (()=>{
 'use strict';
 const rt=window.KPTURuntime,catalog=window.KPTUProjectCatalog;if(!rt||!catalog)return;
@@ -462,8 +463,8 @@ function editProgressRecord(button){
   const u=detail?.progress.find(x=>x.id===button.dataset.ps3EditRecord),row=button.closest('[data-ps3-record]');
   if(!u||!row||row.dataset.saving==='1')return;
   if(hasDoc(u)){void openProgressWindow(u);return}
-  row.innerHTML=`<form class="ps3-pg-editor" data-enter-save data-ps3-edit-record="${esc(u.id)}" data-dirty="false"><input type="text" maxlength="500" aria-label="기록 요약" value="${esc(u.summary||'')}"><div class="ps3-pg-actions"><button type="button" class="ps3-text-btn" data-ps3-cancel-record>취소</button><button type="submit" class="ps3-text-btn">저장</button></div></form>`;
-  const form=row.querySelector('form');configureSaveEditor({key:'record:'+u.id,kind:'record',form,targetId:u.id,projectId:current.id,workstreamId:u.workstream_id,source:u,button:form.querySelector('[type=submit]'),status:saveStatus(form),fields:[form.querySelector('input')]});row.querySelector('input').focus()
+  row.innerHTML=`<form class="ps3-pg-editor" data-enter-save data-ps3-edit-record="${esc(u.id)}" data-dirty="false"><textarea rows="1" maxlength="500" aria-label="기록 요약" data-autogrow data-enter-field="single">${esc(u.summary||'')}</textarea><div class="ps3-pg-actions"><button type="button" class="ps3-text-btn" data-ps3-cancel-record>취소</button><button type="submit" class="ps3-text-btn">저장</button></div></form>`;
+  const form=row.querySelector('form');configureSaveEditor({key:'record:'+u.id,kind:'record',form,targetId:u.id,projectId:current.id,workstreamId:u.workstream_id,source:u,button:form.querySelector('[type=submit]'),status:saveStatus(form),fields:[form.querySelector('textarea')]});const box=form.querySelector('textarea');fitHeight(box);box.focus() // UI-줄입력늘어나기: 기록 요약은 열자마자 글 전체가 보이게
 }
 // ED③ 기록 (설계 11.4 순서 5): a project record that has a saved form is edited in the new big window (record-window.js): letters (summary,
 // at most 500) and saved form in one PATCH. The row is read again first and a record changed on another device is refused; a row that had

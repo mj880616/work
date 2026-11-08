@@ -28,6 +28,7 @@ import {callLedgerRecords, retireCallRecords} from './call-ledger.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 import {askConfirm} from './small-notice.js';
 import { chevHtml } from './fold-chevron.mjs';
+import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
@@ -98,7 +99,8 @@ async function loadRaw(id) {
 // 다시 그리는 동안 일어나는 초점 잃음(blur)은 '바깥을 눌렀다'가 아니다: 제목 입력의 자동 저장이 이때는 일하지 않게 표시해 둔다.
 let rendering = false;
 const guardRender = fn => (...a) => { const was = rendering; rendering = true; try { return fn(...a); } finally { rendering = was; } };
-const paintList = guardRender(paintListNow), paintDetail = guardRender(paintDetailNow);
+// UI-줄입력늘어나기: 제목·핵심내용 고치기 칸은 그린 뒤 글 전체가 보이게(공용 auto-grow.js).
+const paintList = guardRender(() => { paintListNow(); fitAll($('#cfList')); }), paintDetail = guardRender(() => { paintDetailNow(); fitAll($('#cfDetail')); });
 // NAV-새로고침제자리: the box (?box=personal) and the open call (?call=<id>) are written to the address (no history entry of their own;
 // the phone keeps its layer entries), so a reload opens the same box and call. The address is read once when this module loads and
 // applied after the first list read; until then nothing is written.
@@ -136,7 +138,7 @@ function boxChip() {
   if (state.pmissing) return '';
   return `<button type="button" class="feed-chip" data-cf-box="personal">개인 통화함${state.pfail ? '' : ` ${personalRows().length}`} <span aria-hidden="true">›</span></button>`;
 }
-const titleInputHtml = (cls = 'feed-title-input') => `<input type="text" class="${cls}" data-cf-title-input data-enter-field="off" maxlength="${EDIT_TITLE_MAX}" autocomplete="off" aria-label="통화 제목 바꾸기" value="${esc(state.edit?.value ?? '')}">`;
+const titleInputHtml = (cls = 'feed-title-input') => `<textarea rows="1" class="${cls}" data-cf-title-input data-autogrow data-enter-field="off" maxlength="${EDIT_TITLE_MAX}" autocomplete="off" aria-label="통화 제목 바꾸기">${esc(state.edit?.value ?? '')}</textarea>`;
 // 업무 · 개인: 작은 글자 버튼 둘(CALL-손고치기 3). 누르는 범위 44px은 .feed-text-btn의 ::after.
 const decideHtml = id => `<span class="feed-ask-btns feed-decide-btns"><button type="button" class="feed-text-btn" data-cf-decide="work" data-cf-id="${esc(id)}"${state.busy ? ' disabled' : ''}>업무</button><span class="feed-faint" aria-hidden="true">·</span><button type="button" class="feed-text-btn" data-cf-decide="personal" data-cf-id="${esc(id)}"${state.busy ? ' disabled' : ''}>개인</button></span>`;
 function rowHtml(r, {ask = false} = {}) {
@@ -242,7 +244,7 @@ ${orgRow}<div class="feed-link-row"><label class="feed-link-label" for="cfWhoNam
 function newSumBox(r) { return {rowId:r.id, lines:(Array.isArray(r.points) ? r.points : []).filter(p => typeof p === 'string'), start:cleanPointLines(Array.isArray(r.points) ? r.points : []), busy:false, status:'', focus:null}; }
 function sumBoxHtml(r) {
   const b = state.sum, full = b.lines.length >= EDIT_POINTS_MAX;
-  const items = b.lines.map((l, i) => `<li class="feed-sumedit-line"><input type="text" class="feed-edit-input" data-cf-sum-line="${i}" data-enter-field="off" maxlength="${EDIT_POINT_MAX}" autocomplete="off" aria-label="핵심내용 ${i + 1}번째 줄" value="${esc(l)}"${b.busy ? ' disabled' : ''}><button type="button" class="feed-text-btn" data-cf-sum-del="${i}" aria-label="${i + 1}번째 줄 삭제"${b.busy ? ' disabled' : ''}>삭제</button></li>`).join('');
+  const items = b.lines.map((l, i) => `<li class="feed-sumedit-line"><textarea rows="1" class="feed-edit-input" data-cf-sum-line="${i}" data-autogrow data-enter-field="off" maxlength="${EDIT_POINT_MAX}" autocomplete="off" aria-label="핵심내용 ${i + 1}번째 줄"${b.busy ? ' disabled' : ''}>${esc(l)}</textarea><button type="button" class="feed-text-btn" data-cf-sum-del="${i}" aria-label="${i + 1}번째 줄 삭제"${b.busy ? ' disabled' : ''}>삭제</button></li>`).join('');
   const reset = r.edited?.points ? `<button type="button" class="feed-text-btn" data-cf-sum-reset${b.busy ? ' disabled' : ''}>AI 값으로</button>` : '';
   return `<div class="feed-sumedit" data-cf-sum><p class="feed-k">핵심내용 수정 <span class="feed-faint">· 줄마다 수정하고, 비운 줄은 저장할 때 빠져요</span></p>
 <ul class="feed-sumedit-lines">${items}</ul>

@@ -10,6 +10,7 @@
 // - 폰도 표 모양(칸 선)을 지키되 한 조직을 두 줄로 쌓는다(CSS). 조직 칸 폭은 끌어 바꾸고 서버에 기억한다(view_prefs.col_widths.orgall).
 // - 고른 소탭([목록|전체 표])은 이번 접속만 기억한다. 브라우저 저장소에 아무것도 두지 않는다.
 import {createWeekLines, thisWeek, weekTableHtml} from './weekly-org-lines.js';
+import {fitAll} from './auto-grow.js';
 import {readWeekDraft} from './weekly-draft-store.js';
 import {reportOrgNames, orderForReport} from './weekly-org-order-model.mjs';
 import {lineText} from './weekly-org-lines-model.mjs';
@@ -130,6 +131,7 @@ function put(html) {
   if (st.painted === html && st.panel.childElementCount) return;
   st.painted = html;
   st.panel.innerHTML = html;
+  fitAll(st.panel); // UI-줄입력늘어나기: 다시 그린 줄 고치기 칸도 글 전체가 보이게
 }
 function say(text, error = false) { if (!st) return; st.msg = {text, error}; const el = st.panel?.querySelector('[data-wl-status]'); if (el) { el.textContent = text; el.classList.toggle('is-error', error); } }
 

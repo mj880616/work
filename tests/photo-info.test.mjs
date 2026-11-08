@@ -118,9 +118,10 @@ test('다리 말: 0.4.15(meta)만, 읽기·고치기 모양, 이상한 답 버�
 
 test('연결: 사진 ⋯ 메뉴에 [정보 고치기…](폰 사진·앱 meta), 폰 앱 0.4.15, 위치 허락·EXIF 의존, DB 표 owner 전용', () => {
   const photos = readFileSync(new URL('../app/photos.js', import.meta.url), 'utf8');
-  assert.match(photos, /\(String\(id\)\.startsWith\('ph:'\) \? phone\.canMeta\(\) : od\.canDelete\) && tab !== 'trash' \? menuBtn\('data-pm-info', PHOTO_ACT_TEXT\.info\)/);
+  assert.match(photos, /\(phItem \? phone\.canMeta\(\) : od\.canDelete\) && !inTrash \? menuBtn\('data-pm-info', PHOTO_ACT_TEXT\.info\)/);
   // S50-31 ②: 구글 드라이브 우클릭 메뉴에도, [정보수정] 보이기 규칙은 폰·원드라이브·드라이브.
-  assert.match(photos, /menuBtn\('data-pm-move', '폴더로 옮기기…'\), menuBtn\('data-pm-info', PHOTO_ACT_TEXT\.info\), menuBtn\('data-pm-delete'/);
+  // S53-12: [지우기]는 줄 맨 아래 같은 자리(del = delBtn — 못 지우면 흐리게·이유 한 줄).
+  assert.match(photos, /menuBtn\('data-pm-move', '폴더로 옮기기…'\), menuBtn\('data-pm-info', PHOTO_ACT_TEXT\.info\)\]\.join\(''\) : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음<\/span><\/p>', del\]/);
   assert.match(photos, /const canInfo = list => tab !== 'trash' && list\.some\(x => \(x\.kind === 'phone' && phone\.canMeta\(\)\) \|\| \(x\.kind === 'od' && od\.canDelete\) \|\| \(x\.kind === 'gdrive' && gdUsable\(\)\)\)/);
   assert.doesNotMatch(photos, /photosSelMenu/);
   assert.match(photos, /data-photos-act-more/); // PHOTO-아래줄정돈(S49-34): 정보수정은 [더보기] 안 글자 항목

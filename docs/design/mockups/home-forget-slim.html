@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — 홈 '잊지 말기' 한 줄을 아끼기 (폰·폴드·PC)</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--pri:#1f6f5c;--warm:#fbeedd;--warmink:#8a5a1c;--red:#c0392b}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  h2{font-size:15px;margin:18px 16px 6px}
+  p.note{margin:0 16px 10px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:18px;padding:0 16px 10px;align-items:flex-start}
+  .dev{background:#eef6f3;border:1px solid #d6d4dd;border-radius:16px;padding:10px}
+  .phone{width:340px}.fold{width:520px}.pc{width:760px}
+  .cap{font-size:12px;color:var(--faint);margin:0 0 6px}
+  .card{background:#fcfcfd;border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:8px}
+  .hd{display:flex;align-items:center;gap:8px}
+  .seg{display:inline-flex;background:#efebe6;border-radius:999px;padding:2px}
+  .seg span{padding:3px 10px;border-radius:999px;font-size:12.5px;color:var(--faint)}
+  .seg .on{background:#fff;color:var(--ink);font-weight:600}
+  .chip{display:inline-flex;align-items:center;gap:4px;border:1px solid #ecd6b6;background:var(--warm);color:var(--warmink);border-radius:999px;padding:2px 9px;font-size:12.5px;white-space:nowrap}
+  .badge{background:var(--red);color:#fff;border-radius:999px;font-size:11px;padding:0 6px;font-weight:700}
+  .r{margin-left:auto}
+  .lnk{color:var(--pri);font-size:12.5px;white-space:nowrap}
+  .in{border:1px solid var(--line);border-radius:8px;padding:7px;color:var(--faint);margin-top:6px;font-size:13px}
+  .bar{background:var(--warm);border:1px solid #ecd6b6;border-radius:8px;padding:6px 10px;color:var(--warmink);font-size:13px}
+  .fl{display:flex;align-items:center;gap:6px;background:var(--warm);border:1px solid #ecd6b6;border-radius:8px;padding:5px 10px;font-size:13px}
+  .fl .t{color:var(--warmink);font-weight:600;white-space:nowrap}
+  .fl .x{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+  .two{display:flex;gap:10px}.two>div{flex:1}
+  .sec{font-weight:600;font-size:13.5px;margin:4px 0}
+  .row{font-size:13px;padding:2px 0;color:#4a4752}
+  .date{display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:6px}
+  .date b{font-size:15px}
+  .tag{font-size:11px;color:#fff;background:#5c5470;border-radius:4px;padding:1px 5px}
+  ul.k{margin:4px 16px 24px;padding-left:18px;font-size:13px;line-height:1.7}
+</style>
+</head>
+<body>
+<!-- S53-13 HOME-잊지말기칩: 요청함 시안 원본(Drive), 명진 11/08 13:55 A안 승인. 일정·할 일 글자는 예시로 바꿈(공개 저장소). -->
+<h1>시안 — 홈 '잊지 말기' 4글자 때문에 한 줄을 통째로 쓰지 않기</h1>
+<p class="note">명진 11/08 13:54: "저 4글자를 위해서 한 줄을 전체 쓰는 게 못내 아쉬워. 홈에 둔 건 잊지 않기 위해서인데… 더 나은 대안 — 폰, 폴드 펼침, PC 모두". 내용은 시안용.</p>
+
+<h2>지금</h2>
+<div class="wrap">
+  <div class="dev phone"><p class="cap">폰</p>
+    <div class="card"><div class="hd"><span class="seg"><span class="on">업데이트 ▾</span><span>할 일</span></span><span class="r lnk">잊지 말기 전체 보기 ›</span></div><div class="in">업데이트 입력(잊지 말기에 저장)</div></div>
+    <div class="card"><div class="bar">잊지 말기</div><div class="sec" style="margin-top:8px">그날 일정 2</div><div class="row">종일 · 예시 일정</div></div>
+  </div>
+</div>
+
+<h2>A. 입력 칸 머리 줄로 올리기 — 따로 한 줄 없음 <span class="tag">추천</span></h2>
+<p class="note">이미 있는 '잊지 말기 전체 보기 ›' 글자를 칩 하나로 바꿈. 챙길 게 있으면 빨간 숫자, 없으면 칩만(흐리게). 누르면 지금처럼 잊지 말기 목록.</p>
+<div class="wrap">
+  <div class="dev phone"><p class="cap">폰</p>
+    <div class="card"><div class="hd"><span class="seg"><span class="on">업데이트 ▾</span><span>할 일</span></span><span class="r chip">잊지 말기 <span class="badge">2</span></span></div><div class="in">업데이트 입력(잊지 말기에 저장)</div></div>
+    <div class="card"><div class="sec">그날 일정 2</div><div class="row">종일 · 예시 일정</div></div>
+  </div>
+  <div class="dev fold"><p class="cap">폴드 펼침</p>
+    <div class="card"><div class="hd"><span class="seg"><span class="on">업데이트 ▾</span><span>할 일</span></span><span class="r chip">잊지 말기 <span class="badge">2</span></span></div><div class="in">업데이트 입력(잊지 말기에 저장)</div></div>
+    <div class="card two"><div><div class="sec">그날 일정 2</div><div class="row">종일 · 예시 일정</div></div><div><div class="sec">할 일 1</div><div class="row">없음</div></div></div>
+  </div>
+  <div class="dev pc"><p class="cap">PC</p>
+    <div class="card"><div class="hd"><span class="seg"><span class="on">업데이트 ▾</span><span>할 일</span></span><span class="r chip">잊지 말기 <span class="badge">2</span></span></div><div class="in">업데이트 입력(잊지 말기에 저장)</div></div>
+    <div class="card two"><div><div class="sec">그날 일정 2</div><div class="row">종일 · 예시 일정</div><div class="row">00:00 · 예시 일정</div></div><div><div class="sec">할 일 1</div><div class="row">없음</div></div></div>
+  </div>
+</div>
+
+<h2>B. 그 줄에 내용을 채우기 — 맨 위 한 건이 보이게</h2>
+<p class="note">줄은 남기되 4글자만이 아니라 가장 급한 한 건을 한 줄로(넘치면 …). 챙길 게 없으면 줄 자체가 없음. 누르면 펼쳐서 전부.</p>
+<div class="wrap">
+  <div class="dev phone"><p class="cap">폰</p>
+    <div class="card"><div class="fl"><span class="t">잊지 말기</span><span class="badge">2</span><span class="x">예시 할 일 하나</span><span>⌄</span></div><div class="sec" style="margin-top:8px">그날 일정 2</div><div class="row">종일 · 예시 일정</div></div>
+  </div>
+  <div class="dev pc"><p class="cap">PC</p>
+    <div class="card"><div class="fl"><span class="t">잊지 말기</span><span class="badge">2</span><span class="x">예시 할 일 하나 · 예시 할 일 둘</span><span>⌄</span></div><div class="two" style="margin-top:8px"><div><div class="sec">그날 일정 2</div></div><div><div class="sec">할 일 1</div></div></div></div>
+  </div>
+</div>
+
+<h2>C. 날짜 줄 오른쪽 칩</h2>
+<p class="note">'11월 8일 일요일 ‹ 2 3 4 … › 이번 주' 줄 끝에 칩. 폰에서는 날짜 줄이 이미 꽉 차서 넘칠 수 있음.</p>
+<div class="wrap">
+  <div class="dev pc"><p class="cap">PC</p>
+    <div class="date"><b>11월 8일 일요일</b> ‹ 2 3 4 5 6 7 <b>8</b> › <span style="border:1px solid var(--line);border-radius:8px;padding:2px 8px">이번 주</span><span class="chip">잊지 말기 <span class="badge">2</span></span><span class="r seg"><span class="on">하루</span><span>주간 정리</span></span></div>
+    <div class="card"><div class="in">업데이트 입력(잊지 말기에 저장)</div></div>
+  </div>
+</div>
+
+<ul class="k">
+  <li>A 추천: 줄을 아예 없애면서 '잊지 말기 전체 보기 ›'와 4글자 줄이 겹치던 것도 하나로 합쳐짐. 빨간 숫자가 늘 입력 칸 바로 위에 있어 '잊지 않기' 목적도 유지.</li>
+  <li>B는 내용이 보여서 더 잘 안 잊지만, 줄 하나는 계속 씀. A와 섞기(칩 + 맨 위 한 건 한 줄)도 가능.</li>
+  <li>같은 종류 전수: 홈 [하루]·[주간 정리], 폰·폴드·PC, 다른 화면에서 같은 '제목만 있는 한 줄 띠'(예: 섹션 제목 띠)가 있는지.</li>
+</ul>
+</body>
+</html>
