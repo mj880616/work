@@ -343,3 +343,18 @@
 .fx-pinned > .ft-main .ft-name::after { content:''; display:inline-block; width:10px; height:10px; margin-left:3px; vertical-align:-1px; background:var(--kptu-faint); -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 1.8h4l-.6 4.2 2.4 2.4H4.2l2.4-2.4zM8 8.4v5.8' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center/contain; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 1.8h4l-.6 4.2 2.4 2.4H4.2l2.4-2.4zM8 8.4v5.8' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center/contain; } /* 공용 tree-icons.js 'pin'과 같은 그림 */
 .fx-psrc-pin .fx-psrc-why { margin-left:auto; }
 .fx-pin.re-dragging { opacity:.55; }
+/* S52-44 ④ 찾기 거르기 줄: 공용 ⑤ 보기 바꾸기(.ds-seg)·④ 칩(.ds-chip) 그대로, 자리만(한 줄, 넘치면 다음 줄). */
+.fx-find-bar { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:6px 8px; }
+.fx-find-bar .fx-find-scope { margin-right:2px; }
+/* S52-44 ③ 한글 미리보기: 쪽 그림(blob: SVG)은 칸 폭에 맞춰, 쪽 사이는 PDF 쪽과 같은 간격. 보기 엔진 칸은 화면 밖(보이지 않음). */
+.fx-hwp-page { display:block; width:100%; height:auto; border:.5px solid var(--kptu-border); }
+.fx-hwp-engine { position:fixed; left:0; top:0; width:800px; height:600px; opacity:0; pointer-events:none; z-index:-1; overflow:hidden; }
+/* S52-44 ⑤ 큰 폴더(줄 300개 넘음): 화면 밖 줄·칸은 그리지 않는다(브라우저가 보이는 것만 그림). 줄은 그대로 있어 고르기·키·끌기·찾기가 같다. */
+.fx-list[data-fx-many] .fx-rows:not(.fx-grid) > .fx-row { content-visibility:auto; contain-intrinsic-size:auto 28px; }
+.fx-list[data-fx-many] .fx-rows.fx-grid > .fx-row { content-visibility:auto; contain-intrinsic-size:auto 120px; }
+/* S52-44 ⑤ 종류 열: PC 두 칸(1200px~)도 칸이 넉넉해 종류 열을 보인다(폴드 두 칸은 좁아 그대로 뺌). 칸 폭 끌기는 같은 부품(col-resize.js). */
+.fx[data-fx-two="wide"] .fx-head, .fx[data-fx-two="wide"] .fx-row { grid-template-columns:20px var(--fx-w-name,minmax(0,1fr)) var(--fx-w-day,80px) var(--fx-w-size,64px) var(--fx-w-kind,52px); }
+.fx[data-fx-two="wide"] .fx-with-path .fx-row, .fx[data-fx-two="wide"] .fx-head.fx-with-path { grid-template-columns:20px var(--fx-w-name,minmax(0,1fr)) var(--fx-w-path,minmax(72px,.7fr)) var(--fx-w-day,80px) var(--fx-w-size,64px) var(--fx-w-kind,52px); }
+.fx[data-fx-two="wide"] .fx-kind, .fx[data-fx-two="wide"] .fx-head span:last-child { display:block; }
+.fx[data-fx-two="wide"] .fx-head span:nth-last-child(2) { text-align:right; }
+.fx-find-bar .ds-chip .fx-psrc-caret { margin-left:3px; }

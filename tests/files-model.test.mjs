@@ -45,7 +45,8 @@ test('종류·미리보기 길(F4): 사진·PDF·오피스(원드라이브 확�
   assert.equal(previewKind(row({source: 'gd', name: '예산.xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})), 'none');
   assert.equal(previewKind(row({source: 'gd', name: '문서', mime: 'application/vnd.google-apps.document'})), 'office');
   assert.equal(previewKind(row({name: '메모.txt'})), 'text');
-  assert.equal(previewKind(row({name: '계획.hwp'})), 'none');
+  assert.equal(previewKind(row({name: '계획.hwp'})), 'hwp');
+  assert.equal(previewKind(row({name: '계획.hwpx'})), 'hwp');
   assert.equal(previewKind(row({name: '페이지.html', mime: 'text/html'})), 'none', 'HTML은 글로도 그리지 않음(서버도 받기로만)');
   assert.equal(previewKind(row({is_folder: true})), 'none');
   // 서버(Edge cloud-files) 규칙과 같은 글자.
@@ -452,7 +453,7 @@ test('관리자마무리: 동영상·소리는 미리보기 재생, 재생 종�
   const r = o => ({source: 'od', item_id: 'X', parent_id: null, is_folder: false, mime: null, size_bytes: 10, ...o});
   assert.equal(m.previewKind(r({name: '영상.mp4'})), 'video');
   assert.equal(m.previewKind(r({name: '녹음.m4a'})), 'audio');
-  assert.equal(m.previewKind(r({name: '계획.hwp'})), 'none');
+  assert.equal(m.previewKind(r({name: '계획.hwp'})), 'hwp'); // S52-44 ③: 한글은 쪽 그림 미리보기
   assert.equal(m.mediaMime(r({name: '영상.MOV'})), 'video/quicktime');
   assert.equal(m.mediaMime(r({name: 'x.bin', mime: 'audio/ogg'})), 'audio/ogg');
   assert.equal(m.mediaMime(r({name: 'x.pdf'})), '');
