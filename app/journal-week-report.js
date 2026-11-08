@@ -51,7 +51,7 @@ export function createWeekReport({rt, openOrg = null} = {}) {
     fitAll(orgHost);
   }
   // week = 보이는 날이 든 주(월요일), list = 내 담당조직 [{id, name}](보고 순서), meetings() = 업무일지가 이미 읽은 그 주 사업 보고.
-  function show({week, orgs: list = [], meetings = () => NONE} = {}) {
+  function show({week, orgs: list = [], meetings = () => NONE, tree = null} = {}) {
     if (!week) return;
     el.querySelector('[data-jwr-range]').textContent = `${md(week)} ~ ${md(addDays(week, 6))}`;
     const ws = rt?.context?.read?.()?.workspace?.id || '';
@@ -65,7 +65,7 @@ export function createWeekReport({rt, openOrg = null} = {}) {
     else if (!same || ctl.status === 'idle') void ctl.load(list, {quiet: ctl.status === 'ready'});
     else paint();
     loadNames(week);
-    biz.update({meetings, week});
+    biz.update({meetings, week, tree: tree || (() => null)});
   }
   return {el, show, get window() { return ctl; }};
 }
