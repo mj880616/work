@@ -33,6 +33,7 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
    고른 줄은 연한 초록). "최근" 줄은 낮은 칩(고른 칩은 초록 + ✓). UPD-여러곳고르기: 담당조직도 묶음 소제목 아래 한 줄 목록. */
 .home-choice-search-box { flex-shrink:0; margin:0 0 8px; }
 .home-choice-sheet:not(.home-choice-anchored) .home-choice-search-box { display:none; }
+@media (max-width:760px) { .home-choice-sheet:not(.home-choice-search-all) .home-choice-search-box { display:none; } }
 .home-choice-search { box-sizing:border-box; width:100%; height:32px; padding:0 10px; border:1px solid var(--kptu-border-strong); border-radius:var(--ds-radius-control,8px); font:inherit; font-size:13px; color:var(--kptu-ink); background:var(--kptu-surface); }
 .home-choice-check { display:none; }
 /* UPD-여러곳고르기 ①: 담당조직도 프로젝트처럼 — 묶음 이름은 작은 소제목, 그 아래 조직은 한 줄에 하나(폰·PC 공통). */
@@ -40,28 +41,35 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-org-group:first-child > .home-choice-group-name { margin-top:0; }
 .home-choice-org-items { display:block; }
 .home-choice-sheet [hidden] { display:none !important; }
-.home-choice-sheet.home-choice-anchored .home-choice-pick { display:flex; align-items:center; gap:8px; height:32px; padding:0 8px 0 calc(8px + var(--home-choice-depth)*16px); border:0; border-radius:var(--ds-radius-control,8px); font-weight:var(--ds-weight-regular,400); color:var(--kptu-ink); background:transparent; }
-.home-choice-sheet.home-choice-anchored .home-choice-pick + .home-choice-pick { margin-top:1px; }
-.home-choice-sheet.home-choice-anchored .home-choice-pick:hover { background:var(--kptu-primary-soft); }
-.home-choice-sheet.home-choice-anchored .home-choice-pick .home-choice-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.home-choice-sheet.home-choice-anchored .home-choice-pick:not([data-depth="0"]) .home-choice-name { color:var(--kptu-muted); }
-/* PRJ-3단: 검색 중에만 세 번째 단계 줄 끝에 "1단 › 2단" 경로를 작은 회색 글자로. */
-.home-choice-sheet.home-choice-anchored .home-choice-path { flex:0 1 auto; min-width:0; margin-left:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-text-meta,12px); color:var(--kptu-faint); }
+/* S54-05 UI-고르기창버튼아래 ②: 폰·폴드도 버튼으로 연 창은 .home-choice-anchored(위치는 choice-sheet.js)지만, 줄 높이·글자·색·체크칸은 폰이 지금 그대로다.
+   아래 PC 목록 모양(32px 줄·초록 고른 줄·작은 체크칸·낮은 칩)은 넓은 화면(761px~)에서만 쓴다. 여러 곳 고르기(.home-choice-multi) 체크칸은 폰·PC 공통. */
+.home-choice-sheet.home-choice-multi .home-choice-check { display:inline-grid; place-items:center; flex:none; box-sizing:border-box; width:14px; height:14px; border:1px solid var(--kptu-border-strong); border-radius:3px; font-size:10px; line-height:1; color:var(--kptu-on-primary); background:var(--kptu-surface); }
+.home-choice-sheet.home-choice-multi .home-choice-pick[aria-pressed="true"] .home-choice-check { border-color:var(--kptu-success); background:var(--kptu-success); }
+.home-choice-sheet.home-choice-multi .home-choice-pick[aria-pressed="true"] .home-choice-check::after { content:"✓" / ""; }
 .home-choice-sheet.home-choice-multi .home-choice-pick { display:flex; align-items:center; gap:10px; }
 .home-choice-sheet.home-choice-multi .home-choice-pick .home-choice-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.home-choice-sheet:is(.home-choice-anchored,.home-choice-multi) .home-choice-check { display:inline-grid; place-items:center; flex:none; box-sizing:border-box; width:14px; height:14px; border:1px solid var(--kptu-border-strong); border-radius:3px; font-size:10px; line-height:1; color:var(--kptu-on-primary); background:var(--kptu-surface); }
-.home-choice-sheet.home-choice-anchored .home-choice-pick[aria-pressed="true"] { background:var(--kptu-success-soft); color:var(--kptu-ink); font-weight:var(--ds-weight-medium,500); }
-.home-choice-sheet:is(.home-choice-anchored,.home-choice-multi) .home-choice-pick[aria-pressed="true"] .home-choice-check { border-color:var(--kptu-success); background:var(--kptu-success); }
-.home-choice-sheet:is(.home-choice-anchored,.home-choice-multi) .home-choice-pick[aria-pressed="true"] .home-choice-check::after { content:"✓" / ""; }
-.home-choice-sheet.home-choice-multi:not(.home-choice-anchored) .home-choice-check { width:18px; height:18px; font-size:12px; border-radius:4px; }
-.home-choice-sheet.home-choice-anchored .home-choice-row.basket-choice-done { display:flex; align-items:center; height:32px; padding-left:calc(30px + var(--home-choice-depth,0)*16px); border:0; font-size:13px; }
-.home-choice-sheet.home-choice-anchored .home-choice-group-name { line-height:24px; margin:6px 0 0; }
-.home-choice-sheet.home-choice-anchored .home-choice-org-group:first-child > .home-choice-group-name { margin-top:0; }
-.home-choice-sheet.home-choice-anchored .home-choice-group { row-gap:8px; }
-.home-choice-sheet.home-choice-anchored .home-choice-chip { height:auto; min-height:24px; max-width:100%; padding:2px 8px; font-size:13px; line-height:18px; white-space:normal; text-align:left; overflow-wrap:anywhere; }
-.home-choice-sheet.home-choice-anchored .home-choice-chip::after { height:32px; left:-3px; right:-3px; }
-.home-choice-sheet.home-choice-anchored .home-choice-chip[aria-pressed="true"] { border-color:var(--kptu-success); background:var(--kptu-success-soft); color:var(--kptu-success); font-weight:var(--ds-weight-medium,500); }
-.home-choice-sheet.home-choice-anchored .home-choice-chip[aria-pressed="true"]::before { content:"✓" / ""; margin-right:4px; }
+.home-choice-sheet.home-choice-multi .home-choice-check { width:18px; height:18px; font-size:12px; border-radius:4px; }
+@media (min-width:761px) {
+  .home-choice-sheet.home-choice-anchored .home-choice-pick { display:flex; align-items:center; gap:8px; height:32px; padding:0 8px 0 calc(8px + var(--home-choice-depth)*16px); border:0; border-radius:var(--ds-radius-control,8px); font-weight:var(--ds-weight-regular,400); color:var(--kptu-ink); background:transparent; }
+  .home-choice-sheet.home-choice-anchored .home-choice-pick + .home-choice-pick { margin-top:1px; }
+  .home-choice-sheet.home-choice-anchored .home-choice-pick:hover { background:var(--kptu-primary-soft); }
+  .home-choice-sheet.home-choice-anchored .home-choice-pick .home-choice-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .home-choice-sheet.home-choice-anchored .home-choice-pick:not([data-depth="0"]) .home-choice-name { color:var(--kptu-muted); }
+/* PRJ-3단: 검색 중에만 세 번째 단계 줄 끝에 "1단 › 2단" 경로를 작은 회색 글자로. */
+  .home-choice-sheet.home-choice-anchored .home-choice-path { flex:0 1 auto; min-width:0; margin-left:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-text-meta,12px); color:var(--kptu-faint); }
+  .home-choice-sheet.home-choice-anchored .home-choice-check { display:inline-grid; place-items:center; flex:none; box-sizing:border-box; width:14px; height:14px; border:1px solid var(--kptu-border-strong); border-radius:3px; font-size:10px; line-height:1; color:var(--kptu-on-primary); background:var(--kptu-surface); }
+  .home-choice-sheet.home-choice-anchored .home-choice-pick[aria-pressed="true"] { background:var(--kptu-success-soft); color:var(--kptu-ink); font-weight:var(--ds-weight-medium,500); }
+  .home-choice-sheet.home-choice-anchored .home-choice-pick[aria-pressed="true"] .home-choice-check { border-color:var(--kptu-success); background:var(--kptu-success); }
+  .home-choice-sheet.home-choice-anchored .home-choice-pick[aria-pressed="true"] .home-choice-check::after { content:"✓" / ""; }
+  .home-choice-sheet.home-choice-anchored .home-choice-row.basket-choice-done { display:flex; align-items:center; height:32px; padding-left:calc(30px + var(--home-choice-depth,0)*16px); border:0; font-size:13px; }
+  .home-choice-sheet.home-choice-anchored .home-choice-group-name { line-height:24px; margin:6px 0 0; }
+  .home-choice-sheet.home-choice-anchored .home-choice-org-group:first-child > .home-choice-group-name { margin-top:0; }
+  .home-choice-sheet.home-choice-anchored .home-choice-group { row-gap:8px; }
+  .home-choice-sheet.home-choice-anchored .home-choice-chip { height:auto; min-height:24px; max-width:100%; padding:2px 8px; font-size:13px; line-height:18px; white-space:normal; text-align:left; overflow-wrap:anywhere; }
+  .home-choice-sheet.home-choice-anchored .home-choice-chip::after { height:32px; left:-3px; right:-3px; }
+  .home-choice-sheet.home-choice-anchored .home-choice-chip[aria-pressed="true"] { border-color:var(--kptu-success); background:var(--kptu-success-soft); color:var(--kptu-success); font-weight:var(--ds-weight-medium,500); }
+  .home-choice-sheet.home-choice-anchored .home-choice-chip[aria-pressed="true"]::before { content:"✓" / ""; margin-right:4px; }
+}
 /* UI-기록할곳창PC(넓은 PC 761px~, 기록할 곳 창만): 제목 옆 검색칸, 그 아래 "최근" 한 줄, 그 아래 왼쪽 담당조직(묶음별 줄) / 오른쪽
    프로젝트(한 줄 목록). 창 높이는 버튼 아래 남은 화면만큼이고, 항목이 많으면 각 열 안에서만 스크롤한다. 폰은 위아래 그대로. */
 .home-choice-sheet.home-choice-split header { gap:12px; }
@@ -82,12 +90,14 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-count { margin-right:auto; min-width:0; font-size:13px; color:var(--kptu-muted); }
 .home-choice-sheet .home-choice-foot button { box-sizing:border-box; min-width:64px; height:var(--kptu-touch-target,44px); padding:0 16px; border:1px solid var(--kptu-border-strong); border-radius:var(--ds-radius-control,8px); font-size:14px; background:var(--kptu-surface); }
 .home-choice-sheet .home-choice-foot .home-choice-save { border-color:var(--kptu-primary); background:var(--kptu-primary); color:var(--kptu-on-primary); font-weight:var(--ds-weight-medium,500); }
-.home-choice-sheet.home-choice-anchored .home-choice-foot button { height:32px; padding:0 14px; font-size:13px; }
-/* PC: 아래 줄이 창 높이를 덜 쓰도록 간격을 줄인다(1280×800에서 두 열이 스크롤 없이 보이게). 누르는 범위는 ::after 44px. */
-.home-choice-sheet.home-choice-anchored.home-choice-multi { padding-bottom:12px; }
-.home-choice-sheet.home-choice-anchored .home-choice-foot { margin-top:6px; padding-top:8px; }
-.home-choice-sheet.home-choice-anchored .home-choice-foot button { position:relative; }
-.home-choice-sheet.home-choice-anchored .home-choice-foot button::after { content:""; position:absolute; left:0; right:0; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
+@media (min-width:761px) {
+  .home-choice-sheet.home-choice-anchored .home-choice-foot button { height:32px; padding:0 14px; font-size:13px; }
+  /* PC: 아래 줄이 창 높이를 덜 쓰도록 간격을 줄인다(1280×800에서 두 열이 스크롤 없이 보이게). 누르는 범위는 ::after 44px. */
+  .home-choice-sheet.home-choice-anchored.home-choice-multi { padding-bottom:12px; }
+  .home-choice-sheet.home-choice-anchored .home-choice-foot { margin-top:6px; padding-top:8px; }
+  .home-choice-sheet.home-choice-anchored .home-choice-foot button { position:relative; }
+  .home-choice-sheet.home-choice-anchored .home-choice-foot button::after { content:""; position:absolute; left:0; right:0; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
+}
 /* 조직 이름은 줄이지 않는다(긴 이름은 줄 안에서 줄바꿈). */
 .home-choice-sheet .home-choice-org-items .home-choice-pick { height:auto; min-height:var(--kptu-touch-target,44px); white-space:normal; overflow:visible; text-overflow:clip; }
 .home-choice-sheet .home-choice-org-items .home-choice-pick .home-choice-name { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
@@ -96,4 +106,6 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-sheet.home-choice-split [data-sheet-all] { columns:2; column-gap:12px; }
 .home-choice-sheet.home-choice-split [data-sheet-all] .home-choice-org-group { break-inside:avoid; }
 .home-choice-sheet.home-choice-split [data-sheet-all] .home-choice-org-group:not(:first-child) > .home-choice-group-name { margin-top:6px; }
-.home-choice-sheet.home-choice-anchored .home-choice-org-items .home-choice-pick { min-height:32px; padding-top:4px; padding-bottom:4px; line-height:20px; }
+@media (min-width:761px) {
+  .home-choice-sheet.home-choice-anchored .home-choice-org-items .home-choice-pick { min-height:32px; padding-top:4px; padding-bottom:4px; line-height:20px; }
+}

@@ -26,6 +26,7 @@
 // Opening and closing without a change never calls save (설계 결정 D). One check for "a big window is open": big-window-open.js.
 import './enter-save.js';
 import {createChoiceSheet} from './choice-sheet.js';
+import {isWide} from './anchored-popup.js';
 import {createDocEditor} from './ed-editor.js';
 import {toTelegram, toHangul, toPlain} from './ed-text.mjs';
 import {emptyDoc} from './ed-schema.mjs';
@@ -90,7 +91,8 @@ function exportChoices() {
   return exportSheet;
 }
 function closeChoices() {
-  closeSheet ||= createChoiceSheet({id: 'edwCloseSheet', titleId: 'edwCloseSheetTitle', historyKey: 'kptuEdwClose',
+  // S54-05: 닫기 확인은 ✕ 뿐 아니라 Esc·뒤로가기·탭 누르기로도 열려 누른 버튼이 없을 수 있는 확인 창이라, 폰은 지금처럼 아래 시트로 둔다(PC는 그대로 버튼 아래).
+  closeSheet ||= createChoiceSheet({id: 'edwCloseSheet', titleId: 'edwCloseSheetTitle', historyKey: 'kptuEdwClose', anchored: () => isWide(),
     canOpen: () => !!current, choices: async () => {},
     render: () => ({title: '저장하지 않고 닫을까요?', html: CLOSE_CHOICES.map(([value, label]) => `<button type="button" class="home-choice-row" data-sheet-value="${value}">${label}</button>`).join('')}),
     onSelect: (kind, value) => current?.closeChoice(value)});

@@ -27,7 +27,7 @@ import {announceUploaded} from './upload-done.js';
 import {folderTrail,folderPathHtml} from './folder-path.mjs';
 import {bindFolderPinch} from './folder-pinch.js';
 import {fillGestureArea,settleGestureAreas} from './gesture-fill.js';
-import {SPLIT_QUERY} from './screen-width.mjs';
+import {SPLIT_QUERY,NARROW_QUERY} from './screen-width.mjs';
 import {iconHtml} from './tree-icons.js';
 import {ftFolderRowHtml} from './folder-tree-ui.mjs'; // FOLDER-나무새기준 ④: 두 손가락 벌리기 = 그 폴더만(노트·파일·사진과 같은 부품)
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
@@ -52,7 +52,7 @@ import {mountCategoryEditor} from './document-category-editor.js';
 import {startAutoTextRead} from './document-text-read.js';
 import {fillLibraryDocument,keptFields,originAfterEdit,autoTidyLibrary,reclassifyLibraryDocument} from './library-ai-fill.js';
 import {openLibraryHtmlView} from './library-html-view.js';
-import {bindLibraryDrop,groupDropTarget,runDropUpload,progressText as luDropProgressText,resultText as luDropResultText,DROP_HINT,DROP_RESULT_CLEAR_MS} from './library-drop.js';
+import {bindLibraryDrop,groupDropTarget,placeDropTarget,runDropUpload,progressText as luDropProgressText,resultText as luDropResultText,DROP_HINT,DROP_RESULT_CLEAR_MS} from './library-drop.js';
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 let luSession=null,luUser=null,luWorkspace=null,luRole=null,luDocuments=[],luUploadEntries=[],luCategoryOff=new Set(),luCategorySub='',luOrganization=null,luCategoryEditor=null,luEditOriginal=null,luEditBaseline=null;
@@ -347,8 +347,10 @@ function luMountUploadProgress(picker){const host=picker.querySelector('[data-lu
 function luSetSelectedFiles(files){if(luUploading)return;luUploadEntries=Array.from(files||[]).map(file=>file?.link?{file:{name:String(file.name||'파일'),size:Number(file.size)||0,type:String(file.type||'')},link:file.link,kind:'pending',label:LU_LINK_LABEL}:{file,kind:'pending',label:'선택됨'});const input=document.querySelector('#libraryFileInput');if(input)input.value='';luRenderSelectedFiles()}
 // LIB-화면끌어놓기 (2026-10-26): 자료실을 연 PC 화면 어디에 놓아도 [+ 자료 등록]을 아무것도 지정하지 않고 누른 것과 같게 바로 올린다
 // (library-files 같은 요청, 제목은 파일 이름, 분류는 AI 자동 정리 luAiFill). 등록 창·수정 창이 열려 있으면 그 창의 놓기 칸이 먼저라서 여기서는 받지 않는다. 모바일은 그대로.
+// S53-19: 받는 폭은 칸 나누기 공용 판정(600px~, screen-width.mjs)과 같게. 옛 '760px 이하 = 폰'은 펼친 폴드(약 673~707px)의 두 칸 보기에서 놓기를 꺼 두었다.
 let luDropRun=null,luDropClearTimer=0;
-const luDropActive=()=>window.KPTURouter?.current==='library'&&!luPhone()&&!document.querySelector('.modal:not(.hidden)')&&(!luUploading||!!luDropRun);
+const LU_NARROW=typeof matchMedia==='function'?matchMedia(NARROW_QUERY):null;
+const luDropActive=()=>window.KPTURouter?.current==='library'&&!LU_NARROW?.matches&&!document.querySelector('.modal:not(.hidden)')&&(!luUploading||!!luDropRun);
 function luDropStatus(text,{error=false,busy=false}={}){const st=document.querySelector('#libraryDropStatus');if(!st)return;clearTimeout(luDropClearTimer);st.textContent=text||'';st.hidden=!text;st.classList.toggle('error',!!error);st.setAttribute('aria-busy',busy?'true':'false');st.setAttribute('role',error?'alert':'status');if(text&&!error&&!busy)luDropClearTimer=setTimeout(()=>luDropStatus(''),DROP_RESULT_CLEAR_MS)}
 // S46-25: value({field,value})가 있으면 그 값을 달아 올린다. 사업영역·분류는 [+ 자료 등록]과 같은 요청 칸(project_id·category, 서버가 사업영역 권한을 다시 봄),
 // 담당조직은 담당조직 상세 [+]와 같은 연결(linkUploadedDocument, DB가 같은 작업공간 조직만 받음). AI 채우기는 그 뒤에 시작해 사람이 놓은 값을 덮지 않는다
@@ -361,7 +363,25 @@ function luDropValue(raw){
   if(luGroupBy==='category')return documentCategories().includes(raw)?{name:categoryLabel(raw)}:null;
   return null;
 }
-function luDropTarget(e){if(luGroupBy==='folder')return luFoldersReady?luFolders().fileTarget(e):null;return groupDropTarget(e,luGroupBy,{resolve:luDropValue})}
+// S53-19 LIB-화면끌어놓기 이어서: 폴더 묶기면 ① 왼쪽 나무 줄·위치 줄 → ② 오른쪽 목록의 폴더 줄 → ③ 들어간 폴더 안 빈 곳(그 폴더) → 그 밖은 폴더 밖(placeDropTarget).
+function luDropFolderOf(id){const f=luFolders_.find(x=>x.id===id);return f?{id:f.id,name:String(f.name||'폴더')}:null}
+function luDropTarget(e){
+  if(luGroupBy!=='folder')return groupDropTarget(e,luGroupBy,{resolve:luDropValue});
+  if(!luFoldersReady)return null;
+  const el=e?.target,opt={inFolder:luInFolder,folderOf:luDropFolderOf};
+  const step=placeDropTarget(el,{...opt,step:true});if(step)return step;
+  const row=luFolders().fileTarget(e);if(row)return row;
+  const here=placeDropTarget(el,{...opt,step:false});if(!here)return null;
+  // 들어간 폴더 머리 줄(오른쪽 목록 맨 위)에 옮기기와 같은 놓을 곳 표시.
+  const head=[...document.querySelectorAll('#documentList details.lu-node')].find(n=>n.dataset.luNode==='f:'+here.target)?.querySelector(':scope > summary.lu-node-head');
+  return head?{...here,head}:here;
+}
+// 나무 줄·위치 칸 표시(오른쪽 목록 줄 표시는 폴더 부품 markFile). 한 번에 한 줄.
+let luDropPlaceEl=null;
+function luMarkDrop(t){
+  const el=t?.place||null;if(el!==luDropPlaceEl){luDropPlaceEl?.classList.remove('lu-drop-place');luDropPlaceEl=el;el?.classList.add('lu-drop-place')}
+  if(t?.head)luFolders().markFile(t);else if(luFolderUi)luFolderUi.markFile(null);
+}
 // LIB-폴더로올리기 (2026-10-30): 폴더 묶기에서 폴더 줄에 놓았으면(target) 올린 자료마다 그 폴더에 넣는다(옮기기와 같은 자료 연결 표, 폴더 부품 putUploaded).
 // 다른 곳에 놓은 파일은 지금처럼 폴더 밖. 올리기 중 또 놓으면 그 파일은 놓은 곳(폴더 또는 밖) 그대로 줄 뒤에 이어 올린다.
 // S46-25: 사업영역·담당조직·분류 묶음 머리에 놓았으면(target.field) 그 값을 달아 올린다('공공기관사업본부로 2개 올렸어요').
@@ -403,7 +423,7 @@ function luEnhanceDrop(){
   const overlay=document.createElement('div');overlay.id='libraryDropOverlay';overlay.className='lu-drop-overlay';overlay.hidden=true;overlay.setAttribute('aria-hidden','true');overlay.innerHTML='<span class="lu-drop-hint"></span>';overlay.firstChild.textContent=DROP_HINT;document.body.append(overlay);
   // 왼쪽 메뉴를 뺀 화면 전체(자료실 칸의 가로 범위, 세로는 창 전체).
   const place=()=>{const r=view.getBoundingClientRect();overlay.style.left=Math.max(0,Math.round(r.left))+'px';overlay.style.right=Math.max(0,Math.round(window.innerWidth-r.right))+'px'};
-  bindLibraryDrop({overlay,active:luDropActive,onFiles:luDropFiles,place,pick:luDropTarget,mark:t=>{if(t)luFolders().markFile(t);else if(luFolderUi)luFolderUi.markFile(null)}});
+  bindLibraryDrop({overlay,active:luDropActive,onFiles:luDropFiles,place,pick:luDropTarget,mark:luMarkDrop});
 }
 function luSetFileStatus(entry,kind,label){entry.kind=kind;entry.label=label;luRenderSelectedFiles()}
 function luResetUploadSelection({clearStatus=true}={}){luUploadEntries=[];const input=document.querySelector('#libraryFileInput');if(input)input.value='';luRenderSelectedFiles();if(clearStatus)luSetStatus(document.querySelector('#documentStatus'),'')}

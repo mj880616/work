@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { expectPickerAtButton } from './helpers/picker-anchor.mjs';
 import { segBox } from './helpers/seg-box.mjs'; // UI-보기탭한모양(S52-17): 보기 탭은 보이는 알약 자리로 잰다
 // OUTSIDE-바깥성명 ④ 화면 1 → S51-8 NEWS-전면개편 P4b(docs/design/news-overhaul.md 6.1·6.3절, 시안 mockups/news-overhaul.html): News 목록(?view=outside).
 // 탭 [전체][사회운동][언론][보관] — 폰 아래 떠 있는 탭 줄·폴드 오른쪽 아래·PC 위, 좌우 밀기 = 탭 이동, 고른 탭은 서버 view_prefs.news_tab.
@@ -277,4 +278,20 @@ test('News 처음 탭: news_tab이 없으면 옛 now_tab을 바꿔 한 번 옮�
   await expect(tab(page, 'media')).toHaveAttribute('aria-selected', 'true');
   await expect.poll(() => server.prefs.value?.news_tab).toBe('media');
   expect(server.prefs.value.now_tab).toBe('news');
+});
+
+// S54-04 UI-고르기창버튼아래(11/08 명진 결정 B): [매체: 전체 ▾] 창은 폰·폴드·PC 모두 누른 버튼 바로 아래 작은 창 — 첫 줄 '전체'가 다 보이고 아래 메뉴 줄과 겹치지 않는다.
+for (const width of [390, 884, 1280]) test(`News 매체 고르기 창은 누른 버튼 바로 아래 ${width}`, async ({ page }) => {
+  const { errors } = await start(page, width);
+  await openOutside(page, width);
+  const dd = root(page).locator('[data-nw-media]');
+  await dd.click();
+  const pick = page.locator('#nwMediaPicker');
+  await expectPickerAtButton(page, pick, dd);
+  await expect(pick.locator('.lu-move-item').first()).toHaveText(/^전체/);
+  await expect(pick.locator('.lu-move-item').first()).toBeInViewport({ ratio: 1 });
+  await pick.locator('[data-lu-move-folder="g:party"]').click();
+  await expect(pick).toBeHidden();
+  await expect(dd).toHaveText('매체: 정당 ▾');
+  expect(errors).toEqual([]);
 });

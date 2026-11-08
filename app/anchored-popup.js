@@ -1,9 +1,13 @@
 // UI-PC팝업위치: on a wide screen (761px~) a small popup opens right below the button that was pressed (above it when there is
 // no room below, beside it when neither has room) instead of rising from the bottom of the screen. Phones keep their bottom
-// sheets; callers decide with isWide(). Used by the shared choice sheet (choice-sheet.js); a ⋯ menu or any other small popup
+// sheets; callers decide with isWide(). S54-04 UI-고르기창버튼아래(11/08 명진 결정 B): the shared folder/media picker
+// (library-move-picker.js) opened from a button (place 'below') uses placeAnchored on phones too, with bottomInset = the
+// bottom bars and keyboard, so it opens right under the pressed button and never covers the bottom tabs. Used by the shared choice sheet (choice-sheet.js); a ⋯ menu or any other small popup
 // can use the same two calls: placeAnchored() for the position and followAnchor() to keep it there while the page moves.
 export const WIDE_QUERY='(min-width:761px)';
 export const isWide=()=>window.matchMedia(WIDE_QUERY).matches;
+// S54-04·S54-05: 아래 바(하단바·전환 줄)와 자판이 창 아래를 덮는 높이(px). 버튼 아래 창은 그 위에서 끝난다(placeAnchored의 bottomInset).
+export function bottomInset(){const cs=getComputedStyle(document.documentElement),v=n=>parseFloat(cs.getPropertyValue(n))||0;return v('--kptu-mobile-tab-height')+v('--kptu-switch-dock')+v('--kptu-keyboard-inset')}
 const anchorable=anchor=>typeof anchor?.getBoundingClientRect==='function';
 
 // Sets the panel's inline position (position:fixed is the caller's CSS) from the anchor's box and returns the side it took
@@ -13,14 +17,15 @@ const anchorable=anchor=>typeof anchor?.getBoundingClientRect==='function';
 // anchor's bottom edge ('beside-up'); when the window above is too short, the panel slides down only as far as the window allows.
 // UI-창잘림·끌어옮기기: after placing, the box the panel was really drawn at (its CSS may make it wider or taller than asked) is
 // measured and pushed back inside the window, so no popup is cut at the right or bottom edge. A wider popup asks for it here
-// (maxWidth), never with its own CSS min-width. A panel the user dragged by its title (dragByTitle) keeps its spot: it is only
+// (maxWidth), never with its own CSS min-width. bottomInset: px at the bottom of the window the panel must stay above
+// (phone bottom tabs, switch row, keyboard); 0 = the whole window. A panel the user dragged by its title (dragByTitle) keeps its spot: it is only
 // kept inside the window (a resize, a new width or height), never moved back to the anchor until it closes (clearAnchored).
-export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edge=8,minHeight=160,beside=''}={}){
+export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edge=8,minHeight=160,beside='',bottomInset=0}={}){
   if(!anchorable(anchor))return '';
-  const vw=document.documentElement.clientWidth,vh=window.innerHeight,width=Math.min(maxWidth,vw-edge*2);
+  const inset=Math.max(0,bottomInset||0),vw=document.documentElement.clientWidth,vh=window.innerHeight-inset,width=Math.min(maxWidth,vw-edge*2);
   if(panel.dataset.anchorMoved&&panel.dataset.anchorSide){
     Object.assign(panel.style,{width:width+'px',maxHeight:Math.max(0,Math.min(maxHeight,vh-edge*2))+'px'});
-    keepInside(panel,edge);
+    keepInside(panel,edge,bottomInset);
     return panel.dataset.anchorSide;
   }
   const t=anchor.getBoundingClientRect(),below=vh-t.bottom-gap-edge,above=t.top-gap-edge;
@@ -31,7 +36,7 @@ export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edg
     height=Math.min(maxHeight,vh-edge*2);
     // Bottom on the anchor's bottom, but never below the window and never so low that the panel's top leaves the window.
     const want=Math.min(vh-edge,Math.max(t.bottom,edge+Math.min(height,panel.scrollHeight||height)));
-    bottom=Math.max(edge,vh-want)+'px';
+    bottom=inset+Math.max(edge,vh-want)+'px'; // CSS bottom은 진짜 창 아래 끝에서 잰다
   }else if(Math.max(below,above)>=minHeight){
     side=below>=Math.min(maxHeight,above)?'below':'above';
     // UI-메뉴잘림: 고른 쪽에 내용이 다 들어가지 않는데 반대쪽에는 다 들어가면 반대쪽으로(⋯ 메뉴 끝 항목이 안쪽 스크롤에 숨지 않게).
@@ -40,7 +45,7 @@ export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edg
     if(want&&side==='below'&&below<want&&above>=want)side='above';else if(want&&side==='above'&&above<want&&below>=want)side='below';
     left=Math.max(edge,Math.min(t.left,vw-width-edge));
     height=Math.min(maxHeight,side==='below'?below:above);
-    if(side==='below')top=t.bottom+gap+'px';else bottom=vh-t.top+gap+'px';
+    if(side==='below')top=t.bottom+gap+'px';else bottom=inset+vh-t.top+gap+'px';
     // UI-메뉴잘림: 위·아래 어느 쪽에도 다 들어가지 않지만 창에는 다 들어가면, 창 안으로 밀어 올려(누른 줄 위에 조금 겹쳐) 끝 항목까지 다 보인다.
     if(want&&height<want&&want<=vh-edge*2){height=want;top=Math.max(edge,Math.min(t.bottom+gap,vh-edge-want))+'px';bottom='auto';side='below';}
   }else{
@@ -54,7 +59,7 @@ export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edg
   Object.assign(panel.style,{inset:'auto',margin:'0',width:width+'px',left:left+'px',top,bottom,maxHeight:Math.max(0,height)+'px'});
   panel.dataset.anchorSide=side;
   markScrollMore(panel);
-  keepInside(panel,edge);
+  keepInside(panel,edge,bottomInset);
   return side;
 }
 // UI-메뉴잘림(2026-10-30): 창이 정말 내용보다 짧아 안쪽이 스크롤될 때만 아래 끝을 흐리게 해 '더 있음'을 보인다(data-scroll-below, base-ui.css).
@@ -67,9 +72,9 @@ export function markScrollMore(panel){
 }
 const clamp=(value,min,max)=>Math.max(min,Math.min(value,max));
 // Moves a fixed panel back inside the window by the box it was really drawn at (a hidden panel, 0×0, is left alone).
-export function keepInside(panel,edge=8){
+export function keepInside(panel,edge=8,bottomInset=0){
   const r=panel.getBoundingClientRect();if(!r.width&&!r.height)return;
-  const vw=document.documentElement.clientWidth,vh=window.innerHeight;
+  const vw=document.documentElement.clientWidth,vh=window.innerHeight-Math.max(0,bottomInset||0);
   if(r.left<edge||r.right>vw-edge)panel.style.left=clamp(r.left,edge,vw-edge-r.width)+'px';
   if(r.top<edge||r.bottom>vh-edge)Object.assign(panel.style,{top:clamp(r.top,edge,vh-edge-r.height)+'px',bottom:'auto'});
 }
