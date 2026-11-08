@@ -190,3 +190,39 @@ test('고침 기록 칸별 숫자 + 개선 제안 분류(입력창)', () => {
   assert.deepEqual(withReview.review.suggestions.map(s => [s.id, s.area ?? '']), [['s1', 'input'], ['s2', 'flow'], ['s3', ''], ['s4', '']]);
   assert.equal(withAnswer(withReview, 's4', 'yes').review.suggestions[3].answer, 'yes');
 });
+
+// S53-16 WEEKLY-환류정교화: 고친 '꼴'(순서·표현 다듬기) 숫자, 자료실 개인 확정본(앱 밖에서 다듬은 판)으로 다시 만든 고침 기록. 글은 지어낸 것.
+test('고친 꼴: 순서 바꿈·표현 다듬기 숫자, 0이면 칸 없음', async () => {
+  const m = await import('../app/weekly-feedback.mjs');
+  const id = m.cellIdOf('summary', '가›나', 0);
+  const P = new Map([[id, ['- 첫째 가상 줄 이야기', '- 둘째 가상 줄 이야기', '- 셋째 가상 줄', '- 넷째']]]);
+  const F = new Map([[id, ['- 셋째 가상 줄', '- 첫째 가상 줄 이야기.', '- 둘째 가상 줄 이야기 정리', '- 새로 더한 줄']]]);
+  const r = m.feedbackRecord({week:'2026-11-02', at:'2026-11-08T07:00:00.000Z', proposed:P, final:F});
+  assert.deepEqual(r.counts, {kept:2, changed:1, dropped:1, added:1, proposed:4, final:4, moved:1, reworded:1});
+  assert.deepEqual(r.cells[0], {where:'요약 · 가 › 나', proposed:4, final:4, kept:2, changed:1, dropped:1, added:1, moved:1, reworded:1});
+  const same = m.feedbackRecord({week:'2026-11-02', at:'2026-11-08T07:00:00.000Z', proposed:P, final:P});
+  assert.deepEqual(same.counts, {kept:4, changed:0, dropped:0, added:0, proposed:4, final:4});
+  assert.equal(r.from, 'confirm');
+  assert.equal(m.readFeedback({...r, counts:{...r.counts, moved:-1, reworded:'x'}}).counts.moved, undefined);
+});
+test('자료실 개인 확정본으로 다시 만든 고침 기록: 처음 초안이 있어야, 같은 자료면 다시 안 씀, 보고 답은 지킴', async () => {
+  const m = await import('../app/weekly-feedback.mjs');
+  const id = m.cellIdOf('orgs', '가상지부', 0);
+  const proposed = {at:'2026-11-03T00:00:00.000Z', base:{from:'personal'}, cells:m.cellList(new Map([[id, ['- 가상 줄 하나', '- 가상 줄 둘']]]))};
+  const final = new Map([[id, ['- 가상 줄 하나', '- 손으로 새로 쓴 가상 줄']]]);
+  const review = {at:'2026-11-04T00:00:00.000Z', candidates:['가상 규칙'], suggestions:[]};
+  const had = {at:'2026-11-04T00:00:00.000Z', week:'2026-11-02', from:'confirm', counts:{kept:2, changed:0, dropped:0, added:0, proposed:2, final:2}, changed:[], dropped:[], added:[], review};
+  const next = m.libraryFeedback({extras:{proposed, feedback:had}, week:'2026-11-02', at:'2026-11-08T07:00:00.000Z', final, doc:'doc-1'});
+  assert.equal(next.from, 'library'); assert.equal(next.doc, 'doc-1');
+  assert.deepEqual(next.counts, {kept:1, changed:0, dropped:1, added:1, proposed:2, final:2});
+  assert.deepEqual(next.added, [{where:'산하조직 · 가상지부', text:'- 손으로 새로 쓴 가상 줄'}]);
+  assert.equal(next.review.candidates[0], '가상 규칙');
+  assert.deepEqual(m.readFeedback(next).doc, 'doc-1');
+  assert.equal(m.libraryFeedback({extras:{proposed, feedback:next}, week:'2026-11-02', at:'2026-11-08T08:00:00.000Z', final, doc:'doc-1'}), null);
+  assert.ok(m.libraryFeedback({extras:{proposed, feedback:next}, week:'2026-11-02', at:'2026-11-08T08:00:00.000Z', final, doc:'doc-2'}));
+  assert.equal(m.libraryFeedback({extras:{feedback:had}, week:'2026-11-02', at:'x', final, doc:'doc-1'}), null);
+  assert.equal(m.libraryFeedback({extras:{proposed}, week:'2026-11-02', at:'2026-11-08T07:00:00.000Z', final:new Map(), doc:'doc-1'}), null);
+  // 서버로 가는 모양 검사(readExtras)를 지나고, 옛 기록의 doc 칸은 library 일 때만.
+  assert.equal(m.readExtras({feedback:next}).feedback.from, 'library');
+  assert.equal(m.readFeedback({...had, doc:'x'}).doc, undefined);
+});
