@@ -267,7 +267,7 @@ export function retireRequest(ledgerId, reasonKey) {
 export function undoErrorText(e) {
   const m = String(e?.message || '');
   if (e?.status === 404 || /PGRST202|42883/.test(m)) return '되돌리기 준비 전이에요.';
-  if (/UNDO_CHANGED/.test(m)) return '그 뒤에 고친 기록이 있어 되돌리지 않았어요.';
+  if (/UNDO_CHANGED/.test(m)) return '그 뒤에 수정한 기록이 있어 되돌리지 않았어요.';
   if (/UNDO_REFERENCED/.test(m)) return '다른 기록이 이 기록을 가리키고 있어 되돌리지 않았어요.';
   if (/UNDO_NOT_DONE|UNDO_NOT_APPLIED/.test(m)) return '이미 되돌렸어요.';
   if (/TARGET_INACTIVE/.test(m)) return '이미 대체됐거나 폐기된 기록이에요.';
@@ -351,7 +351,7 @@ export const SOURCE_RETIRE_MAX = 20; // app_apply_ledger_fix 한 요청의 항�
 export function sourceRetireRequest(ledgerIds) {
   const ids = [...new Set((Array.isArray(ledgerIds) ? ledgerIds : []).filter(v => /^[A-Z]{2,6}-[0-9]{4,6}$/.test(String(v))))];
   if (!ids.length || ids.length > SOURCE_RETIRE_MAX) return null;
-  return { format: 'kptu-ledger-fix', version: 1, received_from: 'user', items: ids.map(target => ({ target, do: 'retire', reason: '원문(통화)을 지우면서 함께 틀린 기록으로 표시' })) };
+  return { format: 'kptu-ledger-fix', version: 1, received_from: 'user', items: ids.map(target => ({ target, do: 'retire', reason: '원문(통화)을 삭제하면서 함께 틀린 기록으로 표시' })) };
 }
 
 // FEAT-1029묶음 ⑥ 결정 변경 이력(설계 docs/design/feature-bundle-1029.md 6절, 명진 결정 10/29): 상세 맨 아래 접힌 '이전 결정 n ▸'.

@@ -239,7 +239,7 @@ test('PC: 서버가 1분 조각을 알려 주면 1분 간격으로 보내고, �
 
 // 요청함 10/30 10:01: [버리기] — 멈추고 정리 말고 취소하고 버리기, 위쪽 작은 알림 [되돌리기] 10초.
 const LIVE='00000000-0000-4000-8000-0000000000aa';
-test('PC: 녹음 띠 [버리기] → 띠·마이크 꺼짐·정리 없음 → 위쪽 알림 [되돌리기] → \'이어서 정리\' 줄 → 정리하면 초안',async({page})=>{
+test('PC: 녹음 띠 [삭제] → 띠·마이크 꺼짐·정리 없음 → 위쪽 알림 [되돌리기] → \'이어서 정리\' 줄 → 정리하면 초안',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:1440,height:900});
   // 되돌린 뒤에만 서버가 이 녹음을 '끝나지 않은 녹음'으로 돌려준다.
@@ -250,7 +250,7 @@ test('PC: 녹음 띠 [버리기] → 띠·마이크 꺼짐·정리 없음 → �
   const band=page.locator('#recBand');
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
   // [일시정지] [멈추고 정리] [버리기] 순서, 같은 크기, [버리기]는 빨강 글자.
-  const stop=band.getByRole('button',{name:'멈추고 정리'}),drop=band.getByRole('button',{name:'버리기'});
+  const stop=band.getByRole('button',{name:'멈추고 정리'}),drop=band.getByRole('button',{name:'삭제'});
   const [s1,d1]=await Promise.all([stop.boundingBox(),drop.boundingBox()]);
   expect(s1.x+s1.width).toBeLessThanOrEqual(d1.x);
   expect(d1.height).toBeCloseTo(s1.height,0);
@@ -258,7 +258,7 @@ test('PC: 녹음 띠 [버리기] → 띠·마이크 꺼짐·정리 없음 → �
   expect(dc).toBe(danger);
   // 일시정지 중에도 [버리기]가 있다.
   await band.getByRole('button',{name:'일시정지'}).click();
-  await expect(band.getByRole('button',{name:'버리기'})).toBeVisible();
+  await expect(band.getByRole('button',{name:'삭제'})).toBeVisible();
 
   await drop.click();
   await expect(band).toBeHidden();
@@ -269,7 +269,7 @@ test('PC: 녹음 띠 [버리기] → 띠·마이크 꺼짐·정리 없음 → �
   expect(recCalls(calls,'rec_piece').map(c=>c.seq)).toEqual(['1']);
   const notice=page.locator('#kptuNotice');
   await expect(notice).toBeVisible();
-  await expect(notice.locator('.kptu-notice-text')).toHaveText('녹음을 버렸어요');
+  await expect(notice.locator('.kptu-notice-text')).toHaveText('녹음을 삭제했어요');
   // 알림은 10초(보통 알림 2초보다 길다).
   await page.mouse.move(5,890);
   await page.waitForTimeout(3000);
@@ -285,7 +285,7 @@ test('PC: 녹음 띠 [버리기] → 띠·마이크 꺼짐·정리 없음 → �
   const line=page.locator('#recPendingLine');
   await expect(line).toBeVisible();
   await expect(line).toContainText('끝나지 않은 녹음 · 10/30 10:00 녹음 · 1분');
-  await expect(notice).toContainText('되돌렸어요: 녹음 버리기');
+  await expect(notice).toContainText('되돌렸어요: 녹음 삭제');
   // 마이크는 이미 꺼졌으므로 녹음을 이어 하지 않는다(새 녹음기 없음).
   expect(await page.evaluate(()=>window.__fakeRec.recs.length)).toBe(1);
   await line.getByRole('button',{name:'이어서 정리'}).click();
@@ -294,7 +294,7 @@ test('PC: 녹음 띠 [버리기] → 띠·마이크 꺼짐·정리 없음 → �
   await expect(page.locator('#meetingTranscript')).toHaveValue(/교섭 일정 확정/);
 });
 
-test('PC: \'이어서 정리\' 줄 [버리기] → 줄이 빠지고 서버에 버리기, 정리는 하지 않음',async({page})=>{
+test('PC: \'이어서 정리\' 줄 [삭제] → 줄이 빠지고 서버에 삭제, 정리는 하지 않음',async({page})=>{
   test.setTimeout(45000);
   await page.setViewportSize({width:1440,height:900});
   const id='00000000-0000-4000-8000-0000000000cc';
@@ -302,14 +302,14 @@ test('PC: \'이어서 정리\' 줄 [버리기] → 줄이 빠지고 서버에 �
     segments:[{segment_no:1,status:'closed',job_id:null,job_status:null,duration_sec:2280}]}]});
   const line=page.locator('#recPendingLine');
   await expect(line).toContainText('끝나지 않은 녹음 · 10/29 14:00 녹음 · 38분');
-  const resume=line.getByRole('button',{name:'이어서 정리'}),drop=line.getByRole('button',{name:'버리기'});
+  const resume=line.getByRole('button',{name:'이어서 정리'}),drop=line.getByRole('button',{name:'삭제'});
   const [r1,d1]=await Promise.all([resume.boundingBox(),drop.boundingBox()]);
   expect(r1.x+r1.width).toBeLessThanOrEqual(d1.x);
   expect(d1.height).toBeCloseTo(r1.height,0);
   await drop.click();
   await expect.poll(()=>recCalls(calls,'rec_discard').map(c=>c.body)).toEqual([{session_id:id}]);
   await expect(line).toBeHidden();
-  await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('녹음을 버렸어요');
+  await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('녹음을 삭제했어요');
   await expect(page.locator('#kptuNotice').getByRole('button',{name:'되돌리기'})).toBeVisible();
   expect(recCalls(calls,'rec_finish').length).toBe(0);
   expect(recCalls(calls,'rec_start').length).toBe(0);
@@ -357,7 +357,7 @@ test('PC: 새로고침 직후 어느 화면이든 맨 위 띠에 \'하던 녹음
   await expect(band.locator('.rec-label')).toHaveText('일시 정지됨');
   await expect(band).toContainText('50분');
   const names=await band.getByRole('button').allTextContents();
-  expect(names).toEqual(['이어 녹음','이어서 정리','버리기']);
+  expect(names).toEqual(['이어 녹음','이어서 정리','삭제']);
   const b=await band.boundingBox();
   expect(b.y).toBe(0);expect(b.height).toBeLessThanOrEqual(32);
   // 방금 끊긴 것인지 다른 곳에서 녹음 중인지 모르므로(idle 20초) 이어받기 전에 띠에서 한 번 묻는다(브라우저 확인창 없음). [취소]하면 그대로.
@@ -400,7 +400,7 @@ test('PC: 하루가 지난 끝나지 않은 녹음은 맨 위 띠에 없고 사�
   await page.setViewportSize({width:1440,height:900});
   await signIn(page,{pending:[{session_id:'s-old',started_at:minutesAgo(3*24*60),duration_sec:600,segments:[]}]});
   await expect(page.locator('#recPendingLine')).toBeVisible();
-  await expect(page.locator('#recPendingLine').getByRole('button').allTextContents()).resolves.toEqual(['이어 녹음','이어서 정리','버리기']);
+  await expect(page.locator('#recPendingLine').getByRole('button').allTextContents()).resolves.toEqual(['이어 녹음','이어서 정리','삭제']);
   await expect(page.locator('#recBand')).toBeHidden();
 });
 

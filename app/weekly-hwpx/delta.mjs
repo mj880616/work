@@ -132,7 +132,7 @@ function applyLineOp(lines, item) {
     lines.splice(after + 1, 0, {text: item.text, changed: true});
   } else if (item.op === 'replace') {
     if (index < 0) return '바꿀 줄 원문이 바탕에 없음';
-    if (isChanged(lines[index])) return '이번 주에 이미 고친 줄';
+    if (isChanged(lines[index])) return '이번 주에 이미 수정한 줄';
     lines[index] = {text: item.text, changed: true};
   } else if (item.op === 'remove') {
     if (index < 0) return '뺄 줄 원문이 바탕에 없음';
@@ -201,7 +201,7 @@ export function applyPatch(summary, patch, me) {
       lines.splice(after + 1, 0, {text: item.text, changed: true});
     } else if (item.op === 'replace') {
       if (index < 0) { rejected.push({item, reason: '바꿀 줄 원문이 바탕에 없음'}); continue; }
-      if (isChanged(lines[index])) { rejected.push({item, reason: '이번 주에 이미 고친 줄'}); continue; }
+      if (isChanged(lines[index])) { rejected.push({item, reason: '이번 주에 이미 수정한 줄'}); continue; }
       lines[index] = {text: item.text, changed: true};
     } else if (item.op === 'remove') {
       if (index < 0) { rejected.push({item, reason: '뺄 줄 원문이 바탕에 없음'}); continue; }

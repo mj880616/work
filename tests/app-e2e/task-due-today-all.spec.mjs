@@ -41,9 +41,9 @@ for(const width of [390,1280])test(`할 일 쓰기 창: 새로 열면 기한 칸
  expect(creates[0]).toMatchObject({action:'create',title:'합성 창 할 일',due:'2026-10-06'});
 });
 
-test('할 일 쓰기 창: 고른 날은 그날, 기한 칸을 지우면 기한 없음',async({page})=>{
+test('할 일 쓰기 창: 선택한 날은 그날, 기한 칸을 삭제하면 기한 없음',async({page})=>{
  const c=await openHome(page);const {creates}=await watchTaskCalls(page,c);
- await openNewEditor(page,'합성 고른 날');
+ await openNewEditor(page,'합성 선택한 날');
  await page.locator('#gtEditDue').fill('2026-10-20');
  await page.locator('#gtSaveBtn').click();
  await expect.poll(()=>creates.length).toBe(1);expect(creates[0].due).toBe('2026-10-20');
@@ -55,7 +55,7 @@ test('할 일 쓰기 창: 고른 날은 그날, 기한 칸을 지우면 기한 �
  await expect.poll(()=>creates.length).toBe(2);expect(creates[1].due).toBeNull();
 });
 
-test('할 일 쓰기 창: 기한 없는 할 일을 고쳐도 오늘로 바뀌지 않음',async({page})=>{
+test('할 일 쓰기 창: 기한 없는 할 일을 수정해도 오늘로 바뀌지 않음',async({page})=>{
  const c=await openHome(page);const {creates,updates}=await watchTaskCalls(page,c);
  c.tasks.push({id:'undated-1',title:'합성 기한 없는 일',notes:'',status:'needsAction',taskListId:'@default',due:null,source:'google-task'});
  await page.evaluate(async()=>{if(!window.KPTUGoogleTasks)await import('/app/google-tasks.js');});
@@ -63,10 +63,10 @@ test('할 일 쓰기 창: 기한 없는 할 일을 고쳐도 오늘로 바뀌지
  await page.evaluate(()=>window.KPTUGoogleTasks.openEditor({id:'undated-1',title:'합성 기한 없는 일',notes:'',status:'needsAction',taskListId:'@default',due:null}));
  await expect(page.locator('#gtTaskHeading')).toHaveText('Google 할 일 수정');
  await expect(page.locator('#gtEditDue')).toHaveValue('');
- await page.locator('#gtEditTitle').fill('합성 고친 제목');
+ await page.locator('#gtEditTitle').fill('합성 수정한 제목');
  await page.locator('#gtSaveBtn').click();
  await expect.poll(()=>updates.length).toBe(1);
- expect(updates[0]).toMatchObject({action:'update',task_id:'undated-1',title:'합성 고친 제목',due:null});
+ expect(updates[0]).toMatchObject({action:'update',task_id:'undated-1',title:'합성 수정한 제목',due:null});
  expect(creates).toEqual([]);
 });
 

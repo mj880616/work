@@ -12,7 +12,7 @@ async function openProfile(page){
 }
 
 for(const [label,width] of [['폰 412',412],['PC 1440',1440]]){
-  test(`${label}: 접힌 한 줄 요약 → 펼치면 지금 값, 고쳐 저장하면 요약·담당 사업장 묶음이 바로 바뀐다`,async({page})=>{
+  test(`${label}: 접힌 한 줄 요약 → 펼치면 지금 값, 수정해 저장하면 요약·담당 사업장 묶음이 바로 바뀐다`,async({page})=>{
     await page.setViewportSize({width,height:900});
     await openProfile(page);
     const panel=page.locator('#psReportPanel');
@@ -43,7 +43,7 @@ for(const [label,width] of [['폰 412',412],['PC 1440',1440]]){
   });
 }
 
-test('모두 비우면 설정을 지운다(묶음 없이 가나다순·보고 캘린더 미지정), 틀린 줄은 저장하지 않고 한 줄로 알린다',async({page})=>{
+test('모두 비우면 설정을 삭제한다(묶음 없이 가나다순·보고 캘린더 미지정), 틀린 줄은 저장하지 않고 한 줄로 알린다',async({page})=>{
   await openProfile(page);
   const panel=page.locator('#psReportPanel');
   await panel.locator('summary').click();

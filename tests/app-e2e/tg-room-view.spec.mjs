@@ -35,7 +35,7 @@ const scrolledDayKeys=async(page,view)=>{await page.evaluate(()=>document.queryS
 
 for(const width of [1440,884,412])test.describe(`방별 ${width}`,()=>{
  test.use({hasTouch:width<761});
- test(`[방별] → 방 한 줄 → 그 방의 날짜를 최근부터 이어서, 내리면 옛 날짜, [날짜별]은 그대로, 고른 보기는 서버에 ${width}`,async({page})=>{
+ test(`[방별] → 방 한 줄 → 그 방의 날짜를 최근부터 이어서, 내리면 옛 날짜, [날짜별]은 그대로, 선택한 보기는 서버에 ${width}`,async({page})=>{
   const f=await fixture(page,{width});
   await openTelegram(page,width);
   const view=page.locator('#telegramView'),sw=view.locator('[data-tg-bysw]');

@@ -63,7 +63,7 @@ export function startVersionNotice(scriptUrl){
     return detail.otherDraft?'ask':true;
   }
   // S48-28: 쓰던 내용이 있으면 공용 작은 확인창으로 묻는다(브라우저 기본 확인창 대신, 화면을 멈추지 않음). 예 = true.
-  const askDiscard=anchor=>askConfirm(anchor,{text:'저장하지 않은 내용이 있습니다. 새로고침하면서 버릴까요?',ok:'버리기',danger:true});
+  const askDiscard=anchor=>askConfirm(anchor,{text:'저장하지 않은 내용이 있습니다. 저장하지 않고 최신화할까요?',ok:'저장 안 함',danger:true});
   async function reloadAllowed(anchor){const ok=allowReload();return ok==='ask'?askDiscard(anchor):ok}
   // APP-당겨서새로고침: 폰 앱 '당겨서 새로고침'도 같은 확인을 쓴다(phone-pull-refresh.js). 확인 길을 하나로 둔다.
   // 그쪽은 답을 바로(동기로) 받아야 하므로, 물어야 하면 일단 막고(false) 작은 확인창에서 [버리기]를 고르면 같은 표시로 새로고침한다.
@@ -83,7 +83,7 @@ export function startVersionNotice(scriptUrl){
     if(box){void describe(deployed);return}
     // HOME-모바일정리①: 화면 맨 위 얇은 한 줄(아이콘 + 안내 + 글자 버튼 [새로고침] + ✕). PC·폰 같은 모양.
     box=document.createElement('aside');box.id='versionNotice';box.className='kptu-notice-line';box.setAttribute('aria-label','새 버전 안내');
-    box.innerHTML='<svg class="kptu-notice-line-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg><span role="status">새 버전이 있어요</span><button type="button" class="kptu-notice-line-action" data-version-reload>새로고침</button><button type="button" class="kptu-notice-line-close" data-version-dismiss aria-label="닫기">✕</button>';
+    box.innerHTML='<svg class="kptu-notice-line-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg><span role="status">새 버전이 있어요</span><button type="button" class="kptu-notice-line-action" data-version-reload>최신화</button><button type="button" class="kptu-notice-line-close" data-version-dismiss aria-label="닫기">✕</button>';
     box.querySelector('[data-version-dismiss]').onclick=()=>{dismissed.add(latest);remove()};
     box.querySelector('[data-version-reload]').onclick=async e=>{if(!await reloadAllowed(e.currentTarget))return;try{window.KPTUAppShell?.postMessage?.('reopen:mark:version')}catch{}location.reload()};
     putNotice('version',{priority:40,element:box});

@@ -22,7 +22,7 @@ test('모양: 5. 주요 일정 줄은 2) 주요 일정 줄과 같은 검사(내�
   assert.equal(readHand({calendar:many}).calendar.length, HAND_CALENDAR_MAX);
 });
 
-test('더하기·고치기·지우기: 고치기는 고치기 전 줄(before)을 함께, 내용이 비면 null, 가득 차면 null', () => {
+test('더하기·수정·삭제: 고치기는 고치기 전 줄(before)을 함께, 내용이 비면 null, 가득 차면 null', () => {
   const a = withHandRow(null, 'calendar', {day:C1.day, time:'930', title:C1.title, place:C1.place});
   assert.equal(a.before, null);
   assert.deepEqual({...a.row, id:'h1'}, C1);

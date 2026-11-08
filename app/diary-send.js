@@ -150,7 +150,7 @@ export async function askSendToDiary(anchor, id, {rt = window.KPTURuntime, kind 
   let result;
   try { result = await sendRecordToDiary(id, {rt, day, isCurrent, onProgress:({done, total}) => total && notify(`사진 넣는 중… ${done}/${total}장`, {ms:30000})}); }
   catch (error) { result = {status:'partial', message:error?.message || '일기로 보내지 못했어요.'}; }
-  if (result.status === 'sent') { if (result.trash !== 'deleted') notify(`${dayLabel(result.day)} 일기에 넣었어요. ${what}는 지우지 못해 그대로 있어요.`, {ms:6000}); }
+  if (result.status === 'sent') { if (result.trash !== 'deleted') notify(`${dayLabel(result.day)} 일기에 넣었어요. ${what}는 삭제하지 못해 그대로 있어요.`, {ms:6000}); }
   else if (result.status !== 'stale') notify(result.message || '일기로 보내지 못했어요.', {error:true, ms:7000});
   return result;
 }

@@ -11,7 +11,7 @@ let menu = null, pick = null;
 export function openWeekPick(anchor, {onPick, selected = ''} = {}) {
   if (!anchor?.isConnected) return;
   pick = typeof onPick === 'function' ? onPick : null;
-  menu ||= createAnchoredMenu({id:'taskWeekPick', className:'task-inline-menu task-week-menu', label:'다음 주 날짜 고르기', historyKey:'kptuTaskWeekPick',
+  menu ||= createAnchoredMenu({id:'taskWeekPick', className:'task-inline-menu task-week-menu', label:'다음 주 날짜 선택', historyKey:'kptuTaskWeekPick',
     parent:dialogOf, key:() => 'week',
     render:() => nextWeekDays().map(d => `<button type="button" data-week-day="${esc(d.day)}"${d.weekend ? ' class="task-week-end"' : ''}${d.day === selected ? ' aria-current="date"' : ''}>${esc(d.label)}</button>`).join(''),
     onAction:button => { const day = button.dataset.weekDay, then = pick; if (day && then) then(day); }});

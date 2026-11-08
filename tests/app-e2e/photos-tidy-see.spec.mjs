@@ -192,7 +192,7 @@ test.describe('폰 앱 412 정리 설명·결과 남겨 두기', () => {
     // 접힌 줄에도 쉬운 설명 한 줄.
     const unb = box.locator('details[data-k="unbacked"]');
     await expect(unb.locator('summary .photos-tidy-help')).toHaveText('이 폴더 사진은 원드라이브에서 한 장도 못 찾았어요. 폰을 잃어버리면 같이 사라져요');
-    await expect(box.locator('details[data-k="space"] summary .photos-tidy-help')).toContainText('폰에서만 지워도 안전한 사진');
+    await expect(box.locator('details[data-k="space"] summary .photos-tidy-help')).toContainText('폰에서만 삭제해도 안전한 사진');
     await expect(box.locator('details[data-k="junk"] summary .photos-tidy-help')).toBeVisible();
     await expect(box.getByText('폰 사진과 원드라이브 사진을 이름·크기(또는 크기·찍은 시각)로 맞춰 봤어요')).toBeVisible();
     // 펼치면 대안 줄 + [폴더 끄기].

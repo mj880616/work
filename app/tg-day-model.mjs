@@ -210,10 +210,10 @@ export const allowOf = mode => { const a = SWIPE_ACTIONS[mode] || {start:[], end
 // 화면은 AI 값 위에 고친 값을 입혀 보여 줄 뿐이고 AI 값은 지우지 않는다. [AI 원래 요약으로]는 고친 값을 비워 AI 값이 다시 보이게 한다.
 export const SUMEDIT = Object.freeze({SUMMARY_MAX:400, HEADLINE_MAX:60, LINES_MAX:12, LINE_MAX:150});
 export const SUMEDIT_TEXT = Object.freeze({
-  done:'요약을 고쳤어요.', reset:'AI가 쓴 요약으로 되돌렸어요.', noop:'바뀐 곳이 없어요.',
+  done:'요약을 수정했어요.', reset:'AI가 쓴 요약으로 되돌렸어요.', noop:'바뀐 곳이 없어요.',
   EMPTY:'요약을 적어 주세요.', LONG_SUMMARY:`요약은 ${SUMEDIT.SUMMARY_MAX}자까지예요.`, LONG_HEADLINE:`한 줄은 ${SUMEDIT.HEADLINE_MAX}자까지예요.`,
   MANY:`요약은 ${SUMEDIT.LINES_MAX}줄까지예요.`, LONG_LINE:`한 줄은 ${SUMEDIT.LINE_MAX}자까지예요.`,
-  GONE:'이 요약이 그사이 사라졌어요. 목록을 다시 불러왔어요.', REFUSED:'저장하지 못했어요. 아무것도 바뀌지 않았어요.', UNAVAILABLE:'요약 고치기가 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.',
+  GONE:'이 요약이 그사이 사라졌어요. 목록을 다시 불러왔어요.', REFUSED:'저장하지 못했어요. 아무것도 바뀌지 않았어요.', UNAVAILABLE:'요약 수정이 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.',
   UNKNOWN:'저장했는지 확인하지 못했어요. 목록을 다시 불러왔어요.',
 });
 export const itemTarget = id => `item:${id}`;

@@ -65,7 +65,7 @@ async function overflowing(modal){
   });
 }
 for(const [name,width] of [['폰',390],['폴드',700],['PC',1280]]){
-  test(`${name} ${width}px: 사업 보고 보기·고치기 — 첨부 칸 한 곳·테두리와 머리줄이 칸 안`,async({page})=>{
+  test(`${name} ${width}px: 사업 보고 보기·수정 — 첨부 칸 한 곳·테두리와 머리줄이 칸 안`,async({page})=>{
     const state=await boot(page,width);
     await openMeetingResult(page,'meeting-1');
     const modal=page.locator('#meetingRoundDetailModal');

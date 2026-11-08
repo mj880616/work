@@ -247,7 +247,7 @@ for(const width of [390,1280])test(`S52-01 ③a: [연결하기] 담당조직은 
  const find=sheet.locator('[data-sheet-search]');await expect(find).toBeVisible();await find.fill('새벽');
  await expect(sheet.locator(`[data-sheet-value="o:${o2}"]`)).toBeVisible();await expect(sheet.locator(`[data-sheet-value="o:${o}"]`)).toBeHidden();await find.fill('');
  await pressName(page,'합성 한빛지부');await pressName(page,'합성 새벽지부');
- await expect(sheet.locator('[data-sheet-count]')).toHaveText('2개 고름');
+ await expect(sheet.locator('[data-sheet-count]')).toHaveText('2개 선택됨');
  await sheet.locator('[data-sheet-save]').click();await expect(sheet).toBeHidden();
  await expect(detail.locator('[data-manual-target]')).toHaveCount(2);await expect(summary(detail,o,'organization')).toBeFocused();
  // 다시 열면 고른 두 곳이 눌린 채. 하나를 빼고 ✕로 닫으면 그대로(취소).

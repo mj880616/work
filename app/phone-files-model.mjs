@@ -85,14 +85,14 @@ export function phoneSaved(text) {
 }
 export const PHONE_SAVE_MAX = 1024 * 1024 * 1024;
 // 폰 쓰기 실패 글. del = 폰 앱이 0.5.4+(휴지통이 문서까지 되는 판). 옛 판에서 막연히 '못했어요'만 보이지 않게 할 일을 붙인다(S53-7).
-export const PHONE_TRASH_OLD_TEXT = '폰에서 지우지 못했어요. 웹2 앱을 새 판으로 올리면 지울 수 있어요(앱 위쪽 새 버전 줄)';
+export const PHONE_TRASH_OLD_TEXT = '폰에서 삭제하지 못했어요. 웹2 앱을 새 판으로 올리면 삭제할 수 있어요(앱 위쪽 새 버전 줄)';
 export function phoneWriteText(code, {del = true} = {}) {
   switch (code) {
     case 'exists': return '같은 이름이 이미 있어요';
     case 'space': return '폰 저장 공간이 모자라요';
-    case 'refused': return '안드로이드 확인 창에서 그만둬서 지우지 않았어요';
+    case 'refused': return '안드로이드 확인 창에서 그만둬서 삭제하지 않았어요';
     case 'missing': return '폰이 아직 모르는 파일이라 휴지통으로 보내지 못했어요. 잠시 뒤 다시 해 주세요';
-    case 'direct': return "문서·PDF 일부를 폰 휴지통에 넣지 못했어요. 폰 '내 파일' 앱에서 지워 주세요";
+    case 'direct': return "문서·PDF 일부를 폰 휴지통에 넣지 못했어요. 폰 '내 파일' 앱에서 삭제해 주세요";
     case 'unsupported': return '이 폰에서는 휴지통으로 보낼 수 없어요';
     case 'permission': return phoneErrorText('permission');
     case 'blocked': return phoneErrorText('blocked');

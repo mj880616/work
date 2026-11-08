@@ -127,7 +127,7 @@ const newsKeys = () => newsKeysOf(state.media, newsCatalog());
 const dotOf = (kind, id) => (kind === 's' ? outsideColor(id, state.catalog || []) : kind === 'n' ? newsColor({source_key: id}, newsCatalog()) : kind === 'g' ? colorVar(familyOfGroup(id), 0) : colorVar('press', id === 'foreign' ? 1 : 0));
 const search = createOutsideSearch({box: $('[data-os-search]'), nameOf, workspaceOf, keysOf: () => outsideKeys()});
 let mediaPicker = null;
-const picker = () => (mediaPicker ||= createMovePicker({esc, id: 'nwMediaPicker', label: '매체 고르기', findLabel: '매체 찾기', foot: false, currentTag: '고름', folderIcons: false}));
+const picker = () => (mediaPicker ||= createMovePicker({esc, id: 'nwMediaPicker', label: '매체 선택', findLabel: '매체 찾기', foot: false, currentTag: '선택됨', folderIcons: false}));
 function paintMediaButton() {
   const b = $('[data-nw-media]');
   if (!b) return;
@@ -675,7 +675,7 @@ function setQuery(raw, {submit = false} = {}) {
 
 // ---------- 누르기 ----------
 const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-menu', label: 'News 메뉴', historyKey: 'kptuOutsideMenu', key: () => 'head',
-  render: () => `<button type="button" data-os-act="fill"${filling ? ' disabled' : ''}>지금 채우기</button><button type="button" data-os-act="sources">단체 켜고 끄기</button><button type="button" data-os-act="news-sources">언론 매체 켜고 끄기</button><button type="button" data-os-act="keywords">키워드 고치기</button><button type="button" data-os-act="folders">별표 폴더</button><button type="button" data-os-act="interests">관심 주제</button>`,
+  render: () => `<button type="button" data-os-act="fill"${filling ? ' disabled' : ''}>지금 채우기</button><button type="button" data-os-act="sources">단체 켜고 끄기</button><button type="button" data-os-act="news-sources">언론 매체 켜고 끄기</button><button type="button" data-os-act="keywords">키워드 수정</button><button type="button" data-os-act="folders">별표 폴더</button><button type="button" data-os-act="interests">관심 주제</button>`,
   onAction: button => {
     const a = button.dataset.osAct;
     if (a === 'sources') openSources(); else if (a === 'fill') fillNow(); else if (a === 'interests') openInterests();

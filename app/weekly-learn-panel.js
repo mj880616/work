@@ -69,13 +69,13 @@ export function candidateList(doc, week, rules, {busy = false, fixing = null, dr
   const ul = el('ul', 'journal-kinds-off-list'); ul.dataset.learnCandidates = week;
   for (const c of list) {
     const li = el('li'); li.dataset.learnCandidate = c.text;
-    if (fixing === c.text) li.append(inlineForm(doc, {value:value ?? c.text, max:RULE_CHARS, aria:'후보 고쳐서 넣기', inputData:{learnRuleFixInput:c.text}, goText:'넣기', goData:{learnRuleFixGo:week, learnRule:c.text}, busy}));
+    if (fixing === c.text) li.append(inlineForm(doc, {value:value ?? c.text, max:RULE_CHARS, aria:'후보 수정해서 넣기', inputData:{learnRuleFixInput:c.text}, goText:'넣기', goData:{learnRuleFixGo:week, learnRule:c.text}, busy}));
     else if (dropping === c.text) li.append(el('span', null, c.text), ' ', inlineForm(doc, {value:value ?? '', max:WHY_MAX, aria:`빼는 이유(안 써도 돼요): ${c.text}`, placeholder:'이유(안 써도 돼요)', inputData:{learnWhyInput:c.text}, goText:'빼기 확인', goData:{learnRuleDrop:week, learnRule:c.text}, busy}));
     else {
       // S52-25 공용 '제안 줄': 줄 끝 ⋯ 하나 → [넣기][고쳐서 넣기][빼기](규칙 후보에는 [이미 있음]을 두지 않는다).
       li.append(el('span', null, c.text), ' ', rowMore(doc, {label:`후보: ${c.text}`, data:{learnRuleMore:''}, items:[
         {text:'넣기', data:{learnRuleTake:week, learnRule:c.text}, disabled:busy, aria:`규칙으로 넣기: ${c.text}`},
-        {text:'고쳐서 넣기', data:{learnRuleFix:week, learnRule:c.text}, disabled:busy, aria:`고쳐서 넣기: ${c.text}`},
+        {text:'수정해서 넣기', data:{learnRuleFix:week, learnRule:c.text}, disabled:busy, aria:`수정해서 넣기: ${c.text}`},
         {text:'빼기', data:{learnRuleDropAsk:week, learnRule:c.text}, disabled:busy, danger:true, aria:`후보 빼기: ${c.text}`}]}));
     }
     ul.append(li);
@@ -100,7 +100,7 @@ export function ruleChange(button, root, at = nowIso()) {
     const text = String(inputIn(root, 'learn-rule-fix-input', key)?.value ?? '').trim();
     if (!text) return null;
     // 고쳐서 넣기 = 'edit'(before = 후보 글) — 학습 셈에서는 받은 것.
-    return {week:d.learnRuleFixGo, done:'고쳐서 넣었어요. 다음 초안부터 반영돼요.', change:x => ({...(x ?? emptyDraft()), rules:takeCandidate(x?.rules, key, at, text), picks:withPick(x?.picks, {...candidatePick(key), key:pickKey(candidatePick(key)), text, before:key}, text === key ? 'take' : 'edit', at)})};
+    return {week:d.learnRuleFixGo, done:'수정해서 넣었어요. 다음 초안부터 반영돼요.', change:x => ({...(x ?? emptyDraft()), rules:takeCandidate(x?.rules, key, at, text), picks:withPick(x?.picks, {...candidatePick(key), key:pickKey(candidatePick(key)), text, before:key}, text === key ? 'take' : 'edit', at)})};
   }
   return null;
 }
@@ -122,7 +122,7 @@ export function answerPress(button, root, at = nowIso()) {
     const [week, id, answer] = d.learnAnswer.split(':');
     const text = answer === 'yes' ? String(inputIn(root, 'learn-answer-fix-input', id)?.value ?? '').trim() : '';
     const why = answer === 'no' ? String(inputIn(root, 'learn-answer-why-input', id)?.value ?? '').trim().slice(0, WHY_MAX) : '';
-    return {week, id, answer, done:answer === 'yes' ? (text ? '고쳐서 만들기로 보냈어요.' : '만들기로 보냈어요.') : '뺐어요. 다음 제안에 참고해요.', change:x => answerChange(x, id, answer, at, {text, why})};
+    return {week, id, answer, done:answer === 'yes' ? (text ? '수정해서 만들기로 보냈어요.' : '만들기로 보냈어요.') : '뺐어요. 다음 제안에 참고해요.', change:x => answerChange(x, id, answer, at, {text, why})};
   }
   return null;
 }
@@ -157,7 +157,7 @@ export function reviewCard(doc, feedback, previous = [], {answerable = true, bus
   const h = el('p', 'journal-learn-head', head); h.dataset.learnReviewHead = ''; box.append(h);
   // S53-16: 고친 꼴 숫자에 순서 바꿈·표현 다듬기(있을 때만), 자료실 개인 확정본(한글에서 더 다듬은 판)과 견준 기록이면 그렇다고.
   const shape = `${c.moved ? ` · 순서 ${c.moved}` : ''}${c.reworded ? ` · 그중 표현 다듬기 ${c.reworded}` : ''}`;
-  const nums = el('p', 'journal-muted', `① 남김 ${c.kept} · 고침 ${c.changed} · 뺌 ${c.dropped} · 더함 ${c.added}${shape}${f.from === 'library' ? ' (자료실 개인 확정본과 견줌)' : ''}`); nums.dataset.learnReviewCounts = ''; box.append(nums);
+  const nums = el('p', 'journal-muted', `① 남김 ${c.kept} · 수정됨 ${c.changed} · 뺌 ${c.dropped} · 더함 ${c.added}${shape}${f.from === 'library' ? ' (자료실 개인 확정본과 견줌)' : ''}`); nums.dataset.learnReviewCounts = ''; box.append(nums);
   const rates = cellRatesLine(doc, picks); if (rates) box.append(rates);
   const r = f.review;
   const cands = rules ? candidateList(doc, rules.week, rules.rules, {busy:busy || !answerable, fixing, dropping, value}) : null;
@@ -179,15 +179,15 @@ export function reviewCard(doc, feedback, previous = [], {answerable = true, bus
       const li = el('li'); li.dataset.learnSuggestion = s.id;
       if (s.area) { const tag = el('small', 'journal-learn-area', SUGGESTION_AREA[s.area]); tag.dataset.learnArea = s.area; li.append(tag, ' '); }
       const id = `${f.week}:${s.id}`;
-      if (answerable && sfix === s.id) { li.append(inlineForm(doc, {value:value ?? s.text, max:200, aria:'개선 제안 고쳐서 만들기', inputData:{learnAnswerFixInput:s.id}, goText:'만들기', goData:{learnAnswer:`${id}:yes`}, cancelData:{learnAnswerCancel:''}, busy})); ul.append(li); continue; }
+      if (answerable && sfix === s.id) { li.append(inlineForm(doc, {value:value ?? s.text, max:200, aria:'개선 제안 수정해서 만들기', inputData:{learnAnswerFixInput:s.id}, goText:'만들기', goData:{learnAnswer:`${id}:yes`}, cancelData:{learnAnswerCancel:''}, busy})); ul.append(li); continue; }
       li.append(suggestionText(doc, s), ' ');
       if (s.answer) { const st = el('small', 'journal-muted', answerState(s)); st.dataset.learnAnswerState = s.answer; if (madeOf(s.made)) st.dataset.learnMade = String(s.made); li.append(st); }
       if (answerable && sdrop === s.id) { li.append(' ', inlineForm(doc, {value:value ?? '', max:WHY_MAX, aria:`빼는 이유(안 써도 돼요): ${s.text}`, placeholder:'이유(안 써도 돼요)', inputData:{learnAnswerWhyInput:s.id}, goText:'빼기 확인', goData:{learnAnswer:`${id}:no`}, cancelData:{learnAnswerCancel:''}, busy})); ul.append(li); continue; }
       if (answerable) {
-        const items = [{text:'고쳐서 만들기', data:{learnAnswerFix:id}, disabled:busy, aria:`고쳐서 만들기: ${s.text}`}];
+        const items = [{text:'수정해서 만들기', data:{learnAnswerFix:id}, disabled:busy, aria:`수정해서 만들기: ${s.text}`}];
         if (s.answer !== 'no') items.push({text:'빼기', data:{learnAnswerDrop:id}, disabled:busy, danger:true, aria:`개선 제안 빼기: ${s.text}`});
         if (s.answer !== 'yes') { const b = el('button', 'mini', '만들기'); b.type = 'button'; b.dataset.learnAnswer = `${id}:yes`; b.disabled = busy; b.setAttribute('aria-label', `만들기로 보내기: ${s.text}`); li.append(' ', b); }
-        li.append(rowMore(doc, {label:`개선 제안 고쳐서 만들기·빼기: ${s.text}`, data:{learnAnswerMore:''}, items}));
+        li.append(rowMore(doc, {label:`개선 제안 수정해서 만들기·빼기: ${s.text}`, data:{learnAnswerMore:''}, items}));
       }
       ul.append(li);
     }
@@ -287,7 +287,7 @@ async function reviewOnOpen(start, s, rt) {
   try { r = await callAiAssist({kind:'weekly_review', week_start:start}, {rt}, REVIEW_TEXT); } catch { return; }
   if (!r?.ok || r.data?.kind !== 'weekly_review' || r.data.week_start !== start) return;
   try { await changeWeekDocs({start, change:d => ({...(d ?? emptyDraft()), picks:withReview(d?.picks ?? null, nowIso())})}, rt); } catch { /* 시각만 못 남김 — 다음에 다시 셈 */ }
-  s.ui.msg = ''; s.ui.error = false; notify('고친 것을 모아 새 규칙 후보를 정리했어요.');
+  s.ui.msg = ''; s.ui.error = false; notify('수정한 것을 모아 새 규칙 후보를 정리했어요.');
   const rows = await readLearnRows(start, rt).catch(() => null);
   if (rows) s.rows = rows;
   if (last?.start === start && last.slot.isConnected) draw(last.slot, start, s, rt);
@@ -350,16 +350,16 @@ function draw(slot, start, s, rt) {
   rules.forEach((rule, i) => {
     const li = el('li'); li.dataset.journalLearnRule = String(i);
     if (s.ui.editing === i) {
-      const input = lineField(doc, {value: s.ui.value ?? rule.text, maxLength: RULE_CHARS, className: 'journal-learn-input'}); input.dataset.journalLearnRuleInput = String(i); input.setAttribute('aria-label', '규칙 고치기');
+      const input = lineField(doc, {value: s.ui.value ?? rule.text, maxLength: RULE_CHARS, className: 'journal-learn-input'}); input.dataset.journalLearnRuleInput = String(i); input.setAttribute('aria-label', '규칙 수정');
       const save = el('button', 'mini', '저장'); save.type = 'button'; save.dataset.journalLearnSave = String(i);
       const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalLearnCancel = '';
       li.append(input, ' ', save, ' ', cancel);
     } else {
       li.append(el('span', null, rule.text));
-      if (rule.from !== 'auto') li.append(' ', el('small', 'journal-muted', rule.from === 'edited' ? '고침' : '더함'));
+      if (rule.from !== 'auto') li.append(' ', el('small', 'journal-muted', rule.from === 'edited' ? '수정됨' : '더함'));
       li.append(rowMore(doc, {label:`규칙 메뉴: ${rule.text}`, data:{journalLearnMore:String(i)}, items:[
-        {text:'고치기', data:{journalLearnEdit:String(i)}, disabled:s.ui.busy, aria:`규칙 고치기: ${rule.text}`},
-        {text:'지우기', data:{journalLearnDelete:String(i)}, disabled:s.ui.busy, aria:`규칙 지우기: ${rule.text}`, danger:true}]}));
+        {text:'수정', data:{journalLearnEdit:String(i)}, disabled:s.ui.busy, aria:`규칙 수정: ${rule.text}`},
+        {text:'삭제', data:{journalLearnDelete:String(i)}, disabled:s.ui.busy, aria:`규칙 삭제: ${rule.text}`, danger:true}]}));
     }
     ul.append(li);
   });
@@ -413,10 +413,10 @@ async function act(b, start, s, rt) {
   let change = null, week = target, done = '';
   if (b.dataset.journalLearnSave != null) {
     const i = Number(b.dataset.journalLearnSave), text = last.slot.querySelector(`[data-journal-learn-rule-input="${i}"]`)?.value ?? '';
-    change = d => ({...(d ?? emptyDraft()), rules:text.trim() ? withRuleText(d?.rules, i, text, nowIso()) : withoutRule(d?.rules, i, nowIso())}); done = '규칙을 고쳤어요.';
+    change = d => ({...(d ?? emptyDraft()), rules:text.trim() ? withRuleText(d?.rules, i, text, nowIso()) : withoutRule(d?.rules, i, nowIso())}); done = '규칙을 수정했어요.';
   } else if (b.dataset.journalLearnDelete != null) {
     const i = Number(b.dataset.journalLearnDelete);
-    change = d => ({...(d ?? emptyDraft()), rules:withoutRule(d?.rules, i, nowIso())}); done = '규칙을 지웠어요.';
+    change = d => ({...(d ?? emptyDraft()), rules:withoutRule(d?.rules, i, nowIso())}); done = '규칙을 삭제했어요.';
   } else if (b.dataset.journalLearnAddGo != null) {
     const text = last.slot.querySelector('[data-journal-learn-add-input]')?.value ?? '';
     if (!text.trim()) return;

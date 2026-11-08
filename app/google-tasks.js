@@ -66,7 +66,7 @@ function section(){
   sec.querySelector('[data-gt-info]').onclick=openScope;
   if(!taskMenu)taskMenu=createAnchoredMenu({id:'gtTaskMenu',className:'gt-task-menu',label:'할 일 관리',historyKey:'kptuTaskMenu',key:trigger=>trigger.dataset.gtMenu,onClose:()=>{if(taskRenderPending){taskRenderPending=false;renderTasks(lastTasks)}},
     // TASK-파일붙이기: "파일 붙이기" only once the server and table answered action=files for this owner.
-    render:()=>'<button type="button" data-gt-menu-action="edit">편집</button>'+(filesSupported()?'<button type="button" data-gt-menu-action="files">파일 붙이기</button>':'')+'<button type="button" class="gt-menu-danger" data-gt-menu-action="delete">삭제</button>',
+    render:()=>'<button type="button" data-gt-menu-action="edit">수정</button>'+(filesSupported()?'<button type="button" data-gt-menu-action="files">파일 붙이기</button>':'')+'<button type="button" class="gt-menu-danger" data-gt-menu-action="delete">삭제</button>',
     onAction:(button,active)=>{active.trigger.focus({preventScroll:true});const action=button.dataset.gtMenuAction,task=lastTasks.find(t=>t.id===active.id);if(action==='edit'){if(task)openEditor(task,{docked:true})}else if(action==='files'){if(task)openFiles(task)}else queueDelete(active.id)}
   });
   return sec;
@@ -200,7 +200,7 @@ async function recheckOpened(id,seq){
   const owner=currentOwner();let r;try{r=await listTasks()}catch{return}
   if(seq!==editorSeq||r.owner!==owner||currentOwner()!==owner||r.status!=='ok'||r.tasks.some(t=>t.id===id)||pendingDeletes.has(id))return;
   editorGone=true;dropGone(id,owner);
-  const st=document.querySelector('#gtEditStatus');if(st)st.textContent='삭제된 항목입니다. 다른 곳에서 지워져 목록에서 뺐습니다.';
+  const st=document.querySelector('#gtEditStatus');if(st)st.textContent='삭제된 항목입니다. 다른 곳에서 삭제돼 목록에서 뺐습니다.';
   ['#gtSaveBtn','#gtDeleteBtn','#gtToggleBtn'].forEach(sel=>{const b=document.querySelector(sel);if(b)b.disabled=true});
 }
 function dropGone(id,owner){lastTasks=lastTasks.filter(t=>t.id!==id);if(cacheOwnerId===owner)cacheWrite(owner,lastTasks);if(tasksViewShown())renderTasks(lastTasks);notifyState();window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed',{detail:{source:'gone'}}))}
@@ -242,7 +242,7 @@ async function recoverCreatedTask(){
   const attempt=createAttempt,seq=editorSeq,epoch=editorSession(),owner=currentOwner();
   const active=()=>seq===editorSeq&&epoch===editorSession()&&owner===currentOwner()&&!document.querySelector('#gtTaskModal').classList.contains('hidden');
   if(!attempt||attempt.owner!==owner||attempt.epoch!==epoch||attempt.pending)return;
-  editorNotice('저장된 할 일을 직접 골라 주세요. 새 할 일은 다시 만들지 않습니다.');
+  editorNotice('저장된 할 일을 직접 선택해 주세요. 새 할 일은 다시 만들지 않습니다.');
   try{
     const d=await fetchOverview(true,epoch);if(!active())return;
     if(!Array.isArray(d?.tasks)||d.authorized===false||d.connected===false)throw new Error('Google 할 일 목록을 확인하지 못했습니다.');
@@ -255,7 +255,7 @@ async function recoverCreatedTask(){
         const links=await rt.api(endpoint('links')+'&task_id='+encodeURIComponent(t.id),{singleFlight:false,expectedSessionEpoch:epoch});if(!active())return;
         const keys=confirmedKeys(links);editing={...t};editorLinks=keys;editorDraft=JSON.stringify([t.title||'',t.due?String(t.due).slice(0,10):'',splitTaskNotes(t.notes).memo]);createAttempt=null;
         document.querySelector('#gtTaskHeading').textContent='Google 할 일 수정';document.querySelector('#gtDeleteBtn').classList.remove('hidden');document.querySelector('#gtToggleBtn').classList.remove('hidden');
-        editorNotice('고른 할 일에 이어서 저장합니다. 입력과 연결을 확인한 뒤 저장해 주세요.');
+        editorNotice('선택한 할 일에 이어서 저장합니다. 입력과 연결을 확인한 뒤 저장해 주세요.');
       }catch(e){if(active())editorNotice('연결을 확인하지 못했습니다. '+errorText(e),{recover:true})}};
       st.append(document.createTextNode(' '),b);
     }
@@ -299,7 +299,7 @@ async function saveEditor(opt){
   const docked=isDocked()&&!!editing;let field=opt&&typeof opt==='object'&&opt.field||autoField||'title';
   if(editorSaving||!editorReady){if(docked)autoAgain=true;return}
   const title=document.querySelector('#gtEditTitle').value.trim();if(!title){editorNotice('할 일을 입력해 주세요.');if(docked)fieldNotice('title','할 일을 입력해 주세요.');return}
-  const chosen=chosenLinks();if(chosen&&[...chosen].filter(k=>!k.startsWith('m:')).length>MAX_LINKS)return editorNotice(`연결은 ${MAX_LINKS}개까지 고를 수 있습니다.`);
+  const chosen=chosenLinks();if(chosen&&[...chosen].filter(k=>!k.startsWith('m:')).length>MAX_LINKS)return editorNotice(`연결은 ${MAX_LINKS}개까지 선택할 수 있습니다.`);
   const owner=currentOwner(),epoch=editorSession();if(!owner)return editorNotice('로그인이 필요합니다.');
   if(!editing&&createAttempt?.owner===owner&&createAttempt.epoch===epoch){editorNotice(createAttempt.pending?'앞선 할 일을 저장 중입니다. 결과가 확인될 때까지 새로 만들지 않습니다.':'앞선 할 일의 저장 결과를 확인해 주세요. 새로 만들지 않았습니다.',{recover:!createAttempt.pending});return}
   const r={owner,epoch,seq:editorSeq,task:editing,text:readEditorDraft(),chosen:chosen?new Set(chosen):null,files:newFiles?.files()||[],att:editing&&attach?.dirty()?attach.plan():null},b=document.querySelector('#gtSaveBtn'),toggle=document.querySelector('#gtToggleBtn');

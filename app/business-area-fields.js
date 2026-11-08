@@ -27,7 +27,7 @@ export function mountAreaFields(host,{onMessage=()=>{},material=null}={}){
   const button=host.querySelector('[data-biz-area-pick]'),box=host.querySelector('[data-biz-plan-box]'),plan=host.querySelector('[data-biz-plan]'),count=host.querySelector('[data-biz-plan-count]');
   let area='',none=false,legacy=false,touched=false,base='',ready=false,noneReady=false,editing=false,run=0;
   const paintCount=()=>{const n=nextPlanLines(plan.value).length;count.textContent=n?`${n}줄`:''};
-  async function paint(){const mine=++run,name=await areaName(area);if(mine!==run)return;button.textContent=area?(legacy?`${name} (연결에서)`:name):none?'없음':'꼬리표 없음';button.classList.toggle('is-none',!area&&none);button.title=legacy?'옛 보고라 첫 연결 사업영역을 꼬리표처럼 보여 줘요. 고르면 꼬리표로 저장돼요.':!area&&none?'사업영역이 없는 보고예요.':''}
+  async function paint(){const mine=++run,name=await areaName(area);if(mine!==run)return;button.textContent=area?(legacy?`${name} (연결에서)`:name):none?'없음':'꼬리표 없음';button.classList.toggle('is-none',!area&&none);button.title=legacy?'옛 보고라 첫 연결 사업영역을 꼬리표처럼 보여 줘요. 선택하면 꼬리표로 저장돼요.':!area&&none?'사업영역이 없는 보고예요.':''}
   const pickArea=id=>{const v=String(id||'');none=noneReady&&v===AREA_NONE;area=v===AREA_NONE?'':v;legacy=false;touched=true;void paint()};
   button.addEventListener('click',async()=>{try{const s=await sheetMod();await s.pickBusinessArea(button,{chosen:none?AREA_NONE:legacy?'':area,allowNone:noneReady,onMessage,onPick:pickArea})}catch(e){onMessage(e?.message||'사업영역을 불러오지 못했어요.')}});
   plan.addEventListener('input',paintCount);
@@ -46,7 +46,7 @@ export function mountAreaFields(host,{onMessage=()=>{},material=null}={}){
     if(!r.ok){sugs.textContent=SUGGEST_NOTE[r.code]||'추천을 만들지 못했어요.';return}
     const list=(Array.isArray(r.data?.suggestions)?r.data.suggestions:[]).filter(x=>x&&typeof x.id==='string'&&typeof x.name==='string').slice(0,3);
     if(!list.length){sugs.textContent=SUGGEST_NOTE[r.data?.skipped]||'맞는 사업영역을 찾지 못했어요.';return}
-    sugs.replaceChildren(...list.map(x=>Object.assign(document.createElement('button'),{type:'button',className:'mini secondary biz-area-chip',textContent:x.name,title:'이 사업영역으로 고르기',onclick:()=>{clearSugs();pickArea(x.id)}})));
+    sugs.replaceChildren(...list.map(x=>Object.assign(document.createElement('button'),{type:'button',className:'mini secondary biz-area-chip',textContent:x.name,title:'이 사업영역으로 선택',onclick:()=>{clearSugs();pickArea(x.id)}})));
   });
   const api={
     // 창을 열 때: meeting(고치기) 또는 areaId(새로 쓰기 미리 고름).

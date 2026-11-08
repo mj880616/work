@@ -83,8 +83,8 @@ export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed =
   let run = 0, items = [], picked = new Set(), open = false, src = {phone:false, onedrive:false}, attaching = false;
   host.classList.add('tp');
   host.hidden = true;
-  host.innerHTML = `<div class="tp-line"><span class="tp-head" data-tp-head>그 시각 사진</span><button type="button" class="mini tp-open" data-tp-open aria-expanded="false">골라 붙이기</button></div>
-<div class="tp-pick" data-tp-pick hidden><div class="tp-strip" data-tp-strip role="group" aria-label="그 시각 사진 고르기"></div><div class="tp-foot"><span class="tp-note" data-tp-note role="status" aria-live="polite"></span><button type="button" class="mini" data-tp-close>닫기</button><button type="button" class="mini tp-attach" data-tp-attach disabled>붙이기</button></div></div>`;
+  host.innerHTML = `<div class="tp-line"><span class="tp-head" data-tp-head>그 시각 사진</span><button type="button" class="mini tp-open" data-tp-open aria-expanded="false">선택해 붙이기</button></div>
+<div class="tp-pick" data-tp-pick hidden><div class="tp-strip" data-tp-strip role="group" aria-label="그 시각 사진 선택"></div><div class="tp-foot"><span class="tp-note" data-tp-note role="status" aria-live="polite"></span><button type="button" class="mini" data-tp-close>닫기</button><button type="button" class="mini tp-attach" data-tp-attach disabled>붙이기</button></div></div>`;
   const $ = s => host.querySelector(s);
   const note = t => { $('[data-tp-note]').textContent = t || ''; };
   const paintFoot = () => {

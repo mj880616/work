@@ -75,7 +75,7 @@ test('순수 규칙: 개인·애매 나누기, 옛 안내 한 줄, 옮기기 문
   const days = [{source:'call', day:'2026-10-24', personal_count:2, unsure_count:1, failed_count:1}];
   assert.match(legacyFilteredNote(days, '2026-10-25'), /^목록 도입 전 걸러진 3건은 개수만 있어요\..*판정 실패 1건$/);
   assert.equal(legacyFilteredNote([], '2026-10-25'), '');
-  assert.match(moveToPersonalWarning({ledger:true}), /원장 기록은 지워지지 않아요/);
+  assert.match(moveToPersonalWarning({ledger:true}), /원장 기록은 삭제되지 않아요/);
   assert.match(moveToPersonalWarning({ledger:null}), /확인하지 못했어요/);
   assert.match(moveToPersonalWarning({ledger:false, linked:true}), /고정과 조직 연결은/);
   assert.equal(moveToPersonalWarning({ledger:false, linked:false}), '');

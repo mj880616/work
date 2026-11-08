@@ -76,13 +76,13 @@ export function phoneOpText(res, done) {
 // 무반응·막연한 '못했어요' 대신 — 크게 보기·고르기·사진 정리·폴더째 지우기가 모두 이 글을 쓴다.
 export function phoneTrashText(error) {
   switch (error) {
-    case 'refused': return '폰에서 지우지 않았어요(안드로이드 확인 창에서 취소).';
-    case 'none': return '폰에서 그 사진을 찾지 못해 지우지 않았어요. 사진 목록을 다시 열고 해 주세요.';
-    case 'old': return '이 폰(안드로이드 10 이하)은 여기서 지울 수 없어요. 갤러리 앱에서 지워 주세요.';
-    case 'timeout': return '폰이 답하지 않아 지우지 않았어요. 다시 해 주세요.';
-    case 'busy': return '앞의 지우기가 끝난 뒤 다시 해 주세요.';
-    case 'failed': return '폰에서 지우지 못했어요. 폰 앱을 껐다 켠 뒤 다시 해 주세요.';
-    default: return '폰에서 지우지 않았어요.';
+    case 'refused': return '폰에서 삭제하지 않았어요(안드로이드 확인 창에서 취소).';
+    case 'none': return '폰에서 그 사진을 찾지 못해 삭제하지 않았어요. 사진 목록을 다시 열고 해 주세요.';
+    case 'old': return '이 폰(안드로이드 10 이하)은 여기서 삭제할 수 없어요. 갤러리 앱에서 삭제해 주세요.';
+    case 'timeout': return '폰이 답하지 않아 삭제하지 않았어요. 다시 해 주세요.';
+    case 'busy': return '앞의 삭제가 끝난 뒤 다시 해 주세요.';
+    case 'failed': return '폰에서 삭제하지 못했어요. 폰 앱을 껐다 켠 뒤 다시 해 주세요.';
+    default: return '폰에서 삭제하지 않았어요.';
   }
 }
 

@@ -17,7 +17,7 @@ export function orgName(orgs, id) { return (orgs || []).find(o => o.id === id)?.
 
 export function linkBoxHtml(box, orgs, prefix) {
   if (!box) return '';
-  const name = box.orgId ? orgName(orgs, box.orgId) || '고른 조직' : '조직 고르기';
+  const name = box.orgId ? orgName(orgs, box.orgId) || '선택한 조직' : '조직 선택';
   return `<div class="feed-link" data-${prefix}-link data-enter-save="[data-${prefix}-link-save]">
 <div class="feed-link-row"><span class="feed-link-label">조직</span><button type="button" class="feed-small" data-${prefix}-link-pick aria-haspopup="dialog" aria-expanded="false"${box.busy ? ' disabled' : ''}>${esc(name)} ▾</button></div>
 <label class="feed-link-label" for="${prefix}LinkSummary">조직 기록에 남길 요약 <span class="feed-faint">비우면 연결만</span></label>

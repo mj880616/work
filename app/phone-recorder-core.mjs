@@ -95,7 +95,7 @@ export function createPhoneRecorder(deps){
   async function start(){
     if(!['idle','done','error'].includes(view.state)||view.busy)return;
     const st=view.native?.state;
-    if(st&&st!=='idle'){deps.notify?.('끝나지 않은 폰 녹음이 있어요. 먼저 [이어서 정리]하거나 [버리기]를 눌러 주세요.',{error:true});return}
+    if(st&&st!=='idle'){deps.notify?.('끝나지 않은 폰 녹음이 있어요. 먼저 [이어서 정리]하거나 [삭제]를 눌러 주세요.',{error:true});return}
     const ws=deps.workspace();
     if(!ws){fail('로그인 상태를 확인하지 못했어요.',false);return}
     view.state='starting';view.step='';view.note='';view.error='';doneTexts.clear();paint();
@@ -110,7 +110,7 @@ export function createPhoneRecorder(deps){
       started_at:new Date(now()).toISOString(),piece_seconds:r.piece_seconds??null,segment_seconds:r.segment_seconds??null};
     const ans=await ask(`rec:begin:${JSON.stringify(begin)}`,['state','error','busy','denied'],15000,m=>m.kind!=='state'||m.data?.state==='recording');
     if(ans?.kind!=='state'){
-      fail(ans?.kind==='busy'?'끝나지 않은 폰 녹음이 있어요. 먼저 정리하거나 버려 주세요.':ans?.kind==='denied'?'마이크를 쓸 수 없어요.':'마이크를 켜지 못했어요. 다른 앱이 마이크를 쓰는지 확인해 주세요.',false);
+      fail(ans?.kind==='busy'?'끝나지 않은 폰 녹음이 있어요. 먼저 정리하거나 삭제해 주세요.':ans?.kind==='denied'?'마이크를 쓸 수 없어요.':'마이크를 켜지 못했어요. 다른 앱이 마이크를 쓰는지 확인해 주세요.',false);
       return;
     }
     sessionId=r.session_id;startedAt=begin.started_at;view.state='recording';paint();void pump();
@@ -292,9 +292,9 @@ export function createPhoneRecorder(deps){
     finally{view.busy=false}
     serverPending=serverPending.filter(s=>s.session_id!==sid);
     paint();
-    if(none){deps.notify?.('녹음을 버렸어요');return}
-    if(!ok){deps.notify?.('녹음을 버리지 못했어요. 끝나지 않은 녹음 줄에서 다시 버려 주세요.',{error:true});void loadPending(true);return}
-    deps.notify?.('녹음을 버렸어요',{label:'녹음 버리기',ms:10000,undo:async()=>{
+    if(none){deps.notify?.('녹음을 삭제했어요');return}
+    if(!ok){deps.notify?.('녹음을 삭제하지 못했어요. 끝나지 않은 녹음 줄에서 다시 삭제해 주세요.',{error:true});void loadPending(true);return}
+    deps.notify?.('녹음을 삭제했어요',{label:'녹음 삭제',ms:10000,undo:async()=>{
       try{await deps.call('rec_restore',{session_id:sid})}catch{return {status:'failed',message:'녹음을 되돌리지 못했어요.'}}
       await loadPending(true);
       return {status:'restored'};

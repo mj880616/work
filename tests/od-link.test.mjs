@@ -28,9 +28,9 @@ test('드롭다운 항목: 연결 상태 / 폴더 바꾸기 / 하위 폴더 켜�
   assert.match(html, /role="menuitemcheckbox" aria-checked="true" data-od-act="show"><span class="od-link-check" aria-hidden="true">✓<\/span>일기에서 사진 보이기/);
   assert.match(odLinkMenuHtml({od:OK, show:false}), /aria-checked="false" data-od-act="show"><span class="od-link-check" aria-hidden="true"><\/span>/);
   assert.match(odLinkMenuHtml({od:OK, show:true, showLabel:'사진 메뉴에 보이기'}), /사진 메뉴에 보이기/);
-  // 폴더 고르기 전·지우기 권한 없음·연결 안 됨·상태 확인 실패.
+  // 폴더 선택 전·삭제 권한 없음·연결 안 됨·상태 확인 실패.
   assert.deepEqual(acts(odLinkMenuHtml({od:{...OK, folder:null}})), ['folder', 'disconnect']);
-  assert.match(odLinkMenuHtml({od:{...OK, folder:null}}), />폴더 고르기</);
+  assert.match(odLinkMenuHtml({od:{...OK, folder:null}}), />폴더 선택</);
   assert.deepEqual(acts(odLinkMenuHtml({od:{...OK, canDelete:false}})), ['folder', 'subfolders', 'show', 'reconnect', 'disconnect']);
   assert.deepEqual(acts(odLinkMenuHtml({od:{configured:true, connected:false}})), ['connect']);
   assert.deepEqual(acts(odLinkMenuHtml({od:{configured:false, failed:true}})), ['retry']);

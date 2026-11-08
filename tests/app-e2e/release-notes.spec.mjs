@@ -93,7 +93,7 @@ for(const width of [1440,412])test(`계정 메뉴 [내 프로필] 아래 [업데
   const panel=await openUpdates(page,width);
   const rows=panel.locator(phoneLike(width)?'#mobileAccountGroup button':'button');
   const names=await rows.evaluateAll(list=>list.map(b=>(b.querySelector('.account-action-name')||b).textContent.trim()));
-  expect(names).toEqual(['내 프로필','업데이트 기록','메뉴 편집','화면 색','로그아웃']);
+  expect(names).toEqual(['내 프로필','업데이트 기록','메뉴 수정','화면 색','로그아웃']);
   const entry=panel.locator('[data-updates-open]');
   await expect(entry.locator('[data-account-ver]')).toHaveText('현재 10/30-23');
   // 한 줄: 이름과 판 이름이 같은 줄, 판 이름은 오른쪽 끝

@@ -70,14 +70,14 @@ test('fitChipRows: 두 줄에 들면 [더보기] 없이 전부, 넘치면 두 �
   const many = new Host(200, Array(12).fill(50));
   fitChipRows(many);
   const more = many.lastElementChild;
-  assert.equal(more.hidden, false); assert.equal(more.textContent, '더보기 ›'); assert.equal(more.getAttribute('aria-expanded'), 'false');
+  assert.equal(more.hidden, false); assert.equal(more.textContent, '펼치기 ›'); assert.equal(more.getAttribute('aria-expanded'), 'false');
   assert.ok(rows(many) <= 2);
   assert.ok(many.children.some(c => c.dataset.chipCut !== undefined));
   more.click();
   assert.equal(more.textContent, '접기'); assert.ok(rows(many) > 2);
   assert.equal(many.children.filter(c => c.dataset.chipCut !== undefined).length, 0);
   more.click();
-  assert.equal(more.textContent, '더보기 ›'); assert.ok(rows(many) <= 2);
+  assert.equal(more.textContent, '펼치기 ›'); assert.ok(rows(many) <= 2);
 });
 
 test('fitChipRows: 고른 칩은 접혀도 보이고, 숨는 칩을 건너 앞쪽에 붙는다', () => {

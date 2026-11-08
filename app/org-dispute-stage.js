@@ -10,7 +10,7 @@ const enc = encodeURIComponent;
 const SELECT_STAGES = 'id,name,sort_order,is_struggle,is_ending,is_default,created_at';
 const SELECT_HISTORY_BASE = 'id,organization_id,stage_id,stage_name,stage_date,created_at';
 const SELECT_HISTORY = SELECT_HISTORY_BASE + ',end_date';
-export const PERIOD_PENDING = '끝 날짜·이력 고치기는 아직 준비 중이에요(DB 적용 전). 끝 날짜 없이는 지금도 저장할 수 있어요.';
+export const PERIOD_PENDING = '끝 날짜·이력 수정은 아직 준비 중이에요(DB 적용 전). 끝 날짜 없이는 지금도 저장할 수 있어요.';
 let cache = null; // {owner, workspace, state}
 let flight = null;
 
@@ -109,14 +109,14 @@ export async function editHistoryRow({rt = window.KPTURuntime, workspaceId, id, 
   try {
     rows = await rt.api(`/rest/v1/app_suborganization_dispute_stages?id=eq.${enc(id)}`, {method: 'PATCH', body: {stage_id: stage.id, stage_name: stage.name, stage_date: date, end_date: end || null}, prefer: 'return=representation'});
   } catch (e) { if (missingEnd(e) || deniedEdit(e)) throw new Error(PERIOD_PENDING); throw e; }
-  if (!Array.isArray(rows) || rows.length !== 1) { await reload(rt, workspaceId); throw new Error('고치지 못했어요. 이력을 다시 불러왔어요.'); }
+  if (!Array.isArray(rows) || rows.length !== 1) { await reload(rt, workspaceId); throw new Error('수정하지 못했어요. 이력을 다시 불러왔어요.'); }
   return reload(rt, workspaceId);
 }
 // 이력 한 줄 지우기. 현재 단계는 남은 이력의 최신 줄로 다시 계산된다(다 지우면 기본 단계).
 export async function deleteHistoryRow({rt = window.KPTURuntime, workspaceId, id}) {
-  if (!id) throw new Error('지울 줄을 찾지 못했어요.');
+  if (!id) throw new Error('삭제할 줄을 찾지 못했어요.');
   const rows = await rt.api(`/rest/v1/app_suborganization_dispute_stages?id=eq.${enc(id)}`, {method: 'DELETE', prefer: 'return=representation'});
-  if (!Array.isArray(rows) || rows.length !== 1) { await reload(rt, workspaceId); throw new Error('지우지 못했어요. 이력을 다시 불러왔어요.'); }
+  if (!Array.isArray(rows) || rows.length !== 1) { await reload(rt, workspaceId); throw new Error('삭제하지 못했어요. 이력을 다시 불러왔어요.'); }
   return reload(rt, workspaceId);
 }
 

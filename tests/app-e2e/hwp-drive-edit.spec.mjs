@@ -88,14 +88,14 @@ for(const width of [390,1280])test(`a library HWP opens from Drive and is saved 
   const f=await fixture(page,width);
   await editLibraryDocument(page,width);
   await expect(page.locator('#hwpView')).toHaveAttribute('aria-label','HWP 편집');
-  await expect(status(page)).toHaveText(/^주간보고\.hwp · 1쪽을 열었어요\. 고친 뒤 \[새 파일로 저장\]을 누르세요\.( \(걸린 시간: .+\))?$/,{timeout:60000}); // 3초를 넘기면 시간 줄이 붙는다
+  await expect(status(page)).toHaveText(/^주간보고\.hwp · 1쪽을 열었어요\. 수정한 뒤 \[새 파일로 저장\]을 누르세요\.( \(걸린 시간: .+\))?$/,{timeout:60000}); // 3초를 넘기면 시간 줄이 붙는다
   await expect(page.locator('#hwpLabEditor iframe')).toHaveAttribute('sandbox','allow-scripts');
   await expect(page.locator('#hwpLabPick')).toBeHidden();
   await expect(page.locator('#hwpDriveNew')).toBeEnabled();
   await expect(page.locator('#hwpDriveOverwrite')).toHaveJSProperty('hidden',false);
   // Only the document ID goes to the server; the file and workspace come from the server row.
   expect(f.sent.open).toEqual([{action:'hwp-open',document_id:DOC}]);
-  await typeInEditor(page,width,'고친문장');
+  await typeInEditor(page,width,'수정한문장');
   await press(page,'hwpDriveNew',width);
   await expect(status(page)).toHaveText('자료실에 새 문서로 등록했어요. 원본은 그대로예요.',{timeout:30000});
   expect(f.sent.library).toHaveLength(1);
@@ -115,7 +115,7 @@ for(const width of [390,1280])test(`a library HWP opens from Drive and is saved 
 });
 
 test('overwrite asks once, says both sides change for a shared file, and sends the opened revision with a backup first',async({page})=>{
-  const replies=[{ok:true,result:'overwritten',backup:{id:'b1',name:'주간보고 편집 전 백업 2026-10-06 1000.hwp'},revision:'rev-2',md5:MD5B,size:9}];
+  const replies=[{ok:true,result:'overwritten',backup:{id:'b1',name:'주간보고 수정 전 백업 2026-10-06 1000.hwp'},revision:'rev-2',md5:MD5B,size:9}];
   const f=await fixture(page,390,{
     open:(route)=>opened(route,HWP,info({shared:true})),
     overwrite:(route,body,n)=>route.fulfill({headers:cors,json:{...replies[0],revision:'rev-'+(n+1)}}),
@@ -131,7 +131,7 @@ test('overwrite asks once, says both sides change for a shared file, and sends t
 
   await press(page,'hwpDriveOverwrite',390);
   await answerAsk(page,true);
-  await expect(status(page)).toHaveText('원본에 덮어썼어요. 고치기 전 사본은 Drive "Web2 편집 백업" 폴더에 "주간보고 편집 전 백업 2026-10-06 1000.hwp"으로 보관했어요.',{timeout:30000});
+  await expect(status(page)).toHaveText('원본에 덮어썼어요. 수정 전 사본은 Drive "Web2 편집 백업" 폴더에 "주간보고 수정 전 백업 2026-10-06 1000.hwp"으로 보관했어요.',{timeout:30000});
   expect(f.sent.overwrite).toHaveLength(1);
   const {file,...fields}=f.sent.overwrite[0];
   expect(fields).toEqual({action:'hwp-overwrite',document_id:DOC,base_revision:'rev-1',base_md5:MD5A,confirm_shared:'1'});
@@ -153,7 +153,7 @@ for(const width of [390,1280])test(`a basket HWPX attachment is saved as a new H
   await press(page,page.locator(`[data-basket-row="${NOTE}"]`),width);
   await expect(page.locator('[data-basket-hwp="drive-jpg"]')).toHaveCount(0);
   await press(page,page.getByRole('button',{name:'안건.hwpx 수정'}),width);
-  await expect(status(page)).toHaveText('안건.hwpx · 1쪽을 열었어요. HWPX 원본은 새 HWP 파일로만 저장해요. 고친 뒤 [새 파일로 저장]을 누르세요.',{timeout:60000});
+  await expect(status(page)).toHaveText('안건.hwpx · 1쪽을 열었어요. HWPX 원본은 새 HWP 파일로만 저장해요. 수정한 뒤 [새 파일로 저장]을 누르세요.',{timeout:60000});
   expect(f.sent.open).toEqual([{action:'hwp-open',note_id:NOTE,drive_file_id:'drive-hwpx'}]);
   await expect(page.locator('#hwpDriveOverwrite')).toHaveJSProperty('hidden',true);
   await press(page,'hwpDriveNew',width);
@@ -168,7 +168,7 @@ for(const width of [390,1280])test(`a basket HWPX attachment is saved as a new H
   expect(f.errors).toEqual([]);
 });
 
-test('before the server is deployed, [편집] changes nothing and offers no save',async({page})=>{
+test('before the server is deployed, [수정] changes nothing and offers no save',async({page})=>{
   const f=await fixture(page,390,{open:route=>route.fulfill({status:400,headers:cors,json:{error:'Unknown action'}})});
   await editLibraryDocument(page,390);
   await expect(status(page)).toHaveText('HWP 편집 서버가 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.',{timeout:60000});
@@ -207,7 +207,7 @@ test('a changed Drive original is not overwritten and unsaved edits are not drop
   await expect(page.locator('#hwpDriveNew')).toBeEnabled();
   // Leaving with unsaved edits asks first; staying keeps the editor.
   await press(page,page.locator('#hwpLabClose'),390);
-  expect(await answerAsk(page,false)).toContain('저장하지 않은 고친 내용');
+  expect(await answerAsk(page,false)).toContain('저장하지 않은 수정 내용');
   await expect(page.locator('#hwpView')).toBeVisible();
   expect(f.sent.overwrite).toHaveLength(1);
   expect(f.errors).toEqual([]);
@@ -223,7 +223,7 @@ test('a slow Drive download shows which step is running and the elapsed seconds,
   await expect(elapsed).toHaveText(/\(\d+초\)/,{timeout:15000});
   await expect(elapsed).toHaveAttribute('aria-hidden','true');
   // 5초 넘게 걸렸으니 열린 뒤 단계별 걸린 시간 줄이 붙는다(LIB-편집열기느림).
-  await expect(status(page)).toHaveText(/^주간보고\.hwp · 1쪽을 열었어요\. 고친 뒤 \[새 파일로 저장\]을 누르세요\. \(걸린 시간: 파일 [\d.]+초 · 편집기 [\d.]+초 · 펼침 [\d.]+초 · 전체 [\d.]+초\)$/,{timeout:60000});
+  await expect(status(page)).toHaveText(/^주간보고\.hwp · 1쪽을 열었어요\. 수정한 뒤 \[새 파일로 저장\]을 누르세요\. \(걸린 시간: 파일 [\d.]+초 · HWP 편집 [\d.]+초 · 펼침 [\d.]+초 · 전체 [\d.]+초\)$/,{timeout:60000});
   await expect(elapsed).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });

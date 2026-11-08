@@ -40,7 +40,7 @@ const detail=page=>page.locator('#meetingList .mcol-rounds');
 const result=page=>page.locator('#meetingList #mcolResult');
 const round=(page,id)=>page.locator(`#meetingList [data-meeting-round="${id}"]`);
 
-for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 / 가운데 차수·날짜·시간 / 오른쪽 고른 차수의 결과(종류+차수 1/3, 결과 2/3)`,async({page})=>{
+for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 / 가운데 차수·날짜·시간 / 오른쪽 선택한 차수의 결과(종류+차수 1/3, 결과 2/3)`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=columnState();
   s.meetings.find(m=>m.id==='labor-2').transcript_text='가상 노사협의회 2차 결과 원문\n둘째 줄';
@@ -132,7 +132,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   expect(errors).toEqual([]);
 });
 
-test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 내려받기, 결과 창에서 고친 내용이 오른쪽에 반영',async({page})=>{
+test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 내려받기, 결과 창에서 수정한 내용이 오른쪽에 반영',async({page})=>{
   const s=columnState();
   s.spaces.push({id:'project-meet',workspace_id:s.workspace.id,name:'가상 프로젝트',status:'active',parent_id:null,sort_order:99,owner_id:s.user.id});
   Object.assign(s.meetings.find(m=>m.id==='labor-2'),{project_id:'project-meet'});
@@ -153,10 +153,10 @@ test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 �
   await round(page,'labor-1').click();await expect(result(page).locator('#mrdTasks [data-wait-empty]')).toHaveText('없음');
   await round(page,'labor-2').click();await expect(result(page).locator('#mrdTasks [data-mrd-task]')).toHaveCount(2);
   // 오른쪽 칸에서 ⋯ → 수정으로 원문을 고쳐 [저장]하면 같은 칸이 보는 화면으로 돌아가 새 원문을 보인다(창 없음).
-  await mrdMenu(page,'edit');await page.locator('#mrdEditTranscript').fill('고친 가상 원문');await page.locator('#mrdSaveEdit').click();
-  await expect.poll(()=>s.meetingWrites.at(-1)?.transcript_text).toBe('고친 가상 원문');
+  await mrdMenu(page,'edit');await page.locator('#mrdEditTranscript').fill('수정한 가상 원문');await page.locator('#mrdSaveEdit').click();
+  await expect.poll(()=>s.meetingWrites.at(-1)?.transcript_text).toBe('수정한 가상 원문');
   await expect(result(page).locator('#mrdEditor')).toBeHidden();
-  await expect(result(page).locator('#mrdResult')).toHaveText('고친 가상 원문');await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
+  await expect(result(page).locator('#mrdResult')).toHaveText('수정한 가상 원문');await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
   // 회의자료 줄 ⋯ → 내려받기(사업 보고 창과 같은 경로).
   await result(page).locator('#mrdMaterials .file-line-more summary').click();await result(page).locator('#mrdMaterials [data-fa-menu="download"]').click();
   await expect.poll(()=>s.downloads.at(-1)?.document_id).toBe('labor-doc');
@@ -211,7 +211,7 @@ test('PC 1440: 사업 보고 결과 칸(mrd-docked)은 따로 스크롤 없이 �
   expect(Math.abs(hb.y-pb.y)).toBeLessThanOrEqual(4);
 });
 
-test('PC ④: [+ 회의 결과]는 화면에 하나, 왼쪽에서 고른 종류를 미리 고른 기존 만들기 창(회의명 미지정은 비운 채)',async({page})=>{
+test('PC ④: [+ 회의 결과]는 화면에 하나, 왼쪽에서 선택한 종류를 미리 선택한 기존 만들기 창(회의명 미지정은 비운 채)',async({page})=>{
   const s=columnState();await open(page,s,1440);
   await expect(page.locator('#meetingsView button:visible').filter({hasText:'사업 보고'})).toHaveCount(1);
   await kind(page,'궤도협의회').click();await page.locator('#newMeetingBtn').click();
@@ -334,7 +334,7 @@ for(const width of [1024,1100,1279])test(`PC ${width}: 회의 종류·차수 칸
       kindsW:r(kinds).width,roundsW:r(rounds).width,resultW:r(document.querySelector('#meetingList #mcolResult')).width};
   });
   for(const n of m.names){expect(n.inside,`${n.text} 종류 줄이 칸 안`).toBe(true);expect(n.count,`${n.text} 건수가 칸 안`).toBe(true);expect(n.ell).toBe('ellipsis');expect(n.title).toBe(n.text)}
-  expect(m.names.find(n=>n.on).clipped,'고른 긴 종류 이름은 줄임표로 줄어듦').toBe(true);
+  expect(m.names.find(n=>n.on).clipped,'선택한 긴 종류 이름은 줄임표로 줄어듦').toBe(true);
   for(const n of m.rows){expect(n.inside).toBe(true);expect(n.insideRounds).toBe(true);expect(n.whenEll).toBe('ellipsis');expect(n.whenInside).toBe(true);expect(n.roundInside).toBe(true);expect(n.whenTitle).not.toBe('');expect(n.roundTitle).not.toBe('')}
   expect(m.kindsOverflowX,'종류 칸 가로 넘침 없음').toBeLessThanOrEqual(0);expect(m.cardsOverflowX,'차수 칸 가로 넘침 없음').toBeLessThanOrEqual(0);expect(m.doc).toBeLessThanOrEqual(1);
   // 비율: 결과 칸이 종류+차수보다 훨씬 넓다(기본 3/4).
@@ -413,7 +413,7 @@ for(const width of [390,1280])test(`사업 보고 결과 창 ${width}: 자료 �
 
 // MTG-프로젝트합치기 3단계(요청 10/28 19:07 ③): [목록] 보기는 한 주(서울 월~일)씩. 처음은 가장 최근 보고의 주(이번 주에 보고가 없을 때),
 // ‹ ›로 주를 넘기고 [전체]로 모든 주를 본다(다시 누르면 주 단위). 다른 곳에서 고른 보고(select)가 지금 주에 없으면 그 주로 옮긴다. 폰 한 줄 목록·PC 3단 같은 규칙.
-for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단위 — 처음 최근 주, ‹ 앞 주, › 다시, [전체] 모든 주, 고른 보고의 주로 옮기기`,async({page})=>{
+for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단위 — 처음 최근 주, ‹ 앞 주, › 다시, [전체] 모든 주, 선택한 보고의 주로 옮기기`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=baseState();s.meetingWrites=[];
   const row=(id,round,at)=>({id,workspace_id:s.workspace.id,title:'궤도협의회',series_name:'궤도협의회',round_no:round,meeting_at:at,transcript_text:'원문 '+id,created_by:s.user.id});

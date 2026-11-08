@@ -81,7 +81,7 @@ for(const width of [1280,1440])test(`PC ${width}: 담당조직 상세 칸 정리
  for(const t of await rows.locator('.gt-main b').all())await expect(t).toHaveCSS('font-weight','400');
  await expect(rows.first().locator('.gt-main b')).toHaveCSS('font-size','13px');
  await more.click();
- const menu=page.locator('#gtLinkedMenu');await expect(menu).toBeVisible();await expect(menu.getByRole('button')).toHaveText(['내일로','기한 바꾸기','고치기','연결 해제','지우기']);
+ const menu=page.locator('#gtLinkedMenu');await expect(menu).toBeVisible();await expect(menu.getByRole('button')).toHaveText(['내일로','기한 바꾸기','수정','연결 해제','삭제']);
  await expect(more).toHaveAttribute('aria-expanded','true');
  await menu.getByRole('button',{name:'연결 해제'}).click();
  await expect(rows).toHaveCount(1);await expect(menu).toBeHidden();

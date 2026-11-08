@@ -23,7 +23,7 @@ export function renderList(options,{start,days,tasks,busy,error,more}){
     if(section.children.length===2&&section.lastElementChild.matches('.clv-empty:not([data-calendar-pending])'))section.classList.add('clv-day-empty');
     box.append(section);
   }
-  const button=document.createElement('button');button.type='button';button.id='calendarListMore';button.className='clv-more';button.textContent=error?'다시 불러오기':'다음 14일 불러오기';button.disabled=busy;button.addEventListener('click',more);
+  const button=document.createElement('button');button.type='button';button.id='calendarListMore';button.className='clv-more';button.textContent=error?'다시':'다음 14일 불러오기';button.disabled=busy;button.addEventListener('click',more);
   // UI-기다림표시통일 2차: 다음 14일을 받는 동안은 버튼 글자 대신 그 자리 위에 가는 줄 + 회색 빈 줄(wait-state.js).
   if(busy){button.setAttribute('aria-busy','true');box.append(waitEl({rows:2}))}
   box.append(button);

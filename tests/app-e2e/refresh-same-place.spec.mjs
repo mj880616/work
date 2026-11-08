@@ -4,7 +4,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { bootLibrary, libFolder, menuButton, folderMenuItem, press } from './helpers/library-folder-server.mjs';
 
-// NAV-새로고침제자리 (요청 10/28 17:16): 새로고침(폰 당겨서 새로고침)해도 보던 화면 그대로. 라우터가 주소를 혼자 맡고(app-router.js),
+// NAV-새로고침제자리 (요청 10/28 17:16): 새로고침(폰 당겨서 최신화)해도 보던 화면 그대로. 라우터가 주소를 혼자 맡고(app-router.js),
 // 정리함의 쪽([챙길 것]·[노트])은 ?pane=, 화면 안의 자리(열린 노트·들어간 폴더·고른 날·보던 날짜·열린 조직)는 화면마다 정한 칸
 // (setPlace, 기록을 따로 만들지 않음)으로 적힌다. 기기 저장은 쓰지 않는다. 뒤로 가기는 이전 화면 그대로. 이름·내용은 지어낸 것.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';

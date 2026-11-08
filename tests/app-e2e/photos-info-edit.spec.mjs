@@ -98,7 +98,7 @@ test("12장 '모두 −8시간' → 앱에 한 번, 순서 바뀜, 기록 12줄 
   await expect.poll(() => ids(page)).toEqual([...SONY, 'ph:99']);
   await hold(page, cellOf(page, 'ph:12'));
   for (const id of SONY.slice(1)) await cellOf(page, id).click();
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('12개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('12개 선택됨');
   // PHOTO-정보수정버튼(S49-18): ⋯ 없이 아래 줄 [정보수정] 한 번에 창이 열린다.
   // PHOTO-아래줄정돈(S49-34): 정보수정은 아래 줄 [더보기] 안 글자 항목.
   const moreBtn = root(page).locator('[data-photos-act-more]');
@@ -125,7 +125,7 @@ test("12장 '모두 −8시간' → 앱에 한 번, 순서 바뀜, 기록 12줄 
   const row1 = dlg.locator('[data-pi-rows] tr', { hasText: 'DSC01.JPG' });
   await expect(row1.locator('td').nth(0)).toHaveText('2026.10.31 14:00');
   await expect(row1.locator('td').nth(1)).toHaveText('2026.10.31 06:00');
-  await expect(dlg.locator('[data-pi-status]')).toHaveText('12장을 고쳐요');
+  await expect(dlg.locator('[data-pi-status]')).toHaveText('12장을 수정해요');
   // 창이 하단바에 가리지 않는다.
   const box = await dlg.boundingBox(), bar = await page.locator('.mobile-tabs').boundingBox().catch(() => null);
   if (bar) expect(box.y + box.height).toBeLessThanOrEqual(bar.y + 1);
@@ -141,7 +141,7 @@ test("12장 '모두 −8시간' → 앱에 한 번, 순서 바뀜, 기록 12줄 
   expect(state.records[0]).toMatchObject({ source: 'phone', loc_changed: false });
   expect(JSON.stringify(state.records)).not.toContain('DSC0');
   await expect.poll(() => ids(page)).toEqual(['ph:99', ...SONY]);
-  await expect(page.locator('.kptu-notice')).toContainText('12장 고쳤어요');
+  await expect(page.locator('.kptu-notice')).toContainText('12장 수정했어요');
   // [되돌리기] = 앞 시각으로 다시(한 번), undone_at 표시, 순서 원래대로.
   await page.locator('.kptu-notice-undo').click();
   await expect.poll(() => sentOf(page, /^photos:meta:write:/).then(x => x.length)).toBe(2);

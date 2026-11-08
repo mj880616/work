@@ -93,7 +93,7 @@ export function placeName(places, place) {
 // UPD-여러곳고르기 ⑥: what the input's button says — one place by its name, more as "첫 곳 이름 외 N" (in the order picked).
 export function placesLabel(places, chosen, fallback = () => '') {
   const list = placeList(chosen); if (!list.length) return '';
-  const first = placeName(places, list[0]) || fallback(list[0]) || '고른 곳';
+  const first = placeName(places, list[0]) || fallback(list[0]) || '선택한 곳';
   return list.length > 1 ? `${first} 외 ${list.length - 1}` : first;
 }
 // UI-기록할곳되돌리기: after an update is added to an organization or a project, the input goes back to the basket; the place
@@ -157,7 +157,7 @@ export async function saveUpdate({place, places, text, owner, doc = null}, rt = 
     const [one] = list;
     return saveOrganizationUpdate({organization_id:one.id, raw_text:text.trim(), created_by:owner, doc}, rt);
   }
-  if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`);
+  if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`);
   const note = await createNote({raw_text:text, ...(doc ? {doc} : {})}, rt);
   let linkError = '';
   try {
@@ -170,11 +170,11 @@ export async function saveUpdate({place, places, text, owner, doc = null}, rt = 
   return {note, linkError};
 }
 export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
-export const linkFailText = '업데이트는 잊지 말기에 저장했지만 고른 곳에 연결하지 못했어요. 잊지 말기에서 [연결하기]로 다시 연결해 주세요.';
+export const linkFailText = '업데이트는 잊지 말기에 저장했지만 선택한 곳에 연결하지 못했어요. 잊지 말기에서 [연결하기]로 다시 연결해 주세요.';
 // ED③ 기록: the most letters a record may hold at these places. MTG-프로젝트합치기 3단계: no place takes a one-line progress record any more.
 export const textLimitFor = () => 20000;
-export const docFailText = '글자는 저장했지만 서식은 저장하지 못했어요. 잊지 말기에서 그 업데이트를 열어 다시 고쳐 저장해 주세요.';
-export const fileFailText = '파일은 잊지 말기에 저장했지만 고른 곳 자료로 넣지 못했어요. 잊지 말기에서 [연결하기]로 다시 넣어 주세요.';
+export const docFailText = '글자는 저장했지만 서식은 저장하지 못했어요. 잊지 말기에서 그 업데이트를 열어 다시 수정해 저장해 주세요.';
+export const fileFailText = '파일은 잊지 말기에 저장했지만 선택한 곳 자료로 넣지 못했어요. 잊지 말기에서 [연결하기]로 다시 넣어 주세요.';
 // BUG-업데이트첨부연결: an update with files and one or more chosen places gives the same result as saving it in the basket and
 // then using the basket's [연결하기] / [자료로 넣기] on it — through those same paths, nothing new on the server:
 // ① the text and files go up as one basket update (uploadBatch → basket-files, photo text reading included); a failed file
@@ -191,8 +191,8 @@ export const fileFailText = '파일은 잊지 말기에 저장했지만 고른 �
 // It starts before the upload (the picked File objects are dropped once they are sent) and never stops the save.
 export async function saveUpdateWithFiles({places, text, batch, doc = null, isCurrent = () => true, sameOwner = () => true, ocr, onChange, onOcrChange, fileLine = null}, rt = window.KPTURuntime) {
   const list = placeList(places);
-  if (!list.length) throw new Error('기록할 곳을 골라 주세요.');
-  if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`);
+  if (!list.length) throw new Error('기록할 곳을 선택해 주세요.');
+  if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`);
   const lettered = !!String(text || '').trim();
   const picked = !lettered && typeof fileLine === 'function' && list.some(p => p.kind === 'project' || p.kind === 'organization') ? batch.entries.filter(e => e.kind !== 'success' && e.file).map(e => e.file) : [];
   const linePromise = picked.length ? Promise.resolve().then(() => fileLine(picked)).catch(() => '') : null;

@@ -20,7 +20,7 @@ const TEXT = Object.freeze({
   failed:'불러오지 못했어요.',
   saveFailed:'저장하지 못했어요. 잠시 뒤 다시 해 주세요.',
   noTitle:'내용을 적어 주세요.',
-  noDay:'날짜를 골라 주세요(표의 2주 안).',
+  noDay:'날짜를 선택해 주세요(표의 2주 안).',
   badTime:TIME_HINT,
   full:part => `줄은 ${part === 'calendar' ? HAND_CALENDAR_MAX : HAND_NOTES_MAX}개까지예요.`,
 });
@@ -79,14 +79,14 @@ export function paintHandLines(slot, {part, model, start, rt = window.KPTURuntim
   if (ui.focus) { (box.querySelector(ui.focus))?.focus(); ui.focus = ''; }
 
   function more(id, text) {
-    return rowMore(doc, {label:`고치기·지우기: ${text}`, data:{journalHandMore:`${part}:${id}`}, items:[
-      {text:'고치기', data:{journalHandFix:`${part}:${id}`}, aria:`고치기: ${text}`},
-      {text:'지우기', data:{journalHandDelete:`${part}:${id}`}, aria:`지우기: ${text}`, danger:true}]});
+    return rowMore(doc, {label:`수정·삭제: ${text}`, data:{journalHandMore:`${part}:${id}`}, items:[
+      {text:'수정', data:{journalHandFix:`${part}:${id}`}, aria:`수정: ${text}`},
+      {text:'삭제', data:{journalHandDelete:`${part}:${id}`}, aria:`삭제: ${text}`, danger:true}]});
   }
   function noteForm() {
     const f = el('span', 'journal-file-edit weekly-flow-edit');
     const input = lineField(doc, {value: ui.draft.text ?? '', maxLength: HAND_NOTE_MAX}); input.dataset.journalHandField = 'text'; // UI-줄입력늘어나기
-    input.setAttribute('aria-label', ui.editing === 'new' ? '메모 줄 추가' : '메모 줄 고치기'); input.disabled = busy; input.autocomplete = 'off';
+    input.setAttribute('aria-label', ui.editing === 'new' ? '메모 줄 추가' : '메모 줄 수정'); input.disabled = busy; input.autocomplete = 'off';
     if (ui.invalid === 'text') input.setAttribute('aria-invalid', 'true');
     const cancel = btn('취소', 'journalHandCancel'), ok = btn('저장', 'journalHandSave', 'mini primary'); cancel.disabled = ok.disabled = busy;
     f.append(input, ' ', cancel, ok); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
@@ -117,7 +117,7 @@ export function paintHandLines(slot, {part, model, start, rt = window.KPTURuntim
       set({...fresh(start), editing:r.id, draft:part === 'calendar' ? {day:r.day, time:r.time, title:r.title, place:r.place} : {text:r.text}, focus:`[data-journal-hand-field="${part === 'calendar' ? 'title' : 'text'}"]`});
       redraw(); return;
     }
-    if (del) { if (busy) return; void save(h => withoutHandRow(h, part, del), 'cut', '줄을 지웠어요.', `[data-journal-hand-add="${part}"]`); }
+    if (del) { if (busy) return; void save(h => withoutHandRow(h, part, del), 'cut', '줄을 삭제했어요.', `[data-journal-hand-add="${part}"]`); }
   }
   function cancelEdit() { const id = ui.editing; set(fresh(start)); ui.focus = id && id !== 'new' ? `[data-journal-hand-more="${part}:${id}"] > summary` : `[data-journal-hand-add="${part}"]`; redraw(); }
   async function saveEdit() {
@@ -138,7 +138,7 @@ export function paintHandLines(slot, {part, model, start, rt = window.KPTURuntim
       row = {id, text:d.text};
     }
     const focus = id ? `[data-journal-hand-more="${part}:${id}"] > summary` : `[data-journal-hand-add="${part}"]`;
-    await save(h => withHandRow(h, part, row), id ? 'fix' : 'add', id ? '고쳤어요.' : `${part === 'calendar' ? `${formDay(d.day)} ` : ''}줄을 더했어요.`, focus);
+    await save(h => withHandRow(h, part, row), id ? 'fix' : 'add', id ? '수정했어요.' : `${part === 'calendar' ? `${formDay(d.day)} ` : ''}줄을 더했어요.`, focus);
   }
   // change(hand) → {hand, row, before?} | null(넘침·빈 줄). 동작 기록(picks)을 같은 쓰기에 싣는다.
   async function save(change, act, done, focus) {

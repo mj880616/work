@@ -237,7 +237,7 @@ export async function overwriteHwp(target,bytes,info,{confirmShared=false,rt=win
   catch(err){return err.kind==='session'?{kind:'session',message:HWP_TEXT.session}:{kind:'unknown',message:HWP_TEXT.overwriteUnknown}}
   const data=await readJson(response);
   if(response.ok&&data?.ok===true&&data.result==='overwritten'&&typeof data.revision==='string'&&typeof data.md5==='string'&&typeof data.backup?.name==='string')
-    return {kind:'overwritten',revision:data.revision,md5:data.md5,message:`원본에 덮어썼어요. 고치기 전 사본은 Drive "Web2 편집 백업" 폴더에 "${data.backup.name}"으로 보관했어요.`};
+    return {kind:'overwritten',revision:data.revision,md5:data.md5,message:`원본에 덮어썼어요. 수정 전 사본은 Drive "Web2 편집 백업" 폴더에 "${data.backup.name}"으로 보관했어요.`};
   if(response.status===401)return {kind:'session',message:HWP_TEXT.session};
   if(response.status===409&&data?.code==='VERSION_CHANGED')return {kind:'changed',message:'연 뒤에 Drive의 원본이 바뀌어 덮어쓰지 않았어요. [새 파일로 저장]을 써 주세요.'};
   if(response.status===409&&data?.code==='SHARED_CONFIRM_REQUIRED')return {kind:'shared',message:'잊지 말기와 자료실이 같은 원본을 써요. 다시 [원본에 덮어쓰기]를 눌러 확인해 주세요. 아무것도 바뀌지 않았어요.'};

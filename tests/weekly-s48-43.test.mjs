@@ -47,7 +47,7 @@ test('readFeedback: made 는 yes 답의 양의 정수만', () => {
 
 test('answerState·madeOf: 만들기로 보냄 · 만듦 #PR', () => {
   assert.equal(answerState({answer:'yes', made:1790}), '만들기로 보냄 · 만듦 #1790');
-  assert.equal(answerState({answer:'yes', before:'옛 글'}), '고쳐서 만들기로 보냄');
+  assert.equal(answerState({answer:'yes', before:'옛 글'}), '수정해서 만들기로 보냄');
   assert.equal(answerState({answer:'no', why:'가상 이유'}), '뺌 — 가상 이유');
   assert.equal(answerState({}), '');
   assert.equal(madeOf(0), null);
@@ -61,5 +61,5 @@ test('withAnswer: [빼기]로 바꾸면 made 를 지우고, 다시 만들기로 
   assert.equal(no.review.suggestions[0].made, undefined);
   const fixed = withAnswer(f, 's1', 'yes', {text:'가상 고친 글'});
   assert.equal(fixed.review.suggestions[0].made, 1790);
-  assert.equal(answerState(fixed.review.suggestions[0]), '고쳐서 만들기로 보냄 · 만듦 #1790');
+  assert.equal(answerState(fixed.review.suggestions[0]), '수정해서 만들기로 보냄 · 만듦 #1790');
 });

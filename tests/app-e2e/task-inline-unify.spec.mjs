@@ -23,7 +23,7 @@ async function taskCalls(page,c){
 }
 
 for(const width of [390,1280]){
- test(`홈 할 일 칸: 동그라미 완료 + 5초 되돌리기, 줄 ⋯(PC hover·초점 / 폰 늘), 내일로·기한 바꾸기·고치기·지우기 ${width}`,async({page},info)=>{
+ test(`홈 할 일 칸: 동그라미 완료 + 5초 되돌리기, 줄 ⋯(PC hover·초점 / 폰 늘), 내일로·기한 바꾸기·수정·삭제 ${width}`,async({page},info)=>{
   await page.setViewportSize({width,height:1000});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const c=await openHome(page);const calls=await taskCalls(page,c);
@@ -44,11 +44,11 @@ for(const width of [390,1280]){
   // ⋯ 항목
   await row.hover();await more.click();
   const menu=page.locator('#journalTaskMenu');
-  await expect(menu.getByRole('button')).toHaveText(['내일로','기한 바꾸기','고치기','지우기']);
+  await expect(menu.getByRole('button')).toHaveText(['내일로','기한 바꾸기','수정','삭제']);
   for(const btn of await menu.getByRole('button').all())expect((await btn.boundingBox()).height).toBeLessThanOrEqual(40);
   await page.screenshot({path:info.outputPath(`home-menu-${width}.png`)});
   // 고치기 = 할 일 화면의 수정 창
-  await menu.getByRole('button',{name:'고치기'}).click();
+  await menu.getByRole('button',{name:'수정'}).click();
   await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditTitle')).toHaveValue('오늘 항목');
   await page.locator('#gtTaskModal [data-gt-close]').click();await expect(page.locator('#gtTaskModal')).toBeHidden();
   // 기한 바꾸기 = 달력 날짜 칸 → [바꾸기]: 수정 창과 같은 update, 제목·메모 그대로
@@ -81,14 +81,14 @@ for(const width of [390,1280]){
  });
 }
 
-test('홈 할 일 칸 ⋯ 지우기: 확인 한 번, 취소하면 그대로, 확인하면 delete 요청 1번 390',async({page})=>{
+test('홈 할 일 칸 ⋯ 삭제: 확인 한 번, 취소하면 그대로, 확인하면 delete 요청 1번 390',async({page})=>{
  await page.setViewportSize({width:390,height:1000});
  const c=await openHome(page);const calls=await taskCalls(page,c);
  const row=page.locator('#homeView [data-journal-group="todo"] li[data-journal-task="today"]'),menu=page.locator('#journalTaskMenu');
- await row.locator('[data-journal-task-menu]').click();await menu.getByRole('button',{name:'지우기'}).click();
+ await row.locator('[data-journal-task-menu]').click();await menu.getByRole('button',{name:'삭제'}).click();
  expect(await answerAsk(page,false)).toBe('이 Google 할 일을 삭제할까요?');
  expect(calls.delete).toEqual([]);await expect(row).toBeVisible();
- await row.locator('[data-journal-task-menu]').click();await menu.getByRole('button',{name:'지우기'}).click();
+ await row.locator('[data-journal-task-menu]').click();await menu.getByRole('button',{name:'삭제'}).click();
  await answerAsk(page,true);
  await expect(row).toHaveCount(0);
  expect(calls.delete).toEqual([{action:'delete',task_list_id:'default',task_id:'today'}]);
@@ -120,7 +120,7 @@ async function linkedFixture(page,width){
  });
  return {c,state,errors};
 }
-for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그라미 완료·되돌리기, ⋯(PC hover / 폰 늘) 항목, 연결 해제 유지, 기한 바꾸기·지우기 ${width}`,async({page},info)=>{
+for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그라미 완료·되돌리기, ⋯(PC hover / 폰 늘) 항목, 연결 해제 유지, 기한 바꾸기·삭제 ${width}`,async({page},info)=>{
  const {state,errors}=await linkedFixture(page,width);
  await clickView(page,'team');
  if(width<761)await page.locator('#soOrganizationList [data-so-org="oa"]').click();
@@ -132,13 +132,13 @@ for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그�
  }else await expect.poll(()=>opacity(more)).toBe('1');
  await more.click();
  const menu=page.locator('#gtLinkedMenu');
- await expect(menu.getByRole('button')).toHaveText(['내일로','기한 바꾸기','고치기','연결 해제','지우기']);
+ await expect(menu.getByRole('button')).toHaveText(['내일로','기한 바꾸기','수정','연결 해제','삭제']);
  if(width<761)expect(await menu.evaluate(m=>!!m.closest('#wdModal'))).toBe(true);
  await page.screenshot({path:info.outputPath(`org-menu-${width}.png`)});
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  // 끝낸 줄
  const done=body.locator('[data-google-task="l-2"]');await done.hover();await done.locator('[data-gt-linked-more]').click();
- await expect(menu.getByRole('button')).toHaveText(['다시 할 일로','고치기','연결 해제']);await page.keyboard.press('Escape');
+ await expect(menu.getByRole('button')).toHaveText(['다시 할 일로','수정','연결 해제']);await page.keyboard.press('Escape');
  // 동그라미 → 되돌리기
  await row.locator('[data-gt-linked-toggle]').click();
  await expect(row).toHaveClass(/completed/);
@@ -155,7 +155,7 @@ for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그�
  // HOME-업무일지홈 C: 연결 할 일 줄 기한은 공용 기한 글자(task-due.mjs dueLabel, .task-due-text 진회색).
  await expect(row.locator('[data-gt-linked-due]')).toHaveText('10.12 (월)');await expect(row.locator('[data-gt-linked-due]')).toHaveClass(/task-due-text/);
  // 고치기 = 수정 창
- await row.hover();await row.locator('[data-gt-linked-more]').click();await menu.getByRole('button',{name:'고치기'}).click();
+ await row.hover();await row.locator('[data-gt-linked-more]').click();await menu.getByRole('button',{name:'수정'}).click();
  await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditTitle')).toHaveValue('합성 연결 할 일');
  await page.locator('#gtTaskModal [data-gt-close]').click();await expect(page.locator('#gtTaskModal')).toBeHidden();
  // 연결 해제(화면 고유 동작) 그대로
@@ -163,7 +163,7 @@ for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그�
  await expect(done).toHaveCount(0);
  expect(state.calls.unlink).toEqual([{action:'unlink',task_id:'l-2',links:[{organization_id:'oa'}]}]);
  // 지우기: 확인 한 번
- await row.hover();await row.locator('[data-gt-linked-more]').click();await menu.getByRole('button',{name:'지우기'}).click();
+ await row.hover();await row.locator('[data-gt-linked-more]').click();await menu.getByRole('button',{name:'삭제'}).click();
  await answerAsk(page,true);
  await expect.poll(()=>state.calls.delete.length).toBe(1);
  await expect(body.locator('[data-wait-empty]')).toHaveText('없음');
@@ -179,7 +179,7 @@ for(const width of [390,1280])test(`프로젝트 상세 연결 할 일: 같은 �
  else await expect.poll(()=>opacity(more)).toBe('1');
  await row.hover();await more.click();
  const menu=page.locator('#gtLinkedMenu');
- await expect(menu.getByRole('button')).toHaveText(['내일로','기한 바꾸기','고치기','연결 해제','지우기']);
+ await expect(menu.getByRole('button')).toHaveText(['내일로','기한 바꾸기','수정','연결 해제','삭제']);
  await menu.getByRole('button',{name:'내일로'}).click();
  await expect.poll(()=>state.calls.update.length).toBe(1);expect(state.calls.update[0].due).toBe('2026-10-07');
  await row.locator('[data-gt-linked-toggle]').click();

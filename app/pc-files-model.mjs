@@ -130,7 +130,7 @@ export function pcErrorText(code) {
     case 'write_failed': return '내 PC에 쓰지 못했어요(폴더 권한 확인)';
     case 'trash_failed': return '내 PC 휴지통으로 보내지 못했어요';
     case 'not_file': return '파일만 보낼 수 있어요';
-    case 'other_drive': return '폴더는 같은 드라이브 안에서만 옮겨요(다른 드라이브로는 파일을 골라 주세요)';
+    case 'other_drive': return '폴더는 같은 드라이브 안에서만 옮겨요(다른 드라이브로는 파일을 선택해 주세요)';
     case 'blocked': return '이 폴더는 열 수 없어요(윈도우·프로그램 폴더)';
     case 'not_found': return '내 PC에서 찾지 못했어요';
     case 'bad_path': case 'not_folder': return '열 수 없는 경로예요';
@@ -159,7 +159,7 @@ export function pcXferWhy(rows, dest, {can = [], cloud = ['od', 'gd']} = {}) {
   const fromPc = list.some(r => r.source === PC_SOURCE), toPc = dest?.source === PC_SOURCE;
   if (!fromPc && !toPc) return '';
   if (!pcCanXfer(can)) return PC_READONLY_TEXT;
-  if (!list.length) return '고른 것이 없습니다';
+  if (!list.length) return '선택한 것이 없습니다';
   if (fromPc && list.some(r => r.source !== PC_SOURCE)) return '내 PC 파일과 다른 곳 파일은 따로 보내 주세요';
   if (!dest) return ''; // 받을 곳을 아직 고르지 않음(잘라 두기·받을 곳 창 열기)
   if (fromPc && toPc) {

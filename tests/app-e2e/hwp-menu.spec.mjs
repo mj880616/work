@@ -47,7 +47,7 @@ async function enterFromMenu(page,width,{ready=true}={}){
     await page.locator('#mobileMenu nav').getByRole('button',{name:'HWP 편집',exact:true}).click();
   }else await page.locator('.app-nav').getByRole('button',{name:'HWP 편집',exact:true}).click();
   await expect(page.locator('#hwpView')).toBeVisible();
-  if(ready)await expect(status(page)).toHaveText(/편집기가 준비됐습니다/,{timeout:60000});
+  if(ready)await expect(status(page)).toHaveText(/HWP 편집이 준비됐습니다/,{timeout:60000});
   expect(new URL(page.url()).searchParams.get('view')).toBe('hwp');
 }
 async function openAndType(page,width,name='sample.hwp'){
@@ -148,7 +148,7 @@ test('leaving with unsaved edits asks first; a downloaded file leaves without as
   // HWP-화면가득: 폰은 [✕](= 뒤로가기)로 이전 화면. 저장 안 한 내용이 있으면 한 번 묻는다.
   await page.locator('#hwpLabClose').click();
   await expect.poll(()=>asked.length).toBe(1);
-  expect(asked[0]).toContain('저장하지 않은 고친 내용');
+  expect(asked[0]).toContain('저장하지 않은 수정 내용');
   await expect(page.locator('#hwpView')).toBeVisible();
 
   const [file]=await Promise.all([page.waitForEvent('download'),hwpPress(page,'hwpLabSave')]);

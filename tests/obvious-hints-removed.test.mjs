@@ -48,7 +48,7 @@ test('UI-당연한안내삭제: 지운 안내의 빈 클래스 규칙도 남기�
 });
 
 test('UI-당연한안내삭제: 지우기·데이터 경고와 오류 문구는 남긴다', () => {
-  assert.match(read('telegram-feed.js'), /폴더만 지워져요\. 안에 있던 방과 소식은 그대로 전체에 남아요\./);
+  assert.match(read('telegram-feed.js'), /폴더만 삭제돼요\. 안에 있던 방과 소식은 그대로 전체에 남아요\./);
   assert.match(read('telegram-feed.js'), /원문은 Drive에 그대로 있어요/);
   assert.match(read('ed-window.js'), /굵게·색·표 같은 서식은 저장되지 않아요/);
   assert.match(read('photos.js'), /폴더를 읽지 못했어요/);

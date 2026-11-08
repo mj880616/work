@@ -28,18 +28,18 @@ const dayOf=m=>{const d=reportDay(m);return d?`${Number(d.slice(5,7))}.${Number(
 // The row's 사업영역 button: its value is data-value (사업영역 id | AREA_NONE | ''), its text the chosen name ('상위 › 하위'), '없음' or '고르기'.
 const valueOf=b=>b?.dataset.value||'';
 function paintPick(b,value){
-  if(!b)return;b.dataset.value=value||'';const name=value===AREA_NONE?NONE_LABEL:value?(areaNameIn(active?.places,value)||'사업영역'):'고르기';
+  if(!b)return;b.dataset.value=value||'';const name=value===AREA_NONE?NONE_LABEL:value?(areaNameIn(active?.places,value)||'사업영역'):'선택';
   const text=document.createElement('span');text.className='area-tag-select-text';text.textContent=name;b.replaceChildren(text);b.title=value&&value!==AREA_NONE?name:'';b.classList.toggle('is-none',value===AREA_NONE);b.classList.toggle('is-empty',!value);
 }
 function rowHtml(m){
   const id=esc(m.id),title=titleOf(m);
-  return `<div class="area-tag-row" data-area-tag-row="${id}"><span class="area-tag-day">${esc(dayOf(m))}</span><span class="area-tag-title" title="${esc(title)}">${esc(title)}</span><span class="area-tag-pick"><button type="button" class="secondary area-tag-select is-empty" data-area-tag-select="${id}" data-value="" aria-haspopup="dialog" aria-label="${esc(title)} 사업영역"><span class="area-tag-select-text">고르기</span></button><span class="area-tag-mark" data-area-tag-mark hidden></span></span></div>`;
+  return `<div class="area-tag-row" data-area-tag-row="${id}"><span class="area-tag-day">${esc(dayOf(m))}</span><span class="area-tag-title" title="${esc(title)}">${esc(title)}</span><span class="area-tag-pick"><button type="button" class="secondary area-tag-select is-empty" data-area-tag-select="${id}" data-value="" aria-haspopup="dialog" aria-label="${esc(title)} 사업영역"><span class="area-tag-select-text">선택</span></button><span class="area-tag-mark" data-area-tag-mark hidden></span></span></div>`;
 }
 async function pickFor(button){
   const a=active,id=button.dataset.areaTagSelect;if(!a||a.saving)return;
   const used=await usedKeysNow().catch(()=>[]);if(active!==a||!button.isConnected)return;
-  const value=valueOf(button),top=[{key:'',name:'고르기'},...(a.withNone?[{key:AREA_NONE,name:NONE_LABEL,attrs:'data-area-none data-aop-muted'}]:[])];
-  await openAreaOrgPicker({kind:'area',trigger:button,used,multi:false,top,title:'사업영역 고르기',areas:catalogAreas(a.places?.projects||[]),
+  const value=valueOf(button),top=[{key:'',name:'선택'},...(a.withNone?[{key:AREA_NONE,name:NONE_LABEL,attrs:'data-area-none data-aop-muted'}]:[])];
+  await openAreaOrgPicker({kind:'area',trigger:button,used,multi:false,top,title:'사업영역 선택',areas:catalogAreas(a.places?.projects||[]),
     selected:value===AREA_NONE?[AREA_NONE]:value?['p:'+value]:[],
     onCommit:keys=>{if(active!==a||!button.isConnected)return;const k=[...keys][0]||'';a.touched.add(id);paintPick(button,k===AREA_NONE?AREA_NONE:k.startsWith('p:')?k.slice(2):'');mark(button,'')}});
 }
@@ -61,7 +61,7 @@ function ensureSheet(){
 }
 const known=id=>!!active?.places?.projects?.some(x=>String(x.project.id)===String(id));
 function selectOf(id){return document.querySelector(`#reportAreaTagSheet [data-area-tag-select="${CSS.escape(String(id))}"]`)}
-function mark(select,from){const m=select?.parentElement?.querySelector('[data-area-tag-mark]');if(!m)return;m.textContent=from==='ai'?'AI':from==='link'?'연결':'';m.hidden=!from;m.title=from==='ai'?'AI 추천으로 미리 골랐어요':from==='link'?'이 보고에 연결된 사업영역이에요':''}
+function mark(select,from){const m=select?.parentElement?.querySelector('[data-area-tag-mark]');if(!m)return;m.textContent=from==='ai'?'AI':from==='link'?'연결':'';m.hidden=!from;m.title=from==='ai'?'AI 추천으로 미리 선택했어요':from==='link'?'이 보고에 연결된 사업영역이에요':''}
 function preset(m,aiId=''){
   const s=selectOf(m.id);if(!s||active.touched.has(String(m.id))||valueOf(s))return false;
   const p=presetArea(m,aiId,known);if(!p.id)return false;
@@ -95,7 +95,7 @@ async function saveOne(rt,workspace,id,value,withNone){
 async function save(){
   const a=active;if(!a||a.saving)return;
   const picks=a.list.map(m=>({m,area:valueOf(selectOf(m.id))})).filter(x=>x.area);
-  if(!picks.length){status('고른 사업영역이 없어요.');return}
+  if(!picks.length){status('선택한 사업영역이 없어요.');return}
   const rt=window.KPTURuntime,workspace=rt?.context?.read?.()?.workspace?.id;
   if(!rt?.api||!workspace){status('로그인 상태를 확인하지 못했어요.');return}
   a.saving=true;run++;const button=document.querySelector('#reportAreaTagSheet [data-area-tag-save]');if(button){button.disabled=true;button.setAttribute('aria-busy','true')}status('');

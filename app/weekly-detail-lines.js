@@ -45,7 +45,7 @@ export function paintDetailLines(slot, {model, start, rt = window.KPTURuntime, o
     if (item.day) li.append(el('span', 'journal-weekly-day', shortDay(item.day)));
     if (ui.editing === key) {
       if (item.edited) { const o = el('span', 'journal-muted journal-hwpx-origin', `원래: ${item.original}`); o.dataset.journalDetailOrigin = ''; li.append(o, ' '); }
-      li.append(form(ui.value ?? item.text, '줄 고치기')); ul.append(li); continue;
+      li.append(form(ui.value ?? item.text, '줄 수정')); ul.append(li); continue;
     }
     li.append(el('span', 'weekly-flow-text', item.text));
     if (item.hand) { const tag = el('span', 'journal-exec-carried', HAND_TAG); tag.title = '손으로 더한 줄'; tag.dataset.journalDetailHand = ''; li.append(' ', tag); }
@@ -53,13 +53,13 @@ export function paintDetailLines(slot, {model, start, rt = window.KPTURuntime, o
     if (item.edited) li.dataset.journalDetailEdited = '';
     const menu = [];
     if (can && key) {
-      menu.push({text:'고치기', data:{journalDetailFix:key}, disabled:busy, aria:`고치기: ${item.text}`});
-      if (item.edited) menu.push({text:'원래대로', data:{journalDetailReset:key}, disabled:busy, aria:`원래대로: ${item.text}`});
-      menu.push({text:item.hand ? '지우기' : '빼기', data:{journalDetailDrop:key}, disabled:busy, danger:true, aria:`${item.hand ? '지우기' : '이번 주 보고에서 빼기'}: ${item.text}`});
+      menu.push({text:'수정', data:{journalDetailFix:key}, disabled:busy, aria:`수정: ${item.text}`});
+      if (item.edited) menu.push({text:'되돌리기', data:{journalDetailReset:key}, disabled:busy, aria:`되돌리기: ${item.text}`});
+      menu.push({text:item.hand ? '삭제' : '빼기', data:{journalDetailDrop:key}, disabled:busy, danger:true, aria:`${item.hand ? '삭제' : '이번 주 보고에서 빼기'}: ${item.text}`});
     }
     // 그 회의 종류를 앞으로 늘 빼기(서버 '빼는 회의 종류' 목록, journal.js toggleKind) — 목록을 읽었을 때만.
     if (mt.editable && validKindKey(item.kind)) menu.push({text:'이 종류 늘 빼기', data:{journalKindToggle:item.kind, journalKindHide:'1', journalKindName:item.kindName}, aria:`${item.kindName} 종류를 주간보고에서 늘 빼기`});
-    if (menu.length) li.append(rowMore(doc, {label:`줄 고치기·빼기: ${item.text}`, data:{journalDetailMore:key || item.kind || ''}, items:menu}));
+    if (menu.length) li.append(rowMore(doc, {label:`줄 수정·빼기: ${item.text}`, data:{journalDetailMore:key || item.kind || ''}, items:menu}));
     ul.append(li);
   }
   if (ui.editing === 'new') { const li = el('li'); li.dataset.journalDetailNew = ''; li.append(form(ui.value ?? '', '줄 추가')); ul.append(li); }
@@ -97,10 +97,10 @@ export function paintDetailLines(slot, {model, start, rt = window.KPTURuntime, o
     if (d.journalDetailCancel !== undefined) { cancel(); return; }
     if (d.journalDetailSave !== undefined) { void saveEdit(); return; }
     if (d.journalDetailFix) { const it = find(d.journalDetailFix); if (!it) return; set({...fresh(start), editing:d.journalDetailFix, value:it.text, focus:'[data-journal-detail-input]'}); redraw(); return; }
-    if (d.journalDetailReset) { const it = find(d.journalDetailReset); if (!it?.ref) return; void save(h => withDetailEdit(h, it.ref, null), detailPick('none', it), '원래대로 했어요.'); return; }
+    if (d.journalDetailReset) { const it = find(d.journalDetailReset); if (!it?.ref) return; void save(h => withDetailEdit(h, it.ref, null), detailPick('none', it), '원래 글로 되돌렸어요.'); return; }
     if (d.journalDetailDrop) {
       const it = find(d.journalDetailDrop); if (!it) return;
-      if (it.hand) { void save(h => withoutHandRow(h, 'details', it.hand), {act:'cut', text:it.text}, '줄을 지웠어요.'); return; }
+      if (it.hand) { void save(h => withoutHandRow(h, 'details', it.hand), {act:'cut', text:it.text}, '줄을 삭제했어요.'); return; }
       const prev = detailEdits(draftHand(mt.row?.draft)).get(it.ref) ?? null;
       void save(h => withDetailEdit(h, it.ref, {drop:true}), detailPick('drop', it), '줄을 뺐어요.', {undo:{ref:it.ref, prev, item:it}});
       return;
@@ -114,10 +114,10 @@ export function paintDetailLines(slot, {model, start, rt = window.KPTURuntime, o
     const k = ui.editing;
     if (k === 'new') { await save(h => withHandRow(h, 'details', {text}), {act:'add', text}, '줄을 더했어요.'); return; }
     const it = items.find(i => keyOf(i) === k); if (!it) return;
-    if (it.hand) { await save(h => withHandRow(h, 'details', {id:it.hand, text}), {act:'fix', text, before:it.text}, '고쳤어요.'); return; }
+    if (it.hand) { await save(h => withHandRow(h, 'details', {id:it.hand, text}), {act:'fix', text, before:it.text}, '수정했어요.'); return; }
     // 원래 글과 같게 고치면 고침을 지운다(원래대로 — 동작 기록도 '고쳐서 넣음'을 지운 표시).
     const back = text === (it.original ?? it.text);
-    await save(h => withDetailEdit(h, it.ref, back && it.edited ? null : {text}), back ? detailPick('none', it) : detailPick('edit', it, text), '고쳤어요.');
+    await save(h => withDetailEdit(h, it.ref, back && it.edited ? null : {text}), back ? detailPick('none', it) : detailPick('edit', it, text), '수정했어요.');
   }
   // WEEKLY-환류전칸(S48-35): 원래 기록에서 끌어온 줄은 '제안'이다 — 고치기 = 고쳐서 넣음(edit), 빼기 = 뺌(drop), 되돌리기·원래대로 = 지운 표시(none).
   // 열쇠는 늘 원래 기록 글(detailPick)이라 같은 줄의 고침·뺌·확정 때 그대로 넣음(take, journal-hwpx.js)이 한 열쇠로 모인다. 손으로 더한 줄은 보고서 줄 동작(add·fix·cut) 그대로.

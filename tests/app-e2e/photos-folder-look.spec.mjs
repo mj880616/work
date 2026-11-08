@@ -77,7 +77,7 @@ async function openFolderMenu(page, id) {
 }
 async function pickFolderColor(page, id, name) {
   await openFolderMenu(page, id);
-  await page.locator('#photosFolderMenu').getByRole('button', { name: '색 고르기…', exact: true }).click();
+  await page.locator('#photosFolderMenu').getByRole('button', { name: '색 선택…', exact: true }).click();
   const choice = page.locator('#photosFolderMenu .fl-choice');
   await expect(choice).toBeVisible();
   await choice.getByRole('radio', { name, exact: true }).click();
@@ -95,10 +95,10 @@ for (const width of [1440, 412]) test.describe(`사진 폴더·앨범 색·순�
     await plainIcon(page, 'S2');
     // 메뉴: 가운데 줄은 [색 고르기…][위로][아래로](끝 줄은 한쪽만).
     await openFolderMenu(page, 'S2');
-    await expect(page.locator('#photosFolderMenu button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 고르기…', '위로', '아래로', '지우기']);
+    await expect(page.locator('#photosFolderMenu button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '위로', '아래로', '삭제']);
     await page.keyboard.press('Escape');
     await openFolderMenu(page, 'S1');
-    await expect(page.locator('#photosFolderMenu button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 고르기…', '아래로', '지우기']);
+    await expect(page.locator('#photosFolderMenu button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '아래로', '삭제']);
     await page.keyboard.press('Escape');
     expect(s.prefCalls).toEqual([]);
 
@@ -127,7 +127,7 @@ for (const width of [1440, 412]) test.describe(`사진 폴더·앨범 색·순�
 
     // 맨 위 폴더는 [위로]가 없고 [아래로]만. [기본]으로 돌리면 지금 모양(📁), 서버에는 null.
     await openFolderMenu(page, 'S2');
-    await expect(page.locator('#photosFolderMenu button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 고르기…', '아래로', '지우기']);
+    await expect(page.locator('#photosFolderMenu button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '아래로', '삭제']);
     await page.keyboard.press('Escape');
     await pickFolderColor(page, 'S2', '기본');
     await expect.poll(() => s.prefCalls.length).toBe(3);
@@ -176,8 +176,8 @@ for (const width of [1440, 412]) test.describe(`사진 폴더·앨범 색·순�
     // 다시 그리는 중에 누르면 메뉴가 붙어 있던 단추가 바뀌어 닫히므로, 열릴 때까지 다시 누른다.
     const open = async id => { await expect(async () => { await root(page).locator(`[data-photos-album="${id}"] [data-photos-al-more]`).click(); await expect(menu).toBeVisible({ timeout: 1500 }); }).toPass({ timeout: 15000 }); };
     await open('t3');
-    await expect(menu.locator('button')).toHaveText(['이름 바꾸기', '색 고르기…', '위로', '지우기(사진은 그대로)']);
-    await menu.getByRole('button', { name: '색 고르기…', exact: true }).click();
+    await expect(menu.locator('button')).toHaveText(['이름 바꾸기', '색 선택…', '위로', '삭제(사진은 그대로)']);
+    await menu.getByRole('button', { name: '색 선택…', exact: true }).click();
     const choice = menu.locator('.fl-choice');
     await expect(choice.getByRole('radio')).toHaveCount(9);
     await choice.getByRole('radio', { name: '벽돌', exact: true }).click();
@@ -197,20 +197,20 @@ for (const width of [1440, 412]) test.describe(`사진 폴더·앨범 색·순�
 
     // [기본]: 그림이 없어지고 서버에는 null. 이미 기본인 앨범에 [기본]을 고르면 저장하지 않는다.
     await open('t3');
-    await menu.getByRole('button', { name: '색 고르기…', exact: true }).click();
+    await menu.getByRole('button', { name: '색 선택…', exact: true }).click();
     await menu.locator('.fl-choice').getByRole('radio', { name: '기본', exact: true }).click();
     await expect.poll(() => s.tagCalls.length).toBe(3);
     expect(s.tagCalls[2]).toEqual([{ id: 't3', c: null }]);
     await expect(root(page).locator('.photos-album-ico')).toHaveCount(0);
     await open('t1');
-    await menu.getByRole('button', { name: '색 고르기…', exact: true }).click();
+    await menu.getByRole('button', { name: '색 선택…', exact: true }).click();
     await menu.locator('.fl-choice').getByRole('radio', { name: '기본', exact: true }).click();
     await expect(menu).toBeHidden();
     expect(s.tagCalls.length).toBe(3);
     // 마지막 앨범에 강청(5) → 새로고침해도 순서와 색이 서버 값으로 유지.
     await open('t2');
-    await expect(menu.locator('button')).toHaveText(['이름 바꾸기', '색 고르기…', '위로', '지우기(사진은 그대로)']);
-    await menu.getByRole('button', { name: '색 고르기…', exact: true }).click();
+    await expect(menu.locator('button')).toHaveText(['이름 바꾸기', '색 선택…', '위로', '삭제(사진은 그대로)']);
+    await menu.getByRole('button', { name: '색 선택…', exact: true }).click();
     await menu.locator('.fl-choice').getByRole('radio', { name: '강청', exact: true }).click();
     await expect.poll(() => s.tagCalls.length).toBe(4);
     expect(s.tagCalls[3]).toEqual([{ id: 't2', c: 5 }]);
@@ -230,7 +230,7 @@ for (const width of [1440, 412]) test.describe(`사진 폴더·앨범 색·순�
     await expect.poll(albumIds).toEqual(['t1', 't2']);
     await root(page).locator('[data-photos-album="t2"] [data-photos-al-more]').click();
     const menu = page.locator('#photosAlbumMenu');
-    await menu.getByRole('button', { name: '색 고르기…', exact: true }).click();
+    await menu.getByRole('button', { name: '색 선택…', exact: true }).click();
     await menu.locator('.fl-choice').getByRole('radio', { name: '자주', exact: true }).click();
     await expect.poll(() => s.tagCalls.length).toBe(1);
     await expect(page.locator('body')).toContainText('앨범 색을 저장하지 못했어요');

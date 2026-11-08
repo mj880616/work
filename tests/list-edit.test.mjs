@@ -8,7 +8,7 @@ import {reorderedCategories} from '../app/document-categories.js';
 test('줄 모양: 손잡이·이름 단추·수·⋯, 고정 줄은 단추 없음, 빨강 없음',()=>{
   const row=leRowHtml({id:'정책',label:'정책',meta:'7',drag:true});
   assert.match(row,/data-reorder-id="정책"/);assert.match(row,/class="le-handle" data-reorder-handle/);
-  assert.match(row,/class="le-name" data-le-rename="정책" aria-label="정책 이름 고치기"/);assert.match(row,/<span class="le-meta">7<\/span>/);
+  assert.match(row,/class="le-name" data-le-rename="정책" aria-label="정책 이름 수정"/);assert.match(row,/<span class="le-meta">7<\/span>/);
   assert.match(row,/class="le-more" data-le-menu="정책"/);assert.doesNotMatch(row,/danger/);
   const lock=leRowHtml({id:'기타',label:'기타',meta:'1',locked:true});
   assert.doesNotMatch(lock,/<button/);assert.match(lock,/<span class="le-lock"><span class="ui-ico ui-ico-lock" aria-hidden="true"><svg[^]*<\/span>고정<\/span>/);assert.doesNotMatch(lock,/🔒/);

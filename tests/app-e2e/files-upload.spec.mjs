@@ -67,7 +67,7 @@ test('PC 1440: 바탕화면 파일 끌어 놓기 → 점선 안내 → 같은 �
   expect(errors).toEqual([]);
 });
 
-test('PC 1440 H-6: 올리는 중 화면을 숨기면 일시 정지(서버 줄) → 다시 보이면 남은 조각부터 / 다시 연 화면은 같은 파일을 골라야 이어 올림', async ({ page }) => {
+test('PC 1440 H-6: 올리는 중 화면을 숨기면 일시 정지(서버 줄) → 다시 보이면 남은 조각부터 / 다시 연 화면은 같은 파일을 선택해야 이어 올림', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await begin(page, 1440);
   await intoDocs(page, 1440);
@@ -100,7 +100,7 @@ test('PC 1440 H-6: 올리는 중 화면을 숨기면 일시 정지(서버 줄) �
   await openFiles(page, 1440);
   await root(page).locator('[data-fx-xfer] [data-fx-jobs-open]').click();
   const line = jobsBox(page).locator('.fx-job', { hasText: '가짜 둘째.txt' });
-  await expect(line.locator('small')).toContainText('이어 올리려면 같은 파일을 다시 골라 주세요');
+  await expect(line.locator('small')).toContainText('이어 올리려면 같은 파일을 다시 선택해 주세요');
   await shot(page, 'files-upload-reopen-1440');
   let chooser = page.waitForEvent('filechooser');
   await line.locator('[data-fx-job-act="reup"]').click();
@@ -116,7 +116,7 @@ test('PC 1440 H-6: 올리는 중 화면을 숨기면 일시 정지(서버 줄) �
 });
 
 for (const width of [412, 884]) {
-  test(`${width}: 위 줄 [올리기] → 고르기 창 → 여러 개 올림, 전송 줄·목록 · 별표 누르기([별표] 탭에 바로)`, async ({ page }) => {
+  test(`${width}: 위 줄 [올리기] → 선택 창 → 여러 개 올림, 전송 줄·목록 · 별표 누르기([별표] 탭에 바로)`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, server } = await begin(page, width);
     await intoDocs(page, width);

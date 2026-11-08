@@ -8,7 +8,7 @@ export const currentWeek = () => mondayOf(seoulDateKey(Date.now()));
 
 export function weekPickHtml(week, {disabled = false} = {}) {
   const dis = disabled ? ' disabled' : '', now = currentWeek();
-  return `<span class="week-pick" role="group" aria-label="주 고르기" data-week-pick="${esc(week)}">`
+  return `<span class="week-pick" role="group" aria-label="주 선택" data-week-pick="${esc(week)}">`
     + `<button type="button" class="week-pick-step" data-week-step="-1" aria-label="지난 주"${dis}>‹</button>`
     + `<span class="week-pick-label" aria-live="polite">${esc(weekLabel(week))}</span>`
     + `<button type="button" class="week-pick-step" data-week-step="1" aria-label="다음 주"${dis}>›</button>`

@@ -37,7 +37,7 @@ async function open(page,width,tasks,{height=820,fail=null}={}){
 const historyLength=page=>page.evaluate(()=>history.length);
 
 for(const width of [690,884,1280]){
-  test(`${width}: 왼쪽 목록 | 오른쪽 상세 — 고르면 오른쪽에 열리고, 고치면 바로 저장, ✕·뒤로 키로 닫힘`,async({page})=>{
+  test(`${width}: 왼쪽 목록 | 오른쪽 상세 — 선택하면 오른쪽에 열리고, 수정하면 바로 저장, ✕·뒤로 키로 닫힘`,async({page})=>{
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     const tasks=[task('late','2026-10-06'),task('a','2026-10-08',{notes:'첫 메모'}),task('b','2026-10-08'),task('soon','2026-10-10')];
     const calls=await open(page,width,tasks);
@@ -72,12 +72,12 @@ for(const width of [690,884,1280]){
     await expect(page.locator('#gtEditDue')).toHaveValue('2026-10-09');
     await expect(pane.locator('[data-gt-due-quick="1"]')).toHaveAttribute('aria-pressed','true');
     // 메모: 입력을 멈추면 바로 저장(같은 update 경로).
-    await page.locator('#gtEditNotes').fill('고친 메모');
-    await expect.poll(()=>calls.filter(c=>c.action==='update').at(-1)?.body.notes).toBe('고친 메모');
+    await page.locator('#gtEditNotes').fill('수정한 메모');
+    await expect.poll(()=>calls.filter(c=>c.action==='update').at(-1)?.body.notes).toBe('수정한 메모');
     await expect(editor).toBeVisible();await expect(pane.locator('#gtEditStatus')).toHaveText('저장했어요.');
     // 제목: Enter로 저장, 칸은 그대로.
-    await page.locator('#gtEditTitle').fill('고친 제목');await page.locator('#gtEditTitle').press('Enter');
-    await expect.poll(()=>calls.filter(c=>c.action==='update').at(-1)?.body.title).toBe('고친 제목');
+    await page.locator('#gtEditTitle').fill('수정한 제목');await page.locator('#gtEditTitle').press('Enter');
+    await expect.poll(()=>calls.filter(c=>c.action==='update').at(-1)?.body.title).toBe('수정한 제목');
     // 연결: 고르기 창에서 [넣기]하면 바로 link.
     await toggleKeys(page,'#gtDetailPane','org',['o:o1']);
     await expect.poll(()=>calls.filter(c=>c.action==='link').map(c=>c.body.links)).toEqual([[{organization_id:'o1'}]]);
@@ -146,7 +146,7 @@ test('412: 폰 수정 창도 빠른 기한이면 저장 뒤 닫히고 [되돌리
   await expect(page.locator('[data-undo-notice] [data-undo-text]')).toHaveText("'할 일 a' 기한을 10월 10일(토)로 바꿨어요.");
 });
 
-test('690: 메모를 쓰다 다른 줄을 고르면 쓰던 메모를 먼저 저장하고 넘어간다',async({page})=>{
+test('690: 메모를 쓰다 다른 줄을 선택하면 쓰던 메모를 먼저 저장하고 넘어간다',async({page})=>{
   const tasks=[task('a','2026-10-08'),task('b','2026-10-08')];
   const calls=await open(page,690,tasks);
   await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtTaskModal')).toBeVisible();

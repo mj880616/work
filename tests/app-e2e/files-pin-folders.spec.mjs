@@ -66,7 +66,7 @@ test('PC 1440: ⋯ [위에 고정] → 별표 위 상자(출처 글자), 나무 
   expect(errors).toEqual([]);
 });
 
-test('출처를 끄면 그 고정은 흐리게 "연결 안 됨"(지우지 않음), 다시 켜면 그대로', async ({ page }) => {
+test('출처를 끄면 그 고정은 흐리게 "연결 안 됨"(삭제하지 않음), 다시 켜면 그대로', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, prefs } = await begin(page, 1440, { files_pins: ['gd:gdFolder1', 'od:OD!2'] });
   await expect(box(page).locator('.fx-pin .ft-name')).toHaveText(['가짜 업무 공간', '가짜 사진함']);

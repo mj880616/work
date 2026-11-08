@@ -102,7 +102,7 @@ test('PC 수정 화면: 결과 칸에 결과 파일을 끌어 놓으면 본문�
   expect(state.errors).toEqual([]);
 });
 
-test('PC 보기 화면(회의 결과 창): 회의자료 줄에 놓으면 묻지 않고 첨부, 모르는 파일을 결과로 고르면 본문을 결과에 더해 저장',async({page})=>{
+test('PC 보기 화면(회의 결과 창): 회의자료 줄에 놓으면 묻지 않고 첨부, 모르는 파일을 결과로 선택하면 본문을 결과에 더해 저장',async({page})=>{
   const state=await boot(page);
   await openMeetingResult(page,'meeting-1');
   const modal=page.locator('#meetingRoundDetailModal');

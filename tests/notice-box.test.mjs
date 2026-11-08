@@ -16,7 +16,7 @@ test('줄: 내용 한 줄 + 아래 작은 줄(왼쪽 글, 오른쪽 [할 일로]
   assert.deepEqual(acts, [['task', '할 일로'], ['event', '일정으로'], ['note', '노트로'], ['done', '이미 함'], ['dismissed', '×']]);
   // 버튼은 UI-버튼6가지 부품만: 줄 안 동작은 ③ 글자 버튼, ×는 ⑥ 아이콘.
   assert.equal([...html.matchAll(/class="row-act nbx-act"/g)].length, 4);
-  assert.match(html, /class="icon-btn nbx-x" data-nbx-act="dismissed" aria-label="지우기: &lt;b&gt;가짜&lt;\/b&gt; 요청"/);
+  assert.match(html, /class="icon-btn nbx-x" data-nbx-act="dismissed" aria-label="삭제: &lt;b&gt;가짜&lt;\/b&gt; 요청"/);
   assert.equal([...nb.rowHtml({id: 'r', body: 'x', busy: true}).matchAll(/ disabled/g)].length, 5);
 });
 
@@ -24,12 +24,12 @@ test('머리 줄: 제목 · 개수(있을 때) · 흐린 글 · [열기 ›], �
   assert.equal(nb.headHtml({title: '나한테 온 요청', count: 2, faint: '· 텔레그램 ·', countAttr: 'data-asks-count', open: {attr: 'data-goto="basket"', label: '정리함 열기 ›'}}),
     '<div class="nbx-head"><span class="nbx-title">나한테 온 요청</span><span class="nbx-n" data-asks-count>2</span><span class="nbx-faint">· 텔레그램 ·</span><button type="button" class="row-act nbx-open" data-goto="basket">정리함 열기 ›</button></div>');
   assert.equal(nb.headHtml({title: '잊지 말기', count: 0, faint: '· 새 제안 없음 ·'}), '<div class="nbx-head is-one"><span class="nbx-title">잊지 말기</span><span class="nbx-faint">· 새 제안 없음 ·</span></div>');
-  assert.match(nb.boxHtml({head: '', rows: [], status: '지웠어요', undo: true}), /<p class="nbx-status" role="status" aria-live="polite">지웠어요 <button type="button" class="row-act nbx-undo" data-nbx-undo>되돌리기<\/button><\/p>/);
+  assert.match(nb.boxHtml({head: '', rows: [], status: '삭제했어요', undo: true}), /<p class="nbx-status" role="status" aria-live="polite">삭제했어요 <button type="button" class="row-act nbx-undo" data-nbx-undo>되돌리기<\/button><\/p>/);
   assert.equal(nb.NB_UNDO_MS, 5000);
 });
 
 test('같은 부품 하나: 정리함 한 목록의 줄과 홈 잊지 말기 한 줄은 notice-box.mjs로 그리고, 따로 줄·버튼을 만들지 않는다', () => {
-  // S52-20 ②: 옛 홈 두 상자(asks-box.js·home-family.js)는 지웠다.
+  // S52-20 ②: 옛 홈 두 상자(asks-box.js·home-family.js)는 삭제했다.
   for (const f of ['home-family.js', 'asks-box.js']) assert.throws(() => read(f), /ENOENT/, f);
   // S52-20: 정리함 안은 상자 없이 한 목록(forget-list.js)이고, 그 줄도 같은 부품(rowHtml) — 따로 줄·버튼 HTML 없음.
   assert.doesNotMatch(read('inbox-todos.js'), /mountAsksBox|asksHost/);

@@ -228,7 +228,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     html({canHide = false, canTrash = false} = {}) {
       if (!st) return '';
       if (st.running) return `<p class="photos-tidy-line" role="status">사진 확인 중 · 폰 ${st.ph.length}장${st.odOn ? ` · 원드라이브 ${st.od.length}장` : ''}</p>`;
-      if (st.failed) return `<p class="photos-tidy-line">${esc(st.failed)} <button type="button" class="mini" data-photos-tidy-rescan>다시 찾기</button></p>`;
+      if (st.failed) return `<p class="photos-tidy-line">${esc(st.failed)} <button type="button" class="mini" data-photos-tidy-rescan>다시</button></p>`;
       const off = phoneOff(), rows = [];
       // 펼친 칸: 합계 용량 + 정렬 칩 + 사진 칸 자리(사진은 photos.js가 처음 일정 장수만 그리고 스크롤로 이어 그린다).
       const chips = (key, names) => `<span class="photos-tidy-sorts" role="group" aria-label="정렬">${Object.entries(names).map(([s, t]) =>
@@ -245,7 +245,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       const doLine = t => `<p class="photos-tidy-line photos-tidy-do">${esc(t)}</p>`;
       // 맨 위: 언제 찾았나 · 몇 장 확인 · [다시 찾기](이 단추만 새로 찾는다).
       rows.push(`<p class="photos-tidy-at">${esc(foundText(st.at, now()))} · 폰 ${st.ph.length}장${st.odOn ? ` · 원드라이브 ${st.od.length}장` : ''} 확인${st.partial ? `(${SCAN_MAX}장까지만)` : ''}`
-        + `${st.stale ? ' · 그 뒤 폰이 바뀌었어요' : ''} <button type="button" class="mini" data-photos-tidy-rescan>다시 찾기</button></p>`);
+        + `${st.stale ? ' · 그 뒤 폰이 바뀌었어요' : ''} <button type="button" class="mini" data-photos-tidy-rescan>최신화</button></p>`);
       if (st.gone > 0) rows.push(`<p class="photos-tidy-line photos-tidy-warn" role="alert">${esc(goneText(st.gone))} <button type="button" class="mini" data-photos-tidy-gone-ok>알았어요</button></p>`);
       // [나머지 지우기]도 원드라이브 사본이 확인된 사진만 지운다(원드라이브를 읽었을 때만 단추).
       const dupTrash = canTrash && st.odOn;
@@ -278,7 +278,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       if (st.odOn && st.space) {
         const sp = st.space;
         rows.push(sp.items.length
-          ? `<details class="photos-tidy-row" data-k="space"><summary><span>공간 비우기 · 폰에서만 지우면 <b>${sizeText(sp.bytes) || sp.items.length + '장'}</b> 비워져요${help(TIDY_HELP.space)}</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">${doLine(TIDY_HELP.spaceDo)}<div class="photos-tidy-junk"><span>원드라이브에 있는 1년 지난 사진 ${sp.photos}장 · 큰 동영상 ${sp.videos}개(별표 뺌)</span>`
+          ? `<details class="photos-tidy-row" data-k="space"><summary><span>공간 비우기 · 폰에서만 삭제하면 <b>${sizeText(sp.bytes) || sp.items.length + '장'}</b> 비워져요${help(TIDY_HELP.space)}</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">${doLine(TIDY_HELP.spaceDo)}<div class="photos-tidy-junk"><span>원드라이브에 있는 1년 지난 사진 ${sp.photos}장 · 큰 동영상 ${sp.videos}개(별표 뺌)</span>`
             + (canTrash ? '<button type="button" class="mini photos-danger" data-photos-tidy-trash="space">폰 공간만 비우기</button>' : '') + `</div>${pane('space')}</div></details>`
           : '<p class="photos-tidy-line">공간 비우기 · 후보 없음</p>');
       }
@@ -286,7 +286,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       if (st.dups.length || simOn() || st.copyHash.running) {
         const kind = dupKindOf(), all = dupStats(st.dups), mine = st.dups.filter(g => g.kind === kind), shown = shownDups(), stat = dupStats(mine);
         const sim = st.sim, simWait = kind === 'similar' && !sim.done && simOn();
-        rows.push(`<details class="photos-tidy-row" data-k="dups"><summary><span>같은 사진·연사 <b>묶음 ${all.groups}개</b> · 지울 수 있는 ${all.extra}장${all.bytes ? ' · ' + sizeText(all.bytes) : ''}${help(TIDY_HELP.dups)}</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">`
+        rows.push(`<details class="photos-tidy-row" data-k="dups"><summary><span>같은 사진·연사 <b>묶음 ${all.groups}개</b> · 삭제할 수 있는 ${all.extra}장${all.bytes ? ' · ' + sizeText(all.bytes) : ''}${help(TIDY_HELP.dups)}</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">`
           + `<div class="photos-tidy-row photos-tidy-places" role="group" aria-label="묶음 종류">${Object.keys(DUP_TEXT).filter(k => k !== 'similar' || simOn()).map(k => {
             const n = st.dups.filter(g => g.kind === k).length;
             // 비슷한 사진은 누를 때 계산하므로 계산 전에는 숫자가 없고 늘 누를 수 있다.
@@ -297,20 +297,20 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
           + (st.copyHash.running ? `<p class="photos-tidy-line" data-photos-tidy-copyhash>같은 사진인지 작은 그림 비교 ${st.copyHash.count}/${st.copyHash.total}장 ${waitInlineHtml()}</p>` : '')
           + (simWait ? (sim.running ? `<p class="photos-tidy-line" data-photos-tidy-sim>비슷한 사진 비교 ${sim.count}/${st.simCand.length}장 ${waitInlineHtml()}</p>`
             : `<p class="photos-tidy-line" data-photos-tidy-sim>사진 ${st.simCand.length}장의 작은 그림을 비교해요 <button type="button" class="mini" data-photos-tidy-dupkind="similar">찾기</button></p>`) : '')
-          + doLine(dupTrash ? TIDY_HELP.dupsDo : '묶음마다 남길 한 장을 고를 수 있어요 · 지우기는 원드라이브 연결·폰 휴지통이 있을 때만')
+          + doLine(dupTrash ? TIDY_HELP.dupsDo : '묶음마다 남길 한 장을 선택할 수 있어요 · 삭제는 원드라이브 연결·폰 휴지통이 있을 때만')
           + `<div class="photos-tidy-pane-head"><span class="photos-tidy-num">묶음마다 남길 사진을 누르세요(테두리 = 남김)</span>${chips('dups', DUP_SORTS)}</div>`
           + shown.map(g => {
             const keep = keepOf(g), key = 'dup:' + g.id, open = panes.has(key);
             return `<div class="photos-tidy-dup" data-photos-tidy-dup="${esc(g.id)}"><span class="photos-tidy-num">${DUP_TEXT[g.kind]} ${g.items.length}장${g.bytes ? ' · 아낄 ' + sizeText(g.bytes) : ''}</span>`
               + `<button type="button" class="mini" data-photos-tidy-see="${esc(key)}" aria-expanded="${open}">비교</button>`
-              + (dupTrash ? `<button type="button" class="mini photos-danger" data-photos-tidy-trash="dup|${esc(g.id)}">나머지 지우기</button>` : '')
+              + (dupTrash ? `<button type="button" class="mini photos-danger" data-photos-tidy-trash="dup|${esc(g.id)}">나머지 삭제</button>` : '')
               + '<span class="photos-tidy-ths">'
               + g.items.slice(0, 8).map(p => `<button type="button" class="photos-tidy-pick" data-photos-tidy-keep="${esc(g.id)}|${esc(p.id)}" aria-pressed="${p.id === keep}" aria-label="${p.id === keep ? '남길 사진' : '이 사진 남기기'}"><span class="photos-tidy-th" data-photos-tidy-th="${esc(p.id)}"></span>${sizeText(p.size_bytes) ? `<span class="photos-tidy-size">${sizeText(p.size_bytes)}</span>` : ''}</button>`).join('')
               + `${g.items.length > 8 ? `<span class="photos-tidy-num">외 ${g.items.length - 8}장</span>` : ''}</span>`
               + (open ? cmpHtml(g, keep) : '') + '</div>';
           }).join('')
           + (mine.length > shown.length ? `<p class="photos-tidy-line">외 ${mine.length - shown.length}묶음(위 묶음을 정리하면 이어서 보여요)</p>` : '')
-          + (dupTrash ? `<div class="photos-tidy-junk"><span>보이는 ${DUP_TEXT[kind]} 묶음에서 남길 사진만 두고</span><button type="button" class="mini photos-danger" data-photos-tidy-trash="dups">나머지 모두 지우기</button></div>` : '')
+          + (dupTrash ? `<div class="photos-tidy-junk"><span>보이는 ${DUP_TEXT[kind]} 묶음에서 남길 사진만 두고</span><button type="button" class="mini photos-danger" data-photos-tidy-trash="dups">나머지 모두 삭제</button></div>` : '')
           + '</div></details>');
       }
       // ⑤ 잡동사니
@@ -321,7 +321,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
           return `<div class="photos-tidy-junk"><span>${esc(g.label)} ${g.items.length}장${g.bytes ? ' · ' + sizeText(g.bytes) : ''}${hidden ? ' · 숨김' : ''}${help(JUNK_HELP[g.kind] || '')}</span>`
             + `<button type="button" class="mini" data-photos-tidy-see="${key}" aria-expanded="${panes.has(key)}">보기</button>`
             + (canHide && g.folders.length ? `<button type="button" class="mini" data-photos-tidy-hide="${g.kind}">${hidden ? '다시 보이기' : '숨기기'}</button>` : '')
-            + (canTrash ? `<button type="button" class="mini photos-danger" data-photos-tidy-trash="${g.kind}">지우기</button>` : '')
+            + (canTrash ? `<button type="button" class="mini photos-danger" data-photos-tidy-trash="${g.kind}">삭제</button>` : '')
             + '</div>' + (panes.has(key) ? pane(key) : '');
         }).join('')}</div></details>`
         : '<p class="photos-tidy-line">잡동사니 · 없음</p>');

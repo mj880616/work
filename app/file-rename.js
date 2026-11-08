@@ -26,7 +26,7 @@ export function markRenameHost(el, spec) {
 }
 export function renameButtonHtml(spec, {cls = ''} = {}) {
   if (!specOk(spec)) return '';
-  return `<button type="button" class="fr-edit${cls ? ' ' + esc(cls) : ''}" data-fr-edit${specAttrs(spec)} aria-label="${esc(spec.name)} 이름 고치기" title="이름 고치기">✎</button>`;
+  return `<button type="button" class="fr-edit${cls ? ' ' + esc(cls) : ''}" data-fr-edit${specAttrs(spec)} aria-label="${esc(spec.name)} 이름 수정" title="이름 수정">✎</button>`;
 }
 const specOf = el => ({target: el.dataset.frTarget || '', id: el.dataset.frId || '', driveId: el.dataset.frDrive || '', name: el.dataset.frName || ''});
 
@@ -51,7 +51,7 @@ export function applyRenamedNote(note, detail) {
 export function renameErrorText(error) {
   const status = Number(error?.status) || 0, msg = String(error?.message || '');
   if (status === 401) return '로그인을 확인하지 못했어요. 다시 로그인한 뒤 해 주세요.';
-  if (msg === 'Unknown action' || msg === 'document_id가 필요합니다.' || [403, 404, 405].includes(status)) return '이름 고치기가 아직 준비되지 않았어요. 바뀐 것은 없어요.';
+  if (msg === 'Unknown action' || msg === 'document_id가 필요합니다.' || [403, 404, 405].includes(status)) return '이름 수정이 아직 준비되지 않았어요. 바뀐 것은 없어요.';
   if (status === 400 && msg) return msg;
   return '이름이 바뀌었는지 확인하지 못했어요. 화면을 다시 열어 확인해 주세요.';
 }
@@ -112,11 +112,11 @@ export function openRenameEditor(trigger, {rt = globalThis.window?.KPTURuntime} 
   };
   const suggest = async () => {
     if (state.busy) return;
-    setBusy(true); say('AI가 이름을 고르고 있어요…', false);
+    setBusy(true); say('AI가 이름을 선택하고 있어요…', false);
     try {
       const data = await rt.api('/functions/v1/ai-assist', {method: 'POST', body: {kind: 'file_name', target: spec.target, id: spec.id, drive_file_id: spec.driveId}, refreshSession: false, singleFlight: false});
       setBusy(false);
-      if (data?.ok === true && typeof data.name === 'string' && checkFileBase(data.name).ok) { input.value = data.name; say('추천을 채웠어요. 고친 뒤 [저장]을 눌러 주세요.', false); }
+      if (data?.ok === true && typeof data.name === 'string' && checkFileBase(data.name).ok) { input.value = data.name; say('추천을 채웠어요. 수정한 뒤 [저장]을 눌러 주세요.', false); }
       else say(aiNameText(data), false);
     } catch (e) {
       setBusy(false);

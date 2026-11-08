@@ -104,9 +104,9 @@ for (const width of [390, 1440]) {
     await page.keyboard.press('ArrowLeft');
     await expect(view.locator('.basket-photo-count')).toHaveText('2/4');
     expect(state.photoCalls.some(c => c.size === 'large')).toBe(true);
-    // ⋯ 메뉴에 Drive에서 열기·내려받기·지우기가 있다.
+    // ⋯ 메뉴에 Drive에서 열기·내려받기·삭제가 있다.
     await view.locator('.basket-photo-more-btn').click();
-    await expect(view.locator('.basket-photo-more-panel')).toContainText('지우기');
+    await expect(view.locator('.basket-photo-more-panel')).toContainText('삭제');
     await expect(view.locator('.basket-photo-more-panel')).toContainText('Drive에서 열기');
     await page.keyboard.press('Escape');
     await expect(view).toHaveCount(0);

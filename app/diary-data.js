@@ -157,7 +157,7 @@ export async function removeDiaryPhotos(row, fileIds, rt = window.KPTURuntime) {
   const gone = new Set(fileIds);
   const attachments = (row.attachments || []).filter(file => !gone.has(file.drive_file_id));
   if (attachments.length === (row.attachments || []).length) throw new Error('이미 빠진 사진이에요.');
-  if (!attachments.length && !diaryText(row)) throw Object.assign(new Error('글 없이 사진 한 장만 있는 일기라 이 사진은 뺄 수 없어요. 일기를 지우려면 [일기 지우기]를 눌러 주세요.'), {code:'last_photo'});
+  if (!attachments.length && !diaryText(row)) throw Object.assign(new Error('글 없이 사진 한 장만 있는 일기라 이 사진은 뺄 수 없어요. 일기를 삭제하려면 [일기 삭제]를 눌러 주세요.'), {code:'last_photo'});
   // The comment of the removed photo goes in the same write, so no orphan comment stays behind.
   const body = {attachments};
   if (row.metadata?.photo_comments !== undefined) { const rest = {...photoComments(row)}; for (const id of gone) delete rest[id]; body.metadata = withComments(row.metadata, rest); }
@@ -219,7 +219,7 @@ export async function shrinkPhoto(file, {edge = DIARY_PHOTO_EDGE, quality = 0.86
     const ctx = canvas.getContext('2d'); ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--ds-photo-paper').trim() || 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
-    if (!blob?.size) throw new Error('사진을 줄이지 못했어요. 다른 사진으로 다시 골라 주세요.');
+    if (!blob?.size) throw new Error('사진을 줄이지 못했어요. 다른 사진으로 다시 선택해 주세요.');
     const name = (String(file.name || 'photo').replace(/\.[^./]{1,8}$/, '') || 'photo').slice(0, 200) + '.jpg';
     return new File([blob], name, {type:'image/jpeg', lastModified:file.lastModified || Date.now()});
   } finally { bitmap.close?.(); }

@@ -18,7 +18,7 @@ const workspaceId = () => rt?.context?.read?.()?.workspace?.id || null;
 const LEDGER_ID = /^[A-Z]{2,6}-[0-9]{4,6}$/;
 // 일상어 고치기가 서버에 아직 없을 때(배포 전): 덩어리 붙여 넣기는 그대로 된다.
 const PLACEHOLDER_NEW = '예: 나 지부 2차 교섭은 11/4가 아니라 11/5였음 (Claude 수정안을 붙여 넣어도 돼요)';
-const NOT_READY = '일상어 고치기는 아직 준비 중이에요. Claude 수정안 덩어리를 붙여 넣으면 바로 해 볼 수 있어요.';
+const NOT_READY = '일상어 수정은 아직 준비 중이에요. Claude 수정안 덩어리를 붙여 넣으면 바로 해 볼 수 있어요.';
 
 let state = fresh();
 let bound = false;
@@ -75,7 +75,7 @@ async function preview() {
         state.error = ['not_ready', 'unsupported_kind'].includes(r.code) ? NOT_READY : (AI_SUMMARY_TEXT[r.code] || AI_SUMMARY_TEXT.internal_error);
         return;
       }
-      if (!r.data.request) { state.note = typeof r.data.question === 'string' && r.data.question ? r.data.question : '무엇을 고칠지 알아듣지 못했어요.'; return; }
+      if (!r.data.request) { state.note = typeof r.data.question === 'string' && r.data.question ? r.data.question : '무엇을 수정할지 알아듣지 못했어요.'; return; }
       request = r.data.request;
       dry = { dry_run: true, items: r.data.preview };
     }
@@ -143,7 +143,7 @@ function render() {
 function shellHtml() {
   return `<section class="lg-card lf-card" data-lf-shell aria-labelledby="lfTitle">
     <div class="lf-head"><h3 id="lfTitle" class="lf-h">기록하기</h3><button type="button" class="lg-text-btn lf-close" data-lf-action="close" aria-label="기록하기 닫기">✕</button></div>
-    <label class="lg-sr" for="lfText">고칠 내용 또는 새로 넣을 내용</label>
+    <label class="lg-sr" for="lfText">수정할 내용 또는 새로 넣을 내용</label>
     <textarea id="lfText" class="lf-text" rows="2" maxlength="60000" placeholder="${PLACEHOLDER_NEW}" autocomplete="off"></textarea>
     <div class="lf-row"><button type="button" class="secondary" data-lf-action="preview">미리보기</button><span class="lg-muted lf-hint">${FIX_TEXT_MAX}자까지 · 미리보기를 보고 [반영]해야 바뀌어요</span></div>
     <div id="lfStatus"></div>

@@ -139,12 +139,12 @@ function progressCell(ref,row,items,records){
     return editBox('progress',value,`${ref.area} ${ref.task} 진행 상황 및 이후 계획`);
   }
   const body=saved.length?saved.map(l=>`<p class="biz-hand-line">${esc(l)}</p>`).join(''):facts;
-  return `${body}${state.editable?`<button type="button" class="biz-write-open" data-bp-cell="progress" data-bp-row="${row}" aria-label="${esc(`${ref.area} ${ref.task} 진행 상황 쓰기`)}">${saved.length||items.length?'고치기':'쓰기'}</button>`:''}`;
+  return `${body}${state.editable?`<button type="button" class="biz-write-open" data-bp-cell="progress" data-bp-row="${row}" aria-label="${esc(`${ref.area} ${ref.task} 진행 상황 쓰기`)}">${saved.length||items.length?'수정':'쓰기'}</button>`:''}`;
 }
 function ownerCell(ref,row){
   const ed=state.editing,mine=ed&&ed.kind==='owner'&&ed.row===row,value=savedOwner(ref.area,ref.task);
   if(mine)return editBox('owner',value,`${ref.area} ${ref.task} 담당`);
-  return `${esc(value)}${state.editable?`<button type="button" class="biz-write-open" data-bp-cell="owner" data-bp-row="${row}" aria-label="${esc(`${ref.area} ${ref.task} 담당 쓰기`)}">${value?'고치기':'쓰기'}</button>`:''}`;
+  return `${esc(value)}${state.editable?`<button type="button" class="biz-write-open" data-bp-cell="owner" data-bp-row="${row}" aria-label="${esc(`${ref.area} ${ref.task} 담당 쓰기`)}">${value?'수정':'쓰기'}</button>`:''}`;
 }
 function paperHtml(placed,records,untagged,all,lineOf){
   const rows=[],refs=[];

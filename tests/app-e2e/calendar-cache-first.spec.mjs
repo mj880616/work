@@ -21,7 +21,7 @@ const event=(id,title,offset=0,hour=10)=>({id,title,start:at(offset,hour),end:at
 const task=(id,title)=>({id,title,taskListId:'l1',taskListTitle:'업무',due:kstKey(0)+'T00:00:00.000Z',notes:'',status:'needsAction',source:'google-task'});
 
 function newState(){
-  return {events:[event('keep','남는 일정'),event('gone','지울 일정',0,13)],tasks:[task('t-keep','남는 할 일'),task('t-gone','지울 할 일')],
+  return {events:[event('keep','남는 일정'),event('gone','삭제할 일정',0,13)],tasks:[task('t-keep','남는 할 일'),task('t-gone','삭제할 할 일')],
     hold:false,waiters:[],failEvents:false,failTasks:false,eventCalls:0,deleted:[],trashed:[]};
 }
 const release=state=>{state.hold=false;state.waiters.splice(0).forEach(r=>r())};
@@ -227,19 +227,19 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     const state=newState();await mock(page,state);
     await signIn(page,'home');
     const schedule=page.locator('#homeView [data-journal-schedule]');
-    await expect(schedule).toContainText('지울 일정');await expect(schedule).toContainText('남는 일정');
+    await expect(schedule).toContainText('삭제할 일정');await expect(schedule).toContainText('남는 일정');
     expect(await page.evaluate(k=>localStorage.getItem(k),HOME_KEY)).toBeNull();
     state.hold=true;
     await page.reload();await ready(page);
     await expect(schedule.locator('[data-wait]').first()).toBeVisible();
-    await expect(schedule).not.toContainText('지울 일정');
+    await expect(schedule).not.toContainText('삭제할 일정');
     state.failEvents=true;release(state);
     await expect(schedule.locator('[data-journal-failed]')).toBeVisible();
-    await expect(schedule).not.toContainText('지울 일정');
+    await expect(schedule).not.toContainText('삭제할 일정');
     state.failEvents=false;state.events=state.events.filter(e=>e.id!=='gone');
     await schedule.locator('[data-journal-retry]').click();
     await expect(schedule).toContainText('남는 일정');
-    await expect(schedule).not.toContainText('지울 일정');
+    await expect(schedule).not.toContainText('삭제할 일정');
     await expect(schedule.locator('[data-journal-failed]')).toHaveCount(0);
   });
 
@@ -247,11 +247,11 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     const state=newState();await mock(page,state);
     await signIn(page,'tasks');
     const body=page.locator('#gtTaskBody'),line=page.locator('#gtTaskSection [data-gt-fresh]');
-    await expect(body).toContainText('지울 할 일');
+    await expect(body).toContainText('삭제할 할 일');
     await expect.poll(()=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)||'null')?.tasks?.length,TASK_KEY)).toBe(2);
     state.tasks=state.tasks.filter(t=>t.id!=='t-gone');state.failTasks=true;
     await page.reload();await ready(page);
-    await expect(body).toContainText('지울 할 일');
+    await expect(body).toContainText('삭제할 할 일');
     await expect(line).toBeVisible();
     await expect(line).toContainText('최신 아님 · 마지막 확인');
     await expect(line.getByRole('button',{name:'다시 시도'})).toBeVisible();
@@ -270,7 +270,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     await page.reload();await ready(page);
     await expect(fresh(page)).toHaveAttribute('data-freshness','refresh');await expect(fresh(page).locator('[data-wait]')).toHaveCount(1);
     await listEvent(page,'gone').click();
-    await expect(page.locator('#ciGoogleTitle')).toHaveValue('지울 일정');
+    await expect(page.locator('#ciGoogleTitle')).toHaveValue('삭제할 일정');
     await expect(page.locator('#ciGoogleSave')).toBeDisabled();
     release(state);
     await expect(page.locator('#ciGoogleStatus')).toContainText('삭제된 항목');
@@ -284,12 +284,12 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     await signIn(page,'calendar');
     await listEvent(page,'keep').click();
     await expect(page.locator('#ciGoogleSave')).toBeEnabled();
-    await page.locator('#ciGoogleTitle').fill('고친 일정');
+    await page.locator('#ciGoogleTitle').fill('수정한 일정');
     state.hold=true;
     await page.locator('#ciGoogleSave').click();
-    await expect.poll(async()=>{const v=await copy(page);return v&&v!=='navigating'?Object.values(v.ranges).flatMap(r=>r.events).find(e=>e.id==='keep')?.title:v}).toBe('고친 일정');
+    await expect.poll(async()=>{const v=await copy(page);return v&&v!=='navigating'?Object.values(v.ranges).flatMap(r=>r.events).find(e=>e.id==='keep')?.title:v}).toBe('수정한 일정');
     expect(await page.evaluate(k=>localStorage.getItem(k),HOME_KEY)).toBeNull();
-    await expect(listEvent(page,'keep')).toContainText('고친 일정');
+    await expect(listEvent(page,'keep')).toContainText('수정한 일정');
     release(state);
   });
 
@@ -298,14 +298,14 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     const state=newState();await mock(page,state);
     await signIn(page,'calendar');
     const grid=page.locator('#calendarGrid');
-    await expect(grid).toContainText('지울 일정');
+    await expect(grid).toContainText('삭제할 일정');
     await expect(fresh(page)).toBeHidden();
     state.events=state.events.filter(e=>e.id!=='gone');state.hold=true;
     await page.reload();await ready(page);
-    await expect(grid).toContainText('지울 일정');
+    await expect(grid).toContainText('삭제할 일정');
     await expect(fresh(page)).toHaveAttribute('data-freshness','refresh');await expect(fresh(page).locator('[data-wait]')).toHaveCount(1);
     release(state);
-    await expect(grid).not.toContainText('지울 일정');
+    await expect(grid).not.toContainText('삭제할 일정');
     await expect(grid).toContainText('남는 일정');
     await expect(fresh(page)).toBeHidden();
   });

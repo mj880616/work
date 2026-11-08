@@ -30,7 +30,7 @@ function ensurePlacesSheet(){
     canOpen:()=>!!placesActive,choices:()=>loadReportPlaces().then(p=>{if(placesActive)placesActive.places=p}),
     render:()=>{if(placesActive)placesActive.pending=placeList(placesActive.chosen);return {title:'연결할 곳 선택',search:'조직·사업영역 이름 검색',searchAlways:true,split:true,html:placeSheetHtml(placesActive?.places,placesActive?.pending,esc,{basket:false,references:false})}},
     multi:()=>placesActive?{pressed:value=>placesActive.pending.some(p=>placeValue(p)===value),label:choiceCountText(placesActive.pending).replace('잊지 말기(미분류) 선택됨','연결 안 함')}:null,
-    onSelect:(kind,value)=>{if(!placesActive)return;const next=togglePlace(placesActive.pending,value);if(next)placesActive.pending=next;else placesActive.onLimit?.(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`)},
+    onSelect:(kind,value)=>{if(!placesActive)return;const next=togglePlace(placesActive.pending,value);if(next)placesActive.pending=next;else placesActive.onLimit?.(`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`)},
     onCommit:()=>{if(placesActive)placesActive.onCommit(placeList(placesActive.pending))},
     onError:error=>placesActive?.onLimit?.(error?.message||'연결할 곳을 불러오지 못했어요.')});
   return placesSheet;
@@ -73,7 +73,7 @@ export async function pickBusinessArea(trigger,{chosen='',allowNone=false,onPick
   const picker=await import('./area-org-picker.js');
   used=await picker.usedKeysNow().catch(()=>[]);
   if(!trigger?.isConnected)return;
-  const value=String(chosen||''),top=allowNone?[{key:'',name:'고르지 않음'},{key:AREA_NONE,name:'없음',attrs:'data-area-none data-aop-muted'}]:[{key:'',name:'꼬리표 없음'}];
+  const value=String(chosen||''),top=allowNone?[{key:'',name:'선택하지 않음'},{key:AREA_NONE,name:'없음',attrs:'data-area-none data-aop-muted'}]:[{key:'',name:'꼬리표 없음'}];
   return picker.openAreaOrgPicker({kind:'area',trigger,used,multi:false,top,title:'사업영역 꼬리표',areas:picker.catalogAreas(places.projects||[]),
     selected:value===AREA_NONE?[AREA_NONE]:value?['p:'+value]:[],
     onCommit:keys=>{const k=[...keys][0]||'';onPick?.(k===AREA_NONE?AREA_NONE:k.startsWith('p:')?k.slice(2):'');}});

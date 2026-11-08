@@ -96,7 +96,7 @@ const pick = (page, text) => page.evaluate(t => {
 }, text);
 
 for (const width of [412, 1440]) {
-  test(`원문 고르기 줄 · 밑줄 저장 · [밑줄] 탭 ${width}`, async ({ page }) => {
+  test(`원문 선택 줄 · 밑줄 저장 · [밑줄] 탭 ${width}`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, s } = await start(page, width);
     await open(page, KO);

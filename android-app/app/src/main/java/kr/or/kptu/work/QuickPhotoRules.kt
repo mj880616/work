@@ -130,11 +130,11 @@ object QuickPhotoRules {
     const val RESUME = "위젯 [사진]을 누르면 남은 사진부터 다시 올려요"
     const val SERVER = "서버가 잠시 답하지 않아요"
     const val UNKNOWN = "올렸는지 확인하지 못했어요 · 정리함을 확인해 주세요"
-    const val NOTE_GONE = "이어 붙일 정리함 글이 지워졌어요 · 남은 사진은 새 글로 넣어요"
+    const val NOTE_GONE = "이어 붙일 정리함 글이 삭제됐어요 · 남은 사진은 새 글로 넣어요"
     const val TOO_BIG = "사진이 너무 커요(100MB까지)"
     const val TOO_MANY = "한 번에 20장까지 넣을 수 있어요"
     const val FORBIDDEN = "저장 권한을 확인하지 못했어요"
-    const val MISSING = "임시 파일이 사라졌어요 · 사진을 다시 골라 주세요"
+    const val MISSING = "임시 파일이 사라졌어요 · 사진을 다시 선택해 주세요"
 }
 
 /**

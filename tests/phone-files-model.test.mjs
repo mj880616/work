@@ -97,7 +97,7 @@ test('쓰기 답 모양: 정해 둔 짧은 글만, 경로는 검사한 것만', 
 test('휴지통 못 한 이유: 앱이 준 이유마다 할 일 한 줄, 옛 앱은 새 판 안내', () => {
   assert.deepEqual(phoneState(`pfiles:state:{"v":2,"write":true,"del":true,"can":true,"all":true,"key":"${KEY}"}`), {known: true, can: true, all: true, key: KEY, write: true, del: true});
   assert.match(phoneWriteText('refused'), /확인 창에서 그만둬서/);
-  assert.match(phoneWriteText('direct'), /내 파일' 앱에서 지워/);
+  assert.match(phoneWriteText('direct'), /내 파일' 앱에서 삭제해/);
   assert.match(phoneWriteText('missing'), /잠시 뒤 다시/);
   assert.match(phoneWriteText('permission'), /모든 파일 접근/);
   assert.match(phoneWriteText('write', {del: false}), /새 판으로 올리면/);

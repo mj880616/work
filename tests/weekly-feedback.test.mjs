@@ -98,7 +98,7 @@ test('학습 시험: 줄마다 같음·비슷·다름·빠짐·AI만, 그대로 
   assert.equal(r.pct, 50);
 });
 
-test('규칙 목록: 확정 고치기·지우기(→폐기)·더하기, 중복·길이·20줄 상한', () => {
+test('규칙 목록: 확정 수정·삭제(→폐기)·더하기, 중복·길이·20줄 상한', () => {
   let r = readRules({v:2, at:'a', lines:[{text:'날짜는 10/28(화)처럼 쓴다'}, {text:'날짜는 10/28(화)처럼 쓴다'}, 'x'.repeat(500)]});
   assert.equal(r.lines.length, 2);
   assert.equal([...r.lines[1].text].length, 120);

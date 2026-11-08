@@ -113,7 +113,7 @@ test('DB 적용 전(고정 칸 없음): 메뉴에 [고정]이 없고 목록은 �
 });
 
 for(const width of [412,884])test.describe(`폰 ${width}`,()=>{test.use({hasTouch:true});
-test(`폰 ${width}: 꾹 누르기 [고정] → 맨 위 칸, 폴더를 고르면 그 폴더의 고정 방만 위에, [고정 풀기]`,async({page})=>{
+test(`폰 ${width}: 꾹 누르기 [고정] → 맨 위 칸, 폴더를 선택하면 그 폴더의 고정 방만 위에, [고정 풀기]`,async({page})=>{
  const f=await fixture(page,{width});
  await openTelegram(page,width);
  const view=page.locator('#telegramView'),menu=page.locator('#tgRowMenu');

@@ -39,8 +39,8 @@ test('옛 읽기 전용 세 번째 칸과 따로 있던 ⋯ 메뉴는 없다(기
   for(const act of ['edit','kind','delete'])assert.ok(detail.includes(`data-mrd-more="${act}"`),act);
 });
 
-test('고친 내용이 있을 때 다른 곳을 누르면 그 자리 한 줄 안내([저장] [버리기])',()=>{
-  assert.match(detail,/id="mrdLeave"[^>]*><span>고친 내용을 저장할까요\?<\/span><button id="mrdLeaveSave"[^>]*>저장<\/button><button id="mrdLeaveDiscard"[^>]*>버리기<\/button>/);
+test('고친 내용이 있을 때 다른 곳을 누르면 그 자리 한 줄 안내([저장] [저장 안 함])',()=>{
+  assert.match(detail,/id="mrdLeave"[^>]*><span>수정한 내용을 저장할까요\?<\/span><button id="mrdLeaveSave"[^>]*>저장<\/button><button id="mrdLeaveDiscard"[^>]*>저장 안 함<\/button>/);
   assert.match(team,/function leaveReport\(/);
   // 칸·차수·보기 바꾸기 길이 모두 같은 지킴이를 거친다.
   for(const fn of ['selectReportView','selectReportChip','selectMeetingKind','selectMeetingRound'])assert.match(team,new RegExp(`leaveReport\\([^)]*\\)[\\s\\S]{0,400}${fn}|${fn}[\\s\\S]{0,200}leaveReport`),fn);

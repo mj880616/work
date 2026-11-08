@@ -191,7 +191,7 @@ test('폰 공유: 좁은 화면(412)도 [공유 ▾] 작은 메뉴 → [다른 �
 
 // S49-9 PHOTO-보낸뒤선택풀기(요청함 11/03 17:07): 고른 사진 [업데이트로 보내기]가 다 들어가면 고르기가 풀리고 알림 한 줄.
 // [별표]는 그 자리 표시만 바뀌므로 고른 채 둔다. 우클릭·고르기 줄·공유 메뉴의 이름은 공용 목록과 같다.
-test('고른 사진 업데이트로 보내기 → 고르기 풀림·알림 한 줄, 이름은 모든 메뉴에서 같음 1440', async ({ page }) => {
+test('선택한 사진 업데이트로 보내기 → 선택 풀림·알림 한 줄, 이름은 모든 메뉴에서 같음 1440', async ({ page }) => {
   const f = await fixture(page, 1440);
   await openPhotos(page, 1440);
   await expect.poll(() => order(page)).toEqual(EXPECT.taken_desc);
@@ -205,7 +205,7 @@ test('고른 사진 업데이트로 보내기 → 고르기 풀림·알림 한 �
   await pm.getByRole('button', { name: '선택' }).click();
   await item('A2').click();
   const sel = root(page).locator('[data-photos-sel]'), bar = root(page).locator('[data-photos-act]');
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 선택됨');
   // 고르기 줄은 다섯 칸([별표][공유 ▾][옮기기][지우기][더보기]) — 일기·업데이트는 [공유 ▾] 안(S49-34).
   await expect(bar.locator('button:visible')).toHaveCount(5);
   // 여러 장 [공유] 메뉴: 복사 없이 일기에 넣기 · 업데이트로 보내기 · 다운로드 · 다른 앱으로 공유….
@@ -216,7 +216,7 @@ test('고른 사진 업데이트로 보내기 → 고르기 풀림·알림 한 �
   await bar.locator('[data-photos-act-star]').click();
   await expect(page.locator('.kptu-notice-text')).toContainText('별표');
   await expect(sel).toBeVisible();
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 선택됨');
   // [업데이트로 보내기]: 기존 저장 길(basket-files) → 다 들어가면 고르기가 풀린다.
   await bar.locator('[data-photos-act-share]').click();
   await page.locator('#shareMenu').getByRole('button', { name: '업데이트로 보내기', exact: true }).click();

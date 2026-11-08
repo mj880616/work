@@ -40,7 +40,7 @@ function inboxRowMenu() {
   rowMenu ||= createAnchoredMenu({id:'inboxTodoRowMenu', className:'radar-row-menu', label:'챙길 것 줄 메뉴', historyKey:'kptuInboxTodoRowMenu',
     parent:trigger => trigger.closest('dialog,.modal') || document.body,
     key:trigger => trigger.dataset.inboxTodoMore, canOpen:trigger => !trigger.disabled && !!listOf(trigger),
-    render:() => '<button type="button" data-inbox-todo-menu="edit">고쳐서 할 일로</button><button type="button" data-inbox-todo-menu="already">이미 할 일에 있음</button><button type="button" data-inbox-todo-menu="not-mine">내 일 아님</button>',
+    render:() => '<button type="button" data-inbox-todo-menu="edit">수정해서 할 일로</button><button type="button" data-inbox-todo-menu="already">이미 할 일에 있음</button><button type="button" data-inbox-todo-menu="not-mine">내 일 아님</button>',
     onAction:(button, active) => { const list = listOf(active.trigger); if (list) menuLists.get(list)?.(active.id, button.dataset.inboxTodoMenu); }});
   return rowMenu;
 }
@@ -91,7 +91,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
       const picks = l.tasks === null ? waitInlineHtml()
         : l.tasks.length ? `<ul class="inbox-todo-link-list" aria-label="비슷한 할 일">${l.tasks.map(t => `<li><button type="button" class="inbox-todo-btn inbox-todo-link-pick" data-inbox-todo-link-task="${esc(t.id)}" data-inbox-todo-link-for="${id}"${dis}>${esc(t.title)}</button></li>`).join('')}</ul>`
         : `<span class="inbox-todo-status">${l.failed ? '할 일을 못 읽었어요.' : '비슷한 할 일을 못 찾았어요.'}</span>${l.failed ? `<button type="button" class="inbox-todo-btn" data-inbox-todo-link-retry="${id}"${dis}>다시</button>` : ''}`;
-      below = `<div class="inbox-todo-link" data-inbox-todo-link="${id}"><p class="inbox-todo-link-head">이미 있는 할 일 고르기</p>${picks}<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="inbox-todo-btn" data-inbox-todo-link-cancel="${id}"${dis}>취소</button></span></div>`;
+      below = `<div class="inbox-todo-link" data-inbox-todo-link="${id}"><p class="inbox-todo-link-head">이미 있는 할 일 선택</p>${picks}<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="inbox-todo-btn" data-inbox-todo-link-cancel="${id}"${dis}>취소</button></span></div>`;
     } else if (editing.has(c.id)) {
       // ⋯ [고쳐서 할 일로]: 제목·기한을 고쳐 넣는다. 고친 제목은 결과 기록에 남아 다음 찾기의 말투 예시가 된다.
       const e = editing.get(c.id), dis = isBusy ? ' disabled' : '';

@@ -41,7 +41,7 @@ async function drag(page,locator,fromX,dx,dy=0,{steps=8,startAt=null}={}){
 }
 const rpc=(f,name)=>f.writes.filter(w=>w.rpc===name);
 
-test('폴더 칸 줄: [전체][폴더][+ 폴더][보관함 n], 모든 방 고르기는 없고, 폴더를 고르면 그 폴더의 방만',async({page})=>{
+test('폴더 칸 줄: [전체][폴더][+ 폴더][보관함 n], 모든 방 선택은 없고, 폴더를 선택하면 그 폴더의 방만',async({page})=>{
  const f=await fixture(page);
  await openTelegram(page,390);
  const view=page.locator('#telegramView');
@@ -122,7 +122,7 @@ test('밀기는 분명한 가로 움직임만: 세로 스크롤·화면 가장�
  await expect(page.locator('#tgDetail [data-tg-daybox]')).toBeVisible();
 });
 
-test('[폴더로]: 폴더 목록·새 폴더, 고르면 그 방이 폴더로 들어가고 폴더를 고른 칸에서 사라진다',async({page})=>{
+test('[폴더로]: 폴더 목록·새 폴더, 선택하면 그 방이 폴더로 들어가고 폴더를 선택한 칸에서 사라진다',async({page})=>{
  const f=await fixture(page);
  await openTelegram(page,390);
  const view=page.locator('#telegramView'),pick=page.locator('#tgFolderPick');
@@ -157,7 +157,7 @@ test('[폴더로]: 폴더 목록·새 폴더, 고르면 그 방이 폴더로 들
  expect(f.errors).toEqual([]);
 });
 
-test('폴더 만들기·이름 바꾸기·지우기: 이름 규칙 안내, 같은 이름 거절, 지워도 방은 전체에 남는다',async({page})=>{
+test('폴더 만들기·이름 바꾸기·삭제: 이름 규칙 안내, 같은 이름 거절, 삭제해도 방은 전체에 남는다',async({page})=>{
  const f=await fixture(page);
  await openTelegram(page,390);
  const view=page.locator('#telegramView'),row=view.locator('.feed-chiprow'),box=view.locator('[data-tg-fedit]');
@@ -181,9 +181,9 @@ test('폴더 만들기·이름 바꾸기·지우기: 이름 규칙 안내, 같�
  // 지우기: 폴더만 지워지고 안에 있던 방은 전체에 그대로.
  await row.getByRole('button',{name:'가상 업무'}).tap();
  await row.locator('[data-tg-folder-more]').tap();
- await page.locator('#tgFolderMenu').getByRole('button',{name:/폴더 지우기/}).tap();
- await expect(box).toContainText('폴더만 지워져요');
- await box.getByRole('button',{name:'지우기'}).tap();
+ await page.locator('#tgFolderMenu').getByRole('button',{name:/폴더 삭제/}).tap();
+ await expect(box).toContainText('폴더만 삭제돼요');
+ await box.getByRole('button',{name:'삭제'}).tap();
  await expect.poll(()=>rpc(f,'app_feed_folder_delete').length).toBe(1);
  await expect(row.locator('.feed-chip')).toHaveText(['전체','가상 모임2','+ 폴더','보관함 1']);
  await expect.poll(()=>keys(view)).toEqual([A6,B6,A5,B3]);

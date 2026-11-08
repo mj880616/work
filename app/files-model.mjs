@@ -232,7 +232,7 @@ export function touchesCounts(rows, where, changed = [], removed = []) {
 // F8 옮기기 상한. across = 다른 클라우드로. 결과 {ok, reason}. 화면은 reason 글을 그대로 보인다.
 export function moveCheck(items, {across = false} = {}) {
   const list = Array.isArray(items) ? items.filter(Boolean) : [];
-  if (!list.length) return {ok: false, reason: '고른 것이 없습니다'};
+  if (!list.length) return {ok: false, reason: '선택한 것이 없습니다'};
   if (across) {
     if (list.length > 1) return {ok: false, reason: '다른 클라우드로는 한 번에 1개만 옮깁니다'};
     const it = list[0];
@@ -395,9 +395,9 @@ export function writeErrorText(code) {
   if (c === 'not_owner') return '내 파일이 아니라 옮길 수 없습니다';
   if (c === 'copy_into_self') return '폴더를 자기 안으로 복사할 수 없습니다';
   if (c === 'copy_failed') return '복사하지 못했습니다. 원본은 그대로입니다';
-  if (c === 'folder_too_big') return '폴더 안이 200개가 넘어 통째로 복사하지 않습니다. 안을 열어 골라 주세요';
+  if (c === 'folder_too_big') return '폴더 안이 200개가 넘어 통째로 복사하지 않습니다. 안을 열어 선택해 주세요';
   // 올리기(2-④)
-  if (c === 'file_mismatch') return '같은 파일이 아니에요(이름·크기가 달라요). 처음 올리던 파일을 골라 주세요';
+  if (c === 'file_mismatch') return '같은 파일이 아니에요(이름·크기가 달라요). 처음 올리던 파일을 선택해 주세요';
   if (c === 'upload_mismatch') return '올린 파일을 클라우드에서 확인하지 못했어요. [다시]로 이어 올려 주세요';
   if (c === 'origin_invalid') return '이 주소에서는 올릴 수 없어요';
   if (c === 'job_not_resumable' || c === 'job_not_found') return '이 전송은 이어 올릴 수 없어요';
@@ -436,7 +436,7 @@ export function treeDoneText(mode, {folders = 0, files = 0, skipped = 0} = {}) {
   const head = `폴더 ${folders}개 · 파일 ${files}개 ${mode === 'move' ? '옮기기' : '복사'} 시작 · 아래 전송 줄을 누르면 목록`;
   return skipped ? `${head} · ${skipped}개 건너뜀` : head;
 }
-export const TREE_MOVE_NOTE = '파일이 다 옮겨지면 원래 폴더는 빈 폴더로 남아요(지우려면 휴지통으로)';
+export const TREE_MOVE_NOTE = '파일이 다 옮겨지면 원래 폴더는 빈 폴더로 남아요(삭제하려면 휴지통으로)';
 // S53-8 FILES-폴더째PC폰: 내 PC·이 폰이 낀 폴더째 옮기기 — 안의 파일이 하나도 빠짐없이 다 복사된 뒤에만 원본 파일을 휴지통으로(중간에 하나라도 못 하면 원본 그대로).
 export const TREE_DEV_MOVE_NOTE = '안의 파일이 모두 복사된 뒤에만 원본을 휴지통으로 보내요(하나라도 못 하면 원본 그대로). 원래 폴더는 빈 폴더로 남아요';
 export const treeDevKeptText = where => `복사하지 못한 파일이 있어 ${where} 원본은 그대로 두었어요`;
@@ -457,13 +457,13 @@ export function treeDevDoneText(mode, {folders = 0, files = 0, failed = 0, skipp
 }
 export function xferPlan(rows, dest, mode = 'copy') {
   const list = (rows || []).filter(Boolean), ok = [], blocked = [];
-  if (!dest?.source) return {ok, blocked, reason: '받을 곳을 고르세요'};
+  if (!dest?.source) return {ok, blocked, reason: '받을 곳을 선택하세요'};
   const verb = mode === 'move' ? '옮겨요' : '복사돼요';
   for (const r of list) {
     const across = r.source !== dest.source;
     // S52-43 ② FILES-저장소사이: 원드라이브 ↔ 구글 드라이브는 폴더째(화면이 같은 폴더 모양을 만들고 안의 파일을 전송 목록에 펼쳐 넣음, treeAcross).
     //   S53-8: 내 PC·이 폰이 끼어도 폴더째(treeDev·treeUp). 모르는 저장소만 막는다.
-    if (across && r.is_folder && !(TREE_SOURCES.includes(r.source) && TREE_SOURCES.includes(dest.source))) blocked.push({row: r, reason: `이 저장소와는 폴더째 ${verb === '옮겨요' ? '옮기지' : '복사하지'} 않아요. 폴더를 열어 파일을 골라 주세요`});
+    if (across && r.is_folder && !(TREE_SOURCES.includes(r.source) && TREE_SOURCES.includes(dest.source))) blocked.push({row: r, reason: `이 저장소와는 폴더째 ${verb === '옮겨요' ? '옮기지' : '복사하지'} 않아요. 폴더를 열어 파일을 선택해 주세요`});
     else if (!across && r.is_folder && (r.source === 'pc' || r.source === 'ph') && treeInside(r.source, r.item_id, dest.parent)) blocked.push({row: r, reason: `폴더를 자기 안으로 ${mode === 'move' ? '옮길' : '복사할'} 수 없습니다`});
     else if (across && gdDoc(r)) blocked.push({row: r, reason: '구글 문서는 다른 저장소로 보내지 않습니다'});
     else if (across && !r.is_folder && (r.size_bytes === null || r.size_bytes === undefined || !Number.isFinite(Number(r.size_bytes)))) blocked.push({row: r, reason: '크기를 모르는 파일은 다른 저장소로 보내지 않습니다'});
@@ -471,7 +471,7 @@ export function xferPlan(rows, dest, mode = 'copy') {
     else if (mode === 'move' && !across && (r.parent_id ?? null) === (dest.parent ?? null)) blocked.push({row: r, reason: '이미 이 폴더에 있습니다'});
     else ok.push(r);
   }
-  const reason = ok.length ? '' : blocked[0]?.reason || '고른 것이 없습니다';
+  const reason = ok.length ? '' : blocked[0]?.reason || '선택한 것이 없습니다';
   return {ok, blocked, reason};
 }
 // 200MB 넘는 클라우드 사이 파일인가(H-4).
@@ -525,7 +525,7 @@ export const jobsActive = list => (list || []).some(jobActive);
 // 실패 까닭: 서버가 정해 둔 말(code)만 받아 한 줄 글로. 모르는 말은 '연결이 끊겼어요'.
 const JOB_REASON = Object.freeze({
   cloud_unavailable: '연결이 끊겼어요', cloud_throttled: '클라우드가 잠시 바빠요', no_space: '받을 곳 공간이 부족해요',
-  name_invalid: '이름 규칙에 맞지 않아요', too_large: '너무 커요(2GB까지)', verify_failed: '받은 것이 원본과 달라 지웠어요',
+  name_invalid: '이름 규칙에 맞지 않아요', too_large: '너무 커요(2GB까지)', verify_failed: '받은 것이 원본과 달라 삭제했어요',
   changed_since_index: '원본이 그사이 바뀌었어요', not_in_index: '원본을 찾지 못했어요', not_found: '원본을 찾지 못했어요',
   size_unknown: '크기를 모르는 파일이에요', across_unsupported: '구글 문서는 다른 저장소로 보내지 않아요',
   across_folder: '폴더는 같은 저장소 안에서만 통째로 보내요', folder_too_big: '폴더 안이 너무 많아요(200개까지)',
@@ -614,9 +614,9 @@ export function newlyDone(old, fresh) {
 // 서버(Edge upload_open)가 받을 클라우드의 이어 올리기 자리를 열어 주고 브라우저가 그 자리로 5MB씩 직접 보낸다(파일이 서버를 거치지 않음).
 export const UPLOAD_MAX = 200;                              // 한 번에 올리는 파일 수(고르기 상한과 같음)
 export const UPLOAD_MAX_BYTES = 2 * 1024 * 1024 * 1024;     // 한 파일 2GB까지(H-4 추천 상한, 서버도 같음)
-export const UPLOAD_BIG_HOW = '이 기기가 5MB씩 올려요. 화면을 닫으면 멈추고, 다시 열어 같은 파일을 고르면 남은 조각부터 올려요.';
+export const UPLOAD_BIG_HOW = '이 기기가 5MB씩 올려요. 화면을 닫으면 멈추고, 다시 열어 같은 파일을 선택하면 남은 조각부터 올려요.';
 // 브라우저 제약(H-6): 다시 연 화면은 파일을 기억하지 못한다.
-export const UPLOAD_REOPEN_TEXT = '브라우저는 화면을 닫으면 파일을 잊어요. 같은 파일을 다시 고르면 남은 조각부터 올려요.';
+export const UPLOAD_REOPEN_TEXT = '브라우저는 화면을 닫으면 파일을 잊어요. 같은 파일을 다시 선택하면 남은 조각부터 올려요.';
 export const upDropText = name => `여기 놓으면 ${name || '이 폴더'}에 올리기`;
 export const upStartText = n => `${n}개 올리기 시작 · 아래 전송 줄을 누르면 목록`;
 // 고른 파일({name,size}) 거르기: 이름 규칙(공용 checkFileBase는 화면이 넘김)·2GB·수 상한. {ok, blocked:[{file, reason}], reason}.
@@ -630,7 +630,7 @@ export function uploadPlan(files, nameOk = () => true) {
     else if (ok.length >= UPLOAD_MAX) blocked.push({file: f, reason: `한 번에 ${UPLOAD_MAX}개까지 올려요`});
     else ok.push(f);
   }
-  return {ok, blocked, reason: ok.length ? '' : blocked[0]?.reason || '고른 파일이 없어요'};
+  return {ok, blocked, reason: ok.length ? '' : blocked[0]?.reason || '선택한 파일이 없어요'};
 }
 // 200MB 넘는 파일(H-4: 한 번 묻기).
 export const upBig = f => Number(f?.size) > XFER_BIG_BYTES;
@@ -649,7 +649,7 @@ export function upPiece(offset, size, chunk) {
 // 기기 줄 아래 작은 글 덧붙임: 이 화면이 그 파일을 쥐고 있지 않으면 다시 고르라는 한 줄.
 export function deviceHint(j, hasFile) {
   if (!j || j.origin !== 'device' || hasFile) return '';
-  return j.status === 'paused' || j.status === 'failed' ? '이어 올리려면 같은 파일을 다시 골라 주세요' : '';
+  return j.status === 'paused' || j.status === 'failed' ? '이어 올리려면 같은 파일을 다시 선택해 주세요' : '';
 }
 // 클라우드가 마지막 조각 응답으로 준 새 파일 id(원드라이브 id·구글 id). 모양이 다르면 null(서버가 이름으로 찾음).
 export function upResultId(d) {

@@ -61,13 +61,13 @@ function histRowHtml(h, stages, canEdit) {
   const more = canEdit ? `<button type="button" class="wd-stage-hmore" data-stage-hmore aria-label="${esc(label)} 메뉴" aria-expanded="${mine && !!ui.mode}"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '';
   let extra = '';
   if (mine && ui.mode === 'menu') {
-    extra = `<div class="wd-stage-hsub"><button type="button" class="stg-link" data-stage-hedit${busy}>고치기</button><button type="button" class="stg-link danger" data-stage-hdel${busy}>지우기</button></div>`;
+    extra = `<div class="wd-stage-hsub"><button type="button" class="stg-link" data-stage-hedit${busy}>수정</button><button type="button" class="stg-link danger" data-stage-hdel${busy}>삭제</button></div>`;
   } else if (mine && ui.mode === 'edit') {
     const d = ui.draft, list = stages.some(s => s.id === d.stageId) ? stages : [{id: d.stageId ?? '', name: h.name}, ...stages];
     const opts = list.map(s => `<option value="${esc(s.id)}"${s.id === d.stageId ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
-    extra = `<form class="wd-stage-hsub wd-stage-hform" data-stage-hform novalidate><select class="wd-stage-select" data-stage-hselect aria-label="고칠 단계">${opts}</select><input class="wd-stage-date" type="date" data-stage-hdate value="${esc(d.start)}" aria-label="고칠 날짜" required><span class="wd-stage-tilde" aria-hidden="true">~</span><input class="wd-stage-date" type="date" data-stage-hend value="${esc(d.end)}" min="${esc(d.start)}" aria-label="고칠 끝 날짜(선택, 비우면 하루)"><button type="button" class="stg-link" data-stage-hcancel>취소</button><button type="submit" class="stg-link"${busy}>저장</button></form>`;
+    extra = `<form class="wd-stage-hsub wd-stage-hform" data-stage-hform novalidate><select class="wd-stage-select" data-stage-hselect aria-label="수정할 단계">${opts}</select><input class="wd-stage-date" type="date" data-stage-hdate value="${esc(d.start)}" aria-label="수정할 날짜" required><span class="wd-stage-tilde" aria-hidden="true">~</span><input class="wd-stage-date" type="date" data-stage-hend value="${esc(d.end)}" min="${esc(d.start)}" aria-label="수정할 끝 날짜(선택, 비우면 하루)"><button type="button" class="stg-link" data-stage-hcancel>취소</button><button type="submit" class="stg-link"${busy}>저장</button></form>`;
   } else if (mine && ui.mode === 'confirm') {
-    extra = `<div class="wd-stage-hsub stg-confirm" role="group" aria-label="이력 지우기 확인"><span>이 줄을 지울까요? 지금 단계는 남은 이력의 가장 나중 줄로 돌아가요.</span><button type="button" class="stg-link danger" data-stage-hdel-yes${busy}>지우기</button><button type="button" class="stg-link" data-stage-hcancel>취소</button></div>`;
+    extra = `<div class="wd-stage-hsub stg-confirm" role="group" aria-label="이력 삭제 확인"><span>이 줄을 삭제할까요? 지금 단계는 남은 이력의 가장 나중 줄로 돌아가요.</span><button type="button" class="stg-link danger" data-stage-hdel-yes${busy}>삭제</button><button type="button" class="stg-link" data-stage-hcancel>취소</button></div>`;
   }
   return `<div class="wd-stage-hrow" data-stage-hrow="${esc(h.id)}"><div class="wd-stage-hline"><span class="wd-stage-htext">${esc(label)}</span>${more}</div>${extra}</div>`;
 }
@@ -131,7 +131,7 @@ function onHistClick(e, host) {
     line.hist = {id, mode: 'edit', draft: {stageId: h.stage_id, start: h.stage_date, end: h.end_date || ''}}; setMsg(''); paintLine(); histFocus(`${sel} [data-stage-hselect]`); return true;
   }
   if (t('[data-stage-hdel]')) { line.hist = {id, mode: 'confirm', draft: null}; setMsg(''); paintLine(); histFocus(`${sel} [data-stage-hdel-yes]`); return true; }
-  if (t('[data-stage-hdel-yes]')) { void runHist(() => deleteHistoryRow({rt: line.rt, workspaceId: line.workspaceId, id}), '이력 한 줄을 지웠어요.'); return true; }
+  if (t('[data-stage-hdel-yes]')) { void runHist(() => deleteHistoryRow({rt: line.rt, workspaceId: line.workspaceId, id}), '이력 한 줄을 삭제했어요.'); return true; }
   return !!t('.wd-stage-hsub');
 }
 function onHistSubmit(e) {
@@ -142,11 +142,11 @@ function onHistSubmit(e) {
   const stageId = form.querySelector('[data-stage-hselect]').value, date = form.querySelector('[data-stage-hdate]').value, end = form.querySelector('[data-stage-hend]').value;
   line.hist = {id, mode: 'edit', draft: {stageId, start: date, end}};
   const stage = state.stages.find(s => s.id === stageId);
-  if (!stage) { setMsg('지금 단계 목록에 있는 단계를 골라 주세요.', true); return; }
+  if (!stage) { setMsg('지금 단계 목록에 있는 단계를 선택해 주세요.', true); return; }
   if (!date) { setMsg('날짜를 확인해 주세요.', true); return; }
   const problem = periodProblem(date, end);
   if (problem) { setMsg(problem, true); form.querySelector('[data-stage-hend]').focus(); return; }
-  void runHist(() => editHistoryRow({rt: line.rt, workspaceId: line.workspaceId, id, stage, date, end, periodReady: state.periodReady !== false}), '이력을 고쳤어요.');
+  void runHist(() => editHistoryRow({rt: line.rt, workspaceId: line.workspaceId, id, stage, date, end, periodReady: state.periodReady !== false}), '이력을 수정했어요.');
 }
 
 function bindLine(host) {
@@ -197,7 +197,7 @@ function installModal() {
   if (document.querySelector('#' + MODAL)) return;
   document.body.insertAdjacentHTML('beforeend', `<div id="${MODAL}" class="modal le-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="soStageHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="soStageHeading">쟁의 단계 관리<span class="le-count" data-le-count></span></h2></div><button class="icon-btn" data-so-close="${MODAL}" type="button" aria-label="닫기">×</button></div><div id="soStageBody" class="stg"></div></div></div>`);
   const body = document.querySelector('#soStageBody');
-  mountListEdit(body, {key: 'stg', label: '쟁의 단계 고치기', items: menuItems, onAct: onMenuAct,
+  mountListEdit(body, {key: 'stg', label: '쟁의 단계 수정', items: menuItems, onAct: onMenuAct,
     onMove: (id, index) => commitOrder(id, dragIndex(id, index)), onStep: (id, dir) => { const at = stagesNow().findIndex(x => x.id === id); commitOrder(id, Math.max(fixedCount(), at + dir)); },
     canDrag: id => !!mgr && !mgr.busy && !stagesNow().find(x => x.id === id)?.is_default});
 }
@@ -236,7 +236,7 @@ function rowHtml(s) {
 function menuItems(id) {
   const s = stagesNow().find(x => x.id === id); if (!s) return [];
   if (s.is_default) return [{key: 'rename', label: '이름 바꾸기'}];
-  return [{key: 'rename', label: '이름 바꾸기'}, {key: 'struggle', label: `투쟁 중 ${s.is_struggle ? '끄기' : '켜기'}`}, {key: 'ending', label: `끝남 ${s.is_ending ? '끄기' : '켜기'}`}, {key: 'delete', label: '지우기'}];
+  return [{key: 'rename', label: '이름 바꾸기'}, {key: 'struggle', label: `투쟁 중 ${s.is_struggle ? '끄기' : '켜기'}`}, {key: 'ending', label: `끝남 ${s.is_ending ? '끄기' : '켜기'}`}, {key: 'delete', label: '삭제'}];
 }
 
 function paintManager() {
@@ -268,17 +268,17 @@ async function confirmDelete(id, move) {
   const result = await deleteStage({rt, workspaceId, id, move});
   if (result?.ok) return result;
   // 그 사이 조직이 그 단계로 옮겨 왔다: 지우지 않고, 다시 [지우기]를 누르면 조직 이름과 함께 한 번 더 묻는다.
-  if (result?.error === 'ORGS_AT_STAGE') throw new Error('지금 이 단계에 조직이 있어요. 다시 지우기를 누르면 옮길 조직을 보여 드려요.');
-  throw new Error(result?.error === 'DEFAULT_STAGE' ? '기본 단계는 지울 수 없어요.' : result?.error === 'NO_DEFAULT_STAGE' ? '기본 단계가 없어요.' : '지우지 못했어요.');
+  if (result?.error === 'ORGS_AT_STAGE') throw new Error('지금 이 단계에 조직이 있어요. 다시 삭제를 누르면 옮길 조직을 보여 드려요.');
+  throw new Error(result?.error === 'DEFAULT_STAGE' ? '기본 단계는 삭제할 수 없어요.' : result?.error === 'NO_DEFAULT_STAGE' ? '기본 단계가 없어요.' : '삭제하지 못했어요.');
 }
 const moreSel = id => `[data-le-menu="${CSS.escape(id)}"]`;
 async function askDelete(id) {
   const state = peekDisputeState(), stage = stagesNow().find(x => x.id === id); if (!stage || stage.is_default) return;
   const names = orgsAt(id, state), base = state.stages.find(x => x.is_default)?.name;
-  const text = names.length ? `${orgsAtStageText(names)} 지우면 ‘${base}’ 단계로 옮겨요.` : `‘${stage.name}’ 단계를 지울까요?`;
-  const yes = await askConfirm(document.querySelector(`#soStageBody ${moreSel(id)}`) || document.querySelector('#soStageBody'), {text, ok: '지우기'});
+  const text = names.length ? `${orgsAtStageText(names)} 삭제하면 ‘${base}’ 단계로 옮겨요.` : `‘${stage.name}’ 단계를 삭제할까요?`;
+  const yes = await askConfirm(document.querySelector(`#soStageBody ${moreSel(id)}`) || document.querySelector('#soStageBody'), {text, ok: '삭제'});
   if (!yes || !mgr) return;
-  void run(() => confirmDelete(id, names.length > 0), r => r.moved ? `지웠어요. 조직 ${r.moved}곳은 기본 단계로 옮겼어요.` : '지웠어요.', '[data-stg-add-input]');
+  void run(() => confirmDelete(id, names.length > 0), r => r.moved ? `삭제했어요. 조직 ${r.moved}곳은 기본 단계로 옮겼어요.` : '삭제했어요.', '[data-stg-add-input]');
 }
 function onMenuAct(id, act) {
   if (!mgr || mgr.busy) return;

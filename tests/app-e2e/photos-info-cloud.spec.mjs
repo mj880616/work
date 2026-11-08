@@ -73,7 +73,7 @@ test("PC: 원드라이브 사진 우클릭 [정보수정] → '−8시간' → �
   await expect(row.locator('td').nth(0)).toHaveText('2026.10.30 12:00');
   await dlg.locator('[data-pi-h]').fill('8');
   await expect(row.locator('td').nth(1)).toHaveText('2026.10.30 04:00');
-  await expect(dlg.locator('[data-pi-status]')).toHaveText('1장을 고쳐요');
+  await expect(dlg.locator('[data-pi-status]')).toHaveText('1장을 수정해요');
   await dlg.locator('[data-pi-save]').click();
   await expect.poll(() => state.writes.length).toBe(1);
   expect(state.writes[0]).toEqual({ action: 'photos-meta-write', confirm: true, items: [{ id: 'O1', taken: '2026-10-29T19:00:00.000Z' }] });
@@ -81,7 +81,7 @@ test("PC: 원드라이브 사진 우클릭 [정보수정] → '−8시간' → �
   await expect.poll(() => state.records.length).toBe(1);
   expect(state.records[0]).toMatchObject({ source: 'onedrive', item_key: 'od:O1', before_taken: '2026-10-30T03:00:00.000Z', after_taken: '2026-10-29T19:00:00.000Z', loc_changed: false });
   expect(JSON.stringify(state.records)).not.toContain('a.jpg');
-  await expect(page.locator('.kptu-notice')).toContainText('1장 고쳤어요');
+  await expect(page.locator('.kptu-notice')).toContainText('1장 수정했어요');
   await page.locator('.kptu-notice-undo').click();
   await expect.poll(() => state.writes.length).toBe(2);
   expect(state.writes[1]).toEqual({ action: 'photos-meta-write', confirm: true, items: [{ id: 'O1', taken: '2026-10-30T03:00:00.000Z' }] });

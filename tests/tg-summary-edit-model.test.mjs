@@ -92,7 +92,7 @@ test('고친 요약은 서버에만 둔다: 함수 이름 둘, 이 기기에만 
 });
 
 test('화면: 그날 요약 ✎, 줄 메뉴 [요약 고치기], [취소][저장], [AI 원래 요약으로], 고침 표시가 모두 있다', () => {
-  for (const mark of ['data-tg-sumedit-day', 'data-tg-act="sumedit">요약 고치기', 'data-tg-se-cancel', 'data-tg-se-save', 'data-tg-se-orig', 'AI 원래 요약으로', 'feed-edited">고침']) assert.ok(screen.includes(mark), mark);
+  for (const mark of ['data-tg-sumedit-day', 'data-tg-act="sumedit">요약 수정', 'data-tg-se-cancel', 'data-tg-se-save', 'data-tg-se-orig', 'AI 원래 요약으로', 'feed-edited">수정됨']) assert.ok(screen.includes(mark), mark);
   assert.match(screen, /data-enter-save="\[data-tg-se-save\]"/, 'Ctrl+Enter 저장은 공통 규칙(enter-save.js)으로');
   assert.match(screen, /const editsOn = \(\) => state\.edits instanceof Map;/, '표를 읽지 못하면 고치기 입구를 숨긴다');
   assert.ok(screen.indexOf('data-tg-se-orig') < screen.indexOf('data-tg-se-cancel'), '[AI 원래 요약으로]는 왼쪽, [취소][저장]은 오른쪽(글 순서)');

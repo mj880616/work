@@ -121,10 +121,10 @@ export function deleteChoices(plan, backed = null) {
   const fullN = plan.full - bare.length;
   return {
     space:{label:`폰 공간만 비우기 · ${space.length}장${sizeTail(totalBytes(space))}`, note:'원드라이브에 원본이 있는 사진만. 목록에 남고, 나중에 [폰으로 되돌리기]로 제자리에'},
-    full:{label:`완전히 지우기 · ${fullN}장${sizeTail(Math.max(0, allBytes - bareBytes))}`, labelChecked:`완전히 지우기 · ${plan.full}장${sizeTail(allBytes)}`, needCheck:fullN <= 0,
+    full:{label:`완전히 삭제 · ${fullN}장${sizeTail(Math.max(0, allBytes - bareBytes))}`, labelChecked:`완전히 삭제 · ${plan.full}장${sizeTail(allBytes)}`, needCheck:fullN <= 0,
       note:'폰과 원드라이브 둘 다 휴지통으로(30일 안엔 되살리기). 목록에서 사라짐'},
-    foot:bare.length ? `백업 없음 ${bare.length}장(원드라이브에서 같은 사진을 못 찾음)은 기본으로 지우지 않아요` : '',
-    check:bare.length ? `백업 없음 ${bare.length}장${sizeTail(bareBytes)}도 완전히 지우기에 넣기` : '',
+    foot:bare.length ? `백업 없음 ${bare.length}장(원드라이브에서 같은 사진을 못 찾음)은 기본으로 삭제하지 않아요` : '',
+    check:bare.length ? `백업 없음 ${bare.length}장${sizeTail(bareBytes)}도 완전히 삭제에 넣기` : '',
     spaceCount:space.length, bare:bare.length,
   };
 }
@@ -139,9 +139,9 @@ export function gateText({ok, bare, okBytes, bareBytes}, {what = '사진', why =
   const tail = why ? ` · ${why}` : '';
   const text = ok.length ? `${what} ${ok.length}장${sizeText(okBytes) ? `(${sizeText(okBytes)})` : ''}을 폰 휴지통으로 옮길까요?`
     : `${what} ${bare.length}장 모두 백업 없음이에요`;
-  const note = (ok.length ? '원드라이브에 같은 사진이 있는 것만 지워요' : '원드라이브에서 같은 사진을 못 찾았어요. 그래도 지우려면 아래를 체크하세요')
+  const note = (ok.length ? '원드라이브에 같은 사진이 있는 것만 삭제해요' : '원드라이브에서 같은 사진을 못 찾았어요. 그래도 삭제하려면 아래를 체크하세요')
     + ` · 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요${tail}`;
-  return {text, note, check:bare.length ? `백업 없음 ${bare.length}장${sizeText(bareBytes) ? `(${sizeText(bareBytes)})` : ''}도 함께 지우기` : ''};
+  return {text, note, check:bare.length ? `백업 없음 ${bare.length}장${sizeText(bareBytes) ? `(${sizeText(bareBytes)})` : ''}도 함께 삭제` : ''};
 }
 // 비운 기록으로 남길 줄(서버 trash-log). 원래 폴더·찍은 시각만, 이름·크기·내용은 넣지 않는다.
 export const keepLogRows = (list, copyOf, {keep = true} = {}) => (list || []).filter(x => x.phoneId && copyOf.has(x.id)).map(x => ({

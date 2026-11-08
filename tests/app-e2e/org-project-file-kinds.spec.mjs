@@ -175,7 +175,7 @@ for(const width of [390,1280])test(`organization documents show each kind and fi
  await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','true');
  await expect(chip(host,'투쟁')).toHaveAttribute('aria-pressed','true');
  await tap(page,chip(host,'전체'),width);
- await expect(section.locator('[data-wd-doc-nokind]')).toHaveText('고른 종류 없음');
+ await expect(section.locator('[data-wd-doc-nokind]')).toHaveText('선택한 종류 없음');
  await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','false');
  await tap(page,chip(host,'전체'),width);
  await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','true');

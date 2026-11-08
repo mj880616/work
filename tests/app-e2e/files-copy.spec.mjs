@@ -27,7 +27,7 @@ async function begin(page, width) {
   return { errors, server, prefs };
 }
 
-test('PC 1440: 고르기 막대 [복사] → 받을 곳 창 → 같은 이름 한 번 묻기(그래도 하기 = 번호) → 차례로 복사, 최근 보낸 곳 칩(서버)', async ({ page }) => {
+test('PC 1440: 선택 막대 [복사] → 받을 곳 창 → 같은 이름 한 번 묻기(그래도 하기 = 번호) → 차례로 복사, 최근 보낸 곳 칩(서버)', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server, prefs } = await begin(page, 1440);
   server.items.push(fake({ source: 'gd', item_id: 'gdSame1', parent_id: 'gdFolder1', name: '가짜 안내문.pdf' }));
@@ -114,7 +114,7 @@ test('PC 1440: 고르기 막대 [복사] → 받을 곳 창 → 같은 이름 �
   expect(errors).toEqual([]);
 });
 
-test('폰 412: 꾹 눌러 고르기 → [복사] → 하단바 위 받을 곳 창, 200MB 넘는 파일은 묻고 [그래도 보내기] → 서버 조각 이어 보내기, 전송 목록·모두 멈춤·이어 하기·실패 [다시]', async ({ page }) => {
+test('폰 412: 꾹 눌러 선택 → [복사] → 하단바 위 받을 곳 창, 200MB 넘는 파일은 묻고 [그래도 보내기] → 서버 조각 이어 보내기, 전송 목록·모두 멈춤·이어 하기·실패 [다시]', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await begin(page, 412);
   server.items.push(fake({ source: 'od', item_id: 'OD!30', parent_id: 'OD!1', name: '가짜 영상.mp4', mime: 'video/mp4', size_bytes: Math.round(1.2 * 1024 ** 3) }));

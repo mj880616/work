@@ -22,7 +22,7 @@ export function createNowHighlights({box, query = () => '', onOpen} = {}) {
   }
   function rowHtml(h) {
     const meta = [h.source_media || TYPE_LABEL[h.source_type] || '', shortDay(h.source_date || h.created_at), h.source_title || ''].filter(Boolean);
-    const pick = picking ? `<input type="checkbox" class="nh-pick" data-nh-pick="${esc(h.id)}" aria-label="이 밑줄 고르기"${picked.has(h.id) ? ' checked' : ''}>` : '';
+    const pick = picking ? `<input type="checkbox" class="nh-pick" data-nh-pick="${esc(h.id)}" aria-label="이 밑줄 선택"${picked.has(h.id) ? ' checked' : ''}>` : '';
     return `<div class="nh-row" data-nh-row="${esc(h.id)}">${pick}<button type="button" class="ghost nh-open" data-nh-open="${esc(h.id)}"><span class="nh-q">${esc(h.quote)}</span>${h.memo ? `<span class="nh-memo"><span class="nh-k">메모</span>${esc(h.memo)}</span>` : ''}<span class="nh-meta">${meta.map(m => `<span>${esc(m)}</span>`).join('')}</span></button><button type="button" class="icon-btn nh-more" data-nh-more data-hl-id="${esc(h.id)}" aria-haspopup="true" aria-expanded="false" aria-label="밑줄 메뉴">${MORE}</button></div>`;
   }
   function paint() {
@@ -32,9 +32,9 @@ export function createNowHighlights({box, query = () => '', onOpen} = {}) {
     for (const id of [...picked]) if (!all.some(h => h.id === id)) picked.delete(id);
     const list = all.filter(h => hlHit(h, query()));
     const head = picking
-      ? `<div class="nx-select-bar nh-select" role="toolbar" aria-label="고른 밑줄"><span data-nh-count>${picked.size}개 고름</span><span class="kptu-actbar kptu-actbar-text nx-sel-acts"><button type="button" class="ghost kptu-act" data-nh-note${picked.size ? '' : ' disabled'}>노트로</button><button type="button" class="ghost kptu-act" data-nh-all>모두 고르기</button></span><button type="button" class="icon-btn nx-sel-close" data-nh-pickend aria-label="고르기 끝내기">✕</button></div>`
-      : (all.length > 1 ? '<div class="nh-head"><button type="button" class="ghost os-text-btn" data-nh-pickstart>여러 개 고르기</button></div>' : '');
-    if (!list.length) { box.innerHTML = head + emptyHtml(query() ? '찾은 밑줄 없음' : '저장한 밑줄 없음 · 원문에서 글을 골라 [밑줄 저장]', {attrs: 'data-nh-empty'}); return; }
+      ? `<div class="nx-select-bar nh-select" role="toolbar" aria-label="선택한 밑줄"><span data-nh-count>${picked.size}개 선택됨</span><span class="kptu-actbar kptu-actbar-text nx-sel-acts"><button type="button" class="ghost kptu-act" data-nh-note${picked.size ? '' : ' disabled'}>노트로</button><button type="button" class="ghost kptu-act" data-nh-all>모두 선택</button></span><button type="button" class="icon-btn nx-sel-close" data-nh-pickend aria-label="선택 끝내기">✕</button></div>`
+      : (all.length > 1 ? '<div class="nh-head"><button type="button" class="ghost os-text-btn" data-nh-pickstart>여러 개 선택</button></div>' : '');
+    if (!list.length) { box.innerHTML = head + emptyHtml(query() ? '찾은 밑줄 없음' : '저장한 밑줄 없음 · 원문에서 글을 선택해 [밑줄 저장]', {attrs: 'data-nh-empty'}); return; }
     box.innerHTML = head + `<div class="nh-list nw-card">${list.map(rowHtml).join('')}</div>`;
   }
   onHighlights(() => paint());
@@ -43,7 +43,7 @@ export function createNowHighlights({box, query = () => '', onOpen} = {}) {
     if (!c) return;
     if (c.checked) picked.add(c.dataset.nhPick); else picked.delete(c.dataset.nhPick);
     const n = box.querySelector('[data-nh-count]'), b = box.querySelector('[data-nh-note]');
-    if (n) n.textContent = `${picked.size}개 고름`;
+    if (n) n.textContent = `${picked.size}개 선택됨`;
     if (b) b.disabled = !picked.size;
   });
   box?.addEventListener('click', async e => {

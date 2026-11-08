@@ -300,7 +300,7 @@ test('폰 사진 지우기 못 한 이유 글', async () => {
   assert.match(phoneTrashText('old'), /갤러리 앱에서/);
   assert.match(phoneTrashText('timeout'), /다시 해 주세요/);
   assert.match(phoneTrashText('failed'), /껐다 켠 뒤/);
-  assert.equal(phoneTrashText(''), '폰에서 지우지 않았어요.');
+  assert.equal(phoneTrashText(''), '폰에서 삭제하지 않았어요.');
 });
 
 test('폰 사진 휴지통 답: 앱이 준 이유를 넘기고, 못 보내는 폰은 old', async () => {

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S51-22 (요청함 11/06 19:50 "어디든 최신 접을 수 있게"): 파일·노트·자료실 맨 위 '최근' 상자 머리 줄을 누르면 접기/펼치기.
-// S51-33 UI-접기꺾쇠(요청함 11/06 23:28): 접기 표시는 '최근' 글자 바로 옆 공용 꺾쇠(⌃ 펼침·⌄ 접힘, 회색·글자 높이), '더보기 ›'는 오른쪽 따로, 세모 글자 없음.
+// S51-33 UI-접기꺾쇠(요청함 11/06 23:28): 접기 표시는 '최근' 글자 바로 옆 공용 꺾쇠(⌃ 펼침·⌄ 접힘, 회색·글자 높이), '펼치기 ›'는 오른쪽 따로, 세모 글자 없음.
 // 접으면 머리 줄 한 줄만, 접은 상태는 화면마다 서버 view_prefs.recent_folded에 기억(기기 저장 없음) — 다시 열어도 접힘. 이름은 모두 가짜.
 // 노트·파일의 '최근' 상자는 폰 한 칸에만 있다(폴드·PC 노트의 '최근'은 왼쪽 나무의 한 줄, 파일은 나무 | 목록).
 const caret = box => box.locator('.ft-box-caret');
@@ -30,9 +30,9 @@ test('파일 폰 412: \'최근\' 머리 줄 누르면 접힘(▾, 줄 없음) �
   const box = page.locator('#filesRoot [data-fx-tree] [data-fx-box="recent"]');
   await expect(box.locator('[data-fx-tfile]')).toHaveCount(5);
   await expectChev(box, true, '[data-fx-recent-fold]');
-  // '더보기 ›'는 접기 단추 밖 오른쪽 글자 단추.
+  // '펼치기 ›'는 접기 단추 밖 오른쪽 글자 단추.
   const more = box.locator('[data-fx-recent-more]');
-  await expect(more).toHaveText('더보기 ›');
+  await expect(more).toHaveText('펼치기 ›');
   expect(await more.evaluate(el => !el.closest('[data-fx-recent-fold]'))).toBe(true);
   await box.locator('[data-fx-recent-fold]').click();
   await expect(box.locator('[data-fx-tfile]')).toHaveCount(0);
@@ -69,7 +69,7 @@ test('노트 폰 412: \'최근\' 상자 접기·펼치기, 서버에 기억', as
   const box = page.locator('[data-nx-recent] .ft-box');
   await expect(box.locator('[data-note-row]')).toHaveCount(5);
   await expectChev(box, true, '[data-nx-recent-fold]');
-  await expect(box.locator('[data-nx-recent-more]')).toHaveText('더보기 ›');
+  await expect(box.locator('[data-nx-recent-more]')).toHaveText('펼치기 ›');
   await box.locator('[data-nx-recent-fold]').click();
   await expect(box.locator('[data-note-row]')).toHaveCount(0);
   await expectChev(box, false, '[data-nx-recent-fold]');
@@ -88,8 +88,8 @@ for (const width of [412, 884, 1280]) test(`자료실 ${width}: '최근 올린 �
   const box = page.locator('#libraryRecent');
   await expect(box.locator('[data-lu-recent]').first()).toBeVisible();
   await expectChev(box, true, '[data-lu-recent-fold]');
-  // 이 가짜 자료는 최근 파일이 적어 '더보기'가 없다(있으면 '더보기 ›').
-  for (const m of await box.locator('[data-lu-recent-more]').all()) await expect(m).toHaveText('더보기 ›');
+  // 이 가짜 자료는 최근 파일이 적어 '더보기'가 없다(있으면 '펼치기 ›').
+  for (const m of await box.locator('[data-lu-recent-more]').all()) await expect(m).toHaveText('펼치기 ›');
   await box.locator('[data-lu-recent-fold]').click();
   await expect(box.locator('[data-lu-recent]')).toHaveCount(0);
   await expectChev(box, false, '[data-lu-recent-fold]');

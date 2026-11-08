@@ -190,7 +190,7 @@ export function paintFlowCells(slot, ctx) {
     bar.append(add);
     if (ui.siteAdding && siteOptions.length) {
       const pick = el('select', 'journal-hwpx-target'); pick.dataset.flowSitePick = ''; pick.setAttribute('aria-label', '넣을 사업장(내 담당 조직)');
-      const none = el('option', '', '사업장 고르기'); none.value = ''; pick.append(none);
+      const none = el('option', '', '사업장 선택'); none.value = ''; pick.append(none);
       for (const n of siteOptions) { const o = el('option', '', n); o.value = n; pick.append(o); }
       bar.append(' ', pick);
     }
@@ -257,12 +257,12 @@ export function paintFlowCells(slot, ctx) {
     c.lines.forEach((text, i) => {
       const li = el('li'); li.dataset.flowLine = String(i);
       if (canMove) li.dataset.flowLineId = li.dataset.reorderId = `${c.id}\u0001${i}`; // reorder-drag.js 는 data-reorder-id 로 줄을 안다
-      if (ui.editing?.cell === c.id && ui.editing.index === i) { li.append(editForm(c.id, ui.editing.value ?? text, {flowFixSave:c.id}, '줄 고치기')); ul.append(li); return; }
+      if (ui.editing?.cell === c.id && ui.editing.index === i) { li.append(editForm(c.id, ui.editing.value ?? text, {flowFixSave:c.id}, '줄 수정')); ul.append(li); return; }
       if (canMove) { const grip = btn('⠿', {flowLineGrip:'', reorderHandle:''}, 'mini journal-hwpx-grip weekly-flow-grip'); grip.setAttribute("aria-label", `줄 자리 바꾸기(끌기·위아래 화살표): ${text}`); grip.disabled = busy || !!ui.editing || !!ui.adding; li.append(grip); }
       // 줄을 고르면(누름·초점) 잠시 뒤 그 칸 줄만 AI 에 묻고 칸 아래 흐린 'AI 제안' 줄(weekly_line). 고르기만 해서는 아무것도 바뀌지 않는다.
       const t = el('span', 'weekly-flow-text', text); t.tabIndex = 0; t.dataset.flowPickLine = String(i); li.append(t);
-      li.append(rowMore(doc, {label:`줄 고치기·빼기: ${text}`, data:{flowLineMore:''}, items:[
-        {text:'고치기', data:{flowFix:c.id, flowIndex:String(i)}, disabled:busy},
+      li.append(rowMore(doc, {label:`줄 수정·빼기: ${text}`, data:{flowLineMore:''}, items:[
+        {text:'수정', data:{flowFix:c.id, flowIndex:String(i)}, disabled:busy},
         {text:'아래에 줄 추가', data:{flowAddBelow:c.id, flowIndex:String(i)}, disabled:busy, aria:`이 줄 아래에 줄 추가: ${text}`},
         {text:'빼기', data:{flowCut:c.id, flowIndex:String(i)}, disabled:busy, danger:true, aria:`이번 주 보고에서 빼기: ${text}`}]}));
       ul.append(li);
@@ -280,7 +280,7 @@ export function paintFlowCells(slot, ctx) {
         const text = x.raw.text.startsWith('-') || ai ? x.raw.text : `- ${lineOf(x.raw.text)}`;
         const li = el('li'); li.dataset.flowSuggestItem = x.key; li.dataset.flowPick = JSON.stringify(item); li.dataset.flowText = text;
         if (ai) { li.dataset.flowLineSuggest = String(x.raw.index); li.dataset.flowIndex = String(x.raw.index); }
-        if (ui.taking?.key === x.key) { li.append(editForm(c.id, ui.taking.value ?? text, {flowEditSave:c.id}, '고쳐서 넣기')); sg.append(li); continue; }
+        if (ui.taking?.key === x.key) { li.append(editForm(c.id, ui.taking.value ?? text, {flowEditSave:c.id}, '수정해서 넣기')); sg.append(li); continue; }
         // [빼기]를 누르면 그 자리에 작은 한 줄 '이유(안 써도 돼요)' + [빼기 확인](요청함 11/01 23:42). 빈 칸이면 그냥 빠진다.
         if (ui.dropping?.key === x.key) { li.append(el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text), ' ', whyForm(c.id, x.text)); sg.append(li); continue; }
         li.append(el('span', 'weekly-flow-tag', x.raw.carried ? CARRIED_TAG : TAG[ai ? 'line' : x.raw.orgRef ? 'calendar' : x.from] ?? '기록'), el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text));
@@ -290,7 +290,7 @@ export function paintFlowCells(slot, ctx) {
         li.append(rowMore(doc, {label:`제안: ${x.text}`, data:{flowSuggestMore:''}, items:[
           {text:'넣기', data:{flowTake:c.id}, disabled:busy, aria:ai ? `${x.raw.index + 1}번째 줄을 이렇게 바꾸기: ${x.raw.text}` : `넣기: ${x.text}`},
           {text:'이미 있음', data:{flowHave:c.id}, disabled:busy, aria:`이미 있음(이미 쓴 내용): ${said}`},
-          {text:'고쳐서 넣기', data:{flowEdit:c.id}, disabled:busy}, {text:'빼기', data:{flowDrop:c.id}, disabled:busy, danger:true, aria:`제안 빼기: ${x.text}`}]}));
+          {text:'수정해서 넣기', data:{flowEdit:c.id}, disabled:busy}, {text:'빼기', data:{flowDrop:c.id}, disabled:busy, danger:true, aria:`제안 빼기: ${x.text}`}]}));
         sg.append(li);
       }
       box.append(sg);

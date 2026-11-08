@@ -99,14 +99,14 @@ for(const width of [390,1280])test(`통화 ${width}: 제목 바꾸기 — 줄 �
  const input=titleField(view,width);
  await expect(input).toBeFocused();
  expect(await input.evaluate(e=>e.selectionStart===0&&e.selectionEnd===e.value.length&&e.value.length>0)).toBe(true);
- await input.fill('손으로 고친 제목');
+ await input.fill('손으로 수정한 제목');
  await input.press('Enter');
- await expect.poll(()=>f.calls).toEqual([{p_id:W1,p_patch:{title:'손으로 고친 제목'}}]);
+ await expect.poll(()=>f.calls).toEqual([{p_id:W1,p_patch:{title:'손으로 수정한 제목'}}]);
  await expect(statusOf(view,width)).toContainText('제목을 바꿨어요');
  await expect(statusOf(view,width).locator('[data-cf-undo]')).toBeVisible();
- expect(f.edits.get(W1)).toEqual({title:'손으로 고친 제목'});
+ expect(f.edits.get(W1)).toEqual({title:'손으로 수정한 제목'});
  expect(f.db.work[0].title).toBe('가상 교섭 일정 조정'); // AI 원래 값은 그대로
- await expect(view.locator(`[data-cf-row="${W1}"] .feed-title`)).toHaveText('손으로 고친 제목');
+ await expect(view.locator(`[data-cf-row="${W1}"] .feed-title`)).toHaveText('손으로 수정한 제목');
  await statusOf(view,width).locator('[data-cf-undo]').click();
  await expect.poll(()=>f.calls.length).toBe(2);
  expect(f.calls[1]).toEqual({p_id:W1,p_patch:{reset:['title']}});
@@ -138,7 +138,7 @@ test('통화 1280: F2로 제목 입력, Esc는 취소(서버 호출 없음), 바
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`통화 ${width}: 조직·이름 고치기 — 상세의 상대 표를 눌러 이름·직함·조직을 고치고 서버에 사용자 값으로 저장`,async({page})=>{
+for(const width of [390,1280])test(`통화 ${width}: 조직·이름 수정 — 상세의 상대 표를 눌러 이름·직함·조직을 수정하고 서버에 사용자 값으로 저장`,async({page})=>{
  const f=await fixture(page,{width});
  await openCalls(page,width);
  const view=page.locator('#callsView');
@@ -158,7 +158,7 @@ for(const width of [390,1280])test(`통화 ${width}: 조직·이름 고치기 �
  await tap(page,box.locator('[data-cf-who-save]'),width);
  await expect.poll(()=>f.calls).toEqual([{p_id:W1,p_patch:{counterpart:'김가상 지부장',organization_id:ORG2}}]);
  await expect(detail.locator('[data-cf-meta]')).toContainText('김가상 지부장');
- await expect(detail.locator('[data-cf-meta]')).toContainText('고침');
+ await expect(detail.locator('[data-cf-meta]')).toContainText('수정됨');
  expect(f.db.work[0].counterpart).toBe('예시지부 홍길동 팀장'); // AI 값은 그대로
  expect(f.db.work[0].organization_id).toBe(ORG);
  // AI 값으로
@@ -169,7 +169,7 @@ for(const width of [390,1280])test(`통화 ${width}: 조직·이름 고치기 �
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`통화 ${width}: 핵심내용 고치기 — 줄마다 고치기·지우기·더하기, 취소는 서버 호출 없음, 저장하면 복사 글도 고친 값`,async({page})=>{
+for(const width of [390,1280])test(`통화 ${width}: 핵심내용 수정 — 줄마다 수정·삭제·더하기, 취소는 서버 호출 없음, 저장하면 복사 글도 수정한 값`,async({page})=>{
  const f=await fixture(page,{width,ledgerSeen:[W1]});
  await openCalls(page,width);
  const view=page.locator('#callsView'),detail=view.locator('#cfDetail');
@@ -195,18 +195,18 @@ for(const width of [390,1280])test(`통화 ${width}: 핵심내용 고치기 — 
  expect(f.errors).toEqual([]);
 });
 
-test('통화 1280: 고친 값은 AI가 같은 칸을 다시 써도 그대로(사용자 값이 앞선다), 다시 불러와도 유지',async({page})=>{
+test('통화 1280: 수정한 값은 AI가 같은 칸을 다시 써도 그대로(사용자 값이 앞선다), 다시 불러와도 유지',async({page})=>{
  const f=await fixture(page,{width:1280});
  await openCalls(page,1280);
  const view=page.locator('#callsView');
  await view.locator(`[data-cf-row="${W1}"]`).click({button:'right'});
  await page.locator('#cfMenu').getByRole('button',{name:/^제목 바꾸기/}).click();
- await view.locator('#cfList [data-cf-title-input]').fill('내가 고친 제목');await page.keyboard.press('Enter');
+ await view.locator('#cfList [data-cf-title-input]').fill('내가 수정한 제목');await page.keyboard.press('Enter');
  await expect.poll(()=>f.calls.length).toBe(1);
  // 서버의 AI 다시 채우기가 제목·상대를 덮어쓴 것처럼 흉내 낸다.
  Object.assign(f.db.work[0],{title:'AI가 다시 쓴 제목',counterpart:'예시지부 다른사람 과장'});
  await page.evaluate(()=>window.KPTUCallFeed.reload());
- await expect(view.locator(`[data-cf-row="${W1}"] .feed-title`)).toHaveText('내가 고친 제목');
+ await expect(view.locator(`[data-cf-row="${W1}"] .feed-title`)).toHaveText('내가 수정한 제목');
  await view.locator(`[data-cf-row="${W1}"]`).click();
  await expect(view.locator('#cfDetail [data-cf-meta]')).toContainText('다른사람');
  expect(f.errors).toEqual([]);
@@ -229,14 +229,14 @@ for(const width of [390,1280])test(`통화 ${width}: 확인할 통화의 업무 
  expect(f.errors).toEqual([]);
 });
 
-test('통화 1280: 개인 통화도 제목·이름·핵심내용은 고치지만 조직은 고치는 칸이 없다',async({page})=>{
+test('통화 1280: 개인 통화도 제목·이름·핵심내용은 수정하지만 조직은 수정하는 칸이 없다',async({page})=>{
  const f=await fixture(page,{width:1280});
  await openCalls(page,1280);
  const view=page.locator('#callsView');
  await view.locator(`[data-cf-row="${U1}"]`).click();
  await view.locator('#cfDetail [data-cf-more]').click();
- await expect(page.locator('#cfMenu').getByRole('button',{name:'이름 고치기'})).toBeVisible();
- await page.locator('#cfMenu').getByRole('button',{name:'이름 고치기'}).click();
+ await expect(page.locator('#cfMenu').getByRole('button',{name:'이름 수정'})).toBeVisible();
+ await page.locator('#cfMenu').getByRole('button',{name:'이름 수정'}).click();
  await expect(view.locator('#cfDetail [data-cf-who-pick]')).toHaveCount(0);
  await view.locator('#cfDetail [data-cf-who-name]').fill('가상 상대');
  await view.locator('#cfDetail [data-cf-who-save]').click();
@@ -244,14 +244,14 @@ test('통화 1280: 개인 통화도 제목·이름·핵심내용은 고치지만
  expect(f.errors).toEqual([]);
 });
 
-test('통화 1280: 고친 값 표가 아직 없으면(DB 적용 전) 고치기 항목만 없고 목록·상세는 그대로 열린다',async({page})=>{
+test('통화 1280: 수정한 값 표가 아직 없으면(DB 적용 전) 수정 항목만 없고 목록·상세는 그대로 열린다',async({page})=>{
  const f=await fixture(page,{width:1280,editsMissing:true});
  await openCalls(page,1280);
  const view=page.locator('#callsView');
  await expect(view.locator('[data-cf-row]')).toHaveCount(3);
  await view.locator(`[data-cf-row="${W1}"]`).click({button:'right'});
  await expect(page.locator('#cfMenu')).toBeVisible();
- await expect(page.locator('#cfMenu').getByRole('button',{name:/제목 바꾸기|고치기/})).toHaveCount(0);
+ await expect(page.locator('#cfMenu').getByRole('button',{name:/제목 바꾸기|수정/})).toHaveCount(0);
  await page.keyboard.press('Escape');
  await view.locator(`[data-cf-row="${W1}"]`).click();
  await expect(view.locator('#cfDetail [data-cf-who-open],#cfDetail [data-cf-sum-open]')).toHaveCount(0);

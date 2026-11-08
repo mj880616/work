@@ -25,7 +25,7 @@ const accounts=logoutButtons.map(logout=>{
   // UI-업데이트기록입구: [내 프로필] 바로 아래 [업데이트 기록] 줄, 오른쪽에 지금 판 이름을 작게(메뉴를 처음 열 때 기록 파일에서 채움).
   const updates=document.createElement('button');updates.type='button';updates.className='account-action account-updates';updates.dataset.updatesOpen='';
   updates.innerHTML='<span class="account-action-name">업데이트 기록</span><span class="account-ver" data-account-ver></span>';
-  const menuEdit=document.createElement('button');menuEdit.type='button';menuEdit.className='account-action';menuEdit.dataset.menuEditOpen='';menuEdit.textContent='메뉴 편집';menuEdit.setAttribute('aria-haspopup','dialog');menuEdit.setAttribute('aria-controls','menuEditModal');
+  const menuEdit=document.createElement('button');menuEdit.type='button';menuEdit.className='account-action';menuEdit.dataset.menuEditOpen='';menuEdit.textContent='메뉴 수정';menuEdit.setAttribute('aria-haspopup','dialog');menuEdit.setAttribute('aria-controls','menuEditModal');
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
   logout.before(host);host.append(trigger);panel.append(profile,updates,menuEdit,theme,logout);document.body.append(panel);
@@ -480,7 +480,7 @@ accounts.forEach(account=>account.updates.addEventListener('click',()=>closeAcco
 // [메뉴 편집]: 계정 메뉴를 닫은 뒤 편집 창(menu-edit.js)을 처음 쓸 때 불러 연다.
 accounts.forEach(account=>account.menuEdit.addEventListener('click',()=>closeAccount(()=>{
   const focusTrigger=menuQuery.matches?menuButton():account.trigger;
-  import('./menu-edit.js').then(({openMenuEdit})=>openMenuEdit({trigger:focusTrigger})).catch(error=>{console.error('menu edit',error);writeToast('메뉴 편집을 열지 못했어요. 다시 시도해 주세요.')});
+  import('./menu-edit.js').then(({openMenuEdit})=>openMenuEdit({trigger:focusTrigger})).catch(error=>{console.error('menu edit',error);writeToast('메뉴 수정을 열지 못했어요. 다시 시도해 주세요.')});
 })));
 const themeButtons=accounts.map(account=>account.theme);
 window.dispatchEvent(new CustomEvent('kptu:account-ready'));

@@ -91,7 +91,7 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 <section class="journal-day" data-journal-day>
 <div class="journal-top-cols" data-journal-top-cols><section class="journal-group journal-schedule" data-journal-schedule aria-label="그날 일정"></section><section class="journal-tasks" data-journal-tasks aria-label="할 일"></section></div>
 <section class="journal-done-day" data-journal-done-day aria-labelledby="journalDoneTitle"><h4 class="journal-heading" id="journalDoneTitle" data-journal-done-title>오늘 한 일</h4>
-<form class="journal-line" data-journal-line data-enter-save novalidate><label class="a11y-only" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 고쳐서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
+<form class="journal-line" data-journal-line data-enter-save novalidate><label class="a11y-only" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 수정해서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <div class="journal-done-tasks" data-journal-done-tasks></div>
 </section>
@@ -217,7 +217,7 @@ function renderList() {
     item.className = 'journal-line-item'; item.dataset.journalItem = String(index);
     if (edit?.index === index) {
       item.dataset.editing = ''; item.dataset.enterSave = '';
-      item.innerHTML = `<textarea rows="2" data-journal-edit-input data-enter-field="single" aria-label="${index + 1}번째 줄 고치기" aria-describedby="journalEditCount journalEditStatus"></textarea><div class="journal-edit-meta"><small id="journalEditCount" data-journal-edit-count></small><p id="journalEditStatus" class="journal-line-status" data-journal-edit-status role="status" aria-live="polite"></p></div><div class="journal-edit-actions save-row"><button type="button" class="mini journal-delete save-row-start" data-journal-edit-delete>삭제</button><button type="button" class="mini" data-journal-edit-cancel>취소</button><button type="button" class="mini primary" data-journal-edit-save data-enter-save-submit>저장</button></div>`;
+      item.innerHTML = `<textarea rows="2" data-journal-edit-input data-enter-field="single" aria-label="${index + 1}번째 줄 수정" aria-describedby="journalEditCount journalEditStatus"></textarea><div class="journal-edit-meta"><small id="journalEditCount" data-journal-edit-count></small><p id="journalEditStatus" class="journal-line-status" data-journal-edit-status role="status" aria-live="polite"></p></div><div class="journal-edit-actions save-row"><button type="button" class="mini journal-delete save-row-start" data-journal-edit-delete>삭제</button><button type="button" class="mini" data-journal-edit-cancel>취소</button><button type="button" class="mini primary" data-journal-edit-save data-enter-save-submit>저장</button></div>`;
       const box = item.querySelector('[data-journal-edit-input]');
       box.value = edit.value; box.disabled = saving;
       item.querySelectorAll('button').forEach(button => { button.disabled = saving; });
@@ -230,7 +230,7 @@ function renderList() {
     button.type = 'button'; button.className = 'journal-line-text'; button.dataset.journalEdit = String(index);
     button.disabled = saving || !!edit;
     button.textContent = text;
-    button.setAttribute('aria-label', `${text} (눌러서 고치기)`);
+    button.setAttribute('aria-label', `${text} (눌러서 수정)`);
     // PC: [수정][삭제] beside the line (hidden on the phone; shown on hover or keyboard focus — journal.css).
     const actions = document.createElement('span');
     actions.className = 'journal-line-actions';
@@ -963,7 +963,7 @@ async function saveEdit() {
   if (result.stale || editing !== edit && !result.error) return;
   if (result.ok) {
     editing = null; renderList();
-    lineStatus.textContent = '줄을 고쳤어요.';
+    lineStatus.textContent = '줄을 수정했어요.';
     const index = workLines(lines.get(edit.day)).indexOf(line);
     root.querySelector(`[data-journal-edit="${index}"]`)?.focus();
   } else if (editing === edit) { edit.status = result.message; renderList(); root.querySelector('[data-journal-edit-input]')?.focus(); }
@@ -978,17 +978,17 @@ async function removeWithUndo(day, index, before, {onStale, onDone, onFail} = {}
   lineStatus.textContent = '';
   input.focus();
   const scope = owner;
-  offerUndoNotice({text:'한 줄을 지웠어요.', onUndo:async () => {
+  offerUndoNotice({text:'한 줄을 삭제했어요.', onUndo:async () => {
     if (scope !== ownerScope(rt)) return {status:'stale'};
     const back = await apply(day, restoreLine(index, before));
     if (back.stale) return {status:'stale'};
-    return {status:back.ok ? 'restored' : 'failed', message:back.ok ? '지운 줄을 되돌렸어요.' : back.message};
+    return {status:back.ok ? 'restored' : 'failed', message:back.ok ? '삭제한 줄을 되돌렸어요.' : back.message};
   }});
 }
 async function deleteEdit() {
   if (saving || !editing) return;
   const edit = editing;
-  edit.status = '지우는 중…';
+  edit.status = '삭제하는 중…';
   await removeWithUndo(edit.day, edit.index, edit.before, {
     onStale:() => { if (editing === edit) editing = null; },
     onDone:() => { editing = null; renderList(); },
@@ -1000,7 +1000,7 @@ async function deleteLine(index) {
   const day = selected, before = workLines(lines.get(day))[index];
   if (before === undefined) return;
   closeUndoNotice();
-  lineStatus.textContent = '지우는 중…';
+  lineStatus.textContent = '삭제하는 중…';
   await removeWithUndo(day, index, before, {onFail:result => { lineStatus.textContent = result.message; }});
 }
 
@@ -1273,7 +1273,7 @@ async function changeFileEdit(id, patch, message) {
   try {
     const r = await W.changeWeekDocs({start:week, known:materials.weekDraft.items.row, change:draft => W.withDocEdit(draft, id, patch)}, rt);
     if (!current(run, scope)) return false;
-    if (r.missing) { materials.weekDraft = {status:'ok', items:{missing:true, row:null}}; fileUi.status = '자료 줄 고침은 아직 준비 중이에요.'; return false; }
+    if (r.missing) { materials.weekDraft = {status:'ok', items:{missing:true, row:null}}; fileUi.status = '자료 줄 수정은 아직 준비 중이에요.'; return false; }
     materials.weekDraft = {status:'ok', items:{missing:false, row:r.row}};
     fileUi.status = message; return true;
   } catch {
@@ -1288,7 +1288,7 @@ async function saveFileEdit(reset = false) {
   const id = fileUi.editing; if (!id) return;
   const input = root.querySelector('[data-journal-file-edit-input]'), value = String(input?.value ?? fileUi.value).replace(/\s+/g, ' ').trim();
   if (!reset && !value) { fileUi.status = '빈 줄은 저장하지 않아요. 빼려면 [빼기]를 써 주세요.'; fileUi.error = true; renderWeekly_(); return; }
-  if (await changeFileEdit(id, {text:reset ? null : value}, reset ? '원래 줄로 되돌렸어요.' : '이번 주 보고 글만 고쳤어요(자료 요약은 그대로).')) closeFileEdit();
+  if (await changeFileEdit(id, {text:reset ? null : value}, reset ? '원래 줄로 되돌렸어요.' : '이번 주 보고 글만 수정했어요(자료 요약은 그대로).')) closeFileEdit();
 }
 // WEEKLY-환류: '주간보고 기억'에서 [지우기] — 다시 읽고 그 항목만 빼서 내 프로필 칸에 쓴다. 바로 뒤 [되돌리기](몇 초)는 같은 항목을 다시 쓴다.
 let undoTimer = 0;
@@ -1306,7 +1306,7 @@ function deleteMemory(key) {
   const entry = memory.status === 'ok' ? memory.list.find(e => e.key === key) : null;
   if (!entry) return;
   return changeMemoryFromList(list => W.withoutKey(list, key), () => {
-    memoryUi.status = `‘${entry.origin}’ 기억을 지웠어요.`; memoryUi.undo = {entry};
+    memoryUi.status = `‘${entry.origin}’ 기억을 삭제했어요.`; memoryUi.undo = {entry};
     clearTimeout(undoTimer); undoTimer = setTimeout(() => { if (memoryUi.undo?.entry === entry) { memoryUi.undo = null; memoryUi.status = ''; renderWeekly_(); } }, 8000);
   });
 }
@@ -1394,7 +1394,7 @@ async function saveExecEdit() {
     // An edited row is the owner's own now: the '지난주에서' mark goes.
     const result = await writeExec(list => (id === 'new' ? [...list, item] : list.some(row => row.id === id) ? list.map(row => (row.id === id ? item : row)) : [...list, item]));
     if (result.stale) return;
-    closeExecEdit(id === 'new' ? '요청 줄을 더했어요.' : '요청 줄을 고쳤어요.');
+    closeExecEdit(id === 'new' ? '요청 줄을 더했어요.' : '요청 줄을 수정했어요.');
     // 지난주에서 가져온 줄을 고치면 그 제안을 '고쳐서 넣음'(kind carried edit), 내 줄이면 줄 고침(fix), 새 줄은 손으로 더함(add).
     void recordExecPick(before?.carried ? {kind:'carried', act:'edit', text:execLine(item), before:execLine(before)} : before ? {act:'fix', text:execLine(item), before:execLine(before)} : {act:'add', text:execLine(item)});
   } catch (error) {
@@ -1419,7 +1419,7 @@ async function deleteExecRow(id) {
   if (execUi.saving) return;
   const removed = execRows().find(row => row.id === id);
   if (!removed) return;
-  execUi.saving = true; execUi.status = '지우는 중…'; renderWeekly_();
+  execUi.saving = true; execUi.status = '삭제하는 중…'; renderWeekly_();
   try {
     const result = await writeExec(list => list.filter(row => row.id !== id));
     if (result.stale) return;
@@ -1427,14 +1427,14 @@ async function deleteExecRow(id) {
   closeExecEdit('');
   void recordExecPick(removed.carried ? {kind:'carried', act:'drop', text:execLine(removed)} : {act:'cut', text:execLine(removed)});
   const scope = owner, week = start;
-  offerUndoNotice({text:'요청 줄을 지웠어요.', onUndo:async () => {
+  offerUndoNotice({text:'요청 줄을 삭제했어요.', onUndo:async () => {
     if (scope !== ownerScope(rt) || week !== start) return {status:'stale'};
     try {
       const back = await writeExec(list => (list.some(row => row.id === removed.id) ? null : [...list, removed]));
       if (back.stale) return {status:'stale'};
       void recordExecPick({kind:removed.carried ? 'carried' : 'line', act:'none', text:execLine(removed)});
       renderWeekly_();
-      return {status:'restored', message:'지운 요청 줄을 되돌렸어요.'};
+      return {status:'restored', message:'삭제한 요청 줄을 되돌렸어요.'};
     } catch (error) { return {status:'failed', message:execError(error)}; }
   }});
 }

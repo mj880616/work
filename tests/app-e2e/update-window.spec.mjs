@@ -46,17 +46,17 @@ for(const width of [390,1280]){
   await expect(e.locator('[data-edw-save]')).toHaveAccessibleName('업데이트로 저장');
   expect(await fits(page)).toBe(true);
   // Closing without saving hands the letters back to the input.
-  await typeInto(page,text(page),'큰 창에서 고친 업데이트');
+  await typeInto(page,text(page),'큰 창에서 수정한 업데이트');
   await e.locator('[data-close="edWindow"]').click();
   await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(win(page)).toHaveCount(0);
-  await expect(q.locator('[data-quick-input]')).toHaveValue('큰 창에서 고친 업데이트');
+  await expect(q.locator('[data-quick-input]')).toHaveValue('큰 창에서 수정한 업데이트');
   expect(f.notes).toEqual([]);
-  await big.click();await expect(text(page)).toContainText('큰 창에서 고친 업데이트');
+  await big.click();await expect(text(page)).toContainText('큰 창에서 수정한 업데이트');
   await win(page).locator('[data-edw-save]').click();
   await expect(win(page)).toHaveCount(0);
   await expect(page.locator('#toast')).toContainText('잊지 말기에 저장');
   await expect(q.locator('[data-quick-input]')).toHaveValue('');
-  expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({workspace_id:'w',raw_text:'큰 창에서 고친 업데이트'});expect(f.notes[0].doc).toMatchObject({v:'ed1'});
+  expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({workspace_id:'w',raw_text:'큰 창에서 수정한 업데이트'});expect(f.notes[0].doc).toMatchObject({v:'ed1'});
   expect(f.orgs).toEqual([]);expect(f.projects).toEqual([]);
   expect(f.errors).toEqual([]);
  });
@@ -98,7 +98,7 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`[+ 추가] → [업데이트]: [기록할 곳 ▾]에서 조직을 고르면 조직 기록에도 서식까지, 정리함도 서식까지 ${width}`,async({page})=>{
+ test(`[+ 추가] → [업데이트]: [기록할 곳 ▾]에서 조직을 선택하면 조직 기록에도 서식까지, 정리함도 서식까지 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   const e=await openWriter(page,width);
   await expect(e.locator('[data-edw-place]')).toContainText('잊지 말기(미분류)');

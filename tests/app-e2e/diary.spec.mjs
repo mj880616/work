@@ -137,7 +137,7 @@ async function photoFiles(page,n,{w=3000,h=1500}={}){
 }
 
 // HOME-업무일지홈: 업무일지는 홈이라 [일정] 전환 줄은 [달력|할 일|일기] 셋이다.
-test('[일정] 머리줄 [달력|할 일|일기]: 높이 32·고른 쪽 테마색, [일기] 화면, 탭은 마지막으로 본 쪽',async({page})=>{
+test('[일정] 머리줄 [달력|할 일|일기]: 높이 32·선택한 쪽 테마색, [일기] 화면, 탭은 마지막으로 본 쪽',async({page})=>{
  const f=await fixture(page);
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
  const sw=page.locator('#calendarView .schedule-switch');
@@ -282,17 +282,17 @@ test('쓰기 — 글만 / 둘 다: 글만이면 점, 둘 다면 사진과 글',a
  expect(f.errors).toEqual([]);
 });
 
-test('같은 날은 하나: [+]는 있는 날을 고치기로, 날짜를 있는 날로 바꾸면 고치기로, 서버 409도 고치기로',async({page})=>{
+test('같은 날은 하나: [+]는 있는 날을 수정으로, 날짜를 있는 날로 바꾸면 수정으로, 서버 409도 수정으로',async({page})=>{
  const f=await fixture(page);await openDiary(page,390);
  await cell(page,'2026-10-03').click();
  await page.locator('#diaryRoot #newDiaryBtn').click();
  const ed=page.locator('#diaryRoot [data-diary-editor]');
  await expect(ed.locator('h3')).toHaveText('일기 수정');await expect(field(ed)).toHaveText('가을 산책 DIARY_TEXT_SECRET',plain);
  await expect(ed.locator('[data-diary-date]')).toBeDisabled();await expect(ed.locator('[data-diary-thumb]')).toHaveCount(2);
- await typeInto(page,field(ed),'가을 산책, 고쳐 씀');await ed.locator('[data-diary-save]').click();
- await expect(page.locator('#diaryRoot [data-diary-text-view]')).toHaveText('가을 산책, 고쳐 씀');
+ await typeInto(page,field(ed),'가을 산책, 수정해 씀');await ed.locator('[data-diary-save]').click();
+ await expect(page.locator('#diaryRoot [data-diary-text-view]')).toHaveText('가을 산책, 수정해 씀');
  expect(f.writes.filter(w=>w.method==='POST')).toHaveLength(0);
- expect(f.writes.at(-1)).toMatchObject({method:'PATCH',query:{kind:'eq.diary',id:'eq.d3'},body:{raw_text:'가을 산책, 고쳐 씀'}});
+ expect(f.writes.at(-1)).toMatchObject({method:'PATCH',query:{kind:'eq.diary',id:'eq.d3'},body:{raw_text:'가을 산책, 수정해 씀'}});
  // 새로 쓰다 날짜를 이미 있는 날로 바꾸면 고치기로 열리고 쓰던 글은 아래에 붙는다.
  await page.locator('#diaryRoot [data-diary-detail-close]').click();
  await page.locator('#diaryRoot #newDiaryBtn').click();await expect(ed.locator('h3')).toHaveText('일기 쓰기');
@@ -333,7 +333,7 @@ test('21장째는 넣지 않고 안내, 고르자마자 올리다 실패하면 �
  expect(f.errors).toEqual([]);
 });
 
-test('고치기에서 사진 하나 빼기, 글 없는 일기의 마지막 사진은 막고, [일기 지우기]는 note-delete(휴지통)',async({page})=>{
+test('수정에서 사진 하나 빼기, 글 없는 일기의 마지막 사진은 막고, [일기 삭제]는 note-delete(휴지통)',async({page})=>{
  const rows=store();rows.push({id:'d5',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-05',raw_text:'',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[photo('only')],metadata:{}});
  const f=await fixture(page,{rows});await openDiary(page,390);
  await cell(page,'2026-10-03').click();await page.locator('#diaryRoot [data-diary-edit]').click();
@@ -352,7 +352,7 @@ test('고치기에서 사진 하나 빼기, 글 없는 일기의 마지막 사�
  let asked='';page.on('dialog',d=>{asked=d.message();d.dismiss();});
  await ed.locator('[data-diary-editor-more]').click();await page.locator('#diaryEditorMenu [data-diary-delete]').click();
  await expect(ed).toBeHidden();const undo=page.locator('[data-undo-notice]');
- await expect(undo).toContainText('10월 5일 일기를 지웠어요.');await expect(cell(page,'2026-10-05').locator('img')).toHaveCount(0);
+ await expect(undo).toContainText('10월 5일 일기를 삭제했어요.');await expect(cell(page,'2026-10-05').locator('img')).toHaveCount(0);
  await undo.locator('[data-undo-action]').click();await expect(undo).toContainText('일기를 되돌렸어요.');
  await expect(cell(page,'2026-10-05').locator('img')).toHaveCount(1);
  await page.waitForTimeout(600);expect(f.deletes).toEqual([]);
@@ -493,7 +493,7 @@ for(const width of [390,1280])test(`[일기] 일기 없는 날도 한 일이 있
 
 // BUG-오늘버튼: [오늘] goes to this month and chooses today (its detail opens), like tapping the day.
 for(const width of [390,1280]){
- test(`[일기] [오늘]: 이번 달에서 다른 날을 골랐어도, 다른 달에서도 오늘이 골라지고 상세가 열린다 ${width}`,async({page})=>{
+ test(`[일기] [오늘]: 이번 달에서 다른 날을 선택했어도, 다른 달에서도 오늘이 골라지고 상세가 열린다 ${width}`,async({page})=>{
   const rows=store();rows.push({id:'d6',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-06',raw_text:'오늘 쓴 일기',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[],metadata:{}});
   const f=await fixture(page,{width,rows});await openDiary(page,width);
   const today=page.locator('#diaryRoot [data-diary-today]'),detail=page.locator('#diaryRoot [data-diary-detail]'),title=page.locator('#diaryRoot [data-diary-title]');
@@ -553,7 +553,7 @@ for(const scheme of ['light','dark'])for(const width of [390,1280]){
 }
 
 // UI-일기사진 ②: [사진 고르기]는 촬영 전용이 아니라 시스템 사진 선택창(여러 장)으로 열린다.
-test('사진 고르기: capture 속성 없이 image/*·여러 장 선택',async({page})=>{
+test('사진 선택: capture 속성 없이 image/*·여러 장 선택',async({page})=>{
  const f=await fixture(page);await openDiary(page,390);
  await page.locator('#diaryRoot #newDiaryBtn').click();
  const input=page.locator('#diaryRoot [data-diary-editor] [data-diary-input]');
@@ -581,8 +581,8 @@ for(const width of [390,1280]){
   const inputs=ed.locator('[data-diary-comment]');await expect(inputs).toHaveCount(2);
   await expect(inputs.first()).toHaveAttribute('maxlength','200');await expect(inputs.first()).toHaveAttribute('aria-label','사진 1 코멘트');
   // 글만 고치면 metadata는 건드리지 않는다.
-  await typeInto(page,field(ed),'글만 고침');await ed.locator('[data-diary-save]').click();
-  await expect(page.locator('#diaryRoot [data-diary-text-view]')).toHaveText('글만 고침');
+  await typeInto(page,field(ed),'글만 수정됨');await ed.locator('[data-diary-save]').click();
+  await expect(page.locator('#diaryRoot [data-diary-text-view]')).toHaveText('글만 수정됨');
   expect(f.writes.every(w=>!('metadata' in (w.body||{})))).toBe(true);
   // 코멘트 쓰기: 사진 1·2에 달고, 사진 1은 앞뒤 공백과 줄바꿈을 한 줄로 정리.
   await openEditor(page);
@@ -663,7 +663,7 @@ for(const [width,height] of [[390,844],[720,900],[880,1000],[1280,800]]){
 // UI-일기뒤로가기: 날짜 패널 위에 크게 보기가 열린 채 폰 뒤로가기 한 번은 크게 보기만 닫고 그날 패널은 남긴다.
 // 브라우저 뒤로(goBack)와 앱 뒤로(KPTURouter.back, 안드로이드 뒤로가 부르는 것)를 둘 다 본다.
 for(const [how,back] of [['브라우저 뒤로',page=>page.goBack()],['앱 뒤로',page=>page.evaluate(()=>window.KPTURouter.back())]]){
- test(`폰 ${how}: 크게 보기 → 크게 보기만 닫힘, 한 번 더 → 날짜 패널 닫힘 (사진 넘김·×·다시 열기·고치기 저장 뒤에도)`,async({page})=>{
+ test(`폰 ${how}: 크게 보기 → 크게 보기만 닫힘, 한 번 더 → 날짜 패널 닫힘 (사진 넘김·×·다시 열기·수정 저장 뒤에도)`,async({page})=>{
   const rows=store();rows[1].attachments=['pa','pb','pc','pd'].map(id=>photo(id));
   const f=await fixture(page,{width:390,rows});await openDiary(page,390);
   const detail=page.locator('#diaryRoot [data-diary-detail]'),viewer=page.locator('#diaryRoot [data-diary-viewer]'),grid=detail.locator('[data-diary-grid] .diary-grid-item');

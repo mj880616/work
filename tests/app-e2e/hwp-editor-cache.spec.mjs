@@ -90,9 +90,9 @@ test('디스크 캐시가 있는 브라우저는 편집기를 두 번째 열 때
     const disk=await measure(origin,log,'디스크 캐시');
     const memory=await measure(origin,log,'메모리 캐시',browser);
     for(const r of [...disk,...memory]){
-      const line=`[LIB-편집열기느림 실측] ${r.phase} ${r.round}번째 열기: 편집기 준비 ${r.readyMs}ms, 파일 펼치기 ${r.openMs}ms, 편집기 부품 받은 양 ${mib(r.editorBytes)}(WASM ${mib(r.wasmBytes)}), 요청 ${r.requests}개`;
+      const line=`[LIB-수정열기느림 실측] ${r.phase} ${r.round}번째 열기: 편집기 준비 ${r.readyMs}ms, 파일 펼치기 ${r.openMs}ms, 편집기 부품 받은 양 ${mib(r.editorBytes)}(WASM ${mib(r.wasmBytes)}), 요청 ${r.requests}개`;
       // GitHub Actions 기록 위에 한 줄 알림으로도 남긴다(전후 비교 근거).
-      console.log(`::notice title=LIB-편집열기느림 실측::${line} / 새로 받은 파일: ${r.fresh.join(', ')||'없음'}`);
+      console.log(`::notice title=LIB-수정열기느림 실측::${line} / 새로 받은 파일: ${r.fresh.join(', ')||'없음'}`);
       test.info().annotations.push({type:'measure',description:line});
     }
     expect(disk[0].wasmBytes).toBeGreaterThan(10*1048576);

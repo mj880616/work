@@ -115,7 +115,7 @@ for (const width of [390, 1280]) {
     const viewer = root(page).locator('[data-diary-viewer]');
     await expect(viewer).toBeVisible();
     await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('1 / 7');
-    await expect(viewer.locator('.diary-viewer-actions button:not([hidden])')).toHaveText(['별표', '공유▾', '지우기', '더보기']); // S49-34 PHOTO-아래줄정돈: 다섯 칸까지(이 흉내는 앱이 아니라 [편집 ▾] 없음)
+    await expect(viewer.locator('.diary-viewer-actions button:not([hidden])')).toHaveText(['별표', '공유▾', '삭제', '메뉴']); // S49-34 PHOTO-아래줄정돈: 다섯 칸까지(이 흉내는 앱이 아니라 [편집 ▾] 없음)
     await viewer.locator('[data-strip-act="more"]').click(); await page.locator('#photoBarMenu').getByRole('button', { name: '정보', exact: true }).click();
     await expect(viewer.locator('[data-strip-original]')).toHaveText('⤓ 원본 받기');
     await page.keyboard.press('s');
@@ -204,31 +204,31 @@ for (const width of [412, 884, 1440]) {
   });
 }
 
-test('사진 메뉴: 길게 눌러 여러 장 고르기 → [☆ 별표]·[🗑 지우기](묻지 않음, 되돌리기 뒤 한 번에) → [휴지통]에서 되살리기 390', async ({ page }) => {
+test('사진 메뉴: 길게 눌러 여러 장 선택 → [☆ 별표]·[🗑 삭제](묻지 않음, 되돌리기 뒤 한 번에) → [휴지통]에서 되살리기 390', async ({ page }) => {
   const f = await fixture(page, { width: 390 });
   await openPhotos(page, 390);
   await expect(items(page)).toHaveCount(7);
   const hold = async locator => { const b = await locator.boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up(); };
   await hold(items(page).nth(0));
   await expect(root(page).locator('[data-photos-sel]')).toBeVisible();
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 선택됨');
   await expect(root(page).locator('[data-diary-viewer]')).toHaveCount(0);
   await items(page).nth(1).click();
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 선택됨');
   await expect(items(page).nth(1)).toHaveAttribute('aria-pressed', 'true');
   // 날짜 머리줄 ○ = 그날 전체 고르기.
   await root(page).locator('[data-photos-day-pick="2026-10-05"]').click();
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('3개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('3개 선택됨');
   await root(page).locator('[data-photos-act-star]').click();
   await expect.poll(() => f.stars.map(s => s.item_key).sort()).toEqual(['A1', 'A2', 'A3']);
   // S49-9 PHOTO-보낸뒤선택풀기: 별표는 그 자리 표시만 바뀌어 고른 채 둔다. 풀기는 ✕.
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('3개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('3개 선택됨');
   await root(page).locator('[data-photos-sel-off]').click();
   await expect(root(page).locator('[data-photos-sel]')).toBeHidden();
   // 다시 고르고 지우기: 바로 목록에서 빠지고, 되돌리기 시간(5초) 뒤 한 번에(ids) 서버로 간다.
   await hold(items(page).nth(3));
   await items(page).nth(5).click();
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 선택됨');
   await root(page).locator('[data-photos-act-delete]').click();
   await expect(items(page)).toHaveCount(5);
   await expect(page.locator('.kptu-notice-undo')).toBeVisible();
@@ -304,14 +304,14 @@ test('사진 메뉴: 핀치로 칸 수를 바꿔도 선택 모드·크게 보기
     el.click();
   });
   await expect(root(page).locator('[data-photos-sel]')).toBeVisible();
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 선택됨');
   await expect(root(page).locator('[data-diary-viewer]')).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });
 
 // PHOTO-꾹누르고끌기(요청함 11/03 00:04): 꾹 눌러 선택 모드를 켠 손가락을 떼지 않고 아래로 끌면 그 사이 사진이 모두 골라진다(위아래도 고르기).
 // 선택 모드에서 새로 눌러 옆으로 끌어 고르기는 지금처럼, 새로 눌러 위아래로 끌면 넘기기(고르기 아님). 손 뗀 뒤 누르기는 크게 보기를 열지 않는다.
-test('사진 메뉴: 꾹 누른 손가락 그대로 아래로 끌면 이어 고르기, 선택 모드 새 누르기 옆 끌기는 그대로 412', async ({ page }) => {
+test('사진 메뉴: 꾹 누른 손가락 그대로 아래로 끌면 이어 선택, 선택 모드 새 누르기 옆 끌기는 그대로 412', async ({ page }) => {
   const f = await fixture(page, { width: 412 });
   await openPhotos(page, 412);
   await expect(items(page)).toHaveCount(7);
@@ -332,30 +332,30 @@ test('사진 메뉴: 꾹 누른 손가락 그대로 아래로 끌면 이어 고�
   }, [type, index, id, dx, dy]);
   await finger('pointerdown', 0);
   await page.waitForTimeout(700); // 꾹 누르기 0.5초
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 선택됨');
   // 떼지 않고 아래로: A3 → B1(아래 줄). 이 손가락의 touchmove는 막혀 화면 넘기기가 아니다.
   expect(await finger('pointermove', 0, { dy: 0.9 })).toBe(true);
   expect(await finger('pointermove', 3, { dy: 0.3 })).toBe(true);
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('4개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('4개 선택됨');
   for (const i of [0, 1, 2, 3]) await expect(items(page).nth(i)).toHaveAttribute('aria-pressed', 'true');
   await expect(items(page).nth(4)).toHaveAttribute('aria-pressed', 'false');
   await finger('pointerup', 3);
   await expect(root(page).locator('[data-diary-viewer]')).toHaveCount(0);
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('4개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('4개 선택됨');
   // 선택 모드에서 새로 눌러 위아래로 끌면 넘기기: 고르기는 그대로, touchmove도 막지 않는다.
   await finger('pointerdown', 4, { id: 6 });
   expect(await finger('pointermove', 4, { id: 6, dy: 0.95 })).toBe(false);
   expect(await finger('pointermove', 5, { id: 6, dy: 0.5 })).toBe(false);
   await finger('pointercancel', 5, { id: 6 });
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('4개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('4개 선택됨');
   // 선택 모드에서 새로 눌러 옆으로 끌기 = 지금처럼 이어 고르기(C2 → C1).
   await finger('pointerdown', 5, { id: 7, dx: 0.2 });
   await finger('pointermove', 5, { id: 7, dx: 0.9 });
   await finger('pointermove', 6, { id: 7, dx: 0.5 });
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('6개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('6개 선택됨');
   await finger('pointerup', 6, { id: 7 });
   await expect(root(page).locator('[data-diary-viewer]')).toHaveCount(0);
-  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('6개 골랐음');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('6개 선택됨');
   expect(f.errors).toEqual([]);
 });
 
@@ -455,7 +455,7 @@ test('사진 메뉴: 달력 → 날짜 → 뒤로가기 = 같은 달 달력(폴�
 // UI-고르기줄(S48-54, 요청함 11/03 07:43·07:44 ②③④): 여러 장 고르기 아래 줄·크게 보기 아래 줄은 공용 부품(.kptu-actbar) 하나.
 // 칸은 같은 너비로 줄 폭을 나누고(넓은 화면은 칸 최대 120px), 간격이 같고, 글자가 잘리지 않는다. 버튼마다 선 아이콘(📁·🗑 없음), 지우기도 다른 버튼과 같은 색.
 // 세 폭(폰 412·폴드 펼침 768·PC 1280) 사진은 test-results/ui-audit/s48-54-*.png, 잰 값은 '::notice title=s48-54'.
-for (const width of [412, 768, 1280]) test(`UI-고르기줄: 사진 고르기 줄·크게 보기 줄 같은 칸·같은 간격 ${width}`, async ({ page }) => {
+for (const width of [412, 768, 1280]) test(`UI-선택줄: 사진 선택 줄·크게 보기 줄 같은 칸·같은 간격 ${width}`, async ({ page }) => {
   const { measureActBar, checkActBar } = await import('./helpers/act-bar-measure.mjs');
   const { mkdirSync } = await import('node:fs');
   const DIR = 'test-results/ui-audit'; mkdirSync(DIR, { recursive: true });
@@ -469,17 +469,17 @@ for (const width of [412, 768, 1280]) test(`UI-고르기줄: 사진 고르기 �
   const bar = root(page).locator('[data-photos-act]');
   await expect(bar).toBeVisible();
   const sel = await measureActBar(page, '#photosRoot [data-photos-act]');
-  checkActBar(sel, check, `고르기 줄 ${width}`);
+  checkActBar(sel, check, `선택 줄 ${width}`);
   // 폭을 꽉 쓴다: 칸이 120px보다 좁으면 양 끝 여백은 줄 안쪽 여백(4px)뿐, 120px이면 양 끝 여백이 같다(가운데 정렬·같은 간격).
   if (sel.maxWidth < 119.5) { expect(sel.leftGap, '왼쪽 여백').toBeLessThanOrEqual(2); expect(sel.rightGap, '오른쪽 여백').toBeLessThanOrEqual(2); }
   else expect(Math.abs(sel.leftGap - sel.rightGap), '양 끝 여백 같음').toBeLessThanOrEqual(2);
   expect(sel.rows, '한 줄').toBe(1);
   expect(sel.minHeight, '누르는 높이').toBeGreaterThanOrEqual(32);
-  expect(sel.svgCount, '선 아이콘 버튼(옮기기·지우기 포함)').toBeGreaterThanOrEqual(2);
+  expect(sel.svgCount, '선 아이콘 버튼(옮기기·삭제 포함)').toBeGreaterThanOrEqual(2);
   await expect(bar.locator('[data-photos-act-delete] .kptu-act-ic svg')).toHaveCount(1);
   expect(sel.iconColors.length, '아이콘 색 하나').toBe(1);
-  expect(sel.dangerText, '지우기 글자도 다른 버튼과 같은 색(빨강 아님)').toBe(sel.dangerIcon);
-  await expect(bar.locator('[data-photos-act-delete] .kptu-act-tx')).toHaveText('지우기');
+  expect(sel.dangerText, '삭제 글자도 다른 버튼과 같은 색(빨강 아님)').toBe(sel.dangerIcon);
+  await expect(bar.locator('[data-photos-act-delete] .kptu-act-tx')).toHaveText('삭제');
   await page.screenshot({ path: `${DIR}/s48-54-photos-select-${width}.png` });
   await root(page).locator('[data-photos-sel-off]').click();
   await expect(bar).toBeHidden();

@@ -63,7 +63,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
 
   const table = el('table', 'journal-weekly-table journal-exec-table journal-discuss-table'); table.dataset.journalDiscussTable = ''; table.dataset.wkCols = 'discuss';
   // WEEKLY-손잡이왼쪽(요청함 11/08 00:18): ⠿는 줄 맨 왼쪽 칸, ⋯는 줄 맨 오른쪽 칸.
-  table.innerHTML = `<thead><tr><th scope="col" class="journal-grip-head" aria-label="순서"></th><th scope="col">안건${colGripHtml('discuss', 2)}</th><th scope="col">설명</th><th scope="col">관련 조직${colGripHtml('discuss', 4)}</th><th scope="col" class="journal-exec-tools-head" aria-label="고치기"></th></tr></thead>`;
+  table.innerHTML = `<thead><tr><th scope="col" class="journal-grip-head" aria-label="순서"></th><th scope="col">안건${colGripHtml('discuss', 2)}</th><th scope="col">설명</th><th scope="col">관련 조직${colGripHtml('discuss', 4)}</th><th scope="col" class="journal-exec-tools-head" aria-label="수정"></th></tr></thead>`;
   const body = el('tbody'); body.dataset.reorderList = 'discuss';
   for (const row of rows) {
     if (ui.editing === row.id) { body.append(editRow(row)); continue; }
@@ -75,8 +75,8 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
     gripCell.append(grip);
     tr.append(gripCell, th, el('td', 'journal-discuss-note', row.note ?? ''), el('td', 'journal-discuss-org', row.org ?? ''));
     if (busy || ui.editing) grip.disabled = true;
-    else tools.append(rowMore(doc, {label:`${row.title} 고치기·빼기`, data:{journalDiscussMore:row.id}, items:[
-      {text:'고치기', data:{journalDiscussEdit:row.id}, aria:`${row.title} 고치기`},
+    else tools.append(rowMore(doc, {label:`${row.title} 수정·빼기`, data:{journalDiscussMore:row.id}, items:[
+      {text:'수정', data:{journalDiscussEdit:row.id}, aria:`${row.title} 수정`},
       {text:'빼기', data:{journalDiscussDelete:row.id}, aria:`${row.title} 줄 빼기`, danger:true}]}));
     tr.append(tools); body.append(tr);
   }
@@ -120,7 +120,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
     const wrap = el('label', 'journal-exec-field journal-exec-org'); wrap.append(el('span', null, '관련 조직'));
     const select = el('select'); select.dataset.journalDiscussField = 'org'; select.id = `journalDiscuss-${place}-${key}-org`;
     const names = orgNames(rt, redraw), cur = String(v.org ?? '');
-    const none = el('option', null, '고르지 않음'); none.value = ''; select.append(none);
+    const none = el('option', null, '선택하지 않음'); none.value = ''; select.append(none);
     for (const name of cur && !names.includes(cur) ? [cur, ...names] : names) { const o = el('option', null, name); o.value = name; select.append(o); }
     select.value = cur;
     if (busy) select.disabled = true;

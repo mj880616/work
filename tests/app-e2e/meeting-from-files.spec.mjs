@@ -175,10 +175,10 @@ test('a file the name cannot place is orange until its role is chosen; a result-
   await expect(loose()).toHaveCount(1);
   await expect(loose()).toHaveAttribute('data-state','pick');
   await expect(loose()).toHaveAttribute('open','');
-  await expect(loose().locator('.mff-note')).toHaveText('회의 종류를 골라 주세요');
+  await expect(loose().locator('.mff-note')).toHaveText('회의 종류를 선택해 주세요');
   await loose().locator('[data-mff-field="name"]').fill('본부 운영위원회');
   await loose().locator('[data-mff-field="name"]').press('Tab');
-  await expect(loose().locator('.mff-note')).toHaveText('날짜를 골라 주세요');
+  await expect(loose().locator('.mff-note')).toHaveText('날짜를 선택해 주세요');
   await loose().locator('[data-mff-field="date"]').fill('2025-10-01');
   await expect(loose()).toHaveAttribute('data-state','ready');
   await expect(loose().locator('.mff-note')).toHaveText('새로 만들기');
@@ -187,7 +187,7 @@ test('a file the name cannot place is orange until its role is chosen; a result-
   const pick=()=>row(page,'8차');
   await expect(pick()).toHaveAttribute('data-state','pick');
   await expect(pick()).toHaveAttribute('open','');
-  await expect(pick().locator('.mff-note')).toHaveText('결과인지 자료인지 골라 주세요');
+  await expect(pick().locator('.mff-note')).toHaveText('결과인지 자료인지 선택해 주세요');
   await expect(create(page)).toHaveText('회의 1건 만들기');
   await pick().locator('[data-mff-role]').selectOption('material');
   await expect(pick()).toHaveAttribute('data-state','no-result');
@@ -195,7 +195,7 @@ test('a file the name cannot place is orange until its role is chosen; a result-
   await expect(page.locator('#mffStatus')).toHaveText('확인이 필요한 1건은 만들지 않아요');
   await pick().locator('[data-mff-role]').selectOption('result');
   // 새 회의에 날짜가 없으면(파일 이름·본문 모두) 날짜를 직접 고른다.
-  await expect(pick().locator('.mff-note')).toHaveText('날짜를 골라 주세요',{timeout:30000});
+  await expect(pick().locator('.mff-note')).toHaveText('날짜를 선택해 주세요',{timeout:30000});
   await expect(pick()).toHaveAttribute('data-state','pick');
   await pick().locator('[data-mff-field="date"]').fill('2025-12-20');
   await expect(pick()).toHaveAttribute('data-state','ready');
@@ -278,7 +278,7 @@ test('two registered kinds that both fit a file name are never auto-picked; the 
   await expect(r).toHaveCount(1);
   await expect(r).toHaveAttribute('data-state','pick',{timeout:30000});
   await expect(r).toHaveAttribute('open','');
-  await expect(r.locator('.mff-note')).toHaveText('회의 종류 후보가 여럿이에요. 골라 주세요');
+  await expect(r.locator('.mff-note')).toHaveText('회의 종류 후보가 여럿이에요. 선택해 주세요');
   await expect(r.locator('[data-mff-candidate]')).toHaveText(['본부 운영위원회','운영위원회']);
   await expect(r.locator('[data-mff-field="name"]')).toHaveValue('');
   await expect(create(page)).toBeDisabled();

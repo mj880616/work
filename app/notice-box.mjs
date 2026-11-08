@@ -39,7 +39,7 @@ export function rowHtml({id, body, meta = '', prefix = '', busy = false, src = '
   const right = done
     ? `<span class="nbx-done">${esc(done)}</span>${tail}`
     : `<span class="nbx-acts" role="group" aria-label="${esc(body)}">${lead.map(l => btn(l, ' nbx-lead')).join('')}${(acts || NB_ACTS).map(a => btn(a)).join('')}`
-      + `${acts ? '' : `<button type="button" class="icon-btn nbx-x" data-nbx-act="dismissed" aria-label="지우기: ${esc(body)}"${dis}>×</button>`}${tail}</span>`;
+      + `${acts ? '' : `<button type="button" class="icon-btn nbx-x" data-nbx-act="dismissed" aria-label="삭제: ${esc(body)}"${dis}>×</button>`}${tail}</span>`;
   const text = open ? `<button type="button" class="row-act nbx-body-btn" ${open.attrs}>${esc(open.label ?? body)}</button>` : esc(body);
   return `<li class="nbx-item" data-nbx-row="${esc(id)}"${attrs ? ' ' + attrs : ''}><p class="nbx-body">${prefix}${text}</p>`
     + `<div class="nbx-row2"><span class="nbx-meta">${src ? `<span class="nbx-src">${esc(src)}</span>` : ''}${esc(meta)}</span>${right}</div>${below}</li>`;

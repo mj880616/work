@@ -194,8 +194,8 @@ export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAtt
         menuExtras = new Map(own.map(x => [x.key, x]));
         const item = (action, text, danger) => `<button type="button" data-task-inline-action="${esc(action)}"${danger ? ' class="task-inline-danger"' : ''}>${esc(text)}</button>`;
         const mine = own.map(x => item('x:' + x.key, x.label, x.danger)).join('');
-        return done ? item('reopen', '다시 할 일로') + item('edit', '고치기') + mine
-          : item('tomorrow', '내일로') + item('due', '기한 바꾸기') + item('edit', '고치기') + mine + item('delete', '지우기', true);
+        return done ? item('reopen', '다시 할 일로') + item('edit', '수정') + mine
+          : item('tomorrow', '내일로') + item('due', '기한 바꾸기') + item('edit', '수정') + mine + item('delete', '삭제', true);
       },
       onAction:(button, active) => {
         const id = active.id, action = button.dataset.taskInlineAction, el = active.trigger;

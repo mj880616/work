@@ -121,7 +121,7 @@ function paint() {
   let html = `<div class="okp-chips" role="group" aria-label="주요 인물 거르기">${chips.join('')}</div>`;
   if (ui.menu && canEdit) {
     const p = people.find(x => x.id === ui.menu);
-    if (p) html += `<div class="okp-menu" role="group" aria-label="${esc(p.name)} 메뉴"><span>${esc(p.name)}</span><button type="button" class="okp-link" data-okp-edit="${esc(p.id)}">고치기</button><button type="button" class="okp-link danger" data-okp-del="${esc(p.id)}">빼기</button><button type="button" class="okp-link" data-okp-menu-close>닫기</button></div>`;
+    if (p) html += `<div class="okp-menu" role="group" aria-label="${esc(p.name)} 메뉴"><span>${esc(p.name)}</span><button type="button" class="okp-link" data-okp-edit="${esc(p.id)}">수정</button><button type="button" class="okp-link danger" data-okp-del="${esc(p.id)}">빼기</button><button type="button" class="okp-link" data-okp-menu-close>닫기</button></div>`;
   }
   if (!people.length) {
     host.innerHTML = html + emptyHtml('주요 인물 없음');
@@ -252,7 +252,7 @@ function openEditor(person, back) {
   if (!ui?.canEdit) return;
   const m = modal();
   ed = {person, back, busy:false, matches:person ? (person.match_names || []).filter(x => x !== person.name) : [], org:ui.orgId};
-  m.querySelector('#okpTitle').textContent = person ? '주요 인물 고치기' : '주요 인물 추가';
+  m.querySelector('#okpTitle').textContent = person ? '주요 인물 수정' : '주요 인물 추가';
   m.querySelector('#okpName').value = person?.name || '';
   m.querySelector('#okpMatchInput').value = '';
   m.querySelector('#okpStatus').textContent = '';
@@ -282,7 +282,7 @@ function paintMatches() {
   const box = document.getElementById('okpMatches'); if (!box || !ed) return;
   box.innerHTML = ed.matches.length
     ? ed.matches.map((x, i) => `<span class="okp-mchip">${esc(x)}<button type="button" data-okp-match-del="${i}" aria-label="${esc(x)} 빼기">×</button></span>`).join('')
-    : '<span class="okp-faint">이름만으로 찾아요. 다르게 찍히면 아래에서 골라 두세요.</span>';
+    : '<span class="okp-faint">이름만으로 찾아요. 다르게 찍히면 아래에서 선택해 두세요.</span>';
 }
 // 통화 상대·텔레그램 이름표 중 적은 이름(2자 이상)과 겹치는 것을 골라 보인다(최대 8개).
 function paintSuggest() {
