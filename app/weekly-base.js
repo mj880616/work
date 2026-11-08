@@ -7,7 +7,7 @@
 //   ensureWeekProposed({…})       → 그 주 draft 에 proposed 가 없을 때만 한 번 바탕을 열어 저장. 있으면 서버 것을 그대로(어느 기기서든 draft 만 읽음)
 // 무거운 모듈(weekly-hwpx/draft.mjs·hwp-drive.js)은 부르는 쪽이 lazy import 해서 mods 로 넘긴다. 글은 로그에 쓰지 않는다. 브라우저 저장소 없음.
 import {pickBase, cellList, readProposed} from './weekly-feedback.mjs';
-import {weeklyCategoryFilter} from './document-categories.js';
+import {weeklyCategoryFilter, loadDocumentCategories} from './document-categories.js'; // S53-16: 분류는 역할(팀·개인 확정본)로 — 이름이 바뀌어도 찾음
 import {cellKeys, cellId, summaryKey, orgKey, readWeekDraft, writeWeekDraft, withProposed} from './weekly-draft-store.js';
 
 const encode = encodeURIComponent;
@@ -16,6 +16,8 @@ const encode = encodeURIComponent;
 // 없으면 최신 팀 확정본 → {doc, from:'confirmed'}, 둘 다 없으면 null. 개인본을 읽지 못하면 확정본만 본다(확정본 읽기 실패는 던짐).
 export async function findBase(rt, day) {
   const workspace = rt.context.read()?.workspace?.id;
+  // 내 분류 목록을 먼저 읽는다(한 로그인에 한 번). 못 읽어도 알려진 옛·지금 이름과 표식으로 찾는다.
+  await loadDocumentCategories({rt}).catch(() => {});
   const q = (kind, limit) => `/rest/v1/app_documents?workspace_id=eq.${encode(workspace)}&category=${weeklyCategoryFilter(kind)}&select=id,title,file_name,document_date,created_at&order=created_at.desc,id.desc&limit=${limit}`;
   const [personal, confirmed] = await Promise.all([rt.api(q('personal', 5)).catch(() => []), rt.api(q('confirmed', 1))]);
   return pickBase({personal:Array.isArray(personal) ? personal : [], confirmed:Array.isArray(confirmed) ? confirmed : []}, day);
