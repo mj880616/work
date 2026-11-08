@@ -264,7 +264,7 @@ test('조직 소식: my organizations each by name, the others under one 그 외
   ]);
 });
 
-test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재료 in report order, 그 밖의 기록; failed parts are marked, the rest stay', async () => {
+test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재료 in report order, no 그 밖의 기록; failed parts are marked, the rest stay', async () => {
   const m = await mod;
   const materials = {
     events:{status:'ok', items:[
@@ -284,7 +284,8 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재�
   };
   const card = m.dayCard(materials, '2026-10-06', {kinds:{status:'ok', list:['본부집행위']}});
   assert.deepEqual(card.report.map(g => g.label), ['회의·활동 결과', '사업 소식', '조직 소식']);
-  assert.deepEqual(card.others.map(g => g.label), ['자료실 새 자료', '공유 페이지', '기타 메모', '참고', '어디에도 안 보낸 업데이트']);
+  // JOURNAL-그밖의기록삭제: 그 밖의 기록은 없다. 기타 메모(memos)만 초안 재료로 남는다(화면엔 안 그림).
+  assert.equal(card.others, undefined); assert.equal(card.memos.label, '기타 메모');
   // 회의·활동 결과: title, the result's first line ('' when none), the weekly-report kind switch as `hidden`, and where it opens.
   assert.deepEqual(card.report[0].items.map(i => [i.text, i.summary, i.hidden, i.open.type, i.open.id]), [
     ['08:30 운영위원회 3차', '옛 결정', false, 'meeting', 'm2'], ['11:00 기자회견', '결과 첫 줄', false, 'meeting', 'm1'], ['14:00 본부 집행위', '', true, 'meeting', 'm4']]);
@@ -295,17 +296,17 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재�
   assert.deepEqual(card.events.items.map(i => i.text), ['종일 종일', '00:30 새벽', '14:00 오후']);
   assert.deepEqual(card.events.items.map(i => [i.id, i.open]).slice(0, 1), [[card.events.items[0].id, {type:'event', id:card.events.items[0].id, calendarId:'primary'}]]);
   assert.deepEqual(card.tasks.failed, ['tasks']);
-  // 조직 소식 has no '미분류': an update sent nowhere is 어디에도 안 보낸 업데이트, opening the basket update.
+  // 조직 소식 has no '미분류', and an update sent nowhere is not on the day card at all (it stays in the basket).
   assert.deepEqual(card.report[2].sections, []);
-  assert.deepEqual(card.others[4].items.map(i => [i.text, i.open]), [['첫 줄 메모', {type:'note', note:'b1'}], ['첨부 2개', {type:'note', note:'b2'}]]);
-  assert.equal(m.othersCount(card.others), '어디에도 안 보낸 업데이트 2');
+  assert.deepEqual(card.memos.items, []);
+  assert.equal(m.othersCount, undefined); assert.equal(m.unsentUpdatesOn, undefined);
   assert.equal(m.dayCard({}, '2026-10-06').tasks.loading, true);
   // 조직 소식 waits for its reads, then shows what it could read and names the failed one.
   assert.equal(m.dayCard({...materials, orgUpdates:{status:'loading'}}, '2026-10-06').report[2].loading, true);
   assert.deepEqual(m.dayCard({...materials, orgUpdates:{status:'failed'}}, '2026-10-06').report[2].failed, ['orgUpdates']);
   const noProject = m.dayCard({...materials, projectUpdates:{status:'failed'}}, '2026-10-06');
   assert.equal(noProject.report[2].failed, undefined); assert.deepEqual(noProject.report[1].failed, ['projectUpdates']);
-  assert.equal(m.dayCard({...materials, documents:{status:'loading'}}, '2026-10-06').others[0].loading, true);
+  assert.equal(m.dayCard({...materials, basket:{status:'loading'}}, '2026-10-06').memos.loading, true);
   assert.equal(m.dayCard({...materials, events:{status:'loading'}}, '2026-10-06').events.loading, true);
   assert.deepEqual(m.dayCard({...materials, events:{status:'failed'}}, '2026-10-06').events.failed, ['events']);
   // ACTIVITY_SOURCES is the one place 회의·활동 결과 reads from (today: meetings).
@@ -557,22 +558,14 @@ const hubMaterials = () => ({
 
 test('hub parts on the day card: each day shows its own items (Korea-time day edges), categories named, projects by name', async () => {
   const m = await mod;
-  const card = m.dayCard(hubMaterials(), '2026-10-06'), part = key => [...card.report, ...card.others].find(g => g.key === key);
+  const card = m.dayCard(hubMaterials(), '2026-10-06'), part = key => card.report.find(g => g.key === key);
   assert.deepEqual(part('business').sections.map(s => ({name:s.name, items:s.items})), [{name:'가상 사업', items:['사업으로 보낸 메모', '진행 기록']}]);
   assert.deepEqual(part('orgs').items, []);
   assert.deepEqual(card.tasks.todo.map(i => i.text), ['가 예정', '나 예정']);
   assert.deepEqual(card.tasks.done.map(i => i.text), ['끝낸 일']);
-  assert.deepEqual(part('docs').items.map(i => i.text), ['[교섭] 교섭 요구안', '[기타] 회의록.hwp · 회의자료']);
-  assert.deepEqual(part('shares').items.map(i => i.text), ['가상 안내 페이지 · 게시', '제목 없음 · 초안']);
-  assert.deepEqual(m.dayCard(hubMaterials(), '2026-10-05').others.find(g => g.key === 'docs').items.map(i => i.text), ['[교육] 전날 23:59']);
-  assert.deepEqual(m.dayCard(hubMaterials(), '2026-10-07').others.find(g => g.key === 'docs').items.map(i => i.text), ['[교육] 다음 날 0시']);
-  // Each part fails on its own: a failed document read leaves the others as they are.
-  const failed = m.dayCard({...hubMaterials(), documents:{status:'failed'}}, '2026-10-06').others;
-  assert.deepEqual(failed.find(g => g.key === 'docs').failed, ['documents']);
-  assert.deepEqual(failed.find(g => g.key === 'shares').items.length, 2);
-  // A capped week is marked on its part.
-  const many = Object.assign([...hubMaterials().documents.items], {capped:true});
-  assert.equal(m.dayCard({...hubMaterials(), documents:{status:'ok', items:many}}, '2026-10-06').others.find(g => g.key === 'docs').capped, true);
+  // JOURNAL-그밖의기록삭제: 자료실 새 자료·공유 페이지는 하루 카드에 없다([주간 정리] 참고에는 그대로).
+  assert.equal(part('docs'), undefined); assert.equal(part('shares'), undefined);
+  assert.equal('docs' in m.DAY_SOURCES || 'shares' in m.DAY_SOURCES, false);
 });
 
 test('weekly draft with the hub groups: form order, project records in 요약, the rest under 참고, range and cap notes', async () => {
@@ -635,13 +628,13 @@ test('S49-12: the day card has no 노트로 옮긴 것 part and no read for it',
   assert.equal(m.movedNotesOn, undefined);
   assert.equal(m.readMovedNotes, undefined);
   assert.equal('movedNotes' in m.DAY_SOURCES, false);
-  assert.equal(m.OTHER_PARTS.some(([key]) => key === 'movedNotes' || key === 'calls'), false);
+  assert.equal(m.OTHER_PARTS, undefined);
 });
 
 // REF-참고묶음 화면 1 (docs/design/ref-bundle.md 4절): a reference-bundle link (bundle_id) counts in "where it went" but in no
-// report group — not 조직 소식 (not even '미분류'), not 사업 소식, not 기타 메모, not [주간 정리]·[복사]·한글 파일 후보. The day card
-// shows it under 그 밖의 기록 › 참고 ("묶음 이름 · 첫 줄"). Fake names only.
-test('REF-참고묶음: an update put only in a reference bundle stays out of every report group and shows under the day card 참고', async () => {
+// report group — not 조직 소식 (not even '미분류'), not 사업 소식, not 기타 메모, not [주간 정리]·[복사]·한글 파일 후보.
+// JOURNAL-그밖의기록삭제: the day card no longer shows it (그 밖의 기록 › 참고 is gone); it stays in its bundle. Fake names only.
+test('REF-참고묶음: an update put only in a reference bundle stays out of every report group and off the day card', async () => {
   const m = await mod, w = await weekly, d = await import('../app/weekly-hwpx/draft.mjs');
   const B1 = 'e0000000-0000-4000-8000-000000000001', B2 = 'e0000000-0000-4000-8000-000000000002', OA = 'd0000000-0000-4000-8000-000000000001', PA = 'f0000000-0000-4000-8000-000000000001';
   const basket = {notes:[
@@ -672,21 +665,13 @@ test('REF-참고묶음: an update put only in a reference bundle stays out of ev
   assert.deepEqual(m.projectRecordsOn({basket, projectUpdates:[]}, day).map(r => [r.id, r.name, r.text]), [[PA, '가상 사업', '가상 사업과 참고']]);
   // 기타 메모 and 어디에도 안 보낸 업데이트 leave them out.
   assert.deepEqual(m.journalMemosOn(basket, day), []);
-  assert.deepEqual(m.unsentUpdatesOn(basket, day).map(i => i.text), ['가상 어디에도 안 보낸 것']);
-  // 참고: one item per bundle, the link's summary when there is one; an update also sent to an organization or project is not here.
-  assert.deepEqual(m.referenceItemsOn(basket, day).map(i => [i.text, i.open]), [
-    ['가상 묶음 갑 · 가상 노조 전체 소식', {type:'note', note:'ref'}], ['가상 묶음 갑 · 가상 연결 요약', {type:'note', note:'ref2'}],
-    ['가상 묶음 을 · 가상 두 묶음 소식', {type:'note', note:'ref2'}], ['가상 묶음 을 · 가상 참고 겸 기타 메모', {type:'note', note:'refmemo'}]]);
-  // The day card: 참고 between 기타 메모 and 어디에도 안 보낸 업데이트, nothing of it in the report parts.
+  // The day card: nothing of it in the report parts, and no 참고 part.
   const materials = {basket:{status:'ok', items:basket}, orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}, meetings:{status:'ok', items:[]},
     tasks:{status:'ok', items:[]}, events:{status:'ok', items:[]}, documents:{status:'ok', items:[]}, sharePages:{status:'ok', items:[]}};
   const card = m.dayCard(materials, day);
-  const refs = card.others.find(part => part.key === 'refs');
-  assert.equal(refs.label, '참고'); assert.equal(refs.items.length, 4);
-  assert.deepEqual(has(card.report, onlyRef), []);
-  assert.deepEqual(card.others.find(part => part.key === 'memos').items, []);
-  assert.equal(m.othersCount(card.others), '참고 4 · 어디에도 안 보낸 업데이트 1');
-  assert.deepEqual([...m.DAY_SOURCES.refs], ['basket']);
+  assert.deepEqual(has(card, onlyRef), []);
+  assert.deepEqual(card.memos.items, []);
+  assert.equal(m.referenceItemsOn, undefined); assert.equal('refs' in m.DAY_SOURCES, false);
   // [주간 정리] model, [복사] text and 한글 파일 후보 (weekMaterial): none of the reference-only text anywhere.
   const model = w.weeklySummary({start:'2026-10-05', lines:new Map(), linesState:'ok', today:day, materials:{...materials, catalog:{status:'ok', items:[]}, upcoming:{status:'ok', items:[]}}});
   assert.deepEqual(has(model, onlyRef), []);

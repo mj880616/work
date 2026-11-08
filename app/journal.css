@@ -345,21 +345,8 @@
 #appView #homeView .journal-report-parts{ display:flex; flex-direction:column; gap:8px; }
 #appView #homeView .journal-report-parts > .journal-group{ padding-top:6px; border-top:0; }
 #appView #homeView .journal-group h5.journal-heading{ margin:0; font-size:var(--kptu-text-body); font-weight:700; color:var(--kptu-muted); }
-/* 그 밖의 기록: 기본 접힘, 제목 옆에 개수 한 줄. 펼치면 PC는 2칸. */
-#appView #homeView .journal-others{ padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
-#appView #homeView .journal-others > summary{ display:flex; align-items:baseline; gap:8px; min-height:var(--kptu-touch-target,44px); align-items:center; cursor:pointer; }
-#appView #homeView .journal-others > summary .journal-heading{ margin:0; font-size:var(--ds-text-read); font-weight:700; color:var(--kptu-ink); }
+/* 접힌 묶음 제목 옆 개수 한 줄([주간 정리] 참고·주간보고 기억·규칙·환류). JOURNAL-그밖의기록삭제: 하루 '그 밖의 기록' 칸 모양은 없앴다. */
 #appView #homeView .journal-others-count{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
-#appView #homeView .journal-others > summary .journal-failed{ font-size:var(--ds-text-meta); }
-#appView #homeView .journal-others > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
-#appView #homeView .journal-others-parts{ display:flex; flex-direction:column; gap:8px; }
-#appView #homeView .journal-others-parts > .journal-group{ border-top:0; padding-top:4px; }
-@media(min-width:761px){
-  #appView #homeView .journal-others-parts{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 0; }
-  /* S49-8 JOURNAL-두칸구분선: 그 밖의 기록 두 칸도 사이에 엷은 세로선 */
-  #appView #homeView .journal-others-parts > :nth-child(odd){ padding-right:16px; }
-  #appView #homeView .journal-others-parts > :nth-child(even){ padding-left:16px; border-left:var(--ds-line-width) solid var(--ds-line); }
-}
 /* JOURNAL-조직현황AI요약: 4. 산하 조직 현황 > 1) 요약의 조직별 요약. [요약 만들기]는 묶음 제목 줄 오른쪽 작은 글자 버튼, 조직마다
    [요약 고치기]는 이름 줄 끝 ⋯ 안(WEEKLY-화면디자인정리, 아래 묶음). [원문 N건]은 낮은 글자 버튼(--ds-compact-height-sm).
    요약 줄은 일반 목록과 같은 글자, 원문은 <details>로 접어 둔다. 새 크기 값 없음. */
