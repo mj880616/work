@@ -1,5 +1,8 @@
 using System.Security.Cryptography;
 
+// Test-only. The app no longer queues anything (S54-13 removed every send entrance); older versions' queued items are
+// still sent by QueueProcessor, and these tests need to build such items. Moved here from BasketDrop.Core/DropService.cs.
+
 namespace BasketDrop;
 
 /// <summary>One thing the user dropped: a file on disk or in-memory bytes (a clipboard picture).</summary>
