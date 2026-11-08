@@ -147,7 +147,7 @@ for (const width of [412, 884, 1280]) {
     const { errors, server } = await start(page, width);
     await openOutside(page, width);
     // 탭 넷, 처음은 [전체](news_tab·옛 now_tab 둘 다 없음 → 저장 안 함).
-    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '보관']);
+    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '보관', '밑줄']);
     await expect(tab(page, 'all')).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#osTitle')).toHaveText('News');
     // [전체] = 사회운동 글 + 언론 기사를 시각 최신 순으로(날짜 묶음 → 흰 상자).

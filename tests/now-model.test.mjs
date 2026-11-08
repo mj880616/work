@@ -1,19 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NOW_TABS, NOW_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from '../app/now-model.mjs';
+import {NOW_TABS, NOW_TAB_IDS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from '../app/now-model.mjs';
 import {NEWS_TABS} from '../app/view-prefs.js';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 화면 순수 계산.
 
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 
 test('탭 넷은 view_prefs.news_tab 값과 같고, 모르는 값은 전체, 밀기는 끝에서 멈춘다', () => {
-  assert.deepEqual(NOW_TAB_IDS, ['all', 'movement', 'media', 'archive']);
-  assert.deepEqual([...NEWS_TABS], NOW_TAB_IDS);
-  assert.deepEqual(NOW_TABS.map(t => t.label), ['전체', '사회운동', '언론', '보관']);
+  assert.deepEqual(NOW_TAB_IDS, ['all', 'movement', 'media', 'archive', 'marks']);
+  assert.deepEqual([...NEWS_TABS], [...SAVED_TAB_IDS], 'S53-5: [밑줄]은 news_tab DB 검사 값에 없어 기억하지 않는다');
+  assert.deepEqual(SAVED_TAB_IDS, NOW_TAB_IDS.slice(0, 4));
+  assert.deepEqual(NOW_TABS.map(t => t.label), ['전체', '사회운동', '언론', '보관', '밑줄']);
+  assert.equal(keepNowTab('marks'), 'marks');
   assert.equal(keepNowTab('media'), 'media');
   for (const v of [undefined, '', 'news', 'outside', null]) assert.equal(keepNowTab(v), 'all');
   assert.equal(nowTabAt('all', 1), 'movement');
-  assert.equal(nowTabAt('archive', 1), null);
+  assert.equal(nowTabAt('archive', 1), 'marks');
+  assert.equal(nowTabAt('marks', 1), null);
   assert.equal(nowTabAt('all', -1), null);
   assert.equal(nowTabAt('archive', -1), 'media');
 });
@@ -26,6 +29,7 @@ test('처음 탭: news_tab이 있으면 그것, 없으면 옛 now_tab을 바꿔 
   assert.deepEqual(startTab(undefined, 'search'), {tab: 'all', migrate: true});
   assert.deepEqual(startTab(undefined, undefined), {tab: 'all', migrate: false});
   assert.deepEqual(startTab('bogus', 'bogus'), {tab: 'all', migrate: false});
+  assert.deepEqual(startTab('marks', undefined), {tab: 'all', migrate: false});
 });
 
 test('제목 거르기: 띄어쓰기·대소문자 무시, 빈 말은 모두 통과', () => {

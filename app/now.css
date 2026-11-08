@@ -177,3 +177,18 @@
 #appView #outsideView .nd-img-link{ font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #outsideView .nd-fig figcaption{ margin-top:3px; font-size:12px; line-height:1.45; color:var(--kptu-muted); }
 #appView #outsideView .nd-site{ margin-left:auto; }
+/* S53-5 NEWS-밑줄모으기 [밑줄] 탭(now-highlights.js, 시안 news-highlights.html ③): 고른 글(노란 띠) · 메모 · 매체·날짜·제목 · ⋯. 촘촘하게. */
+#appView #outsideView .now-marks{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+#appView #outsideView .now-marks[hidden]{ display:none; }
+#appView #outsideView .nh-head{ display:flex; justify-content:flex-end; }
+#appView #outsideView .nh-row{ display:flex; align-items:flex-start; gap:4px; padding:6px 4px 6px 8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #outsideView .nh-row:first-child{ border-top:0; }
+#appView #outsideView .nh-pick{ flex:0 0 auto; margin:4px 2px 0 0; }
+#appView #outsideView .nh-open{ flex:1 1 auto; min-width:0; height:auto; min-height:0; display:flex; flex-direction:column; gap:3px; margin:0; padding:0; border:0; background:transparent; color:var(--kptu-ink); font:inherit; text-align:left; cursor:pointer; }
+#appView #outsideView .nh-q{ display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; padding-left:8px; border-left:3px solid var(--kptu-warning); font-size:13.5px; line-height:1.55; white-space:pre-line; overflow-wrap:anywhere; }
+#appView #outsideView .nh-memo{ margin-left:11px; font-size:12.5px; color:var(--kptu-ink); opacity:.85; overflow-wrap:anywhere; }
+#appView #outsideView .nh-k,.hl-menu .hl-menu-k{ margin-right:4px; font-size:11px; color:var(--kptu-muted); }
+#appView #outsideView .nh-meta{ display:flex; flex-wrap:wrap; gap:0 6px; margin-left:11px; font-size:11.5px; color:var(--kptu-muted); }
+#appView #outsideView .nh-meta span+span::before{ content:"·"; margin-right:6px; }
+#appView #outsideView .nh-more{ flex:0 0 auto; }
+.hl-menu .hl-menu-memo{ margin:2px 4px 6px; padding:4px 6px; font-size:12.5px; line-height:1.45; border-left:3px solid var(--kptu-warning); white-space:pre-line; overflow-wrap:anywhere; max-height:8em; overflow:auto; }

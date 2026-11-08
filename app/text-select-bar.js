@@ -21,7 +21,7 @@ function ensureBar() {
   bar.setAttribute('role', 'toolbar');
   bar.setAttribute('aria-label', '고른 글');
   bar.hidden = true;
-  bar.innerHTML = '<span class="hl-bar-label">고른 글</span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="kptu-act" data-hl-bar="note">노트로</button><button type="button" class="kptu-act" data-hl-bar="copy">복사</button><button type="button" class="kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="hl-bar-close" data-hl-bar="close" aria-label="고르기 끝내기">✕</button>';
+  bar.innerHTML = '<span class="hl-bar-label">고른 글</span><span class="kptu-actbar kptu-actbar-text hl-bar-acts"><button type="button" class="ghost kptu-act" data-hl-bar="save">밑줄 저장</button><button type="button" class="ghost kptu-act" data-hl-bar="note">노트로</button><button type="button" class="ghost kptu-act" data-hl-bar="copy">복사</button><button type="button" class="ghost kptu-act" data-hl-bar="share">공유</button></span><button type="button" class="icon-btn hl-bar-close" data-hl-bar="close" aria-label="고르기 끝내기">✕</button>';
   // 줄을 누를 때 PC는 고른 글이 풀리지 않게(폰은 풀려도 받아 둔 글로 실행).
   const keep = e => { pressAt = Date.now(); if (e.target.closest('button')) e.preventDefault(); };
   bar.addEventListener('pointerdown', keep);
@@ -108,6 +108,9 @@ export function bindSelectZone(container, {zone, source, onSave = null, onNote =
     bound = true;
     document.addEventListener('selectionchange', onSelection);
     window.addEventListener('kptu:view-changed', hide);
+    window.addEventListener('popstate', hide);
+    // 줄·고른 글 칸 밖을 누르면 거둔다(고른 글이 남아 있어도 — 다른 일을 시작한 것). 칸 안을 누르면 고르기를 이어 가는 중일 수 있어 둔다.
+    document.addEventListener('pointerdown', e => { if (picked && !bar?.contains(e.target) && !picked.zoneEl.contains(e.target)) hide(); }, true);
   }
 }
 export const hideSelectBar = hide;

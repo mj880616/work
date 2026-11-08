@@ -8,12 +8,14 @@ import {viewPrefs} from './view-prefs.js';
 import {mountSplitResize} from './split-resize.js';
 import {hasNewsItem, takeNewsTab} from './news-request.mjs';
 import {itemView, whenOf} from './news-clipping-model.mjs';
-import {NOW_TABS, keepNowTab, nowTabAt, startTab, titleHit, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed} from './now-model.mjs';
+import {NOW_TABS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed} from './now-model.mjs';
 import {outsideColor, newsColor, colorVar, familyOfGroup, postTag, newsTag, tagLabel} from './news-colors.mjs';
 import {rowHtml, dayHtml} from './news-row.mjs';
 import {ensureReads, readState, markRead, onReads} from './news-reads.js';
 import {createNowDetail} from './now-detail.js';
 import {createNowSaved} from './now-saved.js';
+import {createNowHighlights} from './now-highlights.js';
+import {notify} from './small-notice.js';
 import {createNowInterests} from './now-interests.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {readOutsideMarks} from './now-marks.js';
@@ -25,7 +27,7 @@ import {fillGestureArea} from './gesture-fill.js';
 // - 위 줄: 찾기 칸 하나 'News 찾기 — 제목·문장'(제목은 지금 보이는 목록에서 바로 거르고, Enter = 문장 찾기 app_outside_search·expand — 결과 칸은 outside-search.js)
 //   + [매체: 전체 ▾](자료실 분류 창과 같은 부품 library-move-picker.js, 묶음 → 매체, 화면 메모리만) + ⋯(지금 채우기·단체 켜고 끄기·매체 켜고 끄기·키워드·별표 폴더·관심 주제).
 // - 줄: 날짜 묶음 → 흰 상자 안 줄(news-row.mjs). 매체 색 띠·같은 색 이름·분류 꼬리표·시각·별표(news-colors.mjs). 안 읽은 글 굵게·읽은 글 흐리게(news-reads.js, 상세를 열면 읽음).
-// - 각 탭 칸 안: [전체]·[사회운동] 이 모듈, [언론] news-clipping.js, [보관] now-saved.js. 상세 칸은 now-detail.js 하나(요약 · 시사점 · 원문 전체, S51-14 P4c — 연 글은 주소 ?item=). 관심 주제 칸은 now-interests.js.
+// - 각 탭 칸 안: [전체]·[사회운동] 이 모듈, [언론] news-clipping.js, [보관] now-saved.js, [밑줄] now-highlights.js(S53-5 — 원문에서 고른 글 모아보기, 마지막 탭으로 기억하지 않음). 상세 칸은 now-detail.js 하나(요약 · 시사점 · 원문 전체, S51-14 P4c — 연 글은 주소 ?item=). 관심 주제 칸은 now-interests.js.
 // - 단체 켜고 끄기 칸: 카탈로그(서버 outside-feed ?action=catalog) 단체마다 켬/끔(서버 표 app_outside_sources) + 마지막으로 읽은 시각·실패 표시. 뒤로가기 한 번 = 목록(KPTURouter.layer).
 // - 들어오면 본 시각(app_outside_seen, 알림 줄 '새 성명 n건'의 기준)을 지금 시각으로 바꿔 둔다(서버 저장). 줄의 '새' 표시는 읽음 굵기(news-reads.js)로 바뀌었다.
 // 바깥에서 온 글은 모두 글자로만 그린다(esc). 로그에 글 제목·본문을 남기지 않는다. 기기 저장 없음.
@@ -37,7 +39,7 @@ const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetched_at,summary_ko,key_sentences,has_body,author';
 const NEWS_COLS = 'id,lane,url,title,lang,publisher,source_key,published_at,scrapped_at,created_at,state,summary,body_kind,title_ko,starred_at';
 const SOURCE_COLS = 'source_key,enabled,last_ok_at,last_error';
-const PANEL = Object.freeze({all: 'nowPanelAll', movement: 'osPanelNew', media: 'nowPanelNews', archive: 'nowPanelSaved'});
+const PANEL = Object.freeze({all: 'nowPanelAll', movement: 'osPanelNew', media: 'nowPanelNews', archive: 'nowPanelSaved', marks: 'nowPanelMarks'});
 
 const TABS_HTML = NOW_TABS.map((t, i) => `<button type="button" role="tab" class="ds-seg-btn" id="osTab-${t.id}" data-os-tab="${t.id}" aria-selected="${i === 0}" aria-controls="${PANEL[t.id]}"${i ? ' tabindex="-1"' : ''}>${t.label}</button>`).join('');
 function install() {
@@ -58,6 +60,7 @@ function install() {
 </div>
 <div id="nowPanelNews" role="tabpanel" aria-labelledby="osTab-media" data-now-panel-news hidden></div>
 <div id="nowPanelSaved" class="now-saved" role="tabpanel" aria-labelledby="osTab-archive" data-now-panel-saved hidden></div>
+<div id="nowPanelMarks" class="now-marks" role="tabpanel" aria-labelledby="osTab-marks" data-now-panel-marks hidden></div>
 <div class="now-interests" data-now-interests hidden><div class="os-src-head"><button type="button" class="os-back" data-now-interests-back aria-label="목록으로"><span aria-hidden="true">‹</span></button><b>관심 주제</b></div><div data-now-interests-box></div></div>
 </div>
 <div class="now-detail" id="nowDetail" data-now-detail aria-label="글 상세"></div>
@@ -194,6 +197,15 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
 const saved = createNowSaved({box: root?.querySelector('[data-now-panel-saved]'), describe, rowOf, query: () => state.query,
   onOpen: (item, head) => openDetail(item, head), onListed: () => autoOpenTop(),
   onChanged: item => { if (item.type === 'news') window.KPTUNews?.refresh?.(); else loadMarks().then(() => { if (state.mode === 'list') paintList(); }); }});
+// [밑줄] 탭: 줄을 누르면 그 글을 읽어 상세를 열고 그 밑줄 자리로. 텔레그램 원문 밑줄은 텔레그램 소식 화면으로(그 소식은 거기서 연다).
+const marks = createNowHighlights({box: root?.querySelector('[data-now-panel-marks]'), query: () => state.query, onOpen: h => openHighlight(h)});
+async function openHighlight(h) {
+  if (h.source_type === 'telegram') { window.KPTURouter?.go?.('telegram', {source: 'delegated'}); return; }
+  let row = null;
+  try { row = await fetchItem(h.source_type, h.source_id); } catch { row = null; }
+  if (!row) { notify('원래 글을 찾지 못했어요 · 밑줄은 그대로 있어요', {record: false}); return; }
+  openDetail({type: h.source_type, id: h.source_id}, describe(h.source_type, row), {highlight: h.id});
+}
 const interests = createNowInterests({box: root?.querySelector('[data-now-interests-box]'), onChanged: () => { paintCand(); if (state.mode === 'list') paintList(); detail.paint(); }});
 // 환류 기록이 쌓이면 서버가 후보를 만들지 정한다(10건 또는 저녁 6시 뒤 그날 처음 — 서버 규칙, AI를 안 부르면 한도도 안 씀). 화면은 1분에 한 번만 묻는다.
 function askInterests() {
@@ -203,9 +215,9 @@ function askInterests() {
     .then(r => { if (r?.added) interests.load(); }).catch(() => {});
 }
 let autoOpening = false;
-function openDetail(item, head) {
+function openDetail(item, head, opts = {}) {
   if (!item || !head) return;
-  detail.open(item, head);
+  detail.open(item, head, opts);
   // 상세를 열면 읽음(app_feed_reads, 이미 있으면 서버가 그대로 둔다). PC에서 맨 위 글을 저절로 연 것은 읽은 것으로 치지 않는다.
   if (!autoOpening) markRead(item);
   if (root) root.dataset.detail = 'open';
@@ -344,6 +356,7 @@ function paintTabs() {
   show('[data-now-panel-all]', list && tab === 'all');
   show('[data-now-panel-news]', list && tab === 'media');
   show('[data-now-panel-saved]', list && tab === 'archive');
+  show('[data-now-panel-marks]', list && tab === 'marks');
   show('[data-os-search]', list && state.searching && !!state.query);
   show('[data-now-interests]', state.mode === 'interests');
   paintMediaButton();
@@ -368,10 +381,11 @@ function setTab(tab, {focus = false, save = true} = {}) {
   if (changed || mediaChanged) {
     if (tab === 'media') window.KPTUNews?.enter?.();
     else if (tab === 'archive') { saved.paint(); saved.load(); }
+    else if (tab === 'marks') { marks.paint(); void marks.load(); }
     else if (tab === 'all') { if (mediaChanged || !state.newsLoaded) loadNews(); if (mediaChanged) loadPosts(); else paint(); }
     else if (mediaChanged) loadPosts(); else paint();
   }
-  if (save && viewPrefs.get('news_tab') !== tab) { viewPrefs.set('news_tab', tab, {rejectable: true}); void viewPrefs.flush?.(); }
+  if (save && SAVED_TAB_IDS.includes(tab) && viewPrefs.get('news_tab') !== tab) { viewPrefs.set('news_tab', tab, {rejectable: true}); void viewPrefs.flush?.(); }
   if (focus) root?.querySelector(`[data-os-tab="${tab}"]`)?.focus({preventScroll: true});
   autoOpenTop();
 }
@@ -430,7 +444,7 @@ function resetIfOwnerChanged() {
   closeLayer();
   state = fresh(); state.scope = scope;
   search.reset();
-  detail.reset(); saved.reset(); interests.reset();
+  detail.reset(); saved.reset(); marks.reset(); interests.reset();
   if (root) root.dataset.detail = 'closed';
   const f = $('[data-nw-find]'); if (f) f.value = '';
 }
@@ -654,7 +668,7 @@ function setQuery(raw, {submit = false} = {}) {
   if (!query) state.searching = false;
   else if (submit) state.searching = true;
   paintTabs();
-  if (changed) { paintList(); window.KPTUNews?.repaint?.(); if (state.tab === 'archive') saved.paint(); }
+  if (changed) { paintList(); window.KPTUNews?.repaint?.(); if (state.tab === 'archive') saved.paint(); if (state.tab === 'marks') marks.paint(); }
   if (submit && query) search.run(query);
   if (!query) search.clear();
 }

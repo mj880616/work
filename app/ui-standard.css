@@ -1619,7 +1619,7 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
    폰에서 자판이 열리면(accessibility-dialog.js 공용 감지 하나: body.kptu-mobile-keyboard, 쓰는 칸에 data-keyboard-field)
    화면 아래에 붙은 줄은 모두 숨는다. 그 줄 안의 칸에 쓰는 중일 때만 그 줄이 남는다(홈 빠른 입력에 쓰면 빠른 입력은 자판 위에).
    자판을 내리면 돌아온다. 아래에 붙는 줄을 새로 만들면 이 목록에 더한다(tests/ui-keyboard-cover.test.mjs가 CSS 전체를 보고 막는다).
-   목록: 아래 탭, 동그란 [+], 빠른 입력(홈·정리함·할 일), 전환 줄([달력·할 일·업무일지·일기]), 긴 글 저장 줄, 사진 도구줄·빠른 넘김 막대, 되돌리기 알림, [파일] 전송 줄. */
+   목록: 아래 탭, 동그란 [+], 빠른 입력(홈·정리함·할 일), 전환 줄([달력·할 일·업무일지·일기]), 긴 글 저장 줄, 사진 도구줄·빠른 넘김 막대, 되돌리기 알림, [파일] 전송 줄, 원문 고른 글 줄(S53-5 .hl-bar). */
 body.kptu-mobile-keyboard :is(
   .mobile-tabs,
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new]),
@@ -1632,7 +1632,8 @@ body.kptu-mobile-keyboard :is(
   .feed-view .feed-undo,
   #appView #filesView .fx-xfer,
   #appView #filesView .fx-jobs,
-  #uploadDock
+  #uploadDock,
+  .hl-bar
 ):not(:has([data-keyboard-field])){ display:none !important; }
 /* 팝업·시트 아래 버튼 줄은 숨기지 않고 글 끝에 붙여(제자리 흐름) 칸을 덮지 않게 한다. 팝업 창은 자판 위에서 끝난다(자판이 화면만 덮는 브라우저). */
 body.kptu-mobile-keyboard :is(.modal-foot,#reportAreaTagSheet .area-tag-foot,#gtDetailPane #gtTaskModal.gt-docked .modal-action-footer){ position:static; }

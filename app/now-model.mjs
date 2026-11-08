@@ -8,14 +8,17 @@ export const NOW_TABS = Object.freeze([
   {id: 'movement', label: '사회운동'},
   {id: 'media', label: '언론'},
   {id: 'archive', label: '보관'},
+  // S53-5 NEWS-밑줄모으기: [밑줄](app_news_highlights 모아보기). 마지막 탭 기억(news_tab)의 DB 검사 값에는 아직 없어 이 탭은 기억하지 않는다(SAVED_TAB_IDS).
+  {id: 'marks', label: '밑줄'},
 ]);
 export const NOW_TAB_IDS = Object.freeze(NOW_TABS.map(t => t.id));
+export const SAVED_TAB_IDS = Object.freeze(['all', 'movement', 'media', 'archive']);
 export const DEFAULT_NOW_TAB = 'all';
 export const keepNowTab = tab => (NOW_TAB_IDS.includes(tab) ? tab : DEFAULT_NOW_TAB);
 // 옛 now_tab(outside·news·saved·search) → 새 news_tab. news_tab이 없을 때 한 번만 쓴다(설계 7.3, 옛 값은 지우지 않음).
 const OLD_TAB = Object.freeze({outside: 'movement', news: 'media', saved: 'archive', search: 'all'});
 export function startTab(newsTab, oldTab) {
-  if (NOW_TAB_IDS.includes(newsTab)) return {tab: newsTab, migrate: false};
+  if (SAVED_TAB_IDS.includes(newsTab)) return {tab: newsTab, migrate: false};
   if (Object.hasOwn(OLD_TAB, oldTab)) return {tab: OLD_TAB[oldTab], migrate: true};
   return {tab: DEFAULT_NOW_TAB, migrate: false};
 }
