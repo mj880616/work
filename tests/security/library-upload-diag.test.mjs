@@ -152,7 +152,7 @@ test('multiple file selection runs T0–T7 sequentially with correct payloads, I
   const files = [new File(['123456789012345'], '한글 name.pdf', { type: 'application/pdf', lastModified: 1234 }), new File(['abc'], 'two.txt', { type: 'text/plain', lastModified: 5678 })];
   assert.equal(h.requests.length, 0);
   assert.equal(h.input.multiple, true);
-  h.button('파일 선택').click();
+  h.button('파일 고르기').click();
   assert.equal(h.input.clicked, true);
   h.select(files);
   const running = h.start();
