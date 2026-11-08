@@ -17,7 +17,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
 import {createFeedHold} from './feed-hold.js';
-import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, kstDay, splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveErrorText, moveDoneText, callWho, callTopic, REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText,
+import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, kstDay, splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveErrorText, moveDoneText, callWho, callTopic, callTag, REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText,
   applyCallEdit, cleanEditVals, isEdited, splitPerson, joinPerson, cleanTitleInput, cleanPointLines, samePoints, undoPatch, patchKeys, editErrorText, EDIT_DONE, EDIT_NOOP, EDIT_LEDGER_NOTE, EDIT_NAME_MAX, EDIT_ROLE_MAX, EDIT_TITLE_MAX, EDIT_POINT_MAX, EDIT_POINTS_MAX} from './feed-model.mjs';
 import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, scopeOf, readPersonal, readPersonalRaw, setPersonalHidden, moveCall, readLedgerSeen, refillCall, readCallEdits, editCall} from './feed-data.js';
 // FEED-최신화즉시수집(S52-46): 머리 줄 작은 [최신화] — 누르면 서버가 수집기를 한 번 깨우고, 이 화면의 load()로 1~3분 새 줄을 다시 읽는다(feed-pull.js).
@@ -49,9 +49,12 @@ const pull = createFeedPull({source:'call', rt, scope:() => scopeOf(rt), reload:
 const isPersonal = r => r?.box === 'personal';
 // 오른쪽 상대 표와 제목의 주제는 feed-model.mjs 한 곳의 규칙(callWho·callTopic)으로 가른다. 조직은 연결 조직(organization_id)을 우선 쓴다.
 const orgOf = r => (isPersonal(r) ? null : state.orgs.find(o => o.id === r.organization_id) || null);
-const whoOf = r => callWho({organization:orgOf(r), counterpart:r.counterpart, personal:isPersonal(r)}).text;
-// UI-선택표시톤다운 ③: 목록 줄 오른쪽 꼬리표는 짧게 — 조직 약칭 하나(없으면 사람 이름). 전체 '조직 · 사람'은 상세 머리 줄에 그대로 있다.
-const tagOf = r => { const w = callWho({organization:orgOf(r), counterpart:r.counterpart, personal:isPersonal(r)}); return w.org || w.person; };
+// CALL-상대표시정리: AI 제목 맨 앞의 조직 꼴 조각은 상대의 조직으로 본다(손으로 고친 제목은 그대로라 넘기지 않는다).
+const whoParts = r => callWho({organization:orgOf(r), counterpart:r.counterpart, personal:isPersonal(r), title:r.edited?.title ? '' : r.title});
+// 상세 날짜 줄: '조직 · 이름 직책'(모르는 칸은 뺌).
+const whoOf = r => whoParts(r).text;
+// CALL-상대표시정리 ①: 목록 줄 오른쪽 꼬리표는 이름만(직책 빼고), 이름을 모르면 조직, 둘 다 없으면 없음(feed-model.mjs callTag). 늘 한 줄(feed.css).
+const tagOf = r => callTag(whoParts(r));
 // 손으로 고친 제목은 그대로 보인다(앞의 조직·사람을 떼는 규칙은 AI 제목에만).
 const topicOf = r => (r.edited?.title ? String(r.title || '').trim() : callTopic(r.title, {organization:orgOf(r), counterpart:r.counterpart})) || '(제목 없음)';
 const rowOf = id => state.rows.find(r => r.id === id) || state.prows.find(r => r.id === id) || null;

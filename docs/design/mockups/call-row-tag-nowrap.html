@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시안 — 통화 목록은 이름만(한 줄), 상세는 조직 · 이름 직책</title>
+<style>
+  :root{--ink:#2b2930;--faint:#7d7986;--line:#e3e1ea;--tag:#efebe6;--tagink:#6b5d50;--pri:#2f6f62}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e8ee;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);font-size:14px}
+  h1{font-size:16px;margin:16px 16px 4px}
+  p.note{margin:0 16px 12px;color:var(--faint);font-size:13px;line-height:1.5}
+  .wrap{display:flex;flex-wrap:wrap;gap:20px;padding:0 16px 24px}
+  .col{width:360px}
+  .col h2{font-size:14px;margin:8px 0}
+  .phone{background:#eef6f3;border:1px solid #d6d4dd;border-radius:18px;padding:8px}
+  .row{display:flex;align-items:center;gap:10px;padding:10px 8px;border-bottom:1px solid var(--line)}
+  .t{color:var(--faint);flex:0 0 auto;font-variant-numeric:tabular-nums}
+  .ti{flex:1 1 auto;min-width:0}
+  .cut{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tag{flex:0 0 auto;background:var(--tag);color:var(--tagink);border-radius:8px;padding:2px 7px;font-size:12.5px;white-space:nowrap}
+  .tag.bad{flex:0 1 auto;max-width:45%;white-space:normal;overflow-wrap:anywhere}
+  .tag.lim{max-width:40%;overflow:hidden;text-overflow:ellipsis}
+  .meta{font-size:13px;color:var(--faint);margin:4px 2px 8px}
+  .meta u{color:var(--pri)}
+  .pick{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;margin-top:8px;font-size:13px}
+  .pick div{padding:6px 4px;border-bottom:1px solid var(--line)}
+  .pick .in{border:1px solid var(--line);border-radius:8px;padding:6px;color:var(--faint);margin-top:6px}
+  ul.k{margin:0 16px 24px;padding-left:18px;font-size:13px;line-height:1.7}
+</style>
+</head>
+<body>
+<h1>시안 — 통화: 목록은 이름만 한 줄, 들어가면 '조직 · 이름 직책', 조직 직접 쓰기</h1>
+<p class="note">사용자 11/08 10:08~10:09 "중간에 홍길동" / "한빛라고만 나오는데 한빛 이름 직책" / "연결할 조직 수기입력 가능하게" / "메뉴에서는 이름만 나오고 들어가면 조직 이름 직책으로". 이름·조직은 시안용.</p>
+<div class="wrap">
+  <div class="col">
+    <h2>지금</h2>
+    <div class="phone">
+      <div class="row"><span class="t">10:54</span><span class="ti">○○노동조합 · 회의 일정(11시/1시) 착오 …</span><span class="tag bad">홍길동</span></div>
+      <div class="row"><span class="t">10:53</span><span class="ti">회의 일정 확인</span><span class="tag">한빛</span></div>
+      <div class="row"><span class="t">10:52</span><span class="ti">회의 일정 소통</span><span class="tag">홍길동 조직국장</span></div>
+    </div>
+  </div>
+  <div class="col">
+    <h2>① 목록 — 이름만, 늘 한 줄</h2>
+    <div class="phone">
+      <div class="row"><span class="t">10:54</span><span class="ti cut">회의 일정(11시/1시) 착오 확인</span><span class="tag lim">홍길동</span></div>
+      <div class="row"><span class="t">10:53</span><span class="ti cut">회의 일정 확인</span><span class="tag lim">김철수</span></div>
+      <div class="row"><span class="t">10:52</span><span class="ti cut">회의 일정 소통</span><span class="tag lim">홍길동</span></div>
+    </div>
+    <p class="note" style="margin:6px 0">이름을 모르면 조직, 둘 다 모르면 꼬리표 없음. 글자 중간에서 꺾이지 않고 길면 끝 '…'.</p>
+  </div>
+  <div class="col">
+    <h2>② 들어가면 — 조직 · 이름 직책 + 조직 직접 쓰기</h2>
+    <div class="phone" style="padding:12px">
+      <b>회의 일정 확인</b>
+      <p class="meta">11. 6. (금) · 10:53 · <u>한빛 · 김철수 위원장</u></p>
+      <div class="pick"><b>연결할 조직</b><div>연결 안 함</div><div>한빛</div><div>○○지부</div><div class="in">직접 쓰기 — 조직 이름</div></div>
+    </div>
+    <p class="note" style="margin:6px 0">밑줄 누르면 지금처럼 조직·이름·직함 고치기. 조직 고르기 창 맨 아래에 [직접 쓰기] 칸.</p>
+  </div>
+</div>
+<ul class="k">
+  <li>조직 이름은 상대 칸에서 보이므로 제목 앞에서는 뺌('○○노동조합 · 회의 일정…' → '회의 일정…').</li>
+  <li>[직접 쓰기]로 쓴 이름으로 <b>담당조직을 새로 만들고 연결</b>(사용자 결정 11/08 '나'). 비슷한 이름의 조직이 이미 있으면 먼저 그것을 보여 주고 고르게 함(중복 방지). 새 조직 만들기는 기존 담당조직 만들기 경로(서버 저장·내 작업공간만)를 그대로 씀.</li>
+  <li>같은 종류 전수: 개인 통화함(조직 없이 이름 직책), 홈·담당조직 안 통화 줄, 텔레그램 소식 줄과 상세, 폰·폴드·PC.</li>
+</ul>
+</body>
+</html>

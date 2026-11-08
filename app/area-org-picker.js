@@ -103,7 +103,26 @@ function render(kind){
   const tops=!c.multi?(c.top?.length?c.top:c.none?[{key:'',name:typeof c.none==='string'?c.none:noneLabel(kind)}]:[]):[];
   const none=tops.map(x=>`<div class="aop-node" data-sheet-section${x.attrs?' '+x.attrs:''}><div class="aop-line">${rowHtml(x.key,x.name,0,{pressed:x.key?c.pending.has(x.key):!c.pending.size})}</div></div>`).join('');
   return {title:c.title||t.title,search:'찾기',searchAlways:true,
-    html:`${recent.length?`<div class="aop-recent" data-sheet-hide-on-search><p class="home-choice-label">자주 쓴 것</p><div class="home-choice-group home-choice-group-plain">${recent.join('')}</div></div>`:''}<div class="aop-list">${none}${body||(none?'':emptyHtml(`${t.label} 없음`,{attrs:'data-aop-empty'}))}</div>`};
+    html:`${recent.length?`<div class="aop-recent" data-sheet-hide-on-search><p class="home-choice-label">자주 쓴 것</p><div class="home-choice-group home-choice-group-plain">${recent.join('')}</div></div>`:''}<div class="aop-list">${none}${body||(none?'':emptyHtml(`${t.label} 없음`,{attrs:'data-aop-empty'}))}</div>${createHtml(c)}`};
+}
+// CALL-상대표시정리 ④: 하나만 고르는 조직 창 맨 아래 [직접 쓰기] 칸(부르는 쪽이 create를 줄 때만). [만들기]를 누르면 비슷한 이름의 조직이 있으면
+// 먼저 그 줄들을 보여 주고(누르면 그 조직을 고름), [그래도 새로 만들기]로만 새로 만든다. 만들기·저장은 부르는 쪽(create.make)이 한다.
+// create = {make:async name → {key,name}, similar:name → [{key,name}]}.
+function createHtml(c){
+  const k=c?.create;if(!k||c.multi||c.kind!=='org')return '';
+  const busy=k.busy?' disabled':'',ph='직접 쓰기 — 조직 이름';
+  const similar=k.similar?.length?`<p class="aop-create-note">비슷한 조직이 있어요. 맞으면 눌러 고르세요.</p>${k.similar.map(x=>rowHtml(x.key,x.name,0,{pressed:false})).join('')}<button type="button" class="row-act aop-create-force" data-aop-create-force${busy}>'${esc(k.text)}' 새로 만들기</button>`:'';
+  return `<div class="aop-create" data-aop-create-box><div class="aop-create-row"><input type="text" class="aop-create-input" data-aop-create-input maxlength="120" autocomplete="off" placeholder="${ph}" aria-label="${ph}" value="${esc(k.text||'')}"${busy}><button type="button" class="row-act aop-create-go" data-aop-create${busy}>만들기</button></div>${similar}<p class="aop-create-note" data-aop-create-status role="status">${esc(k.status||'')}</p></div>`;
+}
+async function runCreate(force){
+  const c=current,k=c?.create,box=sheet&&document.getElementById('areaOrgPickSheet');if(!k||k.busy||!box)return;
+  const input=box.querySelector('[data-aop-create-input]'),name=String(input?.value??k.text??'').replace(/\s+/g,' ').trim();k.text=name;
+  const paintKeep=focus=>{if(current!==c)return;sheet.render();box.querySelector(focus)?.focus({preventScroll:true})};
+  if(!name){k.status='조직 이름을 써 주세요.';k.similar=null;paintKeep('[data-aop-create-input]');return}
+  if(!force){const like=(k.find?.(name)||[]).filter(x=>x?.key);if(like.length){k.similar=like;k.status='';paintKeep('[data-aop-create-box] [data-sheet-value]');return}}
+  k.busy=true;k.similar=null;k.status='만드는 중…';paintKeep('[data-aop-create-status]');
+  try{const made=await k.make(name);if(current!==c)return;k.busy=false;c.pending=new Set([made.key]);c.commit(c.pending);void sheet.close()}
+  catch(error){if(current!==c)return;k.busy=false;k.status=error?.message||'조직을 만들지 못했어요. 다시 눌러 주세요.';paintKeep('[data-aop-create-input]')}
 }
 
 function ensureSheet(){
@@ -118,6 +137,10 @@ function ensureSheet(){
     // max: how many may be kept at once (a press past it keeps the choice and says so in the count).
     multi:kind=>current?.multi?{pressed:v=>current.pending.has(v),label:current.full?`한 번에 ${current.max}곳까지`:current.pending.size?`${current.pending.size}개 고름`:''}:null,
     onCommit:kind=>{const c=current;if(c?.multi)c.commit(c.pending)}});
+  const box=document.getElementById('areaOrgPickSheet');
+  box?.addEventListener('click',e=>{const b=e.target.closest('[data-aop-create],[data-aop-create-force]');if(!b||!box.contains(b))return;e.stopPropagation();void runCreate(b.hasAttribute('data-aop-create-force'))});
+  box?.addEventListener('input',e=>{if(e.target.matches?.('[data-aop-create-input]')&&current?.create){current.create.text=e.target.value;current.create.similar=null}});
+  box?.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches?.('[data-aop-create-input]')&&!e.isComposing){e.preventDefault();void runCreate(false)}});
   return sheet;
 }
 function choiceState({areas=[],orgGroups=[],used=[]}){
@@ -132,10 +155,11 @@ function choiceState({areas=[],orgGroups=[],used=[]}){
 // locked: Map key → short text ('이미 연결됨') for places shown but not choosable. max: the most keys kept at once (multi only).
 // title: the sheet's title when the screen names it otherwise (default '사업영역 고르기' / '조직 고르기').
 // top: one-choice rows above the list ([{key,name,attrs}]); none: true or a label for the one '… 없음' row (top wins when given).
-export function openAreaOrgPicker({kind='area',trigger,anchor=null,areas=[],orgGroups=[],selected=[],used=[],multi=true,none='',top=null,locked=null,max=0,title='',onCommit=()=>{}}={}){
+// create: (조직·하나만 고르기만) 맨 아래 [직접 쓰기] 칸 {make:async name → {key,name}, similar:name → [{key,name}]} (createHtml).
+export function openAreaOrgPicker({kind='area',trigger,anchor=null,areas=[],orgGroups=[],selected=[],used=[],multi=true,none='',top=null,locked=null,max=0,title='',create=null,onCommit=()=>{}}={}){
   if(!trigger)return;ensureStyles();
   const st=choiceState({areas,orgGroups,used}),known=kind==='area'?st.areaKnown:st.orgKnown,topKeys=new Set((top||[]).map(x=>String(x.key)).filter(Boolean));
-  current={...st,kind,multi:!!multi,none,top:Array.isArray(top)?top.map(x=>({key:String(x.key||''),name:String(x.name||''),attrs:x.attrs||''})):null,locked:locked instanceof Map?locked:null,max:Math.max(0,Number(max)||0),title,full:false,host:trigger,pending:new Set([...selected].map(String).filter(k=>known.has(k)||(!multi&&topKeys.has(k)))),commit:keys=>onCommit(new Set(keys))};
+  current={...st,kind,multi:!!multi,none,top:Array.isArray(top)?top.map(x=>({key:String(x.key||''),name:String(x.name||''),attrs:x.attrs||''})):null,locked:locked instanceof Map?locked:null,max:Math.max(0,Number(max)||0),title,full:false,host:trigger,create:create&&typeof create.make==='function'?{make:create.make,find:typeof create.similar==='function'?create.similar:null,text:'',status:'',similar:null,busy:false}:null,pending:new Set([...selected].map(String).filter(k=>known.has(k)||(!multi&&topKeys.has(k)))),commit:keys=>onCommit(new Set(keys))};
   return ensureSheet().open(kind,trigger,anchor);
 }
 
