@@ -177,7 +177,12 @@ test.describe('윈도우 PC 1440', () => {
     const prev = root(page).locator('[data-fx-prev]');
     await expect(prev).toContainText('미리보기 없이 이름·크기만');
     await expect(prev).toContainText('내 PC › C: › 문서');
-    await expect(prev.locator('[data-fx-star-one], [data-fx-trash-one], [data-fx-copy-one], [data-fx-down]')).toHaveCount(0);
+    await expect(prev.locator('[data-fx-star-one], [data-fx-copy-one], [data-fx-down]')).toHaveCount(0);
+    // S53-12: [휴지통]은 숨기지 않고 흐리게(보기·열기만 되는 판) — 누르면 이유 한 줄만.
+    await expect(prev.locator('[data-fx-trash-one]')).toHaveAttribute('data-fx-off', 'pc');
+    // 흐린 단추(aria-disabled)는 Playwright가 '못 누름'으로 보고 기다리므로 force로 누른다(실제 화면에서는 눌리고 이유 한 줄).
+    await prev.locator('[data-fx-trash-one]').click({ force: true });
+    await expect(page.getByText(/새 판\(0\.4\.0\)으로 올리면/).first()).toBeVisible();
     await shot(page, 'files-pc-1440');
     await prev.locator('[data-fx-open]').click();
     await expect.poll(() => st.calls.filter(c => c.path === '/v1/open').map(c => JSON.parse(c.body).path)).toEqual(['C:\\문서\\가짜 회의자료_연습.hwpx']);
@@ -349,7 +354,11 @@ test.describe('윈도우 PC 1440 · 바구니 0.4.0 문(내 PC ↔ 클라우드)
     await memo.click({ modifiers: ['Control'] });
     const bar = root(page).locator('[data-fx-bar]');
     await expect(bar.locator('[data-fx-copy]')).toBeVisible();
-    await expect(bar.locator('[data-fx-trash], [data-fx-rename]')).toHaveCount(0);
+    await expect(bar.locator('[data-fx-rename]')).toHaveCount(0);
+    // S53-12: [휴지통]은 숨기지 않고 흐리게 — 누르면 Delete 키와 같은 '다음 판' 안내 한 줄.
+    await expect(bar.locator('[data-fx-trash]')).toHaveAttribute('data-fx-off', 'pc');
+    await bar.locator('[data-fx-trash]').click({ force: true });
+    await expect(page.getByText(/새 판\(0\.5\.0\)으로 올리면 내 PC 안 이름 바꾸기/).first()).toBeVisible();
     await page.keyboard.press('Delete');
     await expect(page.getByText(/새 판\(0\.5\.0\)으로 올리면 내 PC 안 이름 바꾸기/).first()).toBeVisible();
     await bar.locator('[data-fx-copy]').click();
