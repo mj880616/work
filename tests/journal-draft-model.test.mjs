@@ -28,7 +28,7 @@ test('material lines: schedule, done tasks, reported meetings, business/org news
       {key:'business', sections:[{name:'임단투', items:['교섭 일정 확정']}]},
       {key:'orgs', sections:[{name:'가상지부', items:['총회\n공지']}]},
     ],
-    others:[{key:'docs', items:[{text:'[자료] 파일'}]}, {key:'memos', items:[{text:'기타 메모'}]}, {key:'calls', items:[{text:'14:20 김가상 · 일정 확인', callSummary:'교섭 일정\n둘째 줄'}, {text:'15:00 이가상 · 회신'}]}],
+    memos:{key:'memos', items:[{text:'기타 메모'}]}, calls:{key:'calls', items:[{text:'14:20 김가상 · 일정 확인', callSummary:'교섭 일정\n둘째 줄'}, {text:'15:00 이가상 · 회신'}]},
   };
   assert.deepEqual(m.draftMaterial(card), [
     '[일정] 10:00 3차 교섭 준비회의', '[한 일] 요구안 초안 정리', '[회의·활동] 14:00 운영위 — 예산 승인',

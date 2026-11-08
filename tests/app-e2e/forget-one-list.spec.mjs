@@ -15,9 +15,12 @@ const family=()=>[{id:famId,kind:'plan',body:'지어낸 약속 한 줄',said_whe
 const base={workspace_id:'w',kind:'basket',title:null,created_at:'2026-10-06T00:00:00Z',updated_at:'2026-10-06T00:00:00Z',archived_at:null,ai_export_allowed:true,metadata:{},attachments:[]};
 const notes=()=>[{...base,id:uid(1),raw_text:'지어낸 업데이트 하나\n둘째 줄',occurred_at:'2026-10-06T04:00:00Z'},{...base,id:uid(2),raw_text:'지어낸 보류 업데이트',occurred_at:'2026-10-06T00:30:00Z',archived_at:'2026-10-06T01:00:00Z'}];
 
-async function fixture(page,{width=390,features=['telegram','family'],cands=[cand(1),cand(3,{source_kind:'basket',summary:'지어낸 챙길 것'}),cand(5,{status:'tasked',decided_at:'2026-10-06T06:00:00Z'})]}={}){
+// FORGET-소식합치기: AI가 고른 그날 업무 통화·텔레그램 소식(서버 표 app_journal_memorable) — 지어낸 글·지어낸 조직 이름.
+const nid=n=>`b0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const newsRow=(n,over={})=>({id:nid(n),day:'2026-10-06',source:'telegram',feed_item_id:fid(n),org_name:null,line:`가상 소식 ${n}`,status:'suggested',final_line:null,picked_at:`2026-10-06T0${n}:10:00Z`,decided_at:null,...over});
+async function fixture(page,{width=390,features=['telegram','family'],news=[],cands=[cand(1),cand(3,{source_kind:'basket',summary:'지어낸 챙길 것'}),cand(5,{status:'tasked',decided_at:'2026-10-06T06:00:00Z'})]}={}){
   await page.setViewportSize({width,height:900});
-  const patches=[],feedback=[],famPatches=[],notePatches=[],rows=notes();
+  const patches=[],feedback=[],famPatches=[],notePatches=[],rows=notes(),newsPatches=[],orgPosts=[],asked=[];
   await openHome(page,{beforeLoad:async()=>{
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:features}));
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',async r=>{
@@ -52,10 +55,26 @@ async function fixture(page,{width=390,features=['telegram','family'],cands=[can
       return r.fulfill({status:500,json:{}});
     });
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_record_links',r=>r.fulfill({json:[]}));
+    await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_journal_memorable',async r=>{
+      const req=r.request(),q=new URL(req.url()).searchParams;
+      if(req.method()==='PATCH'){const id=q.get('id').replace(/^eq\./,''),body=req.postDataJSON(),row=news.find(x=>x.id===id);newsPatches.push({id,body});if(!row)return r.fulfill({json:[]});Object.assign(row,body);return r.fulfill({json:[{id,status:row.status}]});}
+      return r.fulfill({json:news});
+    });
+    await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganizations',r=>r.fulfill({json:[{id:'d0000000-0000-4000-8000-000000000001',name:'가상 지부',aliases:['가상지부'],active:true}]}));
+    await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_assignees',r=>r.fulfill({json:[]}));
+    await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',r=>{
+      const req=r.request();if(req.method()!=='POST')return r.fulfill({json:[]});
+      const body=req.postDataJSON();orgPosts.push(body);return r.fulfill({status:201,json:[{id:'e1000000-0000-4000-8000-000000000001',...body,occurred_at:'2026-10-06T09:00:00Z'}]});
+    });
+    await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/ai-assist',r=>{
+      let body=null;try{body=r.request().postDataJSON();}catch{body=null;}
+      if(body?.kind==='journal_memorable'){asked.push(body);return r.fulfill({json:{ok:true,kind:'journal_memorable',day:body.day,skipped:'fresh'}});}
+      return r.fallback();
+    });
   }});
   await page.evaluate(()=>window.KPTURouter.go('basket'));
   await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();
-  return {patches,feedback,famPatches,notePatches,cands};
+  return {patches,feedback,famPatches,notePatches,cands,newsPatches,orgPosts,asked};
 }
 const list=page=>page.locator('#basketView [data-forget-section] .nbx-list');
 const line=(page,key)=>page.locator(`#basketView [data-nbx-row="${key}"]`);
@@ -148,4 +167,55 @@ test('가족 기능이 없는 작업공간은 가족 줄이 없고(서버 기능
   await expect(list(page).locator('[data-nbx-row]')).toHaveCount(3);
   await expect(list(page).locator('[data-forget-src="family"]')).toHaveCount(0);
   await expect(line(page,`c:${cid(1)}`)).toBeVisible();
+});
+
+// FORGET-소식합치기(요청함 11/08 21:02~21:19, 시안 docs/design/mockups/forget-news-link.html): 업무일지 '기억할 통화·텔레그램' 줄이
+// 잊지 말기 한 목록에 출처 '소식'으로 들어온다. 줄 앞 [조직][사업], ⋯ = '조직 › ○○에 넣기'(AI 조직 이름이 내 담당조직과 같을 때)·[사업에 넣기]·[무시].
+for(const width of [412,884,1280])test(`소식 줄: '소식 · 텔레그램/통화' 꼬리표·[조직][사업]·⋯ 하나, 처리 전 소식도 빨간 숫자에 셈 ${width}`,async({page})=>{
+  const news=[newsRow(2,{org_name:'가상 지부'}),newsRow(4,{source:'call',line:'가상 통화 소식'}),newsRow(6,{status:'kept',final_line:'가상 넣은 소식',decided_at:'2026-10-06T07:00:00Z'})];
+  const {asked}=await fixture(page,{width,news});
+  await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(2);
+  await expect(line(page,`n:${nid(2)}`).locator('.nbx-src')).toHaveText('소식 · 텔레그램');
+  await expect(line(page,`n:${nid(4)}`).locator('.nbx-src')).toHaveText('소식 · 통화');
+  await expect(line(page,`n:${nid(2)}`).locator('.nbx-body')).toHaveText('가상 지부 · 가상 소식 2');
+  await expect(line(page,`n:${nid(2)}`).locator('.nbx-acts > button')).toHaveText(['조직','사업','⋯']);
+  // 처리 전 수: 업데이트 1 + 챙길 것 1 + 텔레그램 요청 1 + 가족 1 + 소식 2 = 6 (메뉴 '홈' 표시와 같은 숫자).
+  await expect(page.locator('#appView')).toHaveAttribute('data-home-asks','6');
+  expect(asked).toEqual([{kind:'journal_memorable',day:'2026-10-06'}]);
+  // 넣은 소식은 '연결 완료' 보기에.
+  await pickView(page,'연결 완료');
+  await expect(line(page,`n:${nid(6)}`).locator('.nbx-done')).toHaveText(/^조직·사업에 넣음/);
+  await pickView(page,'처리 전');
+  await pickView(page,'소식');
+  await expect(list(page).locator('[data-nbx-row]')).toHaveCount(2);
+  expect(await noWide(page)).toBe(true);
+});
+test('소식 줄 ⋯ \'조직 › 가상 지부에 넣기\': 담당조직 기록으로 저장되고(이번 주 조직보고 제안 길) 줄은 연결 완료로, [무시]는 되돌리기',async({page})=>{
+  const news=[newsRow(2,{org_name:'가상지부'}),newsRow(4,{org_name:'모르는 팀'})];
+  const {newsPatches,orgPosts}=await fixture(page,{width:1280,news});
+  await line(page,`n:${nid(2)}`).locator('[data-forget-news-more]').click();
+  await expect(page.locator('#forgetNewsMenu button')).toHaveText(['조직 › 가상 지부에 넣기','사업에 넣기','무시']);
+  await page.locator('#forgetNewsMenu [data-forget-news-menu="org-match"]').click();
+  await expect.poll(()=>orgPosts.length).toBe(1);
+  expect(orgPosts[0]).toMatchObject({organization_id:'d0000000-0000-4000-8000-000000000001',raw_text:'가상 소식 2'});
+  await expect.poll(()=>newsPatches.length).toBe(1);
+  expect(newsPatches[0]).toMatchObject({id:nid(2),body:{status:'kept',final_line:'가상 소식 2',drop_reason:null}});
+  await expect(line(page,`n:${nid(2)}`)).toHaveCount(0);
+  // 담당조직과 이름이 안 맞으면 한 번에 넣기는 없다([조직]으로 직접 선택).
+  await line(page,`n:${nid(4)}`).locator('[data-forget-news-more]').click();
+  await expect(page.locator('#forgetNewsMenu button')).toHaveText(['사업에 넣기','무시']);
+  await page.locator('#forgetNewsMenu [data-forget-news-menu="dismissed"]').click();
+  await expect.poll(()=>newsPatches.length).toBe(2);
+  expect(newsPatches[1]).toMatchObject({id:nid(4),body:{status:'dropped'}});
+  await expect(line(page,`n:${nid(4)}`)).toHaveCount(0);
+  await page.locator('[data-undo-action]').click();
+  await expect.poll(()=>newsPatches.length).toBe(3);
+  expect(newsPatches[2]).toMatchObject({id:nid(4),body:{status:'suggested',decided_at:null}});
+  await expect(line(page,`n:${nid(4)}`)).toBeVisible();
+});
+test('운영자 기능(통화·텔레그램)이 없는 작업공간은 소식 줄도 소식 읽기·AI 요청도 없다',async({page})=>{
+  const {asked}=await fixture(page,{features:[],news:[newsRow(2)]});
+  await expect(list(page).locator('[data-nbx-row]')).toHaveCount(3);
+  await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(0);
+  expect(asked).toEqual([]);
 });
