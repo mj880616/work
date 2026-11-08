@@ -181,7 +181,7 @@ test('폴더 만들기·이름 바꾸기·삭제: 이름 규칙 안내, 같은 �
  // 지우기: 폴더만 지워지고 안에 있던 방은 전체에 그대로.
  await row.getByRole('button',{name:'가상 업무'}).tap();
  await row.locator('[data-tg-folder-more]').tap();
- await page.locator('#tgFolderMenu').getByRole('button',{name:/폴더 지우기/}).tap();
+ await page.locator('#tgFolderMenu').getByRole('button',{name:/폴더 삭제/}).tap();
  await expect(box).toContainText('폴더만 삭제돼요');
  await box.getByRole('button',{name:'삭제'}).tap();
  await expect.poll(()=>rpc(f,'app_feed_folder_delete').length).toBe(1);

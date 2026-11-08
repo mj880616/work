@@ -52,7 +52,7 @@ async function openLab(page,width,query='?view=hwp'){
   await openHome(page,{query});
   await expect(page.locator('#hwpView')).toBeVisible();
   expect(new URL(page.url()).searchParams.get('view')).toBe('hwp');
-  await expect(page.locator('#hwpLabStatus')).toHaveText(/편집기가 준비됐습니다/,{timeout:60000});
+  await expect(page.locator('#hwpLabStatus')).toHaveText(/HWP 편집이 준비됐습니다/,{timeout:60000});
   await expect(page.locator('#hwpLabSave')).toBeDisabled();
   return seen;
 }
@@ -127,7 +127,7 @@ test('the sandboxed editor frame cannot reach the Web2 window, its storage or th
   expect(await page.locator('#hwpLabEditor iframe').count()).toBe(0);
 
   await page.evaluate(()=>window.KPTURouter.go('hwp'));
-  await expect(page.locator('#hwpLabStatus')).toHaveText(/편집기가 준비됐습니다/,{timeout:60000});
+  await expect(page.locator('#hwpLabStatus')).toHaveText(/HWP 편집이 준비됐습니다/,{timeout:60000});
   expect(new URL(page.url()).searchParams.get('view')).toBe('hwp');
   await expect(page.locator('#hwpLabEditor iframe')).toHaveAttribute('sandbox','allow-scripts');
   const frame=page.frames().find(item=>item.url().includes('/'+RHWP+'studio/'));

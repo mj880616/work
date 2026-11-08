@@ -88,7 +88,7 @@ for(const width of [390,1280])test(`a library HWP opens from Drive and is saved 
   const f=await fixture(page,width);
   await editLibraryDocument(page,width);
   await expect(page.locator('#hwpView')).toHaveAttribute('aria-label','HWP 편집');
-  await expect(status(page)).toHaveText(/^주간보고\.hwp · 1쪽을 열었어요\. 고친 뒤 \[새 파일로 저장\]을 누르세요\.( \(걸린 시간: .+\))?$/,{timeout:60000}); // 3초를 넘기면 시간 줄이 붙는다
+  await expect(status(page)).toHaveText(/^주간보고\.hwp · 1쪽을 열었어요\. 수정한 뒤 \[새 파일로 저장\]을 누르세요\.( \(걸린 시간: .+\))?$/,{timeout:60000}); // 3초를 넘기면 시간 줄이 붙는다
   await expect(page.locator('#hwpLabEditor iframe')).toHaveAttribute('sandbox','allow-scripts');
   await expect(page.locator('#hwpLabPick')).toBeHidden();
   await expect(page.locator('#hwpDriveNew')).toBeEnabled();
@@ -223,7 +223,7 @@ test('a slow Drive download shows which step is running and the elapsed seconds,
   await expect(elapsed).toHaveText(/\(\d+초\)/,{timeout:15000});
   await expect(elapsed).toHaveAttribute('aria-hidden','true');
   // 5초 넘게 걸렸으니 열린 뒤 단계별 걸린 시간 줄이 붙는다(LIB-편집열기느림).
-  await expect(status(page)).toHaveText(/^주간보고\.hwp · 1쪽을 열었어요\. 고친 뒤 \[새 파일로 저장\]을 누르세요\. \(걸린 시간: 파일 [\d.]+초 · 편집기 [\d.]+초 · 펼침 [\d.]+초 · 전체 [\d.]+초\)$/,{timeout:60000});
+  await expect(status(page)).toHaveText(/^주간보고\.hwp · 1쪽을 열었어요\. 수정한 뒤 \[새 파일로 저장\]을 누르세요\. \(걸린 시간: 파일 [\d.]+초 · 편집기 [\d.]+초 · 펼침 [\d.]+초 · 전체 [\d.]+초\)$/,{timeout:60000});
   await expect(elapsed).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });

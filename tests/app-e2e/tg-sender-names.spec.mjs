@@ -211,7 +211,7 @@ test('텔레그램 1280: 머리줄 ⋯ → 보낸 사람 이름: 목록, 이름 
 
  // 지우기: 소식 글은 그대로.
  await row(P3).locator('[data-tg-person-more]').click();
- await page.locator('#tgPersonMenu').getByRole('button',{name:/^지우기/}).click();
+ await page.locator('#tgPersonMenu').getByRole('button',{name:/^삭제/}).click();
  await expect(view.locator('[data-tg-sman]')).toContainText('소식 글은 그대로예요');
  await view.locator('[data-tg-sman-save]').click();
  await expect.poll(()=>f.calls.at(-1)).toEqual({fn:'forget',p_id:P3});
