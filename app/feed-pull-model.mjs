@@ -27,9 +27,11 @@ export function pullFailText(code) {
   return FAIL[code] || '수집 요청을 보내지 못했어요 · 잠시 뒤 다시 눌러 주세요';
 }
 // 오류 → 서버 단계 코드(대문자 짧은 말만). 런타임 오류는 message에 서버 error 코드를 싣는다.
+// 403은 앱 공용 fetch(auth-bootstrap.js)가 몸통을 '권한 확인 실패' 문장으로 바꾸므로 상태 번호로 본다.
 export function pullErrorCode(error) {
   const m = String(error?.message ?? '');
-  return /^[A-Z][A-Z0-9_]{0,63}$/.test(m) ? m : '';
+  if (/^[A-Z][A-Z0-9_]{0,63}$/.test(m)) return m;
+  return Number(error?.status) === 403 ? 'NOT_OPERATOR' : '';
 }
 // 성공 응답 → 요청 시각(ISO) 또는 null(모양이 다름).
 export function pullAccepted(data, source) {

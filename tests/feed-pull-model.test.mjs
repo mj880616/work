@@ -14,6 +14,7 @@ test('model: fail lines, codes, accepted, finished, done line', () => {
   assert.match(pullFailText('anything'), /보내지 못했어요/);
   assert.equal(pullErrorCode({message:'PULL_WAKE_FAILED'}), 'PULL_WAKE_FAILED');
   assert.equal(pullErrorCode({message:'요청 실패 500'}), '');
+  assert.equal(pullErrorCode({message:'권한 확인 실패: /functions/v1/drive-summary', status:403}), 'NOT_OPERATOR');
   assert.equal(pullAccepted({ok:true, source:'call', requested_at:REQ}, 'call'), REQ);
   assert.equal(pullAccepted({ok:true, source:'telegram', requested_at:REQ}, 'call'), null);
   assert.equal(pullAccepted({ok:true, source:'call', requested_at:'soon'}, 'call'), null);
