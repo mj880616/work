@@ -206,7 +206,8 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
         await expect(toggles).toHaveCount(8);
         await expect(group.locator('button[aria-pressed="false"]')).toHaveText(['회의']);await expect(group.locator('button[aria-pressed="mixed"]')).toHaveText(['전체']);// LIB-거르기전체
         for(const toggle of await toggles.all()){
-          const pressedValue=await toggle.getAttribute('aria-pressed'),on=pressedValue==='true',mixed=pressedValue==='mixed';
+          // LIB-맨위다듬기(S53-18): 색은 고른 칩(data-cc-fill)만. 켜져 있어도 고르지 않은 칩·일부만 켜진 [전체]는 흰 바탕, 꺼진 칩은 흐린 글자.
+          const pressedValue=await toggle.getAttribute('aria-pressed'),on=await toggle.evaluate(el=>el.hasAttribute('data-cc-fill')),mixed=!on&&pressedValue!=='false';
           const [fontSize,fontWeight,,minHeight,paddingLeft,paddingRight,color,background,radius]=await toggle.evaluate(style);
           expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' category chip style').toEqual(['12px','500','26px','8px','8px','999px']);
           expect([color,background],name+' category chip color').toEqual(on?[tokens['--ds-select-ink'],tokens['--ds-select-bg']]:mixed?[tokens['--kptu-ink'],tokens['--kptu-surface']]:[tokens['--kptu-muted'],tokens['--kptu-surface']]);

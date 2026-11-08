@@ -719,13 +719,11 @@
 #appView #libraryView .library-filter-toolbar{ gap:0 12px; }
 #appView #libraryView .library-filter-toolbar #documentProject{ flex:1 1 100%; }
 
-/* ④ 보조 버튼 32px: 일정 [오늘], 바구니 [⋯ 더보기](PC, 폰은 아이콘 그대로), 자료실 종류 줄 [편집](id manageLibraryBtn). 담당조직 [기존 할 일 연결]·[+]는 프로젝트 상세와 같은 글자 버튼·작은 + 버튼(workplace-detail.css). 할 일 줄 [연결 해제]는 TASK-바로처리통일로 줄 ⋯ 안. */
-#appView #calendarView .calendar-toolbar button#calendarTodayBtn,
-#appView #libraryView button#manageLibraryBtn{
+/* ④ 보조 버튼 32px: 일정 [오늘], 바구니 [⋯ 더보기](PC, 폰은 아이콘 그대로). 자료실 분류 줄 끝 [✎ 분류 수정](id manageLibraryBtn)은 LIB-맨위다듬기(S53-18)로 공용 ③ 글자 버튼(row-act). 담당조직 [기존 할 일 연결]·[+]는 프로젝트 상세와 같은 글자 버튼·작은 + 버튼(workplace-detail.css). 할 일 줄 [연결 해제]는 TASK-바로처리통일로 줄 ⋯ 안. */
+#appView #calendarView .calendar-toolbar button#calendarTodayBtn{
   position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1;
 }
-#appView #calendarView .calendar-toolbar button#calendarTodayBtn::after,
-#appView #libraryView button#manageLibraryBtn::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
+#appView #calendarView .calendar-toolbar button#calendarTodayBtn::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
 
 /* UI-버튼작게 ①(2026-10-18 사용자 결정): 바구니 메모·노트 읽기 화면 아래 버튼(메모 [연결하기][할 일 만들기], 노트 [수정][텔레그램용 복사][연결하기])은
    한 줄, 폭은 글자만큼, 보이는 높이 32px. 색은 기본 버튼 모양 하나로 통일(UI-바구니상세버튼색, 2026-10-20). 누르는 범위는 ::after로 44px. */
@@ -1105,7 +1103,8 @@ html :is(
   #appView #homeView .home-quick [data-quick-task-options] button[aria-pressed="true"],
   #appView #basketView button[data-manual-task-day][aria-pressed="true"],
   #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button[aria-checked="true"],
-  #appView #libraryView #libraryCategoryFilter button[aria-pressed="true"],
+  #appView #libraryView #libraryCategoryFilter button[data-cc-fill],
+  .doc-kind-chips button[data-cc-fill],
   #appView #ledgerView .lb-chip:has(input:checked),
   #appView #pagesView .sp-seg button[aria-pressed="true"],
   .modal .event-create-modes button[data-event-mode][aria-pressed="true"],
@@ -1264,9 +1263,13 @@ html .doc-kind-chips:not([hidden]){ display:flex; flex-wrap:wrap; align-items:ce
 html .doc-kind-chips button:not(.chip-rows-more){ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:auto; min-width:0; height:var(--ds-chip-row-height); min-height:var(--ds-chip-row-height); margin:0; padding:0 var(--ds-chip-row-pad-x); font-family:inherit; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); box-shadow:none; -webkit-tap-highlight-color:transparent; }
 html .doc-kind-chips button:not(.chip-rows-more)::after{ content:""; position:absolute; left:-2px; right:-2px; top:calc(50% - (var(--ds-chip-row-height,26px) + 4px) / 2); height:calc(var(--ds-chip-row-height,26px) + 4px); }
 html .doc-kind-chips button:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
-html .doc-kind-chips button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
-html .doc-kind-chips button[aria-pressed="mixed"]{ color:var(--kptu-ink); background-color:var(--kptu-surface); background-image:linear-gradient(90deg,var(--ds-kind-other-soft) 50%,transparent 50%); border-color:var(--ds-kind-other-soft); }
-html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); background:var(--kptu-surface); border-color:color-mix(in srgb,var(--ds-line) 50%,transparent); }
+/* LIB-맨위다듬기(S53-18, 시안 docs/design/mockups/library-top-bar.html): 고른 칩만 채운다(category-chips.js filledChips → data-cc-fill, 색은 위 '선택 표시 규칙' 묶음).
+   켜져 있어도 고르지 않은 칩·일부만 켜진 [전체]는 흰 바탕·옅은 선(공용 칩 그대로), 꺼진 칩은 흐린 글자. 자료실 분류 칩과 같은 규칙. */
+html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); border-color:color-mix(in srgb,var(--ds-line) 50%,transparent); }
+/* 칩 옆 작은 자료 수(0도 보임). 칩 이름 글자는 그대로 두고 숫자는 그림으로만(data-cc-count). */
+html :is(#libraryCategoryFilter,.doc-kind-chips) button[data-cc-count]{ gap:3px; }
+html :is(#libraryCategoryFilter,.doc-kind-chips) button[data-cc-count]::before{ content:attr(data-cc-count); order:1; font-size:.9em; font-weight:var(--ds-weight-regular,400); color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
+html :is(#libraryCategoryFilter,.doc-kind-chips) button[data-cc-count][data-cc-fill]::before{ color:inherit; opacity:.75; }
 /* LIB-소분류(2026-10-30 명진 시안): 큰 분류 하나만 켜면 칩 줄 바로 아래 소분류 줄 '(큰 분류) 전체 · 소분류 · + 소분류'(category-chips.js, 자료실·담당조직·프로젝트 상세 공통).
    왼쪽 세로선 + 큰 분류 칩보다 작고 흐린 글자, 고른 것만 진하게. 테두리·바탕 없음. 보이는 높이 26px, 누르는 범위 칩 둘레 2px(UI-칩줄두줄: 두 줄 + [더보기]). */
 html .cc-sub-row:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap) 2px; max-width:100%; min-width:0; margin:0 0 4px 4px; padding:0 0 0 6px; border-left:2px solid var(--kptu-border); box-sizing:border-box; }

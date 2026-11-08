@@ -104,7 +104,7 @@ for(const width of [390,1440]){
       const edit=page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"] > #manageLibraryBtn');
       // S51-28 LIB-화면정리: 폰·폴드(1199px까지)는 칩 줄·[편집] 대신 위 한 줄 [분류 ▾](창 안 [편집]).
       if(width<1200){await expect(edit).toBeHidden();await expect(page.locator('#libraryView .lu-search-row > #libraryCategoryPick')).toBeVisible();}
-      else{await expect(edit).toBeVisible();await expect(edit).toHaveText('수정');await expect(edit).toHaveAttribute('aria-label','분류 수정');}
+      else{await expect(edit).toBeVisible();await expect(edit).toHaveText('✎분류 수정');await expect(edit).toHaveAttribute('aria-label','분류 수정');}
       await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
       await page.locator('#newDocumentBtn').click();
       await expect(page.locator('#documentModal')).toBeVisible();

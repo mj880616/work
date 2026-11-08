@@ -51,3 +51,29 @@ test('subcategory row: shows for a sole parent and filters only inside it',async
   assert.deepEqual([...toggleCategoryOff(tops,new Set(),'all')].sort(),[...tops].sort());
   dc.resetDocumentCategories();
 });
+
+// LIB-맨위다듬기(S53-18, 시안 docs/design/mockups/library-top-bar.html): '기타'는 늘 맨 끝, 고른 칩만 채움, 칩마다 자료 수(0도).
+test('chip order keeps the stored order but always puts 기타 last',async()=>{
+  const {chipOrder}=await import('../app/category-chips.js');
+  assert.deepEqual(chipOrder(['교섭','기타','투쟁','홍보']),['교섭','투쟁','홍보','기타']);
+  assert.deepEqual(chipOrder(['교섭','투쟁']),['교섭','투쟁']);
+  const given=['기타','교섭'];chipOrder(given);assert.deepEqual(given,['기타','교섭']);
+});
+test('only picked chips are filled: 전체 when everything is on, the few on chips when narrowed, nothing when only a few are off',async()=>{
+  const {filledChips}=await import('../app/category-chips.js');
+  const all=['교섭','투쟁','교육','회의'];
+  assert.deepEqual([...filledChips(all,new Set())],['all']);
+  assert.deepEqual([...filledChips(all,new Set(['회의']))],[]);
+  assert.deepEqual([...filledChips(all,new Set(['투쟁','교육','회의']))],['교섭']);
+  assert.deepEqual([...filledChips(all,new Set(['교육','회의']))].sort(),['교섭','투쟁'].sort());
+  assert.deepEqual([...filledChips(all,new Set(all))],[]);
+});
+test('category counts count every top category from zero, subcategories under their parent',async()=>{
+  const {categoryCounts}=await import('../app/category-chips.js');
+  const dc=await import('../app/document-categories.js');
+  dc.setDocumentCategories(['교섭','선전','기타','선전›투쟁속보']);
+  const counts=categoryCounts(dc.topDocumentCategories(),[{category:'교섭'},{category:'선전›투쟁속보'},{category:'선전'},{category:'없는 이름'}]);
+  assert.deepEqual([...counts],[['교섭',1],['선전',2],['기타',1]]);
+  assert.deepEqual([...categoryCounts(['교섭'],[])],[['교섭',0]]);
+  dc.resetDocumentCategories();
+});
