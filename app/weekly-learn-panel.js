@@ -154,7 +154,9 @@ export function reviewCard(doc, feedback, previous = [], {answerable = true, bus
   const rate = keptRate(c);
   const head = `이번 주 환류 보고 — AI 초안 줄 ${c.proposed}개 중 ${c.kept}개 그대로${rate == null ? '' : `(${rate}%)`}${t?.avg == null ? '' : ` · 지난 ${t.prev.filter(p => p.rate != null).length}주 평균 ${t.avg}% (${t.better >= 0 ? '+' : ''}${t.better})`}`;
   const h = el('p', 'journal-learn-head', head); h.dataset.learnReviewHead = ''; box.append(h);
-  const nums = el('p', 'journal-muted', `① 남김 ${c.kept} · 고침 ${c.changed} · 뺌 ${c.dropped} · 더함 ${c.added}`); nums.dataset.learnReviewCounts = ''; box.append(nums);
+  // S53-16: 고친 꼴 숫자에 순서 바꿈·표현 다듬기(있을 때만), 자료실 개인 확정본(한글에서 더 다듬은 판)과 견준 기록이면 그렇다고.
+  const shape = `${c.moved ? ` · 순서 ${c.moved}` : ''}${c.reworded ? ` · 그중 표현 다듬기 ${c.reworded}` : ''}`;
+  const nums = el('p', 'journal-muted', `① 남김 ${c.kept} · 고침 ${c.changed} · 뺌 ${c.dropped} · 더함 ${c.added}${shape}${f.from === 'library' ? ' (자료실 개인 확정본과 견줌)' : ''}`); nums.dataset.learnReviewCounts = ''; box.append(nums);
   const rates = cellRatesLine(doc, picks); if (rates) box.append(rates);
   const r = f.review;
   const cands = rules ? candidateList(doc, rules.week, rules.rules, {busy:busy || !answerable, fixing, dropping, value}) : null;
