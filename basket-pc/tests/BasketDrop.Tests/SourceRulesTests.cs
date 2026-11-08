@@ -3,7 +3,7 @@ using Xunit;
 
 namespace BasketDrop.Tests;
 
-/// <summary>Rules the design fixes in code (R11 clipboard, 4.4 token handling), checked on the source files.</summary>
+/// <summary>Rules the design fixes in code (4.4 token handling, removed entrances), checked on the source files.</summary>
 public class SourceRulesTests
 {
     private static string Root()
@@ -19,34 +19,6 @@ public class SourceRulesTests
                      && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"));
 
     [Fact]
-    public void Clipboard_is_read_in_one_file_only()
-    {
-        var users = Sources().Where(f => Regex.IsMatch(File.ReadAllText(f), @"\bClipboard\.|GetDataObject|OleGetClipboard")).Select(Path.GetFileName).ToList();
-        Assert.Equal(new[] { "ClipboardReader.cs" }, users);
-    }
-
-    [Fact]
-    public void Clipboard_reader_is_only_called_from_user_actions()
-    {
-        // The only callers allowed are the hotkey handler and the paste window.
-        var callers = Sources().Where(f => File.ReadAllText(f).Contains("ClipboardReader.Read") && !f.EndsWith("ClipboardReader.cs"))
-            .Select(Path.GetFileName).OrderBy(x => x).ToList();
-        Assert.Equal(new[] { "PasteForm.cs", "TrayApp.cs" }, callers);
-    }
-
-    [Fact]
-    public void Paste_window_is_one_editable_box_without_the_old_paste_button_or_hint()
-    {
-        var form = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "PasteForm.cs"));
-        Assert.DoesNotContain("붙여넣기 (Ctrl+V)", form);
-        Assert.DoesNotContain("Ctrl+V로 복사한 글·사진·파일을 붙여넣어요", form);
-        Assert.DoesNotContain("ReadOnly = true", form);
-        Assert.Contains("PasteText.Compose", form); // what is sent is decided in one tested place
-        Assert.Contains("_app.Submit(", form);       // same queue path as every other entry, no new server call
-        Assert.DoesNotContain("HttpClient", form);
-    }
-
-    [Fact]
     public void No_source_logs_or_shows_token_values()
     {
         foreach (var file in Sources())
@@ -58,11 +30,39 @@ public class SourceRulesTests
     }
 
     [Fact]
-    public void Program_never_takes_anything_but_file_paths_as_arguments()
+    public void Program_reads_no_arguments_and_has_no_path_pipe()
     {
         var program = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "Program.cs"));
         Assert.DoesNotContain("--token", program);
-        Assert.Contains("File.Exists", program);
+        Assert.DoesNotContain("args", program);
+        Assert.DoesNotContain("NamedPipe", program);
+    }
+
+    [Fact]
+    public void The_removed_send_entrances_leave_no_code_behind()
+    {
+        // Clipboard hotkey / paste window, right-click Send to, screen-corner box, desktop tile (S54-13).
+        foreach (var gone in new[] { "HotkeyWindow.cs", "PasteForm.cs", "ClipboardReader.cs", "SendToShortcut.cs", "CornerWatcher.cs",
+                     "CornerDropForm.cs", "DesktopTile.cs", "DesktopTileForm.cs", "DropData.cs", "MonitorList.cs",
+                     "HotkeyChoice.cs", "CornerRules.cs", "DesktopTileRules.cs", "PasteText.cs", "DropService.cs" })
+            Assert.DoesNotContain(gone, Sources().Select(Path.GetFileName));
+        var all = string.Join(" ", Sources().Select(File.ReadAllText));
+        Assert.DoesNotMatch(@"RegisterHotKey|ClipboardReader|GetDataObject|OleGetClipboard|\bClipboard\.|GetAsyncKeyState|DropService|\.Submit\(", all);
+        var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
+        foreach (var word in new[] { "단축키", "구석", "바탕화면", "붙여넣기", "[보내기]" }) Assert.DoesNotContain(word, tray);
+    }
+
+    [Fact]
+    public void The_first_run_cleanup_only_touches_the_old_send_to_shortcut_and_history_file()
+    {
+        var legacy = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "LegacyEntries.cs"));
+        Assert.Contains("SpecialFolder.SendTo", legacy);
+        Assert.Contains("\"바구니 PC드롭.lnk\"", legacy);
+        Assert.Contains("LegacyEntriesCleaned", legacy);
+        Assert.Contains("queue.List().Count == 0", legacy); // a waiting item is never deleted
+        Assert.DoesNotContain("Directory.Delete", legacy);
+        Assert.DoesNotContain("EnumerateFiles", legacy);
+        Assert.Contains("LegacyEntries.CleanOnce(", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs")));
     }
 
     [Fact]
@@ -113,55 +113,6 @@ public class SourceRulesTests
     }
 
     [Fact]
-    public void The_hotkey_uses_RegisterHotKey_only_and_no_keyboard_hook()
-    {
-        var users = Sources().Where(f => File.ReadAllText(f).Contains("RegisterHotKey(")).Select(Path.GetFileName).ToList();
-        Assert.Equal(new[] { "HotkeyWindow.cs" }, users);
-        foreach (var file in Sources())
-        {
-            var text = File.ReadAllText(file);
-            Assert.DoesNotMatch(@"SetWindowsHookEx|WH_KEYBOARD|WH_MOUSE|GetKeyboardState|GetKeyState|RegisterRawInputDevices|SendKeys", text);
-            // The hot corner may ask whether a mouse button is held (dragging a file in). Only there, and never for a key.
-            if (Path.GetFileName(file) != "CornerWatcher.cs") Assert.DoesNotContain("GetAsyncKeyState", text);
-        }
-    }
-
-    [Fact]
-    public void The_hot_corner_reads_only_the_pointer_and_the_two_mouse_buttons()
-    {
-        var watcher = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "CornerWatcher.cs"));
-        var calls = Regex.Matches(watcher, @"GetAsyncKeyState\((\w+)\)").Select(m => m.Groups[1].Value).Where(a => a != "int").Distinct().OrderBy(x => x).ToArray();
-        Assert.Equal(new[] { "VkLButton", "VkRButton" }, calls);
-        Assert.Contains("VkLButton = 0x01, VkRButton = 0x02", watcher);
-        Assert.DoesNotContain("Clipboard", watcher);
-        Assert.DoesNotContain("ClipboardReader", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "CornerDropForm.cs")));
-        // A drop goes through the one gate, like every other entry.
-        Assert.Contains("DropData.Send(_app,", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "CornerDropForm.cs")));
-        Assert.Contains("app.Submit(", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "DropData.cs")));
-    }
-
-    [Fact]
-    public void The_desktop_tile_is_never_topmost_reads_no_keys_or_clipboard_and_sends_through_the_one_gate()
-    {
-        var form = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "DesktopTileForm.cs"));
-        var keeper = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "DesktopTile.cs"));
-        Assert.Contains("TopMost = false", form);
-        Assert.Contains("WsExNoActivate", form); // never takes focus
-        foreach (var text in new[] { form, keeper })
-        {
-            Assert.DoesNotContain("WsExTopmost", text);
-            Assert.DoesNotContain("HWND_TOPMOST", text);
-            Assert.DoesNotContain("new(-1)", text); // HWND_TOPMOST as a number
-            Assert.DoesNotContain("Clipboard", text);
-            Assert.DoesNotContain("GetCursorPos", text); // the keeper does not watch the mouse
-            Assert.DoesNotContain("HttpClient", text);
-        }
-        Assert.Contains("DropData.Send(_app,", form);
-        Assert.DoesNotContain(".Submit(", form);
-        Assert.Contains("\"Progman\"", keeper); // the owner is the desktop window
-    }
-
-    [Fact]
     public void Update_addresses_are_decided_in_one_file_and_never_point_at_latest_or_other_repositories()
     {
         foreach (var file in Sources())
@@ -202,7 +153,7 @@ public class SourceRulesTests
         Assert.Contains("OnBeforeUninstallFastCallback", program);
         Assert.Contains("RemoveRunValue()", program);
         Assert.Contains("CredentialManagerTokenStore().Delete()", program);
-        Assert.Contains("SendToShortcut.Remove()", program);
+        Assert.Contains("LegacyEntries.RemoveSendTo()", program);
         Assert.DoesNotContain("AppPaths.Root", program);
         Assert.DoesNotContain("AppPaths.Queue", program);
     }
@@ -232,7 +183,7 @@ public class SourceRulesTests
         var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
         Assert.Contains("AppIcon.ForTray()", tray);
         Assert.DoesNotContain("GetHicon", tray); // the old drawn "B" icon must not come back
-        foreach (var form in new[] { "PasteForm.cs", "StatusForm.cs" })
+        foreach (var form in new[] { "StatusForm.cs" })
             Assert.Contains("AppIcon.ForWindow()", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", form)));
     }
 

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 사업 보고 위쪽 정돈</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--surface:#fbfdfc;--bg:#eef5f2;--pri:#2f6f5e;--red:#b4473c}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}
+h2{font-size:13px;margin:14px 0 6px}
+.phone{width:100%;max-width:380px;border:1px solid var(--line);border-radius:16px;background:var(--bg);padding:10px 0 8px}
+.r{display:flex;align-items:center;gap:6px;padding:3px 10px}
+.ttl{font-size:17px;font-weight:600}
+.sp{margin-left:auto}
+.btn{height:30px;padding:0 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;gap:3px;white-space:nowrap;font-size:13px}
+.btn small{color:var(--muted);font-size:10px}
+.icon{width:30px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px}
+.icon.rec{color:var(--red);font-size:12px}.icon.plain{border:0;background:transparent}
+.seg{display:inline-flex;background:#efebe6;border-radius:999px;padding:3px}.seg span{padding:3px 11px;border-radius:999px;color:var(--muted)}.seg .on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.wk{display:inline-flex;align-items:center;gap:8px}.wk i{font-style:normal;color:var(--muted);padding:0 2px}.wk b{font-weight:600}.wk span{color:var(--muted);font-size:12px}
+.below{margin:6px 10px 0;height:46px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:12px}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6;max-width:380px}
+.n{display:inline-block;min-width:15px;height:15px;border-radius:50%;background:#a5463c;color:#fff;font-size:10px;text-align:center;line-height:15px}
+</style></head><body>
+<h1>사업 보고 위쪽 정돈</h1>
+<p class="s">지금: 큰 버튼 5개가 세 줄, 주 고르기가 둘(위 11.2~11.8 / 아래 11.9~11.15). 두 가지 정돈안이에요.</p>
+
+<h2>A안 — 두 줄 (추천)</h2>
+<div class="phone">
+<div class="r"><span class="ttl">사업 보고</span><span class="icon rec sp" title="녹음">●</span><span class="icon" title="추가">+</span><span class="icon plain">⋯</span></div>
+<div class="r"><span class="btn">회의<small>▾</small></span><span class="btn">사업영역 전체<small>▾</small></span><span class="sp"></span></div>
+<div class="r"><span class="wk"><i>‹</i><b>11.9(월)~11.15(일)</b><i>›</i><span>· 5건</span></span><span class="btn sp">주<small>▾</small></span></div>
+<div class="below">이번 주 주간보고 (늘 펼침, 위 주를 따름)</div>
+</div>
+<p class="note"><span class="n">1</span> 제목 줄 오른쪽에 녹음 ●·추가 +·⋯ 작은 아이콘 — 큰 [● 녹음]과 떠 있는 [+] 없앰<br><span class="n">2</span> 거르기 두 개는 작은 버튼 한 줄<br><span class="n">3</span> 주 고르기 하나 + 작은 [주▾] 같은 줄 — '이번 주 주간보고' 안의 주 고르기 없앰<br>· 버튼 높이 모두 30px로 같게, 굵은 테두리 없음</p>
+
+<h2>B안 — 더 촘촘 (보기 바꾸기를 위로)</h2>
+<div class="phone">
+<div class="r"><span class="seg"><span class="on">목록</span><span>달력</span><span>사진</span></span><span class="icon rec sp">●</span><span class="icon">+</span><span class="icon plain">⋯</span></div>
+<div class="r"><span class="btn">회의<small>▾</small></span><span class="btn">사업영역<small>▾</small></span><span class="btn">주<small>▾</small></span></div>
+<div class="r"><span class="wk"><i>‹</i><b>11.9(월)~11.15(일)</b><i>›</i><span>· 5건</span></span></div>
+<div class="below">이번 주 주간보고 (늘 펼침)</div>
+</div>
+<p class="note">· 제목 '사업 보고'는 아래 탭과 겹쳐서 빼고, 그 자리에 [목록|달력|사진](담당조직 [목록|전체 표]와 같은 모양) — 아래 떠 있던 보기 바꾸기 없앰<br>· 거르기 세 개(회의·사업영역·주) 한 줄, 주 고르기는 그 아래 한 줄<br>· 단, '보기 탭은 폰에서 아래 가운데' 규칙이 바뀜 → 다른 화면도 같이 바꿀지 결정 필요</p>
+</body></html>

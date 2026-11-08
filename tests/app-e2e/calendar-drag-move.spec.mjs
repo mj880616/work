@@ -52,8 +52,8 @@ async function open(page,view='week'){
   await page.evaluate(()=>Promise.all([window.__KPTU_CALENDAR_PERSISTENCE_READY__,new Promise(r=>{const t=setInterval(()=>{if(window.__KPTU_CALENDAR_DRAG_READY__){clearInterval(t);r()}},20)})]));
   return state;
 }
-async function drag(page,from,dx,dy){
-  const b=await from.boundingBox();const x=b.x+b.width/2,y=b.y+Math.min(10,b.height/2);
+async function drag(page,from,dx,dy,box){
+  const b=box||await from.boundingBox();const x=b.x+b.width/2,y=b.y+Math.min(10,b.height/2);
   await page.mouse.move(x,y);await page.mouse.down();
   for(let i=1;i<=5;i++)await page.mouse.move(x+dx*i/5,y+dy*i/5);
   return async()=>page.mouse.up();
@@ -133,9 +133,19 @@ test('월간: 다른 날로 끌면 시간은 그대로 날짜만 바뀜',async({
   const state=await open(page,'month');
   const ev=page.locator('#calendarGrid [data-google-event="timed"]');
   await expect(ev).toHaveAttribute('data-drag','day');
-  const to=await page.locator('.cal-cell[data-date="2026-10-28"]').boundingBox();
-  const b=await ev.boundingBox();
-  const release=await drag(page,ev,(to.x+to.width/2)-(b.x+b.width/2),(to.y+to.height/2)-(b.y+5));
+  // The month grid is redrawn several times while it starts up (events, tasks, size). Wait until the grid has stopped being redrawn,
+  // then measure the event and the drop cell in one page call, so a redraw cannot detach one of them between two measurements.
+  await page.evaluate(()=>new Promise(done=>{
+    const grid=document.querySelector('#calendarGrid');let quiet=0,dirty=false;
+    new MutationObserver(()=>{dirty=true}).observe(grid,{childList:true,subtree:true});
+    const tick=()=>{if(dirty){dirty=false;quiet=0}else quiet++;if(quiet>=10)done();else requestAnimationFrame(tick)};requestAnimationFrame(tick);
+  }));
+  const {to,b}=await page.evaluate(()=>{
+    const r=el=>{const q=el?.getBoundingClientRect();return q&&q.width>0&&q.height>0?{x:q.x,y:q.y,width:q.width,height:q.height}:null};
+    return {to:r(document.querySelector('.cal-cell[data-date="2026-10-28"]')),b:r(document.querySelector('#calendarGrid [data-google-event="timed"]'))};
+  });
+  expect(to).not.toBeNull();expect(b).not.toBeNull();
+  const release=await drag(page,ev,(to.x+to.width/2)-(b.x+b.width/2),(to.y+to.height/2)-(b.y+5),b);
   await expect(page.locator('.cal-cell[data-date="2026-10-28"].cmv-drop')).toBeVisible();
   await release();
   await expect.poll(()=>state.writes.length).toBe(1);
