@@ -462,7 +462,7 @@ test('rows show only confirmed project names without unlinked badges or a separa
   await expect(page.locator('#gtTaskBody [data-google-task="free-late"]')).toBeVisible();
   await expect(page.locator('#gtUnlinked')).toHaveCount(0);
   expect(calls).not.toContain('unlinked');
-  await expect(page.locator('[data-google-task="g1"] .gt-project')).toHaveText(' · 민자철도');
+  await expect(page.locator('[data-google-task="g1"] .gt-project')).toHaveCount(0);await expect(page.locator('[data-google-task="g1"]')).not.toContainText('민자철도');
   await expect(page.locator('[data-google-task="g1"] .gt-unlinked-badge')).toHaveCount(0);
   for(const id of ['free-undated','free-late','meeting-only']){await expect(page.locator(`[data-google-task="${id}"] .gt-project`)).toHaveCount(0);await expect(page.locator(`[data-google-task="${id}"] .gt-unlinked-badge`)).toHaveCount(0);}
   await expect(page.locator('#gtTaskBody [data-gt-unlinked-link]')).toHaveCount(0);

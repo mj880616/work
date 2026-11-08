@@ -12,12 +12,12 @@ for(const width of [360,599]){
   expect(await page.locator('#gtTaskBody>.gt-group .gt-group-head').allTextContents()).toEqual(['오늘 1','기한 없음 2']);
   await expect(page.locator('#gtCompleted,[data-gt-overdue],[data-gt-week],[data-gt-later]')).toHaveCount(0);
   const row=page.locator('[data-google-task="today"]');
-  await expect(row.locator('.gt-project')).toContainText(' · 아주 긴 연결 프로젝트 이름');
-  await expect(page.locator('[data-google-task="org"] .gt-project')).toHaveCount(0);
+  // TASK-제목날짜만: 연결 이름은 줄에 쓰지 않는다. 제목은 한 줄 말줄임, 날짜는 오른쪽.
+  await expect(page.locator('#gtTaskBody .gt-project')).toHaveCount(0);await expect(row).not.toContainText('아주 긴 연결 프로젝트 이름');
   await expect(page.locator('[data-google-task="undated"] .gt-meta')).toHaveCount(0);
   await expect(page.locator('#gtTaskBody')).not.toContainText('연결 안 됨');await expect(page.locator('#gtTaskBody')).not.toContainText('내 할 일');await expect(page.locator('#gtTaskBody')).not.toContainText('목록에서 숨길 메모');
-  const metrics=await row.evaluate(el=>{const title=el.querySelector('b'),meta=el.querySelector('.gt-meta'),project=el.querySelector('.gt-project'),menu=el.querySelector('[data-gt-menu]');return {font:getComputedStyle(title).fontSize,clamp:getComputedStyle(title).webkitLineClamp,meta:getComputedStyle(meta).fontSize,whiteSpace:getComputedStyle(project).whiteSpace,ellipsis:getComputedStyle(project).textOverflow,menu:menu.getBoundingClientRect().toJSON(),scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth};});
-  expect(metrics.font).toBe('13px');expect(metrics.clamp).toBe('2');expect(metrics.meta).toBe('12px');expect(metrics.whiteSpace).toBe('nowrap');expect(metrics.ellipsis).toBe('ellipsis');expect(metrics.menu.width).toBeGreaterThanOrEqual(44);expect(metrics.menu.height).toBeGreaterThanOrEqual(44);expect(metrics.scroll).toBeLessThanOrEqual(metrics.client+1);
+  const metrics=await row.evaluate(el=>{const title=el.querySelector('b'),meta=el.querySelector('.gt-meta'),menu=el.querySelector('[data-gt-menu]');return {font:getComputedStyle(title).fontSize,clamp:getComputedStyle(title).webkitLineClamp,meta:getComputedStyle(meta).fontSize,titleWhiteSpace:getComputedStyle(title).whiteSpace,menu:menu.getBoundingClientRect().toJSON(),scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth};});
+  expect(metrics.font).toBe('13px');expect(metrics.clamp).toBe('none');expect(metrics.titleWhiteSpace).toBe('nowrap');expect(metrics.meta).toBe('12px');expect(metrics.menu.width).toBeGreaterThanOrEqual(44);expect(metrics.menu.height).toBeGreaterThanOrEqual(44);expect(metrics.scroll).toBeLessThanOrEqual(metrics.client+1);
   if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-screen-360.png'});
   await row.locator('[data-gt-menu]').click();await expect(page.locator('#gtTaskMenu')).toBeVisible();
   if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-menu-360.png'});await expect(page.locator('#gtTaskMenu button').first()).toBeFocused();
@@ -25,7 +25,7 @@ for(const width of [360,599]){
   await row.locator('[data-gt-menu]').click();await page.goBack();await expect(page.locator('#gtTaskMenu')).toBeHidden();await expect(row.locator('[data-gt-menu]')).toBeFocused();
   await row.locator('[data-gt-menu]').click();await page.locator('#gtTaskMenu').getByRole('button',{name:'수정',exact:true}).click();await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditTitle')).toHaveValue(title);await page.locator('[data-gt-close]').click();
   await row.locator('[data-gt-edit]').click();await expect(page.locator('#gtTaskModal')).toBeVisible();await page.locator('[data-gt-close]').click();
-  await page.evaluate(()=>window.KPTURouter.go('calendar'));await page.locator('[data-date="2026-10-08"] .clv-tasks').first().click();await expect(page.locator('#calendarDayTasks .gt-project')).toContainText('아주 긴 연결 프로젝트 이름');await expect(page.locator('#calendarDayTasks')).not.toContainText('연결 안 됨');
+  await page.evaluate(()=>window.KPTURouter.go('calendar'));await page.locator('[data-date="2026-10-08"] .clv-tasks').first().click();await expect(page.locator('#calendarDayTasks .gt-project')).toHaveCount(0);await expect(page.locator('#calendarDayTasks .gt-meta .gt-due')).toHaveCount(1);await expect(page.locator('#calendarDayTasks')).not.toContainText('연결 안 됨');
  });
  test(`empty state and scope information ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});const tasks=[];await open(page,tasks);
@@ -74,25 +74,25 @@ for(const width of [360,390])test(`long calendar task stays inside dialog and me
  const title='긴 할 일 제목이 화면 밖으로 넘치지 않고 두 줄까지 표시되는지 확인합니다 '.repeat(6),name='산별전환 가이드북 프로젝트 이름이 길어도 한 줄 말줄임 '.repeat(8);
  await open(page,[task('long','2026-10-08T00:00:00Z',{title})],{links:[{google_task_id:'long',project_id:'long-project',status:'confirmed'}],projects:[{id:'long-project',name,workspace_id:'qa-ws',owner_id:'qa-user',metadata:{project_system:'v2'},status:'active'}]});
  const checkGap=async root=>{
-  await expect(root.locator('.gt-project')).toHaveText(' · '+name);
-  const gap=await root.evaluate(el=>el.querySelector('.gt-project').getBoundingClientRect().left-el.querySelector('.gt-due').getBoundingClientRect().right);
-  expect.soft(gap,'date and project need visible separation').toBeGreaterThan(0);
+  await expect(root.locator('.gt-project')).toHaveCount(0);await expect(root).not.toContainText(name);
+  const gap=await root.evaluate(el=>el.querySelector('.cmv-event-title,b').getBoundingClientRect().right-el.querySelector('.gt-due').getBoundingClientRect().left);
+  expect.soft(gap,'title ends before the date').toBeLessThanOrEqual(0);
  };
  await checkGap(page.locator('[data-google-task="long"]'));
  await page.evaluate(()=>window.KPTURouter.go('calendar'));await page.locator('[data-date="2026-10-08"] .clv-tasks').first().click();
  const row=page.locator('#calendarDayTasks [data-calendar-task="long"]');await expect(row).toBeVisible();
- await expect(row.locator('.gt-project')).toHaveText(' · '+name);
+ await expect(row.locator('.gt-project')).toHaveCount(0);
  const metrics=await row.evaluate(el=>{
-  const title=el.querySelector('.cmv-event-title'),meta=el.querySelector('.gt-meta'),project=el.querySelector('.gt-project'),card=el.closest('.modal-card'),list=document.querySelector('#calendarDayList');
-  return {row:el.getBoundingClientRect().toJSON(),card:card.getBoundingClientRect().toJSON(),list:list.getBoundingClientRect().toJSON(),title:getComputedStyle(title).fontSize,clamp:getComputedStyle(title).webkitLineClamp,titleWhiteSpace:getComputedStyle(title).whiteSpace,projectWhiteSpace:getComputedStyle(project).whiteSpace,ellipsis:getComputedStyle(project).textOverflow,meta:getComputedStyle(meta).fontSize,titleHeight:title.getBoundingClientRect().height,lineHeight:parseFloat(getComputedStyle(title).lineHeight)};
+  const title=el.querySelector('.cmv-event-title'),meta=el.querySelector('.gt-meta'),card=el.closest('.modal-card'),list=document.querySelector('#calendarDayList');
+  return {row:el.getBoundingClientRect().toJSON(),card:card.getBoundingClientRect().toJSON(),list:list.getBoundingClientRect().toJSON(),title:getComputedStyle(title).fontSize,clamp:getComputedStyle(title).webkitLineClamp,titleWhiteSpace:getComputedStyle(title).whiteSpace,meta:getComputedStyle(meta).fontSize,titleHeight:title.getBoundingClientRect().height,lineHeight:parseFloat(getComputedStyle(title).lineHeight)};
  });
  expect.soft(metrics.row.right,'task row inside dialog').toBeLessThanOrEqual(metrics.card.right);
  expect.soft(metrics.list.right,'task list inside dialog').toBeLessThanOrEqual(metrics.card.right);
  expect(metrics.card.right,'dialog inside viewport').toBeLessThanOrEqual(width);
  // UI-디자인손질 2: day-list task names are list rows, 13px.
- expect(metrics.title).toBe('13px');expect(metrics.clamp).toBe('2');expect(metrics.titleWhiteSpace).toBe('normal');
- expect(metrics.titleHeight).toBeLessThanOrEqual(metrics.lineHeight*2+1);
- expect(metrics.meta).toBe('12px');expect(metrics.projectWhiteSpace).toBe('nowrap');expect(metrics.ellipsis).toBe('ellipsis');
+ expect(metrics.title).toBe('13px');expect(metrics.titleWhiteSpace).toBe('nowrap');
+ expect(metrics.titleHeight).toBeLessThanOrEqual(metrics.lineHeight+1);
+ expect(metrics.meta).toBe('12px');
  await checkGap(row);
  if(process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:`/workspace/artifacts/task-calendar-day-${width}.png`});
 });
