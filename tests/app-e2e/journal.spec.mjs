@@ -2856,7 +2856,7 @@ for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 더는 투
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 지난 투쟁 소식']);
  const fix=hwpx(page).locator('[data-hwpx-stage-fix]');await expect(fix).toBeVisible();
- await expect(fix.locator('li')).toHaveCount(1);await expect(fix.locator('li')).toContainText('나 지역 모임');await expect(fix).toContainText('지울까요');
+ await expect(fix.locator('li')).toHaveCount(1);await expect(fix.locator('li')).toContainText('나 지역 모임');await expect(fix).toContainText('삭제할까요');
  await fix.locator('[data-hwpx-stage-clear]').click();
  await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveCount(0);await expect(siteCell(page,'나 지역 모임').locator('[data-flow-empty]')).toHaveText('빈 칸');
  await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
@@ -3824,7 +3824,7 @@ for(const width of [390,1280])test(`[주간 정리] 2. 1) 요약: 부호만 다�
  const before=f.exec.calls.filter(x=>x.method==='PATCH').length;
  const topic=items.filter({hasText:'주제 칸 수요일 기록'});
  // S52-25: [넣기][이미 있음][고쳐서 넣기][빼기]는 줄 끝 ⋯ 하나 안(공용 '제안 줄').
- await expect(topic.locator('.row-more-menu button')).toHaveText(['넣기','이미 있음','고쳐서 넣기','빼기']);
+ await expect(topic.locator('.row-more-menu button')).toHaveText(['넣기','이미 있음','수정해서 넣기','빼기']);
  await expect(topic.locator('button.weekly-flow-take,button.weekly-flow-have')).toHaveCount(0);
  await pressMore(topic,'[data-flow-have]');
  await expect(items.filter({hasText:'주제 칸 수요일 기록'})).toHaveCount(0);
