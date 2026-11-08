@@ -1,4 +1,4 @@
-import {waitHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, emptyHtml, waitInlineHtml, failEl} from './wait-state.js';
 import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {formatMeetingTime,toMeetingISO,seoulParts,seoulDate,seoulDateKey,seoulClock} from './meeting-time.js';
@@ -376,7 +376,25 @@ async function connectGoogle(){if(googleState.connected){const panel=$('#googleC
 async function disconnectGoogle(){await googleCall('',{method:'POST',body:{action:'disconnect'}});window.KPTUCalendarPersistence?.disconnected?.();googleState={connected:false,enabled:false,selected:[],calendars:[],events:[],email:null};renderCalendar();toast('Google Calendar 연결을 해제했습니다.')}
 function switchView(view){if(window.KPTURouter?.go){window.KPTURouter.go(view,{source:'team'});return}$('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===view));$('.view-panel').forEach(v=>v.classList.add('hidden'));$('#'+view+'View')?.classList.remove('hidden')}
 // FAMILY-잊지말기: preset({title, memo, onCreated})이 오면 제목·메모를 채우고, 그 창에서 새 일정이 만들어지면 한 번 알린다. 캘린더는 창에서 고른다.
-function openEventModal(preset){const p=preset&&typeof preset==='object'&&!(typeof Event!=='undefined'&&preset instanceof Event)?preset:{};['eventTitle','eventLocation','eventDescription'].forEach(id=>{if($('#'+id))$('#'+id).value=''});if(p.title&&$('#eventTitle'))$('#eventTitle').value=String(p.title);if(p.memo&&$('#eventDescription'))$('#eventDescription').value=String(p.memo);const now=new Date(),finish=new Date(now.getTime()+3600000),date=seoulDateKey,time=seoulClock;if($('#eventAllDay'))$('#eventAllDay').checked=false;if($('#eventStartDate'))$('#eventStartDate').value=date(now);if($('#eventEndDate'))$('#eventEndDate').value=date(finish);if($('#eventStartTime'))$('#eventStartTime').value=time(now);if($('#eventEndTime'))$('#eventEndTime').value=time(finish);document.querySelectorAll('.event-time-row').forEach(x=>x.classList.remove('hidden'));setStatus($('#eventStatus'),'');openModal('eventModal',{initialFocus:'#eventTitle'});window.KPTUCalendarPlus?.prepareNewEvent?.({onCreated:typeof p.onCreated==='function'?p.onCreated:null})}
+function openEventModal(preset){const p=preset&&typeof preset==='object'&&!(typeof Event!=='undefined'&&preset instanceof Event)?preset:{};['eventTitle','eventLocation','eventDescription'].forEach(id=>{if($('#'+id))$('#'+id).value=''});if(p.title&&$('#eventTitle'))$('#eventTitle').value=String(p.title);if(p.memo&&$('#eventDescription'))$('#eventDescription').value=String(p.memo);const now=new Date(),finish=new Date(now.getTime()+3600000),date=seoulDateKey,time=seoulClock;if($('#eventAllDay'))$('#eventAllDay').checked=false;if($('#eventStartDate'))$('#eventStartDate').value=date(now);if($('#eventEndDate'))$('#eventEndDate').value=date(finish);if($('#eventStartTime'))$('#eventStartTime').value=time(now);if($('#eventEndTime'))$('#eventEndTime').value=time(finish);document.querySelectorAll('.event-time-row').forEach(x=>x.classList.remove('hidden'));setStatus($('#eventStatus'),'');openModal('eventModal',{initialFocus:'#eventTitle'});void prepareEventModal(typeof p.onCreated==='function'?p.onCreated:null)}
+// CAL-다른화면일정등록: 창의 Google 세부 캘린더·색·종일 칸·[저장]은 달력 묶음(calendar-plus.js)이 맡는다. 달력을 아직 안 연 화면(잊지 말기·정리함·
+// 홈 업데이트 등 KPTUEventCreate.open)에서 열면 이 한 곳에서 화면 불러오기 길(KPTUViewLoader.load('calendar') — 홈 빠른 입력·[+ 추가]·event-open.js와 같은 길)로
+// 먼저 불러온 뒤 창을 채운다. 그동안 종일·[저장]·[일정|할 일]은 잠그고 상태 줄에 기다림, 못 불러오면 창 안에 한 줄 + [다시]. 창을 닫거나 다시 열면 앞 준비는 버린다.
+let eventPrepSeq=0;
+function lockEventForm(on){document.querySelectorAll('#eventAllDay,#saveEventBtn,#eventModal [data-event-mode]').forEach(el=>{el.disabled=!!on});const b=$('#saveEventBtn');if(b){if(on)b.setAttribute('aria-busy','true');else b.removeAttribute('aria-busy')}}
+async function prepareEventModal(onCreated){
+  const seq=++eventPrepSeq,modal=$('#eventModal'),status=$('#eventStatus'),loader=window.KPTUViewLoader;
+  const live=()=>seq===eventPrepSeq&&!!modal&&!modal.classList.contains('hidden');
+  if(!loader?.isLoaded?.('calendar')||!window.KPTUCalendarPlus?.prepareNewEvent){
+    lockEventForm(true);if(status){status.className='status';status.setAttribute('role','status');status.setAttribute('aria-live','polite');status.innerHTML=waitInlineHtml()}
+    try{if(!loader?.load)throw new Error('view loader');await loader.load('calendar');await window.__KPTU_CALENDAR_PLUS_READY__;if(!window.KPTUCalendarPlus?.prepareNewEvent)throw new Error('calendar plus')}
+    catch(err){console.warn('event modal prepare',err?.name||'Error');if(!live())return false;lockEventForm(true);if(status){status.className='status error';status.removeAttribute('aria-live');status.replaceChildren(failEl({text:'일정 창을 준비하지 못했어요',onRetry:()=>void prepareEventModal(onCreated)}))}return false}
+    if(!live())return false;
+  }
+  lockEventForm(false);
+  await window.KPTUCalendarPlus.prepareNewEvent({onCreated});
+  return true
+}
 window.KPTUEventCreate={open:preset=>openEventModal(preset||{})};
 // UI-플러스키보드(요청함 11/03 15:09): 자료 [+]·[+ 자료 등록]은 파일을 고르는 일이 먼저라, 손가락으로 쓰는 폰·태블릿(pointer:coarse)에서는 자료명 칸에 초점을 주지 않는다(키보드가 올라와 창 아래를 가리던 원인). 첫 조작 가능한 버튼(닫기)이 초점을 받고, 자료명은 눌러서 쓴다. 마우스·키보드 화면은 그대로 자료명 칸.
 const docInitialFocus=()=>window.matchMedia?.('(pointer: coarse)').matches?null:'#docTitle';
