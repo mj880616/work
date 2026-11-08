@@ -422,15 +422,37 @@ async function markRelayBodies(db: Db, log: FeedLog, nowMs: number) {
 }
 
 // ---- 예약 단계 -----------------------------------------------------------------------------------------------------
+// 켠 매체 → 작업공간 목록. 줄이 enabled=true면 켬, false면 끔.
+// 기본 켬 매체(on: true, S53-6)는 그 매체 줄이 아직 없는 '뉴스를 쓰는 작업공간'(키워드가 있거나 news- 줄이 하나라도 있는 곳)도 켬으로 본다.
+// missing: 기본 켬으로 더해진(줄이 없는) 작업공간 — runMedia가 켬 줄을 만들어 읽은 시각·실패를 남긴다.
 async function enabledMedia(db: Db): Promise<Map<string, string[]>> {
+  return (await mediaPlan(db)).on;
+}
+async function mediaPlan(db: Db): Promise<{ on: Map<string, string[]>; missing: Map<string, string[]> }> {
   const rows = await db.get(`app_outside_sources?source_key=like.news-*&enabled=is.true&select=workspace_id,source_key&limit=5000`);
-  const out = new Map<string, string[]>();
+  const on = new Map<string, string[]>(), missing = new Map<string, string[]>();
+  const add = (m: Map<string, string[]>, k: string, w: string) => m.set(k, [...(m.get(k) ?? []), w]);
   for (const r of rows) {
     const k = String(r.source_key);
     if (!newsSourceByKey(k)) continue; // 카탈로그 밖 키는 건너뜀
-    out.set(k, [...(out.get(k) ?? []), String(r.workspace_id)]);
+    add(on, k, String(r.workspace_id));
   }
-  return out;
+  const defaults = NEWS_CATALOG.filter((s) => s.on === true);
+  if (defaults.length) {
+    // 켬·끔 상관없이 이미 있는 news- 줄(끈 줄이 있으면 기본 켬을 적용하지 않음) + 키워드가 있는 작업공간 = 뉴스를 쓰는 작업공간.
+    const has = new Set<string>(), users = new Set<string>();
+    for (const r of await db.get(`app_outside_sources?source_key=like.news-*&select=workspace_id,source_key&limit=5000`)) {
+      const w = String(r.workspace_id);
+      if (!UUID.test(w)) continue;
+      users.add(w); has.add(`${w}|${String(r.source_key)}`);
+    }
+    for (const r of await db.get(`app_news_keywords?enabled=is.true&select=workspace_id&limit=5000`)) {
+      const w = String(r.workspace_id);
+      if (UUID.test(w)) users.add(w);
+    }
+    for (const s of defaults) for (const w of users) if (!has.has(`${w}|${s.key}`)) { add(on, s.key, w); add(missing, s.key, w); }
+  }
+  return { on, missing };
 }
 type NewRow = { workspace_id: string; lane: "keyword" | "media"; url: string; url_key: string; title: string; title_key: string | null;
   lang: string; publisher: string | null; source_key: string | null; keywords: string[]; published_at: string | null; fetched_at: string;
@@ -470,8 +492,17 @@ function oneLineLead(s: string | null): string | null {
 }
 
 async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource, nowMs: number, startMs: number, clock: () => number, log: FeedLog) {
-  const ws = (await enabledMedia(db)).get(source.key) ?? [];
+  const plan = await mediaPlan(db);
+  const ws = plan.on.get(source.key) ?? [];
   if (!ws.length) return { ok: true, step: "media", source: source.key, status: "no_workspace", inserted: 0 };
+  // 기본 켬으로 더해진 작업공간: 켬 줄을 만든다(이미 있으면 그대로 — 그사이 사용자가 끈 줄을 덮지 않음). 아래 읽은 시각·실패가 이 줄에 남는다.
+  const fresh = plan.missing.get(source.key) ?? [];
+  if (fresh.length) {
+    try {
+      await db.send("POST", "app_outside_sources?on_conflict=workspace_id,source_key",
+        fresh.map((w) => ({ workspace_id: w, source_key: source.key, enabled: true })), "resolution=ignore-duplicates,return=minimal");
+    } catch { log("default_on_failed", { source: source.key }); }
+  }
   const reader = readers.catalog(source);
   const nowIso = new Date(nowMs).toISOString();
   let inserted = 0, status = "ok";

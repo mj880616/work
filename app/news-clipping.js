@@ -12,7 +12,7 @@ import {signalBody} from './now-model.mjs';
 import {ensureReads, onReads, readState} from './news-reads.js';
 import {dayHtml} from './news-row.mjs';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
-import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, itemFolderId} from './news-clipping-model.mjs';
+import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, sourceOn, enabledSourceKeys, itemFolderId} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1·C2(설계 docs/design/news-clipping.md) → OUTSIDE-글상세 ③(11/01 23:16) → S51-8 News [언론] 탭 칸(#nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩. 탭 줄·좌우 밀기·위 찾기 칸·[매체 ▾]·⋯·상세 칸은 껍데기(outside-statements.js)가 갖는다.
 // - 칸(같은 화면 안, 뒤로가기 한 번 = 목록, KPTURouter.layer): [키워드 고치기](app_news_keywords) · [언론 매체 켜고 끄기](app_outside_sources의 news- 키)
@@ -152,7 +152,7 @@ function keywordsHtml() {
 }
 
 function sourcesHtml() {
-  const on = [...state.sources.values()].filter(r => r.enabled === true).length;
+  const on = enabledSourceKeys(state.catalog, state.sources).length;
   const head = panelHead('매체 고르기', state.catalog && state.sourcesLoaded ? `켬 ${on}` : '');
   if (!state.catalog || !state.sourcesLoaded) return head + (state.catalogFailed || state.sourcesFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 6}));
   const groups = REGIONS.map(g => {
@@ -160,7 +160,7 @@ function sourcesHtml() {
     if (!members.length) return '';
     return `<section class="nc-group" aria-label="${esc(g.label)}"><h3 class="nc-group-head">${esc(g.label)}</h3>${members.map(s => {
       const row = state.sources.get(s.key), note = sourceNote(row);
-      return `<div class="nc-row">${switchHtml('data-nc-source', s.key, row?.enabled === true, s.name, state.saving.has('src:' + s.key))}${note ? `<span class="nc-faint${row?.last_error ? ' is-bad' : ''}">${esc(note)}</span>` : ''}</div>`;
+      return `<div class="nc-row">${switchHtml('data-nc-source', s.key, sourceOn(s, row), s.name, state.saving.has('src:' + s.key))}${note ? `<span class="nc-faint${row?.last_error ? ' is-bad' : ''}">${esc(note)}</span>` : ''}</div>`;
     }).join('')}</section>`;
   }).join('');
   return head + panelFail() + groups;
@@ -238,7 +238,7 @@ async function loadSources() {
   } catch { if (scope === state.scope && !state.sourcesLoaded) state.sourcesFailed = true; }
 }
 // 껍데기에 주는 언론 매체 표: 카탈로그 + 켠 news- 키(매체 고르기·색·[전체] 거르기). 이 접속에서 한 번 읽고, 켜고 끄면 새로.
-const metaOf = () => ({catalog: state.catalog || [], enabled: [...state.sources.values()].filter(r => r.enabled === true).map(r => r.source_key)});
+const metaOf = () => ({catalog: state.catalog || [], enabled: enabledSourceKeys(state.catalog, state.sources)});
 let metaJob = null;
 function meta() {
   resetIfOwnerChanged();
@@ -340,7 +340,7 @@ function focusAfter(sel) { root?.querySelector(sel)?.focus({preventScroll: true}
 async function toggleSource(key) {
   const w = workspaceOf(), tag = 'src:' + key;
   if (!w || state.saving.has(tag) || !state.catalog?.some(s => s.key === key)) return;
-  const next = state.sources.get(key)?.enabled !== true;
+  const next = !sourceOn(state.catalog.find(s => s.key === key), state.sources.get(key));
   state.saving.add(tag); state.panelNote = ''; paint();
   try { state.sources.set(key, await writeSource(w, key, next)); listDirty = true; now()?.metaChanged?.(metaOf()); }
   catch (e) { state.panelNote = saveFailNote(e); }
