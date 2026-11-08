@@ -32,6 +32,24 @@ export function groupDropTarget(e,groupBy,{resolve,root='#documentList'}={}){
   return {head,ok:true,kind:groupBy==='category'?'category':'into',key,field:g.field,value:raw,name:hit.name,hint:valueHint(hit.name)};
 }
 
+// S53-19 LIB-화면끌어놓기 이어서: 두 칸 폴더 보기(왼쪽 나무 | 오른쪽 목록)에서 폴더 줄 말고 다른 자리에 놓을 때의 놓을 곳.
+// 원인: 왼쪽 나무 줄·위치 줄은 놓을 곳이 아니었고, 폴더에 들어가 있는(오른쪽 목록이 그 폴더만 보이는) 동안 빈 곳에 놓은 파일은 폴더 밖으로 올라가
+//   지금 보는 목록에 나타나지 않았다(올라갔는데 안 된 것처럼 보임).
+// 순서(부르는 쪽): ① 이 함수의 나무 줄·위치 줄 → ② 오른쪽 목록의 폴더 줄(library-folders fileTarget) → ③ 이 함수의 '들어간 폴더 안 빈 곳'.
+// step=true면 ①만, false면 ③만 본다. 나무의 '자료실 전체'·위치 줄의 '자료실'은 폴더 밖({out:true}). 최근 올린 파일 칸은 폴더 밖(null).
+// folderOf(id)는 {id,name} 또는 null(없는 폴더). 돌려주는 place는 표시할 줄(나무 줄·위치 칸).
+export function placeDropTarget(el,{step=true,inFolder=null,folderOf=()=>null}={}){
+  if(step){
+    const at=el?.closest?.('#libraryFolderNav [data-lu-nav], #libraryPath [data-lu-path]');if(!at)return null;
+    const id=at.dataset?.luNav??at.dataset?.luPath??'',f=id?folderOf(id):null;
+    const place=at.closest?.('.ft-row')||at;
+    return f?{ok:true,kind:'into',target:f.id,name:f.name,place}:{out:true,place};
+  }
+  if(!inFolder||!el?.closest?.('#libraryView')||el.closest('#libraryRecent'))return null;
+  const f=folderOf(inFolder);
+  return f?{ok:true,kind:'into',target:f.id,name:f.name,here:true}:null;
+}
+
 export const hasFiles=event=>[...(event?.dataTransfer?.types||[])].includes('Files');
 
 export const progressText=({index,total,name})=>total>1?`올리는 중 ${index}/${total} · ${name}`:`올리는 중 · ${name}`;
@@ -75,7 +93,7 @@ export function bindLibraryDrop({doc=document,overlay,active,onFiles,place=()=>{
   if(!overlay||doc.__luDropBound)return ()=>{};
   doc.__luDropBound=true;
   let depth=0,hint='',last=null;
-  const say=t=>{const text=t?.hint||(t?.name?folderHint(t.name):DROP_HINT);if(text===hint)return;hint=text;const el=overlay.firstChild||overlay;if(el)el.textContent=text};
+  const say=t=>{const text=t?.hint||(t?.name&&!t.out?folderHint(t.name):DROP_HINT);if(text===hint)return;hint=text;const el=overlay.firstChild||overlay;if(el)el.textContent=text};
   const show=on=>{if(on&&overlay.hidden)place();overlay.hidden=!on};
   const reset=()=>{depth=0;last=null;show(false);mark(null);say(null)};
   const enter=e=>{if(!hasFiles(e)||!active())return;e.preventDefault();depth++;show(true)};
