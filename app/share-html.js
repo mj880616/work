@@ -86,7 +86,7 @@ export function createShareHtml({rt, workspaceId, onChanged}) {
     if (s.mode !== 'preview') {
       nodes.push(el('div', {class:'sh-drop', dataset:{shDrop:''}},
         el('p', {class:'sh-drop-text', text:s.fileName ? `${s.fileName}` : 'HTML 파일을 여기로 끌어 놓거나'}),
-        el('button', {type:'button', class:'sp-tool', dataset:{shPick:''}, text:s.fileName ? '다른 파일 고르기' : '파일 고르기'}),
+        el('button', {type:'button', class:'sp-tool', dataset:{shPick:''}, text:s.fileName ? '다른 파일 선택' : '파일 선택'}),
         el('input', {type:'file', accept:'.html,.htm,text/html', hidden:true, dataset:{shFile:''}}),
         el('p', {class:'sp-hint', text:'5MB까지 · 그래프·표·외부 라이브러리도 그대로 보여요'})));
     }
@@ -97,7 +97,7 @@ export function createShareHtml({rt, workspaceId, onChanged}) {
       const title = el('input', {type:'text', class:'sp-input', maxLength:200, placeholder:'제목(링크 미리보기에 보여요)', 'aria-label':'제목', dataset:{shTitle:''}});
       title.value = s.title || '';
       const expiry = el('select', {class:'sp-input sh-expiry', 'aria-label':'기한', dataset:{shExpiry:''}},
-        el('option', {value:'none', text:'없음'}), el('option', {value:'30', text:'30일'}), el('option', {value:'90', text:'90일'}), el('option', {value:'date', text:'날짜 고르기'}));
+        el('option', {value:'none', text:'없음'}), el('option', {value:'30', text:'30일'}), el('option', {value:'90', text:'90일'}), el('option', {value:'date', text:'날짜 선택'}));
       expiry.value = s.expiry || 'none';
       nodes.push(el('div', {class:'sh-fields'},
         el('label', {class:'sp-field'}, el('span', {text:'제목'}), title),

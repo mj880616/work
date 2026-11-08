@@ -114,7 +114,7 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
   if(width<1200)await showAllLibraryCategories(page);else await chip('all').click();
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
   if(width>=1200){
-  await chip('all').click();expect(await tops(page)).toEqual([]);await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('고른 분류 없음');
+  await chip('all').click();expect(await tops(page)).toEqual([]);await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('선택한 분류 없음');
   await chip('all').click();
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
   }

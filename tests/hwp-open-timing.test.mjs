@@ -1,4 +1,4 @@
-// LIB-편집열기느림: 열기 단계별 시간 글과, 자료실 검색 [결과 n개 모두 고르기](SEARCH-선택옮기기 ⑤) 연결을 본다.
+// LIB-편집열기느림: 열기 단계별 시간 글과, 자료실 검색 [결과 n개 모두 선택](SEARCH-선택옮기기 ⑤) 연결을 본다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -17,6 +17,6 @@ test('빠진 단계는 건너뛴다', () => {
 test('자료실 검색 결과 모두 고르기 버튼이 검색칸 옆에 연결돼 있다', () => {
   const js = readFileSync(new URL('../app/library-upload.js', import.meta.url), 'utf8');
   assert.match(js, /luSyncSearchPickAll\(q,matches\)/);
-  assert.match(js, /결과 \$\{luSearchPickIds\.length\}개 모두 고르기/);
+  assert.match(js, /결과 \$\{luSearchPickIds\.length\}개 모두 선택/);
   assert.match(js, /input\.after\(button\)/);
 });

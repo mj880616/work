@@ -2,6 +2,8 @@ name: Private rail forum state E2E
 
 on:
   pull_request:
+    # 초안(draft) PR은 화면 시험을 건너뛰고, 초안을 풀면(ready_for_review) 다시 돈다(S54-01).
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'private-rail/forum-0929/**'
@@ -26,6 +28,7 @@ permissions:
 
 jobs:
   forum-state:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

@@ -87,7 +87,7 @@ for(const width of [390,1280])test(`project basket rows open the memo and offer 
 for(const name of ['연결 해제','원문 삭제'])test(`${name} failure keeps the row and explains in plain words`,async({page})=>{
  const errors=await ready(page,{fail:true}),host=await open(page,'organization'),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
  await page.evaluate(()=>window.__detailState.failDelete=403);await linkAction(row,name);await answerAsk(page,true);
- await expect(row.locator('[data-link-action-status]')).toHaveText(name==='연결 해제'?'연결을 해제하지 못했어요. 다시 시도해 주세요.':'업데이트를 지우지 못했어요. 다시 시도해 주세요.');
+ await expect(row.locator('[data-link-action-status]')).toHaveText(name==='연결 해제'?'연결을 해제하지 못했어요. 다시 시도해 주세요.':'업데이트를 삭제하지 못했어요. 다시 시도해 주세요.');
  await expect(host.locator('[data-basket-link]')).toHaveCount(3);await expect(more(row)).toBeEnabled();expect(errors).toEqual([]);
 });
 
@@ -117,7 +117,7 @@ test('a late disconnect result never paints into another opened organization',as
 
 async function basket(page,{fail=0,mode='ok'}={}){
  const errors=[],writes=[],posts=[];page.on('pageerror',e=>errors.push(e.message));
- const notes=[{id:'n',workspace_id:'w',raw_text:'지울 메모\n둘째 줄',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[{drive_file_id:'file_1',file_name:'회의.txt',size_bytes:12,mime_type:'text/plain'}]},{id:'keep',workspace_id:'w',raw_text:'남을 메모',occurred_at:'2026-10-05T01:00:00Z',updated_at:'2026-10-05T01:00:00Z',ai_export_allowed:true,attachments:[]}];
+ const notes=[{id:'n',workspace_id:'w',raw_text:'삭제할 메모\n둘째 줄',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[{drive_file_id:'file_1',file_name:'회의.txt',size_bytes:12,mime_type:'text/plain'}]},{id:'keep',workspace_id:'w',raw_text:'남을 메모',occurred_at:'2026-10-05T01:00:00Z',updated_at:'2026-10-05T01:00:00Z',ai_export_allowed:true,attachments:[]}];
  const links=[{id:'l1',note_id:'n',workspace_id:'w',status:'confirmed',organization_id:'o',organization:{name:'합성 조직'}}];
  await openHome(page);
  // 나중에 등록한 가로채기가 먼저 적용되므로, 홈 기본 응답을 깐 뒤에 휴지통 함수 흉내를 등록한다.
@@ -179,6 +179,6 @@ test('basket delete before the database is ready explains and sends no delete',a
 test('basket delete failure keeps the note open with a plain error',async({page})=>{
  const f=await basket(page,{fail:500});await openNote(page,390);const detail=page.locator('[data-basket-detail]');
  await noteAction(page,'[data-basket-delete]');await answerAsk(page,true);
- await expect(detail.locator('[data-basket-status]')).toHaveText('업데이트를 지우지 못했어요. 다시 시도해 주세요.');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();await expect(detail.locator('[data-basket-delete]')).toBeEnabled();
+ await expect(detail.locator('[data-basket-status]')).toHaveText('업데이트를 삭제하지 못했어요. 다시 시도해 주세요.');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();await expect(detail.locator('[data-basket-delete]')).toBeEnabled();
  expect(f.notes.some(n=>n.id==='n')).toBe(true);expect(f.posts).toEqual([]);expect(f.trash.trash).toEqual([]);expect(f.errors).toEqual([]);
 });

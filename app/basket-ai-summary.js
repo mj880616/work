@@ -37,7 +37,7 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   ledger_unavailable:'원장 후보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   ledger_busy:'원장 자동 기록이 이미 돌고 있어요. 잠시 뒤 다시 시도해 주세요.',
   ledger_record_failed:'원장에 기록하지 못했어요. 다음에 다시 시도해요.',
-  ledger_fix_sensitive:'이 기록은 AI로 고칠 수 없어요. Claude 수정안을 붙여 넣어 주세요.',
+  ledger_fix_sensitive:'이 기록은 AI로 수정할 수 없어요. Claude 수정안을 붙여 넣어 주세요.',
   ledger_fix_inactive:'이미 대체됐거나 폐기된 기록이에요.',
   ledger_fix_rejected:'원장 형식에 맞지 않아 미리보기를 만들지 못했어요. 문장을 바꿔 다시 써 주세요.',
   overlap_not_ready:'기록 겹침 확인은 아직 준비 중이에요.',
@@ -59,7 +59,7 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   org_people_not_ready:'주요 인물 기능이 아직 준비되지 않았어요.',
   org_people_unavailable:'주요 인물 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   org_status_unavailable:'조직 기록을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.',
-  press_no_source:'고른 기록에 초안에 쓸 글이 없어요.',
+  press_no_source:'선택한 기록에 초안에 쓸 글이 없어요.',
   library_not_ready:'자료 정보 채우기가 아직 준비되지 않았어요.',
   library_unavailable:'자료를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   ask_not_ready:'Web2에 물어보기가 아직 준비되지 않았어요.',
@@ -139,7 +139,7 @@ export async function requestLinkSummary(input,options={}){
 
 // D11: an empty box is filled at once; a box with text keeps it and gets a separate proposal.
 // save: the host's existing save button (both labels end in a consonant, so the particle is 을).
-export const appliedText=(save='저장')=>`AI 요약을 칸에 넣었어요. 아직 저장 전이에요. 고친 뒤 [${save}]을 눌러 주세요.`;
+export const appliedText=(save='저장')=>`AI 요약을 칸에 넣었어요. 아직 저장 전이에요. 수정한 뒤 [${save}]을 눌러 주세요.`;
 export function placeAiSummary(current,summary,save='저장'){
   return isBlankSummary(current)?{fill:summary,proposal:'',status:appliedText(save)}
     :{fill:null,proposal:summary,status:'칸에 쓴 글은 그대로 두었어요. 제안을 쓰려면 [이걸로 바꾸기]를 눌러 주세요.'};

@@ -35,7 +35,7 @@ export async function updateNoteFolder(id, changes, rt = window.KPTURuntime) {
 // 지우면 DB 트리거가 아래 폴더를 한 단 위로 올린다. 노트는 부르는 쪽이 먼저 한 단 위로 옮긴다.
 export async function deleteNoteFolder(id, rt = window.KPTURuntime) {
   const rows = await rt.api(`/rest/v1/app_note_folders?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${ws(rt)}&select=id`, {method: 'DELETE', prefer: 'return=representation'});
-  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('폴더를 지우지 못했어요.');
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('폴더를 삭제하지 못했어요.');
 }
 // 폴더 색 고르기(1~8, null = 기본): 표 권한을 넓히지 않고 서버 함수(owner만)로만 쓴다. 적용 전이면 이 호출이 404/42883으로 실패해 부르는 쪽이 되돌리고 알린다.
 export async function setNoteFolderColor(id, color, rt = window.KPTURuntime) {

@@ -104,7 +104,7 @@ export function renderBlockError(block) {
   const box = el('section', 'sr-block sr-block-error');
   box.setAttribute('role', 'note');
   const label = block && Object.prototype.hasOwnProperty.call(BLOCK_LABELS, block.type) ? BLOCK_LABELS[block.type] : '';
-  box.append(el('p', '', (label ? label + ' ' : '') + '칸을 표시하지 못했어요. 새로고침하거나 보낸 사람에게 알려 주세요.'));
+  box.append(el('p', '', (label ? label + ' ' : '') + '칸을 표시하지 못했어요. 페이지를 다시 열거나 보낸 사람에게 알려 주세요.'));
   return box;
 }
 // One block as the reader shows it, or null for a type the reader skips.

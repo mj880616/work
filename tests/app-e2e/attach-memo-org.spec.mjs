@@ -362,11 +362,11 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`categor
  await expect(editor.locator('[data-le-row="정책·법령"] .le-meta')).toHaveText('3');
  expect(f.tables.app_documents.filter(d=>['e1','e2','e3'].includes(d.id)).map(d=>d.category)).toEqual(['정책·법령','정책·법령','정책·법령']);
  // Delete: the confirm says the documents move to 기타 and nothing is erased.
- await rowAct(page,editor,'투쟁','지우기',width);
+ await rowAct(page,editor,'투쟁','삭제',width);
  await expect(page.locator('.kptu-ask .danger')).toHaveCount(0);
  const message=await answerAsk(page,true);
- await expect(editor.locator('.dce-status')).toHaveText('‘투쟁’ 분류를 지웠어요. 자료 1개는 ‘기타’로 옮겼어요.');
- expect(message).toContain('‘투쟁’ 분류를 지울까요?');expect(message).toContain('자료 1개는 ‘기타’로 옮겨져요.');expect(message).toContain('자료와 파일은 지워지지 않아요');
+ await expect(editor.locator('.dce-status')).toHaveText('‘투쟁’ 분류를 삭제했어요. 자료 1개는 ‘기타’로 옮겼어요.');
+ expect(message).toContain('‘투쟁’ 분류를 삭제할까요?');expect(message).toContain('자료 1개는 ‘기타’로 옮겨져요.');expect(message).toContain('자료와 파일은 삭제되지 않아요');
  await expect(names(editor)).toHaveText(['교섭','교육','선전','정책·법령','회의','홍보','기타']);
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_delete',body:{p_name:'투쟁',p_stored:[]}});
  expect(f.tables.app_documents.find(d=>d.id==='e5').category).toBe('기타');
@@ -430,7 +430,7 @@ test('category list: when the list cannot be read the window does not let the pe
  await expect(editor).toContainText('분류 목록을 불러오지 못했어요.');
  await expect(editor.locator('#dceNewName')).toHaveCount(0);await expect(editor.getByRole('button',{name:'추가',exact:true})).toHaveCount(0);
  f.server.profileFails=false;
- await editor.getByRole('button',{name:'다시 불러오기'}).click();
+ await editor.getByRole('button',{name:'다시',exact:true}).click();
  await expect(editor.locator('.dce-list')).toBeVisible();await expect(names(editor)).toHaveText(DEFAULT);
 });
 
@@ -482,9 +482,9 @@ for(const width of [1440])test(`subcategories: row under a sole category, pick, 
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_add',body:{p_name:'선전›소식지'}});
  await expect(editor.locator('.le-sub .le-name')).toHaveText(['투쟁속보','소식지']);
  // 소분류 지우기: 자료는 큰 분류(선전)에 그대로.
- await rowAct(page,editor,'선전›투쟁속보','지우기',width);
+ await rowAct(page,editor,'선전›투쟁속보','삭제',width);
  const message=await answerAsk(page,true);
- await expect(editor.locator('.dce-status')).toHaveText('‘선전 › 투쟁속보’ 소분류를 지웠어요. 자료 1개는 ‘선전’에 그대로 있어요.');
+ await expect(editor.locator('.dce-status')).toHaveText('‘선전 › 투쟁속보’ 소분류를 삭제했어요. 자료 1개는 ‘선전’에 그대로 있어요.');
  expect(message).toContain('‘선전’에 그대로 남아요');
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_subcategory_delete',body:{p_name:'선전›투쟁속보'}});
  expect(f.tables.app_documents.find(d=>d.id==='s1').category).toBe('선전');
@@ -517,7 +517,7 @@ test('subcategories on a phone: pick in the [분류 ▾] window, add and delete 
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_add',body:{p_name:'선전›소식지'}});
  await deleteCategory(page,editor,'선전›투쟁속보','선전 › 투쟁속보',width);
  const message=await answerAsk(page,true);
- await expect(editor.locator('[data-dce-status]')).toHaveText('‘선전 › 투쟁속보’ 소분류를 지웠어요. 자료 1개는 ‘선전’에 그대로 있어요.');
+ await expect(editor.locator('[data-dce-status]')).toHaveText('‘선전 › 투쟁속보’ 소분류를 삭제했어요. 자료 1개는 ‘선전’에 그대로 있어요.');
  expect(message).toContain('‘선전’에 그대로 남아요');
  expect(f.tables.app_documents.find(d=>d.id==='s1').category).toBe('선전');
  await tap(page,modal.locator('#libraryManageClose'),width);
@@ -527,4 +527,4 @@ test('subcategories on a phone: pick in the [분류 ▾] window, add and delete 
 });
 // 분류 고치기 창의 소분류 만들기 칸 열기·지우기 누르기(창 모양이 바뀌어도 시험 본문은 그대로 두려고 한 곳에 둔다).
 async function openSubForm(page,editor,parent,width){await rowAct(page,editor,parent,'+ 소분류',width);await expect(editor.locator('[data-dce-sub-input]')).toBeVisible();}
-async function deleteCategory(page,editor,name,label,width){await rowAct(page,editor,name,'지우기',width);}
+async function deleteCategory(page,editor,name,label,width){await rowAct(page,editor,name,'삭제',width);}

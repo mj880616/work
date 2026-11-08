@@ -180,8 +180,10 @@ test('browser-e2e reports on every main PR and decides from the change scope', (
   const source = workflow('app-e2e-check.yml');
   const on = source.slice(0, source.indexOf('\npermissions:'));
   const pullRequest = on.match(/^  pull_request:\n([\s\S]*?)(?=^  \S)/m)?.[1] ?? '';
-  assert.match(pullRequest, /^    branches:\n      - main\n/);
-  assert.doesNotMatch(pullRequest, /paths|types:/);
+  assert.match(pullRequest, /^    branches:\n      - main\n/m);
+  assert.doesNotMatch(pullRequest, /paths/);
+  // 초안 PR은 화면 시험을 건너뛰고 초안을 풀면 다시 돈다(S54-01, tests/security/ci-draft-e2e-skip.test.mjs).
+  assert.match(pullRequest, /^    types: \[opened, synchronize, reopened, ready_for_review\]\n/m);
   assert.doesNotMatch(source, /pull_request_target|paths-ignore/);
   assert.match(on, /^  push:\n    branches:\n      - main\n    paths:\n/m);
   assert.match(on, /^  schedule:\n/m);
@@ -197,10 +199,10 @@ test('browser-e2e reports on every main PR and decides from the change scope', (
   for (const use of decide.matchAll(/uses: (\S+)/g)) assert.match(use[1], /@[0-9a-f]{40}$/);
   assert.equal([...decide.matchAll(/uses: /g)].length, 1, 'only checkout');
 
-  assert.match(jobs['browser-e2e-shard'], /^    needs: changes\n    if: needs\.changes\.outputs\.e2e == 'true'\n/m);
+  assert.match(jobs['browser-e2e-shard'], /^    needs: changes\n    if: needs\.changes\.outputs\.e2e == 'true' && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false\)\n/m);
 
   const aggregate = jobs['browser-e2e'];
-  assert.match(aggregate, /^    if: always\(\)\n    needs: \[changes, browser-e2e-shard\]\n/m);
+  assert.match(aggregate, /^    if: always\(\) && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false\)\n    needs: \[changes, browser-e2e-shard\]\n/m);
   const order = ['"$CHANGES_RESULT" != "success"', '"$E2E_NEEDED" = "false"', '"$E2E_NEEDED" != "true"', 'test "$SHARD_RESULT" = "success"'];
   const positions = order.map(text => aggregate.indexOf(text));
   assert.ok(positions.every(position => position >= 0), 'aggregate checks decision, need and shard result');

@@ -59,7 +59,7 @@ const openMove=(page,docId,width)=>openMoveWith(page,docId,width);
 const body=(page,key)=>page.locator(`#documentList details[data-lu-node="${key}"] > .lu-node-body > *`).evaluateAll(xs=>xs.map(x=>x.dataset.luNode||x.dataset.luDocument).filter(Boolean));
 const noScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
-for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
+for(const width of [390,1280])test.describe(`폴더 수정 ${width}`,()=>{
   test.use({hasTouch:width<761});
   test(`만들기·안에 만들기(4단 넘어서도, 들여쓰기는 4단까지)·이름 바꾸기·위로/아래로, 프로젝트 토글은 ⋯=폴더 만들기만 ${width}`,async({page},info)=>{
     const {s,errors}=await boot(page,width);
@@ -84,7 +84,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     const f2=s.folders[1].id;expect(s.folders[1].sort_order).toBe(2048);
     expect(await body(page,'p:top-a')).toEqual(['p:child-a1','f:'+f1,'f:'+f2,'a-1','a-2']);
     // 위로: 두 폴더의 순서를 맞바꾼다(요청 2개). 메뉴에는 갈 수 있는 쪽만.
-    await press(page,menuOf(page,'f:'+f2),width);await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','펼치기','위로','옮기기…','색 고르기…','폴더 지우기']);
+    await press(page,menuOf(page,'f:'+f2),width);await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','펼치기','위로','옮기기…','색 선택…','폴더 삭제']);
     await press(page,action(page,'위로'),width);await expect.poll(()=>body(page,'p:top-a')).toEqual(['p:child-a1','f:'+f2,'f:'+f1,'a-1','a-2']);
     expect(s.writes.slice(-2).map(w=>[w.method,w.id,w.body.sort_order])).toEqual([['PATCH',f2,1024],['PATCH',f1,2048]]);
     // 이름 바꾸기.
@@ -117,7 +117,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
   });
 
-  test(`옮기기(같은 틀만·자기 아래 안 됨)·지우기(휴지통으로)·되돌리기·자료를 폴더로/밖으로 ${width}`,async({page})=>{
+  test(`옮기기(같은 틀만·자기 아래 안 됨)·삭제(휴지통으로)·되돌리기·자료를 폴더로/밖으로 ${width}`,async({page})=>{
     const folders=[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048},{id:'00000000-0000-4000-8000-0000000000b1',project_id:'top-a',parent_id:'fb',name:'가상 B-1',sort_order:0},{id:'fn',project_id:null,name:'가상 없음 폴더',sort_order:0}];
     const {s,errors}=await boot(page,width,{folders,items:[{document_id:'a-2',folder_id:'00000000-0000-4000-8000-0000000000b1'}]});
     await libraryTopMenu(page,'expand');
@@ -135,9 +135,9 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     await press(page,menuOf(page,'f:00000000-0000-4000-8000-0000000000b1'),width);await expect(action(page,'안에 새 폴더')).toHaveCount(1);await page.keyboard.press('Escape');
     // 지우기(휴지통으로): 확인 창이 아래 폴더·자료 수와 '함께 들어간다'를 알린다. 취소하면 아무것도 안 바뀐다.
     const before=s.writes.length;let message='';
-    await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);message=await answerAsk(page,false);
+    await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 삭제'),width);message=await answerAsk(page,false);
     expect(message).toContain('“가상 B” 폴더를 휴지통으로 옮길까요?');expect(message).toContain('아래 폴더 1개·자료 1개도 함께 들어가고');expect(message).toContain('자료와 Drive 파일은 지워지지 않고, 휴지통에서 되돌리면 원래대로');expect(message).not.toContain('한 단 위');expect(s.writes.length).toBe(before);
-    await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);await answerAsk(page,true);
+    await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 삭제'),width);await answerAsk(page,true);
     await expect(libraryNode(page,'f:fb')).toHaveCount(0);
     expect(s.writes.at(-1)).toEqual({table:'folders',method:'DELETE',id:'fb',body:null});
     // 아래 폴더(00000000-0000-4000-8000-0000000000b1)도 함께 빠지고, 그 안의 자료(a-2)는 '폴더 없음' 자리에 나오지 않고 자료실 목록에서 함께 숨는다. 자료 연결은 그대로.
@@ -177,19 +177,19 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     expect(s.patches).toEqual([]);
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
   });
-  test(`휴지통이 아직 준비 중이면(DB 적용 전) 폴더 지우기는 '준비 중'만 알리고 확인 창도 삭제 요청도 없다 ${width}`,async({page})=>{
+  test(`휴지통이 아직 준비 중이면(DB 적용 전) 폴더 삭제는 '준비 중'만 알리고 확인 창도 삭제 요청도 없다 ${width}`,async({page})=>{
     const {s,errors}=await boot(page,width,{folders:[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024}],items:[{document_id:'a-1',folder_id:'fa'}],trashMode:'missing'});
     let asked=0;page.on('dialog',d=>{asked++;d.dismiss()});await libraryTopMenu(page,'expand');
-    await press(page,menuOf(page,'f:fa'),width);await press(page,action(page,'폴더 지우기'),width);
+    await press(page,menuOf(page,'f:fa'),width);await press(page,action(page,'폴더 삭제'),width);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('자료실 폴더 휴지통은 준비 중입니다');
     expect(asked).toBe(0);expect(s.writes.filter(w=>w.method==='DELETE')).toEqual([]);expect(s.rpc.map(r=>r.fn)).toEqual(['app_trash_list']);
     await expect(libraryNode(page,'f:fa')).toBeAttached();expect(s.folders.map(f=>f.id)).toEqual(['fa']);
     expect(errors).toEqual([]);
   });
-  test(`휴지통 상태를 읽지 못하면(일시 실패) 지우지 않고 다시 해 보라고 알린다 ${width}`,async({page})=>{
+  test(`휴지통 상태를 읽지 못하면(일시 실패) 삭제하지 않고 다시 해 보라고 알린다 ${width}`,async({page})=>{
     const {s,errors}=await boot(page,width,{folders:[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024}],trashMode:'failed'});
     let asked=0;page.on('dialog',d=>{asked++;d.dismiss()});await libraryTopMenu(page,'expand');
-    await press(page,menuOf(page,'f:fa'),width);await press(page,action(page,'폴더 지우기'),width);
+    await press(page,menuOf(page,'f:fa'),width);await press(page,action(page,'폴더 삭제'),width);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('휴지통 상태를 확인하지 못해 삭제하지 않았습니다');
     expect(asked).toBe(0);expect(s.writes.filter(w=>w.method==='DELETE')).toEqual([]);
     expect(errors.filter(e=>!/500/.test(e))).toEqual([]);

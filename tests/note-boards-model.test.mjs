@@ -91,7 +91,7 @@ test('화면 연결: 보드 칸 줄·PC 끌어 놓기·폰 고르기·서버 저
   assert.match(js, /treeRows\(\{folders:folders\(\), notes:all/, 'PC 왼쪽 목록은 노트 화면의 같은 폴더 나무');
   assert.match(js, /e\.dataTransfer\.setData\(NOTE_DRAG/); assert.match(board, /scroll\.addEventListener\('drop'/);
   assert.match(js, /bar\.addEventListener\('contextmenu'/); assert.match(js, /LONG_MS/);
-  assert.match(js, /data-nbb-rename>이름 바꾸기</); assert.match(js, /data-nbb-delete>보드 지우기</);
+  assert.match(js, /data-nbb-rename>이름 바꾸기</); assert.match(js, /data-nbb-delete>보드 삭제</);
   assert.match(notes, /\['data-nbb-detach', '보드에서 빼기'\]/); assert.match(board, /data-nb-remove=/);
   assert.match(notes, /import \{ createNoteBoards \} from '\.\/note-boards\.js'/);
   // UI-칸폭끌기전수: 왼쪽 목록 | 보드 경계를 끌어 폭 조절(공용 split-resize.js, 기본 16:84·목록 최소 150px, 서버 이름 noteboard).

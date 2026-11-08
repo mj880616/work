@@ -10,7 +10,7 @@ import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
-const user = {id:'full-user', email:'full@example.org', user_metadata:{display_name:'전체 편집 QA'}};
+const user = {id:'full-user', email:'full@example.org', user_metadata:{display_name:'전체 수정 QA'}};
 const WS = 'full-workspace';
 const para = text => ({type:'paragraph', attrs:{style:'body2'}, content:[{type:'text', text}]});
 const DOC_PAGE = {id:'page-doc', title:'글 페이지', status:'draft', project_id:null, updated_at:'2026-10-21T01:00:00.000Z',
@@ -103,7 +103,7 @@ for (const width of [1280, 1440, 390]) test('a new page fills the content area a
     // Phone: ‹ · 상태 · ⋯ · 저장; the button row is the grouped one (ED-서식줄묶음): it fits one line, with no bar and no sideways swipe.
     expect(await tools.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none');
     expect(await tools.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
-    await expect(tools.getByRole('button', {name:'글자 서식 고르기', exact:true})).toBeVisible();
+    await expect(tools.getByRole('button', {name:'글자 서식 선택', exact:true})).toBeVisible();
     await expect(editor.locator('[data-sp-project]')).toBeHidden();
     await editor.getByRole('button', {name:'사업영역·링크·AI 초안', exact:true}).click();
     await expect(editor.locator('[data-sp-project]')).toBeVisible();
@@ -158,11 +158,11 @@ test('저장: [저장], Ctrl+S and Cmd+S save in place; 저장 안 됨 shows onl
   await expect(box).not.toContainText('!');
   await expect(unsaved).toBeVisible();
   // Title and status changes count too; [저장] saves them.
-  await editor.locator('[data-sp-title]').fill('글 페이지 고침');
+  await editor.locator('[data-sp-title]').fill('글 페이지 수정');
   await editor.locator('[data-sp-set-status="published"]').click();
   await editor.getByRole('button', {name:'저장', exact:true}).click();
   await expect(editor.locator('[data-sp-status-line]')).toContainText('게시 중이에요');
-  expect(state.pages[0]).toMatchObject({title:'글 페이지 고침', status:'published'});
+  expect(state.pages[0]).toMatchObject({title:'글 페이지 수정', status:'published'});
   await expect(unsaved).toBeHidden();
   // Leaving with unsaved changes asks first (the existing confirm), and the browser asks before closing the tab.
   await box.click();
@@ -224,7 +224,7 @@ test('narrow PC (1024): format buttons that do not fit go under [⋯] with no si
   expect(errors).toEqual([]);
 });
 
-test('a page with old blocks keeps the block editor; [새 편집기로 바꾸기] is still there', async ({page}) => {
+test('a page with old blocks keeps the block editor; [새 수정 화면으로 바꾸기] is still there', async ({page}) => {
   await page.setViewportSize({width:1280, height:900});
   const state = {pages:[structuredClone(OLD_PAGE)]};
   const errors = await signIn(page, state);
@@ -232,11 +232,11 @@ test('a page with old blocks keeps the block editor; [새 편집기로 바꾸기
   const editor = page.locator('[data-sp-editor]');
   await expect(editor).not.toHaveClass(/is-full/);
   await expect(editor.locator('.sp-vblock')).toHaveCount(2);
-  await expect(editor.getByRole('button', {name:'새 편집기로 바꾸기', exact:true})).toBeVisible();
+  await expect(editor.getByRole('button', {name:'새 수정 화면으로 바꾸기', exact:true})).toBeVisible();
   await expect(editor.getByRole('button', {name:'+ 글', exact:true})).toBeVisible();
-  await editor.getByRole('button', {name:'1번째 블록 한 줄 현황 고치기', exact:true}).click();
+  await editor.getByRole('button', {name:'1번째 블록 한 줄 현황 수정', exact:true}).click();
   await editor.getByLabel('1번째 블록 한 줄 현황 글', {exact:true}).fill('4차 교섭 예정');
-  await editor.getByRole('button', {name:'1번째 블록 한 줄 현황 고치기 완료', exact:true}).click();
+  await editor.getByRole('button', {name:'1번째 블록 한 줄 현황 수정 완료', exact:true}).click();
   // Ctrl+S saves here too.
   await page.keyboard.press('Control+s');
   await expect(editor.locator('[data-sp-status-line]')).toContainText('저장했어요');

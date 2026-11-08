@@ -8,7 +8,7 @@ const inventory=[
   ['app/index.html','WEB2','업무 공간을 확인하고 있습니다.'],
   ['app/index.html','LIBRARY','자료 등록'],
   ['app/index.html','MEETING RESULT','사업 보고'],
-  ['app/library-upload.js','LIBRARY','분류 고치기'],
+  ['app/library-upload.js','LIBRARY','분류 수정'],
   ['app/library-upload.js','EDIT METADATA','자료 수정'],
   ['app/meeting-round-detail.js','MEETING RESULT','사업 보고'],
   ['app/project-system-v3.js','PROJECT','사업영역 만들기'],

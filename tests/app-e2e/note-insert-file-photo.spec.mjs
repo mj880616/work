@@ -116,7 +116,7 @@ test('새 노트 창: 사진을 넣고 저장하지 않고 닫으면 아무것�
  expect(f.uploads).toEqual([]);expect(f.writes).toEqual([]);
 });
 
-test('노트 편집 칸(폰 412): [넣기]에 [사진]·[파일]이 있고 [파일]은 그 노트 첨부로 올라가 글 안 카드가 된다',async({page})=>{
+test('노트 수정 칸(폰 412): [넣기]에 [사진]·[파일]이 있고 [파일]은 그 노트 첨부로 올라가 글 안 카드가 된다',async({page})=>{
  const f=await fixture(page,412);
  await page.locator('[data-note-row="n-text"]').click();
  await noteMenuAction(page,'data-note-edit',{width:412});

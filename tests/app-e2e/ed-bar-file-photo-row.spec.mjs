@@ -53,7 +53,7 @@ test.describe('PC 1280', () => {
     await expect(page.getByRole('group', {name: '서식 더 보기', exact: true})).toBeVisible();
   });
 
-  test('[파일]: 작은 아이콘 버튼, 고른 파일은 이름·크기 칸으로 들어가고 [열기]가 연다. 읽기 화면은 Drive로 가는 링크', async ({page}) => {
+  test('[파일]: 작은 아이콘 버튼, 선택한 파일은 이름·크기 칸으로 들어가고 [열기]가 연다. 읽기 화면은 Drive로 가는 링크', async ({page}) => {
     await open(page, 'files=1');
     const button = page.locator('.ed-tools').getByRole('button', {name: '파일 넣기', exact: true});
     await expect(button).toHaveAttribute('title', '파일 넣기');
@@ -73,7 +73,7 @@ test.describe('PC 1280', () => {
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  test('NOTE-파일그림넣기 ④: 첨부 줄이 있는 편집기(업데이트 창)의 [파일]은 고른 파일을 그 첨부 줄로 보낸다(글 안 카드 없음)', async ({page}) => {
+  test('NOTE-파일그림넣기 ④: 첨부 줄이 있는 편집기(업데이트 창)의 [파일]은 선택한 파일을 그 첨부 줄로 보낸다(글 안 카드 없음)', async ({page}) => {
     await open(page, 'row=1');
     const button = page.locator('.ed-tools').getByRole('button', {name: '파일 넣기', exact: true});
     await expect(button).toBeVisible();
@@ -88,7 +88,7 @@ test.describe('PC 1280', () => {
     await expect(page.locator('.ed-bar').getByRole('button', {name: '파일 넣기', includeHidden: true})).toHaveCount(0);
   });
 
-  test('사진 여러 장: 묻지 않고 바로 한 줄, 고른 사진 [따로 놓기]·[옆 사진과 나란히]로 풀고 붙인다', async ({page}) => {
+  test('사진 여러 장: 묻지 않고 바로 한 줄, 선택한 사진 [따로 놓기]·[옆 사진과 나란히]로 풀고 붙인다', async ({page}) => {
     await open(page, 'photos=1');
     await pick(page, page.locator('.ed-tools').getByRole('button', {name: '사진 넣기', exact: true}), [png('a.png'), png('b.png'), png('c.png')]);
     // S52-05 A: [나란히]/[한 장씩] 묻기 줄은 없다.
@@ -121,7 +121,7 @@ test.describe('PC 1280', () => {
     expect(await page.evaluate(() => window.plain())).toBe('[사진]\n[사진]\n[사진]');
   });
 
-  test('사진 6장은 4장 줄 + 2장 줄, 5장은 4장 줄 + 한 장, 한 장만 고르면 따로 한 장', async ({page}) => {
+  test('사진 6장은 4장 줄 + 2장 줄, 5장은 4장 줄 + 한 장, 한 장만 선택하면 따로 한 장', async ({page}) => {
     await open(page, 'photos=1');
     const photo = page.locator('.ed-tools').getByRole('button', {name: '사진 넣기', exact: true});
     await pick(page, photo, [1, 2, 3, 4, 5, 6].map(i => png(`p${i}.png`)));
@@ -141,7 +141,7 @@ test.describe('폰 390', () => {
     const doc = {v: 'ed1', doc: {type: 'doc', content: [{type: 'photo_row', content: [1, 2, 3].map(i => ({type: 'image', attrs: {src: `share:p${i}`, alt: ''}}))}]}};
     await page.goto(`${fixture}?photos=1&files=1&doc=${encodeURIComponent(JSON.stringify(doc))}`);
     await expect(page.locator('body')).toHaveAttribute('data-ready', '1');
-    await page.locator('.ed-tools').getByRole('button', {name: '넣을 것 고르기'}).click();
+    await page.locator('.ed-tools').getByRole('button', {name: '넣을 것 선택'}).click();
     await expect(page.getByRole('group', {name: '넣을 것'}).getByRole('button', {name: '파일 넣기'})).toBeVisible();
     await page.keyboard.press('Escape');
     const tops = await page.locator('.ed-input .ed-photo-row .ed-photo').evaluateAll(l => l.map(f => Math.round(f.getBoundingClientRect().top)));

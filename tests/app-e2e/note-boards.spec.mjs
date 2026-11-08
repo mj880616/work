@@ -115,7 +115,7 @@ test('PC: 새 보드 → 왼쪽 목록에서 끌어 놓기·누르기로 붙이�
   expect(errors).toEqual([]);
 });
 
-test('PC: 서버에 기억한 마지막 보드로 열리고, 보드 칸 우클릭 메뉴로 이름 바꾸기·지우기(노트는 그대로) (1440)', async ({ page }) => {
+test('PC: 서버에 기억한 마지막 보드로 열리고, 보드 칸 우클릭 메뉴로 이름 바꾸기·삭제(노트는 그대로) (1440)', async ({ page }) => {
   const id = 'b1a2b3c4';
   const { rows, errors, server } = await fixture(page, 1440, { note_view: 'board', note_boards: [{ id, name: '교섭' }], note_board: id });
   await expect(chip(page, '교섭')).toHaveAttribute('aria-pressed', 'true');
@@ -161,12 +161,12 @@ test('PC: 왼쪽 노트 목록·빈 보드 우클릭은 브라우저 메뉴 대�
 });
 
 for (const width of [412, 760]) {
-  test(`폰: [+ 노트 붙이기] 고르기 창으로 붙이기, 꾹 누르기 메뉴 (${width})`, async ({ page }) => {
+  test(`폰: [+ 노트 붙이기] 선택 창으로 붙이기, 꾹 누르기 메뉴 (${width})`, async ({ page }) => {
     const id = 'b1a2b3c4';
     const { rows, errors } = await fixture(page, width, { note_view: 'board', note_boards: [{ id, name: '국회 대응' }], note_board: id });
     await expect(chip(page, '국회 대응')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('[data-nbb-side]')).toBeHidden();
-    await expect(page.locator('[data-nb-empty]')).toHaveText('[+ 노트 붙이기]로 노트를 고르세요');
+    await expect(page.locator('[data-nb-empty]')).toHaveText('[+ 노트 붙이기]로 노트를 선택하세요');
     await page.locator('[data-nbb] [data-nbb-pick]').tap();
     const dlg = page.locator('dialog.nbb-pick');
     await expect(dlg).toBeVisible();

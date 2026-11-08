@@ -68,7 +68,7 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
     expect(errors).toEqual([]);
   });
 
-  test('고른 자료 여러 개를 한꺼번에 끌어 폴더로 옮기고 한 번에 되돌린다',async({page})=>{
+  test('선택한 자료 여러 개를 한꺼번에 끌어 폴더로 옮기고 한 번에 되돌린다',async({page})=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     await expandLibraryTree(page);
     await libraryTopMenu(page,'select');
@@ -132,7 +132,7 @@ test.describe('폰 390 길게 누르기',()=>{
     await expandLibraryTree(page);
     from=await centerView(page,head('f:fn')+' .lu-node-name');
     await touch(cdp,'touchStart',[from]);await page.waitForTimeout(700);await touch(cdp,'touchEnd',[]);
-    await expect(page.locator('#luFolderMenu')).toBeVisible();await expect(page.locator('#luFolderMenu').getByRole('button',{name:'폴더 지우기',exact:true})).toBeVisible();
+    await expect(page.locator('#luFolderMenu')).toBeVisible();await expect(page.locator('#luFolderMenu').getByRole('button',{name:'폴더 삭제',exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
     // 3) 자료 줄을 길게 눌렀다가 그대로 떼면 자료 ⋯ 메뉴(자료는 열리지 않는다).
     await expandLibraryTree(page);

@@ -45,7 +45,7 @@ export const commonValue=(docs,kind)=>{
 export function bulkResultText({label,changed,same=0,failed=0,skipped=0}){
   const bad=failed+skipped;
   if(!bad)return changed?`${changed}개의 ${label}을(를) 바꿨어요${same?` (${same}개는 이미 같았어요)`:''} ·`:`이미 모두 같은 ${label}이에요.`;
-  return `${changed}개의 ${label}을(를) 바꿨고 ${bad}개는 바꾸지 못했어요. 못 바꾼 자료는 그대로 골라 두었어요.`;
+  return `${changed}개의 ${label}을(를) 바꿨고 ${bad}개는 바꾸지 못했어요. 못 바꾼 자료는 그대로 선택해 두었어요.`;
 }
 
 // 차례 실행(한 번에 하나, 서버 부담을 같게). 로그인·권한 문제(401/403)면 남은 것은 요청하지 않고 멈춘다.

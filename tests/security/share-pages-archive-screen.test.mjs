@@ -43,7 +43,7 @@ test('archive and undo are conditional PATCH requests on this workspace, never a
 
 test('the confirmations: 보관 says the link stops only for a published page; 영구 삭제 (휴지통) says everything goes for good', () => {
   assert.match(archive.archiveConfirmText({title:'교섭 현황', status:'published'}), /링크로 보던 사람도 더 이상 볼 수 없어요/);
-  assert.match(archive.purgeConfirmText({title:'교섭 현황'}), /페이지·링크·사진이 모두 지워지고 되살릴 수 없어요/);
+  assert.match(archive.purgeConfirmText({title:'교섭 현황'}), /페이지·링크·사진이 모두 삭제되고 되살릴 수 없어요/);
   assert.match(archive.purgeConfirmText({title:'교섭 현황'}), /영구 삭제할까요/);
   assert.doesNotMatch(archive.archiveConfirmText({title:'교섭 현황', status:'draft'}), /링크/);
   assert.match(archive.archiveConfirmText({title:'', status:'draft'}), /제목 없음/);

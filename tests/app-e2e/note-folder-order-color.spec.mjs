@@ -107,7 +107,7 @@ test.describe('PC 1440', () => {
     await page.mouse.up();
   });
 
-  test('색: 고르면 나무·꼬리표·폴더 고르기 창·포스트잇이 같은 색, 새로고침해도 유지, 서버 함수로만 저장', async ({ page }) => {
+  test('색: 선택하면 나무·꼬리표·폴더 선택 창·포스트잇이 같은 색, 새로고침해도 유지, 서버 함수로만 저장', async ({ page }) => {
     const f = await fixture(page, 1440);
     // 안 고른 폴더는 기본 노랑 폴더 그림(FOLDER-나무새기준: 공용 닫힌/열린 그림, 색 번호 없음).
     await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .ft-ico`)).not.toHaveAttribute('data-fc', /./);
@@ -138,7 +138,7 @@ test.describe('PC 1440', () => {
     expect(f.errors).toEqual([]);
   });
 
-  test('폴더 고르기 창: 색 고른 폴더 줄에 같은 색 그림', async ({ page }) => {
+  test('폴더 선택 창: 색 선택한 폴더 줄에 같은 색 그림', async ({ page }) => {
     const f = await fixture(page, 1440);
     await pickColor(page, U(2), '청록');
     await page.locator('[data-note-view="list"]').click();
@@ -155,7 +155,7 @@ test.describe('PC 1440', () => {
     expect(f.errors).toEqual([]);
   });
 
-  test('노트 순서: 정렬이 [고친 날]이면 끌어도 안내만, [내가 정한 순서]면 끌어서 저장, 새로고침해도 같은 순서', async ({ page }) => {
+  test('노트 순서: 정렬이 [수정한 날]이면 끌어도 안내만, [내가 정한 순서]면 끌어서 저장, 새로고침해도 같은 순서', async ({ page }) => {
     const f = await fixture(page, 1440);
     await page.locator(`[data-nx-tree] [data-nx-open="${U(1)}"]`).click();
     expect(await noteOrder(page)).toEqual(['n1', 'n2', 'n3']);
@@ -194,10 +194,10 @@ test.describe('PC 1440', () => {
     expect(f.errors).toEqual([]);
   });
 
-  test('폴더 ⋯ 메뉴: 색 고르기·위로·아래로(맨 앞은 위로 없음, 맨 끝은 아래로 없음)', async ({ page }) => {
+  test('폴더 ⋯ 메뉴: 색 선택·위로·아래로(맨 앞은 위로 없음, 맨 끝은 아래로 없음)', async ({ page }) => {
     const f = await fixture(page, 1440);
     await more(page, U(1)).click();
-    await expect(rootMenu(page).locator('button')).toHaveText(['새 노트', '선택', '이 폴더로 들어가기', '새 폴더', '이름 바꾸기', '색 고르기…', '아래로', '옮기기…', '폴더 지우기']);
+    await expect(rootMenu(page).locator('button')).toHaveText(['새 노트', '선택', '이 폴더로 들어가기', '새 폴더', '이름 바꾸기', '색 선택…', '아래로', '옮기기…', '폴더 삭제']);
     await page.keyboard.press('Escape');
     await more(page, U(3)).click();
     await expect(rootMenu(page).locator('[data-nx-folder-up]')).toHaveText('위로');

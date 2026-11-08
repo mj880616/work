@@ -27,16 +27,16 @@ const pick = async (page, opener, group, sign) => {
 };
 // 목록 ▾ / 번호 ▾: open the popover under the button and pick a marker shape (aria-label "글머리 •" / "번호 1.").
 const listPick = async (page, kind, label) => {
-  await tool(page, kind === 'bullet' ? '글머리 목록 고르기' : '번호 목록 고르기').click();
+  await tool(page, kind === 'bullet' ? '글머리 목록 선택' : '번호 목록 선택').click();
   await page.getByRole('group', {name: kind === 'bullet' ? '글머리 목록' : '번호 목록', exact: true}).getByRole('button', {name: label, exact: true}).click();
 };
 const nextCircled = async page => {
-  await tool(page, '동그라미 번호 고르기').click();
+  await tool(page, '동그라미 번호 선택').click();
   await page.getByRole('group', {name: '동그라미 번호', exact: true}).locator('.is-next').click();
 };
 const insertTable = async (page, rows = 2, cols = 2) => {
   await tool(page, '표 넣기').click();
-  await page.getByRole('group', {name: '표 크기 고르기', exact: true}).getByRole('button', {name: `${rows}줄 ${cols}칸 표`, exact: true}).click();
+  await page.getByRole('group', {name: '표 크기 선택', exact: true}).getByRole('button', {name: `${rows}줄 ${cols}칸 표`, exact: true}).click();
 };
 
 test('typing keeps letters: "1. ", "- ", "# " and dates are never turned into format', async ({page}) => {
@@ -109,9 +109,9 @@ test('· ※ → put their sign; ① marks the next number after the nearest one
   await nextCircled(page);
   await page.keyboard.type('셋째');
   await page.keyboard.press('Enter');
-  await pick(page, '점 기호 고르기', '점 기호', '·');
-  await pick(page, '참고 기호 고르기', '참고 기호', '※');
-  await pick(page, '화살표 고르기', '화살표', '→');
+  await pick(page, '점 기호 선택', '점 기호', '·');
+  await pick(page, '참고 기호 선택', '참고 기호', '※');
+  await pick(page, '화살표 선택', '화살표', '→');
   const text = await page.evaluate(() => window.plain());
   expect(text).toBe('① 첫째\n\n② 둘째 ③ 셋째\n\n· ※ →');
 });
@@ -123,8 +123,8 @@ test('lists, quote and rule; undo and redo', async ({page}) => {
   await expect(box.locator('ul li')).toHaveCount(1);
   await listPick(page, 'ordered', '번호 1.');
   await expect(box.locator('ol li')).toHaveCount(1);
-  await expect(tool(page, '번호 목록 고르기')).toHaveAttribute('aria-pressed', 'true');
-  await tool(page, '번호 목록 고르기').click();
+  await expect(tool(page, '번호 목록 선택')).toHaveAttribute('aria-pressed', 'true');
+  await tool(page, '번호 목록 선택').click();
   await page.getByRole('group', {name: '번호 목록', exact: true}).getByRole('button', {name: '목록 풀기'}).click();
   await expect(box.locator('ol')).toHaveCount(0);
   await press(page, '인용');
@@ -143,9 +143,9 @@ test('lists, quote and rule; undo and redo', async ({page}) => {
 test('center and left alignment are saved on the paragraph', async ({page}) => {
   await open(page);
   await page.keyboard.type('가운데 글');
-  const align = async name => { await tool(page, '정렬 고르기').click(); await page.getByRole('group', {name: '정렬', exact: true}).getByRole('button', {name, exact: true}).click(); };
+  const align = async name => { await tool(page, '정렬 선택').click(); await page.getByRole('group', {name: '정렬', exact: true}).getByRole('button', {name, exact: true}).click(); };
   await align('가운데 정렬');
-  await expect(tool(page, '정렬 고르기')).toHaveText('가운데 ▾');
+  await expect(tool(page, '정렬 선택')).toHaveText('가운데 ▾');
   expect((await value(page)).doc.content[0].attrs).toEqual({style: 'body2', align: 'center'});
   await align('왼쪽 정렬');
   expect((await value(page)).doc.content[0].attrs).toEqual({style: 'body2'});
@@ -157,7 +157,7 @@ test('table: insert, type in cells, add and remove rows and columns, head row', 
   await expect(box.locator('table tr')).toHaveCount(2);
   const tools = page.locator('.ed-table-tools');
   await expect(tools).toBeVisible();
-  await expect(tools.getByRole('button')).toHaveText(['위에 줄', '아래에 줄', '왼쪽에 칸', '오른쪽에 칸', '줄 삭제', '칸 삭제', '칸 합치기', '칸 나누기', '머리줄', '글자에 맞추기', '표 선택', '표 지우기']);
+  await expect(tools.getByRole('button')).toHaveText(['위에 줄', '아래에 줄', '왼쪽에 칸', '오른쪽에 칸', '줄 삭제', '칸 삭제', '칸 합치기', '칸 나누기', '머리줄', '글자에 맞추기', '표 선택', '표 삭제']);
   await page.keyboard.type('가');
   await page.keyboard.press('Tab');
   await page.keyboard.type('나');
@@ -179,7 +179,7 @@ test('table: insert, type in cells, add and remove rows and columns, head row', 
   await expect(box.locator('table th')).toHaveCount(2);
   await tools.getByRole('button', {name: '머리줄'}).click();
   await expect(box.locator('table th')).toHaveCount(0);
-  await tools.getByRole('button', {name: '표 지우기'}).click();
+  await tools.getByRole('button', {name: '표 삭제'}).click();
   await expect(box.locator('table')).toHaveCount(0);
   await expect(tools).toBeHidden();
 });

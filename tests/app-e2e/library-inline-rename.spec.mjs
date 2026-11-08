@@ -64,7 +64,7 @@ const row=(page,n)=>page.locator(`[data-lu-document="${DOC(n)}"]`);
 
 for(const width of [390,1280])test.describe(`줄 안 이름 바꾸기 ${width}`,()=>{
   // 빠짐12(ATT-이름고치기 자료실): 보이는 이름이 파일 이름 그대로인 자료는 첨부 공용 고치는 칸 — 확장자 따로, [AI 이름] 추천, 저장은 Drive 원본 이름도 같이.
-  test('파일 이름 그대로인 자료: 공용 고치는 칸·[AI 이름]·Drive 원본 이름 같이',async({page})=>{
+  test('파일 이름 그대로인 자료: 공용 수정하는 칸·[AI 이름]·Drive 원본 이름 같이',async({page})=>{
     const calls=[];
     const state=await boot(page,width,{edit:s=>{s.docs[1]=doc(2,{title:'',file_name:'216079.pdf',mime_type:'application/pdf'})},before:async s=>{
       await page.route(`${SB}/functions/v1/ai-assist`,route=>{calls.push(route.request().postDataJSON());return route.fulfill({json:{ok:true,name:'교섭 위원 명단'}})});
@@ -138,7 +138,7 @@ for(const width of [390,1280])test.describe(`줄 안 이름 바꾸기 ${width}`,
     expect(state.opened).toBe(0);
   });
 
-  if(width>=761)test('PC: 줄을 고른 채 F2',async({page})=>{
+  if(width>=761)test('PC: 줄을 선택한 채 F2',async({page})=>{
     const state=await boot(page,width);
     await revealLibraryRow(page,DOC(2));
     await row(page,2).focus();await page.keyboard.press('F2');
