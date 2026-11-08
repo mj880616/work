@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 조직보고 표는 기록의 '한 줄'만</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--tline:#c9d3cf;--bg:#eef5f2;--head:#eef4f1;--pri:#2f6f5e}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}h2{font-size:13px;margin:14px 0 6px}
+.phone{width:100%;max-width:380px;border:1px solid var(--line);border-radius:16px;background:var(--bg);padding:10px}
+table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12.5px;word-break:keep-all;background:#fff}
+th,td{border:1px solid var(--tline);padding:4px 6px;vertical-align:top;text-align:left}
+th{background:var(--head);text-align:center;font-weight:600}
+td.k{background:#f7f9f8;font-weight:500}td.k small{display:block;font-weight:400;color:var(--muted);font-size:11px}
+.ln{display:flex;gap:4px;align-items:flex-start;padding:1px 0}.ln span{flex:1}.ln i{font-style:normal;color:var(--muted);flex:none}
+.d{color:var(--muted);flex:none!important}
+.ai{font-size:9px;color:#9aa49f;flex:none!important}
+.tg{font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 4px;flex:none!important}
+.add{color:var(--pri);font-size:12px;margin-top:2px}.more{color:var(--muted);font-size:11.5px}
+.box{max-width:380px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:12.5px;line-height:1.65}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6;max-width:380px}
+pre{white-space:pre-wrap;font:inherit;margin:4px 0 0;background:#f7f9f8;border-left:2px solid var(--line);padding:4px 6px;color:var(--ink);max-height:120px;overflow:hidden}
+</style></head><body>
+<h1>조직 기록 = 원문 + 한 줄</h1>
+<p class="s">원문은 기록에 그대로 두고, 보고 표에는 '한 줄'만.</p>
+
+<h2>조직보고 표 (바꾼 뒤)</h2>
+<div class="phone"><table><colgroup><col style="width:28%"><col></colgroup>
+<tr><th>조직</th><th>내용</th></tr>
+<tr><td class="k">○○철도지부<small>쟁의권 확보(10.6)</small></td><td>
+<div class="ln"><span class="d">- 10.19.</span><span>준법투쟁·출퇴근 선전전 지속, 사측 부당노동행위 고발 보도자료</span><span class="ai">✦</span><i>⋯</i></div>
+<div class="ln"><span class="d">- 10.21.</span><span>오후 ○○철도</span><span class="tg">일정</span><i>⋯</i></div>
+<div class="ln"><span class="d">- 10.22.</span><span>쟁의대책회의 — 11.11. 1일 경고파업 추진, 11.2. 기자회견</span><span class="ai">✦</span><i>⋯</i></div>
+<div class="ln"><span class="d">- 11.3.</span><span>사측 근속승진안 제시로 간사협의, 보도자료 11.5.로 순연</span><i>⋯</i></div>
+<div class="more">지난 기록 3 ⌄ &nbsp; <span class="add">+ 쓰기</span></div>
+</td></tr></table></div>
+<p class="note">· 칸에는 기록마다 '한 줄'만(한 줄 넘게 꺾이지 않게 짧게, 60자 안팎)<br>· 원문이 짧으면(한 줄) 그대로 = 한 줄<br>· 원문이 길거나 회의록·붙여 넣은 글이면 한 줄을 처음 저장할 때 한 번 만들어 둠(AI, 줄 끝 아주 작은 ✦). 명진이 고치면 ✦ 없어짐<br>· 마크다운 기호(#, ##, |, &amp;#x20;)는 한 줄에 안 나옴<br>· ⋯ = [보고용으로 수정][보고에서 빼기][원문 보기]</p>
+
+<h2>[원문 보기] — 기록 원문은 그대로</h2>
+<div class="box"><b>○○철도지부 · 10.22.</b> <span style="color:var(--muted)">한 줄: 쟁의대책회의 — 11.11. 1일 경고파업 추진, 11.2. 기자회견 ✦ [수정]</span>
+<pre>쟁의대책회의 결과 요약 (10.21)
+1. 핵심 회의 결과
+ - 11월 11일 1일 경고파업 추진 방향으로 의견을 모음 …
+2. 교섭 상황 및 핵심 요구 …</pre></div>
+<p class="note">· 조직 상세 '기록'에서도 같은 모양: 날짜 | 한 줄, 눌러서 원문 펼치기<br>· 원문은 하나도 지우거나 바꾸지 않음(원장·검색·AI 묻기는 원문을 그대로 씀)</p>
+
+<h2>고를 것</h2>
+<div class="box">
+<b>A (추천)</b> 긴 기록의 한 줄은 AI가 저장할 때 한 번 만들어 둠(✦ 표시, 명진이 고칠 수 있음). 옛 기록도 한 번 만들어 채움<br>
+<b>B</b> AI 없이 원문의 첫 문장을 60자에서 잘라 '…'(회의록은 제목만 나올 수 있음)
+</div>
+</body></html>
