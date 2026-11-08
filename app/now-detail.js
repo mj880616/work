@@ -7,6 +7,8 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {copyText} from './copy-text.js';
 import {notify} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
+import {bindSelectZone} from './text-select-bar.js';
+import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
 import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from './now-model.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
@@ -29,6 +31,9 @@ import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit
 //   원래 주소를 한 번에 클립보드로(번역해서 보는 중이면 한국어 본문, now-model.mjs copyArticleText). ⋯ 작은 메뉴(UI-⋯작은메뉴) = [모두 선택](원문 본문 전체를
 //   선택된 상태로 → 폰 기본 메뉴 복사·공유·검색)·[복사]·[공유](폰 공유 창 navigator.share — 제목·주소만, 그 길이 없는 화면에는 [공유]를 두지 않는다).
 //   PC 우클릭은 공용 context-menu.js가 이 ⋯를 누른다(글자를 고른 채면 브라우저 기본 메뉴). 복사·선택은 이 화면 안에서만(서버 저장·전송 없음).
+// - 원문에서 글을 고르면(끌기·⋯ [모두 선택]) 하단바 위 공용 줄 [밑줄 저장][노트로][복사][공유] ✕(S53-5 NEWS-밑줄모으기, text-select-bar.js).
+//   [모두 선택] 뒤에는 폰 기본 메뉴가 뜨지 않아 이 줄이 복사·공유를 맡는다. 저장한 밑줄은 원문 칸을 그린 뒤 노란 바탕으로 칠한다(text-highlights.js paintMarks,
+//   번역해서 보는 중에는 칠하지 않음). 밑줄을 누르면 작은 메뉴(메모·노트로·복사·지우기). [밑줄] 탭에서 열면 그 자리로(open의 highlight).
 // - 저장은 모두 서버. 기기 저장 없음. 상세·원문은 이 탭 메모리에만 다시 쓰려고 둔다. 바깥 글자는 모두 esc로 그린다. 로그에 제목·본문을 남기지 않는다.
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -193,7 +198,14 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (i) { const html = impHtml(); i.innerHTML = html; i.hidden = !html; }
     if (r) r.innerHTML = relatedHtml();
   }
-  function paintBody() { const el = cur && part('[data-nd-body]'); if (el) el.innerHTML = bodyHtml(); }
+  function paintBody() { const el = cur && part('[data-nd-body]'); if (el) { el.innerHTML = bodyHtml(); marksNow(); } }
+  // 저장한 밑줄 칠하기(원문 그대로 볼 때만). [밑줄] 탭에서 연 밑줄이 칠해지면 그 자리로 한 번 옮긴다.
+  function marksNow() {
+    const z = cur && !cur.tr.on ? part('[data-nd-prose]') : null;
+    if (!z) return;
+    paintMarks(z, sourceHighlights(cur.item.type, cur.item.id));
+    if (cur.reveal && revealMark(z, cur.reveal)) cur.reveal = null;
+  }
   function paintActs() {
     if (!cur) return;
     const a = part('[data-nd-acts]'), m = part('[data-nd-memo]');
@@ -214,6 +226,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
 <section class="nd-box" data-nd-implications aria-label="시사점"${imp ? '' : ' hidden'}>${imp}</section>
 <div data-nd-relslot>${relatedHtml()}</div>
 <div class="nd-acts" data-nd-acts role="group" aria-label="이 글 표시">${actsHtml()}</div><div data-nd-memo>${memoHtml()}</div></article>`;
+    marksNow();
   }
 
   // ---------- 열기 ----------
@@ -294,12 +307,14 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (got.pre && !got.pre.ok) { cur.unread = got.pre.why; paintAi(); return; }
     makeDetail(item, my);
   }
-  function open(item, head) {
+  function open(item, head, {highlight = null} = {}) {
     if (!item || !head) return;
     const same = cur && itemKey(cur.item) === itemKey(item);
     if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false, tr: {on: false, busy: false, note: ''}};
     else cur.head = head;
+    cur.reveal = highlight;
     paint();
+    void loadHighlights().catch(() => {});
     box?.querySelector('.nd-title')?.focus({preventScroll: true});
     if (!same || cur.failed || cur.unread) { cur.failed = ''; cur.unread = ''; if (same) paintAi(); load(item); }
   }
@@ -388,6 +403,11 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       const a = button.dataset.ndMenu;
       if (a === 'select') selectAll(); else if (a === 'copy') void copyArticle(part('[data-nd-copy]')); else if (a === 'share') void shareArticle();
     }});
+  // 고른 글 줄(text-select-bar.js): 이 상세의 원문 칸([data-nd-prose])에서 고른 글만. 출처 = 지금 연 글.
+  const sourceNow = () => (cur ? {type: cur.item.type, id: cur.item.id, title: cur.head.title, media: cur.head.meta?.[0] || '', date: cur.head.at || null, url: cur.head.url || ''} : null);
+  bindSelectZone(box, {zone: '[data-nd-prose]', source: sourceNow, onSave: saveFromSelection, onNote: noteFromSelection});
+  bindMarks(box);
+  onHighlights(() => marksNow());
   const focusTr = () => box?.querySelector('[data-nd-translate]')?.focus({preventScroll: true});
   function setFont(id) {
     const f = keepNewsFont(id);

@@ -96,7 +96,7 @@ for (const width of [412, 1280]) {
     // 메뉴 'News' 하나(뉴스 클리핑 칸 없음), 탭 넷, 처음은 [전체] → [사회운동]으로.
     await expect(page.locator('#osTitle')).toHaveText('News');
     await expect(page.locator('.nav-btn[data-view="news"], #mobileMenu [data-view="news"]')).toHaveCount(0);
-    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '보관']);
+    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '보관', '밑줄']);
     await expect(root(page).getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     if (width > 760) await expect(detail(page).locator('.nd-title')).toHaveText('[성명] 가상 철도 민영화 반대'); // [전체]에서 맨 위 글을 한 번 연 뒤 탭을 옮긴다
     await root(page).getByRole('tab', { name: '사회운동' }).click();

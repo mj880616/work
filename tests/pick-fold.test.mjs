@@ -55,6 +55,7 @@ const SKIP = /(^|\/)(hwp-lab|editor-lib|pdf-lib|markdown-lib|legacy)\//;
 const USES = /from '\.\/pick-fold\.mjs'|import\('\.\/pick-fold\.mjs'\)/;
 // 공용 부품을 쓰지 않아도 되는 체크 칸: 파일 → 이유. 새 긴 체크 목록은 여기에 적지 말고 pick-fold.mjs를 쓴다.
 const SHORT_OR_OTHER = {
+  'now-highlights.js': 'News [밑줄] 탭 [여러 개 고르기] — 밑줄 줄마다 고르기 칸(노트 하나로 묶기), 찾기는 위 News 찾기 칸',
   'ledger-browse.js': '기록 종류 칩(정해진 몇 개)',
   'library-upload.js': '자료 여러 개 고르기 모드: 목록 자체에서 고르는 것이라 고르기 목록이 아님',
   'markdown-render.mjs': '글 안 할 일 표시(읽기 전용)',

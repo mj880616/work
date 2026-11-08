@@ -21,6 +21,8 @@ import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {copyText} from './copy-text.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 import {askConfirm} from './small-notice.js';
+import {bindSelectZone} from './text-select-bar.js';
+import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection} from './text-highlights.js';
 import {buildIndex, rawRows, peopleRows, chipsOf, cleanName, linkKey, dayShort, NAME_ERROR_TEXT, SENDER_FAIL_TEXT, MERGE_NOTE, MERGE_BOTH_KEYED} from './tg-sender-model.mjs';
 import {readSenders, setSenderName, mergeSenders, forgetSender, setSenderSelf} from './tg-sender-data.js';
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
@@ -64,6 +66,14 @@ function install() {
   $('#appView')?.insertAdjacentHTML('beforeend', `<section id="telegramView" class="view-panel feed-view hidden" aria-labelledby="tgTitle"><h2 id="tgTitle" class="a11y-only">텔레그램 소식</h2><div class="feed-split" id="tgSplit"><div class="feed-list" id="tgList"></div><section class="feed-pane" id="tgDetail" aria-label="텔레그램 방 상세"></section></div></section>`);
 }
 install();
+// S53-5 NEWS-밑줄모으기: 소식 원문([data-tg-raw])에서 글을 고르면(끌기·⋯ [원문 모두 선택]) 하단바 위 공용 줄 [밑줄 저장][노트로][복사][공유] ✕(text-select-bar.js).
+// 출처 = 방 이름·시각. 저장한 밑줄은 원문을 그린 뒤 노란 바탕(text-highlights.js paintMarks), 누르면 메모·노트로·복사·지우기. 모아보기는 News [밑줄] 탭.
+const tgSource = el => { const r = itemOf(el.closest('[data-tg-di]')?.dataset.tgDi || ''); return r ? {type:'telegram', id:r.id, title:oneLineOf(r.room_label) || '텔레그램', media:'텔레그램', date:r.occurred_at || null, url:''} : null; };
+bindSelectZone($('#telegramView'), {zone:'[data-tg-raw]', source:tgSource, onSave:saveFromSelection, onNote:noteFromSelection});
+bindMarks($('#telegramView'));
+// 원문 칸마다 그 소식의 밑줄을 칠한다(칸은 paintDetail·paintRoomDetail이 그린 그대로, 글자 마디만 감쌈).
+function paintTgMarks(box) { for (const el of box?.querySelectorAll('[data-tg-di] [data-tg-raw]') || []) paintMarks(el, sourceHighlights('telegram', el.closest('[data-tg-di]').dataset.tgDi)); }
+onHighlights(() => { const box = $('#tgDetail'); if (box && !box.hidden) paintTgMarks(box); });
 const view = () => $('#telegramView');
 const pull = createFeedPull({source:'telegram', rt, scope:() => scopeOf(rt), reload:() => load(), paint:() => paintList(), attr:'data-tg-pull'});
 const itemOf = id => { for (const d of state.dcache.values()) { const r = d.items?.find(x => x.id === id); if (r) return r; } return state.pins.find(r => r.id === id) || state.trashed.find(r => r.id === id) || null; };
@@ -391,7 +401,7 @@ function paintDetail() {
   const note = state.note ? `<p class="feed-notice" role="status" data-tg-note>${esc(state.note)}</p>` : '';
   roomSeen?.disconnect();
   box.innerHTML = `${head}${nav}${note}<div class="feed-detail" data-tg-detail="${esc(selKey())}">${dayBodyHtml(sel.room, sel.day, d, sum, dedit)}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>${undoHtml()}`;
-  fitRawFolds(box);
+  paintTgMarks(box); fitRawFolds(box);
 }
 // 방·날 하나의 몸통: 요약 상자(고치기·복사) + 그날 소식 줄. 날짜별 상세와 방별 상세가 같이 쓴다. 단추의 값은 그 방·날 열쇠.
 function dayBodyHtml(room, day, d, sum, dedit) {
@@ -421,7 +431,7 @@ function paintRoomDetail(box) {
   const more = state.rbusy ? `<div class="feed-older">${waitInlineHtml()}</div>` : page.more ? '<div class="feed-older"><button type="button" class="feed-text-btn" data-tg-rolder>이전 날 더 보기</button></div>' : '';
   const body = page.days.length ? page.days.map(dayHtml).join('') : emptyHtml('불러온 기간에 소식이 없어요');
   box.innerHTML = `${head}${note}<div class="feed-detail feed-rdays" data-tg-roomdetail="${esc(room)}">${body}${more}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>${undoHtml()}`;
-  fitRawFolds(box);
+  paintTgMarks(box); fitRawFolds(box);
   roomSeen?.disconnect(); roomSeen = null;
   const tail = box.querySelector('[data-tg-rolder]');
   if (tail && !state.rstop && 'IntersectionObserver' in window) { roomSeen = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { roomSeen?.disconnect(); roomSeen = null; void moreRoomDays(); } }, {rootMargin:'0px 0px 200px 0px'}); roomSeen.observe(tail); }
@@ -1062,6 +1072,7 @@ bind();
 
 window.addEventListener('kptu:view-changed', e => {
   if (e.detail?.view === 'telegram') {
+    void loadHighlights().catch(() => {}); // 원문 밑줄(S53-5) — 읽히면 onHighlights가 칠한다
     if (!state.loaded || state.owner !== scopeOf(rt)) void load(); else { paint(); void refreshAsks(); }
     // 다시 들어오면 주소에 방별·열린 방을 다시 적는다(새로고침 제자리).
     if (state.loaded && byNow() === 'room') window.KPTURouter?.setPlace?.('telegram', {by:'room', room:state.rsel || null});

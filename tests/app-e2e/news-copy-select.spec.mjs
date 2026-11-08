@@ -120,7 +120,7 @@ for (const width of [412, 884, 1440]) {
     await d.locator('[data-nd-translate]').click();
     await expect(d.locator('[data-nd-translated]')).toHaveCount(0);
     const extra = s.calls.slice(before).filter(c => !c.startsWith('app_outside_posts?') || !c.includes('select=body_ko'));
-    expect(extra.filter(c => !/^(app_now_signals|app_feed_reads)/.test(c))).toEqual([]);
+    expect(extra.filter(c => !/^(app_now_signals|app_feed_reads|app_news_highlights)/.test(c))).toEqual([]);
 
     // ⋯ 작은 메뉴: [모두 선택][복사][공유] 차례.
     await d.locator('[data-nd-ob-more]').click();
