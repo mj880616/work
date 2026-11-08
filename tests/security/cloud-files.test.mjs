@@ -1124,3 +1124,30 @@ test('status: while the first scan runs, received counts rows seen in this scan 
  assert.equal(end.scanning,false);assert.equal(end.received,null);
  assert.equal(w.db.items.filter(x=>x.source==='gd').length,40-[0,7,14,21,28,35].filter(n=>n%5!==0).length,'남이 준 파일은 색인에 없음');
 });
+
+test('S54-16: access tokens kept per source+workspace+refresh fingerprint; gate, gdOwner and connection read still run every request',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ const gdT=()=>w.calls.filter(c=>c.host==='oauth2.googleapis.com').length;
+ const odT=()=>w.calls.filter(c=>c.host==='login.microsoftonline.com').length;
+ const owner=()=>w.calls.filter(c=>/app_operator_feature_workspace/.test(c.path||'')).length;
+ const conn=()=>w.calls.filter(c=>/app_onedrive_connections/.test(c.path||'')&&(c.method||'GET')==='GET').length;
+ const g0=gdT(),o0=odT(),ow0=owner(),c0=conn();
+ for(let i=0;i<3;i++){
+  assert.equal((await w.post({action:'media',source:'gd',id:'GA'})).status,200);
+  assert.equal((await w.post({action:'media',source:'od',id:'OH!4'},JWT,{range:'bytes=0-1'})).status,206);
+ }
+ assert.equal(gdT(),g0,'google token reused');assert.equal(odT(),o0,'onedrive token reused');
+ assert.equal(owner(),ow0+3,'drive owner checked every google request');
+ assert.ok(conn()>=c0+3,'onedrive connection row read every request');
+ // 다른 작업공간은 문에서 막히고 토큰을 받지 않는다.
+ assert.equal((await w.post({action:'media',source:'gd',id:'GA'},JWT2)).status,403);
+ assert.equal(gdT(),g0);
+ // 50분이 지나면 새로 받는다.
+ w.tick(51*60*1000);
+ assert.equal((await w.post({action:'media',source:'gd',id:'GA'})).status,200);
+ assert.equal(gdT(),g0+1);
+ // 연결을 끊으면(갱신 토큰 행 없음) 기억한 토큰이 있어도 거절한다.
+ w.db.conn.length=0;
+ assert.equal((await w.post({action:'media',source:'od',id:'OH!4'})).status,424);
+});
