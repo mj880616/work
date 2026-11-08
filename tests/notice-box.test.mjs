@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 
 globalThis.window ??= {KPTURuntime: null, addEventListener() {}, dispatchEvent() {}};
 const nb = await import('../app/notice-box.mjs');
-const {forgetCount, forgetLineHtml} = await import('../app/home-summary.js');
+const {forgetCount, forgetChipHtml} = await import('../app/home-summary.js');
 const read = rel => readFileSync(new URL('../app/' + rel, import.meta.url), 'utf8');
 
 test('줄: 내용 한 줄 + 아래 작은 줄(왼쪽 글, 오른쪽 [할 일로][일정으로][노트로][이미 함] ×), 글은 글자로만', () => {
@@ -38,7 +38,7 @@ test('같은 부품 하나: 정리함 한 목록의 줄과 홈 잊지 말기 한
   assert.doesNotMatch(fl, /<li class=|class="[^"]*nbx-(act|x|head|item)/, 'forget-list.js: 줄·버튼 HTML은 공용 부품만');
   assert.match(read('basket.js'), /<section class="nbx forget-list" data-nbx-tone="list" data-forget-section[^>]*><ul class="nbx-list" data-basket-rows id="basketRows"><\/ul>/);
   const hs = read('home-summary.js');
-  assert.match(hs, /headHtml\(\{title: '잊지 말기', badge: count,/); assert.match(hs, /markBox\(line, 'forget'\)/);
+  assert.match(hs, /forgetChipHtml\(count, promises\)/); assert.doesNotMatch(hs, /headHtml|markBox/, 'S53-13: 홈은 상자 줄이 아니라 입력 칸 머리 줄 칩');
   assert.doesNotMatch(hs, /mountAsksBox|<li |class="[^"]*nbx-(act|x|head|item)/);
   // 모양은 ui-standard.css 한 곳(화면 id 없음), 색만 tone으로. 옛 화면별 규칙·날짜 밑 요약 줄 규칙은 없다.
   const ui = read('ui-standard.css');
@@ -49,22 +49,29 @@ test('같은 부품 하나: 정리함 한 목록의 줄과 홈 잊지 말기 한
   for (const css of ['journal.css', 'basket.css']) assert.doesNotMatch(read(css), /\.home-family-|\.home-summary|\.nbx-/, css);
 });
 
-// S52-20 HOME-잊지말기한목록 ②(시안 docs/design/mockups/forget-one-list.html ①): 홈 [하루] 맨 위는 '잊지 말기' 한 줄 + 빨간 숫자 동그라미만.
-test('홈: [하루] 맨 위 잊지 말기 한 줄 + 빨간 숫자(0이면 없음, 놓친 것 글자 없음), 누르면 정리함. 숫자 = 미분류 업데이트 + 처리 전 후보 + 가족 제안', () => {
-  const j = read('journal.js');
-  assert.doesNotMatch(j, /class="home-summary"|data-home-family|home-family\.js/);
-  assert.ok(j.indexOf('data-journal-day>') < j.indexOf('data-home-summary') && j.indexOf('data-home-summary') < j.indexOf('data-journal-schedule'));
+// S52-20 HOME-잊지말기한목록 ② → S53-13 HOME-잊지말기칩(시안 docs/design/mockups/home-forget-slim.html A): 홈의 '잊지 말기'는 띠 한 줄이 아니라
+// 입력 칸 머리 줄 오른쪽 ④ 칩 하나 + 빨간 숫자(0이면 숫자 없이 칩만 흐리게).
+test('홈: 잊지 말기 띠 줄 없음, 입력 칸 머리 줄 칩 [잊지 말기 n] + 빨간 숫자(0이면 흐리게), 누르면 정리함. 숫자 = 미분류 업데이트 + 처리 전 후보 + 가족 제안', () => {
+  const j = read('journal.js'), quick = read('home-quick.js');
+  assert.doesNotMatch(j, /class="home-summary"|data-home-family|home-family\.js|data-home-summary|class="home-forget"/, '띠 줄 자리 자체가 없다(숨김 아님)');
+  assert.match(quick, /<div class="home-quick-head"><div class="home-quick-modes ds-seg"[^`]*data-quick-mode="task">할 일<\/button><\/div><span class="home-forget-slot" data-home-summary role="group" aria-label="잊지 말기" hidden><\/span><\/div>/);
+  assert.doesNotMatch(quick, /잊지 말기 전체 보기|home-basket-link/, '옛 글자 링크는 칩으로 바뀜(같은 것이 두 곳 아님)');
   assert.equal(forgetCount({update: 2, todo: 3, family: 1}), 6);
   assert.equal(forgetCount({update: 0, todo: 0}), 0);
   assert.equal(forgetCount({update: null, todo: 1}), null);
   assert.equal(forgetCount({update: 1, todo: 1, family: null}), 2, '가족 기능 없음·못 읽음은 0');
-  const four = forgetLineHtml(4);
-  assert.match(four, /^<div class="nbx-head"><button type="button" class="row-act nbx-title-btn" data-goto="basket" data-home-forget-open aria-label="잊지 말기 4건. 열기"><span class="nbx-title">잊지 말기<\/span><span class="nbx-badge" data-nbx-badge>4<\/span><\/button><\/div>$/);
-  assert.doesNotMatch(four + forgetLineHtml(0), /열기 ›|nbx-open/, '명진 11/07 22:31: 오른쪽 [열기 ›] 없음, 제목을 누르면 열림');
-  assert.doesNotMatch(four + forgetLineHtml(0), /놓친|챙길 것|정리 안 된/);
-  assert.doesNotMatch(forgetLineHtml(0), /nbx-badge/);
+  const four = forgetChipHtml(4);
+  assert.equal(four, '<button type="button" class="ds-chip home-forget-chip" data-chip-tone="forget" data-goto="basket" data-home-forget-open aria-label="잊지 말기 4건. 열기"><span>잊지 말기</span><span class="nbx-badge" data-nbx-badge>4</span></button>');
+  assert.match(forgetChipHtml(0), /data-chip-empty data-goto="basket" data-home-forget-open aria-label="잊지 말기 열기"><span>잊지 말기<\/span><\/button>$/);
+  assert.doesNotMatch(forgetChipHtml(0), /nbx-badge/);
+  assert.doesNotMatch(four + forgetChipHtml(0), /놓친|챙길 것|정리 안 된|›/);
+  assert.match(forgetChipHtml(120), /data-nbx-badge>99\+<\/span>/);
   assert.match(nb.headHtml({title: 'x', badge: 120}), /<span class="nbx-badge" data-nbx-badge>99\+<\/span>/);
-  assert.match(forgetLineHtml(1, 2), /<\/button><button type="button" class="row-act nbx-foot-open" data-goto="ledger" data-home-summary-promises[^>]*>내일 약속 2 ›<\/button><\/div>$/);
+  assert.match(forgetChipHtml(1, 2), /<\/button><button type="button" class="row-act home-forget-promises" data-goto="ledger" data-home-summary-promises[^>]*>내일 약속 2 ›<\/button>$/);
+  // 칩 색: 공용 ④ 칩 + forget 톤(톤다운 노랑), 비면 흐리게. 화면 id 없이 ui-standard.css 한 곳.
+  const ui = read('ui-standard.css');
+  assert.match(ui, /button\.ds-chip\[data-chip-tone="forget"\]\{ color:var\(--kptu-warning\); background:var\(--kptu-warning-soft\); \}/);
+  assert.match(ui, /button\.ds-chip\[data-chip-tone="forget"\]\[data-chip-empty\]\{ color:var\(--kptu-faint\); background:transparent; \}/);
   // 빨간 바탕 흰 글자(토큰만).
   assert.match(read('ui-standard.css'), /\.nbx-badge\{[^}]*background:var\(--kptu-danger\); color:var\(--kptu-on-primary\);/);
   assert.match(read('my-features.js'), /\/rest\/v1\/rpc\/app_my_features/);

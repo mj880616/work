@@ -88,7 +88,6 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="home-quick-placeholder" aria-hidden="true"></div>
 <section class="journal-day" data-journal-day>
-<section class="home-forget" data-home-summary aria-label="잊지 말기" hidden></section>
 <div class="journal-top-cols" data-journal-top-cols><section class="journal-group journal-schedule" data-journal-schedule aria-label="그날 일정"></section><section class="journal-tasks" data-journal-tasks aria-label="할 일"></section></div>
 <section class="journal-done-day" data-journal-done-day aria-labelledby="journalDoneTitle"><h4 class="journal-heading" id="journalDoneTitle" data-journal-done-title>오늘 한 일</h4>
 <form class="journal-line" data-journal-line data-enter-save novalidate><label class="a11y-only" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 고쳐서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
@@ -103,7 +102,7 @@ const $ = selector => root.querySelector(selector);
 // HOME-업무일지홈: 요약 한 줄과 업데이트 입력줄(home-summary.js · home-quick.js). 이 화면은 자리만 둔다.
 // FEAT-1029묶음 ③ 연락 없는 조직: 홈 맨 아래 한 줄(org-quiet.js가 유일한 renderer, 무거운 읽기라 나중에 불러온다). 기준은 내 프로필 '수집·사용량' 칸.
 void appShown().then(() => import('./org-quiet.js')).then(({mountOrgQuiet}) => mountOrgQuiet(root.querySelector('[data-home-quiet]'))?.refresh()).catch(error => console.warn('org quiet load', error?.message || error));
-const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || root, line:root.querySelector('[data-home-summary]'), rt, onTasksChanged:() => refreshTasks()});
+const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || root, rt, onTasksChanged:() => refreshTasks()});
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 
 let owner = ownerScope(rt), epoch = 0, sharedEpoch = 0;
