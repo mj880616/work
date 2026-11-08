@@ -40,6 +40,11 @@ test('PC 1440: 선택 막대 [복사] → 받을 곳 창 → 같은 이름 한 �
   await expect(sheet(page).locator('#fxDestTitle')).toHaveText('2개 복사할 곳');
   // 처음 받을 곳 = 지금 폴더. 구글 드라이브 나무를 펼쳐 폴더를 고른다.
   await expect(sheet(page).locator('.fx-dest-at')).toContainText('가짜 문서함');
+  // S54-07: 받을 곳 창은 저장소가 모두 접힌 채 열리고(전엔 처음부터 펼쳐져 있었다), 지금 폴더는 미리 골라져 바로 보낼 수 있다.
+  await expect(sheet(page).locator('[data-fx-dest-twist]')).not.toHaveCount(0);
+  await expect(sheet(page).locator('[data-fx-dest-twist][aria-expanded="true"]')).toHaveCount(0);
+  await expect(sheet(page).locator('[data-fx-dest-pick]:not([data-fx-dest-pick$=":"])')).toHaveCount(0);
+  await expect(sheet(page).locator('[data-fx-dest-go]')).toBeEnabled();
   await pick(page, 'gd:').click();
   await expect(pick(page, 'gd:gdFolder1')).toBeVisible();
   await pick(page, 'gd:gdFolder1').click();
