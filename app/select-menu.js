@@ -123,8 +123,13 @@ if (typeof document !== 'undefined' && !window.__KPTU_SELECT_MENU__) {
     if (scroll) el.scrollIntoView({block: 'nearest'});
   }
 
+  // S53-20 MTG-비정기회의접기: 고르기 상자 하나가 자기 창을 쓰고 싶으면(회의명 고르기 — 찾기 칸·접힌 묶음·⋯) addOpener({match, open})로 맡긴다.
+  // 누름·키 처리(폰 기본 고르기 막기)는 여기 그대로이고, 값은 여전히 <select> 한 곳에 있다.
+  const openers = [];
   function open(select) {
     if (!eligible(select) || !select.isConnected) return;
+    const custom = openers.find(o => o.match(select));
+    if (custom) { if (active) close(() => custom.open(select)); else custom.open(select); return; }
     if (closing) { closing.then(() => { if (select.isConnected) open(select); }); return; }
     if (active) { const same = active.select === select; close(same ? null : () => open(select)); return; }
     const items = selectItems(select);
@@ -251,5 +256,5 @@ if (typeof document !== 'undefined' && !window.__KPTU_SELECT_MENU__) {
   window.addEventListener('popstate', e => { if (active && e.state?.[KEY] !== active.id) close(null, true); }, true);
   // A repaint that removes or disables the select under an open list closes it.
   new MutationObserver(() => { if (active && (!active.select.isConnected || active.select.disabled)) close(); }).observe(document.documentElement, {childList: true, subtree: true, attributes: true, attributeFilter: ['disabled']});
-  window.KPTUSelectMenu = {open, close, get active() { return active; }};
+  window.KPTUSelectMenu = {open, close, addOpener: o => { if (o && !openers.includes(o)) openers.push(o); }, get active() { return active; }};
 }

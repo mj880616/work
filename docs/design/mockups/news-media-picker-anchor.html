@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 매체 고르기 창 위치(폰)</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--bg:#eef5f2;--surface:#fbfdfc;--soft:#dcefe8;--pri:#2f6f5e}
+*{box-sizing:border-box}body{margin:0;padding:12px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 12px;color:var(--muted)}
+.wrap{display:flex;gap:16px;flex-wrap:wrap}
+.col{flex:1 1 300px;max-width:360px}.col h2{font-size:13px;margin:0 0 6px}
+.phone{position:relative;height:620px;border:1px solid var(--line);border-radius:18px;background:var(--bg);overflow:hidden}
+.top{padding:14px 12px 6px;font-size:17px}
+.bar{display:flex;gap:6px;align-items:center;padding:0 10px}
+.find{flex:1;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:0 8px;color:var(--muted);display:flex;align-items:center}
+.mbtn{height:34px;padding:0 10px;border:1px solid var(--pri);border-radius:8px;background:var(--surface);display:flex;align-items:center;white-space:nowrap}
+.more{width:24px;text-align:center;color:var(--muted)}
+.meta{padding:8px 12px 4px;color:var(--muted);font-size:12px}
+.row{margin:0 10px;padding:8px 10px;border-left:3px solid #2d4f9a;background:var(--surface);border-bottom:1px solid var(--line)}
+.row b{display:block;font-weight:600}.row small{color:#2d4f9a}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:46px;border-top:1px solid var(--line);background:var(--surface);display:flex;justify-content:space-around;align-items:center;color:var(--muted);font-size:11px}
+.pick{position:absolute;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.14);padding:6px;display:flex;flex-direction:column}
+.pick .f{height:34px;border:1px solid var(--line);border-radius:8px;padding:0 8px;color:var(--muted);display:flex;align-items:center;margin-bottom:4px;flex:none}
+.pick .l{overflow:auto}
+.it{display:flex;align-items:center;gap:6px;min-height:34px;padding:0 8px;border-radius:8px}
+.it.d{padding-left:22px}.it.cur{font-weight:600}.it .tag{margin-left:auto;color:var(--muted);font-size:12px;font-weight:400}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.it.h{background:var(--soft)}
+.old{left:8px;right:8px;bottom:54px;height:300px}
+.clip{height:14px;overflow:hidden;opacity:.8}
+.new{top:96px;right:10px;width:230px;max-height:400px}
+.new::before{content:"";position:absolute;top:-6px;right:42px;width:10px;height:10px;background:var(--surface);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
+.note{margin-top:8px;color:var(--muted);font-size:12px}
+.bad{color:#a5463c}
+</style></head><body>
+<h1>매체 고르기 창 위치 (폰)</h1>
+<p class="s">누른 [매체] 버튼 바로 아래에 작은 창으로 열어요.</p>
+<div class="wrap">
+<div class="col"><h2>지금</h2>
+<div class="phone">
+<div class="top">News</div>
+<div class="bar"><div class="find">News 찾기 — 제목·문장</div><div class="mbtn">매체: 전체 ▾</div><div class="more">⋯</div></div>
+<div class="meta">오늘 · 새 글 40</div>
+<div class="row"><b>기사 제목 한 줄 예시</b><small>매체</small> 14:05</div>
+<div class="row"><b>기사 제목 두 번째 예시</b><small>매체</small> 13:55</div>
+<div class="pick old"><div class="f">매체 찾기</div><div class="l">
+<div class="it cur clip">전체<span class="tag">고름</span></div>
+<div class="it"><span class="dot" style="background:#3b78c9"></span>언론 국내</div>
+<div class="it d"><span class="dot" style="background:#3b78c9"></span>매체 가</div>
+<div class="it d"><span class="dot" style="background:#2e9a6a"></span>매체 나</div>
+<div class="it d h"><span class="dot" style="background:#3c7d55"></span>매체 다</div>
+<div class="it"><span class="dot" style="background:#2e9a6a"></span>언론 외국</div>
+<div class="it d"><span class="dot" style="background:#2d4f9a"></span>매체 라</div>
+</div></div>
+<div class="tabs"><span>홈</span><span>노트</span><span>일정</span><span>담당조직</span><span>사업 보고</span><span>메뉴</span></div>
+</div>
+<div class="note bad">① 위에서 눌렀는데 창이 화면 아래 바 위에서 열려요.<br>② 맨 위 [전체] 줄이 찾기 칸에 반쯤 가려져요.</div>
+</div>
+<div class="col"><h2>바꾼 뒤</h2>
+<div class="phone">
+<div class="top">News</div>
+<div class="bar"><div class="find">News 찾기 — 제목·문장</div><div class="mbtn">매체: 전체 ▾</div><div class="more">⋯</div></div>
+<div class="meta">오늘 · 새 글 40</div>
+<div class="row"><b>기사 제목 한 줄 예시</b><small>매체</small> 14:05</div>
+<div class="row"><b>기사 제목 두 번째 예시</b><small>매체</small> 13:55</div>
+<div class="pick new"><div class="f">매체 찾기</div><div class="l">
+<div class="it cur">전체<span class="tag">고름</span></div>
+<div class="it"><span class="dot" style="background:#3b78c9"></span>언론 국내</div>
+<div class="it d"><span class="dot" style="background:#3b78c9"></span>매체 가</div>
+<div class="it d"><span class="dot" style="background:#2e9a6a"></span>매체 나</div>
+<div class="it d"><span class="dot" style="background:#3c7d55"></span>매체 다</div>
+<div class="it d"><span class="dot" style="background:#3b78c9"></span>매체 마</div>
+<div class="it d"><span class="dot" style="background:#2e9a6a"></span>매체 바</div>
+<div class="it"><span class="dot" style="background:#2e9a6a"></span>언론 외국</div>
+<div class="it d"><span class="dot" style="background:#2d4f9a"></span>매체 라</div>
+<div class="it d"><span class="dot" style="background:#3c7d55"></span>매체 사</div>
+</div></div>
+<div class="tabs"><span>홈</span><span>노트</span><span>일정</span><span>담당조직</span><span>사업 보고</span><span>메뉴</span></div>
+</div>
+<div class="note">버튼 바로 밑에서 열려요. 길면 창 안에서만 밀려요. 아래 바는 가리지 않아요. 맨 위 [전체] 줄은 다 보여요. 줄 높이는 지금 그대로예요.</div>
+</div>
+</div>
+</body></html>
