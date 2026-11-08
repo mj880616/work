@@ -424,8 +424,9 @@ const gdDoc = r => r?.source === 'gd' && /^application\/vnd\.google-apps\./.test
 // 받을 곳으로 보낼 수 있는지 줄마다 가른다. {ok: 보낼 줄, blocked: [{row, reason}], reason: 하나도 못 보낼 때 한 줄}.
 //   같은 저장소: 복사는 파일·폴더(폴더째, H-5), 옮기기는 지금 규칙(같은 자리·자기 안 빼고 200개까지는 move가 나눠 보냄).
 //   다른 저장소: 파일만(폴더는 막고 안내), 크기를 모르는 것·구글 문서는 막음. 200MB 넘는 것은 여기서 막지 않는다(묻는 창이 따로, big()).
-// 폴더째 다른 저장소로(S52-43 ②): 원드라이브 ↔ 구글 드라이브만. 한 폴더에 파일 500개·폴더 100개까지(넘으면 나눠 보내게 안내).
-const TREE_SOURCES = ['od', 'gd'];
+// 폴더째 다른 저장소로(S52-43 ②): 원드라이브 ↔ 구글 드라이브. 한 폴더에 파일 500개·폴더 100개까지(넘으면 나눠 보내게 안내).
+// S53-8 FILES-폴더째PC폰: 내 PC·이 폰이 끼어도 폴더째(받는 쪽에 같은 폴더 모양을 만들고 안의 파일을 차례로 — files.js treeDev·treeUp).
+const TREE_SOURCES = ['od', 'gd', 'pc', 'ph'];
 export const TREE_ACROSS_FILES = 500, TREE_ACROSS_FOLDERS = 100;
 export const treeAcrossBig = (files, folders) => files > TREE_ACROSS_FILES || folders > TREE_ACROSS_FOLDERS;
 export const treeAcrossTooBigText = name => `${name}: 폴더 안이 너무 많아요(파일 ${TREE_ACROSS_FILES}개·폴더 ${TREE_ACROSS_FOLDERS}개까지). 안쪽 폴더를 나눠 보내 주세요`;
@@ -436,6 +437,24 @@ export function treeDoneText(mode, {folders = 0, files = 0, skipped = 0} = {}) {
   return skipped ? `${head} · ${skipped}개 건너뜀` : head;
 }
 export const TREE_MOVE_NOTE = '파일이 다 옮겨지면 원래 폴더는 빈 폴더로 남아요(지우려면 휴지통으로)';
+// S53-8 FILES-폴더째PC폰: 내 PC·이 폰이 낀 폴더째 옮기기 — 안의 파일이 하나도 빠짐없이 다 복사된 뒤에만 원본 파일을 휴지통으로(중간에 하나라도 못 하면 원본 그대로).
+export const TREE_DEV_MOVE_NOTE = '안의 파일이 모두 복사된 뒤에만 원본을 휴지통으로 보내요(하나라도 못 하면 원본 그대로). 원래 폴더는 빈 폴더로 남아요';
+export const treeDevKeptText = where => `복사하지 못한 파일이 있어 ${where} 원본은 그대로 두었어요`;
+// 폴더째 자료실로(S53-8 ②): 안의 파일을 한 번에 50개·합쳐 1GB까지(화면 메모리로 받아 등록 창에 넣음). 넘으면 자르지 않고 한 줄로 알림.
+export const LIB_TREE_MAX = 50, LIB_TREE_BYTES = 1024 * 1024 * 1024;
+export const libTreeTooBigText = name => `${name}: 폴더 안 파일이 많아요(자료실로는 한 번에 ${LIB_TREE_MAX}개·합쳐 1GB까지). 안쪽 폴더를 나눠 보내 주세요`;
+// 폴더 받을 곳이 그 폴더 자신이나 그 안인가(같은 기기 안 폴더째 복사·옮기기 막기). 내 PC = '\'(대소문자 무시), 이 폰 = '/'.
+export function treeInside(source, folderId, destParent) {
+  const a = String(folderId ?? ''), b = String(destParent ?? '');
+  if (!a || !b) return false;
+  if (source === 'pc') { const x = a.replace(/\\+$/, '').toLowerCase(), y = b.toLowerCase(); return y === x || y.startsWith(x + '\\'); }
+  return b === a || b.startsWith(a + '/');
+}
+// 기기(내 PC·이 폰)로 폴더째 받은 뒤 한 줄. failed = 못 받은 파일 수.
+export function treeDevDoneText(mode, {folders = 0, files = 0, failed = 0, skipped = 0} = {}) {
+  const parts = [`폴더 ${folders}개 · 파일 ${files}개 ${mode === 'move' ? '옮김' : '복사함'}`, skipped ? `${skipped}개 건너뜀` : '', failed ? `${failed}개 못 함` : ''];
+  return parts.filter(Boolean).join(' · ');
+}
 export function xferPlan(rows, dest, mode = 'copy') {
   const list = (rows || []).filter(Boolean), ok = [], blocked = [];
   if (!dest?.source) return {ok, blocked, reason: '받을 곳을 고르세요'};
@@ -443,8 +462,9 @@ export function xferPlan(rows, dest, mode = 'copy') {
   for (const r of list) {
     const across = r.source !== dest.source;
     // S52-43 ② FILES-저장소사이: 원드라이브 ↔ 구글 드라이브는 폴더째(화면이 같은 폴더 모양을 만들고 안의 파일을 전송 목록에 펼쳐 넣음, treeAcross).
-    //   내 PC·이 폰이 끼면 아직 폴더째는 없다.
-    if (across && r.is_folder && !(TREE_SOURCES.includes(r.source) && TREE_SOURCES.includes(dest.source))) blocked.push({row: r, reason: `내 PC·이 폰과는 폴더째 ${verb === '옮겨요' ? '옮기지' : '복사하지'} 않아요. 폴더를 열어 파일을 골라 주세요`});
+    //   S53-8: 내 PC·이 폰이 끼어도 폴더째(treeDev·treeUp). 모르는 저장소만 막는다.
+    if (across && r.is_folder && !(TREE_SOURCES.includes(r.source) && TREE_SOURCES.includes(dest.source))) blocked.push({row: r, reason: `이 저장소와는 폴더째 ${verb === '옮겨요' ? '옮기지' : '복사하지'} 않아요. 폴더를 열어 파일을 골라 주세요`});
+    else if (!across && r.is_folder && (r.source === 'pc' || r.source === 'ph') && treeInside(r.source, r.item_id, dest.parent)) blocked.push({row: r, reason: `폴더를 자기 안으로 ${mode === 'move' ? '옮길' : '복사할'} 수 없습니다`});
     else if (across && gdDoc(r)) blocked.push({row: r, reason: '구글 문서는 다른 저장소로 보내지 않습니다'});
     else if (across && !r.is_folder && (r.size_bytes === null || r.size_bytes === undefined || !Number.isFinite(Number(r.size_bytes)))) blocked.push({row: r, reason: '크기를 모르는 파일은 다른 저장소로 보내지 않습니다'});
     else if (!across && r.is_folder && r.item_id === (dest.parent ?? null)) blocked.push({row: r, reason: `폴더를 자기 안으로 ${mode === 'move' ? '옮길' : '복사할'} 수 없습니다`});
