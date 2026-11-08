@@ -254,7 +254,9 @@ test('DB 적용 전(아는 폴더 거절)에는 이 접속에서 다시 보내�
 
 test('사진·일기·시각 사진 줄이 폰 사진을 읽기 전에 맞춰 본다(새 폰 폴더 꺼진 채), 스위치가 아는 폴더도 고친다', () => {
   const photos = read('app/photos.js');
-  assert.match(photos, /async function hideArg\(\) \{\n  const s = await syncPhoneFolders\(phone\);/);
+  // S53-3: 맞춰 보기를 잠깐(QUICK_MS)만 기다리고, 늦게 끝나 새로 끈 폴더가 생기면 다시 읽는다.
+  assert.match(photos, /async function hideArg\(\) \{\n  const t0 = stepStart\(\);\n  const s = await quickPhoneFolders\(phone\);/);
+  assert.match(photos, /onPhoneFoldersLateAdded\(s => \{\n  phoneOff = new Set\(s\.off\); phoneOffChanged\(\);/);
   assert.doesNotMatch(photos, /(?<!await |function )hideArg\(\)/, '모든 읽기가 await hideArg()');
   assert.match(photos, /syncPhoneFolders\(phone, \{folders:list\}\)/);
   assert.match(photos, /function savePhoneOff\(next, known\) \{[\s\S]*?knownAfterOff\(currentPhoneKnown\(\), phoneOff, next[\s\S]*?if \(k\) savePhoneKnown\(k\);/);
@@ -262,6 +264,31 @@ test('사진·일기·시각 사진 줄이 폰 사진을 읽기 전에 맞춰 �
   assert.match(photos, /knownWith\(currentPhoneKnown\(\), to, phoneOff\)/);
   assert.match(read('app/diary.js'), /hide:await phoneHideList\(phone\)/);
   assert.match(read('app/time-photos.js'), /const hide = await phoneHideList\(phone\);/);
+});
+
+test('S53-3 사진 읽기는 맞춰 보기를 잠깐만 기다린다: 늦으면 지금 끈 목록으로 먼저, 끝나 새로 끈 폴더가 생기면 알린다', async () => {
+  const prefs = fakePrefs({phone_folders_off:['Pictures/숨김/'], phone_folders_known:[phoneFolderKey('Pictures/숨김/')]});
+  let give = null;
+  const phone = {usable:true, state:() => ({hide:true, access:'full', key:'k'.repeat(22)}), folders:() => new Promise(ok => { give = ok; })};
+  const s = createPhoneFoldersSync({prefs, win:null, quickMs:20});
+  const heard = [];
+  s.onLateAdded(r => heard.push(r.added));
+  const t0 = Date.now();
+  assert.deepEqual(await s.hideList(phone), ['Pictures/숨김/'], '폴더 목록이 늦으면 지금 끈 목록 그대로');
+  assert.ok(Date.now() - t0 < 1000, '폴더 목록 읽기를 끝까지 기다리지 않음');
+  assert.equal(await s.quick(phone), null, '늦으면 null(같은 맞춰 보기를 함께 씀)');
+  give(F('Pictures/숨김/', 'Pictures/새폴더/'));
+  await new Promise(ok => setTimeout(ok, 0));
+  await new Promise(ok => setTimeout(ok, 0));
+  assert.deepEqual(heard, [['Pictures/새폴더/']], '늦게 끝나 새 폴더를 껐으면 알린다');
+  assert.deepEqual(prefs.v.phone_folders_off.slice().sort(), ['Pictures/새폴더/', 'Pictures/숨김/']);
+  // 제때 끝나면(5분 뒤 다시 읽기, 바로 답함) 기다린 쪽이 결과를 받고 따로 알리지 않는다.
+  const quickPhone = fakePhone(F('Pictures/숨김/', 'Pictures/새폴더/', 'Pictures/또/'));
+  const s2 = createPhoneFoldersSync({prefs, win:null, quickMs:1000});
+  const heard2 = [];
+  s2.onLateAdded(r => heard2.push(r.added));
+  assert.deepEqual((await s2.quick(quickPhone)).added, ['Pictures/또/']);
+  assert.deepEqual(heard2, []);
 });
 
 // S53-7 FILES-이폰지우기: 폰 사진 휴지통이 안 됐을 때 무반응·막연한 글 대신 이유와 할 일 한 줄(앱 0.5.4 trash 답 error).

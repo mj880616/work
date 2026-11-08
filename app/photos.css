@@ -18,7 +18,8 @@
 #appView #photosView .photos-filter{ min-height:0; height:var(--ds-compact-height,32px); width:auto; padding:0 6px; font-size:var(--ds-compact-text,13px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); }
 #appView #photosView .photos-filter[hidden],#appView #photosView .photo-size[hidden],#appView #photosView .photos-sort[hidden]{ display:none; }
 /* PHOTO-정렬: [찍은 날 ↓ ▾] — 거르기 칸과 같은 작은 높이·톤 */
-#appView #photosView .photos-sort{ flex:none; min-height:0; min-width:0; height:var(--ds-compact-height,32px); padding:0 8px; font-size:var(--ds-compact-text,13px); font-weight:var(--ds-weight-regular,400); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); box-shadow:none; white-space:nowrap; }
+/* S53-3: [정리] 칩도 같은 줄 [정렬]과 같은 작은 칸 모양(브라우저 기본 회색 네모가 아니게). */
+#appView #photosView .photos-sort,#appView #photosView .photos-tidy-chip{ flex:none; min-height:0; min-width:0; height:var(--ds-compact-height,32px); padding:0 8px; font-size:var(--ds-compact-text,13px); font-weight:var(--ds-weight-regular,400); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); box-shadow:none; white-space:nowrap; }
 .photos-sort-menu .photos-sort-ck{ display:inline-block; width:1.2em; color:var(--ds-kind-other-ink,currentColor); }
 #appView #photosView .photos-note{ margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #photosView .photos-note:empty{ display:none; }

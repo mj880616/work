@@ -38,7 +38,7 @@ import {createPhotoTidy} from './photo-tidy.js';
 import {createThumbHasher} from './photo-hash.js';
 import {keptText, sizeText, totalBytes, COPY_BATCH, LOG_BATCH, copyPairs} from './photo-tidy-model.mjs';
 import {parsePhoneOff, phoneOffValue, remapPhoneOff, knownAfterOff, remapPhoneKnown, knownWith, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText, phoneTrashText} from './phone-folders-model.mjs';
-import {syncPhoneFolders, savePhoneKnown, currentPhoneKnown} from './phone-folders-sync.js';
+import {syncPhoneFolders, quickPhoneFolders, onPhoneFoldersLateAdded, savePhoneKnown, currentPhoneKnown} from './phone-folders-sync.js';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT,
   gdriveAllowed, gdriveToItem, gdriveBefore, gdriveFrom, gdriveKey, gdriveErrorText, gdriveCode, gdriveNeedsReconnect, gdriveState, GDRIVE_RECONNECT} from './photo-sources-model.mjs';
 // S46-24 ④ 구글 드라이브 칸(운영자 기능 gdrive_photos가 있는 작업공간만, 서버가 네 겹으로 다시 막음). 같은 사진 한 장 규칙·출처 표시는 원드라이브·폰과 같다.
@@ -124,6 +124,10 @@ let items = [], next = null, ended = false, loading = null, failed = '', from = 
 // PHOTO-출처 ①: 출처마다 받은 것(odList·phList)을 섞은 것이 items다(mergeSources). hidden = 지우는 중(되돌리기 시간)이라 빼 둔 칸 id.
 let odList = [], odEnded = false, phList = [], phNext = 0, phEnded = false;
 const hidden = new Set();
+// S53-3 PHOTO-폰불러오기느림: srcBusy = 지금 첫 답을 기다리는 출처, srcStalled = 못 받고 멈춘 출처(둘 다 아직 한 장도 없으면 다른 출처를 막지 않음, mergeSources late).
+// edge = 이미 보인 마지막 칸(늦은 출처가 와도 그린 칸이 사라지지 않게, mergeSources floor). 모두 이 화면 메모리만.
+const srcBusy = new Set(), srcStalled = new Set();
+let edge = null;
 let sources = parseSources(null), phStarItems = null;
 // S46-24 ④ 구글 드라이브: gd(칩을 보일지·권한 문제·켠 폴더 수), [사진] 출처 목록 gdItems(gdCursor = 서버 다음 쪽 기준), [폴더] 층 gdLevels(부모 id → 그 안 폴더),
 //   gdAt(고른 구글 드라이브 폴더 id, 'root' = 맨 위, null = 밖), gdOpen(PC 나무에서 펼친 폴더), 그 폴더 사진 gdFItems. 모두 이 화면 메모리만(서버가 원본).
@@ -173,11 +177,22 @@ const gdFilterOk = () => filter === 'all' || filter === 'video';
 const phoneOn = () => sources.phone && phone.available();
 // 끈 폰 폴더를 읽기에 붙인다(옛 앱은 phone-photos.js가 붙이지 않음).
 // S48-31: 읽기 전에 폰 폴더를 아는 폴더와 맞춰 본다(새 폰 폴더는 꺼진 채, phone-folders-sync.js). 5분에 한 번만 폴더를 다시 읽는다.
+// S53-3 PHOTO-폰불러오기느림: 맞춰 보기는 잠깐(QUICK_MS)만 기다린다. 늦으면 지금 끈 목록으로 먼저 읽고, 끝나 새로 끈 폴더가 생기면 아래 onPhoneFoldersLateAdded가 다시 읽는다.
+// 단계별 걸린 시간 기록(개발자 도구 Performance 또는 performance.getEntriesByType('measure')로 본다). 단계 이름만 — 사진·폴더·파일 이름은 쓰지 않는다. 기기 저장 없음.
+const stepTime = (name, t0) => { try { globalThis.performance?.measure?.(`kptu-photos ${name}`, {start:t0, end:globalThis.performance.now()}); } catch { /* 기록 실패는 무시 */ } };
+const stepStart = () => globalThis.performance?.now?.() ?? 0;
 async function hideArg() {
-  const s = await syncPhoneFolders(phone);
-  if (s.added.length) phoneOff = new Set(s.off);
+  const t0 = stepStart();
+  const s = await quickPhoneFolders(phone);
+  stepTime(s ? 'phone-folders-sync' : 'phone-folders-sync-late', t0);
+  if (s?.added.length) phoneOff = new Set(s.off);
   return {hide:[...phoneOff]};
 }
+onPhoneFoldersLateAdded(s => {
+  phoneOff = new Set(s.off); phoneOffChanged();
+  if (window.KPTURouter?.current !== 'photos') return;
+  if (tab === 'folders') renderFolders(); else render();
+});
 const phoneSw = () => phone.state().hide === true;
 const phoneOps = () => phone.state().ops === true;
 const noSource = () => !sources.onedrive && !phoneOn() && !gdOn();
@@ -552,11 +567,12 @@ async function startSync(r) {
   finally { syncing = false; }
 }
 // 켜진 출처의 지금까지 받은 것을 섞는다(지우는 중인 칸은 뺌).
+const lateSrc = name => srcBusy.has(name) || srcStalled.has(name);
 function streamsNow() {
   const u = useSrc(), out = [];
-  if (u.onedrive) out.push({source:'onedrive', items:odList, ended:odEnded});
-  if (u.phone) out.push({source:'phone', items:phList, ended:phEnded});
-  if (u.gdrive && gdFilterOk()) out.push({source:'gdrive', items:gdItems, ended:gdEnded});
+  if (u.onedrive) out.push({source:'onedrive', items:odList, ended:odEnded, late:lateSrc('onedrive')});
+  if (u.phone) out.push({source:'phone', items:phList, ended:phEnded, late:lateSrc('phone')});
+  if (u.gdrive && gdFilterOk()) out.push({source:'gdrive', items:gdItems, ended:gdEnded, late:lateSrc('gdrive')});
   // S48-17: 원드라이브 칩을 꺼도 폰 사진 보기에 비운 사진을 원래 날짜 자리에(다 받은 묶음 하나). 원드라이브를 켜면 그 칸이 원드라이브 목록에 이미 있다.
   if (u.phone && !u.onedrive && kept?.length) {
     const list = keptFilter(kept, {filter, isStarred, before:from ? Date.parse(from.cursor.t) : null}).sort(sortCompare(listSort()));
@@ -566,8 +582,9 @@ function streamsNow() {
 }
 function remerge() {
   const st = streamsNow();
-  const m = mergeSources(st, listSort());
+  const m = mergeSources(st, listSort(), {floor:edge});
   items = m.items.filter(it => !hidden.has(it.id)); ended = m.ended;
+  if (m.items.length) edge = m.items[m.items.length - 1];
   return {...m, streams:st};
 }
 // 한 출처의 다음 쪽.
@@ -612,38 +629,42 @@ function loadMore() {
     try {
       const u = useSrc();
       if (filter === 'star') {
-        await within(async () => {
+        // ★: 원드라이브 별표·폰 별표를 함께 받고, 먼저 온 쪽부터 그린다(늦은 쪽은 제자리에 끼움).
+        const jobs = [];
+        if (u.onedrive && !odEnded) jobs.push({name:'onedrive', run:async () => {
           await ensureStars(r);
-          if (u.onedrive && !odEnded) {
-            const all = [];
-            for (const ids of chunks(starIds(), STAR_CHUNK)) {
-              let cursor = from?.cursor || null;
-              for (let guard = 0; guard < 50; guard++) {
-                const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200, sort:listSort()});
-                if (!alive()) return;
-                all.push(...page.items); cursor = page.next;
-                if (!cursor) break;
-              }
+          const all = [];
+          for (const ids of chunks(starIds(), STAR_CHUNK)) {
+            let cursor = from?.cursor || null;
+            for (let guard = 0; guard < 50; guard++) {
+              const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200, sort:listSort()});
+              if (!alive()) return;
+              all.push(...page.items); cursor = page.next;
+              if (!cursor) break;
             }
-            odList = appendItems(odList, all.map(toItem).sort(sortCompare(listSort()))); odEnded = true;
           }
-          if (u.phone && !phEnded) {
-            src = 'phone';
-            const list = await phoneStarList(r);
-            if (!alive()) return;
-            const before = from ? Date.parse(from.cursor.t) : null;
-            phList = list.filter(it => !before || Date.parse(it.taken_at) < before); phEnded = true;
-          }
-        }, LOAD_STEP_MS);
+          odList = appendItems(odList, all.map(toItem).sort(sortCompare(listSort()))); odEnded = true;
+        }});
+        if (u.phone && !phEnded) jobs.push({name:'phone', run:async () => {
+          const list = await phoneStarList(r);
+          if (!alive()) return;
+          const before = from ? Date.parse(from.cursor.t) : null;
+          phList = list.filter(it => !before || Date.parse(it.taken_at) < before); phEnded = true;
+        }});
+        const bad = await loadTogether(jobs, r, alive);
         if (!alive()) return;
         remerge();
+        if (bad) { src = bad.name; throw bad.error; }
       } else {
         for (let guard = 0; guard < 4; guard++) {
           const shown = items.length, m = remerge();
           if (m.ended) break;
-          src = m.streams[m.waiting[0]].source;
-          await within(loadStream(src, alive), LOAD_STEP_MS);
+          // 아직 한 장도 없는 출처는 모두 함께, 그 밖에는 앞을 막는 출처 하나. 먼저 온 출처부터 바로 그린다.
+          const ws = m.waiting.map(i => m.streams[i]);
+          const names = ws.some(x => !x.items.length) ? ws.filter(x => !x.items.length).map(x => x.source) : [ws[0].source];
+          const bad = await loadTogether(names.map(name => ({name, run:() => loadStream(name, alive)})), r, alive);
           if (!alive()) return;
+          if (bad) { src = bad.name; throw bad.error; }
           if (remerge().items.length > shown) break;
         }
       }
@@ -658,13 +679,37 @@ function loadMore() {
         failed = phoneErrorText(error);
       }
       else if (timeout) failed = '응답이 없어요';
-      else if (src === 'gdrive') { if (gdProblemFrom(error)) { remerge(); failed = ''; } else failed = gdriveErrorText(error); }
+      else if (src === 'gdrive') { if (gdProblemFrom(error)) { srcStalled.delete('gdrive'); remerge(); failed = ''; } else failed = gdriveErrorText(error); }
       else { failed = odErrorText(error); odFault = true; paintOdLink(linkBtn, od, odFault); }
+      // 출처가 둘 이상이면 멈춘 출처 이름을 앞에(다른 출처 사진은 그대로 보인다).
+      if (failed && marks() && SOURCE_TEXT[src]) failed = `${SOURCE_TEXT[src]} · ${failed}`;
     } finally { if (current(r)) loading = null; }
     if (again && current(r)) { loadMore(); return; }
     if (current(r) && tab === 'all') { paintList(); loadBar(r); }
   })();
   return loading;
+}
+// S53-3: 출처 몇 개를 함께 받는다. 하나가 끝날 때마다 섞어 바로 그린다(느린 출처를 기다리지 않음). 못 받은 출처는 멈춤으로 두고(다른 출처를 막지 않음)
+// 첫 실패 {name, error}를 돌려준다(없으면 null). 모든 걸음은 LOAD_STEP_MS 안에 끝난다.
+async function loadTogether(jobs, r, alive) {
+  let bad = null;
+  await Promise.all(jobs.map(({name, run: job}) => {
+    srcBusy.add(name); srcStalled.delete(name);
+    const t0 = stepStart();
+    return within(job, LOAD_STEP_MS).then(() => {
+      stepTime(`load-${name}`, t0);
+      if (!current(r)) return;
+      srcBusy.delete(name);
+      if (alive()) { remerge(); if (tab === 'all') paintList(); }
+    }, error => {
+      stepTime(`load-${name}-failed`, t0);
+      if (!current(r)) return;
+      srcBusy.delete(name); srcStalled.add(name);
+      bad ||= {name, error};
+      if (alive()) { remerge(); if (tab === 'all') paintList(); }
+    });
+  }));
+  return bad;
 }
 // 실패한 [사진] 불러오기를 다시(화면으로 돌아옴·앱이 다시 앞에 옴·[다시]). 받는 중이면 그대로 둔다(그 걸음도 끝이 있다).
 function retryStalled() {
@@ -760,14 +805,14 @@ function paintList({full = false} = {}) {
   let list = body.querySelector('[data-photos-list]');
   // 앞에 그린 칸이 그대로인지(출처가 늦게 보낸 같은 사진을 빼면 앞이 바뀔 수 있다 → 통째로 다시).
   const same = rendered <= items.length && renderedIds.every((id, k) => items[k]?.id === id);
+  // S53-3: 늦게 온 출처의 칸만 사이사이 더해졌으면(그린 칸은 순서 그대로 다 남음) 그린 칸은 두고 새 칸만 제자리에 끼운다.
+  if (!full && list && !same && keptOrder(renderedIds, items)) { insertCells(list); paintListEnd(list); return; }
   if (full || !list || !same) {
     rendered = 0;
     const top = srcNotes() + (from ? `<p class="photos-muted photos-top">${esc(from.label)}부터 보는 중 · <button type="button" class="mini" data-photos-newest>최신으로</button></p>` : '');
     body.innerHTML = `${top}<div data-photos-list></div><p class="photos-muted photos-foot" data-photos-foot></p>`;
     list = body.querySelector('[data-photos-list]');
   }
-  const counts = new Map();
-  for (const it of items) counts.set(it.day, (counts.get(it.day) || 0) + 1);
   let i = rendered;
   if (sortByDay(listSort())) {
     for (const group of groupByDay(items.slice(rendered))) {
@@ -783,6 +828,51 @@ function paintList({full = false} = {}) {
     if (!grid?.matches?.('[data-diary-grid]')) { grid = newGrid(); list.append(grid); }
     for (const item of items.slice(rendered)) grid.append(cell(item, i++));
   }
+  paintListEnd(list);
+}
+// 그린 칸 id(before)가 모두 새 목록(after)에 같은 순서로 있나.
+function keptOrder(before, after) {
+  let k = 0;
+  for (const it of after) { if (k < before.length && it.id === before[k]) k++; }
+  return k === before.length;
+}
+// 새 칸만 정렬 자리에 끼운다(날 머리줄이 없으면 그 자리에 새로). 그린 칸은 옮기지 않는다(받은 그림 그대로, 보던 자리 그대로).
+function insertCells(list) {
+  const have = new Map([...list.querySelectorAll('[data-photos-id]')].map(b => [b.dataset.photosId, b]));
+  const place = (grid, group) => {
+    let prev = null;
+    for (const item of group) {
+      const old = have.get(item.id);
+      if (old) { prev = old; continue; }
+      const b = cell(item, 0);
+      if (prev) prev.after(b); else grid.prepend(b);
+      prev = b;
+    }
+  };
+  if (sortByDay(listSort())) {
+    let prevGrid = null;
+    const heads = new Map([...list.querySelectorAll('[data-photos-day]')].map(h => [h.dataset.photosDay, h]));
+    for (const group of groupByDay(items)) {
+      let head = heads.get(group.day), grid = head?.nextElementSibling;
+      if (!head || !grid?.matches?.('[data-diary-grid]')) {
+        head = dayHeadEl(group.day, 0); grid = newGrid();
+        if (prevGrid) prevGrid.after(head, grid); else list.prepend(head, grid);
+      }
+      place(grid, group.items);
+      prevGrid = grid;
+    }
+  } else {
+    let grid = list.querySelector('[data-diary-grid]');
+    if (!grid) { grid = newGrid(); list.append(grid); }
+    place(grid, items);
+  }
+  // 칸 번호(크게 보기·고르기가 쓰는 목록 자리)를 새 목록 순서로.
+  const at = new Map(items.map((it, i) => [it.id, i]));
+  list.querySelectorAll('[data-photos-id]').forEach(b => { const i = at.get(b.dataset.photosId); if (i !== undefined) b.dataset.photosOpen = String(i); });
+}
+function paintListEnd(list) {
+  const counts = new Map();
+  for (const it of items) counts.set(it.day, (counts.get(it.day) || 0) + 1);
   rendered = items.length; renderedIds = items.map(x => x.id);
   list.querySelectorAll('[data-photos-day]').forEach(h => { const n = h.querySelector('[data-photos-day-n]'); if (n) n.textContent = `· ${counts.get(h.dataset.photosDay) || 0}장`; });
   const foot = body.querySelector('[data-photos-foot]');
@@ -806,16 +896,27 @@ async function monthDays(key, want, r) {
   if (days) return days;
   await ensureStars(r);
   // 대표 사진은 별표한 것 먼저: 그 달 별표 id만 보낸다(500개까지).
-  let odD = {}, phD = {};
-  if (u.onedrive) {
+  // S53-3: 두 출처를 함께 받는다(한 출처가 느려도 다른 출처를 차례로 기다리지 않게).
+  const odJob = (async () => {
+    if (!u.onedrive) return {};
     const ids = starIds().filter(id => (starDay.get(id) || '').startsWith(key + '-')).slice(0, STAR_CHUNK);
-    if (!(want === 'star' && !ids.length)) odD = (await odDays(rt, key, {filter:want, starIds:ids.length || want === 'star' ? ids : null})).days;
+    return want === 'star' && !ids.length ? {} : (await odDays(rt, key, {filter:want, starIds:ids.length || want === 'star' ? ids : null})).days;
+  })();
+  const phJob = (async () => {
+    if (!u.phone) return {};
+    if (want === 'star') return daysFromItems(await phoneStarList(r), key);
+    return phone.days(key, {filter:want, prefer:phoneStarIds(), ...(await hideArg())});
+  })();
+  // 한 출처만 못 받으면 받은 출처로 그리고(기억하지 않음 — 다음에 다시 받는다) missed에 그 출처를 적는다. 둘 다 못 받으면 실패.
+  const [odR, phR] = await Promise.allSettled([odJob, phJob]);
+  if (odR.status === 'rejected' && (phR.status === 'rejected' || !u.phone)) throw odR.reason;
+  if (phR.status === 'rejected' && !u.onedrive) throw phR.reason;
+  days = mergeDays(odR.status === 'fulfilled' ? odR.value : {}, phR.status === 'fulfilled' ? phR.value : {});
+  if (odR.status === 'rejected' || phR.status === 'rejected') {
+    const bad = odR.status === 'rejected' ? {name:'onedrive', error:odR.reason} : {name:'phone', error:phR.reason};
+    Object.defineProperty(days, 'missed', {value:`${SOURCE_TEXT[bad.name]} · ${readErrorText(bad.error)}`});
+    return days;
   }
-  if (u.phone) {
-    if (want === 'star') phD = daysFromItems(await phoneStarList(r), key);
-    else phD = await phone.days(key, {filter:want, prefer:phoneStarIds(), ...(await hideArg())});
-  }
-  days = mergeDays(odD, phD);
   calData.set(cacheKey, days);
   return days;
 }
@@ -847,7 +948,9 @@ async function renderCalendar() {
     if (c.count) el.append(Object.assign(document.createElement('span'), {className:'photos-cal-c', textContent:String(c.count)}));
     grid.append(el);
   }
-  body.innerHTML = headHtml; body.append(grid);
+  // S53-3: 한 출처만 못 받았으면 받은 출처 달력 위에 한 줄 안내.
+  const missed = days.missed ? failHtml({retry:'data-photos-cal-retry', reason:days.missed}) : '';
+  body.innerHTML = headHtml + missed; body.append(grid);
 }
 // PHOTO-연월보기(S49-48): [사진] 탭의 월 보기·연 보기. 칸 수 단계 끝에서 [－]·오므리기로 넘어온다(계산은 photo-zoom-model.mjs).
 // 한 화면 소유자·최종 그리기는 이 함수 하나: 해 머리 + 월 줄(월 보기) 또는 해 줄(연 보기). 줄이 보일 때 그 달의 날 대표 사진을 받아(달력과 같은 monthDays 읽기, 새 AI·새 큰 요청 없음) 작은 칸에 끼운다.
@@ -2823,18 +2926,24 @@ async function loadAlbum(id) {
   const gone = () => { if (!current(r) || aFor !== id) { if (aFor === id) aFor = null; return true; } return false; };
   const mine = (async () => {
     try {
-      const all = [];
-      for (const ids of chunks(ready() ? c.keys : [], STAR_CHUNK)) {
-        let cursor = null;
-        for (let guard = 0; guard < 50; guard++) {
-          const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200, sort});
-          if (gone()) return;
-          all.push(...page.items); cursor = page.next;
-          if (!cursor) break;
+      // S53-3: 원드라이브·폰 사진을 함께 받는다(차례로 기다리지 않음).
+      const odJob = (async () => {
+        const out = [];
+        for (const ids of chunks(ready() ? c.keys : [], STAR_CHUNK)) {
+          let cursor = null;
+          for (let guard = 0; guard < 50; guard++) {
+            const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200, sort});
+            if (gone()) return out;
+            out.push(...page.items); cursor = page.next;
+            if (!cursor) break;
+          }
         }
-      }
+        return out;
+      })();
       // 폰 사진(이 폰에 있는 것만 — 다른 폰·지운 사진은 빠진다).
-      const ph = phoneUsable() && c.phoneKeys.length ? await phone.byIds(c.phoneKeys.map(phoneIdOfKey), await hideArg()) : [];
+      const phJob = (async () => (phoneUsable() && c.phoneKeys.length ? phone.byIds(c.phoneKeys.map(phoneIdOfKey), await hideArg()) : []))();
+      phJob.catch(() => {});
+      const [all, ph] = await Promise.all([odJob, phJob]);
       if (gone()) return;
       aItems = [...all.map(toItem), ...ph].sort(sortCompare(sort));
     } catch (error) { if (current(r) && aFor === id) aFailed = readErrorText(error); }
@@ -3342,6 +3451,7 @@ root.addEventListener('keydown', event => {
 // [사진] 목록만 비운다(별표·연결은 그대로). 받는 중이던 쪽은 버린다.
 function clearLists() {
   items = []; next = null; ended = false; renderedIds = []; odList = []; odEnded = false; phList = []; phNext = 0; phEnded = false; hidden.clear();
+  srcBusy.clear(); srcStalled.clear(); edge = null;
   gdItems = []; gdEnded = false; gdCursor = null;
 }
 function resetList() {
