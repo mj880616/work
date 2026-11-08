@@ -267,7 +267,7 @@ export async function readXlsx(bytes) {
 // files: [{name, bytes: Uint8Array}] → {type:'tabs'|'json', tabs?, data?, sha256, source_kind}.
 // 지문: 파일 하나면 그 파일 sha256, CSV 여러 개면 "이름\nsha256\n"을 이름순으로 이어 붙인 것의 sha256.
 export async function readInputFiles(files) {
-  if (!files?.length) throw new Error('파일을 고르세요.');
+  if (!files?.length) throw new Error('파일을 선택하세요.');
   const decoder = new TextDecoder();
   const hashes = [];
   for (const f of files) hashes.push({ name: f.name, sha: await sha256Hex(f.bytes) });

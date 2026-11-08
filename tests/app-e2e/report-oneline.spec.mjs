@@ -51,9 +51,9 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
   // 사업영역은 필수.
   await dialog.locator('[data-ol-text]').fill(LINE);
   await dialog.locator('[data-ol-save]').click();
-  await expect(dialog.locator('[data-ol-status]')).toHaveText('사업영역을 골라 주세요.');
+  await expect(dialog.locator('[data-ol-status]')).toHaveText('사업영역을 선택해 주세요.');
   expect(s.meetingWrites).toEqual([]);
-  // 공용 사업영역 고르기 창에서 고른다.
+  // 공용 사업영역 선택 창에서 고른다.
   await dialog.locator('[data-ol-area]').click();
   // S52-01 ③b: 모든 화면과 같은 고르기 창(하나만 고르기, 누르면 닫힘).
   const areas=page.locator(AOP_SHEET);await expect(areas).toBeVisible();await expect(areas.locator('h2')).toHaveText('사업영역 꼬리표');

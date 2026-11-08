@@ -18,8 +18,8 @@ test('저장 몸통: 칸 oneline·꼬리표·서울 0시·제목=한 줄·다음
   assert.equal(model.onelineBody({workspaceId:'w', userId:'u', areaId:A, day:'2026-10-29', text:'x', plan:'  '}).next_plan, null);
   assert.equal(model.onelineText('가\n\n나   다'), '가 나 다');
   assert.throws(() => model.onelineText('가'.repeat(model.ONELINE_MAX + 1)), {code:'too_long'});
-  assert.equal(model.onelineMissing({areaId:'', day:'2026-10-29', text:'x'}), '사업영역을 골라 주세요.');
-  assert.equal(model.onelineMissing({areaId:A, day:'', text:'x'}), '날짜를 골라 주세요.');
+  assert.equal(model.onelineMissing({areaId:'', day:'2026-10-29', text:'x'}), '사업영역을 선택해 주세요.');
+  assert.equal(model.onelineMissing({areaId:A, day:'', text:'x'}), '날짜를 선택해 주세요.');
   assert.equal(model.onelineMissing({areaId:A, day:'2026-10-29', text:'  '}), '한 줄을 써 주세요.');
   assert.equal(model.onelineMissing({areaId:A, day:'2026-10-29', text:'x'}), '');
   assert.equal(model.onelineAt('2026-13-45x'), '');

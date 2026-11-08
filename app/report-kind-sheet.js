@@ -12,7 +12,7 @@ let sheet=null,active=null;
 function ensureSheet(){
   sheet||=createChoiceSheet({id:'reportKindSheet',titleId:'reportKindSheetTitle',historyKey:'kptuReportKind',
     canOpen:()=>!!active,choices:async()=>{},
-    render:()=>({title:active?.title||'칸 고르기',html:(active?.onOneline?ONELINE_ROW:'')+REPORT_KINDS.map(k=>`<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:0" data-depth="0" data-sheet-value="${esc(k.value)}" aria-pressed="${k.value===active?.current}" title="${esc(k.label)}"><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${esc(k.label)}</span></button>`).join('')}),
+    render:()=>({title:active?.title||'칸 선택',html:(active?.onOneline?ONELINE_ROW:'')+REPORT_KINDS.map(k=>`<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:0" data-depth="0" data-sheet-value="${esc(k.value)}" aria-pressed="${k.value===active?.current}" title="${esc(k.label)}"><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${esc(k.label)}</span></button>`).join('')}),
     // 고르면 창이 닫히는 중이다(choice-sheet가 onSelect 뒤 close). 닫기가 끝난 뒤(뒤로가기 기록 정리·초점 복귀) 다음 창을 연다.
     onSelect:(kind,value)=>{const pick=active?.onPick;if(isReportKind(value))queueMicrotask(()=>sheet.close().then(()=>pick?.(value)))}});
   // MTG-한줄업데이트: 맨 위 [✎ 한 줄 업데이트] 줄은 칸 값(data-sheet-value)이 아니라 따로 누른다 — 칸 고르기와 섞이지 않게.
@@ -22,14 +22,14 @@ function ensureSheet(){
 const ONELINE_ROW=`<button type="button" class="home-choice-row home-choice-oneline" style="--home-choice-depth:0" data-depth="0" data-report-oneline title="사업영역에 진행 상황 한 줄"><span class="home-choice-check" aria-hidden="true">✎</span><span class="home-choice-name">한 줄 업데이트</span></button>`;
 // trigger: 누른 버튼(닫힌 뒤 초점이 돌아감). onPick(value)는 고른 뒤 창이 닫히고 불린다. 닫기·Esc·뒤로가기는 아무것도 하지 않는다.
 // onOneline: 있으면 맨 위에 [한 줄 업데이트] 줄을 두고, 누르면 창이 닫힌 뒤 불린다(사업 보고 [+] 메뉴만).
-export function pickReportKind(trigger,{title='칸 고르기',current='',onPick,onOneline=null}={}){
+export function pickReportKind(trigger,{title='칸 선택',current='',onPick,onOneline=null}={}){
   active={title,current,onPick,onOneline};
   return ensureSheet().open('kind',trigger);
 }
 
 // 칸 바꾸기 저장. 돌아온 행이 같은 id·같은 업무공간·고른 칸인지 확인한다(회의 결과 창 수정 저장과 같은 확인).
 export async function saveReportKind(id,kind){
-  if(!isReportKind(kind))throw new Error('고를 수 없는 칸입니다.');
+  if(!isReportKind(kind))throw new Error('선택할 수 없는 칸입니다.');
   const rt=window.KPTURuntime,workspace=rt?.context?.read?.()?.workspace?.id;
   if(!rt?.api||!workspace||!id)throw new Error('로그인 상태를 확인하지 못했습니다.');
   // ACT-사진 3단계: 사진의 자료실 종류가 칸을 따라가도록 바꾸기 전 칸을 기억해 둔다(못 읽으면 사진은 그대로 둔다).

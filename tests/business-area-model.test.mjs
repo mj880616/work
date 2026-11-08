@@ -89,7 +89,7 @@ test('화면 연결: 쓰기 창·고치기 창·보기 면·미리보기·⋯ �
   assert.match(read('report-links.js'), /select=business_area_id,next_plan&limit=1/);
 });
 
-test('사업영역 고르기: 보고가 있는 1단만(트리 순서), 옛 보고는 빌린 꼬리표로, 안 단 보고는 목록에 없음(S52-22)', () => {
+test('사업영역 선택: 보고가 있는 1단만(트리 순서), 옛 보고는 빌린 꼬리표로, 안 단 보고는 목록에 없음(S52-22)', () => {
   const list = [...meetings, {id:'r5', series_name:'아무 데도', meeting_at:'2026-10-09T01:00:00Z'}];
   assert.deepEqual(m.areaChipOptions(list, tree), [{value:'all', label:'전체'}, {value:'A', label:'사업영역 A'}, {value:'B', label:'사업영역 B'}]);
   const roots = m.areaRoots(tree);

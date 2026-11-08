@@ -103,7 +103,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   // 눌러도 아직 바뀌지 않는다: 해 보기만 가고, 미리보기를 보고 [반영]해야 바뀐다.
   await item.getByRole('button',{name:'합치기'}).click();
   await expect(root.locator('[data-lm-preview]')).toContainText('근거를 더하고');
-  await expect(root.locator('[data-lm-preview]')).toContainText('지우지 않아요');
+  await expect(root.locator('[data-lm-preview]')).toContainText('삭제하지 않아요');
   expect(db.dry).toHaveLength(1);
   expect(db.real).toHaveLength(0);
   expect(db.dry[0].p_request.items.map(i=>[i.target,i.do])).toEqual([['EVT-0901','add_source'],['EVT-0902','retire']]);

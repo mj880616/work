@@ -1,4 +1,4 @@
-// MTG-사업영역없음(요청 10/30 07:51): 사업영역 고르기 [없음] — 규칙(business-area-model.mjs)과 화면 연결(정적 검사).
+// MTG-사업영역없음(요청 10/30 07:51): 사업영역 선택 [없음] — 규칙(business-area-model.mjs)과 화면 연결(정적 검사).
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -20,7 +20,7 @@ test('[없음] = 칸 business_area_none true + 꼬리표 빈 것. 꼬리표가 �
   assert.deepEqual(m.shownArea({business_area_id:'B',business_area_none:true}),{id:'B',legacy:false});
 });
 
-test('저장 몸통: [없음] → 꼬리표 비움 + true, 사업영역 → 그 id + false, 고르기 → 둘 다 비움. 칸 없는 서버는 business_area_none을 보내지 않는다',()=>{
+test('저장 몸통: [없음] → 꼬리표 비움 + true, 사업영역 → 그 id + false, 선택 → 둘 다 비움. 칸 없는 서버는 business_area_none을 보내지 않는다',()=>{
   assert.deepEqual(m.areaBody(m.AREA_NONE),{business_area_id:null,business_area_none:true});
   assert.deepEqual(m.areaBody('A'),{business_area_id:'A',business_area_none:false});
   assert.deepEqual(m.areaBody(''),{business_area_id:null,business_area_none:false});
@@ -28,7 +28,7 @@ test('저장 몸통: [없음] → 꼬리표 비움 + true, 사업영역 → 그 
   assert.deepEqual(m.areaBody('',false),{business_area_id:null});
 });
 
-test("[없음]을 고른 보고는 '안 단 보고' 개수·[달기] 창·미리보기 '안 단 보고'에서 빠진다",()=>{
+test("[없음]을 선택한 보고는 '안 단 보고' 개수·[달기] 창·미리보기 '안 단 보고'에서 빠진다",()=>{
   const ms=[
     {id:'a',business_area_id:null,business_area_none:false,meeting_at:'2026-10-27T01:00:00Z'},
     {id:'n',business_area_id:null,business_area_none:true,meeting_at:'2026-10-28T01:00:00Z'},
@@ -41,7 +41,7 @@ test("[없음]을 고른 보고는 '안 단 보고' 개수·[달기] 창·미리
   assert.equal(p.all.length,3);
 });
 
-test("사업 보고 [사업영역 ▾]: [없음] 보고는 '사업영역 없음 n' 한 줄, 안 고른 보고는 목록에 없음(S52-22: '안 단 보고' 줄이 맡음)",()=>{
+test("사업 보고 [사업영역 ▾]: [없음] 보고는 '사업영역 없음 n' 한 줄, 안 선택한 보고는 목록에 없음(S52-22: '안 단 보고' 줄이 맡음)",()=>{
   const ms=[
     {id:'n1',business_area_id:null,business_area_none:true,project_id:'A'},
     {id:'n2',business_area_id:null,business_area_none:true},
@@ -55,15 +55,15 @@ test("사업 보고 [사업영역 ▾]: [없음] 보고는 '사업영역 없음 
   assert.equal(m.NO_AREA,undefined);
 });
 
-test('화면 연결(전수): [달기] 창·쓰기/고치기 창은 [없음]을 두고, 한 줄 업데이트 창은 두지 않는다. AI 추천은 [없음]을 미리 고르지 않는다',()=>{
+test('화면 연결(전수): [달기] 창·쓰기/수정 창은 [없음]을 두고, 한 줄 업데이트 창은 두지 않는다. AI 추천은 [없음]을 미리 선택하지 않는다',()=>{
   const tag=read('report-area-tag.js');
-  // S52-01 ③b: 줄마다 공용 고르기 창(하나만) — 맨 위 '고르기', 그 바로 아래 회색 '없음'(withNone일 때만), 그 아래 사업영역.
-  assert.match(tag,/top=\[\{key:'',name:'고르기'\},\.\.\.\(a\.withNone\?\[\{key:AREA_NONE,name:NONE_LABEL,attrs:'data-area-none data-aop-muted'\}\]:\[\]\)\]/);
+  // S52-01 ③b: 줄마다 공용 선택 창(하나만) — 맨 위 '선택', 그 바로 아래 회색 '없음'(withNone일 때만), 그 아래 사업영역.
+  assert.match(tag,/top=\[\{key:'',name:'선택'\},\.\.\.\(a\.withNone\?\[\{key:AREA_NONE,name:NONE_LABEL,attrs:'data-area-none data-aop-muted'\}\]:\[\]\)\]/);
   assert.match(tag,/withNone:list\.every\(hasAreaNone\)/);
   assert.match(tag,/areaBody\(value,withNone\)/);
   assert.doesNotMatch(tag,/presetArea\([^)]*AREA_NONE/);
   const sheet=read('report-places-sheet.js');
-  assert.match(sheet,/top=allowNone\?\[\{key:'',name:'고르지 않음'\},\{key:AREA_NONE,name:'없음',attrs:'data-area-none data-aop-muted'\}\]:\[\{key:'',name:'꼬리표 없음'\}\]/);
+  assert.match(sheet,/top=allowNone\?\[\{key:'',name:'선택하지 않음'\},\{key:AREA_NONE,name:'없음',attrs:'data-area-none data-aop-muted'\}\]:\[\{key:'',name:'꼬리표 없음'\}\]/);
   const fields=read('business-area-fields.js');
   assert.match(fields,/allowNone:noneReady/);
   assert.match(fields,/const pickArea=id=>\{const v=String\(id\|\|''\);none=noneReady&&v===AREA_NONE;area=v===AREA_NONE\?'':v;legacy=false;touched=true;/);

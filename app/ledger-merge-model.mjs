@@ -22,8 +22,8 @@ export const MERGE_TEXT = Object.freeze({
   undone: '합침을 취소했어요.',
   failed: '합치지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   readFailed: '겹친 기록을 읽지 못했어요.',
-  preview: (keep, drop) => `‘${keep}’에 ‘${drop}’의 근거를 더하고, ‘${drop}’은 합쳐서 폐기해요(지우지 않아요).`,
-  previewSame: (keep, drop) => `‘${drop}’은 합쳐서 폐기해요(지우지 않아요). ‘${keep}’에 이미 같은 근거가 있어요.`,
+  preview: (keep, drop) => `‘${keep}’에 ‘${drop}’의 근거를 더하고, ‘${drop}’은 합쳐서 폐기해요(삭제하지 않아요).`,
+  previewSame: (keep, drop) => `‘${drop}’은 합쳐서 폐기해요(삭제하지 않아요). ‘${keep}’에 이미 같은 근거가 있어요.`,
 });
 export const SOURCE_LABEL = Object.freeze({meeting: '사업 보고', project_update: '사업영역 기록', org_update: '담당조직 기록', basket: '업데이트'});
 const LIVE = new Set(['current', 'needs_check', 'fulfilled']);

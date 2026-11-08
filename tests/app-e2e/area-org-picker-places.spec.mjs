@@ -14,7 +14,7 @@ async function setup(page,width){
   await page.reload();const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').fill('합성 기록');
   return q;
 }
-for(const width of [390,1280])test(`기록할 곳: 담당조직 묶음·사업영역 상위만, 꺾쇠로 펼침, 찾기(폰도), 고른 묶음은 다시 열면 펼침 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`기록할 곳: 담당조직 묶음·사업영역 상위만, 꺾쇠로 펼침, 찾기(폰도), 선택한 묶음은 다시 열면 펼침 ${width}`,async({page})=>{
   const q=await setup(page,width);await q.locator('[data-quick-org]').click();
   const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();
   const orgs=sheet.locator('[data-sheet-all]'),projects=sheet.locator('[data-sheet-projects]');

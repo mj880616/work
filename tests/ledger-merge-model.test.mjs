@@ -110,7 +110,7 @@ test('후보 수는 한도를 넘지 않는다', () => {
   assert.equal(mergeCandidates({ pairs: samePairs(pairs), records, sources, links }).length, MERGE_LIMIT);
 });
 
-test('수정 요청: 근거 추가 + 폐기(지우지 않음), 사용자가 보낸 것으로, 항목은 같은 기록을 두 번 가리키지 않는다', () => {
+test('수정 요청: 근거 추가 + 폐기(삭제하지 않음), 사용자가 보낸 것으로, 항목은 같은 기록을 두 번 가리키지 않는다', () => {
   const [c] = mergeCandidates(base());
   const req = mergeRequest(c);
   assert.deepEqual(req, { format: 'kptu-ledger-fix', version: 1, received_from: 'user', items: [
@@ -127,7 +127,7 @@ test('미리보기 문구: 일상어, 고정 ID·"틀린 기록" 낱말 없음',
   const [c] = mergeCandidates(base());
   const line = previewText(c);
   assert.match(line, /근거를 더하고/);
-  assert.match(line, /지우지 않아요/);
+  assert.match(line, /삭제하지 않아요/);
   assert.doesNotMatch(line, /EVT-|SRC-|틀린/);
   assert.match(previewText({ ...c, addSource: null }), /이미 같은 근거/);
   assert.equal(originLabel(c.keep), '사업 보고');

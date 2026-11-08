@@ -182,10 +182,10 @@ for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes 
  const box=rec.locator('[data-wd-up-input]');await expect(box).toBeFocused();await expect(box).toHaveCSS('resize','none');
  const bigBtn=rec.locator('[data-wd-field-big]');await expect(bigBtn).toBeVisible();await expect(bigBtn).toHaveAccessibleName('크게');
  await bigBtn.click();await expect(editor).toBeVisible();await expect(editorText).toContainText('합성 기록 0');
- await typeInto(page,editorText,'합성 기록 0 큰 창에서 고침');
+ await typeInto(page,editorText,'합성 기록 0 큰 창에서 수정됨');
  await editor.locator('[data-close="edWindow"]').click();
  await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(editor).toHaveCount(0);
- await expect(box).toHaveValue('합성 기록 0 큰 창에서 고침');await expect(box).toBeFocused();
+ await expect(box).toHaveValue('합성 기록 0 큰 창에서 수정됨');await expect(box).toBeFocused();
  expect(state.writes).toEqual([]);
  await rec.locator('[data-wd-up-cancel]').click();await expect(rec.locator('[data-wd-up-edit]')).toHaveCount(0);
  // 2) The 요약 box of a linked record.
@@ -196,9 +196,9 @@ for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes 
  // 요약 keeps letters only (결정 E): the window says so, and its [저장] hands the letters to the box; the box's own [저장] is the only save.
  await sumBig.click();await expect(editor).toBeVisible();await expect(editorText).toContainText('합성 조직 연결 요약');
  await expect(editor.locator('.ed-window-note')).toBeVisible();
- await typeInto(page,editorText,'합성 요약 큰 창에서 고침');
+ await typeInto(page,editorText,'합성 요약 큰 창에서 수정됨');
  await editor.locator('[data-edw-save]').click();await expect(editor).toHaveCount(0);
- await expect(sum).toHaveValue('합성 요약 큰 창에서 고침');await expect(sum).toBeFocused();
+ await expect(sum).toHaveValue('합성 요약 큰 창에서 수정됨');await expect(sum).toBeFocused();
  expect(state.writes).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });

@@ -100,7 +100,7 @@ for(const width of [390,1280])test(`단계 저장·이력·목록 꼬리표 ${wi
 // S51-28 LIB-화면정리 ② 같은 종류 전수: 쟁의 단계 관리 창도 공용 '목록 고치기' 모양(⠿ · 이름 그 자리 고침 · 꼬리표 · ⋯ 메뉴, 맨 위 추가 칸, 지우기는 빨강 없이 한 번 묻기).
 const rows=dlg=>dlg.locator('.le-list > .le-row');
 async function act(page,row,label){await row.locator('.le-more').click();await page.locator('#stgMenu').getByRole('button',{name:label,exact:true}).click();}
-for(const width of [390,1280])test(`쟁의 단계 관리: 추가·이름·투쟁 중·순서·지우기(기본 단계로 이동) ${width}px`,async({page})=>{
+for(const width of [390,1280])test(`쟁의 단계 관리: 추가·이름·투쟁 중·순서·삭제(기본 단계로 이동) ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width});
  await clickView(page,'team');
  await page.locator('#soTeamMore').click();
@@ -144,7 +144,7 @@ for(const width of [390,1280])test(`쟁의 단계 관리: 추가·이름·투쟁
  await dlg.locator('button[aria-label="닫기"]').click();
  await page.locator('#soTeamMore').click();await page.locator('#soTeamMenu [data-so-stage-manage]').click();
  const again=page.locator('#soStageModal .le-row',{hasText:'합성 바뀐 단계'});await expect(again).toBeVisible();
- await act(page,again,'지우기');
+ await act(page,again,'삭제');
  const ask=page.locator('.kptu-ask');await expect(ask).toContainText('합성 가 지부 1곳이 이 단계예요.');await expect(ask).toContainText('교섭 시작 전');await expect(ask.locator('.danger')).toHaveCount(0);
  expect(db.rpc).toEqual([]);
  await ask.locator('.kptu-ask-actions button').nth(1).click();
@@ -155,14 +155,14 @@ for(const width of [390,1280])test(`쟁의 단계 관리: 추가·이름·투쟁
  expect(errors).toEqual([]);
 });
 
-test('조직이 없는 단계를 지울 때는 알림 없이 한 번 확인 뒤 지움(기본 단계 지우기 불가)',async({page})=>{
+test('조직이 없는 단계를 삭제할 때는 알림 없이 한 번 확인 뒤 지움(기본 단계 삭제 불가)',async({page})=>{
  const {db}=await fixture(page,{width:390});
  await clickView(page,'team');await page.locator('#soTeamMore').click();await page.locator('#soTeamMenu [data-so-stage-manage]').click();
  const dlg=page.locator('#soStageModal'),second=rows(dlg).nth(1),ask=page.locator('.kptu-ask');
- await act(page,second,'지우기');
- await expect(ask).toContainText('‘교섭 중’ 단계를 지울까요?');
+ await act(page,second,'삭제');
+ await expect(ask).toContainText('‘교섭 중’ 단계를 삭제할까요?');
  await ask.locator('.kptu-ask-actions button').nth(0).click();await expect(rows(dlg)).toHaveCount(11);expect(db.rpc).toEqual([]);
- await act(page,second,'지우기');await ask.locator('.kptu-ask-actions button').nth(1).click();
+ await act(page,second,'삭제');await ask.locator('.kptu-ask-actions button').nth(1).click();
  await expect(rows(dlg)).toHaveCount(10);expect(db.rpc).toEqual([{p_stage_id:'stage-2',p_move_organizations:false}]);
 });
 
@@ -231,7 +231,7 @@ for(const width of [390,1280])test(`단계 기간 저장: [~ 끝 날짜] → 이
  expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`이력 한 줄 ⋯ → 고치기(단계·날짜·끝 날짜)·지우기(한 번 더 확인), 현재 단계 다시 계산 ${width}px`,async({page})=>{
+for(const width of [390,1280])test(`이력 한 줄 ⋯ → 수정(단계·날짜·끝 날짜)·삭제(한 번 더 확인), 현재 단계 다시 계산 ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width});
  db.history.push({id:'h-a',organization_id:'oa',stage_id:'stage-2',stage_name:'교섭 중',stage_date:'2026-09-20',end_date:null,created_at:'2026-09-20T00:00:00Z'},
   {id:'h-b',organization_id:'oa',stage_id:'stage-3',stage_name:'쟁의발생 결의',stage_date:'2026-10-02',end_date:null,created_at:'2026-10-02T00:00:00Z'});
@@ -241,7 +241,7 @@ for(const width of [390,1280])test(`이력 한 줄 ⋯ → 고치기(단계·날
  await line.locator('summary').click();
  const rowB=line.locator('[data-stage-hrow="h-b"]');
  await rowB.locator('[data-stage-hmore]').click();
- await expect(rowB.locator('.wd-stage-hsub button')).toHaveText(['고치기','지우기']);
+ await expect(rowB.locator('.wd-stage-hsub button')).toHaveText(['수정','삭제']);
  // 고치기: 끝 < 시작은 막고, 바르게 고치면 PATCH 한 번
  await rowB.locator('[data-stage-hedit]').click();
  await expect(rowB.locator('[data-stage-hselect]')).toBeFocused();
@@ -250,18 +250,18 @@ for(const width of [390,1280])test(`이력 한 줄 ⋯ → 고치기(단계·날
  await rowB.locator('button[type=submit]').click();
  await expect(line.locator('[data-stage-msg]')).toHaveText('끝 날짜는 시작 날짜와 같거나 뒤여야 해요.');expect(db.hpatches).toEqual([]);
  await rowB.locator('[data-stage-hend]').fill('2026-10-05');await rowB.locator('button[type=submit]').click();
- await expect(line.locator('[data-stage-msg]')).toHaveText('이력을 고쳤어요.');
+ await expect(line.locator('[data-stage-msg]')).toHaveText('이력을 수정했어요.');
  expect(db.hpatches).toEqual([{id:'h-b',stage_id:'stage-6',stage_name:'파업 찬반투표',stage_date:'2026-10-03',end_date:'2026-10-05'}]);
  await expect(line.locator('[data-stage-hrow="h-b"] .wd-stage-htext')).toHaveText('10.3 ~ 10.5 파업 찬반투표');
  await expect(stageSelect(page)).toHaveValue('stage-6');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('파업 찬반투표');
  await expect(line.locator('details')).toHaveAttribute('open','');
  // 지우기: 확인 단계 → 취소하면 그대로, 확인하면 DELETE 한 번, 현재 단계는 남은 최신 줄(교섭 중)
  await line.locator('[data-stage-hrow="h-b"] [data-stage-hmore]').click();await line.locator('[data-stage-hrow="h-b"] [data-stage-hdel]').click();
- await expect(line.locator('[data-stage-hrow="h-b"] .stg-confirm')).toContainText('이 줄을 지울까요?');
+ await expect(line.locator('[data-stage-hrow="h-b"] .stg-confirm')).toContainText('이 줄을 삭제할까요?');
  await line.locator('[data-stage-hrow="h-b"] [data-stage-hcancel]').click();expect(db.hdeletes).toEqual([]);
  await line.locator('[data-stage-hrow="h-b"] [data-stage-hmore]').click();await line.locator('[data-stage-hrow="h-b"] [data-stage-hdel]').click();
  await line.locator('[data-stage-hrow="h-b"] [data-stage-hdel-yes]').click();
- await expect(line.locator('[data-stage-msg]')).toHaveText('이력 한 줄을 지웠어요.');
+ await expect(line.locator('[data-stage-msg]')).toHaveText('이력 한 줄을 삭제했어요.');
  expect(db.hdeletes).toEqual(['h-b']);
  await expect(stageSelect(page)).toHaveValue('stage-2');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveCount(0);
  await expect(line.locator('summary')).toHaveText('단계 이력 1');
@@ -272,7 +272,7 @@ for(const width of [390,1280])test(`이력 한 줄 ⋯ → 고치기(단계·날
  expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`끝 날짜 칸이 아직 없을 때(DB 적용 전): 읽기·하루짜리 저장은 그대로, 끝 날짜·고치기는 저장 시 안내 ${width}px`,async({page})=>{
+for(const width of [390,1280])test(`끝 날짜 칸이 아직 없을 때(DB 적용 전): 읽기·하루짜리 저장은 그대로, 끝 날짜·수정은 저장 시 안내 ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width,period:false});
  db.history.push({id:'h-a',organization_id:'oa',stage_id:'stage-3',stage_name:'쟁의발생 결의',stage_date:'2026-10-02',created_at:'2026-10-02T00:00:00Z'});
  await openOrg(page,'oa',width);

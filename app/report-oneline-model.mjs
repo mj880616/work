@@ -22,8 +22,8 @@ export function onelineAt(day) {
 }
 // 저장 확인: 빠진 칸이 있으면 화면 글자, 없으면 ''.
 export function onelineMissing({areaId, day, text}) {
-  if (!areaId) return '사업영역을 골라 주세요.';
-  if (!onelineAt(day)) return '날짜를 골라 주세요.';
+  if (!areaId) return '사업영역을 선택해 주세요.';
+  if (!onelineAt(day)) return '날짜를 선택해 주세요.';
   if (!onelineText(text)) return '한 줄을 써 주세요.';
   return '';
 }

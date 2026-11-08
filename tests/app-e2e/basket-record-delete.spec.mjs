@@ -55,7 +55,7 @@ for(const width of [390,1280])test(`organization original delete moves the updat
  const messages=[];
  await linkAction(host.locator(`[data-basket-link="${link}"]`),'원문 삭제',{tap:width<761});messages.push(await answerAsk(page,true));
  await expect(host.locator('[data-basket-link]')).toHaveCount(1);await expect(host).toContainText('다른 메모 요약');
- expect(messages).toEqual(['업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.']);
+ expect(messages).toEqual(['업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래 자리로 돌아옵니다.']);
  // 예전 서버 note-delete 경로는 쓰지 않고, owner-RLS DELETE 한 번만 보낸다(서버 가로채기가 휴지통 표시로 바꿈).
  expect(page.__posts).toEqual([]);
  expect(await deletes(page)).toEqual([{table:'app_notes',params:{id:'eq.'+note,workspace_id:'eq.detail-workspace',select:'id'}}]);
@@ -136,7 +136,7 @@ async function basket(page,{fail=0,mode='ok'}={}){
 async function openNote(page,width){await tap(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await showBasketRow(page,'n');await tap(page,page.locator('[data-basket-row="n"]'),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();}
 
 // TRASH-다른삭제 5단계: 업데이트 [삭제]는 휴지통으로 간다. 확인창 글, '휴지통으로 옮겼어요 · 되돌리기' 한 줄, 되돌리면 목록에 다시 나타남.
-const CONFIRM='업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 1곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.';
+const CONFIRM='업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 1곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래 자리로 돌아옵니다.';
 for(const width of [390,1280])test(`basket read view moves the update to the trash, offers undo and returns to the list ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const f=await basket(page);await openNote(page,width);const detail=page.locator('[data-basket-detail]');
  // UI-디자인손질 6: 수정·삭제 live in the note's [⋯]; while editing that menu is gone.

@@ -23,7 +23,7 @@ export function mountReportSettings(host, {prefs = globalThis.KPTUViewPrefs || v
     host.innerHTML = `<details class="ps-report"${open ? ' open' : ''}><summary><h3>보고 설정</h3><span class="ps-report-line" data-ps-report-summary>${esc(summaryText(orgOrder, calendar))}</span></summary>
 <label class="ps-report-field">보고 캘린더 <small>주간 정리 '주요 일정'을 가져올 Google 캘린더 이름</small><input id="psReportCalendar" type="text" maxlength="60" autocomplete="off" value="${esc(calendar)}"${busy ? ' disabled' : ''}></label>
 <label class="ps-report-field">담당조직 묶음 <small>한 줄에 묶음 하나 · 묶음 이름: 조직, 조직 (적은 순서대로 보임, 나머지는 '그 외' 가나다순)</small><textarea id="psReportGroups" rows="5"${busy ? ' disabled' : ''}>${esc(formatGroups(orgOrder))}</textarea></label>
-<label class="ps-report-field">고르기에서 뺄 조직 <small>쉼표로 나눔 · 목록에는 남고 고르기 칸에만 안 보임</small><input id="psReportHidden" type="text" autocomplete="off" value="${esc(formatHidden(orgOrder))}"${busy ? ' disabled' : ''}></label>
+<label class="ps-report-field">선택에서 뺄 조직 <small>쉼표로 나눔 · 목록에는 남고 선택 칸에만 안 보임</small><input id="psReportHidden" type="text" autocomplete="off" value="${esc(formatHidden(orgOrder))}"${busy ? ' disabled' : ''}></label>
 ${missing.length ? `<p class="ps-report-note" data-ps-report-missing>내 담당조직 목록에 없는 이름 ${missing.length}개: ${esc(missing.join(', '))}</p>` : ''}${note ? `<p class="ps-report-note" role="status">${esc(note)}</p>` : ''}
 <div class="ps-report-actions"><button type="button" class="secondary ps-save" data-ps-report-save${busy ? ' disabled aria-busy="true"' : ''}>${busy ? '저장 중…' : '보고 설정 저장'}</button></div></details>`;
   }

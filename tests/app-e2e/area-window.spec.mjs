@@ -104,7 +104,7 @@ for(const width of [390,1280])test(`${width}: 옛 주소 ?view=projects·?projec
   expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`${width}: '사업영역 안 단 보고 n건 [달기]' — 보고 있는 주에만, 0건이면 없음, [달기] → AI 미리 고름 → 저장 뒤 줄이 사라지고 꼬리표가 바뀜`,async({page})=>{
+for(const width of [390,1280])test(`${width}: '사업영역 안 단 보고 n건 [달기]' — 보고 있는 주에만, 0건이면 없음, [달기] → AI 미리 선택됨 → 저장 뒤 줄이 사라지고 꼬리표가 바뀜`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=state();await open(page,s,width);
   const line=page.locator('#areaUntaggedLine');
@@ -129,7 +129,7 @@ for(const width of [390,1280])test(`${width}: '사업영역 안 단 보고 n건 
   expect(s.aiCalls).toHaveLength(1);expect(s.aiCalls[0]).toMatchObject({kind:'area_suggest',title:'합성 정기 회의'});
   // 고른 것을 바꾸면 AI 표시가 사라진다. 다시 AI가 고른 것으로.
   // S52-01 ③b: 칸을 누르면 모든 화면과 같은 고르기 창(하나만, 이 창 위에). 하위는 꺾쇠로 펼쳐 고르고 칸은 '상위 › 하위'.
-  await select.click();const picker=page.locator(AOP_SHEET);await expect(picker).toBeVisible();await expect(picker.locator('h2')).toHaveText('사업영역 고르기');
+  await select.click();const picker=page.locator(AOP_SHEET);await expect(picker).toBeVisible();await expect(picker.locator('h2')).toHaveText('사업영역 선택');
   await pressRow(page,'p:child-a1');await expect(picker).toBeHidden();await expect(sheet).toBeVisible();
   await expect(select).toHaveAttribute('data-value','child-a1');await expect(select).toContainText(' › ');await expect(row.locator('[data-area-tag-mark]')).toBeHidden();
   await select.click();await expect(picker).toBeVisible();await pressRow(page,'p:top-a');await expect(picker).toBeHidden();
@@ -161,7 +161,7 @@ for(const width of [390,1280])test(`${width}: [달기] 창 [없음] → 저장 �
   await expect(select).toHaveAttribute('data-value','top-a'); // AI 추천은 사업영역만
   // S52-01 ③b: 공용 고르기 창 맨 위 '고르기', 바로 아래 회색 '없음'.
   await select.click();const picker=page.locator(AOP_SHEET);await expect(picker).toBeVisible();
-  expect(await picker.locator('.aop-list [data-sheet-value]').evaluateAll(els=>els.slice(0,2).map(el=>el.textContent))).toEqual(['고르기','없음']);
+  expect(await picker.locator('.aop-list [data-sheet-value]').evaluateAll(els=>els.slice(0,2).map(el=>el.textContent))).toEqual(['선택','없음']);
   await pressRow(page,'__area_none__');await expect(picker).toBeHidden();await expect(select).toHaveClass(/is-none/);await expect(select).toHaveText('없음');
   const before=s.meetingWrites.length;
   await sheet.locator('[data-area-tag-save]').click();await expect(sheet).toBeHidden();
@@ -208,14 +208,14 @@ for(const width of [1440,1024,884])test(`${width}: [달기] 창은 화면 안, �
 // S52-01 ③b UI-사업영역조직고르기창: 사업 보고 고치기 창 [사업영역]도 모든 화면과 같은 고르기 창(하나만 고르기).
 // 맨 위 '고르지 않음'·회색 '없음', 큰 묶음만 + 꺾쇠로 하위, 찾기(폰도). 고르면 칸은 '상위 › 하위', 저장 값은 그대로(business_area_id).
 import {mrdMenu} from './helpers/meeting-open.mjs';
-for(const width of [390,1280])test(`${width}: S52-01 ③b 사업 보고 [사업영역]은 공용 고르기 창 — 하위를 고르면 '상위 › 하위', 저장 값 그대로`,async({page})=>{
+for(const width of [390,1280])test(`${width}: S52-01 ③b 사업 보고 [사업영역]은 공용 선택 창 — 하위를 선택하면 '상위 › 하위', 저장 값 그대로`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=state();for(const m of s.meetings)m.business_area_none=false;await open(page,s,width);
   await openMeetingResult(page,'m-1');await mrdMenu(page,'edit');
   const pick=page.locator('[data-biz-area-pick]:visible');await expect(pick).toHaveText('꼬리표 없음');
   await pick.click();const picker=page.locator(AOP_SHEET);await expect(picker).toBeVisible();
   await expect(picker.locator('h2')).toHaveText('사업영역 꼬리표');await expect(picker.locator('[data-sheet-search]')).toBeVisible();
-  expect(await picker.locator('.aop-list [data-sheet-value]').evaluateAll(els=>els.slice(0,2).map(el=>[el.dataset.sheetValue,el.textContent]))).toEqual([['','고르지 않음'],['__area_none__','없음']]);
+  expect(await picker.locator('.aop-list [data-sheet-value]').evaluateAll(els=>els.slice(0,2).map(el=>[el.dataset.sheetValue,el.textContent]))).toEqual([['','선택하지 않음'],['__area_none__','없음']]);
   // 하위는 접혀 있다가 꺾쇠로 펼친다.
   await expect(picker.locator('.aop-list [data-sheet-value="p:child-a1"]')).toBeHidden();
   await pressRow(page,'p:child-a1');await expect(picker).toBeHidden();

@@ -11,7 +11,7 @@ const MEETING=Object.freeze({
   textLabel:'회의 결과 원문',
   textPlaceholder:'회의 결과를 원문 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.',
   materials:'회의자료',
-  pickFiles:'회의자료 파일 고르기',
+  pickFiles:'회의자료 파일 선택',
   materialsSaved:'회의자료',
   // S48-64(REC-전사원문저장, 명진 11/03 '특이사항을 회의록 전문으로'): [회의] 칸의 notes 칸 = 전사 전문. 칸(DB 열)은 그대로 app_meetings.notes.
   notesLabel:'회의록 전문',
@@ -25,7 +25,7 @@ const OTHER=Object.freeze({
   textLabel:'원문',
   textPlaceholder:'내용을 원문 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.',
   materials:'자료',
-  pickFiles:'자료 파일 고르기',
+  pickFiles:'자료 파일 선택',
   materialsSaved:'자료',
   notesLabel:'특이사항',
   notesPlaceholder:'원문과 별도로 남겨야 할 특이사항이 있을 때만 입력하세요.'

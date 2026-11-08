@@ -121,7 +121,7 @@ test('담당조직 상세에서 연결된 할 일을 보고, 이 조직으로 �
   await expect(page.locator('#wdTaskBody')).toBeEmpty();
 });
 
-test('담당조직 목록·상세·편집창은 412px와 1280px에서 가로로 넘치지 않는다',async({page})=>{
+test('담당조직 목록·상세·수정창은 412px와 1280px에서 가로로 넘치지 않는다',async({page})=>{
   const calls=[];
   for(const width of [412,1280]){
     await page.setViewportSize({width,height:900});

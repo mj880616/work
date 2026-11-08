@@ -98,7 +98,7 @@ for (const width of [1440, 390]) test(`${width}: 기간 한 줄 — 기본은 �
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
 });
 
-test('기간 설정: 달력으로 시작·끝 날을 고르면 그 기간 보고만 보이고, 서버에 기억해 다시 열어도 같다', async ({page, browser}) => {
+test('기간 설정: 달력으로 시작·끝 날을 선택하면 그 기간 보고만 보이고, 서버에 기억해 다시 열어도 같다', async ({page, browser}) => {
   const state = makeState();
   const prefs = await open(page, state, 1440);
   const from = daysAgo(41), to = daysAgo(39);

@@ -28,8 +28,8 @@ export function parseOrgOrder(groupsText, hiddenText) {
   }
   if (groups.length > ORG_GROUPS_MAX) return {ok:false, error:`묶음은 ${ORG_GROUPS_MAX}개까지예요.`};
   const hidden = uniq(splitNames(hiddenText));
-  if (hidden.length > ORG_HIDDEN_MAX) return {ok:false, error:`고르기에서 뺄 조직은 ${ORG_HIDDEN_MAX}곳까지예요.`};
-  if (!hidden.every(orgNameOk)) return {ok:false, error:'고르기에서 뺄 조직 이름은 1~60자로 써 주세요.'};
+  if (hidden.length > ORG_HIDDEN_MAX) return {ok:false, error:`선택에서 뺄 조직은 ${ORG_HIDDEN_MAX}곳까지예요.`};
+  if (!hidden.every(orgNameOk)) return {ok:false, error:'선택에서 뺄 조직 이름은 1~60자로 써 주세요.'};
   if (!groups.length && !hidden.length) return {ok:true, value:null};
   const value = {groups, hidden};
   return validValue('org_order', value) ? {ok:true, value} : {ok:false, error:'담당조직 묶음을 다시 확인해 주세요.'};

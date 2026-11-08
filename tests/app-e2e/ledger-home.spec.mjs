@@ -237,7 +237,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   expect(await noSideScroll(page)).toBe(true);
  });
 
- test(`⋯ [고치기]: 일상어 한 줄 → 미리보기(일상어) → [반영] 한 번 → 옛 기록 대체됨·새 기록 '직접', 10초 되돌리기 (${name} ${width}px)`,async({page})=>{
+ test(`⋯ [수정]: 일상어 한 줄 → 미리보기(일상어) → [반영] 한 번 → 옛 기록 대체됨·새 기록 '직접', 10초 되돌리기 (${name} ${width}px)`,async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width,height:900});
   const db=await mockApp(page);
@@ -259,7 +259,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   const preview=fix.locator('[data-lf-preview]');
   await expect(preview).toBeVisible({timeout:10000});
   expect(db.ai.at(-1)).toEqual({kind:'ledger_fix',text:'나 지부 2차 교섭은 11/4가 아니라 11/5였음',target:'EVT-0901'});
-  await expect(preview.locator('li')).toHaveText(['‘가상 나 지부 2차 교섭’: 날짜 11/4 → 11/5로 고침. 옛 기록은 대체됨으로 남김.']);
+  await expect(preview.locator('li')).toHaveText(['‘가상 나 지부 2차 교섭’: 날짜 11/4 → 11/5로 수정. 옛 기록은 대체됨으로 남김.']);
   await expect(preview).not.toContainText(/EVT-|superseded|DB/);
   await expect(preview).toContainText('직접 기록');
   expect(db.fix).toHaveLength(0);
@@ -484,7 +484,7 @@ test('[+ 기록하기]: 일상어 → 새 기록 미리보기 → 반영 / Claud
  const aiBefore=db.ai.length;
  await fix.locator('#lfText').fill(JSON.stringify(block));
  await fix.getByRole('button',{name:'미리보기'}).click();
- await expect(fix.locator('[data-lf-preview] li')).toHaveText(['‘가상 교섭 위원 확정’을(를) 틀린 기록으로 폐기(지우지 않음).']);
+ await expect(fix.locator('[data-lf-preview] li')).toHaveText(['‘가상 교섭 위원 확정’을(를) 틀린 기록으로 폐기(삭제하지 않음).']);
  await expect(fix.locator('[data-lf-preview]')).toContainText('Claude 수정안');
  expect(db.ai.length).toBe(aiBefore);
  expect(db.fix.at(-1)).toEqual({p_workspace_id:workspace.id,p_dry_run:true,p_request:{received_from:'claude_chat',...block}});
@@ -512,13 +512,13 @@ test('서버 배포 전이면 일상어는 준비 중 안내, Claude 덩어리 �
  const browse=page.locator('#ledgerBrowseRoot');
  await browse.getByRole('button',{name:'+ 기록하기'}).click();
  const fix=page.locator('#ledgerFixRoot');
- await fix.locator('#lfText').fill('나 지부 교섭 날짜 고침');
+ await fix.locator('#lfText').fill('나 지부 교섭 날짜 수정됨');
  await fix.getByRole('button',{name:'미리보기'}).click();
  await expect(fix.locator('[data-lf-error]')).toContainText('아직 준비 중');
  expect(db.fix).toHaveLength(0);
- await fix.locator('#lfText').fill(JSON.stringify({format:'kptu-ledger-fix',version:1,items:[{target:'EVT-0901',do:'replace',set:{summary:'고친 요지'},reason:'요지 보충'}]}));
+ await fix.locator('#lfText').fill(JSON.stringify({format:'kptu-ledger-fix',version:1,items:[{target:'EVT-0901',do:'replace',set:{summary:'수정한 요지'},reason:'요지 보충'}]}));
  await fix.getByRole('button',{name:'미리보기'}).click();
- await expect(fix.locator('[data-lf-preview] li')).toHaveText(['‘가상 나 지부 2차 교섭’: 요지 ‘2차 교섭 일정.’ → ‘고친 요지’로 고침. 옛 기록은 대체됨으로 남김.']);
+ await expect(fix.locator('[data-lf-preview] li')).toHaveText(['‘가상 나 지부 2차 교섭’: 요지 ‘2차 교섭 일정.’ → ‘수정한 요지’로 수정. 옛 기록은 대체됨으로 남김.']);
 });
 
 for(const [name,width] of [['PC',1280],['phone',390]]){
