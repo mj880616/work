@@ -130,7 +130,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     await expect(page.locator('[data-gt-count]')).toHaveText('할 일 1개');
     await expect(page.locator('[data-gt-count]')).toHaveCSS('font-size','12px');
     await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('font-size','13px');
-    await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('-webkit-line-clamp','2');
+    await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('white-space','nowrap');await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('text-overflow','ellipsis');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('font-size','12px');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('color',await page.locator('[data-gt-count]').evaluate(el=>getComputedStyle(el).color));
     // UI-할일입력: no [+ 할 일]; the always-visible input's [추가] is 13px. UI-버튼줄이기: 폰도 36px(누르는 범위 44px).
