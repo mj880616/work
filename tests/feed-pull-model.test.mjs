@@ -12,6 +12,22 @@ test('model: fail lines, codes, accepted, finished, done line', () => {
   assert.match(pullFailText('PULL_DAILY_LIMIT'), /하루 20번/);
   assert.equal(pullFailText('NOT_OPERATOR'), '이 작업공간에서는 쓸 수 없어요');
   assert.match(pullFailText('anything'), /보내지 못했어요/);
+  // S53-11: 까닭별 한 줄 — 설정 안 됨 / 거절 / 응답 없음 / 너무 자주(남은 시간) / 오늘 다 씀. 서로 다른 문장이어야 한다.
+  assert.equal(pullFailText('PULL_COOLDOWN', 150), '방금 눌렀어요 · 3분 뒤에 다시 누를 수 있어요');
+  assert.equal(pullFailText('PULL_COOLDOWN', 61), '방금 눌렀어요 · 2분 뒤에 다시 누를 수 있어요');
+  assert.equal(pullFailText('PULL_COOLDOWN', 40), '방금 눌렀어요 · 40초 뒤에 다시 누를 수 있어요');
+  assert.equal(pullFailText('PULL_COOLDOWN', 9999), '방금 눌렀어요 · 3분 뒤에 다시 누를 수 있어요', '이상한 값은 3분');
+  assert.equal(pullFailText('PULL_COOLDOWN', '40'), '방금 눌렀어요 · 3분 뒤에 다시 누를 수 있어요');
+  assert.match(pullFailText('SERVER_CONFIG_MISSING'), /연결 설정이 아직 안 끝났어요 · 지금은 눌러도 소용없어요/);
+  assert.equal(pullFailText('PULL_NOT_READY'), pullFailText('SERVER_CONFIG_MISSING'));
+  assert.match(pullFailText('PULL_WAKE_REFUSED'), /거절했어요 · Supabase와 앱 스크립트의 COLLECTOR_PULL_SECRET 값이 서로 달라요/);
+  assert.match(pullFailText('PULL_WAKE_TIMEOUT'), /10초 안에 답하지 않았어요 · 3분 뒤 다시/);
+  assert.match(pullFailText('PULL_WAKE_UNREACHABLE'), /닿지 못했어요 · 3분 뒤 다시/);
+  assert.match(pullFailText('PULL_WAKE_HTTP'), /웹 앱 배포/);
+  assert.match(pullFailText('PULL_WAKE_FAILED'), /깨우지 못했어요/, '앞 서버 판 코드');
+  const codes = ['SERVER_CONFIG_MISSING', 'PULL_WAKE_REFUSED', 'PULL_WAKE_HTTP', 'PULL_WAKE_TIMEOUT', 'PULL_WAKE_UNREACHABLE', 'PULL_COOLDOWN', 'PULL_DAILY_LIMIT', 'NOT_OPERATOR', 'PULL_COUNT_FAILED'];
+  assert.equal(new Set(codes.map(c => pullFailText(c))).size, codes.length, '까닭마다 다른 문장');
+  for (const c of codes) assert.doesNotMatch(pullFailText(c), /https?:|script\.google/, '주소 없음');
   assert.equal(pullErrorCode({message:'PULL_WAKE_FAILED'}), 'PULL_WAKE_FAILED');
   assert.equal(pullErrorCode({message:'요청 실패 500'}), '');
   assert.equal(pullErrorCode({message:'권한 확인 실패: /functions/v1/drive-summary', status:403}), 'NOT_OPERATOR');
@@ -53,6 +69,14 @@ test('flow: refused → one line, no polling; no answer for 3 minutes → late l
   let h = harness({post:async () => { throw err; }});
   await h.p.start();
   assert.equal(h.p.text, '방금 눌렀어요 · 3분 뒤에 다시 누를 수 있어요');
+  assert.equal(h.reloads(), 0);
+  // 공용 런타임이 넘기는 retryAfter(서버 retry_after 초)로 남은 시간.
+  h = harness({post:async () => { throw Object.assign(new Error('PULL_COOLDOWN'), {status:429, retryAfter:45}); }});
+  await h.p.start();
+  assert.equal(h.p.text, '방금 눌렀어요 · 45초 뒤에 다시 누를 수 있어요');
+  h = harness({post:async () => { throw Object.assign(new Error('PULL_WAKE_REFUSED'), {status:502}); }});
+  await h.p.start();
+  assert.match(h.p.text, /COLLECTOR_PULL_SECRET/);
   assert.equal(h.reloads(), 0);
   h = harness({post:async () => ({ok:true, source:'telegram', requested_at:REQ})});
   await h.p.start();

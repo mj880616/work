@@ -20,7 +20,7 @@ export function createFeedPull({source, rt, scope, reload, paint, attr, wait = m
       if (!requestedAt) throw new Error('');
     } catch (error) {
       if (!live(me, who)) return;
-      busy = false; text = pullFailText(pullErrorCode(error)); paint(); return;
+      busy = false; text = pullFailText(pullErrorCode(error), error?.retryAfter ?? null); paint(); return;
     }
     if (!live(me, who)) return;
     text = PULL_TEXT.sent; paint();

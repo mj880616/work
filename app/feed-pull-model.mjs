@@ -14,20 +14,32 @@ export const PULL_TEXT = Object.freeze({
   sent: '수집 요청함 · 1~3분 안에 새 줄이 보여요',
   late: '수집 요청은 들어갔지만 아직 응답이 없어요 · 다음 매시 수집에 반영돼요',
 });
+// S53-11: 실패는 까닭별 한 줄. '설정 안 됨·거절'은 눌러도 소용없다는 것을, '응답 없음'은 다시 눌러 볼 수 있다는 것을 알 수 있게.
+// 서버 코드: drive-summary collector-pull.mjs(wake 위 표). PULL_WAKE_FAILED는 그 전 서버 판의 코드(배포 사이 잠깐).
+const MATCH = '매시 수집은 그대로 돌아요';
 const FAIL = Object.freeze({
-  PULL_COOLDOWN: '방금 눌렀어요 · 3분 뒤에 다시 누를 수 있어요',
-  PULL_DAILY_LIMIT: '오늘은 더 누를 수 없어요(하루 20번) · 매시 수집은 그대로 돌아요',
+  PULL_DAILY_LIMIT: `오늘은 더 누를 수 없어요(하루 20번) · ${MATCH}`,
   NOT_OPERATOR: '이 작업공간에서는 쓸 수 없어요',
   FORBIDDEN: '이 작업공간에서는 쓸 수 없어요',
-  PULL_WAKE_FAILED: '수집기를 깨우지 못했어요 · 다음 매시 수집을 기다려 주세요',
-  SERVER_CONFIG_MISSING: '아직 준비 중이에요 · 매시 수집을 기다려 주세요',
-  PULL_NOT_READY: '아직 준비 중이에요 · 매시 수집을 기다려 주세요',
+  SERVER_CONFIG_MISSING: `연결 설정이 아직 안 끝났어요 · 지금은 눌러도 소용없어요 · ${MATCH}`,
+  PULL_NOT_READY: `연결 설정이 아직 안 끝났어요 · 지금은 눌러도 소용없어요 · ${MATCH}`,
+  PULL_WAKE_REFUSED: `수집기가 거절했어요 · Supabase와 앱 스크립트의 COLLECTOR_PULL_SECRET 값이 서로 달라요 · ${MATCH}`,
+  PULL_WAKE_HTTP: `수집기 웹 앱이 오류로 답했어요 · 웹 앱 배포(주소·접근 권한)를 확인해야 해요 · ${MATCH}`,
+  PULL_WAKE_TIMEOUT: `수집기가 10초 안에 답하지 않았어요 · 3분 뒤 다시 눌러 보세요 · ${MATCH}`,
+  PULL_WAKE_UNREACHABLE: `수집기에 닿지 못했어요 · 3분 뒤 다시 눌러 보세요 · ${MATCH}`,
+  PULL_WAKE_FAILED: `수집기를 깨우지 못했어요 · ${MATCH}`,
+  PULL_COUNT_FAILED: '서버가 누른 횟수를 확인하지 못했어요 · 잠시 뒤 다시 눌러 주세요',
+  FEATURE_CHECK_FAILED: '서버가 사용 권한을 확인하지 못했어요 · 잠시 뒤 다시 눌러 주세요',
 });
-export function pullFailText(code) {
+// 3분 간격: 서버가 retry_after(초)를 주면(공용 런타임이 error.retryAfter로 넘김) 남은 시간을, 없으면 3분.
+const waitText = s => (Number.isInteger(s) && s > 0 && s <= 180 ? (s < 60 ? `${s}초` : `${Math.ceil(s / 60)}분`) : '3분');
+export function pullFailText(code, retryAfter = null) {
+  if (code === 'PULL_COOLDOWN') return `방금 눌렀어요 · ${waitText(retryAfter)} 뒤에 다시 누를 수 있어요`;
   return FAIL[code] || '수집 요청을 보내지 못했어요 · 잠시 뒤 다시 눌러 주세요';
 }
 // 오류 → 서버 단계 코드(대문자 짧은 말만). 런타임 오류는 message에 서버 error 코드를 싣는다.
-// 403은 앱 공용 fetch(auth-bootstrap.js)가 몸통을 '권한 확인 실패' 문장으로 바꾸므로 상태 번호로 본다.
+// 403은 앱 공용 fetch(auth-bootstrap.js)가 message 없는 몸통을 '권한 확인 실패' 문장으로 바꾸므로 상태 번호로 본다.
+// 공용 fetch가 바꾸는 것은 403뿐이고(429·502·503 몸통은 그대로), 런타임(runtime-client.js responseMessage)은 message가 없으면 error 코드를 message로 싣는다.
 export function pullErrorCode(error) {
   const m = String(error?.message ?? '');
   if (/^[A-Z][A-Z0-9_]{0,63}$/.test(m)) return m;

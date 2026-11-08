@@ -2,9 +2,9 @@
 // 설계 docs/design/feed-pull-now.md 2절 (나)·4절 차례 2. 명진 결정 11/08 08:41(F1=(나), F2=사람마다 하루 20번·3분 간격).
 // - 사람 입구: 소유자 JWT만(core authorize, cron·수집 비밀 머리글은 거절). 몸통은 {source: 'telegram'|'call'}뿐(작업공간·주소 값 안 받음).
 // - 운영자 확인: 서버가 service_role로 app_operator_feature_workspace('telegram'|'calls')를 불러 로그인 본인 작업공간과 같을 때만(화면 숨김 아님).
-// - 횟수: DB 함수 app_feed_pull_take(20261108040000)가 센다. 간격·하루 초과는 429(웹 앱을 부르지 않음).
+// - 횟수: DB 함수 app_feed_pull_take(20261108040000)가 센다. 간격·하루 초과는 429(웹 앱을 부르지 않음). 간격은 retry_after(초)도 싣는다(공용 런타임이 error.retryAfter로 넘김).
 // - 웹 앱 깨우기: 주소·비밀값은 Supabase 비밀값(COLLECTOR_PULL_URL·COLLECTOR_PULL_SECRET)에만. 웹 앱은 머리글을 못 읽으므로 비밀값은 몸통에 넣는다.
-//   10초 제한, 응답은 {ok:true}인지만 보고 버린다. 로그·응답에 주소·비밀값·응답 원문을 남기지 않는다.
+//   10초 제한, 응답은 {ok:true}·{ok:false}인지만 보고 버린다(S53-11: 실패 까닭은 wake() 위 표). 로그·응답에 주소·비밀값·응답 원문을 남기지 않는다.
 export const PULL_SOURCES = Object.freeze(['telegram', 'call']);
 export const PULL_FEATURE = Object.freeze({ telegram: 'telegram', call: 'calls' });
 export const PULL_BODY_BYTES = 200;
@@ -35,7 +35,7 @@ export function pullTakeOutcome(value) {
   if (v.ok === true) return { left };
   if (v.reason === 'cooldown') {
     const wait = Number.isInteger(v.wait_s) && v.wait_s > 0 && v.wait_s <= 180 ? v.wait_s : 180;
-    throw new PullError('PULL_COOLDOWN', 429, { wait_s: wait, left });
+    throw new PullError('PULL_COOLDOWN', 429, { wait_s: wait, retry_after: wait, left });
   }
   if (v.reason === 'daily') throw new PullError('PULL_DAILY_LIMIT', 429, { wait_s: null, left: 0 });
   throw new PullError('PULL_COUNT_FAILED', 502);
@@ -57,6 +57,12 @@ export function createCollectorPull({ env, fetcher, now, authorize, secretHeader
     if (!response.ok) { try { await response.body?.cancel(); } catch { /* ignore */ } throw new PullError(code, 502); }
     try { return await response.json(); } catch { throw new PullError(code, 502); }
   }
+  // S53-11: 깨우기 실패를 까닭별 코드로 나눈다(상태 번호는 모두 502). 화면이 코드별 한 줄을 고른다.
+  //   PULL_WAKE_REFUSED     웹 앱이 {ok:false} — 비밀값 불일치·몸통 모양 다름(웹 앱이 까닭을 알려 주지 않으므로 둘을 나누지 않음)
+  //   PULL_WAKE_TIMEOUT     10초 안에 답 없음
+  //   PULL_WAKE_UNREACHABLE 연결 자체가 안 됨
+  //   PULL_WAKE_HTTP        HTTP 오류 또는 {ok:true|false}가 아닌 답(예: 로그인 화면 HTML — 웹 앱 접근 설정)
+  // 응답 원문·주소·비밀값은 코드에도 로그에도 싣지 않는다.
   async function wake(source) {
     let response;
     try {
@@ -65,11 +71,20 @@ export function createCollectorPull({ env, fetcher, now, authorize, secretHeader
         body: JSON.stringify({ secret: env.COLLECTOR_PULL_SECRET, source }), redirect: 'follow',
         signal: AbortSignal.timeout(PULL_WAKE_TIMEOUT_MS),
       });
-    } catch { throw new PullError('PULL_WAKE_FAILED', 502); }
+    } catch (error) {
+      const name = error && typeof error === 'object' ? error.name : '';
+      throw new PullError(name === 'TimeoutError' || name === 'AbortError' ? 'PULL_WAKE_TIMEOUT' : 'PULL_WAKE_UNREACHABLE', 502);
+    }
+    if (!response.ok) { try { await response.body?.cancel(); } catch { /* ignore */ } throw new PullError('PULL_WAKE_HTTP', 502); }
     let body = null;
-    try { body = response.ok ? await response.json() : null; } catch { body = null; }
-    if (!response.ok) { try { await response.body?.cancel(); } catch { /* ignore */ } }
-    if (!body || body.ok !== true) throw new PullError('PULL_WAKE_FAILED', 502);
+    try { body = await response.json(); } catch (error) {
+      const name = error && typeof error === 'object' ? error.name : '';
+      if (name === 'TimeoutError' || name === 'AbortError') throw new PullError('PULL_WAKE_TIMEOUT', 502);
+      body = null;
+    }
+    if (body && typeof body === 'object' && body.ok === true) return;
+    if (body && typeof body === 'object' && !Array.isArray(body) && body.ok === false) throw new PullError('PULL_WAKE_REFUSED', 502);
+    throw new PullError('PULL_WAKE_HTTP', 502);
   }
   return async function collectorPull(req) {
     const at = () => now().toISOString();
