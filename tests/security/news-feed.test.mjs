@@ -362,3 +362,25 @@ test('google helpers: key shape, line picking, batches',()=>{
  assert.deepEqual(G.batches(['aa','bb','cc'],2,100),[['aa','bb'],['cc']]);
  assert.deepEqual(G.batches(['aaaa','b','cccccc'],10,5),[['aaaa','b'],['cccccc']]);
 });
+
+test('S54-16 titles step: lines the AI answered without a translation get title_tried_at (one PATCH), only retried after TITLE_RETRY_HOURS',async()=>{
+ const ids=[1,2,3].map(i=>`d0000000-0000-4000-8000-00000000001${i}`);
+ const untitled=ids.map((id,k)=>({id,workspace_id:WS,title:`Synthetic headline ${k+1}`}));
+ const w=fakeWorld({untitled,ai:{titles:[{i:1,ko:'합성 제목 1',sum_ko:''},{i:2,ko:'',sum_ko:''}]}});
+ const r=await call(w,cronReq('run',{step:'titles'}));
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.done,1);
+ // 고르는 줄: 시도 시각이 없거나 TITLE_RETRY_HOURS시간 전보다 오래된 줄만.
+ const q=w.calls.find(c=>c.method==='GET'&&c.url.includes('title_ko=is.null'));
+ const or=new URL(q.url).searchParams.get('or');
+ const before=new Date(NOW-H.TITLE_RETRY_HOURS*3600000).toISOString();
+ assert.equal(or,`(title_tried_at.is.null,title_tried_at.lt.${before})`);
+ assert.ok(H.TITLE_RETRY_HOURS>=12,'at most twice a day');
+ const tried=w.writes().filter(c=>c.method==='PATCH'&&c.url.includes('id=in.'));
+ assert.equal(tried.length,1,'one PATCH for all untranslated lines');
+ assert.deepEqual(tried[0].body,{title_tried_at:new Date(NOW).toISOString()},'only the tried time, no translation columns');
+ assert.ok(tried[0].url.includes(`workspace_id=eq.${WS}`));
+ const inList=decodeURIComponent(new URL(tried[0].url).searchParams.get('id'));
+ assert.equal(inList,`in.(${ids[1]},${ids[2]})`);
+ const filled=w.writes().filter(c=>c.method==='PATCH'&&c.url.includes('/app_news_items?id=eq.'));
+ assert.equal(filled.length,1);assert.deepEqual(Object.keys(filled[0].body).sort(),['title_ko','translated_at','updated_at'],'fully translated line is not marked tried');
+});
