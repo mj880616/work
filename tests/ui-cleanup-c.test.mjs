@@ -64,7 +64,7 @@ test('⑥ 화면 추가 버튼은 모두 폰 동그란 [+] 한 규칙에 들고,
   // 아이콘·누르는 범위·자판 숨김도 같은 목록이다.
   const inner = ADD.map(a => a[0]).join(',');
   assert.equal(css.split(inner).length - 1, 4);
-  assert.match(css, /#appView :is\(#projectsView,#libraryView,#diaryView,#ledgerView,#pagesView\)\.view-panel\{ padding-bottom/);
+  assert.match(css, /#appView :is\(#projectsView,#libraryView,#meetingsView,#diaryView,#ledgerView,#pagesView\)\.view-panel\{ padding-bottom/);
   // 원장 [+ 기록하기]는 PC에서도 다른 화면처럼 주 색으로 채운 작은 버튼(흰 테두리 버튼 아님).
   assert.match(read('ledger-import.css'), /#appView #ledgerView \.lb-add\{[^}]*background:var\(--kptu-primary\); color:var\(--kptu-on-primary\);/);
 });

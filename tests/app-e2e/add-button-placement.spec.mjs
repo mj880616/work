@@ -111,7 +111,7 @@ for(const width of [390,1440]){
     });
     test('meeting list card keeps filter and opens the same form',async({page})=>{
       await openApp(page,'meetings');
-      // BIZ-위쪽정돈(B안, 11/09, 사업 보고만 예외): 폰도 다른 탭의 동그란 [+](하단 탭 위)가 아니라 맨 위 줄 오른쪽 작은 아이콘 [+]다(떠 있지 않음).
+      // BIZ-위쪽정돈(11/09 01:22 확정안, 사업 보고만 예외): 폰도 다른 탭의 동그란 [+](하단 탭 위)가 아니라 맨 위 줄 오른쪽 작은 아이콘 [+]다(떠 있지 않음).
       // 모든 너비에서 맨 위 줄 .report-top-line 안 [녹음][+][⋯]이고 ⋯가 줄 끝이다(이전: 폰 동그란 [+], PC는 report-kind-bar 안).
       {const bar=page.locator('#meetingsView .report-top-line');await expect(bar.locator('#newMeetingBtn')).toBeVisible();
         expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');

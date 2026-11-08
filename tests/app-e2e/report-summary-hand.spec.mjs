@@ -57,7 +57,7 @@ async function open(page,s,width){
 async function openPreview(page){
   const box=page.locator('#meetingsView #bizWeekBox');
   await expect(box).toBeVisible();
-  if(!(await box.evaluate(el=>el.open)))await box.locator(':scope > summary').click();
+  // BIZ-위쪽정돈(11/09): 칸은 늘 펼쳐져 있어 열 필요가 없다(접는 꺾쇠 없음).
   await expect(box.locator('.biz-sum-table')).toBeVisible();
   return box;
 }

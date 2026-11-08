@@ -289,12 +289,33 @@
 #meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 
 /* ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기(report-views.js). 콤팩트·톤다운, 색은 토큰만.
-   UI-보기탭한모양(S52-17): 보기 전환은 공용 ⑤ 보기 바꾸기(filter-chips.js seg:true) 한 모양. 여기는 자리만.
-   BIZ-위쪽정돈(B안, 2026-11-09 명진 00:25, 사업 보고만 예외): [목록|달력|사진]은 모든 너비에서 맨 위 줄 왼쪽(제목 '사업 보고' 자리)에 있다.
-   아래 가운데·오른쪽 아래에 떠 있지 않고, 그래서 목록 아래 여백·[+]를 올리는 값(--kptu-switch-dock)도 이 화면엔 없다. */
+   UI-보기탭한모양(S52-17): 보기 전환은 공용 ⑤ 보기 바꾸기(filter-chips.js seg:true) 한 모양. 여기는 자리만. */
+/* 머리 줄 높이는 옆 ⋯·추가 버튼의 누르는 범위(44px)를 지키도록 44px 그대로: 보기 탭의 누르는 범위 여백을 줄 높이에 넣는다(바깥 여백 0). */
+#meetingsView #reportViewFilter{flex:none;max-width:100%;margin:0}
+/* S52-22 TEAM-맨위한줄: [목록|달력|사진]은 탭 자리 규칙(01:25) 그대로 — 폰 세로 아래 가운데, 펼친 폴드·761~1199px 오른쪽 아래, PC(1200px~) 위(목록 상자 머리).
+   모양은 공용 ⑤(자료실 묶기와 같은 자리 값). 떠 있는 동안 머리 줄은 높이 0, 마지막 줄이 가리지 않게 목록 아래 여백.
+   BIZ-위쪽정돈(명진 11/09 01:22 확정안): 보기 탭 자리는 이대로 둔다(위로 올리지 않음). 위쪽 맨 윗줄(.report-top-line)은 제목 '사업 보고' + 오른쪽 작은 아이콘 [● 녹음][+][⋯]이다. */
+@media(max-width:1199px){
+  #appView #meetingsView #meetingsListCard>.add-list-head{height:0;min-height:0;margin:0;padding:0}
+  #appView #meetingsView #reportViewFilter{position:fixed;z-index:28;max-width:calc(100vw - 24px);margin:0}
+  #appView #meetingsView #meetingsListCard{margin-bottom:calc(56px + var(--kptu-switch-dock,0px))}
+}
+@media(max-width:599px){
+  #appView #meetingsView #reportViewFilter{left:50%;transform:translateX(-50%);bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px))}
+}
+@media(min-width:600px) and (max-width:760px){
+  #appView #meetingsView #reportViewFilter{right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px))}
+}
+@media(min-width:761px) and (max-width:1199px){
+  #appView #meetingsView #reportViewFilter{right:12px;bottom:calc(6px + env(safe-area-inset-bottom,0px))}
+}
 #meetingsView .report-top-line{flex-direction:row;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;margin-bottom:var(--kptu-space-1)}
-#meetingsView #reportViewFilter{flex:0 1 auto;min-width:0;max-width:100%;margin:0}
 #meetingsView .report-top-line>.report-head-actions{margin-left:auto}
+/* 맨 윗줄 제목: 폰(~760px)은 위 머리줄을 자료실처럼 감추고 이 줄이 제목을 보이며, PC(761px~)는 위쪽 경로 줄이 이름을 보이므로 읽기 프로그램용으로만 둔다. */
+#meetingsView .report-top-title{position:absolute;width:1px;height:1px;margin:0;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+@media(max-width:760px){
+  #meetingsView .report-top-title{position:static;width:auto;height:auto;overflow:visible;clip:auto;margin:0;flex:1 1 auto;min-width:0;font-size:var(--ds-text-title);font-weight:var(--ds-weight-medium);line-height:1.4}
+}
 #meetingList .rv-dot{flex:none;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
 #meetingList .rv-day-title{margin:0;padding:6px 2px 4px;font-size:var(--ds-text-section,13px);font-weight:var(--ds-weight-medium,500);color:var(--ds-section-ink,var(--kptu-ink))}
 #meetingList .rv-cal-head{display:flex;align-items:center;gap:var(--kptu-space-2);margin:0 0 var(--kptu-space-2)}

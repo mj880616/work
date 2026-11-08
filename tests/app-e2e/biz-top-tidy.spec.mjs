@@ -4,9 +4,9 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
-// S54-21 BIZ-위쪽정돈(요청함 11/09 00:10~00:25, 시안 docs/design/mockups/biz-report-top.html B안, 명진 00:25 'B안'):
-// 사업 보고 위쪽은 세 줄 — ① [목록|달력|사진] ……… [녹음][+][⋯] ② [회의 ▾][사업영역 ▾][주 ▾] ③ ‹ 11.9(월)~11.15(일) › · n건.
-// 주 고르기는 이 화면에 하나, '이번 주 주간보고'는 늘 펼친 채 같은 주를 따르고, 아래에 떠 있는 보기 바꾸기·동그란 [+]는 없다.
+// S54-21 BIZ-위쪽정돈(요청함 11/09 00:10~01:22, 시안 docs/design/mockups/biz-report-top.html 확정안 01:22):
+// 사업 보고 위쪽은 세 줄 — ① 제목 '사업 보고' ……… [녹음][+][⋯] ② [회의 ▾][사업영역 ▾][주 ▾] ③ ‹ 11.9(월)~11.15(일) › · n건.
+// 주 고르기는 이 화면에 하나, '이번 주 주간보고'는 늘 펼친 채 같은 주를 따르고, 떠 있는 동그란 [+]는 없다. [목록|달력|사진]은 앞 자리 규칙 그대로(위로 올리지 않음).
 // (가짜 서버·가짜 보고는 report-period.spec.mjs와 같은 틀. 모든 이름·번호는 합성 값.)
 test.use({timezoneId: 'Asia/Seoul'});
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -80,11 +80,12 @@ for (const width of [390, 884, 1280]) test(`${width}: 위쪽 세 줄 · 주 고�
   const state = makeState();
   await open(page, state, width);
   const vp = page.viewportSize();
-  // ① 첫 줄: 왼쪽 보기 바꾸기 [목록|달력|사진], 오른쪽 ⋯ (녹음·추가는 폰 아이콘 / 넓은 화면 글자 버튼). 모두 같은 가운데 높이.
-  const line1 = await mids(page, '#meetingsView .report-top-line > #reportViewFilter, #meetingsView .report-top-line .report-head-actions > :not([hidden])');
+  // ① 첫 줄: 오른쪽 [녹음][+][⋯](폰은 작은 아이콘 / 넓은 화면 글자 버튼) 모두 같은 가운데 높이. 폰은 제목 '사업 보고'가 왼쪽에 보인다.
+  const line1 = await mids(page, '#meetingsView .report-top-line .report-head-actions > :not([hidden])' + (width < 761 ? ', #meetingsView .report-top-title' : ''));
   expect(line1.length).toBeGreaterThanOrEqual(2);
   expect(Math.max(...line1.map(x => x.mid)) - Math.min(...line1.map(x => x.mid))).toBeLessThanOrEqual(3);
-  await expect(page.locator('#meetingsView .report-top-line #reportViewFilter [data-filter-value]')).toHaveCount(3);
+  if (width < 761) await expect(page.locator('#meetingsView .report-top-title')).toBeVisible();
+  await expect(page.locator('#reportViewFilter [data-filter-value]')).toHaveCount(3);
   await expect(page.locator('#meetingsView .report-top-line #newMeetingBtn')).toBeVisible();
   await expect(page.locator('#meetingsView .report-top-line #reportMore')).toBeVisible();
   // ② 둘째 줄: 종류(폰·폴드는 [회의 ▾] 상자, PC는 칩)·[사업영역 ▾]·[주 ▾]가 한 줄이고 첫 줄 아래다.
@@ -124,25 +125,26 @@ for (const width of [390, 884, 1280]) test(`${width}: 위쪽 세 줄 · 주 고�
   await expect(week.locator('.biz-week-title')).toContainText(dayOf(after));
   await page.locator('#reportWeekFilter [data-report-week="next"]').click();
   await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
-  // 떠 있는(position:fixed) 버튼이 사업 보고 화면에 없다: 보기 바꾸기·[+]는 첫 줄 안, 화면 아래 절반에 없다.
-  const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button, #reportViewFilter')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
+  // 떠 있는 버튼은 [목록|달력|사진](앞 자리 규칙 그대로 폰 아래)뿐이고, 동그란 [+]는 없다: [+]는 첫 줄 안.
+  const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
   expect(floating).toEqual([]);
-  const seg = await page.locator('#reportViewFilter').boundingBox(), add = await page.locator('#newMeetingBtn').boundingBox();
-  expect(seg.y).toBeLessThan(vp.height / 3); expect(add.y).toBeLessThan(vp.height / 3);
+  const add = await page.locator('#newMeetingBtn').boundingBox();
+  expect(add.y).toBeLessThan(vp.height / 3);
+  if (width < 1200) { const seg = await page.locator('#reportViewFilter').boundingBox(); expect(seg.y).toBeGreaterThan(vp.height / 2); }
   // 옆으로 넘치지 않는다.
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
   expect(errors).toEqual([]);
   if (process.env.SHOT_DIR) await page.screenshot({path: `${process.env.SHOT_DIR}/biz-top-${width}.png`});
 });
 
-test('390: 달력·사진 보기에서도 위 두 줄은 그대로고 기간 줄만 빠지며, 보기를 바꿔도 아래에 떠 있는 것이 없다', async ({page}) => {
+test('390: 달력·사진 보기에서는 기간 줄만 빠지고, 보기를 바꿔도 떠 있는 동그란 [+]가 없다', async ({page}) => {
   const state = makeState();
   await open(page, state, 390);
   await page.locator('#reportViewFilter [data-filter-value="calendar"]').click();
   await expect(page.locator('#reportViewFilter [data-filter-value="calendar"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#meetingsView .report-week-bar')).toBeHidden();
   await expect(page.locator('#meetingsView #reportPeriodPick select')).toHaveCount(0);
-  const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button, #reportViewFilter')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
+  const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
   expect(floating).toEqual([]);
   await page.locator('#reportViewFilter [data-filter-value="list"]').click();
   await expect(page.locator('#reportPeriodPick select')).toBeVisible();

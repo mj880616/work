@@ -130,7 +130,7 @@ test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버
   await open(page,view);const b=await page.locator(selector).boundingBox();expect([b.width,b.height],selector).toEqual([36,36]);
   expect(await page.locator(selector).evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
  }
- // BIZ-위쪽정돈(B안, 11/09, 사업 보고만 예외): 사업 보고 [+]는 떠 있는 36px 동그라미가 아니라 맨 위 줄 오른쪽 32px 작은 아이콘(떠 있지 않음).
+ // BIZ-위쪽정돈(11/09 01:22 확정안, 사업 보고만 예외): 사업 보고 [+]는 떠 있는 36px 동그라미가 아니라 맨 위 줄 오른쪽 32px 작은 아이콘(떠 있지 않음).
  await open(page,'meetings');{const b=await page.locator('#newMeetingBtn').boundingBox();expect([b.width,b.height],'#newMeetingBtn').toEqual([32,32]);
   expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');}
  await open(page,'home');const home=page.locator('#homeView [data-home-quick]');

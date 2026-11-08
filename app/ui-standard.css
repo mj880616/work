@@ -350,7 +350,7 @@
   }
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new]):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
   /* 목록 마지막 줄이 [+]에 가리지 않게 아래 여백(누르는 범위 + 간격 + 여유). */
-  #appView :is(#projectsView,#libraryView,#diaryView,#ledgerView,#pagesView).view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + var(--kptu-touch-target,44px) + var(--ds-fab-gap) + 16px + env(safe-area-inset-bottom))!important; }
+  #appView :is(#projectsView,#libraryView,#meetingsView,#diaryView,#ledgerView,#pagesView).view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + var(--kptu-touch-target,44px) + var(--ds-fab-gap) + 16px + env(safe-area-inset-bottom))!important; }
   /* 일정은 달력 칸이 화면 아래까지 차도록 높이를 재므로(calendar-month-view.js) 여백 대신 기존 끝 여백(::after)을 탭·전환 줄만큼 둔다.
      S48-6: [+]는 전환 줄 안(아래 'UI-폰달력월보기 결정 6')이라 [+] 몫은 더하지 않는다 — 달력 아래끝이 전환 줄 바로 위(8px 띄움). */
   #appView #calendarView:not(.hidden)::after{ height:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + 8px); }
@@ -824,7 +824,9 @@
   html:has(:where(#appView #basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-list]:not([hidden]) .nv-switch)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   /* S51-28 LIB-화면정리: 자료실 묶기 알약(library-upload.css)도 아래 탭 바로 위라 동그란 [+]는 그 위로. 큰 제목(앱 머리 '자료실')은 없다. */
   html:has(:where(#appView #libraryView:not(.hidden) #libraryGroupBy)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
-  /* BIZ-위쪽정돈(B안, 11/09): 사업 보고 [목록|달력|사진]은 맨 위 줄로 올라가 아래에 떠 있지 않다 — 이 화면은 --kptu-switch-dock을 올리지 않고 동그란 [+]도 없다(사업 보고만 예외). */
+  /* S52-22 TEAM-맨위한줄: 사업 보고 [목록|달력|사진](meeting-ui.css 자리)도 아래 탭 바로 위다(BIZ-위쪽정돈 11/09 01:22 확정안도 그대로). 동그란 [+]는 없고(맨 윗줄 작은 아이콘 [+]) 목록 끝 여백만 이 값을 따른다. */
+  html:has(:where(#appView #meetingsView:not(.hidden) #reportViewFilter)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
+  html:has(#appView #meetingsView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
   html:has(#appView #libraryView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
   html:has(body.kptu-mobile-keyboard){ --kptu-switch-dock:0px; }
   /* 전체 화면 쓰기 창(ed-window.js)이 열려 있으면 전환 줄은 창 아래에 가려지므로 0(하단 탭도 숨음, topbar-actions.css S48-6b). */

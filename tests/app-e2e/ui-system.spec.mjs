@@ -61,8 +61,8 @@ test('calendar uses 32px and text actions use 36px with mobile content above the
   // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄의 작은 [+](32px)라 이 둥근 [+] 묶음에서 뺀다.
   expect(await buttonHeight(page,'projects','#newProjectBtn')).toBeCloseTo(32,0);
   round.push(await buttonHeight(page,'library','#newDocumentBtn'));
-  // UI-선택표시통일: 회의도 같은 동그란 [+].
-  round.push(await buttonHeight(page,'meetings','#newMeetingBtn'));
+  // BIZ-위쪽정돈(11/09 01:22 확정안, 사업 보고만 예외): 사업 보고 [+]는 동그란 [+]가 아니라 맨 윗줄 작은 아이콘(32px).
+  expect(await buttonHeight(page,'meetings','#newMeetingBtn')).toBeCloseTo(32,0);
   for(const height of round)expect(height).toBeCloseTo(36,0);
 
   await clickView(page,'tasks');
