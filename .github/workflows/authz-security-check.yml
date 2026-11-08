@@ -78,10 +78,26 @@ jobs:
           node-version: 24
           package-manager-cache: false
 
+      # Deno 실행 파일을 버전 키로 보관해 GitHub 릴리스 다운로드(가끔 504)를 매번 하지 않는다.
+      # setup-deno는 러너 도구 폴더에서 같은 버전을 먼저 찾고, 있으면 내려받지 않는다.
+      - name: Restore Deno executable cache
+        id: deno-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.tool_cache }}/deno
+          key: deno-bin-${{ runner.os }}-${{ runner.arch }}-v2.9.6
+
       - name: Install Deno for functions-only deployment regression
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.9.6
+
+      - name: Save Deno executable cache
+        if: steps.deno-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.tool_cache }}/deno
+          key: deno-bin-${{ runner.os }}-${{ runner.arch }}-v2.9.6
 
       - name: Verify trusted-layer authorization invariants
         run: node --test tests/security/*.test.mjs
