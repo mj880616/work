@@ -20,6 +20,7 @@ import {offerUndoNotice} from './basket-record-delete.js';
 import {copyText} from './copy-text.js';
 import {flashDone} from './press-feedback.js';
 import {bindRowSwipe} from './row-swipe.js';
+import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 
 const CHANGED = 'kptu:todo-radar-changed';
 export const INBOX_CHIPS = Object.freeze([['open', '처리 전'], ['tasked', '할 일로 보냄'], ['done', '이미 함'], ['dismissed', '무시함']]);
@@ -94,7 +95,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     } else if (editing.has(c.id)) {
       // ⋯ [고쳐서 할 일로]: 제목·기한을 고쳐 넣는다. 고친 제목은 결과 기록에 남아 다음 찾기의 말투 예시가 된다.
       const e = editing.get(c.id), dis = isBusy ? ' disabled' : '';
-      below = `<form class="inbox-todo-edit" data-inbox-todo-edit="${id}"><input type="text" class="inbox-todo-edit-title" data-inbox-todo-edit-title maxlength="${TASK_TITLE_MAX}" value="${esc(e.title)}" aria-label="할 일 제목"${dis}><input type="date" class="inbox-todo-edit-due" data-inbox-todo-edit-due value="${esc(e.due)}" aria-label="기한"${dis}><button type="submit" class="inbox-todo-btn"${dis}>넣기</button><button type="button" class="inbox-todo-btn" data-inbox-todo-edit-cancel="${id}"${dis}>취소</button></form>`;
+      below = `<form class="inbox-todo-edit" data-inbox-todo-edit="${id}" data-enter-save><textarea rows="1" class="inbox-todo-edit-title" data-inbox-todo-edit-title data-autogrow data-enter-field="single" maxlength="${TASK_TITLE_MAX}" aria-label="할 일 제목"${dis}>${esc(e.title)}</textarea><input type="date" class="inbox-todo-edit-due" data-inbox-todo-edit-due value="${esc(e.due)}" aria-label="기한"${dis}><button type="submit" class="inbox-todo-btn"${dis}>넣기</button><button type="button" class="inbox-todo-btn" data-inbox-todo-edit-cancel="${id}"${dis}>취소</button></form>`;
     } else {
       const dis = isBusy ? ' disabled' : '';
       right = `<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-task="${id}"${dis}>할 일로</button><button type="button" class="inbox-todo-btn" data-inbox-todo-done="${id}"${dis}>이미 함</button><button type="button" class="inbox-todo-btn" data-inbox-todo-dismiss="${id}"${dis}>무시</button><button type="button" class="inbox-todo-btn inbox-todo-more" data-inbox-todo-more="${id}" aria-label="더 보기" title="더 보기" aria-haspopup="true" aria-expanded="false"${dis}><span class="more-dots" aria-hidden="true">⋯</span></button></span>`;
@@ -121,6 +122,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     else if (!list.length && !promises().length) body = quietEmpty ? '' : emptyHtml('없음', {attrs: 'data-inbox-todo-empty'});
     else body = `<ul class="inbox-todo-list" aria-label="챙길 것">${list.map(rowHtml).join('')}${promises().map(promiseHtml).join('')}</ul>`;
     host.innerHTML = `${weekHtml()}${body}<p class="inbox-todo-status" role="status" aria-live="polite" data-inbox-todo-line>${esc(status)}</p>`;
+    fitAll(host); // UI-줄입력늘어나기: 할 일 제목 고치기 칸은 글 전체가 보이게
     if (focusAttr) host.querySelector(`[${focusAttr.name}="${CSS.escape(focusAttr.value)}"]`)?.focus({preventScroll: true});
   }
 

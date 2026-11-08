@@ -112,7 +112,7 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
 test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 입력칸 제자리',async({page})=>{
  const {errors}=await boot(page,1280);
  await expect(page.locator('.mobile-tabs')).toBeHidden();
- expect(await page.locator('#homeView .home-quick').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');await expect(page.locator('#homeView .home-basket-link')).toBeVisible();
+ expect(await page.locator('#homeView .home-quick').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');await expect(page.locator('#homeView .home-basket-link')).toHaveCount(0); // S53-13: 옛 [잊지 말기 전체 보기 ›] 링크는 머리 줄 칩(home-forget-line.spec)으로 바뀜
  for(const [view,id,text] of [['calendar','#newEventBtn',null],['projects','#newProjectBtn','+ 사업영역'],['library','#newDocumentBtn','+ 자료 등록']]){
   // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 왼쪽 메뉴 줄이 없어 사업 보고 ⋯ 안에서 연다(clickView가 그 길로 간다).
   await clickView(page,view);await loaded(page,view);

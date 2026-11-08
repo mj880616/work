@@ -397,6 +397,9 @@ jobs:
       - name: Check public privacy page matches requested Google scopes (MULTI D4)
         run: node --test tests/about-privacy-page.test.mjs
 
+      - name: Check shared auto-grow field (UI-줄입력늘어나기)
+        run: node --test tests/auto-grow.test.mjs
+
       - name: Check attachment file rename rules (ATT-이름고치기)
         run: node --test tests/file-rename.test.mjs
 
