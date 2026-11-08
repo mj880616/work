@@ -8,6 +8,7 @@ import {
   addDocumentCategory,renameDocumentCategory,deleteDocumentCategory,storedValuesOf,documentCountOf,
   orderedDocumentCategories,topDocumentCategories,subcategoriesOf,isSubcategory,categoryParent,categoryLeaf,categoryLabel,subcategoryName,subcategoryNameLimit,
   renameDocumentCategoryGroup,deleteDocumentCategoryGroup,deleteDocumentSubcategory,reorderDocumentCategories,
+  CATEGORY_ROLE_KEYS,weeklyCategoryOf,weeklyRoleOf,rolesAfterRename,
 } from './document-categories.js';
 
 // UI-바구니첨부메모 PR 3: 자료 분류 목록 편집(추가·이름 바꾸기·삭제). 자료실의 [분류 수정] 창 맨 위에 붙는다.
@@ -20,6 +21,10 @@ export const CATEGORY_EDITOR_TEXT=Object.freeze({
   saving:'저장하는 중…',
   // LIB-소분류: 소분류는 큰 분류 줄 바로 아래에 한 칸 들여 보인다. 지워도 그 자료는 큰 분류에 그대로 남는다(DB 함수).
   groupDeleteConfirm:(name,count,subs)=>`‘${name}’ 분류와 소분류 ${subs}개를 삭제할까요?\n\n${count?`이 분류의 자료 ${count}개는 ‘${LOCKED_CATEGORY}’로 옮겨져요. `:''}자료와 파일은 삭제되지 않아요.`,
+  // S53-16 WEEKLY-분류이름바뀜: 주간보고 환류에 쓰는 분류(팀·개인 확정본)는 '환류' 표시가 붙고 삭제가 막힌다(이름 바꾸기는 됨 — 바꾸면 표식도 새 이름으로).
+  roleTag:'환류',
+  roleTitle:'주간보고 환류에 쓰는 분류예요. 이름은 바꿀 수 있고 삭제는 막혀 있어요.',
+  roleLocked:name=>`‘${categoryLabel(name)}’은(는) 주간보고 환류(다음 주 바탕 찾기)에 쓰는 분류라 삭제할 수 없어요. 이름 바꾸기는 돼요.`,
   subDeleteConfirm:(name,count)=>`‘${categoryLabel(name)}’ 소분류를 삭제할까요?\n\n${count?`이 소분류의 자료 ${count}개는 ‘${categoryParent(name)}’에 그대로 남아요. `:''}자료와 파일은 삭제되지 않아요.`,
 });
 // host 안에 편집 화면을 그린다. documents(): 지금 불러온 자료들. refresh(): 자료를 다시 읽는다(이름 바꾸기·삭제 직전). onChanged(): 목록이나 자료가 바뀐 뒤.
@@ -45,7 +50,8 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
       const limit=sub?Math.max(subcategoryNameLimit(categoryParent(name)),1):CATEGORY_NAME_LIMIT;
       return leInlineHtml({id:name,label:`‘${label}’의 새 이름`,value:renameDraft,limit,sub,disabled:busy,formAttrs:{'data-dce-rename-form':name},inputAttrs:{'data-dce-rename-input':true}});
     }
-    return leRowHtml({id:name,label,shown,meta,sub,drag:!sub&&name!==LOCKED_CATEGORY,locked:name===LOCKED_CATEGORY,disabled:busy,rowAttrs:{'data-dce-row':name}});
+    const role=weeklyRoleOf(name),extra=role?`<span class="le-role" data-dce-role="${esc(role)}" title="${esc(CATEGORY_EDITOR_TEXT.roleTitle)}">${esc(CATEGORY_EDITOR_TEXT.roleTag)}</span>`:'';
+    return leRowHtml({id:name,label,shown,meta,sub,extra,drag:!sub&&name!==LOCKED_CATEGORY,locked:name===LOCKED_CATEGORY,disabled:busy,rowAttrs:{'data-dce-row':name}});
   }
   // 큰 분류마다 그 소분류가 바로 뒤에, 소분류 만들기 칸은 그 묶음 끝에. '기타'는 맨 아래.
   function rows(){
@@ -117,6 +123,19 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
     if(result.ok){addSubFor='';subDraft='';}
     await finish(result,{success:()=>`‘${categoryLabel(name)}’ 소분류를 추가했어요.`,focusAfter:`[data-le-menu="${CSS.escape(parent)}"]`});
   }
+  // 이 분류(큰 분류면 그 소분류까지)가 맡은 환류 역할 {kind: 이름}.
+  function rolesIn(name){
+    const out={};
+    for(const kind of Object.keys(CATEGORY_ROLE_KEYS)){const now=weeklyCategoryOf(kind);if(now&&(now===name||(!isSubcategory(name)&&isSubcategory(now)&&categoryParent(now)===name)))out[kind]=now;}
+    return out;
+  }
+  // 이름을 바꾼 뒤 환류 표식을 새 이름으로(서버 화면 기억 category_roles). 적용 전 서버는 거절하고 알려진 이름으로 찾는다.
+  function keepRoles(roles,from,to){
+    if(!Object.keys(roles).length)return;
+    const renamed=[[from,to],...Object.values(roles).filter(name=>isSubcategory(name)&&categoryParent(name)===from).map(name=>[name,subcategoryName(to,categoryLeaf(name))])];
+    const next=rolesAfterRename(roles,renamed);
+    try{if(next)window.KPTUViewPrefs?.setCategoryRoles?.(next);}catch{/* 표식 저장 실패는 이름 바꾸기 결과를 바꾸지 않는다 */}
+  }
   async function rename(form){
     if(busy)return;
     const from=form.dataset.dceRenameForm,input=form.querySelector('[data-dce-rename-input]'),typed=input.value.trim();
@@ -131,11 +150,16 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
     if(stored===null){busy=false;say(categoryErrorText('INVALID_INPUT'),true);paint();return;}
     // 소분류가 있는 큰 분류는 소분류 이름 앞부분·자료 값까지 한 번에 바꾸는 함수로(LIB-소분류). 나머지는 기존 함수 그대로.
     const group=!sub&&subcategoriesOf(from).length>0;
+    const roles=rolesIn(from);
     const result=await (group?renameDocumentCategoryGroup:renameDocumentCategory)(from,to,stored,{rt});
+    if(result.ok)keepRoles(roles,from,to);
     await finish(result,{success:r=>`‘${categoryLabel(from)}’을(를) ‘${categoryLabel(to)}’(으)로 바꿨어요.${r.documents?` 자료 ${r.documents}개의 분류도 함께 바뀌었어요.`:''}`,focusAfter:`[data-le-rename="${CSS.escape(to)}"]`});
   }
   async function remove(name){
     if(busy)return;
+    // 환류에 쓰는 분류(또는 그 분류를 품은 큰 분류)는 삭제하지 않는다. 무엇이 막혔는지 한 줄.
+    const held=Object.values(rolesIn(name));
+    if(held.length){say(CATEGORY_EDITOR_TEXT.roleLocked(held[0]),true);paint();return;}
     let docs;try{docs=await refresh();}catch{docs=documents();}
     const sub=isSubcategory(name),subs=sub?0:subcategoriesOf(name).length;
     const text=sub?CATEGORY_EDITOR_TEXT.subDeleteConfirm(name,documentCountOf(name,docs))
