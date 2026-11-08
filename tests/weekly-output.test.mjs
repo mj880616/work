@@ -179,7 +179,8 @@ test('개인본 바탕에 없는 담당 조직은 맨 끝에 앱 조직 순서�
 test('화면 연결: 담당조직 [전체 표]와 홈 [주간 정리] 4.가 같은 표 부품·같은 순서 모듈을 쓰고 AI 채우기 버튼은 없다', () => {
   const read = f => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
   const ov = read('app/org-overview.js'), jw = read('app/journal-weekly.js');
-  assert.match(ov, /weekTableHtml\(wl,/); assert.match(ov, /orderForReport\(/); assert.match(jw, /orderForReport\(/);
+  // ORG-기록하나로 O-4 ①: 담당조직 표는 조직보고 창 부품(record-window-view.js windowTableHtml). 홈 4.는 O-4 ② PR에서 같은 부품으로 옮긴다.
+  assert.match(ov, /windowTableHtml\(wl,/); assert.match(ov, /orderForReport\(/); assert.match(jw, /orderForReport\(/);
   assert.doesNotMatch(ov, /oa-group|<section class="oa-group"|KPTUOrganizationOrder\.groups|order\.groups/, '묶음 카드는 없다');
-  assert.doesNotMatch(ov + read('app/weekly-org-lines.js'), /AI로 채우기|모두 다시 채우기/);
+  assert.doesNotMatch(ov + read('app/weekly-org-lines.js') + read('app/record-window-view.js'), /AI로 채우기|모두 다시 채우기/);
 });

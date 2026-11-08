@@ -246,7 +246,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   // ── [조직]·[사업](가족 줄 빼고 모든 줄 같은 길): 고르기 창 → 기존 기록 길(quick-save.js) → 그 줄을 처리한 것으로 ──
   const myOrgs = () => { if (!orgRead) orgRead = import('./feed-data.js').then(m => m.readOrganizations(rt)).catch(error => { orgRead = null; throw error; }); return orgRead; };
   const user = () => rt.context?.read?.()?.user?.id || null;
-  const orgDone = org => `${org.name || '조직'} 기록에 넣었어요. 이번 주 조직보고 제안에 올라가요.`;
+  const orgDone = org => `${org.name || '조직'} 기록에 넣었어요. 이번 주 조직보고에 보여요.`;
   const areaDone = project => `${project.name || '사업'} 기록에 넣었어요. 주간보고 사업 칸에 올라가요.`;
   // [조직]: 담당조직 고르기 창. guess(read)가 내 담당조직 하나를 돌려주면(소식: AI가 쓴 조직 이름, 텔레그램 요청·챙길 것: 후보에 붙은 조직)
   // 창 맨 위에 '조직 › ○○에 넣기'(한 번 누르면 그 조직). 옛 소식 줄 ⋯의 같은 항목을 여기로 옮겼다.
@@ -274,7 +274,8 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       if (project) onPick(project);
     }});
   }
-  const saveOrg = async (org, text) => (await import('./quick-save.js')).saveOrganizationUpdate({organization_id: org.id, raw_text: text, created_by: user()}, rt);
+  // ORG-기록하나로 O-4: 소식에서 온 기록은 원래 소식 줄을 함께 남긴다(source_kind memorable, 조직 상세 ⋯ [원래 글 보기]용).
+  const saveOrg = async (org, text, from = null) => (await import('./quick-save.js')).saveOrganizationUpdate({organization_id: org.id, raw_text: text, created_by: user(), ...(from ? {source_kind: 'memorable', source_id: from} : {})}, rt);
   const saveArea = async (project, text) => (await import('./quick-save.js')).saveProjectProgress({project_id: project.id, raw_text: text, created_by: user()}, rt);
 
   // ── 소식 줄(FORGET-소식합치기 → 소식바로잡기): 다른 줄과 같은 일곱 버튼. 상태는 표가 허락한 셋뿐 — 처리하면 kept, ×는 dropped ──
@@ -312,7 +313,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (act === 'done') return newsMark(r, 'kept', '이미 한 일로 뺐어요.', true);
     // [조직]: 그 조직 이름이 이미 줄 앞에 있으면 줄만, 다른 조직에 넣으면 AI가 쓴 이름까지 그대로 남긴다.
     if (act === 'org') return pickOrg(button, {guess: read => matchOrg(r.org, read.orgs, read.mine),
-      onPick: org => void newsKeep(r, () => saveOrg(org, matchOrg(r.org, [org], new Set([org.id])) ? r.line : text), orgDone(org))});
+      onPick: org => void newsKeep(r, () => saveOrg(org, matchOrg(r.org, [org], new Set([org.id])) ? r.line : text, r.id), orgDone(org))});
     if (act === 'area') return pickArea(button, project => void newsKeep(r, () => saveArea(project, text), areaDone(project)));
     if (act === 'task') {
       try {

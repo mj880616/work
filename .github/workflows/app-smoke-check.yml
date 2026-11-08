@@ -477,6 +477,9 @@ jobs:
       - name: Check weekly org report lines model (WEEKLY-메뉴짝짓기 P3)
         run: node --test tests/weekly-org-lines-model.test.mjs
 
+      - name: Check org report window model (ORG-기록하나로 O-4)
+        run: node --test tests/record-window-model.test.mjs
+
       - name: Check weekly org report suggestion calls (WEEKLY-메뉴짝짓기 P4)
         run: node --test tests/weekly-org-suggest.test.mjs
 

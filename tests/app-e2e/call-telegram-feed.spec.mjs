@@ -257,7 +257,7 @@ test('통화 1280: 조직 연결은 핵심내용을 요약 기본값으로, 저�
  await expect(page.locator('#cfDetail [data-cf-link-pick]')).toHaveText('예시지부 ▾');
  await page.locator('#cfDetail [data-cf-link-save]').click();
  await expect.poll(()=>f.writes.find(w=>w.id===C2&&w.body.organization_id)?.body.organization_id).toBe(ORG);
- await expect.poll(()=>f.writes.find(w=>w.table==='org_update')?.body).toEqual({organization_id:ORG,raw_text:'- 원고 금요일 마감',created_by:'home-test'});
+ await expect.poll(()=>f.writes.find(w=>w.table==='org_update')?.body).toEqual({organization_id:ORG,raw_text:'- 원고 금요일 마감',created_by:'home-test',source_kind:'feed',source_id:C2});
  await expect(page.locator(`#callsView [data-cf-row="${C2}"] .feed-org`)).toHaveText('예시지부');
  await expect(page.locator('#cfDetail [data-cf-detail-status]')).toContainText('예시지부에 연결하고 기록을 남겼어요.');
  expect(f.errors).toEqual([]);

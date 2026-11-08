@@ -41,16 +41,30 @@ const isoOf = (v, allDay) => {
   return Number.isFinite(t) ? new Date(t).toISOString() : null;
 };
 
+// 일정에 붙인 조직 연결(kptu_suborg_ids) 중 내 조직 목록에 있는 것 전부(연결 순서). ORG-기록하나로 O-4 조직보고 창(record-window-model.mjs)도 쓴다.
+export function linkedOrgs(event, orgs) {
+  const list = Array.isArray(orgs) ? orgs : [];
+  const out = [];
+  for (const raw of Array.isArray(event?.organizationIds) ? event.organizationIds : []) {
+    const id = String(raw).toLowerCase(), hit = list.find(o => String(o?.id ?? '').toLowerCase() === id);
+    if (hit && !out.includes(hit)) out.push(hit);
+  }
+  return out;
+}
+// 제목에 조직 이름·다른 이름(2글자 이상, 띄어쓰기·문장부호 무시)이 정확히 한 조직만 맞으면 그 조직, 아니면 null.
+export function titleOrg(event, orgs) {
+  const list = Array.isArray(orgs) ? orgs : [];
+  const title = clean(event?.title);
+  if (!title) return null;
+  const hits = list.filter(o => [o?.name, ...(Array.isArray(o?.aliases) ? o.aliases : [])].some(n => clean(n).length >= 2 && title.includes(clean(n))));
+  return hits.length === 1 ? hits[0] : null;
+}
 // 이 일정의 담당조직(결정 1). 연결이 있으면 내 조직 목록에 있는 첫 연결, 없으면 제목에 이름이 정확히 하나 맞는 조직. 없으면 null.
 export function eventOrg(event, orgs) {
   const list = (Array.isArray(orgs) ? orgs : []).filter(o => UUID.test(String(o?.id || '')));
-  const linked = (Array.isArray(event?.organizationIds) ? event.organizationIds : []).map(id => String(id).toLowerCase());
-  for (const id of linked) { const hit = list.find(o => String(o.id).toLowerCase() === id); if (hit) return hit; }
-  if (linked.length) return null;
-  const title = clean(event?.title);
-  if (!title) return null;
-  const hits = list.filter(o => [o.name, ...(Array.isArray(o.aliases) ? o.aliases : [])].some(n => clean(n).length >= 2 && title.includes(clean(n))));
-  return hits.length === 1 ? hits[0] : null;
+  const linked = Array.isArray(event?.organizationIds) ? event.organizationIds : [];
+  if (linked.length) return linkedOrgs(event, list)[0] ?? null;
+  return titleOrg(event, list);
 }
 // 한 장 대상인가: 담당조직이 있고, 제목 낱말이 있고, 취소·개인 일정이 아님.
 export function target(event, orgs) {

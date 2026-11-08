@@ -111,3 +111,13 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
 @media (max-width:760px){
   .wl-table.wl-weekly .wl-c-org{width:auto}
 }
+/* ORG-기록하나로 O-4 조직보고 창(record-window-view.js): 줄 끝 작은 표시 — '일정'(캘린더 일정 줄)·✓(보고용으로 수정)·흐린 '지난주'·흐린 '확정 뒤 추가'. */
+.rw-tag,.rw-last,.rw-after-tag{flex:0 0 auto;font-size:var(--ds-text-meta);line-height:1.2;color:var(--kptu-muted);white-space:nowrap}
+.rw-tag{padding:0 4px;border:var(--ds-line-width) solid var(--kptu-border-strong);border-radius:6px}
+.rw-last,.rw-after-tag{opacity:.75}
+.rw-ok{flex:0 0 auto;color:var(--kptu-info);font-size:var(--ds-text-meta)}
+.wl-line.rw-after .wl-text,.wl-line.rw-after .wl-day{color:var(--kptu-muted);opacity:.7}
+.rw-fold{margin:0 0 2px}
+.rw-note{margin:0 0 4px}
+.rw-foot{display:flex;flex-wrap:wrap;align-items:baseline;margin:2px 0 0}
+.rw-foot .wl-more,.rw-foot .wl-add{display:inline-block;margin:0}

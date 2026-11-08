@@ -80,13 +80,14 @@ test('같은 줄 판정(sameLine·similarBody): 같은 날(±1일)·비슷한 �
   assert.equal(m.refillPlan, undefined, '[기록에서 다시 채우기 (AI)]는 지웠다(WEEKLY-메뉴짝짓기 P7)');
 });
 
-test('DESK-전체현황표 → WEEKLY-메뉴짝짓기 P3 화면 연결: 소탭 [목록|전체 표]는 org-overview.js 하나, 줄은 주별 조직보고 공용 부품(weekly-org-lines.js)으로 읽고 쓴다', () => {
+test('DESK-전체현황표 → ORG-기록하나로 O-4 화면 연결: 소탭 [목록|전체 표]는 org-overview.js 하나, 칸은 조직보고 창 공용 부품(record-window-view.js)이 그린다', () => {
   const ov = read('app/org-overview.js'), so = read('app/suborganizations.js'), st = read('app/org-status-table.js'), wl = read('app/weekly-org-lines.js');
   assert.match(so, /import\('\.\/org-overview\.js'\)/);
   assert.match(ov, /data-so-view="list"[^>]*>목록</);assert.match(ov, /data-so-view="table"[^>]*>전체 표</);
-  assert.match(ov, /import \{[^}]*createWeekLines[^}]*\} from '\.\/weekly-org-lines\.js'/);
+  assert.match(ov, /import \{[^}]*createRecordWindow[^}]*\} from '\.\/record-window-view\.js'/);
+  assert.doesNotMatch(ov, /weekly-org-lines\.js/, '담당조직 표는 옛 주별 줄 부품을 쓰지 않는다');
   assert.match(ov, /import \{[^}]*weekPickHtml[^}]*\} from '\.\/week-pick\.js'/);
-  assert.doesNotMatch(ov, /app_org_status_rows|app_weekly_org_lines/, '표 이름은 부품 안에만');
+  assert.doesNotMatch(ov, /app_org_status_rows|app_weekly_org_lines|app_report_line_marks|app_suborganization_updates/, '표 이름은 부품 안에만');
   assert.doesNotMatch(ov, /data-oa-fill|data-oa-refill-all|AI로 채우기|모두 다시 채우기/, '[AI로 채우기]·[모두 다시 채우기 (AI)]는 없앴다(설계 3.1)');
   assert.doesNotMatch(ov + wl, /\b(?:local|session)Stor/, '브라우저 저장소를 쓰지 않는다');
   assert.match(ov, /name: 'orgall'/);assert.match(st, /name: 'orgst'/);
@@ -99,7 +100,7 @@ test('DESK-전체현황표 → WEEKLY-메뉴짝짓기 P3 화면 연결: 소탭 [
 test('UI-버튼간격: 공용 간격은 토큰 하나(--ds-button-gap)이고 .btn-row가 쓰며, 나란한 버튼은 .btn-row 줄 안에 둔다(담당조직 표)', () => {
   assert.match(read('app/theme-tokens.css'), /--ds-button-gap:\s*8px/);
   assert.match(read('app/ui-standard.css'), /\.btn-row\{[^}]*gap:var\(--ds-button-gap,\s*8px\)/);
-  for (const f of ['app/org-overview.js', 'app/org-status-table.js', 'app/weekly-org-lines.js']) {
+  for (const f of ['app/org-overview.js', 'app/org-status-table.js', 'app/weekly-org-lines.js', 'app/record-window-view.js']) {
     const src = read(f);
     // 템플릿 안에서 </button> 바로 뒤에 <button 또는 <span 이 붙는 줄(사이 간격 0): 같은 줄 앞쪽에 btn-row 클래스가 있어야 한다.
     const all = src.split('\n');

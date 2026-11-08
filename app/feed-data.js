@@ -252,7 +252,7 @@ export async function linkOrganization(row, organizationId, summary, rt = window
   if (!organizationId || !text) return {saved, recorded:false, recordFailed:false};
   try {
     const {saveOrganizationUpdate} = await import('./quick-save.js');
-    await saveOrganizationUpdate({organization_id:organizationId, raw_text:text, created_by:ctx(rt).user?.id}, rt);
+    await saveOrganizationUpdate({organization_id:organizationId, raw_text:text, created_by:ctx(rt).user?.id, source_kind:'feed', source_id:row.id}, rt); // ORG-기록하나로 O-4: 원래 통화·텔레그램 줄
     return {saved, recorded:true, recordFailed:false};
   } catch { return {saved, recorded:false, recordFailed:true}; }
 }
