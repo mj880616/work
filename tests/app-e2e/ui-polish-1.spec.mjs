@@ -69,7 +69,7 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // Opens with a short slide-up; measure only once it has settled.
  const open=async()=>{await tab.click();await expect(menu).toBeVisible();await expect.poll(()=>panel.evaluate(el=>el.getAnimations().length)).toBe(0);};
  await open();await expect(tab).toHaveAttribute('aria-expanded','true');
- // UI-모바일메뉴순서: 하단바는 언제나 한 칸만 진하다. 창이 열려 있으면 [메뉴]만(담당조직 화면을 보고 있어도).
+ // UI-모바일메뉴순서: 하단바는 언제나 한 칸만 진하다. 창이 열려 있으면 [메뉴]만(조직 보고 화면을 보고 있어도).
  const marks=page.locator('.mobile-tabs [aria-current="page"]');
  await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
  // The sheet sits right on top of the tab bar, full width, rounded top.
@@ -96,8 +96,8 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  await grip.focus();await page.keyboard.press('Tab');await expect(page.locator('#mobileMenu .gs-menu-entry')).toBeFocused();
  await page.keyboard.press('Tab');await expect(tiles.first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(tab).toBeFocused();await expect(tab).toHaveAttribute('aria-expanded','false');
- // 닫으면 지금 보는 화면(담당조직) 하나만 진하다.
- await expect(marks).toHaveCount(1);await expect(marks).toContainText('담당조직');await expect(tab).not.toHaveAttribute('aria-current','page');
+ // 닫으면 지금 보는 화면(조직 보고) 하나만 진하다.
+ await expect(marks).toHaveCount(1);await expect(marks).toContainText('조직 보고');await expect(tab).not.toHaveAttribute('aria-current','page');
  // A tap on the grip closes.
  await open();await grip.click();await expect(menu).toBeHidden();
  // A tap outside (above the sheet) closes.
