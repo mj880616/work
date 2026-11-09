@@ -128,7 +128,8 @@ test('split ratio accepts every screen name of its own and moves only the origin
 // UI-칸폭끌기전수: 사진 폴더·아스날·노트 폴더·노트 보드도 자기 이름. DB가 새 이름을 아직 모르면(400) 그 칸 폭만 되돌리고 다른 칸은 저장한다.
 test('the four new split screens are accepted, and a server that does not know them yet only drops that width',async()=>{
   for(const name of ['photos','arsenal','notes','noteboard'])assert.equal(validValue('split_ratio',{[name]:0.3}),true,name);
-  assert.equal(validValue('split_ratio',{library:0.3}),false);
+  // S55-11 LIB-두칸보기: library는 이제 자기 이름(migration 20261109193000). 모르는 이름은 여전히 거절.
+  assert.equal(validValue('split_ratio',{library:0.3}),true);assert.equal(validValue('split_ratio',{nowhere:0.3}),false);
   const heard=[];const had=globalThis.window;
   globalThis.window={dispatchEvent:event=>{heard.push([event.type,event.detail]);return true}};
   try{
