@@ -162,8 +162,9 @@ test.describe('LIB-후속1 PC 선택',()=>{
     const {errors}=await boot(page,1280);
     await libraryTopMenu(page,'select');
     const row=page.locator('[data-lu-document="a-2"]'),pick=page.locator('[data-lu-pick="a-2"]');
-    const box=await pick.boundingBox(),rb=await row.boundingBox();
-    const spots=[[box.x+1,box.y+box.height/2],[box.x+box.width/2,box.y+box.height/2],[box.x+box.width-1,box.y+box.height/2],[rb.x+1,rb.y+rb.height/2],[rb.x+rb.width*0.6,rb.y+rb.height/2]];
+    // 선택 모드가 켜지면 줄이 0.2초 좌우로 살짝 흔들린다(lu-sel-nudge). 끝나기 전에 재면 좌표가 밀리므로 그 애니메이션이 끝난 뒤, 네모 칸·줄 자리를 같은 순간 한 번에 잰다.
+    await page.evaluate(()=>Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>null))));
+    const spots=await page.evaluate(id=>{const r=document.querySelector(`[data-lu-document="${id}"]`).getBoundingClientRect(),b=document.querySelector(`[data-lu-pick="${id}"]`).getBoundingClientRect(),my=b.y+b.height/2,ry=r.y+r.height/2;return [[b.x+1,my],[b.x+b.width/2,my],[b.x+b.width-1,my],[r.x+1,ry],[r.x+r.width*0.6,ry]]},'a-2');
     // 누르는 자리마다 맨 위 요소가 그 줄 안이어야 한다(덮는 것이 있으면 그 이름이 실패 글에 나온다).
     for(const [x,y] of spots){
       const hit=await page.evaluate(([x,y])=>{const el=document.elementFromPoint(x,y);return el?.closest('[data-lu-document]')?.dataset.luDocument||`${el?.tagName}.${el?.className}`},[x,y]);
