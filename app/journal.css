@@ -650,3 +650,5 @@
   html:has(body.kptu-workspace-shell) .modal.family-send{ bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); }
   .family-send-card{ width:100%; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); }
 }
+/* 3. 2) 사업장 칸 안쪽 창 줄([주간 정리]). */
+#appView #homeView .weekly-flow-window{ min-width:0; padding:2px 0 0; }

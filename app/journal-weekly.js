@@ -38,7 +38,7 @@ import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
 import {docEdits, draftHq, draftDiscuss, draftDrops, draftHand} from './weekly-draft-store.js';
 import {discussLines, DISCUSS_TITLE} from './weekly-discuss.mjs';
-import {reportOrgNames, orderForReport} from './weekly-org-order-model.mjs';
+import {myReportOrgs} from './weekly-org-order-model.mjs';
 import {withHandCalendar, handRows, detailEdits, HAND_TAG} from './weekly-hand.mjs';
 import {alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
@@ -359,11 +359,9 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
       section.id = id;
     }
     // 주별 조직보고 표에 늘 나오는 내 담당조직(앱 조직 순서, 내용 없어도 자리 유지).
-    const all = read.orgUpdates?.orgs || [], mineSet = read.orgUpdates?.mine instanceof Set ? new Set([...read.orgUpdates.mine].map(x => String(x).toLowerCase())) : null;
-    const list = all.filter(o => o?.id && (!mineSet || mineSet.has(String(o.id).toLowerCase()))).map(o => ({id:String(o.id).toLowerCase(), name:String(o.name || '').trim()}));
     // S50-7: 순서 = 주간보고(개인본) 순서 — 담당조직 [전체 표]와 같은 한 곳(weekly-org-order-model.mjs). 바탕이 없으면 앱 조직 순서.
     const appSort = globalThis.window?.KPTUOrganizationOrder?.sort;
-    const mine = orderForReport(list, reportOrgNames(draftRead && !draftRead.missing ? draftRead.row?.draft : null), appSort ? l => appSort(l) : l => l);
+    const mine = myReportOrgs(read.orgUpdates, draftRead && !draftRead.missing ? draftRead.row?.draft : null, appSort ? l => appSort(l) : null);
     return {sections:[...sections.values()].sort(compareOrgSections), mine, overlapped:dropped.orgs};
   });
 
