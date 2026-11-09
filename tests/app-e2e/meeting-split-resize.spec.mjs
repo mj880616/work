@@ -32,9 +32,15 @@ async function open(page,width,options={}){
   await showAllReportWeeks(page);
   await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle')).toHaveCount(2);
   // 오른쪽 결과의 후속 할 일까지 불러온 뒤(그 뒤에는 칸을 다시 그리지 않는다) 잰다.
+  await columnsReady(page);
+  return errors;
+}
+// 3단 위 [주간 사업요약표] 칸은 모듈을 늦게 불러와 그린 뒤에야 제 높이(약 100px → 400px)가 되어 아래 3단 전체가 밀려 내려간다.
+// 잰 칸 자리·끌 경계선 자리가 그 사이에 어긋나지 않도록, 요약표와 오른쪽 결과(후속 할 일까지)가 다 그려진 뒤에 잰다. (새로 불러온 뒤 같은 어긋남으로 간헐 실패했음)
+async function columnsReady(page){
+  await expect(page.locator('#bizWeekBox [data-bp-paper]')).toContainText('1) 사업요약표');
   await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toBeVisible();await expect(page.locator('#meetingList #mrdLoading')).toBeHidden();
   await settle(page);
-  return errors;
 }
 const settle=page=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
 const stored=()=>prefs.value?.split_ratio?.reports3??null;
@@ -89,9 +95,11 @@ for(const width of [1280,1440,1920]){
   await page.locator('#meetingList [data-meeting-kind]').nth(1).click();await settle(page);
   const kept=await widths(page);// 서버 숫자 하나에 천분율로 담으므로 몇 px 안팎의 반올림 차이는 있다.
   expect(Math.abs(kept.kinds-m.kinds)).toBeLessThanOrEqual(2.5);expect(Math.abs(kept.rounds-m.rounds)).toBeLessThanOrEqual(2.5);
-  await expect.poll(()=>{const v=stored();return typeof v==='number'&&v>0&&v<1}).toBe(true);
+  // 서버 기억은 0.4초 모아 보내므로, 방금 끈 둘째 경계(앞 두 칸 몫 50%)가 서버에 올라간 것을 본 뒤에 새로 불러온다
+  // (첫 경계를 끌 때 올라간 옛 값만 보고 넘어가면 새로 불러온 폭이 옛 값이라 어긋난다). 값 모양은 encodeTriple: 천분율 L(둘째 경계 왼쪽 몫)·K.
+  await expect.poll(()=>{const v=stored();return typeof v==='number'&&v>0&&v<1&&Math.floor(Math.round(v*1e6)/1000)===500}).toBe(true);
   await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
-  await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle')).toHaveCount(2);await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toBeVisible();await expect(page.locator('#meetingList #mrdLoading')).toBeHidden();await settle(page);
+  await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle')).toHaveCount(2);await columnsReady(page);
   const back=await widths(page);expect(Math.abs(back.kinds/back.total-m.kinds/m.total)).toBeLessThan(0.01);expect(Math.abs(back.rounds/back.total-m.rounds/m.total)).toBeLessThan(0.01);
 
   // 최소 폭: 맨 왼쪽·맨 오른쪽 끝까지 끌어도 종류 150·차수 96, 결과 360 아래로 줄지 않는다.

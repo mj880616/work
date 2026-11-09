@@ -264,3 +264,33 @@ for(const width of [390,1280])test(`[전체 표] 긴 기록은 한 줄 + ⋯ [�
  expect(db.posts).toEqual([]);expect(db.markWrites).toEqual([]);
  expect(errors).toEqual([]);
 });
+
+// UI-줄⋯공용맞추기(요청함 11/09 07:36): 줄 ⋯ 는 글 오른쪽 위(첫 줄 높이), ▶·▼ 펼침 표시 없음, 눌러 나오는 메뉴는 줄 높이를 늘리지 않는 작은 메뉴.
+for(const width of [390,1280])test(`[전체 표] 줄 ⋯ 는 긴 글에서도 글 오른쪽 위, 펼침 표시 없음, 메뉴가 줄을 밀지 않음 ${width}px`,async({page})=>{
+ const long='합성 아주 긴 기록 '.repeat(24);
+ const rec=U(OA,'2026-11-17',long);
+ const {errors}=await fixture(page,{width,records:[rec]});
+ await openTable(page);
+ const line=oa(page).locator('.wl-cell > .rw-line').first();
+ const text=line.locator('.wl-text'),sum=line.locator('summary');
+ await expect(sum).toBeVisible();
+ await expect.poll(()=>sum.evaluate(e=>e.getBoundingClientRect().height)).toBeGreaterThan(20);
+ const {tb,sb,lb}=await line.evaluate(l=>{const r=e=>{const b=e.getBoundingClientRect();return{x:b.x,y:b.y,width:b.width,height:b.height}};return{tb:r(l.querySelector('.wl-text')),sb:r(l.querySelector('summary')),lb:r(l)}});
+ expect(lb.height).toBeGreaterThan(sb.height*2); // 글이 여러 줄이어도
+ expect(sb.y+sb.height/2).toBeLessThan(lb.y+sb.height); // ⋯ 는 줄 맨 위(첫 줄 높이)
+ expect(sb.y+sb.height).toBeLessThan(tb.y+tb.height/2);
+ expect(Math.abs((sb.x+sb.width)-(lb.x+lb.width))).toBeLessThan(6);
+ const mark=await sum.evaluate(e=>({d:getComputedStyle(e).display,ls:getComputedStyle(e).listStyleType,wk:getComputedStyle(e,'::-webkit-details-marker').display,m:getComputedStyle(e,'::marker').content}));
+ expect(mark.ls).toBe('none');expect(['none','""','normal']).toContain(mark.m);
+ const before=lb.height;
+ await sum.click();
+ const menu=line.locator('.row-more-menu');
+ await expect(menu).toBeVisible();
+ expect((await line.boundingBox()).height).toBe(before);
+ const mb=await menu.boundingBox();
+ expect(mb.y).toBeGreaterThanOrEqual(sb.y+sb.height-8);
+ expect(Math.abs((mb.x+mb.width)-(sb.x+sb.width))).toBeLessThan(6);
+ const btn=await menu.locator('button').first().evaluate(e=>({b:getComputedStyle(e).borderTopWidth,fs:parseFloat(getComputedStyle(e).fontSize),fw:+getComputedStyle(e).fontWeight}));
+ expect(btn.b).toBe('0px');expect(btn.fs).toBeLessThanOrEqual(14);expect(btn.fw).toBeLessThanOrEqual(500);
+ expect(errors).toEqual([]);
+});
