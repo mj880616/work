@@ -175,6 +175,7 @@ test('폰 M2: 이름 다듬기(날짜 앞머리 → 오른쪽 날짜, 밑줄 →
   expect(s.docs.find(d=>d.id==='prefixed').title).toBe('261009_가상노조_교섭_본교섭_3차_요구안.hwp');
   await expect(row.locator('.lu-more-trigger')).toHaveAttribute('aria-label','자료 관리: 261009_가상노조_교섭_본교섭_3차_요구안.hwp');
   // 원본 이름(밑줄·날짜 포함)으로 검색된다.
+  await page.locator('#librarySearchOpen').click();/* LIB-위쪽한줄 가안: 폰은 ⌕로 찾기 칸을 연다 */
   await page.locator('#documentSearch').fill('261009_가상노조');expect(await ids(page)).toEqual(['prefixed']);
   await page.locator('#documentSearch').fill('');
   // PC 폭으로 넓히면 원래 이름으로 다시 그린다.

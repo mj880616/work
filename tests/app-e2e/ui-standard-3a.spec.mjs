@@ -160,13 +160,14 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  for(const row of await rows.all())expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(width<761?44:27);
  const box=await look(page.locator('#libraryListCard'));expect(box.borderWidth).toBe(await lineWidth(page));expect(box.radius).toBe('12px');
  expect((await look(rows.nth(1))).borderWidth).toBe(await lineWidth(page));
- // 버튼·필터: 한 높이, 채운 버튼은 [+ 자료] 하나, 고른 필터는 테마 주 색(UI-선택표시통일).
- expect(await sameButtons(page,page.locator('#libraryView'))).toEqual(width<761?[]:['+ 자료 등록']);
- // LIB-맨위다듬기(S53-18): 분류 칩은 고른 칩(data-cc-fill)만 선택 색, 켜져 있어도 고르지 않은 칩은 흰 바탕. 처음('회의'만 꺼짐)은 고른 칩 없음.
- const filled=page.locator('#libraryCategoryFilter [data-cc-fill]');
- if(await filled.count()){const selected=await look(filled.first());expect(selected.bg).toBe(await token(page,'--ds-select-bg'));expect(selected.fg).toBe(await token(page,'--ds-select-ink'));}
- else expect((await look(page.locator('#libraryCategoryFilter [aria-pressed="true"]').first())).bg).toBe(await token(page,'--kptu-surface'));
- const search=await look(page.locator('#documentSearch'));expect(search.height).toBe(36);expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
+ // 버튼·필터: 한 높이. LIB-위쪽한줄(11/09): 자료실 위 줄 [+]는 글자 없는 작은 아이콘이라 채운 버튼이 없다.
+ expect(await sameButtons(page,page.locator('#libraryView'))).toEqual([]);
+ // [분류 ▾]·[폴더 ▾]는 고르기 상자 바탕(--ds-select-bg), 칩 줄은 없다.
+ await expect(page.locator('#libraryCategoryFilter')).toHaveCount(0);
+ for(const sel of ['#libraryCategoryPick','#libraryGroupBy']){const p=await look(page.locator(sel));expect(p.height,sel).toBe(32);expect(p.radius,sel).toBe('8px');}
+ const search=await look(page.locator('#documentSearch'));
+ if(width<761)await page.locator('#librarySearchOpen').click();
+ const shown=await look(page.locator('#documentSearch'));expect(shown.height).toBe(32);expect(search.radius).toBe('8px');expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
  await noOverflow(page);
  expect(errors).toEqual([]);
 });

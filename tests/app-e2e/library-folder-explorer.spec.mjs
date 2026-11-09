@@ -1,4 +1,4 @@
-import {toggleLibraryCategory} from './helpers/library-categories.mjs';
+import {toggleLibraryCategory,readLibraryCategories} from './helpers/library-categories.mjs';
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,childrenOf,menuButton,folderMenuItem,press,openMove,moveFolder,moveEnabledNames,movePicker} from './helpers/library-folder-server.mjs';
@@ -76,9 +76,9 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     expect(s.profilePatches[0]).toEqual({library_view:{group_by:'folder'}});expect(s.profilePatches[1]).toEqual({library_view:{group_by:'month'}});
     expect(s.libraryView).toEqual({group_by:'month'});
     await expect(groupNow(page)).toHaveText('폴더');expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
-    // 폴더 보기에서 종류 칩을 눌러도 기억은 저장된다(폴더 때문에 막히지 않음).
-    const chip=page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])').first();const name=await chip.getAttribute('data-lu-category');
-    const before=(await chip.getAttribute('aria-pressed'))==='true';
+    // 폴더 보기에서 분류를 바꿔도 기억은 저장된다(폴더 때문에 막히지 않음).
+    const st=await readLibraryCategories(page),name=st.names[0];// LIB-위쪽한줄: 분류는 [분류 ▾] 창
+    const before=st.all||st.on.includes(name);
     await toggleLibraryCategory(page,name);
     await expect.poll(()=>s.libraryView?.categories_off?.includes(name),{timeout:5000}).toBe(before);
     expect(s.libraryView.group_by).toBe('month');
@@ -135,7 +135,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     const writes=s.writes.length;
     await libraryNodeHead(page,'f:fn').focus();await page.keyboard.press('F2');await input.fill('   ');await page.keyboard.press('Enter');
     await expect(page.locator('#libraryFolderStatusLine')).toHaveText('폴더 이름은 1~40자로 써 주세요.');expect(s.writes.length).toBe(writes);await expect(name).toHaveText('가상 N');
-    await libraryNodeHead(page,'f:fn').focus();await page.keyboard.press('F2');await input.fill('가상 바깥');await page.locator('#documentSearch').click();
+    await libraryNodeHead(page,'f:fn').focus();await page.keyboard.press('F2');await input.fill('가상 바깥');await page.locator('#libraryView .lu-search-row').click({position:{x:1,y:1}})/* 바깥 누르기(LIB-위쪽한줄: 폰은 찾기 칸이 접혀 있어 위 줄 빈 곳) */;
     await expect(name).toHaveText('가상 바깥');expect(s.writes.at(-1).body).toEqual({name:'가상 바깥'});
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
   });

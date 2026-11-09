@@ -31,8 +31,8 @@ for(const width of [390,760])test(`공용 알약 필터·2단 프로젝트·키�
   // UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents list with the rest.
   // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글이고, 들어올 때는 [회의]만 꺼져 있다(회의 자료 1건 숨김).
   await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.locator('.lu-row')).toHaveCount(6);
-  const category=page.locator('#libraryCategoryFilter');await expect(category).toHaveAttribute('role','group');
-  await expect(category.locator('[data-lu-category="회의"]')).toHaveAttribute('aria-pressed','false');await expect(page.locator('[data-lu-document="meeting-doc"]')).toHaveCount(0);
+  // LIB-위쪽한줄: 분류는 위 줄 [분류: … ▾] 하나(칩 줄 없음).
+  await expect(page.locator('#libraryCategoryFilter')).toHaveCount(0);await expect(page.locator('#libraryCategoryPick')).toHaveText('분류: 회의 빼고');await expect(page.locator('[data-lu-document="meeting-doc"]')).toHaveCount(0);
   await toggleLibraryCategory(page,'회의');await expect(page.locator('.lu-row')).toHaveCount(7);
   await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeAttached();
   // LIB-토글트리: 프로젝트 칩 줄 대신 트리. 1단 토글의 자료 수는 그 아래 2·3단 자료까지 센다(PRJ-3단 결정 2와 같은 범위).
@@ -51,6 +51,7 @@ for(const width of [390,760])test(`공용 알약 필터·2단 프로젝트·키�
   // [정책]을 끄면 회의 자료만 남고, 검색 중 [회의]를 끄면 목록 아래 안내와 [켜기]가 나온다.
   await toggleLibraryCategory(page,'정책');await expect(page.locator('.lu-row')).toHaveCount(1);
   await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
+  if(width<=760)await page.locator('#librarySearchOpen').click();/* LIB-위쪽한줄 가안: 폰은 ⌕로 찾기 칸을 연다 */
   await page.locator('#documentSearch').fill('회의');await expect(page.locator('.lu-row')).toHaveCount(1);
   await toggleLibraryCategory(page,'회의');await expect(page.locator('.lu-row')).toHaveCount(0);
   await expect(page.locator('.lu-off-hint')).toHaveText('회의 분류 1건은 꺼져 있어요 켜기');
@@ -75,5 +76,5 @@ test('프로젝트 자료 전체 보기는 하위 알약과 같은 필터 결과
   await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.locator('#documentProject')).toHaveJSProperty('value','child-a1');
   // UI-PC자료실 C: 프로젝트에서 들어와도 자료실 기본 상태([회의] 꺼짐)로 시작한다. [회의]를 켜면 그 프로젝트의 회의 자료가 같이 보인다.
   await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();
-  await page.locator('#libraryCategoryFilter [data-lu-category="회의"]').click();await expect(page.locator('.lu-row')).toHaveCount(2);await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();expect(errors).toEqual([]);
+  await toggleLibraryCategory(page,'회의');await expect(page.locator('.lu-row')).toHaveCount(2);await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();expect(errors).toEqual([]);
 });
