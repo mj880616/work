@@ -1560,9 +1560,7 @@ function openLayer() {
 }
 // S50-16: 폰 앱(0.5.1+)은 navigator.share가 없어도 앱 다리로 안드로이드 공유 창을 띄운다(app-share.js).
 const canShare = () => (typeof navigator.share === 'function' && typeof navigator.canShare === 'function') || appShare().known();
-// 미리보기 ←→(S52-43 ③): 그 줄이 있는 칸의 목록 차례에서 파일만 건너뛰며 앞·다음(키보드 ←·→, 머리 줄 작은 ← → 단추).
-const STEP_HTML = '<button type="button" class="icon-btn" data-fx-pv-step="-1" aria-label="앞 파일" title="앞 파일 (←)">←</button>'
-  + '<button type="button" class="icon-btn" data-fx-pv-step="1" aria-label="다음 파일" title="다음 파일 (→)">→</button>';
+// 미리보기 ←→(S52-43 ③): 그 줄이 있는 칸의 목록 차례에서 파일만 건너뛰며 앞·다음(키보드 ←·→만. 이름 옆 ← → 단추는 없앴다 — 폰은 목록으로 돌아가 다른 파일을 누른다).
 function previewPane() {
   const k = state.preview?.key;
   return k ? state.panes.find(q => (q.query ? q.found || [] : q.rows || []).some(x => rowKey(x) === k)) || null : null;
@@ -1583,20 +1581,12 @@ function previewStep(dir) {
   openPreview(r);
   return true;
 }
-// keep = 다시 그리기 전 초점이 있던 ← → 단추('-1'|'1'): 새로 그린 같은 단추로 초점을 돌려 키를 이어 쓰게.
-let stepKeep = '';
-function paintStep(box) {
-  for (const b of box.querySelectorAll('[data-fx-pv-step]')) b.disabled = !previewNext(Number(b.dataset.fxPvStep));
-  const keep = stepKeep; stepKeep = '';
-  if (keep) (box.querySelector(`[data-fx-pv-step="${keep}"]:not([disabled])`) || box.querySelector('[data-fx-pv-step]:not([disabled])'))?.focus({preventScroll: true});
-}
 function paintPreview() {
   const box = $('[data-fx-prev]');
   if (!box) return;
   const p = state.preview;
   if (!p) { box.hidden = true; box.innerHTML = ''; delete root.dataset.fxPreview; return; }
   box.hidden = false;
-  stepKeep = box.contains(document.activeElement) ? document.activeElement?.dataset?.fxPvStep || '' : '';
   const r = p.row, at = state.panes.find(q => q.where?.source === r.source && !q.query && !q.where?.shelf && q.rows.some(x => rowKey(x) === p.key));
   const where = at ? trailNames(r.source, at.trail).join(' › ') : pathText(r.source, r.folder_path);
   let view = '';
@@ -1613,16 +1603,16 @@ function paintPreview() {
   // 그리고 있는 PDF 칸은 그대로 둔다(다시 그리면 쪽을 처음부터 다시 그려야 함).
   if (p.doc && p.host && p.host.isConnected && box.contains(p.host) && box.dataset.fxKey === p.key) return;
   // 재생 중인 동영상·소리는 다시 그리지 않는다(다시 그리면 처음부터 다시 받거나 멈춤).
-  if ((p.kind === 'video' || p.kind === 'audio') && p.status === 'done' && box.dataset.fxKey === p.key && box.querySelector('[data-fx-media]')) { paintStep(box); return; }
+  if ((p.kind === 'video' || p.kind === 'audio') && p.status === 'done' && box.dataset.fxKey === p.key && box.querySelector('[data-fx-media]')) return;
   box.dataset.fxKey = p.key;
   if (r.source === PC) {
     // 내 PC 미리보기(S52-43 ① FILES-내PC쓰기): 사진·PDF·글은 클라우드와 같은 보기 칸(바구니 문에서 화면 메모리로 읽음), 그 밖은 이름·크기만.
     //   아래 줄: [이 PC에서 열기][탐색기에서 위치] + (0.4.0+) [복사][옮기기] + (0.5.0+) [이름][휴지통] — 클라우드와 같은 항목.
     const big = p.big || (p.kind === 'none' && ['image', 'pdf'].includes(previewKind(r)) && Number(r.size_bytes) > PC_PREVIEW_MAX && pc.canXfer);
-    box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span>${STEP_HTML}</div>`
+    box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span></div>`
       + `<div class="fx-pv-view">${p.kind === 'none' ? `<p class="fx-pv-note">${esc(p.big ? p.bigText : big ? PC_PREVIEW_BIG_TEXT : PC_PREVIEW_TEXT)}</p>` : view}</div>`
       + `<dl class="fx-pv-meta"><dt>위치</dt><dd>${esc(where)}</dd><dt>크기</dt><dd>${esc(sizeText(r.size_bytes))}</dd><dt>바뀐 날</dt><dd>${esc(fullTime(r.modified_at))}</dd><dt>종류</dt><dd>${esc(kindLabel(r))}</dd></dl>`
-      + '<div class="fx-pv-acts"><button type="button" class="fx-btn" data-fx-open>이 PC에서 열기</button><button type="button" class="fx-btn" data-fx-pc-reveal>탐색기에서 위치</button>'
+      + '<div class="fx-pv-acts"><button type="button" class="secondary" data-fx-open>이 PC에서 열기</button><button type="button" class="secondary" data-fx-pc-reveal>탐색기에서 위치</button>'
       + (pcWrite() ? '<button type="button" class="secondary" data-fx-copy-one>복사</button><button type="button" class="secondary" data-fx-cut-one>옮기기</button><button type="button" class="secondary" data-fx-tolib-one>자료실로 보내기</button>' : '')
       + (pcEdit() ? '<button type="button" class="secondary" data-fx-rename-one>이름</button><button type="button" class="danger" data-fx-trash-one>휴지통</button>' : trashOff(PV_TRASH_HTML, 'pc')) + '</div>';
     if (p.doc) { p.host = null; drawPages(p, Math.max(PDF_FIRST_PAGES, p.want || 0)); }
@@ -1632,26 +1622,24 @@ function paintPreview() {
       if (p.status === 'done' && p.url) { const img = document.createElement('img'); img.className = 'fx-pv-img'; img.alt = r.name; slotImg(pcImg, img, p.url); }
       else if (p.status === 'fail') slotFailed(pcImg, () => { if (state.preview === p) { dropPreview(); openPreview(r); } }, p.err);
     }
-    paintStep(box);
     return;
   }
   const mine = r.source === PH;
-  box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span>${STEP_HTML}`
+  box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span>`
     + (mine ? '' : `<button type="button" class="mini fx-star-btn${r.starred ? ' on' : ''}" data-fx-star-one aria-pressed="${!!r.starred}" aria-label="${r.starred ? '별표 빼기' : '별표'}" title="${r.starred ? '별표 빼기' : '별표'}">${starFace(r.starred)}</button>`) + '</div>'
     + `<div class="fx-pv-view">${view}</div>`
     + `<dl class="fx-pv-meta"><dt>위치</dt><dd>${esc(where)}</dd><dt>크기</dt><dd>${esc(sizeText(r.size_bytes))}</dd><dt>바뀐 날</dt><dd>${esc(fullTime(r.modified_at))}</dd><dt>종류</dt><dd>${esc(kindLabel(r))}</dd></dl>`
     + '<div class="fx-pv-twins" data-fx-twins hidden></div>'
-    + `<div class="fx-pv-acts">${mine ? '' : '<button type="button" class="fx-btn" data-fx-open>열기</button>'}<button type="button" class="fx-btn" data-fx-down>받기</button>`
-    + (canShare() ? '<button type="button" class="fx-btn fx-share" data-fx-share>공유</button>' : '')
-    + (r.library_doc_id ? `<button type="button" class="fx-btn" data-fx-library="${esc(r.library_doc_id)}">자료실에서 보기</button>` : '<button type="button" class="secondary" data-fx-tolib-one>자료실로 보내기</button>')
+    + `<div class="fx-pv-acts">${mine ? '' : '<button type="button" class="secondary" data-fx-open>열기</button>'}<button type="button" class="secondary" data-fx-down>받기</button>`
+    + (canShare() ? '<button type="button" class="secondary fx-share" data-fx-share>공유</button>' : '')
+    + (r.library_doc_id ? `<button type="button" class="secondary" data-fx-library="${esc(r.library_doc_id)}">자료실에서 보기</button>` : '<button type="button" class="secondary" data-fx-tolib-one>자료실로 보내기</button>')
     // 폰 파일: [클라우드에 복사] + (앱 3-③ 판이면) 옮기기·이름·휴지통. 폰에 쓸 수 있으면 받을 곳에 이 폰도 있어 [복사](S53-8).
-    + (mine ? `<button type="button" class="fx-btn" data-fx-copy-one>${phoneWrite() ? '복사' : '클라우드에 복사'}</button>`
+    + (mine ? `<button type="button" class="secondary" data-fx-copy-one>${phoneWrite() ? '복사' : '클라우드에 복사'}</button>`
       + (phoneWrite() ? '<button type="button" class="secondary" data-fx-cut-one>옮기기</button>' : '')
-      + (phoneWrite() ? '<button type="button" class="fx-btn" data-fx-rename-one>이름</button>' + PV_TRASH_HTML : trashOff(PV_TRASH_HTML, 'ph')) + '</div>'
-      : `<button type="button" class="fx-btn" data-fx-rename-one>이름</button><button type="button" class="fx-btn" data-fx-copy-one>복사</button><button type="button" class="fx-btn" data-fx-cut-one>옮기기</button>`
+      + (phoneWrite() ? '<button type="button" class="secondary" data-fx-rename-one>이름</button>' + PV_TRASH_HTML : trashOff(PV_TRASH_HTML, 'ph')) + '</div>'
+      : `<button type="button" class="secondary" data-fx-rename-one>이름</button><button type="button" class="secondary" data-fx-copy-one>복사</button><button type="button" class="secondary" data-fx-cut-one>옮기기</button>`
       + PV_TRASH_HTML + '</div>');
   paintTwins();
-  paintStep(box);
   if (p.doc) { p.host = null; drawPages(p, Math.max(PDF_FIRST_PAGES, p.want || 0)); }
   // 사진: 공용 그림 칸(img-slot.js) — 받는 중 회색, 못 받으면 ↻(그 사진만 다시 받기).
   const imgBox = box.querySelector('[data-fx-img]');
@@ -1759,8 +1747,8 @@ function lookButtonsHtml(p) {
   const rows = pickedRows(p), r = rows[0];
   if (rows.length !== 1 || !r?.is_folder || !SOURCES.includes(r.source)) return '';
   const sib = orderable(p) ? lookSibs(p) : [], i = sib.indexOf(r.item_id);
-  return '<button type="button" class="fx-btn" data-fx-look="tint" aria-haspopup="true">색</button>'
-    + (i > 0 ? '<button type="button" class="fx-btn" data-fx-look="up">위로</button>' : '') + (i >= 0 && i < sib.length - 1 ? '<button type="button" class="fx-btn" data-fx-look="down">아래로</button>' : '');
+  return '<button type="button" class="secondary" data-fx-look="tint" aria-haspopup="true">색</button>'
+    + (i > 0 ? '<button type="button" class="secondary" data-fx-look="up">위로</button>' : '') + (i >= 0 && i < sib.length - 1 ? '<button type="button" class="secondary" data-fx-look="down">아래로</button>' : '');
 }
 const lookMode = createColorMode();
 // 색을 바꿀 폴더: 나무 ⋯ 메뉴에서 고른 폴더(state.lookRow), 아니면 고르기 줄의 한 폴더.
@@ -1782,15 +1770,15 @@ function lookDo(act, button) {
   lookSave(() => folderLook.step(rt(), r.source, lookSibs(p), r.item_id, act === 'up' ? -1 : 1), '폴더 순서를 저장하지 못했어요.');
 }
 // 고르기 막대 공용 단추(클라우드·내 PC 줄이 같은 단추): 한 칸 [복사][옮기기], 두 칸 '→ 오른쪽에 복사 / → 옮기기'(PC는 키 이름), 고르기 풀기 ✕.
-const COPY_CUT_HTML = '<button type="button" class="fx-btn" data-fx-copy>복사</button><button type="button" class="fx-btn" data-fx-cut>옮기기</button>';
-const UNPICK_HTML = '<button type="button" class="fx-btn" data-fx-unpick aria-label="선택 풀기">✕</button>';
+const COPY_CUT_HTML = '<button type="button" class="secondary" data-fx-copy>복사</button><button type="button" class="secondary" data-fx-cut>옮기기</button>';
+const UNPICK_HTML = '<button type="button" class="secondary" data-fx-unpick aria-label="선택 풀기">✕</button>';
 // S53-12 메뉴 모양 통일(⋯ 메뉴와 같은 규칙): 고르기 막대·미리보기 아래 줄의 [휴지통]도 지금 못 보내면(폰에 쓸 수 없음 'ph' · 바구니 PC 앱이 휴지통을 모름 'pc')
 // 숨기지 않고 흐리게(aria-disabled) 두고, 누르면 이유·할 일 한 줄(offText — ⋯ 메뉴의 흐린 [휴지통]과 같은 글). 실제로 막는 것은 지금처럼 앱·바구니 문이다.
 //   흐린 단추는 같은 자리의 켜진 [휴지통] 글을 그대로 쓰고 표시만 더한다(모양을 새로 만들지 않음).
-const PH_TRASH_HTML = '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button>';
-const PV_TRASH_HTML = '<button type="button" class="fx-btn fx-danger" data-fx-trash-one>휴지통</button>';
+const PH_TRASH_HTML = '<button type="button" class="danger" data-fx-trash>휴지통</button>';
+const PV_TRASH_HTML = '<button type="button" class="danger" data-fx-trash-one>휴지통</button>';
 const trashOff = (html, code) => html.replace('>휴지통<', ` aria-disabled="true" data-fx-off="${code}">휴지통<`);
-const sendButtonsHtml = (i, off, keys) => ['copy', 'move'].map(m => `<button type="button" class="fx-btn" data-fx-send="${m}"${off}>${esc(sendLabel(i, m, VERT()))}${keys ? (m === 'copy' ? ' (F5)' : ' (F6)') : ''}</button>`).join('');
+const sendButtonsHtml = (i, off, keys) => ['copy', 'move'].map(m => `<button type="button" class="secondary" data-fx-send="${m}"${off}>${esc(sendLabel(i, m, VERT()))}${keys ? (m === 'copy' ? ' (F5)' : ' (F6)') : ''}</button>`).join('');
 function paintBar() {
   const bar = $('[data-fx-bar]');
   if (!bar) return;
@@ -1806,7 +1794,7 @@ function paintBar() {
     const ok = here && !pcWhy(clip.rows, here) && (copy ? xferPlan(clip.rows, here, 'copy').ok.length > 0 : moveTargetOk(clip.rows, here));
     bar.hidden = false;
     bar.innerHTML = `<span class="fx-bar-t">${clip.rows.length}개 ${copy ? '복사하는' : '옮기는'} 중 · ${ok ? '이 폴더로' : `${copy ? '복사할' : '옮길'} 폴더를 여세요`}</span>`
-      + `<button type="button" class="fx-btn" data-fx-paste${ok ? '' : ' disabled'}>${copy ? '여기에 복사' : '여기로 옮기기'}</button><button type="button" class="fx-btn" data-fx-uncut>취소</button>`;
+      + `<button type="button" class="secondary" data-fx-paste${ok ? '' : ' disabled'}>${copy ? '여기에 복사' : '여기로 옮기기'}</button><button type="button" class="secondary" data-fx-uncut>취소</button>`;
     return;
   }
   bar.hidden = !n;
@@ -1816,7 +1804,7 @@ function paintBar() {
   if (hasPc(pickedRows(p))) {
     if (!pcWrite()) {
       bar.innerHTML = `<span class="fx-bar-t" title="${esc(PC_READONLY_TEXT)}">${n}개 · ${esc(SOURCE_NAME[PC])} · 보기·열기만</span>`
-        + trashOff(PH_TRASH_HTML, 'pc') + '<button type="button" class="fx-btn" data-fx-unpick aria-label="선택 풀기">✕</button>';
+        + trashOff(PH_TRASH_HTML, 'pc') + '<button type="button" class="secondary" data-fx-unpick aria-label="선택 풀기">✕</button>';
       return;
     }
     const i = state.cur, dest = two() ? oppDest() : null, keys = WIDE.matches;
@@ -1834,11 +1822,11 @@ function paintBar() {
     const i = state.cur, dest = two() ? oppDest() : null, ok = dest && dest.source !== PC && (dest.source !== PH || phoneWrite());
     const off = ok ? '' : ` disabled title="${esc(side(i ^ 1))} 칸에서 받을 ${phoneWrite() ? '' : '클라우드 '}폴더를 여세요"`;
     bar.innerHTML = `<span class="fx-bar-t">${n}개 · ${esc(SOURCE_NAME[PH])}</span>`
-      + (two() ? `<button type="button" class="fx-btn" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy', VERT()))}</button>`
+      + (two() ? `<button type="button" class="secondary" data-fx-send="copy"${off}>${esc(sendLabel(i, 'copy', VERT()))}</button>`
         + (phoneWrite() ? `<button type="button" class="secondary" data-fx-send="move"${off}>${esc(sendLabel(i, 'move', VERT()))}</button>` : '')
-        : `<button type="button" class="fx-btn" data-fx-copy>${phoneWrite() ? '복사' : '클라우드에 복사'}</button>` + (phoneWrite() ? '<button type="button" class="secondary" data-fx-cut>옮기기</button>' : '')) + TOLIB_BTN
-      + (phoneWrite() ? (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '') + PH_TRASH_HTML : trashOff(PH_TRASH_HTML, 'ph'))
-      + '<button type="button" class="fx-btn" data-fx-unpick aria-label="선택 풀기">✕</button>';
+        : `<button type="button" class="secondary" data-fx-copy>${phoneWrite() ? '복사' : '클라우드에 복사'}</button>` + (phoneWrite() ? '<button type="button" class="secondary" data-fx-cut>옮기기</button>' : '')) + TOLIB_BTN
+      + (phoneWrite() ? (n === 1 ? '<button type="button" class="secondary" data-fx-rename>이름</button>' : '') + PH_TRASH_HTML : trashOff(PH_TRASH_HTML, 'ph'))
+      + '<button type="button" class="secondary" data-fx-unpick aria-label="선택 풀기">✕</button>';
     return;
   }
   if (two()) {
@@ -1849,16 +1837,16 @@ function paintBar() {
     const off = why ? ` disabled title="${esc(why)}"` : '';
     bar.innerHTML = `<span class="fx-bar-t">${n}개 (${side(i)})</span>` + sendButtonsHtml(i, off, keys)
       + TOLIB_BTN
-      + (n === 1 ? `<button type="button" class="fx-btn" data-fx-rename>이름${keys ? ' (F2)' : ''}</button>` : '') + lookButtonsHtml(p)
-      + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
-      + `<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통${keys ? ' (Del)' : ''}</button><button type="button" class="fx-btn" data-fx-unpick aria-label="선택 풀기">✕</button>`;
+      + (n === 1 ? `<button type="button" class="secondary" data-fx-rename>이름${keys ? ' (F2)' : ''}</button>` : '') + lookButtonsHtml(p)
+      + `<button type="button" class="secondary" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
+      + `<button type="button" class="danger" data-fx-trash>휴지통${keys ? ' (Del)' : ''}</button><button type="button" class="secondary" data-fx-unpick aria-label="선택 풀기">✕</button>`;
     return;
   }
   // 시안 ③: 'N개 · [복사] [옮기기] [이름] [휴지통] ✕'(쓰지 않는 ⋯는 두지 않는다).
   bar.innerHTML = `<span class="fx-bar-t">${n}개</span>` + COPY_CUT_HTML + TOLIB_BTN
-    + (n === 1 ? '<button type="button" class="fx-btn" data-fx-rename>이름</button>' : '') + lookButtonsHtml(p)
-    + `<button type="button" class="fx-btn" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
-    + '<button type="button" class="fx-btn fx-danger" data-fx-trash>휴지통</button><button type="button" class="fx-btn" data-fx-unpick aria-label="선택 풀기">✕</button>';
+    + (n === 1 ? '<button type="button" class="secondary" data-fx-rename>이름</button>' : '') + lookButtonsHtml(p)
+    + `<button type="button" class="secondary" data-fx-star>${esc(starLabel(pickedRows(p)))}</button>`
+    + '<button type="button" class="danger" data-fx-trash>휴지통</button><button type="button" class="secondary" data-fx-unpick aria-label="선택 풀기">✕</button>';
 }
 function paintPicks(p = P()) {
   for (const b of paneEl(p)?.querySelectorAll('[data-fx-row]') || []) {
@@ -3702,8 +3690,6 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-pc-reveal]') && p?.row?.source === PC) { pcOpen(p.row, {reveal: true}); return; }
   if (b.matches('[data-fx-down]') && p) { download(p.row); return; }
   if (b.matches('[data-fx-share]') && p) { download(p.row, {share: true}); return; }
-  // 미리보기를 새로 그려도 같은 자리 단추로 초점이 돌아온다(paintStep) — ←→ 키를 이어 쓴다.
-  if (b.matches('[data-fx-pv-step]')) { previewStep(Number(b.dataset.fxPvStep) < 0 ? -1 : 1); return; }
   if (b.matches('[data-fx-rename-one]') && p) { renameRow(p.row, b); return; }
   // 미리보기 [복사]·[옮기기]: 두 칸이고 반대 칸이 폴더를 열었으면 그리로 바로, 아니면 받을 곳 창.
   if (b.matches('[data-fx-cut-one]') && p) { const d = oppDest(); if (d) { closePreview(); moveRows([p.row], d, b); } else openDest('move', [p.row]); return; }

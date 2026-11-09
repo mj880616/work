@@ -29,8 +29,8 @@ test('PC 1440: 미리보기 ← → 단추·키 = 같은 목록의 앞·다음 �
   const keys = await root(page).locator('[data-fx-list] [data-fx-row]').evaluateAll(bs => bs.map(b => b.dataset.fxRow));
   const files = keys.filter(k => k !== 'od:OD!10');
   await row(page, files[0]).click();
-  await expect(prev(page).locator('[data-fx-pv-step="-1"]')).toBeDisabled();
-  await prev(page).locator('[data-fx-pv-step="1"]').click();
+  await expect(prev(page).locator('[data-fx-pv-step]')).toHaveCount(0); // 이름 옆 ← → 단추는 없다(FILES-자세히버튼크기 ②). 키보드 ←·→만.
+  await page.keyboard.press('ArrowRight');
   await expect(row(page, files[1])).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('ArrowRight');
   await expect(row(page, files[2])).toHaveAttribute('aria-selected', 'true');
