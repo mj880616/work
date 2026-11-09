@@ -40,7 +40,7 @@ test('② 새로고침 제자리: 사업 보고 칸·고른 보고, 할 일 상�
 });
 
 test('③ 잘림: 노트 큰 창·입력칸의 [폴더 ▾]는 줄어들지 않고 8글자까지 다 보인다, 안내 글은 짧게', async () => {
-  assert.match(read('app/ed-window.css'), /button\[data-edw-folder\] \{ position:relative; flex:0 0 auto;/);
+  assert.match(read('app/ed-window.css'), /button\[data-edw-folder\](?:,button\[data-edw-target\]\))? \{ position:relative; flex:0 0 auto;/); // FORGET-노트고르기: [새 노트 ▾]도 같은 규칙
   assert.match(read('app/basket.css'), /button\.home-quick-folder \{ position:relative; flex:0 0 auto;/);
   const nw = read('app/note-window.js');
   assert.match(nw, /placeholder = '제목\(비우면 첫 줄\)'/);

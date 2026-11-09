@@ -88,6 +88,7 @@ test('[파일] and [사진] appear only where the opener gives them; notes give 
   assert.doesNotMatch(share, /files:|onFiles/);
   // A new note: [사진]·[파일] wait in the window until the save (note-pending-media.mjs), never a throwing stand-in.
   const win = readFileSync(new URL('../app/note-window.js', import.meta.url), 'utf8');
-  assert.match(win, /photos: media\.photos, files: media\.files,/);
+  // FORGET-노트고르기: 가족 줄 창(target.family)만 사진·파일이 없다(옛 가족 작은 창과 같음).
+  assert.match(win, /photos: family \? null : media\.photos, files: family \? null : media\.files,/);
   assert.doesNotMatch(win, /getNote: \(\) => null/);
 });
