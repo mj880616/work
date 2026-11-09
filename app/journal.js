@@ -657,13 +657,15 @@ function paintWindow(host, model) {
   const workspaceId = rt.context.read()?.workspace?.id;
   if (!weekWin || weekWin.workspaceId !== workspaceId) {
     const openSource = ({org, record}, trigger) => void openOriginal({type:'org', org, record:record || null}, trigger);
-    weekWin = RW.view.createRecordWindow({rt, workspaceId, week:start, openSource, repaint:() => { drawWindow(); redrawOrgText(); }, say:winSay(winMsg, winSlot)});
+    weekWin = RW.view.createRecordWindow({rt, workspaceId, week:start, openSource, repaint:() => { if (oldMissing()) { redrawFlow(); return; } drawWindow(); redrawOrgText(); }, say:winSay(winMsg, winSlot)});
     siteWin = RW.view.createRecordWindow({rt, workspaceId, week:start, section:'site', openSource, repaint:() => paintSites(), say:text => { siteMsg = {text, error:false}; status.textContent = text; }}); // 3. 2) 칸은 표가 아니라 상태 한 줄을 화면 맨 위 상태 줄로
   }
   syncWin(weekWin); syncWin(siteWin);
+  if (oldMissing()) return false; // 옛 주인데 옛 표가 없으면(404) 예전처럼 그 주 임시저장 칸 줄
   drawWindow();
   return true;
 }
+const oldMissing = () => !isRecordWeek(start) && !!weekWin && weekWin.week === start && weekWin.status === 'ready' && !!weekWin.legacyMissing;
 function drawWindow() {
   const slot = winSlot(); if (!slot || !weekWin || !RW) return;
   weekWin.bind(slot);

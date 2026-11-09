@@ -2746,52 +2746,30 @@ async function weekLinesFixture(page,{width,seed,hwpx=false,team}={}){
 }
 const orgTable=page=>page.locator('#journalRoot [data-weekly-flow-cells="orgs"]');
 const orgRow=(page,id)=>orgTable(page).locator(`[data-wl-org-row="${id}"]`);
-// S50-25 ⑨: 기록에서 온 줄 끝 [↗] = 원래 기록 열기 — 업무일지 원본 열기와 같은 길(그 조직 화면, 그 기록 강조). 손으로 넣은 줄에는 [↗] 없음.
-for(const width of [390,1280])test(`[주간 정리] 4. 조직보고: 기록에서 온 줄 [↗] → 그 조직 화면의 그 기록 ${width}`,async({page})=>{
- const seed=[WL('l1',OB,'2026-10-05','2026-10-06','가상 손으로 넣은 줄'),WL('l2',OB,'2026-10-05','2026-10-06','가상 조직 화면 기록','in',{origin:'plain',sort_order:1,source_update_ids:['u1']})];
- const f=await weekLinesFixture(page,{width,seed});await originals(page,f);
- await openJournal(page,width);await openWeekly(page);
- const b=orgRow(page,OB);
- await expect(b.locator('[data-wl-line="l1"] [data-wl-src]')).toHaveCount(0);
- const src=b.locator('[data-wl-line="l2"] [data-wl-src]');
- await expect(src).toHaveAccessibleName('가상 조직 화면 기록 원래 기록 열기');
- await src.click();
- await expect(page.locator('#wdModal')).toBeVisible();await expect(page.locator('#wdTitle')).toContainText('나 지역 모임');
- await flashed(page,'#wdUpdates [data-wd-up="u1"]');
-});
-for(const width of [390,1280])test(`[주간 정리] 4. 조직보고: 담당조직과 같은 표·넣기·지난주 가져오기(1줄 이하 조직만)·복사, AI 요약 버튼 없음 ${width}`,async({page},info)=>{
+// ORG-기록하나로 O-6(설계 docs/design/record-one.md 3-1 '도입 전 주 보고 줄 보존'): 전환 주(11.9) 앞 주의 4. 조직보고는 옛 주별 표의 넣은 줄을
+// 조직보고 창이 읽기 전용으로 보여 준다(작은 '옛 보고'). 제안 줄·지난주 가져오기·줄 ⋯·[+ 쓰기]·[↗] 없음, 표 쓰기 0. 복사 글은 넣은 줄 그대로.
+for(const width of [390,1280])test(`[주간 정리] 4. 조직보고(옛 주): 옛 표 넣은 줄만 읽기 전용, 제안·가져오기·쓰기 없음, 복사 같음 ${width}`,async({page},info)=>{
  const f=await weekLinesFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await openJournal(page,width);await openWeekly(page);
  const orgs=weekly(page,'orgs');
  await expect(orgTable(page).locator('[data-wl-table]')).toBeVisible();
+ await expect(orgTable(page)).toContainText('옛 보고');
  await expect(orgTable(page).locator('.wl-org')).toHaveText(['가상 노동조합','나 지역 모임']);
  await expect(orgs.locator('[data-journal-org-ai-run],[data-journal-org-edit-open]')).toHaveCount(0);
- await expect(page.locator('#journalRoot')).not.toContainText('요약 만들기');
- // 가상 노동조합: 넣은 줄 2(부실 아님 → 지난주 줄은 접힘·없음), 흐린 제안 1.
  const a=orgRow(page,OA),b=orgRow(page,OB);
- await expect(a.locator('.wl-line:not(.is-sug):not(.is-last)')).toHaveCount(2);
- await expect(a.locator('.wl-line.is-sug')).toHaveText(/가상 선전전 참가/);
- await pressMore(a,'[data-wl-in="l3"]'); // S52-25: 제안 줄 끝 ⋯ 하나 → [넣기]
- await expect(a.locator('.wl-line.is-sug')).toHaveCount(0);
- expect(f.db.patches.at(-1)).toMatchObject({id:'l3',state:'in'});
- // 나 지역 모임: 넣은 줄 0 → 지난주 줄이 흐린 제안 줄('지난주' 꼬리표)로, 조직 이름 줄 ⋯ 에 [지난주 모두 가져오기](S52-25).
- await expect(b.locator('.wl-line.is-sug[data-wl-sug-kind="last"]')).toHaveCount(2);
- await expect(b.locator('.wl-line.is-sug .weekly-flow-tag')).toHaveText(['지난주','지난주']);
- await pressMore(b,'[data-wl-take-all]');
- await expect(b.locator('.wl-line:not(.is-last):not(.is-sug)')).toHaveCount(2);
- expect(f.db.posts.map(p=>[p.organization_id,p.week_start,p.body,p.origin,p.state])).toEqual([[OB,'2026-10-05','가상 지난주 설명회','last_week','in'],[OB,'2026-10-05','가상 지난주 간담회','last_week','in']]);
- // 넣은 줄과 같은 지난주 줄은 제안에 다시 나오지 않는다(같은 글 두 번 없음).
- await expect(b.locator('.wl-line.is-sug')).toHaveCount(0);
- await expect(b.locator('[data-wl-count]')).toHaveText('· 2줄');
- // 복사: 내 담당조직마다 넣은 줄(제안·뺀 줄 없음).
+ // 가상 노동조합: 넣은 줄 2(제안 줄 l3은 보이지 않음), 날짜 오름차순. 나 지역 모임: 그 주 줄 없음(지난주 줄을 끌어오지 않음).
+ await expect(a.locator('.wl-text')).toHaveText(['가상 교섭 상견례','가상 찬반투표 간담회']);
+ await expect(b.locator('.wl-text')).toHaveCount(0);
+ await expect(orgTable(page).locator('.wl-line.is-sug,[data-wl-take-all],[data-rw-add],[data-wl-src],.row-more')).toHaveCount(0);
+ // 복사: 넣은 줄 그대로.
  await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n'),at=lines.indexOf('4. 산하 조직 현황');
- expect(lines.slice(at+2,at+9)).toEqual(['◦ 가상 노동조합','- 10.6. 가상 교섭 상견례','- 10.7. 가상 찬반투표 간담회','- 10.8. 가상 선전전 참가','◦ 나 지역 모임','- 9.30. 가상 지난주 설명회','- 10.2. 가상 지난주 간담회']);
- expect(f.ai.filter(x=>x.kind==='org_summary')).toEqual([]);
+ expect(lines.slice(at+2,at+5)).toEqual(['◦ 가상 노동조합','- 10.6. 가상 교섭 상견례','- 10.7. 가상 찬반투표 간담회']);
+ expect(f.db.posts).toEqual([]);expect(f.db.patches).toEqual([]);
+ expect(f.ai.filter(x=>['org_summary','org_week_lines'].includes(x.kind))).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.screenshot({path:info.outputPath(`weekly-org-lines-${width}.png`),fullPage:true});
  expect(f.errors).toEqual([]);
 });
 test('[주간 정리] 4. 조직보고: 표가 아직 없으면(404) 예전 칸 줄 그대로, AI 요약 버튼 없음',async({page})=>{
@@ -2806,7 +2784,7 @@ test('[주간 정리] 4. 조직보고: 표가 아직 없으면(404) 예전 칸 �
 test('[주간 정리] 4. 조직보고: 한글 파일의 4. 산하조직 칸은 넣은 줄(제안 줄은 빠짐)',async({page})=>{
  const f=await weekLinesFixture(page,{width:1280,hwpx:true});
  await openJournal(page,1280);await openWeekly(page);
- await expect(orgRow(page,OA).locator('.wl-line.is-sug')).toHaveCount(1);
+ await expect(orgRow(page,OA).locator('.wl-text')).toHaveText(['가상 교섭 상견례','가상 찬반투표 간담회']); // 옛 주: 제안 줄은 보이지 않는다(O-6)
  const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  const org=report.orgs.find(o=>o.org.join(' ')==='가상 노동조합');
@@ -4038,9 +4016,22 @@ test('WEEKLY-투쟁사업장참고: 3장에 든 조직은 4장에 참고 한 줄
  expect(report.orgs.find(o=>o.org.join(' ')==='가상 노동조합').status).toEqual(['- 조직 칸에 쓴 줄']);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
-// 주별 조직보고 표 쪽(폰): 3장에 든 조직은 표 칸이 참고 한 줄 + '쓴 줄 n개'(표의 넣은 줄은 그대로), 제안·이름 줄 [줄 추가] 없음. 한글 파일도 참고 한 줄.
-test('WEEKLY-투쟁사업장참고: 주별 조직보고 표 쪽도 참고 한 줄 + 쓴 줄 접힘, 한글 파일 같음 390',async({page})=>{
+// 주별 조직보고 표 쪽(폰): 3장에 든 조직은 4. 칸이 참고 한 줄(옛 주 표의 넣은 줄은 그대로 남고 화면·파일에만 참고 한 줄 — ORG-기록하나로 O-6: 옛 주는 읽기 전용 창).
+test('WEEKLY-투쟁사업장참고: 주별 조직보고 표 쪽도 참고 한 줄, 한글 파일 같음 390',async({page})=>{
  const f=await weekLinesFixture(page,{width:390,hwpx:true,team:{sites:[{org:['가상 노동조합'],status:['- 지난주 현황 줄']}]}});
+ await openJournal(page,390);await openWeekly(page);await openDraft(page);
+ await expect(siteNames(page)).toHaveText(['가상 노동조합']);
+ const a=orgRow(page,OA),b=orgRow(page,OB);
+ await expect(a.locator('[data-wl-site-ref] .wl-text')).toHaveText('- 투쟁 사업장 보고 참고');
+ await expect(a.locator('.wl-line.is-sug,[data-wl-count]')).toHaveCount(0);
+ await expect(b.locator('[data-wl-site-ref]')).toHaveCount(0);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ const {report}=await savedReport(download);
+ expect(report.orgs.find(o=>o.org.join(' ')==='가상 노동조합').status).toEqual(['- 투쟁 사업장 보고 참고']);
+ // 표의 줄은 지우거나 고치지 않았다.
+ expect(f.db.patches).toEqual([]);expect(f.db.posts).toEqual([]);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
  await openJournal(page,390);await openWeekly(page);await openDraft(page);
  await expect(siteNames(page)).toHaveText(['가상 노동조합']);
  const a=orgRow(page,OA),b=orgRow(page,OB);
