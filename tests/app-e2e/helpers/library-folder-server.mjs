@@ -82,7 +82,7 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
   await signIn(page,`${appOrigin}/app/?view=library`);
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
   await expect(page.locator('#documentList details[data-lu-node]').first()).toBeAttached();
-  if(group)await page.locator('#libraryGroupBy').getByRole('radio',{name:group}).click();
+  if(group)await page.locator('#libraryGroupBy').selectOption({label:group});
   return {s,errors};
 }
 export const treeKeys=page=>page.locator('#documentList details[data-lu-node]').evaluateAll(xs=>xs.map(x=>x.dataset.luNode));

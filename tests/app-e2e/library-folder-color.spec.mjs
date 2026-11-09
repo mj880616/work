@@ -8,7 +8,9 @@ import {bootLibrary,libFolder,menuButton,folderMenuItem,press,openMove,moveFolde
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fb','top-a',{name:'가상 B',sort_order:2048}),libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0})];
 const ITEMS=[{document_id:'a-1',folder_id:'fa'}];
 const RGB={light:{4:'rgb(63, 148, 134)',1:'rgb(180, 90, 82)'},dark:{4:'rgb(98, 179, 165)'}};
-const radio=(page,name)=>page.locator('#libraryGroupBy').getByRole('radio',{name});
+// LIB-위쪽한줄: 묶기는 고르기 상자 [폴더 ▾](#libraryGroupBy, select) 하나.
+const pickGroup=(page,label)=>page.locator('#libraryGroupBy').selectOption({label});
+const groupNow=page=>page.locator('#libraryGroupBy option:checked');
 // FOLDER-나무새기준(S51-12): 폴더 그림은 공용 닫힌/열린 그림(.ft-ico). 지금 보이는 그림(닫힘)에 색 번호가 붙는다.
 const mark=(page,key)=>libraryNodeHead(page,key).locator('.lu-folder-shape .ft-ico.lu-fe-closed');
 const colorOfMark=el=>el.locator('svg').first().evaluate(x=>getComputedStyle(x).color);
@@ -47,11 +49,11 @@ for(const width of [1440,412])test.describe(`자료실 폴더 색 ${width}`,()=>
     // 새로고침해도 유지(서버 값). 폴더 보기를 다시 고른 뒤 같은 색.
     await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
     await expect(page.locator('#documentList details[data-lu-node]').first()).toBeAttached();
-    if(!(await radio(page,'폴더').getAttribute('aria-checked')==='true'))await radio(page,'폴더').click();
+    if((await page.locator('#libraryGroupBy').inputValue())!=='folder')await pickGroup(page,'폴더');
     await expect(mark(page,'f:fa')).toHaveAttribute('data-fc','4');
 
     // 같은 폴더가 다른 화면에서도 같은 색: 사업영역 묶기의 폴더 머리, 폴더 고르기 창(자료 ⋯ → 폴더로 옮기기).
-    await radio(page,'사업영역').click();await expandLibraryTree(page);
+    await pickGroup(page,'사업영역');await expandLibraryTree(page);
     const outline=libraryNodeHead(page,'f:fa').locator('.ft-ico.lu-fe-closed');await expect(outline).toHaveAttribute('data-fc','4');
     expect(await outline.evaluate(x=>getComputedStyle(x).color)).toBe(RGB.light[4]);
     await expect(libraryNodeHead(page,'f:fb').locator('.ft-ico.lu-fe-closed')).not.toHaveAttribute('data-fc',/./);
@@ -63,7 +65,7 @@ for(const width of [1440,412])test.describe(`자료실 폴더 색 ${width}`,()=>
     await page.keyboard.press('Escape');
 
     // [기본]: 기본 노랑 폴더 그림으로 돌아가고 서버에는 null이 간다. 이미 기본이면 저장하지 않는다.
-    await radio(page,'폴더').click();
+    await pickGroup(page,'폴더');
     await pickColor(page,'f:fa','기본',width);
     await expect.poll(()=>s.colorCalls.length).toBe(2);expect(s.colorCalls[1]).toEqual({p_id:'fa',p_color:null});
     await expect(page.locator('#documentList [data-fc]')).toHaveCount(0);await expect(mark(page,'f:fa')).not.toHaveAttribute('data-fc',/./);

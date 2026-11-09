@@ -40,7 +40,7 @@ async function boot(page,group){
     s.patches.push({id,body});const row=s.docs.find(d=>d.id===id);if(row)Object.assign(row,body);
     return route.fulfill({json:row?[{id:row.id,organization_id:row.organization_id??null}]:[]});
   });
-  await page.locator('#libraryGroupBy').getByRole('radio',{name:group}).click();
+  await page.locator('#libraryGroupBy').selectOption({label:group});
   await expect(page.locator('#documentList details[data-lu-node]').first()).toBeAttached();
   return {s,errors};
 }
@@ -88,7 +88,7 @@ test.describe('PC 1440 PC 파일을 묶음 머리에 놓아 그 값으로 올리
     expect(s.fields.map(f=>f.category)).toEqual(['교섭']);
     await expect.poll(()=>ai.length).toBeGreaterThan(0);
     expect(ai[0].keep).toContain('category');
-    await page.locator('#libraryGroupBy').getByRole('radio',{name:'월별'}).click();
+    await page.locator('#libraryGroupBy').selectOption({label:'월별'});
     const month=await page.locator('#documentList details[data-lu-node^="m:"]').first().getAttribute('data-lu-node');
     const out=await dropFiles(page,head(month),['b.pdf']);
     expect(out.hint).toBe('놓으면 바로 올려요');expect(out.group).toBe(false);

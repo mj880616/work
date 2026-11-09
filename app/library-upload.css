@@ -112,11 +112,7 @@
 .lu-more-trigger{flex:none;color:var(--kptu-muted);border:0;background:transparent}
 .lu-head-actions{display:flex;align-items:center;gap:8px}
 #libraryView .lu-head-actions button{margin:0}
-/* UI-전수디자인점검 F11: [+ 자료 등록]은 목록 칸 안 한 줄이 아니라 검색 칸 오른쪽(화면 머리 오른쪽 자리, UI-화면정리 C). 폰은 ui-standard.css의 동그란 [+] 그대로.
-   [선택]은 목록 칸 첫 줄 오른쪽 작은 글자 버튼. 자료실 큰 제목(.screen-title)은 읽기 프로그램용. */
-#appView #libraryView .library-filter-toolbar .lu-search-row{display:flex;align-items:center;gap:8px;flex:1 1 100%;min-width:0}
-#appView #libraryView .library-filter-toolbar .lu-search-row > .search{flex:1 1 0;min-width:0}
-#appView #libraryView .library-filter-toolbar .lu-search-row > .lu-head-actions{flex:none}
+/* 자료실 위쪽 줄(.lu-search-row) 모양은 아래 'LIB-위쪽한줄' 절 한 곳. */
 :is(.lu-more-panel,.lu-folder-menu){position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
 :is(.lu-more-panel,.lu-folder-menu) button{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:36px;padding:0 var(--kptu-space-3,12px);text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:600;cursor:pointer}
 :is(.lu-more-panel,.lu-folder-menu) button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
@@ -147,10 +143,6 @@
 #libraryOrganizationFilter[hidden]{display:none}
 .library-category-editor{margin:0}
 
-/* UI-PC자료실 C → LIB-맨위다듬기(S53-18): 분류 칩 여러 개 고르기. 색은 고른 칩(data-cc-fill)만 — 공용 선택 표시 색(ui-standard.css '선택 표시 규칙').
-   켜져 있어도 고르지 않은 칩·일부만 켜진 [전체]는 공용 칩 그대로 흰 바탕·옅은 선. */
-/* 꺼진 분류 칩은 흐리게: 글자는 보조 글자색(대비 4.5:1 이상), 테두리는 반쯤 옅게. 초점 표시는 공용 규칙 그대로. */
-#appView #libraryView #libraryCategoryFilter button[aria-pressed="false"]{color:var(--kptu-muted);border-color:color-mix(in srgb,var(--ds-line) 50%,transparent)}
 .lu-off-hint{margin:8px 0 0;padding-top:8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .lu-off-show{margin-left:4px;padding:0 4px;min-height:24px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;text-decoration:underline;cursor:pointer}
 
@@ -163,24 +155,12 @@
 #appView #libraryView .lu-filter-label{font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);line-height:1.4;color:var(--kptu-muted);white-space:nowrap}
 #appView #libraryView .lu-filter-label[hidden]{display:none}
 #appView #libraryView .lu-filter-row > .filter-chips{min-width:0}
-/* UI-자료실편집버튼(2026-10-21): [분류 수정]을 목록 머리에서 [종류] 칩 줄 맨 끝의 작은 [편집]으로 옮긴다. 칩 바로 오른쪽에 붙고, 칩이 많으면 칩 줄이 두 줄 + [더보기](UI-칩줄두줄). */
-/* LIB-맨위다듬기(S53-18, 시안 docs/design/mockups/library-top-bar.html): 분류 줄 = 칩(두 줄 + [더보기]) | 줄 끝 글자 버튼 [✎ 분류 수정](공용 ③ row-act).
-   위 묶기 탭과는 --ds-chip-row-above만큼 띄운다(탭의 누르는 범위 여백과 칩이 겹치지 않는 자리). */
-#appView #libraryView .lu-filter-row[data-lu-filter-row="category"]{grid-template-columns:minmax(0,1fr) auto;justify-content:stretch;margin-top:var(--ds-chip-row-above,6px)}
-#appView #libraryView .lu-filter-row > .lu-category-edit{margin:0;white-space:nowrap;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500)}
-#appView #libraryView .lu-category-edit-icon{margin-right:3px}
-/* LIB-소분류: 소분류 줄은 [분류] 줄 바로 아래 한 줄(칩 시작 자리에 맞춤). 폰은 이름표가 없으므로 왼쪽 끝에서. */
-#appView #libraryView .library-filter-toolbar > .cc-sub-row{flex:1 1 100%;margin-left:0}
 @media(max-width:760px){
   #appView #libraryView .library-filter-toolbar #documentProject,
   #appView #libraryView .library-filter-toolbar .lu-filter-row{grid-template-columns:minmax(0,1fr)}
-  /* 폰(UI-칩줄두줄): 종류 줄은 칩(두 줄 + [더보기]) | [편집]. 칩 줄이 남은 폭을 쓰고 [편집]은 첫 줄 오른쪽 끝. 옆으로 밀지 않는다. */
-  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="category"]{display:flex;flex-wrap:nowrap;align-items:flex-start;gap:6px}
-  #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .filter-chips{flex:1 1 0;min-width:0;max-width:100%}
-  #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .lu-category-edit{flex:0 0 auto;margin-top:2px}
   /* 폰: 이름표(프로젝트·세부·종류 등)를 칩 줄 왼쪽에 작게 둔다. */
   #appView #libraryView .library-filter-toolbar #documentProject,
-  #appView #libraryView .library-filter-toolbar .lu-filter-row:not([data-lu-filter-row="category"]){grid-template-columns:3.6em minmax(0,1fr);column-gap:6px}
+  #appView #libraryView .library-filter-toolbar .lu-filter-row{grid-template-columns:3.6em minmax(0,1fr);column-gap:6px}
   #appView #libraryView .lu-filter-label{flex:0 0 3.6em;font-size:11px}
 }
 
@@ -211,23 +191,14 @@
 #appView #libraryView .lu-more-files:hover{background:var(--kptu-surface-subtle)}
 #appView #libraryView .lu-more-files:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
 #appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 16px)}
-#appView #libraryView .lu-filter-row[data-lu-filter-row="group"]{grid-template-columns:minmax(0,max-content);justify-content:start}
 #appView #libraryView .library-filter-toolbar #documentProject[hidden]{display:none}
-/* 첫 토글 머리의 누르는 범위(44px)가 위 [+ 자료 등록]의 누르는 범위를 덮지 않게 머리 줄을 위에 둔다. */
+/* 첫 토글 머리의 누르는 범위(44px)가 위 [+](자료 등록)의 누르는 범위를 덮지 않게 머리 줄을 위에 둔다. */
 #appView #libraryView #libraryListCard > .add-list-head{position:relative;z-index:2}
-/* LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 오른쪽 ⋯ 하나(새 폴더·여러 개 고르기·모두 펴기/접기). 폴더 줄 ⋯와 같은 크기, 누르는 범위 44px. */
-#appView #libraryView #libraryTopMenuBtn{position:relative;flex:none;width:var(--ds-compact-height-sm,28px);height:var(--ds-compact-height-sm,28px);min-height:0;margin-left:auto;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);line-height:1}
-#appView #libraryView #libraryTopMenuBtn::after{content:"";position:absolute;inset:calc((var(--ds-compact-height-sm,28px) - var(--kptu-touch-target,44px)) / 2)}
-#appView #libraryView #libraryTopMenuBtn:hover{color:var(--kptu-ink)}
+/* LIB-맨위메뉴하나(빠짐9): 자료실 위 줄 오른쪽 끝 ⋯ 하나(새 폴더·여러 개 고르기·모두 펴기/접기). 모양은 아래 'LIB-위쪽한줄' 절(⑥ 아이콘). */
 @media(max-width:760px){
   #appView #libraryView .lu-node-head{padding-left:calc(var(--lu-depth,0) * 12px)}
   #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 12px)}
   #appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 12px)}
-  /* 폰(UI-칩줄두줄): 묶기 줄도 칩(두 줄 + [더보기]). 옆으로 밀지 않는다. */
-  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="group"]{display:flex;flex-wrap:nowrap;align-items:flex-start;gap:6px}
-  #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .filter-chips{flex:1 1 0;min-width:0;max-width:100%}
-  /* 빠짐9: [모두 펴기]가 맨 위 ⋯로 옮겨 간 자리. 칩이 오른쪽 끝까지 가면 바로 아래 [편집]의 누르는 범위(44px)와 겹치므로 그만큼 비워 둔다. */
-  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="group"]{padding-right:52px}
 }
 /* (세모 ::before 없음 — S51-25) */
 
@@ -411,12 +382,6 @@
 /* LIB-정리보충 ③: '폴더 밖' 자료 줄의 폴더 추천 '📁 ○○?' — 작고 낮은 글자 버튼(줄 높이를 늘리지 않음), 긴 폴더 이름은 말줄임. */
 #appView #libraryView .lu-suggest{flex:0 1 auto;max-width:9em;min-height:24px;margin-left:auto;padding:0 6px;border:1px dashed var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta,12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 #appView #libraryView .lu-suggest:hover,#appView #libraryView .lu-suggest:focus-visible{color:var(--kptu-primary-ink);border-color:var(--kptu-primary-ink)}
-/* LIB-폴더보기 칩 순서(08:25 ②): 묶기 칩을 끌 때 놓일 자리는 칩 왼쪽 세로선(줄 끝이면 칩 줄 오른쪽 끝). 잡힌 칩은 살짝 흔들림(움직임 줄이기면 색만). */
-#appView #libraryView #libraryGroupBy .re-drop-before{border-top:0;border-left:2px solid var(--kptu-primary-ink)}
-#appView #libraryView #libraryGroupBy.re-drop-end{border-top:0;border-right:2px solid var(--kptu-primary-ink)}
-@keyframes lu-chip-wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-2deg)}75%{transform:rotate(2deg)}}
-#appView #libraryView #libraryGroupBy .re-dragging{animation:lu-chip-wiggle .25s ease-in-out infinite}
-@media(prefers-reduced-motion:reduce){#appView #libraryView #libraryGroupBy .re-dragging{animation:none}}
 
 /* LIB-선택모드(08:29~08:30 ②): 선택 모드는 평소와 다르다는 느낌만 작게 — 위 줄은 강조색 띠('n개 골랐음'), 목록 칸 테두리는 연한 강조색,
    들어갈 때 줄들이 한 번 0.2초 살짝 흔들리고 멈춤(계속 흔들지 않음). 움직임 줄이기 설정이면 흔들림 없이 색만. 나올 때는 그냥 원래대로. */
@@ -445,8 +410,7 @@
    ② [편집]은 칩과 같은 높이·글자 크기. ③ 맨 위 ⋯는 검색 줄 오른쪽 끝([+ 자료 등록] 옆)이라 목록 칸 머리 빈 줄이 없다. */
 #appView #libraryView .library-filter-toolbar .lu-recent{margin:0}
 #appView #libraryView #libraryListCard > .add-list-head.add-list-head{height:0;min-height:0;margin:0;padding:0}
-#appView #libraryView .lu-search-row > #libraryTopMenuBtn{margin-left:0}
-/* SEARCH-선택옮기기 ⑤: 검색칸 오른쪽 작은 [결과 n개 모두 고르기] */
+/* SEARCH-선택옮기기 ⑤: 검색칸 오른쪽 작은 [결과 n개 모두 선택](자리는 아래 'LIB-위쪽한줄' 절). */
 #appView #libraryView .library-filter-toolbar .lu-search-row > .lu-search-pick-all{flex:none;min-height:30px;padding:2px 10px;font-size:12px;white-space:nowrap}
 @media (max-width:760px){#appView #libraryView .library-filter-toolbar .lu-search-row > .lu-search-pick-all{padding:2px 8px}}
 /* FILES-폴드나무목록 ⑦(S51-20 ④): 펼친 폴드·PC(600px~) 폴더 묶기 = 왼쪽 폴더 나무 | 오른쪽 목록. 나무 칸은 카드 왼쪽에 붙고(목록과 함께 내려감),
@@ -459,40 +423,50 @@
   #libraryFolderNav .ft-current>.ft-main{background:var(--kptu-primary-soft);color:var(--kptu-primary-text);border-radius:var(--kptu-radius-sm,6px)}
 }
 
-/* ───────── S51-28 LIB-화면정리(요청 11/06 01:26·01:45, 명진 'ㅇ', 시안 docs/design/mockups/library-phone-dropdown.html·library-fold.html) ─────────
-   - 큰 제목('자료실')·'묶기'·'분류' 이름표는 없다(폰 앱 머리 제목은 ui-standard.css 맨 아래 같은 절).
-   - 1199px까지(폰·펼친 폴드): 위 한 줄 = [찾기][분류: … ▾][⋯](폰 [+]는 떠 있는 동그란 단추, 폴드 펼침·PC 틀은 [+ 자료 등록] 그대로 한 줄 안).
-     분류 칩 줄·[편집]은 숨고 [분류 ▾] 창(공용 고르기 창)에서 고른다. 묶기는 화면 아래 알약 탭(01:25 탭 자리 규칙: 접은 폰 가운데, 펼친 폴드 오른쪽 아래).
-   - 1200px~(PC): 지금처럼 위에 묶기 칩 한 줄 + 분류 칩 줄 + [편집]. [분류 ▾]는 숨는다.
-   상태 주인은 그대로 library-upload.js 하나(luCategoryOff·luCategorySub·luGroupBy)이고 두 모양은 같은 값을 그린다. */
-#appView #libraryView .lu-search-row > .lu-cat-pick{display:none}
-@media(max-width:1199px){
-  #appView #libraryView .lu-search-row > .lu-cat-pick{position:relative;display:inline-flex;align-items:center;flex:0 1 auto;min-width:0;max-width:46%;box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 8px;
-    font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;color:var(--kptu-ink);white-space:nowrap;overflow:visible;
-    background:var(--ds-select-bg,var(--kptu-surface-subtle));border:var(--ds-line-width,1px) solid var(--ds-line);border-radius:var(--kptu-radius-md);cursor:pointer}
-  #appView #libraryView .lu-search-row > .lu-cat-pick .lu-cat-pick-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
-  #appView #libraryView .lu-search-row > .lu-cat-pick .lu-cat-caret::before{content:"▾";content:"▾" / "";flex:none;margin-left:4px;font-size:.85em;opacity:.7}
-  #appView #libraryView .lu-search-row > .lu-cat-pick::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
-  #appView #libraryView .lu-search-row > .lu-cat-pick:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
-  #appView #libraryView .lu-search-row{gap:6px}
-  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="category"],
-  #appView #libraryView .library-filter-toolbar > .cc-sub-row{display:none}
-  /* 묶기 줄 자리는 비우고(칩은 아래 알약으로 떠 있음) 칩 줄만 화면 아래에 띄운다. */
-  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="group"]{display:contents}
-  /* UI-보기탭한모양(S52-17): 모양은 공용 ⑤ 보기 바꾸기(.ds-seg, filter-chips.js seg:true). 여기는 떠 있는 자리만(탭 자리 규칙: 폰 아래 가운데·폴드 오른쪽 아래). */
-  #appView #libraryView #libraryGroupBy{position:fixed;z-index:28;max-width:calc(100vw - 24px);margin:0}
-  /* 떠 있는 알약에 마지막 줄이 가리지 않게 목록 아래 여백. */
-  #appView #libraryView #libraryListCard{margin-bottom:calc(56px + var(--kptu-switch-dock,0px))}
+/* ───────── LIB-위쪽한줄(요청함 11/09 11:01, 명진 PC 'B' 11:24 · 폰 '가안' 11:28, 시안 docs/design/mockups/library-top-pc.html·library-top-phone.html) ─────────
+   S51-28(폰·폴드 [찾기][분류 ▾][⋯] + 아래 알약 묶기·떠 있는 [+], PC 묶기 칩 줄·분류 칩 줄)을 대신한다. 폰·PC 경계는 사업 보고 위쪽(meeting-ui.css)과 같은 760px.
+   - PC·펼친 폴드(761px~): 한 줄 = [폴더 ▾][분류: 전체 ▾][찾기 칸 ………] + 오른쪽 끝 [+][⋯] 작은 아이콘. 제목은 위쪽 경로 줄이 보이므로 읽기 프로그램용.
+   - 폰(~760px): 첫 줄 = 제목 '자료실' ……… [⌕][+][⋯](사업 보고 폰 첫 줄과 같은 모양), 둘째 줄 = [폴더 ▾][분류: 전체 ▾].
+     ⌕를 누르면(또는 찾는 글자가 있으면, data-lu-find) 첫 줄이 [찾기 칸 ……][✕]로 바뀐다(library-upload.js luSyncFind).
+   묶기 칩 줄·분류 칩 줄·아래 알약·떠 있는 동그란 [+]는 없다. 상태 주인은 그대로 library-upload.js 하나(luGroupBy·luCategoryOff·luCategorySub).
+   모양은 공용 부품: [폴더 ▾]·[분류 ▾] = 고르기 상자(사업 보고 위쪽 고르기와 같은 --ds-select-*·--ds-compact-height), ⌕·+·⋯·✕ = ⑥ 아이콘(icon-btn). 여기는 자리·크기만. */
+#appView #libraryView .library-filter-toolbar .lu-search-row{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;flex:1 1 100%;min-width:0}
+#appView #libraryView .lu-search-row > .lu-top-title{position:absolute;width:1px;height:1px;margin:0;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+#appView #libraryView .lu-search-row > .lu-pick-row{display:flex;align-items:center;gap:6px;flex:0 1 auto;min-width:0}
+#appView #libraryView .lu-search-row > .search{flex:1 1 0;min-width:0}
+#appView #libraryView .lu-search-row > .lu-head-actions{display:flex;align-items:center;gap:2px;flex:none;margin-left:auto}
+#appView #libraryView .lu-search-row > :is(.lu-find-open,.lu-find-close){display:none}
+/* 고르기 상자 둘: 같은 높이·글자·선. [분류 ▾]는 단추(체크 여러 개 창), [폴더 ▾]는 고르기 상자(하나만). */
+#appView #libraryView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select){position:relative;display:inline-flex;align-items:center;flex:0 1 auto;min-width:0;max-width:14em;box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 8px;
+  font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;color:var(--kptu-ink);white-space:nowrap;overflow:visible;
+  background:var(--ds-select-bg,var(--kptu-surface-subtle));border:var(--ds-line-width,1px) solid var(--ds-line);border-radius:var(--kptu-radius-md);cursor:pointer}
+#appView #libraryView .lu-pick-row > .lu-top-select{width:auto;field-sizing:content;padding-right:22px;text-overflow:ellipsis}
+#appView #libraryView .lu-pick-row > .lu-cat-pick .lu-cat-pick-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
+#appView #libraryView .lu-pick-row > .lu-cat-pick .lu-cat-caret::before{content:"▾";content:"▾" / "";flex:none;margin-left:4px;font-size:.85em;opacity:.7}
+#appView #libraryView .lu-pick-row > .lu-cat-pick::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView #libraryView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
+/* 작은 아이콘 ⌕·+·⋯·✕: ⑥ 아이콘 크기(--ds-compact-height), 선·바탕 없음, 마우스를 올릴 때만 옅은 바탕. 누르는 범위 44px은 위아래로만 ::after. */
+#appView #libraryView .lu-search-row :is(#librarySearchOpen,#librarySearchClose,#newDocumentBtn,#libraryTopMenuBtn){position:relative;box-sizing:border-box;display:inline-grid;place-items:center;flex:none;width:var(--ds-compact-height,32px);min-width:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);line-height:1}
+#appView #libraryView .lu-search-row :is(#librarySearchOpen,#librarySearchClose,#newDocumentBtn,#libraryTopMenuBtn):is(:hover,[aria-expanded="true"]){background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+#appView #libraryView .lu-search-row :is(#librarySearchOpen,#librarySearchClose,#newDocumentBtn,#libraryTopMenuBtn)::after{content:"";position:absolute;inset:auto;left:0;right:0;min-width:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px);min-height:0}
+#appView #libraryView .lu-search-row :is(#librarySearchOpen,#librarySearchClose,#newDocumentBtn,#libraryTopMenuBtn):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+#appView #libraryView .lu-search-row #newDocumentBtn::before{content:"";display:block;width:18px;height:18px;background:currentColor;-webkit-mask:var(--ds-fab-plus) center / 18px 18px no-repeat;mask:var(--ds-fab-plus) center / 18px 18px no-repeat}
+#appView #libraryView .lu-search-row #librarySearchOpen svg{display:block;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:760px){
+  #appView #libraryView .library-filter-toolbar .lu-search-row{flex-wrap:wrap;row-gap:var(--kptu-space-1,4px)}
+  #appView #libraryView .lu-search-row > .lu-top-title{position:static;width:auto;height:auto;overflow:visible;clip:auto;order:0;flex:1 1 auto;min-width:0;margin:0;font-size:var(--ds-text-title);font-weight:var(--ds-weight-medium);line-height:1.4}
+  #appView #libraryView .lu-search-row > .search{display:none;order:0}
+  #appView #libraryView .lu-search-row > .lu-search-pick-all{order:0}
+  #appView #libraryView .lu-search-row > .lu-find-open{display:inline-grid;order:1}
+  #appView #libraryView .lu-search-row > .lu-head-actions{order:2;margin-left:0}
+  #appView #libraryView .lu-search-row > .lu-pick-row{order:3;flex:1 1 100%}
+  #appView #libraryView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select){max-width:calc(50% - 3px)}
+  #appView #libraryView .lu-search-row[data-lu-find] > :is(.lu-top-title,.lu-find-open,.lu-head-actions){display:none}
+  #appView #libraryView .lu-search-row[data-lu-find] > .search{display:block;height:var(--ds-compact-height,32px);min-height:0}
+  #appView #libraryView .lu-search-row[data-lu-find] > .lu-find-close{display:inline-grid;order:1}
 }
-@media(max-width:599px){
-  #appView #libraryView #libraryGroupBy{left:50%;transform:translateX(-50%);bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px))}
-}
-@media(min-width:600px) and (max-width:760px){
-  #appView #libraryView #libraryGroupBy{right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px))}
-}
-@media(min-width:761px) and (max-width:1199px){
-  #appView #libraryView #libraryGroupBy{right:12px;bottom:calc(6px + env(safe-area-inset-bottom,0px))}
-}
+/* LIB-위쪽한줄: [분류 ▾] 창 줄 끝 자료 수(0도 보임, 소분류 줄은 없음) — 공용 고르기 창 줄 오른쪽 끝 작은 보조 글자. */
+.home-choice-sheet.lu-cat-sheet .lu-cat-sheet-count{flex:none;margin-left:auto;padding-left:8px;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 /* [분류 ▾] 고르기 창: 공용 고르기 창 안 [모두 풀기](작은 글자 단추)와 아래 줄 [편집]. 소분류 줄은 공용 들여쓰기(--home-choice-depth). */
 .home-choice-sheet.lu-cat-sheet .lu-cat-sheet-tools{display:flex;justify-content:flex-end;margin:0 0 2px}
 .home-choice-sheet.lu-cat-sheet .lu-cat-sheet-clear{position:relative;height:28px;min-height:0;padding:0 6px;border:0;background:transparent;color:var(--kptu-primary-ink);font-size:12px;cursor:pointer}

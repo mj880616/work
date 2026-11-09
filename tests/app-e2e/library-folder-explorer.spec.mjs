@@ -9,13 +9,15 @@ const ITEMS=[{document_id:'a-1',folder_id:'fc'},{document_id:'n-1',folder_id:'fa
 const tops=page=>page.locator('#documentList > details').evaluateAll(xs=>xs.map(x=>x.dataset.luNode));
 const noScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 const count=(page,key)=>libraryNodeHead(page,key).locator('.lu-node-count');
-const radio=(page,name)=>page.locator('#libraryGroupBy').getByRole('radio',{name});
+// LIB-위쪽한줄: 묶기는 고르기 상자 [폴더 ▾](#libraryGroupBy, select) 하나.
+const pickGroup=(page,label)=>page.locator('#libraryGroupBy').selectOption({label});
+const groupNow=page=>page.locator('#libraryGroupBy option:checked');
 
 for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
   test.use({hasTouch:width<761});
   test(`묶기 '폴더': 프로젝트와 무관한 나무, 맨 위 '폴더 밖', 건수·들여쓰기 ${width}`,async({page},info)=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
-    await radio(page,'폴더').click();await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');
+    await pickGroup(page,'폴더');await expect(groupNow(page)).toHaveText('폴더');
     expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
     await expect(libraryNodeHead(page,'x:out').locator('.lu-node-name')).toHaveText('폴더 밖');
     // FOLDER-나무새기준: 폴더 묶기의 폴더 줄은 ▸ 대신 공용 닫힌/열린 폴더 그림, '폴더 밖'은 회색 점선 폴더 그림(S51-25).
@@ -29,12 +31,12 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     expect(await childrenOf(page,'f:fa')).toEqual(['f:fc','n-1']);expect(await childrenOf(page,'f:fc')).toEqual(['a-1']);
     await expect(libraryNode(page,'f:fc')).toHaveAttribute('style',/--lu-depth:\s*1/);
     // 프로젝트 묶기에서는 틀이 다른 연결(n-1은 프로젝트 없음인데 폴더 fa는 top-a)을 '폴더에 없는 것'으로 본다(이전 동작 그대로).
-    await radio(page,'사업영역').click();await expandLibraryTree(page);
+    await pickGroup(page,'사업영역');await expandLibraryTree(page);
     expect(await childrenOf(page,'p:none')).toContain('n-1');expect(await childrenOf(page,'f:fa')).toEqual([]);
     // S52-05 B LIB-사업영역글자: 자료실 화면 글자에 '프로젝트'가 남아 있지 않다(저장 값 project_id는 그대로).
     // 시험 자료 이름(가짜 사업영역 '고아 하위 프로젝트' 등, 사용자가 붙인 이름)은 빼고 화면 글자만 본다.
     expect(await page.locator('#libraryView').evaluate(v=>{const c=v.cloneNode(true);c.querySelectorAll('.lu-node-name,[data-lu-document]').forEach(x=>x.remove());return c.innerText})).not.toContain('프로젝트');
-    await radio(page,'폴더').click();
+    await pickGroup(page,'폴더');
     expect(s.writes).toEqual([]);
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
     if(width<761)await page.screenshot({path:info.outputPath('folder-view-390.png'),fullPage:true});
@@ -43,16 +45,16 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
   // LIB-폴더묶기기억(2026-10-26 사용자 결정 '기억'): 폴더 묶기도 다른 묶기와 똑같이 서버(library_view.group_by)에 저장하고, 다른 기기에서도 폴더로 열린다.
   test(`폴더 묶기를 서버에 기억해 다른 기기에서도 폴더로 열린다 ${width}`,async({page,browser})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
-    await radio(page,'폴더').click();
+    await pickGroup(page,'폴더');
     await expect.poll(()=>(s.profilePatches||[]).length,{timeout:5000}).toBe(1);
     expect(s.profilePatches[0]).toEqual({library_view:{group_by:'folder'}});expect(s.libraryView).toEqual({group_by:'folder'});
     const other=await browser.newPage();
     try{
       const o=await bootLibrary(other,width,{state:s});
-      await expect(radio(other,'폴더')).toHaveAttribute('aria-checked','true');
+      await expect(groupNow(other)).toHaveText('폴더');
       expect(await tops(other)).toEqual(['x:out','f:fa','f:fn']);
       // 다른 묶기로 바꾸면 그 값으로 바뀐다(폴더도 다른 값과 똑같이 덮어쓴다).
-      await radio(other,'사업영역').click();
+      await pickGroup(other,'사업영역');
       await expect.poll(()=>s.libraryView?.group_by,{timeout:5000}).toBe('project');
       expect(o.errors).toEqual([]);
     }finally{await other.close()}
@@ -62,25 +64,25 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
   test(`기억된 폴더 묶기는 폴더 표를 읽은 뒤 폴더로 열린다 ${width}`,async({page})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,init:{libraryView:{group_by:'folder'}}});
     // 폴더 표가 읽히므로 폴더로 열린다.
-    await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');
+    await expect(groupNow(page)).toHaveText('폴더');
     expect(s.profilePatches||[]).toEqual([]);expect(errors).toEqual([]);
   });
 
   test(`DB 적용 전 서버에서도 화면이 깨지지 않는다: 폴더는 이번 방문만, 종류 칩 기억은 그대로 ${width}`,async({page})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,init:{libraryViewNoFolder:true,libraryView:{group_by:'month'}}});
-    await radio(page,'폴더').click();
+    await pickGroup(page,'폴더');
     await expect.poll(()=>(s.profilePatches||[]).length,{timeout:5000}).toBe(2);
     // 첫 요청은 검사에 거절되고(400), 폴더만 빼고 앞서 기억한 묶기 그대로 다시 보낸다.
     expect(s.profilePatches[0]).toEqual({library_view:{group_by:'folder'}});expect(s.profilePatches[1]).toEqual({library_view:{group_by:'month'}});
     expect(s.libraryView).toEqual({group_by:'month'});
-    await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
+    await expect(groupNow(page)).toHaveText('폴더');expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
     // 폴더 보기에서 종류 칩을 눌러도 기억은 저장된다(폴더 때문에 막히지 않음).
     const chip=page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])').first();const name=await chip.getAttribute('data-lu-category');
     const before=(await chip.getAttribute('aria-pressed'))==='true';
     await toggleLibraryCategory(page,name);
     await expect.poll(()=>s.libraryView?.categories_off?.includes(name),{timeout:5000}).toBe(before);
     expect(s.libraryView.group_by).toBe('month');
-    await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');
+    await expect(groupNow(page)).toHaveText('폴더');
     expect(s.writes).toEqual([]);expect(errors).toEqual([]);
   });
 
@@ -207,7 +209,7 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
   test.use({hasTouch:width<761});
   test(`폴더 들어가기와 위치 줄 ${width}`,async({page})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
-    await radio(page,'폴더').click();
+    await pickGroup(page,'폴더');
     const path=page.locator('#libraryPath');
     await expect(path).toHaveCount(0);
     await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
@@ -227,7 +229,7 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     await path.getByRole('button',{name:'자료실'}).click();expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);await expect(path).toBeHidden();
     // 들어간 채 묶기를 바꾸면 처음으로 돌아오고 위치 줄은 사라진다.
     await press(page,menuButton(page,'f:fn'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);expect(await tops(page)).toEqual(['f:fn']);
-    await radio(page,'사업영역').click();await expect(path).toBeHidden();await radio(page,'폴더').click();expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
+    await pickGroup(page,'사업영역');await expect(path).toBeHidden();await pickGroup(page,'폴더');expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
     // 프로젝트 묶기의 폴더 메뉴에는 [이 폴더로 들어가기]가 없다(폴더 보기 전용).
     expect(s.writes).toEqual([]);expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
   });
@@ -235,7 +237,7 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
   // LIB-폴더100단(10:34): 들어간 폴더에서 뒤로가기(폰 갤럭시 뒤로·브라우저 뒤로) = 한 단계 위. 맨 위에 닿으면 처음 목록, 자료실에 남는다.
   test(`폴더 안에서 뒤로가기는 한 단계 위 ${width}`,async({page})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
-    await radio(page,'폴더').click();
+    await pickGroup(page,'폴더');
     const path=page.locator('#libraryPath');
     await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
     const here=(...n)=>width<761?['‹자료실',...n.slice(0,-1)].join('›')+'›':['‹자료실',...n].join('›');
