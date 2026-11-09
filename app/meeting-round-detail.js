@@ -282,6 +282,8 @@ async function mrdOpenMeeting(id){
     mrdInstallModal();
     if(!(await mrdLoadMeeting(id,epoch)))return;
     mrdOpen();mrdTodos?.open();
+    // BIZ-주간보고접기: 창(팝업)으로 보고 하나를 열었음을 알린다 — 사업 보고 화면이면 위 '이번 주 주간보고' 칸이 접힌다(닫으면 kptu:report-pane-free로 다시 펼침).
+    window.dispatchEvent(new CustomEvent('kptu:report-open',{detail:{meeting_id:id}}));
   }catch(e){if(epoch===mrdRequestEpoch)notify(e.message||String(e),{error:true})}
 }
 // 열려 있는 사업 보고를 다시 읽는다(할 일 완료·삭제 뒤). 칸에 붙어 있으면 창을 다시 열지 않고 칸 안에서만 다시 채운다.
