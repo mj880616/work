@@ -43,7 +43,9 @@ function bottomRules(){
  return out;
 }
 const norm=s=>s.replace(/\s+/g,'');
-const listed=sel=>[hideRule,staticRule].some(rule=>norm(rule).includes(norm(sel).replace(/:not\(\[hidden\]\)$/,'').replace(/^#appView#calendarView\.calendar-toolbar#newEventBtn,.*$/,'#calendarView.calendar-toolbar#newEventBtn')));
+// '#appView :is(a,b)' 모양의 규칙은 칸(a, b)마다 숨김 목록에 들어 있어야 한다(UI-동그란더하기삭제: 달력·일기·자료실이 한 규칙으로 묶이지 않게 되어 칸별로 본다).
+const parts=sel=>{const m=/^#appView\s*:is\((.*)\)$/.exec(sel.trim());return (m?m[1].split(','):[sel.replace(/^#appView\s+/,'')]).map(x=>x.trim().replace(/^#appView\s+/,''));};
+const listed=sel=>[hideRule,staticRule].some(rule=>parts(sel.replace(/:not\(\[hidden\]\)$/,'')).every(p=>norm(rule).includes(norm(p))));
 
 test('감지 한 곳: 쓰는 칸 표시, 자판 위로 올리기, 손으로 스크롤은 그대로',()=>{
  assert.match(js,/data-keyboard-field/);

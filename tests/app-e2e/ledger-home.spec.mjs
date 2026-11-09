@@ -158,7 +158,7 @@ async function signIn(page){
 }
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth);
 
-for(const [name,width] of [['PC',1280],['phone',390]]){
+for(const [name,width] of [['PC',1280],['PC 접힌 틀 경계 위(폴드 884)',884],['phone',390],['폴드 펼침(폰 틀)',700]]){
  test(`원장 첫 화면: 검색 → 조직·주제 칩 → 안 지킨 약속 → 추적 중 → 최근 자동, 가져오기·후보 칸 없음, 목록에 ID 없음 (${name} ${width}px)`,async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width,height:900});
@@ -193,15 +193,24 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   for(const text of ['원장 가져오기','원장 후보 만들기','가져온 묶음','확정'])await expect(page.locator('#ledgerView').getByRole('button',{name:text,exact:true})).toHaveCount(0);
   // 첫 화면은 검색 RPC를 부르지 않는다. 쓰기 요청도 없다.
   expect(db.search).toHaveLength(0);expect(db.fix).toHaveLength(0);expect(db.posts).toHaveLength(0);
-  // [+ 기록하기]는 작은 버튼. UI-화면정리 C(B⑥): 폰은 다른 화면과 같은 동그란 [+](하단 탭 위 오른쪽에 떠 있음, 혼자 한 줄을 차지하지 않음).
-  const add=browse.getByRole('button',{name:'+ 기록하기'});
+  // [+ 기록하기]는 작은 버튼. UI-동그란더하기삭제(11/09): 폰은 떠 있는 동그란 [+]가 아니라 찾기 줄 [찾기 칸][조건 ▾] 오른쪽 끝 네모 작은 +(글자는 읽기 이름으로만).
+  const add=browse.getByRole('button',{name:width<761?'기록하기':'+ 기록하기',exact:true}); // 폰은 글자 없는 아이콘 버튼(이름은 aria-label)
   const addBox=await add.boundingBox();
-  expect(addBox.height).toBeLessThanOrEqual(width<761?36:34);
   if(width<761){
-   expect(await add.evaluate(b=>getComputedStyle(b).position)).toBe('fixed');
-   expect(Math.abs(addBox.width-addBox.height)).toBeLessThanOrEqual(1);
-   expect(addBox.x+addBox.width).toBeGreaterThan(width-40);
-  }
+   expect(await add.evaluate(b=>getComputedStyle(b).position)).not.toBe('fixed');
+   expect([addBox.width,addBox.height]).toEqual([32,32]);
+   const cond=await browse.locator('#lbCondBtn').boundingBox(),search=await browse.locator('.lb-search').boundingBox();
+   // 같은 줄(세로 가운데 1px 안), 순서는 찾기 칸 → 조건 → +, 화면 오른쪽 끝에 붙음.
+   for(const other of [cond,search])expect(Math.abs(other.y+other.height/2-(addBox.y+addBox.height/2))).toBeLessThanOrEqual(1);
+   expect(search.x+search.width).toBeLessThanOrEqual(cond.x);expect(cond.x+cond.width).toBeLessThanOrEqual(addBox.x);
+   const bar=await browse.locator('.lb-bar').boundingBox();expect(Math.abs(bar.x+bar.width-(addBox.x+addBox.width))).toBeLessThanOrEqual(1); // 찾기 줄 오른쪽 끝
+   const plus=await add.evaluate(b=>{const p=getComputedStyle(b,'::before');return {content:p.content,mask:p.maskImage||p.webkitMaskImage};});
+   expect(plus.content).toBe('""');expect(plus.mask).toContain('svg');
+   // 누르는 범위는 위아래 44px(::after).
+   expect(await add.evaluate(b=>parseFloat(getComputedStyle(b,'::after').height))).toBe(44);
+   // 떠 있는 동그란 [+]가 화면 어디에도 없다.
+   expect(await page.evaluate(()=>[...document.querySelectorAll('button')].filter(b=>b.checkVisibility()&&getComputedStyle(b).position==='fixed'&&getComputedStyle(b).borderRadius==='50%').length)).toBe(0);
+  }else expect(addBox.height).toBeLessThanOrEqual(34);
   expect(await noSideScroll(page)).toBe(true);
  });
 
@@ -461,7 +470,7 @@ test('[+ 기록하기]: 일상어 → 새 기록 미리보기 → 반영 / Claud
  const db=await mockApp(page);
  await signIn(page);
  const browse=page.locator('#ledgerBrowseRoot');
- await browse.getByRole('button',{name:'+ 기록하기'}).click();
+ await browse.getByRole('button',{name:'기록하기',exact:true}).click();
  const fix=page.locator('#ledgerFixRoot');
  await expect(fix.locator('#lfTitle')).toHaveText('기록하기');
  // 되묻기: 서버가 request 없이 question만 주면 [반영] 없이 한 줄.
@@ -479,7 +488,7 @@ test('[+ 기록하기]: 일상어 → 새 기록 미리보기 → 반영 / Claud
  expect(db.fix[0].p_request.items[0].do).toBe('add');
  await expect(browse.locator('[data-lb-sec="tracking"]')).toContainText('가상 다 지부 첫 교섭',{timeout:10000});
  // Claude 수정안 덩어리: 서버 AI 없이 DB 해 보기(p_dry_run=true) → 미리보기 → 반영.
- await browse.getByRole('button',{name:'+ 기록하기'}).click();
+ await browse.getByRole('button',{name:'기록하기',exact:true}).click();
  const block={format:'kptu-ledger-fix',version:1,items:[{target:'DEC-0901',do:'retire',reason:'잘못 뽑힌 결정'}]};
  const aiBefore=db.ai.length;
  await fix.locator('#lfText').fill(JSON.stringify(block));
@@ -492,7 +501,7 @@ test('[+ 기록하기]: 일상어 → 새 기록 미리보기 → 반영 / Claud
  await expect.poll(()=>db.fix.at(-1).p_dry_run).toBe(false);
  expect(db.records.find(r=>r.ledger_id==='DEC-0901').validity).toBe('retired');
  // 깨진 덩어리는 일상어 이유만, 요청 없음.
- await browse.getByRole('button',{name:'+ 기록하기'}).click();
+ await browse.getByRole('button',{name:'기록하기',exact:true}).click();
  const n=db.fix.length;
  await fix.locator('#lfText').fill('{"format":"x"');
  await fix.getByRole('button',{name:'미리보기'}).click();
@@ -510,7 +519,7 @@ test('서버 배포 전이면 일상어는 준비 중 안내, Claude 덩어리 �
  const db=await mockApp(page,{server:false});
  await signIn(page);
  const browse=page.locator('#ledgerBrowseRoot');
- await browse.getByRole('button',{name:'+ 기록하기'}).click();
+ await browse.getByRole('button',{name:'+ 기록하기',exact:true}).click(); // PC 1280은 글자 버튼 '+ 기록하기'(폰만 아이콘)
  const fix=page.locator('#ledgerFixRoot');
  await fix.locator('#lfText').fill('나 지부 교섭 날짜 수정됨');
  await fix.getByRole('button',{name:'미리보기'}).click();

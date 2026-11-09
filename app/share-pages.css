@@ -227,7 +227,7 @@
 }
 
 /* UI-전수디자인점검 F13(UI-화면정리 C 추가 버튼 자리): 폰 위가 아닌 폭(761px~)의 머리 오른쪽 [+ 새 공유 페이지]는 다른 화면의 [+ ○○]처럼 주 색 채움.
-   [+ HTML]은 테두리 작은 버튼 그대로. 폰은 ui-standard.css의 동그란 [+] 규칙 그대로. */
+   [+ HTML]은 테두리 작은 버튼 그대로. 폰(760px 이하)은 첫 줄 네모 작은 +(.sp-add, ui-standard.css)이고 두 글자 버튼은 그리지 않는다. */
 @media (min-width:761px){
   #appView #pagesView .sp-root .sp-head button.primary[data-sp-new]{ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
 }

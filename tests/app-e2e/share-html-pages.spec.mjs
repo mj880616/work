@@ -7,6 +7,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {pressNewSharePage, pressNewHtmlPage} from './helpers/share-new.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const READ = SB + '/functions/v1/share-page-read';
@@ -102,7 +103,7 @@ for (const width of [412, 884, 1440]) test('HTML 공유 페이지: 올리기·�
   await expect(root.locator('details.sp-box')).toHaveCount(0);
   await expect(page.locator('#pagesView details#web1BoardLegacy,#pagesView .w1b-card')).toHaveCount(0);
 
-  await root.getByRole('button', {name:'새 HTML 공유 페이지'}).click();
+  await pressNewHtmlPage(page);
   const modal = page.locator('#shareHtmlModal');
   await expect(modal).toBeVisible();
   // Over 5MB is refused before anything is sent.

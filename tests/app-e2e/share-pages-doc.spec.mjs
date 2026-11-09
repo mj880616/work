@@ -7,6 +7,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {pressNewSharePage, pressNewHtmlPage} from './helpers/share-new.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ORIGIN = testOrigin;
@@ -61,7 +62,7 @@ for (const width of [390, 1280]) test('a new page is one 글 block on the full s
   await page.setViewportSize({width, height:900});
   const state = {pages:[]};
   const errors = await signIn(page, state);
-  await page.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
+  await pressNewSharePage(page);
   const editor = page.locator('[data-sp-editor]');
   await expect(editor.locator('[data-sp-title]')).toBeFocused();
   await page.keyboard.type('글 블록 페이지');
