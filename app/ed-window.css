@@ -83,7 +83,7 @@ html .modal.ed-window .edw-title-row button[data-edw-target] { max-width:min(14e
 .nq-tail { font-size:var(--kptu-text-meta,12px); line-height:1.5; color:var(--kptu-muted); }
 .nq-tail > div { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; border-left:3px solid var(--kptu-border); padding-left:8px; }
 .nq-text { box-sizing:border-box; width:100%; min-height:68px; max-height:30dvh; resize:vertical; padding:6px 8px; border:var(--ds-line-width,1px) solid var(--kptu-primary); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:inherit; font:inherit; font-size:14px; line-height:1.45; }
-.nq-status { margin:0; min-height:0; font-size:var(--kptu-text-meta,12px); color:var(--kptu-danger,#b4473c); }
+.nq-status { margin:0; min-height:0; font-size:var(--kptu-text-meta,12px); color:var(--kptu-danger); }
 .nq-status:empty { display:none; }
 .nq-foot { display:flex; align-items:center; justify-content:flex-end; gap:6px; }
 .nq-foot .nq-big { margin-right:auto; }
