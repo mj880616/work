@@ -241,11 +241,37 @@ for(const width of [390,1280])test(`[전체 표] 줄 ⋯ [기록 열기] → 조
  expect(errors).toEqual([]);
 });
 
+// RECORD-한줄 ①: 긴 기록(붙여 넣은 회의록·마크다운·표 기호)은 표에 한 줄만, 기호 없이. ⋯ [원문 보기] = 원문 그대로(작은 창, 읽기만).
+for(const width of [390,1280])test(`[전체 표] 긴 기록은 한 줄 + ⋯ [원문 보기] ${width}px`,async({page})=>{
+ const RAW='## 합성 쟁의대책회의 결과 요약 (11.16)\n\n### 1. 핵심 회의 결과\n- 합성 경고파업 추진 방향으로 의견을 모음&#x20;\n\n| 구분 | 내용 |\n|---|---|\n| 교섭 | 합성 근속승진 |\n'+'합성 문장 '.repeat(30);
+ const rec=U(OA,'2026-11-17',RAW);
+ const {db,errors}=await fixture(page,{width,records:[rec]});
+ await openTable(page);
+ const line=shown(oa(page));
+ await expect(line).toHaveCount(1);
+ await expect(line.locator('.wl-text')).toHaveText('합성 쟁의대책회의 결과 요약 (11.16)…');
+ expect((await oa(page).locator('.wl-cell').textContent())||'').not.toMatch(/##|\||&#x20;|합성 근속승진/);
+ await menu(page,oa(page),'합성 쟁의대책회의','원문 보기');
+ const sheet=page.locator('#kptuRecordSheet');
+ await expect(sheet).toBeVisible();
+ await expect(sheet.locator('[data-record-sheet-title]')).toHaveText('원문');
+ await expect(sheet.locator('[data-record-sheet-meta]')).toContainText('합성 가 지부');
+ await expect(sheet.locator('[data-record-sheet-text]')).toContainText('합성 근속승진');
+ await expect(sheet.locator('[data-record-sheet-full]')).toBeHidden();
+ await page.keyboard.press('Escape');
+ await expect(sheet).toBeHidden();
+ expect(db.records[0].raw_text).toBe(RAW); // 원문은 그대로
+ expect(db.posts).toEqual([]);expect(db.markWrites).toEqual([]);
+ expect(errors).toEqual([]);
+});
+
 // UI-줄⋯공용맞추기(요청함 11/09 07:36): 줄 ⋯ 는 글 오른쪽 위(첫 줄 높이), ▶·▼ 펼침 표시 없음, 눌러 나오는 메뉴는 줄 높이를 늘리지 않는 작은 메뉴.
 for(const width of [390,1280])test(`[전체 표] 줄 ⋯ 는 긴 글에서도 글 오른쪽 위, 펼침 표시 없음, 메뉴가 줄을 밀지 않음 ${width}px`,async({page})=>{
  const long='합성 아주 긴 기록 '.repeat(24);
  const rec=U(OA,'2026-11-17',long);
  const {errors}=await fixture(page,{width,records:[rec]});
+ // RECORD-한줄: 표 줄은 한 줄(60자 안팎)이라 PC 넓은 칸에서는 꺾이지 않는다. 좁은 칸(폴드·창 나눔)처럼 글 폭을 좁혀 여러 줄일 때 ⋯ 자리를 본다.
+ await page.addStyleTag({content:'#soOverview .rw-line .wl-text{max-width:10em}'});
  await openTable(page);
  const line=oa(page).locator('.wl-cell > .rw-line').first();
  const text=line.locator('.wl-text'),sum=line.locator('summary');

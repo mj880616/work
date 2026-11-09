@@ -76,10 +76,36 @@ export function withMark(metadata, key, on, now = new Date()) {
   return next;
 }
 
-// DIARY-넣은사진표시: 그날 사진 모음(diary.js dayItems)의 한 칸이 '그날 일기에 들어간 사진'인가. 판정은 이 함수 하나다.
-// 일기에 들어간 사진 = 일기 행(app_notes attachments)에 든 이미지 첨부(drive_file_id). 모음 칸은 source 'upload'(key = drive_file_id)가 그것이다.
-// 일기에 넣을 때 원드라이브·폰 사진은 줄인 사본으로 올라가 첨부에는 원본 id가 남지 않으므로, 원드라이브·폰 원본 칸은 표시하지 않는다(크기·이름 추측 없음).
+// DIARY-넣은사진표시·DIARY-넣은사진원본: 그날 사진 모음(diary.js dayItems)의 한 칸이 '그날 일기에 들어간 사진'인가. 판정은 이 함수 하나다.
+// 일기에 들어간 사진 = 일기 행(app_notes attachments)에 든 이미지 첨부(drive_file_id). 직접 올린 칸(source 'upload', key = drive_file_id)은 그 첨부와 바로 맞춘다.
+// 사진 화면 [일기에 넣기]로 들어온 원드라이브·폰 사진은 줄인 사본이 올라가므로, 넣을 때 원본 식별값을 행의 metadata.photo_origins
+// ({<drive_file_id>: 'onedrive:<항목 id>' | 'phone:ms:<번호>'}, 기존 metadata 칸 — DB 변경 없음)에 함께 적어 두고, 원본 칸은 그것으로 맞춘다.
+// 원본 식별값이 없는 옛 일기의 원드라이브·폰 칸은 표시하지 않는다(크기·이름 추측 없음). 사본 첨부가 일기에서 빠졌으면 같이 사라진다.
+export const ORIGIN_SOURCES = Object.freeze(['onedrive', 'phone']);
+export const originKey = (source, key) => (ORIGIN_SOURCES.includes(source) && typeof key === 'string' && key && key.length <= 300 ? `${source}:${key}` : '');
+const images = row => (Array.isArray(row?.attachments) ? row.attachments : []).filter(file => file?.drive_file_id && /^image\//.test(file?.mime_type || ''));
+// 일기 행에 남은 사진(이미지 첨부)의 원본 식별값만, {drive_file_id: 식별값}으로.
+export function photoOrigins(row) {
+  const raw = row?.metadata?.photo_origins;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out = {};
+  for (const file of images(row)) {
+    const value = raw[file.drive_file_id];
+    if (typeof value === 'string' && ORIGIN_SOURCES.some(source => value.startsWith(`${source}:`) && value.length > source.length + 1)) out[file.drive_file_id] = value;
+  }
+  return out;
+}
+// 원본 식별값 묶음에 새로 더한 것({drive_file_id: 식별값})을 합친다(다른 사진 것은 그대로, 모양이 틀린 값은 버림).
+export function withOrigins(metadata, added) {
+  const next = {...(metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {})};
+  const have = next.photo_origins && typeof next.photo_origins === 'object' && !Array.isArray(next.photo_origins) ? {...next.photo_origins} : {};
+  for (const [id, value] of Object.entries(added || {})) if (id && typeof value === 'string' && originKey(value.split(':', 1)[0], value.slice(value.indexOf(':') + 1))) have[id] = value;
+  if (Object.keys(have).length) next.photo_origins = have; else delete next.photo_origins;
+  return next;
+}
 export function inDiaryPhoto(item, row) {
-  if (item?.source !== 'upload' || typeof item.key !== 'string' || !item.key) return false;
-  return (Array.isArray(row?.attachments) ? row.attachments : []).some(file => file?.drive_file_id === item.key && /^image\//.test(file?.mime_type || ''));
+  if (!item || typeof item.key !== 'string' || !item.key) return false;
+  if (item.source === 'upload') return images(row).some(file => file.drive_file_id === item.key);
+  const want = originKey(item.source, item.key);
+  return !!want && Object.values(photoOrigins(row)).includes(want);
 }
