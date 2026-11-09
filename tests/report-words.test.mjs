@@ -31,7 +31,7 @@ test('library-upload.js: 사업 보고 올리기는 library-files + meeting_id +
   assert.match(s,/startUploadForMeeting:luStartUploadForMeeting/);
   assert.match(s,/fd\.append\('meeting_id',luUploadMeeting\.id\)/);
   assert.match(s,/luAiFill\(d\.document\.id,fd,file\.name\)/);
-  assert.match(s,/luSetUploadOrg\(null\);luSetUploadMeeting\(null\)\},true\)/);
+  assert.match(s,/luSetUploadOrg\(null\);luSetUploadMeeting\(null\);luSetUploadFolder\([^)]*\(\):null\)\},true\)/);
   assert.doesNotMatch(s,/meeting-files/);
 });
 test('meeting-round-detail.js: 자료 [+]는 자료실 올리기 창을 열고 meeting-files를 더는 부르지 않는다',()=>{
