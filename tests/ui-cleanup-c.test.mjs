@@ -44,29 +44,37 @@ test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [
   assert.doesNotMatch(read('ed-doc.css'), /ed-pair/);
 });
 
-// 화면의 새 항목 추가 버튼: PC는 화면 머리 오른쪽의 작은 [+ ○○], 폰은 하단 탭 위 동그란 [+] 하나(ui-standard.css 한 규칙).
-const ADD = [
+// 화면의 새 항목 추가 버튼: PC는 화면 머리 오른쪽의 작은 [+ ○○], 폰은 위쪽 줄 안 네모 작은 +(ui-standard.css 한 규칙).
+// UI-동그란더하기삭제(11/09): 떠 있는 동그란 [+]는 없다. 자료실만 위쪽 한 줄 작업(LIB-위쪽한줄)이 들어갈 때까지 동그란 [+]로 남는다.
+const SQUARE = [
   ['#calendarView .calendar-toolbar #newEventBtn', 'index.html', /id="newEventBtn"/],
-  // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄 버튼이라 이 묶음에서 빠졌다.
-  ['#libraryView #newDocumentBtn', 'index.html', /id="newDocumentBtn"[^>]*>\+ /],
-  // BIZ-위쪽정돈(B안, 11/09): 사업 보고 [+]는 폰에서도 맨 위 줄 오른쪽 작은 아이콘이라 이 동그란 [+] 목록에서 뺐다(사업 보고만 예외, 별도 시험 biz-top-tidy.spec.mjs).
+  // BIZ-위쪽정돈(B안, 11/09): 사업 보고 [+]는 폰에서도 맨 위 줄 오른쪽 작은 아이콘(meeting-ui.css, 별도 시험 biz-top-tidy.spec.mjs).
   ['#diaryView #newDiaryBtn', 'diary.js', /id="newDiaryBtn"/],
   ['#ledgerView button.lb-add', 'ledger-browse.js', /class="lb-add"[^>]*>\+ 기록하기</],
-  ['#pagesView .sp-root button.primary[data-sp-new]', 'share-pages.js', /dataset:\{spNew:''\}, text:'\+ 새 공유 페이지'/],
+  ['#pagesView .sp-root button.sp-add', 'share-pages.js', /class:'icon-btn sp-add'[^\n]*dataset:\{spAdd:''\}/],
 ];
-test('⑥ 화면 추가 버튼은 모두 폰 동그란 [+] 한 규칙에 들고, 글자는 [+ ○○]', () => {
+test('⑥ 폰 추가 버튼은 위쪽 줄 안 네모 작은 + 한 규칙에 들고, 떠 있는 동그란 [+]는 자료실만', () => {
   const css = read('ui-standard.css');
-  const fab = /#appView #calendarView \.calendar-toolbar #newEventBtn,([^{]+)\{\s*position:fixed;/.exec(css);
-  assert.ok(fab, '폰 동그란 [+] 규칙');
-  const list = ('#appView #calendarView .calendar-toolbar #newEventBtn,' + fab[1]).split(',').map(s => s.trim().replace(/^#appView /, ''));
-  assert.deepEqual(list, ADD.map(a => a[0]));
-  for (const [, f, mark] of ADD) assert.match(read(f), mark, f);
-  // 아이콘·누르는 범위·자판 숨김도 같은 목록이다.
-  const inner = ADD.map(a => a[0]).join(',');
+  const rule = /#appView :is\(([^{}]+)\)\{\s*position:relative;/.exec(css);
+  assert.ok(rule, '폰 네모 작은 + 규칙');
+  assert.deepEqual(rule[1].split(',').map(s => s.trim()), SQUARE.map(a => a[0]));
+  for (const [, f, mark] of SQUARE) assert.match(read(f), mark, f);
+  // 아이콘·누르는 범위·초점 줄도 같은 목록이다.
+  const inner = SQUARE.map(a => a[0]).join(',');
   assert.equal(css.split(inner).length - 1, 4);
-  assert.match(css, /#appView :is\(#projectsView,#libraryView,#meetingsView,#diaryView,#ledgerView,#pagesView\)\.view-panel\{ padding-bottom/);
+  // 떠 있는 동그란 [+]: position:fixed + 원(border-radius:50%)은 자료실 [+ 자료 등록] 하나뿐이다.
+  const round = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*border-radius:50%[^{}]*)\}/g)].filter(m => /position:\s*fixed/.test(m[2])).map(m => m[1].trim().replace(/\s+/g, ' '));
+  assert.deepEqual(round, ['#appView #libraryView #newDocumentBtn']);
+  assert.doesNotMatch(css, /button\.primary\[data-sp-new\]/);
+  // 목록 끝 여백: 동그란 [+] 몫은 자료실만, 나머지는 전환 줄 몫만.
+  assert.match(css, /#appView #libraryView\.view-panel\{ padding-bottom:calc\(var\(--kptu-switch-dock,0px\) \+ var\(--kptu-touch-target,44px\) \+ var\(--ds-fab-gap\)/);
+  assert.match(css, /#appView :is\(#projectsView,#meetingsView,#ledgerView,#pagesView\)\.view-panel\{ padding-bottom:calc\(var\(--kptu-switch-dock,0px\) \+ 16px/);
   // 원장 [+ 기록하기]는 PC에서도 다른 화면처럼 주 색으로 채운 작은 버튼(흰 테두리 버튼 아님).
   assert.match(read('ledger-import.css'), /#appView #ledgerView \.lb-add\{[^}]*background:var\(--kptu-primary\); color:var\(--kptu-on-primary\);/);
+  // 공유 페이지: 폰은 + 하나와 작은 메뉴, PC는 글자 버튼 둘(같은 창을 연다).
+  const sp = read('share-pages.js');
+  assert.match(sp, /phoneQuery\.matches\s*\?[\s\S]*?dataset:\{spAdd:''\}[\s\S]*?:\s*el\('div', \{class:'sp-head-actions btn-row'\}[\s\S]*?dataset:\{spNewHtml:''\}, text:'\+ HTML'[\s\S]*?dataset:\{spNew:''\}, text:'\+ 새 공유 페이지'/);
+  assert.match(sp, /class="row-act" data-sp-add-action="page">새 공유 페이지<\/button><button type="button" class="row-act" data-sp-add-action="html">HTML 올리기</);
 });
 
 test('① 위쪽 빈 띠: 노트 수정·통화·텔레그램 상세, 폰 노트 뒤로 가기, 폰 업무일지 날짜 한 번', () => {

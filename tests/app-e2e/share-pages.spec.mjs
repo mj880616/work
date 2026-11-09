@@ -7,6 +7,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {pressNewSharePage, pressNewHtmlPage} from './helpers/share-new.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ORIGIN = testOrigin;
@@ -104,7 +105,7 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   await expect(page.locator('#pagesView')).not.toContainText('지나간 업무');
   await expect(page.locator('#pagesView .w1b-card,#web1BoardLegacy,#web1BoardDetailModal')).toHaveCount(0);
 
-  await root.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
+  await pressNewSharePage(page);
   const editor = page.locator('[data-sp-editor]');
   await expect(editor).toBeVisible();
   // SHARE-전체편집: a new page is the full writing screen (one 글 block, no block frames), the cursor in the title.
@@ -245,7 +246,7 @@ test('unsaved editor asks before leaving and Back closes it first', async ({page
   await mockApp(page, state);
   await signIn(page);
   await clickView(page, 'pages');
-  await page.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
+  await pressNewSharePage(page);
   await page.locator('[data-sp-title]').fill('쓰던 글');
   await page.locator('[data-sp-close]').click();
   await answerAsk(page, false);
@@ -464,6 +465,97 @@ for (const hash of ['', '#t=short', '#t=' + 'A'.repeat(64), '#x=' + TOKEN, '#t='
   const {calls} = await openReader(page, {hash, reply:route => route.fulfill({status:200, body:'{}'})});
   await expect(page.locator('h1.sr-title')).toHaveText('열 수 없는 링크예요');
   expect(calls).toHaveLength(0);
+});
+
+// UI-동그란더하기삭제(11/09 명진 ㅇ): 폰(~760px, 접은·펼친 폴드 포함) 공유 페이지는 첫 줄 오른쪽 네모 작은 + 하나, 누르면 작은 메뉴.
+// PC 틀(761px~, 폴드 884 포함)은 글자 버튼 둘 그대로. 떠 있는 동그란 [+]는 어느 폭에도 없다.
+const floatingRound = page => page.evaluate(() => [...document.querySelectorAll('button')].filter(b => b.checkVisibility() && getComputedStyle(b).position === 'fixed' && getComputedStyle(b).borderRadius === '50%').length);
+for (const width of [390, 700]) test('폰 ' + width + ': 공유 페이지 첫 줄 네모 작은 + → 작은 메뉴 [새 공유 페이지][HTML 올리기], 글자 버튼·동그란 [+] 없음', async ({page}) => {
+  await page.setViewportSize({width, height:844});
+  const state = {pages:[], links:[]};
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  await mockApp(page, state);
+  await signIn(page);
+  await clickView(page, 'pages');
+  const head = page.locator('#pagesView .sp-head');
+  const add = head.locator('[data-sp-add]');
+  await expect(add).toBeVisible();
+  await expect(head.locator('button')).toHaveCount(1);
+  await expect(page.locator('#pagesView [data-sp-new],#pagesView [data-sp-new-html]')).toHaveCount(0);
+  await expect(add).toHaveAttribute('aria-label', '공유 페이지 추가');
+  await expect(add).toHaveAttribute('aria-haspopup', 'true');
+  const b = await add.boundingBox();
+  expect([b.width, b.height]).toEqual([32, 32]);
+  expect(await add.evaluate(el => getComputedStyle(el).position)).not.toBe('fixed');
+  expect(await add.evaluate(el => getComputedStyle(el).borderRadius)).toBe('8px');
+  expect(width - (b.x + b.width)).toBeLessThanOrEqual(24);
+  expect(await add.evaluate(el => { const p = getComputedStyle(el, '::before'); return [p.content, p.maskImage || p.webkitMaskImage, p.width].join('|'); })).toMatch(/^"".*svg.*\|18px$/);
+  expect(await add.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44);
+  expect(await floatingRound(page)).toBe(0);
+  // 위쪽 줄(앱 머리 아래 첫 칸)에 있다: + 위에 다른 보이는 단추가 없다.
+  expect(await add.evaluate(el => { const r = el.getBoundingClientRect(); return [...document.querySelectorAll('#pagesView button')].filter(x => x !== el && x.checkVisibility() && x.getBoundingClientRect().bottom <= r.top + 1).length; })).toBe(0);
+  // + → 메뉴(아래, 오른쪽 맞춤).
+  await add.click();
+  const menu = page.locator('#spAddMenu');
+  await expect(menu).toBeVisible();
+  await expect(add).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu.getByRole('button')).toHaveText(['새 공유 페이지', 'HTML 올리기']);
+  const m = await menu.boundingBox();
+  expect(m.y).toBeGreaterThanOrEqual(b.y + b.height);
+  expect(m.x + m.width).toBeLessThanOrEqual(width);
+  // [HTML 올리기] = PC [+ HTML]과 같은 창.
+  await menu.getByRole('button', {name:'HTML 올리기', exact:true}).click();
+  await expect(page.locator('#shareHtmlModal')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#shareHtmlModal')).toBeHidden();
+  // [새 공유 페이지] = PC [+ 새 공유 페이지]와 같은 편집 화면.
+  await add.click();
+  await page.locator('#spAddMenu').getByRole('button', {name:'새 공유 페이지', exact:true}).click();
+  await expect(page.locator('[data-sp-editor]')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+for (const width of [884, 1440]) test('PC 틀 ' + width + ': 공유 페이지 글자 버튼 [+ HTML][+ 새 공유 페이지] 그대로, 네모 작은 +·메뉴 없음', async ({page}) => {
+  await page.setViewportSize({width, height:900});
+  const state = {pages:[], links:[]};
+  await mockApp(page, state);
+  await signIn(page);
+  await clickView(page, 'pages');
+  const head = page.locator('#pagesView .sp-head');
+  await expect(head.locator('[data-sp-new]')).toHaveText('+ 새 공유 페이지');
+  await expect(head.locator('[data-sp-new-html]')).toHaveText('+ HTML');
+  await expect(page.locator('#pagesView [data-sp-add]')).toHaveCount(0);
+  expect(await floatingRound(page)).toBe(0);
+  await head.locator('[data-sp-new]').click();
+  await expect(page.locator('[data-sp-editor]')).toBeVisible();
+});
+
+test('폰 390: 목록을 불러오며 다시 그려도 열어 둔 + 메뉴는 남고 항목이 눌린다', async ({page}) => {
+  await page.setViewportSize({width:390, height:844});
+  const state = {pages:[], links:[]};
+  await mockApp(page, state);
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  await page.route(SB + '/rest/v1/app_share_pages**', async route => {
+    if (route.request().method() === 'GET' && !new URL(route.request().url()).searchParams.get('id')) await gate;
+    await route.fallback();
+  });
+  await signIn(page);
+  await clickView(page, 'pages');
+  const add = page.locator('#pagesView [data-sp-add]');
+  await expect(add).toBeVisible();
+  await add.click();
+  const menu = page.locator('#spAddMenu');
+  await expect(menu).toBeVisible();
+  // 불러오기가 끝나면 목록(첫 줄 포함)이 새로 그려진다.
+  const before = await add.elementHandle();
+  release();
+  await expect(page.locator('#pagesView [data-sp-list-status]')).toHaveText('');
+  await expect.poll(() => before.evaluate(el => el.isConnected)).toBe(false);
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('button').first()).toBeFocused(); // 초점은 메뉴 안에 있어 새로 그려져도 잃지 않는다
+  await menu.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
+  await expect(page.locator('[data-sp-editor]')).toBeVisible();
 });
 
 test('Web1 reader source draws server content with textContent only and keeps no link value', () => {

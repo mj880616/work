@@ -141,7 +141,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .inbox-find:disabled { color:var(--kptu-muted); cursor:default; }
 #appView #basketView .inbox-find::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #basketView .note-host { --ds-section-ink:var(--ds-kind-note-ink); }
-/* [노트] 위쪽: 검색칸 + [+ 노트]. 폰에서는 [+ 노트]가 다른 화면과 같은 동그란 [+]로 뜬다(ui-standard.css). */
+/* [노트] 위쪽: 검색칸 + [+ 노트]. 폰의 [+ 노트]는 위 입력칸으로 바뀌었다(BASKET-노트입력창). */
 .note-list-head { display:flex; align-items:center; gap:8px; margin:8px 0; }
 .note-list-head .note-search { flex:1; min-width:0; margin:0; }
 .note-search { display:block; margin:8px 0; }
