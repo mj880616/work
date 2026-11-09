@@ -102,7 +102,7 @@ for(const width of [390,1440]){
       // 분류 수정은 [분류 ▾] 창 아래 '✎ 분류 수정' 하나(칩 줄 끝 버튼 없음).
       {const bar=page.locator('#libraryView .lu-search-row');await expect(bar.locator('.lu-head-actions > #newDocumentBtn')).toBeVisible();
         expect(await page.locator('#newDocumentBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
-        const [b,btn,more]=await Promise.all([bar.boundingBox(),bar.locator('#newDocumentBtn').boundingBox(),page.locator('#libraryTopMenuBtn').boundingBox()]);
+        const [b,btn,more]=await bar.evaluate(el=>[el,el.querySelector('#newDocumentBtn'),document.querySelector('#libraryTopMenuBtn')].map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}}));/* STAB-간헐묶음: 세 상자를 한 번에(같은 프레임) 재서 움직이는 중 따로 재는 어긋남을 없앤다 */
         expect(btn.x+btn.width).toBeLessThanOrEqual(more.x);expect(more.x+more.width).toBeCloseTo(b.x+b.width,0);expect(Math.abs((btn.y+btn.height/2)-(more.y+more.height/2))).toBeLessThan(2);
         await expect(page.locator('#newDocumentBtn')).toHaveAttribute('aria-label','자료 등록');expect((await page.locator('#newDocumentBtn').innerText()).trim()).toBe('')}
       await expect(page.locator('#manageLibraryBtn')).toHaveCount(0);await expect(page.locator('#libraryView .lu-pick-row > #libraryCategoryPick')).toBeVisible();
