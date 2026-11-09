@@ -86,3 +86,16 @@ test('사진 저장: 고친 행이 있으면 넣지 않고, 없으면 넣는다,
   const warn = console.warn; console.warn = () => {};
   try { assert.deepEqual(await saveReportSnapshot({rt: fail, workspaceId: 'w', week: W, rows: []}), {ok: false, reason: 'failed'}); } finally { console.warn = warn; }
 });
+
+test('O-6 ②: 옛 주별 조직보고 제안 보내기(weekly-org-suggest)·ai-assist org_week_lines는 없다, 원장 재료는 옮긴 줄을 뺀다', () => {
+  const {existsSync} = require_fs();
+  assert.equal(existsSync(new URL('../app/weekly-org-suggest.js', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../supabase/functions/ai-assist/org-week-lines.ts', import.meta.url)), false);
+  for (const f of ['app/quick-save.js', 'app/workplace-detail.js', 'app/basket-classification.js', 'app/weekly-org-lines.js']) assert.doesNotMatch(read(f), /weekly-org-suggest|suggestOrgWeek|suggestFromLinks|fillMissing|org_week_lines/, f);
+  const h = read('supabase/functions/ai-assist/handler.ts');
+  assert.doesNotMatch(h, /"org_week_lines"|runOrgWeekLines|ORG_WEEK_/);
+  assert.match(h, /export const ORG_MOVED_KINDS = Object\.freeze\(\["status_row", "weekly_line"\] as const\);/);
+  assert.match(h, /&or=\(source_kind\.is\.null,source_kind\.not\.in\.\(\$\{ORG_MOVED_KINDS\.join\(","\)\}\)\)&select=id,organization_id,occurred_at,raw_text,source_kind/);
+  assert.match(h, /if \(\(ORG_MOVED_KINDS as readonly unknown\[\]\)\.includes\(u\.source_kind\)\) continue;/);
+});
+function require_fs() { return {existsSync: p => { try { readFileSync(p); return true; } catch { return false; } }}; }

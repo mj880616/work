@@ -86,7 +86,6 @@ const EXCLUDED = new Map([
   ['collector-feed/handler.ts', '부르기만 한다. 텔레그램 지시문은 telegram.ts, 가족 잊지 말기 지시문은 family.ts(둘 다 적용)에 있다'],
   ['ai-assist/handler.ts', '연결 요약(주간보고 업무보고형)·챙길 것·겹침 판정이 한 파일에 있다. 연결 요약은 주간보고 문체라 제외'],
   ['ai-assist/org-status-rows.ts', '담당조직 현황 표 줄(주간보고 투쟁 사업장 칸에 그대로 들어가는 보고서 명사형 끝맺음 \'승인\'·\'개최\', DESK-전체현황표 ⑨ 11/03 명진 결정 — \'~함\' 금지)'],
-  ['ai-assist/org-week-lines.ts', '주별 조직보고 제안 한 줄(주간보고 조직보고 칸에 그대로 들어가는 보고서 명사형 끝맺음 — \'~함\' 금지, WEEKLY-메뉴짝짓기)'],
   ['ai-assist/org-summary.ts', '주간보고 산하 조직 현황 요약 칸의 재료(주간보고 문체)'],
   ['ai-assist/library-fill.ts', '자료 한두 줄 요약은 주간보고 줄의 재료(주간보고 문체), 나머지 칸은 제목·값'],
   ['ai-assist/schedule-titles.ts', '주간보고 일정 제목(제목, 문장 아님)'],

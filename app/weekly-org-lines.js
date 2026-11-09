@@ -13,7 +13,6 @@ import {readStatusRows} from './org-status-table.js';
 import {splitRows} from './org-status-model.mjs';
 import {cellParts, sortLines, dayText, cleanBody, checkDraft, nextOrder, hasRoom, importPlan, conflictOf, mondayOf, shiftWeek, weekLabel, lineText, sourceRecord, weekSuggestions, sameBody, SUG_SHOWN, BODY_MAX, SHOWN} from './weekly-org-lines-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
-import {fillMissing} from './weekly-org-suggest.js';
 import {waitHtml, emptyHtml} from './wait-state.js';
 import { chevHtml } from './fold-chevron.mjs';
 import {rowMore} from './row-more.js';
@@ -105,8 +104,6 @@ export function createWeekLines({rt, workspaceId, week = thisWeek(), mode = 'des
       }
       if (run !== ctl.run) return;
       ctl.lines = now.rows; ctl.last = last; ctl.lastFromStatus = fromStatus; ctl.status = 'ready';
-      // P4 열 때 빠진 것 채우기: 다른 기기·서버 경로로 들어온 그 주 기록 중 줄 출처에 없는 것(이번 접속에 주마다 한 번, 기다리지 않음).
-      void fillMissing({rt: ctl.rt, workspaceId: ctl.workspaceId, week: ctl.week, orgIds: ctl.orgIds, lines: now.rows}).catch(() => {});
     } catch { if (run !== ctl.run) return; ctl.status = 'error'; }
     repaint();
   };
