@@ -12,13 +12,15 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // S52-14 FILES-상자접힘기억: DB 먼저(20261107130000) box_shut을 받고, ②에서 화면 허용 목록에도 더했다.
 // S52-41 FILES-두칸나무접기·FILES-폴더고정: DB(20261108030000) files_tree·files_pins와 화면 허용 목록을 같은 PR에서 더했다(적용 전에는 화면이 이번 접속만 기억). DB에만 있는 칸은 없다.
 // S52-44 ② FILES-관리자마무리: DB(20261108060000) files_last와 화면 허용 목록을 같은 PR에서 더했다(적용 전에는 화면이 이번 접속만 기억). DB에만 있는 칸은 없다.
-// S53-16 WEEKLY-분류이름바뀜: DB(20261108080000) category_roles와 화면 허용 목록을 같은 PR에서 더했다(적용 전에는 표식 저장만 거절, 바탕은 알려진 이름으로 찾음).
+// S53-16 WEEKLY-분류이름바뀜: DB(20261109150000) org_row_order와 화면 허용 목록을 같은 PR에서 더했다(적용 전에는 표식 저장만 거절, 바탕은 알려진 이름으로 찾음).
 const DB_ONLY = [];
-test('허용 칸이 DB 검사(마지막 migration, S52-44 files_last 위에 S53-16 category_roles 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261108080000_profile_view_prefs_category_roles.sql');
+test('허용 칸이 DB 검사(마지막 migration, S53-16 category_roles 위에 ORG-줄순서 org_row_order 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261109150000_profile_view_prefs_org_row_order.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 51);
+  assert.equal(KEYS.length, 52);
+  for (const v of ['asc', 'desc']) assert.equal(validValue('org_row_order', v), true);
+  for (const v of ['', 'ASC', 'new', null, 1, true, ['asc']]) assert.equal(validValue('org_row_order', v), false);
   // category_roles 모양(DB 검사와 같음, 시험용 가짜 이름).
   for (const v of [{}, {weekly_team: '가›나'}, {weekly_team: '가'.repeat(20), weekly_personal: '보고›내 것'}, Object.fromEntries(Array.from({length: 8}, (_, i) => ['r' + i, 'x']))])
     assert.equal(validValue('category_roles', v), true, JSON.stringify(v).slice(0, 40));

@@ -12,7 +12,7 @@ import {signalBody} from './now-model.mjs';
 import {ensureReads, onReads, readState} from './news-reads.js';
 import {dayHtml} from './news-row.mjs';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
-import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, sourceOn, enabledSourceKeys, itemFolderId} from './news-clipping-model.mjs';
+import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, aiCapped, AI_CAP_NOTE, sourceNote, sourceOn, enabledSourceKeys, itemFolderId} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1·C2(설계 docs/design/news-clipping.md) → OUTSIDE-글상세 ③(11/01 23:16) → S51-8 News [언론] 탭 칸(#nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩. 탭 줄·좌우 밀기·위 찾기 칸·[매체 ▾]·⋯·상세 칸은 껍데기(outside-statements.js)가 갖는다.
 // - 칸(같은 화면 안, 뒤로가기 한 번 = 목록, KPTURouter.layer): [키워드 고치기](app_news_keywords) · [언론 매체 켜고 끄기](app_outside_sources의 news- 키)
@@ -55,7 +55,7 @@ const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const fresh = () => ({scope: '', tab: ALL, items: [], loaded: false, failed: false, end: true, more: false,
   busy: new Set(), notes: new Map(),
-  limits: {...DEFAULT_LIMITS}, catalog: null, catalogFailed: false, sources: new Map(), sourcesLoaded: false, sourcesFailed: false,
+  limits: {...DEFAULT_LIMITS}, catalog: null, catalogFailed: false, aiCapped: false, sources: new Map(), sourcesLoaded: false, sourcesFailed: false,
   keywords: [], keywordsLoaded: false, keywordsFailed: false, saving: new Set(), panelNote: '', draft: '',
   mode: 'list', filling: false, fillNote: '',
   folders: [], foldersLoaded: false, foldersFailed: false, openFolders: new Set(), treeNote: '', focus: ''});
@@ -175,8 +175,8 @@ function paint() {
   const when = $('[data-nc-when]');
   if (when) {
     if (state.mode === 'list' && state.filling) when.innerHTML = `<span>채우는 중</span> ${waitInlineHtml()}`;
-    else when.textContent = state.mode === 'list' ? state.fillNote : '';
-    when.hidden = !(state.mode === 'list' && (state.filling || state.fillNote));
+    else when.textContent = state.mode === 'list' ? [state.fillNote, state.aiCapped ? AI_CAP_NOTE : ''].filter(Boolean).join(' · ') : '';
+    when.hidden = !(state.mode === 'list' && (state.filling || state.fillNote || state.aiCapped));
   }
   const list = $('[data-nc-list]'), panel = $('[data-nc-panel]');
   if (state.mode === 'keywords') { panel.innerHTML = keywordsHtml(); list.replaceChildren(); }
@@ -228,7 +228,7 @@ async function loadCatalog() {
   if (state.catalog) return;
   try {
     const data = await edge('catalog', {}, 20000);
-    state.catalog = normalizeCatalog(data); state.limits = normalizeLimits(data); state.catalogFailed = false;
+    state.catalog = normalizeCatalog(data); state.limits = normalizeLimits(data); state.aiCapped = aiCapped(data); state.catalogFailed = false;
   } catch { state.catalogFailed = true; }
 }
 async function loadSources() {

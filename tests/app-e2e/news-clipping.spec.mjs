@@ -215,3 +215,23 @@ for (const width of [412, 1440]) {
     expect(errors).toEqual([]);
   });
 }
+
+// NEWS-다받기 ④(11/09): 이번 달 AI 한도에 닿으면 목록 위 한 줄로 알린다(수집 때 요약·제목 번역이 조용히 멈추므로). 안 닿으면 줄 없음.
+test('News [언론]: 이번 달 AI 한도에 닿으면 목록 위에 한 줄 알림, 아니면 없음', async ({ page }) => {
+  const { errors, server } = await start(page, 412);
+  server.aiCapped = true;
+  server.items = server.items.filter(i => i.state !== 'pending'); // 읽기 전 줄이 없으면 자동 채우기 글('채울 기사 없음')이 붙지 않는다
+  await openNews(page, 412);
+  await expect(items(page)).toHaveCount(4);
+  await expect(root(page).locator('[data-nc-when]')).toBeVisible();
+  await expect(root(page).locator('[data-nc-when]')).toHaveText('이번 달 AI 한도에 닿아 요약·제목 번역이 멈춤 · 다음 달 1일 다시');
+  expect(errors).toEqual([]);
+});
+test('News [언론]: AI 한도 안이면 알림 줄 없음', async ({ page }) => {
+  const { errors, server } = await start(page, 412);
+  server.items = server.items.filter(i => i.state !== 'pending');
+  await openNews(page, 412);
+  await expect(items(page)).toHaveCount(4);
+  await expect(root(page).locator('[data-nc-when]')).toBeHidden();
+  expect(errors).toEqual([]);
+});

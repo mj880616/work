@@ -40,6 +40,9 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
 .wl-f-days input{box-sizing:border-box;height:var(--ds-compact-height-sm,26px);max-width:9.5em;font:inherit;font-size:var(--ds-text-meta)}
 .wl-f-body{box-sizing:border-box;flex:1 1 14em;min-width:0;min-height:var(--ds-compact-height-sm,26px);padding:3px 6px;line-height:18px;resize:none;border:1px solid var(--kptu-info);border-radius:4px;background:var(--kptu-surface);color:var(--kptu-ink);font:inherit}
 .wl-form [aria-invalid="true"]{border-color:var(--kptu-danger)}
+/* ORG-줄순서: 표 위 오른쪽 [⋯](줄 순서). 담당조직 [전체 표]는 위쪽 줄 오른쪽 끝에 둔다. */
+.wl-tools{display:flex;justify-content:flex-end;margin:0 0 2px}
+.oa-bar .wl-tools{margin:0 0 0 auto}
 /* 주간보고 4. 조직보고 표(weekTableHtml) — 담당조직 [전체 표]·홈 [주간 정리] 공용. 칸 선(안팎 모두)·13px 글은 주간보고 표 그대로.
    폰은 표 모양을 지키되 한 조직을 두 줄로 쌓는다(윗줄 조직, 아랫줄 현황). */
 .wl-table{width:100%;border-collapse:collapse;table-layout:fixed;margin:2px 0 4px;border:1px solid var(--kptu-border)}

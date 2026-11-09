@@ -114,9 +114,9 @@ function paint() {
   if (!st.orgs.length) { put(emptyHtml()); return; }
   if (wl.status === 'ready') loadNames(wl.week);
   const dis = wl.disabled();
-  const bar = `<div class="oa-bar btn-row">${weekPickHtml(wl.week, {disabled: dis})}<button type="button" class="wd-st-btn" data-oa-copy>복사</button></div>`;
+  const bar = `<div class="oa-bar btn-row">${weekPickHtml(wl.week, {disabled: dis})}<button type="button" class="wd-st-btn" data-oa-copy>복사</button><span class="wl-tools">${wl.orderMenuHtml()}</span></div>`;
   const table = windowTableHtml(wl, orderedOrgs(), {
-    msg: st.msg.text, error: st.msg.error, tableClass: 'oa-table', headRows: `${wl.week === thisWeek() ? '이번 주' : '그 주'} 조직보고`,
+    msg: st.msg.text, error: st.msg.error, tableClass: 'oa-table', orderMenu: false, headRows: `${wl.week === thisWeek() ? '이번 주' : '그 주'} 조직보고`,
     headOrg: `조직${gripHtml('org', '조직', 1)}`,
     orgHtml: o => `<button type="button" class="oa-name" data-oa-open="${esc(o.id)}">${esc(o.name)}</button>`,
     stageOf: o => stageText(o.id)});
