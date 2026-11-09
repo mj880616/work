@@ -45,7 +45,7 @@ import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meet
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
-  audioDocument, cleanText, doneParts, hasWords, jobView, joinParts, needsKick, nextPart, parseStart, partTotal, pushDecision, recordingParts, summaryPlan, tickCheck, tickSign,
+  audioDocument, cleanText, combineDrafts, doneParts, draftResult, halves, hasWords, jobView, joinParts, leaseTake, needsKick, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, summaryPlan, tickCheck, tickSign,
 } from './server-job.mjs';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
@@ -754,16 +754,26 @@ async function kickTick(id: string) {
 }
 
 // 단계 하나. 잡기(lease) → 한 단계 → 결과 저장 → 다음 부르기. 다른 호출이 잡고 있으면 아무것도 안 한다.
+// 잡기는 읽은 행의 lease_until 그대로일 때만 바꾼다(동시에 두 번 와도 한 번만). 기한 지난 lease_until이 남아 있으면 앞 실행이
+// 단계 중간에 끊긴 것(REC-정리멈춤반복, server-job.mjs leaseTake): 처음은 표시만 하고 한 번 더, 같은 단계에서 또 끊기면 step_cut 실패.
 async function runStep(id: string) {
   const now = new Date();
-  const { data, error } = await admin.from(SERVER_JOB_TABLE)
-    .update({ status: 'running', lease_until: new Date(now.getTime() + LEASE_MS).toISOString(), updated_at: now.toISOString() })
-    .eq('id', id).in('status', [...ACTIVE]).or(`lease_until.is.null,lease_until.lt."${now.toISOString()}"`).select(SERVER_JOB_COLUMNS);
+  let before: Job | null;
+  try { before = await readServerJob(id); } catch (e) { console.warn('meeting-transcribe: job read failed', safeErrorLog(e)); return; }
+  const take = leaseTake(before, now.getTime());
+  if (!before || !take.ok) return;
+  const lease: Record<string, unknown> = { status: 'running', lease_until: new Date(now.getTime() + LEASE_MS).toISOString(), updated_at: now.toISOString() };
+  if (take.cut === 1) lease.error_code = 'step_cut';
+  let q = admin.from(SERVER_JOB_TABLE).update(lease).eq('id', id).in('status', [...ACTIVE]);
+  q = before.lease_until ? q.eq('lease_until', before.lease_until) : q.is('lease_until', null);
+  const { data, error } = await q.select(SERVER_JOB_COLUMNS);
   if (error) { console.warn('meeting-transcribe: job lease failed', error.code); return; }
   const job = (data?.[0] as Job) ?? null;
   if (!job) return;
+  if (take.cut) console.warn('meeting-transcribe: job step cut', job.stage, take.cut);
   let next: Record<string, unknown>;
   try {
+    if (take.cut >= 2) throw new Fail('step_cut');
     if (job.attempts >= MAX_ATTEMPTS) throw new Fail('too_many_steps');
     next = await stepOnce(job);
   } catch (e) {
@@ -805,14 +815,23 @@ async function stepOnce(job: Job): Promise<Record<string, unknown>> {
   if (job.stage === 'summary') {
     const done = Array.isArray(job.summary_parts) ? job.summary_parts : [];
     const plan = summaryPlan(job.transcript_text, done);
-    const count = plan.pieces.length;
+    const count = plan.count;
     if (plan.kind === 'part') {
-      const raw = await serverDraft(job, plan.pieces[plan.next], { kind: 'part', no: plan.next + 1, count });
-      return { ...started, status: 'queued', summary_parts: [...done, normalizeDraft(raw)], step_no: plan.next + 1 };
+      const part = await draftPiece(job, plan.pieces[plan.next], plan.next + 1, count);
+      return { ...started, status: 'queued', summary_parts: [...done, part], step_no: plan.next + 1 };
     }
     let raw;
-    if (plan.kind === 'one') raw = await serverDraft(job, plan.pieces[0] || '', { kind: '', no: 0, count: 0 });
-    else {
+    if (plan.kind === 'one') {
+      try { raw = await serverDraft(job, plan.pieces[0] || '', { kind: '', no: 0, count: 0 }); }
+      catch (e) {
+        // 한 번에 요약하기엔 답이 길어 잘림: 반으로 나눠 조각 요약 둘을 남기고, 다음 단계에서 합친다(summaryPlan).
+        const h = e instanceof Fail && e.code === 'draft_cut' ? halves(plan.pieces[0] || '') : null;
+        if (!h) throw e;
+        const a = normalizeDraft(await serverDraft(job, h[0], { kind: 'part', no: 1, count: 2 }));
+        const b = normalizeDraft(await serverDraft(job, h[1], { kind: 'part', no: 2, count: 2 }));
+        return { ...started, status: 'queued', summary_parts: [a, b], step_no: 2, step_total: 3 };
+      }
+    } else {
       const drafts = done.filter(Boolean);
       if (!drafts.length) throw new Fail('draft_failed');
       raw = await serverDraft(job, partsText(drafts), { kind: 'merge', no: 0, count });
@@ -822,7 +841,21 @@ async function stepOnce(job: Job): Promise<Record<string, unknown>> {
   throw new Fail('failed');
 }
 
+// 조각 요약 하나(normalizeDraft 모양). 답이 길어 잘리면(draft_cut) 조각을 반으로 나눠 둘을 요약해 잇는다(합치기 단계가 겹침을 정리).
+async function draftPiece(job: Job, piece: string, no: number, count: number) {
+  try { return normalizeDraft(await serverDraft(job, piece, { kind: 'part', no, count })); }
+  catch (e) {
+    const h = e instanceof Fail && e.code === 'draft_cut' ? halves(piece) : null;
+    if (!h) throw e;
+    const a = normalizeDraft(await serverDraft(job, h[0], { kind: 'part', no, count }));
+    const b = normalizeDraft(await serverDraft(job, h[1], { kind: 'part', no, count }));
+    return combineDrafts([a, b]);
+  }
+}
+
 // 녹음 구간 전사(서버 정리). 화면 transcribe와 같은 길이지만, 이미 끝난(done) 구간도 다시 전사한다(옛 화면 정리가 글을 남기지 않았음).
+// 구간 행이 '진행 중'이면: 막 시작한 실행이면 busy, 오래됐으면(SEGMENT_DEAD_MS) 끊긴 앞 실행이라 넘겨받는다(REC-정리멈춤반복:
+// 전엔 15분(RUNNING_STALE_MS)을 기다려, 서버 정리가 9분 뒤 다시 잡을 때 끊긴 자기 흔적에 막혀 busy로 실패했다).
 async function transcribeSegment(key: string, jobId: unknown): Promise<string> {
   if (!isUuid(jobId)) throw new Fail('not_found');
   const { data: job, error } = await admin.from(TABLE).select(JOB_COLUMNS).eq('id', jobId as string).maybeSingle();
@@ -830,8 +863,12 @@ async function transcribeSegment(key: string, jobId: unknown): Promise<string> {
   if (!job || job.trashed_at) throw new Fail('not_found');
   if (job.duration_sec && job.duration_sec > MAX_SECONDS) throw new Fail('too_long');
   const now = new Date();
-  if (job.status === 'running' && !isStale(job, now)) throw new Fail('busy');
-  if (job.status === 'running') await setJob(job.id, { status: 'failed', error_code: 'interrupted' });
+  const run = segmentRun(job, now.getTime());
+  if (run === 'busy') throw new Fail('busy');
+  if (run === 'dead') {
+    console.warn('meeting-transcribe: segment takeover');
+    await setJob(job.id, { status: 'failed', error_code: 'interrupted' });
+  }
   const { data: started, error: startError } = await admin.from(TABLE).update({ status: 'running', error_code: null, model: TRANSCRIBE_MODEL, started_at: now.toISOString(), finished_at: null, updated_at: now.toISOString() })
     .eq('id', job.id).in('status', ['uploaded', 'failed', 'done']).select('id');
   if (startError) throw new Fail(startError.code === '23505' ? 'busy' : 'failed');
@@ -880,8 +917,10 @@ async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'pa
       body: JSON.stringify(withReasoning(body)), signal: AbortSignal.timeout(300000),
     });
     d = await r.json().catch(() => null);
-    if (!r.ok || !d) { console.warn('meeting-transcribe: draft request', r.status); throw new Fail('draft_failed'); }
+    if (!r.ok || !d) { console.warn('meeting-transcribe: draft request', stage.kind || 'one', r.status); throw new Fail('draft_failed'); }
   } catch (e) {
+    const late = e instanceof DOMException && e.name === 'TimeoutError';
+    if (!(e instanceof Fail)) console.warn('meeting-transcribe: draft request', stage.kind || 'one', late ? 'timeout' : 'error');
     throw e instanceof Fail ? e : new Fail('draft_failed');
   }
   const u = d.usage || {};
@@ -889,8 +928,11 @@ async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'pa
     workspace_id: job.workspace_id, user_id: job.created_by, day, requests: (used?.requests || 0) + 1, advanced_requests: used?.advanced_requests || 0,
     input_tokens: (used?.input_tokens || 0) + (u.input_tokens || 0), output_tokens: (used?.output_tokens || 0) + (u.output_tokens || 0), updated_at: new Date().toISOString(),
   }, { onConflict: 'workspace_id,user_id,day' }).then(({ error }) => { if (error) console.warn('meeting-transcribe: draft usage not recorded', error.code); });
+  // 답 상태별 실패 갈래: 답이 길어 잘림(max_output_tokens) = draft_cut(부른 쪽이 조각을 나눔), 그 밖 = draft_failed. 로그는 이유 이름만.
+  const result = draftResult(d);
+  if (result.code) { console.warn('meeting-transcribe: draft answer', stage.kind || 'one', result.why, transcript.length); throw new Fail(result.code); }
   const text = outputText(d, 256 * 1024);
-  if (!text) throw new Fail('draft_failed');
+  if (!text) { console.warn('meeting-transcribe: draft answer', stage.kind || 'one', 'empty', transcript.length); throw new Fail('draft_failed'); }
   try { return parseMeetingDraft(text).draft; } catch { throw new Fail('draft_failed'); }
 }
 
