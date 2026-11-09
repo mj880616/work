@@ -39,11 +39,10 @@ async function open(page,width,options={}){
 // 3단 위 [주간 사업요약표] 칸은 모듈을 늦게 불러와 그린 뒤에야 제 높이(약 100px → 400px)가 되어 아래 3단 전체가 밀려 내려간다.
 // 잰 칸 자리·끌 경계선 자리가 그 사이에 어긋나지 않도록, 요약표와 오른쪽 결과(후속 할 일까지)가 다 그려진 뒤에 잰다. (새로 불러온 뒤 같은 어긋남으로 간헐 실패했음)
 async function columnsReady(page){
-  // BIZ-주간표이번주 ⑥: [전체 기간](서버에 기억한 보기)이면 이 칸은 접힌 한 줄로 시작한다 — 사람이 하듯 펼쳐서 다 그려진 뒤 잰다.
-  const fold=page.locator('#bizWeekBox [data-bw-fold][aria-expanded="false"]');
-  await expect(fold.or(page.locator('#bizWeekBox [data-bp-paper]',{hasText:'1) 사업요약표'})).first()).toBeVisible();
-  if(await fold.count())await fold.click();
-  await expect(page.locator('#bizWeekBox [data-bp-paper]')).toContainText('1) 사업요약표');
+  // [전체] 기간(여러 주)에서는 주간보고 칸이 접힌 한 줄(표는 펼칠 때만 그림) — 그 한 줄이 나타나면 높이가 정해진 것. 한 주를 보면 펼쳐진 표가 다 그려질 때까지 기다린다.
+  const fold=page.locator('#bizWeekBox .biz-week-title [data-bw-fold]');
+  await expect(fold.or(page.locator('#bizWeekBox [data-bp-paper]').filter({hasText:'1) 사업요약표'})).first()).toBeVisible();
+  if(await fold.count())await expect(fold).toHaveAttribute('aria-expanded','false');
   await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toBeVisible();await expect(page.locator('#meetingList #mrdLoading')).toBeHidden();
   await settle(page);
 }
