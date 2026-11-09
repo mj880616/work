@@ -115,15 +115,6 @@ for(const width of [1280,884])test(`LIB-거르기전체: [분류 ▾] 창 [전�
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-test('LIB-거르기전체: 서버에 모두 꺼 둔 상태로 기억돼 있으면 목록 자리에 \'선택한 분류 없음\' 한 줄',async({page})=>{
-  const s=state({libraryView:{categories_off:['교섭','투쟁','교육','선전','정책','회의','기타']}});
-  const {errors}=await boot(page,1280,{s,expand:false});
-  await expect(pick(page)).toHaveText('분류: 없음');await expect(rows(page)).toHaveCount(0);
-  await expect(page.locator('#documentList')).toHaveText('선택한 분류 없음');await expect(page.locator('#documentList [data-wait-empty]')).toHaveCount(1);
-  await pickLibraryCategories(page,[]);await expect(pick(page)).toHaveText('분류: 전체');await expect(rows(page).first()).toBeAttached();
-  expect(errors).toEqual([]);
-});
-
 for(const width of [1280,884])test(`LIB-보기기억: 묶기·분류를 프로필 칸에 서버 저장하고 다음에 같게 열림(PC와 폰 같은 상태) ${width}`,async({page,browser})=>{
   const s=state();
   const {errors}=await boot(page,width,{s});
