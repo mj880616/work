@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 사업 보고 위쪽 정돈 PC(넓은 화면)</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--tline:#c9d3cf;--surface:#fbfdfc;--bg:#eef5f2;--head:#eef4f1;--pri:#2f6f5e;--red:#b4473c}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}
+h2{font-size:13px;margin:16px 0 6px}
+.wrap{width:100%;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.pc{width:760px;transform-origin:0 0;display:flex}
+.side{width:120px;padding:10px 8px;border-right:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:12px;line-height:2}
+.side b{display:block;color:var(--ink);background:#dcefe7;border-radius:6px;padding:0 6px}
+.main{flex:1;padding:8px 12px 12px}
+.top{display:flex;align-items:center;gap:10px;height:30px;color:var(--muted)}
+.top .t{color:var(--ink);font-weight:600}.top .q{flex:1;height:24px;border:1px solid var(--line);border-radius:6px;background:#fff;padding:0 8px;line-height:22px;font-size:11px}
+.r{display:flex;align-items:center;gap:6px;padding:4px 0}
+.sp{margin-left:auto}
+.chip{height:26px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);display:inline-flex;align-items:center;font-size:12px}
+.chip.on{border-color:var(--pri);background:#e3f1eb}
+.bigb{height:34px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);display:inline-flex;align-items:center;white-space:nowrap;font-size:13px}
+.bigb.g{background:var(--pri);color:#fff;border-color:var(--pri);font-weight:600}
+.sel{height:34px;min-width:120px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#fff;display:inline-flex;align-items:center;justify-content:space-between;gap:8px}
+.btn{height:28px;padding:0 9px;border:1px solid var(--line);border-radius:7px;background:var(--surface);display:inline-flex;align-items:center;gap:3px;white-space:nowrap;font-size:12px}
+.btn small{color:var(--muted);font-size:10px}
+.icon{width:28px;height:28px;border:1px solid var(--line);border-radius:7px;background:var(--surface);display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px}
+.icon.rec{color:var(--red);font-size:11px}.icon.plain{border:0;background:transparent}
+.wk{display:inline-flex;align-items:center;gap:8px}.wk i{font-style:normal;color:var(--muted)}.wk span{color:var(--muted);font-size:12px}
+.card{margin-top:6px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.vt{display:inline-flex;background:#efebe6;border-radius:999px;padding:2px}.vt span{padding:2px 10px;border-radius:999px;color:var(--muted);font-size:12px}.vt .on{background:#fff;color:var(--ink);font-weight:600}
+.h3{font-weight:600;color:var(--pri);margin:8px 0 4px}
+table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px;word-break:keep-all}
+th,td{border:1px solid var(--tline);padding:3px 5px;vertical-align:top;text-align:left;background:#fff}
+th{background:var(--head);text-align:center;font-weight:600}
+.e{color:#b5bdb9}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6}.warn{color:#a5463c}
+.tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:0 5px;margin-right:4px}
+</style></head><body>
+<h1>사업 보고 위쪽 정돈 — PC(넓은 화면)</h1>
+<p class="s">폰은 이미 정리됨(#2176). PC도 같은 모양으로 맞추는 안. 그림은 PC 화면을 줄여 그린 것.</p>
+
+<h2>지금 (PC)</h2>
+<div class="wrap"><div class="pc">
+<div class="side">홈<br>노트<br>일정<br>담당조직<b>사업 보고</b>잊지 말기<br>자료실</div>
+<div class="main">
+<div class="top"><span>◧ ‹ ›</span><span class="t">사업 보고</span><span class="q">⌕ 전체 검색</span><span>+ 추가 · 계정</span></div>
+<div class="r"><span class="bigb sp"><b style="color:var(--red)">●</b>&nbsp;녹음</span><span class="bigb g">+ 사업 보고</span><span class="icon plain">⋯</span></div>
+<div class="r"><span class="chip on">전체</span><span class="chip">회의</span><span class="chip">정책</span><span class="chip">교섭</span><span class="chip">언론</span><span class="chip">국회</span><span class="chip">투쟁</span><span class="chip">교육</span><span class="chip">기타</span><span class="sel sp">사업영역 전체 ▾</span><span class="sel" style="min-width:150px">이번 주 ▾</span></div>
+<div class="r"><span class="wk"><i>‹</i>11.9(월)~11.15(일)<i>›</i><span>· 0건</span></span></div>
+<div class="card"><span class="vt"><span class="on">목록</span><span>달력</span><span>사진</span></span>
+<div class="h3">이번 주 주간보고</div>
+<table><colgroup><col style="width:18%"><col style="width:20%"><col><col style="width:12%"></colgroup><tr><th>사업영역</th><th>세부 과제</th><th>진행 상황 및 이후 계획</th><th>담당</th></tr>
+<tr><td>정책연구</td><td>○○ 연구</td><td class="e">— 쓰기</td><td class="e">쓰기</td></tr>
+<tr><td>철도지하철</td><td>궤도 공동투쟁</td><td class="e">— 쓰기</td><td class="e">쓰기</td></tr></table></div>
+</div></div></div>
+<p class="note warn">버튼 줄 하나가 따로 있음 · 큰 [녹음]·초록 [+ 사업 보고] · 칩 아홉 개와 큰 상자 둘이 한 줄에 섞임 → 위쪽만 세 줄, 표가 아래로 밀림</p>
+
+<h2><span class="tag">A안 추천</span>폰과 똑같이</h2>
+<div class="wrap"><div class="pc">
+<div class="side">홈<br>노트<br>일정<br>담당조직<b>사업 보고</b>잊지 말기<br>자료실</div>
+<div class="main">
+<div class="top"><span>◧ ‹ ›</span><span class="t">사업 보고</span><span class="q">⌕ 전체 검색</span><span>+ 추가 · 계정</span></div>
+<div class="r"><span class="btn">회의<small>▾</small></span><span class="btn">사업영역 전체<small>▾</small></span><span class="btn">주<small>▾</small></span><span class="wk" style="margin-left:10px"><i>‹</i><b>11.9(월)~11.15(일)</b><i>›</i><span>· 0건</span></span><span class="icon rec sp" title="녹음">●</span><span class="icon" title="사업 보고 추가">+</span><span class="icon plain">⋯</span></div>
+<div class="card"><span class="vt"><span class="on">목록</span><span>달력</span><span>사진</span></span>
+<div class="h3">이번 주 주간보고</div>
+<table><colgroup><col style="width:18%"><col style="width:20%"><col><col style="width:12%"></colgroup><tr><th>사업영역</th><th>세부 과제</th><th>진행 상황 및 이후 계획</th><th>담당</th></tr>
+<tr><td>정책연구</td><td>○○ 연구</td><td class="e">— 쓰기</td><td class="e">쓰기</td></tr>
+<tr><td>철도지하철</td><td>궤도 공동투쟁</td><td class="e">— 쓰기</td><td class="e">쓰기</td></tr>
+<tr><td>필수유지업무</td><td>○○선</td><td class="e">— 쓰기</td><td class="e">쓰기</td></tr></table></div>
+</div></div></div>
+<p class="note">① 위쪽 한 줄: [회의▾][사업영역▾][주▾] + 주 이동(‹ 날짜 › · n건) + 오른쪽 끝 녹음 ●·추가 +·⋯ 작은 아이콘 — 폰과 같은 버튼·같은 순서<br>② 큰 [녹음]·초록 [+ 사업 보고] 없앰(맨 위 공용 [+ 추가]는 그대로)<br>③ 칩 아홉 개 → [회의▾] 하나(폰과 같은 고르기 창)<br>④ [목록·달력·사진]은 PC에서 지금처럼 표 위 그대로, 표 모양도 그대로</p>
+
+<h2><span class="tag" style="background:#8a958f">B안</span>칩은 남기고 한 줄로</h2>
+<div class="wrap"><div class="pc">
+<div class="side">홈<br>노트<br>일정<br>담당조직<b>사업 보고</b>잊지 말기<br>자료실</div>
+<div class="main">
+<div class="top"><span>◧ ‹ ›</span><span class="t">사업 보고</span><span class="q">⌕ 전체 검색</span><span>+ 추가 · 계정</span></div>
+<div class="r"><span class="chip on">전체</span><span class="chip">회의</span><span class="chip">정책</span><span class="chip">교섭</span><span class="chip">언론</span><span class="chip">국회</span><span class="chip">투쟁</span><span class="chip">교육</span><span class="chip">기타</span><span class="icon rec sp">●</span><span class="icon">+</span><span class="icon plain">⋯</span></div>
+<div class="r"><span class="btn">사업영역 전체<small>▾</small></span><span class="btn">주<small>▾</small></span><span class="wk" style="margin-left:10px"><i>‹</i><b>11.9(월)~11.15(일)</b><i>›</i><span>· 0건</span></span></div>
+<div class="card"><span class="vt"><span class="on">목록</span><span>달력</span><span>사진</span></span>
+<div class="h3">이번 주 주간보고</div>
+<table><colgroup><col style="width:18%"><col style="width:20%"><col><col style="width:12%"></colgroup><tr><th>사업영역</th><th>세부 과제</th><th>진행 상황 및 이후 계획</th><th>담당</th></tr>
+<tr><td>정책연구</td><td>○○ 연구</td><td class="e">— 쓰기</td><td class="e">쓰기</td></tr>
+<tr><td>철도지하철</td><td>궤도 공동투쟁</td><td class="e">— 쓰기</td><td class="e">쓰기</td></tr></table></div>
+</div></div></div>
+<p class="note">칩으로 한 번에 누르는 건 남김. 대신 두 줄이고 폰과 모양이 다름.</p>
+
+<script>
+function fit(){document.querySelectorAll('.wrap').forEach(w=>{const p=w.querySelector('.pc'),k=Math.min(1,w.clientWidth/760);p.style.transform=`scale(${k})`;w.style.height=(p.offsetHeight*k)+'px'})}
+addEventListener('resize',fit);addEventListener('load',fit);fit();
+</script>
+</body></html>
