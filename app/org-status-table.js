@@ -13,6 +13,7 @@ import {missingTable} from './feed-model.mjs';
 import {seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {suggestOrgWeek} from './weekly-org-suggest.js';
+import {oneLine} from './record-oneline.mjs';
 import {sortRows, splitRows, periodLabel, cleanBody, validDay, validEnd, nextOrder, ROWS_MAX, BODY_MAX} from './org-status-model.mjs';
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 
@@ -61,10 +62,8 @@ async function load(run) {
   } catch { if (!ui || ui.run !== run) return; ui.status = 'error'; }
   paint();
 }
-function recordText(x) {
-  const t = String(x.raw_text ?? x.summary ?? x.note_text ?? x.text ?? '').replace(/\s+/g, ' ').trim();
-  return [...t].slice(0, 60).join('') + ([...t].length > 60 ? '…' : '');
-}
+// RECORD-한줄: 근거 기록도 기록 한 줄 공용 규칙(표시 기호 없이 60자 안팎).
+const recordText = x => oneLine(x.raw_text ?? x.summary ?? x.note_text ?? x.text ?? '');
 function evidenceHtml(row) {
   const ids = new Set(row.evidence || []);
   if (!ids.size) return '';

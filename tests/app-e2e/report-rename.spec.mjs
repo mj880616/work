@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {showReportsOf} from './helpers/meeting-open.mjs';
 import {pickBasketView} from './helpers/forget-view.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -89,5 +90,6 @@ test('PC: meeting rows without activity_kind still list',async({page})=>{
  await openHome(page);
  await page.route(SB+'/rest/v1/app_meetings?**',route=>route.fulfill({json:[{id:'60000000-0000-4000-8000-000000000001',workspace_id:'w',title:'합성 정기 회의',series_name:'합성 정기 회의',round_no:3,meeting_at:'2026-10-20T05:00:00Z',project_id:null,transcript_text:'합성 결과',created_at:'2026-10-20T05:00:00Z',updated_at:'2026-10-20T05:00:00Z'}]}));
  await clickView(page,'meetings');
+ await showReportsOf(page); // BIZ-주간표이번주: 지난 주 보고는 [전체 기간]으로
  await expect(page.locator('#meetingsView')).toContainText('합성 정기 회의');
 });

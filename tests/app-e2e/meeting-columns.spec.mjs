@@ -140,6 +140,7 @@ test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 �
   const reads=[];s.downloads=[];
   const routes=()=>page.route('**/functions/v1/google-tasks**',route=>{const url=new URL(route.request().url());const action=url.searchParams.get('action');if(action==='linked'){reads.push(url.searchParams.get('meeting_id'));const id=url.searchParams.get('meeting_id');return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:id==='labor-2'?[{id:'t1',title:'가상 후속 할 일',due:'2026-10-25T00:00:00Z',status:'needsAction'},{id:'t2',title:'끝난 가상 할 일',status:'completed'}]:[]})})}return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[]})})});
   // 처음 붙는 차수(labor-2)의 할 일 읽기 횟수를 세므로, 그 읽기가 끝난 뒤에 [전체]를 누른다(labor-1은 다른 주).
+  await page.clock.setFixedTime(new Date('2026-10-14T03:00:00Z')); // 처음 주는 늘 이번 주(BIZ-주간표이번주) — labor-2(10.12)가 든 주
   await open(page,s,1440,900,{routes,allWeeks:false});
   await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
   await expect(result(page).locator('#mrdMeta')).toContainText('연결 가상 프로젝트');
@@ -411,14 +412,15 @@ for(const width of [390,1280])test(`사업 보고 결과 창 ${width}: 자료 �
   await checkFileMenu(page,s,rows,width);
 });
 
-// MTG-프로젝트합치기 3단계(요청 10/28 19:07 ③): [목록] 보기는 한 주(서울 월~일)씩. 처음은 가장 최근 보고의 주(이번 주에 보고가 없을 때),
+// MTG-프로젝트합치기 3단계(요청 10/28 19:07 ③): [목록] 보기는 한 주(서울 월~일)씩. 처음은 늘 이번 주(BIZ-주간표이번주 11/09 — 시계 10.21(수)),
 // ‹ ›로 주를 넘기고 [전체]로 모든 주를 본다(다시 누르면 주 단위). 다른 곳에서 고른 보고(select)가 지금 주에 없으면 그 주로 옮긴다. 폰 한 줄 목록·PC 3단 같은 규칙.
-for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단위 — 처음 최근 주, ‹ 앞 주, › 다시, [전체] 모든 주, 선택한 보고의 주로 옮기기`,async({page})=>{
+for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단위 — 처음 이번 주, ‹ 앞 주, › 다시, [전체] 모든 주, 선택한 보고의 주로 옮기기`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=baseState();s.meetingWrites=[];
   const row=(id,round,at)=>({id,workspace_id:s.workspace.id,title:'궤도협의회',series_name:'궤도협의회',round_no:round,meeting_at:at,transcript_text:'원문 '+id,created_by:s.user.id});
-  // 두 주(10.12~10.18 / 10.19~10.25)에 하나씩. 둘 다 오늘보다 앞이라 처음 주는 더 최근 보고(10.20)의 주다.
+  // 두 주(10.12~10.18 / 10.19~10.25)에 하나씩. 오늘(10.21)이 든 이번 주는 10.19~10.25.
   s.meetings=[row('week-old',1,'2026-10-13T01:00:00Z'),row('week-new',2,'2026-10-20T01:00:00Z')];
+  await page.clock.setFixedTime(new Date('2026-10-21T03:00:00Z'));
   await open(page,s,width,900,{allWeeks:false});
   const pc=width>=761;
   const shown=()=>page.locator(pc?'#meetingList [data-meeting-round]':'#meetingList [data-mrd-meeting]').evaluateAll((els,pc)=>els.map(e=>pc?e.dataset.meetingRound:e.dataset.mrdMeeting),pc);
@@ -427,12 +429,12 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   // 주 줄(S52-22 TEAM-맨위한줄 → BIZ-위쪽정돈 11/09): 맨 위 줄·종류 줄 아래, ‹ 라벨 › · n건 한 줄(기간 상자 [이번 주 ▾]는 둘째 줄로 올라감).
   await expect(bar).toBeVisible();await expect(page.locator('#reportWeekFilter')).toHaveAttribute('role','group');
   await expect(prev).toHaveAttribute('aria-label','이전 주');await expect(next).toHaveAttribute('aria-label','다음 주');
-  await expect(pick.locator('option:not([hidden])')).toHaveText(['이번 주','전체 기간','기간 정하기']);await expect(pick.locator('option:checked')).toHaveText('주 단위');
+  await expect(pick.locator('option:not([hidden])')).toHaveText(['이번 주','전체 기간','기간 정하기']);await expect(pick.locator('option:checked')).toHaveText('이번 주'); // 처음은 이번 주(BIZ-주간표이번주)
   const kindBar=await page.locator('#meetingsView .report-kind-bar').boundingBox(),weekBar=await bar.boundingBox();expect(weekBar.y).toBeGreaterThanOrEqual(kindBar.y+kindBar.height-1);const pickBox=await pick.boundingBox();expect(pickBox.y).toBeGreaterThanOrEqual(kindBar.y-1);expect(pickBox.y+pickBox.height).toBeLessThanOrEqual(kindBar.y+kindBar.height+1);
   // BIZ-위쪽정돈: 주 넘기기(‹ 라벨 › · n건)는 폰에서도 한 줄, [이번 주 ▾]는 둘째 줄(종류·사업영역 옆)이라 이 줄에서 뺀다.
   for(const sel of ['#reportWeekFilter .report-week-nav > *']){const tops=await page.locator(sel).evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return Math.round(r.top+r.height/2)}));
     expect(Math.max(...tops)-Math.min(...tops)).toBeLessThanOrEqual(2)}
-  // 처음: 최근 주(10.19~10.25)의 보고만.
+  // 처음: 이번 주(10.19~10.25)의 보고만.
   await expect(label).toHaveText('10.19(월)~10.25(일)');await expect(page.locator('#reportWeekFilter .report-week-count')).toHaveText('· 1건');
   await expect.poll(shown).toEqual(['week-new']);
   if(pc){await expect(page.locator('#meetingList [data-meeting-kind="궤도협의회"] .mcol-count')).toHaveText('1');await expect(result(page)).toHaveAttribute('data-meeting-result','week-new')}
@@ -453,14 +455,14 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   await expect(prev).toHaveCount(0);await expect(next).toHaveCount(0);
   await expect.poll(shown).toEqual(['week-new','week-old']);
   if(pc)await expect(page.locator('#meetingList [data-meeting-kind="궤도협의회"] .mcol-count')).toHaveText('2');
-  // '이번 주'를 고르면 주 단위로, 보던 주(10.12~10.18)로 돌아간다.
+  // '이번 주'를 고르면 주 단위로, 이번 주(10.19~10.25)로 간다(BIZ-주간표이번주: 보던 주가 아니라 늘 이번 주).
   await pick.selectOption('week');
-  await expect(pick).not.toHaveValue('all');await expect(label).toHaveText('10.12(월)~10.18(일)');await expect(page.locator('#reportWeekFilter .report-week-count')).toHaveText('· 1건');
-  await expect.poll(shown).toEqual(['week-old']);
+  await expect(pick).not.toHaveValue('all');await expect(label).toHaveText('10.19(월)~10.25(일)');await expect(page.locator('#reportWeekFilter .report-week-count')).toHaveText('· 1건');
+  await expect.poll(shown).toEqual(['week-new']);
   // 다른 곳에서 고른 보고(KPTUMeetingColumns.select)가 지금 주에 없으면 그 보고의 주로 옮긴다.
-  await page.evaluate(()=>window.KPTUMeetingColumns.select({id:'week-new'}));
-  await expect(label).toHaveText('10.19(월)~10.25(일)');await expect(page.locator('#reportWeekFilter .report-week-count')).toHaveText('· 1건');await expect.poll(shown).toEqual(['week-new']);
-  if(pc)await expect(result(page)).toHaveAttribute('data-meeting-result','week-new');
+  await page.evaluate(()=>window.KPTUMeetingColumns.select({id:'week-old'}));
+  await expect(label).toHaveText('10.12(월)~10.18(일)');await expect(page.locator('#reportWeekFilter .report-week-count')).toHaveText('· 1건');await expect.poll(shown).toEqual(['week-old']);
+  if(pc)await expect(result(page)).toHaveAttribute('data-meeting-result','week-old');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
 });
@@ -471,6 +473,7 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록] 주 단위 
   const s=baseState();s.meetingWrites=[];
   const row=(id,round,at)=>({id,workspace_id:s.workspace.id,title:'궤도협의회',series_name:'궤도협의회',round_no:round,meeting_at:at,transcript_text:'원문 '+id,created_by:s.user.id});
   s.meetings=[row('week-old',1,'2026-10-13T01:00:00Z'),row('week-new',2,'2026-10-20T01:00:00Z'),row('no-when',3,null)];
+  await page.clock.setFixedTime(new Date('2026-10-21T03:00:00Z')); // 이번 주 = 10.19~10.25
   await open(page,s,width,900,{allWeeks:false});
   const pc=width>=761;
   const shown=()=>page.locator(pc?'#meetingList [data-meeting-round]':'#meetingList [data-mrd-meeting]').evaluateAll((els,pc)=>els.map(e=>pc?e.dataset.meetingRound:e.dataset.mrdMeeting),pc);

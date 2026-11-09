@@ -4,7 +4,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
-import {selectMeetingRound,openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
+import {selectMeetingRound,openMeetingResult,mrdMenu,showReportsOf} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -17,6 +17,7 @@ function state(){
 async function open(page,s,width,height=900){
   await page.setViewportSize({width,height});await mockApp(page,s);
   await signIn(page,testOrigin+'/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+  await showReportsOf(page); // BIZ-주간표이번주: 지난 주 보고는 [전체 기간]으로
 }
 const result=page=>page.locator('#meetingList #mcolResult');
 const round=(page,id)=>page.locator(`#meetingList [data-meeting-round="${id}"]`);

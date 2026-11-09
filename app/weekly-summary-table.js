@@ -7,6 +7,8 @@ import {emptyHtml} from './wait-state.js';
 //   칸 아래 그 주 사업 보고 제목(사실 기록)은 누르면 그 보고가 열린다. AI 제안 없음(WEEKLY-요약표수기 S49-39). 예전에 저장된 AI 값은 보이지 않게만 두고 지우지 않는다.
 // - 2) 주요 사업·회의결과: 그 주 사업 보고 줄(날짜순). 내부 정례 회의와 내가 '늘 빼기'로 정한 종류는 journal-meeting-kinds.js reportsMeeting 한 곳으로 뺀다(주간 정리와 같음).
 //   한 줄 업데이트(칸 oneline)는 표 칸 맨 위, 세부 내용에는 넣지 않는다(MTG-한줄업데이트).
+// - BIZ-주간표이번주 ⑥(11/09): 사업 보고가 전체 기간·정한 기간이면(fold) 이 칸은 접힌 한 줄 '이번 주 주간보고 11.9~11.15 ⌄'로 시작하고 누르면 펼친다.
+//   접힌 동안은 서버를 부르지 않고, 접힘은 기억하지 않는다(접는 보기로 들어올 때마다 접힘). 주 단위에서는 늘 펼침.
 // - 기기에 아무것도 저장하지 않는다. 글은 로그에 쓰지 않는다.
 // - ORG/BIZ-기록하나로 O-4 ②·B-3 ②(설계 docs/design/record-one.md 4절): 같은 부품을 사업 보고와 홈 [주간 정리] 2. 1)이 함께 쓴다
 //   (createBizSummaryBox — 1) 사업요약표만). 어느 화면에서 지금 상황을 고쳐도 같은 자료(app_business_now)라 다른 화면 표도 다시 읽어 같은 글이 된다.
@@ -15,6 +17,7 @@ import {previewRecords,weekOf,shiftDays,nextPlanLines,fullTable} from './busines
 import {summaryCellKey} from './weekly-summary-hand.mjs';
 import {weekLabel} from './weekly-org-lines-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
+import {chevHtml} from './fold-chevron.mjs';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const shortDay=day=>{const [,m,d]=day.split('-');return `${Number(m)}.${Number(d)}`};
@@ -47,9 +50,12 @@ function say(text){const el=$in('[data-bp-status]');if(el)el.textContent=text||'
 
 async function onClick(e){
   if(!state)return;
+  if(e.target.closest('[data-bw-fold]')){state.open=!state.open;applyFold(state.from);if(state.open&&(state.dirty||!state.view)){state.dirty=false;void paint()}return}
   if(e.target.closest('[data-bp-edit-cancel]')){state.editing=null;return renderPaper()}
   if(e.target.closest('[data-bp-edit-save]'))return saveEdit();
   const recs=e.target.closest('[data-bp-recs]');if(recs)return toggleRecs(recs.dataset.bpRecs);
+  // RECORD-한줄: 사업 기록은 한 줄만 보이고, 한 줄이 원문과 다르면 누르면 원문이 그대로(작은 창, 읽기만).
+  const raw=e.target.closest('[data-bp-raw]');if(raw){const r=findRec(raw.dataset.bpRaw);if(!r)return;const mod=await import('./record-raw-view.js');return mod.openRawRecord({text:r.full,day:state.kit.NM.dayText(r.day,r.end_day),line:r.text,trigger:raw})}
   const open=e.target.closest('[data-bp-open]');if(open){const mod=await import('./report-open.js');return mod.openReport(open.dataset.bpOpen)}
   if(e.target.closest('[data-bw-journal]')){const day=state.from;window.KPTURouter?.go?.('journal',{source:'delegated'});return waitJournal().then(j=>j?.showWeek?.(day))}
   // 칸을 누르면 글 칸(보고 줄 버튼·쓰는 중인 칸 안은 빼고).
@@ -61,11 +67,22 @@ async function onClick(e){
 async function waitJournal(){for(let i=0;i<50&&!window.KPTUJournal?.showWeek;i++)await new Promise(r=>setTimeout(r,100));return window.KPTUJournal}
 
 // 칸 이름: 이번 주면 '이번 주 주간보고', 위에서 다른 주를 골랐으면 그 주 이름을 붙인다(이름과 보이는 주가 어긋나지 않게).
-function setTitle(from){if(compact)return;const h=box?.querySelector('.biz-week-title');if(!h)return;const now=weekOf(seoulDateKey(Date.now())).from;h.textContent=from===now?'이번 주 주간보고':`${weekLabel(from)} 주간보고`;box.setAttribute('aria-label',h.textContent)}
+// 접는 보기(fold)에서는 제목 줄 전체가 펼치기 버튼(공용 꺾쇠)이고, 이번 주면 이름 뒤에 날짜('11.9~11.15')를 붙인다.
+// 홈 [주간 정리] 2. 1) 작은 상자(compact)는 제목 줄이 없고 늘 펼침이라 하지 않는다.
+function applyFold(from){
+  if(compact)return;
+  const h=box?.querySelector('.biz-week-title'),body=box?.querySelector('[data-bw-body]');if(!h||!body)return;
+  const now=weekOf(seoulDateKey(Date.now())).from,name=from===now?'이번 주 주간보고':`${weekLabel(from)} 주간보고`;
+  box.setAttribute('aria-label',name);
+  const fold=!!state?.fold,open=!fold||!!state.open;
+  body.hidden=!open;
+  if(!fold){h.textContent=name;return}
+  h.innerHTML=`<button type="button" class="row-act biz-week-fold" data-bw-fold aria-expanded="${open}">${esc(name)}${from===now?` <span class="biz-week-range">${esc(weekLabel(from))}</span>`:''} ${chevHtml(open)}</button>`;
+}
 const isWeek=(from,to)=>weekOf(from).from===from&&shiftDays(from,6)===to;
 async function paint(){
   const paper=$in('[data-bp-paper]'),{from,to}=state;
-  setTitle(from);say('');
+  applyFold(from);say('');
   const run=++state.run;state.editing=null;
   try{
     const [{placeRecords},{meetingLine},sheet,kinds,store]=await Promise.all([import('./journal-weekly.js'),import('./journal-data.js'),import('./report-places-sheet.js'),import('./journal-meeting-kinds.js'),import('./weekly-draft-store.js')]);
@@ -228,12 +245,14 @@ function toggleRecs(space){
   renderPaper();
   box?.querySelector(`[data-bp-recs="${CSS.escape(space)}"]`)?.focus({preventScroll:true});
 }
+const findRec=key=>{for(const list of state?.now?.recs?.values?.()||[])for(const r of list)if(r.key===key)return r;return null};
+const recLineHtml=(NM,r)=>`<p class="biz-rec-line">${esc(NM.recordLine(r))}${r.full&&r.full.replace(/\s+/g,' ').trim()!==r.text?` <button type="button" class="row-act" data-bp-raw="${esc(r.key)}" aria-label="${esc(`원문 보기: ${r.text}`)}">원문</button>`:''}</p>`;
 function recsHtml(ref,items,records){
   const {NM,chev}=state.kit,recs=state.now.recs.get(ref.space)||[],n=items.length+recs.length;
   if(!n)return '';
   const open=!!state.openRecs?.has(ref.space);
   const btn=`<button type="button" class="row-act biz-rec-n" data-bp-recs="${esc(ref.space)}" aria-expanded="${open}" aria-label="${esc(`${ref.area} ${ref.task} 이번 주 기록 ${n}`)}">이번 주 기록 ${n} ${chev(open)}</button>`;
-  return open?`${btn}<div class="biz-rec-list" data-bp-rec-list>${factsHtml(items,records)}${recs.map(r=>`<p class="biz-rec-line">${esc(NM.recordLine(r))}</p>`).join('')}</div>`:btn;
+  return open?`${btn}<div class="biz-rec-list" data-bp-rec-list>${factsHtml(items,records)}${recs.map(r=>recLineHtml(NM,r)).join('')}</div>`:btn;
 }
 function nowProgressCell(ref,row,items,records){
   const {NM}=state.kit,ed=state.editing,v=NM.nowView(state.now.rows,ref.space,state.from);
@@ -282,29 +301,35 @@ function paperHtml(placed,records,untagged,all,lineOf){
 
 // meetings(): 사업 보고 화면이 읽어 둔 사업 보고 전체(select=*). 화면의 읽기를 그대로 쓰고 따로 읽지 않는다.
 // el = 사업 보고 화면의 늘 펼친 칸 #bizWeekBox. week = 위 주 고르기의 주(월요일 날짜). 화면이 다시 그려질 때마다 불린다.
-self.mount=(el,{meetings,week,tree=null})=>{
+// fold = 사업 보고가 여러 주(전체 기간·정한 기간)를 보는 중 → 접힌 한 줄로 시작(BIZ-주간표이번주 ⑥). 홈 작은 상자는 늘 펼침.
+self.mount=(el,{meetings,week,tree=null,fold=false})=>{
   ensureBox(el);
-  const from=weekOf(week||seoulDateKey(Date.now())).from;
-  if(!state)state={meetings,tree,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[]};
-  else{
+  const from=weekOf(week||seoulDateKey(Date.now())).from,first=!state;
+  if(first)state={meetings,tree,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[],fold:false,open:false,dirty:false};
+  const foldNow=!compact&&!!fold;
+  if(foldNow&&!state.fold)state.open=false; // 접는 보기로 들어올 때마다 접힘(기억하지 않음)
+  state.fold=foldNow;
+  if(!first){
     // 같은 주이고 사업 보고 자료(화면이 읽어 둔 배열)도 그대로면 이미 그린 것을 다시 읽지 않는다(화면이 다시 그려질 때마다·[+] 창을 열 때마다 서버를 부르지 않게).
-    const same=state.from===from&&state.seen===meetings()&&!!state.view&&!state.stale&&(!tree||state.treeSeen===tree());
+    const same=state.from===from&&state.seen===meetings()&&!!state.view&&!state.stale&&!state.dirty&&(!tree||state.treeSeen===tree());
     state.meetings=meetings;state.tree=tree;
-    if(same)return;
-    if(state.editing&&state.from===from)return; // 쓰는 칸이 있으면 같은 주에서는 다시 그리지 않는다(쓰던 글 보호)
+    if(same||(state.editing&&state.from===from)){applyFold(state.from);return} // 쓰는 칸이 있으면 같은 주에서는 다시 그리지 않는다(쓰던 글 보호)
     state.from=from;state.to=shiftDays(from,6);
   }
   state.seen=meetings();state.stale=false;state.treeSeen=tree?tree():null;
+  applyFold(from);
+  if(state.fold&&!state.open){state.dirty=true;return} // 접힌 동안은 읽지 않고, 펼칠 때 읽는다
+  state.dirty=false;
   void paint();
 };
 return self;
 }
 // 사업 보고 화면의 늘 펼친 칸(#bizWeekBox) — 상자마다 부품 하나.
 const boxes=new WeakMap();
-export function mountWeekSummary(el,{meetings,week}){
+export function mountWeekSummary(el,{meetings,week,fold=false}){
   let inst=boxes.get(el);
   if(!inst){inst=createBizSummary();boxes.set(el,inst)}
-  inst.mount(el,{meetings,week});
+  inst.mount(el,{meetings,week,fold});
 }
 // 홈 [주간 정리] 2. 1): 같은 부품의 1) 사업요약표만. el은 부품이 가진 상자 하나 — 화면이 다시 그려도 그 자리에 옮겨 붙인다
 // (다시 읽지 않고 쓰던 칸도 그대로). update({meetings, week, tree}): meetings() = 그 화면이 이미 읽은 그 주 사업 보고, tree() = 이미 읽은 활성 사업 나무
