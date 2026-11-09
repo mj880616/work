@@ -61,13 +61,10 @@ test('충돌 판정: 다른 화면이 같은 값이면 충돌 아님, 다르면 
   assert.deepEqual(m.conflictOf(mine, null), {gone: true, body: ''});
 });
 
-test('공용 부품 연결: 조건 쓰기(updated_at)·지우기 없음·같은 탭 이벤트·화면이 다시 보일 때 다시 읽기', () => {
+test('ORG-기록하나로 O-6: 옛 주별 표 부품은 읽기만(쓰기·지우기·이벤트 없음), 브라우저 저장소 없음', () => {
   const wl = read('app/weekly-org-lines.js');
-  assert.match(wl, /updated_at=eq\.\$\{enc\(line\.updated_at\)\}/);
-  assert.doesNotMatch(wl, /method: 'DELETE'/, '빼기는 state dropped');
-  assert.match(wl, /kptu:weekly-org-lines-changed/);
-  assert.match(wl, /visibilitychange/);
-  assert.match(wl, /state: l\.state === 'dropped' \? 'dropped' : 'in', origin: l\.origin \|\| 'user'/); // S52-25: 넣은 줄 또는 뺀 줄(지난주 제안 [이미 있음]·[빼기])만 — 제안 행은 화면이 만들지 않음
+  assert.match(wl, /export async function readWeekLines/);
+  assert.doesNotMatch(wl, /method: '(POST|PATCH|DELETE)'|createWeekLines|weekTableHtml|kptu:weekly-org-lines-changed/);
   for (const f of ['app/weekly-org-lines.js', 'app/week-pick.js', 'app/weekly-org-lines-model.mjs']) assert.doesNotMatch(read(f), /\?v=|\b(?:local|session)Storage\b/);
 });
 

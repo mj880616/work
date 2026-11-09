@@ -605,10 +605,10 @@ function paintFlow(host, model) {
   const row = status === 'ok' ? w.items.row : null;
   if (status === 'ok' && !row?.draft?.proposed && flowBase.start !== start) prepareFlow();
   const team = hwpx.team(start);
-  // WEEKLY-메뉴짝짓기 P6: 4. 1) 칸은 주별 조직보고 표(paintWeekLines). 표가 아직 없으면(DB 적용 전, 404) 예전 칸 줄 그대로.
   // ORG/BIZ-기록하나로 O-4 ②·B-3 ②: 전환 주부터 4. = 조직보고 창, 3. 2) 사업장 칸 안쪽 = 같은 창(section site), 2. 1) = 사업요약 창(paintWindow).
+  // O-6: 전환 주 앞(옛 주)도 4.는 같은 창 — 옛 주별 조직보고 표를 읽기 전용으로 보여 준다(설계 3-1). 옛 주 3. 2)·2. 1)은 그 주 임시저장 칸 그대로.
   const fresh = isRecordWeek(start);
-  const weekTable = fresh ? paintWindow(host, model) : paintWeekLines(host, model);
+  const weekTable = paintWindow(host, model);
   for (const section of W.FLOW_SECTIONS) {
     if (section === 'orgs' && weekTable) continue;
     if (section === 'summary' && fresh) { paintBizWeekly(host); continue; }
@@ -619,46 +619,11 @@ function paintFlow(host, model) {
   host.querySelector('[data-weekly-flow-confirm]')?.append(hwpxHost);
   hwpx.paint();
 }
-// WEEKLY-메뉴짝짓기 P6(설계 3.3): 4. 조직보고 = 담당조직 '이번 주 조직보고'와 같은 부품·같은 줄(weekly-org-lines.js, 결정 B).
-// 넣은 줄이 1줄 이하인 조직은 지난주 줄(처음 쓰는 주는 현황 표 최근 줄)을 흐리게 펼쳐 [가져오기]·[지난주 모두 가져오기]. 한글 파일은 이 표의 넣은 줄을 읽는다.
-let weekLines = null, weekLinesMod = null, weekLinesMsg = {text:'', error:false}, weekLinesOrgs = [];
-const weekLinesSlot = () => $('[data-journal-weekly] [data-weekly-flow-cells="orgs"]');
-function drawWeekLines() {
-  const slot = weekLinesSlot(); if (!slot || !weekLines || !weekLinesMod) return;
-  weekLines.bind(slot);
-  // S52-25 WEEKLY-투쟁사업장참고: 3장에 들어간 조직(이름 맞추기 = 칸 이름 기준)은 4장 칸을 '참고' 한 줄로(표의 줄은 그대로).
-  const sites = W.shownSiteNames(slot, weekRow());
-  weekLines.siteRefIds = new Set(weekLinesOrgs.filter(o => W.inSites(sites, o.name)).map(o => o.id));
-  // WEEKLY-조직이름한줄(요청함 11/08 00:19): [조직] 머리 칸 경계를 끌어 칸 폭 조절(공용 col-resize.js, 서버 저장), 기본 폭은 가장 긴 이름 줄에 맞춤.
-  slot.innerHTML = weekLinesMod.weekTableHtml(weekLines, weekLinesOrgs, {msg:weekLinesMsg.text, error:weekLinesMsg.error, tableClass:'wl-weekly', headOrg:`조직${W.colGripHtml('org', 1)}`}); // 상태 한 줄은 다시 그려도 남게(전에는 이름이 달라 지워졌음)
-  weekLines.afterPaint();
-  const wlTable = slot.querySelector('table.wl-weekly');
-  if (wlTable) { W.mountWeeklyCols(wlTable, 'org'); W.fitOrgColumn(wlTable); fitAll(slot); } // UI-줄입력늘어나기: 칸 폭이 정해진 뒤 한 번 더 맞춤
-}
-// 넣은 줄(조직 id → '- 11.2. 글' 줄들) — 복사·캘린더 추천 거르기가 읽는다. 표를 아직 못 읽었으면 null(예전처럼 기록).
+// 4. 조직보고 줄(조직 id → '- 11.2. 글' 줄들) — 복사 글이 읽는다. 창을 아직 못 읽었으면 null(예전처럼 기록).
+// ORG-기록하나로 O-6: 옛 주도 같은 창(옛 표 읽기 전용)이라 주와 상관없이 창 하나.
 function weekOrgLines() {
-  if (isRecordWeek(start)) return weekWin && weekWin.status === 'ready' && weekWin.week === start ? new Map(winOrgs.map(o => [o.id, weekWin.lineTexts(o.id)])) : null;
-  if (!weekLines || weekLines.status !== 'ready' || weekLines.week !== start || !weekLinesMod) return null;
-  return new Map(weekLinesOrgs.map(o => [o.id, weekLines.reportLines(o.id).map(weekLinesMod.lineText)]));
+  return weekWin && weekWin.status === 'ready' && weekWin.week === start ? new Map(winOrgs.map(o => [o.id, weekWin.lineTexts(o.id)])) : null;
 }
-// 반환 true = 이 자리를 주별 표가 그림, false = 표가 없어(missing) 예전 칸 줄을 그려야 함.
-function paintWeekLines(host, model) {
-  const slot = host.querySelector('[data-weekly-flow-cells="orgs"]'); if (!slot) return false;
-  weekLinesOrgs = model?.orgs?.mine ?? [];
-  if (!weekLinesMod) { slot.innerHTML = waitHtml({rows:2}); void import('./weekly-org-lines.js').then(m => { weekLinesMod = m; paintWeekLines_(); }).catch(() => { slot.textContent = '조직보고를 불러오지 못했어요.'; }); return true; }
-  const workspaceId = rt.context.read()?.workspace?.id;
-  if (!weekLines || weekLines.workspaceId !== workspaceId) {
-    weekLines = weekLinesMod.createWeekLines({rt, workspaceId, week:start, mode:'weekly', openSource:({org, record}, trigger) => void openOriginal({type:'org', org, record:record || null}, trigger), repaint:() => { if (weekLines.status === 'missing') { redrawFlow(); return; } drawWeekLines(); if (weekLines.status === 'ready') redrawOrgText(); },
-      say:(text, error = false) => { weekLinesMsg = {text, error}; const el = weekLinesSlot()?.querySelector('[data-wl-status]'); if (el) { el.textContent = text; el.classList.toggle('is-error', error); } }});
-  }
-  const ids = weekLinesOrgs.map(o => o.id), same = ids.length === weekLines.orgIds.length && ids.every((id, i) => id === weekLines.orgIds[i]);
-  if (weekLines.week !== start) { weekLines.orgIds = ids; weekLines.setWeek(start); }
-  else if (!same || weekLines.status === 'idle') void weekLines.load(ids, {quiet:weekLines.status === 'ready'});
-  if (weekLines.status === 'missing') return false;
-  drawWeekLines();
-  return true;
-}
-function paintWeekLines_() { if (lastWeekModel) redrawFlow(); }
 // ── ORG/BIZ-기록하나로 O-4 ②·B-3 ②(설계 docs/design/record-one.md 4절): 전환 주(RECORD_ONE_FROM)부터 [주간 정리]의 세 칸 ──
 // 4. 조직보고 = 담당조직 [전체 표]와 같은 조직보고 창(record-window-view.js), 3. 2) 투쟁 사업장 칸 안쪽 = 같은 창의 section 'site'(쟁의 단계 줄 +
 // 같은 조직 기록 3~7줄, 사업장 빼기·순서·추가는 draft.site_layout 그대로), 2. 1) 사업요약 = 사업 보고 '이번 주 주간보고'와 같은 사업요약 창
@@ -700,7 +665,7 @@ function paintWindow(host, model) {
   return true;
 }
 function drawWindow() {
-  const slot = winSlot(); if (!slot || !weekWin || !RW || !isRecordWeek(start)) return;
+  const slot = winSlot(); if (!slot || !weekWin || !RW) return;
   weekWin.bind(slot);
   // S52-25 WEEKLY-투쟁사업장참고: 3장에 들어간 조직은 4장 칸을 '참고' 한 줄로(기록은 3장 칸에 보임).
   const sites = W.shownSiteNames(slot, weekRow()), refIds = new Set(winOrgs.filter(o => W.inSites(sites, o.name)).map(o => o.id));
