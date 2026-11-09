@@ -52,9 +52,26 @@ html .modal.ed-window .ed-window-foot .basket-clip::after { content:""; position
 html .modal.ed-window .ed-window-foot .basket-clip-icon { color:var(--kptu-link); }
 .edw-title-row { display:flex; align-items:center; gap:8px; padding:0 8px; border-bottom:1px solid var(--kptu-border); background:var(--kptu-surface); }
 html .modal.ed-window .edw-title-row input[data-edw-title] { flex:1 1 auto; min-width:0; box-sizing:border-box; height:var(--kptu-touch-target, 44px); margin:0; padding:0 4px; font:inherit; font-size:16px; font-weight:600; color:var(--kptu-ink); background:transparent; border:0; outline:none; }
-html .modal.ed-window .edw-title-row button[data-edw-folder] { position:relative; flex:0 0 auto; box-sizing:border-box; max-width:none; height:var(--ds-compact-height, 32px); min-height:0; margin:0; padding:0 var(--ds-compact-pad-x, 12px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-compact-text, 13px); line-height:1; font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--ds-line, var(--kptu-border)); border-radius:var(--ds-radius-control, 8px); }
+html .modal.ed-window .edw-title-row :is(button[data-edw-folder],button[data-edw-target]) { position:relative; flex:0 0 auto; box-sizing:border-box; max-width:none; height:var(--ds-compact-height, 32px); min-height:0; margin:0; padding:0 var(--ds-compact-pad-x, 12px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-compact-text, 13px); line-height:1; font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--ds-line, var(--kptu-border)); border-radius:var(--ds-radius-control, 8px); }
 html .modal.ed-window .edw-place-row button[data-edw-place] { position:relative; flex:0 1 auto; box-sizing:border-box; max-width:16em; height:var(--ds-compact-height, 32px); min-height:0; margin:0; padding:0 var(--ds-compact-pad-x, 12px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-compact-text, 13px); line-height:1; font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--ds-line, var(--kptu-border)); border-radius:var(--ds-radius-control, 8px); }
-html .modal.ed-window .edw-title-row button[data-edw-folder]::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
+html .modal.ed-window .edw-title-row :is(button[data-edw-folder],button[data-edw-target])::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
 html .modal.ed-window .edw-place-row button[data-edw-place]::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
 .edw-place-row { display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px; min-height:var(--kptu-touch-target, 44px); padding:0 8px; border-bottom:1px solid var(--kptu-border); background:var(--kptu-surface); box-sizing:border-box; }
 .edw-place-label { flex:0 0 auto; font-size:13px; color:var(--kptu-muted, var(--kptu-ink)); }
+/* FORGET-노트고르기(시안 docs/design/mockups/forget-note-pick.html): 잊지 말기 [노트] 창 제목 줄 앞 [새 노트 ▾]·옆 '폴더 · 끝에 더함'·아래 흐린 마지막 두 줄,
+   단추 아래 작은 노트 고르기 창(줄 모양은 노트 보드 노트 고르기 .nbb-pick 줄과 같음, basket.css). 크기는 [폴더 ▾]와 같은 작은 단추. */
+.ed-window-foot[hidden] { display:none; }
+.edw-head-wrap { display:flex; flex-direction:column; min-width:0; }
+html .modal.ed-window .edw-title-row [hidden] { display:none; }
+html .modal.ed-window .edw-title-row [data-edw-target].is-on { border-color:var(--kptu-primary); background:var(--kptu-primary-soft); }
+html .modal.ed-window .edw-title-row button[data-edw-target] { max-width:min(14em, 45vw); }
+.edw-title-row .edw-target-info { flex:1 1 auto; display:inline-flex; align-items:center; gap:3px; min-width:0; min-height:var(--kptu-touch-target, 44px); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:var(--kptu-text-meta, 12px); color:var(--kptu-muted); }
+.edw-target-tail { padding:6px 12px; border-bottom:1px solid var(--kptu-border); background:var(--kptu-surface); font-size:var(--kptu-text-meta, 12px); line-height:1.5; color:var(--kptu-muted); }
+.edw-target-tail[hidden] { display:none; }
+.edw-target-tail > div { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; border-left:3px solid var(--kptu-border); padding-left:8px; }
+.nbb-pick.note-pick { position:fixed; z-index:120; display:flex; flex-direction:column; gap:4px; width:300px; max-width:calc(100vw - 16px); margin:0; padding:6px; overflow:hidden; }
+.note-pick-tops { display:flex; flex-wrap:wrap; gap:4px; }
+.note-pick .note-pick-top[aria-pressed="true"] { border-color:var(--kptu-primary); background:var(--kptu-primary-soft); }
+.note-pick .nbb-pick-list { min-height:80px; }
+.note-pick .nbb-note[aria-current="true"] { background:var(--kptu-primary-soft); }
+.note-pick-sec { margin:6px 6px 2px; font-size:11px; color:var(--kptu-muted); }

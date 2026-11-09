@@ -633,23 +633,6 @@
 #appView #homeView .weekly-flow-confirm-state{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #homeView .weekly-flow-confirm-slot .journal-hwpx-panel{ padding:0; border:0; background:transparent; }
 /* 홈 [하루]의 '나한테 온 요청'·'잊지 말기' 상자 모양은 ui-standard.css 'UI-요청상자통일' 한 곳(S52-09, 공용 부품 notice-box.mjs). */
-/* S51-26 [노트로] 작은 창(family-note-send.js): 폰은 하단바 바로 위에서 올라오고, PC는 가운데 작은 창. */
-.modal.family-send{ z-index:60; }
-.family-send-card{ width:min(100%,380px); padding:10px 14px; font-size:var(--ds-text-row,13px); }
-.family-send-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.family-send-head h2{ margin:0; font-size:var(--ds-text-section,13px); font-weight:var(--ds-weight-bold,700); }
-.family-send-line{ margin:6px 0 8px; padding:6px 8px; border-radius:6px; background:var(--kptu-surface-subtle); color:var(--kptu-ink); line-height:1.45; overflow-wrap:anywhere; }
-.family-send-row{ display:flex; align-items:center; gap:8px; margin:6px 0; flex-wrap:wrap; }
-.family-send-label{ flex:none; width:3.5em; color:var(--kptu-muted); font-size:var(--ds-text-meta,12px); }
-.family-send-where{ display:flex; gap:4px; flex-wrap:wrap; min-width:0; }
-#familyNoteSend.modal .family-send-where button.secondary[aria-pressed="true"]{ border-color:var(--kptu-primary); background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
-.family-send-status{ margin:4px 0 0; min-height:0; color:var(--kptu-warning); font-size:var(--ds-text-meta,12px); }
-.family-send-status:empty{ display:none; }
-.family-send-foot{ display:flex; justify-content:flex-end; gap:6px; margin-top:10px; }
-@media(max-width:760px){
-  html:has(body.kptu-workspace-shell) .modal.family-send{ bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); }
-  .family-send-card{ width:100%; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); }
-}
 /* 3. 2) 사업장 칸 안쪽 창 줄([주간 정리]). */
 #appView #homeView .weekly-flow-window{ min-width:0; padding:2px 0 0; }
 /* HOME-하루채우기(2026-11-09 명진 시안 ④ 승인): 오늘 한 일 아래 세 칸 — 오늘 사진 한 줄 · 읽을 만한 글 · 이런 기록은 어때요?
