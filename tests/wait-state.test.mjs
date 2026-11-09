@@ -213,7 +213,7 @@ test('3차로 옮긴 화면은 공용 없음 부품을 쓴다', () => {
     'telegram-feed.js', 'call-feed.js', 'ledger-browse.js', 'org-key-people.js', 'report-views.js', 'diary.js', 'diary-list.js', 'photos.js',
     'workplace-detail.js', 'google-tasks.js', 'team.js', 'meeting-columns.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js',
     'library-folders.js', 'library-move-picker.js', 'calendar-day-overflow.js', 'calendar-tasks.js', 'calendar-day-items.js', 'choice-sheet.js',
-    'pick-fold.mjs', 'journal-hwpx.js', 'meeting-round-detail.js', 'od-settings.js', 'press-draft.js', 'record-sheet.js',
+    'pick-fold.mjs', 'journal-hwpx.js', 'meeting-round-detail.js', 'od-settings.js', 'record-sheet.js',
     'weekly-summary-table.js', 'task-files.js', 'task-workflow.js', 'basket-notes.js', 'global-search.js', 'inbox-todos.js', 'share-pages.js']) {
     assert.match(read(rel), /import \{[^}]*\bempty(Html|El)\b[^}]*\} from '\.\/wait-state\.js';/, rel);
   }

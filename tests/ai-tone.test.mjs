@@ -107,7 +107,6 @@ const EXCLUDED = new Map([
   ['ai-assist/hwp-convert.ts', '노조 서식 한글 문서(바깥에 내는 공식 문서, 명사형 문체 유지)'],
   ['news-feed/handler.ts', '뉴스 클리핑: 기사와 같은 언어로 쓰는 한 줄 요약(외신은 원어)과 [번역] 전문 번역 — 원문에 충실해야 하고 말투를 바꾸면 안 됨(NEWS-클리핑)'],
   ['ai-assist/share-draft.ts', '현장 공유 페이지 칸 초안(바깥 사람이 읽는 글, 평서문 \'~했다\', 빠짐32)'],
-  ['ai-assist/press-draft.ts', '성명·보도자료 초안(바깥에 내는 글, 성명 문체 \'~다\'·보도자료 \'~습니다\', FEAT-1029 공통 규칙 4)'],
 ]);
 
 function walk(dir, out = []) {

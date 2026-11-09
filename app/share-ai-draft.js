@@ -4,7 +4,7 @@
 //    노트는 AI에 보낼 수 있는 것만 보인다(보관·AI 내보내기 끔·[AI에 보내지 않기]·비밀 모양 노트 제외). 일기·업무일지 줄은 목록에 없다.
 // ② [초안 만들기] → 서버 ai-assist kind=share_draft(고른 종류·ID만 보냄, 글은 서버가 다시 읽음) → 칸별 미리보기(저장 안 됨).
 // ③ 넣을 칸을 고르고 [넣기] → 편집 중인 본문 끝에 제목 + 줄로 들어간다(근거 번호·확인할 것은 안 들어감). 그 뒤에도 페이지는 [저장]을 눌러야 바뀐다.
-// 닫으면 아무것도 남지 않는다. 기기 저장 없음(이 창 메모리만). 창 모양은 성명·보도자료 초안 창(press-draft.css)을 그대로 쓴다.
+// 닫으면 아무것도 남지 않는다. 기기 저장 없음(이 창 메모리만). 창 모양은 share-ai-draft.css(옛 성명 초안 창 모양에서 이 창이 쓰는 규칙만 옮김).
 import {waitHtml, emptyHtml} from './wait-state.js';
 import {pickFoldHtml, readPickState, bindPickFold} from './pick-fold.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
@@ -28,14 +28,14 @@ export const SHARE_AI_TEXT = Object.freeze({
 let dialog = null, state = null;
 
 function ensureStyles() {
-  const have = [...document.querySelectorAll('link[rel="stylesheet"]')].some(l => (l.getAttribute('href') || '').split('?')[0].endsWith('press-draft.css'));
+  const have = [...document.querySelectorAll('link[rel="stylesheet"]')].some(l => (l.getAttribute('href') || '').split('?')[0].endsWith('share-ai-draft.css'));
   if (have) return;
-  const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = './press-draft.css'; link.dataset.kptuViewStyle = '1'; document.head.append(link);
+  const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = './share-ai-draft.css'; link.dataset.kptuViewStyle = '1'; document.head.append(link);
 }
 function ensureDialog() {
   if (dialog) return dialog;
   dialog = document.createElement('dialog');
-  dialog.id = 'shareAiDraftDialog'; dialog.className = 'press-draft share-ai-draft'; dialog.setAttribute('aria-labelledby', 'shareAiDraftTitle');
+  dialog.id = 'shareAiDraftDialog'; dialog.className = 'share-ai-draft'; dialog.setAttribute('aria-labelledby', 'shareAiDraftTitle');
   document.body.append(dialog);
   dialog.addEventListener('click', onClick);
   dialog.addEventListener('change', onChange);

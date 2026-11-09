@@ -68,7 +68,7 @@ test('PC 1280: 수정한 내용이 있는데 다른 차수를 누르면 그 자�
   await mrdMenu(page,'edit');await round(page,'rail-3').click();await expect(result(page)).toHaveAttribute('data-meeting-result','rail-3');await expect(result(page).locator('#mrdLeave')).toBeHidden();
 });
 
-test('PC 1280: ⋯ [칸 바꾸기]·[삭제]도 팝업을 거치지 않는다',async({page})=>{
+test('PC 1280: ⋯ [종류 바꾸기]·[삭제]도 팝업을 거치지 않는다',async({page})=>{
   const s=state();await open(page,s,1280);
   await mrdMenu(page,'kind');
   const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();await expect(outsidePopup(page)).toHaveCount(0);

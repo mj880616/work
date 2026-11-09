@@ -47,7 +47,7 @@ export async function closeMeetingResult(page){
   const cancel=page.locator('#mrdCancelEdit');
   if(await cancel.isVisible())await cancel.click({timeout:2000}).catch(()=>{});// 저장이 막 끝나 고치는 화면이 닫히는 중일 수 있다
 }
-// MTG-보고창정리: 사업 보고 상세의 [수정]·[칸 바꾸기]·[삭제]는 제목 줄 오른쪽 ⋯ 메뉴 안에 있다. 사람이 하듯 ⋯를 누르고 항목을 누른다.
+// MTG-보고창정리: 사업 보고 상세의 [수정]·[종류 바꾸기]·[삭제]는 제목 줄 오른쪽 ⋯ 메뉴 안에 있다. 사람이 하듯 ⋯를 누르고 항목을 누른다.
 // STAB-E2E간헐1104: ⋯를 누른 직후 화면이 다시 그려지면(결과 읽기·저장 끝 정리) 열린 메뉴가 닫혀 항목이 30초 동안 안 보였다(Europe/Rome 시험 간헐 실패).
 // 사람이 하듯 항목이 보일 때까지 보고, 안 열려 있으면 ⋯를 다시 누른다(열려 있으면 누르지 않아 닫지 않는다).
 export async function mrdMenu(page,action){

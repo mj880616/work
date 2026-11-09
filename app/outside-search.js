@@ -1,6 +1,5 @@
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
-import {SEARCH_PAGE, PERIODS, cleanTerm, rangeOf, cleanSimilar, cleanHits, hitDay, hitIsoDay, markParts, mineHits, mineIds} from './outside-search-model.mjs';
-import {PRESS_QUOTE_MAX, pressQuotes, hasPressQuote, addPressQuote, removePressQuote, onPressQuotes} from './press-quotes.mjs';
+import {SEARCH_PAGE, PERIODS, cleanTerm, rangeOf, cleanSimilar, cleanHits, hitDay, markParts, mineHits, mineIds} from './outside-search-model.mjs';
 // S48-18 사회운동 Now [문장 찾기](설계 docs/design/outside-statements.md 3.3·4절 [문장 찾기]·5절). 결과 칸 [data-os-search]의 유일한 그리기 주인.
 // S51-8 NEWS P4b: [문장 찾기] 탭은 없어지고 News 위 찾기 칸 하나(outside-statements.js가 가짐)로 합쳤다. Enter를 누르면 껍데기가 run(찾는 말)을 부르고,
 //   이 모듈은 목록 위 결과 칸 안만 그린다(한 영역 한 renderer). 단체 거르기는 껍데기의 [매체: 전체 ▾]가 고른 것(keysOf)을 따른다.
@@ -8,7 +7,8 @@ import {PRESS_QUOTE_MAX, pressQuotes, hasPressQuote, addPressQuote, removePressQ
 // - 비슷한 말: 서버 outside-feed ?action=expand(사용자 로그인·하루 횟수는 서버)로 3~6개를 받아 원래 말과 함께 찾는다. 같은 말은 이 탭 메모리에 기억(다시 부르지 않음).
 //   못 받으면(하루 횟수 끝·AI 쉼) 낱말만 찾고 한 줄로 알린다.
 // - 바깥 문장: RPC app_outside_search(SECURITY INVOKER, owner RLS) — 문장 하나씩, 찾은 말 칠하기(<mark>), 앞뒤 한 문장 흐리게,
-//   '단체 · 제목 · 날짜 · [원문]', 비슷한 말로 찾은 것은 다른 색 + '비슷한 말: …' 꼬리표, 작은 [초안에 쓰기](성명 초안 '바깥 문장', 최대 5개, 메모리만).
+//   '단체 · 제목 · 날짜 · [원문]', 비슷한 말로 찾은 것은 다른 색 + '비슷한 말: …' 꼬리표.
+//   (성명 초안 만들기와 [초안에 쓰기]는 2026-11-09 명진 결정으로 삭제 — PRESS-성명초안삭제. 찾기·원문·내 성명은 그대로.)
 // - 내 성명: 이미 있는 자료실 찾기 RPC app_search_records(종류 document)를 함께 부르고, 분류 '성명·보도자료'인 자료만 붙인다(새 찾기 함수 없음).
 // 바깥에서 온 글은 모두 글자로만 그린다(esc). 로그에 찾는 말·문장을 남기지 않는다. 기기 저장 없음.
 
@@ -47,7 +47,6 @@ export function createOutsideSearch({box, nameOf, keysOf, workspaceOf}) {
     built = true;
     box.innerHTML = `<div class="osq-filters" data-osq-filters></div>
 <p class="osq-note" data-osq-note role="status" aria-live="polite"></p>
-<div class="osq-tray" data-osq-tray hidden></div>
 <div class="osq-results" data-osq-results aria-label="찾은 문장"></div>`;
   }
   const chip = (attr, id, label, on) => `<button type="button" class="os-chip" ${attr}="${esc(id)}" aria-pressed="${on}">${esc(label)}</button>`;
@@ -59,13 +58,12 @@ export function createOutsideSearch({box, nameOf, keysOf, workspaceOf}) {
   }
   const marked = (text, cls = 'osq-sent') => `<span class="${cls}">${markParts(text, state.query, state.similar).map(p => p.mark ? `<mark class="osq-mark${p.mark === 'sim' ? ' is-sim' : ''}">${esc(p.text)}</mark>` : esc(p.text)).join('')}</span>`;
   function hitHtml(h) {
-    const on = hasPressQuote(h.post_id, h.idx);
     const foot = [`<span class="osq-src">${esc(nameOf(h.source_key))}</span>`, h.kind ? esc(h.kind) : '', `<span class="osq-title">${esc(h.title)}</span>`, esc(hitDay(h.published_at))].filter(Boolean).join(' · ');
     const link = h.url ? ` <a class="os-link" href="${esc(h.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(h.title)} 원문 (새 창)">원문</a>` : '';
     const sim = h.similar && h.matched ? `<span class="osq-sim-tag">비슷한 말: ${esc(h.matched)}</span>` : '';
     return `<article class="osq-hit" data-osq-hit="${esc(h.post_id)}:${h.idx}">
 <p class="osq-ctx">${h.prev ? `<span class="osq-near">${esc(h.prev)}</span> ` : ''}${marked(h.sentence)}${h.next ? ` <span class="osq-near">${esc(h.next)}</span>` : ''}</p>
-<p class="osq-foot">${foot}${link}${sim}<button type="button" class="osq-quote" data-osq-quote="${esc(h.post_id)}:${h.idx}" aria-pressed="${on}">${on ? '초안에 넣음' : '초안에 쓰기'}</button></p></article>`;
+<p class="osq-foot">${foot}${link}${sim}</p></article>`;
   }
   function mineHtml() {
     if (!state.mineOn || !state.query) return '';
@@ -90,31 +88,13 @@ export function createOutsideSearch({box, nameOf, keysOf, workspaceOf}) {
     if (state.note) parts.push(esc(state.note));
     return parts.join(' — ');
   }
-  function trayHtml(list) {
-    return list.length ? `<span>초안에 쓸 문장 <b>${list.length}</b>/${PRESS_QUOTE_MAX}</span><button type="button" class="os-text-btn" data-osq-draft>성명 초안 열기</button>` : '';
-  }
   function paint() {
     if (!box) return;
     build();
     const f = $('[data-osq-filters]'); if (f) f.innerHTML = filtersHtml();
     const n = $('[data-osq-note]'); if (n) { n.innerHTML = noteHtml(); n.hidden = !n.innerHTML; }
     const r = $('[data-osq-results]'); if (r) r.innerHTML = resultsHtml();
-    paintTray();
   }
-  function paintTray() {
-    const t = $('[data-osq-tray]'), list = pressQuotes();
-    if (!t) return;
-    t.innerHTML = trayHtml(list); t.hidden = !list.length;
-  }
-  // [초안에 쓰기] 단추만 다시 그린다(목록·스크롤은 그대로).
-  function paintQuotes() {
-    box?.querySelectorAll('[data-osq-quote]').forEach(b => {
-      const [post, idx] = b.dataset.osqQuote.split(':'), on = hasPressQuote(post, Number(idx));
-      b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '초안에 넣음' : '초안에 쓰기';
-    });
-    paintTray();
-  }
-  onPressQuotes(() => paintQuotes());
 
   // ---------- 찾기 ----------
   async function loadSimilar(mine) {
@@ -168,14 +148,6 @@ export function createOutsideSearch({box, nameOf, keysOf, workspaceOf}) {
     } catch { state.note = '더 불러오지 못함'; }
     if (mine === seq) { state.more = false; paint(); }
   }
-  function toggleQuote(key) {
-    const [post, idx] = key.split(':');
-    const h = state.hits.find(x => x.post_id === post && x.idx === Number(idx));
-    if (!h) return;
-    if (hasPressQuote(h.post_id, h.idx)) { removePressQuote(h.post_id, h.idx); return; }
-    const r = addPressQuote({post_id: h.post_id, idx: h.idx, text: h.sentence, source: nameOf(h.source_key), title: h.title, day: hitIsoDay(h.published_at)});
-    if (r === 'full') { state.note = `초안에 쓸 문장은 ${PRESS_QUOTE_MAX}개까지`; const n = $('[data-osq-note]'); if (n) { n.innerHTML = noteHtml(); n.hidden = false; } }
-  }
 
   // ---------- 누르기 ----------
   box?.addEventListener('change', e => {
@@ -191,13 +163,10 @@ export function createOutsideSearch({box, nameOf, keysOf, workspaceOf}) {
     if (d.osqToggle === 'mine') { state.mineOn = !state.mineOn; run({keepSimilar: true}); return; }
     if ('osqRetry' in d) { run({keepSimilar: !state.similarNote}); return; }
     if ('osqMore' in d) { more(); return; }
-    if (d.osqQuote) { toggleQuote(d.osqQuote); return; }
     if (d.osqDoc) {
       const id = d.osqDoc;
       import('./basket-library-send.js').then(m => { m.requestLibraryDocument(id); window.KPTURouter?.go?.('library', {source: 'delegated'}); });
-      return;
     }
-    if ('osqDraft' in d) { import('./press-draft.js').then(m => m.openPressDraft({trigger: b, fromQuotes: true})); }
   });
 
   return {
@@ -206,7 +175,7 @@ export function createOutsideSearch({box, nameOf, keysOf, workspaceOf}) {
     run: query => { const v = cleanTerm(query); const same = v === state.query && !!v; state.query = v; run({keepSimilar: same && !state.similarNote}); },
     // 찾기 칸을 비우면 결과도 비운다(거르기 고른 것은 그대로).
     clear: () => { seq++; Object.assign(state, {query: '', similar: [], similarNote: '', hits: [], loaded: false, loading: false, failed: false, end: true, more: false, mine: [], mineLoaded: false, mineFailed: false, note: ''}); paint(); },
-    // 로그인·작업공간이 바뀌면 찾은 것·기억한 비슷한 말을 버린다(고른 초안 문장은 press-quotes.mjs가 비운다).
+    // 로그인·작업공간이 바뀌면 찾은 것·기억한 비슷한 말을 버린다.
     reset: () => { seq++; state = fresh(); expandCache.clear(); built = false; if (box) box.replaceChildren(); },
   };
 }

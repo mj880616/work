@@ -353,7 +353,7 @@ window.KPTUMeetingColumns={showPhotos:id=>{if(!id)return;leaveReport(()=>{report
 function meetingListClick(e){if(reportView!=='list'&&reportViewClick(e))return;const kind=e.target.closest('[data-meeting-kind]');if(kind){selectMeetingKind(kind.dataset.meetingKind);return}const round=e.target.closest('[data-meeting-round]');if(round){selectMeetingRound(round.dataset.meetingRound);return}}
 // 왼쪽 종류 목록·가운데 차수 목록: 위·아래 화살표로 같은 목록 안에서 옮겨 다니고(Home·End 처음·끝), Enter·Space로 고른다(버튼 기본 동작).
 // S51-27 UI-PC우클릭: PC에서 보고 줄을 우클릭하면 그 줄을 고른 것(왼쪽 누름과 같음)으로 하고, 그 보고가 오른쪽 칸에 뜨면 그 보고의 ⋯ 메뉴
-// ([수정][칸 바꾸기][성명 초안 만들기][삭제], meeting-round-detail.js)를 누른 자리에 연다. 예전에는 공용 우클릭이 지금 떠 있는 다른 보고의 ⋯를 눌렀다.
+// ([수정][종류 바꾸기][삭제], meeting-round-detail.js)를 누른 자리에 연다. 예전에는 공용 우클릭이 지금 떠 있는 다른 보고의 ⋯를 눌렀다.
 async function meetingListMenu(e){const round=e.target.closest?.('[data-meeting-round]');if(!round)return;const at=appMenuPoint(e,round);if(!at)return;e.preventDefault();
   const id=String(round.dataset.meetingRound);if(String(meetingSelectedId)!==id)selectMeetingRound(id);
   for(let i=0;i<180;i++){const modal=document.querySelector('#meetingRoundDetailModal'),more=document.querySelector('#mrdMore');

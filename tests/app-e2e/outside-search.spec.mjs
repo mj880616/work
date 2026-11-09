@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 // S48-18 사회운동 Now [문장 찾기](docs/design/outside-statements.md 3.3·4·5절) → S51-8 News 위 찾기 칸 하나(Enter = 문장 찾기 결과 칸),
-// 기간·[비슷한 말]·[내 성명] + 단체는 위 [매체 ▾], 결과 문장 칠하기·앞뒤 문장·'비슷한 말' 꼬리표·[원문], [초안에 쓰기] → 성명 초안 '바깥 문장'(글 id + 문장 번호만 보냄).
+// 기간·[비슷한 말]·[내 성명] + 단체는 위 [매체 ▾], 결과 문장 칠하기·앞뒤 문장·'비슷한 말' 꼬리표·[원문]. PRESS-성명초안삭제(11/09): [초안에 쓰기]·성명 초안 창은 없다.
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 글은 모두 가상의 글.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const CATALOG = [
@@ -30,12 +30,6 @@ async function server(page) {
       if (action === 'expand') { s.expand++; return ok({ ok: true, terms: ['인력 감축', '구조조정', '정원 축소'] }); }
       return ok({ ok: false, error: 'UNKNOWN_ACTION' }, 400);
     }
-    if (p === '/functions/v1/ai-assist' && body?.kind === 'press_draft') {
-      s.calls.push({ what: 'press', body });
-      return ok({ ok: true, kind: 'press_draft', type: 'statement', title: '가상 초안 제목', subtitle: '', partial: false,
-        paragraphs: [{ text: '민주노총은 "정부는 가상 구조조정을 즉각 중단하라"고 밝혔다.', refs: [1] }], demands: [], checks: ['인용 출처 확인: 민주노총 · 가상 · 10.5'],
-        sources: [{ ref: 1, post_id: P1, idx: 1, title: '바깥 인용 · 민주노총 · [성명] 가상 구조조정 중단하라', day: '2026-10-05' }] });
-    }
     if (p === '/rest/v1/rpc/app_outside_search') { s.calls.push({ what: 'search', body }); return ok(body.p_offset ? [] : HITS); }
     if (p === '/rest/v1/rpc/app_search_records') {
       s.calls.push({ what: 'records', body });
@@ -56,7 +50,7 @@ async function server(page) {
 }
 
 for (const width of [412, 1280]) {
-  test(`News 위 찾기 칸 ${width}: Enter = 문장 찾기·거르기(기간·매체)·칠하기·내 성명·초안에 쓰기`, async ({ page }) => {
+  test(`News 위 찾기 칸 ${width}: Enter = 문장 찾기·거르기(기간·매체)·칠하기·내 성명·초안 단추 없음`, async ({ page }) => {
     test.setTimeout(90000);
     await page.setViewportSize({ width, height: 900 });
     const errors = [];
@@ -119,29 +113,17 @@ for (const width of [412, 1280]) {
     await page.locator('#nwMediaPicker [data-lu-move-folder="all"]').click();
     await expect(box.locator('.osq-outside .osq-hit')).toHaveCount(2);
 
-    // [초안에 쓰기] → '초안에 쓸 문장 1/5' 줄 → [성명 초안 열기] → '바깥 문장' 칸(체크됨) → 초안 요청은 글 id + 문장 번호만.
-    await h1.locator('[data-osq-quote]').click();
-    await expect(h1.locator('[data-osq-quote]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(box.locator('[data-osq-tray]')).toContainText('초안에 쓸 문장 1/5');
+    // PRESS-성명초안삭제(11/09 명진 결정): [초안에 쓰기]·'초안에 쓸 문장' 줄·성명 초안 창이 없다.
+    await expect(box.locator('[data-osq-quote],[data-osq-tray],[data-osq-draft]')).toHaveCount(0);
+    await expect(box).not.toContainText('초안에 쓰기');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await box.locator('[data-osq-draft]').click();
-    const dialog = page.locator('#pressDraftDialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog.locator('[data-pd-quotes]')).toHaveAttribute('open', '');
-    await expect(dialog.locator('[data-pd-quote]')).toBeChecked();
-    await expect(dialog.locator('.pd-quote')).toContainText('정부는 가상 구조조정을 즉각 중단하라.');
-    await dialog.locator('[data-pd-make]').click();
-    await expect(dialog.locator('[data-pd-doc-title]')).toHaveText('가상 초안 제목');
-    expect(s.calls.find(c => c.what === 'press').body).toEqual({ kind: 'press_draft', type: 'statement', meeting_ids: [], quotes: [{ post_id: P1, idx: 1 }] });
-    await expect(dialog.locator('.pd-sources li')).toHaveText(['바깥 인용 · 민주노총 · [성명] 가상 구조조정 중단하라 · 10.5']);
-    await dialog.locator('[data-pd-close]').click();
 
-    // 찾기 칸을 비우면 결과 칸이 닫힌다. 다시 찾으면 고른 문장은 그대로(이 탭 메모리).
+    // 찾기 칸을 비우면 결과 칸이 닫힌다. 다시 찾으면 같은 결과.
     await find.fill('');
     await expect(box).toBeHidden();
     await find.fill('구조조정');
     await find.press('Enter');
-    await expect(h1.locator('[data-osq-quote]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(box.locator('.osq-outside .osq-hit')).toHaveCount(2);
     // 탭을 옮겨도 결과 칸은 목록 위에 그대로(찾기 칸은 모든 탭 공통).
     await root.getByRole('tab', { name: '보관' }).click();
     await expect(box).toBeVisible();
