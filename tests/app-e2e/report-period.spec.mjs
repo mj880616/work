@@ -84,7 +84,7 @@ const daysAgo = n => seoulKey(new Date(Date.now() - n * 86400000));
 for (const width of [1440, 390]) test(`${width}: 기간 한 줄 — 기본은 이번 주(‹ ›), 전체 기간은 ‹ › 없이 '전체 · n건'`, async ({page}) => {
   const state = makeState();
   await open(page, state, width);
-  await expect(period(page).locator('option:not([hidden])')).toHaveText(['이번 주', '전체 기간', '기간 정하기']);
+  await expect(period(page).locator('option:not([hidden])')).toHaveText(['이번 주', '주차 선택', '전체 기간', '기간 정하기']);
   await expect(period(page)).toHaveValue('week');
   await expect(chip(page, 'prev')).toBeVisible();
   const tops = await page.locator('#reportWeekFilter .report-week-nav > *').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
@@ -107,7 +107,7 @@ test('기간 설정: 달력으로 시작·끝 날을 선택하면 그 기간 보
   const panel = page.locator('[data-report-period-panel]');
   await expect(panel).toBeVisible();
   await expect(panel.locator('input[type="date"]')).toHaveCount(2);
-  await expect(panel.locator('[data-report-quick]')).toHaveText(['이번 달', '지난 달', '최근 3달']);
+  await expect(panel.locator('[data-report-quick]')).toHaveText(['이번 주', '이번 달', '지난 달', '최근 3달', '전체']);
   // 시작이 끝보다 늦으면 적용되지 않는다.
   await panel.locator('[data-report-from]').fill(to);
   await panel.locator('[data-report-to]').fill(from);
@@ -138,11 +138,15 @@ test('기간 설정: 달력으로 시작·끝 날을 선택하면 그 기간 보
   await context2.close();
 });
 
-test('빠른 칩 [최근 3달]은 바로 적용된다', async ({page}) => {
+// BIZ-기간정하기(11/09): 칩은 날짜 칸만 채우고 [적용]으로 정한다.
+test('빠른 칩 [최근 3달]은 날짜를 채우고 [적용]으로 정한다', async ({page}) => {
   const state = makeState();
   const prefs = await open(page, state, 1440);
   await period(page).selectOption('range');
   await page.locator('[data-report-quick="last-3"]').click();
+  await expect(page.locator('[data-report-period-panel]')).toBeVisible();
+  await expect(page.locator('[data-report-quick="last-3"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('[data-report-period-panel] [data-report-week="apply"]').click();
   await expect(period(page).locator('option:checked')).toHaveText('정한 기간');
   await expect.poll(() => prefs.value?.report_period?.mode).toBe('range');
   await expect(page.locator('#meetingList')).toContainText('지난 회의');
