@@ -86,3 +86,15 @@ export function paneChoices({cur = '', on = [], linked = [], phone = {}, pc = {}
 }
 // 칸 머리 단추 글자: 그 칸의 출처 이름(묶음·찾기·빈 칸이면 '출처').
 export const paneSourceLabel = where => PANE_NAME[where?.source] || '출처';
+
+// LIB-두칸보기 PR-1(S55-11): 두 칸 틀 공용 키 판정 — [파일]·자료실이 같이 쓴다(app/two-pane.js). 화면 없이 시험.
+// key = 누른 키, mod = Alt·Ctrl·Meta 중 하나라도, onRow = 포커스가 목록 줄(또는 아무 데도 없음 — body)인가, copy = 그 화면에 '복사'가 있는가.
+// 돌려주는 값: 'copy'(F5, 반대 칸에 복사) · 'move'(F6, 반대 칸 폴더로 옮기기) · 'switch'(Tab, 칸 바꾸기) · null(가로채지 않음).
+// 자료실은 자료가 폴더 하나에만 들어가므로 복사가 없다(copy=false → F5는 가로채지 않아 새로고침 그대로).
+export function paneKeyAction({key = '', mod = false, onRow = false, copy = true} = {}) {
+  if (mod) return null;
+  if (key === 'F6') return 'move';
+  if (key === 'F5') return copy ? 'copy' : null;
+  if (key === 'Tab') return onRow ? 'switch' : null;
+  return null;
+}
