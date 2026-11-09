@@ -117,7 +117,7 @@ for(const width of [390,1280])test(`organization ${width}: the linked note shows
  const before=await top(line);
  for(const how of ['button','back','browser']){
   await line.click();await viaSheet(page);await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');
-  await expect(page.locator('#basketView [data-basket-return]')).toHaveText(width<761?'‹ 담당조직':'‹ 테스트 조직');
+  await expect(page.locator('#basketView [data-basket-return]')).toHaveText(width<761?'‹ 조직 보고':'‹ 테스트 조직');
   if(how==='button')await page.locator('#basketView [data-basket-return]').click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
   await expect.poll(()=>top(line)).toBe(before);

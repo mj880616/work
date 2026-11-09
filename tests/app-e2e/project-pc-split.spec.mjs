@@ -206,7 +206,7 @@ for(const width of [390,1280])test(`organization ${width}: a 🧺 record returns
  const before=await scrollToRecord(page,line);
  for(const how of ['button','back','browser']){
   await line.click();await viaSheet(page);await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
-  await expect(page.locator('#basketView [data-basket-return]')).toHaveText(width<761?'‹ 담당조직':'‹ 테스트 조직');
+  await expect(page.locator('#basketView [data-basket-return]')).toHaveText(width<761?'‹ 조직 보고':'‹ 테스트 조직');
   if(how==='button')await page.locator('#basketView [data-basket-return]').click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
   await expect.poll(()=>top(line)).toBe(before);
@@ -215,7 +215,7 @@ for(const width of [390,1280])test(`organization ${width}: a 🧺 record returns
 });
 
 // UI-돌아가기머리줄(2026-10-29 사용자 결정, 시안 B): 사업영역·담당조직에서 연 업데이트는 머리 줄 '‹ (온 곳 이름)' 하나가 뒤로 가기다.
-// 따로 있던 '← …으로 돌아가기' 상자 버튼은 없고, 폰은 '‹ 사업영역'·'‹ 담당조직'으로 짧게. 누르면 그 화면·같은 스크롤로.
+// 따로 있던 '← …으로 돌아가기' 상자 버튼은 없고, 폰은 '‹ 사업영역'·'‹ 조직 보고'으로 짧게. 누르면 그 화면·같은 스크롤로.
 const expectOneBack=async(page,text)=>{
  const detail=page.locator('#basketView [data-basket-detail]');
  await expect(detail.locator('.basket-detail-head > button.basket-back:visible')).toHaveCount(1);
@@ -245,7 +245,7 @@ for(const width of [412,884,1440])test(`UI-돌아가기머리줄 ${width}: 사�
  await clickView(page,'team');await page.locator('[data-ps-workplace-org="o"]').first().click();
  const modal=page.locator('#wdModal'),line=modal.locator('[data-basket-link="l-o"] a[data-basket-link-open]');await expect(line).toBeVisible();
  await line.click();await viaSheet(page);await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');
- await expectOneBack(page,width<761?'‹ 담당조직':'‹ 테스트 조직');
+ await expectOneBack(page,width<761?'‹ 조직 보고':'‹ 테스트 조직');
  await page.locator('#basketView [data-basket-return]').click();
  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
  expect(errors).toEqual([]);

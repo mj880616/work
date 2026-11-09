@@ -121,9 +121,9 @@ test('head back: the list keeps its own button; opened from another screen it is
   assert.equal(mod.basketBackHtml(id,fallback,rt,{narrow:false}),fallback);
   mod.requestBasketNoteFrom(id,{view:'team',id:'o1',name:'전국철도노동조합'},rt);
   const wide=mod.basketBackHtml(id,fallback,rt,{narrow:false});
-  assert.match(wide,/^<button type="button" class="basket-back basket-back-origin" data-basket-return aria-label="전국철도노동조합\(담당조직\)으로 돌아가기"><span aria-hidden="true">‹<\/span> <span class="basket-back-name">전국철도노동조합<\/span><\/button>$/);
+  assert.match(wide,/^<button type="button" class="basket-back basket-back-origin" data-basket-return aria-label="전국철도노동조합\(조직 보고\)으로 돌아가기"><span aria-hidden="true">‹<\/span> <span class="basket-back-name">전국철도노동조합<\/span><\/button>$/);
   assert.doesNotMatch(wide,/basket-return"|basket-return-btn|←|data-basket-close/);
-  assert.match(mod.basketBackHtml(id,fallback,rt,{narrow:true}),/<span class="basket-back-name">담당조직<\/span>/);
+  assert.match(mod.basketBackHtml(id,fallback,rt,{narrow:true}),/<span class="basket-back-name">조직 보고<\/span>/);
   // Another workspace never sees this origin.
   assert.equal(mod.basketBackHtml(id,fallback,{context:{read:()=>({user:{id:'u1'},workspace:{id:'w2'}})}},{narrow:false}),fallback);
   mod.requestBasketNoteFrom(id,{view:'projects',id:'p1',name:'가'.repeat(mod.BACK_NAME_MAX+1)},rt);

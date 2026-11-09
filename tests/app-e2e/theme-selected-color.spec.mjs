@@ -66,7 +66,7 @@ test('PC 1280: 이동 뒤에도 사이드바에 채워진 항목은 지금 화�
  await expect(nav(page).locator('.nav-btn.active')).toHaveCount(1);
  // 바구니 [노트] → 다른 화면.
  await nav(page).locator('.nav-btn[data-basket-kind-nav="note"]').click();await expect(page.locator('#basketView')).toBeVisible();await seen('노트');
- await nav(page).locator('.nav-btn[data-view="team"]').click();await expect(page.locator('#teamView')).toBeVisible();await seen('담당조직');
+ await nav(page).locator('.nav-btn[data-view="team"]').click();await expect(page.locator('#teamView')).toBeVisible();await seen('조직 보고');
  expect(errors).toEqual([]);
 });
 
