@@ -58,7 +58,7 @@ test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버�
   await expect(page.locator('#wdModal textarea:visible, #wdModal input:visible:not(#wdStage input):not([type="file"])')).toHaveCount(1);
   await expect(page.locator('#wdUpdateCurrent,#wdCurrentModal,#wdAddItem,#wdItemModal,#warRaw,#warSaveRaw')).toHaveCount(0);
   await expect(page.locator('#wdDeleteOrg')).toHaveCount(0);
-  const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-subpanel[data-wd-subpanel="log"] > .wd-sec')].map(sec=>(sec.querySelector('h3')||sec.querySelector('[role="tab"]'))?.firstChild?.textContent?.trim()));
+  const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-body > .wd-sec')].map(sec=>(sec.querySelector('h3')||sec.querySelector('[role="tab"]'))?.firstChild?.textContent?.trim()));
   expect(order).toEqual(['할 일','자료','사업 보고','기록','연도별 타임라인','주요 인물']);
   const pos=await page.locator('#wdModal .wd-card').evaluate(card=>({
     title:card.querySelector('#wdTitle').getBoundingClientRect().top,
@@ -89,7 +89,7 @@ test('저장하면 날짜·시간과 함께 기록 맨 위에 쌓이고 입력�
   await expect(rows.nth(0).locator('p')).toHaveText('다음주 화요일 교섭 예정');
   await expect(rows.nth(1).locator('p')).toHaveText('오늘 지부장 통화. 사측 12명, 노조 20명 요구.');
   await expect(rows.nth(2).locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
-  await expect(rows.nth(0).locator('small')).toHaveText(/2026\. 9\. 26\..*\d{1,2}:\d{2}/);
+  await expect(rows.nth(0).locator('.wd-log-day')).toHaveText('9.26.'); // ORG-기록하나로 O-5: '날짜 | 기록' 한 표 — 왼쪽 날짜 칸(시각 없이)
   const posts=await page.evaluate(()=>window.__updatePosts);
   expect(posts).toEqual([
     {organization_id:'org-rail',raw_text:'오늘 지부장 통화. 사측 12명, 노조 20명 요구.',created_by:'user-me'},

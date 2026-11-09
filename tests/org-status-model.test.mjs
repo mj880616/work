@@ -59,15 +59,10 @@ test('주간보고 칸: 표가 있으면 [쟁의 단계 줄] + 표 줄, 없으�
   assert.equal(siteLinesFromTable(['- 지난 확정본 줄'], [], stage), null);
 });
 
-test('화면 연결: 소탭은 view_prefs.org_tab 하나, 현황 표 자리는 org-status-table.js 하나, 주간보고는 같은 표를 읽는다', () => {
+test('ORG-기록하나로 O-5: 조직 상세의 [현황 표] 소탭·쓰기는 지웠고, 옛 표 읽기만 주간보고 옛 길이 쓴다(O-6에서 정리)', () => {
   const wd = read('app/workplace-detail.js'), st = read('app/org-status-table.js'), hw = read('app/journal-hwpx.js');
-  assert.match(wd, /id="wdSubTabs"[^>]*role="tablist"/);
-  assert.match(wd, /data-wd-sub="log"[^>]*>기록</);assert.match(wd, /data-wd-sub="table"[^>]*>현황 표</);
-  assert.match(wd, /viewPrefs\.set\('org_tab'/);
-  assert.match(wd, /paintStatusTable\(/);
-  assert.match(st, /app_org_status_rows/);assert.doesNotMatch(st, /kind: 'org_status_rows'|data-st-refill|maybeFirstFill/, 'P7: AI 다시 채우기·처음 자동 채우기 없음');
-  assert.doesNotMatch(st, /그대로 들어감/);
-  assert.match(st, /type="date"/, 'date is picked on the shared calendar field');assert.match(st, /data-st-field="end_day"/, 'end day is a second calendar field');
+  assert.doesNotMatch(wd, /wdSubTabs|data-wd-sub=|paintStatusTable|org-status-table\.js/);
+  assert.match(st, /app_org_status_rows/);assert.doesNotMatch(st, /kind: 'org_status_rows'|data-st-refill|maybeFirstFill|data-st-field/);
   assert.match(hw, /readStatusRows\(/);assert.match(hw, /siteLinesFromTable\(/);
 });
 
@@ -90,17 +85,14 @@ test('DESK-전체현황표 → ORG-기록하나로 O-4 화면 연결: 소탭 [�
   assert.doesNotMatch(ov, /app_org_status_rows|app_weekly_org_lines|app_report_line_marks|app_suborganization_updates/, '표 이름은 부품 안에만');
   assert.doesNotMatch(ov, /data-oa-fill|data-oa-refill-all|AI로 채우기|모두 다시 채우기/, '[AI로 채우기]·[모두 다시 채우기 (AI)]는 없앴다(설계 3.1)');
   assert.doesNotMatch(ov + wl, /\b(?:local|session)Stor/, '브라우저 저장소를 쓰지 않는다');
-  assert.match(ov, /name: 'orgall'/);assert.match(st, /name: 'orgst'/);
-  assert.match(st, /<textarea data-st-field="body"/, '조직 상세 [현황 표] 고치기 칸은 늘어나는 여러 줄 칸');
-  assert.doesNotMatch(st, /data-reorder-handle>⠿/, '⠿ 손잡이 버튼과 [고치기] 버튼 칸은 없다');
-  assert.doesNotMatch(st, /mountReorder/, '순서는 날짜가 정하므로 손으로 옮기는 기능이 없다');
+  assert.match(ov, /name: 'orgall'/);
   assert.match(wl, /data-wl-toggle/);assert.match(wl, /외 \$\{parts\.older\.length\}줄/);
 });
 
 test('UI-버튼간격: 공용 간격은 토큰 하나(--ds-button-gap)이고 .btn-row가 쓰며, 나란한 버튼은 .btn-row 줄 안에 둔다(담당조직 표)', () => {
   assert.match(read('app/theme-tokens.css'), /--ds-button-gap:\s*8px/);
   assert.match(read('app/ui-standard.css'), /\.btn-row\{[^}]*gap:var\(--ds-button-gap,\s*8px\)/);
-  for (const f of ['app/org-overview.js', 'app/org-status-table.js', 'app/weekly-org-lines.js', 'app/record-window-view.js']) {
+  for (const f of ['app/org-overview.js', 'app/weekly-org-lines.js', 'app/record-window-view.js']) {
     const src = read(f);
     // 템플릿 안에서 </button> 바로 뒤에 <button 또는 <span 이 붙는 줄(사이 간격 0): 같은 줄 앞쪽에 btn-row 클래스가 있어야 한다.
     const all = src.split('\n');
@@ -113,5 +105,4 @@ test('UI-버튼간격: 공용 간격은 토큰 하나(--ds-button-gap)이고 .bt
   // 위쪽 [주 고르기]·[복사] 줄과 제안 줄 버튼은 btn-row
   const ov = read('app/org-overview.js');
   assert.match(ov, /class="oa-bar btn-row"/);assert.match(read('app/weekly-org-lines.js'), /class="wl-btns btn-row"/);
-  assert.match(read('app/org-status-table.js'), /class="wd-st-bar btn-row"/);
 });

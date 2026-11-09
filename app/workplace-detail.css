@@ -94,7 +94,14 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
 #wdUpdates .basket-link-mark svg{display:block}
 /* ORG-기록수정삭제: a record written here has one ⋯ at its top right (same look as a basket-linked record), holding [수정]·[삭제].
    [수정] opens a multi-line box in place with [저장]·[취소]. */
-#wdUpdates .wd-log-row .wd-rowtop{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:4px}
+/* ORG-기록하나로 O-5: '날짜 | 기록' 한 표 — 왼쪽 날짜 칸(흐린 작은 글씨, 한 줄), 가운데 기록, 오른쪽 ⋯. 최근 10줄 아래 '지난 기록 n'(접힘). */
+#wdUpdates .wd-log-row .wd-rowtop{display:grid;grid-template-columns:4.6em minmax(0,1fr) auto;align-items:start;gap:4px 8px}
+#wdUpdates .wd-log-day{padding-top:2px;white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta);font-variant-numeric:tabular-nums}
+#wdUpdates .wd-log-older{margin-top:6px}
+#wdUpdates .wd-log-older>summary{cursor:pointer;width:max-content;min-height:var(--ds-compact-height-sm);padding:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#wdUpdates .wd-log-src{margin:4px 0 0 calc(4.6em + 8px);padding:4px 8px;border-left:2px solid var(--kptu-border);color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:pre-wrap;overflow-wrap:anywhere}
+#wdUpdates .wd-log-src-k{color:var(--kptu-ink)}
+@media(max-width:650px){#wdUpdates .wd-log-row .wd-rowtop{grid-template-columns:3.9em minmax(0,1fr) auto}#wdUpdates .wd-log-src{margin-left:0}}
 #wdUpdates .wd-log-main{min-width:0}
 #wdUpdates .wd-log-main p{white-space:pre-wrap;overflow-wrap:anywhere}
 #wdUpdates .wd-log-main .wd-doc{min-width:0;font-size:var(--ds-text-body,14px)}
@@ -212,43 +219,15 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 .okp-sg::after{content:"";position:absolute;inset:-8px -2px}
 /* UI-고른것접기: 소속 고르기의 고른 것·그 외 목록도 같은 줄 간격 */
 .wd-aff-checks .pick-picked,.wd-aff-checks .pick-group{display:grid;gap:6px}.wd-aff-checks .pick-others>summary{margin-top:2px}
-/* DESK-현황표: 쟁의 단계 줄 아래 소탭 [기록 | 현황 표](공용 ⑤ 보기 바꾸기)와 현황 표. 작고 낮은 버튼, 톤다운 */
-.wd-subtabs{margin-bottom:calc(10px - var(--ds-seg-hit))}
+/* 조직 보고 표(org-overview.js)의 작은 버튼·안내 줄. 옛 [현황 표] 소탭은 ORG-기록하나로 O-5에서 지웠다. */
 .wd-st{font-size:var(--ds-text-row)}
-.wd-st{--st-w-day:6.4em;position:relative}
-.wd-st-table{width:100%;border-collapse:collapse;table-layout:fixed}
-.wd-st-table th,.wd-st-table td{padding:6px 4px;border-bottom:1px solid var(--kptu-border);text-align:left;vertical-align:top;font-weight:400;line-height:1.45}
-.wd-st-table thead th{position:relative;padding-top:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-/* 일 칸: 폭을 끌어 바꾼다(col_widths.orgst, 서버 기억). 날짜('10.29.(목)')는 한 줄. 줄 손잡이 역할이라 PC에서 잡으면 끌린다. */
-.wd-st-day{width:var(--st-w-day);white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-.wd-st-day-text{display:inline-block}
-.wd-st-body{overflow-wrap:anywhere;color:var(--kptu-ink)}
-.wd-st-text{display:inline;cursor:text}
-.wd-st-text[role="button"]:hover{background:var(--kptu-surface-subtle)}
-.wd-st-text[role="button"]:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 /* 버튼 크기 통일(요청함 11/03 07:49): 빼기·취소·저장·+ 줄 추가·다시 채우기가 모두 같은 높이·같은 글자. 저장만 색으로 구분한다. */
 .wd-st-btn,.wd-st-btn.primary{box-sizing:border-box;position:relative;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:none;color:var(--kptu-ink);font-size:var(--ds-text-meta);font-weight:500;line-height:1}
 .wd-st-btn::after{content:"";position:absolute;inset:-8px -2px}
 /* 화면 공용 채운 버튼 규칙(ui-standard.css '#appView :is(#teamView,…) button.primary')이 [저장]만 더 키우므로, 담당조직 안에서는 이 표의 버튼 높이로 맞춘다. */
 #appView #teamView .wd-st button.wd-st-btn,#appView #teamView .wd-st button.wd-st-btn.primary{box-sizing:border-box;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;line-height:1}
 .wd-st-btn.primary{background:var(--kptu-ink);border-color:var(--kptu-ink);color:var(--kptu-on-primary)}
-.wd-st-tag{margin-left:6px;padding:0 4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);color:var(--kptu-muted);font-size:10.5px;vertical-align:1px}
-.wd-st-ev{margin-top:2px;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
-.wd-st-ev>summary{cursor:pointer;width:max-content}
-.wd-st-ev ul{margin:2px 0 0;padding-left:14px}
-.wd-st-older{margin-top:4px}.wd-st-older>summary{cursor:pointer;padding:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-.wd-st-bar{margin-top:8px}
 .wd-st-note{margin:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-.wd-st-status{margin:2px 0 0;min-height:1em;color:var(--kptu-muted);font-size:var(--ds-text-meta)}.wd-st-status:empty{display:none}.wd-st-status.is-error{color:var(--kptu-danger)}
-/* 고치기 칸: 일 + 여러 줄 글 칸(글 길이만큼 늘어남). 키보드가 올라와도 칸·[저장]이 가려지지 않게 아래 여백(scroll-margin). */
-.wd-st-form{display:grid;grid-template-columns:minmax(0,1fr);gap:6px 8px;align-items:start;scroll-margin-bottom:45vh}
-.wd-st-edit{scroll-margin-bottom:45vh}
-.wd-st-form label{display:grid;gap:2px;min-width:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
-.wd-st-form input{width:100%;min-width:0;height:var(--ds-compact-height);padding:0 6px;font-size:var(--ds-text-row)}
-.wd-st-form textarea{box-sizing:border-box;width:100%;min-width:0;min-height:calc(2 * 1.45em + 10px);padding:4px 6px;font:inherit;font-size:var(--ds-text-row);line-height:1.45;resize:none;overflow:hidden}
-.wd-st-f-days{display:flex;align-items:flex-end;gap:6px;min-width:0}.wd-st-f-days .wd-st-f-day{flex:1 1 0;min-width:0;max-width:11em}.wd-st-f-tilde{padding-bottom:6px;color:var(--kptu-muted)}
-.wd-st-actions{grid-column:1/-1;justify-content:flex-end}.wd-st-del{margin-right:auto}
-@media(max-width:650px){.wd-st{--st-w-day:5.6em}}
 
 /* ORG-기록첨부(S50-22): 기록 칸의 📎(정리함 입력칸과 같은 부품 basket-picker.css) — [저장] 왼쪽, 고른 파일 줄은 칸 아래 한 줄씩. */
 .wd-inbox-clip{display:flex;align-items:center}
