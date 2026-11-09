@@ -21,6 +21,7 @@
 //   (라) 되돌리기 말고 다른 버튼: notify('정리함에 넣었어요',{actions:[{label:'메모 달기',run:({box,close})=>{…}}],undo,…}) — [되돌리기] 앞에 놓인다.
 //       run은 알림을 닫지 않는다(필요하면 close()). box 안을 작은 입력칸으로 바꿔도 되고, 초점이 안에 있는 동안은 사라지지 않는다(SHARE-바로넣기).
 import {placeAnchored,clearAnchored} from './anchored-popup.js';
+import {isDockedPane} from './open-window.mjs'; // 칸에 붙인 창(role=region) 판단 하나
 
 export const NOTICE_MS=2000,NOTICE_UNDO_MS=2000,NOTICE_ERROR_MS=5000,UNDO_LIMIT=10;
 // 알림이 떠 있는 시간: 2초(명진 결정 10:52). 오류는 읽을 틈을 주려고 조금 길게. 올려 두면(마우스·손가락·초점) 그동안은 멈춘다.
@@ -111,7 +112,7 @@ export function holdToast(el,{ms}={}){
 // 창 밖(밑의 화면)에 있으면 넣지 않는다: 밑의 화면 칸은 화면에 붙어 따라오는 칸(sticky)이라 알림이 그 층에 갇혀 위에 뜬 창
 // (#areaWindow) 머리줄 밑에 깔렸다(UI-칸안스크롤하나로, CI task-inline-unify 1280). 열린 창이 없으면 맨 뒤의 붙인 칸, 없으면 body.
 export function noticeHost(doc=globalThis.document){
-  const open=[...doc.querySelectorAll('.modal:not(.hidden)')],docked=m=>m.getAttribute('role')==='region';
+  const open=[...doc.querySelectorAll('.modal:not(.hidden)')],docked=isDockedPane;
   const top=open.filter(m=>!docked(m)).at(-1);
   if(top)return open.filter(m=>docked(m)&&top.contains(m)).at(-1)||top;
   return open.at(-1)||doc.body;

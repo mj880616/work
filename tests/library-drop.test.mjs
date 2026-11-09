@@ -172,6 +172,7 @@ test('placeDropTarget: 나무 줄·위치 줄은 그 폴더, 자료실 전체·�
   p=placeEl({step:{luPath:'',noRow:true}});assert.equal(m.placeDropTarget(p.el,{folderOf}).out,true);
   // 없는 폴더 줄 → 폴더 밖
   // S55-08 LIB-나무로끌기안됨 ③: 모르는 폴더 id는 폴더 밖으로 바꾸지 않고 막는다.
+  p=placeEl({step:{luNav:'x:out'}});t=m.placeDropTarget(p.el,{folderOf});assert.equal(t.out,true);assert.equal(t.place,p.row);
   p=placeEl({step:{luNav:'gone'}});t=m.placeDropTarget(p.el,{folderOf});assert.equal(t.ok,false);assert.equal(t.out,undefined);assert.equal(t.place,p.row);
   // 나무·위치 줄이 아니면 ①은 null
   assert.equal(m.placeDropTarget(placeEl().el,{folderOf,inFolder:'fa'}),null);

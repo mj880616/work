@@ -6,7 +6,7 @@ import {waitInlineHtml, emptyHtml} from './wait-state.js';
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {seoulParts, seoulDate, addSeoulDays, seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPhoto, removeDiaryPhotos, moveDiaryDay, pruneDiaryPhotos, dropEmptyDiary, uploadDiaryPhoto, shrinkPhoto, diaryUploadText, photoElement,
-  diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
+  diaryPhotos, diaryText, takeRequestedDay, takeRequestedWrite, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
   photoComments, cleanComments, saveDiaryComments} from './diary-data.js';
 import {SIZE_BUTTONS, WIDE_QUERY, paintGrid, paintButtons, changeCols, attachPinch} from './photo-grid-size.js';
 import {putBack} from './photo-viewer-model.mjs';
@@ -24,6 +24,7 @@ import {odStatusCached, odTakeWarmMonth, odDelete, odPhotos, odPhotoElement, odP
 // their comments, the calendar and the swipe stay as they were. Letters (raw_text) are still saved with it for every other reader.
 import {renderDoc} from './ed-render.mjs';
 import {diaryHasDoc, diaryStartDoc, joinDiaryDocs, diaryDocToStore, diaryDocError} from './diary-doc.mjs';
+import {plainToDocKeep} from './ed-markdown.mjs';
 // JOURNAL-일기목록: [달력 / 목록] 바꾸기. 목록 칸은 diary-list.js가 그리고, 고른 보기는 서버(view_prefs.diary_view)에 기억한다(기기 저장 없음).
 import {createDiaryList} from './diary-list.js';
 import {doneLine, inDiaryPhoto} from './diary-list-model.mjs';
@@ -576,7 +577,8 @@ const cleanLive = () => { const out = {}; for (const [id, text] of Object.entrie
 const textChanged = () => !!edit?.field && JSON.stringify(edit.field.getValue()) !== edit.baseJson;
 const dirty = () => !!edit && (edit.pending.length > 0 || edit.dropped.length > 0 || textChanged() || commentsChanged());
 const EDITOR_LOADING = '\u0000wait'; // UI-기다림표시통일 2차: 편집기를 받는 동안 상태 줄은 글자 없는 회색 칸
-async function openEditor(day) {
+// line·onSaved: HOME-하루채우기 ③ [일기 쓰기] — 제안 한 줄을 글 칸에 채워(있던 일기면 그 아래 줄로) 연다. 저장하면 onSaved를 한 번 부른다.
+async function openEditor(day, {line = '', onSaved = null} = {}) {
   if (edit) return;
   let row = rows.get(day) || null;
   if (!row && loadedMonth !== monthOf(day)) {
@@ -585,6 +587,9 @@ async function openEditor(day) {
   edit = {day, row, pending:[], dropped:[], createdHere:false, pump:null, current:null, waiting:false, discarded:false, keepUploads:false, owner:ownerScope(rt), busy:false, comments:photoComments(row), startComments:photoComments(row),
     host:document.createElement('div'), field:null, baseJson:'', startDoc:diaryStartDoc(row), baseRaw:row ? row.raw_text : null, baseDoc:row ? row.doc ?? null : null, hadRow:!!row};
   edit.host.className = 'diary-doc-host'; edit.host.dataset.diaryText = '';
+  // 채운 줄은 '바뀐 글'로 센다(처음 글 = 원래 일기, 채운 줄은 편집기가 뜬 뒤 넣음 — 그대로 [저장]만 눌러도 저장된다).
+  if (String(line).trim()) edit.pendingMerge = joinDiaryDocs(edit.startDoc, plainToDocKeep(String(line).trim()));
+  edit.onSaved = typeof onSaved === 'function' ? onSaved : null;
   cal.hidden = true; detail.hidden = true; list.hidden = true; $('[data-diary-new]').hidden = true; $('.diary-head').hidden = true; status.hidden = true;
   if (!allHost.hidden) listView.hide();
   renderEditor(EDITOR_LOADING); renderOdPanel();
@@ -954,6 +959,7 @@ async function save() {
     session.createdHere = false;
     if (fresh) { rows.set(day, fresh); session.row = fresh; session.baseRaw = fresh.raw_text; session.baseDoc = fresh.doc ?? null; session.hadRow = true; session.baseJson = JSON.stringify(value); session.comments = photoComments(fresh); session.startComments = photoComments(fresh); } else rows.delete(day);
     session.busy = false;
+    if (session.onSaved && text.trim()) { const done = session.onSaved; session.onSaved = null; try { done(); } catch { /* 제안 지우기는 다음에 */ } }
     if (failed.length) {
       renderEditor(`글은 저장했어요. 사진 ${failed.length}장은 올리지 못했어요. ${failed[0].failed} [다시]를 누르거나 [저장]을 다시 눌러 주세요.`);
       for (const entry of failed) setUploadRetry(entry.file, () => { if (edit !== session || !session.pending.includes(entry)) return; entry.failed = ''; pumpUploads(session); });
@@ -1136,9 +1142,10 @@ function enter() {
     if (m >= 1 && m <= 12 && (y !== cursor.year || m - 1 !== cursor.month)) { cursor = {year:y, month:m - 1}; closeDetail(); writePlace(); }
   }
   if (day) {
+    const write = takeRequestedWrite(day, rt);
     const [y, m] = day.split('-').map(Number);
     if (y !== cursor.year || m - 1 !== cursor.month) { cursor = {year:y, month:m - 1}; closeDetail(); }
-    loadMonth().then(() => selectDay(day, {focus:true}));
+    loadMonth().then(() => { selectDay(day, {focus:true}); if (write) void openEditor(day, {line:write.line, onSaved:write.onSaved}); });
     return;
   }
   writePlace(); loadMonth({quiet:true});

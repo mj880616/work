@@ -413,7 +413,9 @@
 
 /* UI-자료실걸러줄(2026-11-03): ① 검색·묶기·분류 줄이 한 덩이로 위에 모이고, '최근 올린 파일' 칸은 그 아래·목록 칸 위. 줄 사이 간격은 거르는 줄 사이와 같은 8px(toolbar gap).
    ② [편집]은 칩과 같은 높이·글자 크기. ③ 맨 위 ⋯는 검색 줄 오른쪽 끝([+ 자료 등록] 옆)이라 목록 칸 머리 빈 줄이 없다. */
-#appView #libraryView .library-filter-toolbar .lu-recent{margin:0}
+/* S55-08 LIB-위쪽줄여백: 원인(사실) — 공용 ui-standard.css가 자료실 도구 줄의 줄 사이 간격을 0으로 두어(gap:0 12px) 위 설명의 8px이 사라지고
+   '최근 올린 파일' 상자 테두리가 위쪽 한 줄에 붙었다. 거르는 줄들은 지금처럼 붙여 쌓고, 상자 위에만 도구 줄 공용 간격(--kptu-space-2)을 둔다. */
+#appView #libraryView .library-filter-toolbar .lu-recent{margin:var(--kptu-space-2) 0 0}
 #appView #libraryView #libraryListCard > .add-list-head.add-list-head{height:0;min-height:0;margin:0;padding:0}
 /* SEARCH-선택옮기기 ⑤: 검색칸 오른쪽 작은 [결과 n개 모두 선택](자리는 아래 'LIB-위쪽한줄' 절). */
 #appView #libraryView .library-filter-toolbar .lu-search-row > .lu-search-pick-all{flex:none;min-height:30px;padding:2px 10px;font-size:12px;white-space:nowrap}
@@ -482,6 +484,8 @@
 .home-choice-sheet.lu-cat-sheet .home-choice-foot .home-choice-count{flex:1 1 auto;min-width:0}
 /* S53-19 LIB-화면끌어놓기 이어서: PC 파일을 왼쪽 폴더 나무 줄·위치 줄 칸 위로 끌면 오른쪽 목록 폴더 줄과 같은 놓을 곳 표시(점선 + 연한 강조색). */
 /* S55-08 LIB-나무로끌기안됨: 자료·폴더를 끌어 나무 줄 위로 가져오면 같은 표시(놓을 수 없는 줄은 흐리게), 끄는 나무 줄은 반투명. */
+/* S55-08 LIB-우클릭메뉴: 나무 줄 우클릭 → [이름 바꾸기]면 그 나무 줄이 입력칸(오른쪽 폴더 줄 입력칸과 같은 모양). */
+#libraryFolderNav .lu-fnav-rename{flex:1;min-width:0;box-sizing:border-box;height:var(--ds-compact-height,32px);padding:0 8px;font:inherit;line-height:1.4;position:relative;z-index:1}
 #libraryFolderNav .ft-row.lu-drop-no>.ft-main{opacity:.55;cursor:no-drop}
 #libraryFolderNav .ft-row.lu-dragging{opacity:.5}
 #libraryFolderNav .ft-row.lu-drop-place>.ft-main,#libraryFolderNav .ft-row.lu-drop-into>.ft-main,#libraryPath .lu-drop-place{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-sm,6px)}

@@ -92,3 +92,76 @@ test('화면 연결: [하루] 오늘 한 일 아래 한 자리, 공용 부품, �
   // 기기 저장(브라우저 저장소) 금지는 Browser storage audit 검사가 app/ 전체에서 본다.
   assert.doesNotMatch(fill, /\b(addStar|removeStar|uploadDiary|removeDiaryPhoto|saveDiaryText|createDiary|odDelete)\b/);
 });
+
+// ---- PR-C 화면 연결 ----
+test('보낼 일정: 그 주 안만, 한국 시각, 종일은 빈 시각, 다음 날 끝은 23:59, 위험 문자는 빈칸', async () => {
+  const {sendEvents, sendDone, sendTitle, weekStartOf} = await import('../app/home-day-picks-model.mjs');
+  assert.equal(weekStartOf('2026-11-09'), '2026-11-09'); assert.equal(weekStartOf('2026-11-15'), '2026-11-09');
+  const events = [
+    {title:'오전 일정', start:'2026-11-09T10:00:00+09:00', end:'2026-11-09T11:30:00+09:00'},
+    {title:'밤샘', start:'2026-11-09T22:00:00+09:00', end:'2026-11-10T02:00:00+09:00'},
+    {title:'여러 날', allDay:true, start:'2026-11-06', end:'2026-11-11'},
+    {title:'지난주', allDay:true, start:'2026-11-02', end:'2026-11-03'},
+    {title:'다음 주', start:'2026-11-16T09:00:00+09:00', end:'2026-11-16T10:00:00+09:00'},
+    {title:'취소', status:'cancelled', start:'2026-11-09T09:00:00+09:00'},
+    {title:'방향\u202e바꿈\n줄', start:'2026-11-10T09:00:00+09:00'},
+    {title:'', start:'2026-11-10T09:00:00+09:00'},
+  ];
+  assert.deepEqual(sendEvents(events, '2026-11-09'), [
+    {day:'2026-11-09', start:'10:00', end:'11:30', title:'오전 일정'},
+    {day:'2026-11-09', start:'22:00', end:'23:59', title:'밤샘'},
+    {day:'2026-11-09', start:'', end:'', title:'여러 날'},
+    {day:'2026-11-10', start:'09:00', end:'', title:'방향 바꿈 줄'},
+  ]);
+  assert.equal(sendEvents(Array(50).fill(events[0]), '2026-11-09').length, 40);
+  assert.equal(sendTitle('가'.repeat(130)).length, 120);
+  const tasks = [{title:'보도자료', status:'completed', completed:'2026-11-09T01:00:00Z'}, {title:'어제 것', status:'completed', completed:'2026-11-08T14:00:00Z'},
+    {title:'아직', status:'needsAction'}, {title:'밤 늦게', status:'completed', completed:'2026-11-09T14:59:00Z'}];
+  assert.deepEqual(sendDone(tasks, '2026-11-09'), ['보도자료', '밤 늦게']);
+});
+
+test('받은 줄: 쓴 제안은 빼고, 모양이 틀린 칸은 빈 값, 한도 알림 문구', async () => {
+  const {openSuggests, picksState, limitNote} = await import('../app/home-day-picks-model.mjs');
+  const items = [{id:'s1', text:'오늘 회의', basis:'회의'}, {id:'s2', text:'오늘 통화', basis:'통화'}];
+  assert.deepEqual(openSuggests(items, ['s1']).map(x => x.id), ['s2']);
+  assert.deepEqual(openSuggests(items, null).map(x => x.id), ['s1', 's2']);
+  assert.deepEqual(picksState({reads:'x', reads_at:'bad', suggests:items, suggests_done:['s2']}),
+    {reads:{items:[], picked_at:null}, suggests:{items, done:['s2']}});
+  assert.equal(limitNote('monthly_limit'), '이번 달 AI 한도에 닿았어요.');
+  assert.equal(limitNote('daily_limit'), '오늘 AI 횟수를 다 썼어요.');
+  assert.equal(limitNote('ai_busy'), '');
+});
+
+test('부탁은 같은 날·같은 때 10분 안 한 번, 받은 결과·한도·실패를 나눔, 쓴 제안 표시는 s1~s9만', async () => {
+  const {askDayPicks, forgetAsked, markSuggestDone} = await import('../app/home-day-picks-data.js');
+  const rt = {context:{read:() => ({user:{id:'u'}, workspace:{id:'w'}})}, calls:[], api:async (path, opt) => { rt.calls.push([path, opt]); return opt ? null : [{suggests_done:['s1']}]; }};
+  forgetAsked();
+  const sent = [];
+  const call = async body => { sent.push(body); return {ok:true, data:{ok:true, kind:'home_day_picks', picks:{reads:[], suggests:[{id:'s1', text:'a', basis:'b'}], suggests_done:[]}}}; };
+  const first = await askDayPicks({day:'2026-11-09', slot:'am', events:[], done:['x']}, rt, {now:0, call});
+  assert.deepEqual(sent, [{kind:'home_day_picks', day:'2026-11-09', events:[], done:['x']}]);
+  assert.equal(first.state.suggests.items.length, 1);
+  assert.deepEqual(await askDayPicks({day:'2026-11-09', slot:'am', events:[], done:[]}, rt, {now:60000, call}), {skipped:true});
+  assert.equal(sent.length, 1);
+  assert.deepEqual(await askDayPicks({day:'2026-11-09', slot:'pm', events:[], done:[]}, rt, {now:60000, call:async () => ({ok:false, code:'monthly_limit'})}), {limit:'monthly_limit'});
+  assert.equal(await askDayPicks({day:'2026-11-10', slot:'am', events:[], done:[]}, rt, {now:0, call:async () => ({ok:false, code:'ai_busy'})}), null);
+  assert.equal(await markSuggestDone('2026-11-09', 'x9', rt), false);
+  assert.equal(await markSuggestDone('2026-11-09', 's2', rt), true);
+  const patch = rt.calls.find(([, opt]) => opt?.method === 'PATCH');
+  assert.match(patch[0], /^\/rest\/v1\/app_home_day_picks\?workspace_id=eq\.w&day=eq\.2026-11-09$/);
+  assert.deepEqual(patch[1].body, {suggests_done:['s1', 's2']});
+});
+
+test('화면 연결 PR-C: 오늘만 서버에 부탁, [일기 쓰기]는 첫 줄 채운 일기 쓰기 창, 저장 뒤 제안 지움', () => {
+  const journal = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8');
+  const diary = readFileSync(new URL('../app/diary.js', import.meta.url), 'utf8');
+  const fill = readFileSync(new URL('../app/home-day-fill.js', import.meta.url), 'utf8');
+  assert.match(journal, /selected !== today \|\| mode === 'week' \|\| !onHomeView\(\)\) return;/);
+  assert.match(journal, /requestDiaryWrite\(day, text, \(\) => \{/);
+  assert.match(journal, /markSuggestDone\(day, id, rt\)/);
+  assert.match(diary, /takeRequestedWrite\(day, rt\)/);
+  assert.match(diary, /edit\.pendingMerge = joinDiaryDocs\(edit\.startDoc, plainToDocKeep/);
+  assert.match(diary, /if \(session\.onSaved && text\.trim\(\)\)/);
+  assert.match(fill, /openSuggests\(suggests\?\.items, suggests\?\.done\)/);
+  assert.match(fill, /data-journal-fill-limit/);
+});

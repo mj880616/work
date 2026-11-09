@@ -120,7 +120,8 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const outsideHead=()=>document.querySelector(`#documentList [data-lu-node-menu="${OUTSIDE_KEY}"]`);
   const frameFromKey=key=>key==='p:none'||key===OUTSIDE_KEY?null:key.slice(2);
   const sep='<hr class="lu-menu-sep" role="separator">';
-  const menu=createAnchoredMenu({id:'luFolderMenu',className:'lu-folder-menu',label:'폴더 관리',historyKey:'kptuLibraryFolderMenu',key:t=>t.dataset.luNodeMenu,
+  // S55-08 LIB-우클릭메뉴 ②: 왼쪽 나무 폴더 줄(data-lu-nav=폴더 id)도 같은 폴더 메뉴의 주인이 될 수 있다(우클릭 = 오른쪽 폴더 줄 ⋯와 같은 메뉴·같은 실행).
+  const menu=createAnchoredMenu({id:'luFolderMenu',className:'lu-folder-menu',label:'폴더 관리',historyKey:'kptuLibraryFolderMenu',key:t=>t.dataset.luNodeMenu||(t.dataset.luNav?'f:'+t.dataset.luNav:''),
     render:key=>{
       // FOLDER-순서·색 ③: [색 고르기…]를 누르면 같은 자리에 동그라미 8개 + [기본]을 다시 연다(고르면 바로 저장).
       if(colorFor===key&&key.startsWith('f:')){const f0=folder(key.slice(2));return f0?colorChoiceHtml(colorOf(f0)):''}
@@ -146,7 +147,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(action==='create-top')askName({title:'폴더 만들기',hint:'폴더 밖(맨 위)에 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(null,null,name)});
     else if(action==='create')askName({title:'안에 폴더 만들기',hint:pathName(id)+' 안에 만들어요.',trigger,then:name=>createFolder(f.project_id||null,id,name)});
     else if(action==='enter')enter?.(id);
-    else if(action==='rename')startRename(id);
+    else if(action==='rename')startRename(id,trigger);
     else if(action==='toggle')toggleNode('f:'+id);
     else if(action==='up'||action==='down')void reorderFolder(id,action).then(()=>focusHead('f:'+id));
     else if(action==='move')askTarget({title:'폴더 옮기기',hint:s().free?`${f.name}을(를) 옮길 곳을 선택하세요.`:`${f.name}을(를) 옮길 곳을 선택하세요. 같은 사업영역 안에서만 옮길 수 있어요.`,trigger,targets:folderMoveTargets(s().folders,id,!!s().free).map(t=>t===null?{value:'__top__',label:s().free?'맨 위(폴더 밖)':frameName(f.project_id||null)+' 바로 아래',depth:0}:{value:t,label:pathName(t),depth:folderDepth(s().folders,t)}),then:parent=>moveFolder(id,parent)});
@@ -156,18 +157,22 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const headOf=key=>[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode===key);
   // 줄 안 이름 바꾸기(폴더): 창 없이 그 줄 이름이 입력칸이 된다. Enter·바깥 누르기=저장, Esc=취소. 저장은 폴더 이름뿐(자료·Drive는 그대로).
   let renaming=null;
-  function startRename(id){
+  const navBtnOf=id=>[...document.querySelectorAll('#libraryFolderNav [data-lu-nav]')].find(b=>b.dataset.luNav===id)||null;
+  // trigger가 왼쪽 나무 줄이면(나무 줄 우클릭 → [이름 바꾸기]) 그 나무 줄이 입력칸이 된다. 오른쪽 목록에 그 폴더 줄이 없을 때도 나무 줄로.
+  function startRename(id,trigger=null){
     const f=folder(id);if(!f||busy)return;
     if(renaming){if(renaming.id===id){renaming.input.focus();return}renaming.finish(true)}
-    const head=headOf('f:'+id),nameEl=head?.querySelector('.lu-node-name');if(!head||!nameEl)return;
+    let head=trigger?.closest?.('#libraryFolderNav')?null:headOf('f:'+id),nameEl=head?.querySelector('.lu-node-name');
+    if(!head||!nameEl){const b=navBtnOf(id);if(!b)return;head=b.closest('.ft-row')||b.parentElement;nameEl=b}
+    const inNav=!head.matches('summary');
     const input=document.createElement('input'),wasDraggable=head.getAttribute('draggable');
-    input.type='text';input.className='lu-folder-rename';input.value=f.name;input.maxLength=40;input.autocomplete='off';input.setAttribute('aria-label','폴더 이름');
+    input.type='text';input.className=inNav?'lu-folder-rename lu-fnav-rename':'lu-folder-rename';input.value=f.name;input.maxLength=40;input.autocomplete='off';input.setAttribute('aria-label','폴더 이름');
     let done=false;
     const state={id,input,finish(save,refocus=false){
       if(done)return;done=true;if(renaming===state)renaming=null;
       const raw=input.value;
       if(input.isConnected)input.replaceWith(nameEl);head.classList.remove('lu-renaming');if(wasDraggable!==null&&head.isConnected)head.setAttribute('draggable',wasDraggable);
-      if(refocus&&head.isConnected)head.focus({preventScroll:true});
+      if(refocus)(inNav?nameEl:head).focus?.({preventScroll:true});
       if(!save||raw===f.name)return;
       const clean=cleanFolderName(raw);
       if(!clean){status('폴더 이름은 1~40자로 써 주세요.',true);return}
@@ -187,7 +192,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     head.classList.add('lu-renaming');head.removeAttribute('draggable');nameEl.replaceWith(input);renaming=state;
     input.focus({preventScroll:true});input.select();
   }
-  function focusSummary(key){headOf(key)?.focus({preventScroll:true})}
+  function focusSummary(key){(headOf(key)||(key.startsWith('f:')?navBtnOf(key.slice(2)):null))?.focus({preventScroll:true})}
   function focusHead(key){const b=[...document.querySelectorAll('#documentList [data-lu-node-menu]')].find(x=>x.dataset.luNodeMenu===key);b?.focus({preventScroll:true})}
 
   // ---- 자료 → 폴더 옮기기 (LIB-폴더로옮기기, 2026-10-27) ----
@@ -257,7 +262,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(nav){
       const head=nav.closest('.ft-row')||nav,id=nav.dataset.luNav||'';
       if(!s().free)return null;
-      if(!id){
+      if(!id||id===OUTSIDE_KEY){
         if(drag.kind==='file')return {head,nav:true,ok:drag.docs.some(d=>docFolder(d)),kind:'top'};
         return {head,nav:true,ok:!!folder(drag.id)?.parent_id,kind:'top'};
       }
@@ -536,7 +541,9 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const IGNORE='.lu-row,summary.lu-node-head,input,textarea,select,button,a[href],[contenteditable],.lu-off-hint,.lu-more-files,.lu-more-row,.lu-undo';
   function blankTrigger(target,list){
     for(let el=target.closest('.lu-node');el;el=el.parentElement?.closest('.lu-node')){const b=el.querySelector(':scope > summary [data-lu-node-menu]');if(b)return b}
-    return list.querySelector(`[data-lu-node-menu="${s().free?OUTSIDE_KEY:'p:none'}"]`)||(s().free?list.querySelector('summary[data-lu-top] [data-lu-node-menu^="f:"]'):null);
+    // S55-08 LIB-우클릭메뉴 ①: 폴더 보기에서 어느 토글도 아닌 빈 자리는 자료실 빈 자리 메뉴([새 폴더][자료 등록], library-upload.js)가 맡는다.
+    if(s().free)return null;
+    return list.querySelector('[data-lu-node-menu="p:none"]');
   }
   function bindKeys(list){
     list.addEventListener('keydown',e=>{
@@ -559,5 +566,5 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 ⋯의 [새 폴더]. 폴더 묶기에서만 — 들어간 폴더가 있으면 그 안, 없으면 맨 위(폴더 밖 자리).
   const createIn=(parentId,trigger)=>{const p=parentId?folder(parentId):null;if(parentId&&!p)return;if(p&&!canAddChild(s().folders,p.id)){status('여기에는 폴더를 더 만들 수 없어요.',true);return}
     askName({title:p?'안에 폴더 만들기':'폴더 만들기',hint:p?pathName(p.id)+' 안에 만들어요.':'폴더 밖(맨 위)에 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(p?.project_id||null,p?.id||null,name)})};
-  return {createIn,moveDocsTo:(ids,folderId)=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
+  return {openAt:(trigger,x,y)=>menu.open(trigger,{at:{x,y}}),createIn,moveDocsTo:(ids,folderId)=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
 }
