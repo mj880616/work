@@ -138,7 +138,7 @@ test('412: [이번 주 ▾] — 전체 기간·기간 정하기·주 넘기면 �
   const state = makeState();
   await open(page, state, 412);
   const period = page.locator('#reportPeriodPick [data-report-period]'), label = page.locator('#reportWeekFilter .report-week-nav');
-  await expect(period.locator('option:not([hidden])')).toHaveText(['이번 주', '전체 기간', '기간 정하기']);
+  await expect(period.locator('option:not([hidden])')).toHaveText(['이번 주', '주차 선택', '전체 기간', '기간 정하기']);
   await page.locator('#reportWeekFilter [data-report-week="prev"]').click();
   await expect(period).toHaveValue('');
   await expect(period).toHaveClass(/is-on/);

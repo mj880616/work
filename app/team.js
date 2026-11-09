@@ -7,7 +7,7 @@ import {appMenuPoint} from './row-menu.js'; // S51-27 UI-PC우클릭: 기본 메
 import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {paintUploadLine,paintUploadOverlay,watchUploads} from './upload-progress.js'; // UI-올리기진행표시 ②
 import {viewPrefs} from './view-prefs.js';
-import {PERIOD_CHOICES,periodFromPref,prefFromPeriod,inRange,rangeLabel,quickRanges,validRange} from './report-period-model.mjs'; // REPORT-기간고르기 // ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기 선택은 서버(report_view)에 기억
+import {PERIOD_CHOICES,periodFromPref,prefFromPeriod,inRange,rangeLabel,quickRanges,validRange} from './report-period-model.mjs';import {rangePanelHtml,weekNumberPanelHtml,isoYearChanged,weekNumberName} from './report-period-panel.mjs';import {isoWeekOf,isoWeekStart} from './business-area-model.mjs'; // REPORT-기간고르기 // ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기 선택은 서버(report_view)에 기억
 import {ALL_KINDS,DEFAULT_KIND,REPORT_KINDS,ONELINE_KIND,isReportKind,isReportChip,reportKindOf,reportKindLabel,reportKindChips,filterByReportKind} from './report-kinds.mjs';
 import {missingOrganizationLabel} from './project-trash-model.mjs'; // TRASH-화면2: 휴지통에 든 조직을 가리키는 연결의 빈 이름
 import {readMeetings,readDocuments} from './report-list-read.js'; // APP-낭비줄이기 ①: 목록은 쓰는 열만
@@ -95,7 +95,7 @@ function enhanceDom(){
 }
 async function logout(){try{if(session)await api('/auth/v1/logout',{method:'POST'})}catch{}saveSession(null);if(!window.KPTUAuthGate)location.replace('./login/')}
 window.KPTUTeamAuth={logout};
-function resetPrivateState(){reportChip=DEFAULT_KIND;areaChip='all';reportWeek=null;reportWeekIn='';reportPeriod='week';reportRange=null;reportPeriodChosen=false;periodPanel=false;periodDraft=null;areaTree=null;reportPlaceReady=false;meetingSelectedKind=null;meetingSelectedId=null;session=null;user=null;membership=null;workspace=null;members=[];profiles=[];spaces=[];events=[];meetings=[];documents=[];reportTargetMap=new Map();orgNames=new Map();meetingEntryTargets=[];googleState={connected:null,enabled:false,selected:[],calendars:[],events:[],email:null};teamViewFlights.clear();teamViewLoaded.clear();window.__KPTU_BOOT_CONTEXT__=null;window.KPTURuntime?.context?.clear?.()}
+function resetPrivateState(){reportChip=DEFAULT_KIND;areaChip='all';reportWeek=null;reportWeekIn='';reportPeriod='week';reportRange=null;reportPeriodChosen=false;periodPanel='';periodDraft=null;isoDraft=null;weekNumbered=false;areaTree=null;reportPlaceReady=false;meetingSelectedKind=null;meetingSelectedId=null;session=null;user=null;membership=null;workspace=null;members=[];profiles=[];spaces=[];events=[];meetings=[];documents=[];reportTargetMap=new Map();orgNames=new Map();meetingEntryTargets=[];googleState={connected:null,enabled:false,selected:[],calendars:[],events:[],email:null};teamViewFlights.clear();teamViewLoaded.clear();window.__KPTU_BOOT_CONTEXT__=null;window.KPTURuntime?.context?.clear?.()}
 window.__KPTU_RESET_PRIVATE_STATE__=resetPrivateState;
 window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(next&&next===user?.id)return;resetPrivateState();window.KPTUAuthGate?.lock?.()});
 async function loadWorkspaceState(){user=userFromSession()||await getUser();const prefetched=window.__KPTU_BOOT_MEMBERSHIP_PROMISE__?await window.__KPTU_BOOT_MEMBERSHIP_PROMISE__:null;const ms=prefetched?.ok?prefetched.rows:await api('/rest/v1/app_workspace_members?user_id=eq.'+encodeURIComponent(user.id)+'&select=workspace_id,role,workspace:app_workspaces(id,slug,name)&limit=1');if(!ms?.length){showOnly('accessDeniedView');void import('./workspace-start.js').then(m=>m.offerWorkspaceStart({rpc}),err=>console.warn('workspace start load failed',err?.name||'Error'));return}const row=ms[0];membership={workspace_id:row.workspace_id,role:row.role};workspace=Array.isArray(row.workspace)?row.workspace[0]:row.workspace;if(!workspace){const ws=await api('/rest/v1/app_workspaces?id=eq.'+membership.workspace_id+'&select=id,slug,name&limit=1');workspace=ws[0]}if(!workspace)throw new Error('웹2를 확인할 수 없습니다.');window.__KPTU_BOOT_CONTEXT__={user,membership,workspace};window.KPTURuntime?.context?.set?.(window.__KPTU_BOOT_CONTEXT__);window.__KPTU_STARTUP__?.mark('workspaceReady');showOnly('appView');if($('#workspaceName'))$('#workspaceName').textContent='웹2';const admin=['owner','admin'].includes(membership.role);$$('.admin-only').forEach(x=>x.classList.toggle('hidden',!admin));window.__KPTU_START_TEAM_DATA__=()=>window.__KPTU_TEAM_DATA_READY__||(window.__KPTU_TEAM_DATA_READY__=loadAll().then(()=>{renderAll();window.__KPTU_STARTUP__?.mark('teamDataReady');if(new URLSearchParams(location.search).get('google')==='connected'){history.replaceState({},'',location.pathname);return loadGoogleStatus(false)}}))}
@@ -253,7 +253,8 @@ function selectAreaChip(value){if(value===areaChip)return;if(!leaveReport(()=>{a
 // REPORT-기간고르기(S49-11) → S52-22 TEAM-맨위한줄(11/07): 기간은 한 줄 '‹ 11.2(월)~11.8(일) · n건 ›' + 오른쪽 작은 고르기 상자 [이번 주 ▾](이번 주 · 전체 기간 · 기간 정하기).
 // 전체 기간은 '전체 · n건', 기간 정하기는 달력에서 시작·끝 날을 골라 '10.1~11.3 · n건 ×'. 다른 주로 넘기면 상자는 '주 단위'(그때 '이번 주'를 고르면 이번 주로), 정한 기간이면 '정한 기간'. '이번 주'를 고르면 어디서든 이번 주로 간다(BIZ-주간표이번주).
 // 고른 보기·기간은 서버(view-prefs report_period)에 기억하고, 어느 주인지는 기억하지 않는다.
-let reportWeek=null,reportWeekIn='',reportPeriod='week',reportRange=null,reportPeriodChosen=false,periodPanel=false,periodDraft=null;
+// BIZ-기간정하기·BIZ-주차고르기(11/09): periodPanel = 열린 작은 창(''·'range' 기간 정하기·'isoweek' 주차 고르기). weekNumbered = 주차 고르기로 고른 주라 'n주차'를 붙여 보임(‹ ›로 넘겨도 번호가 따라감).
+let reportWeek=null,reportWeekIn='',reportPeriod='week',reportRange=null,reportPeriodChosen=false,periodPanel='',periodDraft=null,isoDraft=null,weekNumbered=false;
 const weekOn=()=>reportView==='list'&&reportPeriod==='week';
 const rangeOn=()=>reportView==='list'&&reportPeriod==='range'&&!!reportRange;
 const todayWeek=()=>weekOf(seoulDateKey()).from;
@@ -261,36 +262,49 @@ function currentWeek(){return shownReportWeek(reportWeek,reportWeekIn,seoulDateK
 function pickWeek(from){reportWeek=from||null;reportWeekIn=todayWeek()}
 function weekMatch(list){return weekOn()?inReportWeek(list,currentWeek()):rangeOn()?inRange(list,reportRange.from,reportRange.to):list}
 function applyPeriodPref(){if(reportPeriodChosen)return;const p=periodFromPref(viewPrefs.get('report_period'));reportPeriod=p.mode;if(p.mode==='range')reportRange={from:p.from,to:p.to}}
-function setPeriod(mode,range=null){reportPeriodChosen=true;reportPeriod=mode;if(range)reportRange=range;periodPanel=false;periodDraft=null;meetingSelectedId=null;viewPrefs.set('report_period',prefFromPeriod({mode,...(mode==='range'?reportRange:{})}),{rejectable:true});renderMeetings({resetList:true})}
+function setPeriod(mode,range=null){reportPeriodChosen=true;reportPeriod=mode;if(range)reportRange=range;periodPanel='';periodDraft=null;isoDraft=null;meetingSelectedId=null;viewPrefs.set('report_period',prefFromPeriod({mode,...(mode==='range'?reportRange:{})}),{rejectable:true});renderMeetings({resetList:true})}
 function renderReportWeek(){const host=$('#reportWeekFilter'),bar=host?.parentElement,pickHost=$('#reportPeriodPick');if(!host)return;const show=reportView==='list'&&meetings.length>0;if(bar)bar.hidden=!show;if(pickHost)pickHost.hidden=!show;if(!show){host.innerHTML='';if(pickHost)pickHost.innerHTML='';return}
   const mode=rangeOn()||reportPeriod!=='range'?reportPeriod:'all',list=filterByReportKind(meetings,reportChip),inList=mode==='week'?inReportWeek(list,currentWeek()):mode==='range'?inRange(list,reportRange.from,reportRange.to):list,none=undatedCount(inList),n=inList.length-none,count=`<small class="report-week-count">· ${n}건${none?` · ${NO_WHEN} ${none}`:''}</small>`;
-  const thisWeek=weekOf(seoulDateKey()).from,away=mode==='week'&&currentWeek()!==thisWeek,held=mode==='range'&&!periodPanel,value=periodPanel?'range':away||held?'':mode;
+  const thisWeek=weekOf(seoulDateKey()).from,numbered=mode==='week'&&weekNumbered,away=mode==='week'&&(currentWeek()!==thisWeek||numbered),held=mode==='range'&&!periodPanel,value=periodPanel||(away||held?'':mode);
   // BIZ-위쪽정돈(B안, 11/09): 기간 고르기 상자는 둘째 줄(회의·사업영역 옆), 주 넘기기 ‹ ›는 셋째 줄. 주를 고르는 곳은 이 한 곳이고 '이번 주 주간보고' 칸도 이 주를 따른다.
-  const pick=`<select class="report-top-select report-period-select" data-report-period aria-label="기간 선택"><option value="" hidden>${held?'정한 기간':'주 단위'}</option>${PERIOD_CHOICES.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>`;
+  const pick=`<select class="report-top-select report-period-select" data-report-period aria-label="기간 선택"><option value="" hidden>${held?'정한 기간':numbered?weekNumberName(currentWeek()):'주 단위'}</option>${PERIOD_CHOICES.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>`;
   let nav='';
-  if(mode==='week')nav=`<button type="button" class="icon-btn" data-report-week="prev" aria-label="이전 주">‹</button><span class="report-week-label" aria-live="polite">${esc(reportWeekLabel(currentWeek()))}</span><button type="button" class="icon-btn" data-report-week="next" aria-label="다음 주">›</button>${count}`;
+  if(mode==='week')nav=`<button type="button" class="icon-btn" data-report-week="prev" aria-label="이전 주">‹</button><span class="report-week-label" aria-live="polite">${numbered?`${weekNumberName(currentWeek())} · `:''}${esc(reportWeekLabel(currentWeek()))}</span><button type="button" class="icon-btn" data-report-week="next" aria-label="다음 주">›</button>${count}`;
   else if(mode==='all')nav=`<span class="report-week-label" aria-live="polite">전체</span>${count}`;
   else nav=`<span class="report-week-label" aria-live="polite">${esc(rangeLabel(reportRange.from,reportRange.to))}</span><button type="button" class="icon-btn report-period-x" data-report-week="clear" aria-label="기간 삭제">×</button>${count}`;
   let panel='';
-  if(periodPanel){const d=periodDraft||(periodDraft=reportRange?{...reportRange}:{from:'',to:''});panel=`<div class="report-period-panel" data-report-period-panel role="group" aria-label="기간 설정"><label>시작 <input type="date" data-report-from value="${esc(d.from)}"></label><label>끝 <input type="date" data-report-to value="${esc(d.to)}"></label><span class="report-period-quick">${quickRanges(seoulDateKey()).map(q=>`<button type="button" class="mini secondary" data-report-quick="${q.key}">${q.label}</button>`).join('')}</span><button type="button" class="mini primary" data-report-week="apply">적용</button><button type="button" class="mini secondary" data-report-week="cancel">닫기</button></div>`}
-  host.innerHTML=`<div class="report-week-nav">${nav}</div>${panel}`;
+  if(periodPanel==='range')panel=rangePanelHtml(periodDraft||(periodDraft=reportRange?{...reportRange,key:''}:{from:'',to:'',key:''}),quickRanges(seoulDateKey(),meetings));
+  else if(periodPanel==='isoweek')panel=weekNumberPanelHtml(isoDraft||(isoDraft=isoPick(weekOn()?currentWeek():thisWeek)),seoulDateKey(),firstReportDay());
+  // 작은 창은 기간 고르기 상자(둘째 줄) 바로 아래, 주 줄 위.
+  host.innerHTML=`${panel}<div class="report-week-nav">${nav}</div>`;
   if(pickHost){pickHost.innerHTML=pick;const sel=pickHost.querySelector('[data-report-period]');sel.value=value;sel.classList.toggle('is-on',mode!=='week'||away)}
 }
+const isoPick=from=>{const w=isoWeekOf(from);return {year:w.year,week:w.week}};
+function firstReportDay(){let first='';for(const m of meetings){const d=reportDayOf(m);if(d&&(!first||d<first))first=d}return first}
 function reportWeekClick(e){
+  // 기간 칩은 아래 날짜 칸만 채운다(BIZ-기간정하기). [적용]을 눌러야 정한다.
   const q=e.target.closest('[data-report-quick]');
-  if(q){const r=quickRanges(seoulDateKey()).find(x=>x.key===q.dataset.reportQuick);if(r&&!leaveReport(()=>setPeriod('range',{from:r.from,to:r.to})))renderReportWeek();return}
+  if(q){const r=quickRanges(seoulDateKey(),meetings).find(x=>x.key===q.dataset.reportQuick);if(r){periodDraft={from:r.from,to:r.to,key:r.key};renderReportWeek();$('#reportWeekFilter')?.querySelector(`[data-report-quick="${r.key}"]`)?.focus({preventScroll:true})}return}
   const b=e.target.closest('[data-report-week]');if(!b||b.disabled)return;const to=b.dataset.reportWeek;
-  if(to==='cancel'){periodPanel=false;periodDraft=null;renderReportWeek();return}
-  if(to==='apply'){const host=$('#reportWeekFilter'),from=host.querySelector('[data-report-from]')?.value||'',end=host.querySelector('[data-report-to]')?.value||'';if(!validRange(from,end)){toast('시작 날짜와 끝 날짜를 확인해 주세요. 시작이 끝보다 늦을 수 없어요.');return}if(!leaveReport(()=>setPeriod('range',{from,to:end})))renderReportWeek();return}
+  if(to==='cancel'){periodPanel='';periodDraft=null;isoDraft=null;renderReportWeek();return}
+  if(to==='apply'){const host=$('#reportWeekFilter'),from=host.querySelector('[data-report-from]')?.value||'',end=host.querySelector('[data-report-to]')?.value||'';if(!validRange(from,end)){toast('시작 날짜와 끝 날짜를 확인해 주세요. 시작이 끝보다 늦을 수 없어요.');return}
+    // [전체] 칩 그대로면 '전체 기간'으로.
+    const all=periodDraft?.key==='all'&&periodDraft.from===from&&periodDraft.to===end;
+    if(!leaveReport(()=>{weekNumbered=false;if(all)setPeriod('all');else setPeriod('range',{from,to:end})}))renderReportWeek();return}
+  if(to==='iso-apply'){const d=isoDraft;if(!d)return;if(!leaveReport(()=>{weekNumbered=true;pickWeek(isoWeekStart(d.year,d.week));setPeriod('week')}))renderReportWeek();return}
   if(!leaveReport(()=>{
-    if(to==='all')setPeriod('all');
-    else if(to==='week'||to==='clear')setPeriod('week');
+    if(to==='all'){weekNumbered=false;setPeriod('all')}
+    else if(to==='week'||to==='clear'){weekNumbered=false;setPeriod('week')}
     else{pickWeek(shiftDays(currentWeek(),to==='next'?7:-7));meetingSelectedId=null;renderMeetings({resetList:true})}
   }))renderReportWeek()}
 function reportPeriodPick(e){const sel=e.target.closest?.('[data-report-period]');if(!sel)return;const to=sel.value;
-  if(to==='range'){periodPanel=true;periodDraft=null;renderReportWeek();return}
-  if(!leaveReport(()=>{if(to==='all')setPeriod('all');else if(to==='week'){pickWeek(null);setPeriod('week')}}))renderReportWeek()}
-function reportPeriodInput(e){if(!periodDraft)return;if(e.target.matches('[data-report-from]'))periodDraft.from=e.target.value;else if(e.target.matches('[data-report-to]'))periodDraft.to=e.target.value}
+  if(to==='range'||to==='isoweek'){periodPanel=to;periodDraft=null;isoDraft=null;renderReportWeek();return}
+  if(!leaveReport(()=>{weekNumbered=false;if(to==='all')setPeriod('all');else if(to==='week'){pickWeek(null);setPeriod('week')}}))renderReportWeek()}
+function reportPeriodInput(e){
+  const t=e.target;
+  if(t.matches?.('[data-report-iso-year]')&&isoDraft){const year=Number(t.value);isoDraft={year,week:isoYearChanged(year,isoDraft.week,seoulDateKey())};renderReportWeek();$('#reportWeekFilter [data-report-iso-year]')?.focus({preventScroll:true});return}
+  if(t.matches?.('[data-report-iso-week]')&&isoDraft){isoDraft.week=Number(t.value);return}
+  if(!periodDraft)return;if(t.matches('[data-report-from]'))periodDraft={...periodDraft,from:t.value,key:''};else if(t.matches('[data-report-to]'))periodDraft={...periodDraft,to:t.value,key:''}}
 // 다른 곳에서 고른 보고가 지금 주에 없으면 그 보고의 주로 옮긴다.
 function weekFor(m){const day=reportDayOf(m);if(rangeOn()&&day&&(day<reportRange.from||day>reportRange.to)){reportPeriod='all';return true}if(!weekOn()||!day)return false;const from=weekOf(day).from;if(from===currentWeek())return false;pickWeek(from);return true}
 // 새로 저장한(고친) 보고는 그 보고의 주로 옮겨 바로 보이게 한다. meetingAt은 쓰기 창의 서울 날짜·시각 'YYYY-MM-DDTHH:MM'.
