@@ -36,11 +36,21 @@ function kept(key, read) {
   monthKeep.set(key, {at:Date.now(), flight});
   return flight;
 }
+// 연결 상태는 앱 시작 때 미리 받기(od-warm.js)가 물은 것만 쓴다(홈이 따로 묻지 않음). 미리 받기가 끝나기 전에는 원드라이브 없이 그리고,
+// 끝나면('kptu-od-warm') 다시 읽는다. 받아 둔 상태가 없으면(연결 안 됨·30분 지남) 30분에 한 번만 서버에 묻는다.
+const OD_ASK_MS = 30 * 60 * 1000;
+let odAskedAt = 0;
 async function odMonth(k, rt, year, month) {
-  if (!k.sources.readDeviceSources().onedrive) return null;
-  const status = await k.od.odStatusCached(rt);
-  if (!status?.connected || !status?.folder) return null;
-  return kept(`od:${k.diary.ownerScope(rt)}:${year}-${month}`, async () => (k.od.odTakeWarmMonth(rt, year, month)) || k.od.odPhotos(rt, year, month));
+  const warm = globalThis.window?.KPTUOdWarm;
+  if (!k.sources.readDeviceSources().onedrive || !warm?.firstDone) return null;
+  let status = k.od.odStatusIfWarm(rt);
+  if (!status) {
+    if (Date.now() - Math.max(odAskedAt, warm.firstAt || 0) < OD_ASK_MS) return null;
+    odAskedAt = Date.now(); status = k.od.odStatusCached(rt);
+  }
+  const st = await status;
+  if (!st?.connected || !st?.folder) return null;
+  return kept(`od:${k.diary.ownerScope(rt)}:${year}-${month}`, () => k.od.odPhotos(rt, year, month));
 }
 // → {items, starred:Set<'source:key'>}. 한 출처를 못 읽어도 나머지는 보인다.
 export async function readDayPhotos(day, rt) {
@@ -77,16 +87,21 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (read?.state !== 'ok') return [];
     return rankDayPhotos(read.items, {starred:item => read.starred.has(`${item.source}:${item.key}`), windows:eventWindows(events)});
   }
-  function ensurePhotos(day) {
+  const busy = new Map(); // 읽는 중인 날 → 읽는 동안 다시 읽어야 할 일이 생겼는지
+  function ensurePhotos(day, {force = false} = {}) {
     const key = `${owner()}:${day}`, read = photoReads.get(key);
-    if (read && (read.state === 'loading' || Date.now() - read.at < PHOTO_FRESH_MS)) return;
-    const next = {state:'loading', items:read?.items || [], starred:read?.starred || new Set(), at:Date.now()};
-    photoReads.set(key, read?.state === 'ok' ? {...read, at:Date.now()} : next);
+    if (busy.has(key)) { if (force) busy.set(key, true); return; }
+    if (!force && read && Date.now() - read.at < PHOTO_FRESH_MS) return;
+    busy.set(key, false);
     Promise.all([readPhotos(day, rt), kit()]).then(([out, loaded]) => {
       k = loaded;
       photoReads.set(key, {state:'ok', items:out.items, starred:out.starred, at:Date.now()});
-    }, () => { if (!read || read.state !== 'ok') photoReads.set(key, {state:'failed', items:[], starred:new Set(), at:Date.now()}); })
-      .then(() => { if (last && `${owner()}:${last.day}` === key) draw(); });
+    }, () => { if (read?.state !== 'ok') photoReads.set(key, {state:'failed', items:[], starred:new Set(), at:Date.now()}); })
+      .then(() => {
+        const again = busy.get(key); busy.delete(key);
+        if (last && `${owner()}:${last.day}` === key) draw();
+        if (again) ensurePhotos(day, {force:true});
+      });
   }
   function drawPhotos() {
     const {day, today, events} = last, list = k ? rankedFor(day, events) : [];
@@ -149,6 +164,11 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
       const item = cleanSuggests(last.suggests?.items).find(x => x.id === write.dataset.journalSuggestWrite);
       if (item) onWrite(last.day, item.text, item.id);
     }
+  });
+  // 원드라이브 미리 받기가 끝나면 받아 둔 연결 상태로 그날 사진을 다시 읽는다.
+  globalThis.window?.addEventListener?.('kptu-od-warm', () => {
+    for (const read of photoReads.values()) read.at = 0;
+    if (last && !last.hidden) ensurePhotos(last.day, {force:true});
   });
   // 폭이 바뀌면(폴드 펼치기·창 크기) 사진 칸 수만 다시 맞춘다.
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => {
