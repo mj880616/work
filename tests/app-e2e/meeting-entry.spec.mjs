@@ -1075,7 +1075,10 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(team).toContain("uploadFileForMeeting");
   expect(read('app/library-upload.js')).toContain("fd.append('meeting_id',target.id)");
   expect(project).toContain("window.KPTUReportEntry.open({targets:[{kind:'project',id:current.id}]");
-  expect(project).toContain('s.value=project.id');
+  // ORG-자료더하기먹통: 프로젝트 상세 자료 [+]는 다른 화면 버튼을 .click()하지 않고 자료실의 공용 열기 함수를 직접 부른다(사업영역 미리 고르기는 그 함수 안).
+  expect(project).toContain('window.KPTULibrary?.startUploadForProject?.(');
+  expect(project).not.toContain("$('#'+buttonId)?.click()");
+  expect(read('app/library-upload.js')).toContain('s.value=id;s.dispatchEvent(new Event');
   expect(files).toContain('file.size>100*1024*1024');
   expect(css).toContain("meeting-ui.css");
 });
