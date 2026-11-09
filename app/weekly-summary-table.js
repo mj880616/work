@@ -1,4 +1,4 @@
-import {emptyHtml} from './wait-state.js';
+import {emptyHtml,waitHtml} from './wait-state.js';
 // WEEKLY-메뉴짝짓기 P5(요청함 11/04 16:48 결정 B, 설계 docs/design/weekly-menu-pairing.md 3.2): 사업 보고 화면 위 접는 칸 '이번 주 주간보고'(팝업이 아님).
 // (전 report-summary-preview.js — MTG-프로젝트합치기 2단계 [사업요약표 미리보기] 팝업을 이 칸으로 옮김. 팝업·기간 바꾸기·[HWP로 내려받기]는 없앴다.)
 // - BIZ-위쪽정돈(B안, 11/09): 이 칸은 접는 칸이 아니라 늘 펼쳐 둔 칸이고 안쪽 주 고르기는 없다 — 사업 보고 화면 위의 주 고르기(‹ 11.9(월)~11.15(일) ›) 하나를 따른다(team.js가 week를 넘긴다). 한글 파일은 홈 [주간 정리] 한 곳에서만 만든다 → 맨 아래 [주간 정리에서 보기 ›].
@@ -26,13 +26,16 @@ let writing=null,filledWs=''; // filledWs: 처음 한 번 채우기를 끝낸 �
 function createBizSummary({compact=false}={}){
 let box=null,state=null,listening=false;
 const self={};
+// BIZ-주간칸밀림(11/09): 표가 다 그려지기 전에도 표 모양 자리(기다림 회색 줄)를 처음부터 차지해 아래가 밀리지 않게 한다.
+// 줄 수·높이는 보통 표(머리 + 사업 과제 4줄, 한 줄 약 50px)와 같게 — 이 부품이 그리는 곳 하나(자리 → renderPaper가 같은 칸을 표로 바꿈).
+const skeletonHtml=()=>waitHtml({rows:4,h:51})+(compact?'':'<div class="biz-week-skel-more">'+waitHtml({rows:1,h:20})+'</div>');
 const $in=sel=>box?.querySelector(sel);
 
 function ensureBox(el){
   if(box===el)return box;
-  box=el;
-  if(compact)box.innerHTML='<div class="biz-paper biz-week-paper biz-paper-compact" data-bp-paper></div><p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p>';
-  else box.querySelector('[data-bw-body]').innerHTML=`<div class="biz-paper biz-week-paper" data-bp-paper></div>
+  box=el;box.dataset.bpMounted='';
+  if(compact)box.innerHTML='<div class="biz-paper biz-week-paper biz-paper-compact" data-bp-paper>'+skeletonHtml()+'</div><p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p>';
+  else box.querySelector('[data-bw-body]').innerHTML=`<div class="biz-paper biz-week-paper" data-bp-paper>${skeletonHtml()}</div>
 <p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p><div class="biz-week-foot"><button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button></div>`;
   box.addEventListener('click',onClick);
   // 글 칸: 진행 = Ctrl+Enter(맥은 ⌘+Enter), 담당 한 줄 칸 = Enter 저장. Esc = 쓰던 칸만 닫기(저장 안 함).
@@ -117,12 +120,13 @@ async function paint(){
     state.view={placed:{...placed,areas},records,untagged,all,lineOf};
     state.draft=draft;state.editable=editable;state.store=store;state.now=now;state.kit=kit;
     renderPaper();say(note);
-  }catch(err){if(state&&run===state.run)paper.innerHTML=`<p class="journal-muted">${esc(err?.message||'미리보기를 만들지 못했어요.')}</p>`}
+  }catch(err){if(state&&run===state.run){paper.innerHTML=`<p class="journal-muted">${esc(err?.message||'미리보기를 만들지 못했어요.')}</p>`;box.dataset.bpReady=''}}
 }
 function renderPaper(){
   if(!state?.view)return;
   const {placed,records,untagged,all,lineOf}=state.view;
   $in('[data-bp-paper]').innerHTML=paperHtml(placed,records,untagged,all,lineOf);
+  box.dataset.bpReady=''; // 표가 처음 그려짐 — 이제부터 자리 잡기(CSS min-height)를 풀고 표 높이를 따른다
   const field=$in('[data-bp-field]');if(field){field.focus({preventScroll:true});if(field.select&&field.tagName==='INPUT')field.select()}
 }
 
