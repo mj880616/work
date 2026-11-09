@@ -519,7 +519,7 @@ test('서버 배포 전이면 일상어는 준비 중 안내, Claude 덩어리 �
  const db=await mockApp(page,{server:false});
  await signIn(page);
  const browse=page.locator('#ledgerBrowseRoot');
- await browse.getByRole('button',{name:'기록하기',exact:true}).click();
+ await browse.getByRole('button',{name:'+ 기록하기'}).click();
  const fix=page.locator('#ledgerFixRoot');
  await fix.locator('#lfText').fill('나 지부 교섭 날짜 수정됨');
  await fix.getByRole('button',{name:'미리보기'}).click();
