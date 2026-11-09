@@ -2761,7 +2761,7 @@ for(const width of [390,1280])test(`[주간 정리] 4. 조직보고(옛 주): �
  // 가상 노동조합: 넣은 줄 2(제안 줄 l3은 보이지 않음), 날짜 오름차순. 나 지역 모임: 그 주 줄 없음(지난주 줄을 끌어오지 않음).
  await expect(a.locator('.wl-text')).toHaveText(['가상 교섭 상견례','가상 찬반투표 간담회']);
  await expect(b.locator('.wl-text')).toHaveCount(0);
- await expect(orgTable(page).locator('.wl-line.is-sug,[data-wl-take-all],[data-rw-add],[data-wl-src],.row-more')).toHaveCount(0);
+ await expect(orgTable(page).locator('tbody').locator('.wl-line.is-sug,[data-wl-take-all],[data-rw-add],[data-wl-src],.row-more')).toHaveCount(0); // 표 위 [⋯](줄 순서)만 남음
  // 복사: 넣은 줄 그대로.
  await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
@@ -4032,24 +4032,6 @@ test('WEEKLY-투쟁사업장참고: 주별 조직보고 표 쪽도 참고 한 �
  expect(f.db.patches).toEqual([]);expect(f.db.posts).toEqual([]);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
- await openJournal(page,390);await openWeekly(page);await openDraft(page);
- await expect(siteNames(page)).toHaveText(['가상 노동조합']);
- const a=orgRow(page,OA),b=orgRow(page,OB);
- await expect(a.locator('[data-wl-site-ref-line]')).toHaveText('- 투쟁 사업장 보고 참고');
- await expect(a.locator('.wl-line.is-sug,[data-wl-count]')).toHaveCount(0);
- await expect(a.locator('details[data-wl-ref-fold] > summary')).toHaveText('쓴 줄 2개');
- await a.locator('details[data-wl-ref-fold] > summary').click();
- await expect(a.locator('details[data-wl-ref-fold] .wl-text')).toHaveText(['가상 교섭 상견례','가상 찬반투표 간담회']);
- await expect(b.locator('[data-wl-site-ref-line]')).toHaveCount(0);
- // 나 지역 모임은 넣은 줄은 없지만 지난주 제안 줄이 있어 '빈 칸'을 띄우지 않는다(S52-42).
- await expect(b.locator('.wl-line.is-sug')).not.toHaveCount(0);await expect(b.locator('[data-wl-count]')).toHaveCount(0);
- const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
- const {report}=await savedReport(download);
- expect(report.orgs.find(o=>o.org.join(' ')==='가상 노동조합').status).toEqual(['- 투쟁 사업장 보고 참고']);
- // 표의 줄은 지우거나 고치지 않았다.
- expect(f.db.patches).toEqual([]);expect(f.db.posts).toEqual([]);
- expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
-});
 // WEEKLY-손잡이왼쪽(요청함 11/08 00:18 "pc버전 주간 정리 위치 바꾸는 버튼 맨 왼쪽"): 주간 정리의 끌어 옮기는 줄은 모두 ⠿가 줄 맨 왼쪽(표는 첫 칸 앞),
 // ⋯는 줄 맨 오른쪽 — 2. 1) 요약 줄·3. 투쟁 사업장 칸과 같은 자리. 폰·폴드·PC 세 폭 모두. 가짜 이름·일정만.
 for(const width of [390,884,1280])test(`WEEKLY-손잡이왼쪽: 2) 주요 일정·3) 상집 논의 표·요약 줄의 ⠿는 맨 왼쪽, ⋯는 맨 오른쪽 ${width}`,async({page})=>{
@@ -4090,27 +4072,24 @@ for(const width of [390,884,1280])test(`WEEKLY-손잡이왼쪽: 2) 주요 일정
 // 3. 투쟁 사업장 현황과 같은 글자 크기·굵기, 한 줄(넘치면 끝 …, 올리면 전체 이름), '· 빈 칸'·⋯ 는 같은 줄 오른쪽 끝, [조직현황] 글도 3장 줄과 같은 크기.
 // [조직] 칸 폭은 가장 긴 이름 줄에 맞추고(표 폭 45%까지), 머리 칸 경계를 끌어 바꾸면 서버(view_prefs.col_widths.weekly)에 화면 종류별로 남는다. 가짜 이름만.
 const LONG_ORG='나 지역 아주 긴 이름의 가상 산하 조직 모임';
-for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 이름은 3장과 같은 작은 글자 한 줄, 빈 칸·⋯ 같은 줄, 칸 폭 끌기는 서버 저장 ${width}`,async({page})=>{
+for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 이름은 3장과 같은 작은 글자 한 줄, 칸 폭 끌기는 서버 저장 ${width}`,async({page})=>{
  const prefs=await installViewPrefsServer(page);
  const f=await weekLinesFixture(page,{width,hwpx:true,team:{sites:[{org:['가상 노동조합'],status:['- 지난주 현황 줄']}]}});
  for(const o of f.more.orgs)if(o.id===OB)o.name=LONG_ORG;
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  const a=orgRow(page,OA),b=orgRow(page,OB);
- await expect(b.locator('.wl-line.is-sug').first()).toBeVisible(); // 지난주 제안 줄이 있어 '빈 칸' 없음(S52-42) — 이름 줄은 이름·⋯
- await expect(b.locator('[data-wl-count]')).toHaveCount(0);
+ // ORG-기록하나로 O-6: 옛 주 4.도 조직보고 창(읽기 전용) — 이름 줄은 이름만(⋯·'· 빈 칸' 없음), 줄 없는 조직 칸은 '—'.
+ await expect(b.locator('.wl-empty')).toHaveCount(1);
  const siteName=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-name').first();
  const siteLine=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-lines > li').first();
  const look=l=>l.evaluate(e=>{const s=getComputedStyle(e);return {size:s.fontSize,weight:s.fontWeight};});
  // ① 글자 눈금: 조직 이름 = 3장 사업장 이름, 조직현황 글 = 3장 줄.
  expect(await look(b.locator('.wl-org'))).toEqual(await look(siteName));
- expect((await look(b.locator('td.wl-c-rows .wl-text').first())).size).toBe((await look(siteLine)).size);
- // ② 한 줄: 이름·'· 빈 칸'·⋯ 가 같은 줄(위아래 겹침), ⋯ 는 칸 오른쪽 끝, 긴 이름은 끝 …·올리면 전체 이름.
+ expect((await look(a.locator('td.wl-c-rows .wl-text').first())).size).toBe((await look(siteLine)).size);
+ // ② 한 줄: 이름 줄 안 것은 같은 줄(위아래 겹침), 긴 이름은 끝 …·올리면 전체 이름.
  for(const row of [a,b]){
   const parts=await row.locator('.wl-org-line > *').evaluateAll(els=>els.filter(e=>e.getClientRects().length).map(e=>{const r=e.getBoundingClientRect();return {t:r.top,b:r.bottom,l:r.left,r:r.right};}));
   const mid=parts.map(p=>(p.t+p.b)/2);expect(Math.max(...mid)-Math.min(...mid)).toBeLessThan(6);
-  const cell=await row.locator('th.wl-c-org').evaluate(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.right-parseFloat(s.paddingRight);});
-  const more=await row.locator('.wl-org-line > .row-more > summary').boundingBox();
-  expect(Math.abs(cell-(more.x+more.width))).toBeLessThan(4);
  }
  const name=b.locator('.wl-org');
  await expect(name).toHaveAttribute('title',LONG_ORG);
@@ -4158,26 +4137,23 @@ test('WEEKLY-조직이름한줄: 저장된 칸 폭(PC)으로 다시 그리고, 1
 // S52-42 WEEKLY-조직현황폰다시(요청함 11/08 04:05 "주간 정리 산하조직 현황이 계속 이상햐"): 4장 칸이 좁으면(폰, 3장·4장이 나란한 폴드 펼침) 조직마다 쌓고
 // [조직] 이름 줄도 칸 폭 그대로(PC 칸 폭 — 이름에 맞춘 폭·끌어 정한 폭 — 은 머리줄 있는 넓은 PC 표에서만). 이름은 한 줄, 넘칠 때만 끝 …, ⋯ 는 줄 오른쪽 끝.
 // '· 빈 칸'은 정말 빈 조직에만 한 번(아래 '—' 없음). 넣은 줄은 없어도 제안 줄이 있으면 '빈 칸'을 띄우지 않는다. 저장된 폭이 있어도 폰은 화면 폭. 가짜 이름만.
-for(const width of [412,884,1440])test(`WEEKLY-조직현황폰다시: 폰은 조직 이름 줄 = 소식 줄 폭, 소식 있으면 '빈 칸' 없음, 빈 조직은 한 번만 ${width}`,async({page},info)=>{
+for(const width of [412,884,1440])test(`WEEKLY-조직현황폰다시: 폰은 조직 이름 줄 = 소식 줄 폭, 빈 조직은 '—' 한 번 ${width}`,async({page},info)=>{
  await installViewPrefsServer(page,{col_widths:{weekly:{org:180,org_f:290,org_p:290}}});
- const seed=[WL('s1',OA,'2026-10-05','2026-10-06','가상 제안 줄 하나','suggested',{origin:'ai'}),WL('s2',OA,'2026-10-05','2026-10-07','가상 제안 줄 둘','suggested',{origin:'plain',sort_order:1})];
+ // ORG-기록하나로 O-6: 옛 주 4.는 조직보고 창(읽기 전용) — 넣은 줄만 보이고(제안 줄 없음), 줄 없는 조직 칸은 '—' 한 번.
+ const seed=[WL('s1',OA,'2026-10-05','2026-10-06','가상 넣은 줄 하나'),WL('s2',OA,'2026-10-05','2026-10-07','가상 넣은 줄 둘','in',{sort_order:1})];
  const f=await weekLinesFixture(page,{width,seed});
  for(const o of f.more.orgs)if(o.id===OB)o.name=LONG_ORG;
  await openJournal(page,width);await openWeekly(page);
  const a=orgRow(page,OA),b=orgRow(page,OB);
- await expect(a.locator('.wl-line.is-sug')).toHaveCount(2);
- // 소식(제안 줄)이 있는 조직: '빈 칸' 없음. 정말 빈 조직: 이름 줄 '· 빈 칸' 한 번, 칸 안 '—' 없음.
- await expect(a.locator('[data-wl-count]')).toHaveCount(0);
- await expect(b.locator('[data-wl-count]')).toHaveText('· 빈 칸');
- await expect(orgTable(page).locator('.wl-empty')).toHaveCount(0);
- await expect(b.locator('.wl-line')).toHaveCount(0);
- // 자리는 다시 그리기가 끝난 뒤 한 번에 잰다(조직 칸 두 줄·소식 줄·⋯).
+ await expect(a.locator('.wl-line')).toHaveCount(2);
+ await expect(b.locator('.wl-line')).toHaveCount(0);await expect(b.locator('.wl-empty')).toHaveCount(1);
+ // 자리는 다시 그리기가 끝난 뒤 한 번에 잰다(조직 칸 두 줄·소식 줄).
  const geo=()=>orgTable(page).evaluate((t,[oa,ob])=>{const r=s=>{const e=t.querySelector(s);if(!e)return null;const b=e.getBoundingClientRect();return {l:b.left,r:b.right,w:b.width};};
   const A=`[data-wl-org-row="${oa}"]`,B=`[data-wl-org-row="${ob}"]`;
-  return {line:r(`${A} .wl-org-line`),lineB:r(`${B} .wl-org-line`),cell:r(`${A} td.wl-c-rows`),sug:r(`${A} .wl-line.is-sug`),more:r(`${A} .wl-org-line > .row-more > summary`),head:r('thead th.wl-c-org')};},[OA,OB]);
+  return {line:r(`${A} .wl-org-line`),lineB:r(`${B} .wl-org-line`),cell:r(`${A} td.wl-c-rows`),sug:r(`${A} .wl-line`),head:r('thead th.wl-c-org')};},[OA,OB]);
  if(width<1200){
-  // 폰·폴드 펼침(3장·4장이 나란해 4장 칸이 좁음): 표 대신 쌓기. 이름 줄 = 소식 줄 폭·같은 들여쓰기(저장된 290px·이름 맞춤 폭에 갇히지 않음), ⋯ 는 줄 오른쪽 끝.
-  await expect.poll(async()=>{const g=await geo();return g.line&&g.cell&&g.sug&&g.more&&g.line.w>0?Math.max(Math.abs(g.line.w-g.cell.w),Math.abs(g.line.l-g.sug.l),Math.abs(g.line.r-g.sug.r),Math.abs(g.lineB.w-g.cell.w),g.line.r-g.more.r):99;}).toBeLessThan(4);
+  // 폰·폴드 펼침(3장·4장이 나란해 4장 칸이 좁음): 표 대신 쌓기. 이름 줄 = 소식 줄 폭·같은 들여쓰기(저장된 290px·이름 맞춤 폭에 갇히지 않음).
+  await expect.poll(async()=>{const g=await geo();return g.line&&g.cell&&g.sug&&g.line.w>0?Math.max(Math.abs(g.line.w-g.cell.w),Math.abs(g.line.l-g.sug.l),Math.abs(g.lineB.w-g.cell.w)):99;}).toBeLessThan(4);
   // 긴 이름도 화면 폭 안에 들면 … 없음(넘칠 때만 …).
   for(const row of [a,b])expect(await row.locator('.wl-org').evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
  }else{
