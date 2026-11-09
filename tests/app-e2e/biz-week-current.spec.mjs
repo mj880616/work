@@ -42,9 +42,9 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   // ① 이번 주(오늘이 든 월~일), 보고 0건이어도 지난주로 가지 않는다.
   await expect(label(page)).toHaveText('11.9(월)~11.15(일)');
   await expect(page.locator('#reportWeekFilter .report-week-count')).toHaveText('· 0건');
-  // ② 이번 주 주간보고: 펼친 칸, 칸마다 [쓰기].
+  // ② 이번 주 주간보고: 펼친 칸, 칸마다 [쓰기]. BIZ-주간보고접기(11/09): 주 단위에서도 제목 줄이 접고 펴는 버튼(처음엔 펼침).
   await expect(box.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
-  await expect(box.locator('[data-bw-fold]')).toHaveCount(0);
+  await expect(box.locator('.biz-week-title [data-bw-fold]')).toHaveAttribute('aria-expanded','true');
   await expect(box.locator('.biz-sum-table')).toBeVisible();
   const write=box.locator('[data-bp-cell="progress"]').first();
   await expect(write).toHaveText('쓰기');
@@ -73,11 +73,11 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   await expect(box.locator('[data-bp-cell="progress"]').first()).toHaveText('쓰기'); // 이번 주라 쓸 수 있다
   await fold.click();
   await expect(box.locator('[data-bw-body]')).toBeHidden();
-  // 이번 주로 돌아오면 늘 펼침(꺾쇠 버튼 없음). 다시 [전체 기간]이면 또 접힘(기억하지 않음).
+  // 이번 주로 돌아오면 펼침(기간 보기를 바꾸면 손으로 접은 것을 잊음). 다시 [전체 기간]이면 또 접힘(기억하지 않음).
   await pick.selectOption('week');
   await expect(label(page)).toHaveText('11.9(월)~11.15(일)');
   await expect(box.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
-  await expect(box.locator('[data-bw-fold]')).toHaveCount(0);
+  await expect(box.locator('.biz-week-title [data-bw-fold]')).toHaveAttribute('aria-expanded','true');
   await expect(box.locator('.biz-sum-table')).toBeVisible();
   await pick.selectOption('all');
   await fold.click();await expect(fold).toHaveAttribute('aria-expanded','true');

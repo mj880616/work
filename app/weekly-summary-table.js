@@ -10,6 +10,10 @@ import {paperSkeletonHtml,weekBodyHtml} from './biz-week-skeleton.mjs';
 //   한 줄 업데이트(칸 oneline)는 표 칸 맨 위, 세부 내용에는 넣지 않는다(MTG-한줄업데이트).
 // - BIZ-주간표이번주 ⑥(11/09): 사업 보고가 전체 기간·정한 기간이면(fold) 이 칸은 접힌 한 줄 '이번 주 주간보고 11.9~11.15 ⌄'로 시작하고 누르면 펼친다.
 //   접힌 동안은 서버를 부르지 않고, 접힘은 기억하지 않는다(접는 보기로 들어올 때마다 접힘). 주 단위에서는 늘 펼침.
+// - BIZ-주간보고접기(요청함 11/09 18:16, 위 '늘 펼침'을 바꿈): 어느 종류·어느 기간에서든 제목 줄이 접고 펴는 버튼이다.
+//   펼침 = 손으로 고른 것(hand, 이 화면에 머무는 동안 — 종류를 바꿔도 유지, 화면을 떠났다 오거나(visit) 기간 보기(주 단위 ↔ 여러 주)를 바꾸면 잊음) > 자동(auto = 사업 보고 하나를 직접 열었음 → 접힘)
+//   > 기본(주 단위 펼침, 여러 주 접힘). 접힌 동안은 표를 그리지 않고(서버 안 부름) 펼 때 그린다. 펼침이 바뀌면 onFold(open)으로 화면에 알린다
+//   (위 띠 '사업영역 안 단 보고 n건'도 같이 접게).
 // - 기기에 아무것도 저장하지 않는다. 글은 로그에 쓰지 않는다.
 // - ORG/BIZ-기록하나로 O-4 ②·B-3 ②(설계 docs/design/record-one.md 4절): 같은 부품을 사업 보고와 홈 [주간 정리] 2. 1)이 함께 쓴다
 //   (createBizSummaryBox — 1) 사업요약표만). 어느 화면에서 지금 상황을 고쳐도 같은 자료(app_business_now)라 다른 화면 표도 다시 읽어 같은 글이 된다.
@@ -53,7 +57,7 @@ function say(text){const el=$in('[data-bp-status]');if(el)el.textContent=text||'
 
 async function onClick(e){
   if(!state)return;
-  if(e.target.closest('[data-bw-fold]')){state.open=!state.open;applyFold(state.from);if(state.open&&(state.dirty||!state.view)){state.dirty=false;void paint()}return}
+  if(e.target.closest('[data-bw-fold]')){state.hand=!isOpen();applyFold(state.from);if(state.hand&&(state.dirty||!state.view)){state.dirty=false;void paint()}return}
   if(e.target.closest('[data-bp-edit-cancel]')){state.editing=null;return renderPaper()}
   if(e.target.closest('[data-bp-edit-save]'))return saveEdit();
   const recs=e.target.closest('[data-bp-recs]');if(recs)return toggleRecs(recs.dataset.bpRecs);
@@ -70,17 +74,19 @@ async function onClick(e){
 async function waitJournal(){for(let i=0;i<50&&!window.KPTUJournal?.showWeek;i++)await new Promise(r=>setTimeout(r,100));return window.KPTUJournal}
 
 // 칸 이름: 이번 주면 '이번 주 주간보고', 위에서 다른 주를 골랐으면 그 주 이름을 붙인다(이름과 보이는 주가 어긋나지 않게).
-// 접는 보기(fold)에서는 제목 줄 전체가 펼치기 버튼(공용 꺾쇠)이고, 이번 주면 이름 뒤에 날짜('11.9~11.15')를 붙인다.
+// 제목 줄 전체가 접고 펴는 버튼(공용 꺾쇠)이다(BIZ-주간보고접기 — 어느 보기에서든). 이번 주면 접혔을 때(또는 위 주 고르기가 없는 여러 주 보기에서) 이름 뒤에
+// 날짜('11.9~11.15')를 붙인다 — 주 단위로 펼쳐 있으면 위 주 고르기와 겹치는 날짜를 또 쓰지 않는다.
 // 홈 [주간 정리] 2. 1) 작은 상자(compact)는 제목 줄이 없고 늘 펼침이라 하지 않는다.
+const isOpen=()=>compact||!state?true:state.hand??(state.fold?false:!state.auto);
 function applyFold(from){
   if(compact)return;
   const h=box?.querySelector('.biz-week-title'),body=box?.querySelector('[data-bw-body]');if(!h||!body)return;
   const now=weekOf(seoulDateKey(Date.now())).from,name=from===now?'이번 주 주간보고':`${weekLabel(from)} 주간보고`;
   box.setAttribute('aria-label',name);
-  const fold=!!state?.fold,open=!fold||!!state.open;
+  const open=isOpen();
   body.hidden=!open;
-  if(!fold){h.textContent=name;return}
-  h.innerHTML=`<button type="button" class="row-act biz-week-fold" data-bw-fold aria-expanded="${open}">${esc(name)}${from===now?` <span class="biz-week-range">${esc(weekLabel(from))}</span>`:''} ${chevHtml(open)}</button>`;
+  if(state.told!==open){state.told=open;state.onFold?.(open)}
+  h.innerHTML=`<button type="button" class="row-act biz-week-fold" data-bw-fold aria-expanded="${open}">${esc(name)}${from===now&&(state.fold||!open)?` <span class="biz-week-range">${esc(weekLabel(from))}</span>`:''} ${chevHtml(open)}</button>`;
 }
 const isWeek=(from,to)=>weekOf(from).from===from&&shiftDays(from,6)===to;
 async function paint(){
@@ -306,13 +312,15 @@ function paperHtml(placed,records,untagged,all,lineOf){
 // meetings(): 사업 보고 화면이 읽어 둔 사업 보고 전체(select=*). 화면의 읽기를 그대로 쓰고 따로 읽지 않는다.
 // el = 사업 보고 화면의 늘 펼친 칸 #bizWeekBox. week = 위 주 고르기의 주(월요일 날짜). 화면이 다시 그려질 때마다 불린다.
 // fold = 사업 보고가 여러 주(전체 기간·정한 기간)를 보는 중 → 접힌 한 줄로 시작(BIZ-주간표이번주 ⑥). 홈 작은 상자는 늘 펼침.
-self.mount=(el,{meetings,week,tree=null,fold=false})=>{
+// auto = 사업 보고 하나를 직접 열어 보는 중 → 접힘(BIZ-주간보고접기). visit = 화면에 들어온 횟수(바뀌면 손으로 고른 접힘을 잊음).
+self.mount=(el,{meetings,week,tree=null,fold=false,auto=false,visit=0,onFold=null})=>{
   ensureBox(el);
   const from=weekOf(week||seoulDateKey(Date.now())).from,first=!state;
-  if(first)state={meetings,tree,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[],fold:false,open:false,dirty:false};
+  if(first)state={meetings,tree,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[],fold:false,hand:null,auto:false,visit,told:null,dirty:false};
   const foldNow=!compact&&!!fold;
-  if(foldNow&&!state.fold)state.open=false; // 접는 보기로 들어올 때마다 접힘(기억하지 않음)
-  state.fold=foldNow;
+  // 화면을 떠났다 오거나(visit) 기간 보기(주 단위 ↔ 여러 주)를 바꾸면 손으로 고른 접힘을 잊는다 — 여러 주 보기는 들어올 때마다 접힘(BIZ-주간표이번주 ⑥ 그대로).
+  if(state.visit!==visit||(!first&&state.fold!==foldNow)){state.visit=visit;state.hand=null}
+  state.fold=foldNow;state.auto=!compact&&!!auto;state.onFold=onFold;
   if(!first){
     // 같은 주이고 사업 보고 자료(화면이 읽어 둔 배열)도 그대로면 이미 그린 것을 다시 읽지 않는다(화면이 다시 그려질 때마다·[+] 창을 열 때마다 서버를 부르지 않게).
     const same=state.from===from&&state.seen===meetings()&&!!state.view&&!state.stale&&!state.dirty&&(!tree||state.treeSeen===tree());
@@ -322,7 +330,7 @@ self.mount=(el,{meetings,week,tree=null,fold=false})=>{
   }
   state.seen=meetings();state.stale=false;state.treeSeen=tree?tree():null;
   applyFold(from);
-  if(state.fold&&!state.open){state.dirty=true;return} // 접힌 동안은 읽지 않고, 펼칠 때 읽는다
+  if(!isOpen()){state.dirty=true;return} // 접힌 동안은 읽지 않고, 펼칠 때 읽는다
   state.dirty=false;
   void paint();
 };
@@ -330,10 +338,10 @@ return self;
 }
 // 사업 보고 화면의 늘 펼친 칸(#bizWeekBox) — 상자마다 부품 하나.
 const boxes=new WeakMap();
-export function mountWeekSummary(el,{meetings,week,fold=false}){
+export function mountWeekSummary(el,{meetings,week,fold=false,auto=false,visit=0,onFold=null}){
   let inst=boxes.get(el);
   if(!inst){inst=createBizSummary();boxes.set(el,inst)}
-  inst.mount(el,{meetings,week,fold});
+  inst.mount(el,{meetings,week,fold,auto,visit,onFold});
 }
 // 홈 [주간 정리] 2. 1): 같은 부품의 1) 사업요약표만. el은 부품이 가진 상자 하나 — 화면이 다시 그려도 그 자리에 옮겨 붙인다
 // (다시 읽지 않고 쓰던 칸도 그대로). update({meetings, week, tree}): meetings() = 그 화면이 이미 읽은 그 주 사업 보고, tree() = 이미 읽은 활성 사업 나무
