@@ -25,7 +25,7 @@ export async function newsServer(page) {
     if (p === '/functions/v1/news-feed') {
       const action = u.searchParams.get('action');
       server.calls.push({ what: 'edge', action, method, auth: req.headers().authorization || '', body });
-      if (action === 'catalog') return ok({ ok: true, sources: CATALOG, limits: LIMITS });
+      if (action === 'catalog') return ok({ ok: true, sources: CATALOG, limits: LIMITS, ai: { month_capped: server.aiCapped === true } });
       if (action === 'open') { const it = server.items.find(i => i.id === body.id); it._body = '가짜 본문 첫 문단.'; it.body_kind = 'full'; return ok({ ok: true, status: 'ok' }); }
       if (action === 'translate') { const it = server.items.find(i => i.id === body.id); if (it._body_ko) return ok({ ok: true, status: 'stored' }); it.title_ko ||= '가짜 외국 기사'; it._body_ko = '가짜 번역 본문.'; it.translated_at ||= '2026-10-06T01:00:00Z'; return ok({ ok: true, status: 'translated' }); }
       if (action === 'fill_now') { if (!server.fillArmed) return ok({ ok: true, done: 0, status: 'nothing' }); const it = server.items.find(i => i.id === 'w1'); Object.assign(it, { state: 'ok', title: '채운 가짜 기사', summary: '채운 가짜 요약.' }); return ok({ ok: true, done: 1, deferred: 0 }); }

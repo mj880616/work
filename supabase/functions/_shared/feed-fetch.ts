@@ -107,11 +107,13 @@ export function makeFeedReader(o: ReaderOptions): FeedReader {
     let text: string | null = null, code = "robots_unreachable";
     const start = o.allow(new URL("/robots.txt", origin).href);
     const got = start ? await follow(start, "text/plain") : { ok: false as const, code: "url_outside" };
-    if (!got.ok) text = null;
+    // 못 읽은 까닭은 기록 코드(robots_unreachable)를 바꾸지 않고 로그에만 남긴다(코드만 — 주소 없음, NEWS-새매체글없음 노컷뉴스 확인용).
+    if (!got.ok) { text = null; o.log("robots_unreachable", { why: got.code }); }
     else if (got.res.status === 404 || got.res.status === 410) { try { await got.res.body?.cancel(); } catch { /* ignore */ } text = ""; }
     else if (!got.res.ok) {
       try { await got.res.body?.cancel(); } catch { /* ignore */ }
       if (got.res.status === 401 || got.res.status === 403) code = "robots_denied";
+      else o.log("robots_unreachable", { why: `http_${got.res.status}` });
     } else {
       const b = await readCapped(got.res);
       text = b ? new TextDecoder("utf-8").decode(b) : null;

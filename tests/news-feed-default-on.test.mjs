@@ -40,12 +40,12 @@ function world({sources, keywords, sites}) {
   return {calls, cron, fetch: doFetch};
 }
 
-test('카탈로그: 종합지는 기본 켬·키워드만·수집 때 본문 안 읽음, 주소는 https, 화면 목록에 on이 실림', () => {
+test('카탈로그: 종합지는 기본 켬·다 받기(NEWS-다받기 11/09)·수집 때 본문 안 읽음, 주소는 https, 화면 목록에 on이 실림', () => {
   for (const key of ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain', 'news-newstapa',
     'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun']) {
     const s = C.newsSourceByKey(key);
     assert.ok(s, key);
-    assert.equal(s.on, true); assert.equal(s.take, 'keywords'); assert.equal(s.extract, false); assert.equal(s.region, 'domestic');
+    assert.equal(s.on, true); assert.equal(s.take, 'all'); assert.equal(s.extract, false); assert.equal(s.region, 'domestic');
     for (const l of s.lists) { const u = new URL(l); assert.equal(u.protocol, 'https:'); assert.ok(s.hosts.includes(u.hostname), l); assert.ok(O.allowedUrl(s, l), `주소 검사 통과(쿼리 포함): ${l}`); }
   }
   // 앞서 있던 매체는 기본 켬이 아니다(사용자가 켠 것만 — 지금 동작 유지).
@@ -56,7 +56,7 @@ test('카탈로그: 종합지는 기본 켬·키워드만·수집 때 본문 안
   for (const s of pub) assert.deepEqual(Object.keys(s).sort(), ['key', 'lang', 'name', 'on', 'region'], '주소·규칙은 화면에 싣지 않음');
 });
 
-test('기본 켬: 줄 없는 뉴스 작업공간만 켬 줄을 만들고 읽는다, 끈 줄·뉴스 안 쓰는 곳은 건드리지 않음, 키워드 맞는 글만', async () => {
+test('기본 켬: 줄 없는 뉴스 작업공간만 켬 줄을 만들고 읽는다, 끈 줄·뉴스 안 쓰는 곳은 건드리지 않음, 키워드 상관없이 다 받음', async () => {
   const s = C.newsSourceByKey('news-khan');
   const rss = `<rss><channel>
 <item><title>합성 철도 파업 기사</title><link>https://www.khan.co.kr/article/202611080001</link><description>합성 소개</description><dc:date>2026-11-08T09:00:00+09:00</dc:date></item>
@@ -81,7 +81,10 @@ test('기본 켬: 줄 없는 뉴스 작업공간만 켬 줄을 만들고 읽는�
   assert.ok(!JSON.stringify(made[0].body).includes(WS4) && !JSON.stringify(made[0].body).includes(WS2));
   const items = w.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_news_items')).flatMap(c => c.body);
   // 섹션 피드 셋이 같은 글을 실어도 DB의 (workspace_id, url_key) 겹침 막기로 한 줄만 남는다(이 가짜 DB는 겹침 검사를 하지 않음).
-  assert.deepEqual([...new Set(items.map(i => [i.workspace_id, i.source_key, i.lane, i.url].join('|')))], [[WS1, 'news-khan', 'media', 'https://www.khan.co.kr/article/202611080001'].join('|')], '키워드(철도)가 맞는 WS1만, 날씨 글은 안 들어감');
+  const got = [...new Set(items.map(i => [i.workspace_id, i.source_key, i.lane, i.url].join('|')))].sort();
+  const want = [WS1, WS3].flatMap(w => ['202611080001', '202611080002'].map(n => [w, 'news-khan', 'media', `https://www.khan.co.kr/article/${n}`].join('|'))).sort();
+  assert.deepEqual(got, want, '켠 작업공간(WS1·WS3)에 키워드와 상관없이 두 글 모두(날씨 글 포함), 끈 WS2·뉴스 안 쓰는 WS4는 없음');
+  assert.equal(out.raw, 6, '섹션 피드 셋 × 글 칸 둘'); assert.equal(out.listed, 6);
   const status = w.calls.find(c => c.method === 'PATCH' && c.url.includes('/rest/v1/app_outside_sources'));
   assert.ok(status.url.includes(WS1) && status.url.includes(WS3) && !status.url.includes(WS2));
   assert.equal(w.calls.filter(c => c.url.startsWith('https://www.khan.co.kr/article/')).length, 0, '수집 때 글 쪽은 읽지 않음(extract:false)');
@@ -104,4 +107,40 @@ test('run_plan: 기본 켬 매체는 뉴스 쓰는 작업공간이 있을 때만
   assert.deepEqual(on.media.sort(), ['news-chosun', 'news-donga', 'news-hani', 'news-hankyung', 'news-jtbc', 'news-khan', 'news-mk', 'news-newstapa', 'news-nocut', 'news-ohmynews', 'news-sbs', 'news-sisain', 'news-yna']);
   const off = await plan([], []);
   assert.deepEqual(off.media, [], '뉴스를 안 쓰는 작업공간뿐이면 읽지 않음');
+});
+
+// NEWS-다받기(11/09): 피드 하나를 통째로(MEDIA_LIST_LIMIT) 받는다 — 30건에서 끊지 않음.
+test('다 받기: 섹션 피드 하나에 글 120건이면 120건 모두 넣는다(키워드 없어도)', async () => {
+  const s = C.newsSourceByKey('news-yna');
+  const items = Array.from({length: 120}, (_, i) => `<item><title>합성 기사 ${i}</title><link>https://www.yna.co.kr/view/SYN${String(i).padStart(4, '0')}</link><description>합성 소개</description></item>`).join('');
+  const sites = {'https://www.yna.co.kr/robots.txt': {body: 'User-agent: *\nAllow: /\n'}};
+  s.lists.forEach((l, k) => { sites[l] = {body: k === 0 ? `<rss><channel>${items}</channel></rss>` : '<rss><channel></channel></rss>'}; });
+  const w = world({sources: [{workspace_id: WS1, source_key: 'news-yna', enabled: true}], keywords: [], sites});
+  const out = await w.cron({step: 'media', source: 'news-yna'});
+  assert.equal(out.status, 'ok'); assert.equal(out.raw, 120); assert.equal(out.listed, 120);
+  assert.ok(H.MEDIA_LIST_LIMIT >= 120, '가장 큰 피드(연합 섹션 120)보다 커야 함');
+  const posted = w.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_news_items')).flatMap(c => c.body);
+  assert.equal(new Set(posted.map(r => r.url)).size, 120);
+});
+
+// NEWS-새매체글없음: 피드는 읽혔는데(성공) 글 링크가 허용 호스트·https 밖이면 글이 0건 — raw·listed 숫자로 구분된다.
+test('진단 숫자: 링크가 http이거나 다른 호스트면 raw는 세고 listed는 0(성공으로 적히지만 글 0건)', async () => {
+  const s = C.newsSourceByKey('news-ohmynews');
+  const rss = `<rss><channel>
+<item><title>합성 기사 http</title><link>http://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0000000001</link></item>
+<item><title>합성 기사 남의 호스트</title><link>https://other.example.org/a/1</link></item>
+</channel></rss>`;
+  const sites = {'https://rss.ohmynews.com/robots.txt': {body: ''}};
+  for (const l of s.lists) sites[l] = {body: rss};
+  const w = world({sources: [{workspace_id: WS1, source_key: 'news-ohmynews', enabled: true}], keywords: [], sites});
+  const out = await w.cron({step: 'media', source: 'news-ohmynews'});
+  assert.equal(out.status, 'ok'); assert.equal(out.raw, 6); assert.equal(out.listed, 0); assert.equal(out.inserted, 0);
+});
+
+test('화면 catalog: 이번 달 AI 한도 닿음은 예/아니오만(ai.month_capped), 금액은 싣지 않음', async () => {
+  const M = await import('../app/news-clipping-model.mjs');
+  assert.equal(M.aiCapped({ai: {month_capped: true}}), true);
+  assert.equal(M.aiCapped({ai: {month_capped: 'yes'}}), false);
+  assert.equal(M.aiCapped({}), false);
+  assert.match(M.AI_CAP_NOTE, /AI 한도/);
 });

@@ -51,6 +51,10 @@ export const USER_AGENT = "Web2NewsFeed/1.0 (+https://github.com/mj880616/work/b
 export const ROBOTS_AGENT = "Web2NewsFeed";
 export const GAP_MS = 2000;
 export const LIST_LIMIT = 30;
+// 켠 매체 피드 하나에서 한 번에 받는 글 수(NEWS-다받기, 11/09). 매체 피드는 그 피드가 싣는 최근 글 수(연합 섹션 120·조선 100·매경·동아·노컷 50 등,
+// 설계 3.1b [사실: 11/08 CC 확인])까지만 주므로, 30에서 끊으면 밤사이(18:22→08:22, 14시간) 30건 넘게 나온 섹션은 아침 실행에서 뒤쪽을 놓친다.
+// 피드 하나를 통째로 받도록 가장 큰 피드(120)보다 넉넉히 둔다. 수집 때 AI·글 쪽 읽기는 늘지 않는다(국내 종합지는 extract:false, 본문 읽기는 MEDIA_BODY_PER_RUN 그대로).
+export const MEDIA_LIST_LIMIT = 150;
 export const KEYWORDS_PER_WORKSPACE = 30;
 export const KEYWORD_WORDS_PER_RUN = 60;
 // 기본값(명진이 바꿀 때 이 줄들만 고친다 — 화면은 catalog 응답의 limits로 같은 값을 보인다):
@@ -519,10 +523,14 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
     const kw = await db.get(`app_news_keywords?enabled=is.true&workspace_id=in.(${ws.join(",")})&select=workspace_id,word&limit=5000`);
     for (const r of kw) if (typeof r.word === "string") wordsByWs.set(String(r.workspace_id), [...(wordsByWs.get(String(r.workspace_id)) ?? []), r.word]);
   }
+  // raw: 피드에 든 글 칸(item·entry) 수, listed: 그 가운데 주소·제목 검사를 통과한 글 수(건수만). 둘이 크게 다르면 링크 호스트·https 문제다(NEWS-새매체글없음).
+  let raw = 0, listed = 0;
   for (const list of source.lists) {
     const got = await reader.get(list, ACCEPT_FEED);
     if (!got.ok) { status = got.code; continue; }
-    const items = parseFeed(source, got.text, nowMs, LIST_LIMIT);
+    const items = parseFeed(source, got.text, nowMs, MEDIA_LIST_LIMIT);
+    raw += Math.min((got.text.match(/<(item|entry)\b/gi) ?? []).length, 1000);
+    listed += items.length;
     const rows: NewRow[] = [];
     for (const it of items) {
       // take=keywords(종합지·방송사)는 작업공간마다 자기 키워드에 글자가 맞는 글만(AI 없이). take=all은 전부.
@@ -542,8 +550,8 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
   // 새 기사 본문(P2b): 피드를 읽은 같은 실행에서 글 쪽 1번씩(예산 안). 실패해도 수집 결과는 그대로.
   let bodies = { done: 0, deferred: 0 };
   try { bodies = await runMediaBodies(db, reader, ai, source, nowMs, startMs, clock); } catch { log("bodies_failed", { source: source.key }); }
-  log("media_done", { source: source.key, inserted, status, bodies: bodies.done, bodies_deferred: bodies.deferred });
-  return { ok: true, step: "media", source: source.key, status, inserted, bodies: bodies.done, bodies_deferred: bodies.deferred };
+  log("media_done", { source: source.key, inserted, status, raw, listed, bodies: bodies.done, bodies_deferred: bodies.deferred });
+  return { ok: true, step: "media", source: source.key, status, raw, listed, inserted, bodies: bodies.done, bodies_deferred: bodies.deferred };
 }
 
 async function runKeywords(db: Db, readers: Readers, nowMs: number, startMs: number, clock: () => number, log: FeedLog) {
@@ -830,7 +838,9 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       const who = await authorizeUser(sb, key, auth!.slice("Bearer ".length), doFetch, db);
       if (action === "catalog") {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
-        return json({ ok: true, sources: publicNewsCatalog(), limits: { fill: FILL_DAILY, translate: TRANSLATE_DAILY, open: OPEN_DAILY, keyword_items: KEYWORD_ITEMS_DAILY, keywords: KEYWORDS_PER_WORKSPACE } });
+        // ai.month_capped: 이번 달 AI 한도(MONTHLY_LIMIT_KRW)에 닿았는지(예/아니오만 — 금액은 싣지 않음). 닿으면 수집 때 요약·외국어 제목 번역이 조용히 멈추므로 화면이 알린다(NEWS-다받기 ④).
+        const capped = await monthKrw(db, who.workspaceId, nowMs) >= MONTHLY_LIMIT_KRW;
+        return json({ ok: true, sources: publicNewsCatalog(), limits: { fill: FILL_DAILY, translate: TRANSLATE_DAILY, open: OPEN_DAILY, keyword_items: KEYWORD_ITEMS_DAILY, keywords: KEYWORDS_PER_WORKSPACE }, ai: { month_capped: capped } });
       }
       if (action === "fill_now") {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
