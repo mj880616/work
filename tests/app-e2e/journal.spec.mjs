@@ -3932,10 +3932,8 @@ test('WEEKLY-입력줄없애기: [주간 정리]를 연 채 새로 열어도 입
  await expect(page.locator('#homeView [data-home-quick]')).toHaveCount(0);
 });
 
-// S52-25 WEEKLY-조직현황폰(요청함 11/07 19:20, 시안 docs/design/mockups/weekly-org-status-phone.html): 4. 산하 조직 현황은 조직마다 이름 줄('이름 · n줄 · ⋯')
-// → 넣은 줄(보통 글자) → 흐린 제안 줄(출처 꼬리표 · 글 · ⋯). 큰 버튼 없음, 제안 줄 ⋯ = [넣기][이미 있음][고쳐서 넣기][빼기], 이름 줄 ⋯ = [지난주 모두 가져오기]·[줄 추가]·[현황 표 보기].
-// 넣은 줄과 같은(부호만 다른 것 포함) 지난주 줄은 제안에 없다. 제안이 3개 넘으면 '제안 n개 더'. 폰·PC 같은 부품(PC는 표 모양).
-for(const width of [390,1280])test(`WEEKLY-조직현황폰: 조직마다 이름 줄 · 넣은 줄 · 흐린 제안 줄(⋯ 하나), 같은 글 두 번 없음 ${width}`,async({page},info)=>{
+// S52-25 WEEKLY-조직현황폰 → ORG-기록하나로 O-6: 옛 주 4.는 조직보고 창(읽기 전용) — 조직마다 넣은 줄만(제안 줄·'제안 n개 더'·줄 ⋯ 없음), 표 쓰기 0.
+for(const width of [390,1280])test(`WEEKLY-조직현황폰: 옛 주는 조직마다 넣은 줄만, 제안 줄 없음 ${width}`,async({page},info)=>{
  const seed=[
   WL('l1',OA,'2026-10-05','2026-10-06','가상 교섭 상견례'),
   ...['가상 제안 하나','가상 제안 둘','가상 제안 셋','가상 제안 넷'].map((t,i)=>WL('s'+i,OA,'2026-10-05','2026-10-07',t,'suggested',{origin:i?'plain':'ai',sort_order:i+1})),
@@ -3945,39 +3943,11 @@ for(const width of [390,1280])test(`WEEKLY-조직현황폰: 조직마다 이름 
  const f=await weekLinesFixture(page,{width,seed});
  await openJournal(page,width);await openWeekly(page);
  const a=orgRow(page,OA),b=orgRow(page,OB);
- // 큰 버튼·펼치는 '지난주 n줄' 덩어리·[+ 줄] 없음.
- await expect(orgTable(page).locator('button.wl-btn,[data-wl-last],[data-wl-add]:not(.row-more-menu *)')).toHaveCount(0);
- await expect(a.locator('[data-wl-count]')).toHaveText('· 1줄');
- await expect(a.locator('.wl-line:not(.is-sug) .wl-text')).toHaveText(['가상 교섭 상견례']);
- // 제안 4개 → 3개만 + '제안 1개 더'. 꼬리표는 출처(AI 제안·기록). 글은 기울이지 않는다.
- await expect(a.locator('.wl-line.is-sug')).toHaveCount(3);
- await expect(a.locator('.wl-line.is-sug .weekly-flow-tag')).toHaveText(['AI 제안','기록','기록']);
- await expect(a.locator('.wl-line.is-sug .wl-text').first()).toHaveCSS('font-style','normal');
- await expect(orgTable(page).locator('[data-wl-table]')).toBeVisible();await page.screenshot({path:info.outputPath(`weekly-org-phone-${width}.png`),fullPage:true});
- await a.locator('[data-wl-sug-toggle]').click();
- await expect(a.locator('.wl-line.is-sug')).toHaveCount(4);
- const sug=a.locator('.wl-line.is-sug').first();
- await expect(sug.locator('.row-more-menu button')).toHaveText(['넣기','이미 있음','수정해서 넣기','빼기']);
- // [빼기] → 그 줄은 뺀 줄(지우지 않음).
- await pressMore(sug,'[data-wl-drop="s0"]');
- await expect(a.locator('.wl-line.is-sug')).toHaveCount(3);
- expect(f.db.patches.at(-1)).toMatchObject({id:'s0',state:'dropped'});
- // 나 지역 모임: 넣은 줄 '가상 지난주 설명회.'(끝 점만 다름)과 같은 지난주 줄은 제안에 없고, 간담회만 '지난주' 제안.
- await expect(b.locator('.wl-line.is-sug')).toHaveCount(1);
- await expect(b.locator('.wl-line.is-sug .weekly-flow-tag')).toHaveText('지난주');
- await expect(b.locator('.wl-line.is-sug .wl-text')).toHaveText('가상 지난주 간담회');
- await expect(b.locator('.wl-line.is-sug .wl-text',{hasText:'설명회'})).toHaveCount(0);
- // 지난주 제안 [이미 있음] → 그 주 표에 뺀 줄로 남김(origin last_week, state dropped) — 다시 제안하지 않음.
- await pressMore(b.locator('.wl-line.is-sug'),'[data-wl-sug-have]');
- await expect(b.locator('.wl-line.is-sug')).toHaveCount(0);
- expect(f.db.posts.at(-1)).toMatchObject({organization_id:OB,week_start:'2026-10-05',body:'가상 지난주 간담회',state:'dropped',origin:'last_week'});
- await expect(page.locator('#journalRoot [data-wl-status]')).toHaveText('이미 있는 내용으로 치웠어요.');
- // 이름 줄 ⋯ → [줄 추가]: 그 조직 칸에 줄 입력.
- await pressMore(b.locator('th'),'[data-wl-add]');
- await expect(b.locator('[data-wl-form="new"] [data-wl-field="body"]')).toBeFocused();
- await b.locator('[data-wl-cancel]').click();
- // 폰은 조직마다 위쪽 선 한 줄(표 칸 선 없음), PC는 표 칸 선 그대로.
- await expect(a.locator('td.wl-c-rows')).toHaveCSS('border-left-width',width<761?'0px':'1px');
+ await expect(a.locator('.wl-text')).toHaveText(['가상 교섭 상견례']);
+ await expect(b.locator('.wl-text')).toHaveText(['가상 지난주 설명회.']);
+ await expect(orgTable(page).locator('tbody').locator('.wl-line.is-sug,[data-wl-sug-toggle],.row-more,button')).toHaveCount(0);
+ await page.screenshot({path:info.outputPath(`weekly-org-phone-${width}.png`),fullPage:true});
+ expect(f.db.patches).toEqual([]);expect(f.db.posts).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });

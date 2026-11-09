@@ -622,6 +622,7 @@ function paintFlow(host, model) {
 // 4. 조직보고 줄(조직 id → '- 11.2. 글' 줄들) — 복사 글이 읽는다. 창을 아직 못 읽었으면 null(예전처럼 기록).
 // ORG-기록하나로 O-6: 옛 주도 같은 창(옛 표 읽기 전용)이라 주와 상관없이 창 하나.
 function weekOrgLines() {
+  if (oldMissing()) return null; // 옛 표가 없는 옛 주: 예전처럼 그 주 기록으로
   return weekWin && weekWin.status === 'ready' && weekWin.week === start ? new Map(winOrgs.map(o => [o.id, weekWin.lineTexts(o.id)])) : null;
 }
 // ── ORG/BIZ-기록하나로 O-4 ②·B-3 ②(설계 docs/design/record-one.md 4절): 전환 주(RECORD_ONE_FROM)부터 [주간 정리]의 세 칸 ──
