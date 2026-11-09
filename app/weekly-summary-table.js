@@ -311,7 +311,7 @@ function paperHtml(placed,records,untagged,all,lineOf){
 }
 
 // BIZ-기록하나로 B-4 ①(설계 4절 '한글 파일'): 한글 파일 2. 1) = 이 상자가 그 주에 그린 표 그대로(지금 상황 줄 + 담당, 화면 순서).
-// 그 주를 다 그렸을 때만 {status:'ready', rows:[{area, task, lines, owner}]}. 그리는 중·다른 주·접힘 = 'loading', 지금 상황 표가 아직 없음 = 'missing',
+// 그 주를 다 그렸을 때만 {status:'ready', rows:[{space, area, task, lines, owner}]}(space = 사진 줄 id, B-4 ④). 그리는 중·다른 주·접힘 = 'loading', 지금 상황 표가 아직 없음 = 'missing',
 // 읽지 못함 = 'error'. 사업영역을 못 찾은 보고 줄(보관된 사업영역)은 칸이 없어 넣지 않는다. 쓰는 중인 칸은 저장된 값.
 self.fileRows=week=>{
   const d=state?.done;
@@ -320,7 +320,7 @@ self.fileRows=week=>{
   const {NM}=state.kit,rows=[];
   for(const area of state.view.placed.areas)for(const row of area.rows){
     const space=String(row.task?.id??area.id),v=NM.nowView(state.now.rows,space,week);
-    rows.push({area:area.name,task:row.task?.name||'',lines:v.body?v.body.split('\n').map(l=>l.trim()).filter(Boolean):[],owner:v.owner});
+    rows.push({space,area:area.name,task:row.task?.name||'',lines:v.body?v.body.split('\n').map(l=>l.trim()).filter(Boolean):[],owner:v.owner});
   }
   return {status:'ready',rows};
 };

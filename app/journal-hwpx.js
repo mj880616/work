@@ -963,8 +963,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     data.sites = layoutSiteData(data.sites ?? [], siteRows(state), state.layout);
     const bytes = await draft.buildHwpx(state.template, data);
     // 파일 이름: 주간보고_보고일8자리_이름.hwpx — 이름은 로그인 사용자의 표시 이름(프로필 이름, 없으면 로그인 정보의 표시 이름; readContext).
-    // 확정 사진(O-6): 이 파일을 만든 바로 그 창 결과. 3장에 들어가 4. 1)이 '참고' 한 줄인 조직도 사진에는 창 줄 그대로 둔다(화면 4. 칸은 3장 칸이 보여 줌).
-    state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start), state.context.me), snapRows:win ? win.snapshot() : null};
+    // 확정 사진(O-6): 이 파일을 만든 바로 그 창 결과. B-4 ④: 2. 1) 사업요약 창 결과(파일에 넣은 지금 상황·담당)도 같은 사진에(section 'biz_summary'). 3장에 들어가 4. 1)이 '참고' 한 줄인 조직도 사진에는 창 줄 그대로 둔다(화면 4. 칸은 3장 칸이 보여 줌).
+    state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start), state.context.me), snapRows:win || bizRows ? [...(win ? win.snapshot() : []), ...(bizRows ? bizRows.map(r => draft.summarySnapshotRow(r)).filter(Boolean) : [])] : null};
     return state.built;
   }
   async function doBuild() {

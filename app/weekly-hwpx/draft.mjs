@@ -16,6 +16,8 @@ import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './
 import {sitePlan, isStageLine, stageOfOrg, weekOf} from '../org-dispute-stage-model.mjs';
 import {issuedFromSections} from '../weekly-lines.mjs';
 import {nameKey as cellNameKey, sameName} from '../weekly-cell-names.mjs';
+// B-4 ④: [확정] 사진의 2. 1) 줄 모양(한글 파일을 만들 때 같이 부름 — 화면 첫 묶음에 넣지 않으려고 이 늦게 부르는 묶음에서 내보냄).
+export {summarySnapshotRow} from '../business-now-model.mjs';
 
 // 브라우저 기본 압축(CompressionStream 'deflate-raw'). Node 20에도 있어 시험이 같은 길을 쓴다.
 const pipe = (bytes, Kind) => new Response(new Blob([bytes]).stream().pipeThrough(new Kind('deflate-raw'))).arrayBuffer().then(b => new Uint8Array(b));

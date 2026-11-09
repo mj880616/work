@@ -145,3 +145,15 @@ export function recordBody(text) {
 export const recordDay = day => (DAY.test(String(day ?? '')) ? String(day) : null);
 // 줄 글 '- 11.10. 글'(기간이면 '- 11.2.~12.5. 글').
 export const recordLine = it => `- ${[dayText(it.day, it.end_day), cleanBody(it.text)].filter(Boolean).join(' ')}`;
+
+// ---- [확정] 사진(설계 2-8, B-4 ④): 2. 1) 한 줄 = 한글 파일에 넣은 그대로(지금 상황 줄 + 담당) ----
+// row = weekly-summary-table.js fileRows 한 줄 {space, area, task, lines, owner}. 모양은 조직 사진(record-window-model.mjs snapshotRow)과 맞춘다:
+// {section:'biz_summary', ref_kind:'space', ref_key:사업 id, label:'사업영역 › 세부 과제', owner, lines:[{ref_kind:'space', ref_key, day:null, end_day:null, text}]}.
+export function summarySnapshotRow(row) {
+  const space = String(row?.space ?? '');
+  if (!space) return null;
+  const label = [cleanBody(row.area), cleanBody(row.task)].filter(Boolean).join(' › ');
+  const lines = (Array.isArray(row.lines) ? row.lines : []).map(cleanBody).filter(Boolean)
+    .map(text => ({ref_kind: 'space', ref_key: space, day: null, end_day: null, text}));
+  return {section: 'biz_summary', ref_kind: 'space', ref_key: space, label, owner: cut(cleanBody(row.owner), OWNER_MAX), lines};
+}

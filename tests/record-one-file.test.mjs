@@ -163,3 +163,16 @@ test('B-4 ①: 한글 파일 2. 1)은 화면 사업요약 상자 결과 — 다 
   assert.match(box, /fileRows:week=>inst\.fileRows\(week\)/);
   assert.match(box, /state\.done=\{run,from,now:fresh\?nowStatus:''\}/);
 });
+
+test('B-4 ④: [확정] 사진 2. 1) 줄 = 파일에 넣은 지금 상황·담당(section biz_summary), 조직 사진과 한 배열', async () => {
+  const {summarySnapshotRow} = await import('../app/weekly-hwpx/draft.mjs');
+  assert.deepEqual(summarySnapshotRow({space: 's1', area: ' 가짜 영역 ', task: '가짜 과제', lines: ['첫 줄', '  ', '둘째\t줄'], owner: '가짜 담당'}),
+    {section: 'biz_summary', ref_kind: 'space', ref_key: 's1', label: '가짜 영역 › 가짜 과제', owner: '가짜 담당',
+      lines: [{ref_kind: 'space', ref_key: 's1', day: null, end_day: null, text: '첫 줄'}, {ref_kind: 'space', ref_key: 's1', day: null, end_day: null, text: '둘째 줄'}]});
+  assert.equal(summarySnapshotRow({space: 's2', area: '가짜 영역', task: '', lines: [], owner: ''}).label, '가짜 영역');
+  assert.equal(summarySnapshotRow({area: 'x'}), null);
+  // 조직 창 화면 읽기(snapshotCell)는 2. 1) 줄을 조직 칸으로 읽지 않는다(section이 다름).
+  assert.equal(M.snapshotCell({rows: [summarySnapshotRow({space: 'o1', area: 'a', lines: ['x']})]}, 'o1'), null);
+  const hw = read('app/journal-hwpx.js');
+  assert.match(hw, /\.\.\.\(bizRows \? bizRows\.map\(r => draft\.summarySnapshotRow\(r\)\)\.filter\(Boolean\) : \[\]\)/);
+});
