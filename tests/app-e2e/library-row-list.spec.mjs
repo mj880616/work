@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
-import {openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
+import {openMeetingResult,mrdMenu,closeMeetingResult,showReportsOf} from './helpers/meeting-open.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -169,13 +169,13 @@ for(const width of [390,1440]){
     const libraryRow=await style(rows.nth(1));
     // UI-PC회의: PC(≥1024)의 회의는 유형별 열이라 줄 비교는 폰·중간 폭에서만 한다.
     if(width<761){
-      await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();
+      await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await showReportsOf(page);await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();
       const meetingRows=page.locator('#meetingList .meeting-list-row');
       // LIB-목록간격(2026-10-23): 자료 줄은 위아래 여백이 절반이라 회의 줄과 여백·최소 높이는 일부러 다르다. 나머지 모양(모서리·그림자·바탕)은 같다.
       const {paddingTop,paddingBottom,minHeight,...shape}=libraryRow,meetingRow=await style(meetingRows.nth(await meetingRows.count()>1?1:0));
       expect({borderRadius:meetingRow.borderRadius,boxShadow:meetingRow.boxShadow,backgroundColor:meetingRow.backgroundColor}).toEqual(shape);
     }else{
-      await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(page.locator('#meetingList .mcol-card').first()).toBeVisible();
+      await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await showReportsOf(page);await expect(page.locator('#meetingList .mcol-card').first()).toBeVisible();
     }
     expect(libraryRow).toEqual({paddingTop:'4.5px',paddingBottom:'4.5px',minHeight:'0px',borderRadius:'0px',boxShadow:'none',backgroundColor:'rgba(0, 0, 0, 0)'});
     await before.close();

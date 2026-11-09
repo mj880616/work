@@ -5,10 +5,11 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {showAllLibraryCategories} from './helpers/library-categories.mjs';
-import {openMeetingResult,closeMeetingResult} from './helpers/meeting-open.mjs';
+import {openMeetingResult,closeMeetingResult,showReportsOf} from './helpers/meeting-open.mjs';
 import {noticeText,answerAsk} from './helpers/small-notice.mjs';
 // 회의 목록의 회의자료 표시: 폰은 줄의 "회의자료 있음", PC 3단(MEET-결과3단)은 가운데 줄에 표시가 없고 오른쪽 결과의 회의자료 줄 수로 본다.
 async function expectMeetingDocs(page,width,count){
+  await showReportsOf(page); // BIZ-주간표이번주: 가짜 보고가 지난 주뿐이면 [전체 기간]으로
   if(width<761){await expect(page.locator('#meetingList')).toContainText('회의자료 있음');return}
   await expect(page.locator('#meetingList .mcol-rounds')).not.toContainText('회의자료 있음');
   await expect(page.locator('#meetingList #mcolResult #mrdMaterials .mrd-file-row')).toHaveCount(count);
