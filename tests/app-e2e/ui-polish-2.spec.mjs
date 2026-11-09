@@ -27,7 +27,6 @@ async function open(page,width){
   await showAllReportWeeks(page);
   return errors;
 }
-const chip=(page,name)=>page.locator('#reportKindFilter').getByRole('radio',{name,exact:true});
 
 test('PC 1280: 사업 보고 칸·고른 보고가 주소에 적히고 새로고침 뒤 그대로, 위쪽 줄에 칸 중간 단계',async({page})=>{
   const errors=await open(page,1280);
@@ -45,10 +44,10 @@ test('PC 1280: 사업 보고 칸·고른 보고가 주소에 적히고 새로고
   await expect(page).toHaveURL(/[?&]report=p-2(?:&|$)/);
   await expect(page.locator('#meetingList [data-meeting-round="p-2"]').first()).toHaveAttribute('aria-current',/true|page/);
   await expect(where.locator('li')).toHaveText(['사업 보고','언론','합성 두번째 기자회견']);
-  // 중간 단계 '언론'은 그 칸으로 가는 버튼이다(같은 칸이면 칩에 초점).
+  // 중간 단계 '언론'은 그 칸으로 가는 버튼이다(같은 칸이면 [종류 ▾] 상자에 초점).
   await where.getByRole('button',{name:'언론',exact:true}).click();
-  // S52-22: 폭에 따라 칩(PC 1200px~) 또는 [종류 ▾] 상자에 초점.
-  await expect(page.locator((page.viewportSize()?.width||0)>=1200?'#reportKindFilter [aria-checked="true"]':'#reportKindSelect')).toBeFocused();
+  // S52-22 → BIZ-위쪽정돈PC(11/09): 모든 폭에서 [종류 ▾] 상자에 초점(PC 칩 줄 없앰).
+  await expect(page.locator('#reportKindSelect')).toBeFocused();
   // [회의]로 가면 칸 칸이 주소에서 빠진다(기본 칸은 적지 않음).
   await pickReportKind(page,'회의');
   await expect(page).not.toHaveURL(/[?&]chip=/);

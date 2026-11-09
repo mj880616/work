@@ -59,11 +59,14 @@ for(const width of [412,884,1280])test(`분류 수정 ${width}: 한 줄 모양 �
   const before=s.documentCategories.slice();
   await row(page,'양식').locator('.le-handle').focus();await page.keyboard.press('ArrowUp');
   await expect.poll(()=>s.documentCategories.join('|')).not.toBe(before.join('|'));
+  // 서버 목록이 바뀐 뒤에도 앱은 '저장하는 중'(⠿ 잠김)이라 다시 그리기까지 끝나야 끌 수 있다. 끝 신호 = 상태 줄 '순서를 바꿨어요.'.
+  await expect(modal(page).locator('[data-dce-status]')).toHaveText('순서를 바꿨어요.');
   expect(s.documentCategories.slice(-1)).toEqual(['기타']);
   const ia=s.documentCategories.indexOf('양식'),ib=s.documentCategories.indexOf('공문');expect(ia).toBeLessThan(ib);expect(s.documentCategories[ib+1]).toBe('공문›수신');
   // PC: 손잡이를 마우스로 끌어 맨 위로.
   if(width>=761){
-    const h=await box(row(page,'회의').locator('.le-handle')),top=await box(row(page,'교섭'));
+    // 두 줄의 자리를 같은 순간 한 번에 잰다(따로 재면 그 사이 다시 그려져 밀릴 수 있다).
+    const {h,top}=await page.evaluate(([a,b])=>{const m=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}},q=n=>document.querySelector(`#libraryManageModal [data-le-row="${n}"]`);return {h:m(q(a).querySelector('.le-handle')),top:m(q(b))}},['회의','교섭']);
     await page.mouse.move(h.x+h.w/2,h.y+h.h/2);await page.mouse.down();await page.mouse.move(h.x+h.w/2,h.y-10,{steps:4});await page.mouse.move(top.x+20,top.y+4,{steps:8});await page.mouse.up();
     await expect.poll(()=>s.documentCategories[0]).toBe('회의');
   }
