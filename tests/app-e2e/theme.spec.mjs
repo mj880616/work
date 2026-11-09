@@ -207,7 +207,8 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    ['projects','#newProjectBtn','backgroundColor',width<=760?'rgba(0, 0, 0, 0)':color],
    ['library','#libraryListCard','backgroundColor',surface[theme]],
    // BIZ-위쪽정돈(11/09 01:22): 폰의 사업 보고 [+]는 계정 색으로 채운 동그라미가 아니라 맨 윗줄 투명 아이콘이라, 폰에서는 목록 상자 바탕을 본다(PC의 채운 [+ 사업 보고]는 그대로).
-   width<=760?['meetings','#meetingsListCard','backgroundColor',surface[theme]]:['meetings','#newMeetingBtn','backgroundColor',color]
+   // BIZ-위쪽정돈PC(11/09 10:52 A): PC도 같은 투명 아이콘이라 모든 폭에서 목록 상자 바탕을 본다.
+   ['meetings','#meetingsListCard','backgroundColor',surface[theme]]
   ]){
    await clickView(page,view);
    await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);

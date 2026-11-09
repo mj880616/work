@@ -100,9 +100,10 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
     expect(after.height).toBe(44);expect(after.font).toBe('12px');expect(after.weight).toBe('400');expect(after.color).toBe(await muted(page));expect(after.background).toBe('rgba(0, 0, 0, 0)');expect(after.paddingLeft).toBe('0px');expect(after.paddingRight).toBe('0px');await expect(el).toHaveCSS('border-width','0px');
    }else if(width<=760&&selector==='#newProjectBtn')await phoneHeadAdd(page,selector);
    else if(width<=760&&fabs.has(selector))await phoneFab(page,selector);
-   // UI-PC회의(2026-10-20)·UI-PC버튼36: PC 회의 [+ 회의 결과]·[+ 프로젝트]는 공용 입력칸 높이(36px)·누르는 범위 44px.
-   // BIZ-버튼줄정리(10/29): 사업 보고 [+ 사업 보고]도 [+ 사업영역]처럼 작고 낮은 채운 버튼(32px, 누르는 범위 44px).
-   else if(['#newMeetingBtn','#newProjectBtn'].includes(selector)&&width>=761)await pcCompactAdd(page,selector);
+   // BIZ-위쪽정돈PC(11/09 10:52 A): 사업 보고 [+]는 PC도 폰과 같은 맨 윗줄 32px 작은 아이콘(글자 없음, 누르는 범위 44px은 위아래 ::after).
+   else if(selector==='#newMeetingBtn')await phoneFab(page,selector);
+   // UI-PC회의(2026-10-20)·UI-PC버튼36: PC [+ 프로젝트]는 작고 낮은 채운 버튼(32px, 누르는 범위 44px).
+   else if(selector==='#newProjectBtn'&&width>=761)await pcCompactAdd(page,selector);
    else if(dsViews.has(name))await dsStandard(page,selector);
    else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(name==='calendar'?'500':before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
   }

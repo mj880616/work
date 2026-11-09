@@ -426,11 +426,11 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   const shown=()=>page.locator(pc?'#meetingList [data-meeting-round]':'#meetingList [data-mrd-meeting]').evaluateAll((els,pc)=>els.map(e=>pc?e.dataset.meetingRound:e.dataset.mrdMeeting),pc);
   const bar=page.locator('#meetingsView .report-week-bar'),label=page.locator('#reportWeekFilter .report-week-label');
   const prev=reportWeekButton(page,'prev'),next=reportWeekButton(page,'next'),pick=reportPeriodSelect(page);
-  // 주 줄(S52-22 TEAM-맨위한줄 → BIZ-위쪽정돈 11/09): 맨 위 줄·종류 줄 아래, ‹ 라벨 › · n건 한 줄(기간 상자 [이번 주 ▾]는 둘째 줄로 올라감).
+  // 주 줄(S52-22 TEAM-맨위한줄 → BIZ-위쪽정돈 11/09 → BIZ-위쪽정돈PC): 폰은 맨 위 줄·종류 줄 아래(PC는 종류 줄 오른쪽 같은 줄), ‹ 라벨 › · n건 한 줄(기간 상자 [이번 주 ▾]는 둘째 줄로 올라감).
   await expect(bar).toBeVisible();await expect(page.locator('#reportWeekFilter')).toHaveAttribute('role','group');
   await expect(prev).toHaveAttribute('aria-label','이전 주');await expect(next).toHaveAttribute('aria-label','다음 주');
   await expect(pick.locator('option:not([hidden])')).toHaveText(['이번 주','주차 선택','전체 기간','기간 정하기']);await expect(pick.locator('option:checked')).toHaveText('이번 주'); // 처음은 이번 주(BIZ-주간표이번주)
-  const kindBar=await page.locator('#meetingsView .report-kind-bar').boundingBox(),weekBar=await bar.boundingBox();expect(weekBar.y).toBeGreaterThanOrEqual(kindBar.y+kindBar.height-1);const pickBox=await pick.boundingBox();expect(pickBox.y).toBeGreaterThanOrEqual(kindBar.y-1);expect(pickBox.y+pickBox.height).toBeLessThanOrEqual(kindBar.y+kindBar.height+1);
+  const kindBar=await page.locator('#meetingsView .report-kind-bar').boundingBox(),weekBar=await bar.boundingBox();/* BIZ-위쪽정돈PC(11/09 10:52 A): PC는 주 줄이 종류 줄 오른쪽 같은 줄, 폰은 아래 줄 */if(pc){expect(Math.abs((weekBar.y+weekBar.height/2)-(kindBar.y+kindBar.height/2))).toBeLessThanOrEqual(3);expect(weekBar.x).toBeGreaterThanOrEqual(kindBar.x+kindBar.width-1)}else expect(weekBar.y).toBeGreaterThanOrEqual(kindBar.y+kindBar.height-1);const pickBox=await pick.boundingBox();expect(pickBox.y).toBeGreaterThanOrEqual(kindBar.y-1);expect(pickBox.y+pickBox.height).toBeLessThanOrEqual(kindBar.y+kindBar.height+1);
   // BIZ-위쪽정돈: 주 넘기기(‹ 라벨 › · n건)는 폰에서도 한 줄, [이번 주 ▾]는 둘째 줄(종류·사업영역 옆)이라 이 줄에서 뺀다.
   for(const sel of ['#reportWeekFilter .report-week-nav > *']){const tops=await page.locator(sel).evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return Math.round(r.top+r.height/2)}));
     expect(Math.max(...tops)-Math.min(...tops)).toBeLessThanOrEqual(2)}
