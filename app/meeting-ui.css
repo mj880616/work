@@ -521,4 +521,4 @@ button.record-raw-toggle{font-size:12px;font-weight:500;line-height:1}
 .mrd-special-size{margin-right:auto;margin-left:var(--kptu-space-2,8px);color:var(--kptu-muted);font-size:12px}
 /* BIZ-주간칸밀림(11/09): 표가 그려지기 전 자리(biz-week-skeleton.mjs) — 진짜 표와 같은 머리글·칸 폭, 줄 높이는 칸마다 [쓰기] 누름 자리(50px)와 같고 칸은 흐린 회색(0.4초 안에 끝나면 보이지 않음). */
 .biz-skel tbody td,.biz-skel tbody th{height:50px;background:color-mix(in srgb,var(--kptu-border) 35%,transparent);animation:wait-show 0s linear .4s both}
-.biz-skel .wait-empty{visibility:hidden}
+.biz-skel-line{margin:4px 0;height:18px}
