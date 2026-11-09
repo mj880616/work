@@ -157,13 +157,14 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const headOf=key=>[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode===key);
   // 줄 안 이름 바꾸기(폴더): 창 없이 그 줄 이름이 입력칸이 된다. Enter·바깥 누르기=저장, Esc=취소. 저장은 폴더 이름뿐(자료·Drive는 그대로).
   let renaming=null;
-  const navBtnOf=id=>[...document.querySelectorAll('#libraryFolderNav [data-lu-nav]')].find(b=>b.dataset.luNav===id)||null;
+  // LIB-두칸보기: 두 칸(#documentList 안 [data-lu-pane-i])의 폴더 줄도 왼쪽 나무 줄과 같은 data-lu-nav 단추다.
+  const navBtnOf=(id,trigger=null)=>{const own=trigger?.closest?.('[data-lu-nav]');if(own?.dataset.luNav===id)return own;return [...document.querySelectorAll('#libraryListCard [data-lu-nav]')].find(b=>b.dataset.luNav===id)||null};
   // trigger가 왼쪽 나무 줄이면(나무 줄 우클릭 → [이름 바꾸기]) 그 나무 줄이 입력칸이 된다. 오른쪽 목록에 그 폴더 줄이 없을 때도 나무 줄로.
   function startRename(id,trigger=null){
     const f=folder(id);if(!f||busy)return;
     if(renaming){if(renaming.id===id){renaming.input.focus();return}renaming.finish(true)}
-    let head=trigger?.closest?.('#libraryFolderNav')?null:headOf('f:'+id),nameEl=head?.querySelector('.lu-node-name');
-    if(!head||!nameEl){const b=navBtnOf(id);if(!b)return;head=b.closest('.ft-row')||b.parentElement;nameEl=b}
+    let head=trigger?.closest?.('#libraryFolderNav,[data-lu-pane-i]')?null:headOf('f:'+id),nameEl=head?.querySelector('.lu-node-name');
+    if(!head||!nameEl){const b=navBtnOf(id,trigger);if(!b)return;head=b.closest('.ft-row')||b.parentElement;nameEl=b}
     const inNav=!head.matches('summary');
     const input=document.createElement('input'),wasDraggable=head.getAttribute('draggable');
     input.type='text';input.className=inNav?'lu-folder-rename lu-fnav-rename':'lu-folder-rename';input.value=f.name;input.maxLength=40;input.autocomplete='off';input.setAttribute('aria-label','폴더 이름');
@@ -239,9 +240,11 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const rowOf=id=>[...document.querySelectorAll('#documentList .lu-row')].find(x=>x.dataset.luDocument===id);
   // el에서 시작한 끌기 상태. touch=true(폰 길게 누르기)이면 draggable 표시가 없어도 잡는다.
   // S55-08 LIB-나무로끌기안됨: 두 칸 폴더 보기의 왼쪽 나무 폴더 줄(#libraryFolderNav)도 같은 끌기·놓기 부품을 쓴다(ⓑ 나무 → 목록, ⓓ 나무 → 나무).
-  const navAt=el=>el?.closest?.('#libraryFolderNav [data-lu-nav]')||null;
+  const navAt=el=>el?.closest?.('#libraryListCard [data-lu-nav]')||null;
+  // LIB-두칸보기(S55-11): 두 칸의 칸 상자(폴더 줄이 아닌 빈 자리·자료 줄 위)에 놓으면 그 칸의 지금 폴더(맨 위면 폴더 밖)로.
+  const paneAt=el=>el?.closest?.('#libraryListCard [data-lu-pane-i]')||null;
   function dragFrom(el,touch=false){
-    const nav=!touch&&el?.closest?.('#libraryFolderNav [data-lu-nav][draggable="true"]');
+    const nav=!touch&&el?.closest?.('#libraryListCard [data-lu-nav][draggable="true"]');
     if(nav){const f=folder(nav.dataset.luNav);return f?{kind:'folder',id:f.id,frame:f.project_id||null,els:[nav.closest('.ft-row')||nav]}:null}
     const head=el.closest?.(touch?'summary.lu-node-head':'summary.lu-node-head[draggable="true"]'),row=el.closest?.(touch?'.lu-row[data-lu-document],.lu-row[data-lu-photoset]':'.lu-row[draggable="true"]');
     if(head){const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:'))return null;const f=folder(key.slice(2));if(!f)return null;return {kind:'folder',id:f.id,frame:f.project_id||null,els:[head.parentElement]}}
@@ -258,9 +261,9 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(!drag)return null;
     // S55-08 ⓐ·ⓓ: 왼쪽 나무 줄에 놓기. '자료실 전체'는 오른쪽 '폴더 밖' 머리와 같은 맨 위(폴더 밖으로), 폴더 줄은 그 안으로.
     // 원인(사실): 끌기·놓기 이벤트를 오른쪽 목록(#documentList)에만 걸어 두어 나무 줄 위에서는 놓기를 받는 곳이 없었다(브라우저가 놓기를 거절).
-    const nav=navAt(e.target);
-    if(nav){
-      const head=nav.closest('.ft-row')||nav,id=nav.dataset.luNav||'';
+    const nav=navAt(e.target),pane=!nav&&paneAt(e.target);
+    if(nav||pane){
+      const head=nav?nav.closest('.ft-row')||nav:pane,id=nav?nav.dataset.luNav||'':pane.dataset.luPaneFolder||'';
       if(!s().free)return null;
       if(!id||id===OUTSIDE_KEY){
         if(drag.kind==='file')return {head,nav:true,ok:drag.docs.some(d=>docFolder(d)),kind:'top'};
@@ -268,7 +271,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       }
       const target=folder(id);if(!target)return {head,nav:true,ok:false};
       if(drag.kind==='file')return {head,nav:true,ok:drag.docs.some(d=>docFolder(d)?.id!==target.id),kind:'into',target:target.id};
-      if(target.id===drag.id)return {head,nav:true,ok:false};
+      if(target.id===drag.id||target.id===folder(drag.id)?.parent_id)return {head,nav:true,ok:false};
       return {head,nav:true,ok:folderMoveTargets(s().folders,drag.id,true).includes(target.id),kind:'into',target:target.id};
     }
     // LIB-후속1 ⑤: 분류로 묶은 화면에서 자료를 다른 분류 머리(또는 그 분류의 열린 자료 줄) 위에 놓으면 그 분류로 바꾼다. 왼쪽 폴더 팝업은 그대로(폴더 옮기기).
@@ -566,5 +569,5 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 ⋯의 [새 폴더]. 폴더 묶기에서만 — 들어간 폴더가 있으면 그 안, 없으면 맨 위(폴더 밖 자리).
   const createIn=(parentId,trigger)=>{const p=parentId?folder(parentId):null;if(parentId&&!p)return;if(p&&!canAddChild(s().folders,p.id)){status('여기에는 폴더를 더 만들 수 없어요.',true);return}
     askName({title:p?'안에 폴더 만들기':'폴더 만들기',hint:p?pathName(p.id)+' 안에 만들어요.':'폴더 밖(맨 위)에 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(p?.project_id||null,p?.id||null,name)})};
-  return {openAt:(trigger,x,y)=>menu.open(trigger,{at:{x,y}}),createIn,moveDocsTo:(ids,folderId)=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
+  return {openAt:(trigger,x,y)=>menu.open(trigger,{at:{x,y}}),createIn,moveFolderTo:(id,parentId)=>dragMoveFolder(id,parentId||null),moveDocsTo:(ids,folderId)=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
 }
