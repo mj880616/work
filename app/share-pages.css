@@ -231,3 +231,8 @@
 @media (min-width:761px){
   #appView #pagesView .sp-root .sp-head button.primary[data-sp-new]{ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
 }
+
+/* SHARE-제목줄더하기: 폰(~760px) 첫 줄 = 제목 '공유 페이지' ……… 작은 +. 제목은 앱 머리와 같은 크기·굵기(사업 보고 .report-top-title과 같은 방식). */
+@media (max-width:760px){
+  #appView #pagesView .sp-head h2.screen-title{ position:static; width:auto; height:auto; overflow:visible; clip:auto; margin:0; flex:1 1 auto; min-width:0; font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; color:inherit; }
+}
