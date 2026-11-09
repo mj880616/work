@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 24
           package-manager-cache: false
       - name: Classify every changed path against the trusted policy
         id: classify
@@ -56,7 +56,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 24
           package-manager-cache: false
       - name: Check press archive paths and newest listing
         working-directory: candidate
@@ -87,7 +87,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 24
           package-manager-cache: false
       - name: Wait until an earlier auto-merge reservation is removed
         if: needs.classify.outputs.publication != 'true' && needs.classify.outputs.trusted_author == 'true'
