@@ -2,6 +2,7 @@ import {readDocuments} from './report-list-read.js'; // APP-낭비줄이기 ①:
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {renderFilterChips} from './filter-chips.js';
 import {uploadTimeoutMs} from './upload-budget.mjs';
+import {floatingWindowOpen} from './open-window.mjs'; // ★LIB-바깥파일놓기안됨: 칸에 붙인 창(사업 보고 결과 등)은 열린 창으로 치지 않는다
 import {sendUpload} from './upload-send.mjs';
 import {trackUpload,setUploadRetry,mountUploadRows,paintUploadLine,watchUploads} from './upload-progress.js';
 import {readView,saveView,orderedGroups} from './library-view-pref.js';
@@ -351,7 +352,7 @@ function luSetSelectedFiles(files){if(luUploading)return;luUploadEntries=Array.f
 // S53-19: 받는 폭은 칸 나누기 공용 판정(600px~, screen-width.mjs)과 같게. 옛 '760px 이하 = 폰'은 펼친 폴드(약 673~707px)의 두 칸 보기에서 놓기를 꺼 두었다.
 let luDropRun=null,luDropClearTimer=0;
 const LU_NARROW=typeof matchMedia==='function'?matchMedia(NARROW_QUERY):null;
-const luDropActive=()=>window.KPTURouter?.current==='library'&&!LU_NARROW?.matches&&!document.querySelector('.modal:not(.hidden)')&&(!luUploading||!!luDropRun);
+const luDropActive=()=>window.KPTURouter?.current==='library'&&!LU_NARROW?.matches&&!floatingWindowOpen(document)&&(!luUploading||!!luDropRun);
 function luDropStatus(text,{error=false,busy=false}={}){const st=document.querySelector('#libraryDropStatus');if(!st)return;clearTimeout(luDropClearTimer);st.textContent=text||'';st.hidden=!text;st.classList.toggle('error',!!error);st.setAttribute('aria-busy',busy?'true':'false');st.setAttribute('role',error?'alert':'status');if(text&&!error&&!busy)luDropClearTimer=setTimeout(()=>luDropStatus(''),DROP_RESULT_CLEAR_MS)}
 // S46-25: value({field,value})가 있으면 그 값을 달아 올린다. 사업영역·분류는 [+ 자료 등록]과 같은 요청 칸(project_id·category, 서버가 사업영역 권한을 다시 봄),
 // 담당조직은 담당조직 상세 [+]와 같은 연결(linkUploadedDocument, DB가 같은 작업공간 조직만 받음). AI 채우기는 그 뒤에 시작해 사람이 놓은 값을 덮지 않는다
