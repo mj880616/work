@@ -53,6 +53,7 @@ import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {mountHomeSummary} from './home-summary.js';
 import {readAutoPromises} from './journal-ledger.js';
+import {mountDayFill} from './home-day-fill.js'; // HOME-하루채우기: 오늘 사진·읽을 만한 글·이런 기록은 어때요?(세 칸의 renderer)
 import {RECORD_ONE_FROM} from './record-window-model.mjs'; // ORG/BIZ-기록하나로: 전환 주부터 보고 표 = 창 부품(옛 주는 옛 화면 그대로)
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
@@ -95,6 +96,7 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <div class="journal-done-tasks" data-journal-done-tasks></div>
 </section>
+<div class="journal-fill" data-journal-fill hidden></div>
 <div class="journal-materials" data-journal-materials></div>
 </section>
 <section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" class="a11y-only" tabindex="-1" data-journal-weekly-title></h3><section class="journal-next-week" data-journal-next-week aria-label="다음 주 준비"></section><div class="journal-weekly-body" data-journal-weekly></div></section>
@@ -105,6 +107,9 @@ const $ = selector => root.querySelector(selector);
 void appShown().then(() => import('./org-quiet.js')).then(({mountOrgQuiet}) => mountOrgQuiet(root.querySelector('[data-home-quiet]'))?.refresh()).catch(error => console.warn('org quiet load', error?.message || error));
 const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || root, rt, onTasksChanged:() => refreshTasks()});
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
+// HOME-하루채우기: [하루] 오늘 한 일 아래 세 칸(home-day-fill.js가 유일한 renderer). 사진·일기 쓰기는 그날 일기 화면으로 간다(일기 저장은 일기 화면 몫).
+const openDiaryDay = day => import('./diary-data.js').then(diary => { diary.requestDiaryDay(day); window.KPTURouter?.go?.('diary', {source:'delegated'}); }).catch(() => {});
+const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openDiaryDay, onWrite:day => openDiaryDay(day)});
 
 let owner = ownerScope(rt), epoch = 0, sharedEpoch = 0;
 let start = weekStart(todayKey()), selected = todayKey();
@@ -442,6 +447,16 @@ function renderDay() {
   }
   host.replaceChildren(...blocks);
   fitAll(host); // UI-줄입력늘어나기: 고쳐서 넣을 한 줄 칸은 글 전체가 보이게
+  renderFill();
+}
+// HOME-하루채우기: 고른 날·그 주 일정(사진 정렬의 일정 시간)을 세 칸에 넘긴다. ②·③ 재료는 서버 연결 PR(PR-C)에서 넣는다 — 지금은 비어 칸째 안 보인다.
+// 첫 화면 받기와 겹치지 않게 앱이 보인 뒤에 처음 그린다.
+let fillReady = false;
+void appShown().then(() => { fillReady = true; renderFill(); });
+function renderFill() {
+  if (!fillReady) return;
+  dayFill.render({day:selected, today:todayKey(), hour:seoulParts(new Date()).hour, events:materials.events?.status === 'ok' ? materials.events.items : [],
+    reads:null, suggests:null, hidden:mode === 'week'});
 }
 const isRecordWeek = week => !!week && week >= RECORD_ONE_FROM;
 // 사업요약표의 사업 나무 = 이 화면이 이미 읽은 사업 목록(활성만). 같은 읽기 결과면 같은 배열(다시 그릴 때 다시 읽지 않게).
