@@ -11,6 +11,7 @@ import {twoPaneFrame} from './two-pane.js';
 import {mountSplitResize} from './split-resize.js';
 import {paneSide} from './files-panes-model.mjs';
 import {ftFolderRowHtml} from './folder-tree-ui.mjs';
+import {emptyHtml, waitHtml} from './wait-state.js';
 
 const OUT_KEY = 'x:out';
 const SORTS = Object.freeze([['date', '날짜순'], ['name', '이름순']]);
@@ -42,7 +43,7 @@ export const sendText = cur => `${cur === 1 ? '←' : '→'} ${paneSide(cur === 
 /**
  * @param {object} h 자료실(library-upload.js)이 넘기는 것
  *   on() 두 칸인가 · folders() 폴더 표 · rightFolder()/enterRight(id) 오른쪽 칸 위치(luInFolder) · render() 다시 그리기
- *   rowHtml(d,node) 자료 줄 · canDrag() · ui() 폴더 부품 · picked() 선택한 자료 id들 · busy() · esc
+ *   ready() 폴더·자료를 다 읽었는가(읽는 동안 '빈 폴더' 대신 기다림) · rowHtml(d,node) 자료 줄 · canDrag() · ui() 폴더 부품 · picked() 선택한 자료 id들 · busy() · esc
  */
 export function createLibraryTwo(h) {
   let left = null, cur = 0, lastTree = [];
@@ -83,7 +84,7 @@ export function createLibraryTwo(h) {
     const rows = folders.map(folderRow).join('') + files.map(d => { const r = h.rowHtml(d, node); return r ? rowAttr(r, 'd:' + d.id) : ''; }).join('');
     return `<section class="lu-pane" data-lu-pane-i="${i}" data-lu-pane-folder="${h.esc(id || '')}" aria-label="${side} 칸">`
       + `<div class="lu-pane-head">${up}<nav class="lu-pane-path" aria-label="${side} 칸 위치">${steps}</nav>${sort}</div>`
-      + `<div class="lu-pane-list" role="list">${rows || `<p class="lu-pane-empty">${c.found ? '빈 폴더' : '없음'}</p>`}</div></section>`;
+      + `<div class="lu-pane-list" role="list">${rows || (h.ready() ? emptyHtml(c.found ? '빈 폴더' : '없음') : waitHtml({rows: 3}))}</div></section>`;
   }
   // #documentList 안에 넣을 두 칸 HTML. tree = 거르기까지 한 폴더 묶기 나무(폴더 밖 묶음 포함, 들어가기 전 전체).
   function html(tree) {

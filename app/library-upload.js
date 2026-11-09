@@ -710,7 +710,7 @@ let luTwo=null;
 const luTwoActive=()=>!!luTwo&&!!LU_SPLIT?.matches&&luGroupBy==='folder'&&luFoldersReady&&viewPrefs.getLibraryTwo?.()!==false;
 function luMakeTwo(){
   if(luTwo||!document.querySelector('#libraryListCard'))return;
-  luTwo=createLibraryTwo({on:luTwoActive,folders:()=>luFolders_,rightFolder:()=>luInFolder,enterRight:id=>luEnterFolder(id),render:()=>luRenderLibrary(),
+  luTwo=createLibraryTwo({on:luTwoActive,ready:()=>luFoldersReady,folders:()=>luFolders_,rightFolder:()=>luInFolder,enterRight:id=>luEnterFolder(id),render:()=>luRenderLibrary(),
     rowHtml:(d,node)=>luDragRowHtml(d,node),canDrag:()=>luCanDrag(),ui:()=>luFolders(),picked:()=>luPick.items?[...luPick.items].filter(id=>luDocuments.some(d=>d.id===id)):[],
     busy:()=>luSelBusy||!!luFolderUi?.busy,say:text=>notify(text,{record:false}),esc:luEsc});
   luTwo.bind();
