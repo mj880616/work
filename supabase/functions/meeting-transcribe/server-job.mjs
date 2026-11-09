@@ -10,6 +10,11 @@ export const LEASE_MS = 9 * 60 * 1000;          // 한 단계를 잡아 두는 �
 export const TICK_TTL_MS = 10 * 60 * 1000;      // job_tick 열쇠 기한
 export const STALE_MS = 60 * 1000;              // 잡은 사람이 없는 채 이만큼 지나면 화면 확인(job_read)이 다시 깨운다
 export const MAX_ATTEMPTS = 300;                // 단계 시도 상한(끝없는 되풀이 막기)
+// 서버 정리가 잡은 구간 전사가 이만큼 넘게 '진행 중'이면 죽은 실행이다(REC-정리멈춤반복). Edge 한 번 실행은 이보다 짧고,
+// 같은 단계를 다시 잡는 것은 앞 잡기(LEASE_MS 9분)가 지난 뒤뿐이라 그때 남은 '진행 중'은 끊긴 앞 실행의 흔적이다.
+export const SEGMENT_DEAD_MS = 8 * 60 * 1000;
+// 단계가 서버 실행 시간 안에 끝나지 못하고 끊긴 것을 이만큼 보면 실패(step_cut)로 멈춘다(같은 단계를 끝없이 다시 잡지 않게).
+export const MAX_STEP_CUTS = 2;
 export const LIST_HOURS = 48;                   // job_list가 보여 주는 기간
 export const TICK_HEADER = 'x-meeting-job-tick';
 export const KINDS = Object.freeze(['recording', 'attached']);
@@ -99,13 +104,72 @@ export function joinParts(parts) {
 export const cleanText = (text) => String(text || '').replace(/\r\n?/g, '\n').split('\0').join('').split('\n').map((l) => l.replace(/\s+$/, '')).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 export const hasWords = (text) => !!String(text || '').replace(/^―.*―$/gm, '').trim();
 
-// 요약 단계 계획: 조각이 하나면 한 번, 아니면 조각마다 + 합치기 한 번.
+// 요약 단계 계획: 조각이 하나면 한 번, 아니면 조각마다 + 합치기 한 번. count = 합칠 부분 요약 수.
+// 조각이 하나인데 답이 길어 잘려(draft_cut) 반으로 나눠 요약해 둔 경우(조각 요약 2개)는 그 둘을 합친다(REC-정리멈춤반복).
 export function summaryPlan(transcript, summaryParts) {
   const pieces = splitTranscript(transcript);
   const done = Array.isArray(summaryParts) ? summaryParts.length : 0;
-  if (pieces.length <= 1) return { kind: 'one', pieces, total: 1, next: 0 };
-  if (done < pieces.length) return { kind: 'part', pieces, total: pieces.length + 1, next: done };
-  return { kind: 'merge', pieces, total: pieces.length + 1, next: pieces.length };
+  if (pieces.length <= 1) {
+    if (done >= 2) return { kind: 'merge', pieces, total: done + 1, next: done, count: done };
+    return { kind: 'one', pieces, total: 1, next: 0, count: 0 };
+  }
+  if (done < pieces.length) return { kind: 'part', pieces, total: pieces.length + 1, next: done, count: pieces.length };
+  return { kind: 'merge', pieces, total: pieces.length + 1, next: pieces.length, count: pieces.length };
+}
+
+// 요약 답이 길어 잘린(draft_cut) 조각을 반으로 나눈다: 가운데에서 가장 가까운 줄바꿈, 없으면 가운데 글자.
+// 너무 짧아(MIN_HALF_CHARS × 2 미만) 나눠도 소용없으면 null.
+export const MIN_HALF_CHARS = 2000;
+export function halves(text) {
+  const all = String(text || '').trim();
+  if (all.length < MIN_HALF_CHARS * 2) return null;
+  const mid = Math.floor(all.length / 2);
+  const before = all.lastIndexOf('\n', mid), after = all.indexOf('\n', mid);
+  let at = mid;
+  const cands = [before, after].filter((i) => i > MIN_HALF_CHARS && i < all.length - MIN_HALF_CHARS);
+  if (cands.length) at = cands.reduce((a, b) => (Math.abs(b - mid) < Math.abs(a - mid) ? b : a));
+  const a = all.slice(0, at).trim(), b = all.slice(at).trim();
+  return a && b ? [a, b] : null;
+}
+// 반으로 나눠 요약한 두 조각 요약(normalizeDraft 모양) → 한 조각 요약. 합치기 단계(AI)가 겹침을 정리하므로 여기서는 잇기만 한다.
+export function combineDrafts(list) {
+  const drafts = (Array.isArray(list) ? list : []).filter((d) => d && typeof d === 'object');
+  if (!drafts.length) return null;
+  const join = (k) => drafts.map((d) => String(d[k] || '').trim()).filter(Boolean).join('\n');
+  return {
+    decisions: join('decisions'), information: join('information'),
+    actions: drafts.flatMap((d) => (Array.isArray(d.actions) ? d.actions : [])),
+    attendees: [...new Set(drafts.flatMap((d) => (Array.isArray(d.attendees) ? d.attendees : [])))],
+    meetingDate: drafts.map((d) => d.meetingDate).find(Boolean) || '',
+  };
+}
+
+// 단계를 잡기 직전의 행 → 이번에 잡을 수 있나 · 앞 실행이 끊겼나(cut 0·1·2).
+// 정상으로 끝난 단계(성공·실패)는 언제나 lease_until을 비운다. 기한이 지난 lease_until이 남아 있으면 앞 실행이 단계 중간에
+// 끝난 것(Edge 실행 시간 한도·플랫폼 재시작)이다. 처음 보면 표시(error_code step_cut)만 하고 한 번 더 하고, 같은 단계에서 또 보면 실패.
+export function leaseTake(row, nowMs) {
+  if (!row || !ACTIVE.includes(row.status)) return { ok: false, cut: 0 };
+  const lease = row.lease_until ? Date.parse(row.lease_until) : 0;
+  if (row.lease_until && !(lease < nowMs)) return { ok: false, cut: 0 };
+  if (!row.lease_until) return { ok: true, cut: 0 };
+  return { ok: true, cut: row.error_code === 'step_cut' ? MAX_STEP_CUTS : 1 };
+}
+// 서버 정리가 구간 전사를 시작할 때 그 구간 행 상태: free(시작 가능) · busy(다른 실행이 막 시작함) · dead(끊긴 앞 실행, 넘겨받음).
+export function segmentRun(seg, nowMs) {
+  if (!seg || seg.status !== 'running') return 'free';
+  const t = Date.parse(seg.started_at || seg.updated_at || seg.created_at || '');
+  return Number.isFinite(t) && nowMs - t <= SEGMENT_DEAD_MS ? 'busy' : 'dead';
+}
+
+// OpenAI Responses 답 → 실패 갈래(요약). 답이 잘림(max_output_tokens) = draft_cut, 그 밖 = draft_failed.
+// 로그에는 상태·이유 이름만 남긴다(답 글 없음).
+export function draftResult(d) {
+  if (!d || typeof d !== 'object') return { code: 'draft_failed', why: 'no_body' };
+  const status = typeof d.status === 'string' && /^[a-z_]{1,30}$/.test(d.status) ? d.status : '-';
+  if (status === 'completed') return { code: '', why: 'completed' };
+  const reason = typeof d.incomplete_details?.reason === 'string' && /^[a-z_]{1,40}$/.test(d.incomplete_details.reason) ? d.incomplete_details.reason : '-';
+  if (status === 'incomplete' && reason === 'max_output_tokens') return { code: 'draft_cut', why: `incomplete:${reason}` };
+  return { code: 'draft_failed', why: `${status}:${reason}` };
 }
 export const isLongTranscript = (t) => String(t || '').trim().length > DRAFT_ONE_CHARS;
 

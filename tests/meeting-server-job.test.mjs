@@ -72,6 +72,70 @@ test('요약 계획: 3만 자까지 한 번, 넘으면 조각마다 + 합치기(
   assert.equal(prompt.normalizeDraft({decisions:'',information:'',actions:[],attendees:[]}),null);
 });
 
+test('REC-정리멈춤반복: 끊긴 단계 알아보기 — 기한 지난 잡기가 남아 있으면 한 번은 다시, 같은 단계에서 또 끊기면 step_cut',()=>{
+  const now=Date.parse('2026-11-09T04:30:00Z');
+  const past=new Date(now-60000).toISOString(),future=new Date(now+60000).toISOString();
+  assert.deepEqual(sj.leaseTake({status:'queued',lease_until:null},now),{ok:true,cut:0},'정상: 앞 단계가 잡기를 비우고 끝남');
+  assert.equal(sj.leaseTake({status:'running',lease_until:future},now).ok,false,'다른 실행이 잡고 있음');
+  assert.equal(sj.leaseTake({status:'failed',lease_until:null},now).ok,false);
+  assert.equal(sj.leaseTake({status:'done',lease_until:null},now).ok,false);
+  assert.deepEqual(sj.leaseTake({status:'running',lease_until:past,error_code:null},now),{ok:true,cut:1},'처음 끊김: 한 번 더');
+  assert.deepEqual(sj.leaseTake({status:'running',lease_until:past,error_code:'step_cut'},now),{ok:true,cut:sj.MAX_STEP_CUTS},'두 번째 끊김: 실패');
+  // 서버 코드에 실제로 쓰였는지(잡기 조건·실패 코드).
+  const src=read('supabase/functions/meeting-transcribe/index.ts');
+  assert.match(src,/leaseTake\(before, now\.getTime\(\)\)/);
+  assert.match(src,/if \(take\.cut >= 2\) throw new Fail\('step_cut'\)/);
+  assert.match(src,/q\.eq\('lease_until', before\.lease_until\) : q\.is\('lease_until', null\)/,'읽은 잡기 그대로일 때만 바꿈(동시에 두 번 와도 한 번)');
+});
+
+test('REC-정리멈춤반복: 끊긴 앞 실행이 남긴 구간 \'진행 중\'은 넘겨받는다(전엔 15분 안이라 busy로 실패)',()=>{
+  const now=Date.parse('2026-11-09T04:30:00Z');
+  const ago=ms=>new Date(now-ms).toISOString();
+  assert.equal(sj.segmentRun({status:'done'},now),'free');
+  assert.equal(sj.segmentRun({status:'running',started_at:ago(30000)},now),'busy','막 시작한 실행은 그대로');
+  // 서버 정리는 앞 잡기(9분)가 지난 뒤에만 같은 단계를 다시 잡는다: 그때 남은 '진행 중'은 끊긴 흔적.
+  assert.ok(sj.SEGMENT_DEAD_MS<sj.LEASE_MS);
+  assert.equal(sj.segmentRun({status:'running',started_at:ago(sj.LEASE_MS)},now),'dead');
+  assert.equal(sj.segmentRun({status:'running',started_at:ago(10*60000)},now),'dead','15분이 안 됐어도 넘겨받음');
+  assert.equal(sj.segmentRun({status:'running'},now),'dead','시각 모름');
+  const src=read('supabase/functions/meeting-transcribe/index.ts');
+  const body=src.slice(src.indexOf('async function transcribeSegment('),src.indexOf('async function transcribeFile('));
+  assert.match(body,/segmentRun\(job, now\.getTime\(\)\)/);
+  assert.doesNotMatch(body,/isStale/,'서버 정리 구간 전사는 15분 기준을 쓰지 않는다');
+});
+
+test('REC-정리멈춤반복: 요약 답이 잘리면(draft_cut) 조각을 반으로 나눠 요약하고, 한 조각 회의는 두 반쪽을 합친다',()=>{
+  assert.deepEqual(sj.draftResult({status:'completed'}),{code:'',why:'completed'});
+  assert.equal(sj.draftResult({status:'incomplete',incomplete_details:{reason:'max_output_tokens'}}).code,'draft_cut');
+  assert.equal(sj.draftResult({status:'incomplete',incomplete_details:{reason:'content_filter'}}).code,'draft_failed');
+  assert.equal(sj.draftResult({status:'failed'}).code,'draft_failed');
+  assert.equal(sj.draftResult(null).code,'draft_failed');
+  assert.equal(sj.draftResult({status:'incomplete',incomplete_details:{reason:'비밀 <글>'}}).why,'incomplete:-','로그에는 이유 이름만');
+  // 반으로 나누기: 줄바꿈에서, 너무 짧으면 나누지 않음.
+  assert.equal(sj.halves('짧은 글'),null);
+  const text=Array.from({length:600},(_,i)=>`화자${i%2+1}: ${'나'.repeat(20)} ${i}`).join('\n');
+  const [a,b]=sj.halves(text);
+  assert.ok(a.length>sj.MIN_HALF_CHARS&&b.length>sj.MIN_HALF_CHARS);
+  assert.equal(`${a}\n${b}`,text,'글이 빠지거나 겹치지 않음');
+  assert.ok(Math.abs(a.length-b.length)<200);
+  assert.ok(sj.halves('가'.repeat(5000)),'줄바꿈이 없어도 가운데에서');
+  // 두 반쪽 요약 잇기(합치기 단계 AI가 겹침 정리).
+  const d1={decisions:'결정1',information:'정보1',actions:[{task:'일1',assignee:'',due:''}],attendees:['김'],meetingDate:''};
+  const d2={decisions:'결정2',information:'',actions:[{task:'일2',assignee:'이',due:'2026-11-10'}],attendees:['김','이'],meetingDate:'2026-11-09'};
+  assert.deepEqual(sj.combineDrafts([d1,null,d2]),{decisions:'결정1\n결정2',information:'정보1',actions:[...d1.actions,...d2.actions],attendees:['김','이'],meetingDate:'2026-11-09'});
+  assert.equal(sj.combineDrafts([null]),null);
+  // 한 조각 회의가 잘려 반쪽 요약 둘을 남겼으면 다음 단계는 합치기.
+  assert.equal(sj.summaryPlan('짧은 회의',[d1]).kind,'one');
+  const merge=sj.summaryPlan('짧은 회의',[d1,d2]);
+  assert.deepEqual([merge.kind,merge.count,merge.total],['merge',2,3]);
+  const long=Array.from({length:4000},(_,i)=>`화자${i%3+1}: ${'가'.repeat(15)} ${i}`).join('\n');
+  const p=sj.summaryPlan(long,[]);assert.equal(p.count,p.pieces.length);
+  const src=read('supabase/functions/meeting-transcribe/index.ts');
+  assert.match(src,/const result = draftResult\(d\);/);
+  assert.match(src,/async function draftPiece\(/);
+  assert.match(src,/e\.code === 'draft_cut' \? halves\(piece\)/);
+});
+
 test('요약 지시문은 한 곳: meeting-ai-draft와 서버 정리가 같은 모듈을 쓴다',()=>{
   const draft=read('supabase/functions/meeting-ai-draft/index.ts'),server=read('supabase/functions/meeting-transcribe/index.ts');
   for(const src of [draft,server]){
