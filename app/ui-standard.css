@@ -1574,15 +1574,15 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
 /* 가상 요소 꺾쇠를 쓰는 접는 칸: 기본 표시(브라우저 ▶)를 지운다. */
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
-    .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev)>summary{list-style:none}
+    .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev,#appView #homeView details.journal-fill-more)>summary{list-style:none}
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
-    .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev)>summary::-webkit-details-marker{display:none}
+    .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev,#appView #homeView details.journal-fill-more)>summary::-webkit-details-marker{display:none}
 /* 이름 앞 꺾쇠(::before) */
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
     .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev,
-    #appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold)>summary::before,
+    #appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold,#appView #homeView details.journal-fill-more)>summary::before,
 .ps3-fold>.ps3-fold-summary::before,#appView #arsenalView .ars-sec summary::before,#appView #pagesView .sp-box-summary::before,
 .tl-status-group>summary span::before,.mrd-special-fold>summary h3::before,
 /* 이름 뒤 꺾쇠(::after) */
@@ -1594,7 +1594,7 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
     .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,.wd-st-older,.wd-st-ev,
-    #appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold)[open]>summary::before,
+    #appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold,#appView #homeView details.journal-fill-more)[open]>summary::before,
 .ps3-fold[open]>.ps3-fold-summary::before,#appView #arsenalView .ars-sec[open] summary::before,#appView #pagesView .sp-box[open]>.sp-box-summary::before,
 .tl-status-group[open]>summary span::before,.mrd-special-fold[open]>summary h3::before,
 .ps3-fold[open]>summary:not(.ps3-fold-summary)::after,#appView #photosView .photos-tidy-row[open]>summary .photos-tidy-see::after{ transform:rotate(180deg); }

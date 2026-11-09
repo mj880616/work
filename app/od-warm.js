@@ -31,11 +31,13 @@ export function installOdWarm(win = window, {load = () => import('./diary-onedri
     })().catch(() => ({done: false, why: 'error'})).finally(() => { running = null; });
     return running;
   }
-  win.setTimeout(run, WARM_START_MS);
+  // HOME-하루채우기: 첫 미리 받기가 끝나면(연결 안 됨·건너뜀 포함) 알린다. 홈 '오늘 사진'은 이 뒤에 받아 둔 연결 상태만 보고 서버에 다시 묻지 않는다.
+  const firstDone = () => { if (win.KPTUOdWarm && !win.KPTUOdWarm.firstDone) { win.KPTUOdWarm.firstDone = true; win.KPTUOdWarm.firstAt = now(); win.dispatchEvent?.(new Event('kptu-od-warm')); } };
+  win.setTimeout(() => { Promise.resolve(run()).finally(firstDone); }, WARM_START_MS);
   doc?.addEventListener?.('visibilitychange', () => {
     if (doc.visibilityState === 'visible' && last && now() - last >= WARM_AGAIN_MS) run();
   });
-  win.KPTUOdWarm = {run};
+  win.KPTUOdWarm = {run, firstDone:false, firstAt:0};
   return win.KPTUOdWarm;
 }
 

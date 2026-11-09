@@ -69,7 +69,7 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // Opens with a short slide-up; measure only once it has settled.
  const open=async()=>{await tab.click();await expect(menu).toBeVisible();await expect.poll(()=>panel.evaluate(el=>el.getAnimations().length)).toBe(0);};
  await open();await expect(tab).toHaveAttribute('aria-expanded','true');
- // UI-모바일메뉴순서: 하단바는 언제나 한 칸만 진하다. 창이 열려 있으면 [메뉴]만(담당조직 화면을 보고 있어도).
+ // UI-모바일메뉴순서: 하단바는 언제나 한 칸만 진하다. 창이 열려 있으면 [메뉴]만(조직 보고 화면을 보고 있어도).
  const marks=page.locator('.mobile-tabs [aria-current="page"]');
  await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
  // The sheet sits right on top of the tab bar, full width, rounded top.
@@ -96,8 +96,8 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  await grip.focus();await page.keyboard.press('Tab');await expect(page.locator('#mobileMenu .gs-menu-entry')).toBeFocused();
  await page.keyboard.press('Tab');await expect(tiles.first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(tab).toBeFocused();await expect(tab).toHaveAttribute('aria-expanded','false');
- // 닫으면 지금 보는 화면(담당조직) 하나만 진하다.
- await expect(marks).toHaveCount(1);await expect(marks).toContainText('담당조직');await expect(tab).not.toHaveAttribute('aria-current','page');
+ // 닫으면 지금 보는 화면(조직 보고) 하나만 진하다.
+ await expect(marks).toHaveCount(1);await expect(marks).toContainText('조직 보고');await expect(tab).not.toHaveAttribute('aria-current','page');
  // A tap on the grip closes.
  await open();await grip.click();await expect(menu).toBeHidden();
  // A tap outside (above the sheet) closes.
@@ -154,7 +154,7 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','일기']);
  // BASKET-PC메뉴: [정리함] 아래 [업데이트]·[챙길 것], [노트]는 [일정] 다음.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"]')).toHaveCount(0);
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['잊지 말기','일정','노트','사업 보고','자료실','파일','공유 페이지','담당조직','HWP 편집','원장','사진','News','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['잊지 말기','일정','노트','사업 보고','자료실','파일','공유 페이지','조직 보고','HWP 편집','원장','사진','News','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
  await openWriteFromEntry(page,1280);await expect(page.locator('#edWindow')).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});
