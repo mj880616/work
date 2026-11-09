@@ -1266,11 +1266,13 @@ function luSelStart(){if(luPick.active)return;luPick.start();luRenderLibrary()}
 // LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 오른쪽 ⋯ 하나에 [새 폴더](폴더 묶기일 때)·[여러 개 고르기]·[모두 펴기·접기]를 모은다.
 // 따로 떠 있던 '선택' 글자와 '모두 펴기' 글자는 이 메뉴로 합쳤다. 폴더마다 이름 바꾸기·지우기는 지금처럼 그 폴더 줄 우클릭·꾹 누르기.
 let luTopMenu=null;
+// 자료실 작은 메뉴(맨 위 ⋯·빈 자리 우클릭)의 글자 줄 하나 — 모양은 공용 메뉴 부품(anchored-menu.js)이 정한다.
+function luMenuRow(attrs,label){return `<button type="button" ${attrs}>${label}</button>`}
 function luTopMenuHtml(){
   const folder=luFoldersReady&&luGroupBy==='folder';
-  return (folder?`<button type="button" data-lu-top="folder">${luInFolder?'이 폴더 안에 새 폴더':'새 폴더'}</button>`:'')
-    +(luPick.active?'<button type="button" data-lu-top="select-stop">선택 끝내기</button>':'<button type="button" data-lu-top="select">여러 개 선택</button>')
-    +`<button type="button" data-lu-top="expand"${luExpandNow.count?'':' disabled'}>${luExpandNow.open?'모두 접기':'모두 펴기'}</button>`;
+  return (folder?luMenuRow('data-lu-top="folder"',luInFolder?'이 폴더 안에 새 폴더':'새 폴더'):'')
+    +(luPick.active?luMenuRow('data-lu-top="select-stop"','선택 끝내기'):luMenuRow('data-lu-top="select"','여러 개 선택'))
+    +luMenuRow(`data-lu-top="expand"${luExpandNow.count?'':' disabled'}`,luExpandNow.open?'모두 접기':'모두 펴기');
 }
 function luTopMenuOpen(trigger){
   luTopMenu||=createAnchoredMenu({id:'luTopMenu',className:'lu-folder-menu lu-top-menu',label:'자료실 메뉴',historyKey:'kptuLibraryTopMenu',key:()=>'top',render:luTopMenuHtml,
@@ -1283,9 +1285,9 @@ function luTopMenuOpen(trigger){
 let luAreaMenu=null;
 function luAreaMenuOpen(owner,x,y){
   luAreaMenu||=createAnchoredMenu({id:'luAreaMenu',className:'lu-folder-menu lu-area-menu',label:'자료실 빈 자리 메뉴',historyKey:'kptuLibraryAreaMenu',key:()=>'area',
-    render:()=>'<button type="button" data-lu-area="folder">새 폴더</button><button type="button" data-lu-area="add">자료 등록</button>',
+    render:()=>luMenuRow('data-lu-area="folder"','새 폴더')+luMenuRow('data-lu-area="add"','자료 등록'),
     onClose:()=>document.querySelectorAll('#libraryListCard[aria-expanded],#libraryFolderNav[aria-expanded],#documentList[aria-expanded]').forEach(el=>el.removeAttribute('aria-expanded')),
-    onAction:(b,active)=>{if(b.dataset.luArea==='folder')luFolders().createIn(luInFolder||null,active.trigger);else document.querySelector('#newDocumentBtn')?.click()}});
+    onAction:(b,active)=>{if(b.dataset.luArea==='folder')luFolders().createIn(luInFolder||null,active.trigger);else if(!luOpenUploadWindow())notify('자료 올리기를 열지 못했습니다.',{error:true})}});
   luCloseMenu(()=>luAreaMenu.open(owner,{at:{x,y}}));
 }
 const LU_CTX_SKIP='input,textarea,select,[contenteditable],a[href],.lu-row,summary,.lu-node,#librarySelectBar,#libraryFolderStatusLine,#libraryPath';
