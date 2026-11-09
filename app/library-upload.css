@@ -435,7 +435,6 @@
 #appView #libraryView .lu-search-row > .lu-pick-row{display:flex;align-items:center;gap:6px;flex:0 1 auto;min-width:0}
 #appView #libraryView .lu-search-row > .search{flex:1 1 0;min-width:0}
 #appView #libraryView .lu-search-row > .lu-head-actions{display:flex;align-items:center;gap:2px;flex:none;margin-left:auto}
-#appView #libraryView .lu-search-row > :is(.lu-find-open,.lu-find-close){display:none}
 /* 고르기 상자 둘: 같은 높이·글자·선. [분류 ▾]는 단추(체크 여러 개 창), [폴더 ▾]는 고르기 상자(하나만). */
 #appView #libraryView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select){position:relative;display:inline-flex;align-items:center;flex:0 1 auto;min-width:0;max-width:14em;box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 8px;
   font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;color:var(--kptu-ink);white-space:nowrap;overflow:visible;
@@ -451,19 +450,22 @@
 #appView #libraryView .lu-search-row :is(#librarySearchOpen,#librarySearchClose,#newDocumentBtn,#libraryTopMenuBtn)::after{content:"";position:absolute;inset:auto;left:0;right:0;min-width:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px);min-height:0}
 #appView #libraryView .lu-search-row :is(#librarySearchOpen,#librarySearchClose,#newDocumentBtn,#libraryTopMenuBtn):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
 #appView #libraryView .lu-search-row #newDocumentBtn::before{content:"";display:block;width:18px;height:18px;background:currentColor;-webkit-mask:var(--ds-fab-plus) center / 18px 18px no-repeat;mask:var(--ds-fab-plus) center / 18px 18px no-repeat}
+/* ⌕·✕는 폰에서만(아래 760px 절). 위 아이콘 규칙보다 뒤·같은 세기로 둔다. */
+#appView #libraryView .lu-search-row > :is(#librarySearchOpen,#librarySearchClose){display:none}
 #appView #libraryView .lu-search-row #librarySearchOpen svg{display:block;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:760px){
   #appView #libraryView .library-filter-toolbar .lu-search-row{flex-wrap:wrap;row-gap:var(--kptu-space-1,4px)}
   #appView #libraryView .lu-search-row > .lu-top-title{position:static;width:auto;height:auto;overflow:visible;clip:auto;order:0;flex:1 1 auto;min-width:0;margin:0;font-size:var(--ds-text-title);font-weight:var(--ds-weight-medium);line-height:1.4}
   #appView #libraryView .lu-search-row > .search{display:none;order:0}
   #appView #libraryView .lu-search-row > .lu-search-pick-all{order:0}
-  #appView #libraryView .lu-search-row > .lu-find-open{display:inline-grid;order:1}
+  #appView #libraryView .lu-search-row > #librarySearchOpen{display:inline-grid;order:1}
   #appView #libraryView .lu-search-row > .lu-head-actions{order:2;margin-left:0}
   #appView #libraryView .lu-search-row > .lu-pick-row{order:3;flex:1 1 100%}
   #appView #libraryView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select){max-width:calc(50% - 3px)}
-  #appView #libraryView .lu-search-row[data-lu-find] > :is(.lu-top-title,.lu-find-open,.lu-head-actions){display:none}
+  /* 찾는 중: 제목·⌕·[+]는 숨고 [찾기 칸][✕][⋯](⋯는 거르는 중에도 모두 펴기·여러 개 선택을 쓰려고 남긴다). */
+  #appView #libraryView .lu-search-row[data-lu-find] > :is(.lu-top-title,#librarySearchOpen),#appView #libraryView .lu-search-row[data-lu-find] #newDocumentBtn{display:none}
   #appView #libraryView .lu-search-row[data-lu-find] > .search{display:block;height:var(--ds-compact-height,32px);min-height:0}
-  #appView #libraryView .lu-search-row[data-lu-find] > .lu-find-close{display:inline-grid;order:1}
+  #appView #libraryView .lu-search-row[data-lu-find] > #librarySearchClose{display:inline-grid;order:1}
 }
 /* LIB-위쪽한줄: [분류 ▾] 창 줄 끝 자료 수(0도 보임, 소분류 줄은 없음) — 공용 고르기 창 줄 오른쪽 끝 작은 보조 글자. */
 .home-choice-sheet.lu-cat-sheet .lu-cat-sheet-count{flex:none;margin-left:auto;padding-left:8px;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);color:var(--kptu-muted);font-variant-numeric:tabular-nums}

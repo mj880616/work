@@ -316,10 +316,10 @@ for(const width of [390,1280]){
       // 이 가짜 서버는 프로필의 library_view를 저장하지 않으므로 서버에 기억된 것이 없다 → 들어올 때마다 기본: only [회의] off. (기억 동작은 library-list-filters.spec.mjs)
       await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('library'));
-      await expect.poll(ids).toEqual(['ordinary-a','meeting-a','ordinary-b']);await expect(category.locator('[aria-pressed="false"]')).toHaveText(['회의']);// 서버 읽기가 끝나면(기억 없음) 기본.
+      await expect.poll(ids).toEqual(['ordinary-a','meeting-a','ordinary-b']);await expect(category).toHaveText('분류: 회의 빼고');// 서버 읽기가 끝나면(기억 없음) 기본.
       // An old address or remembered view (?view=library) lands on the default list.
       await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-      await expect(rows).toHaveCount(3);await expect(category.locator('[aria-pressed="false"]')).toHaveText(['회의']);await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
+      await expect(rows).toHaveCount(3);await expect(category).toHaveText('분류: 회의 빼고');await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
       expect(documentQueries.length).toBeGreaterThan(0);
       for(const params of documentQueries)expect(params.has('meeting_id')).toBe(false);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

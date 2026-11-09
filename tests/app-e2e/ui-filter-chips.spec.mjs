@@ -56,7 +56,7 @@ for(const width of [390,760])test(`공용 알약 필터·2단 프로젝트·키�
   await toggleLibraryCategory(page,'회의');await expect(page.locator('.lu-row')).toHaveCount(0);
   await expect(page.locator('.lu-off-hint')).toHaveText('회의 분류 1건은 꺼져 있어요 켜기');
   await page.locator('.lu-off-hint button').click();await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('.lu-off-hint')).toHaveCount(0);
-  await showAllLibraryCategories(page);await expect(category.locator('[aria-pressed="false"]')).toHaveCount(0);
+  await showAllLibraryCategories(page);await expect(page.locator('#libraryCategoryPick')).toHaveText('분류: 전체');
   await page.locator('#documentSearch').fill('');await focusLibraryProject(page,'all');await expect(project).toBeHidden();await expect(page.locator('.lu-row')).toHaveCount(7);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });
