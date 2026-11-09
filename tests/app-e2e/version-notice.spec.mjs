@@ -9,6 +9,17 @@ const origin=appOrigin;
 const current=shellVersion;
 // APP-낭비줄이기 ①: 앱 업데이트 확인의 최소 간격(version-notice.js)은 60초다. 시험 시계를 그만큼 보낸다.
 const CHECK_GAP=60001;
+// STAB-간헐묶음: page.clock.runFor는 화면이 바쁘면 그 evaluate를 조용히 건너뛴다(Playwright의 non-stalling evaluate). 그러면 시계가
+// 안 가서 앱의 60초 최소 간격에 막힌다. 시계가 정말 그만큼 갔는지 화면의 Date.now()로 확인하고, 모자라면 모자란 만큼만 더 보낸다.
+async function advance(page,ms){
+  const start=await page.evaluate(()=>Date.now());
+  for(let tries=0;tries<20;tries++){
+    const done=await page.evaluate(()=>Date.now())-start;
+    if(done>=ms)return;
+    await page.clock.runFor(ms-Math.max(done,0));
+  }
+  throw new Error('시험 시계가 '+ms+'ms 가지 않음');
+}
 async function boot(page,{connected=false}={}){
   // BUG-main브라우저시험: version-notice.js skips checks while navigator.onLine is false. Chromium
   // derives that value from the host's network interfaces, and a CI runner can report offline even
@@ -67,22 +78,22 @@ async function editLinkSummary(page){
 test('equal version has no notice; newer version appears after visibility change',async({page})=>{
   await boot(page);await response(page,current);const checked=page.waitForResponse(origin+'/app/index.html');await visible(page);await checked;
   await expect(notice(page)).toHaveCount(0);
-  await page.clock.install();await page.clock.runFor(CHECK_GAP);
+  await page.clock.install();await advance(page,CHECK_GAP);
   await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
 });
 test('dismissed deployment stays dismissed in this tab; later deployment appears',async({page})=>{
   await boot(page);await page.clock.install();await response(page,current+1);await visible(page);
   await expect(notice(page)).toBeVisible();await notice(page).getByRole('button',{name:'닫기',exact:true}).click();
-  await page.clock.runFor(CHECK_GAP);const next=page.waitForResponse(origin+'/app/index.html');await visible(page);await next;
+  await advance(page,CHECK_GAP);const next=page.waitForResponse(origin+'/app/index.html');await visible(page);await next;
   await expect(notice(page)).toHaveCount(0);
-  await page.clock.runFor(CHECK_GAP);await response(page,current+2);await visible(page);await expect(notice(page)).toBeVisible();
+  await advance(page,CHECK_GAP);await response(page,current+2);await visible(page);await expect(notice(page)).toBeVisible();
 });
 test('content-hash and rollback deployments differ from the running version; a dismissed hash stays dismissed',async({page})=>{
   await boot(page);await page.clock.install();await response(page,'0123abcdef');await visible(page);
   await expect(notice(page)).toBeVisible();await notice(page).getByRole('button',{name:'닫기',exact:true}).click();
-  await page.clock.runFor(CHECK_GAP);const same=page.waitForResponse(origin+'/app/index.html');await visible(page);await same;
+  await advance(page,CHECK_GAP);const same=page.waitForResponse(origin+'/app/index.html');await visible(page);await same;
   await expect(notice(page)).toHaveCount(0);
-  await page.clock.runFor(CHECK_GAP);await response(page,current-1);await visible(page);await expect(notice(page)).toBeVisible();
+  await advance(page,CHECK_GAP);await response(page,current-1);await visible(page);await expect(notice(page)).toBeVisible();
 });
 test('reload without draft navigates; changed calendar input confirms first and cancel keeps draft',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
@@ -173,7 +184,7 @@ test('network abort is silent and a later focus check recovers',async({page})=>{
   await page.clock.install();await boot(page);const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route(origin+'/app/index.html',r=>r.abort());const failed=page.waitForEvent('requestfailed',r=>r.url()===origin+'/app/index.html');await visible(page);await failed;
   await expect(notice(page)).toHaveCount(0);expect(errors).toEqual([]);
-  await page.clock.runFor(CHECK_GAP);await response(page,current+1);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(notice(page)).toBeVisible();
+  await advance(page,CHECK_GAP);await response(page,current+1);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(notice(page)).toBeVisible();
 });
 
 test('session loss removes notice and stops checks',async({page})=>{
@@ -191,7 +202,7 @@ test('same owner token refresh keeps deployment checks alive',async({page})=>{
   await page.evaluate(()=>{const s=window.KPTURuntime.session.read();window.KPTURuntime.session.write({...s,access_token:'qa-refreshed'})});
   await visible(page);await expect(notice(page)).toBeVisible();
   await notice(page).getByRole('button',{name:'닫기',exact:true}).click();
-  await page.clock.runFor(CHECK_GAP);await response(page,current+2);await visible(page);await expect(notice(page)).toBeVisible();
+  await advance(page,CHECK_GAP);await response(page,current+2);await visible(page);await expect(notice(page)).toBeVisible();
 });
 
 async function openProject(page){

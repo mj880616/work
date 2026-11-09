@@ -25,6 +25,9 @@ on:
       - 'tests/security/db-workflow-annotations.test.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
+      - 'supabase/functions/ai-assist/home-day-picks.ts'
+      - 'supabase/functions/ai-assist/handler.ts'
+      - 'tests/security/ai-assist-home-day-picks.test.mjs'
       - 'supabase/functions/ai-assist/file-name.ts'
       - 'supabase/functions/document-actions/file-rename.ts'
       - 'supabase/functions/_shared/file-rename-name.mjs'
@@ -212,6 +215,9 @@ on:
       - 'tests/security/db-workflow-annotations.test.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
+      - 'supabase/functions/ai-assist/home-day-picks.ts'
+      - 'supabase/functions/ai-assist/handler.ts'
+      - 'tests/security/ai-assist-home-day-picks.test.mjs'
       - 'supabase/functions/ai-assist/file-name.ts'
       - 'supabase/functions/document-actions/file-rename.ts'
       - 'supabase/functions/_shared/file-rename-name.mjs'
@@ -552,6 +558,9 @@ jobs:
 
       - name: Check home day fill (today photo row rules and cell count, reads and diary suggestion filters, shared parts)
         run: node --test tests/home-day-fill.test.mjs
+
+      - name: Check home day picks server (ai-assist home_day_picks reads and diary suggestions, owner-only rows, untrusted AI answer)
+        run: node --test tests/security/ai-assist-home-day-picks.test.mjs
 
       - name: Check home request box and forget box share one part (UI-요청상자통일)
         run: node --test tests/notice-box.test.mjs
