@@ -75,3 +75,11 @@ export function withMark(metadata, key, on, now = new Date()) {
   if (on) next[key] = now.toISOString(); else delete next[key];
   return next;
 }
+
+// DIARY-넣은사진표시: 그날 사진 모음(diary.js dayItems)의 한 칸이 '그날 일기에 들어간 사진'인가. 판정은 이 함수 하나다.
+// 일기에 들어간 사진 = 일기 행(app_notes attachments)에 든 이미지 첨부(drive_file_id). 모음 칸은 source 'upload'(key = drive_file_id)가 그것이다.
+// 일기에 넣을 때 원드라이브·폰 사진은 줄인 사본으로 올라가 첨부에는 원본 id가 남지 않으므로, 원드라이브·폰 원본 칸은 표시하지 않는다(크기·이름 추측 없음).
+export function inDiaryPhoto(item, row) {
+  if (item?.source !== 'upload' || typeof item.key !== 'string' || !item.key) return false;
+  return (Array.isArray(row?.attachments) ? row.attachments : []).some(file => file?.drive_file_id === item.key && /^image\//.test(file?.mime_type || ''));
+}
