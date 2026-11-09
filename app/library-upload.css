@@ -45,6 +45,8 @@
 
 /* UI-회의결과창정리(2026-10-17 사용자 결정): 자료 등록 창은 큰 점선 상자 대신 [📎 파일 고르기] 작은 버튼 한 줄 + 짧은 안내.
    고른 파일은 파일 한 줄(ui-standard.css .file-line), PC는 창 전체가 끌어다 놓는 자리. 바구니 첨부의 .library-selected-file 모양은 그대로. */
+/* ORG-자료더하기먹통: 자료 등록 창은 어느 화면에서 열어도 그 위에 떠 있는 상세 창(조직·사업 보고·프로젝트, body 끝에 붙음)보다 위. 이 규칙이 프로젝트·회의 화면 CSS에만 있어 조직 보고에서는 창이 상세 창 뒤로 깔렸다. */
+#documentModal:not(.hidden){z-index:51}
 #documentModal .library-file-block{padding:0;background:transparent}
 /* UI-전수디자인점검 F20: PC(761px~) 자료 등록 창은 폭 640px, 칸은 두 줄씩(분류·사업영역 / 출처·문서 날짜 / 태그·링크 — index.html의 .two-col). 폰은 그대로. */
 @media(min-width:761px){#documentModal .modal-card.small-card{width:min(100%,640px)}}

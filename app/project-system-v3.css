@@ -29,7 +29,7 @@
 .ps3-parent-link{border:0;background:transparent;padding:0;color:var(--kptu-link);font-size:11px;font-weight:700;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #projectsView>.section-head>div:first-child{flex:1 1 auto;min-width:0}
 .ps3-project-toolbar{display:flex;flex:0 0 auto;gap:var(--kptu-space-2);align-items:center}
-:is(#documentModal,#meetingModal,#editorModal,#taskModal):not(.hidden){z-index:51}
+:is(#meetingModal,#editorModal,#taskModal):not(.hidden){z-index:51}
 .ps3-section{margin-top:var(--kptu-space-3);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:var(--kptu-space-3);background:var(--kptu-surface)}
 .ps3-section-head{display:flex;justify-content:space-between;gap:var(--kptu-space-2);align-items:center;margin-bottom:var(--kptu-space-2)}
 .ps3-section-head h3{margin:0;font-size:15px;line-height:1.4;font-weight:700;min-width:0;overflow-wrap:anywhere}
