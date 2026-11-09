@@ -89,3 +89,18 @@ test('files_panes: 화면 쪽 모양 검사는 DB 검사와 같다(기기 종류
   for (const v of [{tablet: ['od', 'gd']}, {pc: ['od']}, {pc: ['od', 'gd', 'ph']}, {pc: ['OD', 'gd']}, {pc: 'od'}, [], null]) assert.equal(prefsValid('files_panes', v), false, JSON.stringify(v));
   assert.deepEqual(prefsParse({files_panes: {pc: ['od', 'gd'], app: ['xx', 'od']}}).files_panes, {pc: ['od', 'gd']});
 });
+
+// LIB-두칸보기 PR-1: 두 칸 틀 공용 키 판정(app/two-pane.js가 [파일]·자료실에서 같이 쓴다).
+test('두 칸 키: F6 옮기기 · F5 복사(복사 없는 화면은 가로채지 않음) · Tab은 줄에서만 칸 바꾸기 · 조합키는 그대로', async () => {
+  const {paneKeyAction} = await import('../app/files-panes-model.mjs');
+  assert.equal(paneKeyAction({key: 'F6'}), 'move');
+  assert.equal(paneKeyAction({key: 'F5'}), 'copy');
+  assert.equal(paneKeyAction({key: 'F5', copy: false}), null, '자료실: F5는 새로고침 그대로');
+  assert.equal(paneKeyAction({key: 'F6', copy: false}), 'move');
+  assert.equal(paneKeyAction({key: 'Tab', onRow: true}), 'switch');
+  assert.equal(paneKeyAction({key: 'Tab', onRow: false}), null, '단추 사이 Tab 이동은 그대로');
+  assert.equal(paneKeyAction({key: 'F6', mod: true}), null);
+  assert.equal(paneKeyAction({key: 'Tab', onRow: true, mod: true}), null);
+  assert.equal(paneKeyAction({key: 'Enter', onRow: true}), null);
+  assert.equal(paneKeyAction(), null);
+});

@@ -24,6 +24,7 @@ import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {bindTouchDrag} from './touch-drag.js';
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
+import {twoPaneFrame} from './two-pane.js';
 import {folderLook} from './folder-prefs.js'; // FOLDER-순서·색 ③-2: 폴더 색·순서 읽기 사본([파일]·사진 폴더가 같이 씀)
 import {colorChoiceHtml, createColorMode} from './folder-look.js';
 import {folderShapeHtml} from './folder-look-model.mjs';
@@ -232,6 +233,12 @@ const idxOf = p => state.panes.indexOf(p);
 const otherOf = p => state.panes[idxOf(p) ^ 1];
 const paneEl = p => root?.querySelector(`[data-fx-pane-i="${idxOf(p)}"]`);
 const inPane = (p, sel) => paneEl(p)?.querySelector(sel) || null;
+// LIB-두칸보기 PR-1: 두 칸 틀(칸 찾기·지금 칸 표시·Tab/F5/F6·끌어 놓기 받는 칸)은 공용 부품 two-pane.js — 자료실도 같은 부품을 쓴다.
+// 칸 안 그리기·상태(state.panes·state.cur)·복사·옮기기는 이 화면 것 그대로.
+const frame = twoPaneFrame({root, attr: 'data-fx-pane-i', rowAttr: 'data-fx-row', curClass: 'fx-cur',
+  on: () => two(), cur: () => state.cur, setCur: i => setCur(i), visible: () => visible(), selOf: i => state.panes[i]?.sel || '',
+  blocked: () => !!(state.xfer || state.ask || state.jobsOpen || state.dropAsk),
+  send: mode => { if (!state.busy && !state.run) sendOpp(mode, $('[data-fx-bar]') || root); }});
 const JOB_POLL_MS = 2000;
 
 // ---------- 서버 ----------
@@ -685,10 +692,7 @@ function ensurePanes() {
   if (!on && el) el.remove();
   markCur();
 }
-function markCur() {
-  const on = two();
-  for (const el of root.querySelectorAll('[data-fx-pane-i]')) el.classList.toggle('fx-cur', on && Number(el.dataset.fxPaneI) === state.cur);
-}
+function markCur() { frame.mark(); }
 function paint() {
   ensurePanes();
   root.dataset.fxPane = treePane() ? 'tree' : 'list';
@@ -3617,7 +3621,7 @@ function activate(key) {
   if (!r) return;
   if (r.is_folder) goFolder(r.source, r.item_id); else selectRow(key);
 }
-const paneOfEl = el => { const box = el?.closest?.('[data-fx-pane-i]'); return box && root.contains(box) ? Number(box.dataset.fxPaneI) : -1; };
+const paneOfEl = el => frame.paneOf(el);
 
 // 칸을 누르면(또는 칸 안으로 키보드가 들어가면) 그 칸이 지금 칸.
 root?.addEventListener('pointerdown', event => { const i = paneOfEl(event.target); if (i >= 0) setCur(i); }, true);
@@ -3753,29 +3757,8 @@ root?.addEventListener('change', event => {
   const i = paneOfEl(event.target), p = i >= 0 ? state.panes[i] : P();
   p.sort = validSort(event.target.value); p.dir = p.sort === 'name' ? 'asc' : 'desc'; paintList(p);
 });
-// 두 칸 키(F5·F6·Tab): 이 화면이 보이고 두 칸일 때, 입력 칸 밖에서만. 포커스가 화면 안이거나 아무 데도 없을 때(body)만 가로챈다(F5 새로고침을 막는 것은 두 칸 동안만).
-function twoKey(event) {
-  if (!two() || !visible() || event.altKey || event.ctrlKey || event.metaKey) return false;
-  const t = event.target;
-  if (t?.matches?.('input,select,textarea,[contenteditable="true"]')) return false;
-  if (!(t === document.body || t === document.documentElement || root.contains(t))) return false;
-  if (state.xfer || state.ask || state.jobsOpen || state.dropAsk) return false;
-  if (event.key === 'F5' || event.key === 'F6') {
-    event.preventDefault();
-    if (!state.busy && !state.run) sendOpp(event.key === 'F6' ? 'move' : 'copy', $('[data-fx-bar]') || root);
-    return true;
-  }
-  // Tab은 목록 줄(또는 아무 데도 없을 때)에서만 칸을 바꾼다 — 위 줄·막대·칸 위 줄 단추 사이의 Tab 이동은 그대로.
-  if (event.key === 'Tab' && (t === document.body || t === document.documentElement || t?.matches?.('[data-fx-row]'))) {
-    event.preventDefault();
-    const next = state.cur ^ 1, q = state.panes[next];
-    setCur(next);
-    const box = paneEl(q), rows = [...(box?.querySelectorAll('[data-fx-row]') || [])];
-    (rows.find(b => b.dataset.fxRow === q.sel) || rows[0] || box?.querySelector('button,select'))?.focus({preventScroll: false});
-    return true;
-  }
-  return false;
-}
+// 두 칸 키(F5·F6·Tab): 공용 두 칸 틀(two-pane.js)이 판정 — 이 화면이 보이고 두 칸일 때, 입력 칸 밖에서만(F5 새로고침을 막는 것은 두 칸 동안만).
+const twoKey = event => frame.key(event);
 document.addEventListener('keydown', event => { if (!root.contains(event.target)) twoKey(event); });
 // PC 단축키: ↑↓ 고르기 · Enter 열기(폴더는 들어가기) · Backspace 위 폴더 · / 찾기.
 root?.addEventListener('keydown', event => {
@@ -3864,8 +3847,8 @@ root?.addEventListener('dragstart', event => {
 // 놓을 곳: 폴더 줄·칸·나무 폴더(data-fx-drop), 두 칸이면 반대 칸(그 칸의 지금 폴더). any = 꾹 눌러 끌기(놓으면 늘 복사·옮기기를 고름).
 const dropAt = (target, {any = false} = {}) => {
   if (!drag || !target?.closest) return null;
-  const i = two() ? paneOfEl(target) : -1, cross = i >= 0 && i !== drag.pane;
-  const t = target.closest('[data-fx-drop]') || (cross ? target.closest('[data-fx-pane-i]') : null);
+  const {i, box, cross} = frame.dropPane(target, drag.pane);
+  const t = target.closest('[data-fx-drop]') || (cross ? box : null);
   if (!t || !root.contains(t)) return null;
   const dest = t.dataset.fxDrop ? destOf(t.dataset.fxDrop) : paneDest(state.panes[i]);
   if (!dest || pcWhy(drag.rows, dest)) return null;
