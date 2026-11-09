@@ -493,7 +493,7 @@
    지금 칸은 초록 테두리(lu-pane-cur). 칸 폭은 경계 끌기(split-resize.js, split_ratio.library). 두 칸은 그 폭에서만 그려지므로 폭 조건 없음. */
 #documentList .lu-two{--ds-split-library-a:50fr;--ds-split-library-b:50fr;display:grid;grid-template-columns:minmax(0,var(--ds-split-library-a)) minmax(0,var(--ds-split-library-b));column-gap:8px;align-items:start;--ds-split-library-min:260px}
 #documentList .lu-pane{min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,8px);background:var(--kptu-surface)}
-#documentList .lu-pane.lu-pane-cur{border-color:var(--kptu-primary);box-shadow:0 0 0 1px var(--kptu-primary)}
+#documentList .lu-pane.lu-pane-cur{border-color:var(--kptu-primary);outline:1px solid var(--kptu-primary);outline-offset:-2px}
 #documentList .lu-pane-head{display:flex;align-items:center;gap:4px;min-height:32px;padding:2px 6px;border-bottom:1px solid var(--kptu-border);font-size:12px;color:var(--kptu-muted)}
 #documentList .lu-pane-path{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:2px;overflow:hidden;white-space:nowrap}
 #documentList .lu-pane-step{min-height:26px;padding:0 4px;font-size:12px;color:var(--kptu-muted)}
