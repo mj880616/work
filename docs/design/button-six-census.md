@@ -304,7 +304,6 @@
 | 할 일 | google-tasks.js | data-gt-toggle | `gt-check` | ② 작은 버튼 |
 | 할 일 | google-tasks.js | data-gt-edit | `gt-main` | ② 작은 버튼 |
 | 할 일 | google-tasks.js | 전체 보기 › | 클래스 없음 | ⑥ 아이콘 |
-| 할 일 | google-tasks.js | data-gt-today-open | `gt-pane-today-item` | ② 작은 버튼 |
 | 할 일 | google-tasks.js | 되돌리기 | 클래스 없음 | ③ 글자 버튼 |
 | 할 일 | google-tasks.js | data-gt-linked-toggle | `gt-check` | ③ 글자 버튼 |
 | 할 일 | google-tasks.js | data-gt-linked-edit | `gt-main` | ③ 글자 버튼 |
