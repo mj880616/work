@@ -44,7 +44,8 @@ async function mock(page, state) {
     if (path.startsWith('/functions/v1/')) return ok({});
     if (path.startsWith('/rest/v1/rpc/')) return ok(null);
     if (path === '/rest/v1/app_workspace_members') return ok([{workspace_id: 'workspace-1', user_id: state.user.id, role: 'owner', workspace: state.workspace, created_at: now()}]);
-    if (path === '/rest/v1/app_profiles') return ok([{user_id: state.user.id, display_name: '자료실 관리자'}]);
+    // LIB-두칸보기(S55-11): 이 시험은 한 칸 목록(나무 | 목록)의 사진 묶음 줄을 본다 — [▥ 두 칸]은 끈 사람으로.
+    if (path === '/rest/v1/app_profiles') return ok([{user_id: state.user.id, display_name: '자료실 관리자', view_prefs: {library_two: false}}]);
     if (path === '/rest/v1/app_workspaces') return ok([state.workspace]);
     if (path === '/rest/v1/app_documents' && req.method() === 'GET') return ok(state.docs);
     if (path === '/rest/v1/app_meetings' && req.method() === 'GET') {
