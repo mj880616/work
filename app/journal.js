@@ -54,6 +54,8 @@ import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {mountHomeSummary} from './home-summary.js';
 import {readAutoPromises} from './journal-ledger.js';
 import {mountDayFill} from './home-day-fill.js'; // HOME-하루채우기: 오늘 사진·읽을 만한 글·이런 기록은 어때요?(세 칸의 renderer)
+import {readDayPicks, askDayPicks, markSuggestDone} from './home-day-picks-data.js'; // HOME-하루채우기 ②·③ 서버 결과(ai-assist·owner 표)
+import {sendEvents, sendDone} from './home-day-picks-model.mjs';
 import {RECORD_ONE_FROM} from './record-window-model.mjs'; // ORG/BIZ-기록하나로: 전환 주부터 보고 표 = 창 부품(옛 주는 옛 화면 그대로)
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
@@ -109,7 +111,16 @@ const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || ro
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 // HOME-하루채우기: [하루] 오늘 한 일 아래 세 칸(home-day-fill.js가 유일한 renderer). 사진·일기 쓰기는 그날 일기 화면으로 간다(일기 저장은 일기 화면 몫).
 const openDiaryDay = day => import('./diary-data.js').then(diary => { diary.requestDiaryDay(day); window.KPTURouter?.go?.('diary', {source:'delegated'}); }).catch(() => {});
-const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openDiaryDay, onWrite:day => openDiaryDay(day)});
+// ③ [일기 쓰기]: 그날 일기 쓰기 창을 제안 한 줄이 채워진 채로 연다. 저장하면 그 제안을 서버 표에서 '썼음'으로(다른 기기에서도 사라짐).
+const writeDiary = (day, text, id) => import('./diary-data.js').then(diary => {
+  diary.requestDiaryWrite(day, text, () => {
+    const picks = dayPicks.key === `${ownerScope(rt)}:${day}` ? dayPicks.state : null;
+    if (picks && !picks.suggests.done.includes(id)) picks.suggests.done = [...picks.suggests.done, id];
+    void markSuggestDone(day, id, rt);
+  });
+  window.KPTURouter?.go?.('diary', {source:'delegated'});
+}).catch(() => {});
+const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openDiaryDay, onWrite:writeDiary});
 
 let owner = ownerScope(rt), epoch = 0, sharedEpoch = 0;
 let start = weekStart(todayKey()), selected = todayKey();
@@ -449,14 +460,49 @@ function renderDay() {
   fitAll(host); // UI-줄입력늘어나기: 고쳐서 넣을 한 줄 칸은 글 전체가 보이게
   renderFill();
 }
-// HOME-하루채우기: 고른 날·그 주 일정(사진 정렬의 일정 시간)을 세 칸에 넘긴다. ②·③ 재료는 서버 연결 PR(PR-C)에서 넣는다 — 지금은 비어 칸째 안 보인다.
+// HOME-하루채우기: 고른 날·그 주 일정(사진 정렬의 일정 시간)·②·③ 서버 결과를 세 칸에 넘긴다.
 // 첫 화면 받기와 겹치지 않게 앱이 보인 뒤에 처음 그린다.
 let fillReady = false;
 void appShown().then(() => { fillReady = true; renderFill(); });
 function renderFill() {
   if (!fillReady) return;
-  dayFill.render({day:selected, today:todayKey(), hour:seoulParts(new Date()).hour, events:materials.events?.status === 'ok' ? materials.events.items : [],
-    reads:null, suggests:null, hidden:mode === 'week'});
+  const today = todayKey(), picks = selected === today && dayPicks.key === `${ownerScope(rt)}:${today}` ? dayPicks : null;
+  dayFill.render({day:selected, today, hour:seoulParts(new Date()).hour, events:materials.events?.status === 'ok' ? materials.events.items : [],
+    reads:picks?.state?.reads || null, suggests:picks?.state?.suggests || null, limit:picks?.limit || '', hidden:mode === 'week'});
+  void syncDayPicks();
+}
+// ②·③ (오늘만): 서버 표를 읽어 그리고, 그 주 일정·할 일 읽기가 끝난 뒤 서버에 고르기를 부탁한다(서버가 아침·저녁 한 번만 AI를 부름).
+// 앱을 켠 직후 첫 부탁은 홈에 2초 머문 뒤·그때도 홈일 때만(사진 줄과 같은 규칙). 결과는 탭 메모리(dayPicks)에만 둔다.
+let dayPicks = {key:'', state:null, limit:'', read:'', asking:false};
+let picksSettled = null;
+const picksSettle = () => (picksSettled ||= new Promise(resolve => setTimeout(resolve, 2000)));
+const onHomeView = () => { const view = window.KPTURouter?.current; return !view || view === 'home'; };
+async function syncDayPicks() {
+  const today = todayKey(), key = `${ownerScope(rt)}:${today}`;
+  if (selected !== today || mode === 'week' || !onHomeView()) return;
+  if (dayPicks.key !== key) dayPicks = {key, state:null, limit:'', read:'', asking:false};
+  const slot = seoulParts(new Date()).hour < 18 ? 'am' : 'pm';
+  if (!dayPicks.read) {
+    dayPicks.read = 'loading';
+    const got = await readDayPicks(today, rt);
+    if (dayPicks.key !== key) return;
+    dayPicks.read = got.ok ? (got.missing ? 'missing' : 'ok') : '';
+    if (got.ok && !got.missing) { dayPicks.state = got.state; renderFill(); }
+  }
+  if (dayPicks.read !== 'ok' || dayPicks.asking || dayPicks.askedSlot === slot) return;
+  if (materials.events?.status === 'loading' || materials.tasks?.status === 'loading' || !materials.events || !materials.tasks) return;
+  dayPicks.asking = true;
+  try {
+    await picksSettle();
+    if (dayPicks.key !== key || !onHomeView()) return;
+    dayPicks.askedSlot = slot;
+    const out = await askDayPicks({day:today, slot,
+      events:sendEvents(materials.events?.status === 'ok' ? materials.events.items : [], today),
+      done:sendDone(materials.tasks?.status === 'ok' ? materials.tasks.items : [], today)}, rt);
+    if (dayPicks.key !== key) return;
+    if (out?.state) { dayPicks.state = out.state; dayPicks.limit = ''; renderFill(); }
+    else if (out?.limit) { dayPicks.limit = out.limit; renderFill(); }
+  } finally { if (dayPicks.key === key) dayPicks.asking = false; }
 }
 const isRecordWeek = week => !!week && week >= RECORD_ONE_FROM;
 // 사업요약표의 사업 나무 = 이 화면이 이미 읽은 사업 목록(활성만). 같은 읽기 결과면 같은 배열(다시 그릴 때 다시 읽지 않게).
