@@ -197,13 +197,14 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
   const textColor=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary-text').trim());
   const matches=async(selector,property,hex)=>{
    const element=page.locator(selector).first();await expect(element).toBeVisible();
-   await expect.poll(()=>element.evaluate((el,property)=>getComputedStyle(el)[property],property)).toBe(rgb(hex));
+   await expect.poll(()=>element.evaluate((el,property)=>getComputedStyle(el)[property],property)).toBe(hex.startsWith('#')?rgb(hex):hex);
   };
   for(const [view,selector,property,expected] of [
    ['calendar','#calendarCard','backgroundColor',surface[theme]],
    // UI-할일입력: [할 일]의 채운 버튼은 늘 보이는 입력 칸의 [추가].
    ['tasks','#tasksView .home-quick [data-quick-save]','backgroundColor',color],
-   ['projects','#newProjectBtn','backgroundColor',color],
+   // AREA-추가버튼잘림(11/09): 폰·폴드 접힘의 사업영역 관리 [+]는 사업 보고 [+]처럼 채우지 않은 작은 아이콘(투명 바탕·muted)이라 계정 색 바탕이 아니다. PC의 채운 [+ 사업영역]은 그대로 계정 색을 본다.
+   ['projects','#newProjectBtn','backgroundColor',width<=760?'rgba(0, 0, 0, 0)':color],
    ['library','#libraryListCard','backgroundColor',surface[theme]],
    // BIZ-위쪽정돈(11/09 01:22): 폰의 사업 보고 [+]는 계정 색으로 채운 동그라미가 아니라 맨 윗줄 투명 아이콘이라, 폰에서는 목록 상자 바탕을 본다(PC의 채운 [+ 사업 보고]는 그대로).
    width<=760?['meetings','#meetingsListCard','backgroundColor',surface[theme]]:['meetings','#newMeetingBtn','backgroundColor',color]
