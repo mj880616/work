@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 자료실 두 칸 보기</title><style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--tline:#c9d3cf;--surface:#fbfdfc;--bg:#eef5f2;--head:#eef4f1;--pri:#2f6f5e;--red:#b4473c}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}
+h2{font-size:13px;margin:16px 0 6px}
+.wrap{width:100%;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.pc{width:760px;transform-origin:0 0;display:flex}
+.side{width:120px;padding:10px 8px;border-right:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:12px;line-height:2}
+.side b{display:block;color:var(--ink);background:#dcefe7;border-radius:6px;padding:0 6px}
+.main{flex:1;padding:8px 12px 12px}
+.top{display:flex;align-items:center;gap:10px;height:30px;color:var(--muted)}
+.top .t{color:var(--ink);font-weight:600}.top .q{flex:1;height:24px;border:1px solid var(--line);border-radius:6px;background:#fff;padding:0 8px;line-height:22px;font-size:11px}
+.r{display:flex;align-items:center;gap:6px;padding:4px 0}
+.sp{margin-left:auto}
+.chip{height:26px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);display:inline-flex;align-items:center;font-size:12px}
+.chip.on{border-color:var(--pri);background:#e3f1eb}
+.bigb{height:34px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);display:inline-flex;align-items:center;white-space:nowrap;font-size:13px}
+.bigb.g{background:var(--pri);color:#fff;border-color:var(--pri);font-weight:600}
+.sel{height:34px;min-width:120px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#fff;display:inline-flex;align-items:center;justify-content:space-between;gap:8px}
+.btn{height:28px;padding:0 9px;border:1px solid var(--line);border-radius:7px;background:var(--surface);display:inline-flex;align-items:center;gap:3px;white-space:nowrap;font-size:12px}
+.btn small{color:var(--muted);font-size:10px}
+.icon{width:28px;height:28px;border:1px solid var(--line);border-radius:7px;background:var(--surface);display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px}
+.icon.rec{color:var(--red);font-size:11px}.icon.plain{border:0;background:transparent}
+.wk{display:inline-flex;align-items:center;gap:8px}.wk i{font-style:normal;color:var(--muted)}.wk span{color:var(--muted);font-size:12px}
+.card{margin-top:6px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.vt{display:inline-flex;background:#efebe6;border-radius:999px;padding:2px}.vt span{padding:2px 10px;border-radius:999px;color:var(--muted);font-size:12px}.vt .on{background:#fff;color:var(--ink);font-weight:600}
+.h3{font-weight:600;color:var(--pri);margin:8px 0 4px}
+table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px;word-break:keep-all}
+th,td{border:1px solid var(--tline);padding:3px 5px;vertical-align:top;text-align:left;background:#fff}
+th{background:var(--head);text-align:center;font-weight:600}
+.e{color:#b5bdb9}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6}.warn{color:#a5463c}
+.tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:0 5px;margin-right:4px}
+.pane{flex:1;border:1px solid var(--line);border-radius:8px;background:#fff;min-width:0}
+.pane.cur{border-color:var(--pri);box-shadow:0 0 0 1px var(--pri)}
+.ph{display:flex;align-items:center;gap:4px;padding:4px 6px;border-bottom:1px solid var(--line);font-size:11px;color:var(--muted)}
+.ph b{color:var(--ink)}
+.li{display:flex;align-items:center;gap:5px;padding:3px 6px;border-bottom:1px solid #eef2f0;font-size:11px}
+.li .k{font-size:9px;border-radius:3px;padding:0 3px;color:#fff;background:#6b8fb8}.li .k.p{background:#c06a5a}
+.li .d{margin-left:auto;color:var(--muted);font-size:10px}
+.li.sel{background:#e3f1eb}
+.drag{position:absolute;left:270px;top:150px;background:#fff;border:1px solid var(--pri);border-radius:6px;padding:2px 6px;font-size:11px;box-shadow:0 4px 10px rgba(0,0,0,.12)}
+.bar{display:flex;align-items:center;gap:6px;margin-top:6px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:11px}
+</style></head><body>
+<h1>자료실 두 칸 보기 — [파일]처럼</h1>
+<p class="s">왼쪽·오른쪽 칸이 똑같이 '폴더 + 파일 목록'. 각 칸에서 따로 폴더를 들어가고, 칸 사이로 끌어 옮김. [파일] 화면의 두 칸 부품(칸마다 위치 줄·목록·고르기, F6·Tab)을 그대로. 이름은 시안용.</p>
+<h2>지금 (나무 | 목록)</h2><div class="wrap"><div class="pc"><div class="side">홈<br>노트<br>일정<br>조직 보고<br>사업 보고<br>잊지 말기<b>자료실</b>파일</div><div class="main"><div class="top"><span>◧ ‹ ›</span><span class="t">자료실</span><span class="q">⌕ 전체 검색</span><span>+ 추가 · 계정</span></div><div class="r"><span class="btn">폴더<small>▾</small></span><span class="btn">분류: 전체<small>▾</small></span><span class="q" style="flex:1;height:28px;border:1px solid var(--line);border-radius:7px;background:#fff;padding:0 8px;line-height:26px;color:var(--muted);font-size:12px">제목·출처·태그 찾기</span><span class="btn">▥ 두 칸</span><span class="icon">+</span><span class="icon plain">⋯</span></div><div class="card"><div class="h3" style="color:var(--muted);margin:0">최근 올린 파일 ⌃</div></div><div style="display:flex;gap:8px;margin-top:6px"><div class="pane" style="flex:0 0 30%"><div class="ph"><b>자료실 전체</b></div><div class="li">📁 <b style="font-weight:600">공공팀</b> <span style="color:var(--muted)">18</span><span class="d">⋯</span></div><div class="li">📁 <b style="font-weight:600">궤도</b> <span style="color:var(--muted)">42</span><span class="d">⋯</span></div><div class="li">📁 <b style="font-weight:600">노조</b> <span style="color:var(--muted)">12</span><span class="d">⋯</span></div></div><div class="pane"><div class="ph">‹ <b>자료실</b></div><div class="li">📁 <b style="font-weight:600">공공팀</b> <span style="color:var(--muted)">18</span><span class="d">⋯</span></div><div class="li">📁 <b style="font-weight:600">궤도</b> <span style="color:var(--muted)">42</span><span class="d">⋯</span></div><div class="li"><span class="k">HWP</span>261109 궤도집행국 회의자료<span class="d">11.09</span></div></div></div></div></div></div>
+<p class="note warn">왼쪽은 폴더 나무뿐(파일 없음) · 왼쪽 누르면 오른쪽이 바뀜 · 왼쪽으로 끌어 놓기 안 됨</p>
+<h2>바꾼 뒤 — [▥ 두 칸] 켬</h2><div class="wrap"><div class="pc" style="position:relative"><div class="side">홈<br>노트<br>일정<br>조직 보고<br>사업 보고<br>잊지 말기<b>자료실</b>파일</div><div class="main"><div class="top"><span>◧ ‹ ›</span><span class="t">자료실</span><span class="q">⌕ 전체 검색</span><span>+ 추가 · 계정</span></div><div class="r"><span class="btn">폴더<small>▾</small></span><span class="btn">분류: 전체<small>▾</small></span><span class="q" style="flex:1;height:28px;border:1px solid var(--line);border-radius:7px;background:#fff;padding:0 8px;line-height:26px;color:var(--muted);font-size:12px">제목·출처·태그 찾기</span><span class="btn" style="border-color:var(--pri);background:#e3f1eb">▥ 두 칸</span><span class="icon">+</span><span class="icon plain">⋯</span></div><div style="display:flex;gap:8px;margin-top:6px"><div class="pane cur"><div class="ph">‹ <b>자료실</b> › 폴더 밖 <span style="margin-left:auto">이름순 ▾</span></div>
+<div class="li">📁 <b style="font-weight:600">공공팀</b> <span style="color:var(--muted)">18</span><span class="d">⋯</span></div><div class="li">📁 <b style="font-weight:600">궤도</b> <span style="color:var(--muted)">42</span><span class="d">⋯</span></div><div class="li">📁 <b style="font-weight:600">정책 자료</b> <span style="color:var(--muted)">3</span><span class="d">⋯</span></div><div class="li">📁 <b style="font-weight:600">잡동사니(정리 완료)</b> <span style="color:var(--muted)">27</span><span class="d">⋯</span></div>
+<div class="li sel"><span class="k">HWP</span>261109 궤도집행국 회의자료<span class="d">11.09</span></div><div class="li sel"><span class="k p">PDF</span>○○지부 운영규정<span class="d">11.09</span></div><div class="li"><span class="k p">PDF</span>20261109 지방재정의이해<span class="d">11.09</span></div><div class="li"><span class="k">HWP</span>주간보고 20261109<span class="d">11.09</span></div></div><div class="pane"><div class="ph">‹ 자료실 › <b>궤도</b> › 회의 <span style="margin-left:auto">이름순 ▾</span></div>
+<div class="li">📁 <b style="font-weight:600">집행국 회의</b> <span style="color:var(--muted)">2</span><span class="d">⋯</span></div><div class="li">📁 <b style="font-weight:600">대표자, 집행위</b> <span style="color:var(--muted)">24</span><span class="d">⋯</span></div><div class="li">📁 <b style="font-weight:600">민자철도 회의</b> <span style="color:var(--muted)">11</span><span class="d">⋯</span></div>
+<div class="li"><span class="k">HWP</span>41차 집행국 회의 결과<span class="d">11.05</span></div><div class="li"><span class="k p">PDF</span>대표자회의 자료<span class="d">11.03</span></div></div></div><div class="bar"><b>2개 고름</b><span class="btn">→ 오른쪽 폴더로 옮기기 (F6)</span><span class="btn">폴더로 옮기기…</span><span class="btn">⋯</span><span style="margin-left:auto;color:var(--muted)">✕ 고르기 끝</span></div></div><div class="drag">📄 2개 → 회의</div></div></div>
+<p class="note">① 위 줄 [▥ 두 칸] 켬/끔(서버 화면 설정, PC 기본 켬 — 폴드 펼침도 켬, 폰은 늘 한 칸).<br>② 두 칸 모두 같은 목록: 폴더 줄 + 자료 줄, 칸마다 위치 줄(‹ 자료실 › 궤도 › 회의)·정렬. 폴더 누르면 그 칸에서 들어감, ‹ 로 위로.<br>③ 지금 칸 = 초록 테두리(누르거나 Tab으로 바꿈).<br>④ 옮기기: 자료·폴더를 반대 칸(그 칸의 지금 폴더 또는 그 안 폴더 줄)에 끌어 놓기, 같은 칸 안 폴더 줄에 끌어 놓기, 고른 뒤 아래 막대 [→ 오른쪽 폴더로 옮기기]·F6. 놓으면 '○○로 옮겼어요 · 되돌리기'.<br>⑤ 자료실 자료는 폴더 하나에만 들어가므로 '복사'는 없음(옮기기만).<br>⑥ 가운데 경계 끌어 폭 조절(LIB-나무폭조절), 우클릭 메뉴(LIB-우클릭메뉴), 바깥 파일 놓기는 놓은 칸의 지금 폴더로.<br>⑦ 최근 올린 파일 상자·위쪽 한 줄은 그대로. [▥ 두 칸] 끄면 지금 한 칸 목록.</p>
+<script>function fit(){document.querySelectorAll('.wrap').forEach(w=>{const p=w.querySelector('.pc'),k=Math.min(1,w.clientWidth/760);p.style.transform=`scale(${k})`;w.style.height=(p.offsetHeight*k)+'px'})}addEventListener('resize',fit);addEventListener('load',fit);fit();</script>
+</body></html>

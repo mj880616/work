@@ -280,15 +280,20 @@ function luRenderUploadOrg(){const picker=document.querySelector('#documentModal
 function luSetUploadOrg(org){luUploadOrg=normalizeUploadOrganization(org);luRenderUploadOrg()}
 // MEET-파일AI분류: 사업 보고 상세의 자료 [+]·끌어다 놓기도 같은 올리기 창을 연다. 올라온 자료는 library-files의 meeting_id 칸으로 그 사업 보고에 바로 붙는다
 // (기존 서버 기능, 서버 변경 없음). 창을 새로 열면 지워진다. 분류·제목·날짜는 AI 자동 채우기(luAiFill)가 프로젝트·담당조직 올리기와 똑같이 채운다.
+// ORG-자료더하기먹통: 자료 등록 창을 여는 한 길. 다른 화면 버튼(#newDocumentBtn)을 .click()으로 대신 누르지 않고, 그 버튼이 쓰는 같은 열기 함수(team.js)를 직접 부른다.
+// 창을 새로 열 때 지우는 값(고른 파일·사업영역·담당조직·사업 보고)은 버튼을 눌렀을 때와 똑같이 지운다. 창이 열렸으면 true.
+function luOpenUploadWindow(){const open=window.KPTUDocumentModal?.open;if(typeof open!=='function')return false;luResetUploadSelection();luRenderUploadProject('');luSetUploadOrg(null);luSetUploadMeeting(null);open();return true}
 let luUploadMeeting=null;
 function luRenderUploadMeeting(){const picker=document.querySelector('#documentModal .library-file-block');if(!picker)return;let p=picker.querySelector('#libraryUploadMeeting');if(!luUploadMeeting){p?.remove();return}if(!p){p=document.createElement('p');p.id='libraryUploadMeeting';p.className='status ok';picker.querySelector('#librarySelectedFiles')?.insertAdjacentElement('beforebegin',p)}p.textContent=uploadMeetingLabel(luUploadMeeting)}
 function luSetUploadMeeting(meeting){luUploadMeeting=normalizeUploadMeeting(meeting);luRenderUploadMeeting()}
-function luStartUploadForMeeting(meeting,files=[]){const button=document.querySelector('#newDocumentBtn');if(!normalizeUploadMeeting(meeting)||!button||luUploading)return false;button.click();luSetUploadMeeting(meeting);const list=Array.from(files||[]);if(list.length)luSetSelectedFiles(list);return true}
+function luStartUploadForMeeting(meeting,files=[]){if(!normalizeUploadMeeting(meeting)||luUploading||!luOpenUploadWindow())return false;luSetUploadMeeting(meeting);const list=Array.from(files||[]);if(list.length)luSetSelectedFiles(list);return true}
 // 창 없이 올리기(새 사업 보고를 저장한 뒤 고른 파일, 사업 보고 사진 줄): 같은 library-files 요청 + 같은 AI 채우기. 실패하면 던진다(호출한 쪽이 개수를 센다).
 // ACT-사진 3단계: 사진은 AI에 보내지 않는다. 제목(파일 이름)·종류(사업 보고 칸을 따라감)·날짜(사업 보고 날짜)를 요청에 실어 AI 채우기를 건너뛴다. 서버(library-files)는 이미 이 값을 받는다.
 async function luUploadFileForMeeting(meeting,file){const target=normalizeUploadMeeting(meeting);if(!target)throw new Error('사업 보고를 확인하지 못했습니다.');const fd=new FormData();try{fd.append('file',await window.KPTURuntime.copyUploadFile(file));fd.append('meeting_id',target.id);if(target.projectId)fd.append('project_id',target.projectId);const photo=isPhotoFile(file);if(photo)for(const [key,value] of Object.entries(photoUploadFields(file,target,documentCategories())))fd.append(key,value);const d=await luUploadRequest(fd,file);if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했습니다.');if(!photo)luAiFill(d.document.id,fd,file.name);return d.document}finally{fd.delete('file')}}
 // 담당조직 상세의 자료 [+]·끌어다 놓기: 프로젝트 상세의 [+]처럼 이 올리기 창을 열고, 올라온 자료를 그 조직에 붙인다. 파일이 있으면 미리 골라 둔다.
-function luStartUploadForOrganization(org,files=[]){const button=document.querySelector('#newDocumentBtn');if(!normalizeUploadOrganization(org)||!button||luUploading)return false;button.click();luSetUploadOrg(org);const list=Array.from(files||[]);if(list.length)luSetSelectedFiles(list);return true}
+function luStartUploadForOrganization(org,files=[]){if(!normalizeUploadOrganization(org)||luUploading||!luOpenUploadWindow())return false;luSetUploadOrg(org);const list=Array.from(files||[]);if(list.length)luSetSelectedFiles(list);return true}
+// 프로젝트 상세의 자료 [+]: 같은 올리기 창을 열고 그 사업영역을 미리 고른다.
+function luStartUploadForProject(project){const id=project?.id;if(!id||luUploading||!luOpenUploadWindow())return false;const s=document.querySelector('#docProject');if(!s)return true;if(![...s.options].some(o=>o.value===id))s.add(new Option(project.name||'',id));s.value=id;s.dispatchEvent(new Event('change',{bubbles:true}));return true}
 // ---- FILES-자료실로보내기(S52-26, 시안 docs/design/mockups/files-to-library.html, 명진 11/07 11:41 '(가) 연결만') ----
 // [파일]의 파일을 이 자료 등록 창(같은 칸·같은 [등록])으로 받는다. 원드라이브·이 폰 파일은 [파일]이 바이트를 받아 File로 넘기고(자료실 Drive
 // 폴더에 사본 — 보통 올리기와 같은 길·같은 막대·%), 구글 드라이브 파일은 {link:{source:'gd',id}}로 넘겨 사본 없이 연결만 한다
@@ -332,9 +337,8 @@ function luStartUploadFromFiles(items=[]){
     const hit=item.link?luDocuments.find(d=>d.file_id===item.link.id):luDocuments.find(d=>d.file_name===item.name&&Number(d.file_size)===Number(item.size));
     if(hit)already.push({name:String(item.name||''),id:hit.id});else take.push(item);
   }
-  const button=document.querySelector('#newDocumentBtn');
-  if(!take.length||!button||luUploading)return {opened:false,already};
-  button.click();luSetSelectedFiles(take);
+  if(!take.length||luUploading||!luOpenUploadWindow())return {opened:false,already};
+  luSetSelectedFiles(take);
   luSetStatus(document.querySelector('#documentStatus'),take.some(x=>x.link)?'[파일]에서 넣었어요. 구글 드라이브 파일은 사본 없이 연결만 해요.':'[파일]에서 넣었어요.');
   return {opened:true,already};
 }
@@ -361,6 +365,7 @@ function luDropValue(raw){
   return null;
 }
 // S53-19 LIB-화면끌어놓기 이어서: 폴더 묶기면 ① 왼쪽 나무 줄·위치 줄 → ② 오른쪽 목록의 폴더 줄 → ③ 들어간 폴더 안 빈 곳(그 폴더) → 그 밖은 폴더 밖(placeDropTarget).
+// 폴더 상태는 한 곳(luFolders_ — 폴더 부품 state().folders와 같은 배열)만 본다. 만들기·이름 바꾸기·옮기기 뒤 reload가 이 배열을 바꾸고 나무·목록을 다시 그린다.
 function luDropFolderOf(id){const f=luFolders_.find(x=>x.id===id);return f?{id:f.id,name:String(f.name||'폴더')}:null}
 function luDropTarget(e){
   if(luGroupBy!=='folder')return groupDropTarget(e,luGroupBy,{resolve:luDropValue});
@@ -376,7 +381,7 @@ function luDropTarget(e){
 // 나무 줄·위치 칸 표시(오른쪽 목록 줄 표시는 폴더 부품 markFile). 한 번에 한 줄.
 let luDropPlaceEl=null;
 function luMarkDrop(t){
-  const el=t?.place||null;if(el!==luDropPlaceEl){luDropPlaceEl?.classList.remove('lu-drop-place');luDropPlaceEl=el;el?.classList.add('lu-drop-place')}
+  const el=t?.ok===false?null:t?.place||null;if(el!==luDropPlaceEl){luDropPlaceEl?.classList.remove('lu-drop-place');luDropPlaceEl=el;el?.classList.add('lu-drop-place')}
   if(t?.head)luFolders().markFile(t);else if(luFolderUi)luFolderUi.markFile(null);
 }
 // LIB-폴더로올리기 (2026-10-30): 폴더 묶기에서 폴더 줄에 놓았으면(target) 올린 자료마다 그 폴더에 넣는다(옮기기와 같은 자료 연결 표, 폴더 부품 putUploaded).
@@ -691,7 +696,7 @@ function luRenderFolderNav(tree){
   card.dataset.luSplit='1';
   const path=luNavPath(),rows=[];
   const walk=(list,depth)=>{for(const n of list||[]){if(n.kind!=='folder')continue;const kids=(n.children||[]).filter(c=>c.kind==='folder'),open=kids.length>0&&!luNavShut.has(n.id)&&(path.has(n.id)||luNavOpen.has(n.id));
-    rows.push(ftFolderRowHtml({name:n.label,count:n.count,countLabel:`${n.count}건`,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,mainAttrs:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`}}));
+    rows.push(ftFolderRowHtml({name:n.label,count:n.count,countLabel:`${n.count}건`,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,mainAttrs:luCanDrag()?{'data-lu-nav':n.id,draggable:'true'}:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`}}));
     if(open)walk(kids,depth+1)}};
   walk(tree,0);
   const top=`<div class="ft-row ft-folder ft-top lu-fnav-root${luInFolder?'':' ft-current'}" role="treeitem"><button type="button" class="ft-btn ft-main" data-lu-nav=""${luInFolder?'':' aria-current="true"'}><span class="ft-name">자료실 전체</span></button></div>`;
@@ -1418,7 +1423,7 @@ function luManage(options){const addSubTo=typeof options?.addSubTo==='string'?op
 // A basket attachment's [자료실에서 보기] (BASKET-4b-1): once the list has loaded,
 // show that document's row. Filters are cleared only when they hide it.
 // HWP-편집기 메뉴 입구: [자료실에 올리기]로 넘어온 파일을 기존 [+ 자료 등록] 창에 채워 연다. 프로젝트·분류와 [등록]은 사용자가 한다.
-function luOpenRequestedUpload(){if(window.KPTURouter?.current!=='library'||luUploading)return;const file=takeLibraryUploadRequest();const button=document.querySelector('#newDocumentBtn');if(!file||!button)return;button.click();luSetSelectedFiles([file]);luSetStatus(document.querySelector('#documentStatus'),'HWP 편집에서 수정한 파일을 넣었어요. 사업영역·분류를 선택한 뒤 [등록]을 누르세요.')}
+function luOpenRequestedUpload(){if(window.KPTURouter?.current!=='library'||luUploading)return;const file=takeLibraryUploadRequest();if(!file)return;if(!luOpenUploadWindow()){luSetStatus(document.querySelector('#documentStatus'),'자료 등록 창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.',true);return}luSetSelectedFiles([file]);luSetStatus(document.querySelector('#documentStatus'),'HWP 편집에서 수정한 파일을 넣었어요. 사업영역·분류를 선택한 뒤 [등록]을 누르세요.')}
 // SEARCH-선택옮기기(1차): 전체 검색에서 넘겨받은 자료들을 고른 채로 선택 모드를 켠다. 가리는 거르기(검색·프로젝트·분류 칩·담당조직)는 풀고, 첫 자료로 간다.
 function luSelectRequested(){
   const ids=takeLibrarySelectionRequest();if(!ids||window.KPTURouter?.current!=='library'||luSelBusy)return false;
@@ -1446,5 +1451,5 @@ function luBindFind(){
   close.addEventListener('click',()=>{luFindOpen=false;const had=!!input.value;input.value='';luSyncFind();if(had)luRenderLibrary();open.focus()});
   input.addEventListener('keydown',e=>{if(e.key==='Escape'&&luFindOpen&&!input.value){e.preventDefault();close.click()}});
 }
-async function luInit(){if(!(await luContext()))return;luTakePlace();luHandleDriveReturn();luEnhanceUpload();luEnhanceDrop();luEnsureManageUi();luBindList();luViewOwner=luUser?.id||'';await Promise.all([luLoadAll(),loadDocumentCategories(),luRefreshView()]);luApplyRememberedFolder();luRenderUploadCategory();luRenderLibrary();window.KPTULibrary={render:luRenderLibrary,reveal:luGoToRecent,showOrganization:luShowOrganization,startUploadForOrganization:luStartUploadForOrganization,startUploadForMeeting:luStartUploadForMeeting,uploadFileForMeeting:luUploadFileForMeeting,startUploadFromFiles:luStartUploadFromFiles};const save=document.querySelector('#saveDocumentBtn');if(save){const original=save.onclick;save.onclick=()=>luUploadOrOriginal(original)}const newDocument=document.querySelector('#newDocumentBtn');if(newDocument)newDocument.addEventListener('click',()=>{luResetUploadSelection();luRenderUploadProject('');luSetUploadOrg(null);luSetUploadMeeting(null)},true);luRenderUploadProject('');const catPick=document.querySelector('#libraryCategoryPick');if(catPick)catPick.onclick=e=>luOpenCategorySheet(e.currentTarget);const search=document.querySelector('#documentSearch');if(search)search.oninput=()=>{luSyncFind();luRenderLibrary()};luBindFind();window.addEventListener('kptu:before-view-change',e=>{if(e.detail?.view==='library')luEntering=window.KPTURouter?.current!=='library'});window.KPTURouter?.on('library',()=>{luOpenRequestedUpload();if(luEntering){luViewHold=false;luFindOpen=false;luResetCategories();luResetTree()}luEntering=false;luApplyEntry();luRenderLibrary();void luRefreshView();void loadDocumentCategories();luLoadAll().then(()=>{luRenderLibrary();luRevealRequested();luStartAutoTidy();luStartTextRead()}).catch(err=>console.error('library entry refresh failed',err))});window.addEventListener('kptu:edit-document',e=>{const id=e.detail?.id;if(id)luOpenEditById(id)});window.addEventListener('kptu:documents-changed',async()=>{await luLoadAll();luRenderLibrary()});window.addEventListener('kptu:project-catalog-updated',luOnProjectsChanged);window.addEventListener('kptu:document-categories-changed',luOnCategoriesChanged);window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='library'){luFlushView();if(luOrganization){luOrganization=null;luRenderLibrary()}}});document.addEventListener('visibilitychange',()=>{if(document.hidden)luFlushView()});if(window.KPTURouter?.current==='library')luApplyEntry();luStartAutoTidy();luStartTextRead()}
+async function luInit(){if(!(await luContext()))return;luTakePlace();luHandleDriveReturn();luEnhanceUpload();luEnhanceDrop();luEnsureManageUi();luBindList();luViewOwner=luUser?.id||'';await Promise.all([luLoadAll(),loadDocumentCategories(),luRefreshView()]);luApplyRememberedFolder();luRenderUploadCategory();luRenderLibrary();window.KPTULibrary={render:luRenderLibrary,reveal:luGoToRecent,showOrganization:luShowOrganization,startUploadForOrganization:luStartUploadForOrganization,startUploadForProject:luStartUploadForProject,startUploadForMeeting:luStartUploadForMeeting,uploadFileForMeeting:luUploadFileForMeeting,startUploadFromFiles:luStartUploadFromFiles};const save=document.querySelector('#saveDocumentBtn');if(save){const original=save.onclick;save.onclick=()=>luUploadOrOriginal(original)}const newDocument=document.querySelector('#newDocumentBtn');if(newDocument)newDocument.addEventListener('click',()=>{luResetUploadSelection();luRenderUploadProject('');luSetUploadOrg(null);luSetUploadMeeting(null)},true);luRenderUploadProject('');const catPick=document.querySelector('#libraryCategoryPick');if(catPick)catPick.onclick=e=>luOpenCategorySheet(e.currentTarget);const search=document.querySelector('#documentSearch');if(search)search.oninput=()=>{luSyncFind();luRenderLibrary()};luBindFind();window.addEventListener('kptu:before-view-change',e=>{if(e.detail?.view==='library')luEntering=window.KPTURouter?.current!=='library'});window.KPTURouter?.on('library',()=>{luOpenRequestedUpload();if(luEntering){luViewHold=false;luFindOpen=false;luResetCategories();luResetTree()}luEntering=false;luApplyEntry();luRenderLibrary();void luRefreshView();void loadDocumentCategories();luLoadAll().then(()=>{luRenderLibrary();luRevealRequested();luStartAutoTidy();luStartTextRead()}).catch(err=>console.error('library entry refresh failed',err))});window.addEventListener('kptu:edit-document',e=>{const id=e.detail?.id;if(id)luOpenEditById(id)});window.addEventListener('kptu:documents-changed',async()=>{await luLoadAll();luRenderLibrary()});window.addEventListener('kptu:project-catalog-updated',luOnProjectsChanged);window.addEventListener('kptu:document-categories-changed',luOnCategoriesChanged);window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='library'){luFlushView();if(luOrganization){luOrganization=null;luRenderLibrary()}}});document.addEventListener('visibilitychange',()=>{if(document.hidden)luFlushView()});if(window.KPTURouter?.current==='library')luApplyEntry();luStartAutoTidy();luStartTextRead()}
 window.__KPTU_LIBRARY_UPLOAD_READY__=Promise.resolve().then(luInit).then(()=>true).catch(err=>{console.error('library upload init',err);return false});

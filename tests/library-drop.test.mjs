@@ -71,6 +71,14 @@ test('bindLibraryDrop: over a folder the hint names it and the folder line is ma
   under=null;doc.fire(dragEvent('dragenter'));doc.fire(dragEvent('drop',{list:[file('c')]}));assert.deepEqual(got[1],[['c'],null]);
 });
 
+test('bindLibraryDrop: S55-08 놓을 수 없는 줄(ok:false) 위에서는 안내가 바뀌고 놓아도 올리지 않는다',()=>{
+  const doc=fakeDoc(),span={textContent:''},overlay={hidden:true,firstChild:span},got=[];let under={ok:false,place:{}};
+  m.bindLibraryDrop({doc,overlay,active:()=>true,onFiles:(f,t)=>got.push([f.map(x=>x.name),t]),pick:()=>under});
+  doc.fire(dragEvent('dragenter'));doc.fire(dragEvent('dragover'));assert.equal(span.textContent,'여기에는 놓을 수 없어요');
+  doc.fire(dragEvent('drop',{list:[file('a')]}));assert.deepEqual(got,[]);assert.equal(overlay.hidden,true);
+  under=null;doc.fire(dragEvent('dragenter'));doc.fire(dragEvent('drop',{list:[file('b')]}));assert.deepEqual(got,[[['b'],null]]);
+});
+
 test('library-upload.js wires the drop: no storage of its own, no hard-coded colors, same upload request as the register dialog',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
   assert.match(src,/luEnhanceDrop\(\)/);
@@ -163,7 +171,8 @@ test('placeDropTarget: 나무 줄·위치 줄은 그 폴더, 자료실 전체·�
   p=placeEl({step:{luPath:'fa',noRow:true}});t=m.placeDropTarget(p.el,{folderOf});assert.equal(t.target,'fa');assert.equal(t.place,p.at);
   p=placeEl({step:{luPath:'',noRow:true}});assert.equal(m.placeDropTarget(p.el,{folderOf}).out,true);
   // 없는 폴더 줄 → 폴더 밖
-  p=placeEl({step:{luNav:'gone'}});assert.equal(m.placeDropTarget(p.el,{folderOf}).out,true);
+  // S55-08 LIB-나무로끌기안됨 ③: 모르는 폴더 id는 폴더 밖으로 바꾸지 않고 막는다.
+  p=placeEl({step:{luNav:'gone'}});t=m.placeDropTarget(p.el,{folderOf});assert.equal(t.ok,false);assert.equal(t.out,undefined);assert.equal(t.place,p.row);
   // 나무·위치 줄이 아니면 ①은 null
   assert.equal(m.placeDropTarget(placeEl().el,{folderOf,inFolder:'fa'}),null);
   // ③ 들어간 폴더 안 빈 곳(자료실 화면 안) → 그 폴더

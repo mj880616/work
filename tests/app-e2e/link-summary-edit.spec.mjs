@@ -17,7 +17,7 @@ async function openEditor(page,row,menu,width){
  const more=row.getByRole('button',{name:'잊지 말기 기록 메뉴'});
  if(width<761)await more.tap();else await more.click();
  // The menu opens at the ⋯ it came from (anchored menu, #773).
- await expect(menu).toBeVisible();const [a,m]=await Promise.all([more.boundingBox(),menu.boundingBox()]);expect(Math.min(Math.abs(m.y-(a.y+a.height)),Math.abs(m.y+m.height-a.y))).toBeLessThanOrEqual(12);expect(m.x+m.width).toBeGreaterThanOrEqual(a.x);
+ await expect(menu).toBeVisible();const [a,m]=await more.evaluate((btn,panel)=>[btn,panel].map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}}),await menu.elementHandle());/* STAB-간헐묶음: 두 상자를 한 번에 재서 메뉴가 열리며 움직이는 중 따로 재는 어긋남을 없앤다 */expect(Math.min(Math.abs(m.y-(a.y+a.height)),Math.abs(m.y+m.height-a.y))).toBeLessThanOrEqual(12);expect(m.x+m.width).toBeGreaterThanOrEqual(a.x);
  const item=menu.getByRole('button',{name:'요약 수정',exact:true});if(width<761)await item.tap();else await item.click();
  const input=row.locator('[data-link-summary-input]');await expect(input).toBeFocused();return input;
 }

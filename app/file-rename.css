@@ -8,7 +8,8 @@
 .fr-acts .fr-save{color:var(--kptu-primary-ink);border-color:var(--kptu-primary-soft)}
 .fr-acts button:disabled{opacity:.55;cursor:default}
 [data-fr-host]{-webkit-touch-callout:none}
-.fr-box{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 6px;min-width:0;max-width:100%;vertical-align:middle}
+/* S55-08 LIB-폴더이름칸닫힘 같은 종류: 이름 칸을 여는 줄에 누름 칸(::after 덮개)이 있어도 칸이 그 위에 와서 누름·끌어 고르기를 받는다. */
+.fr-box{position:relative;z-index:1;display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 6px;min-width:0;max-width:100%;vertical-align:middle}
 .fr-field{display:inline-flex;align-items:center;gap:2px;min-width:0;flex:1 1 12em}
 .fr-input{flex:1 1 auto;min-width:6em;height:var(--ds-compact-height);padding:0 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row)}
 .fr-input:focus{outline:2px solid var(--kptu-primary-soft);outline-offset:0;border-color:var(--kptu-primary)}
