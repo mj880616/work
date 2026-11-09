@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {showReportsOf} from './helpers/meeting-open.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
@@ -137,6 +138,7 @@ test('폰에는 3단 경계선이 없고, PC 틀(761px~)로 넓히면 나타난�
  await page.setViewportSize({width:760,height:800});
  await mockApp(page,columnState());await signIn(page,testOrigin+'/app/?view=meetings');
  await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+ await showReportsOf(page);
  await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();
  await expect(page.locator('.split-resize-handle:visible')).toHaveCount(0);
  await page.setViewportSize({width:1280,height:900});

@@ -421,6 +421,15 @@
 .biz-sum-table th:nth-child(1),.biz-sum-table td:nth-child(1){width:18%}
 .biz-sum-table thead th:nth-child(2){width:18%}
 .biz-sum-table thead th:nth-child(4){width:14%}
+/* BIZ-주간표스크롤: 폰 폭에서는 표가 화면에 다 들어오도록 바깥 여백을 줄이고 칸 폭을 나눠 '사업영역'·'쓰기' 같은 낱말이 글자 사이에서 꺾이지 않게 한다. */
+@media(max-width:760px){
+  .biz-week [data-bw-body]{padding:0 var(--kptu-space-1) var(--kptu-space-2)}
+  .biz-week .biz-paper{padding:6px 4px}
+  .biz-sum-table th,.biz-sum-table td{padding:4px}
+  .biz-sum-table th:nth-child(1),.biz-sum-table td:nth-child(1){width:22%}
+  .biz-sum-table thead th:nth-child(2){width:19%}
+  .biz-sum-table thead th:nth-child(4){width:13%}
+}
 .biz-cell-line{display:block;width:100%;padding:1px 0;border:0;background:none;text-align:left;font:inherit;color:inherit;cursor:pointer}
 .biz-cell-line:hover,.biz-cell-line:focus-visible{text-decoration:underline}
 .biz-cell-plan{margin:2px 0 0;color:var(--kptu-muted)}

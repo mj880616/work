@@ -105,6 +105,9 @@ for(const width of [390,884])test(`${width}: 표 위에서 밀어도 화면 전�
   const body=await box.locator('[data-bw-body]').evaluate(el=>{const cs=getComputedStyle(el);return {ox:cs.overflowX,oy:cs.overflowY,max:cs.maxHeight,extra:el.scrollHeight-el.clientHeight,wide:el.scrollWidth-el.clientWidth}});
   expect(body).toMatchObject({ox:'visible',oy:'visible',max:'none'});
   expect(body.wide).toBeLessThanOrEqual(1);
+  // 폰 폭에 맞춰 줄바꿈하되 낱말은 글자 사이에서 꺾이지 않는다('사업영역' 머리·'쓰기' 버튼이 한 줄).
+  const lines=await box.locator('.biz-sum-table').evaluate(t=>{const n=el=>{const r=document.createRange();r.selectNodeContents(el);return new Set([...r.getClientRects()].map(x=>Math.round(x.top))).size};return {head:n(t.querySelector('thead th')),owner:n(t.querySelector('[data-bp-cell="owner"]')),progress:n(t.querySelector('[data-bp-cell="progress"]'))}});
+  expect(lines).toEqual({head:1,owner:1,progress:1});
   // 표 위에서 손가락으로 위로 밀면(터치 스크롤) 화면이 내려간다.
   const t=await box.locator('.biz-sum-table tbody td').first().boundingBox();
   const cdp=await page.context().newCDPSession(page);
