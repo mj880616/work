@@ -34,18 +34,41 @@ const pickAmong = list => {
   const area = list.filter(el => el.matches(AREA));
   return area.length === 1 ? area[0] : null;
 };
+// MTG-우클릭안됨(11/09): inside an area (the block around the press that holds an area-marked ⋯ — a detail or a dialog, a PC
+// docked pane included) a list row's ⋯ answers only for a press inside that row, and a block that holds several row ⋯ is a
+// list, not a card, so the climb goes on to the area ⋯ instead of giving up (a press on a long result body above a list of
+// follow-up tasks or files opened the browser menu, or with one row the row's menu). A row is the ⋯'s nearest line-like
+// ancestor inside that area; a ⋯ with no such row keeps the old rule. Screens without an area ⋯ keep the old rule as is.
+const ROW = 'li,tr,[role="listitem"],[role="row"],article,.gt-row,.file-line,[data-ctx-row]';
+function areaHostOf(node) {
+  for (let n = node; n; n = n.parentElement) {
+    if (moreTriggers(n).some(el => el.matches(AREA))) return n;
+    if (n.matches(STOP)) return null;
+  }
+  return null;
+}
+const rowHolds = (el, target, host) => {
+  const row = el.parentElement?.closest(ROW);
+  return !row || row === host || !host.contains(row) || row.contains(target);
+};
 function findTrigger(target) {
   let node = target instanceof Element ? target : target?.parentElement;
   if (!node || node.closest('[role="menu"],[popover]:popover-open')) return null;
   // The ⋯ itself (or something inside it) is its own card.
   const own = node.closest('button,summary');
   if (own && isMore(own) && !own.matches(NOT_CARD) && visible(own)) return own;
+  const host = areaHostOf(node);
+  let listOnly = false;
   for (let depth = 0; node; depth++, node = node.parentElement) {
     // A screen / dialog / the page is never itself a card: only an area-marked ⋯ (a detail or dialog menu) may answer here.
     if (node.matches(STOP)) return pickAmong(moreTriggers(node).filter(el => el.matches(AREA)));
     // Close to the pressed spot any ⋯ can be the card's; farther up (past a card's usual depth) only an area-marked one.
-    const found = moreTriggers(node).filter(el => depth < MAX_DEPTH || el.matches(AREA));
-    if (found.length) return pickAmong(found);
+    let found = moreTriggers(node).filter(el => el.matches(AREA) || (!listOnly && depth < MAX_DEPTH));
+    if (host) found = found.filter(el => el.matches(AREA) || rowHolds(el, target, host));
+    if (!found.length) continue;
+    const pick = pickAmong(found);
+    if (pick || !host) return pick;
+    listOnly = true; // several row ⋯ around the press inside an area: a list, keep climbing to the area ⋯
   }
   return null;
 }
