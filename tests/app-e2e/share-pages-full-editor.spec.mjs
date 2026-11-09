@@ -8,6 +8,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {pressNewSharePage, pressNewHtmlPage} from './helpers/share-new.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const user = {id:'full-user', email:'full@example.org', user_metadata:{display_name:'전체 수정 QA'}};
@@ -58,7 +59,7 @@ for (const width of [1280, 1440, 390]) test('a new page fills the content area a
   await page.setViewportSize({width, height:900});
   const state = {pages:[]};
   const errors = await signIn(page, state);
-  await page.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
+  await pressNewSharePage(page);
   const editor = page.locator('[data-sp-editor]');
   await expect(editor).toHaveClass(/is-full/);
   await expect(editor.locator('[data-sp-title]')).toBeFocused();

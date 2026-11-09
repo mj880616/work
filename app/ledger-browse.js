@@ -461,7 +461,7 @@ function shellHtml() {
         <h3 id="lbTitle" class="lb-h screen-title">원장</h3>
         <label class="lb-search"><span class="lg-sr">찾을 말</span>${SEARCH_ICON}<input id="lbQuery" type="search" maxlength="${QUERY_MAX}" placeholder="${isPhone() ? '조직·주제·사람으로 찾기' : '조직·주제·사람·내용으로 찾기 (Enter)'}" autocomplete="off" enterkeyhint="search"></label>
         <button type="button" class="lb-cond-btn" id="lbCondBtn" data-lb-action="cond" aria-expanded="false" aria-controls="lbCond">조건 <span aria-hidden="true">▾</span></button>
-        <button type="button" class="lb-add" data-lb-action="add">+ 기록하기</button>
+        <button type="button" class="lb-add${isPhone() ? ' icon-btn' : ''}" data-lb-action="add"${isPhone() ? ' aria-label="기록하기"' : ''}>${isPhone() ? '' : '+ 기록하기'}</button>
       </div>
       <div class="lb-meta-row"><div id="lbChips" class="lb-chips" aria-label="걸린 조건"></div><p id="lbStatus" class="lb-count" role="status" aria-live="polite"></p></div>
       <div id="lbCond" class="lb-cond" hidden>

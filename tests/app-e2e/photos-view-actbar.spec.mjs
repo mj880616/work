@@ -65,7 +65,7 @@ async function fixture(page, { app = false, edit = true, out = true } = {}) {
       if (body.action === 'sync') return r.fulfill({ json: { more: false, indexing: false, changed: 0 } });
       if (body.action === 'photo-urls') return r.fulfill({ json: { urls: Object.fromEntries(body.ids.map(id => [id, `${CDN}/${body.size}/${id}.png`])), failed: {} } });
       if (body.action === 'media-url') return r.fulfill({ json: { url: `${CDN}/orig/${body.id}.png`, kind: 'photo', name: 'a.png', expires_in: 3000 } });
-      if (body.action === 'library') return r.fulfill({ json: { items: OD, next_cursor: null, indexing: false } });
+      if (body.action === 'library') { if (state.gate) await state.gate; return r.fulfill({ json: { items: OD, next_cursor: null, indexing: false } }); }
       if (body.action === 'months') return r.fulfill({ json: { months: { '2026-10': OD.length }, total: OD.length } });
       if (body.action === 'folders-tree') return r.fulfill({ json: { top: { id: 'TOP', name: '카메라', count: 1, total: 1 }, folders: [{ id: 'F1', name: '여행', parent_id: 'TOP', count: 0, total: 0 }], indexing: false, whole: true } });
       if (body.action === 'photos-move') { state.moves.push({ ids: body.ids, to: body.parent_id }); return r.fulfill({ json: { moved: body.ids.map(id => ({ id, from: 'TOP' })), failed: {} } }); }
@@ -169,13 +169,34 @@ for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884,
       await expect(page.locator('#photosPickMenu')).toBeVisible();
       await page.locator('#photosPickMenu [data-pick-folder="F1"]').click();
       await expect.poll(() => state.moves).toEqual([{ ids: ['O1'], to: 'F1' }]);
-      // 옮긴 뒤 목록을 다시 받는 동안(afterMove → resetList)에는 목록에 지울 사진이 없어 [삭제]가 아무 일도 못 한다 → '옮겼어요' 알림이 뜨고 목록이 다시 채워진 뒤에 지운다.
       await expect(page.locator('#kptuNotice')).toContainText('옮겼어요');
-      await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
       // 지우기: 다음 사진으로 넘어간다(2장 → 1장)
       await expect(viewer(page).locator('[data-diary-viewer-count]')).toHaveText(/\/ 2/);
       await b.locator('[data-od-delete]').click();
       await expect(viewer(page).locator('[data-diary-viewer-count]')).toHaveText(/\/ 1/);
+      expect(state.errors).toEqual([]);
+    });
+
+    // PHOTO-옮긴뒤삭제: 옮긴 직후 목록 응답이 늦어도 [삭제]는 지금 사진을 지우고 다음 사진으로 넘어간다(조용히 무시되지 않는다).
+    test('옮긴 직후(목록 응답을 일부러 늦춰서) [삭제]를 누르면 지워지고 다음 사진으로 넘어간다', async ({ page }) => {
+      const state = await fixture(page, { app: true });
+      await openPhotos(page, width);
+      await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
+      await page.locator('#photosRoot [data-photos-id="O1"]').click();
+      await expect(viewer(page)).toBeVisible();
+      await expect(viewer(page).locator('.diary-slide .diary-photo[data-state="shown"]').first()).toBeVisible();
+      let release; state.gate = new Promise(r => { release = r; });
+      try {
+        const b = bar(page);
+        await pickItem(page, b.locator('[data-strip-act="more"]'), '폴더로 옮기기');
+        await page.locator('#photosPickMenu [data-pick-folder="F1"]').click();
+        await expect.poll(() => state.moves).toEqual([{ ids: ['O1'], to: 'F1' }]);
+        await expect(page.locator('#kptuNotice')).toContainText('옮겼어요');
+        await expect(viewer(page).locator('[data-diary-viewer-count]')).toHaveText(/\/ 2/);
+        await b.locator('[data-od-delete]').click();
+        await expect(viewer(page).locator('[data-diary-viewer-count]')).toHaveText(/\/ 1/);
+        await expect(viewer(page).locator('[data-diary-undo]')).toBeVisible();
+      } finally { release(); }
       expect(state.errors).toEqual([]);
     });
 

@@ -29,23 +29,36 @@ export function attachRow({id, getBatch, isBusy, say}) {
 }
 // S48-30 잘림: 폴더 이름은 8글자까지 다 보이고 그보다 길면 뒤를 '…'로 줄인다(▾는 늘 보임). 버튼은 줄어들지 않고 제목 칸이 양보한다(ed-window.css).
 export const shortFolder = name => { const chars = [...String(name || '')]; return chars.length > 8 ? chars.slice(0, 8).join('') + '…' : chars.join(''); };
-function titleRow({value = '', folder = null, placeholder = '제목(비우면 첫 줄)'}) {
+// FORGET-노트고르기: target(note-pick.js createNoteTarget)이 있으면 줄 맨 앞에 [새 노트 ▾], 그다음 [폴더 ▾]·제목 칸·'📁 폴더 · 끝에 더함',
+// 줄 아래 고른 노트의 흐린 마지막 두 줄(target.tail). 제목 칸은 새 노트일 때만, [폴더 ▾]는 새 노트와 가족 '잊지 말기' 노트일 때만 보인다.
+function titleRow({value = '', folder = null, target = null, placeholder = '제목(비우면 첫 줄)'}) {
   const row = document.createElement('div'); row.className = 'edw-title-row';
   const label = document.createElement('label'); label.className = 'a11y-only'; label.htmlFor = 'edwNoteTitle'; label.textContent = '노트 제목';
   const input = document.createElement('input');
   input.id = 'edwNoteTitle'; input.type = 'text'; input.autocomplete = 'off'; input.dataset.edwTitle = ''; input.value = value;
   input.placeholder = placeholder; input.setAttribute('enterkeyhint', 'next'); input.dataset.enterField = 'off';
-  row.append(label, input);
   let button = null;
   if (folder) {
     button = document.createElement('button'); button.type = 'button'; button.dataset.edwFolder = ''; button.setAttribute('aria-haspopup', 'dialog');
     button.addEventListener('click', () => folder.open(button));
-    row.append(button);
   }
+  if (target) row.append(label, target.button, ...(button ? [button] : []), input, target.info);
+  else row.append(label, input, ...(button ? [button] : []));
   const paint = () => { if (button) { const name = folder.label?.() || '폴더 없음'; button.textContent = shortFolder(name) + ' ▾'; button.title = '노트 폴더: ' + name; } };
   folder?.watch?.(paint);
   paint();
-  return {row, input, paint};
+  let node = row;
+  if (target) {
+    node = document.createElement('div'); node.className = 'edw-head-wrap';
+    node.append(row, target.tail);
+    const sync = () => {
+      const kind = target.get().kind;
+      input.hidden = kind !== 'new'; label.hidden = kind !== 'new';
+      if (button) button.hidden = kind === 'note';
+    };
+    target.watch(sync); sync();
+  }
+  return {row: node, input, paint};
 }
 
 // NOTE-파일그림넣기: [사진]·[파일] in a new note (no id yet). A chosen file waits in this window's memory under a waiting id; a picture
@@ -111,14 +124,19 @@ async function sendWaiting(note, value, media, {rt, isCurrent}) {
 // A new note. text: the note input's letters (kept as written). upload: the note input's own batch {getBatch, isBusy, onChange, reset}
 // (optional). noteFolder: {label(), open(trigger)} (optional; note-folder-pick.js, or the note screen's own). With write:true and get() the window
 // puts the new note into the chosen folder itself after the save (noteFolder.put: the same setNoteFolderRef write as the note screen); without it the opener does.
-// onClose({saved, text}) — saved = {kind:'note', id} after a save.
-export function openNoteWindow({text = '', title = '새 노트', rt = window.KPTURuntime, upload = null, noteFolder = null, onClose = () => {}} = {}) {
+// onClose({saved, text}) — saved = {kind:'note', id} after a save (FORGET-노트고르기: + folderName, added = 기존 노트 끝에 더함).
+// FORGET-노트고르기 target (note-pick.js createNoteTarget, optional): [새 노트 ▾] in front of the title row. When an existing note (or the family
+// '잊지 말기' note) is chosen, [저장] does not make a new note: it hands the written text to target.save({value, text, heading}) → {noteId, folderName,
+// message?} (the existing append path that adds it as paragraphs at the end of that note, guarded by the version it read). A family target
+// (target.family) always saves through target.save (a new family note too: kept out of AI material), and has no [📎 첨부]·사진·파일.
+export function openNoteWindow({text = '', title = '새 노트', rt = window.KPTURuntime, upload = null, noteFolder = null, target = null, onClose = () => {}} = {}) {
   const owner = rt.session.read()?.user?.id;
   let own = upload ? null : createUploadBatch(), saved = null, busy = false, handle = null;
   const media = waitingMedia();
   const batch = () => upload ? upload.getBatch() : own;
   const say = message => handle?.say(message);
-  const head = titleRow({folder: noteFolder});
+  const head = titleRow({folder: noteFolder, target});
+  const family = !!target?.family, custom = () => !!target && (family || !target.isNew());
   // The title box's Enter goes on to the text (it is not a save).
   head.input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle?.editor?.focus(); } });
   const files = attachRow({id: 'edwNoteAttach', getBatch: batch, isBusy: () => busy || !!upload?.isBusy?.(), say: message => { upload?.onChange?.(); say(message); }});
@@ -126,8 +144,25 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
   const waitingHost = document.createElement('div');
   files.node.prepend(waitingHost);
   const waitingRows = mountUploadRows(waitingHost, {has: job => media.has(job.file), preview: job => media.preview(job.file)});
+  // 기존 노트 끝에 더할 때는 [📎 첨부] 줄을 숨긴다(첨부는 새 노트일 때만).
+  const syncFoot = () => { files.node.hidden = custom(); };
+  target?.watch(syncFoot); syncFoot();
+  async function addTo({value, typed, heading}) {
+    if (waitingSrcs(value).length) return {ok: false, message: '기존 노트에 더할 때는 사진·파일을 넣을 수 없어요. 새 노트로 저장해 주세요.'};
+    if (!String(typed || '').trim() && !(family && target.isNew() && heading.trim())) return {ok: false, message: '더할 내용을 써 주세요.'};
+    busy = true;
+    try {
+      const result = await target.save({value, text: typed, heading});
+      saved = {kind: 'note', id: result?.noteId || '', folderName: result?.folderName || '', added: !target.isNew()};
+      toast(result?.message || (target.isNew() ? '노트로 저장했어요.' : '노트 끝에 더했어요.'));
+      return {ok: true};
+    } catch (error) {
+      return {ok: false, message: error?.message && /[가-힣]/.test(error.message) ? error.message : '저장하지 못했어요. 다시 눌러 주세요.'};
+    } finally { busy = false; }
+  }
   async function run({value, text: typed}) {
     if (rt.session.read()?.user?.id !== owner) return {ok: false, message: '로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
+    if (custom()) return addTo({value, typed, heading: head.input.value});
     const list = batch(), count = files.pending(), heading = head.input.value;
     if (count && (list.blocked || list.note_id)) return {ok: false, message: '앞선 업데이트의 첨부 저장 결과를 먼저 확인해 주세요.'};
     // NOTE-파일그림넣기: waiting pictures·files are made first without their cards (they go in after the upload, sendWaiting).
@@ -156,11 +191,11 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
     toast(warning || '노트로 저장했어요.');
     return {ok: true};
   }
-  handle = openEdWindow({title, text, draft: true, limit: NOTE_TEXT_MAX, head: head.row, foot: files.node, shortcuts: true,
-    dirty: () => !!head.input.value.trim() || files.pending() > 0,
-    photos: media.photos, files: media.files,
-    placeholder: '노트 본문을 쓰세요', save: {aria: '새 노트로 저장', run},
-    onClose: ({text: letters}) => { waitingRows.destroy(); media.clear(); noteFolder?.close?.(); onClose({saved, text: letters}); }});
+  handle = openEdWindow({title, text, draft: true, limit: NOTE_TEXT_MAX, head: head.row, foot: family ? null : files.node, shortcuts: true,
+    dirty: () => (!head.input.hidden && !!head.input.value.trim()) || (!custom() && files.pending() > 0),
+    photos: family ? null : media.photos, files: family ? null : media.files,
+    placeholder: '노트 본문을 쓰세요', save: {aria: target ? '노트에 저장' : '새 노트로 저장', run},
+    onClose: ({text: letters}) => { waitingRows.destroy(); media.clear(); noteFolder?.close?.(); target?.close?.(); onClose({saved, text: letters}); }});
   if (handle) { handle.paintFolder = head.paint; queueMicrotask(() => head.input.focus()); }
   return handle;
 }

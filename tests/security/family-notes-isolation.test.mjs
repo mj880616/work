@@ -26,6 +26,8 @@ const ALLOWED=new Set([
  'tests/app-e2e/forget-one-list.spec.mjs',
  // S53-9 CAL-다른화면일정등록: 달력을 안 연 채 잊지 말기 가족 줄 [일정으로]를 보는 화면 시험(지어낸 줄을 흉내 낸 서버로만 돌려줌).
  'tests/app-e2e/event-create-elsewhere.spec.mjs',
+ // FORGET-노트고르기: 잊지 말기 가족 줄 [노트]가 업무 줄과 같은 노트 창으로 열리는지 보는 화면 시험(지어낸 줄을 흉내 낸 서버로만 돌려줌).
+ 'tests/app-e2e/forget-note-pick.spec.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
 function walk(dir,out=[]){

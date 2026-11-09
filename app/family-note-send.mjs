@@ -63,3 +63,14 @@ export function dropLine(doc, line) {
   }
   return null;
 }
+
+// FORGET-노트고르기(요청함 11/09 13:34, 시안 docs/design/mockups/forget-note-pick.html): 노트 창에서 고친 글(저장된 모양 ed1)을 노트 끝에 문단으로 더한다.
+// 노트의 다른 내용은 그대로, 노트 끝·더할 글 앞뒤의 빈 문단은 걷어 내고, 더할 글 안의 빈 줄도 빼서 촘촘히 붙인다. 더할 글이 비면 null(아무것도 안 씀).
+export function appendDoc(doc, add) {
+  const base = cleanDoc(doc) || cleanDoc({type: 'doc', content: []});
+  const more = (cleanDoc(add)?.doc?.content || []).filter(node => !isBlank(node));
+  if (!more.length) return null;
+  const content = [...base.doc.content];
+  while (content.length && isBlank(content[content.length - 1])) content.pop();
+  return cleanDoc({type: 'doc', content: [...content, ...more]});
+}

@@ -2602,7 +2602,10 @@ async function movePhotos(allIds, target) {
 function afterMove(ids, target) {
   if (ids && target !== at) { const gone = new Set(ids); fItems = fItems.filter(x => !gone.has(x.id)); if (tab === 'folders') ids.forEach(photoStripDrop); }
   else { fFor = null; fItems = []; }
-  resetList(); calData.clear(); aFor = null;
+  // 켜진 폴더로 옮기면 [사진]·앨범 목록의 내용은 그대로다. 목록을 비우고 다시 받으면 그 사이 크게 보기의 [삭제]·[별표]가 지울 사진을 못 찾아 조용히 무시되므로, 그때는 목록을 그대로 두고 달력 묶음만 다시 받는다.
+  const keepLists = !!ids && tab !== 'folders' && photoFolderById(tree, target)?.enabled !== false;
+  if (!keepLists) { resetList(); aFor = null; }
+  calData.clear();
   loadTree(true).then(() => { if (tab === 'folders') renderFolders(); });
   if (tab === 'folders') renderFolders(); else if (tab === 'albums') renderAlbums(); else render();
 }
