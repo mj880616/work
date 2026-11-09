@@ -15,7 +15,7 @@ import {WAIT_PREFIX, waitingSrcs, swapWaiting} from './note-pending-media.mjs';
 import {toPlain} from './ed-text.mjs';
 import {mountUploadRows} from './upload-progress.js'; // UI-올리기진행표시: 저장 뒤 올라가는 글 안 사진·파일의 막대 + %
 
-function toast(message) {
+export function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
   box.textContent = message; kptuHoldToast(box);
 }
@@ -121,6 +121,16 @@ async function sendWaiting(note, value, media, {rt, isCurrent}) {
   return failed ? `노트는 저장했지만 사진·파일 ${failed}개를 올리지 못했어요. ${error?.message || ''}`.trim() : '';
 }
 
+// 새 노트를 만든 뒤 할 일 하나(큰 창 run과 FORGET-노트작은창 작은 창이 같은 길): AI 요약 제목(서버가 정함, 기다리지 않음) + 고른 폴더에 넣기.
+// NOTE-탐색기 후속 ⑤: 폴더에 넣는 일은 noteFolder.put(note-folder-pick.js, setNoteFolderRef 한 길)이 한다. 반환: '' 또는 알림 글.
+export async function finishNewNote(note, {rt = window.KPTURuntime, noteFolder = null} = {}) {
+  void requestNoteAiTitle(note.id, {rt}); // NOTE-탐색기 ③: 사진·파일 글 쓰기 뒤에 불러(같은 노트를 두 번 고치지 않게).
+  if (noteFolder?.write && noteFolder.get?.() && noteFolder.put) {
+    try { await noteFolder.put({id: note.id}); }
+    catch { return `노트는 저장했지만 '${noteFolder.label()}' 폴더에 넣지 못했어요. 노트 ⋯의 [폴더로 옮기기]로 옮겨 주세요.`; }
+  }
+  return '';
+}
 // A new note. text: the note input's letters (kept as written). upload: the note input's own batch {getBatch, isBusy, onChange, reset}
 // (optional). noteFolder: {label(), open(trigger)} (optional; note-folder-pick.js, or the note screen's own). With write:true and get() the window
 // puts the new note into the chosen folder itself after the save (noteFolder.put: the same setNoteFolderRef write as the note screen); without it the opener does.
@@ -175,12 +185,7 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
       const note = await createNoteDoc({title: heading.trim() ? heading : noteTitleFromText(letters) || fileTitle(first), raw_text: letters, markdown: false, doc: letters.trim() || waits.length ? bare : null}, rt);
       saved = {kind: 'note', id: note.id};
       if (waits.length) warning = await sendWaiting(note, value, media, {rt, isCurrent: () => rt.session.read()?.user?.id === owner});
-      void requestNoteAiTitle(note.id, {rt}); // NOTE-탐색기 ③: AI 요약 제목(서버가 정함, 기다리지 않음). 사진·파일 글 쓰기 뒤에(같은 노트를 두 번 고치지 않게).
-      // NOTE-탐색기 후속 ⑤: 고른 폴더(폴더 나무 고르기 창, 폴더 id)에 넣는 일은 noteFolder.put(note-folder-pick.js, setNoteFolderRef 한 길)이 한다.
-      if (noteFolder?.write && noteFolder.get?.() && noteFolder.put) {
-        try { await noteFolder.put({id: note.id}); }
-        catch { warning ||= `노트는 저장했지만 '${noteFolder.label()}' 폴더에 넣지 못했어요. 노트 ⋯의 [폴더로 옮기기]로 옮겨 주세요.`; }
-      }
+      warning ||= await finishNewNote(note, {rt, noteFolder});
       if (count) {
         try { await uploadNoteFiles(note.id, list, {rt, isCurrent: () => rt.session.read()?.user?.id === owner, onChange: () => files.picker.render()}); }
         catch (error) { warning ||= `노트는 저장했지만 첨부를 올리지 못했어요. ${error?.message || ''} 노트를 열어 다시 붙여 주세요.`.replace(/\s+/g, ' '); }

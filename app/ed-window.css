@@ -75,3 +75,16 @@ html .modal.ed-window .edw-title-row button[data-edw-target] { max-width:min(14e
 .note-pick .nbb-pick-list { min-height:80px; }
 .note-pick .nbb-note[aria-current="true"] { background:var(--kptu-primary-soft); }
 .note-pick-sec { margin:6px 6px 2px; font-size:11px; color:var(--kptu-muted); }
+/* FORGET-노트작은창(시안 docs/design/mockups/forget-note-small.html): 잊지 말기 [노트로]를 누르면 누른 줄 아래 뜨는 작은 창(note-quick.js). 단추 모양은 6가지 공용 규칙(ui-standard.css)이 정한다. */
+.note-quick { position:fixed; z-index:120; display:flex; flex-direction:column; gap:6px; box-sizing:border-box; width:380px; max-width:calc(100vw - 16px); margin:0; padding:8px; overflow:auto; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float,none); }
+.nq-row { display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; }
+.nq-row .edw-target-info { flex:1 1 auto; display:inline-flex; align-items:center; gap:3px; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:var(--kptu-text-meta,12px); color:var(--kptu-muted); }
+.nq-row button { max-width:min(14em,45vw); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nq-tail { font-size:var(--kptu-text-meta,12px); line-height:1.5; color:var(--kptu-muted); }
+.nq-tail > div { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; border-left:3px solid var(--kptu-border); padding-left:8px; }
+.nq-text { box-sizing:border-box; width:100%; min-height:68px; max-height:30dvh; resize:vertical; padding:6px 8px; border:var(--ds-line-width,1px) solid var(--kptu-primary); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:inherit; font:inherit; font-size:14px; line-height:1.45; }
+.nq-status { margin:0; min-height:0; font-size:var(--kptu-text-meta,12px); color:var(--kptu-danger); }
+.nq-status:empty { display:none; }
+.nq-foot { display:flex; align-items:center; justify-content:flex-end; gap:6px; }
+.nq-foot .nq-big { margin-right:auto; }
+.note-quick [hidden] { display:none; }

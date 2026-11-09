@@ -128,6 +128,7 @@ test('[노트로]: 가족 폴더의 잊지 말기 노트에 체크 한 줄을 �
   const {patches,notePatches,notePosts}=await fixture(page,{lists});
   // 먼저 열었다 닫기: 쓰기 없음.
   await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="note"]`).click();
+  await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await expect(win(page)).toBeVisible();
   // 줄 글이 미리 채워진 새 글 창이라 닫을 때 한 번 묻는다(기존 노트 창 규칙 그대로) → '저장하지 않고 닫기'.
   await win(page).locator('[data-edw-cancel]').click();
@@ -135,6 +136,7 @@ test('[노트로]: 가족 폴더의 잊지 말기 노트에 체크 한 줄을 �
   await expect(win(page)).toHaveCount(0);
   expect(notePatches.length+notePosts.length+patches.length).toBe(0);
   await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="note"]`).click();
+  await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await expect(win(page).locator('.ProseMirror')).toHaveText('☐ <b>새로 생긴 빵집</b> 소금빵이 맛있었다고 함 (통화 10/5)');
   await expect(win(page).locator('[data-edw-target]')).toHaveText('잊지 말기 ▾');
   await expect(win(page).locator('[data-edw-folder]')).toHaveText('가족 ▾');
@@ -156,6 +158,7 @@ test('[노트로]: 가족 폴더의 잊지 말기 노트에 체크 한 줄을 �
 test('[노트로]: 가족 폴더·잊지 말기 노트가 없으면 만들어 넣는다. [＋ 새 노트로]는 표시 없이 그 줄 제목으로',async({page})=>{
   const {patches,notePosts,folderPosts}=await fixture(page,{folders:[]});
   await box(page).locator(`[data-nbx-row="f:${id(1)}"] [data-nbx-act="note"]`).click();
+  await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await expect(win(page).locator('[data-edw-folder]')).toHaveText('가족 ▾');
   await win(page).locator('[data-edw-save]').click();
   await expect.poll(()=>patches.length).toBe(1);
@@ -165,6 +168,7 @@ test('[노트로]: 가족 폴더·잊지 말기 노트가 없으면 만들어 �
   expect(notePosts[0]).toMatchObject({kind:'note',title:'잊지 말기',ai_export_allowed:false,raw_text:'☐ 토요일 저녁에 동네 산책 가자고 함 (텔레그램 10/5 · 말한 때: 토요일 저녁)',
     metadata:{family_list:true,folder:'가족',folder_id:'a0000000-0000-4000-8000-000000000009'}});
   await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="note"]`).click();
+  await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await expect(win(page).locator('[data-edw-folder]')).toHaveText('가족 ▾');
   await win(page).locator('[data-edw-target]').click();
   await page.locator('[data-note-pick] [data-np-new]').click();

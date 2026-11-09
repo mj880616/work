@@ -67,6 +67,8 @@ function ensureStyles() {
   return Promise.all(waits);
 }
 
+export {ensureStyles as ensureEdStyles}; // 작은 노트 창(note-quick.js)도 같은 글꼴·단추 모양 파일을 쓴다
+
 function icon(d) {
   const svg = document.createElementNS(SVG_NS, 'svg'), path = document.createElementNS(SVG_NS, 'path');
   svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');

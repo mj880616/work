@@ -28,6 +28,8 @@ const ALLOWED=new Set([
  'tests/app-e2e/event-create-elsewhere.spec.mjs',
  // FORGET-노트고르기: 잊지 말기 가족 줄 [노트]가 업무 줄과 같은 노트 창으로 열리는지 보는 화면 시험(지어낸 줄을 흉내 낸 서버로만 돌려줌).
  'tests/app-e2e/forget-note-pick.spec.mjs',
+ // FORGET-노트작은창: 잊지 말기 [노트로] 작은 창(가족 줄 포함)을 보는 화면 시험(지어낸 줄을 흉내 낸 서버로만 돌려줌).
+ 'tests/app-e2e/forget-note-small.spec.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
 function walk(dir,out=[]){

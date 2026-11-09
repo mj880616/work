@@ -304,12 +304,17 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   }
   // FORGET-노트고르기(요청함 11/09 13:34, 명진 13:37): 업무 줄 [노트]는 노트 창 제목 줄 앞 [새 노트 ▾][폴더 ▾](note-pick.js).
   // 기본은 새 노트 · 폴더 '01. 업무메모'(그 폴더가 없으면 폴더 없음), 기존 노트는 미리 고르지 않는다. 기존 노트를 고르면 그 노트 끝에 더한다.
-  async function openWorkNote(text, done) {
+  // FORGET-노트작은창(요청함 11/09 21:39, 명진 21:42): [노트로]는 큰 창 대신 누른 줄 아래 작은 창(note-quick.js)이 먼저 뜨고, 길게 쓸 때만 [크게 수정 ↗]로 큰 창.
+  async function openWorkNote(text, done, anchor = null) {
     const [{openNoteWindow}, {createNoteTarget}, {createNoteFolderPick}] = await Promise.all([import('./note-window.js'), import('./note-pick.js'), import('./note-folder-pick.js')]);
     const pick = createNoteFolderPick({rt, initial: WORK_NOTE_FOLDER, title: '노트를 넣을 폴더'});
     void pick.load();
-    openNoteWindow({rt, text, noteFolder: {label: pick.label, open: pick.open, get: pick.get, put: pick.put, watch: pick.watch, close: pick.close, write: true},
-      target: createNoteTarget({rt}), onClose: ({saved}) => { if (saved) done(); }});
+    const args = {rt, text, noteFolder: {label: pick.label, open: pick.open, get: pick.get, put: pick.put, watch: pick.watch, close: pick.close, write: true},
+      target: createNoteTarget({rt}), onClose: ({saved}) => { if (saved) done(); }};
+    if (!anchor?.isConnected) return openNoteWindow(args);
+    const rowKey = anchor.closest('[data-nbx-row]')?.dataset.nbxRow || '';
+    const {openNoteQuick} = await import('./note-quick.js');
+    return openNoteQuick({...args, anchor, reanchor: () => (rowKey ? [...document.querySelectorAll('[data-nbx-row]')].find(r => r.dataset.nbxRow === rowKey)?.querySelector('[data-nbx-act="note"]') : null) || null});
   }
   async function newsKeep(r, save, done) {
     const key = `n:${r.id}`;
@@ -343,7 +348,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     }
     if (act === 'note') {
       try {
-        await openWorkNote(`${text}\n\n${memo}`, () => { if (live()) void newsMark(r, 'kept', '노트로 저장했어요'); });
+        await openWorkNote(`${text}\n\n${memo}`, () => { if (live()) void newsMark(r, 'kept', '노트로 저장했어요'); }, button);
       } catch { say('노트 창을 열지 못했어요'); }
     }
   }
@@ -415,7 +420,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     }
     if (kind === 'note') {
       try {
-        await openWorkNote(`${c.summary}\n\n${draft.memo}`, () => { if (live()) void decideCandidate(c, () => markDone(c.id, rt), 'done', '노트로 저장했어요'); });
+        await openWorkNote(`${c.summary}\n\n${draft.memo}`, () => { if (live()) void decideCandidate(c, () => markDone(c.id, rt), 'done', '노트로 저장했어요'); }, button);
       } catch { say('노트 창을 열지 못했어요'); }
     }
   }
@@ -524,7 +529,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (kind === 'note') {
       try {
         const {openFamilyNoteWindow} = await import('./family-note-send.js');
-        await openFamilyNoteWindow({rt, line: noteLine(n), body: n.body,
+        await openFamilyNoteWindow({rt, line: noteLine(n), body: n.body, anchor: trigger,
           onSent: ({folderName}) => void familyChange(n, 'kept', folderName ? `'${folderName}' 폴더 노트에 넣었어요` : '노트에 넣었어요')});
       } catch { say('노트로 보내는 창을 열지 못했어요'); }
       return;

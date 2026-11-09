@@ -74,6 +74,7 @@ const textOf=row=>(row?.doc?.doc?.content||[]).map(p=>p.content?.[0]?.text??'');
 for(const width of [390,884,1440])test(`업무 줄 [노트]: [새 노트 ▾][01. 업무메모 ▾] 제목 칸 순서로 열리고, [저장]이면 그 폴더 새 노트 ${width}`,async({page})=>{
   const f=await fixture(page,{width});
   await box(page).locator(`[data-nbx-row="c:${cid(1)}"] [data-nbx-act="note"]`).click();
+  await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await expect(win(page)).toBeVisible();
   const row=win(page).locator('.edw-title-row');
   await expect(row.locator('[data-edw-target]')).toHaveText('새 노트 ▾');
@@ -101,6 +102,7 @@ for(const width of [390,884,1440])test(`업무 줄 [노트]: [새 노트 ▾][01
 for(const width of [390,1440])test(`업무 줄 [새 노트 ▾] → 버튼 아래 작은 창 → 기존 노트를 고르면 그 노트 끝에 한 줄로 더함 ${width}`,async({page})=>{
   const f=await fixture(page,{width});
   await box(page).locator(`[data-nbx-row="c:${cid(1)}"] [data-nbx-act="note"]`).click();
+  await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   const target=win(page).locator('[data-edw-target]');
   await target.click();
   await expect(pick(page)).toBeVisible();
@@ -139,6 +141,7 @@ for(const width of [390,1440])test(`업무 줄 [새 노트 ▾] → 버튼 아�
 test('업무 줄: 01. 업무메모 폴더가 없으면 폴더 없음, Esc는 작은 창만 닫는다',async({page})=>{
   await fixture(page,{folders:[{id:FAM,parent_id:null,name:'가족',sort_order:1,created_at:'2026-10-01T00:00:00Z'}]});
   await box(page).locator(`[data-nbx-row="c:${cid(1)}"] [data-nbx-act="note"]`).click();
+  await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await expect(win(page).locator('[data-edw-folder]')).toHaveText('폴더 없음 ▾');
   await win(page).locator('[data-edw-target]').click();
   await expect(pick(page)).toBeVisible();
@@ -150,6 +153,7 @@ test('업무 줄: 01. 업무메모 폴더가 없으면 폴더 없음, Esc는 작
 for(const width of [390,884,1440])test(`가족 줄 [노트]: 같은 창, '잊지 말기 ▾' '가족 ▾'가 골라진 채 [저장] 한 번으로 가족 노트 끝에 더함 ${width}`,async({page})=>{
   const f=await fixture(page,{width});
   await box(page).locator(`[data-nbx-row="f:${famId}"] [data-nbx-act="note"]`).click();
+  await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await expect(win(page)).toBeVisible();
   await expect(win(page).locator('[data-edw-target]')).toHaveText('잊지 말기 ▾');
   await expect(win(page).locator('[data-edw-folder]')).toHaveText('가족 ▾');
@@ -171,6 +175,7 @@ for(const width of [390,884,1440])test(`가족 줄 [노트]: 같은 창, '잊지
 test('가족 줄: 고르기 창은 가족 노트만(서버 조건), 새 노트도 AI 재료에서 뺀다. 그사이 AI가 읽는 노트로 바뀌면 저장 함수가 거절한다',async({page})=>{
   const f=await fixture(page,{width:1440});
   await box(page).locator(`[data-nbx-row="f:${famId}"] [data-nbx-act="note"]`).click();
+  await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await win(page).locator('[data-edw-target]').click();
   await expect(pick(page).locator('[data-np-list]')).toHaveText('잊지 말기 노트에 더하기');
   await expect(pick(page).locator('[data-np-list]')).toHaveAttribute('aria-pressed','true');

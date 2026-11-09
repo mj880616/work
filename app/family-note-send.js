@@ -90,7 +90,7 @@ export async function undoDone(rt, {noteId, line}) {
 
 // 가족 줄 [노트]: 업무 줄과 같은 노트 창. 처음 고른 곳은 '잊지 말기' 노트 끝(지금 가족 창과 같은 기본값·폴더 기억).
 // line: 노트에 넣을 한 줄, body: 그 줄 내용(새 노트 제목). onSent({noteId, folderName}) → 부른 쪽이 상태를 바꾼다.
-export async function openFamilyNoteWindow({rt = window.KPTURuntime, line, body, onSent}) {
+export async function openFamilyNoteWindow({rt = window.KPTURuntime, line, body, onSent, anchor = null}) {
   const [{openNoteWindow}, {createNoteTarget}] = await Promise.all([import('./note-window.js'), import('./note-pick.js')]);
   const s = {folder: null, create: false, folders: [], lists: []};
   try {
@@ -119,6 +119,11 @@ export async function openFamilyNoteWindow({rt = window.KPTURuntime, line, body,
       return sendLine(rt, {doc: value, title: heading, body, where: pick.kind === 'list' ? 'list' : 'new', folder: s.folder, create: s.create, lists: s.lists, folders: s.folders});
     }});
   folder.watch(() => target.paint());
-  return openNoteWindow({rt, text: line, title: '노트로 보내기', noteFolder: folder, target,
-    onClose: ({saved}) => { if (saved) onSent?.({noteId: saved.id, folderName: saved.folderName}); }});
+  const args = {rt, text: line, title: '노트로 보내기', noteFolder: folder, target,
+    onClose: ({saved}) => { if (saved) onSent?.({noteId: saved.id, folderName: saved.folderName}); }};
+  // FORGET-노트작은창: 누른 줄 아래 작은 창이 먼저(note-quick.js), [크게 수정 ↗]로 큰 창. 누른 버튼이 없으면 큰 창.
+  if (!anchor?.isConnected) return openNoteWindow(args);
+  const rowKey = anchor.closest('[data-nbx-row]')?.dataset.nbxRow || '';
+  const {openNoteQuick} = await import('./note-quick.js');
+  return openNoteQuick({...args, anchor, reanchor: () => (rowKey ? [...document.querySelectorAll('[data-nbx-row]')].find(r => r.dataset.nbxRow === rowKey)?.querySelector('[data-nbx-act="note"]') : null) || null});
 }
