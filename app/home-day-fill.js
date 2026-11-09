@@ -19,9 +19,16 @@ const kit = () => (kitFlight ||= Promise.all([import('./diary-onedrive.js'), imp
   .then(([od, diary, phone, time, sources, folders]) => ({od, diary, phone, time, sources, folders}))
   .catch(error => { kitFlight = null; throw error; }));
 
+// 폰 사진(폰 앱만): 앱 다리 읽기는 홈이 잠깐 머문 뒤에, 그때도 홈일 때만 한다(바로 다른 탭으로 가면 그 탭의 읽기와 겹치지 않게).
+// 건너뛰면 null → 다음에 홈을 그릴 때 다시 읽는다.
+const PHONE_SETTLE_MS = 2000;
+const settle = () => new Promise(resolve => setTimeout(resolve, PHONE_SETTLE_MS));
+const onHome = () => { const view = globalThis.window?.KPTURouter?.current; return !view || view === 'home'; };
 async function phoneDay(k, day) {
   const phone = k.phone.phonePhotos();
   if (!phone.usable || !k.sources.readDeviceSources().phone) return [];
+  await settle();
+  if (!onHome()) return null;
   const s = await phone.hello();
   if (s.access === 'none' || !s.key) return [];
   const page = await phone.page({sort:'taken_desc', filter:'all', before:k.time.dayEndMs(day), limit:200, hide:await k.folders.phoneHideList(phone)});
@@ -62,8 +69,8 @@ export async function readDayPhotos(day, rt) {
     phoneDay(k, day).catch(() => []),
     kept(`star:${k.diary.ownerScope(rt)}:${year}-${month}`, () => k.od.readStars(year, month, rt)).catch(() => []),
   ]);
-  const items = k.od.dayItems(day, row, od).concat(k.time.phoneDayItems(phone, day, od?.days?.[day] || []));
-  return {items, starred:new Set(stars.map(s => k.od.starKey(s.source, s.item_key)))};
+  const items = k.od.dayItems(day, row, od).concat(k.time.phoneDayItems(phone || [], day, od?.days?.[day] || []));
+  return {items, starred:new Set(stars.map(s => k.od.starKey(s.source, s.item_key))), partial:phone === null};
 }
 function thumbOf(k, item, rt) {
   const opts = {label:'', link:false, rt};
@@ -91,11 +98,12 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
   function ensurePhotos(day, {force = false} = {}) {
     const key = `${owner()}:${day}`, read = photoReads.get(key);
     if (busy.has(key)) { if (force) busy.set(key, true); return; }
+    if (!onHome()) return; // 홈이 아닐 때는 읽지 않는다(돌아와 그릴 때 읽음)
     if (!force && read && Date.now() - read.at < PHOTO_FRESH_MS) return;
     busy.set(key, false);
     Promise.all([readPhotos(day, rt), kit()]).then(([out, loaded]) => {
       k = loaded;
-      photoReads.set(key, {state:'ok', items:out.items, starred:out.starred, at:Date.now()});
+      photoReads.set(key, {state:'ok', items:out.items, starred:out.starred, at:out.partial ? 0 : Date.now()});
     }, () => { if (read?.state !== 'ok') photoReads.set(key, {state:'failed', items:[], starred:new Set(), at:Date.now()}); })
       .then(() => {
         const again = busy.get(key); busy.delete(key);
