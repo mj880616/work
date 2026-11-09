@@ -684,7 +684,7 @@ function paintSites() {
 // 2. 1) 사업요약: 부품 상자 하나를 그 자리에 옮겨 붙인다(다시 읽지 않고 쓰던 칸 그대로). 이 화면이 읽은 그 주 사업 보고를 넘긴다.
 function paintBizWeekly(host) {
   const slot = host.querySelector('[data-weekly-flow-cells="summary"]'); if (!slot) return;
-  if (!winKit()) { slot.innerHTML = waitHtml({rows:2}); return; }
+  if (!winKit()) { slot.innerHTML = waitHtml({rows:4, h:51}); return; } // 표 모양 자리(BIZ-주간칸밀림: 사업요약표가 그려질 때 아래가 밀리지 않게 같은 높이)
   bizWeekly ||= RW.biz.createBizSummaryBox();
   if (bizWeekly.el.parentNode !== slot) slot.replaceChildren(bizWeekly.el);
   const meetings = materials.meetings?.status === 'ok' && Array.isArray(materials.meetings.items) ? materials.meetings.items : NO_MEETINGS;
