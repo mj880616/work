@@ -221,8 +221,10 @@
     const view=controlView(control);
     if(!control||!view||viewLoader.isLoaded(view))return;
     event.preventDefault();event.stopImmediatePropagation();
+    // 먼저 누른 화면의 프로그램이 늦게 도착해도, 그 사이 다른 메뉴를 눌렀으면 그 화면을 되가져가지 않는다.
+    const turn=window.KPTURouter?.askGo?.();
     loadThen(view,()=>{
-      if(control.dataset?.view||control.dataset?.goto)window.KPTURouter?.go?.(view,{source:'delegated'});
+      if(control.dataset?.view||control.dataset?.goto){if(turn===undefined||window.KPTURouter?.stillLatest?.(turn))window.KPTURouter?.go?.(view,{source:'delegated'})}
       else control.click();
     },()=>control.click());
   },true);
@@ -235,7 +237,7 @@
     return viewLoader.load(view).then(()=>{status.remove();then()}).catch(err=>{status.remove();showFeatureError(err,retry)});
   }
   // BIZ-버튼줄정리: 공용 메뉴 판(anchored-menu, body에 붙음)의 항목이 화면을 열 때 쓰는 길 — 위 [data-view] 위임 클릭과 같은 기다림·실패 표시.
-  const openView=name=>{const view=viewLoader.normalize(name);const go=()=>window.KPTURouter?.go?.(view,{source:'delegated'});if(viewLoader.isLoaded(view)){go();return Promise.resolve()}return loadThen(view,go,()=>openView(view))};
+  const openView=name=>{const view=viewLoader.normalize(name);const turn=window.KPTURouter?.askGo?.();const go=()=>{if(turn===undefined||window.KPTURouter?.stillLatest?.(turn))window.KPTURouter?.go?.(view,{source:'delegated'})};if(viewLoader.isLoaded(view)){go();return Promise.resolve()}return loadThen(view,go,()=>openView(view))};
 
   // withView: 화면이 아닌 묶음(사업영역 관리 창의 'projects')을 같은 기다림 줄·실패 줄 [다시]로 불러온 뒤 then을 부른다.
   const withView=(name,then)=>viewLoader.isLoaded(name)?Promise.resolve().then(then):loadThen(name,then,()=>withView(name,then));
