@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {readLibraryCategories} from './helpers/library-categories.mjs';
 import {bootLibrary,libDoc} from './helpers/library-folder-server.mjs';
 // S51-28 LIB-화면정리 ②(요청 11/06 01:26, 명진 'ㅇㅋ', 시안 docs/design/mockups/library-category-edit.html): 자료실 [편집] = '분류 고치기 n개' 창.
 // 공용 '목록 고치기' 모양(list-edit.mjs): 맨 위 '새 분류 이름 [추가]', 줄 = ⠿ · 이름(누르면 그 자리 고침) · 자료 수 · ⋯([+ 소분류]·[이름 바꾸기]·[지우기]),
@@ -9,8 +10,8 @@ const modal=page=>page.locator('#libraryManageModal');
 const row=(page,name)=>modal(page).locator(`[data-le-row="${name}"]`);
 const box=l=>l.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,bottom:r.bottom}});
 async function openEditor(page,width){
-  if(width<1200){await page.locator('#libraryCategoryPick').click();await page.locator('#libraryCategorySheet [data-lu-cat-edit]').click();}
-  else await page.locator('#manageLibraryBtn').click();
+  // LIB-위쪽한줄: 폰·폴드·PC 모두 [분류 ▾] 창 아래 '✎ 분류 수정'.
+  await page.locator('#libraryCategoryPick').click();await page.locator('#libraryCategorySheet [data-lu-cat-edit]').click();
   await expect(modal(page)).toBeVisible();await expect(row(page,'교섭')).toBeVisible();
 }
 
@@ -60,13 +61,15 @@ for(const width of [412,884,1280])test(`분류 수정 ${width}: 한 줄 모양 �
   await expect.poll(()=>s.documentCategories.join('|')).not.toBe(before.join('|'));
   expect(s.documentCategories.slice(-1)).toEqual(['기타']);
   const ia=s.documentCategories.indexOf('양식'),ib=s.documentCategories.indexOf('공문');expect(ia).toBeLessThan(ib);expect(s.documentCategories[ib+1]).toBe('공문›수신');
-  await expect(page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])')).toHaveText(s.documentCategories.filter(n=>!n.includes('›')&&n!=='기타').concat(s.documentCategories.includes('기타')?['기타']:[]));// LIB-맨위다듬기: 칩 줄의 '기타'는 늘 맨 끝
   // PC: 손잡이를 마우스로 끌어 맨 위로.
   if(width>=761){
     const h=await box(row(page,'회의').locator('.le-handle')),top=await box(row(page,'교섭'));
     await page.mouse.move(h.x+h.w/2,h.y+h.h/2);await page.mouse.down();await page.mouse.move(h.x+h.w/2,h.y-10,{steps:4});await page.mouse.move(top.x+20,top.y+4,{steps:8});await page.mouse.up();
     await expect.poll(()=>s.documentCategories[0]).toBe('회의');
   }
+  // 서버 목록 순서 = [분류 ▾] 창 큰 분류 순서(소분류는 큰 분류 뒤, LIB-맨위다듬기: '기타'는 늘 맨 끝).
+  await page.locator('#libraryManageClose').click();await expect(modal(page)).toBeHidden();
+  {const st=await readLibraryCategories(page);expect(st.names).toEqual(s.documentCategories.filter(n=>!n.includes('›')&&n!=='기타').concat(s.documentCategories.includes('기타')?['기타']:[]));}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
   await page.screenshot({path:`test-results/library-category-edit-${width}.png`});
   expect(errors).toEqual([]);

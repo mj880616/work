@@ -132,7 +132,7 @@ test('자료실 폰 412: 폴더 14개 나무, 어느 높이에서도 맨 아래�
   const { bootLibrary, libFolder } = await import('./helpers/library-folder-server.mjs');
   const folders = Array.from({ length: 14 }, (_, i) => libFolder('f' + i, 'top-a', { name: `가상 ${String(i + 1).padStart(2, '0')}`, sort_order: 1024 * (i + 1) }));
   const { errors } = await bootLibrary(page, 412, { folders, items: [{ document_id: 'n-1', folder_id: 'f0' }] });
-  await page.locator('#libraryGroupBy').getByRole('radio', { name: '폴더' }).click();
+  await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
   await expect(page.locator('#documentList details[data-lu-node="f:f13"] > summary')).toBeVisible();
   const END = '#libraryView #documentList summary, #libraryView #documentList .ft-row, #libraryView #libraryListCard';
   await expectEndVisible(page, END, { from: 500, to: 1400, step: 25 });

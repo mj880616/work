@@ -104,7 +104,7 @@ test('자료실 1440: 사업영역·담당조직·분류·월별 보기도 빈 �
   const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,items:ITEMS});
   let n=0;
   for(const group of ['사업영역','담당조직','분류','월별']){
-    await page.locator('#libraryGroupBy').getByRole('radio',{name:group}).click();
+    await page.locator('#libraryGroupBy').selectOption({label:group});
     await expect(nav(page)).toHaveCount(0);
     for(const sel of ['#documentList','#libraryGroupBy','#libraryView']){
       const r=await dropAt(page,sel,[`${group}-${++n}.pdf`]);

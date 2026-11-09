@@ -94,6 +94,7 @@ on:
       - 'tests/phone-reopen.test.mjs'
       - 'tests/phone-push-settings.test.mjs'
       - 'tests/family-notes-model.test.mjs'
+      - 'tests/note-pick.test.mjs'
       - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
@@ -280,6 +281,7 @@ on:
       - 'tests/phone-reopen.test.mjs'
       - 'tests/phone-push-settings.test.mjs'
       - 'tests/family-notes-model.test.mjs'
+      - 'tests/note-pick.test.mjs'
       - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
@@ -544,6 +546,9 @@ jobs:
 
       - name: Check home is the work journal (summary line numbers, screen order, menu, due text)
         run: node --test tests/home-summary.test.mjs
+
+      - name: Check business week placeholder matches the first paint (BIZ-주간칸밀림)
+        run: node --test tests/biz-week-skeleton.test.mjs
 
       - name: Check home day fill (today photo row rules and cell count, reads and diary suggestion filters, shared parts)
         run: node --test tests/home-day-fill.test.mjs
@@ -827,6 +832,9 @@ jobs:
 
       - name: Check home forget-not box rules (FAMILY-잊지말기 4단계)
         run: node --test tests/family-notes-model.test.mjs
+
+      - name: Check forget note pick and append rules (FORGET-노트고르기)
+        run: node --test tests/note-pick.test.mjs
 
       - name: Check done notices and recent 7 days rules (UI-앱안알림 4·5)
         run: node --test tests/notice-done-model.test.mjs

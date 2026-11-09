@@ -242,3 +242,31 @@ test('회의자료 소리 파일 ⋯ [전사해서 결과에 넣기](B): 고칠 
   assert.match(rec,/window\.KPTUMeetingRoundDetail\?\.fillTranscript\?\.\(job\.meeting_id/);
   assert.match(rec,/window\.KPTUMeetingRecorder=\{state:\(\)=>state,mime:MIME,watch,transcribeAttached\}/);
 });
+
+test('REC-정리멈춤반복: 서버가 남길 수 있는 실패 코드는 모두 이유별 띠 글이 있고, 그 밖 문구는 표에 없는 이유에만',async()=>{
+  const {MESSAGES}=await import('../supabase/functions/meeting-transcribe/model.mjs');
+  const generic=failText('__unknown__');
+  assert.match(generic,/서버에서 정리하다 멈췄어요/);
+  // 요청 모양·서버 안 오류(작업 행에는 남지 않거나 원인을 모름)만 그 밖 문구를 쓴다.
+  const requestOnly=new Set(['bad_request','not_done','failed','jobs_unavailable']);
+  for(const code of Object.keys(MESSAGES)){
+    if(requestOnly.has(code))continue;
+    assert.notEqual(failText(code),generic,`${code} 띠 글 없음`);
+  }
+  for(const code of ['interrupted','step_cut','draft_cut','gemini_timeout','busy'])assert.notEqual(failText(code),generic,code);
+  // 이유가 서로 구분된다: 시간 초과 · 끊김 · 서버 시간 · 요약.
+  assert.match(failText('gemini_timeout'),/전사가 오래 걸려 멈췄어요/);
+  assert.match(failText('interrupted'),/중간에 끊겼어요/);
+  assert.match(failText('busy'),/중간에 끊겼어요/);
+  assert.match(failText('step_cut'),/서버 시간 안에 끝나지 않아/);
+  assert.match(failText('draft_failed'),/요약을 만들지 못했어요/);
+  assert.match(failText('draft_cut'),/요약이 중간에 잘렸어요/);
+  // 다시 하면 될 수 있는 이유는 [다시]·소리 남음 안내를 그대로 둔다.
+  for(const code of ['gemini_timeout','interrupted','busy','step_cut','gemini_failed','gemini_upload','drive_failed']){
+    assert.match(failText(code),/소리는 Drive에 남아 있어요/,code);
+    assert.match(failText(code),/\[다시\]/,code);
+    assert.equal(canRetry(code),true,code);
+  }
+  // 띠는 두 줄까지: 글이 너무 길지 않게.
+  for(const code of [...Object.keys(MESSAGES),'interrupted','step_cut','draft_cut'])assert.ok(failText(code).length<=70,`${code} ${failText(code).length}자`);
+});

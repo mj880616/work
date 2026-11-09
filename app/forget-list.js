@@ -30,6 +30,8 @@ import {decide as decideFamily, hasFamily, readNotes} from './family-notes-data.
 import {newsOn, readNews, pickTodayNews, decideNews, openNews, oldNews, recheckNews, newsText, matchOrg, openNewsSource, NEWS_SOURCE_TAG} from './forget-news-data.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
+// FORGET-노트고르기: 업무 줄 [노트]의 처음 폴더(맨 위 폴더 이름, 없으면 폴더 없음).
+export const WORK_NOTE_FOLDER = '01. 업무메모';
 // 보기(처리 상태)와 출처. 이름은 시안 그대로.
 export const FORGET_VIEWS = Object.freeze([['open', '처리 전'], ['tasked', '보냄'], ['done', '이미 함'], ['dismissed', '무시'], ['linked', '연결 완료']]);
 export const FORGET_SOURCES = Object.freeze([['all', '모든 출처'], ['telegram', '텔레그램'], ['news', '소식'], ['family', '가족'], ['update', '업데이트'], ['todo', '챙길 것']]);
@@ -300,6 +302,15 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       return {status: 'done', message: '다시 보이게 했어요.'};
     }});
   }
+  // FORGET-노트고르기(요청함 11/09 13:34, 명진 13:37): 업무 줄 [노트]는 노트 창 제목 줄 앞 [새 노트 ▾][폴더 ▾](note-pick.js).
+  // 기본은 새 노트 · 폴더 '01. 업무메모'(그 폴더가 없으면 폴더 없음), 기존 노트는 미리 고르지 않는다. 기존 노트를 고르면 그 노트 끝에 더한다.
+  async function openWorkNote(text, done) {
+    const [{openNoteWindow}, {createNoteTarget}, {createNoteFolderPick}] = await Promise.all([import('./note-window.js'), import('./note-pick.js'), import('./note-folder-pick.js')]);
+    const pick = createNoteFolderPick({rt, initial: WORK_NOTE_FOLDER, title: '노트를 넣을 폴더'});
+    void pick.load();
+    openNoteWindow({rt, text, noteFolder: {label: pick.label, open: pick.open, get: pick.get, put: pick.put, watch: pick.watch, close: pick.close, write: true},
+      target: createNoteTarget({rt}), onClose: ({saved}) => { if (saved) done(); }});
+  }
   async function newsKeep(r, save, done) {
     const key = `n:${r.id}`;
     if (busy.has(key) || r.status !== 'suggested') return;
@@ -332,8 +343,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     }
     if (act === 'note') {
       try {
-        const {openNoteWindow} = await import('./note-window.js');
-        openNoteWindow({rt, text: `${text}\n\n${memo}`, onClose: ({saved}) => { if (saved && live()) void newsMark(r, 'kept', '노트로 저장했어요'); }});
+        await openWorkNote(`${text}\n\n${memo}`, () => { if (live()) void newsMark(r, 'kept', '노트로 저장했어요'); });
       } catch { say('노트 창을 열지 못했어요'); }
     }
   }
@@ -405,8 +415,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     }
     if (kind === 'note') {
       try {
-        const {openNoteWindow} = await import('./note-window.js');
-        openNoteWindow({rt, text: `${c.summary}\n\n${draft.memo}`, onClose: ({saved}) => { if (saved && live()) void decideCandidate(c, () => markDone(c.id, rt), 'done', '노트로 저장했어요'); }});
+        await openWorkNote(`${c.summary}\n\n${draft.memo}`, () => { if (live()) void decideCandidate(c, () => markDone(c.id, rt), 'done', '노트로 저장했어요'); });
       } catch { say('노트 창을 열지 못했어요'); }
     }
   }
@@ -514,8 +523,8 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     }
     if (kind === 'note') {
       try {
-        const {openFamilyNoteSend} = await import('./family-note-send.js');
-        await openFamilyNoteSend({rt, line: noteLine(n), body: n.body, trigger,
+        const {openFamilyNoteWindow} = await import('./family-note-send.js');
+        await openFamilyNoteWindow({rt, line: noteLine(n), body: n.body,
           onSent: ({folderName}) => void familyChange(n, 'kept', folderName ? `'${folderName}' 폴더 노트에 넣었어요` : '노트에 넣었어요')});
       } catch { say('노트로 보내는 창을 열지 못했어요'); }
       return;

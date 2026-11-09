@@ -14,6 +14,7 @@ import { layoutBoard } from './note-board-model.mjs';
 import { treeRows, noteLineTitle, OUTSIDE, OUTSIDE_NAME } from './note-tree.mjs';
 import { setNoteBoardPlace } from './basket-data.js';
 import { NOTE_DRAG } from './note-board.js';
+import { noteTreeRowHtml } from './note-tree-row.js';
 import { LONG_MS, SLOP } from './reorder-drag.js';
 import { askConfirm, askText } from './small-notice.js';
 import { emptyHtml } from './wait-state.js';
@@ -245,10 +246,10 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
     const paintPick = () => {
       const q = state.q, m = q ? n => `${n.title || ''}\n${n.raw_text || ''}`.toLowerCase().includes(q) : null;
       const rows = treeRows({folders:folders(), notes:notes.get(), folderOf, root:null, isOpen:id => state.open.has(id), matches:m});
+      // 줄은 잊지 말기 [노트] 창의 노트 고르기(note-pick.js)와 같은 부품(note-tree-row.js).
       list.innerHTML = rows.map(r => {
-        if (r.type !== 'note') return `<button type="button" class="nbb-folder" data-nbb-pf="${esc(r.id)}" aria-expanded="${!!r.open}" style="--nx-indent:${r.indent}">${treeIconHtml(r.type === 'outside' ? 'outside' : 'folder', {row: r, open: !!r.open, className: 'nbb-caret'})}<span class="nbb-name">${esc(r.type === 'outside' ? OUTSIDE_NAME : r.name)}</span><span class="nbb-num">${r.count}</span></button>`;
-        const on = onBoard(r.note, current), sel = state.picked.has(r.note.id);
-        return `<button type="button" class="nbb-note${on ? ' nbb-on' : ''}" data-nbb-pn="${esc(r.note.id)}" aria-pressed="${on || sel}"${on ? ' aria-disabled="true"' : ''} style="--nx-indent:${r.indent}"><span class="nbb-check" aria-hidden="true">${on || sel ? '✓' : ''}</span><span class="nbb-name">${esc([...noteLineTitle(r.note)].slice(0, 60).join(''))}</span></button>`;
+        const on = r.type === 'note' && onBoard(r.note, current), sel = r.type === 'note' && state.picked.has(r.note.id);
+        return noteTreeRowHtml(r, {esc, folderAttr:'nbb-pf', noteAttr:'nbb-pn', check:true, pressed:on || sel, off:on});
       }).join('') || emptyHtml('맞는 노트 없음');
       ok.disabled = !state.picked.size; ok.textContent = state.picked.size ? `붙이기 ${state.picked.size}` : '붙이기';
     };

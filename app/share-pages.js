@@ -96,15 +96,31 @@ const editorView = el('div', {class:'sp-editor', hidden:true, dataset:{spEditor:
 root.replaceChildren(listView, editorView);
 
 // ── list ──
-function renderList() {
-  const status = el('p', {class:'sp-status', role:'status', 'aria-live':'polite', dataset:{spListStatus:''}});
-  const head = el('div', {class:'sp-head'},
+const phoneQuery = window.matchMedia?.('(max-width:760px)') || {matches:false};
+// SHARE-한번그리기: 위 줄(.sp-head: 제목·추가 버튼)과 상태 줄은 처음 한 번만 그리고 그대로 둔다. 불러오는 상태·목록 바뀜은 상태 줄 글자와
+// 그 아래 목록 칸(renderList)만 바꾼다 — 그래서 불러오는 동안 버튼은 같은 요소로 남고 초점이 풀리지 않는다.
+// 위 줄을 다시 짓는 때는 폭이 폰 틀(760px)을 넘나들어 버튼 모양이 달라질 때뿐이다(buildHead 하나).
+const headEl = el('div', {class:'sp-head'});
+const statusEl = el('p', {class:'sp-status', role:'status', 'aria-live':'polite', dataset:{spListStatus:''}});
+function buildHead() {
+  headEl.replaceChildren(
     // UI-전수디자인점검 F12: the phone head line and the PC top line already name the screen; the body title is the shared
-    // .screen-title (screen readers only, every width). No count beside it (the list itself shows the rows).
+    // .screen-title (screen readers only, PC). 폰은 앱 머리 대신 이 제목이 첫 줄에 보인다(SHARE-제목줄더하기, ui-standard.css).
     el('h2', {class:'screen-title'}, '공유 페이지'),
-    el('div', {class:'sp-head-actions btn-row'},
-      el('button', {type:'button', class:'secondary', 'aria-label':'새 HTML 공유 페이지', dataset:{spNewHtml:''}, text:'+ HTML'}),
-      el('button', {type:'button', class:'primary', 'aria-label':'새 공유 페이지', dataset:{spNew:''}, text:'+ 새 공유 페이지'})));
+    // UI-동그란더하기삭제: 폰(760px 이하)은 첫 줄 오른쪽 네모 작은 + 하나(누르면 작은 메뉴 [새 공유 페이지][HTML 올리기]), PC는 글자 버튼 둘 그대로.
+    phoneQuery.matches
+      ? el('div', {class:'sp-head-actions'},
+          el('button', {type:'button', class:'icon-btn sp-add', 'aria-label':'공유 페이지 추가', 'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spAddMenu', dataset:{spAdd:''}}))
+      : el('div', {class:'sp-head-actions btn-row'},
+          el('button', {type:'button', class:'secondary', 'aria-label':'새 HTML 공유 페이지', dataset:{spNewHtml:''}, text:'+ HTML'}),
+          el('button', {type:'button', class:'primary', 'aria-label':'새 공유 페이지', dataset:{spNew:''}, text:'+ 새 공유 페이지'})));
+}
+buildHead();
+listView.replaceChildren(headEl, statusEl);
+phoneQuery.addEventListener?.('change', () => buildHead());
+function renderList() {
+  const status = statusEl;
+  status.textContent = '';
   const body = [];
   if (listState === 'loading' && !pages) status.innerHTML = waitInlineHtml();
   else if (listState === 'error') {
@@ -133,7 +149,8 @@ function renderList() {
           'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'}))))));
     body.push(details);
   }
-  listView.replaceChildren(head, status, ...body);
+  while (listView.children.length > 2) listView.lastElementChild.remove();
+  listView.append(...body);
   view.dataset.sharePagesReady = '1';
 }
 async function loadList({force = false} = {}) {
@@ -187,6 +204,16 @@ function ensureRowMenu() {
       else if (action === 'restore') void restorePage(id);
       else if (action === 'trash') void trashPage(id);
     }});
+}
+// UI-동그란더하기삭제: 폰 첫 줄 네모 작은 +의 작은 메뉴. 두 칸은 PC 글자 버튼 둘과 같은 일(새 공유 페이지 편집기 / HTML 올리기 창)을 연다.
+// 목록이 다시 그려져 +가 새 단추로 바뀌어도 메뉴 칸은 남고 그대로 눌린다(actDetached).
+let addMenu = null;
+const openNewPage = () => { if (!busy) showEditor(null); };
+function ensureAddMenu() {
+  return addMenu ||= createAnchoredMenu({id:'spAddMenu', className:'topline-add-menu', label:'공유 페이지 추가', historyKey:'kptuSharePageAdd',
+    key:() => 'add', canOpen:() => !editing, actDetached:true,
+    render:() => '<button type="button" class="row-act" data-sp-add-action="page">새 공유 페이지</button><button type="button" class="row-act" data-sp-add-action="html">HTML 올리기</button>',
+    onAction:button => { if (button.dataset.spAddAction === 'html') shareHtml.openNew(); else openNewPage(); }});
 }
 const listNote = text => { const node = listView.querySelector('[data-sp-list-status]'); if (node) node.textContent = text; };
 const shareHtml = createShareHtml({rt, workspaceId, onChanged:() => { void loadList({force:true}); }});
@@ -662,7 +689,7 @@ function closeEditor({fromBack = false, force = false, asked = false} = {}) {
   delete view.dataset.spEditing; view.removeAttribute('data-sp-full');
   if (!fromBack) opened?.close();
   void loadList({force:true});
-  listView.querySelector('[data-sp-new]')?.focus({preventScroll:true});
+  listView.querySelector('[data-sp-new],[data-sp-add]')?.focus({preventScroll:true});
   return true;
 }
 async function askCloseEditor(anchor) {
@@ -878,7 +905,8 @@ root.addEventListener('click', event => {
   if (!target || !root.contains(target)) return;
   const d = target.dataset;
   if ('spProject' in d) { if (editing) void pickProject(target); return; }
-  if ('spNew' in d) { if (!busy) showEditor(null); return; }
+  if ('spAdd' in d) { ensureAddMenu().open(target); return; }
+  if ('spNew' in d) { openNewPage(); return; }
   if ('spNewHtml' in d) { shareHtml.openNew(); return; }
   if (d.spPreview) { const page = pages?.find(p => p.id === d.spPreview); if (page) void shareHtml.openPreview(page); return; }
   if ('spReload' in d) { void loadList({force:true}); return; }

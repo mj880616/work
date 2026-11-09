@@ -109,8 +109,8 @@ for(const width of [390,1280])test.describe(`폴더 수정 ${width}`,()=>{
     await libraryTopMenu(page,'expand');await libraryTopMenu(page,'expand');
     await expect(page.locator('#documentList summary [data-lu-node-menu]')).not.toHaveCount(0);
     // 다른 묶기에서는 폴더 편집이 없다.
-    await page.locator('#libraryGroupBy').getByRole('radio',{name:'월별'}).click();await expect(page.locator('#documentList [data-lu-node-menu]')).toHaveCount(0);
-    await page.locator('#libraryGroupBy').getByRole('radio',{name:'사업영역'}).click();
+    await page.locator('#libraryGroupBy').selectOption({label:'월별'});await expect(page.locator('#documentList [data-lu-node-menu]')).toHaveCount(0);
+    await page.locator('#libraryGroupBy').selectOption({label:'사업영역'});
     if(width<761)await page.screenshot({path:info.outputPath('folders-390.png'),fullPage:true});
     // 쓰기는 폴더 표뿐이다.
     expect(new Set(s.writes.map(w=>w.table))).toEqual(new Set(['folders']));

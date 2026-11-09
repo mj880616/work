@@ -137,7 +137,7 @@ for (const [width, height, name] of [[884, 1000, '폴드 펼침'], [1280, 900, '
 test('자료실 폰 412: 폴더 그림 열림/닫힘·점 없음·두 손가락 그 폴더만·[‹]·뒤로 키로 나무', async ({ page }) => {
   const { bootLibrary, libFolder } = await import('./helpers/library-folder-server.mjs');
   const { errors } = await bootLibrary(page, 412, { folders: [libFolder('fa', 'top-a', { name: '가상 A', sort_order: 1024, color: 4 }), libFolder('fc', 'top-a', { name: '가상 C', parent_id: 'fa', sort_order: 0 }), libFolder('fe', null, { name: '가상 빈', sort_order: 2048 })], items: [{ document_id: 'a-1', folder_id: 'fc' }, { document_id: 'n-1', folder_id: 'fa' }] });
-  await page.locator('#libraryGroupBy').getByRole('radio', { name: '폴더' }).click();
+  await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
   const head = key => page.locator(`#documentList details[data-lu-node="${key}"] > summary`);
   const visibleShape = key => head(key).locator('.ft-ico:visible').getAttribute('data-ft-shape');
   expect(await visibleShape('f:fa')).toBe('closed');

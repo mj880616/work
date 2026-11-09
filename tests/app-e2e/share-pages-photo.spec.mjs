@@ -6,6 +6,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {pressNewSharePage, pressNewHtmlPage} from './helpers/share-new.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ORIGIN = testOrigin;
@@ -107,7 +108,7 @@ test('a page that was never saved says to save first and sends nothing', async (
   await page.setViewportSize({width:1280, height:900});
   const state = {pages:[]};
   await signIn(page, state);
-  await page.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
+  await pressNewSharePage(page);
   const editor = page.locator('[data-sp-editor]');
   await expect(editor.getByRole('textbox', {name:'본문', exact:true})).toBeVisible();
   await pickPhoto(page, editor);
