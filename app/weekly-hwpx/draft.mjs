@@ -16,6 +16,8 @@ import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './
 import {sitePlan, isStageLine, stageOfOrg, weekOf} from '../org-dispute-stage-model.mjs';
 import {issuedFromSections} from '../weekly-lines.mjs';
 import {nameKey as cellNameKey, sameName} from '../weekly-cell-names.mjs';
+// B-4 ④: [확정] 사진의 2. 1) 줄 모양(한글 파일을 만들 때 같이 부름 — 화면 첫 묶음에 넣지 않으려고 이 늦게 부르는 묶음에서 내보냄).
+export {summarySnapshotRow} from '../business-now-model.mjs';
 
 // 브라우저 기본 압축(CompressionStream 'deflate-raw'). Node 20에도 있어 시험이 같은 길을 쓴다.
 const pipe = (bytes, Kind) => new Response(new Blob([bytes]).stream().pipeThrough(new Kind('deflate-raw'))).arrayBuffer().then(b => new Uint8Array(b));
@@ -306,6 +308,44 @@ export function withAreaRows(base, names, me) {
     if (group) group.rows.push(row); else out.summary.push({area: [name], rows: [row]});
   }
   return out;
+}
+// BIZ-기록하나로 B-4 ①(설계 docs/design/record-one.md 4절 '한글 파일'): 전환 주부터 2. 1) 요약 표의 내 줄 = 화면 사업요약 창 결과(지금 상황 + 담당).
+// rows = [{area, task, lines, owner}] 화면 표 순서(weekly-summary-table.js fileRows). 표 틀·순서·병합·다른 사람 줄은 그대로 둔다(취합 담당이 표를 그대로 모음).
+// - 화면 줄 ↔ 내 줄: 사업영역·세부 과제 이름이 같은 줄(띄어쓰기·부호 무시, 더한 줄은 keyArea). 세부 과제 없는 화면 줄은 세부 과제 이름이 그 사업영역 이름인 줄(S52-24 주제 칸)도 같은 줄.
+// - 짝이 없는 화면 줄은 지금 상황이 있을 때만 그 사업영역 묶음 맨 아래(없으면 표 맨 아래 새 묶음)에 내 줄로 더한다(담당 = 화면 담당, 비면 내 이름).
+// - 짝이 없는 내 줄(지난주 바탕에만 있는 줄)은 진행 칸을 비운다(지난 개인본 글을 깔지 않음 — 줄을 지우지는 않음).
+// - 진행 칸 = 지금 상황 줄 그대로, 담당 = 화면 담당(비면 바탕 담당 그대로 — assembleDraft owners 규칙).
+// 돌려주는 값: {base(줄을 더한 바탕), summary: Map(index → 줄), owners: Map(index → 담당)} — index는 assembleDraft와 같은 effectiveOwners 순서.
+export function applyBizWindow(base, me, rows) {
+  const out = structuredClone(base);
+  out.summary = out.summary ?? [];
+  const name = String(me ?? '').trim();
+  const areaOf = e => e.row.keyArea ?? e.area.join(' ');
+  const mine = effectiveOwners(out.summary).filter(e => isMine(e.owner, name));
+  const used = new Set(), want = new Map();
+  for (const r of rows ?? []) {
+    const area = String(r?.area ?? '').trim(), task = String(r?.task ?? '').trim();
+    if (!area) continue;
+    const lines = (r.lines ?? []).map(l => String(l ?? '').trim()).filter(Boolean), owner = String(r.owner ?? '').trim();
+    const free = mine.filter(e => !used.has(e.row) && norm(areaOf(e)) === norm(area));
+    let row = (free.find(e => norm(e.task.join(' ')) === norm(task)) ?? (task ? null : free.find(e => sameName(e.task.join(' '), area))))?.row;
+    if (!row) {
+      // 지금 상황이 빈 줄은 더하지 않는다(남이 맡은 같은 이름 줄 옆에 빈 내 줄이 생기지 않게 — 내 사업영역 빈 칸은 바탕이 이미 더함, withAreaRows).
+      // 담당을 알 수 없어도 더하지 않는다(내 줄로 다시 찾을 수 없음).
+      if (!lines.length || (!name && !owner)) continue;
+      row = {task: task ? [task] : [], progress: [], paras: [], owner: [owner || name], keyArea: area};
+      const group = out.summary.find(a => norm(a.area.join('')) === norm(area));
+      if (group) group.rows.push(row); else out.summary.push({area: [area], rows: [row]});
+    }
+    used.add(row); want.set(row, {lines, owner});
+  }
+  const summary = new Map(), owners = new Map();
+  effectiveOwners(out.summary).forEach((e, index) => {
+    const w = want.get(e.row);
+    if (w) { summary.set(index, w.lines); if (w.owner) owners.set(index, w.owner); }
+    else if (mine.some(m => m.row === e.row)) summary.set(index, []);
+  });
+  return {base: out, summary, owners};
 }
 export const editableOrgs = (base, section = 'orgs') => (base[section] ?? []).map((r, index) => ({index, org: r.org.join(' '), lines: r.status.map(lineText)}));
 

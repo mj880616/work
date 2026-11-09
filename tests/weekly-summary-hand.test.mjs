@@ -165,6 +165,8 @@ test('한글 파일 상자: owners 를 읽은 그대로 다시 싣고(데이터 
   const src = read('journal-hwpx.js');
   assert.match(src, /owners:s\.owners \?\? null/);
   assert.match(src, /state\.owners = draftOwners\(saved\?\.row\?\.draft\)/);
-  assert.match(src, /\{\.\.\.state\.edits, orgs:week\.orgs, sites:week\.sites, owners:ownerEdits\(state\)\}/); // WEEKLY-메뉴짝짓기 P6: 4. 1)·3. 2)는 주별 조직보고 표
+  // WEEKLY-메뉴짝짓기 P6: 4. 1)·3. 2)는 주별 조직보고 표. BIZ-기록하나로 B-4 ①: 2. 1)·담당은 옛 주 = 임시저장 칸(owners), 전환 주부터 = 사업요약 창.
+  assert.match(src, /\{base:state\.base, summary:state\.edits\.summary, owners:ownerEdits\(state\)\}/);
+  assert.match(src, /\{\.\.\.state\.edits, summary:sum\.summary, orgs:week\.orgs, sites:week\.sites, owners:sum\.owners\}/);
   assert.match(src, /c\.cell\.startsWith\('owner:'\)/);
 });
