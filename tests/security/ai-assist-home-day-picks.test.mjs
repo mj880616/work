@@ -180,7 +180,7 @@ test('bad answer leaves the slot open (next open retries); bad requests are 400'
   const bad=[{kind:'home_day_picks',day:DAY,events:[]},{...ask(),extra:1},{...ask(),day:'2026-13-01'},
     ask({events:[{day:'2026-11-17',start:'',end:'',title:'다음 주'}]}),ask({events:[{day:DAY,start:'25:00',end:'',title:'x'}]}),
     ask({events:[{day:DAY,start:'',end:'10:00',title:'x'}]}),ask({events:[{day:DAY,start:'09:00',end:'',title:'가'.repeat(121)}]}),
-    ask({events:[{day:DAY,start:'09:00',end:'',title:'x',place:'y'}]}),ask({done:['']}),ask({done:Array(31).fill('x')}),ask({done:['줄‮바꿈']}),
+    ask({events:[{day:DAY,start:'09:00',end:'',title:'x',place:'y'}]}),ask({done:['']}),ask({done:Array(31).fill('x')}),ask({done:['줄\u202e바꿈']}),
     ask({events:Array(41).fill({day:DAY,start:'',end:'',title:'x'})})];
   for(const b of bad)assert.equal((await post(h2,b)).status,400,JSON.stringify(b).slice(0,80));
   assert.equal(calls.openai.length,0);
