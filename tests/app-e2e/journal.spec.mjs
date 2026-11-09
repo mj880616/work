@@ -338,7 +338,9 @@ for(const width of [390,1280]){
   await date(page,'2026-10-11').click();await expectNoOthers(page);
   // app_notes 읽기는 모두 종류를 가린다(일지 한 줄은 kind=work, 업데이트는 basket). S49-12: 하루 카드는 노트(note)를 더 읽지 않는다.
   expect(f.reads.filter(q=>!q.table&&q.kind==='eq.note')).toHaveLength(0);
-  expect(f.reads.filter(q=>!q.table&&q.kind!=='eq.note').every(q=>/^eq\.(work|basket)$/.test(q.kind||''))).toBe(true);
+  // HOME-하루채우기 ①: '오늘 사진' 한 줄은 그날 일기 사진을 읽는다(kind=diary, 그날 하루만 — 일기 화면과 같은 읽기).
+  expect(f.reads.filter(q=>!q.table&&q.kind==='eq.diary').every(q=>/^eq\.\d{4}-\d{2}-\d{2}$/.test(q.journal_day||''))).toBe(true);
+  expect(f.reads.filter(q=>!q.table&&!['eq.note','eq.diary'].includes(q.kind)).every(q=>/^eq\.(work|basket)$/.test(q.kind||''))).toBe(true);
   // 조직·회의 읽기는 이 업무 공간·이번 주(한국 시간)로 가린다.
   expect(f.reads.find(q=>q.table==='app_suborganization_updates')).toMatchObject({organization_id:'in.(o1,o2)',occurred_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z'});
   expect(f.reads.find(q=>q.table==='app_meetings')).toMatchObject({workspace_id:'eq.w',meeting_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z'});
