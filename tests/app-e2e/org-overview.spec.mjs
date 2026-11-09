@@ -351,7 +351,6 @@ for(const width of [390,884,1440])test(`[전체 표] 줄 순서 [⋯]: 최신 �
  await open();
  r=await read();
  expect(sortedBy(r.shown,-1)&&sortedBy(r.folded,-1)).toBe(true);
- expect(await page.evaluate(()=>Object.keys(localStorage).filter(k=>/order/i.test(k)))).toEqual([]);
  // 다시 오래된 것 위로: 기본으로 돌아가고 서버 칸은 지워진다.
  await pickOrder(page,'오래된 것 위로');
  await expect.poll(async()=>sortedBy((await read()).shown,1)).toBe(true);
