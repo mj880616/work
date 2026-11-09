@@ -1,6 +1,8 @@
 // HOTFIX-회의첨부칸 ②(S48-53): PC 사업 보고 창에 파일을 끌어 놓으면 이 사업 보고에 붙는다.
-// - 수정 화면: 결과 칸에 놓은 결과 파일은 본문을 결과 칸에 넣을지 묻고, 파일은 [+]와 같은 자료실 올리기 창(library-files, meeting_id)으로 올라간다. 수정 저장 뒤 보기 화면에 파일이 남는다.
-// - 보기 화면: 회의자료 줄에 놓으면 묻지 않고 올리기 창, 이름으로 모르는 파일을 면에 놓으면 결과/자료를 고르고, 결과면 본문을 서버 결과 글 뒤에 더해 저장한다.
+// - UX-먼저묻고뒤에처리(11/09): 놓자마자 묻고(읽기 전에), 고른 뒤에는 창 없이 뒤에서 올리기(library-files, meeting_id) → 본문 읽기 → 결과 칸 더하기.
+// - 수정 화면: 결과 칸에 놓은 결과 파일은 본문을 넣을지 묻고, 파일은 바로 올라가며 본문은 수정 칸에 더해진다. 수정 저장 뒤 보기 화면에 파일이 남는다.
+// - 보기 화면: 회의자료 줄에 놓으면 묻지 않고 올리기, 이름으로 모르는 파일을 면에 놓으면 결과/자료를 고르고, 결과면 본문을 서버 결과 글 뒤에 더해 저장한다.
+// - 다른 화면으로 옮겨도 끝까지, 처리 중에 또 놓아도 줄 세워 받는다.
 // 가짜 서버만 쓴다(운영 서버 호출 없음).
 import {test,expect} from '@playwright/test';
 import {signInWithSession} from './helpers/session-login.mjs';
@@ -12,7 +14,7 @@ const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const MEETING={id:'meeting-1',workspace_id:'ws',title:'자료 확인 회의',series_name:'자료 확인 회의',meeting_at:'2026-10-10T10:00:00Z',transcript_text:'회의 원문',created_by:'owner'};
 
-async function boot(page){
+async function boot(page,{slowUpload=0}={}){
   await page.setViewportSize({width:1280,height:900});
   const state={meeting:{...MEETING},docs:['first.pdf','second.pdf'].map((name,i)=>({id:'doc-'+i,workspace_id:'ws',meeting_id:MEETING.id,file_name:name,title:name,category:'회의자료',tags:[],created_at:'2026-10-10T00:00:00Z'})),uploads:[],patches:[],errors:[]};
   page.on('pageerror',e=>state.errors.push(e.message));
@@ -34,6 +36,8 @@ async function boot(page){
     }
     if(['/functions/v1/library-files','/functions/v1/meeting-files'].includes(path)){
       const raw=req.postDataBuffer().toString('latin1');
+      state.started=(state.started||0)+1;
+      if(slowUpload)await new Promise(r=>setTimeout(r,slowUpload));
       state.uploads.push({path,raw});
       const name=raw.match(/filename="([^"]+)"/)?.[1];
       const doc={id:'uploaded-'+state.uploads.length,workspace_id:'ws',file_name:name,title:name,tags:[],meeting_id:raw.includes('name="meeting_id"')?MEETING.id:null,created_at:'2026-10-11T00:00:00Z'};
@@ -82,14 +86,11 @@ test('PC 수정 화면: 결과 칸에 결과 파일을 끌어 놓으면 본문�
   await expect(modal.locator('label[data-drop-zone="result"]')).toHaveClass(/drop-zone-active/);
   expect(await modal.locator('label[data-drop-zone="result"]').evaluate(el=>getComputedStyle(el,'::after').content)).toBe('"여기에 놓기"');
   await drag(page,'#mrdEditTranscript',[pdf('drop-result.pdf',['Dropped result body'])],['drop']);
-  expect(await answerAsk(page,true)).toBe('결과 파일 본문을 결과 칸에 넣을까요?');
-  await expect(modal.locator('#mrdEditTranscript')).toHaveValue(/회의 원문\s+Dropped result body/);
-  // 파일은 [+]와 같은 자료실 올리기 창으로(놓은 파일이 담겨 있다).
-  await expect(page.locator('#documentModal')).toBeVisible();
-  await expect(page.locator('[data-lu-upload-file]')).toHaveCount(1);
-  await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentModal')).toBeHidden();
+  expect(await answerAsk(page,true)).toBe('본문도 결과 칸에 넣을까요?');
+  // 고른 뒤에는 창 없이 뒤에서 올리고(자료 등록 창이 뜨지 않음), 본문은 수정 칸에 더해진다.
   await expect.poll(()=>state.uploads.length).toBe(1);
+  await expect(modal.locator('#mrdEditTranscript')).toHaveValue(/회의 원문\s+Dropped result body/);
+  await expect(page.locator('#documentModal')).toBeHidden();
   expect(state.uploads[0].path).toBe('/functions/v1/library-files');
   expect(state.uploads[0].raw).toContain('name="meeting_id"');expect(state.uploads[0].raw).toContain('drop-result.pdf');
   await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(3);
@@ -107,13 +108,11 @@ test('PC 보기 화면(회의 결과 창): 회의자료 줄에 놓으면 묻지 
   await openMeetingResult(page,'meeting-1');
   const modal=page.locator('#meetingRoundDetailModal');
   await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(2);
-  // ① 회의자료 줄 → 묻지 않고 올리기 창.
+  // ① 회의자료 줄 → 묻지 않고 뒤에서 올리기(창 없음).
   await dropOn(page,'#mrdMaterials',[pdf('drop-agenda.pdf')]);
-  await expect(page.locator('#documentModal')).toBeVisible();
   await expect(page.locator('.kptu-ask')).toHaveCount(0);
-  await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentModal')).toBeHidden();
   await expect.poll(()=>state.uploads.length).toBe(1);
+  await expect(page.locator('#documentModal')).toBeHidden();
   expect(state.uploads[0].raw).toContain('name="meeting_id"');expect(state.uploads[0].raw).toContain('drop-agenda.pdf');
   await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(3);
   expect(state.patches).toEqual([]);
@@ -122,14 +121,45 @@ test('PC 보기 화면(회의 결과 창): 회의자료 줄에 놓으면 묻지 
   await expect(modal.locator('#mrdView')).toHaveClass(/drop-zone-active/);
   await drag(page,'#mrdTasksHead',[pdf('scan-0001.pdf',['View drop body'])],['drop']);
   await page.locator('.kptu-ask [data-ask-pick="result"]').click();
-  expect(await answerAsk(page,true)).toBe('결과 파일 본문을 결과 칸에 넣을까요?');
+  expect(await answerAsk(page,true)).toBe('본문도 결과 칸에 넣을까요?');
+  await expect.poll(()=>state.uploads.length).toBe(2);
   await expect.poll(()=>state.patches.length).toBe(1);
   expect(state.patches[0].transcript_text).toBe('회의 원문\n\nView drop body');
   await expect(modal.locator('#mrdResult')).toContainText('View drop body');
-  await expect(page.locator('#documentModal')).toBeVisible();
-  await page.locator('#saveDocumentBtn').click();
-  await expect.poll(()=>state.uploads.length).toBe(2);
+  await expect(page.locator('#documentModal')).toBeHidden();
   expect(state.uploads[1].raw).toContain('scan-0001.pdf');
   await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(4);
   expect(state.errors).toEqual([]);
 });
+
+// UX-먼저묻고뒤에처리(요청함 11/09 18:04): 놓자마자 묻고(올리기·읽기 전에), 고른 뒤 다른 화면으로 가도 올리기와 결과 칸 더하기가 끝나 있다.
+// 처리 중에 또 놓아도 '다시 놓아 주세요' 없이 줄 세워 받는다.
+test('PC: 놓자마자 묻기 → 다른 화면으로 가도 올리기·결과 칸 더하기 끝, 처리 중 또 놓아도 줄 세워 받음',async({page})=>{
+  const state=await boot(page,{slowUpload:1500});
+  await openMeetingResult(page,'meeting-1');
+  const modal=page.locator('#meetingRoundDetailModal');
+  await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(2);
+  await dropOn(page,'#mrdResult',[pdf('late-result.pdf',['Background body'])]);
+  // 묻는 창이 바로 뜬다 — 아직 아무것도 올리지 않았다.
+  await expect(page.locator('.kptu-ask')).toBeVisible();
+  expect(state.started||0).toBe(0);
+  expect(await answerAsk(page,true)).toBe('본문도 결과 칸에 넣을까요?');
+  // 올리는 동안 회의자료 줄을 하나 더 놓는다 → 묻지 않고 줄 끝에 선다(다시 놓아 달라는 말 없음).
+  await expect.poll(()=>state.started||0).toBe(1);
+  await dropOn(page,'#mrdMaterials',[pdf('late-agenda.pdf')]);
+  await expect(modal.locator('#mrdStatus')).not.toContainText('다시 놓아');
+  // 다른 화면으로 옮긴다 — 뒤처리는 계속된다.
+  await page.evaluate(()=>window.KPTURouter.go('home',{source:'delegated'}));
+  await expect(page.locator('#meetingsView')).toBeHidden();
+  await expect.poll(()=>state.uploads.length,{timeout:15000}).toBe(2);
+  await expect.poll(()=>state.patches.length,{timeout:15000}).toBe(1);
+  expect(state.patches[0].transcript_text).toBe('회의 원문\n\nBackground body');
+  expect(state.uploads.map(u=>u.raw.match(/filename="([^"]+)"/)?.[1])).toEqual(['late-result.pdf','late-agenda.pdf']);
+  for(const u of state.uploads)expect(u.raw).toContain('name="meeting_id"');
+  // 돌아오면 결과 글과 회의자료가 그대로 있다.
+  await page.evaluate(()=>window.KPTURouter.go('meetings',{source:'delegated'}));
+  await expect(modal.locator('#mrdResult')).toContainText('Background body');
+  await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(4);
+  expect(state.errors).toEqual([]);
+});
+

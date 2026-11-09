@@ -1,8 +1,8 @@
 // HOTFIX-회의첨부칸 ②(S48-53): 사업 보고 창(보기·고치기 면)에 PC로 파일을 끌어 놓을 때의 공용 판단.
 // - 놓은 자리(data-drop-zone): result = 결과 칸(보기의 결과 원문, 고치기의 결과 원문 칸), material = 회의자료 줄, photo = 사진 줄.
 //   자리가 정해지지 않은 파일은 '파일·글로 만들기'(meeting-from-files.js)와 같은 이름 규칙(roleOf)으로 고르고, 그래도 모르면 작은 고르기 창으로 묻는다.
-// - 결과 파일(PDF·HWP)은 '파일·글로 만들기'와 같은 읽기(readFileText, 이 기기 안에서만)로 본문을 읽고, 결과 칸에 넣을지 한 번 묻는다.
-// - 파일 올리기는 부르는 쪽(meeting-round-detail.js)이 기존 길(자료실 올리기 창 → library-files, meeting_id)을 그대로 쓴다. 서버·DB 변경 없음.
+// - 결과 파일(PDF·HWP)은 놓자마자 결과 칸에 넣을지 한 번 묻고(askDropped), 넣기면 뒤에서 '파일·글로 만들기'와 같은 읽기(readFileText, 이 기기 안에서만)로 읽는다.
+// - 파일 올리기는 부르는 쪽(meeting-round-detail.js → meeting-drop-queue.mjs)이 창 없이 같은 자료실 올리기 길(library-files, meeting_id, AI 채우기)로 뒤에서 한다. 서버·DB 변경 없음.
 // - 폰은 끌어 놓기가 없으니 첨부 [+] 버튼 그대로다.
 import {roleOf,appendResult} from './meeting-file-parse.mjs';
 import {readFileText,createHwpReader,kindOf} from './meeting-file-text.js';
@@ -44,14 +44,15 @@ export async function readResultText(files,{read=readFileText}={}){
   return texts.join('\n\n');
 }
 
-// 놓은 파일 중 결과 파일의 본문을 결과 칸에 넣을지 묻는다. 넣기로 하면 그 글을, 아니면 ''을 돌려준다.
-export async function resultBodyFor(files,{zone='',anchor=null,ask=askChoice,askOk=askConfirm,read=readFileText}={}){
-  const {results}=await sortDropped(files,{zone,anchor,ask});
-  if(!results.length)return '';
-  const text=await readResultText(results,{read});
-  if(!text)return '';
-  const ok=await askOk(anchor,{text:'결과 파일 본문을 결과 칸에 넣을까요?',note:results.map(f=>f.name).join(', '),ok:'넣기',cancel:'파일만'});
-  return ok?text:'';
+// UX-먼저묻고뒤에처리(11/09): 놓자마자 묻는다 — 본문을 읽기 전에. 결과 파일 중 읽을 수 있는 것(PDF·HWP)이 있으면
+// '본문도 결과 칸에 넣을까요? [파일만][넣기]'를 바로 띄우고, 넣기면 readFiles에 그 파일들을 돌려준다(읽기·더하기는 뒤에서, meeting-drop-queue.mjs).
+// 예전(resultBodyFor)에는 HWP를 이 기기에서 다 읽은 뒤에야 물어 창이 늦게 떴다.
+export async function askDropped(files,{zone='',anchor=null,ask=askChoice,askOk=askConfirm}={}){
+  const {results,materials}=await sortDropped(files,{zone,anchor,ask});
+  const readable=results.filter(f=>kindOf(f?.name));
+  if(!readable.length)return {results,materials,readFiles:[]};
+  const ok=await askOk(anchor,{text:'본문도 결과 칸에 넣을까요?',note:readable.map(f=>f.name).join(', '),ok:'넣기',cancel:'파일만'});
+  return {results,materials,readFiles:ok?readable:[]};
 }
 
 // 끌고 있는 동안 놓일 자리에만 '여기에 놓기' 테두리. 정해진 자리가 없으면 지금 보이는 면(보기·고치기)을 칠한다.
