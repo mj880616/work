@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 잊지 말기 [노트로] 작은 창</title><style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--tline:#c9d3cf;--surface:#fbfdfc;--bg:#eef5f2;--head:#eef4f1;--pri:#2f6f5e;--red:#b4473c}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}
+h2{font-size:13px;margin:14px 0 6px}
+.phone{position:relative;width:100%;max-width:380px;height:640px;border:1px solid var(--line);border-radius:16px;background:var(--bg);overflow:hidden;padding-top:10px}
+.r{display:flex;align-items:center;gap:6px;padding:3px 10px}
+.ttl{font-size:17px;font-weight:600}
+.sp{margin-left:auto}
+.btn{height:30px;padding:0 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.btn small{color:var(--muted);font-size:10px}
+.bigb{height:40px;padding:0 12px;border:1.5px solid var(--pri);border-radius:10px;background:var(--surface);display:inline-flex;align-items:center;white-space:nowrap;font-size:14px}
+.icon{width:30px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px}
+.icon.rec{color:var(--red);font-size:12px}.icon.plain{border:0;background:transparent}
+.wk{display:inline-flex;align-items:center;gap:8px}.wk i{font-style:normal;color:var(--muted)}.wk b{font-weight:600}.wk span{color:var(--muted);font-size:12px}
+.card{margin:6px 10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px}
+.h3{font-weight:600;margin:0 0 6px}.h3 small{font-weight:400;color:var(--muted);margin-left:4px}
+table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;word-break:keep-all}
+th,td{border:1px solid var(--tline);padding:4px 5px;vertical-align:top;text-align:left;background:#fff}
+th{background:var(--head);text-align:center;font-weight:600}
+td.k{background:#f7f9f8}
+.e{color:#b5bdb9}
+.pill{position:absolute;left:50%;transform:translateX(-50%);bottom:60px;background:#efebe6;border-radius:999px;padding:3px;display:flex}
+.pill span{padding:4px 12px;border-radius:999px;color:var(--muted)}.pill .on{background:#fff;color:var(--ink);font-weight:600}
+.fab{position:absolute;right:14px;bottom:110px;width:44px;height:44px;border-radius:50%;background:var(--pri);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:50px;border-top:1px solid var(--line);background:var(--surface);display:flex;justify-content:space-around;align-items:center;color:var(--muted);font-size:11px}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6;max-width:380px}.warn{color:#a5463c}
+.dim{position:relative;background:#f4f7f6;border:1px solid var(--line);border-radius:12px;padding:8px;margin:6px 0}
+.row{background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-bottom:4px;font-size:12px}
+.row small{color:var(--muted)}
+.pop{position:relative;margin:-2px 0 6px 18px;width:86%;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.12);padding:8px;font-size:12px}
+.pop .t{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.pick{height:26px;padding:0 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface);display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.old{color:#9aa5a1;border-left:3px solid var(--line);padding-left:6px;margin:4px 0;font-size:11px}
+.ta{border:1px solid var(--pri);border-radius:7px;padding:6px;min-height:34px;background:#fff}
+.ft{display:flex;gap:6px;justify-content:flex-end;margin-top:6px;align-items:center}
+.ft .l{margin-right:auto;color:var(--pri);text-decoration:underline;font-size:11px}
+.pri{background:var(--pri);color:#fff;border-color:var(--pri)}
+.menu{position:absolute;left:8px;top:34px;width:80%;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.1);z-index:3;padding:3px 0}
+.menu div{padding:4px 10px}.menu .h{color:var(--muted);font-size:10px}.menu .sel{background:#e3f1eb}
+.tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:0 5px;margin-right:4px}
+</style></head><body>
+<h1>잊지 말기 [노트로] — 작은 창 먼저</h1>
+<p class="s">지금: [노트로] 누르면 큰 노트 편집창이 바로 뜸. 바꾼 뒤: 누른 줄 바로 아래 작은 창 → 고르고 [저장]. 길게 고칠 때만 [크게 고치기]. 내용은 시안용.</p>
+<h2><span class="tag">①</span>업무 줄 — 처음 모양</h2><div class="dim"><div class="row">카뉴를 살펴보고 의견 나누기<br><small>텔레그램 · 공공기… &nbsp; 할 일로 · 일정으로 · <b style="color:var(--pri)">노트로</b> · 조직 · 사업 · 이미 함</small></div><div class="pop"><div class="t"><span class="pick">새 노트 ▾</span><span class="pick">01. 업무메모 ▾</span></div>
+<div class="ta">카뉴를 살펴보고 의견 나누기</div>
+<div class="ft"><span class="l">크게 고치기 ↗</span><span class="btn">취소</span><span class="btn pri">저장</span></div></div>
+<div class="row" style="opacity:.5">지지 인증샷을 찍어 공유하기</div></div>
+<p class="note">[새 노트 ▾][폴더 ▾](지금 큰 창과 같은 고르기) · 더할 글 칸(한두 줄, 바로 고칠 수 있음) · [저장]이면 끝. 기본은 지금처럼 새 노트·'01. 업무메모'.</p>
+<h2><span class="tag">②</span>[새 노트 ▾] 누르면</h2><div class="dim" style="min-height:200px"><div class="row">카뉴를 살펴보고 의견 나누기<br><small>텔레그램 · 공공기… &nbsp; 할 일로 · 일정으로 · <b style="color:var(--pri)">노트로</b> · 조직 · 사업 · 이미 함</small></div><div class="pop"><div class="t"><span class="pick" style="border-color:var(--pri)">새 노트 ▾</span><span class="pick">01. 업무메모 ▾</span></div><div class="ta" style="opacity:.3">카뉴를 살펴보고 의견 나누기</div>
+<div class="menu"><div class="sel">＋ 새 노트로</div><div style="color:var(--muted)">⌕ 노트 이름 찾기</div><div class="h">최근 노트</div><div>○○ 대응 메모</div><div>집행국 회의 메모</div><div class="h">폴더</div><div>📁 01. 업무메모 ›</div><div>📁 가족 ›</div></div></div></div>
+<p class="note">지금 큰 창에 있는 노트 고르기 창 그대로(새 노트로·찾기·최근 노트·폴더별).</p>
+<h2><span class="tag">③</span>기존 노트를 고르면</h2><div class="dim"><div class="row">카뉴를 살펴보고 의견 나누기<br><small>텔레그램 · 공공기… &nbsp; 할 일로 · 일정으로 · <b style="color:var(--pri)">노트로</b> · 조직 · 사업 · 이미 함</small></div><div class="pop"><div class="t"><span class="pick" style="border-color:var(--pri);background:#e3f1eb">○○ 대응 메모 ▾</span><span style="color:var(--muted);font-size:11px">📁 01. 업무메모 · 끝에 더함</span></div>
+<div class="old">… 11.06 집행국 논의 정리<br>11.08 카드뉴스 초안 받음</div>
+<div class="ta">카뉴를 살펴보고 의견 나누기</div>
+<div class="ft"><span class="l">크게 고치기 ↗</span><span class="btn">취소</span><span class="btn pri">저장</span></div></div></div>
+<p class="note">그 노트 마지막 두 줄을 흐리게 · [저장]하면 끝에 한 줄 더함.</p>
+<h2><span class="tag">④</span>가족 줄</h2><div class="dim"><div class="row">승지를 롤러코스터라고 하지 말라고 함.<br><small>가족 · 말한 때 18:52 &nbsp; 할 일로 · 일정으로 · <b style="color:var(--pri)">노트로</b> · 이미 함</small></div><div class="pop"><div class="t"><span class="pick" style="border-color:var(--pri);background:#e3f1eb">잊지 말기 ▾</span><span style="color:var(--muted);font-size:11px">📁 가족 · 끝에 더함</span></div><div class="old">… ☐ ○○ 챙기기</div><div class="ta">☐ ○○라고 하지 말라고 함.</div><div class="ft"><span class="l">크게 고치기 ↗</span><span class="btn">취소</span><span class="btn pri">저장</span></div></div></div>
+<p class="note">같은 작은 창, 기본 '가족 › 잊지 말기' 끝에 더함(지금 기본값 그대로) — 가족 노트만 고를 수 있음(지금 규칙).</p>
+<p class="note"><b>[크게 고치기 ↗]</b> 누르면 지금의 큰 노트 창(고른 노트·폴더·적은 글 그대로 넘김)으로. 폰은 줄 아래 작은 창(하단바에 안 가리게), PC는 버튼 아래 작은 창.</p>
+</body></html>
