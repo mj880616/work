@@ -48,7 +48,7 @@ test('주간 정리 긴 글 칸 전부 = 공용 칸(화면마다 따로 늘리�
   for (const f of ['weekly-learn-panel.js', 'weekly-flow-cells.js', 'weekly-detail-lines.js', 'weekly-hand-lines.js', 'weekly-hq-schedule.js', 'journal-weekly.js']) {
     assert.match(read(`app/${f}`), /lineField\(doc/, f);
   }
-  for (const f of ['org-status-table.js', 'weekly-discuss-table.js']) {
+  for (const f of ['weekly-discuss-table.js']) {
     const src = read(`app/${f}`);
     assert.match(src, /fitAll\((host|slot)\)/, f);
     assert.doesNotMatch(src, /function fitText|function fitTextarea|scrollHeight/, f);

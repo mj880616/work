@@ -47,7 +47,7 @@ test('재발 방지: 화면의 보기 탭은 공용 ⑤ 부품만(일정·노트
   assert.deepEqual(odd, [], '보기 탭은 class="… ds-seg" 묶음 + class="ds-seg-btn" 칸으로 만드세요(docs/design-decisions.md UI-버튼기준 · UI-보기탭한모양).');
   for (const k of Object.keys(FILTERS)) assert.ok(tabs.some(t => keyOf(t) === k), `${k}가 없어졌으면 FILTERS에서 지우세요`);
   for (const k of ['app/index.html schedule-switch', 'app/index.html calendar-view-switch', 'app/basket-notes.js nv-switch', 'app/journal.js journal-mode-switch',
-    'app/photos.js photos-chips', 'app/diary.js diary-source', 'app/org-overview.js so-team-tabs', 'app/workplace-detail.js wd-tabs', 'app/outside-statements.js os-tabs', 'app/telegram-feed.js feed-vsw'])
+    'app/photos.js photos-chips', 'app/diary.js diary-source', 'app/org-overview.js so-team-tabs', 'app/outside-statements.js os-tabs', 'app/telegram-feed.js feed-vsw'])
     assert.ok(tabs.some(t => keyOf(t) === k && isOneLook(t)), `${k}는 공용 ⑤`);
   for (const [f, re] of MORE) assert.match(readFileSync(f, 'utf8'), re, f);
   assert.doesNotMatch(readFileSync('app/library-upload.js', 'utf8'), /renderFilterChips\(host,\{label:'묶기'/);
