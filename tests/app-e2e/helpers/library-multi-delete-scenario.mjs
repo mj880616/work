@@ -37,8 +37,7 @@ export async function openLibrary(page,base){
   await page.waitForFunction(()=>document.querySelector('#appView.kptu-ui-ready')&&window.KPTUViewLoader?.isLoaded('library')&&window.__KPTU_LIBRARY_UPLOAD_READY__,null,{timeout:20000});
   await page.evaluate(()=>window.__KPTU_LIBRARY_UPLOAD_READY__);
   // 분류 칩은 모두 켜고 트리는 모두 편다.
-  await page.waitForSelector('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])',{state:'attached'});
-  await showAllLibraryCategories(page);// S51-28: 폰·폴드는 [분류 ▾] 창으로
+  await showAllLibraryCategories(page);// LIB-위쪽한줄: 분류는 [분류 ▾] 창(그려진 뒤까지 helper가 기다림)
   const now=await libraryExpandItem(page);
   if(!now.disabled&&now.text==='모두 펴기')await libraryTopMenu(page,'expand');
   await page.waitForFunction(()=>document.querySelectorAll('#documentList [data-lu-document]').length>0&&!document.querySelector('#documentList details[data-lu-node]:not([open])'));

@@ -44,12 +44,12 @@ for(const width of [1280,1440])test(`PC ${width}: 담당조직 상세 칸 정리
  // ① 칸 맨 위 '담당조직' 작은 제목 + 조직명 줄은 없고, 상단 줄 위치가 '담당조직 › 조직명'을 보여 준다.
  await expect(modal.locator('.modal-head')).toBeHidden();await expect(modal.locator('.eyebrow')).toBeHidden();
  await expect(modal).toHaveAttribute('aria-labelledby','wdTitle');
- await expect(where(page).locator('li')).toHaveText(['담당조직','합성 가 지부']);
+ await expect(where(page).locator('li')).toHaveText(['조직 보고','합성 가 지부']);
  await expect(where(page).locator('[aria-current="page"]')).toHaveText('합성 가 지부');
  await page.locator('#soOrganizationList [data-so-org="ob"]').click();await expect(page.locator('#wdTitle')).toHaveText('합성 나 지부');
- await expect(where(page).locator('li')).toHaveText(['담당조직','합성 나 지부']);
+ await expect(where(page).locator('li')).toHaveText(['조직 보고','합성 나 지부']);
  await page.locator('#soOrganizationList [data-so-org="oa"]').click();await expect(page.locator('#wdTitle')).toHaveText('합성 가 지부');
- await expect(where(page).locator('li')).toHaveText(['담당조직','합성 가 지부']);
+ await expect(where(page).locator('li')).toHaveText(['조직 보고','합성 가 지부']);
  await expect(modal.locator('#wdUpdates')).toContainText('합성 기록 하나');
  await expect(modal.locator('#wdTaskBody [data-google-task]')).toHaveCount(2);
  // ⑥ 순서: 입력칸 → 기록 → 할 일 → 자료(보이는 순서와 요소 순서·Tab 순서가 같다).
@@ -97,7 +97,7 @@ for(const width of [1280,1440])test(`PC ${width}: 담당조직 상세 칸 정리
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  // Another screen: the top line no longer names the organization.
  await clickView(page,'home');await expect(where(page).locator('li')).toHaveText(['홈']);
- await clickView(page,'team');await expect(where(page).locator('li')).toHaveText(['담당조직','합성 가 지부']);
+ await clickView(page,'team');await expect(where(page).locator('li')).toHaveText(['조직 보고','합성 가 지부']);
  expect(errors).toEqual([]);
 });
 

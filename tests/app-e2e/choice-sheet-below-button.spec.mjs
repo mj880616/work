@@ -46,8 +46,8 @@ for(const width of WIDTHS)test(`${width}: 할 일 연결의 사업영역·담당
  }
 });
 
-// 자료실 [분류 ▾]는 폰·폴드(1199px까지)에만 있다(PC 1200px~는 칩 줄).
-for(const width of [390,884])test(`${width}: 자료실 [분류 ▾] 창이 누른 버튼 아래`,async({page})=>{
+// 자료실 [분류 ▾]는 LIB-위쪽한줄(11/09)로 폰·폴드·PC 모두 위 줄에 있다.
+for(const width of [390,884,1440])test(`${width}: 자료실 [분류 ▾] 창이 누른 버튼 아래`,async({page})=>{
  await bootLibrary(page,width,{folders:[libFolder('fa','top-a',{name:'가상 A'})],items:[{document_id:'a-1',folder_id:'fa'}],
   docs:[libDoc('a-1','top-a',{category:'정책'}),libDoc('a-2','top-a',{category:'투쟁'}),libDoc('m-1',null,{category:'회의'})]});
  const pick=page.locator('#libraryCategoryPick');await expect(pick).toBeVisible();

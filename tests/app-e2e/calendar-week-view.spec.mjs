@@ -202,9 +202,13 @@ for(const width of [1024,1440])test(`week timed rows show their own event color 
     ev('green','2026-10-15T11:00:00+09:00','2026-10-15T12:00:00+09:00','#51b749'),
     ev('band','2026-10-15','2026-10-17','#dc2127',true)
   ]);
-  // Read every row in one page task: the week owner may legitimately re-render (late task list) between separate reads.
-  const {red,green,band}=await page.evaluate(()=>{const paint=sel=>{const s=getComputedStyle(document.querySelector(sel));return {stripe:s.borderLeftColor,width:s.borderLeftWidth,background:s.backgroundColor}};
-    return {red:paint('#calendarWeek .cwv-items [data-google-event="red"]'),green:paint('#calendarWeek .cwv-items [data-google-event="green"]'),band:paint('#calendarWeek .cwv-bands [data-google-event="band"]')}});
+  // TEST-시험안정화(STAB-주간보기색): 일정 읽기가 끝나도 주간 칸은 한 박자 뒤에 그려지고(늦은 할 일 목록으로 다시 그리기도 함), 그 전에 재면 세 줄 중 일부가 아직 없다(CI: getComputedStyle 'not of type Element').
+  // 세 줄이 다 그려진 때만 한 번의 evaluate로 읽는다. 읽는 도중 칸이 바뀌지 않게 찾기와 읽기를 같은 작업 안에서 한다.
+  let paints=null;
+  await expect.poll(async()=>{paints=await page.evaluate(()=>{const paint=sel=>{const e=document.querySelector(sel);if(!e)return null;const s=getComputedStyle(e);return {stripe:s.borderLeftColor,width:s.borderLeftWidth,background:s.backgroundColor}};
+    const out={red:paint('#calendarWeek .cwv-items [data-google-event="red"]'),green:paint('#calendarWeek .cwv-items [data-google-event="green"]'),band:paint('#calendarWeek .cwv-bands [data-google-event="band"]')};
+    return out.red&&out.green&&out.band?out:null});return paints!==null},{message:'주간 일정 세 줄이 그려짐'}).toBe(true);
+  const {red,green,band}=paints;
   expect(red.stripe).toBe('rgb(220, 33, 39)');expect(green.stripe).toBe('rgb(81, 183, 73)');expect(red.width).toBe('4px');
   expect(red.stripe).toBe(band.stripe);expect(red.background).toBe(band.background);expect(red.background).not.toBe(green.background);expect(red.background).not.toBe('rgba(0, 0, 0, 0)');
   await expect(page.locator('#calendarWeek .cwv-items [data-google-event="red"] .clv-color')).toBeHidden();

@@ -59,7 +59,7 @@ test('폰 하단 탭 6칸: 정리함 색 아이콘, [메뉴] 탭이 메뉴 창�
  const {errors}=await boot(page,390);
  const tabs=page.locator('.mobile-tabs > button');
  // MTG-프로젝트합치기 3단계: 4번째 칸이 [프로젝트] → [사업 보고].
- await expect(tabs).toHaveText(['홈','잊지 말기','일정','사업 보고','담당조직','메뉴']);
+ await expect(tabs).toHaveText(['홈','잊지 말기','일정','사업 보고','조직 보고','메뉴']);
  for(const tab of await tabs.all()){const b=await box(tab);expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}
  // 8-9e-3(사용자 결정): 바구니 아이콘도 다른 탭과 같다 — 고르지 않으면 회색(흐린 색), 고르면 같은 선택 색. 바구니 종류 색(주황)은 쓰지 않는다.
  const tabColor=view=>page.locator(`.mobile-tabs [data-view="${view}"] svg`).evaluate(el=>getComputedStyle(el).color);
@@ -113,13 +113,13 @@ test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 �
  const {errors}=await boot(page,1280);
  await expect(page.locator('.mobile-tabs')).toBeHidden();
  expect(await page.locator('#homeView .home-quick').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');await expect(page.locator('#homeView .home-basket-link')).toHaveCount(0); // S53-13: 옛 [잊지 말기 전체 보기 ›] 링크는 머리 줄 칩(home-forget-line.spec)으로 바뀜
- for(const [view,id,text] of [['calendar','#newEventBtn',null],['projects','#newProjectBtn','+ 사업영역'],['library','#newDocumentBtn','+ 자료 등록']]){
+ for(const [view,id,text] of [['calendar','#newEventBtn',null],['projects','#newProjectBtn','+ 사업영역'],['library','#newDocumentBtn','']]){/* LIB-위쪽한줄: 자료실 [+]는 글자 없는 작은 아이콘 */
   // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 왼쪽 메뉴 줄이 없어 사업 보고 ⋯ 안에서 연다(clickView가 그 길로 간다).
   await clickView(page,view);await loaded(page,view);
   await expect(page.locator(`#${view}View .schedule-switch`)).toHaveCount(view==='calendar'||view==='tasks'?1:0);
   if(view==='calendar'||view==='tasks')await expect(page.locator(`#${view}View .schedule-switch`)).toBeHidden();
   const button=page.locator(id);await expect(button).toBeVisible();expect(await button.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
-  if(text)await expect(button).toHaveText(text);
+  if(text!==null)await expect(button).toHaveText(text);
  }
  await page.locator('.app-nav [data-view="team"]').click();await loaded(page,'team');await expect(page.locator('#soAddOrg,#soAddOrgLink')).toHaveCount(0);
  expect(errors).toEqual([]);
@@ -128,7 +128,7 @@ test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 �
 test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르는 범위 44px, 이름, 같은 창, 마지막 줄이 가리지 않음',async({page})=>{
  const {errors}=await boot(page,390);
  const tabsTop=(await box(page.locator('.mobile-tabs'))).top;
- for(const [view,id,label,modal] of [['calendar','#newEventBtn','일정 등록','#eventModal'],['library','#newDocumentBtn','자료 등록','#documentModal'], /* 사업 보고는 BIZ-위쪽정돈(11/09 01:22)에서 동그란 [+]가 아니라 맨 윗줄 작은 아이콘이라 이 묶음에서 뺐다(biz-top-tidy.spec.mjs) */ ]){
+ for(const [view,id,label,modal] of [['calendar','#newEventBtn','일정 등록','#eventModal'],/* 자료실은 LIB-위쪽한줄(11/09)에서 사업 보고처럼 위 줄 작은 아이콘이 되어 뺐다(library-top-row.spec.mjs). 사업 보고는 BIZ-위쪽정돈(11/09 01:22)에서 동그란 [+]가 아니라 맨 윗줄 작은 아이콘이라 이 묶음에서 뺐다(biz-top-tidy.spec.mjs) */ ]){
   await page.evaluate(v=>KPTURouter.go(v),view);await loaded(page,view);
   const button=page.locator(id);await expect(button).toBeVisible();await expect(button).toHaveAttribute('aria-label',label);
   // 보이는 원은 버튼 자체 36px, 누르는 범위는 ::after 44px(앱의 다른 버튼과 같은 방식). 누르는 범위가 탭 위 12px·오른쪽 16px.
