@@ -1249,7 +1249,8 @@ async function hwpxFixture(page,options={}){
   return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:fileName,format:'hwpx',size:file.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:file});
  });
  await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());sent.library.push(body);return r.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}});});
- await page.route(SB+'/functions/v1/ai-assist',r=>{if(r.request().postDataJSON()?.kind==='work_scope')return r.fallback();sent.other.push({ai:true,kind:r.request().postDataJSON()?.kind});return r.fulfill({status:500,json:{}});});
+ // HOME-하루채우기 PR-C: 홈 [하루] 읽을 글·기록 제안(home_day_picks)은 [주간 정리]와 무관한 홈 배경 부탁이라 work_scope처럼 기본 가짜 서버로 넘긴다.
+ await page.route(SB+'/functions/v1/ai-assist',r=>{if(['work_scope','home_day_picks'].includes(r.request().postDataJSON()?.kind))return r.fallback();sent.other.push({ai:true,kind:r.request().postDataJSON()?.kind});return r.fulfill({status:500,json:{}});});
  return {...f,sent};
 }
 const hwpx=page=>page.locator('#journalRoot [data-journal-hwpx]');
