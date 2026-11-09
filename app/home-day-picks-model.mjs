@@ -55,3 +55,69 @@ export function pickedNote(pickedAt, today) {
   const label = readAtLabel(pickedAt, today);
   return /^\d{2}:\d{2}$/.test(label) ? `오늘 ${Number(label.slice(0, 2)) < 14 ? '아침' : '저녁'} 선택` : '';
 }
+
+// ---- PR-C 화면 연결: 서버(ai-assist home_day_picks)에 보낼 것·받은 것 ----
+// ③ 일기를 쓴 제안(서버 표 suggests_done)은 그리지 않는다.
+export function openSuggests(list, done) {
+  const used = new Set(Array.isArray(done) ? done.map(String) : []);
+  return cleanSuggests(list).filter(item => !used.has(item.id));
+}
+// 서버는 제어 문자·글자 방향 문자가 든 제목을 받지 않는다(요청 전체 400) — 보내기 전에 빈칸으로 바꾸고 120자로 자른다.
+const BAD_CHARS = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069]/g;
+export const sendTitle = v => [...String(v ?? '').replace(BAD_CHARS, ' ').replace(/\s+/g, ' ').trim()].slice(0, 120).join('');
+export const SEND_EVENTS_MAX = 40;
+export const SEND_DONE_MAX = 30;
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const shift = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+// 그 날이 든 주(월요일 시작).
+export const weekStartOf = day => shift(day, -((new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7));
+const seoulIso = ms => new Date(ms + 9 * 3600 * 1000).toISOString();
+// 구글 캘린더 일정(이 화면이 이미 읽은 그 주 일정) → 서버 모양 {day, start, end, title}(한국 시각, 종일은 start·end 빈 값).
+// 그 날이 든 주 밖은 뺀다(서버가 요청 전체를 거절하지 않게). 여러 날 종일 일정은 이 주에 걸친 첫날로. 끝이 다음 날이면 23:59.
+export function sendEvents(events, day) {
+  if (!DAY_RE.test(day || '')) return [];
+  const from = weekStartOf(day), to = shift(from, 6), out = [];
+  for (const e of Array.isArray(events) ? events : []) {
+    const title = sendTitle(e?.title);
+    if (!title || e?.status === 'cancelled') continue;
+    const start = String(e?.start || ''), end = String(e?.end || '');
+    let item = null;
+    if (e?.allDay || DAY_RE.test(start)) {
+      const first = start.slice(0, 10), last = DAY_RE.test(end.slice(0, 10)) ? shift(end.slice(0, 10), -1) : first;
+      if (!DAY_RE.test(first) || last < from || first > to) continue;
+      item = {day:first < from ? from : first, start:'', end:'', title};
+    } else {
+      const s = Date.parse(start);
+      if (!Number.isFinite(s)) continue;
+      const si = seoulIso(s), d = si.slice(0, 10), ems = Date.parse(end);
+      if (d < from || d > to) continue;
+      const ei = Number.isFinite(ems) && ems > s ? seoulIso(ems) : '';
+      item = {day:d, start:si.slice(11, 16), end:ei ? (ei.slice(0, 10) === d ? ei.slice(11, 16) : '23:59') : '', title};
+    }
+    out.push(item);
+    if (out.length >= SEND_EVENTS_MAX) break;
+  }
+  return out;
+}
+// 그 날(한국 날짜) 끝낸 할 일 제목.
+export function sendDone(tasks, day) {
+  const out = [];
+  for (const t of Array.isArray(tasks) ? tasks : []) {
+    const ms = Date.parse(t?.completed || '');
+    if (t?.status !== 'completed' || !Number.isFinite(ms) || seoulIso(ms).slice(0, 10) !== day) continue;
+    const title = sendTitle(t?.title);
+    if (title) out.push(title);
+    if (out.length >= SEND_DONE_MAX) break;
+  }
+  return out;
+}
+// AI 한도에 닿았을 때 칸 위 한 줄(기존 한도 알림 문구와 같음). 그 밖의 실패는 조용히(고른 것이 있으면 그대로 보임).
+export const LIMIT_NOTE = Object.freeze({monthly_limit:'이번 달 AI 한도에 닿았어요.', daily_limit:'오늘 AI 횟수를 다 썼어요.'});
+export const limitNote = code => LIMIT_NOTE[code] || '';
+// 서버 표 한 줄 → 칸 상태({reads:{items, picked_at}, suggests:{items, done}}). 모양이 틀린 칸은 빈 값.
+export function picksState(row) {
+  const r = row && typeof row === 'object' ? row : {};
+  const at = v => typeof v === 'string' && Number.isFinite(Date.parse(v)) ? v : null;
+  return {reads:{items:Array.isArray(r.reads) ? r.reads : [], picked_at:at(r.reads_at)},
+    suggests:{items:Array.isArray(r.suggests) ? r.suggests : [], done:Array.isArray(r.suggests_done) ? r.suggests_done : []}};
+}

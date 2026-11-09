@@ -11,9 +11,9 @@ export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:tr
 export const defaultStageRows=()=>DEFAULT_STAGES.map((row,i)=>({id:'stage-'+(i+1),...row,sort_order:i+1,created_at:'2026-10-01T00:00:00Z'}));
 export async function openHome(
   page,
-  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null } = {},
+  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null, now = "2026-10-06T01:00:00Z" } = {},
 ) {
-  await page.clock.setFixedTime(new Date("2026-10-06T01:00:00Z"));
+  await page.clock.setFixedTime(new Date(now)); // now: HOME-하루채우기 ③처럼 저녁 시각이 필요한 시험만 바꾼다(기본 10:00 KST 그대로)
   // SET-보기선택서버저장: 화면 선택(빠른 입력 모드·메뉴 접기·달력 보기 등)은 서버 프로필에 저장되므로 시험도 흉내 낸 서버를 쓴다(새로고침 뒤에도 이어짐).
   // MULTI ②-3: 담당조직 묶음·순서와 보고 캘린더 이름(view_prefs)은 기본으로 운영자 값을 가진 사람(tests/org-order-fixture.mjs). 시험이 보는 prefs.value에는 섞이지 않는다.
   const prefs = await installViewPrefsServer(page, null, { base: { org_order: OPERATOR_ORG_ORDER, report_calendar: OPERATOR_REPORT_CALENDAR } });
