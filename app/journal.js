@@ -478,6 +478,26 @@ function dayReportBlock(card) {
   else report.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-report-empty'}));
   return report;
 }
+const isRecordWeek = week => !!week && week >= RECORD_ONE_FROM;
+// 사업요약표의 사업 나무 = 이 화면이 이미 읽은 사업 목록(활성만). 같은 읽기 결과면 같은 배열(다시 그릴 때 다시 읽지 않게).
+let treeMemo = {src:null, out:null};
+function activeTree() {
+  const src = materials.catalog?.status === 'ok' ? materials.catalog.items : null;
+  if (!src) return null;
+  if (treeMemo.src !== src) treeMemo = {src, out:src.filter(x => x?.project?.status === 'active')};
+  return treeMemo.out;
+}
+const NO_MEETINGS = Object.freeze([]);
+// ④ 주간보고 재료(옛 주): the three parts in the report's order; a part with nothing that day is not drawn.
+function dayReportBlock(card) {
+  const report = document.createElement('section');
+  report.className = 'journal-report'; report.dataset.journalReport = '';
+  report.innerHTML = '<h4 class="journal-heading journal-report-title">주간보고 재료</h4>';
+  const parts = card.report.filter(part => part.loading || part.failed || part.items.length);
+  if (parts.length) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'}))); report.append(grid); }
+  else report.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-report-empty'}));
+  return report;
+}
 // [주간 정리]: the week in report order. Drawn only while that side is shown; every read that lands redraws it.
 function renderWeekly_({refreshBox = true} = {}) {
   if (mode !== 'week') return;
