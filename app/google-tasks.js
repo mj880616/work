@@ -61,7 +61,7 @@ function section(){
   const taskList=document.querySelector('#taskList');if(!taskList)return null;
   taskList.replaceChildren();taskList.classList.remove('tl-task-list');
   sec=document.createElement('section');sec.id='gtTaskSection';sec.className='tl-task-section';
-  sec.innerHTML='<div class="gt-head"><div class="gt-head-left"><span class="gt-count" data-gt-count tabindex="-1">할 일 0개</span><button type="button" class="icon-btn gt-info" data-gt-info aria-label="할 일 목록 안내">ⓘ</button><span class="gt-note gt-sync" data-gt-sync role="status" aria-live="polite"></span><span class="gt-fresh" data-gt-fresh role="status" aria-live="polite" hidden></span></div></div><div id="gtTaskBody" class="gt-status">'+waitHtml({rows:5})+'</div><div id="gtUndoDeletes" role="status" aria-live="polite"></div><aside id="gtDetailPane" class="gt-pane" aria-label="할 일 상세"><div id="gtPaneToday" class="gt-pane-today"></div></aside>';
+  sec.innerHTML='<div class="gt-head"><div class="gt-head-left"><span class="gt-count" data-gt-count tabindex="-1">할 일 0개</span><button type="button" class="icon-btn gt-info" data-gt-info aria-label="할 일 목록 안내">ⓘ</button><span class="gt-note gt-sync" data-gt-sync role="status" aria-live="polite"></span><span class="gt-fresh" data-gt-fresh role="status" aria-live="polite" hidden></span></div></div><div id="gtTaskBody" class="gt-status">'+waitHtml({rows:5})+'</div><div id="gtUndoDeletes" role="status" aria-live="polite"></div><aside id="gtDetailPane" class="gt-pane" aria-label="할 일 상세"></aside>';
   taskList.insertAdjacentElement('afterend',sec);
   sec.querySelector('[data-gt-info]').onclick=openScope;
   if(!taskMenu)taskMenu=createAnchoredMenu({id:'gtTaskMenu',className:'gt-task-menu',label:'할 일 관리',historyKey:'kptuTaskMenu',key:trigger=>trigger.dataset.gtMenu,onClose:()=>{if(taskRenderPending){taskRenderPending=false;renderTasks(lastTasks)}},
@@ -94,7 +94,7 @@ function closeEditor(){editorSeq++;editorRequest=null;editorSaving=false;const m
 // S51-13 TODO-폴드목록상세(2026-11-06 명진 'ㅇ', docs/design/mockups/todo-fold-list-detail.html): the unfolded Fold (600px~, phone
 // frame below 761) shows the same '왼쪽 목록 | 오른쪽 상세' as the PC. In the pane every change is saved at once (no [저장]; see
 // autoSave below), ✕·Esc·Back close the pane (one history step, router layer 'task-detail'), and with nothing chosen the pane
-// shows the 오늘 할 일 summary (paintPaneToday). The folded phone keeps the popup and its [저장].
+// stays empty (TASK-오른쪽칸비우기, 2026-11-09: no summary or hint). The folded phone keeps the popup and its [저장].
 const PC=window.matchMedia?.(SPLIT_QUERY);
 const FRAME_PC=window.matchMedia?.('(min-width:761px)');
 const pcColumns=()=>!!PC?.matches;
@@ -508,7 +508,6 @@ function renderTasks(tasks){
   const now=Date.now(),items=tasks.filter(t=>!pendingDeletes.has(t.id)&&!deletedTombstones.has(t.id)).map(t=>({t,p:settling.get(t?.id)?.before||t})),row=(x,overdue=false)=>taskRow(x.t,overdue,effectOf(x.t.id,now)),pending=items.filter(x=>!isDone(x.p)),todayKey=dayKey(now),inGroup=g=>pending.filter(x=>dueGroup(dueDateKey(x.p.due),todayKey)===g).sort((a,b)=>byDue(a.p,b.p)),overdue=inGroup('overdue'),today=inGroup('today'),tomorrow=inGroup('tomorrow'),week=inGroup('week'),later=allPendingConfirmed?inGroup('later'):[],undated=allPendingConfirmed?inGroup('undated'):[],completed=items.filter(x=>isDone(x.p)&&completedRecently(x.p,now)).sort((a,b)=>(Date.parse(b.p.completed||'')||0)-(Date.parse(a.p.completed||'')||0));
   const count=items.filter(x=>!isDone(x.t)).length;document.querySelector('[data-gt-count]').textContent=`할 일 ${count}개`;document.querySelector('#gtTaskSection .gt-head-left').classList.toggle('hidden',pending.length===0);
   const pc=pcColumns()&&!unlinkedOnly;section()?.classList.toggle('gt-pc',pc);syncSplit();
-  paintPaneToday(pc?{overdue,today}:null);
   if(pc){const openId=isDocked()&&!document.querySelector('#gtTaskModal').classList.contains('hidden')?editing?.id:'',has=rows=>!!openId&&rows.some(x=>x.t.id===openId);paintBody(body,'gt-list gt-board',columnsHtml({overdue,today,tomorrow,week,later,undated,completed},(x,overdue=false)=>taskCard(x.t,overdue,effectOf(x.t.id,now)),{completedOpen:completedOpen||has(completed),laterOpen:laterOpen||has(later)||has(undated)}));laterWasOpen=!!body.querySelector('#gtLater')?.open||(!body.querySelector('#gtLater')&&laterOpen)}else{
   const group=(id,title,rows)=>rows.length?`<div class="gt-group${id==='overdue'?' gt-overdue':''}" data-gt-${id} role="group" aria-labelledby="gt-${id}-head"><h4 id="gt-${id}-head" class="gt-group-head">${title} ${rows.length}</h4>${rows.map(x=>row(x,id==='overdue')).join('')}</div>`:'';
   if(!unlinkedOnly)paintBody(body,'gt-list',(pending.length?'':emptyHtml())+group('overdue','기한 지남',overdue)+group('today','오늘',today)+group('tomorrow','내일',tomorrow)+group('week','일주일 안',week)+group('later','나중',later)+group('undated','기한 없음',undated)+(completed.length?`<details id="gtCompleted" class="gt-group gt-completed"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length}${chevHtml(false, 'gt-disclosure')}</summary>${completed.map(x=>row(x)).join('')}</details>`:''));}
@@ -528,15 +527,6 @@ function renderTasks(tasks){
   paintSelection();
 }
 
-// S51-13 ④: with nothing chosen the pane shows 오늘 할 일 — the count, the overdue count, and today's titles (tap = open it here).
-// Same buckets as the list (renderTasks), drawn by renderTasks only; hidden by CSS while a task is open (#gtDetailPane.has-task).
-function paintPaneToday(groups){
-  const box=document.querySelector('#gtPaneToday');if(!box)return;
-  if(!groups){if(box.innerHTML)box.innerHTML='';return}
-  const {overdue,today}=groups,item=x=>`<li><button type="button" class="gt-pane-today-item" data-gt-today-open="${esc(x.t.id)}">${esc(x.t.title||'제목 없음')}</button></li>`;
-  const html=`<h3 class="gt-pane-today-head">오늘 할 일 <b>${today.length}</b>${overdue.length?`<span class="gt-pane-today-late">기한 지남 ${overdue.length}</span>`:''}</h3>${today.length?`<ul class="gt-pane-today-list">${today.map(item).join('')}</ul>`:emptyHtml()}`;
-  if(box.innerHTML!==html){box.innerHTML=html;box.querySelectorAll('[data-gt-today-open]').forEach(b=>b.onclick=()=>{const task=lastTasks.find(t=>t.id===b.dataset.gtTodayOpen);if(task)openEditor(task,{docked:true})})}
-}
 const DELETE_DELAY_MS=5000;
 function renderUndo(){const box=document.querySelector('#gtUndoDeletes');if(!box)return;box.innerHTML=[...pendingDeletes].filter(([,s])=>!s.committing).map(([id,s])=>`<div class="gt-undo-item"><span>${esc(s.task.title||'제목 없음')} 삭제 대기</span><button type="button" data-gt-undo="${esc(id)}">되돌리기</button></div>`).join('');box.querySelectorAll('[data-gt-undo]').forEach(b=>b.onclick=()=>undoDelete(b.dataset.gtUndo))}
 function keepDeletingTasks(tasks){const next=[...tasks];for(const [id,s] of [...pendingDeletes].sort((a,b)=>a[1].index-b[1].index)){const at=next.findIndex(t=>t.id===id);if(at>=0)next[at]=s.task;else next.splice(Math.min(s.index,next.length),0,s.task)}return next}

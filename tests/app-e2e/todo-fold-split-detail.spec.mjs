@@ -47,14 +47,12 @@ for(const width of [690,884,1280]){
     const [list,box]=[await page.locator('#gtTaskBody [data-gt-col="now"]').boundingBox(),await pane.boundingBox()];
     expect(box.x).toBeGreaterThan(list.x+list.width);expect(Math.abs(box.y-list.y)).toBeLessThanOrEqual(1);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-    // ④ 아무것도 안 골랐을 때: 오늘 할 일 요약(오늘 기한 둘, 기한 지남 하나).
-    const today=pane.locator('#gtPaneToday');
-    await expect(today.locator('.gt-pane-today-head')).toContainText('오늘 할 일 2');await expect(today.locator('.gt-pane-today-late')).toHaveText('기한 지남 1');
-    await expect(today.locator('[data-gt-today-open]')).toHaveText(['할 일 a','할 일 b']);
-    // ① 줄을 누르면 오른쪽에 바로 열리고 고른 줄 표시, 요약은 숨는다. [저장] 버튼은 없다.
+    // TASK-오른쪽칸비우기: 아무것도 안 골랐을 때 오른쪽 칸은 빈 칸(요약·안내 글자 없음).
+    await expect(pane).not.toHaveClass(/has-task/);expect(await pane.evaluate(el=>el.textContent.trim()+'|'+el.children.length)).toBe('|0');
+    // ① 줄을 누르면 오른쪽에 바로 열리고 고른 줄 표시. [저장] 버튼은 없다.
     const before=await historyLength(page);
     await page.locator('[data-gt-edit="a"]').click();
-    await expect(editor).toBeVisible();await expect(today).toBeHidden();
+    await expect(editor).toBeVisible();
     await expect(page.locator('[data-google-task="a"]')).toHaveClass(/is-selected/);
     await expect(pane.locator('#gtSaveBtn')).toBeHidden();
     await expect(pane.locator('#gtToggleBtn')).toBeVisible();await expect(pane.locator('#gtDeleteBtn')).toBeVisible();
@@ -85,7 +83,7 @@ for(const width of [690,884,1280]){
     expect(calls.some(c=>c.action==='create')).toBe(false);
     // ③ 뒤로 키 = 상세 닫기(한 단계), 화면은 할 일 그대로, 요약이 다시 보인다.
     await page.goBack();
-    await expect(editor).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);await expect(today).toBeVisible();
+    await expect(editor).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);expect(await pane.evaluate(el=>el.textContent.trim()+'|'+el.children.length)).toBe('|0');
     await expect(page.locator('#gtTaskBody .gt-row.is-selected')).toHaveCount(0);
     await expect(page.locator('#tasksView')).toBeVisible();
     // 고르기 창(S52-01)도 열 때 뒤로 기록 하나를 쌓고 닫을 때 거둔다(앞으로 칸에 남는 한 칸은 다음 기록이 지운다). 그래서 길이는 칸 하나 + 창 하나.
@@ -96,9 +94,6 @@ for(const width of [690,884,1280]){
     await page.locator('[data-gt-edit="soon"]').click();await expect(page.locator('#gtEditTitle')).toHaveValue('할 일 soon');
     await pane.locator('[data-gt-close]').click();
     await expect(editor).toBeHidden();await expect(page.locator('#tasksView')).toBeVisible();
-    // 요약 줄을 누르면 그 할 일이 오른쪽에 열린다.
-    await today.locator('[data-gt-today-open]').first().click();
-    await expect(editor).toBeVisible();
     expect(errors).toEqual([]);
   });
 }

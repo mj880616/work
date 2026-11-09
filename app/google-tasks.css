@@ -166,8 +166,6 @@ div.gt-main{cursor:default}
   /* UI-칸안스크롤하나로(시안 A): 상세 칸에 따로 스크롤을 두지 않는다. 화면에 붙어 따라오는 일은 follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 한다(google-tasks.js syncSplit). */
   #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane{grid-column:2;grid-row:2 / -1;display:block;align-self:start;min-height:0;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
   /* UI-전수디자인점검 F06: 할 일을 고르기 전에는 안내문 없이 빈 자리(상자 선·바탕 없음). 고르면 이 칸에 수정 창이 들어오며 상자가 된다. */
-  /* S51-13 ④: 아무것도 안 골랐을 때 오른쪽 칸은 '오늘 할 일' 요약(#gtPaneToday, renderTasks가 그림). 고르면 요약은 숨고 수정 칸이 들어온다. */
-  #gtDetailPane.has-task>#gtPaneToday{display:none}
   /* TASK-화면다듬기: [기한] 칸은 좁게, 오른쪽에 낮은 빠른 버튼 [내일][모레][다음주][기한 없음](PC 상세 칸에서만, 이미 있는 할 일을 고칠 때). */
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-row{display:flex;align-items:flex-end;gap:var(--kptu-space-2);flex-wrap:wrap}
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-row>label{flex:0 0 168px;min-width:0}
@@ -260,16 +258,7 @@ div.gt-main{cursor:default}
 #gtTaskModal .gt-att.is-drop{outline:1px dashed var(--kptu-link);outline-offset:2px;border-radius:var(--kptu-radius-sm)}
 @media (max-width:600px){#gtTaskModal .gt-att-btn{padding:0 6px}#gtTaskModal .gt-att-row{gap:2px}}
 .gt-pick.is-drop{outline:1px dashed var(--kptu-link);outline-offset:2px;border-radius:var(--kptu-radius-sm)}
-/* S51-13 TODO-폴드목록상세: 오른쪽 칸 '오늘 할 일' 요약(아무것도 안 골랐을 때) · 칸 안 바로 저장(제목·기한·연결·메모·첨부) */
-#gtPaneToday:empty{display:none}
-.gt-pane-today-head{display:flex;align-items:baseline;gap:8px;margin:0 0 var(--kptu-space-2);font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium);line-height:1.4}
-.gt-pane-today-head b{font-weight:var(--ds-weight-medium);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
-.gt-pane-today-late{margin-left:auto;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular);color:var(--kptu-danger)}
-.gt-pane-today-list{list-style:none;margin:0;padding:0}
-.gt-pane-today-list li+li{border-top:var(--ds-line-width) solid var(--ds-line)}
-.gt-pane-today-item{display:block;width:100%;min-height:36px;margin:0;padding:6px 4px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:inherit;font:inherit;font-size:var(--ds-text-row);line-height:1.4;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gt-pane-today-item:hover{background:var(--ds-kind-other-soft)}
-.gt-pane-today-item:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+/* S51-13 TODO-폴드목록상세: 칸 안 바로 저장(제목·기한·연결·메모·첨부) */
 /* 칸 안에서는 바꾸면 바로 저장되므로 [저장] 버튼이 없다. 아래 줄은 [삭제] 왼쪽 · [완료] 오른쪽, 안내 글은 그 위. 고른 빠른 기한 버튼은 선택 표시. */
 #gtDetailPane #gtTaskModal.gt-docked #gtSaveBtn{display:none}
 #gtDetailPane #gtTaskModal.gt-docked .modal-action-footer{flex-wrap:wrap}

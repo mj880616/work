@@ -107,14 +107,13 @@ for(const width of [1280,1440]){
     expect(errors).toEqual([]);
   });
 
-  test(`PC ${width}: 아무것도 안 골랐을 때 오른쪽 칸은 '오늘 할 일' 요약(안내문 없음), 고르면 수정 칸, 닫으면 다시 요약`,async({page})=>{
+  test(`PC ${width}: 아무것도 안 골랐을 때 오른쪽 칸은 빈 칸(요약·안내문 없음), 고르면 수정 칸, 닫으면 다시 빈 칸`,async({page})=>{
     await open(page,width,[task('a','2026-10-08')]);
-    const pane=page.locator('#gtDetailPane'),today=pane.locator('#gtPaneToday');
-    // UI-전수디자인점검 F06: 안내문 없음. S51-13 ④(2026-11-06): 빈 자리 대신 오늘 할 일 요약(건수 + 오늘 기한 제목).
-    await expect(pane.locator('.gt-pane-empty')).toHaveCount(0);
-    await expect(today.locator('.gt-pane-today-head')).toContainText('오늘 할 일 1');await expect(today.locator('[data-gt-today-open]')).toHaveText(['할 일 a']);
-    await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('#gtTaskModal')).toBeVisible();await expect(pane).toHaveClass(/has-task/);await expect(today).toBeHidden();
-    await pane.locator('[data-gt-close]').click();await expect(pane).not.toHaveClass(/has-task/);await expect(today).toBeVisible();
+    const pane=page.locator('#gtDetailPane'),blank=()=>pane.evaluate(el=>el.textContent.trim()+'|'+el.children.length);
+    // TASK-오른쪽칸비우기(2026-11-09): 고르기 전에는 요약도 안내문도 없는 빈 칸.
+    await expect(pane.locator('.gt-pane-empty')).toHaveCount(0);expect(await blank()).toBe('|0');
+    await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('#gtTaskModal')).toBeVisible();await expect(pane).toHaveClass(/has-task/);
+    await pane.locator('[data-gt-close]').click();await expect(pane).not.toHaveClass(/has-task/);await expect(pane.locator('#gtTaskModal')).toBeHidden();
   });
   test(`PC ${width}: 할 일 줄은 바탕 상자 없이 가는 선 한 줄(높이 36px), 제목 왼쪽·기한 오른쪽`,async({page})=>{
     await open(page,width,[task('a','2026-10-08'),task('b','2026-10-08')]);
