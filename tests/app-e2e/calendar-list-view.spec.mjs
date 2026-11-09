@@ -38,6 +38,23 @@ test('bottom loads another 14 days and navigation resets the range',async({page}
   await page.locator('#calendarTodayBtn').click();
   await expect(page.locator('.clv-day').first()).toHaveAttribute('data-date','2026-10-15');
 });
+for(const width of [390,1280])test(`할 일이 늦게 와서 목록이 다시 그려진 뒤에도 끝까지 내리면 다음 14일이 저절로 붙는다 (${width})`,async({page})=>{
+  await page.setViewportSize({width,height:844});
+  await openEmphasisFixture(page,{view:'list'});
+  await expect(page.locator('.clv-day')).toHaveCount(14);
+  await expect(page.locator('.clv-day[data-date="2026-10-20"] .clv-tasks')).toBeVisible();
+  await expect(page.locator('#calendarListMore')).toBeEnabled();
+  // 끝 단추는 처음 화면 밖에 있다. 사용자가 한 번 내린(scroll) 상태로 만들면 끝 지켜보기가 단추에 걸린다.
+  await page.evaluate(()=>{window.__oldMore=document.querySelector('#calendarListMore');document.dispatchEvent(new Event('scroll'))});
+  // 할 일 읽기가 늦게 끝난 것처럼 목록을 통째로 다시 그린다(단추가 새 것으로 바뀐다).
+  await page.evaluate(()=>window.KPTUCalendarTasks.refresh());
+  await expect.poll(()=>page.evaluate(()=>document.querySelector('#calendarListMore')!==window.__oldMore)).toBe(true);
+  await expect(page.locator('.clv-day')).toHaveCount(14);
+  // 새 끝 단추가 화면에 닿는다(창을 키워 내리는 동작 없이 위치만 바뀜): 다시 그려졌어도 다음 14일이 저절로 붙는다.
+  // 화면이 아주 커서 28일도 한 화면에 들어오면 끝에 닿은 채로 이어서 붙으므로 '28일 이상'으로 본다.
+  await page.setViewportSize({width,height:4000});
+  await expect.poll(()=>page.locator('.clv-day').count()).toBeGreaterThanOrEqual(28);
+});
 for(const view of ['invalid'])test(`saved ${view} falls back on phone`,async({page})=>{
   await open(page,360,view);
   await expect(page.locator('#calendarList')).toBeVisible();
