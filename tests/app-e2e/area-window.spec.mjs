@@ -21,6 +21,8 @@ function state(){
   return s;
 }
 async function open(page,s,width,url='/app/?view=reports'){
+  // BIZ-주간표이번주: 사업 보고는 늘 이번 주로 열린다 — 주 A(10.5~10.11)를 '이번 주'로 둔다(시계만 고정).
+  await page.clock.setFixedTime(new Date('2026-10-09T03:00:00Z'));
   await page.setViewportSize({width,height:900});await mockApp(page,s);
   await page.route(`${SB}/functions/v1/ai-assist`,route=>{const body=route.request().postDataJSON();s.aiCalls.push(body);
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,kind:'area_suggest',suggestions:[{id:'top-a',name:'공공기관 기능개혁 대응'}]})})});

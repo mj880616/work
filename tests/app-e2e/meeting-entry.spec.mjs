@@ -56,7 +56,11 @@ async function mock(page){
   });
 }
 
+// 화면 시계(signIn이 고정). 시험 쪽에서 '오늘'을 셀 때도 이 값을 쓴다.
+const PAGE_NOW=Date.parse('2026-09-17T12:00:00Z');
 async function signIn(page){
+  // BIZ-주간표이번주(11/09): 사업 보고 목록은 늘 이번 주로 열린다. 가짜 기본 회의(9.17)가 든 주를 '이번 주'로 둔다(시계만 고정, 타이머는 그대로).
+  await page.clock.setFixedTime(new Date(PAGE_NOW));
   await mock(page);
   const returnTo=`${BASE}/app/?view=meetings`;
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
@@ -822,7 +826,7 @@ test('repeated meeting follow-up save sends one Google create',async({page})=>{
 
 test('meeting detail waits for a task screen completion and rereads it on reopening',async({page})=>{
   await signIn(page);
-  const due=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10)+'T00:00:00Z';
+  const due=new Date(PAGE_NOW+9*60*60*1000).toISOString().slice(0,10)+'T00:00:00Z';
   let status='needsAction',toggleStarted=false,linkedReads=0,linkedCompleted=0,release;
   const held=new Promise(resolve=>{release=resolve});
   const task=()=>({id:'meeting-follow-up',taskListId:'@default',taskListTitle:'내 할 일',title:'후속',status,due,completed:status==='completed'?new Date().toISOString():null});
@@ -970,7 +974,7 @@ for(const width of [390])test(`meeting Google follow-up row stays usable at ${wi
 
 test('Google editor displays and retains meeting links while a meeting-only task stays unlinked to projects',async({page})=>{
   await signIn(page);
-  const today=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
+  const today=new Date(PAGE_NOW+9*60*60*1000).toISOString().slice(0,10);
   const task={id:'linked-google',taskListId:'@default',taskListTitle:'내 할 일',title:'회의 연결 항목',due:today+'T00:00:00Z',notes:'',status:'needsAction'};
   let update=null,linkChanges=0,unlinkBody=null,projectLinked=true;const actions=[];
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>{

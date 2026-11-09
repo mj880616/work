@@ -133,15 +133,12 @@ export function matchesAreaChip(meeting, chip, roots) {
 }
 
 // MTG-프로젝트합치기 3단계(요청 10/28 19:07 ③): 사업 보고 목록은 주 단위(‹ › 로 주 넘기기). 서울 월~일.
-// 처음 보이는 주: 이번 주에 보고가 있으면 이번 주, 없으면 오늘까지 중 가장 최근 보고의 주, 그것도 없으면 가장 최근 보고의 주, 보고가 없으면 이번 주.
+// BIZ-주간표이번주(11/09): 보이는 주는 늘 이번 주(오늘이 든 월~일)부터 — 이번 주 보고가 0건이어도 이번 주(옛 '가장 최근 보고가 있는 주로' 규칙은 없앰).
+// ‹ ›로 고른 주(picked)는 고를 때의 이번 주(pickedIn)가 지나기 전까지만 쓴다. 새 주가 되면(월요일) 다시 이번 주.
 export const reportDay = meeting => seoulKey(meeting?.meeting_at);
-export function defaultReportWeek(meetings, today) {
-  const days = (meetings || []).map(reportDay).filter(Boolean).sort();
-  const now = weekOf(today);
-  if (days.some(d => d >= now.from && d <= now.to)) return now.from;
-  const past = days.filter(d => d <= today);
-  const pick = past.at(-1) || days.at(-1);
-  return pick ? weekOf(pick).from : now.from;
+export function shownReportWeek(picked, pickedIn, today) {
+  const now = weekOf(today).from;
+  return picked && pickedIn === now ? picked : now;
 }
 // from(월요일) 주에 든 보고 + 일시가 없는 보고(어느 주에도 들지 않아 빠지지 않게 모든 주 맨 아래에 함께 보인다). from이 비면(전체) 그대로.
 export const inReportWeek = (list, from) => !from ? (list || []) : (list || []).filter(m => !reportDay(m) || inPeriod(m, from, shiftDays(from, 6)));
