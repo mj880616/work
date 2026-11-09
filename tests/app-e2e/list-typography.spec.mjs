@@ -2,6 +2,7 @@ import {OPERATOR_ORG_ORDER,OPERATOR_REPORT_CALENDAR} from '../org-order-fixture.
 const operatorViewPrefs=()=>({org_order:OPERATOR_ORG_ORDER,report_calendar:OPERATOR_REPORT_CALENDAR});
 import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {showReportsOf} from './helpers/meeting-open.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 
@@ -77,6 +78,7 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
  await page.setViewportSize({width,height:900});await boot(page);
  for(const [name,rows]of Object.entries(samples)){
   await view(page,name);
+  if(name==='meetings')await showReportsOf(page); // BIZ-주간표이번주: 가짜 보고가 지난 주뿐이면 [전체 기간]으로
   // 8-9e-2: the phone projects add button is the round [+] (no label text); covered by ui-standard-3b. UI-선택표시통일: meetings too.
   // UI-화면정리 C: 공유 페이지 [+ 새 공유 페이지]·원장 [+ 기록하기]도 폰은 동그란 [+](글자 없음, tests/ui-cleanup-c.test.mjs).
   // UI-PC회의: PC(≥1024) 회의는 유형별 열 — 열 제목(.mcol-name)·차수(.mcol-round) 13px, 날짜·자료(.mcol-meta) 12px.

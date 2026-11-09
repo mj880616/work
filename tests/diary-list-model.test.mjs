@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {buildDiaryList, rowText, dayLabel, monthLabel, diaryPinnedAt, diaryStarredAt, withMark, matches, queryWords, MARK_KEYS, withDoneDays, doneLine, inDiaryPhoto} from '../app/diary-list-model.mjs';
+import {buildDiaryList, rowText, dayLabel, monthLabel, diaryPinnedAt, diaryStarredAt, withMark, matches, queryWords, MARK_KEYS, withDoneDays, doneLine, inDiaryPhoto, originKey, photoOrigins, withOrigins} from '../app/diary-list-model.mjs';
 import {validValue, parsePrefs, KEYS, DIARY_VIEWS} from '../app/view-prefs.js';
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
@@ -138,4 +138,32 @@ test('DIARY-넣은사진표시: 일기 첨부(올린 사진) 칸만 일기에 �
   assert.equal(inDiaryPhoto({source:'phone', key:'a1'}, r), false);
   assert.equal(inDiaryPhoto({source:'upload', key:'a1'}, null), false);
   assert.equal(inDiaryPhoto(null, r), false);
+});
+
+test('DIARY-넣은사진원본: 넣을 때 적은 원본 식별값으로 원드라이브·폰 원본 칸도 일기에 넣은 사진이 된다', () => {
+  const att = [{drive_file_id:'a1', mime_type:'image/jpeg'}, {drive_file_id:'a2', mime_type:'image/jpeg'}, {drive_file_id:'f1', mime_type:'application/pdf'}];
+  const r = row('2026-11-07', '', {photo_origins:{a1:'onedrive:OD1', a2:'phone:ms:77', f1:'onedrive:OD9', gone:'onedrive:OD8'}}, att);
+  assert.equal(inDiaryPhoto({source:'onedrive', key:'OD1'}, r), true);
+  assert.equal(inDiaryPhoto({source:'phone', key:'ms:77'}, r), true);
+  assert.equal(inDiaryPhoto({source:'onedrive', key:'OD2'}, r), false);
+  assert.equal(inDiaryPhoto({source:'phone', key:'OD1'}, r), false);   // 출처가 다르면 같은 값이어도 아니다
+  assert.equal(inDiaryPhoto({source:'onedrive', key:'OD9'}, r), false); // 이미지 아닌 첨부
+  assert.equal(inDiaryPhoto({source:'onedrive', key:'OD8'}, r), false); // 첨부가 빠진 사진
+  assert.deepEqual(photoOrigins(r), {a1:'onedrive:OD1', a2:'phone:ms:77'});
+  // 옛 일기(식별값 없음)·깨진 값은 그대로 아니다
+  for (const bad of [{}, {photo_origins:'x'}, {photo_origins:['onedrive:a']}, {photo_origins:{a1:5, a2:'upload:zz'}}]) {
+    const old = row('2026-11-07', '', bad, att);
+    assert.equal(inDiaryPhoto({source:'onedrive', key:'OD1'}, old), false);
+    assert.deepEqual(photoOrigins(old), {});
+  }
+  assert.equal(inDiaryPhoto({source:'onedrive', key:'OD1'}, null), false);
+});
+test('DIARY-넣은사진원본: originKey는 원드라이브·폰만, withOrigins는 다른 칸을 지키며 더한다', () => {
+  assert.equal(originKey('onedrive', 'X'), 'onedrive:X'); assert.equal(originKey('phone', 'ms:5'), 'phone:ms:5');
+  assert.equal(originKey('upload', 'X'), ''); assert.equal(originKey('gdrive', 'X'), ''); assert.equal(originKey('onedrive', ''), '');
+  const meta = {starred_at:'t', photo_comments:{a:'c'}, photo_origins:{a:'onedrive:1'}};
+  assert.deepEqual(withOrigins(meta, {b:'phone:ms:2', c:'bad', d:'upload:x'}), {starred_at:'t', photo_comments:{a:'c'}, photo_origins:{a:'onedrive:1', b:'phone:ms:2'}});
+  assert.deepEqual(withOrigins(null, {a:'onedrive:1'}), {photo_origins:{a:'onedrive:1'}});
+  assert.deepEqual(withOrigins({x:1}, {}), {x:1});
+  assert.deepEqual(meta.photo_origins, {a:'onedrive:1'}); // 받은 값은 바꾸지 않는다
 });

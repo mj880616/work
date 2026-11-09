@@ -8,7 +8,7 @@
 // (30일 안에 되살리기, 알림의 [되돌리기]). 사진은 서버의 축소 사진(basket-files photo, 긴 변 1600px)을 받아 일기 사진으로 다시 올린다:
 // 같은 Drive 파일을 두 행이 함께 가리키지 않게 해서, 한쪽을 지울 때 다른 쪽 사진이 사라지는 일이 없다.
 // 하나라도 실패하면 원래 노트·업데이트는 지우지 않고 그대로 둔다.
-import {readDiaryDay, createDiary, saveDiaryText, uploadDiaryPhotos, dropEmptyDiary, diaryPhotoUrl, diaryText,
+import {readDiaryDay, createDiary, saveDiaryText, saveDiaryOrigins, uploadDiaryPhotos, dropEmptyDiary, diaryPhotoUrl, diaryText,
   validateDiaryText, todayKey, DIARY_MAX_PHOTOS, DIARY_TEXT_MAX} from './diary-data.js';
 import {diaryStartDoc, joinDiaryDocs} from './diary-doc.mjs';
 import {plainToDocKeep} from './ed-markdown.mjs';
@@ -73,7 +73,8 @@ async function photoFile(noteId, file, rt, fetcher) {
 }
 
 // 그날 일기에 글·사진을 더한다(없으면 만든다). 돌려주는 값: {row, done, failed?, message?}.
-async function addToDiary(day, text, files, {rt, isCurrent = () => true, onProgress = () => {}} = {}) {
+// origins: files와 같은 순서의 원본 식별값('onedrive:<id>'·'phone:<key>', 없으면 빈 값). 붙은 사진마다 일기 행 metadata.photo_origins에 적는다.
+async function addToDiary(day, text, files, {rt, isCurrent = () => true, onProgress = () => {}, origins = []} = {}) {
   validateDiaryText(text);
   let row = await readDiaryDay(day, rt), created = false;
   if (!row) {
@@ -87,6 +88,9 @@ async function addToDiary(day, text, files, {rt, isCurrent = () => true, onProgr
   let result = {done:0, attachments:row.attachments || []};
   if (files.length) result = await uploadDiaryPhotos(row, files, {rt, isCurrent, onProgress});
   let fresh = await readDiaryDay(day, rt);
+  const added = {};
+  for (const [index, id] of Object.entries(result.addedIds || {})) if (origins[index]) added[id] = origins[index];
+  if (fresh && Object.keys(added).length) fresh = await saveDiaryOrigins(fresh, added, rt);
   if (fresh && created && !text.trim()) {
     // 사진만 든 날은 빈칸 하나로 만들어지므로, 사진이 붙었으면 그 빈칸을 비우고, 하나도 못 붙었으면 빈 일기를 다시 지운다.
     if (fresh.attachments?.length) fresh = await saveDiaryText(fresh, '', rt);
@@ -125,12 +129,14 @@ export async function sendRecordToDiary(id, {rt = window.KPTURuntime, day = '', 
 }
 
 // 사진 화면 [일기에 넣기]: 오늘 일기에 사진을 붙인다(사진 원본·사진 화면은 그대로). 돌려주는 값: {ok, count, day, message?}.
-export async function putPhotosInDiary(files, {rt = window.KPTURuntime, day = todayKey(), isCurrent = () => true} = {}) {
-  const list = (files || []).filter(Boolean);
+// origins: files와 같은 순서의 원본 식별값(DIARY-넣은사진원본, diary-list-model.mjs originKey). 원본 칸에 '일기' 띠를 붙이는 데 쓴다.
+export async function putPhotosInDiary(files, {rt = window.KPTURuntime, day = todayKey(), isCurrent = () => true, origins = []} = {}) {
+  const kept = (files || []).map((file, i) => ({file, origin:origins[i] || ''})).filter(entry => entry.file);
+  const list = kept.map(entry => entry.file);
   if (!list.length) return {ok:false, code:'none'};
   const have = (await readDiaryDay(day, rt))?.attachments?.length || 0;
   if (have + list.length > DIARY_MAX_PHOTOS) return {ok:false, day, message:`일기 사진은 하루 ${DIARY_MAX_PHOTOS}장까지예요. 오늘 일기에 ${have}장이 있어요.`};
-  const result = await addToDiary(day, '', list, {rt, isCurrent});
+  const result = await addToDiary(day, '', list, {rt, isCurrent, origins:kept.map(entry => entry.origin)});
   if (result.failed) return {ok:false, day, count:result.done, message:result.message};
   return {ok:true, day, count:result.done};
 }
