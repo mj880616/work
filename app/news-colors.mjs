@@ -16,8 +16,12 @@ export function shadeOf(text) {
   return h % SHADES;
 }
 
+// 정당 넷은 당 색 고정(NEWS-정당색): 정의당 노랑·녹색당 녹색·노동당 빨강·진보당 주황. 값은 --ds-news-party-<키> 토큰.
+export const PARTY_FIXED = Object.freeze(['justice', 'kgreens', 'laborparty', 'jinboparty']);
+
 // 사회운동 단체 색: 카탈로그 [{key, group}]에서 같은 묶음 안 순서로 칸을 고른다.
 export function outsideColor(key, catalog = []) {
+  if (PARTY_FIXED.includes(key)) return `var(--ds-news-party-${key})`;
   const src = (catalog || []).find(s => s?.key === key);
   const family = src ? familyOfGroup(src.group) : 'movement';
   const same = (catalog || []).filter(s => s && familyOfGroup(s.group) === family);

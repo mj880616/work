@@ -5,9 +5,10 @@
 //    목록·그림은 이 탭 메모리에만 있다. 일기 쪽 저장 코드(사진 넣기·지우기·별표 바꾸기)는 부르지 않는다(읽기만).
 //    칸은 공용 사진 칸(.act-photo-thumb, ui-standard.css) — 화면 폭에 들어가는 만큼 한 줄, 넘치면 마지막 칸 '+n'. 누르면 그날 일기(사진 보기).
 // ②·③: 서버(ai-assist)가 고른 결과를 받아 그리기만 한다(home-day-picks-model.mjs로 거름). 결과가 없으면 칸째 없다.
+//    AI 한도에 닿았으면(limit) ② 칸 머리에 기존 한도 알림 한 줄을 보인다(고른 것이 없어도 칸째 숨기지 않음). 일기를 쓴 제안(done)은 그리지 않는다.
 //    [일기 쓰기]는 공용 ② 작은 버튼(button.secondary). 누르면 부르는 화면이 일기 쓰기를 연다(onWrite).
 import {rankDayPhotos, stripFit, eventWindows, CELL_PX, GAP_PX} from './home-day-photos-model.mjs';
-import {cleanReads, cleanSuggests, suggestTime, readAtLabel, pickedNote, READS_OPEN} from './home-day-picks-model.mjs';
+import {cleanReads, openSuggests, suggestTime, readAtLabel, pickedNote, limitNote, READS_OPEN} from './home-day-picks-model.mjs';
 
 const PHOTO_FRESH_MS = 10 * 60 * 1000;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -141,19 +142,20 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
   }
   function drawReads() {
     const {day, today, reads} = last, list = day === today ? cleanReads(reads?.items) : [];
-    if (!list.length) { readsHost.hidden = true; readsHost.replaceChildren(); return; }
+    const limit = day === today ? limitNote(last.limit) : '';
+    if (!list.length && !limit) { readsHost.hidden = true; readsHost.replaceChildren(); return; }
     readsHost.hidden = false;
-    const note = pickedNote(reads?.picked_at, today);
+    const note = limit || pickedNote(reads?.picked_at, today);
     const row = item => `<li class="journal-read" data-journal-read="${esc(item.id)}"><b class="journal-read-title">${esc(item.title)}</b>`
       + `<span class="journal-read-line">무슨 일: ${esc(item.what)}</span><span class="journal-read-line">왜: ${esc(item.why)}</span>`
       + `<small class="journal-read-meta">${esc([item.source, readAtLabel(item.at, today)].filter(Boolean).join(' · '))}${item.url ? ` <a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" data-journal-read-link>원문 ›</a>` : ''}</small></li>`;
     const open = list.slice(0, READS_OPEN), rest = list.slice(READS_OPEN);
-    readsHost.innerHTML = `<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">읽을 만한 글</h4><small class="journal-head-count">${list.length}</small></span>${note ? `<small class="journal-fill-note">${note}</small>` : ''}</div>`
-      + `<ul class="journal-reads-list">${open.map(row).join('')}</ul>`
+    readsHost.innerHTML = `<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">읽을 만한 글</h4>${list.length ? `<small class="journal-head-count">${list.length}</small>` : ''}</span>${note ? `<small class="journal-fill-note"${limit ? ' data-journal-fill-limit' : ''}>${esc(note)}</small>` : ''}</div>`
+      + (open.length ? `<ul class="journal-reads-list">${open.map(row).join('')}</ul>` : '')
       + (rest.length ? `<details class="journal-fill-more" data-journal-reads-more><summary>${rest.length}개 더</summary><ul class="journal-reads-list">${rest.map(row).join('')}</ul></details>` : '');
   }
   function drawSuggests() {
-    const {day, today, hour, suggests} = last, list = suggestTime({day, today, hour}) ? cleanSuggests(suggests?.items) : [];
+    const {day, today, hour, suggests} = last, list = suggestTime({day, today, hour}) ? openSuggests(suggests?.items, suggests?.done) : [];
     if (!list.length) { suggestHost.hidden = true; suggestHost.replaceChildren(); return; }
     suggestHost.hidden = false;
     suggestHost.innerHTML = '<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">이런 기록은 어때요?</h4></span></div>'
@@ -171,7 +173,7 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (event.target.closest('[data-journal-photos-open],[data-journal-photo],[data-journal-photo-more]')) { onOpenDay(last.day); return; }
     const write = event.target.closest('[data-journal-suggest-write]');
     if (write) {
-      const item = cleanSuggests(last.suggests?.items).find(x => x.id === write.dataset.journalSuggestWrite);
+      const item = openSuggests(last.suggests?.items, last.suggests?.done).find(x => x.id === write.dataset.journalSuggestWrite);
       if (item) onWrite(last.day, item.text, item.id);
     }
   });
@@ -186,7 +188,7 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (strip && strip.clientWidth !== drawnWidth) drawPhotos();
   }).observe(host);
   return {
-    // state: {day, today, hour, events, reads:{items, picked_at}|null, suggests:{items}|null, hidden}
+    // state: {day, today, hour, events, reads:{items, picked_at}|null, suggests:{items, done}|null, limit:''|'monthly_limit'|'daily_limit', hidden}
     render(state) {
       last = {...state};
       if (!state.hidden) ensurePhotos(state.day);
