@@ -270,6 +270,8 @@ for(const width of [390,1280])test(`[전체 표] 줄 ⋯ 는 긴 글에서도 �
  const long='합성 아주 긴 기록 '.repeat(24);
  const rec=U(OA,'2026-11-17',long);
  const {errors}=await fixture(page,{width,records:[rec]});
+ // RECORD-한줄: 표 줄은 한 줄(60자 안팎)이라 PC 넓은 칸에서는 꺾이지 않는다. 좁은 칸(폴드·창 나눔)처럼 글 폭을 좁혀 여러 줄일 때 ⋯ 자리를 본다.
+ await page.addStyleTag({content:'#soOverview .rw-line .wl-text{max-width:10em}'});
  await openTable(page);
  const line=oa(page).locator('.wl-cell > .rw-line').first();
  const text=line.locator('.wl-text'),sum=line.locator('summary');
