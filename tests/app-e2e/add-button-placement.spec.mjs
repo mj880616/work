@@ -78,8 +78,8 @@ async function assertFloating(page,button){
   expect(await control.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
   // Painted circle 36px; the ::after touch target is 44px and sits 12px above the tabs —
   // or, where the phone switch row sits on the tabs (UI-버튼작게 ③: 일정·할 일, 44px row), 12px above that row.
-  // S51-28: 자료실은 묶기 알약(#libraryGroupBy)이 아래 탭 위 44px 줄을 차지한다. S52-22: 사업 보고 [목록|달력|사진](#reportViewFilter)도 같다.
-  const dock=await control.evaluate(n=>{const sw=n.closest('.view-panel')?.querySelector(':scope > .schedule-switch, #libraryGroupBy, #reportViewFilter');return sw&&sw.getClientRects().length?44:0;});
+  // S52-22: 사업 보고 [목록|달력|사진](#reportViewFilter)은 아래 탭 위 44px 줄을 차지한다(자료실 묶기 알약은 LIB-위쪽한줄로 없앴다).
+  const dock=await control.evaluate(n=>{const sw=n.closest('.view-panel')?.querySelector(':scope > .schedule-switch, #reportViewFilter');return sw&&sw.getClientRects().length?44:0;});
   expect(b.width).toBe(36);expect(b.height).toBe(36);const el=control;const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w).toBe(44);expect(t.h).toBe(44);expect(Math.round(tabs.y-dock-t.bottom)).toBe(12);
 }
 // S48-6 UI-폰달력월보기 결정 6: 달력 [+]는 전환 줄(44px, 탭 바로 위) 안 오른쪽 끝 작은 단추 — 보이는 32px, 누르는 범위 44px이 전환 줄에 꼭 맞음.
@@ -98,14 +98,14 @@ for(const width of [390,1440]){
     test.use({viewport:{width,height:width===390?844:900},timezoneId:'Asia/Seoul'});
     test('library list card keeps add action and opens the same form',async({page})=>{
       await openApp(page,'library');
-      // UI-전수디자인점검 F11: PC는 목록 칸 머리가 아니라 검색 칸 오른쪽(화면 머리 오른쪽 자리).
-      await assertPlaced(page,width,{card:'#libraryView .library-filter-toolbar',head:'.lu-search-row',button:'#newDocumentBtn',title:'#documentSearch'});
-      // UI-자료실편집버튼(2026-10-21): 분류 편집은 목록 머리가 아니라 [종류] 칩 줄 맨 끝의 작은 [편집]. 머리에는 [+ 자료 등록]만.
-      await expect(page.locator('#libraryListCard .add-list-head #manageLibraryBtn')).toHaveCount(0);
-      const edit=page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"] > #manageLibraryBtn');
-      // S51-28 LIB-화면정리: 폰·폴드(1199px까지)는 칩 줄·[편집] 대신 위 한 줄 [분류 ▾](창 안 [편집]).
-      if(width<1200){await expect(edit).toBeHidden();await expect(page.locator('#libraryView .lu-search-row > #libraryCategoryPick')).toBeVisible();}
-      else{await expect(edit).toBeVisible();await expect(edit).toHaveText('✎분류 수정');await expect(edit).toHaveAttribute('aria-label','분류 수정');}
+      // LIB-위쪽한줄(11/09 명진 B·가안): 자료실 [+]도 사업 보고처럼 폰·PC 모두 위 줄 오른쪽 작은 아이콘 [+][⋯](떠 있지 않음, ⋯가 줄 끝).
+      // 분류 수정은 [분류 ▾] 창 아래 '✎ 분류 수정' 하나(칩 줄 끝 버튼 없음).
+      {const bar=page.locator('#libraryView .lu-search-row');await expect(bar.locator('.lu-head-actions > #newDocumentBtn')).toBeVisible();
+        expect(await page.locator('#newDocumentBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
+        const [b,btn,more]=await Promise.all([bar.boundingBox(),bar.locator('#newDocumentBtn').boundingBox(),page.locator('#libraryTopMenuBtn').boundingBox()]);
+        expect(btn.x+btn.width).toBeLessThanOrEqual(more.x);expect(more.x+more.width).toBeCloseTo(b.x+b.width,0);expect(Math.abs((btn.y+btn.height/2)-(more.y+more.height/2))).toBeLessThan(2);
+        await expect(page.locator('#newDocumentBtn')).toHaveAttribute('aria-label','자료 등록');expect((await page.locator('#newDocumentBtn').innerText()).trim()).toBe('')}
+      await expect(page.locator('#manageLibraryBtn')).toHaveCount(0);await expect(page.locator('#libraryView .lu-pick-row > #libraryCategoryPick')).toBeVisible();
       await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
       await page.locator('#newDocumentBtn').click();
       await expect(page.locator('#documentModal')).toBeVisible();

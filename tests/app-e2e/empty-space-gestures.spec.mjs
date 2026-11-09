@@ -70,7 +70,7 @@ test('노트 폰 412: 아래 빈 곳에서 좌우 밀기 = 보기 전환, 그 �
 test('자료실 폰 412: 그 폴더만 아래 빈 곳에서 오므리기 = 나무', async ({ page }) => {
   const { bootLibrary, libFolder } = await import('./helpers/library-folder-server.mjs');
   const { errors } = await bootLibrary(page, 412, { folders: [libFolder('fa', 'top-a', { name: '가상 A', sort_order: 1024 })], items: [{ document_id: 'n-1', folder_id: 'fa' }] });
-  await page.locator('#libraryGroupBy').getByRole('radio', { name: '폴더' }).click();
+  await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
   const head = page.locator('#documentList details[data-lu-node="f:fa"] > summary');
   await expect(head).toBeVisible();
   const { pinch } = await import('./helpers/pinch.mjs');

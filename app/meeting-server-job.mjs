@@ -23,9 +23,14 @@ export function progressNote(job){
   return '';
 }
 
+// 띠 글은 실패 이유마다 일상어로 나눈다(REC-정리멈춤반복 11/09: 이유 없이 '그 밖' 문구만 떠 왜 멈췄는지 알 수 없었음).
+// 서버 정리(Edge meeting-transcribe runStep)가 남기는 error_code를 모두 적는다. 새 코드를 서버에 더하면 여기에도 더한다(시험이 서버 코드 목록과 맞춰 본다).
+const KEEP='소리는 Drive에 남아 있어요.';
+const AGAIN='[다시]를 누르면 멈춘 곳부터 이어요.';
 const FAIL_TEXT={
   empty_transcript:'녹음에서 글을 찾지 못했어요.',
-  draft_failed:'전사는 끝났는데 요약을 만들지 못했어요. [다시]를 누르세요.',
+  draft_failed:'전사는 끝났는데 요약을 만들지 못했어요. 전사한 글은 남아 있어요. [다시]를 누르세요.',
+  draft_cut:'회의가 길어 요약이 중간에 잘렸어요. 전사한 글은 남아 있어요. [다시]를 누르세요.',
   daily_limit:'오늘의 AI 사용 한도에 닿아 요약을 만들지 못했어요. 내일 [다시]를 누르세요.',
   monthly_limit:'이번 달 녹음 전사 한도에 닿았어요.',
   too_long:'녹음은 구간마다 1시간까지 전사할 수 있어요.',
@@ -33,11 +38,23 @@ const FAIL_TEXT={
   bad_type:'녹음 파일(m4a·mp3·wav 등)만 전사할 수 있어요.',
   not_found:'녹음을 찾지 못했어요.',
   not_ready:'녹음 전사는 준비 중이에요.',
-  too_many_steps:'정리가 너무 오래 걸려 멈췄어요. [다시]를 누르세요.',
+  too_many_steps:`정리가 너무 오래 걸려 멈췄어요. ${AGAIN}`,
+  gemini_timeout:`전사가 오래 걸려 멈췄어요. ${KEEP} ${AGAIN}`,
+  step_cut:`한 구간이 서버 시간 안에 끝나지 않아 끊겼어요. ${KEEP} ${AGAIN}`,
+  interrupted:`정리가 중간에 끊겼어요. ${KEEP} ${AGAIN}`,
+  busy:`정리가 중간에 끊겼어요. ${KEEP} ${AGAIN}`,
+  gemini_failed:`전사 서비스가 잠깐 실패했어요. ${KEEP} ${AGAIN}`,
+  gemini_upload:`전사 서비스에 소리를 올리지 못했어요. ${KEEP} ${AGAIN}`,
+  gemini_file_failed:`전사 서비스가 소리 파일을 읽지 못했어요. ${KEEP}`,
+  gemini_rejected:`전사 서비스가 소리 파일을 받지 않았어요. ${KEEP}`,
+  bad_format:`소리 파일이 깨져 읽지 못했어요. ${KEEP}`,
+  drive_failed:`Drive에서 소리를 읽지 못했어요. ${KEEP} ${AGAIN}`,
+  drive_not_connected:'Google Drive 연결이 끊겼어요. 자료실에서 Drive를 연결한 뒤 [다시]를 누르세요.',
+  usage_unavailable:`이번 달 사용량을 확인하지 못했어요. ${AGAIN}`,
 };
-// 실패 코드 → 띠 글(두 줄까지). 전사 서비스 실패 등 그 밖은 일반 문구 + 소리는 남아 있음.
+// 실패 코드 → 띠 글(두 줄까지). 위 표에 없는 이유(서버 안 오류 등)만 일반 문구 + 소리는 남아 있음.
 export function failText(code){
-  return FAIL_TEXT[code]||'서버에서 정리하다 멈췄어요. 소리는 Drive에 남아 있어요. [다시]를 누르세요.';
+  return FAIL_TEXT[code]||`서버에서 정리하다 멈췄어요. ${KEEP} [다시]를 누르세요.`;
 }
 // 다시 눌러서 될 수 있는 실패인가.
 export const canRetry=code=>!['empty_transcript','not_found','bad_type','too_large','too_long'].includes(code);

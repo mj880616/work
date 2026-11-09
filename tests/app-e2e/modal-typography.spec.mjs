@@ -188,8 +188,8 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter):not(.report-period-chips)');// REPORT-기간고르기: 기간 칩 줄은 report-period.spec이 따로 본다
     // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
     // UI-전수디자인점검 F01: 사업 보고(폰)는 위쪽 칸 칩 줄 하나(사업영역·회의명은 줄 끝 [거르기 ▾] 창으로 접었다).
-    // UI-보기탭한모양(S52-17): 자료실 묶기 줄은 보기 탭(공용 ⑤ .ds-seg)이 되어 칩 줄에서 빠졌다 — 남는 칩 줄은 분류 하나.
-    await expect(groups).toHaveCount(1);
+    // LIB-위쪽한줄(11/09): 자료실은 묶기·분류 모두 위 줄 고르기([폴더 ▾][분류 ▾])라 칩 줄이 없다(library-top-row.spec.mjs가 본다).
+    await expect(groups).toHaveCount(name==='library'?0:1);
     // The home view is hidden here, so its tabs (height:auto) are compared by their declared min-height; the filters' real height is checked too.
     const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.minHeight,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
     // UI-버튼크기(2026-10-17): meeting/library filters are pill chips (32px, 999px corners, 13px/500, 12px side padding),
@@ -197,25 +197,6 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     // the selected one is gray (종류 색 '그 밖'). The touch target stays 44px through ::after.
     const tokens=await page.evaluate(()=>Object.fromEntries(['--kptu-ink','--kptu-surface','--kptu-muted','--ds-kind-other-ink','--ds-kind-other-soft','--ds-select-ink','--ds-select-bg'].map(n=>{const e=document.createElement('span');e.style.color=`var(${n})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return [n,c];})));
     for(const group of await groups.all()){
-      // S51-28 LIB-화면정리: 1199px까지 자료실은 분류 칩 줄이 숨고([분류 ▾] 창) 묶기는 아래 알약 탭이라 칩 모양 기준 밖(library-top-row.spec.mjs가 본다).
-      if(name==='library'&&width<1200)continue;
-      // UI-PC자료실: 자료실 분류 줄은 여러 개 켜고 끄는 토글(role=group, aria-pressed). 켠 칩은 회색, 꺼진 칩은 흐린 글자(보조 글자색)·흰 바탕.
-      if(await group.getAttribute('id')==='libraryCategoryFilter'){
-        await expect(group).toHaveAttribute('role','group');
-        const toggles=group.locator('button[aria-pressed]');
-        await expect(toggles).toHaveCount(8);
-        await expect(group.locator('button[aria-pressed="false"]')).toHaveText(['회의']);await expect(group.locator('button[aria-pressed="mixed"]')).toHaveText(['전체']);// LIB-거르기전체
-        for(const toggle of await toggles.all()){
-          // LIB-맨위다듬기(S53-18): 색은 고른 칩(data-cc-fill)만. 켜져 있어도 고르지 않은 칩·일부만 켜진 [전체]는 흰 바탕, 꺼진 칩은 흐린 글자.
-          const pressedValue=await toggle.getAttribute('aria-pressed'),on=await toggle.evaluate(el=>el.hasAttribute('data-cc-fill')),mixed=!on&&pressedValue!=='false';
-          const [fontSize,fontWeight,,minHeight,paddingLeft,paddingRight,color,background,radius]=await toggle.evaluate(style);
-          expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' category chip style').toEqual(['12px','500','26px','8px','8px','999px']);
-          expect([color,background],name+' category chip color').toEqual(on?[tokens['--ds-select-ink'],tokens['--ds-select-bg']]:mixed?[tokens['--kptu-ink'],tokens['--kptu-surface']]:[tokens['--kptu-muted'],tokens['--kptu-surface']]);
-          expect((await toggle.boundingBox()).height,name+' category chip height').toBe(26);
-          expect(await toggle.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' category chip touch').toBe(30);// UI-칩줄두줄: 두 줄이라 칩 둘레 2px
-        }
-        continue;
-      }
       await expect(group).toHaveAttribute('role','radiogroup');
       await expect(group.locator('[role="radio"][aria-checked="true"]')).toHaveCount(1);
       for(const radio of await group.getByRole('radio').all()){
