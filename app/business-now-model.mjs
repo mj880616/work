@@ -5,8 +5,9 @@
 // - 칸 아래 '이번 주 기록 n' = 그 주(월~일)에 걸친 사업 기록(app_business_records) + 그 주 사업 보고 줄(읽기만).
 // 주 경계·전환 주·줄 날짜 모양은 조직보고 창 규칙(record-window-model.mjs)을 그대로 쓴다(새로 계산하지 않음).
 import {RECORD_ONE_FROM, isOldWeek, shiftWeek, mondayOf, dayText, overlaps, cleanBody} from './record-window-model.mjs';
+import {oneLine, recordOneLine} from './record-oneline.mjs';
 
-export {RECORD_ONE_FROM, isOldWeek, shiftWeek, mondayOf, dayText};
+export {RECORD_ONE_FROM, isOldWeek, shiftWeek, mondayOf, dayText, oneLine};
 export const NOW_BODY_MAX = 1000;   // 지금 상황(DB 검사와 같음, 줄바꿈 허용)
 export const OWNER_MAX = 100;       // 담당 글자(DB 검사와 같음)
 export const RECORD_BODY_MAX = 300; // 사업 기록 한 줄(DB 검사와 같음)
@@ -112,12 +113,13 @@ export function rowSpaceMap(tree) {
 }
 
 // ---- 이번 주 기록 ----
-// 사업 기록 행 → 줄 {kind:'biz_record', key, space, day, end_day, text}. 날짜·글이 틀리면 null.
+// 사업 기록 행 → 줄 {kind:'biz_record', key, space, day, end_day, text(한 줄), full(원문 그대로)}. 날짜·글이 틀리면 null.
+// RECORD-한줄: 표에는 한 줄만(record-oneline.mjs, 저장된 한 줄이 생기면 그 값). 원문은 full에.
 export function bizRecordItem(row) {
-  const day = String(row?.day ?? ''), text = cleanBody(row?.body);
+  const day = String(row?.day ?? ''), text = recordOneLine(row, 'body');
   if (!row?.id || !row?.space_id || !DAY.test(day) || !text) return null;
   const end = DAY.test(String(row.end_day ?? '')) && row.end_day > day ? row.end_day : null;
-  return {kind: 'biz_record', key: String(row.id), space: String(row.space_id), day, end_day: end, text, source_kind: row.source_kind ?? null};
+  return {kind: 'biz_record', key: String(row.id), space: String(row.space_id), day, end_day: end, text, full: String(row.body ?? ''), source_kind: row.source_kind ?? null};
 }
 // 그 주에 걸친 사업 기록을 표 줄(공간 id)별로. map = rowSpaceMap 결과(없는 공간은 그 공간 그대로). 날짜 오름차순.
 export function weekRecords(items, week, map = null) {
