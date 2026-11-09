@@ -114,57 +114,92 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
         if (again) ensurePhotos(day, {force:true});
       });
   }
+  // 사진 줄은 지난번과 같으면 손대지 않고, 달라도 같은 사진의 칸은 그대로 둔 채 바뀐 칸만 고친다(칸을 지우고 새로 만들면 그림이 다시 떠 깜빡인다).
+  const cells = new Map(); // 칸 이름(출처:키, 겹치면 번호) → 사진 칸 button
+  const setText = (el, text) => { if (el && el.textContent !== text) el.textContent = text; };
+  const setAttr = (el, name, value) => { if (el.getAttribute(name) !== value) el.setAttribute(name, value); };
   function drawPhotos() {
     const {day, today, events} = last, list = k ? rankedFor(day, events) : [];
-    if (!list.length) { photosHost.hidden = true; photosHost.replaceChildren(); drawnWidth = -1; return; }
+    if (!list.length) { photosHost.hidden = true; photosHost.replaceChildren(); cells.clear(); drawnWidth = -1; return; }
     photosHost.hidden = false;
     const label = day === today ? '오늘 사진' : '그날 사진';
-    photosHost.innerHTML = `<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">${label}</h4><small class="journal-head-count" data-journal-photos-count>${list.length}</small></span><button type="button" class="row-act" data-journal-photos-open aria-label="${label} 보기">사진 보기 ›</button></div>`;
-    const strip = document.createElement('div');
-    strip.className = 'journal-photo-strip'; strip.dataset.journalPhotoStrip = '';
-    strip.setAttribute('role', 'group'); strip.setAttribute('aria-label', `${label} ${list.length}장`);
-    photosHost.append(strip);
-    drawnWidth = strip.clientWidth;
-    const fit = stripFit(drawnWidth, list.length, {cell:CELL_PX, gap:GAP_PX});
-    list.slice(0, fit.shown).forEach((item, i) => {
-      const button = document.createElement('button');
-      button.type = 'button'; button.className = 'act-photo-thumb journal-photo-cell'; button.dataset.journalPhoto = String(i); button.dataset.journalPhotoKey = item.key || '';
-      button.setAttribute('aria-label', `${label} ${i + 1} — 사진 보기`);
-      button.append(thumbOf(k, item, rt));
-      strip.append(button);
-    });
-    if (fit.more) {
-      const more = document.createElement('button');
-      more.type = 'button'; more.className = 'act-photo-thumb journal-photo-cell journal-photo-more'; more.dataset.journalPhotoMore = '';
-      more.dataset.ext = `+${fit.more}`; more.setAttribute('aria-label', `사진 ${fit.more}장 더 — 사진 보기`);
-      strip.append(more);
+    let strip = photosHost.querySelector('[data-journal-photo-strip]');
+    if (!strip) {
+      photosHost.innerHTML = '<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading"></h4><small class="journal-head-count" data-journal-photos-count></small></span><button type="button" class="row-act" data-journal-photos-open>사진 보기 ›</button></div>';
+      strip = document.createElement('div');
+      strip.className = 'journal-photo-strip'; strip.dataset.journalPhotoStrip = '';
+      strip.setAttribute('role', 'group');
+      photosHost.append(strip); cells.clear();
     }
+    setText(photosHost.querySelector('.journal-heading'), label);
+    setText(photosHost.querySelector('[data-journal-photos-count]'), String(list.length));
+    setAttr(photosHost.querySelector('[data-journal-photos-open]'), 'aria-label', `${label} 보기`);
+    setAttr(strip, 'aria-label', `${label} ${list.length}장`);
+    drawnWidth = strip.clientWidth;
+    if (!drawnWidth) return; // 아직 폭이 없으면(칸 자리가 숨겨져 있음) 그리지 않는다 — 폭 감시가 폭이 생기면 다시 부른다
+    const fit = stripFit(drawnWidth, list.length, {cell:CELL_PX, gap:GAP_PX});
+    const seen = new Set(), want = [];
+    list.slice(0, fit.shown).forEach((item, i) => {
+      let id = `${item.source || item.kind || ''}:${item.key || ''}`;
+      if (!item.key || seen.has(id)) id += `#${i}`;
+      seen.add(id);
+      let button = cells.get(id);
+      if (!button) {
+        button = document.createElement('button');
+        button.type = 'button'; button.className = 'act-photo-thumb journal-photo-cell'; button.dataset.journalPhotoKey = item.key || '';
+        button.append(thumbOf(k, item, rt));
+        cells.set(id, button);
+      }
+      setAttr(button, 'data-journal-photo', String(i));
+      setAttr(button, 'aria-label', `${label} ${i + 1} — 사진 보기`);
+      want.push([id, button]);
+    });
+    let more = strip.querySelector('[data-journal-photo-more]');
+    if (fit.more) {
+      if (!more) {
+        more = document.createElement('button');
+        more.type = 'button'; more.className = 'act-photo-thumb journal-photo-cell journal-photo-more'; more.dataset.journalPhotoMore = '';
+      }
+      setAttr(more, 'data-ext', `+${fit.more}`); setAttr(more, 'aria-label', `사진 ${fit.more}장 더 — 사진 보기`);
+      want.push(['', more]);
+    } else more?.remove();
+    const keep = new Set(want.map(([id]) => id));
+    for (const [id, button] of cells) if (!keep.has(id)) { button.remove(); cells.delete(id); }
+    // 이미 그 자리에 있는 칸은 옮기지 않는다.
+    want.forEach(([, button], i) => { if (strip.children[i] !== button) strip.insertBefore(button, strip.children[i] || null); });
+  }
+  // 읽을 만한 글·이런 기록은 어때요?: 그릴 내용(html)이 지난번과 같으면 다시 쓰지 않는다(펼쳐 둔 '더 보기'도 그대로 남는다).
+  const painted = new Map(); // 칸 element → 마지막에 쓴 html
+  function paint(el, html) {
+    if (painted.get(el) === html) return;
+    painted.set(el, html); el.innerHTML = html;
   }
   function drawReads() {
     const {day, today, reads} = last, list = day === today ? cleanReads(reads?.items) : [];
     const limit = day === today ? limitNote(last.limit) : '';
-    if (!list.length && !limit) { readsHost.hidden = true; readsHost.replaceChildren(); return; }
+    if (!list.length && !limit) { readsHost.hidden = true; readsHost.replaceChildren(); painted.delete(readsHost); return; }
     readsHost.hidden = false;
     const note = limit || pickedNote(reads?.picked_at, today);
     const row = item => `<li class="journal-read" data-journal-read="${esc(item.id)}"><b class="journal-read-title">${esc(item.title)}</b>`
       + `<span class="journal-read-line">무슨 일: ${esc(item.what)}</span><span class="journal-read-line">왜: ${esc(item.why)}</span>`
       + `<small class="journal-read-meta">${esc([item.source, readAtLabel(item.at, today)].filter(Boolean).join(' · '))}${item.url ? ` <a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" data-journal-read-link>원문 ›</a>` : ''}</small></li>`;
     const open = list.slice(0, READS_OPEN), rest = list.slice(READS_OPEN);
-    readsHost.innerHTML = `<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">읽을 만한 글</h4>${list.length ? `<small class="journal-head-count">${list.length}</small>` : ''}</span>${note ? `<small class="journal-fill-note"${limit ? ' data-journal-fill-limit' : ''}>${esc(note)}</small>` : ''}</div>`
+    paint(readsHost, `<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">읽을 만한 글</h4>${list.length ? `<small class="journal-head-count">${list.length}</small>` : ''}</span>${note ? `<small class="journal-fill-note"${limit ? ' data-journal-fill-limit' : ''}>${esc(note)}</small>` : ''}</div>`
       + (open.length ? `<ul class="journal-reads-list">${open.map(row).join('')}</ul>` : '')
-      + (rest.length ? `<details class="journal-fill-more" data-journal-reads-more><summary>${rest.length}개 더</summary><ul class="journal-reads-list">${rest.map(row).join('')}</ul></details>` : '');
+      + (rest.length ? `<details class="journal-fill-more" data-journal-reads-more><summary>${rest.length}개 더</summary><ul class="journal-reads-list">${rest.map(row).join('')}</ul></details>` : ''));
   }
   function drawSuggests() {
     const {day, today, hour, suggests} = last, list = suggestTime({day, today, hour}) ? openSuggests(suggests?.items, suggests?.done) : [];
-    if (!list.length) { suggestHost.hidden = true; suggestHost.replaceChildren(); return; }
+    if (!list.length) { suggestHost.hidden = true; suggestHost.replaceChildren(); painted.delete(suggestHost); return; }
     suggestHost.hidden = false;
-    suggestHost.innerHTML = '<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">이런 기록은 어때요?</h4></span></div>'
+    paint(suggestHost, '<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">이런 기록은 어때요?</h4></span></div>'
       + `<ul class="journal-suggest-list">${list.map(item => `<li class="journal-suggest" data-journal-suggest="${esc(item.id)}"><span class="journal-suggest-text"><span>${esc(item.text)}</span>${item.basis ? `<small class="journal-suggest-basis">${esc(item.basis)}</small>` : ''}</span>`
-        + `<button type="button" class="secondary" data-journal-suggest-write="${esc(item.id)}">일기 쓰기</button></li>`).join('')}</ul>`;
+        + `<button type="button" class="secondary" data-journal-suggest-write="${esc(item.id)}">일기 쓰기</button></li>`).join('')}</ul>`);
   }
   function draw() {
     if (!last) return;
     if (last.hidden) { host.hidden = true; return; }
+    host.hidden = false; // 사진 칸 수를 재려면 자리가 보여야 한다(같은 동작 안에서 바로 다시 정한다 — 그 사이 화면은 그려지지 않음)
     drawPhotos(); drawReads(); drawSuggests();
     host.hidden = photosHost.hidden && readsHost.hidden && suggestHost.hidden;
   }
