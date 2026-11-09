@@ -421,9 +421,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
         ...(step.up ? [['data-nx-folder-up', '위로']] : []), ...(step.down ? [['data-nx-folder-down', '아래로']] : []),
         ['data-nx-move-folder', '옮기기…'], ['data-nx-delete-folder', '폴더 삭제', 'basket-menu-danger']] : [])];
     }
-    // FEAT-1029 ④: [성명·보도자료 초안] opens the draft window (press-draft.js); it saves a note only when [노트로 저장] is pressed.
+    // PRESS-성명초안삭제(11/09 명진 결정): [성명·보도자료 초안] 메뉴는 기능째 삭제했다(저장해 둔 초안 노트·폴더는 그대로).
     if (from === 'head') return [...(folderAt() ? [['data-nx-new-note', '이 폴더에 새 노트']] : []), ...(canEditFolders() ? [['data-nx-new-in', folderAt() ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(folderAt() ? [['data-nx-up', '위 폴더로']] : []),
-      ...(view === 'folder' && canEditFolders() ? [['data-nx-sort', noteSort === 'manual' ? `노트 정렬: ${NOTE_SORT_NAMES.changed} 순으로` : `노트 정렬: ${NOTE_SORT_NAMES.manual}로`]] : []), ['data-press-draft-open', '성명·보도자료 초안']];
+      ...(view === 'folder' && canEditFolders() ? [['data-nx-sort', noteSort === 'manual' ? `노트 정렬: ${NOTE_SORT_NAMES.changed} 순으로` : `노트 정렬: ${NOTE_SORT_NAMES.manual}로`]] : [])];
     return [
       ...(from === 'list' ? [['data-nx-select', '선택']] : []),
       // 17:45 ③: 줄의 복사 아이콘은 없앴다 — 복사는 PC·폰 모두 이 메뉴(⋯·우클릭·꾹 누르기) 안.
@@ -1261,7 +1261,6 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (from.from === 'board') { if (b.hasAttribute('data-nbb-newnote')) { const input = host.querySelector('[data-note-list] textarea[data-quick-input]'); input?.scrollIntoView({block:'nearest'}); input?.focus({preventScroll:true}); } return; }
     if (from.from === 'folder' || from.from === 'head') {
       const id = from.from === 'folder' ? from.folderId : at === OUTSIDE ? null : at;
-      if (b.hasAttribute('data-press-draft-open')) { const trigger = from.trigger; void import('./press-draft.js').then(m => m.openPressDraft({trigger})); return; }
       if (b.hasAttribute('data-nx-select')) startSelect(from.from === 'folder' ? 'f:' + id : null);
       else if (b.hasAttribute('data-nx-new-note')) newNoteIn(id);
       else if (b.hasAttribute('data-nx-enter')) enter(id);
