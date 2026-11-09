@@ -3671,10 +3671,9 @@ test('[주간 정리] 투쟁 사업장 현황: 바탕에 없는 담당 조직 [+
  expect(f.errors).toEqual([]);
 });
 
-// CAL-조직참고캘린더(요청함 10/30 16:03): 내 프로필에서 고른 조직 참고 캘린더의 주요 일정은 [주간 정리] 4. 산하 조직 현황의 그 조직 칸에만
-// '캘린더 추천 · 날짜 제목 [+]'로 보인다. [+]는 요약 고치기 칸 끝에 그 줄을 넣고 [저장]해야 보고(조직 요약)에 들어간다.
-// 하루 카드·5. 주요 일정·참고 묶음에는 없다. 가상 캘린더·일정만 쓴다(그 주 10/5 + 앞으로 2주).
-for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그 조직 칸에만 추천 줄, [+]로 그 주 조직보고 표에 넣은 줄, 다른 화면에는 없음 ${width}`,async({page})=>{
+// ORG-기록하나로 O-6(설계 docs/design/record-one.md 2-9 끝): 조직 참고 캘린더 '캘린더 추천' 줄·[+]는 지웠다 — 그 캘린더 일정은 조직보고 창의
+// 일정 줄(작은 '일정')로 보인다(org-overview.spec.mjs). [주간 정리]의 어느 칸에도 '캘린더 추천' 줄이 없고, 그 추천만을 위한 달력 읽기도 없다. 가상 캘린더·일정만.
+for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: '캘린더 추천' 줄·[+] 없음 ${width}`,async({page})=>{
  const f=await weekLinesFixture(page,{width,seed:[]});
  const reads=[];
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',r=>{
@@ -3695,33 +3694,13 @@ for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그
   ]}});
  });
  await openJournal(page,width);
- // 하루 카드에는 참고 줄이 없다.
  await expect(page.locator('#journalRoot [data-journal-calref]')).toHaveCount(0);
  await openWeekly(page);await openRecords(page,'orgs');
- const orgs=weekly(page,'orgs'),a=orgs.locator('[data-journal-org="가상 노동조합"]');
- const recs=a.locator('[data-journal-org-ref]');
- await expect(recs).toHaveText([/^캘린더 추천 · 10\/7\(수\) 가상 총력결의대회 ⋯/,/^캘린더 추천 · 10\/19\(월\) 가상 농성장 설치 ⋯/]); // S52-25: 줄 끝 ⋯ 하나
- expect(reads.length).toBeGreaterThan(0);
- expect(reads.every(([a,b])=>a===new Date('2026-10-05T00:00:00+09:00').toISOString()&&b===new Date('2026-10-26T00:00:00+09:00').toISOString())).toBe(true);
- // 다른 조직 칸·5. 주요 일정·참고 묶음에는 없다.
- await expect(orgs.locator('[data-journal-org-ref]')).toHaveCount(2);
- await expect(page.locator('#journalRoot [data-journal-weekly-chapter="calendar"]')).not.toContainText('총력결의대회');
- await expect(page.locator('#journalRoot [data-journal-weekly-chapter="notes"]')).not.toContainText('총력결의대회');
- await expect(page.locator('#journalRoot [data-journal-weekly="note-calRefs"]')).toHaveCount(0);
- // S46-22: [×] → 이번 주 제안에서 빠지고(그 주 임시저장 picks 에 서버 저장) 위 '되돌리기'(뺀 제안 목록은 없음). [되돌리기]로 다시 보인다.
- await pressMore(recs.nth(1),'[data-journal-pick-drop]');
- await expect(recs).toHaveText([/^캘린더 추천 · 10\/7\(수\) 가상 총력결의대회 ⋯/]);
- await expect(a.locator('[data-journal-pick-gone]')).toHaveCount(0);
- const pickWrite=f.exec.calls.filter(c=>c.method!=='GET'&&c.body?.draft?.picks).at(-1);
- expect(pickWrite.body.draft.picks.items.map(i=>[i.kind,i.act,i.text])).toEqual([['calendar','drop','10/19(월) 가상 농성장 설치']]);
- await a.locator('[data-journal-pick-undo] button').click();
- await expect(recs).toHaveCount(2);
- await expect(a.locator('[data-journal-pick-gone]')).toHaveCount(0);
- // [+] → WEEKLY-메뉴짝짓기 P6: 그 주 조직보고 표에 넣은 줄로 바로 들어가고(서버 저장) 추천 줄은 사라진다.
- await pressMore(recs.first(),'[data-journal-org-ref-add]');
- await expect(orgRow(page,OA).locator('.wl-text')).toHaveText(['10/7(수) 가상 총력결의대회']);
- expect(f.db.posts.at(-1)).toMatchObject({organization_id:OA,week_start:'2026-10-05',body:'10/7(수) 가상 총력결의대회',state:'in',origin:'user'});
- await expect(recs).toHaveText([/^캘린더 추천 · 10\/19\(월\) 가상 농성장 설치 ⋯/]);
+ await expect(weekly(page,'orgs').locator('[data-journal-org="가상 노동조합"]')).toBeVisible();
+ await expect(page.locator('#journalRoot [data-journal-org-ref], #journalRoot [data-journal-org-refs], #journalRoot [data-hwpx-org-ref]')).toHaveCount(0);
+ await expect(page.locator('#journalRoot')).not.toContainText('캘린더 추천');
+ await expect(page.locator('#journalRoot')).not.toContainText('총력결의대회');
+ expect(reads).toEqual([]); // 옛 주(10.5) [주간 정리]는 조직 참고 캘린더를 읽지 않는다(창은 전환 주부터)
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 

@@ -21,7 +21,6 @@ import {whereOf} from './weekly-feedback.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
 import {readProposed} from './weekly-feedback.mjs';
 import {matchOrg} from './org-name-match.mjs';
-import {reportLine as orgRefLine, alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {rowMore} from './row-more.js';
 import {CARRIED_TAG} from './weekly-exec-requests.js';
 import {shortDay} from './journal-data.js';
@@ -96,12 +95,6 @@ export function flowMaterial(weekMaterial, model, draft) {
   const put = (cell, list) => { const have = [...cell.lines, ...(had.get(cellName(cell.section, cell.key, cell.n)) ?? [])]; out.set(cell.id, list.filter(x => !lineIn(have, x.text))); };
   summary.forEach((c, i) => put(c, m.byRow.get(i) ?? []));
   orgs.forEach((c, i) => put(c, m.byOrg.get(i) ?? []));
-  // CAL-조직참고캘린더: 내 프로필에서 고른 조직 칸에만 캘린더 추천(상자 rawMaterial 과 같은 줄·같은 열쇠).
-  const refs = model?.orgRefs, section = refs?.org ? (model?.orgs?.sections ?? []).find(s => s.id === refs.org) : null;
-  if (section && refs.items?.length) {
-    const cell = orgs.find(c => matchOrg(c.key, [{id:section.id, name:section.name, aliases:[]}]));
-    if (cell) out.set(cell.id, [...(out.get(cell.id) ?? []), ...refs.items.filter(item => !orgRefIn(cell.lines, item)).map(item => ({day:'', text:orgRefLine(item), orgRef:true, orgId:section.id, src:'calendar'}))]);
-  }
   return out;
 }
 const describe = (c) => x => ({kind:x.orgRef ? 'calendar' : x.carried ? 'carried' : 'material', from:x.src ?? (x.summary ? 'ai' : 'record'), cell:x.orgRef ? `orgref:${x.orgId}` : cellName(c.section, c.key, c.n),

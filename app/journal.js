@@ -909,7 +909,6 @@ const readers = {
   ledgerPromises: () => readAutoPromises(start, rt),
   // CAL-조직참고캘린더: 내 프로필에서 고른 조직 참고 캘린더의 그 주·앞으로 2주 주요 일정(고르지 않았으면 달력을 읽지 않음). 저장하지 않고,
   // [주간 정리] 4. 산하 조직 현황의 그 조직 칸·한글 파일 상자의 그 조직 칸 추천 줄로만 쓴다(5. 주요 일정·하루 카드·원장에는 넣지 않음).
-  orgRefs: async () => { const week = start; return (await weeklyKit()).readOrgRefs(rt, week); },
   // The project tree for [주간 정리] (read once per visit, like the basket). Without it records go under their project names.
   catalog: async () => {
     const c = rt.context.read(), catalog = window.KPTUProjectCatalog;
@@ -934,7 +933,7 @@ async function loadTaskMeetings(run, scope) {
 const SHARED_KEYS = new Set(['tasks', 'basket', 'catalog', 'milestones']);
 const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch && scope === ownerScope(rt) : current(run, scope);
 // PERF-첫로딩 P2: [주간 정리]에만 쓰는 읽기(묶음을 받은 뒤에 끝남)는 하루 카드를 다시 그리지 않는다 — 늦게 끝나도 열어 둔 ⋯·고치던 줄이 닫히지 않게.
-const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft', 'execRequests', 'orgRefs']);
+const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft', 'execRequests']);
 const renderDayFor = key => { if (!WEEK_ONLY_KEYS.has(key)) renderDay(); };
 async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner, quiet = false) {
   if (!quiet) { materials[key] = {status:'loading'}; renderDayFor(key); renderWeekly_(); }
@@ -981,7 +980,7 @@ async function loadMemory(run, scope, quiet = false) {
 // PERF-첫로딩 요청 합치기(S48-59, docs/design/first-load.md 14절): [주간 정리]에만 쓰는 읽기(다음 주 장·5. 주요 일정 두 주·조직 요약·
 // 임원 요청·임시저장·조직 참고 캘린더·주간보고 기억)는 하루 화면에서는 보내지 않고, 그 주 [주간 정리]를 처음 열 때 보낸다.
 // 묶음 프로그램은 전처럼 앱이 보인 뒤 미리 받아 두므로(맨 아래 weeklyKit), 열 때는 읽기만 기다린다(칸마다 기다림 표시 → 채움).
-const WEEK_READS = ['nextWeek', 'upcoming', 'execRequests', 'weekDraft', 'orgRefs'];
+const WEEK_READS = ['nextWeek', 'upcoming', 'execRequests', 'weekDraft'];
 let weekReads = null; // 미룬 읽기 {run, sharedRun, scope, quiet, memory}; 탭 메모리만
 let weekReadsFlight = Promise.resolve(); // 그 읽기들이 다 끝나면 풀림([주간보고 초안 복사]가 기다림)
 function startWeekReads() {
@@ -1005,7 +1004,7 @@ function loadWeek({shared = false, quiet = false} = {}) {
     lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
   }
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'execRequests', 'weekDraft', 'ledgerPromises', 'orgRefs'];
+  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'execRequests', 'weekDraft', 'ledgerPromises'];
   // 하루 화면: [주간 정리] 전용 읽기는 미뤄 둔다(startWeekReads). 주를 넘겨도 기억 읽기는 방문(sharedEpoch)에 묶여 있으므로 함께 넘긴다.
   const defer = mode !== 'week', memoryRead = shared || changedOwner || (!!weekReads?.memory && weekReads.sharedRun === sharedRun);
   const keys = defer ? allKeys.filter(key => !WEEK_READS.includes(key)) : allKeys;
@@ -1462,12 +1461,6 @@ function undoMemory() {
   clearTimeout(undoTimer);
   return changeMemoryFromList(list => W.withRestored(list, entry), () => { memoryUi.status = `‘${entry.origin}’ 기억을 되돌렸어요.`; memoryUi.undo = null; });
 }
-// CAL-조직참고캘린더: 그 조직 칸의 '캘린더 추천' [+] — WEEKLY-메뉴짝짓기 P6부터 그 주 조직보고 표에 넣은 줄로 바로 들어간다(같은 글이면 다시 넣지 않음).
-function addOrgRef(id, line) {
-  const text = String(line ?? '').trim();
-  if (!text || !weekLines || weekLines.status !== 'ready' || weekLines.week !== start) return;
-  void weekLines.addLine(id, text).then(ok => { if (ok) { redrawOrgText(); renderWeekly_({refreshBox:false}); } });
-}
 root.addEventListener('keydown', event => {
   if (event.target.matches?.('[data-journal-file-edit-input]') && !event.isComposing && event.keyCode !== 229) {
     if (event.key === 'Escape') { event.preventDefault(); closeFileEdit(); }
@@ -1613,7 +1606,6 @@ root.addEventListener('click', event => {
     }
     return;
   }
-  if (button.matches('[data-journal-org-ref-add]')) return addOrgRef(button.dataset.journalOrgRefAdd, button.dataset.journalOrgRefText);
   if (button.matches('[data-journal-pick-drop], [data-journal-pick-put], [data-journal-pick-undo]')) return pickAct(button);
   if (button.matches('[data-journal-pick-release]')) return pickRelease(button.dataset.journalPickRelease);
   if (button.matches('[data-journal-exec-add]')) return openExecEdit('new', execWhere(button));

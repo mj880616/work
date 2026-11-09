@@ -77,7 +77,6 @@ import {inSites, SITE_REF_LINE} from './weekly-cell-names.mjs'; // S52-25: 3장�
 import {isStageLine} from './org-dispute-stage-model.mjs';
 import {isOldWeek} from './record-window-model.mjs'; // ORG-기록하나로 O-6: 전환 주(RECORD_ONE_FROM)부터 4. 1)·3. 2)는 조직보고 창 결과
 import {saveReportSnapshot} from './report-snapshot-save.js'; // ORG-기록하나로 O-6: [확정] 성공 직후 그 창 결과 사진
-import {reportLine as orgRefLine, materialLine as orgRefMaterial, alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {sortPicks, droppedOf, keptOf, withPick, pickKey, reviewDue, withReview} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {learnFor} from './weekly-picks.js';
 
@@ -545,18 +544,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // 5. 주요 일정: 기억으로 뺀 일정까지 든 달력(allRows)과 이 주에 실제 들어가는 달력(이번 주 빼기·넣기 반영).
   const fullCalendar = () => { const c = getWeek().model?.calendar; return c && c.allRows ? {...c, rows:c.allRows} : c; };
   const shownCalendar = () => visibleCalendar(getWeek().model?.calendar, state?.drops);
-  // CAL-조직참고캘린더: 이번 주 기록 후보(draft.weekMaterial)에, 내 프로필에서 고른 조직의 칸(확정본 줄 이름이 그 조직에 맞는 첫 줄)만
-  // 조직 참고 캘린더 추천 줄을 더한다(그 주·앞으로 2주 주요 일정, model.orgRefs). 칸에 이미 든 일정은 뺀다. 붙이기·AI 재료(초안·줄 제안)에 함께 쓰인다.
+  // 이번 주 기록 후보(draft.weekMaterial). ORG-기록하나로 O-6: 조직 참고 캘린더 추천 줄은 더하지 않는다(조직보고 창의 일정 줄이 대신).
   function rawMaterial(s, model) {
-    const m = s.draft.weekMaterial(model, s.rows, s.orgs, {aliases:s.aliases});
-    const refs = model?.orgRefs, org = refs?.org;
-    if (!org || !refs.items?.length || s.context.orgFailed) return m;
-    const row = s.orgs.find(r => matchOrg(r.org, s.context.organizations)?.id === org);
-    if (!row || !m.byOrg.has(row.index)) return m;
-    const have = s.edits?.orgs?.get(row.index) ?? [];
-    const add = refs.items.filter(item => !orgRefIn(have, item)).map(item => ({day:'', text:orgRefLine(item), from:row.org, orgRef:true, ai:orgRefMaterial(item), src:'calendar', orgId:org}));
-    m.byOrg.set(row.index, [...m.byOrg.get(row.index), ...add]);
-    return m;
+    return s.draft.weekMaterial(model, s.rows, s.orgs, {aliases:s.aliases});
   }
   // ---- S46-22 제안 [×]·학습 (weekly-picks.mjs) ----
   // 이번 주에 뺀 제안·거절해서 안 내는 종류(지난 주들 + 이번 주 picks)는 칸 후보·AI 재료에서 빠지고 칸 아래 접힌 '뺀 제안 n개'에 남는다.
