@@ -10,6 +10,7 @@
 import {dayText, validDay, shiftWeek, mondayOf} from './weekly-org-lines-model.mjs';
 import {linkedOrgs, titleOrg} from './pre-meeting-sheet-model.mjs';
 import {isOrgRefTitle, cleanTitle} from './calendar-ref-model.mjs';
+import {oneLine, recordOneLine} from './record-oneline.mjs';
 
 export const ORG_PAST_WEEKS = 3;
 export const ORG_AHEAD_WEEKS = 2;
@@ -22,7 +23,7 @@ export const BODY_MAX = 1000;     // 보고용 글(표시 표 DB 검사와 같�
 export const RECORD_MAX = 2000;   // 조직 기록 한 줄 글(화면 검사)
 // 전환 주: 이 주부터 창 규칙, 그 앞 주는 옛 표 읽기 전용(설계 3-1). 2026-11-09 운영 DB O-2 적용 주.
 export const RECORD_ONE_FROM = '2026-11-09';
-export {dayText, shiftWeek, mondayOf};
+export {dayText, shiftWeek, mondayOf, oneLine};
 
 const DAY_MS = 86400000;
 const addDays = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
@@ -53,12 +54,13 @@ export function eventRanges(week) {
 export const overlaps = (item, range) => !!(item && range && validDay(item.day) && item.day < range.to && (validDay(item.end_day) && item.end_day > item.day ? item.end_day : item.day) >= range.from);
 
 // ---- 후보 만들기 ----
-// 조직 기록 행 → 줄 {kind:'org_update', key, org, day, end_day, text, created_at, source_kind}. 날짜가 없거나 글이 비면 null.
+// 조직 기록 행 → 줄 {kind:'org_update', key, org, day, end_day, text(한 줄), full(원문 그대로), created_at, source_kind}. 날짜가 없거나 글이 비면 null.
+// RECORD-한줄: 표에는 한 줄만(record-oneline.mjs). 원문은 full에 그대로 두고 [원문 보기]·같은 일 찾기에 쓴다.
 export function recordItem(row) {
-  const day = seoulDay(row?.occurred_at), text = cleanBody(row?.raw_text);
+  const day = seoulDay(row?.occurred_at), text = recordOneLine(row);
   if (!row?.id || !row?.organization_id || !validDay(day) || !text) return null;
   const end = validDay(row.end_day) && row.end_day > day ? row.end_day : null;
-  return {kind: 'org_update', key: String(row.id), org: String(row.organization_id), day, end_day: end, text, created_at: row.created_at ?? null, source_kind: row.source_kind ?? null};
+  return {kind: 'org_update', key: String(row.id), org: String(row.organization_id), day, end_day: end, text, full: String(row.raw_text ?? ''), created_at: row.created_at ?? null, source_kind: row.source_kind ?? null};
 }
 // 일정 날짜: 종일 = 시작 날(여러 날이면 끝 날 − 1일을 end_day), 시각 일정 = 서울 날짜.
 export function eventSpan(event) {
@@ -107,7 +109,7 @@ export function sameThing(event, record) {
   const end = record.end_day || record.day;
   if (!(event.day >= record.day && event.day <= end)) return false;
   const t = compact(event.text);
-  return t.length >= 2 && compact(record.text).includes(t);
+  return t.length >= 2 && compact(record.full || record.text).includes(t);
 }
 
 // ---- 표시 이어짐 ----
@@ -162,7 +164,8 @@ export const occurredAt = day => `${day}T12:00:00+09:00`;
 // ---- 줄 순서 ----
 const byDayAsc = (a, b) => a.day.localeCompare(b.day) || (a.kind === b.kind ? 0 : a.kind === 'event' ? 1 : -1) || a.text.localeCompare(b.text, 'ko') || a.key.localeCompare(b.key);
 const byRecent = (a, b) => b.day.localeCompare(a.day) || (b.end_day || b.day).localeCompare(a.end_day || a.day) || byDayAsc(a, b);
-const lineOf = (item, mark) => ({...item, orig: item.text, text: mark?.report_body ?? item.text, edited: mark?.report_body != null, choice: mark?.choice ?? null, id: lineId(item.kind, item.key)});
+// 보고용 글도 표에는 한 줄로(예전 [보고용으로 수정]은 원문 전체를 채워 열었으므로 긴 보고용 글이 남아 있을 수 있음 — 저장된 값은 그대로).
+const lineOf = (item, mark) => ({...item, orig: item.text, text: mark?.report_body != null ? (oneLine(mark.report_body) || item.text) : item.text, edited: mark?.report_body != null, choice: mark?.choice ?? null, id: lineId(item.kind, item.key)});
 
 // 한 조직 칸 후보(창 안 기록 + 창 안 일정 − 같은 일). withEvents=false면 기록만.
 export function candidates({org, week, records = [], events = [], withEvents = true}) {
@@ -214,7 +217,8 @@ export function snapshotCell(snapshot, org, section = 'org') {
   const row = rows.find(r => r && r.section === section && String(r.ref_key) === String(org));
   if (!row) return null;
   const lines = (Array.isArray(row.lines) ? row.lines : []).filter(l => l && typeof l.text === 'string' && l.text.trim())
-    .map(l => ({kind: String(l.ref_kind || ''), key: String(l.ref_key || ''), day: validDay(l.day) ? l.day : '', end_day: validDay(l.end_day) ? l.end_day : null, text: cleanBody(l.text), id: lineId(l.ref_kind, l.ref_key)}));
+    .map(l => ({kind: String(l.ref_kind || ''), key: String(l.ref_key || ''), day: validDay(l.day) ? l.day : '', end_day: validDay(l.end_day) ? l.end_day : null, text: oneLine(l.text), full: String(l.text), id: lineId(l.ref_kind, l.ref_key)}))
+    .filter(l => l.text); // 확정 사진에 원문이 통째로 들어간 줄도 표에는 한 줄로(사진 원본은 그대로)
   return {lines, seen: new Set((Array.isArray(row.seen_events) ? row.seen_events : []).map(String))};
 }
 // 사진이 있는 주: 사진 줄 그대로 + '확정 뒤 추가' = 그 주 창 후보(뺀 줄 제외) 중 사진에 없는 것 가운데
