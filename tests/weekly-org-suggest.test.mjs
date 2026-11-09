@@ -5,12 +5,12 @@ import {readFileSync} from 'node:fs';
 // WEEKLY-메뉴짝짓기 P4: 제안 줄을 부르는 자리(기록 번호만 보냄, 기다리지 않음) + 열 때 빠진 것 채우기.
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
-test('부르는 자리: 조직 기록 저장·고침, 조직 확정 연결, 현황 표 줄 넣기·고침이 모두 같은 함수 하나를 부른다', () => {
+test('부르는 자리: 조직 기록 저장·고침, 조직 확정 연결이 모두 같은 함수 하나를 부른다(현황 표 쓰기는 O-5에서 지움)', () => {
   assert.match(read('app/quick-save.js'), /suggestOrgWeek\('org_update',rows\[0\]\.id/);
   assert.match(read('app/workplace-detail.js'), /suggestOrgWeek\('org_update',id/);
   assert.match(read('app/basket-classification.js'), /suggestFromLinks\(noteId,targets/);
-  const st = read('app/org-status-table.js');
-  assert.match(st, /suggestOrgWeek\('status_row', id/);assert.match(st, /suggestOrgWeek\('status_row', made\[0\]\.id/);
+  // ORG-기록하나로 O-5: 조직 상세 [현황 표] 줄 쓰기는 지웠다 — 현황 표 줄 제안은 더 보내지 않는다.
+  assert.doesNotMatch(read('app/org-status-table.js'), /suggestOrgWeek/);
   assert.match(read('app/weekly-org-lines.js'), /void fillMissing\(/);
 });
 
@@ -20,7 +20,7 @@ test('보내는 것은 종류와 번호뿐(글·조직·날짜를 보내지 않�
   assert.doesNotMatch(s, /raw_text|body:/);
   assert.match(s, /FILL_MAX = 10/);
   assert.doesNotMatch(s, /\b(?:local|session)Storage\b|\?v=/);
-  for (const [f, re] of [['app/quick-save.js', /await suggestOrgWeek/], ['app/basket-classification.js', /await suggestFromLinks/], ['app/org-status-table.js', /await suggestOrgWeek/]]) assert.doesNotMatch(read(f), re, f);
+  for (const [f, re] of [['app/quick-save.js', /await suggestOrgWeek/], ['app/basket-classification.js', /await suggestFromLinks/]]) assert.doesNotMatch(read(f), re, f);
 });
 
 test('번호가 uuid가 아니거나 종류가 다르면 보내지 않고, 같은 기록은 차례 줄에 한 번만', async () => {
