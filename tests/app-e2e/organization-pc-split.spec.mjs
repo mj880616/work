@@ -118,6 +118,8 @@ test('PC 1280: a record opens the update with "‹ (organization)" in the head; 
  await clickView(page,'team');await expect(title(page)).toHaveText('합성 가 지부');
  await row(page,'ob').click();await expect(title(page)).toHaveText('합성 나 지부');
  await row(page,'oa').click();await expect(title(page)).toHaveText('합성 가 지부');
+ // ORG-기록하나로 O-5: 최근 10줄 앞 기록은 '지난 기록 n'에 접혀 있다 — 펼친 뒤 오래된 연결 기록으로 내려간다(펼침은 이 조직을 연 동안 그대로).
+ await page.locator('#wdModal [data-wd-log-older] > summary').click();
  const line=page.locator('#wdModal [data-basket-link="l-o"] a[data-basket-link-open]');await expect(line).toBeVisible();
  const before=await scrollToRecord(page,line);/* UI-상세칸고정: 긴 상세는 그 칸만 스크롤한다 */expect(await pane(page).evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
  for(const how of ['button','back','browser']){
@@ -189,6 +191,7 @@ for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes 
  expect(state.writes).toEqual([]);
  await rec.locator('[data-wd-up-cancel]').click();await expect(rec.locator('[data-wd-up-edit]')).toHaveCount(0);
  // 2) The 요약 box of a linked record.
+ await modal.locator('[data-wd-log-older]:not([open]) > summary').click(); // ORG-기록하나로 O-5: 오래된 연결 기록은 '지난 기록 n' 안
  const link=modal.locator('[data-basket-link="l-o"]');await scrollToRecord(page,link);
  await link.getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
  const sum=link.locator('[data-link-summary-input]');await expect(sum).toBeFocused();await expect(sum).toHaveCSS('resize','none');
