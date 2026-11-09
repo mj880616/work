@@ -79,6 +79,11 @@ import {
   MEMORABLE_RECHECK_KEEP_MAX, MEMORABLE_RECHECK_LINES_MAX, MEMORABLE_RECHECK_MAX_OUTPUT_TOKENS, recheckSplit, toFeedRow,
 } from "./journal-memorable.ts";
 import type { FeedRow } from "./journal-memorable.ts";
+import {
+  DAY_NEWS_BACK_DAYS, DAY_NEWS_MAX, DAY_READS_MAX_OUTPUT_TOKENS, DAY_SUGGEST_MAX_OUTPUT_TOKENS, READS_INSTRUCTIONS, READS_SCHEMA, SUGGEST_INSTRUCTIONS, SUGGEST_SCHEMA,
+  dayLines, dayPicksOut, daySlot, familyName, endedToday, parseHomeDayPicksRequest, parseReads, parseSuggests, readsDue, readsMaterial, runHeld, seoulClock as daySeoulClock, suggestMaterial,
+  suggestsDue, toNewsRow, type DayLine, type DayRow, type HomeDayPicksRequest,
+} from "./home-day-picks.ts";
 import { parseWorkScope, parseWorkScopeRequest, WORK_SCOPE_INSTRUCTIONS, WORK_SCOPE_MAX_OUTPUT_TOKENS, WORK_SCOPE_SCHEMA, weekDayKeys, userLineDrops, withUserDrops, workScopeLines, workScopeMaterial } from "./work-scope.ts";
 import {
   autoTime, NEXT_WEEK_SHEET_BODY_BYTES, NEXT_WEEK_SHEET_INSTRUCTIONS, NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS, NEXT_WEEK_SHEET_SCHEMA,
@@ -188,7 +193,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, journal_memorable: 24, journal_memorable_recheck: 6, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_suggest: 60, org_people_brief: 60, org_week_lines: ORG_WEEK_DAILY_AI, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, journal_memorable: 24, journal_memorable_recheck: 6, home_day_picks: 8, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_suggest: 60, org_people_brief: 60, org_week_lines: ORG_WEEK_DAILY_AI, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -255,6 +260,8 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   journal_draft_unavailable: "오늘 한 줄 초안을 읽거나 저장하지 못했어요.",
   journal_memorable_not_ready: "기억할 통화·텔레그램 기능이 아직 준비되지 않았어요.",
   journal_memorable_unavailable: "기억할 통화·텔레그램을 읽거나 저장하지 못했어요.",
+  home_day_picks_not_ready: "읽을 만한 글·기록 제안 기능이 아직 준비되지 않았어요.",
+  home_day_picks_unavailable: "읽을 만한 글·기록 제안을 읽거나 저장하지 못했어요.",
   next_week_sheet_not_ready: "다음 주 준비 기능이 아직 준비되지 않았어요.",
   next_week_sheet_unavailable: "다음 주 준비 한 장을 읽거나 저장하지 못했어요.",
   pre_meeting_sheet_not_ready: "교섭 전 한 장 기능이 아직 준비되지 않았어요.",
@@ -484,7 +491,7 @@ async function readBody(req: Request): Promise<unknown> {
   if (declaredBig || actualBig) {
     // 일정 제목 다듬기(20KB)와 HWP 서식변환(100KB)만 자기 상한까지 받는다. 그 상한을 넘으면 413.
     const kind = (body as { kind?: unknown } | null)?.kind;
-    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : kind === "area_suggest" ? AREA_SUGGEST_BODY_BYTES : kind === "journal_draft" ? JOURNAL_DRAFT_BODY_BYTES : kind === "next_week_sheet" ? NEXT_WEEK_SHEET_BODY_BYTES : kind === "pre_meeting_sheet" ? PRE_MEETING_BODY_BYTES : kind === "weekly_draft" || kind === "weekly_line" ? WEEKLY_LEARN_BODY_BYTES : MAX_BODY_BYTES;
+    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : kind === "area_suggest" ? AREA_SUGGEST_BODY_BYTES : kind === "journal_draft" ? JOURNAL_DRAFT_BODY_BYTES : kind === "home_day_picks" ? HOME_DAY_BODY_BYTES : kind === "next_week_sheet" ? NEXT_WEEK_SHEET_BODY_BYTES : kind === "pre_meeting_sheet" ? PRE_MEETING_BODY_BYTES : kind === "weekly_draft" || kind === "weekly_line" ? WEEKLY_LEARN_BODY_BYTES : MAX_BODY_BYTES;
     if (own === MAX_BODY_BYTES) throw new Fail(declaredBig ? 413 : 400, "invalid_request");
     if (raw.byteLength > own || (declared !== null && Number(declared) > own)) throw new Fail(413, "invalid_request");
   }
@@ -519,6 +526,9 @@ type FileNameInput = { kind: "file_name" } & FileNameRequest;
 type JournalDraftInput = { kind: "journal_draft"; day: string; lines: string[] };
 type JournalMemorableInput = { kind: "journal_memorable"; day: string };
 type JournalMemorableRecheckInput = { kind: "journal_memorable_recheck"; mode: "preview" | "run" };
+type HomeDayPicksInput = { kind: "home_day_picks" } & HomeDayPicksRequest;
+// 홈 [하루] 요청 몸통 상한: 일정 40개·할 일 30개(제목 120자) + JSON.
+const HOME_DAY_BODY_BYTES = 24 * 1024;
 // JOURNAL-오늘한일업무개인: 그 주 월요일만. 그 주 업무일지 줄은 서버가 로그인 토큰으로 읽는다(판단은 저장하지 않음).
 type WorkScopeInput = { kind: "work_scope"; week_start: string };
 type NextWeekSheetInput = { kind: "next_week_sheet"; week_start: string; mode: "auto" | "user"; items: NextWeekItem[] };
@@ -560,7 +570,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | OrgWeekLinesInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | JournalMemorableInput | JournalMemorableRecheckInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput | NowInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | OrgWeekLinesInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | JournalMemorableInput | JournalMemorableRecheckInput | HomeDayPicksInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput | NowInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -627,6 +637,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     return { kind: "journal_memorable", ...parsed };
   }
   // FORGET-소식바로잡기 ④ 쌓인 소식 한 번 다시 판정: mode(preview|run)만 받는다. 대상 줄·원본은 서버가 로그인 토큰으로 읽는다.
+  // 홈 [하루] 읽을 글·기록 제안(home_day_picks, HOME-하루채우기): 날짜와 서버가 읽을 수 없는 구글 캘린더 일정·끝낸 할 일 제목만 받는다.
+  if (b.kind === "home_day_picks") {
+    const parsed = parseHomeDayPicksRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "home_day_picks", ...parsed };
+  }
   if (b.kind === "journal_memorable_recheck") {
     const parsed = parseJournalMemorableRecheckRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
@@ -4031,6 +4047,174 @@ async function runJournalMemorable(ctx: Ctx, input: JournalMemorableInput, deps:
   return json({ ok: true, kind: "journal_memorable", day, sent: rows.length, picked: picks.length });
 }
 
+// ---- 쓰임 home_day_picks: 홈 [하루] ② 읽을 만한 글·③ 이런 기록은 어때요?(S55-07 HOME-하루채우기 PR-B, home-day-picks.ts, 설계 docs/design/home-day-picks.md) ----------
+// 화면을 열 때 부른다(오늘만). 결과는 owner RLS 표 app_home_day_picks(작업공간·날짜 한 줄)에 둔다 — 화면은 이 표를 읽어 그린다(한 기기 저장 없음).
+// ② 아침 한 번(저녁 6시 앞 첫 열기)·저녁 한 번(6시 뒤, 아침 뒤 새 뉴스가 들어왔을 때만). ③ 오늘 저녁 6시 뒤 한 번.
+// 두 기기가 동시에 열어도 한 쪽만 AI를 부르도록 run_at을 먼저 차지한다(기억할 소식과 같은 방식). AI를 부르지 않으면 사용량에 잡지 않는다.
+// 부르면 월 AI 상한·하루 횟수 안에서 기존 사용량 길(checkBudget·writeUsage)로 더한다. 상한에 닿으면 429 monthly_limit/daily_limit(화면이 기존 한도 알림으로 보임).
+async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now(), clock = daySeoulClock(started);
+  const ws = encodeURIComponent(ctx.workspaceId), day = input.day;
+  const COLS = "workspace_id,day,reads,reads_at,reads_slot,news_seen_at,suggests,suggests_at,suggests_done,run_at";
+  const done = (row: Record<string, unknown> | null, extra: Record<string, unknown> = {}) =>
+    json({ ok: true, kind: "home_day_picks", day, ...extra, picks: dayPicksOut(row) });
+  const readRows = async (path: string): Promise<Record<string, unknown>[]> => {
+    let rows: unknown;
+    try {
+      rows = await rest(ctx, path);
+    } catch (e) {
+      throw new Fail(503, e instanceof Error && e.message === "rest_404" ? "home_day_picks_not_ready" : "home_day_picks_unavailable");
+    }
+    if (!Array.isArray(rows)) throw new Fail(503, "home_day_picks_unavailable");
+    return rows as Record<string, unknown>[];
+  };
+  const soft = async (path: string): Promise<Record<string, unknown>[] | null> => {
+    try { const r = await rest(ctx, path); return Array.isArray(r) ? r as Record<string, unknown>[] : null; } catch { return null; }
+  };
+  const readRow = async (): Promise<Record<string, unknown> | null> => {
+    const rows = await readRows(`app_home_day_picks?workspace_id=eq.${ws}&day=eq.${day}&select=${COLS}&limit=2`);
+    if (rows.length > 1) throw new Fail(503, "home_day_picks_unavailable");
+    const row = rows[0] ?? null;
+    if (row && (String(row.workspace_id).toLowerCase() !== ctx.workspaceId || row.day !== day)) throw new Fail(503, "home_day_picks_unavailable");
+    return row;
+  };
+  const skip = (reason: string, row: Record<string, unknown> | null) => {
+    deps.log("home_day_picks_skipped", { reason });
+    return done(row, { skipped: reason });
+  };
+  if (day !== clock.day) return skip("not_today", null);
+  const row = await readRow();
+  const state = row as DayRow | null;
+  if (runHeld(state, started)) return skip("busy", row);
+
+  // ② 할 차례인지: 이번 때(아침·저녁)에 아직 안 골랐으면 최근 사흘 뉴스를 읽어 새 글이 있는지 본다.
+  const slot = daySlot(started);
+  let news: Record<string, unknown>[] = [];
+  let readsNeed = false, newest: string | null = null;
+  if (!state?.reads_slot || (state.reads_slot !== slot && state.reads_slot !== "pm")) {
+    const from = new Date(Date.parse(`${day}T00:00:00+09:00`) - (DAY_NEWS_BACK_DAYS - 1) * 86400000).toISOString();
+    news = await readRows(`app_news_items?workspace_id=eq.${ws}&hidden_at=is.null&created_at=gte.${encodeURIComponent(from)}&select=id,workspace_id,title,title_ko,publisher,summary,url,published_at,created_at,hidden_at&order=created_at.desc&limit=${DAY_NEWS_MAX}`);
+    newest = typeof news[0]?.created_at === "string" ? news[0].created_at as string : null;
+    readsNeed = readsDue(state, slot, newest);
+  }
+  const suggestNeed = suggestsDue(state, day, started);
+  if (!readsNeed && !suggestNeed) return skip("fresh", row);
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+
+  // 실행 차지: 줄이 없으면 빈 줄을 만들고, 읽은 run_at 값일 때만 내 시각으로 바꾼 뒤 다시 읽어 내 시각이면 내가 차지한 것.
+  const mine = new Date(started).toISOString();
+  try {
+    if (!row) await rest(ctx, "app_home_day_picks?on_conflict=workspace_id,day", { method: "POST", prefer: "resolution=ignore-duplicates,return=minimal", body: { workspace_id: ctx.workspaceId, day } });
+    const cas = state?.run_at ? `run_at=eq.${encodeURIComponent(state.run_at)}` : "run_at=is.null";
+    await rest(ctx, `app_home_day_picks?workspace_id=eq.${ws}&day=eq.${day}&${cas}`, { method: "PATCH", prefer: "return=minimal", body: { run_at: mine } });
+  } catch {
+    throw new Fail(503, "home_day_picks_unavailable");
+  }
+  const claimed = await readRow();
+  if (!claimed || Date.parse(String(claimed.run_at)) !== started) return skip("busy", claimed);
+  const save = async (body: Record<string, unknown>) => {
+    await rest(ctx, `app_home_day_picks?workspace_id=eq.${ws}&day=eq.${day}&run_at=eq.${encodeURIComponent(mine)}`, { method: "PATCH", prefer: "return=minimal", body });
+  };
+  const release = async () => {
+    try { await save({ run_at: null }); } catch { deps.log("home_day_picks_release_failed"); }
+  };
+  const family = familyName(deps.env("FAMILY_NAME"));
+  const counts = { news: 0, reads: 0, lines: 0, suggests: 0 };
+  try {
+    if (readsNeed) {
+      // 재료: 최근 뉴스(서버가 읽음) + 내 담당조직·사업영역(서버가 읽음) + 이번 주 일정 제목(화면이 보냄). AI에는 번호만, id·주소는 보내지 않는다.
+      const rows = news.map((r) => toNewsRow(r, ctx.workspaceId)).filter((r): r is NonNullable<typeof r> => !!r);
+      const [orgs, assigned, areas] = await Promise.all([
+        soft(`app_suborganizations?workspace_id=eq.${ws}&active=eq.true&select=id,name&order=name.asc&limit=200`),
+        soft(`app_suborganization_assignees?user_id=eq.${encodeURIComponent(ctx.userId)}&select=organization_id&limit=500`),
+        soft(`app_spaces?workspace_id=eq.${ws}&status=eq.active&select=name&order=name.asc&limit=200`),
+      ]);
+      const mineIds = new Set((assigned || []).map((m) => String(m?.organization_id ?? "")));
+      const myOrgs = (orgs || []).filter((o) => !mineIds.size || mineIds.has(String(o?.id ?? ""))).map((o) => o?.name);
+      const events = input.events.filter((e) => !(family && e.title.includes(family)));
+      const material = readsMaterial(day, rows, { orgs: myOrgs, areas: (areas || []).map((a) => a?.name), events });
+      counts.news = rows.length;
+      let picks: ReturnType<typeof parseReads> = [];
+      if (material) {
+        const raw = await callDayAi(ctx, deps, started, "home_day_reads", READS_INSTRUCTIONS, material, READS_SCHEMA, DAY_READS_MAX_OUTPUT_TOKENS);
+        picks = parseReads(outputText(raw, 16 * 1024) ?? "", rows);
+      }
+      if (picks) {
+        counts.reads = picks.length;
+        await save({ reads: picks, reads_at: mine, reads_slot: slot, news_seen_at: newest });
+      } else deps.log("home_day_reads_bad_answer");
+    }
+    if (suggestNeed) {
+      // 재료: 오늘 지난 일정·끝낸 할 일(화면이 보냄) + 오늘 회의(서버) + 오늘 업무 통화 요약(운영자 기능 calls일 때만, 서버).
+      // 오늘 일기는 겹침 거르기에만 서버에서 쓰고 AI에 보내지 않는다. 일기를 못 읽으면 이번에는 고르지 않는다(다음 열기에 다시).
+      const dayStart = new Date(Date.parse(`${day}T00:00:00+09:00`)).toISOString(), dayEnd = new Date(Date.parse(`${day}T00:00:00+09:00`) + 86400000).toISOString();
+      const features = await myFeatures(ctx);
+      const calls = features instanceof Set && features.has("calls");
+      const [diary, meetings, callRows] = await Promise.all([
+        soft(`app_notes?workspace_id=eq.${ws}&kind=eq.diary&journal_day=eq.${day}&archived_at=is.null&select=workspace_id,kind,raw_text&limit=5`),
+        soft(`app_meetings?workspace_id=eq.${ws}&meeting_at=gte.${encodeURIComponent(dayStart)}&meeting_at=lt.${encodeURIComponent(dayEnd)}&select=workspace_id,title,series_name&order=meeting_at.asc&limit=20`),
+        calls ? soft(`app_feed_items?workspace_id=eq.${ws}&source=eq.call&day=eq.${day}&hidden_at=is.null&archived_at=is.null&select=workspace_id,source,title,summary&order=occurred_at.asc&limit=30`) : Promise.resolve([]),
+      ]);
+      if (diary) {
+        const diaryText = diary.filter((n) => String(n?.workspace_id).toLowerCase() === ctx.workspaceId && n?.kind === "diary")
+          .map((n) => typeof n.raw_text === "string" ? n.raw_text : "").join("\n");
+        const raw: DayLine[] = [
+          ...endedToday(input.events, day, clock.hm).map((e) => ({ kind: "일정" as const, text: e.title })),
+          ...input.done.map((t) => ({ kind: "할 일" as const, text: t })),
+          ...(meetings || []).filter((m) => String(m?.workspace_id).toLowerCase() === ctx.workspaceId)
+            .map((m) => ({ kind: "회의" as const, text: String(m?.series_name || m?.title || "") })),
+          ...(callRows || []).filter((c) => String(c?.workspace_id).toLowerCase() === ctx.workspaceId && c?.source === "call")
+            .map((c) => ({ kind: "통화" as const, text: [c?.title, c?.summary].filter((x) => typeof x === "string" && x.trim()).join(" — ") })),
+        ];
+        const lines = dayLines(raw, diaryText, family);
+        counts.lines = lines.length;
+        const material = suggestMaterial(day, lines);
+        if (material) {
+          const answer = await callDayAi(ctx, deps, started, "home_day_suggests", SUGGEST_INSTRUCTIONS, material, SUGGEST_SCHEMA, DAY_SUGGEST_MAX_OUTPUT_TOKENS);
+          const picks = parseSuggests(outputText(answer, 16 * 1024) ?? "", lines, family);
+          if (picks) {
+            counts.suggests = picks.length;
+            await save({ suggests: picks, suggests_at: mine });
+          } else deps.log("home_day_suggests_bad_answer");
+        }
+      }
+    }
+  } catch (e) {
+    await release();
+    if (e instanceof Fail) throw e;
+    throw new Fail(503, "home_day_picks_unavailable");
+  }
+  await release();
+  deps.log("home_day_picks_done", counts);
+  return done(await readRow());
+}
+
+// home_day_picks의 AI 한 번(② 또는 ③). 사용량 이름은 home_day_picks 하나(하루 횟수·월 상한 함께).
+async function callDayAi(ctx: Ctx, deps: RadarDeps, started: number, name: string, instructions: string, material: string, schema: Record<string, unknown>, maxTokens: number) {
+  const config = aiConfig(deps.env);
+  if (!config) { deps.log("ai_not_configured"); throw new Fail(503, "ai_not_configured"); }
+  const budget = await checkBudget(ctx, "home_day_picks", started, config.price);
+  try { await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now()); } catch { throw new Fail(503, "usage_unavailable"); }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model, store: false, max_output_tokens: maxTokens,
+    input: [{ role: "developer", content: instructions }, { role: "user", content: material }],
+    text: { format: { type: "json_schema", name, strict: true, schema } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: maxTokens } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try { await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now()); } catch { deps.log("usage_record_failed"); }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    throw new Fail(result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" || result.code === "ai_busy" ? 503 : 502, result.code);
+  }
+  return result.raw;
+}
+
 // ---- 쓰임 journal_memorable_recheck: FORGET-소식바로잡기 ④ 쌓인 소식 한 번 다시 판정(요청함 11/09 01:45) ----------
 // 종류·이유가 없는(옛 기준으로 고른) 최근 2주 처리 전 소식 줄을 #2172와 같은 지시문(MEMORABLE_INSTRUCTIONS)·같은 검사(parseMemorable)로 다시 거른다.
 // - 로그인한 소유자 본인 작업공간만(ownerWorkspace), 운영자 기능(calls·telegram)은 서버 허용 표로 판정 — 없으면 거절(403). 표 정책도 한 번 더 막는다.
@@ -5237,6 +5421,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "journal_draft") return await runJournalDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_memorable") return await runJournalMemorable(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_memorable_recheck") return await runJournalMemorableRecheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "home_day_picks") return await runHomeDayPicks(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "work_scope") return await runWorkScope(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "next_week_sheet") return await runNextWeekSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "pre_meeting_sheet") return await runPreMeetingSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
