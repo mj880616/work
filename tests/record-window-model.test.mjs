@@ -49,7 +49,7 @@ test('7줄 상한: 늘 보임 먼저, 지난 줄은 최근 것부터, 넘친 것
   const cell = m.orgCell({org: A, week: W, records: recs, events: evs});
   assert.equal(cell.shown.length, 7);
   assert.deepEqual(cell.shown.map(l => l.text), ['지난 3', '지난 2', '지난 1', '이번 주 1', '앞 주 1', 'A 지부 대의원대회', '앞 주 2']);
-  assert.deepEqual(cell.folded.map(l => l.text), ['지난 4', '지난 5']);
+  assert.deepEqual(cell.folded.map(l => l.text), ['지난 5', '지난 4']); // ORG-줄순서: 접힌 줄도 기본(오래된 것 위)을 따른다. 어떤 줄이 접히는지(최근 것이 보임)는 그대로
   // 늘 보임만으로 7을 넘으면 다 보인다
   const ahead = Array.from({length: 9}, (_, i) => R(`2026-11-${17 + i}`, `앞 ${i}`));
   assert.equal(m.orgCell({org: A, week: W, records: ahead}).shown.length, 9);
@@ -196,4 +196,41 @@ test('새 기록 검사·저장 시각', () => {
   assert.equal(m.checkRecord({day: '2026-11-17', body: ' '}).field, 'body');
   assert.deepEqual(m.checkRecord({day: '2026-11-17', end_day: '2026-11-17', body: ' 가 '}).value, {day: '2026-11-17', end_day: null, body: '가'});
   assert.equal(m.occurredAt('2026-11-17'), '2026-11-17T12:00:00+09:00');
+});
+
+// ORG-줄순서(요청함 11/09): 칸 안 줄·펼친 지난 기록·뺀 줄이 모두 고른 순서(asc 기본·desc)를 따르고, 어떤 줄이 보이는지(7줄 상한)는 순서와 상관없다.
+test('줄 순서: 기본 asc는 지금과 같고, desc는 칸 안·지난 기록·뺀 줄이 모두 최신 위로', () => {
+  const recs = [R('2026-11-16', '이번 주 1'), R('2026-11-25', '앞 주 1'), R('2026-12-03', '앞 주 2'),
+    R('2026-11-13', '지난 1'), R('2026-11-10', '지난 2'), R('2026-11-04', '지난 3'), R('2026-10-30', '지난 4'), R('2026-10-27', '지난 5'), R('2026-10-26', '지난 6'), R('2026-11-12', '지난 7'), R('2026-11-11', '지난 8'), R('2026-11-09', '지난 9')];
+  const marks = [{week_start: W, section: 'org', ref_kind: 'org_update', ref_key: recs[3].key, choice: 'out'}, {week_start: W, section: 'org', ref_kind: 'org_update', ref_key: recs[4].key, choice: 'out'}];
+  const asc = m.orgCell({org: A, week: W, records: recs, marks}), dflt = m.orgCell({org: A, week: W, records: recs, marks, order: 'asc'});
+  assert.deepEqual(dflt, asc, '고르지 않으면 asc');
+  assert.deepEqual(asc.shown.map(l => l.day), [...asc.shown.map(l => l.day)].sort());
+  assert.deepEqual(asc.folded.map(l => l.day), [...asc.folded.map(l => l.day)].sort(), '지난 기록도 오래된 것 위');
+  assert.deepEqual(asc.out.map(l => l.day), [...asc.out.map(l => l.day)].sort(), '뺀 줄도 오래된 것 위');
+  const desc = m.orgCell({org: A, week: W, records: recs, marks, order: 'desc'});
+  for (const key of ['shown', 'folded', 'out']) {
+    assert.deepEqual(desc[key].map(l => l.day), [...desc[key].map(l => l.day)].sort().reverse(), key + ' 최신 위');
+    assert.deepEqual(desc[key].map(l => l.id).sort(), asc[key].map(l => l.id).sort(), key + ' 같은 줄(순서만 다름)');
+  }
+  assert.ok(asc.folded.length >= 2 && asc.out.length === 2);
+  assert.equal(m.rowOrderOf('x'), 'asc'); assert.equal(m.rowOrderOf(undefined), 'asc'); assert.equal(m.rowOrderOf('desc'), 'desc');
+});
+
+test('줄 순서: 7줄 상한에 보이는 줄은 순서와 상관없이 같다(desc여도 최근 것이 보임)', () => {
+  const recs = Array.from({length: 10}, (_, i) => R(`2026-11-${String(1 + i).padStart(2, '0')}`, '줄 ' + i));
+  const a = m.orgCell({org: A, week: W, records: recs, order: 'asc'}), d = m.orgCell({org: A, week: W, records: recs, order: 'desc'});
+  assert.equal(a.shown.length, 7); assert.equal(d.shown.length, 7);
+  assert.deepEqual(a.shown.map(l => l.text), d.shown.map(l => l.text).reverse());
+  assert.deepEqual(a.folded.map(l => l.text), d.folded.map(l => l.text).reverse());
+});
+
+test('줄 순서: 투쟁 사업장 칸·확정 사진·옛 보고 줄도 같은 순서를 따르고 복사 글(lineText)은 줄 그대로', () => {
+  const old = [R('2026-10-01', '옛 1'), R('2026-09-20', '옛 2'), R('2026-09-10', '옛 3')], now = [R('2026-11-17', '이번 주')];
+  assert.deepEqual(m.siteCell({org: A, week: W, records: [...old, ...now], order: 'asc'}).shown.map(l => l.text), ['옛 2', '옛 1', '이번 주']);
+  assert.deepEqual(m.siteCell({org: A, week: W, records: [...old, ...now], order: 'desc'}).shown.map(l => l.text), ['이번 주', '옛 1', '옛 2']);
+  const snapshot = {confirmed_at: '2026-11-21T00:00:00Z', rows: [{section: 'org', ref_kind: 'org', ref_key: A, lines: [{ref_kind: 'org_update', ref_key: 'a', day: '2026-11-10', text: '앞'}, {ref_kind: 'org_update', ref_key: 'b', day: '2026-11-12', text: '뒤'}], seen_events: []}]};
+  assert.deepEqual(m.snapshotView({org: A, week: W, snapshot, order: 'asc'}).lines.map(l => l.text), ['앞', '뒤']);
+  assert.deepEqual(m.snapshotView({org: A, week: W, snapshot, order: 'desc'}).lines.map(l => l.text), ['뒤', '앞']);
+  assert.deepEqual(m.orderLines(['a', 'b'], 'desc'), ['b', 'a']); assert.deepEqual(m.orderLines(['a', 'b'], 'asc'), ['a', 'b']);
 });
