@@ -391,3 +391,35 @@ test('원드라이브 상태 확인이 실패하면 아이콘에 빨간 점, 드
   await odPick(page, '다시 확인');
   await expect(odIcon(page)).toHaveAttribute('data-state', 'ok');
 });
+
+// DIARY-넣은사진표시: 그날 사진 모음에서 일기에 넣은 사진(일기 첨부)에만 왼쪽 위 '일기' 띠, 오른쪽 위 별표와 겹치지 않는다.
+for (const width of [390, 1280]) {
+  test(`일기에 넣은 사진에만 왼쪽 위 '일기' 띠가 보이고 별표와 겹치지 않는다 ${width}`, async ({ page }) => {
+    const at = '2026-10-05T01:00:00Z';
+    const att = id => ({ drive_file_id: id, file_name: id + '.jpg', mime_type: 'image/jpeg', size_bytes: 1200 });
+    const diary = { id: 'd12', workspace_id: 'w', kind: 'diary', title: null, journal_day: '2026-10-12', raw_text: '', occurred_at: at, created_at: at, updated_at: at, archived_at: null, ai_export_allowed: false, attachments: [att('U1'), att('U2')], metadata: {} };
+    const f = await fixture(page, { width });
+    f.stars.push({ source: 'upload', item_key: 'U1', taken_day: '2026-10-12' }, { source: 'onedrive', item_key: 'A1', taken_day: '2026-10-12' });
+    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => r.fulfill({ json: [diary] }));
+    await page.route(u => u.origin === SB && u.pathname === '/functions/v1/basket-files', r => r.fulfill({ status: 200, contentType: 'image/png', body: PNG }));
+    await openDiary(page, width);
+    await cell(page, '2026-10-12').click();
+    const grid = page.locator('#diaryRoot [data-diary-detail] [data-diary-grid] .diary-grid-item');
+    await expect(grid).toHaveCount(8);
+    const marks = page.locator('#diaryRoot [data-diary-grid] .diary-in-mark');
+    await expect(marks).toHaveCount(2);
+    await expect(marks.first()).toHaveText('일기');
+    for (let i = 0; i < 8; i++) await expect(grid.nth(i).locator('.diary-in-mark')).toHaveCount(i < 2 ? 1 : 0);
+    // 세 칸 위치를 따로 읽으면 그 사이 화면이 밀릴 때(사진·덧글 줄 배치) 서로 다른 순간 값이 섞인다. 한 번에 같이 읽는다.
+    const { m, s, g } = await grid.nth(0).evaluate(el => {
+      const r = n => { const b = n.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
+      return { m: r(el.querySelector('.diary-in-mark')), s: r(el.querySelector('.diary-star-mark')), g: r(el) };
+    });
+    expect(m.x).toBeLessThan(g.x + g.width / 2); expect(m.y).toBeLessThan(g.y + 12);
+    expect(m.x + m.width).toBeLessThanOrEqual(s.x + 1);
+    expect(m.height).toBeGreaterThanOrEqual(16); expect(m.height).toBeLessThanOrEqual(18);
+    await expect(grid.nth(0)).toHaveAttribute('aria-label', /일기에 넣은 사진, 별표/);
+    await expect(grid.nth(2)).not.toHaveAttribute('aria-label', /일기에 넣은/);
+    expect(f.errors).toEqual([]);
+  });
+}

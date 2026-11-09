@@ -70,7 +70,6 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
    ⋯ 는 공용 rowMore(.row-more, journal.css), 꼬리표는 주간 정리 공용 .weekly-flow-tag. 여기서는 자리(간격·순서)만 정한다. */
 .wl-count{margin-left:4px;color:var(--kptu-muted);font-size:var(--ds-text-meta);font-weight:400;white-space:nowrap}
 .wl-c-org .row-more{float:right}
-.wl-line .row-more{margin-left:auto}
 .wl-line.is-sug{align-items:flex-start;padding:2px 0}
 .wl-line.is-sug .weekly-flow-tag{margin-top:2px}
 .wl-line.is-sug .wl-text{flex:1 1 0}

@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {buildDiaryList, rowText, dayLabel, monthLabel, diaryPinnedAt, diaryStarredAt, withMark, matches, queryWords, MARK_KEYS, withDoneDays, doneLine} from '../app/diary-list-model.mjs';
+import {buildDiaryList, rowText, dayLabel, monthLabel, diaryPinnedAt, diaryStarredAt, withMark, matches, queryWords, MARK_KEYS, withDoneDays, doneLine, inDiaryPhoto} from '../app/diary-list-model.mjs';
 import {validValue, parsePrefs, KEYS, DIARY_VIEWS} from '../app/view-prefs.js';
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
@@ -127,4 +127,15 @@ test('한 일 읽기는 읽기만: 기간·최근 줄 GET, 일기 화면은 같�
   assert.match(lines, /export async function readDoneRecent/);
   assert.match(read('app/diary.js'), /m\.readDoneBetween\(first, last, rt\)/);
   assert.match(read('app/diary-list.js'), /m\.readDoneRecent\(rt\)/);
+});
+
+test('DIARY-넣은사진표시: 일기 첨부(올린 사진) 칸만 일기에 넣은 사진, 원드라이브·폰 원본·없는 첨부·이미지 아닌 첨부는 아니다', () => {
+  const r = row('2026-11-07', '', {}, [{drive_file_id:'a1', mime_type:'image/jpeg', size_bytes:10}, {drive_file_id:'f1', mime_type:'application/pdf', size_bytes:10}]);
+  assert.equal(inDiaryPhoto({source:'upload', key:'a1'}, r), true);
+  assert.equal(inDiaryPhoto({source:'upload', key:'zz'}, r), false);
+  assert.equal(inDiaryPhoto({source:'upload', key:'f1'}, r), false);
+  assert.equal(inDiaryPhoto({source:'onedrive', key:'a1'}, r), false);
+  assert.equal(inDiaryPhoto({source:'phone', key:'a1'}, r), false);
+  assert.equal(inDiaryPhoto({source:'upload', key:'a1'}, null), false);
+  assert.equal(inDiaryPhoto(null, r), false);
 });

@@ -196,6 +196,8 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView :is(#diaryView,#photosView) .diary-od-name{ flex:1; min-width:0; min-height:var(--kptu-touch-target,44px); margin:0; padding:0 4px; text-align:left; color:var(--kptu-ink); background:transparent; border:0; box-shadow:none; font:inherit; font-size:var(--ds-text-row); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #appView #diaryView .diary-cell .diary-dot-od{ bottom:7%; background:var(--ds-kind-other-ink); }
 #appView :is(#diaryView,#photosView) .diary-grid-item .diary-star-mark{ position:absolute; top:2px; right:3px; z-index:1; font-size:12px; line-height:1; color:var(--ds-photo-ink); text-shadow:0 0 3px var(--ds-photo-scrim); pointer-events:none; }
+/* DIARY-넣은사진표시: 일기에 넣은 사진은 왼쪽 위 작은 초록 띠 '일기'(오른쪽 위 별표와 자리가 겹치지 않음). */
+#appView :is(#diaryView,#photosView) .diary-grid-item .diary-in-mark{ position:absolute; top:4px; left:4px; z-index:1; display:flex; align-items:center; height:17px; padding:0 5px; border-radius:var(--kptu-radius-sm); background:var(--ds-photo-diary); color:var(--ds-photo-ink); font-size:10.5px; line-height:1; white-space:nowrap; pointer-events:none; }
 
 /* JOURNAL-일기원드라이브: 설정 창(맨 위 폴더 아래 하위 폴더 스위치). 하단 탭·전환 줄 위에 앉아 가려지지 않는다. */
 #appView :is(#diaryView,#photosView) .diary-od-sync{ margin:0; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
