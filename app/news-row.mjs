@@ -1,4 +1,5 @@
 import {tagLabel, tagStyle} from './news-colors.mjs';
+import {chevHtml} from './fold-chevron.mjs';
 // S51-8 NEWS-전면개편 P4b(시안 news-overhaul.html ①): News 목록 줄 하나와 날짜 묶음의 글자(HTML)를 만드는 순수 함수. DOM·네트워크 없음.
 // 세 목록([전체]·[사회운동]은 outside-statements.js, [언론]은 news-clipping.js, [보관]은 now-saved.js)이 같은 줄 모양을 쓴다(그리기는 각 칸 주인).
 // 줄: 왼쪽 매체 색 띠 · 제목(안 읽은 글 굵게, 읽은 글 흐리게) / 매체 이름(같은 색) · 분류 꼬리표 · 시각 · 별표. 요약 줄은 목록에 없다(상세에서).
@@ -21,4 +22,17 @@ export function rowHtml(r, esc) {
 export function dayHtml(label, rowsHtml, unread, esc) {
   const head = `${esc(label)}${unread > 0 ? ` · 새 글 ${unread}` : ''}`;
   return `<section class="nw-day" aria-label="${esc(label)}"><h3 class="nw-day-head">${head}</h3><div class="nw-card">${rowsHtml}</div></section>`;
+}
+// NEWS-도배막기 A(news-fold.mjs foldRuns): 같은 매체가 연달아 나온 기사 묶음. 첫 기사 줄 + 작게 '○○ 외 N건'(누르면 그 자리에서 펼침·다시 누르면 접힘).
+// 펼침은 브라우저 기본 <details>(키보드·터치 그대로). 열림 여부는 그리는 칸 주인이 화면 메모리로 들고 open으로 넘긴다(다시 그려도 그대로).
+// runs = foldRuns 결과, o = {rowOf(entry)→줄 HTML, keyOf(entry)→줄 키, nameOf(entry)→매체 이름, isOpen(foldKey, entries)→bool}.
+export function runsHtml(runs, o, esc) {
+  return (runs || []).map(r => {
+    const lead = o.rowOf(r.lead);
+    if (!r.more.length) return lead;
+    const key = 'fold:' + o.keyOf(r.lead);
+    const open = !!o.isOpen?.(key, [r.lead, ...r.more]);
+    const name = o.nameOf(r.lead) || '같은 매체';
+    return lead + `<details class="nw-fold" data-nw-fold="${esc(key)}"${open ? ' open' : ''}><summary class="nw-fold-sum">${esc(name)} 외 ${r.more.length}건${chevHtml(false)}</summary>${r.more.map(e => o.rowOf(e)).join('')}</details>`;
+  }).join('');
 }

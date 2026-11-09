@@ -52,6 +52,11 @@
 #appView #outsideView .nw-meta > :is(.nw-src,.nw-tag,.nw-badge){ min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #appView #outsideView .nw-star{ margin-left:auto; color:var(--kptu-warning); }
 #appView #outsideView .nw-row .ns-mark{ align-self:center; font-size:11px; color:var(--kptu-muted); }
+/* NEWS-도배막기 A: 같은 매체가 연달아 나온 기사 묶음 — 첫 줄 아래 작게 '○○ 외 N건'(누르면 그 자리에서 펼침). 접기 표시는 공용 꺾쇠(fold-chevron.mjs, 열리면 저절로 돌아감), 색은 토큰만. */
+#appView #outsideView .nw-fold{ border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #outsideView .nw-fold-sum{ display:flex; align-items:center; gap:4px; min-height:28px; padding:0 11px 0 24px; font-size:11px; color:var(--kptu-muted); cursor:pointer; list-style:none; }
+#appView #outsideView .nw-fold-sum::-webkit-details-marker{ display:none; }
+#appView #outsideView .nw-fold-sum:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
 
 /* 탭 자리(명진 11/06 01:25): 폰 세로 = 아래 가운데 떠 있는 둥근 탭 줄(하단바 위), 폴드 펼침(761~1199px) = 오른쪽 아래, PC(1200px~) = 위. 모양은 어디서나 공용 ⑤ 보기 바꾸기(UI-보기탭한모양). */
 @media (max-width:1199px){

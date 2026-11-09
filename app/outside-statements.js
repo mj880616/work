@@ -10,7 +10,8 @@ import {hasNewsItem, takeNewsTab} from './news-request.mjs';
 import {itemView, whenOf} from './news-clipping-model.mjs';
 import {NOW_TABS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed} from './now-model.mjs';
 import {outsideColor, newsColor, colorVar, familyOfGroup, postTag, newsTag, tagLabel} from './news-colors.mjs';
-import {rowHtml, dayHtml} from './news-row.mjs';
+import {rowHtml, dayHtml, runsHtml} from './news-row.mjs';
+import {foldRuns, liftRelated, LIFT_LABEL} from './news-fold.mjs';
 import {ensureReads, readState, markRead, onReads} from './news-reads.js';
 import {createNowDetail} from './now-detail.js';
 import {createNowSaved} from './now-saved.js';
@@ -177,10 +178,21 @@ function rowOf(type, row, {openAttr, rowAttr, acts = '', star = false} = {}) {
   const base = {key: itemKey(item), openAttr, openId: row.id, rowAttr, rowId: row.id, read: readState(item), open: !!sel && itemKey(sel) === itemKey(item), acts, star};
   if (type === 'news') {
     const v = itemView(row);
-    return rowHtml({...base, title: v.title, titleLang: v.titleLang, src: v.publisher, color: newsColor(row, newsCatalog()), tag: newsTag(row), time: v.time, star: !!row.starred_at, hit: interestHit([v.title, v.origTitle, v.summary], interests.topics())}, esc);
+    return rowHtml({...base, title: v.title, titleLang: v.titleLang, src: v.publisher, color: newsColor(row, newsCatalog()), tag: newsTag(row), time: v.time, star: !!row.starred_at, hit: hitOf(type, row)}, esc);
   }
   const v = postView(row);
-  return rowHtml({...base, title: v.title, titleLang: row.lang === 'en' && !row.title_ko ? 'en' : '', src: nameOf(row.source_key), badge: v.tag, color: outsideColor(row.source_key, state.catalog || []), tag: postTag(row), time: v.time, hit: interestHit([v.title, v.origTitle, v.summary], interests.topics())}, esc);
+  return rowHtml({...base, title: v.title, titleLang: row.lang === 'en' && !row.title_ko ? 'en' : '', src: nameOf(row.source_key), badge: v.tag, color: outsideColor(row.source_key, state.catalog || []), tag: postTag(row), time: v.time, hit: hitOf(type, row)}, esc);
+}
+// 확정 관심 주제에 걸린 주제 이름(줄 끝 작은 표시). NEWS-도배막기 C: 같은 값으로 위 칸 '관심 주제'에 올린다(news-fold.mjs liftRelated).
+function hitOf(type, row) {
+  const v = type === 'news' ? itemView(row || {}) : postView(row || {});
+  return interestHit([v.title, v.origTitle, v.summary], interests.topics());
+}
+// NEWS-도배막기 A: 펼친 매체 묶음(화면 메모리만, 다시 그려도 그대로). [전체]·[사회운동]·[언론] 세 목록이 이 하나를 쓴다(KPTUNow.foldOpen).
+const folds = new Set();
+// 줄 묶음 → HTML. 같은 언론 매체가 연달아 나오면 '○○ 외 N건'으로 접는다(news-row.mjs runsHtml). rowFn = 줄 하나 그리기.
+function foldedHtml(entries, rowFn) {
+  return runsHtml(foldRuns(entries), {rowOf: rowFn, keyOf: e => itemKey({type: e.type, id: e.row.id}), nameOf: e => (e.type === 'news' ? itemView(e.row).publisher : ''), isOpen: key => folds.has(key)}, esc);
 }
 let detailLayer = null, interestsLayer = null, interestsAsk = 0;
 const detail = createNowDetail({box: detailBox, topics: () => interests.topics(),
@@ -206,7 +218,9 @@ async function openHighlight(h) {
   if (!row) { notify('원래 글을 찾지 못했어요 · 밑줄은 그대로 있어요', {record: false}); return; }
   openDetail({type: h.source_type, id: h.source_id}, describe(h.source_type, row), {highlight: h.id});
 }
-const interests = createNowInterests({box: root?.querySelector('[data-now-interests-box]'), onChanged: () => { paintCand(); if (state.mode === 'list') paintList(); detail.paint(); }});
+const interests = createNowInterests({box: root?.querySelector('[data-now-interests-box]'), onChanged: () => { paintCand(); if (state.mode === 'list') { paintList(); paintNewsTab(); } detail.paint(); }});
+// 관심 주제가 바뀌면 [언론] 칸도 위 칸·표시를 다시(그 칸 주인 news-clipping.js가 그린다).
+const paintNewsTab = () => { if (state.tab === 'media') window.KPTUNews?.repaint?.(); };
 // 환류 기록이 쌓이면 서버가 후보를 만들지 정한다(10건 또는 저녁 6시 뒤 그날 처음 — 서버 규칙, AI를 안 부르면 한도도 안 씀). 화면은 1분에 한 번만 묻는다.
 function askInterests() {
   if (Date.now() - interestsAsk < 60000) return;
@@ -290,12 +304,14 @@ function backFromInterests() {
 // ---------- 목록 그리기 ----------
 // 날짜 묶음 → 흰 상자 안 줄. entries = [{type, row}] (그려 둘 순서대로). 묶음 머리에 안 읽은 글 수.
 function daysHtml(entries, now) {
-  const wrapped = entries.map(e => ({...e, published_at: e.type === 'news' ? (whenOf(e.row) ? new Date(whenOf(e.row)).toISOString() : '') : e.row.published_at}));
-  return groupPosts(wrapped, now).map(g => {
-    const rows = g.items.map(e => rowOf(e.type, e.row, {openAttr: 'data-now-open', acts: hoverActsHtml({isSaved: e.type === 'news' ? !!e.row.starred_at : markOf(e.row.id).archived})})).join('');
-    const unread = g.items.filter(e => readState({type: e.type, id: e.row.id}) === false).length;
-    return dayHtml(g.label, rows, unread, esc);
-  }).join('');
+  const rowFn = e => rowOf(e.type, e.row, {openAttr: 'data-now-open', acts: hoverActsHtml({isSaved: e.type === 'news' ? !!e.row.starred_at : markOf(e.row.id).archived})});
+  const unreadOf = list => list.filter(e => readState({type: e.type, id: e.row.id}) === false).length;
+  // NEWS-도배막기 C: 관심 주제에 걸린 최근 글은 위 칸에 먼저(시간순 그대로), 나머지는 아래 날짜별.
+  const atOf = e => (e.type === 'news' ? whenOf(e.row) : Date.parse(e.row.published_at || ''));
+  const {top, rest} = liftRelated(entries, e => !!hitOf(e.type, e.row), atOf, now);
+  const head = top.length ? dayHtml(LIFT_LABEL, foldedHtml(top, rowFn), unreadOf(top), esc) : '';
+  const wrapped = rest.map(e => ({...e, published_at: e.type === 'news' ? (whenOf(e.row) ? new Date(whenOf(e.row)).toISOString() : '') : e.row.published_at}));
+  return head + groupPosts(wrapped, now).map(g => dayHtml(g.label, foldedHtml(g.items, rowFn), unreadOf(g.items), esc)).join('');
 }
 const shownPosts = () => state.posts.filter(p => !markOf(p.id).dismissed && titleHit([postView(p).title, p.title], state.query));
 const shownNews = () => state.news.filter(n => titleHit([itemView(n).title, n.title], state.query));
@@ -444,7 +460,7 @@ function resetIfOwnerChanged() {
   closeLayer();
   state = fresh(); state.scope = scope;
   search.reset();
-  detail.reset(); saved.reset(); marks.reset(); interests.reset();
+  detail.reset(); saved.reset(); marks.reset(); interests.reset(); folds.clear();
   if (root) root.dataset.detail = 'closed';
   const f = $('[data-nw-find]'); if (f) f.value = '';
 }
@@ -566,7 +582,7 @@ function enter() {
   // 다시 들어온 때도 보이는 탭 칸을 새로 읽는다([언론]은 그 모듈이, [보관]은 이 화면이).
   else if (state.tab === 'media') window.KPTUNews?.enter?.();
   else if (state.tab === 'archive') saved.load();
-  if (!interests.loaded()) interests.load().then(() => { if (state.mode === 'list') paintList(); });
+  if (!interests.loaded()) interests.load().then(() => { if (state.mode === 'list') { paintList(); paintNewsTab(); } });
   askInterests();
   paint();
   entering ||= load().catch(() => {}).finally(() => { entering = null; });
@@ -703,6 +719,18 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-nw-all-more]')) { loadMore(); return; }
   if (b.matches('[data-os-retry]')) { load().catch(() => {}); paint(); }
 });
+// 매체 묶음 펼침·접힘을 기억. [언론] 칸(news-clipping.js)도 이 화면 안이라 같이 잡힌다.
+// 누른 순간(클릭·Enter·Space 모두 click)에 바로 적는다 — toggle 알림은 늦게 와서 그사이 목록을 다시 그리면 떨어진 줄에 가 버린다.
+// toggle(거품 없음 → 잡기 단계)은 그 밖의 길(브라우저 찾기로 열림 등)을 맞춘다.
+const keepFold = (d, open) => { if (open) folds.add(d.dataset.nwFold); else folds.delete(d.dataset.nwFold); };
+root?.addEventListener('click', event => {
+  const d = event.target.closest?.('summary')?.parentElement;
+  if (d?.matches?.('details[data-nw-fold]') && root.contains(d)) keepFold(d, !d.open);
+}, true);
+root?.addEventListener('toggle', event => {
+  const d = event.target;
+  if (d?.matches?.('details[data-nw-fold]') && d.isConnected) keepFold(d, d.open);
+}, true);
 root?.addEventListener('input', event => { if (event.target.matches?.('[data-nw-find]')) setQuery(event.target.value); });
 root?.addEventListener('submit', event => {
   if (!event.target.matches?.('[data-nw-top]')) return;
@@ -775,7 +803,7 @@ window.addEventListener('kptu:view-prefs-ready', () => {
 window.KPTUOutside = {refresh: () => load(), showNew: () => { takeNewsTab(); setTab('movement'); }}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js, 이미 불러온 때)
 // [언론] 탭 칸 주인(news-clipping.js)이 쓰는 입구: 상세 열기·머리 만들기·줄 그리기·확정 관심 주제·환류 기록 뒤 후보 묻기·지금 탭·찾는 말·고른 매체.
 window.KPTUNow = {
-  open: (item, head) => openDetail(item, head), listed: () => autoOpenTop(), describe, rowOf, topics: () => interests.topics(), selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; },
+  open: (item, head) => openDetail(item, head), listed: () => autoOpenTop(), describe, rowOf, topics: () => interests.topics(), hitOf, foldedHtml, selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; },
   signaled: () => askInterests(), tab: () => state.tab, openInterests: () => openInterests(), query: () => state.query, newsKeys: () => newsKeys(),
   metaChanged: m => { if (m) state.newsMeta = {catalog: m.catalog || [], enabled: m.enabled || []}; state.media = keepMedia(state.tab || 'all', state.media); paintMediaButton(); },
 };
