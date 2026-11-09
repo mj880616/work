@@ -27,11 +27,20 @@ async function phoneDay(k, day) {
   const page = await phone.page({sort:'taken_desc', filter:'all', before:k.time.dayEndMs(day), limit:200, hide:await k.folders.phoneHideList(phone)});
   return (page.items || []).filter(it => it.day === day);
 }
+// 원드라이브 그달 목록·그달 별표는 날을 바꿔 가며 볼 때 다시 묻지 않게 이 탭 메모리에 10분 둔다(로그인한 사람·달마다).
+const monthKeep = new Map(); // `${what}:${owner}:${y}-${m}` → {at, flight}
+function kept(key, read) {
+  const hit = monthKeep.get(key);
+  if (hit && Date.now() - hit.at < PHOTO_FRESH_MS) return hit.flight;
+  const flight = read().catch(error => { monthKeep.delete(key); throw error; });
+  monthKeep.set(key, {at:Date.now(), flight});
+  return flight;
+}
 async function odMonth(k, rt, year, month) {
   if (!k.sources.readDeviceSources().onedrive) return null;
   const status = await k.od.odStatusCached(rt);
   if (!status?.connected || !status?.folder) return null;
-  return (k.od.odTakeWarmMonth(rt, year, month)) || k.od.odPhotos(rt, year, month);
+  return kept(`od:${k.diary.ownerScope(rt)}:${year}-${month}`, async () => (k.od.odTakeWarmMonth(rt, year, month)) || k.od.odPhotos(rt, year, month));
 }
 // → {items, starred:Set<'source:key'>}. 한 출처를 못 읽어도 나머지는 보인다.
 export async function readDayPhotos(day, rt) {
@@ -41,7 +50,7 @@ export async function readDayPhotos(day, rt) {
     k.diary.readDiaryDay(day, rt).catch(() => null),
     odMonth(k, rt, year, month).catch(() => null),
     phoneDay(k, day).catch(() => []),
-    k.od.readStars(year, month, rt).catch(() => []),
+    kept(`star:${k.diary.ownerScope(rt)}:${year}-${month}`, () => k.od.readStars(year, month, rt)).catch(() => []),
   ]);
   const items = k.od.dayItems(day, row, od).concat(k.time.phoneDayItems(phone, day, od?.days?.[day] || []));
   return {items, starred:new Set(stars.map(s => k.od.starKey(s.source, s.item_key)))};
