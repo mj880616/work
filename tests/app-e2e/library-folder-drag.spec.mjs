@@ -60,6 +60,7 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
     // 안에 있는 가상 C를 맨 위('폴더 밖' 머리)로.
     r=await dragTo(page,head('f:fc'),head('x:out'));expect(r.allowed).toBe(true);
     await expect.poll(()=>s.folders.find(f=>f.id==='fc').parent_id).toBeNull();
+    await expect(line(page)).toContainText('폴더를 옮겼어요');// 서버 반영 뒤에도 앱은 다시 불러오는 중(처리 중)이라 다음 끌기를 무시한다. 끝 신호 = 상태 줄 글.
     // 같은 상위(맨 위) 안에서 N을 A 앞(위 끝)으로.
     await expandLibraryTree(page);
     r=await dragTo(page,head('f:fn'),head('f:fa'),{edge:'top'});expect(r.allowed).toBe(true);expect(r.cls).toContain('lu-drop-before');
@@ -186,7 +187,8 @@ test.describe('PC 1280 자료 줄 위에 놓기·머물면 열림',()=>{
       src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
       // 폴더 N 위를 잠깐 지나 폴더 A로: N은 열리지 않는다.
       over(at(fn));await new Promise(r=>setTimeout(r,300));over(at(fa));
-      await new Promise(r=>setTimeout(r,1300));
+      // 1초 머무름 타이머가 돌 시간을 고정으로 두지 않고, 열릴 때까지(최대 8초) 본다. 느린 CI에서도 같다.
+      for(let i=0;i<160&&!document.querySelector('#documentList details[data-lu-node="f:fa"]').open;i++)await new Promise(r=>setTimeout(r,50));
       const out={fa:document.querySelector('#documentList details[data-lu-node="f:fa"]').open,fn:document.querySelector('#documentList details[data-lu-node="f:fn"]').open};
       src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));return out;
     },{from:row('a-2'),fa:head('f:fa'),fn:head('f:fn')});
