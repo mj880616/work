@@ -410,7 +410,11 @@ for (const width of [390, 1280]) {
     await expect(marks).toHaveCount(2);
     await expect(marks.first()).toHaveText('일기');
     for (let i = 0; i < 8; i++) await expect(grid.nth(i).locator('.diary-in-mark')).toHaveCount(i < 2 ? 1 : 0);
-    const m = await grid.nth(0).locator('.diary-in-mark').boundingBox(), s = await grid.nth(0).locator('.diary-star-mark').boundingBox(), g = await grid.nth(0).boundingBox();
+    // 세 칸 위치를 따로 읽으면 그 사이 화면이 밀릴 때(사진·덧글 줄 배치) 서로 다른 순간 값이 섞인다. 한 번에 같이 읽는다.
+    const { m, s, g } = await grid.nth(0).evaluate(el => {
+      const r = n => { const b = n.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
+      return { m: r(el.querySelector('.diary-in-mark')), s: r(el.querySelector('.diary-star-mark')), g: r(el) };
+    });
     expect(m.x).toBeLessThan(g.x + g.width / 2); expect(m.y).toBeLessThan(g.y + 12);
     expect(m.x + m.width).toBeLessThanOrEqual(s.x + 1);
     expect(m.height).toBeGreaterThanOrEqual(16); expect(m.height).toBeLessThanOrEqual(18);
