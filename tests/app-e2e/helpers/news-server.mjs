@@ -103,7 +103,11 @@ export async function newsServer(page) {
       if (method === 'PATCH') { const row = server.sources.get(key); row.enabled = body.enabled; return ok([row]); }
       if (method === 'POST') { const row = { source_key: body.source_key, enabled: body.enabled, last_ok_at: null, last_error: null }; server.sources.set(row.source_key, row); return ok([row], 201); }
       const like = u.searchParams.get('source_key');
-      return ok([...server.sources.values()].filter(r => like !== 'like.news-*' || r.source_key.startsWith('news-')));
+      // 읽기 답은 요청 받은 때의 값(옛 값)이고, sourcesHold가 있으면 그 약속이 풀릴 때까지 늦게 준다(느린 읽기 흉내, 한 번만).
+      const rows = [...server.sources.values()].filter(r => like !== 'like.news-*' || r.source_key.startsWith('news-')).map(r => ({ ...r }));
+      const hold = server.sourcesHold; server.sourcesHold = null;
+      if (hold) await hold;
+      return ok(rows);
     }
     return ok([]);
   });

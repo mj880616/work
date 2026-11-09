@@ -74,10 +74,12 @@ for (const width of [412, 884, 1440]) {
     await expect(items(page)).toHaveCount(5);
 
     // ⋯ → 언론 매체 켜고 끄기: news- 키만, 국내·해외 묶음, 켜기 = 새 줄 넣기. 켜면 [매체 ▾] 창에도 나온다.
+    const callsBefore = server.calls.length;
     await page.locator('#outsideRoot [data-os-more]').click();
     await page.locator('#osMenu').getByRole('button', { name: '언론 매체 켜고 끄기' }).click();
     await expect(root(page).locator('.nc-group-head')).toHaveText(['국내', '해외']);
-    expect(server.calls.filter(c => c.what === 'app_outside_sources' && c.method === 'GET').at(-1).query).toContain('source_key=like.news-*');
+    // 이 창이 읽는 것은 news- 키뿐이다. (같은 표를 다른 칸 — 외부 소식 탭의 'news- 아님' 읽기 — 도 읽어 마지막 한 건으로 가리지 않고, 연 뒤의 읽기 중에서 찾는다.)
+    await expect.poll(() => server.calls.slice(callsBefore).some(c => c.what === 'app_outside_sources' && c.method === 'GET' && c.query.includes('source_key=like.news-*'))).toBe(true);
     await expect(root(page).locator('[data-nc-source="news-fake-a"]')).toHaveAttribute('aria-checked', 'true');
     await root(page).locator('[data-nc-source="news-fake-en"]').click();
     await expect(root(page).locator('[data-nc-source="news-fake-en"]')).toHaveAttribute('aria-checked', 'true');
@@ -94,6 +96,30 @@ for (const width of [412, 884, 1440]) {
     expect(errors).toEqual([]);
   });
 }
+
+// 매체 창을 열 때 시작한 읽기가 늦게 돌아와도(켜고 끈 뒤에 도착), 옛 값이 방금 켠 것을 되돌리면 안 된다(STAB-뉴스·검색).
+test('News [언론] 1440: 매체 창 읽기가 늦게 와도 방금 켠 매체는 그대로 켜져 있다', async ({ page }) => {
+  test.setTimeout(60000);
+  const { errors, server } = await start(page, 1440);
+  await openNews(page, 1440);
+  await expect(items(page)).toHaveCount(5);
+  let release; server.sourcesHold = new Promise(r => { release = r; });
+  await page.locator('#outsideRoot [data-os-more]').click();
+  await page.locator('#osMenu').getByRole('button', { name: '언론 매체 켜고 끄기' }).click();
+  const en = root(page).locator('[data-nc-source="news-fake-en"]');
+  await expect(en).toHaveAttribute('aria-checked', 'false');
+  await en.click();
+  await expect(en).toHaveAttribute('aria-checked', 'true');
+  expect(server.calls.find(c => c.what === 'app_outside_sources' && c.method === 'POST').body).toMatchObject({ source_key: 'news-fake-en', enabled: true });
+  // 켠 뒤에야 옛 읽기 답이 도착한다: 답이 화면에 닿고 두 번 그린 뒤까지 기다린다.
+  const late = page.waitForResponse(r => r.request().method() === 'GET' && r.url().includes('/rest/v1/app_outside_sources'));
+  release();
+  await late;
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await expect(en).toHaveAttribute('aria-checked', 'true');
+  await expect(root(page).locator('[data-nc-source="news-fake-a"]')).toHaveAttribute('aria-checked', 'true');
+  expect(errors).toEqual([]);
+});
 
 test('News [언론] 폰 412: 좌우로 밀면 탭 이동, ⋯ 메뉴는 하단바에 가리지 않음', async ({ page }) => {
   test.setTimeout(60000);

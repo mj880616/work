@@ -88,6 +88,9 @@ function signal(id, action) {
   rt().api('/rest/v1/app_now_signals', {method: 'POST', body: signalBody(w, {type: 'news', id}, action), prefer: 'return=minimal', singleFlight: false})
     .then(() => now()?.signaled?.()).catch(() => {});
 }
+// 매체 표는 읽기(열 때·처음)와 쓰기(켜고 끄기)가 겹칠 수 있다. 쓰기가 시작·끝난 뒤에 도착한 '그 전에 시작한 읽기'는
+// 옛 값이라 버린다(상태 주인 하나: 마지막에 서버가 확인해 준 쓰기 결과). 읽는 동안 쓰기가 있었는지는 이 번호로 안다.
+let sourcesRev = 0;
 async function writeSource(w, key, enabled) {
   const at = new Date().toISOString();
   const rows = state.sources.has(key)
@@ -229,11 +232,11 @@ async function loadCatalog() {
   } catch { state.catalogFailed = true; }
 }
 async function loadSources() {
-  const w = workspaceOf(), scope = state.scope;
+  const w = workspaceOf(), scope = state.scope, rev = sourcesRev;
   if (!w) return;
   try {
     const rows = await readSources(w);
-    if (scope !== state.scope || !Array.isArray(rows)) return;
+    if (scope !== state.scope || rev !== sourcesRev || !Array.isArray(rows)) return;
     state.sources = new Map(rows.filter(r => r && r.source_key).map(r => [r.source_key, r])); state.sourcesLoaded = true; state.sourcesFailed = false;
   } catch { if (scope === state.scope && !state.sourcesLoaded) state.sourcesFailed = true; }
 }
@@ -318,8 +321,10 @@ async function openPanel(mode) {
     catch { if (scope === state.scope && !state.keywordsLoaded) state.keywordsFailed = true; }
     if (!state.catalog) await loadCatalog();
   } else {
+    const rev = sourcesRev;
     const [, rows] = await Promise.allSettled([loadCatalog(), readSources(w)]);
     if (scope !== state.scope) return;
+    if (rev !== sourcesRev) { if (state.mode === mode) paint(); return; } // 읽는 동안 켜고 끈 것이 있으면 옛 표로 덮지 않는다
     if (rows.status === 'fulfilled' && Array.isArray(rows.value)) { state.sources = new Map(rows.value.filter(r => r && r.source_key).map(r => [r.source_key, r])); state.sourcesLoaded = true; state.sourcesFailed = false; }
     else if (!state.sourcesLoaded) state.sourcesFailed = true;
   }
@@ -341,8 +346,8 @@ async function toggleSource(key) {
   const w = workspaceOf(), tag = 'src:' + key;
   if (!w || state.saving.has(tag) || !state.catalog?.some(s => s.key === key)) return;
   const next = !sourceOn(state.catalog.find(s => s.key === key), state.sources.get(key));
-  state.saving.add(tag); state.panelNote = ''; paint();
-  try { state.sources.set(key, await writeSource(w, key, next)); listDirty = true; now()?.metaChanged?.(metaOf()); }
+  state.saving.add(tag); state.panelNote = ''; sourcesRev++; paint();
+  try { const row = await writeSource(w, key, next); sourcesRev++; state.sources.set(key, row); listDirty = true; now()?.metaChanged?.(metaOf()); }
   catch (e) { state.panelNote = saveFailNote(e); }
   finally { state.saving.delete(tag); paint(); focusAfter(`[data-nc-source="${CSS.escape(key)}"]`); }
 }
