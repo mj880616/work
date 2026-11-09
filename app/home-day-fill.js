@@ -19,16 +19,15 @@ const kit = () => (kitFlight ||= Promise.all([import('./diary-onedrive.js'), imp
   .then(([od, diary, phone, time, sources, folders]) => ({od, diary, phone, time, sources, folders}))
   .catch(error => { kitFlight = null; throw error; }));
 
-// 폰 사진(폰 앱만): 앱 다리 읽기는 홈이 잠깐 머문 뒤에, 그때도 홈일 때만 한다(바로 다른 탭으로 가면 그 탭의 읽기와 겹치지 않게).
-// 건너뛰면 null → 다음에 홈을 그릴 때 다시 읽는다.
-const PHONE_SETTLE_MS = 2000;
-const settle = () => new Promise(resolve => setTimeout(resolve, PHONE_SETTLE_MS));
+// 앱을 켠 직후 첫 읽기는 홈에 잠깐(2초) 머문 뒤, 그때도 홈일 때만 한다 — 바로 다른 탭으로 가면 그 탭의 서버·폰 앱 읽기와 겹치지 않게.
+// 그 뒤로는 날을 바꾸면 바로 읽는다. 건너뛰면 null → 다음에 홈을 그릴 때 다시 읽는다.
+const SETTLE_MS = 2000;
+let settled = null;
+const settle = () => (settled ||= new Promise(resolve => setTimeout(resolve, SETTLE_MS)));
 const onHome = () => { const view = globalThis.window?.KPTURouter?.current; return !view || view === 'home'; };
 async function phoneDay(k, day) {
   const phone = k.phone.phonePhotos();
   if (!phone.usable || !k.sources.readDeviceSources().phone) return [];
-  await settle();
-  if (!onHome()) return null;
   const s = await phone.hello();
   if (s.access === 'none' || !s.key) return [];
   const page = await phone.page({sort:'taken_desc', filter:'all', before:k.time.dayEndMs(day), limit:200, hide:await k.folders.phoneHideList(phone)});
@@ -61,6 +60,8 @@ async function odMonth(k, rt, year, month) {
 }
 // → {items, starred:Set<'source:key'>}. 한 출처를 못 읽어도 나머지는 보인다.
 export async function readDayPhotos(day, rt) {
+  await settle();
+  if (!onHome()) return null;
   const k = await kit();
   const year = Number(day.slice(0, 4)), month = Number(day.slice(5, 7)) - 1;
   const [row, od, phone, stars] = await Promise.all([
@@ -69,8 +70,8 @@ export async function readDayPhotos(day, rt) {
     phoneDay(k, day).catch(() => []),
     kept(`star:${k.diary.ownerScope(rt)}:${year}-${month}`, () => k.od.readStars(year, month, rt)).catch(() => []),
   ]);
-  const items = k.od.dayItems(day, row, od).concat(k.time.phoneDayItems(phone || [], day, od?.days?.[day] || []));
-  return {items, starred:new Set(stars.map(s => k.od.starKey(s.source, s.item_key))), partial:phone === null};
+  const items = k.od.dayItems(day, row, od).concat(k.time.phoneDayItems(phone, day, od?.days?.[day] || []));
+  return {items, starred:new Set(stars.map(s => k.od.starKey(s.source, s.item_key)))};
 }
 function thumbOf(k, item, rt) {
   const opts = {label:'', link:false, rt};
@@ -103,7 +104,8 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     busy.set(key, false);
     Promise.all([readPhotos(day, rt), kit()]).then(([out, loaded]) => {
       k = loaded;
-      photoReads.set(key, {state:'ok', items:out.items, starred:out.starred, at:out.partial ? 0 : Date.now()});
+      if (!out) return; // 홈을 떠나 건너뜀 — 돌아와 그릴 때 읽는다
+      photoReads.set(key, {state:'ok', items:out.items, starred:out.starred, at:Date.now()});
     }, () => { if (read?.state !== 'ok') photoReads.set(key, {state:'failed', items:[], starred:new Set(), at:Date.now()}); })
       .then(() => {
         const again = busy.get(key); busy.delete(key);

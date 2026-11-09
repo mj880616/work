@@ -1675,7 +1675,7 @@ function enter(detail) {
   homeTop?.enter();
   takeBasketReturn('home', rt); // an update/note opened from here has done its job once this screen shows again
   if (back && back.owner === ownerScope(rt) && back.start === start && back.day === selected && ['popstate', 'back'].includes(detail?.source)) {
-    renderMode();
+    renderMode(); renderFill(); // HOME-하루채우기: 홈을 떠나 있던 동안 건너뛴 사진 줄 읽기
     window.scrollTo({top:back.scroll, behavior:'instant'});
     if (back.focus?.isConnected) back.focus.focus({preventScroll:true});
     writePlace();
