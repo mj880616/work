@@ -2,6 +2,7 @@
 // 이 파일은 끌어오기 감지·올리기 순서·안내 문구만 맡는다. 실제 올리기(library-files 요청, AI 채우기)는 library-upload.js가 넘겨 주는 upload 함수다.
 // 저장은 서버(Drive 원본 + 자료 표)뿐이고 이 화면은 아무것도 따로 저장하지 않는다.
 export const DROP_HINT='놓으면 바로 올려요';
+const NAV_OUT='x:out';
 export const DROP_BLOCKED='여기에는 놓을 수 없어요';
 // LIB-폴더로올리기 (2026-10-30 명진 요청): 폴더 묶기에서 폴더 줄 위에 놓으면 그 폴더로 올린다. 안내·결과 문구에 폴더 이름.
 export const folderHint=name=>`놓으면 ‘${name}’ 폴더로 올려요`;
@@ -46,7 +47,8 @@ export function placeDropTarget(el,{step=true,inFolder=null,folderOf=()=>null}={
     const place=at.closest?.('.ft-row')||at;
     // S55-08 LIB-나무로끌기안됨 ③: 화면이 모르는 폴더 id(방금 지워졌거나 아직 읽지 못함)를 '폴더 밖'으로 바꿔 받지 않고 막는다(ok:false).
     if(f)return {ok:true,kind:'into',target:f.id,name:f.name,place};
-    return id?{ok:false,place}:{out:true,place};
+    // S55-08 LIB-나무폴더밖: 나무 '폴더 밖' 줄(data-lu-nav="x:out" = library-tree.js OUTSIDE_KEY)도 '자료실 전체'처럼 폴더 밖.
+    return id&&id!==NAV_OUT?{ok:false,place}:{out:true,place};
   }
   if(!inFolder||!el?.closest?.('#libraryView')||el.closest('#libraryRecent'))return null;
   const f=folderOf(inFolder);

@@ -1,4 +1,5 @@
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
+import {floatingWindowOpen} from './open-window.mjs'; // ★LIB-바깥파일놓기안됨 전수: 다른 화면 칸에 붙은 창은 위에 뜬 창이 아니다
 import {swatchHtml} from './color-swatch.mjs'; // UI-색고르기통일: 프로젝트 색 칸도 공용 부품
 import {holdToast as kptuHoldToast,askConfirm,askText} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
@@ -998,7 +999,7 @@ window.addEventListener('popstate',onBack,true);
 function onBack(event){
   if(backHandled.has(event))return;backHandled.add(event);
   const id=new URLSearchParams(location.search).get('project'),modal=$('#ps3DetailModal');
-  const overlayBack=current&&modal.dataset.kptuHistoryOpen==='1'&&event.state?.kptuOverlay!==modal.id&&!document.querySelector('.modal:not(.hidden):not(#ps3DetailModal):not(#areaWindow)');
+  const overlayBack=current&&modal.dataset.kptuHistoryOpen==='1'&&event.state?.kptuOverlay!==modal.id&&!floatingWindowOpen(document,{except:['#ps3DetailModal','#areaWindow']});
   if(current&&(id!==current.id||overlayBack)&&!confirmDiscard()){
     event.stopImmediatePropagation();history.pushState({project:current.id,...(modal.dataset.kptuHistoryOpen==='1'?{kptuOverlay:modal.id}:{})},'',urlFor(current.id));return
   }
