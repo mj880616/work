@@ -442,10 +442,17 @@
 #appView #meetingsView .report-week-bar{flex-direction:row;flex-wrap:nowrap;align-items:center;min-width:0;margin-bottom:var(--kptu-space-1)}
 #meetingsView #reportWeekFilter{display:flex;flex:1 1 auto;flex-wrap:wrap;align-items:center;gap:4px 10px;min-width:0}
 #meetingsView #reportWeekFilter .report-week-nav{display:flex;align-items:center;gap:2px;min-width:0;flex-wrap:nowrap}
-#meetingsView #reportWeekFilter .report-period-panel{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0;font-size:var(--ds-text-meta,13px)}
-#meetingsView #reportWeekFilter .report-period-panel label{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
-#meetingsView #reportWeekFilter .report-period-panel input[type="date"]{height:var(--ds-compact-height-sm,28px);min-height:0;font-size:inherit;padding:0 6px}
-#meetingsView #reportWeekFilter .report-period-quick{display:inline-flex;gap:6px;flex-wrap:wrap}
+/* BIZ-기간정하기·BIZ-주차고르기(S54-34, 시안 period-picker.html·week-number-picker.html): 기간 고르기 상자 바로 아래 작은 창 하나(폰은 화면 폭, PC는 좁게).
+   세 줄: ① 기간 칩(공용 ④) 한 줄 / 주차 고르기는 연도·주차 드롭다운 ② [시작 날짜] ~ [끝 날짜] 반씩(공용 날짜 칸, 잘리지 않게) ③ 오른쪽 [닫기][적용]. */
+#meetingsView #reportWeekFilter .report-period-panel{flex:1 1 100%;box-sizing:border-box;display:grid;gap:8px;min-width:0;padding:8px;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--kptu-radius-md);background:var(--kptu-surface);font-size:var(--ds-text-meta,13px)}
+@media(min-width:761px){#meetingsView #reportWeekFilter .report-period-panel{max-width:420px;margin-left:auto}#meetingsView #reportWeekFilter .report-period-panel+.report-week-nav{flex-basis:100%}}
+#meetingsView #reportWeekFilter .report-period-quick{display:flex;flex-wrap:wrap;gap:4px}
+#meetingsView #reportWeekFilter .report-period-dates{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px;min-width:0}
+#meetingsView #reportWeekFilter .report-period-dates.report-period-iso{grid-template-columns:minmax(0,6.5em) minmax(0,1fr)}
+#meetingsView #reportWeekFilter .report-period-dates>:is(.date-field,input,select){box-sizing:border-box;width:100%;min-width:0;margin:0}
+#meetingsView #reportWeekFilter .report-period-dates input[type="date"],#meetingsView #reportWeekFilter .report-period-dates select{box-sizing:border-box;width:100%;height:var(--ds-compact-height,32px);min-height:0;padding:0 8px;font-size:var(--ds-compact-text,13px)}
+#meetingsView #reportWeekFilter .report-period-tilde{color:var(--kptu-muted)}
+#meetingsView #reportWeekFilter .report-period-foot{display:flex;justify-content:flex-end;gap:6px}
 #meetingsView .report-week-bar[hidden]{display:none}
 #meetingsView #reportWeekFilter button{width:auto;min-width:32px;max-width:none;padding-inline:8px;white-space:nowrap}
 /* 누르는 범위 44px은 위아래로만 넓힌다(일지 ‹ › 줄과 같은 방식). 공용 ::after의 좌우 확장은 32px 버튼 밖으로 넘쳐 목록 넘침 검사에 걸린다. */

@@ -870,6 +870,9 @@ jobs:
       - name: Check business report week list (MTG-프로젝트합치기 3단계)
         run: node --test tests/report-week.test.mjs
 
+      - name: Check business report period and week-number pickers (BIZ-기간정하기·BIZ-주차고르기)
+        run: node --test tests/report-period-panel.test.mjs
+
       - name: Check business area AI on the report screen (MTG-프로젝트합치기 사업영역 AI 화면)
         run: node --test tests/business-area-ai-screen.test.mjs
 

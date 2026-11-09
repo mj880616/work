@@ -64,6 +64,17 @@ export function weekOf(day) {
   return {from:mon.toISOString().slice(0, 10), to:sun.toISOString().slice(0, 10)};
 }
 export const shiftDays = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
+// BIZ-주차고르기(11/09, A안 = 국제 표준 주차 ISO 8601): 주는 위 weekOf(월~일) 그대로, 번호만 붙인다.
+// 1주차 = 그 해 첫 목요일이 든 주(= 1월 4일이 든 주). 어느 주의 해·번호는 그 주 목요일의 해·순번(2025.12.29~2026.1.4 = 2026년 1주차). 해마다 52주 또는 53주.
+export const isoWeekStart = (year, week) => shiftDays(weekOf(`${year}-01-04`).from, (week - 1) * 7);
+export function isoWeekOf(day) {
+  const from = weekOf(day).from, year = Number(shiftDays(from, 3).slice(0, 4));
+  return {year, week: Math.round((Date.parse(`${from}T00:00:00Z`) - Date.parse(`${isoWeekStart(year, 1)}T00:00:00Z`)) / (7 * 864e5)) + 1, from};
+}
+export const isoWeeksIn = year => isoWeekOf(`${year}-12-28`).week;
+const twoDay = day => `${day.slice(5, 7)}.${day.slice(8, 10)}`;
+// 고르기 줄 이름 'n주차 (MM.DD~MM.DD)'.
+export const isoWeekLabel = (year, week) => { const from = isoWeekStart(year, week); return `${week}주차 (${twoDay(from)}~${twoDay(shiftDays(from, 6))})`; };
 
 // [사업요약표 미리보기]의 표 재료. placeRecords(journal-weekly.js, 주간보고 ②와 같은 줄 세우기)가 받는 기록 모양으로 바꾼다.
 // lineOf(meeting) = 보고 한 줄(주간보고 meetingLine). requests 자리에 '다음 할 일' 줄을 실어 표의 '이후 계획' 칸이 읽는다.
