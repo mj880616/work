@@ -9,7 +9,7 @@ import {installBusinessNowServer} from './helpers/business-now-server.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
-const SB='https://xmlkxfjeagycwttklxjw.supabase.co',NOW='2026-11-09T00:30:00Z',MAX_SHIFT=24;
+const SB='https://xmlkxfjeagycwttklxjw.supabase.co',NOW='2026-11-09T00:30:00Z',MAX_SHIFT=24,MAX_STRUCT=8;
 
 async function open(page,width,prefs=null){
   await page.setViewportSize({width,height:900});
@@ -33,9 +33,9 @@ async function open(page,width,prefs=null){
 for(const width of [390,884,1440])test(`${width}: 이번 주 주간보고 표가 다 그려져도 아래 목록 위치가 거의 변하지 않는다`,async({page})=>{
   await open(page,width);
   await expect(page.locator('#bizWeekBox .biz-sum-table')).toBeVisible();
-  const r=await page.evaluate(()=>({first:window.__ys[0],now:Math.round(document.querySelector('#meetingList').getBoundingClientRect().top+scrollY),all:window.__ys}));
-  expect(Math.abs(r.now-r.first),`목록 y 변화 ${JSON.stringify(r.all)}`).toBeLessThanOrEqual(MAX_SHIFT);
-  // 처음 보인 뒤 y가 바뀐 횟수도 한 번 이하(여러 번 출렁이지 않음).
+  // 표 모양 자리가 맞추는 것은 구조(머리글·제목·줄 수·누름 자리 50px)다. 칸 안 글(사업영역·세부 과제 이름)이 폰 폭에서 줄바꿈해 진짜 줄이 50px보다 높아진 만큼은 자료를 읽기 전에는 알 수 없으므로 밀림에서 뺀다(그 외 밀림은 8px 이하).
+  const r=await page.evaluate(()=>({first:window.__ys[0],now:Math.round(document.querySelector('#meetingList').getBoundingClientRect().top+scrollY),all:window.__ys,wrap:[...document.querySelectorAll('#bizWeekBox .biz-sum-table tbody tr')].reduce((n,tr)=>n+Math.max(0,Math.round(tr.getBoundingClientRect().height)-50),0)}));
+  expect(Math.abs(r.now-r.first-r.wrap),`목록 y 변화 ${JSON.stringify(r.all)}, 칸 글 줄바꿈으로 늘어난 높이 ${r.wrap}`).toBeLessThanOrEqual(MAX_STRUCT);
   expect(r.all.length).toBeLessThanOrEqual(2);
 });
 
