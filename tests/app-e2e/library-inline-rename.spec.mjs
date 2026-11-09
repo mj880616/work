@@ -132,7 +132,7 @@ for(const width of [390,1280])test.describe(`줄 안 이름 바꾸기 ${width}`,
     await expect(row(page,1).locator('.lu-row-title')).toHaveText('가상 본교섭 요구안');
     expect(state.patches).toHaveLength(0);
     input=await start();await input.fill('바깥을 눌러 저장');
-    await page.locator('#documentSearch').click();
+    await page.locator('#libraryView .lu-search-row').click({position:{x:1,y:1}})/* 바깥 누르기(LIB-위쪽한줄: 폰은 찾기 칸이 접혀 있어 위 줄 빈 곳) */;
     await expect(row(page,1).locator('.lu-row-title')).toHaveText('바깥을 눌러 저장');
     expect(state.patches).toHaveLength(1);expect(state.patches[0].body.title).toBe('바깥을 눌러 저장');
     expect(state.opened).toBe(0);

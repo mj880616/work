@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 잊지 말기 [노트]: 폴더·노트 고르기, 기존 노트 끝에 더하기</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--tline:#c9d3cf;--surface:#fbfdfc;--bg:#eef5f2;--head:#eef4f1;--pri:#2f6f5e;--red:#b4473c}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}
+h2{font-size:13px;margin:14px 0 6px}
+.phone{position:relative;width:100%;max-width:380px;height:640px;border:1px solid var(--line);border-radius:16px;background:var(--bg);overflow:hidden;padding-top:10px}
+.r{display:flex;align-items:center;gap:6px;padding:3px 10px}
+.ttl{font-size:17px;font-weight:600}
+.sp{margin-left:auto}
+.btn{height:30px;padding:0 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.btn small{color:var(--muted);font-size:10px}
+.bigb{height:40px;padding:0 12px;border:1.5px solid var(--pri);border-radius:10px;background:var(--surface);display:inline-flex;align-items:center;white-space:nowrap;font-size:14px}
+.icon{width:30px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px}
+.icon.rec{color:var(--red);font-size:12px}.icon.plain{border:0;background:transparent}
+.wk{display:inline-flex;align-items:center;gap:8px}.wk i{font-style:normal;color:var(--muted)}.wk b{font-weight:600}.wk span{color:var(--muted);font-size:12px}
+.card{margin:6px 10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px}
+.h3{font-weight:600;margin:0 0 6px}.h3 small{font-weight:400;color:var(--muted);margin-left:4px}
+table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;word-break:keep-all}
+th,td{border:1px solid var(--tline);padding:4px 5px;vertical-align:top;text-align:left;background:#fff}
+th{background:var(--head);text-align:center;font-weight:600}
+td.k{background:#f7f9f8}
+.e{color:#b5bdb9}
+.pill{position:absolute;left:50%;transform:translateX(-50%);bottom:60px;background:#efebe6;border-radius:999px;padding:3px;display:flex}
+.pill span{padding:4px 12px;border-radius:999px;color:var(--muted)}.pill .on{background:#fff;color:var(--ink);font-weight:600}
+.fab{position:absolute;right:14px;bottom:110px;width:44px;height:44px;border-radius:50%;background:var(--pri);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:50px;border-top:1px solid var(--line);background:var(--surface);display:flex;justify-content:space-around;align-items:center;color:var(--muted);font-size:11px}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6;max-width:380px}.warn{color:#a5463c}
+.win{border:1px solid var(--line);border-radius:12px;background:#fff;margin:6px 0 4px;overflow:hidden;position:relative}
+.wbar{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}
+.tb{display:flex;gap:10px;padding:5px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11px}
+.trow{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--line)}
+.tin{flex:1;color:#9aa5a1;font-weight:600;min-width:0}
+.pick{height:26px;padding:0 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface);display:inline-flex;align-items:center;gap:3px;font-size:12px;white-space:nowrap}
+.pick.on{border-color:var(--pri);background:#e3f1eb}
+.body{padding:10px;min-height:90px;line-height:1.7;font-size:13px}
+.old{color:#9aa5a1;border-left:3px solid var(--line);padding-left:8px;margin-bottom:8px;font-size:12px}
+.foot{display:flex;justify-content:flex-end;gap:6px;padding:6px 8px;border-top:1px solid var(--line)}
+.sheet{position:absolute;left:8px;top:74px;width:78%;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.1);font-size:12px;z-index:3;padding:4px 0}
+.sheet div{padding:5px 12px}.sheet .h{color:var(--muted);font-size:11px;padding-top:6px}.sheet .s{margin:4px 8px;border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:var(--muted)}
+.sheet .sel{background:#e3f1eb}
+.tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:0 5px;margin-right:4px}
+</style></head><body>
+<h1>잊지 말기 [노트] — 폴더·노트 고르기</h1>
+<p class="s">잊지 말기 줄에서 [노트]를 누르면 뜨는 노트 창. 기존 '새 노트로 저장'은 그대로 + 폴더 고르기·기존 노트에 한 줄 더하기 추가. 내용은 시안용.</p>
+<h2>지금</h2><div class="win"><div class="wbar">✕<span style="margin-left:auto">⇪</span></div><div class="tb"><span>본문 ▾</span><b>굵게</b><i>기울임</i><span>목록 ▾</span><span>⋯</span></div><div class="trow"><span class="tin">제목(비우면 첫 줄)</span></div><div class="body">11월 23일~12월 2일 ○○법 입법 촉구 피케팅을 진행하고, 12월 초 이후 미타결 사업장 연대집회를 추진할 계획임.<br><span style="color:var(--muted)">소식 · 텔레그램 · 11/9</span></div><div style="padding:0 8px 6px"><span class="btn">📎 첨부</span></div><div class="foot"><span class="btn">취소</span><span class="btn" style="background:var(--pri);color:#fff;border-color:var(--pri)">저장</span></div></div>
+<p class="note warn">제목 칸만 있음 — 폴더를 못 고르고(폴더 밖으로 들어감), 기존 노트에 더할 수 없음</p>
+<h2>바꾼 뒤 ① 처음 열린 모양</h2><div class="win"><div class="wbar">✕<span style="margin-left:auto">⇪</span></div><div class="tb"><span>본문 ▾</span><b>굵게</b><i>기울임</i><span>목록 ▾</span><span>⋯</span></div><div class="trow"><span class="pick">새 노트 ▾</span><span class="pick">01. 업무메모 ▾</span><span class="tin" style="text-align:left">제목(비우면 첫 줄)</span></div><div class="body">11월 23일~12월 2일 ○○법 입법 촉구 피케팅을 진행하고, 12월 초 이후 미타결 사업장 연대집회를 추진할 계획임.<br><span style="color:var(--muted)">소식 · 텔레그램 · 11/9</span></div><div style="padding:0 8px 6px"><span class="btn">📎 첨부</span></div><div class="foot"><span class="btn">취소</span><span class="btn" style="background:var(--pri);color:#fff;border-color:var(--pri)">저장</span></div></div>
+<p class="note">제목 줄 앞에 [새 노트 ▾][폴더 ▾] 두 버튼. <b>업무 줄 기본: 새 노트 · 폴더 '01. 업무메모'</b>(기존 노트는 미리 고르지 않음). [폴더 ▾]는 노트 화면 큰 편집창의 폴더 고르기와 같은 부품(폴더 나무).</p>
+<h2>② [새 노트 ▾]를 누르면 — 버튼 아래 작은 창</h2><div class="win" style="min-height:330px"><div class="wbar">✕<span style="margin-left:auto">⇪</span></div><div class="tb"><span>본문 ▾</span><b>굵게</b><i>기울임</i><span>목록 ▾</span><span>⋯</span></div><div class="trow"><span class="pick on">새 노트 ▾</span><span class="pick">01. 업무메모 ▾</span><span class="tin">제목(비우면 첫 줄)</span></div><div class="body" style="opacity:.35">11월 23일~12월 2일 ○○법 입법 촉구 피케팅을 진행하고, 12월 초 이후 미타결 사업장 연대집회를 추진할 계획임.<br><span style="color:var(--muted)">소식 · 텔레그램 · 11/9</span></div>
+<div class="sheet"><div class="sel">＋ 새 노트로</div><div class="s">⌕ 노트 이름 찾기</div><div class="h">최근 노트</div><div>궤도 공동투쟁 메모</div><div>○○법 대응 정리</div><div class="h">폴더</div><div>📁 궤도 ›</div><div>📁 공공팀 ›</div><div>📁 정책 ›</div></div></div>
+<p class="note">맨 위 '＋ 새 노트로'(지금 그대로) · 노트 이름 찾기 · 최근 노트 · 폴더를 눌러 그 안 노트 고르기(노트 보드 '노트 고르기'와 같은 부품)</p>
+<h2>③ 기존 노트를 고르면</h2><div class="win"><div class="wbar">✕<span style="margin-left:auto">⇪</span></div><div class="tb"><span>본문 ▾</span><b>굵게</b><i>기울임</i><span>목록 ▾</span><span>⋯</span></div><div class="trow"><span class="pick on">○○법 대응 정리 ▾</span><span style="color:var(--muted);font-size:11px">📁 정책 · 끝에 더함</span></div>
+<div class="body"><div class="old">… 10.30 국회 토론회 결과 공유<br>11.04 상임위 일정 확인 중</div>11월 23일~12월 2일 ○○법 입법 촉구 피케팅을 진행하고, 12월 초 이후 미타결 사업장 연대집회를 추진할 계획임.<br><span style="color:var(--muted)">소식 · 텔레그램 · 11/9</span></div><div class="foot"><span class="btn">취소</span><span class="btn" style="background:var(--pri);color:#fff;border-color:var(--pri)">저장</span></div></div>
+<p class="note">① 버튼이 고른 노트 이름으로 바뀌고 옆에 '📁 폴더 · 끝에 더함'<br>② 그 노트 마지막 두 줄을 흐리게 보여 줘 어디에 붙는지 알 수 있게<br>③ 아래 칸은 더할 내용(고칠 수 있음), [저장] 누르면 그 노트 맨 끝에 한 줄(문단)로 더함 — 노트의 다른 내용은 그대로<br>④ 제목 칸·[📎 첨부]는 새 노트일 때만<br>⑤ 저장하면 잊지 말기 줄은 지금처럼 '노트로 저장했어요'로 처리</p>
+<h2>④ 가족 줄 — 처음 열린 모양</h2><div class="win"><div class="wbar">✕</div><div class="trow"><span class="pick on">잊지 말기 ▾</span><span style="color:var(--muted);font-size:11px">📁 가족 · 끝에 더함</span></div>
+<div class="body"><div class="old">… ☐ ○○ 챙기기<br>☐ ○○ 예약 확인</div>☐ ○○ 준비물 사기</div><div class="foot"><span class="btn">취소</span><span class="btn" style="background:var(--pri);color:#fff;border-color:var(--pri)">저장</span></div></div>
+<p class="note">가족 줄은 같은 창, 기본으로 '가족 › 잊지 말기' 노트가 골라진 채(지금 가족 창과 같은 기본값) — [저장] 한 번이면 지금처럼 끝. 고를 수 있는 노트는 가족 노트(AI가 읽지 않는 노트)만.</p>
+</body></html>

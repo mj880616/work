@@ -6,8 +6,8 @@ import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {toggleLibraryCategory} from './helpers/library-categories.mjs';
 // LIB-토글트리: 자료실에 그냥 들어오면 토글이 접혀 있고, 프로젝트에서 걸러 열면 맞는 토글이 펼쳐져 그 자료가 보인다.
 
-const chip=(page,name)=>page.locator(`#libraryCategoryFilter [data-lu-category="${name}"]`);
-const offChips=page=>page.locator('#libraryCategoryFilter [aria-pressed="false"]');
+// LIB-위쪽한줄: 분류는 위 줄 [분류: … ▾] 하나 — 상태는 단추 글자로 본다.
+const pick=page=>page.locator('#libraryCategoryPick');
 const ids=page=>page.locator('#documentList [data-lu-document]').evaluateAll(els=>els.map(el=>el.dataset.luDocument));
 
 for(const width of [390,1280])test(`프로젝트 상세 → 자료 전체 보기: [회의]만 꺼짐, 다른 칩 켜짐, 프로젝트 거르기 적용, 다시 들어와도 같음 ${width}`,async({page})=>{
@@ -16,17 +16,16 @@ for(const width of [390,1280])test(`프로젝트 상세 → 자료 전체 보기
   const s=baseState();s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=library`);
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));await expect(page.locator('#documentList .lu-row').first()).toBeAttached();
   // 자료실에 들어올 때는 서버에 기억해 둔 칩 상태(LIB-보기기억). 기억이 없으면 기본(회의만 꺼짐)이고, 프로젝트에서 들어와도 같다.
-  await expect(offChips(page)).toHaveText(['회의']);
+  await expect(pick(page)).toHaveText('분류: 회의 빼고');
   await page.evaluate(()=>window.KPTURouter.go('projects'));await expect(page.locator('#projectsView')).toBeVisible();
   await page.locator('[data-ps3-project="child-a1"]').first().click();await expectProjectDetail(page,'child-a1');
   await page.locator('[data-ps3-library]').click();
   await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('#documentProject')).toHaveJSProperty('value','child-a1');
-  await expect(offChips(page)).toHaveText(['회의']);await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','false');
-  await expect(page.locator('#libraryCategoryFilter [aria-pressed="true"]')).not.toHaveCount(0);
+  await expect(pick(page)).toHaveText('분류: 회의 빼고');
   await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();expect(await ids(page)).not.toContain('meeting-doc');
   expect(await ids(page)).toEqual(['doc-a1']);
   // 같은 화면을 다시 그려도(고른 상태 유지) 그대로, [회의]를 켜면 그 프로젝트의 회의 자료가 함께 보인다.
   await toggleLibraryCategory(page,'회의');await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
-  await page.evaluate(()=>window.KPTURouter.go('library',{source:'session',updateUrl:false}));await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','true');
+  await page.evaluate(()=>window.KPTURouter.go('library',{source:'session',updateUrl:false}));await expect(pick(page)).toHaveText('분류: 전체');
   expect(errors).toEqual([]);
 });

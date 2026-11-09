@@ -194,7 +194,7 @@ for(const [name,width] of [['PC',1280],['PC 접힌 틀 경계 위(폴드 884)',8
   // 첫 화면은 검색 RPC를 부르지 않는다. 쓰기 요청도 없다.
   expect(db.search).toHaveLength(0);expect(db.fix).toHaveLength(0);expect(db.posts).toHaveLength(0);
   // [+ 기록하기]는 작은 버튼. UI-동그란더하기삭제(11/09): 폰은 떠 있는 동그란 [+]가 아니라 찾기 줄 [찾기 칸][조건 ▾] 오른쪽 끝 네모 작은 +(글자는 읽기 이름으로만).
-  const add=browse.getByRole('button',{name:'+ 기록하기'});
+  const add=browse.getByRole('button',{name:width<761?'기록하기':'+ 기록하기',exact:true}); // 폰은 글자 없는 아이콘 버튼(이름은 aria-label)
   const addBox=await add.boundingBox();
   if(width<761){
    expect(await add.evaluate(b=>getComputedStyle(b).position)).not.toBe('fixed');
@@ -470,7 +470,7 @@ test('[+ 기록하기]: 일상어 → 새 기록 미리보기 → 반영 / Claud
  const db=await mockApp(page);
  await signIn(page);
  const browse=page.locator('#ledgerBrowseRoot');
- await browse.getByRole('button',{name:'+ 기록하기'}).click();
+ await browse.getByRole('button',{name:'기록하기',exact:true}).click();
  const fix=page.locator('#ledgerFixRoot');
  await expect(fix.locator('#lfTitle')).toHaveText('기록하기');
  // 되묻기: 서버가 request 없이 question만 주면 [반영] 없이 한 줄.
@@ -488,7 +488,7 @@ test('[+ 기록하기]: 일상어 → 새 기록 미리보기 → 반영 / Claud
  expect(db.fix[0].p_request.items[0].do).toBe('add');
  await expect(browse.locator('[data-lb-sec="tracking"]')).toContainText('가상 다 지부 첫 교섭',{timeout:10000});
  // Claude 수정안 덩어리: 서버 AI 없이 DB 해 보기(p_dry_run=true) → 미리보기 → 반영.
- await browse.getByRole('button',{name:'+ 기록하기'}).click();
+ await browse.getByRole('button',{name:'기록하기',exact:true}).click();
  const block={format:'kptu-ledger-fix',version:1,items:[{target:'DEC-0901',do:'retire',reason:'잘못 뽑힌 결정'}]};
  const aiBefore=db.ai.length;
  await fix.locator('#lfText').fill(JSON.stringify(block));
@@ -501,7 +501,7 @@ test('[+ 기록하기]: 일상어 → 새 기록 미리보기 → 반영 / Claud
  await expect.poll(()=>db.fix.at(-1).p_dry_run).toBe(false);
  expect(db.records.find(r=>r.ledger_id==='DEC-0901').validity).toBe('retired');
  // 깨진 덩어리는 일상어 이유만, 요청 없음.
- await browse.getByRole('button',{name:'+ 기록하기'}).click();
+ await browse.getByRole('button',{name:'기록하기',exact:true}).click();
  const n=db.fix.length;
  await fix.locator('#lfText').fill('{"format":"x"');
  await fix.getByRole('button',{name:'미리보기'}).click();
@@ -519,7 +519,7 @@ test('서버 배포 전이면 일상어는 준비 중 안내, Claude 덩어리 �
  const db=await mockApp(page,{server:false});
  await signIn(page);
  const browse=page.locator('#ledgerBrowseRoot');
- await browse.getByRole('button',{name:'+ 기록하기'}).click();
+ await browse.getByRole('button',{name:'기록하기',exact:true}).click();
  const fix=page.locator('#ledgerFixRoot');
  await fix.locator('#lfText').fill('나 지부 교섭 날짜 수정됨');
  await fix.getByRole('button',{name:'미리보기'}).click();

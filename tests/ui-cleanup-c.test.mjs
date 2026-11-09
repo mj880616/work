@@ -45,15 +45,16 @@ test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [
 });
 
 // 화면의 새 항목 추가 버튼: PC는 화면 머리 오른쪽의 작은 [+ ○○], 폰은 위쪽 줄 안 네모 작은 +(ui-standard.css 한 규칙).
-// UI-동그란더하기삭제(11/09): 떠 있는 동그란 [+]는 없다. 자료실만 위쪽 한 줄 작업(LIB-위쪽한줄)이 들어갈 때까지 동그란 [+]로 남는다.
+// UI-동그란더하기삭제(11/09): 떠 있는 동그란 [+]는 없다(자료실도 LIB-위쪽한줄로 위 줄 아이콘).
 const SQUARE = [
   ['#calendarView .calendar-toolbar #newEventBtn', 'index.html', /id="newEventBtn"/],
-  // BIZ-위쪽정돈(B안, 11/09): 사업 보고 [+]는 폰에서도 맨 위 줄 오른쪽 작은 아이콘(meeting-ui.css, 별도 시험 biz-top-tidy.spec.mjs).
+  // LIB-위쪽한줄(11/09): 자료실 [+]도 폰·PC 모두 위 줄 오른쪽 작은 아이콘이라 이 목록에 없다(별도 시험 library-top-row.spec.mjs).
+  // BIZ-위쪽정돈(B안, 11/09): 사업 보고 [+]도 마찬가지(별도 시험 biz-top-tidy.spec.mjs).
   ['#diaryView #newDiaryBtn', 'diary.js', /id="newDiaryBtn"/],
-  ['#ledgerView button.lb-add', 'ledger-browse.js', /class="lb-add"[^>]*>\+ 기록하기</],
+  ['#ledgerView button.lb-add', 'ledger-browse.js', /class="lb-add\$\{isPhone\(\) \? ' icon-btn' : ''\}"/],
   ['#pagesView .sp-root button.sp-add', 'share-pages.js', /class:'icon-btn sp-add'[^\n]*dataset:\{spAdd:''\}/],
 ];
-test('⑥ 폰 추가 버튼은 위쪽 줄 안 네모 작은 + 한 규칙에 들고, 떠 있는 동그란 [+]는 자료실만', () => {
+test('⑥ 폰 추가 버튼은 위쪽 줄 안 네모 작은 + 한 규칙에 들고, 떠 있는 동그란 [+]는 없다', () => {
   const css = read('ui-standard.css');
   const rule = /#appView :is\(([^{}]+)\)\{\s*position:relative;/.exec(css);
   assert.ok(rule, '폰 네모 작은 + 규칙');
@@ -62,12 +63,12 @@ test('⑥ 폰 추가 버튼은 위쪽 줄 안 네모 작은 + 한 규칙에 들�
   // 아이콘·누르는 범위·초점 줄도 같은 목록이다.
   const inner = SQUARE.map(a => a[0]).join(',');
   assert.equal(css.split(inner).length - 1, 4);
-  // 떠 있는 동그란 [+]: position:fixed + 원(border-radius:50%)은 자료실 [+ 자료 등록] 하나뿐이다.
+  // 떠 있는 동그란 [+](position:fixed + 원): 어느 화면에도 없다.
   const round = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*border-radius:50%[^{}]*)\}/g)].filter(m => /position:\s*fixed/.test(m[2])).map(m => m[1].trim().replace(/\s+/g, ' '));
-  assert.deepEqual(round, ['#appView #libraryView #newDocumentBtn']);
-  assert.doesNotMatch(css, /button\.primary\[data-sp-new\]/);
-  // 목록 끝 여백: 동그란 [+] 몫은 자료실만, 나머지는 전환 줄 몫만.
-  assert.match(css, /#appView #libraryView\.view-panel\{ padding-bottom:calc\(var\(--kptu-switch-dock,0px\) \+ var\(--kptu-touch-target,44px\) \+ var\(--ds-fab-gap\)/);
+  assert.deepEqual(round, []);
+  assert.doesNotMatch(css, /button\.primary\[data-sp-new\]|--ds-fab-size|--ds-fab-gap/);
+  assert.doesNotMatch(read('theme-tokens.css'), /--ds-fab-size|--ds-fab-gap/);
+  // 목록 끝 여백: 떠 있는 [+] 몫 없이 전환 줄 몫+16px만.
   assert.match(css, /#appView :is\(#projectsView,#meetingsView,#ledgerView,#pagesView\)\.view-panel\{ padding-bottom:calc\(var\(--kptu-switch-dock,0px\) \+ 16px/);
   // 원장 [+ 기록하기]는 PC에서도 다른 화면처럼 주 색으로 채운 작은 버튼(흰 테두리 버튼 아님).
   assert.match(read('ledger-import.css'), /#appView #ledgerView \.lb-add\{[^}]*background:var\(--kptu-primary\); color:var\(--kptu-on-primary\);/);

@@ -76,6 +76,14 @@ for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그�
       const values=(await box.locator('option:not([hidden])').evaluateAll(els=>els.map(e=>e.value))).slice(0,20);
       for(const v of values){await box.selectOption(v,{timeout:3000}).catch(()=>{});await page.waitForTimeout(120);clicks.meetings++;await check(`meetings ${id} ${v.slice(0,12)}`)}
     }
+    // LIB-위쪽한줄(11/09): 자료실 묶기는 위 줄 고르기 상자 [폴더 ▾](#libraryGroupBy)다. 줄을 하나씩 골라 보며 같은 넘침 검사를 하고, [분류 ▾] 창도 열어 본다.
+    if(view==='library'){
+      const box=page.locator('#libraryGroupBy');
+      if(await box.isVisible().catch(()=>false)){
+        for(const v of await box.locator('option').evaluateAll(els=>els.map(e=>e.value))){await box.selectOption(v,{timeout:3000}).catch(()=>{});await page.waitForTimeout(120);clicks.library++;await check(`library 묶기 ${v}`)}
+        await page.locator('#libraryCategoryPick').click({timeout:3000}).catch(()=>{});await page.waitForTimeout(120);clicks.library++;await check('library 분류 창');await page.keyboard.press('Escape');
+      }
+    }
   }
   test.info().annotations.push({type:'checked',description:checked.join(' | ')});
   expect(bad,bad.join('\n')).toEqual([]);

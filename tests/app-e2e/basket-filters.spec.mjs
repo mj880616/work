@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
-import {toggleLibraryCategory} from './helpers/library-categories.mjs';
+import {toggleLibraryCategory,libraryCategoryNames,onlyLibraryCategories} from './helpers/library-categories.mjs';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
@@ -133,17 +133,17 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
  await expect(page.locator('#libraryView')).not.toContainText('회의자료만');
  // LIB-토글트리: 프로젝트 칩 줄은 트리가 대신하고, 그 자리에 [묶기] 줄이 있다.
- await expect(page.locator('#libraryGroupBy.ds-seg')).toBeVisible();await expect(page.locator('#documentProject')).toBeHidden();
+ await expect(page.locator('#libraryGroupBy')).toBeVisible();/* LIB-위쪽한줄: 묶기는 고르기 상자 [폴더 ▾] */await expect(page.locator('#documentProject')).toBeHidden();
  // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글(aria-pressed). 들어올 때는 [회의]만 꺼져 회의 자료가 숨는다.
- const category=page.locator('#libraryCategoryFilter');await expect(category.locator('[data-lu-category]')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
+ expect(await libraryCategoryNames(page)).toEqual(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);/* LIB-위쪽한줄: [분류 ▾] 창 */
  await expect(page.locator('[data-lu-document="meeting-doc"]')).toHaveCount(0);await expandLibraryTree(page);await expect(docRows.first()).toBeVisible();
  await capture(page,info,`library-all-${width}-${scheme}`);
  // S51-28: 폰·폴드는 칩 줄 대신 [분류 ▾] 창(같은 상태). 칩 하나 누름과 같은 결과를 공용 도우미로 만든다.
- const meetingChip=category.locator('[data-lu-category="회의"]');await expect(meetingChip).toHaveAttribute('aria-pressed','false');
- await toggleLibraryCategory(page,'회의');await expect(meetingChip).toHaveAttribute('aria-pressed','true');
+ const pick=page.locator('#libraryCategoryPick');await expect(pick).toHaveText('분류: 회의 빼고');
+ await toggleLibraryCategory(page,'회의');await expect(pick).toHaveText('분류: 전체');
  await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();await expect(page.locator('[data-lu-document="meeting-doc-2"]')).toBeVisible();
  // 다른 분류를 모두 끄면 회의 자료만 남는다.
- for(const name of ['교섭','투쟁','교육','선전','정책','기타']){const chip=category.locator(`[data-lu-category="${name}"]`);await toggleLibraryCategory(page,name);await expect(chip).toHaveAttribute('aria-pressed','false')}
+ await onlyLibraryCategories(page,['회의']);await expect(pick).toHaveText('분류: 회의');
  await expect.poll(()=>docRows.evaluateAll(els=>els.map(el=>el.dataset.luDocument).sort())).toEqual(['meeting-doc','meeting-doc-2']);
  await capture(page,info,`library-meeting-${width}-${scheme}`);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
