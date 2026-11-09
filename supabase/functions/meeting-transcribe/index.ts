@@ -707,7 +707,8 @@ async function recRestore(user: { id: string }, body: Record<string, unknown>) {
 // 화면을 닫아도 서버가 합치기 → 구간(파일) 전사 → 요약을 한 단계씩 이어 간다. 한 번 호출 = 한 단계, 끝나면 같은 함수 job_tick을 다시 부른다.
 // job_tick은 사용자 로그인이 없다: 게이트(verify_jwt)는 SUPABASE_ANON_KEY로 지나고, 이 코드가 서버 키 HMAC(작업 id·기한)을 확인한다.
 // 작업 행은 owner만 읽고(RLS), 쓰기는 이 함수(service_role)만 한다. 전사·요약은 명진이 누른 job_start로만 시작한다.
-const OPENAI = () => (Deno.env.get('OPENAI_API_KEY') || '').trim();
+// REC-정리멈춤반복(11/09): 서버 요약도 Web2 전용 열쇠만 읽는다(결정 D2, docs/design/ai-server.md). 옛 이름 OPENAI_API_KEY는 Web2 열쇠가 아니라 OpenAI가 401로 거절해 요약이 늘 draft_failed였다.
+const OPENAI = () => (Deno.env.get('WEB2_OPENAI_API_KEY') || '').trim();
 // deno-lint-ignore no-explicit-any
 const edgeRuntime = () => (globalThis as any).EdgeRuntime as { waitUntil?: (p: Promise<unknown>) => void } | undefined;
 // 응답을 돌려준 뒤에도 이어서 돌린다(EdgeRuntime.waitUntil). 없으면(시험) 그냥 돌린다.
