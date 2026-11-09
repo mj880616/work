@@ -82,7 +82,8 @@ const dsViews=new Set(['projects','meetings','team','calendar']);
 // S48-6 UI-폰달력월보기 결정 6: 달력 [+]는 전환 줄 오른쪽 끝 작은 단추(보이는 32px), 다른 화면은 동그란 36px. 누르는 범위는 둘 다 44px.
 async function phoneFab(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();
  // BIZ-위쪽정돈(11/09 01:22 확정안, 사업 보고만 예외): 사업 보고 [+]는 떠 있는 동그라미가 아니라 맨 윗줄 오른쪽 32px 작은 아이콘(누르는 범위 44px은 위아래만 ::after).
- if(selector==='#newMeetingBtn'){const b=await el.boundingBox();expect([b.width,b.height],selector).toEqual([32,32]);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).not.toBe('fixed');expect(await el.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height)),selector).toBe(44);return}
+ // LIB-위쪽한줄(11/09): 자료실 [+]도 같은 위 줄 오른쪽 32px 작은 아이콘(폰·PC 모두).
+ if(['#newMeetingBtn','#newDocumentBtn'].includes(selector)){const b=await el.boundingBox();expect([b.width,b.height],selector).toEqual([32,32]);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).not.toBe('fixed');expect(await el.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height)),selector).toBe(44);return}
 const b=await el.boundingBox(),want=selector==='#newEventBtn'?32:36;expect(b.width,selector).toBe(want);expect(b.height,selector).toBe(want);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).toBe('fixed');const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w,selector).toBe(44);expect(t.h,selector).toBe(44);}
 // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄 버튼이다(폰 '‹ 사업 보고 · 사업영역 관리 · +', 떠 있는 둥근 [+] 아님).
 const fabs=new Set(['#newEventBtn','#newDocumentBtn','#newMeetingBtn']);
@@ -109,7 +110,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
  }
  for(const [name,selectors]of Object.entries({calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="meetings"]','#appView [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
-  if(name==='library'){if(width<=760)await phoneFab(page,'#newDocumentBtn');else if(width>=761)await pcAdd(page,'#newDocumentBtn');else await dsStandard(page,'#newDocumentBtn');continue}
+  if(name==='library'){await phoneFab(page,'#newDocumentBtn');continue}// LIB-위쪽한줄: 폰·PC 모두 위 줄 작은 아이콘(phoneFab의 사업 보고·자료실 갈래)
   if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
   if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuTab')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());
    // 8-9e-3: PC 메뉴·[계정 ▾]는 13px·보통 굵기(400), 크기·색은 그대로.

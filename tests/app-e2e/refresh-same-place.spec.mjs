@@ -127,7 +127,7 @@ for (const width of [390, 1280]) test.describe(`새로고침 뒤 같은 화면 $
 
   test(`자료실: 들어간 폴더가 새로고침 뒤 그대로 ${width}`, async ({ page }) => {
     const { errors } = await bootLibrary(page, width, { folders: [libFolder('fa', 'top-a', { name: '가상 A' })], items: [] });
-    await page.locator('#libraryGroupBy').getByRole('radio', { name: '폴더' }).click();
+    await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
     await press(page, menuButton(page, 'f:fa'), width); await press(page, folderMenuItem(page, '이 폴더로 들어가기'), width);
     const path = page.locator('#libraryPath');
     // S51-24: 폰은 상자 맨 위 위치 줄(위 단계만), 넓은 화면은 지금 위치 줄.

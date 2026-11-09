@@ -155,7 +155,7 @@ for (const fail of [false, true]) test(`photo set row drags into a folder as one
   state.folders = [{id: ID(700), workspace_id: 'workspace-1', project_id: null, parent_id: null, name: '결의대회 사진', sort_order: 1024, created_at: now()}];
   if (fail) state.failItem = ID(13);
   await open(page, state, 1440);
-  await page.locator('#libraryGroupBy').getByRole('radio', {name: '폴더'}).click();
+  await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
   await expandLibraryTree(page);
   const r = await dragSetTo(page, M1, 'f:' + ID(700));
   expect(r).toEqual({draggable: 'true', allowed: true});
@@ -182,7 +182,7 @@ test('photo set row menu moves the whole set into a folder', async ({page}) => {
   const state = makeState();
   state.folders = [{id: ID(700), workspace_id: 'workspace-1', project_id: null, parent_id: null, name: '결의대회 사진', sort_order: 1024, created_at: now()}];
   await open(page, state, 1440);
-  await page.locator('#libraryGroupBy').getByRole('radio', {name: '폴더'}).click();
+  await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
   await expandLibraryTree(page);
   await page.locator(`[data-lu-photoset="${M1}"] [data-lu-menu]`).click();
   await expect(page.locator('#luMorePanel button')).toHaveText(['폴더로 옮기기›']);

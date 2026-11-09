@@ -451,7 +451,7 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
       // UI-PC자료실: 다른 화면을 거쳐 다시 들어오면 분류 칩이 기본 상태([회의] 꺼짐)로 돌아가므로, 회의자료 분류인 doc-0을 보려면 다시 켠다.
       // 로그인 정보 갱신(session cycle)은 들어오기가 아니라 칩이 그대로여야 한다.
       if(departure==='route cycle')await showAllLibraryCategories(page);
-      else await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveCount(0);
+      else await expect(page.locator('#libraryCategoryPick')).toHaveText('분류: 전체');
     }
     await expect(page.locator(view==='library'?'[data-lu-document="doc-0"]':'[data-mrd-delete-document="doc-0"]')).toHaveCount(1);
   });
