@@ -489,3 +489,26 @@
 #libraryFolderNav .ft-row.lu-drop-no>.ft-main{opacity:.55;cursor:no-drop}
 #libraryFolderNav .ft-row.lu-dragging{opacity:.5}
 #libraryFolderNav .ft-row.lu-drop-place>.ft-main,#libraryFolderNav .ft-row.lu-drop-into>.ft-main,#libraryPath .lu-drop-place{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-sm,6px)}
+/* LIB-두칸보기(S55-11, 시안 docs/design/mockups/library-two-pane.html): PC·펼친 폴드 폴더 묶기의 두 칸 — 양쪽 다 위치 줄 + 폴더 줄 + 자료 줄.
+   지금 칸은 초록 테두리(lu-pane-cur). 칸 폭은 경계 끌기(split-resize.js, split_ratio.library). 두 칸은 그 폭에서만 그려지므로 폭 조건 없음. */
+#documentList .lu-two{--ds-split-library-a:50fr;--ds-split-library-b:50fr;display:grid;grid-template-columns:minmax(0,var(--ds-split-library-a)) minmax(0,var(--ds-split-library-b));column-gap:8px;align-items:start;--ds-split-library-min:260px}
+#documentList .lu-pane{min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,8px);background:var(--kptu-surface)}
+#documentList .lu-pane.lu-pane-cur{border-color:var(--kptu-primary);outline:1px solid var(--kptu-primary);outline-offset:-2px}
+#documentList .lu-pane-head{display:flex;align-items:center;gap:4px;min-height:32px;padding:2px 6px;border-bottom:1px solid var(--kptu-border);font-size:12px;color:var(--kptu-muted)}
+#documentList .lu-pane-path{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:2px;overflow:hidden;white-space:nowrap}
+#documentList .lu-pane-step{min-height:26px;padding:0 4px;font-size:12px;color:var(--kptu-muted)}
+#documentList .lu-pane-here{color:var(--kptu-ink);overflow:hidden;text-overflow:ellipsis}
+#documentList .lu-pane-sep{color:var(--kptu-faint)}
+#documentList .lu-pane-head .lu-pane-sort{flex:none;width:auto;min-width:0;height:26px;min-height:26px;padding:0 22px 0 6px;font-size:12px}
+#documentList .lu-pane-head .lu-pane-up{flex:none}
+#documentList .lu-pane-list{max-height:calc(100dvh - var(--follow-top,8px) - 150px);overflow:auto;padding:2px 4px 6px}
+#documentList .lu-pane-list .ft-row .ft-main{min-height:30px;font-size:12.5px}
+#documentList .lu-pane.lu-drop-into{border-color:var(--kptu-primary);background:var(--kptu-primary-soft)}
+#documentList .lu-pane.lu-drop-no{border-style:dashed}
+#documentList .lu-pane.lu-drop-place{border-style:dashed;border-color:var(--kptu-primary)}
+#documentList .lu-two-bar{display:flex;align-items:center;gap:6px;margin-top:6px;padding:4px 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,8px);background:var(--kptu-surface);font-size:12px}
+#documentList .lu-two-bar[hidden]{display:none}
+#libraryView .lu-two-toggle{flex:none;min-height:30px;padding:2px 10px;font-size:12px;white-space:nowrap}
+#libraryView .lu-two-toggle[aria-pressed="true"]{border-color:var(--kptu-primary);background:var(--kptu-primary-soft)}
+#documentList [data-lu-pane-i] .ft-row.lu-drop-into>.ft-main,#documentList [data-lu-pane-i] .ft-row.lu-drop-place>.ft-main{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-sm,6px)}
+#documentList [data-lu-pane-i] .ft-row.lu-drop-no>.ft-main{opacity:.55}
