@@ -10,8 +10,13 @@ const read = f => readFileSync(join(app, f), 'utf8');
 const noComments = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 // C2(옆으로 미는 칩 줄 끝 흐림)·C7(PC만 종류 칩 줄바꿈)은 UI-칩줄두줄(10/31)로 바뀌었다: tests/chip-rows.test.mjs.
-test('C2 사업 보고 칸 칩 줄(PC)은 맨 위 한 줄 안 남은 폭만(S52-22 TEAM-맨위한줄)', () => {
-  assert.match(noComments(read('meeting-ui.css')), /#appView #meetingsView \.report-kind-bar>#reportKindFilter:not\(\[hidden\]\)\{display:flex;flex:1 1 0;/);
+// BIZ-위쪽정돈PC(명진 11/09 10:52 A): PC 종류 칩 줄은 없앴다 — 모든 폭에서 [회의 ▾] 상자 하나이고, PC는 위쪽 세 줄을 한 줄(.report-top)로 놓는다.
+test('C2 사업 보고 위쪽: 종류 칩 줄 없음, PC(761px~)는 위쪽 한 줄(BIZ-위쪽정돈PC)', () => {
+  const html = read('index.html'), css = noComments(read('meeting-ui.css'));
+  assert.doesNotMatch(html, /id="reportKindFilter"|id="reportNameSelect"/);
+  assert.match(html, /<div class="report-top"><div class="toolbar report-top-line">/);
+  assert.doesNotMatch(css, /#reportKindFilter|#reportNameSelect/);
+  assert.match(css, /@media\(min-width:761px\)\{\s*#appView #meetingsView \.report-top\{display:flex;flex-wrap:wrap;/);
 });
 
 test('C4 체크칸 줄(내 프로필·원장)은 줄 전체 + 위아래 44px이 누르는 곳', () => {

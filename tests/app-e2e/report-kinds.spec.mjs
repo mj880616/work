@@ -33,13 +33,12 @@ async function open(page,s,width){
   await showAllReportWeeks(page);
 }
 const chips=page=>page.locator('#reportKindFilter');
-const chip=(page,name)=>chips(page).getByRole('radio',{name,exact:true});
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
 test('폰 390: 종류는 맨 위 [종류 ▾] 선택 상자 하나(칩 줄 없음, S52-22)·페이지는 넘치지 않는다 / 종류별 거르기 / [회의]만 회의명 묶음',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=kindState();await open(page,s,390);
-  await expect(chips(page)).toBeHidden();
+  await expect(chips(page)).toHaveCount(0);
   const kind=page.locator('#reportKindSelect');await expect(kind).toBeVisible();
   await expect(kind.locator(':scope > option')).toHaveText(['종류 전체',...CHIPS.slice(1)]);
   // 처음은 [회의]: 지금 기록은 모두 회의라 첫 화면이 그대로다. 칸이 없는 옛 행도 회의다.
@@ -115,12 +114,13 @@ for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 선택 
   expect(errors).toEqual([]);
 });
 
-test('PC 1280: 칸 칩 한 줄 / [회의] 3단, 다른 칸·[전체] 2단(목록 | 결과), 결과에 칸 표시',async({page})=>{
+// BIZ-위쪽정돈PC(명진 11/09 10:52 A): PC도 종류 칩 줄 없이 폰과 같은 [종류 ▾] 상자 하나.
+test('PC 1280: 종류는 [종류 ▾] 상자 하나(칩 줄 없음) / [회의] 3단, 다른 칸·[전체] 2단(목록 | 결과), 결과에 칸 표시',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=kindState();await open(page,s,1280);
-  const boxes=await chips(page).getByRole('radio').evaluateAll(els=>els.map(e=>e.getBoundingClientRect()).map(r=>({top:Math.round(r.top),right:r.right})));
-  expect(new Set(boxes.map(b=>b.top)).size).toBe(1);
-  expect(await chips(page).evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await expect(chips(page)).toHaveCount(0);
+  const kind=page.locator('#reportKindSelect');await expect(kind).toBeVisible();
+  await expect(kind.locator(':scope > option')).toHaveText(['종류 전체',...CHIPS.slice(1)]);
   expect(await noSideScroll(page)).toBe(true);
   // [회의]: 지금 3단 그대로(회의 칸 행만).
   await expect(page.locator('#meetingList .mcol-kinds')).toBeVisible();

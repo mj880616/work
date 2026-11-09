@@ -38,8 +38,10 @@ async function open(page,width,options={}){
 }
 // 3단 위 [주간 사업요약표] 칸은 모듈을 늦게 불러와 그린 뒤에야 제 높이(약 100px → 400px)가 되어 아래 3단 전체가 밀려 내려간다.
 // 잰 칸 자리·끌 경계선 자리가 그 사이에 어긋나지 않도록, 요약표와 오른쪽 결과(후속 할 일까지)가 다 그려진 뒤에 잰다. (새로 불러온 뒤 같은 어긋남으로 간헐 실패했음)
+// BIZ-주간표이번주 ⑤⑥(11/09) 뒤로 [전체](모든 주)에서는 이 칸이 접힌 한 줄('이번 주 주간보고 11.9~11.15 ⌄')로 시작해 표를 그리지 않는다 —
+// 이 시험은 늘 [전체]로 보므로 접힌 한 줄이 그려진 것(칸 높이가 정해진 것)을 기다린다. (예전 '1) 사업요약표'를 기다리던 줄은 접힌 칸에서 영영 오지 않아 main에서도 깨졌다.)
 async function columnsReady(page){
-  await expect(page.locator('#bizWeekBox [data-bp-paper]')).toContainText('1) 사업요약표');
+  await expect(page.locator('#bizWeekBox [data-bw-fold]')).toHaveAttribute('aria-expanded','false');await expect(page.locator('#bizWeekBox [data-bw-body]')).toBeHidden();
   await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toBeVisible();await expect(page.locator('#meetingList #mrdLoading')).toBeHidden();
   await settle(page);
 }

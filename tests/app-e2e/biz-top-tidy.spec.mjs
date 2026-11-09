@@ -6,6 +6,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // S54-21 BIZ-위쪽정돈(요청함 11/09 00:10~01:22, 시안 docs/design/mockups/biz-report-top.html 확정안 01:22):
 // 사업 보고 위쪽은 세 줄 — ① 제목 '사업 보고' ……… [녹음][+][⋯] ② [회의 ▾][사업영역 ▾][주 ▾] ③ ‹ 11.9(월)~11.15(일) › · n건.
+// BIZ-위쪽정돈PC(명진 11/09 10:52 A안, 시안 biz-report-top-pc.html): PC(761px~)는 같은 요소가 한 줄 — ② ③ ……… [녹음][+][⋯](작은 아이콘, 폰과 같은 버튼·순서).
 // 주 고르기는 이 화면에 하나, '이번 주 주간보고'는 늘 펼친 채 같은 주를 따르고, 떠 있는 동그란 [+]는 없다. [목록|달력|사진]은 앞 자리 규칙 그대로(위로 올리지 않음).
 // (가짜 서버·가짜 보고는 report-period.spec.mjs와 같은 틀. 모든 이름·번호는 합성 값.)
 test.use({timezoneId: 'Asia/Seoul'});
@@ -75,12 +76,13 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
 }
 
 const mids = async (page, sel) => (await page.locator(sel).evaluateAll(els => els.filter(e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map(e => { const r = e.getBoundingClientRect(); return {mid: Math.round(r.top + r.height / 2), top: r.top, bottom: r.bottom, right: r.right, h: r.height}; })));
-for (const width of [390, 884, 1280]) test(`${width}: 위쪽 세 줄 · 주 고르기 하나 · 이번 주 주간보고 늘 펼침 · 떠 있는 버튼 없음`, async ({page}) => {
+for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC 한 줄) · 주 고르기 하나 · 이번 주 주간보고 늘 펼침 · 떠 있는 버튼 없음`, async ({page}) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   const state = makeState();
   await open(page, state, width);
   const vp = page.viewportSize();
-  // ① 첫 줄: 오른쪽 [녹음][+][⋯](폰은 작은 아이콘 / 넓은 화면 글자 버튼) 모두 같은 가운데 높이. 폰은 제목 '사업 보고'가 왼쪽에 보인다.
+  const pc = width >= 761;
+  // ① 첫 줄: 오른쪽 [녹음][+][⋯](모든 폭 작은 아이콘) 모두 같은 가운데 높이. 폰은 제목 '사업 보고'가 왼쪽에 보인다.
   const line1 = await mids(page, '#meetingsView .report-top-line .report-head-actions > :not([hidden])' + (width < 761 ? ', #meetingsView .report-top-title' : ''));
   expect(line1.length).toBeGreaterThanOrEqual(2);
   expect(Math.max(...line1.map(x => x.mid)) - Math.min(...line1.map(x => x.mid))).toBeLessThanOrEqual(3);
@@ -88,22 +90,26 @@ for (const width of [390, 884, 1280]) test(`${width}: 위쪽 세 줄 · 주 고�
   await expect(page.locator('#reportViewFilter [data-filter-value]')).toHaveCount(3);
   await expect(page.locator('#meetingsView .report-top-line #newMeetingBtn')).toBeVisible();
   await expect(page.locator('#meetingsView .report-top-line #reportMore')).toBeVisible();
-  // ② 둘째 줄: 종류(폰·폴드는 [회의 ▾] 상자, PC는 칩)·[사업영역 ▾]·[주 ▾]가 한 줄이고 첫 줄 아래다.
-  const kindSel = width < 1200 ? '#reportKindSelect' : '#reportKindFilter';
-  const line2 = await mids(page, `#meetingsView .report-kind-bar > ${kindSel}, #meetingsView .report-kind-bar > #reportAreaSelect, #meetingsView .report-kind-bar #reportPeriodPick select`);
+  // ② 둘째 줄: [회의 ▾](모든 폭 상자, 칩 줄 없음)·[사업영역 ▾]·[주 ▾]가 한 줄이고 폰은 첫 줄 아래, PC는 첫 줄과 같은 줄(아이콘 왼쪽).
+  await expect(page.locator('#reportKindFilter, #reportNameSelect')).toHaveCount(0);
+  const line2 = await mids(page, `#meetingsView .report-kind-bar > #reportKindSelect, #meetingsView .report-kind-bar > #reportAreaSelect, #meetingsView .report-kind-bar #reportPeriodPick select`);
   expect(line2.length).toBeGreaterThanOrEqual(2);
   expect(Math.max(...line2.map(x => x.mid)) - Math.min(...line2.map(x => x.mid))).toBeLessThanOrEqual(3);
-  expect(Math.min(...line2.map(x => x.top))).toBeGreaterThanOrEqual(Math.max(...line1.map(x => x.bottom)) - 1);
+  if (pc) { expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line2.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right)) - 32); }
+  else expect(Math.min(...line2.map(x => x.top))).toBeGreaterThanOrEqual(Math.max(...line1.map(x => x.bottom)) - 1);
+  // 녹음·추가는 모든 폭에서 글자 없는 작은 아이콘(이름은 화면 읽기용).
+  for (const b of await page.locator('#meetingsView .report-head-actions > :is(#newMeetingBtn,#reportRecordBtn,#phoneRecordBtn):not([hidden])').all()) { const r = await b.boundingBox(); expect(r.width).toBeLessThanOrEqual(34); expect(r.height).toBeLessThanOrEqual(34); }
   // 작은 버튼 상자 높이가 같다(고르기 상자끼리).
   const selH = (await mids(page, '#meetingsView .report-kind-bar select.report-top-select')).map(x => Math.round(x.h));
   expect(new Set(selH).size).toBe(1);
-  // ③ 셋째 줄: ‹ 11.9(월)~11.15(일) › · n건 — 둘째 줄 아래.
+  // ③ 셋째 줄: ‹ 11.9(월)~11.15(일) › · n건 — 폰은 둘째 줄 아래, PC는 같은 한 줄(고르기와 아이콘 사이).
   const nav = page.locator('#reportWeekFilter .report-week-nav');
   await expect(nav.locator('.report-week-label')).toContainText(/\(월\)~.*\(일\)/);
   await expect(nav.locator('.report-week-count')).toContainText(/· \d+건/);
   const line3 = await mids(page, '#reportWeekFilter .report-week-nav > *');
   expect(Math.max(...line3.map(x => x.mid)) - Math.min(...line3.map(x => x.mid))).toBeLessThanOrEqual(3);
-  expect(Math.min(...line3.map(x => x.top))).toBeGreaterThanOrEqual(Math.max(...line2.map(x => x.bottom)) - 1);
+  if (pc) { expect(Math.abs(line3[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line3.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right))); }
+  else expect(Math.min(...line3.map(x => x.top))).toBeGreaterThanOrEqual(Math.max(...line2.map(x => x.bottom)) - 1);
   // 주 고르기는 이 화면에 하나(‹ › 짝 하나, 안쪽 [이번 주 ▾] 아닌 주 고르기 부품 없음).
   await expect(page.locator('#meetingsView [data-report-week="prev"]')).toHaveCount(1);
   await expect(page.locator('#meetingsView [data-report-week="next"]')).toHaveCount(1);
@@ -159,4 +165,26 @@ test('390: 추가 +를 누르면 사업 보고 등록 창이 열리고, 작은 �
   await expect(add).toHaveAttribute('aria-label', '사업 보고 등록');
   await add.click();
   await expect(page.locator('#meetingModal')).toBeVisible();
+});
+
+// BIZ-위쪽정돈PC 같은 종류 전수: 녹음 중이면 ● 둘레에 빨간 고리(전 PC 글자 [녹음 중]과 같은 정보, 이름은 '녹음 중'), 기간 정하기 창은 위쪽 한 줄 아래 한 줄을 다 쓴다.
+for (const width of [884, 1280]) test(`${width}: 녹음 중 ● 고리 · 기간 정하기 창은 한 줄 아래`, async ({page}) => {
+  const state = makeState();
+  await open(page, state, width);
+  const rec = page.locator('#reportRecordBtn');
+  await expect(rec).toBeVisible();
+  const ring = () => rec.evaluate(b => getComputedStyle(b, '::before').outlineStyle);
+  expect(await ring()).toBe('none');
+  // 녹음 상태 표시는 녹음기(meeting-recorder.js paintButton)가 이름·aria-pressed로 칠한다 — 여기서는 그 결과 모양만 본다.
+  await rec.evaluate(b => { b.setAttribute('aria-pressed', 'true'); b.textContent = '녹음 중'; });
+  expect(await ring()).toBe('solid');
+  await expect(rec).toHaveAccessibleName('녹음 중');
+  const lineMid = (await page.locator('#reportKindSelect').boundingBox());
+  await page.locator('#reportPeriodPick select').selectOption('range');
+  const panel = page.locator('#reportWeekFilter .report-period-panel');
+  await expect(panel).toBeVisible();
+  const [p, add] = await Promise.all([panel.boundingBox(), page.locator('#newMeetingBtn').boundingBox()]);
+  expect(p.y).toBeGreaterThanOrEqual(lineMid.y + lineMid.height - 1);
+  expect(Math.abs((add.y + add.height / 2) - (lineMid.y + lineMid.height / 2))).toBeLessThanOrEqual(3);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
 });

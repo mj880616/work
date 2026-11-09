@@ -26,8 +26,8 @@ async function open(page,s,width){
   await expect(page.locator('#meetingsView')).toBeVisible();
   await showAllReportWeeks(page);
 }
-// S52-22: 종류는 PC(1200px~) 칩, 그 아래 폭은 [종류 ▾] 상자의 줄.
-const chip=(page,name)=>page.locator((page.viewportSize()?.width||0)>=1200?'#reportKindFilter':'#reportKindSelect').locator((page.viewportSize()?.width||0)>=1200?`[role=radio]`:'option').filter({hasText:new RegExp(`^${name}$`)});
+// S52-22 → BIZ-위쪽정돈PC(11/09): 종류는 모든 폭에서 [종류 ▾] 상자의 줄(PC 칩 줄 없앰).
+const chip=(page,name)=>page.locator('#reportKindSelect option').filter({hasText:new RegExp(`^${name}$`)});
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
 for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 업데이트 → 사업영역·날짜·한 줄·다음 할 일 저장 → 목록에 문장, [한 줄] 칩의 [+]는 바로 창`,async({page})=>{
