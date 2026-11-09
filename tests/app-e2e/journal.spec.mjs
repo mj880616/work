@@ -12,6 +12,7 @@ import {expectJournalDay} from './helpers/screen-title.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 import {laidOutBox,pseudoContent} from './helpers/laid-out.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
+import {installBusinessNowServer} from './helpers/business-now-server.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // JOURNAL-주간정리다듬기 ①(2026-10-22 사용자 결정): 위 줄 [주간보고 초안 복사]는 없어졌다. WEEKLY-한흐름확정 ②: 초안 복사는 [주간 정리]
 // 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 옆 ⋯ 안 [글로 복사]다. 이 도우미는 [주간 정리]로 가서 ⋯ → [글로 복사]를 누르고, 복사 안내가 뜬 뒤 [하루]로 돌아온다.
@@ -2823,6 +2824,38 @@ for(const width of [390,1280])test(`[주간 정리] 4. 조직보고(전환 주�
  const org=snaps[1].rows.find(r=>r.section==='org'&&r.ref_key===OA);
  expect(org.lines.map(l=>[l.ref_kind,l.ref_key,l.day,l.text])).toEqual([['org_update','r-past','2026-11-03','가상 지난 기록'],['org_update','r-now','2026-11-17','가상 창 교섭']]);
  expect(snaps[1].rows.some(r=>r.section==='site')).toBe(true);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+
+// BIZ-기록하나로 B-4 ①(설계 docs/design/record-one.md 4절 '한글 파일'): 전환 주(11.9)부터 한글 파일 2. 1) 요약 표의 내 줄 = 화면 2. 1) 사업요약 창
+// (지금 상황 + 담당) 그대로. 지난주 행 글이 이어 보이는 칸·이번 주 행 칸·화면에서 방금 고친 칸이 모두 파일에 같은 글로. 바탕(팀 확정본)의 지난 글은 깔지 않고,
+// 남의 줄은 개인본 규칙대로 빈 칸(표 틀 그대로), 남이 맡은 이름의 칸에 내 글이 있으면 그 묶음 맨 아래 내 줄. 폰 390·폴드 884·PC 1440. 이름·글은 합성 값.
+for(const width of [390,884,1440])test(`[주간 정리] 2. 1) 사업요약(전환 주부터): 한글 파일 2. 1) = 화면 지금 상황·담당 그대로, 화면에서 고친 글도 ${width}`,async({page})=>{
+ const f=await weekLinesFixture(page,{width,hwpx:true});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_snapshots',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ const now=(id,space,week,body,owner_text)=>({id,workspace_id:'w',space_id:space,week_start:week,body,owner_text,updated_at:'2026-11-10T00:00:00Z'});
+ const db=await installBusinessNowServer(page,{now:[now('n1','wa1','2026-11-09','가상 지금 상황 가-1\n가상 둘째 줄','가상 담당/가상 동료'),now('n2','wa2','2026-11-16','가상 가-2 내 상황',''),now('n3','wb1','2026-11-09','','')]});
+ await openJournal(page,width);await openWeekly(page);
+ for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
+ const box=page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-biz-summary-box]');
+ const row=task=>box.locator('.biz-sum-table tbody tr').filter({has:page.locator('td',{hasText:new RegExp(`^${task}$`)})});
+ await expect(row('세부 과제 가-1').locator('.biz-hand-line')).toHaveText(['가상 지금 상황 가-1','가상 둘째 줄']);
+ await expect(row('세부 과제 나-1').locator('.biz-now-empty')).toHaveText('—');
+ // 화면에서 나-1 지금 상황을 쓰면(이번 주 행) 바로 파일에도.
+ await row('세부 과제 나-1').locator('[data-bp-cell="progress"]').click();
+ await row('세부 과제 나-1').locator('textarea[data-bp-field]').fill('가상 나-1 새 상황');
+ await row('세부 과제 나-1').locator('[data-bp-edit-save]').click();
+ await expect(row('세부 과제 나-1').locator('.biz-hand-line')).toHaveText(['가상 나-1 새 상황']);
+ expect(db.writes.at(-1)).toMatchObject({space_id:'wb1',week_start:'2026-11-16',body:'가상 나-1 새 상황'});
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ const {report}=await savedReport(download);
+ const grid=report.summary.map(a=>[a.area.join(' '),a.rows.map(r=>[(r.task??[]).join(' '),r.progress,r.owner])]);
+ expect(grid).toEqual([
+  ['사업영역 가',[['세부 과제 가-1',['가상 지금 상황 가-1','가상 둘째 줄'],['가상 담당/가상 동료']],['세부 과제 가-2',[],[]],['세부 과제 가-2',['가상 가-2 내 상황'],['가상 담당']]]],
+  ['사업영역 나',[['세부 과제 나-1',['가상 나-1 새 상황'],['가상 담당']]]],
+ ]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 

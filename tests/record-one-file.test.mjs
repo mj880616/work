@@ -99,3 +99,67 @@ test('O-6 ②: 옛 주별 조직보고 제안 보내기(weekly-org-suggest)·ai-
   assert.match(h, /if \(\(ORG_MOVED_KINDS as readonly unknown\[\]\)\.includes\(u\.source_kind\)\) continue;/);
 });
 function require_fs() { return {existsSync: p => { try { readFileSync(p); return true; } catch { return false; } }}; }
+
+// BIZ-기록하나로 B-4 ①(설계 4절 '한글 파일'): 한글 파일 2. 1) 요약 표 내 줄 = 화면 사업요약 창(지금 상황 + 담당) 그대로. 이름·글은 합성 값.
+test('B-4 ①: 2. 1) 파일 내 줄 = 창 결과 — 같은 이름 줄은 그 칸, 없는 줄은 글이 있을 때 더하고, 바탕에만 있는 내 줄은 비움, 남의 줄·표 틀 그대로', async () => {
+  const {applyBizWindow, assembleDraft, editableRows, buildHwpx} = await import('../app/weekly-hwpx/draft.mjs');
+  const {readReport, lineText} = await import('../app/weekly-hwpx/report.mjs');
+  const {openHwpx, packHwpx} = await import('../app/weekly-hwpx/hwpx.mjs');
+  const {zlib, SAMPLE} = await import('../scripts/weekly-hwpx/cli.mjs');
+  const {makeFakeReport} = await import('../scripts/weekly-hwpx/fixture.mjs');
+  const {prepareConfirmed, openConfirmed, startDraft} = await import('../app/weekly-hwpx/draft.mjs');
+  const ME = '가짜담당 갑';
+  const base = {summary: [
+    {area: ['가짜 영역 가'], rows: [
+      {task: ['가짜 과제 하나'], progress: ['- 지난주 글 하나'], paras: [], owner: [ME]},
+      {task: ['가짜 과제 둘'], progress: ['- 지난주 글 둘'], paras: [], owner: null}, // 위 담당과 합친 칸(내 줄)
+      {task: ['가짜 남 과제'], progress: ['- 남의 글'], paras: [], owner: ['가짜을']},
+    ]},
+    {area: ['가짜 주제·영역'], rows: [{task: ['가짜 주제/영역'], progress: ['- 주제 지난 글'], paras: [], owner: [ME]}]},
+  ]};
+  const rows = [
+    {area: '가짜 영역 가', task: '가짜과제 하나', lines: ['지금 상황 첫 줄', '둘째 줄'], owner: ''},
+    {area: '가짜 영역 가', task: '가짜 과제 새것', lines: ['새 과제 글'], owner: '가짜담당 갑/가짜병'},
+    {area: '가짜 주제 · 영역', task: '', lines: [], owner: ''},
+    {area: '가짜 새 영역', task: '', lines: ['새 영역 글'], owner: ''},
+    {area: '가짜 영역 가', task: '가짜 남 과제', lines: [], owner: ''}, // 남의 줄과 같은 이름 + 빈 지금 상황 = 더하지 않음
+  ];
+  const w = applyBizWindow(base, ME, rows);
+  assert.equal(base.summary[0].rows.length, 3, '원본 바탕은 그대로');
+  const data = assembleDraft(w.base, {summary: w.summary, owners: w.owners});
+  const grid = data.summary.map(a => [a.area.join(' '), a.rows.map(r => [(r.task ?? []).join(' '), r.progress.map(lineText), r.owner])]);
+  assert.deepEqual(grid, [
+    ['가짜 영역 가', [
+      ['가짜 과제 하나', ['지금 상황 첫 줄', '둘째 줄'], [ME]], // 담당이 비면 바탕 담당 그대로
+      ['가짜 과제 둘', [], null],                               // 바탕에만 있는 내 줄 = 비움(줄은 남김, 합친 칸 그대로)
+      ['가짜 남 과제', ['- 남의 글'], ['가짜을']],              // 남의 줄 그대로
+      ['가짜 과제 새것', ['새 과제 글'], ['가짜담당 갑/가짜병']], // 없는 줄 = 그 묶음 맨 아래, 담당 = 화면 담당
+    ]],
+    ['가짜 주제·영역', [['가짜 주제/영역', [], [ME]]]],          // 세부 과제 없는 화면 줄 = 주제 칸(S52-24), 빈 지금 상황 = 빈 칸
+    ['가짜 새 영역', [['', ['새 영역 글'], [ME]]]],
+  ]);
+  // 바뀐 줄은 파란 글씨(바탕과 다른 글).
+  assert.ok(data.summary[0].rows[0].progress.every(l => typeof l === 'object' && l.changed));
+  // 내 이름도 담당도 모르면 줄을 더하지 않는다.
+  assert.equal(applyBizWindow({summary: []}, '', [{area: '가짜', task: '', lines: ['x'], owner: ''}]).base.summary.length, 0);
+  // 실제 서식으로 만든 파일을 다시 읽으면 화면 줄 그대로(규격 검사 통과).
+  const fake = packHwpx(makeFakeReport(openHwpx(new Uint8Array(readFileSync(SAMPLE)), zlib)), zlib);
+  const {team, template} = prepareConfirmed(await openConfirmed(fake));
+  const real = startDraft(team, {me: ME, date: ''});
+  const mine = editableRows(real, ME);
+  const want = mine.map((r, i) => ({area: r.area, task: r.task, lines: [`창 글 ${i}`], owner: ''}));
+  const ww = applyBizWindow(real, ME, want);
+  const back = readReport(openHwpx(await buildHwpx(template, assembleDraft(ww.base, {summary: ww.summary, owners: ww.owners})), zlib));
+  assert.deepEqual(editableRows(back, ME).map(r => r.lines), want.map(r => r.lines));
+});
+
+test('B-4 ①: 한글 파일 2. 1)은 화면 사업요약 상자 결과 — 다 그린 뒤에만, 표가 없으면(404) 예전 칸', () => {
+  const hw = read('app/journal-hwpx.js'), jr = read('app/journal.js'), box = read('app/weekly-summary-table.js');
+  assert.match(hw, /const biz = fresh \? \(getWeek\(\)\.biz\?\.\(\) \?\? \{status:'loading'\}\) : null;/);
+  assert.match(hw, /사업요약표가 아직 다 나오지 않았어요/);
+  assert.match(hw, /draft\.applyBizWindow\(state\.base, state\.me, bizRows\)/);
+  assert.match(jr, /biz:bizFile/);
+  assert.match(jr, /bizWeekly\.fileRows\(start\)/);
+  assert.match(box, /fileRows:week=>inst\.fileRows\(week\)/);
+  assert.match(box, /state\.done=\{run,from,now:fresh\?nowStatus:''\}/);
+});

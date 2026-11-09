@@ -115,9 +115,9 @@ async function paint(){
     const {records,untagged,all}=previewRecords(meetings,{from,to,lineOf});
     const placed=placeRecords(records,places?.projects||null);
     const areas=fullTable(placed.areas,places?.projects||null);
-    let now=null;
+    let now=null,nowStatus='';
     if(fresh){
-      now=await loadNow({kit,store,from,areas,tree:places?.projects||null});
+      now=await loadNow({kit,store,from,areas,tree:places?.projects||null});nowStatus=now.status;
       if(!state||run!==state.run)return;
       editable=now.status==='ready';
       if(now.status==='missing')note='저장 칸이 아직 준비되지 않아 지금은 쓸 수 없어요.';
@@ -127,8 +127,9 @@ async function paint(){
     }
     state.view={placed:{...placed,areas},records,untagged,all,lineOf};
     state.draft=draft;state.editable=editable;state.store=store;state.now=now;state.kit=kit;
+    state.done={run,from,now:fresh?nowStatus:''}; // 한글 파일(fileRows)이 '그 주를 다 그렸나'를 본다
     renderPaper();say(note);
-  }catch(err){if(state&&run===state.run){paper.innerHTML=`<p class="journal-muted">${esc(err?.message||'미리보기를 만들지 못했어요.')}</p>`;box.dataset.bpReady=''}}
+  }catch(err){if(state&&run===state.run){state.done={run,from,now:'error'};paper.innerHTML=`<p class="journal-muted">${esc(err?.message||'미리보기를 만들지 못했어요.')}</p>`;box.dataset.bpReady=''}}
 }
 function renderPaper(){
   if(!state?.view)return;
@@ -309,6 +310,20 @@ function paperHtml(placed,records,untagged,all,lineOf){
   return `<h3>1) 사업요약표</h3>${table}${miss}<h3>2) 주요 사업·회의결과</h3><ul class="biz-detail-list">${details}</ul>`;
 }
 
+// BIZ-기록하나로 B-4 ①(설계 4절 '한글 파일'): 한글 파일 2. 1) = 이 상자가 그 주에 그린 표 그대로(지금 상황 줄 + 담당, 화면 순서).
+// 그 주를 다 그렸을 때만 {status:'ready', rows:[{area, task, lines, owner}]}. 그리는 중·다른 주·접힘 = 'loading', 지금 상황 표가 아직 없음 = 'missing',
+// 읽지 못함 = 'error'. 사업영역을 못 찾은 보고 줄(보관된 사업영역)은 칸이 없어 넣지 않는다. 쓰는 중인 칸은 저장된 값.
+self.fileRows=week=>{
+  const d=state?.done;
+  if(!state||!d||d.run!==state.run||d.from!==week||state.from!==week||state.dirty||state.stale||!state.view)return {status:'loading'};
+  if(d.now!=='ready'||!state.now)return {status:d.now==='missing'?'missing':d.now==='error'?'error':'loading'};
+  const {NM}=state.kit,rows=[];
+  for(const area of state.view.placed.areas)for(const row of area.rows){
+    const space=String(row.task?.id??area.id),v=NM.nowView(state.now.rows,space,week);
+    rows.push({area:area.name,task:row.task?.name||'',lines:v.body?v.body.split('\n').map(l=>l.trim()).filter(Boolean):[],owner:v.owner});
+  }
+  return {status:'ready',rows};
+};
 // meetings(): 사업 보고 화면이 읽어 둔 사업 보고 전체(select=*). 화면의 읽기를 그대로 쓰고 따로 읽지 않는다.
 // el = 사업 보고 화면의 늘 펼친 칸 #bizWeekBox. week = 위 주 고르기의 주(월요일 날짜). 화면이 다시 그려질 때마다 불린다.
 // fold = 사업 보고가 여러 주(전체 기간·정한 기간)를 보는 중 → 접힌 한 줄로 시작(BIZ-주간표이번주 ⑥). 홈 작은 상자는 늘 펼침.
@@ -349,5 +364,5 @@ export function mountWeekSummary(el,{meetings,week,fold=false,auto=false,visit=0
 export function createBizSummaryBox(){
   const el=document.createElement('div');el.className='biz-week-box biz-week-compact';el.dataset.bizSummaryBox='';
   const inst=createBizSummary({compact:true});
-  return {el,update:({meetings,week,tree})=>inst.mount(el,{meetings,week,tree})};
+  return {el,update:({meetings,week,tree})=>inst.mount(el,{meetings,week,tree}),fileRows:week=>inst.fileRows(week)};
 }

@@ -942,17 +942,23 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const s0 = state, orgs0 = s0.context.orgFailed || s0.context.orgFallback ? [] : s0.context.organizations, fresh = isRecordWeek(s0.start);
     const win = fresh && orgs0.length ? (getWeek().win?.() ?? null) : null;
     if (fresh && orgs0.length && !win) throw Object.assign(new Error('조직보고 표가 아직 다 나오지 않았어요. 잠시 뒤 다시 눌러 주세요.'), {code:'wait'});
+    // BIZ-기록하나로 B-4 ①: 전환 주부터 2. 1) 요약 표 = 화면 사업요약 창 결과(지금 상황 + 담당). 창이 그 주를 다 그리기 전엔 만들지 않는다(파일 ≠ 화면 방지).
+    // 지금 상황 표가 아직 없으면(404, DB 적용 전) 예전처럼 그 주 임시저장 칸(화면도 그 칸을 쓸 수 없다고 알림).
+    const biz = fresh ? (getWeek().biz?.() ?? {status:'loading'}) : null;
+    if (biz && biz.status !== 'ready' && biz.status !== 'missing') throw Object.assign(new Error(biz.status === 'error' ? '사업요약표 지금 상황을 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.' : '사업요약표가 아직 다 나오지 않았어요. 잠시 뒤 다시 눌러 주세요.'), {code:'wait'});
+    const bizRows = biz?.status === 'ready' ? biz.rows : null;
     const weekRows = !fresh && orgs0.length ? await readWeekLines({rt, workspaceId:rt.context.read()?.workspace?.id, week:s0.start, orgIds:orgs0.map(o => o.id)}).then(r => r.missing ? null : r.rows).catch(() => s0.context.weekRows ?? null) : null;
     if (state !== s0) throw Object.assign(new Error('주가 바뀌었어요. 다시 눌러 주세요.'), {code:'stale'});
     const siteNames = arrangeSites(siteRows(state), state.layout).shown.map(r => r.org); // S52-25: 3장 구성이 바뀌면 다시 만든다
-    const weekKey = (win ? JSON.stringify([[...win.orgs], [...win.sites]]) : weekRows ? JSON.stringify([...weekRows].map(([id, rows]) => [id, weekReportLines(rows)])) : '') + JSON.stringify(siteNames);
+    const weekKey = (win ? JSON.stringify([[...win.orgs], [...win.sites]]) : weekRows ? JSON.stringify([...weekRows].map(([id, rows]) => [id, weekReportLines(rows)])) : '') + JSON.stringify(siteNames) + (bizRows ? JSON.stringify(bizRows) : '');
     if (state.built && state.weekKey === weekKey) return state.built;
     state.weekKey = weekKey;
     const week = win ? applyWindow(state, {orgs:[...state.edits.orgs], sites:[...state.edits.sites]}, win) : applyWeekRows(state, {orgs:[...state.edits.orgs], sites:[...state.edits.sites]}, weekRows);
     // S52-25 WEEKLY-투쟁사업장참고: 3. 2) 투쟁 사업장 현황에 들어간 조직(구성 순서로 보이는 사업장, 이름 맞추기 = 칸 이름 기준)의 4. 1) 칸은 '참고' 한 줄.
     // 그 조직 칸에 쓴 줄(임시저장·주별 표)은 그대로 두고 파일에만 넣지 않는다. 3장에서 빼면 다음 만들기부터 원래 줄.
     for (const r of state.orgs) if (inSites(siteNames, r.org)) week.orgs.set(r.index, [SITE_REF_LINE]);
-    const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, {...state.edits, orgs:week.orgs, sites:week.sites, owners:ownerEdits(state)});
+    const sum = bizRows ? draft.applyBizWindow(state.base, state.me, bizRows) : {base:state.base, summary:state.edits.summary, owners:ownerEdits(state)};
+    const data = draft.assembleDraft({...sum.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, {...state.edits, summary:sum.summary, orgs:week.orgs, sites:week.sites, owners:sum.owners});
     // 3. 2) 투쟁 사업장 현황: 들어간 사업장만, 구성 순서로(뺀 사업장의 글은 칸에 남아 있고 파일에만 없다).
     data.sites = layoutSiteData(data.sites ?? [], siteRows(state), state.layout);
     const bytes = await draft.buildHwpx(state.template, data);
