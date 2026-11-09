@@ -378,6 +378,10 @@ export function photoElement(row, file, size, {label = '', rt = window.KPTURunti
 let requestedDay = null;
 export function requestDiaryDay(day) { requestedDay = {day, scope:ownerScope()}; }
 export function takeRequestedDay(rt = window.KPTURuntime) { const value = requestedDay; requestedDay = null; return value && value.scope === ownerScope(rt) ? value.day : null; }
+// HOME-하루채우기 ③ '이런 기록은 어때요?' [일기 쓰기]: 그날 일기 쓰기 창을 첫 줄(제안 한 줄)이 채워진 채로 연다. 저장하면 onSaved(제안 지우기)를 한 번 부른다.
+let requestedWrite = null;
+export function requestDiaryWrite(day, line, onSaved = null) { requestDiaryDay(day); requestedWrite = {day, line:String(line ?? '').slice(0, 200), onSaved, scope:ownerScope()}; }
+export function takeRequestedWrite(day, rt = window.KPTURuntime) { const value = requestedWrite; requestedWrite = null; return value && value.day === day && value.scope === ownerScope(rt) ? value : null; }
 export async function diaryDayPreview(day, {rt = window.KPTURuntime} = {}) {
   const row = await readDiaryDay(day, rt);
   if (!row) return null;

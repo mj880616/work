@@ -1,4 +1,5 @@
 import {suggestOrgWeek} from './weekly-org-suggest.js';
+import {floatingWindowOpen} from './open-window.mjs'; // ★LIB-바깥파일놓기안됨 전수: 다른 화면 칸에 붙은 창은 위에 뜬 창이 아니다
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
@@ -402,7 +403,7 @@ function wdBind(){document.addEventListener('change',e=>{const box=e.target.clos
 // dialog's back traversal so pending loads and in-memory summaries retire together.
 window.addEventListener('popstate',event=>{
  const modal=document.querySelector('#wdModal');
- if(!wdTargetId||modal?.classList.contains('hidden')||modal?.dataset.kptuHistoryOpen!=='1'||event.state?.kptuOverlay===modal.id||document.querySelector('.modal:not(.hidden):not(#wdModal)'))return;
+ if(!wdTargetId||modal?.classList.contains('hidden')||modal?.dataset.kptuHistoryOpen!=='1'||event.state?.kptuOverlay===modal.id||floatingWindowOpen(document,{except:['#wdModal']}))return;
  event.stopImmediatePropagation();
  if(!wdConfirmDiscard()){history.pushState({...event.state,kptuOverlay:modal.id},'',location.href);return}
  modal.dataset.kptuHistoryClosing='pop';wdClose(true);
