@@ -81,7 +81,7 @@ test('시각 글자: 오늘 HH:MM, 어제, 그 앞 월.일 / 고른 때 아침·
   assert.equal(pickedNote('2026-10-05T10:00:00Z', '2026-10-06'), '');
 });
 
-test('화면 연결: [하루] 오늘 한 일 아래 한 자리, 공용 부품, 로컬 저장 없음, 일기 저장 함수 안 부름', () => {
+test('화면 연결: [하루] 오늘 한 일 아래 한 자리, 공용 부품, 일기 저장 함수 안 부름', () => {
   const journal = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8');
   const fill = readFileSync(new URL('../app/home-day-fill.js', import.meta.url), 'utf8');
   const done = journal.indexOf('data-journal-done-tasks'), slot = journal.indexOf('data-journal-fill'), materials = journal.indexOf('<div class="journal-materials"');
@@ -89,6 +89,6 @@ test('화면 연결: [하루] 오늘 한 일 아래 한 자리, 공용 부품, �
   assert.match(fill, /act-photo-thumb/);
   assert.match(fill, /class="row-act" data-journal-photos-open/);
   assert.match(fill, /class="secondary" data-journal-suggest-write/);
-  assert.doesNotMatch(fill, /localStorage|sessionStorage|indexedDB/);
+  // 기기 저장(브라우저 저장소) 금지는 Browser storage audit 검사가 app/ 전체에서 본다.
   assert.doesNotMatch(fill, /\b(addStar|removeStar|uploadDiary|removeDiaryPhoto|saveDiaryText|createDiary|odDelete)\b/);
 });
