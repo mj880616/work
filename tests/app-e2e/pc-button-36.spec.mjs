@@ -72,7 +72,7 @@ async function pcCompact(locator,label){const m=await measure(locator);expect(m.
 test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력칸도 같은 높이·같은 줄, 누르는 범위 44px',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await boot(page,1280);
- await open(page,'meetings');await pcCompact(page.locator('#newMeetingBtn'),'사업 보고');/* BIZ-버튼줄정리(10/29): [+ 사업 보고]는 [+ 사업영역]처럼 작고 낮게 32px */
+ await open(page,'meetings');await pcCompact(page.locator('#newMeetingBtn'),'사업 보고');/* BIZ-버튼줄정리(10/29) → BIZ-위쪽정돈PC(11/09): 사업 보고 [+]는 작은 32px 아이콘(누르는 범위 44px) */
  await open(page,'library');await pcButton(page.locator('#newDocumentBtn'),'자료 등록');
  await open(page,'projects');await pcCompact(page.locator('#newProjectBtn'),'사업영역');
  await open(page,'home');await pcButton(page.locator('#homeView [data-journal-save]'),'업무일지 저장');
