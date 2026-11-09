@@ -232,6 +232,9 @@ test('keywords: daily cap per workspace (KEYWORD_ITEMS_DAILY) counted from today
  assert.equal(r2.body.inserted,0);assert.equal(full.outbound().length,0,'full today → Google News not read');
  const cat=await call(fakeWorld(),userReq('catalog'));
  assert.equal(cat.body.limits.keyword_items,30);assert.equal(cat.body.limits.translate,20);
+ assert.deepEqual(cat.body.ai,{month_capped:false},'AI 한도: 예/아니오만(금액 없음)');
+ const capped=await call(fakeWorld({days:[{workspace_id:WS,day:'2026-11-01',ai_input_tokens:1e9,ai_output_tokens:1e9}]}),userReq('catalog'));
+ assert.deepEqual(capped.body.ai,{month_capped:true});
 });
 
 // NEWS-채널밀림(11/02): 새 것부터, 남은 건수·3일 넘은 건수, 짧은 주소는 열린 주소 규칙 안에서 따라감, 영상은 제목만, 주소 제목은 바꿈.

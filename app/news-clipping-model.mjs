@@ -164,6 +164,9 @@ export function normalizeLimits(data) {
   const pick = (k) => (Number.isInteger(l[k]) && l[k] >= 0 ? l[k] : DEFAULT_LIMITS[k]);
   return {fill: pick('fill'), translate: pick('translate'), keyword_items: pick('keyword_items'), keywords: pick('keywords')};
 }
+// 이번 달 AI 한도(서버 catalog 응답 ai.month_capped, NEWS-다받기 ④): 닿으면 수집 때 요약·외국어 제목 번역이 멈춘다. 예/아니오만 받는다.
+export const AI_CAP_NOTE = '이번 달 AI 한도에 닿아 요약·제목 번역이 멈춤 · 다음 달 1일 다시';
+export const aiCapped = data => data?.ai?.month_capped === true;
 export const REGIONS = Object.freeze([{key: 'domestic', label: '국내'}, {key: 'foreign', label: '해외'}]);
 export function sourceNote(row) {
   if (!row?.enabled) return '';
