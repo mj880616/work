@@ -163,7 +163,14 @@ export const occurredAt = day => `${day}T12:00:00+09:00`;
 
 // ---- 줄 순서 ----
 const byDayAsc = (a, b) => a.day.localeCompare(b.day) || (a.kind === b.kind ? 0 : a.kind === 'event' ? 1 : -1) || a.text.localeCompare(b.text, 'ko') || a.key.localeCompare(b.key);
+// ORG-줄순서(요청함 11/09): 표 줄 순서 'asc'(오래된 것 위, 기본)·'desc'(최신 위). 고른 값은 서버 화면 설정 org_row_order(view-prefs.js)에 있다.
+// 어떤 줄이 보이고 접히는지(조직당 7줄 상한)는 순서와 상관없이 그대로(최근 것이 보임) — 순서는 보이는 줄·접힌 줄·뺀 줄이 늘어서는 방향만 정한다.
+export const ROW_ORDERS = Object.freeze(['asc', 'desc']);
+export const rowOrderOf = v => (v === 'desc' ? 'desc' : 'asc');
 const byRecent = (a, b) => b.day.localeCompare(a.day) || (b.end_day || b.day).localeCompare(a.end_day || a.day) || byDayAsc(a, b);
+const sortBy = (list, order) => [...list].sort(rowOrderOf(order) === 'desc' ? byRecent : byDayAsc);
+// 이미 정해진 순서(확정 사진·옛 보고 줄)에 고른 순서만 입힌다: asc는 저장된 순서 그대로, desc는 거꾸로.
+export const orderLines = (lines, order) => (rowOrderOf(order) === 'desc' ? [...lines].reverse() : lines);
 // 보고용 글도 표에는 한 줄로(예전 [보고용으로 수정]은 원문 전체를 채워 열었으므로 긴 보고용 글이 남아 있을 수 있음 — 저장된 값은 그대로).
 const lineOf = (item, mark) => ({...item, orig: item.text, text: mark?.report_body != null ? (oneLine(mark.report_body) || item.text) : item.text, edited: mark?.report_body != null, choice: mark?.choice ?? null, id: lineId(item.kind, item.key)});
 
@@ -177,10 +184,10 @@ export function candidates({org, week, records = [], events = [], withEvents = t
 }
 
 // 4. 1) 한 조직 칸(창 규칙). marks = 표시 행, section 'org'. prevIds = 앞 주 표에 보인 줄 id 집합('지난주' 작은 표시).
-// 돌려주는 값: {shown:[줄], folded:[줄], out:[줄]} — shown은 날짜 오름차순, folded는 최근 것부터.
-export function orgCell({org, week, records = [], events = [], marks = [], prevIds = null, section = 'org', max = ORG_MAX, withEvents = true}) {
+// 돌려주는 값: {shown:[줄], folded:[줄], out:[줄]} — 셋 모두 order('asc' 오래된 것 위 = 기본, 'desc' 최신 위)를 따른다.
+export function orgCell({org, week, records = [], events = [], marks = [], prevIds = null, section = 'org', max = ORG_MAX, withEvents = true, order = 'asc'}) {
   const cands = candidates({org, week, records, events, withEvents}).map(item => lineOf(item, markOf(marks, section, item.kind, item.key, week)));
-  const out = cands.filter(l => l.choice === 'out').sort(byRecent);
+  const out = sortBy(cands.filter(l => l.choice === 'out'), order);
   const rest = cands.filter(l => l.choice !== 'out');
   const always = rest.filter(l => (l.end_day || l.day) >= week);
   const forced = rest.filter(l => !always.includes(l) && l.choice === 'in');
@@ -188,15 +195,15 @@ export function orgCell({org, week, records = [], events = [], marks = [], prevI
   const room = Math.max(0, max - always.length); // 접힌 줄을 [넣기]한 줄은 상한과 상관없이 더 보인다
   const mark = l => ({...l, last: !!prevIds?.has?.(l.id)});
   return {
-    shown: [...always, ...forced, ...past.slice(0, room)].sort(byDayAsc).map(mark),
-    folded: past.slice(room).map(mark),
+    shown: sortBy([...always, ...forced, ...past.slice(0, room)], order).map(mark),
+    folded: sortBy(past.slice(room), order).map(mark),
     out: out.map(mark),
   };
 }
 // 3. 2) 투쟁 사업장 한 조직 칸: 같은 창 후보(일정은 SITE_EVENTS일 때만)에서 3~7줄, 모자라면 창 이전 기록(before, 최근 것부터)으로 3줄 채움.
 // 채우다가 건너뛴 뺀 줄도 '뺀 줄'에 센다(3줄을 채우면 멈추므로 끝없이 늘지 않음).
-export function siteCell({org, week, records = [], events = [], marks = []}) {
-  const cell = orgCell({org, week, records, events, marks, section: 'site', max: SITE_MAX, withEvents: SITE_EVENTS});
+export function siteCell({org, week, records = [], events = [], marks = [], order = 'asc'}) {
+  const cell = orgCell({org, week, records, events, marks, section: 'site', max: SITE_MAX, withEvents: SITE_EVENTS, order});
   const win = orgWindow(week);
   if (!win || cell.shown.length >= SITE_MIN) return cell;
   const fill = [], out = [...cell.out];
@@ -207,7 +214,7 @@ export function siteCell({org, week, records = [], events = [], marks = []}) {
     if (l.choice === 'out') { out.push({...l, last: false}); continue; }
     fill.push({...l, last: false});
   }
-  return {shown: [...fill, ...cell.shown].sort(byDayAsc), folded: cell.folded, out};
+  return {shown: sortBy([...fill, ...cell.shown], order), folded: cell.folded, out: sortBy(out, order)};
 }
 
 // ---- 확정 사진 ----
@@ -223,13 +230,13 @@ export function snapshotCell(snapshot, org, section = 'org') {
 }
 // 사진이 있는 주: 사진 줄 그대로 + '확정 뒤 추가' = 그 주 창 후보(뺀 줄 제외) 중 사진에 없는 것 가운데
 // 기록은 created_at > confirmed_at, 일정은 확정 때 후보가 아니었던 것(seen_events에 없음). 사진에 그 조직 칸이 없으면 lines 빈 목록.
-export function snapshotView({org, week, snapshot, records = [], events = [], marks = []}) {
+export function snapshotView({org, week, snapshot, records = [], events = [], marks = [], order = 'asc'}) {
   const cell = snapshotCell(snapshot, org) || {lines: [], seen: new Set()};
   const have = new Set(cell.lines.map(l => l.id));
   const at = Date.parse(String(snapshot?.confirmed_at ?? ''));
   const cands = candidates({org, week, records, events}).map(item => lineOf(item, markOf(marks, 'org', item.kind, item.key, week))).filter(l => l.choice !== 'out' && !have.has(l.id));
-  const after = cands.filter(l => l.kind === 'event' ? !cell.seen.has(l.key) : Number.isFinite(at) && Date.parse(String(l.created_at ?? '')) > at).sort(byDayAsc);
-  return {lines: cell.lines, after};
+  const after = cands.filter(l => l.kind === 'event' ? !cell.seen.has(l.key) : Number.isFinite(at) && Date.parse(String(l.created_at ?? '')) > at);
+  return {lines: orderLines(cell.lines, order), after: sortBy(after, order)};
 }
 // 앞 주 표에 보인 줄 id들('지난주' 표시): 앞 주 사진이 있으면 그 줄, 없으면 앞 주 창 결과(보인 줄).
 export function shownIds({org, week, snapshot = null, records = [], events = [], marks = []}) {

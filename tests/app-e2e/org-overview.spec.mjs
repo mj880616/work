@@ -13,10 +13,10 @@ const orgs=[{id:OA,workspace_id:'w',name:'합성 가 지부',aliases:[],active:t
 let n=0;const uid=()=>`00000000-0000-4000-8000-${String(++n).padStart(12,'0')}`;
 const U=(org,day,text,x={})=>({id:uid(),organization_id:org,raw_text:text,occurred_at:`${day}T12:00:00+09:00`,end_day:null,source_kind:null,created_at:'2026-11-01T00:00:00Z',updated_at:'2026-11-01T00:00:00Z',workspace_id:'w',created_by:owner,detail_text:null,doc:null,...x});
 const EV=(id,start,title,x={})=>({id,title,start,end:null,allDay:true,calendarId:'primary',organizationIds:[],htmlLink:'',...x});
-async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFail=false,old=null,order=null}={}){
+async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFail=false,old=null,order=null,prefsOpts={}}={}){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await installViewPrefsServer(page,null);
+ await installViewPrefsServer(page,null,prefsOpts);
  // 앱이 처음부터 이 시계로 뜨게(공용 openHome은 10.6으로 고정한다 — 옛 주 시험만 그대로). 가짜 로그인 만료(10.7)는 토큰 갱신 답을 먼 뒤로 줘서 맞춘다.
  if(!old){
   const set=page.clock.setFixedTime.bind(page.clock);page.clock.setFixedTime=()=>set(new Date(NOW));
@@ -294,5 +294,92 @@ for(const width of [390,1280])test(`[전체 표] 줄 ⋯ 는 긴 글에서도 �
  expect(Math.abs((mb.x+mb.width)-(sb.x+sb.width))).toBeLessThan(6);
  const btn=await menu.locator('button').first().evaluate(e=>({b:getComputedStyle(e).borderTopWidth,fs:parseFloat(getComputedStyle(e).fontSize),fw:+getComputedStyle(e).fontWeight}));
  expect(btn.b).toBe('0px');expect(btn.fs).toBeLessThanOrEqual(14);expect(btn.fw).toBeLessThanOrEqual(500);
+ expect(errors).toEqual([]);
+});
+
+// ORG-줄순서(요청함 11/09, 명진 결정 14:21): 표 위 [⋯] '줄 순서' — 칸 안 줄·펼친 '지난 기록'·'뺀 줄'이 모두 고른 순서를 따르고, 서버 화면 설정(org_row_order)에 남아 새로고침 뒤에도 같다.
+const ORDER_DAYS=['2026-11-13','2026-11-11','2026-11-09','2026-11-05','2026-11-03','2026-10-30','2026-10-28','2026-10-27','2026-10-26'];
+const orderFixture=()=>{
+ const records=[U(OA,'2026-11-18','합성 이번 주'),...ORDER_DAYS.map((d,i)=>U(OA,d,'합성 지난 줄 '+i))];
+ const out=records[1];// 가장 최근 지난 줄 하나를 뺀 줄로
+ const marks=[{id:'m-out',workspace_id:'w',week_start:W,section:'org',ref_kind:'org_update',ref_key:out.id,choice:'out',report_body:null,detail:null,updated_at:'2026-11-16T00:00:00Z'}];
+ return {records,marks};
+};
+const dayTexts=loc=>loc.locator('.wl-day').allInnerTexts();
+const asNum=t=>{const m=/(\d+)\.(\d+)\./.exec(t);return Number(m[1])*100+Number(m[2])};
+const sortedBy=(list,dir)=>JSON.stringify(list.map(asNum))===JSON.stringify([...list.map(asNum)].sort((a,b)=>dir*(a-b)));
+async function pickOrder(page,item){
+ await page.locator('#soOverview .oa-bar .wl-tools summary').click();
+ await page.locator('#soOverview .oa-bar .row-more-menu').getByText(item,{exact:true}).click();
+}
+for(const width of [390,884,1440])test(`[전체 표] 줄 순서 [⋯]: 최신 위로 → 칸 안·지난 기록·뺀 줄 모두 같은 순서, 새로고침 뒤에도 같음, 서버 화면 설정에 저장 ${width}px`,async({page})=>{
+ const {records,marks}=orderFixture();
+ const {errors}=await fixture(page,{width,records,marks});
+ const prefs=await installViewPrefsServer(page,null);
+ await openTable(page);
+ const open=async()=>{
+  await oa(page).locator('[data-rw-fold="folded"]').click();await oa(page).locator('[data-rw-fold="out"]').click();
+  await expect(oa(page).locator('[data-rw-fold-box="folded"] .rw-line')).toHaveCount(2);await expect(oa(page).locator('[data-rw-fold-box="out"] .rw-line')).toHaveCount(1);
+ };
+ const read=async()=>({
+  shown:await dayTexts(oa(page).locator('.wl-cell > .rw-line')),
+  folded:await dayTexts(oa(page).locator('[data-rw-fold-box="folded"]')),
+  out:await dayTexts(oa(page).locator('[data-rw-fold-box="out"]')),
+ });
+ // 기본: 오래된 것 위(지금과 같음), 접힌 목록도 같은 방향.
+ await expect(shown(oa(page))).toHaveCount(7);
+ await open();
+ let r=await read();
+ expect(sortedBy(r.shown,1)&&sortedBy(r.folded,1)).toBe(true);expect(r.folded.length).toBe(2);
+ // [⋯]는 보이는 폭 안, 메뉴 맨 위 '줄 순서' 두 항목, 기본은 '✓ 오래된 것 위로'.
+ await page.locator('#soOverview .oa-bar .wl-tools summary').click();
+ const placed=await page.evaluate(()=>{
+  const vw=window.innerWidth,box=document.querySelector('#soOverview .oa-bar .wl-tools summary').getBoundingClientRect(),m=document.querySelector('#soOverview .oa-bar .row-more-menu').getBoundingClientRect();
+  return {summaryIn:box.left>=0&&box.right<=vw&&box.width>0,menuIn:m.left>=0&&m.right<=vw,items:[...document.querySelectorAll('#soOverview .oa-bar .row-more-menu button')].map(b=>b.textContent),noOverflow:document.documentElement.scrollWidth<=vw+1};
+ });
+ expect(placed).toEqual({summaryIn:true,menuIn:true,items:['✓ 오래된 것 위로','최신 위로'],noOverflow:true});
+ await page.locator('#soOverview .oa-bar .row-more-menu').getByText('최신 위로',{exact:true}).click();
+ // 바로 바뀜: 칸 안·펼친 지난 기록·뺀 줄 모두 최신 위로(펼친 상태 그대로 유지).
+ await expect.poll(async()=>sortedBy((await read()).shown,-1)).toBe(true);
+ r=await read();
+ expect(sortedBy(r.folded,-1)).toBe(true);expect(r.shown.length).toBe(7);expect(r.folded.length).toBe(2);expect(r.out.length).toBe(1);
+ await expect.poll(()=>prefs.value?.org_row_order).toBe('desc');
+ expect(prefs.patches.at(-1)).toMatchObject({org_row_order:'desc'});
+ // 새로고침 뒤에도 같다(서버 화면 설정에서 읽음 — 기기 저장소 아님).
+ await page.reload();
+ await openTable(page);
+ await open();
+ r=await read();
+ expect(sortedBy(r.shown,-1)&&sortedBy(r.folded,-1)).toBe(true);
+ expect(await page.evaluate(()=>Object.keys(localStorage).filter(k=>/order/i.test(k)))).toEqual([]);
+ // 다시 오래된 것 위로: 기본으로 돌아가고 서버 칸은 지워진다.
+ await pickOrder(page,'오래된 것 위로');
+ await expect.poll(async()=>sortedBy((await read()).shown,1)).toBe(true);
+ r=await read();expect(sortedBy(r.folded,1)).toBe(true);
+ await expect.poll(()=>prefs.value?.org_row_order).toBeUndefined();
+ expect(errors).toEqual([]);
+});
+
+test('[전체 표] 줄 순서: 복사는 고른 순서와 상관없이 날짜 오름차순(주간보고 원칙)',async({page})=>{
+ const {records}=orderFixture();
+ const {errors}=await fixture(page,{width:1280,records});
+ await openTable(page);
+ await pickOrder(page,'최신 위로');
+ await expect.poll(async()=>sortedBy(await dayTexts(oa(page).locator('.wl-cell > .rw-line')),-1)).toBe(true);
+ const copied=await page.evaluate(async()=>{let got='';const real=navigator.clipboard;Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async t=>{got=t}}});document.querySelector('#soOverview [data-oa-copy]').click();await new Promise(r=>setTimeout(r,50));Object.defineProperty(navigator,'clipboard',{configurable:true,value:real});return got});
+ const days=copied.split('\n').filter(l=>l.startsWith('- ')).map(l=>asNum(l.slice(2)));
+ expect(days.length).toBeGreaterThan(3);
+ expect(JSON.stringify(days)).toBe(JSON.stringify([...days].sort((a,b)=>a-b)));
+ expect(errors).toEqual([]);
+});
+
+test('[전체 표] 줄 순서: 서버가 아직 모르는 칸이면(적용 전) 저장만 건너뛰고 표는 오래된 것 위 그대로, 오류 없음',async({page})=>{
+ const {records}=orderFixture();
+ const {errors}=await fixture(page,{width:390,records,prefsOpts:{denyKeys:['org_row_order']}});
+ await openTable(page);
+ await pickOrder(page,'최신 위로');
+ // 거절되면 되돌려 알린다 → 표도 되돌아간 순서(오래된 것 위)로 다시 그린다.
+ await expect.poll(async()=>sortedBy(await dayTexts(oa(page).locator('.wl-cell > .rw-line')),1),{timeout:8000}).toBe(true);
+ await expect(shown(oa(page))).toHaveCount(7);
  expect(errors).toEqual([]);
 });

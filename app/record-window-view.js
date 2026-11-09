@@ -6,6 +6,8 @@
 //   보고에만 다른 것(보고용 글·빼기·넣기)은 app_report_line_marks에 '그 주부터 × 그 줄' 한 행(이어짐 규칙은 모델). 원래 기록·일정은 바꾸지 않는다.
 // - 확정 사진(app_report_snapshots)이 있는 주는 사진 줄 그대로(고칠 수 없음) + 흐린 '확정 뒤 추가'. 전환 주 앞은 옛 주별 조직보고 표 읽기 전용.
 // - 표를 먼저 그리고 일정은 뒤에 같은 주인이 한 번 다시 그린다. 일정 읽기는 이 화면 세션 메모리에 5분(브라우저 저장소 없음).
+// - ORG-줄순서: 표 [⋯] 맨 위 '줄 순서'(오래된 것 위로 ✓ / 최신 위로) = 서버 화면 설정 org_row_order(view-prefs.js). 칸 안 줄·펼친 '지난 기록'·'뺀 줄'이 모두 같은 순서를 따르고,
+//   복사·한글 파일 글(lineTexts)은 주간보고 원칙대로 늘 날짜 오름차순이다.
 // - 다른 화면과는 같은 탭 이벤트 kptu:record-window-changed, 다른 기기와는 화면이 다시 보일 때 다시 읽는다.
 import {missingTable} from './feed-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
@@ -14,6 +16,7 @@ import {rowMore} from './row-more.js';
 import {fitAll} from './auto-grow.js';
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {readChoice} from './calendar-ref-data.js';
+import {viewPrefs} from './view-prefs.js';
 import * as M from './record-window-model.mjs';
 
 const UPD = '/rest/v1/app_suborganization_updates';
@@ -22,6 +25,7 @@ const SNAPS = '/rest/v1/app_report_snapshots';
 const UPD_COLS = 'id,organization_id,raw_text,occurred_at,end_day,source_kind,created_at';
 const MARK_COLS = 'id,week_start,section,ref_kind,ref_key,report_body,choice,detail,updated_at';
 const EVENT = 'kptu:record-window-changed';
+const ORDER_EVENT = 'kptu:record-row-order';
 const EVENT_TTL = 5 * 60 * 1000, EVENT_CAP = 250;
 const enc = encodeURIComponent;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -61,7 +65,7 @@ let seq = 0;
 // host = 칸들이 들어 있는 상자(클릭·키를 여기서 받음), repaint = 그 화면 다시 그리기, say(text, error) = 상태 한 줄.
 // openSource({org, record}, trigger) = [기록 열기](그 조직 상세를 열고 그 기록을 밝힘 — 화면 쪽).
 // section = 'org'(4. 1) 조직보고, 기본) | 'site'(3. 2) 투쟁 사업장 칸 — 같은 조직 기록, 표시는 section 'site'로 따로, 3~7줄, 일정 줄은 M.SITE_EVENTS일 때만).
-export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint = () => {}, say = () => {}, openSource = null, withEvents = true, section = 'org'} = {}) {
+export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint = () => {}, say = () => {}, openSource = null, withEvents = true, section = 'org', getOrder = () => viewPrefs.getOrgRowOrder()} = {}) {
   if (section !== 'org') { section = 'site'; withEvents = withEvents && M.SITE_EVENTS; }
   const ctl = {
     id: `rw${++seq}`, rt, workspaceId, week, openSource, section, status: 'idle', orgs: [], orgIds: [], records: [], marks: [], marksOn: true, snaps: new Map(), legacy: new Map(),
@@ -147,11 +151,12 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
 
   // ---- 칸 계산 ----
   const events = () => (ctl.ev.week === ctl.week ? ctl.ev.items : []);
-  ctl.cell = orgId => {
-    if (old()) return {mode: 'old', lines: ctl.legacy.get(orgId) || []};
-    const base = {org: orgId, week: ctl.week, records: ctl.records, events: events(), marks: ctl.marks};
+  ctl.order = () => M.rowOrderOf(getOrder());
+  ctl.cell = (orgId, order = ctl.order()) => {
+    if (old()) return {mode: 'old', lines: M.orderLines(ctl.legacy.get(orgId) || [], order)};
+    const base = {org: orgId, week: ctl.week, records: ctl.records, events: events(), marks: ctl.marks, order};
     const s = snap();
-    if (s && ctl.section === 'site') return {mode: 'snapshot', lines: M.snapshotCell(s, orgId, 'site')?.lines || [], after: []};
+    if (s && ctl.section === 'site') return {mode: 'snapshot', lines: M.orderLines(M.snapshotCell(s, orgId, 'site')?.lines || [], order), after: []};
     if (s) { const v = M.snapshotView({...base, snapshot: s}); return {mode: 'snapshot', lines: v.lines, after: v.after}; }
     if (ctl.section === 'site') return {mode: 'window', ...M.siteCell(base)};
     const prevWeek = M.shiftWeek(ctl.week, -1);
@@ -159,12 +164,20 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     return {mode: 'window', ...M.orgCell({...base, prevIds})};
   };
   // 보고 줄 글('- 11.2. 글') — 복사·한글 파일. 사진 주는 사진 줄, 옛 주는 옛 넣은 줄.
-  ctl.lineTexts = orgId => { const x = ctl.cell(orgId); return (x.mode === 'window' ? x.shown : x.lines).map(M.lineText); };
+  // 복사·한글 글은 고른 순서와 상관없이 늘 날짜 오름차순(주간보고 원칙).
+  ctl.lineTexts = orgId => { const x = ctl.cell(orgId, 'asc'); return (x.mode === 'window' ? x.shown : x.lines).map(M.lineText); };
   const findLine = id => { for (const o of ctl.orgIds) { const x = ctl.cell(o); for (const l of [...(x.shown || []), ...(x.folded || []), ...(x.out || []), ...(x.lines || [])]) if (l.id === id) return {org: o, line: l}; } return null; };
 
   // ---- 그리기 ----
   const moreSlot = spec => `<span class="wl-more-slot" data-wl-more="${esc(JSON.stringify(spec))}"></span>`;
   const tags = l => `${l.edited ? '<span class="rw-ok" title="보고용으로 수정함" aria-label="보고용으로 수정함">✓</span>' : ''}${l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}${l.last ? '<span class="rw-last">지난주</span>' : ''}`;
+  // 표 [⋯](ORG-줄순서): 맨 위 '줄 순서'. 누르면 바로 바뀌고 서버 화면 설정에 남는다(폰·PC 같음).
+  ctl.orderMenuHtml = () => {
+    const cur = ctl.order();
+    return moreSlot({label: '표 메뉴', data: {rwTable: '1'}, items: [
+      {text: `${cur === 'asc' ? '✓ ' : ''}오래된 것 위로`, data: {rwOrder: 'asc'}, aria: `줄 순서 오래된 것 위로${cur === 'asc' ? ', 선택됨' : ''}`},
+      {text: `${cur === 'desc' ? '✓ ' : ''}최신 위로`, data: {rwOrder: 'desc'}, aria: `줄 순서 최신 위로${cur === 'desc' ? ', 선택됨' : ''}`}]});
+  };
   const lineMore = l => {
     const items = [];
     if (ctl.marksOn) {
@@ -253,6 +266,16 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     ctl.focus = '';
   };
   const redraw = () => { repaint(); ctl.afterPaint(); };
+  // 줄 순서: 서버 화면 설정에 저장(적용 전 서버가 거절하면 view-prefs가 되돌리고 알린다 — 표도 되돌아간 순서로 다시 그린다). 같은 탭의 다른 표도 같이 다시 그린다.
+  ctl.setOrder = value => {
+    const next = M.rowOrderOf(value);
+    if (next === ctl.order()) return;
+    viewPrefs.setOrgRowOrder(next);
+    window.dispatchEvent(new CustomEvent(ORDER_EVENT));
+  };
+  const orderRedraw = () => { if (ctl.status === 'ready' && ctl.host?.isConnected) redraw(); };
+  window.addEventListener(ORDER_EVENT, orderRedraw);
+  window.addEventListener('kptu:view-prefs-rejected', e => { if ((e.detail?.paths || []).includes('org_row_order')) orderRedraw(); });
 
   // ---- 쓰기 ----
   const work = async (fn, done) => {
@@ -322,6 +345,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     host.addEventListener('click', e => {
       const b = e.target.closest?.('button'); if (!b || b.disabled || !host.contains(b)) return;
       const d = b.dataset;
+      if (d.rwOrder) { ctl.setOrder(d.rwOrder); return; }
       if (d.rwAdd) { if (!ctl.disabled() && !ctl.readOnly()) openAdd(d.rwAdd); return; }
       if ('rwCancel' in d) { ctl.cancel(); return; }
       if ('rwSave' in d) { void ctl.save(); return; }
@@ -361,12 +385,14 @@ export const RECORD_WINDOW_EVENT = EVENT;
 
 // 조직보고 표(조직 | 조직현황) — 담당조직 [전체 표]·홈 [주간 정리] 4.·업무일지가 이 함수 하나로 그린다.
 // orgs = [{id, name}] 보고 순서. orgHtml(o) 조직 칸 안쪽, stageOf(o) 조직 이름 밑 작은 글(쟁의 단계).
+// orderMenu = 표 위 오른쪽 [⋯](줄 순서)를 이 함수가 그릴지(false면 화면이 ctl.orderMenuHtml()을 자기 위쪽 줄에 둔다).
 // cellHtml(o) = 그 조직 칸을 화면이 따로 그릴 때(예: 홈 [주간 정리] 4.의 '투쟁 사업장 보고 참고' 한 줄), null이면 창 칸.
-export function windowTableHtml(ctl, orgs, {msg = '', error = false, orgHtml = null, stageOf = null, headOrg = '조직', headRows = '조직현황', tableClass = '', cellHtml = null} = {}) {
+export function windowTableHtml(ctl, orgs, {msg = '', error = false, orgHtml = null, stageOf = null, headOrg = '조직', headRows = '조직현황', tableClass = '', cellHtml = null, orderMenu = true} = {}) {
   if (ctl.status === 'error') return `<p class="wl-note" role="alert">${TEXT.failed}</p>`;
   if (ctl.status !== 'ready') return waitHtml({rows: 2});
   if (!orgs.length) return emptyHtml('담당조직 없음');
   const rows = orgs.map(o => { const stage = stageOf ? stageOf(o) : ''; return `<tr data-wl-org-row="${esc(o.id)}"><th scope="row" class="wl-c-org"><div class="wl-org-line">${orgHtml ? orgHtml(o) : `<span class="wl-org" title="${esc(o.name)}">${esc(o.name)}</span>`}</div>${stage ? `<span class="wl-stage">${esc(stage)}</span>` : ''}</th><td class="wl-c-rows">${(cellHtml && cellHtml(o)) || ctl.cellHtml(o.id)}</td></tr>`; }).join('');
-  return `${ctl.noteHtml()}<table class="wl-table${tableClass ? ` ${tableClass}` : ''}" data-wl-table data-rw-table><thead><tr><th scope="col" class="wl-c-org">${headOrg}</th><th scope="col">${esc(headRows)}</th></tr></thead><tbody>${rows}</tbody></table>`
+  const tools = orderMenu ? `<div class="wl-tools">${ctl.orderMenuHtml()}</div>` : '';
+  return `${tools}${ctl.noteHtml()}<table class="wl-table${tableClass ? ` ${tableClass}` : ''}" data-wl-table data-rw-table><thead><tr><th scope="col" class="wl-c-org">${headOrg}</th><th scope="col">${esc(headRows)}</th></tr></thead><tbody>${rows}</tbody></table>`
     + `<p class="wl-status${error ? ' is-error' : ''}" role="status" aria-live="polite" data-wl-status>${esc(msg)}</p>`;
 }
