@@ -8,7 +8,7 @@ import {uploadBasketFile, driveFileUrl} from './basket-upload.js';
 import {holdPhotoMaker, forgetPhotoBlob, localImageBlob} from './photo-share.js';
 import {slotBox, slotLoading, slotShown, slotFailed, slotPreview, slotTiming} from './img-slot.js';
 import {diaryDocToStore, diaryDocError} from './diary-doc.mjs';
-import {withMark} from './diary-list-model.mjs';
+import {withMark, withOrigins} from './diary-list-model.mjs';
 
 export const DIARY_MAX_PHOTOS = 20;
 export const DIARY_TEXT_MAX = 20000;
@@ -68,6 +68,24 @@ export async function saveDiaryComments(row, comments, rt = window.KPTURuntime) 
   const have = photoComments(row);
   if (sameComments(next, have) && (Object.keys(next).length || !row?.metadata?.photo_comments)) return row;
   return one(await patch(row, {metadata:withComments(row.metadata, next)}, rt));
+}
+// DIARY-넣은사진원본: 사진 화면에서 일기에 넣은 원드라이브·폰 사진의 원본 식별값을 행의 metadata.photo_origins에 더한다(기존 metadata 칸, 서버 저장).
+// added = {<방금 붙은 첨부의 drive_file_id>: 'onedrive:<id>' | 'phone:<key>'}. 읽은 그대로일 때만 쓰고(updated_at), 그사이 바뀌었으면 다시 읽어 한 번 더 시도한다.
+// 실패해도 사진은 이미 일기에 들어가 있으므로 던지지 않는다(원본 칸 표시만 빠짐). 돌려주는 값: 저장된 행 또는 원래 행.
+export async function saveDiaryOrigins(row, added, rt = window.KPTURuntime) {
+  if (!row || !added || !Object.keys(added).length) return row;
+  const body = (from, list) => { const own = {}; for (const [id, value] of Object.entries(added)) if (list.has(id)) own[id] = value; return Object.keys(own).length ? {metadata:withOrigins(from.metadata, own)} : null; };
+  let current = row;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const next = body(current, new Set(diaryPhotos(current).map(file => file.drive_file_id)));
+      if (!next) return current;
+      const rows = await patch(current, next, rt, {strict:true});
+      if (Array.isArray(rows) && rows.length === 1) return rows[0];
+      current = await readDiaryDay(current.journal_day, rt) || current;
+    } catch { return current; }
+  }
+  return current;
 }
 export const todayKey = () => seoulDateKey(new Date());
 function checkDay(day) {
@@ -160,7 +178,11 @@ export async function removeDiaryPhotos(row, fileIds, rt = window.KPTURuntime) {
   if (!attachments.length && !diaryText(row)) throw Object.assign(new Error('글 없이 사진 한 장만 있는 일기라 이 사진은 뺄 수 없어요. 일기를 삭제하려면 [일기 삭제]를 눌러 주세요.'), {code:'last_photo'});
   // The comment of the removed photo goes in the same write, so no orphan comment stays behind.
   const body = {attachments};
-  if (row.metadata?.photo_comments !== undefined) { const rest = {...photoComments(row)}; for (const id of gone) delete rest[id]; body.metadata = withComments(row.metadata, rest); }
+  let metadata = row.metadata;
+  if (row.metadata?.photo_comments !== undefined) { const rest = {...photoComments(row)}; for (const id of gone) delete rest[id]; metadata = withComments(metadata, rest); }
+  // DIARY-넣은사진원본: 빠진 사진의 원본 식별값도 같은 저장에서 뺀다.
+  if (row.metadata?.photo_origins !== undefined) { const rest = {...(metadata?.photo_origins || {})}; for (const id of gone) delete rest[id]; metadata = {...metadata}; if (Object.keys(rest).length) metadata.photo_origins = rest; else delete metadata.photo_origins; }
+  if (metadata !== row.metadata) body.metadata = metadata;
   const rows = await patch(row, body, rt, {strict:true});
   if (Array.isArray(rows) && !rows.length) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.'), {code:'note_changed'});
   return one(rows);
@@ -251,21 +273,21 @@ export const diaryUploadText = error => error instanceof Error && error.message 
 // ✕로 취소한 사진은 건너뛰고 다음 사진을 이어서 올린다. uploaded = 올라간 사진의 고른 순서 번호(댓글을 그 사진에 붙이는 데 씀).
 export async function uploadDiaryPhotos(row, files, {rt = window.KPTURuntime, isCurrent = () => true, onProgress = () => {}, shrink = shrinkPhoto, request = uploadBasketFile} = {}) {
   let attachments = row.attachments || [], done = 0;
-  const uploaded = [];
+  const uploaded = [], addedIds = {};
   if (attachments.length + files.length > DIARY_MAX_PHOTOS) throw new Error(`일기 사진은 하루 ${DIARY_MAX_PHOTOS}장까지예요.`);
   for (const [index, file] of files.entries()) {
     if (!isCurrent()) break;
     onProgress({done, total:files.length, attachments});
     try {
       const sent = await uploadDiaryPhoto({...row, attachments}, shrink(file), {rt, isCurrent, source:file, request});
-      attachments = sent.attachments; done++; uploaded.push(index);
+      attachments = sent.attachments; done++; uploaded.push(index); if (sent.added) addedIds[index] = sent.added.drive_file_id;
     } catch (error) {
       if (error?.code === 'upload_cancelled') continue;
-      return {done, attachments, uploaded, failed:file.name || `${done + 1}번째 사진`, message:diaryUploadText(error)};
+      return {done, attachments, uploaded, addedIds, failed:file.name || `${done + 1}번째 사진`, message:diaryUploadText(error)};
     }
   }
   onProgress({done, total:files.length, attachments});
-  return {done, attachments, uploaded};
+  return {done, attachments, uploaded, addedIds};
 }
 
 // Owner-only reduced photo from basket-files (PR 1). Kept as object URLs in memory for this sign-in only.

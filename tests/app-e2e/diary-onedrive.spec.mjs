@@ -423,3 +423,99 @@ for (const width of [390, 1280]) {
     expect(f.errors).toEqual([]);
   });
 }
+
+// DIARY-넣은사진원본: 사진 화면 [일기에 넣기]로 넣은 원드라이브·폰 사진은 줄인 사본이 일기 첨부가 되므로, 넣을 때 원본 식별값을
+// 일기 행 metadata.photo_origins에 함께 적고(서버 저장), 그날 사진 모음의 원본 칸에도 '일기' 띠가 붙는다. 옛 일기(식별값 없음)는 그대로 띠가 없다.
+test.describe('DIARY-넣은사진원본', () => {
+  const ANDROID = 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36 KPTUAndroid/0.4.7';
+  const KEY = 'PhoneKeyForTest_0123456789';
+  test.use({ userAgent: ANDROID });
+  const PHONE = [{ id: '5', name: 'P5.jpg', day: '2026-10-12', taken_at: '2026-10-12T03:30:00.000Z', size_bytes: 10 }, { id: '6', name: 'P6.jpg', day: '2026-10-12', taken_at: '2026-10-12T04:30:00.000Z', size_bytes: 10 }]
+    .map(m => ({ ...m, approx: false, kind: 'photo', width: 10, height: 10, duration_ms: null, screenshot: false, uploaded_at: m.taken_at }));
+  async function phoneApp(page) {
+    await page.addInitScript(key => {
+      const listeners = [], say = data => setTimeout(() => listeners.forEach(fn => fn({ data })), 0);
+      window.KPTUAppShell = {
+        postMessage(m) { m = String(m); if (m === 'photos:hello' || m === 'photos:ask') say(`photos:state:{"access":"full","key":"${key}","trash":true,"hide":true,"ops":true,"manage":false}`); },
+        addEventListener(type, fn) { if (type === 'message') listeners.push(fn); },
+      };
+    }, KEY);
+  }
+  async function diaryServer(page, f) {
+    const rows = [];
+    const at = '2026-10-12T01:00:00Z';
+    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
+      const req = r.request(), q = new URL(req.url()).searchParams;
+      const pick = x => q.getAll('journal_day').every(v => !v.startsWith('eq.') || v === 'eq.' + x.journal_day) && (!q.get('id') || 'eq.' + x.id === q.get('id')) && (!q.get('updated_at') || 'eq.' + x.updated_at === q.get('updated_at'));
+      if (req.method() === 'GET') return r.fulfill({ json: rows.filter(pick) });
+      if (req.method() === 'POST') { const b = req.postDataJSON(); const row = { id: 'd12', created_at: at, updated_at: at, archived_at: null, attachments: [], metadata: {}, doc: null, title: null, ...b }; rows.push(row); f.writes.push({ method: 'POST', body: b }); return r.fulfill({ status: 201, json: [row] }); }
+      if (req.method() === 'PATCH') { const b = req.postDataJSON(); f.writes.push({ method: 'PATCH', body: b }); const hit = rows.filter(pick); hit.forEach(x => Object.assign(x, b)); return r.fulfill({ json: hit }); }
+      return r.fulfill({ status: 500, json: {} });
+    });
+    let n = 0;
+    await page.route(u => u.origin === SB && u.pathname === '/functions/v1/basket-files', async r => {
+      if (r.request().method() !== 'POST') return r.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+      const row = rows[0]; n++; const att = { drive_file_id: 'U' + n, file_name: 'u' + n + '.jpg', mime_type: 'image/jpeg', size_bytes: 1200 };
+      row.attachments = [...row.attachments, att]; row.updated_at = '2026-10-12T02:0' + n + ':00Z';
+      return r.fulfill({ json: { ok: true, note_id: row.id, attachments: row.attachments } });
+    });
+    await page.route('**/__phone/**', r => {
+      const u = new URL(r.request().url());
+      if (!u.pathname.includes(`/__phone/${KEY}/`)) return r.fulfill({ status: 404, body: '' });
+      if (u.pathname.endsWith('/page')) return r.fulfill({ json: { items: PHONE, next: null, total: PHONE.length } });
+      if (u.pathname.endsWith('/months')) return r.fulfill({ json: { months: { '2026-10': PHONE.length } } });
+      if (u.pathname.endsWith('/days')) return r.fulfill({ json: { days: {} } });
+      if (u.pathname.includes('/thumb/')) return r.fulfill({ status: 200, contentType: 'image/jpeg', body: PNG });
+      return r.fulfill({ status: 404, body: '' });
+    });
+    return rows;
+  }
+  // 사진 화면이 넘기는 것과 같은 모양: 받은 큰 그림 파일들 + 같은 순서의 원본 식별값.
+  const putIn = (page, origins) => page.evaluate(async origins => {
+    const m = await import('/app/diary-send.js');
+    const mk = async () => { const c = document.createElement('canvas'); c.width = 40; c.height = 30; c.getContext('2d').fillRect(0, 0, 20, 15); const blob = await new Promise(res => c.toBlob(res, 'image/jpeg')); return new File([blob], 'p.jpg', { type: 'image/jpeg' }); };
+    const files = []; for (const _ of origins) files.push(await mk());
+    return m.putPhotosInDiary(files, { day: '2026-10-12', origins });
+  }, origins);
+  const frame = async (page, width) => {
+    await phoneApp(page);
+    const state = await fixture(page, { width });
+    state.writes = [];
+    const rows = await diaryServer(page, state);
+    return { state, rows };
+  };
+
+  test('원드라이브·폰 사진을 일기에 넣으면 원본 식별값이 일기 행에 저장되고, 두 원본 칸에 띠가 붙고 같은 날 다른 사진 칸에는 안 붙는다', async ({ page }) => {
+    const { state, rows } = await frame(page, 390);
+    const r = await putIn(page, ['onedrive:A1', 'phone:ms:5', '']);
+    expect(r).toMatchObject({ ok: true, count: 3 });
+    // 저장: 붙은 첨부 U1·U2(원본 id 있는 둘)만 photo_origins에 들어가고, 원본 식별값 없는 U3은 안 들어간다. 다른 metadata 칸은 그대로.
+    expect(rows[0].metadata).toEqual({ photo_origins: { U1: 'onedrive:A1', U2: 'phone:ms:5' } });
+    expect(rows[0].attachments.map(a => a.drive_file_id)).toEqual(['U1', 'U2', 'U3']);
+    await openDiary(page, 390);
+    await cell(page, '2026-10-12').click();
+    const grid = page.locator('#diaryRoot [data-diary-detail] [data-diary-grid] .diary-grid-item');
+    await expect(grid).toHaveCount(3 + 6 + 2);
+    // 직접 올린 3장(U1~U3) 뒤에 원드라이브 6장(A1~A6), 폰 2장(P5·P6)
+    const marked = await grid.evaluateAll(els => els.map(el => el.querySelectorAll('.diary-in-mark').length));
+    expect(marked).toEqual([1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0]);
+    await expect(grid.nth(3)).toHaveAttribute('aria-label', /일기에 넣은 사진/);
+    await expect(grid.nth(9)).toHaveAttribute('aria-label', /일기에 넣은 사진/);
+    // 띠와 별표 위치를 같은 순간에 한 번에 읽는다
+    const { m, g } = await grid.nth(3).evaluate(el => { const r = n => { const b = n.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width }; }; return { m: r(el.querySelector('.diary-in-mark')), g: r(el) }; });
+    expect(m.x).toBeLessThan(g.x + g.width / 2); expect(m.y).toBeLessThan(g.y + 12);
+    expect(state.errors).toEqual([]);
+  });
+
+  test('같은 사진을 두 번 넣어도 깨지지 않고 각 사본과 원본 칸에 띠가 붙는다', async ({ page }) => {
+    const { state, rows } = await frame(page, 390);
+    await putIn(page, ['onedrive:A1']); await putIn(page, ['onedrive:A1']);
+    expect(rows[0].metadata).toEqual({ photo_origins: { U1: 'onedrive:A1', U2: 'onedrive:A1' } });
+    await openDiary(page, 390);
+    await cell(page, '2026-10-12').click();
+    const grid = page.locator('#diaryRoot [data-diary-detail] [data-diary-grid] .diary-grid-item');
+    await expect(grid).toHaveCount(2 + 6 + 2);
+    expect(await grid.evaluateAll(els => els.map(el => el.querySelectorAll('.diary-in-mark').length))).toEqual([1, 1, 1, 0, 0, 0, 0, 0, 0, 0]);
+    expect(state.errors).toEqual([]);
+  });
+});

@@ -86,6 +86,7 @@ import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftTrashRowHtml, ftIconHtml, F
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {bindFolderPinch} from './folder-pinch.js';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
+import {originKey} from './diary-list-model.mjs';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
   colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, parseMonth, monthLabelKo, yearTicks, yearLabels, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
   takeItems, putItems, DEFAULT_SORT, SORT_TEXT, SORT_SHORT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
@@ -1621,10 +1622,11 @@ async function sendItemsTo(where, list, trigger, {fromPick = false, ask = true} 
     for (const g of groups) {
       const got = await Promise.all(g.items.map(item => itemFile(item).catch(() => null)));
       const files = got.filter(Boolean);
+      const origins = g.items.filter((_, i) => got[i]).map(item => originKey(item.source, item.key));
       if (files.length < g.items.length) { missed.push(`${dayLabel(g.day)} ${g.items.length - files.length}장(받지 못함)`); failedItems.push(...g.items.filter((_, i) => !got[i])); }
       if (!files.length) continue;
       notify(`${dayLabel(g.day)} ${SEND_NOTE.diaryBusy}`, {ms:30000});
-      const r = await putPhotosInDiary(files, {rt, day:g.day});
+      const r = await putPhotosInDiary(files, {rt, day:g.day, origins});
       if (r.count) done.push(g.day);
       if (!r.ok) { missed.push(`${dayLabel(g.day)}: ${r.message || '넣지 못함'}`); failedItems.push(...g.items.filter((_, i) => got[i])); }
     }

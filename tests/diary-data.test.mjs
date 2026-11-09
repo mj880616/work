@@ -160,3 +160,31 @@ test('pruneDiaryPhotos never throws and never sends bad input; an old server or 
   for (const reply of [() => new Response('{"code":"OCR_REQUEST_INVALID"}', {status:400}), () => new Response('x', {status:200}), () => { throw new Error('offline'); },
     () => new Response(JSON.stringify({ok:true, action:'note-delete'}), {status:200})]) assert.equal(await m.pruneDiaryPhotos(['a'], {rt, fetcher:async () => reply()}), null);
 });
+
+test('DIARY-넣은사진원본: 붙은 사진의 번호→첨부 id를 돌려주고, 원본 식별값은 metadata.photo_origins에 읽은 그대로일 때만 더한다', async () => {
+  const m = await mod, sent = [];
+  const file = name => new File(['x'], name, {type:'image/jpeg'});
+  const request = async fd => { sent.push(fd.get('file').name); return {ok:true, note_id:'d1', attachments:sent.map(n => photo('id-' + n))}; };
+  const up = await m.uploadDiaryPhotos(row(), [file('1.jpg'), file('2.jpg')], {rt:runtime(), shrink:async f => f, request});
+  assert.deepEqual(up.addedIds, {0:'id-1.jpg', 1:'id-2.jpg'});
+  const base = row({attachments:[photo('id-1.jpg'), photo('id-2.jpg')], metadata:{starred_at:'t', photo_comments:{'id-1.jpg':'c'}}});
+  const rt = runtime((path, o) => [{...base, ...o.body}]);
+  const saved = await m.saveDiaryOrigins(base, {'id-1.jpg':'onedrive:OD1', 'id-2.jpg':'phone:ms:7', other:'onedrive:zz'}, rt);
+  assert.deepEqual(saved.metadata, {starred_at:'t', photo_comments:{'id-1.jpg':'c'}, photo_origins:{'id-1.jpg':'onedrive:OD1', 'id-2.jpg':'phone:ms:7'}});
+  assert.match(rt.calls[0].path, /&updated_at=eq\.2026-10-03T01%3A00%3A00Z$/);
+  assert.equal(rt.calls[0].body.attachments, undefined);
+  // 그사이 바뀌었으면(0행) 다시 읽어 한 번 더, 그래도 안 되면 던지지 않고 원래 행을 돌려준다
+  let calls = 0;
+  const busy = runtime(() => { calls++; return []; });
+  assert.equal((await m.saveDiaryOrigins(base, {'id-1.jpg':'onedrive:OD1'}, busy)).id, 'd1');
+  assert.ok(calls >= 2);
+  const none = runtime(); assert.equal(await m.saveDiaryOrigins(base, {}, none), base); assert.equal(none.calls.length, 0);
+  // 사진을 뺄 때 그 사진의 원본 식별값도 같은 저장에서 빠진다
+  const withO = row({attachments:[photo('a'), photo('b')], metadata:{photo_origins:{a:'onedrive:1', b:'phone:ms:2'}, starred_at:'t'}});
+  const rt2 = runtime((path, o) => [{...withO, ...o.body}]);
+  await m.removeDiaryPhoto(withO, 'a', rt2);
+  assert.deepEqual(rt2.calls[0].body.metadata, {photo_origins:{b:'phone:ms:2'}, starred_at:'t'});
+  const rt3 = runtime((path, o) => [{...withO, ...o.body}]);
+  await m.removeDiaryPhotos(row({attachments:[photo('a')], raw_text:'글', metadata:{photo_origins:{a:'onedrive:1'}}}), ['a'], rt3);
+  assert.deepEqual(rt3.calls[0].body.metadata, {});
+});
