@@ -365,6 +365,7 @@ function luDropValue(raw){
   return null;
 }
 // S53-19 LIB-화면끌어놓기 이어서: 폴더 묶기면 ① 왼쪽 나무 줄·위치 줄 → ② 오른쪽 목록의 폴더 줄 → ③ 들어간 폴더 안 빈 곳(그 폴더) → 그 밖은 폴더 밖(placeDropTarget).
+// 폴더 상태는 한 곳(luFolders_ — 폴더 부품 state().folders와 같은 배열)만 본다. 만들기·이름 바꾸기·옮기기 뒤 reload가 이 배열을 바꾸고 나무·목록을 다시 그린다.
 function luDropFolderOf(id){const f=luFolders_.find(x=>x.id===id);return f?{id:f.id,name:String(f.name||'폴더')}:null}
 function luDropTarget(e){
   if(luGroupBy!=='folder')return groupDropTarget(e,luGroupBy,{resolve:luDropValue});
@@ -380,7 +381,7 @@ function luDropTarget(e){
 // 나무 줄·위치 칸 표시(오른쪽 목록 줄 표시는 폴더 부품 markFile). 한 번에 한 줄.
 let luDropPlaceEl=null;
 function luMarkDrop(t){
-  const el=t?.place||null;if(el!==luDropPlaceEl){luDropPlaceEl?.classList.remove('lu-drop-place');luDropPlaceEl=el;el?.classList.add('lu-drop-place')}
+  const el=t?.ok===false?null:t?.place||null;if(el!==luDropPlaceEl){luDropPlaceEl?.classList.remove('lu-drop-place');luDropPlaceEl=el;el?.classList.add('lu-drop-place')}
   if(t?.head)luFolders().markFile(t);else if(luFolderUi)luFolderUi.markFile(null);
 }
 // LIB-폴더로올리기 (2026-10-30): 폴더 묶기에서 폴더 줄에 놓았으면(target) 올린 자료마다 그 폴더에 넣는다(옮기기와 같은 자료 연결 표, 폴더 부품 putUploaded).
@@ -695,7 +696,7 @@ function luRenderFolderNav(tree){
   card.dataset.luSplit='1';
   const path=luNavPath(),rows=[];
   const walk=(list,depth)=>{for(const n of list||[]){if(n.kind!=='folder')continue;const kids=(n.children||[]).filter(c=>c.kind==='folder'),open=kids.length>0&&!luNavShut.has(n.id)&&(path.has(n.id)||luNavOpen.has(n.id));
-    rows.push(ftFolderRowHtml({name:n.label,count:n.count,countLabel:`${n.count}건`,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,mainAttrs:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`}}));
+    rows.push(ftFolderRowHtml({name:n.label,count:n.count,countLabel:`${n.count}건`,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,mainAttrs:luCanDrag()?{'data-lu-nav':n.id,draggable:'true'}:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`}}));
     if(open)walk(kids,depth+1)}};
   walk(tree,0);
   const top=`<div class="ft-row ft-folder ft-top lu-fnav-root${luInFolder?'':' ft-current'}" role="treeitem"><button type="button" class="ft-btn ft-main" data-lu-nav=""${luInFolder?'':' aria-current="true"'}><span class="ft-name">자료실 전체</span></button></div>`;

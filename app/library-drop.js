@@ -2,6 +2,7 @@
 // 이 파일은 끌어오기 감지·올리기 순서·안내 문구만 맡는다. 실제 올리기(library-files 요청, AI 채우기)는 library-upload.js가 넘겨 주는 upload 함수다.
 // 저장은 서버(Drive 원본 + 자료 표)뿐이고 이 화면은 아무것도 따로 저장하지 않는다.
 export const DROP_HINT='놓으면 바로 올려요';
+export const DROP_BLOCKED='여기에는 놓을 수 없어요';
 // LIB-폴더로올리기 (2026-10-30 명진 요청): 폴더 묶기에서 폴더 줄 위에 놓으면 그 폴더로 올린다. 안내·결과 문구에 폴더 이름.
 export const folderHint=name=>`놓으면 ‘${name}’ 폴더로 올려요`;
 export const DROP_RESULT_CLEAR_MS=8000;
@@ -37,13 +38,15 @@ export function groupDropTarget(e,groupBy,{resolve,root='#documentList'}={}){
 //   지금 보는 목록에 나타나지 않았다(올라갔는데 안 된 것처럼 보임).
 // 순서(부르는 쪽): ① 이 함수의 나무 줄·위치 줄 → ② 오른쪽 목록의 폴더 줄(library-folders fileTarget) → ③ 이 함수의 '들어간 폴더 안 빈 곳'.
 // step=true면 ①만, false면 ③만 본다. 나무의 '자료실 전체'·위치 줄의 '자료실'은 폴더 밖({out:true}). 최근 올린 파일 칸은 폴더 밖(null).
-// folderOf(id)는 {id,name} 또는 null(없는 폴더). 돌려주는 place는 표시할 줄(나무 줄·위치 칸).
+// folderOf(id)는 {id,name} 또는 null(없는 폴더 = 놓을 수 없음 {ok:false}). 돌려주는 place는 표시할 줄(나무 줄·위치 칸).
 export function placeDropTarget(el,{step=true,inFolder=null,folderOf=()=>null}={}){
   if(step){
     const at=el?.closest?.('#libraryFolderNav [data-lu-nav], #libraryPath [data-lu-path]');if(!at)return null;
     const id=at.dataset?.luNav??at.dataset?.luPath??'',f=id?folderOf(id):null;
     const place=at.closest?.('.ft-row')||at;
-    return f?{ok:true,kind:'into',target:f.id,name:f.name,place}:{out:true,place};
+    // S55-08 LIB-나무로끌기안됨 ③: 화면이 모르는 폴더 id(방금 지워졌거나 아직 읽지 못함)를 '폴더 밖'으로 바꿔 받지 않고 막는다(ok:false).
+    if(f)return {ok:true,kind:'into',target:f.id,name:f.name,place};
+    return id?{ok:false,place}:{out:true,place};
   }
   if(!inFolder||!el?.closest?.('#libraryView')||el.closest('#libraryRecent'))return null;
   const f=folderOf(inFolder);
@@ -93,16 +96,17 @@ export function bindLibraryDrop({doc=document,overlay,active,onFiles,place=()=>{
   if(!overlay||doc.__luDropBound)return ()=>{};
   doc.__luDropBound=true;
   let depth=0,hint='',last=null;
-  const say=t=>{const text=t?.hint||(t?.name&&!t.out?folderHint(t.name):DROP_HINT);if(text===hint)return;hint=text;const el=overlay.firstChild||overlay;if(el)el.textContent=text};
+  const say=t=>{const text=t?.ok===false?DROP_BLOCKED:t?.hint||(t?.name&&!t.out?folderHint(t.name):DROP_HINT);if(text===hint)return;hint=text;const el=overlay.firstChild||overlay;if(el)el.textContent=text};
   const show=on=>{if(on&&overlay.hidden)place();overlay.hidden=!on};
   const reset=()=>{depth=0;last=null;show(false);mark(null);say(null)};
   const enter=e=>{if(!hasFiles(e)||!active())return;e.preventDefault();depth++;show(true)};
-  const over=e=>{if(!hasFiles(e)||!active()){if(!overlay.hidden)reset();return}e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';show(true);const t=pick(e);last=t;mark(t);say(t)};
+  const over=e=>{if(!hasFiles(e)||!active()){if(!overlay.hidden)reset();return}e.preventDefault();show(true);const t=pick(e);last=t;if(e.dataTransfer)e.dataTransfer.dropEffect=t?.ok===false?'none':'copy';mark(t);say(t)};
   const leave=e=>{if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth||e.relatedTarget===null)reset()};
   const drop=e=>{
     if(!hasFiles(e)||!active()){reset();return}
     // 놓은 자리가 폴더면 그 폴더, 아니면 마지막으로 표시해 보여 준 곳(사람이 본 표시 그대로).
     e.preventDefault();const t=pick(e)||last;reset();
+    if(t?.ok===false)return; // 놓을 수 없는 줄(모르는 폴더)에 놓았으면 올리지 않는다.
     const files=Array.from(e.dataTransfer?.files||[]);
     if(files.length)onFiles(files,t||null);
   };
