@@ -13,6 +13,9 @@ const V2={project_system:'v2',management_version:2};
 function baseState(){
   const space=(id,name,sort,extra={})=>({id,workspace_id:'workspace-1',name,description:null,parent_id:null,status:'active',visibility:'private',owner_id:'user-1',sort_order:sort,created_at:`2026-09-01T00:00:${String(sort).padStart(2,'0')}Z`,updated_at:now(),metadata:{...V2},...extra});
   return {
+    // LIB-두칸보기(S55-11): 자료실 [▥ 두 칸]은 PC·펼친 폴드 기본 켬. 지금까지의 자료실 시험은 한 칸(나무 | 목록)을 보므로 기본은 끔으로 두고,
+    // 두 칸 시험은 viewPrefs를 null(기본 켬) 또는 {library_two:true}로 바꾼다. 화면의 view_prefs 읽기·쓰기는 이 값을 쓴다.
+    viewPrefs:{library_two:false},
     user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},
     workspace:{id:'workspace-1',slug:'team',name:'웹2'},
     spaces:[
@@ -92,12 +95,13 @@ async function mockApp(page,state){
           if(want!==now)return ok([]);
           state.documentCategories=body.document_categories;return ok([{user_id:state.user.id,document_categories:state.documentCategories}]);
         }
+        if(body&&'view_prefs' in body){state.viewPrefs=body.view_prefs;(state.viewPrefsPatches||(state.viewPrefsPatches=[])).push(body.view_prefs);return ok([{user_id:state.user.id}])}
         if(body&&'library_view' in body)state.libraryView=body.library_view;
         return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null}]);
       }
       if(state.libraryViewMissing&&url.searchParams.get('select')?.includes('library_view'))return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_view does not exist'})});
       (state.profileReads||(state.profileReads=[])).push(url.search);
-      return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null,...(state.documentCategories?{document_categories:state.documentCategories}:{})}]);
+      return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null,view_prefs:state.viewPrefs??null,...(state.documentCategories?{document_categories:state.documentCategories}:{})}]);
     }
     if(path==='/rest/v1/app_library_folders'&&method==='GET')return ok(state.folders||[]);
     if(path==='/rest/v1/app_library_folder_items'&&method==='GET')return ok(state.folderItems||[]);
