@@ -1,4 +1,5 @@
 import {emptyHtml,waitHtml} from './wait-state.js';
+import {paperSkeletonHtml,weekBodyHtml} from './biz-week-skeleton.mjs';
 // WEEKLY-메뉴짝짓기 P5(요청함 11/04 16:48 결정 B, 설계 docs/design/weekly-menu-pairing.md 3.2): 사업 보고 화면 위 접는 칸 '이번 주 주간보고'(팝업이 아님).
 // (전 report-summary-preview.js — MTG-프로젝트합치기 2단계 [사업요약표 미리보기] 팝업을 이 칸으로 옮김. 팝업·기간 바꾸기·[HWP로 내려받기]는 없앴다.)
 // - BIZ-위쪽정돈(B안, 11/09): 이 칸은 접는 칸이 아니라 늘 펼쳐 둔 칸이고 안쪽 주 고르기는 없다 — 사업 보고 화면 위의 주 고르기(‹ 11.9(월)~11.15(일) ›) 하나를 따른다(team.js가 week를 넘긴다). 한글 파일은 홈 [주간 정리] 한 곳에서만 만든다 → 맨 아래 [주간 정리에서 보기 ›].
@@ -27,16 +28,15 @@ function createBizSummary({compact=false}={}){
 let box=null,state=null,listening=false;
 const self={};
 // BIZ-주간칸밀림(11/09): 표가 다 그려지기 전에도 표 모양 자리(기다림 회색 줄)를 처음부터 차지해 아래가 밀리지 않게 한다.
-// 줄 수·높이는 보통 표(머리 + 사업 과제 4줄, 한 줄 약 50px)와 같게 — 이 부품이 그리는 곳 하나(자리 → renderPaper가 같은 칸을 표로 바꿈).
-const skeletonHtml=()=>waitHtml({rows:4,h:51})+(compact?'':'<div class="biz-week-skel-more">'+waitHtml({rows:1,h:20})+'</div>');
+// 큰 칸은 진짜 표와 같은 머리글·제목 글자·칸 폭의 표 모양(biz-week-skeleton.mjs, 사업 과제 4줄), 홈 작은 상자는 기다림 줄. 그리는 곳은 이 부품 하나(자리 → renderPaper가 같은 칸을 표로 바꿈).
+const skeletonHtml=()=>compact?waitHtml({rows:4,h:51}):paperSkeletonHtml();
 const $in=sel=>box?.querySelector(sel);
 
 function ensureBox(el){
   if(box===el)return box;
   box=el;box.dataset.bpMounted='';
   if(compact)box.innerHTML='<div class="biz-paper biz-week-paper biz-paper-compact" data-bp-paper>'+skeletonHtml()+'</div><p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p>';
-  else box.querySelector('[data-bw-body]').innerHTML=`<div class="biz-paper biz-week-paper" data-bp-paper>${skeletonHtml()}</div>
-<p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p><div class="biz-week-foot"><button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button></div>`;
+  else box.querySelector('[data-bw-body]').innerHTML=weekBodyHtml('<button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button>');
   box.addEventListener('click',onClick);
   // 글 칸: 진행 = Ctrl+Enter(맥은 ⌘+Enter), 담당 한 줄 칸 = Enter 저장. Esc = 쓰던 칸만 닫기(저장 안 함).
   box.addEventListener('keydown',e=>{

@@ -15,7 +15,7 @@ const MORE = [
   ['app/diary.js', /<div class="diary-source ds-seg" role="group" aria-label="일기 선택"><button type="button" class="ds-seg-btn" data-diary-lv-filter="all"[^>]*>전체<\/button><button type="button" class="ds-seg-btn" data-diary-lv-filter="star"/],
   ['app/project-system-v3.js', /class="ps3-archive-tabs ds-seg"[^>]*><button type="button" class="ds-seg-btn" data-ps3-archive-tab="archive">보관<\/button><button type="button" class="ds-seg-btn" data-ps3-archive-tab="trash">/],
   ['app/team.js', /renderFilterChips\(host,\{label:'보기',[^\n]*?seg:true/],
-  ['app/library-upload.js', /renderFilterChips\(host,\{label:'묶기',[^)]*seg:true/],
+  // LIB-위쪽한줄(11/09): 자료실 묶기는 보기 탭이 아니라 위 줄 고르기 상자 [폴더 ▾](select)라 ⑤ 탭이 아니다 — 탭으로 다시 그리지 않는다.
   ['app/home-quick.js', /class="home-quick-modes ds-seg"/],
 ];
 
@@ -50,7 +50,9 @@ test('재발 방지: 화면의 보기 탭은 공용 ⑤ 부품만(일정·노트
     'app/photos.js photos-chips', 'app/diary.js diary-source', 'app/org-overview.js so-team-tabs', 'app/workplace-detail.js wd-tabs', 'app/outside-statements.js os-tabs', 'app/telegram-feed.js feed-vsw'])
     assert.ok(tabs.some(t => keyOf(t) === k && isOneLook(t)), `${k}는 공용 ⑤`);
   for (const [f, re] of MORE) assert.match(readFileSync(f, 'utf8'), re, f);
-  // 그때그때 그리는 보기 줄(사업 보고·자료실 묶기)은 공용 renderFilterChips의 seg:true가 ⑤ 클래스를 붙인다.
+  assert.doesNotMatch(readFileSync('app/library-upload.js', 'utf8'), /renderFilterChips\(host,\{label:'묶기'/);
+  assert.match(readFileSync('app/index.html', 'utf8'), /<select id="libraryGroupBy" class="lu-top-select" aria-label="묶기"/);
+  // 그때그때 그리는 보기 줄(사업 보고)은 공용 renderFilterChips의 seg:true가 ⑤ 클래스를 붙인다.
   const chips = readFileSync('app/filter-chips.js', 'utf8');
   assert.match(chips, /if\(seg\)host\.classList\.add\('ds-seg'\)/);
   assert.match(chips, /button\.className=seg\?'ds-seg-btn':'quick-pill-button'/);

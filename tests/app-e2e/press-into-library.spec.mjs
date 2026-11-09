@@ -121,8 +121,8 @@ for(const width of [390,1280]){
     await expect(page.locator('#libraryView')).toBeVisible();
     await expect(page.locator('#mediaView')).toHaveCount(0);
     await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('library');
-    const chips=page.locator('#libraryCategoryFilter');
-    await expect(chips.locator('button[aria-pressed="true"]')).toHaveText(['성명·보도자료']);
+    // LIB-위쪽한줄: 분류 칩 줄 대신 위 줄 [분류: … ▾] 하나 — 그 종류 하나만 켠 글자.
+    await expect(page.locator('#libraryCategoryPick')).toHaveText('분류: 성명·보도자료');
     await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(1);
     await expect(page.locator(`#documentList [data-lu-document="${DOC(1)}"]`)).toBeAttached();
     expect(state.patches).toEqual([]);
@@ -132,5 +132,5 @@ for(const width of [390,1280]){
 test('opening the library normally (not through the retired address) keeps the usual kind chips',async({page})=>{
   await boot(page,{docs:[doc(1),doc(2,{title:'교섭 자료',category:'교섭',tags:[],file_name:'bargaining.pdf',mime_type:'application/pdf'})]});
   await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(2);
-  await expect(page.locator('#libraryCategoryFilter button[aria-pressed="true"]')).not.toHaveText(['성명·보도자료']);
+  await expect(page.locator('#libraryCategoryPick')).toHaveAttribute('data-label',/^분류: /);await expect(page.locator('#libraryCategoryPick')).not.toHaveText('분류: 성명·보도자료');
 });

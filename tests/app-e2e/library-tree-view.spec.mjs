@@ -92,6 +92,7 @@ for(const width of [390,1280])test(`프로젝트 트리: 맨 위 단만, 자료 
 for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 펼침, 수는 거른 수, 풀면 직전 펼침으로 ${width}`,async({page})=>{
   const {errors}=await boot(page,width);
   await libraryNodeHead(page,'p:top-b').click();
+  if(width<=760)await page.locator('#librarySearchOpen').click();/* LIB-위쪽한줄 가안: 폰은 ⌕로 찾기 칸을 연다 */
   await page.locator('#documentSearch').fill('a1-');
   // 맞는 자료가 든 토글만 남고(위 단까지) 펼쳐진다. 맞지 않는 토글·'프로젝트 없음'은 숨는다.
   expect(await tops(page)).toEqual(['p:top-a']);
@@ -105,19 +106,12 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
   await page.locator('#documentSearch').fill('');
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
   await expect(libraryNode(page,'p:top-b')).toHaveAttribute('open','');await expect(libraryNode(page,'p:top-a')).not.toHaveAttribute('open','');
-  // 종류 칩으로 거르면 같은 규칙.
-  const chip=name=>page.locator(`#libraryCategoryFilter [data-lu-category="${name}"]`);
-  // S51-28: 폰·폴드는 칩 줄 대신 [분류 ▾] 창(같은 상태)으로 교섭만 남긴다.
-  if(width<1200)await onlyLibraryCategories(page,['교섭']);else for(const name of ['투쟁','교육','선전','정책','기타'])await chip(name).click();
+  // 분류로 거르면 같은 규칙(LIB-위쪽한줄: 폰·PC 모두 [분류 ▾] 창으로 교섭만 남긴다).
+  await onlyLibraryCategories(page,['교섭']);
   expect(await tops(page)).toEqual(['p:top-a']);expect(await visibleRows(page)).toEqual(['a1-1']);
-  // LIB-거르기전체: 일부 켜짐에서 [전체] 한 번 = 모두 켬(거르기 풀림), 한 번 더 = 모두 끔(빈 목록 한 줄), 또 한 번 = 모두 켬. 폰·폴드 창은 '모두 끔'이 없어 [전체]만.
-  if(width<1200)await showAllLibraryCategories(page);else await chip('all').click();
+  // [전체] = 모두 켬(거르기 풀림).
+  await showAllLibraryCategories(page);
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
-  if(width>=1200){
-  await chip('all').click();expect(await tops(page)).toEqual([]);await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('선택한 분류 없음');
-  await chip('all').click();
-  expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
-  }
   // 맞는 자료가 없으면 빈 안내.
   await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('없음');expect((await libraryExpandItem(page)).disabled).toBe(true);
   expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
@@ -125,23 +119,24 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
 
 for(const width of [390,1280])test(`묶기 전환: 담당조직·종류·월별은 같은 얇은 토글(폴더 없음), 바꾸면 접힌 채 ${width}`,async({page})=>{
   const {errors}=await boot(page,width,{folders:[{id:'f-1',project_id:'top-a',parent_id:null,name:'가상 폴더',sort_order:1024,created_at:'2026-10-01T00:00:00Z'}],items:[]});
-  const group=page.locator('#libraryGroupBy');
-  await expect(group).toHaveAttribute('role','radiogroup');await expect(group.getByRole('radio')).toHaveText(['폴더','사업영역','담당조직','분류','월별']);
-  await expect(group.getByRole('radio',{name:'사업영역'})).toHaveAttribute('aria-checked','true');
-  await expect(group.getByRole('radio').first()).toHaveCSS('height','26px');// UI-칩줄두줄
+  // LIB-위쪽한줄: 묶기는 위 줄 고르기 상자 [폴더 ▾](select, 위 줄 다른 칸과 같은 32px).
+  const group=page.locator('#libraryGroupBy'),pickGroup=label=>group.selectOption({label});
+  await expect(group.locator('option')).toHaveText(['폴더','사업영역','담당조직','분류','월별']);
+  await expect(group.locator('option:checked')).toHaveText('사업영역');
+  await expect(group).toHaveCSS('height','32px');
   await libraryNodeHead(page,'p:top-a').click();
-  await group.getByRole('radio',{name:'월별'}).click();
+  await pickGroup('월별');
   expect(await tops(page)).toEqual(['m:2026-10','m:2026-09','m:2026-08','m:2026-07']);
   await expect(page.locator('#documentList details[open]')).toHaveCount(0);
   await expect(libraryNodeHead(page,'m:2026-10').locator('.lu-node-name')).toHaveText('2026년 10월');await expect(libraryNodeHead(page,'m:2026-10').locator('.lu-node-count')).toHaveText('2');
   await expect(page.locator('#documentList [data-lu-node-kind="folder"]')).toHaveCount(0);
-  await group.getByRole('radio',{name:'분류'}).click();
+  await pickGroup('분류');
   await expect(page.locator('#documentList > details > summary .lu-node-name')).toHaveText(['교섭','정책']);
-  await group.getByRole('radio',{name:'담당조직'}).click();
+  await pickGroup('담당조직');
   await expect(page.locator('#documentList > details > summary .lu-node-name')).toHaveText(['가상 지부','조직 없음']);
   await libraryNodeHead(page,'o:org-1').click();expect(await visibleRows(page)).toEqual(['none-1']);
-  // 키보드로 묶기 칩을 옮긴다(공용 알약 칩: 화살표).
-  await group.getByRole('radio',{name:'담당조직'}).focus();await page.keyboard.press('ArrowLeft');await expect(group.getByRole('radio',{name:'사업영역'})).toHaveAttribute('aria-checked','true');
+  // 키보드로 묶기를 바꾼다(고르기 상자: 초점 뒤 위 화살표 = 앞 칸).
+  await group.focus();await page.keyboard.press('ArrowUp');await expect(group.locator('option:checked')).toHaveText('사업영역');
   await expect(page.locator('#documentList [data-lu-node-kind="folder"]')).toHaveCount(1);
   expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
 });

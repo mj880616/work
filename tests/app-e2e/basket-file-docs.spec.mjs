@@ -1,7 +1,7 @@
 import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helpers/area-org-picker.mjs';
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
-import {onlyLibraryCategories,showAllLibraryCategories} from './helpers/library-categories.mjs';
+import {onlyLibraryCategories,showAllLibraryCategories,readLibraryCategories} from './helpers/library-categories.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
@@ -315,10 +315,9 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  if(width===390)await capture(page,info,`project-docs-390-${scheme}`,section);
  await section.getByRole('button',{name:'전체 5개 보기'}).click();
  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('#documentProject')).toHaveJSProperty('value',P);
- const chips=page.locator('#libraryCategoryFilter');
- // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글(aria-pressed). 들어올 때는 [회의]만 꺼져 있다.
- await expect(chips.locator('[data-lu-category]')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
- await expect(chips.locator('[aria-pressed="false"]')).toHaveText(['회의']);await expect(chips.locator('[data-lu-category="all"]')).toHaveAttribute('aria-pressed','mixed');// LIB-거르기전체: 일부만 켜진 [전체]는 mixed.
+ // UI-PC자료실 C → LIB-위쪽한줄: 분류는 위 줄 [분류: … ▾] 창(여러 개 선택). 들어올 때는 [회의]만 꺼져 있다.
+ await expect(page.locator('#libraryCategoryPick')).toHaveText('분류: 회의 빼고');
+ {const st=await readLibraryCategories(page);expect(['전체',...st.names]).toEqual(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);expect(st.names.filter(n=>!st.on.includes(n))).toEqual(['회의']);expect(st.all).toBe(false);}
  // LIB-토글트리: 프로젝트로 걸러 들어오면 그 프로젝트 토글이 펼쳐져 있고, 안은 날짜 최신순(자료 날짜가 없으면 올린 날).
  await expect(page.locator(`#documentList details[data-lu-node="p:${P}"]`)).toHaveAttribute('open','');
  await expect(page.locator('#documentList .lu-row')).toHaveText([/교섭 요구안/,/기자회견 웹자보/,/회의 메모/,/국토부 지침/,/집회 계획/]);
@@ -330,7 +329,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  await capture(page,info,`library-${width}-${scheme}`);
  await onlyLibraryCategories(page,['정책']);await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('.lu-row')).toContainText('국토부 지침');
  await onlyLibraryCategories(page,['투쟁']);await expect(page.locator('.lu-row')).toHaveText([/집회 계획/]);
- await showAllLibraryCategories(page);await expect(chips.locator('[aria-pressed="false"]')).toHaveCount(0);await page.locator('#documentSearch').fill('선전');await expect(page.locator('.lu-row')).toHaveText([/기자회견 웹자보/]);
+ await showAllLibraryCategories(page);await expect(page.locator('#libraryCategoryPick')).toHaveText('분류: 전체');if(width<=760)await page.locator('#librarySearchOpen').click();await page.locator('#documentSearch').fill('선전');await expect(page.locator('.lu-row')).toHaveText([/기자회견 웹자보/]);
 });
 
 test('the library forms choose one of the 7 categories; an old value is shown as its match and kept unless changed',async({page})=>{

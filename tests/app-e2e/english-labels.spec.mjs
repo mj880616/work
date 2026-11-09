@@ -4,7 +4,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
-const labels={library:['newDocumentBtn','+ 자료','+ 자료 등록'],meetings:['newMeetingBtn','+ 사업 보고','+ 사업 보고']};/* 사업영역 관리 [+]는 마크업·CSS가 글자를 정한다(AREA-추가버튼잘림, area-add-button.spec) */
+const labels={meetings:['newMeetingBtn','+ 사업 보고','+ 사업 보고']};/* LIB-위쪽한줄(11/09): 자료실 [+]는 글자 없는 작은 아이콘(이름은 aria-label '자료 등록')이라 이 표에서 뺐다 *//* 사업영역 관리 [+]는 마크업·CSS가 글자를 정한다(AREA-추가버튼잘림, area-add-button.spec) */
 async function boot(page,view){
   await page.route('**/*',route=>{
     const u=new URL(route.request().url()),p=u.pathname;
@@ -34,6 +34,7 @@ async function ready(page,view){
 }
 async function checkLabels(page,width){
   for(const [id,short,long] of Object.values(labels))await expect(page.locator('#'+id)).toHaveText(width<=760?short:long);
+  if(await page.locator('#newDocumentBtn').count()){await expect(page.locator('#newDocumentBtn')).toHaveText('');await expect(page.locator('#newDocumentBtn')).toHaveAttribute('aria-label','자료 등록');}
   // Retired controls stay absent, including on the Web1-backed board.
   for(const id of ['newPageBtn','inviteBtn','newGroupBtn'])await expect(page.locator('#'+id)).toHaveCount(0);
 }

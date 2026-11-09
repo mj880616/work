@@ -169,6 +169,9 @@ for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884,
       await expect(page.locator('#photosPickMenu')).toBeVisible();
       await page.locator('#photosPickMenu [data-pick-folder="F1"]').click();
       await expect.poll(() => state.moves).toEqual([{ ids: ['O1'], to: 'F1' }]);
+      // 옮긴 뒤 목록을 다시 받는 동안(afterMove → resetList)에는 목록에 지울 사진이 없어 [삭제]가 아무 일도 못 한다 → '옮겼어요' 알림이 뜨고 목록이 다시 채워진 뒤에 지운다.
+      await expect(page.locator('#kptuNotice')).toContainText('옮겼어요');
+      await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
       // 지우기: 다음 사진으로 넘어간다(2장 → 1장)
       await expect(viewer(page).locator('[data-diary-viewer-count]')).toHaveText(/\/ 2/);
       await b.locator('[data-od-delete]').click();

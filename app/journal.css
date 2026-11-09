@@ -652,3 +652,23 @@
 }
 /* 3. 2) 사업장 칸 안쪽 창 줄([주간 정리]). */
 #appView #homeView .weekly-flow-window{ min-width:0; padding:2px 0 0; }
+/* HOME-하루채우기(2026-11-09 명진 시안 ④ 승인): 오늘 한 일 아래 세 칸 — 오늘 사진 한 줄 · 읽을 만한 글 · 이런 기록은 어때요?
+   칸 모양은 기존 .journal-group(위 선 한 줄)·머리 줄(.journal-schedule-head)·공용 사진 칸(.act-photo-thumb)·버튼(row-act·secondary)을 그대로 쓴다.
+   여기는 자리(간격·줄)만 정한다. 셋 다 비면 칸째 숨는다(home-day-fill.js). */
+#appView #homeView .journal-fill{ display:flex; flex-direction:column; gap:10px; }
+#appView #homeView .journal-fill[hidden],#appView #homeView .journal-fill > [hidden]{ display:none; }
+#appView #homeView .journal-photo-strip{ display:flex; gap:4px; min-width:0; overflow:hidden; }
+#appView #homeView .journal-photo-cell .diary-photo{ position:absolute; inset:0; display:block; }
+#appView #homeView .journal-photo-more::before{ color:var(--kptu-ink); font-size:var(--ds-text-meta); }
+#appView #homeView .journal-fill-note{ margin-right:auto; margin-left:6px; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #homeView .journal-group :is(.journal-reads-list,.journal-suggest-list){ list-style:none; margin:0; padding:0; gap:0; }
+#appView #homeView :is(.journal-read,.journal-suggest){ padding:6px 0; border-top:var(--ds-line-width) solid var(--ds-line); line-height:1.55; }
+#appView #homeView .journal-read{ display:flex; flex-direction:column; }
+#appView #homeView .journal-read-title{ font-weight:var(--ds-weight-medium); }
+#appView #homeView .journal-read-line{ color:var(--kptu-ink); }
+#appView #homeView :is(.journal-read-meta,.journal-suggest-basis){ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #homeView .journal-fill-more > summary{ display:flex; align-items:center; min-height:32px; cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #homeView .journal-fill-more > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #homeView .journal-suggest{ display:flex; align-items:center; gap:6px; }
+#appView #homeView .journal-suggest-text{ display:flex; flex-direction:column; flex:1; min-width:0; }
+#appView #homeView .journal-suggest > .secondary{ flex:none; }
