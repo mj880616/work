@@ -531,7 +531,11 @@
     if(changed)history.replaceState(history.state,'',u.pathname+(u.search||'')+u.hash);
     return changed;
   }
-  const api={current:null,sub:null,go,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  // askGo: a menu press that waits for its screen program to load takes a place in line now; stillLatest(token) tells later whether a newer
+  // go() was asked meanwhile (then the late press must not take the screen back from it).
+  const askGo=()=>++goSeq;
+  const stillLatest=token=>token===goSeq;
+  const api={current:null,sub:null,go,askGo,stillLatest,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   // NAV-PC앞뒤통일: one notice after the history position or the screen changed, so the top line repaints ‹ › from canBack/canForward.
   let moveQueued=false;
