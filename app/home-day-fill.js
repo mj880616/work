@@ -87,7 +87,7 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (read?.state !== 'ok') return [];
     return rankDayPhotos(read.items, {starred:item => read.starred.has(`${item.source}:${item.key}`), windows:eventWindows(events)});
   }
-  const busy = new Map(); // 읽는 중인 날 → 읽는 동안 다시 읽어야 할 일이 생겼는지
+  const busy = new Map(); // 지금 읽고 있는 날 → 그사이 다시 읽어야 할 일이 생겼는지
   function ensurePhotos(day, {force = false} = {}) {
     const key = `${owner()}:${day}`, read = photoReads.get(key);
     if (busy.has(key)) { if (force) busy.set(key, true); return; }
