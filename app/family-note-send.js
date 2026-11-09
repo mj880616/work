@@ -4,7 +4,7 @@
 // - 처음 고른 곳: '잊지 말기' 노트 끝에 더하기. 폴더는 마지막으로 줄을 더한 '잊지 말기' 노트의 폴더(없으면 '가족' — 없으면 보낼 때 만든다).
 //   [폴더 ▾]는 노트 화면과 같은 폴더 고르기 창. [저장] 한 번이면 지금과 같다(그 폴더의 '잊지 말기' 노트 — 없으면 그 폴더에 새로 만든다).
 // - [잊지 말기 ▾]로 다른 가족 노트(AI가 읽지 않는 노트, ai_export_allowed=false)나 새 노트를 고를 수 있다. 고를 수 있는 노트는 가족 노트뿐이고,
-//   저장 함수(appendToNote familyOnly)도 읽은 노트가 가족 노트인지 다시 보고, PATCH도 ai_export_allowed=false인 행에만 쓴다(saveNoteDoc aiExcluded).
+//   저장 함수(note-append.js appendToNote familyOnly — 옛 appendTo를 옮긴 같은 길)도 읽은 노트가 가족 노트인지 다시 보고, PATCH도 ai_export_allowed=false인 행에만 쓴다(saveNoteDoc aiExcluded).
 // - 노트 줄은 체크 목록 한 줄('☐ 내용 (통화 11/5)', 줄 글자는 부른 쪽이 만들어 넘김, 창에서 고칠 수 있음). 했음은 노트에서 ☐ → ☑.
 // - 노트는 기존 노트 저장 길(basket-data.js createNoteDoc·saveNoteDoc, app_notes 소유자 RLS)만 쓴다. AI 재료에서 뺀다(ai_export_allowed=false).
 //   더하기는 읽은 판(updated_at)이 그대로일 때만 저장한다(다른 곳에서 고친 노트를 덮지 않음, 한 번 다시 읽어 다시 시도).
@@ -14,14 +14,15 @@
 // 이 파일은 잊지 말기 표를 부르지 않는다(tests/security/family-notes-isolation.test.mjs).
 import {readNoteFolders, createNoteFolder} from './note-folders-data.js';
 import {openNoteFolderPicker} from './note-folder-pick.js';
-import {createNoteDoc, saveNoteDoc, noteTitleFromText} from './basket-data.js';
+import {createNoteDoc, saveNoteDoc} from './basket-data.js';
+import {appendToNote} from './note-append.js';
+export {appendToNote};
 import {toPlain} from './ed-text.mjs';
 import {cleanDoc} from './ed-schema.mjs';
 import {plainToDocKeep} from './ed-markdown.mjs';
 import {FAMILY_FOLDER, LIST_KEY, LIST_TITLE, appendDoc, appendLines, defaultFolder, dropLine, folderIdOf, listNoteIn, newNoteTitle, nextTopOrder} from './family-note-send.mjs';
 
 const enc = encodeURIComponent;
-export const FAMILY_ONLY_TEXT = '가족 줄은 가족 노트(AI가 읽지 않는 노트)에만 넣을 수 있어요.';
 
 const wsOf = rt => rt.context?.read?.()?.workspace?.id || '';
 // '잊지 말기' 노트들(고친 때 최근 순). 휴지통 노트는 서버 정책이 빼고 준다.
@@ -40,28 +41,6 @@ export async function openListNote(rt) {
   window.KPTURouter?.go?.('basket', {source: 'delegated'});
 }
 
-// 노트 끝에 더하기(가족 줄·업무 줄 같은 길). lines: 글 줄들(문단 하나씩) 또는 doc: 노트 창에서 고친 글(저장된 모양).
-// familyOnly(기본): 가족 노트(ai_export_allowed=false)에만 쓴다 — 읽은 행을 보고, PATCH도 그런 행에만 적용(saveNoteDoc aiExcluded).
-// 업무 줄(familyOnly=false)은 노트의 AI 설정을 바꾸지 않고 그대로 더한다(가족 노트에 더하면 그 글도 AI가 읽지 않는다).
-export async function appendToNote(rt, id, {lines = [], doc = null, familyOnly = true} = {}) {
-  const ws = wsOf(rt);
-  for (let tries = 0; tries < 2; tries++) {
-    const rows = await rt.api(`/rest/v1/app_notes?id=eq.${enc(id)}&workspace_id=eq.${enc(ws)}&kind=eq.note&select=id,title,doc,raw_text,updated_at,ai_export_allowed`, {singleFlight: false});
-    const row = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
-    if (!row?.updated_at) throw new Error('노트를 찾지 못했어요.');
-    if (familyOnly && row.ai_export_allowed !== false) throw Object.assign(new Error(FAMILY_ONLY_TEXT), {code: 'not_family_note'});
-    const base = cleanDoc(row.doc) || plainToDocKeep(row.raw_text || '');
-    const next = doc ? appendDoc(base, doc) : appendLines(base, lines);
-    if (!next) throw new Error('더할 내용을 써 주세요.');
-    const raw = toPlain(next);
-    try {
-      await saveNoteDoc(id, {title: String(row.title || '').trim() || (familyOnly ? LIST_TITLE : noteTitleFromText(raw) || '노트'), raw_text: raw, doc: next, version: row.updated_at, aiExcluded: familyOnly}, rt);
-      return;
-    } catch (error) {
-      if (error?.code !== 'note_changed' || tries) throw error;
-    }
-  }
-}
 // 줄 하나를 노트로. 반환 {noteId, folderName}. 실패하면 던진다(부른 쪽은 상태를 바꾸지 않음).
 // doc(FORGET-노트고르기): 노트 창에서 고친 글(저장된 모양) — 있으면 line 대신 그 글을 더한다. title: 새 노트 제목(비우면 줄 내용 앞 40자).
 export async function sendLine(rt, {line, doc = null, title = '', body, where, folder, create, lists, folders = []}) {

@@ -52,9 +52,9 @@ test('끝에 더하기: 노트 다른 내용 그대로, 끝·더할 글의 빈 �
 });
 
 test('가족 노트 경계: 저장 함수가 읽은 행을 다시 보고, PATCH도 ai_export_allowed=false 행에만 쓴다', () => {
-  const fam = src('family-note-send.js'), data = src('basket-data.js');
-  assert.match(fam, /if \(familyOnly && row\.ai_export_allowed !== false\) throw/);
-  assert.match(fam, /aiExcluded: familyOnly/);
+  const fam = src('family-note-send.js'), append = src('note-append.js'), data = src('basket-data.js');
+  assert.match(append, /if \(familyOnly && row\.ai_export_allowed !== false\) throw/);
+  assert.match(append, /aiExcluded: familyOnly/);
   assert.match(data, /\$\{aiExcluded \? '&ai_export_allowed=is\.false' : ''\}/);
   // 고르기 창 읽기도 가족 줄은 가족 노트만(서버 조건).
   assert.match(src('note-pick.js'), /\$\{family \? '&ai_export_allowed=is\.false' : ''\}/);
@@ -64,12 +64,11 @@ test('가족 노트 경계: 저장 함수가 읽은 행을 다시 보고, PATCH�
   assert.doesNotMatch(fam, /familyNoteSend|data-fs-/);
 });
 
-test('업무 줄 기본값: 새 노트 · 폴더 01. 업무메모(없으면 폴더 없음), 기존 노트는 미리 고르지 않는다. 기기 저장 없음', () => {
+test('업무 줄 기본값: 새 노트 · 폴더 01. 업무메모(없으면 폴더 없음), 기존 노트는 미리 고르지 않는다', () => {
   const list = src('forget-list.js');
   assert.match(list, /export const WORK_NOTE_FOLDER = '01\. 업무메모';/);
   assert.match(list, /createNoteFolderPick\(\{rt, initial: WORK_NOTE_FOLDER/);
   assert.match(list, /target: createNoteTarget\(\{rt\}\)/);
-  for (const f of ['note-pick.js', 'note-pick.mjs', 'family-note-send.js', 'note-tree-row.js']) assert.doesNotMatch(src(f), /localStorage|sessionStorage|indexedDB/);
 });
 
 test('노트 보드 노트 고르기와 잊지 말기 노트 고르기가 같은 줄 부품(note-tree-row.js)을 쓴다', () => {

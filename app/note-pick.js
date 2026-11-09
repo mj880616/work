@@ -3,7 +3,7 @@
 // - 작은 창: '＋ 새 노트로'(가족 줄은 그 위 '잊지 말기 노트에 더하기') · 노트 이름 찾기 · 최근 노트 · 폴더별 노트.
 //   줄은 노트 보드 노트 고르기와 같은 부품(noteTreeRowHtml, 폴더 나무 note-tree.mjs treeRows, basket.css .nbb-pick 줄 모양)이다.
 // - 노트 목록은 기존 소유자 RLS 읽기 길(app_notes kind=note)로 창을 열 때 서버에서 읽는다. '최근 노트'는 서버의 고친 때 순(기기 저장 없음).
-// - 가족 줄(family)은 AI가 읽지 않는 노트(ai_export_allowed=false)만 읽고 보인다. 저장 함수(family-note-send.js appendToNote)도 다시 확인한다.
+// - 가족 줄(family)은 AI가 읽지 않는 노트(ai_export_allowed=false)만 읽고 보인다. 저장 함수(note-append.js appendToNote)도 다시 확인한다.
 // - 자리는 공용 placeAnchored·followAnchor(단추 바로 아래, 모자라면 위). 닫기: Esc·바깥 누르기·고르기·폰 뒤로가기(라우터 한 겹).
 import {iconNode} from './tree-icons.js';
 import {noteLineTitle, OUTSIDE, OUTSIDE_NAME} from './note-tree.mjs';
@@ -126,7 +126,7 @@ export function openNotePick({anchor, rt = window.KPTURuntime, family = false, c
 // 노트 창 제목 줄 앞 [새 노트 ▾] 단추 + 옆 '📁 폴더 · 끝에 더함' + 아래 흐린 마지막 두 줄.
 // start: 처음 고른 것({kind:'new'} 업무 줄, {kind:'list'} 가족 줄). listNote(): 가족 줄 '잊지 말기' 노트(지금 폴더의 것, 없으면 null — 보낼 때 만든다).
 // save(value, {value, text, heading}) → {noteId, folderName, message?}: 고른 곳에 쓰는 일(가족 줄은 family-note-send.js가 준다).
-//   없으면 기존 노트 끝에 더하기(family-note-send.js appendToNote — 가족 노트 경계를 저장 함수에서 다시 확인하는 같은 길).
+//   없으면 기존 노트 끝에 더하기(note-append.js appendToNote — 가족 노트 경계를 저장 함수에서 다시 확인하는 같은 길).
 export function createNoteTarget({rt = window.KPTURuntime, family = false, start = {kind: 'new'}, listNote = () => null, listTitle = '잊지 말기', save = null} = {}) {
   let value = start;
   const watchers = [];
@@ -161,7 +161,7 @@ export function createNoteTarget({rt = window.KPTURuntime, family = false, start
     async save(input) {
       if (save) return save(value, input);
       if (value.kind !== 'note' || !value.note?.id) throw new Error('넣을 노트를 다시 선택해 주세요.');
-      const {appendToNote} = await import('./family-note-send.js');
+      const {appendToNote} = await import('./note-append.js');
       await appendToNote(rt, value.note.id, {doc: input.value, familyOnly: family});
       return {noteId: value.note.id, folderName: value.folderName || '', message: `'${[...noteLineTitle(value.note)].slice(0, 20).join('')}' 노트 끝에 더했어요.`};
     },

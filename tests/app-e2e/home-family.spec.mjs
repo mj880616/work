@@ -129,9 +129,9 @@ test('[노트로]: 가족 폴더의 잊지 말기 노트에 체크 한 줄을 �
   // 먼저 열었다 닫기: 쓰기 없음.
   await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="note"]`).click();
   await expect(win(page)).toBeVisible();
+  // 줄 글이 미리 채워진 새 글 창이라 닫을 때 한 번 묻는다(기존 노트 창 규칙 그대로) → '저장하지 않고 닫기'.
   await win(page).locator('[data-edw-cancel]').click();
-  const leave=page.locator('[data-ed-leave-discard],[data-choice-discard]');
-  if(await leave.count())await leave.first().click();
+  await page.getByRole('button',{name:'저장하지 않고 닫기'}).click();
   await expect(win(page)).toHaveCount(0);
   expect(notePatches.length+notePosts.length+patches.length).toBe(0);
   await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="note"]`).click();
