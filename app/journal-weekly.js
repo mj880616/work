@@ -40,7 +40,6 @@ import {docEdits, draftHq, draftDiscuss, draftDrops, draftHand} from './weekly-d
 import {discussLines, DISCUSS_TITLE} from './weekly-discuss.mjs';
 import {myReportOrgs} from './weekly-org-order-model.mjs';
 import {withHandCalendar, handRows, detailEdits, HAND_TAG} from './weekly-hand.mjs';
-import {alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {refOfOpen, meetingRef, planOverlaps, reasonOf} from './overlap-weekly.mjs';
 import {slashDay as nextSlashDay} from './next-week-sheet-model.mjs';
@@ -418,11 +417,8 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   const overlapSource = {refs:[...shownRefs], meetings:(rawMeetings.items || []).filter(i => i.ref).map(i => ({ref:i.ref, day:i.day, title:i.text, targets:i.targets})),
     records:[...rawRecords.map(r => ({ref:r.ref, day:r.day, text:r.text, title:'', target:target('project', r.id)})),
       ...rawOrg.map(r => ({ref:r.ref, day:r.day, text:r.text, title:'', target:target('organization', r.open?.org)}))].filter(r => r.ref)};
-  // CAL-조직참고캘린더: 내 프로필에서 고른 조직 참고 캘린더의 주요 일정(그 주·앞으로 2주). 그 조직 칸 추천 줄로만 쓰고(4. 산하 조직 현황 화면,
-  // 한글 파일 상자 그 조직 칸), 5. 주요 일정·참고·복사 글에는 넣지 않는다. 고르지 않았거나 못 읽으면 빈 값(추천 줄이 안 보일 뿐).
-  const refRead = ok(m, 'orgRefs');
-  const orgRefs = refRead?.configured ? {org:refRead.org, items:refRead.items || []} : {org:'', items:[]};
-  return {start, days, requests, summary, meetings, orgs, calendar, calendarView, calendarDrops:drops, hq, discuss, hand:handModel, notes, remembered, fileEdits, overlap, overlapSource, orgRefs};
+  // ORG-기록하나로 O-6: 조직 참고 캘린더 '캘린더 추천'(orgRefs)은 지웠다 — 그 캘린더 일정은 조직보고 창의 일정 줄로 보인다(record-window-view.js).
+  return {start, days, requests, summary, meetings, orgs, calendar, calendarView, calendarDrops:drops, hq, discuss, hand:handModel, notes, remembered, fileEdits, overlap, overlapSource};
 }
 const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDateKey(value) : '';
 
@@ -728,34 +724,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       part.append(el('p', 'journal-org-name', section.name));
       part.append(itemList(section.items));
       const gone = droppedFiles(section.dropped); if (gone) part.append(gone);
-      // CAL-조직참고캘린더: 그 조직 칸에만 조직 참고 캘린더 추천 줄. [+]를 누르면 요약 고치기 칸 끝에 그 줄이 들어가고, [저장]하면 보고에 들어간다.
-      // 이미 요약(또는 고치는 칸)에 든 일정은 다시 보이지 않는다.
-      const all = can && section.id && section.id === model.orgRefs?.org
-        ? model.orgRefs.items.filter(item => !orgRefIn((model.orgLines?.get(section.id) ?? []).join('\n'), item)) : [];
-      // S46-22: 추천마다 작은 [×](이번 주 제안에서 빠짐 — 한글 파일 상자 그 조직 칸 추천과 같은 열쇠), 뺀 것은 목록에 남기지 않는다(WEEKLY-뺀목록삭제 — 방금 뺀 것만 [되돌리기], 데이터는 picks 에 그대로).
-      const picks = model.picks?.ready ? model.picks : null;
-      const sorted = picks ? sortPicks(all, item => ({kind:'calendar', from:'calendar', cell:`orgref:${section.id}`, org:section.name, text:item.label}), picks) : {shown:all.map(raw => ({raw})), gone:[]};
-      const undo = picks?.undo && picks.undo.cell === `orgref:${section.id}` ? picks.undo : null;
-      if (sorted.shown.length || undo) {
-        const ul = el('ul', 'journal-weekly-list journal-org-refs'); ul.dataset.journalOrgRefs = section.id;
-        for (const x of sorted.shown) {
-          const item = x.raw, pick = x.key ? JSON.stringify({kind:x.kind, from:x.from, cell:x.cell, org:x.org, text:x.text, key:x.key}) : '';
-          const li = el('li', 'journal-org-ref'); li.dataset.journalOrgRef = item.key;
-          li.append(el('span', 'journal-org-ref-mark', '캘린더 추천'), doc.createTextNode(` · ${item.label} `));
-          // S52-25 공용 '제안 줄': 줄 끝 ⋯ 하나 → [넣기]·[빼기](빼기 = 이번 주 제안에서 빠짐, 한글 파일 상자와 같은 열쇠). 요약 줄은 글머리 없이(복사·한글 파일이 '- '를 붙임).
-          const items = [{text:'넣기', data:{journalOrgRefAdd:section.id, journalOrgRefText:item.label}, aria:`${section.name} 요약에 넣기: ${item.label}`}];
-          if (pick) items.push({text:'빼기', data:{journalPickDrop:'', journalPick:pick}, disabled:!!picks.busy, danger:true, aria:`제안 빼기: ${item.label}`});
-          li.append(rowMore(doc, {label:`제안: ${item.label}`, data:{journalOrgRefMore:item.key}, items}));
-          ul.append(li);
-        }
-        part.append(ul);
-        if (undo) {
-          const say = el('p', 'journal-line-status'); say.dataset.journalPickUndo = ''; say.setAttribute('role', 'status');
-          const back = el('button', 'mini', '되돌리기'); back.type = 'button'; back.dataset.journalPickUndo = ''; back.dataset.journalPick = JSON.stringify(undo); back.disabled = !!picks.busy;
-          say.append('제안을 뺐어요 ', back); part.append(say);
-        }
-      }
-      if (picks?.status && section.id === model.orgRefs?.org) { const say = el('p', 'journal-line-status', picks.status); if (picks.error) say.classList.add('journal-failed'); part.append(say); }
+      // ORG-기록하나로 O-6(설계 record-one.md 2-9 끝): 조직 참고 캘린더 '캘린더 추천' 줄·[넣기]는 지웠다 — 조직보고 창의 일정 줄이 대신한다.
       orgs.append(part);
     }
     if (!o.sections.length && !o.failed.length) orgs.append(empty());

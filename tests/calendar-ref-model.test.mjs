@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 // CAL-조직참고캘린더: 조직 참고 캘린더 규칙(순수)·서버 읽기(가짜 runtime)·주간 정리 모델. 가짜 캘린더·조직·일정만 쓴다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -94,17 +95,15 @@ test('서버 읽기: 둘 다 골라야 달력을 읽고(그 캘린더만, 3주 �
   assert.ok(!f.calls.some(c => c.path.includes('app_calendar_work_refs')));
 });
 
-test('주간 정리 모델: 추천은 orgRefs로만 오고 5. 주요 일정·참고·복사 글에는 들어가지 않는다', () => {
+test('ORG-기록하나로 O-6: 주간 정리 모델에 캘린더 추천(orgRefs)이 없다 — 조직 참고 캘린더 일정은 조직보고 창의 일정 줄로 보인다', () => {
   const base = { start: '2026-10-19', lines: new Map(), materials: { catalog: { status: 'ok', items: [] }, upcoming: { status: 'ok', items: [] } } };
-  const without = weeklySummary(base);
-  assert.deepEqual(without.orgRefs, { org: '', items: [] });
   const items = pickOrgRefs([ev('a', '가상 총력결의대회', '2026-10-21')], choice, orgRefRange('2026-10-19'));
   const withRefs = weeklySummary({ ...base, materials: { ...base.materials, orgRefs: { status: 'ok', items: { configured: true, org: ORG, items } } } });
-  assert.deepEqual(withRefs.orgRefs, { org: ORG, items });
-  assert.deepEqual(withRefs.calendar, without.calendar);
-  assert.equal(weeklyReportText(withRefs), weeklyReportText(without));
-  assert.ok(!('calRefs' in withRefs.notes));
-  assert.deepEqual(weeklySummary({ ...base, materials: { ...base.materials, orgRefs: { status: 'failed' } } }).orgRefs, { org: '', items: [] });
+  assert.ok(!('orgRefs' in withRefs));
+  assert.equal(weeklyReportText(withRefs), weeklyReportText(weeklySummary(base)));
+  const rd = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8'), wk = readFileSync(new URL('../app/journal-weekly.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(rd + wk + readFileSync(new URL('../app/weekly-flow-cells.js', import.meta.url), 'utf8') + readFileSync(new URL('../app/journal-hwpx.js', import.meta.url), 'utf8'), /readOrgRefs|journalOrgRef|journal-org-ref|addOrgRef|orgRefIn|orgRefLine/);
+  assert.match(readFileSync(new URL('../app/record-window-model.mjs', import.meta.url), 'utf8'), /import \{isOrgRefTitle, cleanTitle\} from '\.\/calendar-ref-model\.mjs'/);
 });
 
 test('조직 요약 재료(summaryCalendar): 고른 조직이 요약할 조직에 있고 추천 줄이 있을 때만 날짜·제목만', () => {

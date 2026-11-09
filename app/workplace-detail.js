@@ -1,4 +1,3 @@
-import {suggestOrgWeek} from './weekly-org-suggest.js';
 import {floatingWindowOpen} from './open-window.mjs'; // ★LIB-바깥파일놓기안됨 전수: 다른 화면 칸에 붙은 창은 위에 뜬 창이 아니다
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
@@ -249,7 +248,6 @@ async function wdSaveRecord(x,{text,value}){
   const rows=await wdApi(`${base}${hasDoc(x)?'':'&doc=is.null'}&select=id,occurred_at,raw_text,detail_text,doc`,{method:'PATCH',body:recordPatch('raw_text',{text,value}),prefer:'return=representation'});
   if(!Array.isArray(rows)||rows.length!==1)throw new Error('기록이 그사이 바뀌었어요. 목록을 다시 불러온 뒤 수정해 주세요.');
   if(wdOrg?.id===orgId)wdUpdates=wdUpdates.map(u=>u.id===id?{...u,...rows[0]}:u);
-  suggestOrgWeek('org_update',id,{rt:window.KPTURuntime}); // WEEKLY-메뉴짝짓기 P4: 고친 기록 → 그 주 조직보고 제안 줄 다시 정돈(사람이 고친 줄은 서버가 그대로 둠)
   return rows[0]}
 function wdUpMenuInstall(){if(wdUpMenu)return wdUpMenu;wdUpMenu=createAnchoredMenu({id:'wdUpMenu',className:'basket-link-menu wd-up-menu',label:'기록 관리',historyKey:'kptuWdUpMenu',parent:document.querySelector('#wdModal')||document.body,
   key:t=>t.dataset.wdUpMenu,canOpen:t=>!!wdOrg?.canEdit&&!t.disabled&&!t.closest('[data-wd-up]')?.querySelector('[data-wd-up-edit]'),

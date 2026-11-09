@@ -495,11 +495,11 @@ jobs:
       - name: Check org report window model (ORG-기록하나로 O-4)
         run: node --test tests/record-window-model.test.mjs tests/record-oneline.test.mjs
 
+      - name: Check weekly report file and confirm snapshot from the window (ORG-기록하나로 O-6)
+        run: node --test tests/record-one-file.test.mjs
+
       - name: Check business summary window model (BIZ-기록하나로 B-3)
         run: node --test tests/business-now-model.test.mjs
-
-      - name: Check weekly org report suggestion calls (WEEKLY-메뉴짝짓기 P4)
-        run: node --test tests/weekly-org-suggest.test.mjs
 
       - name: Check document plus button keyboard (UI-플러스키보드)
         run: node --test tests/plus-keyboard.test.mjs

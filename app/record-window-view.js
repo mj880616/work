@@ -105,6 +105,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   async function readLegacy() {
     const {readWeekLines} = await import('./weekly-org-lines.js');
     const r = await readWeekLines({rt: ctl.rt, workspaceId: ctl.workspaceId, week: ctl.week, orgIds: ctl.orgIds});
+    ctl.legacyMissing = !!r.missing; // 옛 표가 아직 없는(DB 적용 전) 곳: 화면이 그 주 임시저장 칸을 대신 그린다(journal.js)
     const out = new Map();
     for (const id of ctl.orgIds) out.set(id, (r.rows?.get(id) || []).filter(l => l.state === 'in').map(l => ({id: `old:${l.id}`, kind: 'old', key: l.id, day: l.day || '', end_day: l.end_day || null, text: M.oneLine(l.body), full: String(l.body ?? '')})).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')));
     return out;
@@ -166,6 +167,10 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   // 보고 줄 글('- 11.2. 글') — 복사·한글 파일. 사진 주는 사진 줄, 옛 주는 옛 넣은 줄.
   // 복사·한글 글은 고른 순서와 상관없이 늘 날짜 오름차순(주간보고 원칙).
   ctl.lineTexts = orgId => { const x = ctl.cell(orgId, 'asc'); return (x.mode === 'window' ? x.shown : x.lines).map(M.lineText); };
+  // ORG-기록하나로 O-6(설계 2-8): 한글 파일·확정 사진 줄 = 화면에 보이는 그대로(날짜 오름차순). 일정은 다 읽은 뒤에만 '준비됨'(읽는 중이면 파일에 일정 줄이 빠지므로).
+  ctl.fileReady = () => ctl.status === 'ready' && (old() || !withEvents || (['ready', 'error', 'off'].includes(ctl.ev.status) && ctl.ev.week === ctl.week));
+  ctl.fileLines = orgId => M.fileLines(ctl.cell(orgId, 'asc'));
+  ctl.snapshotRows = () => ctl.orgs.map(o => M.snapshotRow({section: ctl.section, org: o.id, label: o.name, lines: ctl.fileLines(o.id), seen: ctl.section === 'org' ? M.seenEvents({org: o.id, week: ctl.week, events: events()}) : []}));
   const findLine = id => { for (const o of ctl.orgIds) { const x = ctl.cell(o); for (const l of [...(x.shown || []), ...(x.folded || []), ...(x.out || []), ...(x.lines || [])]) if (l.id === id) return {org: o, line: l}; } return null; };
 
   // ---- 그리기 ----

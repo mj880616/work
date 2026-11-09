@@ -1,9 +1,8 @@
-import {suggestFromLinks} from './weekly-org-suggest.js';
 // BASKET-AI메뉴삭제: what is left of the old [AI 분류 요청] path is the one confirm call (app_basket_confirm_links) and its messages,
 // shared by the manual link panel (basket-manual-link.js), the record delete/undo (basket-record-delete.js) and 기록할 곳 (update-places.js).
 export const ERROR_TEXT = Object.freeze({RESULT_UNKNOWN:'결과를 확인하지 못했어요. 다시 확인을 눌러 현재 연결을 확인해 주세요.',NOTE_MISSING:'업데이트를 찾거나 열 수 없어요.',NOTE_WORKSPACE:'다른 업무 공간의 업데이트예요.',NOTE_ARCHIVED:'보류한 업데이트예요.',AI_EXCLUDED:'AI에게 맡기지 않기로 한 업데이트예요.',NOTE_CHANGED:'업데이트가 바뀌었어요. AI에게 다시 맡겨 주세요.',TARGET_MISSING:'연결할 곳을 찾거나 열 수 없어요.',TARGET_WORKSPACE:'다른 업무 공간에 있는 곳이에요.',TARGET_UNSELECTABLE:'지금은 선택할 수 없는 곳이에요.',ALREADY_CONFIRMED:'이미 연결됨',NEXT_STAGE:'아직 지원하지 않는 항목',FUNCTION_UNAVAILABLE:'연결 기능 준비 중',INVALID_TARGETS:'연결할 곳을 다시 확인해 주세요.',INVALID_INPUT:'업데이트 정보가 맞지 않아요. AI에게 다시 맡겨 주세요.',PERMISSION_DENIED:'이 내용을 열거나 연결할 권한이 없어요.',SUGGESTED_EXISTS:'이미 제안된 연결이 있어요. 현재 연결을 확인해 주세요.'});
 // WEEKLY-메뉴짝짓기 P4: 조직에 확정 연결되면 그 업데이트를 그 주 조직보고 제안 줄로 보낸다(기다리지 않음).
 export async function confirmLinks(noteId,updatedAt,targets,rt=window.KPTURuntime) {
-  try{const r=await rt.api('/rest/v1/rpc/app_basket_confirm_links',{method:'POST',body:{p_note_id:noteId,p_note_updated_at:updatedAt,p_targets:targets.map(t=>({kind:t.kind,target_id:t.target_id,reason:t.reason,...(Object.hasOwn(t,'summary')?{summary:t.summary}:{})}))}});if(r?.ok!==false)suggestFromLinks(noteId,targets,{rt});return r;}
+  try{const r=await rt.api('/rest/v1/rpc/app_basket_confirm_links',{method:'POST',body:{p_note_id:noteId,p_note_updated_at:updatedAt,p_targets:targets.map(t=>({kind:t.kind,target_id:t.target_id,reason:t.reason,...(Object.hasOwn(t,'summary')?{summary:t.summary}:{})}))}});return r;}
   catch(error){if(error?.status===404||/PGRST202|Could not find the function|function .*app_basket_confirm_links.*does not exist/i.test(error?.message||''))return {ok:false,error:'FUNCTION_UNAVAILABLE',created:0,existing:0};throw error;}
 }

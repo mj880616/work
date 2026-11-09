@@ -1,6 +1,5 @@
 import {seoulDateKey} from './meeting-time.js';
 import {announceRecordSaved, projectUpdateDetail, orgUpdateDetail} from './record-saved.js';
-import {suggestOrgWeek} from './weekly-org-suggest.js';
 // Existing authenticated runtime remains responsible for session, RLS and save events.
 export function createGoogleTask({title,due=null,links=[],notes='',expectedSessionEpoch=null}, rt=window.KPTURuntime) {
   return rt.api('/functions/v1/google-tasks?action=create', {method:'POST',...(expectedSessionEpoch==null?{}:{expectedSessionEpoch}),body:{action:'create',task_id:null,title,notes,due,links}});
@@ -17,8 +16,6 @@ export async function saveOrganizationUpdate({organization_id,raw_text,created_b
   try{rows=await rt.api('/rest/v1/app_suborganization_updates', {method:'POST',prefer:'return=representation',body});}
   catch(e){if(kind&&kind!=='user'&&e?.status===409)return [];throw e;}
   announceRecordSaved(orgUpdateDetail(rows,{organization_id,raw_text}));
-  // WEEKLY-메뉴짝짓기 P4: 그 주 조직보고 제안 줄(기다리지 않음, 실패해도 저장은 그대로).
-  if(Array.isArray(rows)&&rows[0]?.id)suggestOrgWeek('org_update',rows[0].id,{rt});
   return rows;
 }
 // 일정 만들기에서 프로젝트를 고른 경우: 프로젝트 화면의 주요 일정과 같은 표·같은 행 모양으로 저장.

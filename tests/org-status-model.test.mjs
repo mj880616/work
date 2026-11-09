@@ -76,7 +76,7 @@ test('같은 줄 판정(sameLine·similarBody): 같은 날(±1일)·비슷한 �
 });
 
 test('DESK-전체현황표 → ORG-기록하나로 O-4 화면 연결: 소탭 [목록|전체 표]는 org-overview.js 하나, 칸은 조직보고 창 공용 부품(record-window-view.js)이 그린다', () => {
-  const ov = read('app/org-overview.js'), so = read('app/suborganizations.js'), st = read('app/org-status-table.js'), wl = read('app/weekly-org-lines.js');
+  const ov = read('app/org-overview.js'), so = read('app/suborganizations.js');
   assert.match(so, /import\('\.\/org-overview\.js'\)/);
   assert.match(ov, /data-so-view="list"[^>]*>목록</);assert.match(ov, /data-so-view="table"[^>]*>전체 표</);
   assert.match(ov, /import \{[^}]*createRecordWindow[^}]*\} from '\.\/record-window-view\.js'/);
@@ -84,15 +84,14 @@ test('DESK-전체현황표 → ORG-기록하나로 O-4 화면 연결: 소탭 [�
   assert.match(ov, /import \{[^}]*weekPickHtml[^}]*\} from '\.\/week-pick\.js'/);
   assert.doesNotMatch(ov, /app_org_status_rows|app_weekly_org_lines|app_report_line_marks|app_suborganization_updates/, '표 이름은 부품 안에만');
   assert.doesNotMatch(ov, /data-oa-fill|data-oa-refill-all|AI로 채우기|모두 다시 채우기/, '[AI로 채우기]·[모두 다시 채우기 (AI)]는 없앴다(설계 3.1)');
-  assert.doesNotMatch(ov + wl, /\b(?:local|session)Stor/, '브라우저 저장소를 쓰지 않는다');
+  assert.doesNotMatch(ov, /\b(?:local|session)Stor/, '브라우저 저장소를 쓰지 않는다');
   assert.match(ov, /name: 'orgall'/);
-  assert.match(wl, /data-wl-toggle/);assert.match(wl, /외 \$\{parts\.older\.length\}줄/);
 });
 
 test('UI-버튼간격: 공용 간격은 토큰 하나(--ds-button-gap)이고 .btn-row가 쓰며, 나란한 버튼은 .btn-row 줄 안에 둔다(담당조직 표)', () => {
   assert.match(read('app/theme-tokens.css'), /--ds-button-gap:\s*8px/);
   assert.match(read('app/ui-standard.css'), /\.btn-row\{[^}]*gap:var\(--ds-button-gap,\s*8px\)/);
-  for (const f of ['app/org-overview.js', 'app/weekly-org-lines.js', 'app/record-window-view.js']) {
+  for (const f of ['app/org-overview.js', 'app/record-window-view.js']) {
     const src = read(f);
     // 템플릿 안에서 </button> 바로 뒤에 <button 또는 <span 이 붙는 줄(사이 간격 0): 같은 줄 앞쪽에 btn-row 클래스가 있어야 한다.
     const all = src.split('\n');
@@ -104,5 +103,5 @@ test('UI-버튼간격: 공용 간격은 토큰 하나(--ds-button-gap)이고 .bt
   }
   // 위쪽 [주 고르기]·[복사] 줄과 제안 줄 버튼은 btn-row
   const ov = read('app/org-overview.js');
-  assert.match(ov, /class="oa-bar btn-row"/);assert.match(read('app/weekly-org-lines.js'), /class="wl-btns btn-row"/);
+  assert.match(ov, /class="oa-bar btn-row"/);
 });

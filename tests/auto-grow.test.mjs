@@ -36,11 +36,8 @@ test('fitAll: 자리가 없어도 멈추지 않는다', () => {
   assert.doesNotThrow(() => fitAll({querySelectorAll: () => []}));
 });
 
-test('주간 정리 조직보고 줄 고치기 칸 = 늘어나는 공용 칸', () => {
-  const src = read('app/weekly-org-lines.js');
-  assert.match(src, /<textarea rows="1" class="wl-f-body" data-wl-field="body" data-autogrow data-enter-field="single"/);
-  assert.doesNotMatch(src, /<input type="text" class="wl-f-body"/);
-  assert.match(src, /fitAll\(ctl\.host\)/);
+test('주간 정리 조직보고 줄: 옛 주별 표 고치기 칸은 지웠다(O-6, 옛 주는 읽기 전용) — 줄 입력 칸은 공용 늘어나기 칸 규칙', () => {
+  assert.doesNotMatch(read('app/weekly-org-lines.js'), /<textarea|<input/);
   assert.match(read('app/base-ui.css'), /textarea\[data-autogrow\]\{box-sizing:border-box;resize:none\}/);
 });
 

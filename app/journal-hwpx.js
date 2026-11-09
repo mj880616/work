@@ -75,7 +75,8 @@ import {readWeekLines} from './weekly-org-lines.js'; // WEEKLY-메뉴짝짓기 P
 import {reportLines as weekReportLines} from './weekly-org-lines-model.mjs';
 import {inSites, SITE_REF_LINE} from './weekly-cell-names.mjs'; // S52-25: 3장에 든 조직은 4장 '참고' 한 줄
 import {isStageLine} from './org-dispute-stage-model.mjs';
-import {reportLine as orgRefLine, materialLine as orgRefMaterial, alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
+import {isOldWeek} from './record-window-model.mjs'; // ORG-기록하나로 O-6: 전환 주(RECORD_ONE_FROM)부터 4. 1)·3. 2)는 조직보고 창 결과
+import {saveReportSnapshot} from './report-snapshot-save.js'; // ORG-기록하나로 O-6: [확정] 성공 직후 그 창 결과 사진
 import {sortPicks, droppedOf, keptOf, withPick, pickKey, reviewDue, withReview} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {learnFor} from './weekly-picks.js';
 
@@ -186,6 +187,19 @@ function applyWeekRows(s, cells, rows) {
   const linesOf = name => { const org = matchOrg(name, list); return org ? weekReportLines(rows.get(org.id) || []) : []; };
   for (const r of s.orgs) { const lines = linesOf(r.org); if (lines.length) orgs.set(r.index, lines); }
   for (const r of s.sites) { const lines = linesOf(r.org); if (lines.length) sites.set(r.index, [...(sites.get(r.index) ?? r.lines ?? []).filter(l => isStageLine(l, stages)), ...lines]); }
+  return {orgs, sites};
+}
+// ORG-기록하나로 O-6(설계 docs/design/record-one.md 2-8·4절 '한글 파일'): 전환 주부터 4. 1) 칸 = 그 조직의 조직보고 창 줄(화면에 보이는 그대로,
+// 보이는 일정 줄 포함·'일정' 표시 없이, 줄이 없으면 빈 칸), 3. 2) 칸 = [그 칸의 쟁의 단계 줄] + 같은 조직의 투쟁 사업장 창 줄(3~7줄).
+// win = {orgs: Map(조직 id → '- 11.2. 글' 줄들), sites: 같은 모양}. 내 담당조직과 이름이 안 맞는 칸은 칸 줄 그대로.
+const isRecordWeek = week => /^\d{4}-\d{2}-\d{2}$/.test(String(week ?? '')) && !isOldWeek(week);
+function applyWindow(s, cells, win) {
+  const orgs = new Map(cells.orgs), sites = new Map(cells.sites);
+  const list = s.context.orgFailed || s.context.orgFallback ? [] : s.context.organizations;
+  if (!win || !list.length) return {orgs, sites};
+  const st = s.context.stages, stages = st?.status === 'ready' ? st.stages : [];
+  for (const r of s.orgs) { const org = matchOrg(r.org, list); if (org && win.orgs.has(org.id)) orgs.set(r.index, [...win.orgs.get(org.id)]); }
+  for (const r of s.sites) { const org = matchOrg(r.org, list); if (org && win.sites.has(org.id)) sites.set(r.index, [...(sites.get(r.index) ?? r.lines ?? []).filter(l => isStageLine(l, stages)), ...win.sites.get(org.id)]); }
   return {orgs, sites};
 }
 // 바탕 고르기는 공용 모듈 weekly-base.js findBase(WEEKLY-한흐름확정 ①: [주간 정리]와 같은 코드).
@@ -530,18 +544,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // 5. 주요 일정: 기억으로 뺀 일정까지 든 달력(allRows)과 이 주에 실제 들어가는 달력(이번 주 빼기·넣기 반영).
   const fullCalendar = () => { const c = getWeek().model?.calendar; return c && c.allRows ? {...c, rows:c.allRows} : c; };
   const shownCalendar = () => visibleCalendar(getWeek().model?.calendar, state?.drops);
-  // CAL-조직참고캘린더: 이번 주 기록 후보(draft.weekMaterial)에, 내 프로필에서 고른 조직의 칸(확정본 줄 이름이 그 조직에 맞는 첫 줄)만
-  // 조직 참고 캘린더 추천 줄을 더한다(그 주·앞으로 2주 주요 일정, model.orgRefs). 칸에 이미 든 일정은 뺀다. 붙이기·AI 재료(초안·줄 제안)에 함께 쓰인다.
+  // 이번 주 기록 후보(draft.weekMaterial). ORG-기록하나로 O-6: 조직 참고 캘린더 추천 줄은 더하지 않는다(조직보고 창의 일정 줄이 대신).
   function rawMaterial(s, model) {
-    const m = s.draft.weekMaterial(model, s.rows, s.orgs, {aliases:s.aliases});
-    const refs = model?.orgRefs, org = refs?.org;
-    if (!org || !refs.items?.length || s.context.orgFailed) return m;
-    const row = s.orgs.find(r => matchOrg(r.org, s.context.organizations)?.id === org);
-    if (!row || !m.byOrg.has(row.index)) return m;
-    const have = s.edits?.orgs?.get(row.index) ?? [];
-    const add = refs.items.filter(item => !orgRefIn(have, item)).map(item => ({day:'', text:orgRefLine(item), from:row.org, orgRef:true, ai:orgRefMaterial(item), src:'calendar', orgId:org}));
-    m.byOrg.set(row.index, [...m.byOrg.get(row.index), ...add]);
-    return m;
+    return s.draft.weekMaterial(model, s.rows, s.orgs, {aliases:s.aliases});
   }
   // ---- S46-22 제안 [×]·학습 (weekly-picks.mjs) ----
   // 이번 주에 뺀 제안·거절해서 안 내는 종류(지난 주들 + 이번 주 picks)는 칸 후보·AI 재료에서 빠지고 칸 아래 접힌 '뺀 제안 n개'에 남는다.
@@ -933,14 +938,17 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // 바탕을 연 뒤에 사업 목록이 읽혔으면 빠진 사업영역 줄을 더하고 칸을 다시 놓는다(그 칸에 쓴 줄이 파일에 들어가게).
     if (needAreas(state)) { const kept = currentDraft(state); rebase(); placeCells(state, kept); }
     // WEEKLY-메뉴짝짓기 P6: 만들 때마다 그 주 주별 조직보고 표를 다시 읽어 4. 1)·3. 2) 칸에 넣는다(담당조직·주간 정리에서 고친 것이 바로 들어가게). 줄이 바뀌었으면 다시 만든다.
-    const s0 = state, orgs0 = s0.context.orgFailed || s0.context.orgFallback ? [] : s0.context.organizations;
-    const weekRows = orgs0.length ? await readWeekLines({rt, workspaceId:rt.context.read()?.workspace?.id, week:s0.start, orgIds:orgs0.map(o => o.id)}).then(r => r.missing ? null : r.rows).catch(() => s0.context.weekRows ?? null) : null;
+    // ORG-기록하나로 O-6: 전환 주부터는 화면의 조직보고 창 결과(4. 1)·3. 2))를 그대로 쓴다 — 창을 아직 다 읽지 못했으면(일정 포함) 만들지 않는다(파일 ≠ 화면 방지).
+    const s0 = state, orgs0 = s0.context.orgFailed || s0.context.orgFallback ? [] : s0.context.organizations, fresh = isRecordWeek(s0.start);
+    const win = fresh && orgs0.length ? (getWeek().win?.() ?? null) : null;
+    if (fresh && orgs0.length && !win) throw Object.assign(new Error('조직보고 표가 아직 다 나오지 않았어요. 잠시 뒤 다시 눌러 주세요.'), {code:'wait'});
+    const weekRows = !fresh && orgs0.length ? await readWeekLines({rt, workspaceId:rt.context.read()?.workspace?.id, week:s0.start, orgIds:orgs0.map(o => o.id)}).then(r => r.missing ? null : r.rows).catch(() => s0.context.weekRows ?? null) : null;
     if (state !== s0) throw Object.assign(new Error('주가 바뀌었어요. 다시 눌러 주세요.'), {code:'stale'});
     const siteNames = arrangeSites(siteRows(state), state.layout).shown.map(r => r.org); // S52-25: 3장 구성이 바뀌면 다시 만든다
-    const weekKey = (weekRows ? JSON.stringify([...weekRows].map(([id, rows]) => [id, weekReportLines(rows)])) : '') + JSON.stringify(siteNames);
+    const weekKey = (win ? JSON.stringify([[...win.orgs], [...win.sites]]) : weekRows ? JSON.stringify([...weekRows].map(([id, rows]) => [id, weekReportLines(rows)])) : '') + JSON.stringify(siteNames);
     if (state.built && state.weekKey === weekKey) return state.built;
     state.weekKey = weekKey;
-    const week = applyWeekRows(state, {orgs:[...state.edits.orgs], sites:[...state.edits.sites]}, weekRows);
+    const week = win ? applyWindow(state, {orgs:[...state.edits.orgs], sites:[...state.edits.sites]}, win) : applyWeekRows(state, {orgs:[...state.edits.orgs], sites:[...state.edits.sites]}, weekRows);
     // S52-25 WEEKLY-투쟁사업장참고: 3. 2) 투쟁 사업장 현황에 들어간 조직(구성 순서로 보이는 사업장, 이름 맞추기 = 칸 이름 기준)의 4. 1) 칸은 '참고' 한 줄.
     // 그 조직 칸에 쓴 줄(임시저장·주별 표)은 그대로 두고 파일에만 넣지 않는다. 3장에서 빼면 다음 만들기부터 원래 줄.
     for (const r of state.orgs) if (inSites(siteNames, r.org)) week.orgs.set(r.index, [SITE_REF_LINE]);
@@ -949,7 +957,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     data.sites = layoutSiteData(data.sites ?? [], siteRows(state), state.layout);
     const bytes = await draft.buildHwpx(state.template, data);
     // 파일 이름: 주간보고_보고일8자리_이름.hwpx — 이름은 로그인 사용자의 표시 이름(프로필 이름, 없으면 로그인 정보의 표시 이름; readContext).
-    state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start), state.context.me)};
+    // 확정 사진(O-6): 이 파일을 만든 바로 그 창 결과. 3장에 들어가 4. 1)이 '참고' 한 줄인 조직도 사진에는 창 줄 그대로 둔다(화면 4. 칸은 3장 칸이 보여 줌).
+    state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start), state.context.me), snapRows:win ? win.snapshot() : null};
     return state.built;
   }
   async function doBuild() {
@@ -996,6 +1005,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       say(ok ? `${result.message} "${b.name}"을(를) 내려받았어요.` : `자료실에 저장하지 못했어요 — ${result.message} 파일은 내려받았어요.`, ok ? 'ok' : 'error');
       if (ok && s.store) {
         s.store.confirmed = {document_id:String(result.document?.id ?? prev), at:new Date().toISOString()};
+        // ORG-기록하나로 O-6(설계 2-8): 개인 확정본 저장에 성공한 직후 한 번, 이 파일을 만든 창 결과를 사진으로. 실패해도 확정·파일은 그대로(그 주는 창 규칙으로 보임).
+        if (b.snapRows) void saveReportSnapshot({rt, workspaceId:rt.context.read()?.workspace?.id, week:s.start, documentId:s.store.confirmed.document_id, rows:b.snapRows})
+          .then(r => { if (r.ok) window.dispatchEvent(new CustomEvent('kptu:record-window-changed', {detail:{source:'snapshot', week:s.start}})); });
         await recordIssued(s, b.bytes, false); recordFeedback(s);
         // WEEKLY-환류전칸(S48-35): 2) 세부 내용에서 고치지도 빼지도 않은 원래 기록 줄 = 그대로 넣음(칸별 '그대로 쓴 비율'에 들어감).
         const taken = withDetailTakes(s.store.extras?.picks, getWeek().model?.meetings?.items);
