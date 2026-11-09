@@ -2,10 +2,14 @@ import {addSeoulDays,seoulParts,formatSeoulTime} from './meeting-time.js';
 import {dayKey} from './home-read-model.js';
 import {waitEl} from './wait-state.js';
 import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js';
-let observer=null,focusKey=null,armScroll=null;
-export function stopList(){observer?.disconnect();if(armScroll){document.removeEventListener('scroll',armScroll,true);armScroll=null}}
+let observer=null,focusKey=null,armScroll=null,armedStart=null;
+// 끝 지켜보기는 다시 그릴 때마다 같은 곳(renderList)에서 새 단추에 다시 건다. 사용자가 한 번 내린 뒤(armedStart)에는 다시 그려도 바로 건다.
+function unwatch(){observer?.disconnect();observer=null;if(armScroll){document.removeEventListener('scroll',armScroll,true);armScroll=null}}
+export function stopList(){unwatch();armedStart=null}
 export function renderList(options,{start,days,tasks,busy,error,more}){
-  stopList();
+  unwatch();
+  const startKey=start.getTime();
+  if(armedStart!==null&&armedStart!==startKey)armedStart=null;
   const box=document.querySelector('#calendarList');if(!box)return;
   focusKey=captureDayFocus(box,focusKey);
   box.replaceChildren();
@@ -30,5 +34,7 @@ export function renderList(options,{start,days,tasks,busy,error,more}){
   restoreDayFocus(box,focusKey);
   // 아래로 내려 끝에 닿으면 다음 14일. UI-전수디자인점검 F05로 빈 날이 한 줄이 되어 14일이 한 화면에 들어오므로,
   // 열자마자 저절로 더 받지 않게 사용자가 한 번 내린 뒤부터 지켜본다(다 들어오면 [다음 14일 불러오기]를 누르면 된다).
-  if(!busy&&!error){const watch=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting))more()});observer=watch;armScroll=()=>{document.removeEventListener('scroll',armScroll,true);armScroll=null;if(observer===watch)watch.observe(button)};document.addEventListener('scroll',armScroll,{capture:true,passive:true})}
+  if(!busy&&!error){const watch=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting))more()});observer=watch;
+    if(armedStart===startKey)watch.observe(button);
+    else{armScroll=()=>{document.removeEventListener('scroll',armScroll,true);armScroll=null;armedStart=startKey;if(observer===watch)watch.observe(button)};document.addEventListener('scroll',armScroll,{capture:true,passive:true})}}
 }
