@@ -5,6 +5,15 @@ async function open(page,width=360,view='default',prefsOptions={}){
   await page.setViewportSize({width,height:844});
   return openEmphasisFixture(page,{view,prefsOptions});
 }
+// 다음 14일 시험은 목록이 마지막으로 다시 그려진 뒤에 시작한다: 할 일 읽기가 늦게 끝나면 목록이 통째로 다시 그려져 [다음 14일] 단추가 바뀌므로
+// (calendar-view.js setTasks → paint), 첫 할 일 줄(10월 20일 '할 일 1개')이 보일 때까지 기다려 늦은 다시 그리기와 겹치지 않게 한다.
+async function openPaged(page){
+  const opened=await open(page);
+  await expect(page.locator('.clv-day')).toHaveCount(14);
+  await expect(page.locator('.clv-day[data-date="2026-10-20"] .clv-tasks')).toBeVisible();
+  await expect(page.locator('#calendarListMore')).toBeEnabled();
+  return opened;
+}
 test('phone defaults to 14 date groups with empty days and separate tasks',async({page})=>{
   await open(page);
   await expect(page.locator('.clv-day')).toHaveCount(14);
@@ -19,8 +28,7 @@ test('phone defaults to 14 date groups with empty days and separate tasks',async
   await expect(page.locator('#calendarDayModal')).not.toContainText('DAY SCHEDULE');
 });
 test('bottom loads another 14 days and navigation resets the range',async({page})=>{
-  await open(page);
-  await expect(page.locator('.clv-day')).toHaveCount(14);
+  await openPaged(page);
   // 빈 날이 한 줄이라 14일이 한 화면에 들어올 수 있다: 열자마자 저절로 받지 않고, 한 번 내린(scroll) 뒤부터 끝에 닿으면 받는다.
   await page.locator('#calendarListMore').scrollIntoViewIfNeeded();await page.evaluate(()=>document.dispatchEvent(new Event('scroll')));
   await expect(page.locator('.clv-day')).toHaveCount(28);
@@ -48,8 +56,7 @@ test('chosen view survives reload; PC defaults to week',async({page})=>{
 });
 
 test('failed next page keeps the shown days and retries the same 14 day interval',async({page})=>{
-  const {calls}=await open(page);
-  await expect(page.locator('.clv-day')).toHaveCount(14);
+  const {calls}=await openPaged(page);
   let failures=1;
   await page.route('**/functions/v1/google-calendar?action=events*',route=>{
     if(failures-->0)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'QA read failure'})});
@@ -86,7 +93,7 @@ test('exclusive ends, all-day first, timed order and multi-day rows share the ho
 });
 
 test('forced refresh replaces old events while a next-page read is pending',async({page})=>{
-  await open(page);await expect(page.locator('.clv-day')).toHaveCount(14);
+  await openPaged(page);
   let release;const hold=new Promise(r=>release=r);let count=0;
   await page.route('**/functions/v1/google-calendar?action=events*',async route=>{
     if(++count===1)await hold;
@@ -101,7 +108,7 @@ test('forced refresh replaces old events while a next-page read is pending',asyn
   await expect(page.locator('#calendarList [data-google-event]')).toHaveCount(0);
 });
 test('disconnect unlocks pending pagination and discards its late response',async({page})=>{
-  await open(page);await expect(page.locator('.clv-day')).toHaveCount(14);
+  await openPaged(page);
   let release;const hold=new Promise(r=>release=r);let requested=false;
   await page.route('**/functions/v1/google-calendar?action=events*',async route=>{requested=true;await hold;return route.fallback()});
   await page.evaluate(()=>document.querySelector('#calendarListMore').click());
