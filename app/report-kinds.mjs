@@ -12,7 +12,7 @@ export const REPORT_KINDS=Object.freeze([
 ].map(Object.freeze));
 export const ALL_KINDS='all';
 // MTG-한줄업데이트(요청 10/29 08:59): '한 줄 업데이트' = 사업영역 꼬리표를 단 가벼운 사업 보고 한 건(DB 값 'oneline', 20261029160000).
-// 여덟 칸과 따로 둔다: 쓰기 창의 칸 고르기·[칸 바꾸기]에는 나오지 않고, [+] 메뉴 맨 위 [한 줄 업데이트]로만 만든다(report-oneline.js).
+// 여덟 칸과 따로 둔다: 쓰기 창의 칸 고르기·[종류 바꾸기]에는 나오지 않고, [+] 메뉴 맨 위 [한 줄 업데이트]로만 만든다(report-oneline.js).
 export const ONELINE_KIND='oneline';
 export const isOnelineReport=row=>row?.activity_kind===ONELINE_KIND;
 export const DEFAULT_KIND='meeting';

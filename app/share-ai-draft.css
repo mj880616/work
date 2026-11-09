@@ -1,20 +1,17 @@
-/* FEAT-1029묶음 ④ 성명·보도자료 초안 창(app/press-draft.js). 콤팩트·톤다운, 기존 --kptu-* 변수만. 폰: 한 칸씩, PC(761px~): 근거 | 미리보기 두 칸. */
-.press-draft{width:min(1180px,calc(100vw - 16px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);display:none;flex-direction:column;font-size:13px}
-.press-draft[open]{display:flex}
-.press-draft::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transparent)}
+/* 공유 페이지 AI 초안 창(app/share-ai-draft.js). 콤팩트·톤다운, 기존 --kptu-* 변수만. 폰: 한 칸씩, PC(761px~): 근거 | 미리보기 두 칸.
+   PRESS-성명초안삭제(11/09): 옛 성명·보도자료 초안 창(press-draft.css)을 지우면서 이 창이 쓰던 규칙만 이 파일로 옮겼다. */
+.share-ai-draft{width:min(1180px,calc(100vw - 16px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);display:none;flex-direction:column;font-size:13px}
+.share-ai-draft[open]{display:flex}
+.share-ai-draft::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transparent)}
 .pd-head{display:flex;align-items:center;gap:var(--kptu-space-2);padding:6px var(--kptu-space-3);border-bottom:1px solid var(--kptu-border)}
 .pd-head h2{margin:0;font-size:15px;flex:1;min-width:0}
 .pd-icon{position:relative;border:0;background:none;color:var(--kptu-muted);font-size:18px;line-height:1;padding:4px 6px;cursor:pointer}
 .pd-icon::after{content:"";position:absolute;inset:min(0px,calc((100% - 44px)/2));min-width:44px;min-height:44px}
 .pd-body{flex:1;min-height:0;overflow:auto;display:block}
-.press-draft.pd-two .pd-body{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);overflow:hidden}
-.press-draft.pd-two .pd-pane{overflow:auto}
-.press-draft.pd-two .pd-pick-pane{border-right:1px solid var(--kptu-border)}
+.share-ai-draft.pd-two .pd-body{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);overflow:hidden}
+.share-ai-draft.pd-two .pd-pane{overflow:auto}
+.share-ai-draft.pd-two .pd-pick-pane{border-right:1px solid var(--kptu-border)}
 .pd-pane{padding:var(--kptu-space-2) var(--kptu-space-3);min-width:0}
-.pd-types{display:flex;gap:6px;margin-bottom:6px}
-.pd-chip{position:relative;height:28px;padding:0 10px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);color:var(--kptu-ink);font-size:12px}
-.pd-chip::after{content:"";position:absolute;inset:min(0px,calc((100% - 44px)/2));min-height:44px}
-.pd-chip[aria-pressed="true"]{border-color:var(--kptu-primary);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-weight:700}
 .pd-direction{display:block;margin-bottom:4px}
 .pd-direction input{width:100%;box-sizing:border-box;height:32px;padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface);color:var(--kptu-ink);font-size:13px}
 .pd-muted{color:var(--kptu-muted);font-size:12px}
@@ -30,8 +27,6 @@ p.pd-muted{margin:4px 0}
 .pd-preview-name{font-weight:700}
 .pd-preview-head .pd-muted{flex:1;min-width:0}
 .pd-doc{max-width:760px;padding:10px 14px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface-subtle);line-height:1.6}
-.pd-doc-title{margin:2px 0;font-size:15px}
-.pd-doc-sub{margin:0 0 8px;color:var(--kptu-muted)}
 .pd-doc p{margin:0 0 8px;overflow-wrap:anywhere}
 .pd-ref{color:var(--kptu-muted);font-size:11px;white-space:nowrap}
 .pd-demands{margin:0 0 4px;padding-left:18px}
@@ -40,8 +35,4 @@ p.pd-muted{margin:4px 0}
 .pd-checks ol,.pd-sources ol{margin:2px 0 0;padding-left:18px}
 .pd-status{margin:0;padding:4px var(--kptu-space-3);min-height:18px;font-size:12px;color:var(--kptu-muted);border-top:1px solid var(--kptu-border)}
 .pd-status:empty{display:none}
-@media (max-width:760px){.press-draft{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0}}
-/* S48-18 바깥 문장(사회운동 Now [초안에 쓰기]): 접힌 칸 하나, 문장은 두 줄까지 */
-.pd-quotes{margin:4px 0 8px;border-bottom:1px solid var(--kptu-border)}
-.pd-quotes>summary{cursor:pointer;padding:6px 2px;font-size:13px}
-.pd-quote .pd-pick-name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13px}
+@media (max-width:760px){.share-ai-draft{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0}}

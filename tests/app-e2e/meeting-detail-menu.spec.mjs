@@ -3,7 +3,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {openMeetingResult} from './helpers/meeting-open.mjs';
 
-// MTG-보고창정리: 사업 보고 상세 창 - 정리함에 담기·안내문이 없고(MEET-기록보내기 1단계의 담기 기능을 걷어냄), 수정·칸 바꾸기·삭제는 제목 줄 ⋯ 메뉴 하나. 합성 자료만 쓴다.
+// MTG-보고창정리: 사업 보고 상세 창 - 정리함에 담기·안내문이 없고(MEET-기록보내기 1단계의 담기 기능을 걷어냄), 수정·종류 바꾸기·삭제는 제목 줄 ⋯ 메뉴 하나. 합성 자료만 쓴다.
 test.use({timezoneId:'Asia/Seoul',hasTouch:true});
 const BASE=testOrigin,SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const meeting={
@@ -53,23 +53,24 @@ for(const width of [412,870,1280])test(`no basket button or guide text, one ⋯ 
   const inside=await page.evaluate(()=>{const b=document.querySelector('#mrdMore').getBoundingClientRect(),c=document.querySelector('#meetingRoundDetailModal .modal-card').getBoundingClientRect();return b.left>=c.left&&b.right<=c.right&&b.top>=c.top});
   expect(inside).toBe(true);
   await more.click();
-  const menu=modal.locator('#mrdMoreMenu');await expect(menu.locator('button')).toHaveText(['수정','칸 바꾸기','성명 초안 만들기','삭제']);
+  const menu=modal.locator('#mrdMoreMenu');await expect(menu.locator('button')).toHaveText(['수정','종류 바꾸기','삭제']);
   const box=await menu.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);
   await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(f.posts).toHaveLength(0);expect(f.errors).toEqual([]);
 });
 
-// FEAT-1029 ④: ⋯ [성명 초안 만들기] opens the 성명·보도자료 초안 window over the report; opening it saves nothing.
-for(const width of [412,1280])test(`⋯ [성명 초안 만들기] opens the draft window ${width}`,async({page})=>{
+// MTG-종류바꾸기이름(11/09): ⋯ [종류 바꾸기]가 '종류 바꾸기' 제목의 선택 창을 연다. PRESS-성명초안삭제(11/09): 성명 초안 메뉴·창은 없다.
+for(const width of [390,884,1440])test(`⋯ [종류 바꾸기] opens the kind sheet, no press draft entry ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});
   const f=await setup(page);
   await page.locator('#mrdMore').click();
-  await page.locator('#mrdMoreMenu [data-mrd-more="press"]').click();
-  const d=page.locator('#pressDraftDialog');await expect(d).toBeVisible();
-  await expect(d.locator('h2')).toHaveText('성명·보도자료 초안');
-  await expect(d.getByRole('button',{name:'성명',exact:true})).toHaveAttribute('aria-pressed','true');
-  await d.locator('[data-pd-close]').click();await expect(d).toBeHidden();
+  const menu=page.locator('#mrdMoreMenu');await expect(menu).toBeVisible();
+  await expect(menu.locator('[data-mrd-more="press"]')).toHaveCount(0);await expect(menu).not.toContainText('성명');
+  await menu.locator('[data-mrd-more="kind"]').click();
+  await expect(page.locator('#reportKindSheetTitle')).toHaveText('종류 바꾸기');
+  await page.keyboard.press('Escape');await expect(page.locator('#reportKindSheetTitle')).toBeHidden();
+  await expect(page.locator('#pressDraftDialog')).toHaveCount(0);
   expect(f.posts).toHaveLength(0);expect(f.errors).toEqual([]);
 });
 

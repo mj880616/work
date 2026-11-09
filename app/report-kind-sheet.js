@@ -1,4 +1,5 @@
-// MTG-사업보고 4단계: '칸 고르기' 창 하나와 칸 바꾸기 저장 하나. [+](칩이 [전체]일 때)·PC 결과 ⋯ → [칸 바꾸기]·결과 창 [칸 바꾸기]가 함께 쓴다.
+// MTG-사업보고 4단계: '칸 고르기' 창 하나와 종류 바꾸기 저장 하나. [+](칩이 [전체]일 때)·사업 보고 창(PC 붙임 칸·폰 팝업) ⋯ → [종류 바꾸기]가 함께 쓴다.
+// MTG-종류바꾸기이름(11/09 명진 결정): 메뉴·창 제목 '칸 바꾸기' → '종류 바꾸기'.
 // 창은 공용 고르기 창(choice-sheet.js: 폰은 아래에서 올라오는 판, PC는 누른 버튼 아래 작은 목록, Esc·뒤로가기로 닫힘)을 그대로 쓴다.
 // 저장은 회의 결과 창 수정과 같은 app_meetings REST PATCH(소유자 RLS, 같은 업무공간 조건)이고 activity_kind·updated_at만 보낸다.
 // 허용값은 DB CHECK(20261022182319_bizreport_activity_kind)가 다시 막는다. 화면 고르기는 편의일 뿐이다.
@@ -29,14 +30,14 @@ export function pickReportKind(trigger,{title='칸 선택',current='',onPick,onO
 
 // 칸 바꾸기 저장. 돌아온 행이 같은 id·같은 업무공간·고른 칸인지 확인한다(회의 결과 창 수정 저장과 같은 확인).
 export async function saveReportKind(id,kind){
-  if(!isReportKind(kind))throw new Error('선택할 수 없는 칸입니다.');
+  if(!isReportKind(kind))throw new Error('선택할 수 없는 종류입니다.');
   const rt=window.KPTURuntime,workspace=rt?.context?.read?.()?.workspace?.id;
   if(!rt?.api||!workspace||!id)throw new Error('로그인 상태를 확인하지 못했습니다.');
   // ACT-사진 3단계: 사진의 자료실 종류가 칸을 따라가도록 바꾸기 전 칸을 기억해 둔다(못 읽으면 사진은 그대로 둔다).
   const before=await rt.api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(workspace)}&select=activity_kind`).then(r=>Array.isArray(r)&&r.length===1?reportKindOf(r[0]):null,()=>null);
   const rows=await rt.api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(workspace)}&select=*`,{method:'PATCH',body:{activity_kind:kind,updated_at:new Date().toISOString()},prefer:'return=representation'});
   const row=Array.isArray(rows)&&rows.length===1?rows[0]:null;
-  if(!row||String(row.id)!==String(id)||row.workspace_id!==workspace||row.activity_kind!==kind)throw new Error('칸을 바꾼 결과를 확인하지 못했습니다.');
+  if(!row||String(row.id)!==String(id)||row.workspace_id!==workspace||row.activity_kind!==kind)throw new Error('종류를 바꾼 결과를 확인하지 못했습니다.');
   if(before)await followPhotoCategory(rt,id,before,kind);
   await window.__KPTU_RELOAD_MEETINGS__?.();
   window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}}));

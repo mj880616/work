@@ -19,7 +19,6 @@ const removed = [
   ['index.html', '자료실에도 자동 등록'],
   ['org-status-table.js', '그대로 들어감'],
   ['now-interests.js', 'AI가 별표·보관·메모'],
-  ['press-draft.js', '누르면 여기에 미리보기가 나와요'],
   ['share-ai-draft.js', '누르면 여기에 칸별 미리보기가 나와요'],
   ['share-ai-draft.js', '근거 번호와 확인할 것은 본문에 들어가지 않아요'],
   ['suborganizations.js', '담당자를 지정합니다'],
