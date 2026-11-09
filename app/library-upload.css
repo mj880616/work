@@ -176,6 +176,9 @@
 /* S51-25 FOLDER-세모0: 묶음 머리의 세모(::before)는 없다 — 모든 묶음이 열린/닫힌 폴더 그림(library-tree.js). */
 #appView #libraryView .lu-node-head::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #appView #libraryView .lu-node-head:hover{background:var(--kptu-surface-subtle)}
+/* S55-08 LIB-폴더이름칸닫힘: 이름을 고치는 동안은 줄을 덮는 누름 칸(::after)을 걷어 입력칸이 누름·끌어 고르기를 받게 한다. 입력칸은 줄의 다른 덮개보다 위. */
+#appView #libraryView .lu-node-head.lu-renaming::after{content:none}
+.lu-node-head .lu-folder-rename,.lu-row .lu-rename-input{position:relative;z-index:1}
 #appView #libraryView .lu-node-head:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 /* LIB-목록간격 ②(2026-10-23 사용자 확정 11:02): 폴더 줄 글자는 자료 줄 이름과 같은 크기(--ds-text-row), 맨 위 단(프로젝트 이름·'프로젝트 없음')만 굵게,
    하위 프로젝트·폴더는 보통 굵기에 단마다 들여 쓴다. 줄 간격은 지금보다 조금 넓게(32 → 36px). 누르는 범위(44px)는 ::after 그대로.
@@ -478,4 +481,7 @@
 .home-choice-sheet.lu-cat-sheet .home-choice-foot .lu-cat-sheet-edit{order:-1}
 .home-choice-sheet.lu-cat-sheet .home-choice-foot .home-choice-count{flex:1 1 auto;min-width:0}
 /* S53-19 LIB-화면끌어놓기 이어서: PC 파일을 왼쪽 폴더 나무 줄·위치 줄 칸 위로 끌면 오른쪽 목록 폴더 줄과 같은 놓을 곳 표시(점선 + 연한 강조색). */
-#libraryFolderNav .ft-row.lu-drop-place>.ft-main,#libraryPath .lu-drop-place{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-sm,6px)}
+/* S55-08 LIB-나무로끌기안됨: 자료·폴더를 끌어 나무 줄 위로 가져오면 같은 표시(놓을 수 없는 줄은 흐리게), 끄는 나무 줄은 반투명. */
+#libraryFolderNav .ft-row.lu-drop-no>.ft-main{opacity:.55;cursor:no-drop}
+#libraryFolderNav .ft-row.lu-dragging{opacity:.5}
+#libraryFolderNav .ft-row.lu-drop-place>.ft-main,#libraryFolderNav .ft-row.lu-drop-into>.ft-main,#libraryPath .lu-drop-place{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-sm,6px)}

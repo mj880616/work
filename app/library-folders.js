@@ -166,7 +166,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const state={id,input,finish(save,refocus=false){
       if(done)return;done=true;if(renaming===state)renaming=null;
       const raw=input.value;
-      if(input.isConnected)input.replaceWith(nameEl);if(wasDraggable!==null&&head.isConnected)head.setAttribute('draggable',wasDraggable);
+      if(input.isConnected)input.replaceWith(nameEl);head.classList.remove('lu-renaming');if(wasDraggable!==null&&head.isConnected)head.setAttribute('draggable',wasDraggable);
       if(refocus&&head.isConnected)head.focus({preventScroll:true});
       if(!save||raw===f.name)return;
       const clean=cleanFolderName(raw);
@@ -181,7 +181,10 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       else if(e.key==='Escape'){e.preventDefault();state.finish(false,true)}
     });
     input.addEventListener('blur',()=>state.finish(input.isConnected));
-    head.removeAttribute('draggable');nameEl.replaceWith(input);renaming=state;
+    // S55-08 LIB-폴더이름칸닫힘: 원인(사실) — 폴더 줄 머리의 손가락 크기 누름 칸(.lu-node-head::after, 줄 전체를 덮는 투명 칸)이 입력칸 위에 있어
+    // 칸을 눌러도 누름이 머리(summary)로 가서 초점이 머리로 옮겨지고(blur = 저장·닫힘) 폴더가 펼쳐지거나 접혔다. 고치는 동안은 그 칸을 걷는다(lu-renaming).
+    // 칸 안 누름·끌어 고르기·두 번 눌러 단어 고르기는 입력칸이 받고, 그 줄은 펼침·접힘·끌기를 하지 않는다(위 stopPropagation + draggable 해제 + summary 기본 동작 막기).
+    head.classList.add('lu-renaming');head.removeAttribute('draggable');nameEl.replaceWith(input);renaming=state;
     input.focus({preventScroll:true});input.select();
   }
   function focusSummary(key){headOf(key)?.focus({preventScroll:true})}
@@ -230,7 +233,11 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const docById=id=>s().docs.find(d=>d.id===id);
   const rowOf=id=>[...document.querySelectorAll('#documentList .lu-row')].find(x=>x.dataset.luDocument===id);
   // el에서 시작한 끌기 상태. touch=true(폰 길게 누르기)이면 draggable 표시가 없어도 잡는다.
+  // S55-08 LIB-나무로끌기안됨: 두 칸 폴더 보기의 왼쪽 나무 폴더 줄(#libraryFolderNav)도 같은 끌기·놓기 부품을 쓴다(ⓑ 나무 → 목록, ⓓ 나무 → 나무).
+  const navAt=el=>el?.closest?.('#libraryFolderNav [data-lu-nav]')||null;
   function dragFrom(el,touch=false){
+    const nav=!touch&&el?.closest?.('#libraryFolderNav [data-lu-nav][draggable="true"]');
+    if(nav){const f=folder(nav.dataset.luNav);return f?{kind:'folder',id:f.id,frame:f.project_id||null,els:[nav.closest('.ft-row')||nav]}:null}
     const head=el.closest?.(touch?'summary.lu-node-head':'summary.lu-node-head[draggable="true"]'),row=el.closest?.(touch?'.lu-row[data-lu-document],.lu-row[data-lu-photoset]':'.lu-row[draggable="true"]');
     if(head){const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:'))return null;const f=folder(key.slice(2));if(!f)return null;return {kind:'folder',id:f.id,frame:f.project_id||null,els:[head.parentElement]}}
     // LIB-정리보충 ②: 사진 묶음 줄은 폴더 보기에서만 끈다. 묶음 안 실제 사진 자료 모두가 함께 옮겨지고(set=true), 일부만 옮겨진 채로 끝나지 않는다(moveDocs all).
@@ -244,6 +251,21 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   }
   function dropFor(e){
     if(!drag)return null;
+    // S55-08 ⓐ·ⓓ: 왼쪽 나무 줄에 놓기. '자료실 전체'는 오른쪽 '폴더 밖' 머리와 같은 맨 위(폴더 밖으로), 폴더 줄은 그 안으로.
+    // 원인(사실): 끌기·놓기 이벤트를 오른쪽 목록(#documentList)에만 걸어 두어 나무 줄 위에서는 놓기를 받는 곳이 없었다(브라우저가 놓기를 거절).
+    const nav=navAt(e.target);
+    if(nav){
+      const head=nav.closest('.ft-row')||nav,id=nav.dataset.luNav||'';
+      if(!s().free)return null;
+      if(!id){
+        if(drag.kind==='file')return {head,nav:true,ok:drag.docs.some(d=>docFolder(d)),kind:'top'};
+        return {head,nav:true,ok:!!folder(drag.id)?.parent_id,kind:'top'};
+      }
+      const target=folder(id);if(!target)return {head,nav:true,ok:false};
+      if(drag.kind==='file')return {head,nav:true,ok:drag.docs.some(d=>docFolder(d)?.id!==target.id),kind:'into',target:target.id};
+      if(target.id===drag.id)return {head,nav:true,ok:false};
+      return {head,nav:true,ok:folderMoveTargets(s().folders,drag.id,true).includes(target.id),kind:'into',target:target.id};
+    }
     // LIB-후속1 ⑤: 분류로 묶은 화면에서 자료를 다른 분류 머리(또는 그 분류의 열린 자료 줄) 위에 놓으면 그 분류로 바꾼다. 왼쪽 폴더 팝업은 그대로(폴더 옮기기).
     if(drag.kind==='file'&&categoryOf&&changeCategory){
       const rowNode=e.target?.closest?.('#documentList .lu-row')?.closest('details.lu-node');
@@ -278,6 +300,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // 여는 것은 details.open만 바꾼다(목록을 다시 그리지 않아 끌기가 끊기지 않음). 펼침 기억은 기존 toggle 이벤트가 맡는다.
   const HOVER_OPEN_MS=1000;let hoverKey='',hoverTimer=0;
   function hoverOpen(t){
+    if(t?.nav)t=null;
     const node=t?.head?.parentElement,key=node?.dataset?.luNode||'';
     const want=node&&!node.open&&t.kind!=='before'&&t.kind!=='after'?key:'';
     if(want===hoverKey)return;
@@ -307,13 +330,16 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     try{await api(T_ITEMS,{method:'POST',prefer:'return=minimal',body:{document_id:docId,folder_id:folderId,workspace_id:s().workspace}});return true}
     catch{return false}
   }
-  function clearMarks(){clearTimeout(hoverTimer);hoverKey='';hideDropPanel();document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no,#documentList .lu-dragging,#documentList .lu-grabbed,#documentList .lu-drop-group').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed','lu-drop-group'))}
+  // 표시는 오른쪽 목록과 왼쪽 나무 두 곳에 붙는다(S55-08).
+  const marked=list=>document.querySelectorAll(list.split(',').flatMap(c=>['#documentList '+c,'#libraryFolderNav '+c]).join(','));
+  function clearMarks(){clearTimeout(hoverTimer);hoverKey='';hideDropPanel();marked('.lu-drop-into,.lu-drop-before,.lu-drop-after,.lu-drop-no,.lu-dragging,.lu-grabbed,.lu-drop-group').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed','lu-drop-group'))}
   function showMarks(t){
     if(!t)document.querySelectorAll('#documentList .lu-drop-group').forEach(el=>el.classList.remove('lu-drop-group'));
-    document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no').forEach(el=>{if(el!==t?.head)el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no')});
+    marked('.lu-drop-into,.lu-drop-before,.lu-drop-after,.lu-drop-no').forEach(el=>{if(el!==t?.head)el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no')});
     if(!t)return;t.head.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no');
     t.head.classList.add(!t.ok?'lu-drop-no':t.kind==='before'?'lu-drop-before':t.kind==='after'?'lu-drop-after':'lu-drop-into');
-    document.querySelectorAll('#documentList .lu-drop-group').forEach(el=>{if(el!==t.head.parentElement)el.classList.remove('lu-drop-group')});
+    document.querySelectorAll('#documentList .lu-drop-group').forEach(el=>{if(t.nav||el!==t.head.parentElement)el.classList.remove('lu-drop-group')});
+    if(t.nav)return; // 나무 줄은 그 줄만 표시(묶음 강조 없음).
     // 놓일 묶음 전체(머리줄 + 안의 줄)를 연한 강조색으로: 분류 바꾸기, 그리고 자료를 폴더(또는 폴더 밖)에 넣을 때.
     t.head.parentElement?.classList.toggle('lu-drop-group',t.ok&&(t.kind==='category'||((drag?.kind==='file'||fileDrag)&&(t.kind==='into'||t.kind==='top'))));
   }
@@ -371,7 +397,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   async function dragMoveFolder(id,parentId){
     const f=folder(id);if(!f)return false;const before={parent_id:f.parent_id||null,sort_order:f.sort_order};
     const ok=await moveFolder(id,parentId,'');if(!ok)return false;
-    say('폴더를 옮겼어요 ·',{undo:()=>{const cur=folder(id);if(!cur||(cur.parent_id||null)!==(parentId||null)){say('그 사이 폴더가 또 바뀌어 되돌리지 않았어요.');return Promise.resolve(false)}return run(()=>api(T_FOLDERS+where(id),{method:'PATCH',prefer:'return=minimal',body:before}),'되돌렸어요.')}});
+    say(`폴더를 옮겼어요 → ${parentId?`${folder(parentId)?.name||''} 폴더`:'맨 위'} ·`,{undo:()=>{const cur=folder(id);if(!cur||(cur.parent_id||null)!==(parentId||null)){say('그 사이 폴더가 또 바뀌어 되돌리지 않았어요.');return Promise.resolve(false)}return run(()=>api(T_FOLDERS+where(id),{method:'PATCH',prefer:'return=minimal',body:before}),'되돌렸어요.')}});
     return true;
   }
   // 같은 상위 형제 사이로 옮기기: 끈 폴더를 target 앞/뒤에 두고 그 형제만 1024 간격으로 다시 매긴다(바뀐 행만 저장).
@@ -434,22 +460,24 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   function hideDropPanel(){if(dropPanel){dropPanel.hidden=true;for(const el of dropPanel.querySelectorAll('.lu-drop-over'))el.classList.remove('lu-drop-over')}dropPanelDocs=null}
   let touch=null,suppressUntil=0;
   function bindDrag(list){
-    list.addEventListener('dragstart',e=>{
+    // S55-08: 끌기·놓기는 목록 상자 전체(#libraryListCard = 왼쪽 나무 + 오른쪽 목록)에서 받는다. 폰 길게 누르기는 지금처럼 목록만.
+    const area=list.closest?.('#libraryListCard')||list;
+    area.addEventListener('dragstart',e=>{
       const d=dragFrom(e.target);if(!d)return;drag=d;markDragging(d);
       try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',d.id)}catch{}
       // 폴더 토글이 없는 묶기에서는 왼쪽에 놓을 곳 목록을 띄운다. 끌기 시작 중에 DOM을 바꾸면 브라우저가 끌기를 취소하므로 한 박자 뒤에.
       if(d.kind==='file'&&!s().treeView)setTimeout(()=>{if(drag===d)showDropPanel(d)},0);
     });
-    list.addEventListener('dragover',e=>{
+    area.addEventListener('dragover',e=>{
       if(!drag)return;const t=dropFor(e);showMarks(t);hoverOpen(t);edgeScroll(e.clientY,list);
       if(!t)return;
       if(!t.ok){try{e.dataTransfer.dropEffect='none'}catch{}return}
       e.preventDefault();try{e.dataTransfer.dropEffect='move'}catch{}
     });
-    list.addEventListener('drop',e=>{
+    area.addEventListener('drop',e=>{
       if(!drag)return;const t=dropFor(e),d=drag;drag=null;clearMarks();stopScroll();if(!t?.ok)return;e.preventDefault();commitDrop(d,t);
     });
-    list.addEventListener('dragend',()=>{drag=null;clearMarks();stopScroll()});
+    area.addEventListener('dragend',()=>{drag=null;clearMarks();stopScroll()});
     bindTouch(list);
   }
   // ---- 폰: 길게 눌러 잡고 옮기기 ----
