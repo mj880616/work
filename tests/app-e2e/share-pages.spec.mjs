@@ -530,9 +530,9 @@ for (const width of [884, 1440]) test('PC 틀 ' + width + ': 공유 페이지 �
   await expect(page.locator('[data-sp-editor]')).toBeVisible();
 });
 
-test('폰 390: 목록을 불러오며 다시 그려도 열어 둔 + 메뉴는 남고 항목이 눌린다', async ({page}) => {
+test('폰 390: 목록을 불러오는 동안 위 줄은 다시 그려지지 않는다(같은 + 단추 요소·초점·열어 둔 메뉴 유지)', async ({page}) => {
   await page.setViewportSize({width:390, height:844});
-  const state = {pages:[], links:[]};
+  const state = {pages:[{id:'page-1', title:'먼저 있던 글', status:'draft', project_id:null, updated_at:'2026-10-20T01:00:00.000Z', blocks:[]}], links:[]};
   await mockApp(page, state);
   let release;
   const gate = new Promise(resolve => { release = resolve; });
@@ -544,18 +544,45 @@ test('폰 390: 목록을 불러오며 다시 그려도 열어 둔 + 메뉴는 �
   await clickView(page, 'pages');
   const add = page.locator('#pagesView [data-sp-add]');
   await expect(add).toBeVisible();
+  await expect(page.locator('#pagesView [data-sp-list-status] > *')).not.toHaveCount(0); // 불러오는 중 표시
+  const head = await page.locator('#pagesView .sp-head').elementHandle(), before = await add.elementHandle();
+  await add.focus();
+  release();
+  await expect(page.locator('#pagesView .sp-row')).toHaveCount(1);
+  await expect(page.locator('#pagesView [data-sp-list-status]')).toHaveText('');
+  // 같은 요소가 남고 초점도 그대로.
+  expect(await before.evaluate(el => el.isConnected)).toBe(true);
+  expect(await head.evaluate((h, b) => h.isConnected && h.contains(b), before)).toBe(true);
+  await expect(add).toBeFocused();
+  // 메뉴도 열린 채 남는다.
   await add.click();
   const menu = page.locator('#spAddMenu');
   await expect(menu).toBeVisible();
-  // 불러오기가 끝나면 목록(첫 줄 포함)이 새로 그려진다.
-  const before = await add.elementHandle();
-  release();
-  await expect(page.locator('#pagesView [data-sp-list-status]')).toHaveText('');
-  await expect.poll(() => before.evaluate(el => el.isConnected)).toBe(false);
+  await page.evaluate(() => window.KPTUSharePages.reload());
+  await expect(page.locator('#pagesView .sp-row')).toHaveCount(1);
+  expect(await before.evaluate(el => el.isConnected)).toBe(true);
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('button').first()).toBeFocused(); // 초점은 메뉴 안에 있어 새로 그려져도 잃지 않는다
   await menu.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
   await expect(page.locator('[data-sp-editor]')).toBeVisible();
+});
+
+test('폰 390: 공유 페이지 제목 \'공유 페이지\'와 작은 +가 한 줄(앱 머리는 숨김), 쓰는 화면에서는 앱 머리 그대로', async ({page}) => {
+  await page.setViewportSize({width:390, height:844});
+  const state = {pages:[], links:[]};
+  await mockApp(page, state);
+  await signIn(page);
+  await clickView(page, 'pages');
+  const title = page.locator('#pagesView .sp-head h2'), add = page.locator('#pagesView [data-sp-add]');
+  await expect(title).toBeVisible();
+  await expect(title).toHaveText('공유 페이지');
+  const t = await title.boundingBox(), a = await add.boundingBox();
+  expect(Math.abs(t.y + t.height / 2 - (a.y + a.height / 2))).toBeLessThanOrEqual(2);
+  expect(t.x + t.width).toBeLessThanOrEqual(a.x);
+  await expect(page.locator('#appView > .mobile-shell-header')).toBeHidden();
+  await page.locator('#pagesView [data-sp-add]').click();
+  await page.locator('#spAddMenu').getByRole('button', {name:'새 공유 페이지', exact:true}).click();
+  await expect(page.locator('[data-sp-editor]')).toBeVisible();
+  await expect(page.locator('#appView > .mobile-shell-header')).toBeVisible();
 });
 
 test('Web1 reader source draws server content with textContent only and keeps no link value', () => {

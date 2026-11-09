@@ -97,13 +97,15 @@ root.replaceChildren(listView, editorView);
 
 // ── list ──
 const phoneQuery = window.matchMedia?.('(max-width:760px)') || {matches:false};
-// 폭이 폰 틀(760px)을 넘나들 때만 첫 줄을 그 틀에 맞게 다시 그린다(그리는 곳은 renderList 하나).
-phoneQuery.addEventListener?.('change', () => renderList());
-function renderList() {
-  const status = el('p', {class:'sp-status', role:'status', 'aria-live':'polite', dataset:{spListStatus:''}});
-  const head = el('div', {class:'sp-head'},
+// SHARE-한번그리기: 위 줄(.sp-head: 제목·추가 버튼)과 상태 줄은 처음 한 번만 그리고 그대로 둔다. 불러오는 상태·목록 바뀜은 상태 줄 글자와
+// 그 아래 목록 칸(renderList)만 바꾼다 — 그래서 불러오는 동안 버튼은 같은 요소로 남고 초점이 풀리지 않는다.
+// 위 줄을 다시 짓는 때는 폭이 폰 틀(760px)을 넘나들어 버튼 모양이 달라질 때뿐이다(buildHead 하나).
+const headEl = el('div', {class:'sp-head'});
+const statusEl = el('p', {class:'sp-status', role:'status', 'aria-live':'polite', dataset:{spListStatus:''}});
+function buildHead() {
+  headEl.replaceChildren(
     // UI-전수디자인점검 F12: the phone head line and the PC top line already name the screen; the body title is the shared
-    // .screen-title (screen readers only, every width). No count beside it (the list itself shows the rows).
+    // .screen-title (screen readers only, PC). 폰은 앱 머리 대신 이 제목이 첫 줄에 보인다(SHARE-제목줄더하기, ui-standard.css).
     el('h2', {class:'screen-title'}, '공유 페이지'),
     // UI-동그란더하기삭제: 폰(760px 이하)은 첫 줄 오른쪽 네모 작은 + 하나(누르면 작은 메뉴 [새 공유 페이지][HTML 올리기]), PC는 글자 버튼 둘 그대로.
     phoneQuery.matches
@@ -112,6 +114,13 @@ function renderList() {
       : el('div', {class:'sp-head-actions btn-row'},
           el('button', {type:'button', class:'secondary', 'aria-label':'새 HTML 공유 페이지', dataset:{spNewHtml:''}, text:'+ HTML'}),
           el('button', {type:'button', class:'primary', 'aria-label':'새 공유 페이지', dataset:{spNew:''}, text:'+ 새 공유 페이지'})));
+}
+buildHead();
+listView.replaceChildren(headEl, statusEl);
+phoneQuery.addEventListener?.('change', () => buildHead());
+function renderList() {
+  const status = statusEl;
+  status.textContent = '';
   const body = [];
   if (listState === 'loading' && !pages) status.innerHTML = waitInlineHtml();
   else if (listState === 'error') {
@@ -140,7 +149,8 @@ function renderList() {
           'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'}))))));
     body.push(details);
   }
-  listView.replaceChildren(head, status, ...body);
+  while (listView.children.length > 2) listView.lastElementChild.remove();
+  listView.append(...body);
   view.dataset.sharePagesReady = '1';
 }
 async function loadList({force = false} = {}) {
@@ -679,7 +689,7 @@ function closeEditor({fromBack = false, force = false, asked = false} = {}) {
   delete view.dataset.spEditing; view.removeAttribute('data-sp-full');
   if (!fromBack) opened?.close();
   void loadList({force:true});
-  listView.querySelector('[data-sp-new]')?.focus({preventScroll:true});
+  listView.querySelector('[data-sp-new],[data-sp-add]')?.focus({preventScroll:true});
   return true;
 }
 async function askCloseEditor(anchor) {
