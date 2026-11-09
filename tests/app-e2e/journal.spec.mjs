@@ -2814,6 +2814,40 @@ test('[주간 정리] 4. 조직보고: 한글 파일의 4. 산하조직 칸은 �
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
+// ORG-기록하나로 O-6(설계 docs/design/record-one.md 2-8·4절 '한글 파일'): 전환 주(11.9)부터 한글 파일 4. 1) 칸 = 화면 조직보고 창 줄 그대로(날짜 오름차순),
+// [확정] 이 개인 확정본 저장에 성공한 직후 그 창 결과를 사진(app_report_snapshots, 주당 1행)으로 남긴다(처음 = 고치기 0건 → 넣기). 이름·글은 합성 값.
+for(const width of [390,1280])test(`[주간 정리] 4. 조직보고(전환 주부터): 한글 파일 4. 1) = 창 줄 그대로, [확정] 뒤 그 줄로 사진 저장 ${width}`,async({page})=>{
+ const f=await weekLinesFixture(page,{width,hwpx:true});
+ const rec=(id,day,text)=>({id,organization_id:OA,occurred_at:`${day}T03:00:00Z`,raw_text:text,detail_text:null,doc:null,end_day:null,source_kind:null,created_at:`${day}T03:00:00Z`});
+ f.more.orgUpdates.push(rec('r-now','2026-11-17','가상 창 교섭'),rec('r-past','2026-11-03','가상 지난 기록'),rec('r-old','2026-09-01','가상 창 밖 기록'));
+ const snaps=[];
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_snapshots',r=>{
+  const m=r.request().method();if(m==='GET')return r.fulfill({json:[]});
+  const b=r.request().postDataJSON();snaps.push({m,url:r.request().url(),...b});
+  return m==='PATCH'?r.fulfill({json:[]}):r.fulfill({status:201,json:[{week_start:b.week_start,confirmed_at:'2026-11-17T05:00:00Z'}]});
+ });
+ await openJournal(page,width);await openWeekly(page);
+ for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
+ await expect(orgRow(page,OA)).toContainText('가상 창 교섭');await expect(orgRow(page,OA)).toContainText('가상 지난 기록');
+ await expect(orgRow(page,OA)).not.toContainText('가상 창 밖 기록');
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ const {report}=await savedReport(download);
+ expect(report.orgs.find(o=>o.org.join(' ')==='가상 노동조합').status).toEqual(['- 11.3. 가상 지난 기록','- 11.17. 가상 창 교섭']);
+ expect(snaps).toEqual([]); // 확정 없이 파일만 받으면 사진을 남기지 않는다
+ const [got]=await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
+ const {report:confirmed}=await savedReport(got);
+ expect(confirmed.orgs.find(o=>o.org.join(' ')==='가상 노동조합').status).toEqual(['- 11.3. 가상 지난 기록','- 11.17. 가상 창 교섭']);
+ await expect.poll(()=>snaps.length).toBe(2);
+ expect(snaps.map(x=>x.m)).toEqual(['PATCH','POST']);
+ expect(snaps[0].url).toContain('week_start=eq.2026-11-16');
+ expect(Object.keys(snaps[1]).filter(k=>!['m','url'].includes(k)).sort()).toEqual(['document_id','rows','week_start','workspace_id']);
+ const org=snaps[1].rows.find(r=>r.section==='org'&&r.ref_key===OA);
+ expect(org.lines.map(l=>[l.ref_kind,l.ref_key,l.day,l.text])).toEqual([['org_update','r-past','2026-11-03','가상 지난 기록'],['org_update','r-now','2026-11-17','가상 창 교섭']]);
+ expect(snaps[1].rows.some(r=>r.section==='site')).toBe(true);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+
 // ORG-쟁의단계 ②(2026-10-24 명진 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계로 채운다. 이 주(10.5~10.11): 투쟁 중은 첫 줄 '- 단계(M.D)' + 직전 확정본 줄 그대로,
 // 이번 주 끝남은 한 줄만, 직전 확정본에 있던 줄인데 더는 투쟁 중이 아니면 말없이 지우지 않고 '지울까요?' 고칠 목록. 단계를 못 읽으면 직전 확정본 그대로.
 const siteCell=(page,name)=>page.locator('#journalRoot [data-weekly-flow-cells="sites"] [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:new RegExp(`^${name}$`)})});

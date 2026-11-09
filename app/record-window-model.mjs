@@ -247,3 +247,24 @@ export function shownIds({org, week, snapshot = null, records = [], events = [],
 
 // 줄 글(복사·한글 파일): '- 11.2. 글' / '- 11.2.~12.5. 글'.
 export const lineText = l => `- ${[dayText(l.day, l.end_day), cleanBody(l.text)].filter(Boolean).join(' ')}`;
+
+// ---- 한글 파일·확정 사진(ORG-기록하나로 O-6, 설계 2-8) ----
+// 한글 파일 4. 1)·3. 2)와 확정 사진에 들어가는 줄 = 화면에 보이는 그대로, 날짜 오름차순.
+// 창 = 보인 줄, 사진 주 = 사진 줄 + '확정 뒤 추가'(새 판으로 확정하면 정식 줄이 된다, 2-8 규칙 3), 옛 주 = 옛 넣은 줄.
+export function fileLines(cell) {
+  if (!cell) return [];
+  if (cell.mode === 'window') return sortBy(cell.shown || [], 'asc');
+  return sortBy([...(cell.lines || []), ...(cell.after || [])], 'asc');
+}
+// 사진 한 칸: {section, ref_kind:'organization', ref_key:조직 id, label, lines:[{ref_kind, ref_key, day, end_day, text}], seen_events:[일정 id]}.
+// seen = 확정 때 그 조직 칸 후보였던 일정 id 전부(보인 줄·접힌 줄·뺀 줄). 화면 읽기(snapshotCell)와 같은 모양.
+export function snapshotRow({section = 'org', org, label = '', lines = [], seen = []}) {
+  return {
+    section: section === 'site' ? 'site' : 'org', ref_kind: 'organization', ref_key: String(org), label: cleanBody(label),
+    lines: lines.filter(l => l && l.kind && l.key != null && cleanBody(l.text)).map(l => ({ref_kind: String(l.kind), ref_key: String(l.key), day: validDay(l.day) ? l.day : null, end_day: validDay(l.end_day) ? l.end_day : null, text: cleanBody(l.text)})),
+    seen_events: [...new Set(seen.map(String))],
+  };
+}
+export const SNAPSHOT_MAX_BYTES = 131072; // DB 검사(app_report_snapshots_rows_check)와 같음
+// 그 조직 칸 후보 일정 id 전부(뺀 줄 포함).
+export const seenEvents = ({org, week, events = []}) => events.filter(e => e && e.kind === 'event' && e.org === String(org) && overlaps(e, orgWindow(week))).map(e => String(e.key));
