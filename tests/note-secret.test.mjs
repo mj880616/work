@@ -1,50 +1,30 @@
-// NOTE-비밀메모(2026-10-28 17:23 결정): 화면 공용 판별(app/note-secret.mjs)이 서버(ai-assist note-secret.ts)와 같은 규칙인지,
-// 목록 제목 가리기·[AI에 보내지 않기]/[풀기] 표시. 예시 값은 모두 지어낸 가짜 글이다.
+// NOTE-AI제외정리(2026-11-10 17:41 명진 결정 A — 10/28 NOTE-비밀메모를 바꿈): 화면은 비밀 모양 글을 가리지 않는다.
+// 노트 ⋯ [AI에 보내지 않기]/[AI 제외 풀기] 메뉴와 목록·검색 '비밀 메모' 제목 가림을 지웠고, 화면 공용 판별 모듈(app/note-secret.mjs)도 지웠다.
+// 비밀번호·토큰·키 모양 부분은 서버(ai-assist note-secret.ts maskSecret)가 AI로 보낼 때만 가린다(tests/note-secret-server.test.mjs).
+// 예시 값은 모두 지어낸 가짜 글이다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {looksSecret, noteAiOff, noteMasked, SECRET_TITLE} from '../app/note-secret.mjs';
+import {readFileSync, existsSync, readdirSync} from 'node:fs';
 import {noteLineTitle} from '../app/note-tree.mjs';
 
-const rules = src => {
-  const a = src.indexOf('const SECRET_WORD'), b = src.indexOf('const LONG_RANDOM');
-  assert.ok(a > 0 && b > a, '규칙 줄을 찾음');
-  return src.slice(a, src.indexOf('\n', b)).split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
-};
-test('판별 규칙 줄이 서버 note-secret.ts와 글자 그대로 같다', () => {
-  const server = readFileSync(new URL('../supabase/functions/ai-assist/note-secret.ts', import.meta.url), 'utf8');
-  const app = readFileSync(new URL('../app/note-secret.mjs', import.meta.url), 'utf8');
-  assert.equal(rules(app), rules(server));
-  // 함수 몸통(덩어리 검사)도 같은 모양.
-  const body = s => s.slice(s.indexOf('for (const m of s.match(LONG_RANDOM)'), s.indexOf('return false;', s.indexOf('for (const m of s.match(LONG_RANDOM)'))).replace(/\(re\) =>/g, 're =>').replace(/\s+/g, ' ');
-  assert.equal(body(app), body(server));
-  // 노트 판별(제목+본문·[AI에 보내지 않기]/[풀기])도 같은 식(타입 표기·따옴표만 다름).
-  const fn = (src, name) => { const i = src.indexOf(`export const ${name} =`); assert.ok(i > 0, name); return src.slice(src.indexOf('=>', i), src.indexOf('\n', i)).replace(/note!?\./g, 'note.').replace(/"/g, "'").replace(/\s+/g, ' '); };
-  for (const name of ['noteLooksSecret', 'noteAiOff']) assert.equal(fn(app, name), fn(server, name), name);
-});
-
-const fake = 'Ab3' + 'x'.repeat(10) + 'Q9z' + 'y'.repeat(12);
-test('비밀 모양 글', () => {
-  assert.equal(looksSecret('공유기 비밀번호: 아무거나'), true);
-  assert.equal(looksSecret('API_KEY = 가짜'), true);
-  assert.equal(looksSecret(['-----BEGIN', 'RSA PRIVATE KEY-----'].join(' ')), true, '키 머리글(공개 저장소 검사에 걸리지 않게 실행 때 이어 붙임)');
-  assert.equal(looksSecret(`붙여 둔 값 ${fake}`), true);
-  assert.equal(looksSecret('회의 준비 메모, 3차 교섭'), false);
-});
-
 const note = (title, raw_text, metadata = {}) => ({title, raw_text, metadata});
-test('목록 제목: 비밀 노트는 비밀 메모(직접 쓴 다른 제목은 그대로), 풀면 원래 제목', () => {
-  const auto = note('와이파이 비밀번호: x', '와이파이 비밀번호: x');
-  assert.equal(noteLineTitle(auto), SECRET_TITLE);
-  assert.equal(noteMasked(auto), true);
-  assert.equal(noteLineTitle(note('집 공유기', `메모\n${fake}`)), '집 공유기', '직접 쓴 제목은 비밀 모양이 아니면 그대로');
-  assert.equal(noteLineTitle(note('', `첫 줄\npassword: x`, {ai_title:'공유기 메모'})), SECRET_TITLE, 'AI 제목보다 가림이 먼저');
-  assert.equal(noteLineTitle(note('와이파이 비밀번호: x', '와이파이 비밀번호: x', {ai_off:false})), '와이파이 비밀번호: x', '[풀기]면 가리지 않음');
-  assert.equal(noteLineTitle(note('장보기', '우유')), '장보기');
+const fake = 'Ab3' + 'x'.repeat(10) + 'Q9z' + 'y'.repeat(12);
+
+test('목록 제목: 비밀 모양 글이 든 노트도 원래 제목(직접 쓴 제목 → AI 제목 → 첫 줄)', () => {
+  assert.equal(noteLineTitle(note('와이파이 비밀번호: x', '와이파이 비밀번호: x')), '와이파이 비밀번호: x');
+  assert.equal(noteLineTitle(note('집 공유기', `메모\n${fake}`)), '집 공유기');
+  assert.equal(noteLineTitle(note('', `첫 줄\npassword: x`, {ai_title: '공유기 메모'})), '공유기 메모');
+  assert.equal(noteLineTitle(note('', 'token: 가짜\n둘째 줄')), 'token: 가짜');
+  assert.equal(noteLineTitle(note('장보기', '우유', {ai_off: true})), '장보기', '옛 표시(metadata.ai_off)는 읽지 않음');
 });
-test('AI에 보내지 않기 표시', () => {
-  assert.equal(noteAiOff(note('장보기', '우유')), false);
-  assert.equal(noteAiOff(note('장보기', '우유', {ai_off:true})), true);
-  assert.equal(noteAiOff(note('x', 'token: 가짜')), true, '비밀 모양이면 자동으로');
-  assert.equal(noteAiOff(note('x', 'token: 가짜', {ai_off:false})), false, '[풀기]');
+
+test('화면에 비밀 가림·AI 제외 메뉴가 남지 않는다(지운 모듈·문구·표시)', () => {
+  assert.equal(existsSync(new URL('../app/note-secret.mjs', import.meta.url)), false, '화면 공용 판별 모듈은 지움');
+  const dir = new URL('../app/', import.meta.url);
+  const files = readdirSync(dir).filter(f => /\.(m?js|css|html)$/.test(f));
+  for (const f of files) {
+    const src = readFileSync(new URL(f, dir), 'utf8');
+    for (const word of ['note-secret.mjs', 'AI에 보내지 않기', 'AI 제외 풀기', "'비밀 메모'", 'data-note-ai-off', 'note-meta-ai-off', 'setNoteAiOff', 'ai_off'])
+      assert.ok(!src.includes(word), `${f}: ${word}`);
+  }
 });

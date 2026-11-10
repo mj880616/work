@@ -63,7 +63,7 @@ import {
 import {
   hasOwnTitle, NOTE_TITLE_INSTRUCTIONS, NOTE_TITLE_MAX_OUTPUT_TOKENS, NOTE_TITLE_SCHEMA, noteTitleMaterial, parseNoteTitle, parseNoteTitleRequest,
 } from "./note-title.ts";
-import { noteAiOff, noteAiOffMark, noteRowAiBlocked, looksSecret as fileTextSecret } from "./note-secret.ts";
+import { aiNoteRow, maskSecret, looksSecret as fileTextSecret } from "./note-secret.ts";
 import {
   needsOneLine, ONE_LINE_INSTRUCTIONS, ONE_LINE_MAX_OUTPUT_TOKENS, ONE_LINE_SCHEMA, oneLineMaterial, parseOneLine, parseRecordOneLineRequest,
   looksSecret as oneLineSecret,
@@ -99,7 +99,7 @@ import {
 } from "./pre-meeting-sheet.ts";
 import {
   ASK_BASE_KINDS, ASK_DAILY_LIMIT, ASK_KEEP_DAYS, ASK_LEDGER_LIMIT, ASK_INSTRUCTIONS, ASK_MAX_OUTPUT_TOKENS, ASK_PER_KIND, ASK_RETRY_BELOW, ASK_RETRY_MAX,
-  ASK_SCHEMA, ASK_SEARCH_KINDS, askLooksSecret, askMaterial, askTgRaw, askOrg, askWords, hitsFromLedger, hitsFromSearch, parseAskAnswer, parseAskRequest, rankHits,
+  ASK_SCHEMA, ASK_SEARCH_KINDS, askLooksSecret, askMaterial, askNoteAiText, askTgRaw, askOrg, askWords, hitsFromLedger, hitsFromSearch, parseAskAnswer, parseAskRequest, rankHits,
   storedSources, type AskHit, type AskSource,
 } from "./web2-ask.ts";
 import { TG_RAW_MAX_ITEMS, tgNameKey, tgNamesFor } from "./tg-raw.ts";
@@ -823,9 +823,8 @@ async function readLinkNote(ctx: Ctx, noteId: string, withFiles: boolean) {
   }
   // 일기·보관됨·AI 제외는 보내지 않는다(todo-radar 결정 7, app_basket_confirm_links와 같은 조건).
   if (note.kind === "diary" || note.archived_at != null || note.ai_export_allowed !== true) throw new Fail(422, "note_excluded");
-  // NOTE-비밀메모: [AI에 보내지 않기] 노트, 비밀 모양 글이 든 노트([풀기] 안 함)는 보내지 않는다(note-secret.ts).
-  if (noteRowAiBlocked(note)) throw new Fail(422, "note_excluded");
-  return note;
+  // NOTE-AI제외정리: 통째로 빼지 않고 비밀번호·토큰·키 모양 부분만 가린다(note-secret.ts aiNoteRow).
+  return aiNoteRow(note);
 }
 
 // 업데이트 첨부의 이미 읽어 둔 글자. 사진 = 첨부 ocr(state done의 text), 한글·PDF 등 = 같은 Drive 파일로 등록된 자료의 extracted_text(ready).
@@ -1270,14 +1269,12 @@ async function loadRadarSources(ctx: Ctx, sinceIso: string): Promise<{ sources: 
   let partial = false;
   const full = (rows: unknown[]) => { if (rows.length >= RADAR_READ_LIMIT) partial = true; };
 
-  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,metadata,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${RADAR_READ_LIMIT}`);
+  // NOTE-AI제외정리: 노트는 통째로 빼지 않고 비밀 모양 부분만 가린 복사본을 쓴다(note-secret.ts aiNoteRow).
+  const notes = (await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${RADAR_READ_LIMIT}`)).map(aiNoteRow);
   full(notes);
-  let secretSkipped = 0;
   for (const n of notes) {
     if (!isUuid(n.id) || String(n.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
     if (!["basket", "note", "work"].includes(String(n.kind)) || n.archived_at != null || n.ai_export_allowed !== true) continue;
-    // NOTE-비밀메모: AI 제외·비밀 모양 노트는 재료에서 뺀다. 기록에는 개수만.
-    if (noteRowAiBlocked(n)) { secretSkipped++; continue; }
     const text = [typeof n.title === "string" ? n.title : "", typeof n.raw_text === "string" ? n.raw_text : ""].filter(Boolean).join("\n");
     const at = timeOf(n.updated_at);
     const day = n.kind === "work" && typeof n.journal_day === "string" && DAY_RE.test(n.journal_day) ? n.journal_day
@@ -1285,7 +1282,6 @@ async function loadRadarSources(ctx: Ctx, sinceIso: string): Promise<{ sources: 
     if (!text || !Number.isFinite(at)) continue;
     sources.push({ kind: n.kind as "basket" | "note" | "work", id: n.id.toLowerCase(), day, at, text });
   }
-  if (secretSkipped) ctx.log("radar_note_ai_off_skipped", { count: secretSkipped });
 
   const meetings = await readList(ctx, `app_meetings?workspace_id=eq.${ws}&updated_at=gte.${since}&select=id,workspace_id,title,series_name,meeting_at,transcript_text,updated_at,project_id&order=updated_at.desc&limit=50`);
   if (meetings.length >= 50) partial = true;
@@ -1826,14 +1822,12 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
   let partial = false;
   const full = (rows: unknown[], limit = AUTO_READ_LIMIT) => { if (rows.length >= limit) partial = true; };
 
-  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,metadata,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${AUTO_READ_LIMIT}`);
+  // NOTE-AI제외정리: 노트는 통째로 빼지 않고 비밀 모양 부분만 가린 복사본을 쓴다(note-secret.ts aiNoteRow).
+  const notes = (await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${AUTO_READ_LIMIT}`)).map(aiNoteRow);
   full(notes);
-  let secretSkipped = 0;
   for (const n of notes) {
     if (!isUuid(n.id) || String(n.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
     if (!["basket", "note", "work"].includes(String(n.kind)) || n.archived_at != null || n.ai_export_allowed !== true) continue;
-    // NOTE-비밀메모: AI 제외·비밀 모양 노트는 재료에서 뺀다(본 것으로도 적지 않음). 기록에는 개수만.
-    if (noteRowAiBlocked(n)) { secretSkipped++; continue; }
     const text = [typeof n.title === "string" ? n.title : "", typeof n.raw_text === "string" ? n.raw_text : ""].filter(Boolean).join("\n");
     const at = timeOf(n.updated_at);
     if (!text || !Number.isFinite(at)) continue;
@@ -1841,7 +1835,6 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
       : kstDay(n.kind === "basket" && Number.isFinite(timeOf(n.occurred_at)) ? timeOf(n.occurred_at) : at);
     sources.push({ kind: n.kind as "basket" | "note" | "work", id: n.id.toLowerCase(), stamp: n.updated_at as string, day, at, text });
   }
-  if (secretSkipped) log("ledger_auto_note_ai_off_skipped", { count: secretSkipped });
 
   const meetings = await readList(ctx, `app_meetings?workspace_id=eq.${ws}&updated_at=gte.${since}&select=id,workspace_id,title,series_name,meeting_at,transcript_text,activity_kind,updated_at&order=updated_at.desc&limit=50`);
   full(meetings, 50);
@@ -2934,7 +2927,7 @@ async function runOrgPeopleBrief(ctx: Ctx, input: OrgPeopleBriefInput, deps: Rad
 
 // ---- 쓰임: 공유 페이지 AI 초안(share_draft, 원장 빠짐32, share-draft.ts) -------------------------------------------
 // 화면이 고른 기록(사업 보고·노트, 1~6)을 호출한 사람의 로그인으로 다시 읽어(owner RLS + 작업공간 확인) 근거로 쓴다.
-// 노트는 kind note|basket만, 보관·AI 내보내기 끔·(노트만) [AI에 보내지 않기]·비밀 모양이면 근거에서 빼고 skipped로 센다(일기·업무일지 줄은 읽지 않는다).
+// 노트는 kind note|basket만, 보관·AI 내보내기 끔이면 근거에서 빼고 skipped로 센다(일기·업무일지 줄은 읽지 않는다). 비밀 모양 부분은 AI 글에서 가린다(본문은 여기서 maskSecret, 제목은 share-draft.ts shareMaterial — 근거 목록 화면은 원래 제목).
 // 서버는 아무것도 저장하지 않는다(사용량 숫자만). 미리보기를 돌려주고, 본문에 넣기·저장은 화면에서 명진이 누를 때만. 기록에는 숫자만 남긴다.
 async function runShareDraft(ctx: Ctx, input: ShareInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now(), today = kstDay(started);
@@ -2946,7 +2939,7 @@ async function runShareDraft(ctx: Ctx, input: ShareInput, deps: RadarDeps): Prom
     ? await readList(ctx, `app_meetings?workspace_id=eq.${ws}&id=in.(${meetingIds.join(",")})&deleted_at=is.null&select=id,workspace_id,title,series_name,round_no,meeting_at,transcript_text,decisions&limit=${SHARE_LIMITS.refs}`)
     : [];
   const notes = noteIds.length
-    ? await readList(ctx, `app_notes?workspace_id=eq.${ws}&id=in.(${noteIds.join(",")})&kind=in.(note,basket)&select=id,workspace_id,kind,title,raw_text,metadata,occurred_at,updated_at,archived_at,ai_export_allowed&limit=${SHARE_LIMITS.refs}`)
+    ? await readList(ctx, `app_notes?workspace_id=eq.${ws}&id=in.(${noteIds.join(",")})&kind=in.(note,basket)&select=id,workspace_id,kind,title,raw_text,occurred_at,updated_at,archived_at,ai_export_allowed&limit=${SHARE_LIMITS.refs}`)
     : [];
   const byKey = new Map<string, Record<string, unknown>>();
   for (const m of meetings) if (mine(m)) byKey.set(`meeting:${String(m.id).toLowerCase()}`, m);
@@ -2966,8 +2959,8 @@ async function runShareDraft(ctx: Ctx, input: ShareInput, deps: RadarDeps): Prom
       rows.push({ type: "meeting", id: s.id, label: "사업 보고", title: name + (r.round_no != null && Number.isFinite(round) ? ` ${round}차` : ""), day: dayOf(r.meeting_at), text });
       continue;
     }
-    if (r.archived_at != null || r.ai_export_allowed !== true || noteRowAiBlocked(r)) { skipped++; continue; }
-    const body = typeof r.raw_text === "string" ? r.raw_text : "";
+    if (r.archived_at != null || r.ai_export_allowed !== true) { skipped++; continue; }
+    const body = maskSecret(r.raw_text);
     const title = typeof r.title === "string" ? r.title.trim() : "";
     rows.push({ type: "note", id: s.id, label: r.kind === "basket" ? "업데이트" : "노트", title, day: dayOf(r.occurred_at ?? r.updated_at), text: body });
   }
@@ -3061,7 +3054,7 @@ async function loadScheduleMaterial(ctx: Ctx, from: string, toExclusive: string)
       if (text) records.push({ day: kstDay(at), at, type: "org_update", label: orgName.get(org)!, text });
     }
   }
-  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,work)&archived_at=is.null&ai_export_allowed=is.true&occurred_at=gte.${fromIso}&occurred_at=lt.${toIso}&select=id,workspace_id,kind,raw_text,occurred_at,journal_day,archived_at,ai_export_allowed&order=occurred_at.desc&limit=${RADAR_READ_LIMIT}`);
+  const notes = (await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,work)&archived_at=is.null&ai_export_allowed=is.true&occurred_at=gte.${fromIso}&occurred_at=lt.${toIso}&select=id,workspace_id,kind,raw_text,occurred_at,journal_day,archived_at,ai_export_allowed&order=occurred_at.desc&limit=${RADAR_READ_LIMIT}`)).map(aiNoteRow);
   full(notes, RADAR_READ_LIMIT);
   for (const n of notes) {
     if (!isUuid(n.id) || String(n.workspace_id).toLowerCase() !== ctx.workspaceId || !["basket", "work"].includes(String(n.kind))) continue;
@@ -3237,7 +3230,7 @@ async function loadOverlapRaw(ctx: Ctx, refs: string[]): Promise<Map<string, Ove
   }
   const baskets = idsOf("basket");
   if (baskets.length) {
-    for (const n of await readOverlapList(ctx, `app_notes?workspace_id=eq.${ws}&kind=eq.basket&archived_at=is.null&ai_export_allowed=is.true&id=in.(${inList(baskets)})&select=id,workspace_id,kind,title,raw_text,occurred_at,updated_at,archived_at,ai_export_allowed&limit=${baskets.length}`)) {
+    for (const n of (await readOverlapList(ctx, `app_notes?workspace_id=eq.${ws}&kind=eq.basket&archived_at=is.null&ai_export_allowed=is.true&id=in.(${inList(baskets)})&select=id,workspace_id,kind,title,raw_text,occurred_at,updated_at,archived_at,ai_export_allowed&limit=${baskets.length}`)).map(aiNoteRow)) {
       if (!isUuid(n.id) || String(n.workspace_id).toLowerCase() !== ctx.workspaceId || n.kind !== "basket" || n.archived_at != null || n.ai_export_allowed !== true) continue;
       const at = timeOf(n.occurred_at), upd = timeOf(n.updated_at);
       const text = [typeof n.title === "string" ? n.title : "", typeof n.raw_text === "string" ? n.raw_text : ""].filter(Boolean).join("\n");
@@ -4064,7 +4057,7 @@ async function runWorkScope(ctx: Ctx, input: WorkScopeInput, deps: RadarDeps): P
   const ws = encodeURIComponent(ctx.workspaceId), days = weekDayKeys(input.week_start);
   let rows: unknown;
   try {
-    rows = await rest(ctx, `app_notes?workspace_id=eq.${ws}&kind=eq.work&journal_day=gte.${days[0]}&journal_day=lte.${days[6]}&select=id,workspace_id,kind,title,raw_text,metadata,journal_day,archived_at,ai_export_allowed&order=journal_day.asc&limit=8`);
+    rows = await rest(ctx, `app_notes?workspace_id=eq.${ws}&kind=eq.work&journal_day=gte.${days[0]}&journal_day=lte.${days[6]}&select=id,workspace_id,kind,raw_text,journal_day,archived_at,ai_export_allowed&order=journal_day.asc&limit=8`);
   } catch {
     throw new Fail(503, "read_unavailable");
   }
@@ -4575,11 +4568,9 @@ async function runNoteTitle(ctx: Ctx, input: NoteTitleInput, deps: RadarDeps): P
   const skip = (reason: string) => { deps.log("note_title_skipped", { reason }); return json({ ok: true, kind: "note_title", id: input.id, skipped: reason }); };
   if (note.archived_at != null || note.ai_export_allowed !== true) return skip("not_allowed");
   if (typeof meta.ai_title === "string" && meta.ai_title.trim()) return skip("done");
-  if (noteAiOffMark(note) === true) return skip("not_allowed");
   if (hasOwnTitle(note.title, text)) return skip("own_title");
-  // 비밀 모양 글이면 건너뛴다. [AI 제외 풀기](metadata.ai_off=false)로 푼 노트는 만든다(note-secret.ts noteAiOff).
-  if (noteAiOff(note)) return skip("secret");
-  const material = noteTitleMaterial(text);
+  // NOTE-AI제외정리: 비밀 모양 글이 든 노트도 만든다. 그 부분만 가려서 보낸다(note-secret.ts maskSecret).
+  const material = noteTitleMaterial(maskSecret(text));
   if ([...material].length < 8) return skip("short");
   const updatedAt = typeof note.updated_at === "string" ? note.updated_at : "";
   if (!updatedAt) throw new Fail(503, "read_unavailable");
@@ -4646,11 +4637,11 @@ async function runFileName(ctx: Ctx, input: FileNameInput, deps: RadarDeps): Pro
   const skip = (reason: string) => { deps.log("file_name_skipped", { reason }); return json({ ok: true, kind: "file_name", skipped: reason }); };
   let fileName = "", text = "";
   if (input.target === "note") {
-    const note = await readOne(ctx, `app_notes?id=eq.${input.id}&workspace_id=eq.${ws}&select=id,workspace_id,kind,attachments,archived_at,ai_export_allowed,metadata,raw_text&limit=2`);
+    const note = await readOne(ctx, `app_notes?id=eq.${input.id}&workspace_id=eq.${ws}&select=id,workspace_id,kind,attachments,archived_at,ai_export_allowed&limit=2`);
     if (!note || String(note.id).toLowerCase() !== input.id) throw new Fail(404, "not_found");
     const att = (Array.isArray(note.attachments) ? note.attachments : []).find((a: unknown) => !!a && typeof a === "object" && (a as Record<string, unknown>).drive_file_id === input.drive_file_id) as Record<string, unknown> | undefined;
     if (!att || typeof att.file_name !== "string") throw new Fail(404, "not_found");
-    if (note.kind === "diary" || note.archived_at != null || note.ai_export_allowed !== true || noteAiOffMark(note) === true) return skip("not_allowed");
+    if (note.kind === "diary" || note.archived_at != null || note.ai_export_allowed !== true) return skip("not_allowed");
     fileName = att.file_name; text = noteOcrText(att);
   } else if (input.target === "task") {
     const row = await readOne(ctx, `app_task_attachments?google_task_id=eq.${encodeURIComponent(input.id)}&drive_file_id=eq.${file}&workspace_id=eq.${ws}&select=drive_file_id,file_name&limit=2`);
@@ -4950,23 +4941,26 @@ async function askSearch(ctx: Ctx, words: string[]): Promise<AskHit[]> {
 }
 
 // AI 제외 노트(ai_export_allowed=false)·보관 업데이트는 근거 목록에만 두고 AI에는 보내지 않는다. 확인하지 못하면 노트 근거는 모두 안 보낸다.
+// NOTE-AI제외정리: 비밀 모양 노트도 보낸다. 그 부분은 AI 재료를 만들 때 가린다(web2-ask.ts askNoteAiText·askMaterial).
 async function markNoteSendable(ctx: Ctx, sources: AskSource[]) {
   const notes = sources.filter((s) => s.source === "note");
   if (!notes.length) return;
   let allowed = new Set<string>();
+  const aiText = new Map<string, string>();
   try {
-    const rows = await rest(ctx, `app_notes?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&id=in.(${notes.map((s) => s.id).join(",")})&select=id,kind,title,raw_text,metadata,ai_export_allowed&limit=${notes.length}`);
+    const rows = await rest(ctx, `app_notes?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&id=in.(${notes.map((s) => s.id).join(",")})&select=id,kind,title,raw_text,ai_export_allowed&limit=${notes.length}`);
     if (Array.isArray(rows)) {
       const ok = (rows as Record<string, unknown>[]).filter((r) => r?.ai_export_allowed === true && r.kind !== "diary");
-      // NOTE-비밀메모: AI 제외·비밀 모양 노트는 근거 목록에만 두고 AI에는 보내지 않는다. 기록에는 개수만.
-      const blocked = ok.filter((r) => noteRowAiBlocked(r)).length;
-      if (blocked) ctx.log("ask_note_ai_off_skipped", { count: blocked });
-      allowed = new Set(ok.filter((r) => !noteRowAiBlocked(r)).map((r) => String(r.id).toLowerCase()));
+      allowed = new Set(ok.map((r) => String(r.id).toLowerCase()));
+      for (const r of ok) { const t = askNoteAiText(r); if (t !== undefined) aiText.set(String(r.id).toLowerCase(), t); }
     }
   } catch {
     ctx.log("ask_note_flags_unavailable");
   }
-  for (const s of notes) if (!allowed.has(s.id)) s.sent = false;
+  for (const s of notes) {
+    if (!allowed.has(s.id)) s.sent = false;
+    else if (aiText.has(s.id)) s.ai_text = aiText.get(s.id);
+  }
 }
 
 // 찾은 텔레그램 소식(업무 텔레그램 줄)에 원문과 보낸 사람 표시 이름을 붙인다(명진 결정 변경 10/29). 로그인 토큰(owner RLS)으로

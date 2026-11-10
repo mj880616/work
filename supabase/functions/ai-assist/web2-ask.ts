@@ -6,12 +6,13 @@
 //   개인 통화함·개인 텔레그램·일기는 검색 함수가 읽지 않는다(DB 시험 고정). 통화 원문은 보내지 않는다.
 // - 명진 결정 변경(10/29 07:29~07:30): 찾은 텔레그램 소식은 원문(raw_text, 업무 텔레그램 줄만)과 보낸 사람 표시 이름까지 AI 재료로 보낸다.
 //   handler가 찾은 소식 id만 로그인 토큰으로 다시 읽고(owner RLS), 이름은 이름 표를 collector-feed와 같은 순서로 붙인다(tg-raw.ts). 길이 상한을 둔다.
-// - 원장 교섭·전략(S2)도 AI 재료로 보내 답 문장에 쓴다(결정 3 변경). 근거 목록의 '교섭·전략' 꼬리표는 그대로. AI 제외 노트(ai_export_allowed=false)는 보내지 않는다.
+// - 원장 교섭·전략(S2)도 AI 재료로 보내 답 문장에 쓴다(결정 3 변경). 근거 목록의 '교섭·전략' 꼬리표는 그대로. AI 제외 노트(ai_export_allowed=false)는 보내지 않는다. 비밀 모양 부분은 가린다(NOTE-AI제외정리).
 // - AI 답은 공용 근거 검사(evidence.ts)를 거친다: 이번에 보낸 근거에 없는 ref·근거 없는 줄은 버린다.
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { orgAllNames, orgKey, orgKeys } from "../_shared/org-name-match.mjs";
 import { EVIDENCE_RULE, evidenceLines, evidenceSchema, maskEvidenceText, type EvidenceLine } from "./evidence.ts";
 import { looksSecret } from "./note-title.ts";
+import { maskSecret } from "./note-secret.ts";
 import { TG_RAW_CHARS, tgRawForAi } from "./tg-raw.ts";
 
 export const ASK_DAILY_LIMIT = 30;
@@ -82,6 +83,8 @@ export type AskHit = {
   org_id: string | null; project_id: string | null; room: string | null; sent: boolean; tag: string | null;
   // 텔레그램 원문(보낸 사람 이름 붙임, AI 재료에만). 저장·응답에는 넣지 않는다.
   raw?: string;
+  // 비밀 모양 글이 든 노트의 AI용 글(본문 앞부분, 비밀 모양 부분은 가림 — NOTE-AI제외정리). AI 재료에만, 저장·응답에는 넣지 않는다.
+  ai_text?: string;
 };
 export type AskSource = AskHit & { ref: string };
 
@@ -158,11 +161,21 @@ const KIND_LABEL: Readonly<Record<string, string>> = Object.freeze({
 export const askKindLabel = (k: string) => KIND_LABEL[k] ?? k;
 
 // AI에 보내는 재료: 질문 + 보낼 수 있는 근거 줄(ref·종류·날짜·제목·앞뒤 한 줄, 텔레그램은 원문 raw)만. id·조직 id·AI 제외 노트는 보내지 않는다.
+// 비밀 모양 글이 든 노트(제목·본문 전체로 판단)는 검색 조각 대신 가린 본문 앞부분을 AI 글로 쓴다 — 조각이 키 중간을 잘라
+// 가림 판별을 비껴가지 않게. 비밀 모양이 없으면 undefined(검색 조각 그대로).
+export function askNoteAiText(row: { title?: unknown; raw_text?: unknown }): string | undefined {
+  const title = typeof row?.title === "string" ? row.title : "", body = typeof row?.raw_text === "string" ? row.raw_text : "";
+  if (!looksSecret(`${title}\n${body}`)) return undefined;
+  return maskEvidenceText(maskSecret(body), ASK_SNIPPET_CHARS);
+}
+
 export function askMaterial(question: string, sources: AskSource[]): string {
   return JSON.stringify({
     question: maskEvidenceText(question, ASK_QUESTION_MAX),
     sources: sources.filter((s) => s.sent).map((s) => ({
-      ref: s.ref, kind: s.tag ? `${askKindLabel(s.kind)}(${s.tag})` : askKindLabel(s.kind), date: s.date, title: s.title, text: s.snippet,
+      // NOTE-AI제외정리: 노트 근거는 비밀번호·토큰·키 모양 부분만 가려 보낸다(근거 목록 화면은 원래 제목).
+      ref: s.ref, kind: s.tag ? `${askKindLabel(s.kind)}(${s.tag})` : askKindLabel(s.kind), date: s.date,
+      title: s.source === "note" ? maskSecret(s.title) : s.title, text: s.source === "note" ? maskSecret(s.ai_text ?? s.snippet) : s.snippet,
       ...(s.kind === "telegram" && s.raw ? { raw: s.raw } : {}),
     })),
   });

@@ -110,15 +110,18 @@ test('share_draft: re-reads the chosen records, sends s1… refs only, keeps ref
   assert.equal(DAILY_LIMITS.share_draft,10);
 });
 
-test('share_draft: notes that may not go to AI are skipped (AI 내보내기 끔·비밀 모양·보관), counted, and not sent',async()=>{
+// NOTE-AI제외정리(11/10 결정 A): 비밀 모양 노트는 빼지 않고 비밀번호·키 부분만 가려 보낸다. AI 내보내기 끔·보관 노트는 그대로 뺀다.
+test('share_draft: AI 내보내기 끔·보관 notes are skipped and counted; a secret-looking note is sent with only that part masked',async()=>{
   const h=harness();const r=await post(h.handler,req({sources:[pick('note',N1),pick('note',N_OFF),pick('note',N_SECRET),pick('note',N_ARCH)]}));
   assert.equal(r.status,200);const out=await r.json();
-  assert.equal(out.skipped,3);assert.equal(out.sources.length,1);
+  assert.equal(out.skipped,2);assert.equal(out.sources.length,2);
   const material=h.calls.openai[0].input[1].content;
-  assert.ok(!/AI 내보내기 끈|비밀번호|보관한 노트/.test(material));
+  assert.ok(!/AI 내보내기 끈|비밀번호|아무거나|보관한 노트/.test(material));
+  assert.match(material,/공유 계정 \[가림\]/);
+  assert.ok(!JSON.stringify(out).includes('[가림]'),'응답에는 가린 글을 넣지 않음');
   assert.match(h.calls.openai[0].input[1].content,/초점: 단협 해지 철회/);
   // only skipped notes → 422, no AI call
-  const h2=harness();const r2=await post(h2.handler,req({sources:[pick('note',N_OFF),pick('note',N_SECRET)]}));
+  const h2=harness();const r2=await post(h2.handler,req({sources:[pick('note',N_OFF),pick('note',N_ARCH)]}));
   assert.equal(r2.status,422);assert.equal((await r2.json()).error,'share_no_source');assert.equal(h2.calls.openai.length,0);
 });
 

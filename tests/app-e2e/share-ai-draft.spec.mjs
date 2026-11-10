@@ -96,10 +96,11 @@ for (const width of [412, 1440]) test('share AI draft: pick records, preview by 
 
   const d = await openDraft(page, width);
   await expect(d.locator('h2')).toHaveText('공유 페이지 AI 초안');
-  // AI에 보내지 않는 노트([AI에 보내지 않기]·비밀 모양)는 목록에 없다. 읽기는 AI 허용·보관 안 된 노트·업데이트만.
-  await expect(d.locator('[data-sa-pick]')).toHaveCount(3);
-  await expect(d.locator(`[data-sa-pick="note:${N_OFF}"]`)).toHaveCount(0);
-  await expect(d.locator(`[data-sa-pick="note:${N_SECRET}"]`)).toHaveCount(0);
+  // NOTE-AI제외정리: 옛 [AI에 보내지 않기] 표시·비밀 모양 노트도 목록에 있다(가림은 서버가 AI로 보낼 때). 읽기는 AI 허용·보관 안 된 노트·업데이트만.
+  await expect(d.locator('[data-sa-pick]')).toHaveCount(5);
+  await expect(d.locator(`[data-sa-pick="note:${N_OFF}"]`)).toHaveCount(1);
+  await expect(d.locator(`[data-sa-pick="note:${N_SECRET}"]`)).toHaveCount(1);
+  expect(state.reads.some(r => r.startsWith('notes') && /ai_export_allowed=is\.true/.test(r) && /metadata/.test(r))).toBe(false);
   expect(state.reads.some(r => r.startsWith('notes') && /archived_at=is\.null/.test(r) && /ai_export_allowed=is\.true/.test(r))).toBe(true);
   await expect(d.locator(`label:has([data-sa-pick="note:${U1}"])`)).toContainText('10.22 대책회의에서 기자회견 하기로 함');
   await expect(d.locator('[data-sa-make]')).toBeDisabled();

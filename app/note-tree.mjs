@@ -7,7 +7,6 @@ import {folderIndent} from './folder-limits.mjs';
 import {folderSiblings, folderSubtree, folderDepth} from './library-tree.js';
 import {plainInline} from './note-preview.mjs';
 import {colorOf} from './folder-look-model.mjs';
-import {noteMasked, looksSecret, SECRET_TITLE} from './note-secret.mjs';
 
 const plain = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -42,10 +41,9 @@ export function autoNoteTitle(text) {
   const line = String(text ?? '').split(/\r?\n/).map(v => v.trim()).find(Boolean) || '';
   return [...line.replace(/^#{1,6}\s+/, '')].slice(0, 200).join('').trim();
 }
-// NOTE-비밀메모(17:23 결정): 비밀번호·토큰·키 모양 글이 든 노트는 '비밀 메모'로 가린다(직접 쓴 제목이 따로 있고 그 제목은 비밀 모양이 아니면 그 제목).
+// 줄 제목: 직접 쓴 제목 → AI 제목 → 첫 줄 → 첫 첨부 이름. 비밀 모양 글도 가리지 않는다(NOTE-AI제외정리 11/10 결정 A, 가림은 AI로 보낼 때 서버만).
 export function noteLineTitle(note) {
   const own = String(note?.title || '').trim();
-  if (noteMasked(note)) return own && own !== autoNoteTitle(note?.raw_text) && !looksSecret(own) ? own : SECRET_TITLE;
   const ai = plain(note?.metadata) && typeof note.metadata.ai_title === 'string' ? note.metadata.ai_title.trim() : '';
   if (own && (own !== autoNoteTitle(note?.raw_text) || !ai)) return own;
   if (ai) return ai;

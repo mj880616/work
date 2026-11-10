@@ -33,10 +33,10 @@ test('가족 줄: AI가 읽지 않는 노트(ai_export_allowed=false)만 보인�
   assert.deepEqual(tree.filter(r => r.type === 'note').map(r => r.id), ['n2']);
 });
 
-test('마지막 두 줄(앞에 더 있으면 more), 비밀 메모는 보이지 않는다', () => {
+test('마지막 두 줄(앞에 더 있으면 more), 비밀 모양 노트도 가리지 않는다(NOTE-AI제외정리)', () => {
   assert.deepEqual(tailLines(note(1)), {lines: ['둘째 줄', '셋째 줄 1'], more: true});
   assert.deepEqual(tailLines({raw_text: '한 줄'}), {lines: ['한 줄'], more: false});
-  assert.deepEqual(tailLines({raw_text: 'password: abcdefgh1234\n다음'}).lines.length, 0);
+  assert.deepEqual(tailLines({raw_text: 'password: abcdefgh1234\n다음'}).lines, ['password: abcdefgh1234', '다음']);
   assert.equal(folderNameOf(notes[0], folders), '01. 업무메모');
   assert.equal(folderNameOf(notes[2], folders), '');
 });

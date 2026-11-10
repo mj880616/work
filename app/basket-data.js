@@ -301,11 +301,6 @@ export function setNotePinned(note, pinned, rt = window.KPTURuntime, now = new D
     return metadata;
   }, rt);
 }
-// NOTE-비밀메모(17:23 결정): 노트 메뉴 [AI에 보내지 않기] = metadata.ai_off true, [풀기] = false(비밀 모양으로 잘못 걸린 노트도 풂).
-// 다른 metadata 키는 그대로(같은 읽고-지키며-쓰기). 고치기가 아니므로 updated_at은 건드리지 않는다.
-export function setNoteAiOff(note, off, rt = window.KPTURuntime) {
-  return patchNoteMetadata(note, metadata => { metadata.ai_off = !!off; return metadata; }, rt);
-}
 // NOTE-보기3가지: 포스트잇 보기의 자리·기울기·겹친 순서는 노트 행의 기존 metadata jsonb(metadata.board = {x, y, r, z}; 새 칸·DB 변경 없음,
 // 고정·폴더와 같은 읽고-지키며-쓰기). 옮기기는 고치기가 아니라 updated_at(고친 날·목록 순서)을 건드리지 않는다. 값의 모양은 note-board-model.mjs가 정한다.
 export function setNoteBoard(note, board, rt = window.KPTURuntime) {

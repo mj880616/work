@@ -156,3 +156,15 @@ test('auth and budget: login and owner first, daily limit before OpenAI',async()
   assert.equal(p.records.length,1);
   assert.equal(st.packScheduleRecords([{day:'2026-10-20',at:1,type:'work',label:'',text:'가'.repeat(1000)},{day:'2026-10-21',at:2,type:'work',label:'',text:'나'.repeat(1000)}],{total:1100}).partial,true);
 });
+
+// NOTE-AI제외정리(11/10 결정 A): 그 주 업데이트·업무일지 줄에 비밀번호·키 모양 글이 있으면 그 부분만 가려 재료로 보낸다(저장값은 그대로).
+test('NOTE-AI제외정리: a record with a key-looking part is sent with only that part masked',async()=>{
+  const {handler,calls,db}=harness();
+  db.app_notes.push({id:id(30),workspace_id:WS,kind:'basket',raw_text:'API_KEY = SECRET_SHAPE_TEXT\n검암역 기자회견 KEEP_TEXT',occurred_at:THU,journal_day:null,archived_at:null,ai_export_allowed:true});
+  const res=await post(handler,run());
+  assert.equal(res.status,200);
+  const material=calls.openai[0].input[1].content;
+  assert.ok(!material.includes('SECRET_SHAPE_TEXT'),'비밀 글자는 AI로 가지 않음');
+  assert.ok(material.includes('KEEP_TEXT')&&material.includes('[가림]'));
+  assert.equal(db.app_notes.find(n=>n.id===id(30)).raw_text,'API_KEY = SECRET_SHAPE_TEXT\n검암역 기자회견 KEEP_TEXT');
+});

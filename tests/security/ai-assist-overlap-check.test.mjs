@@ -376,3 +376,15 @@ test('그래도 incomplete면 다른 실패와 구분되는 로그 코드(ai_inc
   await expectError(await post(b.handler,run([pair(M1,P1)])),502,'ai_invalid_response');
   assert.ok(!b.calls.logs.some(l=>l.code==='ai_incomplete'));
 });
+
+// NOTE-AI제외정리(11/10 결정 A): 업데이트(바구니) 글에 비밀번호·키 모양 부분이 있으면 그 부분만 가려 보낸다(저장값은 그대로).
+test('NOTE-AI제외정리: a basket record with a password line is sent with only that part masked',async()=>{
+  const {handler,calls,db}=harness();
+  const b=db.app_notes.find(n=>n.id===id(10));b.raw_text='공유 계정 비밀번호: SECRET_SHAPE_TEXT\n출정식 준비 KEEP_TEXT';
+  const res=await post(handler,run([pair(M1,B1)]));
+  assert.equal(res.status,200);
+  const material=calls.openai[0].input[1].content;
+  assert.ok(!material.includes('SECRET_SHAPE_TEXT'),'비밀 글자는 AI로 가지 않음');
+  assert.ok(material.includes('KEEP_TEXT')&&material.includes('[가림]'));
+  assert.equal(db.app_notes.find(n=>n.id===id(10)).raw_text,'공유 계정 비밀번호: SECRET_SHAPE_TEXT\n출정식 준비 KEEP_TEXT');
+});

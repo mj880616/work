@@ -7,6 +7,7 @@
 //   (그 뒤에도 [저장]을 눌러야 페이지가 바뀐다). 공유 페이지는 링크를 받은 바깥 사람이 읽으므로 내부 메모·연락처·평가는 빼라고 지시한다.
 import { EVIDENCE_RULE, evidenceLines, maskEvidenceText, EMAIL, PHONE, CONTROL, chars, type EvidenceLine } from "./evidence.ts";
 import { looksSecret } from "./note-title.ts";
+import { maskSecret } from "./note-secret.ts";
 
 export type ShareSourceType = "meeting" | "note";
 export const SHARE_SOURCE_TYPES: readonly ShareSourceType[] = Object.freeze(["meeting", "note"]);
@@ -100,7 +101,8 @@ export function shareMaterial(input: ShareInput, sources: ShareSource[], today: 
     `오늘: ${today}`,
     `초점: ${input.focus || "(없음)"}`,
     "근거 목록(sources):",
-    ...sources.map((s) => `${s.ref} | ${s.label || TYPE_LABEL[s.type]} | ${s.day} | ${s.title}\n${s.text}`),
+    // NOTE-AI제외정리: 노트 제목의 비밀번호·토큰·키 모양 부분은 가려 보낸다(본문은 handler.ts가 자르기 전에 가림).
+    ...sources.map((s) => `${s.ref} | ${s.label || TYPE_LABEL[s.type]} | ${s.day} | ${s.type === "note" ? maskSecret(s.title) : s.title}\n${s.text}`),
   ].join("\n");
 }
 

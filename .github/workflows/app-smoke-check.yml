@@ -614,9 +614,9 @@ jobs:
         run: node --test tests/recent-fold.test.mjs
       - name: S51-23 파일 '최근'에서 Web2 자동 생성 파일 빼기(시스템 폴더 규칙) 시험
         run: node --test tests/files-auto-model.test.mjs
-      - name: NOTE-비밀메모 판별(서버 note-secret.ts와 같은 규칙)·목록 제목 가리기 시험
+      - name: NOTE-AI제외정리 화면(원래 제목·AI 제외 메뉴 없음) 시험
         run: node --test tests/note-secret.test.mjs
-      - name: NOTE-비밀메모 서버 쪽(AI 재료에서 비밀·AI 제외 노트 건너뛰기) 시험
+      - name: NOTE-AI제외정리 서버 쪽(AI로 보낼 때 비밀번호·키 부분만 가림, 노트 → AI 길 전수) 시험
         run: node --test tests/note-secret-server.test.mjs
       - name: SEC-github.io넘기기 github.io에서 열면 bokdoong.com으로 넘김 시험
         run: node --test tests/origin-redirect.test.mjs
