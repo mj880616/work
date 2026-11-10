@@ -160,7 +160,7 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (kind === 'cells') { strip.querySelector('.wait-empty,.wait-fail')?.remove(); return; }
     for (const button of cells.values()) button.remove();
     cells.clear(); strip.querySelector('[data-journal-photo-more]')?.remove(); drawnWidth = -1;
-    strip.innerHTML = kind === 'empty' ? emptyHtml('없음', {attrs:'data-journal-photos-empty'}) : kind === 'fail' ? failHtml({text:'사진을 불러오지 못했어요', retry:'data-journal-photos-retry'}) : '';
+    strip.innerHTML = kind === 'empty' ? emptyHtml('없음', {attrs:'data-journal-photos-empty'}) : kind === 'fail' ? failHtml({retry:'data-journal-photos-retry'}) : '';
   }
   function drawPhotos() {
     if (!last) return;
