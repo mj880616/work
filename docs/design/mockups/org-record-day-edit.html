@@ -1,0 +1,69 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 조직 기록 날짜 고치기 (ORG-기록날짜고치기)</title>
+<style>
+body{margin:0;padding:12px;background:#ece9e1;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2b2b28;max-width:420px}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#555;line-height:1.55;margin:0 0 12px}
+.cap{font-size:13px;font-weight:700;margin:18px 0 6px}
+.cap small{font-weight:400;color:#666}
+.card{background:#fffdf8;border:1px solid #e1ddd2;border-radius:10px;padding:8px 10px;font-size:12.5px;position:relative}
+.org{font-weight:700;font-size:12.5px}.st{color:#777;font-size:11.5px;margin-bottom:4px}
+.l{display:grid;grid-template-columns:auto 1fr auto;column-gap:6px;padding:3px 0;align-items:baseline}
+.d{color:#777;font-variant-numeric:tabular-nums;white-space:nowrap}
+.d.tap{color:#3c5a3c;text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.d.on{background:#e7ead8;border-radius:4px;padding:0 3px;color:#3c5a3c;text-decoration:none}
+.m{color:#aaa;letter-spacing:-1px}
+.pop{margin:4px 0 6px;border:1px solid #d9d5ca;border-radius:9px;background:#fff;padding:8px;box-shadow:0 4px 14px rgba(0,0,0,.06)}
+.seg{display:inline-flex;background:#f1efe8;border-radius:7px;padding:2px;gap:2px;font-size:11.5px}
+.seg span{padding:3px 10px;border-radius:5px;color:#666}
+.seg span.on{background:#fff;color:#2b2b28;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.row{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px}
+.f{border:1px solid #d9d5ca;border-radius:6px;padding:3px 8px;background:#fff;min-width:88px;display:flex;justify-content:space-between;gap:8px}
+.f i{font-style:normal;color:#aaa}
+.hint{color:#888;font-size:11.5px}
+.btns{display:flex;justify-content:flex-end;gap:6px;margin-top:8px;font-size:11.5px}
+.btns span{border:1px solid #d9d5ca;border-radius:6px;padding:3px 10px;background:#fff}
+.btns span.main{background:#55632f;border-color:#55632f;color:#fff}
+.legend{background:#fff;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6;margin-top:14px}
+.legend b{color:#55632f}
+</style></head><body>
+<h1>시안: 조직 기록 날짜 고치기</h1>
+<p class="note">조직 이름·글은 모두 예시예요. 폰 기준으로 그렸고, PC도 같은 모양이에요(줄 바로 아래 작은 칸).</p>
+
+<div class="cap">① 평소 <small>— 날짜를 누르면 고칠 수 있어요(PC는 마우스를 올리면 점선 밑줄)</small></div>
+<div class="card"><div class="org">예시지부</div><div class="st">쟁의권 확보(10.6)</div>
+<div class="l"><span class="d tap">- 11.10.</span><span>오후 예시 관계 기관-사측-지부 3차 간담회 진행</span><span class="m">⋯</span></div>
+<div class="l"><span class="d">- 11.11.</span><span>10시 노조-지부 파업 점검 회의</span><span class="m">⋯</span></div></div>
+
+<div class="cap">② 날짜 누름 — 하루 <small>(기본)</small></div>
+<div class="card"><div class="org">예시지부</div><div class="st">쟁의권 확보(10.6)</div>
+<div class="l"><span class="d on">- 11.10.</span><span>오후 예시 관계 기관-사측-지부 3차 간담회 진행</span><span class="m">⋯</span></div>
+<div class="pop"><div class="seg"><span class="on">하루</span><span>기간</span><span>없음</span></div>
+<div class="row"><span class="f">11.11.(수)<i>▾</i></span><span class="hint">달력에서 고르기</span></div>
+<div class="btns"><span>취소</span><span class="main">저장</span></div></div>
+<div class="l"><span class="d">- 11.11.</span><span>10시 노조-지부 파업 점검 회의</span><span class="m">⋯</span></div></div>
+
+<div class="cap">③ 기간</div>
+<div class="card">
+<div class="l"><span class="d on">- 11.10.</span><span>오후 예시 관계 기관-사측-지부 3차 간담회 진행</span><span class="m">⋯</span></div>
+<div class="pop"><div class="seg"><span>하루</span><span class="on">기간</span><span>없음</span></div>
+<div class="row"><span class="f">11.1.(일)<i>▾</i></span><span>~</span><span class="f">11.3.(화)<i>▾</i></span></div>
+<div class="btns"><span>취소</span><span class="main">저장</span></div></div></div>
+
+<div class="cap">④ 없음</div>
+<div class="card">
+<div class="l"><span class="d on">- 11.10.</span><span>오후 예시 관계 기관-사측-지부 3차 간담회 진행</span><span class="m">⋯</span></div>
+<div class="pop"><div class="seg"><span>하루</span><span>기간</span><span class="on">없음</span></div>
+<div class="row hint">날짜 없이 보고에 넣어요. 쓴 주에 보여요.</div>
+<div class="btns"><span>취소</span><span class="main">저장</span></div></div></div>
+
+<div class="cap">저장한 뒤</div>
+<div class="card"><div class="org">예시지부</div><div class="st">쟁의권 확보(10.6)</div>
+<div class="l"><span class="d tap">- 11.1.~11.3.</span><span>예시 기간 기록(기간으로 고친 줄)</span><span class="m">⋯</span></div>
+<div class="l"><span class="d tap">-</span><span>예시 날짜 없는 기록(없음으로 고친 줄)</span><span class="m">⋯</span></div>
+<div class="l"><span class="d tap">- 11.11.</span><span>오후 예시 관계 기관-사측-지부 3차 간담회 진행</span><span class="m">⋯</span></div></div>
+
+<div class="legend"><b>모양</b>: 따로 버튼을 늘리지 않고 <b>날짜를 누르면</b> 줄 바로 아래에 작은 칸이 열려요. [하루|기간|없음] 셋 중 고르고, 날짜는 달력으로 골라요. 저장하면 칸이 닫혀요.<br>
+<b>같은 길</b>: 줄 ⋯ 메뉴에도 [날짜 고치기]가 있어 같은 칸을 열어요(키보드·화면 읽기용).<br>
+<b>그대로인 것</b>: 글·보고용으로 고친 글·빼기 상태, [+ 쓰기] 칸, 일정 줄(캘린더 일정은 [일정 열기]로).</div>
+</body></html>
