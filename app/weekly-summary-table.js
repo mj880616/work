@@ -6,7 +6,7 @@ import {paperSkeletonHtml,weekBodyHtml} from './biz-week-skeleton.mjs';
 // - 1) 사업요약표: 사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당. '진행'·'담당' 칸을 누르면 글 칸(진행은 Ctrl+Enter, 담당은 Enter 저장, Esc 취소).
 //   진행 = 그 주 임시저장 summary 칸(홈 [주간 정리] 1) 요약과 같은 칸), 담당 = 그 주 임시저장 owners 칸(한글 파일 담당 칸) — 저장 자리 하나(weekly-draft-store.js).
 //   칸 아래 그 주 사업 보고 제목(사실 기록)은 누르면 그 보고가 열린다. AI 제안 없음(WEEKLY-요약표수기 S49-39). 예전에 저장된 AI 값은 보이지 않게만 두고 지우지 않는다.
-// - 2) 주요 사업·회의결과: 그 주 사업 보고 줄(날짜순). 내부 정례 회의와 내가 '늘 빼기'로 정한 종류는 journal-meeting-kinds.js reportsMeeting 한 곳으로 뺀다(주간 정리와 같음).
+// - 2) 주요 사업·회의결과: 전환 주부터는 주요 사업 창(biz-detail-window.js, 홈 [주간 정리] 2. 2)와 같은 부품). 그 앞 주는 그 주 사업 보고 줄(날짜순). 내부 정례 회의와 내가 '늘 빼기'로 정한 종류는 journal-meeting-kinds.js reportsMeeting 한 곳으로 뺀다(주간 정리와 같음).
 //   한 줄 업데이트(칸 oneline)는 표 칸 맨 위, 세부 내용에는 넣지 않는다(MTG-한줄업데이트).
 // - BIZ-주간표이번주 ⑥(11/09): 사업 보고가 전체 기간·정한 기간이면(fold) 이 칸은 접힌 한 줄 '이번 주 주간보고 11.9~11.15 ⌄'로 시작하고 누르면 펼친다.
 //   접힌 동안은 서버를 부르지 않고, 접힘은 기억하지 않는다(접는 보기로 들어올 때마다 접힘). 주 단위에서는 늘 펼침.
@@ -125,7 +125,9 @@ async function paint(){
       else if(now.recsFailed)note='이번 주 기록을 불러오지 못했어요.';
       if(now.status!=='ready')now=null;
     }
-    state.view={placed:{...placed,areas},records,untagged,all,lineOf};
+    // BIZ-기록하나로 B-4 ②: 전환 주부터 2) 주요 사업·회의결과 = 홈 [주간 정리] 2. 2)와 같은 주요 사업 창 부품(biz-detail-window.js, 상자마다 하나).
+    if(fresh&&!compact){const mod=await import('./biz-detail-window.js');if(!state||run!==state.run)return;state.detail||=mod.createBizDetailBox({onReady:()=>placeDetail()});await state.detail.update({week:from,meetings:state.meetings,hidden,tree:()=>places?.projects||null});if(!state||run!==state.run)return} // 2) 상자가 그 주를 다 읽은 뒤 1) 표와 한 번에 그린다(아래 목록이 한 번만 밀리게)
+    state.view={placed:{...placed,areas},records,untagged,all,lineOf,detail:fresh&&!compact};
     state.draft=draft;state.editable=editable;state.store=store;state.now=now;state.kit=kit;
     state.done={run,from,now:fresh?nowStatus:''}; // 한글 파일(fileRows)이 '그 주를 다 그렸나'를 본다
     renderPaper();say(note);
@@ -135,10 +137,14 @@ function renderPaper(){
   if(!state?.view)return;
   const {placed,records,untagged,all,lineOf}=state.view;
   $in('[data-bp-paper]').innerHTML=paperHtml(placed,records,untagged,all,lineOf);
+  placeDetail();
   box.dataset.bpReady=''; // 표가 처음 그려짐 — 이제부터 자리 잡기(CSS min-height)를 풀고 표 높이를 따른다
   const field=$in('[data-bp-field]');if(field){field.focus({preventScroll:true});if(field.select&&field.tagName==='INPUT')field.select()}
 }
 
+// 2) 주요 사업 창 상자는 그 주를 다 읽은 뒤에만 자리 줄(표 모양 자리와 같은 한 줄)과 바꿔 붙인다 — 아래 목록이 두 번 밀리지 않게(BIZ-주간칸밀림).
+// 이미 붙어 있으면 그대로 옮겨 붙인다(쓰던 칸 그대로).
+function placeDetail(){const slot=$in('[data-bp-detail]'),d=state?.detail;if(slot&&d&&d.ready(state.from))slot.replaceWith(d.el)}
 // ---- 직접 쓰기(진행 상황 및 이후 계획 · 담당) ----
 // 표의 한 줄 = 사업영역 이름 + 세부 과제 이름. 칸 이름은 홈 [주간 정리]와 같은 규칙(weekly-summary-hand.mjs)으로 맞춘다.
 function rowRefs(){return state.rowRefs||[]}
@@ -306,6 +312,7 @@ function paperHtml(placed,records,untagged,all,lineOf){
   const table=rows.length?`<table class="biz-sum-table"><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:emptyHtml('사업영역 없음');
   if(compact)return table;
   const miss=untagged.length?`<details class="biz-untagged"><summary>사업영역 안 단 보고 ${untagged.length}건</summary>${untagged.map(m=>`<button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}">${esc(lineOf(m))}</button>`).join('')}</details>`:'';
+  if(state.view?.detail)return `<h3>1) 사업요약표</h3>${table}${miss}<h3>2) 주요 사업·회의결과</h3><ul class="biz-detail-list" data-bp-detail aria-hidden="true"><li><p class="biz-skel-line"></p></li></ul>`;
   const details=all.length?all.map(m=>{const day=new Date(Date.parse(m.meeting_at)+9*3600e3).toISOString().slice(0,10),plan=nextPlanLines(m.next_plan);return `<li><button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}"><span class="biz-day">${shortDay(day)}</span> ${esc(lineOf(m))}</button>${plan.length?`<p class="biz-cell-plan">→ 이후: ${plan.map(esc).join(' / ')}</p>`:''}</li>`}).join(''):`<li>${emptyHtml('사업 보고 없음')}</li>`;
   return `<h3>1) 사업요약표</h3>${table}${miss}<h3>2) 주요 사업·회의결과</h3><ul class="biz-detail-list">${details}</ul>`;
 }
