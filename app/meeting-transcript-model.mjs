@@ -98,6 +98,15 @@ export function draftText(draft){
   const i=bullets(draft.information);if(i.length)parts.push(['공유',...i].join('\n'));
   return parts.join('\n\n');
 }
+// MTG-참석인원칸(S56-31): 초안의 참석 목록 → [회의] '참석인원' 한 줄 칸(app_meetings.attendees, 200자 이하).
+// 모두 이름처럼 보이면(숫자 없음) '3명 (가, 나, 다)', 숫자가 섞이면('조합원 20여 명' 등) 사람 수를 세지 않고 그대로 잇는다. 비면 ''.
+export const ATTENDEES_MAX=200;
+export function attendeesLine(draft){
+  const list=(draft?.attendees||[]).map(x=>String(x??'').replace(/\s+/g,' ').trim()).filter(Boolean);
+  if(!list.length)return '';
+  const names=list.join(', '),line=list.some(x=>/\d/.test(x))?names:`${list.length}명 (${names})`;
+  return line.length>ATTENDEES_MAX?line.slice(0,ATTENDEES_MAX-1)+'…':line;
+}
 // 후속 할 일 줄: 이름(담당이 적혀 있으면 괄호) + 기한(YYYY-MM-DD일 때만).
 export function actionRows(draft){
   return (draft?.actions||[]).map(a=>({title:a.assignee?`${a.task} (${a.assignee})`:a.task,due:a.due||''})).filter(a=>a.title.trim());
