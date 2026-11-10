@@ -67,8 +67,12 @@
    --kptu-topline-space(줄 높이 + 아래 간격)는 화면 높이에 맞춰 그리는 좌우·3단 화면(할 일·회의·프로젝트·담당조직)이 뺀다. */
 .app-topline{display:none}
 @media (min-width:761px){
-  #appView{--kptu-topline-height:40px;--kptu-topline-gap:8px;--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap))}
-  #appView>.app-topline{grid-column:-2 / -1;grid-row:1;display:flex;align-items:center;gap:4px;box-sizing:border-box;height:var(--kptu-topline-height);margin:0 0 var(--kptu-topline-gap);min-width:0}
+  #appView{--kptu-topline-height:40px;--kptu-topline-gap:8px;--kptu-fixed-top:0px;--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap));--kptu-stick-top:calc(var(--kptu-fixed-top) + var(--kptu-topline-height) + var(--kptu-topline-gap))}
+  /* UI-PC스크롤묶음 ①(2026-11-10 CC 결정 '늘 보임'): 맨 위 줄(뒤로·위치·검색·+ 추가)은 모든 PC 화면에서 화면 맨 위에 붙어 있다(달력·할 일과 같은 방식).
+     전에는 문서를 내리면 같이 올라가 사라지는 화면(홈·잊지 말기·자료실·공유 페이지·사업 보고 등)과 화면 높이에 맞춰 그려 남는 화면(달력·할 일)이 갈렸다.
+     줄 아래 간격(--kptu-topline-gap)은 그림자로 같은 바탕을 칠해 붙은 줄 밑으로 지나가는 글이 비치지 않게 한다.
+     화면 안에서 위에 붙는 줄(아스날·사진 위쪽 줄, 파일 위쪽 줄, 따라오는 옆 칸)은 --kptu-stick-top(맨 위 띠 + 줄 + 간격) 아래에 붙는다. 폰(~760px)은 이 줄이 없어 0. */
+  #appView>.app-topline{grid-column:-2 / -1;grid-row:1;display:flex;align-items:center;gap:4px;box-sizing:border-box;height:var(--kptu-topline-height);margin:0 0 var(--kptu-topline-gap);min-width:0;position:sticky;top:var(--kptu-fixed-top);z-index:15;background:var(--kptu-bg);box-shadow:0 var(--kptu-topline-gap) 0 var(--kptu-bg)}
   #appView>.view-panel{grid-column:-2 / -1;grid-row:2}
   #appView.app-view.nav-collapsed{grid-template-columns:minmax(0,1fr);column-gap:0}
   #appView.nav-collapsed>.app-nav{display:none}
@@ -172,13 +176,17 @@
 
 /* UI-칸안스크롤하나로(2026-10-30, 시안 A): PC 좌우 화면의 스크롤은 화면 전체 하나다(왼쪽 목록은 화면과 같이 내려감).
    UI-상세칸고정(2026-11-03 명진, S49-8): 단, follow-pane.js가 이름을 붙인 옆 칸(오른쪽 상세·왼쪽 폴더 나무)은 화면 위쪽에 붙어 제자리에 있고
-   내용이 화면보다 길면 그 칸만 따로 스크롤한다. 칸 안 고정 머리줄·[저장] 줄은 칸 끝(0)에 붙는다. */
+   내용이 화면보다 길면 그 칸만 따로 스크롤한다. 칸 안 고정 머리줄·[저장] 줄은 칸 끝(0)에 붙는다.
+   UI-PC스크롤묶음 ②(2026-11-10): 칸 위에서 굴린 휠은 칸에 굴릴 것이 없거나 칸 끝에 닿으면 화면(문서) 스크롤로 넘어간다.
+   전에는 overscroll-behavior:contain이라 칸이 짧을 때(조직 보고 상세 등) 칸 위 휠이 아무것도 움직이지 않았다(크롬은 넘칠 것 없는 스크롤 틀도 contain이면 휠을 막는다).
+   붙는 자리 기본값(--follow-top)은 #appView가 '맨 위 줄 아래 8px'로 정하고(.kptu-follow-pane은 follow-pane.js가 칸마다 다시 정함). */
 @media (min-width:761px){
-  .kptu-follow-pane{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:calc(100vh - var(--follow-top,12px) - 12px);max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto;overscroll-behavior:contain}
+  #appView{--follow-top:calc(var(--kptu-stick-top) + 8px)}
+  .kptu-follow-pane{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:calc(100vh - var(--follow-top,12px) - 12px);max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto}
   .kptu-follow-pane .modal-action-footer{bottom:0}
 }
 /* S51-13 TODO-폴드목록상세: 폴드 펼침(600~760px)에서 follow-pane.js가 narrow로 붙인 칸도 같은 모양(최대 높이는 아래 떠 있는 줄만큼 뺀 값, JS). */
 @media (min-width:600px) and (max-width:760px){
-  .kptu-follow-pane.kptu-follow-narrow{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto;overscroll-behavior:contain}
+  .kptu-follow-pane.kptu-follow-narrow{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto}
   .kptu-follow-pane.kptu-follow-narrow .modal-action-footer{bottom:0}
 }

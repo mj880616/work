@@ -146,7 +146,7 @@
    (sticky, 한 줄 아래) → 큰 제목 → 본문(화면 아래까지, 길면 페이지가 길어짐). 글 폭은 화면 폭 꽉(좌우 여백만). 옛 블록 틀은 숨긴다. */
 #appView #pagesView .sp-editor.is-full{ --sp-topline-h:44px; display:block; max-width:none; min-height:calc(100dvh - 96px); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
 #appView #pagesView .sp-editor.is-full[hidden]{ display:none; }
-#appView #pagesView .sp-topline{ position:sticky; top:0; z-index:6; box-sizing:border-box; display:flex; align-items:center; gap:8px; min-height:var(--sp-topline-h); padding:0 12px 0 4px; background:var(--kptu-surface); border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box) var(--ds-radius-box) 0 0; }
+#appView #pagesView .sp-topline{ position:sticky; top:var(--kptu-stick-top,0px); z-index:6; box-sizing:border-box; display:flex; align-items:center; gap:8px; min-height:var(--sp-topline-h); padding:0 12px 0 4px; background:var(--kptu-surface); border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box) var(--ds-radius-box) 0 0; }
 #appView #pagesView .sp-topline .sp-back{ flex:none; padding:0 8px; font-size:var(--ds-compact-text); }
 #appView #pagesView .sp-topline .sp-seg{ flex:none; align-self:center; }
 #appView #pagesView .sp-top-extra{ display:flex; align-items:center; gap:8px; min-width:0; }
@@ -176,7 +176,7 @@
 /* 편집기: 버튼 줄은 맨 위 줄 바로 아래에 붙어 따라오고, 제목·본문은 좌우 여백만 두고 꽉 채운다. */
 #appView #pagesView .sp-full-doc{ min-width:0; }
 #appView #pagesView .sp-full-doc > .sp-hint{ padding:12px 28px 0; }
-#appView #pagesView .sp-editor.is-full .ed-bar{ top:var(--sp-topline-h); z-index:5; }
+#appView #pagesView .sp-editor.is-full .ed-bar{ top:calc(var(--kptu-stick-top,0px) + var(--sp-topline-h)); z-index:5; }
 #appView #pagesView .sp-full-title{ box-sizing:border-box; display:block; width:100%; height:auto; min-height:0; margin:0; padding:24px 28px 4px; border:0; border-radius:0; box-shadow:none; background:transparent; color:var(--kptu-ink); font:inherit; font-size:30px; font-weight:var(--ds-weight-medium); line-height:1.35; }
 #appView #pagesView .sp-full-title::placeholder{ color:var(--kptu-faint); }
 #appView #pagesView .sp-full-title:focus,#appView #pagesView .sp-full-title:focus-visible{ outline:none; box-shadow:none; }

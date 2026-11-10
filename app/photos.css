@@ -6,7 +6,7 @@
    도구 줄(.photos-tools) [사진 ▾][정리][전체 ▾][찍은 날 ↓][－][＋](앨범 보기는 끝에 [+ 새 앨범]).
    PC(761px~)는 한 줄: 위쪽 경로 줄이 화면 이름을 보이므로 제목은 읽기 프로그램용으로만 두고 출처 아이콘은 도구 줄 오른쪽 끝.
    도구 줄은 높이가 고정이고 줄바꿈하지 않아, 보기를 바꿔도 위쪽 높이가 같다(좁으면 고르기 칸·정렬 글자가 줄어든다). */
-#appView #photosView .photos-bar{ position:sticky; top:0; z-index:2; display:flex; flex-direction:column; align-items:stretch; gap:4px; padding:2px 0; background:var(--kptu-bg); }
+#appView #photosView .photos-bar{ position:sticky; top:var(--kptu-stick-top,0px); z-index:2; display:flex; flex-direction:column; align-items:stretch; gap:4px; padding:2px 0; background:var(--kptu-bg); }
 #appView #photosView .photos-head{ display:flex; align-items:center; gap:6px; min-width:0; min-height:var(--kptu-touch-target,44px); }
 #appView #photosView .photos-title{ flex:1 1 auto; min-width:0; margin:0; font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; }
 #appView #photosView .photos-head > .photos-srcs{ flex:none; margin-left:auto; }
@@ -52,7 +52,7 @@
 #appView #photosView .diary-grid-item.is-picked .photos-pick{ background:var(--kptu-primary); border-color:var(--kptu-primary); }
 #appView #photosView .diary-grid-item.is-picked .photos-pick::before{ content:"✓"; }
 #appView #photosView .is-selecting .diary-star-mark{ right:auto; left:3px; }
-#appView #photosView .photos-sel{ position:sticky; top:0; z-index:3; display:flex; align-items:center; gap:8px; min-height:40px; padding:0 8px; color:var(--kptu-on-primary); background:var(--kptu-primary); border-radius:var(--kptu-radius-sm,6px); font-size:var(--ds-compact-text,13px); }
+#appView #photosView .photos-sel{ position:sticky; top:var(--kptu-stick-top,0px); z-index:3; display:flex; align-items:center; gap:8px; min-height:40px; padding:0 8px; color:var(--kptu-on-primary); background:var(--kptu-primary); border-radius:var(--kptu-radius-sm,6px); font-size:var(--ds-compact-text,13px); }
 #appView #photosView .photos-sel[hidden],#appView #photosView .photos-act[hidden]{ display:none; }
 #appView #photosView .photos-sel-x{ position:relative; width:32px; min-width:0; height:32px; min-height:0; margin:0; padding:0; color:inherit; background:transparent; border:0; box-shadow:none; font-size:16px; }
 /* UI-고르기줄(S48-54): 버튼 칸 나누기·아이콘·글자 모양은 공용 부품(base-ui.css .kptu-actbar). 여기는 줄 자리(아래 붙기)·바탕만. */
@@ -264,7 +264,7 @@
 #appView #photosView .photos-rail-year{ position:absolute; right:16px; margin-top:-6px; padding:0 3px; border-radius:3px; font-size:10px; line-height:12px; color:var(--kptu-ink); background:color-mix(in srgb,var(--kptu-surface) 78%,transparent); font-variant-numeric:tabular-nums; pointer-events:none; }
 /* PHOTO-연월보기(S49-48): [사진] 탭 월 보기·연 보기. 줄 = 이름·장수 + 작은 사진 한 줄(폰 6·PC 10 / 연 폰 2·PC 4, --zn). 연도 막대는 일별에서만(JS가 숨김). */
 #appView #photosView .photos-zoom{ display:block; }
-#appView #photosView .photos-zy{ position:sticky; top:0; z-index:2; margin:0; padding:4px 0; font-size:18px; font-weight:700; background:var(--kptu-bg,var(--bg)); }
+#appView #photosView .photos-zy{ position:sticky; top:var(--kptu-stick-top,0px); z-index:2; margin:0; padding:4px 0; font-size:18px; font-weight:700; background:var(--kptu-bg,var(--bg)); }
 #appView #photosView .photos-zy span{ margin-left:6px; font-size:12px; font-weight:400; color:var(--kptu-faint); }
 #appView #photosView .photos-zrow{ display:block; width:100%; height:auto; min-height:0; margin:0; padding:4px 0 6px; text-align:left; border:0; border-bottom:1px solid var(--kptu-line,var(--line)); border-radius:0; background:transparent; color:inherit; font:inherit; cursor:pointer; }
 #appView #photosView .photos-zt{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
