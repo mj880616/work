@@ -2,7 +2,7 @@
  * Web2 수집 점검 신호 (OPS-수집점검 2단계)
  *
  * 하는 일: 1시간마다 아래 두 가지 "시각"과 "개수"만 읽어 Web2에 알린다. 파일 이름·내용·ID는 보내지 않는다.
- *   1) 텔레그램: messages 폴더 안 월별 폴더(예: 2026-10)에서 가장 최근 메시지 파일 시각 + 최근 24시간에 생긴 파일 수
+ *   1) 텔레그램: 원문 폴더 아래 모든 대화방의 messages → 월별 폴더(예: 2026-10)에서 가장 최근 메시지 파일 시각 + 최근 24시간에 생긴 파일 수
  *   2) 통화 전사: 전사 폴더에서 가장 최근 txt 파일 시각 + 최근 24시간에 생긴 txt 수
  * Web2 홈 "마지막 수집 시각" 칸이 이 값으로 텔레그램·통화 전사 줄을 보여 준다.
  *
@@ -13,9 +13,10 @@
  */
 
 // ── 여기 두 칸만 채운다 (따옴표는 그대로 두고 안쪽만 바꾼다) ─────────────────
-// ① 텔레그램 메시지 폴더: Drive에서 "messages" 폴더를 열었을 때 주소창의 /folders/ 뒤 글자.
-//    (그 안에 2026-09, 2026-10 같은 월별 폴더가 있는 폴더)
-var WEB2_HEARTBEAT_TELEGRAM_MESSAGES_FOLDER = '여기에_텔레그램_messages_폴더_주소_끝부분';
+// ① 텔레그램 원문 폴더: 대화방 폴더(예: 12345678_방이름)들이 들어 있는 "원문" 폴더를 열었을 때 주소창의 /folders/ 뒤 글자.
+//    2026-10-22 변경: 방 하나(messages 폴더)만 보던 것을 전체 방 기준으로 바꿈.
+//    되돌리기: 이 값을 한 방의 messages 폴더 주소로 바꾸면 그 방 하나만 본다(아래 함수는 그대로 둬도 됨).
+var WEB2_HEARTBEAT_TELEGRAM_MESSAGES_FOLDER = '여기에_텔레그램_원문_폴더_주소_끝부분';
 // ② 통화 전사 폴더: Drive에서 "통화 녹음 → 전사" 폴더를 열었을 때 주소창의 /folders/ 뒤 글자.
 var WEB2_HEARTBEAT_TRANSCRIPT_FOLDER = '여기에_통화_전사_폴더_주소_끝부분';
 // ─────────────────────────────────────────────────────────────────────
@@ -34,8 +35,9 @@ function web2Heartbeat_send() {
   if (!secret) throw new Error('스크립트 속성에 ' + WEB2_HEARTBEAT_SECRET_KEY + '가 없습니다. 안내 문서 3단계를 먼저 하세요.');
   var started = Date.now();
   var results = [];
-  results.push(web2Heartbeat_try_('telegram', function () { return web2Heartbeat_telegram_(started); }, secret));
-  results.push(web2Heartbeat_try_('transcript', function () { return web2Heartbeat_transcript_(started); }, secret));
+  // 2026-10-22: 가벼운 통화 전사를 먼저 보낸다(텔레그램 55개 방 훑기가 시간을 다 쓰더라도 전사 신호는 끊기지 않게).
+  results.push(web2Heartbeat_try_('transcript', function () { return web2Heartbeat_transcript_(Date.now()); }, secret));
+  results.push(web2Heartbeat_try_('telegram', function () { return web2Heartbeat_telegram_(Date.now()); }, secret));
   Logger.log(results.join('\n'));
   if (results.some(function (line) { return line.indexOf('정상') < 0; })) {
     throw new Error('일부 신호를 보내지 못했습니다. 위 실행 로그를 확인하세요.');
@@ -106,23 +108,40 @@ function web2Heartbeat_folder_(id, label) {
   return DriveApp.getFolderById(id);
 }
 
-/** 텔레그램: messages 폴더 → 이름이 YYYY-MM인 월별 폴더 중 최근 두 달(이번 달·지난달) → 그 안과 한 단계 아래 폴더. */
+/**
+ * 텔레그램: 원문 폴더 → 대화방 폴더 전체 → 각 방의 messages → 이름이 YYYY-MM인 월별 폴더 중 최근 두 달 → 그 안과 한 단계 아래 폴더.
+ * 전체 방 중 가장 최근 메시지 시각을 보낸다(조용한 방 하나 때문에 '오래됨'으로 뜨지 않게).
+ * ① 칸에 예전처럼 messages 폴더를 넣어도 동작한다(그 방 하나만 봄).
+ */
 function web2Heartbeat_telegram_(started) {
-  var root = web2Heartbeat_folder_(WEB2_HEARTBEAT_TELEGRAM_MESSAGES_FOLDER, '① 텔레그램 메시지 폴더');
-  var months = [];
-  var subs = root.getFolders();
-  while (subs.hasNext()) {
-    var f = subs.next();
-    if (WEB2_HEARTBEAT_MONTH.test(f.getName())) months.push(f);
+  var root = web2Heartbeat_folder_(WEB2_HEARTBEAT_TELEGRAM_MESSAGES_FOLDER, '① 텔레그램 원문 폴더');
+  var messagesFolders = [];
+  if (root.getName() === 'messages') {
+    messagesFolders.push(root);
+  } else {
+    var rooms = root.getFolders();
+    while (rooms.hasNext()) {
+      var msgs = rooms.next().getFoldersByName('messages');
+      while (msgs.hasNext()) messagesFolders.push(msgs.next());
+    }
   }
-  if (!months.length) throw new Error('messages 폴더 안에 2026-10 같은 월별 폴더가 없습니다. ① 칸이 messages 폴더인지 확인하세요.');
-  months.sort(function (a, b) { return a.getName() < b.getName() ? 1 : -1; });
   var folders = [];
-  months.slice(0, 2).forEach(function (month) {
-    folders.push(month);
-    var inner = month.getFolders();
-    while (inner.hasNext()) folders.push(inner.next()); // 한 단계 아래까지
+  messagesFolders.forEach(function (messages) {
+    var months = [];
+    var subs = messages.getFolders();
+    while (subs.hasNext()) {
+      var f = subs.next();
+      if (WEB2_HEARTBEAT_MONTH.test(f.getName())) months.push(f);
+    }
+    months.sort(function (a, b) { return a.getName() < b.getName() ? 1 : -1; });
+    months.slice(0, 2).forEach(function (month) {
+      folders.push(month);
+      var inner = month.getFolders();
+      while (inner.hasNext()) folders.push(inner.next()); // 한 단계 아래까지
+    });
   });
+  if (!folders.length) throw new Error('월별 폴더(2026-10 등)를 하나도 찾지 못했습니다. ① 칸이 "원문" 폴더인지 확인하세요.');
+  Logger.log('텔레그램 점검: 방 messages 폴더 ' + messagesFolders.length + '개, 월별 폴더 ' + folders.length + '개 확인');
   return web2Heartbeat_scan_(folders, function () { return true; }, started);
 }
 
@@ -136,12 +155,11 @@ function web2Heartbeat_transcript_(started) {
 
 /**
  * 여러 폴더에서 가장 최근 파일 시각(만든·고친 시각 중 늦은 것)과 최근 24시간에 생긴 파일 수를 센다.
- * 먼저 최근 7일 안에 바뀐 파일만 검색하고(searchFiles), 하나도 없을 때만 전체를 훑는다(상한·시간 제한).
+ * 최근 1일 → 7일 안에 바뀐 파일만 차례로 검색하고(searchFiles), 둘 다 하나도 없을 때만 전체를 훑는다(상한·시간 제한).
  */
 function web2Heartbeat_scan_(folders, accept, started) {
+  // 2026-10-22: 최근 1일 → 7일 → 전체 순서로 넓힌다. 보통은 1일 창만 보고 끝내 빠르다.
   var now = Date.now(), since24 = now - 24 * 3600 * 1000;
-  var recentFrom = new Date(now - WEB2_HEARTBEAT_RECENT_DAYS * 24 * 3600 * 1000);
-  var query = 'trashed = false and modifiedDate > "' + Utilities.formatDate(recentFrom, 'UTC', "yyyy-MM-dd'T'HH:mm:ss") + '"';
   var state = { latest: 0, count: 0, seen: 0, partial: false };
   function take(iterator) {
     while (iterator.hasNext()) {
@@ -154,7 +172,15 @@ function web2Heartbeat_scan_(folders, accept, started) {
       if (created >= since24) state.count++;
     }
   }
-  folders.forEach(function (folder) { if (!state.partial) take(folder.searchFiles(query)); });
+  function queryFor(days) {
+    var from = new Date(now - days * 24 * 3600 * 1000);
+    return 'trashed = false and modifiedDate > "' + Utilities.formatDate(from, 'UTC', "yyyy-MM-dd'T'HH:mm:ss") + '"';
+  }
+  [1, WEB2_HEARTBEAT_RECENT_DAYS].forEach(function (days) {
+    if (state.latest || state.partial) return;
+    var q = queryFor(days);
+    folders.forEach(function (folder) { if (!state.partial) take(folder.searchFiles(q)); });
+  });
   if (!state.latest && !state.partial) {
     folders.forEach(function (folder) { if (!state.partial) take(folder.getFiles()); });
   }
