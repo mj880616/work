@@ -61,13 +61,6 @@ export const handMax = maxOf;
 export const handRows = (hand, part) => (part === 'calendar' ? readCalendar(hand?.calendar) : part === 'notes' ? readNotes(hand?.notes) : part === 'details' ? readNotes(hand?.details, HAND_DETAILS_MAX) : []);
 // 세부 줄 고침: Map(ref → {text} | {drop:true}).
 export const detailEdits = hand => new Map(readDetailEdits(hand?.details_edits).map(({ref, ...rest}) => [ref, rest]));
-// 원래 줄 하나 고치기({text}) · 빼기({drop:true}) · 원래대로(null). 반환 {hand}(다 비면 hand null) — 넘치거나 모양 밖이면 null.
-export function withDetailEdit(hand, ref, edit) {
-  if (typeof ref !== 'string' || !REF.test(ref)) return null;
-  const list = readDetailEdits(readHand(hand)?.details_edits).filter(e => e.ref !== ref);
-  if (edit) { const c = cleanDetailEdit({ref, ...edit}); if (!c) return null; if (list.length >= DETAIL_EDITS_MAX) return null; list.push(c); }
-  return {hand:readHand({...(readHand(hand) ?? {}), details_edits:list})};
-}
 const withPart = (hand, part, rows) => readHand({...(readHand(hand) ?? {}), [part]:rows});
 
 // 줄 더하기·바꾸기(순수). 반환 {hand, row, before} — 비었거나 넘치면 null. before = 고치기 전 줄(고치기일 때).

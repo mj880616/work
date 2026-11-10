@@ -3,9 +3,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {sameName, foldTargetKey, areaInKeys, lineIn} from '../app/weekly-cell-names.mjs';
-import {flowCells, flowMaterial, summaryCells} from '../app/weekly-flow-cells.js';
+import {flowCells, summaryCells} from '../app/weekly-flow-cells.js';
 import {weekMaterial, missingAreas, editableRows, withAreaRows} from '../app/weekly-hwpx/draft.mjs';
-import {withCellLine, weekCells, placeDraft, cellId, summaryKeys, withSummaryText} from '../app/weekly-draft-store.js';
+import {withCellLine, weekCells, placeDraft, cellId, summaryKeys} from '../app/weekly-draft-store.js';
 import {summaryCellKey} from '../app/weekly-summary-hand.mjs';
 import {droppedOf, keptOf, learnPicks, sortPicks, hadTexts, cellKeptRates} from '../app/weekly-picks.mjs';
 import {hqSuggestions} from '../app/weekly-hq-schedule.js';
@@ -54,10 +54,9 @@ test('한 칸에 넣기: 넣으면 그 주제 칸에 들어가고, 묶여 있던
   // 묶인 줄을 빼면 다시 살아나지 않는다(합친 뒤 옛 칸이 남지 않음).
   const cut = withCellLine(next, {section:'summary', key:'의제›주제/A', act:'cut', index:1});
   assert.deepEqual(weekCells(cut).get(cellId('summary', '의제›주제/A', 0)), ['- 가상 회의 1차', '- 가상 회의 3차']);
-  // 사업요약표 직접 쓰기(사업영역만 있는 줄)도 같은 주제 칸으로.
+  // 사업요약표 칸 이름 맞추기(사업영역만 있는 줄)도 같은 주제 칸으로.
   assert.equal(summaryCellKey(['의제›주제/A'], '주제·A', ''), '의제›주제/A');
-  const typed = withSummaryText(base, {area:'주제 · A', task:'', text:'가상 줄'});
-  assert.deepEqual(typed.rows.map(r => r.key), ['의제›주제/A']);
+  assert.equal(summaryCellKey(summaryKeys(base), '주제 · A', ''), '의제›주제/A');
 });
 
 test('한글 파일·확정본: 바탕 줄을 더하지 않고, 나뉘어 저장된 칸 줄은 같은 주제 칸에 붙는다', () => {
@@ -76,29 +75,18 @@ test('한글 파일·확정본: 바탕 줄을 더하지 않고, 나뉘어 저장
   assert.equal(typeof editableRows, 'function');
 });
 
-test('제안 재료: 그 주제의 기록은 위 의제 칸으로, 넣은 뒤 부호·띄어쓰기만 다른 제안은 0개', () => {
-  const model = {summary:{names:['주제·A'], areas:[{name:'주제·A', rows:[{task:null, items:[{day:'2026-11-03', text:'가상 회의 4차 결과.'}]}, {task:{name:'세부 하나'}, items:[{day:'2026-11-04', text:'가상 자료 정리'}]}]}], others:[]}, orgs:{sections:[]}};
-  const m = flowMaterial(weekMaterial, model, saved), id = cellId('summary', '의제›주제/A', 0);
-  assert.deepEqual(m.get(id).map(x => x.text), ['- 가상 회의 4차 결과.', '- 세부 하나: 가상 자료 정리']);
-  assert.ok(![...m.keys()].includes(cellId('summary', '주제·A›', 0)));
-  // 끝 점·띄어쓰기만 다른 글로 넣어도(예: AI 제안을 넣음) 그 기록 제안은 남지 않는다.
-  const took = withCellLine(saved, {section:'summary', key:'의제›주제/A', act:'take', text:'- 가상 회의  4차 결과', item:{kind:'ai_line', from:'ai', cell:'summary:의제›주제/A', org:'', text:'- 가상 회의  4차 결과'}});
-  assert.deepEqual(flowMaterial(weekMaterial, model, took).get(id).map(x => x.text), ['- 세부 하나: 가상 자료 정리']);
+test('lineIn: 넣은 줄 안에 그대로 든 글은 이미 있는 것', () => {
   // 넣은 줄 안에 그대로 든 제안('세부 하나: 글' 안의 '글')도 이미 있는 것.
   assert.ok(lineIn(['- 세부 하나: 가상 자료 정리.'], '가상 자료 정리'));
   assert.ok(!lineIn(['- 가상 자료'], '가상 자료 정리 결과'));
 });
 
-test('[이미 있음]: 그 제안과 비슷한 제안이 사라지고, 빼기(쓸모없음)와 따로 저장·셈', () => {
-  const model = {summary:{names:[], areas:[{name:'가 영역', rows:[{task:{name:'가-1 과제'}, items:[{day:'2026-11-03', text:'가상 결의 대회'}, {day:'2026-11-04', text:'가상 결의대회.'}]}]}], others:[]}, orgs:{sections:[]}};
+test('[이미 있음] 기록: 칸 글은 그대로, 빼기(쓸모없음)와 따로 저장·셈', () => {
   const id = cellId('summary', '가 영역›가-1 과제', 0);
-  const before = flowMaterial(weekMaterial, model, base).get(id);
-  assert.equal(before.length, 2);
   const item = {kind:'material', from:'record', cell:'summary:가 영역›가-1 과제', org:'', text:'11/3 가상 결의 대회'};
   const had = withCellLine(base, {section:'summary', key:'가 영역›가-1 과제', act:'have', item});
   assert.equal(had.picks.items.at(-1).act, 'have');
   assert.deepEqual(weekCells(had).get(id), ['- 가상 교섭'], '칸 글은 그대로');
-  assert.deepEqual(flowMaterial(weekMaterial, model, had).get(id), [], '부호·띄어쓰기만 다른 제안도 함께 빠짐');
   assert.deepEqual([...hadTexts(had.picks).keys()], ['summary:가 영역›가-1 과제']);
   // 이번 주 다시 보이지 않음(droppedOf) — 그러나 받은 것(kept)도 거절(drop) 셈도 아님.
   assert.equal(droppedOf(had.picks).get(had.picks.items.at(-1).key).act, 'have');

@@ -23,72 +23,34 @@ test('칸 이름 맞추기: 사업영역·세부 과제가 맞는 칸 → 없으
   assert.equal(h.summaryCellKey(['나‧사업›x'], '나·사업', 'x'), '나‧사업›x');
 });
 
-test('담당 규칙: 한 줄·60자·칸 이름 모양만, 빈 글이면 지움', () => {
+test('담당 규칙: 한 줄·60자·칸 이름 모양만', () => {
   assert.deepEqual(h.readOwners({'가›나': ' 가상  이름 ', '모양없음': 'x', '다›': '', '라›': '가'.repeat(61)}), {'가›나': '가상 이름'});
   assert.deepEqual(h.readOwners(null), {});
-  assert.deepEqual(h.withOwner({'가›나': 'A'}, '가›나', 'B'), {'가›나': 'B'});
-  assert.deepEqual(h.withOwner({'가›나': 'A'}, '가›나', ''), {});
-  assert.throws(() => h.withOwner({}, '가›나', '가'.repeat(61)), e => e.code === 'too_long');
-  assert.throws(() => h.withOwner({}, '모양없음', 'x'), e => e.code === 'cell');
 });
 
 const baseDraft = () => d.readDraft({v:1, base:null, me:'', me_from:'', date:'', rows:[], titles:[]});
+// 저장돼 있던 담당 글이 든 판(옛 주 읽기 시험용 — 쓰기 길은 B-5로 지움).
+const withOwners = (draft, key, text) => d.readDraft({...draft, owners:{...d.draftOwners(draft), [key]:text}});
 
-test('진행 칸 직접 쓰기: 홈 [주간 정리] 1) 요약과 같은 칸(summary 칸)에 줄로 저장 — 한 곳에 쓰면 두 곳이 같다', () => {
-  const draft = d.withSummaryText(baseDraft(), {area:'가 사업', task:'과제 일', text:'첫째 진행\n- 둘째 진행\n\n'});
-  assert.deepEqual(draft.rows, [{section:'summary', key:'가 사업›과제 일', n:0, lines:['- 첫째 진행', '- 둘째 진행']}]);
-  // 홈이 읽는 같은 함수(weekCells/flowCells 재료)로 같은 줄이 보인다.
-  assert.deepEqual(d.cellVisibleLines(draft, {section:'summary', key:'가 사업›과제 일'}), ['- 첫째 진행', '- 둘째 진행']);
-  // 사업영역만 있는 줄(보고 없음)에도 쓸 수 있다.
-  const only = d.withSummaryText(draft, {area:'나 사업', task:'', text:'아직 보고 없음'});
-  assert.ok(only.rows.some(r => r.key === '나 사업›' && r.lines[0] === '- 아직 보고 없음'));
-  // 이름이 비슷하면 홈에 이미 있는 칸에 쓴다(새 칸을 만들지 않음).
-  const again = d.withSummaryText(draft, {area:'가사업', task:'과제일', text:'고침'});
-  assert.equal(again.rows.length, 1);
-  assert.deepEqual(again.rows[0].lines, ['- 고침']);
-  assert.throws(() => d.withSummaryText(baseDraft(), {area:'가', task:'나', text:'가'.repeat(d.CELL_LINE_MAX + 1)}), e => e.code === 'too_long');
-  // 원본은 바뀌지 않는다.
-  assert.deepEqual(baseDraft().rows, []);
-});
+// RECORD-한줄 B-5: 옛 주 사업요약표 칸 직접 쓰기(withSummaryText·withOwnerEdit·changeWeekSummaryText·changeWeekOwner)는 지웠다 — 전환 주부터 '지금 상황'(app_business_now), 옛 주는 읽기 전용.
 
 test('담당 칸 저장: owners 는 readDraft·makeDraft·keepDocsOnly·merge3 에서 보존되고 칸마다 3자 비교', () => {
-  const mine = d.withOwnerEdit(baseDraft(), '가 사업›과제 일', '가상 담당');
+  const mine = withOwners(baseDraft(), '가 사업›과제 일', '가상 담당');
   assert.deepEqual(mine.owners, {'가 사업›과제 일': '가상 담당'});
   assert.deepEqual(d.readDraft(mine).owners, mine.owners);
   assert.deepEqual(d.makeDraft({owners:d.draftOwners(mine)}).owners, mine.owners);
   assert.equal('owners' in d.makeDraft({}), false);
   assert.deepEqual(d.keepDocsOnly(mine).owners, mine.owners);
   assert.equal(d.hasContent(d.readDraft(mine)), false);
-  const theirs = d.withOwnerEdit(baseDraft(), '나 사업›', '다른 담당');
+  const theirs = withOwners(baseDraft(), '나 사업›', '다른 담당');
   const merged = d.merge3(baseDraft(), mine, theirs);
   assert.deepEqual(merged.conflicts, []);
   assert.deepEqual(merged.draft.owners, {'가 사업›과제 일': '가상 담당', '나 사업›': '다른 담당'});
-  const clash = d.merge3(baseDraft(), mine, d.withOwnerEdit(baseDraft(), '가 사업›과제 일', '충돌 담당'));
+  const clash = d.merge3(baseDraft(), mine, withOwners(baseDraft(), '가 사업›과제 일', '충돌 담당'));
   assert.deepEqual(clash.conflicts, [{cell:'owner:가 사업›과제 일', mine:'가상 담당', theirs:'충돌 담당'}]);
-  assert.deepEqual(d.withOwnerEdit(mine, '가 사업›과제 일', '').owners, undefined);
+  assert.deepEqual(withOwners(mine, '가 사업›과제 일', '').owners, undefined);
 });
 
-test('저장 쓰기: 다시 읽고 그 칸만 바꿔 조건부 쓰기(다른 칸은 서버 것 그대로), 칸이 없으면 missing', async () => {
-  const server = {row:{id:'r', draft:{v:1, base:null, me:'', me_from:'', date:'', rows:[{section:'orgs', key:'x', n:0, lines:['다른 칸']}], titles:[], docs:[{id:'f', drop:true}], area_summaries:{[A]:{text:'옛 AI 값', hash:'', edited:false, at:''}}}, draft_saved_at:'2026-11-02T00:00:00.000Z'}, calls:[]};
-  const rt = {context:{read:() => ({workspace:{id:'w'}})}, async api(url, opts = {}) {
-    server.calls.push({url, method:opts.method ?? 'GET', body:opts.body});
-    if (!opts.method) return [server.row];
-    const guard = decodeURIComponent(url.match(/draft_saved_at=eq\.([^&]+)/)?.[1] ?? '');
-    if (guard !== server.row.draft_saved_at) return [];
-    server.row = {...server.row, ...opts.body}; return [server.row];
-  }};
-  const r = await d.changeWeekSummaryText({start:'2026-11-02', area:'가 사업', task:'과제 일', text:'직접 씀'}, rt);
-  assert.equal(r.ok, true);
-  assert.deepEqual(server.row.draft.docs, [{id:'f', drop:true}]);
-  assert.deepEqual(server.row.draft.rows.map(x => `${x.section}:${x.key}`).sort(), ['orgs:x', 'summary:가 사업›과제 일']);
-  assert.ok(server.row.draft.area_summaries[A], '예전에 저장된 AI 값은 지우지 않고 그대로 둔다');
-  const o = await d.changeWeekOwner({start:'2026-11-02', area:'가 사업', task:'과제 일', text:'가상 담당'}, rt);
-  assert.equal(o.ok, true);
-  assert.deepEqual(server.row.draft.owners, {'가 사업›과제 일': '가상 담당'});
-  assert.ok(server.calls.filter(c => c.method === 'PATCH').every(c => !('updated_at' in c.body)));
-  const missing = {context:rt.context, async api() { throw Object.assign(new Error('x'), {status:404}); }};
-  assert.deepEqual(await d.changeWeekSummaryText({start:'2026-11-02', area:'가', task:'나', text:'x'}, missing), {missing:true});
-});
 
 test('한글 파일: 담당 칸에 직접 쓴 글이 그대로(고치지 않음), 진행 칸은 같은 칸 줄 그대로', () => {
   const base = {summary:[{area:['가 사업'], rows:[{task:['과제 일'], progress:['- 옛 진행'], paras:[], owner:['원래 담당']}, {task:null, progress:[], paras:[], owner:null}]}], orgs:[], sites:[]};
@@ -153,8 +115,8 @@ test('사업요약표 미리보기: 같은 한 곳으로 거른 보고만 표·�
 test('사업요약표 미리보기: 칸을 누르면 글 칸, Ctrl+Enter 저장, 서버 저장, AI 호출 없음, 보고 없는 줄도 쓰기 (정적 확인)', () => {
   const src = read('weekly-summary-table.js');
   assert.match(src, /e\.ctrlKey\|\|e\.metaKey/);
-  assert.match(src, /changeWeekOwner\(\{start:week,area:ref\.area,task:ref\.task,text\}\)/);
-  assert.match(src, /changeWeekSummaryText\(\{start:week,area:ref\.area,task:ref\.task,text\}\)/);
+  assert.ok(!/changeWeekOwner|changeWeekSummaryText/.test(src), '옛 주 임시저장 칸 쓰기 길 없음(RECORD-한줄 B-5)');
+  assert.match(src, /saveNowEdit\(ed,field,ref\)/);
   assert.match(src, /fullTable\(placed\.areas/);
   assert.ok(!/callAiAssist|basket-ai-summary|area_week_summary/.test(src.replace(/^\s*\/\/.*$/gm, '')));
   // 기기 저장 금지는 audit 검사(브라우저 저장소 사용 금지)가 본다.

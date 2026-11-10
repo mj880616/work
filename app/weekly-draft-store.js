@@ -13,9 +13,9 @@ import {withPick, pickKey, readPicks, PICK_KIND, ANSWER_ACTS, LINE_ACTS, HAVE_AC
 import {cleanTitleEdit, titleFields, readHq, readSiteLayout} from './weekly-schedule-rows.mjs';
 import {readDiscuss} from './weekly-discuss.mjs';
 import {readHand} from './weekly-hand.mjs';
-import {readOwners, withOwner, summaryCellKey} from './weekly-summary-hand.mjs';
+import {readOwners} from './weekly-summary-hand.mjs';
 import {requestLine} from './weekly-exec-requests.js';
-import {foldCells, foldTargetKey, nameKey} from './weekly-cell-names.mjs';
+import {foldCells, foldTargetKey} from './weekly-cell-names.mjs';
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -242,19 +242,8 @@ export function withHand(draft, hand) { const out = draft ? {...draft} : emptyDr
 // ---- 사업요약표 담당 칸 직접 쓰기(owners — weekly-summary-hand.mjs) ----
 export const draftOwners = draft => readOwners(draft?.owners);
 function putOwners(out, owners) { const clean = readOwners(owners); if (Object.keys(clean).length) out.owners = clean; else delete out.owners; }
-export function withOwnerEdit(draft, key, text) { const out = draft ? {...draft} : emptyDraft(); putOwners(out, withOwner(draftOwners(out), key, text)); return out; }
-// 사업요약표 '진행 상황 및 이후 계획' 칸 직접 쓰기: 홈 [주간 정리] 1) 요약의 같은 칸(summary:사업영역›세부 과제)에 줄로 둔다 — 저장 자리 하나.
-// 칸 이름은 지금 draft 에 있는 summary 칸과 같은 규칙으로 맞춘다(summaryCellKey). 글은 고치지 않고 줄 단위로 그대로(앞 '- ' 는 한글 파일 쓰는 모양이라 없으면 붙임).
+// 옛 주 사업요약표(읽기 전용, weekly-summary-table.js)가 그 주 임시저장의 summary 칸 이름을 맞출 때 쓴다(summaryCellKey).
 export const summaryKeys = draft => [...weekCells(draft).keys()].map(parseCellId).filter(c => c.section === 'summary' && !c.n).map(c => c.key);
-export function withSummaryText(draft, {area, task, text}) {
-  const key = summaryCellKey(summaryKeys(draft), area, task);
-  const lines = String(text ?? '').split(/\r?\n/).map(lineText).filter(Boolean).map(l => (/^[-·•*]\s/.test(l) ? l : `- ${l}`));
-  for (const l of lines) if ([...l].length > CELL_LINE_MAX) throw badLine('too_long');
-  return putCellLines(draft ? {...draft} : emptyDraft(), {section:'summary', key, n:0}, lines);
-}
-export const changeWeekSummaryText = ({start, area, task, text, known = null}, rt = window.KPTURuntime) => changeWeekDocs({start, known, change:draft => withSummaryText(draft, {area, task, text})}, rt);
-export const changeWeekOwner = ({start, area, task, text, known = null}, rt = window.KPTURuntime) =>
-  changeWeekDocs({start, known, change:draft => withOwnerEdit(draft, summaryCellKey(summaryKeys(draft), area, task), text)}, rt);
 // WEEKLY-한흐름확정 ⑤ 남은 부분: 칸 줄(rows) 밖 줄 — 1. 요청사항 1)2)3)·5. 주요 일정·참고 — 의 동작도 동작 기록(picks)에 남긴다.
 //   cell: 'requests:ask' | 'requests:hq' | 'requests:discuss' | 'calendar' | 'notes'. text = 지금 줄(지운 것이면 지운 줄), before = 고치기 전 줄.
 //   kind 'line'(기본): 보고서 줄 동작 act 'add'(손으로 더함) | 'fix' | 'cut'.
@@ -591,29 +580,5 @@ export async function readCarriedLayout(start, rt = window.KPTURuntime) {
     const rows = await rt.api(`${TABLE}?workspace_id=eq.${encode(workspaceOf(rt))}&week_start=lt.${start}&draft->site_layout=not.is.null&select=week_start,layout:draft->site_layout&order=week_start.desc&limit=8`, {singleFlight:false});
     for (const row of Array.isArray(rows) ? rows : []) { const l = readSiteLayout(row?.layout); if (l) return l; }
     return null;
-  } catch { return null; }
-}
-// WEEKLY-사업영역칸 2)(요청함 11/01 01:12, S48-35): 이번 주 바탕(지난 개인본, 없으면 팀 확정본)에 줄이 없는 내 사업영역 칸에는
-// 바로 앞 주 임시저장(그 주 바탕 + 고친 칸)의 그 사업영역 줄을 '지난주에서' 제안으로 먼저 보여 준다(바탕에 없으니 칸에 저절로 넣지 않음 — 한 벌 유지).
-// 반환 {week, areas: Map(사업영역 이름(띄어쓰기·가운뎃점 맞춤) → 줄[])} | null(앞 주 임시저장 없음·읽기 실패). 글은 로그에 쓰지 않는다.
-export const areaNameKey = s => nameKey(s); // S52-24: 부호·띄어쓰기만 다른 이름은 같은 이름(weekly-cell-names.mjs)
-export function carriedAreaLines(draft) {
-  const areas = new Map();
-  for (const [id, lines] of weekCells(draft)) {
-    const c = parseCellId(id); if (c.section !== 'summary') continue;
-    const area = areaNameKey(String(c.key).split('›')[0]); if (!area) continue;
-    const list = areas.get(area) ?? [];
-    for (const l of visibleLines(lines)) if (!list.some(x => lineText(x) === lineText(l))) list.push(l);
-    areas.set(area, list);
-  }
-  return areas;
-}
-export async function readCarriedAreas(start, rt = window.KPTURuntime) {
-  if (!DAY.test(String(start))) return null;
-  try {
-    const rows = await rt.api(`${TABLE}?workspace_id=eq.${encode(workspaceOf(rt))}&week_start=lt.${start}&draft=not.is.null&select=week_start,rows:draft->rows,proposed:draft->proposed&order=week_start.desc&limit=1`, {singleFlight:false});
-    const row = Array.isArray(rows) ? rows[0] : null;
-    if (!row || !DAY.test(String(row.week_start ?? ''))) return null;
-    return {week:row.week_start, areas:carriedAreaLines({rows:Array.isArray(row.rows) ? row.rows : [], proposed:row.proposed ?? null})};
   } catch { return null; }
 }

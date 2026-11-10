@@ -199,45 +199,18 @@ test('pure: inputPatterns counts empty / rewritten / dropped weeks per cell (cel
   assert.equal(material.input_patterns[0].empty_weeks,3);
 });
 
-// WEEKLY-환류입력창 ②: 줄 옆 '이렇게 바꾸면?'. 학습 재료는 규칙·지난 고침 기록(같은 칸 예가 앞), 이번 주 행(개인본·고침·규칙)은 보내지 않는다. 저장 없음.
-const lineBody=(over={})=>({kind:'weekly_line',week_start:WEEK,where:'요약 · 나 › 나-1',lines:[{ref:'l1',text:'- 가상 교섭 3차 진행 중'},{ref:'l2',text:'- 가상 행사'}],cell:['- 가상 교섭 3차 진행 중','- 가상 행사'],material:['가상 교섭 3차 결렬(10/28)'],...over});
-test('weekly_line: rules + past edits (same cell first) are the material, this week is never sent, answer per line, nothing stored',async()=>{
-  const {handler,calls,db}=harness({openai:()=>respond(answer({lines:[{ref:'l1',text:'- 가상 교섭 3차 결렬(10.28.)'},{ref:'l2',text:'- 가상 행사'},{ref:'l9',text:'없는 줄'}]}))});
-  const res=await post(handler,lineBody());
-  assert.equal(res.status,200);
-  const body=await res.json();
-  assert.deepEqual(body,{ok:true,kind:'weekly_line',week_start:WEEK,lines:[{ref:'l1',text:'- 가상 교섭 3차 결렬(10.28.)'},{ref:'l2',text:null}],learned:{weeks:2,rules:1}});
-  const o=calls.openai[0];
-  assert.equal(o.store,false);assert.equal(o.text.format.name,'weekly_line');assert.equal(o.text.format.strict,true);
-  const material=o.input[1].content,sent=JSON.parse(material);
-  assert.deepEqual(sent.rules,['날짜는 10.28.(화) 꼴']);
-  assert.equal(sent.past_edits[0].where,'요약 · 나 › 나-1','same cell example first');
-  assert.ok(sent.past_edits.length>=3);
-  assert.deepEqual(sent.lines,[{ref:'l1',text:'- 가상 교섭 3차 진행 중'},{ref:'l2',text:'- 가상 행사'}]);
-  assert.deepEqual(sent.this_week,['가상 교섭 3차 결렬(10/28)']);
-  for(const hidden of ['THIS_WEEK_ANSWER','THIS_WEEK_BEFORE','THIS_WEEK_RULE','FOREIGN_TEXT','FOREIGN_RULE','UNCONFIRMED_CANDIDATE','RETIRED_RULE',OWNER,WS])assert.ok(!material.includes(hidden),hidden+' must not be sent');
-  const read=calls.rest.find(c=>c.table==='app_weekly_exec_requests');
-  assert.match(read.query,/week_start=lt\.2026-10-26/);
-  assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'),'no write but the usage count');
-  assert.equal(db.app_ai_daily_usage[0].requests,1);
-  assert.ok(!/가상|교섭|규칙/.test(JSON.stringify(calls.logs)),'no text in logs');
-  assert.ok(calls.logs.some(l=>l.code==='weekly_line_done'&&l.detail.asked===2&&l.detail.answered===1));
-  assert.equal(DAILY_LIMITS.weekly_line,20);
-});
-test('weekly_line: bad requests never reach AI; untrusted answers cleaned',async()=>{
-  const bad=[lineBody({lines:[]}),lineBody({lines:Array.from({length:9},(_,i)=>({ref:`l${i+1}`,text:'줄'}))}),lineBody({lines:[{ref:'l1',text:'a'},{ref:'l1',text:'b'}]}),
-    lineBody({lines:[{ref:'x1',text:'a'}]}),lineBody({lines:[{ref:'l1',text:'<b>x</b>'}]}),lineBody({lines:[{ref:'l1',text:'x'.repeat(301)}]}),lineBody({cell:Array(21).fill('줄')}),
-    lineBody({material:['x'.repeat(401)]}),lineBody({extra:1}),lineBody({week_start:'2026-10-27'}),lineBody({where:''})];
-  for(const b of bad){const {handler,calls}=harness();await expectError(await post(handler,b),400,'invalid_request');assert.equal(calls.openai.length,0);}
-  {const {handler}=harness({openai:()=>respond(answer({lines:[{ref:'l1',text:'연락 010-1234-5678'},{ref:'l2',text:'<i>가상</i> 행사 끝'}]}))});
-   const body=await (await post(handler,lineBody())).json();
-   assert.deepEqual(body.lines,[{ref:'l1',text:null},{ref:'l2',text:'가상 행사 끝'}]);}
-  {const {handler}=harness({openai:()=>respond({status:'completed',output:[]})});await expectError(await post(handler,lineBody()),502,'ai_invalid_response');}
+// RECORD-한줄 B-5: 줄 옆 '이렇게 바꾸면?'(weekly_line)은 지웠다 — 서버는 그 kind 를 모르는 쓰임(400 unsupported_kind)으로 막고 AI를 부르지 않으며, 하루 상한 표에도 없다.
+test('weekly_line: removed — unsupported kind, 400 before AI, no daily limit entry',async()=>{
+  const {handler,calls}=harness();
+  await expectError(await post(handler,{kind:'weekly_line',week_start:WEEK,where:'요약 · 나 › 나-1',lines:[{ref:'l1',text:'- 가상 줄'}],cell:['- 가상 줄'],material:[]}),400,'unsupported_kind');
+  assert.equal(calls.openai.length,0);
+  assert.equal('weekly_line' in DAILY_LIMITS,false);
+  for(const name of ['parseWeeklyLineRequest','parseWeeklyLine','weeklyLineMaterial','WEEKLY_LINE_INSTRUCTIONS','WEEKLY_LINE_SCHEMA'])assert.equal(name in wl,false,name);
 });
 
 // WEEKLY-환류전칸 ⑤: 확정 전(고침 기록 없음)이라도 이 주 동작 기록(draft.picks)이 있으면 weekly_review 가 그것으로 정리한다.
 // 재료에는 묶음·제안 종류별 셈(그대로 넣은 비율)과 고친 예·뺀 예(이유)·손으로 더한 예가 간다. 후보는 규칙 칸에만(고침 기록 칸은 만들지 않음).
-// 앞 주들의 '빼면서 적은 이유'는 weekly_draft·weekly_line 재료(rejected_with_reason)로 간다. 기록에는 숫자만. 가짜 글만.
+// 앞 주들의 '빼면서 적은 이유'는 weekly_draft 재료(rejected_with_reason)로 간다. 기록에는 숫자만. 가짜 글만.
 const picks=(items)=>({at:'2026-10-29T01:00:00.000Z',items,released:[]});
 const pk=(o)=>({key:`k${Math.random()}`,kind:'material',from:'record',cell:'summary:가›가-1',org:'',at:'2026-10-29T01:00:00.000Z',text:'가상 제안 글',...o});
 test('weekly_review: no feedback yet but this week\'s actions → reviews the actions (reasons included), saves candidates only',async()=>{
@@ -269,7 +242,7 @@ test('weekly_review: no feedback yet but this week\'s actions → reviews the ac
   // 동작이 'none'뿐이면(되돌린 것뿐) AI를 부르지 않는다.
   {const {handler,calls}=harness({rows:[{id:'r1',workspace_id:WS,week_start:WEEK,items:[],draft_saved_at:null,draft:{v:1,picks:picks([pk({act:'none'})])}}]});await expectError(await post(handler,{kind:'weekly_review',week_start:WEEK}),404,'not_found');assert.equal(calls.openai.length,0);}
 });
-test('weekly_draft·weekly_line: earlier weeks\' drop reasons go as rejected_with_reason (this week never)',async()=>{
+test('weekly_draft: earlier weeks\' drop reasons go as rejected_with_reason (this week never)',async()=>{
   const rows=[{id:'r1',workspace_id:WS,week_start:WEEK,items:[],draft_saved_at:'x',draft:{v:1,picks:picks([pk({act:'drop',text:'THIS_WEEK_DROP',why:'THIS_WEEK_WHY'})])}},
     {id:'r2',workspace_id:WS,week_start:'2026-10-19',items:[],draft_saved_at:'x',draft:{v:1,feedback:fb('2026-10-19'),picks:picks([pk({act:'drop',cell:'orgs:가상 지부',text:'가상 뺀 조직 소식',why:'가상 이미 끝난 일'}),pk({act:'drop',text:'이유 없음'}),pk({act:'take'})])}},
     {id:'r4',workspace_id:OTHER_WS,week_start:'2026-10-19',items:[],draft_saved_at:'x',draft:{v:1,picks:picks([pk({act:'drop',why:'FOREIGN_WHY'})])}}];

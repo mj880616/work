@@ -172,17 +172,9 @@ function startEdit(kind,row){
 async function saveEdit(){
   const ed=state?.editing;if(!ed)return;
   const field=$in('[data-bp-field]'),ref=rowRefs()[ed.row];if(!field||!ref)return;
+  // 쓸 수 있는 칸은 전환 주의 '지금 상황'뿐이다(RECORD-한줄 B-5: 옛 주 임시저장 칸 쓰기 길·지금 상황 표 404 때 옛 칸으로 가는 길은 지움).
   if(state.now)return saveNowEdit(ed,field,ref);
-  const text=String(field.value||''),run=state.run,week=state.from;
-  for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel]'))b.disabled=true;
-  say('저장 중…');
-  try{
-    const store=state.store;
-    const r=ed.kind==='owner'?await store.changeWeekOwner({start:week,area:ref.area,task:ref.task,text}):await store.changeWeekSummaryText({start:week,area:ref.area,task:ref.task,text});
-    if(!state||run!==state.run)return;
-    if(r.missing){say('저장 칸이 아직 준비 중이에요.');state.editing=null;return renderPaper()}
-    state.draft=r.row?.draft??state.draft;state.editing=null;say('저장했어요.');renderPaper();
-  }catch(err){if(state&&run===state.run){say(err?.code==='too_long'?err.message:'저장하지 못했어요. 잠시 뒤 다시 해 주세요.');for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel]'))b.disabled=false}}
+  state.editing=null;renderPaper();say('지금은 쓸 수 없어요.');
 }
 
 // 표의 한 칸: 쓴 글이 있으면 그 줄들, 없으면 그 주 사업 보고 제목(사실 기록)들 + 이후 계획(다음 할 일, 중복 없이). 한 줄 업데이트는 맨 위.

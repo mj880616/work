@@ -1,48 +1,33 @@
 // WEEKLY-한흐름확정 ② 화면(docs/design/weekly-one-flow.md 4.1절, 시안 안 B): [주간 정리] 2. 1) 요약 · 3. 2) 투쟁 사업장 현황 · 4. 산하 조직 현황의
 // '보고서 칸'을 그 주 임시저장(draft) 한 벌에서 그린다. 보이는 줄 = 한글 파일에 들어갈 줄(weekly-draft-store.js weekCells: 바탕 proposed 위에 고친 rows).
-// - 줄 끝 작은 ⋯ → [고치기]·[빼기], 칸 이름 줄 오른쪽 작은 [+ 추가], 칸 아래 흐린 '제안'(이번 주 기록·자료·조직 AI 요약·캘린더 추천) → 줄 끝 ⋯ 하나([넣기]·[이미 있음]·[고쳐서 넣기]·[빼기] — 빼기는 이유 한 줄, 안 써도 됨, S52-25).
-//   S52-24: [이미 있음] = 이미 보고서에 쓴 내용(동작 기록 act 'have' — '빼기 = 쓸모없음'과 따로 셈). 칸에 든 글·[이미 있음]으로 치운 글과 부호·띄어쓰기만 다른
-//   비슷한 제안은 보이지 않는다(weekly-cell-names.mjs lineIn). 같은 주제인데 이름 부호만 다른 칸은 한 칸(weekly-draft-store.js weekCells).
+// - 줄 끝 작은 ⋯ → [고치기]·[빼기], 칸 이름 줄 오른쪽 작은 [+ 추가]. 같은 주제인데 이름 부호만 다른 칸은 한 칸(weekly-draft-store.js weekCells).
+// - RECORD-한줄 B-5(docs/design/record-one.md 5절): 칸 아래 제안 다섯 종류([넣기]·[이미 있음]·[수정해서 넣기]·[빼기], 'AI 제안' 줄 = ai-assist weekly_line,
+//   '지난주에서' 사업영역 제안)는 지웠다 — 전환 주부터 2. 1)·4.·3. 2) 안쪽은 기록 창이 그린다. 지난 동작 기록(draft.picks)은 지우지 않고 그대로 둔다.
 // - 누름 한 번 = 서버 쓰기 한 번(changeWeekCell: rows + picks 를 한 PATCH). 실패하면 그 칸에 "저장 못 함 [다시]", 화면 값은 그대로.
 // - 투쟁 사업장 칸 구성(이번 주 보고에서 빼기·[+ 사업장 추가])은 draft.site_layout(없으면 지난주 구성을 이어 씀)에 쓴다.
 //   WEEKLY-뺀목록삭제(빠짐2·요청함 11/01 23:43): 뺀 사업장 접힌 목록과 [다시 넣기]는 없앴다 — 뺀 사업장은 [+ 사업장 추가] 고르기 목록에 나온다.
 // - WEEKLY-줄끌기(요청함 11/01 23:39): 2. 1) 요약·4. 산하 조직 칸 줄은 줄 앞 ⠿ 로 끌어 같은 칸 안 다른 자리나 같은 묶음의 다른 칸으로 옮긴다(폰은 줄을 길게 눌러,
 //   키보드는 ⠿ 에서 위·아래 — reorder-drag.js). 줄 ⋯ 의 [아래에 줄 추가]로 그 줄 바로 아래에 더한다. 줄 번호는 늘 보이는 줄 기준(weekly-draft-store.js visibleLines).
-// - 제안 거르기·학습 열쇠는 한글 파일 상자와 같다(weekly-picks.mjs sortPicks, 칸 이름 'section:key#n', 캘린더 추천 'orgref:조직 id').
 // - 칸 하나의 그리기 주인은 이 모듈 하나(journal.js는 자리만 주고 다시 그릴 때 부른다). AI 를 부르지 않는다. 브라우저 저장소에 아무것도 두지 않는다.
-import {weekCells, parseCellId, cellId, summaryKey, changeWeekCell, changeWeekDocs, changeWeekMove, withSiteLayout, draftSiteLayout, readCarriedLayout, readCarriedAreas, areaNameKey, lineDone, lineKey, visibleLines, CELL_LINE_MAX} from './weekly-draft-store.js';
-import {sortPicks, droppedOf, keptOf, pickKey, hadTexts, HAVE_ACT, WHY_MAX} from './weekly-picks.mjs';
-import {lineIn, areaInKeys, inSites, SITE_REF_LINE} from './weekly-cell-names.mjs';
-import {learnFor} from './weekly-picks.js';
+import {weekCells, parseCellId, cellId, summaryKey, changeWeekCell, changeWeekDocs, changeWeekMove, withSiteLayout, draftSiteLayout, readCarriedLayout, lineDone, lineKey, visibleLines, CELL_LINE_MAX} from './weekly-draft-store.js';
+import {areaInKeys, inSites, SITE_REF_LINE} from './weekly-cell-names.mjs';
 import {arrangeSites, siteHidden, siteShown, siteMoved, siteKey, readSiteLayout} from './weekly-schedule-rows.mjs';
 import {mountReorder} from './reorder-drag.js';
-import {askTargets, lineRequest, readAnswer, suggestKey, PICK_MS, PER_OPEN} from './weekly-line-suggest.mjs';
-import {whereOf} from './weekly-feedback.mjs';
-import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
 import {readProposed} from './weekly-feedback.mjs';
-import {matchOrg} from './org-name-match.mjs';
 import {rowMore} from './row-more.js';
 import {CARRIED_TAG} from './weekly-exec-requests.js';
-import {shortDay} from './journal-data.js';
 import {emptyEl, waitEl} from './wait-state.js';
 import {lineField, fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 긴 글 한 줄 칸 = 글만큼 늘어나는 공용 칸
 
 export const FLOW_SECTIONS = Object.freeze(['summary', 'sites', 'orgs']);
-const TAG = Object.freeze({record:'기록', doc:'자료', ai:'AI 요약', calendar:'캘린더', line:'AI 제안'});
-// 줄 제안(ai-assist weekly_line) 답의 일상어 — 화면에는 쓰지 않고(조용히 끔) 실패 판정에만.
-const LINE_TEXT = Object.freeze({...AI_SUMMARY_TEXT});
-// 줄 제안을 [주간 정리] 한 번 열 때 묻는 횟수 상한(설계 3.2절: 화면이 넓어져 상자 12회 → 8회).
-export const LINE_PER_OPEN = Math.min(8, PER_OPEN);
 const UNDO_MS = 5000;
-// 화면 상태(기기 메모리만): 고치는 줄·더하는 칸·고쳐서 넣는 제안·빼는 이유를 쓰는 제안·쓰는 중·실패·되돌리기.
+// 화면 상태(기기 메모리만): 고치는 줄·더하는 칸·쓰는 중·실패·되돌리기.
 const uiOf = new WeakMap();
-const freshUi = start => ({start, editing:null, adding:null, addAt:-1, taking:null, dropping:null, busy:'', failed:null, undo:null, carried:{start:'', status:'', layout:null}, prevAreas:null, mat:null, matFlight:null,
-  line:{cache:new Map(), asked:0, off:false, flight:false, timer:0, focus:null}, siteNote:'', siteAdding:false});
+const freshUi = start => ({start, editing:null, adding:null, addAt:-1, busy:'', failed:null, undo:null, carried:{start:'', status:'', layout:null}, siteNote:'', siteAdding:false});
 
 const particle = name => { const code = String(name).charCodeAt(String(name).length - 1); return code >= 0xAC00 && code <= 0xD7A3 ? ((code - 0xAC00) % 28 ? '을' : '를') : '을(를)'; };
 const lineOf = s => String(s ?? '').replace(/^\s*-\s*/, '').trim();
 const strip = s => lineOf(s).replace(/\s+/g, '').toLowerCase();
-const cellName = (section, key, n) => `${section}:${key}${n ? `#${n}` : ''}`;
 const labelOf = (section, key, n) => `${section === 'summary' ? key.split('›').map(x => x || '—').join(' › ') : key}${n ? ` (${n + 1}번째)` : ''}`;
 
 // 그 주 draft 의 칸 목록(바탕 순서, 고친 칸만 있는 칸은 뒤에). [{id, section, key, n, lines}]
@@ -84,19 +69,6 @@ export function summaryCells(draft, names = []) {
   }
   return cells;
 }
-// 칸 줄 + 이번 주 재료 → 칸마다 제안(draft.mjs weekMaterial 과 같은 이름 맞춤). 이미 칸에 든 글·[이미 있음]으로 치운 글과 같거나 부호만 다른 글은 뺀다.
-export function flowMaterial(weekMaterial, model, draft) {
-  const summary = summaryCells(draft, model?.summary?.names), orgs = flowCells(draft, 'orgs');
-  const rows = summary.map((c, index) => { const [area, task = ''] = c.key.split('›'); return {index, area, task}; });
-  const orgRows = orgs.map((c, index) => ({index, org:c.key}));
-  const m = weekMaterial(model, rows, orgRows, {});
-  const out = new Map();
-  const had = hadTexts(draft?.picks);
-  const put = (cell, list) => { const have = [...cell.lines, ...(had.get(cellName(cell.section, cell.key, cell.n)) ?? [])]; out.set(cell.id, list.filter(x => !lineIn(have, x.text))); };
-  summary.forEach((c, i) => put(c, m.byRow.get(i) ?? []));
-  orgs.forEach((c, i) => put(c, m.byOrg.get(i) ?? []));
-  return out;
-}
 // STAB-주간정리4장다시그림: 3장 사업장 구성이 정해졌는지 — 이번 주 구성이 있거나, 이어 쓸 지난 구성을 다 읽었거나, 3장이 구성을 읽지 않는 때(바탕 전).
 // 4장 조직보고 창은 이 구성으로 '참고' 줄을 고르므로 정해지기 전에는 그리지 않고, 정해지면(읽기 끝 → 다시 그리기 한 번) 한 번에 그린다.
 export function siteLayoutSettled(slot, row, start) {
@@ -105,8 +77,6 @@ export function siteLayoutSettled(slot, row, start) {
   const root = slot?.closest?.('[data-journal-weekly-root]') ?? slot?.closest?.('.journal-weekly-body') ?? slot, ui = root ? uiOf.get(root) : null;
   return !!ui && ui.start === start && ui.carried.start === start && ui.carried.status === 'ok';
 }
-const describe = (c) => x => ({kind:x.orgRef ? 'calendar' : x.carried ? 'carried' : 'material', from:x.src ?? (x.summary ? 'ai' : 'record'), cell:x.orgRef ? `orgref:${x.orgId}` : cellName(c.section, c.key, c.n),
-  org:c.section === 'summary' ? '' : x.from ?? '', text:`${x.day ? `${shortDay(x.day)} ` : ''}${lineOf(x.text)}`});
 
 // slot: 그 칸 묶음 자리. ctx = {section, start, row(그 주 행 {exists, draft, saved_at} | null), status('ok'|'loading'|'missing'|'failed'),
 //   model(weeklySummary), rt, onSaved(row), redraw(), prepare(): 바탕을 여는 쪽(상자) 깨우기, preparing: 바탕 여는 중}
@@ -132,11 +102,6 @@ export function paintFlowCells(slot, ctx) {
   }
   // 2. 1) 요약: 내 사업영역 칸 전부(바탕에 내 줄이 없던 사업영역은 빈 칸으로 뒤에).
   if (section === 'summary') cells = summaryCells(draft, areaNames);
-  // WEEKLY-사업영역칸 2)(S48-35): 바탕에 줄이 없는 사업영역 칸이 있으면 바로 앞 주 임시저장의 그 사업영역 줄을 한 번 읽어 '지난주에서' 제안으로.
-  if (section === 'summary' && cells.some(c => !c.lines.length) && ui.prevAreas?.start !== ctx.start) {
-    ui.prevAreas = {start:ctx.start, data:null};
-    readCarriedAreas(ctx.start, ctx.rt).then(d => { if (ui.prevAreas?.start === ctx.start) { ui.prevAreas = {start:ctx.start, data:d}; if (d?.areas?.size) ctx.redraw?.({only:['summary']}); } });
-  }
   // 투쟁 사업장: 구성(이번 주 것, 없으면 지난주 구성)대로 들어간 사업장만(뺀 사업장은 목록 없이 [+ 사업장 추가]에서 다시 고름).
   let siteOptions = [];
   if (section === 'sites') {
@@ -153,19 +118,6 @@ export function paintFlowCells(slot, ctx) {
     const taken = new Set(cells.map(c => siteKey(c.key)));
     siteOptions = flowCells(draft, 'orgs').map(c => c.key).filter(n => !taken.has(siteKey(n)));
   }
-  // 제안 재료(draft.mjs weekMaterial — 무거워서 처음 쓸 때 한 번 가져옴).
-  if (section !== 'sites' && !ui.mat && !ui.matFlight) ui.matFlight = import('./weekly-hwpx/draft.mjs').then(m => { ui.mat = m.weekMaterial; ui.matFlight = null; ctx.redraw?.({only:['summary', 'orgs']}); }, () => { ui.matFlight = null; });
-  const material = section !== 'sites' && ui.mat && ctx.model ? flowMaterial(ui.mat, ctx.model, draft) : new Map();
-  const prevAreas = section === 'summary' ? ui.prevAreas?.data?.areas : null, hadLines = hadTexts(draft?.picks);
-  if (prevAreas?.size) for (const c of cells) {
-    if (c.lines.length) continue;
-    const prev = prevAreas.get(areaNameKey(c.key.split('›')[0])) ?? [];
-    if (!prev.length) continue;
-    const list = material.get(c.id) ?? [], have = [...list.map(x => x.text), ...(hadLines.get(cellName(c.section, c.key, c.n)) ?? [])];
-    material.set(c.id, [...prev.filter(l => !lineIn(have, l)).map(l => ({day:'', text:l, carried:true})), ...list]);
-  }
-  const picks = draft?.picks ?? null;
-  const opts = {dropped:droppedOf(picks), kept:keptOf(picks), learn:learnFor(ctx.start, picks, {rt:ctx.rt, redraw:ctx.redraw}).learn};
   const parts = [];
   const team = ctx.team instanceof Map ? ctx.team : null;
   const inBase = new Set((proposed?.cells ?? []).map(x => cellId(x.section, x.key, x.n)));
@@ -176,13 +128,13 @@ export function paintFlowCells(slot, ctx) {
   const touched = new Set((draft?.rows ?? []).map(r => cellId(r.section, r.key, r.n)));
   if (section === 'sites') {
     const list = el('div', 'weekly-flow-sites'); list.dataset.reorderList = 'sites';
-    cells.forEach(c => list.append(cellBox(c, [])));
+    cells.forEach(c => list.append(cellBox(c)));
     parts.push(list);
     if (ui.siteNote) { const p = el('p', 'journal-line-status', ui.siteNote); p.dataset.flowSiteNote = ''; p.setAttribute('role', 'status'); parts.push(p); }
   } else {
     // S52-25 WEEKLY-투쟁사업장참고: 4장(표 준비 전 칸 줄)에서 3장에 들어간 조직 칸은 '참고' 한 줄(제안 없음). 쓴 줄은 지우지 않고 접어 보인다.
     const sitesNow = section === 'orgs' ? siteNamesOf(draft, draftSiteLayout(draft) ?? ui.carried.layout) : [];
-    for (const c of cells) parts.push(section === 'orgs' && inSites(sitesNow, c.key) ? refBox(c) : cellBox(c, material.get(c.id) ?? []));
+    for (const c of cells) parts.push(section === 'orgs' && inSites(sitesNow, c.key) ? refBox(c) : cellBox(c));
   }
   if (!cells.length) parts.push(emptyEl(section === 'sites' ? '넣은 사업장이 없어요' : '내 칸이 없어요'));
   if (section === 'sites') {
@@ -213,21 +165,21 @@ export function paintFlowCells(slot, ctx) {
     if (c.lines.length) {
       const fold = el('details', 'journal-org-raw weekly-flow-records'); fold.dataset.flowRefFold = c.id;
       fold.open = !!slot.querySelector(`details[data-flow-ref-fold="${CSS.escape(c.id)}"]`)?.open;
-      const kept = el('ul', 'weekly-flow-lines weekly-flow-suggest'); for (const t of c.lines) kept.append(el('li', null, t));
+      const kept = el('ul', 'weekly-flow-lines weekly-flow-kept'); for (const t of c.lines) kept.append(el('li', null, t));
       fold.append(el('summary', null, `쓴 줄 ${c.lines.length}개`), kept); box.append(fold);
     }
     return box;
   }
-  function cellBox(c, list) {
+  function cellBox(c) {
     const box = el('div', 'weekly-flow-cell'); box.dataset.flowCell = c.id;
     const head = el('div', 'weekly-flow-name');
     const name = el('span', 'weekly-flow-label');
     if (section === 'summary') { const [area, task] = c.key.split('›'); name.append(el('b', null, area || '—'), ` › ${task || '—'}${c.n ? ` (${c.n + 1}번째)` : ''}`); }
     else name.append(el('b', null, labelOf(section, c.key, c.n)));
     head.append(name);
-    // 이 주 기록이 없는 칸이 지난주 보고서 줄 그대로면 작은 '지난주에서'(1) 임원 배정 요청과 같은 표시, 화면에만).
-    if (section === 'summary' && !list.length && c.lines.length && !touched.has(c.id) && baseLines.has(c.id)) {
-      const tag = el('span', 'journal-exec-carried', CARRIED_TAG); tag.dataset.flowCarried = ''; tag.title = '이 주 기록이 없어 지난주 보고서 줄 그대로예요'; head.append(tag);
+    // 이번 주에 손대지 않은 칸이 지난주 보고서 줄 그대로면 작은 '지난주에서'(1) 임원 배정 요청과 같은 표시, 화면에만).
+    if (section === 'summary' && c.lines.length && !touched.has(c.id) && baseLines.has(c.id)) {
+      const tag = el('span', 'journal-exec-carried', CARRIED_TAG); tag.dataset.flowCarried = ''; tag.title = '이번 주에 손대지 않아 지난주 보고서 줄 그대로예요'; head.append(tag);
     }
     const busy = !!ui.busy;
     // ORG-기록하나로 O-4 ②: 전환 주부터 3. 2) 사업장 칸 안쪽 = 조직보고 창(쟁의 단계 줄 + 같은 조직 기록 3~7줄, journal.js가 줌). 칸 구성(빼기·순서·추가)은 그대로.
@@ -263,8 +215,7 @@ export function paintFlowCells(slot, ctx) {
       if (canMove) li.dataset.flowLineId = li.dataset.reorderId = `${c.id}\u0001${i}`; // reorder-drag.js 는 data-reorder-id 로 줄을 안다
       if (ui.editing?.cell === c.id && ui.editing.index === i) { li.append(editForm(c.id, ui.editing.value ?? text, {flowFixSave:c.id}, '줄 수정')); ul.append(li); return; }
       if (canMove) { const grip = btn('⠿', {flowLineGrip:'', reorderHandle:''}, 'mini journal-hwpx-grip weekly-flow-grip'); grip.setAttribute("aria-label", `줄 자리 바꾸기(끌기·위아래 화살표): ${text}`); grip.disabled = busy || !!ui.editing || !!ui.adding; li.append(grip); }
-      // 줄을 고르면(누름·초점) 잠시 뒤 그 칸 줄만 AI 에 묻고 칸 아래 흐린 'AI 제안' 줄(weekly_line). 고르기만 해서는 아무것도 바뀌지 않는다.
-      const t = el('span', 'weekly-flow-text', text); t.tabIndex = 0; t.dataset.flowPickLine = String(i); li.append(t);
+      li.append(el('span', 'weekly-flow-text', text));
       li.append(rowMore(doc, {label:`줄 수정·빼기: ${text}`, data:{flowLineMore:''}, items:[
         {text:'수정', data:{flowFix:c.id, flowIndex:String(i)}, disabled:busy},
         {text:'아래에 줄 추가', data:{flowAddBelow:c.id, flowIndex:String(i)}, disabled:busy, aria:`이 줄 아래에 줄 추가: ${text}`},
@@ -275,53 +226,9 @@ export function paintFlowCells(slot, ctx) {
     if (!c.lines.length) { const li = el('li', 'weekly-flow-empty', '빈 칸'); li.dataset.flowEmpty = ''; ul.append(li); }
     if (ui.adding === c.id && !(ui.addAt >= 1 && ui.addAt <= c.lines.length)) ul.append(addRow());
     box.append(ul);
-    // 제안: 받은 종류부터, 뺀 것은 접힌 '뺀 제안 n개'에서 다시 넣기. 고른 줄의 AI 줄 제안이 있으면 맨 앞.
-    const sorted = sortPicks([...lineSuggestions(c), ...list], x => x.lineAi ? {kind:'ai_line', from:'ai', cell:cellName(c.section, c.key, c.n), org:'', text:`${x.before}→${x.text}`} : describe(c)(x), opts);
-    if (sorted.shown.length) {
-      const sg = el('ul', 'weekly-flow-lines weekly-flow-suggest'); sg.dataset.flowSuggest = c.id;
-      for (const x of sorted.shown) {
-        const ai = !!x.raw.lineAi, item = ai ? {kind:'ai_line', from:'ai', cell:x.cell, org:'', text:x.raw.text, before:x.raw.before, line:x.raw.before, key:x.key} : {kind:x.kind, from:x.from, cell:x.cell, org:x.org, text:x.text, key:x.key};
-        const text = x.raw.text.startsWith('-') || ai ? x.raw.text : `- ${lineOf(x.raw.text)}`;
-        const li = el('li'); li.dataset.flowSuggestItem = x.key; li.dataset.flowPick = JSON.stringify(item); li.dataset.flowText = text;
-        if (ai) { li.dataset.flowLineSuggest = String(x.raw.index); li.dataset.flowIndex = String(x.raw.index); }
-        if (ui.taking?.key === x.key) { li.append(editForm(c.id, ui.taking.value ?? text, {flowEditSave:c.id}, '수정해서 넣기')); sg.append(li); continue; }
-        // [빼기]를 누르면 그 자리에 작은 한 줄 '이유(안 써도 돼요)' + [빼기 확인](요청함 11/01 23:42). 빈 칸이면 그냥 빠진다.
-        if (ui.dropping?.key === x.key) { li.append(el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text), ' ', whyForm(c.id, x.text)); sg.append(li); continue; }
-        li.append(el('span', 'weekly-flow-tag', x.raw.carried ? CARRIED_TAG : TAG[ai ? 'line' : x.raw.orgRef ? 'calendar' : x.from] ?? '기록'), el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text));
-        // S52-25 공용 '제안 줄'(요청함 11/07 19:20 ②·⑥, 명진 19:22 '넣기·이미 있음도 ⋯ 누르면'): 줄 끝은 ⋯ 하나 → [넣기][이미 있음][고쳐서 넣기][빼기].
-        //   [이미 있음] = 이미 보고서에 쓴 내용(S52-24, 빼기와 따로 기록 — 학습에서 '쓸모없음'으로 세지 않음).
-        const said = ai ? x.raw.text : x.text;
-        li.append(rowMore(doc, {label:`제안: ${x.text}`, data:{flowSuggestMore:''}, items:[
-          {text:'넣기', data:{flowTake:c.id}, disabled:busy, aria:ai ? `${x.raw.index + 1}번째 줄을 이렇게 바꾸기: ${x.raw.text}` : `넣기: ${x.text}`},
-          {text:'이미 있음', data:{flowHave:c.id}, disabled:busy, aria:`이미 있음(이미 쓴 내용): ${said}`},
-          {text:'수정해서 넣기', data:{flowEdit:c.id}, disabled:busy}, {text:'빼기', data:{flowDrop:c.id}, disabled:busy, danger:true, aria:`제안 빼기: ${x.text}`}]}));
-        sg.append(li);
-      }
-      box.append(sg);
-    }
-    // WEEKLY-뺀목록삭제(S48-3b): '뺀 제안 n' 접힘은 두지 않는다 — 방금 뺀 것만 아래 [되돌리기](picks 데이터는 그대로).
-    if (ui.undo?.cell === c.id) { const p = el('p', 'journal-line-status'); p.dataset.flowUndo = ''; p.setAttribute('role', 'status'); p.append(ui.undo.have ? '이미 있는 내용으로 치웠어요 ' : ui.undo.pick ? '제안을 뺐어요 ' : '줄을 뺐어요 ', btn('되돌리기', {flowUndo:c.id})); box.append(p); }
+    if (ui.undo?.cell === c.id) { const p = el('p', 'journal-line-status'); p.dataset.flowUndo = ''; p.setAttribute('role', 'status'); p.append('줄을 뺐어요 ', btn('되돌리기', {flowUndo:c.id})); box.append(p); }
     if (ui.failed?.cell === c.id) { const p = el('p', 'journal-line-status journal-failed', `저장 못 함 — ${ui.failed.text} `); p.dataset.flowFailed = ''; p.setAttribute('role', 'alert'); p.append(btn('다시', {flowRetry:c.id})); box.append(p); }
     return box;
-  }
-  // 고른 줄(ui.line.focus)이 이 칸이면, 받은 줄 제안 가운데 지금 칸 줄에 맞는 것만(그 줄 하나).
-  function lineSuggestions(c) {
-    const g = ui.line, f = g.focus;
-    if (!f || f.cell !== c.id) return [];
-    const before = c.lines[f.index], text = before != null ? g.cache.get(suggestKey(c.id, before)) : null;
-    // S52-24: 바꿀 글이 이미 칸에 있으면(부호만 다른 글 포함) 내지 않는다.
-    return text && !lineIn(c.lines, text) ? [{lineAi:true, index:f.index, before, text, day:''}] : [];
-  }
-  // 제안 빼기 이유 한 줄(안 써도 됨). [취소]·[빼기 확인], Enter = 확인, Esc = 취소.
-  function whyForm(cell, text) {
-    const f = el('span', 'journal-file-edit weekly-flow-edit weekly-flow-why');
-    const input = lineField(doc, {value: ui.dropping?.value ?? '', maxLength: WHY_MAX}); input.placeholder = '이유(안 써도 돼요)';
-    input.dataset.flowInput = cell; input.dataset.flowWhy = ''; input.setAttribute('aria-label', `빼는 이유(안 써도 돼요): ${text}`); input.disabled = !!ui.busy;
-    const cancel = btn('취소', {flowCancel:cell}); const go = btn('빼기 확인', {flowDropGo:cell}, 'mini primary'); cancel.disabled = go.disabled = !!ui.busy;
-    f.append(input, ' ', cancel, go);
-    // 다시 그리기가 겹쳐도 새로 그린 칸으로 초점이 가게(그린 칸이 화면에 붙은 뒤 한 번).
-    if (ui.dropping?.focus) requestAnimationFrame(() => { if (input.isConnected && ui.dropping?.focus) { input.focus(); ui.dropping.focus = false; } });
-    return f;
   }
   function editForm(cell, value, data, aria) {
     const f = el('span', 'journal-file-edit weekly-flow-edit');
@@ -332,14 +239,10 @@ export function paintFlowCells(slot, ctx) {
   }
   function wire() {
     slot.dataset.flowWired = '1';
-    // 줄 고르기(누름·초점·Enter) → 잠시 뒤 줄 제안을 묻는다(타자마다 아님).
-    const pickLine = event => { const t = event.target.closest?.('[data-flow-pick-line]'), cur = slot.__flow; if (t && cur && slot.contains(t)) cur.pickLine(t); };
-    slot.addEventListener('focusin', pickLine);
-    slot.addEventListener('click', pickLine);
     if (section === 'sites') slot.__drag = mountReorder(slot, {onDrop:({id, index}) => slot.__flow?.moveSite(id, index), onStep:(id, dir) => slot.__flow?.stepSite(id, dir), canDrag:() => !slot.__flow?.ui.busy});
     else slot.__lineDrag = mountReorder(slot, {listSelector:'ul[data-flow-line-list]', itemSelector:'li[data-flow-line-id]', handleSelector:'[data-flow-line-grip]',
       onDrop:({id, list, index}) => slot.__flow?.moveLine(id, list, index), onStep:(id, dir) => slot.__flow?.stepLine(id, dir),
-      canDrag:() => { const u = slot.__flow?.ui; return !!u && !u.busy && !u.editing && !u.adding && !u.taking && !u.dropping; }});
+      canDrag:() => { const u = slot.__flow?.ui; return !!u && !u.busy && !u.editing && !u.adding; }});
     slot.addEventListener('change', event => { const sel = event.target.closest?.('select[data-flow-site-pick]'); if (sel?.value) slot.__flow?.addSite(sel.value); });
     slot.addEventListener('click', event => {
       const b = event.target.closest('button');
@@ -359,12 +262,10 @@ export function paintFlowCells(slot, ctx) {
       const u = cur.ui;
       if (u.editing?.cell === input.dataset.flowInput) u.editing.value = input.value;
       else if (u.adding === input.dataset.flowInput) u.addValue = input.value;
-      else if (input.dataset.flowWhy != null && u.dropping) u.dropping.value = input.value;
-      else if (u.taking) u.taking.value = input.value;
     });
   }
   // 누르기 처리는 이번 그림의 ctx 로(그릴 때마다 바꿔 끼움).
-  slot.__flow = {ui, click:b => onClick(b), pickLine:t => pickLine(t), moveSite:(name, index) => setLayout('move', name, index), stepSite:(name, dir) => stepSite(name, dir), addSite:name => setLayout('show', name),
+  slot.__flow = {ui, click:b => onClick(b), moveSite:(name, index) => setLayout('move', name, index), stepSite:(name, dir) => stepSite(name, dir), addSite:name => setLayout('show', name),
     moveLine:(id, list, index) => moveLine(id, list, index), stepLine:(id, dir) => stepLine(id, dir)};
   const focusInput = id => requestAnimationFrame(() => slot.querySelector(`[data-flow-input="${CSS.escape(id)}"]`)?.focus());
   function cellOf(id) { const c = parseCellId(id); return {section:c.section, key:c.key, n:c.n, lines:flowCells(draft, c.section).find(x => x.id === id)?.lines ?? []}; }
@@ -383,35 +284,6 @@ export function paintFlowCells(slot, ctx) {
       ui.busy = ''; ui.failed = {cell:id, text:/[가-힣]/.test(error?.message ?? '') ? error.message : '잠시 뒤 다시 눌러 주세요.', op};
       ctx.redraw?.();
     }
-  }
-  // ---- 줄 제안(weekly_line, docs/design/weekly-one-flow.md 3.2절) ----
-  // 고른 칸 하나의 줄만, 이미 받은 줄은 다시 묻지 않는다([주간 정리]를 한 번 열 때 LINE_PER_OPEN 번까지). 서버가 없거나(배포 전) 한 번 실패하면 조용히 끈다.
-  // 이 칸 줄 제안을 계속 거절했으면(주간보고 기억) 묻지 않는다. 줄 글은 로그·오류 보고에 넣지 않는다.
-  function pickLine(t) {
-    const box = t.closest('[data-flow-cell]'), id = box?.dataset.flowCell, index = Number(t.dataset.flowPickLine), g = ui.line;
-    if (!id || !Number.isInteger(index)) return;
-    const was = g.focus;
-    g.focus = {cell:id, index};
-    if (was?.cell !== id || was?.index !== index) ctx.redraw?.();
-    clearTimeout(g.timer);
-    g.timer = setTimeout(() => void askLine(id, index), PICK_MS);
-  }
-  async function askLine(id, index) {
-    const g = ui.line, c = flowCells(draft, parseCellId(id).section).find(x => x.id === id);
-    if (!c || g.focus?.cell !== id || g.focus.index !== index || g.off || g.flight || g.asked >= LINE_PER_OPEN || ui.start !== ctx.start) return;
-    if (opts.learn.blocks?.({kind:'ai_line', from:'ai', cell:cellName(c.section, c.key, c.n)})) return;
-    const targets = askTargets(c.lines, index, g.cache, id);
-    if (!targets.length) return;
-    const mat = (material.get(id) ?? []).map(x => `${x.day ? `${shortDay(x.day)} ` : ''}${lineOf(x.text)}`);
-    const {request, refs} = lineRequest({week:ctx.start, where:whereOf(id), lines:c.lines, targets, material:mat});
-    g.asked++; g.flight = true;
-    let r;
-    try { r = await callAiAssist(request, {rt:ctx.rt}, LINE_TEXT); } catch { r = {ok:false}; }
-    g.flight = false;
-    if (ui.start !== ctx.start) return;
-    if (!r?.ok || r.data?.kind !== 'weekly_line' || r.data.week_start !== ctx.start) { g.off = true; return; }
-    for (const [k, v] of readAnswer(r.data, refs, c.lines, id)) g.cache.set(k, v);
-    ctx.redraw?.();
   }
   // ---- 줄 끌기(WEEKLY-줄끌기): 같은 칸 안·같은 묶음 다른 칸. 쓰기 한 번(changeWeekMove — 두 칸을 한 draft 로) ----
   function lineRef(id) { const at = String(id).lastIndexOf('\u0001'); return at < 0 ? null : {cell:id.slice(0, at), index:Number(id.slice(at + 1))}; }
@@ -453,45 +325,17 @@ export function paintFlowCells(slot, ctx) {
     setLayout('move', name, Math.max(0, at + dir));
   }
   function onClick(b) {
-    const d = b.dataset, li = b.closest('li'), pick = () => JSON.parse(li?.dataset.flowPick || 'null');
+    const d = b.dataset;
     if (d.flowReload !== undefined) { ctx.reload?.(); return; }
     if (d.flowSiteAdd !== undefined) { ui.siteAdding = !ui.siteAdding; ctx.redraw?.(); if (ui.siteAdding) requestAnimationFrame(() => slot.querySelector('select[data-flow-site-pick]')?.focus()); return; }
     if (d.flowTeamUse) { const lines = team?.get(d.flowTeamUse); if (lines) void write(d.flowTeamUse, {act:'none', lines:[...lines]}); return; }
-    if (d.flowCancel !== undefined) { ui.editing = null; ui.adding = null; ui.addAt = -1; ui.addValue = ''; ui.taking = null; ui.dropping = null; ctx.redraw?.(); return; }
-    if (d.flowFix) { ui.editing = {cell:d.flowFix, index:Number(d.flowIndex), value:null}; ui.adding = null; ui.taking = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowFix); return; }
-    if (d.flowAdd) { ui.adding = d.flowAdd; ui.addAt = -1; ui.addValue = ''; ui.editing = null; ui.taking = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowAdd); return; }
-    if (d.flowAddBelow) { ui.adding = d.flowAddBelow; ui.addAt = Number(d.flowIndex) + 1; ui.addValue = ''; ui.editing = null; ui.taking = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowAddBelow); return; }
-    if (d.flowEdit) { const it = pick(); ui.taking = {cell:d.flowEdit, key:it.key, value:null}; ui.editing = null; ui.adding = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowEdit); return; }
+    if (d.flowCancel !== undefined) { ui.editing = null; ui.adding = null; ui.addAt = -1; ui.addValue = ''; ctx.redraw?.(); return; }
+    if (d.flowFix) { ui.editing = {cell:d.flowFix, index:Number(d.flowIndex), value:null}; ui.adding = null; ctx.redraw?.(); focusInput(d.flowFix); return; }
+    if (d.flowAdd) { ui.adding = d.flowAdd; ui.addAt = -1; ui.addValue = ''; ui.editing = null; ctx.redraw?.(); focusInput(d.flowAdd); return; }
+    if (d.flowAddBelow) { ui.adding = d.flowAddBelow; ui.addAt = Number(d.flowIndex) + 1; ui.addValue = ''; ui.editing = null; ctx.redraw?.(); focusInput(d.flowAddBelow); return; }
     const value = () => String(b.parentElement.querySelector('[data-flow-input]')?.value ?? '').trim();
     if (d.flowFixSave) { const v = value(); if (!v) return; const index = ui.editing.index; void write(d.flowFixSave, {act:'fix', index, text:v}, {after:() => { ui.editing = null; }}); return; }
     if (d.flowAddSave) { const v = value(); if (!v) return; const at = ui.addAt; void write(d.flowAddSave, {act:'add', text:v.startsWith('-') ? v : `- ${v}`, ...(at >= 0 ? {insertAt:at} : {})}, {after:() => { ui.adding = null; ui.addAt = -1; ui.addValue = ''; }}); return; }
-    if (d.flowEditSave) { const v = value(); if (!v) return; const it = pick(), index = li?.dataset.flowIndex != null ? Number(li.dataset.flowIndex) : -1; void write(d.flowEditSave, {act:'edit', text:v.startsWith('-') ? v : `- ${v}`, item:it, index}, {after:() => { ui.taking = null; }}); return; }
-    if (d.flowTake) {
-      const it = pick(), index = li.dataset.flowIndex != null ? Number(li.dataset.flowIndex) : -1;
-      void write(d.flowTake, {act:'take', text:li.dataset.flowText, item:it, index}, {after:() => { if (it?.kind === 'ai_line') ui.line.cache.set(suggestKey(d.flowTake, li.dataset.flowText), null); }});
-      return;
-    }
-    if (d.flowDrop) { const it = pick(); ui.dropping = {cell:d.flowDrop, key:it.key, item:it, value:'', focus:true}; ui.editing = null; ui.adding = null; ui.taking = null; ctx.redraw?.(); return; }
-    if (d.flowDropGo) {
-      const u = ui.dropping; if (!u) return;
-      const why = String(b.parentElement.querySelector('[data-flow-why]')?.value ?? '').trim();
-      const id = d.flowDropGo;
-      void write(id, {act:'drop', item:{...u.item, ...(why ? {why} : {})}}, {after:() => {
-        ui.dropping = null; clearTimeout(ui.undo?.timer);
-        // 뺀 제안 목록은 두지 않으므로(WEEKLY-뺀목록삭제) 방금 뺀 제안 하나만 잠깐 [되돌리기] — 되돌리면 'none'(picks 데이터는 남음).
-        ui.undo = {cell:id, pick:true, item:u.item, timer:setTimeout(() => { if (ui.undo?.cell === id) { ui.undo = null; ctx.redraw?.(); } }, UNDO_MS)};
-      }});
-      return;
-    }
-    if (d.flowHave) {
-      const it = pick(), id = d.flowHave;
-      void write(id, {act:HAVE_ACT, item:{...it, text:it?.text ?? li?.dataset.flowText ?? ''}}, {after:() => {
-        clearTimeout(ui.undo?.timer);
-        ui.undo = {cell:id, pick:true, have:true, item:it, timer:setTimeout(() => { if (ui.undo?.cell === id) { ui.undo = null; ctx.redraw?.(); } }, UNDO_MS)};
-      }});
-      return;
-    }
-    if (d.flowPut) { void write(d.flowPut, {act:'none', item:pick()}); return; }
     if (d.flowCut) {
       const id = d.flowCut, index = Number(d.flowIndex), before = cellOf(id).lines, text = before[index];
       const c = cellOf(id);
@@ -502,9 +346,8 @@ export function paintFlowCells(slot, ctx) {
       }});
       return;
     }
-    if (d.flowUndo) { const u = ui.undo; if (!u) return; clearTimeout(u.timer); ui.undo = null; void write(d.flowUndo, u.pick ? {act:'none', item:u.item} : {act:'none', lines:u.lines, item:u.item}); return; }
+    if (d.flowUndo) { const u = ui.undo; if (!u) return; clearTimeout(u.timer); ui.undo = null; void write(d.flowUndo, {act:'none', lines:u.lines, item:u.item}); return; }
     if (d.flowRetry) { const f = ui.failed; if (f?.op) void write(f.cell, f.op); return; }
     if (d.flowSiteHide !== undefined) setLayout('hide', d.flowSiteHide);
   }
 }
-export {pickKey};

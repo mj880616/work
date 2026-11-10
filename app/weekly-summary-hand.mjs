@@ -40,11 +40,3 @@ export function readOwners(raw) {
   }
   return out;
 }
-// 한 칸의 담당을 바꾼 목록(원본은 그대로). text 가 비면 그 칸 담당 직접 쓴 값을 지운다(한글 파일은 원래 담당으로 돌아감).
-export function withOwner(owners, key, text) {
-  const k = oneLine(key), line = oneLine(text), out = {...readOwners(owners)};
-  if (!k.includes('›')) throw Object.assign(new Error('cell'), {code:'cell'});
-  if ([...line].length > OWNER_MAX) throw Object.assign(new Error(`담당은 ${OWNER_MAX}자까지 쓸 수 있어요.`), {code:'too_long'});
-  if (line) out[k] = line; else delete out[k];
-  return out;
-}

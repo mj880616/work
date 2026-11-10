@@ -610,7 +610,7 @@
 #appView #homeView .weekly-flow-lines{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
 #appView #homeView .weekly-flow-lines > li{ display:flex; align-items:center; gap:4px; min-width:0; min-height:var(--ds-compact-height-sm); font-size:var(--ds-text-row); }
 #appView #homeView .weekly-flow-text{ flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
-#appView #homeView .weekly-flow-suggest > li{ color:var(--kptu-faint, var(--kptu-muted)); font-size:var(--ds-text-meta); }
+#appView #homeView .weekly-flow-suggest > li, #appView #homeView .weekly-flow-kept > li{ color:var(--kptu-faint, var(--kptu-muted)); font-size:var(--ds-text-meta); }
 #appView #homeView .weekly-flow-tag{ flex:none; padding:0 4px; border:var(--ds-line-width) solid var(--kptu-border-strong); border-radius:6px; font-size:11px; line-height:1.5; color:var(--kptu-muted); }
 #appView #homeView .weekly-flow-empty{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .weekly-flow-edit{ display:flex; align-items:center; gap:4px; flex:1 1 auto; min-width:0; }
@@ -624,8 +624,6 @@
 #appView #homeView .weekly-flow-lines.re-drop-end{ box-shadow:inset 0 -2px 0 var(--kptu-primary-ink); }
 #appView #homeView .weekly-flow-site-add{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding-top:4px; }
 #appView #homeView .weekly-flow-team{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
-#appView #homeView .weekly-flow-text[data-flow-pick-line]{ cursor:text; border-radius:4px; }
-#appView #homeView .weekly-flow-text[data-flow-pick-line]:focus-visible{ outline:2px solid var(--kptu-focus, var(--kptu-primary-ink)); outline-offset:1px; }
 #appView #homeView .weekly-flow-confirm-slot > .journal-hwpx{ margin-top:8px; padding-top:8px; border-top:var(--ds-line-width) solid var(--kptu-border-strong); }
 #appView #homeView .weekly-flow-confirm{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 #appView #homeView .weekly-flow-confirm-state{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
