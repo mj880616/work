@@ -52,7 +52,7 @@ function harness({ notes, files, refs = {}, refThrows = false, patchMiss = 0, dr
 const req = (action, extra = {}) => ({ action, target: 'note', id: NOTE, drive_file_id: 'f1', ...extra });
 const patches = (calls) => calls.drive.filter((c) => c.method === 'PATCH').map((c) => [c.id, JSON.parse(c.body)]);
 
-test('요청 모양: 정해진 칸만(작업공간 값은 받지 않음), target은 note만', () => {
+test('요청 모양: 정해진 칸만(작업공간 값은 받지 않음), target은 note·task만', () => {
   assert.equal(parseTrashRequest(req('trash-file'), 'trash-file').id, NOTE);
   assert.throws(() => parseTrashRequest({ ...req('trash-file'), workspace_id: WS }, 'trash-file'), /확인할 수 없습니다/);
   assert.throws(() => parseTrashRequest(req('trash-file', { target: 'document' }), 'trash-file'));
@@ -194,4 +194,102 @@ test('화면: Drive에 남기는 경우는 되돌리기 없이 이유 한 줄, �
   assert.equal(r.status, 'failed'); assert.match(r.message, /그사이 바뀌었어요/); assert.deepEqual(changed, [null]);
   const rt5 = fakeRt([Object.assign(new Error('Internal secret'), { status: 503 })]);
   assert.equal((await deleteAttachment(spec, { rt: rt5, ask: async () => true })).message, FILE_TRASH_TEXT.FAILED_ALL);
+});
+
+// ── FILE-첨부삭제 ②(S56-45): 할 일 첨부(target:'task'). 떼기·다시 붙이기는 google-tasks, 여기는 휴지통만. ──
+function taskHarness({ rows, refs = {}, files } = {}) {
+  const state = {
+    rows: structuredClone(rows ?? [{ workspace_id: WS, google_task_id: 'task-1', drive_file_id: 'f1' }, { workspace_id: OTHER_WS, google_task_id: 'task-9', drive_file_id: 'x1' }]),
+    files: new Map((files ?? [{ id: 'f1', name: 'f1.html', mimeType: 'text/html', size: '9', ownedByMe: true, trashed: false }, { id: 'x1', ownedByMe: true, trashed: false }]).map((f) => [f.id, { ...f }])),
+  };
+  const calls = { user: [], ref: [], drive: [] };
+  const param = (path, key) => new URLSearchParams(path.split('?')[1]).get(key)?.replace(/^eq\./, '');
+  const userDb = async (path, opts = {}) => {
+    calls.user.push({ path, method: opts.method || 'GET' });
+    assert.ok(path.startsWith('app_task_attachments?'), '할 일 첨부는 그 표를 읽기만: ' + path);
+    assert.equal(opts.method || 'GET', 'GET', '떼기·붙이기는 google-tasks가 한다');
+    return structuredClone(state.rows.filter((r) => r.workspace_id === WS && r.google_task_id === param(path, 'google_task_id') && r.drive_file_id === param(path, 'drive_file_id')));
+  };
+  const refDb = async (path) => { calls.ref.push(path); assert.equal(param(path, 'workspace_id'), WS); return structuredClone(refs[path.split('?')[0]] ?? []); };
+  const fetch = async (url, init = {}) => {
+    const u = new URL(url), method = init.method || 'GET', id = decodeURIComponent(u.pathname.split('/').at(-1));
+    calls.drive.push({ method, id, body: init.body });
+    const send = (d, status = 200) => new Response(JSON.stringify(d), { status });
+    const f = state.files.get(id); if (!f) return send({}, 404);
+    if (method === 'GET') return send(f);
+    f.trashed = JSON.parse(init.body).trashed; return send({ id, trashed: f.trashed });
+  };
+  return { state, calls, deps: { userDb, refDb, fetch, driveToken: async () => 'synthetic-token', now: () => Date.parse(T1) } };
+}
+const treq = (action, extra = {}) => ({ action, target: 'task', id: 'task-1', drive_file_id: 'f1', ...extra });
+
+test('할 일 요청 모양: id는 Google 할 일 id 모양만, 작업공간 값은 받지 않음', () => {
+  assert.deepEqual(parseTrashRequest(treq('trash-file'), 'trash-file'), { target: 'task', id: 'task-1', driveFileId: 'f1' });
+  assert.throws(() => parseTrashRequest(treq('trash-file', { id: 'a/b' }), 'trash-file'));
+  assert.throws(() => parseTrashRequest({ ...treq('trash-file'), workspace_id: WS }, 'trash-file'));
+});
+
+test('할 일 [삭제]: 지금 그 할 일에 붙어 있는지 확인한 뒤 휴지통(떼기는 하지 않음), 그 할 일 줄은 "쓰는 곳"으로 세지 않음', async () => {
+  const h = taskHarness();
+  const r = await trashFile(treq('trash-file'), h.deps);
+  assert.equal(r.ok, true); assert.equal(r.detached, false); assert.equal(r.drive, 'trashed');
+  assert.equal(h.state.files.get('f1').trashed, true);
+  assert.ok(h.calls.ref.some((p) => p.startsWith('app_task_attachments?') && p.includes('google_task_id=neq.task-1')));
+  assert.equal(h.state.rows.length, 2, '줄은 그대로(google-tasks detach가 뗀다)');
+});
+
+test('할 일 [삭제]: 남의 할 일·붙지 않은 파일은 ATTACHMENT_NOT_FOUND, 다른 기록이 쓰면 kept — Drive 손대지 않음', async () => {
+  const a = taskHarness();
+  await assert.rejects(trashFile(treq('trash-file', { id: 'task-9', drive_file_id: 'x1' }), a.deps), (e) => e.code === 'ATTACHMENT_NOT_FOUND');
+  await assert.rejects(trashFile(treq('trash-file', { drive_file_id: 'x1' }), a.deps), (e) => e.code === 'ATTACHMENT_NOT_FOUND');
+  assert.equal(a.calls.drive.length, 0);
+  const b = taskHarness({ refs: { app_notes: [{ id: 'n' }] } });
+  assert.equal((await trashFile(treq('trash-file'), b.deps)).drive, 'kept'); assert.equal(b.calls.drive.length, 0);
+});
+
+test('할 일 [되돌리기]: 다시 붙은 것을 확인한 뒤에만 휴지통에서 꺼냄, 안 붙어 있으면 거절', async () => {
+  const off = taskHarness({ rows: [] }); off.state.files.get('f1').trashed = true;
+  await assert.rejects(restoreFile(treq('restore-file'), off.deps), (e) => e.code === 'ATTACHMENT_NOT_FOUND');
+  assert.equal(off.calls.drive.length, 0);
+  const h = taskHarness(); h.state.files.get('f1').trashed = true;
+  assert.equal((await restoreFile(treq('restore-file'), h.deps)).restored, true);
+  assert.equal(h.state.files.get('f1').trashed, false);
+  assert.equal((await restoreFile(treq('restore-file'), h.deps)).already, true);
+  const notMine = taskHarness({ files: [{ id: 'f1', ownedByMe: false, trashed: true }] });
+  await assert.rejects(restoreFile(treq('restore-file'), notMine.deps), (e) => e.code === 'DRIVE_FORBIDDEN');
+});
+
+const tspec = { target: 'task', id: 'task-1', driveId: 'f1', name: 'f1.html' };
+test('화면 할 일: [삭제] = trash-file → google-tasks detach, [되돌리기] = reattach → restore-file', async () => {
+  const detached = { ok: true, files: [], task: { id: 'task-1', notes: '' }, notes_synced: true };
+  const reattached = { ok: true, files: [{ drive_file_id: 'f1', file_name: 'f1.html' }], task: { id: 'task-1' } };
+  const rt = fakeRt([{ ok: true, detached: false, drive: 'trashed', drive_file_id: 'f1' }, detached, reattached, { ok: true, restored: true }]);
+  const changed = []; let offered;
+  const r = await deleteAttachment(tspec, { rt, ask: async () => true, onChanged: (x) => changed.push(x), undo: (o) => { offered = o; } });
+  assert.deepEqual(r, { status: 'deleted', drive: 'trashed' });
+  assert.deepEqual(rt.sent.map((s) => [s.path, s.body.action]), [['/functions/v1/document-actions', 'trash-file'], ['/functions/v1/google-tasks?action=detach', 'detach']]);
+  assert.deepEqual(rt.sent[1].body, { action: 'detach', task_id: 'task-1', drive_file_id: 'f1' });
+  assert.equal((await offered.onUndo()).status, 'restored');
+  assert.deepEqual(rt.sent.slice(2).map((s) => [s.path, s.body.action]), [['/functions/v1/google-tasks?action=reattach', 'reattach'], ['/functions/v1/document-actions', 'restore-file']]);
+  assert.deepEqual(changed, [{ task: detached }, { task: reattached }]);
+});
+
+test('화면 할 일: 떼기가 안 되면 휴지통에 보낸 원본을 꺼내 두고 실패, 이미 빠졌으면(404) 삭제로 봄', async () => {
+  const rt = fakeRt([{ ok: true, drive: 'trashed', drive_file_id: 'f1' }, Object.assign(new Error('할 일 파일 정보를 불러오지 못했습니다.'), { status: 503 }), { ok: true, restored: true }]);
+  const r = await deleteAttachment(tspec, { rt, ask: async () => true });
+  assert.equal(r.status, 'failed'); assert.equal(rt.sent[2].body.action, 'restore-file');
+  const gone = fakeRt([{ ok: true, drive: 'kept', drive_file_id: 'f1' }, Object.assign(new Error('이미 빠진 파일입니다.'), { status: 404 })]);
+  const changed = []; let said = '';
+  const g = await deleteAttachment(tspec, { rt: gone, ask: async () => true, onChanged: (x) => changed.push(x), toast: (t) => { said = t; } });
+  assert.equal(g.status, 'deleted'); assert.deepEqual(changed, [{ task: null }]); assert.equal(said, FILE_TRASH_TEXT.KEPT);
+});
+
+test('화면 할 일: 다시 붙였지만 꺼내기가 안 되면 붙은 답으로 다시 그리고 실패 알림', async () => {
+  const reattached = { ok: true, files: [{ drive_file_id: 'f1', file_name: 'f1.html' }] };
+  const rt = fakeRt([{ ok: true, drive: 'trashed', drive_file_id: 'f1' }, { ok: true, files: [] }, reattached, Object.assign(new Error('x'), { status: 503 })]);
+  const changed = []; let offered;
+  await deleteAttachment(tspec, { rt, ask: async () => true, onChanged: (x) => changed.push(x), undo: (o) => { offered = o; } });
+  const back = await offered.onUndo();
+  assert.equal(back.status, 'failed'); assert.equal(back.message, FILE_TRASH_TEXT.RESTORE_FAILED);
+  assert.deepEqual(changed.at(-1), { task: reattached });
 });

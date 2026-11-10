@@ -271,3 +271,44 @@ test('completing a task keeps its files', async () => {
   assert.equal((await h.post('toggle', { task_id: 'task-1', completed: true })).status, 200);
   assert.equal(h.state.files.length, 1);
 });
+
+// FILE-첨부삭제 ②(S56-45): [삭제] 뒤 [되돌리기] — Drive에 이미 있는 내 파일을 그 할 일에 다시 붙인다(올리기 없음).
+const driveFile = (h, id, extra = {}) => h.drive.files.set(id, { id, name: '회의 자료.txt', mimeType: 'text/plain', size: '3', ownedByMe: true, trashed: true, ...extra });
+test('reattach: Drive 이름·종류·크기로 줄을 다시 넣고 메모 줄도 다시 단다, 올리기·지우기 없음', async () => {
+  const h = harness();
+  driveFile(h, 'f-back');
+  const r = await h.post('reattach', { task_id: 'task-1', drive_file_id: 'f-back' });
+  assert.equal(r.status, 200); assert.equal(r.body.ok, true);
+  assert.deepEqual(h.state.files.map(f => [f.google_task_id, f.drive_file_id, f.file_name, f.mime_type, f.size_bytes, f.workspace_id]), [['task-1', 'f-back', '회의 자료.txt', 'text/plain', 3, 'ws-a']]);
+  assert.equal(h.google.get('task-1').notes, '먼저 할 것\n둘째 줄\n' + lineOf('f-back', '회의 자료.txt'));
+  assert.equal(h.drive.uploads, 0); assert.deepEqual(h.drive.deleted, []);
+  assert.ok(!h.drive.calls.some(c => c.method !== 'GET'), 'Drive는 읽기만(휴지통 꺼내기는 document-actions)');
+  const again = await h.post('reattach', { task_id: 'task-1', drive_file_id: 'f-back' });
+  assert.equal(again.status, 200); assert.equal(again.body.already, true); assert.equal(h.state.files.length, 1);
+});
+
+test('reattach: 남의 파일·폴더·없는 파일·없는 할 일·남의 로그인·다른 칸은 거절, 아무것도 넣지 않음', async () => {
+  const h = harness();
+  driveFile(h, 'not-mine', { ownedByMe: false });
+  driveFile(h, 'a-folder', { mimeType: 'application/vnd.google-apps.folder' });
+  driveFile(h, 'no-size', { size: undefined, mimeType: 'application/vnd.google-apps.document' });
+  driveFile(h, 'ok-file');
+  assert.equal((await h.post('reattach', { task_id: 'task-1', drive_file_id: 'not-mine' })).status, 403);
+  assert.equal((await h.post('reattach', { task_id: 'task-1', drive_file_id: 'a-folder' })).status, 403);
+  assert.equal((await h.post('reattach', { task_id: 'task-1', drive_file_id: 'no-size' })).status, 409);
+  assert.equal((await h.post('reattach', { task_id: 'task-1', drive_file_id: 'gone' })).status, 404);
+  assert.equal((await h.post('reattach', { task_id: 'task-x', drive_file_id: 'ok-file' })).status, 404);
+  assert.equal((await h.post('reattach', { task_id: 'task-1', drive_file_id: 'ok-file' }, 'token-b')).status, 401);
+  assert.equal((await h.post('reattach', { task_id: 'task-1', drive_file_id: 'ok-file', workspace_id: 'ws-b' })).status, 400);
+  assert.equal((await h.post('reattach', { task_id: 'task-1', drive_file_id: '../x' })).status, 400);
+  assert.deepEqual(h.state.files, []);
+});
+
+test('reattach: 다른 할 일에 이미 붙은 파일은 409, 10개 찬 할 일은 400', async () => {
+  const h = harness({ tasks: [{ id: 'task-1', title: 'a', notes: '' }, { id: 'task-2', title: 'b', notes: '' }], files: [{ google_task_id: 'task-2', drive_file_id: 'shared', file_name: 's.txt' }] });
+  driveFile(h, 'shared');
+  assert.equal((await h.post('reattach', { task_id: 'task-1', drive_file_id: 'shared' })).status, 409);
+  const full = harness({ files: Array.from({ length: MAX_TASK_FILES }, (_, i) => ({ google_task_id: 'task-1', drive_file_id: 'x' + i, file_name: i + '.txt' })) });
+  driveFile(full, 'one-more');
+  assert.equal((await full.post('reattach', { task_id: 'task-1', drive_file_id: 'one-more' })).status, 400);
+});
