@@ -639,6 +639,7 @@
 /* HOME-오늘사진빨리: 사진 한 줄(공용 사진 칸 56px) 높이를 처음부터 잡아 둔다 — 사진이 오거나 '없음'이어도 칸 높이가 바뀌지 않는다. */
 #appView #homeView .journal-photo-strip{ display:flex; align-items:center; gap:4px; min-width:0; min-height:56px; overflow:hidden; }
 #appView #homeView .journal-photo-strip > :is(.wait-empty,.wait-fail){ margin:0; }
+#appView #homeView .journal-photos .journal-head-count:empty::before{ content:'\200b'; } /* 읽는 중 건수 빈칸도 숫자가 있을 때와 같은 줄 높이 */
 #appView #homeView .journal-photo-cell .diary-photo{ position:absolute; inset:0; display:block; }
 #appView #homeView .journal-photo-more::before{ color:var(--kptu-ink); font-size:var(--ds-text-meta); }
 #appView #homeView .journal-fill-note{ margin-right:auto; margin-left:6px; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
