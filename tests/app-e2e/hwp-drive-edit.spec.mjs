@@ -232,15 +232,20 @@ test('a slow Drive download shows which step is running and the elapsed seconds,
 // bytes the editor frame downloads. Speed in CI is not the speed on a phone, so the only checks are structural:
 // no editor file is downloaded twice for one open.
 test('records the editor download size and step times for opening an HWPX from Drive',async({page},testInfo)=>{
-  const t0=performance.now(),marks={},frameRequests=[];
+  const t0=performance.now(),marks={},frameRequests=[],warmRequests=[];
   const at=(name,keepLast=false)=>{if(keepLast||marks[name]===undefined)marks[name]=Math.round(performance.now()-t0)};
   page.on('request',request=>{
     const url=new URL(request.url());
     if(!url.pathname.includes('/app/hwp-lab/'))return;
+    // S55-15: 자료실이 HWP 자료를 보면 띄우는 미리 받기 frame(hwp-lab/warm.html)의 요청은 편집기 열기 한 번의 요청이 아니라 따로 센다.
+    let warm=url.pathname.endsWith('/hwp-lab/warm.html')||url.pathname.endsWith('/hwp-lab/warm.js');
+    try{warm||=/\/hwp-lab\/warm\.html/.test(request.frame().url())}catch{}
+    if(warm){warmRequests.push(url.pathname);return}
     frameRequests.push(request);
     if(url.pathname.endsWith('/studio/index.html'))at('editorFrameRequested');
   });
   page.on('requestfinished',request=>{
+    if(!frameRequests.includes(request))return;
     const path=new URL(request.url()).pathname;
     if(/rhwp_bg.*\.wasm$/.test(path))at('engineDownloaded');
     if(path.endsWith('.woff2'))at('lastFontDownloaded',true);
@@ -258,7 +263,7 @@ test('records the editor download size and step times for opening an HWPX from D
     total+=size;urls.push(path);
     kinds[/\.wasm$/.test(path)?'engine':/\.js$/.test(path)?'script':/\.woff2$/.test(path)?'font':'other']+=size;
   }
-  const report={stepsMs:marks,editorFiles:urls.length,downloadedMB:Number((total/1048576).toFixed(2)),byKindMB:Object.fromEntries(Object.entries(kinds).map(([k,v])=>[k,Number((v/1048576).toFixed(2))])),fonts:urls.filter(p=>p.endsWith('.woff2')).map(p=>p.split('/').pop())};
+  const report={stepsMs:marks,editorFiles:urls.length,downloadedMB:Number((total/1048576).toFixed(2)),byKindMB:Object.fromEntries(Object.entries(kinds).map(([k,v])=>[k,Number((v/1048576).toFixed(2))])),fonts:urls.filter(p=>p.endsWith('.woff2')).map(p=>p.split('/').pop()),warmRequests:warmRequests.length};
   console.log('[hwp-open-timing] '+JSON.stringify(report));
   testInfo.annotations.push({type:'hwp-open-timing',description:JSON.stringify(report)});
   expect(new Set(urls).size).toBe(urls.length);

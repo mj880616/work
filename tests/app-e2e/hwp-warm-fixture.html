@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>HWP 편집기 미리 받기 시험</title>
+</head>
+<body>
+<div id="host" style="width:900px;height:640px"></div>
+<script type="module">
+// LIB-편집열기느림(S55-15): 앱 화면 없이 ① 파일 받기 ② 편집기 준비(hwp-frame.js) ③ 펼치기를 단계별로 잰다(앱 hwp-lab.js처럼 ①②를 동시에).
+// warmOnce는 자료실이 쓰는 미리 받기(hwp-warm.js)를 그대로 부른다.
+import {createSandboxedEditor} from '/app/hwp-frame.js';
+import {warmHwpEditor} from '/app/hwp-warm.js';
+window.warmOnce=async()=>{const t0=performance.now();const result=await warmHwpEditor();return {result,warmMs:Math.round(performance.now()-t0)}};
+window.openStages=async fileUrl=>{
+  const t0=performance.now(),lap={};
+  const editorFlight=createSandboxedEditor(document.getElementById('host')).then(e=>{lap.editorMs=Math.round(performance.now()-t0);return e});
+  const fileFlight=fetch(fileUrl).then(r=>r.arrayBuffer()).then(b=>{lap.fileMs=Math.round(performance.now()-t0);return new Uint8Array(b)});
+  const [editor,bytes]=await Promise.all([editorFlight,fileFlight]);
+  const t1=performance.now();
+  const result=await editor.loadFile(bytes,'sample.hwpx',{skipUnsavedGuard:true});
+  lap.loadMs=Math.round(performance.now()-t1);lap.totalMs=Math.round(performance.now()-t0);
+  return {...lap,pages:result?.pageCount??null};
+};
+window.fixtureReady=true;
+</script>
+</body>
+</html>
