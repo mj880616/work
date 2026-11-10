@@ -3,6 +3,15 @@
   const state=new WeakMap();
   let active=null;
   const stack=[];
+  // UI-PC스크롤묶음 ③(2026-11-10): <dialog> 창(showModal)이 떠 있는 동안 창 바깥 어두운 바탕에서 굴린 휠은 뒤 화면을 움직이지 않는다.
+  // 바탕(::backdrop) 위 휠은 대상이 창 자신이고 자리가 창 밖이다. 창 안 휠은 그대로(끝에 닿아도 base-ui.css dialog:modal contain에서 멈춤).
+  // 공용 .modal 창은 CSS(base-ui.css .modal overscroll-behavior)가 맡는다.
+  document.addEventListener('wheel',event=>{
+    const box=event.target;
+    if(!(box instanceof HTMLDialogElement)||!box.matches(':modal'))return;
+    const r=box.getBoundingClientRect();
+    if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)event.preventDefault();
+  },{capture:true,passive:false});
   const focusable='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
   const resolve=(modal,value)=>typeof value==='string'?modal.querySelector(value):value;
   const items=modal=>[...modal.querySelectorAll(focusable),...document.querySelectorAll('#noticeBar button')].filter(el=>!el.closest('.hidden')&&el.getClientRects().length);
