@@ -382,3 +382,32 @@ test('[전체 표] 줄 순서: 서버가 아직 모르는 칸이면(적용 전) 
  await expect(shown(oa(page))).toHaveCount(7);
  expect(errors).toEqual([]);
 });
+
+// UI-보기줄자리(S56-9, 11/10): 폰(~760px)은 [목록|전체 표]가 공용 아래 전환 줄(하단 탭 바로 위 가운데), 목록 맨 아래 '참고 묶음' 줄은 끝까지 내리면 그 줄 위에 보인다.
+// 넓은 화면(761px~)은 지금처럼 위(목록·상세 칸 위 한 줄).
+for(const width of [390,412,884,1280])test(`[목록|전체 표] 자리 ${width}px: 폰 아래 가운데·참고 묶음 안 가림, 넓은 화면 위`,async({page})=>{
+ const {errors}=await fixture(page,{width});
+ await clickView(page,'team');
+ const tabs=page.locator('#soTeamTabs');await expect(tabs).toBeVisible();
+ const tb=await tabs.boundingBox();
+ const list=await page.locator('#soOrganizationList').boundingBox();
+ if(width<=760){
+  expect(await tabs.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
+  expect(Math.abs(tb.x+tb.width/2-width/2)).toBeLessThanOrEqual(2);
+  const nav=await page.evaluate(()=>{const v=getComputedStyle(document.documentElement).getPropertyValue('--kptu-mobile-tab-height');return parseFloat(v)||0});
+  expect(Math.abs(900-nav-(tb.y+tb.height))).toBeLessThanOrEqual(8);
+  expect(tb.y).toBeGreaterThan(list.y);
+  const ref=page.locator('#soOrganizationList .so-reference-entry');
+  await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+  await expect(ref).toBeVisible();
+  const rb=await ref.boundingBox(),tb2=await tabs.boundingBox();
+  expect(rb.y+rb.height).toBeLessThanOrEqual(tb2.y+1);
+  await page.locator('#soTeamTabs').getByRole('tab',{name:'전체 표'}).click();
+  await expect(page.locator('#soOverview')).toBeVisible();
+  await expect(tabs).toBeVisible();
+ }else{
+  expect(await tabs.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
+  expect(tb.y+tb.height).toBeLessThanOrEqual(list.y+1);
+ }
+ expect(errors).toEqual([]);
+});

@@ -71,8 +71,8 @@ test('재발 방지: 화면 CSS는 보기 탭 모양(테두리·바탕·글자·
   const LOOK = /^(border(-[a-z-]+)?|outline|background(-color|-image)?|box-shadow|color|font-weight|font-size|height|min-height|line-height|padding(-[a-z-]+)?)$/;
   // 바탕 위아래 투명 여백(누르는 범위)만큼 바깥 여백을 빼 두었으므로, 위·아래 바깥 여백을 바꾸려면 --ds-seg-hit를 빼고 쓴다(줄 높이가 늘지 않게).
   const MARGIN = /^(margin|margin-top|margin-bottom|margin-block)$/;
-  // 폰 아래 전환 줄(일정·노트)은 자리 규칙이 알약 밖 줄 바탕(아래 탭과 같은 색)만 칠한다.
-  const DOCK = '#appView :is(.schedule-switch,.nv-switch):not([hidden])';
+  // 폰 아래 전환 줄(일정·노트·조직 보고 UI-보기줄자리)은 자리 규칙이 알약 밖 줄 바탕(아래 탭과 같은 색)만 칠한다.
+  const DOCK = '#appView :is(.schedule-switch,.nv-switch,.so-team-tabs):not([hidden])';
   // :not(…) 안에 이름이 있으면(공용 칸을 빼는 넓은 규칙) 그 규칙은 보기 탭을 잡지 않는다.
   const dropNot = sel => { let out = '', i = 0; while (i < sel.length) { if (sel.startsWith(':not(', i)) { let d = 0; for (; i < sel.length; i++) { if (sel[i] === '(') d++; else if (sel[i] === ')' && --d === 0) { i++; break; } } } else out += sel[i++]; } return out; };
   // 위·아래가 0인 margin(떠 있는 자리 규칙의 margin:0 / margin:0 auto / margin:0 X 0 Y)은 여백 계산과 상관없다.
