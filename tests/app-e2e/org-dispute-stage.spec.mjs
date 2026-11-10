@@ -324,3 +324,54 @@ for(const width of [390,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)�
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
 });
+
+// UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 고르지 않은 조직 줄 우클릭 = [열기] ─ [쟁의 단계 관리](같은 화면 메뉴 + [열기] 한 줄).
+// [열기]는 그 조직을 오른쪽 상세로. 고른 줄 우클릭·⋯ 그냥 누르기는 지금 메뉴 그대로, 폰 폭은 공용 규칙대로 메뉴를 띄우지 않는다.
+const menuLabels=page=>page.locator('#soTeamMenu button').allTextContents();
+test('조직 줄 우클릭: 고르지 않은 줄은 [열기]·[쟁의 단계 관리], [열기]는 오른쪽 상세를 그 조직으로 1280px',async({page})=>{
+ const {errors}=await fixture(page,{width:1280});
+ await clickView(page,'team');
+ await expect(row(page,'ob')).toBeVisible();
+ const target=await row(page,'ob').evaluate(el=>el.classList.contains('is-selected')?'oa':'ob');
+ const box=await row(page,target).boundingBox();
+ await row(page,target).click({button:'right',position:{x:40,y:box.height/2}});
+ const menu=page.locator('#soTeamMenu');await expect(menu).toBeVisible();
+ expect(await menuLabels(page)).toEqual(['열기','쟁의 단계 관리']);
+ await expect(menu.locator('hr.so-menu-sep')).toHaveCount(1);
+ await expect(menu.locator('button').first()).toBeFocused();
+ if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/org-row-menu-1280.png`});
+ // 메뉴는 누른 자리에(⋯ 밑이 아니라)
+ const m=await menu.boundingBox();expect(Math.abs(m.x-(box.x+40))).toBeLessThanOrEqual(16);
+ await menu.getByRole('button',{name:'열기',exact:true}).click();
+ await expect(menu).toBeHidden();
+ await expect(page.locator('#wdTitle')).toHaveText(orgs.find(o=>o.id===target).name);
+ await expect(row(page,target)).toHaveClass(/is-selected/);
+ // 고른 줄 우클릭 = 지금처럼 화면 메뉴만
+ await row(page,target).click({button:'right',position:{x:40,y:box.height/2}});
+ await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['쟁의 단계 관리']);
+ await page.keyboard.press('Escape');await expect(menu).toBeHidden();
+ // 다른 줄 우클릭 → [열기] 붙음, 메뉴가 열린 채로 또 다른 줄을 우클릭해도 그 줄 기준
+ const other=target==='oa'?'ob':'oa';
+ await row(page,other).click({button:'right'});
+ await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['열기','쟁의 단계 관리']);
+ // ⋯ 그냥 누르기는 [열기] 없이
+ await page.keyboard.press('Escape');await expect(menu).toBeHidden();
+ await page.locator('#soTeamMore').click();
+ await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['쟁의 단계 관리']);
+ await page.keyboard.press('Escape');
+ // 우클릭 메뉴의 [쟁의 단계 관리]도 그대로 열린다
+ await row(page,other).click({button:'right'});
+ await menu.getByRole('button',{name:'쟁의 단계 관리'}).click();
+ await expect(page.locator('#soStageModal')).toBeVisible();
+ expect(errors).toEqual([]);
+});
+test('조직 줄 우클릭: 폰 폭(412)은 메뉴를 띄우지 않는다',async({page})=>{
+ const {errors}=await fixture(page,{width:412});
+ await clickView(page,'team');
+ await row(page,'oa').click({button:'right'});
+ await page.waitForTimeout(300);
+ await expect(page.locator('#soTeamMenu')).toHaveCount(0);
+ if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/org-list-412.png`});
+ await expect(page.locator('#wdModal')).toBeHidden();
+ expect(errors).toEqual([]);
+});
