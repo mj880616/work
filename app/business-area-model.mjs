@@ -162,9 +162,52 @@ export const reportWeekLabel = from => `${shortDay(from)}(월)~${shortDay(shiftD
 // 보고 있는 주(from = 월요일 'YYYY-MM-DD') 안의 일시가 있는 보고 중 사업영역(business_area_id)을 직접 달지 않은 것. 한 줄 업데이트는 늘 사업영역이 있어 뺀다.
 // [없음]을 직접 고른 보고(isAreaNone)도 정리된 것이라 뺀다(MTG-사업영역없음).
 // 칸이 없는 옛 서버의 줄(business_area_id 키가 없음)은 세지 않는다(그때는 줄 자체가 없다). 날짜 오래된 것부터.
-export const untaggedInWeek = (meetings, from) => !from ? [] : (meetings || [])
-  .filter(m => m && Object.hasOwn(m, 'business_area_id') && !areaIdOf(m) && !isAreaNone(m) && !isOneline(m) && reportDay(m) && inPeriod(m, from, shiftDays(from, 6)))
-  .sort((a, b) => (Date.parse(a.meeting_at) || 0) - (Date.parse(b.meeting_at) || 0));
+// BIZ-사업영역기억(11/10): 같은 회의명에서 이미 정한 값(사업영역·[없음])이 붙을 보고(rememberedArea)도 묻지 않는다 — 처음 보는 이름만 남는다.
+export const untaggedInWeek = (meetings, from) => {
+  if (!from) return [];
+  const memory = areaMemory(meetings);
+  return (meetings || [])
+    .filter(m => m && Object.hasOwn(m, 'business_area_id') && !areaIdOf(m) && !isAreaNone(m) && !isOneline(m) && reportDay(m) && inPeriod(m, from, shiftDays(from, 6)) && !rememberedArea(m, memory))
+    .sort((a, b) => (Date.parse(a.meeting_at) || 0) - (Date.parse(b.meeting_at) || 0));
+};
+
+// BIZ-사업영역기억(요청함 11/10 11:20 → 11:22 'ㅇ'): 같은 회의명은 한 번 정하면 다시 묻지 않는다.
+// - 회의명 열쇠 = 띄어쓰기 빼고 소문자(app/team.js meetingNameKey, journal-meeting-kinds.js meetingKindKey와 같은 규칙).
+// - 기억 = 그 이름 보고 중 사업영역 또는 [없음]을 가장 나중에 고른(저장한, updated_at) 보고의 값. 따로 저장 칸·설정 화면·기기 저장 없음 —
+//   이미 서버에 있는 지난 보고 값을 읽어 쓴다. 바꾸려면 그 회의 아무 보고에서 사업영역을 바꾸면 다음부터 그 값.
+// - 붙는 보고 = 같은 이름, 칸이 있는 서버 줄, 아직 사업영역도 [없음]도 없고 한 줄 업데이트가 아닌 것 중 '새 보고'
+//   (회의 일시가 기억한 보고와 같거나 뒤, 또는 기억한 값을 고른 뒤에 만든 보고). 그보다 옛 보고는 손대지 않는다(옛 기록 일괄 변경 없음).
+//   [없음]은 [없음] 칸이 있는 서버 줄(hasAreaNone)에만 붙인다.
+export const areaNameKey = meeting => String(meeting?.series_name || meeting?.title || '').replace(/\s+/g, '').toLowerCase();
+const timeOf = v => Date.parse(v || '') || 0;
+const choseAt = m => timeOf(m?.updated_at) || timeOf(m?.created_at) || timeOf(m?.meeting_at);
+export function areaMemory(meetings) {
+  const memory = new Map();
+  for (const m of meetings || []) {
+    if (!m || isOneline(m) || !Object.hasOwn(m, 'business_area_id')) continue;
+    const value = areaIdOf(m) || (isAreaNone(m) ? AREA_NONE : '');
+    const key = areaNameKey(m);
+    if (!value || !key) continue;
+    const at = choseAt(m), had = memory.get(key);
+    if (!had || at > had.at) memory.set(key, {value, at, meetingAt:timeOf(m.meeting_at), id:String(m.id ?? '')});
+  }
+  return memory;
+}
+// 이 보고에 붙일 기억한 값(사업영역 id | AREA_NONE), 없으면 ''.
+export function rememberedArea(meeting, memory) {
+  const m = meeting;
+  if (!m || isOneline(m) || !Object.hasOwn(m, 'business_area_id') || areaIdOf(m) || isAreaNone(m)) return '';
+  const had = memory?.get?.(areaNameKey(m));
+  if (!had || had.id === String(m.id ?? '')) return '';
+  if (had.value === AREA_NONE && !hasAreaNone(m)) return '';
+  const fresh = timeOf(m.meeting_at) >= had.meetingAt || timeOf(m.created_at) >= had.at;
+  return fresh ? had.value : '';
+}
+// 기억한 값을 붙여 저장할 보고 목록 [{meeting, value}].
+export const rememberedAreaRows = meetings => {
+  const memory = areaMemory(meetings);
+  return (meetings || []).map(meeting => ({meeting, value:rememberedArea(meeting, memory)})).filter(x => x.value);
+};
 // [달기] 창에서 미리 골라 둘 사업영역: 옛 보고는 첫 연결 사업영역(화면에서 빌려 보이던 것, 'link'), 없으면 AI 추천 첫째('ai'), 없으면 고르기('').
 export function presetArea(meeting, aiId = '', known = () => true) {
   const old = String(meeting?.project_id || '');
