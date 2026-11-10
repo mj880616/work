@@ -95,13 +95,15 @@ async function mockApp(page,state){
           if(want!==now)return ok([]);
           state.documentCategories=body.document_categories;return ok([{user_id:state.user.id,document_categories:state.documentCategories}]);
         }
+        // S56-36 회의명 정리(meeting_name_sorts): state에 meetingNameSorts가 있을 때만 그 칸이 있는 서버처럼 읽고 고친다.
+        if(body&&'meeting_name_sorts' in body&&'meetingNameSorts' in state){state.meetingNameSorts=body.meeting_name_sorts;return ok([{user_id:state.user.id,meeting_name_sorts:state.meetingNameSorts}])}
         if(body&&'view_prefs' in body){state.viewPrefs=body.view_prefs;(state.viewPrefsPatches||(state.viewPrefsPatches=[])).push(body.view_prefs);return ok([{user_id:state.user.id}])}
         if(body&&'library_view' in body)state.libraryView=body.library_view;
         return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null}]);
       }
       if(state.libraryViewMissing&&url.searchParams.get('select')?.includes('library_view'))return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_view does not exist'})});
       (state.profileReads||(state.profileReads=[])).push(url.search);
-      return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null,view_prefs:state.viewPrefs??null,...(state.documentCategories?{document_categories:state.documentCategories}:{})}]);
+      return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null,view_prefs:state.viewPrefs??null,...(state.documentCategories?{document_categories:state.documentCategories}:{}),...('meetingNameSorts' in state?{meeting_name_sorts:state.meetingNameSorts}:{})}]);
     }
     if(path==='/rest/v1/app_library_folders'&&method==='GET')return ok(state.folders||[]);
     if(path==='/rest/v1/app_library_folder_items'&&method==='GET')return ok(state.folderItems||[]);
