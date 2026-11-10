@@ -11,10 +11,10 @@ const ANDROID='Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/141
 const notes=Array.from({length:30},(_,i)=>({id:'n'+i,kind:'basket',title:null,raw_text:`메모 ${i}\n둘째 줄`,occurred_at:`2026-10-0${1+i%5}T0${i%10}:00:00Z`,updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[]}));
 const noteDocs=Array.from({length:30},(_,i)=>({id:'d'+i,kind:'note',title:`노트 ${i}`,raw_text:`노트 본문 ${i}`,occurred_at:'2026-10-05T01:00:00Z',updated_at:`2026-10-${String(1+i).padStart(2,'0')}T01:00:00Z`,ai_export_allowed:true,attachments:[],metadata:{}}));
 
-async function fixture(page){
+async function fixture(page,{query=''}={}){
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  await page.setViewportSize({width:390,height:844});
- await openHome(page);
+ await openHome(page,{query});
  await page.route(SB+'/rest/v1/app_notes**',r=>r.request().method()==='GET'?r.fulfill({json:new URL(r.request().url()).searchParams.get('kind')==='eq.note'?noteDocs:notes}):r.fulfill({status:403,json:{}}));
  await page.route(SB+'/rest/v1/app_record_links?**',r=>new URL(r.request().url()).searchParams.has('note_id')?r.fulfill({json:[]}):r.fallback());
  return errors;
@@ -108,10 +108,15 @@ for(const platform of ['browser','android'])test.describe(`Back closes the top o
 test.describe('Android back at the first Web2 entry',()=>{
  test.use({userAgent:ANDROID});
  test('a deep link returns home, and home keeps the app open',async({page})=>{
-  const errors=await fixture(page);
-  await page.goto(new URL('/app/?view=calendar',page.url()).href);await expect(page.locator('#calendarView')).toBeVisible();
+  // 깊은 주소가 정말 첫 Web2 기록이어야 한다: 로그인 화면에서 곧바로 ?view=calendar로 들어온다. 홈을 연 뒤 page.goto로 옮기면
+  // 아래에 홈 기록(/app/)이 남아, #2306(CALL-상세뒤로가기) 뒤로는 그 홈 문서로 돌아가는 다른 경우를 보게 된다
+  // (그 문서 전환이 달력 문서의 읽던 요청을 끊어 'suborganizations init' 네트워크 오류가 간헐로 남았다, STAB-main간헐실패3).
+  const errors=await fixture(page,{query:'?view=calendar'});await expect(page.locator('#calendarView')).toBeVisible();
+  expect(await page.evaluate(()=>navigation.entries().filter(e=>new URL(e.url).pathname==='/app/').length)).toBe(1);
+  await page.evaluate(()=>{window.__firstEntryDoc=true}); // 첫 기록에서는 같은 문서 안에서 홈으로 간다(기록 이동 없음)
   expect(await page.evaluate(()=>KPTUNativeBack.handle())).toBe(true);
-  await expect(page.locator('#homeView')).toBeVisible();await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe(null);
+  await expect(page.locator('#homeView')).toBeVisible();expect(await page.evaluate(()=>window.__firstEntryDoc)).toBe(true);
+  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe(null);
   const url=page.url();
   expect(await page.evaluate(()=>KPTUNativeBack.handle())).toBe(true);
   await expect(page.locator('#homeView')).toBeVisible();expect(page.url()).toBe(url);
