@@ -70,7 +70,7 @@ async function fixture(page,{width=1280,ledgerSeen=[],editsMissing=false}={}){
  return {db,edits,calls,errors};
 }
 async function openCalls(page,width){
- if(width>=761){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'통화',exact:true});await expect(item).toBeVisible();await item.click();}
+ if(width>=761){const item=page.locator('#appView>.app-nav').getByRole('link',{name:'통화',exact:true});await expect(item).toBeVisible();await item.click();}
  else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'통화',exact:true}).click();}
  await expect(page.locator('#callsView')).toBeVisible();
 }

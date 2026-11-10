@@ -272,7 +272,7 @@ export async function openFiles(page, width, { two = false } = {}) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav button:visible', { hasText: '파일' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: '파일', exact: true }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '파일', exact: true }).click();
   await expect(page.locator('#filesView')).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('files');
   if (width >= 600 && width < 1200 && !two) {

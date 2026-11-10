@@ -37,7 +37,7 @@ test("메뉴 이름은 'News', id는 그대로 outside", () => {
   assert.equal(item?.label, 'News');
   assert.equal(item?.view, 'outside');
   const html = readFileSync(join(APP, 'index.html'), 'utf8');
-  assert.match(html, /data-view="outside" type="button">News</);
+  assert.match(html, /data-view="outside" href="\.\/\?view=news">News</);
   assert.match(html, /data-view="outside">[^]*?<span>News<\/span>/);
   const top = readFileSync(join(APP, 'topbar-actions.js'), 'utf8');
   assert.equal((top.match(/outside:'News'/g) || []).length, 2);

@@ -55,7 +55,7 @@ async function fixture(page) {
 
 test("PC: 원드라이브 사진 우클릭 [정보수정] → '−8시간' → 서버에 한 번(확인 포함) → 기록 od: → [되돌리기]", async ({ page }) => {
   const state = await fixture(page);
-  await page.locator('#appView>.app-nav').getByRole('button', { name: '사진', exact: true }).click();
+  await page.locator('#appView>.app-nav').getByRole('link', { name: '사진', exact: true }).click();
   await expect(page.locator('#photosView')).toBeVisible();
   const cell = page.locator('#photosRoot [data-photos-list] [data-photos-id="O1"]');
   await expect(cell).toBeVisible();

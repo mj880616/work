@@ -57,7 +57,7 @@ async function openPhotos(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: '사진', exact: true }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '사진', exact: true }).click();
   await expect(page.locator('#photosView')).toBeVisible();
 }
 const cells = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]');

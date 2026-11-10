@@ -31,7 +31,7 @@ async function openArsenal(page, width) {
     const tiles = page.locator('#mobileMenu nav button:visible');
     await expect(tiles.last()).toHaveText('아스날');
     await tiles.last().click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: '아스날', exact: true }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '아스날', exact: true }).click();
   await expect(page.locator('#arsenalView')).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('arsenal');
 }

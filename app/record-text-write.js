@@ -37,7 +37,7 @@ export function mountBigWrite(box, {title = '크게 쓰기', placeholder = '', l
   const label = box?.closest('label');
   if (!label || label.querySelector('.record-big-write')) return;
   const button = document.createElement('button');
-  button.type = 'button'; button.className = 'ghost record-big-write';
+  button.type = 'button'; button.className = 'icon-btn record-big-write';
   button.setAttribute('aria-haspopup', 'dialog'); button.setAttribute('aria-label', '크게 쓰기'); button.title = '큰 창에서 쓰기';
   button.innerHTML = BIG_SVG;
   // 큰 창 버튼(HOTFIX2-회의칸깨짐): 모든 글 칸에서 칸 이름 줄 맨 끝에 글자 높이의 작은 아이콘 하나로 둔다(한 곳).

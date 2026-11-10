@@ -427,3 +427,6 @@ mark.hl-mark:focus-visible{outline:2px solid currentColor;outline-offset:1px}
 /* UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸(auto-grow.js). 높이는 그 모듈이 글에 맞추고, 손잡이로 끌지 않는다. */
 textarea[data-autogrow]{box-sizing:border-box;resize:none}
 textarea[data-autogrow][data-enter-field]{line-height:1.4}
+/* UI-PC손맛묶음 ②: 본문으로 가기 링크(keyboard-keys.js) — Tab으로 커서가 왔을 때만 왼쪽 위에 보인다. */
+.skip-main{position:fixed;left:8px;top:8px;z-index:1000;padding:6px 10px;border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-primary-ink);border:1px solid var(--kptu-border);font-size:13px;text-decoration:none;transform:translateY(-200%)}
+.skip-main:focus{transform:none;outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
