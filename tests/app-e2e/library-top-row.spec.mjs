@@ -33,6 +33,12 @@ for(const width of [390,884,1440])test(`자료실 ${width}: ${width<=760?'폰 �
   await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveCount(0);
   await expect(page.locator('#libraryGroupBy option')).toHaveText(['폴더','사업영역','담당조직','분류','월별']);
   await expect(page.locator('#libraryGroupBy option:checked')).toHaveText('사업영역');
+  // S56-11: [폴더 ▾]에 공용 ▾ 그림이 보인다(사업 보고 [목록 ▾]·사진 [사진 ▾]와 같은 고르기 상자). 바탕 줄임 표기로 지워지지 않게.
+  expect(await page.locator('#libraryGroupBy').evaluate(el=>getComputedStyle(el).backgroundImage)).toContain('linear-gradient');
+  // S56-11: [분류 ▾] 단추도 같은 공용 ▾ 그림·자리·바탕·선이다(글자 ▾ 없음).
+  const look=sel=>page.locator(sel).evaluate(el=>{const c=getComputedStyle(el);return [c.backgroundImage,c.backgroundPosition,c.backgroundSize,c.backgroundColor,c.borderTopColor,c.borderTopWidth,c.borderRadius,c.height,c.paddingRight].join('|')});
+  expect(await look('#libraryView .lu-cat-pick')).toBe(await look('#libraryGroupBy'));
+  expect(await page.locator('#libraryView .lu-cat-pick').textContent()).not.toContain('▾');
   const m=await measure(page);
   // 화면에 떠 있는 것(fixed) 없음: 아래 알약·동그란 [+] 모두 없다. 가로 넘침 없음.
   expect(m.fixed).toEqual([]);expect(m.overflow).toBeLessThanOrEqual(1);
