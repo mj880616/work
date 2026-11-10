@@ -94,14 +94,19 @@ async function load() {
   const owner = scopeOf(rt), me = ++run; if (!state.loaded) paint();
   const today = kstDay(), first = firstWindow(today), from = state.from && state.from < first.from ? state.from : first.from;
   // 요청·꼬리표 재료는 목록과 함께 읽는다(실패해도 목록은 그대로: 요청은 null, 꼬리표는 빈 목록).
-  const extra = Promise.all([readTelegramAsks(rt).catch(() => null), readLineMarks(from, today, rt).catch(() => []), readSeenDays(from, today, rt).catch(() => null)]);
+  // 줄 글(요약 없는 날의 소식 제목)과 불러온 기간 밖 고정 방의 한 줄도 목록과 함께 읽어 첫 그림에 넣는다(STAB-텔레그램방고정시험:
+  // 목록을 그린 직후 이것들 때문에 목록을 통째로 다시 그려, 그 사이 꾹 누르던 줄이 바뀌어 메뉴가 열리지 않던 문제).
+  const linesP = readLines(from, today), roomsP = readFeedRooms(rt).catch(() => ({rooms:new Map(), pinReady:false}));
+  const extra = Promise.all([readTelegramAsks(rt).catch(() => null), readLineMarks(from, today, rt).catch(() => []), readSeenDays(from, today, rt).catch(() => null),
+    linesP.then(readTitlesOf).catch(() => null), Promise.all([linesP, roomsP]).then(([ls, rs]) => readPinLines(rs.rooms, ls)).catch(() => [])]);
   try {
-    const [lines, days, orgs, senders, pins, trashed, folders, roomState, trashedDays, edits] = await Promise.all([readLines(from, today), readDays('telegram', rt).catch(() => []), readOrganizations(rt).catch(() => ({orgs:[], mine:new Set()})), readSenders(rt).catch(() => null), readPinnedItems(rt).catch(() => []), readTrashedItems(rt).catch(() => []),
-      readFeedFolders(rt).catch(() => []), readFeedRooms(rt).catch(() => ({rooms:new Map(), pinReady:false})), readTrashedDays(rt).catch(() => []), readSummaryEdits(rt).then(editMap).catch(() => null)]);
-    const [asks, markRows, seenRows] = await extra;
+    const [lines, days, orgs, senders, pins, trashed, folders, roomState, trashedDays, edits] = await Promise.all([linesP, readDays('telegram', rt).catch(() => []), readOrganizations(rt).catch(() => ({orgs:[], mine:new Set()})), readSenders(rt).catch(() => null), readPinnedItems(rt).catch(() => []), readTrashedItems(rt).catch(() => []),
+      readFeedFolders(rt).catch(() => []), roomsP, readTrashedDays(rt).catch(() => []), readSummaryEdits(rt).then(editMap).catch(() => null)]);
+    const [asks, markRows, seenRows, titles, pinLines] = await extra;
     if (me !== run || owner !== scopeOf(rt)) return;
     const {rooms, pinReady} = roomState;
-    Object.assign(state, {owner, loaded:true, missing:false, error:'', pinReady, pinLines:[], lines:withRoomState(lines, rooms), from, end:reachedEnd(from, today), pins, trashed, trashedDays, folders, rooms, days, orgs:orgs.orgs, mine:orgs.mine, edits, se:null, dcache:new Map(), swipe:null, asks:asks?.ok ? askIndex(asks.rows) : null, markRows, marks:markIndex(markRows, orgs.mine), seen:seenRows ? seenIndex(seenRows) : null});
+    if (titles) state.titles = titles;
+    Object.assign(state, {owner, loaded:true, missing:false, error:'', pinReady, pinLines:withRoomState(pinLines, rooms), lines:withRoomState(lines, rooms), from, end:reachedEnd(from, today), pins, trashed, trashedDays, folders, rooms, days, orgs:orgs.orgs, mine:orgs.mine, edits, se:null, dcache:new Map(), swipe:null, asks:asks?.ok ? askIndex(asks.rows) : null, markRows, marks:markIndex(markRows, orgs.mine), seen:seenRows ? seenIndex(seenRows) : null});
     setSenders(senders);
     if (state.folder && !folders.some(f => f.id === state.folder)) state.folder = '';
     if (state.mode === 'trash' && !trashed.length && !trashedDays.length) leaveShelf();
@@ -112,10 +117,10 @@ async function load() {
   }
   if (!state.placed && state.loaded && !state.error && !state.missing) {
     state.placed = true; const at = window.KPTURouter?.place?.('telegram') || {};
-    if (at.by === 'room' && at.room && !state.sel && !state.rsel) { openRoom(at.room); void fillTitles(me); void fillPinLines(me); return; }
+    if (at.by === 'room' && at.room && !state.sel && !state.rsel) { openRoom(at.room); return; }
   }
   paint();
-  if (state.sel) void ensureDetail(); else if (state.rsel) void ensureRoomDays(); void fillTitles(me); void fillPinLines(me);
+  if (state.sel) void ensureDetail(); else if (state.rsel) void ensureRoomDays();
 }
 // 보기(날짜별·방별): 이번 접속에서 고른 것 > 주소(새로고침 제자리) > 서버 화면 기억 > 날짜별.
 function byNow() {
@@ -124,16 +129,25 @@ function byNow() {
 }
 const roomMode = () => state.mode === 'live' && byNow() === 'room';
 // TG-방고정: 불러온 기간에 줄이 없는 고정 방은 그 방의 가장 최근 날 한 줄을 따로 읽어 맨 위 칸에 채운다(읽지 못하면 방 이름만).
+// 첫 읽기는 load()가 목록과 함께 읽고(readPinLines), 그 뒤 방을 새로 고정하거나 꺼낼 때만 이것이 채우고 다시 그린다.
+async function readPinLines(rooms, lines) {
+  const keys = pinsWithoutLine(rooms, lines); if (!keys.length) return [];
+  return (await Promise.all(keys.map(k => readRoomLatestLine(k, rt).catch(() => null)))).map(lineOf).filter(Boolean);
+}
 async function fillPinLines(me = run) {
-  const keys = pinsWithoutLine(state.rooms, [...state.lines, ...state.pinLines]).filter(k => !state.pinLines.some(l => l.room_key === k)); if (!keys.length) return;
-  const got = (await Promise.all(keys.map(k => readRoomLatestLine(k, rt).catch(() => null)))).map(lineOf).filter(Boolean);
+  const got = (await readPinLines(state.rooms, [...state.lines, ...state.pinLines])).filter(l => !state.pinLines.some(p => p.room_key === l.room_key));
   if (me !== run || !got.length) return;
   state.pinLines = [...state.pinLines, ...withRoomState(got, state.rooms)]; paintList();
 }
-// 요약 한 줄이 없는 날의 소식 제목을 따로 읽어 목록 줄에 채운다(읽지 못하면 줄 글이 빈 채로 둔다).
+// 요약 한 줄이 없는 날의 소식 제목을 따로 읽어 목록 줄에 채운다(읽지 못하면 null: 줄 글이 빈 채로 둔다).
+// 첫 읽기는 load()가 목록과 함께 읽고, [이전 날 더 보기]로 늘린 날만 fillTitles가 채우고 다시 그린다.
+async function readTitlesOf(lines) {
+  const days = daysNeedingTitles(lines); if (!days.length) return null;
+  try { return titleIndex(await readTitleRows(days, rt)); } catch { return null; }
+}
 async function fillTitles(me) {
-  const days = daysNeedingTitles(state.lines); if (!days.length) return;
-  try { const rows = await readTitleRows(days, rt); if (me !== run) return; state.titles = titleIndex(rows); paintList(); } catch {}
+  const titles = await readTitlesOf(state.lines); if (me !== run || !titles) return;
+  state.titles = titles; paintList();
 }
 async function extend() {
   const today = kstDay(), win = olderWindow(state.from, today), me = run, owner = scopeOf(rt);
