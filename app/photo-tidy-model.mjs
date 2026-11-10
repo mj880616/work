@@ -325,7 +325,7 @@ export function similarGroups(cands, hashes) {
 
 // ---- S47-16 PHOTO-폰지우기안전장치(요청함 10/31 22:52): [폰에서만 지우기]·[나머지 지우기] 전 원드라이브 사본 짝 ----
 // 폰 사진마다 원드라이브에서 같은 크기(그리고 같은 이름 또는 찍은 시각, S53-2부터 가로세로도 — sameMedia)인 사본을 찾는다. 크기를 모르면 짝이 없다(지우지 않음).
-// 지우기 전 서버(onedrive-photos copy-check)가 이 사본이 지금도 있고 크기가 같은지 다시 본다. 여기서는 짝만 만든다.
+// 지우기 전 서버(onedrive-photos copy-check)가 이 사본이 지금도 있고 크기·종류·가로세로·찍은 시각이 같은지 다시 본다(copyCheckPair). 여기서는 짝만 만든다.
 export const COPY_BATCH = 50, LOG_BATCH = 100;
 export function copyFinder(odItems) {
   const bySize = new Map();
@@ -355,6 +355,15 @@ export function copyPairs(items, odItems, {phItems = null, hashes = null} = {}) 
   for (const p of items || []) { const o = p?.phoneId ? map.get(p.id) : null; if (o) pairs.push({item:p, copy:o}); else noCopy.push(p); }
   return {pairs, noCopy};
 }
+// S56-46 PHOTO-같은사진오판: 서버 copy-check에 보낼 한 짝. 크기만이 아니라 종류·가로세로·찍은 시각도 보내 서버가 원드라이브 사본과 다시 맞춰 본다.
+// 모르는 값(가로세로 없음·찍은 시각 어림)은 보내지 않는다 → 서버가 '확인 못 함'으로 답하고 화면은 지우지 않는다. 사진 이름·내용은 보내지 않는다.
+export function copyCheckPair(item, copyId) {
+  const out = {id:copyId, size:item?.size_bytes, video:item?.video === true};
+  if (Number.isSafeInteger(item?.width) && item.width > 0 && Number.isSafeInteger(item?.height) && item.height > 0) { out.w = item.width; out.h = item.height; }
+  const t = Date.parse(item?.taken_at || '');
+  if (item?.approx !== true && Number.isFinite(t)) out.taken_at = new Date(t).toISOString();
+  return out;
+}
 // 남긴 사진 안내(사본 없음·확인 못 함).
 export function keptText(missing, unsure) {
   const out = [];
@@ -376,9 +385,9 @@ export const TIDY_HELP = Object.freeze({
   unbackedDo:"필요한 폴더면 동기화 앱(OneSync)에 이 폴더를 '업로드만'으로 추가하세요 · 필요 없는 폴더면 [폴더 끄기]로 목록에서 빼세요",
   partly:'일부만 있음 = 원드라이브에서 찾은 장수/전체 장수 · [보기]는 못 찾은 사진만 · 동기화 앱이 아직 올리는 중일 수 있어요',
   space:'원드라이브에 똑같은 사진이 있어서 폰에서만 삭제해도 안전한 사진이에요(동기화 앱이 업로드만일 때)',
-  spaceDo:'1년 지난 사진과 한 달 지난 50MB 넘는 동영상만 선택했고 별표는 뺐어요 · 삭제 직전에 원드라이브에 있는지 다시 확인해요',
+  spaceDo:'1년 지난 사진과 한 달 지난 50MB 넘는 동영상만 선택했고 별표는 뺐어요 · 삭제 직전에 원드라이브에 크기·가로세로·찍은 시각까지 같은 사진이 있는지 다시 확인해요',
   dups:'같은 사진 = 크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진, 연사 = 카메라로 1초 안에 이어 찍은 사진, 비슷한 사진 = 10분 안에 같은 장면을 조금씩 다르게 찍은 사진이에요',
-  dupsDo:'묶음마다 남길 한 장을 누르고 [나머지 삭제] · 원드라이브에 사본이 있는 사진만 삭제해요',
+  dupsDo:'묶음마다 남길 한 장을 누르고 [나머지 삭제] · 원드라이브에 크기·가로세로·찍은 시각까지 같은 사본이 있는 사진만 삭제해요',
   junk:'1년 지난 스크린샷과 카톡·텔레그램으로 받은 사진이에요',
   junkDo:'필요 없으면 [삭제](폰 휴지통) · 삭제 싫으면 [숨기기]로 사진 목록에서만 빼요',
 });

@@ -36,7 +36,7 @@ import {phonePhotos} from './phone-photos.js';
 import {within, isLoadTimeout, onResume} from './load-deadline.js';
 import {createPhotoTidy} from './photo-tidy.js';
 import {createThumbHasher} from './photo-hash.js';
-import {keptText, sizeText, totalBytes, COPY_BATCH, LOG_BATCH, copyPairs} from './photo-tidy-model.mjs';
+import {keptText, sizeText, totalBytes, COPY_BATCH, LOG_BATCH, copyPairs, copyCheckPair} from './photo-tidy-model.mjs';
 import {parsePhoneOff, phoneOffValue, remapPhoneOff, knownAfterOff, remapPhoneKnown, knownWith, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText, phoneTrashText} from './phone-folders-model.mjs';
 import {syncPhoneFolders, quickPhoneFolders, onPhoneFoldersLateAdded, savePhoneKnown, currentPhoneKnown} from './phone-folders-sync.js';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT,
@@ -300,7 +300,7 @@ async function tidyPhoneTrashOne(item, anchor) {
   photoStripDrop(item.id); paintTidy();
 }
 // S47-16 PHOTO-폰지우기안전장치(요청함 10/31 22:52): [폰 공간만 비우기]·[나머지 지우기]는 원드라이브 사본이 지금도 있는(같은 파일·크기) 사진만 지운다.
-// 서버가 사본을 다시 확인하고(copy-check), 확인된 것만 폰 휴지통으로 보낸 뒤 지운 기록(폰 사진 번호·사본 id)을 서버에 남긴다(trash-log).
+// 서버가 사본을 다시 확인하고(copy-check — S56-46부터 크기에 종류·가로세로·찍은 시각까지, copyCheckPair), 확인된 것만 폰 휴지통으로 보낸 뒤 지운 기록(폰 사진 번호·사본 id)을 서버에 남긴다(trash-log).
 // S48-17: 사진 정리 [폰 공간만 비우기]는 고른 사진 [지우기] → '폰 공간만 비우기'와 같은 것이다(원래 폴더·찍은 시각을 함께 남기고 목록에 남김, keep).
 // 잡동사니 [지우기]는 사본과 상관없이 고른 그대로(예전 그대로).
 // 짝 [{item, copyId}] → 서버가 사본을 다시 확인 → {list(확인된 폰 칸), copyOf(칸 id → 사본 id), kept(남긴 이유 글)}. missing = 짝도 없던 폰 사진 수.
@@ -309,7 +309,7 @@ async function copyChecked(pairs, missing = 0) {
   for (let i = 0; i < pairs.length; i += COPY_BATCH) {
     const part = pairs.slice(i, i + COPY_BATCH);
     let res;
-    try { res = await odCopyCheck(rt, part.map(x => ({id:x.copyId, size:x.item.size_bytes}))); }
+    try { res = await odCopyCheck(rt, part.map(x => copyCheckPair(x.item, x.copyId))); }
     catch { res = {ok:[], missing:[], unsure:part.map(x => x.copyId)}; }
     const good = new Set(res.ok), bad = new Set(res.missing);
     for (const x of part) { if (good.has(x.copyId)) ok.add(x.item.id); else if (bad.has(x.copyId)) seen.missing++; else seen.unsure++; }

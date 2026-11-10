@@ -238,7 +238,7 @@ test('사진 메뉴 삭제 연결: 사본 확인된 것만 폰 휴지통, 삭제
   assert.match(src, /const needCopy = kind === 'space' \|\| kind\.startsWith\('dup'\);/);
   // S48-17: 사본 확인은 선택한 사진 [삭제]와 같이 쓰는 copyChecked(짝 {item, copyId}), 기록 줄은 photo-keep-model.mjs keepLogRows.
   const keep = read('app/photo-keep-model.mjs');
-  assert.match(src, /odCopyCheck\(rt, part\.map\(x => \(\{id:x\.copyId, size:x\.item\.size_bytes\}\)\)\)/);
+  assert.match(src, /odCopyCheck\(rt, part\.map\(x => copyCheckPair\(x\.item, x\.copyId\)\)\)/); // S56-46: 크기만이 아니라 종류·가로세로·찍은 시각까지
   assert.match(src, /copyChecked\(pl\.pairs\.map\(x => \(\{item:x\.item, copyId:x\.copy\.id\}\)\), pl\.noCopy\.length\)/);
   assert.match(src, /list:pairs\.map\(x => x\.item\)\.filter\(x => copyOf\.has\(x\.id\)\)/);
   // 확인 실패(네트워크)는 삭제하지 않음(확인 못 함).
@@ -649,4 +649,15 @@ test('S53-2 사진 정리 화면: 같은 사진 후보만 해시를 만들고(�
   const none = make(null);
   await none.rescan(); await settle();
   assert.ok(!none.state.dups.some(g => g.kind === 'copy'), '그림을 볼 수 없으면 같은 사진 묶음이 없다');
+});
+
+// S56-46 PHOTO-같은사진오판: 서버 copy-check에 크기만 보내지 않는다 — 종류·가로세로·찍은 시각까지. 모르는 값은 빼서 서버가 '확인 못 함'으로 답하게.
+test('copyCheckPair: size plus kind, dims and exact taken time; unknown values left out (server answers unsure)', async () => {
+  const {copyCheckPair} = await import('../app/photo-tidy-model.mjs');
+  const t = '2026-11-08T01:00:00.000Z';
+  assert.deepEqual(copyCheckPair(ph(1, 'a.jpg', 1000, t, 'DCIM/Camera/', {width:4000, height:3000, approx:false}), 'O1'),
+    {id:'O1', size:1000, video:false, w:4000, h:3000, taken_at:t});
+  assert.deepEqual(copyCheckPair(ph(2, 'b.mp4', 9, t, 'DCIM/Camera/', {video:true, width:null, height:null, approx:true}), 'O2'), {id:'O2', size:9, video:true});
+  // 사진 이름·폴더 같은 다른 값은 보내지 않는다.
+  assert.deepEqual(Object.keys(copyCheckPair(ph(3, 'c.jpg', 5, t, 'DCIM/Camera/', {width:1, height:1}), 'O3')).sort(), ['h', 'id', 'size', 'taken_at', 'video', 'w']);
 });

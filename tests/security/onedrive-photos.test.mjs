@@ -91,7 +91,7 @@ function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply,moveRe
           const own=subReply?.(q);if(own)return {id:q.id,...own};
           const t=q.url.match(/^\/me\/drive\/items\/([^/?]+)\/thumbnails\?select=([a-z0-9]+)$/);
           if(t){const id=decodeURIComponent(t[1]);return itemById[id]?{id:q.id,status:200,body:{value:[{id:'0',[t[2]]:{url:'https://thumbs.synthetic.example.test/u/'+id+'/'+t[2]}}]}}:{id:q.id,status:404,body:{}};}
-          const one=q.url.match(/^\/me\/drive\/items\/([^/?]+)\?\$select=id,(?:name,)?(?:size,)?file,folder,parentReference$/);
+          const one=q.url.match(/^\/me\/drive\/items\/([^/?]+)\?\$select=id,(?:name,)?(?:size,)?file,folder,parentReference(?:,image,video,photo,fileSystemInfo)?$/);
           if(one&&q.method==='GET'){const id=decodeURIComponent(one[1]);return itemById[id]?{id:q.id,status:200,body:itemById[id]}:{id:q.id,status:404,body:{}};}
           const mv=q.url.match(/^\/me\/drive\/items\/([^/?]+)\?@microsoft\.graph\.conflictBehavior=rename$/);
           if(mv&&q.method==='PATCH'){assert.equal(q.headers['Content-Type'],'application/json');return {id:q.id,...moveOne(decodeURIComponent(mv[1]),q.body)};}
@@ -1188,8 +1188,15 @@ test('whole-drive: a fresh connection (no folder yet) just points at the root; n
 function copyGraph(){
   const inCam={id:'F1!100',path:'/drive/root:/Pictures/Camera'};
   const itemById={
-    C1:{id:'C1',name:'a.jpg',size:1000,file:{mimeType:'image/jpeg'},parentReference:inCam},
-    C2:{id:'C2',name:'b.jpg',size:2000,file:{mimeType:'image/jpeg'},parentReference:inCam},
+    C1:{id:'C1',name:'a.jpg',size:1000,file:{mimeType:'image/jpeg'},image:{width:4000,height:3000},photo:{takenDateTime:'2026-11-08T10:00:00'},parentReference:inCam},
+    C2:{id:'C2',name:'b.jpg',size:2000,file:{mimeType:'image/jpeg'},image:{width:4000,height:3000},photo:{takenDateTime:'2026-11-08T10:00:00'},parentReference:inCam},
+    // S56-46: 크기는 C1과 같지만 다른 사진(가로세로 다름·시각 다름·동영상)·같은지 알 수 없는 것(가로세로 없음·찍은 시각 없음)
+    DIM:{id:'DIM',name:'x.jpg',size:1000,file:{mimeType:'image/jpeg'},image:{width:3024,height:4032},photo:{takenDateTime:'2026-11-08T10:00:00'},parentReference:inCam},
+    ROT:{id:'ROT',name:'r.jpg',size:1000,file:{mimeType:'image/jpeg'},image:{width:3000,height:4000},photo:{takenDateTime:'2026-11-08T10:00:01'},parentReference:inCam},
+    LATE:{id:'LATE',name:'l.jpg',size:1000,file:{mimeType:'image/jpeg'},image:{width:4000,height:3000},photo:{takenDateTime:'2026-11-08T10:00:03'},parentReference:inCam},
+    VID:{id:'VID',name:'v.mp4',size:1000,file:{mimeType:'video/mp4'},video:{width:4000,height:3000},photo:{takenDateTime:'2026-11-08T10:00:00'},parentReference:inCam},
+    NODIM:{id:'NODIM',name:'n.jpg',size:1000,file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-11-08T10:00:00'},parentReference:inCam},
+    NOTIME:{id:'NOTIME',name:'t.jpg',size:1000,file:{mimeType:'image/jpeg'},image:{width:4000,height:3000},fileSystemInfo:{createdDateTime:'2026-11-08T01:00:00Z'},parentReference:inCam},
     OUT:{id:'OUT',name:'o.jpg',size:3000,file:{mimeType:'image/jpeg'},parentReference:{id:'Z',path:'/drive/root:/Other'}},
     TR:{id:'TR',name:'t.jpg',size:4000,file:{mimeType:'image/jpeg'},parentReference:{id:TRASH,path:'/drive/root:/Pictures/Camera/'+TRASH_NAME}},
     DOC:{id:'DOC',name:'d.pdf',size:10,file:{mimeType:'application/pdf'},parentReference:inCam},
@@ -1197,25 +1204,46 @@ function copyGraph(){
   return itemById;
 }
 const trashFolderRow={workspace_id:WS,item_id:TRASH,parent_id:'F1!100',name:TRASH_NAME,role:'trash',enabled:true};
+// 폰 사진(카메라 시각 2026-11-08 10:00:00 서울 = 01:00:00Z) 4000×3000 사진.
+const PH={video:false,w:4000,h:3000,taken_at:'2026-11-08T01:00:00.000Z'};
 test('copy-check: only copies that still exist in the chosen folder, outside the Web2 trash, with the same size are ok; throttled is unsure',async()=>{
   const itemById=copyGraph();
   const ctx=make({admin:fakeAdmin({row:{...connected},index:{app_onedrive_folders:[trashFolderRow]}}),
     ms:fakeMicrosoft({itemById,subReply:q=>q.url.startsWith('/me/drive/items/SLOW?')?{status:429,headers:{'Retry-After':'7'},body:{}}:null})});
-  const out=await read(await post(ctx.handler,{action:'copy-check',pairs:[{id:'C1',size:1000},{id:'C2',size:1999},{id:'GONE',size:5},{id:'OUT',size:3000},{id:'TR',size:4000},{id:'DOC',size:10},{id:'SLOW',size:9}]}));
+  const out=await read(await post(ctx.handler,{action:'copy-check',pairs:[{id:'C1',size:1000,...PH},{id:'C2',size:1999,...PH},{id:'GONE',size:5,...PH},{id:'OUT',size:3000,...PH},{id:'TR',size:4000,...PH},{id:'DOC',size:10,...PH},{id:'SLOW',size:9,...PH}]}));
   assert.deepEqual(out.ok,['C1']);
   assert.deepEqual(out.missing.sort(),['C2','DOC','GONE','OUT','TR']);
   assert.deepEqual(out.unsure,['SLOW']);
   assert.equal(out.retry_after,7);
-  // Graph에는 크기 칸을 함께 묻는다(색인 크기를 믿지 않음).
+  // Graph에는 크기·가로세로·찍은 시각 칸을 함께 묻는다(색인 값을 믿지 않음).
   const batch=ctx.ms.calls.find(c=>c.url.endsWith('/$batch'));
-  assert.match(JSON.parse(batch.init.body).requests[0].url,/\$select=id,name,size,file,folder,parentReference$/);
-  // 요청 모양: 빈 목록·101개·잘못된 id·크기 없음·0·소수·같은 id 다른 크기는 400. 폰 사진 내용은 받지 않는다.
-  for(const pairs of [[],Array.from({length:101},(_,i)=>({id:'P'+i,size:1})),[{id:'a b',size:1}],[{id:'C1'}],[{id:'C1',size:0}],[{id:'C1',size:1.5}],[{id:'C1',size:1},{id:'C1',size:2}],'x'])
+  assert.match(JSON.parse(batch.init.body).requests[0].url,/\$select=id,name,size,file,folder,parentReference,image,video,photo,fileSystemInfo$/);
+  // 요청 모양: 빈 목록·101개·잘못된 id·크기 없음·0·소수·같은 id 다른 값·이상한 가로세로·시각·종류는 400. 폰 사진 내용은 받지 않는다.
+  for(const pairs of [[],Array.from({length:101},(_,i)=>({id:'P'+i,size:1})),[{id:'a b',size:1}],[{id:'C1'}],[{id:'C1',size:0}],[{id:'C1',size:1.5}],[{id:'C1',size:1},{id:'C1',size:2}],
+    [{id:'C1',size:1000,...PH},{id:'C1',size:1000,...PH,w:3999}],[{id:'C1',size:1000,w:0}],[{id:'C1',size:1000,h:1.5}],[{id:'C1',size:1000,taken_at:'어제'}],[{id:'C1',size:1000,video:'no'}],'x'])
     assert.equal((await post(ctx.handler,{action:'copy-check',pairs})).status,400,JSON.stringify(pairs).slice(0,40));
   // 남의 계정·연결 없음
   assert.equal((await post(ctx.handler,{action:'copy-check',pairs:[{id:'C1',size:1000}]},{jwt:'other'})).status,403);
   const none=make({admin:fakeAdmin()});
   assert.equal((await post(none.handler,{action:'copy-check',pairs:[{id:'C1',size:1000}]})).status,424);
+});
+test('copy-check S56-46: same size but different photo is never ok; unknown kind, size, dims or time is unsure (not deleted)',async()=>{
+  const ctx=make({admin:fakeAdmin({row:{...connected},index:{app_onedrive_folders:[trashFolderRow]}}),ms:fakeMicrosoft({itemById:copyGraph()})});
+  const ask=async pairs=>read(await post(ctx.handler,{action:'copy-check',pairs}));
+  // 크기는 같고 내용이 다른 사진: 가로세로 다름·찍은 시각 3초 차이·동영상 → missing. 돌린 사진(가로세로 바뀜, 1초 차이)은 같은 사진.
+  let out=await ask(['DIM','ROT','LATE','VID','C1'].map(id=>({id,size:1000,...PH})))
+  assert.deepEqual(out.ok.sort(),['C1','ROT']);
+  assert.deepEqual(out.missing.sort(),['DIM','LATE','VID']);
+  assert.deepEqual(out.unsure,[]);
+  // 원드라이브 쪽 가로세로·찍은 시각(어림 = 올린 시각)을 모르면 확인 못 함.
+  out=await ask([{id:'NODIM',size:1000,...PH},{id:'NOTIME',size:1000,...PH}]);
+  assert.deepEqual(out.ok,[]); assert.deepEqual(out.unsure.sort(),['NODIM','NOTIME']);
+  // 옛 화면(크기만 보냄)·폰 쪽 값이 빠진 짝도 확인 못 함 — 크기만으로 '있음'이 되지 않는다.
+  out=await ask([{id:'C1',size:1000},{id:'C2',size:2000,video:false,w:4000,h:3000}]);
+  assert.deepEqual(out.ok,[]); assert.deepEqual(out.unsure.sort(),['C1','C2']);
+  // 크기가 다르면 다른 값과 상관없이 missing.
+  out=await ask([{id:'C2',size:1000,...PH}]);
+  assert.deepEqual(out.missing,['C2']);
 });
 test('trash-log saves only phone number, copy id and time for this workspace; bad shapes refused',async()=>{
   const ctx=make({ms:fakeMicrosoft({itemById:copyGraph()})});

@@ -158,7 +158,7 @@ test.describe('폰 앱 412', () => {
     await picks.nth(0).click();
     await expect.poll(() => sentOf(page, /^photos:trash:/)).toEqual(['photos:trash:1']);
     const check = state.bodies.find(b => b.action === 'copy-check');
-    expect(check.pairs).toEqual([{ id: 'O1', size: 10 }]);
+    expect(check.pairs).toEqual([{ id: 'O1', size: 10, video: false, w: 10, h: 10, taken_at: '2026-10-31T03:00:00.000Z' }]);
     await expect.poll(() => state.bodies.find(b => b.action === 'trash-log')?.pairs).toEqual([{ phone_id: '1', copy_id: 'O1', keep: true, rel_path: 'DCIM/Camera/', taken_at: '2026-10-31T03:00:00.000Z' }]);
     // 폰 칸은 빠지고 같은 자리에 원드라이브 칸(비운 사진)이 남는다.
     await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
@@ -225,7 +225,7 @@ test.describe('폰 앱 412 · 원드라이브 칸', () => {
     await expect(picks.nth(1)).toContainText('완전히 삭제 · 1장');
     await picks.nth(0).click();
     await expect.poll(() => sentOf(page, /^photos:trash:/)).toEqual(['photos:trash:1']);
-    expect(state.bodies.find(b => b.action === 'copy-check').pairs).toEqual([{ id: 'O1', size: 10 }]);
+    expect(state.bodies.find(b => b.action === 'copy-check').pairs).toEqual([{ id: 'O1', size: 10, video: false, w: 10, h: 10, taken_at: '2026-10-31T03:00:00.000Z' }]);
     await expect.poll(() => state.bodies.find(b => b.action === 'trash-log')?.pairs).toEqual([{ phone_id: '1', copy_id: 'O1', keep: true, rel_path: 'DCIM/Camera/', taken_at: '2026-10-31T03:00:00.000Z' }]);
     await expect(page.locator('.kptu-notice')).toContainText('폰 공간을 비웠어요');
     await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
