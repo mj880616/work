@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 회의명 고르기를 조직별로 묶기</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#cfe0da;--pri:#2f6f5e;--sel:#d9efe7}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}h2{font-size:13px;margin:14px 0 6px}
+.wrap{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.box{width:100%;max-width:380px}
+.sel{height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 10px;display:flex;align-items:center;justify-content:space-between}
+.pop{margin-top:3px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:5px}
+.find{height:30px;border:1px solid var(--line);border-radius:7px;padding:0 9px;line-height:28px;color:var(--muted);margin-bottom:3px}
+.g{padding:7px 9px 2px;font-size:11px;color:var(--muted);font-weight:600}
+.it{display:flex;justify-content:space-between;padding:5px 9px 5px 20px;border-radius:6px}
+.it span{color:var(--muted)}
+.it.on{background:var(--sel);font-weight:600}
+.irr{padding:4px 9px 4px 30px;color:var(--muted);font-size:12px}
+.etc{padding:6px 9px;border-top:1px solid var(--line);margin-top:4px}
+.foot{padding:5px 9px 2px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);margin-top:3px}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6;max-width:380px}
+.tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:0 5px;margin-right:4px}
+.old .it{padding-left:9px}
+</style></head><body>
+<h1>회의명 고르기 — 조직별로 묶기</h1>
+<p class="s">사업 보고 쓰기·고치기의 '회의명' 상자. 조직 이름은 고를 수 없는 작은 머리글.</p>
+<div class="wrap">
+<div class="box old"><h2>지금</h2>
+<div class="sel">본부 집행위 <span>▾</span></div>
+<div class="pop"><div class="find">회의 찾기 (비정기 포함)</div>
+<div class="it">궤도 집행국 회의<span>⋯</span></div>
+<div class="it">궤도협의회 대표자 회의<span>⋯</span></div>
+<div class="irr" style="padding-left:20px">└ 궤도협의회 비정기 회의 2 ›</div>
+<div class="it on">본부 집행위<span>⋯</span></div>
+<div class="it">노조 상집<span>⋯</span></div>
+<div class="it">○○노조 정기간담회<span>⋯</span></div>
+<div class="it">노조 중앙집행위원회<span>⋯</span></div>
+<div class="it">궤도협의회 집행위원회<span>⋯</span></div>
+<div class="etc">기타(직접 입력)</div><div class="foot">상위 목록 수정</div></div>
+<p class="note">조직 구분 없이 한 줄로 섞여 있음</p></div>
+
+<div class="box"><h2><span class="tag">가안</span>조직 머리글 + 그 아래 회의</h2>
+<div class="sel">본부 집행위 <span>▾</span></div>
+<div class="pop"><div class="find">회의 찾기 (비정기 포함)</div>
+<div class="g">공공기관사업본부</div>
+<div class="it on">본부 집행위<span>⋯</span></div>
+<div class="it">본부 운영위원회<span>⋯</span></div>
+<div class="it">본부 확대대표자회의<span>⋯</span></div>
+<div class="it">본부 대표자회의<span>⋯</span></div>
+<div class="g">공공운수노조</div>
+<div class="it">노조 상집<span>⋯</span></div>
+<div class="it">노조 중집<span>⋯</span></div>
+<div class="it">노조 대의원회<span>⋯</span></div>
+<div class="g">궤도협의회</div>
+<div class="it">궤도협의회 대표자회의<span>⋯</span></div>
+<div class="it">궤도협의회 집행위원회<span>⋯</span></div>
+<div class="it">궤도협의회 확대간부회의<span>⋯</span></div>
+<div class="it">궤도협의회 집행국회의<span>⋯</span></div>
+<div class="irr">└ 비정기 회의 2 ›</div>
+<div class="g">기타</div>
+<div class="it">○○노조 정기간담회<span>⋯</span></div>
+<div class="etc">기타(직접 입력)</div><div class="foot">조직 목록 수정</div></div>
+<p class="note">① 조직 이름(작은 회색 글자)은 누를 수 없고, 그 아래 회의만 고름<br>② 비정기 회의는 그 조직 맨 아래 '└ 비정기 회의 n ›'으로 접힘(지금 방식 그대로)<br>③ 회의 ⋯에 '조직 바꾸기'. 어느 조직에도 안 넣은 회의는 맨 아래 '기타'<br>④ '상위 목록 수정' → '조직 목록 수정'(비정기 상위 목록과 같은 목록 하나로)<br>⑤ 찾기는 지금처럼 전체에서, 찾은 줄에 '· 조직' 꼬리표</p></div>
+</div>
+</body></html>
