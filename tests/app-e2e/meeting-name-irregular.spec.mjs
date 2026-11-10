@@ -174,3 +174,27 @@ test('정리 칸을 못 읽으면(적용 전 서버) 모든 회의명을 펼쳐 
   await page.keyboard.press('Escape');
   await expect(panel(page)).toBeHidden();
 });
+
+// UI-고르기목록잘림: 회의명 고르기 창도 공용 목록과 같은 규칙 — 창 폭은 가장 긴 이름까지 넓어지고, 화면보다 길 때만 줄바꿈(잘림·… 없음).
+for (const [label, size] of [['폰', {width: 412, height: 900}], ['PC', {width: 1280, height: 900}]]) {
+  test(`${label}: 회의명 고르기 창의 긴 이름이 잘리지 않는다`, async ({page}) => {
+    await page.setViewportSize(size);
+    const long = row('m9', '아주 긴 이름의 가상 공동 대책 회의 준비 모임 확대 간담회 두 번째 자리', '2026-11-05T01:00:00Z');
+    const state = {sorts: {parents: [], names: {}}, writes: []};
+    // openEntry가 mock을 먼저 걸고, 그 뒤에 건 이 경로가 회의 목록만 긴 이름을 더해 돌려준다(뒤에 건 경로가 먼저).
+    const route = page.route.bind(page);
+    page.route = async (...a) => { await route(...a); await route(`${SB}/rest/v1/app_meetings**`, r => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(r.request().method() === 'GET' ? [...meetings, long] : [])})); page.route = route; };
+    await openEntry(page, state);
+    await page.locator('#meetingNameSelect').selectOption('__other__');
+    await page.locator('#meetingNameSelect').click();
+    await expect(panel(page)).toBeVisible();
+    await expect(picks(page).filter({hasText: '두 번째 자리'})).toHaveCount(1);
+    const box = await panel(page).boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(7); expect(box.x + box.width).toBeLessThanOrEqual(size.width - 7);
+    const clipped = await panel(page).evaluate(p => [...p.querySelectorAll('.mnp-name')].filter(n => {
+      const r = document.createRange(); r.selectNodeContents(n); const t = r.getBoundingClientRect(), b = n.closest('.mnp-pick,.mnp-act,.mnp-grp').getBoundingClientRect();
+      return n.scrollWidth > n.clientWidth + 1 || t.right > b.right + 1;
+    }).map(n => n.textContent));
+    expect(clipped).toEqual([]);
+  });
+}
