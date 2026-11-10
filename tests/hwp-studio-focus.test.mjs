@@ -12,7 +12,7 @@ test('the editor frame loads the focus rule with the other Web2 frame scripts, b
   assert.deepEqual(scripts.slice(0,5),['../../studio-guard.js','../../studio-styles.js','../../studio-convert.js','../../studio-fit.js','../../studio-focus.js']);
   assert.ok(scripts.findIndex(src=>/assets\/index-.*\.js$/.test(src))>4);
   assert.match(readFileSync('scripts/hwp-lab/finalize-rhwp-studio.mjs','utf8'),/studio-fit\.js"><\/script>\\n\s+<script src="\.\.\/\.\.\/studio-focus\.js">/);
-  assert.doesNotMatch(source,/\bfetch\(|XMLHttpRequest|WebSocket|postMessage|eval\(|new Function|cookie|localStorage/);
+  assert.doesNotMatch(source,/\bfetch\(|XMLHttpRequest|WebSocket|postMessage|eval\(|new Function|cookie|Storage\b|DB\b/);
 });
 
 function frame({hasFocus,active}){
