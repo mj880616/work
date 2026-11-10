@@ -449,7 +449,7 @@
 /* S56-11: 바탕은 색만 정한다(background-color). 줄임 표기 background:는 공용 ▾ 그림(ui-standard.css select 규칙)을 지워 [폴더 ▾]의 ▾가 안 보였다(사진 [전체 ▾]와 같은 원인). */
 #appView #libraryView .lu-pick-row > .lu-top-select{width:auto;field-sizing:content;padding-right:22px;text-overflow:ellipsis}
 #appView #libraryView .lu-pick-row > .lu-cat-pick .lu-cat-pick-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
-#appView #libraryView .lu-pick-row > .lu-cat-pick .lu-cat-caret::before{content:"▾";content:"▾" / "";flex:none;margin-left:4px;font-size:.85em;opacity:.7}
+/* S56-11: [분류] 단추의 꺾쇠는 글자가 아니라 공용 고르기 상자 그림(ui-standard.css select 규칙의 쉼표 목록)이다. [폴더] 상자와 모양·자리·굵기가 같다. */
 #appView #libraryView .lu-pick-row > .lu-cat-pick::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #appView #libraryView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
 /* 작은 아이콘 ⌕·+·⋯·✕: ⑥ 아이콘 크기(--ds-compact-height), 선·바탕 없음, 마우스를 올릴 때만 옅은 바탕. 누르는 범위 44px은 위아래로만 ::after. */
