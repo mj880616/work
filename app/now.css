@@ -38,7 +38,7 @@
 #appView #outsideView .nw-card{ background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:12px; overflow:hidden; }
 #appView #outsideView .nw-row{ display:flex; gap:9px; min-width:0; padding:9px 11px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
 #appView #outsideView .nw-card > .nw-row:first-child,#appView #outsideView .nc-tree-item:first-of-type .nw-row{ border-top:0; }
-#appView #outsideView .nw-bar{ flex:none; width:4px; border-radius:2px; background:var(--nw-c); }
+#appView #outsideView .nw-bar{ flex:none; width:4px; border-radius:2px; background:var(--nw-bar,var(--nw-c)); }
 #appView #outsideView .nw-main{ flex:1 1 auto; min-width:0; }
 #appView #outsideView .nw-title{ margin:0; font-size:14px; line-height:1.4; font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); overflow-wrap:anywhere;
   display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; overflow:hidden; }
