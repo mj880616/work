@@ -42,17 +42,17 @@ for(const width of [690,884,1280]){
     const tasks=[task('late','2026-10-06'),task('a','2026-10-08',{notes:'첫 메모'}),task('b','2026-10-08'),task('soon','2026-10-10')];
     const calls=await open(page,width,tasks);
     const pane=page.locator('#gtDetailPane'),editor=pane.locator('#gtTaskModal');
-    // 두 칸: 목록 열이 왼쪽, 상세 칸이 오른쪽(가로 넘김 없음).
-    await expect(page.locator('#gtTaskBody .gt-cols')).toHaveCount(1);await expect(pane).toBeVisible();
-    const [list,box]=[await page.locator('#gtTaskBody [data-gt-col="now"]').boundingBox(),await pane.boundingBox()];
-    expect(box.x).toBeGreaterThan(list.x+list.width);expect(Math.abs(box.y-list.y)).toBeLessThanOrEqual(1);
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-    // TASK-오른쪽칸비우기: 아무것도 안 골랐을 때 오른쪽 칸은 빈 칸(요약·안내 글자 없음).
-    await expect(pane).not.toHaveClass(/has-task/);expect(await pane.evaluate(el=>el.textContent.trim()+'|'+el.children.length)).toBe('|0');
+    // TASK-넓게쓰기(2026-11-10 명진 B안): 아무것도 안 골랐을 때는 오른쪽 칸이 없고 목록이 화면 폭 전부(빈 오른쪽 상자 없음).
+    await expect(page.locator('#gtTaskBody .gt-cols')).toHaveCount(1);await expect(pane).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);
+    {const [sec,list]=[await page.locator('#gtTaskSection').boundingBox(),await page.locator('#gtTaskBody [data-gt-col="now"]').boundingBox()];expect(Math.abs(sec.width-list.width)).toBeLessThanOrEqual(1)}
     // ① 줄을 누르면 오른쪽에 바로 열리고 고른 줄 표시. [저장] 버튼은 없다.
     const before=await historyLength(page);
     await page.locator('[data-gt-edit="a"]').click();
-    await expect(editor).toBeVisible();
+    await expect(editor).toBeVisible();await expect(pane).toBeVisible();
+    // 두 칸: 목록 열이 왼쪽, 상세 칸이 오른쪽(가로 넘김 없음).
+    const [list,box]=[await page.locator('#gtTaskBody [data-gt-col="now"]').boundingBox(),await pane.boundingBox()];
+    expect(box.x).toBeGreaterThan(list.x+list.width);expect(Math.abs(box.y-list.y)).toBeLessThanOrEqual(1);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
     await expect(page.locator('[data-google-task="a"]')).toHaveClass(/is-selected/);
     await expect(pane.locator('#gtSaveBtn')).toBeHidden();
     await expect(pane.locator('#gtToggleBtn')).toBeVisible();await expect(pane.locator('#gtDeleteBtn')).toBeVisible();
