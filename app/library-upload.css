@@ -504,6 +504,8 @@
 #documentList .lu-pane-head .lu-pane-up{flex:none}
 #documentList .lu-pane-list{max-height:calc(100dvh - var(--follow-top,8px) - 150px);overflow:auto;padding:2px 4px 6px}
 #documentList .lu-pane-list .ft-row .ft-main{min-height:30px;font-size:12.5px}
+/* LIB-두칸폴더펼치기(S56-40): 칸 안에서 펼친 폴더의 자료는 그 폴더의 하위 줄과 같은 단만큼 들여 보인다(공용 나무 들여쓰기 22px 한 단). */
+#documentList .lu-pane-sub{padding-left:calc(var(--ft-depth,0) * 22px)}
 #documentList .lu-pane.lu-drop-into{border-color:var(--kptu-primary);background:var(--kptu-primary-soft)}
 #documentList .lu-pane.lu-drop-no{border-style:dashed}
 #documentList .lu-pane.lu-drop-place{border-style:dashed;border-color:var(--kptu-primary)}

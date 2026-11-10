@@ -1,6 +1,9 @@
 // LIB-두칸보기(S55-11, 시안 docs/design/mockups/library-two-pane.html, 명진 11/09 18:16 'ㅇ'): 자료실 두 칸 보기.
 // [▥ 두 칸]을 켜면(서버 view_prefs.library_two, 없으면 켬) PC·펼친 폴드(600px~)의 폴더 묶기에서 왼쪽 나무 대신 두 칸이 같은 목록이다:
-// 칸마다 위치 줄(‹ 자료실 › 궤도 › 회의)·정렬, 폴더 줄 + 자료 줄. 폴더를 누르면 그 칸에서 들어가고, 맨 위(자료실)는 맨 위 폴더 + 폴더 밖 자료.
+// 칸마다 위치 줄(‹ 자료실 › 궤도 › 회의)·정렬, 폴더 줄 + 자료 줄. 맨 위(자료실)는 맨 위 폴더 + 폴더 밖 자료.
+// LIB-두칸폴더펼치기(S56-40, 명진 11/10 18:25): 폴더 줄을 누르면 들어가지 않고 그 칸 안에서 나무처럼 펼치기·접기(하위 폴더·자료가 들여 보임).
+// 그 폴더만 보기(들어가기)는 PC = 우클릭 [이 폴더로 들어가기](library-folders.js), 손가락 화면 = 펼친 폴더 위 두 손가락 벌리기(folder-pinch.js).
+// 펼침 상태는 한 칸 목록과 같은 곳(library-upload.js luOpened·luFilterOpen — h.isOpen/h.toggle)에 적는다.
 // 폰(600px 미만)·다른 묶기는 지금 한 칸 목록 그대로. 두 칸을 끄면 지금 한 칸(나무 | 목록).
 // - 틀(칸 찾기·지금 칸 표시·Tab·F6)은 [파일]과 같은 공용 부품 two-pane.js, 경계 폭은 split-resize.js(split_ratio.library, 서버 저장).
 // - 칸 위치: 오른쪽 칸 = 지금 자료실 위치(luInFolder — 주소·뒤로가기 그대로), 왼쪽 칸 = 이 부품의 화면 메모리. 정렬도 화면 메모리(기기 저장 없음).
@@ -31,6 +34,23 @@ export function paneSorted({folders, files}, sort, titleOf = d => d.title || d.f
   if (sort !== 'name') return {folders, files};
   return {folders: [...folders].sort((a, b) => byName(a.label, b.label)), files: [...files].sort((a, b) => byName(titleOf(a), titleOf(b)))};
 }
+// 칸 안 나무 줄(화면 없이 시험): 폴더마다 {kind:'folder', node, depth, open, hasContent}, 펼친 폴더 안 자료 묶음은 {kind:'files', node, depth, files}.
+// 칸의 바로 아래 자료(depth 0)도 {kind:'files'} 한 묶음. 정렬은 칸 정렬(sort) 그대로 단마다. 100단 안쪽에서만 내려간다.
+export function paneRows(content, isOpen = () => false, sort = 'date', titleOf) {
+  const out = [];
+  const walk = (folders, files, node, depth) => {
+    for (const f of folders) {
+      const kids = paneSorted({folders: (f.children || []).filter(n => n.kind === 'folder'), files: f.files || []}, sort, titleOf);
+      const hasContent = kids.folders.length + kids.files.length > 0, open = hasContent && !!isOpen(f.key);
+      out.push({kind: 'folder', node: f, depth, open, hasContent});
+      if (open && depth < 100) walk(kids.folders, kids.files, f, depth + 1);
+    }
+    if (files.length) out.push({kind: 'files', node, depth, files});
+  };
+  const top = paneSorted({folders: content.folders || [], files: content.files || []}, sort, titleOf);
+  walk(top.folders, top.files, content.node, 0);
+  return out;
+}
 // 위치 줄: 맨 위 '자료실' + 폴더 길(위 → 아래). 폴더가 없어졌으면 맨 위만.
 export function paneTrail(folders, folderId) {
   const by = new Map((folders || []).map(f => [f.id, f])), out = [];
@@ -46,7 +66,7 @@ export const sendText = cur => `${cur === 1 ? '←' : '→'} ${paneSide(cur === 
  *   ready() 폴더·자료를 다 읽었는가(읽는 동안 '빈 폴더' 대신 기다림) · rowHtml(d,node) 자료 줄 · canDrag() · ui() 폴더 부품 · picked() 선택한 자료 id들 · busy() · esc
  */
 export function createLibraryTwo(h) {
-  let left = null, cur = 0, lastTree = [];
+  let left = null, cur = 0, lastTree = [], isOpen = () => false;
   const sorts = ['date', 'date'];
   const root = () => document.querySelector('#documentList');
   const where = i => (i === 1 ? h.rightFolder() || null : left);
@@ -66,14 +86,19 @@ export function createLibraryTwo(h) {
     left = id; h.render();
   }
   const rowAttr = (html, key) => html.replace(/^<article /, `<article data-lu-prow="${h.esc(key)}" `);
-  function folderRow(n) {
+  function folderRow({node: n, depth, open, hasContent}) {
     const attrs = {'data-lu-nav': n.id, 'data-lu-prow': 'f:' + n.id};
     if (h.canDrag()) attrs.draggable = 'true';
-    return ftFolderRowHtml({name: n.label, count: n.count, countLabel: `${n.count}건`, depth: 0, hasContent: false, color: n.fc, mainAttrs: attrs, className: 'lu-pane-folder'});
+    return ftFolderRowHtml({name: n.label, count: n.count, countLabel: `${n.count}건`, depth, open, hasContent, tree: true, color: n.fc, mainAttrs: attrs, className: 'lu-pane-folder'});
+  }
+  function filesHtml({node, depth, files}) {
+    const rows = files.map(d => { const r = h.rowHtml(d, node); return r ? rowAttr(r, 'd:' + d.id) : ''; }).join('');
+    // 펼친 폴더 안 자료는 그 폴더 줄 아래로 들여 보인다(공용 나무 들여쓰기 --ft-depth).
+    return !rows ? '' : depth ? `<div class="lu-pane-sub" data-lu-pane-sub="${h.esc(node?.id || '')}" style="--ft-depth:${depth}">${rows}</div>` : rows;
   }
   function paneHtml(i, tree) {
     if (!known(where(i))) { if (i === 0) left = null; }
-    const id = where(i), side = paneSide(i), c = paneContent(tree, id), {folders, files} = paneSorted(c, sorts[i]);
+    const id = where(i), side = paneSide(i), c = paneContent(tree, id);
     const trail = paneTrail(h.folders(), id);
     const steps = trail.map((t, k) => (k === trail.length - 1
       ? `<b class="lu-pane-here" aria-current="location">${h.esc(t.name)}</b>`
@@ -81,7 +106,7 @@ export function createLibraryTwo(h) {
     const up = id ? `<button type="button" class="icon-btn lu-pane-up" data-lu-pane-up aria-label="${side} 칸 위 폴더로">‹</button>` : '';
     const sort = `<select class="lu-pane-sort" data-lu-pane-sort aria-label="${side} 칸 정렬">${SORTS.map(([v, l]) => `<option value="${v}"${v === sorts[i] ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
     const node = c.node || {key: id ? 'f:' + id : OUT_KEY};
-    const rows = folders.map(folderRow).join('') + files.map(d => { const r = h.rowHtml(d, node); return r ? rowAttr(r, 'd:' + d.id) : ''; }).join('');
+    const rows = paneRows({...c, node}, isOpen, sorts[i]).map(r => (r.kind === 'folder' ? folderRow(r) : filesHtml(r))).join('');
     return `<section class="lu-pane" data-lu-pane-i="${i}" data-lu-pane-folder="${h.esc(id || '')}" aria-label="${side} 칸">`
       + `<div class="lu-pane-head">${up}<nav class="lu-pane-path" aria-label="${side} 칸 위치">${steps}</nav>${sort}</div>`
       + `<div class="lu-pane-list" role="list">${rows || (h.ready() ? emptyHtml(c.found ? '빈 폴더' : '없음') : waitHtml({rows: 3}))}</div></section>`;
@@ -92,7 +117,8 @@ export function createLibraryTwo(h) {
     return `<div class="lu-two" data-lu-two>${paneHtml(0, tree)}${paneHtml(1, tree)}</div><div class="lu-two-bar" data-lu-two-bar hidden></div>`;
   }
   // 이번 그리기에서 두 칸에 보이는 나무 조각(같은 글 원본 묶기·전체 고르기 계산용).
-  const shownNodes = tree => [0, 1].map(i => { const c = paneContent(tree, where(i)); return {kind: 'folder', key: 'pane:' + i, files: c.files, children: []}; });
+  // 펼친 폴더 안 자료도 그 폴더 묶음으로 넣는다. open: 이번 그리기의 펼침 판정(한 칸 목록과 같은 규칙).
+  const shownNodes = (tree, open = isOpen) => { isOpen = open; return [0, 1].flatMap(i => paneRows(paneContent(tree, where(i)), isOpen, sorts[i]).filter(r => r.kind === 'files').map((r, k) => ({kind: 'folder', key: `pane:${i}:${k}`, files: r.files, children: []}))); };
   function paintBar() {
     const bar = root()?.querySelector('[data-lu-two-bar]');
     if (!bar) return;
@@ -142,8 +168,15 @@ export function createLibraryTwo(h) {
       const step = e.target.closest('[data-lu-pane-go]');
       if (step) { e.preventDefault(); go(i, step.dataset.luPaneGo || null); focusHead(i); return; }
       if (e.target.closest('[data-lu-pane-up]')) { e.preventDefault(); const f = h.folders().find(x => x.id === where(i)); go(i, f?.parent_id || null); focusHead(i); return; }
+      // 폴더 줄 누르기 = 그 칸 안에서 펼치기·접기(들어가지 않음). 들어가기는 우클릭 메뉴·두 손가락.
       const nav = e.target.closest('[data-lu-nav]');
-      if (nav && !e.target.closest('input')) { e.preventDefault(); e.stopPropagation(); go(i, nav.dataset.luNav || null); focusHead(i); }
+      if (nav && !e.target.closest('input')) {
+        e.preventDefault(); e.stopPropagation();
+        const fid = nav.dataset.luNav || '';
+        if (!fid || !paneHasContent(fid)) return;
+        h.toggle('f:' + fid, nav.getAttribute('aria-expanded') !== 'true');
+        root()?.querySelector(`[data-lu-pane-i="${i}"] [data-lu-nav="${CSS.escape(fid)}"]`)?.focus({preventScroll: true});
+      }
     });
     list.addEventListener('change', e => {
       const s = e.target.closest?.('[data-lu-pane-sort]'), pane = s?.closest('[data-lu-pane-i]');
@@ -157,6 +190,23 @@ export function createLibraryTwo(h) {
     // 두 칸 키(Tab 칸 바꾸기 · F6 반대 칸 폴더로 옮기기). F5는 복사가 없어 가로채지 않음.
     document.addEventListener('keydown', e => { if (h.on()) frame.key(e); });
   }
+  // 펼칠 것이 있는 폴더인가(빈 폴더는 눌러도 그대로).
+  function paneHasContent(fid) {
+    const c = paneContent(lastTree, fid);
+    return c.found && (c.folders.length + c.files.length > 0);
+  }
+  // 그 폴더만 보기(들어가기): 우클릭 [이 폴더로 들어가기]·두 손가락 벌리기. el이 있는 칸(없으면 지금 칸)에서 들어간다.
+  function enter(id, el = null) {
+    const p = el ? frame.paneOf(el) : -1, i = p >= 0 ? p : cur;
+    setCur(i); go(i, id || null); focusHead(i);
+  }
+  // 두 손가락 오므리기: 그 칸의 한 단계 위로.
+  function up(el = null) {
+    const p = el ? frame.paneOf(el) : -1, i = p >= 0 ? p : cur, here = where(i);
+    if (!here) return;
+    const f = h.folders().find(x => x.id === here);
+    setCur(i); go(i, f?.parent_id || null); focusHead(i);
+  }
   // 폴더로 들어간 뒤 그 칸의 첫 줄(없으면 위치 줄)에 포커스.
   function focusHead(i) {
     const p = root()?.querySelector(`[data-lu-pane-i="${i}"]`);
@@ -164,5 +214,5 @@ export function createLibraryTwo(h) {
   }
   // 칸 i의 지금 폴더(우클릭 [새 폴더]·바깥 파일 놓기·[자료 등록]이 쓰는 곳). el이 칸 밖이면 지금 칸.
   const folderAt = el => { const i = frame.paneOf(el); return where(i >= 0 ? i : cur); };
-  return {html, after, bind, shownNodes, folderAt, paneOf: el => frame.paneOf(el), get cur() { return cur; }, get left() { return left; }};
+  return {html, after, bind, shownNodes, folderAt, enter, up, paneOf: el => frame.paneOf(el), get cur() { return cur; }, get left() { return left; }};
 }

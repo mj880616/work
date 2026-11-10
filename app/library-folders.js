@@ -146,7 +146,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const f=folder(id);if(!f)return;
     if(action==='create-top')askName({title:'폴더 만들기',hint:'폴더 밖(맨 위)에 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(null,null,name)});
     else if(action==='create')askName({title:'안에 폴더 만들기',hint:pathName(id)+' 안에 만들어요.',trigger,then:name=>createFolder(f.project_id||null,id,name)});
-    else if(action==='enter')enter?.(id);
+    else if(action==='enter')enter?.(id,trigger); // LIB-두칸폴더펼치기: 두 칸이면 메뉴를 연 칸에서 들어간다
     else if(action==='rename')startRename(id,trigger);
     else if(action==='toggle')toggleNode('f:'+id);
     else if(action==='up'||action==='down')void reorderFolder(id,action).then(()=>focusHead('f:'+id));
@@ -158,6 +158,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // 줄 안 이름 바꾸기(폴더): 창 없이 그 줄 이름이 입력칸이 된다. Enter·바깥 누르기=저장, Esc=취소. 저장은 폴더 이름뿐(자료·Drive는 그대로).
   let renaming=null;
   // LIB-두칸보기: 두 칸(#documentList 안 [data-lu-pane-i])의 폴더 줄도 왼쪽 나무 줄과 같은 data-lu-nav 단추다.
+  // LIB-두칸폴더펼치기(S56-40): 두 칸 폴더 줄을 누르면 그 칸 안에서 펼치기·접기, 들어가기는 이 메뉴의 [이 폴더로 들어가기]·두 손가락.
   const navBtnOf=(id,trigger=null)=>{const own=trigger?.closest?.('[data-lu-nav]');if(own?.dataset.luNav===id)return own;return [...document.querySelectorAll('#libraryListCard [data-lu-nav]')].find(b=>b.dataset.luNav===id)||null};
   // trigger가 왼쪽 나무 줄이면(나무 줄 우클릭 → [이름 바꾸기]) 그 나무 줄이 입력칸이 된다. 오른쪽 목록에 그 폴더 줄이 없을 때도 나무 줄로.
   function startRename(id,trigger=null){
