@@ -53,7 +53,8 @@ const index = patch(join(studio, 'index.html'), [
   // studio-styles.js (HWP-노조양식) only adds style shortcuts/buttons; it reads the editor's own style box.
   // studio-convert.js (HWP-서식변환) answers one message from the Web2 page: it fills a template in a second, separate document.
   // studio-fit.js (HWP-화면가득) re-fits the page width when the narrow editor frame is resized (rotate, fold/unfold).
-  [/(<meta charset="UTF-8" \/>)/, `$1\n  ${cspMeta}\n  <script src="../../studio-guard.js"></script>\n  <script src="../../studio-styles.js"></script>\n  <script src="../../studio-convert.js"></script>\n  <script src="../../studio-fit.js"></script>`],
+  // studio-focus.js (STAB-HWP저장버튼초점) keeps the editor from taking the keyboard focus from the Web2 page by itself.
+  [/(<meta charset="UTF-8" \/>)/, `$1\n  ${cspMeta}\n  <script src="../../studio-guard.js"></script>\n  <script src="../../studio-styles.js"></script>\n  <script src="../../studio-convert.js"></script>\n  <script src="../../studio-fit.js"></script>\n  <script src="../../studio-focus.js"></script>`],
 ]);
 // HWP-서식변환: studio-convert.js가 쓸 엔진 클래스를 내놓는 한 줄(expose-engine.mjs). 편집기 번들(assets/index-*.js)에만 더한다.
 for (const name of readdirSync(join(studio, 'assets'))) {
