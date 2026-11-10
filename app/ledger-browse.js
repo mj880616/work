@@ -37,6 +37,7 @@ import { offerUndoNotice } from './basket-record-delete.js';
 import { askConfirm } from './small-notice.js';
 import { fitChipRows, foldChipRows } from './chip-rows.js';
 import { chevHtml, moreLabel } from './fold-chevron.mjs';
+import { openCallSource } from './source-open.js';
 
 const rt = window.KPTURuntime;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -327,7 +328,7 @@ async function openOriginal(target) {
     if (target.view === 'basket') { if (target.note === 'doc') requestNoteDocOpen(target.id); else requestBasketNote(target.id); r.go('basket', { source: 'delegated' }); }
     else if (target.view === 'journal') { r.go('journal', { source: 'delegated' }); window.KPTUJournal?.show?.(target.day); }
     else if (target.view === 'projects') await window.KPTUAreaWindow?.open?.({ id: target.id }); // MTG-프로젝트합치기 ①: 사업영역 관리 창
-    else if (target.view === 'calls') { r.go('calls', { source: 'delegated' }); await window.KPTUCallFeed?.open?.(target.id); }
+    else if (target.view === 'calls') await openCallSource(target.id, { workOnly: true }); // FORGET-원문열기·뒤로가기: 뒤로가기 한 번 = 원장 그 자리
     else if (target.view === 'team') { r.go('team', { source: 'delegated' }); await window.KPTUWorkplace?.open?.(target.id); }
     else if (target.view === 'meetings') { r.go('meetings', { source: 'delegated' }); await window.__KPTU_MEETING_ROUND_DETAIL_READY__; await window.KPTUMeetingRoundDetail?.open?.(target.id); }
   } catch (e) { console.error('ledger original open', e?.name || 'Error'); }

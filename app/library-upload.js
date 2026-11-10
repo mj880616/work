@@ -210,7 +210,7 @@ let luCatCounts=null;
 function luRenderCategoryFilter(counts=null){
   luCatCounts=counts;
   const pick=document.querySelector('#libraryCategoryPick');
-  if(pick){const names=topDocumentCategories(),sub=activeSubcategory(names,luCategoryOff,luCategorySub);const text=pickLabel(names,luCategoryOff,sub?categoryLabel(sub):'');if(pick.dataset.label!==text){pick.dataset.label=text;pick.innerHTML=`<span class="lu-cat-pick-text">${luEsc(text)}</span><span class="lu-cat-caret" aria-hidden="true"></span>`;}}
+  if(pick){const names=topDocumentCategories(),sub=activeSubcategory(names,luCategoryOff,luCategorySub);const text=pickLabel(names,luCategoryOff,sub?categoryLabel(sub):'');if(pick.dataset.label!==text){pick.dataset.label=text;pick.innerHTML=`<span class="lu-cat-pick-text">${luEsc(text)}</span>`;}}
 }
 // [분류 ▾] 고르기 창: 공용 고르기 창(choice-sheet.js — 폰은 아래에서 올라오는 판, 폴드 펼침·PC 폭은 단추 아래 작은 창) 하나.
 // 줄을 누르면 창 안에서만 바뀌고 [적용]을 눌러야 자료실에 걸린다(기억은 지금처럼 서버 library_view.categories_off). [✎ 분류 수정]은 분류 수정 창.
