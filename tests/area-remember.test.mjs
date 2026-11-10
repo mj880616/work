@@ -62,5 +62,5 @@ test('저장은 기존 PATCH 길(saveOne) 하나, 사업 보고를 읽을 때마
   assert.match(tag,/saveOne\(\{api\},workspace,id,value,hasAreaNone\(m\)\)/);
   assert.match(team,/await rememberAreas\(\);\n\}/);
   assert.match(team,/tag\.applyRememberedAreas\(meetings,\{api,workspace:wid\}\)/);
-  for(const src of [tag,team.slice(team.indexOf('async function rememberAreas'),team.indexOf('async function rememberAreas')+800)])assert.doesNotMatch(src,new RegExp(['local','session'].map(k=>k+'Storage').join('|'))); // 저장 정책 검사(audit)가 낱말을 잡지 않게 조각으로
+  for(const src of [tag,team.slice(team.indexOf('async function rememberAreas'),team.indexOf('async function rememberAreas')+800)])assert.doesNotMatch(src,new RegExp(['local','session'].map(k=>k+'Storage').join('|'))); // 저장 정책 검사(audit)
 });
