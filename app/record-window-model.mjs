@@ -10,7 +10,7 @@
 import {dayText, validDay, shiftWeek, mondayOf} from './weekly-org-lines-model.mjs';
 import {linkedOrgs, titleOrg} from './pre-meeting-sheet-model.mjs';
 import {isOrgRefTitle, cleanTitle} from './calendar-ref-model.mjs';
-import {oneLine, recordOneLine} from './record-oneline.mjs';
+import {oneLine, recordOneLine, plainLines} from './record-oneline.mjs';
 
 export const ORG_PAST_WEEKS = 3;
 export const ORG_AHEAD_WEEKS = 2;
@@ -171,8 +171,38 @@ const byRecent = (a, b) => b.day.localeCompare(a.day) || (b.end_day || b.day).lo
 const sortBy = (list, order) => [...list].sort(rowOrderOf(order) === 'desc' ? byRecent : byDayAsc);
 // 이미 정해진 순서(확정 사진·옛 보고 줄)에 고른 순서만 입힌다: asc는 저장된 순서 그대로, desc는 거꾸로.
 export const orderLines = (lines, order) => (rowOrderOf(order) === 'desc' ? [...lines].reverse() : lines);
-// 보고용 글도 표에는 한 줄로(예전 [보고용으로 수정]은 원문 전체를 채워 열었으므로 긴 보고용 글이 남아 있을 수 있음 — 저장된 값은 그대로).
-const lineOf = (item, mark) => ({...item, orig: item.text, text: mark?.report_body != null ? (oneLine(mark.report_body) || item.text) : item.text, edited: mark?.report_body != null, choice: mark?.choice ?? null, id: lineId(item.kind, item.key)});
+// RECORD-보고용글잘림(요청함 11/10): 보고용 글(report_body)은 명진이 직접 쓴 글이라 자르지 않는다 — 줄바꿈·겹친 띄어쓰기만 한 칸으로(cleanBody).
+// 60자 한 줄 규칙(record-oneline.mjs)은 AI·원문에서 만든 한 줄에만 쓴다. 표·복사·한글 파일·확정 사진이 모두 이 text를 쓴다.
+export const reportLine = body => cleanBody(body);
+// 줄 글: 보고용 글이 있으면 그 글 전체. 다만 예전 [보고용으로 수정]이 원문을 통째로 채워 그대로 저장된 보고용 글(원문과 같은 글)은
+// 명진이 쓴 글이 아니라 원문이므로 원문 한 줄 규칙대로(item.text). 저장된 값은 그대로.
+export function reportText(item, report) {
+  if (report == null) return item.text;
+  const full = reportLine(report);
+  if (!full) return item.text;
+  return item.full != null && String(item.full).trim() && full === cleanBody(item.full) ? item.text : full;
+}
+// 줄 하나에 그 주 표시를 입힌다. report = 저장된 보고용 글 원래 모양(줄바꿈 포함, [보고용으로 수정] 칸에 그대로 채움).
+export const lineOf = (item, mark) => {
+  const report = mark?.report_body != null ? String(mark.report_body) : null;
+  return {...item, orig: item.text, text: reportText(item, report), report, edited: report != null, choice: mark?.choice ?? null, id: lineId(item.kind, item.key)};
+};
+// [보고용으로 수정] 칸에 채울 글: 저장된 보고용 글 전체 → 없으면 원문(표시 기호만 걷어낸 줄들, 자르지 않음) → 원문이 없는 줄(일정·사업 보고)은 줄 글.
+// '…'를 붙여 자른 한 줄은 칸에 넣지 않는다(그대로 저장하면 뒷부분이 사라지므로).
+export function editBase(line) {
+  if (line?.report != null) return line.report;
+  const raw = plainLines(line?.full).join('\n');
+  return raw || String(line?.orig ?? line?.text ?? '');
+}
+// [저장] 값: 칸 글을 검사하고, 처음 채운 글(editBase) 그대로이거나 원래 줄 글과 같으면 report_body null(표시 지움 = 원문 한 줄로).
+// 돌려주는 값: {ok:false, field} | {ok:true, value: 보고용 글 또는 null}.
+export function reportChange(line, body) {
+  const base = editBase(line);
+  const v = checkReportBody(body ?? base);
+  if (!v.ok) return v;
+  if (line?.report != null) return {ok: true, value: v.value === line.orig ? null : v.value};
+  return {ok: true, value: v.value === line?.orig || v.value === String(base).replace(/\r\n?/g, '\n').trim() ? null : v.value};
+}
 
 // 한 조직 칸 후보(창 안 기록 + 창 안 일정 − 같은 일). withEvents=false면 기록만.
 export function candidates({org, week, records = [], events = [], withEvents = true}) {
@@ -219,19 +249,30 @@ export function siteCell({org, week, records = [], events = [], marks = [], orde
 
 // ---- 확정 사진 ----
 // 사진 행에서 그 조직 칸 {lines, seen_events} 찾기(section 'org', ref_key = 조직 id). 없으면 null.
-export function snapshotCell(snapshot, org, section = 'org') {
+// marks·week를 주면 그 주 보고용 글이 있는 줄은 자르지 않는다(사진 글이 그 보고용 글이거나, 예전 규칙으로 잘린 한 줄이면 보고용 글 전체로).
+export function snapshotCell(snapshot, org, section = 'org', {marks = null, week = '', records = []} = {}) {
   const rows = Array.isArray(snapshot?.rows) ? snapshot.rows : [];
   const row = rows.find(r => r && r.section === section && String(r.ref_key) === String(org));
   if (!row) return null;
+  const textOf = l => {
+    const m = marks && week ? markOf(marks, section, String(l.ref_kind || ''), String(l.ref_key || ''), week) : null;
+    const short = oneLine(l.text);
+    if (m?.report_body != null) {
+      const full = reportLine(m.report_body), t = cleanBody(l.text);
+      const rec = (Array.isArray(records) ? records : []).find(r => r && r.kind === String(l.ref_kind || '') && r.key === String(l.ref_key || ''));
+      if (full && (t === full || t === oneLine(m.report_body) || t === oneLine(full))) return reportText({text: short, full: rec?.full}, m.report_body);
+    }
+    return short;
+  };
   const lines = (Array.isArray(row.lines) ? row.lines : []).filter(l => l && typeof l.text === 'string' && l.text.trim())
-    .map(l => ({kind: String(l.ref_kind || ''), key: String(l.ref_key || ''), day: validDay(l.day) ? l.day : '', end_day: validDay(l.end_day) ? l.end_day : null, text: oneLine(l.text), full: String(l.text), id: lineId(l.ref_kind, l.ref_key)}))
-    .filter(l => l.text); // 확정 사진에 원문이 통째로 들어간 줄도 표에는 한 줄로(사진 원본은 그대로)
+    .map(l => ({kind: String(l.ref_kind || ''), key: String(l.ref_key || ''), day: validDay(l.day) ? l.day : '', end_day: validDay(l.end_day) ? l.end_day : null, text: textOf(l), full: String(l.text), id: lineId(l.ref_kind, l.ref_key)}))
+    .filter(l => l.text); // 확정 사진에 원문이 통째로 들어간 줄도 표에는 한 줄로(사진 원본은 그대로) — 보고용 글은 예외(위)
   return {lines, seen: new Set((Array.isArray(row.seen_events) ? row.seen_events : []).map(String))};
 }
 // 사진이 있는 주: 사진 줄 그대로 + '확정 뒤 추가' = 그 주 창 후보(뺀 줄 제외) 중 사진에 없는 것 가운데
 // 기록은 created_at > confirmed_at, 일정은 확정 때 후보가 아니었던 것(seen_events에 없음). 사진에 그 조직 칸이 없으면 lines 빈 목록.
 export function snapshotView({org, week, snapshot, records = [], events = [], marks = [], order = 'asc'}) {
-  const cell = snapshotCell(snapshot, org) || {lines: [], seen: new Set()};
+  const cell = snapshotCell(snapshot, org, 'org', {marks, week, records}) || {lines: [], seen: new Set()};
   const have = new Set(cell.lines.map(l => l.id));
   const at = Date.parse(String(snapshot?.confirmed_at ?? ''));
   const cands = candidates({org, week, records, events}).map(item => lineOf(item, markOf(marks, 'org', item.kind, item.key, week))).filter(l => l.choice !== 'out' && !have.has(l.id));

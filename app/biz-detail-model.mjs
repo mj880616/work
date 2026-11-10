@@ -5,14 +5,13 @@
 // - 보고용 표시(app_report_line_marks, section 'biz_detail')는 조직보고 창과 같은 이어짐 규칙(record-window-model.mjs markOf·nextMark)을 그대로 쓴다.
 //   report_body = 보고에만 쓰는 글, choice 'out' = 이번 보고에서 빼기(다음 주에도 빠짐), detail 'oneline'|'full' = 사업 보고의 한 줄만 ↔ 상세 포함.
 // - 상세 포함 기본값: 사업 보고에 결과 본문(전사 글, 없으면 예전 회의결과)이 있으면 'full', 없으면 한 줄. 사업 기록은 늘 한 줄.
-import {markOf, nextMark, checkReportBody, cleanBody, dayText, lineId, overlaps} from './record-window-model.mjs';
-import {oneLine} from './record-oneline.mjs';
+import {markOf, nextMark, checkReportBody, cleanBody, dayText, lineId, overlaps, reportText, editBase, reportChange} from './record-window-model.mjs';
 import {rowSpaceMap, weekRange} from './business-now-model.mjs';
 import {areaIdOf, isOneline, nextPlanLines} from './business-area-model.mjs';
 
 export const SECTION = 'biz_detail';
 export const BODY_LINES_MAX = 60; // 화면에 펼치는 결과 본문 줄 수 상한(한글 파일은 상한 없음)
-export {nextMark, checkReportBody, dayText};
+export {nextMark, checkReportBody, dayText, editBase, reportChange};
 
 const seoulDay = value => { const t = Date.parse(String(value ?? '')); return Number.isFinite(t) ? new Date(t + 9 * 3600000).toISOString().slice(0, 10) : ''; };
 // 결과 본문 = 전사 글, 없으면 예전 회의결과 기록(회의 화면과 같은 차례 — meeting-columns.js resultText).
@@ -48,8 +47,10 @@ export function lineOf(item, mark) {
   const canFull = item.kind === 'meeting' && Array.isArray(item.body) && item.body.length > 0;
   const base = canFull ? 'full' : 'oneline';
   const detail = canFull ? (mark?.detail === 'oneline' ? 'oneline' : mark?.detail === 'full' ? 'full' : base) : 'oneline';
-  return {...item, id: lineId(item.kind, item.key), orig: item.text, text: mark?.report_body != null ? (oneLine(mark.report_body) || item.text) : item.text,
-    edited: mark?.report_body != null, choice: mark?.choice ?? null, canFull, detail, base};
+  // RECORD-보고용글잘림: 보고용 글은 자르지 않는다(조직보고 창 lineOf와 같은 규칙 — record-window-model.mjs reportLine).
+  const report = mark?.report_body != null ? String(mark.report_body) : null;
+  return {...item, id: lineId(item.kind, item.key), orig: item.text, text: reportText(item, report),
+    report, edited: report != null, choice: mark?.choice ?? null, canFull, detail, base};
 }
 // [한 줄만 ↔ 상세 포함]이 바꿀 detail 값(기본값과 같아지면 null = 표시 지움).
 export function toggledDetail(line) {

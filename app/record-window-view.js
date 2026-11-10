@@ -107,7 +107,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     const r = await readWeekLines({rt: ctl.rt, workspaceId: ctl.workspaceId, week: ctl.week, orgIds: ctl.orgIds});
     ctl.legacyMissing = !!r.missing; // 옛 표가 아직 없는(DB 적용 전) 곳: 화면이 그 주 임시저장 칸을 대신 그린다(journal.js)
     const out = new Map();
-    for (const id of ctl.orgIds) out.set(id, (r.rows?.get(id) || []).filter(l => l.state === 'in').map(l => ({id: `old:${l.id}`, kind: 'old', key: l.id, day: l.day || '', end_day: l.end_day || null, text: M.oneLine(l.body), full: String(l.body ?? '')})).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')));
+    for (const id of ctl.orgIds) out.set(id, (r.rows?.get(id) || []).filter(l => l.state === 'in').map(l => ({id: `old:${l.id}`, kind: 'old', key: l.id, day: l.day || '', end_day: l.end_day || null, text: M.reportLine(l.body), full: String(l.body ?? '')})).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')));
     return out;
   }
   // orgs = [{id, name, aliases}] 화면 순서. quiet = 이미 보이는 표를 지우지 않고 다시 읽기.
@@ -157,7 +157,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     if (old()) return {mode: 'old', lines: M.orderLines(ctl.legacy.get(orgId) || [], order)};
     const base = {org: orgId, week: ctl.week, records: ctl.records, events: events(), marks: ctl.marks, order};
     const s = snap();
-    if (s && ctl.section === 'site') return {mode: 'snapshot', lines: M.orderLines(M.snapshotCell(s, orgId, 'site')?.lines || [], order), after: []};
+    if (s && ctl.section === 'site') return {mode: 'snapshot', lines: M.orderLines(M.snapshotCell(s, orgId, 'site', {marks: ctl.marks, week: ctl.week, records: ctl.records})?.lines || [], order), after: []};
     if (s) { const v = M.snapshotView({...base, snapshot: s}); return {mode: 'snapshot', lines: v.lines, after: v.after}; }
     if (ctl.section === 'site') return {mode: 'window', ...M.siteCell(base)};
     const prevWeek = M.shiftWeek(ctl.week, -1);
@@ -209,7 +209,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   };
   const reportForm = l => {
     const dis = ctl.busy ? ' disabled' : '', d = ctl.draft || {};
-    return `<div class="wl-form" data-rw-form="${esc(l.id)}"><textarea rows="1" class="wl-f-body" data-rw-field="body" data-autogrow data-enter-field="single" aria-label="보고용 글" maxlength="${M.BODY_MAX}" autocomplete="off"${ctl.invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body ?? l.text)}</textarea>`
+    return `<div class="wl-form" data-rw-form="${esc(l.id)}"><textarea rows="1" class="wl-f-body" data-rw-field="body" data-autogrow data-enter-field="single" aria-label="보고용 글" maxlength="${M.BODY_MAX}" autocomplete="off"${ctl.invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body ?? M.editBase(l))}</textarea>`
       + `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-cancel${dis}>취소</button><button type="button" class="row-act wl-btn is-main" data-rw-save${dis}>저장</button></span></div>`;
   };
   const recordForm = orgId => {
@@ -326,9 +326,9 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       return;
     }
     const hit = findLine(e.id); if (!hit) return;
-    const v = M.checkReportBody(ctl.draft?.body ?? hit.line.text);
+    const v = M.reportChange(hit.line, ctl.draft?.body);
     if (!v.ok) { ctl.invalid = 'body'; say(TEXT.noBody, true); ctl.focus = '[data-rw-field="body"]'; redraw(); return; }
-    await mark(hit.line, {report_body: v.value === hit.line.orig ? null : v.value}, TEXT.saved);
+    await mark(hit.line, {report_body: v.value}, TEXT.saved);
   };
   ctl.cancel = () => { const e = ctl.editing; ctl.editing = null; ctl.draft = null; ctl.invalid = ''; ctl.focus = e ? (e.id === 'new' ? `[data-rw-add="${e.orgId}"]` : '') : ''; say(''); redraw(); };
   const openAdd = (orgId, d = null) => {
@@ -372,7 +372,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       if (d.rwEvent) { void import('./event-open.js').then(m => m.openGoogleEvent(l.key, l.cal)).catch(() => say('일정을 열지 못했어요.', true)); return; }
       if (ctl.readOnly()) return;
       if (d.rwKeep) { openAdd(hit.org, {day: l.day, end_day: l.end_day || '', body: l.full || l.orig || l.text}); return; }
-      if (d.rwEdit) { ctl.editing = {orgId: hit.org, id}; ctl.draft = {body: l.text}; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw(); return; }
+      if (d.rwEdit) { ctl.editing = {orgId: hit.org, id}; ctl.draft = {body: M.editBase(l)}; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw(); return; }
       if (d.rwOrig) void mark(l, {report_body: null}, TEXT.orig);
       else if (d.rwOut) void mark(l, {choice: 'out'}, TEXT.out);
       else if (d.rwIn) void mark(l, {choice: 'in'}, TEXT.placed);
