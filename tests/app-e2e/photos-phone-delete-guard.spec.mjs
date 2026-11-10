@@ -106,7 +106,7 @@ test.describe('폰 앱 412 · 사진 정리 삭제 안전장치', () => {
     // 확인 창 아래 끝이 하단바에 가리지 않는다.
     const box = await ask(page).boundingBox(), bar = await page.locator('.mobile-tabs').boundingBox();
     if (bar) expect(box.y + box.height).toBeLessThanOrEqual(bar.y + 1);
-    expect(state.bodies.find(b => b.action === 'copy-check').pairs).toEqual([{ id: 'OK1', size: 1_000_000 }]);
+    expect(state.bodies.find(b => b.action === 'copy-check').pairs).toEqual([{ id: 'OK1', size: 1_000_000, video: false, w: 10, h: 10, taken_at: KAKAO[0].taken_at }]);
     await ask(page).getByRole('button', { name: '폰 휴지통으로' }).click();
     await expect.poll(() => trashed(page)).toEqual(['80001']);
     await expect.poll(() => state.bodies.find(b => b.action === 'trash-log')?.pairs).toEqual([{ phone_id: '80001', copy_id: 'OK1', keep: false }]);
