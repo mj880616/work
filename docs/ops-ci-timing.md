@@ -41,3 +41,7 @@ PR 열기 전(접수 → 세션 띄움 → 첫 PR)은 공개 저장소에 시각
 | 그 밖의 빠른 검사(충돌 표시·저장소 검사 등) | 0.2~0.7분 | | |
 
 화면 시험 말고는 모두 3분 안쪽이다. 기다림이 긴 순서: ① PR 전 세션 멈춤 ② 화면 시험 ③ 시험 끝 → merge CC 기다림. 그 밖의 흐름은 고치지 않는다.
+
+## 4. 갈래 수 바꾸기
+
+갈래 수는 `.github/workflows/app-e2e-check.yml`의 `shardIndex`·`shardTotal` 두 줄과 `tests/security/sec-workflow-boundary.test.mjs`의 같은 줄만 고치면 된다. 나누기·빠짐 확인(`scripts/ci/e2e-shard.mjs`)은 갈래 수와 무관하다. 갈래를 늘리면 PR 하나가 쓰는 동시 실행 칸이 늘어난다(GitHub 한도 40칸, 화면 시험 밖 검사 약 10칸).
