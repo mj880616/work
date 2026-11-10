@@ -265,9 +265,9 @@ test('STAB-화면시험간헐: 여러 workers 화면 시험은 접속 대기 줄
 
 test('S54-14 CI diet: nightly E2E skips unchanged commits without wider permissions, Deno binary is cached, Pages build check skips docs-only PRs', () => {
   const e2e = workflow('app-e2e-check.yml');
-  // OPS-작업속도(S56-29): 시험 하나 단위로 12갈래에 나누고 갈래마다 workers 4(러너 CPU 4개). 재시도는 붙이지 않는다.
-  assert.match(e2e, /--browser=chromium --workers=4 --fully-parallel --reporter=line,github/);
-  assert.match(e2e, /shardIndex: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12\]\n        shardTotal: \[12\]/);
+  // OPS-작업속도(S56-29): 시험 하나 단위로 16갈래에 나누고 갈래마다 workers 2(러너 하나가 workers 2로 가득 참). 재시도는 붙이지 않는다.
+  assert.match(e2e, /--browser=chromium --workers=2 --fully-parallel --reporter=line,github/);
+  assert.match(e2e, /shardIndex: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16\]\n        shardTotal: \[16\]/);
   assert.doesNotMatch(e2e, /--last-failed|--repeat-each|test\.skip|--grep-invert|--pass-with-no-tests/);
   assert.doesNotMatch(e2e, /--retries|actions: read/);
   assert.match(e2e, /^permissions:\n  contents: read\n/m);

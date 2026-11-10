@@ -310,7 +310,8 @@ for(const width of [390,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)�
    await expect(title).toHaveCSS('clip','rect(0px, 0px, 0px, 0px)');
    // UI-전수디자인점검 F07: PC는 ⋯ 하나만 담은 빈 줄이 없다. ⋯는 목록 칸 맨 위 줄(첫 묶음 머리줄) 오른쪽 끝, 'N곳'과 겹치지 않음, 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
    const list=await page.locator('#soOrganizationList').boundingBox(),pane=await page.locator('#wdDetailPane').boundingBox(),count=await page.locator('#soOrganizationList .so-group-count').first().boundingBox();
-   expect(Math.abs((m.y+m.height/2)-(group.y+group.height/2))).toBeLessThanOrEqual(3);
+   // OPS-작업속도: ⋯·머리줄 위치는 화면이 다 그려진 뒤의 값으로 본다(위 299줄의 m·group은 제목 줄 확인 전에 잰 값이라, 바쁜 러너에서 그 뒤 자리 잡기 전 값일 수 있다). 기준 3px은 그대로.
+   await expect.poll(async()=>{const a=await more.boundingBox(),b=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();return Math.abs((a.y+a.height/2)-(b.y+b.height/2));}).toBeLessThanOrEqual(3);
    expect(m.x+m.width).toBeLessThanOrEqual(list.x+list.width+1);expect(m.x).toBeGreaterThan(list.x+list.width/2);
    expect(count.x+count.width).toBeLessThanOrEqual(m.x);
    expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1);
