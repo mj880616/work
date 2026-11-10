@@ -6,11 +6,14 @@
   // UI-PC스크롤묶음 ③(2026-11-10): <dialog> 창(showModal)이 떠 있는 동안 굴린 휠은 뒤 화면을 움직이지 않는다.
   // 바탕(::backdrop) 위 휠은 대상이 창 자신이다. 창 안에서는 그 방향으로 더 굴릴 수 있는 틀(창 안 목록 등)이 있을 때만 그대로 두고,
   // 없으면(창 끝에 닿음·굴릴 것 없음) 막는다 — 브라우저마다 창의 기본 overflow가 달라 CSS만으로는 뒤로 넘어가는 것을 다 막지 못한다.
-  // 공용 .modal 창은 CSS(base-ui.css .modal overscroll-behavior)가 맡는다.
+  // 공용 .modal 창(PC 붙임 칸 role=region 제외)도 같은 규칙이다. CSS(base-ui.css .modal overflow:hidden·overscroll-behavior)만 두면, 창이 막 뜬 직후
+  // 브라우저 화면 합성 쪽이 아직 옛 화면 기준으로 휠을 받아 뒤 화면이 굴러가는 경우가 있었다(CI에서 간헐, STAB-main화면시험흔들림).
+  // 가로 휠(트랙패드 가로 밀기)·Ctrl+휠(확대)은 건드리지 않는다.
   const canScroll=(el,dy)=>{const s=getComputedStyle(el);if(!/(auto|scroll)/.test(s.overflowY)||el.scrollHeight<=el.clientHeight+1)return false;return dy>0?el.scrollTop+el.clientHeight<el.scrollHeight-1:el.scrollTop>0};
   document.addEventListener('wheel',event=>{
-    const box=event.target?.closest?.('dialog');
-    if(!box||!box.matches(':modal'))return;
+    if(event.ctrlKey||Math.abs(event.deltaX)>Math.abs(event.deltaY))return;
+    const box=event.target?.closest?.('dialog,.modal:not([role="region"])');
+    if(!box||(box.matches('dialog')&&!box.matches(':modal')))return;
     for(let el=event.target;el&&el!==box.parentElement;el=el.parentElement){if(el instanceof Element&&canScroll(el,event.deltaY))return}
     event.preventDefault();
   },{capture:true,passive:false});

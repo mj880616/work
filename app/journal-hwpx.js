@@ -1435,15 +1435,23 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       }
       throw Object.assign(new Error('changed'), {code:'changed'});
     })().catch(() => { st.status = 'failed'; st.dirty = true; })
-      .finally(() => { st.flight = null; if (state === s) paintDraft(); if (st.again) { st.again = false; if (st.dirty && state === s) void saveDraft(s); } });
+      .finally(() => {
+        st.flight = null; if (state === s) paintDraft();
+        if (st.again) { st.again = false; if (st.dirty && state === s) void saveDraft(s); }
+        // 이 쓰기 동안 다른 칸([주간 정리] 2)·요청 표 등)이 같은 행에 쓴 것: 쓰기가 끝난 뒤 서버 판을 한 번 읽어 합친다(STAB-main화면시험흔들림).
+        if (st.resync) { st.resync = false; if (state === s && !st.flight) void syncDraft(s); }
+      });
     return st.flight;
   }
   // Back on this screen: the server may hold a newer draft (written on the phone) — merge it the same way.
-  async function syncDraft(s) {
+  // row: 다른 칸이 방금 쓰고 돌려받은 행(있으면 서버를 다시 읽지 않고 바로 합친다 — 상자 5번을 곧바로 열어도 같은 값).
+  async function syncDraft(s, row = null) {
     const st = s?.store;
     if (!st || st.flight || st.status === 'missing' || !st.known) return;
     let read;
-    try { read = await readWeekDraft(s.start, rt); } catch { return; }
+    // 상자가 이미 더 새 판을 알면(그 뒤 상자 자신이 씀) 받은 행은 옛 판이라 합치지 않는다(옛 값으로 되돌리지 않게).
+    if (row?.draft) { if (!(String(row.saved_at ?? '') > String(st.known.saved_at ?? ''))) return; read = {missing:false, row}; }
+    else try { read = await readWeekDraft(s.start, rt); } catch { return; }
     if (state !== s || read.missing || st.flight) return;
     if ((read.row.saved_at ?? null) === (st.known.saved_at ?? null)) return;
     st.known = read.row;
@@ -1648,7 +1656,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     },
     // 표를 다시 그린 뒤(journal.js): 열린 칸의 초점을 되돌린다.
     afterRender,
-    sync(start) { if (state?.store && state.start === start) { if (state.store.flight) state.store.again = true; else void syncDraft(state); } if (!topEdit) paintTop(); paintConfirm(); },
+    sync(start, row = null) { if (state?.store && state.start === start) { if (state.store.flight) state.store.resync = true; else void syncDraft(state, row); } if (!topEdit) paintTop(); paintConfirm(); },
     close,
   };
 }
