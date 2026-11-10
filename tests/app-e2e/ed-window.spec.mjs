@@ -260,3 +260,32 @@ test.describe('PC 1280: 앱 메뉴 옆', () => {
     await expect(win(page)).toHaveAttribute('data-ed-nav', 'side');
   });
 });
+
+// STAB-가족노트로시험: 편집기 글꼴 묶음(prosemirror)이 늦게 와도 ✕의 답은 같다. 미리 채운 새 글 창은 편집기가 실리기 전에 눌러도 한 번 묻고,
+// 고쳐 여는 창은 묻지 않고 닫는다. 묶음은 시험이 풀어 줄 때까지 붙잡아 둔다(시간 대기 없음).
+test('편집기가 실리기 전 ✕: 미리 채운 새 글은 묻고, 고쳐 여는 창은 그냥 닫는다', async ({page}) => {
+  await page.setViewportSize({width: 390, height: 844});
+  let release;
+  const gate = new Promise(r => { release = r; });
+  await page.route(u => u.pathname.endsWith('/prosemirror.min.mjs'), async r => { await gate; await r.continue(); });
+  await openHome(page);
+  for (const draft of [true, false]) {
+    await page.evaluate(o => import('/app/ed-window.js').then(m => {
+      window.__closed = [];
+      window.__edw = m.openEdWindow({title: '시험 쓰기', text: '미리 채운 줄', draft: o, save: {run: async () => ({ok: true})}, onClose: r => { window.__closed.push(r); }});
+    }), draft);
+    await expect(win(page)).toBeVisible();
+    expect(await page.evaluate(() => !!window.__edw.editor)).toBe(false);
+    await win(page).getByRole('button', {name: '닫기', exact: true}).click();
+    if (draft) {
+      await sheetPick(page, '#edwCloseSheet', '저장하지 않고 닫기');
+      await expect(win(page)).toHaveCount(0);
+      expect((await closed(page))[0]).toMatchObject({saved: false});
+    } else {
+      await expect(win(page)).toHaveCount(0);
+      await expect(page.locator('#edwCloseSheet')).toBeHidden();
+      expect((await closed(page))[0]).toMatchObject({saved: false, changed: false});
+    }
+  }
+  release();
+});
