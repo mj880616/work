@@ -29,7 +29,11 @@ const EDGE = 8;
 
 const isMore = el => { const t = el.textContent.trim(); return t === '⋯' || t === '⋮'; };
 const visible = el => !el.disabled && el.getAttribute('aria-disabled') !== 'true' && !el.closest('[hidden],[inert]') && el.getClientRects().length > 0;
-const moreTriggers = root => [...root.querySelectorAll('button,summary')].filter(el => isMore(el) && !el.matches(NOT_CARD) && visible(el));
+// UI-PC손맛묶음 ①: a ⋯ inside a dialog / modal (a PC docked pane included — the 사업 보고 result pane is the report dialog seated in
+// the screen) belongs to that dialog only: a press outside it (the week line's [‹][›], the weekly table) never opens its menu.
+const DIALOG = '.modal,[role="dialog"]';
+const inSameDialog = (el, root) => { const box = el.parentElement?.closest(DIALOG); return !box || box.contains(root); };
+const moreTriggers = root => [...root.querySelectorAll('button,summary')].filter(el => isMore(el) && !el.matches(NOT_CARD) && visible(el) && inSameDialog(el, root));
 
 // Among several ⋯ in one block, only a single area-marked one is the block's own menu.
 const pickAmong = list => {

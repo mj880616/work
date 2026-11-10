@@ -61,6 +61,22 @@ test('1280 shared rule: a screen head ⋯ (screen) answers the blank spots of it
   await rightClick(page, '#body'); expect(await hits(page)).toEqual(['pa']);
 });
 
+// UI-PC손맛묶음 ①: 화면 안에 붙은 작은 창(사업 보고 오른쪽 칸 = 보고 창 #meetingRoundDetailModal)의 상세 ⋯는 그 창 안에서만 연다.
+// 창 밖(주 줄 [‹][›]·주간보고 표)은 그 창 ⋯를 누르지 않고, 화면 머리줄 ⋯(screen)가 있으면 그것을 연다.
+test('1280 shared rule: an area ⋯ inside a docked dialog answers presses inside that dialog only', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openHome(page);
+  await mount(page, `<div class="view-panel"><div><button id="ps" data-ctx="screen" type="button">⋯</button></div><p id="week" style="height:30px;margin:0">주 줄 › </p>
+    <div class="modal" role="dialog" style="position:static;inset:auto;display:block;background:none"><div><button id="pa" data-ctx="area" type="button">⋯</button></div><p id="result" style="height:40px;margin:0">회의 결과</p></div></div>`);
+  await rightClick(page, '#result'); expect(await hits(page)).toEqual(['pa']);
+  await rightClick(page, '#week'); expect(await hits(page)).toEqual(['pa', 'ps']);
+  await mount(page, `<div class="view-panel"><p id="week" style="height:30px;margin:0">주 줄 › </p>
+    <div class="modal" role="dialog" style="position:static;inset:auto;display:block;background:none"><div><button id="pa" data-ctx="area" type="button">⋯</button></div><p id="result" style="height:40px;margin:0">회의 결과</p></div></div>`);
+  await page.evaluate(() => { window.__kept = []; });
+  await rightClick(page, '#week'); expect(await hits(page)).toEqual([]);
+  expect(await page.evaluate(() => window.__kept)).toEqual([true]);
+});
+
 test('1280 shared rule: a menu panel a stylesheet pins under the ⋯ opens at the pointer and goes back when closed', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await openHome(page);

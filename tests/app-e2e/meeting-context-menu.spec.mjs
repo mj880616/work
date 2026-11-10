@@ -66,3 +66,21 @@ for(const width of [884,1440])test(`PC ${width}: 사업 보고 창 본문 어디
   await expect(menu).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+// UI-PC손맛묶음 ①(요청함 11/10): 사업 보고 화면에서 보고 창(오른쪽 칸) 밖 — 주 줄 [‹][›]·주 이름 — 을 우클릭하면
+// 보고 창 ⋯([수정][종류 바꾸기][삭제])가 뜨지 않는다. 그 자리는 화면 머리줄 ⋯(사업 보고 더 보기, data-ctx="screen") 메뉴.
+test('PC 1280: 보고 창 밖(주 줄 [›]·주 이름) 우클릭은 보고 메뉴가 아니라 화면 메뉴',async({page})=>{
+  await page.setViewportSize({width:1280,height:900});
+  const {errors}=await setup(page);
+  const menu=page.locator('#mrdMoreMenu');
+  for(const sel of ['.report-week-label','.report-week-count']){
+    const spot=page.locator(`#meetingsView ${sel}`).first();
+    await expect(spot,sel).toBeVisible();
+    await spot.click({button:'right'});
+    await expect(menu,sel).toBeHidden();
+    await expect(page.locator('#reportMore'),sel).toHaveAttribute('aria-expanded','true');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#reportMore')).toHaveAttribute('aria-expanded','false');
+  }
+  expect(errors).toEqual([]);
+});
