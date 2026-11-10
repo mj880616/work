@@ -137,6 +137,8 @@ export function openPhotoStrip(opts) {
   };
   const refresh = () => {
     const item = items[at]; if (!item) return;
+    // 캡션이 나중에 읽힌 자료에 기대는 때(일기 '그날 맥락' 시각 맞춤 한 줄)도 다시 그리면 맞춰진다.
+    captionEl.textContent = caption(item) || '';
     const on = isStarred(item);
     starBtn.firstElementChild.innerHTML = on ? ACT_ICON.starOn : ACT_ICON.star; starBtn.setAttribute('aria-pressed', String(on)); starBtn.setAttribute('aria-label', on ? '별표 풀기' : '별표');
   };

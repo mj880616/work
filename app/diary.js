@@ -30,6 +30,7 @@ import {createDiaryList} from './diary-list.js';
 import {doneLine, inDiaryPhoto} from './diary-list-model.mjs';
 import {viewPrefs} from './view-prefs.js';
 import {iconSvg, iconHtml} from './tree-icons.js';
+import {photoContextLine} from './diary-context-model.mjs';
 // OD-연결아이콘: 원드라이브 연결 표시는 [오늘] 오른쪽 아이콘 하나 + 드롭다운(공용 부품, 사진 메뉴도 같은 부품).
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
 import {createOdSettings} from './od-settings.js';
@@ -310,14 +311,53 @@ function renderDetail() {
   sendWhere(longDay(selected));
   const row = rows.get(selected), text = diaryText(row), hasPhotos = dayItems(selected, row, odShown()).length + phoneShown(selected).length > 0;
   detail.hidden = false; list.hidden = true; if (!allHost.hidden) listView.hide();
-  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div><div class="diary-done" data-diary-done></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source ds-seg" role="group" aria-label="사진 보기"><button type="button" class="ds-seg-btn" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" class="ds-seg-btn" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 삭제</button></div>` : emptyHtml('일기 없음')}`;
+  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div><div class="diary-done" data-diary-done></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source ds-seg" role="group" aria-label="사진 보기"><button type="button" class="ds-seg-btn" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" class="ds-seg-btn" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>${hasPhotos ? '<div class="diary-ctx-slot" data-diary-context-slot></div>' : ''}` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 삭제</button></div>` : emptyHtml('일기 없음')}`;
   syncDetailTitle();
   paintDone(detail.querySelector('[data-diary-done]'), selected);
   const view = detail.querySelector('[data-diary-text-view]');
   if (view && diaryHasDoc(row)) view.replaceChildren(renderDoc(row.doc));
   renderPhotos();
+  if (hasPhotos) paintContext(detail.querySelector('[data-diary-context-slot]'), selected);
   void loadPhoneDay(selected);
 }
+// JOURNAL-일기원드라이브 10.6 '그날 맥락'(2026-11-10 명진 결정): 사진 있는 날에만 사진 격자 아래 접힌 한 줄(일정·회의만, diary-context.js).
+// 업무일지와 같은 읽기를 그날 처음 열 때 한 번(주 단위 기억), 다시 그릴 때는 읽은 것을 쓴다(메모리에만). 펼침 상태도 이 접속 동안만 기억한다.
+// 크게 보기 캡션은 찍은 시각과 일정·회의 시간을 맞춘 한 줄(photoContextLine). 맥락은 보여 주기만 하고 일기 글에 쓰지 않는다.
+let dayContext = {key:'', p:null, entries:[]}, contextOpen = '';
+function paintContext(slot, day) {
+  if (!slot || !day) return;
+  const key = `${owner}|${day}`;
+  if (dayContext.key !== key || !dayContext.p) dayContext = {key, entries:[], p:import('./diary-context.js').then(m => m.readDayContext(day, rt).then(ctx => ({m, ctx})))};
+  const read = dayContext, p = read.p;
+  p.then(({m, ctx}) => {
+    if (dayContext !== read) return;
+    read.entries = ctx.entries;
+    photoStripRefresh();
+    if (!slot.isConnected) return;
+    const box = m.contextSection(ctx.entries);
+    if (box) {
+      box.open = contextOpen === key;
+      box.addEventListener('toggle', () => { contextOpen = box.open ? key : (contextOpen === key ? '' : contextOpen); });
+      box.addEventListener('click', event => {
+        const line = event.target.closest('[data-diary-context-open]'), entry = line && read.entries[Number(line.dataset.diaryContextOpen)];
+        if (!entry) return;
+        m.openContextEntry(entry).catch(() => diaryStatus('그 화면을 열지 못했어요. 다시 시도해 주세요.'));
+      });
+    }
+    slot.replaceChildren(...(box ? [box] : []));
+  }).catch(() => { if (dayContext === read) dayContext = {key:'', p:null, entries:[]}; });
+}
+// 달력에서 일정이 바뀌면(kptu:calendar-changed) 열린 날의 맥락을 다시 읽는다(diary-context.js forgetEvents로 주 단위 일정 기억을 비운다).
+window.addEventListener('kptu:calendar-changed', () => {
+  if (!dayContext.p) return;
+  dayContext = {key:'', p:null, entries:[]};
+  import('./diary-context.js').then(m => {
+    m.forgetEvents();
+    const slot = selected && detail.querySelector('[data-diary-context-slot]');
+    if (slot) paintContext(slot, selected);
+  }).catch(() => {});
+});
+const contextLine = item => (selected && item?.day === selected && dayContext.key === `${owner}|${selected}` ? photoContextLine(item, dayContext.entries) : '');
 // ☆를 아직 쓸 수 없을 때의 안내. 원드라이브 준비 전에는 예전 안내 그대로.
 // UI-기다림표시통일 2차: 별표를 읽는 동안은 글자 대신 회색 칸(starNoteHtml).
 const starNote = () => !od.configured ? '원드라이브 연결 뒤 쓸 수 있어요' : starsState === 'loading' ? '' : '별표를 지금은 쓸 수 없어요';
@@ -446,7 +486,7 @@ const whenText = item => `${shortDay(item.day)}${takenLabel(item) ? ' ' + takenL
 function openViewer(index) {
   openPhotoStrip({host:root, list:() => shown, index, title:`${shortDay(selected)} 사진`,
     element:itemElement, label:(item, i) => `${shortDay(selected)} 사진 ${i + 1}`, when:whenText,
-    caption:item => (item.kind === 'upload' ? (photoComments(item.row)[item.file.drive_file_id] || '') : ''),
+    caption:item => [item.kind === 'upload' ? (photoComments(item.row)[item.file.drive_file_id] || '') : '', contextLine(item)].filter(Boolean).join(' · '),
     info:item => [['찍은 때', whenText(item)], ['파일', item.kind === 'upload' ? (item.file?.file_name || '') : item.name], ['출처', item.kind === 'od' ? '원드라이브' : item.kind === 'phone' ? '폰' : '직접 올린 사진']],
     // [원본 내려받기]: 직접 올린 사진은 Drive 원본(Drive 로그인 필요). 원드라이브 사진은 원본을 넘기는 서버 동작이 아직 없어 원드라이브 앱에서 받는다.
     original:item => { const href = item.kind === 'upload' ? originalHref(item.file?.drive_file_id) : ''; return href ? {href} : {text:item.kind === 'phone' ? '폰 갤러리에 있어요' : '원드라이브 앱에서 받아 주세요'}; },

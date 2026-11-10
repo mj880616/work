@@ -512,10 +512,15 @@ export const journalMemosOn = (basket, day) => journalMemoItemsOn(basket, day).m
 export const meetingsOn = (meetings, day) => (meetings || []).filter(meeting => onDay(meeting?.meeting_at, day)).sort((a, b) => byTime(a.meeting_at, b.meeting_at));
 // MTG-사업보고 8단계 (설계 결정 3-가): 회의가 아닌 칸(정책·교섭·언론·국회·투쟁·교육·기타)은 줄 맨 앞에 [칸 이름]을 붙인다. 칸 없는 옛 행·회의 칸은 그대로.
 export const activityTag = meeting => { const kind = reportKindOf(meeting); return kind === DEFAULT_KIND ? '' : `[${reportKindLabel(kind)}] `; };
-export function meetingLine(meeting) {
+// 회의 이름(칸 꼬리표·차수 포함, 시각 없음). 일기 '그날 맥락'(diary-context.js)도 같은 이름을 쓴다.
+export function meetingName(meeting) {
   const name = String(meeting?.series_name || meeting?.title || '').trim() || '회의';
-  const round = Number(meeting?.round_no), clock = seoulClock(meeting.meeting_at);
-  return `${activityTag(meeting)}${clock && clock !== '00:00' ? clock + ' ' : ''}${name}${meeting?.round_no != null && meeting.round_no !== '' && Number.isFinite(round) ? ` ${round}차` : ''}`;
+  const round = Number(meeting?.round_no);
+  return `${activityTag(meeting)}${name}${meeting?.round_no != null && meeting.round_no !== '' && Number.isFinite(round) ? ` ${round}차` : ''}`;
+}
+export function meetingLine(meeting) {
+  const clock = seoulClock(meeting.meeting_at), tag = activityTag(meeting);
+  return `${tag}${clock && clock !== '00:00' ? clock + ' ' : ''}${meetingName(meeting).slice(tag.length)}`;
 }
 export const pendingOn = (tasks, day) => (tasks || []).filter(task => task?.status !== 'completed' && dueDay(task) === day)
   .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
