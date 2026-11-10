@@ -22,7 +22,8 @@ test.describe('PC 1440 두 칸',()=>{
   test('오른쪽 칸 폴더 안 빈 자리 우클릭 → [자료 등록] → 올린 자료가 그 폴더에, 맨 위 칸에서 열면 폴더 밖',async({page})=>{
     const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,items:ITEMS,group:'폴더',init:{viewPrefs:null}});
     await expect(page.locator('#documentList [data-lu-two]')).toBeVisible();
-    await page.locator(`${pane(1)} [data-lu-nav="fa"]`).click();
+    // S56-40: 두 칸 폴더 줄 누르기는 펼치기 — 들어가기는 우클릭 [이 폴더로 들어가기].
+    await page.locator(`${pane(1)} [data-lu-nav="fa"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
     await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('가상 A');
     await rightClick(page,pane(1));
     await expect(page.locator('#luAreaMenu button')).toHaveText(['새 폴더','자료 등록']);

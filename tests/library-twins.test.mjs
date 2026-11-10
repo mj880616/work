@@ -42,8 +42,8 @@ test('선택한 개수 글자: 접힌 것이 있을 때만 "접힌 n개 포함"'
 });
 test('자료실 화면이 이 규칙을 쓰고 자료 행은 삭제하지 않는다(화면에서만 묶음)',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
-  // S55-11 LIB-두칸보기: 두 칸이면 두 칸에 보이는 조각으로 같은 규칙.
-  assert.match(src,/luTwins=twinPlan\(luTwoActive\(\)\?luTwo\.shownNodes\(tree\):shown\)/);
+  // S55-11 LIB-두칸보기: 두 칸이면 두 칸에 보이는 조각으로 같은 규칙(S56-40: 칸 안에서 펼친 폴더의 자료까지, 펼침 판정을 함께 넘김).
+  assert.match(src,/luTwins=twinPlan\(luTwoActive\(\)\?luTwo\.shownNodes\(tree,luTwoOpen=k=>luIsOpen\(k,filtering,matched\)\):shown\)/);
   assert.match(src,/pickCountText\(/);
   assert.doesNotMatch(readFileSync(new URL('../app/library-twins.mjs',import.meta.url),'utf8'),/api\(|fetch\(|DELETE/);
 });
