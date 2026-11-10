@@ -34,10 +34,11 @@ test('쓰기 창: [회의] 칸이고 서버 칸이 있을 때만 보이고 보�
  assert.match(team,/entryRoundRows\.paint\(meeting\);\n  paintAttendeesRow\(\);/,'칸을 바꾸면 다시 칠한다');
 });
 
-test('서버 칸 확인은 장소와 같은 방식, 목록 열에는 넣지 않는다(칸 없는 서버에서 목록이 select=*로 무거워지지 않게)',()=>{
+test('서버 칸 확인은 장소와 같은 방식: 목록 열에 넣고 읽은 줄로 정해 둔다(쓰기 창을 열 때 따로 묻지 않음), 줄이 없을 때만 묻는다',()=>{
  assert.match(links,/export const attendeesAvailable=\(rt\)=>probe\('attendees','\/rest\/v1\/app_meetings\?select=attendees&limit=1',rt\);/);
- assert.doesNotMatch(list,/attendees/);
- assert.doesNotMatch(team,/noteAttendees/);
+ assert.match(links,/export const noteAttendeesFromMeetings=\(rows,rt\)=>noteColumnFromRows\('attendees','attendees',rows,rt\);/);
+ assert.match(list,/business_area_none,location,attendees,next_plan/);
+ assert.match(team,/noteLocationFromMeetings\(meetings\);noteAttendeesFromMeetings\(meetings\);/);
 });
 
 test('보고 고치기·상세: 같은 칸, [회의] 칸만, 바뀐 때만 보내고 비우면 null; 상세 머리 줄에 참석',()=>{

@@ -7,7 +7,7 @@
 // 열이 서버에 없어 읽기가 거절되면(칸이 늘어나기 전 서버) 예전처럼 select=*로 한 번 더 읽는다.
 import {storedTimeIsSet} from './meeting-when.js';
 
-export const MEETING_LIST_FIELDS='id,workspace_id,title,series_name,round_no,meeting_at,activity_kind,project_id,business_area_id,business_area_none,location,next_plan,result_status,finalized_at,created_by,created_at,updated_at';
+export const MEETING_LIST_FIELDS='id,workspace_id,title,series_name,round_no,meeting_at,activity_kind,project_id,business_area_id,business_area_none,location,attendees,next_plan,result_status,finalized_at,created_by,created_at,updated_at';
 export const DOCUMENT_LIST_FIELDS='id,workspace_id,project_id,meeting_id,organization_id,title,category,source,document_date,description,tags,drive_url,file_id,file_name,mime_type,file_size,auto_classified,classification_note,field_origin,previous_files,reclassify_needed,extraction_status,created_at,updated_at';
 const MEETING_ORDER='order=meeting_at.desc';
 const DOCUMENT_ORDER='order=document_date.desc.nullslast,created_at.desc';
