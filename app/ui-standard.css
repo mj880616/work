@@ -825,10 +825,11 @@
   /* FOLDER-나무새기준 ⑧(01:25 탭 자리 규칙): 폰 노트 [폴더|목록|포스트잇|태그|댓글]도 같은 전환 줄(아래 가운데), 노트 입력칸은 그 위. */
   html:has(:where(#appView #basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-list]:not([hidden]) .nv-switch)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   /* LIB-위쪽한줄: 자료실은 아래 알약이 없어 --kptu-switch-dock을 쓰지 않는다. 앱 머리 '자료실'은 숨기고 화면 첫 줄이 제목을 보인다. */
-  /* S52-22 TEAM-맨위한줄: 사업 보고 [목록|달력|사진](meeting-ui.css 자리)도 아래 탭 바로 위다(BIZ-위쪽정돈 11/09 01:22 확정안도 그대로). 동그란 [+]는 없고(맨 윗줄 작은 아이콘 [+]) 목록 끝 여백만 이 값을 따른다. */
-  html:has(:where(#appView #meetingsView:not(.hidden) #reportViewFilter)){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
+  /* UI-보기탭드롭다운(11/10): 사업 보고 보기는 위 줄 고르기 상자 [목록 ▾]라 아래 전환 줄이 없다(--kptu-switch-dock 쓰지 않음). */
   html:has(#appView #meetingsView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
   html:has(#appView #libraryView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
+  /* UI-보기탭드롭다운(11/10): 사진도 앱 머리를 숨기고 화면 첫 줄이 제목 '사진' + 오른쪽 출처 아이콘(photos.css .photos-head). */
+  html:has(#appView #photosView:not(.hidden)) #appView > .mobile-shell-header{ display:none; }
   /* SHARE-제목줄더하기: 공유 페이지 목록은 앱 머리를 숨기고 화면 첫 줄이 제목 '공유 페이지'와 오른쪽 작은 +를 한 줄에 보인다(사업 보고·자료실과 같은 방식). 쓰는 화면(편집기)은 그대로. */
   html:has(#appView #pagesView:not(.hidden) .sp-list-view:not([hidden])) #appView > .mobile-shell-header{ display:none; }
   html:has(body.kptu-mobile-keyboard){ --kptu-switch-dock:0px; }

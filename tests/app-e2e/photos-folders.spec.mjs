@@ -88,8 +88,8 @@ for (const width of [412, 884, 1440]) {
   test(`사진 메뉴 ② 폴더: 폴더 나무·폴더 안 사진·여러 장 옮기기·되돌리기·메뉴·새 폴더 ${width}`, async ({ page }) => {
     const f = await fixture(page, width), wide = width>=761;
     await openPhotos(page);
-    await root(page).locator('[data-photos-tab="folders"]').click();
-    await expect(root(page).locator('[data-photos-tab="folders"]')).toHaveAttribute('aria-pressed', 'true');
+    await root(page).locator('[data-photos-view]').selectOption('folders');
+    await expect(root(page).locator('[data-photos-view]')).toHaveValue('folders');
     // S51-24: 폰·폴드 '그 폴더만'은 상자 맨 위 위치 줄(위 단계만, 지금 폴더는 바로 아래 머리 줄). PC는 지금 위치 줄 그대로.
     // FILES-폰폴더위로 ②: 폰 [‹]는 위치 줄이 아니라 그 폴더 줄(이름) 맨 앞.
     const at = (...names) => (wide ? ['사진', ...names].join('›') : `${['사진', ...names.slice(0, -1)].join('›')}›`);
@@ -178,7 +178,7 @@ for (const width of [412, 884, 1440]) {
 test('사진 메뉴 ② 폴더 PC 1440: 선택한 사진을 왼쪽 폴더로 끌어 놓기 → 옮김·되돌리기, 사진 우클릭 메뉴 맨 위 [선택]', async ({ page }) => {
   const f = await fixture(page, 1440);
   await openPhotos(page);
-  await root(page).locator('[data-photos-tab="folders"]').click();
+  await root(page).locator('[data-photos-view]').selectOption('folders');
   const tree = root(page).locator('[data-photos-fx-tree]');
   await tree.locator('[data-photos-fx-open="S1"]').click();
   await expect.poll(() => ids(page)).toEqual(['B1', 'B2', 'B3']);
@@ -209,10 +209,10 @@ for (const width of [412, 1440]) {
   test(`사진 메뉴 ② 앨범: 선택한 사진을 새 앨범에 넣기 → 앨범 카드 → 앨범 사진 → 앨범에서 빼기 ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
     await openPhotos(page);
-    await root(page).locator('[data-photos-tab="albums"]').click();
+    await root(page).locator('[data-photos-view]').selectOption('albums');
     await expect(root(page).locator('[data-photos-al-new]')).toHaveText('+ 새 앨범');
     await expect(root(page).locator('[data-photos-album]')).toHaveCount(0);
-    await root(page).locator('[data-photos-tab="all"]').click();
+    await root(page).locator('[data-photos-view]').selectOption('all');
     await expect.poll(() => ids(page)).toEqual(['A1', 'A2', 'B1', 'B2', 'B3', 'C1']);
     await hold(page, items(page).nth(0));
     await items(page).nth(2).click();
@@ -228,7 +228,7 @@ for (const width of [412, 1440]) {
     expect(f.rest.find(x => x.table === 'items' && x.method === 'POST').body.every(x => x.tag_id === 'tag-1' && x.source === 'onedrive')).toBe(true);
     await expect(root(page).locator('[data-photos-sel]')).toBeHidden();
     // [앨범]: 카드(#이름·장수) → 누르면 그 앨범 사진(서버 library에 그 사진 id만).
-    await root(page).locator('[data-photos-tab="albums"]').click();
+    await root(page).locator('[data-photos-view]').selectOption('albums');
     const card = root(page).locator('[data-photos-album="tag-1"]');
     await expect(card.locator('.photos-album-name')).toHaveText('#제주');
     await expect(card.locator('.photos-album-n')).toHaveText('2');
@@ -255,7 +255,7 @@ test('사진 메뉴 ② 폴더 PC 1440: 나무 | 사진 경계 끌기·키보드
   const f = await fixture(page, 1440);
   const open = async () => {
     await openPhotos(page);
-    await root(page).locator('[data-photos-tab="folders"]').click();
+    await root(page).locator('[data-photos-view]').selectOption('folders');
     await expect(root(page).locator('[data-photos-fx-tree]')).toBeVisible();
     await expect.poll(() => ids(page)).toEqual(['A1', 'A2']);
   };
@@ -272,7 +272,7 @@ for (const [width, device] of [[412, 'phone']]) {
     const prefs = await installViewPrefsServer(page);
     const box = () => root(page).locator('[data-photos-box="onedrive"]');
     const tog = () => box().locator('[data-photos-fxbox="onedrive"]');
-    const openFolders = async () => { await openPhotos(page); await root(page).locator('[data-photos-tab="folders"]').click(); await expect(tog()).toBeVisible(); };
+    const openFolders = async () => { await openPhotos(page); await root(page).locator('[data-photos-view]').selectOption('folders'); await expect(tog()).toBeVisible(); };
     await openFolders();
     await expect(tog()).toHaveAttribute('aria-expanded', 'true');
     await box().locator('[data-photos-ftog="o:S2"]').click();

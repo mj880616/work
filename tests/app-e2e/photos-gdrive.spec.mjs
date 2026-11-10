@@ -123,7 +123,7 @@ test.describe('PC 1440', () => {
     await expect(gdBtn(page)).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => server.patches.at(-1)?.photo_sources_pc?.gdrive).toBe(true);
     // [폴더]: 원드라이브와 같은 나무 — 맨 위 줄 '구글 드라이브 n', 맨 위 층 폴더(처음엔 꺼짐, 장수 '—') → 스위치 켜기.
-    await page.locator('#photosRoot [data-photos-tab="folders"]').click();
+    await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
     await expect(bodyEl.locator('[data-photos-gf-open="root"] .nx-name')).toHaveText('구글 드라이브');
     await expect(bodyEl.locator('[data-photos-gf-open="root"] .nx-num')).toHaveText('0');
@@ -144,7 +144,7 @@ test.describe('PC 1440', () => {
     await expect(bodyEl.locator('[data-photos-fx-tree] [data-photos-gf-open="GF11"]')).toBeVisible();
     await expect.poll(() => bodyEl.locator('[data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId))).toEqual(['gd:G1', 'gd:G2', 'gd:G3']);
     // [사진]: 찍은 날 순서로 섞이고 G2(원드라이브 O1과 같은 사진)는 빠짐, 출처 표시.
-    await page.locator('#photosRoot [data-photos-tab="all"]').click();
+    await page.locator('#photosRoot [data-photos-view]').selectOption('all');
     await expect.poll(() => ids(page)).toEqual(['gd:G1', 'O1', 'O2', 'gd:G3', 'O3']);
     await expect(page.locator('#photosRoot [data-photos-id="gd:G1"] .photos-src-mark')).toHaveAttribute('data-src', 'gdrive');
     await expect(page.locator('#photosRoot [data-photos-id="gd:G1"] .diary-photo')).toHaveAttribute('data-img-state', 'shown');
@@ -169,7 +169,7 @@ test.describe('PC 1440', () => {
     const { state } = await fixture(page, { od: false, prefs: { photo_sources_pc: { onedrive: false, gdrive: true, phone: false } } });
     state.folders.GF1[0].enabled = true; // 2026 폴더는 켜져 있고 사진이 없다
     await openPhotos(page, 1440);
-    await page.locator('#photosRoot [data-photos-tab="folders"]').click();
+    await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
     const tree = bodyEl.locator('[data-photos-fx-tree]');
     // 처음엔 맨 위를 고른 채: 오른쪽 칸 '구글 드라이브 · n장'.
@@ -204,7 +204,7 @@ test.describe('PC 1440', () => {
     const { state } = await fixture(page, { od: false, counts: false, prefs: { photo_sources_pc: { onedrive: false, gdrive: true, phone: false } } });
     state.folders.root[0].enabled = true;
     await openPhotos(page, 1440);
-    await page.locator('#photosRoot [data-photos-tab="folders"]').click();
+    await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
     const tree = page.locator('#photosRoot [data-photos-fx-tree]');
     await expect(tree.locator('[data-photos-gf="GF1"] .nx-num')).toHaveText('—');
     await expect(tree.locator('[data-photos-gf="root"] .nx-num')).toHaveText('—');
@@ -247,8 +247,8 @@ test.describe('폰 412', () => {
     await openPhotos(page, 412);
     await expect(gdBtn(page)).toHaveAttribute('data-problem', 'scope_missing');
     for (const tab of ['all', 'calendar', 'folders', 'albums']) {
-      await page.locator(`#photosRoot [data-photos-tab="${tab}"]`).click();
-      await expect(page.locator(`#photosRoot [data-photos-tab="${tab}"]`)).toHaveAttribute('aria-pressed', 'true');
+      await page.locator('#photosRoot [data-photos-view]').selectOption(tab);
+      await expect(page.locator('#photosRoot [data-photos-view]')).toHaveValue(tab);
       await expect(gdBtn(page)).toBeVisible();
       await expectSmallDot(page);
     }
@@ -258,7 +258,7 @@ test.describe('폰 412', () => {
     const { state } = await fixture(page, { od: false, prefs: { photo_sources_pc: { onedrive: false, gdrive: true, phone: false } } });
     state.folders.root[0].enabled = true;
     await openPhotos(page, 412);
-    await page.locator('#photosRoot [data-photos-tab="folders"]').click();
+    await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
     // FOLDER-나무새기준 ③: 폰은 출처마다 상자(머리 = 이름, 오른쪽 전체 장수).
     await expect(bodyEl.locator('[data-photos-box="gdrive"] .ft-box-toggle')).toHaveText('구글 드라이브');

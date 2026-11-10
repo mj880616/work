@@ -102,7 +102,7 @@ test.describe('폰 앱 412', () => {
     await expect.poll(() => ids(page)).toEqual(['ph:1']);
     await expect.poll(() => prefs.value?.phone_folders_off).toEqual([TG, OLD].sort());
     expect(state.hides[0].sort()).toEqual([TG, OLD].sort());
-    await page.locator('#photosRoot [data-photos-tab="folders"]').click();
+    await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
     await isOff(page, TG, true);
     await expect(folderRow(page, TG).locator('.ft-offtag')).toHaveText('끔');
     await isOff(page, CAM, false);
@@ -115,7 +115,7 @@ test.describe('폰 앱 412', () => {
     await page.reload();
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
     if (!(await page.locator('#photosView').isVisible())) await openPhotos(page);
-    await page.locator('#photosRoot [data-photos-tab="all"]').click();
+    await page.locator('#photosRoot [data-photos-view]').selectOption('all');
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'ph:2']);
     expect(prefs.value.phone_folders_off).toEqual([OLD]);
     expect(state.errors).toEqual([]);

@@ -120,7 +120,7 @@ for (const width of [390, 1440]) {
 
     // 누르면 사업 보고 화면의 [사진] 보기로 바로 가서 그 사업 보고 묶음 자리에 선다(ACT-사진 6단계)..
     await set(M1).click();
-    await expect(page.locator('#reportViewFilter [aria-checked="true"]')).toHaveText('사진');
+    await expect(page.locator('#reportViewSelect')).toHaveValue('photo');
     await expect(page.locator(`#meetingList [data-rv-set="${M1}"]`)).toBeVisible({timeout: 10000});
     await expect(page.locator(`#meetingList [data-rv-set="${M1}"] .act-photo-thumb`)).toHaveCount(5);
     await expect(page.locator(`#meetingList [data-rv-set="${M2}"] .act-photo-thumb`)).toHaveCount(1);
