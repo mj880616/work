@@ -133,7 +133,8 @@ test('workflow consumes extracted URLs without fixed version addresses or a sile
     'cache-control: public, max-age=31536000, immutable',
     'cache-control: no-cache, must-revalidate',
     '"$missing_code" != "404"',
-    "https://*'|200'",
+    'https://*"|$expected_code"',
+    'local expected_code="${2:-200}"',
     "check_icon 'https://bokdoong.com/favicon.png' 'image/png'",
     "check_icon 'https://bokdoong.com/favicon.ico' 'image/x-icon'",
   ]) assert.ok(workflow.includes(expected), `preserves ${expected}`);
@@ -161,4 +162,22 @@ test('workflow checks Web2 on bokdoong.com and the 302 moves from desk, work and
     ['https://desk.bokdoong.com/work/app/onedrive-return.html?probe=1', 'https://bokdoong.com/work/app/onedrive-return.html?probe=1'],
     ['https://work.bokdoong.com/work/app/?view=calendar', 'https://bokdoong.com/work/app/?view=calendar']
   ]) assert.ok(workflow.includes(`check_redirect '${from}' '${to}'`), from);
+});
+
+// WEB1-페이지삭제 D1: work.bokdoong.com answers Web1 paths with the 410 one-line notice; share·about·favicon.svg stay 200.
+test('workflow checks the Web1 closed notice on work and keeps the share and about pages', () => {
+  assert.ok(workflow.includes('check_https_upgrade work.bokdoong.com 410'));
+  assert.ok(workflow.includes('if [[ "$code" == "410" ]]'));
+  assert.ok(workflow.includes("grep -q '더 이상 운영하지 않는 페이지입니다'"));
+  for (const url of ['https://work.bokdoong.com/', 'https://work.bokdoong.com/work/', 'https://work.bokdoong.com/work/press/',
+    'https://work.bokdoong.com/work/p/', 'https://work.bokdoong.com/work/private-rail/']) {
+    assert.ok(workflow.includes(`            ${url} \\\n`) || workflow.includes(`            ${url}\n`), url);
+  }
+  assert.ok(workflow.includes('check_web1_closed "$url"'));
+  for (const kept of ["check_200 'https://work.bokdoong.com/work/share/' 'text/html'",
+    "check_200 'https://work.bokdoong.com/work/about/' 'text/html'",
+    "check_200 'https://work.bokdoong.com/work/favicon.svg'",
+    'https://work.bokdoong.com/work/share/share.css \\']) assert.ok(workflow.includes(kept), kept);
+  // Web1 files are not used as deploy probes any more (they are removed in C1-b).
+  assert.doesNotMatch(workflow, /work\/assets\/|mj880616\.github\.io\/work\/ \\/);
 });
