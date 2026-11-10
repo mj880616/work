@@ -53,5 +53,6 @@
 .bd-foot{margin-top:2px}
 .bd-empty{gap:8px;margin-top:0}
 .bd-wait .wl-add{visibility:hidden}
+.bd-empty .wait-empty{display:inline;margin:0}
 .bd-box .wl-form select{box-sizing:border-box;height:var(--ds-compact-height-sm,26px);max-width:100%;font:inherit;font-size:var(--ds-text-meta,12px)}
 .bd-box .wl-status:empty{display:none}
