@@ -13,7 +13,7 @@ const orgs=[{id:OA,workspace_id:'w',name:'합성 가 지부',aliases:[],active:t
 let n=0;const uid=()=>`00000000-0000-4000-8000-${String(++n).padStart(12,'0')}`;
 const U=(org,day,text,x={})=>({id:uid(),organization_id:org,raw_text:text,occurred_at:`${day}T12:00:00+09:00`,end_day:null,source_kind:null,created_at:'2026-11-01T00:00:00Z',updated_at:'2026-11-01T00:00:00Z',workspace_id:'w',created_by:owner,detail_text:null,doc:null,...x});
 const EV=(id,start,title,x={})=>({id,title,start,end:null,allDay:true,calendarId:'primary',organizationIds:[],htmlLink:'',...x});
-async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFail=false,old=null,order=null,prefsOpts={}}={}){
+async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFail=false,old=null,order=null,prefsOpts={},dayNoneOff=false}={}){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await installViewPrefsServer(page,null,prefsOpts);
@@ -29,6 +29,8 @@ async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFai
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',async route=>{
   const req=route.request(),q=new URL(req.url()).searchParams;
   if(req.method()==='POST'){const b=req.postDataJSON();db.posts.push(b);const row={id:uid(),created_at:'2026-11-17T01:00:05Z',detail_text:null,doc:null,end_day:null,source_kind:null,...b};db.records.push(row);return json(route,[row],201)}
+  if(req.method()==='PATCH'){const b=req.postDataJSON(),id=(q.get('id')||'').replace(/^eq\./,'');db.patches=[...(db.patches||[]),{id,...b}];const hit=db.records.filter(r=>r.id===id);hit.forEach(r=>Object.assign(r,b));return json(route,hit)}
+  if(dayNoneOff&&(q.get('select')||'').includes('day_none'))return json(route,{code:'42703',message:'column app_suborganization_updates.day_none does not exist'},400);
   const org=q.get('organization_id')||'',ids=org.startsWith('eq.')?[org.slice(3)]:org.replace(/^in\.\(|\)$/g,'').split(',');
   return json(route,db.records.filter(r=>ids.includes(r.organization_id)));
  });
@@ -242,6 +244,67 @@ for(const width of [390,1280])test(`[전체 표] 줄 ⋯ [기록 열기] → 조
 });
 
 // RECORD-한줄 ①: 긴 기록(붙여 넣은 회의록·마크다운·표 기호)은 표에 한 줄만, 기호 없이. ⋯ [원문 보기] = 원문 그대로(작은 창, 읽기만).
+// ORG-기록날짜고치기(요청함 11/10, 시안 org-record-day-edit.html): 날짜 누름·줄 ⋯ [날짜 수정] → [하루|기간|없음] + 달력 → 원래 기록 날짜만 고침(글·보고용 표시 그대로).
+for(const width of [412,1280])test(`[전체 표] 날짜 수정: 하루 11.17→11.18, 기간, 없음은 '-'만 ${width}px`,async({page})=>{
+ const rec=U(OA,'2026-11-17','합성 3차 간담회 진행',{occurred_at:'2026-11-17T15:30:00+09:00',created_at:'2026-11-17T01:00:00Z'}),rec2=U(OB,'2026-11-18','합성 지회 점검 회의');
+ const marks=[{id:'m-1',workspace_id:'w',week_start:W,section:'org',ref_kind:'org_update',ref_key:rec.id,report_body:'합성 3차 간담회(보고용)',choice:null,detail:null,updated_at:NOW}];
+ const {db,errors}=await fixture(page,{width,records:[rec,rec2],marks});
+ await openTable(page);
+ const line=()=>shown(oa(page)).first();
+ // ① 날짜 누름 → 하루(기본) → 11.18 저장
+ await line().locator('.rw-day-btn').click();
+ const form=oa(page).locator('[data-rw-day-form]');
+ await expect(form).toBeVisible();
+ await expect(form.locator('[data-rw-mode="day"]')).toHaveAttribute('aria-pressed','true');
+ await expect(form.locator('[data-rw-field="day"]')).toHaveValue('2026-11-17');
+ await form.locator('[data-rw-field="day"]').fill('2026-11-18');
+ await form.locator('[data-rw-save]').click();
+ await expect(status(page)).toHaveText('날짜를 바꿨어요.');
+ expect(db.patches.at(-1)).toEqual({id:rec.id,occurred_at:'2026-11-18T15:30:00+09:00',end_day:null,day_none:false});
+ await expect(line().locator('.wl-day')).toHaveText('- 11.18.');
+ await expect(line().locator('.wl-text')).toHaveText('합성 3차 간담회(보고용)'); // 보고용 글 그대로
+ expect(db.records.find(r=>r.id===rec.id).raw_text).toBe('합성 3차 간담회 진행'); // 글 그대로
+ // ② 줄 ⋯ [날짜 수정] → 기간 11.16~11.19
+ await menu(page,oa(page),'합성 3차 간담회','날짜 수정');
+ await form.locator('[data-rw-mode="range"]').click();
+ await expect(form.locator('[data-rw-mode="range"]')).toHaveAttribute('aria-pressed','true');
+ await form.locator('[data-rw-field="day"]').fill('2026-11-16');
+ await form.locator('[data-rw-field="end_day"]').fill('2026-11-19');
+ await form.locator('[data-rw-save]').click();
+ await expect(line().locator('.wl-day')).toHaveText('- 11.16.~11.19.');
+ expect(db.patches.at(-1)).toMatchObject({occurred_at:'2026-11-16T15:30:00+09:00',end_day:'2026-11-19',day_none:false});
+ // ③ 없음 → 쓴 날(11.17)에 두고 줄에는 '-'만
+ await line().locator('.rw-day-btn').click();
+ await form.locator('[data-rw-mode="none"]').click();
+ await expect(form).toContainText('날짜 없이 보고에 넣어요. 쓴 주에 보여요.');
+ await form.locator('[data-rw-save]').click();
+ await expect(line().locator('.wl-day')).toHaveText('-');
+ expect(db.patches.at(-1)).toMatchObject({occurred_at:'2026-11-17T15:30:00+09:00',end_day:null,day_none:true});
+ // ④ 취소는 아무것도 안 씀, 초점은 날짜로
+ const n=db.patches.length;
+ await line().locator('.rw-day-btn').click();
+ await form.locator('[data-rw-cancel]').click();
+ await expect(form).toHaveCount(0);
+ await expect(line().locator('.rw-day-btn')).toBeFocused();
+ expect(db.patches.length).toBe(n);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+ expect(errors).toEqual([]);
+});
+test('[전체 표] 날짜 수정: DB 적용 전(day_none 칸 없음)이면 없음만 감추고 하루 수정은 됨',async({page})=>{
+ const rec=U(OA,'2026-11-17','합성 3차 간담회 진행');
+ const {db,errors}=await fixture(page,{width:412,records:[rec],dayNoneOff:true});
+ await openTable(page);
+ await expect(shown(oa(page))).toHaveCount(1);
+ await shown(oa(page)).first().locator('.rw-day-btn').click();
+ const form=oa(page).locator('[data-rw-day-form]');
+ await expect(form.locator('[data-rw-mode]')).toHaveText(['하루','기간']);
+ await form.locator('[data-rw-field="day"]').fill('2026-11-18');
+ await form.locator('[data-rw-save]').click();
+ await expect(shown(oa(page)).first().locator('.wl-day')).toHaveText('- 11.18.');
+ expect(db.patches.at(-1)).toEqual({id:rec.id,occurred_at:'2026-11-18T12:00:00+09:00',end_day:null});
+ expect(errors).toEqual([]);
+});
+
 // RECORD-보고용글잘림(요청함 11/10 ★급★): 직접 쓴 보고용 글은 60자로 자르지 않고 끝까지, [보고용으로 수정]을 다시 열면 글 전체가 칸에(잘린 글 아님).
 for(const width of [412,1280])test(`[전체 표] 보고용 글은 끝까지 보이고 다시 열면 칸에 글 전체 ${width}px`,async({page})=>{
  const RAW='합성 임금교섭 결과 공유 회의를 열었다. '+'합성 원문 문장 '.repeat(12)+'원문 끝.';
