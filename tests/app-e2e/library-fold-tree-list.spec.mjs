@@ -50,3 +50,40 @@ test('자료실 폰 412: 폴더 묶기도 지금처럼 목록 안 나무 하나(
   await expect(nav(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+// LIB-나무접기(요청함 11/09 18:10): 이름 한 번 = 들어가며 펼침, 들어간 폴더 이름 다시 = 접기(오른쪽은 그 폴더 그대로), 또 누르면 다시 펼침.
+// 아이콘은 지금처럼 접기·펼치기만, 키보드 ←/→도 같은 규칙.
+for(const width of [1280])test(`자료실 ${width}: 들어간 폴더 이름을 다시 누르면 접히고, ←/→도 같은 규칙`,async({page})=>{
+  test.setTimeout(90000);
+  const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
+  await pickGroup(page,'폴더');
+  const a=nav(page).locator('[data-lu-nav="fa"]'),child=nav(page).locator('[data-lu-nav="fc"]'),tog=nav(page).locator('[data-lu-nav-tog="fa"]');
+  await a.click();
+  await expect(child).toBeVisible();
+  await expect.poll(()=>tops(page)).toEqual(['f:fa']);
+  if(process.env.LIB_TREE_FOLD_SHOTS)await page.screenshot({path:`${process.env.LIB_TREE_FOLD_SHOTS}/pc-${width}-1-open.png`});
+  await a.click(); // 다시 = 접기
+  await expect(child).toHaveCount(0);
+  await expect(tog).toHaveAttribute('aria-expanded','false');
+  await expect(a).toHaveAttribute('aria-current','true');
+  await expect.poll(()=>tops(page)).toEqual(['f:fa']); // 오른쪽은 그 폴더 그대로
+  await expect(a).toBeFocused();
+  if(process.env.LIB_TREE_FOLD_SHOTS)await page.screenshot({path:`${process.env.LIB_TREE_FOLD_SHOTS}/pc-${width}-2-folded.png`});
+  await a.click(); // 또 = 펼침
+  await expect(child).toBeVisible();
+  // 키보드: ← 접기, → 펼치기(초점은 이름에 남는다)
+  await a.focus();await page.keyboard.press('ArrowLeft');
+  await expect(child).toHaveCount(0);await expect(a).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(child).toBeVisible();await expect(a).toBeFocused();
+  // 아이콘은 지금처럼: 접기·펼치기만, 오른쪽 그대로
+  await tog.click();await expect(child).toHaveCount(0);
+  await tog.click();await expect(child).toBeVisible();
+  await expect.poll(()=>tops(page)).toEqual(['f:fa']);
+  // 들어가지 않은 폴더 이름 = 지금처럼 들어가기(접지 않음)
+  await child.click();
+  await expect.poll(()=>tops(page)).toEqual(['f:fc']);
+  await expect(child).toBeVisible();
+  expect(s.writes).toEqual([]);
+  expect(errors).toEqual([]);
+});

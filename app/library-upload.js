@@ -34,6 +34,7 @@ import {SPLIT_QUERY,NARROW_QUERY} from './screen-width.mjs';
 import {viewPrefs} from './view-prefs.js';
 import {createLibraryTwo} from './library-two-pane.js';
 import {iconHtml,treeIconHtml} from './tree-icons.js';
+import {ftFoldIfRepeat,ftBindTreeArrows} from './folder-tree-press.mjs'; // LIB-나무접기: 들어간 폴더 이름 다시 누르기 = 접기, ←/→
 import {ftFolderRowHtml} from './folder-tree-ui.mjs'; // FOLDER-나무새기준 ④: 두 손가락 벌리기 = 그 폴더만(노트·파일·사진과 같은 부품)
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
 import {createAnchoredMenu} from './anchored-menu.js';
@@ -764,17 +765,19 @@ function luRenderFolderNav(tree){
   const out=outNode?ftFolderRowHtml({name:outNode.label,count:outNode.count,countLabel:`${outNode.count}건`,depth:0,hasContent:false,current:luOutOnly,tree:true,className:'lu-fnav-out',icon:treeIconHtml('outside',{className:'ft-ico'}),mainAttrs:{'data-lu-nav':OUT_KEY}}):'';
   nav.innerHTML=`<div class="lu-fnav-in" role="tree" aria-label="자료실 폴더 나무">${top}${out}${rows.join('')}</div>`;
 }
-// S51-25 FOLDER-PC나무: 줄 누르기 = 그 폴더로 들어가기 + 나무에서 펼침, 폴더 아이콘만 누르기 = 오른쪽은 그대로 두고 접기·펼치기만(세모 없음).
+// S51-25 FOLDER-PC나무: 줄 누르기 = 그 폴더로 들어가기 + 나무에서 펼침(이미 들어가 펼친 폴더면 접기, LIB-나무접기), 폴더 아이콘만 누르기 = 오른쪽은 그대로 두고 접기·펼치기만(세모 없음).
 document.addEventListener('click',e=>{
   const t=e.target.closest?.('#libraryFolderNav [data-lu-nav-tog]');
   if(t){e.preventDefault();const id=t.dataset.luNavTog;if(t.getAttribute('aria-expanded')==='true'){luNavShut.add(id);luNavOpen.delete(id)}else{luNavShut.delete(id);luNavOpen.add(id)}luRenderLibrary();document.querySelector(`#libraryFolderNav [data-lu-nav-tog="${CSS.escape(id)}"]`)?.focus({preventScroll:true});return}
   const b=e.target.closest?.('#libraryFolderNav [data-lu-nav]');if(!b)return;
-  e.preventDefault();const id=b.dataset.luNav||null;
+  e.preventDefault();if(ftFoldIfRepeat(b))return; // LIB-나무접기: 들어가 있고 펼친 폴더 이름을 다시 누르면 접기(오른쪽 그대로)
+const id=b.dataset.luNav||null;
   if(id===OUT_KEY){luTreeBack=null;luShowOut();document.querySelector(`#libraryFolderNav [data-lu-nav="${OUT_KEY}"]`)?.focus({preventScroll:true});return}
   if(id){luNavShut.delete(id);luNavOpen.add(id)}
   luTreeBack=null;luEnterFolder(id);
   document.querySelector(`#libraryFolderNav [data-lu-nav="${CSS.escape(id||'')}"]`)?.focus({preventScroll:true});
 });
+ftBindTreeArrows();
 LU_SPLIT?.addEventListener?.('change',()=>{if(document.querySelector('#libraryListCard'))luRenderLibrary()});
 function luShowOut(){if(luGroupBy!=='folder')return;luInFolder=null;luOutOnly=true;luRenderLibrary();document.querySelector('#documentList')?.scrollIntoView?.({block:'nearest'})}
 function luSyncOutLayer(){
