@@ -180,7 +180,7 @@ for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes 
  await expect(modal.locator('#wdInboxText')).toHaveCSS('resize','none');await expect(modal.locator('#wdInboxBig')).toBeVisible();
  // 1) The edit box of a record.
  const rec=modal.locator('[data-wd-up="u-0"]');await scrollToRecord(page,rec);
- await rec.locator('[data-wd-up-menu]').click();await page.locator('#wdUpMenu').getByRole('button',{name:'수정'}).click();
+ await rec.locator('[data-wd-up-menu]').click();await page.locator('#wdUpMenu').getByRole('button',{name:'수정',exact:true}).click();
  const box=rec.locator('[data-wd-up-input]');await expect(box).toBeFocused();await expect(box).toHaveCSS('resize','none');
  const bigBtn=rec.locator('[data-wd-field-big]');await expect(bigBtn).toBeVisible();await expect(bigBtn).toHaveAccessibleName('크게');
  await bigBtn.click();await expect(editor).toBeVisible();await expect(editorText).toContainText('합성 기록 0');

@@ -34,7 +34,7 @@ async function fixture(page){
  });
  return {state,errors};
 }
-const recordMenu=async(page,rec,name)=>{await rec.locator('[data-wd-up-menu]').click();await page.locator('#wdUpMenu').getByRole('button',{name}).click()};
+const recordMenu=async(page,rec,name)=>{await rec.locator('[data-wd-up-menu]').click();await page.locator('#wdUpMenu').getByRole('button',{name,exact:true}).click()};
 
 test('서식이 있는 기록은 목록에서 서식 그대로, 서식 없는 옛 기록은 글자로 보인다',async({page})=>{
  const {errors}=await fixture(page);
