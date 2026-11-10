@@ -1,5 +1,7 @@
 // HOME-하루채우기(2026-11-09 명진 요청 08:19, 시안 ④ 승인 09:43): 홈 [하루] 아래 세 칸 — ① 오늘 사진 한 줄 ② 읽을 만한 글 ③ 이런 기록은 어때요?
-// 이 파일이 세 칸의 하나뿐인 renderer다(journal.js renderDay가 고른 날을 넘겨 부른다). 셋 다 비면 아무것도 보이지 않는다(빈 안내문 없음).
+// 이 파일이 세 칸의 하나뿐인 renderer다(journal.js renderDay가 고른 날을 넘겨 부른다).
+// HOME-오늘사진빨리(2026-11-10): '오늘 사진' 칸은 [하루]를 그릴 때부터 자리를 잡고(사진 한 줄 높이), 사진이 없는 날은 '0 · 없음'(할 일 칸과 같은 모양).
+//   ②·③은 결과가 있을 때만 보인다 — [하루] 맨 아래(주간보고 재료 위)라 늦게 나타나도 위쪽 칸을 밀지 않는다.
 // ① 사진: 일기와 같은 목록(일기에 넣은 사진 + 원드라이브 그날 사진 + 폰 앱이면 폰 사진, 이 기기 사진 출처 설정 그대로)을 읽어
 //    home-day-photos-model.mjs 규칙(별표 → 일정 시간 → 나머지 → 캡처, 연속 촬영 하나만)으로 늘어놓는다. AI·서버 저장 없음.
 //    목록·그림은 이 탭 메모리에만 있다. 일기 쪽 저장 코드(사진 넣기·지우기·별표 바꾸기)는 부르지 않는다(읽기만).
@@ -8,6 +10,7 @@
 //    AI 한도에 닿았으면(limit) ② 칸 머리에 기존 한도 알림 한 줄을 보인다(고른 것이 없어도 칸째 숨기지 않음). 일기를 쓴 제안(done)은 그리지 않는다.
 //    [일기 쓰기]는 공용 ② 작은 버튼(button.secondary). 누르면 부르는 화면이 일기 쓰기를 연다(onWrite).
 import {rankDayPhotos, stripFit, eventWindows, CELL_PX, GAP_PX} from './home-day-photos-model.mjs';
+import {emptyHtml, failHtml} from './wait-state.js';
 import {cleanReads, openSuggests, suggestTime, readAtLabel, pickedNote, limitNote, READS_OPEN} from './home-day-picks-model.mjs';
 
 const PHOTO_FRESH_MS = 10 * 60 * 1000;
@@ -20,22 +23,20 @@ const kit = () => (kitFlight ||= Promise.all([import('./diary-onedrive.js'), imp
   .then(([od, diary, phone, time, sources, folders]) => ({od, diary, phone, time, sources, folders}))
   .catch(error => { kitFlight = null; throw error; }));
 
-// 앱을 켠 직후 첫 읽기는 홈에 잠깐(2초) 머문 뒤, 그때도 홈일 때만 한다 — 바로 다른 탭으로 가면 그 탭의 서버·폰 앱 읽기와 겹치지 않게.
-// 그 뒤로는 날을 바꾸면 바로 읽는다. 건너뛰면 null → 다음에 홈을 그릴 때 다시 읽는다.
-const SETTLE_MS = 2000;
-let settled = null;
-const settle = () => (settled ||= new Promise(resolve => setTimeout(resolve, SETTLE_MS)));
+// HOME-오늘사진빨리 ①(2026-11-10 명진 요청): 예전에는 앱을 켠 직후 홈에 2초 머문 뒤에야 읽기 시작했다. 이제 홈을 그릴 때 바로 읽고,
+// 다른 화면으로 가면(alive()가 거짓) 다음 단계(폰 사진 목록·원드라이브 목록 기다리기)로 넘어가지 않고 멈춘다 — 다른 탭 읽기와 겹치지 않게 하던 목적은 '멈춤'으로 지킨다.
+// 멈춘 읽기는 홈으로 돌아와 그릴 때 다시 한다.
 const onHome = () => { const view = globalThis.window?.KPTURouter?.current; return !view || view === 'home'; };
-async function phoneDay(k, day) {
+async function phoneDay(k, day, alive) {
   const phone = k.phone.phonePhotos();
   if (!phone.usable || !k.sources.readDeviceSources().phone) return [];
   const s = await phone.hello();
-  if (s.access === 'none' || !s.key) return [];
+  if (s.access === 'none' || !s.key || !alive()) return [];
   const page = await phone.page({sort:'taken_desc', filter:'all', before:k.time.dayEndMs(day), limit:200, hide:await k.folders.phoneHideList(phone)});
   return (page.items || []).filter(it => it.day === day);
 }
-// 원드라이브 그달 목록·그달 별표는 날을 바꿔 가며 볼 때 다시 묻지 않게 이 탭 메모리에 10분 둔다(로그인한 사람·달마다).
-const monthKeep = new Map(); // `${what}:${owner}:${y}-${m}` → {at, flight}
+// 원드라이브 지난달 목록은 날을 바꿔 가며 볼 때 다시 묻지 않게 이 탭 메모리에 10분 둔다(로그인한 사람·달마다). 이번 달은 미리 받기 것을 쓴다.
+const monthKeep = new Map(); // `${owner}:${y}-${m}` → {at, flight}
 function kept(key, read) {
   const hit = monthKeep.get(key);
   if (hit && Date.now() - hit.at < PHOTO_FRESH_MS) return hit.flight;
@@ -43,36 +44,57 @@ function kept(key, read) {
   monthKeep.set(key, {at:Date.now(), flight});
   return flight;
 }
-// 연결 상태는 앱 시작 때 미리 받기(od-warm.js)가 물은 것만 쓴다(홈이 따로 묻지 않음). 미리 받기가 끝나기 전에는 원드라이브 없이 그리고,
-// 끝나면('kptu-od-warm') 다시 읽는다. 받아 둔 상태가 없으면(연결 안 됨·30분 지남) 30분에 한 번만 서버에 묻는다.
+// HOME-오늘사진빨리 ②: 원드라이브는 앱 시작 미리 받기(od-warm.js)와 같은 길이다. 홈이 먼저 오면 미리 받기를 지금 시작시키고(run soon),
+// 이번 달 목록 단계가 끝나기를(listed) 기다려 받아 둔 목록을 그대로 쓴다(두 번 받지 않음). 연결 상태도 미리 받기가 물은 것만 쓰고,
+// 받아 둔 상태가 없으면(연결 안 됨·30분 지남) 30분에 한 번만 서버에 묻는다.
+// → {data, pending}: pending은 미리 받기를 시작하지 못한 경우(앱이 가려짐 등) — 미리 받기가 끝나면('kptu-od-warm') 다시 읽는다.
 const OD_ASK_MS = 30 * 60 * 1000;
 let odAskedAt = 0;
-async function odMonth(k, rt, year, month) {
-  const warm = globalThis.window?.KPTUOdWarm;
-  if (!k.sources.readDeviceSources().onedrive || !warm?.firstDone) return null;
+async function warmApi() {
+  const win = globalThis.window;
+  if (!win) return null;
+  if (!win.KPTUOdWarm) await import('./od-warm.js').catch(() => null);
+  return win.KPTUOdWarm || null;
+}
+async function odMonth(k, rt, year, month, alive) {
+  if (!k.sources.readDeviceSources().onedrive) return {data:null};
+  const warm = await warmApi();
+  if (!warm || !alive()) return {data:null, pending:true};
+  if (!warm.listed && !warm.firstDone) warm.run?.({soon:true});
+  if (!warm.listed && !warm.firstDone) return {data:null, pending:true};
+  await warm.listed;
+  if (!alive()) return {data:null, pending:true};
+  const ready = k.od.odWarmMonthKept(rt, year, month);
+  if (ready) return {data:await ready};
   let status = k.od.odStatusIfWarm(rt);
   if (!status) {
-    if (Date.now() - Math.max(odAskedAt, warm.firstAt || 0) < OD_ASK_MS) return null;
+    if (Date.now() - Math.max(odAskedAt, warm.lastAt || 0, warm.firstAt || 0) < OD_ASK_MS) return {data:null};
     odAskedAt = Date.now(); status = k.od.odStatusCached(rt);
   }
   const st = await status;
-  if (!st?.connected || !st?.folder) return null;
-  return kept(`od:${k.diary.ownerScope(rt)}:${year}-${month}`, () => k.od.odPhotos(rt, year, month));
+  if (!st?.connected || !st?.folder || !alive()) return {data:null};
+  return {data:await kept(`${k.diary.ownerScope(rt)}:${year}-${month}`, () => k.od.odPhotos(rt, year, month))};
 }
-// → {items, starred:Set<'source:key'>}. 한 출처를 못 읽어도 나머지는 보인다.
-export async function readDayPhotos(day, rt) {
-  await settle();
-  if (!onHome()) return null;
+// → {items, starred:Set<'source:key'>, odPending} 또는 null(홈을 떠나 멈춤). 한 출처를 못 읽어도 나머지는 보인다.
+// HOME-오늘사진빨리 ③: 받는 대로 그린다 — 일기 사진·폰 사진·별표가 원드라이브보다 먼저 오면 onPart로 먼저 넘긴다.
+export async function readDayPhotos(day, rt, {alive = onHome, onPart = () => {}} = {}) {
+  if (!alive()) return null;
   const k = await kit();
+  if (!alive()) return null;
   const year = Number(day.slice(0, 4)), month = Number(day.slice(5, 7)) - 1;
-  const [row, od, phone, stars] = await Promise.all([
+  const build = (row, phone, stars, od) => ({items:k.od.dayItems(day, row, od).concat(k.time.phoneDayItems(phone, day, od?.days?.[day] || [])),
+    starred:new Set(stars.map(s => k.od.starKey(s.source, s.item_key)))});
+  let odDone = false;
+  const local = Promise.all([
     k.diary.readDiaryDay(day, rt).catch(() => null),
-    odMonth(k, rt, year, month).catch(() => null),
-    phoneDay(k, day).catch(() => []),
-    kept(`star:${k.diary.ownerScope(rt)}:${year}-${month}`, () => k.od.readStars(year, month, rt)).catch(() => []),
+    phoneDay(k, day, alive).catch(() => []),
+    k.od.odWarmStars(rt, year, month).catch(() => []),
   ]);
-  const items = k.od.dayItems(day, row, od).concat(k.time.phoneDayItems(phone, day, od?.days?.[day] || []));
-  return {items, starred:new Set(stars.map(s => k.od.starKey(s.source, s.item_key)))};
+  const odPart = odMonth(k, rt, year, month, alive).catch(() => ({data:null})).finally(() => { odDone = true; });
+  local.then(([row, phone, stars]) => { if (!odDone && alive()) onPart(build(row, phone, stars, null)); });
+  const [[row, phone, stars], od] = await Promise.all([local, odPart]);
+  if (!alive()) return null;
+  return {...build(row, phone, stars, od.data), odPending:!!od.pending};
 }
 function thumbOf(k, item, rt) {
   const opts = {label:'', link:false, rt};
@@ -83,34 +105,47 @@ function thumbOf(k, item, rt) {
 
 // host: 세 칸이 들어갈 자리. onOpenDay(day): 그날 사진 보기(일기). onWrite(day, text, id): 일기 쓰기 열기.
 export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', onOpenDay = () => {}, onWrite = () => {}, readPhotos = readDayPhotos} = {}) {
-  host.innerHTML = '<section class="journal-group journal-photos" data-journal-photos hidden></section>'
+  // HOME-오늘사진빨리 ③: '오늘 사진' 칸은 [하루]를 그릴 때 처음부터 자리(제목 + 사진 한 줄 높이)를 차지하고, 사진은 받는 대로 그 자리에 채운다.
+  host.innerHTML = '<section class="journal-group journal-photos" data-journal-photos>'
+    + '<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading"></h4><small class="journal-head-count" data-journal-photos-count></small></span><button type="button" class="row-act" data-journal-photos-open>사진 보기 ›</button></div>'
+    + '<div class="journal-photo-strip" data-journal-photo-strip role="group"></div></section>'
     + '<section class="journal-group journal-reads" data-journal-reads hidden></section>'
     + '<section class="journal-group journal-suggests" data-journal-suggests hidden></section>';
   host.hidden = true;
   const photosHost = host.querySelector('[data-journal-photos]'), readsHost = host.querySelector('[data-journal-reads]'), suggestHost = host.querySelector('[data-journal-suggests]');
-  const photoReads = new Map(); // `${owner}:${day}` → {state:'loading'|'ok'|'failed', items, at}
+  const strip = photosHost.querySelector('[data-journal-photo-strip]');
+  const photoReads = new Map(); // `${owner}:${day}` → {state:'part'|'ok'|'failed', items, starred, at, odPending}
   let last = null, k = null, drawnWidth = -1;
+  let gen = 0; // 홈을 떠날 때마다 늘어난다 — 그 전에 시작한 읽기는 다음 단계로 넘어가지 않고 멈춘다
 
   function rankedFor(day, events) {
     const read = photoReads.get(`${owner()}:${day}`);
-    if (read?.state !== 'ok') return [];
+    if (read?.state !== 'ok' && read?.state !== 'part') return [];
     return rankDayPhotos(read.items, {starred:item => read.starred.has(`${item.source}:${item.key}`), windows:eventWindows(events)});
   }
   const busy = new Map(); // 지금 읽고 있는 날 → 그사이 다시 읽어야 할 일이 생겼는지
+  const showing = key => last && !last.hidden && `${owner()}:${last.day}` === key;
   function ensurePhotos(day, {force = false} = {}) {
     const key = `${owner()}:${day}`, read = photoReads.get(key);
     if (busy.has(key)) { if (force) busy.set(key, true); return; }
     if (!onHome()) return; // 홈이 아닐 때는 읽지 않는다(돌아와 그릴 때 읽음)
-    if (!force && read && Date.now() - read.at < PHOTO_FRESH_MS) return;
+    if (!force && read && read.state !== 'part' && Date.now() - read.at < PHOTO_FRESH_MS) return;
     busy.set(key, false);
-    Promise.all([readPhotos(day, rt), kit()]).then(([out, loaded]) => {
+    const mine = gen, alive = () => mine === gen && onHome();
+    const onPart = out => kit().then(loaded => {
       k = loaded;
-      if (!out) return; // 홈을 떠나 건너뜀 — 돌아와 그릴 때 읽는다
-      photoReads.set(key, {state:'ok', items:out.items, starred:out.starred, at:Date.now()});
-    }, () => { if (read?.state !== 'ok') photoReads.set(key, {state:'failed', items:[], starred:new Set(), at:Date.now()}); })
+      if (!alive() || photoReads.get(key)?.state === 'ok') return;
+      photoReads.set(key, {state:'part', items:out.items, starred:out.starred, at:0});
+      if (showing(key)) drawPhotos();
+    }, () => {});
+    Promise.all([readPhotos(day, rt, {alive, onPart}), kit()]).then(([out, loaded]) => {
+      k = loaded;
+      if (!out) return; // 홈을 떠나 멈춤 — 돌아와 그릴 때 다시 읽는다(먼저 받은 것은 그대로 보인다)
+      photoReads.set(key, {state:'ok', items:out.items, starred:out.starred, at:Date.now(), odPending:!!out.odPending});
+    }, () => { const now = photoReads.get(key); if (now?.state !== 'ok' && now?.state !== 'part') photoReads.set(key, {state:'failed', items:[], starred:new Set(), at:Date.now()}); })
       .then(() => {
         const again = busy.get(key); busy.delete(key);
-        if (last && `${owner()}:${last.day}` === key) draw();
+        if (showing(key)) drawPhotos();
         if (again) ensurePhotos(day, {force:true});
       });
   }
@@ -118,23 +153,27 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
   const cells = new Map(); // 칸 이름(출처:키, 겹치면 번호) → 사진 칸 button
   const setText = (el, text) => { if (el && el.textContent !== text) el.textContent = text; };
   const setAttr = (el, name, value) => { if (el.getAttribute(name) !== value) el.setAttribute(name, value); };
+  // 칸 상태: 읽는 중(건수 빈칸, 자리만) → 사진 n장 / 0장이면 '0' + '없음' / 못 읽으면 실패 한 줄 + [다시]. 자리 높이는 늘 사진 한 줄(journal.css).
+  function setBody(kind) { // kind: 'cells' | 'empty' | 'fail' | 'wait'
+    if (strip.dataset.state === kind) return;
+    strip.dataset.state = kind;
+    if (kind === 'cells') { strip.querySelector('.wait-empty,.wait-fail')?.remove(); return; }
+    for (const button of cells.values()) button.remove();
+    cells.clear(); strip.querySelector('[data-journal-photo-more]')?.remove(); drawnWidth = -1;
+    strip.innerHTML = kind === 'empty' ? emptyHtml('없음', {attrs:'data-journal-photos-empty'}) : kind === 'fail' ? failHtml({retry:'data-journal-photos-retry'}) : '';
+  }
   function drawPhotos() {
-    const {day, today, events} = last, list = k ? rankedFor(day, events) : [];
-    if (!list.length) { photosHost.hidden = true; photosHost.replaceChildren(); cells.clear(); drawnWidth = -1; return; }
-    photosHost.hidden = false;
+    if (!last) return;
+    const {day, today, events} = last, read = photoReads.get(`${owner()}:${day}`);
+    const list = k ? rankedFor(day, events) : [];
     const label = day === today ? '오늘 사진' : '그날 사진';
-    let strip = photosHost.querySelector('[data-journal-photo-strip]');
-    if (!strip) {
-      photosHost.innerHTML = '<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading"></h4><small class="journal-head-count" data-journal-photos-count></small></span><button type="button" class="row-act" data-journal-photos-open>사진 보기 ›</button></div>';
-      strip = document.createElement('div');
-      strip.className = 'journal-photo-strip'; strip.dataset.journalPhotoStrip = '';
-      strip.setAttribute('role', 'group');
-      photosHost.append(strip); cells.clear();
-    }
     setText(photosHost.querySelector('.journal-heading'), label);
-    setText(photosHost.querySelector('[data-journal-photos-count]'), String(list.length));
     setAttr(photosHost.querySelector('[data-journal-photos-open]'), 'aria-label', `${label} 보기`);
-    setAttr(strip, 'aria-label', `${label} ${list.length}장`);
+    const done = read?.state === 'ok', failed = read?.state === 'failed';
+    setText(photosHost.querySelector('[data-journal-photos-count]'), list.length || done ? String(list.length) : '');
+    setAttr(strip, 'aria-label', list.length ? `${label} ${list.length}장` : label);
+    if (!list.length) { setBody(done ? 'empty' : failed ? 'fail' : 'wait'); return; }
+    setBody('cells');
     drawnWidth = strip.clientWidth;
     if (!drawnWidth) return; // 아직 폭이 없으면(칸 자리가 숨겨져 있음) 그리지 않는다 — 폭 감시가 폭이 생기면 다시 부른다
     const fit = stripFit(drawnWidth, list.length, {cell:CELL_PX, gap:GAP_PX});
@@ -199,12 +238,12 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
   function draw() {
     if (!last) return;
     if (last.hidden) { host.hidden = true; return; }
-    host.hidden = false; // 사진 칸 수를 재려면 자리가 보여야 한다(같은 동작 안에서 바로 다시 정한다 — 그 사이 화면은 그려지지 않음)
+    host.hidden = false; // '오늘 사진' 자리는 [하루]에 늘 있다(HOME-오늘사진빨리 ③). 읽을 만한 글·기록 제안은 결과가 있을 때만.
     drawPhotos(); drawReads(); drawSuggests();
-    host.hidden = photosHost.hidden && readsHost.hidden && suggestHost.hidden;
   }
   host.addEventListener('click', event => {
     if (!last) return;
+    if (event.target.closest('[data-journal-photos-retry]')) { ensurePhotos(last.day, {force:true}); return; }
     if (event.target.closest('[data-journal-photos-open],[data-journal-photo],[data-journal-photo-more]')) { onOpenDay(last.day); return; }
     const write = event.target.closest('[data-journal-suggest-write]');
     if (write) {
@@ -212,15 +251,20 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
       if (item) onWrite(last.day, item.text, item.id);
     }
   });
-  // 원드라이브 미리 받기가 끝나면 받아 둔 연결 상태로 그날 사진을 다시 읽는다.
+  // 원드라이브 미리 받기를 시작하지 못했던 읽기(odPending)만, 미리 받기가 끝나면 다시 읽는다(이미 원드라이브까지 읽은 날은 그대로).
   globalThis.window?.addEventListener?.('kptu-od-warm', () => {
-    for (const read of photoReads.values()) read.at = 0;
-    if (last && !last.hidden) ensurePhotos(last.day, {force:true});
+    for (const read of photoReads.values()) if (read.odPending) read.at = 0;
+    const read = last && !last.hidden && photoReads.get(`${owner()}:${last.day}`);
+    if (read?.odPending) ensurePhotos(last.day, {force:true});
+  });
+  // 홈을 떠나면 하던 사진 읽기를 멈추고, 돌아오면 이어서 읽는다.
+  globalThis.window?.addEventListener?.('kptu:view-changed', event => {
+    if (event.detail?.view !== 'home') { gen++; return; }
+    if (last && !last.hidden) ensurePhotos(last.day);
   });
   // 폭이 바뀌면(폴드 펼치기·창 크기) 사진 칸 수만 다시 맞춘다.
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => {
-    const strip = photosHost.querySelector('[data-journal-photo-strip]');
-    if (strip && strip.clientWidth !== drawnWidth) drawPhotos();
+    if (strip.dataset.state === 'cells' && strip.clientWidth !== drawnWidth) drawPhotos();
   }).observe(host);
   return {
     // state: {day, today, hour, events, reads:{items, picked_at}|null, suggests:{items, done}|null, limit:''|'monthly_limit'|'daily_limit', hidden}

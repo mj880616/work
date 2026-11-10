@@ -461,18 +461,18 @@ function renderDay() {
   renderFill();
 }
 // HOME-하루채우기: 고른 날·그 주 일정(사진 정렬의 일정 시간)·②·③ 서버 결과를 세 칸에 넘긴다.
-// 첫 화면 받기와 겹치지 않게 앱이 보인 뒤에 처음 그린다.
+// HOME-오늘사진빨리(2026-11-10): '오늘 사진' 자리·사진 읽기는 [하루]를 그릴 때 함께 시작한다(앱이 보이기를 기다리지 않음).
+// ②·③ 서버 부탁(syncDayPicks)만 첫 화면 받기와 겹치지 않게 앱이 보인 뒤에 시작한다.
 let fillReady = false;
 void appShown().then(() => { fillReady = true; renderFill(); });
 function renderFill() {
-  if (!fillReady) return;
   const today = todayKey(), picks = selected === today && dayPicks.key === `${ownerScope(rt)}:${today}` ? dayPicks : null;
   dayFill.render({day:selected, today, hour:seoulParts(new Date()).hour, events:materials.events?.status === 'ok' ? materials.events.items : [],
     reads:picks?.state?.reads || null, suggests:picks?.state?.suggests || null, limit:picks?.limit || '', hidden:mode === 'week'});
-  void syncDayPicks();
+  if (fillReady) void syncDayPicks();
 }
 // ②·③ (오늘만): 서버 표를 읽어 그리고, 그 주 일정·할 일 읽기가 끝난 뒤 서버에 고르기를 부탁한다(서버가 아침·저녁 한 번만 AI를 부름).
-// 앱을 켠 직후 첫 부탁은 홈에 2초 머문 뒤·그때도 홈일 때만(사진 줄과 같은 규칙). 결과는 탭 메모리(dayPicks)에만 둔다.
+// 앱을 켠 직후 첫 부탁은 홈에 2초 머문 뒤·그때도 홈일 때만(AI 부탁이라 서두르지 않음 — 사진 줄은 HOME-오늘사진빨리부터 바로 읽음). 결과는 탭 메모리(dayPicks)에만 둔다.
 let dayPicks = {key:'', state:null, limit:'', read:'', asking:false};
 let picksSettled = null;
 const picksSettle = () => (picksSettled ||= new Promise(resolve => setTimeout(resolve, 2000)));

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { clickView } from './helpers/shell-navigation.mjs';
 // HOME-하루채우기 ①(2026-11-09 시안 ④): 홈 [하루] 오늘 한 일 아래 '오늘 사진' 한 줄. 폰 390·폴드 884·PC 1440.
 // 가짜 서버만 쓴다: onedrive-photos(연결·그달 사진·사진 바이트), app_diary_stars(별표 하나). 시계는 2026-10-06 10:00 KST(home-entry.mjs).
 // 그날 일정 '오전 일정'은 10:00~11:00(home-entry.mjs) — 그 시간에 찍은 사진이 별표 다음.
@@ -76,12 +77,73 @@ for (const [width, height] of WIDTHS) {
   });
 }
 
-test('사진 없는 날은 칸째 안 보인다(빈 안내문 없음)', async ({ page }) => {
+test("HOME-오늘사진빨리: 사진 없는 날은 '그날 사진 0 · 없음', 칸 높이는 사진 한 줄 그대로", async ({ page }) => {
   const f = await boot(page, 390, 844);
-  await expect(home(page).locator('[data-journal-photos]')).toBeVisible();
+  const box = home(page).locator('[data-journal-photos]');
+  await expect(box.locator('[data-journal-photo]').first()).toBeVisible();
+  const withPhotos = await box.evaluate(el => Math.round(el.getBoundingClientRect().height));
   await home(page).locator('[data-journal-date="2026-10-05"]').click();
   await expect(home(page).locator('[data-journal-title]')).toHaveText('10월 5일 월요일');
-  await expect(home(page).locator('[data-journal-fill]')).toBeHidden();
-  await expect(home(page).locator('[data-journal-photos]')).toBeHidden();
+  await expect(box).toBeVisible();
+  await expect(box.locator('.journal-heading')).toHaveText('그날 사진');
+  await expect(box.locator('[data-journal-photos-count]')).toHaveText('0');
+  await expect(box.locator('[data-journal-photos-empty]')).toHaveText('없음');
+  await expect(box.locator('[data-journal-photo]')).toHaveCount(0);
+  expect(await box.evaluate(el => Math.round(el.getBoundingClientRect().height))).toBe(withPhotos);
   expect(f.errors).toEqual([]);
+});
+
+test('HOME-오늘사진빨리: 홈이 처음 보일 때 오늘 사진 자리가 이미 있고, 사진이 와도 칸 높이·아래 칸 위치가 그대로', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  // 홈이 처음 보인 순간(앱 공개 표시)의 '오늘 사진' 자리와 아래 칸 위치를 적어 둔다.
+  await page.addInitScript(() => {
+    window.addEventListener('kptu:app-ui-ready', () => requestAnimationFrame(() => {
+      const box = document.querySelector('#journalRoot [data-journal-photos]'), mat = document.querySelector('#journalRoot [data-journal-materials]');
+      window.__atReveal = box && !box.closest('[hidden]') ? { h: Math.round(box.getBoundingClientRect().height), matTop: Math.round(mat.getBoundingClientRect().top - box.getBoundingClientRect().top) } : null;
+    }), { once: true });
+  });
+  let photosAsked = 0;
+  await openHome(page, { beforeLoad: async () => {
+    await page.route(u => u.origin === SB && u.pathname === '/functions/v1/onedrive-photos', async r => {
+      const body = r.request().postDataJSON();
+      if (body.action === 'photo') return r.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+      if (body.action === 'status') return r.fulfill({ json: { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true } });
+      if (body.action === 'photos') { if (body.month === '2026-10') photosAsked++; await new Promise(res => setTimeout(res, 400)); return r.fulfill({ json: { month: body.month, days: body.month === '2026-10' ? { '2026-10-06': DAY } : {}, truncated: false } }); }
+      return r.fulfill({ json: {} });
+    });
+    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_diary_stars', r => r.fulfill({ json: [] }));
+  } });
+  const box = home(page).locator('[data-journal-photos]');
+  await expect(box.locator('[data-journal-photo]').first()).toBeVisible();
+  const at = await page.evaluate(() => window.__atReveal);
+  expect(at).not.toBeNull();
+  const now = await box.evaluate(el => ({ h: Math.round(el.getBoundingClientRect().height), matTop: Math.round(document.querySelector('#journalRoot [data-journal-materials]').getBoundingClientRect().top - el.getBoundingClientRect().top) }));
+  expect(now.h).toBe(at.h);
+  expect(now.matTop).toBe(at.matTop);
+  await page.waitForLoadState('networkidle');
+  expect(photosAsked).toBe(1); // 이번 달 목록은 미리 받기와 홈이 한 번만 받는다
+});
+
+test('HOME-오늘사진빨리: 홈에서 바로 다른 탭으로 가면 사진 읽기를 멈추고, 돌아오면 이어서 채운다', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openHome(page, { beforeLoad: async () => {
+    await page.route(u => u.origin === SB && u.pathname === '/functions/v1/onedrive-photos', async r => {
+      const body = r.request().postDataJSON();
+      if (body.action === 'photo') return r.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+      if (body.action === 'status') return r.fulfill({ json: { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true } });
+      if (body.action === 'photos') { await new Promise(res => setTimeout(res, 800)); return r.fulfill({ json: { month: body.month, days: body.month === '2026-10' ? { '2026-10-06': DAY } : {}, truncated: false } }); }
+      return r.fulfill({ json: {} });
+    });
+    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_diary_stars', r => r.fulfill({ json: [] }));
+  } });
+  await clickView(page, 'calendar');
+  await expect(page.locator('#calendarView')).toBeVisible();
+  await page.waitForTimeout(1200); // 목록이 온 뒤에도 홈 밖에서는 사진 칸을 채우지 않는다
+  expect(await home(page).locator('[data-journal-photo]').count()).toBe(0);
+  await clickView(page, 'home');
+  await expect(home(page).locator('[data-journal-photo]').first()).toBeVisible();
+  await expect(home(page).locator('[data-journal-photos-count]')).toHaveText('12');
+  expect(errors).toEqual([]);
 });

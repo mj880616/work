@@ -755,7 +755,7 @@ test('PC 하루 카드 모양: 큰 제목(그날 일정·할 일·오늘 한 일
  await openJournal(page,1280);
  await expect(items(page)).toHaveCount(2);await expect(itemTexts(page,'activities')).toHaveCount(1);
  const look=await journalLook(page);
- expect(look.heads.map(h=>h.text)).toEqual(['그날 일정','할 일','오늘 한 일','주간보고 재료']);
+ expect(look.heads.map(h=>h.text)).toEqual(['그날 일정','할 일','오늘 한 일','오늘 사진','주간보고 재료']);
  // '오늘 한 줄' 이름은 입력칸의 읽기 이름으로만 남는다(화면에 두 번째 제목 줄 없음).
  await expect(page.locator('#journalRoot [data-journal-line] label')).toHaveText('오늘 한 줄');await expect(page.locator('#journalRoot [data-journal-line] label')).toHaveClass(/a11y-only/);
  expect(new Set(look.heads.map(h=>h.size))).toEqual(new Set(['15px']));

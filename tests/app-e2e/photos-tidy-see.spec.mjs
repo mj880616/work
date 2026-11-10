@@ -71,7 +71,7 @@ async function fixture(page) {
       if (!u.pathname.includes(`/__phone/${KEY}/`)) return r.fulfill({ status: 404, body: '' });
       if (u.pathname.endsWith('/page')) {
         const offset = Number(u.searchParams.get('offset') || 0), limit = Number(u.searchParams.get('limit') || 120);
-        if (offset === 0 && limit === 200 && !u.searchParams.get('folder')) state.tidyScans++; // 정리 찾기 첫 쪽
+        if (offset === 0 && limit === 200 && !u.searchParams.get('folder') && !u.searchParams.get('before')) state.tidyScans++; // 정리 찾기 첫 쪽(홈 '오늘 사진'의 그날 읽기는 before가 있어 빼고 센다 — HOME-오늘사진빨리)
         const items = PHONE.slice(offset, offset + limit);
         return r.fulfill({ json: { items, next: offset + limit < PHONE.length ? offset + limit : null, total: PHONE.length } });
       }
