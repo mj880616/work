@@ -8,6 +8,8 @@ export const EMPTY_STOP = 24;
 export const MAX_MONTHS = 240;
 // 사진 메뉴 ②(2026-10-29): [폴더]·[앨범] 칩을 [달력] 뒤에 더한다(지도는 ③단계에서).
 export const TABS = Object.freeze(['all', 'calendar', 'folders', 'albums', 'trash']);
+// UI-보기탭드롭다운(11/10): 위 [사진 ▾] 고르기 상자의 보기 이름(고른 이름이 상자 글자).
+export const TAB_TEXT = Object.freeze({all: '사진', calendar: '달력', folders: '폴더', albums: '앨범', trash: '휴지통'});
 export const FILTERS = Object.freeze(['all', 'star', 'video', 'shot']);
 export const FILTER_TEXT = Object.freeze({all: '전체', star: '★', video: '동영상', shot: '스크린샷'});
 export const SELECT_MAX = 50;

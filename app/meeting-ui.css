@@ -279,27 +279,10 @@
 #meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn:disabled{opacity:.6;cursor:default}
 #meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 
-/* ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기(report-views.js). 콤팩트·톤다운, 색은 토큰만.
-   UI-보기탭한모양(S52-17): 보기 전환은 공용 ⑤ 보기 바꾸기(filter-chips.js seg:true) 한 모양. 여기는 자리만. */
-/* 머리 줄 높이는 옆 ⋯·추가 버튼의 누르는 범위(44px)를 지키도록 44px 그대로: 보기 탭의 누르는 범위 여백을 줄 높이에 넣는다(바깥 여백 0). */
-#meetingsView #reportViewFilter{flex:none;max-width:100%;margin:0}
-/* S52-22 TEAM-맨위한줄: [목록|달력|사진]은 탭 자리 규칙(01:25) 그대로 — 폰 세로 아래 가운데, 펼친 폴드·761~1199px 오른쪽 아래, PC(1200px~) 위(목록 상자 머리).
-   모양은 공용 ⑤(자료실 묶기와 같은 자리 값). 떠 있는 동안 머리 줄은 높이 0, 마지막 줄이 가리지 않게 목록 아래 여백.
-   BIZ-위쪽정돈(명진 11/09 01:22 확정안): 보기 탭 자리는 이대로 둔다(위로 올리지 않음). 위쪽 맨 윗줄(.report-top-line)은 제목 '사업 보고' + 오른쪽 작은 아이콘 [● 녹음][+][⋯]이다. */
-@media(max-width:1199px){
-  #appView #meetingsView #meetingsListCard>.add-list-head{height:0;min-height:0;margin:0;padding:0}
-  #appView #meetingsView #reportViewFilter{position:fixed;z-index:28;max-width:calc(100vw - 24px);margin:0}
-  #appView #meetingsView #meetingsListCard{margin-bottom:calc(56px + var(--kptu-switch-dock,0px))}
-}
-@media(max-width:599px){
-  #appView #meetingsView #reportViewFilter{left:50%;transform:translateX(-50%);bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px))}
-}
-@media(min-width:600px) and (max-width:760px){
-  #appView #meetingsView #reportViewFilter{right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px))}
-}
-@media(min-width:761px) and (max-width:1199px){
-  #appView #meetingsView #reportViewFilter{right:12px;bottom:calc(6px + env(safe-area-inset-bottom,0px))}
-}
+/* ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기(report-views.js).
+   UI-보기탭드롭다운(11/10 명진 'ㅇㅋㅇㅋ', 시안 docs/design/mockups/photos-top-dropdown.html): 보기는 탭 줄이 아니라 위 줄 기간 [주 단위 ▾] 옆 고르기 상자 [목록 ▾]
+   (#reportViewSelect, 모양은 위 .report-top-select 그대로). 아래에 떠 있던 탭 줄·그 자리 여백은 없앴다. 목록 상자 머리 줄은 글 읽기용 제목만 남아 높이 0. */
+#appView #meetingsView #meetingsListCard>.add-list-head{height:0;min-height:0;margin:0;padding:0}
 #meetingsView .report-top-line{flex-direction:row;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;margin-bottom:var(--kptu-space-1)}
 #meetingsView .report-top-line>.report-head-actions{margin-left:auto}
 /* BIZ-위쪽정돈PC(명진 11/09 10:52 A안, 시안 docs/design/mockups/biz-report-top-pc.html): PC(761px~)는 위쪽 세 줄(.report-top 안 같은 요소)을 한 줄로 놓는다 —

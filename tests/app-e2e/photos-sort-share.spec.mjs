@@ -131,9 +131,9 @@ for (const width of [1440, 884, 412]) {
     await expect.poll(() => order(page)).toEqual(EXPECT.size_desc);
     expect(libraryBodies(f).at(-1).sort).toBe('size_desc');
     // 달력에는 정렬 버튼이 없다.
-    await root(page).locator('[data-photos-tab="calendar"]').click();
+    await root(page).locator('[data-photos-view]').selectOption('calendar');
     await expect(sortBtn(page)).toBeHidden();
-    await root(page).locator('[data-photos-tab="folders"]').click();
+    await root(page).locator('[data-photos-view]').selectOption('folders');
     await expect(sortBtn(page)).toBeVisible();
     await expect.poll(() => libraryBodies(f).some(b => b.folder_id === 'T' && b.sort === 'size_desc')).toBe(true);
   });

@@ -63,8 +63,8 @@ test.describe('폰 앱 412 · 끝있는 불러오기', () => {
     await expect(foot(page).locator('[data-wait-fail]')).toHaveCount(1);
     // 폰 앱이 다시 답함 → [달력] 갔다 [사진]으로 돌아오면 다시 불러와 보인다.
     ctl.hang = false;
-    await page.locator('#photosRoot [data-photos-tab="calendar"]').click();
-    await page.locator('#photosRoot [data-photos-tab="all"]').click();
+    await page.locator('#photosRoot [data-photos-view]').selectOption('calendar');
+    await page.locator('#photosRoot [data-photos-view]').selectOption('all');
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1', 'ph:2', 'O2', 'O3', 'ph:4']);
     await expect(foot(page).locator('[data-wait-fail]')).toHaveCount(0);
     expect(state.errors).toEqual([]);

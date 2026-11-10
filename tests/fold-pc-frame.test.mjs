@@ -55,3 +55,15 @@ test('좁은 메뉴: 그림은 메뉴 목록 한 곳(menu-model.mjs)에서, 펼�
   assert.match(css, /#appView>\.app-nav \.nav-ico\{display:none\}/);
   assert.match(css, /html body #appView\.nav-open>\.app-nav\{width:208px;/);
 });
+
+test('UI-폴드메뉴이름: 좁은 칸은 72px이고 접힌 칸에서 이름이 그림 아래 보인다(말줄임 없이 띄어쓰기에서 줄바꿈)', () => {
+  const css = read('app/desktop-tight-nav.css');
+  assert.match(css, /grid-template-columns:72px minmax\(0,1fr\)/);
+  assert.match(css, /\.app-nav\{display:flex;z-index:35;box-sizing:border-box;width:72px;/);
+  assert.doesNotMatch(css, /width:52px|grid-template-columns:52px/);
+  const label = css.match(/#appView:not\(\.nav-open\)>\.app-nav :is\(\.sidebar-brand span,\.nav-label\)\{([^}]*)\}/);
+  assert.ok(label, '접힌 칸 이름 규칙');
+  assert.match(label[1], /white-space:normal/);
+  assert.match(label[1], /word-break:keep-all/);
+  assert.doesNotMatch(label[1], /ellipsis|clip|width:1px/);
+});

@@ -169,7 +169,7 @@ test.describe('폰 앱 412 · 사진 정리 삭제 안전장치', () => {
     const state = await fixture(page);
     await openTidy(page);
     await page.locator('#photosRoot [data-photos-tidy-chip]').click();
-    await page.locator('#photosRoot [data-photos-tab="folders"]').click();
+    await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
     const row = page.locator('#photosRoot [data-photos-pf="Pictures/KakaoTalk/"]');
     await row.locator('[data-photos-pf-more]').click();
     await page.locator('#photosPhoneFolderMenu').getByRole('button', { name: '삭제', exact: true }).click();

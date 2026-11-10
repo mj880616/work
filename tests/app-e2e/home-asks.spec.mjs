@@ -51,7 +51,7 @@ for(const width of [900,1280])test(`${width}px: a faint number beside the menu h
   expect(m).toMatchObject({attr:'2',content:'"2"',redBadge:0,overflow:false});
   expect(m.color).toBe(await warning(page));
   const box=await page.locator('#appView>.app-nav .sidebar-brand').boundingBox();
-  expect(box.width).toBeLessThanOrEqual(width<1024?52:160);
+  expect(box.width).toBeLessThanOrEqual(width<1024?72:160); // UI-폴드메뉴이름: 좁은 칸 72px
 });
 for(const width of [390,1280])test(`${width}px: nothing to handle → no mark`,async({page})=>{
   await fixture(page,{width,cands:[cand(3,'update')]});

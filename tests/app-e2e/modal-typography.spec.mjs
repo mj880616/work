@@ -185,7 +185,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
   }
   if(name==='library'||name==='meetings'&&width<761){
-    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter):not(.report-period-chips)');// REPORT-기간고르기: 기간 칩 줄은 report-period.spec이 따로 본다
+    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(.report-period-chips)');// REPORT-기간고르기: 기간 칩 줄은 report-period.spec이 따로 본다
     // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
     // UI-전수디자인점검 F01: 사업 보고(폰)는 위쪽 칸 칩 줄 하나(사업영역·회의명은 줄 끝 [거르기 ▾] 창으로 접었다).
     // LIB-위쪽한줄(11/09): 자료실은 묶기·분류 모두 위 줄 고르기([폴더 ▾][분류 ▾])라 칩 줄이 없다(library-top-row.spec.mjs가 본다).

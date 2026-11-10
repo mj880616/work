@@ -125,5 +125,10 @@ export async function openFamilyNoteWindow({rt = window.KPTURuntime, line, body,
   if (!anchor?.isConnected) return openNoteWindow(args);
   const rowKey = anchor.closest('[data-nbx-row]')?.dataset.nbxRow || '';
   const {openNoteQuick} = await import('./note-quick.js');
-  return openNoteQuick({...args, anchor, reanchor: () => (rowKey ? [...document.querySelectorAll('[data-nbx-row]')].find(r => r.dataset.nbxRow === rowKey)?.querySelector('[data-nbx-act="note"]') : null) || null});
+  // UI-잊지말기줄단추: 폰은 [노트로]가 줄 ⋯ 안에 있으므로, 다시 그린 뒤에는 보이는 [노트로], 없으면 그 줄의 ⋯ 옆에 둔다.
+  const shown = el => el && el.getClientRects().length ? el : null;
+  return openNoteQuick({...args, anchor, reanchor: () => {
+    const row = rowKey ? [...document.querySelectorAll('[data-nbx-row]')].find(r => r.dataset.nbxRow === rowKey) : null;
+    return shown(row?.querySelector('[data-nbx-act="note"]')) || shown(row?.querySelector('.nbx-more')) || null;
+  }});
 }

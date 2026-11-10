@@ -95,15 +95,17 @@ function setNoteMenu(open,{focus=false}={}){
 root.addEventListener('focusout',e=>{const wrap=root.querySelector('[data-basket-note-more-wrap]');if(wrap?.contains(e.target)&&e.relatedTarget&&!wrap.contains(e.relatedTarget))setNoteMenu(false);});
 document.addEventListener('click',e=>{const wrap=root.querySelector('[data-basket-note-more-wrap]');if(wrap&&noteMenu()&&!noteMenu().hidden&&!wrap.contains(e.target))setNoteMenu(false);});
 // UI-업데이트목록메뉴: each update row has [⋯] beside [복사] (same look and behavior as the note rows, basket-notes.js):
-// 수정 · 연결하기 · 할 일 만들기 · 노트로 옮기기 · 업무일지에 남기기(또는 업무일지에서 빼기) · 삭제. It opens right under the pressed ⋯ (anchored-popup.js, PC and phone),
+// 수정 · 연결하기 · 할 일로 · 노트로 · 업무일지에 남기기(또는 업무일지에서 빼기) · 삭제. It opens right under the pressed ⋯ (anchored-popup.js, PC and phone),
 // one at a time, and closes on Esc (focus back to the ⋯), an outside press, leaving it by keyboard or choosing an item.
 // Each item reuses the detail's own path (openDetail and its buttons); an item the detail would refuse is left out.
 const rowMenuEl=root.querySelector('#basketRowMenu');
 let rowMenu=null;
 // UI-모바일노트복사메뉴: on a phone the row has no [복사] button; [복사] is the first item of this menu.
 // UI-화면정리 C4(요청함 10/28 20:03, S48-46): PC도 같다 — 줄마다 늘 보이던 복사 아이콘을 없애고 [복사]는 ⋯·우클릭 메뉴 맨 위(노트 줄 17:45 ③과 같게).
-function rowMenuItems(note){
-  return [...(String(note.raw_text||'').trim()?[['copy','복사']]:[]),['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일 만들기'],['to-note','노트로 옮기기'],['to-report','사업 보고로 옮기기'],...journalItem(note),note.archived_at?['unhold','보류 해제']:['hold','보류로'],['delete','삭제','basket-menu-danger']];
+// UI-잊지말기줄단추(11/10 명진 '추천대로'): 줄 버튼과 메뉴 이름을 하나로 — [할 일로]·[노트로](옛 '할 일 만들기'·'노트로 옮기기').
+// 줄에 처리 버튼이 있는 줄(처리 전, acts)은 폰에서 접힌 [일정으로]·[조직]·[사업]도 줄 버튼과 같은 이름·같은 길(updateAct)로 여기 둔다. ×는 [보류로].
+function rowMenuItems(note,acts=false){
+  return [...(String(note.raw_text||'').trim()?[['copy','복사']]:[]),['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일로'],...(acts?[['event','일정으로']]:[]),['to-note','노트로'],...(acts?[['org','조직'],['area','사업']]:[]),['to-report','사업 보고로 옮기기'],...journalItem(note),note.archived_at?['unhold','보류 해제']:['hold','보류로'],['delete','삭제','basket-menu-danger']];
 }
 // BASKET-일지로남기기: [업무일지에 남기기] for an update that went to no organization and no project; [업무일지에서 빼기] once kept.
 function journalItem(note){
@@ -134,10 +136,10 @@ function openRowMenu(trigger){
 }
 // S48-56: [일기로 보내기]는 [노트로 옮기기] 바로 아래(위 목록 줄은 다른 작업과 겹치지 않게 그대로 두고 여기서 끼운다).
 const withDiaryItem=items=>items.flatMap(item=>item[0]==='to-note'?[item,['to-diary','일기로 보내기']]:[item]);
-const rowMenuHtml=note=>withDiaryItem(rowMenuItems(note)).map(([act,label,cls])=>`<button type="button" data-basket-row-act="${act}"${cls?` class="${cls}"`:''}>${label}</button>`).join('');
+const rowMenuHtml=(note,acts)=>withDiaryItem(rowMenuItems(note,acts)).map(([act,label,cls])=>`<button type="button" data-basket-row-act="${act}"${cls?` class="${cls}"`:''}>${label}</button>`).join('');
 // Shows the menu under this ⋯ and follows it. The items are rewritten only when they differ, so a press already on an item is not lost.
 function attachRowMenu(note,trigger){
-  const html=rowMenuHtml(note);
+  const html=rowMenuHtml(note,!!trigger.closest('.nbx-acts'));
   if(rowMenuEl.innerHTML!==html)rowMenuEl.innerHTML=html;
   rowMenuEl.hidden=false;
   // UI-메뉴잘림: 높이를 320px로 묶으면 [보류로]·[삭제]가 표시 없는 안쪽 스크롤에 숨었다. 창 높이까지 다 보이고, 정말 길 때만 스크롤 + 아래 흐림.
@@ -606,7 +608,7 @@ function updateItems() {
       meta: [time(note), note.attachments?.length ? '첨부 ' + note.attachments.length + '개' : '', filter === 'unclassified' && label !== '미분류' ? label : ''].filter(Boolean).join(' · '),
       done: note.archived_at ? '보류' : label,
       attrs: `data-basket-row-item="${esc(note.id)}"`,
-      tail: `<button type="button" class="icon-btn" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>`,
+      tail: `<button type="button" class="icon-btn nbx-more" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>`,
       below: chips ? `<div class="nbx-below" role="group" aria-label="연결된 곳">${chips}</div>` : ''};
   });
 }
@@ -1051,7 +1053,7 @@ root.addEventListener('click', e => {
   if (rowMenuEl.contains(b)) {
     const from = closeRowMenu({focus:true}), act = b.dataset.basketRowAct;
     // 복사는 누른 그 순간에(클립보드 권한), 나머지는 메뉴 겹의 뒤로가기가 도착한 뒤에 한다(그다음 여는 창·화면 기록을 지우지 않게).
-    if (from) { if (act === 'copy') rowMenuAction(act, from.noteId); else from.released.then(() => rowMenuAction(act, from.noteId)); }
+    if (from) { if (act === 'copy') rowMenuAction(act, from.noteId); else if (act === 'event' || act === 'org' || act === 'area') from.released.then(() => updateAct(from.noteId, act, from.trigger)); else from.released.then(() => rowMenuAction(act, from.noteId)); }
     return;
   }
   const fromNoteMenu = !!noteMenu()?.contains(b); if (fromNoteMenu) setNoteMenu(false, {focus:true});
