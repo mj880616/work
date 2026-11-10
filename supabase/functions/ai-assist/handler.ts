@@ -104,7 +104,7 @@ import {
 } from "./web2-ask.ts";
 import { TG_RAW_MAX_ITEMS, tgNameKey, tgNamesFor } from "./tg-raw.ts";
 import {
-  learnFromRows, parseWeeklyDraft, parseWeeklyDraftRequest, parseWeeklyReview, parseWeeklyReviewRequest, readFeedbackCell, readPicksCell, readRuleBook, mergeRuleBooks, freshCandidates, reviewSuggestions,
+  cellHabits, draftWheres, learnFromRows, parseWeeklyDraft, parseWeeklyDraftRequest, parseWeeklyReview, parseWeeklyReviewRequest, readFeedbackCell, readPicksCell, readRuleBook, mergeRuleBooks, freshCandidates, reviewSuggestions,
   weeklyDraftMaterial, weeklyReviewMaterial, withReview,
   WEEKLY_DRAFT_INSTRUCTIONS, WEEKLY_DRAFT_SCHEMA, WEEKLY_LEARN_BODY_BYTES, WEEKLY_REVIEW_INSTRUCTIONS, WEEKLY_REVIEW_SCHEMA,
   WL_DRAFT_OUTPUT_TOKENS, WL_LEARN_WEEKS, WL_REVIEW_OUTPUT_TOKENS,
@@ -4835,7 +4835,7 @@ async function runWeeklyDraft(ctx: Ctx, input: WeeklyDraftInput, deps: RadarDeps
   const parsed = parseWeeklyDraft(raw, input.cells);
   if (!parsed) { deps.log("ai_invalid_response"); throw new Fail(502, "ai_invalid_response"); }
   // 기록에는 숫자만 남긴다(칸 글·기록 글 없음).
-  deps.log("weekly_draft_done", { mode: input.mode, cells: input.cells.length, answered: parsed.cells.length, dropped: parsed.dropped, weeks: learn.weeks, rules: learn.rules.length });
+  deps.log("weekly_draft_done", { mode: input.mode, cells: input.cells.length, answered: parsed.cells.length, dropped: parsed.dropped, weeks: learn.weeks, rules: learn.rules.length, habits: cellHabits(learn.feedback, draftWheres(input)).length });
   return json({ ok: true, kind: "weekly_draft", week_start: input.week_start, mode: input.mode, cells: parsed.cells, learned: { weeks: learn.weeks, rules: learn.rules.length } });
 }
 
