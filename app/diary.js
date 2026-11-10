@@ -306,19 +306,14 @@ function closeDetail({fromBack = false} = {}) {
   const opened = dayLayer; dayLayer = null; if (!fromBack) opened?.close();
   renderList();
 }
-// UI-우클릭빈곳전수 ①: 일기 상세 전체의 ⋯(data-ctx="area") — PC 우클릭은 공용 context-menu.js가 이 메뉴를 커서 자리에 연다.
-// 항목은 아래 단추와 같은 일([수정]·[그날 사진 크게 보기]·[일기 삭제]); 아래 [수정][일기 삭제] 단추는 그대로 둔다.
-function detailMenuHtml(row, hasPhotos) {
-  const items = `<button type="button" data-diary-menu-edit>${row ? '수정' : '일기 쓰기'}</button>${hasPhotos ? '<button type="button" data-diary-view-photos>그날 사진 크게 보기</button>' : ''}${row ? '<button type="button" class="diary-menu-danger" data-diary-menu-delete>일기 삭제</button>' : ''}`;
-  return `<span class="diary-head-menu-wrap"><button type="button" class="icon-btn diary-head-more" data-diary-head-more data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-controls="diaryDetailMenu" aria-label="이 날 일기 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="diaryDetailMenu" class="diary-lv-menu diary-head-menu" role="group" aria-label="이 날 일기 메뉴" data-diary-head-menu hidden>${items}</span></span>`;
-}
 function renderDetail() {
   if (!selected) return;
   sendWhere(longDay(selected));
   const row = rows.get(selected), text = diaryText(row), hasPhotos = dayItems(selected, row, odShown()).length + phoneShown(selected).length > 0;
   detail.hidden = false; list.hidden = true; if (!allHost.hidden) listView.hide();
-  detail.innerHTML = `<div class="diary-panel-head"><span class="diary-head-ends">${row || hasPhotos ? detailMenuHtml(row, hasPhotos) : ''}<button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></span></div><div class="diary-done" data-diary-done></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source ds-seg" role="group" aria-label="사진 보기"><button type="button" class="ds-seg-btn" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" class="ds-seg-btn" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>${hasPhotos ? '<div class="diary-ctx-slot" data-diary-context-slot></div>' : ''}` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 삭제</button></div>` : emptyHtml('일기 없음')}`;
+  detail.innerHTML = `<div class="diary-panel-head"><span class="diary-head-ends">${row || hasPhotos ? detailMenuHtml() : ''}<button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></span></div><div class="diary-done" data-diary-done></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source ds-seg" role="group" aria-label="사진 보기"><button type="button" class="ds-seg-btn" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" class="ds-seg-btn" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>${hasPhotos ? '<div class="diary-ctx-slot" data-diary-context-slot></div>' : ''}` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 삭제</button></div>` : emptyHtml('일기 없음')}`;
   syncDetailTitle();
+  fillDetailMenu(row, hasPhotos);
   paintDone(detail.querySelector('[data-diary-done]'), selected);
   const view = detail.querySelector('[data-diary-text-view]');
   if (view && diaryHasDoc(row)) view.replaceChildren(renderDoc(row.doc));
@@ -1075,6 +1070,17 @@ async function commitDiaryDelete(job) {
 }
 // [⋯] 작은 목록: 쓰기 창 머리줄 안에 붙어 열린다. 바깥을 누르거나 Esc면 닫힌다.
 // S47-18: 열려 있을 때 뒤로가기 = 메뉴만 닫기(공용 작은 메뉴 겹 KPTUMenuLayer, details-menu-back.js). 쓰기 창은 그대로.
+// UI-우클릭빈곳전수 ①: 일기 상세 전체의 ⋯(data-ctx="area") — PC 우클릭은 공용 context-menu.js가 이 메뉴를 커서 자리에 연다.
+// 항목은 아래 단추와 같은 일([수정]·[그날 사진 크게 보기]·[일기 삭제]); 아래 [수정][일기 삭제] 단추는 그대로 둔다.
+function detailMenuHtml() {
+  return `<span class="diary-head-menu-wrap"><button type="button" class="icon-btn diary-head-more" data-diary-head-more data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-controls="diaryDetailMenu" aria-label="이 날 일기 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="diaryDetailMenu" class="diary-lv-menu diary-head-menu" role="group" aria-label="이 날 일기 메뉴" data-diary-head-menu hidden></span></span>`;
+}
+// 메뉴 항목은 버튼 6가지 모양이 아니라 작은 메뉴(diary-lv-menu) 줄 모양이라 이름표 없이 만든다(쓰기 창 머리줄 메뉴와 같은 모양).
+function fillDetailMenu(row, hasPhotos) {
+  const menu = detail.querySelector('[data-diary-head-menu]'); if (!menu) return;
+  const item = (label, mark, danger = false) => { const b = document.createElement('button'); b.type = 'button'; b.setAttribute(mark, ''); if (danger) b.className = 'diary-menu-danger'; b.textContent = label; return b; };
+  menu.replaceChildren(item(row ? '수정' : '일기 쓰기', 'data-diary-menu-edit'), ...(hasPhotos ? [item('그날 사진 크게 보기', 'data-diary-view-photos')] : []), ...(row ? [item('일기 삭제', 'data-diary-menu-delete', true)] : []));
+}
 const HEAD_MENU = '[data-diary-editor-menu],[data-diary-head-menu]';
 function toggleEditorMenu(button, open = !button.nextElementSibling || button.nextElementSibling.hidden) {
   const menu = button.nextElementSibling;
