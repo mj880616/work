@@ -5,7 +5,8 @@ import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 
 const NOW=Date.parse('2026-10-08T03:00:00Z');
-const LONG='가나다라마바사아자차카타파하 아주 긴 할 일 제목 시험용 가나다라마바사아자차카타파하 아주 긴 할 일 제목 시험용';
+// TASK-넓게쓰기(2026-11-10): 고르기 전에는 목록이 화면 폭 전부라, PC 1280에서도 한 줄을 넘는 길이로 둔다.
+const LONG='가나다라마바사아자차카타파하 아주 긴 할 일 제목 시험용 '.repeat(5).trim();
 const task=(id,due,title='할 일 '+id)=>({id,title,taskListId:'@default',taskListTitle:'내 할 일',due,status:'needsAction',notes:''});
 const PROJECTS=[{id:'p1',name:'시험 프로젝트',workspace_id:'qa-ws',owner_id:'qa-user',metadata:{project_system:'v2'},status:'active'}];
 const ORGS=[{id:'o1',name:'시험 조직',active:true}];
