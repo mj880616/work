@@ -231,7 +231,7 @@ document.addEventListener('contextmenu', e => {
   trigger.click();
   placeStylePanel(trigger, x, y);
 });
-// UI-PC손맛묶음 ③: a mouse drag that selects text (to copy a line of 잊지 말기 / 할 일 / 조직 보고 and the like) ends in a click on
+// UI-PC손맛묶음 ③ (PC widths only): a mouse drag that selects text (to copy a line of 잊지 말기 / 할 일 / 조직 보고 and the like) ends in a click on
 // the line it started on; that click must not open the line. One rule for every screen: a click that ends a mouse drag of 5px or
 // more while text is selected does nothing (the selection stays for copying). A plain click, a touch tap, a keyboard press, a press
 // inside an input / editable text or on a link keeps its own behavior.
@@ -239,11 +239,13 @@ let dragFrom = null;
 window.addEventListener('pointerdown', e => { dragFrom = e.pointerType === 'mouse' && e.button === 0 ? { x: e.clientX, y: e.clientY } : null; }, true);
 window.addEventListener('click', e => {
   const from = dragFrom; dragFrom = null;
-  if (!from || e.detail === 0 || Math.hypot(e.clientX - from.x, e.clientY - from.y) < 5) return;
+  if (!from || !WIDE.matches || e.detail === 0 || Math.hypot(e.clientX - from.x, e.clientY - from.y) < 5) return;
   const target = e.target instanceof Element ? e.target : null;
   if (!target || target.closest(EDITABLE + ',a[href],label')) return;
   const selection = window.getSelection?.();
   if (!selection || selection.isCollapsed || selection.toString().trim() === '') return;
+  // Only the line whose own text is selected (a pull / swipe that happens to select text elsewhere keeps its click).
+  if (!selection.containsNode(target, true) && !target.contains(selection.anchorNode)) return;
   e.preventDefault(); e.stopImmediatePropagation();
 }, true);
 // UI-PC손맛묶음 ④: a button that shows only a picture or a sign (⋯ × ‹ › + an icon) gets its name (aria-label) as the mouse hover
