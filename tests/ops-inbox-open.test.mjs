@@ -1,7 +1,7 @@
 // OPS-요청함대기계산: 요청함 대기 목록을 기억이 아니라 계산으로 뽑는지 본다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {openItems, summary, classify, splitBlocks, taskName} from '../scripts/ops/inbox-open.mjs';
+import {openItems, summary, classify, splitBlocks, taskName, squareName} from '../scripts/ops/inbox-open.mjs';
 
 const SAMPLE = `﻿# Web2 요청함
 안내 문단은 덩어리가 아니다.
@@ -63,4 +63,67 @@ test('과제 이름 뽑기', () => {
   assert.equal(taskName('→ 접수: PHOTO-갤러리편집 — 완료 #1687'), 'PHOTO-갤러리편집');
   assert.equal(taskName(''), '');
   assert.equal(classify({lines: ['[1/1] x']}).state, 'unreceived');
+});
+
+// OPS-요청함■세기: 11/06부터 요청함 방이 쓰는 '■ 과제이름 (…)' 덩어리도 요청 하나로 센다.
+const SQUARE_SAMPLE = `[11/06 09:00] 옛 형식 요청
+→ 접수: G-옛 — 대기(CC 전달) (11/06)
+
+
+■ UI-보기줄자리 (앞 결정 11/07 보기 탭 자리 규칙 이어서)
+원문(11/10 11:23): "가"
+할 일: ① 나
+→ 덧붙임 알림(11/10 11:54): 시안 ㅇ
+완료 기준: 다
+접수 11/10 11:24 요청함 V24 — 명진 목록 전달
+
+
+■ MENU-조직보고이름 (메뉴 '담당조직' → '조직 보고')
+할 일: 라
+접수 11/09 08:00 요청함 V23 — 명진 ㅇ → 대조: 완료 #20
+
+
+■ LIB-화면끌어놓기 이어서 (앞 작업 10/26)
+할 일: 마
+접수 11/08 10:00 요청함 V21 — 명진 ㅇ → 대조: 남음 (바 빠짐)
+
+
+---- CC 작업 상황 ----
+■ UI-보기줄자리 → 진행 중: #30 열림.
+■ [11/08 09:34] 옛 형식 요청 → 완료: #31 merge.
+→ 접수: 여기는 어느 요청에도 붙지 않음 — 완료 #99
+
+
+■ ORG-막힘 ★급★ (조직 보고 막힘)
+★CC 착수 금지 — 명진 직접 세션★
+접수 11/10 09:00 요청함 V24
+`;
+
+test('■ 덩어리 나누기: CC 상황 한 줄 요약은 요청이 아니다', () => {
+  const blocks = splitBlocks(SQUARE_SAMPLE);
+  assert.deepEqual(blocks.map(b => b.square || 'date'), ['date', 'UI-보기줄자리', 'MENU-조직보고이름', 'LIB-화면끌어놓기', 'ORG-막힘']);
+  assert.equal(squareName('■ FORGET-원문열기·뒤로가기 (잊지 말기)'), 'FORGET-원문열기·뒤로가기');
+  // 상황 요약 뒤 줄은 앞 덩어리에 붙지 않는다.
+  assert.ok(!blocks[3].lines.some(l => l.includes('#99')));
+});
+
+test('■ 덩어리: 과제 이름·접수 시각·상태(표시 없으면 대기)·원장 행', () => {
+  const items = openItems(SQUARE_SAMPLE, {roadmap: '| UI-보기줄자리 | 설명 | 대기 |\n', now: new Date('2026-11-10T13:24:00+09:00')});
+  const by = Object.fromEntries(items.map(i => [i.task, i]));
+  assert.deepEqual(Object.keys(by).sort(), ['G-옛', 'LIB-화면끌어놓기', 'UI-보기줄자리'].sort());
+  assert.equal(by['UI-보기줄자리'].state, 'waiting');
+  assert.equal(by['UI-보기줄자리'].ageHours, 2);
+  assert.equal(by['UI-보기줄자리'].ledger, true);
+  assert.equal(by['LIB-화면끌어놓기'].state, 'partial');
+  assert.equal(by['LIB-화면끌어놓기'].ledger, false);
+  // 옛 [날짜] 덩어리 결과는 그대로.
+  assert.equal(by['G-옛'].state, 'waiting');
+  assert.equal(by['G-옛'].ageHours, 100);
+});
+
+test('■ 덩어리가 섞여도 옛 [날짜] 표본 계산은 그대로', () => {
+  const mixed = SAMPLE + '\n\n■ Z-새 (뒤)\n할 일: 가\n접수 11/02 10:00 요청함\n';
+  const before = openItems(SAMPLE, {now: new Date('2026-11-02T12:00:00+09:00')});
+  const after = openItems(mixed, {now: new Date('2026-11-02T12:00:00+09:00')}).filter(i => i.task !== 'Z-새');
+  assert.deepEqual(after, before);
 });

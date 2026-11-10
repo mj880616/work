@@ -3,6 +3,7 @@
 //
 // 쓰는 법: Drive 문서 'Web2 요청함'을 텍스트로 받아 파일로 저장한 뒤
 //   node scripts/ops/inbox-open.mjs <요청함.txt> [--roadmap docs/roadmap.md] [--now 2026-11-02T11:30+09:00] [--json]
+// 요청 덩어리: '[날짜]'로 시작하는 줄, 또는 '■ 과제이름 (…)'으로 시작하는 줄(11/06부터 요청함 방 형식).
 // 결과: 아직 끝나지 않은 요청 표(markdown) — 상태 분류, 원장 행 유무, 접수 뒤 지난 시간.
 // 저장소는 공개다. 요청함 원문은 이 스크립트에 넣지 않고 실행할 때만 읽는다. 결과 표도 PR·문서에 붙이지 않는다
 // (제목에 업무 내용이 섞일 수 있음). 결과는 CC 방 보고와 인계서(비공개 프로젝트 문서)에만 쓴다.
@@ -10,10 +11,22 @@ import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 
 const HEAD = /^\[(?:(\d{4})-)?(\d{1,2})[-/](\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?\]/;
+// 11/06부터 요청함 방은 '■ 과제이름 (…)'으로 시작하는 덩어리로도 요청을 쓴다(OPS-요청함■세기).
+// 접수 시각은 덩어리 안 '접수 MM/DD HH:MM' 줄에서 읽는다.
+const SQUARE = /^\s*■\s*([^\s(（]+)/;
+// CC 작업 상황 절의 한 줄 요약('■ 과제 → 완료: #PR …')은 요청이 아니다. 덩어리를 끝내기만 한다.
+const SQUARE_STATUS = /^\s*■[^\n]*?\s→\s*(?:완료|진행\s*중|대기|남음|접수|대조)\s*:/;
+const SQUARE_TIME = /접수\s+(?:(\d{4})-)?(\d{1,2})[/-](\d{1,2})\s+(\d{1,2}):(\d{2})/;
 const RECEIPT = /→\s*(접수|대조)\s*:/;
 const BLOCKED = '★CC 착수 금지';
 
-// 요청 덩어리로 나눈다: [MM/DD HH:MM]로 시작하는 줄부터 다음 그런 줄 전까지.
+// '■ UI-보기줄자리 (앞 결정 …)' → 'UI-보기줄자리'
+export function squareName(line) {
+  const m = SQUARE.exec(line || '');
+  return m ? m[1].replace(/[,:;·.]+$/, '') : '';
+}
+
+// 요청 덩어리로 나눈다: [MM/DD HH:MM] 또는 '■ 과제이름'으로 시작하는 줄부터 다음 그런 줄 전까지.
 export function splitBlocks(text) {
   const lines = String(text).replace(/^﻿/, '').split(/\r?\n/);
   const blocks = [];
@@ -21,6 +34,11 @@ export function splitBlocks(text) {
   for (const line of lines) {
     if (HEAD.test(line)) {
       cur = {title: line.trim(), lines: [line]};
+      blocks.push(cur);
+    } else if (SQUARE_STATUS.test(line)) {
+      cur = null;
+    } else if (SQUARE.test(line)) {
+      cur = {title: line.trim(), lines: [line], square: squareName(line)};
       blocks.push(cur);
     } else if (cur) {
       cur.lines.push(line);
@@ -44,7 +62,8 @@ export function classify(block) {
   const body = block.lines.join('\n');
   if (body.includes(BLOCKED)) return {state: 'blocked', last: ''};
   const rs = receipts(block);
-  if (!rs.length) return {state: 'unreceived', last: ''};
+  // ■ 덩어리는 요청함 방이 과제 이름을 붙여 쓴 것이라 표시가 없으면 '대기'로 센다.
+  if (!rs.length) return {state: block.square ? 'waiting' : 'unreceived', last: ''};
   const last = rs[rs.length - 1];
   if (/대조\s*:\s*남음/.test(last)) return {state: 'partial', last};
   if (/남음|일부 완료/.test(last)) return {state: 'partial', last};
@@ -66,11 +85,20 @@ export function inRoadmap(name, roadmap) {
   return name.split(/\s*[+·,]\s*/).filter(Boolean).some(n => roadmap.includes(`| ${n} |`));
 }
 
-function blockTime(title, now) {
-  const m = HEAD.exec(title);
+function blockTime(block, now) {
+  if (block.square) {
+    const line = block.lines.find(l => SQUARE_TIME.test(l));
+    const t = line ? SQUARE_TIME.exec(line) : null;
+    return t ? kstDate(t[1], t[2], t[3], t[4], t[5], now) : null;
+  }
+  const m = HEAD.exec(block.title);
   if (!m) return null;
-  const year = Number(m[1] || now.getFullYear());
-  const d = new Date(`${year}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}T${(m[4] || '0').padStart(2, '0')}:${m[5] || '00'}:00+09:00`);
+  return kstDate(m[1], m[2], m[3], m[4], m[5], now);
+}
+
+function kstDate(y, mo, da, h, mi, now) {
+  const year = Number(y || now.getFullYear());
+  const d = new Date(`${year}-${mo.padStart(2, '0')}-${da.padStart(2, '0')}T${(h || '0').padStart(2, '0')}:${mi || '00'}:00+09:00`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
@@ -85,8 +113,8 @@ export function openItems(text, {roadmap = '', now = new Date()} = {}) {
   for (const b of splitBlocks(text)) {
     const {state, last} = classify(b);
     if (!OPEN_STATES.includes(state)) continue;
-    const name = taskName(last);
-    const t = blockTime(b.title, now);
+    const name = b.square || taskName(last);
+    const t = blockTime(b, now);
     items.push({
       title: b.title.replace(/→.*$/, '').trim().slice(0, 120),
       state, label: LABEL[state], task: name,
