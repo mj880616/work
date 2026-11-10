@@ -111,3 +111,14 @@ test('폰 412: 탭 제목만 바뀌고 하단 탭·메뉴 판은 단추 그대�
  await expect(page.locator('[data-skip-main]')).not.toBeInViewport();
  expect(errors).toEqual([]);
 });
+
+test('⑨ PC 1280: 조직 보고 [연도별 타임라인] 제목은 다른 칸 제목처럼 왼쪽',async({page})=>{
+ const errors=await open(page);
+ await page.evaluate(()=>window.KPTURouter.go('team'));await expect(page.locator('#teamView')).toBeVisible();
+ const time=page.locator('#wdTime > summary h3'),log=page.locator('#wdLog .wd-head h3');
+ await expect(time).toBeVisible();await expect(log).toBeVisible();
+ const [t,l]=[await time.boundingBox(),await log.boundingBox()];
+ // 꺾쇠(글자 1개 폭) 하나만큼만 들여 쓰고, 칸 오른쪽 끝으로 밀리지 않는다.
+ expect(t.x-l.x).toBeGreaterThanOrEqual(0);expect(t.x-l.x).toBeLessThan(30);
+ expect(errors).toEqual([]);
+});
