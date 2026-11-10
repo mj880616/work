@@ -139,13 +139,28 @@ function orgRows(entries, sorts, {keep = ''} = {}) {
     else if (place.kind === 'irregular') push(irregular, org, b);
   }
   const rows = [];
-  for (const id of [...sorts.parents.map(p => p.id), ETC]) {
+  for (const id of orgOrder(sorts)) {
     if (!regular.has(id) && !irregular.has(id)) continue;
     rows.push({type: 'org', id, label: parentLabel(sorts, id)});
     for (const b of regular.get(id) || []) rows.push({type: 'name', ...b, org: id});
     if (irregular.has(id)) rows.push({type: 'group', id, label: '비정기 회의', items: irregular.get(id)});
   }
   return rows;
+}
+
+// 조직 순서: 조직 목록 순서, '기타'는 맨 아래(고르기 창·사업 보고 회의 목록·[회의 ▾] 상자가 모두 이 순서를 쓴다).
+export const orgOrder = sorts => [...(sorts?.parents || []).map(p => p.id), ETC];
+// S56-36 MTG-회의목록조직묶기: 회의명이 붙은 아무 줄(items)을 조직별로 나눈다 — 고르기 창 밖(사업 보고 회의 [목록] 왼쪽 칸, [회의 ▾] 상자의 회의명)도
+// 같은 조직 목록·같은 orgOf로 묶이게. 조직으로 묶지 않는 값(grouped가 아님: 옛 값·정리 없음·읽기 전)이면 null(부른 곳은 지금처럼 묶음 없이 그린다).
+// 돌려줌: [{id, label, items}] — orgOrder 순서, 줄이 없는 조직은 빠짐, 조직 안 줄은 받은 순서 그대로. 이름 없는 줄은 '기타'.
+export function orgSections(items, sorts, nameOf = x => x?.name) {
+  if (!grouped(sorts)) return null;
+  const byOrg = new Map();
+  for (const item of items || []) {
+    const name = String(nameOf(item) ?? '').trim(), id = name ? orgOf(sorts, name) : ETC;
+    (byOrg.get(id) || byOrg.set(id, []).get(id)).push(item);
+  }
+  return orgOrder(sorts).filter(id => byOrg.has(id)).map(id => ({id, label: parentLabel(sorts, id), items: byOrg.get(id)}));
 }
 
 // ③ 찾기: 정기·비정기 모두(지운 회의명은 빼고), 띄어쓰기·대소문자 무시. 비정기는 tag '비정기 · 조직', 조직에 넣은 정기는 tag '조직'(S56-1 ⑤).

@@ -9,6 +9,8 @@ export {REPORT_VIEW_OPTIONS,reportViewOf,shiftMonth,photosByMeeting} from './rep
 export {calendarHtml,photoViewHtml,mountPhotoView,mountStrips} from './report-views.js';
 export {PC_QUERY,NONE_KEY,sortRecentFirst,MEETING_DOCS_LABEL,meetingColumns,columnsHtml,listHtml,pickMeeting,assignMeetingColors,meetingPaletteColor,nameHash,MEETING_HUES,roundLabel,hasRound,meetingShortName} from './meeting-columns.js';
 export {formatMeetingWhen} from './meeting-when.js';
+export {readSorts as readNameSorts,peekSorts as peekNameSorts} from './meeting-name-sorts.js'; // S56-36 MTG-회의목록조직묶기: 회의명 조직 묶음(고르기 창과 같은 값·같은 함수)
+export {orgSections} from './meeting-name-sorts.mjs';
 export {pickReportKind} from './report-kind-sheet.js';
 export {reportWords,isMeetingKind} from './report-words.mjs';
 export {createFieldRows} from './report-entry-rows.js';

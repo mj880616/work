@@ -75,13 +75,16 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 // 고른 차수가 없거나 없어졌으면 고른 종류의 가장 최근 차수(처음 열면 가장 최근 결과가 있는 종류의 가장 최근 차수 = 전체에서 가장 최근 결과).
 export function pickMeeting(column,selectedId){return column?.meetings.find(m=>String(m.id)===String(selectedId))||column?.meetings[0]||null}
 
-export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resultHtml=()=>''}){
+// S56-36 MTG-회의목록조직묶기: sections(meeting-name-sorts.mjs orgSections 결과 [{id,label,items: 이 columns}])가 오면 왼쪽 회의 종류 칸을
+// 회의명 고르기 창과 같은 조직 머리글(작은 글씨 한 줄, 고를 수 없음) 아래로 묶는다. 없으면(조직으로 묶지 않는 정리) 지금처럼 한 줄씩. 처음 고른 종류는 그대로 columns[0](가장 최근 결과).
+export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resultHtml=()=>'',sections=null}){
   if(!columns.length)return emptyHtml();
   const selected=columns.find(c=>c.key===selectedKey)||columns[0],current=pickMeeting(selected,selectedId);
-  const kinds=columns.map(c=>{
+  const kindHtml=c=>{
     const label=c.name||'회의명 미지정',on=c===selected;
     return `<li><button type="button" class="mcol-kind kptu-pick-row" data-meeting-kind="${esc(c.key)}" aria-controls="mcolRounds"${on?' aria-current="true"':''} style="--meeting-color:${esc(colorOf(c.name))}"><span class="mcol-dot ui-color-dot" aria-hidden="true"></span><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${c.meetings.length}건">${c.meetings.length}</span></button></li>`;
-  }).join('');
+  };
+  const kinds=sections?.length?sections.map(g=>`<li class="mcol-org" role="presentation" data-mcol-org="${esc(g.id)}">${esc(g.label)}</li>${g.items.map(kindHtml).join('')}`).join(''):columns.map(kindHtml).join('');
   const label=selected.name||'회의명 미지정';
   const rows=selected.meetings.map(m=>{
     const roundText=roundLabel(m),when=whenOf(m),on=m===current,lead=cardLead(m),date=shortDate(m);

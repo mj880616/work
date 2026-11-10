@@ -6,7 +6,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
 // MTG-3칸폭끌기(2026-10-26 요청): PC(≥1024) 사업 보고 3단(왼쪽 회의 종류 / 가운데 차수 / 오른쪽 결과)의 두 경계를 끌어 칸 폭을 바꾼다.
 // 할 일·프로젝트·담당조직과 같은 공용 app/split-resize.js(경계 여러 개). 기본 1.3 : 0.8 : 5.9(S52-34, 처음엔 1 : 0.5 : 4.5), 경계는 이웃 두 칸만 움직이고, 칸마다 최소 폭
-// (종류 150·차수 96, 결과 360), 두 번 누르면 그 경계만 기본, 키보드 ←→·Home·End, 고른 폭은 서버(프로필 view_prefs.split_ratio.reports3 — UI-작은결정묶음 ④, 2단 reports와 따로)에 기억한다.
+// (종류 150·차수 112(S56-36), 결과 360), 두 번 누르면 그 경계만 기본, 키보드 ←→·Home·End, 고른 폭은 서버(프로필 view_prefs.split_ratio.reports3 — UI-작은결정묶음 ④, 2단 reports와 따로)에 기억한다.
 // 칸 크기는 화면 안에서 한 번에 읽는다(그리는 도중 바뀌는 칸을 두 번에 나눠 잡지 않도록).
 test.use({timezoneId:'Asia/Seoul'});
 // S52-34 UI-전체정리(사업 보고): 기본 비율 1.3 : 0.8 : 5.9, 최소 폭 종류 150·차수 96(회의 이름·차수 날짜가 잘리지 않게).
@@ -67,9 +67,9 @@ for(const width of [1280,1440,1920]){
   const errors=await open(page,width);
   await expect(handle(page,0)).toHaveAttribute('role','separator');await expect(handle(page,0)).toHaveAttribute('aria-orientation','vertical');
   await expect(handle(page,0)).toHaveAttribute('aria-valuenow',String(Math.round(KA*100)));expect(Number(await handle(page,1).getAttribute('aria-valuenow'))).toBeGreaterThanOrEqual(25);expect(Number(await handle(page,1).getAttribute('aria-valuenow'))).toBeLessThanOrEqual(28);
-  // 기본(MTG-3칸정리 ④): 종류 1.3/8, 차수 0.8/8(최소 96px 아래로는 안 줄임), 결과 나머지. 경계선은 두 칸 사이 틈에 있다.
+  // 기본(MTG-3칸정리 ④): 종류 1.3/8, 차수 0.8/8(최소 112px 아래로는 안 줄임 — S56-36: '46차 11.10'이 한 줄로 보이는 폭), 결과 나머지. 경계선은 두 칸 사이 틈에 있다.
   let m=await widths(page);
-  expect(Math.abs(m.kinds/m.total-KA)).toBeLessThan(0.01);expect(Math.abs(m.rounds/m.total-Math.max(KB,96/m.total))).toBeLessThan(0.01);expect(m.rounds).toBeLessThan(m.kinds*0.75);
+  expect(Math.abs(m.kinds/m.total-KA)).toBeLessThan(0.01);expect(Math.abs(m.rounds/m.total-Math.max(KB,112/m.total))).toBeLessThan(0.01);expect(m.rounds).toBeLessThan(m.kinds*0.75);
   const geo=await page.evaluate(()=>{const r=s=>document.querySelector(s).getBoundingClientRect(),hs=[...document.querySelectorAll('#meetingList .mcol-layout>.split-resize-handle')].map(h=>h.getBoundingClientRect()),k=r('.mcol-kinds'),d=r('.mcol-rounds'),x=r('.mcol-result');return {h0:[hs[0].x,hs[0].right],h1:[hs[1].x,hs[1].right],k:k.right,d:[d.left,d.right],x:x.left}});
   expect(geo.h0[0]).toBeLessThanOrEqual(geo.d[0]);expect(geo.h0[1]).toBeGreaterThanOrEqual(geo.k);
   expect(geo.h1[0]).toBeLessThanOrEqual(geo.x);expect(geo.h1[1]).toBeGreaterThanOrEqual(geo.d[1]);
@@ -106,10 +106,10 @@ for(const width of [1280,1440,1920]){
   await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle')).toHaveCount(2);await columnsReady(page);
   const back=await widths(page);expect(Math.abs(back.kinds/back.total-m.kinds/m.total)).toBeLessThan(0.01);expect(Math.abs(back.rounds/back.total-m.rounds/m.total)).toBeLessThan(0.01);
 
-  // 최소 폭: 맨 왼쪽·맨 오른쪽 끝까지 끌어도 종류 150·차수 96, 결과 360 아래로 줄지 않는다.
+  // 최소 폭: 맨 왼쪽·맨 오른쪽 끝까지 끌어도 종류 150·차수 112(S56-36), 결과 360 아래로 줄지 않는다.
   await dragTo(page,0,5);m=await widths(page);expect(m.kinds).toBeGreaterThanOrEqual(149);expect(m.kinds).toBeLessThan(160);
-  await dragTo(page,0,width-5);m=await widths(page);expect(m.rounds).toBeGreaterThanOrEqual(95);expect(m.rounds).toBeLessThan(106);
-  await dragTo(page,1,5);m=await widths(page);expect(m.rounds).toBeGreaterThanOrEqual(95);expect(m.rounds).toBeLessThan(106);
+  await dragTo(page,0,width-5);m=await widths(page);expect(m.rounds).toBeGreaterThanOrEqual(111);expect(m.rounds).toBeLessThan(122);
+  await dragTo(page,1,5);m=await widths(page);expect(m.rounds).toBeGreaterThanOrEqual(111);expect(m.rounds).toBeLessThan(122);
   await dragTo(page,1,width-5);m=await widths(page);expect(m.result).toBeGreaterThanOrEqual(359);expect(m.result).toBeLessThan(370);
   expect(m.over).toBeLessThanOrEqual(1);
 
@@ -117,7 +117,7 @@ for(const width of [1280,1440,1920]){
   await handle(page,0).dblclick();await settle(page);
   m=await widths(page);expect(Math.abs(m.kinds/m.total-KA)).toBeLessThan(0.01);expect(m.result).toBeLessThan(m.total*3/4);
   await handle(page,1).dblclick();await settle(page);
-  m=await widths(page);expect(Math.abs(m.kinds/m.total-KA)).toBeLessThan(0.01);expect(Math.abs(m.rounds/m.total-Math.max(KB,96/m.total))).toBeLessThan(0.01);expect(Math.abs(m.result/m.total-(1-KA-Math.max(KB,96/m.total)))).toBeLessThan(0.01);
+  m=await widths(page);expect(Math.abs(m.kinds/m.total-KA)).toBeLessThan(0.01);expect(Math.abs(m.rounds/m.total-Math.max(KB,112/m.total))).toBeLessThan(0.01);expect(Math.abs(m.result/m.total-(1-KA-Math.max(KB,112/m.total)))).toBeLessThan(0.01);
   await expect.poll(()=>stored()).toBeNull();
 
   // 키보드: 경계에 초점 → → 한 번에 2%, ← 되돌림, Home은 왼쪽 칸 최소 폭, End는 오른쪽 칸 최소 폭. (차수 칸이 좁아 둘째 경계로 시험한다.)

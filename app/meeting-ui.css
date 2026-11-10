@@ -159,6 +159,9 @@
   #meetingList .mcol-kinds ul{display:grid;gap:2px;margin:0;padding:0;list-style:none}
   #meetingList .mcol-kind{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:var(--kptu-touch-target,44px);margin:0;padding:0 var(--kptu-space-3);border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-ink);font-family:inherit;font-size:var(--ds-text-row);font-weight:var(--ds-weight-regular);line-height:1.4;text-align:left;cursor:pointer}
   #meetingList .mcol-kind:hover{background:var(--kptu-surface-subtle)}
+  /* S56-36 MTG-회의목록조직묶기: 조직 머리글(고를 수 없음) — 회의명 고르기 창 .mnp-org(meeting-name-panel.css)와 같은 작은 글씨 한 줄. 그 아래 회의명 줄은 조금 들여 쓴다. */
+  #meetingList .mcol-kinds .mcol-org{padding:6px 8px 2px;color:var(--kptu-muted);font-size:11px;font-weight:600;line-height:1.4;cursor:default;user-select:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #meetingList .mcol-kinds .mcol-org~li>.mcol-kind{padding-left:18px}
   /* 고른 종류 줄 표시는 공용 .kptu-pick-row(ui-standard.css)가 그린다. */
   #meetingList :is(.mcol-kind,.mcol-card):focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
   #meetingList .mcol-rounds{display:flex;flex-direction:column;gap:var(--kptu-space-2);padding:var(--kptu-space-2)}
@@ -182,7 +185,10 @@
      칸 안 글자는 줄임표로 줄인다(전체 글은 title). 1280px 이상 배치·비율은 그대로. */
   #meetingList :is(.mcol-kinds,.mcol-cards)>li,#meetingList .mcol-kinds ul>li{min-width:0}
   #meetingList .mcol-card{overflow:hidden}
+  /* S56-36: 차수 줄 오른쪽 여백 8px — 최소 폭 112px(theme-tokens.css)에서 '46차 11.10'이 한 줄로 다 보이게. */
+  #meetingList .mcol-card-line{padding-right:var(--kptu-space-2)}
   @media(max-width:1279px){
+    #meetingList .mcol-three{--ds-split-col-b-min:96px} /* 좁은 PC는 예전 최소 폭(글자는 줄임표, 결과 칸 비율 우선) */
     #meetingList .mcol-kind{gap:6px;padding:0 var(--kptu-space-2)}
     #meetingList .mcol-card{padding-right:var(--kptu-space-2)}
   }
@@ -191,7 +197,8 @@
   #meetingList .mcol-result{display:flex;flex-direction:column}
   #meetingList .mcol-result>.mcol-empty{padding:var(--kptu-space-3) var(--kptu-space-4)}
   #meetingList .mcol-empty{margin:0;font-size:var(--ds-text-row);color:var(--kptu-faint)}
-  #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked{position:static;inset:auto;display:block;flex:1 1 auto;padding:0;background:transparent;z-index:auto}
+  /* S56-36: 창(.modal)의 place-items:center가 붙인 자리에도 남아 결과 카드가 글 폭만큼 줄어 가운데에 몰렸다(블록 배치도 justify-items를 따름). 할 일·프로젝트·담당조직 붙임처럼 normal로 되돌린다. */
+  #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked{position:static;inset:auto;display:block;place-items:normal;flex:1 1 auto;padding:0;background:transparent;z-index:auto}
   #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked>.modal-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0 var(--kptu-space-4) var(--kptu-space-4);border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
   #meetingList .mrd-docked .modal-head{position:sticky;top:0;z-index:3;flex-wrap:wrap;align-items:center;gap:var(--kptu-space-2);margin:0 calc(var(--kptu-space-4) * -1) var(--kptu-space-3);padding:var(--kptu-space-3) var(--kptu-space-4) var(--kptu-space-2);background:var(--kptu-surface);border-bottom:var(--ds-line-width) solid var(--ds-line);box-shadow:none}
   #meetingList .mrd-docked .modal-head>div:first-child{flex:1 1 0;min-width:0}
