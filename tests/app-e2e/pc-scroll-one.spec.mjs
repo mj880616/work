@@ -32,9 +32,13 @@ for(const width of [1280,884]){
 
 test('1280: 창이 떠 있는 동안 창 바깥 휠로 뒤 화면이 움직이지 않고, 창이 닫히면 다시 움직인다',async({page})=>{
   await page.setViewportSize({width:1280,height:800});await openHome(page);
-  await clickView(page,'library');await lengthen(page,'library');await settle(page);
+  await clickView(page,'library');await expect(page.locator('#libraryView')).toBeVisible();
+  await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded?.('library')!==false);
+  await lengthen(page,'library');await settle(page);
   await page.evaluate(()=>{const m=document.createElement('div');m.id='zzScrollModal';m.className='modal';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');
     m.innerHTML='<div class="modal-card" style="width:320px;max-height:200px"><div style="height:600px">합성 창 내용</div></div>';document.body.append(m)});
+  // 창이 화면에 그려져 휠 자리(40,400)를 덮은 뒤에 굴린다(붙인 직후 프레임 전에 굴리면 휠이 뒤 화면으로 감, STAB-main화면시험흔들림).
+  await settle(page);await expect.poll(()=>page.evaluate(()=>document.elementFromPoint(40,400)?.id)).toBe('zzScrollModal');
   await page.mouse.move(40,400);await page.mouse.wheel(0,500);await page.waitForTimeout(300);
   expect(await page.evaluate(()=>scrollY),'바탕 위 휠').toBe(0);
   // 창 안 내용은 굴러가고, 끝에 닿아도 뒤 화면으로 넘어가지 않는다.
