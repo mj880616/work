@@ -2156,7 +2156,7 @@ for(const width of [390,1280])test(`[주간 정리] 회의 종류: 내부 정례
  // ⋯ 는 작게: 처음엔 메뉴 버튼이 안 보이고, 눌러야 작은 글자 버튼이 나온다.
  const more=kindLines(page).nth(1).locator('details.row-more');
  await expect(kindLines(page).nth(1).locator('[data-journal-kind-toggle]')).toBeHidden();
- await expect(more.locator('summary')).toHaveAccessibleName('줄 수정·빼기: 10:00 운영위원회 3차');
+ await expect(more.locator('summary')).toHaveAccessibleName('줄 메뉴: 10:00 운영위원회 3차'); // RECORD-한줄 B-5: 옛 주 2) 세부 내용 ⋯ 에는 [이 종류 늘 빼기]만
  const dot=await more.locator('summary').boundingBox();expect(dot.height).toBeLessThanOrEqual(32);expect(dot.height).toBeGreaterThanOrEqual(28);expect(dot.width).toBeGreaterThanOrEqual(28);
  await more.locator('summary').click();
  const toggle=kindLines(page).nth(1).locator('[data-journal-kind-toggle]');
