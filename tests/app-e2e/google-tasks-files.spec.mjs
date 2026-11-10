@@ -41,6 +41,7 @@ async function openTasks(browser,{viewport={width:900,height:800},supported=true
       const taskId=body.match(/name="task_id"\r\n\r\n([^\r]*)/)?.[1];
       const name=Buffer.from(body.match(/name="file"; filename="([^"]*)"/)?.[1]||'','latin1').toString('utf8');
       state.calls.attach.push({taskId,name});
+      if(state.hold)await state.hold; // UX-먼저묻고뒤에처리 시험: 올리는 중에 창 닫기·화면 옮기기
       const f={google_task_id:taskId,drive_file_id:'drv'+state.next++,file_name:name,mime_type:'text/plain',size_bytes:3};
       state.files.push(f);google[taskId].notes=notesOf(taskId);
       return ok(route,{ok:true,file:f,files:state.files.filter(x=>x.google_task_id===taskId),task:{...google[taskId]},notes_synced:true});
@@ -120,6 +121,26 @@ test('phone: saved file names sit under the task and open Drive; ⋯ → 파일 
   await expect(dialog).toBeHidden();
   await expect(row(page,'a').locator('.gt-files a.gt-file')).toHaveText(['회의록.txt','사진.png']);
   expect(google.a.notes).toBe(['원래 메모',line('drv1','회의록.txt'),line('drv2','사진.png')].join('\n'));
+  await context.close();
+});
+
+// UX-먼저묻고뒤에처리(요청함 11/09 18:04): 고른 파일은 창을 닫고 다른 화면으로 옮겨도 끝까지 붙고, 끝은 작은 알림으로.
+test('파일 붙이기: 올리는 중에 창을 닫고 다른 화면으로 옮겨도 남은 파일까지 붙고 끝을 알린다',async({browser})=>{
+  const {context,page,state}=await openTasks(browser,{viewport:{width:390,height:844}});
+  let release;state.hold=new Promise(r=>{release=r});
+  await openMenu(page,'a');
+  await page.locator('#gtTaskMenu [data-gt-menu-action="files"]').click();
+  const dialog=page.locator('#gtFilesModal');
+  await dialog.locator('[data-gt-files-input]').setInputFiles([{name:'가.txt',mimeType:'text/plain',buffer:Buffer.from('abc')},{name:'나.txt',mimeType:'text/plain',buffer:Buffer.from('abc')}]);
+  await expect.poll(()=>state.calls.attach.length).toBe(1);
+  await dialog.locator('[data-gt-files-close]').click();
+  await expect(dialog).toBeHidden();
+  await page.evaluate(()=>window.KPTURouter.go('library',{source:'qa'}));
+  state.hold=null;release();
+  await expect.poll(()=>state.calls.attach.map(c=>c.name)).toEqual(['가.txt','나.txt']);
+  await expect(page.locator('#kptuNotice')).toContainText('2개 붙였습니다');
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(row(page,'a').locator('.gt-files a.gt-file')).toHaveText(['가.txt','나.txt']);
   await context.close();
 });
 

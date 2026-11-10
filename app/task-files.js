@@ -1,5 +1,6 @@
 import {emptyHtml} from './wait-state.js';
 import {bindPaste} from './paste-files.mjs';
+import {notify} from './small-notice.js'; // UX-먼저묻고뒤에처리: 창을 닫은 뒤 끝난 올리기의 끝·실패 알림
 // TASK-파일붙이기: files attached to a Google task (read: app_task_attachments; change: google-tasks Edge action=attach / detach).
 // The file lives in Google Drive ("자료실/할 일 첨부"); the Edge keeps the task-file link (owner RLS) and one link line per
 // file in the task's notes, so the Google Tasks app shows a link. Detaching or deleting the task never deletes the Drive file.
@@ -142,6 +143,10 @@ function accept(s, d) {
   s.onChange(s.files, d?.task || null);
 }
 const message = e => String(e?.message || e || '').trim() || '잠시 후 다시 시도해 주세요.';
+// UX-먼저묻고뒤에처리(요청함 11/09 18:04): 고른 파일은 창을 닫거나 다른 화면으로 옮겨도 끝까지 올린다(멈추는 것은 계정·로그인이 바뀔 때뿐).
+// 창이 열려 있으면 창 줄로, 닫혔으면 공용 작은 알림으로 끝·실패를 알린다. 진행은 공용 올리기 줄(upload-progress.js)이 그린다.
+const shown = s => dialog?.state === s;
+function tellClosed(s, text, failed = false) { if (!shown(s)) notify(`${s.task.title || '할 일'}: ${text}`, {error: failed, record: false}); }
 async function upload(picked) {
   const s = dialog?.state;
   if (!s || s.busy || !picked.length) return;
@@ -150,22 +155,23 @@ async function upload(picked) {
   try {
     for (const file of picked) {
       const problem = fileProblem(file, s.files.length);
-      if (problem) { status(`${file.name}: ${problem}`, true); return; }
-      status(`${file.name} 올리는 중… (${done + 1}/${picked.length})`);
+      if (problem) { if (shown(s)) status(`${file.name}: ${problem}`, true); else tellClosed(s, `${file.name}: ${problem}`, true); return; }
+      if (shown(s)) status(`${file.name} 올리는 중… (${done + 1}/${picked.length})`);
       let d;
       try { d = await attachTaskFile(s.task.id, file, {rt: s.rt}); }
-      catch (e) { if (e?.code === 'upload_cancelled') continue; if (dialog?.state === s && s.isCurrent()) status(`${file.name}: ${message(e)}`, true); return; }
+      catch (e) { if (e?.code === 'upload_cancelled') continue; if (!s.isCurrent()) return; if (shown(s)) status(`${file.name}: ${message(e)}`, true); else tellClosed(s, `${file.name}: ${message(e)}`, true); return; }
       if (!s.isCurrent()) return;
-      if (!d?.ok) { status(`${file.name}: 저장 결과를 확인하지 못했습니다. 할 일을 다시 열어 확인해 주세요.`, true); return; }
+      if (!d?.ok) { const t = `${file.name}: 저장 결과를 확인하지 못했습니다. 할 일을 다시 열어 확인해 주세요.`; if (shown(s)) status(t, true); else tellClosed(s, t, true); return; }
       // Saved on the server: the list owner hears it even if this dialog was closed meanwhile.
       accept(s, d); done++;
-      if (dialog?.state !== s) return;
       if (d.notes_synced === false) unsynced = true;
-      paint();
+      if (shown(s)) paint();
     }
-    status(unsynced ? `${done}개 붙였습니다. Google 할 일 메모의 링크 줄은 다음 저장 때 붙습니다.` : `${done}개 붙였습니다.`);
+    const end = unsynced ? `${done}개 붙였습니다. Google 할 일 메모의 링크 줄은 다음 저장 때 붙습니다.` : `${done}개 붙였습니다.`;
+    if (shown(s)) status(end); else if (done) tellClosed(s, end);
   } finally {
-    if (dialog?.state === s) { s.busy = false; paint(); }
+    s.busy = false;
+    if (shown(s)) paint();
   }
 }
 async function detach(id) {
