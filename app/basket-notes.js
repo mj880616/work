@@ -48,6 +48,7 @@ import { prepareSave } from './ed-window-model.mjs';
 import { mountQuick } from './home-quick.js';
 import { driveFileUrl, fileSize, createUploadBatch, uploadNoteFiles } from './basket-upload.js';
 import { fileLine } from './meeting-compact.js';
+import { deleteAttachment } from './file-trash.js';
 import { pressFile, downloadFile, openInDrive, menuItemsHtml } from './file-actions.js';
 import { openPhotoView } from './photo-view.js';
 import { attachmentName } from './attachment-name.mjs';
@@ -404,10 +405,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // NOTE-탐색기 ③ (11:01 결정): the row menu starts with [선택] (PC right-click and phone long-press open this same menu). In select
   // mode the menu of a picked row is for all picked ones. A folder row has its own menu; the list head ⋯ has [새 폴더]·[선택].
   // UI-모바일노트복사메뉴: on a phone a list row has no [복사] button; [복사] is in its ⋯ menu (PC keeps the button).
-  // NOTE-파일붙이기: a file card's ⋯ has one item, [빼기] (the link only; the Drive file stays).
+  // NOTE-파일붙이기: a file card's ⋯ has [빼기] (the link only; the Drive file stays).
+  // FILE-첨부삭제: and [삭제] (off this note and the Drive original to the Drive trash, file-trash.js; [되돌리기] brings both back).
   const canEditFolders = () => foldersReady;
   const menuItems = (note, from, folderId = null) => {
-    if (from === 'file') return [['data-note-file-detach', '빼기']];
+    if (from === 'file') return [['data-note-file-detach', '빼기'], ['data-note-file-delete', '삭제', 'basket-menu-danger']];
     // UI-우클릭전수(2026-11-03): 빈 보드 우클릭 메뉴. 새 노트는 목록 맨 위 입력칸에서 쓴다(입력칸으로 초점).
     if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기']];
     if (from === 'picked') return [['data-nx-sel-move', `${pick.size}개 — 폴더로 옮기기`], ['data-nx-sel-delete', '삭제', 'basket-menu-danger'], ['data-nx-sel-close', '선택 끝내기']];
@@ -792,6 +794,27 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (run === epoch) lock(false); else busy = false;
       if (run === epoch && selected?.id === id) (detail.querySelector('[data-note-file-more]') || detail.querySelector('[data-note-attachments]'))?.focus({preventScroll:true});
     }
+  }
+  // FILE-첨부삭제 [삭제]: one question, then the server takes the file off this note and sends the Drive original to the trash
+  // (file-trash.js → document-actions trash-file). The note is read again after it (and after [되돌리기]) and drawn by this screen.
+  async function deleteFile(note, fileId) {
+    if (!note || busy) return;
+    const file = (note.attachments || []).find(f => f?.drive_file_id === fileId); if (!file) return;
+    const trigger = () => detail.querySelector(`[data-note-file-more="${CSS.escape(fileId)}"]`);
+    const id = note.id, owner = scope();
+    const reload = async () => {
+      if (owner !== scope()) return;
+      let row = null; try { row = await readNoteDoc(id, rt); } catch { row = null; }
+      if (owner !== scope() || !row) return;
+      notes = notes.map(n => n.id === id ? row : n); if (selected?.id === id) selected = row;
+      renderList(); if (selected?.id === id) { if (!editing) paintRead(); paintMeta(); }
+    };
+    say('');
+    const result = await deleteAttachment({target:'note', id, driveId:fileId, name:attachmentName(file)}, {rt, anchor:trigger(), onChanged:reload, toast:showToast});
+    if (owner !== scope()) return;
+    if (result.status === 'cancel') { trigger()?.focus({preventScroll:true}); return; }
+    if (result.status === 'failed') say(result.message);
+    if (selected?.id === id) (detail.querySelector('[data-note-file-more]') || detail.querySelector('[data-note-attachments]'))?.focus({preventScroll:true});
   }
   async function telegram(note = selected, button = null) {
     // ED③ 노트: a note with doc copies the new editor's 텔레그램 letters (ed-text toTelegram); without, the old conversion.
@@ -1259,6 +1282,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const note = notes.find(n => n.id === from.noteId); if (!note) return;
     if (b.dataset.fileMenu) { const file = noteFile(note, from.fileId); if (file) { if (b.dataset.fileMenu === 'open') openInDrive(file, {onError: fileFail}); else void downloadFile(file, {onError: fileFail}); } return; }
     if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
+    else if (b.hasAttribute('data-note-file-delete')) void deleteFile(note, from.fileId);
     else if (b.hasAttribute('data-nbb-detach')) boards.detach(note.id);
     else if (b.hasAttribute('data-nbb-attach')) boards.attach([note.id]);
     else if (b.hasAttribute('data-note-copy')) void telegram(note, from.trigger); // UI-눌림느낌: the menu is closed, so the row's ⋯ shows the ✓
