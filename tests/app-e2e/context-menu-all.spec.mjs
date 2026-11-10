@@ -41,6 +41,26 @@ test('1280 shared rule: area ⋯ answers its whole area, a card with its own ⋯
   await rightClick(page, '#gap'); expect(await hits(page)).toEqual([]);
 });
 
+// UI-우클릭빈곳전수: 화면 머리줄 ⋯(data-ctx="screen")는 카드 메뉴가 아니고, 그 화면(.view-panel)의 빈 자리 우클릭이 연다.
+// 카드 ⋯·상세(area) ⋯가 있는 자리는 그쪽이 먼저, 화면 밖(작은 창)·입력칸·글자 고름은 브라우저 메뉴 그대로.
+test('1280 shared rule: a screen head ⋯ (screen) answers the blank spots of its screen only', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openHome(page);
+  await mount(page, `<div class="view-panel"><div><button id="ps" data-ctx="screen" type="button">⋯</button></div><p id="blank" style="height:40px;margin:0">빈 자리</p>
+    <div style="padding:10px"><button id="c1" type="button">⋯</button><span id="c1t">카드 하나</span></div><p id="between" style="height:30px;margin:0">사이</p><div style="padding:10px"><button id="c2" type="button">⋯</button>카드 둘</div>
+    <input id="pin" style="width:200px"><div role="dialog"><p id="inmodal" style="height:30px;margin:0">작은 창</p></div></div>`);
+  await rightClick(page, '#blank'); expect(await hits(page)).toEqual(['ps']);
+  await rightClick(page, '#c1t'); expect(await hits(page)).toEqual(['ps', 'c1']);
+  await rightClick(page, '#between'); expect(await hits(page)).toEqual(['ps', 'c1', 'ps']);
+  await page.evaluate(() => { window.__kept = []; });
+  await rightClick(page, '#pin'); await rightClick(page, '#inmodal');
+  expect(await hits(page)).toEqual(['ps', 'c1', 'ps']);
+  expect(await page.evaluate(() => window.__kept)).toEqual([true, true]);
+  // The screen ⋯ is never a card's own menu: a block that holds only it keeps the old rule (area ⋯ elsewhere wins).
+  await mount(page, `<div class="view-panel"><div><button id="pa" data-ctx="area" type="button">⋯</button><button id="ps" data-ctx="screen" type="button">⋯</button></div><p id="body" style="height:40px;margin:0">상세</p></div>`);
+  await rightClick(page, '#body'); expect(await hits(page)).toEqual(['pa']);
+});
+
 test('1280 shared rule: a menu panel a stylesheet pins under the ⋯ opens at the pointer and goes back when closed', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await openHome(page);

@@ -35,6 +35,6 @@ test('⋯ trigger files are all known (new ⋯ screens must join the right-click
 test('data-ctx values are only area or off', () => {
   for (const f of walk(app)) {
     const t = code(readFileSync(join(app, f), 'utf8'));
-    for (const m of t.matchAll(/data-ctx['"]?\s*[=:]\s*\\?["']([^"'\\]*)/g)) assert.ok(['area', 'off'].includes(m[1]), `${f}: data-ctx="${m[1]}"`);
+    for (const m of t.matchAll(/data-ctx['"]?\s*[=:]\s*\\?["']([^"'\\]*)/g)) assert.ok(['area', 'off', 'screen'].includes(m[1]), `${f}: data-ctx="${m[1]}"`);
   }
 });

@@ -5,7 +5,9 @@
 // already keeps its panel inside the window; a panel that a stylesheet pins under the ⋯ is moved to the pointer here).
 // One optional mark on a ⋯ trigger, data-ctx: "area" = this ⋯ is the menu of the whole detail / column around it (a right-click
 // anywhere in that area that is not inside a card with its own ⋯ opens it, even when the area also holds cards with their own ⋯);
-// "off" = a toolbar / toggle ⋯ that is not a card menu (right-click never presses it). The browser's own menu stays when the target is inside an input / textarea /
+// "off" = a toolbar / toggle ⋯ that is not a card menu (right-click never presses it); "screen" = the screen's own head-line ⋯
+// (UI-우클릭빈곳전수: its new / view items) — never a card's menu, but a right-click on a blank spot of that screen (inside its
+// .view-panel, not inside a dialog, where no card or area ⋯ answers) opens it. The browser's own menu stays when the target is inside an input / textarea /
 // select / contenteditable, on a link (<a href>), when text is selected, with Shift held, when the card has no visible ⋯, on a phone-width window,
 // and for a touch long-press (no long-press menu this time).
 (() => {
@@ -21,7 +23,8 @@ const STOP = '.view-panel,.modal,[role="dialog"],main,body,html';
 const AREA = '[data-ctx="area"]';
 const MAX_DEPTH = 10;
 // Page-level ⋯ buttons that belong to a toolbar, not to a card.
-const NOT_CARD = '[data-basket-more],[data-ctx="off"]';
+const NOT_CARD = '[data-basket-more],[data-ctx="off"],[data-ctx="screen"]';
+const SCREEN = '[data-ctx="screen"]';
 const EDGE = 8;
 
 const isMore = el => { const t = el.textContent.trim(); return t === '⋯' || t === '⋮'; };
@@ -71,6 +74,15 @@ function findTrigger(target) {
     listOnly = true; // several row ⋯ around the press inside an area: a list, keep climbing to the area ⋯
   }
   return null;
+}
+// UI-우클릭빈곳전수: no card / area ⋯ answered — a blank spot of a screen opens that screen's own head-line ⋯ (one per screen).
+function screenTrigger(target) {
+  const node = target instanceof Element ? target : target?.parentElement;
+  if (!node || node.closest('.modal,[role="dialog"],[role="menu"],[popover]')) return null;
+  const panel = node.closest('.view-panel');
+  if (!panel) return null;
+  const list = [...panel.querySelectorAll(SCREEN)].filter(el => isMore(el) && visible(el));
+  return list.length === 1 ? list[0] : null;
 }
 
 let pinned = null; // { trigger, x, y, observer, timer, panel, panelObserver }
@@ -191,7 +203,7 @@ document.addEventListener('contextmenu', e => {
   if (!target || target.closest(EDITABLE)) return;
   const selection = window.getSelection?.();
   if (selection && !selection.isCollapsed && selection.toString().trim() !== '') return;
-  const trigger = findTrigger(target);
+  const trigger = findTrigger(target) || screenTrigger(target);
   if (!trigger) return;
   // A link (<a href>) inside the card keeps the browser's own menu (open in a new tab, copy link address). A card's own
   // "open" line (a link that sits next to its ⋯ in the same row, e.g. a project record line) is the card itself, not a link

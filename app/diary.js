@@ -309,7 +309,7 @@ function closeDetail({fromBack = false} = {}) {
 // UI-우클릭빈곳전수 ①: 일기 상세 전체의 ⋯(data-ctx="area") — PC 우클릭은 공용 context-menu.js가 이 메뉴를 커서 자리에 연다.
 // 항목은 아래 단추와 같은 일([수정]·[그날 사진 크게 보기]·[일기 삭제]); 아래 [수정][일기 삭제] 단추는 그대로 둔다.
 function detailMenuHtml(row, hasPhotos) {
-  const items = `<button type="button" data-diary-edit>${row ? '수정' : '일기 쓰기'}</button>${hasPhotos ? '<button type="button" data-diary-view-photos>그날 사진 크게 보기</button>' : ''}${row ? '<button type="button" class="diary-menu-danger" data-diary-delete>일기 삭제</button>' : ''}`;
+  const items = `<button type="button" data-diary-menu-edit>${row ? '수정' : '일기 쓰기'}</button>${hasPhotos ? '<button type="button" data-diary-view-photos>그날 사진 크게 보기</button>' : ''}${row ? '<button type="button" class="diary-menu-danger" data-diary-menu-delete>일기 삭제</button>' : ''}`;
   return `<span class="diary-head-menu-wrap"><button type="button" class="icon-btn diary-head-more" data-diary-head-more data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-controls="diaryDetailMenu" aria-label="이 날 일기 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="diaryDetailMenu" class="diary-lv-menu diary-head-menu" role="group" aria-label="이 날 일기 메뉴" data-diary-head-menu hidden>${items}</span></span>`;
 }
 function renderDetail() {
@@ -1122,6 +1122,8 @@ root.addEventListener('click', event => {
   // 머리줄 ⋯ 메뉴의 항목을 고르면 메뉴부터 닫고 그 일을 한다.
   const headMenu = button.closest(HEAD_MENU); if (headMenu && !headMenu.hidden) toggleEditorMenu(headMenu.previousElementSibling, false);
   if (button.matches('[data-diary-view-photos]')) { if (shown.length) openViewer(0); return; }
+  if (button.matches('[data-diary-menu-edit]')) return openEditor(selected);
+  if (button.matches('[data-diary-menu-delete]')) return removeDiary(rows.get(selected));
   if (button.matches('[data-diary-day]')) return selected === button.dataset.diaryDay ? closeDetail() : selectDay(button.dataset.diaryDay);
   if (button.matches('[data-diary-list-day]')) return selectDay(button.dataset.diaryListDay, {focus:true});
   if (button.matches('[data-diary-view]')) return setView(button.dataset.diaryView);

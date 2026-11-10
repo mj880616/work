@@ -50,7 +50,7 @@ function install() {
 <div id="outsideRoot" class="os now" data-mode="list" data-tab="all" data-detail="closed">
 <div class="os-tabs ds-seg" role="tablist" aria-label="News 보기" data-os-tabs>${TABS_HTML}</div>
 <div class="now-main" id="nowMain">
-<form class="nw-top" data-nw-top role="search" aria-label="News 찾기"><input type="search" class="nw-find" data-nw-find maxlength="100" enterkeyhint="search" placeholder="News 찾기 — 제목·문장" aria-label="News 찾기 — 제목·문장" autocomplete="off"><button type="button" class="nw-dd" data-nw-media aria-haspopup="dialog" aria-expanded="false"></button><button type="button" class="os-more" data-os-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="News 메뉴">${MORE}</button></form>
+<form class="nw-top" data-nw-top role="search" aria-label="News 찾기"><input type="search" class="nw-find" data-nw-find maxlength="100" enterkeyhint="search" placeholder="News 찾기 — 제목·문장" aria-label="News 찾기 — 제목·문장" autocomplete="off"><button type="button" class="nw-dd" data-nw-media aria-haspopup="dialog" aria-expanded="false"></button><button type="button" class="os-more" data-os-more data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="News 메뉴">${MORE}</button></form>
 <p class="now-cand" data-now-cand hidden></p>
 <div id="osPanelSearch" class="osq" data-os-search aria-label="문장 찾기" hidden></div>
 <div id="nowPanelAll" role="tabpanel" aria-labelledby="osTab-all" data-now-panel-all><div class="os-list" data-nw-all aria-label="새로 온 글"></div></div>
