@@ -81,6 +81,16 @@ test('B-4 ③: 본문 번호 한 단계 내림(1.→1)→(1)→①, 가.→가)�
   assert.equal(D.demote('① 이미 최하위'), '① 이미 최하위');
 });
 
+test('WEEKLY-상세보고넣기: 내용 칸 = 한 줄짜리 \'- \' 줄 먼저, 상세 포함은 \'(n) ○○ 결과\' 소제목 + 본문(번호 한 단계 내림)', () => {
+  const one = {kind: 'biz_record', day: '2026-11-13', end_day: null, text: '[교육] 경영평가 강의', detail: 'oneline', body: []};
+  const a = {kind: 'meeting', day: '2026-11-10', end_day: null, text: '궤도 대표자회의', detail: 'full', body: ['(1) 일시 및 장소: 11.10.(화) 14:00', '(2) 참석: 총 12명', '- 국회 토론회 공동 주최']};
+  const b = {kind: 'meeting', day: '2026-11-12', end_day: null, text: '민자철도 간담회 결과', detail: 'full', body: ['1. 요구안']};
+  const c = {kind: 'meeting', day: '2026-11-12', end_day: null, text: '본문 있지만 한 줄만', detail: 'oneline', body: ['1. 감춤']};
+  assert.deepEqual(D.boxContentLines([a, b, c, one]), ['- 11.12. 본문 있지만 한 줄만', '- 11.13. [교육] 경영평가 강의',
+    '(1) 궤도 대표자회의 결과', '① 일시 및 장소: 11.10.(화) 14:00', '② 참석: 총 12명', '- 국회 토론회 공동 주최', '(2) 민자철도 간담회 결과', '1) 요구안']);
+  assert.deepEqual(D.boxContentLines([]), []);
+});
+
 test('B-4 ③·④: 한글 파일 2. 2) = 사업 묶음마다 (n) 이름 + 내용 칸(뺀 줄 제외·상세 본문 포함), 사진 줄도 같은 결과', async () => {
   const records = [rec('r1', T, '2026-11-10', '기록 하나'), rec('r2', B, '2026-11-12', '뺀 기록')];
   const meetings = [meet('m1', T, '2026-11-11T01:00:00Z', {transcript_text: '1. 요구안\n가. 임금', next_plan: '다음 할 일'}), meet('m2', T, '2026-11-11T02:00:00Z', {transcript_text: '본문', next_plan: '- 다음 할 일'})];
@@ -88,7 +98,7 @@ test('B-4 ③·④: 한글 파일 2. 2) = 사업 묶음마다 (n) 이름 + 내�
   const g = D.detailGroups({week, records, meetings, tree, marks, lineOfMeeting});
   const details = D.fileDetails(g);
   assert.deepEqual(details, [{heading: '(1) 조직 확대 › 신규 가입', box: [{label: '제목', lines: ['조직 확대 › 신규 가입']},
-    {label: '내용', lines: ['- 11.10. 기록 하나', '- 11.11. 회의m1', '1) 요구안', '가) 임금', '- 11.11. 보고용']}, {label: '차기일정', lines: ['- 다음 할 일']}]}]);
+    {label: '내용', lines: ['- 11.10. 기록 하나', '- 11.11. 보고용', '(1) 회의m1 결과', '1) 요구안', '가) 임금']}, {label: '차기일정', lines: ['- 다음 할 일']}]}]);
   const snap = g.map(D.detailSnapshotRow).filter(Boolean);
   assert.equal(snap.length, 1); // 뺀 줄만 있는 '교육' 묶음은 사진에도 없음
   assert.equal(snap[0].section, 'biz_detail');

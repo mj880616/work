@@ -98,13 +98,21 @@ export function demote(line) {
   if ((m = s.match(/^([가-힣])\)(\s+)(.*)$/))) return `(${m[1]})${m[2]}${m[3]}`;
   return s;
 }
-// 줄 하나가 파일에 들어가는 글: '- 11.10. 글' + 상세 포함이면 그 아래 본문(번호 한 단계 내림).
+// 줄 하나가 파일에 들어가는 글: '- 11.10. 글' + 상세 포함이면 그 아래 본문(번호 한 단계 내림). [확정] 사진·한 줄 시험이 쓴다.
 export const fileLinesOf = l => [lineText(l), ...(l.detail === 'full' ? l.body.map(demote) : [])];
+// WEEKLY-상세보고넣기(시안 docs/design/mockups/weekly-detail-report.html, record-one.md 2. 2)): 상세 포함 소제목 '(1) ○○ 결과'.
+// 글이 이미 '결과'로 끝나면 그대로 둔다.
+export const resultHeading = (l, n) => { const t = cleanBody(l.text); return `(${n}) ${/결과$/.test(t) ? t : `${t} 결과`}`; };
+// 묶음 하나의 '내용' 칸: 한 줄짜리는 위에 '- ' 줄(날짜 차례), 상세 포함은 그 아래 '(1) ○○ 결과' 소제목 + 본문(번호 한 단계 내림)을 차례로.
+export function boxContentLines(shown) {
+  const list = Array.isArray(shown) ? shown : [], full = list.filter(l => l.detail === 'full');
+  return [...list.filter(l => l.detail !== 'full').map(lineText), ...full.flatMap((l, i) => [resultHeading(l, i + 1), ...l.body.map(demote)])];
+}
 // 한글 파일 2. 2) 세부 내용: 사업 묶음마다 '(1) 사업 이름' 소제목 + 회의 결과 상자(서식 상자 칸 이름 그대로 — 다시 읽을 때 상자로 알아보려면 세 줄 이상, template.mjs isBoxTable):
-// 제목 = 사업 이름, 내용 = 보이는 줄(날짜 오름차순, 상세 포함은 본문), 차기일정 = 사업 보고 '다음 할 일'(겹침 없이). 뺀 줄은 넣지 않는다. 줄 수 상한 없음.
+// 제목 = 사업 이름, 내용 = 보이는 줄(boxContentLines — 한 줄짜리 '- ' 줄 다음 상세 포함 '(1) ○○ 결과' + 본문), 차기일정 = 사업 보고 '다음 할 일'(겹침 없이). 뺀 줄은 넣지 않는다. 줄 수 상한 없음.
 export function fileDetails(groups) {
   return (Array.isArray(groups) ? groups : []).filter(g => g.shown.length)
-    .map((g, i) => ({heading: `(${i + 1}) ${cleanBody(g.label)}`, box: [{label: '제목', lines: [cleanBody(g.label)]}, {label: '내용', lines: g.shown.flatMap(fileLinesOf)},
+    .map((g, i) => ({heading: `(${i + 1}) ${cleanBody(g.label)}`, box: [{label: '제목', lines: [cleanBody(g.label)]}, {label: '내용', lines: boxContentLines(g.shown)},
       {label: '차기일정', lines: [...new Set(g.shown.flatMap(l => (l.kind === 'meeting' ? l.plan || [] : [])).map(cleanBody).filter(Boolean))].map(t => `- ${t}`)}]}));
 }
 // [확정] 사진 한 칸(section 'biz_detail', 조직 사진 snapshotRow 모양): 보이는 줄(보고용 글 반영, 뺀 줄 제외)과 상세 포함 본문.
