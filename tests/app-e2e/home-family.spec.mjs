@@ -87,10 +87,10 @@ test('한 목록의 가족 줄: [할 일로][일정으로][노트로][이미 함
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
-test('접은 폰 폭(344): 버튼 다섯 개가 한 줄(공용 줄 버튼), 가로 넘침 없음',async({page})=>{
+test('접은 폰 폭(344): 줄 버튼 [할 일로][이미 함] ⋯ 가 한 줄(공용 줄 버튼, UI-잊지말기줄단추), 가로 넘침 없음',async({page})=>{
   await fixture(page,{width:344});
   const first=box(page).locator(`[data-nbx-row="f:${id(1)}"]`);
-  await expect(first.locator('.nbx-acts button')).toHaveCount(5);
+  await expect(first.locator('.nbx-acts button:visible')).toHaveText(['할 일로','이미 함','⋯']);
   const mids=await first.locator('.nbx-acts button:visible').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2;}));
   expect(Math.max(...mids)-Math.min(...mids)).toBeLessThanOrEqual(2);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

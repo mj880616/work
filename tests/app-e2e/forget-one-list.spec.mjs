@@ -375,7 +375,7 @@ for(const width of [412,884])test(`폰 ${width}(터치): 줄에는 [할 일로][
   // 업데이트 줄 ⋯(정리함 메뉴): 이름은 [할 일로]·[노트로], 접힌 [일정으로][조직][사업]과 × 자리 [보류로].
   await line(page,`u:${uid(1)}`).locator('.nbx-more').tap();
   const umenu=page.locator('#basketRowMenu');
-  await expect(umenu.locator('button')).toHaveText(['복사','수정','연결하기','할 일로','일정으로','노트로','일기로 보내기','조직','사업','사업 보고로 옮기기','보류로','삭제']);
+  await expect(umenu.locator('button')).toHaveText(['복사','수정','연결하기','할 일로','일정으로','노트로','일기로 보내기','조직','사업','사업 보고로 옮기기','업무일지에 남기기','보류로','삭제']);
   await umenu.getByRole('button',{name:'보류로',exact:true}).tap();
   await expect.poll(()=>notePatches.length).toBe(1);expect(notePatches[0].body.archived_at).toBeTruthy();
   await ctx.close();
