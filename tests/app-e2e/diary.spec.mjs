@@ -845,3 +845,40 @@ test('[일기] 연 화면 유지: 탭을 갔다 오면 보던 달 그대로, 새
  await page.unroute(notes,hold);
  expect(f.errors).toEqual([]);
 });
+
+// UI-우클릭빈곳전수 ①: PC 일기 상세는 상세 전체의 ⋯(data-ctx="area") 메뉴 — 본문·빈 자리 우클릭은 그 메뉴가 커서 자리에, 글자를 고른 상태·Shift는 브라우저 메뉴 그대로.
+test('1280 일기 상세 우클릭: 본문·빈 자리는 [수정][그날 사진 크게 보기][일기 삭제] 메뉴, 글자 고름·Shift는 브라우저 메뉴',async({page})=>{
+ const f=await fixture(page,{width:1280});await openDiary(page,1280);
+ await cell(page,'2026-10-03').click();
+ const detail=page.locator('#diaryRoot [data-diary-detail]'),menu=page.locator('#diaryDetailMenu');
+ await expect(detail.locator('[data-diary-text-view]')).toHaveText('가을 산책 DIARY_TEXT_SECRET');
+ // 아래 [수정][일기 삭제] 단추는 그대로.
+ await expect(detail.locator('.diary-actions button')).toHaveText(['수정','일기 삭제']);
+ await page.evaluate(()=>{window.__kept=[];window.addEventListener('contextmenu',e=>window.__kept.push(!e.defaultPrevented));});
+ const tb=await detail.locator('[data-diary-text-view]').boundingBox(),x=Math.round(tb.x+20),y=Math.round(tb.y+tb.height/2);
+ await page.mouse.click(x,y,{button:'right'});
+ await expect(menu).toBeVisible();
+ await expect(menu.locator('button')).toHaveText(['수정','그날 사진 크게 보기','일기 삭제']);
+ const mb=await menu.boundingBox();expect(Math.abs(mb.x-x)).toBeLessThanOrEqual(12);
+ await page.keyboard.press('Escape');await expect(menu).toBeHidden();
+ // 빈 자리(아래 단추 줄 옆)도 같은 메뉴.
+ const ab=await detail.locator('.diary-actions').boundingBox();
+ await page.mouse.click(Math.round(ab.x+ab.width-10),Math.round(ab.y+ab.height/2),{button:'right'});
+ await expect(menu).toBeVisible();
+ // 메뉴 [그날 사진 크게 보기] = 크게 보기, 메뉴는 닫힘.
+ await menu.locator('button',{hasText:'그날 사진 크게 보기'}).click();
+ await expect(menu).toBeHidden();
+ await expect(page.locator('#diaryRoot [data-diary-viewer]')).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.locator('#diaryRoot [data-diary-viewer]')).toBeHidden();
+ // 글자를 고른 상태·Shift는 브라우저 메뉴(복사).
+ await page.evaluate(()=>{const t=document.querySelector('#diaryRoot [data-diary-text-view]');getSelection().selectAllChildren(t);window.__kept=[];});
+ await page.mouse.click(x,y,{button:'right'});
+ await page.evaluate(()=>getSelection().removeAllRanges());
+ await page.keyboard.down('Shift');await page.mouse.click(x,y,{button:'right'});await page.keyboard.up('Shift');
+ expect(await page.evaluate(()=>window.__kept)).toEqual([true,true]);
+ await expect(menu).toBeHidden();
+ // 메뉴 [수정]은 아래 [수정]과 같은 쓰기 창.
+ await page.mouse.click(x,y,{button:'right'});await menu.locator('button',{hasText:'수정'}).click();
+ await expect(page.locator('#diaryRoot [data-diary-editor]')).toBeVisible();
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
