@@ -62,7 +62,6 @@ jobs:
               'tests/app-e2e/helpers/view-prefs-server.mjs':[r'^export const leftoverDeviceKeys=page=>page\.evaluate\(\(\)=>Object\.keys\(localStorage\)'],
               'tests/app-e2e/theme.spec.mjs':[r"Object\.defineProperty\(window,'localStorage',\{get\(\)\{throw Error\('theme storage blocked'\)\}\}\)"],
               'tests/theme-bootstrap.test.mjs':[r"Object\.defineProperty\(context,'localStorage',\{get\(\)\{throw Error\('storage must not be read'\)\}\}\)"],
-              'index.html':[r'AUTH_KEY',r'AUTH_SESSION_KEY'],
               'app/suborganization-planned-assignee.js':[r'PA_SESSION'],
               'app/calendar-plus.js':[r'CM_PREF'],
               # UI-PC프로젝트좌우·ORG-PC좌우: device-local "last project / organization seen" on the PC left-list / right-detail

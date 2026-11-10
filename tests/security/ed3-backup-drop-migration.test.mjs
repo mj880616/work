@@ -27,7 +27,8 @@ test('ed3 backup drop migration: approved DB workflow still rejects DROP TABLE (
 });
 
 test('ed3 backup drop: no app, Edge or script reads the backup table', () => {
-  const files = ['app', 'supabase/functions', 'scripts', 'index.html', 'p'].filter(p => { try { readdirSync(p); return true; } catch { return p.endsWith('.html'); } })
+  // WEB1-페이지삭제 C1-b: root index.html and p/ (Web1) are removed; share/ is the remaining public page code.
+  const files = ['app', 'supabase/functions', 'scripts', 'share'].filter(p => { try { readdirSync(p); return true; } catch { return p.endsWith('.html'); } })
     .flatMap(p => p.endsWith('.html') ? [p] : walk(p)).filter(f => /\.(?:m?js|html|ts|css)$/.test(f));
   const users = files.filter(f => /app_ed3_text_backups/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(users, []);

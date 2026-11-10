@@ -76,7 +76,6 @@ const ALLOW = new Map([
   ['report-photo-row.js', '고른 파일의 기기 안 미리보기(받기 아님) — 실패하면 그림을 빼고 확장자만'],
   ['markdown-view.js', '글 안 외부 그림 주소(링크 칩) — 실패하면 그림을 빼고 링크 글자만'],
   ['now-detail.js', 'News 원문 안 외부 사진 주소(S51-14, https만·리퍼러 없음) — 실패하면 그림을 빼고 \'사진 ↗\' 링크만'],
-  ['page-design-core.js', '공유(공개) 페이지 글 렌더 — 실패한 그림을 뺌(Web1, 앱 밖)'],
   ['ed-render.mjs', '노트·공유 페이지 공용 렌더 — 노트 사진은 note-body.js가 공용 칸으로 채움'],
 ]);
 const files = readdirSync(new URL('../app/', import.meta.url), {recursive: true}).map(String)

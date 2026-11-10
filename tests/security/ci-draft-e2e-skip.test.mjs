@@ -17,7 +17,6 @@ const E2E_JOBS = {
   'app-e2e-check.yml': ['browser-e2e-shard', 'browser-e2e'],
   'arsenal-archive-check.yml': ['archive'],
   'calendar-edit-move-e2e.yml': ['calendar-edit-move'],
-  'private-rail-forum-state-e2e.yml': ['forum-state'],
   'profile-single-render-check.yml': ['browser'],
   'public-workspace-auth-e2e.yml': ['anonymous-auth-gate'],
   'router-ready-e2e.yml': ['router-ready'],

@@ -45,13 +45,13 @@ test('Task 12C keeps every audited service-role Edge path behind exact owner mem
   }
 });
 
-test('Task 12C preserves Web1 public projections while Web2 anonymous access stays login-gated', () => {
+test('Task 12C keeps the DB public projections (Web1 pages removed in C1-b) while Web2 anonymous access stays login-gated', () => {
   const loader = read('app/loader-v2.js');
   const migration = read('supabase/migrations/20260925084844_task12a_sole_owner_db.sql');
-  const publicPost = read('p/public-post.js');
 
   assert.equal(existsSync(new URL('app/public-workspace.js', ROOT)), false);
-  assert.match(publicPost, /rpc\/app_public_post/);
+  // WEB1-페이지삭제 C1-b: the Web1 client is gone; the RPC itself is not revoked by this repository (no DB change).
+  assert.equal(existsSync(new URL('p/public-post.js', ROOT)), false);
   assert.doesNotMatch(migration, /revoke\s+execute\s+on\s+function\s+public\.app_public_(?:post|workspace_index)/i);
   assert.match(loader, /if\(!authenticated\)\s*\{[\s\S]*?redirectToLogin\(\);[\s\S]*?return;/);
   assert.ok(loader.indexOf("import('./app-router.js") > loader.indexOf('if(!authenticated)'));

@@ -407,7 +407,6 @@ if [[ "${WEB2_TRANSITION:-0}" == 1 ]]; then
   apply_local_migration "$prepare"
   apply_local_migration "$project"
 
-  node --test "$repo_root/scripts/public-page-meta.test.mjs"
   run_local_sql_check supabase/local-verify/transition-legacy.sql
   run_local_sql_check supabase/local-verify/transition-additive.sql
   WEB2_TRANSITION_STAGE=C node --test "$repo_root/supabase/local-verify/http-transition.test.mjs"
