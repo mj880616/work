@@ -113,13 +113,14 @@ for(const width of [390,884,1280])test(`[전체 표] 조직보고 창: 쓰기 �
  expect(db.markWrites.at(-1)).toMatchObject({m:'DELETE'});
  await expect(shown(oa(page))).toHaveCount(3);
  await expect(oa(page).locator('[data-rw-fold="out"]')).toHaveCount(0);
- // 보고용으로 수정 → ✓, 원래 기록은 그대로.
+ // 보고용으로 수정 → 보고용 글이 보이고(✓ 표시는 없음, 명진 11/10 22:30), 원래 기록은 그대로.
  await menu(page,oa(page),'합성 교섭 상견례','보고용으로 수정');
  await expect(body).toBeFocused();
  await body.fill('합성 교섭 상견례(보고용)');await body.press('Enter');
  await expect(status(page)).toHaveText('저장했어요.');
  expect(db.markWrites.at(-1)).toMatchObject({m:'POST',report_body:'합성 교섭 상견례(보고용)'});
- await expect(oa(page).locator('.rw-line',{hasText:'(보고용)'}).locator('.rw-ok')).toHaveCount(1);
+ await expect(oa(page).locator('.rw-line',{hasText:'(보고용)'})).toHaveCount(1);
+ await expect(oa(page).locator('.rw-ok')).toHaveCount(0);
  expect(db.records.find(r=>r.raw_text==='합성 교섭 상견례')).toBeTruthy();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
  expect(errors).toEqual([]);
@@ -329,7 +330,7 @@ for(const width of [412,1280])test(`[전체 표] 보고용 글은 끝까지 보�
  await openTable(page);
  const line=shown(oa(page));
  await expect(line.locator('.wl-text')).toHaveText(LONG);
- await expect(line.locator('.rw-ok')).toHaveCount(1);
+ await expect(line.locator('.rw-ok')).toHaveCount(0);
  // 다시 열면 칸에 보고용 글 전체 → 그대로 저장해도 뒷부분이 사라지지 않음(쓰기 없음)
  await menu(page,oa(page),'합성 임금교섭 1차 결과','보고용으로 수정');
  const body=page.locator('#soOverview [data-rw-field="body"]');
@@ -405,7 +406,7 @@ for(const width of [390,1280])test(`[전체 표] 줄 ⋯ 는 긴 글에서도 �
 });
 
 // ORG-줄바꿈날짜옆(요청함 11/10 14:12 B안): 긴 줄도 날짜 바로 뒤에서 내용이 시작하고, 넘친 글의 둘째 줄은 내용 첫 글자 자리(날짜 오른쪽)에서 이어진다.
-// 날짜는 한 덩어리(한 줄), ⋯ 는 줄 오른쪽 위 그대로, 꼬리표(✓)는 내용 칸 안. 폰 412는 실제 폭, 폴드·PC는 좁은 칸(창 나눔)처럼 칸 폭을 줄여 본다.
+// 날짜는 한 덩어리(한 줄), ⋯ 는 줄 오른쪽 위 그대로, 꼬리표(일정·지난주)는 내용 칸 안. 폰 412는 실제 폭, 폴드·PC는 좁은 칸(창 나눔)처럼 칸 폭을 줄여 본다.
 for(const width of [412,884,1280])test(`[전체 표] 긴 조직 줄: 날짜 옆에서 시작, 둘째 줄은 내용 첫 글자 자리 ${width}px`,async({page})=>{
  const rec=U(OA,'2026-11-17','합성 쟁의대책회의 — 다음 주 하루 경고 행동 추진 및 집중교섭 의견 모음과 일정 정리 결과 공유',{one_line:'합성 쟁의대책회의 — 다음 주 하루 경고 행동 추진 및 집중교섭 의견 모음과 일정 정리 결과 공유'});
  const marks=[{id:'m-ed',workspace_id:'w',week_start:W,section:'org',ref_kind:'org_update',ref_key:rec.id,choice:null,report_body:'합성 쟁의대책회의 — 다음 주 하루 경고 행동 추진 및 집중교섭 의견 모음과 일정 정리 결과 공유',detail:null,updated_at:'2026-11-16T00:00:00Z'}];
@@ -419,7 +420,7 @@ for(const width of [412,884,1280])test(`[전체 표] 긴 조직 줄: 날짜 옆�
   const t=l.querySelector('.wl-text').firstChild,r=document.createRange();r.selectNodeContents(t);
   const rows=[];for(const b of r.getClientRects()){if(b.width<1)continue;const last=rows[rows.length-1];if(last&&Math.abs(last.y-b.y)<3)continue;rows.push({x:b.x,y:b.y})}
   const box=e=>{const b=e.getBoundingClientRect();return{x:b.x,y:b.y,w:b.width,h:b.height}};
-  return {rows,day:box(l.querySelector('.wl-day')),dayRects:l.querySelector('.wl-day').getClientRects().length,ok:!!l.querySelector('.wl-body .rw-ok'),sum:box(l.querySelector('summary')),line:box(l)};
+  return {rows,day:box(l.querySelector('.wl-day')),dayRects:l.querySelector('.wl-day').getClientRects().length,sum:box(l.querySelector('summary')),line:box(l)};
  });
  await expect.poll(async()=>(await measure()).rows.length,{timeout:8000}).toBeGreaterThan(1); // 긴 글이 여러 줄
  const g=await measure();
@@ -427,7 +428,6 @@ for(const width of [412,884,1280])test(`[전체 표] 긴 조직 줄: 날짜 옆�
  expect(g.rows[0].x).toBeGreaterThan(g.day.x+g.day.w-1); // 날짜 바로 오른쪽에서 시작
  for(const row of g.rows.slice(1))expect(Math.abs(row.x-g.rows[0].x)).toBeLessThan(1); // 둘째 줄부터 = 내용 첫 글자 x(날짜 아래는 빈칸)
  expect(g.dayRects).toBe(1); // 날짜는 한 덩어리
- expect(g.ok).toBe(true); // ✓ 는 내용 칸 안
  expect(g.sum.y+g.sum.h/2).toBeLessThan(g.line.y+g.sum.h); // ⋯ 는 줄 오른쪽 위
  expect(Math.abs((g.sum.x+g.sum.w)-(g.line.x+g.line.w))).toBeLessThan(6);
  expect(errors).toEqual([]);

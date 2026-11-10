@@ -92,7 +92,7 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
     if (ctl.editing?.id === l.id) return reportForm(l);
     const ro = ctl.busy || !!ctl.editing;
     const act = where === 'shown' ? lineMore(l) : `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-bd-back="${esc(l.id)}"${ro ? ' disabled' : ''}>되돌리기</button></span>`;
-    const tags = `${l.edited ? '<span class="rw-ok" title="보고용으로 수정함" aria-label="보고용으로 수정함">✓</span>' : ''}${l.kind === 'meeting' && l.canFull && l.detail !== 'full' && where === 'shown' ? '<span class="rw-tag">한 줄만</span>' : ''}`;
+    const tags = `${l.kind === 'meeting' && l.canFull && l.detail !== 'full' && where === 'shown' ? '<span class="rw-tag">한 줄만</span>' : ''}`;
     return `<div class="wl-line rw-line bd-line${where === 'out' ? ' is-last' : ''}" data-bd-line="${esc(l.id)}" data-bd-kind="${esc(l.kind)}"><span class="wl-day">- ${esc(D.dayText(l.day, l.end_day))}</span><span class="wl-body"><span class="wl-text">${esc(l.text)}</span>${tags}</span>${act}</div>${where === 'shown' ? bodyHtml(l) : ''}`;
   };
   const reportForm = l => {

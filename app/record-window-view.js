@@ -179,7 +179,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
 
   // ---- 그리기 ----
   const moreSlot = spec => `<span class="wl-more-slot" data-wl-more="${esc(JSON.stringify(spec))}"></span>`;
-  const tags = l => `${l.edited ? '<span class="rw-ok" title="보고용으로 수정함" aria-label="보고용으로 수정함">✓</span>' : ''}${l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}${l.last ? '<span class="rw-last">지난주</span>' : ''}`;
+  const tags = l => `${l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}${l.last ? '<span class="rw-last">지난주</span>' : ''}`;
   // 표 [⋯](ORG-줄순서): 맨 위 '줄 순서'. 누르면 바로 바뀌고 서버 화면 설정에 남는다(폰·PC 같음).
   ctl.orderMenuHtml = () => {
     const cur = ctl.order();
