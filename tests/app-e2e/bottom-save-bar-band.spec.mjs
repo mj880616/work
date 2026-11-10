@@ -42,6 +42,8 @@ const SCREENS = {
     await chooseBasketKind(page, 'note');
     await page.locator('[data-note-host] [data-note-row]').filter({ hasText: '가짜 노트' }).click();
     await noteMenuAction(page, 'data-note-edit');
+    // 본문 편집기는 [수정] 뒤에 따로 불러와 붙는다. 붙기 전에는 저장 줄이 제목 바로 아래에 있다가, 붙으면 화면 아래로 내려간다.
+    await expect(page.locator('[data-note-detail] [data-note-body-field] .ProseMirror')).toBeVisible();
     return page.locator('[data-note-edit-actions]');
   },
   async 업데이트(page) {
@@ -59,6 +61,7 @@ const SCREENS = {
     await page.evaluate(() => window.KPTURouter.go('diary'));
     await expect(page.locator('#diaryView')).toBeVisible();
     await page.locator('#diaryRoot [data-diary-new]').click();
+    await expect(page.locator('#diaryRoot [data-diary-editor] .ProseMirror')).toBeVisible(); // 노트와 같이 글 칸 편집기가 붙은 뒤
     return page.locator('#diaryRoot [data-diary-editor] .diary-actions');
   },
 };
@@ -79,6 +82,21 @@ async function pixel(page, x, y) {
   const raw = inflateSync(Buffer.concat(chunks));
   return [raw[1], raw[2], raw[3]];
 }
+// 줄 자리가 멈출 때까지: 두 화면 그림(animation frame) 사이 자리가 같으면 그 자리를 쓴다. 편집기·글꼴이 늦게 붙어 줄이 움직이는
+// 동안 잰 자리로 사진을 찍으면 줄이 아닌 다른 것(편집기 버튼 줄 등)의 색을 읽는다(STAB-아래저장줄띠).
+async function settledBox(bar) {
+  let box = null;
+  await expect.poll(async () => {
+    box = await bar.evaluate(el => new Promise(done => {
+      const at = () => { const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].join(','); };
+      const first = at();
+      requestAnimationFrame(() => requestAnimationFrame(() => done(first === at() ? first : null)));
+    }));
+    return box;
+  }, { message: '저장 줄 자리가 멈춤' }).not.toBeNull();
+  const [x, y, width, height] = box.split(',').map(Number);
+  return { x, y, width, height };
+}
 const rgb = text => text.match(/\d+/g).slice(0, 3).map(Number);
 
 for (const width of [412, 884, 1280]) for (const dark of [false, true]) for (const name of Object.keys(SCREENS)) {
@@ -93,11 +111,14 @@ for (const width of [412, 884, 1280]) for (const dark of [false, true]) for (con
     const under = await behind(bar);
     expect(style.bg, `뒤 바탕(${under.who})`).toBe(under.bg);
     // 화면 사진으로도: 줄 안 빈 자리(버튼 사이 가장 넓은 틈, 버튼이 오른쪽에만 있으면 그 왼쪽) 색 = 줄 뒤 바탕 색.
-    const b = await bar.boundingBox();
+    const b = await settledBox(bar);
     const xs = (await bar.locator('button:visible').evaluateAll(list => list.map(el => { const r = el.getBoundingClientRect(); return [r.left, r.right]; }))).sort((p, q) => p[0] - q[0]);
     let gap = [b.x, xs[0][0]];
     for (let i = 1; i < xs.length; i++) if (xs[i][0] - xs[i - 1][1] > gap[1] - gap[0]) gap = [xs[i - 1][1], xs[i][0]];
-    const got = await pixel(page, (gap[0] + gap[1]) / 2, b.y + b.height / 2), want = rgb(under.bg);
+    const px = (gap[0] + gap[1]) / 2, py = b.y + b.height / 2;
+    // 그 점에 실제로 보이는 것이 저장 줄(또는 그 안 빈 자리)인지 먼저 확인한다 — 다른 것이 덮고 있으면 색 비교가 뜻이 없다.
+    expect(await bar.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x, y)), [px, py]), '사진 찍을 점이 저장 줄 위').toBe(true);
+    const got = await pixel(page, px, py), want = rgb(under.bg);
     for (let i = 0; i < 3; i++) expect(Math.abs(got[i] - want[i]), `화면 사진 점 ${got} = 뒤 바탕 ${want}`).toBeLessThanOrEqual(2);
     if (SHOTS) {
       mkdirSync(SHOTS, { recursive: true });
