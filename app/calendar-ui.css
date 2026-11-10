@@ -347,10 +347,11 @@
 }
 
 /* BASKET-전환버튼고정: 제목 글자 길이(달 "2026년 10월" / 목록·주 "10월 25일 – 11월 7일")가 달라도 오른쪽 보기 전환 버튼이 안 움직이게 제목 칸 폭을 고정한다.
-   UI-보기탭한모양(S52-17): 보기 전환이 공용 ⑤(칸 사이 2px·양옆 3px)로 10px 넓어져, 가장 좁은 PC 틀(761px)에서도 한 줄에 들어가게 12.5em → 11.5em. */
+   UI-보기탭한모양(S52-17): 보기 전환이 공용 ⑤(칸 사이 2px·양옆 3px)로 10px 넓어져, 가장 좁은 PC 틀(761px)에서도 한 줄에 들어가게 12.5em → 11.5em.
+   UI-폴드메뉴이름(2026-11-10): 폴드 왼쪽 메뉴가 52→72px로 넓어져 761px 본문이 20px 줄었다. 가장 긴 제목("12월 28일 – 1월 10일", 약 9em)이 들어가는 10.5em으로. */
 @media(min-width:761px){
   #calendarView .calendar-toolbar #monthTitle,
-  #calendarView.calendar-list-active .calendar-toolbar #monthTitle{box-sizing:border-box;flex:none;width:11.5em;min-width:11.5em;text-align:center;white-space:nowrap}
+  #calendarView.calendar-list-active .calendar-toolbar #monthTitle{box-sizing:border-box;flex:none;width:10.5em;min-width:10.5em;text-align:center;white-space:nowrap}
 }
 }
 /* UI-기다림표시통일 3차: 일정 없는 날 줄 안의 공용 '없음'은 줄(.clv-empty) 높이를 그대로 따른다. */
