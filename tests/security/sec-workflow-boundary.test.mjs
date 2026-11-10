@@ -10,7 +10,7 @@ test('workflow files contain no direct repository push path', () => {
   for (const name of readdirSync(workflowsDir).filter(name => /\.ya?ml$/.test(name))) {
     const source = workflow(name);
     assert.doesNotMatch(source, /\bgit\s+push\b|\bgit\s+commit\b|createCommit|createOrUpdateFileContents/, name);
-    if (!['publication-auto-merge.yml', 'basket-pc-release.yml', 'phone-app-release.yml'].includes(name)) assert.doesNotMatch(source, /^\s+contents:\s*write\s*$/m, name);
+    if (!['basket-pc-release.yml', 'phone-app-release.yml'].includes(name)) assert.doesNotMatch(source, /^\s+contents:\s*write\s*$/m, name);
   }
 });
 
@@ -66,114 +66,52 @@ test('Basket PC release workflow only runs for basket-pc-v tags or a manual run 
   assert.match(source, /actions\/attest-build-provenance@/);
 });
 
-test('metadata synchronization only compares PR and manual run output', () => {
-  const source = workflow('sync-public-page-meta.yml');
-  assert.match(source, /workflow_dispatch:/);
-  assert.match(source, /pull_request:[\s\S]*?branches: \[main\][\s\S]*?['"]p\/\*\*['"]/);
-  assert.doesNotMatch(source, /schedule:|^  push:/m);
-  assert.match(source, /permissions:\s*\n\s+contents: read/);
-  assert.match(source, /node scripts\/generate-public-pages\.mjs --check/);
-  assert.match(source, /git diff --exit-code -- p/);
-  assert.match(source, /git status --porcelain -- p/);
-});
-
-const REQUIRED_CHECK_JOBS = { 'publication-gate.yml': 'publication-gate', 'web1-file-dropzone.yml': 'dropzone' };
-const NO_EDITED = ['publication-gate.yml', 'web1-file-dropzone.yml', 'publication-auto-merge.yml', 'loader-cache-check.yml', 'browser-storage-audit.yml'];
+// WEB1-페이지삭제 C1-b (docs/design/web1-removal-plan.md 3-나): Web1 publication gate, auto merge, metadata sync,
+// file drop zone, editor auth check and the private-rail forum E2E are retired with Web1. They must not come back,
+// and no workflow may declare the old required check names, so a ruleset that still lists them is noticed.
+const RETIRED_WEB1_WORKFLOWS = [
+  'publication-gate.yml', 'publication-auto-merge.yml', 'sync-public-page-meta.yml',
+  'web1-editor-auth-check.yml', 'web1-file-dropzone.yml', 'private-rail-forum-state-e2e.yml'
+];
+const RETIRED_REQUIRED_CHECKS = ['publication-gate', 'dropzone'];
+const NO_EDITED = ['loader-cache-check.yml', 'browser-storage-audit.yml'];
 
 const jobBlocks = source => {
   const jobs = source.slice(source.indexOf('\njobs:\n'));
   return Object.fromEntries([...jobs.matchAll(/^  ([\w-]+):\n([\s\S]*?)(?=^  [\w-]+:\n|(?![\s\S]))/gm)].map(match => [match[1], match[2]]));
 };
 
-test('publication and gate-input workflows do not listen to PR edits', () => {
+test('Web1 publication workflows are retired and their required check names are not declared anywhere', () => {
+  const names = readdirSync(workflowsDir);
+  for (const name of RETIRED_WEB1_WORKFLOWS) assert.ok(!names.includes(name), `${name} stays removed`);
+  for (const name of names.filter(name => /\.ya?ml$/.test(name))) {
+    const source = workflow(name);
+    const declared = Object.keys(jobBlocks(source)).filter(job => RETIRED_REQUIRED_CHECKS.includes(job));
+    assert.deepEqual(declared, [], name);
+    assert.doesNotMatch(source, /publication-pr-policy|generate-public-pages|check-web1-file-dropzone|pull_request_target/, name);
+  }
+  // The recorded main ruleset keeps its protections but no longer waits for the retired checks.
+  const ruleset = JSON.parse(readFileSync(new URL('../../docs/main-pr-gate-ruleset.json', import.meta.url), 'utf8'));
+  assert.deepEqual(ruleset.rules.map(rule => rule.type), ['deletion', 'non_fast_forward', 'pull_request']);
+  assert.equal(ruleset.enforcement, 'active');
+  assert.deepEqual(ruleset.bypass_actors, []);
+  assert.doesNotMatch(JSON.stringify(ruleset), /publication-gate|dropzone/);
+});
+
+test('gate-input workflows do not listen to PR edits', () => {
   for (const name of NO_EDITED) {
     const source = workflow(name);
     assert.doesNotMatch(source, /\bedited\b|changes\.base|github\.event\.action/, name);
   }
-  for (const name of ['publication-gate.yml', 'web1-file-dropzone.yml', 'publication-auto-merge.yml']) {
-    assert.match(workflow(name), /^    types: \[opened, synchronize, reopened\]$/m, name);
-  }
 });
 
-test('required check jobs have no event-based skip and come from one workflow each', () => {
-  for (const [name, job] of Object.entries(REQUIRED_CHECK_JOBS)) {
-    const source = workflow(name);
-    assert.doesNotMatch(source, /^\s+(paths|paths-ignore|branches-ignore):/m, name);
-    const block = jobBlocks(source)[job];
-    assert.ok(block, `${name} defines ${job}`);
-    const condition = block.match(/^    if: (.+)$/m)?.[1];
-    if (job === 'publication-gate') assert.equal(condition, 'always()');
-    else assert.equal(condition, undefined, `${job} must not be conditional`);
-  }
-  assert.match(workflow('publication-gate.yml'), /^  classify:\n    runs-on:/m);
-  for (const name of readdirSync(workflowsDir).filter(name => /\.ya?ml$/.test(name))) {
-    const declared = Object.keys(jobBlocks(workflow(name))).filter(job => Object.values(REQUIRED_CHECK_JOBS).includes(job));
-    assert.deepEqual(declared, REQUIRED_CHECK_JOBS[name] ? [REQUIRED_CHECK_JOBS[name]] : [], name);
-  }
-});
-
-test('checks awaited by the publication gate run on every main PR open, push and reopen', () => {
-  const policy = readFileSync(new URL('../../scripts/publication-pr-policy.mjs', import.meta.url), 'utf8');
-  assert.match(policy, /\['loader-cache', 'audit'\] : \['loader-cache'\]/);
+test('loader-cache and audit run on every main PR open, push and reopen', () => {
   for (const [name, job] of [['loader-cache-check.yml', 'loader-cache'], ['browser-storage-audit.yml', 'audit']]) {
     const source = workflow(name);
     assert.match(source, /pull_request:\n    branches: \[main\]\n(?!    types:)/, name);
     assert.doesNotMatch(source, /pull_request_target/, name);
     assert.doesNotMatch(jobBlocks(source)[job], /^    if:/m, name);
   }
-});
-
-test('auto merge confirms the main ruleset by content and fails loudly when it is not ready', () => {
-  const source = workflow('publication-auto-merge.yml');
-  assert.doesNotMatch(source, /Main PR gate|\.name ==/);
-  const step = source.match(/- name: Require a main ruleset[\s\S]*?(?=\n      - name:)/)?.[0] ?? '';
-  assert.match(step, /if: steps\.classify\.outputs\.auto_eligible == 'true'/);
-  assert.match(step, /run: node scripts\/publication-pr-policy\.mjs ruleset-ready/);
-  assert.doesNotMatch(step, /continue-on-error|\|\| true|exit 0/);
-  assert.ok(source.indexOf('ruleset-ready') < source.indexOf('--auto --merge'));
-  assert.match(source, /reserve:[\s\S]*?Check out trusted base policy only[\s\S]*?ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
-  const required = JSON.parse(readFileSync(new URL('../../docs/main-pr-gate-ruleset.json', import.meta.url), 'utf8'))
-    .rules.find(rule => rule.type === 'required_status_checks').parameters.required_status_checks.map(check => check.context);
-  assert.deepEqual(required, Object.values(REQUIRED_CHECK_JOBS));
-});
-
-test('auto merge only reserves on main PR open, push and reopen', () => {
-  const source = workflow('publication-auto-merge.yml');
-  assert.match(source, /pull_request_target:\n    branches: \[main\]\n    types: \[opened, synchronize, reopened\]/);
-  assert.match(source, /group: publication-auto-merge-\$\{\{ github\.event\.pull_request\.number \}\}\n/);
-  assert.match(source, /reserve:\n    if: github\.event\.pull_request\.base\.ref == 'main'\n/);
-  assert.doesNotMatch(source, /cancel-departed-main/);
-  assert.match(source, /Remove an old reservation when scope expands[\s\S]*?--disable-auto/);
-  assert.match(source, /PR head or base changed; no reservation made/);
-  assert.match(source, /--match-head-commit/);
-});
-
-test('Actions policy 6065 workflow paths keep their names', () => {
-  const names = readdirSync(workflowsDir);
-  assert.ok(names.includes('publication-gate.yml'));
-  assert.ok(names.includes('publication-auto-merge.yml'));
-});
-
-test('auto merge publishes through the Actions Pages workflow, not the legacy Pages build API', () => {
-  const source = workflow('publication-auto-merge.yml');
-  const jobs = jobBlocks(source);
-  assert.deepEqual(Object.keys(jobs), ['reserve', 'deploy-pages']);
-  assert.doesNotMatch(source, /pages\/builds|pages:\s*write|build-pages/);
-  // Only the reservation job may write contents; only the deploy job may dispatch workflows.
-  assert.match(jobs.reserve, /permissions:\n      contents: write\n      pull-requests: write\n    outputs:/);
-  assert.doesNotMatch(jobs.reserve, /actions:/);
-  const deploy = jobs['deploy-pages'];
-  assert.match(deploy, /permissions:\n      contents: read\n      pull-requests: read\n      actions: write\n    steps:/);
-  assert.match(deploy, /^    needs: reserve\n    if: needs\.reserve\.outputs\.armed == 'true'\n/m);
-  assert.ok(deploy.indexOf('Wait for this exact PR head to merge') < deploy.indexOf('/dispatches'));
-  assert.match(deploy, /gh api -X POST "repos\/\$GITHUB_REPOSITORY\/actions\/workflows\/pages-deploy\.yml\/dispatches" -f ref=main\n/);
-  assert.doesNotMatch(deploy, /skip_deploy|continue-on-error|\|\| true/);
-  assert.match(deploy, /compare\/\$MERGE_SHA\.\.\.\$run_sha/);
-  assert.match(deploy, /map\(\{\(\.name\): \.conclusion\}\) \| add \| \.deploy \/\/ empty/);
-  assert.match(deploy, /"\$conclusion" == success && "\$deploy" == success/);
-  const pages = workflow('pages-deploy.yml');
-  assert.match(pages, /^  workflow_dispatch:\n/m);
-  assert.match(pages, /^  deploy:\n/m);
 });
 
 test('browser-e2e reports on every main PR and decides from the change scope', () => {

@@ -10,7 +10,6 @@ on:
       - 'tests/web2-csp.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
-      - 'p/**'
       - 'supabase/functions/basket-files/photo-prune.ts'
       - 'supabase/functions/basket-files/note-delete.ts'
       - 'tests/security/basket-photo-prune.test.mjs'
@@ -204,7 +203,6 @@ on:
       - 'tests/web2-csp.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
-      - 'p/**'
       - 'supabase/functions/basket-files/photo-prune.ts'
       - 'supabase/functions/basket-files/note-delete.ts'
       - 'tests/security/basket-photo-prune.test.mjs'
@@ -999,7 +997,7 @@ jobs:
             app/project-system-v3.js app/project-system-v3.css app/project-catalog.js app/project-catalog-model.mjs \
             app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js app/calendar-ui.css \
             app/workflow-ai-v3.js app/workplace-report.js \
-            app/meeting-ui.css p/index.html; do
+            app/meeting-ui.css; do
             test -f "$f"
           done
           test -d app/legacy
@@ -1097,7 +1095,6 @@ jobs:
           test ! -e app/public-workspace-extras.js
           test ! -e app/public-workspace.css
           test ! -e app/public-page-links.js
-          if grep -q "app_public_project" p/public-post.js; then echo 'public project URL RPC returned'; exit 1; fi
           if grep -REq "public-workspace|public-page-links|app_public_workspace_index" app/loader-v2.js app/app-router.js app/view-loader.js app/app.js; then echo 'Web2 runtime returned to a public workspace path'; exit 1; fi
           if grep -Eq "publicHomeAvailable|kptu-public-workspace" app/app-router.js; then echo 'router returned to an anonymous Web2 route'; exit 1; fi
           if grep -Eq "resource.visibility==='public'|resource.project_public===true" app/capabilities.js; then echo 'Web2 capability returned to an anonymous read fallback'; exit 1; fi
@@ -1314,6 +1311,14 @@ jobs:
           test ! -e app/legacy/editable-page.js
           if grep -REq "web1-board|web1BoardLegacy|web1BoardDetailModal|KPTUWeb1Board|public-page-editor|web1-admin-auth|web1-page-capabilities|forum-flow-polish" app/index.html app/loader-v2.js app/view-loader.js app/styles.css app/team.js app/share-pages.js; then echo 'Web2 returned to a Web1 borrowing path'; exit 1; fi
           if grep -Eq "page-list-controller.js|page-save-controller.js|page-builder.js|page-shortcut.js|page-management.js|page-inline-viewer-v2.js" app/loader-v2.js app/view-loader.js; then echo 'retired page management returned to authenticated loader'; exit 1; fi
+      - name: Check Web1 pages stay removed (WEB1-페이지삭제 C1-b)
+        run: |
+          set -e
+          for path in index.html press 2in1 workforce rail-council private-rail p s public-policy sanbyeol review workspace assets app/page-design-core.js; do
+            if [ -e "$path" ]; then echo "retired Web1 path returned: $path"; exit 1; fi
+          done
+          test -f 404.html
+          grep -q '더 이상 운영하지 않는 페이지입니다' 404.html
       - name: Check security-sensitive client boundaries
         run: |
           set -e
@@ -1340,6 +1345,6 @@ jobs:
             app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css \
             app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/library-upload.js app/library-upload.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js \
             app/task-workflow.js app/meeting-round-detail.js app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \
-            app/styles.css app/meeting-ui.css app/calendar-ui.css p/; do
+            app/styles.css app/meeting-ui.css app/calendar-ui.css; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done

@@ -86,10 +86,18 @@ test('Task 13 migration is paired, non-destructive, and preserves Web1 and RTW',
   assert.match(rollback, /grant execute on function public\.app_open_share\(text\) to authenticated, service_role/i);
 });
 
-test('Web1 public delivery remains present', () => {
-  assert.match(read('p/public-post.js'), /rpc\/app_public_post/);
-  assert.match(read('public-policy/index.html'), /app_public_post/);
-  assert.equal(exists('supabase/functions/public-page-edit/index.ts'), true);
+// WEB1-페이지삭제 C1-b: the Web1 pages that called app_public_post are removed. The RPC and its data stay in the DB
+// (no DB change), and no remaining client calls it. public-policy-drive stays because Web2 uses it.
+test('Web1 public delivery pages are removed and no remaining client calls app_public_post', () => {
+  for (const path of ['p/public-post.js', 'p/index.html', 'public-policy/index.html', 'index.html']) {
+    assert.equal(exists(path), false, `${path} stays removed`);
+  }
+  for (const dir of ['app/', 'share/', 'about/']) {
+    for (const name of readdirSync(fileURLToPath(new URL(dir, ROOT)), { recursive: true }).map(String)) {
+      if (!/\.(?:m?js|html)$/.test(name) || name.includes('hwp-lab/') || name.includes('editor-lib/')) continue;
+      assert.doesNotMatch(read(dir + name), /app_public_post/, dir + name);
+    }
+  }
   assert.equal(exists('supabase/functions/public-policy-drive/index.ts'), true);
 });
 

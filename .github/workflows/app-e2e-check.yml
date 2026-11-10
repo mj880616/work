@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'app/**'
-      - 'p/**'
       - 'tests/app-e2e/**'
       - '.github/workflows/app-e2e-check.yml'
       - '.github/actions/setup-playwright/**'
