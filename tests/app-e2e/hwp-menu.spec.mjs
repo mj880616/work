@@ -45,7 +45,7 @@ async function enterFromMenu(page,width,{ready=true}={}){
   if(width<761){
     await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav').getByRole('button',{name:'HWP 편집',exact:true}).click();
-  }else await page.locator('.app-nav').getByRole('button',{name:'HWP 편집',exact:true}).click();
+  }else await page.locator('.app-nav').getByRole('link',{name:'HWP 편집',exact:true}).click();
   await expect(page.locator('#hwpView')).toBeVisible();
   if(ready)await expect(status(page)).toHaveText(/HWP 편집이 준비됐습니다/,{timeout:60000});
   expect(new URL(page.url()).searchParams.get('view')).toBe('hwp');

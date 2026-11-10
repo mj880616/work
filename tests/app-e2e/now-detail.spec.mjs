@@ -81,7 +81,7 @@ async function openNow(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'News', exact: true }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
 }
 const root = page => page.locator('#outsideRoot');
@@ -228,7 +228,7 @@ for (const query of ['?view=news', '?view=outside', '?view=now']) {
     await nowServer(page);
     await expect(page.locator('#outsideView')).toBeVisible({ timeout: 20000 });
     await expect(page.locator('#osTitle')).toHaveText('News');
-    await expect(page.locator('#appView>.app-nav').getByRole('button', { name: 'News', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(root(page).getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     if (query === '?view=now') await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('news');
     expect(errors).toEqual([]);

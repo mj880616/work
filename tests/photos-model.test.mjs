@@ -81,7 +81,7 @@ test('메뉴 한 줄·화면 연결: [사진]은 [메뉴] 창 안, 크게 보기
   for (const f of ['app/photos.js', 'app/photos-model.mjs', 'app/photo-strip.js']) assert.doesNotMatch(read(f), deviceStores, f);
   assert.match(read('app/view-loader.js'), /photos:\['\.\/diary\.css','\.\/od-link\.css','\.\/source-chips\.css','\.\/photos\.css'/);
   assert.match(read('app/app-router.js'), /photos:\['tab'\]/);
-  assert.match(read('app/index.html'), /data-view="photos" type="button">사진<\/button>/);
+  assert.match(read('app/index.html'), /data-view="photos" href="\.\/\?view=photos">사진<\/a>/);
 });
 
 // ---- PHOTO-사진메뉴 2차: 서버 library·months·days·휴지통과 결정 4~7 ----

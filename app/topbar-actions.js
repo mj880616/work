@@ -3,6 +3,7 @@ import {viewPrefs,THEMES,DEFAULT_THEME} from './view-prefs.js';
 import {repaintMobileTabs} from './mobile-tab-selection.mjs';
 import {pcSplit,itemOf,isDefaultLayout} from './menu-model.mjs';
 import './menu-layout.js';
+import './keyboard-keys.js'; // UI-PC손맛묶음 ②: 전체 검색 단축키·본문으로 가기·목록 ↑↓·Enter
 import {isWide,placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
 (()=>{
 'use strict';

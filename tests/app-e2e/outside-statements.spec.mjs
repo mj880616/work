@@ -124,7 +124,7 @@ async function openOutside(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'News', exact: true }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('news');
 }

@@ -48,7 +48,7 @@ async function openAlbums(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: '사진', exact: true }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('link', { name: '사진', exact: true }).click();
   await expect(page.locator('#photosView')).toBeVisible();
   await root(page).locator('[data-photos-view]').selectOption('albums');
   await expect(root(page).locator('[data-photos-album]')).toHaveCount(3);

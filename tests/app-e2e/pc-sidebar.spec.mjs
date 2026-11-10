@@ -99,17 +99,17 @@ test('폰 390: 하단 탭 [홈] 그대로, 하위 메뉴는 없다; 870(UI-폴�
 test('PC 1280: [일정] 아래 [달력]·[할 일]·[일기], 상위는 달력, 현재 화면의 하위 줄이 고른 표시',async({page})=>{
  const errors=await open(page,1280),head=nav(page).locator('.nav-btn[data-view="calendar"]'),sub=nav(page).locator('.nav-sub[aria-label="일정"]');
  await expect(head).toHaveText('일정');
- await expect(sub).toBeVisible();await expect(sub.getByRole('button')).toHaveText(['달력','할 일','일기']);
+ await expect(sub).toBeVisible();await expect(sub.getByRole('link')).toHaveText(['달력','할 일','일기']);
  // 바로 아래, 들여 쓴 하위 메뉴.
  const shape=loc=>loc.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {h:Math.round(r.height),x:Math.round(r.x),font:s.fontSize,weight:s.fontWeight,color:s.color};});
- const hb=await head.boundingBox(),first=await sub.getByRole('button').first().boundingBox();
+ const hb=await head.boundingBox(),first=await sub.getByRole('link').first().boundingBox();
  expect(first.y).toBeGreaterThan(hb.y);expect(first.x).toBeGreaterThan(hb.x);
  // 따로 있던 줄은 없다(사이드바 전체에서 화면마다 줄 하나).
  for(const view of ['tasks','diary'])await expect(nav(page).locator(`[data-view="${view}"]`)).toHaveCount(1);
  await expect(nav(page).locator('[data-view="journal"]')).toHaveCount(0);
  await expect(nav(page).locator('.nav-btn[data-view="tasks"],.nav-btn[data-view="diary"]')).toHaveCount(0);
  // 상위 [일정] → 달력, [달력] 줄이 고른 표시.
- const item=name=>sub.getByRole('button',{name,exact:true});
+ const item=name=>sub.getByRole('link',{name,exact:true});
  await head.click();await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar/);
  await expect(head).toHaveAttribute('aria-current','page');await expect(head).toHaveClass(/active/);
  await expect(item('달력')).toHaveAttribute('aria-current','true');await expect(sub.locator('[aria-current]')).toHaveCount(1);
@@ -154,7 +154,7 @@ test('업무일지 = 홈: 옛 ?view=journal은 홈, 사이드바·폰 전환 줄
  await expect(page.locator('#journalRoot [data-journal-date="2026-10-07"]')).toHaveAttribute('aria-pressed','true');
  await expect(page).not.toHaveURL(/view=journal/);await expect(page).toHaveURL(/[?&]day=2026-10-07(?:&|$)/);
  await expect(nav(page).locator('.sidebar-brand')).toHaveAttribute('aria-current','page');
- await expect(nav(page).locator('.nav-sub[aria-label="일정"]').getByRole('button',{name:'업무일지',exact:true})).toHaveCount(0);
+ await expect(nav(page).locator('.nav-sub[aria-label="일정"]').getByRole('link',{name:'업무일지',exact:true})).toHaveCount(0);
  // 화면 어디에도 "일지"만 따로 쓰인 이름이 없다(업무일지·주간 업무일지는 괜찮다).
  const bare=()=>page.evaluate(()=>{const t=document.querySelector('#appView').innerText;return (t.match(/(^|[^무])일지/g)||[]).length;});
  expect(await bare()).toBe(0);
