@@ -857,7 +857,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!p || !state) return;
     const n = hqFileLines().length;
     const k = discussFileLines().length;
-    p.textContent = `1. 요청사항: 2) 주요 일정 ${n ? `${n}줄` : '빈 칸'}, 3) 상집 논의 요청 ${k ? `${k}줄` : '빈 칸'}을 넣어요(아래 표에서 수정해요). 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.`;
+    p.textContent = `1. 요청사항: 2) 주요 일정 ${n ? `${n}줄` : '빈 칸'}, 3) 상집 논의 요청 ${k ? `${k}줄` : '빈 칸'}을 넣어요(아래 표에서 수정해요). ${isRecordWeek(state.start) ? '2. 2) 세부 내용은 주요 사업 그대로(상세 포함은 결과 본문까지) 넣고, 집회 표는 비워요.' : '세부 내용·집회 표는 비워요.'} 바탕과 다른 줄은 파란 글씨가 돼요.`;
   }
   // ---- 3. 2) 투쟁 사업장 현황 구성 ----
   const siteRows = s => s.sites.map(r => ({index:r.index, org:r.org}));
