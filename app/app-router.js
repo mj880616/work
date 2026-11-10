@@ -402,12 +402,26 @@
     scrollWatch=stop;
     requestAnimationFrame(tick);
   }
+  // CALL-상세뒤로가기: Web2's first entry is the lowest of the unbroken run of this app's own entries (same origin and app path) under
+  // the one shown, not only this document's first. A reload (phone pull-to-refresh, the phone app reopening the page, bfcache, a new
+  // version) starts a new document on the entry shown while the entries below it (the list a detail was opened from) are still Web2's;
+  // back() goes to them like the browser's own Back (they open as a page with their place and layers, NAV-새로고침제자리). The sign-in
+  // page (login/) and other sites end the run, so the last return is still home and then the app leaves (S47-18).
+  function ownEntry(item){
+    try{const u=new URL(item?.url||'');return u.origin===location.origin&&u.pathname===location.pathname}catch{return false}
+  }
+  function firstOwnIndex(entry){
+    const list=window.navigation?.entries?.()||[];
+    let at=entry.index;
+    while(at>0&&ownEntry(list[at-1]))at--;
+    return Math.min(at,baseIndex);
+  }
   // ‹ and Android back: one step back through Web2's own entries; at the first entry the
   // last return is home (D-4a ②). Returns false only when Web2 has nothing left to close.
   function back(){
     const entry=window.navigation?.currentEntry;
     if(entry&&Number.isInteger(entry.index)&&Number.isInteger(baseIndex)){
-      if(entry.index>baseIndex){history.back();return true}
+      if(entry.index>firstOwnIndex(entry)){history.back();return true}
     }else if(layers.length){history.back();return true}
     // A home still loading counts as a step taken (go() answers false then): only home itself has nothing left (the app leaves).
     if(api.current&&api.current!=='home'&&viewExists('home')){go('home',{source:'back',replaceUrl:true});return true}
@@ -420,7 +434,7 @@
     if(!api.current||!authenticatedShellReady())return false;
     const entry=window.navigation?.currentEntry;
     if(entry&&Number.isInteger(entry.index)&&Number.isInteger(baseIndex)){
-      if(entry.index>baseIndex)return true;
+      if(entry.index>firstOwnIndex(entry))return true;
     }else if(layers.length||history.length>1)return true;
     return api.current!=='home'&&viewExists('home');
   }
