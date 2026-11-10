@@ -48,6 +48,7 @@ test('자료실 폰 412: 폴더 묶기도 지금처럼 목록 안 나무 하나(
   await pickGroup(page,'폴더');
   await expect.poll(()=>tops(page)).toEqual(['x:out','f:fa','f:fn']);
   await expect(nav(page)).toHaveCount(0);
+  if(process.env.LIB_TREE_FOLD_SHOTS)await page.screenshot({path:`${process.env.LIB_TREE_FOLD_SHOTS}/phone-412.png`}); // 폰 나무는 그대로(줄 누르기 = 그 자리 펼치기·접기)
   expect(errors).toEqual([]);
 });
 
