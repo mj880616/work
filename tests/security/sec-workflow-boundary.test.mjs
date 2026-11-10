@@ -265,9 +265,17 @@ test('STAB-화면시험간헐: 여러 workers 화면 시험은 접속 대기 줄
 
 test('S54-14 CI diet: nightly E2E skips unchanged commits without wider permissions, Deno binary is cached, Pages build check skips docs-only PRs', () => {
   const e2e = workflow('app-e2e-check.yml');
-  // OPS-작업속도(S56-29): 시험 하나 단위로 16갈래에 나누고 갈래마다 workers 2(러너 하나가 workers 2로 가득 참). 재시도는 붙이지 않는다.
-  assert.match(e2e, /--browser=chromium --workers=2 --fully-parallel --reporter=line,github/);
-  assert.match(e2e, /shardIndex: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16\]\n        shardTotal: \[16\]/);
+  // OPS-작업속도(S56-29): 시험 하나씩 24갈래에 차례로 나누고(scripts/ci/e2e-shard.mjs) 갈래마다 workers 2. 재시도는 붙이지 않는다.
+  assert.match(e2e, /--browser=chromium --workers=2 --fully-parallel --reporter=line,github,json\n\s+--grep "\$\(cat \/tmp\/e2e-shard-grep\.txt\)"/);
+  assert.match(e2e, /shardIndex: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24\]\n        shardTotal: \[24\]/);
+  const shard = jobBlocks(e2e)['browser-e2e-shard'];
+  const planAt = shard.indexOf('node scripts/ci/e2e-shard.mjs plan /tmp/e2e-list.json ${{ matrix.shardIndex }} ${{ matrix.shardTotal }}');
+  const runAt = shard.indexOf('- name: Run complete browser regression suite');
+  const verifyAt = shard.indexOf('node scripts/ci/e2e-shard.mjs verify /tmp/e2e-shard.json /tmp/e2e-result.json');
+  assert.ok(planAt > 0 && planAt < runAt && runAt < verifyAt, 'plan → run → verify 순서');
+  assert.match(shard, /npx playwright test tests\/app-e2e --browser=chromium --list --reporter=json > \/tmp\/e2e-list\.json/);
+  assert.match(shard, /PLAYWRIGHT_JSON_OUTPUT_FILE: \/tmp\/e2e-result\.json/);
+  assert.doesNotMatch(shard, /--shard=|--grep-invert|continue-on-error/);
   assert.doesNotMatch(e2e, /--last-failed|--repeat-each|test\.skip|--grep-invert|--pass-with-no-tests/);
   assert.doesNotMatch(e2e, /--retries|actions: read/);
   assert.match(e2e, /^permissions:\n  contents: read\n/m);
