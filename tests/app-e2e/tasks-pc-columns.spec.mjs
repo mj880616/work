@@ -86,10 +86,15 @@ for(const width of [1280,1440]){
     expect(errors).toEqual([]);
   });
 
-  test(`PC ${width}: 좌우 절반, 왼쪽 위·아래 칸(내용만큼 높이), 오른쪽 상세 칸은 왼쪽 위 칸과 같은 줄에서 시작해 맨 아래까지`,async({page})=>{
+  test(`PC ${width}: 고르기 전에는 목록이 화면 폭 전부(오른쪽 칸 없음), 고르면 왼쪽 위·아래 칸 | 오른쪽 상세 칸(왼쪽 위 칸과 같은 줄에서 시작)`,async({page})=>{
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await open(page,width,[task('late','2026-10-06'),task('today','2026-10-08'),task('soon','2026-10-10'),task('far','2026-10-30')]);
     const box=l=>l.boundingBox();
+    // TASK-넓게쓰기(2026-11-10 명진 B안): 고르기 전에는 오른쪽 칸·경계선이 없고, 두 묶음이 위아래로 화면 폭 전부.
+    await expect(page.locator('#gtDetailPane')).toBeHidden();await expect(page.locator('#gtTaskSection>.split-resize-handle:visible')).toHaveCount(0);
+    {const sec=await box(page.locator('#gtTaskSection')),n=await box(col(page,'now')),w=await box(col(page,'week'));
+      expect(Math.abs(n.width-sec.width)).toBeLessThanOrEqual(1);expect(Math.abs(w.width-sec.width)).toBeLessThanOrEqual(1);expect(w.y).toBeGreaterThanOrEqual(n.y+n.height)}
+    await page.locator('[data-gt-edit="late"]').click();await expect(page.locator('#gtDetailPane #gtTaskModal')).toBeVisible();
     const now=await box(col(page,'now')),week=await box(col(page,'week')),pane=await box(page.locator('#gtDetailPane')),sec=await box(page.locator('#gtTaskSection'));
     // 좌 1/3 : 우 2/3(UI-좌우비율): 오른쪽 폭이 왼쪽의 2배(±3%), 왼쪽 두 칸 폭은 같고 사이에 틈만 있다.
     expect(Math.abs(week.width-now.width)).toBeLessThanOrEqual(1);expect(Math.abs(pane.width/now.width-2)).toBeLessThan(0.06);
@@ -107,13 +112,21 @@ for(const width of [1280,1440]){
     expect(errors).toEqual([]);
   });
 
-  test(`PC ${width}: 아무것도 안 골랐을 때 오른쪽 칸은 빈 칸(요약·안내문 없음), 고르면 수정 칸, 닫으면 다시 빈 칸`,async({page})=>{
+  test(`PC ${width}: 아무것도 안 골랐을 때 오른쪽 칸 없음(넓은 목록), 고르면 수정 칸, ✕·Esc로 닫으면 다시 넓은 목록`,async({page})=>{
     await open(page,width,[task('a','2026-10-08')]);
-    const pane=page.locator('#gtDetailPane'),blank=()=>pane.evaluate(el=>el.textContent.trim()+'|'+el.children.length);
-    // TASK-오른쪽칸비우기(2026-11-09): 고르기 전에는 요약도 안내문도 없는 빈 칸.
-    await expect(pane.locator('.gt-pane-empty')).toHaveCount(0);expect(await blank()).toBe('|0');
-    await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('#gtTaskModal')).toBeVisible();await expect(pane).toHaveClass(/has-task/);
-    await pane.locator('[data-gt-close]').click();await expect(pane).not.toHaveClass(/has-task/);await expect(pane.locator('#gtTaskModal')).toBeHidden();
+    const pane=page.locator('#gtDetailPane'),sec=page.locator('#gtTaskSection'),wide=async()=>{const [s,n]=[await sec.boundingBox(),await col(page,'now').boundingBox()];return Math.abs(s.width-n.width)<=1};
+    // TASK-넓게쓰기(2026-11-10): 고르기 전에는 빈 오른쪽 상자도 없다(요약·안내문도 없음, TASK-오른쪽칸비우기).
+    await expect(pane).toBeHidden();await expect(sec).toHaveClass(/gt-wide/);await expect(pane.locator('.gt-pane-empty')).toHaveCount(0);expect(await wide()).toBe(true);
+    await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('#gtTaskModal')).toBeVisible();await expect(pane).toHaveClass(/has-task/);await expect(sec).not.toHaveClass(/gt-wide/);expect(await wide()).toBe(false);
+    await pane.locator('[data-gt-close]').click();await expect(pane).not.toHaveClass(/has-task/);await expect(pane).toBeHidden();await expect(sec).toHaveClass(/gt-wide/);expect(await wide()).toBe(true);
+    await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('#gtTaskModal')).toBeVisible();
+    await page.locator('#gtEditTitle').press('Escape');await expect(pane).toBeHidden();expect(await wide()).toBe(true);
+  });
+  test(`PC ${width}: 고르기 전 넓은 목록에서는 긴 제목이 잘리지 않는다`,async({page})=>{
+    const long='예시 긴 제목: 2026년 하반기 교섭 준비 자료 모으기';
+    await open(page,width,[task('a','2026-10-08',{title:long})]);
+    const cut=await page.locator('[data-google-task="a"] .gt-main b').evaluate(e=>e.scrollWidth-e.clientWidth);expect(cut).toBeLessThanOrEqual(1);
+    await expect(page.locator('[data-google-task="a"] .gt-main b')).toHaveText(long);
   });
   test(`PC ${width}: 할 일 줄은 바탕 상자 없이 가는 선 한 줄(높이 36px), 제목 왼쪽·기한 오른쪽`,async({page})=>{
     await open(page,width,[task('a','2026-10-08'),task('b','2026-10-08')]);
@@ -124,7 +137,7 @@ for(const width of [1280,1440]){
   test(`PC ${width}: 왼쪽 칸이 많으면 칸이 내용만큼 커지고 화면이 세로로 넘어감(안쪽 스크롤바 없음)`,async({page})=>{
     const tasks=[...Array.from({length:14},(_,i)=>task('n'+i,'2026-10-08')),...Array.from({length:14},(_,i)=>task('w'+i,'2026-10-1'+(i%5)))];
     await open(page,width,tasks,{height:800});
-    const now=await col(page,'now').boundingBox(),week=await col(page,'week').boundingBox(),pane=await page.locator('#gtDetailPane').boundingBox();
+    const now=await col(page,'now').boundingBox(),week=await col(page,'week').boundingBox();
     expect(now.height).toBeGreaterThan(80);expect(week.height).toBeGreaterThan(80);
     // TASK-화면다듬기: 칸은 내용만큼 커지고(안쪽 스크롤바 없음) 화면 전체가 세로로 넘어간다.
     for(const id of ['now','week']){const sc=await col(page,id).locator('.gt-col-body').evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY,mh:getComputedStyle(e).maxHeight}));expect(sc.oy).toBe('visible');expect(sc.mh).toBe('none');expect(sc.sh).toBeLessThanOrEqual(sc.ch+1)}
@@ -173,7 +186,7 @@ for(const width of [1280,1440]){
     const tasks=[task('a','2026-10-08',{notes:'첫 메모'}),task('b','2026-10-12')];
     const calls=await open(page,width,tasks,{links:[{google_task_id:'a',project_id:'p1',status:'confirmed'}]});
     const pane=page.locator('#gtDetailPane');
-    await expect(pane).toBeVisible();await expect(pane).not.toHaveClass(/has-task/);await expect(page.locator('#gtTaskModal')).toBeHidden();
+    await expect(pane).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);await expect(page.locator('#gtTaskModal')).toBeHidden(); // TASK-넓게쓰기: 고르기 전에는 칸 없음
     // 키보드로 카드 고르기(제목 버튼 Enter).
     await page.locator('[data-gt-edit="a"]').focus();await page.keyboard.press('Enter');
     const editor=pane.locator('#gtTaskModal');
@@ -352,9 +365,9 @@ test('PC: 하위 프로젝트는 상위 바로 아래 한 줄씩 들여쓰기(3�
 test('PC 1024(좁은 PC): 왼쪽은 최소 폭 300px, 오른쪽이 나머지, 연결 두 줄, 가로 넘김 없음',async({page})=>{
   const projects=Array.from({length:4},(_,i)=>({...PROJECT,id:'p'+i,name:'프로젝트 '+i}));
   await open(page,1024,[task('a','2026-10-08'),task('b','2026-10-12')],{projects,height:768});
+  await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtDetailPane .aop-row')).toHaveCount(2);
   const now=await col(page,'now').boundingBox(),pane=await page.locator('#gtDetailPane').boundingBox();
   expect(now.width).toBeGreaterThanOrEqual(299);expect(now.width).toBeLessThan(312);expect(pane.width).toBeGreaterThan(now.width);expect(Math.abs(pane.y-now.y)).toBeLessThanOrEqual(1);
-  await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtDetailPane .aop-row')).toHaveCount(2);
   const m=await page.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,sh:document.documentElement.scrollHeight,ih:innerHeight}));
   // UI-칸안스크롤하나로(시안 A): 화면보다 길면 화면(문서)이 세로로 넘어가고, 칸 안에는 따로 세로 스크롤이 없다(예전: 화면 높이 한 페이지 + 칸 안 스크롤).
   expect(m.sw).toBeLessThanOrEqual(m.cw+1);expect(await innerScrollers(page,'#tasksView')).toEqual([]);
