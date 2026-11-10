@@ -60,8 +60,47 @@ export function recordItem(row) {
   const day = seoulDay(row?.occurred_at), text = recordOneLine(row);
   if (!row?.id || !row?.organization_id || !validDay(day) || !text) return null;
   const end = validDay(row.end_day) && row.end_day > day ? row.end_day : null;
-  return {kind: 'org_update', key: String(row.id), org: String(row.organization_id), day, end_day: end, text, full: String(row.raw_text ?? ''), created_at: row.created_at ?? null, source_kind: row.source_kind ?? null};
+  const none = row.day_none === true; // ORG-기록날짜고치기: 날짜 '없음' 기록(줄에는 '-'만, 창 계산은 쓴 날 occurred_at 그대로)
+  return {kind: 'org_update', key: String(row.id), org: String(row.organization_id), day, end_day: none ? null : end, none, at: String(row.occurred_at ?? ''), text, full: String(row.raw_text ?? ''), created_at: row.created_at ?? null, source_kind: row.source_kind ?? null};
 }
+// 줄 날짜 글: '11.2.' / '11.2.~12.5.', 날짜 '없음' 기록은 ''(줄에는 '-'만).
+export const lineDay = l => (l?.none ? '' : dayText(l?.day, l?.end_day));
+
+// ---- 기록 날짜 수정(ORG-기록날짜고치기, 시안 docs/design/mockups/org-record-day-edit.html) ----
+// 칸 = [하루|기간|없음] + 달력. 하루·기간은 occurred_at의 날짜만 바꾸고 서울 시각은 그대로, 기간은 end_day.
+// 없음 = 쓴 날(created_at 서울 날짜, 없으면 지금 날짜)로 occurred_at을 두고 day_none=true — 줄에는 '-'만, 쓴 주에 보인다.
+export const DAY_MODES = Object.freeze(['day', 'range', 'none']);
+export function dayDraft(item) {
+  if (item?.none) return {mode: 'none', day: item.day || '', end_day: ''};
+  return {mode: item?.end_day ? 'range' : 'day', day: item?.day || '', end_day: item?.end_day || ''};
+}
+const seoulClock = at => { const t = Date.parse(String(at ?? '')); return Number.isFinite(t) ? new Date(t + 9 * 3600000).toISOString().slice(11, 19) : '12:00:00'; };
+// 날짜만 바꾼 저장 시각: 그 기록의 서울 시각을 그대로 두고 날짜만 day로.
+export const movedAt = (at, day) => `${day}T${seoulClock(at)}+09:00`;
+// 저장 값 검사. 돌려주는 값: {ok:false, field:'day'|'end_day'} | {ok:true, value:{occurred_at, end_day, day_none}} | {ok:true, value:null}(바뀐 것 없음).
+// noneOn=false(서버에 day_none 칸이 아직 없을 때)면 '없음'은 거절하고 day_none을 보내지 않는다.
+export function checkDayEdit(item, draft, {noneOn = true, today = ''} = {}) {
+  const mode = DAY_MODES.includes(draft?.mode) ? draft.mode : 'day';
+  let day, end = null, none = false;
+  if (mode === 'none') {
+    if (!noneOn) return {ok: false, field: 'mode'};
+    day = seoulDay(item?.created_at) || (validDay(today) ? today : item?.day);
+    if (!validDay(day)) return {ok: false, field: 'mode'};
+    none = true;
+  } else {
+    day = draft?.day;
+    if (!validDay(day)) return {ok: false, field: 'day'};
+    if (mode === 'range') {
+      if (!validDay(draft?.end_day) || draft.end_day < day) return {ok: false, field: 'end_day'};
+      end = draft.end_day > day ? draft.end_day : null;
+    }
+  }
+  if (day === item?.day && (end || null) === (item?.none ? null : item?.end_day || null) && none === !!item?.none) return {ok: true, value: null};
+  const value = {occurred_at: movedAt(item?.at, day), end_day: end};
+  if (noneOn) value.day_none = none;
+  return {ok: true, value};
+}
+
 // 일정 날짜: 종일 = 시작 날(여러 날이면 끝 날 − 1일을 end_day), 시각 일정 = 서울 날짜.
 export function eventSpan(event) {
   const s = String(event?.start ?? ''), e = String(event?.end ?? '');
@@ -287,7 +326,7 @@ export function shownIds({org, week, snapshot = null, records = [], events = [],
 }
 
 // 줄 글(복사·한글 파일): '- 11.2. 글' / '- 11.2.~12.5. 글'.
-export const lineText = l => `- ${[dayText(l.day, l.end_day), cleanBody(l.text)].filter(Boolean).join(' ')}`;
+export const lineText = l => `- ${[lineDay(l), cleanBody(l.text)].filter(Boolean).join(' ')}`;
 
 // ---- 한글 파일·확정 사진(ORG-기록하나로 O-6, 설계 2-8) ----
 // 한글 파일 4. 1)·3. 2)와 확정 사진에 들어가는 줄 = 화면에 보이는 그대로, 날짜 오름차순.
@@ -302,7 +341,7 @@ export function fileLines(cell) {
 export function snapshotRow({section = 'org', org, label = '', lines = [], seen = []}) {
   return {
     section: section === 'site' ? 'site' : 'org', ref_kind: 'organization', ref_key: String(org), label: cleanBody(label),
-    lines: lines.filter(l => l && l.kind && l.key != null && cleanBody(l.text)).map(l => ({ref_kind: String(l.kind), ref_key: String(l.key), day: validDay(l.day) ? l.day : null, end_day: validDay(l.end_day) ? l.end_day : null, text: cleanBody(l.text)})),
+    lines: lines.filter(l => l && l.kind && l.key != null && cleanBody(l.text)).map(l => ({ref_kind: String(l.kind), ref_key: String(l.key), day: !l.none && validDay(l.day) ? l.day : null, end_day: !l.none && validDay(l.end_day) ? l.end_day : null, text: cleanBody(l.text)})),
     seen_events: [...new Set(seen.map(String))],
   };
 }

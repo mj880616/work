@@ -123,3 +123,11 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
 .rw-note{margin:0 0 4px}
 .rw-foot{display:flex;flex-wrap:wrap;align-items:baseline;margin:2px 0 0}
 .rw-foot .wl-more,.rw-foot .wl-add{display:inline-block;margin:0}
+/* ORG-기록날짜고치기(시안 docs/design/mockups/org-record-day-edit.html): 날짜를 누르면 줄 바로 아래 작은 칸 [하루|기간|없음] + 달력 + [취소][저장].
+   날짜 버튼은 공용 ① 줄 글자 버튼(row-act), 종류는 공용 ⑤ 보기 바꾸기(ds-seg) — 여기서는 글자 크기·색과 칸 자리만. */
+#appView .wl-line .rw-day-btn{padding:0 2px;font-size:var(--ds-text-meta);line-height:inherit;font-variant-numeric:tabular-nums;color:var(--kptu-muted)}
+@media (hover:hover){#appView .wl-line .rw-day-btn:not(:disabled):hover{color:var(--kptu-ink);text-decoration:underline;text-underline-offset:3px}}
+#appView .wl-line .rw-day-btn:is(.is-on,:disabled){color:var(--kptu-ink);opacity:1;cursor:default;text-decoration:underline;text-underline-offset:3px}
+.rw-day-form{margin:2px 0 6px;padding:6px 8px;border:var(--ds-line-width) solid var(--kptu-border-strong);border-radius:8px}
+.rw-day-row{display:inline-flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0}
+.rw-day-hint{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
