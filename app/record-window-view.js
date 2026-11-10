@@ -179,7 +179,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
 
   // ---- 그리기 ----
   const moreSlot = spec => `<span class="wl-more-slot" data-wl-more="${esc(JSON.stringify(spec))}"></span>`;
-  const tags = l => `${l.edited ? '<span class="rw-ok" title="보고용으로 수정함" aria-label="보고용으로 수정함">✓</span>' : ''}${l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}${l.last ? '<span class="rw-last">지난주</span>' : ''}`;
+  const tags = l => `${l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}${l.last ? '<span class="rw-last">지난주</span>' : ''}`;
   // 표 [⋯](ORG-줄순서): 맨 위 '줄 순서'. 누르면 바로 바뀌고 서버 화면 설정에 남는다(폰·PC 같음).
   ctl.orderMenuHtml = () => {
     const cur = ctl.order();
@@ -216,7 +216,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       : where === 'folded' ? `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-in="${esc(l.id)}"${ro ? ' disabled' : ''}>넣기</button></span>`
         : where === 'out' ? `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-back="${esc(l.id)}"${ro ? ' disabled' : ''}>되돌리기</button></span>`
           : where === 'after' ? '<span class="rw-after-tag">확정 뒤 추가</span>' : '';
-    return `<div class="wl-line rw-line${faint}${where === 'after' ? ' rw-after' : ''}" data-rw-line="${esc(l.id)}" data-rw-kind="${esc(l.kind)}">${dayHtml}<span class="wl-text">${esc(l.text)}</span>${where === 'shown' || where === 'after' ? tags(l) : l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}${dayOpen ? '' : act}</div>${dayOpen ? dayForm(l) : ''}`;
+    return `<div class="wl-line rw-line${faint}${where === 'after' ? ' rw-after' : ''}" data-rw-line="${esc(l.id)}" data-rw-kind="${esc(l.kind)}">${dayHtml}<span class="wl-body"><span class="wl-text">${esc(l.text)}</span>${where === 'shown' || where === 'after' ? tags(l) : l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}</span>${dayOpen ? '' : act}</div>${dayOpen ? dayForm(l) : ''}`;
   };
   // 날짜 수정 칸(시안 ②~④): 줄 바로 아래 [하루|기간|없음] + 달력 + [취소][저장] — 모양은 record-day-edit.js 하나. 없음은 서버에 칸이 있을 때만.
   const dayForm = l => DE.dayFormHtml(ctl.draft || M.dayDraft(l), {prefix: 'rw', id: l.id, noneOn: ctl.cols.day_none === true, busy: ctl.busy, invalid: ctl.invalid});
@@ -242,7 +242,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     const x = ctl.cell(orgId), adding = ctl.editing?.id === 'new' && ctl.editing.orgId === orgId;
     let html = '';
     if (x.mode === 'old' || x.mode === 'snapshot') {
-      html += x.lines.map(l => `<div class="wl-line rw-line" data-rw-line="${esc(l.id)}"><span class="wl-day">${esc(`- ${M.lineDay(l)}`.trimEnd())}</span><span class="wl-text">${esc(l.text)}</span></div>`).join('');
+      html += x.lines.map(l => `<div class="wl-line rw-line" data-rw-line="${esc(l.id)}"><span class="wl-day">${esc(`- ${M.lineDay(l)}`.trimEnd())}</span><span class="wl-body"><span class="wl-text">${esc(l.text)}</span></span></div>`).join('');
       if (x.mode === 'snapshot') html += x.after.map(l => lineHtml(orgId, l, 'after')).join('');
       if (!html) html = '<span class="wl-empty">—</span>';
       return `<div class="wl-cell" data-wl-cell="${esc(orgId)}">${html}</div>`;
