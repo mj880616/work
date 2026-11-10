@@ -82,7 +82,9 @@ import {readDeviceSources, deviceSourcesPref} from './photo-sources-device.js';
 import {followPane} from './follow-pane.js';
 import {mountSplitResize} from './split-resize.js';
 // FOLDER-나무새기준 ③(S51-12): 폰 [폴더]는 노트·파일·자료실과 같은 공용 상자·줄, 두 손가락 그 폴더만.
-import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftTrashRowHtml, ftIconHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
+import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftTrashRowHtml, ftIconHtml, ftFocusBackHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
+import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
+import {bindEdgeBack} from './edge-back-swipe.js';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {bindFolderPinch} from './folder-pinch.js';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
@@ -135,6 +137,8 @@ let sources = parseSources(null), phStarItems = null;
 //   PHOTO-드라이브폴더통일: 위치 줄·나무는 연 층(gdLevels)으로 만든 원드라이브와 같은 나무 모양(gdTree)에서 계산한다.
 let gd = {allowed:false, problem:'', foldersOn:0, checked:false}, gdItems = [], gdEnded = false, gdCursor = null, gdSyncAt = 0, gdSyncing = false, gdPlayUrl = '';
 const gdLevels = new Map(), gdLevelLoading = new Map(), gdLevelFailed = new Map(), gdOpen = new Set();
+// FILES-폰폴더위로 ⑤: '그 폴더만'에서 하위 폴더를 눌러 한 단계씩 내려온 길(folder-walk.mjs, 파일·노트·자료실과 같은 규칙). 화면 메모리만.
+let fxWalk = [];
 let gdAt = null, gdFFor = null, gdFItems = [], gdFLoading = null, gdFFailed = '';
 // PHOTO-폴더스위치: 끈 폰 폴더(view_prefs.phone_folders_off, 서버). 앱 0.4.1+만 스위치·바꾸기(phone.state().hide·ops). 새 폴더(사진을 옮겨 넣기 전)는 이 화면 메모리에만.
 let phoneOff = new Set(), pPending = [], manageAsked = false;
@@ -1155,6 +1159,8 @@ fillGestureArea(body);
 bindFolderPinch(body, {enabled:() => tab === 'folders' && fxTreeShown() && !select.active,
   folderAt:el => el.closest('[data-ft-key]')?.dataset.ftKey || el.closest('[data-ft-parent]')?.dataset.ftParent || null,
   onOut:key => fxFocus(key)});
+// FILES-폰폴더위로 ④⑤: 폰 '그 폴더만'에서 화면 왼쪽 끝에서 오른쪽으로 밀기 = [‹]와 같은 곳(fxUp). 손짓 칸은 사진 화면 칸 전체(왼쪽 여백까지).
+bindEdgeBack(body.closest('.view-panel') || body, {enabled:() => tab === 'folders' && !treeWide() && !fxTreeShown() && !select.active, onBack:() => fxUp()});
 const paintBodyPinch = () => { if (bodyPinch()) body.dataset.photosPinch = ''; else delete body.dataset.photosPinch; };
 function sizeChanged() { root.querySelectorAll('[data-diary-grid]').forEach(sizer.paintGrid); paintSize(); }
 globalThis.matchMedia?.(WIDE_QUERY)?.addEventListener?.('change', () => paintSize());
@@ -2252,15 +2258,24 @@ const fxTreeShown = () => !treeWide() && pAt === null && gdAt === null && !fxTop
 function fxFocus(key) {
   if (!fxTreeShown() || !key) return;
   const [kind, ...rest] = key.split(':'), id = rest.join(':');
-  fxBack = {y:window.scrollY, key};
+  fxBack = {y:window.scrollY, key}; fxWalk = [key];
   fxOpen.add(key);
   if (kind === 'p') { goPhoneFolder(id); return; }
   if (!tree || !photoFolderById(tree, id)) { fxBack = null; return; }
   if (id === tree.top.id) { select.stop(); fxTopFocus = true; renderFolders(); window.scrollTo?.(0, 0); return; }
   goFolder(id);
 }
+// [‹]·뒤로 키·화면 왼쪽 끝 밀기 = 한 곳: 내려온 길이면 한 단계 위, 들어온 폴더면 펼친 자리 그대로 나무. 오므리기는 늘 나무(fxToTree).
+function fxUp() {
+  const {to} = walkUp(fxWalk);
+  if (!to) { fxToTree(); return; }
+  const i = to.indexOf(':'), kind = to.slice(0, i), id = to.slice(i + 1);
+  if (kind === 'g') { goGdFolder(id); return; }
+  if (tree && id === tree.top.id) { select.stop(); fxWalk = walkTo(fxWalk, to); at = id; pAt = null; gdAt = null; fxTopFocus = true; renderFolders(); window.scrollTo?.(0, 0); return; }
+  goFolder(id);
+}
 function fxToTree() {
-  const back = fxBack; fxBack = null;
+  const back = fxBack; fxBack = null; fxWalk = [];
   select.stop(); pAt = null; gdAt = null; fxTopFocus = false; if (tree) at = tree.top.id;
   renderFolders();
   if (back) requestAnimationFrame(() => { settleGestureAreas(); window.scrollTo({top:back.y, behavior:'instant'}); body.querySelector(`[data-ft-key="${CSS.escape(back.key)}"] .ft-main`)?.focus({preventScroll:true}); });
@@ -2271,9 +2286,10 @@ const fxBackBtn = () => (treeWide() ? '' : '<button type="button" class="ft-btn 
 // steps: [{attr, id, name}] 위 단계(맨 앞 '사진'은 함수가 넣는다). head: 그 폴더 줄(photos-fx-here) HTML.
 const FX_ROOT = {attr:'data-photos-fx-back', id:'', name:'사진'};
 function fxFocusBox({steps = [], head, body}) {
-  const anc = `<nav class="ft-focus-anc photos-fx-path" aria-label="지금 위치"><button type="button" class="ft-btn ft-focus-back" data-photos-fx-back aria-label="폴더 나무">‹</button>`
+  // FILES-폰폴더위로 ②: [‹]는 그 폴더 줄(이름) 맨 앞. 위치 줄 맨 앞 '사진'은 그대로 나무로.
+  const anc = `<nav class="ft-focus-anc photos-fx-path" aria-label="지금 위치">`
     + [FX_ROOT, ...steps].map(x => `<button type="button" class="ft-btn ft-focus-step" ${x.attr}="${esc(x.id)}">${esc(x.name)}</button><span class="ft-focus-sep" aria-hidden="true">›</span>`).join('') + '</nav>';
-  const top = head.replace(/^<p class="photos-fx-here([^"]*)">/, (m, more) => `<p class="ft-focus-head photos-fx-here${more}">${ftIconHtml({open:true})}`);
+  const top = head.replace(/^<p class="photos-fx-here([^"]*)">/, (m, more) => `<p class="ft-focus-head photos-fx-here${more}">${ftFocusBackHtml({'data-photos-fx-up': ''}, walkUpLabel(fxWalk))}${ftIconHtml({open:true})}`);
   return `<section class="ft-box ft-focus photos-fx-focus">${anc}${top}<div class="ft-box-body">${body}</div></section>`;
 }
 const phoneFocusHtml = (f, rest) => fxFocusBox({steps:[{attr:'data-photos-pf-at', id:'phone', name:'폰'}], head:phoneHeadHtml(f), body:rest});
@@ -2396,8 +2412,10 @@ function paintFolderGrid() {
 function syncFolderLayer() {
   const deep = tab === 'folders' && !treeWide() && (gdAt !== null || pAt !== null || fxTopFocus || (tree && at && at !== tree.top.id));
   if (deep && !folderLayer) folderLayer = window.KPTURouter?.layer?.open('photos-folder', {close:() => {
-    // FOLDER-나무새기준 ④: 두 손가락('그 폴더만')으로 들어왔으면 뒤로 키 한 번에 펼친 자리 그대로 나무로.
-    if (fxBack || fxTopFocus) { folderLayer = null; fxToTree(); return true; }
+    // FILES-폰폴더위로 ⑤: '그 폴더만'에서 한 단계씩 내려왔으면 [‹]와 같이 한 단계 위(겹은 그대로).
+    if (walkUp(fxWalk).to) { fxUp(); return false; }
+    // FOLDER-나무새기준 ④: 두 손가락('그 폴더만')·나무에서 고른 구글 드라이브 폴더면 뒤로 키 한 번에 펼친 자리 그대로 나무로.
+    if (fxBack || fxTopFocus || (gdAt !== null && fxWalk.length)) { folderLayer = null; fxToTree(); return true; }
     // 구글 드라이브 폴더 안이면 한 단계 위(맨 위 묶음에 닿으면 겹을 닫음).
     if (gdAt !== null) { select.stop(); const up = gdParentOf(gdAt); gdAt = up && up !== GDRIVE_TOP ? up : null; if (gdAt !== null) { renderFolders(); return false; } folderLayer = null; renderFolders(); return true; }
     // 폰 폴더 안이면 한 번에 폴더 목록으로.
@@ -2411,6 +2429,7 @@ function syncFolderLayer() {
 }
 function goFolder(id) {
   if (!tree || !photoFolderById(tree, id)) return;
+  if (!treeWide() && fxWalk.length) fxWalk = walkTo(fxWalk, fxKey('o', id), {down: pAt === null && gdAt === null && photoFolderById(tree, id)?.parent_id === at});
   select.stop(); at = id; pAt = null; gdAt = null; fxTopFocus = false;
   for (const f of photoFolderTrail(tree, id)) openSet.add(f.id);
   renderFolders();
@@ -2615,6 +2634,7 @@ function folderClick(b) {
   if (b.matches('[data-photos-ftog]')) { const k = b.dataset.photosFtog; if (fxOpen.has(k)) fxOpen.delete(k); else fxOpen.add(k); renderFolders(); return true; }
   if (b.matches('[data-photos-fxbox]')) { toggleBoxShut('photos', b.dataset.photosFxbox); renderFolders(); return true; } // S52-14: 상자 접힘은 서버 view_prefs.box_shut(box-fold.js)
   if (b.matches('[data-photos-fx-focus]')) { fxFocus(b.dataset.photosFxFocus); return true; }
+  if (b.matches('[data-photos-fx-up]')) { fxUp(); return true; }
   if (b.matches('[data-photos-fx-back]')) { fxToTree(); return true; }
   if (b.matches('[data-photos-inline]')) { const list = fxInline.get(b.dataset.photosInlineOf)?.items || []; if (list.length) openViewer(Number(b.dataset.photosInline), {list:() => list}); return true; }
   if (gdFolderClick(b)) return true;
@@ -2816,6 +2836,8 @@ function paintGdFolderGrid() {
 // 폴더 고르기(PC: 오른쪽 칸, 폰: 그 폴더 한 화면). 위 폴더들은 나무에서 펼친다. 'root' = 맨 위('구글 드라이브').
 function goGdFolder(id) {
   if (id !== GDRIVE_TOP && !gdFolderInfo(id)) return;
+  // 폰: 나무에서 고른 폴더가 길 처음, 그 안 하위 폴더를 누르면 한 단계 내려옴(FILES-폰폴더위로 ⑤).
+  if (!treeWide()) fxWalk = id === GDRIVE_TOP ? [] : walkTo(gdAt === null ? [] : fxWalk, fxKey('g', id), {down: gdAt !== null && gdParentOf(id) === gdAt});
   select.stop();
   for (const f of photoFolderTrail(gdTree(), id)) gdOpen.add(f.id); // 위 폴더들과 그 폴더를 펼친다(원드라이브 goFolder와 같음).
   gdAt = id; pAt = null;

@@ -89,7 +89,7 @@ test('노트 폰 412: 최근 상자 + 폴더 상자, 그 자리 펼치기 · n�
   expect(y0).toBeGreaterThan(0);
   await pinch(page, page.locator(`#noteRows [data-nx-note="w2"]`), 'out');
   // S51-24: 그 폴더만 = 나무와 같은 상자(위치 줄 + 머리: 열린 폴더 그림 + 이름 + 개수).
-  await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-head')).toHaveText('업무 메모 노트 8');
+  await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-head')).toHaveText('‹업무 메모 노트 8');
   await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-head .ft-ico')).toHaveAttribute('data-ft-shape', 'open');
   await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-back')).toHaveText('‹');
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(8);
@@ -104,7 +104,7 @@ test('노트 폰 412: 최근 상자 + 폴더 상자, 그 자리 펼치기 · n�
   expect(await page.evaluate(() => window.scrollY)).toBe(y0);
   // 다시 벌렸다가 뒤로 키 → 나무.
   await pinch(page, folderRow(page, U(2)), 'out');
-  await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-head')).toHaveText('개발 폴더 1 · 노트 1');
+  await expect(page.locator('#noteRows [data-nx-focus] .ft-focus-head')).toHaveText('‹개발 폴더 1 · 노트 1');
   await page.goBack();
   await expect(page.locator('#noteRows [data-nx-focus]')).toBeHidden();
   await expect(folderRow(page, U(3))).toBeVisible();

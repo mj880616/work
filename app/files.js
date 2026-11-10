@@ -20,6 +20,8 @@ import {boxShut, toggleBoxShut} from './box-fold.js';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
 import {followPane} from './follow-pane.js';
 import {bindFolderPinch} from './folder-pinch.js';
+import {bindEdgeBack} from './edge-back-swipe.js';
+import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {bindTouchDrag} from './touch-drag.js';
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
@@ -212,6 +214,8 @@ const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', 
   // FOLDER-나무새기준 ②: 폴더 안 파일(폰 나무 그 자리 펼치기), 접은 저장소 상자, 'n개 더 보기'를 누른 폴더, '최근' 상자(서버 p_shelf 'recent'),
   // 두 손가락으로 그 폴더만 보기 전 나무 화면 위치. 모두 화면 메모리만(기기 저장 없음).
   files: new Map(), more: new Set(), recent: null, recentAll: false, treeBack: null, treeRows: new Map(),
+  // FILES-폰폴더위로: 폰 '그 폴더만'에서 들어온 폴더부터 한 단계씩 내려온 길(folder-walk.mjs). ‹·뒤로 키·왼쪽 끝 밀기가 이 길로 한 단계씩 나온다.
+  walk: [],
   // S51-22 나무 ⋯ 메뉴: 색을 바꿀 폴더·올릴 폴더(그 메뉴에서 고른 것, 화면 메모리만).
   lookRow: null, upTo: null,
   preview: null, clip: null, busy: '', hint: '', xfer: null, run: null, ask: null, dropAsk: null,
@@ -430,7 +434,7 @@ async function loadStatus() {
     state.statusFailed = codeOf(e); state.statusWhy = failReason(e);
   }
 }
-function setWhere(p, where, {keepPreview = false} = {}) {
+function setWhere(p, where, {keepPreview = false, down = false} = {}) {
   const fromShelf = !!p.where?.shelf || !p.where;
   p.where = where; p.rows = []; p.loaded = false; p.failed = ''; p.trail = []; p.drop = false;
   // 묶음은 저마다 기본 정렬(큰 파일 = 크기, 별표 = 이름). 폴더 안에서 고른 정렬은 폴더를 옮겨도 그대로.
@@ -441,6 +445,7 @@ function setWhere(p, where, {keepPreview = false} = {}) {
   if (where?.parent !== p.lastTry) p.lastTry = '';
   rememberLast(p, where);
   if (p === state.panes[0]) {
+    state.walk = where?.source && !where.shelf ? walkTo(state.walk, folderKey(where.source, where.parent), {down}) : [];
     // 주소 자리는 at·shelf 중 하나만(묶음 → 폴더로 옮겨도 옛 shelf가 남아 새로고침 때 묶음으로 열리지 않게).
     window.KPTURouter?.setPlace?.('files', {at: null, shelf: null, ...placeOf(where)});
     listLayerOpen();
@@ -577,17 +582,28 @@ async function loadStars() {
 }
 // 폰: 칸 0이 목록(폴더·별표·큰 파일)이면 뒤로가기 자리 하나(layer 'files-list'). 뒤로가기 = 한 단계 위 폴더(자리는 그대로), 맨 위 목록이면 나무로(자리 닫힘).
 let listLayer = null;
+let listStepping = false;
 function listLayerOpen() {
-  if (!solo() || listLayer || state.panes[0].pane !== 'list') return;
+  if (listStepping || !solo() || listLayer || state.panes[0].pane !== 'list') return;
   listLayer = window.KPTURouter?.layer?.open('files-list', {
-    reopen: () => { const p = state.panes[0]; if (p.where) { p.pane = 'list'; window.KPTURouter?.setPlace?.('files', {at: null, shelf: null, ...placeOf(p.where)}); paint(); } },
-    // S51-24: 뒤로 키 = 오므리기·[‹]와 같은 곳(어떤 길로 들어왔든 나무, 그 폴더를 펼친 그 자리).
-    close: () => { listLayer = null; const back = treeSpot(), from = focusHeadTop(); toTree(); restoreTreeSpot(back, from); return true; }}) || null;
+    reopen: () => { const p = state.panes[0]; if (p.where) { p.pane = 'list'; state.walk = walkTo([], p.where.source && !p.where.shelf ? folderKey(p.where.source, p.where.parent) : ''); window.KPTURouter?.setPlace?.('files', {at: null, shelf: null, ...placeOf(p.where)}); paint(); } },
+    // FILES-폰폴더위로 ①: 뒤로 키 = [‹]·왼쪽 끝 밀기와 같은 곳(focusUp). 한 단계씩 내려온 길이면 한 단계 위(뒤로가기 자리는 위 폴더로 다시 하나),
+    // 들어온 폴더면 S51-24대로 그 폴더를 펼친 나무 자리.
+    close: () => {
+      listLayer = null;
+      if (walkUp(state.walk).to && state.panes[0].pane === 'list') {
+        listStepping = true;
+        try { focusUp(); } finally { listStepping = false; }
+        queueMicrotask(listLayerOpen);
+        return true;
+      }
+      const back = treeSpot(), from = focusHeadTop(); toTree(); restoreTreeSpot(back, from); return true;
+    }}) || null;
 }
 // 폰 칸 0을 나무로. release = 화면 안 ‹ 로 돌아옴(뒤로가기 자리도 닫는다). 보던 곳은 나무가 칠해 둔다.
 function toTree({release = false} = {}) {
   const p = state.panes[0];
-  state.treeBack = null;
+  state.treeBack = null; state.walk = [];
   clearQuery(p);
   p.pane = 'tree'; p.picked.clear(); p.anchor = '';
   closePreview();
@@ -1391,7 +1407,7 @@ function paintFocus(p, list, drawn = '') {
   }
   const folders = rows ? rows.filter(r => r.is_folder).length : 0;
   const trail = names.slice(0, -1).map((label, i) => ({label, attrs: {'data-fx-go': w.source, 'data-fx-id': ids[i] || ''}}));
-  const html = ftFocusHtml({back: {'data-fx-up': ''}, lead: treeIconHtml(w.source, {className: 'ft-box-ico'}), trail, name,
+  const html = ftFocusHtml({back: {'data-fx-up': ''}, backLabel: walkUpLabel(state.walk), lead: treeIconHtml(w.source, {className: 'ft-box-ico'}), trail, name,
     color: w.parent ? folderLook.color(w.source, w.parent) : null, count: rows ? ftFocusCount(folders, rows.length - folders) : '', body, attrs: {'data-fx-focus': parent}});
   list.dataset.fxMode = 'folder'; list.dataset.fxFocus = '';
   // 같은 모양이면 다시 그리지 않는다(서버 목록이 나무가 읽어 둔 것과 같을 때 벌리는 움직임이 끊기지 않게).
@@ -3522,7 +3538,7 @@ function layoutChanged() {
     for (const q of state.panes) q.srcOpen = false;
     state.dropAsk = null;
     // 폰 한 칸으로 돌아오면 칸 0은 그 폴더 목록(뒤로가기 = 한 단계 위·나무).
-    if (solo()) { const a = state.panes[0]; if (a.where) { a.pane = 'list'; listLayerOpen(); } }
+    if (solo()) { const a = state.panes[0]; if (a.where) { a.pane = 'list'; state.walk = walkTo([], a.where.source && !a.where.shelf ? folderKey(a.where.source, a.where.parent) : ''); listLayerOpen(); } }
     paint();
     return;
   }
@@ -3577,16 +3593,24 @@ function clearQuery(p) {
   clearTimeout(p.ftimer); p.query = ''; p.found = null; p.fseq++; p.ff = freshFilter();
   const s = $('[data-fx-search]'); if (s && p === P()) s.value = '';
 }
-function goFolder(source, id, p = P()) {
+function goFolder(source, id, p = P(), {down = false} = {}) {
   if (!SOURCES.includes(source) && !(source === PH && phoneOn()) && !(source === PC && pcOn())) return;
   clearQuery(p);
   const parent = id || null;
   state.open.add(folderKey(source, parent));
-  return setWhere(p, {source, parent});
+  return setWhere(p, {source, parent}, {down});
 }
 function goShelf(shelf, p = P()) {
   clearQuery(p);
   return setWhere(p, {shelf});
+}
+// FILES-폰폴더위로 ①④: 폰 한 칸 목록의 [‹]·뒤로 키·화면 왼쪽 끝 밀기 = 한 곳. 이 화면에서 한 단계씩 내려온 길이면 한 단계 위,
+// 들어온 폴더(길 처음)·묶음이면 그 폴더를 펼친 나무 자리(S51-24). 오므리기는 늘 나무(backToTree).
+function focusUp() {
+  const {to} = walkUp(state.walk);
+  if (!to) { backToTree(); return; }
+  const i = to.indexOf(':');
+  return goFolder(to.slice(0, i), to.slice(i + 1) || null, state.panes[0]);
 }
 function goUp() {
   const p = P(), w = p.where;
@@ -3607,7 +3631,8 @@ function toggle(key, box) {
 function activate(key) {
   const r = rowByKey(key);
   if (!r) return;
-  if (r.is_folder) goFolder(r.source, r.item_id); else selectRow(key);
+  // '그 폴더만' 안 하위 폴더를 누름 = 한 단계 내려옴(‹·뒤로 키로 한 단계씩 나온다).
+  if (r.is_folder) goFolder(r.source, r.item_id, P(), {down: focusBox(P())}); else selectRow(key);
 }
 const paneOfEl = el => frame.paneOf(el);
 
@@ -3679,7 +3704,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-go]')) { goFolder(b.dataset.fxGo, b.dataset.fxId || null); return; }
   if (b.matches('[data-fx-shelf]')) { goShelf(b.dataset.fxShelf); return; }
   if (b.matches('[data-fx-twist]')) { toggle(b.dataset.fxTwist, b.closest('.nx-tree')); return; }
-  if (b.matches('[data-fx-up]')) { const q = P(); if (solo() && q === state.panes[0]) backToTree(); else goUp(); return; }
+  if (b.matches('[data-fx-up]')) { const q = P(); if (solo() && q === state.panes[0]) focusUp(); else goUp(); return; }
   if (b.matches('[data-fx-src]')) { srcClick(b.dataset.fxSrc); return; }
   if (b.matches('[data-fx-pc-knock]')) { pcKnock(); return; }
   if (b.matches('[data-fx-sync]')) { sync({force: true}); return; }
@@ -3729,6 +3754,10 @@ if (root) bindFolderPinch(root, {
     // S51-24: 폰 한 칸 목록('그 폴더만')이면 어떤 길로 들어왔든 나무로(손가락이 줄 위든 빈 곳이든).
     const p = state.panes[0]; if (solo() && p.pane === 'list') backToTree();
   }});
+// FILES-폰폴더위로 ④: 폰 한 칸 목록에서 화면 왼쪽 끝에서 오른쪽으로 밀기 = [‹]와 같은 곳(focusUp). 손짓 칸은 [파일] 화면 칸 전체(왼쪽 여백까지).
+if (root) bindEdgeBack(root.closest('.view-panel') || root, {
+  enabled: () => solo() && state.panes[0].pane === 'list' && !!state.panes[0].where && !state.preview && !state.xfer && !state.panes[0].picked.size,
+  onBack: () => focusUp()});
 root?.addEventListener('dblclick', event => {
   const b = event.target.closest('[data-fx-row]');
   const r = b && rowByKey(b.dataset.fxRow);

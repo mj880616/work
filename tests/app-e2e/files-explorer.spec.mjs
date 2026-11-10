@@ -62,9 +62,12 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 문서함');
   await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
   await expect.poll(() => new URL(page.url()).searchParams.get('at')).toBe('od:OD:1');
-  // 그 안에서 하위 폴더로 가도, 뒤로가기 한 번 = 펼친 자리 그대로 나무.
+  // FILES-폰폴더위로 ①: 그 안에서 하위 폴더로 내려가면 뒤로가기 한 번 = 한 단계 위(들어온 폴더), 한 번 더 = 펼친 자리 그대로 나무.
   await row(page, 'od:OD!10').click();
   await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 2026');
+  await page.goBack();
+  await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 문서함');
+  await expect.poll(() => new URL(page.url()).searchParams.get('at')).toBe('od:OD:1');
   await page.goBack();
   await expect(tree).toBeVisible();
   await expect(tree.locator('[data-fx-fold="od:OD!10"]')).toBeVisible();

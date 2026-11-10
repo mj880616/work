@@ -9,6 +9,7 @@ import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, F
 import { riseFromRow, sinkToRow, topOf } from './folder-focus-motion.js';
 import { recentFolded, toggleRecentFolded } from './recent-fold.js';
 import { fillGestureArea, settleGestureAreas } from './gesture-fill.js';
+import { bindEdgeBack } from './edge-back-swipe.js';
 import { MORE_LABEL } from './fold-chevron.mjs';
 import { bindFolderPinch } from './folder-pinch.js';
 import { formatSeoulTime } from './meeting-time.js';
@@ -1434,6 +1435,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     folderAt:el => { const row = el.closest('[data-nx-folder],[data-nx-outside],[data-ft-parent]'); if (!row) return null; if (row.dataset.nxFolder) return row.dataset.nxFolder; if (row.hasAttribute('data-nx-outside')) return OUTSIDE; return row.dataset.ftParent || null; },
     onOut:id => { if (at === null) focusFolder(id); },
     onIn:() => { if (at !== null) up(); }});
+  // FILES-폰폴더위로 ④⑤: 폰 '그 폴더만'에서 화면 왼쪽 끝에서 오른쪽으로 밀기 = [‹]와 같은 곳(노트 '그 폴더만'은 한 단계라 늘 펼친 자리 그대로 나무).
+  bindEdgeBack(host.closest('.view-panel') || host, {enabled:() => !wideList.matches && at !== null && !selected && !pick.active && !busy, onBack:() => up()});
   // Leaving the menu by keyboard, or pressing anywhere outside it and its ⋯, closes it.
   host.addEventListener('focusout', e => { const el = menuEl(); if (menu && e.relatedTarget && !el.contains(e.relatedTarget) && e.relatedTarget !== menu.trigger) closeMenu(); });
   // composedPath: [색 고르기…]가 메뉴 안 내용을 바꾸면 눌린 단추는 이미 떼어져 있어도 "메뉴 안에서 누름"으로 본다.
