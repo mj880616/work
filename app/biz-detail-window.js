@@ -10,6 +10,7 @@ import {missingTable} from './feed-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
 import {chevHtml} from './fold-chevron.mjs';
 import {rowMore} from './row-more.js';
+import {emptyHtml} from './wait-state.js';
 import {fitAll} from './auto-grow.js';
 import {reportsMeeting, meetingKindKey, meetingKindName, validKindKey} from './journal-meeting-kinds.js';
 import * as D from './biz-detail-model.mjs';
@@ -129,7 +130,7 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
     const canAdd = ctl.recStatus === 'ready' && spaceRows().length > 0;
     const addBtn = label => `<button type="button" class="row-act wl-add" data-bd-add=""${dis}>${label}</button>`;
     // 활동이 없으면 '없음'과 [+ 쓰기]를 한 줄에.
-    if (!groups.length && !addingFree) return `<div class="rw-foot btn-row bd-foot bd-empty" data-bd-empty><span class="wl-empty">${esc(note || '없음')}</span>${canAdd ? addBtn('+ 쓰기') : ''}</div><p class="wl-status${ctl.error ? ' is-error' : ''}" role="status" aria-live="polite" data-bd-status>${esc(ctl.msg)}</p>`;
+    if (!groups.length && !addingFree) return `<div class="rw-foot btn-row bd-foot bd-empty" data-bd-empty>${note ? `<span class="wl-empty">${esc(note)}</span>` : emptyHtml('없음')}${canAdd ? addBtn('+ 쓰기') : ''}</div><p class="wl-status${ctl.error ? ' is-error' : ''}" role="status" aria-live="polite" data-bd-status>${esc(ctl.msg)}</p>`;
     return `${note ? `<p class="wl-note">${esc(note)}</p>` : ''}${groups.map(groupHtml).join('')}`
       + `${addingFree ? recordForm('') : canAdd ? `<div class="rw-foot btn-row bd-foot">${addBtn(groups.length ? '+ 다른 사업에 쓰기' : '+ 쓰기')}</div>` : ''}`
       + `<p class="wl-status${ctl.error ? ' is-error' : ''}" role="status" aria-live="polite" data-bd-status>${esc(ctl.msg)}</p>`;
