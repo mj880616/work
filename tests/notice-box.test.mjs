@@ -38,7 +38,7 @@ test('같은 부품 하나: 정리함 한 목록의 줄과 홈 잊지 말기 한
   assert.doesNotMatch(fl, /<li class=|class="[^"]*nbx-(act|x|head|item)/, 'forget-list.js: 줄·버튼 HTML은 공용 부품만');
   assert.match(read('basket.js'), /<section class="nbx forget-list" data-nbx-tone="list" data-forget-section[^>]*><ul class="nbx-list" data-basket-rows id="basketRows"><\/ul>/);
   const hs = read('home-summary.js');
-  assert.match(hs, /line.innerHTML = forgetChipHtml\(/); assert.doesNotMatch(hs, /headHtml|markBox/, 'S53-13: 홈은 상자 줄이 아니라 입력 칸 머리 줄 칩');
+  assert.match(hs, /const html = forgetChipHtml\(/); assert.match(hs, /line.innerHTML = html;/); assert.doesNotMatch(hs, /headHtml|markBox/, 'S53-13: 홈은 상자 줄이 아니라 입력 칸 머리 줄 칩');
   assert.doesNotMatch(hs, /mountAsksBox|<li |class="[^"]*nbx-(act|x|head|item)/);
   // 모양은 ui-standard.css 한 곳(화면 id 없음), 색만 tone으로. 옛 화면별 규칙·날짜 밑 요약 줄 규칙은 없다.
   const ui = read('ui-standard.css');
