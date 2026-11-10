@@ -725,6 +725,8 @@ function fileWindow() {
 }
 // BIZ-기록하나로 B-4 ①: 한글 파일 2. 1) = 이 화면 2. 1) 사업요약 창(지금 상황 + 담당)이 그 주에 그린 그대로. 상자가 아직 없으면 '읽는 중'.
 const bizFile = () => (bizWeekly ? bizWeekly.fileRows(start) : {status:'loading'});
+// BIZ-기록하나로 B-4 ③·④: 한글 파일 2. 2)·사진 = 이 화면 2. 2) 주요 사업 창이 그 주에 보인 그대로. 상자가 아직 없으면 '읽는 중'.
+const bizDetailFile = () => (bizDetail ? bizDetail.file(start) : materials.meetings?.status === 'failed' ? {status:'error'} : {status:'loading'});
 // 표 줄이 바뀌면 캘린더 추천 거르기·복사 글만 맞춘다(주간 정리 전체를 다시 그리지 않음 — 표 안 입력 초점이 빠지지 않게).
 function redrawOrgText() { if (lastWeekModel) lastWeekModel.orgLines = weekOrgLines(); }
 function draftSaved(week) { return row => { if (week !== start) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_(); hwpx?.sync(week); }; }
@@ -755,7 +757,7 @@ const mountHwpx = () => W.mountWeeklyHwpx(hwpxHost, {rt, onCopy: () => copyDraft
   // 바탕을 연 뒤 팀 확정본과 견준 결과('확정본에서 바뀜')가 왔다: 칸 줄만 다시.
   // [처음부터]: 그 주 임시저장을 지웠으니 그 주 행을 다시 읽고, 칸이 비면 바탕을 다시 연다(prepareFlow 를 그 주에 한 번 더).
   onFlow: ({restart = ''} = {}) => { if (restart && restart === start) { flowBase.start = ''; prepareFlow(); void loadGroup('weekDraft'); return; } redrawFlow(); },
-  getWeek: () => ({start, row:weekRow(), projects:projectNames(), requested:execRecordTexts(), win:fileWindow, biz:bizFile, model:W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory})})});
+  getWeek: () => ({start, row:weekRow(), projects:projectNames(), requested:execRecordTexts(), win:fileWindow, biz:bizFile, detail:bizDetailFile, model:W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory})})});
 // 묶음을 한 번 부른다. 하루 화면(첫 화면)에서는 앱이 보인 뒤까지 기다려 첫 화면 받기와 겹치지 않게 한다.
 function weeklyKit() {
   if (W) return Promise.resolve(W);

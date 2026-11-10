@@ -69,3 +69,53 @@ test('화면 연결: 홈 2. 2)와 사업 보고 2)가 같은 부품, 옛 주는 
   assert.match(table, /<h3>2\) 주요 사업·회의결과<\/h3><div data-bp-detail><\/div>/);
   assert.equal(D.SECTION, 'biz_detail');
 });
+
+test('B-4 ③: 본문 번호 한 단계 내림(1.→1)→(1)→①, 가.→가)→(가)), 날짜·글머리는 그대로', () => {
+  assert.equal(D.demote('1. 요구안'), '1) 요구안');
+  assert.equal(D.demote('2) 일정'), '(2) 일정');
+  assert.equal(D.demote('(3) 세부'), '③ 세부');
+  assert.equal(D.demote('가. 임금'), '가) 임금');
+  assert.equal(D.demote('나) 일정'), '(나) 일정');
+  assert.equal(D.demote('(다) 끝'), '(다) 끝');
+  assert.equal(D.demote('11.18. 다음 회의'), '11.18. 다음 회의');
+  assert.equal(D.demote('- 글머리'), '- 글머리');
+  assert.equal(D.demote('① 이미 최하위'), '① 이미 최하위');
+});
+
+test('B-4 ③·④: 한글 파일 2. 2) = 사업 묶음마다 (n) 이름 + 내용 칸(뺀 줄 제외·상세 본문 포함), 사진 줄도 같은 결과', async () => {
+  const records = [rec('r1', T, '2026-11-10', '기록 하나'), rec('r2', B, '2026-11-12', '뺀 기록')];
+  const meetings = [meet('m1', T, '2026-11-11T01:00:00Z', {transcript_text: '1. 요구안\n가. 임금', next_plan: '다음 할 일'}), meet('m2', T, '2026-11-11T02:00:00Z', {transcript_text: '본문', next_plan: '- 다음 할 일'})];
+  const marks = [mark('k1', week, 'biz_record', 'r2', {choice: 'out'}), mark('k2', week, 'meeting', 'm2', {detail: 'oneline', report_body: '보고용'})];
+  const g = D.detailGroups({week, records, meetings, tree, marks, lineOfMeeting});
+  const details = D.fileDetails(g);
+  assert.deepEqual(details, [{heading: '(1) 조직 확대 › 신규 가입', box: [{label: '제목', lines: ['조직 확대 › 신규 가입']},
+    {label: '내용', lines: ['- 11.10. 기록 하나', '- 11.11. 회의m1', '1) 요구안', '가) 임금', '- 11.11. 보고용']}, {label: '차기일정', lines: ['- 다음 할 일']}]}]);
+  const snap = g.map(D.detailSnapshotRow).filter(Boolean);
+  assert.equal(snap.length, 1); // 뺀 줄만 있는 '교육' 묶음은 사진에도 없음
+  assert.equal(snap[0].section, 'biz_detail');
+  assert.deepEqual(snap[0].lines.map(l => [l.ref_kind, l.text, l.detail ?? '']), [['biz_record', '기록 하나', ''], ['meeting', '회의m1', 'full'], ['meeting', '보고용', '']]);
+  assert.deepEqual(snap[0].lines[1].body, ['1) 요구안', '가) 임금']);
+  // 실제 서식으로 만든 파일을 다시 읽으면 2. 2) 세부 내용 그대로.
+  const {assembleDraft, buildHwpx, prepareConfirmed, openConfirmed, startDraft} = await import('../app/weekly-hwpx/draft.mjs');
+  const {readReport} = await import('../app/weekly-hwpx/report.mjs');
+  const {openHwpx, packHwpx} = await import('../app/weekly-hwpx/hwpx.mjs');
+  const {zlib, SAMPLE} = await import('../scripts/weekly-hwpx/cli.mjs');
+  const {makeFakeReport} = await import('../scripts/weekly-hwpx/fixture.mjs');
+  const fake = packHwpx(makeFakeReport(openHwpx(new Uint8Array(readFileSync(SAMPLE)), zlib)), zlib);
+  const {team, template} = prepareConfirmed(await openConfirmed(fake));
+  const data = assembleDraft(startDraft(team, {me: '가짜담당 갑', date: ''}), {});
+  data.details = details;
+  const back = readReport(openHwpx(await buildHwpx(template, data), zlib));
+  assert.equal(back.details.length, 1);
+  assert.equal(back.details[0].heading, '(1) 조직 확대 › 신규 가입');
+  assert.deepEqual(back.details[0].box.map(b => [b.label, b.lines.map(l => (typeof l === 'string' ? l : l.text))]), details[0].box.map(b => [b.label, b.lines]));
+});
+
+test('B-4 ③·④ 연결: 한글 파일은 2. 2) 창 결과를 다 읽은 뒤에만, 사진에 biz_detail 줄', () => {
+  const hw = read('app/journal-hwpx.js'), jr = read('app/journal.js'), win = read('app/biz-detail-window.js');
+  assert.match(hw, /const det = fresh \? \(getWeek\(\)\.detail\?\.\(\) \?\? \{status:'loading'\}\) : null;/);
+  assert.match(hw, /if \(det\) data\.details = det\.details;/);
+  assert.match(hw, /\.\.\.\(det \? det\.snapRows : \[\]\)/);
+  assert.match(jr, /detail:bizDetailFile/);
+  assert.match(win, /details: D\.fileDetails\(groups\), snapRows: groups\.map\(D\.detailSnapshotRow\)/);
+});

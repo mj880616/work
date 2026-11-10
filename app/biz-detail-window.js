@@ -247,6 +247,15 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false} = {}
   }
   // 그 주를 다 읽었나(한글 파일·사진이 이 상자 결과를 쓸 때, B-4 ③·④).
   const ready = week => ctl.status === 'ready' && ctl.week === week && !ctl.stale;
-  return {el, update, ready, groups: () => ctl.groups(), ctl};
+  // B-4 ③·④: 한글 파일 2. 2)와 [확정] 사진 = 이 상자가 그 주에 보인 그대로. 그 주를 다 읽기 전·다른 주·쓰는 중 = 'loading', 읽지 못함 = 'error'.
+  // 사업 기록을 못 읽었으면(파일 ≠ 화면이 될 수 있어) 'error'. 표시 칸이 아직 없으면(DB 적용 전) 표시 없이 그대로 'ready'.
+  const file = week => {
+    if (ctl.week !== week || ctl.stale || ctl.busy || ctl.editing) return {status: 'loading'};
+    if (ctl.status === 'error' || (ctl.status === 'ready' && ctl.recStatus === 'error')) return {status: 'error'};
+    if (ctl.status !== 'ready') return {status: 'loading'};
+    const groups = ctl.groups();
+    return {status: 'ready', details: D.fileDetails(groups), snapRows: groups.map(D.detailSnapshotRow).filter(Boolean)};
+  };
+  return {el, update, ready, file, groups: () => ctl.groups(), ctl};
 }
 export const BIZ_DETAIL_EVENT = EVENT;

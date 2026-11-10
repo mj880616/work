@@ -39,10 +39,10 @@ export function treeRows(tree) {
 export function meetingItem(m, lineOf = x => String(x?.series_name || x?.title || '')) {
   const day = seoulDay(m?.meeting_at), text = cleanBody(lineOf(m));
   if (!m?.id || !day || !text || isOneline(m)) return null;
-  return {kind: 'meeting', key: String(m.id), space: areaIdOf(m), day, end_day: null, text, body: bodyLines(resultText(m)), plan: nextPlanLines(m.next_plan)};
+  return {kind: 'meeting', key: String(m.id), space: areaIdOf(m), day, end_day: null, at: String(m.meeting_at ?? ''), text, body: bodyLines(resultText(m)), plan: nextPlanLines(m.next_plan)};
 }
 
-const byDay = (a, b) => a.day.localeCompare(b.day) || (a.kind === b.kind ? 0 : a.kind === 'biz_record' ? -1 : 1) || a.text.localeCompare(b.text, 'ko') || a.key.localeCompare(b.key);
+const byDay = (a, b) => a.day.localeCompare(b.day) || (a.kind === b.kind ? 0 : a.kind === 'biz_record' ? -1 : 1) || String(a.at ?? '').localeCompare(String(b.at ?? '')) || a.text.localeCompare(b.text, 'ko') || a.key.localeCompare(b.key);
 // 줄 하나에 그 주 표시를 입힌다. detail = 사업 보고이고 본문이 있을 때만 'full'이 될 수 있다(표시 없으면 'full' 기본).
 export function lineOf(item, mark) {
   const canFull = item.kind === 'meeting' && Array.isArray(item.body) && item.body.length > 0;
@@ -83,3 +83,32 @@ export function detailGroups({week, records = [], meetings = [], tree = null, ma
 export const shownCount = groups => (Array.isArray(groups) ? groups : []).reduce((n, g) => n + g.shown.length, 0);
 // 줄 글 '- 11.10. 글'(기간이면 '- 11.2.~12.5. 글').
 export const lineText = l => `- ${[dayText(l.day, l.end_day), cleanBody(l.text)].filter(Boolean).join(' ')}`;
+
+// ---- 한글 파일 2. 2)·[확정] 사진(B-4 ③·④) ----
+// 본문 안 번호를 한 단계씩 내린다(docs/hwp-style-map.md 3절 차례: 1. → 1) → (1) → ①, 가. → 가) → (가)). 더 내릴 곳이 없으면 그대로.
+const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+export function demote(line) {
+  const s = String(line ?? '');
+  let m;
+  if ((m = s.match(/^(\d{1,3})\.(\s+)(.*)$/))) return `${m[1]})${m[2]}${m[3]}`;
+  if ((m = s.match(/^(\d{1,3})\)(\s+)(.*)$/))) return `(${m[1]})${m[2]}${m[3]}`;
+  if ((m = s.match(/^\((\d{1,2})\)(\s+)(.*)$/)) && Number(m[1]) >= 1 && Number(m[1]) <= 20) return `${CIRCLED[Number(m[1]) - 1]}${m[2]}${m[3]}`;
+  if ((m = s.match(/^([가-힣])\.(\s+)(.*)$/))) return `${m[1]})${m[2]}${m[3]}`;
+  if ((m = s.match(/^([가-힣])\)(\s+)(.*)$/))) return `(${m[1]})${m[2]}${m[3]}`;
+  return s;
+}
+// 줄 하나가 파일에 들어가는 글: '- 11.10. 글' + 상세 포함이면 그 아래 본문(번호 한 단계 내림).
+export const fileLinesOf = l => [lineText(l), ...(l.detail === 'full' ? l.body.map(demote) : [])];
+// 한글 파일 2. 2) 세부 내용: 사업 묶음마다 '(1) 사업 이름' 소제목 + 회의 결과 상자(서식 상자 칸 이름 그대로 — 다시 읽을 때 상자로 알아보려면 세 줄 이상, template.mjs isBoxTable):
+// 제목 = 사업 이름, 내용 = 보이는 줄(날짜 오름차순, 상세 포함은 본문), 차기일정 = 사업 보고 '다음 할 일'(겹침 없이). 뺀 줄은 넣지 않는다. 줄 수 상한 없음.
+export function fileDetails(groups) {
+  return (Array.isArray(groups) ? groups : []).filter(g => g.shown.length)
+    .map((g, i) => ({heading: `(${i + 1}) ${cleanBody(g.label)}`, box: [{label: '제목', lines: [cleanBody(g.label)]}, {label: '내용', lines: g.shown.flatMap(fileLinesOf)},
+      {label: '차기일정', lines: [...new Set(g.shown.flatMap(l => (l.kind === 'meeting' ? l.plan || [] : [])).map(cleanBody).filter(Boolean))].map(t => `- ${t}`)}]}));
+}
+// [확정] 사진 한 칸(section 'biz_detail', 조직 사진 snapshotRow 모양): 보이는 줄(보고용 글 반영, 뺀 줄 제외)과 상세 포함 본문.
+export function detailSnapshotRow(g) {
+  if (!g || !g.shown?.length) return null;
+  return {section: SECTION, ref_kind: 'space', ref_key: String(g.space || ''), label: cleanBody(g.label),
+    lines: g.shown.map(l => ({ref_kind: l.kind, ref_key: String(l.key), day: l.day || null, end_day: l.end_day || null, text: cleanBody(l.text), ...(l.detail === 'full' ? {detail: 'full', body: l.body.map(demote)} : {})}))};
+}
