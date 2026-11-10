@@ -339,6 +339,7 @@ test('조직 줄 우클릭: 고르지 않은 줄은 [열기]·[쟁의 단계 관
  expect(await menuLabels(page)).toEqual(['열기','쟁의 단계 관리']);
  await expect(menu.locator('hr.so-menu-sep')).toHaveCount(1);
  await expect(menu.locator('button').first()).toBeFocused();
+ if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/org-row-menu-1280.png`});
  // 메뉴는 누른 자리에(⋯ 밑이 아니라)
  const m=await menu.boundingBox();expect(Math.abs(m.x-(box.x+40))).toBeLessThanOrEqual(16);
  await menu.getByRole('button',{name:'열기',exact:true}).click();
@@ -370,6 +371,7 @@ test('조직 줄 우클릭: 폰 폭(412)은 메뉴를 띄우지 않는다',async
  await row(page,'oa').click({button:'right'});
  await page.waitForTimeout(300);
  await expect(page.locator('#soTeamMenu')).toHaveCount(0);
+ if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/org-list-412.png`});
  await expect(page.locator('#wdModal')).toBeHidden();
  expect(errors).toEqual([]);
 });
