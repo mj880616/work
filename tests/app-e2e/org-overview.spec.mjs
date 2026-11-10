@@ -378,7 +378,7 @@ for(const width of [390,1280])test(`[전체 표] 줄 ⋯ 는 긴 글에서도 �
  const rec=U(OA,'2026-11-17',long);
  const {errors}=await fixture(page,{width,records:[rec]});
  // RECORD-한줄: 표 줄은 한 줄(60자 안팎)이라 PC 넓은 칸에서는 꺾이지 않는다. 좁은 칸(폴드·창 나눔)처럼 글 폭을 좁혀 여러 줄일 때 ⋯ 자리를 본다.
- await page.addStyleTag({content:'#soOverview .rw-line .wl-text{max-width:10em}'});
+ await page.addStyleTag({content:'#soOverview .rw-line .wl-body{max-width:10em}'}); // ORG-줄바꿈날짜옆: 글·꼬리표는 내용 칸(.wl-body) 안에서 흐른다
  await openTable(page);
  const line=oa(page).locator('.wl-cell > .rw-line').first();
  const text=line.locator('.wl-text'),sum=line.locator('summary');
@@ -401,6 +401,35 @@ for(const width of [390,1280])test(`[전체 표] 줄 ⋯ 는 긴 글에서도 �
  expect(Math.abs((mb.x+mb.width)-(sb.x+sb.width))).toBeLessThan(6);
  const btn=await menu.locator('button').first().evaluate(e=>({b:getComputedStyle(e).borderTopWidth,fs:parseFloat(getComputedStyle(e).fontSize),fw:+getComputedStyle(e).fontWeight}));
  expect(btn.b).toBe('0px');expect(btn.fs).toBeLessThanOrEqual(14);expect(btn.fw).toBeLessThanOrEqual(500);
+ expect(errors).toEqual([]);
+});
+
+// ORG-줄바꿈날짜옆(요청함 11/10 14:12 B안): 긴 줄도 날짜 바로 뒤에서 내용이 시작하고, 넘친 글의 둘째 줄은 내용 첫 글자 자리(날짜 오른쪽)에서 이어진다.
+// 날짜는 한 덩어리(한 줄), ⋯ 는 줄 오른쪽 위 그대로, 꼬리표(✓)는 내용 칸 안. 폰 412는 실제 폭, 폴드·PC는 좁은 칸(창 나눔)처럼 칸 폭을 줄여 본다.
+for(const width of [412,884,1280])test(`[전체 표] 긴 조직 줄: 날짜 옆에서 시작, 둘째 줄은 내용 첫 글자 자리 ${width}px`,async({page})=>{
+ const rec=U(OA,'2026-11-17','합성 쟁의대책회의 — 다음 주 하루 경고 행동 추진 및 집중교섭 의견 모음과 일정 정리 결과 공유',{one_line:'합성 쟁의대책회의 — 다음 주 하루 경고 행동 추진 및 집중교섭 의견 모음과 일정 정리 결과 공유'});
+ const marks=[{id:'m-ed',workspace_id:'w',week_start:W,section:'org',ref_kind:'org_update',ref_key:rec.id,choice:null,report_body:'합성 쟁의대책회의 — 다음 주 하루 경고 행동 추진 및 집중교섭 의견 모음과 일정 정리 결과 공유',detail:null,updated_at:'2026-11-16T00:00:00Z'}];
+ const {errors}=await fixture(page,{width,records:[rec],marks});
+ if(width>412)await page.addStyleTag({content:'#soOverview .wl-cell > .rw-line{max-width:22em}'});
+ await openTable(page);
+ const line=oa(page).locator('.wl-cell > .rw-line').first();
+ await expect(line.locator('.wl-text')).toBeVisible();
+ // 표는 일정·표시를 받은 뒤 한 번 더 그려진다 — 다 그려진(크기가 있는) 줄에서 잰다.
+ const measure=()=>line.evaluate(l=>{
+  const t=l.querySelector('.wl-text').firstChild,r=document.createRange();r.selectNodeContents(t);
+  const rows=[];for(const b of r.getClientRects()){if(b.width<1)continue;const last=rows[rows.length-1];if(last&&Math.abs(last.y-b.y)<3)continue;rows.push({x:b.x,y:b.y})}
+  const box=e=>{const b=e.getBoundingClientRect();return{x:b.x,y:b.y,w:b.width,h:b.height}};
+  return {rows,day:box(l.querySelector('.wl-day')),dayRects:l.querySelector('.wl-day').getClientRects().length,ok:!!l.querySelector('.wl-body .rw-ok'),sum:box(l.querySelector('summary')),line:box(l)};
+ });
+ await expect.poll(async()=>(await measure()).rows.length,{timeout:8000}).toBeGreaterThan(1); // 긴 글이 여러 줄
+ const g=await measure();
+ expect(Math.abs(g.rows[0].y-g.day.y)).toBeLessThan(g.day.h); // 첫 줄은 날짜와 같은 줄(날짜 아래로 안 떨어짐)
+ expect(g.rows[0].x).toBeGreaterThan(g.day.x+g.day.w-1); // 날짜 바로 오른쪽에서 시작
+ for(const row of g.rows.slice(1))expect(Math.abs(row.x-g.rows[0].x)).toBeLessThan(1); // 둘째 줄부터 = 내용 첫 글자 x(날짜 아래는 빈칸)
+ expect(g.dayRects).toBe(1); // 날짜는 한 덩어리
+ expect(g.ok).toBe(true); // ✓ 는 내용 칸 안
+ expect(g.sum.y+g.sum.h/2).toBeLessThan(g.line.y+g.sum.h); // ⋯ 는 줄 오른쪽 위
+ expect(Math.abs((g.sum.x+g.sum.w)-(g.line.x+g.line.w))).toBeLessThan(6);
  expect(errors).toEqual([]);
 });
 
