@@ -134,7 +134,7 @@ for (const width of [390, 1280]) {
     await expect(cards).toHaveCount(2); expect(f.writes).toEqual([]);
     await expect(more).toBeFocused();
     await press(page, more, width);
-    await expect(page.locator('#noteDocMenu button')).toHaveText(['Drive에서 열기', '내려받기', '빼기']);
+    await expect(page.locator('#noteDocMenu button')).toHaveText(['Drive에서 열기', '내려받기', '빼기', '삭제']);
     await expect(page.locator('#noteDocMenu [data-note-file-detach]')).toHaveText('빼기');
     await press(page, page.locator('#noteDocMenu [data-note-file-detach]'), width);
     const asked = await answerAsk(page, true);
@@ -153,6 +153,69 @@ for (const width of [390, 1280]) {
     await answerAsk(page, true);
     await expect(cards).toHaveCount(0);
     await expect(detail.locator('[data-basket-read-text]')).toHaveText('본문이 없는 노트입니다.');
+    expect(f.errors).toEqual([]);
+  });
+
+  // FILE-첨부삭제: ⋯ [삭제] → 한 번 묻고 → document-actions trash-file(서버가 노트에서 떼고 Drive 원본 휴지통) → 다시 읽어 그림
+  // → 화면 위 '삭제했어요 · [되돌리기]' → restore-file(휴지통에서 꺼내 다시 붙임). [빼기]는 위 시험 그대로.
+  test(`⋯ → 삭제 asks once, sends trash-file, shows 삭제했어요 · 되돌리기, and 되돌리기 puts it back ${width}`, async ({page}) => {
+    const f = await fixture(page, width), calls = [];
+    const row = () => f.notes.find(n => n.id === 'n-files');
+    let held = null;
+    await page.route(SB + '/functions/v1/document-actions', async r => {
+      const body = r.request().postDataJSON(); calls.push(body);
+      const n = row();
+      if (body.action === 'trash-file') {
+        held = n.attachments.find(a => a.drive_file_id === body.drive_file_id);
+        n.attachments = n.attachments.filter(a => a.drive_file_id !== body.drive_file_id); n.updated_at = '2026-10-22T06:00:00Z';
+        return r.fulfill({json: {ok: true, detached: true, drive: 'trashed', target: 'note', id: n.id, drive_file_id: body.drive_file_id, note: {id: n.id, updated_at: n.updated_at}}});
+      }
+      n.attachments = [...n.attachments, held]; n.updated_at = '2026-10-22T07:00:00Z';
+      return r.fulfill({json: {ok: true, restored: true, target: 'note', id: n.id, drive_file_id: body.drive_file_id, note: {id: n.id, updated_at: n.updated_at}}});
+    });
+    await press(page, page.locator('[data-note-row="n-files"]'), width);
+    const cards = page.locator('[data-note-detail] [data-note-attachments] .file-line');
+    await expect(cards).toHaveCount(2);
+    const more = cards.nth(0).getByRole('button', {name: '교섭 요구안.pdf 메뉴'});
+    await press(page, more, width);
+    await expect(page.locator('#noteDocMenu [data-note-file-delete]')).toHaveText('삭제');
+    if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-file-menu-${width}.png`});
+    // Cancel: nothing sent.
+    await press(page, page.locator('#noteDocMenu [data-note-file-delete]'), width);
+    await answerAsk(page, false);
+    expect(calls).toEqual([]); await expect(cards).toHaveCount(2);
+    await press(page, more, width); await press(page, page.locator('#noteDocMenu [data-note-file-delete]'), width);
+    const asked = await answerAsk(page, true);
+    expect(asked).toBe("'교섭 요구안.pdf' 파일을 삭제할까요?");
+    await expect(cards).toHaveCount(1); await expect(cards.nth(0)).toContainText('회의록.hwp');
+    expect(calls).toEqual([{action: 'trash-file', target: 'note', id: 'n-files', drive_file_id: 'drive_a'}]);
+    const notice = page.locator('[data-undo-notice]');
+    await expect(notice.locator('[data-undo-text]')).toHaveText('삭제했어요');
+    if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-file-deleted-${width}.png`});
+    // The note row itself is not written by the screen (the server did it); no basket-files call either.
+    expect(f.writes).toEqual([]); expect(f.uploads).toEqual([]);
+    await press(page, notice.locator('[data-undo-action]'), width);
+    await expect(cards).toHaveCount(2);
+    expect(calls[1]).toEqual({action: 'restore-file', target: 'note', id: 'n-files', drive_file_id: 'drive_a'});
+    await expect(notice.locator('[data-undo-text]')).toHaveText('되돌렸어요');
+    expect(await noFrameWidth(page)).toBe(true);
+    expect(f.errors).toEqual([]);
+  });
+
+  test(`⋯ → 삭제 of a file this app did not make: taken off only, said in one line, no 되돌리기 ${width}`, async ({page}) => {
+    const f = await fixture(page, width);
+    await page.route(SB + '/functions/v1/document-actions', r => {
+      const n = f.notes.find(x => x.id === 'n-files'); n.attachments = n.attachments.filter(a => a.drive_file_id !== 'drive_a');
+      return r.fulfill({json: {ok: true, detached: true, drive: 'not_ours', target: 'note', id: 'n-files', drive_file_id: 'drive_a', note: {id: 'n-files', updated_at: n.updated_at}}});
+    });
+    await press(page, page.locator('[data-note-row="n-files"]'), width);
+    const cards = page.locator('[data-note-detail] [data-note-attachments] .file-line');
+    await press(page, cards.nth(0).getByRole('button', {name: '교섭 요구안.pdf 메뉴'}), width);
+    await press(page, page.locator('#noteDocMenu [data-note-file-delete]'), width);
+    await answerAsk(page, true);
+    await expect(cards).toHaveCount(1);
+    await expect(page.locator('#toast')).toHaveText('빼기만 했어요. 이 앱이 만든 파일이 아니라 Drive에는 그대로 있어요.');
+    await expect(page.locator('[data-undo-notice]')).toHaveCount(0);
     expect(f.errors).toEqual([]);
   });
 
@@ -217,7 +280,7 @@ test('note file line: PDF opens the Drive view in a new tab, HWP starts the Driv
   await tab.waitForURL('https://drive.google.com/uc?export=download&id=drive_b'); await tab.close();
   // ⋯: Drive에서 열기 and 내려받기 for a PDF too.
   await press(page, cards.nth(0).getByRole('button', {name: '교섭 요구안.pdf 메뉴'}), 1280);
-  await expect(page.locator('#noteDocMenu button')).toHaveText(['Drive에서 열기', '내려받기', '빼기']);
+  await expect(page.locator('#noteDocMenu button')).toHaveText(['Drive에서 열기', '내려받기', '빼기', '삭제']);
   [tab] = await Promise.all([context.waitForEvent('page'), page.locator('#noteDocMenu [data-file-menu="download"]').click()]);
   await tab.waitForURL('https://drive.google.com/uc?export=download&id=drive_a'); await tab.close();
   expect(f.writes).toEqual([]); expect(f.errors).toEqual([]);
