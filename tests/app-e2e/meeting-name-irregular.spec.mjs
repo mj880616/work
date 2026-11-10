@@ -81,24 +81,25 @@ for (const [label, size] of [['폰', {width: 390, height: 844}], ['PC', {width: 
     // ③ 찾기: 비정기도 나오고 꼬리표가 붙는다 → 고르면 상자 값.
     await panel(page).locator('[data-mnp-find]').fill('점검');
     await expect(picks(page)).toHaveText(['가상지부 점검 회의']);
-    await expect(panel(page).locator('.mnp-tag')).toHaveText('비정기 · 가상협의회');
+    await expect(panel(page).locator('.mnp-tag')).toHaveText('· 비정기 · 가상협의회');
     await panel(page).locator('.mnp-pick').first().click();
     await expect(panel(page)).toBeHidden();
     await expect(page.locator('#meetingNameSelect')).toHaveValue('가상지부 점검 회의');
     await expect(page.locator('#meetingTitle')).toHaveValue('가상지부 점검 회의');
 
-    // ④ ⋯ → 비정기로 두기 → 기타 비정기: 서버에 그 회의명 열쇠가 'etc'로 저장되고 목록에서 접힌다.
+    // ④ ⋯ → 비정기로 두기(S56-1: 지금 조직 아래로 바로 — 조직이 없으면 기타): 서버에 그 회의명 열쇠가 'etc'로 저장되고 목록에서 접힌다.
     await page.locator('#meetingNameSelect').click();
     const once = panel(page).locator('.mnp-row', {hasText: '한 번 모임'});
     await once.locator('.mnp-more').click();
     await panel(page).locator('[data-mnp-act="irregular"]').click();
-    await panel(page).locator('[data-mnp-parent="etc"]').click();
     await expect(panel(page).locator('[data-mnp-group="etc"]')).toContainText('기타 비정기 회의 1');
     expect(state.writes.at(-1).names[key('한 번 모임')]).toBe('etc');
     await expect(panel(page).locator('.mnp-row:not(.mnp-sub) .mnp-name', {hasText: '한 번 모임'})).toHaveCount(0);
 
-    // ⑧⑨ 상위 목록 수정 → 상위 추가(서버 저장).
+    // ⑧⑨ 조직 목록 수정(S56-1 ④ 옛 '상위 목록') → 조직 추가(서버 저장).
+    await expect(panel(page).locator('[data-mnp-parents]')).toHaveText('조직 목록 수정');
     await panel(page).locator('[data-mnp-parents]').click();
+    await expect(page.locator('#mtgParentsHeading')).toContainText('조직 목록');
     await expect(page.locator('#meetingParentsModal')).toBeVisible();
     await page.locator('#meetingParentsModal [data-mtgp-add-input]').fill('샘플 모임');
     await page.locator('#meetingParentsModal [data-mtgp-add-form] button[type="submit"]').click();
@@ -113,9 +114,52 @@ for (const [label, size] of [['폰', {width: 390, height: 844}], ['PC', {width: 
     await panel(page).locator('[data-mnp-pick="__other__"]').click();
     await page.locator('#meetingTitle').fill('새로 만든 모임');
     await expect(page.locator('#meetingNameSort')).toBeVisible();
-    await expect(page.locator('#meetingNameSort option')).toHaveText(['정기 회의', '비정기 · 가상협의회', '비정기 · 샘플 모임', '비정기 · 기타']);
+    await expect(page.locator('#meetingNameSort option')).toHaveText(['정기 회의', '정기 · 가상협의회', '비정기 · 가상협의회', '정기 · 샘플 모임', '비정기 · 샘플 모임', '비정기 · 기타']);
     await page.locator('#meetingTitle').fill('샘플 정기회의');
     await expect(page.locator('#meetingNameSort')).toBeHidden();
+  });
+}
+
+// S56-1 MTG-회의명조직묶기(시안 docs/design/mockups/meeting-name-groups.html): 정기 회의에 조직이 붙어 있으면 조직 머리글(누를 수 없음) 아래로 묶고,
+// 비정기는 그 조직 맨 아래 '└ 비정기 회의 n', 조직 없는 회의는 맨 아래 '기타'. ⋯ '조직 바꾸기', 찾기 줄 '· 조직' 꼬리표.
+const P2 = 'gbbbbbb2';
+for (const [label, size] of [['폰', {width: 412, height: 915}], ['PC', {width: 1280, height: 900}]]) {
+  test(`${label}: 회의명 목록을 조직별로 묶고, ⋯ 조직 바꾸기, 찾기 꼬리표`, async ({page}) => {
+    await page.setViewportSize(size);
+    const state = {sorts: {parents: [{id: P1, name: '가상협의회'}, {id: P2, name: '샘플 모임'}],
+      names: {[key('가상지부 점검 회의')]: P1, [key('하반기 공동 기획회의(2차)')]: P1, [key('하반기 공동 기획회의(1차)')]: P1},
+      orgs: {[key('가상협의회 대표자 회의')]: P1, [key('샘플 정기회의')]: P2}}, writes: []};
+    const startNames = {...state.sorts.names};
+    await openEntry(page, state);
+    await page.locator('#meetingNameSelect').selectOption('__other__');
+    await page.locator('#meetingNameSelect').click();
+    await expect(panel(page)).toBeVisible();
+    await expect(panel(page).locator('.mnp-org')).toHaveText(['가상협의회', '샘플 모임', '기타']);
+    await expect(picks(page)).toHaveText(['가상협의회 대표자 회의', '샘플 정기회의', '한 번 모임']);
+    await expect(panel(page).locator(`[data-mnp-group="${P1}"]`)).toContainText('└ 비정기 회의 2');
+    // 조직 머리글은 누를 수 없다(눌러도 창이 그대로, 값도 그대로).
+    await panel(page).locator('.mnp-org').first().click();
+    await expect(panel(page)).toBeVisible();
+    await expect(page.locator('#meetingNameSelect')).toHaveValue('__other__');
+    // ③ ⋯ 조직 바꾸기 → 샘플 모임: orgs에 저장, '기타' 머리글이 사라지고 샘플 모임 아래로.
+    await panel(page).locator('.mnp-row', {hasText: '한 번 모임'}).locator('.mnp-more').click();
+    await expect(panel(page).locator('[data-mnp-act="org"]')).toHaveText('조직 바꾸기 (기타)');
+    await panel(page).locator('[data-mnp-act="org"]').click();
+    await expect(panel(page).locator('[data-mnp-org-pick]')).toHaveText(['가상협의회', '샘플 모임', '기타']);
+    await panel(page).locator(`[data-mnp-org-pick="${P2}"]`).click();
+    await expect(panel(page).locator('.mnp-org')).toHaveText(['가상협의회', '샘플 모임']);
+    expect(state.writes.at(-1).orgs[key('한 번 모임')]).toBe(P2);
+    expect(state.writes.at(-1).names).toEqual(startNames);
+    await expect(picks(page)).toHaveText(['가상협의회 대표자 회의', '샘플 정기회의', '한 번 모임']);
+    // ⑤ 찾기는 전체에서, 찾은 줄에 '· 조직' 꼬리표(비정기는 '· 비정기 · 조직').
+    await panel(page).locator('[data-mnp-find]').fill('모임');
+    await expect(picks(page)).toHaveText(['한 번 모임']);
+    await expect(panel(page).locator('.mnp-tag')).toHaveText('· 샘플 모임');
+    await panel(page).locator('[data-mnp-find]').fill('점검');
+    await expect(panel(page).locator('.mnp-tag')).toHaveText('· 비정기 · 가상협의회');
+    await expect(panel(page).locator('.mnp-org')).toHaveCount(0);
+    const box = await panel(page).boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(size.width);
   });
 }
 
