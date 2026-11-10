@@ -500,7 +500,7 @@ jobs:
         run: node --test tests/weekly-org-lines-model.test.mjs
 
       - name: Check org report window model (ORG-기록하나로 O-4)
-        run: node --test tests/record-window-model.test.mjs tests/record-oneline.test.mjs tests/record-report-body-full.test.mjs
+        run: node --test tests/record-window-model.test.mjs tests/record-oneline.test.mjs tests/record-report-body-full.test.mjs tests/record-day-edit.test.mjs
 
       - name: Check weekly report file and confirm snapshot from the window (ORG-기록하나로 O-6)
         run: node --test tests/record-one-file.test.mjs
