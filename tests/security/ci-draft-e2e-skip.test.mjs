@@ -14,7 +14,7 @@ const TYPES = '    types: [opened, synchronize, reopened, ready_for_review]';
 
 // 화면 시험 workflow와 초안이면 건너뛰는 job(job 이름은 바꾸지 않는다).
 const E2E_JOBS = {
-  'app-e2e-check.yml': ['browser-e2e-shard', 'browser-e2e'],
+  'app-e2e-check.yml': ['browser-e2e-shard', 'startup-benchmark', 'browser-e2e'],
   'arsenal-archive-check.yml': ['archive'],
   'calendar-edit-move-e2e.yml': ['calendar-edit-move'],
   'profile-single-render-check.yml': ['browser'],
@@ -67,9 +67,13 @@ test('E2E workflows listen to ready_for_review and skip their browser jobs on dr
 
 test('app-e2e-check still decides on draft PRs and only skips the shards and the aggregate', () => {
   const blocks = jobBlocks(workflow('app-e2e-check.yml'));
-  assert.deepEqual(Object.keys(blocks), ['changes', 'browser-e2e-shard', 'browser-e2e']);
+  assert.deepEqual(Object.keys(blocks), ['changes', 'browser-e2e-shard', 'startup-benchmark', 'browser-e2e']);
   assert.equal(jobIf(blocks.changes), undefined);
   assert.equal(jobIf(blocks['browser-e2e-shard']), `needs.changes.outputs.e2e == 'true' && (${DRAFT})`);
+  // OPS-작업속도: 시작 시간 측정은 shard 1에서 떼어 따로 돌지만, 판정 job이 결과를 함께 본다.
+  assert.equal(jobIf(blocks['startup-benchmark']), `needs.changes.outputs.e2e == 'true' && (${DRAFT})`);
+  assert.match(blocks['browser-e2e'], /needs: \[changes, browser-e2e-shard, startup-benchmark\]/);
+  assert.match(blocks['browser-e2e'], /test "\$BENCHMARK_RESULT" = "success"/);
   assert.equal(jobIf(blocks['browser-e2e']), `always() && (${DRAFT})`);
 });
 

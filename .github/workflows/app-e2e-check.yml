@@ -89,8 +89,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shardIndex: [1, 2, 3, 4, 5, 6, 7, 8]
-        shardTotal: [8]
+        shardIndex: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shardTotal: [12]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -117,36 +117,15 @@ jobs:
           cat /tmp/kptu-e2e-http.log
           exit 1
 
-      # 시작 시간 측정은 검사 묶음과 별개라 shard 1에서만 한 번 실행한다.
-      - name: Start baseline main app server
-        if: matrix.shardIndex == 1
-        run: |
-          mkdir -p /tmp/kptu-p6-main
-          git archive 3d84e8e18a822c84015bf7a8a4a556b42d7f2f1c | tar -x -C /tmp/kptu-p6-main
-          (cd /tmp/kptu-p6-main && python3 -m http.server 8124 >/tmp/kptu-p6-main-http.log 2>&1 &)
-          for i in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:8124/app/ >/dev/null; then exit 0; fi
-            sleep 0.5
-          done
-          cat /tmp/kptu-p6-main-http.log
-          exit 1
-
-      - name: Measure main and P6 startup with identical mocked APIs
-        if: matrix.shardIndex == 1
-        run: node tests/app-e2e/startup-benchmark.mjs
-
-      - name: Upload startup measurements
-        if: always() && matrix.shardIndex == 1
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: p6-startup-measurement
-          path: /tmp/p6-startup-measurement.json
-          if-no-files-found: ignore
-
+      # OPS-작업속도(S56-29): 시험 개수·내용은 그대로 두고 나누는 방법만 바꾼다.
+      # - --fully-parallel: 파일 단위가 아니라 시험 하나 단위로 갈래에 나눈다. 파일 단위일 때는 시험 145개짜리
+      #   journal.spec.mjs 하나가 한 갈래에서 11.5분을 혼자 써서 그 갈래가 16분이 걸렸다.
+      # - --workers=4: GitHub 공개 저장소 ubuntu 러너의 CPU 4개에 맞춘다(전에는 2개만 썼다).
+      # - 갈래 12개: 8개에서 늘림. PR 하나의 검사 수가 동시 실행 한도(40) 안에 들도록 16개까지는 늘리지 않는다.
       - name: Run complete browser regression suite
         run: >-
           npx playwright test tests/app-e2e
-          --browser=chromium --workers=2 --reporter=line,github
+          --browser=chromium --workers=4 --fully-parallel --reporter=line,github
           --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       # UI-화면정리: 세 폭 화면 사진(tests/app-e2e/ui-screen-audit.spec.mjs)을 전후 비교용으로 남긴다. 사진이 없는 shard는 건너뛴다.
@@ -169,12 +148,65 @@ jobs:
             test-results/
           if-no-files-found: ignore
 
-  # 기존 검사 이름(browser-e2e)으로 판정과 8개 shard 결과를 한 번에 본다.
-  # 판정 실패·취소는 실패, 불필요는 성공, 필요하면 shard 모두 success일 때만 성공.
+  # 시작 시간 측정(main과 P6 비교)은 검사 묶음과 별개라 따로 한 번 돈다. 전에는 shard 1 안에서 돌아
+  # 그 갈래만 1분 남짓 늦게 끝났다(OPS-작업속도). 결과는 browser-e2e가 함께 본다.
+  startup-benchmark:
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+          package-manager-cache: false
+
+      - name: Install Playwright
+        uses: ./.github/actions/setup-playwright
+
+      - name: Start static app server
+        run: |
+          python3 tests/app-e2e/helpers/static-server.py 8123 >/tmp/kptu-e2e-http.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8123/app/ >/dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          cat /tmp/kptu-e2e-http.log
+          exit 1
+
+      - name: Start baseline main app server
+        run: |
+          mkdir -p /tmp/kptu-p6-main
+          git archive 3d84e8e18a822c84015bf7a8a4a556b42d7f2f1c | tar -x -C /tmp/kptu-p6-main
+          (cd /tmp/kptu-p6-main && python3 -m http.server 8124 >/tmp/kptu-p6-main-http.log 2>&1 &)
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8124/app/ >/dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          cat /tmp/kptu-p6-main-http.log
+          exit 1
+
+      - name: Measure main and P6 startup with identical mocked APIs
+        run: node tests/app-e2e/startup-benchmark.mjs
+
+      - name: Upload startup measurements
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: p6-startup-measurement
+          path: /tmp/p6-startup-measurement.json
+          if-no-files-found: ignore
+
+  # 기존 검사 이름(browser-e2e)으로 판정과 12개 shard·시작 시간 측정 결과를 한 번에 본다.
+  # 판정 실패·취소는 실패, 불필요는 성공, 필요하면 shard와 시작 시간 측정이 모두 success일 때만 성공.
   # shard가 실패하면 "Re-run failed jobs"로 실패한 shard와 이 job만 다시 돌린다.
   browser-e2e:
     if: always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
-    needs: [changes, browser-e2e-shard]
+    needs: [changes, browser-e2e-shard, startup-benchmark]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -183,8 +215,9 @@ jobs:
           CHANGES_RESULT: ${{ needs.changes.result }}
           E2E_NEEDED: ${{ needs.changes.outputs.e2e }}
           SHARD_RESULT: ${{ needs.browser-e2e-shard.result }}
+          BENCHMARK_RESULT: ${{ needs.startup-benchmark.result }}
         run: |
-          echo "changes result: $CHANGES_RESULT, e2e needed: $E2E_NEEDED, browser-e2e-shard result: $SHARD_RESULT"
+          echo "changes result: $CHANGES_RESULT, e2e needed: $E2E_NEEDED, browser-e2e-shard result: $SHARD_RESULT, startup-benchmark result: $BENCHMARK_RESULT"
           if [ "$CHANGES_RESULT" != "success" ]; then
             echo "decision job did not succeed"
             exit 1
@@ -198,3 +231,4 @@ jobs:
             exit 1
           fi
           test "$SHARD_RESULT" = "success"
+          test "$BENCHMARK_RESULT" = "success"
