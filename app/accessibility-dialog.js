@@ -140,11 +140,12 @@
     if(active&&!shown(active))active=[...stack].reverse().find(shown)||active;
     if(!active||active.classList.contains('hidden'))return;
     if(e.key==='Escape'){
-      // UI-Esc로창닫기: Esc = the window's own close (its ✕), with three exceptions that leave the window open:
+      // UI-Esc로창닫기: Esc = the window's own close (its ✕), with two exceptions that leave the window open:
       // ③ Korean (IME) composition in progress — that Esc only ends the composition;
-      // ② something small inside already took this Esc (a field's own cancel, a list, a date pick: it called preventDefault);
       // ② a small ⋯ menu inside the window is open (the shared menu layer, details-menu-back.js): Esc closes that menu only.
-      if(e.isComposing||e.keyCode===229||e.defaultPrevented)return;
+      // (Small things that own their Esc — a list, a picker, a field's cancel — stop it before it reaches here, as before.
+      // preventDefault alone does not count: the editor's text box marks every Esc that way, and Esc must still close its window.)
+      if(e.isComposing||e.keyCode===229)return;
       if(window.KPTUMenuLayer?.dismissIn?.(active)){e.preventDefault();return}
       const fn=state.get(active)?.onRequestClose;
       if(fn){e.preventDefault();fn()}
