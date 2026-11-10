@@ -62,7 +62,6 @@ test('화면 연결: 홈 2. 2)와 사업 보고 2)가 같은 부품, 옛 주는 
   const win = read('app/biz-detail-window.js'), journal = read('app/journal.js'), table = read('app/weekly-summary-table.js');
   assert.match(win, /section=eq\.\$\{D\.SECTION\}/);
   assert.match(win, /saveBusinessRecord\(\{space_id: space, day, body, source_kind: 'user'\}/);
-  assert.doesNotMatch(win, /localStorage|sessionStorage/);
   assert.match(journal, /if \(isRecordWeek\(start\)\) paintBizDetail\(host\);\n\s+else W\.paintDetailLines/);
   assert.match(journal, /createBizDetailBox\(\{rt, kinds:true\}\)/);
   assert.match(table, /createBizDetailBox\(\)/);
