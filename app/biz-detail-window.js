@@ -126,7 +126,7 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false} = {}
     const notes = [ctl.recStatus === 'error' ? '사업 기록을 불러오지 못했어요.' : '', !ctl.marksOn ? TEXT.marksOff : ''].filter(Boolean);
     return `${notes.length ? `<p class="wl-note">${esc(notes.join(' '))}</p>` : ''}`
       + `${groups.length ? groups.map(groupHtml).join('') : addingFree ? '' : emptyHtml('없음')}`
-      + `${addingFree ? recordForm('') : ctl.recStatus === 'ready' && spaceRows().length ? `<div class="rw-foot btn-row bd-foot"><button type="button" class="row-act wl-add" data-bd-add=""${dis}>+ 쓰기</button></div>` : ''}`
+      + `${addingFree ? recordForm('') : ctl.recStatus === 'ready' && spaceRows().length ? `<div class="rw-foot btn-row bd-foot"><button type="button" class="row-act wl-add" data-bd-add=""${dis}>${groups.length ? '+ 다른 사업에 쓰기' : '+ 쓰기'}</button></div>` : ''}`
       + `<p class="wl-status${ctl.error ? ' is-error' : ''}" role="status" aria-live="polite" data-bd-status>${esc(ctl.msg)}</p>`;
   }
   function render() {
