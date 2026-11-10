@@ -11,6 +11,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // 밝은·어두운 테마, 폰 412·PC 1280에서 화면 사진의 점 색으로도 확인한다. 서버는 흉내(이름·글은 모두 가짜).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const SHOTS = process.env.UI_BOTTOM_BAR_SHOTS || '';
+const FILE = { 노트: 'note', 업데이트: 'update', 일기: 'diary', 프로필: 'profile' };
 const AT = '2026-10-05T01:00:00Z';
 const long = Array.from({ length: 40 }, (_, i) => `${i + 1}번째 줄 가짜 글을 길게 적어 봅니다`).join('\n');
 const rows = () => [
@@ -101,7 +102,7 @@ for (const width of [412, 884, 1280]) for (const dark of [false, true]) for (con
     if (SHOTS) {
       mkdirSync(SHOTS, { recursive: true });
       const top = Math.max(0, Math.round(b.y + b.height) - 300);
-      await page.screenshot({ path: `${SHOTS}/${name}-${width}-${dark ? 'dark' : 'light'}.png`, clip: { x: 0, y: top, width, height: Math.min(800 - top, 340) } });
+      await page.screenshot({ path: `${SHOTS}/${FILE[name]}-${width}-${dark ? 'dark' : 'light'}.png`, clip: { x: 0, y: top, width, height: Math.min(800 - top, 340) } });
     }
     expect(errors).toEqual([]);
   });
