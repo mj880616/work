@@ -361,6 +361,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // BASKET-할일출처 added the task editor's source-note line; compare it under both style sets too.
   const sourceNote=await page.locator('#gtSourceNote').evaluate(el=>el.outerHTML);
   await original.locator('#gtMeetingLinks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),sourceNote);
+  // UI-PC손맛묶음 ⑥(S56-52): 조직 상세 기록 표 아래 진행 한 줄(#wdLogState, 공용 .status)을 더했다 — main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  if(await page.locator('#wdLogState').count()&&await original.locator('#wdUpdates').count()&&!(await original.locator('#wdLogState').count())){const logState=await page.locator('#wdLogState').evaluate(el=>el.outerHTML);await original.locator('#wdUpdates').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),logState)}
   // UI-화면점검 ③: 할 일 수정 창 "연결할 프로젝트·조직"은 legend에 짧은 이름만 두고 안내문은 legend 밖 아래 작은 글씨로 옮겼고, legend 글자는 다른 라벨과 같은 12px로 맞췄다.
   // 현재 마크업을 main 쪽에도 넣고, 새로 정한 두 요소(.gt-links-legend·.gt-links-hint)의 크기는 아래 generic에서 빼고 pickers-org-project.spec이 확인한다.
   // S52-01: 연결은 두 줄(area-org-picker.css, .aop-*)로 바뀌었다. 그 모양은 generic에서 빼고 area-org-picker.spec·pickers-org-project.spec이 확인한다.
