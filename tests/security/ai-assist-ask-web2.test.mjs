@@ -235,22 +235,23 @@ test('telegram raw: length cap, names table down falls back to labels, S3 ledger
   assert.equal(raw2,'10:00 홍길동(A): 하나 / 10:01 홍길동(B): 둘');
 });
 
-// NOTE-비밀메모 서버 쪽: 찾은 노트 중 [AI에 보내지 않기]·비밀 모양 노트는 근거 목록에만 두고 AI에는 보내지 않는다. [AI 제외 풀기] 노트는 보낸다. 기록에는 개수만.
-test('NOTE-비밀메모: AI 제외·비밀 모양 노트는 AI 요청 본문에 없고, 풀어 준 노트는 들어간다',async()=>{
-  const search={...SEARCH,[WS]:[...SEARCH[WS],item('note',91,{snippet:'OFF_SNIPPET 임금교섭'}),item('note',92,{snippet:'SECRET_SNIPPET 임금교섭'}),item('note',93,{snippet:'UNLOCKED_SNIPPET 임금교섭'})]};
+// NOTE-AI제외정리(11/10 결정 A): 찾은 노트는 옛 [AI에 보내지 않기] 표시와 상관없이 보낸다. 비밀 모양 글이 든 노트는 검색 조각 대신
+// 비밀번호·키 부분만 가린 본문을 보낸다(조각이 키 중간을 잘라도 새지 않게). 근거 목록 화면은 원래 제목. 기록에 글 없음.
+test('NOTE-AI제외정리: 옛 AI 제외 표시 노트도 보내고, 비밀 모양 노트는 그 부분만 가려 보낸다',async()=>{
+  const search={...SEARCH,[WS]:[...SEARCH[WS],item('note',91,{snippet:'OFF_SNIPPET 임금교섭'}),item('note',92,{snippet:'SECRET_SHAPE_TEXT 임금교섭'})]};
   const {handler,calls,db}=harness({search});
   db.app_notes.push(
     {id:id(91),workspace_id:WS,kind:'note',title:'가상 메모',raw_text:'꺼 둔 노트',metadata:{ai_off:true},ai_export_allowed:true},
-    {id:id(92),workspace_id:WS,kind:'note',title:'가상 공유기',raw_text:'와이파이 비밀번호: 가짜',metadata:{},ai_export_allowed:true},
-    {id:id(93),workspace_id:WS,kind:'note',title:'가상 풀어 둔 노트',raw_text:'와이파이 비밀번호: 가짜',metadata:{ai_off:false},ai_export_allowed:true},
+    {id:id(92),workspace_id:WS,kind:'note',title:'가상 공유기',raw_text:'와이파이 비밀번호: SECRET_SHAPE_TEXT\n공유기 교체 KEEP_TEXT 임금교섭',metadata:{},ai_export_allowed:true},
   );
   const res=await post(handler,{kind:'ask_web2',question:Q});
   assert.equal(res.status,200);const out=await res.json();
   const sent=calls.openai[0].input[1].content;
-  assert.doesNotMatch(sent,/OFF_SNIPPET|SECRET_SNIPPET/);
-  assert.match(sent,/UNLOCKED_SNIPPET/,'[AI 제외 풀기] 노트는 보낸다');
-  assert.deepEqual([id(91),id(92),id(93)].map(n=>out.sources.find(s=>s.id===n)?.sent),[false,false,true]);
-  assert.match(calls.rest.find(c=>c.table==='app_notes').query,/select=[^&]*\bmetadata\b/);
-  assert.deepEqual(calls.logs.find(l=>l.code==='ask_note_ai_off_skipped')?.detail,{count:2});
-  assert.doesNotMatch(JSON.stringify(calls.logs),/가상 공유기|비밀번호|OFF_SNIPPET|SECRET_SNIPPET/);
+  assert.match(sent,/OFF_SNIPPET/,'옛 [AI에 보내지 않기] 노트도 보낸다');
+  assert.doesNotMatch(sent,/SECRET_SHAPE_TEXT/,'비밀 글자는 AI로 가지 않음(조각도)');
+  assert.match(sent,/KEEP_TEXT/);assert.match(sent,/\[가림\]/);
+  assert.deepEqual([id(91),id(92)].map(n=>out.sources.find(s=>s.id===n)?.sent),[true,true]);
+  assert.ok(!JSON.stringify(out).includes('[가림]')&&!JSON.stringify(out).includes('KEEP_TEXT'),'응답(근거 목록)에는 가린 글을 넣지 않음');
+  assert.ok(!calls.logs.some(l=>/ai_off/.test(l.code)));
+  assert.doesNotMatch(JSON.stringify(calls.logs),/가상 공유기|비밀번호|SECRET_SHAPE_TEXT|KEEP_TEXT/);
 });

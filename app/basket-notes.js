@@ -20,9 +20,7 @@ import { formatSeoulTime } from './meeting-time.js';
 // note window (note-window.js, ED③ 노트).
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
-import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder, setNoteAiOff, setNoteBoard } from './basket-data.js';
-// NOTE-비밀메모(17:23 결정): 비밀 모양 글이 든 노트는 줄 제목을 '비밀 메모'로(note-tree.mjs noteLineTitle), 메뉴 [AI에 보내지 않기]/[AI 제외 풀기](metadata.ai_off).
-import { noteAiOff } from './note-secret.mjs';
+import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder, setNoteBoard } from './basket-data.js';
 // NOTE-탐색기(2026-10-28 09:24·10:34·11:01): 폴더 안 폴더(app_note_folders, 100단), 한 줄 노트, 끌어 옮기기·선택 모드·되돌리기.
 import { readNoteFolders, createNoteFolder, updateNoteFolder, deleteNoteFolder, setNoteFolderColor } from './note-folders-data.js';
 // FOLDER-순서·색 ②(S49-38): 폴더 색·끌기 순서 공용 부품(folder-look-model.mjs 계산, folder-look.js 그림, reorder-drag.js 끌기).
@@ -64,7 +62,6 @@ import { mountNoteBoard } from './note-board.js';
 import { createNoteBoards } from './note-boards.js';
 import { onBoard } from './note-boards-model.mjs';
 import { folderTone } from './note-board-model.mjs';
-import { noteMasked } from './note-secret.mjs';
 import { noteMarkdown } from './note-markdown.mjs';
 import { basketNoteOrigin, basketBackHtml } from './basket-note-tasks.js';
 // NOTE-읽생기아이디어 1단계: 노트 댓글(서버 표 app_note_comments)·해시태그(본문 #낱말을 읽어 모음, 따로 저장 없음).
@@ -227,10 +224,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // NOTE-보기3가지 ③ 목록 보기: 모든 노트를 최근에 고친 순서로 한 줄씩, 오른쪽에 폴더 이름 꼬리표(폴더 색)와 날짜. 찾는 중이면 맞는 노트만.
   const byChange = (a, b) => (Date.parse(b.updated_at || '') || 0) - (Date.parse(a.updated_at || '') || 0) || String(b.id).localeCompare(String(a.id));
   const listViewRows = m => notes.filter(n => !m || m(n)).sort(byChange).map(note => { const fid = folderOf(note), name = fid ? folderName(fid) : null; const fc = fid ? colorOf(folderById(fid)) : null; return {type:'note', note, indent:0, path:name || '', fc, tone:name && !fc ? folderTone(fid) : ''}; });
-  // ④ 포스트잇 칸 글: 제목 + 앞 2~3줄 + 폴더 이름. 비밀 모양 노트(note-secret.mjs)는 본문 줄을 보이지 않는다(줄 제목과 같은 규칙).
+  // ④ 포스트잇 칸 글: 제목 + 앞 2~3줄 + 폴더 이름.
   function boardText(note, fid) {
     const title = [...noteLineTitle(note)].slice(0, 60).join('');
-    const lines = noteMasked(note) ? [] : plainLines(note.raw_text).filter((line, i) => !(i === 0 && line.trim() === title.trim())).slice(0, 3);
+    const lines = plainLines(note.raw_text).filter((line, i) => !(i === 0 && line.trim() === title.trim())).slice(0, 3);
     return {title, text:[...lines.join('\n')].slice(0, 140).join(''), folder:fid ? folderName(fid) || '' : ''};
   }
   // 포스트잇 자리 저장: 옮긴 칸, 그리고 처음 옮길 때 아직 저장 안 된 칸들도 지금 보이던 자리 그대로(다른 칸이 튀지 않게). 실패하면 다시 그려 서버 자리로.
@@ -346,13 +343,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // NOTE-읽생기아이디어 ② [태그]: 위에 태그 칩(노트 수 많은 순), 아래 고른 태그의 노트(목록 보기와 같은 한 줄). 처음은 가장 많은 태그.
   function paintTagView(chipsBox, rowsBox, m) {
-    // 비밀 모양 노트(줄 제목 '비밀 메모')의 글자는 칩으로 꺼내 보이지 않는다(포스트잇 앞 줄과 같은 규칙).
-    const groups = tagGroups(notes.filter(n => !noteMasked(n) && (!m || m(n))));
+    const groups = tagGroups(notes.filter(n => !m || m(n)));
     if (!groups.some(g => g.key === tagAt)) tagAt = groups[0]?.key || null;
     chipsBox.setAttribute('aria-label', '해시태그');
     chipsBox.innerHTML = groups.map(g => `<button type="button" class="nt-chip" data-nt-tag="${esc(g.key)}" aria-pressed="${g.key === tagAt}">#${esc(g.tag)}<span class="nt-num" aria-label="노트 ${g.count}개">${g.count}</span></button>`).join('');
     chipsBox.hidden = !groups.length;
-    rowsBox.innerHTML = groups.length ? listViewRows(note => !noteMasked(note) && (!m || m(note)) && noteHasTag(note, tagAt)).map(r => rowHtml(r)).join('') : emptyHtml(m ? '맞는 노트 없음' : '태그 없음');
+    rowsBox.innerHTML = groups.length ? listViewRows(note => (!m || m(note)) && noteHasTag(note, tagAt)).map(r => rowHtml(r)).join('') : emptyHtml(m ? '맞는 노트 없음' : '태그 없음');
   }
   // NOTE-읽생기아이디어 ① [댓글] 모아 보기: 유형 칩(전체·생각·질문·인용)으로 거르고 최근 쓴 순. 줄을 누르면 그 노트를 연다.
   function paintCommentView(chipsBox, rowsBox) {
@@ -437,7 +433,6 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ['data-note-pin', notePinnedAt(note) ? '고정 풀기' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
       ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '잊지 말기로 돌리기']] : []),
       ['data-note-to-diary', '일기로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
-      ['data-note-ai-off', noteAiOff(note) ? 'AI 제외 풀기' : 'AI에 보내지 않기'],
       ['data-note-delete', '삭제', 'basket-menu-danger']];
   };
   // FILE-누르면동작: a stored attachment as the shared file shape (file-actions.js).
@@ -499,7 +494,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const box = detail.querySelector('[data-note-meta]'), tags = chips(selected);
     const folder = folderName(folderOf(selected));
     const hash = tagsOfNote(selected).map(tag => `<button type="button" class="note-meta-tag" data-note-tag="${esc(tagKey(tag))}">#${esc(tag)}</button>`).join('');
-    box.innerHTML = `${folder ? `<span class="note-meta-folder" data-note-meta-folder>폴더 ${esc(folder)}</span>` : ''}${hash ? `<span class="note-meta-tags" data-note-meta-tags><span class="a11y-only">해시태그: </span>${hash}</span>` : ''}${noteAiOff(selected) ? '<span class="note-meta-ai-off" data-note-meta-ai-off>AI 제외</span>' : ''}${tags ? `<span class="basket-note-state">${tags}</span>` : `<span class="basket-note-state"><span class="basket-state-text">${esc(noteState(selected, links).status === '확정' ? '분류 완료' : '연결 없음')}</span></span>`}<time>수정한 날 ${esc(day(selected.updated_at))}</time>${newsItemOf(selected) ? '<button type="button" class="note-meta-news" data-note-news>기사로 가기</button>' : ''}`;
+    box.innerHTML = `${folder ? `<span class="note-meta-folder" data-note-meta-folder>폴더 ${esc(folder)}</span>` : ''}${hash ? `<span class="note-meta-tags" data-note-meta-tags><span class="a11y-only">해시태그: </span>${hash}</span>` : ''}${tags ? `<span class="basket-note-state">${tags}</span>` : `<span class="basket-note-state"><span class="basket-state-text">${esc(noteState(selected, links).status === '확정' ? '분류 완료' : '연결 없음')}</span></span>`}<time>수정한 날 ${esc(day(selected.updated_at))}</time>${newsItemOf(selected) ? '<button type="button" class="note-meta-news" data-note-news>기사로 가기</button>' : ''}`;
     // NEWS-클리핑 C2: 뉴스 클리핑 기사 메모(metadata.news_item_id)인 노트는 [기사로 가기] → 뉴스 클리핑 화면에 그 기사를 연다.
     box.querySelector('[data-note-news]')?.addEventListener('click', () => { if (requestNewsItem(newsItemOf(selected))) window.KPTURouter?.go?.('news', {source:'delegated'}); });
     // UI-일기손질 ⑥: each attachment is the shared file line (meeting-compact.js) with a small [Drive에서 열기] at its end.
@@ -819,20 +814,6 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     } catch (error) {
       if (run !== epoch || owner !== scope()) return;
       report(error?.code === 'note_changed' ? error.message : pinned ? '고정하지 못했어요. 다시 시도해 주세요.' : '고정을 풀지 못했어요. 다시 시도해 주세요.');
-    } finally { if (run === epoch) lock(false); else busy = false; }
-  }
-  // NOTE-비밀메모: [AI에 보내지 않기] / [AI 제외 풀기] — metadata.ai_off만 쓴다(고치기 아님, updated_at 그대로).
-  async function toggleAiOff(note) {
-    if (!note || editing || busy) return;
-    const off = !noteAiOff(note), run = ++epoch, owner = scope(); lock(true); report('');
-    try {
-      const saved = await setNoteAiOff(note, off, rt);
-      if (run !== epoch || owner !== scope()) return;
-      applySaved(note.id, saved); renderList(); if (selected?.id === note.id) { paintMeta(); }
-      showToast(off ? '이 노트는 AI에 보내지 않아요.' : 'AI 제외를 풀었어요.');
-    } catch (error) {
-      if (run !== epoch || owner !== scope()) return;
-      report(error?.code === 'note_changed' ? error.message : '저장하지 못했어요. 다시 시도해 주세요.');
     } finally { if (run === epoch) lock(false); else busy = false; }
   }
   // ---- NOTE-탐색기: 폴더 옮기기·새 폴더·이름·지우기·선택 모드·끌어 놓기 ----
@@ -1281,7 +1262,6 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-nbb-detach')) boards.detach(note.id);
     else if (b.hasAttribute('data-nbb-attach')) boards.attach([note.id]);
     else if (b.hasAttribute('data-note-copy')) void telegram(note, from.trigger); // UI-눌림느낌: the menu is closed, so the row's ⋯ shows the ✓
-    else if (b.hasAttribute('data-note-ai-off')) void toggleAiOff(note);
     else if (b.hasAttribute('data-note-up')) void stepNote(note.id, -1);
     else if (b.hasAttribute('data-note-down')) void stepNote(note.id, 1);
     else if (b.hasAttribute('data-note-pin')) void pin(note);

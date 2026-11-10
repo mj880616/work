@@ -1,14 +1,13 @@
 // 공유 페이지 AI 초안 창(원장 빠짐32 · 요청 10/20 01:43 '현장 공유 페이지' ②: "AI는 자료를 받아 블록에 초안만 채움, 사용자가 블록별로 수정").
 // 여는 곳: 공유 페이지 편집 화면 맨 위 ⋯ [AI 초안](share-pages.js). 글 한 칸 화면(새 페이지 모두)에서만.
 // ① 재료 고르기: 최근 사업 보고와 노트·업데이트(owner RLS 읽기, 제목·종류·날짜만)에서 최대 6건, 한 줄 초점(선택).
-//    노트는 AI에 보낼 수 있는 것만 보인다(보관·AI 내보내기 끔·[AI에 보내지 않기]·비밀 모양 노트 제외). 일기·업무일지 줄은 목록에 없다.
+//    노트는 AI에 보낼 수 있는 것만 보인다(보관·AI 내보내기 끔 노트 제외). 비밀 모양 부분은 서버가 AI로 보낼 때 가린다. 일기·업무일지 줄은 목록에 없다.
 // ② [초안 만들기] → 서버 ai-assist kind=share_draft(고른 종류·ID만 보냄, 글은 서버가 다시 읽음) → 칸별 미리보기(저장 안 됨).
 // ③ 넣을 칸을 고르고 [넣기] → 편집 중인 본문 끝에 제목 + 줄로 들어간다(근거 번호·확인할 것은 안 들어감). 그 뒤에도 페이지는 [저장]을 눌러야 바뀐다.
 // 닫으면 아무것도 남지 않는다. 기기 저장 없음(이 창 메모리만). 창 모양은 share-ai-draft.css(옛 성명 초안 창 모양에서 이 창이 쓰는 규칙만 옮김).
 import {waitHtml, emptyHtml} from './wait-state.js';
 import {pickFoldHtml, readPickState, bindPickFold} from './pick-fold.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
-import {noteAiOff} from './note-secret.mjs';
 import {SHARE_AI_MAX_PICK, SHARE_AI_FOCUS_MAX, SHARE_AI_SECTIONS, shareDraftRequest, parseShareDraftAnswer, filledKeys, draftNodes,
   meetingLine, noteLine, shortDay, splitKey} from './share-ai-draft-model.mjs';
 
@@ -51,7 +50,7 @@ async function loadRecords() {
   const {reportKindOf, reportKindLabel} = await import('./report-kinds.mjs');
   const kind = m => reportKindLabel(reportKindOf(m));
   const w = encodeURIComponent(ws());
-  const noteRead = kind => rt().api(`/rest/v1/app_notes?workspace_id=eq.${w}&kind=eq.${kind}&archived_at=is.null&ai_export_allowed=is.true&select=id,kind,title,raw_text,metadata,occurred_at,updated_at&order=updated_at.desc,id.asc&limit=${PICK_ROWS}`, {singleFlight:false});
+  const noteRead = kind => rt().api(`/rest/v1/app_notes?workspace_id=eq.${w}&kind=eq.${kind}&archived_at=is.null&ai_export_allowed=is.true&select=id,kind,title,raw_text,occurred_at,updated_at&order=updated_at.desc,id.asc&limit=${PICK_ROWS}`, {singleFlight:false});
   const [meetings, plain, updates] = await Promise.all([
     rt().api(`/rest/v1/app_meetings?workspace_id=eq.${w}&select=id,title,series_name,round_no,meeting_at,activity_kind&order=meeting_at.desc.nullslast,id.asc&limit=${PICK_ROWS}`, {singleFlight:false}),
     noteRead('note'), noteRead('basket'),
@@ -60,8 +59,8 @@ async function loadRecords() {
   const notes = [...(Array.isArray(plain) ? plain : []), ...(Array.isArray(updates) ? updates : [])].sort((a, b) => at(b) - at(a)).slice(0, PICK_ROWS);
   return {
     meetings:(Array.isArray(meetings) ? meetings : []).map(m => meetingLine(m, kind)).filter(r => splitKey(r.key)),
-    // 노트(kind=note)의 [AI에 보내지 않기]·비밀 모양은 서버와 같은 규칙(note-secret.mjs)으로 목록에서 뺀다. 서버도 다시 본다.
-    notes:notes.filter(n => !(n.kind === 'note' && noteAiOff(n))).map(noteLine).filter(r => splitKey(r.key)),
+    // 비밀 모양 노트도 목록에 둔다. AI로 보낼 때 서버가 그 부분만 가린다(NOTE-AI제외정리).
+    notes:notes.map(noteLine).filter(r => splitKey(r.key)),
   };
 }
 

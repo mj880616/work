@@ -192,22 +192,21 @@ test('screen message table covers the new codes (smoke)',()=>{
   for(const code of ['text_pending','no_file_text'])assert.match(screen,new RegExp(`\\b${code}:'`));
 });
 
-// NOTE-비밀메모 서버 쪽: 노트(kind=note)를 재료로 고를 때도 [AI에 보내지 않기]·비밀 모양 노트는 AI 전에 막고, [AI 제외 풀기] 노트는 보낸다.
-test('NOTE-비밀메모: AI 제외·비밀 모양 노트는 note_excluded(AI 부르지 않음), 풀어 준 노트는 AI 요청 본문에 들어간다',async()=>{
-  const OFF=id('c',91),SECRETY=id('c',92),UNLOCKED=id('c',93);
-  const {handler,calls,tables}=harness();
-  tables.app_notes.push(
+// NOTE-AI제외정리(11/10 결정 A): 노트(kind=note)를 재료로 고를 때 옛 [AI에 보내지 않기]·비밀 모양 노트도 막지 않는다. 비밀번호·키 부분만 가려 보낸다.
+test('NOTE-AI제외정리: 옛 AI 제외 표시·비밀 모양 노트도 요약하고, 비밀 글자는 AI 요청 본문에 없다',async()=>{
+  const OFF=id('c',91),SECRETY=id('c',92);
+  const setup=()=>{const h=harness();h.tables.app_notes.push(
     {id:OFF,workspace_id:WS,kind:'note',title:'가상 메모',raw_text:'꺼 둔 노트 OFF_TEXT',metadata:{ai_off:true},archived_at:null,ai_export_allowed:true,attachments:[]},
-    {id:SECRETY,workspace_id:WS,kind:'note',title:'가상 공유기',raw_text:'와이파이 비밀번호: SECRET_SHAPE_TEXT',metadata:{},archived_at:null,ai_export_allowed:true,attachments:[photo(1,ocr('사진 글자'))]},
-    {id:UNLOCKED,workspace_id:WS,kind:'note',title:'가상 풀어 둔 노트',raw_text:'토큰 발급 회의 정리 UNLOCKED_TEXT',metadata:{ai_off:false},archived_at:null,ai_export_allowed:true,attachments:[]},
-  );
-  await err(await post(handler,{kind:'link_summary',note_id:OFF,target_kind:'organization',target_id:ORG}),422,'note_excluded');
-  await err(await post(handler,{kind:'link_summary',note_id:SECRETY,target_kind:'organization',target_id:ORG}),422,'note_excluded');
-  await err(await post(handler,{kind:'link_summary',note_id:SECRETY,use:'files',target_kind:'organization',target_id:ORG}),422,'note_excluded');
-  assert.equal(calls.openai.length,0);
-  {const q=calls.rest.filter(c=>c.table==='app_notes');assert.ok(q.length>0&&q.every(c=>/select=[^&]*\bmetadata\b/.test(decodeURIComponent(c.query))),'판별에 쓰는 metadata를 읽는다');}
-  const res=await post(handler,{kind:'link_summary',note_id:UNLOCKED,target_kind:'organization',target_id:ORG});
-  assert.equal(res.status,200);
-  assert.equal(calls.openai.length,1);
-  assert.ok(calls.openai[0].input[1].content.includes('UNLOCKED_TEXT'),'[AI 제외 풀기] 노트는 보낸다');
+    {id:SECRETY,workspace_id:WS,kind:'note',title:'가상 공유기',raw_text:'와이파이 비밀번호: SECRET_SHAPE_TEXT\n공유기 교체 KEEP_TEXT',metadata:{},archived_at:null,ai_export_allowed:true,attachments:[]},
+  );return h;};
+  {const {handler,calls}=setup();
+    const a=await post(handler,{kind:'link_summary',note_id:OFF,target_kind:'organization',target_id:ORG});
+    assert.equal(a.status,200);
+    assert.ok(calls.openai[0].input[1].content.includes('OFF_TEXT'),'옛 [AI에 보내지 않기] 노트도 보낸다');}
+  const {handler,calls}=setup();
+  const b=await post(handler,{kind:'link_summary',note_id:SECRETY,target_kind:'organization',target_id:ORG});
+  assert.equal(b.status,200);
+  const sent=calls.openai[0].input[1].content;
+  assert.ok(!sent.includes('SECRET_SHAPE_TEXT'),'비밀 글자는 AI로 가지 않음');
+  assert.ok(sent.includes('KEEP_TEXT')&&sent.includes('[가림]'),'나머지 글은 보내고 그 부분만 가림');
 });

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // JOURNAL-오늘한일업무개인: the real ai-assist handler, kind=work_scope, with a synthetic Supabase (Auth + PostgREST with owner RLS) and a
 // mocked OpenAI. No network, no real key, synthetic text only. The screen sends only the week's Monday; the server reads that week's
-// '오늘 한 일' lines with the caller's token, sends only lines allowed to AI (no AI-off or secret-looking note, no secret-looking line),
+// '오늘 한 일' lines with the caller's token, sends the lines allowed to AI (password- or key-looking parts masked, the old AI-off mark ignored — NOTE-AI제외정리),
 // writes nothing but the usage row, and returns as drop every line of the week the AI did not call work (personal, unsure, missing, unsent).
 const {createAiAssistHandler,DAILY_LIMITS}=await import('../../supabase/functions/ai-assist/handler.ts');
 const scope=await import('../../supabase/functions/ai-assist/work-scope.ts');
@@ -20,7 +20,7 @@ const note=(id,day,raw_text,extra={})=>({id,workspace_id:WS,kind:'work',journal_
 const WORK=[
   note('n1','2026-10-26','가상지부 3차 교섭 준비회의\n미술 학원 다녀 옴'),
   note('n2','2026-10-28','성명 초안 정리'),
-  note('n3','2026-10-29','비밀 줄',{metadata:{ai_off:true}}),
+  note('n3','2026-10-29','와이파이 비밀번호: 가상값',{metadata:{ai_off:true}}),
   note('n4','2026-11-02','다음 주 줄'),
   {...note('n5','2026-10-27','남의 줄'),workspace_id:OTHER_WS},
 ];
@@ -57,17 +57,18 @@ function harness({openai=judge,usage=[],work=WORK}={}){
 }
 const post=(handler,body,token='owner-token')=>handler(new Request(FN,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)}));
 
-test('one AI call over the week\'s allowed lines; personal and AI-off lines come back as drop, work lines do not; nothing stored',async()=>{
+test('one AI call over the week\'s allowed lines; personal lines come back as drop, work lines do not; secret parts masked; nothing stored',async()=>{
   const {handler,calls,db}=harness();
   const res=await post(handler,{kind:'work_scope',week_start:MON});
   assert.equal(res.status,200);
   const body=await res.json();
-  assert.deepEqual(body,{ok:true,kind:'work_scope',week_start:MON,drop:[{day:'2026-10-26',text:'미술 학원 다녀 옴'},{day:'2026-10-29',text:'비밀 줄'}],personal:1,skipped:1});
+  assert.deepEqual(body,{ok:true,kind:'work_scope',week_start:MON,drop:[{day:'2026-10-26',text:'미술 학원 다녀 옴'}],personal:1,skipped:0});
   assert.equal(calls.openai.length,1);
   const o=calls.openai[0];
   assert.equal(o.store,false);assert.equal(o.text.format.name,'work_scope');assert.equal(o.text.format.strict,true);
   const sent=o.input[1].content;
-  assert.match(sent,/미술 학원/);assert.ok(!/비밀 줄|다음 주 줄|남의 줄/.test(sent),'AI-off note, other week and other workspace are not sent');
+  assert.match(sent,/미술 학원/);assert.ok(!/가상값|다음 주 줄|남의 줄/.test(sent),'secret part, other week and other workspace are not sent');
+  assert.match(sent,/와이파이 \[가림\]/,'the old AI-off line is sent with only the secret part masked');
   assert.match(o.input[0].content,/애매하면 personal/);
   assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'),'only the usage row is written');
   assert.equal(db.app_ai_daily_usage[0].requests,1);
@@ -78,8 +79,8 @@ test('one AI call over the week\'s allowed lines; personal and AI-off lines come
 test('unsure and missing answers leave the line out (애매하면 빼기); a broken answer is an error, not a guess',async()=>{
   const partial=harness({openai:body=>{const lines=JSON.parse(body.input[1].content).lines;return respond(answer([{ref:lines[1].ref,scope:'work'},{ref:'w99',scope:'work'},{ref:lines[1].ref,scope:'personal'}]));}});
   const r=await (await post(partial.handler,{kind:'work_scope',week_start:MON})).json();
-  assert.deepEqual(r.drop,[{day:'2026-10-26',text:'가상지부 3차 교섭 준비회의'},{day:'2026-10-28',text:'성명 초안 정리'},{day:'2026-10-29',text:'비밀 줄'}],'only the line answered work stays, first answer wins, unknown refs ignored');
-  assert.equal(r.personal,2);
+  assert.deepEqual(r.drop,[{day:'2026-10-26',text:'가상지부 3차 교섭 준비회의'},{day:'2026-10-28',text:'성명 초안 정리'},{day:'2026-10-29',text:'와이파이 비밀번호: 가상값'}],'only the line answered work stays, first answer wins, unknown refs ignored; drop keeps the original text');
+  assert.equal(r.personal,3);
   const broken=harness({openai:()=>respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'not json'}]}],usage:{input_tokens:1,output_tokens:1}})});
   const b=await post(broken.handler,{kind:'work_scope',week_start:MON});
   assert.equal(b.status,502);
@@ -95,18 +96,20 @@ test('no lines in the week: no AI call, no usage; the stranger sees only their o
   assert.deepEqual(s.drop,[],'the stranger\'s own line is judged work');assert.ok(!JSON.stringify(h.calls.openai).includes('미술'),'the owner\'s lines are not read for the stranger');
 });
 
-test('bad requests are refused before any read; secret-looking lines and notes are never sent',async()=>{
+test('bad requests are refused before any read; secret-looking lines are sent with only that part masked',async()=>{
   const h=harness();
   for(const body of [{kind:'work_scope'},{kind:'work_scope',week_start:'2026-10-27'},{kind:'work_scope',week_start:'10/26'},{kind:'work_scope',week_start:MON,lines:['x']}]){
     const res=await post(h.handler,body);assert.equal(res.status,400,JSON.stringify(body));
   }
   assert.equal(h.calls.openai.length,0);
   const {lines,skipped}=scope.workScopeLines([note('a',MON,'와이파이 비밀번호: 가상값'),note('b','2026-10-27','회의\n토큰: 가상'),note('c','2026-10-28','보관',{archived_at:'2026-10-28T00:00:00Z'}),note('d','2026-10-28','제외',{ai_export_allowed:false})],MON,WS);
-  assert.deepEqual(lines,[]);assert.equal(skipped,5);
-  // only-secret week: no AI call, every line is drop
-  const only=harness({work:[note('s1',MON,'와이파이 비밀번호: 가상값')]});
+  assert.deepEqual(lines.map(l=>l.text),['와이파이 비밀번호: 가상값','회의','토큰: 가상'],'lines keep the original text (drop matching)');assert.equal(skipped,2,'archived and AI-export-off rows only');
+  const material=scope.workScopeMaterial(lines,['개인 비번: 가상2']);
+  assert.ok(!/가상값|가상2|토큰: 가상/.test(material),'secret parts never reach the AI material');assert.match(material,/회의/);assert.match(material,/\[가림\]/);
+  // only-secret week: the line is sent masked, and the original text comes back in drop when not work
+  const only=harness({work:[note('s1',MON,'와이파이 비밀번호: 가상값')],openai:body=>{const ls=JSON.parse(body.input[1].content).lines;return respond(answer(ls.map(l=>({ref:l.ref,scope:'personal'}))));}});
   const o=await (await post(only.handler,{kind:'work_scope',week_start:MON})).json();
-  assert.deepEqual(o.drop,[{day:MON,text:'와이파이 비밀번호: 가상값'}]);assert.equal(only.calls.openai.length,0);
+  assert.deepEqual(o.drop,[{day:MON,text:'와이파이 비밀번호: 가상값'}]);assert.equal(only.calls.openai.length,1);assert.ok(!JSON.stringify(only.calls.openai).includes('가상값'));
   // duplicate text on one day: one judged personal → both dropped on screen (drop lists it)
   const dup=scope.parseWorkScope(JSON.stringify({items:[{ref:'w1',scope:'work'},{ref:'w2',scope:'personal'}]}),[{ref:'w1',day:MON,text:'같은 줄'},{ref:'w2',day:MON,text:'같은 줄'}]);
   assert.deepEqual(dup.drop,[{day:MON,text:'같은 줄'}]);

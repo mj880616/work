@@ -1,12 +1,12 @@
 // ai-assist 쓰임 work_scope(JOURNAL-오늘한일업무개인, 요청함 11/01 22:56 명진): '오늘 한 일'(업무일지 줄, 노트 표 kind=work)은
 // 업무·개인을 나눠 적지 않는다. 업무 재료로 쓸 때만 AI가 줄마다 업무인지 개인인지 판단해 개인 줄은 빼고 쓴다.
 // - 판단은 저장하지 않는다(쓸 때마다). 화면(app/work-scope.js)은 메모리에만 두고, 서버는 표에 쓰지 않는다.
-// - 애매하면 빼는 쪽: AI가 work라고 답한 줄만 업무 재료다. 답이 없거나 틀린 줄, AI에 보내지 않은 줄(비밀 모양·AI 제외 노트)도 뺀다.
+// - 애매하면 빼는 쪽: AI가 work라고 답한 줄만 업무 재료다. 답이 없거나 틀린 줄, AI에 보내지 않은 줄(보관·AI 내보내기 끔·너무 긴 줄)도 뺀다.
 //   답은 '뺄 줄'(drop) 목록이다 — 그 주 줄 가운데 work로 판정되지 않은 줄 모두. 화면은 이 목록의 줄을 빼고, 판정 뒤 바뀐 줄은 다시 묻는다.
-// - 비밀 메모 규칙(note-secret.ts)은 그대로: AI 제외 표시·비밀 모양 노트와 비밀 모양 줄은 AI에 보내지 않는다(오늘 한 일 자체를 비밀로 만들지는 않음).
+// - NOTE-AI제외정리(11/10 결정 A): 비밀 모양 줄도 보내되 그 부분만 가린다(note-secret.ts maskSecret, AI 재료를 만들 때). 뺄 줄 맞추기는 원래 글로 한다.
 // - 같은 규칙 한 줄(WORK_PERSONAL_RULE)을 업무일지 줄을 재료로 읽는 다른 쓰임(원장 자동 기록 ledger_auto·주요 일정 다듬기 schedule_titles)에도 붙인다.
 // 순수 함수만 둔다(입출력은 handler.ts). 기록(로그·사용량)에는 숫자만.
-import { looksSecret, noteAiOff } from "./note-secret.ts";
+import { maskSecret } from "./note-secret.ts";
 
 export const WORK_SCOPE_MAX_LINES = 200; // 한 주(7일) 최대 줄. 넘치면 앞에서부터(날짜순) 200줄만 판단하고 나머지는 뺀다.
 export const WORK_SCOPE_LINE_CHARS = 300; // 업무일지 한 줄 상한과 같음.
@@ -35,7 +35,7 @@ export function parseWorkScopeRequest(b: Record<string, unknown>): { week_start:
 }
 
 export type WorkScopeLine = { ref: string; day: string; text: string };
-// 읽은 노트 행 → AI에 보낼 줄. 그 주·그 작업공간의 kind=work 행만, 보관·AI 제외·비밀 모양 노트는 통째로, 비밀 모양 줄은 줄만 뺀다.
+// 읽은 노트 행 → AI에 보낼 줄. 그 주·그 작업공간의 kind=work 행만, 보관·AI 내보내기 끔 행은 통째로 뺀다. 줄 글은 원래 글(가림은 workScopeMaterial).
 // skipped = 보내지 않은 줄 수(기록용 숫자).
 export function workScopeLines(rows: unknown, monday: string, workspaceId: string): { lines: WorkScopeLine[]; all: { day: string; text: string }[]; skipped: number } {
   const days = new Set(weekDayKeys(monday)), lines: WorkScopeLine[] = [], every: { day: string; text: string }[] = [];
@@ -47,9 +47,9 @@ export function workScopeLines(rows: unknown, monday: string, workspaceId: strin
     if (String(r.workspace_id).toLowerCase() !== workspaceId || r.kind !== "work" || typeof r.raw_text !== "string") continue;
     const all = r.raw_text.split("\n").map((s) => s.trim()).filter(Boolean);
     for (const text of all) every.push({ day: r.journal_day as string, text });
-    if (r.archived_at != null || r.ai_export_allowed !== true || noteAiOff(r)) { skipped += all.length; continue; }
+    if (r.archived_at != null || r.ai_export_allowed !== true) { skipped += all.length; continue; }
     for (const text of all) {
-      if (looksSecret(text) || [...text].length > WORK_SCOPE_LINE_CHARS || lines.length >= WORK_SCOPE_MAX_LINES) { skipped++; continue; }
+      if ([...text].length > WORK_SCOPE_LINE_CHARS || lines.length >= WORK_SCOPE_MAX_LINES) { skipped++; continue; }
       lines.push({ ref: `w${lines.length + 1}`, day: r.journal_day as string, text });
     }
   }
@@ -73,7 +73,7 @@ export function userLineDrops(rows: unknown, monday: string): { thisWeek: { day:
       const text = it.text.replace(CONTROL, " ").trim();
       if (!text || [...text].length > WORK_SCOPE_LINE_CHARS) continue;
       if (r.week_start === monday) thisWeek.push({ day: m[1], text });
-      else if (!looksSecret(text) && examples.length < WORK_SCOPE_EXAMPLES && !seen.has(text)) { seen.add(text); examples.push(text); }
+      else if (examples.length < WORK_SCOPE_EXAMPLES && !seen.has(text)) { seen.add(text); examples.push(text); }
     }
   }
   return { thisWeek, examples };
@@ -88,7 +88,7 @@ export function withUserDrops(drop: { day: string; text: string }[], all: { day:
 }
 
 export const workScopeMaterial = (lines: WorkScopeLine[], personalExamples: string[] = []) =>
-  JSON.stringify({ lines: lines.map((l) => ({ ref: l.ref, date: l.day, text: l.text.replace(CONTROL, " ") })), ...(personalExamples.length ? { personal_examples: personalExamples } : {}) });
+  JSON.stringify({ lines: lines.map((l) => ({ ref: l.ref, date: l.day, text: maskSecret(l.text).replace(CONTROL, " ") })), ...(personalExamples.length ? { personal_examples: personalExamples.map(maskSecret) } : {}) });
 
 export const WORK_SCOPE_INSTRUCTIONS = [
   "너는 노동조합 상근자의 '오늘 한 일' 줄을 업무 줄과 개인 줄로 가르는 도우미다. 사용자는 업무·개인을 나누지 않고 그날 한 일을 적는다.",
