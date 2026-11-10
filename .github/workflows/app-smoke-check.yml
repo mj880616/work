@@ -164,6 +164,7 @@ on:
       - 'scripts/package.json'
       - 'scripts/ops/inbox-open.mjs'
       - 'tests/ops-inbox-open.test.mjs'
+      - 'tests/ops-inbox-gap.test.mjs'
       - 'scripts/ops/work-timing.mjs'
       - 'tests/ops-work-timing.test.mjs'
       - 'scripts/ci/e2e-shard.mjs'
@@ -366,6 +367,7 @@ on:
       - 'scripts/package.json'
       - 'scripts/ops/inbox-open.mjs'
       - 'tests/ops-inbox-open.test.mjs'
+      - 'tests/ops-inbox-gap.test.mjs'
       - 'scripts/ops/work-timing.mjs'
       - 'tests/ops-work-timing.test.mjs'
       - 'scripts/ci/e2e-shard.mjs'
@@ -547,6 +549,8 @@ jobs:
         run: node --test tests/ledger-decision-history.test.mjs
       - name: Check request inbox open-list calculator (OPS-요청함대기계산)
         run: node --test tests/ops-inbox-open.test.mjs
+      - name: Check missed leftover work counter (OPS-결정안빠짐방지)
+        run: node --test tests/ops-inbox-gap.test.mjs
       - name: Check work timing and stalled-session calculator (OPS-작업속도)
         run: node --test tests/ops-work-timing.test.mjs
       - name: Check browser E2E shard plan covers every test once (OPS-작업속도)
