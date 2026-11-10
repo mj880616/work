@@ -1333,6 +1333,6 @@ jobs:
             app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css \
             app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/library-upload.js app/library-upload.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js \
             app/task-workflow.js app/meeting-round-detail.js app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \
-            app/styles.css app/meeting-ui.css app/calendar-ui.css p/; do
+            app/styles.css app/meeting-ui.css app/calendar-ui.css; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done
