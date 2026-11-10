@@ -80,6 +80,8 @@ const db=userDb(req),taskId=String((body as any).task_id||url.searchParams.get('
 // Files (TASK-파일붙이기): detach changes the link table without Google (the notes line follows when Google answers); attach reads the task first.
 if(action==='attach'){if(req.method!=='POST'||!multipart)return json({error:'파일 업로드 형식이 올바르지 않습니다.',code:'invalid_request'},400);const r=await taskFiles.attach(req,user.id,db,()=>ensureAccess(user.id));return json(withTask(r.body),r.status)}
 if(action==='detach'){const r=await taskFiles.detach(body,db,()=>ensureAccess(user.id));return json(withTask(r.body),r.status)}
+// FILE-첨부삭제 ②: [삭제] 뒤 [되돌리기] — Drive에 이미 있는 내 파일을 그 할 일에 다시 붙인다(task-files.ts reattach).
+if(action==='reattach'){if(req.method!=='POST')return json({error:'요청 형식이 올바르지 않습니다.',code:'invalid_request'},400);const r=await taskFiles.reattach(body,user.id,db,()=>ensureAccess(user.id));return json(withTask(r.body),r.status)}
 if(action==='links'){if(!taskId)throw new Error('Google 할 일 ID가 없습니다.');return json(await taskLinks(db,taskId))}
 if(action==='unlink'){if(!taskId)throw new Error('Google 할 일 ID가 없습니다.');const targets=parseTargets((body as any).links);if(!targets.length)throw new Error('연결을 뺄 프로젝트·조직·회의를 골라 주세요.');for(const t of targets){const {error}=await db.from('app_record_links').delete().eq('google_task_id',taskId).eq(t.project_id?'project_id':t.organization_id?'organization_id':'meeting_id',t.project_id||t.organization_id||t.meeting_id);if(error)throw new Error('할 일 연결을 지우지 못했습니다.')}return json({ok:true,...await taskLinks(db,taskId)})}
 const c=await ensureAccess(user.id);

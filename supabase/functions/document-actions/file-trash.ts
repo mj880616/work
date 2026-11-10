@@ -13,7 +13,17 @@
 //   ① 그 노트를 읽는다(RLS). 이미 붙어 있으면 그대로 성공.
 //   ② Drive 원본이 내 파일(ownedByMe, 폴더 아님)인지 읽고, 휴지통에 있으면 꺼낸다.
 //   ③ Drive가 알려 준 이름·종류·크기로 노트에 다시 붙인다(updated_at 맞을 때만, 한 번 다시 읽어 재시도).
-export type TrashTarget = 'note';
+//
+// FILE-첨부삭제 ②(S56-45): 할 일 첨부(target:'task', id = Google 할 일 id). 할 일에서 떼기·다시 붙이기는 Google 할 일 메모 줄도
+// 함께 고쳐야 하므로 google-tasks 함수(detach / reattach)가 하고, 여기서는 Drive 휴지통 부분만 한다. 둘 다 그 첨부가 지금
+// 내 작업공간의 할 일에 붙어 있는지(app_task_attachments, 내 로그인 토큰 RLS)를 먼저 확인한다 — 화면이 보낸 id만 믿지 않는다.
+// trash-file {target:'task', id, drive_file_id} — 화면 순서: 이것 먼저(아직 붙어 있을 때 확인) → google-tasks detach.
+//   ① 내 로그인 토큰으로 그 할 일의 그 첨부 줄을 읽는다(없으면 ATTACHMENT_NOT_FOUND). 떼지 않는다(떼기는 google-tasks).
+//   ② 같은 작업공간의 다른 줄(다른 할 일 첨부·노트 첨부·자료)이 같은 파일을 쓰면 drive='kept', 아니면 노트와 같은 휴지통 길.
+//   detach가 실패하면 화면이 restore-file로 꺼낸다(아직 붙어 있으므로 확인 통과).
+// restore-file {target:'task', id, drive_file_id} — 화면 순서: google-tasks reattach 먼저(다시 붙음) → 이것.
+//   ① 그 첨부 줄이 다시 붙어 있는지 확인(없으면 ATTACHMENT_NOT_FOUND). ② Drive 원본이 내 파일인지 읽고 휴지통에 있으면 꺼낸다.
+export type TrashTarget = 'note' | 'task';
 export type TrashInput = { target: TrashTarget; id: string; driveFileId: string };
 export type TrashDeps = {
   userDb: (path: string, opts?: { method?: string; body?: unknown; prefer?: string }) => Promise<any>;
@@ -27,6 +37,7 @@ export type TrashDeps = {
 export type DriveTrash = 'trashed' | 'kept' | 'not_ours' | 'missing' | 'failed' | 'unknown';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TASK_ID = /^[A-Za-z0-9_-]{1,200}$/;
 const DRIVE_ID = /^[A-Za-z0-9_-]{1,255}$/;
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
@@ -39,8 +50,10 @@ export function parseTrashRequest(body: any, action: 'trash-file' | 'restore-fil
   const keys = Object.keys(body || {}).sort().join(',');
   if (keys !== 'action,drive_file_id,id,target' || body.action !== action) throw fail('요청을 확인할 수 없습니다.', 'INVALID_REQUEST');
   const target = String(body.target), id = String(body.id), driveFileId = String(body.drive_file_id);
-  if (target !== 'note' || !UUID.test(id) || !DRIVE_ID.test(driveFileId)) throw fail('요청을 확인할 수 없습니다.', 'INVALID_REQUEST');
-  return { target: 'note', id: id.toLowerCase(), driveFileId };
+  if (!DRIVE_ID.test(driveFileId)) throw fail('요청을 확인할 수 없습니다.', 'INVALID_REQUEST');
+  if (target === 'note' && UUID.test(id)) return { target: 'note', id: id.toLowerCase(), driveFileId };
+  if (target === 'task' && TASK_ID.test(id)) return { target: 'task', id, driveFileId };
+  throw fail('요청을 확인할 수 없습니다.', 'INVALID_REQUEST');
 }
 
 async function readNote(input: TrashInput, deps: TrashDeps) {
@@ -61,11 +74,13 @@ async function patchNote(row: { id: string; workspace_id: string; updated_at: st
 }
 
 // 같은 작업공간에서 이 파일을 아직 쓰는 줄이 있나(휴지통 노트 포함 다른 노트 첨부·할 일 첨부·자료). 읽기 실패는 '쓰는 줄 있음'으로 본다(지우지 않는 쪽).
-async function stillUsed(workspaceId: string, fileId: string, deps: TrashDeps): Promise<boolean> {
+// exceptTask: 할 일 첨부를 지울 때는 그 할 일의 줄이 아직 붙어 있으므로(떼기는 google-tasks가 뒤에) 그 줄은 세지 않는다.
+async function stillUsed(workspaceId: string, fileId: string, deps: TrashDeps, exceptTask = ''): Promise<boolean> {
   try {
     const contains = enc(JSON.stringify([{ drive_file_id: fileId }]));
     const notes = await deps.refDb(`app_notes?workspace_id=eq.${enc(workspaceId)}&attachments=cs.${contains}&select=id&limit=1`);
-    const tasks = await deps.refDb(`app_task_attachments?workspace_id=eq.${enc(workspaceId)}&drive_file_id=eq.${enc(fileId)}&select=drive_file_id&limit=1`);
+    const others = exceptTask ? `&google_task_id=neq.${enc(exceptTask)}` : '';
+    const tasks = await deps.refDb(`app_task_attachments?workspace_id=eq.${enc(workspaceId)}&drive_file_id=eq.${enc(fileId)}${others}&select=drive_file_id&limit=1`);
     const docs = await deps.refDb(`app_documents?workspace_id=eq.${enc(workspaceId)}&file_id=eq.${enc(fileId)}&select=id&limit=1`);
     if (![notes, tasks, docs].every(Array.isArray)) return true;
     return notes.length + tasks.length + docs.length > 0;
@@ -120,8 +135,42 @@ async function trashDrive(fileId: string, deps: TrashDeps): Promise<DriveTrash> 
   return done === 'done' ? 'trashed' : done;
 }
 
+// 할 일 첨부 줄 하나(내 로그인 토큰 RLS = 내 작업공간 줄만 보임). 정확히 한 줄이 아니면 ATTACHMENT_NOT_FOUND.
+async function readTaskFile(input: TrashInput, deps: TrashDeps) {
+  const rows = await deps.userDb(`app_task_attachments?google_task_id=eq.${enc(input.id)}&drive_file_id=eq.${enc(input.driveFileId)}&select=workspace_id,google_task_id,drive_file_id&limit=2`);
+  const row = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+  if (!row || row.google_task_id !== input.id || row.drive_file_id !== input.driveFileId || typeof row.workspace_id !== 'string' || !UUID.test(row.workspace_id)) {
+    throw fail('이 할 일의 첨부가 아닙니다.', 'ATTACHMENT_NOT_FOUND');
+  }
+  return row as { workspace_id: string; google_task_id: string; drive_file_id: string };
+}
+
+async function trashTaskFile(input: TrashInput, deps: TrashDeps) {
+  const row = await readTaskFile(input, deps);
+  const drive: DriveTrash = await stillUsed(row.workspace_id, input.driveFileId, deps, input.id) ? 'kept' : await trashDrive(input.driveFileId, deps);
+  return { ok: true, detached: false, drive, target: input.target, id: input.id, drive_file_id: input.driveFileId };
+}
+
+async function restoreTaskFile(input: TrashInput, deps: TrashDeps) {
+  await readTaskFile(input, deps);
+  let token: string;
+  try { token = await deps.driveToken(); } catch (e) {
+    throw fail('Google Drive를 확인하지 못했어요. 잠시 뒤 다시 해 주세요.', (e as { code?: string })?.code === 'FORBIDDEN' ? 'FORBIDDEN' : 'DRIVE_UNAVAILABLE');
+  }
+  const meta = await readDrive(input.driveFileId, token, deps);
+  if (meta === 'missing') throw fail('Drive 원본을 찾을 수 없어 되돌리지 못했어요.', 'DRIVE_FILE_MISSING');
+  if (meta === 'not_ours') throw fail('Drive 원본을 되돌릴 권한이 없어요.', 'DRIVE_FORBIDDEN');
+  if (meta === 'failed') throw fail('Google Drive를 확인하지 못했어요. 잠시 뒤 다시 해 주세요.', 'DRIVE_UNAVAILABLE');
+  if (!meta.trashed) return { ok: true, already: true, target: input.target, id: input.id, drive_file_id: input.driveFileId };
+  const done = await setTrashed(input.driveFileId, false, token, deps);
+  if (done === 'not_ours') throw fail('Drive 원본을 되돌릴 권한이 없어요.', 'DRIVE_FORBIDDEN');
+  if (done !== 'done') throw fail('Drive 휴지통에서 꺼내지 못했어요. 잠시 뒤 다시 해 주세요.', done === 'unknown' ? 'RESULT_UNKNOWN' : 'DRIVE_UNAVAILABLE');
+  return { ok: true, restored: true, target: input.target, id: input.id, drive_file_id: input.driveFileId };
+}
+
 export async function trashFile(body: any, deps: TrashDeps) {
   const input = parseTrashRequest(body, 'trash-file');
+  if (input.target === 'task') return trashTaskFile(input, deps);
   const row = await readNote(input, deps);
   const files = attOf(row);
   const file = files.find((a) => a && typeof a === 'object' && a.drive_file_id === input.driveFileId);
@@ -134,6 +183,7 @@ export async function trashFile(body: any, deps: TrashDeps) {
 
 export async function restoreFile(body: any, deps: TrashDeps) {
   const input = parseTrashRequest(body, 'restore-file');
+  if (input.target === 'task') return restoreTaskFile(input, deps);
   let row = await readNote(input, deps);
   if (attOf(row).some((a) => a?.drive_file_id === input.driveFileId)) {
     return { ok: true, already: true, target: input.target, id: input.id, drive_file_id: input.driveFileId, note: { id: row.id, updated_at: row.updated_at } };

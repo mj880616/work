@@ -13,12 +13,12 @@ const ok=(route,data,status=200)=>route.fulfill({status,contentType:'application
 const row=(page,id)=>page.locator(`#gtTaskBody [data-google-task="${id}"]`);
 const line=(id,name)=>`첨부: ${name} https://drive.google.com/file/d/${id}/view`;
 
-async function openTasks(browser,{viewport={width:900,height:800},supported=true,files=[],notes='원래 메모'}={}){
+async function openTasks(browser,{viewport={width:900,height:800},supported=true,files=[],notes='원래 메모',drive='trashed'}={}){
   const context=await browser.newContext({timezoneId:'Asia/Seoul',viewport,hasTouch:viewport.width<600,isMobile:viewport.width<600});
   const page=await context.newPage();
   await page.clock.setFixedTime(new Date(NOW));
   const google={a:task('a',{notes}),b:task('b')};
-  const state={files:files.map(f=>({...f})),calls:{files:[],attach:[],detach:[],updates:[]},next:1};
+  const state={files:files.map(f=>({...f})),calls:{files:[],attach:[],detach:[],updates:[],reattach:[],trash:[]},next:1,trashed:new Map(),drive};
   const notesOf=(id,drop=[])=>{const own=state.files.filter(f=>f.google_task_id===id);const kept=String(google[id].notes||'').split('\n').filter(l=>![...own.map(f=>f.drive_file_id),...drop].some(fid=>l.includes('/file/d/'+fid+'/view'))).join('\n');return [kept,...own.map(f=>line(f.drive_file_id,f.file_name))].filter(Boolean).join('\n')};
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),u=new URL(req.url()),p=u.pathname,action=u.searchParams.get('action');
@@ -49,6 +49,17 @@ async function openTasks(browser,{viewport={width:900,height:800},supported=true
       const b=JSON.parse(req.postData()||'{}');state.calls.detach.push(b);
       state.files=state.files.filter(f=>!(f.google_task_id===b.task_id&&f.drive_file_id===b.drive_file_id));google[b.task_id].notes=notesOf(b.task_id,[b.drive_file_id]);
       return ok(route,{ok:true,files:state.files.filter(x=>x.google_task_id===b.task_id),task:{...google[b.task_id]},notes_synced:true});
+    }
+    // FILE-첨부삭제 ②: [되돌리기]는 Drive에 있는 그 파일을 다시 붙인다(올리기 없음).
+    if(p==='/functions/v1/google-tasks'&&action==='reattach'){
+      const b=JSON.parse(req.postData()||'{}');state.calls.reattach.push(b);
+      const f=state.trashed.get(b.drive_file_id);state.files.push(f);google[b.task_id].notes=notesOf(b.task_id);
+      return ok(route,{ok:true,file:f,files:state.files.filter(x=>x.google_task_id===b.task_id),task:{...google[b.task_id]},notes_synced:true});
+    }
+    if(p==='/functions/v1/document-actions'){
+      const b=JSON.parse(req.postData()||'{}');state.calls.trash.push(b);
+      if(b.action==='trash-file'){const f=state.files.find(x=>x.google_task_id===b.id&&x.drive_file_id===b.drive_file_id);state.trashed.set(b.drive_file_id,{...f});return ok(route,{ok:true,detached:false,drive:state.drive,target:'task',id:b.id,drive_file_id:b.drive_file_id})}
+      return ok(route,{ok:true,restored:true,target:'task',id:b.id,drive_file_id:b.drive_file_id});
     }
     if(p==='/functions/v1/google-tasks'&&action==='update'){
       const b=JSON.parse(req.postData()||'{}');state.calls.updates.push(b);
@@ -298,5 +309,56 @@ test('a file known only from a notes line is taken off by the notes save; other 
   await expect.poll(()=>state.calls.updates.length).toBe(1);
   expect(state.calls.detach).toEqual([]);
   expect(state.calls.updates[0].notes).toBe(['내 메모',line('n1','회의록 최종.pdf')].join('\n'));
+  await context.close();
+});
+
+// FILE-첨부삭제 ②(S56-45): ⋯ → 파일 붙이기 창의 [삭제] — 한 번 묻고 → document-actions trash-file(붙어 있는지 확인·휴지통)
+// → google-tasks detach(떼기·메모 줄) → '삭제했어요 · [되돌리기]' → reattach(다시 붙이기) → restore-file(휴지통에서 꺼내기).
+for(const viewport of [{width:412,height:915},{width:1280,height:800}]){
+  test(`${viewport.width}px: 파일 붙이기 창 [삭제] → 확인 → 떼고 휴지통, [되돌리기]로 다시 붙음; [빼기]는 그대로`,async({browser})=>{
+    const files=[{google_task_id:'a',drive_file_id:'old1',file_name:'기존 자료.pdf',size_bytes:9},{google_task_id:'a',drive_file_id:'old2',file_name:'회의록.hwp',size_bytes:9}];
+    const {context,page,state,google}=await openTasks(browser,{viewport,files});
+    await openMenu(page,'a');
+    await page.locator('#gtTaskMenu [data-gt-menu-action="files"]').click();
+    const dialog=page.locator('#gtFilesModal');
+    await expect(dialog.locator('.gt-files-list .gt-file')).toHaveText(['기존 자료.pdf','회의록.hwp']);
+    await expect(dialog.locator('[data-gt-file-delete="old1"]')).toHaveText('삭제');
+    expect(await noSideScroll(page)).toBe(true);
+    if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/task-file-dialog-${viewport.width}.png`});
+    // 아니오: 아무 요청도 없음.
+    await dialog.locator('[data-gt-file-delete="old1"]').click();
+    await answerAsk(page,false);
+    expect(state.calls.trash).toEqual([]);expect(state.calls.detach).toEqual([]);
+    await dialog.locator('[data-gt-file-delete="old1"]').click();
+    expect(await answerAsk(page,true)).toBe("'기존 자료.pdf' 파일을 삭제할까요?");
+    await expect(dialog.locator('.gt-files-list .gt-file')).toHaveText(['회의록.hwp']);
+    expect(state.calls.trash).toEqual([{action:'trash-file',target:'task',id:'a',drive_file_id:'old1'}]);
+    expect(state.calls.detach).toEqual([{action:'detach',task_id:'a',drive_file_id:'old1'}]);
+    const notice=page.locator('[data-undo-notice]');
+    await expect(notice.locator('[data-undo-text]')).toHaveText('삭제했어요');
+    if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/task-file-deleted-${viewport.width}.png`});
+    expect(google.a.notes).toBe(['원래 메모',line('old2','회의록.hwp')].join('\n'));
+    await notice.locator('[data-undo-action]').click();
+    await expect(notice.locator('[data-undo-text]')).toHaveText('되돌렸어요');
+    expect(state.calls.reattach).toEqual([{action:'reattach',task_id:'a',drive_file_id:'old1'}]);
+    expect(state.calls.trash[1]).toEqual({action:'restore-file',target:'task',id:'a',drive_file_id:'old1'});
+    await expect(dialog.locator('.gt-files-list .gt-file')).toHaveText(['회의록.hwp','기존 자료.pdf']);
+    await dialog.locator('[data-gt-files-close]').click();
+    await expect(row(page,'a').locator('.gt-files a.gt-file')).toHaveText(['회의록.hwp','기존 자료.pdf']);
+    await context.close();
+  });
+}
+
+test('다른 기록도 쓰는 파일은 [삭제]해도 Drive에 남기고 창에 한 줄, 되돌리기 없음',async({browser})=>{
+  const {context,page,state}=await openTasks(browser,{viewport:{width:412,height:915},drive:'kept',files:[{google_task_id:'a',drive_file_id:'old1',file_name:'기존 자료.pdf',size_bytes:9}]});
+  await openMenu(page,'a');
+  await page.locator('#gtTaskMenu [data-gt-menu-action="files"]').click();
+  const dialog=page.locator('#gtFilesModal');
+  await dialog.locator('[data-gt-file-delete="old1"]').click();
+  await answerAsk(page,true);
+  await expect(dialog.locator('[data-gt-files-status]')).toHaveText('빼기만 했어요. 다른 곳에서도 쓰는 파일이라 Drive에 남겨 뒀어요.');
+  await expect(dialog.locator('.gt-files-list .gt-file')).toHaveCount(0);
+  await expect(page.locator('[data-undo-notice]')).toHaveCount(0);
+  expect(state.calls.detach).toEqual([{action:'detach',task_id:'a',drive_file_id:'old1'}]);
   await context.close();
 });

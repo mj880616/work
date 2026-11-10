@@ -9,7 +9,8 @@ import { fileAttrs, driveFileUrl } from './file-actions.js';
 import { uploadTimeoutMs } from './upload-budget.mjs';
 import { sendUploadApi } from './upload-send.mjs';
 import { trackUpload, mountUploadRows } from './upload-progress.js';
-import { renameHostAttrs, renameButtonHtml, applyRenamed } from './file-rename.js'; // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(할 일 첨부 표에 있는 파일만)
+import { renameHostAttrs, renameButtonHtml, applyRenamed } from './file-rename.js';
+import { deleteAttachment } from './file-trash.js'; // FILE-첨부삭제 ②: [삭제] = 할 일에서 떼고 Drive 원본 휴지통(30일 안 되살림) + [되돌리기] // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(할 일 첨부 표에 있는 파일만)
 export { splitTaskNotes, joinTaskNotes, taskAttachments } from './task-note-files.mjs'; // TASK-첨부열기: 메모 속 '첨부:' 줄 읽기·쓰기는 이 한 곳 // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
 export const MAX_TASK_FILES = 10;
@@ -82,7 +83,9 @@ export function fileLinksHtml(files, {taskId = '', tableIds = null} = {}) {
   return `<div class="gt-files">${files.map(f => `<a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer"${renameHostAttrs(spec(f))} ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})} aria-label="첨부 파일 열기: ${esc(f.file_name)}">${esc(f.file_name)}</a>`).join('')}</div>`;
 }
 
-// The dialog behind ⋯ → 파일 붙이기: current files with [빼기], a picker, and a status line. The owner of the task list
+// The dialog behind ⋯ → 파일 붙이기: current files with [빼기] [삭제], a picker, and a status line.
+// [빼기] takes the link off only (the Drive file stays). [삭제] asks once, then also sends the Drive original to the Drive trash
+// (file-trash.js; a file another record still uses stays in Drive) and offers [되돌리기] (puts it back on the task and out of the trash). The owner of the task list
 // (google-tasks.js) passes the task, its files and onChange(files, task) to store answers; this dialog only shows them.
 let dialog = null;
 export function openTaskFilesDialog({task, files = [], rt = window.KPTURuntime, onChange = () => {}, isCurrent = () => true}) {
@@ -127,9 +130,10 @@ function paint() {
   m.querySelector('[data-gt-files-task]').textContent = s.task.title || '제목 없음';
   const list = m.querySelector('[data-gt-files-list]');
   list.innerHTML = s.files.length
-    ? s.files.map(f => { const rn = {target: 'task', id: s.task.id, driveId: f.drive_file_id, name: f.file_name}; return `<li data-fr-row><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer"${renameHostAttrs(rn)} ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})}>${esc(f.file_name)}</a>${s.busy ? '' : renameButtonHtml(rn)}<button type="button" class="mini" data-fa-menu="open"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} Drive에서 열기">Drive에서 열기</button><button type="button" class="mini" data-fa-menu="download"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} 내려받기">내려받기</button><button type="button" class="mini" data-gt-file-detach="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 빼기"${s.busy ? ' disabled' : ''}>빼기</button></li>`; }).join('')
+    ? s.files.map(f => { const rn = {target: 'task', id: s.task.id, driveId: f.drive_file_id, name: f.file_name}; return `<li data-fr-row><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer"${renameHostAttrs(rn)} ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})}>${esc(f.file_name)}</a>${s.busy ? '' : renameButtonHtml(rn)}<button type="button" class="mini" data-fa-menu="open"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} Drive에서 열기">Drive에서 열기</button><button type="button" class="mini" data-fa-menu="download"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} 내려받기">내려받기</button><button type="button" class="mini" data-gt-file-detach="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 빼기"${s.busy ? ' disabled' : ''}>빼기</button><button type="button" class="mini danger" data-gt-file-delete="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 삭제"${s.busy ? ' disabled' : ''}>삭제</button></li>`; }).join('')
     : `<li class="gt-files-empty">${emptyHtml()}</li>`;
   list.querySelectorAll('[data-gt-file-detach]').forEach(b => { b.onclick = () => void detach(b.dataset.gtFileDetach); });
+  list.querySelectorAll('[data-gt-file-delete]').forEach(b => { b.onclick = () => void remove(b.dataset.gtFileDelete, b); });
   const pick = m.querySelector('[data-gt-files-pick]');
   pick.disabled = s.busy || s.files.length >= MAX_TASK_FILES;
 }
@@ -184,6 +188,30 @@ async function detach(id) {
   } finally {
     if (dialog?.state === s) { s.busy = false; paint(); }
   }
+}
+// FILE-첨부삭제 ②: [삭제]. The answers (taken off / put back) go to the list owner through accept(), even if this dialog was closed
+// meanwhile (the [되돌리기] notice outlives it). A failure leaves the files as they were (the server put the Drive original back).
+async function remove(id, button) {
+  const s = dialog?.state;
+  const f = s?.files.find(x => x.drive_file_id === id);
+  if (!s || s.busy || !f) return;
+  s.busy = true; status('');
+  const changed = c => {
+    if (!c || !s.isCurrent()) return;
+    if (Array.isArray(c.task?.files)) accept(s, c.task);
+    else { s.files = s.files.filter(x => x.drive_file_id !== id); accept(s, c.task); }
+    if (dialog?.state === s) paint();
+  };
+  let result;
+  try {
+    result = await deleteAttachment({target: 'task', id: s.task.id, driveId: id, name: f.file_name}, {rt: s.rt, anchor: button, onChanged: changed, toast: text => { if (dialog?.state === s) status(text); }});
+  } finally {
+    if (dialog?.state === s) { s.busy = false; paint(); }
+  }
+  if (dialog?.state !== s || !s.isCurrent()) return;
+  if (result.status === 'failed') status(`${f.file_name}: ${result.message}`, true);
+  if (result.status === 'cancel') dialog.m.querySelector(`[data-gt-file-delete="${CSS.escape(id)}"]`)?.focus();
+  else dialog.m.querySelector('[data-gt-files-pick]')?.focus();
 }
 
 // TASK-추가창파일: files chosen in a task's add window (the task editor, the [할 일] quick input, the calendar's 할 일 등록) go
