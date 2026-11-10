@@ -121,7 +121,12 @@ test('PC 1440: 3000개 폴더 — 화면 밖 줄은 그리지 않고(content-vis
   await row(page, 'od:OD!2').click();
   await expect(row(page, 'od:OD!B0')).toBeVisible({ timeout: 30000 }); // 흉내 서버가 3000줄 개수를 세느라 느림(화면 시간 아님)
   await expect(root(page).locator('[data-fx-list]')).toHaveAttribute('data-fx-many', '');
-  expect(await row(page, 'od:OD!B0').evaluate(b => getComputedStyle(b).contentVisibility)).toBe('auto');
+  // 폴더를 열면 색인 목록을 먼저 그리고, 클라우드에서 그 폴더를 바로 읽은 뒤(directRead) 목록을 한 번 더 통째로 그린다.
+  // 줄을 잡은 뒤 따로 계산하면 그 사이 옛 줄이 빠져 빈 값('')이 나온다 — 찾기·계산을 한 번에(지금 붙어 있는 줄) 하고, 값이 될 때까지 상태로 기다린다.
+  await expect.poll(() => page.evaluate(() => {
+    const b = document.querySelector('#filesRoot [data-fx-list] [data-fx-row="od:OD!B0"]');
+    return b ? getComputedStyle(b).contentVisibility : null;
+  })).toBe('auto');
   const last = row(page, 'od:OD!B2999');
   await last.scrollIntoViewIfNeeded();
   await last.click();
