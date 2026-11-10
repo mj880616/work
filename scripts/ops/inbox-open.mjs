@@ -18,6 +18,8 @@ const SQUARE = /^\s*■\s*([^\s(（]+)/;
 const SQUARE_STATUS = /^\s*■[^\n]*?\s→\s*(?:완료|진행\s*중|대기|남음|접수|대조)\s*:/;
 const SQUARE_TIME = /접수\s+(?:(\d{4})-)?(\d{1,2})[/-](\d{1,2})\s+(\d{1,2}):(\d{2})/;
 const RECEIPT = /→\s*(접수|대조)\s*:/;
+// 상황 줄 '■ 과제 → 완료: #PR …'의 '→ 상태:' 부분.
+const STATUS_MARK = /→\s*(완료|진행\s*중|대기|남음|접수|대조)\s*:\s*/;
 const BLOCKED = '★CC 착수 금지';
 
 // '■ UI-보기줄자리 (앞 결정 …)' → 'UI-보기줄자리'
@@ -26,26 +28,45 @@ export function squareName(line) {
   return m ? m[1].replace(/[,:;·.]+$/, '') : '';
 }
 
-// 요청 덩어리로 나눈다: [MM/DD HH:MM] 또는 '■ 과제이름'으로 시작하는 줄부터 다음 그런 줄 전까지.
-export function splitBlocks(text) {
+function parse(text) {
   const lines = String(text).replace(/^﻿/, '').split(/\r?\n/);
   const blocks = [];
+  const statuses = [];
   let cur = null;
-  for (const line of lines) {
+  lines.forEach((line, at) => {
     if (HEAD.test(line)) {
-      cur = {title: line.trim(), lines: [line]};
+      cur = {title: line.trim(), lines: [line], at};
       blocks.push(cur);
     } else if (SQUARE_STATUS.test(line)) {
       cur = null;
+      statuses.push({name: squareName(line), at, line: line.trim()});
     } else if (SQUARE.test(line)) {
-      cur = {title: line.trim(), lines: [line], square: squareName(line)};
+      cur = {title: line.trim(), lines: [line], square: squareName(line), at};
       blocks.push(cur);
     } else if (cur) {
       cur.lines.push(line);
     }
-  }
-  return blocks;
+  });
+  return {blocks, statuses};
 }
+
+// 요청 덩어리로 나눈다: [MM/DD HH:MM] 또는 '■ 과제이름'으로 시작하는 줄부터 다음 그런 줄 전까지.
+export function splitBlocks(text) {
+  return parse(text).blocks;
+}
+
+// CC 작업 상황 줄('■ 과제 → 완료: #PR …')만 뽑는다. name = ■ 뒤 첫 낱말(★급★ 등 꼬리 무시), at = 줄 번호(0부터).
+export function statusLines(text) {
+  return parse(text).statuses;
+}
+
+// '■ 과제 → 완료: #2102 merge' → '→ 완료 #2102 merge' (접수 표시와 같은 규칙으로 분류하려고 상태 낱말 뒤 ':'를 뺀다).
+export function statusMark(line) {
+  const m = STATUS_MARK.exec(line || '');
+  return m ? `→ ${m[1]} ${line.slice(m.index + m[0].length)}`.trim() : '';
+}
+
+const prMax = s => Math.max(0, ...[...String(s).matchAll(/#(\d+)/g)].map(m => Number(m[1])));
 
 // 한 줄에 접수가 여러 번 이어 붙은 경우(제목 줄 끝 등)도 마지막 표시를 쓴다.
 function receipts(block) {
@@ -64,7 +85,11 @@ export function classify(block) {
   const rs = receipts(block);
   // ■ 덩어리는 요청함 방이 과제 이름을 붙여 쓴 것이라 표시가 없으면 '대기'로 센다.
   if (!rs.length) return {state: block.square ? 'waiting' : 'unreceived', last: ''};
-  const last = rs[rs.length - 1];
+  return classifyMark(rs[rs.length - 1]);
+}
+
+// 표시 한 줄(접수·대조 또는 상황 줄을 바꾼 것)의 상태.
+export function classifyMark(last) {
   if (/대조\s*:\s*남음/.test(last)) return {state: 'partial', last};
   if (/남음|일부 완료/.test(last)) return {state: 'partial', last};
   if (/실기기 확인 대기|폰 확인 대기|명진 실기기/.test(last) && /완료/.test(last)) return {state: 'device-check', last};
@@ -108,10 +133,27 @@ const LABEL = {
   'in-progress': '진행 중', 'device-check': '실기기 확인', done: '완료', blocked: '착수 금지',
 };
 
+// 같은 과제 이름의 상황 줄이 덩어리보다 뒤에 있으면 그 마지막 상황 줄을 상태로 쓴다(OPS-요청함■세기 이어서).
+// 단 덩어리 안 마지막 표시가 '→ 대조:'이면 대조가 더 최신인지 PR 번호로 본다: 대조에 PR 번호가 없거나
+// 대조의 가장 큰 PR 번호가 상황 줄의 가장 큰 PR 번호보다 크면 대조가 우선(대조는 완료를 다시 확인한 결과다).
+export function statusFor(block, statuses) {
+  const own = classify(block);
+  if (own.state === 'blocked' || !block.square) return own;
+  const after = statuses.filter(s => s.name === block.square && s.at > block.at);
+  if (!after.length) return own;
+  const s = after[after.length - 1];
+  if (/→\s*대조\s*:/.test(own.last)) {
+    const mine = prMax(own.last);
+    if (!mine || mine > prMax(s.line)) return own;
+  }
+  return classifyMark(statusMark(s.line));
+}
+
 export function openItems(text, {roadmap = '', now = new Date()} = {}) {
   const items = [];
-  for (const b of splitBlocks(text)) {
-    const {state, last} = classify(b);
+  const {blocks, statuses} = parse(text);
+  for (const b of blocks) {
+    const {state, last} = statusFor(b, statuses);
     if (!OPEN_STATES.includes(state)) continue;
     const name = b.square || taskName(last);
     const t = blockTime(b, now);

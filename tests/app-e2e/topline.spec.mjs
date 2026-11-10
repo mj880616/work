@@ -214,7 +214,7 @@ test('phone keeps its own shell; 761~1023px has the PC top line and a narrow men
  await page.setViewportSize({width:900,height:800});
  await expect(line(page)).toBeVisible();
  await expect(page.locator('#appView>.app-nav')).toBeVisible();
- expect((await page.locator('#appView>.app-nav').boundingBox()).width).toBeLessThanOrEqual(56);
+ expect((await page.locator('#appView>.app-nav').boundingBox()).width).toBeLessThanOrEqual(76); // UI-폴드메뉴이름: 그림 아래 작은 이름이 붙은 72px 칸
  await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);
 });
 

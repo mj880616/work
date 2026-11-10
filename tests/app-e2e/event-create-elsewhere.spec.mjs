@@ -4,6 +4,7 @@
 // 못 불러오면 창 안에 한 줄 + [다시], [저장]은 잠긴다(무반응 없음). 서버는 흉내, 글은 모두 지어낸 것.
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {pressRowAct} from './helpers/nbx-act.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const cid=n=>`c0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const fid=n=>`a0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -83,7 +84,7 @@ async function expectReadyAndSave(page,{writes},title){
 
 for(const width of [390,1280])test(`${width}px: 달력을 안 연 채 가족 줄 [일정으로] → 세부 캘린더·색·종일·저장`,async({page})=>{
   const s=await fixture(page,{width});
-  await line(page,`f:${famId}`).locator('[data-nbx-act="event"]').click();
+  await pressRowAct(page,line(page,`f:${famId}`),'event');
   await expectReadyAndSave(page,s,'지어낸 약속 한 줄');
   await expect.poll(()=>s.famPatches.length).toBe(1);
   expect(s.famPatches[0]).toMatchObject({status:'scheduled'});
@@ -91,7 +92,7 @@ for(const width of [390,1280])test(`${width}px: 달력을 안 연 채 가족 줄
 
 test('달력을 안 연 채 텔레그램 요청 줄 [일정으로] → 저장되고 줄은 처리됨',async({page})=>{
   const s=await fixture(page);
-  await line(page,`c:${cid(1)}`).locator('[data-nbx-act="event"]').click();
+  await pressRowAct(page,line(page,`c:${cid(1)}`),'event');
   await expectReadyAndSave(page,s,'가짜 요청 1');
   await expect.poll(()=>s.candPatches.length).toBe(1);
   expect(s.candPatches[0]).toMatchObject({id:cid(1),body:{status:'done'}});
@@ -99,13 +100,13 @@ test('달력을 안 연 채 텔레그램 요청 줄 [일정으로] → 저장되
 
 test('달력을 안 연 채 업데이트 줄 [일정으로] → 세부 캘린더·색이 채워지고 저장된다',async({page})=>{
   const s=await fixture(page,{width:884});
-  await line(page,`u:${uid(1)}`).locator('[data-nbx-act="event"]').click();
+  await pressRowAct(page,line(page,`u:${uid(1)}`),'event');
   await expectReadyAndSave(page,s,'지어낸 업데이트 하나');
 });
 
 test('달력 묶음을 못 불러오면 창 안에 한 줄 + [다시], [저장]·종일은 잠긴다',async({page})=>{
   const s=await fixture(page,{failCalendarModule:true});
-  await line(page,`f:${famId}`).locator('[data-nbx-act="event"]').click();
+  await pressRowAct(page,line(page,`f:${famId}`),'event');
   await expect(modal(page)).toBeVisible();
   const fail=page.locator('#eventStatus [data-wait-fail]');
   await expect(fail).toContainText('일정 창을 준비하지 못했어요');

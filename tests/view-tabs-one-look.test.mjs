@@ -14,7 +14,7 @@ const FILTERS = {};
 const MORE = [
   ['app/diary.js', /<div class="diary-source ds-seg" role="group" aria-label="일기 선택"><button type="button" class="ds-seg-btn" data-diary-lv-filter="all"[^>]*>전체<\/button><button type="button" class="ds-seg-btn" data-diary-lv-filter="star"/],
   ['app/project-system-v3.js', /class="ps3-archive-tabs ds-seg"[^>]*><button type="button" class="ds-seg-btn" data-ps3-archive-tab="archive">보관<\/button><button type="button" class="ds-seg-btn" data-ps3-archive-tab="trash">/],
-  ['app/team.js', /renderFilterChips\(host,\{label:'보기',[^\n]*?seg:true/],
+  // UI-보기탭드롭다운(11/10): 사진 [사진 ▾]·사업 보고 [목록 ▾]는 보기 탭이 아니라 위 줄 고르기 상자(select)라 ⑤ 탭이 아니다 — 탭으로 다시 그리지 않는다.
   // LIB-위쪽한줄(11/09): 자료실 묶기는 보기 탭이 아니라 위 줄 고르기 상자 [폴더 ▾](select)라 ⑤ 탭이 아니다 — 탭으로 다시 그리지 않는다.
   ['app/home-quick.js', /class="home-quick-modes ds-seg"/],
 ];
@@ -47,25 +47,32 @@ test('재발 방지: 화면의 보기 탭은 공용 ⑤ 부품만(일정·노트
   assert.deepEqual(odd, [], '보기 탭은 class="… ds-seg" 묶음 + class="ds-seg-btn" 칸으로 만드세요(docs/design-decisions.md UI-버튼기준 · UI-보기탭한모양).');
   for (const k of Object.keys(FILTERS)) assert.ok(tabs.some(t => keyOf(t) === k), `${k}가 없어졌으면 FILTERS에서 지우세요`);
   for (const k of ['app/index.html schedule-switch', 'app/index.html calendar-view-switch', 'app/basket-notes.js nv-switch', 'app/journal.js journal-mode-switch',
-    'app/photos.js photos-chips', 'app/diary.js diary-source', 'app/org-overview.js so-team-tabs', 'app/outside-statements.js os-tabs', 'app/telegram-feed.js feed-vsw'])
+    'app/diary.js diary-source', 'app/org-overview.js so-team-tabs', 'app/outside-statements.js os-tabs', 'app/telegram-feed.js feed-vsw'])
     assert.ok(tabs.some(t => keyOf(t) === k && isOneLook(t)), `${k}는 공용 ⑤`);
   for (const [f, re] of MORE) assert.match(readFileSync(f, 'utf8'), re, f);
   assert.doesNotMatch(readFileSync('app/library-upload.js', 'utf8'), /renderFilterChips\(host,\{label:'묶기'/);
   assert.match(readFileSync('app/index.html', 'utf8'), /<select id="libraryGroupBy" class="lu-top-select" aria-label="묶기"/);
-  // 그때그때 그리는 보기 줄(사업 보고)은 공용 renderFilterChips의 seg:true가 ⑤ 클래스를 붙인다.
+  // UI-보기탭드롭다운(11/10): 사진·사업 보고 보기는 고르기 상자 하나. 탭 칸 줄은 지웠다(숨김 아님).
+  const photos = readFileSync('app/photos.js', 'utf8'), team = readFileSync('app/team.js', 'utf8'), html = readFileSync('app/index.html', 'utf8');
+  assert.match(photos, /<select class="photos-view-select" data-photos-view aria-label="사진 보기"/);
+  assert.doesNotMatch(photos, /photos-chips|class="ds-seg-btn" data-photos-tab/);
+  assert.match(html, /<span id="reportPeriodPick" class="report-period-host"><\/span><select id="reportViewSelect" class="report-top-select" aria-label="보기"/);
+  assert.doesNotMatch(html, /reportViewFilter/);
+  assert.doesNotMatch(team, /renderFilterChips\(host,\{label:'보기'/);
+  // 그때그때 그리는 보기 줄(seg:true)은 공용 renderFilterChips가 ⑤ 클래스를 붙인다.
   const chips = readFileSync('app/filter-chips.js', 'utf8');
   assert.match(chips, /if\(seg\)host\.classList\.add\('ds-seg'\)/);
   assert.match(chips, /button\.className=seg\?'ds-seg-btn':'quick-pill-button'/);
 });
 
 test('재발 방지: 화면 CSS는 보기 탭 모양(테두리·바탕·글자·높이)을 따로 정하지 않는다 — 자리만', () => {
-  const names = ['ds-seg', 'ds-seg-btn', 'ds-seg-group', 'ps3-archive-tabs', 'libraryGroupBy', 'reportViewFilter', ...new Set(scanViewTabs().filter(isOneLook).flatMap(t => [t.key, ...t.classes]))];
+  const names = ['ds-seg', 'ds-seg-btn', 'ds-seg-group', 'ps3-archive-tabs', 'libraryGroupBy', ...new Set(scanViewTabs().filter(isOneLook).flatMap(t => [t.key, ...t.classes]))];
   const hit = new RegExp(`[.#](${names.map(n => n.replace(/[-]/g, '\\-')).join('|')})(?![\\w-])`);
   const LOOK = /^(border(-[a-z-]+)?|outline|background(-color|-image)?|box-shadow|color|font-weight|font-size|height|min-height|line-height|padding(-[a-z-]+)?)$/;
   // 바탕 위아래 투명 여백(누르는 범위)만큼 바깥 여백을 빼 두었으므로, 위·아래 바깥 여백을 바꾸려면 --ds-seg-hit를 빼고 쓴다(줄 높이가 늘지 않게).
   const MARGIN = /^(margin|margin-top|margin-bottom|margin-block)$/;
-  // 폰 아래 전환 줄(일정·노트)은 자리 규칙이 알약 밖 줄 바탕(아래 탭과 같은 색)만 칠한다.
-  const DOCK = '#appView :is(.schedule-switch,.nv-switch):not([hidden])';
+  // 폰 아래 전환 줄(일정·노트·조직 보고 UI-보기줄자리)은 자리 규칙이 알약 밖 줄 바탕(아래 탭과 같은 색)만 칠한다.
+  const DOCK = '#appView :is(.schedule-switch,.nv-switch,.so-team-tabs):not([hidden])';
   // :not(…) 안에 이름이 있으면(공용 칸을 빼는 넓은 규칙) 그 규칙은 보기 탭을 잡지 않는다.
   const dropNot = sel => { let out = '', i = 0; while (i < sel.length) { if (sel.startsWith(':not(', i)) { let d = 0; for (; i < sel.length; i++) { if (sel[i] === '(') d++; else if (sel[i] === ')' && --d === 0) { i++; break; } } } else out += sel[i++]; } return out; };
   // 위·아래가 0인 margin(떠 있는 자리 규칙의 margin:0 / margin:0 auto / margin:0 X 0 Y)은 여백 계산과 상관없다.

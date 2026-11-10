@@ -69,7 +69,7 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
   await enterLogin(page);
   await signInWithSession(page, 'owner@example.org');
   await page.waitForFunction(() => window.KPTUViewLoader?.isLoaded('meetings'));
-  await expect(page.locator('#reportViewFilter [data-filter-value]')).toHaveCount(3);
+  await expect(page.locator('#reportViewSelect option')).toHaveCount(3);
   return prefs;
 }
 const tops = els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); });
@@ -106,14 +106,18 @@ for (const width of [412, 884, 1280, 1440]) test(`${width}: 맨 위 한 줄 + �
   await expect(page.locator('#reportWeekFilter .report-week-count')).toContainText(/· \d+건/);
   const pmids = (await lineCenters(page, '#reportWeekFilter .report-week-nav > *')).map(x => x.mid);
   expect(Math.max(...pmids) - Math.min(...pmids)).toBeLessThanOrEqual(3);
-  // 보기 탭 자리: 폰 아래 가운데, 폴드(761~1199) 오른쪽 아래, PC 위(목록 상자 머리).
-  const seg = await page.locator('#reportViewFilter').boundingBox(), vp = page.viewportSize();
-  if (width < 600) { expect(Math.abs(seg.x + seg.width / 2 - vp.width / 2)).toBeLessThanOrEqual(2); expect(seg.y).toBeGreaterThan(vp.height / 2); }
-  else if (width < 1200) { expect(seg.x + seg.width).toBeGreaterThan(vp.width - 40); expect(seg.y).toBeGreaterThan(vp.height / 2); }
-  else { const list = await page.locator('#meetingList').boundingBox(); expect(seg.y).toBeLessThan(list.y); }
+  // UI-보기탭드롭다운(11/10): 보기는 탭 줄이 아니라 기간 [이번 주 ▾] 바로 옆 고르기 상자 [목록 ▾] — 모든 폭에서 같은 줄, 같은 높이, 떠 있지 않음.
+  const viewBox = await page.locator('#reportViewSelect').boundingBox(), periodBox = await page.locator('#reportPeriodPick').boundingBox();
+  expect(Math.abs((viewBox.y + viewBox.height / 2) - (periodBox.y + periodBox.height / 2))).toBeLessThanOrEqual(2);
+  expect(viewBox.x).toBeGreaterThanOrEqual(periodBox.x + periodBox.width - 0.5);
+  expect(viewBox.x - (periodBox.x + periodBox.width)).toBeLessThanOrEqual(12);
+  expect(Math.round(viewBox.height)).toBe(Math.round((await page.locator('#reportKindSelect').boundingBox()).height));
+  await expect(page.locator('#reportViewSelect')).toHaveValue('list');
+  await expect(page.locator('#reportViewSelect option')).toHaveText(['목록', '달력', '사진']);
+  await expect(page.locator('#reportViewFilter')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
   // 화면 칸 안에서도 옆으로 넘치지 않는다(button-sizing.spec와 같은 재기).
-  expect(await page.locator('#meetingsView').evaluate(el => { const out = [...el.querySelectorAll('*')].filter(e => getComputedStyle(e).position !== 'fixed' && !e.closest('#reportViewFilter') && e.getBoundingClientRect().right > el.getBoundingClientRect().right + 1).map(e => e.id || e.className).slice(0, 5); return {over: el.scrollWidth > el.clientWidth, out}; })).toEqual({over: false, out: []});
+  expect(await page.locator('#meetingsView').evaluate(el => { const out = [...el.querySelectorAll('*')].filter(e => getComputedStyle(e).position !== 'fixed' && e.getBoundingClientRect().right > el.getBoundingClientRect().right + 1).map(e => e.id || e.className).slice(0, 5); return {over: el.scrollWidth > el.clientWidth, out}; })).toEqual({over: false, out: []});
   if (process.env.SHOT_DIR) await page.screenshot({path: `${process.env.SHOT_DIR}/report-top-${width}.png`});
 });
 

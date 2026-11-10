@@ -42,7 +42,7 @@ test('사진 [폴더] 폰: 펼친 폴더 안 사진을 못 읽으면 회색 칸�
   await clickView(page, 'photos');
   await expect(page.locator('#photosView')).toBeVisible();
   const root = page.locator('#photosRoot');
-  await root.locator('[data-photos-tab="folders"]').click();
+  await root.locator('[data-photos-view]').selectOption('folders');
   const box = root.locator('[data-photos-box="onedrive"]');
   await box.locator('[data-photos-ftog="o:S2"]').click();
   const strip = root.locator('[data-photos-strip="o:S2"]');

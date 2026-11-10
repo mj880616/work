@@ -11,6 +11,10 @@ const SCREENS={
   await expect(page.locator('#gtTaskSection.gt-pc')).toBeVisible();
   // 입력창이 늦게 나타나면 아래 칸이 밀리므로, 배치를 재기 전에 입력창부터 기다린다.
   await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible();
+  // TASK-넓게쓰기(2026-11-10): 고르기 전에는 오른쪽 칸·경계선이 없고 목록이 화면 폭 전부(tasks-pc-columns.spec.mjs). 한 줄을 골라 두 칸을 연다
+  // (다시 불러오기 뒤에는 열린 칸이 되살아나 있을 수 있다).
+  if(!(await page.locator('#gtDetailPane #gtTaskModal').isVisible()))await page.locator('#gtTaskBody [data-gt-edit]').first().click();
+  await expect(page.locator('#gtDetailPane #gtTaskModal')).toBeVisible();
  }},
  projects:{container:'#projectGrid',list:'#projectGrid>.ps3-plist',pane:'#ps3DetailPane',ready:async page=>{await expect(page.locator('#projectGrid>.ps3-plist [data-ps3-project]').first()).toBeVisible();await expect(page.locator('#ps3DetailPane')).toBeVisible()}}, // UI-스와이프·주소: 목록부터(오른쪽 칸은 비어 있음)
  team:{container:'#soTeamSection',list:'#soOrganizationList',pane:'#wdDetailPane',ready:async page=>{await expect(page.locator('#wdDetailPane #wdModal')).toBeVisible()}},

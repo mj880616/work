@@ -53,7 +53,8 @@ const MENU=[
   ['텔레그램 소식','.nav-btn[data-view="telegram"]','telegram'],
   ['아스날','.nav-btn[data-view="arsenal"]','arsenal']
 ];
-const SIZES=[{width:884,height:1104,rail:true},{width:1104,height:884,rail:false},{width:900,height:800,rail:true}];
+// UI-폴드메뉴이름: 좁은 칸 양 끝 폭(761·1023)도 본다.
+const SIZES=[{width:884,height:1104,rail:true},{width:1104,height:884,rail:false},{width:900,height:800,rail:true},{width:761,height:900,rail:true},{width:1023,height:768,rail:true}];
 
 for(const size of SIZES)test(`${size.width}×${size.height}: PC 틀 — 모든 메뉴가 열리고 가로 넘침이 없다`,async({page})=>{
   test.setTimeout(180000);
@@ -71,7 +72,7 @@ for(const size of SIZES)test(`${size.width}×${size.height}: PC 틀 — 모든 �
   const n=await nav(page).boundingBox(),t=await topline.boundingBox();
   expect(n.height).toBeGreaterThan(n.width);
   expect(t.x).toBeGreaterThanOrEqual(n.x+n.width);
-  if(size.rail)expect(n.width,'좁은 메뉴 폭').toBeLessThanOrEqual(56);else expect(n.width).toBeGreaterThan(120);
+  if(size.rail){expect(n.width,'좁은 메뉴 폭').toBeGreaterThanOrEqual(68);expect(n.width,'좁은 메뉴 폭').toBeLessThanOrEqual(76)}else expect(n.width).toBeGreaterThan(120);
   const bad=[];
   for(const [name,sel,view,note,sub] of MENU){
     const button=nav(page).locator(sel).first();
@@ -98,11 +99,13 @@ for(const size of SIZES.filter(s=>s.rail))test(`${size.width}×${size.height}: �
   await page.setViewportSize({width:size.width,height:size.height});
   await open(page);
   const view=page.locator('#appView'),calendar=nav(page).locator('.nav-btn[data-view="calendar"]');
-  // 접힌 칸: 그림만 보이고 이름은 읽기 프로그램용(버튼 이름은 그대로).
+  // 접힌 칸(UI-폴드메뉴이름): 그림 아래 작은 이름이 보인다(버튼 이름도 그대로).
   await expect(calendar.locator('.nav-ico')).toBeVisible();
-  expect((await calendar.locator('.nav-label').boundingBox())?.width??0).toBeLessThanOrEqual(1);
+  await expect(calendar.locator('.nav-label')).toBeVisible();
+  const ico=await calendar.locator('.nav-ico').boundingBox(),lab=await calendar.locator('.nav-label').boundingBox();
+  expect(lab.y,'이름은 그림 아래').toBeGreaterThanOrEqual(ico.y+ico.height-1);
   await expect(calendar).toHaveAccessibleName('일정');
-  // [일정] 아래 할 일·일기는 접힌 칸에서도 작은 그림으로 보이고, [달력]은 [일정]과 같은 곳이라 접힌 칸에서는 빠진다.
+  // [일정] 아래 할 일·일기는 접힌 칸에서도 작은 그림과 이름으로 보이고, [달력]은 [일정]과 같은 곳이라 접힌 칸에서는 빠진다.
   // HOME-업무일지홈: 업무일지는 홈이라 [일정] 아래에 없다.
   await expect(nav(page).locator('.nav-sub-btn[data-view="journal"]')).toHaveCount(0);
   for(const v of ['tasks','diary'])await expect(nav(page).locator(`.nav-sub-btn[data-view="${v}"] .nav-ico`)).toBeVisible();
@@ -144,6 +147,28 @@ for(const size of SIZES.filter(s=>s.rail))test(`${size.width}×${size.height}: �
   await toggle(page).click();await expect(view).toHaveClass(/nav-open/);
   await page.locator('#homeView').click({position:{x:Math.max(5,after.width-20),y:10}});
   await expect(view).not.toHaveClass(/nav-open/);
+});
+
+// UI-폴드메뉴이름(2026-11-10 명진 결정): 761·884·900·1023px 접힌 칸의 모든 메뉴 이름(운영자 전용 포함, 보이는 것 전부)이
+// 그림 아래에 잘림·말줄임 없이 보이고, 긴 이름(텔레그램 소식·공유 페이지)은 두 줄까지. 메뉴 칸 밖으로 넘치지 않는다.
+for(const width of [761,884,900,1023])test(`${width}px: 좁은 칸 메뉴 이름이 그림 아래에 잘림 없이 보인다`,async({page})=>{
+  await page.setViewportSize({width,height:1000});
+  await open(page);
+  const rows=await nav(page).evaluate(nav=>{
+    const navBox=nav.getBoundingClientRect();
+    return [...nav.querySelectorAll('.sidebar-brand,.nav-btn,.nav-sub-btn')].filter(b=>b.getClientRects().length&&getComputedStyle(b).display!=='none').map(b=>{
+      const label=b.querySelector('.nav-label')||b.querySelector('.sidebar-brand>span'),ico=b.querySelector('.nav-ico,img');
+      const l=label?.getBoundingClientRect(),i=ico?.getBoundingClientRect(),bb=b.getBoundingClientRect(),lh=label?parseFloat(getComputedStyle(label).lineHeight):0;
+      return {name:(label?.textContent||b.textContent).trim(),has:!!label,w:l?.width||0,lines:l&&lh?Math.round(l.height/lh):0,
+        below:!!(l&&i&&l.top>=i.bottom-1),inside:!!(l&&l.left>=bb.left-0.5&&l.right<=bb.right+0.5&&bb.left>=navBox.left-0.5&&bb.right<=navBox.right+0.5),
+        clipped:!!label&&(label.scrollWidth>label.clientWidth+1||label.scrollHeight>label.clientHeight+1)};
+    });
+  });
+  const names=rows.map(r=>r.name);
+  for(const want of ['일정','할 일','일기','공유 페이지','텔레그램 소식'])expect(names,want).toContain(want);
+  const bad=rows.filter(r=>!r.has||r.w<8||!r.below||!r.inside||r.clipped||r.lines>2);
+  expect(bad,JSON.stringify(bad)).toEqual([]);
+  expect(await overflow(page)).toBeNull();
 });
 
 test('폴드 → PC → 폰으로 폭이 바뀌어도 메뉴가 한 벌이다',async({page})=>{

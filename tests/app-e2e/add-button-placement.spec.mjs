@@ -78,8 +78,8 @@ async function assertFloating(page,button){
   expect(await control.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
   // Painted circle 36px; the ::after touch target is 44px and sits 12px above the tabs —
   // or, where the phone switch row sits on the tabs (UI-버튼작게 ③: 일정·할 일, 44px row), 12px above that row.
-  // S52-22: 사업 보고 [목록|달력|사진](#reportViewFilter)은 아래 탭 위 44px 줄을 차지한다(자료실 묶기 알약은 LIB-위쪽한줄로 없앴다).
-  const dock=await control.evaluate(n=>{const sw=n.closest('.view-panel')?.querySelector(':scope > .schedule-switch, #reportViewFilter');return sw&&sw.getClientRects().length?44:0;});
+  // UI-보기탭드롭다운(11/10): 사업 보고 보기는 위 줄 고르기 상자라 아래 줄을 차지하지 않는다(자료실 묶기 알약은 LIB-위쪽한줄로 없앴다).
+  const dock=await control.evaluate(n=>{const sw=n.closest('.view-panel')?.querySelector(':scope > .schedule-switch');return sw&&sw.getClientRects().length?44:0;});
   expect(b.width).toBe(36);expect(b.height).toBe(36);const el=control;const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w).toBe(44);expect(t.h).toBe(44);expect(Math.round(tabs.y-dock-t.bottom)).toBe(12);
 }
 // S48-6 UI-폰달력월보기 결정 6: 달력 [+]는 전환 줄(44px, 탭 바로 위) 안 오른쪽 끝 작은 단추 — 보이는 32px, 누르는 범위 44px이 전환 줄에 꼭 맞음.

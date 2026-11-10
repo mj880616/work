@@ -50,7 +50,7 @@ async function openAlbums(page, width) {
     await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click();
   } else await page.locator('#appView>.app-nav').getByRole('button', { name: '사진', exact: true }).click();
   await expect(page.locator('#photosView')).toBeVisible();
-  await root(page).locator('[data-photos-tab="albums"]').click();
+  await root(page).locator('[data-photos-view]').selectOption('albums');
   await expect(root(page).locator('[data-photos-album]')).toHaveCount(3);
 }
 const root = page => page.locator('#photosRoot');
@@ -96,7 +96,7 @@ for (const width of [412, 1280]) {
     await page.goBack();
     await expect(form).toBeHidden();
     await expect(page.locator('#photosView')).toBeVisible();
-    await expect(root(page).locator('[data-photos-tab="albums"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(root(page).locator('[data-photos-view]')).toHaveValue('albums');
     // Enter = 만들기 → 목록에 바로 보임.
     await root(page).locator('[data-photos-al-new]').click();
     await page.waitForTimeout(300);

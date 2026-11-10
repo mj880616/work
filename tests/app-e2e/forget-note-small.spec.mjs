@@ -3,6 +3,7 @@
 // 서버는 흉내, 글·이름은 모두 지어낸 것. 폰 390 · 폴드 884 · PC 1440.
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {pressRowAct} from './helpers/nbx-act.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const cid=n=>`c0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const famId='f0000000-0000-4000-8000-000000000001';
@@ -62,7 +63,9 @@ const quick=page=>page.locator('[data-note-quick]');
 const big=page=>page.locator('#edWindow');
 const pick=page=>page.locator('[data-note-pick]');
 const textOf=row=>(row?.doc?.doc?.content||[]).map(p=>p.content?.[0]?.text??'');
-const workBtn=(page)=>box(page).locator(`[data-nbx-row="c:${cid(1)}"] [data-nbx-act="note"]`);
+// UI-잊지말기줄단추: 폰(390)은 [노트로]가 줄 ⋯ 안에 있다 — 줄 버튼 또는 ⋯ 메뉴의 같은 이름 항목(helpers/nbx-act.mjs).
+const workRow=(page)=>box(page).locator(`[data-nbx-row="c:${cid(1)}"]`);
+const workBtn=(page)=>({click:()=>pressRowAct(page,workRow(page),'note')});
 
 for(const width of [390,884,1440])test(`업무 줄 [노트로]: 줄 아래 작은 창(큰 창 아님), 하단바에 안 가림, [저장] 한 번이면 01. 업무메모 새 노트 ${width}`,async({page})=>{
   const f=await fixture(page,{width});
@@ -72,7 +75,7 @@ for(const width of [390,884,1440])test(`업무 줄 [노트로]: 줄 아래 작�
   await expect(quick(page).locator('[data-edw-target]')).toHaveText('새 노트 ▾');
   await expect(quick(page).locator('[data-edw-folder]')).toHaveText('01. 업무메모 ▾');
   await expect(quick(page).locator('[data-nq-text]')).toHaveValue(/가짜 요청 하나/);
-  const at=await page.evaluate(()=>{const b=document.querySelector('[data-nbx-act="note"]').getBoundingClientRect(),q=document.querySelector('[data-note-quick]').getBoundingClientRect();
+  const at=await page.evaluate(()=>{const row=document.querySelector('[data-nbx-row^="c:"]'),shown=e=>e&&e.getClientRects().length&&getComputedStyle(e).display!=='none'?e:null,b=(shown(row.querySelector('[data-nbx-act="note"]'))||row.querySelector('.nbx-more')).getBoundingClientRect(),q=document.querySelector('[data-note-quick]').getBoundingClientRect();
     const tab=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kptu-mobile-tab-height'))||0;
     return {bb:b.bottom,bt:b.top,qt:q.top,qb:q.bottom,ql:q.left,qr:q.right,w:innerWidth,h:innerHeight,tab};});
   expect(at.qt>=at.bb-1||at.qb<=at.bt+1).toBeTruthy();
@@ -148,7 +151,7 @@ test('[취소]·Esc는 아무것도 쓰지 않고, 쓴 글이 있으면 바깥�
 
 for(const width of [390,884,1440])test(`가족 줄 [노트로]: 작은 창에 '잊지 말기 ▾' '가족 ▾', [저장] 한 번으로 가족 노트 끝에 더하고 고르기는 가족 노트만 ${width}`,async({page})=>{
   const f=await fixture(page,{width});
-  await box(page).locator(`[data-nbx-row="f:${famId}"] [data-nbx-act="note"]`).click();
+  await pressRowAct(page,box(page).locator(`[data-nbx-row="f:${famId}"]`),'note');
   await expect(quick(page)).toBeVisible();
   await expect(big(page)).toHaveCount(0);
   await expect(quick(page).locator('[data-edw-target]')).toHaveText('잊지 말기 ▾');

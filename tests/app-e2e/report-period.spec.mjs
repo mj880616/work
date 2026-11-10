@@ -70,10 +70,12 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
   await enterLogin(page);
   await signInWithSession(page, 'owner@example.org');
   await page.waitForFunction(() => window.KPTUViewLoader?.isLoaded('meetings'));
-  await expect(page.locator('#reportViewFilter [data-filter-value]')).toHaveCount(3);
+  await expect(page.locator('#reportViewSelect option')).toHaveCount(3);
   return prefs;
 }
-const view = (page, label) => page.locator('#reportViewFilter').getByRole('radio', {name: label});
+// UI-보기탭드롭다운(11/10): 보기는 위 줄 고르기 상자 [목록 ▾](#reportViewSelect). view(page,'달력') = 그 보기를 고르기.
+const viewSelect = page => page.locator('#reportViewSelect');
+const view = (page, label) => viewSelect(page).selectOption({label});
 const chip = (page, v) => page.locator(`#reportWeekFilter [data-report-week="${v}"]`);
 const period = page => page.locator('#reportPeriodPick [data-report-period]');
 // BIZ-위쪽정돈(11/09): 건수는 › 뒤로 나가 label 옆 .report-week-count로 갔으므로 이 시험의 '라벨'은 주 줄 전체(‹ 날짜 › · n건)다.

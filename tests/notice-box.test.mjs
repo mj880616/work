@@ -15,8 +15,8 @@ test('줄: 내용 한 줄 + 아래 작은 줄(왼쪽 글, 오른쪽 [할 일로]
   const acts = [...html.matchAll(/data-nbx-act="([a-z]+)"[^>]*>([^<]*)</g)].map(m => [m[1], m[2]]);
   assert.deepEqual(acts, [['task', '할 일로'], ['event', '일정으로'], ['note', '노트로'], ['done', '이미 함'], ['dismissed', '×']]);
   // 버튼은 UI-버튼6가지 부품만: 줄 안 동작은 ③ 글자 버튼, ×는 ⑥ 아이콘.
-  assert.equal([...html.matchAll(/class="row-act nbx-act"/g)].length, 4);
-  assert.match(html, /class="icon-btn nbx-x" data-nbx-act="dismissed" aria-label="삭제: &lt;b&gt;가짜&lt;\/b&gt; 요청"/);
+  assert.equal([...html.matchAll(/class="row-act nbx-act( nbx-fold)?"/g)].length, 4);
+  assert.match(html, /class="icon-btn nbx-x nbx-fold" data-nbx-act="dismissed" aria-label="삭제: &lt;b&gt;가짜&lt;\/b&gt; 요청"/);
   assert.equal([...nb.rowHtml({id: 'r', body: 'x', busy: true}).matchAll(/ disabled/g)].length, 5);
 });
 
@@ -98,14 +98,14 @@ test('한 목록 줄: 출처 꼬리표 · 버튼 일곱 [할 일로][일정으�
   // FORGET-소식바로잡기(시안 forget-news-fix.html): 원래 다섯 그대로 + [조직][사업]만 더함, 순서 고정. 모두 ③ 글자 버튼(×만 ⑥).
   assert.deepEqual(acts, [['task', '할 일로'], ['event', '일정으로'], ['note', '노트로'], ['org', '조직'], ['area', '사업'], ['done', '이미 함'], ['dismissed', '×']]);
   assert.deepEqual(nb.NB_REPORT_ACTS.filter(([a]) => a !== 'org' && a !== 'area'), [...nb.NB_ACTS], '원래 넷(+×)의 순서는 그대로');
-  assert.equal([...html.matchAll(/class="row-act nbx-act"/g)].length, 6);
+  assert.equal([...html.matchAll(/class="row-act nbx-act( nbx-fold)?"/g)].length, 6);
   assert.doesNotMatch(html, /nbx-lead|nbx-hint|nbx-why/);
   assert.match(html, /×<\/button><button type="button" class="icon-btn">⋯<\/button><\/span><\/div><div class="nbx-below"><\/div><\/li>$/);
   // 가족 줄(report 없음)은 다섯 그대로.
   assert.deepEqual([...nb.rowHtml({id: 'f:1', body: 'x'}).matchAll(/data-nbx-act="([a-z]+)"/g)].map(m => m[1]), ['task', 'event', 'note', 'done', 'dismissed']);
   // AI가 고른 맞는 버튼 하나만 굵게(누르는 건 사람), 내용 아래 이유 한 줄(글자로만).
   const hinted = nb.rowHtml({id: 'n:1', body: '가짜 소식', report: true, hint: 'org', why: '조직보고 · <가상> 지부'});
-  assert.match(hinted, /<button type="button" class="row-act nbx-act nbx-hint" data-nbx-act="org" data-nbx-hint>조직<\/button>/);
+  assert.match(hinted, /<button type="button" class="row-act nbx-act nbx-hint nbx-fold" data-nbx-act="org" data-nbx-hint>조직<\/button>/);
   assert.equal([...hinted.matchAll(/data-nbx-hint/g)].length, 1);
   assert.match(hinted, /<\/p><p class="nbx-why">조직보고 · &lt;가상&gt; 지부<\/p><div class="nbx-row2">/);
   // 처리한 줄: 버튼 없이 상태 글.
@@ -113,4 +113,31 @@ test('한 목록 줄: 출처 꼬리표 · 버튼 일곱 [할 일로][일정으�
   assert.doesNotMatch(done, /data-nbx-act/);
   assert.match(done, /<span class="nbx-done">할 일로 보냄 · 11\.7<\/span><\/div><\/li>$/);
   assert.ok(nb.NB_TONES.includes('list'));
+});
+
+// UI-잊지말기줄단추(요청함 11/10 11:23, 명진 '추천대로' — 11/7 줄 단추 결정을 바꿈): 폰·폴드는 [할 일로][이미 함] ⋯ 만, 나머지는 ⋯ 안 같은 이름.
+// PC는 마우스 올린 줄·초점 줄에만 버튼 전부(할 일 줄 task-inline과 같은 방식). 줄마다 ⋯ 하나.
+test('줄 단추 줄이기: 접히는 버튼 표시·줄마다 ⋯ 하나·메뉴 이름은 줄 버튼과 같다·폰/PC 규칙은 ui-standard.css 한 곳', () => {
+  const html = nb.rowHtml({id: 'c:1', body: '가짜 요청', report: true, more: 'data-forget-more="c:1"'});
+  const shown = [...html.matchAll(/<button type="button" class="([^"]*)"[^>]*data-nbx-act="([a-z]+)"/g)].filter(m => !/nbx-fold/.test(m[1])).map(m => m[2]);
+  assert.deepEqual(shown, ['task', 'done'], '폰에 남는 줄 버튼은 [할 일로][이미 함]');
+  assert.match(html, /×<\/button><button type="button" class="icon-btn nbx-more" data-forget-more="c:1" aria-label="메뉴: 가짜 요청" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯<\/span><\/button><\/span>/);
+  // 줄이 제 ⋯(tail, 업데이트 줄)를 가지면 ⋯는 하나만. 처리한 줄·상대 약속 줄에는 ⋯ 메뉴를 새로 만들지 않는다.
+  assert.equal([...nb.rowHtml({id: 'u:1', body: 'x', report: true, more: 'data-x', tail: '<button type="button" class="icon-btn nbx-more">⋯</button>'}).matchAll(/nbx-more/g)].length, 1);
+  assert.doesNotMatch(nb.rowHtml({id: 'c:2', body: 'x', more: 'data-x', done: '이미 함'}), /nbx-more/);
+  assert.doesNotMatch(nb.rowHtml({id: 'p:0', body: 'x', more: 'data-x', acts: [['ledger', '원장으로']]}), /nbx-more|nbx-fold/);
+  // ⋯ 메뉴에 둘 접힌 동작: 줄 버튼과 같은 이름 + ×자리 [무시]. 가족 줄은 조직·사업 없음.
+  const label = Object.fromEntries(nb.NB_REPORT_ACTS);
+  assert.deepEqual(nb.foldActs({report: true}), [['event', label.event], ['note', label.note], ['org', label.org], ['area', label.area], ['dismissed', '무시']]);
+  assert.deepEqual(nb.foldActs().map(([a]) => a), ['event', 'note', 'dismissed']);
+  const fl = read('forget-list.js');
+  assert.match(fl, /foldActs\(\{report: kind !== 'f'\}\)/); assert.match(fl, /data-nbx-menu-act="\$\{act\}"/);
+  assert.match(fl, /rowAct\(key, button\.dataset\.nbxMenuAct, active\.trigger\)/, '메뉴 항목은 줄 버튼과 같은 길');
+  // 업데이트 줄 ⋯(basket.js): 이름은 [할 일로]·[노트로], 처리 버튼이 있는 줄은 [일정으로][조직][사업]도.
+  const bk = read('basket.js');
+  assert.match(bk, /\['task','할 일로'\],\.\.\.\(acts\?\[\['event','일정으로'\]\]:\[\]\),\['to-note','노트로'\],\.\.\.\(acts\?\[\['org','조직'\],\['area','사업'\]\]:\[\]\)/);
+  assert.doesNotMatch(bk, /'할 일 만들기'\]|'노트로 옮기기'\]/, '줄 ⋯ 메뉴에 옛 이름 없음');
+  const ui = read('ui-standard.css');
+  assert.match(ui, /@media \(max-width:760px\),\(hover:none\)\{ \.nbx-acts > \.nbx-fold\{ display:none; \} \}/);
+  assert.match(ui, /@media \(min-width:761px\) and \(hover:hover\)\{\n  \.nbx-item \.nbx-acts\{ opacity:0; \}\n  \.nbx-item:hover \.nbx-acts,\.nbx-item:focus-within \.nbx-acts,\.nbx-item \.nbx-acts:has\(\[aria-expanded="true"\]\)\{ opacity:1; \}/);
 });

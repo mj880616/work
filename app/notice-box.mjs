@@ -1,7 +1,7 @@
 // S52-09 UI-요청상자통일(요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html, 명진 'ㅇ'): 홈 '나한테 온 요청'과 '잊지 말기'가 함께 쓰는
 // 알림 상자 부품 하나. 상자·머리 줄·줄·버튼 모양은 여기 한 곳이 만들고, 색만 tone('ask' = 톤다운 파랑, 'forget' = 톤다운 노랑)으로 나눈다.
 // - 머리 줄: 제목 · 개수(있을 때) · 흐린 글(출처 또는 '새 … 없음') · 오른쪽 [열기 ›](③ 글자 버튼).
-// - 줄: 내용 한 줄 + 아래 작은 줄(왼쪽 누가·출처·날짜, 오른쪽 [할 일로][이미 함][일정으로][노트로](③ 글자 버튼 — UI-줄버튼 '줄 안 동작 버튼') ×(⑥ 아이콘)).
+// - 줄: 내용 한 줄 + 아래 작은 줄(왼쪽 누가·출처·날짜, 오른쪽 줄 버튼(③ 글자 버튼 — UI-줄버튼 '줄 안 동작 버튼') ×·⋯(⑥ 아이콘)). 폰·PC 보이는 법은 아래 rowHtml 'UI-잊지말기줄단추'.
 // - 줄 아래 흐린 한 줄(foot, 상자마다 있을 때만), 맨 아래 상태 줄(5초 되돌리기 포함).
 // 순수 HTML 조각만 만든다(DOM·네트워크 없음). 글은 모두 esc()로 글자로만. 상자를 그리는 쪽(잊지 말기 상자·asks-box.js)이 이 조각만 쓴다.
 export const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -36,17 +36,32 @@ export function headHtml({title, count = 0, faint = '', open = null, countAttr =
 // - hint: AI가 고른 맞는 버튼 하나(act 이름)를 굵게(누르는 건 사람 — 자동 처리 없음). why: 내용 아래 흐린 이유 한 줄('조직보고 · ○○').
 // - done: 처리한 줄(처리 전이 아닌 보기)은 버튼 대신 오른쪽 작은 상태 글('할 일로 보냄 · 11/7' 등).
 // - open: {attrs, label} 내용 줄을 누르면 원래 기록을 여는 글자 버튼(업데이트 줄). attrs는 이미 esc된 속성 글.
-// - attrs: li에 더 붙일 속성(이미 esc된 글), tail: × 뒤에 붙일 ⑥ 아이콘(⋯) HTML, below: 줄 아래 더 붙일 HTML(연결된 곳 칩).
-// - acts: 4개 버튼과 × 대신 쓸 버튼 목록(같은 ③ 글자 버튼, 없앨 수 없는 줄만 — 상대 약속 [원장으로]).
-export function rowHtml({id, body, meta = '', prefix = '', busy = false, src = '', report = false, hint = '', why = '', done = '', open = null, attrs = '', tail = '', below = '', acts = null}) {
+// - attrs: li에 더 붙일 속성(이미 esc된 글), below: 줄 아래 더 붙일 HTML(연결된 곳 칩).
+// - more: 줄 ⋯(⑥ 아이콘)에 붙일 속성(이미 esc된 글, 예 data-forget-more="c:…") — 이 줄의 ⋯ 메뉴(우클릭도 같은 메뉴, context-menu.js)를 그리는 쪽이 연다.
+// - tail: 줄이 제 ⋯를 따로 가진 경우(업데이트 줄 — basket.js 메뉴) 그 ⋯ HTML. 있으면 위 more ⋯는 그리지 않는다(줄마다 ⋯ 하나).
+// - acts: 버튼 목록과 × 대신 쓸 버튼 목록(같은 ③ 글자 버튼, 없앨 수 없는 줄만 — 상대 약속 [원장으로]).
+// UI-잊지말기줄단추(요청함 11/10 11:23, 명진 '추천대로' — 11/7 HOME-잊지말기한목록의 줄 단추 결정을 바꿈):
+//   폰·폴드(좁은 창 또는 마우스 없음)는 줄에 [할 일로][이미 함] ⋯ 만 — [일정으로][노트로][조직][사업]·×는 .nbx-fold로 접혀 ⋯ 메뉴 안에 같은 이름으로 있다.
+//   PC(761px~ 마우스)는 마우스를 올린 줄·키보드 초점이 있는 줄(메뉴가 열린 줄 포함)에만 버튼 전부 + ⋯(할 일 줄 task-inline과 같은 방식).
+//   모양 규칙은 ui-standard.css 'UI-잊지말기줄단추' 한 곳. 접힌 동작은 foldActs()의 같은 이름으로 ⋯ 메뉴에 둔다(이름 하나).
+export const NB_FOLD = Object.freeze(['event', 'note', 'org', 'area']);
+const NB_LABEL = Object.fromEntries(NB_REPORT_ACTS);
+// ⋯ 메뉴 안에 둘 접힌 동작(줄 버튼과 같은 이름) + × 자리 [무시]. report=false(가족 줄)면 조직·사업 없음.
+export function foldActs({report = false} = {}) {
+  return [...NB_FOLD.filter(a => report || (a !== 'org' && a !== 'area')).map(a => [a, NB_LABEL[a]]), ['dismissed', '무시']];
+}
+export function rowHtml({id, body, meta = '', prefix = '', busy = false, src = '', report = false, hint = '', why = '', done = '', open = null, attrs = '', tail = '', more = '', below = '', acts = null}) {
   const dis = busy ? ' disabled' : '';
+  const fold = act => !acts && NB_FOLD.includes(act) ? ' nbx-fold' : '';
   const btn = ([act, label]) => act === hint
-    ? `<button type="button" class="row-act nbx-act nbx-hint" data-nbx-act="${act}" data-nbx-hint${dis}>${esc(label)}</button>`
-    : `<button type="button" class="row-act nbx-act" data-nbx-act="${act}"${dis}>${esc(label)}</button>`;
+    ? `<button type="button" class="row-act nbx-act nbx-hint${fold(act)}" data-nbx-act="${act}" data-nbx-hint${dis}>${esc(label)}</button>`
+    : `<button type="button" class="row-act nbx-act${fold(act)}" data-nbx-act="${act}"${dis}>${esc(label)}</button>`;
+  const dots = !acts && !tail && more
+    ? `<button type="button" class="icon-btn nbx-more" ${more} aria-label="메뉴: ${esc(body)}" aria-haspopup="true" aria-expanded="false"${dis}><span class="more-dots" aria-hidden="true">⋯</span></button>` : '';
   const right = done
     ? `<span class="nbx-done">${esc(done)}</span>${tail}`
     : `<span class="nbx-acts" role="group" aria-label="${esc(body)}">${(acts || (report ? NB_REPORT_ACTS : NB_ACTS)).map(btn).join('')}`
-      + `${acts ? '' : `<button type="button" class="icon-btn nbx-x" data-nbx-act="dismissed" aria-label="삭제: ${esc(body)}"${dis}>×</button>`}${tail}</span>`;
+      + `${acts ? '' : `<button type="button" class="icon-btn nbx-x nbx-fold" data-nbx-act="dismissed" aria-label="삭제: ${esc(body)}"${dis}>×</button>`}${tail}${dots}</span>`;
   const text = open ? `<button type="button" class="row-act nbx-body-btn" ${open.attrs}>${esc(open.label ?? body)}</button>` : esc(body);
   return `<li class="nbx-item" data-nbx-row="${esc(id)}"${attrs ? ' ' + attrs : ''}><p class="nbx-body">${prefix}${text}</p>${why ? `<p class="nbx-why">${esc(why)}</p>` : ''}`
     + `<div class="nbx-row2"><span class="nbx-meta">${src ? `<span class="nbx-src">${esc(src)}</span>` : ''}${esc(meta)}</span>${right}</div>${below}</li>`;
