@@ -20,7 +20,7 @@ const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.s
 const item=(over={})=>({kind:'event',title:'가 지부 임금교섭 시작.',summary:'가 지부와 임금교섭 시작 합의.',date:'2026-10-20',sensitivity:'S1',source:'r1',event:'',same_as:'',counterparty:'',follow_up_on:'',decision_type:'',sure:true,reference:false,...over});
 const run={kind:'ledger_auto'};
 
-function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:id(500),workspace_id:WS,status:'done',started_at:FIRST_RUN,tokens_in:1,tokens_out:1}],seen=[],usage=[],ledgerMissing=false,recordReply=null,beginError=null,fail={},edits=[],features=null}={}){
+function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:id(500),workspace_id:WS,status:'done',started_at:FIRST_RUN,tokens_in:1,tokens_out:1}],seen=[],usage=[],ledgerMissing=false,recordReply=null,beginError=null,fail={},edits=[],features=null,biz=[]}={}){
   const calls={openai:[],rest:[],rpc:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'},{workspace_id:WS,user_id:MEMBER,role:'member'}],
@@ -42,6 +42,7 @@ function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:i
     app_suborganization_updates:[{id:id(11),organization_id:ORG,occurred_at:RECENT,raw_text:'가 지부 기록: 교섭 2차 일정 확정'},{id:id(12),organization_id:FOREIGN_ORG,occurred_at:RECENT,raw_text:'FOREIGN_ORG_TEXT'}],
     app_spaces:[{id:PROJECT,workspace_id:WS,name:'다 프로젝트',owner_id:OWNER}],
     app_project_progress_updates:[{id:id(13),project_id:PROJECT,summary:'다 프로젝트: 위원회 안건 채택',effective_on:TODAY,created_at:RECENT}],
+    app_business_records:structuredClone(biz),
     app_ai_daily_usage:structuredClone(usage),
     app_ledger_auto_runs:structuredClone(runs),
     app_ledger_auto_sources:structuredClone(seen),
@@ -585,4 +586,46 @@ test('NOTE-AI제외정리: 옛 AI 제외 표시 노트도 보내고, 비밀 모�
   assert.ok(!h.calls.logs.some(l=>/ai_off/.test(l.code)));
   const logs=JSON.stringify(h.calls.logs);
   for(const hidden of ['OFF_TEXT','SECRET_SHAPE_TEXT','KEEP_TEXT','가상 공유기'])assert.ok(!logs.includes(hidden),hidden+' must not be logged');
+});
+
+// LEDGER-사업기록재료(S56-27): 사업 기록(app_business_records)도 원장 자동 기록 재료다. 근거 = 사업 기록 id(web2:biz_record:<id>), 사업 연결.
+// 로그인 토큰(owner RLS)으로 내 사업 기록만, 옛 진행 기록에서 옮긴 줄(progress)은 빼고, 비밀 모양 부분은 가려 보낸다. 예시 값은 지어낸 가짜 글.
+const BIZ=(n,over={})=>({id:id(n),workspace_id:WS,space_id:PROJECT,day:TODAY,end_day:null,body:'다 사업 기록',source_kind:'user',updated_at:RECENT,...over});
+test('LEDGER-사업기록재료: 사업 기록을 재료로 읽고(옮긴 줄·남의 것·켜기 전 제외), 근거는 사업 기록 id, 사업에 연결, 비밀 모양은 가림',async()=>{
+  const h=harness({biz:[
+    BIZ(70,{body:'다 사업 협약 체결 BIZ_TEXT',end_day:'2026-10-26'}),
+    BIZ(71,{body:'다 사업 KEEP_BIZ 접속 토큰: SECRET_BIZ_VALUE'}),
+    BIZ(72,{body:'옮긴 옛 진행 기록 MOVED_BIZ',source_kind:'progress'}),
+    BIZ(73,{workspace_id:OTHER_WS,space_id:'d0000000-0000-4000-8000-000000000009',body:'FOREIGN_BIZ'}),
+    BIZ(74,{body:'켜기 전 사업 기록 BEFORE_BIZ',updated_at:'2026-10-20T00:00:00.000Z'}),
+  ],openai:[o=>respond(answer([item({kind:'decision',title:'다 사업 협약 체결.',summary:'협약 체결.',source:refOf(o,'BIZ_TEXT'),decision_type:'adopted',date:TODAY})]))]});
+  const res=await post(h.handler,run);
+  assert.equal(res.status,200);
+  const material=h.calls.openai[0].input[1].content,sent=sentOf(h.calls.openai[0]);
+  for(const shown of ['BIZ_TEXT','(~2026-10-26)','KEEP_BIZ','[가림]'])assert.ok(material.includes(shown),shown+' is sent');
+  for(const hidden of ['SECRET_BIZ_VALUE','MOVED_BIZ','FOREIGN_BIZ','BEFORE_BIZ',id(70)])assert.ok(!material.includes(hidden),hidden+' must not be sent');
+  const r=sent.records.find(x=>x.text.includes('BIZ_TEXT'));
+  assert.equal(r.type,'사업 기록');assert.equal(r.place,'다 프로젝트');assert.equal(r.date,TODAY);
+  // 읽기: 로그인 토큰, 내 작업공간·내 사업, 옮긴 줄 제외 조건, 본 뒤 고친 것만.
+  const q=h.calls.rest.find(c=>c.table==='app_business_records');
+  assert.equal(q.uid,OWNER);assert.match(q.query,new RegExp(`workspace_id=eq\\.${WS}`));assert.match(q.query,new RegExp(`space_id=in\\.\\(${PROJECT}\\)`));
+  assert.match(q.query,/source_kind=neq\.progress/);assert.match(q.query,/updated_at=gte\./);
+  const b=batchOf(h);
+  const seen=b.sources.filter(s=>s.kind==='biz_record').map(s=>s.id).sort();
+  assert.deepEqual(seen,[id(70),id(71)]);
+  assert.ok(auto.AUTO_SOURCE_KINDS.includes('biz_record'));
+  const dec=b.items.find(i=>i.title==='다 사업 협약 체결.');
+  assert.deepEqual(dec.source,{kind:'biz_record',id:id(70),title:'Web2 사업 기록 2026-10-24 (다 프로젝트)',doc_type:'internal_doc',source_date:TODAY,sensitivity:'S1'});
+  assert.equal(dec.dedup_key,`web2:biz_record:${id(70)}:다사업협약체결`);
+  assert.deepEqual(dec.links,[{target_project_id:PROJECT}]);
+  assert.ok(b.items.every(i=>i.op==='new'||i.op==='add_source'),'더하기만');
+  const logs=JSON.stringify(h.calls.logs);
+  for(const hidden of ['BIZ_TEXT','SECRET_BIZ_VALUE','KEEP_BIZ'])assert.ok(!logs.includes(hidden),hidden+' must not be logged');
+});
+test('LEDGER-사업기록재료: 사업 기록을 못 읽으면 사업 기록만 건너뛰고 자동 기록은 그대로 돈다',async()=>{
+  const h=harness({biz:[BIZ(70)],fail:{app_business_records:'GET'}});
+  const res=await post(h.handler,run);
+  assert.equal(res.status,200);assert.equal((await res.json()).ok,true);
+  assert.ok(h.calls.logs.some(l=>l.code==='ledger_auto_biz_skipped'));
+  assert.ok(!batchOf(h).sources.some(s=>s.kind==='biz_record'));
 });

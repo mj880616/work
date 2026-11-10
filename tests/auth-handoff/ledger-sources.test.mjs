@@ -124,7 +124,8 @@ test('LEDGER-재료 공통 DB: plan, apply, nine kinds in one place, owner-only 
    assert.deepEqual(quoted(rollbackSQL.replace(/--.*$/gm,'').match(/add constraint app_ledger_auto_sources_kind_check check \(source_kind in \(([^)]*)\)\)/)[1]),OLD_KINDS);
    const server=await read('supabase/functions/ai-assist/ledger-auto.ts');
    const serverKinds=quoted(server.match(/AUTO_SOURCE_KINDS[^=]*=\s*Object\.freeze\(\[([^\]]*)\]/)[1].replace(/"/g,"'"));
-   assert.ok(serverKinds.length>=OLD_KINDS.length);for(const k of serverKinds)assert.ok(ALL_KINDS.includes(k),'server kind '+k+' unknown to the DB');
+   // biz_record는 다음 migration 20261110213000_ledger_biz_records가 DB에 더한다(그 시험: ledger-biz-records-db.test.mjs).
+   assert.ok(serverKinds.length>=OLD_KINDS.length);for(const k of serverKinds)assert.ok([...ALL_KINDS,'biz_record'].includes(k),'server kind '+k+' unknown to the DB');
   });
   await t.test('precheck as the read-only role; a changed prerequisite stops the migration before any change',async()=>{
    const v=values(beforeCheck);
