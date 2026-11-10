@@ -113,7 +113,7 @@ for(const width of [390,1280])test(`정리함: the suggested due is in the small
  await openInbox(page);
  const row=line(page,1);
  await expect(row.locator('.nbx-body')).toHaveText('가상 의견 제출');
- await expect(row.locator('.nbx-meta')).toHaveText('챙길 것업데이트에서 · 10/6 · 기한 10.9 (금)');
+ await expect(row.locator('.nbx-meta')).toHaveText('챙길 것업데이트에서 · 10/6 · 기한 10.9 (금)›');
  // No due → no due text.
  await expect(line(page,2).locator('.nbx-meta')).not.toContainText('기한');
  await tap(page,btn(row,'할 일로'),width);
@@ -225,8 +225,8 @@ for(const width of [412,884,1440])test(`정리함 telegram candidate: room in th
  const f=await fixture(page,{width,routes,rows:[cand(1,{source_kind:'telegram',source_id:TG_FEED,due:'2026-10-09',summary:'가상 교섭 자료 보내기'}),cand(2,{summary:'가상 조직 회신'})]});
  await openInbox(page);
  const row=line(page,1);
- await expect(row.locator('.nbx-meta')).toHaveText('텔레그램가상 간부방 · 10/6 · 기한 10.9 (금)');
- await expect(line(page,2).locator('.nbx-meta')).toHaveText('챙길 것업데이트에서 · 10/6');
+ await expect(row.locator('.nbx-meta')).toHaveText('텔레그램가상 간부방 · 10/6 · 기한 10.9 (금)›');
+ await expect(line(page,2).locator('.nbx-meta')).toHaveText('챙길 것업데이트에서 · 10/6›');
  expect(feedReads.length).toBeGreaterThanOrEqual(1);
  expect(feedReads[0]).toMatchObject({source:'eq.telegram',id:`in.(${TG_FEED})`,select:'id,room_key,room_label'});
  expect(await noWideScroll(page)).toBe(true);

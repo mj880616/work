@@ -102,8 +102,8 @@ for(const width of [390,884,1280])test(`${width}px: 칸 나눔 없이 한 목록
   // 새 것이 위: 업데이트(04:00) → 챙길 것(03:00) → 가족(02:30) → 텔레그램(01:00).
   expect(await list(page).locator('[data-nbx-row]').evaluateAll(ls=>ls.map(l=>l.dataset.nbxRow))).toEqual([`u:${uid(1)}`,`c:${cid(3)}`,`f:${famId}`,`c:${cid(1)}`]);
   await expect(list(page).locator('.nbx-src')).toHaveText(['업데이트','챙길 것','가족','텔레그램']);
-  await expect(line(page,`c:${cid(1)}`).locator('.nbx-meta')).toHaveText('텔레그램가상 지부방 · 10/6');
-  await expect(line(page,`c:${cid(3)}`).locator('.nbx-meta')).toHaveText('챙길 것업데이트에서 · 10/6');
+  await expect(line(page,`c:${cid(1)}`).locator('.nbx-meta')).toHaveText('텔레그램가상 지부방 · 10/6›');
+  await expect(line(page,`c:${cid(3)}`).locator('.nbx-meta')).toHaveText('챙길 것업데이트에서 · 10/6›');
   // UI-잊지말기줄단추: 줄마다 같은 버튼(+ ⋯ 하나). 폰은 [할 일로][이미 함] ⋯ 만 보이고, PC는 버튼 전부(마우스 올린 줄만 보임 — 아래 시험).
   const seven=['할 일로','일정으로','노트로','조직','사업','이미 함','×'];
   await expect(line(page,`c:${cid(1)}`).locator('.nbx-acts > button')).toHaveText([...seven,'⋯']);

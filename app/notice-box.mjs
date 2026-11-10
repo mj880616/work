@@ -63,8 +63,21 @@ export function rowHtml({id, body, meta = '', prefix = '', busy = false, src = '
     : `<span class="nbx-acts" role="group" aria-label="${esc(body)}">${(acts || (report ? NB_REPORT_ACTS : NB_ACTS)).map(btn).join('')}`
       + `${acts ? '' : `<button type="button" class="icon-btn nbx-x nbx-fold" data-nbx-act="dismissed" aria-label="삭제: ${esc(body)}"${dis}>×</button>`}${tail}${dots}</span>`;
   const text = open ? `<button type="button" class="row-act nbx-body-btn" ${open.attrs}>${esc(open.label ?? body)}</button>` : esc(body);
+  const metaIn = `${src ? `<span class="nbx-src">${esc(src)}</span>` : ''}${esc(meta)}`;
+  // FORGET-원문열기·뒤로가기: 원문이 있는 줄(open)은 출처 꼬리표 줄 끝에 작은 ›를 달고, 그 줄을 누르면 위 내용 버튼을 누른 것과 같다
+  // (data-nbx-open → openFromMeta: 내용 버튼의 click 하나로, 여는 길은 줄마다 하나). 키보드·화면 읽기는 내용 버튼 하나로 충분하므로
+  // 이 버튼은 탭 순서·읽기에서 뺀다(같은 이름 두 번 읽지 않게). 원문 없는 줄은 그대로 글.
+  const metaHtml = open
+    ? `<button type="button" class="row-act nbx-meta nbx-meta-open" data-nbx-open tabindex="-1" aria-hidden="true">${metaIn}<span class="nbx-open-mark">›</span></button>`
+    : `<span class="nbx-meta">${metaIn}</span>`;
   return `<li class="nbx-item" data-nbx-row="${esc(id)}"${attrs ? ' ' + attrs : ''}><p class="nbx-body">${prefix}${text}</p>${why ? `<p class="nbx-why">${esc(why)}</p>` : ''}`
-    + `<div class="nbx-row2"><span class="nbx-meta">${src ? `<span class="nbx-src">${esc(src)}</span>` : ''}${esc(meta)}</span>${right}</div>${below}</li>`;
+    + `<div class="nbx-row2">${metaHtml}${right}</div>${below}</li>`;
+}
+// 출처 꼬리표 줄([data-nbx-open])을 누르면 그 줄의 내용 버튼을 누른다. 처리했으면 true(부르는 쪽은 그 click을 더 보지 않는다).
+export function openFromMeta(button) {
+  if (!button?.hasAttribute?.('data-nbx-open')) return false;
+  button.closest('[data-nbx-row]')?.querySelector('.nbx-body-btn')?.click();
+  return true;
 }
 // 상자 안쪽 전체. rows: rowHtml 조각 목록. status: 상태 글, undo: 되돌리기 버튼을 보일지. foot: 맨 아래 흐린 한 줄(HTML).
 export function boxHtml({head, rows = [], status = '', undo = false, foot = ''}) {

@@ -18,7 +18,7 @@
 // 이 파일이 이 목록 자리의 유일한 renderer다. 기기 저장 없음.
 import {createAnchoredMenu} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
-import {esc, rowHtml, foldActs} from './notice-box.mjs';
+import {esc, rowHtml, foldActs, openFromMeta} from './notice-box.mjs';
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
@@ -574,6 +574,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   host.addEventListener('click', event => {
     const b = event.target.closest?.('button');
     if (!b || !host.contains(b) || b.disabled) return;
+    if (openFromMeta(b)) return;
     if (b.dataset.forgetMore) { more.open(b); return; }
     if (b.dataset.forgetNewsOpen) { const r = newsById(b.dataset.forgetNewsOpen); if (r) void openNewsSource(r, rt).then(ok => { if (!ok) say('원본을 열지 못했어요.'); }, () => say('원본을 열지 못했어요. 다시 시도해 주세요.')); return; }
     const d = b.dataset;
