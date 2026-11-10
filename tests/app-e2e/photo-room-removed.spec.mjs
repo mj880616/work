@@ -97,8 +97,10 @@ test('no photo room screen, link, or button remains (the new 사진 menu button 
   for(const selector of [
     '#photosCalendarEntry','#photoUploadOpen','#photoUploadModal','#eventDetailModal',
     '#photoGrid','#eventPhotoStrip','[data-goto="photos"]','[data-photo-event]',
-    '[data-photo-close]','a[href*="view=photos"]'
+    '[data-photo-close]','a[href*="view=photos"]:not(#appNav [data-view="photos"])'
   ])await expect(page.locator(selector),selector).toHaveCount(0);
+  // UI-PC손맛묶음 ⑤: PC 왼쪽 메뉴 줄은 링크(새 탭 열기)라 새 [사진] 메뉴 하나만 ?view=photos 주소를 가진다.
+  await expect(page.locator('a[href*="view=photos"]')).toHaveCount(await page.locator('#appNav [data-view="photos"]').count());
   await expect(page.getByText('포토룸')).toHaveCount(0);
   expect(await page.evaluate(()=>'__KPTU_PHOTO_ROOM_READY__' in window)).toBe(false);
   expect(errors).toEqual([]);
