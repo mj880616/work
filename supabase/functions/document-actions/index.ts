@@ -3,6 +3,7 @@ import { readBoundedJson } from '../_shared/bounded-json.mjs';
 import { createHwpEdit, HwpEditError } from '../_shared/hwp-edit.ts';
 import { createDocumentText } from '../_shared/document-text.ts';
 import { renameFile } from './file-rename.ts';
+import { trashFile, restoreFile } from './file-trash.ts';
 import { sendDevInbox, readDevMade } from './dev-inbox.ts';
 import { withWebCors } from "../_shared/web-cors.ts";
 import { callerOwnerWorkspace, WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
@@ -371,6 +372,22 @@ Deno.serve(withWebCors(async (req: Request) => {
         const known = ['INVALID_REQUEST', 'INVALID_NAME', 'NOT_FOUND', 'ATTACHMENT_NOT_FOUND', 'DRIVE_FILE_MISSING', 'DRIVE_FORBIDDEN', 'DRIVE_UNAVAILABLE', 'RESULT_UNKNOWN', 'CONFIG_MISSING'].includes(code);
         const message = known && e instanceof Error ? e.message : '이름 바꾸기 결과를 확인하지 못했습니다. 다시 열어 확인해 주세요.';
         return json({ error: message, code: known ? code : 'RESULT_UNKNOWN' }, code === 'RESULT_UNKNOWN' || !known || code === 'DRIVE_UNAVAILABLE' || code === 'CONFIG_MISSING' ? 503 : 400);
+      }
+    }
+    if (action === 'trash-file' || action === 'restore-file') {
+      // FILE-첨부삭제: 첨부 ⋯ [삭제]·[되돌리기]. 이름 고치기와 같은 길(내 로그인 토큰 RLS + 내 owner 작업공간 Drive 토큰, ./file-trash.ts).
+      const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+      try {
+        const deps = { userDb: userDbFor(token), refDb: (path: string) => db(path), driveToken: driveTokenFor(user.id), fetch, now: Date.now };
+        return json(action === 'trash-file' ? await trashFile(body, deps) : await restoreFile(body, deps));
+      } catch (e) {
+        // 400·409: 아무것도 바꾸지 않고 거절. 503: 일부가 바뀌었을 수 있다 — 화면이 다시 읽는다.
+        const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'RESULT_UNKNOWN';
+        console.error('document-actions ' + action + ' failed', { code });
+        const known = ['INVALID_REQUEST', 'NOT_FOUND', 'ATTACHMENT_NOT_FOUND', 'NOTE_CHANGED', 'TOO_MANY_ATTACHMENTS', 'FORBIDDEN', 'DRIVE_FILE_MISSING', 'DRIVE_FORBIDDEN', 'DRIVE_UNAVAILABLE', 'RESULT_UNKNOWN', 'CONFIG_MISSING'].includes(code);
+        const message = known && e instanceof Error ? e.message : '결과를 확인하지 못했어요. 다시 열어 확인해 주세요.';
+        const status = !known || ['RESULT_UNKNOWN', 'DRIVE_UNAVAILABLE', 'CONFIG_MISSING'].includes(code) ? 503 : code === 'NOTE_CHANGED' ? 409 : code === 'FORBIDDEN' ? 403 : 400;
+        return json({ error: message, code: known ? code : 'RESULT_UNKNOWN' }, status);
       }
     }
     if (action === 'dev-inbox') {
