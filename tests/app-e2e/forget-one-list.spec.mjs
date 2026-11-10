@@ -7,6 +7,7 @@
 // - 각 버튼 동작은 기존 길 그대로(후보 상태 칸·가족 상태 칸·업데이트 보류 칸). 서버는 흉내, 글·이름은 모두 지어낸 것(가족 이름·번호·방 이름 없음).
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {pressRowAct} from './helpers/nbx-act.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const cid=n=>`c0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const fid=n=>`a0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -88,7 +89,7 @@ const list=page=>page.locator('#basketView [data-forget-section] .nbx-list');
 const line=(page,key)=>page.locator(`#basketView [data-nbx-row="${key}"]`);
 const noWide=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 // 버튼 줄이 한 줄인가: 모든 버튼의 세로 범위가 겹친다(가장 아래 버튼의 위가 가장 위 버튼의 아래보다 위). right = 가장 오른쪽 끝.
-const oneLine=gs=>gs.map(g=>{const bs=[...g.children].map(b=>b.getBoundingClientRect());return {one:Math.max(...bs.map(b=>b.top))<Math.min(...bs.map(b=>b.bottom)),right:Math.max(...bs.map(b=>b.right))};});
+const oneLine=gs=>gs.map(g=>{const bs=[...g.children].filter(b=>b.getClientRects().length).map(b=>b.getBoundingClientRect());return {one:Math.max(...bs.map(b=>b.top))<Math.min(...bs.map(b=>b.bottom)),right:Math.max(...bs.map(b=>b.right))};});
 const viewBtn=page=>page.locator('#basketView [data-forget-view-open]');
 async function pickView(page,label){
   await viewBtn(page).click();
@@ -103,11 +104,14 @@ for(const width of [390,884,1280])test(`${width}px: 칸 나눔 없이 한 목록
   await expect(list(page).locator('.nbx-src')).toHaveText(['업데이트','챙길 것','가족','텔레그램']);
   await expect(line(page,`c:${cid(1)}`).locator('.nbx-meta')).toHaveText('텔레그램가상 지부방 · 10/6');
   await expect(line(page,`c:${cid(3)}`).locator('.nbx-meta')).toHaveText('챙길 것업데이트에서 · 10/6');
+  // UI-잊지말기줄단추: 줄마다 같은 버튼(+ ⋯ 하나). 폰은 [할 일로][이미 함] ⋯ 만 보이고, PC는 버튼 전부(마우스 올린 줄만 보임 — 아래 시험).
   const seven=['할 일로','일정으로','노트로','조직','사업','이미 함','×'];
-  await expect(line(page,`c:${cid(1)}`).locator('.nbx-acts > button')).toHaveText(seven);
-  await expect(line(page,`f:${famId}`).locator('.nbx-acts > button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×']);
+  await expect(line(page,`c:${cid(1)}`).locator('.nbx-acts > button')).toHaveText([...seven,'⋯']);
+  await expect(line(page,`f:${famId}`).locator('.nbx-acts > button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×','⋯']);
   await expect(line(page,`c:${cid(3)}`).locator('.nbx-acts > button')).toHaveText([...seven,'⋯']);
   await expect(line(page,`u:${uid(1)}`).locator('.nbx-acts > button')).toHaveText([...seven,'⋯']);
+  const phone=width<761;
+  for(const r of [`c:${cid(1)}`,`f:${famId}`,`c:${cid(3)}`,`u:${uid(1)}`])await expect(line(page,r).locator('.nbx-acts > button:visible')).toHaveText(phone?['할 일로','이미 함','⋯']:r.startsWith('f:')?['할 일로','일정으로','노트로','이미 함','×','⋯']:[...seven,'⋯']);
   // 버튼 줄은 줄마다 한 줄(두 줄로 꺾이지 않음)이고 화면 밖으로 나가지 않는다.
   const rows=await list(page).locator('[data-nbx-row] .nbx-acts').evaluateAll(oneLine);
   for(const r of rows){expect(r.one).toBe(true);expect(r.right).toBeLessThanOrEqual(width);}
@@ -150,14 +154,14 @@ test('버튼 동작은 기존 길 그대로: 후보 [이미 함]·[×], 가족 [
   await expect.poll(()=>patches.length).toBe(2);expect(patches[1]).toMatchObject({id:cid(1),from:'done',body:{status:'open'}});
   await expect(line(page,`c:${cid(1)}`)).toBeVisible();
 
-  await line(page,`f:${famId}`).locator('[data-nbx-act="dismissed"]').click();
+  await pressRowAct(page,line(page,`f:${famId}`),'dismissed');
   await expect(line(page,`f:${famId}`)).toHaveCount(0);
   await expect.poll(()=>famPatches.length).toBe(1);expect(famPatches[0]).toMatchObject({status:'dismissed'});
   await page.locator('[data-undo-action]').click();
   await expect.poll(()=>famPatches.length).toBe(2);expect(famPatches[1]).toMatchObject({status:'new'});
   await expect(line(page,`f:${famId}`)).toBeVisible();
 
-  await line(page,`u:${uid(1)}`).locator('[data-nbx-act="dismissed"]').click();
+  await pressRowAct(page,line(page,`u:${uid(1)}`),'dismissed');
   await expect(line(page,`u:${uid(1)}`)).toHaveCount(0);
   await expect.poll(()=>notePatches.length).toBe(1);expect(notePatches[0].body.archived_at).toBeTruthy();
   await page.locator('[data-undo-action]').click();
@@ -171,7 +175,7 @@ test('업데이트 줄: 내용을 누르면 그 업데이트가 열리고, [조�
   await expect(page.locator('[data-basket-detail]')).toBeVisible();
   await page.goBack();
   await expect(line(page,`u:${uid(1)}`)).toBeVisible();
-  await line(page,`u:${uid(1)}`).locator('[data-nbx-act="org"]').click();
+  await pressRowAct(page,line(page,`u:${uid(1)}`),'org');
   await expect(page.locator('[data-basket-detail] [data-manual-pick="organization"]')).toBeVisible();
   await expect(page.getByRole('dialog',{name:'담당조직 선택'})).toBeVisible();
 });
@@ -192,7 +196,7 @@ for(const width of [390,884,1280])test(`소식 줄: '소식 · 텔레그램/통�
   await expect(line(page,`n:${nid(2)}`).locator('.nbx-src')).toHaveText('소식 · 텔레그램');
   await expect(line(page,`n:${nid(4)}`).locator('.nbx-src')).toHaveText('소식 · 통화');
   await expect(line(page,`n:${nid(2)}`).locator('.nbx-body')).toHaveText('가상 지부 · 가상 소식 2');
-  for(const n of [2,4])await expect(line(page,`n:${nid(n)}`).locator('.nbx-acts > button')).toHaveText(['할 일로','일정으로','노트로','조직','사업','이미 함','×']);
+  for(const n of [2,4])await expect(line(page,`n:${nid(n)}`).locator('.nbx-acts > button')).toHaveText(['할 일로','일정으로','노트로','조직','사업','이미 함','×','⋯']);
   await expect(list(page).locator('[data-forget-news-more]')).toHaveCount(0);
   for(const r of await list(page).locator('[data-forget-src="news"] .nbx-acts').evaluateAll(oneLine)){expect(r.one).toBe(true);expect(r.right).toBeLessThanOrEqual(width);}
   // 처리 전 수: 업데이트 1 + 챙길 것 1 + 텔레그램 요청 1 + 가족 1 + 소식 2 = 6 (메뉴 '홈' 표시와 같은 숫자).
@@ -209,7 +213,7 @@ for(const width of [390,884,1280])test(`소식 줄: '소식 · 텔레그램/통�
 test('소식 줄 [조직]: 창 맨 위 \'조직 › 가상 지부에 넣기\'로 담당조직 기록(이번 주 조직보고 제안 길), 맞는 조직 없으면 그 줄 없음, ×는 무시·되돌리기',async({page})=>{
   const news=[newsRow(2,{org_name:'가상지부'}),newsRow(4,{org_name:'모르는 팀'})];
   const {newsPatches,orgPosts}=await fixture(page,{width:1280,news});
-  await line(page,`n:${nid(2)}`).locator('[data-nbx-act="org"]').click();
+  await pressRowAct(page,line(page,`n:${nid(2)}`),'org');
   const sheet=page.locator('#areaOrgPickSheet');
   await expect(sheet).toBeVisible();
   await expect(sheet.locator('.aop-list [data-sheet-value]').first()).toHaveText('조직 › 가상 지부에 넣기');
@@ -220,12 +224,12 @@ test('소식 줄 [조직]: 창 맨 위 \'조직 › 가상 지부에 넣기\'로
   expect(newsPatches[0]).toMatchObject({id:nid(2),body:{status:'kept',final_line:'가상 소식 2',drop_reason:null}});
   await expect(line(page,`n:${nid(2)}`)).toHaveCount(0);
   // 담당조직과 이름이 안 맞으면 맨 위 한 번에 넣기 줄은 없다(목록에서 직접 선택).
-  await line(page,`n:${nid(4)}`).locator('[data-nbx-act="org"]').click();
+  await pressRowAct(page,line(page,`n:${nid(4)}`),'org');
   await expect(sheet).toBeVisible();
   await expect(sheet.locator('[data-forget-org-match]')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
-  await line(page,`n:${nid(4)}`).locator('[data-nbx-act="dismissed"]').click();
+  await pressRowAct(page,line(page,`n:${nid(4)}`),'dismissed');
   await expect.poll(()=>newsPatches.length).toBe(2);
   expect(newsPatches[1]).toMatchObject({id:nid(4),body:{status:'dropped'}});
   await expect(line(page,`n:${nid(4)}`)).toHaveCount(0);
@@ -241,7 +245,7 @@ test('소식 줄 [조직]: 창 맨 위 \'조직 › 가상 지부에 넣기\'로
 });
 test('텔레그램 요청 [조직]: 고른 담당조직 기록으로 넣고 후보는 이미 함(done)으로 뺀다',async({page})=>{
   const {patches,orgPosts}=await fixture(page,{width:390});
-  await line(page,`c:${cid(1)}`).locator('[data-nbx-act="org"]').click();
+  await pressRowAct(page,line(page,`c:${cid(1)}`),'org');
   const sheet=page.locator('#areaOrgPickSheet');
   await expect(sheet).toBeVisible();
   await sheet.locator('.aop-list [data-sheet-value="o:d0000000-0000-4000-8000-000000000001"]').click();
@@ -263,7 +267,7 @@ for(const width of [390,1280])test(`소식 줄 새 기준: 이유 한 줄 + 맞�
   await expect(line(page,`n:${nid(2)}`).locator('.nbx-why')).toHaveText('조직보고 · 가상 지부');
   await expect(line(page,`n:${nid(2)}`).locator('[data-nbx-hint]')).toHaveText('조직');
   await expect(line(page,`n:${nid(4)}`).locator('[data-nbx-hint]')).toHaveText('일정으로');
-  await expect(line(page,`n:${nid(4)}`).locator('.nbx-acts > button')).toHaveText(['할 일로','일정으로','노트로','조직','사업','이미 함','×']);
+  await expect(line(page,`n:${nid(4)}`).locator('.nbx-acts > button')).toHaveText(['할 일로','일정으로','노트로','조직','사업','이미 함','×','⋯']);
   const w=await line(page,`n:${nid(2)}`).locator('[data-nbx-hint]').evaluate(b=>Number(getComputedStyle(b).fontWeight));
   expect(w).toBeGreaterThan(400);expect(w).toBeLessThanOrEqual(500);
   // 업데이트 1 + 챙길 것 1 + 텔레그램 요청 1 + 가족 1 + 새 기준 소식 2 = 6(옛 기준 1은 세지 않음).
@@ -304,4 +308,75 @@ test('운영자 기능(통화·텔레그램)이 없는 작업공간은 소식 �
   await expect(list(page).locator('[data-nbx-row]')).toHaveCount(3);
   await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(0);
   expect(asked).toEqual([]);
+});
+
+// UI-잊지말기줄단추(요청함 11/10 11:23, 명진 '추천대로' — 11/7 줄 단추 결정을 바꿈): 폰은 줄에 [할 일로][이미 함] ⋯ 만,
+// [일정으로][노트로][조직][사업]·×([무시])는 ⋯ 메뉴 안 같은 이름. PC는 마우스를 올린 줄·키보드 초점 줄에만 버튼 전부(할 일 줄과 같은 방식),
+// 우클릭은 그 줄 ⋯ 메뉴. 사진: FORGET_ROW_SHOTS 폴더가 있으면 docs/design/screens/s56-7/ 용으로 남긴다.
+const ROW_SHOTS=process.env.FORGET_ROW_SHOTS||'';
+const opacity=l=>l.evaluate(e=>Number(getComputedStyle(e).opacity));
+test('PC 1280: 버튼은 마우스 올린 줄·초점 줄에만 전부 보이고, 우클릭은 그 줄 ⋯ 메뉴(접힌 동작 같은 이름) — [무시]는 ×와 같은 길',async({page},info)=>{
+  const {patches}=await fixture(page,{width:1280});
+  const a=line(page,`c:${cid(3)}`),b=line(page,`c:${cid(1)}`);
+  await page.mouse.move(2,2);
+  for(const r of [a,b])expect(await opacity(r.locator('.nbx-acts'))).toBe(0);
+  await b.locator('.nbx-body').hover();
+  expect(await opacity(b.locator('.nbx-acts'))).toBe(1);
+  expect(await opacity(a.locator('.nbx-acts'))).toBe(0);
+  await expect(b.locator('.nbx-acts > button:visible')).toHaveText(['할 일로','일정으로','노트로','조직','사업','이미 함','×','⋯']);
+  if(ROW_SHOTS)await page.screenshot({path:`${ROW_SHOTS}/forget-row-pc-1280.png`});
+  await page.screenshot({path:info.outputPath('forget-row-pc-1280.png')});
+  // 키보드: 마우스가 없어도 초점이 줄 안 버튼에 오면 그 줄 버튼이 보인다.
+  await page.mouse.move(2,2);
+  await a.locator('[data-nbx-act="task"]').focus();
+  expect(await opacity(a.locator('.nbx-acts'))).toBe(1);
+  expect(await opacity(b.locator('.nbx-acts'))).toBe(0);
+  // 우클릭(줄 내용 위) = 그 줄 ⋯ 메뉴: 줄 버튼과 같은 이름, 챙길 것 줄은 기존 셋이 그 아래.
+  await a.locator('.nbx-meta').click({button:'right'});
+  const menu=page.locator('#forgetRowMenu');
+  await expect(menu).toBeVisible();
+  await expect(menu.locator('button')).toHaveText(['일정으로','노트로','조직','사업','무시','수정해서 할 일로','이미 할 일에 있음','내 일 아님']);
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  // 텔레그램 줄 ⋯ 메뉴: 기존 셋 없이 접힌 다섯. [무시] = ×와 같은 길(무시로 빼고 되돌리기).
+  await b.locator('.nbx-more').click();
+  await expect(menu.locator('button')).toHaveText(['일정으로','노트로','조직','사업','무시']);
+  await menu.getByRole('button',{name:'무시',exact:true}).click();
+  await expect(b).toHaveCount(0);
+  expect(patches[0]).toMatchObject({id:cid(1),from:'open',body:{status:'dismissed'}});
+  await page.locator('[data-undo-action]').click();
+  await expect(line(page,`c:${cid(1)}`)).toBeVisible();
+});
+
+for(const width of [412,884])test(`폰 ${width}(터치): 줄에는 [할 일로][이미 함] ⋯ 만, ⋯ 메뉴의 같은 이름으로 나머지가 그대로 된다`,async({browser},info)=>{
+  const ctx=await browser.newContext({hasTouch:true,isMobile:width<761,viewport:{width,height:900}});
+  const page=await ctx.newPage();
+  const {patches,famPatches,notePatches,orgPosts}=await fixture(page,{width});
+  for(const r of [`c:${cid(1)}`,`c:${cid(3)}`,`f:${famId}`,`u:${uid(1)}`])await expect(line(page,r).locator('.nbx-acts > button:visible')).toHaveText(['할 일로','이미 함','⋯']);
+  for(const r of await list(page).locator('[data-nbx-row] .nbx-acts').evaluateAll(oneLine)){expect(r.one).toBe(true);expect(r.right).toBeLessThanOrEqual(width);}
+  expect(await noWide(page)).toBe(true);
+  if(ROW_SHOTS)await page.screenshot({path:`${ROW_SHOTS}/forget-row-phone-${width}.png`});
+  await page.screenshot({path:info.outputPath(`forget-row-phone-${width}.png`)});
+  // 가족 줄 ⋯: 조직·사업 없음, [무시] = ×와 같은 길.
+  await line(page,`f:${famId}`).locator('.nbx-more').tap();
+  const menu=page.locator('#forgetRowMenu');
+  await expect(menu.locator('button')).toHaveText(['일정으로','노트로','무시']);
+  if(ROW_SHOTS&&width===412)await page.screenshot({path:`${ROW_SHOTS}/forget-row-phone-menu-412.png`});
+  await menu.getByRole('button',{name:'무시',exact:true}).tap();
+  await expect.poll(()=>famPatches.length).toBe(1);expect(famPatches[0]).toMatchObject({status:'dismissed'});
+  // 텔레그램 줄 ⋯ [조직]: 줄 버튼 [조직]과 같은 창, 고르면 담당조직 기록 + 이미 함.
+  await line(page,`c:${cid(1)}`).locator('.nbx-more').tap();
+  await menu.getByRole('button',{name:'조직',exact:true}).tap();
+  const sheet=page.locator('#areaOrgPickSheet');
+  await expect(sheet).toBeVisible();
+  await sheet.locator('.aop-list [data-sheet-value="o:d0000000-0000-4000-8000-000000000001"]').tap();
+  await expect.poll(()=>orgPosts.length).toBe(1);
+  await expect.poll(()=>patches.length).toBe(1);expect(patches[0]).toMatchObject({id:cid(1),body:{status:'done'}});
+  // 업데이트 줄 ⋯(정리함 메뉴): 이름은 [할 일로]·[노트로], 접힌 [일정으로][조직][사업]과 × 자리 [보류로].
+  await line(page,`u:${uid(1)}`).locator('.nbx-more').tap();
+  const umenu=page.locator('#basketRowMenu');
+  await expect(umenu.locator('button')).toHaveText(['복사','수정','연결하기','할 일로','일정으로','노트로','일기로 보내기','조직','사업','사업 보고로 옮기기','보류로','삭제']);
+  await umenu.getByRole('button',{name:'보류로',exact:true}).tap();
+  await expect.poll(()=>notePatches.length).toBe(1);expect(notePatches[0].body.archived_at).toBeTruthy();
+  await ctx.close();
 });

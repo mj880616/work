@@ -6,6 +6,7 @@
 // - 상태 칸(status·decided_at·updated_at)만 고친다. 노트는 기존 노트 저장 길(app_notes). 서버는 흉내, 글은 모두 지어낸 것.
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {pressRowAct} from './helpers/nbx-act.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const id=n=>`f0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const FOLDER='a0000000-0000-4000-8000-000000000001',LIST='b0000000-0000-4000-8000-000000000001';
@@ -73,13 +74,15 @@ test('한 목록의 가족 줄: [할 일로][일정으로][노트로][이미 함
   const first=box(page).locator(`[data-nbx-row="f:${id(1)}"]`);
   await expect(first.locator('.nbx-tag')).toHaveText('예정');
   await expect(first.locator('.nbx-meta')).toHaveText('가족말한 때: 토요일 저녁 · 텔레그램 · 10/5');
-  await expect(first.locator('.nbx-acts button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×']);
+  await expect(first.locator('.nbx-acts button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×','⋯']);
+  // UI-잊지말기줄단추: 폰은 [할 일로][이미 함] ⋯ 만 보이고, 나머지는 ⋯ 메뉴 안에 같은 이름(가족 줄은 조직·사업 없음).
+  await expect(first.locator('.nbx-acts button:visible')).toHaveText(['할 일로','이미 함','⋯']);
   const second=box(page).locator(`[data-nbx-row="f:${id(2)}"]`);
   await expect(second.locator('.nbx-tag')).toHaveCount(0);
   await expect(second.locator('b')).toHaveCount(0);
   await expect(second).toContainText('<b>새로 생긴 빵집</b>');
   // 폰 폭: 버튼은 작은 줄 오른쪽 한 줄, 가로 넘침 없음.
-  const mids=await first.locator('.nbx-acts button').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2;}));
+  const mids=await first.locator('.nbx-acts button:visible').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2;}));
   expect(Math.max(...mids)-Math.min(...mids)).toBeLessThanOrEqual(2);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
@@ -88,7 +91,7 @@ test('접은 폰 폭(344): 버튼 다섯 개가 한 줄(공용 줄 버튼), 가�
   await fixture(page,{width:344});
   const first=box(page).locator(`[data-nbx-row="f:${id(1)}"]`);
   await expect(first.locator('.nbx-acts button')).toHaveCount(5);
-  const mids=await first.locator('.nbx-acts button').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2;}));
+  const mids=await first.locator('.nbx-acts button:visible').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2;}));
   expect(Math.max(...mids)-Math.min(...mids)).toBeLessThanOrEqual(2);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
@@ -101,7 +104,7 @@ test('제안이 없으면 가족 줄이 없다(빈 칸·안내 없음)',async({p
 
 test('[×](5초 되돌리기): 상태 칸만 수정한다',async({page})=>{
   const {patches}=await fixture(page);
-  await box(page).locator(`[data-nbx-row="f:${id(1)}"] [data-nbx-act="dismissed"]`).click();
+  await pressRowAct(page,box(page).locator(`[data-nbx-row="f:${id(1)}"]`),'dismissed');
   await expect.poll(()=>patches.length).toBe(1);
   expect(Object.keys(patches[0].body).sort()).toEqual(['decided_at','status','updated_at']);
   expect(patches[0]).toMatchObject({id:id(1),body:{status:'dismissed'}});
@@ -127,7 +130,7 @@ test('[노트로]: 가족 폴더의 잊지 말기 노트에 체크 한 줄을 �
   const lists=[{id:LIST,title:'잊지 말기',doc:LIST_DOC,raw_text:'☐ 예전 줄 (통화 10/1)',updated_at:'2026-10-05T00:00:00Z',ai_export_allowed:false,metadata:{family_list:true,folder_id:FOLDER,folder:'가족'}}];
   const {patches,notePatches,notePosts}=await fixture(page,{lists});
   // 먼저 열었다 닫기: 쓰기 없음.
-  await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="note"]`).click();
+  await pressRowAct(page,box(page).locator(`[data-nbx-row="f:${id(2)}"]`),'note');
   await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await expect(win(page)).toBeVisible();
   // 줄 글이 미리 채워진 새 글 창이라 닫을 때 한 번 묻는다(기존 노트 창 규칙 그대로) → '저장하지 않고 닫기'.
@@ -135,7 +138,7 @@ test('[노트로]: 가족 폴더의 잊지 말기 노트에 체크 한 줄을 �
   await page.getByRole('button',{name:'저장하지 않고 닫기'}).click();
   await expect(win(page)).toHaveCount(0);
   expect(notePatches.length+notePosts.length+patches.length).toBe(0);
-  await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="note"]`).click();
+  await pressRowAct(page,box(page).locator(`[data-nbx-row="f:${id(2)}"]`),'note');
   await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await expect(win(page).locator('.ProseMirror')).toHaveText('☐ <b>새로 생긴 빵집</b> 소금빵이 맛있었다고 함 (통화 10/5)');
   await expect(win(page).locator('[data-edw-target]')).toHaveText('잊지 말기 ▾');
@@ -157,7 +160,7 @@ test('[노트로]: 가족 폴더의 잊지 말기 노트에 체크 한 줄을 �
 
 test('[노트로]: 가족 폴더·잊지 말기 노트가 없으면 만들어 넣는다. [＋ 새 노트로]는 표시 없이 그 줄 제목으로',async({page})=>{
   const {patches,notePosts,folderPosts}=await fixture(page,{folders:[]});
-  await box(page).locator(`[data-nbx-row="f:${id(1)}"] [data-nbx-act="note"]`).click();
+  await pressRowAct(page,box(page).locator(`[data-nbx-row="f:${id(1)}"]`),'note');
   await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await expect(win(page).locator('[data-edw-folder]')).toHaveText('가족 ▾');
   await win(page).locator('[data-edw-save]').click();
@@ -167,7 +170,7 @@ test('[노트로]: 가족 폴더·잊지 말기 노트가 없으면 만들어 �
   expect(notePosts).toHaveLength(1);
   expect(notePosts[0]).toMatchObject({kind:'note',title:'잊지 말기',ai_export_allowed:false,raw_text:'☐ 토요일 저녁에 동네 산책 가자고 함 (텔레그램 10/5 · 말한 때: 토요일 저녁)',
     metadata:{family_list:true,folder:'가족',folder_id:'a0000000-0000-4000-8000-000000000009'}});
-  await box(page).locator(`[data-nbx-row="f:${id(2)}"] [data-nbx-act="note"]`).click();
+  await pressRowAct(page,box(page).locator(`[data-nbx-row="f:${id(2)}"]`),'note');
   await page.locator("[data-nq-big]").click(); // FORGET-노트작은창: 작은 창에서 [크게 수정 ↗]로 큰 창
   await expect(win(page).locator('[data-edw-folder]')).toHaveText('가족 ▾');
   await win(page).locator('[data-edw-target]').click();

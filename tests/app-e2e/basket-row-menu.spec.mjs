@@ -8,7 +8,7 @@ import { answerAsk } from './helpers/small-notice.mjs';
 import { pickBasketView } from './helpers/forget-view.mjs';
 
 // UI-업데이트목록메뉴: every update row has [복사] and [⋯] at its top right (same look and behavior as the note rows, UI-노트메뉴정리).
-// The ⋯ holds 수정 · 연결하기 · 할 일 만들기 · 노트로 옮기기 · 삭제 (삭제 last, danger color) and opens right under the pressed ⋯.
+// The ⋯ holds 수정 · 연결하기 · 할 일로 · 노트로 · 삭제 (삭제 last, danger color) and opens right under the pressed ⋯.
 // Esc (focus back to the ⋯), an outside press or choosing an item closes it; only one is open at a time. Each item reuses the
 // update detail's own path: 수정 opens the detail in edit mode, 연결하기·할 일 만들기 open the detail with that panel open,
 // 노트로 옮기기 asks once then moves like the detail's button, 삭제 is the detail's delete (same confirmation, server note-delete).
@@ -68,7 +68,8 @@ for (const width of [390, 1280]) {
     const item = page.locator(`[data-basket-row-item="${A}"]`);
     const mb = await more.boundingBox(), ib = await item.boundingBox();
     expect(mb.x + mb.width).toBeGreaterThan(ib.x + ib.width - 24);
-    const xb = await item.locator('.nbx-x').boundingBox(); expect(Math.round(mb.height)).toBe(Math.round(xb.height)); // 같은 ⑥ 아이콘(× 와 같은 크기)
+    // 같은 ⑥ 아이콘(× 와 같은 크기). UI-잊지말기줄단추: 터치 화면(이 시험은 hasTouch)은 ×가 ⋯ 안으로 접혀 줄에 없다.
+    const xb = await item.locator('.nbx-x').boundingBox(); if (xb) expect(Math.round(mb.height)).toBe(Math.round(xb.height)); else await expect(item.locator('.nbx-x')).toBeHidden();
     await expect(copy).toHaveCount(0); await expect(page.locator('[data-basket-row-copy]')).toHaveCount(0);
     await expect(row).toBeVisible();
     // A row with nothing to copy keeps only the ⋯, in the same place.
@@ -76,7 +77,7 @@ for (const width of [390, 1280]) {
     { await press(page, rowMore(page, C), width); await expect(menu(page).getByRole('button', { name: '복사', exact: true })).toHaveCount(0); await expect(menu(page).locator('button').first()).toHaveText('수정'); await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden(); }
     await press(page, more, width);
     await expect(menu(page)).toBeVisible(); await expect(more).toHaveAttribute('aria-expanded', 'true');
-    await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '일기로 보내기', '사업 보고로 옮기기', '업무일지에 남기기', '보류로', '삭제']);
+    await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '연결하기', '할 일로', '일정으로', '노트로', '일기로 보내기', '조직', '사업', '사업 보고로 옮기기', '업무일지에 남기기', '보류로', '삭제']);
     await expect(menu(page).locator('button').last()).toHaveClass(/basket-menu-danger/);
     for (const b of await menu(page).locator('button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
     const m = await menu(page).boundingBox();
@@ -136,7 +137,7 @@ for (const width of [390, 1280]) {
     await page.keyboard.press('Escape'); await expect(detail(page).locator('[data-basket-read-actions]')).toBeVisible();
     await press(page, detail(page).locator('[data-basket-close]'), width);
     // 할 일 만들기: the detail opens with the task form open, its title from the first line.
-    await choose(page, A, '할 일 만들기', width);
+    await choose(page, A, '할 일로', width);
     await expect(detail(page).locator('[data-basket-manual]')).toBeVisible();
     await expect(detail(page).locator('[data-manual-task-title]')).toHaveValue('합성 교섭 결과 공유');
     await expect(detail(page).locator('[data-basket-read-actions]')).toBeHidden();
@@ -147,13 +148,13 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, width);
     // S48-28: each question is the shared small confirm (.kptu-ask); every message is kept.
     const asked = [];
-    // 노트로 옮기기: one question; cancel changes nothing and stays on the list.
-    await choose(page, B, '노트로 옮기기', width);
+    // [노트로](옛 노트로 옮기기): one question; cancel changes nothing and stays on the list.
+    await choose(page, B, '노트로', width);
     asked.push(await answerAsk(page, false));
     expect(asked[0]).toBe('‘합성 둘째 업데이트’을(를) 노트로 옮길까요?');
     await expect(detail(page)).toBeHidden(); await expect(rowMore(page, B)).toBeFocused(); expect(f.writes).toEqual([]);
     // Accept: the detail's own move (first line as the title), then the note opens.
-    await choose(page, B, '노트로 옮기기', width);
+    await choose(page, B, '노트로', width);
     asked.push(await answerAsk(page, true));
     await expect(page.locator('#toast')).toHaveText('노트로 옮겼어요.');
     await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');
@@ -217,7 +218,7 @@ test('an archived update leaves 연결하기 out of its row menu, as the detail 
   await pickBasketView(page,'archived');
   await expect(rowMore(page, B)).toBeVisible();
   await rowMore(page, B).click();
-  await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '할 일 만들기', '노트로 옮기기', '일기로 보내기', '사업 보고로 옮기기', '보류 해제', '삭제']);
+  await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '할 일로', '노트로', '일기로 보내기', '사업 보고로 옮기기', '보류 해제', '삭제']);
   await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden();
   expect(f.errors).toEqual([]);
 });
