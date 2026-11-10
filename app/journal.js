@@ -563,7 +563,9 @@ function renderWeekly_({refreshBox = true} = {}) {
   // WEEKLY-조직이름한줄 덧붙임: 표 칸 폭 끌기(1) 임원 배정·2) 주요 일정·3) 상집 논의·5. 주요 일정) — 공용 col-resize.js, 서버 저장(화면 종류별).
   for (const table of host.querySelectorAll('table[data-wk-cols]')) W.mountWeeklyCols(table, table.dataset.wkCols);
   // WEEKLY-한흐름확정 ⑤ 남은 부분: 5. 주요 일정·참고 [+ 추가](손으로 더한 줄, weekly-hand-lines.js가 그 자리만 그림) — 같은 저장·같은 맞춤.
-  W.paintDetailLines(host.querySelector('[data-journal-weekly-detail-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
+  // BIZ-기록하나로 B-4 ②: 전환 주부터 2. 2)는 주요 사업 창(사업 기록 + 사업 보고를 사업별로, biz-detail-window.js). 옛 주는 옛 줄(draft.hand) 그대로.
+  if (isRecordWeek(start)) paintBizDetail(host);
+  else W.paintDetailLines(host.querySelector('[data-journal-weekly-detail-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // S52-31: 5. 주요 일정 제목 줄 [AI로 다듬기](달력 일정이 있을 때, + 추가 옆 작은 글자 버튼) — 아래로 따로 빠진 칸 고치기 덩어리에서 옮김.
   const aiLead = weekModel.calendar?.rows?.length ? [{text:'AI로 다듬기', data:'journalScheduleAi', aria:'5. 주요 일정 제목 AI로 다듬기', disabled:!!weekModel.scheduleView?.aiBusy}] : [];
   for (const part of ['calendar', 'notes']) W.paintHandLines(host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek), lead:part === 'calendar' ? aiLead : []});
@@ -630,17 +632,17 @@ function weekOrgLines() {
 // 같은 조직 기록 3~7줄, 사업장 빼기·순서·추가는 draft.site_layout 그대로), 2. 1) 사업요약 = 사업 보고 '이번 주 주간보고'와 같은 사업요약 창
 // (weekly-summary-table.js createBizSummaryBox, app_business_now 이어 쓰기). 세 칸 모두 담당조직 전체 표·사업 보고와 같은 자료라 어디서 고쳐도 같은 글.
 // 한글 파일(journal-hwpx.js)은 O-6까지 지금 길(주별 조직보고 표·임시저장 칸) 그대로다.
-let RW = null, rwFlight = null, weekWin = null, siteWin = null, winMsg = {text:'', error:false}, siteMsg = {text:'', error:false}, winOrgs = [], bizWeekly = null;
+let RW = null, rwFlight = null, weekWin = null, siteWin = null, winMsg = {text:'', error:false}, siteMsg = {text:'', error:false}, winOrgs = [], bizWeekly = null, bizDetail = null;
 const winSlot = () => $('[data-journal-weekly] [data-weekly-flow-cells="orgs"]');
 const sitesSlot = () => $('[data-journal-weekly] [data-weekly-flow-cells="sites"]');
 function winKit() {
   if (RW) return true;
-  rwFlight ||= Promise.all([import('./record-window-view.js'), import('./weekly-summary-table.js'), import('./org-name-match.mjs'), import('./org-dispute-stage.js'), import('./org-dispute-stage-model.mjs'), import('./weekly-cell-names.mjs')])
-    .then(([view, biz, names, stage, stageModel, cells]) => {
-      RW = {view, biz, names, stage, stageModel, cells};
+  rwFlight ||= Promise.all([import('./record-window-view.js'), import('./weekly-summary-table.js'), import('./org-name-match.mjs'), import('./org-dispute-stage.js'), import('./org-dispute-stage-model.mjs'), import('./weekly-cell-names.mjs'), import('./biz-detail-window.js')])
+    .then(([view, biz, names, stage, stageModel, cells, detail]) => {
+      RW = {view, biz, names, stage, stageModel, cells, detail};
       // 3. 2) 칸 맨 위 쟁의 단계 줄을 고르려고 단계 목록을 한 번 읽는다(못 읽으면 단계 줄 없이 기록 줄만).
       void stage.loadDisputeState({rt, workspaceId:rt.context.read()?.workspace?.id}).then(() => paintSites(), () => {});
-      if (mode === 'week') redrawFlow();
+      if (mode === 'week') { redrawFlow(); const h = $('[data-journal-weekly]'); if (h && isRecordWeek(start)) paintBizDetail(h); }
     }, error => { rwFlight = null; console.warn('record window load', error?.message || error); });
   return false;
 }
@@ -703,6 +705,16 @@ function paintBizWeekly(host) {
   if (bizWeekly.el.parentNode !== slot) slot.replaceChildren(bizWeekly.el);
   const meetings = materials.meetings?.status === 'ok' && Array.isArray(materials.meetings.items) ? materials.meetings.items : NO_MEETINGS;
   bizWeekly.update({meetings:() => meetings, week:start, tree:activeTree});
+}
+// BIZ-기록하나로 B-4 ②: 2. 2) 주요 사업 창 — 부품 상자 하나를 그 자리에 옮겨 붙인다(사업 보고 '이번 주 주간보고' 2)와 같은 부품).
+// 이 화면이 읽은 그 주 사업 보고·늘 빼는 종류·활성 사업 나무를 넘긴다(따로 읽지 않음). 줄 ⋯ [이 종류 늘 빼기]는 이 화면 toggleKind가 받는다.
+function paintBizDetail(host) {
+  const slot = host.querySelector('[data-journal-weekly-detail-slot]'); if (!slot) return;
+  if (!winKit()) { slot.innerHTML = waitHtml({rows:2}); return; }
+  bizDetail ||= RW.detail.createBizDetailBox({rt, kinds:true});
+  if (bizDetail.el.parentNode !== slot) slot.replaceChildren(bizDetail.el);
+  const meetings = materials.meetings?.status === 'ok' && Array.isArray(materials.meetings.items) ? materials.meetings.items : NO_MEETINGS;
+  bizDetail.update({week:start, meetings:() => meetings, hidden:kinds?.status === 'ok' ? kinds.list : null, tree:activeTree});
 }
 // ORG-기록하나로 O-6(설계 2-8): 한글 파일 4. 1)·3. 2)와 [확정] 사진 = 이 화면 두 창(4. 조직보고·3. 2) 사업장)의 보이는 줄 그대로.
 // 둘 다 그 주를 다 읽었을 때만(일정 포함) 준다 — 아니면 null(한글 상자가 '읽는 중' 안내 후 만들지 않음).

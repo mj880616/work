@@ -43,3 +43,13 @@
 .biz-week-compact .biz-paper{max-width:none;margin:0;padding:0;border:0;background:transparent}
 .biz-week-compact .biz-week-status{margin:2px 0 0;font-size:12px;color:var(--kptu-muted)}
 .biz-week-compact .biz-week-status:empty{display:none}
+/* BIZ-기록하나로 B-4 ②: 2. 2) 주요 사업 창(biz-detail-window.js) — 사업 묶음 이름 + 조직보고 창과 같은 줄 모양(weekly-org-lines.css .wl-line), 상세 포함은 줄 아래 흐린 작은 본문. */
+.bd-box{min-width:0}
+.bd-group{margin:0 0 6px}
+.bd-label{margin:0;font-weight:var(--ds-weight-medium,500);font-size:var(--ds-text-meta,12px);color:var(--kptu-ink)}
+.bd-body{margin:0 0 2px 1.2em;padding-left:6px;border-left:2px solid var(--kptu-border);color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);line-height:1.45}
+.bd-body p{margin:0;overflow-wrap:anywhere}
+.bd-body-more{font-style:normal;opacity:.8}
+.bd-foot{margin-top:2px}
+.bd-box .wl-form select{box-sizing:border-box;height:var(--ds-compact-height-sm,26px);max-width:100%;font:inherit;font-size:var(--ds-text-meta,12px)}
+.bd-box .wl-status:empty{display:none}
