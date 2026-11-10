@@ -92,6 +92,9 @@ on:
       - 'tests/meeting-attendees.test.mjs'
       - 'tests/meeting-transcript-long.test.mjs'
       - 'tests/meeting-server-job.test.mjs'
+      - 'tests/meeting-summary-split.test.mjs'
+      - 'supabase/migrations/20261111010000_meeting_server_job_fail_log.sql'
+      - 'docs/20261111010000_meeting_server_job_fail_log.*'
       - 'app/meeting-server-job.mjs'
       - 'supabase/functions/meeting-transcribe/server-job.mjs'
       - 'supabase/functions/_shared/meeting-draft-prompt.mjs'
@@ -295,6 +298,9 @@ on:
       - 'tests/meeting-attendees.test.mjs'
       - 'tests/meeting-transcript-long.test.mjs'
       - 'tests/meeting-server-job.test.mjs'
+      - 'tests/meeting-summary-split.test.mjs'
+      - 'supabase/migrations/20261111010000_meeting_server_job_fail_log.sql'
+      - 'docs/20261111010000_meeting_server_job_fail_log.*'
       - 'app/meeting-server-job.mjs'
       - 'supabase/functions/meeting-transcribe/server-job.mjs'
       - 'supabase/functions/_shared/meeting-draft-prompt.mjs'
@@ -679,7 +685,7 @@ jobs:
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
 
       - name: Meeting transcript → meeting record draft (MTG-녹음초안)
-        run: node --test tests/meeting-transcript-model.test.mjs tests/meeting-transcript-long.test.mjs tests/meeting-server-job.test.mjs
+        run: node --test tests/meeting-transcript-model.test.mjs tests/meeting-transcript-long.test.mjs tests/meeting-server-job.test.mjs tests/meeting-summary-split.test.mjs
 
       - name: Meeting attendees line (MTG-참석인원칸)
         run: node --test tests/meeting-attendees.test.mjs

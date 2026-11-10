@@ -104,11 +104,37 @@ export function joinParts(parts) {
 export const cleanText = (text) => String(text || '').replace(/\r\n?/g, '\n').split('\0').join('').split('\n').map((l) => l.replace(/\s+$/, '')).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 export const hasWords = (text) => !!String(text || '').replace(/^―.*―$/gm, '').trim();
 
+// ---- 요약 반 나눔 표시(설계 9절): 답이 잘린(draft_cut) 조각 자리에 {halves:[끝난 반 요약…]}를 두고 한 단계에 반 하나씩. ----
+export const isHalfMark = (o) => !!o && typeof o === 'object' && !Array.isArray(o) && Array.isArray(o.halves) && Object.keys(o).length === 1 && o.halves.length < 2;
+export const halfMark = () => ({ halves: [] });
+
+// 요약이 시간 안에 끝나지 못한 이유(요청 시간 초과 · 실행이 끊김) — 같은 크기로 다시 하면 또 걸리므로 반으로 나눠 잇는다.
+export const SPLIT_CODES = Object.freeze(['draft_cut', 'draft_timeout', 'draft_step_cut', 'step_cut']);
+// 지금 요약할 조각(한 번 요약 'one' 또는 조각 요약 'part')을 반 나눔 표시로 바꾼 summary_parts. 나눌 수 없으면 null.
+export function splitSummary(transcript, summaryParts) {
+  const list = Array.isArray(summaryParts) ? summaryParts : [];
+  const plan = summaryPlan(transcript, list);
+  if (plan.kind === 'one' && halves(plan.pieces[0] || '')) return [halfMark()];
+  if (plan.kind === 'part' && halves(plan.pieces[plan.next] || '')) return [...list, halfMark()];
+  return null;
+}
+
+// 작업 행 그대로(요약할 글·끝난 조각 요약)로 나눔(stepOnce의 끊긴 뒤·jobRetry).
+export const splitJobSummary = (job) => splitSummary(job?.transcript_text, job?.summary_parts);
+
 // 요약 단계 계획: 조각이 하나면 한 번, 아니면 조각마다 + 합치기 한 번. count = 합칠 부분 요약 수.
 // 조각이 하나인데 답이 길어 잘려(draft_cut) 반으로 나눠 요약해 둔 경우(조각 요약 2개)는 그 둘을 합친다(REC-정리멈춤반복).
+// 마지막 항목이 반 나눔 표시면 kind 'half': at = 그 조각 자리, half = 이번에 요약할 반(0·1).
 export function summaryPlan(transcript, summaryParts) {
   const pieces = splitTranscript(transcript);
-  const done = Array.isArray(summaryParts) ? summaryParts.length : 0;
+  const list = Array.isArray(summaryParts) ? summaryParts : [];
+  const last = list[list.length - 1];
+  if (list.length && isHalfMark(last)) {
+    const at = list.length - 1, single = pieces.length <= 1;
+    const piece = single ? pieces[0] || '' : pieces[at] || '';
+    return { kind: 'half', pieces, piece, at, half: last.halves.length, single, total: single ? 3 : pieces.length + 1, next: at, count: single ? 2 : pieces.length };
+  }
+  const done = list.length;
   if (pieces.length <= 1) {
     if (done >= 2) return { kind: 'merge', pieces, total: done + 1, next: done, count: done };
     return { kind: 'one', pieces, total: 1, next: 0, count: 0 };

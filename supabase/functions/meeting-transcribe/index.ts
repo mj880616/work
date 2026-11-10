@@ -45,7 +45,7 @@ import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meet
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
-  audioDocument, cleanText, combineDrafts, doneParts, draftResult, halves, hasWords, jobView, joinParts, leaseTake, needsKick, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, summaryPlan, tickCheck, tickSign,
+  SPLIT_CODES, audioDocument, cleanText, combineDrafts, doneParts, draftResult, halfMark, halves, hasWords, jobView, joinParts, leaseTake, needsKick, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, summaryPlan, tickCheck, tickSign,
 } from './server-job.mjs';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
@@ -771,11 +771,13 @@ async function runStep(id: string) {
   const job = (data?.[0] as Job) ?? null;
   if (!job) return;
   if (take.cut) console.warn('meeting-transcribe: job step cut', job.stage, take.cut);
+  // 실패·다시·끊김·오래 걸림 이력은 DB 트리거가 fail_log에 남긴다(migration 20261111010000). 여기서는 상태만 저장한다.
   let next: Record<string, unknown>;
   try {
-    if (take.cut >= 2) throw new Fail('step_cut');
+    // 같은 단계에서 두 번 끊김: 요약 단계면 요약 쪽 이유(전사한 글은 남음), 그 밖은 구간 쪽 이유.
+    if (take.cut >= 2) throw new Fail(job.stage === 'summary' ? 'draft_step_cut' : 'step_cut');
     if (job.attempts >= MAX_ATTEMPTS) throw new Fail('too_many_steps');
-    next = await stepOnce(job);
+    next = await stepOnce(job, take.cut === 1);
   } catch (e) {
     const code = failCode(e);
     console.warn('meeting-transcribe: job step failed', job.stage, code);
@@ -787,7 +789,7 @@ async function runStep(id: string) {
   await kickTick(id);
 }
 
-async function stepOnce(job: Job): Promise<Record<string, unknown>> {
+async function stepOnce(job: Job, cutBefore = false): Promise<Record<string, unknown>> {
   const started = job.started_at ? {} : { started_at: new Date().toISOString() };
   if (job.stage === 'combine') {
     const { more, rows } = await finishSegments(job.created_by, job.session_id);
@@ -816,20 +818,40 @@ async function stepOnce(job: Job): Promise<Record<string, unknown>> {
     const done = Array.isArray(job.summary_parts) ? job.summary_parts : [];
     const plan = summaryPlan(job.transcript_text, done);
     const count = plan.count;
+    // 앞 실행이 이 요약 단계 중간에 끊겼으면(Edge 실행 시간) 같은 크기로 다시 하지 않고 반으로 나눠 잇는다.
+    if (cutBefore) {
+      const split = splitJobSummary(job);
+      if (split) return { ...started, status: 'queued', summary_parts: split, step_total: plan.kind === 'one' ? 3 : plan.total };
+    }
+    // 한 단계에 AI 요청은 한 번(설계 9절). 답이 잘리면(draft_cut) 그 자리에 반 나눔 표시를 남기고 다음 단계들이 반 하나씩 한다.
+    if (plan.kind === 'half') {
+      const h = halves(plan.piece || '');
+      if (!h) throw new Fail('draft_cut');
+      const at = Number(plan.at), half = Number(plan.half);
+      const no = plan.single ? half + 1 : at + 1;
+      const d = normalizeDraft(await serverDraft(job, h[half], { kind: 'part', no, count }));
+      const got = [...done[at].halves, d];
+      const list = got.length < 2 ? [...done.slice(0, at), { halves: got }]
+        : plan.single ? got : [...done.slice(0, at), combineDrafts(got)];
+      return { ...started, status: 'queued', summary_parts: list, step_no: plan.single ? got.length : at + (got.length < 2 ? 0 : 1), step_total: plan.total };
+    }
     if (plan.kind === 'part') {
-      const part = await draftPiece(job, plan.pieces[plan.next], plan.next + 1, count);
+      let part;
+      try { part = normalizeDraft(await serverDraft(job, plan.pieces[plan.next], { kind: 'part', no: plan.next + 1, count })); }
+      catch (e) {
+        // 답이 잘림·시간 초과: 같은 크기로 다시 하지 않고 반으로 나눠 잇는다.
+        if (!(e instanceof Fail && SPLIT_CODES.includes(e.code) && halves(plan.pieces[plan.next]))) throw e;
+        return { ...started, status: 'queued', summary_parts: [...done, halfMark()], step_no: plan.next };
+      }
       return { ...started, status: 'queued', summary_parts: [...done, part], step_no: plan.next + 1 };
     }
     let raw;
     if (plan.kind === 'one') {
       try { raw = await serverDraft(job, plan.pieces[0] || '', { kind: '', no: 0, count: 0 }); }
       catch (e) {
-        // 한 번에 요약하기엔 답이 길어 잘림: 반으로 나눠 조각 요약 둘을 남기고, 다음 단계에서 합친다(summaryPlan).
-        const h = e instanceof Fail && e.code === 'draft_cut' ? halves(plan.pieces[0] || '') : null;
-        if (!h) throw e;
-        const a = normalizeDraft(await serverDraft(job, h[0], { kind: 'part', no: 1, count: 2 }));
-        const b = normalizeDraft(await serverDraft(job, h[1], { kind: 'part', no: 2, count: 2 }));
-        return { ...started, status: 'queued', summary_parts: [a, b], step_no: 2, step_total: 3 };
+        // 한 번에 요약하기엔 답이 길어 잘림: 반 나눔 표시 → 다음 두 단계가 반씩 → 그다음 단계에서 합친다(summaryPlan).
+        if (!(e instanceof Fail && SPLIT_CODES.includes(e.code) && halves(plan.pieces[0] || ''))) throw e;
+        return { ...started, status: 'queued', summary_parts: [halfMark()], step_no: 0, step_total: 3 };
       }
     } else {
       const drafts = done.filter(Boolean);
@@ -839,18 +861,6 @@ async function stepOnce(job: Job): Promise<Record<string, unknown>> {
     return { ...started, status: 'done', stage: 'done', draft: raw, step_no: plan.total, finished_at: new Date().toISOString() };
   }
   throw new Fail('failed');
-}
-
-// 조각 요약 하나(normalizeDraft 모양). 답이 길어 잘리면(draft_cut) 조각을 반으로 나눠 둘을 요약해 잇는다(합치기 단계가 겹침을 정리).
-async function draftPiece(job: Job, piece: string, no: number, count: number) {
-  try { return normalizeDraft(await serverDraft(job, piece, { kind: 'part', no, count })); }
-  catch (e) {
-    const h = e instanceof Fail && e.code === 'draft_cut' ? halves(piece) : null;
-    if (!h) throw e;
-    const a = normalizeDraft(await serverDraft(job, h[0], { kind: 'part', no, count }));
-    const b = normalizeDraft(await serverDraft(job, h[1], { kind: 'part', no, count }));
-    return combineDrafts([a, b]);
-  }
 }
 
 // 녹음 구간 전사(서버 정리). 화면 transcribe와 같은 길이지만, 이미 끝난(done) 구간도 다시 전사한다(옛 화면 정리가 글을 남기지 않았음).
@@ -921,7 +931,8 @@ async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'pa
   } catch (e) {
     const late = e instanceof DOMException && e.name === 'TimeoutError';
     if (!(e instanceof Fail)) console.warn('meeting-transcribe: draft request', stage.kind || 'one', late ? 'timeout' : 'error');
-    throw e instanceof Fail ? e : new Fail('draft_failed');
+    // 시간 초과는 따로(draft_timeout): '요약이 오래 걸려 멈췄어요'. 그 밖은 draft_failed.
+    throw e instanceof Fail ? e : new Fail(late ? 'draft_timeout' : 'draft_failed');
   }
   const u = d.usage || {};
   await admin.from('app_ai_daily_usage').upsert({
@@ -1068,7 +1079,13 @@ async function jobRetry(user: { id: string }, userDb: ReturnType<typeof userClie
   if (job.status !== 'failed') return await jobAnswer(job);
   if (!GEMINI()) throw new Fail('not_ready');
   if (overLimit(await monthUsed(userDb, job.workspace_id))) throw new Fail('monthly_limit');
-  const { data, error } = await admin.from(SERVER_JOB_TABLE).update({ status: 'queued', error_code: null, finished_at: null, lease_until: null, attempts: 0, updated_at: new Date().toISOString() })
+  const patch: Record<string, unknown> = { status: 'queued', error_code: null, finished_at: null, lease_until: null, attempts: 0, updated_at: new Date().toISOString() };
+  // 요약이 시간 안에 끝나지 못해 멈췄으면 다시 할 때는 반으로 나눠 잇는다(같은 크기로 또 걸리지 않게).
+  if (job.stage === 'summary' && SPLIT_CODES.includes(job.error_code)) {
+    const split = splitJobSummary(job);
+    if (split) patch.summary_parts = split;
+  }
+  const { data, error } = await admin.from(SERVER_JOB_TABLE).update(patch)
     .eq('id', job.id).eq('status', 'failed').select(SERVER_JOB_COLUMNS);
   if (error?.code === '23505') throw new Fail('busy');
   if (error) throw jobsFail(error);
