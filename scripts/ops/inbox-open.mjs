@@ -3,6 +3,7 @@
 //
 // 쓰는 법: Drive 문서 'Web2 요청함'을 텍스트로 받아 파일로 저장한 뒤
 //   node scripts/ops/inbox-open.mjs <요청함.txt> [--roadmap docs/roadmap.md] [--now 2026-11-02T11:30+09:00] [--json]
+// 요청 덩어리: '[날짜]'로 시작하는 줄, 또는 '■ 과제이름 (…)'으로 시작하는 줄(11/06부터 요청함 방 형식).
 // 결과: 아직 끝나지 않은 요청 표(markdown) — 상태 분류, 원장 행 유무, 접수 뒤 지난 시간.
 // 저장소는 공개다. 요청함 원문은 이 스크립트에 넣지 않고 실행할 때만 읽는다. 결과 표도 PR·문서에 붙이지 않는다
 // (제목에 업무 내용이 섞일 수 있음). 결과는 CC 방 보고와 인계서(비공개 프로젝트 문서)에만 쓴다.
@@ -13,6 +14,8 @@ const HEAD = /^\[(?:(\d{4})-)?(\d{1,2})[-/](\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?\]/
 // 11/06부터 요청함 방은 '■ 과제이름 (…)'으로 시작하는 덩어리로도 요청을 쓴다(OPS-요청함■세기).
 // 접수 시각은 덩어리 안 '접수 MM/DD HH:MM' 줄에서 읽는다.
 const SQUARE = /^\s*■\s*([^\s(（]+)/;
+// CC 작업 상황 절의 한 줄 요약('■ 과제 → 완료: #PR …')은 요청이 아니다. 덩어리를 끝내기만 한다.
+const SQUARE_STATUS = /^\s*■[^\n]*?\s→\s*(?:완료|진행\s*중|대기|남음|접수|대조)\s*:/;
 const SQUARE_TIME = /접수\s+(?:(\d{4})-)?(\d{1,2})[/-](\d{1,2})\s+(\d{1,2}):(\d{2})/;
 const RECEIPT = /→\s*(접수|대조)\s*:/;
 const BLOCKED = '★CC 착수 금지';
@@ -32,6 +35,8 @@ export function splitBlocks(text) {
     if (HEAD.test(line)) {
       cur = {title: line.trim(), lines: [line]};
       blocks.push(cur);
+    } else if (SQUARE_STATUS.test(line)) {
+      cur = null;
     } else if (SQUARE.test(line)) {
       cur = {title: line.trim(), lines: [line], square: squareName(line)};
       blocks.push(cur);
