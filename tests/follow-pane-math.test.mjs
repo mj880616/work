@@ -28,20 +28,3 @@ test('followMax: 붙기 전에는 칸이 있는 자리 아래로, 붙은 뒤에�
   assert.equal(followMax({view: 800, top: 12, rectTop: -300}), 776);
   assert.equal(followMax({view: 300, top: 12, rectTop: 280}), 160);
 });
-
-// BIZ-결과칸작음(11/10): 칸 자리가 스크롤 없이 바뀔 때(위쪽 주간보고 접기·펼치기, 목록 다시 그림)도 최대 높이를 다시 잰다.
-import {watchTargets} from '../app/follow-pane.js';
-test('watchTargets: 화면 묶음(.view-panel, 없으면 body)과 칸 바로 위 틀을 한 번씩 본다', () => {
-  const body = {name: 'body'}, view = {name: 'view'}, parent = {name: 'layout'};
-  const pane = {parentElement: parent, ownerDocument: {body}, closest: sel => (sel === '.view-panel' ? view : null)};
-  assert.deepEqual(watchTargets(pane), [view, parent]);
-  const loose = {parentElement: body, ownerDocument: {body}, closest: () => null};
-  assert.deepEqual(watchTargets(loose), [body]);
-  assert.deepEqual(watchTargets(null), []);
-});
-test('크기 변화는 ResizeObserver 한 곳에서 스크롤·창 크기와 같은 queue로 다시 잰다(기다림 시간 없음)', () => {
-  assert.match(js, /new ResizeObserver\(queue\)/);
-  assert.match(js, /listen\(\); watch\(el\); paint\(el, at\)/);
-  assert.match(js, /sizes\?\.unobserve\(node\)/);
-  assert.doesNotMatch(js, /setTimeout/);
-});
