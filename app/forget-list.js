@@ -16,7 +16,7 @@
 // 이 파일이 이 목록 자리의 유일한 renderer다. 기기 저장 없음.
 import {createAnchoredMenu} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
-import {esc, rowHtml} from './notice-box.mjs';
+import {esc, rowHtml, foldActs} from './notice-box.mjs';
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
@@ -103,12 +103,22 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       if (button.dataset.forgetView) setView(button.dataset.forgetView);
       else if (button.dataset.forgetSrc) { src = button.dataset.forgetSrc; status = ''; paint(); }
     }}) : null;
-  // 줄 ⋯(챙길 것 줄만, 기존 길 셋): [고쳐서 할 일로] 할 일 창에서 고쳐 넣기 · [이미 할 일에 있음] 비슷한 할 일과 잇기 · [내 일 아님].
-  const more = createAnchoredMenu({id: 'forgetRowMenu', className: 'radar-row-menu', label: '챙길 것 줄 메뉴', historyKey: 'kptuForgetRowMenu',
-    key: trigger => trigger.dataset.forgetMore, canOpen: trigger => !trigger.disabled,
-    render: () => '<button type="button" class="row-act" data-forget-menu="edit">수정해서 할 일로</button><button type="button" class="row-act" data-forget-menu="already">이미 할 일에 있음</button><button type="button" class="row-act" data-forget-menu="not-mine">내 일 아님</button>',
+  // 줄 ⋯(UI-잊지말기줄단추, 처리 전 줄마다 하나 — 우클릭도 같은 메뉴): 폰에서 줄에 없는 [일정으로][노트로][조직][사업]·×([무시])를 줄 버튼과
+  // 같은 이름·같은 길(rowAct)로 먼저, 그 아래 챙길 것 줄만의 기존 셋 [수정해서 할 일로] · [이미 할 일에 있음] · [내 일 아님]. 가족 줄은 조직·사업 없음.
+  const rowKind = key => String(key || '').slice(0, 1);
+  const more = createAnchoredMenu({id: 'forgetRowMenu', className: 'radar-row-menu', label: '잊지 말기 줄 메뉴', historyKey: 'kptuForgetRowMenu',
+    key: trigger => trigger.dataset.forgetMore, canOpen: trigger => !trigger.disabled, row: trigger => trigger.closest('[data-nbx-row]'),
+    render: key => {
+      const kind = rowKind(key), c = kind === 'c' ? byId(key.slice(2)) : null;
+      const hint = host.querySelector(`[data-nbx-row="${CSS.escape(key)}"] [data-nbx-hint]`)?.dataset.nbxAct || ''; // AI가 고른 버튼은 메뉴에서도 굵게
+      const folded = foldActs({report: kind !== 'f'}).map(([act, label]) => `<button type="button" class="row-act${act === hint ? ' nbx-hint' : ''}" data-nbx-menu-act="${act}">${esc(label)}</button>`).join('');
+      return folded + (c && candidateSource(c) === 'todo'
+        ? '<button type="button" class="row-act" data-forget-menu="edit">수정해서 할 일로</button><button type="button" class="row-act" data-forget-menu="already">이미 할 일에 있음</button><button type="button" class="row-act" data-forget-menu="not-mine">내 일 아님</button>' : '');
+    },
     onAction: (button, active) => {
-      const c = byId(active.trigger.dataset.forgetMore), act = button.dataset.forgetMenu;
+      const key = active.trigger.dataset.forgetMore;
+      if (button.dataset.nbxMenuAct) { rowAct(key, button.dataset.nbxMenuAct, active.trigger); return; }
+      const c = rowKind(key) === 'c' ? byId(key.slice(2)) : null, act = button.dataset.forgetMenu;
       if (!c || c.status !== 'open' || busy.has(c.id)) return;
       if (act === 'not-mine') void notMine(c); else if (act === 'already') void startLinking(c); else if (act === 'edit') void editToTask(c);
     }});
@@ -125,23 +135,22 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       for (const c of candidatesFor(view, rows, taskTitles())) {
         const s = candidateSource(c); if (src !== 'all' && src !== s) continue;
         const open = c.status === 'open', isBusy = busy.has(c.id);
-        const tail = open && s === 'todo' ? `<button type="button" class="icon-btn nbx-more" data-forget-more="${esc(c.id)}" aria-label="더 보기" aria-haspopup="true" aria-expanded="false"${isBusy ? ' disabled' : ''}><span class="more-dots" aria-hidden="true">⋯</span></button>` : '';
         out.push({at: open ? c.created_at : (c.decided_at || c.created_at), html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: isBusy, report: true,
           // 내용을 누르면 원래 기록(업데이트·노트·사업 보고·조직 기록·텔레그램 방)을 연다 — 기존 출처 열기 길(todo-radar.js openSource).
           open: {attrs: `data-forget-source="${esc(c.id)}" aria-label="${esc(`${c.summary} — 출처 열기: ${sourceText(c)}`)}"`},
-          done: !open ? candidateDone(c) : unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '', tail, attrs: `data-forget-src="${s}"`, below: open ? linkingHtml(c) : ''})});
+          done: !open ? candidateDone(c) : unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '', more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"`, below: open ? linkingHtml(c) : ''})});
       }
     }
     if (view === 'open' && fOn && (src === 'all' || src === 'family')) {
       for (const n of notes) out.push({at: n.at || n.day, html: rowHtml({id: `f:${n.id}`, body: n.body, meta: metaLine(n), src: SOURCE_TAG.family, busy: busy.has(`f:${n.id}`),
-        prefix: FIRM_LABEL[n.firmness] ? `<span class="nbx-tag">${esc(FIRM_LABEL[n.firmness])}</span> ` : '', attrs: 'data-forget-src="family"'})});
+        prefix: FIRM_LABEL[n.firmness] ? `<span class="nbx-tag">${esc(FIRM_LABEL[n.firmness])}</span> ` : '', more: `data-forget-more="f:${esc(n.id)}"`, attrs: 'data-forget-src="family"'})});
     }
     if (nOn && (src === 'all' || src === 'news')) {
       for (const r of newsFor(view, news, nPicks)) {
         const open = r.status === 'suggested', label = newsText(r);
         out.push({at: open ? r.at : (r.decidedAt || r.at), html: rowHtml({id: `n:${r.id}`, body: label, meta: shortDay(r.day), src: NEWS_SOURCE_TAG[r.source], busy: busy.has(`n:${r.id}`),
           open: {attrs: `data-forget-news-open="${esc(r.id)}" aria-label="${esc(`${label} — 원본 ${r.source === 'telegram' ? '텔레그램' : '통화'} 열기`)}"`},
-          report: true, hint: open ? NEWS_HINT[r.kind] || '' : '', why: open ? r.reason : '', done: open ? '' : newsDone(r), attrs: `data-forget-src="news"`})});
+          report: true, hint: open ? NEWS_HINT[r.kind] || '' : '', why: open ? r.reason : '', done: open ? '' : newsDone(r), more: `data-forget-more="n:${esc(r.id)}"`, attrs: `data-forget-src="news"`})});
       }
     }
     if (src === 'all' || src === 'update') {
@@ -547,6 +556,14 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     }
   }
 
+  // 줄 버튼과 ⋯ 메뉴 항목이 함께 쓰는 한 길(UI-잊지말기줄단추). anchor = 누른 줄 버튼 또는 그 줄의 ⋯(작은 창·고르기 창이 그 옆에 뜬다).
+  function rowAct(row, act, anchor) {
+    const [kind, id] = [row.slice(0, 1), row.slice(2)];
+    if (kind === 'u') { onUpdateAct(id, act, anchor); return; }
+    if (kind === 'c') { const c = byId(id); if (c) void candidateAct(c, act, anchor); return; }
+    if (kind === 'f') { const n = notes.find(x => x.id === id); if (n) void familyAct(n, act, anchor); return; }
+    if (kind === 'n') { const r = newsById(id); if (r) void newsAct(r, act, anchor); }
+  }
   host.addEventListener('click', event => {
     const b = event.target.closest?.('button');
     if (!b || !host.contains(b) || b.disabled) return;
@@ -561,11 +578,8 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const act = b.dataset.nbxAct, row = b.closest('[data-nbx-row]')?.dataset.nbxRow || '';
     if (!act || !row) return;
     const [kind, id] = [row.slice(0, 1), row.slice(2)];
-    if (kind === 'u') { onUpdateAct(id, act, b); return; }
-    if (kind === 'c') { const c = byId(id); if (c) void candidateAct(c, act, b); return; }
-    if (kind === 'f') { const n = notes.find(x => x.id === id); if (n) void familyAct(n, act, b); return; }
-    if (kind === 'n') { const r = newsById(id); if (r) void newsAct(r, act, b); return; }
-    if (kind === 'p' && act === 'ledger') { const p = (radarPromises() || [])[Number(id)]; if (p) void copyText(ledgerRequestText(p)).then(ok => say(ok ? '원장에 넣을 약속 문구를 복사했어요.' : '복사하지 못했어요.')); }
+    if (kind !== 'p') { rowAct(row, act, b); return; }
+    if (act === 'ledger') { const p = (radarPromises() || [])[Number(id)]; if (p) void copyText(ledgerRequestText(p)).then(ok => say(ok ? '원장에 넣을 약속 문구를 복사했어요.' : '복사하지 못했어요.')); }
   });
   statusEl?.addEventListener('click', event => {
     if (event.target.closest?.('[data-forget-retry]')) { cState = 'loading'; paint(); void loadCandidates(); }

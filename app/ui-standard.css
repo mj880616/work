@@ -1777,13 +1777,22 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 .nbx-src{ display:inline-block; margin-right:4px; padding:0 4px; border-radius:var(--ds-radius-control); background:var(--kptu-surface-subtle); color:var(--kptu-muted); }
 .nbx-done{ flex:none; margin-left:auto; color:var(--kptu-faint); }
 .nbx .row-act.nbx-body-btn{ display:inline; width:auto; height:auto; min-height:0; padding:0; color:var(--kptu-ink); font-size:var(--ds-text-row); font-weight:inherit; line-height:inherit; text-align:left; white-space:normal; overflow-wrap:anywhere; }
-/* FORGET-소식바로잡기(시안 docs/design/mockups/forget-news-fix.html 명진 'ㅇ'): 줄 버튼 일곱([할 일로][일정으로][노트로][조직][사업][이미 함] ×)이
-   폰 390·폴드에서도 한 줄(위 .nbx-acts 버튼 사이 2px, 줄바꿈 없음 — 누르는 범위 44px는 그대로). 버튼 모양은 ③ 글자 버튼 그대로.
+/* FORGET-소식바로잡기(시안 docs/design/mockups/forget-news-fix.html 명진 'ㅇ'): 줄 버튼(위 .nbx-acts 버튼 사이 2px, 줄바꿈 없음 — 누르는 범위 44px는 그대로).
+   폰·PC에서 보이는 버튼은 아래 'UI-잊지말기줄단추'. 버튼 모양은 ③ 글자 버튼 그대로.
    AI가 고른 맞는 버튼만 중간 굵기·밑줄, 내용 아래 흐린 이유 한 줄. */
 .nbx .row-act.nbx-hint{ color:var(--kptu-ink); font-weight:var(--ds-weight-medium); text-decoration:underline; text-underline-offset:2px; }
 .nbx-why{ margin:1px 0 0; color:var(--kptu-info); font-size:var(--ds-text-meta); line-height:1.4; overflow-wrap:anywhere; }
 .nbx-badge{ display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:1.5em; height:1.5em; padding:0 .4em; border-radius:999px; background:var(--kptu-danger); color:var(--kptu-on-primary); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); font-variant-numeric:tabular-nums; line-height:1; }
 .nbx-below{ position:relative; z-index:1; display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:6px; padding-bottom:var(--ds-row-pad-y); }
+/* UI-잊지말기줄단추(요청함 11/10 11:23, 명진 '추천대로' — 위 FORGET-소식바로잡기의 '버튼 일곱 한 줄'을 바꿈): 줄 단추를 줄인다(notice-box.mjs rowHtml).
+   폰·폴드(좁은 창 또는 마우스 없음): 줄에는 [할 일로][이미 함] ⋯ 만. 접힌 [일정으로][노트로][조직][사업]·×(.nbx-fold)는 ⋯ 메뉴 안에 같은 이름으로 있다.
+   PC(761px~ 마우스): 마우스를 올린 줄·키보드 초점이 있는 줄·메뉴가 열린 줄에만 버튼 전부 + ⋯(할 일 줄 task-inline과 같은 방식). 보이지 않을 때도
+   자리는 그대로라 줄이 흔들리지 않고, 키보드로 줄 안 버튼에 오면 그 줄 버튼이 보인다. 우클릭은 그 줄 ⋯ 메뉴(context-menu.js). 크기 값은 새로 정하지 않는다. */
+@media (max-width:760px),(hover:none){ .nbx-acts > .nbx-fold{ display:none; } }
+@media (min-width:761px) and (hover:hover){
+  .nbx-item .nbx-acts{ opacity:0; }
+  .nbx-item:hover .nbx-acts,.nbx-item:focus-within .nbx-acts,.nbx-item .nbx-acts:has([aria-expanded="true"]){ opacity:1; }
+}
 /* S53-13 HOME-잊지말기칩(요청함 11/08 13:54, 시안 docs/design/mockups/home-forget-slim.html 명진 13:55 'A'): 홈 '잊지 말기' 띠 한 줄 대신
    입력 칸 머리 줄 오른쪽 ④ 칩 하나. 모양은 공용 칩(button.ds-chip) 그대로, 색만 위 forget 톤(톤다운 노랑)·숫자는 .nbx-badge(빨강).
    처리 안 한 것이 없으면(data-chip-empty) 칩만 흐리게. 폰·폴드 펼침·PC 같은 규칙(자리만 home-quick.css). */
