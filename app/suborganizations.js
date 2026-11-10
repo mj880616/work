@@ -57,14 +57,15 @@ function paintStageTags(){
   const span=document.createElement('span');span.className='so-stage-tag'+(tag.kind==='ended'?' is-end':'');span.dataset.soStage=tag.kind;span.textContent=tag.text;main.querySelector('.kptu-list-chevron')?.before(span);main.classList.add('has-stage')});
 }
 async function refreshStages(){if(!soWorkspace)return;try{await stageModules();await stageMod.loadDisputeState({rt,workspaceId:soWorkspace});paintStageTags()}catch(err){console.error('dispute stages',err)}}
-// UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 고르지 않은 조직 줄을 우클릭하면 같은 화면 메뉴 맨 위에 [열기] 한 줄이 더 붙는다
+// UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 선택하지 않은 조직 줄을 우클릭하면 같은 화면 메뉴 맨 위에 [열기] 한 줄이 더 붙는다
 // ([열기] ─ [쟁의 단계 관리]). [열기] = 그 줄을 왼쪽 누름과 같은 길로 눌러 오른쪽 상세를 그 조직으로. 메뉴를 띄우는 길은 공용 우클릭(context-menu.js openAt)
 // 그대로이고, 어느 줄에서 열었는지만 이 화면이 기억한다(⋯를 그냥 누르면 [열기] 없이 지금 메뉴).
 let ctxOrg=null,menuOrg=null;
+const soMenuItem=(attr,label)=>`<button type="button" ${attr}>${label}</button>`; // 메뉴 글자 줄(모양은 .basket-link-menu 공용) 한 틀
 async function installStageMenu(trigger,org=null){
  await stageModules();const {createAnchoredMenu}=await import('./anchored-menu.js');
  if(!stageMenu)stageMenu=createAnchoredMenu({id:'soTeamMenu',className:'basket-link-menu so-team-menu',label:'조직 보고 메뉴',historyKey:'kptuSoTeamMenu',key:()=>'team',
-  render:()=>(menuOrg?'<button type="button" data-so-open-org>열기</button><hr class="so-menu-sep" role="separator">':'')+'<button type="button" data-so-stage-manage>쟁의 단계 관리</button>',
+  render:()=>(menuOrg?soMenuItem('data-so-open-org','열기')+'<hr class="so-menu-sep" role="separator">':'')+soMenuItem('data-so-stage-manage','쟁의 단계 관리'),
   onAction:(button,active)=>{if(button.matches('[data-so-open-org]')){const id=menuOrg,row=id&&[...document.querySelectorAll('#soOrganizationList [data-so-org]')].find(r=>r.dataset.soOrg===id);row?.click();return}
    stageMod.openStageManager({workspaceId:soWorkspace,rt,trigger:active.trigger,orgNames:()=>new Map(soOrganizations.map(o=>[o.id,o.name]))})}});
  menuOrg=org;stageMenu.open(trigger);
