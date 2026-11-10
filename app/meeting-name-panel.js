@@ -10,7 +10,7 @@
 // 값은 그대로 <select> 한 곳에 있다(이 창은 값만 고르고 input·change를 보냄 — select-menu.js와 같은 약속). 누름·키 가로채기는 select-menu.js addOpener.
 // 목록 나누기·묶기 규칙은 meeting-name-sorts.mjs, 서버 읽기·쓰기는 meeting-name-sorts.js. 이 창은 기기에 아무것도 저장하지 않는다.
 import {followAnchor} from './anchored-popup.js';
-import {placeMenu} from './select-menu.js';
+import {placeMenu, naturalWidth, scrollbarWidth} from './select-menu.js';
 import {askConfirm} from './small-notice.js';
 import {emptyHtml} from './wait-state.js';
 import {seoulDateKey} from './meeting-time.js';
@@ -53,9 +53,21 @@ function place() {
   const vv = window.visualViewport, probe = document.querySelector('.kptu-select-inset');
   const view = {left: vv?.offsetLeft || 0, top: vv?.offsetTop || 0, width: vv?.width || document.documentElement.clientWidth, bottom: Math.min(window.innerHeight, (vv?.offsetTop || 0) + (vv?.height || window.innerHeight))};
   panel.style.maxHeight = 'none'; panel.style.height = 'auto';
-  const contentH = panel.scrollHeight + (panel.offsetHeight - panel.clientHeight), r = ui.select.getBoundingClientRect();
-  const p = placeMenu({anchor: {left: r.left, top: r.top, bottom: r.bottom, width: r.width}, view, inset: probe?.getBoundingClientRect().height || 0, contentH, minWidth: 260, maxHeight: 420});
-  Object.assign(panel.style, {left: p.left + 'px', top: p.top + 'px', width: p.width + 'px', height: p.height + 'px', maxHeight: p.height + 'px'});
+  // UI-고르기목록잘림: 폭은 칸·260px·가장 긴 줄 중 넓은 쪽(화면 폭까지). 화면보다 길면 그때만 이름이 줄바꿈된다(잘림·… 없음).
+  const r = ui.select.getBoundingClientRect(), anchor = {left: r.left, top: r.top, bottom: r.bottom, width: r.width};
+  const inset = probe?.getBoundingClientRect().height || 0, opts = {minWidth: 260, maxHeight: 420};
+  const fit = cw => {
+    const w = placeMenu({anchor, view, inset, contentH: 0, contentW: cw, ...opts});
+    if (w.wrap) panel.dataset.wrap = ''; else panel.removeAttribute('data-wrap');
+    Object.assign(panel.style, {width: w.width + 'px', height: 'auto', maxHeight: 'none'});
+    const contentH = panel.scrollHeight + (panel.offsetHeight - panel.clientHeight);
+    const p = placeMenu({anchor, view, inset, contentH, contentW: cw, ...opts});
+    Object.assign(panel.style, {left: p.left + 'px', top: p.top + 'px', width: p.width + 'px', height: p.height + 'px', maxHeight: p.height + 'px'});
+  };
+  const contentW = naturalWidth(panel);
+  fit(contentW);
+  const bar = scrollbarWidth(panel);
+  if (bar > 0) fit(contentW + bar);
 }
 const rowsNow = () => ui.query ? findRows(entriesOf(ui.select), sorts(), ui.query) : listRows(entriesOf(ui.select), sorts(), {keep: currentName(ui.select)});
 

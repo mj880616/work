@@ -8,7 +8,10 @@
 .mnp-row.is-on .mnp-name{font-weight:700}
 .mnp-pick,.mnp-grp,.mnp-act{flex:1;min-width:0;display:flex;align-items:center;gap:4px;min-height:32px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .mnp-pick:hover,.mnp-grp:hover,.mnp-act:hover,.mnp-pick:focus-visible,.mnp-grp:focus-visible,.mnp-act:focus-visible{background:var(--kptu-primary-soft)}
-.mnp-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mnp-name{min-width:0;white-space:nowrap}
+/* UI-고르기목록잘림: 창 폭이 가장 긴 이름에 맞춰지고(meeting-name-panel.js place), 화면보다 길 때만 이름이 줄바꿈된다. */
+.mnp[data-wrap] .mnp-name{white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+.mnp[data-wrap] :is(.mnp-pick,.mnp-grp,.mnp-act){padding-top:4px;padding-bottom:4px}
 .mnp-sub .mnp-pick{padding-left:22px;font-size:13px}
 .mnp-grp{padding-left:22px;color:var(--kptu-muted);font-size:13px}
 .mnp-day,.mnp-n{flex:none;color:var(--kptu-muted);font-size:12px}

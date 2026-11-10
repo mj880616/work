@@ -56,6 +56,22 @@ test('목록 위치: 좁은 칸은 최소 폭, 오른쪽 끝 칸은 화면 안�
   assert.equal(placeMenu({anchor: {left: 0, top: 10, bottom: 42, width: 900}, view, contentH: 50}).width, 374);
 });
 
+test('UI-고르기목록잘림: 목록 폭은 칸 폭과 가장 긴 줄(굵게 + ✓) 중 넓은 쪽, 화면을 넘으면 그때만 줄바꿈', () => {
+  // 칸보다 긴 고른 줄: 목록이 그만큼 넓어지고 줄바꿈하지 않는다.
+  const wide = placeMenu({anchor: {left: 20, top: 100, bottom: 132, width: 120}, view, contentH: 100, contentW: 168.4});
+  assert.equal(wide.width, 169); assert.equal(wide.wrap, false); assert.equal(wide.left, 20);
+  // 칸이 더 넓으면 칸 폭 그대로.
+  assert.equal(placeMenu({anchor: {left: 20, top: 100, bottom: 132, width: 200}, view, contentH: 100, contentW: 150}).width, 200);
+  // 오른쪽 끝 칸: 넓어진 목록은 화면 안으로 왼쪽에 붙는다.
+  const right = placeMenu({anchor: {left: 300, top: 100, bottom: 132, width: 80}, view, contentH: 100, contentW: 200});
+  assert.equal(right.width, 200); assert.equal(right.left, 390 - 200 - 8); assert.equal(right.wrap, false);
+  // 화면보다 긴 줄: 화면 폭(양쪽 8px)까지만, 그때만 줄바꿈.
+  const over = placeMenu({anchor: {left: 20, top: 100, bottom: 132, width: 120}, view, contentH: 100, contentW: 600});
+  assert.equal(over.width, 374); assert.equal(over.left, 8); assert.equal(over.wrap, true);
+  // contentW를 안 주면 예전과 같다.
+  assert.equal(placeMenu({anchor: {left: 20, top: 100, bottom: 132, width: 200}, view, contentH: 100}).wrap, false);
+});
+
 test('대상: 여러 줄 고르기·비활성·data-native-select는 앱 목록으로 바꾸지 않는다', () => {
   const base = {tagName: 'SELECT', multiple: false, size: 0, disabled: false, hasAttribute: () => false};
   assert.equal(eligible(base), true);

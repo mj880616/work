@@ -53,3 +53,35 @@ for(const width of [390,1280])test(`고르기 칸 ${width}: 아래가 모자라�
  expect(await page.evaluate(()=>window.__changes)).toEqual(['selLow:v2']);
  expect(errors).toEqual([]);
 });
+
+// UI-고르기목록잘림: 고른 줄은 굵게 + ✓라 칸보다 길 수 있다. 목록은 가장 긴 줄만큼 넓어지고, 화면을 넘을 때만 줄바꿈(잘림·… 없음).
+async function noClip(page){
+ return list(page).evaluate(menu=>[...menu.querySelectorAll('.kptu-select-opt')].filter(o=>{
+  const r=document.createRange();r.selectNodeContents(o);const t=r.getBoundingClientRect(),b=o.getBoundingClientRect();
+  const check=parseFloat(getComputedStyle(o,'::after').width)||0;
+  return o.scrollWidth>o.clientWidth+1||t.right>b.right+1||(o.getAttribute('aria-selected')==='true'&&t.right+check>b.right+1);
+ }).map(o=>o.textContent));
+}
+for(const width of [412,1280])test(`고르기 목록 ${width}: 칸보다 긴 고른 줄(굵게 + ✓)도 잘리지 않는다, 오른쪽 끝 칸은 왼쪽으로 붙는다`,async({page})=>{
+ const errors=await setup(page,width);
+ await page.evaluate(()=>{
+  const host=document.getElementById('selHost');
+  host.insertAdjacentHTML('beforeend',`<select id="selArea" aria-label="사업영역" style="position:fixed;top:200px;right:16px;width:120px;z-index:50"><option value="">사업영역 전체</option><option value="a">조직</option></select>
+   <select id="selLong" aria-label="긴 이름" style="position:fixed;top:260px;left:16px;width:110px;z-index:50"><option value="x">짧음</option><option value="y" selected>아주 긴 이름의 회의 이름이 화면 폭보다 길게 이어지는 경우를 보는 줄입니다 끝까지 보여야 합니다</option></select>`);
+ });
+ const area=page.locator('#selArea');await area.tap();
+ await expect(list(page)).toBeVisible();
+ const s=await area.boundingBox(),m=await list(page).boundingBox();
+ expect(m.width).toBeGreaterThanOrEqual(s.width-1);
+ expect(m.x+m.width).toBeLessThanOrEqual(width-8+1);expect(m.x).toBeGreaterThanOrEqual(7);
+ await expect(list(page)).not.toHaveAttribute('data-wrap','');
+ expect(await noClip(page)).toEqual([]);
+ await page.keyboard.press('Escape');await expect(list(page)).toBeHidden();
+ await page.locator('#selLong').tap();
+ await expect(list(page)).toBeVisible();
+ const l=await list(page).boundingBox();
+ expect(l.x).toBeGreaterThanOrEqual(7);expect(l.x+l.width).toBeLessThanOrEqual(width-8+1);
+ expect(await noClip(page)).toEqual([]);
+ if(width<761)await expect(list(page)).toHaveAttribute('data-wrap','');
+ expect(errors).toEqual([]);
+});
