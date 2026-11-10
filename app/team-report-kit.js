@@ -15,7 +15,7 @@ export {createFieldRows} from './report-entry-rows.js';
 export {mountSplitResize} from './split-resize.js';
 export {followPane} from './follow-pane.js';
 export {targetList,targetsLabel,firstProjectId} from './report-links-model.mjs';
-export {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,noteAreaFromMeetings,noteAreaNoneFromMeetings,LEGACY_NOTE} from './report-links.js';
+export {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,attendeesAvailable,noteAreaFromMeetings,noteAreaNoneFromMeetings,LEGACY_NOTE} from './report-links.js';
 export {mountAreaFields} from './business-area-fields.js';
 export {mountBigWrite} from './record-text-write.js';
 export {untaggedInWeek,AREA_NONE,areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,shownReportWeek,inReportWeek,undatedCount,reportWeekLabel,reportDay,weekOf,shiftDays} from './business-area-model.mjs';

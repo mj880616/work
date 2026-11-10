@@ -2,7 +2,7 @@
 // 녹음은 각 기기 앱으로 자유롭게 하고, 끝난 전사 글(붙여 넣기·txt 등 파일)을 넣으면 AI가 회의 기록 초안을 채운다.
 // - 요약은 기존 Edge meeting-ai-draft의 '새 회의' 길(meeting_id 없음 = 서버에 저장하지 않음)을 쓴다. 긴 글은 나눠 요약(stage part·merge, S48-64).
 // - 전사 전문은 '회의록 전문' 칸(app_meetings.notes)에 넣어 [사업 보고 저장] 때 회의와 함께 남긴다(S48-64, 명진 지시 '전사 전문 저장 허용').
-// - 채우는 곳은 입력 창의 기존 칸뿐이다: 일시(#meetingAt), 회의 결과 원문(#meetingTranscript: 참석·결정·공유),
+// - 채우는 곳은 입력 창의 기존 칸뿐이다: 일시(#meetingAt), 참석인원(#meetingAttendees, 비어 있을 때만), 회의 결과 원문(#meetingTranscript: 참석·결정·공유),
 //   후속 할 일(task-workflow.js의 입력 줄 + [추가]를 그대로 눌러 같은 주인이 줄을 그린다). 저장은 명진이 [사업 보고 저장]으로 한다(자동 저장 없음).
 // - 이 모듈은 #mtdBar·#mtdPanel 두 곳만 그린다.
 // - 2단계(녹음 파일 → 전사): 녹음 파일을 고르면 [전사] → Edge meeting-transcribe가 명진 Drive에 올리고 Gemini로 전사해 글을 돌려준다.
@@ -16,7 +16,7 @@ import {bindDropTarget} from './meeting-compact.js';
 import {waitInlineHtml} from './wait-state.js';
 import {toMeetingISO} from './meeting-time.js';
 import {isMeetingKind} from './report-words.mjs';
-import {MAX_TRANSCRIPT_FILE,MAX_TRANSCRIPT_CHARS,DRAFT_TIMEOUT_MS,splitTranscript,partsText,keepTranscript,draftFailText,isAudioFile,isTranscriptFile,dateFromName,dateFromText,decodeTranscript,cleanTranscript,normalizeDraft,draftText,actionRows,mergeText,pickMeetingAt,audioCheck,durationText,sizeText,transcribeFailText} from './meeting-transcript-model.mjs';
+import {MAX_TRANSCRIPT_FILE,MAX_TRANSCRIPT_CHARS,DRAFT_TIMEOUT_MS,splitTranscript,partsText,keepTranscript,draftFailText,isAudioFile,isTranscriptFile,dateFromName,dateFromText,decodeTranscript,cleanTranscript,normalizeDraft,draftText,actionRows,mergeText,attendeesLine,pickMeetingAt,audioCheck,durationText,sizeText,transcribeFailText} from './meeting-transcript-model.mjs';
 
 (()=>{
 'use strict';
@@ -203,6 +203,9 @@ function applyDraft(data,text,at){
   if(next&&$('#meetingAt'))$('#meetingAt').value=next;
   const area=$('#meetingTranscript');
   if(area){area.value=mergeText(area.value,draftText(draft));area.dispatchEvent(new Event('input',{bubbles:true}))}
+  // MTG-참석인원칸(S56-31): 참석을 찾았고 '참석인원' 칸이 비어 있으면 채운다(이미 쓴 값은 두고, 원문 안 '참석:' 줄도 그대로).
+  const who=$('#meetingAttendees'),line=attendeesLine(draft);
+  if(who&&line&&!who.value.trim()){who.value=line;who.dispatchEvent(new Event('input',{bubbles:true}))}
   const rows=actionRows(draft);let added=0;
   for(const row of rows)if(addAction(row))added++;
   const warn=(data?.warnings||[]).length;
