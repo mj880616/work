@@ -126,7 +126,7 @@ async function paint(){
       if(now.status!=='ready')now=null;
     }
     // BIZ-기록하나로 B-4 ②: 전환 주부터 2) 주요 사업·회의결과 = 홈 [주간 정리] 2. 2)와 같은 주요 사업 창 부품(biz-detail-window.js, 상자마다 하나).
-    if(fresh&&!compact){const mod=await import('./biz-detail-window.js');if(!state||run!==state.run)return;state.detail||=mod.createBizDetailBox({onReady:()=>placeDetail()});state.detail.update({week:from,meetings:state.meetings,hidden,tree:()=>places?.projects||null})}
+    if(fresh&&!compact){const mod=await import('./biz-detail-window.js');if(!state||run!==state.run)return;state.detail||=mod.createBizDetailBox({onReady:()=>placeDetail()});await state.detail.update({week:from,meetings:state.meetings,hidden,tree:()=>places?.projects||null});if(!state||run!==state.run)return} // 2) 상자가 그 주를 다 읽은 뒤 1) 표와 한 번에 그린다(아래 목록이 한 번만 밀리게)
     state.view={placed:{...placed,areas},records,untagged,all,lineOf,detail:fresh&&!compact};
     state.draft=draft;state.editable=editable;state.store=store;state.now=now;state.kit=kit;
     state.done={run,from,now:fresh?nowStatus:''}; // 한글 파일(fileRows)이 '그 주를 다 그렸나'를 본다

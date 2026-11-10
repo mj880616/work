@@ -240,6 +240,7 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
   window.addEventListener(EVENT, e => { if (e.detail?.source !== ctl.id) quiet(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') quiet(); });
 
+  // 돌려주는 값: 다시 읽을 때는 그 읽기가 끝나는 약속(화면이 기다렸다가 표와 함께 한 번에 그릴 수 있게), 아니면 undefined.
   // update({week, meetings, hidden, tree, lineOf}): meetings() = 그 화면이 이미 읽은 사업 보고(따로 읽지 않음), hidden = 늘 빼는 종류 목록(못 읽었으면 null),
   // tree() = 활성 사업 나무([{project, depth}], 없으면 null), lineOf(meeting) = 보고 한 줄. 같은 주면 사업 기록·표시를 다시 읽지 않고 다시 그리기만.
   function update({week, meetings = () => [], hidden = null, tree = () => null, lineOf} = {}) {
@@ -247,8 +248,8 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
     ctl.hidden = Array.isArray(hidden) ? hidden : null;
     ctl.tree = typeof tree === 'function' ? tree() : tree;
     if (lineOf) ctl.lineOfMeeting = lineOf;
-    if (week && week !== ctl.week) { ctl.week = week; ctl.editing = null; ctl.draft = null; ctl.outOpen.clear(); ctl.msg = ''; void load(); return; }
-    if (ctl.stale && !ctl.busy && !ctl.editing) { void load({quiet: true}); return; }
+    if (week && week !== ctl.week) { ctl.week = week; ctl.editing = null; ctl.draft = null; ctl.outOpen.clear(); ctl.msg = ''; return load(); }
+    if (ctl.stale && !ctl.busy && !ctl.editing) return load({quiet: true});
     if (!ctl.editing) render();
   }
   // 그 주를 다 읽었나(한글 파일·사진이 이 상자 결과를 쓸 때, B-4 ③·④).
