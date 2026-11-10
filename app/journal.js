@@ -923,11 +923,15 @@ const readers = {
 // HOME-업무일지홈 B: 할 일을 읽을 때마다 연결된 사업 보고 이름을 한 번 다시 읽는다(taskMeetings, 탭 메모리만).
 async function loadTaskMeetings(run, scope) {
   const pending = (materials.tasks?.items || []).filter(t => t?.id && t.status !== 'completed').map(t => t.id);
+  // 할 일을 읽은 뒤 따라오는 읽기라 하루 카드를 한 번 더 그린다. 그 동안도 '다 왔다' 신호(data-journal-refreshing)를 켜 둔다 —
+  // 신호가 꺼진 뒤 카드가 다시 그려지면 시험·수치가 사라진 줄을 잡는다(STAB-main화면시험흔들림).
+  const live = () => run === sharedEpoch && scope === ownerScope(rt);
+  refreshing.add('taskMeetings'); markRefreshing();
   try {
     const names = await readTaskMeetingNames(pending, rt);
-    if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
+    if (!live()) return;
     taskMeetings = names; renderDay();
-  } catch { /* 이름 없이 그대로 */ }
+  } catch { /* 이름 없이 그대로 */ } finally { if (live()) { refreshing.delete('taskMeetings'); markRefreshing(); } }
 }
 const SHARED_KEYS = new Set(['tasks', 'basket', 'catalog', 'milestones']);
 const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch && scope === ownerScope(rt) : current(run, scope);

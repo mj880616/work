@@ -291,6 +291,9 @@ export async function phoneFolder(page, source, id = '') {
   const tree = page.locator('#filesRoot [data-fx-tree]');
   await pinch(page, id ? tree.locator(`[data-fx-fold="${source}:${id}"]`) : tree.locator(`[data-fx-box="${source}"] .ft-box-head`), 'out');
   await expect(tree).toBeHidden();
+  // '그 폴더만' 상자는 0.2초 동안 줄 자리에서 올라온다(folder-focus-motion.js riseFromRow). 움직이는 동안 누르면 줄이 아직
+  // 제자리에 오지 않아 위 머리줄(폴더 이름)이 눌릴 수 있으므로, 움직임이 끝난(다 그려진) 뒤 돌려준다(STAB-main화면시험흔들림).
+  await page.waitForFunction(() => document.getAnimations().every(a => a.constructor !== Animation || a.playState !== 'running'));
 }
 // 나무에서 그 폴더 목록 열기: 넓은 화면은 나무 줄 이름을 누르고, 폰(상자 나무)은 두 손가락 벌리기.
 export async function treeGo(page, source, id = '') {
