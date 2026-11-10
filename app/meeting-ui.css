@@ -185,7 +185,10 @@
      칸 안 글자는 줄임표로 줄인다(전체 글은 title). 1280px 이상 배치·비율은 그대로. */
   #meetingList :is(.mcol-kinds,.mcol-cards)>li,#meetingList .mcol-kinds ul>li{min-width:0}
   #meetingList .mcol-card{overflow:hidden}
+  /* S56-36: 차수 줄 오른쪽 여백 8px — 최소 폭 112px(theme-tokens.css)에서 '46차 11.10'이 한 줄로 다 보이게. */
+  #meetingList .mcol-card-line{padding-right:var(--kptu-space-2)}
   @media(max-width:1279px){
+    #meetingList .mcol-three{--ds-split-col-b-min:96px} /* 좁은 PC는 예전 최소 폭(글자는 줄임표, 결과 칸 비율 우선) */
     #meetingList .mcol-kind{gap:6px;padding:0 var(--kptu-space-2)}
     #meetingList .mcol-card{padding-right:var(--kptu-space-2)}
   }
