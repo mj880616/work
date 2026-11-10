@@ -1,12 +1,15 @@
 // S53-20 MTG-비정기회의접기(시안 docs/design/mockups/meeting-name-irregular.html): 회의명 목록을 어떻게 보일지 정하는 한 곳(화면·네트워크 없음).
 // 회의명 목록 원본은 내 회의 기록(app_meetings series_name, 없으면 title)이고, 여기서는 내 프로필 칸 app_profiles.meeting_name_sorts
 // (migration 20261108090000) 값으로 '정기 / 비정기(상위 아래 접힘) / 목록에서 지움'을 나눈다. 값 모양은 DB 검사와 같다.
-//   {parents?: [{id, name}], names?: {회의명 열쇠: 'etc' | 'del' | 상위 id}} — 표시가 없는 회의명은 정기(지금처럼 목록에 보임).
+//   {parents?: [{id, name}], names?: {회의명 열쇠: 'etc' | 'del' | 상위 id}, orgs?: {회의명 열쇠: 조직 id}} — 표시가 없는 회의명은 정기(지금처럼 목록에 보임).
+// S56-1 MTG-회의명조직묶기(시안 docs/design/mockups/meeting-name-groups.html, migration 20261110090000): '상위'(parents)를 그대로 '조직'으로 쓴다.
+//   비정기 회의의 조직 = names 값(상위 id, 'etc'는 기타). 정기·지운 회의의 조직 = orgs 값(없으면 기타). orgs는 새 칸이라 옛 값에는 없다.
+//   정기 회의에 조직이 하나라도 붙어 있으면 목록을 조직 머리글로 묶고, 하나도 없으면(옛 값) 지금 모양 그대로 보인다.
 // 비정기·지움은 목록에서만 접히거나 빠진다. 지난 보고·검색·환류·연결은 그대로(회의 기록은 건드리지 않음).
 // 읽기·쓰기는 meeting-name-sorts.js, 고르는 창은 meeting-name-panel.js.
 
 export const ETC = 'etc', DEL = 'del', REGULAR = 'regular';
-export const PARENT_MAX = 30, NAME_MAX = 300, PARENT_NAME_MAX = 30, BYTES_MAX = 32768;
+export const PARENT_MAX = 30, NAME_MAX = 300, ORG_MAX = 300, PARENT_NAME_MAX = 30, BYTES_MAX = 32768;
 export const PARENT_ID_RE = /^g[0-9a-z]{6,12}$/;
 // 회의명 열쇠: 띄어쓰기 없이·소문자(app/team.js meetingNameKey·journal-meeting-kinds.js meetingKindKey와 같은 규칙).
 export const nameKey = name => String(name ?? '').replace(/\s+/g, '').toLowerCase();
@@ -15,26 +18,29 @@ const parentNameOk = v => typeof v === 'string' && [...v].length >= 1 && [...v].
 const sortValueOk = v => v === ETC || v === DEL || (typeof v === 'string' && PARENT_ID_RE.test(v));
 const bytes = v => new TextEncoder().encode(JSON.stringify(v)).length;
 
-export const emptySorts = () => ({parents: [], names: {}});
+export const emptySorts = () => ({parents: [], names: {}, orgs: {}});
 
 // 서버 값 → {parents, names}. 모양이 틀린 값은 null(그때 화면은 모든 회의명을 정기처럼 펼쳐 보인다 — 추측으로 숨기지 않음).
 export function parseSorts(value) {
   if (value == null) return emptySorts();
   if (typeof value !== 'object' || Array.isArray(value)) return null;
-  if (Object.keys(value).some(k => k !== 'parents' && k !== 'names')) return null;
-  const parents = value.parents ?? [], names = value.names ?? {};
+  if (Object.keys(value).some(k => k !== 'parents' && k !== 'names' && k !== 'orgs')) return null;
+  const parents = value.parents ?? [], names = value.names ?? {}, orgs = value.orgs ?? {};
   if (!Array.isArray(parents) || parents.length > PARENT_MAX) return null;
   if (!parents.every(p => p && typeof p === 'object' && !Array.isArray(p) && Object.keys(p).every(k => k === 'id' || k === 'name')
     && typeof p.id === 'string' && PARENT_ID_RE.test(p.id) && parentNameOk(p.name))) return null;
   if (!names || typeof names !== 'object' || Array.isArray(names) || Object.keys(names).length > NAME_MAX) return null;
   if (!Object.entries(names).every(([k, v]) => validNameKey(k) && sortValueOk(v))) return null;
-  return {parents: parents.map(p => ({id: p.id, name: p.name})), names: {...names}};
+  if (!orgs || typeof orgs !== 'object' || Array.isArray(orgs) || Object.keys(orgs).length > ORG_MAX) return null;
+  if (!Object.entries(orgs).every(([k, v]) => validNameKey(k) && typeof v === 'string' && PARENT_ID_RE.test(v))) return null;
+  return {parents: parents.map(p => ({id: p.id, name: p.name})), names: {...names}, orgs: {...orgs}};
 }
 // 저장할 값(빈 칸은 뺌). DB 검사를 넘지 못할 값이면 null.
 export function toStored(sorts) {
   const out = {};
   if (sorts.parents.length) out.parents = sorts.parents.map(p => ({id: p.id, name: p.name}));
   if (Object.keys(sorts.names).length) out.names = {...sorts.names};
+  if (Object.keys(sorts.orgs || {}).length) out.orgs = {...sorts.orgs};
   return parseSorts(out) && bytes(out) <= BYTES_MAX ? out : null;
 }
 
@@ -46,6 +52,15 @@ export function placeOf(sorts, name) {
   if (v === ETC || !sorts.parents.some(p => p.id === v)) return {kind: 'irregular', parent: ETC};
   return {kind: 'irregular', parent: v};
 }
+// 한 회의명의 조직 id(없으면 'etc' = 기타). 비정기는 names 값, 정기·지움은 orgs 값. 없는 조직 id는 기타.
+export function orgOf(sorts, name) {
+  const k = nameKey(name), v = sorts?.names?.[k], has = id => !!sorts?.parents?.some(p => p.id === id);
+  if (v && v !== DEL) return has(v) ? v : ETC;
+  const o = sorts?.orgs?.[k];
+  return o && has(o) ? o : ETC;
+}
+// 조직으로 묶어 보일까: 정기 회의에 조직이 하나라도 붙어 있을 때(옛 값은 지금 모양 그대로).
+export const grouped = sorts => !!sorts && Object.entries(sorts.orgs || {}).some(([k, v]) => !sorts.names[k] && sorts.parents.some(p => p.id === v));
 export const parentLabel = (sorts, id) => id === ETC ? '기타' : (sorts?.parents?.find(p => p.id === id)?.name || '기타');
 
 // ⑤ 차수만 다른 같은 회의(1차·2차, 제3차 …)는 한 줄: 앞 '제n차'·뒤 '(n차)'·'n차'를 뗀 이름이 같으면 한 묶음.
@@ -79,16 +94,21 @@ export function bundle(entries) {
 }
 
 // 묶음의 자리는 가장 최근 이름의 자리. 묶음 안 이름 하나라도 정기면 정기로 본다(정기 회의가 접히지 않게).
+// org: 그 자리를 정한 첫 이름(최근 먼저)의 조직.
 function bundlePlace(sorts, b) {
-  const places = b.names.map(n => placeOf(sorts, n));
-  if (places.some(p => p.kind === REGULAR)) return {kind: REGULAR};
-  return places.find(p => p.kind === 'irregular') || {kind: DEL};
+  const places = b.names.map(n => ({...placeOf(sorts, n), org: orgOf(sorts, n)}));
+  const reg = places.find(p => p.kind === REGULAR);
+  if (reg) return {kind: REGULAR, org: reg.org};
+  return places.find(p => p.kind === 'irregular') || {kind: DEL, org: places[0]?.org || ETC};
 }
 
 // 평소 목록(②): [{type:'name', ...묶음}] 정기 + 상위 묶음 [{type:'group', id, label, items}]. 상위 이름으로 시작하는 정기 회의가 있으면 그 첫 줄 바로 아래,
 // 없으면 상위 목록 순서대로 정기 줄 뒤에, '기타 비정기'는 맨 뒤. 비정기가 없는 상위는 줄이 없다. 지운 회의명은 없다.
 // keep: 지금 고른 이름(그 이름은 비정기·지움이어도 정기 줄처럼 보인다 — 고친 기록의 이름이 사라져 보이지 않게).
-export function listRows(entries, sorts, {keep = ''} = {}) {
+export function listRows(entries, sorts, opts = {}) {
+  return grouped(sorts) ? orgRows(entries, sorts, opts) : plainRows(entries, sorts, opts);
+}
+function plainRows(entries, sorts, {keep = ''} = {}) {
   const regular = [], groups = new Map(), keepKey = nameKey(keep);
   for (const b of bundle(entries)) {
     const place = sorts ? bundlePlace(sorts, b) : {kind: REGULAR};
@@ -107,7 +127,28 @@ export function listRows(entries, sorts, {keep = ''} = {}) {
   return rows;
 }
 
-// ③ 찾기: 정기·비정기 모두(지운 회의명은 빼고), 띄어쓰기·대소문자 무시. 비정기는 tag '비정기 · 상위'.
+// S56-1 조직 묶음 목록: 조직 순서(조직 목록 순서, '기타'는 맨 아래)대로 [{type:'org', id, label}] 머리글(고를 수 없음) ·
+// 그 조직의 정기 회의(최근 먼저) · 그 조직 비정기 묶음 [{type:'group', id, label:'비정기 회의', items}]. 회의가 하나도 없는 조직은 머리글도 없다.
+// keep(지금 고른 이름)은 비정기·지움이어도 그 조직의 정기 줄처럼 보인다.
+function orgRows(entries, sorts, {keep = ''} = {}) {
+  const keepKey = nameKey(keep), regular = new Map(), irregular = new Map();
+  const push = (map, id, b) => (map.get(id) || map.set(id, []).get(id)).push(b);
+  for (const b of bundle(entries)) {
+    const place = bundlePlace(sorts, b), org = place.kind === 'irregular' ? place.parent : place.org;
+    if (place.kind === REGULAR || (keepKey && b.names.some(n => nameKey(n) === keepKey))) push(regular, org, b);
+    else if (place.kind === 'irregular') push(irregular, org, b);
+  }
+  const rows = [];
+  for (const id of [...sorts.parents.map(p => p.id), ETC]) {
+    if (!regular.has(id) && !irregular.has(id)) continue;
+    rows.push({type: 'org', id, label: parentLabel(sorts, id)});
+    for (const b of regular.get(id) || []) rows.push({type: 'name', ...b, org: id});
+    if (irregular.has(id)) rows.push({type: 'group', id, label: '비정기 회의', items: irregular.get(id)});
+  }
+  return rows;
+}
+
+// ③ 찾기: 정기·비정기 모두(지운 회의명은 빼고), 띄어쓰기·대소문자 무시. 비정기는 tag '비정기 · 조직', 조직에 넣은 정기는 tag '조직'(S56-1 ⑤).
 export function findRows(entries, sorts, query) {
   const q = nameKey(query);
   if (!q) return [];
@@ -116,7 +157,8 @@ export function findRows(entries, sorts, query) {
     if (!b.names.some(n => nameKey(n).includes(q))) continue;
     const place = sorts ? bundlePlace(sorts, b) : {kind: REGULAR};
     if (place.kind === DEL) continue;
-    out.push({type: 'name', ...b, tag: place.kind === 'irregular' ? `비정기 · ${parentLabel(sorts, place.parent)}` : ''});
+    const org = place.kind === 'irregular' ? place.parent : place.org || ETC;
+    out.push({type: 'name', ...b, org, tag: place.kind === 'irregular' ? `비정기 · ${parentLabel(sorts, org)}` : org !== ETC ? parentLabel(sorts, org) : ''});
   }
   return out;
 }
@@ -128,32 +170,62 @@ export function shownNames(entries, sorts, opts) {
 }
 
 // ---- 바꾸기(새 값을 돌려줌, 바꿀 수 없으면 null) ----
-const clone = s => ({parents: s.parents.map(p => ({...p})), names: {...s.names}});
+const clone = s => ({parents: s.parents.map(p => ({...p})), names: {...s.names}, orgs: {...(s.orgs || {})}});
+const fits = s => Object.keys(s.names).length <= NAME_MAX && Object.keys(s.orgs).length <= ORG_MAX;
 // 한 회의명(묶음이면 묶음 안 이름 모두)의 자리 바꾸기. place: 'regular' | 'del' | 'etc' | 상위 id.
+// 조직은 그대로 따라간다: 비정기 → 정기면 그 조직을 orgs로 옮기고, 정기 → 비정기(상위 id·etc)면 orgs 표시를 지운다(조직은 names 값이 정함).
 export function setPlace(sorts, names, place) {
   const next = clone(sorts), list = (Array.isArray(names) ? names : [names]).map(nameKey).filter(validNameKey);
   if (!list.length) return null;
   if (place !== REGULAR && !sortValueOk(place)) return null;
   if (PARENT_ID_RE.test(place) && !next.parents.some(p => p.id === place)) return null;
-  for (const k of list) { if (place === REGULAR) delete next.names[k]; else next.names[k] = place; }
-  return Object.keys(next.names).length <= NAME_MAX ? next : null;
+  for (const k of list) {
+    const v = next.names[k], wasIrr = v && v !== DEL;
+    if (place === REGULAR) { if (wasIrr && PARENT_ID_RE.test(v) && next.parents.some(p => p.id === v)) next.orgs[k] = v; delete next.names[k]; }
+    else if (place === DEL) { if (wasIrr && PARENT_ID_RE.test(v) && next.parents.some(p => p.id === v)) next.orgs[k] = v; next.names[k] = DEL; }
+    else { next.names[k] = place; delete next.orgs[k]; }
+  }
+  return fits(next) ? next : null;
+}
+// S56-1 ⋯ '비정기로 두기': 지금 조직 아래 비정기로(조직은 바뀌지 않음).
+export function setIrregular(sorts, names) {
+  const list = (Array.isArray(names) ? names : [names]).filter(n => validNameKey(nameKey(n)));
+  if (!list.length) return null;
+  let next = clone(sorts);
+  for (const n of list) { next = setPlace(next, n, orgOf(next, n)); if (!next) return null; }
+  return next;
+}
+// S56-1 ③ ⋯ '조직 바꾸기': org = 조직 id 또는 'etc'(기타). 정기·비정기·지움 자리는 그대로, 조직만 바꾼다.
+export function setOrg(sorts, names, org) {
+  const next = clone(sorts), list = (Array.isArray(names) ? names : [names]).map(nameKey).filter(validNameKey);
+  if (!list.length || !(org === ETC || (PARENT_ID_RE.test(org) && next.parents.some(p => p.id === org)))) return null;
+  for (const k of list) {
+    const v = next.names[k];
+    if (v && v !== DEL) { next.names[k] = org; delete next.orgs[k]; }
+    else if (org === ETC) delete next.orgs[k];
+    else next.orgs[k] = org;
+  }
+  return fits(next) ? next : null;
 }
 // 회의명 이름 바꾸기 뒤: 옛 열쇠의 표시를 새 열쇠로 옮김(새 이름에 이미 표시가 있으면 그대로 둠).
 export function moveName(sorts, from, to) {
   const a = nameKey(from), b = nameKey(to), next = clone(sorts);
-  if (!(a in next.names) || a === b) return next;
-  if (!(b in next.names) && validNameKey(b)) next.names[b] = next.names[a];
-  delete next.names[a];
+  if (a === b) return next;
+  for (const map of [next.names, next.orgs]) {
+    if (!(a in map)) continue;
+    if (!(b in map) && validNameKey(b)) map[b] = map[a];
+    delete map[a];
+  }
   return next;
 }
 export function parentNameProblem(name, sorts, exceptId = '') {
   const v = String(name ?? '').trim();
-  if (!v) return '상위 이름을 써 주세요.';
-  if ([...v].length > PARENT_NAME_MAX) return `상위 이름은 ${PARENT_NAME_MAX}자까지예요.`;
+  if (!v) return '조직 이름을 써 주세요.';
+  if ([...v].length > PARENT_NAME_MAX) return `조직 이름은 ${PARENT_NAME_MAX}자까지예요.`;
   if (/\p{Cc}/u.test(v)) return '한 줄로 써 주세요.';
   if (nameKey(v) === nameKey('기타')) return '‘기타’는 이미 있어요.';
-  if (sorts.parents.some(p => p.id !== exceptId && nameKey(p.name) === nameKey(v))) return '같은 이름의 상위가 있어요.';
-  if (!exceptId && sorts.parents.length >= PARENT_MAX) return `상위는 ${PARENT_MAX}개까지예요.`;
+  if (sorts.parents.some(p => p.id !== exceptId && nameKey(p.name) === nameKey(v))) return '같은 이름의 조직이 있어요.';
+  if (!exceptId && sorts.parents.length >= PARENT_MAX) return `조직은 ${PARENT_MAX}개까지예요.`;
   return '';
 }
 export const newParentId = (rand = Math.random) => 'g' + Array.from({length: 8}, () => '0123456789abcdefghijklmnopqrstuvwxyz'[Math.floor(rand() * 36)]).join('');
@@ -170,11 +242,14 @@ export function orderParents(sorts, ids) {
   if (ids.length !== byId.size || !ids.every(id => byId.has(id))) return null;
   const next = clone(sorts); next.parents = ids.map(id => ({...byId.get(id)})); return next;
 }
-// ⑨ 상위 지우기: 그 아래 비정기 회의는 지우지 않고 '기타 비정기'로 옮긴다.
+// ⑨ 조직(상위) 지우기: 그 아래 회의는 지우지 않고 '기타'로 옮긴다(비정기는 기타 비정기, 정기는 기타 정기).
 export function removeParent(sorts, id) {
   if (!sorts.parents.some(p => p.id === id)) return null;
   const next = clone(sorts); next.parents = next.parents.filter(p => p.id !== id);
   for (const [k, v] of Object.entries(next.names)) if (v === id) next.names[k] = ETC;
+  for (const [k, v] of Object.entries(next.orgs)) if (v === id) delete next.orgs[k];
   return next;
 }
 export const parentCount = (sorts, id) => Object.values(sorts.names).filter(v => v === id).length;
+// 조직에 넣은 회의 수(비정기 + 정기·지움). '기타'는 세지 않는다(넣지 않은 회의 전부라 수를 알 수 없음).
+export const orgCount = (sorts, id) => parentCount(sorts, id) + Object.entries(sorts.orgs || {}).filter(([k, v]) => v === id && !(sorts.names[k] && sorts.names[k] !== DEL)).length;

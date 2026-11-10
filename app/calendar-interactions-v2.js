@@ -18,8 +18,10 @@ function ciMinusDay(v){return seoulDateKey(addSeoulDays(seoulDayStart(v),-1))}
 function ciStatus(id,msg,err=false){const e=document.querySelector(id);if(e){e.textContent=msg||'';e.className='status'+(err?' error':'')}}
 function ciWait(id){const e=document.querySelector(id);if(e){e.innerHTML=ciWaitHtml();e.className='status'}}
 function ciToast(msg){const t=document.querySelector('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
-function ciOpen(id){const m=document.querySelector(id);if(m){m.classList.remove('hidden');m.setAttribute('aria-hidden','false')}}
-function ciClose(id){if(id==='#ciGoogleModal'){ciGoogleOpenSeq++;ciSaveRequest=null;ciGoogleSavePending=false;if(document.querySelector('#ciGoogleMenu')?.hidden===false)ciToggleMenu(document.querySelector('#ciGoogleMore'),false)}const m=document.querySelector(id);if(m){m.classList.add('hidden');m.setAttribute('aria-hidden','true')}}
+// UI-Esc로창닫기: the schedule window joins the shared window rule (accessibility-dialog.js): Esc = its ✕ (the same close,
+// nothing extra), a small ⋯ menu open inside it closes first (ciMenuDismiss below), Korean input in progress keeps it open.
+function ciOpen(id){const m=document.querySelector(id);if(m){const was=m.classList.contains('hidden');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');if(was)window.KPTUA11y?.dialog.activate?.(m,{trigger:document.activeElement,initialFocus:'#ciGoogleClose',onRequestClose:()=>m.querySelector('#ciGoogleClose')?.click()})}}
+function ciClose(id){if(id==='#ciGoogleModal'){ciGoogleOpenSeq++;ciSaveRequest=null;ciGoogleSavePending=false;if(document.querySelector('#ciGoogleMenu')?.hidden===false)ciToggleMenu(document.querySelector('#ciGoogleMore'),false)}const m=document.querySelector(id);if(m){const was=!m.classList.contains('hidden');m.classList.add('hidden');m.setAttribute('aria-hidden','true');if(was)window.KPTUA11y?.dialog.deactivate?.(m)}}
 function ciCloseDay(openNext){
   const m=document.querySelector('#calendarDayModal');
   if(!m||m.classList.contains('hidden'))return openNext();

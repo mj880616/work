@@ -241,7 +241,6 @@ function modal() {
     else if (b.dataset.okpSuggest !== undefined) addMatch(b.dataset.okpSuggest, false);
   });
   m.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { e.preventDefault(); closeEditor(); return; }
     if (e.key === 'Enter' && e.target.id === 'okpMatchInput') { e.preventDefault(); addMatch(e.target.value, true); }
     else if (e.key === 'Enter' && e.target.id === 'okpName') { e.preventDefault(); void saveEditor(); }
   });
@@ -258,6 +257,8 @@ function openEditor(person, back) {
   m.querySelector('#okpStatus').textContent = '';
   paintMatches(); paintSuggest();
   m.classList.remove('hidden');
+  // UI-Esc로창닫기: 공용 창 규칙(accessibility-dialog.js) — Esc = ✕(한글 입력 중이면 닫지 않음). 따로 두던 Esc 처리는 뺐다.
+  window.KPTUA11y?.dialog?.activate?.(m, {trigger:back || document.activeElement, initialFocus:'#okpName', onRequestClose:closeEditor});
   m.querySelector('#okpName').focus();
   if (!ui.data) void readPool(ui.rt).then(paintSuggest, () => {});
 }
@@ -265,6 +266,7 @@ function closeEditor() {
   const m = document.getElementById('okpModal'); if (!m || m.classList.contains('hidden')) return;
   m.classList.add('hidden');
   const back = ed?.back; ed = null;
+  window.KPTUA11y?.dialog?.deactivate?.(m, {restoreFocus:false});
   if (back?.isConnected) back.focus({preventScroll:true});
 }
 function addMatch(value, fromInput) {

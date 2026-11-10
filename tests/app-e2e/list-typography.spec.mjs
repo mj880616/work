@@ -66,7 +66,7 @@ async function boot(page){
 async function view(page,name){await clickView(page,name);await expect.poll(()=>page.evaluate(name=>window.KPTUViewLoader.isLoaded(name),name)).toBe(true);}
 async function baseline(page){
  const cache=new Map();
- await page.route(new RegExp('^'+appOrigin.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&')+"\\/(?:app|press)\\/"),route=>{
+ await page.route(new RegExp('^'+appOrigin.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&')+"\\/app\\/"),route=>{
   let path=new URL(route.request().url()).pathname.slice(1);if(path.endsWith('/'))path+='index.html';
   if(!/\.(css|js|html)$/.test(path))return route.continue();
   if(!cache.has(path))cache.set(path,execFileSync('git',['show',BASE+':'+path],{encoding:'utf8'}));
@@ -96,10 +96,7 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
   for(const selector of selectorsForView){if(width<=760&&['#newEventBtn','#newTaskBtn','#libraryView #newDocumentBtn'].includes(selector))continue;// 폰의 자료실 [+]는 글자 없는 작은 아이콘(LIB-위쪽한줄)
   await expect(page.locator(selector).first()).toHaveCount(1);await expect(original.locator(selector).first()).toHaveCount(1);const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page),selector).toBe(selector==='#prevMonthBtn'?'24px':['#newEventBtn','#newTaskBtn','#libraryListCard h2','#libraryView #newDocumentBtn'].includes(selector)?'13px':selector==='#libraryView #manageLibraryBtn'?'12px'/* LIB-맨위다듬기: 칩 줄 끝 글자 버튼은 칩과 같은 12px */:selector==='#monthTitle'?'18px':await fonts(original));}
  }
- for(const p of [page,original])await p.goto(`${appOrigin}/press/`);
- for(const selector of ['h1','.item h3','.date','.tag','.filter']){
-  const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page)).toBe(await fonts(original));
- }
+ // WEB1-페이지삭제 C1-b: the Web1 /press/ page that used to be compared here is removed (no Web1 standard left).
  await original.close();
 });
 

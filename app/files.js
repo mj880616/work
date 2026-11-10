@@ -736,7 +736,8 @@ function paintScroll() {
   const topH = top?.offsetHeight || 0, head = topH + (bar && !bar.hidden ? bar.offsetHeight : 0);
   root.style.setProperty('--fx-top-h', `${topH}px`);
   root.style.setProperty('--fx-head-h', `${head}px`);
-  const at = {top: head + 4, reset: false, narrow: !FOLLOW_WIDE.matches, bottom: dockBelow};
+  // 칸은 맨 위 줄 아래 6px(files.css '.fx-split-scroll > .fx-cols'의 띄움과 같은 값)에 붙는다 — 내려도 칸이 움찔하지 않게.
+  const at = {top: head + 6, reset: false, narrow: !FOLLOW_WIDE.matches, bottom: dockBelow};
   if (tree) followPane(tree, at);
   for (const el of cols) { if (two()) followPane(el, at); else el.classList.remove('kptu-follow-pane', 'kptu-follow-narrow'); }
   if (!headWatch && typeof ResizeObserver === 'function') {

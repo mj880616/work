@@ -2,6 +2,7 @@
   if(window.KPTUA11y?.dialog)return;
   const state=new WeakMap();
   let active=null;
+  const stack=[];
   const focusable='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
   const resolve=(modal,value)=>typeof value==='string'?modal.querySelector(value):value;
   const items=modal=>[...modal.querySelectorAll(focusable),...document.querySelectorAll('#noticeBar button')].filter(el=>!el.closest('.hidden')&&el.getClientRects().length);
@@ -110,6 +111,7 @@
     if(!modal)return;
     active?.querySelector('.modal-action-footer')?.removeAttribute('data-keyboard-open');
     state.set(modal,{trigger,onRequestClose,companions});
+    stack.splice(0,stack.length,...stack.filter(m=>m!==modal),modal);
     active=modal;
     window.dispatchEvent(new CustomEvent('kptu:dialog-opened',{detail:{modal}}));
     const target=resolve(modal,initialFocus)||items(modal)[0]||modal;
@@ -124,15 +126,27 @@
     modal.querySelector('.modal-action-footer')?.removeAttribute('data-keyboard-open');
     window.dispatchEvent(new CustomEvent('kptu:dialog-closed',{detail:{modal}}));
     state.delete(modal);
-    if(active===modal)active=null;
+    stack.splice(0,stack.length,...stack.filter(m=>m!==modal&&state.has(m)));
+    // UI-Esc로창닫기: a window opened over another (a picker over the schedule window) hands Esc and Tab back to the one
+    // under it when it closes, so the next Esc closes that one too.
+    if(active===modal)active=[...stack].reverse().find(m=>m.isConnected&&!m.classList.contains('hidden'))||null;
     if(!restoreFocus)return;
     const target=saved?.trigger?.isConnected?saved.trigger:(typeof fallbackFocus==='string'?document.querySelector(fallbackFocus):fallbackFocus);
     target?.focus?.({preventScroll:true});
   }
 
+  const shown=m=>m.isConnected&&!m.classList.contains('hidden');
   document.addEventListener('keydown',e=>{
+    if(active&&!shown(active))active=[...stack].reverse().find(shown)||active;
     if(!active||active.classList.contains('hidden'))return;
     if(e.key==='Escape'){
+      // UI-Esc로창닫기: Esc = the window's own close (its ✕), with two exceptions that leave the window open:
+      // ③ Korean (IME) composition in progress — that Esc only ends the composition;
+      // ② a small ⋯ menu inside the window is open (the shared menu layer, details-menu-back.js): Esc closes that menu only.
+      // (Small things that own their Esc — a list, a picker, a field's cancel — stop it before it reaches here, as before.
+      // preventDefault alone does not count: the editor's text box marks every Esc that way, and Esc must still close its window.)
+      if(e.isComposing||e.keyCode===229)return;
+      if(window.KPTUMenuLayer?.dismissIn?.(active)){e.preventDefault();return}
       const fn=state.get(active)?.onRequestClose;
       if(fn){e.preventDefault();fn()}
       return;

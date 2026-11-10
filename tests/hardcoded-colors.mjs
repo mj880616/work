@@ -2,7 +2,7 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 // User-authored content palettes remain free-form; UI token themes define the approved colors.
-export const excluded=['theme-tokens.css','page-design-core.js'];
+export const excluded=['theme-tokens.css'];
 export function countColors(name,source){
  if(excluded.includes(name))return 0;
  let text=source.replace(/\/\*[\s\S]*?\*\//g,'');

@@ -319,8 +319,11 @@
 
 /* FILES-칸따로스크롤(S52-41 ②, 명진 11/08 — 이 화면에서는 C8 'UI-칸안스크롤하나로'보다 우선): 폴드 펼침·PC(600px~)에서 맨 위 줄·고르기 막대는 화면 위에 고정,
    나무(·두 칸이면 칸마다)는 follow-pane.js가 그 아래(--follow-top)에 붙여 따로 스크롤한다(.kptu-follow-pane, desktop-ui.css 한 곳). 폰은 지금대로. */
-.fx.fx-split-scroll > .fx-top { position:sticky; top:0; z-index:6; background:var(--kptu-surface); }
-.fx.fx-split-scroll > .fx-bar:not([hidden]) { position:sticky; top:var(--fx-top-h,40px); z-index:6; background:var(--kptu-surface); }
+/* UI-위쪽줄흰띠·여백(S55-19, 명진 11/10): 고정한 두 줄의 바탕은 화면 바탕(--kptu-bg) — 아스날(.ars-bar)·사진(.photos-bar)·전체 검색(.gs-view-bar)과 같이.
+   흰색(--kptu-surface)으로 칠하면 화면 바탕 위에 흰 띠로 떠 보인다. 맨 위 줄 아래 선은 빼고(같은 바탕이라 칸 테두리와 겹선), 아래 칸과는 아스날 위쪽 줄과 같은 6px을 띄운다. */
+.fx.fx-split-scroll > .fx-top { position:sticky; top:0; z-index:6; background:var(--kptu-bg); border-bottom:0; }
+.fx.fx-split-scroll > .fx-bar:not([hidden]) { position:sticky; top:var(--fx-top-h,40px); z-index:6; background:var(--kptu-bg); }
+.fx.fx-split-scroll > .fx-cols { margin-top:6px; }
 .fx.fx-split-scroll .fx-listcol.kptu-follow-pane { position:sticky; overflow-y:auto; overscroll-behavior:contain; }
 .fx.fx-split-scroll .fx-listcol.kptu-follow-pane > .fx-ptop { position:sticky; top:0; z-index:2; }
 .fx.fx-split-scroll .fx-prev { top:calc(var(--fx-head-h,40px) + 4px); max-height:calc(100dvh - var(--fx-head-h,40px) - 16px); }

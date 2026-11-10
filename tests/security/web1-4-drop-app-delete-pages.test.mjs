@@ -36,7 +36,8 @@ test('no runtime code calls app_delete_pages', () => {
     const path = `${dir}/${name}`;
     return statSync(fileURLToPath(new URL(path, ROOT))).isDirectory() ? walk(path) : [path];
   });
-  for (const path of [...walk('app'), ...walk('p'), ...walk('supabase/functions')]) {
+  // WEB1-페이지삭제 C1-b: p/ (Web1) is removed; share/ is the remaining public page code.
+  for (const path of [...walk('app'), ...walk('share'), ...walk('supabase/functions')]) {
     if (!/\.(js|mjs|ts|html)$/.test(path)) continue;
     assert.doesNotMatch(read(path), /app_delete_pages/, `${path} must not call app_delete_pages`);
   }
