@@ -13,6 +13,9 @@ for(const width of [390,1280]){
   await page.setViewportSize({width,height:900});const errors=[],reads=[];
   page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
   await openHome(page);
+  // 홈 '오늘 사진' 칸은 홈을 그릴 때 그날 일기 행(app_notes kind=diary, journal_day)을 따로 읽는다(HOME-오늘사진빨리, #2318).
+  // 그 읽기가 아래 가로채기를 건 뒤에 도착하면 정리함 목록 읽기로 잘못 세지므로, 홈 읽기가 끝난 것(사진 칸 '없음')을 먼저 본다.
+  await expect(page.locator('#homeView [data-journal-photo-strip]')).toHaveAttribute('data-state','empty');
   await page.route(SB+'/rest/v1/app_notes?**',r=>{
    const q=new URL(r.request().url()).searchParams;if(r.request().method()!=='GET')return r.fulfill({status:500,json:{}});
    reads.push(q.get('kind'));if(q.get('metadata'))return r.fulfill({json:[]});
