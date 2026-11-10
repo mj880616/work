@@ -14,12 +14,15 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // S52-44 ② FILES-관리자마무리: DB(20261108060000) files_last와 화면 허용 목록을 같은 PR에서 더했다(적용 전에는 화면이 이번 접속만 기억). DB에만 있는 칸은 없다.
 // S53-16 WEEKLY-분류이름바뀜: DB(20261109150000) org_row_order와 화면 허용 목록을 같은 PR에서 더했다(적용 전에는 표식 저장만 거절, 바탕은 알려진 이름으로 찾음).
 // S55-11 LIB-두칸보기: DB(20261109193000, S55-10 #2238) library_two를 화면 허용 목록에도 더했다. DB에만 있는 칸은 없다.
+// S56-13 BIZ-주간보고접힘기억: DB(20261110170000) biz_week_open과 화면 허용 목록을 같은 PR에서 더했다(적용 전에는 화면이 이번 접속만 기억). DB에만 있는 칸은 없다.
 const DB_ONLY = [];
-test('허용 칸이 DB 검사(마지막 migration, ORG-줄순서 org_row_order 위에 LIB-두칸보기 library_two 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261109193000_profile_view_prefs_library_two.sql');
+test('허용 칸이 DB 검사(마지막 migration, LIB-두칸보기 library_two 위에 BIZ-주간보고접힘기억 biz_week_open 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261110170000_profile_view_prefs_biz_week_open.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 53);
+  assert.equal(KEYS.length, 54);
+  for (const v of [{}, {pc: true}, {app: false, phone: true, pc: false}]) assert.equal(validValue('biz_week_open', v), true, JSON.stringify(v));
+  for (const v of [null, true, [], {pc: 'true'}, {pc: 1}, {pc: null}, {tablet: true}, {pc: {open: true}}]) assert.equal(validValue('biz_week_open', v), false, JSON.stringify(v));
   for (const v of [true, false]) assert.equal(validValue('library_two', v), true);
   for (const v of [null, 'on', 1, [], {}]) assert.equal(validValue('library_two', v), false);
   for (const v of ['asc', 'desc']) assert.equal(validValue('org_row_order', v), true);

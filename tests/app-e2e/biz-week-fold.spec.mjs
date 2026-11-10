@@ -1,5 +1,5 @@
 // BIZ-주간보고접기(요청함 11/09 18:16): 사업 보고 '이번 주 주간보고' 칸 — 처음 들어오면 펼침, 보고 하나를 직접 열면 자동으로 접힌 한 줄,
-// 창을 닫으면 다시 펼침(폰), 제목 줄로 언제든 손으로 접고 펴기(손으로 고른 것이 자동보다 우선, 화면을 떠났다 오면 잊음),
+// 창을 닫으면 다시 펼침(폰), 제목 줄로 언제든 손으로 접고 펴기(보고를 연 동안 손으로 고른 것이 자동보다 우선, 손으로 고른 값은 기기별로 기억 — S56-13),
 // 위 띠 '사업영역 안 단 보고 n건'도 같이 접힘, 접힌 동안은 표를 그리지 않음. 서버는 가짜, 글은 합성 값. 시계 2026-11-10(화) 서울.
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
@@ -34,7 +34,7 @@ async function expectOpen(page,box,open){
   else{await expect(box.locator('[data-bw-body]')).toBeHidden();await expect(page.locator('#areaUntaggedLine')).toBeHidden();await expect(foldBtn(box)).toHaveText(/이번 주 주간보고\s*11\.9~11\.15/)}
 }
 
-for(const width of [884,1440])test(`PC ${width}: 처음 펼침 → 보고 하나 열면 접힘 → 제목으로 손으로 펴면 다른 보고를 열어도 펼침 → 다시 들어오면 펼침`,async({page})=>{
+for(const width of [884,1440])test(`PC ${width}: 처음 펼침 → 보고 하나 열면 접힘 → 제목으로 손으로 펴면 다른 보고를 열어도 펼침 → 손으로 접은 것은 다시 들어와도 접힘(기억)`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const box=await open(page,width);
   await expectOpen(page,box,true);
@@ -53,9 +53,14 @@ for(const width of [884,1440])test(`PC ${width}: 처음 펼침 → 보고 하나
   // 손으로 접기도 된다.
   await foldBtn(box).click();
   await expectOpen(page,box,false);
-  // 다른 화면에 갔다 오면 처음처럼 펼침.
+  // S56-13 BIZ-주간보고접힘기억: 손으로 접은 것은 기억 — 다른 화면에 갔다 와도 접힌 채(앞 규칙 '다시 들어오면 펼침'을 바꿈).
   await page.evaluate(()=>window.KPTURouter.go('home',{source:'delegated'}));
   await expect(page.locator('#meetingsView')).toBeHidden();
+  await page.evaluate(()=>window.KPTURouter.go('meetings',{source:'delegated'}));
+  await expectOpen(page,box,false);
+  // 손으로 펴면 다시 들어와도 펼친 채.
+  await foldBtn(box).click();await expectOpen(page,box,true);
+  await page.evaluate(()=>window.KPTURouter.go('home',{source:'delegated'}));await expect(page.locator('#meetingsView')).toBeHidden();
   await page.evaluate(()=>window.KPTURouter.go('meetings',{source:'delegated'}));
   await expectOpen(page,box,true);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth<=1)).toBe(true);

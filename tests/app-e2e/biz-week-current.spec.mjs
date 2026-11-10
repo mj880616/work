@@ -1,7 +1,7 @@
 // S54-34 ① BIZ-주간표이번주(★급★) + BIZ-주간표스크롤(요청함 11/09 07:46~07:54).
 // - 사업 보고를 열면 주는 늘 이번 주(오늘이 든 월~일). 월요일처럼 이번 주 보고가 0건이어도 지난주로 가지 않고 '· 0건', '이번 주 주간보고' 칸에 [쓰기].
 // - ‹로 지난주에 가면 그때 글(전환 주 앞은 읽기 전용) 그대로, 다시 ›로 이번 주.
-// - [전체 기간]이면 주간보고 칸은 늘 이번 주이고 접힌 한 줄('이번 주 주간보고 11.9~11.15 ⌄'), 누르면 펼침. 다시 [전체 기간]으로 들어오면 또 접힘. 주 단위는 늘 펼침.
+// - [전체 기간]이면 주간보고 칸은 늘 이번 주이고 접힌 한 줄('이번 주 주간보고 11.9~11.15 ⌄'), 누르면 펼침. 손으로 접고 편 것은 기억(BIZ-주간보고접힘기억 S56-13) — 기억이 없을 때만 주 단위 펼침·여러 주 접힘.
 // - 표 칸은 따로 스크롤하는 칸이 아니다: 표 위에서 밀어도 화면 전체가 위아래로 움직이고, 화면 끝에서 표 끝이 아래 [목록|달력|사진]에 가리지 않는다.
 // 서버는 가짜, 이름·글은 모두 합성 값. 시계 2026-11-09(월) 09:30(서울).
 import {test,expect} from '@playwright/test';
@@ -73,16 +73,18 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   await expect(box.locator('[data-bp-cell="progress"]').first()).toHaveText('쓰기'); // 이번 주라 쓸 수 있다
   await fold.click();
   await expect(box.locator('[data-bw-body]')).toBeHidden();
-  // 이번 주로 돌아오면 펼침(기간 보기를 바꾸면 손으로 접은 것을 잊음). 다시 [전체 기간]이면 또 접힘(기억하지 않음).
+  // S56-13 BIZ-주간보고접힘기억(요청함 11/10, 앞 규칙 '기간 보기를 바꾸면 잊음'을 바꿈): 손으로 접은 것은 기억해 주 단위로 돌아와도 접힌 채.
   await pick.selectOption('week');
   await expect(label(page)).toHaveText('11.9(월)~11.15(일)');
-  await expect(box.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
-  await expect(box.locator('.biz-week-title [data-bw-fold]')).toHaveAttribute('aria-expanded','true');
-  await expect(box.locator('.biz-sum-table')).toBeVisible();
-  await pick.selectOption('all');
-  await fold.click();await expect(fold).toHaveAttribute('aria-expanded','true');
-  await pick.selectOption('week');await pick.selectOption('all');
   await expect(box.locator('.biz-week-title [data-bw-fold]')).toHaveAttribute('aria-expanded','false');
+  await expect(box.locator('[data-bw-body]')).toBeHidden();
+  // 손으로 펴면 그 값도 기억해 [전체 기간]으로 가도·다시 와도 펼친 채.
+  await fold.click();await expect(fold).toHaveAttribute('aria-expanded','true');
+  await expect(box.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
+  await expect(box.locator('.biz-sum-table')).toBeVisible();
+  await pick.selectOption('all');await expect(fold).toHaveAttribute('aria-expanded','true');
+  await pick.selectOption('week');await pick.selectOption('all');
+  await expect(box.locator('.biz-week-title [data-bw-fold]')).toHaveAttribute('aria-expanded','true');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth<=1)).toBe(true);
   expect(errors).toEqual([]);
 });
