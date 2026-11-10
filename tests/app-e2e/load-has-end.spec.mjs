@@ -5,7 +5,8 @@ import { ANDROID, phonePhotosFixture, openPhotos } from './helpers/phone-photos-
 // 이제: 한 번 읽기는 25초 안에 끝 → 처음 한 번은 바로 다시 → 또 답이 없으면 '불러오지 못했습니다 · 폰 앱이 답하지 않아요 · [다시]'.
 // [다시]·다른 탭 갔다 오기·앱이 다시 앞에 옴(visibilitychange)이면 다시 불러온다. 시계는 Playwright 가짜 시계로 당긴다(기다림 없음).
 const PAGE_READ = /(^|\/)page\?/;
-const reads = state => state.phoneReads.filter(p => PAGE_READ.test(p)).length;
+// 홈 '오늘 사진'의 그날 읽기(before= 붙음, HOME-오늘사진빨리부터 앱을 켤 때 바로 시작)는 [사진] 탭 읽기가 아니므로 빼고 센다.
+const reads = state => state.phoneReads.filter(p => PAGE_READ.test(p) && !/[?&]before=/.test(p)).length;
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));
 
 async function hangingPhone(page) {
