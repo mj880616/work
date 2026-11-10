@@ -29,7 +29,11 @@ const EDGE = 8;
 
 const isMore = el => { const t = el.textContent.trim(); return t === '⋯' || t === '⋮'; };
 const visible = el => !el.disabled && el.getAttribute('aria-disabled') !== 'true' && !el.closest('[hidden],[inert]') && el.getClientRects().length > 0;
-const moreTriggers = root => [...root.querySelectorAll('button,summary')].filter(el => isMore(el) && !el.matches(NOT_CARD) && visible(el));
+// UI-PC손맛묶음 ①: a ⋯ inside a dialog / modal (a PC docked pane included — the 사업 보고 result pane is the report dialog seated in
+// the screen) belongs to that dialog only: a press outside it (the week line's [‹][›], the weekly table) never opens its menu.
+const DIALOG = '.modal,[role="dialog"]';
+const inSameDialog = (el, root) => { const box = el.parentElement?.closest(DIALOG); return !box || box.contains(root); };
+const moreTriggers = root => [...root.querySelectorAll('button,summary')].filter(el => isMore(el) && !el.matches(NOT_CARD) && visible(el) && inSameDialog(el, root));
 
 // Among several ⋯ in one block, only a single area-marked one is the block's own menu.
 const pickAmong = list => {
@@ -227,6 +231,36 @@ document.addEventListener('contextmenu', e => {
   trigger.click();
   placeStylePanel(trigger, x, y);
 });
+// UI-PC손맛묶음 ③ (PC widths only): a mouse drag that selects text (to copy a line of 잊지 말기 / 할 일 / 조직 보고 and the like) ends in a click on
+// the line it started on; that click must not open the line. One rule for every screen: a click that ends a mouse drag of 5px or
+// more while text is selected does nothing (the selection stays for copying). A plain click, a touch tap, a keyboard press, a press
+// inside an input / editable text or on a link keeps its own behavior.
+let dragFrom = null;
+window.addEventListener('pointerdown', e => { dragFrom = e.pointerType === 'mouse' && e.button === 0 ? { x: e.clientX, y: e.clientY } : null; }, true);
+window.addEventListener('click', e => {
+  const from = dragFrom; dragFrom = null;
+  if (!from || !WIDE.matches || e.detail === 0 || Math.hypot(e.clientX - from.x, e.clientY - from.y) < 5) return;
+  const target = e.target instanceof Element ? e.target : null;
+  if (!target || target.closest(EDITABLE + ',a[href],label')) return;
+  const selection = window.getSelection?.();
+  if (!selection || selection.isCollapsed || selection.toString().trim() === '') return;
+  // Only the line whose own text is selected (a pull / swipe that happens to select text elsewhere keeps its click).
+  if (!selection.containsNode(target, true) && !target.contains(selection.anchorNode)) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+}, true);
+// UI-PC손맛묶음 ④: a button that shows only a picture or a sign (⋯ × ‹ › + an icon) gets its name (aria-label) as the mouse hover
+// tip on a PC, so every such button in every screen says what it does. Set once, on the first hover, only where the button has no
+// tip of its own; buttons with words, touch and phone widths are left as they are.
+const tipSeen = new WeakSet();
+const ICON_ONLY = el => !/[\p{L}\p{N}]/u.test(el.textContent || '');
+window.addEventListener('pointerover', e => {
+  if (e.pointerType !== 'mouse' || !WIDE.matches) return;
+  const el = e.target instanceof Element ? e.target.closest('button,summary,[role="button"]') : null;
+  if (!el || tipSeen.has(el) || el.hasAttribute('title')) return;
+  tipSeen.add(el);
+  const name = (el.getAttribute('aria-label') || '').trim();
+  if (name && ICON_ONLY(el)) el.title = name;
+}, true);
 // Other screens' own right-click menus (the calendar's event menu) pin their trigger at the pointer with the same box.
 window.KPTUContextMenu = { pinAt: pin, unpin };
 })();
