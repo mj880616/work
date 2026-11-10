@@ -1812,10 +1812,12 @@ async function readAutoRuns(ctx: Ctx, nowMs: number): Promise<AutoRunInfo> {
   return { floorMs: (Number.isFinite(firstAt) ? firstAt : nowMs) - LEDGER_AUTO_START_GRACE_MS, runsToday };
 }
 
-// 재료 여섯(업데이트·노트·업무일지 한 줄·사업 보고·담당조직 기록·프로젝트 기록). 일기·보관·AI 내보내기 비허용은 읽는 조건에서 빼고 한 번 더 확인.
-// stamp는 처리 표에 적는 "본 때의 시각": 노트·사업 보고는 updated_at, 담당조직 기록은 occurred_at, 프로젝트 기록은 created_at(고친 시각 칸을 읽지 않음).
+// 재료(업데이트·노트·업무일지 한 줄·사업 보고·담당조직 기록·프로젝트 기록·사업 기록, 통화). 일기·보관·AI 내보내기 비허용은 읽는 조건에서 빼고 한 번 더 확인.
+// stamp는 처리 표에 적는 "본 때의 시각": 노트·사업 보고·사업 기록은 updated_at, 담당조직 기록은 occurred_at, 프로젝트 기록은 created_at(고친 시각 칸을 읽지 않음).
 // 옛 표에서 옮긴 조직 기록 줄의 출처 종류(migration 20261109120000_record_one_org_move). 원장 자동 기록 재료에서 뺀다.
 export const ORG_MOVED_KINDS = Object.freeze(["status_row", "weekly_line"] as const);
+// 옛 사업 진행 기록에서 옮긴 사업 기록 줄의 출처 종류(migration 20261109130000_record_one_biz_move). 원장 자동 기록 재료에서 뺀다.
+export const BIZ_MOVED_KIND = "progress";
 async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: number): Promise<{ sources: AutoSource[]; partial: boolean }> {
   const ws = encodeURIComponent(ctx.workspaceId), since = encodeURIComponent(sinceIso);
   const sources: AutoSource[] = [];
@@ -1879,6 +1881,29 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
       const day = typeof u.effective_on === "string" && DAY_RE.test(u.effective_on) ? u.effective_on : kstDay(at);
       sources.push({ kind: "project_update", id: u.id.toLowerCase(), stamp: u.created_at as string, day, at, text: u.summary, label: projectName.get(project), project_id: project });
     }
+  }
+
+  // 사업 기록(LEDGER-사업기록재료, docs/design/record-one.md 4절 '원장 자동 기록' 줄): 사업마다 '날짜 + 한 줄'(app_business_records).
+  // 로그인 토큰(owner RLS)으로 내 사업(위 projectName)의 기록만, 본 뒤 저장·고친 것(updated_at)만 읽는다. 근거 = 사업 기록 id(web2:biz_record:<id>).
+  // 옛 사업 진행 기록을 옮긴 줄(source_kind progress)은 이미 프로젝트 기록으로 재료가 됐던 옛 사본이라 뺀다(읽기 조건 + 아래 한 번 더).
+  // 글은 노트처럼 비밀번호·토큰·키 모양 부분만 가린다(note-secret.ts maskSecret). 읽기 실패는 사업 기록만 건너뛴다(자동 기록 전체는 그대로).
+  try {
+    for (let i = 0; i < projectIds.length; i += IN_CHUNK) {
+      const ids = projectIds.slice(i, i + IN_CHUNK).join(",");
+      const rows = await readList(ctx, `app_business_records?workspace_id=eq.${ws}&space_id=in.(${ids})&updated_at=gte.${since}&source_kind=neq.${BIZ_MOVED_KIND}&select=id,workspace_id,space_id,day,end_day,body,source_kind,updated_at&order=updated_at.desc&limit=${AUTO_READ_LIMIT}`);
+      full(rows);
+      for (const r of rows) {
+        const project = String(r.space_id).toLowerCase(), at = timeOf(r.updated_at);
+        if (!isUuid(r.id) || String(r.workspace_id).toLowerCase() !== ctx.workspaceId || !projectName.has(project) || r.source_kind === BIZ_MOVED_KIND) continue;
+        if (typeof r.body !== "string" || typeof r.day !== "string" || !DAY_RE.test(r.day) || !Number.isFinite(at)) continue;
+        const end = typeof r.end_day === "string" && DAY_RE.test(r.end_day) && r.end_day !== r.day ? ` (~${r.end_day})` : "";
+        const text = maskSecret(r.body + end);
+        if (!text.trim()) continue;
+        sources.push({ kind: "biz_record", id: r.id.toLowerCase(), stamp: r.updated_at as string, day: r.day, at, text, label: projectName.get(project), project_id: project });
+      }
+    }
+  } catch {
+    log("ledger_auto_biz_skipped");
   }
 
   // 업무 통화(CALL-원장재료 L-2, 설계 6절): 통화 메뉴 표(app_feed_items)에 이미 저장된 업무 통화의 제목·핵심내용만. 전사 원문(raw_text)·상대 표기(counterpart)는 읽지 않는다.
@@ -2078,7 +2103,7 @@ async function readAutoContext(ctx: Ctx, packed: PackedAuto[], nowMs: number) {
   const since = encodeURIComponent(new Date(nowMs - AUTO_KNOWN_DAYS * 86400000).toISOString());
   const recentFilter = `validity=eq.current&kind=in.(event,decision,commitment)&scope=eq.work&sensitivity=in.(S0,S1)&updated_at=gte.${since}`;
   const orgUuids = [...new Set(packed.map((s) => s.organization_id ? orgUuidBySuborg.get(s.organization_id) : undefined).filter(Boolean) as string[])];
-  const projectIds = [...new Set(packed.map((s) => s.kind === "project_update" ? s.project_id : null).filter(isUuid))];
+  const projectIds = [...new Set(packed.map((s) => s.kind === "project_update" || s.kind === "biz_record" ? s.project_id : null).filter(isUuid))];
   const linked = new Set<string>();
   for (const [col, ids] of [["target_organization_id", orgUuids], ["target_project_id", projectIds]] as const) {
     for (let i = 0; i < ids.length; i += IN_CHUNK) {

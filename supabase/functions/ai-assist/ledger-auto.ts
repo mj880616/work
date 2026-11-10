@@ -16,8 +16,10 @@ export const AUTO_KINDS = Object.freeze(["event", "change", "decision", "commitm
 export type AutoKind = typeof AUTO_KINDS[number];
 // 재료 일곱째: 업무 통화(call, CALL-원장재료 L-2, docs/design/ledger-sources.md 6절). DB가 아직 이 종류를 모르면 handler가 읽지 않는다.
 // 재료 여덟째: 개인 공유 캘린더 일정(calendar_ref, CAL-승지명진참고 C-3, 설계 5절). 참고용이라 새 기록을 만들지 않고 근거 추가(same_as)만 한다.
-export type AutoSourceKind = SourceKind | "call" | "calendar_ref";
-export const AUTO_SOURCE_KINDS: readonly AutoSourceKind[] = Object.freeze(["basket", "note", "work", "meeting", "org_update", "project_update", "call", "calendar_ref"]);
+// 재료 아홉째: 사업 기록(biz_record, 표 app_business_records, LEDGER-사업기록재료·docs/design/record-one.md 4절). 근거 위치 web2:biz_record:<사업 기록 id>.
+//   DB 종류 목록에 biz_record를 더하는 migration 20261110213000_ledger_biz_records가 먼저 운영에 들어가야 한다(아니면 DB 함수가 실행 전체를 거절).
+export type AutoSourceKind = SourceKind | "call" | "calendar_ref" | "biz_record";
+export const AUTO_SOURCE_KINDS: readonly AutoSourceKind[] = Object.freeze(["basket", "note", "work", "meeting", "org_update", "project_update", "call", "calendar_ref", "biz_record"]);
 export const AUTO_MAX_ITEMS = 20;
 export const AUTO_MAX_OUTDATED = 20;
 export const AUTO_TITLE_CHARS = 120;
@@ -43,6 +45,7 @@ const cut = (s: string, n: number) => [...s].slice(0, n).join("");
 export const AUTO_SOURCE_NAMES: Record<AutoSourceKind, string> = {
   basket: "업데이트", note: "노트", work: "업무일지 한 줄", meeting: "사업 보고",
   org_update: "담당조직 기록", project_update: "프로젝트 기록", call: "통화", calendar_ref: "개인 공유 캘린더 일정(참고)",
+  biz_record: "사업 기록",
 };
 
 // 전화번호 모양(숫자 9자리 이상이 이어진 것, 국번-3~4자리-4자리 모양)은 AI에 보내기 전에 지운다(설계 2.6). 날짜(2026-10-22)는 8자리라 남는다.
@@ -348,7 +351,7 @@ export function buildAutoBatch(parsed: AutoParsed, packed: PackedAuto[], orgBySu
     const links: Record<string, unknown>[] = [];
     const ledgerOrg = s.organization_id ? orgBySuborg.get(s.organization_id) : undefined;
     if (ledgerOrg) links.push({ target_organization: ledgerOrg, relation: "direct" });
-    if (s.kind === "project_update" && s.project_id) links.push({ target_project_id: s.project_id });
+    if ((s.kind === "project_update" || s.kind === "biz_record") && s.project_id) links.push({ target_project_id: s.project_id });
     if (s.kind === "meeting") links.push({ target_meeting_id: s.id });
     items.push({
       op: "new", kind: it.kind, title: it.title, sensitivity: it.sensitivity, dedup_key: ledgerDedupKey(s, it.title),
