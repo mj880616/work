@@ -105,3 +105,30 @@ test("profile recent list: empty and failed reads are one short line",async({pag
   await fixture(page,{items:[],recent:[],query:'?view=profile'});
   await expect(page.locator('#psPushPanel [data-ps-push-recent="0"]')).toHaveText('최근 7일 알림 없음',{timeout:15000});
 });
+
+// APP-알림숫자지우기 ②: 폰 앱에서 알림 자리를 열면(알림 줄 [열기]·✕, 폰 알림 주소, 최근 알림) 앱 다리로 그 폰 알림 지우기(push:clear:종류.열쇠)를 보낸다.
+// PC·브라우저는 다리가 없어 서버 '열었음'만 남는다(위 시험들).
+test.describe('폰 앱: 알림 자리를 열면 그 폰 알림도 지운다',()=>{
+  test.use({viewport:{width:412,height:915},userAgent:'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36 KPTUAndroid/0.5.6',hasTouch:true,isMobile:true});
+  const bridge=page=>page.addInitScript(()=>{
+    window.__pushSent=[];
+    window.KPTUAppShell={postMessage(m){window.__pushSent.push(String(m));},addEventListener(){}};
+  });
+  const cleared=page=>page.evaluate(()=>window.__pushSent.filter(m=>m.startsWith('push:clear:')));
+
+  test('알림 줄 [열기]',async({page})=>{
+    await bridge(page);
+    const push=await fixture(page,{width:412});
+    await expect(line(page)).toBeVisible({timeout:15000});
+    await line(page).getByRole('button',{name:'열기'}).click();
+    await expect.poll(()=>push.calls.filter(c=>c.action==='opened').length).toBe(1);
+    await expect.poll(()=>cleared(page)).toEqual(['push:clear:next_week.w2026-10-12']);
+  });
+
+  test('폰 알림 주소(notice=…)로 들어옴',async({page})=>{
+    await bridge(page);
+    const push=await fixture(page,{width:412,query:'?view=home&mode=week&notice=next_week.w2026-10-12'});
+    await expect.poll(()=>push.calls.filter(c=>c.action==='opened').length).toBe(1);
+    await expect.poll(()=>cleared(page)).toEqual(['push:clear:next_week.w2026-10-12']);
+  });
+});

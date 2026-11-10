@@ -747,6 +747,11 @@ class MainActivity : ComponentActivity() {
      * 토큰은 웹 화면에만 넘기고(push:on:<토큰>), 웹 화면이 웹 세션으로 서버에 등록한다. 앱은 서버를 부르지 않는다.
      */
     private fun onPushMessage(data: String, reply: JavaScriptReplyProxy) {
+        // APP-알림숫자지우기 ②: 웹2 안에서 알림 자리를 열었다(push:clear:<종류>.<열쇠>) → 그 폰 알림만 지운다. 답은 보내지 않는다.
+        PushRules.clearKey(data)?.let {
+            PushSetup.clear(this, it)
+            return
+        }
         val ask = PushRules.ask(data) ?: return
         pushReply = reply
         when (ask) {
@@ -1394,6 +1399,8 @@ class MainActivity : ComponentActivity() {
         if (filesReply != null) postFiles(PhoneFiles.stateMessage())
         // FIX-위젯: 앱을 열면 위젯도 바로 새로(마지막 갱신에서 5분이 지났을 때만, 같은 이름 작업은 KEEP).
         WidgetGuard.run { WidgetJobs.refreshOnOpen(applicationContext) }
+        // APP-알림숫자지우기 ①: 앱이 앞에 나오면 알림창에 남은 웹2 폰 알림을 지운다(아이콘 숫자도 사라짐). 녹음·업데이트 알림은 두고, 웹2 안 알림 줄·최근 알림은 서버 기록이 정한다.
+        PushSetup.clearAll(this)
     }
 
     override fun onPause() {

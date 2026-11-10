@@ -98,4 +98,46 @@ class PushRulesTest {
         assertEquals(PushRules.STATE_DENIED, PushRules.state(configured = true, enabled = true, canPost = false))
         assertNull(PushRules.state(configured = true, enabled = true, canPost = true))
     }
+
+    // APP-알림숫자지우기: 남은 폰 알림 지우기 규칙.
+    @Test
+    fun clearOnlyTouchesPushChannels() {
+        assertTrue(PushRules.clearable("push_task_due"))
+        assertTrue(PushRules.clearable(PushRules.channelId("family")))
+        assertFalse(PushRules.clearable("recording"))
+        assertFalse(PushRules.clearable("app_update"))
+        assertFalse(PushRules.clearable(null))
+        assertFalse(PushRules.clearable(""))
+    }
+
+    @Test
+    fun noticeTagComesFromOpenAsIs() {
+        assertEquals("next_week.2026-11-16", PushRules.noticeTag("/work/app/?view=calendar&notice=next_week.2026-11-16"))
+        assertEquals("meeting_done.m%3Aabc-1", PushRules.noticeTag("/work/app/?notice=meeting_done.m%3Aabc-1&view=meetings"))
+        assertNull(PushRules.noticeTag("/work/app/"))
+        assertNull(PushRules.noticeTag("/work/app/?view=home"))
+        assertNull(PushRules.noticeTag("/work/app/?notice=Bad.kind"))
+        assertNull(PushRules.noticeTag("/work/app/?notice=next_week"))
+        assertNull(PushRules.noticeTag(null))
+    }
+
+    @Test
+    fun clearKeyAcceptsOnlyItsShape() {
+        assertEquals("next_week.2026-11-16", PushRules.clearKey("push:clear:next_week.2026-11-16"))
+        assertEquals("meeting_done.m%3Aabc-1", PushRules.clearKey("push:clear:meeting_done.m%3Aabc-1"))
+        assertNull(PushRules.clearKey("push:clear:"))
+        assertNull(PushRules.clearKey("push:clear:next_week"))
+        assertNull(PushRules.clearKey("push:clear:next_week.a b"))
+        assertNull(PushRules.clearKey("push:hello"))
+        assertNull(PushRules.clearKey(null))
+        // 다른 다리 글(push:hello 등)의 해석은 그대로다.
+        assertNull(PushRules.ask("push:clear:next_week.2026-11-16"))
+        assertEquals(PushRules.Ask.HELLO, PushRules.ask("push:hello"))
+    }
+
+    @Test
+    fun noticeTagAndClearKeyMeet() {
+        val open = "/work/app/?view=calendar&notice=next_week.2026-11-16"
+        assertEquals(PushRules.noticeTag(open), PushRules.clearKey("push:clear:next_week.2026-11-16"))
+    }
 }
