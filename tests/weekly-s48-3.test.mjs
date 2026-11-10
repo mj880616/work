@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {majorRule, isInternalMeeting, MAJOR_SCHEDULE_RULE, MAJOR_RULES, INTERNAL_MEETINGS} from '../app/weekly-major-schedule.mjs';
 import {withCellLine, withLineMove, cellLinesOf, cellVisibleLines, visibleLines, cellId} from '../app/weekly-draft-store.js';
 import {flowCells} from '../app/weekly-flow-cells.js';
-import {readHand, handRows, withHandRow, withoutHandRow, withDetailEdit, detailEdits} from '../app/weekly-hand.mjs';
+import {readHand, handRows, withHandRow, withoutHandRow, detailEdits} from '../app/weekly-hand.mjs';
 import {hqSuggestions} from '../app/weekly-hq-schedule.js';
 import {withPick} from '../app/weekly-picks.mjs';
 
@@ -99,22 +99,16 @@ test('줄 끌기: 같은 칸 안 자리 바꾸기, 같은 묶음 다른 칸으�
 });
 
 // ---- 2·4. 세부 내용 줄 고치기·빼기·더하기(draft.hand) ----
-test('세부 내용 줄: 손으로 더하기·고치기·지우기, 원래 줄 고치기·빼기·원래대로 — 모양 밖은 버린다', () => {
+// RECORD-한줄 B-5: 옛 주 2. 2)는 읽기 전용 — 고치기 쓰기(withDetailEdit)는 지웠고, 저장돼 있던 고침은 그대로 읽는다.
+test('세부 내용 줄: 저장된 손 줄·원래 줄 고침·뺌을 읽는다 — 모양 밖은 버린다', () => {
   let h = withHandRow(null, 'details', {text:'가상 손 줄'}).hand;
   const row = handRows(h, 'details')[0];
   assert.equal(row.text, '가상 손 줄');
-  h = withHandRow(h, 'details', {id:row.id, text:'가상 손 줄(고침)'}).hand;
-  assert.equal(handRows(h, 'details')[0].text, '가상 손 줄(고침)');
-  h = withDetailEdit(h, 'meeting:m1', {text:'가상 회의(보고 글)'}).hand;
-  h = withDetailEdit(h, 'meeting:m2', {drop:true}).hand;
+  h = readHand({...h, details_edits:[{ref:'meeting:m1', text:'가상 회의(보고 글)'}, {ref:'meeting:m2', drop:true}, {ref:'bad ref', drop:true}]});
   assert.deepEqual([...detailEdits(h)], [['meeting:m1', {text:'가상 회의(보고 글)'}], ['meeting:m2', {drop:true}]]);
-  h = withDetailEdit(h, 'meeting:m2', null).hand;
-  assert.deepEqual([...detailEdits(h).keys()], ['meeting:m1']);
-  assert.equal(withDetailEdit(h, 'bad ref', {drop:true}), null);
   h = withoutHandRow(h, 'details', row.id).hand;
   assert.deepEqual(handRows(h, 'details'), []);
   assert.deepEqual(readHand({details:[{id:'x', text:''}], details_edits:[{ref:'meeting:m9', text:''}, {ref:'X', drop:true}]}), null);
-  assert.equal(withDetailEdit(withDetailEdit(null, 'meeting:m1', {drop:true}).hand, 'meeting:m1', null).hand, null);
 });
 
 test('세부 내용 모델: 뺀 줄은 빠지고(목록 없음) 고친 줄은 고친 글, 손 줄은 끝에 — 화면·복사 글이 같다', async () => {

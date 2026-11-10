@@ -943,9 +943,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const win = fresh && orgs0.length ? (getWeek().win?.() ?? null) : null;
     if (fresh && orgs0.length && !win) throw Object.assign(new Error('조직보고 표가 아직 다 나오지 않았어요. 잠시 뒤 다시 눌러 주세요.'), {code:'wait'});
     // BIZ-기록하나로 B-4 ①: 전환 주부터 2. 1) 요약 표 = 화면 사업요약 창 결과(지금 상황 + 담당). 창이 그 주를 다 그리기 전엔 만들지 않는다(파일 ≠ 화면 방지).
-    // 지금 상황 표가 아직 없으면(404, DB 적용 전) 예전처럼 그 주 임시저장 칸(화면도 그 칸을 쓸 수 없다고 알림).
+    // RECORD-한줄 B-5: 지금 상황 표가 없을 때(404) 그 주 임시저장 칸으로 가던 옛 길은 지웠다 — 그때도 만들지 않고 까닭 한 줄. 옛 주(전환 주 앞)만 그 주 임시저장 칸.
     const biz = fresh ? (getWeek().biz?.() ?? {status:'loading'}) : null;
-    if (biz && biz.status !== 'ready' && biz.status !== 'missing') throw Object.assign(new Error(biz.status === 'error' ? '사업요약표 지금 상황을 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.' : '사업요약표가 아직 다 나오지 않았어요. 잠시 뒤 다시 눌러 주세요.'), {code:'wait'});
+    if (biz && biz.status !== 'ready') throw Object.assign(new Error(biz.status === 'error' ? '사업요약표 지금 상황을 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.' : biz.status === 'missing' ? '사업요약표 저장 칸이 아직 준비되지 않아 파일을 만들 수 없어요.' : '사업요약표가 아직 다 나오지 않았어요. 잠시 뒤 다시 눌러 주세요.'), {code:'wait'});
     const bizRows = biz?.status === 'ready' ? biz.rows : null;
     // BIZ-기록하나로 B-4 ③: 전환 주부터 2. 2) 세부 내용 = 화면 2. 2) 주요 사업 창 결과(사업별 '(1) 사업' + 줄, 상세 포함은 본문 번호 한 단계 내림). 다 나오기 전엔 만들지 않는다.
     const det = fresh ? (getWeek().detail?.() ?? {status:'loading'}) : null;

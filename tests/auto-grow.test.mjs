@@ -42,9 +42,11 @@ test('주간 정리 조직보고 줄: 옛 주별 표 고치기 칸은 지웠다(
 });
 
 test('주간 정리 긴 글 칸 전부 = 공용 칸(화면마다 따로 늘리는 셈 없음)', () => {
-  for (const f of ['weekly-learn-panel.js', 'weekly-flow-cells.js', 'weekly-detail-lines.js', 'weekly-hand-lines.js', 'weekly-hq-schedule.js', 'journal-weekly.js']) {
+  for (const f of ['weekly-learn-panel.js', 'weekly-flow-cells.js', 'weekly-hand-lines.js', 'weekly-hq-schedule.js', 'journal-weekly.js']) {
     assert.match(read(`app/${f}`), /lineField\(doc/, f);
   }
+  // RECORD-한줄 B-5: 옛 주 2. 2)(weekly-detail-lines.js)는 읽기 전용 — 입력 칸이 없다.
+  assert.doesNotMatch(read('app/weekly-detail-lines.js'), /lineField|<input|<textarea|createElement\('(input|textarea)'\)/);
   for (const f of ['weekly-discuss-table.js']) {
     const src = read(`app/${f}`);
     assert.match(src, /fitAll\((host|slot)\)/, f);
