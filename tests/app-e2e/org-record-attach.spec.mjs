@@ -80,7 +80,8 @@ test('PC 1440 ⑥: 기록 표에 파일 놓기 → 먼저 묻고, 남기기면 �
  await expect.poll(()=>f.s.confirms.length).toBe(2);
  expect(f.s.uploads).toBe(2);expect(f.s.lines).toEqual([true,true]);
  for(const c of f.s.confirms)expect(c.p_targets).toEqual([{kind:'organization',target_id:'o',reason:'직접 연결',summary:'합성 공문 사진 · 교섭 일정 안내임.'}]);
- expect(f.s.docPatches.map(p=>p.organization_id)).toEqual(['o','o']);expect(f.s.orgPosts).toEqual([]);
+ // 조직 연결(자료 PATCH)은 기록 줄 저장 뒤에 따로 가서, 둘째 파일 것은 조금 늦게 올 수 있다 — 다 올 때까지 기다려 비교한다(같은 값 그대로).
+ await expect.poll(()=>f.s.docPatches.map(p=>p.organization_id)).toEqual(['o','o']);expect(f.s.orgPosts).toEqual([]);
  await expect(page.locator('#kptuNotice .kptu-notice-text')).toContainText('파일 2개를 기록으로 남겼어요');
  await expect(page.locator('#wdUpdates [data-basket-link="l1"]')).toBeVisible();
  expect(f.errors).toEqual([]);

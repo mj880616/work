@@ -144,6 +144,27 @@ test('파일 붙이기: 올리는 중에 창을 닫고 다른 화면으로 옮�
   await context.close();
 });
 
+// UX-먼저묻고뒤에처리 3차: 올리는 중에도 [파일 선택]이 잠기지 않고, 더 고른 파일은 줄 뒤에 서서 이어서 붙는다.
+test('파일 붙이기: 올리는 중에 더 고르면 거절하지 않고 줄 세워 이어서 붙인다',async({browser})=>{
+  const {context,page,state}=await openTasks(browser,{viewport:{width:412,height:915}});
+  let release;state.hold=new Promise(r=>{release=r});
+  await openMenu(page,'a');
+  await page.locator('#gtTaskMenu [data-gt-menu-action="files"]').click();
+  const dialog=page.locator('#gtFilesModal');
+  await dialog.locator('[data-gt-files-input]').setInputFiles([{name:'가.txt',mimeType:'text/plain',buffer:Buffer.from('abc')}]);
+  await expect.poll(()=>state.calls.attach.length).toBe(1);
+  await expect(dialog.locator('[data-gt-files-pick]')).toBeEnabled();
+  await expect(dialog.locator('[data-gt-file-detach]')).toHaveCount(0);
+  await dialog.locator('[data-gt-files-input]').setInputFiles([{name:'나.txt',mimeType:'text/plain',buffer:Buffer.from('abc')}]);
+  await expect(dialog.locator('[data-gt-files-status]')).toContainText('1개 대기 중');
+  state.hold=null;release();
+  await expect.poll(()=>state.calls.attach.map(c=>c.name)).toEqual(['가.txt','나.txt']);
+  await expect(dialog.locator('[data-gt-files-status]')).toContainText('2개 붙였습니다');
+  await expect(dialog.locator('.gt-file')).toHaveText(['가.txt','나.txt']);
+  await expect(dialog.locator('[data-gt-file-detach]').first()).toBeEnabled();
+  await context.close();
+});
+
 test('PC: names sit under the card, the menu lists 수정·파일 붙이기·삭제, and an editor save keeps the link line on the server',async({browser})=>{
   const {context,page,state,google}=await openTasks(browser,{viewport:{width:1280,height:900},files:[{google_task_id:'a',drive_file_id:'old1',file_name:'기존 자료.pdf',size_bytes:9}]});
   await expect(page.locator('#gtTaskSection')).toHaveClass(/gt-pc/);

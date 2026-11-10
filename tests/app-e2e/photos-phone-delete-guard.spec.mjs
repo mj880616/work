@@ -140,6 +140,23 @@ test.describe('폰 앱 412 · 사진 정리 삭제 안전장치', () => {
     expect(state.errors).toEqual([]);
   });
 
+  // UX-먼저묻고뒤에처리 3차(S56-56): 읽은 지 오래됐으면 '확인이 끝나면 다시 눌러 주세요'로 돌려보내지 않고, 다시 확인한 뒤 바로 이어서 묻는다.
+  test('공간 비우기: 확인이 오래됐으면 다시 확인한 뒤 다시 누르지 않아도 이어서 묻는다', async ({ page }) => {
+    const state = await fixture(page);
+    const box = await openTidy(page);
+    const space = box.locator('details[data-k="space"]');
+    await space.locator('summary').click();
+    const reads = state.bodies.filter(b => b.action === 'library').length;
+    await page.evaluate(() => { const real = Date.now.bind(Date); Date.now = () => real() + 11 * 60 * 1000; });
+    await space.locator('[data-photos-tidy-trash="space"]').click();
+    await expect(page.locator('#kptuNotice')).toContainText('끝나면 바로 이어서 물을게요');
+    await expect(ask(page).locator('.kptu-ask-text')).toHaveText('원드라이브에 있는 폰 사진 4장(10MB)을 폰 휴지통으로 옮길까요?');
+    expect(state.bodies.filter(b => b.action === 'library').length).toBeGreaterThan(reads);
+    await ask(page).getByRole('button', { name: '폰 휴지통으로' }).click();
+    await expect.poll(() => trashed(page)).toEqual(['1', '2', '3', '4']);
+    expect(state.errors).toEqual([]);
+  });
+
   test('정리 칸 크게 보기 한 장 [삭제]: 백업 없음 한 장은 체크해야만, 체크하면 바로 폰 휴지통', async ({ page }) => {
     const state = await fixture(page);
     const junk = await openJunk(await openTidy(page));
