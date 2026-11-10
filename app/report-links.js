@@ -40,6 +40,11 @@ export const noteAreaFromMeetings=(rows,rt)=>noteColumnFromRows('area','business
 export const areaNoneAvailable=(rt)=>probe('areaNone','/rest/v1/app_meetings?select=business_area_none&limit=1',rt);
 export const noteAreaNoneFromMeetings=(rows,rt)=>noteColumnFromRows('areaNone','business_area_none',rows,rt);
 export const noteLocationFromMeetings=(rows,rt)=>noteColumnFromRows('location','location',rows,rt);
+// MTG-참석인원칸(S56-31): [회의] 참석인원 한 줄 칸(20261110231000). 없으면 참석인원 줄을 숨기고 지금처럼 저장한다(장소 칸과 같은 확인).
+// 목록 열(report-list-read.js MEETING_LIST_FIELDS)에 넣어, 목록을 읽은 줄에 칸이 있는지로 답을 정해 둔다(쓰기 창을 열 때 따로 묻지 않음, 장소 칸과 같음).
+// 칸이 없는 서버는 목록 읽기가 거절되어 예전처럼 select=*로 한 번 더 읽는다(report-list-read.js) — 그 줄에는 칸이 없으므로 '없음'으로 정해진다.
+export const noteAttendeesFromMeetings=(rows,rt)=>noteColumnFromRows('attendees','attendees',rows,rt);
+export const attendeesAvailable=(rt)=>probe('attendees','/rest/v1/app_meetings?select=attendees&limit=1',rt);
 
 // 사업 보고 하나에 연결된 곳(프로젝트·조직) 목록. DB-2 전에는 옛 project_id 한 곳.
 export async function readReportTargets(meeting,rt=rtOf()){

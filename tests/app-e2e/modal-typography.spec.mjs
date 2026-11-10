@@ -422,6 +422,11 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
    const parts=await page.locator('#'+places).evaluate((el,location)=>{const label=el.closest('label');return [label.outerHTML+label.nextElementSibling.outerHTML,document.getElementById(location).outerHTML]},location);
    await original.locator('#'+project).evaluate((el,[html,loc])=>{const label=el.closest('label'),box=label.parentElement;label.outerHTML=html;box.insertAdjacentHTML('afterend',loc)},parts);
   }
+  // MTG-참석인원칸(S56-31): 사업 보고 만들기·수정 창 '회의 결과' 맨 위에 참석인원 한 줄 칸(장소 칸과 같은 부품)이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  for(const [row,text] of [['meetingAttendeesRow','meetingTranscript'],['mrdEditAttendeesRow','mrdEditTranscript']]){
+   const html=await page.locator('#'+row).evaluate(el=>el.outerHTML);
+   await original.locator('#'+text).evaluate((el,html)=>el.closest('label').insertAdjacentHTML('beforebegin',html),html);
+  }
   const manageParts=await page.locator('#libraryManageModal').evaluate(el=>el.querySelector('#libraryCategoryEditor').outerHTML);
   await original.locator('#libraryManageList').evaluate((el,html)=>el.insertAdjacentHTML('beforebegin',html),manageParts);
   // LIB-분류칸삭제: 창 머리의 안내문(p.muted '직접 수정합니다')과 '자료별 분류' 칸(#libraryManageList)은 화면에서 없어졌다. 같은 모양으로 main 쪽에서도 뺀다.
