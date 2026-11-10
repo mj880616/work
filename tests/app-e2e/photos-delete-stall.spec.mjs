@@ -142,7 +142,7 @@ test.describe('폰 앱 412 · 사진 5000장 · 느린 원드라이브', () => {
     await expect(notice(page)).toBeHidden();
     await picks.nth(0).click();
     await expect.poll(() => page.evaluate(() => window.__photoSent.filter(m => m.startsWith('photos:trash:')))).toEqual(['photos:trash:1']);
-    expect(state.bodies.find(b => b.action === 'copy-check').pairs).toEqual([{ id: 'O1', size: 1000 }]);
+    expect(state.bodies.find(b => b.action === 'copy-check').pairs).toEqual([{ id: 'O1', size: 1000, video: false, w: 10, h: 10, taken_at: PHONE[0].taken_at }]);
     await expect(notice(page)).toContainText('폰 공간을 비웠어요');
     // ⑤ 다른 화면으로 옮기면 사진 화면의 알림은 닫힌다.
     await page.waitForTimeout(600);

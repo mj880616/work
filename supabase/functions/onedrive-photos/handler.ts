@@ -48,6 +48,37 @@ const CONN = "app_onedrive_connections", FOLDERS = "app_onedrive_folders", PHOTO
 // S47-16: 폰에서 지운 사진 기록(20261101040000_phone_trash_log). 사본 확인은 한 번에 100장, 다음 확인 때 다시 보는 기록은 30일 안 최근 200개.
 const TRASH_LOG = "app_phone_trash_log";
 const COPY_CHECK_MAX = 100, TRASH_LOG_MAX = 100, WATCH_MAX = 200, WATCH_DAYS = 30, LOG_KEEP_DAYS = 60;
+// S56-46 PHOTO-같은사진오판: copy-check 한 짝 = {id, size, video?, w?, h?, taken_at?}. 크기·id는 꼭 있어야 하고(없으면 400),
+// 종류·가로세로·찍은 시각은 옛 화면이 보내지 않을 수 있다 — 빠지면 그 짝은 '확인 못 함'(지우지 않음).
+const SAME_TAKEN_MS = 2000, DIM_MAX = 100000;
+type CopyWant = { id: string; size: number; video: boolean | null; w: number | null; h: number | null; taken: number | null };
+function copyWant(x: unknown): CopyWant | null {
+  const o = (x ?? {}) as Record<string, unknown>;
+  const dim = (v: unknown) => (v === undefined || v === null ? null : Number.isSafeInteger(v) && (v as number) > 0 && (v as number) <= DIM_MAX ? v as number : NaN);
+  if (!validItemId(o.id) || !Number.isSafeInteger(o.size) || (o.size as number) <= 0) return null;
+  if (o.video !== undefined && o.video !== null && typeof o.video !== "boolean") return null;
+  const w = dim(o.w), h = dim(o.h);
+  if (Number.isNaN(w) || Number.isNaN(h)) return null;
+  let taken: number | null = null;
+  if (o.taken_at !== undefined && o.taken_at !== null) {
+    if (typeof o.taken_at !== "string" || o.taken_at.length > 40 || !Number.isFinite(Date.parse(o.taken_at))) return null;
+    taken = Date.parse(o.taken_at);
+  }
+  return { id: o.id as string, size: o.size as number, video: typeof o.video === "boolean" ? o.video : null, w, h, taken };
+}
+// 지금 Graph 항목과 폰 사진이 같은 사진인가. 다르면 그 이유(missing), 알 수 없으면 "unknown"(unsure), 같으면 null.
+function copyMismatch(it: OneDriveItem, w: CopyWant): string | null {
+  if (it.size !== w.size) return "size";
+  const isVideo = VIDEO_MIME.test(String(it.file?.mimeType || "").toLowerCase());
+  if (w.video === null) return "unknown";
+  if (isVideo !== w.video) return "kind";
+  const m = mediaFields(it);
+  if (!w.w || !w.h || !m.width || !m.height) return "unknown";
+  if (!((m.width === w.w && m.height === w.h) || (m.width === w.h && m.height === w.w))) return "dims";
+  const taken = takenOf(it);
+  if (w.taken === null || !taken || taken.approx) return "unknown";
+  return Math.abs(Date.parse(taken.at) - w.taken) <= SAME_TAKEN_MS ? null : "taken";
+}
 // S48-17 PHOTO-지우기두갈래: '폰 공간만 비우기'로 비운 사진(keep) 목록은 최근 찍은 것부터 KEPT_MAX개, 지우기는 한 번에 100개.
 //   keep 기록은 60일이 지나도 지우지 않는다(사진이 원드라이브에 있는 동안 목록에 남는다). 원래 폴더(rel_path)는 MediaStore 상대 경로 모양만 받는다.
 const KEPT_MAX = 2000, KEPT_DROP_MAX = 100;
@@ -1208,28 +1239,31 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     },
 
     // S47-16 PHOTO-폰지우기안전장치(요청함 10/31 22:52): 사진 정리 [폰에서만 지우기]·[나머지 지우기]의 원드라이브 사본 확인과 지운 기록.
-    // 폰 사진은 서버로 오지 않는다. 화면이 짝지은 원드라이브 항목 id와 폰 사진 크기만 받아, 그 항목이 지금도 고른 폴더 안에 있고
-    // (Web2 휴지통 아님) 크기가 같은지 Graph에 다시 묻는다. 기록 표(app_phone_trash_log)에는 폰 사진 번호·사본 id·시각만 둔다.
-    // 답: ok(사본 확인됨)·missing(없음·폴더 밖·휴지통·크기 다름)·unsure(요청 많음·Graph 실패 — 확인 못 함). 화면은 ok만 지운다.
+    // 폰 사진은 서버로 오지 않는다. 화면이 짝지은 원드라이브 항목 id와 폰 사진의 크기·종류·가로세로·찍은 시각만 받아, 그 항목이 지금도 고른 폴더 안에 있고
+    // (Web2 휴지통 아님) 같은 사진인지 Graph에 다시 묻는다. 기록 표(app_phone_trash_log)에는 폰 사진 번호·사본 id·시각만 둔다.
+    // S56-46 PHOTO-같은사진오판: 크기만 같은 다른 사진을 '사본 있음'으로 보지 않는다 — 크기 + 종류(사진·동영상) + 가로세로(돌린 것 포함)
+    // + 찍은 시각(원드라이브 사진 정보의 찍은 시각, SAME_TAKEN_MS 안)이 모두 같아야 ok. 어느 한쪽이라도 모르면 확인 못 함(unsure).
+    // 답: ok(사본 확인됨)·missing(없음·폴더 밖·휴지통·크기·종류·가로세로·시각 다름)·unsure(요청 많음·Graph 실패·같은 사진인지 알 수 없음). 화면은 ok만 지운다.
     async "copy-check"({ workspaceId, body }) {
       const conn = await readConnection(workspaceId);
       const folder = folderOf(conn);
       const pairs = body.pairs;
       if (!Array.isArray(pairs) || !pairs.length || pairs.length > COPY_CHECK_MAX) throw new Fail(400, "onedrive_request_invalid");
-      const want = new Map<string, number>();
+      const want = new Map<string, CopyWant>();
       for (const x of pairs) {
-        const id = (x as Record<string, unknown>)?.id, size = (x as Record<string, unknown>)?.size;
-        if (!validItemId(id) || !Number.isSafeInteger(size) || (size as number) <= 0) throw new Fail(400, "onedrive_request_invalid");
-        if (want.has(id) && want.get(id) !== size) throw new Fail(400, "onedrive_request_invalid");
-        want.set(id, size as number);
+        const w = copyWant(x);
+        if (!w) throw new Fail(400, "onedrive_request_invalid");
+        const had = want.get(w.id);
+        if (had && JSON.stringify(had) !== JSON.stringify(w)) throw new Fail(400, "onedrive_request_invalid");
+        want.set(w.id, w);
       }
       const token = await accessToken(workspaceId, conn!);
       const trashId = await readTrashId(workspaceId);
       const { ok, failed, retryAfter } = await checkMedia(token, [...want.keys()], folder,
-        (it) => (trashId && it.parentReference?.id === trashId ? "in_trash" : it.size !== want.get(it.id as string) ? "size" : null),
-        "id,name,size,file,folder,parentReference");
-      const unsure = [...failed].filter(([, why]) => why === "throttled" || why === "unavailable").map(([id]) => id);
-      const missing = [...failed].filter(([, why]) => why !== "throttled" && why !== "unavailable").map(([id]) => id);
+        (it) => (trashId && it.parentReference?.id === trashId ? "in_trash" : copyMismatch(it, want.get(it.id as string)!)),
+        "id,name,size,file,folder,parentReference,image,video,photo,fileSystemInfo");
+      const unsure = [...failed].filter(([, why]) => why === "throttled" || why === "unavailable" || why === "unknown").map(([id]) => id);
+      const missing = [...failed].filter(([, why]) => why !== "throttled" && why !== "unavailable" && why !== "unknown").map(([id]) => id);
       return json({ ok: [...ok.keys()], missing, unsure, ...(retryAfter ? { retry_after: retryAfter } : {}) });
     },
 
