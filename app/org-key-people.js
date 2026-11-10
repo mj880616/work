@@ -15,6 +15,7 @@ import {callAiAssist} from './basket-ai-summary.js';
 import {openReport} from './report-open.js';
 import {askConfirm, notify} from './small-notice.js';
 import {personDraft, collectRecords, collectOpen, onlyPerson, dday, shortDay, briefStale, KIND_LABEL, MATCHES_MAX, PEOPLE_MAX, normName} from './org-key-people-model.mjs';
+import {openCallSource, openTelegramSource} from './source-open.js';
 
 const TABLE = '/rest/v1/app_org_key_people', BRIEFS = '/rest/v1/app_org_key_people_briefs';
 const FIELDS = 'id,workspace_id,organization_id,name,match_names,sort_order,created_at';
@@ -193,8 +194,9 @@ async function openRecord(r) {
   try {
     if (o.view === 'meetings') { await openReport(o.id); return; }
     await window.KPTUViewLoader?.load?.(o.view);
-    if (o.view === 'calls') { router.go('calls', {source:'delegated'}); await window.KPTUCallFeed?.show?.(o.id); }
-    else if (o.view === 'telegram') { router.go('telegram', {source:'delegated'}); await window.KPTUTelegramFeed?.show?.(o.room, o.day, o.item); }
+    // FORGET-원문열기·뒤로가기: 통화·텔레그램은 원문 열기 한 곳(source-open.js) — 뒤로가기 한 번이면 이 조직 상세 그 자리.
+    if (o.view === 'calls') await openCallSource(o.id);
+    else if (o.view === 'telegram') await openTelegramSource(o.room, o.day, o.item);
     else if (o.view === 'ledger') { window.KPTULedgerBrowse?.show?.({kinds:['commitment'], openId:o.id}); router.go('ledger', {source:'delegated'}); }
     else if (o.view === 'basket') router.go('basket', {source:'delegated', sub:'todo'});
   } catch (e) { console.warn('key people open failed', e?.name || 'Error'); }

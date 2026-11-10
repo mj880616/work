@@ -88,8 +88,12 @@ test('화면 연결: 맨 아래 작은 탭 4개(주요 인물 첫 탭), renderer
   const ui = read('app/org-key-people.js');
   assert.match(ui, /missingTable\(e\) \? 'missing'/);
   assert.match(ui, /data-okp-preparing>준비 중이에요/);
-  assert.match(ui, /KPTUCallFeed\?\.show\?\./);
-  assert.match(ui, /KPTUTelegramFeed\?\.show\?\./);
+  // S56-10 FORGET-원문열기·뒤로가기: 통화·텔레그램 줄은 원문 열기 한 곳(source-open.js)으로 — 그곳이 각 화면의 기존 show를 부른다.
+  assert.match(ui, /await openCallSource\(o\.id\)/);
+  assert.match(ui, /await openTelegramSource\(o\.room, o\.day, o\.item\)/);
+  const so = read('app/source-open.js');
+  assert.match(so, /const feed = window\.KPTUCallFeed;[\s\S]*feed\?\.show\?\.\(id\)/);
+  assert.match(so, /KPTUTelegramFeed\?\.show\?\./);
   assert.match(ui, /openReport\(o\.id\)/);
   assert.doesNotMatch(ui, new RegExp(["local", "session"].map(k => k + "Storage").join("|")));
   // 기존 읽기 경로 재사용: 새 통화·텔레그램 읽기 함수를 만들지 않는다.
