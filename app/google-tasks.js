@@ -441,7 +441,7 @@ function openSourceNote(event){
   if(!id||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
   event.preventDefault();
   if(!document.querySelector('#gtTaskModal')?.classList.contains('hidden'))closeEditor();
-  requestBasketNote(id,rt);window.KPTURouter?.go('basket',{source:'delegated'});
+  requestBasketNote(id,rt);void window.KPTURouter?.openFrom?.('basket'); // NAV-원문열기나머지: 뒤로가기 한 번 = 할 일 그 자리
 }
 function paintSourceNote(task){
   const box=document.querySelector('#gtSourceNote');if(!box)return;
