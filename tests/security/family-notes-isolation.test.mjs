@@ -30,6 +30,8 @@ const ALLOWED=new Set([
  'tests/app-e2e/forget-note-pick.spec.mjs',
  // FORGET-노트작은창: 잊지 말기 [노트로] 작은 창(가족 줄 포함)을 보는 화면 시험(지어낸 줄을 흉내 낸 서버로만 돌려줌).
  'tests/app-e2e/forget-note-small.spec.mjs',
+ // FORGET-원문열기·뒤로가기(#2283): 잊지 말기 줄 원문 열기·뒤로가기 화면 시험(가족 표는 빈 목록 흉내만).
+ 'tests/app-e2e/forget-source-back.spec.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
 function walk(dir,out=[]){

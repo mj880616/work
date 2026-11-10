@@ -1466,8 +1466,9 @@ button.secondary:not(.icon-btn){ border-color:var(--ds-line); }
   border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); color:var(--kptu-ink); font-weight:var(--ds-weight-regular);
 }
 /* ▾ 그림은 base-ui.css 칸 기본(select{background:…} 줄임 표기)보다 한 단계 강하게 둔다(S52-22에서 발견: :where 강도 0이라 ▾가 어디서도 그려지지 않았다).
-   화면이 #id로 바탕을 따로 정한 상자는 그 규칙이 그대로 이긴다. 오른쪽 여백 26px은 아래 ③ 규칙. */
-select:not([multiple],[size]){
+   화면이 #id로 바탕을 따로 정한 상자는 그 규칙이 그대로 이긴다. 오른쪽 여백 26px은 아래 ③ 규칙.
+   S56-11: 고르기 창을 여는 단추라도 '고르기 상자' 자리에 놓이면 같은 ▾ 그림을 쓴다(자료실 [분류 ▾] — 옆 [폴더 ▾]와 한 모양). 쉼표 목록이라 select 쪽 강도는 그대로다. */
+select:not([multiple],[size]),#libraryView button.lu-cat-pick{
   background-image:linear-gradient(45deg,transparent 50%,var(--kptu-muted) 50%),linear-gradient(135deg,var(--kptu-muted) 50%,transparent 50%);
   background-position:calc(100% - 13px) 50%,calc(100% - 9px) 50%; background-size:4px 4px,4px 4px; background-repeat:no-repeat;
 }
@@ -1504,7 +1505,7 @@ li:where(:has(> label > input:is([type="checkbox"],[type="radio"]))){ list-style
 button.icon-btn:is([aria-label$="닫기"],[data-close]){ border-color:transparent; background:transparent; color:var(--kptu-muted); }
 button.icon-btn:is([aria-label$="닫기"],[data-close]):hover{ color:var(--kptu-ink); }
 /* ③ 고르기 상자 ▾ 자리: 화면 규칙이 padding을 정해도 글자가 ▾ 밑으로 들어가지 않게 오른쪽 여백만 한 곳에서 고정한다. */
-select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
+select:not([multiple],[size],[hidden]),#libraryView button.lu-cat-pick{ padding-right:26px !important; } /* S56-11: ▾ 그림을 쓰는 고르기 단추도 같은 여백 */
 /* ===== UI-화면정리 B(2026-10-28 명진 요청 20:03): 공용 부품 통일 — A 묶음의 부품을 그대로 쓰고, 화면마다 따로 있던 모양을 여기 한 곳으로 =====
    기록: docs/design-decisions.md "UI-화면정리 B". 값은 --ds-*·--kptu-* 토큰만 쓴다. 재발 방지 시험: tests/ui-cleanup-b.test.mjs.
    ① 화면 큰 제목(.screen-title): 폰(~760px)은 위 머리줄, PC(761px~, UI-폴드PC틀)는 위쪽 경로 줄이 화면 이름을 보이므로 본문의 큰 제목은 모든 폭에서

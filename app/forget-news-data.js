@@ -15,7 +15,7 @@
 import {callAiAssist} from './basket-ai-summary.js';
 import {seoulDateKey} from './meeting-time.js';
 import {myFeatures} from './my-features.js';
-import {flashRecord} from './record-flash.js';
+import {openCallSource, openTelegramSource} from './source-open.js';
 
 export const NEWS_DAYS = 14; // 처리 전 소식은 최근 2주 것만 목록에 둔다(그 전 줄은 표에 그대로 남음).
 export const NEWS_REFRESH_MS = 60 * 60 * 1000;
@@ -119,22 +119,11 @@ export async function countOpenNews(rt = window.KPTURuntime) {
 // 원본 열기: 통화는 통화 화면에서 그 통화를, 텔레그램은 그 방·날짜를 연다(방 구분값은 눌렀을 때 읽는다). 옛 업무일지 묶음과 같은 길.
 // FORGET-원문열기·뒤로가기: 화면 이동은 라우터 openFrom 한 길(화면을 다 불러온 뒤 열고, 뒤로가기 한 번 = 잊지 말기 그 자리). 연 줄은 잠깐 밝힌다.
 export async function openNewsSource(row, rt = window.KPTURuntime) {
-  const router = window.KPTURouter;
-  if (!row?.feedItemId || !router?.openFrom) return false;
+  if (!row?.feedItemId) return false;
   const id = row.feedItemId;
-  if (row.source === 'call') {
-    return router.openFrom('calls', async () => {
-      if ((await window.KPTUCallFeed?.show?.(id)) === false) return false;
-      void flashRecord(`#cfDetail [data-cf-detail="${CSS.escape(id)}"]`);
-      return true;
-    });
-  }
+  if (row.source === 'call') return openCallSource(id);
   const found = await rt.api(`/rest/v1/app_feed_items?id=eq.${enc(id)}&select=room_key,day&limit=1`);
   const item = Array.isArray(found) ? found[0] : null;
   if (!item) return false;
-  return router.openFrom('telegram', async () => {
-    if ((await window.KPTUTelegramFeed?.show?.(item.room_key, item.day, id)) === false) return false;
-    void flashRecord(`#tgDetail [data-tg-di="${CSS.escape(id)}"]`);
-    return true;
-  });
+  return openTelegramSource(item.room_key, item.day, id);
 }

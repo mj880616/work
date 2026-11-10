@@ -320,21 +320,38 @@
   }
   // FORGET-원문열기·뒤로가기: one way for a line on one screen to open its source on another screen (a call, a telegram day, a record).
   // openFrom(view, open) loads the screen, steps to it with its own history entry, then runs open() (the screen's own opener).
-  // The first detail that opener opens as a layer (phone call detail, telegram day) takes that same entry instead of adding one more,
-  // so one Back (Android, browser, PWA or the screen's ‹) returns to the screen the line was on. Coming back, that screen gets its
-  // scroll position again (rememberScroll / restoreScroll below) and is told source 'popstate', so it keeps its view and filters.
+  // The first detail opened there as a layer (phone call detail, telegram day, an update, a task) or as a window (.modal of
+  // mobile-modal-history.js: an organization, a meeting) takes that same entry instead of adding one more, so one Back (Android,
+  // browser, PWA or the screen's ‹) returns to the screen the line was on. Coming back, that screen gets its scroll position again
+  // (rememberScroll / restoreScroll below) and is told source 'popstate', so it keeps its view and filters.
+  // NAV-원문열기나머지(S56-14): the arriving screen often opens that detail only after reading its data (a request it takes on
+  // kptu:view-changed), after open() has returned. So the entry stays offered until the first layer or window takes it, the
+  // person's first touch or key on the page, or the entry or screen changes, whichever comes first (no timer).
   let sourceEntry=null;
-  function adoptSourceEntry(name,{close,reopen}){
+  ['pointerdown','keydown'].forEach(type=>window.addEventListener(type,()=>{sourceEntry=null},true));
+  function sourceHere(){
     const entry=here();
-    if(!sourceEntry||releasing||!entry||entry.key!==sourceEntry.key||api.current!==sourceEntry.view)return null;
-    if(layers.some(layer=>layer.key===entry.key)||chainOf(history.state).length)return null;
+    if(!sourceEntry||releasing)return null;
+    if(!entry||entry.key!==sourceEntry.key||api.current!==sourceEntry.view){sourceEntry=null;return null}
+    if(layers.some(layer=>layer.key===entry.key)||chainOf(history.state).length||history.state?.kptuOverlay){sourceEntry=null;return null}
     sourceEntry=null;
+    return entry;
+  }
+  function adoptSourceEntry(name,{close,reopen}){
+    const entry=sourceHere();
+    if(!entry)return null;
     history.replaceState({...(history.state||{}),[LAYERS]:[name]},'',location.href);
     // The entry object read before replaceState is no longer in the list (its index is -1): read the one standing now.
     const now=here()||entry;
     const layer={name,close,reopen,index:now.index,key:now.key};
     layers.push(layer);keepReopen(layer);
     return {close:()=>releaseLayer(layer)};
+  }
+  // mobile-modal-history.js asks here before writing a window's own entry: true when the window took the offered entry instead.
+  function adoptSourceWindow(id){
+    if(!id||!sourceHere())return false;
+    history.replaceState({...(history.state||{}),kptuOverlay:id},'',location.href);
+    return true;
   }
   async function openFrom(view,open=null,{sub=null}={}){
     view=viewName(view);
@@ -343,11 +360,11 @@
     if(lazy?.isLoaded&&!lazy.isLoaded(view))await lazy.load(view);
     if(!stillLatest(token))return false;
     const before=here()?.key;
+    sourceEntry=null;
     if(!go(view,{source:'delegated',sub})&&api.current!==view)return false;
     const entry=here();
-    sourceEntry=entry&&entry.key!==before?{key:entry.key,view}:null;
-    try{return typeof open==='function'?await open():true}
-    finally{sourceEntry=null}
+    if(entry&&entry.key!==before&&!sourceEntry)sourceEntry={key:entry.key,view};
+    return typeof open==='function'?await open():true;
   }
   // Scroll position per history entry, only for a step between screens (a layer's own list scroll stays with its owner, e.g.
   // basket-notes.js). Kept in memory, never stored. A screen drawn again after it shows (its list read again) grows back to the
@@ -611,7 +628,7 @@
   // go() was asked meanwhile (then the late press must not take the screen back from it).
   const askGo=()=>++goSeq;
   const stillLatest=token=>token===goSeq;
-  const api={current:null,sub:null,go,askGo,stillLatest,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,openFrom,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  const api={current:null,sub:null,go,askGo,stillLatest,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,openFrom,adoptSourceWindow,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   // NAV-PC앞뒤통일: one notice after the history position or the screen changed, so the top line repaints ‹ › from canBack/canForward.
   let moveQueued=false;

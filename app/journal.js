@@ -1142,7 +1142,16 @@ let pendingReturn = null;
 function rememberReturn(trigger) {
   pendingReturn = {owner:ownerScope(rt), start, day:selected, scroll:window.scrollY, focus:trigger};
 }
-const goView = view => window.KPTURouter?.go?.(view, {source:'delegated'});
+// NAV-원문열기나머지(S56-14): the step goes through the router's openFrom, the one way from a line to another screen — the first detail
+// that screen opens (a task, a ledger promise, a calendar day) shares the step's history entry, so one back returns here.
+// Answers whether the step was taken (a screen not loaded yet is loaded by openFrom first, as go() did).
+const goView = view => {
+  const router = window.KPTURouter;
+  if (!router?.openFrom) return !!router?.go?.(view, {source:'delegated'});
+  const loaded = window.KPTUViewLoader?.isLoaded?.(view) !== false;
+  void router.openFrom(view);
+  return !loaded || router.current === view;
+};
 // The record on the opened screen: scrolled to the middle and lit for a moment — record-flash.js (shared with the 담당조직 table).
 // Phone: the organization/project/meeting opens as a window over this screen; when back (or its ×) closes it, the focus returns to
 // the pressed line.
@@ -1705,7 +1714,9 @@ function enter(detail) {
   takeBasketReturn('home', rt); // an update/note opened from here has done its job once this screen shows again
   if (back && back.owner === ownerScope(rt) && back.start === start && back.day === selected && ['popstate', 'back'].includes(detail?.source)) {
     renderMode(); renderFill(); // HOME-하루채우기: 홈을 떠나 있던 동안 건너뛴 사진 줄 읽기
-    window.scrollTo({top:back.scroll, behavior:'instant'});
+    // NAV-원문열기나머지(S56-14): a return by back gets its scroll from the router (one scroll memory per history entry, app-router.js);
+    // only the top line's ← that has no history step to go back (router back(), source 'back') is put back here.
+    if (detail?.source === 'back') window.scrollTo({top:back.scroll, behavior:'instant'});
     if (back.focus?.isConnected) back.focus.focus({preventScroll:true});
     writePlace();
     return;
