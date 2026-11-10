@@ -279,7 +279,7 @@ test('Android app Google login still targets the native auth callback',async({br
 
 test('Android Calendar OAuth return is handed to the native app before auth gating',async({page})=>{
   await page.goto(`${APP}?google=connected&native=android`);
-  await expect(page.locator('h2')).toContainText('Google Calendar 연결이 완료되었습니다.');
+  await expect(page.locator('h2')).toContainText('Google Calendar 연결이 완료됐어요.');
   await expect(page.locator('#openKptuApp')).toHaveAttribute('href','kptuwork://auth?google=connected');
   await expect(page.locator('#appView')).toHaveCount(0);
 });

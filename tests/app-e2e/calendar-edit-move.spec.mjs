@@ -82,7 +82,7 @@ test('partial save reads actual destination and preserves warning for retry',asy
 test('failed reread retains server-confirmed destination and allows a correct retry',async({page})=>{
   const state=await open(page,{partial:true});await edit(page);state.readFail=true;
   await page.locator('#ciGoogleCalendar').selectOption('target');await page.locator('#ciGoogleSave').click();
-  await expect(page.locator('#ciGoogleStatus')).toContainText('최신 조회도 실패');await expect(page.locator('#ciGoogleCalendar')).toHaveValue('target');await expect(page.locator('#ciGoogleSave')).toBeEnabled();
+  await expect(page.locator('#ciGoogleStatus')).toContainText('최신 내용도 불러오지 못했어요');await expect(page.locator('#ciGoogleCalendar')).toHaveValue('target');await expect(page.locator('#ciGoogleSave')).toBeEnabled();
   await page.locator('#ciGoogleSave').click();await expect.poll(()=>state.writes.length).toBe(2);expect(state.writes[1].calendar_id).toBe('target');
 });
 test('late partial reread cannot overwrite another event editor',async({page})=>{

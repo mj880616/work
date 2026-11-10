@@ -93,7 +93,7 @@ test('attachNewTaskFiles: one attach per file to the new task; a failed file is 
   assert.deepEqual(result.failed.map(f => f.name), ['b.txt', 'empty.txt']);
   assert.deepEqual(result.files.map(f => f.file_name), ['a.txt', 'c.txt']);
   const notice = newTaskFilesNotice(result);
-  assert.match(notice, /^할 일은 저장했습니다\. 파일 2개\(b\.txt, empty\.txt\)를 붙이지 못했어요: Drive에 올리지 못했어요\./);
+  assert.match(notice, /^할 일은 저장했어요\. 파일 2개\(b\.txt, empty\.txt\)를 붙이지 못했어요: Drive에 올리지 못했어요\./);
   assert.match(notice, /할 일 ⋯ → 파일 붙이기/);
   assert.equal(newTaskFilesNotice({ done: 1, failed: [] }), '');
 });
@@ -224,7 +224,7 @@ test('applyTaskAttachPlan: a failed upload keeps the old file; a full task takes
   assert.deepEqual(one.calls, [['attach', 'a2.pdf']]);
   assert.deepEqual(one.files().map(f => f.drive_file_id), ['a']);
   assert.equal(r1.gone.size, 0);
-  assert.match(taskAttachNotice(r1), /^할 일은 저장했습니다\. 첨부 1건\(a2\.pdf\)을 바꾸지 못했어요: 올리지 못했어요\./);
+  assert.match(taskAttachNotice(r1), /^할 일은 저장했어요\. 첨부 1건\(a2\.pdf\)을 바꾸지 못했어요: 올리지 못했어요\./);
   const ten = Array.from({ length: 10 }, (_, i) => ({ drive_file_id: 'f' + i, file_name: i + '.txt' }));
   const full = editRt({ start: ten });
   const r2 = await applyTaskAttachPlan('t1', { remove: [], swap: [{ from: { drive_file_id: 'f3', file_name: '3.txt', inTable: true }, file: tf('3 new.txt') }], add: [], tableCount: 10 }, { rt: full.rt });
