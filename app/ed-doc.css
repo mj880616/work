@@ -67,8 +67,12 @@
 .ed-doc th>.ed-p,.ed-doc td>.ed-p{margin:0}
 
 /* 편집 칸 */
-.ed-editor{display:flex;flex-direction:column;min-width:0}
-.ed-bar{position:sticky;top:0;z-index:2;background:var(--kptu-surface);border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.ed-editor{display:flex;flex-direction:column;min-width:0;border-radius:var(--ds-radius-control,8px)}
+/* UI-편집기초점테두리: 본문 칸이나 서식 줄 단추에 초점이 있으면 서식 줄 + 본문 칸을 감싼 편집기 전체에 테두리 하나.
+   색·두께는 다른 입력 칸 초점과 같다(base-ui.css input:focus = 진한 1px 선 + 옅은 3px 둘레). 본문 칸 자체에는 초점 선을 그리지 않는다.
+   이 편집기를 쓰는 곳(노트, 쓰기 창, 일기, 공유 페이지) 모두 이 한 규칙을 쓴다. 화면 전체를 쓰는 쓰기 창은 둘레가 창 밖이라 보이지 않는다. */
+.ed-editor:focus-within{box-shadow:0 0 0 var(--ds-line-width,1px) var(--kptu-primary-ink),0 0 0 calc(var(--ds-line-width,1px) + 3px) var(--kptu-primary-soft)}
+.ed-bar{position:sticky;top:0;z-index:2;background:var(--kptu-surface);border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-top-left-radius:inherit;border-top-right-radius:inherit}
 /* 버튼 줄: 폰에서 넘치면 가로로 넘긴다(줄바꿈 없음). 버튼은 보이는 높이 28px, 누르는 범위 44px(UI-버튼기준). */
 .ed-tools,.ed-menu{display:flex;flex-wrap:nowrap;align-items:center;gap:4px;min-height:var(--kptu-touch-target,44px);padding:0 8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;box-sizing:border-box}
 .ed-menu{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
@@ -140,7 +144,7 @@
 .ed-suggest [data-ed-convert]{border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
 .ed-box{flex:1 1 auto;min-height:0}
 .ed-input{min-height:12em;padding:16px 18px 56px;outline:none;caret-color:var(--kptu-ink);white-space:pre-wrap}
-.ed-input:focus-visible{outline:none}
+.ed-input:focus,.ed-input:focus-visible{outline:none}
 .ed-editor[data-ed-empty] .ed-input[data-placeholder]::before{content:attr(data-placeholder);position:absolute;color:var(--kptu-faint);pointer-events:none}
 .ed-input .ed-photo.ProseMirror-selectednode{outline:2px solid var(--kptu-primary);outline-offset:2px}
 .ed-input .selectedCell{background:var(--kptu-primary-soft)}
