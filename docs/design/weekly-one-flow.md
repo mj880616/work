@@ -231,7 +231,7 @@
 
 ### 남은 일 (다음 PR 후보)
 
-1. 칸별 '그대로 쓴 비율' 화면 표시(요청함 3) — 서버 재료에는 들어감(`kept_percent`), 환류 보고 카드 표시는 다음.
+1. 칸별 '그대로 쓴 비율' 화면 표시(요청함 3) — 서버 재료에는 들어감(`kept_percent`), 환류 보고 카드 표시는 다음. **(S56-53 확인: S48-3b부터 환류 보고 카드에 '칸별 그대로 쓴 비율' 한 줄로 보임 — `app/weekly-learn-panel.js` `cellRatesLine`·`app/weekly-picks.mjs` `cellKeptRates`. → 이 항목 끝.)**
 2. 1) 지난주에서 가져온 줄을 고치지 않고 그대로 둔 것(그대로 넣음 = take)은 확정 때 따로 남기지 않는다 — 그대로 쓴 비율에 넣으려면 확정 때 남은 가져온 줄을 take 로 남기는 일이 더 필요. (S48-35: 2. 2) 세부 내용은 확정 때 take 를 남김(`withDetailTakes`). **S48-43: 1) 임원 배정 요청도 확정 때 아직 '지난주에서'(carried)로 남은 줄을 'carried' take 로 남김(`withRequestTakes`, 칸 'requests:ask', 열쇠 글은 `journal.js` 동작 기록과 같은 `requestLine` 글). 요청 표를 못 읽은 주(준비 전·실패)는 남기지 않음. → 이 항목 끝.**)
 3. (S48-35) 서버 환류 정리 `weekly-learn.ts` groupOf 에 '2. 세부 내용' — **Edge `ai-assist` 재배포 필요(CC)**. 배포 전에는 그 동작이 '기타' 묶음으로 셈된다(재료는 그대로 들어감).
 
