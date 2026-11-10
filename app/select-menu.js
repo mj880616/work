@@ -1,6 +1,6 @@
 // UI-모바일고르기칸: one app list for every drop-down <select> on the site. The phone's own picker (a big yellow box in the middle
 // of the screen, big radio rows, dimmed page) never opens: a press on a closed select opens a small list right under it, as wide
-// as the select, body-size text, tight rows, the chosen row bold with a check, no dimming, a press outside closes it.
+// as the select or its longest row (UI-고르기목록잘림), body-size text, tight rows, the chosen row bold with a check, no dimming, a press outside closes it.
 // The <select> stays in the page as the single place the value lives: the list only sets its value and fires input + change, so
 // forms and the screens' own change handlers keep working untouched, and selects drawn later (innerHTML repaints) need nothing:
 // one delegated listener on the document covers them all. Opt out with data-native-select (none today). Date inputs are not
@@ -64,18 +64,35 @@ export function matchPosition(items, text, from) {
 }
 
 // Where the list goes. anchor: the select's box; view: the visible window {left, top, width, bottom}; inset: height at the bottom
-// the list must not cover (tab bar, switch bar, safe area); contentH: the list's own full height. Same width as the select (never
-// narrower than minWidth, never wider than the window), directly below it; above it when below has no room for the whole list
-// and above has more; the height is capped at what the chosen side has (the list scrolls inside).
-export function placeMenu({anchor, view, inset = 0, contentH, gap = 2, edge = 8, minWidth = 96, maxHeight = 320}) {
-  const width = Math.max(0, Math.min(Math.max(anchor.width, minWidth), view.width - edge * 2));
+// the list must not cover (tab bar, switch bar, safe area); contentH: the list's own full height; contentW: the list's width with
+// every row on one line (UI-고르기목록잘림: the chosen row is bold with a check, so it can be longer than the select). The width is
+// the wider of the select and the longest row (never narrower than minWidth, never wider than the window — then wrap is true and
+// the rows break onto a second line instead of being cut), directly below it; above it when below has no room for the whole list
+// and above has more; the height is capped at what the chosen side has (the list scrolls inside). A list that would pass the
+// window's right edge moves left.
+export function placeMenu({anchor, view, inset = 0, contentH, contentW = 0, gap = 2, edge = 8, minWidth = 96, maxHeight = 320}) {
+  const want = Math.max(anchor.width, minWidth, Math.ceil(contentW || 0)), room = Math.max(0, view.width - edge * 2);
+  const width = Math.min(want, room), wrap = Math.ceil(contentW || 0) > room;
   const left = Math.max(view.left + edge, Math.min(anchor.left, view.left + view.width - width - edge));
   const topLimit = view.top + edge, bottomLimit = view.bottom - inset - edge;
   const below = bottomLimit - anchor.bottom - gap, above = anchor.top - gap - topLimit;
   const side = below >= contentH || below >= above ? 'below' : 'above';
   const height = Math.max(0, Math.min(contentH, maxHeight, side === 'below' ? below : above));
   const top = side === 'below' ? anchor.bottom + gap : anchor.top - gap - height;
-  return {side, left, top, width, height};
+  return {side, left, top, width, height, wrap};
+}
+
+// The width an open list needs with every row on one line (rows never wrap while measuring). Leaves width on max-content: the
+// caller sets the final width right after.
+export function naturalWidth(panel) {
+  panel.removeAttribute('data-wrap'); panel.style.width = 'max-content';
+  return panel.getBoundingClientRect().width;
+}
+
+// Width a vertical scrollbar takes inside a placed list (0 on phones, whose scrollbars float over the content).
+export function scrollbarWidth(panel) {
+  const cs = getComputedStyle(panel);
+  return Math.max(0, panel.offsetWidth - panel.clientWidth - (parseFloat(cs.borderLeftWidth) || 0) - (parseFloat(cs.borderRightWidth) || 0));
 }
 
 export function eligible(select) {
@@ -106,11 +123,22 @@ if (typeof document !== 'undefined' && !window.__KPTU_SELECT_MENU__) {
     const view = {left: vv?.offsetLeft || 0, top: vv?.offsetTop || 0, width: vv?.width || document.documentElement.clientWidth, bottom: Math.min(window.innerHeight, (vv?.offsetTop || 0) + (vv?.height || window.innerHeight))};
     const inset = probe.getBoundingClientRect().height || 0;
     panel.style.maxHeight = 'none'; panel.style.height = 'auto';
-    const contentH = panel.scrollHeight + (panel.offsetHeight - panel.clientHeight);
-    const r = active.select.getBoundingClientRect();
-    const p = placeMenu({anchor: {left: r.left, top: r.top, bottom: r.bottom, width: r.width}, view, inset, contentH});
-    Object.assign(panel.style, {left: p.left + 'px', top: p.top + 'px', width: p.width + 'px', height: p.height + 'px', maxHeight: p.height + 'px'});
-    panel.dataset.side = p.side;
+    const contentW = naturalWidth(panel);
+    const r = active.select.getBoundingClientRect(), anchor = {left: r.left, top: r.top, bottom: r.bottom, width: r.width};
+    // The width first (rows on one line, or wrapped when the window is narrower), then the height those rows take at that width.
+    const fit = cw => {
+      const w = placeMenu({anchor, view, inset, contentH: 0, contentW: cw});
+      if (w.wrap) panel.dataset.wrap = ''; else panel.removeAttribute('data-wrap');
+      Object.assign(panel.style, {width: w.width + 'px', height: 'auto', maxHeight: 'none'});
+      const contentH = panel.scrollHeight + (panel.offsetHeight - panel.clientHeight);
+      const p = placeMenu({anchor, view, inset, contentH, contentW: cw});
+      Object.assign(panel.style, {left: p.left + 'px', top: p.top + 'px', width: p.width + 'px', height: p.height + 'px', maxHeight: p.height + 'px'});
+      panel.dataset.side = p.side;
+    };
+    fit(contentW);
+    // A long list scrolls inside; on a computer its scrollbar takes width from the rows, so the list grows by that much.
+    const bar = scrollbarWidth(panel);
+    if (bar > 0) fit(contentW + bar);
   }
 
   function mark(position, {scroll = true} = {}) {
