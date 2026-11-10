@@ -242,6 +242,36 @@ for(const width of [390,1280])test(`[전체 표] 줄 ⋯ [기록 열기] → 조
 });
 
 // RECORD-한줄 ①: 긴 기록(붙여 넣은 회의록·마크다운·표 기호)은 표에 한 줄만, 기호 없이. ⋯ [원문 보기] = 원문 그대로(작은 창, 읽기만).
+// RECORD-보고용글잘림(요청함 11/10 ★급★): 직접 쓴 보고용 글은 60자로 자르지 않고 끝까지, [보고용으로 수정]을 다시 열면 글 전체가 칸에(잘린 글 아님).
+for(const width of [412,1280])test(`[전체 표] 보고용 글은 끝까지 보이고 다시 열면 칸에 글 전체 ${width}px`,async({page})=>{
+ const RAW='합성 임금교섭 결과 공유 회의를 열었다. '+'합성 원문 문장 '.repeat(12)+'원문 끝.';
+ const LONG='합성 임금교섭 1차 결과: 기본급 인상안과 근속승진 기준을 지부와 함께 정리했고, 다음 교섭 전까지 조합원 설명회를 두 번 열기로 함. 마지막 문장까지 보고용.';
+ const rec=U(OA,'2026-11-17',RAW),rec2=U(OB,'2026-11-18','합성 원문 '.repeat(20)+'둘째 원문 끝.');
+ const marks=[{id:'m-long',workspace_id:'w',week_start:W,section:'org',ref_kind:'org_update',ref_key:rec.id,report_body:LONG,choice:null,detail:null,updated_at:NOW}];
+ const {db,errors}=await fixture(page,{width,records:[rec,rec2],marks});
+ await openTable(page);
+ const line=shown(oa(page));
+ await expect(line.locator('.wl-text')).toHaveText(LONG);
+ await expect(line.locator('.rw-ok')).toHaveCount(1);
+ // 다시 열면 칸에 보고용 글 전체 → 그대로 저장해도 뒷부분이 사라지지 않음(쓰기 없음)
+ await menu(page,oa(page),'합성 임금교섭 1차 결과','보고용으로 수정');
+ const body=page.locator('#soOverview [data-rw-field="body"]');
+ await expect(body).toHaveValue(LONG);
+ await body.press('Enter');
+ await expect(line.locator('.wl-text')).toHaveText(LONG);
+ expect(db.markWrites).toEqual([]);
+ // 보고용 글이 없는 긴 원문 줄: 표에는 한 줄(…), 칸에는 원문 전체(… 없음)
+ await expect(shown(ob(page)).locator('.wl-text')).toHaveText(/…$/);
+ await menu(page,ob(page),'합성 원문','보고용으로 수정');
+ await expect(body).toHaveValue(/둘째 원문 끝\.$/);
+ await body.fill('합성 둘째 줄 보고용 '+'긴 글 '.repeat(20)+'끝까지');await body.press('Enter');
+ await expect(status(page)).toHaveText('저장했어요.');
+ expect(db.markWrites.at(-1)).toMatchObject({m:'POST',report_body:'합성 둘째 줄 보고용 '+'긴 글 '.repeat(20)+'끝까지'});
+ await expect(shown(ob(page)).locator('.wl-text')).toHaveText('합성 둘째 줄 보고용 '+'긴 글 '.repeat(20)+'끝까지');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+ expect(errors).toEqual([]);
+});
+
 for(const width of [390,1280])test(`[전체 표] 긴 기록은 한 줄 + ⋯ [원문 보기] ${width}px`,async({page})=>{
  const RAW='## 합성 쟁의대책회의 결과 요약 (11.16)\n\n### 1. 핵심 회의 결과\n- 합성 경고파업 추진 방향으로 의견을 모음&#x20;\n\n| 구분 | 내용 |\n|---|---|\n| 교섭 | 합성 근속승진 |\n'+'합성 문장 '.repeat(30);
  const rec=U(OA,'2026-11-17',RAW);
