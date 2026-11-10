@@ -10,7 +10,8 @@ import { fileAttrs, driveFileUrl } from './file-actions.js';
 import { uploadTimeoutMs } from './upload-budget.mjs';
 import { sendUploadApi } from './upload-send.mjs';
 import { trackUpload, mountUploadRows } from './upload-progress.js';
-import { renameHostAttrs, renameButtonHtml, applyRenamed } from './file-rename.js';
+import { renameHostAttrs, renameButtonHtml, applyRenamed, openRenameEditor } from './file-rename.js';
+import { rowMore } from './row-more.js';
 import { deleteAttachment } from './file-trash.js'; // FILE-첨부삭제 ②: [삭제] = 할 일에서 떼고 Drive 원본 휴지통(30일 안 되살림) + [되돌리기] // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(할 일 첨부 표에 있는 파일만)
 export { splitTaskNotes, joinTaskNotes, taskAttachments } from './task-note-files.mjs'; // TASK-첨부열기: 메모 속 '첨부:' 줄 읽기·쓰기는 이 한 곳 // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
@@ -134,11 +135,26 @@ function paint() {
   m.querySelector('[data-gt-files-task]').textContent = s.task.title || '제목 없음';
   const list = m.querySelector('[data-gt-files-list]');
   const lock = s.busy || s.uploading; // 빼기·삭제·이름 고치기는 올리는 동안 잠근다(서버 목록이 엇갈리지 않게). 고르기만 줄 세움.
+  // FILE-첨부삭제 ② 뒤 결정 2(2026-11-11 명진 '추천대로'): 줄 단추 5개(이름 고치기·Drive에서 열기·내려받기·빼기·삭제) 때문에 폰 412에서
+  // 파일 이름이 잘렸다 → 노트 첨부 줄처럼 줄마다 ⋯ 하나(공용 row-more.js)에 모으고 이름이 줄 너비를 다 쓴다. 이름 누르기(종류별 열기)·
+  // 두 번 누르기/꾹 누르기(이름 고치기)는 그대로. 메뉴 항목의 누르기는 원래 처리(file-actions.js data-fa-menu, 아래 빼기·삭제·이름 고치기) 그대로.
   list.innerHTML = s.files.length
-    ? s.files.map(f => { const rn = {target: 'task', id: s.task.id, driveId: f.drive_file_id, name: f.file_name}; return `<li data-fr-row><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer"${renameHostAttrs(rn)} ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})}>${esc(f.file_name)}</a>${lock ? '' : renameButtonHtml(rn)}<button type="button" class="mini" data-fa-menu="open"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} Drive에서 열기">Drive에서 열기</button><button type="button" class="mini" data-fa-menu="download"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} 내려받기">내려받기</button><button type="button" class="mini" data-gt-file-detach="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 빼기"${lock ? ' disabled' : ''}>빼기</button><button type="button" class="mini danger" data-gt-file-delete="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 삭제"${lock ? ' disabled' : ''}>삭제</button></li>`; }).join('')
+    ? s.files.map(f => { const rn = {target: 'task', id: s.task.id, driveId: f.drive_file_id, name: f.file_name}; return `<li data-fr-row data-gt-file-row="${esc(f.drive_file_id)}"><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer"${renameHostAttrs(rn)} ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})}>${esc(f.file_name)}</a></li>`; }).join('')
     : `<li class="gt-files-empty">${emptyHtml()}</li>`;
+  list.querySelectorAll('[data-gt-file-row]').forEach(li => {
+    const f = s.files.find(x => x.drive_file_id === li.dataset.gtFileRow); if (!f) return;
+    const fa = {faName: f.file_name, faId: f.drive_file_id};
+    li.append(rowMore(document, {label: `${f.file_name} 메뉴`, data: {gtFileMore: f.drive_file_id}, items: [
+      {text: '이름 고치기', data: {gtFileRename: f.drive_file_id}, disabled: lock},
+      {text: 'Drive에서 열기', data: {faMenu: 'open', ...fa}},
+      {text: '내려받기', data: {faMenu: 'download', ...fa}},
+      {text: '빼기', data: {gtFileDetach: f.drive_file_id}, disabled: lock},
+      {text: '삭제', data: {gtFileDelete: f.drive_file_id}, danger: true, disabled: lock},
+    ]}));
+  });
+  list.querySelectorAll('[data-gt-file-rename]').forEach(b => { b.onclick = () => { const li = b.closest('li'); li?.querySelector('details.row-more')?.removeAttribute('open'); const host = li?.querySelector('[data-fr-host]'); if (host && !(dialog?.state?.busy || dialog?.state?.uploading)) openRenameEditor(host); }; });
   list.querySelectorAll('[data-gt-file-detach]').forEach(b => { b.onclick = () => void detach(b.dataset.gtFileDetach); });
-  list.querySelectorAll('[data-gt-file-delete]').forEach(b => { b.onclick = () => void remove(b.dataset.gtFileDelete, b); });
+  list.querySelectorAll('[data-gt-file-delete]').forEach(b => { b.onclick = () => void remove(b.dataset.gtFileDelete, b.closest('li')?.querySelector('details.row-more > summary') || b); });
   const pick = m.querySelector('[data-gt-files-pick]');
   pick.disabled = !canPick(s);
 }
@@ -231,7 +247,7 @@ async function remove(id, button) {
   }
   if (dialog?.state !== s || !s.isCurrent()) return;
   if (result.status === 'failed') status(`${f.file_name}: ${result.message}`, true);
-  if (result.status === 'cancel') dialog.m.querySelector(`[data-gt-file-delete="${CSS.escape(id)}"]`)?.focus();
+  if (result.status === 'cancel') dialog.m.querySelector(`[data-gt-file-more="${CSS.escape(id)}"] > summary`)?.focus();
   else dialog.m.querySelector('[data-gt-files-pick]')?.focus();
 }
 
