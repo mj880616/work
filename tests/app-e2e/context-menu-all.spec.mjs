@@ -77,6 +77,33 @@ test('1280 shared rule: an area ⋯ inside a docked dialog answers presses insid
   expect(await page.evaluate(() => window.__kept)).toEqual([true]);
 });
 
+// UI-PC손맛묶음 ③: 줄 글자를 마우스로 긁어 고르면(복사하려고) 그 줄이 열리지 않는다. 그냥 누르기는 그대로 열린다.
+test('1280 shared rule: a mouse drag that selects a line\'s text does not open the line; a plain click does', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openHome(page);
+  await page.evaluate(() => {
+    document.querySelector('#ctxProbe')?.remove();
+    document.body.insertAdjacentHTML('beforeend', `<section id="ctxProbe" style="position:fixed;left:20px;top:20px;width:620px;z-index:99999;background:#fff;padding:10px"><article id="row" role="button" tabindex="0" style="padding:8px;user-select:text"><span id="rowtext">가나다라마바사아자차카타파하 담당조직 한 줄 글자</span></article></section>`);
+    window.__open = 0; document.querySelector('#row').addEventListener('click', () => { window.__open++; });
+  });
+  const b = await page.locator('#rowtext').boundingBox(), y = b.y + b.height / 2;
+  await page.mouse.move(b.x + 2, y); await page.mouse.down(); await page.mouse.move(b.x + 80, y, { steps: 4 }); await page.mouse.move(b.x + 160, y, { steps: 4 }); await page.mouse.up();
+  expect(await page.evaluate(() => getSelection().toString().length)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.__open)).toBe(0);
+  await page.evaluate(() => getSelection().removeAllRanges());
+  await page.locator('#rowtext').click();
+  expect(await page.evaluate(() => window.__open)).toBe(1);
+});
+
+// UI-PC손맛묶음 ④: 그림·기호만 있는 단추는 PC에서 마우스를 올리면 이름(aria-label)이 말풍선(title)으로 뜬다. 글자 단추·자기 말풍선은 그대로.
+test('1280 shared rule: icon-only buttons get their name as a hover tip', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openHome(page);
+  await mount(page, `<button id="i1" type="button" aria-label="다음 주">›</button> <button id="i2" type="button" aria-label="메뉴"><svg width="12" height="12"></svg></button> <button id="w1" type="button" aria-label="저장하기">저장</button> <button id="t1" type="button" aria-label="닫기" title="창 닫기">×</button>`);
+  for (const id of ['i1', 'i2', 'w1', 't1']) await page.hover('#' + id);
+  expect(await page.evaluate(() => ['i1', 'i2', 'w1', 't1'].map(id => document.getElementById(id).getAttribute('title')))).toEqual(['다음 주', '메뉴', null, '창 닫기']);
+});
+
 test('1280 shared rule: a menu panel a stylesheet pins under the ⋯ opens at the pointer and goes back when closed', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await openHome(page);
