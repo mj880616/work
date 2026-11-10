@@ -15,8 +15,8 @@ const SERVICES = Object.freeze({
 // DOMAIN-주소이전 ①-D1: Web2 (/work/app/**) is served on bokdoong.com only, with the Web2 rules (HTML freshness,
 // verified immutable ?v= assets, once-per-epoch cache clearing). bokdoong.com/ (the old portal) sends visitors
 // to Web2. desk.bokdoong.com (/ and /work/app/**) and work.bokdoong.com/work/app/** send visitors to the same path
-// and ?query on bokdoong.com with 302; the browser keeps the #fragment. Web1 on work and the share page are
-// unchanged; arsenal goes to the Web2 아스날 menu (arsenalRedirect). The portal favicon stays until the C1 clean-up.
+// and ?query on bokdoong.com with 302; the browser keeps the #fragment. Web1 on work is closed (web1Closed(), WEB1-페이지삭제
+// D1); the share page is unchanged; arsenal goes to the Web2 아스날 menu (arsenalRedirect). The portal favicon stays until the C1 clean-up.
 const WEB2_HOST = 'bokdoong.com';
 const WEB2_ORIGIN = `https://${WEB2_HOST}`;
 const WEB2_PREFIX = '/work/app/';
@@ -54,6 +54,33 @@ const ARSENAL_TARGET = `${WEB2_ORIGIN}${WEB2_PREFIX}?view=arsenal`;
 
 function arsenalRedirect() {
   return new Response(null, { status: 302, headers: { Location: ARSENAL_TARGET, 'Cache-Control': 'no-store' } });
+}
+
+// WEB1-페이지삭제 D1 (docs/design/web1-removal-plan.md 0절 4번·4절): Web1 is closed. On work.bokdoong.com every /work/
+// path except the kept ones gets one line, "더 이상 운영하지 않는 페이지입니다", with 410 and no-index, and nothing is
+// fetched from GitHub Pages. Kept: the share page and favicon.svg it uses, about/ (the Google sign-in consent screen
+// links there), personal/ (its own C1), and /work/app/** (already sent to bokdoong.com by movesToWeb2()).
+// tests/domain/bokdoong-router.test.mjs pins the kept list. Undo: deploy the previous Worker version.
+const WEB1_KEPT = Object.freeze(['/work/share', '/work/about', '/work/personal', '/work/app']);
+const WEB1_CLOSED_HTML = '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
+  + '<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex, nofollow">'
+  + '<title>운영 종료</title></head><body><p>더 이상 운영하지 않는 페이지입니다.</p></body></html>';
+
+export function web1Closed(host, path) {
+  if (host !== 'work.bokdoong.com' || (path !== '/work' && !path.startsWith('/work/'))) return false;
+  if (path === '/work/favicon.svg') return false;
+  return !WEB1_KEPT.some(prefix => path === prefix || path.startsWith(`${prefix}/`));
+}
+
+function web1ClosedResponse(method) {
+  return new Response(method === 'HEAD' ? null : WEB1_CLOSED_HTML, {
+    status: 410,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Robots-Tag': 'noindex, nofollow, noarchive'
+    }
+  });
 }
 
 function allowedPath(host, path) {
@@ -284,6 +311,7 @@ export default {
       incoming.pathname = SHARE_PAGE;
       return Response.redirect(incoming.href, 301);
     }
+    if (web1Closed(host, incoming.pathname)) return web1ClosedResponse(request.method);
     if (!allowedPath(host, incoming.pathname)) return new Response('Not found', { status: 404 });
 
     const originUrl = new URL(upstreamPath(host, incoming.pathname), PAGES_ORIGIN);

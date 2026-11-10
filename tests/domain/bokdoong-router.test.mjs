@@ -80,9 +80,9 @@ test('service roots stay on their vanity hosts and retain deployed base paths', 
 
 test('only the selected GitHub Pages trees are proxied', async () => {
   const cases = [
-    ['https://work.bokdoong.com/work/assets/web1-design-lite.css?v=1', 'https://mj880616.github.io/work/assets/web1-design-lite.css?v=1'],
+    ['https://work.bokdoong.com/work/share/share.css?v=1', 'https://mj880616.github.io/work/share/share.css?v=1'],
     ['https://bokdoong.com/work/app/sw.js?v=2', 'https://mj880616.github.io/work/app/sw.js?v=2'],
-    ['https://work.bokdoong.com/work/p/index.html', 'https://mj880616.github.io/work/p/index.html']
+    ['https://work.bokdoong.com/work/about/index.html', 'https://mj880616.github.io/work/about/index.html']
   ];
   for (const [vanity, origin] of cases) {
     const { response, calls } = await request(vanity);
@@ -96,9 +96,9 @@ test('only the selected GitHub Pages trees are proxied', async () => {
 
 test('unversioned proxied pages and assets bypass Cloudflare cache and revalidate browser caches', async () => {
   for (const url of [
-    'https://work.bokdoong.com/work/',
-    'https://work.bokdoong.com/work/assets/web1-design-lite.css',
-    'https://work.bokdoong.com/work/p/index.html'
+    'https://work.bokdoong.com/work/share/',
+    'https://work.bokdoong.com/work/share/share.css',
+    'https://work.bokdoong.com/work/about/'
   ]) {
     const { response, calls } = await request(url, {
       upstream: new Response('current version', {
@@ -265,7 +265,7 @@ test('range requests bypass the edge cache; conditional versioned requests get t
 });
 
 test('conditional and range requests retain HTTP semantics while revalidating', async () => {
-  const conditional = await request('https://work.bokdoong.com/work/assets/web1-design-lite.css', {
+  const conditional = await request('https://work.bokdoong.com/work/share/share.css', {
     headers: { 'If-None-Match': '"old"' },
     upstream: new Response(null, { status: 304, headers: { ETag: '"current"' } })
   });
@@ -302,11 +302,11 @@ test('bokdoong.com keeps authenticated app assets; desk still sends public pages
 test('upstream directory redirects keep the requested hostname', async () => {
   const upstream = new Response(null, {
     status: 301,
-    headers: { Location: 'https://mj880616.github.io/work/press/' }
+    headers: { Location: 'https://mj880616.github.io/work/about/' }
   });
-  const { response } = await request('https://work.bokdoong.com/work/press', { upstream });
+  const { response } = await request('https://work.bokdoong.com/work/about', { upstream });
   assert.equal(response.status, 301);
-  assert.equal(response.headers.get('Location'), 'https://work.bokdoong.com/work/press/');
+  assert.equal(response.headers.get('Location'), 'https://work.bokdoong.com/work/about/');
 });
 
 test('unknown hosts and non-static methods do not reach GitHub Pages', async () => {
@@ -423,15 +423,15 @@ test('desk HTML and the version check skip the GitHub Pages copy with a 15-secon
   assert.equal(nextWindow.calls[0].url, `https://mj880616.github.io/work/app/index.html?__fresh=${bucket + 1}`);
 });
 
-test('assets, Web1 and the favicon are forwarded without the freshness value', async () => {
+test('assets, share/about pages and the favicon are forwarded without the freshness value', async () => {
   for (const [url, origin] of [
     ['https://bokdoong.com/work/app/app.js?v=abc', 'https://mj880616.github.io/work/app/app.js?v=abc'],
     ['https://bokdoong.com/work/app/project-system-v3.css?v=29', 'https://mj880616.github.io/work/app/project-system-v3.css?v=29'],
     ['https://bokdoong.com/work/app/sw.js', 'https://mj880616.github.io/work/app/sw.js'],
     ['https://bokdoong.com/work/app/auth-service.js', 'https://mj880616.github.io/work/app/auth-service.js'],
     ['https://bokdoong.com/work/app/?v=58', 'https://mj880616.github.io/work/app/?v=58'],
-    ['https://work.bokdoong.com/work/', 'https://mj880616.github.io/work/'],
-    ['https://work.bokdoong.com/work/p/index.html', 'https://mj880616.github.io/work/p/index.html'],
+    ['https://work.bokdoong.com/work/share/', 'https://mj880616.github.io/work/share/'],
+    ['https://work.bokdoong.com/work/about/index.html', 'https://mj880616.github.io/work/about/index.html'],
     ['https://bokdoong.com/favicon.png', 'https://mj880616.github.io/work/personal/portal/favicon.png']
   ]) {
     const { calls } = await request(url);
@@ -778,7 +778,7 @@ test('desk / and /work/app/** go to the same path and ?query on bokdoong.com wit
   assert.equal(other.calls.length, 0);
 });
 
-test('work /work/app/** goes to bokdoong.com; Web1 and the share page stay as they were', async () => {
+test('work /work/app/** goes to bokdoong.com; Web1 is closed and the share page stays', async () => {
   for (const [url, location] of [
     ['https://work.bokdoong.com/work/app', 'https://bokdoong.com/work/app/'],
     ['https://work.bokdoong.com/work/app/', 'https://bokdoong.com/work/app/'],
@@ -790,18 +790,66 @@ test('work /work/app/** goes to bokdoong.com; Web1 and the share page stay as th
     assert.equal(response.headers.get('Location'), location, url);
     assert.equal(calls.length, 0, url);
   }
-  // Not Web2: /work/apps/ and /work/application are Web1 paths on work.
+  // Not Web2: /work/apps/ and /work/application were Web1 paths on work; they get the closed notice now.
   for (const path of ['/work/apps/', '/work/application']) {
-    const { calls } = await request(`https://work.bokdoong.com${path}`);
-    assert.equal(calls[0].url, `https://mj880616.github.io${path}`, path);
+    const { response, calls } = await request(`https://work.bokdoong.com${path}`);
+    assert.equal(response.status, 410, path);
+    assert.equal(calls.length, 0, path);
   }
   const workRoot = await request('https://work.bokdoong.com/');
   assert.equal(workRoot.response.headers.get('Location'), 'https://work.bokdoong.com/work/');
-  const web1 = await request('https://work.bokdoong.com/work/p/?slug=example');
-  assert.equal(web1.calls[0].url, 'https://mj880616.github.io/work/p/?slug=example');
   const share = await request('https://work.bokdoong.com/work/share/');
   assert.equal(share.response.status, 200);
   assert.equal(share.calls[0].url, 'https://mj880616.github.io/work/share/');
+});
+
+// WEB1-페이지삭제 D1 (docs/design/web1-removal-plan.md 0절 4번): Web1 on work.bokdoong.com shows one line, 410, no-index,
+// and never reaches GitHub Pages. The share page, favicon.svg, about/, personal/ and /work/app/** are kept.
+test('Web1 paths on work get the one-line closed notice with 410 and no-index, nothing is fetched', async () => {
+  for (const path of [
+    '/work/', '/work', '/work/index.html', '/work/press/', '/work/press/archive.json', '/work/p/?slug=example',
+    '/work/p/gimpo-publicization-press-1008/', '/work/2in1/', '/work/workforce/', '/work/rail-council/',
+    '/work/private-rail/', '/work/private-rail/forum-0929/', '/work/public-policy/', '/work/sanbyeol/',
+    '/work/review/', '/work/workspace/', '/work/s/', '/work/assets/web1-design-lite.css', '/work/sharex/',
+    '/work/aboutx', '/work/personalx/', '/work/404.html'
+  ]) {
+    for (const method of ['GET', 'HEAD']) {
+      const { response, calls } = await request(`https://work.bokdoong.com${path}`, { method });
+      assert.equal(response.status, 410, path);
+      assert.equal(calls.length, 0, path);
+      assert.equal(response.headers.get('X-Robots-Tag'), 'noindex, nofollow, noarchive', path);
+      assert.equal(response.headers.get('Cache-Control'), 'no-store', path);
+      assert.match(response.headers.get('Content-Type'), /^text\/html; charset=utf-8$/, path);
+      const text = await response.text();
+      if (method === 'HEAD') { assert.equal(text, '', path); continue; }
+      assert.match(text, /<p>더 이상 운영하지 않는 페이지입니다\.<\/p>/, path);
+      assert.match(text, /<meta name="robots" content="noindex, nofollow">/, path);
+    }
+  }
+  // The other hosts send /work/ paths to work as before, where the notice is shown.
+  for (const host of ['bokdoong.com', 'desk.bokdoong.com']) {
+    const { response, calls } = await request(`https://${host}/work/press/`);
+    assert.equal(response.status, 302, host);
+    assert.equal(response.headers.get('Location'), 'https://work.bokdoong.com/work/press/', host);
+    assert.equal(calls.length, 0, host);
+  }
+});
+
+test('the kept work paths still reach GitHub Pages after Web1 is closed', async () => {
+  for (const path of [
+    '/work/share/', '/work/share/share.css', '/work/share/frame.html', '/work/favicon.svg', '/work/about/',
+    '/work/about/privacy/', '/work/about/terms/', '/work/about/web2-logo-120.png', '/work/personal/portal/favicon.png'
+  ]) {
+    const { response, calls } = await request(`https://work.bokdoong.com${path}`);
+    assert.equal(response.status, 200, path);
+    assert.equal(calls.length, 1, path);
+    assert.equal(calls[0].url, `https://mj880616.github.io${path}`, path);
+  }
+  const shareNoSlash = await request(`https://work.bokdoong.com/work/share?s=abc`);
+  assert.equal(shareNoSlash.response.status, 301);
+  // Other hosts are untouched by the notice.
+  const web2 = await request('https://bokdoong.com/work/app/auth-service.js');
+  assert.equal(web2.response.status, 200);
 });
 
 // DOMAIN-아스날주소 (주소 이전 ②-D1): every arsenal.bokdoong.com address goes to the Web2 아스날 menu.

@@ -175,6 +175,7 @@ jobs:
 
           check_https_upgrade() {
             local host="$1"
+            local expected_code="${2:-200}"
             local result=""
 
             result="$(curl \
@@ -189,12 +190,51 @@ jobs:
               --write-out '%{url_effective}|%{http_code}' \
               "http://$host/" || true)"
 
-            if [[ "$result" != https://*'|200' ]]; then
+            if [[ "$result" != https://*"|$expected_code" ]]; then
               echo "FAIL  http://$host/ -> $result"
               return 1
             fi
 
             echo "OK  http://$host/ -> $result"
+          }
+
+          # WEB1-페이지삭제 D1: Web1 on work.bokdoong.com answers 410 with the one-line notice (redirects followed).
+          check_web1_closed() {
+            local url="$1"
+            local result=""
+            local body=""
+            local code=""
+
+            for attempt in {1..20}; do
+              body="$(mktemp)"
+              result="$(curl \
+                --silent \
+                --show-error \
+                --location \
+                --max-redirs 8 \
+                --connect-timeout 10 \
+                --max-time 30 \
+                --header "User-Agent: $USER_AGENT" \
+                --dump-header - \
+                --output "$body" \
+                --write-out '%{http_code}' \
+                "$url" || true)"
+              code="${result##*$'\n'}"
+              if [[ "$code" == "410" ]] \
+                && grep -q '더 이상 운영하지 않는 페이지입니다' "$body" \
+                && printf '%s\n' "$result" | tr -d '\r' | grep -qi '^x-robots-tag: noindex'; then
+                rm -f "$body"
+                echo "OK  $url -> 410 notice"
+                return 0
+              fi
+              rm -f "$body"
+
+              echo "WAIT ($attempt/20, HTTP $code)  $url"
+              sleep 5
+            done
+
+            echo "FAIL  $url (last HTTP $code, expected 410 notice)"
+            return 1
           }
 
           check_icon() {
@@ -269,7 +309,6 @@ jobs:
 
           for url in \
             https://bokdoong.com/ \
-            https://work.bokdoong.com/ \
             https://desk.bokdoong.com/ \
             https://arsenal.bokdoong.com/
           do
@@ -278,11 +317,21 @@ jobs:
 
           for host in \
             bokdoong.com \
-            work.bokdoong.com \
             desk.bokdoong.com \
             arsenal.bokdoong.com
           do
             check_https_upgrade "$host"
+          done
+          check_https_upgrade work.bokdoong.com 410
+
+          for url in \
+            https://work.bokdoong.com/ \
+            https://work.bokdoong.com/work/ \
+            https://work.bokdoong.com/work/press/ \
+            https://work.bokdoong.com/work/p/ \
+            https://work.bokdoong.com/work/private-rail/
+          do
+            check_web1_closed "$url"
           done
 
           check_200 'https://arsenal.bokdoong.com/favicon.ico'
@@ -293,6 +342,8 @@ jobs:
           check_200 "$APP_ICON_URL"
           check_200 'https://bokdoong.com/work/app/' 'text/html'
           check_200 'https://work.bokdoong.com/work/share/' 'text/html'
+          check_200 'https://work.bokdoong.com/work/about/' 'text/html'
+          check_200 'https://work.bokdoong.com/work/favicon.svg'
           check_icon 'https://bokdoong.com/favicon.png' 'image/png'
           check_icon 'https://bokdoong.com/favicon.ico' 'image/x-icon'
 
@@ -343,7 +394,7 @@ jobs:
           # Fail the deploy verification if Cloudflare starts giving browsers a TTL.
           for url in \
             https://bokdoong.com/work/app/ \
-            https://work.bokdoong.com/work/assets/web1-design-lite.css \
+            https://work.bokdoong.com/work/share/share.css \
             "$SW_URL" \
             https://work.bokdoong.com/work/share/
           do
@@ -364,7 +415,6 @@ jobs:
           done
 
           for url in \
-            https://mj880616.github.io/work/ \
             https://mj880616.github.io/work/app/ \
             https://mj880616.github.io/work/personal/arsenal-match-archive/
           do
