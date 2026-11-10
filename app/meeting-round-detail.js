@@ -126,20 +126,46 @@ const mrdRename=d=>d?.file_id&&d.file_name?renameButtonHtml({target:'document',i
 function mrdRenderMaterials(allDocs){
     // ACT-사진 3단계: 그림은 '사진' 줄(작은 그림), 나머지는 아래 자료 줄. 같은 자료 목록을 그리는 곳만 둘로 나눈다.
     const {photos,files:docs}=splitPhotoDocs(allDocs);mrdRenderPhotos(photos,allDocs);
-    // UI-회의결과창정리: 파일 한 줄(종류·이름·크기). 이름을 누르면 종류별 동작, ⋯는 [Drive에서 열기]·[내려받기](FILE-사업보고⋯), ×는 기존 삭제 확인을 거친다.
-    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`${mrdRename(d)}<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name,mrdTranscribeItem(d))}<button class="icon-btn file-line-x" type="button" data-mrd-delete-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 삭제">×</button>`})}).join(''):emptyHtml();
+    // UI-회의결과창정리: 파일 한 줄(종류·이름·크기). 이름을 누르면 종류별 동작, ⋯는 [Drive에서 열기]·[내려받기](FILE-사업보고⋯)·[빼기]·[삭제](FILE-첨부삭제 결정 3).
+    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`${mrdRename(d)}<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name,mrdTranscribeItem(d)+mrdFileOwnItems(d,name))}`})}).join(''):emptyHtml();
     // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ✎로 파일 이름을 그 자리에서 고친다(file-rename.js). 자료는 고친 뒤 kptu:documents-changed로 다시 읽는다.
     document.querySelectorAll('#mrdMaterials [data-mrd-doc-row]').forEach(row=>{const d=(docs||[]).find(x=>x.id===row.dataset.mrdDocRow);if(d?.file_id&&d.file_name)markRenameHost(row.querySelector('.file-line-main b'),{target:'document',id:d.id,driveId:d.file_id,name:d.file_name})});
-    document.querySelectorAll('[data-mrd-delete-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();return mrdDeleteMaterial(b,allDocs)});
+    document.querySelectorAll('#mrdMaterials [data-mrd-delete-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();const box=b.closest('details');box?.removeAttribute('open');return mrdDeleteMaterial(b,allDocs,box?.querySelector('summary'))});
+    document.querySelectorAll('#mrdMaterials [data-mrd-detach-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();const box=b.closest('details');box?.removeAttribute('open');return mrdDetachMaterial(b,allDocs,box?.querySelector('summary'))});
     document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload,docs)});
     document.querySelectorAll('[data-mrd-transcribe]').forEach(b=>b.onclick=e=>{e.stopPropagation();b.closest('details')?.removeAttribute('open');mrdTranscribeAttached(b.dataset.mrdTranscribe)});
 }
-async function mrdDeleteMaterial(button,docs){
+// FILE-첨부삭제 ② 뒤 결정 3(2026-11-11 명진 '추천대로'): 자료 줄 끝 ×(지우기)를 없애고 같은 줄 ⋯ 안에 [빼기]·[삭제]로 나눈다.
+// [빼기] = 이 회의(사업 보고)에서만 떼기 — 자료실 자료·Drive 파일은 그대로. 담당조직 자료 [조직에서 빼기]와 같은 서버 길(app_documents PATCH,
+// 내 작업공간·이 회의에 붙은 줄만, 소유자 확인은 DB RLS). [삭제] = 예전 ×와 같은 삭제 길(document-delete.js: 자료 행 삭제 + Drive 휴지통, 한 번 묻기).
+function mrdFileOwnItems(d,name){
+  if(!d?.id)return '';
+  return `<hr class="file-line-more-sep" role="separator"><button type="button" data-mrd-detach-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 이 보고에서 빼기">빼기</button><button type="button" class="file-line-more-danger" data-mrd-delete-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 삭제">삭제</button>`;
+}
+async function mrdDeleteMaterial(button,docs,anchor=null){
   if(button.disabled)return false;
-  return mrdDeleteDocumentById(button.dataset.mrdDeleteDocument,docs,button);
+  return mrdDeleteDocumentById(button.dataset.mrdDeleteDocument,docs,button,anchor);
+}
+let mrdDetaching=false;
+async function mrdDetachMaterial(button,docs,anchor=null){
+  const id=button.dataset.mrdDetachDocument,meeting=mrdCurrent,epoch=mrdRequestEpoch,scope=mrdDeleteScope();
+  if(button.disabled||mrdDetaching||!id||!meeting?.id)return false;
+  if(!scope){notify('로그인 세션을 확인하지 못했어요.',{error:true,note:'다시 로그인한 뒤 자료 목록을 확인해 주세요.'});return false}
+  const d=docs.find(x=>x.id===id);if(!d||d.workspace_id!==scope.workspace)return false;
+  const name=d.file_name||d.title||'자료';
+  if(!(await askConfirm(anchor||button,{text:`“${name}”을(를) 이 보고에서 뺄까요?`,note:'자료와 파일은 자료실·Drive에 그대로 있고, 이 보고에 붙은 표시만 풀려요.',ok:'빼기'}))||epoch!==mrdRequestEpoch||mrdCurrent?.id!==meeting.id)return false;
+  mrdDetaching=true;button.disabled=true;
+  try{
+    const rows=await mrdApi(`/rest/v1/app_documents?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(scope.workspace)}&meeting_id=eq.${encodeURIComponent(meeting.id)}&select=id,meeting_id`,{method:'PATCH',body:{meeting_id:null,updated_at:new Date().toISOString()},prefer:'return=representation'});
+    if(!Array.isArray(rows)||rows.length!==1||rows[0]?.id!==id||rows[0]?.meeting_id!==null)throw new Error('뺀 결과를 확인하지 못했어요. 자료실에서 확인해 주세요.');
+    notify('이 보고에서 뺐어요. 자료는 자료실에 그대로 있어요.');
+    window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:meeting.project_id||null,meeting_id:meeting.id}}));
+    return true;
+  }catch(e){notify(e?.message||'자료를 빼지 못했어요.',{error:true,note:'아무것도 바뀌지 않았을 수 있어요. 자료실에서 확인해 주세요.'});return false}
+  finally{mrdDetaching=false;button.disabled=false}
 }
 // 자료 줄 ×와 사진 크게 보기 ⋯ [지우기]가 같은 삭제 길 하나를 쓴다. 지웠으면 true.
-async function mrdDeleteDocumentById(id,docs,button=null){
+async function mrdDeleteDocumentById(id,docs,button=null,anchor=null){
   const scope=mrdDeleteScope(),meetingId=mrdCurrent?.id;
   if(typeof id!=='string'||!id.trim())return false;
   if(!scope){notify('로그인 세션을 확인하지 못했어요.',{error:true,note:'다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.'});return false}
@@ -154,7 +180,7 @@ async function mrdDeleteDocumentById(id,docs,button=null){
     let helper;
     try{helper=await import('./document-delete.js')}
     catch{if(isCurrent())notify('자료를 삭제하지 못했어요.',{error:true,note:'관리자에게 오류 확인을 요청해 주세요.'});return false}
-    return isCurrent()?(await helper.deleteDocument(registration,{api:mrdApi,role:mrdRole,expectedSessionEpoch:scope.epoch,isCurrent}))===true:false;
+    return isCurrent()?(await helper.deleteDocument(registration,{api:mrdApi,role:mrdRole,expectedSessionEpoch:scope.epoch,isCurrent,...(anchor?{anchor}:{})}))===true:false;
   }finally{mrdDeleteTokens.delete(token);if(button)button.disabled=false}
 }
 // ACT-사진 3단계: 사진 줄. 편집할 수 없는 사람은 사진이 없으면 줄을 감춘다. 크게 보기 ⋯ [지우기]는 자료 줄 ×와 같은 삭제 길이다.
