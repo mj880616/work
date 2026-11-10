@@ -8,7 +8,7 @@ import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림
 import {findTodos, radarScope} from './todo-radar-data.js';
 import {formatSeoulTime, seoulDateKey} from './meeting-time.js';
 import {requestBasketNote, requestNoteDocOpen} from './basket-note-tasks.js';
-import {flashRecord} from './record-flash.js';
+import {openTelegramSource} from './source-open.js';
 
 const rt = window.KPTURuntime;
 const clock = value => formatSeoulTime(value, {hour:'2-digit', minute:'2-digit', hourCycle:'h23'});
@@ -66,12 +66,7 @@ export function openSource(c) {
       await window.KPTUAreaWindow.open({id: c.project_id}); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     } else if (c.source_kind === 'telegram') {
       // FEAT-1029 ⑤: the telegram screen on that room·day with the news row open (the same opener the 조직 주요 인물 list uses).
-      const opened = await window.KPTURouter?.openFrom?.('telegram', async () => {
-        if (!c.tg?.room_key) return true;
-        if ((await window.KPTUTelegramFeed?.show?.(c.tg.room_key, c.source_day, c.source_id)) === false) return false;
-        void flashRecord(`#tgDetail [data-tg-di="${CSS.escape(c.source_id)}"]`);
-        return true;
-      });
+      const opened = c.tg?.room_key ? await openTelegramSource(c.tg.room_key, c.source_day, c.source_id) : await window.KPTURouter?.openFrom?.('telegram');
       if (opened === false) throw new Error('telegram');
     }
   };

@@ -20,6 +20,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {notify} from './small-notice.js';
 import {looksSecret, SECRET_TITLE} from './note-secret.mjs';
 import {canAsk, looksLikeQuestion, ASK_TEXT, askFailText, cleanAnswer, answerNote, tagLabel, sourcesSummary, sourceTarget, recentLabel} from './ask-web2-model.mjs';
+import {openCallSource, openTelegramSource} from './source-open.js';
 
 (() => {
 'use strict';
@@ -418,8 +419,8 @@ async function openView(target) {
       r.go('meetings', {source: 'delegated'});
       await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
       await window.KPTUMeetingRoundDetail?.open?.(target.id);
-    } else if (target.view === 'calls') { r.go('calls', {source: 'delegated'}); await window.KPTUCallFeed?.open?.(target.id); }
-    else if (target.view === 'telegram') { r.go('telegram', {source: 'delegated'}); await window.KPTUTelegramFeed?.show?.(target.room, target.day, target.item); }
+    } else if (target.view === 'calls') await openCallSource(target.id, {workOnly: true}); // FORGET-원문열기·뒤로가기: 뒤로가기 한 번 = 검색 결과
+    else if (target.view === 'telegram') await openTelegramSource(target.room, target.day, target.item);
     else if (target.view === 'ledger') { window.KPTULedgerBrowse?.show?.({openId: target.id}); r.go('ledger', {source: 'delegated'}); }
     else if (target.view === 'calendar') {
       r.go('calendar', {source: 'delegated'});
