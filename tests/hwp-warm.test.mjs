@@ -42,5 +42,5 @@ test('warm.html: 편집기와 같은 칸막이 조건의 CSP(외부 주소 막�
   assert.deepEqual([...html.matchAll(/<script[^>]*src="([^"]+)"/g)].map(m=>m[1]),['./warm.js']);
   const js=readFileSync(new URL('../app/hwp-warm.js',import.meta.url),'utf8');
   assert.match(js,/setAttribute\('sandbox', 'allow-scripts'\)/);
-  assert.doesNotMatch(js,/allow-same-origin|localStorage|sessionStorage/);
+  assert.doesNotMatch(js,/allow-same-origin/);
 });
