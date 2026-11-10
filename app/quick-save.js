@@ -16,6 +16,9 @@ export async function saveOrganizationUpdate({organization_id,raw_text,created_b
   try{rows=await rt.api('/rest/v1/app_suborganization_updates', {method:'POST',prefer:'return=representation',body});}
   catch(e){if(kind&&kind!=='user'&&e?.status===409)return [];throw e;}
   announceRecordSaved(orgUpdateDetail(rows,{organization_id,raw_text}));
+  // RECORD-한줄AI요약: 긴 글이면 서버 AI 한 줄을 부탁한다(기다리지 않음, 실패해도 저장은 그대로 — 화면은 임시 한 줄).
+  const savedId=Array.isArray(rows)?rows[0]?.id:null;
+  if(savedId)void import('./record-one-line-ai.js').then(m=>m.requestRecordOneLine(String(savedId),raw_text,{rt})).catch(()=>{});
   return rows;
 }
 // 일정 만들기에서 프로젝트를 고른 경우: 프로젝트 화면의 주요 일정과 같은 표·같은 행 모양으로 저장.

@@ -71,7 +71,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   if (section !== 'org') { section = 'site'; withEvents = withEvents && M.SITE_EVENTS; }
   const ctl = {
     id: `rw${++seq}`, rt, workspaceId, week, openSource, section, status: 'idle', orgs: [], orgIds: [], records: [], marks: [], marksOn: true, snaps: new Map(), legacy: new Map(),
-    ev: {status: 'idle', items: [], partial: false, run: 0}, foldOpen: new Set(), outOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, run: 0, host: null, focus: '',
+    ev: {status: 'idle', items: [], partial: false, run: 0}, foldOpen: new Set(), outOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, run: 0, host: null, focus: '', cols: {},
   };
   const c = () => ({rt: ctl.rt, ws: ctl.workspaceId});
   const announce = () => window.dispatchEvent(new CustomEvent(EVENT, {detail: {source: ctl.id, week: ctl.week}}));
@@ -85,12 +85,8 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     const out = [];
     for (let i = 0; i < ids.length; i += 50) {
       const path = cols => `${UPD}?organization_id=in.(${ids.slice(i, i + 50).map(enc).join(',')})&occurred_at=gte.${enc(dayIso(range.from))}&occurred_at=lt.${enc(dayIso(range.to))}&select=${cols}&order=occurred_at.asc,id.asc&limit=3000`;
-      let rows;
-      if (ctl.dayNoneOn !== false) {
-        try { rows = await ctl.rt.api(path(`${UPD_COLS},${DE.DAY_NONE_COL}`), {singleFlight: false}); ctl.dayNoneOn = true; }
-        catch (e) { if (!DE.dayNoneMissing(e)) throw e; ctl.dayNoneOn = false; } // DB 적용 전: 칸 없이 다시 읽고 '없음'만 감춤
-      }
-      if (rows === undefined) rows = await ctl.rt.api(path(UPD_COLS), {singleFlight: false});
+      // day_none·one_line은 DB 적용 뒤 생기는 칸 — 적용 전이면 그 칸 없이 다시 읽는다('없음'만 감추고, 한 줄은 임시 한 줄).
+      const rows = await DE.readOptional(cols => ctl.rt.api(path(cols), {singleFlight: false}), UPD_COLS, ctl.cols);
       if (!Array.isArray(rows)) throw new Error('records');
       for (const r of rows) { const item = M.recordItem(r); if (item && ids.includes(item.org)) out.push(item); }
     }
@@ -223,7 +219,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     return `<div class="wl-line rw-line${faint}${where === 'after' ? ' rw-after' : ''}" data-rw-line="${esc(l.id)}" data-rw-kind="${esc(l.kind)}">${dayHtml}<span class="wl-text">${esc(l.text)}</span>${where === 'shown' || where === 'after' ? tags(l) : l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}${dayOpen ? '' : act}</div>${dayOpen ? dayForm(l) : ''}`;
   };
   // 날짜 수정 칸(시안 ②~④): 줄 바로 아래 [하루|기간|없음] + 달력 + [취소][저장] — 모양은 record-day-edit.js 하나. 없음은 서버에 칸이 있을 때만.
-  const dayForm = l => DE.dayFormHtml(ctl.draft || M.dayDraft(l), {prefix: 'rw', id: l.id, noneOn: !!ctl.dayNoneOn, busy: ctl.busy, invalid: ctl.invalid});
+  const dayForm = l => DE.dayFormHtml(ctl.draft || M.dayDraft(l), {prefix: 'rw', id: l.id, noneOn: ctl.cols.day_none === true, busy: ctl.busy, invalid: ctl.invalid});
   const reportForm = l => {
     const dis = ctl.busy ? ' disabled' : '', d = ctl.draft || {};
     return `<div class="wl-form" data-rw-form="${esc(l.id)}"><textarea rows="1" class="wl-f-body" data-rw-field="body" data-autogrow data-enter-field="single" aria-label="보고용 글" maxlength="${M.BODY_MAX}" autocomplete="off"${ctl.invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body ?? M.editBase(l))}</textarea>`
@@ -351,11 +347,11 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   // 날짜 수정 저장: 원래 조직 기록의 occurred_at(서울 시각 그대로 날짜만)·end_day·day_none만 고친다(기존 owner RLS 길, 글은 그대로).
   // 보고용 글·빼기 표시는 줄 열쇠(기록 id)에 붙어 있어 그대로 따라간다. 그 주 창 밖으로 가면 그 주에서 빠진다(창 규칙).
   async function saveDay(l) {
-    const v = M.checkDayEdit(l, ctl.draft || M.dayDraft(l), {noneOn: !!ctl.dayNoneOn, today: seoulDateKey(Date.now())});
+    const v = M.checkDayEdit(l, ctl.draft || M.dayDraft(l), {noneOn: ctl.cols.day_none === true, today: seoulDateKey(Date.now())});
     if (!v.ok) { ctl.invalid = v.field; say(v.field === 'end_day' ? TEXT.badEnd : TEXT.badDay, true); ctl.focus = `[data-rw-form="${CSS.escape(l.id)}"] [data-rw-field="${v.field === 'mode' ? 'day' : v.field}"]`; redraw(); return; }
     if (!v.value) { ctl.cancel(); return; }
     await work(async () => {
-      const row = await DE.patchRecordDay(ctl.rt, {id: l.key, org: l.org, value: v.value, cols: `${UPD_COLS}${ctl.dayNoneOn ? `,${DE.DAY_NONE_COL}` : ''}`});
+      const row = await DE.patchRecordDay(ctl.rt, {id: l.key, org: l.org, value: v.value, cols: DE.colsOf(UPD_COLS, ctl.cols)});
       const item = M.recordItem(row);
       ctl.records = ctl.records.filter(r => !(r.kind === 'org_update' && r.key === l.key)).concat(item ? [item] : []);
     }, TEXT.daySaved);

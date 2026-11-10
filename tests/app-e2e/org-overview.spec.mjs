@@ -244,6 +244,20 @@ for(const width of [390,1280])test(`[전체 표] 줄 ⋯ [기록 열기] → 조
 });
 
 // RECORD-한줄 ①: 긴 기록(붙여 넣은 회의록·마크다운·표 기호)은 표에 한 줄만, 기호 없이. ⋯ [원문 보기] = 원문 그대로(작은 창, 읽기만).
+// RECORD-한줄AI요약(11/09 A안): 서버 AI 한 줄(one_line)이 있으면 표 한 줄은 그 값(제목·첫 줄이 아님), [원문 보기]는 원문 그대로. 없으면 임시 한 줄.
+for(const width of [412,1280])test(`[전체 표] AI 한 줄이 있으면 요약 한 줄, 원문은 그대로 ${width}px`,async({page})=>{
+ const RAW='[합성 공영화 투쟁 경과 공유 및 감사 인사]\n\n안녕하십니까. 합성 지부입니다.\n합성시는 공영화 연구용역을 직접 추진하기로 했고 내년 공영화를 위해 노력하겠다고 서약했습니다.\n연대해 주신 동지들께 감사드립니다.';
+ const rec=U(OA,'2026-11-17',RAW,{one_line:'합성시 공영화 연구용역 직접 추진·내년 공영화 노력 서약, 연대 감사'}),rec2=U(OB,'2026-11-18',RAW);
+ const {errors}=await fixture(page,{width,records:[rec,rec2]});
+ await openTable(page);
+ await expect(shown(oa(page)).locator('.wl-text')).toHaveText('합성시 공영화 연구용역 직접 추진·내년 공영화 노력 서약, 연대 감사');
+ await expect(shown(ob(page)).locator('.wl-text')).toHaveText('[합성 공영화 투쟁 경과 공유 및 감사 인사]…');
+ await menu(page,oa(page),'합성시 공영화','원문 보기');
+ const sheet=page.locator('#kptuRecordSheet');
+ await expect(sheet.locator('[data-record-sheet-text]')).toContainText('연대해 주신 동지들께 감사드립니다.');
+ expect(errors).toEqual([]);
+});
+
 // ORG-기록날짜고치기(요청함 11/10, 시안 org-record-day-edit.html): 날짜 누름·줄 ⋯ [날짜 수정] → [하루|기간|없음] + 달력 → 원래 기록 날짜만 고침(글·보고용 표시 그대로).
 for(const width of [412,1280])test(`[전체 표] 날짜 수정: 하루 11.17→11.18, 기간, 없음은 '-'만 ${width}px`,async({page})=>{
  const rec=U(OA,'2026-11-17','합성 3차 간담회 진행',{occurred_at:'2026-11-17T15:30:00+09:00',created_at:'2026-11-17T01:00:00Z'}),rec2=U(OB,'2026-11-18','합성 지회 점검 회의');

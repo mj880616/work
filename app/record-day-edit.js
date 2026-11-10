@@ -11,9 +11,27 @@ import {seoulDateKey} from './meeting-time.js';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 export const MODE_LABEL = Object.freeze({day: '하루', range: '기간', none: '없음'});
 export const NONE_HINT = '날짜 없이 보고에 넣어요. 쓴 주에 보여요.';
-export const DAY_NONE_COL = 'day_none';
-// 칸 이름 때문에 거절됐는가(DB 적용 전).
-export const dayNoneMissing = error => /(^|\D)400(\D|$)|42703|PGRST204|day_none/.test(`${error?.status || ''} ${error?.code || ''} ${error?.message || ''}`);
+// 조직 기록의 나중에 생기는 칸: day_none(20261110180000, 날짜 없음), one_line(20261110190000, AI 한 줄).
+// DB 적용 전 서버는 없는 칸 읽기를 400(42703)으로 거절한다 → 그 칸만 빼고 다시 읽는다(오류 글에 칸 이름이 없으면 둘 다 뺌).
+export const OPTIONAL_COLS = Object.freeze(['day_none', 'one_line']);
+const colMissing = error => /(^|\D)400(\D|$)|42703|PGRST204/.test(`${error?.status || ''} ${error?.code || ''} ${error?.message || ''}`);
+// state = {day_none, one_line}: true(있음)·false(없음)·undefined(모름). load(cols) = 그 칸으로 읽기. 돌려주는 값 = 읽은 행.
+export async function readOptional(load, base, state) {
+  for (;;) {
+    const extra = OPTIONAL_COLS.filter(c => state[c] !== false);
+    try {
+      const rows = await load(extra.length ? `${base},${extra.join(',')}` : base);
+      for (const c of extra) state[c] = true;
+      return rows;
+    } catch (e) {
+      if (!extra.length || !colMissing(e)) throw e;
+      const named = extra.filter(c => String(e?.message ?? '').includes(c));
+      for (const c of named.length ? named : extra) state[c] = false;
+    }
+  }
+}
+// 쓰기 응답에 받을 칸: 기본 칸 + 있는 것으로 확인된 칸.
+export const colsOf = (base, state) => [base, ...OPTIONAL_COLS.filter(c => state[c] === true)].join(',');
 
 // 칸 HTML. d = {mode, day, end_day}, p = data 속성 앞말('rw' → data-rw-mode·data-rw-field·data-rw-cancel·data-rw-save).
 export function dayFormHtml(d, {prefix = 'rw', id = '', noneOn = true, busy = false, invalid = ''} = {}) {

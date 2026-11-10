@@ -65,6 +65,10 @@ import {
 } from "./note-title.ts";
 import { noteAiOff, noteAiOffMark, noteRowAiBlocked, looksSecret as fileTextSecret } from "./note-secret.ts";
 import {
+  needsOneLine, ONE_LINE_INSTRUCTIONS, ONE_LINE_MAX_OUTPUT_TOKENS, ONE_LINE_SCHEMA, oneLineMaterial, parseOneLine, parseRecordOneLineRequest,
+  looksSecret as oneLineSecret,
+} from "./record-one-line.ts";
+import {
   FILE_NAME_INSTRUCTIONS, FILE_NAME_MAX_OUTPUT_TOKENS, FILE_NAME_SCHEMA, fileNameMaterial, noteOcrText, parseFileNameAnswer, parseFileNameRequest, type FileNameRequest,
 } from "./file-name.ts";
 import {
@@ -187,7 +191,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, journal_memorable: 24, journal_memorable_recheck: 6, home_day_picks: 8, next_week_sheet: 5, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, record_one_line: 120, file_name: 60, journal_draft: 3, journal_memorable: 24, journal_memorable_recheck: 6, home_day_picks: 8, next_week_sheet: 5, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -250,6 +254,7 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   call_refill_not_pending: "이미 채웠거나 채울 수 없는 통화예요.",
   call_refill_unavailable: "통화 정보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   note_title_unavailable: "노트 제목을 저장하지 못했어요.",
+  record_one_line_unavailable: "기록 한 줄을 저장하지 못했어요.",
   journal_draft_not_ready: "오늘 한 줄 초안 기능이 아직 준비되지 않았어요.",
   journal_draft_unavailable: "오늘 한 줄 초안을 읽거나 저장하지 못했어요.",
   journal_memorable_not_ready: "기억할 통화·텔레그램 기능이 아직 준비되지 않았어요.",
@@ -514,6 +519,7 @@ type WeeklyLineInput = { kind: "weekly_line" } & WeeklyLineRequest;
 type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
 type CallRefillInput = { kind: "call_refill"; id: string };
 type NoteTitleInput = { kind: "note_title"; id: string };
+type RecordOneLineInput = { kind: "record_one_line"; id: string };
 type FileNameInput = { kind: "file_name" } & FileNameRequest;
 type JournalDraftInput = { kind: "journal_draft"; day: string; lines: string[] };
 type JournalMemorableInput = { kind: "journal_memorable"; day: string };
@@ -560,7 +566,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | JournalMemorableInput | JournalMemorableRecheckInput | HomeDayPicksInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput | NowInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | RecordOneLineInput | FileNameInput | JournalDraftInput | JournalMemorableInput | JournalMemorableRecheckInput | HomeDayPicksInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput | NowInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -607,6 +613,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     const parsed = parseNoteTitleRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "note_title", ...parsed };
+  }
+  // 조직 기록 AI 한 줄(record_one_line, RECORD-한줄AI요약): 기록 ID 하나만 받는다. 글은 서버가 로그인 토큰으로 읽는다.
+  if (b.kind === "record_one_line") {
+    const parsed = parseRecordOneLineRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "record_one_line", ...parsed };
   }
   // 업무일지 저녁 초안(journal_draft): 날짜와 그날 재료 줄(60줄까지)만 받는다. 이미 있는 초안·업무일지 줄은 서버가 로그인 토큰으로 읽는다.
   // 첨부 파일 [AI 이름](file_name, ATT-이름고치기): 줄 종류·줄 ID·Drive 파일 ID만 받는다. 읽어 둔 글자는 서버가 로그인 토큰으로 읽는다.
@@ -4484,6 +4496,79 @@ async function runPreMeetingSheet(ctx: Ctx, input: PreMeetingSheetInput, deps: R
   return json({ ...base, sheet: saved, partial: flags.partial });
 }
 
+// ---- 쓰임 record_one_line: 조직 기록 AI 한 줄(RECORD-한줄AI요약, record-one-line.ts) ---------------------------------------
+// 조직 기록을 저장(또는 원문 수정)한 뒤 한 번. 짧은 글·이미 만든 기록·비밀 모양 글은 AI를 부르지 않는다(skipped, 사용량에 안 잡음).
+// 부르면 월 AI 상한·하루 횟수 안에서만. 저장은 그 기록 행의 one_line만, 아직 비어 있을 때만(one_line=is.null). 원문은 바꾸지 않는다.
+// 조직은 내 작업공간 것만(app_suborganizations workspace_id 확인), 기록 읽기·쓰기는 내 로그인(owner RLS) 길.
+async function runRecordOneLine(ctx: Ctx, input: RecordOneLineInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const rec = await readOne(ctx, `app_suborganization_updates?id=eq.${input.id}&select=id,organization_id,raw_text,one_line&limit=2`);
+  if (!rec || String(rec.id).toLowerCase() !== input.id || typeof rec.organization_id !== "string") throw new Fail(404, "not_found");
+  const org = await readOne(ctx, `app_suborganizations?id=eq.${encodeURIComponent(rec.organization_id)}&workspace_id=eq.${ws}&select=id&limit=2`);
+  if (!org) throw new Fail(404, "not_found");
+  const text = typeof rec.raw_text === "string" ? rec.raw_text : "";
+  const skip = (reason: string) => { deps.log("record_one_line_skipped", { reason }); return json({ ok: true, kind: "record_one_line", id: input.id, skipped: reason }); };
+  if (typeof rec.one_line === "string" && rec.one_line.trim()) return skip("done");
+  if (!needsOneLine(text)) return skip("short");
+  if (oneLineSecret(text)) return skip("secret");
+  const material = oneLineMaterial(text);
+
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "record_one_line", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: ONE_LINE_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: ONE_LINE_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "record_one_line", strict: true, schema: ONE_LINE_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: ONE_LINE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const line = parseOneLine(outputText(result.raw, 16 * 1024) ?? "");
+  if (!line) return skip("no_line");
+  // 아직 비어 있을 때만 쓴다. 쓴 뒤 다시 읽어 원문이 그대로이고 이번 한 줄이 들어갔는지 확인한다.
+  // 그 사이 원문이 바뀌었으면(DB 트리거는 원문이 바뀔 때 one_line을 비움) 이번 한 줄을 지운다(옛 원문의 한 줄이 남지 않게).
+  const path = `app_suborganization_updates?id=eq.${input.id}&organization_id=eq.${encodeURIComponent(rec.organization_id)}`;
+  try {
+    await rest(ctx, `${path}&one_line=is.null`, { method: "PATCH", prefer: "return=minimal", body: { one_line: line } });
+  } catch {
+    throw new Fail(503, "record_one_line_unavailable");
+  }
+  const after = await readOne(ctx, `${path}&select=id,raw_text,one_line&limit=2`);
+  if (!after || after.one_line !== line) return skip("changed");
+  if (after.raw_text !== text) {
+    try { await rest(ctx, `${path}&one_line=eq.${encodeURIComponent(line)}`, { method: "PATCH", prefer: "return=minimal", body: { one_line: null } }); } catch { deps.log("record_one_line_reset_failed"); }
+    return skip("changed");
+  }
+  const sentChars = chars(material);
+  deps.log("record_one_line_done", { size: sentChars });
+  return json({ ok: true, kind: "record_one_line", id: input.id, line });
+}
+
 // ---- 쓰임 note_title: 노트 AI 요약 제목(NOTE-탐색기 ③, note-title.ts) ------------------------------------------------------
 // 노트를 처음 저장한 뒤 한 번. AI를 부르지 않는 경우(skipped)는 사용량에 잡지 않는다. 부르면 월 AI 상한·하루 횟수 안에서만, 사용량 줄(app_ai_daily_usage)에 더한다.
 // 저장은 그 노트 행의 metadata.ai_title(+ai_title_at)만, 읽은 뒤 바뀌지 않았을 때만(updated_at 같음·ai_title 없음). 제목 칸은 건드리지 않는다.
@@ -5108,6 +5193,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "hwp_convert") return await runHwpConvert(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "call_refill") return await runCallRefill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "record_one_line") return await runRecordOneLine(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "file_name") return await runFileName(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_draft") return await runJournalDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_memorable") return await runJournalMemorable(ctx, input, { env: deps.env, now, sleep, log, doFetch });
