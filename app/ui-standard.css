@@ -786,6 +786,10 @@
 .file-line .file-line-more-panel{position:absolute;right:0;top:calc(100% + 4px);z-index:8;min-width:148px;display:grid;padding:4px;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:var(--kptu-shadow-float)}
 .file-line .file-line-more-panel button{min-height:44px;height:auto;width:auto;margin:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-ink);padding:0 12px;text-align:left;font-size:var(--kptu-text-meta);font-weight:600;white-space:nowrap}
 .file-line .file-line-more-panel button:hover,.file-line .file-line-more-panel button:focus-visible{background:var(--kptu-surface-subtle)}
+/* FILE-첨부삭제 결정 3: 보고 자료 줄 ⋯ 안 [빼기]·[삭제] 앞 구분선, [삭제]는 위험 글자색(다른 줄 메뉴 삭제와 같음) */
+.file-line .file-line-more-panel .file-line-more-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.file-line .file-line-more-panel .file-line-more-sep:first-child{display:none}
+.file-line .file-line-more-panel button.file-line-more-danger{color:var(--kptu-danger)}
 .modal .file-line:has(.file-line-more):has(.file-line-x) .file-line-open{right:calc(var(--kptu-touch-target,44px) * 2)}
 .modal .file-line:has(.file-line-more):not(:has(.file-line-x)) .file-line-open{right:var(--kptu-touch-target,44px)}
 
@@ -1726,20 +1730,20 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 
 /* UI-줄⋯공용맞추기(요청함 11/09 07:36): 줄 끝 ⋯ (row-more.js)의 모양·작은 메뉴는 모든 화면 공용 — 예전에는 #homeView 안에서만 정해져 담당조직 등에서 ▶·▼와 큰 버튼 메뉴가 보였다. 홈 모양은 그대로, 규칙만 화면 밖으로 옮김.
    ▶·▼ 펼침 표시는 없고 ⋯ 만 보인다. 줄(.wl-line)에서는 ⋯ 를 글 오른쪽 위(첫 줄 높이)에 고정해 긴 글에서도 아래로 내려가지 않고 줄 높이를 늘리지 않는다. */
-#appView .journal-kind-more{ display:inline-block; margin-left:6px; vertical-align:baseline; }
-#appView .journal-kind-more > summary{ list-style:none; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm); margin-block:-4px; cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1; border-radius:var(--kptu-radius-md); vertical-align:middle; }
-#appView .journal-kind-more > summary::-webkit-details-marker{ display:none; }
-#appView .row-more{ position:relative; }
-#appView .row-more-menu{ position:absolute; z-index:40; top:calc(100% + 2px); right:0; display:flex; flex-direction:column; min-width:7.5em; box-sizing:border-box; padding:4px;
+:is(#appView,.modal) .journal-kind-more{ display:inline-block; margin-left:6px; vertical-align:baseline; }
+:is(#appView,.modal) .journal-kind-more > summary{ list-style:none; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm); margin-block:-4px; cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1; border-radius:var(--kptu-radius-md); vertical-align:middle; }
+:is(#appView,.modal) .journal-kind-more > summary::-webkit-details-marker{ display:none; }
+:is(#appView,.modal) .row-more{ position:relative; }
+:is(#appView,.modal) .row-more-menu{ position:absolute; z-index:40; top:calc(100% + 2px); right:0; display:flex; flex-direction:column; min-width:7.5em; box-sizing:border-box; padding:4px;
   border:var(--ds-line-width) solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float); }
 .row-more-menu.row-more-menu > button{ display:flex; align-items:center; width:100%; height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin:0; padding:0 10px;
   border:0; border-radius:var(--kptu-radius-sm); background:transparent; box-shadow:none; color:var(--kptu-ink); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-regular); line-height:1; text-align:left; white-space:nowrap; }
 .row-more-menu.row-more-menu > button:is(:hover,:focus-visible):not(:disabled){ background:var(--kptu-primary-soft); outline:none; }
 .row-more-menu.row-more-menu > button.row-more-danger{ color:var(--kptu-danger); }
 .row-more-menu.row-more-menu > button:disabled{ color:var(--kptu-muted); opacity:.6; }
-#appView .row-more > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:1px; }
-#appView .journal-kind-more > summary::marker{ content:""; }
-#appView .journal-kind-more > summary::-webkit-details-marker{ display:none; }
+:is(#appView,.modal) .row-more > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:1px; }
+:is(#appView,.modal) .journal-kind-more > summary::marker{ content:""; }
+:is(#appView,.modal) .journal-kind-more > summary::-webkit-details-marker{ display:none; }
 .wl-line{ position:relative; }
 .wl-line:has(> .row-more){ padding-right:calc(var(--ds-compact-height-sm) + 2px); }
 #appView .wl-line > .row-more{ position:absolute; top:2px; right:0; margin:0; }

@@ -81,6 +81,8 @@ async function openTasks(browser,{viewport={width:900,height:800},supported=true
 }
 const openMenu=async(page,id)=>{await row(page,id).locator('[data-gt-menu]').click();await expect(page.locator('#gtTaskMenu')).toBeVisible();};
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1);
+// FILE-첨부삭제 결정 2(S56-57): 파일 붙이기 창 줄은 ⋯ 하나(공용 row-more) — 열고 항목을 누른다.
+const fileMenu=async(dialog,id,label)=>{await dialog.locator(`[data-gt-file-more="${id}"] > summary`).click();await dialog.locator(`[data-gt-file-more="${id}"] .row-more-menu`).getByRole('button',{name:label,exact:true}).click();};
 
 test('before the table exists there is no file menu item and no file names',async({browser})=>{
   const {context,page,state}=await openTasks(browser,{supported:false});
@@ -114,7 +116,7 @@ test('phone: saved file names sit under the task and open Drive; ⋯ → 파일 
   await expect(dialog.locator('.gt-files-list .gt-file')).toHaveText(['기존 자료.pdf','회의록.txt','사진.png']);
   expect(await noSideScroll(page)).toBe(true);
 
-  await dialog.locator('[data-gt-file-detach="old1"]').click();
+  await fileMenu(dialog,'old1','빼기');
   await expect(dialog.locator('[data-gt-files-status]')).toContainText('Drive 파일은 남아 있습니다');
   expect(state.calls.detach).toEqual([{action:'detach',task_id:'a',drive_file_id:'old1'}]);
   await dialog.locator('[data-gt-files-close]').click();
@@ -364,14 +366,20 @@ for(const viewport of [{width:412,height:915},{width:1280,height:800}]){
     await page.locator('#gtTaskMenu [data-gt-menu-action="files"]').click();
     const dialog=page.locator('#gtFilesModal');
     await expect(dialog.locator('.gt-files-list .gt-file')).toHaveText(['기존 자료.pdf','회의록.hwp']);
-    await expect(dialog.locator('[data-gt-file-delete="old1"]')).toHaveText('삭제');
+    // FILE-첨부삭제 결정 2: 줄 단추는 ⋯ 하나, 이름은 잘리지 않는다(폰 412 포함).
+    await expect(dialog.locator('.gt-files-list li button:visible')).toHaveCount(0);
+    for(const name of await dialog.locator('.gt-files-list .gt-file').all())expect(await name.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+    await dialog.locator('[data-gt-file-more="old1"] > summary').click();
+    await expect(dialog.locator('[data-gt-file-more="old1"] .row-more-menu button')).toHaveText(['이름 수정','Drive에서 열기','내려받기','빼기','삭제']);
+    if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/task-file-menu-${viewport.width}.png`});
+    await page.keyboard.press('Escape');
     expect(await noSideScroll(page)).toBe(true);
     if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/task-file-dialog-${viewport.width}.png`});
     // 아니오: 아무 요청도 없음.
-    await dialog.locator('[data-gt-file-delete="old1"]').click();
+    await fileMenu(dialog,'old1','삭제');
     await answerAsk(page,false);
     expect(state.calls.trash).toEqual([]);expect(state.calls.detach).toEqual([]);
-    await dialog.locator('[data-gt-file-delete="old1"]').click();
+    await fileMenu(dialog,'old1','삭제');
     expect(await answerAsk(page,true)).toBe("'기존 자료.pdf' 파일을 삭제할까요?");
     await expect(dialog.locator('.gt-files-list .gt-file')).toHaveText(['회의록.hwp']);
     expect(state.calls.trash).toEqual([{action:'trash-file',target:'task',id:'a',drive_file_id:'old1'}]);
@@ -396,11 +404,38 @@ test('다른 기록도 쓰는 파일은 [삭제]해도 Drive에 남기고 창에
   await openMenu(page,'a');
   await page.locator('#gtTaskMenu [data-gt-menu-action="files"]').click();
   const dialog=page.locator('#gtFilesModal');
-  await dialog.locator('[data-gt-file-delete="old1"]').click();
+  await fileMenu(dialog,'old1','삭제');
   await answerAsk(page,true);
   await expect(dialog.locator('[data-gt-files-status]')).toHaveText('빼기만 했어요. 다른 곳에서도 쓰는 파일이라 Drive에 남겨 뒀어요.');
   await expect(dialog.locator('.gt-files-list .gt-file')).toHaveCount(0);
   await expect(page.locator('[data-undo-notice]')).toHaveCount(0);
   expect(state.calls.detach).toEqual([{action:'detach',task_id:'a',drive_file_id:'old1'}]);
+  await context.close();
+});
+
+// FILE-첨부삭제 결정 2(S56-57): ⋯ → [이름 수정]는 이름 칸을 그 자리 고치기 칸으로(✎와 같은 공용 길), 올리는 중에는 [이름 수정]·[빼기]·[삭제]가 잠긴다.
+test('412px: 파일 붙이기 창 ⋯ [이름 수정]는 이름 칸을 그 자리에서 고치고, 올리는 중에는 고치기·빼기·삭제가 잠긴다',async({browser})=>{
+  const {context,page,state}=await openTasks(browser,{viewport:{width:412,height:915},files:[{google_task_id:'a',drive_file_id:'old1',file_name:'아주 긴 합성 회의 자료 이름 두 번째 차수 정리본.pdf',size_bytes:9}]});
+  await openMenu(page,'a');
+  await page.locator('#gtTaskMenu [data-gt-menu-action="files"]').click();
+  const dialog=page.locator('#gtFilesModal');
+  const name=dialog.locator('.gt-files-list .gt-file');
+  await expect(name).toHaveText('아주 긴 합성 회의 자료 이름 두 번째 차수 정리본.pdf');
+  await fileMenu(dialog,'old1','이름 수정');
+  await expect(dialog.locator('.fr-input')).toBeFocused();
+  await expect(dialog.locator('.fr-input')).toHaveValue('아주 긴 합성 회의 자료 이름 두 번째 차수 정리본');
+  await expect(dialog.locator('[data-gt-file-more="old1"]')).not.toHaveAttribute('open','');
+  await dialog.locator('[data-fr-cancel]').click();
+  await expect(name).toBeVisible();
+  let release;state.hold=new Promise(r=>{release=r});
+  await dialog.locator('[data-gt-files-input]').setInputFiles([{name:'가.txt',mimeType:'text/plain',buffer:Buffer.from('abc')}]);
+  await expect.poll(()=>state.calls.attach.length).toBe(1);
+  await dialog.locator('[data-gt-file-more="old1"] > summary').click();
+  const menu=dialog.locator('[data-gt-file-more="old1"] .row-more-menu');
+  for(const label of ['이름 수정','빼기','삭제'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeDisabled();
+  for(const label of ['Drive에서 열기','내려받기'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeEnabled();
+  state.hold=null;release();
+  await expect(dialog.locator('[data-gt-files-status]')).toContainText('1개 붙였습니다');
+  expect(await noSideScroll(page)).toBe(true);
   await context.close();
 });

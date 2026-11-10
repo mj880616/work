@@ -367,6 +367,7 @@ async function startConsumerDelete(page,view,id='doc-0'){
       const b=document.querySelector(`[data-mrd-delete-document="${id}"]`),handler=b.onclick;
       b.onclick=async e=>{await window.__observeDeleteSettlement(false);try{return await handler(e)}finally{await window.__observeDeleteSettlement(true)}};
     },id);
+    await page.locator(`#mrdMaterials [data-mrd-doc-row="${id}"] .file-line-more > summary`).click(); // FILE-첨부삭제 결정 3: [삭제]는 줄 ⋯ 안
     await page.locator(`[data-mrd-delete-document="${id}"]`).click();
   }
 }

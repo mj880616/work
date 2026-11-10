@@ -41,6 +41,8 @@ async function boot(page,width){
     if(path==='/rest/v1/app_meetings'){if(req.method()==='PATCH')state.meetingPatches.push(req.postDataJSON());return ok([{...meeting,...(['POST','PATCH'].includes(req.method())?req.postDataJSON():{})}]);}
     if(path==='/rest/v1/app_documents'){
       const id=url.searchParams.get('id')?.replace(/^eq\./,''),mid=url.searchParams.get('meeting_id')?.replace(/^eq\./,'');
+      // FILE-첨부삭제 결정 3: [빼기] = 이 보고 줄만 PATCH meeting_id=null(내 작업공간·이 보고에 붙은 줄만).
+      if(req.method()==='PATCH'){const q=Object.fromEntries(url.searchParams),body=req.postDataJSON();(state.docPatches||=[]).push({q,body});const hit=state.docs.filter(d=>d.id===id&&d.meeting_id===mid&&'eq.'+d.workspace_id===q.workspace_id);hit.forEach(d=>Object.assign(d,body));return ok(hit.map(d=>({id:d.id,meeting_id:d.meeting_id})));}
       return ok(state.docs.filter(d=>(!id||d.id===id)&&(!mid||d.meeting_id===mid)));
     }
     if(path==='/functions/v1/document-actions'){
@@ -85,6 +87,7 @@ for(const width of [390,1280]){
       await showAllLibraryCategories(page);await expandLibraryTree(page);// UI-PC자료실: 자료실은 기본으로 [회의]가 꺼져 있어 회의자료 분류 자료를 보려면 켠다. LIB-토글트리: 모두 편다.
       await page.locator('[data-lu-menu="doc-0"]').click();
     }
+    if(view==='meetings')await mrdMore(page);
     await page.locator(view==='meetings'?'[data-mrd-delete-document="doc-0"]':'[data-lu-delete="doc-0"]').click();
     expect(await noticeText(page)).toBe('자료를 삭제하지 못했어요.');
     await expect(page.locator('#kptuNotice .kptu-notice-note')).toHaveText('관리자에게 오류 확인을 요청해 주세요.');
@@ -96,13 +99,13 @@ for(const width of [390,1280]){
     await openMeetingResult(page,'meeting-1');
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
     const remove=page.locator('[data-mrd-delete-document="doc-0"]');
-    await remove.click();
+    await mrdMore(page);await remove.click();
     await expect(page.locator('.kptu-ask .kptu-ask-note')).toHaveText('파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.');
     expect(await answerAsk(page,false)).toBe('“first.pdf” 자료 등록을 삭제할까요?');
     await expect(remove).toBeEnabled();
     expect(state.deletes).toEqual([]);
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
-    await remove.click();
+    await mrdMore(page);await remove.click();
     await answerDelete(page,DELETE_LEGACY);
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(1);
     expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);
@@ -118,7 +121,7 @@ for(const width of [390,1280]){
   test(`failed meeting material deletion uses library error guidance and keeps lists ${width}px`,async({page})=>{
     const state=await boot(page,width);state.error='permission denied';
     await openMeetingResult(page,'meeting-1');
-    await page.locator('[data-mrd-delete-document="doc-0"]').click();
+    await mrdMore(page);await page.locator('[data-mrd-delete-document="doc-0"]').click();
     await answerDelete(page,DELETE_UNKNOWN);
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
     await closeMeetingResult(page);
@@ -368,10 +371,13 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
   });
 }
 
+// FILE-첨부삭제 결정 3(S56-57): 보고 자료 줄의 ×는 없어지고 [삭제]는 줄 ⋯ 안에 있다 — ⋯를 연 뒤 누른다.
+const mrdMore=(page,id='doc-0')=>page.locator(`#mrdMaterials [data-mrd-doc-row="${id}"] .file-line-more > summary`).click();
 async function openDeleteControl(page,view){
   if(view==='meetings'){
     await openMeetingResult(page,'meeting-1');
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
+    await mrdMore(page);
   }else{
     await clickView(page,'library');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
     await showAllLibraryCategories(page);// UI-PC자료실: 회의 분류는 기본으로 꺼져 있다.
@@ -441,3 +447,29 @@ for(const width of [390,1280])for(const view of ['meetings']){// 자료실은 li
     expect(await page.evaluate(()=>window.__deleteOptions[0])).toMatchObject({refreshSession:false,expectedSessionEpoch:await page.evaluate(()=>window.KPTURuntime.session.epoch())});
   });
 }
+
+// FILE-첨부삭제 결정 3(2026-11-11 명진 '추천대로'): 보고 자료 줄 ⋯ → [빼기](이 보고에서만 떼기, 자료실·Drive 그대로) / [삭제](예전 × 길).
+for(const width of [412,1280])test(`보고 자료 ⋯ [빼기]: 한 번 묻고 이 보고 줄만 떼고, 자료실 자료·Drive는 그대로 ${width}px`,async({page})=>{
+  const state=await boot(page,width);
+  await openMeetingResult(page,'meeting-1');
+  const rows=page.locator('#mrdMaterials .mrd-file-row');await expect(rows).toHaveCount(2);
+  await expect(page.locator('#mrdMaterials .file-line-x')).toHaveCount(0);
+  await mrdMore(page);
+  const panel=page.locator('#mrdMaterials [data-mrd-doc-row="doc-0"] .file-line-more-panel');
+  await expect(panel.getByRole('button')).toHaveText(['빼기','삭제']); // 이 가짜 자료는 Drive 파일 번호가 없어 열기·내려받기 없음(있으면 그 앞에, meeting-columns.spec)
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+  if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/report-file-menu-${width}.png`});
+  // 아니오: 아무 요청 없음
+  await panel.locator('[data-mrd-detach-document]').click();
+  await expect(page.locator('.kptu-ask .kptu-ask-note')).toHaveText('자료와 파일은 자료실·Drive에 그대로 있고, 이 보고에 붙은 표시만 풀려요.');
+  expect(await answerAsk(page,false)).toBe('“first.pdf”을(를) 이 보고에서 뺄까요?');
+  expect(state.docPatches||[]).toEqual([]);await expect(rows).toHaveCount(2);
+  await mrdMore(page);await panel.locator('[data-mrd-detach-document]').click();await answerAsk(page,true);
+  await expect(rows).toHaveCount(1);await expect(rows).toContainText('second.pdf');
+  expect(state.docPatches).toHaveLength(1);
+  expect(state.docPatches[0].q).toMatchObject({id:'eq.doc-0',workspace_id:'eq.ws',meeting_id:'eq.meeting-1'});
+  expect(state.docPatches[0].body).toMatchObject({meeting_id:null});
+  expect(state.deletes).toEqual([]);expect(state.docs.map(d=>d.id)).toEqual(['doc-0','doc-1']);
+  expect(await noticeText(page)).toBe('이 보고에서 뺐어요. 자료는 자료실에 그대로 있어요.');
+  expect(state.errors).toEqual([]);
+});
