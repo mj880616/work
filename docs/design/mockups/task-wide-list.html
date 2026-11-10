@@ -8,7 +8,7 @@ h1{font-size:15px;margin:0 0 4px}
 .cap small{font-weight:400;color:#666}
 .cap.pick{color:#55632f}
 /* 폴드 펼침 화면(884px)을 줄여 그림 */
-.fd{background:#f6f4ee;border:1px solid #d8d4c8;border-radius:12px;overflow:hidden;display:flex;height:300px;font-size:10px}
+.fd.tall{height:360px}.fd{background:#f6f4ee;border:1px solid #d8d4c8;border-radius:12px;overflow:hidden;display:flex;height:300px;font-size:10px}
 .nav{width:26px;border-right:1px solid #e1ddd2;display:flex;flex-direction:column;align-items:center;gap:9px;padding-top:10px;color:#999;font-size:9px}
 .nav b{width:13px;height:13px;border:1.5px solid #aaa;border-radius:3px}
 .nav b.on{border-color:#55632f;background:#e7ead8}
@@ -62,7 +62,7 @@ h1{font-size:15px;margin:0 0 4px}
 <div class="empty mark"></div>
 </div></div></div>
 
-<div class="cap pick">A안 고르기 전 <small>— 묶음 칸을 옆으로 나란히, 화면 폭 전부 (추천)</small></div>
+<div class="cap">A안 고르기 전 <small>— 묶음 칸을 옆으로 나란히</small></div>
 <div class="fd"><div class="nav"><b></b><b class="on"></b><b></b><b></b><b></b></div><div class="main">
 <div class="top">일정 › 할 일<span class="s"></span>+ 추가</div>
 <div class="in"><div>할 일을 입력하세요</div><span>추가</span></div>
@@ -80,19 +80,19 @@ h1{font-size:15px;margin:0 0 4px}
 <div class="fold">나중 5 ▸</div><div class="fold">완료 12 ▸</div></div>
 </div></div></div></div>
 
-<div class="cap">B안 고르기 전 <small>— 한 줄 목록이 화면 폭 전부</small></div>
-<div class="fd"><div class="nav"><b></b><b class="on"></b><b></b><b></b><b></b></div><div class="main">
+<div class="cap pick">B안 고르기 전 <small>— 모든 묶음이 화면 폭 전부 (명진 선택)</small></div>
+<div class="fd tall"><div class="nav"><b></b><b class="on"></b><b></b><b></b><b></b></div><div class="main">
 <div class="top">일정 › 할 일<span class="s"></span>+ 추가</div>
 <div class="in"><div>할 일을 입력하세요</div><span>추가</span></div>
 <div class="cnt">할 일 8개</div>
 <div class="body"><div class="cols" style="flex:1;flex-direction:column">
-<div class="col"><div class="ch">지남·오늘<i>4</i></div>
+<div class="col" style="align-self:stretch"><div class="ch">지남·오늘<i>4</i></div>
 <div class="r"><span class="ck"></span><span class="t">지난주 못 한 예시 연락하기</span><span class="d late">11.7.(토)</span><span class="m">⋯</span></div>
 <div class="r"><span class="ck"></span><span class="t">회의 자료 정리</span><span class="d">11.10.(화)</span><span class="m">⋯</span></div>
 <div class="r"><span class="ck"></span><span class="t">예시 공문 초안 보내기</span><span class="d">11.10.(화)</span><span class="m">⋯</span></div>
 <div class="r"><span class="ck"></span><span class="t">예시 긴 제목: 2026년 하반기 임금·단체교섭 준비를 위한 현장 간담회</span><span class="d">11.10.(화)</span><span class="m">⋯</span></div></div>
-<div class="col"><div class="ch">일주일 안<i>4</i></div><div class="sub" style="margin-top:0">내일 1</div>
-<div class="r"><span class="ck"></span><span class="t">예시 간담회 장소 잡기</span><span class="d">11.11.(수)</span><span class="m">⋯</span></div></div>
+<div class="col" style="align-self:stretch"><div class="ch">일주일 안<i>4</i></div><div class="sub" style="margin-top:0">내일 1</div>
+<div class="r"><span class="ck"></span><span class="t">예시 간담회 장소 잡기</span><span class="d">11.11.(수)</span><span class="m">⋯</span></div><div class="sub">모레~7일 3</div><div class="r"><span class="ck"></span><span class="t">발언문 쓰기</span><span class="d">11.12.(목)</span><span class="m">⋯</span></div><div class="fold">나중 5 ▸</div></div>
 </div></div></div></div>
 
 <div class="cap">A·B 공통 — 줄을 고른 뒤 <small>— 지금처럼 왼쪽 목록 | 오른쪽 상세</small></div>
@@ -111,7 +111,7 @@ h1{font-size:15px;margin:0 0 4px}
 <div class="lab">메모</div><div class="box"></div></div>
 </div></div></div>
 
-<div class="legend"><b>A안(추천)</b>: 고르기 전에는 '지남·오늘', '일주일 안' 칸이 옆으로 나란히 화면을 다 써요. 제목이 거의 다 보이고, 한눈에 두 묶음을 같이 봐요.<br>
-<b>B안</b>: 고르기 전에는 한 줄 목록이 화면 폭을 다 써요. 제목은 가장 길게 보이지만 아래로 더 길어져요.<br>
+<div class="legend"><b>A안</b>: 고르기 전에는 '지남·오늘', '일주일 안' 칸이 옆으로 나란히 화면을 다 써요. 제목이 거의 다 보이고, 한눈에 두 묶음을 같이 봐요.<br>
+<b>B안(명진 선택 11/10)</b>: 고르기 전에는 '지남·오늘'·'일주일 안' 등 모든 묶음이 화면 폭을 다 써요. 제목은 가장 길게 보이지만 아래로 더 길어져요.<br>
 <b>공통</b>: 줄을 누르면 지금처럼 왼쪽 목록 | 오른쪽 상세. ✕·Esc·뒤로가기로 상세를 닫으면 다시 넓은 목록. 빈 오른쪽 상자는 없앰. 폰(접은 화면)은 그대로.</div>
 </body></html>
