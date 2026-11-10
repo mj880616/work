@@ -144,6 +144,17 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 /* 고른 날: 코멘트가 있는 사진만 한 줄씩. */
 #appView #diaryView .diary-captions{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:2px; font-size:var(--ds-text-row); overflow-wrap:anywhere; }
 #appView #diaryView .diary-captions b{ color:var(--ds-kind-diary-ink); font-weight:var(--ds-weight-medium); }
+/* JOURNAL-일기원드라이브 10.6 '그날 맥락': 사진 격자 아래 접힌 한 줄(<details>). 펼치면 일정·회의 제목 줄(글자 버튼 row-act). 일정·회의가 없으면 자리도 없다. */
+#appView #diaryView .diary-ctx-slot:empty{ display:none; }
+#appView #diaryView .diary-ctx{ margin:0; font-size:var(--ds-text-row); }
+#appView #diaryView .diary-ctx-head{ cursor:pointer; color:var(--kptu-muted); display:list-item; list-style-position:inside; line-height:1.5; padding:calc((var(--kptu-touch-target,44px) - 1.5em) / 2) 0; }
+#appView #diaryView .diary-ctx-head::-webkit-details-marker{ color:var(--kptu-faint); }
+#appView #diaryView .diary-ctx-list{ margin:0; padding:0; list-style:none; display:grid; gap:0; }
+#appView #diaryView .diary-ctx-list > li{ margin:0; min-width:0; }
+/* 줄마다 누르는 범위를 줄 자체(위아래 여백 포함 44px)로: 공용 ::after 넓힘(위아래 44px)은 붙은 이웃 줄을 덮어 엉뚱한 줄이 열리므로 이 목록에서는 끈다. */
+#appView #diaryView button.diary-ctx-line{ display:block; max-width:100%; padding:calc((var(--kptu-touch-target,44px) - 1.5em) / 2) 4px; text-align:left; color:var(--kptu-ink); font-size:var(--ds-text-row); line-height:1.5; overflow-wrap:anywhere; white-space:normal; }
+#appView #diaryView button.diary-ctx-line::after{ display:none; }
+#appView #diaryView .diary-ctx-kind{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #diaryView .diary-actions{ display:flex; flex-wrap:wrap; gap:8px; }
 #appView #diaryView .diary-danger{ color:var(--kptu-danger); }
 

@@ -777,6 +777,9 @@ jobs:
       - name: Check diary list view (JOURNAL-일기목록, month groups·pin·star·find·view memory·no device storage, synthetic)
         run: node --test tests/diary-list-model.test.mjs
 
+      - name: Check diary day context (JOURNAL-일기원드라이브 10.6, events·meetings only·photo time caption·no new save, synthetic)
+        run: node --test tests/diary-context-model.test.mjs
+
       - name: Check home AI usage line (AI-사용량줄, summary·warning·amount input·no device storage, synthetic)
         run: node --test tests/ai-usage-model.test.mjs
 
