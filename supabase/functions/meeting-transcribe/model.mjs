@@ -60,12 +60,16 @@ export const MESSAGES = Object.freeze({
   daily_limit: '오늘의 AI 사용 한도에 닿아 요약을 만들지 못했어요. 전사 전문은 남아 있어요.',
   jobs_unavailable: '서버 정리를 아직 쓸 수 없어요.',
   too_many_steps: '정리가 너무 오래 걸려 멈췄어요. [다시]를 누르세요.',
+  // REC-정리멈춤반복-긴구간: 요약 요청 시간 초과 · 요약 단계가 서버 실행 시간 안에 끝나지 못해 두 번 끊김(전사 단계 step_cut과 구분).
+  draft_timeout: '요약이 오래 걸려 멈췄어요. 전사한 글은 남아 있어요. [다시]를 누르세요.',
+  draft_step_cut: '요약이 서버 시간 안에 끝나지 않아 끊겼어요. 전사한 글은 남아 있어요. [다시]를 누르세요.',
 });
 export const STATUS = Object.freeze({
   not_ready: 503, monthly_limit: 429, busy: 409, too_large: 413, too_long: 413, bad_type: 415, bad_request: 400,
   not_found: 404, not_done: 409, drive_failed: 502, drive_not_connected: 424, gemini_failed: 502,
   gemini_upload: 502, gemini_timeout: 504, gemini_file_failed: 422, gemini_rejected: 422, bad_format: 422, empty_transcript: 422, usage_unavailable: 503, failed: 500,
   draft_failed: 502, daily_limit: 429, jobs_unavailable: 503, too_many_steps: 409, step_cut: 504, draft_cut: 502,
+  draft_timeout: 504, draft_step_cut: 504,
 });
 // 실패 코드 → 화면 갈래. 'gemini'(전사 서비스) · 'format'(파일 형식). 연결 끊김은 화면이 받은 오류(시간 초과·네트워크)로 가른다.
 export const FAIL_KIND = Object.freeze({

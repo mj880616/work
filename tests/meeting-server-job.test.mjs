@@ -84,7 +84,7 @@ test('REC-정리멈춤반복: 끊긴 단계 알아보기 — 기한 지난 잡�
   // 서버 코드에 실제로 쓰였는지(잡기 조건·실패 코드).
   const src=read('supabase/functions/meeting-transcribe/index.ts');
   assert.match(src,/leaseTake\(before, now\.getTime\(\)\)/);
-  assert.match(src,/if \(take\.cut >= 2\) throw new Fail\('step_cut'\)/);
+  assert.match(src,/if \(take\.cut >= 2\) throw new Fail\(job\.stage === 'summary' \? 'draft_step_cut' : 'step_cut'\)/);
   assert.match(src,/q\.eq\('lease_until', before\.lease_until\) : q\.is\('lease_until', null\)/,'읽은 잡기 그대로일 때만 바꿈(동시에 두 번 와도 한 번)');
 });
 
