@@ -100,8 +100,8 @@ export function followPane(el, { top = GAP, reset = true, narrow = false, bottom
   el.classList.toggle('kptu-follow-narrow', !!narrow);
   const at = panes.get(el) || { node: null, lastTop: null };
   at.top = top; at.bottom = narrow ? bottom : null;
-  panes.set(el, at); listen(); watch(el, at);
-  const stuck = paint(el, at);
+  panes.set(el, at); listen(); watch(el, at); paint(el, at);
+  const stuck = Math.round(top + stickTop());
   if (reset) {
     el.scrollTop = 0;
     // 칸 머리가 자기 자리(맨 위 줄 아래 top) 위로 지나가 있으면(칸을 품은 줄 끝 가까이에서 새 항목을 연 때) 그만큼만 화면을 올려 머리를 보인다.
