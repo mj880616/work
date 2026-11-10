@@ -313,7 +313,11 @@ test('STAB-화면시험간헐: workers=2 화면 시험은 접속 대기 줄을 �
   const server = readFileSync(new URL('../app-e2e/helpers/static-server.py', import.meta.url), 'utf8');
   assert.match(server, /request_queue_size = \d{3}/);
   assert.match(server, /Server\(\('127\.0\.0\.1', port\), handler\)/);
-  assert.match(server, /SimpleHTTPRequestHandler, directory='\.'/);
+  // S55-15: 운영 Pages처럼 Access-Control-Allow-Origin: * 머리글 하나만 더한 표준 읽기 전용 처리기(바꾼 메서드는 end_headers 하나).
+  assert.match(server, /class Handler\(http\.server\.SimpleHTTPRequestHandler\):/);
+  assert.match(server, /functools\.partial\(Handler, directory='\.'\)/);
+  assert.deepEqual([...server.matchAll(/^    def (\w+)/gm)].map(m => m[1]), ['end_headers']);
+  assert.match(server, /self\.send_header\('Access-Control-Allow-Origin', '\*'\)/);
   assert.doesNotMatch(server, /do_POST|do_PUT|do_DELETE/);
 });
 
