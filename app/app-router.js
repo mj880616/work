@@ -351,7 +351,7 @@
   }
   // Scroll position per history entry, only for a step between screens (a layer's own list scroll stays with its owner, e.g.
   // basket-notes.js). Kept in memory, never stored. A screen drawn again after it shows (its list read again) grows back to the
-  // position: the position is applied again while the screen grows, until it is reached and stable, or the user scrolls or touches.
+  // position: the position is applied again while the screen grows (counted in frames), until it is reached and stable, or the user scrolls or touches.
   const scrollAt=new Map();let fromEntry=null,scrollWatch=null;
   function rememberScroll(key,y){
     if(!key||!Number.isFinite(y))return;
@@ -363,21 +363,27 @@
     const y=scrollAt.get(here()?.key);
     if(!y)return;
     const panel=document.getElementById(view+'View');
-    const apply=()=>{if(api.current!==view){stop();return}window.scrollTo({top:y,behavior:'instant'})};
+    const apply=()=>window.scrollTo({top:y,behavior:'instant'});
     const settled=()=>Math.abs(window.scrollY-y)<2;
-    let timer=0,quiet=0,observer=null;
+    // Counted in frames, not timers (route restoration is never a delayed overwrite): it ends once the position is reached and the
+    // screen has not grown for QUIET frames, or after MAX frames, or at the first scroll/touch/key of the person, or a screen change.
+    const QUIET=30,MAX=240;let frames=0,still=0,observer=null,ended=false;
     const events=['wheel','touchstart','keydown','pointerdown'];
-    function stop(){clearTimeout(timer);clearTimeout(quiet);observer?.disconnect();events.forEach(type=>window.removeEventListener(type,stop,true));window.removeEventListener('kptu:view-changed',stop);if(scrollWatch===stop)scrollWatch=null}
-    apply();
-    requestAnimationFrame(()=>{if(scrollWatch!==stop)return;apply();if(settled()){clearTimeout(quiet);quiet=setTimeout(stop,600)}});
-    if(typeof ResizeObserver==='function'&&panel){
-      observer=new ResizeObserver(()=>{apply();clearTimeout(quiet);if(settled())quiet=setTimeout(stop,600)});
-      observer.observe(panel);
+    function stop(){if(ended)return;ended=true;observer?.disconnect();events.forEach(type=>window.removeEventListener(type,stop,true));window.removeEventListener('kptu:view-changed',stop);if(scrollWatch===stop)scrollWatch=null}
+    function tick(){
+      if(ended)return;
+      if(api.current!==view){stop();return}
+      frames++;still++;
+      if(!settled())apply();
+      if((settled()&&still>=QUIET)||frames>=MAX){stop();return}
+      requestAnimationFrame(tick);
     }
+    apply();
+    if(typeof ResizeObserver==='function'&&panel){observer=new ResizeObserver(()=>{still=0;apply()});observer.observe(panel)}
     events.forEach(type=>window.addEventListener(type,stop,{capture:true,passive:true}));
     window.addEventListener('kptu:view-changed',stop);
-    timer=setTimeout(stop,4000);
     scrollWatch=stop;
+    requestAnimationFrame(tick);
   }
   // ‹ and Android back: one step back through Web2's own entries; at the first entry the
   // last return is home (D-4a ②). Returns false only when Web2 has nothing left to close.
