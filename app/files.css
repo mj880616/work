@@ -126,7 +126,8 @@
   .fx-srcs { order:2; }
   #appView #filesView .fx-srcs [data-src-chip] { min-width:28px; width:28px; height:28px; min-height:28px; padding:0; }
   .fx-crumb { order:3; flex:1 1 120px; }
-  .fx-sort { order:4; height:26px; }
+  /* FILES-폰폴더위로 ②: 정렬·[새 폴더]·[올리기]는 둘째 줄 오른쪽에 작게. */
+  .fx-sort { order:4; height:26px; margin-left:auto; }
   .fx-mkdir, .fx-upload { order:5; }
   .fx-tree { display:none; }
   .fx[data-fx-pane="tree"] .fx-tree { display:block; position:static; flex:1 1 auto; width:100%; padding:2px 0 8px; border-right:0; }

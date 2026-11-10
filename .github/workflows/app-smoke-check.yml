@@ -173,6 +173,7 @@ on:
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/news-colors.test.mjs'
       - 'tests/news-name.test.mjs'
+      - 'tests/news-fold.test.mjs'
       - 'tests/files-model.test.mjs'
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
@@ -366,6 +367,7 @@ on:
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/news-colors.test.mjs'
       - 'tests/news-name.test.mjs'
+      - 'tests/news-fold.test.mjs'
       - 'tests/files-model.test.mjs'
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
@@ -522,7 +524,7 @@ jobs:
       - name: Check request inbox open-list calculator (OPS-요청함대기계산)
         run: node --test tests/ops-inbox-open.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
-        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/now-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/text-highlights-model.test.mjs
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/now-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/text-highlights-model.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
         run: node --test tests/files-model.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/library-two-pane-model.test.mjs tests/files-look-model.test.mjs tests/touch-drag.test.mjs tests/phone-files-model.test.mjs tests/pc-files-model.test.mjs tests/files-pins-model.test.mjs tests/files-last-model.test.mjs tests/files-find-model.test.mjs tests/files-zip-model.test.mjs
 
@@ -591,6 +593,8 @@ jobs:
         run: node --test tests/folder-tree-ui.test.mjs
       - name: S51-24 UI-빈칸손짓 손짓 칸 높이 계산·'그 폴더만' 상자 시험
         run: node --test tests/gesture-fill.test.mjs
+      - name: FILES-폰폴더위로 '그 폴더만' 한 단계 위 길·왼쪽 끝 밀기 판정 시험
+        run: node --test tests/folder-walk.test.mjs
       - name: S51-25 공용 아이콘 SVG 한 곳·화면 코드 그림 문자 없음 시험
         run: node --test tests/ui-icons.test.mjs
       - name: FILES-폴드나무목록 펼친 폴드 판정(공용 600px) 시험
