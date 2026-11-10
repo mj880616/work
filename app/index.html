@@ -49,24 +49,24 @@
   <header class="mobile-shell-header" hidden><span data-mobile-view-name></span></header>
   <nav id="appNav" class="app-nav">
     <a class="sidebar-brand" data-core-brand href="./?view=home" aria-label="홈"><img src="./app-icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>홈</span></a>
-    <button class="nav-btn nav-home-mid" data-view="home" type="button">홈</button>
-    <button class="nav-btn" data-view="basket" type="button">잊지 말기</button>
-        <button class="nav-btn" data-view="calendar" data-nav-group="calendar tasks diary" type="button">일정</button>
-    <div class="nav-sub" role="group" aria-label="일정"><button class="nav-sub-btn" data-goto="calendar" type="button">달력</button><button class="nav-sub-btn" data-view="tasks" type="button">할 일</button><button class="nav-sub-btn" data-view="diary" type="button">일기</button></div>
-    <button class="nav-btn" data-basket-kind-nav="note" type="button">노트</button>
-    <button class="nav-btn" data-view="meetings" data-nav-group="meetings projects" type="button">사업 보고</button>
-    <button class="nav-btn" data-view="library" type="button">자료실</button>
-    <button class="nav-btn" data-view="files" type="button">파일</button>
-    <button class="nav-btn" data-view="pages" type="button">공유 페이지</button>
-    <button class="nav-btn" data-view="team" type="button">조직 보고</button>
-    <button class="nav-btn" data-view="hwp" type="button">HWP 편집</button>
-    <button class="nav-btn" data-view="ledger" type="button">원장</button>
-    <button class="nav-btn" data-view="photos" type="button">사진</button>
-    <button class="nav-btn" data-view="outside" type="button">News</button>
+    <a class="nav-btn nav-home-mid" data-view="home" href="./">홈</a>
+    <a class="nav-btn" data-view="basket" href="./?view=basket">잊지 말기</a>
+        <a class="nav-btn" data-view="calendar" data-nav-group="calendar tasks diary" href="./?view=calendar">일정</a>
+    <div class="nav-sub" role="group" aria-label="일정"><a class="nav-sub-btn" data-goto="calendar" href="./?view=calendar">달력</a><a class="nav-sub-btn" data-view="tasks" href="./?view=tasks">할 일</a><a class="nav-sub-btn" data-view="diary" href="./?view=diary">일기</a></div>
+    <a class="nav-btn" data-basket-kind-nav="note" href="./?view=basket&amp;pane=note">노트</a>
+    <a class="nav-btn" data-view="meetings" data-nav-group="meetings projects" href="./?view=reports">사업 보고</a>
+    <a class="nav-btn" data-view="library" href="./?view=library">자료실</a>
+    <a class="nav-btn" data-view="files" href="./?view=files">파일</a>
+    <a class="nav-btn" data-view="pages" href="./?view=pages">공유 페이지</a>
+    <a class="nav-btn" data-view="team" href="./?view=team">조직 보고</a>
+    <a class="nav-btn" data-view="hwp" href="./?view=hwp">HWP 편집</a>
+    <a class="nav-btn" data-view="ledger" href="./?view=ledger">원장</a>
+    <a class="nav-btn" data-view="photos" href="./?view=photos">사진</a>
+    <a class="nav-btn" data-view="outside" href="./?view=news">News</a>
     <div class="sidebar-spacer" aria-hidden="true"></div>
-    <button class="nav-btn nav-feed nav-feed-first" data-view="calls" type="button">통화</button>
-    <button class="nav-btn nav-feed" data-view="telegram" type="button">텔레그램 소식</button>
-    <button class="nav-btn nav-feed" data-view="arsenal" type="button">아스날</button>
+    <a class="nav-btn nav-feed nav-feed-first" data-view="calls" href="./?view=calls">통화</a>
+    <a class="nav-btn nav-feed" data-view="telegram" href="./?view=telegram">텔레그램 소식</a>
+    <a class="nav-btn nav-feed" data-view="arsenal" href="./?view=arsenal">아스날</a>
     <button class="nav-btn nav-quick-links" data-quick-links type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="quickLinksPanel">자주 가는 링크 <span aria-hidden="true">›</span></button>
     <button id="sidebarLogoutBtn" class="sidebar-utility hidden" type="button" data-kptu-logout>로그아웃</button>
   </nav>

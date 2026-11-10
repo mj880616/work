@@ -586,6 +586,13 @@
     return restoreFromUrl('ready');
   }
 
+  // UI-PC손맛묶음 ⑤: the PC left menu rows are real links (href = the screen's address). A plain press opens the screen here through go();
+  // Ctrl/⌘/Shift-press (and the middle button, which sends no click) is left to the browser: a new tab or window with that address.
+  // Every click handler that turns a menu link into go() asks this one rule (here, loader-v2.js, topbar-actions.js [노트]).
+  function leaveToBrowser(e,control){
+    return !!control?.matches?.('a[href]')&&(e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey);
+  }
+
   function bind(){
     if(bound)return;
     bound=true;
@@ -593,15 +600,17 @@
     api.current=detect();
     document.addEventListener('click',e=>{
       const control=e.target.closest?.('[data-view],[data-goto]');
-      if(!control)return;
+      if(!control||leaveToBrowser(e,control))return;
       const view=control.dataset.view||control.dataset.goto;
-      if(view)go(view,{source:'delegated'});
+      if(!view)return;
+      if(control.matches('a[href]'))e.preventDefault();
+      go(view,{source:'delegated'});
     });
     document.querySelectorAll('[data-core-brand]').forEach(brand=>{
       if(brand.dataset.coreHomeBound==='1')return;
       brand.dataset.coreHomeBound='1';
       brand.addEventListener('click',e=>{
-        if(!appReady())return;
+        if(!appReady()||leaveToBrowser(e,brand))return;
         e.preventDefault();
         go('home',{source:'brand'});
       });
@@ -642,7 +651,7 @@
   // go() was asked meanwhile (then the late press must not take the screen back from it).
   const askGo=()=>++goSeq;
   const stillLatest=token=>token===goSeq;
-  const api={current:null,sub:null,go,askGo,stillLatest,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,openFrom,adoptSourceWindow,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  const api={current:null,sub:null,go,leaveToBrowser,askGo,stillLatest,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,openFrom,adoptSourceWindow,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   // NAV-PC앞뒤통일: one notice after the history position or the screen changed, so the top line repaints ‹ › from canBack/canForward.
   let moveQueued=false;

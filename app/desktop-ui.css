@@ -21,6 +21,8 @@
   #appView>.app-nav .nav-btn{width:100%;min-height:var(--ds-compact-height-sm);border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);padding:4px 10px;text-align:left;font-size:13px;font-weight:700;line-height:1.25;transition:background .14s ease,color .14s ease}
   #appView>.app-nav .nav-btn:hover{background:var(--kptu-primary-soft);color:var(--kptu-primary-text)}
   #appView>.app-nav .nav-btn.active{background:var(--ds-select-bg);color:var(--ds-select-ink);box-shadow:var(--kptu-shadow-select)}
+  /* UI-PC손맛묶음 ⑤: 메뉴 줄은 진짜 링크(<a href>)라 가운데 누르기·Ctrl+누르기로 새 탭이 열린다. 단추와 같은 모양으로 둔다(:where — 숨김 규칙보다 약하게). */
+  #appView>.app-nav :where(a.nav-btn:not([hidden]),a.nav-sub-btn:not([hidden])){display:flex;align-items:center;box-sizing:border-box;text-decoration:none}
 
   #appView>.view-panel{grid-column:2;grid-row:1;min-width:0}
   #appView>.view-panel:not(.hidden){display:block}

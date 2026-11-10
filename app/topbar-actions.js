@@ -235,7 +235,8 @@ async function openWriter(kind='update'){
 // own one-shot hand-off (basket-note-tasks.js); [정리함] (data-view="basket") always opens the one 정리함 screen (챙길 것 + 업데이트).
 // MENU-HOME-편집: [노트]는 하단바에도 올 수 있고 줄이 다시 만들어지므로 누르기를 위임으로 받는다.
 document.addEventListener('click',async event=>{
-  const button=event.target.closest?.('#appView [data-basket-kind-nav]');if(!button)return;
+  const button=event.target.closest?.('#appView [data-basket-kind-nav]');if(!button||window.KPTURouter?.leaveToBrowser?.(event,button))return;
+  if(button.matches('a[href]'))event.preventDefault();
   try{const {requestBasketKind}=await import('./basket-note-tasks.js');requestBasketKind(button.dataset.basketKindNav);}catch(error){console.error('basket kind',error)}
   // NAV-새로고침제자리: the note side is written to the address (?view=basket&pane=note).
   // On the basket screen already, [노트] changes the side of the same entry (Back still leaves the screen), as before.
@@ -377,6 +378,7 @@ const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',reference:'t
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'조직 보고',view:'team'},reports:{name:'사업 보고',view:'meetings'}};
 const VIEW_NAMES={home:'홈',basket:'잊지 말기',calendar:'달력',tasks:'할 일',diary:'일기',projects:'사업영역 관리',library:'자료실',files:'파일',meetings:'사업 보고',pages:'공유 페이지',team:'조직 보고',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'};
 const whereList=topline?.querySelector('[data-topline-where]');
+const APP_TITLE='웹2';
 let basketKind=null;
 const whereItems=new Map();
 function paintWhere(view=window.KPTURouter?.current){
@@ -386,7 +388,10 @@ function paintWhere(view=window.KPTURouter?.current){
   const groupKey=GROUPS[view]||null;
   if(groupKey)parts.push({name:GROUP_HEAD[groupKey].name,go:GROUP_HEAD[groupKey].view});
   // BASKET-정리함이름: 정리함 and 노트 are two menu items, so the top line names the one shown (no group word).
-  parts.push({name:view==='basket'&&basketKind==='note'?'노트':VIEW_NAMES[view]||''});
+  const screenName=view==='basket'&&basketKind==='note'?'노트':VIEW_NAMES[view]||'';
+  parts.push({name:screenName});
+  // UI-PC손맛묶음 ⑤: the browser tab names the screen shown (one painter: this one). The open item's name is not put in the tab.
+  document.title=screenName?`${screenName} · ${APP_TITLE}`:APP_TITLE;
   // The item open on the right of a left-list / right-detail screen goes last ("담당조직 › 조직명"); the screen word before it
   // is plain text (it would only go to the screen already shown).
   const itemKey=view==='basket'?`basket:${basketKind==='note'?'note':'memo'}`:view;

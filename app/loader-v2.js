@@ -219,7 +219,7 @@
   document.addEventListener('click',event=>{
     const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#quickTaskBtn,#newTaskBtn,#newEventBtn,#newDocumentBtn,#newMeetingBtn,#newProjectBtn');
     const view=controlView(control);
-    if(!control||!view||viewLoader.isLoaded(view))return;
+    if(!control||!view||viewLoader.isLoaded(view)||window.KPTURouter?.leaveToBrowser?.(event,control))return;
     event.preventDefault();event.stopImmediatePropagation();
     // 먼저 누른 화면의 프로그램이 늦게 도착해도, 그 사이 다른 메뉴를 눌렀으면 그 화면을 되가져가지 않는다.
     const turn=window.KPTURouter?.askGo?.();
