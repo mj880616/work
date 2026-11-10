@@ -466,6 +466,18 @@ async function loadReportLinks(){
     const [map,orgs]=await Promise.all([readAllReportTargets(meetings),api('/rest/v1/app_suborganizations?workspace_id=eq.'+workspace.id+'&select=id,name&limit=1000')]);
     reportTargetMap=map;orgNames=new Map((orgs||[]).map(o=>[o.id,o.name]));
   }catch(e){console.warn('report links read failed',e)}
+  await rememberAreas();
+}
+// BIZ-사업영역기억(11/10): 사업 보고를 읽을 때마다(처음·다시 읽기·녹음으로 생긴 보고 포함) 같은 회의명에서 전에 고른 사업영역·[없음]을
+// 아직 안 단 새 보고에 붙여 저장한다(규칙 business-area-model.mjs, 저장 report-area-tag.js applyRememberedAreas — 기존 PATCH 길). 붙인 게 있으면
+// 목록 배열을 새로 만들어(주간보고 칸도 다시 그림) 다른 화면에도 알린다. 부르는 쪽(읽은 뒤 그리기)이 그린다.
+async function rememberAreas(){
+  if(!meetings?.length||!workspace?.id)return;
+  try{
+    const model=await import('./business-area-model.mjs');if(!model.rememberedAreaRows(meetings).length)return;
+    const tag=await import('./report-area-tag.js'),wid=workspace.id,saved=await tag.applyRememberedAreas(meetings,{api,workspace:wid});
+    if(saved&&workspace?.id===wid){meetings=meetings.slice();window.dispatchEvent(new CustomEvent('kptu:meetings-changed'))}
+  }catch(e){console.warn('remembered area failed',e?.message||e)}
 }
 function paintEntryPlaces(){
   const button=$('#meetingPlaces');if(button)button.textContent=targetsLabel(meetingEntryTargets,targetNameOf,'연결 안 함');
