@@ -882,3 +882,29 @@ test('1280 일기 상세 우클릭: 본문·빈 자리는 [수정][그날 사진
  await expect(page.locator('#diaryRoot [data-diary-editor]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
+
+// UI-PC손맛묶음(S56-52, 요청함 11/10 "우클릭: 일기 날짜 칸"): PC 달력 날짜 칸 우클릭은 브라우저 메뉴가 아니라 그날을 고르고 그날 상세 ⋯ 메뉴를 누른 자리에.
+test('1280 일기 날짜 칸 우클릭: 그날을 고르고 그날 일기 메뉴(없는 날은 그날 상세만), Shift는 브라우저 메뉴',async({page})=>{
+ const f=await fixture(page,{width:1280});await openDiary(page,1280);
+ await page.evaluate(()=>{window.__kept=[];window.addEventListener('contextmenu',e=>window.__kept.push(!e.defaultPrevented));});
+ const menu=page.locator('#diaryDetailMenu'),detail=page.locator('#diaryRoot [data-diary-detail]');
+ const b=await cell(page,'2026-10-03').boundingBox(),x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2);
+ await page.mouse.click(x,y,{button:'right'});
+ await expect(cell(page,'2026-10-03')).toHaveAttribute('aria-pressed','true');
+ await expect(detail.locator('[data-diary-text-view]')).toHaveText('가을 산책 DIARY_TEXT_SECRET');
+ await expect(menu).toBeVisible();await expect(menu.locator('button').first()).toHaveText('수정');await expect(menu.locator('button').last()).toHaveText('일기 삭제');
+ // 메뉴는 누른 자리(오른쪽 끝 칸이면 창 안으로 당겨짐).
+ const mb=await menu.boundingBox();expect(Math.abs(mb.y-y)).toBeLessThanOrEqual(12);expect(mb.x).toBeLessThanOrEqual(x);expect(mb.x+mb.width).toBeLessThanOrEqual(1280);
+ expect(await page.evaluate(()=>window.__kept.at(-1))).toBe(false);
+ await page.keyboard.press('Escape');await expect(menu).toBeHidden();
+ // 글·사진 없는 날은 ⋯가 없으니 그날 상세(쓰기 단추)만 열고 브라우저 메뉴는 띄우지 않는다.
+ const e=await cell(page,'2026-10-14').boundingBox();
+ await page.mouse.click(Math.round(e.x+e.width/2),Math.round(e.y+e.height/2),{button:'right'});
+ await expect(cell(page,'2026-10-14')).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('#diaryDetailMenu')).toHaveCount(0);
+ expect(await page.evaluate(()=>window.__kept.at(-1))).toBe(false);
+ // Shift는 브라우저 메뉴 그대로.
+ await page.keyboard.down('Shift');await page.mouse.click(x,y,{button:'right'});await page.keyboard.up('Shift');
+ expect(await page.evaluate(()=>window.__kept.at(-1))).toBe(true);
+ expect(f).toBeTruthy();
+});
