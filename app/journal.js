@@ -744,7 +744,7 @@ const bizFile = () => (bizWeekly ? bizWeekly.fileRows(start) : {status:'loading'
 const bizDetailFile = () => (bizDetail ? bizDetail.file(start) : materials.meetings?.status === 'failed' ? {status:'error'} : {status:'loading'});
 // 표 줄이 바뀌면 캘린더 추천 거르기·복사 글만 맞춘다(주간 정리 전체를 다시 그리지 않음 — 표 안 입력 초점이 빠지지 않게).
 function redrawOrgText() { if (lastWeekModel) lastWeekModel.orgLines = weekOrgLines(); }
-function draftSaved(week) { return row => { if (week !== start) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_(); hwpx?.sync(week); }; }
+function draftSaved(week) { return row => { if (week !== start) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_(); hwpx?.sync(week, row); }; }
 // WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
 // WEEKLY-임원요청정리: it also gets the active project names (carry-over matching) and hands back last week's filtered request rows.
 const projectNames = () => (materials.catalog?.status === 'ok' ? materials.catalog.items.map(entry => entry?.project?.name).filter(Boolean) : []);
@@ -923,11 +923,15 @@ const readers = {
 // HOME-업무일지홈 B: 할 일을 읽을 때마다 연결된 사업 보고 이름을 한 번 다시 읽는다(taskMeetings, 탭 메모리만).
 async function loadTaskMeetings(run, scope) {
   const pending = (materials.tasks?.items || []).filter(t => t?.id && t.status !== 'completed').map(t => t.id);
+  // 할 일을 읽은 뒤 따라오는 읽기라 하루 카드를 한 번 더 그린다. 그 동안도 '다 왔다' 신호(data-journal-refreshing)를 켜 둔다 —
+  // 신호가 꺼진 뒤 카드가 다시 그려지면 시험·수치가 사라진 줄을 잡는다(STAB-main화면시험흔들림).
+  const live = () => run === sharedEpoch && scope === ownerScope(rt);
+  refreshing.add('taskMeetings'); markRefreshing();
   try {
     const names = await readTaskMeetingNames(pending, rt);
-    if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
+    if (!live()) return;
     taskMeetings = names; renderDay();
-  } catch { /* 이름 없이 그대로 */ }
+  } catch { /* 이름 없이 그대로 */ } finally { if (live()) { refreshing.delete('taskMeetings'); markRefreshing(); } }
 }
 const SHARED_KEYS = new Set(['tasks', 'basket', 'catalog', 'milestones']);
 const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch && scope === ownerScope(rt) : current(run, scope);

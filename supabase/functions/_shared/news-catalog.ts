@@ -126,6 +126,33 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     extract: false,
     lists: ["https://www.chosun.com/arc/outboundfeeds/rss/category/national/?outputType=xml", "https://www.chosun.com/arc/outboundfeeds/rss/category/economy/?outputType=xml", "https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml"],
     hosts: ["www.chosun.com", "chosun.com"], kindOf: article },
+  // ---- 4차(S56-54, 11/10 NEWS-다받기-새언론사). 같은 규칙: 매체 공식 'RSS 안내' 쪽에 [사실]로 나온 피드 주소만, take 'all'·기본 켬·extract:false.
+  //   이 웹 세션은 WebSearch 결과로 나온 안내 쪽을 WebFetch로 열어 확인했다(설계 3.1f 표). 피드 실물은 뉴시스·서울경제 사회 피드만 열림 [사실],
+  //   미디어오늘·매일신문은 안내 쪽만 [사실]이고 피드·기사 호스트는 배포 뒤 probe(raw·listed)로 CC가 확인한다(0건이면 그 줄만 빼는 작은 PR).
+  //   'AI 학습 금지' 문구가 있는 서울경제도 넣는다 — 11/08 명진 결정(개인 용도)과 같은 기준.
+  { key: "news-mediatoday", name: "미디어오늘", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+    // 안내 쪽 www.mediatoday.co.kr/rssIndex.html [사실, 11/10]: 전체기사 /rss/allArticle.xml. 안내 쪽에 RSS 이용 조건 문구 없음 [사실]. 언론 비평 매체라 전체 피드 하나.
+    extract: false,
+    lists: ["https://www.mediatoday.co.kr/rss/allArticle.xml"],
+    hosts: ["www.mediatoday.co.kr", "mediatoday.co.kr"], kindOf: article },
+  { key: "news-newsis", name: "뉴시스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+    // 안내 쪽 www.newsis.com/RSS/ [사실, 11/10]. 사회 피드 열림(RSS 2.0·description 있음·기사 링크 https://www.newsis.com/view/…) [사실].
+    // 조건: 하단 '무단 전재·복사·배포 금지', 피드 안 저작권 고지 줄 [사실]. 전체 피드는 없고 속보(sokbo)는 양이 많아 사회·경제·정치만.
+    extract: false,
+    lists: ["https://www.newsis.com/RSS/society.xml", "https://www.newsis.com/RSS/economy.xml", "https://www.newsis.com/RSS/politics.xml"],
+    hosts: ["www.newsis.com", "newsis.com"], kindOf: article },
+  { key: "news-sedaily", name: "서울경제", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+    // 안내 쪽 www.sedaily.com/rss [사실, 11/10]: '개인 이용자의 비상업적 사용에만 허용', AI 학습 금지 [사실] → 명진 결정(11/08, 개인 용도)으로 넣음.
+    // 사회 피드 열림(RSS 2.0·item 50·description 없음·기사 링크 https://www.sedaily.com/article/…) [사실].
+    extract: false,
+    lists: ["https://www.sedaily.com/rss/society", "https://www.sedaily.com/rss/economy", "https://www.sedaily.com/rss/politics"],
+    hosts: ["www.sedaily.com", "sedaily.com"], kindOf: article },
+  { key: "news-imaeil", name: "매일신문", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+    // 대구 지역지. 안내 쪽 www.imaeil.com/rss_service [사실, 11/10]: 이용 조건 문구 없음(저작권 표기만) [사실]. 피드는 ?cate= 쿼리(allowedUrl은 호스트만 봄).
+    // 기사 호스트 www.imaeil.com(/page/view/…)은 검색 결과로 본 주소 [사실], 피드 안 링크는 배포 뒤 probe로 확인.
+    extract: false,
+    lists: ["https://www.imaeil.com/rss?cate=society", "https://www.imaeil.com/rss?cate=economy", "https://www.imaeil.com/rss?cate=politics"],
+    hosts: ["www.imaeil.com", "imaeil.com"], kindOf: article },
   { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss",
     extract: { version: 1 },
     lists: ["https://publicservices.international/feed.xml"], hosts: ["publicservices.international"], kindOf: article },
