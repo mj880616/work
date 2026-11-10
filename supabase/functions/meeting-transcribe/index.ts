@@ -35,6 +35,7 @@ import {
   pieceFileName, recFailBody, recMime, restorePlan, segmentFileName, toCombine,
 } from './recording.mjs';
 import { OggFail, normalizeOggOpus, wantsOggFix } from './ogg.mjs';
+import { chunkBytes, chunkCount, chunkRanges, cutPlan } from './audio-cut.mjs';
 import { withWebCors } from "../_shared/web-cors.ts";
 import { WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog } from "../_shared/safe-error.ts";
@@ -45,7 +46,7 @@ import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meet
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
-  audioDocument, cleanText, combineDrafts, doneParts, draftResult, halves, hasWords, jobView, joinParts, leaseTake, needsKick, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, summaryPlan, tickCheck, tickSign,
+  audioDocument, chunkDone, chunkNext, chunkState, combineDrafts, doneParts, draftResult, halfMark, halves, hasWords, jobView, joinParts, leaseTake, needsKick, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, summaryPlan, tickCheck, tickSign,
 } from './server-job.mjs';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
@@ -217,10 +218,12 @@ async function geminiActive(key: string, name: string, state?: string) {
 async function geminiDelete(key: string, name: string) {
   try { await fetch(`${GEM}/v1beta/${name}`, { method: 'DELETE', headers: { 'x-goog-api-key': key } }); } catch { /* 48시간 뒤 Gemini가 지움 */ }
 }
-async function geminiTranscribe(key: string, uri: string, mime: string, diarize: boolean) {
+// 기다리는 시간: 화면 transcribe는 380초. 서버 정리의 조각 전사는 Edge 한 번 실행 시간 안에서 이유(gemini_timeout)를 남기도록 더 짧게.
+const CHUNK_TRANSCRIBE_MS = 240000;
+async function geminiTranscribe(key: string, uri: string, mime: string, diarize: boolean, waitMs = 380000) {
   const send = (d: boolean) => fetch(`${GEM}/v1beta/interactions`, {
     method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
-    body: JSON.stringify(transcriptionRequest(uri, mime, d)), signal: AbortSignal.timeout(380000),
+    body: JSON.stringify(transcriptionRequest(uri, mime, d)), signal: AbortSignal.timeout(waitMs),
   });
   let r = await send(diarize);
   // 통화 전사와 같은 규칙: 화자 구분을 거절(400)하면 화자 구분 없이 한 번 더.
@@ -329,18 +332,22 @@ const failCode = (e: unknown) => e instanceof Fail ? e.code : (e instanceof DOME
 // Drive의 소리 → Gemini 전사 → 글. 쓴 만큼 사용량 기록(화면 transcribe·서버 정리 공용). job: 파일 id·형식·크기·이름·길이·작업공간.
 // Gemini에 올린 임시 파일은 끝나면 지운다. 작업 행 상태는 부른 쪽이 정한다.
 async function runTranscription(key: string, job: Job) {
+  const token = await driveToken(job.workspace_id);
+  const media = await fetch(`${DRIVE}/${encodeURIComponent(job.drive_file_id)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!media.ok || !media.body) throw new Fail('drive_failed');
+  const audio = await audioForGemini(job, media);
+  return await geminiRun(key, job, audio, wantsDiarize(job.duration_sec ?? audio.seconds), job.duration_sec);
+}
+// 소리(흐름 또는 바이트) → Gemini 올리기 → 전사 → 사용량 기록 → 글. 올린 임시 파일은 끝나면 지운다.
+async function geminiRun(key: string, job: Job, audio: { body: ReadableStream<Uint8Array> | Uint8Array; size: number }, diarize: boolean, seconds: number | null, waitMs?: number) {
   let geminiFile: string | null = null;
   try {
-    const token = await driveToken(job.workspace_id);
-    const media = await fetch(`${DRIVE}/${encodeURIComponent(job.drive_file_id)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!media.ok || !media.body) throw new Fail('drive_failed');
-    const audio = await audioForGemini(job, media);
     const file = await geminiUpload(key, job, audio.body, audio.size);
     geminiFile = file.name;
     await geminiActive(key, file.name, file.state);
-    const response = await geminiTranscribe(key, file.uri, file.mimeType || job.mime_type, wantsDiarize(job.duration_sec ?? audio.seconds));
+    const response = await geminiTranscribe(key, file.uri, file.mimeType || job.mime_type, diarize, waitMs);
     // Gemini가 답했으면(글이 비었어도) 쓴 만큼 기록한다.
-    const usage = readUsage(response, job.duration_sec);
+    const usage = readUsage(response, seconds);
     const at = new Date();
     const { error: usageError } = await admin.from('app_ai_external_usage').insert({
       workspace_id: job.workspace_id, ref: usageRef(job.id, at), provider: 'gemini', source: 'transcript', day: seoulDay(at), ...usage,
@@ -803,8 +810,8 @@ async function stepOnce(job: Job): Promise<Record<string, unknown>> {
       const key = GEMINI();
       if (!key) throw new Fail('not_ready');
       const p = parts[i];
-      const text = p.file ? await transcribeFile(key, job, p.file) : await transcribeSegment(key, p.job);
-      parts[i] = { ...p, text: cleanText(text) };
+      // 긴 구간은 이번 단계에 조각 하나만(설계 9절). 진행은 그 구간 항목(chunks)에 남아 다음 단계가 잇는다.
+      parts[i] = p.file ? await transcribeFile(key, job, p) : await transcribeSegment(key, p);
       if (nextPart(parts) >= 0) return { ...started, status: 'queued', parts, step_no: doneParts(parts) };
     }
     const transcript = joinParts(parts);
@@ -816,20 +823,34 @@ async function stepOnce(job: Job): Promise<Record<string, unknown>> {
     const done = Array.isArray(job.summary_parts) ? job.summary_parts : [];
     const plan = summaryPlan(job.transcript_text, done);
     const count = plan.count;
+    // 한 단계에 AI 요청은 한 번(설계 9절). 답이 잘리면(draft_cut) 그 자리에 반 나눔 표시를 남기고 다음 단계들이 반 하나씩 한다.
+    if (plan.kind === 'half') {
+      const h = halves(plan.piece || '');
+      if (!h) throw new Fail('draft_cut');
+      const at = Number(plan.at), half = Number(plan.half);
+      const no = plan.single ? half + 1 : at + 1;
+      const d = normalizeDraft(await serverDraft(job, h[half], { kind: 'part', no, count }));
+      const got = [...done[at].halves, d];
+      const list = got.length < 2 ? [...done.slice(0, at), { halves: got }]
+        : plan.single ? got : [...done.slice(0, at), combineDrafts(got)];
+      return { ...started, status: 'queued', summary_parts: list, step_no: plan.single ? got.length : at + (got.length < 2 ? 0 : 1), step_total: plan.total };
+    }
     if (plan.kind === 'part') {
-      const part = await draftPiece(job, plan.pieces[plan.next], plan.next + 1, count);
+      let part;
+      try { part = normalizeDraft(await serverDraft(job, plan.pieces[plan.next], { kind: 'part', no: plan.next + 1, count })); }
+      catch (e) {
+        if (!(e instanceof Fail && e.code === 'draft_cut' && halves(plan.pieces[plan.next]))) throw e;
+        return { ...started, status: 'queued', summary_parts: [...done, halfMark()], step_no: plan.next };
+      }
       return { ...started, status: 'queued', summary_parts: [...done, part], step_no: plan.next + 1 };
     }
     let raw;
     if (plan.kind === 'one') {
       try { raw = await serverDraft(job, plan.pieces[0] || '', { kind: '', no: 0, count: 0 }); }
       catch (e) {
-        // 한 번에 요약하기엔 답이 길어 잘림: 반으로 나눠 조각 요약 둘을 남기고, 다음 단계에서 합친다(summaryPlan).
-        const h = e instanceof Fail && e.code === 'draft_cut' ? halves(plan.pieces[0] || '') : null;
-        if (!h) throw e;
-        const a = normalizeDraft(await serverDraft(job, h[0], { kind: 'part', no: 1, count: 2 }));
-        const b = normalizeDraft(await serverDraft(job, h[1], { kind: 'part', no: 2, count: 2 }));
-        return { ...started, status: 'queued', summary_parts: [a, b], step_no: 2, step_total: 3 };
+        // 한 번에 요약하기엔 답이 길어 잘림: 반 나눔 표시 → 다음 두 단계가 반씩 → 그다음 단계에서 합친다(summaryPlan).
+        if (!(e instanceof Fail && e.code === 'draft_cut' && halves(plan.pieces[0] || ''))) throw e;
+        return { ...started, status: 'queued', summary_parts: [halfMark()], step_no: 0, step_total: 3 };
       }
     } else {
       const drafts = done.filter(Boolean);
@@ -841,22 +862,11 @@ async function stepOnce(job: Job): Promise<Record<string, unknown>> {
   throw new Fail('failed');
 }
 
-// 조각 요약 하나(normalizeDraft 모양). 답이 길어 잘리면(draft_cut) 조각을 반으로 나눠 둘을 요약해 잇는다(합치기 단계가 겹침을 정리).
-async function draftPiece(job: Job, piece: string, no: number, count: number) {
-  try { return normalizeDraft(await serverDraft(job, piece, { kind: 'part', no, count })); }
-  catch (e) {
-    const h = e instanceof Fail && e.code === 'draft_cut' ? halves(piece) : null;
-    if (!h) throw e;
-    const a = normalizeDraft(await serverDraft(job, h[0], { kind: 'part', no, count }));
-    const b = normalizeDraft(await serverDraft(job, h[1], { kind: 'part', no, count }));
-    return combineDrafts([a, b]);
-  }
-}
-
 // 녹음 구간 전사(서버 정리). 화면 transcribe와 같은 길이지만, 이미 끝난(done) 구간도 다시 전사한다(옛 화면 정리가 글을 남기지 않았음).
 // 구간 행이 '진행 중'이면: 막 시작한 실행이면 busy, 오래됐으면(SEGMENT_DEAD_MS) 끊긴 앞 실행이라 넘겨받는다(REC-정리멈춤반복:
 // 전엔 15분(RUNNING_STALE_MS)을 기다려, 서버 정리가 9분 뒤 다시 잡을 때 끊긴 자기 흔적에 막혀 busy로 실패했다).
-async function transcribeSegment(key: string, jobId: unknown): Promise<string> {
+async function transcribeSegment(key: string, part: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const jobId = part.job;
   if (!isUuid(jobId)) throw new Fail('not_found');
   const { data: job, error } = await admin.from(TABLE).select(JOB_COLUMNS).eq('id', jobId as string).maybeSingle();
   if (error) throw new Fail('failed');
@@ -874,10 +884,10 @@ async function transcribeSegment(key: string, jobId: unknown): Promise<string> {
   if (startError) throw new Fail(startError.code === '23505' ? 'busy' : 'failed');
   if (!started?.length) throw new Fail('busy');
   try {
-    const out = await runTranscription(key, job);
-    const model = out.model;
-    await setJob(job.id, { status: 'done', error_code: null, model, finished_at: new Date().toISOString() });
-    return out.text;
+    const out = await transcribeChunked(key, job as Job, part, Number(part.seconds) || Number(job.duration_sec) || 0);
+    // 조각이 남았으면 구간 행은 'uploaded'(아직 끝나지 않음, '이어서 정리' 목록에 남음). 다 끝나면 done.
+    await setJob(job.id, out.last ? { status: 'done', error_code: null, model: out.model, finished_at: new Date().toISOString() } : { status: 'uploaded', error_code: null });
+    return out.part;
   } catch (e) {
     await setJob(job.id, { status: 'failed', error_code: failCode(e), finished_at: new Date().toISOString() }).catch(() => undefined);
     throw e;
@@ -885,12 +895,57 @@ async function transcribeSegment(key: string, jobId: unknown): Promise<string> {
 }
 // 회의자료에 붙은 소리 파일 전사(B). 전사 작업 표에는 넣지 않는다(그 표의 30일 휴지통 정리가 회의자료 원본을 건드리지 않게).
 // 사용량 열쇠는 서버 작업 id로 남긴다.
-async function transcribeFile(key: string, job: Job, file: Record<string, unknown>): Promise<string> {
-  const result = await runTranscription(key, {
+async function transcribeFile(key: string, job: Job, part: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const file = part.file as Record<string, unknown>;
+  const src = {
     id: job.id, workspace_id: job.workspace_id, drive_file_id: file.id, file_name: file.name, mime_type: file.mime,
     size_bytes: file.size, duration_sec: null,
-  });
-  return result.text;
+  };
+  return (await transcribeChunked(key, src, part, Number(part.seconds) || 0)).part;
+}
+
+const isOggBytes = (b: Uint8Array) => b.length >= 4 && b[0] === 0x4f && b[1] === 0x67 && b[2] === 0x67 && b[3] === 0x53;
+// 구간(파일) 하나를 이번 단계에 할 만큼 전사 → 새 구간 항목(설계 9절, audio-cut.mjs).
+// 짧으면(20분 이하) 지금처럼 통째로 한 번(화자 구분 규칙 그대로). 길면 소리를 받아 약 15분 조각 하나만 전사하고 진행을 항목(chunks)에 남긴다.
+// 자를 수 없는 그릇(보통 m4a·mp3)은 통째로 한 번. 조각 전사는 화자 구분을 끈다(조각마다 화자 번호가 달라짐).
+async function transcribeChunked(key: string, src: Job, part: Record<string, unknown>, seconds: number): Promise<{ part: Record<string, unknown>; last: boolean; model: string }> {
+  const want = chunkState(part)?.n ?? chunkCount(seconds, src.size_bytes);
+  if (want <= 1) {
+    const out = await runTranscription(key, src);
+    return { part: chunkDone(part, 1, out.text), last: true, model: out.model };
+  }
+  const token = await driveToken(src.workspace_id);
+  const media = await fetch(`${DRIVE}/${encodeURIComponent(src.drive_file_id)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!media.ok) { await media.body?.cancel().catch(() => undefined); throw new Fail('drive_failed'); }
+  let bytes: Uint8Array;
+  try { bytes = new Uint8Array(await media.arrayBuffer()); } catch { throw new Fail('drive_failed'); }
+  const ogg = isOggBytes(bytes);
+  const fixOgg = (b: Uint8Array) => {
+    try { return normalizeOggOpus(b).bytes; } catch (e) { if (e instanceof OggFail) throw new Fail('bad_format'); throw e; }
+  };
+  if (ogg) bytes = fixOgg(bytes);
+  const plan = cutPlan(bytes);
+  const ranges = plan ? chunkRanges(plan, want) : [];
+  if (!plan || ranges.length < 2) {
+    console.warn('meeting-transcribe: chunk plan none', bytes.byteLength);
+    const out = await geminiRun(key, src, { body: bytes, size: bytes.byteLength }, false, seconds || null);
+    return { part: chunkDone(part, 1, out.text), last: true, model: out.model };
+  }
+  const n = ranges.length, k = chunkNext(part, n);
+  let chunk = chunkBytes(bytes, plan, ranges, k);
+  if (!chunk) throw new Fail('failed');
+  if (ogg) chunk = fixOgg(chunk); // 조각의 granule·쪽 번호를 0부터 다시
+  console.warn('meeting-transcribe: chunk', k + 1, n, chunk.byteLength);
+  let text = '', model = TRANSCRIBE_MODEL;
+  try {
+    const out = await geminiRun(key, src, { body: chunk, size: chunk.byteLength }, false, seconds ? Math.round(seconds / n) : null, CHUNK_TRANSCRIBE_MS);
+    text = out.text; model = out.model;
+  } catch (e) {
+    // 말이 없는 조각(쉬는 시간 등)은 빈 글로 넘어간다. 구간 전체에 글이 없으면 뒤에서 empty_transcript.
+    if (!(e instanceof Fail && e.code === 'empty_transcript')) throw e;
+  }
+  const next = chunkDone(part, n, text);
+  return { part: next, last: next.text !== null, model };
 }
 
 // 서버 요약 한 번(meeting-ai-draft '새 회의' 길과 같은 지시문·한도·사용량 기록). 명진 이름 목록은 읽을 수 있을 때만 넣는다.

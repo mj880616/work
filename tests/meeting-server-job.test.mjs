@@ -132,8 +132,10 @@ test('REC-정리멈춤반복: 요약 답이 잘리면(draft_cut) 조각을 반�
   const p=sj.summaryPlan(long,[]);assert.equal(p.count,p.pieces.length);
   const src=read('supabase/functions/meeting-transcribe/index.ts');
   assert.match(src,/const result = draftResult\(d\);/);
-  assert.match(src,/async function draftPiece\(/);
-  assert.match(src,/e\.code === 'draft_cut' \? halves\(piece\)/);
+  // 한 단계에 AI 요청 한 번(REC-정리멈춤반복-긴구간): 잘리면 반 나눔 표시를 남기고 다음 단계들이 반씩 한다.
+  assert.doesNotMatch(src,/async function draftPiece\(/);
+  assert.doesNotMatch(src,/serverDraft\(job, h\[[01]\]/);
+  assert.match(src,/summary_parts: \[halfMark\(\)\]/);
 });
 
 test('요약 지시문은 한 곳: meeting-ai-draft와 서버 정리가 같은 모듈을 쓴다',()=>{
