@@ -330,7 +330,9 @@
     if(layers.some(layer=>layer.key===entry.key)||chainOf(history.state).length)return null;
     sourceEntry=null;
     history.replaceState({...(history.state||{}),[LAYERS]:[name]},'',location.href);
-    const layer={name,close,reopen,index:entry.index,key:here()?.key||entry.key};
+    // The entry object read before replaceState is no longer in the list (its index is -1): read the one standing now.
+    const now=here()||entry;
+    const layer={name,close,reopen,index:now.index,key:now.key};
     layers.push(layer);keepReopen(layer);
     return {close:()=>releaseLayer(layer)};
   }
