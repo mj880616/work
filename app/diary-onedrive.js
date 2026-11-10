@@ -290,13 +290,13 @@ export async function odPhotos(rt, year, month) {
 // 일기·일기 목록은 처음 열 때 이것을 먼저 쓰고(기다리던 요청이면 그 요청을 함께 기다린다), 다시 읽기(force)는 늘 서버에 묻는다.
 // 이번 달 목록을 미리 받으면 서버가 그 자리에서 원드라이브 바뀐 것(delta)도 받아 두므로(10분 기준), 일기를 열 때는 서버 표만 읽는다.
 export const WARM = Object.freeze({statusMs: 30 * 60 * 1000, monthMs: 10 * 60 * 1000, firstDay: 4, maxThumbs: 8});
-const warm = {owner: '', status: null, statusAt: 0, months: new Map()};
+const warm = {owner: '', status: null, statusAt: 0, months: new Map(), stars: new Map()};
 function warmFor(rt) {
   const scope = ownerScope(rt), owner = scope && scope !== ':' && !scope.startsWith(':') && !scope.endsWith(':') ? scope : '';
-  if (warm.owner !== owner) { warm.owner = owner; warm.status = null; warm.statusAt = 0; warm.months.clear(); }
+  if (warm.owner !== owner) { warm.owner = owner; warm.status = null; warm.statusAt = 0; warm.months.clear(); warm.stars.clear(); }
   return owner;
 }
-export function odWarmReset() { warm.status = null; warm.statusAt = 0; warm.months.clear(); }
+export function odWarmReset() { warm.status = null; warm.statusAt = 0; warm.months.clear(); warm.stars.clear(); }
 // 연결 상태(30분 안에 받아 둔 '연결됨' 또는 받는 중인 것). force: 서버에 다시 묻고 받아 둔 달 목록도 버린다(연결·폴더가 바뀐 뒤).
 export function odStatusCached(rt, {force = false, now = Date.now()} = {}) {
   const owner = warmFor(rt);
@@ -324,6 +324,25 @@ export function odTakeWarmMonth(rt, year, month, {now = Date.now()} = {}) {
   if (now - hit.at >= WARM.monthMs) return null;
   return hit.promise.catch(() => odPhotos(rt, year, month));
 }
+// HOME-오늘사진빨리 ②(2026-11-10): 받아 둔 그달 목록을 꺼내지 않고 함께 쓴다(홈 '오늘 사진'). 10분 넘었거나 없으면 null.
+// 일기가 처음 열 때 꺼내는 것(odTakeWarmMonth)은 그대로 — 홈이 먼저 봐도 일기는 같은 목록을 받는다.
+export function odWarmMonthKept(rt, year, month, {now = Date.now()} = {}) {
+  const owner = warmFor(rt), hit = owner && warm.months.get(monthParam(year, month));
+  return hit && now - hit.at < WARM.monthMs ? hit.promise : null;
+}
+// 그달 별표(일기와 같은 읽기 readStars). 미리 받기가 이번 달 것을 받아 두고, 홈은 받아 둔 것을 쓴다(10분, 받는 중이면 함께 기다림).
+// 탭 메모리뿐(기기 저장 없음). 실패하면 버려 다음에 다시 묻는다.
+export function odWarmStars(rt = window.KPTURuntime, year, month, {now = Date.now(), today = todayKey()} = {}) {
+  if (year == null) { year = Number(today.slice(0, 4)); month = Number(today.slice(5, 7)) - 1; }
+  const owner = warmFor(rt);
+  if (!owner) return readStars(year, month, rt);
+  const key = monthParam(year, month), hit = warm.stars.get(key);
+  if (hit && now - hit.at < WARM.monthMs) return hit.promise;
+  const flight = readStars(year, month, rt), mine = {at: now, promise: flight};
+  warm.stars.set(key, mine);
+  flight.catch(() => { if (warm.stars.get(key) === mine) warm.stars.delete(key); });
+  return flight;
+}
 // 미리 받을 작은 그림: 오늘부터 거꾸로, 사진이 있는 첫 날은 앞 4장(날짜 칸에 먼저 보이는 순서), 그다음 날들은 첫 장 하나씩(목록 줄의 그림), 모두 8장까지.
 export function warmPicks(month, today, {firstDay = WARM.firstDay, max = WARM.maxThumbs} = {}) {
   const days = Object.keys(month?.days || {}).filter(day => dayRe.test(day) && day <= today).sort().reverse();
@@ -338,7 +357,8 @@ export function warmPicks(month, today, {firstDay = WARM.firstDay, max = WARM.ma
 }
 // 앱을 켠 뒤 한 번: 연결 확인 → (연결·폴더가 있을 때만) 이번 달 목록 → 앞쪽 작은 그림 몇 장. 원드라이브를 연결하지 않았으면 상태 확인 한 번으로 끝난다.
 // 작은 그림은 주소를 대기열(가장 낮은 순서, 한 번에 묶어 받기)로 받고, 폰 보관소를 쓸 수 있으면 그 바이트를 보관한다(OD-폰보관의 같은 예외).
-export async function odWarm(rt = window.KPTURuntime, {today = todayKey(), now = () => Date.now()} = {}) {
+// onList: 이번 달 목록 단계가 끝나면(연결 안 됨·실패 포함) 한 번 부른다(홈 '오늘 사진'이 작은 그림까지 기다리지 않게, od-warm.js).
+export async function odWarm(rt = window.KPTURuntime, {today = todayKey(), now = () => Date.now(), onList = () => {}} = {}) {
   const owner = warmFor(rt);
   if (!owner) return {done: false, why: 'owner'};
   let st;
@@ -355,6 +375,7 @@ export async function odWarm(rt = window.KPTURuntime, {today = todayKey(), now =
   let data;
   try { data = await hit.promise; } catch { return {done: false, why: 'photos'}; }
   if (warmFor(rt) !== owner) return {done: false, why: 'owner'};
+  onList();
   const picks = warmPicks(data, today);
   return {done: true, picks: picks.length, kept: await warmThumbs(rt, picks, owner)};
 }

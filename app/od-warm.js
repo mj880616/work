@@ -16,28 +16,35 @@ export function installOdWarm(win = window, {load = () => import('./diary-onedri
     if (typeof win.requestIdleCallback === 'function') win.requestIdleCallback(() => resolve(), {timeout: 3000});
     else win.setTimeout(resolve, 200);
   });
-  function run() {
+  // HOME-오늘사진빨리(2026-11-10): 홈 '오늘 사진'이 홈을 그릴 때 run({soon:true})로 바로 시작한다(첫 화면 뒤 한가할 때를 기다리지 않음).
+  // 이번 달 목록 단계가 끝나면(연결 안 됨·실패 포함) listed가 풀린다 — 홈은 그 목록을 그대로 쓴다(두 번 받지 않음).
+  // 이번 달 별표도 이때 같이 받아 둔다(odWarmStars, 탭 메모리 10분). 이어지는 사진 미리 받기는 soon이어도 한가할 때 시작한다(다른 탭 읽기와 겹치지 않게).
+  function run({soon = false} = {}) {
     if (running || doc?.visibilityState === 'hidden' || win.KPTURouter?.current === 'diary') return running;
+    let markListed = () => {};
+    win.KPTUOdWarm.listed = new Promise(resolve => { markListed = resolve; });
     running = (async () => {
-      await idle();
+      if (!soon) await idle();
       if (doc?.visibilityState === 'hidden' || win.KPTURouter?.current === 'diary') return {done: false, why: 'skipped'};
-      last = now();
-      const {odWarm, odWarmPrefetch} = await load();
-      const out = await odWarm(rt);
+      last = now(); win.KPTUOdWarm.lastAt = last;
+      const {odWarm, odWarmPrefetch, odWarmStars} = await load();
+      if (typeof odWarmStars === 'function') odWarmStars(rt).catch(() => []);
+      const out = await odWarm(rt, {onList: markListed});
       // PHOTO-미리받기앱시작: 일기를 열지 않아도 이어서 사진 미리 받기(최근 100장은 작은+큰 그림, 그다음 옛날 작은 그림)를 시작한다.
       // 연결·폴더가 있을 때만(odWarm이 done). 이미 돌고 있으면 그대로 둔다. 앱을 닫으면 멈춘다(diary-onedrive.js).
-      if (out?.done && typeof odWarmPrefetch === 'function') odWarmPrefetch(rt).catch(() => false);
+      if (out?.done && typeof odWarmPrefetch === 'function') (soon ? idle() : Promise.resolve()).then(() => odWarmPrefetch(rt)).catch(() => false);
       return out;
-    })().catch(() => ({done: false, why: 'error'})).finally(() => { running = null; });
+    })().catch(() => ({done: false, why: 'error'})).finally(() => { markListed(); running = null; });
     return running;
   }
   // HOME-하루채우기: 첫 미리 받기가 끝나면(연결 안 됨·건너뜀 포함) 알린다. 홈 '오늘 사진'은 이 뒤에 받아 둔 연결 상태만 보고 서버에 다시 묻지 않는다.
   const firstDone = () => { if (win.KPTUOdWarm && !win.KPTUOdWarm.firstDone) { win.KPTUOdWarm.firstDone = true; win.KPTUOdWarm.firstAt = now(); win.dispatchEvent?.(new Event('kptu-od-warm')); } };
-  win.setTimeout(() => { Promise.resolve(run()).finally(firstDone); }, WARM_START_MS);
+  // 홈이 먼저 시작했으면 시간이 되어도 다시 하지 않고 그 결과를 기다린다.
+  win.setTimeout(() => { Promise.resolve(last || running ? running : run()).finally(firstDone); }, WARM_START_MS);
   doc?.addEventListener?.('visibilitychange', () => {
     if (doc.visibilityState === 'visible' && last && now() - last >= WARM_AGAIN_MS) run();
   });
-  win.KPTUOdWarm = {run, firstDone:false, firstAt:0};
+  win.KPTUOdWarm = {run, firstDone:false, firstAt:0, lastAt:0, listed:null};
   return win.KPTUOdWarm;
 }
 
