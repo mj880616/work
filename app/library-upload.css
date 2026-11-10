@@ -445,7 +445,8 @@
 /* 고르기 상자 둘: 같은 높이·글자·선. [분류 ▾]는 단추(체크 여러 개 창), [폴더 ▾]는 고르기 상자(하나만). */
 #appView #libraryView .lu-pick-row > :is(.lu-cat-pick,.lu-top-select){position:relative;display:inline-flex;align-items:center;flex:0 1 auto;min-width:0;max-width:14em;box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 8px;
   font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;color:var(--kptu-ink);white-space:nowrap;overflow:visible;
-  background:var(--ds-select-bg,var(--kptu-surface-subtle));border:var(--ds-line-width,1px) solid var(--ds-line);border-radius:var(--kptu-radius-md);cursor:pointer}
+  background-color:var(--ds-select-bg,var(--kptu-surface-subtle));border:var(--ds-line-width,1px) solid var(--ds-line);border-radius:var(--kptu-radius-md);cursor:pointer}
+/* S56-11: 바탕은 색만 정한다(background-color). 줄임 표기 background:는 공용 ▾ 그림(ui-standard.css select 규칙)을 지워 [폴더 ▾]의 ▾가 안 보였다(사진 [전체 ▾]와 같은 원인). */
 #appView #libraryView .lu-pick-row > .lu-top-select{width:auto;field-sizing:content;padding-right:22px;text-overflow:ellipsis}
 #appView #libraryView .lu-pick-row > .lu-cat-pick .lu-cat-pick-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
 #appView #libraryView .lu-pick-row > .lu-cat-pick .lu-cat-caret::before{content:"▾";content:"▾" / "";flex:none;margin-left:4px;font-size:.85em;opacity:.7}
