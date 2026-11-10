@@ -247,5 +247,89 @@ export function createTaskFiles(admin: UploadAdmin, deps: Deps) {
     return { status: 200, body: { ok: true, files: notes.files, task: notes.task, notes_synced: notes.synced } };
   }
 
-  return { attach, detach, notesForUpdate, forget };
+  // POST JSON action=reattach {task_id, drive_file_id} — FILE-첨부삭제 ②(S56-45): 할 일 첨부 [삭제] 뒤 [되돌리기].
+  // 이미 Drive에 있는 내 파일을 그 할 일에 다시 붙인다(올리기 없음). 그 할 일이 내 Google 할 일인지(Google이 답함),
+  // 그 파일이 내 작업공간 Drive 연결이 가진 파일인지(ownedByMe·폴더 아님)를 서버가 다시 확인하고, 이름·종류·크기는 Drive 값만 쓴다.
+  // 휴지통에 있는 파일도 붙인다(꺼내기는 화면이 이어서 document-actions restore-file로 한다 — 그쪽은 다시 붙은 줄을 확인한 뒤 꺼낸다).
+  async function reattach(body: any, userId: string, db: Db, access: () => Promise<{ access_token: string }>): Promise<Result> {
+    const keys = Object.keys(body || {}).sort().join(",");
+    const taskId = String(body?.task_id || ""), fileId = String(body?.drive_file_id || "");
+    if (keys !== "action,drive_file_id,task_id" || !TASK_ID.test(taskId) || !FILE_ID.test(fileId)) {
+      return fail(400, "reattach_invalid", "다시 붙일 파일을 확인하지 못했습니다.");
+    }
+    let workspaceId: string;
+    try {
+      workspaceId = await ownerWorkspace(userId);
+    } catch (e) {
+      return e instanceof UploadError && e.status === 403
+        ? fail(403, "forbidden", "워크스페이스 소유자 권한이 필요합니다.")
+        : fail(503, "authorize_unavailable", "권한을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+    let existing: TaskFile[];
+    try {
+      existing = await listFor(db, [taskId]);
+    } catch {
+      return unavailable();
+    }
+    if (existing.some((f) => f.drive_file_id === fileId)) {
+      return { status: 200, body: { ok: true, already: true, files: existing, task: null, notes_synced: true } };
+    }
+    if (existing.length >= MAX_TASK_FILES) {
+      return fail(400, "too_many_files", `한 할 일에는 파일을 ${MAX_TASK_FILES}개까지 붙일 수 있습니다.`);
+    }
+    const conn = await access();
+    let task: any;
+    try {
+      task = await deps.googleReq(deps.taskUrl(deps.listId, taskId), conn.access_token);
+    } catch (e: any) {
+      if (e?.status === 404) return fail(404, "task_not_found", "Google 할 일을 찾을 수 없습니다.");
+      throw e;
+    }
+    if (!task || task.deleted) return fail(404, "task_not_found", "Google 할 일을 찾을 수 없습니다.");
+    let meta: any;
+    try {
+      const token = await drive.driveToken(workspaceId);
+      const r = await (deps.fetch ?? fetch)(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size,ownedByMe`, {
+        headers: { Authorization: `Bearer ${token}` }, redirect: "error",
+      });
+      if (r.status === 404) return fail(404, "file_not_found", "Drive 원본을 찾을 수 없어 다시 붙이지 못했습니다.");
+      if (r.status === 403) return fail(403, "drive_forbidden", "Drive 원본을 다시 붙일 권한이 없습니다.");
+      if (!r.ok) return fail(503, "drive_failed", "Google Drive를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      meta = await r.json().catch(() => null);
+    } catch (e) {
+      return driveFailure(e);
+    }
+    const size = Number(meta?.size), name = typeof meta?.name === "string" ? meta.name : "", mime = typeof meta?.mimeType === "string" ? meta.mimeType : "";
+    if (!meta || meta.id !== fileId || meta.ownedByMe !== true || mime === "application/vnd.google-apps.folder") {
+      return fail(403, "drive_forbidden", "Drive 원본을 다시 붙일 권한이 없습니다.");
+    }
+    if (!Number.isSafeInteger(size) || size < 1 || size > MAX_FILE_BYTES || [...name].length < 1 || [...name].length > 255 ||
+      /[\u0000-\u001f\u007f]/.test(name) || !/^[^/\s]{1,127}\/[^/\s]{1,127}$/.test(mime)) {
+      return fail(409, "file_unsupported", "이 파일은 할 일에 다시 붙일 수 없습니다.");
+    }
+    if (notesWithFiles(String(task.notes || ""), [...existing, { drive_file_id: fileId, file_name: name }]).length > NOTES_MAX) {
+      return fail(400, "notes_too_long", "할 일 메모가 길어 파일 링크를 더 넣을 수 없습니다. 메모를 줄인 뒤 다시 시도해 주세요.");
+    }
+    const row = { workspace_id: workspaceId, google_task_id: taskId, drive_file_id: fileId, file_name: name, mime_type: mime, size_bytes: size };
+    const saved = await db.from("app_task_attachments").insert(row).select(COLS).maybeSingle();
+    if (saved.error || !saved.data) {
+      // 같은 파일이 다른 할 일에 이미 붙어 있으면(작업공간 안 파일당 한 줄) DB가 거절한다. 그 밖에는 다시 읽어 결과를 확인한다.
+      if (saved.error?.code === "23505") return fail(409, "file_in_use", "이 파일은 다른 할 일에 붙어 있습니다.");
+      let present = false;
+      try {
+        present = (await listFor(db, [taskId])).some((f) => f.drive_file_id === fileId);
+      } catch {
+        present = false;
+      }
+      if (!present) {
+        log("reattach_save_failed");
+        return fail(503, "attach_result_unknown", "다시 붙인 결과를 확인하지 못했습니다. 할 일을 다시 열어 확인해 주세요.");
+      }
+    }
+    const notes = await syncNotes(db, taskId, conn.access_token);
+    const all = notes.files || [...existing, saved.data || row];
+    return { status: 200, body: { ok: true, file: all.find((f) => f.drive_file_id === fileId) || row, files: all, task: notes.task, notes_synced: notes.synced } };
+  }
+
+  return { attach, detach, reattach, notesForUpdate, forget };
 }
