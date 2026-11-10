@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {pickBasketView} from './helpers/forget-view.mjs';
+import {pressRowAct} from './helpers/nbx-act.mjs';
 // JOURNAL-챙길것 / AI-서버연동 S5 → HOME-업무일지홈(2026-10-30): 홈·업무일지의 '챙길 것' 상자는 화면째 없앴다. 남은 것:
 // ① 그날 이 탭에서 홈을 처음 열 때 서버에 한 번 찾기(D7, home-summary.js → todo-radar.js autoFindToday)
 // ② 홈 [하루] 카드 맨 위 '나한테 온 요청' 상자(S52-09) + 맨 아래 흐린 한 줄 '챙길 것 n · 정리 안 된 것 n ›'(누르면 정리함)
@@ -135,7 +136,7 @@ for(const width of [390,1280])test(`정리함: the suggested due is in the small
 test('정리함: [×] moves the row to 무시 with a 5 s [되돌리기] that brings it back',async({page})=>{
  const f=await fixture(page);
  await openInbox(page);
- await line(page,2).locator('[data-nbx-act="dismissed"]').click();
+ await pressRowAct(page,line(page,2),'dismissed');
  await expect(line(page,2)).toHaveCount(0);
  await expect(page.locator('[data-undo-notice]')).toContainText('무시했어요.');
  expect(f.calls.patch[0].body).toMatchObject({status:'dismissed'});
