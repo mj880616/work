@@ -97,6 +97,14 @@ export function flowMaterial(weekMaterial, model, draft) {
   orgs.forEach((c, i) => put(c, m.byOrg.get(i) ?? []));
   return out;
 }
+// STAB-주간정리4장다시그림: 3장 사업장 구성이 정해졌는지 — 이번 주 구성이 있거나, 이어 쓸 지난 구성을 다 읽었거나, 3장이 구성을 읽지 않는 때(바탕 전).
+// 4장 조직보고 창은 이 구성으로 '참고' 줄을 고르므로 정해지기 전에는 그리지 않고, 정해지면(읽기 끝 → 다시 그리기 한 번) 한 번에 그린다.
+export function siteLayoutSettled(slot, row, start) {
+  const draft = row?.draft ?? null; if (!draft || draftSiteLayout(draft)) return true;
+  if (!readProposed(draft.proposed) && !flowCells(draft, 'sites').length) return true;
+  const root = slot?.closest?.('[data-journal-weekly-root]') ?? slot?.closest?.('.journal-weekly-body') ?? slot, ui = root ? uiOf.get(root) : null;
+  return !!ui && ui.start === start && ui.carried.start === start && ui.carried.status === 'ok';
+}
 const describe = (c) => x => ({kind:x.orgRef ? 'calendar' : x.carried ? 'carried' : 'material', from:x.src ?? (x.summary ? 'ai' : 'record'), cell:x.orgRef ? `orgref:${x.orgId}` : cellName(c.section, c.key, c.n),
   org:c.section === 'summary' ? '' : x.from ?? '', text:`${x.day ? `${shortDay(x.day)} ` : ''}${lineOf(x.text)}`});
 
@@ -127,7 +135,7 @@ export function paintFlowCells(slot, ctx) {
   // WEEKLY-사업영역칸 2)(S48-35): 바탕에 줄이 없는 사업영역 칸이 있으면 바로 앞 주 임시저장의 그 사업영역 줄을 한 번 읽어 '지난주에서' 제안으로.
   if (section === 'summary' && cells.some(c => !c.lines.length) && ui.prevAreas?.start !== ctx.start) {
     ui.prevAreas = {start:ctx.start, data:null};
-    readCarriedAreas(ctx.start, ctx.rt).then(d => { if (ui.prevAreas?.start === ctx.start) { ui.prevAreas = {start:ctx.start, data:d}; if (d?.areas?.size) ctx.redraw?.(); } });
+    readCarriedAreas(ctx.start, ctx.rt).then(d => { if (ui.prevAreas?.start === ctx.start) { ui.prevAreas = {start:ctx.start, data:d}; if (d?.areas?.size) ctx.redraw?.({only:['summary']}); } });
   }
   // 투쟁 사업장: 구성(이번 주 것, 없으면 지난주 구성)대로 들어간 사업장만(뺀 사업장은 목록 없이 [+ 사업장 추가]에서 다시 고름).
   let siteOptions = [];
@@ -146,7 +154,7 @@ export function paintFlowCells(slot, ctx) {
     siteOptions = flowCells(draft, 'orgs').map(c => c.key).filter(n => !taken.has(siteKey(n)));
   }
   // 제안 재료(draft.mjs weekMaterial — 무거워서 처음 쓸 때 한 번 가져옴).
-  if (section !== 'sites' && !ui.mat && !ui.matFlight) ui.matFlight = import('./weekly-hwpx/draft.mjs').then(m => { ui.mat = m.weekMaterial; ui.matFlight = null; ctx.redraw?.(); }, () => { ui.matFlight = null; });
+  if (section !== 'sites' && !ui.mat && !ui.matFlight) ui.matFlight = import('./weekly-hwpx/draft.mjs').then(m => { ui.mat = m.weekMaterial; ui.matFlight = null; ctx.redraw?.({only:['summary', 'orgs']}); }, () => { ui.matFlight = null; });
   const material = section !== 'sites' && ui.mat && ctx.model ? flowMaterial(ui.mat, ctx.model, draft) : new Map();
   const prevAreas = section === 'summary' ? ui.prevAreas?.data?.areas : null, hadLines = hadTexts(draft?.picks);
   if (prevAreas?.size) for (const c of cells) {
