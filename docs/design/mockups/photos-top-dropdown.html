@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요청함 시안 — 사진 위쪽 보기 고르기를 드롭다운으로</title>
+<style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--surface:#fbfdfc;--bg:#eef5f2;--pri:#2f6f5e}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.45 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p.s{margin:0 0 10px;color:var(--muted)}h2{font-size:13px;margin:14px 0 6px}
+.phone{position:relative;width:100%;max-width:380px;height:430px;border:1px solid var(--line);border-radius:16px;background:var(--bg);overflow:hidden;padding-top:10px}
+.r{display:flex;align-items:center;gap:5px;padding:3px 10px}
+.ttl{font-size:17px;font-weight:600}.sp{margin-left:auto}
+.btn{height:30px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.btn small{color:var(--muted);font-size:10px}.btn.on{border-color:var(--pri);font-weight:600}
+.icon{width:30px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px}
+.seg{display:inline-flex;background:#efebe6;border-radius:999px;padding:3px}.seg span{padding:5px 11px;border-radius:999px;color:var(--muted)}.seg .on{background:#fff;color:var(--ink);font-weight:600}
+.pm{display:inline-flex;border:1px solid var(--line);border-radius:8px;background:var(--surface)}.pm span{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center}.pm span+span{border-left:1px solid var(--line)}
+.day{padding:6px 10px 3px;color:var(--ink)}.day i{font-style:normal;color:var(--muted)}
+.g{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:0 10px}.g div{aspect-ratio:1;border-radius:4px;background:#b9c8c2}
+.menu{position:absolute;left:10px;top:84px;width:130px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.12);padding:4px 0;z-index:2}
+.menu div{padding:6px 12px}.menu .on{font-weight:600;color:var(--pri)}.menu .on:after{content:" ✓"}
+.note{margin:6px 2px 0;color:var(--muted);font-size:12px;line-height:1.6;max-width:380px}.warn{color:#a5463c}
+.tag{display:inline-block;font-size:11px;color:#fff;background:var(--pri);border-radius:4px;padding:0 5px;margin-right:4px}
+</style></head><body>
+<h1>사진 위쪽 — 보기 고르기를 드롭다운으로</h1>
+<p class="s">자료실 [폴더 ▾]·사업 보고 [주 단위 ▾]와 같은 모양. 사진 칸은 그대로.</p>
+
+<h2>지금 (폰)</h2>
+<div class="phone">
+<div class="r"><span class="ttl">사진</span></div>
+<div class="r" style="padding-top:8px"><span class="seg"><span class="on">사진</span><span>달력</span><span>폴더</span><span>앨범</span><span>휴지통</span></span></div>
+<div class="r"><span class="btn">정리</span><span class="btn">전체<small>▾</small></span><span class="btn">찍은 날 ↓<small>▾</small></span><span class="pm"><span>−</span><span>＋</span></span><span class="icon sp">☁</span><span class="icon">△</span><span class="icon">▭</span></div>
+<div class="day">11월 10일 (화) <i>· 3장</i></div><div class="g"><div></div><div></div><div></div></div>
+<div class="day">11월 9일 (월) <i>· 9장</i></div><div class="g"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+</div>
+<p class="note warn">제목 줄 + 보기 탭 줄 + 도구 줄 = 세 줄. 탭 줄이 큼직함</p>
+
+<h2><span class="tag">가안 추천</span>[사진 ▾] 드롭다운 + 출처 아이콘은 제목 줄로</h2>
+<div class="phone">
+<div class="r"><span class="ttl">사진</span><span class="icon sp">☁</span><span class="icon">△</span><span class="icon">▭</span></div>
+<div class="r"><span class="btn on">사진<small>▾</small></span><span class="btn">정리</span><span class="btn">전체<small>▾</small></span><span class="btn">찍은 날 ↓<small>▾</small></span><span class="pm sp"><span>−</span><span>＋</span></span></div>
+<div class="day">11월 10일 (화) <i>· 3장</i></div><div class="g"><div></div><div></div><div></div></div>
+<div class="day">11월 9일 (월) <i>· 9장</i></div><div class="g"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+<div class="day">11월 8일 (일) <i>· 65장</i></div><div class="g"><div></div><div></div><div></div><div></div></div>
+</div>
+<p class="note">① 두 줄로 줄어 사진이 한 줄 더 보임<br>② [사진 ▾]를 누르면 →</p>
+<div class="phone" style="height:250px">
+<div class="r"><span class="ttl">사진</span><span class="icon sp">☁</span><span class="icon">△</span><span class="icon">▭</span></div>
+<div class="r"><span class="btn on">사진<small>▾</small></span><span class="btn">정리</span><span class="btn">전체<small>▾</small></span><span class="btn">찍은 날 ↓<small>▾</small></span><span class="pm sp"><span>−</span><span>＋</span></span></div>
+<div class="menu"><div class="on">사진</div><div>달력</div><div>폴더</div><div>앨범</div><div>휴지통</div></div>
+</div>
+<p class="note">③ 고른 이름이 단추 글자가 됨([달력 ▾], [휴지통 ▾] …). 달력·휴지통처럼 안 쓰는 도구(전체·찍은 날 등)는 지금처럼 그 보기에서만 빠짐<br>④ PC도 같은 모양(한 줄에 다 들어감)</p>
+</body></html>
