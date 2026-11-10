@@ -11,7 +11,6 @@ import {seoulDateKey} from './meeting-time.js';
 import {chevHtml} from './fold-chevron.mjs';
 import {rowMore} from './row-more.js';
 import {fitAll} from './auto-grow.js';
-import {waitHtml, emptyHtml} from './wait-state.js';
 import {reportsMeeting, meetingKindKey, meetingKindName, validKindKey} from './journal-meeting-kinds.js';
 import * as D from './biz-detail-model.mjs';
 import * as NM from './business-now-model.mjs';
@@ -31,7 +30,7 @@ export const TEXT = {
 let seq = 0;
 
 // kinds = true면 줄 ⋯에 [이 종류 늘 빼기](홈 [주간 정리] 화면이 data-journal-kind-toggle을 받아 처리).
-export function createBizDetailBox({rt = window.KPTURuntime, kinds = false} = {}) {
+export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onReady = null} = {}) {
   const el = document.createElement('div'); el.className = 'bd-box'; el.dataset.bizDetailBox = '';
   const ctl = {id: `bd${++seq}`, week: '', meetings: [], tree: null, hidden: null, lineOfMeeting: m => meetingLine({...m, meeting_at: null}), records: [], marks: [], marksOn: true, status: 'idle', recStatus: 'idle',
     run: 0, editing: null, draft: null, invalid: '', busy: false, outOpen: new Set(), msg: '', error: false, focus: '', stale: false};
@@ -56,6 +55,7 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false} = {}
       ctl.marks = marks.rows; ctl.marksOn = marks.on; ctl.status = 'ready'; ctl.stale = false;
     } catch (e) { if (run !== ctl.run) return; console.warn('biz detail read failed', e?.message || e); ctl.status = 'error'; }
     render();
+    onReady?.(); // 화면이 자리 줄을 이 상자로 바꿔 붙인다(사업 보고 화면 — 다 읽은 뒤 한 번만 높이가 바뀌게)
   }
 
   // ---- 묶음 계산 ----
@@ -118,15 +118,20 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false} = {}
       + `${outBtn || add ? `<div class="rw-foot btn-row">${outBtn}${add}</div>` : ''}${open && g.out.length ? `<div class="rw-fold">${g.out.map(l => lineHtml(l, 'out')).join('')}</div>` : ''}</div>`;
   };
   function html() {
-    if (!ctl.week) return waitHtml({rows: 2});
+    // 읽는 동안은 한 줄 자리(사업 보고 화면 표 모양 자리의 2) 한 줄과 같은 높이 — 다 읽은 뒤 아래 목록이 밀리지 않게, BIZ-주간칸밀림).
+    // 자리 줄은 '없음 + 쓰기' 한 줄과 같은 모양(보이지 않는 글자)이라 다 읽은 뒤 높이가 바뀌지 않는다.
+    if (!ctl.week || (ctl.status !== 'ready' && ctl.status !== 'error')) return `<div class="rw-foot btn-row bd-foot bd-empty bd-wait" data-wait role="status" aria-label="불러오는 중"><span class="wl-empty" aria-hidden="true">…</span><span class="row-act wl-add" aria-hidden="true">+ 쓰기</span></div>`;
     if (ctl.status === 'error') return `<p class="wl-note" role="alert">${TEXT.failed}</p>`;
-    if (ctl.status !== 'ready') return waitHtml({rows: 2});
     const groups = ctl.groups(), addingFree = ctl.editing?.id === 'new' && !ctl.editing.space;
     const dis = ctl.busy || !!ctl.editing ? ' disabled' : '';
-    const notes = [ctl.recStatus === 'error' ? '사업 기록을 불러오지 못했어요.' : '', !ctl.marksOn ? TEXT.marksOff : ''].filter(Boolean);
-    return `${notes.length ? `<p class="wl-note">${esc(notes.join(' '))}</p>` : ''}`
-      + `${groups.length ? groups.map(groupHtml).join('') : addingFree ? '' : emptyHtml('없음')}`
-      + `${addingFree ? recordForm('') : ctl.recStatus === 'ready' && spaceRows().length ? `<div class="rw-foot btn-row bd-foot"><button type="button" class="row-act wl-add" data-bd-add=""${dis}>${groups.length ? '+ 다른 사업에 쓰기' : '+ 쓰기'}</button></div>` : ''}`
+    // 표시 칸이 아직 없으면(DB 적용 전) 줄 ⋯에 보고용 표시 항목이 없을 뿐 따로 안내 줄은 두지 않는다(목록 높이를 늘리지 않게).
+    const note = ctl.recStatus === 'error' ? '사업 기록을 불러오지 못했어요.' : '';
+    const canAdd = ctl.recStatus === 'ready' && spaceRows().length > 0;
+    const addBtn = label => `<button type="button" class="row-act wl-add" data-bd-add=""${dis}>${label}</button>`;
+    // 활동이 없으면 '없음'과 [+ 쓰기]를 한 줄에.
+    if (!groups.length && !addingFree) return `<div class="rw-foot btn-row bd-foot bd-empty" data-bd-empty><span class="wl-empty">${esc(note || '없음')}</span>${canAdd ? addBtn('+ 쓰기') : ''}</div><p class="wl-status${ctl.error ? ' is-error' : ''}" role="status" aria-live="polite" data-bd-status>${esc(ctl.msg)}</p>`;
+    return `${note ? `<p class="wl-note">${esc(note)}</p>` : ''}${groups.map(groupHtml).join('')}`
+      + `${addingFree ? recordForm('') : canAdd ? `<div class="rw-foot btn-row bd-foot">${addBtn(groups.length ? '+ 다른 사업에 쓰기' : '+ 쓰기')}</div>` : ''}`
       + `<p class="wl-status${ctl.error ? ' is-error' : ''}" role="status" aria-live="polite" data-bd-status>${esc(ctl.msg)}</p>`;
   }
   function render() {

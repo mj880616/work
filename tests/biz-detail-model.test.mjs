@@ -64,7 +64,7 @@ test('화면 연결: 홈 2. 2)와 사업 보고 2)가 같은 부품, 옛 주는 
   assert.match(win, /saveBusinessRecord\(\{space_id: space, day, body, source_kind: 'user'\}/);
   assert.match(journal, /if \(isRecordWeek\(start\)\) paintBizDetail\(host\);\n\s+else W\.paintDetailLines/);
   assert.match(journal, /createBizDetailBox\(\{rt, kinds:true\}\)/);
-  assert.match(table, /createBizDetailBox\(\)/);
-  assert.match(table, /<h3>2\) 주요 사업·회의결과<\/h3><div data-bp-detail><\/div>/);
+  assert.match(table, /createBizDetailBox\(\{onReady:\(\)=>placeDetail\(\)\}\)/);
+  assert.match(table, /<h3>2\) 주요 사업·회의결과<\/h3><ul class="biz-detail-list" data-bp-detail/);
   assert.equal(D.SECTION, 'biz_detail');
 });

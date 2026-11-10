@@ -126,7 +126,7 @@ async function paint(){
       if(now.status!=='ready')now=null;
     }
     // BIZ-기록하나로 B-4 ②: 전환 주부터 2) 주요 사업·회의결과 = 홈 [주간 정리] 2. 2)와 같은 주요 사업 창 부품(biz-detail-window.js, 상자마다 하나).
-    if(fresh&&!compact){const mod=await import('./biz-detail-window.js');if(!state||run!==state.run)return;state.detail||=mod.createBizDetailBox();state.detail.update({week:from,meetings:state.meetings,hidden,tree:()=>places?.projects||null})}
+    if(fresh&&!compact){const mod=await import('./biz-detail-window.js');if(!state||run!==state.run)return;state.detail||=mod.createBizDetailBox({onReady:()=>placeDetail()});state.detail.update({week:from,meetings:state.meetings,hidden,tree:()=>places?.projects||null})}
     state.view={placed:{...placed,areas},records,untagged,all,lineOf,detail:fresh&&!compact};
     state.draft=draft;state.editable=editable;state.store=store;state.now=now;state.kit=kit;
     state.done={run,from,now:fresh?nowStatus:''}; // 한글 파일(fileRows)이 '그 주를 다 그렸나'를 본다
@@ -137,11 +137,14 @@ function renderPaper(){
   if(!state?.view)return;
   const {placed,records,untagged,all,lineOf}=state.view;
   $in('[data-bp-paper]').innerHTML=paperHtml(placed,records,untagged,all,lineOf);
-  const dslot=$in('[data-bp-detail]');if(dslot&&state.detail)dslot.replaceWith(state.detail.el); // 2) 주요 사업 창 상자는 그대로 옮겨 붙인다(쓰던 칸 그대로)
+  placeDetail();
   box.dataset.bpReady=''; // 표가 처음 그려짐 — 이제부터 자리 잡기(CSS min-height)를 풀고 표 높이를 따른다
   const field=$in('[data-bp-field]');if(field){field.focus({preventScroll:true});if(field.select&&field.tagName==='INPUT')field.select()}
 }
 
+// 2) 주요 사업 창 상자는 그 주를 다 읽은 뒤에만 자리 줄(표 모양 자리와 같은 한 줄)과 바꿔 붙인다 — 아래 목록이 두 번 밀리지 않게(BIZ-주간칸밀림).
+// 이미 붙어 있으면 그대로 옮겨 붙인다(쓰던 칸 그대로).
+function placeDetail(){const slot=$in('[data-bp-detail]'),d=state?.detail;if(slot&&d&&d.ready(state.from))slot.replaceWith(d.el)}
 // ---- 직접 쓰기(진행 상황 및 이후 계획 · 담당) ----
 // 표의 한 줄 = 사업영역 이름 + 세부 과제 이름. 칸 이름은 홈 [주간 정리]와 같은 규칙(weekly-summary-hand.mjs)으로 맞춘다.
 function rowRefs(){return state.rowRefs||[]}
@@ -309,7 +312,7 @@ function paperHtml(placed,records,untagged,all,lineOf){
   const table=rows.length?`<table class="biz-sum-table"><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:emptyHtml('사업영역 없음');
   if(compact)return table;
   const miss=untagged.length?`<details class="biz-untagged"><summary>사업영역 안 단 보고 ${untagged.length}건</summary>${untagged.map(m=>`<button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}">${esc(lineOf(m))}</button>`).join('')}</details>`:'';
-  if(state.view?.detail)return `<h3>1) 사업요약표</h3>${table}${miss}<h3>2) 주요 사업·회의결과</h3><div data-bp-detail></div>`;
+  if(state.view?.detail)return `<h3>1) 사업요약표</h3>${table}${miss}<h3>2) 주요 사업·회의결과</h3><ul class="biz-detail-list" data-bp-detail aria-hidden="true"><li><p class="biz-skel-line"></p></li></ul>`;
   const details=all.length?all.map(m=>{const day=new Date(Date.parse(m.meeting_at)+9*3600e3).toISOString().slice(0,10),plan=nextPlanLines(m.next_plan);return `<li><button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}"><span class="biz-day">${shortDay(day)}</span> ${esc(lineOf(m))}</button>${plan.length?`<p class="biz-cell-plan">→ 이후: ${plan.map(esc).join(' / ')}</p>`:''}</li>`}).join(''):`<li>${emptyHtml('사업 보고 없음')}</li>`;
   return `<h3>1) 사업요약표</h3>${table}${miss}<h3>2) 주요 사업·회의결과</h3><ul class="biz-detail-list">${details}</ul>`;
 }
