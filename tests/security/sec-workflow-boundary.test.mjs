@@ -128,7 +128,7 @@ test('browser-e2e reports on every main PR and decides from the change scope', (
   assert.match(on, /^  workflow_dispatch:\n/m);
 
   const jobs = jobBlocks(source);
-  assert.deepEqual(Object.keys(jobs), ['changes', 'browser-e2e-shard', 'browser-e2e']);
+  assert.deepEqual(Object.keys(jobs), ['changes', 'browser-e2e-shard', 'startup-benchmark', 'browser-e2e']);
   const decide = jobs.changes;
   assert.doesNotMatch(decide, /^    if:/m);
   assert.match(decide, /if \[ "\$EVENT_NAME" != "pull_request" \]; then[\s\S]*?e2e=true/);
@@ -137,11 +137,13 @@ test('browser-e2e reports on every main PR and decides from the change scope', (
   for (const use of decide.matchAll(/uses: (\S+)/g)) assert.match(use[1], /@[0-9a-f]{40}$/);
   assert.equal([...decide.matchAll(/uses: /g)].length, 1, 'only checkout');
 
-  assert.match(jobs['browser-e2e-shard'], /^    needs: changes\n    if: needs\.changes\.outputs\.e2e == 'true' && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false\)\n/m);
+  for (const job of ['browser-e2e-shard', 'startup-benchmark']) {
+    assert.match(jobs[job], /^    needs: changes\n    if: needs\.changes\.outputs\.e2e == 'true' && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false\)\n/m, job);
+  }
 
   const aggregate = jobs['browser-e2e'];
-  assert.match(aggregate, /^    if: always\(\) && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false\)\n    needs: \[changes, browser-e2e-shard\]\n/m);
-  const order = ['"$CHANGES_RESULT" != "success"', '"$E2E_NEEDED" = "false"', '"$E2E_NEEDED" != "true"', 'test "$SHARD_RESULT" = "success"'];
+  assert.match(aggregate, /^    if: always\(\) && \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false\)\n    needs: \[changes, browser-e2e-shard, startup-benchmark\]\n/m);
+  const order = ['"$CHANGES_RESULT" != "success"', '"$E2E_NEEDED" = "false"', '"$E2E_NEEDED" != "true"', 'test "$SHARD_RESULT" = "success"', 'test "$BENCHMARK_RESULT" = "success"'];
   const positions = order.map(text => aggregate.indexOf(text));
   assert.ok(positions.every(position => position >= 0), 'aggregate checks decision, need and shard result');
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
@@ -243,11 +245,13 @@ test('Phone app release passes only the four Firebase app variables (APP-폰알�
   assert.doesNotMatch(source, /google-services/);
 });
 
-test('STAB-화면시험간헐: workers=2 화면 시험은 접속 대기 줄을 넓힌 정적 서버로 돈다(127.0.0.1에만 열고 읽기 전용)', () => {
+test('STAB-화면시험간헐: 여러 workers 화면 시험은 접속 대기 줄을 넓힌 정적 서버로 돈다(127.0.0.1에만 열고 읽기 전용)', () => {
   const e2e = workflow('app-e2e-check.yml');
-  const shard = jobBlocks(e2e)['browser-e2e-shard'];
-  assert.match(shard, /python3 tests\/app-e2e\/helpers\/static-server\.py 8123 /);
-  assert.doesNotMatch(shard, /python3 -m http\.server 8123/);
+  for (const job of ['browser-e2e-shard', 'startup-benchmark']) {
+    const block = jobBlocks(e2e)[job];
+    assert.match(block, /python3 tests\/app-e2e\/helpers\/static-server\.py 8123 /, job);
+    assert.doesNotMatch(block, /python3 -m http\.server 8123/, job);
+  }
   const server = readFileSync(new URL('../app-e2e/helpers/static-server.py', import.meta.url), 'utf8');
   assert.match(server, /request_queue_size = \d{3}/);
   assert.match(server, /Server\(\('127\.0\.0\.1', port\), handler\)/);
@@ -259,9 +263,12 @@ test('STAB-화면시험간헐: workers=2 화면 시험은 접속 대기 줄을 �
   assert.doesNotMatch(server, /do_POST|do_PUT|do_DELETE/);
 });
 
-test('S54-14 CI diet: nightly E2E skips unchanged commits without wider permissions, workers stay at 2, Deno binary is cached, Pages build check skips docs-only PRs', () => {
+test('S54-14 CI diet: nightly E2E skips unchanged commits without wider permissions, Deno binary is cached, Pages build check skips docs-only PRs', () => {
   const e2e = workflow('app-e2e-check.yml');
-  assert.match(e2e, /--browser=chromium --workers=2 --reporter=line,github/);
+  // OPS-작업속도(S56-29): 시험 하나 단위로 16갈래에 나누고 갈래마다 workers 2(러너 하나가 workers 2로 가득 참). 재시도는 붙이지 않는다.
+  assert.match(e2e, /--browser=chromium --workers=2 --fully-parallel --reporter=line,github/);
+  assert.match(e2e, /shardIndex: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16\]\n        shardTotal: \[16\]/);
+  assert.doesNotMatch(e2e, /--last-failed|--repeat-each|test\.skip|--grep-invert|--pass-with-no-tests/);
   assert.doesNotMatch(e2e, /--retries|actions: read/);
   assert.match(e2e, /^permissions:\n  contents: read\n/m);
   const decide = jobBlocks(e2e).changes;

@@ -16,6 +16,8 @@ async function overlap(page,{linkCalls=true}={}){
     const body=route.request().postDataJSON();
     // WEEKLY-메뉴짝짓기 P4: 담당조직 기록 저장 뒤 주별 조직보고 제안 줄 요청(겹침 확인과 별개)은 세지 않는다.
     if(body.kind==='org_week_lines')return route.fulfill({status:200,json:{ok:true,kind:'org_week_lines',results:[]}});
+    // OPS-작업속도: 홈의 다른 AI 요청(home_day_picks 등)이 늦게 와도 겹침 확인으로 세지 않는다 — 앞서 깔린 모의로 넘긴다.
+    if(body.kind!=='overlap_check')return route.fallback();
     calls.ai.push(body);
     return route.fulfill({status:200,json:{ok:true,kind:'overlap_check',saved:1,kept_user:0,results:body.pairs.map(p=>({...p,state:'judged',verdict:'same'}))}});
   });

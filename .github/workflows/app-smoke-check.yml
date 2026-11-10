@@ -160,6 +160,8 @@ on:
       - 'scripts/package.json'
       - 'scripts/ops/inbox-open.mjs'
       - 'tests/ops-inbox-open.test.mjs'
+      - 'scripts/ops/work-timing.mjs'
+      - 'tests/ops-work-timing.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
       - 'tests/outside-search-model.test.mjs'
       - 'tests/notice-outside-model.test.mjs'
@@ -354,6 +356,8 @@ on:
       - 'scripts/package.json'
       - 'scripts/ops/inbox-open.mjs'
       - 'tests/ops-inbox-open.test.mjs'
+      - 'scripts/ops/work-timing.mjs'
+      - 'tests/ops-work-timing.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
       - 'tests/outside-search-model.test.mjs'
       - 'tests/notice-outside-model.test.mjs'
@@ -528,6 +532,8 @@ jobs:
         run: node --test tests/ledger-decision-history.test.mjs
       - name: Check request inbox open-list calculator (OPS-요청함대기계산)
         run: node --test tests/ops-inbox-open.test.mjs
+      - name: Check work timing and stalled-session calculator (OPS-작업속도)
+        run: node --test tests/ops-work-timing.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
         run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/now-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/text-highlights-model.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
