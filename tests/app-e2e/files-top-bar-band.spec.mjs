@@ -42,8 +42,10 @@ for (const [name, two] of [['두 칸', true], ['한 칸', false]]) {
     const lead = await top.locator(':scope > :not([hidden])').first().evaluate(el => el.getBoundingClientRect().left);
     expect(Math.abs(lead - f.left)).toBeLessThanOrEqual(1);
     expect(Math.abs(t.left - f.left)).toBeLessThanOrEqual(1);
-    // 내려도 칸이 줄 아래 같은 6px 자리에 붙는다(움찔하지 않음).
-    if (two) expect(await first.evaluate(el => el.style.getPropertyValue('--follow-top'))).toBe(`${Math.round(t.bottom - t.top) + 6}px`);
+    // 내려도 칸이 줄 아래 같은 6px 자리에 붙는다(움찔하지 않음). UI-PC스크롤묶음 ①: 위쪽 줄은 PC 맨 위 줄(줄 + 간격) 아래에 붙으므로 그 높이를 더한다.
+    const line = await page.locator('#appView>.app-topline').evaluate(el => { const cs = getComputedStyle(el); return parseFloat(cs.top) + el.offsetHeight + parseFloat(cs.marginBottom); });
+    expect(await top.evaluate(el => parseFloat(getComputedStyle(el).top))).toBe(line);
+    if (two) expect(await first.evaluate(el => el.style.getPropertyValue('--follow-top'))).toBe(`${Math.round(line + Math.round(t.bottom - t.top) + 6)}px`);
     if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/files-top-1280-${two ? 'two' : 'one'}.png`, clip: { x: 0, y: 0, width: 1280, height: 260 } }); }
     expect(errors).toEqual([]);
   });
