@@ -135,9 +135,9 @@ function paint() {
   m.querySelector('[data-gt-files-task]').textContent = s.task.title || '제목 없음';
   const list = m.querySelector('[data-gt-files-list]');
   const lock = s.busy || s.uploading; // 빼기·삭제·이름 고치기는 올리는 동안 잠근다(서버 목록이 엇갈리지 않게). 고르기만 줄 세움.
-  // FILE-첨부삭제 ② 뒤 결정 2(2026-11-11 명진 '추천대로'): 줄 단추 5개(이름 고치기·Drive에서 열기·내려받기·빼기·삭제) 때문에 폰 412에서
+  // FILE-첨부삭제 ② 뒤 결정 2(2026-11-11 명진 '추천대로'): 줄 단추 5개(이름 수정·Drive에서 열기·내려받기·빼기·삭제) 때문에 폰 412에서
   // 파일 이름이 잘렸다 → 노트 첨부 줄처럼 줄마다 ⋯ 하나(공용 row-more.js)에 모으고 이름이 줄 너비를 다 쓴다. 이름 누르기(종류별 열기)·
-  // 두 번 누르기/꾹 누르기(이름 고치기)는 그대로. 메뉴 항목의 누르기는 원래 처리(file-actions.js data-fa-menu, 아래 빼기·삭제·이름 고치기) 그대로.
+  // 두 번 누르기/꾹 누르기(이름 고치기)는 그대로. 메뉴 항목의 누르기는 원래 처리(file-actions.js data-fa-menu, 아래 빼기·삭제·이름 수정) 그대로.
   list.innerHTML = s.files.length
     ? s.files.map(f => { const rn = {target: 'task', id: s.task.id, driveId: f.drive_file_id, name: f.file_name}; return `<li data-fr-row data-gt-file-row="${esc(f.drive_file_id)}"><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer"${renameHostAttrs(rn)} ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})}>${esc(f.file_name)}</a></li>`; }).join('')
     : `<li class="gt-files-empty">${emptyHtml()}</li>`;
@@ -145,7 +145,7 @@ function paint() {
     const f = s.files.find(x => x.drive_file_id === li.dataset.gtFileRow); if (!f) return;
     const fa = {faName: f.file_name, faId: f.drive_file_id};
     li.append(rowMore(document, {label: `${f.file_name} 메뉴`, data: {gtFileMore: f.drive_file_id}, items: [
-      {text: '이름 고치기', data: {gtFileRename: f.drive_file_id}, disabled: lock},
+      {text: '이름 수정', data: {gtFileRename: f.drive_file_id}, disabled: lock},
       {text: 'Drive에서 열기', data: {faMenu: 'open', ...fa}},
       {text: '내려받기', data: {faMenu: 'download', ...fa}},
       {text: '빼기', data: {gtFileDetach: f.drive_file_id}, disabled: lock},

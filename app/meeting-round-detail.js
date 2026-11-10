@@ -127,9 +127,9 @@ function mrdRenderMaterials(allDocs){
     // ACT-사진 3단계: 그림은 '사진' 줄(작은 그림), 나머지는 아래 자료 줄. 같은 자료 목록을 그리는 곳만 둘로 나눈다.
     const {photos,files:docs}=splitPhotoDocs(allDocs);mrdRenderPhotos(photos,allDocs);
     // UI-회의결과창정리: 파일 한 줄(종류·이름·크기). 이름을 누르면 종류별 동작, ⋯는 [Drive에서 열기]·[내려받기](FILE-사업보고⋯)·[빼기]·[삭제](FILE-첨부삭제 결정 3).
-    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`${mrdRename(d)}<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name,mrdTranscribeItem(d)+mrdFileOwnItems(d,name))}`})}).join(''):emptyHtml();
+    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`${mrdRename(d)}<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name,mrdTranscribeItem(d)+mrdFileOwnItems(d))}`})}).join(''):emptyHtml();
     // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ✎로 파일 이름을 그 자리에서 고친다(file-rename.js). 자료는 고친 뒤 kptu:documents-changed로 다시 읽는다.
-    document.querySelectorAll('#mrdMaterials [data-mrd-doc-row]').forEach(row=>{const d=(docs||[]).find(x=>x.id===row.dataset.mrdDocRow);if(d?.file_id&&d.file_name)markRenameHost(row.querySelector('.file-line-main b'),{target:'document',id:d.id,driveId:d.file_id,name:d.file_name})});
+    document.querySelectorAll('#mrdMaterials [data-mrd-doc-row]').forEach(row=>{const d=(docs||[]).find(x=>x.id===row.dataset.mrdDocRow);mrdAppendOwnItems(row,d,d?.file_name||d?.title||'자료');if(d?.file_id&&d.file_name)markRenameHost(row.querySelector('.file-line-main b'),{target:'document',id:d.id,driveId:d.file_id,name:d.file_name})});
     document.querySelectorAll('#mrdMaterials [data-mrd-delete-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();const box=b.closest('details');box?.removeAttribute('open');return mrdDeleteMaterial(b,allDocs,box?.querySelector('summary'))});
     document.querySelectorAll('#mrdMaterials [data-mrd-detach-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();const box=b.closest('details');box?.removeAttribute('open');return mrdDetachMaterial(b,allDocs,box?.querySelector('summary'))});
     document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload,docs)});
@@ -138,9 +138,13 @@ function mrdRenderMaterials(allDocs){
 // FILE-첨부삭제 ② 뒤 결정 3(2026-11-11 명진 '추천대로'): 자료 줄 끝 ×(지우기)를 없애고 같은 줄 ⋯ 안에 [빼기]·[삭제]로 나눈다.
 // [빼기] = 이 회의(사업 보고)에서만 떼기 — 자료실 자료·Drive 파일은 그대로. 담당조직 자료 [조직에서 빼기]와 같은 서버 길(app_documents PATCH,
 // 내 작업공간·이 회의에 붙은 줄만, 소유자 확인은 DB RLS). [삭제] = 예전 ×와 같은 삭제 길(document-delete.js: 자료 행 삭제 + Drive 휴지통, 한 번 묻기).
-function mrdFileOwnItems(d,name){
-  if(!d?.id)return '';
-  return `<hr class="file-line-more-sep" role="separator"><button type="button" data-mrd-detach-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 이 보고에서 빼기">빼기</button><button type="button" class="file-line-more-danger" data-mrd-delete-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 삭제">삭제</button>`;
+// 메뉴 항목은 ⋯ 칸(.file-line-more-panel, ui-standard.css 공용 모양) 안 글자 줄이라 6가지 버튼 클래스를 붙이지 않고, 줄 메뉴 공용 부품(row-more.js)처럼
+// 그린 뒤 요소로 붙인다(mrdAppendOwnItems). 여기서는 구분선 자리만 둔다 — 열기·내려받기가 없는 옛 자료도 ⋯가 생기게.
+function mrdFileOwnItems(d){return d?.id?'<hr class="file-line-more-sep" role="separator" data-mrd-own-items>':''}
+function mrdAppendOwnItems(row,d,name){
+  const sep=row.querySelector('[data-mrd-own-items]');if(!sep||!d?.id)return;
+  const make=(text,attr,aria,cls='')=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.setAttribute(attr,d.id);b.setAttribute('aria-label',aria);if(cls)b.className=cls;return b};
+  sep.after(make('빼기','data-mrd-detach-document',`${name} 이 보고에서 빼기`),make('삭제','data-mrd-delete-document',`${name} 삭제`,'file-line-more-danger'));
 }
 async function mrdDeleteMaterial(button,docs,anchor=null){
   if(button.disabled)return false;

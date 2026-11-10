@@ -370,7 +370,7 @@ for(const viewport of [{width:412,height:915},{width:1280,height:800}]){
     await expect(dialog.locator('.gt-files-list li button:visible')).toHaveCount(0);
     for(const name of await dialog.locator('.gt-files-list .gt-file').all())expect(await name.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
     await dialog.locator('[data-gt-file-more="old1"] > summary').click();
-    await expect(dialog.locator('[data-gt-file-more="old1"] .row-more-menu button')).toHaveText(['이름 고치기','Drive에서 열기','내려받기','빼기','삭제']);
+    await expect(dialog.locator('[data-gt-file-more="old1"] .row-more-menu button')).toHaveText(['이름 수정','Drive에서 열기','내려받기','빼기','삭제']);
     if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/task-file-menu-${viewport.width}.png`});
     await page.keyboard.press('Escape');
     expect(await noSideScroll(page)).toBe(true);
@@ -413,15 +413,15 @@ test('다른 기록도 쓰는 파일은 [삭제]해도 Drive에 남기고 창에
   await context.close();
 });
 
-// FILE-첨부삭제 결정 2(S56-57): ⋯ → [이름 고치기]는 이름 칸을 그 자리 고치기 칸으로(✎와 같은 공용 길), 올리는 중에는 [이름 고치기]·[빼기]·[삭제]가 잠긴다.
-test('412px: 파일 붙이기 창 ⋯ [이름 고치기]는 이름 칸을 그 자리에서 고치고, 올리는 중에는 고치기·빼기·삭제가 잠긴다',async({browser})=>{
+// FILE-첨부삭제 결정 2(S56-57): ⋯ → [이름 수정]는 이름 칸을 그 자리 고치기 칸으로(✎와 같은 공용 길), 올리는 중에는 [이름 수정]·[빼기]·[삭제]가 잠긴다.
+test('412px: 파일 붙이기 창 ⋯ [이름 수정]는 이름 칸을 그 자리에서 고치고, 올리는 중에는 고치기·빼기·삭제가 잠긴다',async({browser})=>{
   const {context,page,state}=await openTasks(browser,{viewport:{width:412,height:915},files:[{google_task_id:'a',drive_file_id:'old1',file_name:'아주 긴 합성 회의 자료 이름 두 번째 차수 정리본.pdf',size_bytes:9}]});
   await openMenu(page,'a');
   await page.locator('#gtTaskMenu [data-gt-menu-action="files"]').click();
   const dialog=page.locator('#gtFilesModal');
   const name=dialog.locator('.gt-files-list .gt-file');
   await expect(name).toHaveText('아주 긴 합성 회의 자료 이름 두 번째 차수 정리본.pdf');
-  await fileMenu(dialog,'old1','이름 고치기');
+  await fileMenu(dialog,'old1','이름 수정');
   await expect(dialog.locator('.fr-input')).toBeFocused();
   await expect(dialog.locator('.fr-input')).toHaveValue('아주 긴 합성 회의 자료 이름 두 번째 차수 정리본');
   await expect(dialog.locator('[data-gt-file-more="old1"]')).not.toHaveAttribute('open','');
@@ -432,7 +432,7 @@ test('412px: 파일 붙이기 창 ⋯ [이름 고치기]는 이름 칸을 그 �
   await expect.poll(()=>state.calls.attach.length).toBe(1);
   await dialog.locator('[data-gt-file-more="old1"] > summary').click();
   const menu=dialog.locator('[data-gt-file-more="old1"] .row-more-menu');
-  for(const label of ['이름 고치기','빼기','삭제'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeDisabled();
+  for(const label of ['이름 수정','빼기','삭제'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeDisabled();
   for(const label of ['Drive에서 열기','내려받기'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeEnabled();
   state.hold=null;release();
   await expect(dialog.locator('[data-gt-files-status]')).toContainText('1개 붙였습니다');
