@@ -1209,7 +1209,10 @@ window.addEventListener('kptu:before-view-change',e=>{
     e.preventDefault();
   }
 });
+// FORGET-원문열기·뒤로가기: whether this step enters the 정리함 from another screen (a step inside it, e.g. a source opened on it, is not).
+let basketShown=false,basketEntered=false;
 window.addEventListener('kptu:view-changed',e=>{
+  basketEntered=e.detail?.view==='basket'&&!basketShown;basketShown=e.detail?.view==='basket';
   if(e.detail?.view==='basket'){retainedForTraversal=false;return;}
   ocrGeneration++;
   if(e.detail?.retainBasketDraft){retainedForTraversal=true;return;}
@@ -1223,7 +1226,10 @@ window.KPTURouter.on('basket', detail => {
   if (busy || noteDocs.isBusy() || noteDocs.hasDraft()) { window.KPTURouter.setSub('basket', paneSub(), {replace:true}); return; }
   const noteSide = detail?.sub === 'note' || wantedKind === 'note' || !!wantedDoc;
   noteDocs.close({focus:false,force:true}); showKind('memo',{address:false});
-  forget.setView('open'); void forget.refresh();
+  // FORGET-원문열기·뒤로가기: coming back by Back (from a source opened on another screen) keeps the list's view and filter as left;
+  // the router gives the scroll position back. A step from a menu starts at 처리 전.
+  if (basketEntered && detail?.source !== 'popstate') forget.setView('open');
+  void forget.refresh();
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }
   closeDetail({focus:false}); if (wanted) requestedNote = wanted; renderList(); void refresh();

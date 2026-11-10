@@ -8,6 +8,7 @@ import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림
 import {findTodos, radarScope} from './todo-radar-data.js';
 import {formatSeoulTime, seoulDateKey} from './meeting-time.js';
 import {requestBasketNote, requestNoteDocOpen} from './basket-note-tasks.js';
+import {flashRecord} from './record-flash.js';
 
 const rt = window.KPTURuntime;
 const clock = value => formatSeoulTime(value, {hour:'2-digit', minute:'2-digit', hourCycle:'h23'});
@@ -52,7 +53,8 @@ export function openSource(c) {
   const go = view => window.KPTURouter?.go?.(view, {source:'delegated'});
   if (c.source_kind === 'basket') { requestBasketNote(c.source_id, rt); go('basket'); return; }
   if (c.source_kind === 'note') { requestNoteDocOpen(c.source_id, rt); go('basket'); return; }
-  if (c.source_kind === 'work') { go('home'); return; }
+  // FORGET-원문열기·뒤로가기: 다른 화면으로 가는 출처는 라우터 openFrom 한 길(뒤로가기 한 번 = 누른 줄 그 자리).
+  if (c.source_kind === 'work') { void window.KPTURouter?.openFrom?.('home'); return; }
   const open = async () => {
     if (c.source_kind === 'meeting') {
       await window.KPTUViewLoader?.prepare?.('meetings'); await import('./meeting-round-detail.js');
@@ -64,8 +66,13 @@ export function openSource(c) {
       await window.KPTUAreaWindow.open({id: c.project_id}); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     } else if (c.source_kind === 'telegram') {
       // FEAT-1029 ⑤: the telegram screen on that room·day with the news row open (the same opener the 조직 주요 인물 list uses).
-      await window.KPTUViewLoader.load('telegram'); go('telegram');
-      if (c.tg?.room_key) await window.KPTUTelegramFeed?.show?.(c.tg.room_key, c.source_day, c.source_id);
+      const opened = await window.KPTURouter?.openFrom?.('telegram', async () => {
+        if (!c.tg?.room_key) return true;
+        if ((await window.KPTUTelegramFeed?.show?.(c.tg.room_key, c.source_day, c.source_id)) === false) return false;
+        void flashRecord(`#tgDetail [data-tg-di="${CSS.escape(c.source_id)}"]`);
+        return true;
+      });
+      if (opened === false) throw new Error('telegram');
     }
   };
   open().catch(() => toast('출처를 열지 못했어요. 다시 시도해 주세요.'));

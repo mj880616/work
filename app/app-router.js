@@ -174,6 +174,8 @@
     while(reopeners.size>100)reopeners.delete(reopeners.keys().next().value);
   }
   function openLayer(name,{close,reopen=null,adoptOnly=false}){
+    const fromSource=adoptSourceEntry(name,{close,reopen});
+    if(fromSource)return fromSource;
     const known=layers.find(layer=>layer.name===name);
     // A layer of that name whose own entry is gone (its owner closed it without telling the router) is dropped and opened anew,
     // so the new one gets its own entry instead of sharing none (one Back would then leave the screen).
@@ -316,6 +318,65 @@
     // One press, one change: when this Back already closed something, an entry left over below is not passed over now.
     if(!returningTo&&!closed)skipStaleLayer();
   }
+  // FORGET-원문열기·뒤로가기: one way for a line on one screen to open its source on another screen (a call, a telegram day, a record).
+  // openFrom(view, open) loads the screen, steps to it with its own history entry, then runs open() (the screen's own opener).
+  // The first detail that opener opens as a layer (phone call detail, telegram day) takes that same entry instead of adding one more,
+  // so one Back (Android, browser, PWA or the screen's ‹) returns to the screen the line was on. Coming back, that screen gets its
+  // scroll position again (rememberScroll / restoreScroll below) and is told source 'popstate', so it keeps its view and filters.
+  let sourceEntry=null;
+  function adoptSourceEntry(name,{close,reopen}){
+    const entry=here();
+    if(!sourceEntry||releasing||!entry||entry.key!==sourceEntry.key||api.current!==sourceEntry.view)return null;
+    if(layers.some(layer=>layer.key===entry.key)||chainOf(history.state).length)return null;
+    sourceEntry=null;
+    history.replaceState({...(history.state||{}),[LAYERS]:[name]},'',location.href);
+    const layer={name,close,reopen,index:entry.index,key:here()?.key||entry.key};
+    layers.push(layer);keepReopen(layer);
+    return {close:()=>releaseLayer(layer)};
+  }
+  async function openFrom(view,open=null,{sub=null}={}){
+    view=viewName(view);
+    if(!view||!authenticatedShellReady())return false;
+    const lazy=window.KPTUViewLoader,token=askGo();
+    if(lazy?.isLoaded&&!lazy.isLoaded(view))await lazy.load(view);
+    if(!stillLatest(token))return false;
+    const before=here()?.key;
+    if(!go(view,{source:'delegated',sub})&&api.current!==view)return false;
+    const entry=here();
+    sourceEntry=entry&&entry.key!==before?{key:entry.key,view}:null;
+    try{return typeof open==='function'?await open():true}
+    finally{sourceEntry=null}
+  }
+  // Scroll position per history entry, only for a step between screens (a layer's own list scroll stays with its owner, e.g.
+  // basket-notes.js). Kept in memory, never stored. A screen drawn again after it shows (its list read again) grows back to the
+  // position: the position is applied again while the screen grows, until it is reached and stable, or the user scrolls or touches.
+  const scrollAt=new Map();let fromEntry=null,scrollWatch=null;
+  function rememberScroll(key,y){
+    if(!key||!Number.isFinite(y))return;
+    scrollAt.delete(key);scrollAt.set(key,Math.max(0,Math.round(y)));
+    while(scrollAt.size>100)scrollAt.delete(scrollAt.keys().next().value);
+  }
+  function restoreScroll(view){
+    scrollWatch?.();scrollWatch=null;
+    const y=scrollAt.get(here()?.key);
+    if(!y)return;
+    const panel=document.getElementById(view+'View');
+    const apply=()=>{if(api.current!==view){stop();return}window.scrollTo({top:y,behavior:'instant'})};
+    const settled=()=>Math.abs(window.scrollY-y)<2;
+    let timer=0,quiet=0,observer=null;
+    const events=['wheel','touchstart','keydown','pointerdown'];
+    function stop(){clearTimeout(timer);clearTimeout(quiet);observer?.disconnect();events.forEach(type=>window.removeEventListener(type,stop,true));window.removeEventListener('kptu:view-changed',stop);if(scrollWatch===stop)scrollWatch=null}
+    apply();
+    requestAnimationFrame(()=>{if(scrollWatch!==stop)return;apply();if(settled()){clearTimeout(quiet);quiet=setTimeout(stop,600)}});
+    if(typeof ResizeObserver==='function'&&panel){
+      observer=new ResizeObserver(()=>{apply();clearTimeout(quiet);if(settled())quiet=setTimeout(stop,600)});
+      observer.observe(panel);
+    }
+    events.forEach(type=>window.addEventListener(type,stop,{capture:true,passive:true}));
+    window.addEventListener('kptu:view-changed',stop);
+    timer=setTimeout(stop,4000);
+    scrollWatch=stop;
+  }
   // ‹ and Android back: one step back through Web2's own entries; at the first entry the
   // last return is home (D-4a ②). Returns false only when Web2 has nothing left to close.
   function back(){
@@ -424,6 +485,12 @@
     const before=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view,source,canRestoreHistory}});
     window.dispatchEvent(before);
     if(before.defaultPrevented){if(source==='popstate')restoreRoutePosition();return false;}
+    const changing=!!api.current&&api.current!==view;
+    if(changing){
+      // The screen left keeps its scroll position on its own entry: the entry shown now (a step), or the one just left (Back/Forward).
+      if(source==='popstate'){if(fromEntry)rememberScroll(fromEntry.key,fromEntry.y)}
+      else rememberScroll(entry?.key,window.scrollY);
+    }
     if(api.current!==view)forgetLayers();
     document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.toggle('hidden',panel!==target));
     syncNavigationState(view);
@@ -438,6 +505,7 @@
     for(const fn of hooks.get(view)||[]){
       try{fn(detail)}catch(err){console.error('view hook',view,err)}
     }
+    if(changing&&source==='popstate')restoreScroll(view);
     return true;
   }
 
@@ -535,7 +603,7 @@
   // go() was asked meanwhile (then the late press must not take the screen back from it).
   const askGo=()=>++goSeq;
   const stillLatest=token=>token===goSeq;
-  const api={current:null,sub:null,go,askGo,stillLatest,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  const api={current:null,sub:null,go,askGo,stillLatest,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,openFrom,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   // NAV-PC앞뒤통일: one notice after the history position or the screen changed, so the top line repaints ‹ › from canBack/canForward.
   let moveQueued=false;
@@ -551,6 +619,8 @@
   nav?.addEventListener('currententrychange',e=>{
     const from=e.from?.index,to=nav.currentEntry?.index;
     traverseDelta=e.navigationType==='traverse'&&Number.isInteger(from)&&Number.isInteger(to)?to-from:0;
+    // The scroll position still belongs to the entry left (the screens change on popstate, after this).
+    if(e.navigationType==='traverse')fromEntry=e.from?.key?{key:e.from.key,y:window.scrollY}:null;
     rememberRoute();
     movedSoon();
   });
