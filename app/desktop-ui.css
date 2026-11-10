@@ -4,10 +4,12 @@
   body{overflow-y:scroll}
   /* UI-전수디자인점검 F21: 모든 PC 화면이 같은 본문 폭 규칙 하나(최대 1920px, 좌우 여백 24~42px)를 쓴다. 전에는 보통 화면 1600/1720px·넓은 화면
      (달력·업무일지·일기·사진·아스날, 옛 view-wide.css) 1920px로 따로여서 화면을 옮길 때 사이드바·본문 자리가 흔들렸다. */
-  main{--kptu-wide-pad:clamp(24px,2.2vw,42px);max-width:1920px;margin:0 auto;padding:12px var(--kptu-wide-pad) 76px}
+  /* UI-PC스크롤묶음 ④(2026-11-10): 본문 아래 여백은 위와 같은 12px. 전에는 76px이라 화면 높이에 맞춰 그리는 화면(달력 주간·'목록 | 상세' 화면의
+     붙은 칸)이 그 여백만큼 문서가 한 번 더 내려가 '스크롤 두 겹'이 됐다(할 일 화면만 따로 12px로 고쳐 두었던 것을 모든 화면 규칙으로). */
+  main{--kptu-wide-pad:clamp(24px,2.2vw,42px);max-width:1920px;margin:0 auto;padding:12px var(--kptu-wide-pad) 12px}
 
   #appView.app-view{display:grid;grid-template-columns:220px minmax(0,1fr);column-gap:28px;align-items:start}
-  #appView>.app-nav{grid-column:1;grid-row:1 / span 40;position:sticky;top:12px;display:flex;flex-direction:column;align-items:stretch;gap:var(--kptu-space-1);height:calc(100vh - 24px);height:calc(100dvh - 24px);max-height:none;overflow:auto;padding:var(--kptu-space-2);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:none}
+  #appView>.app-nav{grid-column:1;grid-row:1 / span 2;position:sticky;top:12px;margin-bottom:-100vh;display:flex;flex-direction:column;align-items:stretch;gap:var(--kptu-space-1);height:calc(100vh - 24px);height:calc(100dvh - 24px);max-height:none;overflow:auto;padding:var(--kptu-space-2);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:none}
   #appView>.app-nav .sidebar-brand{display:flex;align-items:center;gap:7px;min-height:34px;padding:5px 7px 9px;margin-bottom:2px;border-bottom:1px solid var(--kptu-border);color:var(--kptu-ink);text-decoration:none;font-size:12px;font-weight:800;line-height:1}
   #appView>.app-nav .sidebar-brand img{width:22px;height:22px;display:block;object-fit:cover;border-radius:var(--kptu-radius-sm);flex:0 0 auto}
   #appView>.app-nav .sidebar-spacer{display:block;flex:1 1 auto;min-height:16px}
@@ -67,8 +69,18 @@
    --kptu-topline-space(줄 높이 + 아래 간격)는 화면 높이에 맞춰 그리는 좌우·3단 화면(할 일·회의·프로젝트·담당조직)이 뺀다. */
 .app-topline{display:none}
 @media (min-width:761px){
-  #appView{--kptu-topline-height:40px;--kptu-topline-gap:8px;--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap))}
-  #appView>.app-topline{grid-column:-2 / -1;grid-row:1;display:flex;align-items:center;gap:4px;box-sizing:border-box;height:var(--kptu-topline-height);margin:0 0 var(--kptu-topline-gap);min-width:0}
+  #appView{--kptu-topline-height:40px;--kptu-topline-gap:8px;--kptu-fixed-top:0px;--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap));--kptu-stick-top:calc(var(--kptu-fixed-top) + var(--kptu-topline-height) + var(--kptu-topline-gap))}
+  /* UI-PC스크롤묶음 ①(2026-11-10 CC 결정 '늘 보임'): 맨 위 줄(뒤로·위치·검색·+ 추가)은 모든 PC 화면에서 화면 맨 위에 붙어 있다(달력·할 일과 같은 방식).
+     전에는 문서를 내리면 같이 올라가 사라지는 화면(홈·잊지 말기·자료실·공유 페이지·사업 보고 등)과 화면 높이에 맞춰 그려 남는 화면(달력·할 일)이 갈렸다.
+     줄 아래 간격(--kptu-topline-gap)은 그림자로 같은 바탕을 칠해 붙은 줄 밑으로 지나가는 글이 비치지 않게 한다.
+     화면 안에서 위에 붙는 줄(아스날·사진 위쪽 줄, 파일 위쪽 줄, 따라오는 옆 칸)은 --kptu-stick-top(맨 위 띠 + 줄 + 간격) 아래에 붙는다. 폰(~760px)은 이 줄이 없어 0. */
+  /* UI-PC스크롤묶음 ④(2026-11-10): 사이드바는 줄 두 칸(맨 위 줄 + 화면)만 차지하고, 남는 높이는 화면 칸(1fr)이 받는다.
+     전에는 사이드바가 빈 줄 40칸에 걸쳐 있어(grid-row:1 / span 40) 크롬이 빈 줄마다 높이(약 10px)를 나눠 줘서, 내용이 화면에 다 들어오는
+     화면에서도 문서가 380px쯤 더 내려갔다(사업 보고 결과 칸 등 붙은 칸이 있는 화면은 '스크롤 두 겹'으로 보임).
+     사이드바 높이(화면 높이 - 24px)도 화면 줄 높이를 정하지 않는다(.app-nav margin-bottom:-100vh — 칸 높이 계산에서 빠짐, 보이는 크기·붙는 자리는 그대로).
+     그래야 내용이 화면보다 짧은 화면(빈 화면·달력 주간처럼 화면 높이에 맞춘 화면)이 본문 아래 여백(76px)만큼 괜히 한 번 더 내려가지 않는다. */
+  #appView.app-view{grid-template-rows:auto 1fr}
+  #appView>.app-topline{grid-column:-2 / -1;grid-row:1;display:flex;align-items:center;gap:4px;box-sizing:border-box;height:var(--kptu-topline-height);margin:0 0 var(--kptu-topline-gap);min-width:0;position:sticky;top:var(--kptu-fixed-top);z-index:15;background:var(--kptu-bg);box-shadow:0 var(--kptu-topline-gap) 0 var(--kptu-bg)}
   #appView>.view-panel{grid-column:-2 / -1;grid-row:2}
   #appView.app-view.nav-collapsed{grid-template-columns:minmax(0,1fr);column-gap:0}
   #appView.nav-collapsed>.app-nav{display:none}
@@ -172,13 +184,17 @@
 
 /* UI-칸안스크롤하나로(2026-10-30, 시안 A): PC 좌우 화면의 스크롤은 화면 전체 하나다(왼쪽 목록은 화면과 같이 내려감).
    UI-상세칸고정(2026-11-03 명진, S49-8): 단, follow-pane.js가 이름을 붙인 옆 칸(오른쪽 상세·왼쪽 폴더 나무)은 화면 위쪽에 붙어 제자리에 있고
-   내용이 화면보다 길면 그 칸만 따로 스크롤한다. 칸 안 고정 머리줄·[저장] 줄은 칸 끝(0)에 붙는다. */
+   내용이 화면보다 길면 그 칸만 따로 스크롤한다. 칸 안 고정 머리줄·[저장] 줄은 칸 끝(0)에 붙는다.
+   UI-PC스크롤묶음 ②(2026-11-10): 칸 위에서 굴린 휠은 칸에 굴릴 것이 없거나 칸 끝에 닿으면 화면(문서) 스크롤로 넘어간다.
+   전에는 overscroll-behavior:contain이라 칸이 짧을 때(조직 보고 상세 등) 칸 위 휠이 아무것도 움직이지 않았다(크롬은 넘칠 것 없는 스크롤 틀도 contain이면 휠을 막는다).
+   붙는 자리 기본값(--follow-top)은 #appView가 '맨 위 줄 아래 8px'로 정하고(.kptu-follow-pane은 follow-pane.js가 칸마다 다시 정함). */
 @media (min-width:761px){
-  .kptu-follow-pane{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:calc(100vh - var(--follow-top,12px) - 12px);max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto;overscroll-behavior:contain}
+  #appView{--follow-top:calc(var(--kptu-stick-top) + 8px)}
+  .kptu-follow-pane{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:calc(100vh - var(--follow-top,12px) - 12px);max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto}
   .kptu-follow-pane .modal-action-footer{bottom:0}
 }
 /* S51-13 TODO-폴드목록상세: 폴드 펼침(600~760px)에서 follow-pane.js가 narrow로 붙인 칸도 같은 모양(최대 높이는 아래 떠 있는 줄만큼 뺀 값, JS). */
 @media (min-width:600px) and (max-width:760px){
-  .kptu-follow-pane.kptu-follow-narrow{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto;overscroll-behavior:contain}
+  .kptu-follow-pane.kptu-follow-narrow{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto}
   .kptu-follow-pane.kptu-follow-narrow .modal-action-footer{bottom:0}
 }

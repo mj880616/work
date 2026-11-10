@@ -45,8 +45,13 @@ async function expectEndVisible(page, sel, { from = 620, to = 1120, step = 20, w
       await frames(page);
       if (await page.evaluate(y => scrollY === y && scrollY >= document.scrollingElement.scrollHeight - innerHeight - 1, before)) break;
     }
+    // UI-PC스크롤묶음(S56-43): 넓은 틀(761px~)에서 나무가 붙은 칸(follow-pane)이고 화면보다 길면 그 칸만 따로 스크롤한다(UI-상세칸고정).
+    // 문서가 사이드바·아래 여백 때문에 괜히 더 내려가던 빈 높이를 없앤 뒤로는 문서가 아니라 그 칸을 끝까지 민다.
+    const pane = await page.evaluate(s => { const p = [...document.querySelectorAll(s)].map(e => e.closest('.kptu-follow-pane')).find(Boolean);
+      if (!p || p.scrollHeight <= p.clientHeight + 1) return 0; p.scrollTop = p.scrollHeight; return p.scrollHeight - p.clientHeight; }, sel);
+    await frames(page);
     const m = await page.evaluate(measure, sel);
-    if (m.max > 0) longer++;
+    if (m.max > 0 || pane > 0) longer++;
     if (m.bottom > m.stack + 1) bad.push({ h, ...m });
   }
   expect(bad).toEqual([]);

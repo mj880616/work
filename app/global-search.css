@@ -60,7 +60,7 @@
 }
 @media (max-width:760px){
   #appView #searchView{padding-bottom:calc(var(--kptu-mobile-tab-height,56px) + 16px)}
-  .gs-view-bar{position:sticky;top:0;z-index:2;margin:0 -12px 8px;padding:6px 12px;background:var(--kptu-bg)}
+  .gs-view-bar{position:sticky;top:var(--kptu-stick-top,0px);z-index:2;margin:0 -12px 8px;padding:6px 12px;background:var(--kptu-bg)}
   .gs-input{height:40px;font-size:16px}
   .gs-view-body{border-radius:var(--kptu-radius-md)}
   .gs-row-title,.gs-row-snippet,.gs-row-meta{white-space:normal;overflow-wrap:anywhere}

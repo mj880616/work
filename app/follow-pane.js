@@ -14,7 +14,17 @@
 const GAP = 12;
 // S51-13 TODO-폴드목록상세: 폴드 펼침(600~760px, 폰 틀)에서도 붙일 칸은 narrow로 부른다. 그 폭은 아래에 입력칸·전환 줄·하단바가
 // 떠 있으므로 그 높이(bottom, px를 돌려주는 함수)만큼 칸 최대 높이를 줄인다. 모양은 desktop-ui.css .kptu-follow-narrow 한 곳.
-const panes = new Map(); // el -> {top, bottom, node(보는 틀), lastTop(지난번 잰 위쪽 위치)}
+const panes = new Map(); // el -> {top(부른 쪽이 준 위 자리), bottom, node(보는 틀), lastTop(지난번 잰 위쪽 위치)}
+// UI-PC스크롤묶음 ①(2026-11-10): PC 맨 위 줄(.app-topline)은 화면 맨 위에 붙어 있다. 부른 쪽이 주는 top은 '그 줄 아래에서' 몇 px인지이고,
+// 칸이 실제로 붙는 자리는 그 줄이 차지하는 높이(맨 위 띠 + 줄 + 아래 간격)를 더한 값이다. 폰·폴드 접힘(~760px)은 줄이 없어 0.
+/** 맨 위에 붙은 줄이 화면 위에서 차지하는 높이(px). 줄이 없거나 붙어 있지 않으면 0. */
+export function stickTop() {
+  const line = document.querySelector('#appView>.app-topline');
+  if (!line) return 0;
+  const s = getComputedStyle(line);
+  if (s.display === 'none' || s.position !== 'sticky') return 0;
+  return (parseFloat(s.top) || 0) + line.offsetHeight + (parseFloat(s.marginBottom) || 0);
+}
 
 /** 순수 계산(tests/follow-pane-math.test.mjs): 칸이 화면 위에서 rectTop에 있을 때 화면 안에 다 들어오는 최대 높이. 칸이 붙으면(rectTop<=top) top 기준. */
 export function followMax({ view, top = GAP, rectTop }) {
@@ -22,10 +32,14 @@ export function followMax({ view, top = GAP, rectTop }) {
 }
 function paint(el, at) {
   const below = typeof at.bottom === 'function' ? Math.max(0, Number(at.bottom()) || 0) : 0;
+  const top = Math.round(at.top + stickTop());
+  const t = `${top}px`;
+  if (el.style.getPropertyValue('--follow-top') !== t) el.style.setProperty('--follow-top', t);
   const rectTop = el.getBoundingClientRect().top;
   at.lastTop = rectTop;
-  const v = `${followMax({ view: window.innerHeight - below, top: at.top, rectTop })}px`;
+  const v = `${followMax({ view: window.innerHeight - below, top, rectTop })}px`;
   if (el.style.getPropertyValue('--follow-max') !== v) el.style.setProperty('--follow-max', v);
+  return top;
 }
 /** 순수 계산(tests/follow-pane-math.test.mjs): 크기 변화로 깨어났을 때 이 칸을 다시 잴지. 그려져 있고 위쪽 위치가 1px 넘게 바뀐 때만. */
 export function moved({ shown, lastTop, rectTop }) {
@@ -84,15 +98,14 @@ export function followPane(el, { top = GAP, reset = true, narrow = false, bottom
   if (!el) return;
   el.classList.add('kptu-follow-pane');
   el.classList.toggle('kptu-follow-narrow', !!narrow);
-  const v = `${Math.round(top)}px`;
-  if (el.style.getPropertyValue('--follow-top') !== v) el.style.setProperty('--follow-top', v);
   const at = panes.get(el) || { node: null, lastTop: null };
   at.top = top; at.bottom = narrow ? bottom : null;
   panes.set(el, at); listen(); watch(el, at); paint(el, at);
+  const stuck = Math.round(top + stickTop());
   if (reset) {
     el.scrollTop = 0;
-    // 칸 머리가 자기 자리(top) 위로 지나가 있으면(칸을 품은 줄 끝 가까이에서 새 항목을 연 때) 그만큼만 화면을 올려 머리를 보인다.
-    const over = el.getBoundingClientRect().top - top;
+    // 칸 머리가 자기 자리(맨 위 줄 아래 top) 위로 지나가 있으면(칸을 품은 줄 끝 가까이에서 새 항목을 연 때) 그만큼만 화면을 올려 머리를 보인다.
+    const over = el.getBoundingClientRect().top - stuck;
     if (over < -1) window.scrollBy({ top: over, behavior: 'instant' });
   }
 }

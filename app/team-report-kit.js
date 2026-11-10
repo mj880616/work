@@ -15,7 +15,7 @@ export {pickReportKind} from './report-kind-sheet.js';
 export {reportWords,isMeetingKind} from './report-words.mjs';
 export {createFieldRows} from './report-entry-rows.js';
 export {mountSplitResize} from './split-resize.js';
-export {followPane} from './follow-pane.js';
+export {followPane,stickTop} from './follow-pane.js';
 export {targetList,targetsLabel,firstProjectId} from './report-links-model.mjs';
 export {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,attendeesAvailable,noteAttendeesFromMeetings,noteAreaFromMeetings,noteAreaNoneFromMeetings,LEGACY_NOTE} from './report-links.js';
 export {mountAreaFields} from './business-area-fields.js';

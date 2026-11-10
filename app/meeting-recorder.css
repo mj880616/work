@@ -28,7 +28,7 @@
 .rec-band .rec-stop{color:var(--kptu-danger)}
 body.rec-on{padding-top:var(--rec-band-height,32px)}
 @media (min-width:761px){
-  body.rec-on #appView{--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap) + var(--rec-band-height,32px))}
+  body.rec-on #appView{--kptu-fixed-top:var(--rec-band-height,32px);--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap) + var(--rec-band-height,32px))}
   body.rec-on #appView>.app-nav{top:calc(12px + var(--rec-band-height,32px));height:calc(100dvh - 24px - var(--rec-band-height,32px))}
 }
 /* 사업 보고 위쪽 줄 [녹음]: [+ 사업 보고] 왼쪽의 작은 낮은 버튼(32px). PC에서만 보이고(hidden은 화면이 정함) 녹음 중에는 '녹음 중'으로 꺼진다. */

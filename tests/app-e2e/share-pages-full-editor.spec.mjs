@@ -121,7 +121,9 @@ for (const width of [1280, 1440, 390]) test('a new page fills the content area a
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   const stuck = await page.evaluate(() => ({top:document.querySelector('.sp-topline').getBoundingClientRect(), bar:document.querySelector('.sp-full-doc .ed-bar').getBoundingClientRect(), y:scrollY}));
   expect(stuck.y).toBeGreaterThan(300);
-  expect(Math.round(stuck.top.top)).toBe(0);
+  // UI-PC스크롤묶음 ①: PC 맨 위 줄(줄 + 간격)이 화면 맨 위에 붙으므로 편집 위쪽 줄은 그 아래에 붙는다.
+  const line = await page.locator('#appView>.app-topline').evaluate(el => { const cs = getComputedStyle(el); if (cs.display === 'none' || cs.position !== 'sticky') return 0; return parseFloat(cs.top) + el.offsetHeight + parseFloat(cs.marginBottom); });
+  expect(Math.round(stuck.top.top)).toBe(Math.round(line));
   expect(Math.abs(stuck.bar.top - stuck.top.bottom)).toBeLessThanOrEqual(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);

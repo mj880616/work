@@ -10,7 +10,7 @@
 @media (min-width:761px){
   #appView #outsideView .os.now{ grid-template-columns:minmax(0,var(--ds-split-list,3fr)) minmax(0,var(--ds-split-detail,2fr)); }
   #appView #outsideView .now-main,#appView #outsideView .os.now[data-detail="open"] > .now-main{ display:flex; max-width:none; }
-  #appView #outsideView .now-detail{ display:block; position:sticky; top:8px; max-height:calc(100vh - 16px); overflow:auto; padding-left:12px; border-left:var(--ds-line-width,.5px) solid var(--ds-line); }
+  #appView #outsideView .now-detail{ display:block; position:sticky; top:var(--follow-top,8px); max-height:calc(100vh - var(--follow-top,8px) - 8px); overflow:auto; padding-left:12px; border-left:var(--ds-line-width,.5px) solid var(--ds-line); }
   #appView #outsideView .nd-back{ display:none; }
   /* UI-Now PC정돈: 탭 줄은 두 칸 위로 가로 전체(아래선이 왼쪽 칸에서만 끊기지 않게). 상세가 안 열린 때(글 없는 탭 포함)는 안내 상자 없이 목록이 폭 전체를 쓴다. */
   #appView #outsideView .os.now > .os-tabs{ grid-column:1 / -1; }
