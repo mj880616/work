@@ -75,6 +75,30 @@ object PushRules {
     /** 같은 종류·같은 자리는 같은 알림 번호(새 것이 앞 것을 바꾼다). 다른 앱 알림 번호(녹음·업데이트)와 겹치지 않게 큰 수 쪽에 둔다. */
     fun notifyId(m: Message): Int = 0x50000000 or ((m.kind + "|" + m.open).hashCode() and 0x0FFFFFFF)
 
+    // ── APP-알림숫자지우기: 남은 폰 알림 지우기(갤럭시 아이콘 숫자 = 알림창에 남은 웹2 알림 수) ──
+
+    /** 서버가 붙인 알림 자리 표시(open의 notice=종류.열쇠, 인코딩된 그대로). 알림 꼬리표(tag)로 써서 웹2 안에서 그 자리를 열면 그 알림만 지운다. 없으면 null. */
+    fun noticeTag(open: String?): String? {
+        if (open == null) return null
+        val q = open.indexOf('?')
+        if (q < 0) return null
+        val raw = open.substring(q + 1).split('&').firstOrNull { it.startsWith("notice=") }?.removePrefix("notice=") ?: return null
+        return raw.takeIf { NOTICE_KEY.matches(it) }
+    }
+
+    /** 웹이 보낸 push:clear:<종류>.<열쇠> → 지울 꼬리표. 모양이 아니면 null(아무것도 지우지 않음). */
+    fun clearKey(data: String?): String? {
+        if (data == null || !data.startsWith(CLEAR_PREFIX)) return null
+        return data.removePrefix(CLEAR_PREFIX).takeIf { NOTICE_KEY.matches(it) }
+    }
+
+    /** 지워도 되는 알림인지: 폰 알림(push_ 채널)만. 녹음(recording)·앱 업데이트(app_update) 알림은 지우지 않는다. */
+    fun clearable(channelId: String?): Boolean = channelId != null && channelId.startsWith(CHANNEL_PREFIX)
+
+    const val CLEAR_PREFIX = "push:clear:"
+    /** 종류(영문 소문자·_) + "." + 열쇠(서버가 encodeURIComponent한 모양: 영문·숫자·_.-%). */
+    private val NOTICE_KEY = Regex("^[a-z_]{1,20}\\.[A-Za-z0-9_.%-]{1,240}$")
+
     fun tokenOk(token: String?): Boolean = token != null && TOKEN.matches(token)
 
     /** Firebase 앱 설정 4개가 모두 모양에 맞을 때만 알림 기능을 켠다(PR CI debug 빌드는 비어 있어 꺼진 채로 돈다). */

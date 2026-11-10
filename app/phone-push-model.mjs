@@ -135,6 +135,12 @@ export function noticeParam(search) {
   return {kind, ref_key: ref};
 }
 
+/** APP-알림숫자지우기 ②: 웹2 안에서 알림 자리를 열었을 때 폰 앱에 보낼 '그 폰 알림 지우기' 다리 글. 꼬리표는 서버 open의 notice= 값(encodeURIComponent)과 같은 모양. 모양이 아니면 null. */
+export function noticeClearMessage(kind, refKey) {
+  if (typeof kind !== 'string' || typeof refKey !== 'string' || !NOTICE_KIND.test(kind) || !Object.hasOwn(RECENT_LABEL, kind) || !NOTICE_REF.test(refKey)) return null;
+  return `push:clear:${kind}.${encodeURIComponent(refKey)}`;
+}
+
 /** 서버가 준 여는 주소(/work/app/?view=…) → 화면 안 이동 {view, pane, mode} 또는 null. 웹2 앱 안 주소만. */
 export function noticePlace(open) {
   if (typeof open !== 'string' || !/^\/work\/app\/(\?[A-Za-z0-9_=&%.-]{0,200})?$/.test(open)) return null;

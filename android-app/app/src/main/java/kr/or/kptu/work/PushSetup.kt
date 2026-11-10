@@ -114,8 +114,26 @@ object PushSetup {
             .setPublicVersion(hidden)
             .build()
         try {
-            app.getSystemService(NotificationManager::class.java)?.notify(id, note)
+            app.getSystemService(NotificationManager::class.java)?.notify(PushRules.noticeTag(m.open), id, note)
         } catch (_: SecurityException) {
+        }
+    }
+
+    /** APP-알림숫자지우기 ①: 알림창에 남은 웹2 폰 알림(push_ 채널)을 모두 지운다 → 갤럭시 아이콘 숫자도 사라진다. 녹음·업데이트 알림은 그대로. */
+    fun clearAll(context: Context) = clearWhere(context) { true }
+
+    /** APP-알림숫자지우기 ②: 웹2 안에서 그 알림 자리(알림 줄·최근 알림)를 열었을 때 그 폰 알림 하나만 지운다. */
+    fun clear(context: Context, tag: String) = clearWhere(context) { it == tag }
+
+    private fun clearWhere(context: Context, match: (String?) -> Boolean) {
+        val nm = context.applicationContext.getSystemService(NotificationManager::class.java) ?: return
+        try {
+            for (sbn in nm.activeNotifications) {
+                if (!PushRules.clearable(sbn.notification.channelId)) continue
+                if (!match(sbn.tag)) continue
+                nm.cancel(sbn.tag, sbn.id)
+            }
+        } catch (_: Exception) {
         }
     }
 }

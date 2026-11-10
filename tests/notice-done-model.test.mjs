@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {noticeParam, noticePlace, noticeItems, recentItems, NOTICE_TEXT, RECENT_LABEL} from '../app/phone-push-model.mjs';
+import {noticeParam, noticePlace, noticeItems, recentItems, noticeClearMessage, NOTICE_TEXT, RECENT_LABEL} from '../app/phone-push-model.mjs';
 
 test('notice mark in the address: kind.ref only, known kinds, shaped ref', () => {
   assert.deepEqual(noticeParam('?view=home&mode=week&notice=next_week.w2026-11-09'), {kind:'next_week', ref_key:'w2026-11-09'});
@@ -42,9 +42,31 @@ test("recent list: one line 'MM/DD HH:MM · 무엇' in Seoul time, opened flag, 
 test('screen boundary: phone-push is called only through phone-push-settings.js; no device storage; no bell or red badge', () => {
   const done = readFileSync(new URL('../app/notice-done.js', import.meta.url), 'utf8');
   assert.doesNotMatch(done, /functions\/v1\/phone-push/);
-  assert.match(done, /import \{callPush\} from '\.\/phone-push-settings\.js'/);
+  assert.match(done, /import \{callPush, markNoticeOpened\} from '\.\/phone-push-settings\.js'/);
   assert.doesNotMatch(done, new RegExp(['local', 'session'].map(w => w + 'Storage').concat(['indexed' + 'DB']).join('|')));
   assert.doesNotMatch(done, /bell|badge|🔔/i);
   const loader = readFileSync(new URL('../app/loader-v2.js', import.meta.url), 'utf8');
   assert.match(loader, /import\('\.\/notice-done\.js'\)\.then\(m=>m\.startDoneNotices\(\)\)/);
+});
+
+// APP-알림숫자지우기 ②: 알림 자리를 열면 폰 앱에 그 폰 알림 지우기 다리 글(서버 open의 notice= 값과 같은 모양).
+test('noticeClearMessage: 알려진 종류·열쇠만, 서버처럼 encodeURIComponent', () => {
+  assert.equal(noticeClearMessage('next_week', 'w2026-11-09'), 'push:clear:next_week.w2026-11-09');
+  assert.equal(noticeClearMessage('meeting_done', 'm:abc-1'), 'push:clear:meeting_done.m%3Aabc-1');
+  assert.equal(noticeClearMessage('nope', 'x1'), null);
+  assert.equal(noticeClearMessage('next_week', ''), null);
+  assert.equal(noticeClearMessage('next_week', 'a b'), null);
+  assert.equal(noticeClearMessage(undefined, 'x1'), null);
+  // 주소 표시(noticeParam)를 거꾸로 만든 것과 같다.
+  const back = noticeParam('?notice=' + noticeClearMessage('meeting_done', 'm:abc-1').slice('push:clear:'.length));
+  assert.deepEqual(back, {kind: 'meeting_done', ref_key: 'm:abc-1'});
+});
+
+test('알림 자리 열기는 한 길(markNoticeOpened): 알림 줄·최근 알림 모두', () => {
+  const settings = readFileSync(new URL('../app/phone-push-settings.js', import.meta.url), 'utf8');
+  const done = readFileSync(new URL('../app/notice-done.js', import.meta.url), 'utf8');
+  assert.match(settings, /export function markNoticeOpened\(/);
+  assert.equal((settings.match(/callPush\(rt, 'opened'/g) || []).length, 1);
+  assert.doesNotMatch(done, /'opened'/);
+  assert.match(done, /markNoticeOpened\(rt, item, win\)/);
 });
