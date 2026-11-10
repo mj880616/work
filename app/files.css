@@ -175,8 +175,9 @@
 .fx-ask-all { display:flex; align-items:center; gap:4px; margin-top:6px; color:var(--kptu-muted); }
 .fx-askbox { position:fixed; z-index:56; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + 30px); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float); }
 @media (min-width:761px) { .fx-askbox { left:50%; right:auto; width:min(460px, calc(100vw - 32px)); transform:translateX(-50%); border-radius:var(--kptu-radius-md); } }
-/* 전송 줄: 하단바 바로 위 30px 한 줄, 맨 위 가는 막대 = 끝난 몫 */
-.fx-xfer { position:fixed; z-index:53; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px)); height:30px; display:flex; align-items:center; gap:8px; padding:0 12px; background:var(--kptu-surface); border-top:.5px solid var(--kptu-border); font-size:12px; color:var(--kptu-muted); }
+/* 전송 줄: 하단바 바로 위 30px 한 줄, 맨 위 가는 막대 = 끝난 몫.
+   UI-아래저장줄흰띠(S56-39): 바탕은 화면 바탕(--kptu-bg) — 아래 저장 줄(.save-row-sticky)과 같이, 화면 바탕 위에 흰 띠로 뜨지 않게. 위 가는 선은 그대로. */
+.fx-xfer { position:fixed; z-index:53; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px)); height:30px; display:flex; align-items:center; gap:8px; padding:0 12px; background:var(--kptu-bg); border-top:.5px solid var(--kptu-border); font-size:12px; color:var(--kptu-muted); }
 .fx-xfer b { color:var(--kptu-ink); font-weight:600; white-space:nowrap; }
 .fx-xfer-nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fx-xfer-bar { position:absolute; left:0; top:-1px; height:2px; background:var(--kptu-primary); transition:width .2s; }
