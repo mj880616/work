@@ -49,6 +49,8 @@ async function pickSource(page,label){
   await page.locator('#forgetViewMenu').getByRole('menuitemradio',{name:label,exact:true}).click();
 }
 // 뒤로가기: 폰은 안드로이드 앱과 같은 KPTURouter.back(), PC는 브라우저 뒤로.
+// 화면 사진(docs/design/screens/s56-10/): S56_10_SHOTS=1일 때만 찍는다.
+const SHOTS=process.env.S56_10_SHOTS?'docs/design/screens/s56-10/':'';
 const back=(page,width)=>width<761?page.evaluate(()=>window.KPTURouter.back()):page.goBack();
 
 for(const width of [412,1280]){
@@ -59,6 +61,7 @@ for(const width of [412,1280]){
     // 원문이 있는 줄은 출처 꼬리표 줄 끝에 작은 ›(눌러도 열림).
     const target=row(page,4); // 새 것이 위라 4번째는 목록 아래쪽
     await expect(target.locator('.nbx-meta-open')).toHaveText(/^소식 · 통화.*›$/);
+    if(SHOTS)await page.screenshot({path:`${SHOTS}forget-source-${width}.png`});
     await target.scrollIntoViewIfNeeded();
     await page.evaluate(()=>window.scrollBy(0,-120));
     const y=await page.evaluate(()=>Math.round(scrollY));
@@ -68,6 +71,7 @@ for(const width of [412,1280]){
     await expect(page.locator(`#cfDetail [data-cf-detail="${callId(4)}"]`)).toBeVisible();
     // 원문 줄은 잠깐 밝게 표시된다(record-flash.js).
     await expect(page.locator(`#cfDetail [data-cf-detail="${callId(4)}"][data-journal-flash]`)).toHaveCount(1);
+    if(SHOTS)await page.screenshot({path:`${SHOTS}source-open-${width}.png`});
     await back(page,width);
     await expect(page.locator('#basketView')).toBeVisible();
     await expect(page.locator('#callsView')).toBeHidden();
