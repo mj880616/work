@@ -131,3 +131,32 @@ test('노트 보기 전환 줄 자리: 폴드(폰 틀) 오른쪽 아래 · 폰 �
   expect(await sw().evaluate(e => getComputedStyle(e).position)).not.toBe('fixed');
   expect((await box(sw())).y).toBeLessThan(400);
 });
+
+// LIB-나무접기(요청함 11/09 18:10): 자료실과 같은 규칙 — 들어간 폴더 이름을 다시 누르면 접힘(위치는 그대로), 또 누르면 펼침, ←/→ 같은 규칙.
+test('파일 1280: 들어간 폴더 이름을 다시 누르면 접히고, ←/→도 같은 규칙', async ({ page }) => {
+  test.setTimeout(90000);
+  const { errors } = await start(page, 1280);
+  await openFiles(page, 1280);
+  const tree = root(page).locator('[data-fx-tree]');
+  await expect(tree).toBeVisible();
+  // 하위 폴더가 있는 폴더(아이콘 단추가 있는 줄)
+  const row = tree.locator('.ft-row.ft-has-tog:has(> button.ft-tog):has([data-fx-go][data-fx-id]:not([data-fx-id=""]))').first();
+  const id = await row.locator('[data-fx-go]').getAttribute('data-fx-id');
+  const main = tree.locator(`[data-fx-go][data-fx-id="${id}"]`), tog = tree.locator(`.ft-row:has([data-fx-id="${id}"]) > button.ft-tog`);
+  const name = await main.locator('.ft-name').textContent();
+  await main.click();
+  await expect(tog).toHaveAttribute('aria-expanded', 'true');
+  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(name);
+  await main.click();
+  await expect(tog).toHaveAttribute('aria-expanded', 'false');
+  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(name);
+  await expect(main).toBeFocused();
+  await main.click();
+  await expect(tog).toHaveAttribute('aria-expanded', 'true');
+  await main.focus(); await page.keyboard.press('ArrowLeft');
+  await expect(tog).toHaveAttribute('aria-expanded', 'false'); await expect(main).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(tog).toHaveAttribute('aria-expanded', 'true'); await expect(main).toBeFocused();
+  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(name);
+  expect(errors).toEqual([]);
+});

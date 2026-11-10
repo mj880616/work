@@ -5,6 +5,7 @@ import { followPane } from './follow-pane.js';
 import { mountSplitResize } from './split-resize.js';
 import { treeIconHtml, iconSvg } from './tree-icons.js';
 // FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
+import { ftFoldIfRepeat, ftBindTreeArrows } from './folder-tree-press.mjs';
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW } from './folder-tree-ui.mjs';
 import { riseFromRow, sinkToRow, topOf } from './folder-focus-motion.js';
 import { recentFolded, toggleRecentFolded } from './recent-fold.js';
@@ -1297,6 +1298,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-note-to-diary')) void toDiary(note.id, from.trigger);
     else if (b.hasAttribute('data-note-delete')) void remove(note.id);
   }
+  ftBindTreeArrows(); // LIB-나무접기 ③: PC 나무 ←/→
   host.addEventListener('click', e => {
     const line = e.target.closest('[data-note-file] .file-line-main'); if (line && host.contains(line)) { closeMenu(); pressNoteFile(line); return; }
     const b = e.target.closest('button'); if (!b || b.disabled || !host.contains(b)) return;
@@ -1317,7 +1319,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.hasAttribute('data-nb-remove')) { if (!pick.active) boards.detach(b.dataset.nbRemove); return; }
     if (b.hasAttribute('data-note-row')) { if (pick.active) togglePick('n:' + b.dataset.noteRow); else open(b.dataset.noteRow); }
     else if (b.hasAttribute('data-nx-tog')) { const id = b.dataset.nxTog; if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderList(); host.querySelector(`[data-nx-tog="${CSS.escape(id)}"]`)?.focus({preventScroll:true}); }
-    else if (b.hasAttribute('data-nx-open')) pressFolder(b.dataset.nxOpen, e);
+    else if (b.hasAttribute('data-nx-open')) { if (!ftFoldIfRepeat(b)) pressFolder(b.dataset.nxOpen, e); } // LIB-나무접기: 들어가 펼친 폴더 이름 다시 = 접기
     // 위치 줄 맨 앞 '노트'(폰 '그 폴더만' 상자 안)는 [‹]와 같이 펼친 자리 그대로 나무로(S51-24).
     else if (b.hasAttribute('data-nx-at')) { const id = b.dataset.nxAt || null; if (id === null && !wideList.matches && at !== null) up(); else enter(id); }
     else if (b.hasAttribute('data-nx-back')) up();

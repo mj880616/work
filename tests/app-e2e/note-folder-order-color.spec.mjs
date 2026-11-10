@@ -10,7 +10,7 @@ let clockStep = 0;
 const tick = page => page.clock.setFixedTime(new Date(Date.parse('2026-10-06T01:00:00Z') + (++clockStep) * 60000));
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const U = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-async function fixture(page, width) {
+async function fixture(page, width, { child = false } = {}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [], writes = [], rpc = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -25,6 +25,7 @@ async function fixture(page, width) {
   ];
   const mk = (n, name, order) => ({ id: U(n), workspace_id: 'w', parent_id: null, name, sort_order: order, created_at: `2026-10-0${n}T00:00:00Z`, color: null });
   const folders = [mk(1, '갑 폴더', 1024), mk(2, '을 폴더', 2048), mk(3, '병 폴더', 3072)];
+  if (child) folders[2].parent_id = U(1); // LIB-나무접기 시험: 병 폴더를 갑 폴더 안에
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
     const req = r.request(), q = new URL(req.url()).searchParams;
     const pick = x => (!q.get('kind') || 'eq.' + x.kind === q.get('kind')) && (!q.get('id') || 'eq.' + x.id === q.get('id'));
@@ -89,6 +90,28 @@ test.describe('PC 1440', () => {
     // 가운데 50%: 병 폴더를 갑 폴더 안으로 → 상위가 갑 폴더가 된다(순서가 아니라 넣기).
     await mouseDrag(page, `[data-nx-tree] [data-nx-folder="${U(3)}"]`, `[data-nx-tree] [data-nx-folder="${U(1)}"]`, 'inside');
     await expect.poll(() => f.folders.find(x => x.id === U(3)).parent_id).toBe(U(1));
+    expect(f.errors).toEqual([]);
+  });
+
+  // LIB-나무접기(요청함 11/09 18:10): 자료실과 같은 규칙 — 들어간 폴더 이름을 다시 누르면 접힘(오른쪽 그대로), 또 누르면 펼침, ←/→ 같은 규칙.
+  test('들어간 폴더 이름을 다시 누르면 접히고, ←/→도 같은 규칙', async ({ page }) => {
+    const f = await fixture(page, 1440, { child: true });
+    const main = page.locator(`[data-nx-tree] [data-nx-open="${U(1)}"]`), tog = page.locator(`[data-nx-tree] [data-nx-tog="${U(1)}"]`);
+    const child = page.locator(`[data-nx-tree] [data-nx-folder="${U(3)}"]`), noteRows = () => noteOrder(page);
+    await main.click();
+    await expect(child).toBeVisible(); await expect(tog).toHaveAttribute('aria-expanded', 'true');
+    await expect.poll(noteRows).toEqual(['n1', 'n2', 'n3']);
+    await main.click();
+    await expect(child).toHaveCount(0); await expect(tog).toHaveAttribute('aria-expanded', 'false');
+    await expect.poll(noteRows).toEqual(['n1', 'n2', 'n3']);
+    await expect(main).toBeFocused();
+    await main.click();
+    await expect(child).toBeVisible();
+    await main.focus(); await page.keyboard.press('ArrowLeft');
+    await expect(child).toHaveCount(0); await expect(main).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(child).toBeVisible(); await expect(main).toBeFocused();
+    expect(f.writes).toEqual([]);
     expect(f.errors).toEqual([]);
   });
 
