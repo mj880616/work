@@ -43,10 +43,11 @@ test('서버 칸 확인은 장소와 같은 방식, 목록 열에는 넣지 않�
 test('보고 고치기·상세: 같은 칸, [회의] 칸만, 바뀐 때만 보내고 비우면 null; 상세 머리 줄에 참석',()=>{
  assert.match(mrd,/<legend data-rw="mrdEditLegend">회의 결과<\/legend><label id="mrdEditAttendeesRow" hidden><span>참석인원 <span class="optional">안 써도 됨<\/span><\/span><input id="mrdEditAttendees" type="text" maxlength="200"/);
  assert.match(mrd,/document\.querySelector\('#mrdEditAttendees'\)\.value=mrdCurrent\.attendees\|\|'';/);
- assert.match(mrd,/if\(meeting\)attendeesAvailable\(\)\.then/);
- assert.match(mrd,/if\(whoKind&&whoNow!==whoStart&&await attendeesAvailable\(\)\.catch\(\(\)=>false\)\)body\.attendees=whoNow\|\|null;/);
- // 서버 칸 확인 기다림은 저장 잠금(pending) 뒤(두 번 저장 막기, 장소와 같은 자리).
- assert.ok(mrd.indexOf('body.attendees=whoNow')>mrd.indexOf("const a={body,draft:mrdEditDraft(),pending:true"));
+ // 상세는 select=*로 읽은 행에 칸이 있는지로 정한다(서버에 따로 묻지 않음 — 열 때 사업 보고 읽기 요청이 늘지 않게).
+ assert.match(mrd,/const mrdAttendeesOn=m=>!!m&&Object\.hasOwn\(m,'attendees'\)&&isMeetingKind\(reportKindOf\(m\)\);/);
+ assert.doesNotMatch(mrd,/attendeesAvailable\(/);
+ assert.match(mrd,/if\(row\)row\.hidden=!mrdAttendeesOn\(mrdCurrent\)/);
+ assert.match(mrd,/if\(mrdAttendeesOn\(mrdCurrent\)&&whoNow!==whoStart\)body\.attendees=whoNow\|\|null;/);
  assert.match(mrd,/const mrdEditFieldKeys=\[[^\]]*'Attendees'\]/,'고친 내용 확인에 포함');
  assert.match(mrd,/m\.attendees&&String\(m\.attendees\)\.trim\(\)\?`참석 \$\{String\(m\.attendees\)\.trim\(\)\}`:null/);
 });
