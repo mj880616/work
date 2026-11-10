@@ -53,7 +53,7 @@ test('내려받기 실패는 onError로 알리고, 길이 없으면 거절', asy
   assert.equal(await downloadFile({documentId: 'd'}, {api: async () => ({}), onError: m => errors.push(m)}), false);
   assert.equal(await downloadFile({}, {onError: m => errors.push(m)}), false);
   assert.equal(openInDrive({}, {onError: m => errors.push(m)}), false);
-  assert.deepEqual(errors, ['권한 없음', '다운로드 주소를 받지 못했습니다.', '내려받을 수 있는 파일 링크가 없습니다.', '열 수 있는 파일 링크가 없습니다.']);
+  assert.deepEqual(errors, ['권한 없음', '다운로드 주소를 받지 못했어요.', '내려받을 수 있는 파일 링크가 없어요.', '열 수 있는 파일 링크가 없어요.']);
 });
 
 test('⋯ 메뉴 항목과 줄 속성: 어느 파일이든 두 항목, 이름은 escape', () => {

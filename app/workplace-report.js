@@ -42,15 +42,15 @@ function reportCurrent(e){return reportEditor===e&&e.sequence===reportSequence&&
 function reportKey(e){return [e.scope.owner,e.scope.workspace,e.scope.epoch,e.orgId,e.id].join(':')}
 function reportDraft(){return JSON.stringify([document.querySelector('#warSummary')?.value??'',document.querySelector('#warDetail')?.value??''])}
 function reportPath(e){return `/rest/v1/app_suborganization_weekly_reports?id=eq.${encodeURIComponent(e.id)}&organization_id=eq.${encodeURIComponent(e.orgId)}&select=*`}
-function reportRow(e,rows,body){const row=Array.isArray(rows)&&rows.length===1&&rows[0];if(!row||row.id!==e.id||row.organization_id!==e.orgId||!Object.entries(body).every(([k,v])=>k==='updated_at'?Number.isFinite(Date.parse(row[k])):k==='finalized_at'?Date.parse(row[k])===Date.parse(v):JSON.stringify(row[k])===JSON.stringify(v)))throw new Error('주간보고의 저장 결과를 확인하지 못했습니다.');return row}
+function reportRow(e,rows,body){const row=Array.isArray(rows)&&rows.length===1&&rows[0];if(!row||row.id!==e.id||row.organization_id!==e.orgId||!Object.entries(body).every(([k,v])=>k==='updated_at'?Number.isFinite(Date.parse(row[k])):k==='finalized_at'?Date.parse(row[k])===Date.parse(v):JSON.stringify(row[k])===JSON.stringify(v)))throw new Error('주간보고의 저장 결과를 확인하지 못했어요.');return row}
 function reportNotice(e,text,check=false){if(!reportCurrent(e))return;const st=document.querySelector('#warDraftState');st.textContent=text;st.className='status';if(check){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='저장 결과 확인';b.onclick=()=>checkReport(e);st.append(document.createTextNode(' '),b)}}
 function reportBusy(on){document.querySelector('#warSaveDraft').disabled=on;document.querySelector('#warFinalize').disabled=on}
-async function checkReport(e){const key=reportKey(e),a=reportAttempts.get(key);if(!a||a.pending||a.reading||!reportCurrent(e))return;a.reading=true;const current=()=>reportCurrent(e)&&reportAttempts.get(key)===a;try{const rows=await api(reportPath(e),{expectedSessionEpoch:e.scope.epoch,singleFlight:false});if(!current())return;const row=reportRow(e,rows,a.body);Object.assign(editingReport,row);reports=reports.map(r=>r.id===row.id&&r.organization_id===e.orgId?structuredClone(row):r);reportAttempts.delete(key);reportNotice(e,'제출한 주간보고는 확인했습니다. 현재 입력은 남겨두었습니다.')}catch{if(current())reportNotice(e,'저장 결과를 아직 확인하지 못했습니다. 입력을 유지했으며 다시 저장하지 않았습니다.',true)}finally{a.reading=false}}
+async function checkReport(e){const key=reportKey(e),a=reportAttempts.get(key);if(!a||a.pending||a.reading||!reportCurrent(e))return;a.reading=true;const current=()=>reportCurrent(e)&&reportAttempts.get(key)===a;try{const rows=await api(reportPath(e),{expectedSessionEpoch:e.scope.epoch,singleFlight:false});if(!current())return;const row=reportRow(e,rows,a.body);Object.assign(editingReport,row);reports=reports.map(r=>r.id===row.id&&r.organization_id===e.orgId?structuredClone(row):r);reportAttempts.delete(key);reportNotice(e,'제출한 주간보고는 확인했습니다. 현재 입력은 남겨두었습니다.')}catch{if(current())reportNotice(e,'저장 결과를 아직 확인하지 못했어요. 입력을 유지했으며 다시 저장하지 않았어요.',true)}finally{a.reading=false}}
 async function load(){
   const orgId=currentOrgId,view=reportView,scope=reportScope(),read=++reportRead;if(!orgId)return;
   const rows=await api(`/rest/v1/app_suborganization_weekly_reports?organization_id=eq.${encodeURIComponent(orgId)}&select=*&order=week_of.desc&limit=30`,{expectedSessionEpoch:scope?.epoch??null,singleFlight:false});
   if(read!==reportRead||view!==reportView||orgId!==currentOrgId||(scope&&!reportSameScope(scope)))return;
-  if(!Array.isArray(rows)||rows.some(r=>r.organization_id!==orgId))throw new Error('주간보고 목록을 확인하지 못했습니다.');reports=rows;render();
+  if(!Array.isArray(rows)||rows.some(r=>r.organization_id!==orgId))throw new Error('주간보고 목록을 확인하지 못했어요.');reports=rows;render();
 }
 
 function detail(id){
@@ -66,7 +66,7 @@ function detail(id){
 
 async function saveReport(finalize){
   const e=reportEditor;if(!editingReport||!e)return;
-  if(!e.scope||!reportSameScope(e.scope)){const st=document.querySelector('#warDraftState');st.textContent='로그인 상태를 확인하지 못했습니다. 입력은 남겨두었습니다.';st.className='status error';return}if(!reportCurrent(e))return;
+  if(!e.scope||!reportSameScope(e.scope)){const st=document.querySelector('#warDraftState');st.textContent='로그인 상태를 확인하지 못했어요. 입력은 남겨두었습니다.';st.className='status error';return}if(!reportCurrent(e))return;
   const key=reportKey(e),old=reportAttempts.get(key);if(old?.pending||old?.state==='unknown'){reportNotice(e,'앞선 저장 결과를 먼저 확인해 주세요.',!old.pending);return}
   const summary=document.querySelector('#warSummary').value.trim(),detailText=document.querySelector('#warDetail').value.trim();if(!summary){reportNotice(e,'요약을 입력해 주세요.');return}
   const body={summary,detail:detailText||null,updated_at:new Date().toISOString()};if(finalize){body.status='final';body.finalized_at=editingReport.finalized_at||new Date().toISOString()}
@@ -82,7 +82,7 @@ async function saveReport(finalize){
     if(!reportCurrent(e))return;
     render();
     if(reportDraft()===a.draft){reportBusy(false);modal(false)}else reportNotice(e,'제출한 주간보고는 저장했습니다. 추가 입력은 남겨두었습니다.');
-  }catch(err){a.state=[401,403].includes(err?.status)?'rejected':'unknown';if(a.state==='rejected'&&reportSameScope(e.scope)&&reportAttempts.get(key)===a)reportAttempts.delete(key);reportNotice(e,a.state==='rejected'?'주간보고 수정 권한을 확인해 주세요. 입력은 유지했습니다.':'저장 결과를 확인하지 못했습니다. 입력을 유지했습니다.',a.state==='unknown')}
+  }catch(err){a.state=[401,403].includes(err?.status)?'rejected':'unknown';if(a.state==='rejected'&&reportSameScope(e.scope)&&reportAttempts.get(key)===a)reportAttempts.delete(key);reportNotice(e,a.state==='rejected'?'주간보고 수정 권한을 확인해 주세요. 입력은 유지했습니다.':'저장 결과를 확인하지 못했어요. 입력을 유지했어요.',a.state==='unknown')}
   finally{a.pending=false;a.finish();if(e.request===a&&reportCurrent(e))reportBusy(false)}
 }
 

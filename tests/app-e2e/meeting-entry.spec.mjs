@@ -742,7 +742,7 @@ test('meeting edit does not report success when RLS updates zero rows',async({pa
   await openMeetingResult(page,'meeting-1');
   await mrdMenu(page,'edit');
   await page.locator('#mrdSaveEdit').click();
-  await expect(page.locator('#mrdEditStatus')).toContainText('저장 결과를 확인하지 못했습니다.');
+  await expect(page.locator('#mrdEditStatus')).toContainText('저장 결과를 확인하지 못했어요.');
   await expect(page.locator('#mrdEditStatus')).not.toHaveClass(/ok/);
   await expect(page.locator('#mrdEditStatus').getByRole('button',{name:'저장 결과 확인',exact:true})).toBeVisible();
   await expect(page.locator('#mrdEditNotes')).toHaveValue(meeting.notes);

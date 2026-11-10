@@ -47,7 +47,7 @@ export async function readTaskFiles(ids, {rt = window.KPTURuntime, expectedSessi
 
 export function fileProblem(file, count) {
   if (count >= MAX_TASK_FILES) return `한 할 일에는 파일을 ${MAX_TASK_FILES}개까지 붙일 수 있습니다.`;
-  if (!file?.size) return '빈 파일은 붙일 수 없습니다.';
+  if (!file?.size) return '빈 파일은 붙일 수 없어요.';
   if (file.size > MAX_TASK_FILE_BYTES) return '파일은 100MB까지 붙일 수 있습니다.';
   return '';
 }
@@ -161,7 +161,7 @@ async function upload(picked) {
       try { d = await attachTaskFile(s.task.id, file, {rt: s.rt}); }
       catch (e) { if (e?.code === 'upload_cancelled') continue; if (!s.isCurrent()) return; if (shown(s)) status(`${file.name}: ${message(e)}`, true); else tellClosed(s, `${file.name}: ${message(e)}`, true); return; }
       if (!s.isCurrent()) return;
-      if (!d?.ok) { const t = `${file.name}: 저장 결과를 확인하지 못했습니다. 할 일을 다시 열어 확인해 주세요.`; if (shown(s)) status(t, true); else tellClosed(s, t, true); return; }
+      if (!d?.ok) { const t = `${file.name}: 저장 결과를 확인하지 못했어요. 할 일을 다시 열어 확인해 주세요.`; if (shown(s)) status(t, true); else tellClosed(s, t, true); return; }
       // Saved on the server: the list owner hears it even if this dialog was closed meanwhile.
       accept(s, d); done++;
       if (d.notes_synced === false) unsynced = true;
@@ -275,7 +275,7 @@ export async function attachNewTaskFiles(taskId, files, {rt = window.KPTURuntime
     onProgress(index, files.length, file);
     try {
       const d = await attachTaskFile(taskId, file, {rt});
-      if (!d?.ok) throw Error('저장 결과를 확인하지 못했습니다.');
+      if (!d?.ok) throw Error('저장 결과를 확인하지 못했어요.');
       done++;
       if (Array.isArray(d.files)) saved = d.files.map(f => ({drive_file_id: f.drive_file_id, file_name: String(f.file_name || '파일'), size_bytes: Number(f.size_bytes) || 0}));
       if (d.notes_synced === false) unsynced = true;
@@ -287,7 +287,7 @@ export async function attachNewTaskFiles(taskId, files, {rt = window.KPTURuntime
 export function newTaskFilesNotice(result) {
   if (!result?.failed?.length) return '';
   const names = result.failed.map(f => f.name).join(', '), first = result.failed[0].message;
-  return `할 일은 저장했습니다. 파일 ${result.failed.length}개(${names})를 붙이지 못했습니다: ${first} 할 일 ⋯ → 파일 붙이기에서 확인하고 다시 붙일 수 있습니다.`;
+  return `할 일은 저장했어요. 파일 ${result.failed.length}개(${names})를 붙이지 못했어요: ${first} 할 일 ⋯ → 파일 붙이기에서 확인하고 다시 붙일 수 있어요.`;
 }
 
 // The [📎 파일 붙이기] button and the chosen-file list inside an add window. Nothing is uploaded here; the window reads files()
@@ -457,7 +457,7 @@ export async function applyTaskAttachPlan(taskId, plan, {rt = window.KPTURuntime
   const up = async file => {
     const problem = fileProblem(file, 0); if (problem) throw Error(problem);
     const d = await attachTaskFile(taskId, file, {rt});
-    if (!d?.ok) throw Error('저장 결과를 확인하지 못했습니다.');
+    if (!d?.ok) throw Error('저장 결과를 확인하지 못했어요.');
     count++; take(d);
   };
   const steps = plan.remove.length + plan.swap.length + plan.add.length;
@@ -471,7 +471,7 @@ export async function applyTaskAttachPlan(taskId, plan, {rt = window.KPTURuntime
     const full = from.inTable && count >= MAX_TASK_FILES;
     try {
       if (full) { await off(from); await up(file); }
-      else { await up(file); try { await off(from); } catch (e) { failed.push({name: from.file_name, message: `새 파일은 붙였지만 원래 파일을 빼지 못했습니다. ${message(e)}`}); } }
+      else { await up(file); try { await off(from); } catch (e) { failed.push({name: from.file_name, message: `새 파일은 붙였지만 원래 파일을 빼지 못했어요. ${message(e)}`}); } }
     } catch (e) { failed.push({name: file.name, message: message(e)}); }
   }
   for (const file of plan.add) {
@@ -484,5 +484,5 @@ export async function applyTaskAttachPlan(taskId, plan, {rt = window.KPTURuntime
 export function taskAttachNotice(result) {
   if (!result?.failed?.length) return '';
   const names = [...new Set(result.failed.map(f => f.name))].join(', ');
-  return `할 일은 저장했습니다. 첨부 ${result.failed.length}건(${names})을 바꾸지 못했습니다: ${result.failed[0].message} 다시 해 주세요.`;
+  return `할 일은 저장했어요. 첨부 ${result.failed.length}건(${names})을 바꾸지 못했어요: ${result.failed[0].message} 다시 해 주세요.`;
 }

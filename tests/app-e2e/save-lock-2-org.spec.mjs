@@ -95,9 +95,9 @@ test('wdSaveAff keeps POST single-flight, resumes known refusal and never resend
   await page.locator('#wdAffManage').click();
   await page.evaluate(()=>{window.__saveLockProbe.fail=true;window.__saveLockProbe.failStatus=503});await button.click();
   await expect.poll(()=>count(page)).toBe(4);
-  await expect(page.locator('#wdAffStatus')).toContainText('새 선택은 아직 확인하지 못했습니다');
+  await expect(page.locator('#wdAffStatus')).toContainText('새 선택은 아직 확인하지 못했어요');
   await page.locator('#wdAffStatus button').click();
-  await expect(page.locator('#wdAffStatus')).toContainText('다시 전송하지 않았습니다');
+  await expect(page.locator('#wdAffStatus')).toContainText('다시 전송하지 않았어요');
   await button.click();expect(await count(page)).toBe(4);
   await expect(page.locator('#wdAffModal')).toBeVisible();
   await expect(page.locator('[data-wd-aff][value="tag-1"]')).toBeChecked();

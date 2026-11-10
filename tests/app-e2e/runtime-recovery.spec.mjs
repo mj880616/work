@@ -247,8 +247,8 @@ test('session changes during initial ensure reject before the save dispatch',asy
 // Consumer lifecycle probes compose actual runtime/router/a11y/modules and app
 // DOM in the existing runtime fixture. Shell Auth bootstrap is excluded because
 // its independent identity listener navigates away on B/null snapshots.
-const DELETE_UNKNOWN='삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
-const DELETE_LEGACY='자료 등록을 삭제했습니다. Drive 파일 처리 결과는 확인하지 못했습니다. 원본 상태를 직접 확인해 주세요.';
+const DELETE_UNKNOWN='삭제 결과를 확인하지 못했어요. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
+const DELETE_LEGACY='자료 등록을 삭제했어요. Drive 파일 처리 결과는 확인하지 못했어요. 원본 상태를 직접 확인해 주세요.';
 const LIB_SESSION_NOTICE='로그인 세션을 확인하지 못했어요. 다시 로그인한 뒤 자료 목록을 먼저 확인해 주세요.';
 const libraryNotice=page=>page.locator('#kptuNotice .kptu-notice-text');
 const DELETE_DRIVE='Google Drive 연결을 확인해 주세요. 다시 삭제하기 전에 자료 목록과 원본 상태를 먼저 확인해 주세요.';
@@ -401,7 +401,7 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
     expect(state.calls).toEqual([]);expect(seen.some(d=>d.type==='confirm')).toBe(false);
     expect(await page.evaluate(()=>window.__deleteEvents)).toBe(0);
     if(view==='library'){expect(seen).toEqual([]);await expect(libraryNotice(page)).toHaveText(LIB_SESSION_NOTICE);await expect(page.locator('[data-lu-document="doc-0"]')).toHaveCount(1)}
-    else{expect(seen).toEqual([]);expect(await noticeText(page)).toBe('로그인 세션을 확인하지 못했습니다.')}
+    else{expect(seen).toEqual([]);expect(await noticeText(page)).toBe('로그인 세션을 확인하지 못했어요.')}
   });
   for(const changed of ['owner','null','empty token','snapshot owner','snapshot null','snapshot empty token'])test(`delete lifecycle import observed ${changed} restoration stays cancelled ${view} ${width}`,async({page})=>{
     const state=await deleteConsumerFixture(page,view,width,{holdImport:true}),seen=await consumerDialogs(page);
@@ -503,7 +503,7 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
     },unavailable);await startConsumerDelete(page,view);await settleConsumer(page);
     expect(state.calls).toEqual([]);expect(seen.some(d=>d.type==='confirm')).toBe(false);
     if(view==='library'){expect(seen).toEqual([]);await expect(libraryNotice(page)).toHaveText(LIB_SESSION_NOTICE)}
-    else{expect(seen).toEqual([]);expect(await noticeText(page)).toBe('로그인 세션을 확인하지 못했습니다.')}
+    else{expect(seen).toEqual([]);expect(await noticeText(page)).toBe('로그인 세션을 확인하지 못했어요.')}
   });
   test(`delete lifecycle stale failed import suppresses import error ${view} ${width}`,async({page})=>{
     const state=await deleteConsumerFixture(page,view,width),seen=await consumerDialogs(page);

@@ -45,7 +45,7 @@ test('organization record edit: 취소 keeps the text, [저장] saves, a failed 
  await expect(row).toContainText('기존 조직 기록');expect(await page.evaluate(()=>(window.__detailState.patches||[]).length)).toBe(0);
  await row.locator('[data-wd-up-menu]').click();await menu(page).getByRole('button',{name:'수정',exact:true}).click();
  await page.evaluate(()=>{window.__detailState.failPatch=403});await row.locator('[data-wd-up-input]').fill('고친 기록');await row.getByRole('button',{name:'저장'}).click();
- await expect(row.locator('[data-wd-up-state]')).toContainText('기록을 수정하지 못했습니다');await expect(row.locator('[data-wd-up-input]')).toHaveValue('고친 기록');
+ await expect(row.locator('[data-wd-up-state]')).toContainText('기록을 수정하지 못했어요');await expect(row.locator('[data-wd-up-input]')).toHaveValue('고친 기록');
  await page.evaluate(()=>{window.__detailState.failPatch=0});await row.getByRole('button',{name:'저장'}).click();
  await expect(row.locator('[data-wd-up-edit]')).toHaveCount(0);await expect(row).toContainText('고친 기록');
  expect(await page.evaluate(()=>window.__detailState.updates[0].raw_text)).toBe('고친 기록');

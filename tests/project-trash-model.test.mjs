@@ -71,7 +71,7 @@ test('영구 삭제 확인에 연결 풀림·진행기록 삭제 안내와 하�
   assert.match(text, /“합성 사업” 사업영역을 영구 삭제할까요\?/);
   assert.match(text, /하위 사업영역 2개도 삭제됩니다/);
   assert.match(text, /사업영역 연결만 풀립니다/);
-  assert.match(text, /되돌릴 수 없습니다/);
+  assert.match(text, /되돌릴 수 없어요/);
   assert.doesNotMatch(purgeConfirmText({name: 'a', child_count: 0}), /하위 사업영역 0개/);
 });
 
@@ -149,9 +149,9 @@ test('담당조직·사업 보고 삭제 글: 휴지통으로, 준비 중이면 
   const report = otherDeleteText('report', '합성 보고');
   assert.match(report.confirm, /사업 보고를 휴지통으로 옮길까요/);
   assert.match(report.confirm, /Google 할 일에 남고 자료 파일은 삭제하지 않습니다/);
-  assert.match(otherDeleteBlockedText('organization', TRASH_STATE.MISSING), /담당조직 휴지통은 준비 중입니다.*삭제할 수 없습니다/);
+  assert.match(otherDeleteBlockedText('organization', TRASH_STATE.MISSING), /담당조직 휴지통은 준비 중입니다.*삭제할 수 없어요/);
   assert.match(otherDeleteBlockedText('report', TRASH_STATE.MISSING), /사업 보고 휴지통은 준비 중/);
-  assert.match(otherDeleteBlockedText('report', TRASH_STATE.FAILED), /확인하지 못해 삭제하지 않았습니다/);
+  assert.match(otherDeleteBlockedText('report', TRASH_STATE.FAILED), /확인하지 못해 삭제하지 않았어요/);
 });
 
 test('자료실 폴더 삭제 글: 휴지통으로, 아래 폴더·자료 수를 알리고, 준비 중이면 삭제할 수 없다고 알림', () => {
@@ -164,7 +164,7 @@ test('자료실 폴더 삭제 글: 휴지통으로, 아래 폴더·자료 수를
   assert.doesNotMatch(withInside.confirm, /삭제할까요|한 단 위/);
   assert.equal(withInside.moved, '폴더를 휴지통으로 옮겼습니다.');
   assert.match(otherDeleteText('library_folder', '합성', {folders: 0, files: 1}).confirm, /자료 1개도 함께/);
-  assert.match(otherDeleteBlockedText('library_folder', TRASH_STATE.MISSING), /자료실 폴더 휴지통은 준비 중입니다.*삭제할 수 없습니다/);
+  assert.match(otherDeleteBlockedText('library_folder', TRASH_STATE.MISSING), /자료실 폴더 휴지통은 준비 중입니다.*삭제할 수 없어요/);
   assert.match(purgeConfirmText({kind: 'library_folder', name: '합성 폴더', child_count: 1, file_count: 4}), /“합성 폴더” 폴더를 영구 삭제할까요.*안의 아래 폴더 1개·자료 4개는 한 단 위로 올라갑니다.*Drive 파일은 삭제하지 않으며/s);
   assert.match(purgeConfirmText({kind: 'library_folder', name: '합성', child_count: 0, file_count: 0}), /안의 것은 한 단 위로/);
   assert.equal(restoredText('library_folder'), '폴더를 되돌렸습니다.');
@@ -176,7 +176,7 @@ test('자료실 폴더 삭제 글: 휴지통으로, 아래 폴더·자료 수를
 });
 
 test('영구 삭제 확인·되돌림 글은 종류마다 맞고, 같은 이름 충돌은 일상어', () => {
-  assert.match(purgeConfirmText({kind: 'organization', name: '합성 조직'}), /“합성 조직” 담당조직을 영구 삭제할까요.*되돌릴 수 없습니다/s);
+  assert.match(purgeConfirmText({kind: 'organization', name: '합성 조직'}), /“합성 조직” 담당조직을 영구 삭제할까요.*되돌릴 수 없어요/s);
   assert.match(purgeConfirmText({kind: 'report', name: '합성 보고'}), /“합성 보고” 사업 보고를 영구 삭제할까요.*Google 할 일/s);
   assert.match(purgeConfirmText({kind: 'project', name: '합성', child_count: 1}), /사업영역을 영구 삭제할까요/);
   assert.equal(restoredText('organization'), '담당조직을 되돌렸습니다.');
@@ -226,8 +226,8 @@ test('노트 종류: DB 적용 전(옛 함수가 거절)이면 준비 중이고 
   const unknown = {status: 400, code: '22023', message: 'TRASH_KIND_UNKNOWN'};
   assert.equal(classifyTrashError(unknown, 'note'), TRASH_STATE.MISSING);
   assert.equal(classifyTrashError({status: 500, message: 'boom'}, 'note'), TRASH_STATE.FAILED);
-  assert.equal(otherDeleteBlockedText('note', TRASH_STATE.MISSING), '노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');
-  assert.match(otherDeleteBlockedText('note', TRASH_STATE.FAILED), /확인하지 못해 삭제하지 않았습니다/);
+  assert.equal(otherDeleteBlockedText('note', TRASH_STATE.MISSING), '노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없어요.');
+  assert.match(otherDeleteBlockedText('note', TRASH_STATE.FAILED), /확인하지 못해 삭제하지 않았어요/);
 });
 
 test('노트 종류: 확인창은 첨부 Drive 파일이 남고 연결이 이어진다고, 영구 삭제는 연결이 함께 삭제된다고 말한다', () => {
@@ -265,7 +265,7 @@ test('공유 페이지 종류: 줄 이름은 제목(없으면 안내 이름)이�
 
 test('공유 페이지 종류: DB 적용 전이면 준비 중이고, 확인창은 링크 멈춤·되돌리면 같은 링크가 열림을 말하며, 영구 삭제는 되돌릴 수 없다고 말한다', () => {
   assert.equal(classifyTrashError({status: 400, code: '22023', message: 'TRASH_KIND_UNKNOWN'}, 'share_page'), TRASH_STATE.MISSING);
-  assert.equal(otherDeleteBlockedText('share_page', TRASH_STATE.MISSING), '공유 페이지 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');
+  assert.equal(otherDeleteBlockedText('share_page', TRASH_STATE.MISSING), '공유 페이지 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없어요.');
   const live = otherDeleteText('share_page', '교섭 현황', {status: 'published'});
   assert.match(live.confirm, /“교섭 현황” 공유 페이지를 휴지통으로 옮길까요/);
   assert.match(live.confirm, /링크·사진은 삭제되지 않습니다/);
@@ -276,6 +276,6 @@ test('공유 페이지 종류: DB 적용 전이면 준비 중이고, 확인창�
   assert.match(draft.confirm, /휴지통에서 되돌릴 수 있습니다/);
   const purge = purgeConfirmText({kind: 'share_page', name: '교섭 현황', file_count: 3, link_count: 1});
   assert.match(purge, /“교섭 현황” 공유 페이지를 영구 삭제할까요/);
-  assert.match(purge, /사진 3장이 모두 삭제되고 되돌릴 수 없습니다/);
+  assert.match(purge, /사진 3장이 모두 삭제되고 되돌릴 수 없어요/);
   assert.equal(restoredText('share_page'), '공유 페이지를 되돌렸습니다.');
 });

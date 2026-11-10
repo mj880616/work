@@ -180,7 +180,7 @@ document.addEventListener('click',e=>{
  const row=e.target.closest?.('[data-ps-workplace-org]');if(!row)return;
  e.preventDefault();e.stopImmediatePropagation();
  row.setAttribute('aria-busy','true');
- loadDetail().then(()=>{row.removeAttribute('aria-busy');if(row.isConnected&&detailLoaded())row.click()}).catch(err=>{row.removeAttribute('aria-busy');console.error('organization detail load',err);notify('조직 상세를 불러오지 못했습니다. 다시 눌러 주세요.',{error:true})});
+ loadDetail().then(()=>{row.removeAttribute('aria-busy');if(row.isConnected&&detailLoaded())row.click()}).catch(err=>{row.removeAttribute('aria-busy');console.error('organization detail load',err);notify('조직 상세를 불러오지 못했어요. 다시 눌러 주세요.',{error:true})});
 },true);
 function afterReveal(){return new Promise(resolve=>{const next=()=>requestAnimationFrame(()=>setTimeout(resolve,0));if(document.querySelector('#appView')?.classList.contains('kptu-ui-ready'))return next();window.addEventListener('kptu:app-ui-ready',next,{once:true})})}
 // 담당조직 화면에 들어왔을 때만 미리 받는다(달력 일정 칸 등 목록 모듈만 쓰는 화면에서는 받지 않음). 앱 화면 안에서만(KPTUViewLoader가 있을 때)

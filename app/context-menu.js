@@ -227,10 +227,18 @@ document.addEventListener('contextmenu', e => {
     if (pinned.panel) placeDetails(pinned.panel, x, y); else window.dispatchEvent(new Event('resize'));
     return;
   }
+  openAt(trigger, x, y);
+});
+// Presses a ⋯ trigger with its own handlers and keeps its menu at (x, y) — the right-click path above, and other screens whose
+// spot has no ⋯ of its own but means one (UI-PC손맛묶음 S56-52: a diary calendar day opens that day's detail ⋯).
+function openAt(trigger, x, y) {
+  if (trigger.tagName === 'SUMMARY') return openSummary(trigger, x, y);
+  closeDetails(false);
   pin(trigger, x, y);
   trigger.click();
   placeStylePanel(trigger, x, y);
-});
+  return true;
+}
 // UI-PC손맛묶음 ③ (PC widths only): a mouse drag that selects text (to copy a line of 잊지 말기 / 할 일 / 조직 보고 and the like) ends in a click on
 // the line it started on; that click must not open the line. One rule for every screen: a click that ends a mouse drag of 5px or
 // more while text is selected does nothing (the selection stays for copying). A plain click, a touch tap, a keyboard press, a press
@@ -262,5 +270,5 @@ window.addEventListener('pointerover', e => {
   if (name && ICON_ONLY(el)) el.title = name;
 }, true);
 // Other screens' own right-click menus (the calendar's event menu) pin their trigger at the pointer with the same box.
-window.KPTUContextMenu = { pinAt: pin, unpin };
+window.KPTUContextMenu = { pinAt: pin, unpin, openAt };
 })();

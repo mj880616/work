@@ -259,7 +259,7 @@ test('server-side missing project maps to the stale project message and refreshe
   await pickSelectArea(page,'#docProject','top-b');
   state.spaces=state.spaces.map(x=>x.id==='top-b'?{...x,status:'archived'}:x);
   await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentStatus')).toHaveText('선택한 사업영역을 더 이상 사용할 수 없습니다. 사업영역을 다시 선택해 주세요.');
+  await expect(page.locator('#documentStatus')).toHaveText('선택한 사업영역을 더 이상 사용할 수 없어요. 사업영역을 다시 선택해 주세요.');
   await expect(page.locator('#docProject')).toHaveValue('');
   await expect(page.locator('#docProject option[value="top-b"]')).toHaveCount(0);
   await expect(page.locator('#documentModal')).toBeVisible();

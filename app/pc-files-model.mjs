@@ -159,7 +159,7 @@ export function pcXferWhy(rows, dest, {can = [], cloud = ['od', 'gd']} = {}) {
   const fromPc = list.some(r => r.source === PC_SOURCE), toPc = dest?.source === PC_SOURCE;
   if (!fromPc && !toPc) return '';
   if (!pcCanXfer(can)) return PC_READONLY_TEXT;
-  if (!list.length) return '선택한 것이 없습니다';
+  if (!list.length) return '선택한 것이 없어요';
   if (fromPc && list.some(r => r.source !== PC_SOURCE)) return '내 PC 파일과 다른 곳 파일은 따로 보내 주세요';
   if (!dest) return ''; // 받을 곳을 아직 고르지 않음(잘라 두기·받을 곳 창 열기)
   if (fromPc && toPc) {

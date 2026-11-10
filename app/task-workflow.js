@@ -4,7 +4,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {dueText,bindDue,paintDue} from './meeting-compact.js';
 let twUser=null,twBound=false;
 const twRuntime=()=>window.KPTURuntime;
-async function twApi(path,options={}){const rt=twRuntime();if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return rt.api(path,options)}
+async function twApi(path,options={}){const rt=twRuntime();if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했어요.');return rt.api(path,options)}
 async function twLoadContext(){const rt=twRuntime(),shared=rt?.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id){twUser=shared.user;return true}try{twUser=await twApi('/auth/v1/user');return Boolean(twUser?.id)}catch{return false}}
 // UI-회의결과창정리: 후속 할 일은 입력 한 줄(입력칸 + [기한 ▾] + [추가])로 넣고, 넣은 할 일은 할 일 화면과 같은 줄(동그라미·이름·기한·⋯)로 보인다.
 // 저장 전 초안이라 동그라미는 표시만 하고, ⋯에서 수정(입력 줄로 다시 올림)·삭제한다. 회의 결과 저장(team.js)이 이 줄들과 입력 줄을 함께 읽는다.

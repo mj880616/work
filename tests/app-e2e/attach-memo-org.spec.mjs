@@ -300,7 +300,7 @@ test('an organization without documents says how to add them, and a failed read 
  let fail=true;
  await page.route(SB+'/rest/v1/app_documents?**',route=>{if(fail&&route.request().method()==='GET')return route.fulfill({status:500,json:{message:'QA failure'}});return route.fallback();});
  await openOrg(page,O);
- await expect(page.locator('#wdDocBody')).toContainText('자료를 불러오지 못했습니다.');await expect(page.locator('#wdDocs [data-wd-doc-count]')).toBeHidden();
+ await expect(page.locator('#wdDocBody')).toContainText('자료를 불러오지 못했어요.');await expect(page.locator('#wdDocs [data-wd-doc-count]')).toBeHidden();
  fail=false;await page.locator('[data-wd-doc-retry]').click();
  await expect(page.locator('#wdDocs .wd-doc-row')).toHaveCount(4);
 });

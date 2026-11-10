@@ -185,7 +185,7 @@ function editor(){
       editorFlight=null;
       host?.replaceChildren();
       console.error('hwp-lab editor',err);
-      status('HWP 편집을 불러오지 못했습니다. 네트워크를 확인한 뒤 다시 들어와 주세요.','error');
+      status('HWP 편집을 불러오지 못했어요. 네트워크를 확인한 뒤 다시 들어와 주세요.','error');
       throw err;
     });
   return editorFlight;
@@ -236,7 +236,7 @@ async function open(file){
     status(`${file.name} · ${result?.pageCount??'?'}쪽을 열었습니다.${note} 수정한 뒤 [내 기기에 저장] 또는 [자료실에 올리기]를 누르세요.`,'ok');
   }catch(err){
     console.error('hwp-lab open',err);
-    status('파일을 열지 못했습니다. 다른 파일로 시도해 주세요.','error');
+    status('파일을 열지 못했어요. 다른 파일로 시도해 주세요.','error');
   }finally{opening=false;stopElapsed();busy=false;sync()}
 }
 
@@ -256,7 +256,7 @@ async function save(){
     status(shown.converted?`${name}(${Math.max(1,Math.round(bytes.length/1024))}KB)을 내려받았습니다. 한글에서 열어 확인해 보세요.`:`${name}(${Math.max(1,Math.round(bytes.length/1024))}KB)을 내려받았습니다. 원본과 비교해 보세요.`,'ok');
   }catch(err){
     console.error('hwp-lab save',err?.kind||err);
-    status(err?.kind?err.message:'파일을 만들지 못했습니다. 다시 시도해 주세요.','error');
+    status(err?.kind?err.message:'파일을 만들지 못했어요. 다시 시도해 주세요.','error');
   }finally{busy=false;sync()}
 }
 // Hands the edited HWP to the library's own [+ 자료 등록] dialog. The person picks project and category and
@@ -269,14 +269,14 @@ async function uploadToLibrary(){
   try{
     const {bytes,seq}=await exportCurrent();
     const file=new File([bytes],editedName(shown.name),{type:'application/x-hwp'});
-    if(!requestLibraryUpload(file,rt)){status('로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.','error');return}
+    if(!requestLibraryUpload(file,rt)){status('로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.','error');return}
     // The file now sits in the library dialog; the editor keeps this copy until another file is opened.
     if(current===shown)shown.savedSeq=seq;
     status(`${file.name}을 자료실 등록 창으로 넘겼습니다. 사업영역·분류를 선택한 뒤 [등록]을 누르세요.`,'ok');
     handed=true;
   }catch(err){
     console.error('hwp-lab upload',err?.kind||err);
-    status(err?.kind?err.message:'파일을 만들지 못했습니다. 다시 시도해 주세요.','error');
+    status(err?.kind?err.message:'파일을 만들지 못했어요. 다시 시도해 주세요.','error');
   }finally{busy=false;sync()}
   if(!handed)return;
   leaving=true;
@@ -345,7 +345,7 @@ async function openTemplate(){
       return;
     }
     const row=found.chosen;
-    if(!requestTemplate(row)){status('로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.','error');return}
+    if(!requestTemplate(row)){status('로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.','error');return}
   }catch(err){
     console.error('hwp-lab template',err?.kind||err);
     status(err?.kind==='session'?err.message:'노조 양식을 찾지 못했어요. 아무것도 바뀌지 않았어요.','error');

@@ -21,6 +21,6 @@ if(ah.has('handoff')){
     window.KPTURuntime.session.write(s);
     if(status){status.textContent='로그인 완료';status.className='status ok'}
   }catch{
-    if(status){status.textContent='로그인 정보를 전달하지 못했습니다. 새 로그인을 시작해 주세요.';status.className='status error'}
+    if(status){status.textContent='로그인 정보를 전달하지 못했어요. 새 로그인을 시작해 주세요.';status.className='status error'}
   }
 }

@@ -102,9 +102,9 @@ async function up(e){
   ghostEnd(g);
   const r=compute(e);g.next=r.next;g.blocked=r.blocked||!r.next;
   if(g.kind==='task')return dropTask();
-  if(g.blocked||same(g.raw,g.next)){if(g.blocked)toast(g.kind==='timed'&&g.view==='week'?'시간 일정은 종일 줄로 옮길 수 없습니다.':g.kind==='band'?'종일 일정은 시간표로 옮길 수 없습니다.':'여기로는 옮길 수 없습니다.');cancel();return}
+  if(g.blocked||same(g.raw,g.next)){if(g.blocked)toast(g.kind==='timed'&&g.view==='week'?'시간 일정은 종일 줄로 옮길 수 없어요.':g.kind==='band'?'종일 일정은 시간표로 옮길 수 없어요.':'여기로는 옮길 수 없어요.');cancel();return}
   const drop=g;drop.saving=true;paint();
-  const before=original(drop.raw),result=await window.KPTUCalendarEvents?.saveMove?.(drop.key.id,drop.key.calendarId,before,drop.next)||{status:'unknown',text:'저장 경로를 불러오지 못했습니다.'};
+  const before=original(drop.raw),result=await window.KPTUCalendarEvents?.saveMove?.(drop.key.id,drop.key.calendarId,before,drop.next)||{status:'unknown',text:'저장 경로를 불러오지 못했어요.'};
   if(g===drop){g=null;show(null,drop.view)}
   if(result.status==='stale')return;
   if(result.status!=='saved'){if(result.text)toast(result.text);if(['changed','unknown'].includes(result.status))window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()?.catch?.(()=>{});return}
@@ -114,7 +114,7 @@ async function up(e){
     if(back.status==='stale')return {status:'stale'};
     if(back.status==='saved')return {status:'restored',message:'원래 시간으로 되돌렸어요.'};
     if(['changed','unknown'].includes(back.status))window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()?.catch?.(()=>{});
-    return {status:'failed',message:back.text||'되돌리지 못했습니다.'};
+    return {status:'failed',message:back.text||'되돌리지 못했어요.'};
   }});
 }
 // 할 일: 놓은 칸의 날짜로 기한만 바꾼다. 같은 칸이면 아무것도 하지 않는다. 실패하면 원래 자리 + 알림, 성공하면 [되돌리기].
@@ -131,7 +131,7 @@ async function dropTask(){
     const back=await window.KPTUCalendarTasks?.moveDue?.(drop.key.id,before);
     if(!back||back.status==='stale')return {status:'stale'};
     if(back.status==='saved'||back.status==='same')return {status:'restored',message:'원래 날짜로 되돌렸어요.'};
-    return {status:'failed',message:back.text||'되돌리지 못했습니다.'};
+    return {status:'failed',message:back.text||'되돌리지 못했어요.'};
   }});
 }
 document.addEventListener('pointerdown',down,true);

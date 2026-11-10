@@ -140,8 +140,8 @@ export function otherDeleteText(kind, name, detail = null) {
 
 // 휴지통 확인이 끝나기 전에는 삭제를 보내지 않는다. 이유별 글.
 export function otherDeleteBlockedText(kind, state) {
-  if (state === TRASH_STATE.MISSING) return `${TRASH_KIND_LABEL[kind]} 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.`;
-  return '휴지통 상태를 확인하지 못해 삭제하지 않았습니다. 잠시 뒤 다시 시도해 주세요.';
+  if (state === TRASH_STATE.MISSING) return `${TRASH_KIND_LABEL[kind]} 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없어요.`;
+  return '휴지통 상태를 확인하지 못해 삭제하지 않았어요. 잠시 뒤 다시 시도해 주세요.';
 }
 
 export const TRASH_TEXT = Object.freeze({
@@ -150,15 +150,15 @@ export const TRASH_TEXT = Object.freeze({
   RESTORED: '사업영역을 되돌렸습니다.',
   PURGED: '영구 삭제했습니다.',
   PREPARING: '휴지통은 준비 중입니다.',
-  LOAD_FAILED: '휴지통을 불러오지 못했습니다.',
+  LOAD_FAILED: '휴지통을 불러오지 못했어요.',
   PARENT_FIRST: '상위 사업영역을 먼저 되돌려 주세요.',
-  NOT_FOUND: '이미 휴지통에 없습니다. 목록을 다시 불러왔습니다.',
+  NOT_FOUND: '이미 휴지통에 없어요. 목록을 다시 불러왔습니다.',
   UNDO_DONE: '되돌렸습니다.',
-  UNDO_FAILED: '되돌리지 못했습니다.',
-  NOT_CONFIRMED: '삭제 요청은 보냈지만 휴지통에서 확인하지 못했습니다. 보관 창의 휴지통을 확인해 주세요.',
+  UNDO_FAILED: '되돌리지 못했어요.',
+  NOT_CONFIRMED: '삭제 요청은 보냈지만 휴지통에서 확인하지 못했어요. 보관 창의 휴지통을 확인해 주세요.',
   PARENT_FIRST_FOLDER: '상위 폴더를 먼저 되돌려 주세요.',
-  FOLDER_DEPTH: '폴더 단 제한을 넘어 되돌리지 못했습니다. 위 폴더를 옮긴 뒤 다시 시도해 주세요.',
-  NAME_TAKEN: '같은 이름이 이미 있어 되돌리지 못했습니다. 이름을 바꾼 뒤 다시 시도해 주세요.',
+  FOLDER_DEPTH: '폴더 단 제한을 넘어 되돌리지 못했어요. 위 폴더를 옮긴 뒤 다시 시도해 주세요.',
+  NAME_TAKEN: '같은 이름이 이미 있어 되돌리지 못했어요. 이름을 바꾼 뒤 다시 시도해 주세요.',
 });
 
 // 위 단계가 아직 휴지통일 때 먼저 되돌리라는 안내(프로젝트는 상위 프로젝트, 자료실 폴더는 상위 폴더).
@@ -167,7 +167,7 @@ export const parentFirstText = (kind) => (kind === 'library_folder' ? TRASH_TEXT
 export const restoredText = (kind) => (kind === 'share_page' ? '공유 페이지를 되돌렸습니다.' : kind === 'note' ? '글을 되돌렸습니다.' : kind === 'organization' ? '담당조직을 되돌렸습니다.' : kind === 'report' ? '사업 보고를 되돌렸습니다.' : kind === 'library_folder' ? '폴더를 되돌렸습니다.' : TRASH_TEXT.RESTORED);
 
 // 서버 오류 코드(메시지 첫머리)를 화면 글로 바꾼다. 모르는 오류는 일반 문구로 둔다.
-export function trashErrorText(error, fallback = '처리하지 못했습니다. 다시 시도해 주세요.') {
+export function trashErrorText(error, fallback = '처리하지 못했어요. 다시 시도해 주세요.') {
   const message = String(error?.message || '');
   if (/TRASH_PARENT_IN_TRASH/.test(message)) return TRASH_TEXT.PARENT_FIRST;
   if (/TRASH_NOT_FOUND/.test(message)) return TRASH_TEXT.NOT_FOUND;
@@ -180,23 +180,23 @@ export function trashErrorText(error, fallback = '처리하지 못했습니다. 
 
 export function purgeConfirmText(row) {
   if (row.kind === 'organization') {
-    return `“${row.name}” 담당조직을 영구 삭제할까요?\n조직에 달린 기록·담당자·타임라인·쟁의단계와 메모·원장 연결이 함께 삭제되며 되돌릴 수 없습니다.`;
+    return `“${row.name}” 담당조직을 영구 삭제할까요?\n조직에 달린 기록·담당자·타임라인·쟁의단계와 메모·원장 연결이 함께 삭제되며 되돌릴 수 없어요.`;
   }
   if (row.kind === 'report') {
-    return `“${row.name}” 사업 보고를 영구 삭제할까요?\n보고에 달린 메모·원장 연결이 함께 삭제되며 되돌릴 수 없습니다. 후속 할 일(Google 할 일)과 자료 파일은 삭제하지 않습니다.`;
+    return `“${row.name}” 사업 보고를 영구 삭제할까요?\n보고에 달린 메모·원장 연결이 함께 삭제되며 되돌릴 수 없어요. 후속 할 일(Google 할 일)과 자료 파일은 삭제하지 않아요.`;
   }
   if (row.kind === 'share_page') {
-    return `“${row.name}” 공유 페이지를 영구 삭제할까요?\n페이지·링크${row.file_count ? `·사진 ${row.file_count}장` : '·사진'}이 모두 삭제되고 되돌릴 수 없습니다.`;
+    return `“${row.name}” 공유 페이지를 영구 삭제할까요?\n페이지·링크${row.file_count ? `·사진 ${row.file_count}장` : '·사진'}이 모두 삭제되고 되돌릴 수 없어요.`;
   }
   if (row.kind === 'note') {
-    return `“${row.name}” ${noteKindWord(row.note_kind)}를 영구 삭제할까요?\n${row.link_count ? `조직·사업영역·사업 보고 연결 ${row.link_count}곳도 함께 삭제되고 ` : ''}되돌릴 수 없습니다.${row.file_count ? ` 첨부 파일 ${row.file_count}개는 Drive에 그대로 남습니다.` : ''}`;
+    return `“${row.name}” ${noteKindWord(row.note_kind)}를 영구 삭제할까요?\n${row.link_count ? `조직·사업영역·사업 보고 연결 ${row.link_count}곳도 함께 삭제되고 ` : ''}되돌릴 수 없어요.${row.file_count ? ` 첨부 파일 ${row.file_count}개는 Drive에 그대로 남습니다.` : ''}`;
   }
   if (row.kind === 'library_folder') {
     const inside = [row.child_count ? `아래 폴더 ${row.child_count}개` : '', row.file_count ? `자료 ${row.file_count}개` : ''].filter(Boolean).join('·');
-    return `“${row.name}” 폴더를 영구 삭제할까요?\n폴더만 삭제되고${inside ? ` 안의 ${inside}는` : ' 안의 것은'} 한 단 위로 올라갑니다. 자료와 Drive 파일은 삭제하지 않으며 폴더는 되돌릴 수 없습니다.`;
+    return `“${row.name}” 폴더를 영구 삭제할까요?\n폴더만 삭제되고${inside ? ` 안의 ${inside}는` : ' 안의 것은'} 한 단 위로 올라갑니다. 자료와 Drive 파일은 삭제하지 않으며 폴더는 되돌릴 수 없어요.`;
   }
   const kids = row.child_count ? `\n함께 든 하위 사업영역 ${row.child_count}개도 삭제됩니다.` : '';
-  return `“${row.name}” 사업영역을 영구 삭제할까요?${kids}\n연결된 할 일·일정·사업 보고·자료·게시물은 삭제하지 않고 사업영역 연결만 풀립니다. 사업영역 전용 진행기록·주요 일정·의견은 함께 삭제되며 되돌릴 수 없습니다.`;
+  return `“${row.name}” 사업영역을 영구 삭제할까요?${kids}\n연결된 할 일·일정·사업 보고·자료·게시물은 삭제하지 않고 사업영역 연결만 풀립니다. 사업영역 전용 진행기록·주요 일정·의견은 함께 삭제되며 되돌릴 수 없어요.`;
 }
 
 // 휴지통에 들어간 담당조직을 가리키는 연결의 이름자리. 조직 목록을 이미 읽었는데 이 조직만 없으면 휴지통에 있다.

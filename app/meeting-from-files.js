@@ -238,7 +238,7 @@ function onListClick(e){
   if(confirm){confirmed.add(nameKey(confirm.dataset.mffConfirm));paint()}
 }
 
-async function api(path,options){const runtime=rt();if(!runtime?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return runtime.api(path,options)}
+async function api(path,options){const runtime=rt();if(!runtime?.api)throw new Error('공용 런타임을 불러오지 못했어요.');return runtime.api(path,options)}
 async function saveGroup(g,scope){
   let meetingId=g.existing?.id||null;
   const pendingText=g.results.filter(i=>i.kind==='text'?!textSaved.has(i.text):!i.textSaved&&i.text).map(i=>i.text);
@@ -246,7 +246,7 @@ async function saveGroup(g,scope){
   const markText=id=>{for(const i of g.results){if(i.kind==='text')textSaved.set(i.text,id);else if(i.text)i.textSaved=true}};
   if(!meetingId){
     const rows=await api('/rest/v1/app_meetings',{method:'POST',prefer:'return=representation',body:{workspace_id:scope.workspace,project_id:null,title:g.kind,series_name:g.kind,round_no:g.round||null,meeting_at:toMeetingISO(`${g.date}T${g.time||'00:00'}`),notes:'',transcript_text:combined,result_status:'final',finalized_at:new Date().toISOString(),created_by:scope.user}});
-    const row=rows?.[0];if(!row?.id)throw new Error('저장된 회의를 확인하지 못했습니다.');
+    const row=rows?.[0];if(!row?.id)throw new Error('저장된 회의를 확인하지 못했어요.');
     meetingId=row.id;
     for(const i of g.items)i.meetingId=meetingId;
     markText(meetingId);
@@ -255,11 +255,11 @@ async function saveGroup(g,scope){
     for(const i of g.items)i.meetingId=meetingId;
     if(combined){
       const current=(await api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(meetingId)}&workspace_id=eq.${encodeURIComponent(scope.workspace)}&select=id,transcript_text`))?.[0];
-      if(!current)throw new Error('기존 회의를 찾지 못했습니다.');
+      if(!current)throw new Error('기존 회의를 찾지 못했어요.');
       const next=appendResult(current.transcript_text,combined);
       if(next!==String(current.transcript_text||'')){
         const rows=await api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(meetingId)}&workspace_id=eq.${encodeURIComponent(scope.workspace)}&select=id`,{method:'PATCH',prefer:'return=representation',body:{transcript_text:next,updated_at:new Date().toISOString()}});
-        if(!Array.isArray(rows)||rows.length!==1)throw new Error('사업 보고 저장을 확인하지 못했습니다.');
+        if(!Array.isArray(rows)||rows.length!==1)throw new Error('사업 보고 저장을 확인하지 못했어요.');
       }
     }
     markText(meetingId);
@@ -292,7 +292,7 @@ async function run(){
   if(!ready.length)return;
   const context=rt()?.context?.read?.();
   const scope={workspace:context?.workspace?.id,user:context?.user?.id};
-  if(!scope.workspace||!scope.user){runMessage='로그인 상태를 확인하지 못했습니다.';paint();return}
+  if(!scope.workspace||!scope.user){runMessage='로그인 상태를 확인하지 못했어요.';paint();return}
   saving=true;runMessage='';paint();
   let ok=0,fail=0;
   try{

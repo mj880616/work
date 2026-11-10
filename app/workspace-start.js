@@ -7,8 +7,8 @@ const START_LABEL='내 작업공간 만들기';
 
 function messageFor(err){
   const text=String(err?.message||'');
-  if(/SIGNUP_CLOSED/.test(text))return '지금은 새 작업공간을 만들 수 없습니다.';
-  return '만들지 못했습니다. 잠시 뒤 다시 눌러 주세요.';
+  if(/SIGNUP_CLOSED/.test(text))return '지금은 새 작업공간을 만들 수 없어요.';
+  return '만들지 못했어요. 잠시 뒤 다시 눌러 주세요.';
 }
 
 export async function offerWorkspaceStart({rpc,reload=()=>location.reload()}={}){

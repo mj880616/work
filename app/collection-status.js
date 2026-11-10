@@ -177,7 +177,7 @@ export function alertText(attention) {
   if (!first) return '';
   const name = first.label + SUBJECT[first.key];
   const text = SEND_ALERT[first.state] ? SEND_ALERT[first.state](first.label)
-    : first.state === 'failed' ? `${name} 최근 실패했어요`
+    : first.state === 'failed' ? `${name} 최근에 받지 못했어요`
     : first.state === 'silent' ? `${first.label} 점검 신호가 끊겼어요`
     : first.at !== null ? `${name} ${dayHalf(first.at)} 이후 멈췄어요` : `${name} 멈췄어요`;
   return attention.length > 1 ? `${text} 외 ${attention.length - 1}건` : text;

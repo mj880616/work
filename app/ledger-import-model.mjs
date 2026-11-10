@@ -226,7 +226,7 @@ async function unzip(bytes, wanted) {
     else if (method === 8) {
       const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
       out.set(name, decoder.decode(new Uint8Array(await new Response(stream).arrayBuffer())));
-    } else throw new Error('xlsx 압축 방식을 읽을 수 없습니다.');
+    } else throw new Error('xlsx 압축 방식을 읽을 수 없어요.');
   }
   return out;
 }
@@ -279,7 +279,7 @@ export async function readInputFiles(files) {
     if (files.length !== 1) throw new Error('xlsx와 가져오기 파일은 한 개씩만 올립니다(CSV는 여러 개 가능).');
     if (types[0] === 'json') {
       let data;
-      try { data = JSON.parse(decoder.decode(files[0].bytes)); } catch { throw new Error('가져오기 파일(JSON)을 읽을 수 없습니다.'); }
+      try { data = JSON.parse(decoder.decode(files[0].bytes)); } catch { throw new Error('가져오기 파일(JSON)을 읽을 수 없어요.'); }
       return { type: 'json', data, sha256: fingerprint, source_kind: 'claude_file', fileNames: [files[0].name] };
     }
     return { type: 'tabs', tabs: await readXlsx(files[0].bytes), sha256: fingerprint, source_kind: 'sheet_csv', fileNames: [files[0].name] };

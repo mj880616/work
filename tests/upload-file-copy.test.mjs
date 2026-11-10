@@ -28,7 +28,7 @@ test('unreadable upload File rejects with a non-retryable read error and no fall
   original.arrayBuffer=async()=>{reads++;throw cause};
   await assert.rejects(()=>runtime().copyUploadFile(original),error=>{
     assert.equal(error.code,'file_read_failed');
-    assert.equal(error.message,'파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.');
+    assert.equal(error.message,'파일을 읽지 못했어요. 파일을 다시 선택해 주세요.');
     assert.equal(error.retryable,false);
     assert.equal(error.cause,cause);
     return true;

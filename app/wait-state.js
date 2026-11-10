@@ -12,7 +12,7 @@
 // 화면 읽기 프로그램에는 role="status" + aria-label='불러오는 중'으로 알린다(보이는 글자는 없음).
 // 기기 저장 없음.
 export const WAIT_LABEL = '불러오는 중';
-export const FAIL_TEXT = '불러오지 못했습니다';
+export const FAIL_TEXT = '불러오지 못했어요';
 export const EMPTY_TEXT = '없음';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&quot;'}[c]));

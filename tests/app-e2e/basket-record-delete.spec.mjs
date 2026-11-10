@@ -73,7 +73,7 @@ test('organization original delete before the database is ready explains and sen
  const errors=await ready(page),host=await open(page,'organization'),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
  await page.evaluate(()=>{window.__detailState.trashMode='missing';});
  page.on('dialog',d=>{throw Error('unexpected dialog '+d.message());});await linkAction(row,'원문 삭제');
- await expect(row.locator('[data-link-action-status]')).toHaveText('노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');
+ await expect(row.locator('[data-link-action-status]')).toHaveText('노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없어요.');
  await expect(host.locator('[data-basket-link]')).toHaveCount(3);expect(await deletes(page)).toEqual([]);expect(page.__posts).toEqual([]);expect(errors).toEqual([]);
 });
 
@@ -172,7 +172,7 @@ for(const width of [390,1280])test(`basket delete cancel keeps the read view and
 test('basket delete before the database is ready explains and sends no delete',async({page})=>{
  const f=await basket(page,{mode:'missing'});await openNote(page,390);const detail=page.locator('[data-basket-detail]');
  page.on('dialog',d=>{throw Error('unexpected dialog '+d.message());});await noteAction(page,'[data-basket-delete]');
- await expect(detail.locator('[data-basket-status]')).toHaveText('노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
+ await expect(detail.locator('[data-basket-status]')).toHaveText('노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없어요.');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.posts).toEqual([]);expect(f.notes.some(n=>n.id==='n')).toBe(true);expect(f.errors).toEqual([]);
 });
 

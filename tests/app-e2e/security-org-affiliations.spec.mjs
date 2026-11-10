@@ -69,7 +69,7 @@ test('nonmember cannot access workspace or request membership',async({page})=>{
   };
   await preloadSession(page,state.user);await installMock(page,state);await page.goto(`${appOrigin}/app/`);
   await expect(page.locator('#accessDeniedView')).toBeVisible({timeout:10000});
-  await expect(page.locator('#accessDeniedView')).toContainText('접근 권한이 없습니다');
+  await expect(page.locator('#accessDeniedView')).toContainText('접근 권한이 없어요');
   await expect(page.locator('#accessDeniedView button')).toHaveText(['로그아웃']);
   await expect(page.locator('#appView')).toBeHidden();
   expect(state.requests).toHaveLength(0);

@@ -126,6 +126,8 @@ for(const width of [390,1280])test.describe(`native library transport ${width}px
     await expect(page.locator('#saveDocumentBtn')).not.toHaveAttribute('aria-busy','true');
     expect(posts()).toHaveLength(1);
     const result=await page.evaluate(()=>({message:document.querySelector('#documentStatus').textContent,state:document.querySelector('[data-lu-upload-state]').textContent,errors:window.__errors.map(({code,status,retryable})=>({code,status,retryable})),saved:window.__saved.length,changed:window.__changed}));
+    // UI-PC손맛묶음 ⑩(S56-52): 실패·없음 글귀만 해요체로 바꿨다 — 옛 화면 글자도 같은 말투로 맞춰 나머지(분류·상태·전송)를 비교한다.
+    if(baseline)result.message=String(result.message).replace(/못했습니다/g,'못했어요').replace(/없습니다/g,'없어요');
     results.push(result);
     expect(result.saved).toBe(0);expect(result.changed).toBe(0);
     if(failure!=='401'){

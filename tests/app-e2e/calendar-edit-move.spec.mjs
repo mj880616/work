@@ -82,7 +82,7 @@ test('partial save reads actual destination and preserves warning for retry',asy
 test('failed reread retains server-confirmed destination and allows a correct retry',async({page})=>{
   const state=await open(page,{partial:true});await edit(page);state.readFail=true;
   await page.locator('#ciGoogleCalendar').selectOption('target');await page.locator('#ciGoogleSave').click();
-  await expect(page.locator('#ciGoogleStatus')).toContainText('최신 조회도 실패');await expect(page.locator('#ciGoogleCalendar')).toHaveValue('target');await expect(page.locator('#ciGoogleSave')).toBeEnabled();
+  await expect(page.locator('#ciGoogleStatus')).toContainText('최신 내용도 불러오지 못했어요');await expect(page.locator('#ciGoogleCalendar')).toHaveValue('target');await expect(page.locator('#ciGoogleSave')).toBeEnabled();
   await page.locator('#ciGoogleSave').click();await expect.poll(()=>state.writes.length).toBe(2);expect(state.writes[1].calendar_id).toBe('target');
 });
 test('late partial reread cannot overwrite another event editor',async({page})=>{
@@ -139,14 +139,14 @@ test('timed event switched to all-day sends dates only and closes after save',as
 test('Google time rejection shows Korean guidance only and the next click saves directly',async({page})=>{
  const s=await open(page);await edit(page);s.reject={status:400,error:'Invalid start time.'};
  await page.locator('#ciGoogleAllDay').uncheck();await page.locator('#ciGoogleStartTime').fill('10:30');await page.locator('#ciGoogleEndTime').fill('12:30');await page.locator('#ciGoogleSave').click();
- const status=page.locator('#ciGoogleStatus');await expect(status).toContainText('Google 캘린더가 시작·종료 시각을 받지 않아 저장하지 않았습니다.');await expect(status).toContainText('일정은 바뀌지 않았고 입력은 유지했습니다.');
+ const status=page.locator('#ciGoogleStatus');await expect(status).toContainText('Google 캘린더가 시작·종료 시각을 받지 않아 저장하지 않았어요.');await expect(status).toContainText('일정은 바뀌지 않았고 입력은 유지했습니다.');
  await expect(status).not.toContainText('Invalid');await expect(status).not.toContainText('위치를 확인');await expect(page.locator('#ciGoogleStartTime')).toHaveValue('10:30');await expect(page.locator('#ciGoogleSave')).toBeEnabled();
  s.reject=null;await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();expect(s.writes).toHaveLength(2);expect(s.reads).toBe(0);
 });
 test('unknown result explains the check-then-save retry in Korean',async({page})=>{
  const s=await open(page);await edit(page);s.reject={status:502,error:'upstream connect error'};
  await page.locator('#ciGoogleTitle').fill('합성 재저장');await page.locator('#ciGoogleSave').click();
- const status=page.locator('#ciGoogleStatus');await expect(status).toContainText('저장 결과를 확인하지 못했습니다. 입력은 유지했습니다.');await expect(status).toContainText('[변경사항 저장]을 다시 누르면 Google에 저장된 상태를 먼저 확인합니다.');await expect(status).not.toContainText('upstream');
+ const status=page.locator('#ciGoogleStatus');await expect(status).toContainText('저장 결과를 확인하지 못했어요. 입력은 유지했어요.');await expect(status).toContainText('[변경사항 저장]을 다시 누르면 Google에 저장된 상태를 먼저 확인합니다.');await expect(status).not.toContainText('upstream');
  s.reject=null;await page.locator('#ciGoogleSave').click();await expect(status).toContainText('앞선 저장의 위치를 확인했습니다. 일정은 지금 「기존 캘린더」 캘린더에 있습니다.');await expect(status).toContainText('[변경사항 저장]을 한 번 더 눌러 주세요.');
  expect(s.writes).toHaveLength(1);await expect(page.locator('#ciGoogleTitle')).toHaveValue('합성 재저장');
  await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();expect(s.writes).toHaveLength(2);expect(s.writes[1].title).toBe('합성 재저장');

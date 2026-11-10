@@ -32,7 +32,7 @@ let mrdTodos=null,mrdUser=null,mrdWorkspace=null,mrdRole=null,mrdProjects=[],mrd
 let mrdEditSequence=0,mrdEditor=null,mrdEditObservedScope=null;const mrdEditAttempts=new Map();
 // These tokens own only the lifetime of in-flight UI work, not deletion authority.
 const mrdDeleteTokens=new Set();
-async function mrdApi(path,options={}){const rt=window.KPTURuntime;if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return rt.api(path,options)}
+async function mrdApi(path,options={}){const rt=window.KPTURuntime;if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했어요.');return rt.api(path,options)}
 function mrdEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 const mrdDateValue=meetingInputValue;
 function mrdDueDateValue(v){if(!v)return'';const s=String(v),m=s.match(/^(\d{4}-\d{2}-\d{2})/);if(m)return m[1];const d=new Date(v);if(Number.isNaN(d.getTime()))return'';const p=n=>String(n).padStart(2,'0');return seoulDateKey(d)}
@@ -94,7 +94,7 @@ async function mrdRefreshTasks(){const meeting=mrdCurrent,epoch=mrdRequestEpoch;
 // 할 일 화면과 같은 ⋯ 메뉴(수정·삭제). 창 안에 붙여 포커스가 창을 벗어나지 않게 한다.
 let mrdTaskMenu=null;
 function mrdEnsureTaskMenu(){if(mrdTaskMenu)return mrdTaskMenu;mrdTaskMenu=createAnchoredMenu({id:'mrdTaskMenu',className:'gt-task-menu',label:'후속 할 일 관리',historyKey:'kptuMeetingTaskMenu',parent:document.querySelector('#meetingRoundDetailModal'),key:trigger=>trigger.dataset.mrdTaskMenu,canOpen:()=>mrdCanEdit(mrdCurrent),render:()=>'<button type="button" data-mrd-menu-action="edit">수정</button><button type="button" class="gt-menu-danger" data-mrd-menu-action="delete">삭제</button>',onAction:(button,active)=>{const t=mrdTasks.find(x=>x.id===active.id);if(!t)return;if(button.dataset.mrdMenuAction==='edit')mrdOpenTaskForm(t);else mrdDeleteTask(t,active.trigger)}});return mrdTaskMenu}
-async function mrdSaveTask(){if(mrdSavingTask||!mrdCurrent)return;const meeting=mrdCurrent,task=mrdEditingTask,epoch=mrdRequestEpoch;const title=document.querySelector('#mrdTaskTitle')?.value.trim()||'',due=document.querySelector('#mrdTaskDue')?.value||'',st=document.querySelector('#mrdTaskStatus'),btn=document.querySelector('#mrdTaskSave');if(!title){st.textContent='할 일을 입력해 주세요.';st.className='status error';return}mrdSavingTask=true;btn.disabled=true;st.textContent=task?'수정 중…':'등록 중…';st.className='status';const stillCurrent=()=>epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id;try{const action=task?'update':'create',body=task?{action,task_id:task.id,task_list_id:task.taskListId||null,title,due:due||null,notes:task.notes||''}:{action,title,due:due||null,notes:'',links:mrdTaskLinks(meeting)};const result=await mrdApi(mrdTaskEndpoint(action),{method:'POST',body});if(result?.link_error)throw new Error('Google 할 일은 만들었지만 사업 보고 연결을 저장하지 못했습니다.');window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(!stillCurrent())return;mrdResetTaskForm();await mrdReload(meeting.id)}catch(e){if(stillCurrent()){st.textContent=e.message||String(e);st.className='status error'}}finally{mrdSavingTask=false;btn.disabled=false}}
+async function mrdSaveTask(){if(mrdSavingTask||!mrdCurrent)return;const meeting=mrdCurrent,task=mrdEditingTask,epoch=mrdRequestEpoch;const title=document.querySelector('#mrdTaskTitle')?.value.trim()||'',due=document.querySelector('#mrdTaskDue')?.value||'',st=document.querySelector('#mrdTaskStatus'),btn=document.querySelector('#mrdTaskSave');if(!title){st.textContent='할 일을 입력해 주세요.';st.className='status error';return}mrdSavingTask=true;btn.disabled=true;st.textContent=task?'수정 중…':'등록 중…';st.className='status';const stillCurrent=()=>epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id;try{const action=task?'update':'create',body=task?{action,task_id:task.id,task_list_id:task.taskListId||null,title,due:due||null,notes:task.notes||''}:{action,title,due:due||null,notes:'',links:mrdTaskLinks(meeting)};const result=await mrdApi(mrdTaskEndpoint(action),{method:'POST',body});if(result?.link_error)throw new Error('Google 할 일은 만들었지만 사업 보고 연결을 저장하지 못했어요.');window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(!stillCurrent())return;mrdResetTaskForm();await mrdReload(meeting.id)}catch(e){if(stillCurrent()){st.textContent=e.message||String(e);st.className='status error'}}finally{mrdSavingTask=false;btn.disabled=false}}
 async function mrdTaskClick(e){
   const mb=e.target.closest('[data-mrd-task-menu]');
   if(mb){mrdEnsureTaskMenu().open(mb);return}
@@ -142,7 +142,7 @@ async function mrdDeleteMaterial(button,docs){
 async function mrdDeleteDocumentById(id,docs,button=null){
   const scope=mrdDeleteScope(),meetingId=mrdCurrent?.id;
   if(typeof id!=='string'||!id.trim())return false;
-  if(!scope){notify('로그인 세션을 확인하지 못했습니다.',{error:true,note:'다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.'});return false}
+  if(!scope){notify('로그인 세션을 확인하지 못했어요.',{error:true,note:'다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.'});return false}
   const token=Object.freeze({id,scope:Object.freeze(scope),meetingId,requestEpoch:mrdRequestEpoch});
   mrdDeleteTokens.add(token);
   const isCurrent=()=>mrdDeleteCurrent(token);
@@ -153,7 +153,7 @@ async function mrdDeleteDocumentById(id,docs,button=null){
     const registration=Object.freeze({...d});
     let helper;
     try{helper=await import('./document-delete.js')}
-    catch{if(isCurrent())notify('자료를 삭제하지 못했습니다.',{error:true,note:'관리자에게 오류 확인을 요청해 주세요.'});return false}
+    catch{if(isCurrent())notify('자료를 삭제하지 못했어요.',{error:true,note:'관리자에게 오류 확인을 요청해 주세요.'});return false}
     return isCurrent()?(await helper.deleteDocument(registration,{api:mrdApi,role:mrdRole,expectedSessionEpoch:scope.epoch,isCurrent}))===true:false;
   }finally{mrdDeleteTokens.delete(token);if(button)button.disabled=false}
 }
@@ -168,7 +168,7 @@ function mrdRenderPhotos(photos,allDocs){
 }
 async function mrdEnsureLibrary(fail){
   const loader=window.KPTUViewLoader;
-  try{if(!loader?.load)throw new Error('no loader');if(!loader.isLoaded?.('library'))await loader.load('library');if(!(await window.__KPTU_LIBRARY_UPLOAD_READY__))throw new Error('not ready')}catch{fail('자료실을 불러오지 못했습니다.');return false}
+  try{if(!loader?.load)throw new Error('no loader');if(!loader.isLoaded?.('library'))await loader.load('library');if(!(await window.__KPTU_LIBRARY_UPLOAD_READY__))throw new Error('not ready')}catch{fail('자료실을 불러오지 못했어요.');return false}
   return true;
 }
 let mrdPhotoBusy=false,mrdPhotoChain=Promise.resolve();
@@ -242,7 +242,7 @@ async function mrdChoosePlaces(trigger){
     await sheet.pickReportPlaces(trigger,{chosen:mrdEditTargets,onMessage:msg=>{st.textContent=msg;st.className='status error'},onCommit:async list=>{
       const places=await sheet.loadReportPlaces().catch(()=>null);mrdEditTargets=targetList(list);mrdEditTargetsTouched=true;
       if(places)mrdEditTargets.forEach(t=>mrdNames.set(mrdTkey(t),sheet.targetName(places,t)));mrdPaintPlaces();mrdSummaryBox()?.setTargets(mrdEditTargets);mrdArea()?.suggest(firstProjectId(mrdEditTargets))}})}
-  catch(err){st.textContent=err.message||'연결할 곳을 불러오지 못했습니다.';st.className='status error'}
+  catch(err){st.textContent=err.message||'연결할 곳을 불러오지 못했어요.';st.className='status error'}
 }
 // MTG-사업보고말바꾸기: 칸에 따라 창 글자가 바뀐다([회의] 칸만 회의 말, 나머지는 제목·원문·자료). 정하는 곳은 report-words.mjs 하나.
 function mrdPaintWords(m){
@@ -270,7 +270,7 @@ async function mrdLoadMeeting(id,epoch){
     mrdReadTasks(id)
   ]);
   if(epoch!==mrdRequestEpoch)return false;
-  const m=mr?.[0];if(!m)throw new Error('사업 보고를 찾을 수 없습니다.');
+  const m=mr?.[0];if(!m)throw new Error('사업 보고를 찾을 수 없어요.');
   mrdCurrent=m;mrdTasks=tasks?.tasks||[];{const ps=document.querySelector('#mrdPhotoStatus');if(ps){ps.textContent='';ps.className='status'}}
   const modal=document.querySelector('#meetingRoundDetailModal');modal.dataset.meetingId=id;
   mrdRenderMeetingInfo(m);
@@ -310,16 +310,16 @@ window.addEventListener('kptu:view-changed',event=>{for(const token of mrdDelete
 for(const name of ['kptu:dialog-closed','kptu:dialog-opened'])window.addEventListener(name,event=>{if(event.detail?.modal?.id==='meetingRoundDetailModal')mrdDeleteTokens.clear()});
 function mrdEditCurrent(e){return mrdEditor===e&&e.sequence===mrdEditSequence&&e.view===mrdRequestEpoch&&mrdCurrent?.id===e.id&&mrdEditSameScope(e.scope)&&!document.querySelector('#mrdEditor')?.classList.contains('hidden')}
 function mrdEditKey(e){return [e.scope.owner,e.scope.workspace,e.scope.epoch,e.id].join(':')}
-function mrdEditRow(e,rows,body){const row=Array.isArray(rows)&&rows.length===1&&rows[0];if(!row||row.id!==e.id||row.workspace_id!==e.scope.workspace||!Object.entries(body).every(([k,v])=>k==='updated_at'||(k==='meeting_at'?Number.isFinite(Date.parse(row[k]))&&Date.parse(row[k])===Date.parse(v):JSON.stringify(row[k])===JSON.stringify(v))))throw new Error('사업 보고의 저장 결과를 확인하지 못했습니다.');return row}
+function mrdEditRow(e,rows,body){const row=Array.isArray(rows)&&rows.length===1&&rows[0];if(!row||row.id!==e.id||row.workspace_id!==e.scope.workspace||!Object.entries(body).every(([k,v])=>k==='updated_at'||(k==='meeting_at'?Number.isFinite(Date.parse(row[k]))&&Date.parse(row[k])===Date.parse(v):JSON.stringify(row[k])===JSON.stringify(v))))throw new Error('사업 보고의 저장 결과를 확인하지 못했어요.');return row}
 function mrdEditNotice(e,text,check=false){if(!mrdEditCurrent(e))return;const st=document.querySelector('#mrdEditStatus');st.textContent=text;st.className='status';if(check){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='저장 결과 확인';b.onclick=()=>mrdCheckEdit(e);st.append(document.createTextNode(' '),b)}}
-async function mrdCheckEdit(e){const a=mrdEditAttempts.get(mrdEditKey(e));if(!a||a.pending||a.reading||!mrdEditCurrent(e))return;a.reading=true;const current=()=>mrdEditCurrent(e)&&mrdEditAttempts.get(mrdEditKey(e))===a;try{const rows=await mrdApi(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(e.id)}&workspace_id=eq.${encodeURIComponent(e.scope.workspace)}&select=*`,{expectedSessionEpoch:e.scope.epoch,singleFlight:false});if(!current())return;const row=mrdEditRow(e,rows,a.body);Object.assign(mrdCurrent,row);mrdEditAttempts.delete(mrdEditKey(e));mrdEditNotice(e,'제출한 내용은 확인했습니다. 현재 입력은 남겨두었습니다.')}catch{if(current())mrdEditNotice(e,'저장 결과를 아직 확인하지 못했습니다. 입력을 유지했으며 다시 저장하지 않았습니다.',true)}finally{a.reading=false}}
+async function mrdCheckEdit(e){const a=mrdEditAttempts.get(mrdEditKey(e));if(!a||a.pending||a.reading||!mrdEditCurrent(e))return;a.reading=true;const current=()=>mrdEditCurrent(e)&&mrdEditAttempts.get(mrdEditKey(e))===a;try{const rows=await mrdApi(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(e.id)}&workspace_id=eq.${encodeURIComponent(e.scope.workspace)}&select=*`,{expectedSessionEpoch:e.scope.epoch,singleFlight:false});if(!current())return;const row=mrdEditRow(e,rows,a.body);Object.assign(mrdCurrent,row);mrdEditAttempts.delete(mrdEditKey(e));mrdEditNotice(e,'제출한 내용은 확인했습니다. 현재 입력은 남겨두었습니다.')}catch{if(current())mrdEditNotice(e,'저장 결과를 아직 확인하지 못했어요. 입력을 유지했으며 다시 저장하지 않았어요.',true)}finally{a.reading=false}}
 function mrdStartEdit(){if(!mrdCurrent||!mrdCanEdit(mrdCurrent))return;const editor={id:mrdCurrent.id,scope:mrdEditScope(),view:mrdRequestEpoch,sequence:++mrdEditSequence};mrdEditor=editor;if(editor.scope)mrdEditObservedScope={...editor.scope};const button=document.querySelector('#mrdSaveEdit');button.disabled=false;button.textContent=mrdSaveLabel();const input=document.querySelector('#mrdEditTitle');window.KPTUMeetingNames.installPicker(input,'mrdEdit');window.KPTUMeetingNames.setupPicker(document.querySelector('#mrdEditNameSelect'),input,document.querySelector('#mrdEditNameMatch'),document.querySelector('#mrdEditNameUseMatch'),{current:mrdMeetingName(mrdCurrent),names:isMeetingKind(reportKindOf(mrdCurrent))?window.KPTUMeetingNames.choices('meeting'):[]});{const start=mrdShortNameStart(mrdCurrent);mrdRoundRows?.paint(showRoundRows(reportKindOf(mrdCurrent),{round:mrdCurrent.round_no,shortName:start}));const round=document.querySelector('#mrdEditRound'),short=document.querySelector('#mrdEditShortName');if(round)round.value=mrdCurrent.round_no??'';if(short)short.value=start}document.querySelector('#mrdEditAt').value=mrdDateValue(mrdCurrent.meeting_at);document.querySelector('#mrdEditProject').innerHTML=mrdProjectOptions(mrdCurrent.project_id||'');{const start=targetList(window.KPTUTeamData?.reportTargetsOf?.(mrdCurrent)||(mrdCurrent.project_id?[{kind:'project',id:mrdCurrent.project_id}]:[]));mrdEditTargets=start;mrdEditTargetsStart=start;mrdEditTargetsTouched=false;mrdPaintPlaces();mrdSummaryBox()?.start(start);mrdArea()?.start({meeting:mrdCurrent});const startId=mrdCurrent.id;readReportTargets(mrdCurrent).then(list=>{if(mrdCurrent?.id!==startId||!mrdEditor)return;if(!mrdEditTargetsTouched){mrdEditTargets=targetList(list);mrdEditTargetsStart=mrdEditTargets;mrdPaintPlaces();mrdSummaryBox()?.start(list)}else mrdSummaryBox()?.loadSaved(list)},()=>{});document.querySelector('#mrdEditLocation').value=mrdCurrent.location||'';locationAvailable().then(ok=>{const row=document.querySelector('#mrdEditLocationRow');if(row)row.hidden=!ok},()=>{})}{const row=document.querySelector('#mrdEditAttendeesRow');document.querySelector('#mrdEditAttendees').value=mrdCurrent.attendees||'';if(row)row.hidden=!mrdAttendeesOn(mrdCurrent)}document.querySelector('#mrdEditTranscript').value=mrdCurrent.transcript_text??'';document.querySelector('#mrdEditNotes').value=mrdCurrent.notes||'';document.querySelector('#mrdEditStatus').textContent='';mrdEditBase=mrdEditFields();mrdSetEdit(true);mrdEditHistoryStart(editor);mrdFocusEdit();const attempt=editor.scope&&mrdEditAttempts.get(mrdEditKey(editor));if(attempt?.pending){button.disabled=true;button.textContent='앞선 저장 확인 중…';mrdEditCurrent(editor)&&(document.querySelector('#mrdEditStatus').innerHTML=waitInlineHtml());attempt.done.then(()=>{if(mrdEditCurrent(editor)){button.disabled=false;button.textContent=mrdSaveLabel();mrdEditNotice(editor,'앞선 요청이 끝났습니다. 현재 입력은 유지했습니다.',attempt.state==='unknown')}})}else if(attempt)mrdEditNotice(editor,'앞선 저장 결과를 먼저 확인해 주세요.',true)}
 // MTG-사업보고 4단계: [종류 바꾸기](MTG-종류바꾸기이름, 옛 [칸 바꾸기]) → 종류 선택 창 → activity_kind PATCH(report-kind-sheet.js). 고친 행으로 머리 줄을 다시 그린다.
-function mrdChangeKind(trigger){const m=mrdCurrent,epoch=mrdRequestEpoch;if(!m||!mrdCanEdit(m))return;pickReportKind(trigger,{title:'종류 바꾸기',current:reportKindOf(m),onPick:async kind=>{if(epoch!==mrdRequestEpoch||mrdCurrent?.id!==m.id||(kind===reportKindOf(m)&&m.activity_kind===kind))return;const st=document.querySelector('#mrdStatus');try{const row=await saveReportKind(m.id,kind);if(epoch!==mrdRequestEpoch||mrdCurrent?.id!==m.id)return;Object.assign(mrdCurrent,row);mrdRenderMeetingInfo(mrdCurrent);st.textContent=`종류를 '${reportKindLabel(kind)}'(으)로 바꿨습니다.`;st.className='status ok'}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===m.id){st.textContent=err.message||'종류를 바꾸지 못했습니다.';st.className='status error'}}}})}
+function mrdChangeKind(trigger){const m=mrdCurrent,epoch=mrdRequestEpoch;if(!m||!mrdCanEdit(m))return;pickReportKind(trigger,{title:'종류 바꾸기',current:reportKindOf(m),onPick:async kind=>{if(epoch!==mrdRequestEpoch||mrdCurrent?.id!==m.id||(kind===reportKindOf(m)&&m.activity_kind===kind))return;const st=document.querySelector('#mrdStatus');try{const row=await saveReportKind(m.id,kind);if(epoch!==mrdRequestEpoch||mrdCurrent?.id!==m.id)return;Object.assign(mrdCurrent,row);mrdRenderMeetingInfo(mrdCurrent);st.textContent=`종류를 '${reportKindLabel(kind)}'(으)로 바꿨습니다.`;st.className='status ok'}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===m.id){st.textContent=err.message||'종류를 바꾸지 못했어요.';st.className='status error'}}}})}
 async function mrdRefreshMeetingList(){await window.__KPTU_RELOAD_MEETINGS__?.();window.dispatchEvent(new CustomEvent('kptu:meetings-changed'))}
 async function mrdSaveEdit(){
   const e=mrdEditor,st=document.querySelector('#mrdEditStatus');if(!e)return;
-  if(!e.scope||!mrdEditSameScope(e.scope)){st.textContent='로그인 상태를 확인하지 못했습니다. 입력은 남겨두었습니다.';st.className='status error';return}
+  if(!e.scope||!mrdEditSameScope(e.scope)){st.textContent='로그인 상태를 확인하지 못했어요. 입력은 남겨두었습니다.';st.className='status error';return}
   if(!mrdEditCurrent(e))return;
   const key=mrdEditKey(e),prior=mrdEditAttempts.get(key);if(prior?.pending||prior?.state==='unknown'){mrdEditNotice(e,'앞선 저장 결과를 먼저 확인해 주세요.',!prior.pending);return}
   const name=document.querySelector('#mrdEditTitle').value.trim(),at=document.querySelector('#mrdEditAt').value,transcript=document.querySelector('#mrdEditTranscript').value,notes=document.querySelector('#mrdEditNotes').value;
@@ -354,7 +354,7 @@ async function mrdSaveEdit(){
     mrdRenderMeetingInfo(mrdCurrent);btn.disabled=false;btn.textContent=label;mrdSetEdit(false);if(linkMsg){const ms=document.querySelector('#mrdStatus');if(ms){ms.textContent=linkMsg;ms.className='status error'}}
     const sequence=mrdEditSequence;await window.__KPTU_RELOAD_MEETINGS__?.();
     if(mrdEditSameScope(e.scope)&&e.view===mrdRequestEpoch&&sequence===mrdEditSequence&&mrdCurrent?.id===e.id)window.dispatchEvent(new CustomEvent('kptu:meetings-changed'));
-  }catch(err){if(a.state==='confirmed')return;a.state=[401,403].includes(err?.status)?'rejected':'unknown';if(mrdEditSameScope(e.scope)&&a.state==='rejected'&&mrdEditAttempts.get(key)===a)mrdEditAttempts.delete(key);mrdEditNotice(e,a.state==='rejected'?'수정 권한을 확인해 주세요. 입력은 유지했습니다.':'저장 결과를 확인하지 못했습니다. 입력을 유지했습니다.',a.state==='unknown')}
+  }catch(err){if(a.state==='confirmed')return;a.state=[401,403].includes(err?.status)?'rejected':'unknown';if(mrdEditSameScope(e.scope)&&a.state==='rejected'&&mrdEditAttempts.get(key)===a)mrdEditAttempts.delete(key);mrdEditNotice(e,a.state==='rejected'?'수정 권한을 확인해 주세요. 입력은 유지했습니다.':'저장 결과를 확인하지 못했어요. 입력을 유지했어요.',a.state==='unknown')}
   finally{a.pending=false;a.finish();if(e.request===a&&mrdEditCurrent(e)){btn.disabled=false;btn.textContent=label}}
 }
 window.addEventListener('kptu:view-changed',()=>{if(mrdEditor)mrdSetEdit(false)});
@@ -374,7 +374,7 @@ async function mrdAddFiles(files){
   if(!(await mrdEnsureLibrary(fail)))return;
   if(mrdCurrent?.id!==m.id)return;
   st.textContent='';st.className='status';
-  if(!window.KPTULibrary?.startUploadForMeeting?.({id:m.id,name:`${mrdMeetingName(m)||m.title||'사업 보고'}${m.round_no?` ${m.round_no}차`:''}`,project_id:m.project_id||''},others))fail('자료 올리기를 열지 못했습니다. 잠시 후 다시 눌러 주세요.');
+  if(!window.KPTULibrary?.startUploadForMeeting?.({id:m.id,name:`${mrdMeetingName(m)||m.title||'사업 보고'}${m.round_no?` ${m.round_no}차`:''}`,project_id:m.project_id||''},others))fail('자료 올리기를 열지 못했어요. 잠시 후 다시 눌러 주세요.');
 }
 // HOTFIX-회의첨부칸 ②(S48-53): PC에서 보기·고치기 면 어디에 파일을 놓아도 이 사업 보고에 붙는다(예전에는 보기 면에서만).
 // 사진은 사진 줄로 바로, 나머지는 [+]와 같은 자료실 올리기 창(library-files, meeting_id)으로. 결과 파일(놓은 자리가 결과 칸이거나 이름이 결과)은
@@ -435,11 +435,11 @@ async function mrdAppendResult(m,body){
   const st=document.querySelector('#mrdStatus'),ws=m.workspace_id;
   try{
     const cur=(await mrdApi(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(m.id)}&workspace_id=eq.${encodeURIComponent(ws)}&select=*`))?.[0];
-    if(!cur)throw new Error('사업 보고를 찾지 못했습니다.');
+    if(!cur)throw new Error('사업 보고를 찾지 못했어요.');
     const next=appendResult(mrdResultText(cur),body);
     if(next!==mrdResultText(cur)){
       const rows=await mrdApi(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(m.id)}&workspace_id=eq.${encodeURIComponent(ws)}&select=*`,{method:'PATCH',prefer:'return=representation',body:{transcript_text:next,updated_at:new Date().toISOString()}});
-      if(!Array.isArray(rows)||rows.length!==1)throw new Error('사업 보고 저장을 확인하지 못했습니다.');
+      if(!Array.isArray(rows)||rows.length!==1)throw new Error('사업 보고 저장을 확인하지 못했어요.');
       if(mrdCurrent?.id===m.id){Object.assign(mrdCurrent,rows[0]);mrdRenderMeetingInfo(mrdCurrent)}
       void mrdRefreshMeetingList();
     }
@@ -458,7 +458,7 @@ function mrdPaintDocked(){
 }
 // 한 줄 안내(불러오는 중·불러오지 못함). 글이 있으면 보기·고치기 면은 감춘다(다른 사업 보고의 내용이 남아 보이지 않게).
 // PHOTO-폰사진못읽음 전수: 실패 이유(err.message)가 있으면 공용 실패 글 뒤에 붙인다(예전에는 만들어 놓고 버렸다).
-const MRD_LOAD_FAIL='사업 보고를 불러오지 못했습니다.';
+const MRD_LOAD_FAIL='사업 보고를 불러오지 못했어요.';
 function mrdShowLoading(text,bad=false){
   const line=document.querySelector('#mrdLoading');if(!line)return;
   if(text===true)line.innerHTML=waitHtml({rows:4});else if(bad)line.innerHTML=failHtml({reason:typeof text==='string'&&text!==MRD_LOAD_FAIL?text:''});else line.textContent=text||'';line.classList.toggle('hidden',!text);line.classList.toggle('error',!!bad);document.querySelector('#mrdAttach')?.classList.toggle('hidden',!!text);

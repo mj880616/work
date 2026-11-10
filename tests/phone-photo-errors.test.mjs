@@ -5,13 +5,13 @@ import {phoneFailure, phoneErrorText, PHONE_FAIL_KINDS} from '../app/photo-sourc
 import {failHtml, FAIL_TEXT, REASON_MAX} from '../app/wait-state.js';
 import {createPhonePhotos} from '../app/phone-photos.js';
 
-// PHOTO-폰사진못읽음(요청함 10/30 23:58): 폰 앱 [사진] 폰 사진 '불러오지 못했습니다' — 실패 이유가 숨던 것을 보이게.
+// PHOTO-폰사진못읽음(요청함 10/30 23:58): 폰 앱 [사진] 폰 사진 '불러오지 못했어요' — 실패 이유가 숨던 것을 보이게.
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 
 test('공용 실패 표시: 이유가 있으면 같은 빨간 작은 글자 뒤에 붙고, 없으면 예전과 같다', () => {
   assert.equal(failHtml(), `<p class="wait-fail" data-wait-fail role="alert">${FAIL_TEXT}</p>`);
-  const html = failHtml({retry: 'data-photos-more', reason: '폰 사진을 읽지 못했어요: 사진첩 조회가 실패했어요 (query·500)'});
-  assert.match(html, /^<p class="wait-fail" data-wait-fail role="alert">불러오지 못했습니다<span class="wait-reason" data-wait-reason> · 폰 사진을 읽지 못했어요: 사진첩 조회가 실패했어요 \(query·500\)<\/span> <button type="button" class="wait-retry" data-photos-more>다시<\/button><\/p>$/);
+  const html = failHtml({retry: 'data-photos-more', reason: '폰 사진을 읽지 못했어요: 사진첩을 읽지 못했어요 (query·500)'});
+  assert.match(html, /^<p class="wait-fail" data-wait-fail role="alert">불러오지 못했어요<span class="wait-reason" data-wait-reason> · 폰 사진을 읽지 못했어요: 사진첩을 읽지 못했어요 \(query·500\)<\/span> <button type="button" class="wait-retry" data-photos-more>다시<\/button><\/p>$/);
   assert.doesNotMatch(failHtml({reason: '<img src=x onerror=1>'}), /<img/, '이유 글은 글자로만');
   assert.equal(failHtml({reason: '   '}), failHtml(), '빈 이유는 붙이지 않음');
   assert.ok(failHtml({reason: 'x'.repeat(500)}).includes('x'.repeat(REASON_MAX) + '</span>'));
@@ -30,7 +30,7 @@ test('앱 실패 답 해석: 종류·예외 클래스 이름만 받고 모르는
 
 test('화면 글: 무엇이 실패했는지 일상어 + (종류·클래스·상태)', () => {
   const e = info => Object.assign(new Error('phone_read_failed'), {phone:info});
-  assert.equal(phoneErrorText(e({status:500, error:'query', detail:'IllegalStateException'})), '폰 사진을 읽지 못했어요: 사진첩 조회가 실패했어요 (query·IllegalStateException·500)');
+  assert.equal(phoneErrorText(e({status:500, error:'query', detail:'IllegalStateException'})), '폰 사진을 읽지 못했어요: 사진첩을 읽지 못했어요 (query·IllegalStateException·500)');
   assert.equal(phoneErrorText(e({status:500, error:'column', detail:'IllegalArgumentException'})), '폰 사진을 읽지 못했어요: 사진첩 항목 이름이 맞지 않아요 (column·IllegalArgumentException·500)');
   assert.equal(phoneErrorText(e({status:403, error:'permission', detail:'none'})), '폰 사진을 읽지 못했어요: 사진 접근 허용이 없어요 (permission·none·403)');
   assert.equal(phoneErrorText(e({status:403, error:'key', detail:''})), '폰 사진을 읽지 못했어요: 앱 열쇠가 바뀌었어요, [다시]를 눌러 주세요 (key·403)');

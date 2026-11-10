@@ -110,7 +110,7 @@ test('시간 일정을 종일 줄로 끌면 막고 원래 자리로',async({page
   const release=await drag(page,card,0,top+20-(b.y+10));
   await expect(page.locator('.cwv-drag-preview')).toHaveClass(/cwv-drag-blocked/);
   await release();
-  await expect(page.locator('#toast')).toContainText('종일 줄로 옮길 수 없습니다');
+  await expect(page.locator('#toast')).toContainText('종일 줄로 옮길 수 없어요');
   expect(state.writes).toHaveLength(0);
   await expect(page.locator('.cwv-day[data-date="2026-10-20"] [data-google-event="timed"]')).toBeVisible();
 });

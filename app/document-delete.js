@@ -1,7 +1,7 @@
 // 자료실과 회의 상세는 같은 확인·요청·오류 안내를 사용한다.
 // 확인은 공용 작은 확인창(askConfirm), 결과·오류 안내는 공용 작은 알림(notify)으로 한다(S48-28). 부르는 쪽이 ask·tell을 넘기면 그것을 쓴다.
 import {askConfirm,notify} from './small-notice.js';
-const unknownDeleteMessage='삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
+const unknownDeleteMessage='삭제 결과를 확인하지 못했어요. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
 const pendingDeletes=new Map();
 const modernFields=['drive_result','drive_preserved','reason'];
 const deletePhases=['token_delete_result','document_delete_result'];
@@ -18,14 +18,14 @@ function driveAuthError(e){return e?.status===424||/token has been expired or re
 export function luDeleteErrorMessage(e){
   // HTTP errors from the runtime do not carry the server's deletion phases.
   if(unconfirmedOutcome(e))return unknownDeleteMessage;
-  if(sessionError(e))return '로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.';
+  if(sessionError(e))return '로그인 세션을 확인하지 못했어요. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.';
   if(driveAuthError(e))return 'Google Drive 연결을 확인해 주세요. 다시 삭제하기 전에 자료 목록과 원본 상태를 먼저 확인해 주세요.';
   return unknownDeleteMessage;
 }
 
 export function luDeleteSuccessMessage(data){
   if(!data||typeof data!=='object'||Array.isArray(data)||data.ok!==true||data.error||unconfirmedOutcome(data))return null;
-  if(modernFields.every(key=>!hasField(data,key)))return '자료 등록을 삭제했습니다. Drive 파일 처리 결과는 확인하지 못했습니다. 원본 상태를 직접 확인해 주세요.';
+  if(modernFields.every(key=>!hasField(data,key)))return '자료 등록을 삭제했어요. Drive 파일 처리 결과는 확인하지 못했어요. 원본 상태를 직접 확인해 주세요.';
   if(!modernFields.every(key=>hasField(data,key)))return null;
   if(data.drive_result==='preserved'&&data.drive_preserved===true&&['note_reference','private_basket_original'].includes(data.reason))return '자료 등록을 삭제했습니다. 잊지 말기 원본 파일은 Drive에 보존했습니다.';
   if(data.drive_preserved!==false||data.reason!=='ordinary_library')return null;
@@ -52,7 +52,7 @@ async function maybeReconnectDrive(e,api,role,{isCurrent,expectedSessionEpoch,as
     const d=await api('/functions/v1/public-policy-drive',{method:'POST',body:{action:'drive-start'},expectedSessionEpoch});
     if(!isCurrent())return false;
     const url=d?.url||d?.auth_url;
-    if(!url)throw new Error('Google Drive 연결 주소를 받지 못했습니다.');
+    if(!url)throw new Error('Google Drive 연결 주소를 받지 못했어요.');
     location.href=url;
     return true;
   }catch(err){if(isCurrent())tell(luDeleteErrorMessage(err),{error:true});return false}

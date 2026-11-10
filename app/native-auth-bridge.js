@@ -33,7 +33,7 @@ if((native==='android'||native==='windows')&&isLoginCallback){
       if(st)st.textContent='앱으로 돌아갑니다.';
       setTimeout(()=>{location.href=target},120);
     }catch{
-      if(st)st.textContent='로그인 정보를 전달하지 못했습니다. 앱에서 새 로그인을 시작해 주세요.';
+      if(st)st.textContent='로그인 정보를 전달하지 못했어요. 앱에서 새 로그인을 시작해 주세요.';
       if(link){link.removeAttribute('href');link.style.display='none'}
     }
   })();

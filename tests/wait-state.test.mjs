@@ -1,6 +1,6 @@
 // UI-기다림표시통일(2026-10-29 명진 A안): 기다림·실패·없음 공용 부품(app/wait-state.js) 하나와 재발 방지.
 // - 기다림 = 글자 없는 위쪽 가는 줄 + 실제 줄 높이 회색 빈 줄, 0.4초 안에 끝나면 안 보임(base-ui.css .wait).
-// - 실패 = 빨간 작은 글자 '불러오지 못했습니다' + 작은 [다시], 없음 = 회색 '없음'.
+// - 실패 = 빨간 작은 글자 '불러오지 못했어요' + 작은 [다시], 없음 = 회색 '없음'.
 // - 민트(.notice) 상자는 '완료' 알림에만: 기다림·안내에 쓰지 않는다.
 // - 따로 만든 기다림 문구('…불러오는 중…' 등)가 새로 생기면 실패한다. 아직 남은 곳은 아래 기준표에 파일별 개수로 묶어 두고,
 //   늘어나거나 새 파일에 생기면 실패한다(줄어들면 기준표를 낮춘다). 남은 곳은 PR 본문 '남은 일' 목록과 같다.
@@ -35,9 +35,9 @@ test('기다림은 칸 안에 막대 없이 회색 빈 줄만, 화면 읽기에�
 });
 
 test('실패는 빨간 작은 글자 + 작은 [다시], 없음은 회색 글자', () => {
-  assert.equal(FAIL_TEXT, '불러오지 못했습니다');
-  assert.equal(failHtml(), '<p class="wait-fail" data-wait-fail role="alert">불러오지 못했습니다</p>');
-  assert.equal(failHtml({retry: 'data-x-retry'}), '<p class="wait-fail" data-wait-fail role="alert">불러오지 못했습니다 <button type="button" class="wait-retry" data-x-retry>다시</button></p>');
+  assert.equal(FAIL_TEXT, '불러오지 못했어요');
+  assert.equal(failHtml(), '<p class="wait-fail" data-wait-fail role="alert">불러오지 못했어요</p>');
+  assert.equal(failHtml({retry: 'data-x-retry'}), '<p class="wait-fail" data-wait-fail role="alert">불러오지 못했어요 <button type="button" class="wait-retry" data-x-retry>다시</button></p>');
   assert.doesNotMatch(failHtml({retry: 'onclick=alert(1)'}), /onclick/, '속성 이름만 받는다');
   assert.equal(emptyHtml(), '<p class="wait-empty" data-wait-empty>없음</p>');
   assert.equal(emptyHtml('<b>'), '<p class="wait-empty" data-wait-empty>&lt;b&gt;</p>');
@@ -146,7 +146,7 @@ test('옮긴 화면은 공용 부품을 쓴다', () => {
 });
 
 // UI-기다림표시통일 3차(2026-10-29 명진 A안 '없음 = 회색 작은 없음'): 목록·칸이 비었을 때 따로 쓴 글자('사진이 없어요.',
-// '~이 없습니다' 등)는 공용 부품(emptyHtml·emptyEl, 기본 '없음')으로 옮겼다. 같은 화면에 빈 칸이 여럿이라 구분이 필요하거나
+// '~이 없어요' 등)는 공용 부품(emptyHtml·emptyEl, 기본 '없음')으로 옮겼다. 같은 화면에 빈 칸이 여럿이라 구분이 필요하거나
 // 고른 조건 때문에 빈 곳만 부품의 글자 인자로 짧게 남긴다(예 emptyHtml('일정 없음')). 따로 쓴 빈 화면 문구가 새로 생기면 실패한다.
 // 아래 기준표는 빈 화면 표시가 아닌 글자라 그대로 둔 곳(파일별 개수). 늘거나 새 파일에 생기면 실패한다(줄면 낮춘다).
 const EMPTY_BASELINE = {
@@ -160,7 +160,7 @@ const EMPTY_BASELINE = {
   'basket-manual-link.js': 1,
 };
 // 글이 '…없어요'로 끝나는 곳만 센다(따옴표·태그·${} 앞). 문장 가운데의 '지울 수 없어요' 같은 안내는 세지 않는다.
-const NONE_WORDS = '(?:없어요|없습니다|없음|없네요|비어 있어요|비어 있습니다)\\.?(?=[\'"`<$])';
+const NONE_WORDS = '(?:없어요|없어요|없음|없네요|비어 있어요|비어 있습니다)\\.?(?=[\'"`<$])';
 const EMPTY_PATTERNS = [
   // HTML 글 안: 빈 칸 모양 class(empty·muted·faint·note·hint·quiet·none·status) 뒤 글이 '…없어요' 등으로 끝난다.
   new RegExp(`class=\\\\?["'][^"']*(?:empty|muted|faint|note|hint|quiet|none|status)[^"']*\\\\?["'][^>]*>[^<]*?${NONE_WORDS}`, 'g'),

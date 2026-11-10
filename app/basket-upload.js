@@ -6,7 +6,7 @@ import {sendUpload} from './upload-send.mjs';
 import {trackUpload, setUploadRetry, mountUploadRows, paintUploadLine, watchUploads} from './upload-progress.js';
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
-const UNKNOWN = '저장 결과를 확인하지 못했습니다. 잊지 말기에서 확인 후 다시 시도하세요';
+const UNKNOWN = '저장 결과를 확인하지 못했어요. 잊지 말기에서 확인 후 다시 시도하세요';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // UI-바구니상세개편: shown as KB·MB (1024 steps, the everyday labels) instead of KiB·MiB.
 export const fileSize = size => size >= 1048576 ? `${(size / 1048576).toFixed(1)} MB` : size >= 1024 ? `${(size / 1024).toFixed(1)} KB` : `${size || 0} B`;
@@ -21,7 +21,7 @@ function uploadError(message, code, status = 0) { return Object.assign(new Error
 function failure(e) {
   // 다 보내기 전에 끊김·한도: 서버는 파일을 받지 못했으므로 다시 보내도 겹치지 않는다(결과 불명이 아님).
   if (e.code === 'upload_not_sent' || e.code === 'upload_timeout_sending') return uploadError('연결이 끊겨 다 보내지 못했어요. 연결을 확인하고 다시 올려 주세요.', e.code);
-  if (e.code === 'file_read_failed') return uploadError('파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.', e.code);
+  if (e.code === 'file_read_failed') return uploadError('파일을 읽지 못했어요. 파일을 다시 선택해 주세요.', e.code);
   if (e.code === 'note_changed') return uploadError('업데이트가 변경되었습니다. 업데이트를 다시 불러온 후 첨부를 확인해 주세요.', e.code, e.status);
   if (e.code === 'note_save_result_unknown' || !e.status || e.status >= 500) return uploadError(UNKNOWN, 'note_save_result_unknown', e.status);
   if (e.status === 401) return uploadError('로그인이 필요합니다. 다시 로그인한 후 시도해 주세요.', e.code, e.status);
@@ -29,7 +29,7 @@ function failure(e) {
   // NOTE-파일붙이기: basket-files refuses a shared (or unreadable) "노트 첨부" folder before it uploads anything.
   if (e.code === 'drive_folder_not_private') return uploadError('Drive의 "노트 첨부" 폴더가 공유되어 있어 올리지 않았어요. 공유를 끈 뒤 다시 시도해 주세요.', e.code, e.status);
   if (e.code === 'drive_folder_permissions_unavailable') return uploadError('Drive 폴더의 공유 상태를 확인하지 못해 올리지 않았어요. 잠시 뒤 다시 시도해 주세요.', e.code, e.status);
-  return uploadError('첨부를 저장하지 못했습니다. 선택한 파일과 Drive 연결 상태를 확인해 주세요.', e.code, e.status);
+  return uploadError('첨부를 저장하지 못했어요. 선택한 파일과 Drive 연결 상태를 확인해 주세요.', e.code, e.status);
 }
 export function validateBatch(batch, raw_text = '') {
   if (batch.blocked) throw batch.blocked;
@@ -37,7 +37,7 @@ export function validateBatch(batch, raw_text = '') {
   const pending = batch.entries.filter(e => e.kind !== 'success');
   if (batch.attachments.length + pending.length > 20) throw Error('업데이트에는 파일을 20개까지 첨부할 수 있습니다.');
   for (const {file} of pending) {
-    if (!file?.size) throw Error('빈 파일은 첨부할 수 없습니다.');
+    if (!file?.size) throw Error('빈 파일은 첨부할 수 없어요.');
     if (file.size > MAX_BYTES) throw Error('파일은 100MiB까지 첨부할 수 있습니다.');
   }
 }

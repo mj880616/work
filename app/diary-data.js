@@ -24,7 +24,7 @@ const dayKey = /^\d{4}-\d{2}-\d{2}$/;
 
 function workspace(rt) {
   const id = rt.context.read()?.workspace?.id;
-  if (!id) throw new Error('업무 공간을 확인할 수 없습니다.');
+  if (!id) throw new Error('업무 공간을 확인할 수 없어요.');
   return id;
 }
 export const ownerScope = (rt = window.KPTURuntime) => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
@@ -99,7 +99,7 @@ export function validateDiaryText(text) {
   return text;
 }
 const one = rows => {
-  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('저장 결과를 확인할 수 없습니다. 접근 권한을 확인해 주세요.');
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('저장 결과를 확인할 수 없어요. 접근 권한을 확인해 주세요.');
   return rows[0];
 };
 const base = rt => `/rest/v1/app_notes?workspace_id=eq.${encode(workspace(rt))}&kind=eq.diary`;

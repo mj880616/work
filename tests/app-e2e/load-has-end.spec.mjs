@@ -37,7 +37,7 @@ test.describe('폰 앱 412 · 끝있는 불러오기', () => {
     await expect(foot(page).locator('[data-wait-fail]')).toHaveCount(0);
     await page.clock.runFor(26000);
     const fail = foot(page).locator('[data-wait-fail]');
-    await expect(fail).toContainText('불러오지 못했습니다');
+    await expect(fail).toContainText('불러오지 못했어요');
     await expect(fail).toContainText('폰 앱이 답하지 않아요');
     await expect(foot(page).locator('[data-wait]')).toHaveCount(0);
     ctl.hang = false;

@@ -10,7 +10,7 @@ test('freshness line says loading, refreshing, not latest with the last check ti
   assert.equal(freshnessText('refresh'),'');
   assert.equal(freshnessText('stale',Date.parse('2026-10-21T15:07:00Z')),'최신 아님 · 마지막 확인 00:07');
   assert.equal(freshnessText('stale',0),'최신 아님');
-  assert.equal(freshnessText('failed'),'불러오지 못했습니다');
+  assert.equal(freshnessText('failed'),'불러오지 못했어요');
   assert.equal(freshnessText(''),'');
 });
 // HOME-업무일지홈: 옛 홈 오늘 일정 사본(homeEventRows)은 없앴다. 달력 하루 목록이 쓰는 todayEvents는 그날 것만, 취소 일정은 뺀다.

@@ -27,7 +27,7 @@ export async function saveProjectMilestone({id,project_id,title,start_at,notes=n
   if(!project_id||!google_calendar_id||!google_event_id)throw new Error('사업영역 연결 정보가 부족합니다.');
   const epoch=expectedSessionEpoch==null?{}:{expectedSessionEpoch};
   const rows=await rt.api('/rest/v1/app_project_milestones?project_id=eq.'+encodeURIComponent(project_id)+'&select=id,google_event_id', {singleFlight:false,...epoch});
-  if(!Array.isArray(rows))throw new Error('주요 일정 목록을 확인하지 못했습니다.');
+  if(!Array.isArray(rows))throw new Error('주요 일정 목록을 확인하지 못했어요.');
   const found=rows.find(x=>x.google_event_id===google_event_id);
   if(found)return {id:found.id,existing:true};
   const body={id,project_id,workstream_id:null,title,milestone_type:'action',status:'planned',start_at,end_at:null,notes,event_id:null,child_project_id:null,sort_order:(rows.length+1)*10,created_by,google_calendar_id,google_event_id};
@@ -39,7 +39,7 @@ export async function saveProjectMilestone({id,project_id,title,start_at,notes=n
 export async function eventAreaRows(google_event_id, rt=window.KPTURuntime, {expectedSessionEpoch=null}={}) {
   if(!google_event_id)return [];
   const rows=await rt.api('/rest/v1/app_project_milestones?google_event_id=eq.'+encodeURIComponent(google_event_id)+'&select=id,project_id', {singleFlight:false,...(expectedSessionEpoch==null?{}:{expectedSessionEpoch})});
-  if(!Array.isArray(rows))throw new Error('사업영역 연결을 확인하지 못했습니다.');
+  if(!Array.isArray(rows))throw new Error('사업영역 연결을 확인하지 못했어요.');
   return rows.filter(r=>r?.id&&r?.project_id).map(r=>({id:String(r.id),project_id:String(r.project_id)}));
 }
 // had: the rows read on open (kept up to date here, so a retry after a half-done save only does what is left).

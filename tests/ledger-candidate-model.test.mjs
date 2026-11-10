@@ -65,7 +65,7 @@ test('확정 오류는 일상어로', () => {
   assert.match(confirmError({ message: 'LEDGER_CANDIDATE_DECIDED: x' }), /이미 확정하거나 \[버림\]으로 정리한/);
   assert.match(confirmError({ message: 'LEDGER_CANDIDATE_BROKEN_REF: record EVT-0999' }), /EVT-0999/);
   assert.match(confirmError({ message: 'LEDGER_ID_PREFIX_MISSING: no id prefix for event' }), /번호표/);
-  assert.match(confirmError({ message: 'something else' }), /확정하지 못했습니다/);
+  assert.match(confirmError({ message: 'something else' }), /확정하지 못했어요/);
 });
 
 test('확정 취소 오류는 일상어로, 되돌리기 시간은 10초', () => {
@@ -78,5 +78,5 @@ test('확정 취소 오류는 일상어로, 되돌리기 시간은 10초', () =>
   assert.match(undoError({ message: 'LEDGER_UNDO_NOT_CONFIRMED: x' }), /이미 대기로/);
   assert.match(undoError({ message: 'permission denied for function' }), /소유자만/);
   assert.match(undoError({ status: 0, message: 'network' }), /연결이 끊겨/);
-  assert.match(undoError({ message: 'something else' }), /확정을 취소하지 못했습니다/);
+  assert.match(undoError({ message: 'something else' }), /확정을 취소하지 못했어요/);
 });

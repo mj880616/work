@@ -138,7 +138,7 @@ test('upload failure in the 할 일 등록 window: the task stays, the window sa
   await expect(pick.locator('.gt-pick-name')).toHaveText(['목차.txt','큰 자료.txt']);
   expect(await noSideScroll(page)).toBe(true);
   await page.locator('#saveEventBtn').click();
-  await expect(page.locator('#eventStatus')).toContainText('할 일은 저장했습니다. 파일 1개(큰 자료.txt)를 붙이지 못했습니다');
+  await expect(page.locator('#eventStatus')).toContainText('할 일은 저장했어요. 파일 1개(큰 자료.txt)를 붙이지 못했어요');
   await expect(page.locator('#eventStatus')).toContainText('⋯ → 파일 붙이기');
   expect(state.calls.creates.map(c=>c.title)).toEqual(['자료 정리']);
   expect(state.calls.attach).toEqual([{taskId:'new1',name:'목차.txt'},{taskId:'new1',name:'큰 자료.txt'}]);
@@ -167,7 +167,7 @@ test('upload failure from the task editor keeps the task and says so (PC)',async
   await page.locator('#gtNewFiles [data-gt-pick-input]').setInputFiles([txt('보고.txt')]);
   await page.locator('#gtEditTitle').fill('실패 시험');
   await page.locator('#gtSaveBtn').click();
-  await expect(page.locator('#gtEditStatus')).toContainText('할 일은 저장했습니다. 파일 1개(보고.txt)를 붙이지 못했습니다');
+  await expect(page.locator('#gtEditStatus')).toContainText('할 일은 저장했어요. 파일 1개(보고.txt)를 붙이지 못했어요');
   await expect(page.locator('#gtEditStatus')).toContainText('⋯ → 파일 붙이기');
   await expect(page.locator('#gtTaskModal')).toBeVisible();
   await expect(page.locator('#gtTaskHeading')).toHaveText('Google 할 일 수정');

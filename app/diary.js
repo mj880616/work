@@ -266,6 +266,20 @@ function paintDone(slot, day, {fresh = false} = {}) {
     slot.replaceChildren(...(section ? [section] : []));
   }).catch(() => {});
 }
+// UI-PC손맛묶음(S56-52, 요청함 11/10 "우클릭: 일기 날짜 칸"): PC 달력 날짜 칸 우클릭 = 그날을 고르고(왼쪽 누름과 같은 selectDay) 그날 상세 ⋯ 메뉴를
+// 누른 자리에 연다(상세 우클릭과 같은 메뉴·같은 공용 열기, context-menu.js openAt). 글·사진 없는 날은 그날 상세([일기 쓰기])만 연다. 브라우저 메뉴는 폰 폭·터치·Shift 등 공용 규칙 그대로.
+days.addEventListener('contextmenu', e => {
+  const cell = e.target instanceof Element ? e.target.closest('[data-diary-day]') : null;
+  if (!cell || e.defaultPrevented || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey || e.pointerType === 'touch' || !window.matchMedia('(min-width:761px)').matches) return;
+  if (!window.KPTUContextMenu?.openAt) return;
+  if (selected !== cell.dataset.diaryDay) selectDay(cell.dataset.diaryDay);
+  const more = detail.querySelector('[data-diary-head-more]');
+  e.preventDefault();
+  // 글·사진이 없는 날은 상세에 ⋯가 없다(상세의 [일기 쓰기] 단추 하나) — 그날을 연 것으로 끝(브라우저 메뉴는 띄우지 않음).
+  if (!more || !more.getClientRects().length) return;
+  const r = cell.getBoundingClientRect();
+  window.KPTUContextMenu.openAt(more, e.clientX || Math.round(r.left + r.width / 2), e.clientY || Math.round(r.bottom));
+});
 function selectDay(day, {focus = false} = {}) {
   doneRead = {key:'', p:null};
   selected = day; source = 'all';

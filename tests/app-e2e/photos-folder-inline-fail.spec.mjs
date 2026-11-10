@@ -46,7 +46,7 @@ test('사진 [폴더] 폰: 펼친 폴더 안 사진을 못 읽으면 회색 칸�
   const box = root.locator('[data-photos-box="onedrive"]');
   await box.locator('[data-photos-ftog="o:S2"]').click();
   const strip = root.locator('[data-photos-strip="o:S2"]');
-  await expect(strip.locator('[data-wait-fail]')).toContainText('불러오지 못했습니다', { timeout: 40000 });
+  await expect(strip.locator('[data-wait-fail]')).toContainText('불러오지 못했어요', { timeout: 40000 });
   await expect(strip.locator('.photos-fx-strip-wait')).toHaveCount(0);
   f.failS2 = 0; // 이제 서버가 답한다
   await strip.getByRole('button', { name: '다시' }).click();
