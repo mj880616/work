@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {PARTY_FIXED, FAMILIES, SHADES, colorVar, outsideColor, newsColor, postTag, newsTag, tagLabel, tagStyle, shadeOf} from '../app/news-colors.mjs';
+import {FIXED_OUTSIDE, FIXED_NEWS, FAMILIES, SHADES, colorVar, outsideColor, outsideBar, newsColor, newsBar, postTag, newsTag, tagLabel, tagStyle, shadeOf} from '../app/news-colors.mjs';
 import {rowHtml, dayHtml} from '../app/news-row.mjs';
 // S51-8 NEWS-전면개편 P4b: News 목록 색·꼬리표는 news-colors.mjs 하나, 값은 theme-tokens.css 토큰(밝은·어두운 화면 둘 다).
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -15,9 +15,9 @@ test('매체 색 토큰은 묶음 다섯 × 넷, 꼬리표 넷 × (바탕·글�
 });
 
 test('색 고르기: 같은 묶음 안 순서로 돌아가며, 카탈로그에 없으면 이름으로 늘 같은 칸', () => {
-  const cat = [{key: 'kctu', group: 'labor'}, {key: 'otherparty', group: 'party'}, {key: 'kptu', group: 'labor'}];
+  const cat = [{key: 'kctu', group: 'labor'}, {key: 'otherparty', group: 'party'}, {key: 'x-union', group: 'labor'}];
   assert.equal(outsideColor('kctu', cat), 'var(--ds-news-labor-1)');
-  assert.equal(outsideColor('kptu', cat), 'var(--ds-news-labor-2)');
+  assert.equal(outsideColor('x-union', cat), 'var(--ds-news-labor-2)');
   assert.equal(outsideColor('otherparty', cat), 'var(--ds-news-party-1)');
   assert.match(outsideColor('unknown', cat), /^var\(--ds-news-movement-[1-4]\)$/);
   assert.equal(newsColor({source_key: 'news-b'}, [{key: 'news-a'}, {key: 'news-b'}]), 'var(--ds-news-press-2)');
@@ -57,21 +57,49 @@ test('줄 글자: 바깥 글자는 esc, 읽음·안 읽음·모름, 별표, 색 
   assert.doesNotMatch(dayHtml('어제', '', 0, esc), /새 글/);
 });
 
-// NEWS-정당색: 정당 넷은 키별 고정 색, 다른 정당·단체는 그대로, 글자 대비 4.5:1 이상(흰 바탕·어두운 바탕).
-test('정당 4곳은 키별 고정 색 토큰이고 나머지 색은 그대로다', () => {
-  const cat = [{key: 'x-party', group: 'party'}, {key: 'justice', group: 'party'}, {key: 'kgreens', group: 'party'}, {key: 'laborparty', group: 'party'}, {key: 'jinboparty', group: 'party'}, {key: 'kctu', group: 'labor'}];
-  for (const k of PARTY_FIXED) assert.equal(outsideColor(k, cat), `var(--ds-news-party-${k})`);
-  assert.equal(outsideColor('x-party', cat), 'var(--ds-news-party-1)');
-  assert.equal(outsideColor('kctu', cat), 'var(--ds-news-labor-1)');
-  const dark = css.slice(css.indexOf('@media (prefers-color-scheme:dark)'));
-  const light = css.slice(0, css.indexOf('@media (prefers-color-scheme:dark)'));
-  const lum = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
-  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
-  for (const k of PARTY_FIXED) {
-    const l = light.match(new RegExp(`--ds-news-party-${k}:(#[0-9a-f]{6});`))?.[1];
-    const d = dark.match(new RegExp(`--ds-news-party-${k}:(#[0-9a-f]{6});`))?.[1];
-    assert.ok(l && d, k);
-    assert.ok(ratio(l, '#ffffff') >= 4.5, `${k} 밝은 ${ratio(l, '#ffffff')}`);
-    assert.ok(ratio(d, '#1c1b18') >= 4.5, `${k} 어두운 ${ratio(d, '#1c1b18')}`);
+// NEWS-정당색 → NEWS-고유색: 키별 고정 색 표(정당 4곳·금속노조·공공운수노조). 이름 글자·막대 토큰 두 개, 나머지 색은 그대로.
+const lum = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const darkPart = css.slice(css.indexOf('@media (prefers-color-scheme:dark)'));
+const lightPart = css.slice(0, css.indexOf('@media (prefers-color-scheme:dark)'));
+const tok = (part, name) => part.match(new RegExp(`--${name}:([^;]+);`))?.[1];
+
+test('고정 색 표: 키마다 이름 글자·막대 토큰, 표에 없는 매체와 돌려쓰기 칸은 그대로', () => {
+  assert.deepEqual([...FIXED_OUTSIDE], ['justice', 'kgreens', 'laborparty', 'jinboparty', 'kmwu', 'kptu']);
+  const cat = [{key: 'kctu', group: 'labor'}, {key: 'kptu', group: 'labor'}, {key: 'kmwu', group: 'labor'}, {key: 'kfsu', group: 'labor'}, {key: 'x-party', group: 'party'}, {key: 'justice', group: 'party'}];
+  for (const k of FIXED_OUTSIDE) {
+    assert.equal(outsideColor(k, cat), `var(--ds-news-id-${k})`);
+    assert.equal(outsideBar(k, cat), `var(--ds-news-id-${k}-bar)`);
   }
+  // 고정 키도 순서 셈에 남아 다른 매체 칸이 밀리지 않는다(kfsu는 노동 묶음 넷째 칸 그대로).
+  assert.equal(outsideColor('kctu', cat), 'var(--ds-news-labor-1)');
+  assert.equal(outsideColor('kfsu', cat), 'var(--ds-news-labor-4)');
+  assert.equal(outsideBar('kfsu', cat), outsideColor('kfsu', cat));
+  assert.equal(outsideColor('x-party', cat), 'var(--ds-news-party-1)');
+  assert.equal(newsBar({source_key: 'news-b'}, [{key: 'news-a'}, {key: 'news-b'}]), 'var(--ds-news-press-2)');
+  assert.ok(Array.isArray(FIXED_NEWS));
+});
+
+test('고정 색 토큰: 밝은·어두운 화면 모두 있고, 이름 글자는 바탕 대비 4.5:1 이상, 막대는 한 색 또는 여러 색 띠', () => {
+  for (const k of [...FIXED_OUTSIDE, ...FIXED_NEWS]) {
+    for (const [part, bg] of [[lightPart, '#ffffff'], [darkPart, '#1f1f1b']]) {
+      const ink = tok(part, `ds-news-id-${k}`);
+      const bar = tok(part, `ds-news-id-${k}-bar`);
+      assert.match(ink || '', /^#[0-9a-f]{6}$/, `${k} 글자`);
+      assert.ok(ratio(ink, bg) >= 4.5, `${k} 글자 대비 ${ratio(ink, bg)} (${bg})`);
+      assert.match(bar || '', /^(#[0-9a-f]{6}|linear-gradient\((#[0-9a-f]{6} [0-9. %]+,?)+\))$/, `${k} 막대`);
+    }
+  }
+  // 명진 지정: 정의당 막대 샛노랑, 공공운수노조 막대 네이비·회색·빨강 3색(이름 글자 네이비), 금속노조 네이비.
+  assert.equal(tok(lightPart, 'ds-news-id-justice-bar'), '#ffcc00');
+  assert.equal((tok(lightPart, 'ds-news-id-kptu-bar').match(/#[0-9a-f]{6}/g) || []).length, 3);
+  assert.equal(tok(lightPart, 'ds-news-id-kptu'), tok(lightPart, 'ds-news-id-kmwu'));
+  assert.doesNotMatch(css, /--ds-news-party-(justice|kgreens|laborparty|jinboparty):/);
+});
+
+test('줄: 막대 색이 글자 색과 다를 때만 --nw-bar를 따로 쓴다', () => {
+  const base = {key: 'outside:1', openAttr: 'data-os-open', openId: '1', title: 't', src: '공공운수노조', time: '09:00'};
+  assert.match(rowHtml({...base, color: 'var(--ds-news-id-kptu)', bar: 'var(--ds-news-id-kptu-bar)'}, esc), /style="--nw-c:var\(--ds-news-id-kptu\);--nw-bar:var\(--ds-news-id-kptu-bar\)"/);
+  assert.match(rowHtml({...base, color: 'var(--ds-news-labor-1)', bar: 'var(--ds-news-labor-1)'}, esc), /style="--nw-c:var\(--ds-news-labor-1\)"/);
+  assert.match(readFileSync(new URL('../app/now.css', import.meta.url), 'utf8'), /\.nw-bar\{[^}]*background:var\(--nw-bar,var\(--nw-c\)\)/);
 });
