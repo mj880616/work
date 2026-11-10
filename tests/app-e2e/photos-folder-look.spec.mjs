@@ -65,7 +65,7 @@ const root = page => page.locator('#photosRoot');
 async function openTab(page, tab) {
   await clickView(page, 'photos');
   await expect(page.locator('#photosView')).toBeVisible();
-  await root(page).locator(`[data-photos-tab="${tab}"]`).click();
+  await root(page).locator('[data-photos-view]').selectOption(tab);
 }
 const folderIds = page => root(page).locator('[data-photos-folder]').evaluateAll(els => els.map(e => e.dataset.photosFolder).filter(id => id !== 'T'));
 // FOLDER-나무새기준 ③: 폰은 공용 줄(.ft-ico, 안 고른 폴더는 기본 노랑 그림), PC 나무는 지금 줄(.nx-ico).

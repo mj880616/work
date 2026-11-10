@@ -68,18 +68,20 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
   await enterLogin(page);
   await signInWithSession(page, 'owner@example.org');
   await page.waitForFunction(() => window.KPTUViewLoader?.isLoaded('meetings'));
-  await expect(page.locator('#reportViewFilter [data-filter-value]')).toHaveCount(3);
+  await expect(page.locator('#reportViewSelect option')).toHaveCount(3);
   return prefs;
 }
-const view = (page, label) => page.locator('#reportViewFilter').getByRole('radio', {name: label});
+// UI-보기탭드롭다운(11/10): 보기는 위 줄 고르기 상자 [목록 ▾](#reportViewSelect). view(page,'달력') = 그 보기를 고르기.
+const viewSelect = page => page.locator('#reportViewSelect');
+const view = (page, label) => viewSelect(page).selectOption({label});
 const noOverflow = page => page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1);
 
 for (const width of [390, 1440]) {
   test(`report calendar shows the month, today's reports and opens one ${width}`, async ({page}) => {
     const state = makeState();
     const prefs = await open(page, state, width);
-    await expect(view(page, '목록')).toHaveAttribute('aria-checked', 'true');
-    await view(page, '달력').click();
+    await expect(viewSelect(page)).toHaveValue('list');
+    await view(page, '달력');
     const cal = page.locator('#meetingList .rv-cal');
     await expect(cal.locator('.rv-cal-title')).toHaveText(`${state.year}년 ${state.month + 1}월`);
     const days = new Date(state.year, state.month + 1, 0).getDate();
@@ -116,7 +118,7 @@ for (const width of [390, 1440]) {
   test(`report photo view groups photos by day and reuses the big viewer ${width}`, async ({page}) => {
     const state = makeState();
     await open(page, state, width);
-    await view(page, '사진').click();
+    await view(page, '사진');
     const box = page.locator('#meetingList .rv-photos');
     await expect(box.locator('.rv-photo-day')).toHaveCount(1);
     await expect(box.locator(`[data-rv-set="${M1}"] .act-photo-thumb`)).toHaveCount(5);
@@ -142,12 +144,30 @@ for (const width of [390, 1440]) {
 test('report view choice is remembered on the server and restored', async ({page}) => {
   const state = makeState();
   const prefs = await open(page, state, 1440, {report_view: 'photo'});
-  await expect(view(page, '사진')).toHaveAttribute('aria-checked', 'true');
+  await expect(viewSelect(page)).toHaveValue('photo');
   await expect(page.locator('#meetingList .rv-photos')).toBeVisible();
-  await view(page, '목록').click();
+  await view(page, '목록');
   await expect(page.locator('#meetingList .rv-photos')).toHaveCount(0);
   await expect(page.locator('#meetingList .mcol-layout')).toBeVisible();
   await expect.poll(() => prefs.value?.report_view ?? 'list').toBe('list');
+});
+
+test('report view box works with the keyboard (Enter · ↓ · Enter, Esc only closes) and is remembered', async ({page}) => {
+  const state = makeState();
+  const prefs = await open(page, state, 1440);
+  const sel = viewSelect(page);
+  await expect(sel).toHaveValue('list');
+  await sel.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#kptuSelectMenu')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(sel).toHaveValue('list');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(sel).toHaveValue('calendar');
+  await expect(page.locator('#meetingList .rv-cal')).toBeVisible();
+  await expect.poll(() => prefs.value?.report_view).toBe('calendar');
 });
 
 test('report views still switch when the server cannot remember the choice yet', async ({page}) => {
@@ -155,9 +175,9 @@ test('report views still switch when the server cannot remember the choice yet',
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   const prefs = await open(page, state, 390, null, {missingColumn: true});
-  await view(page, '달력').click();
+  await view(page, '달력');
   await expect(page.locator('#meetingList .rv-cal')).toBeVisible();
-  await view(page, '사진').click();
+  await view(page, '사진');
   await expect(page.locator('#meetingList .rv-photos')).toBeVisible();
   expect(prefs.patches.length).toBe(0);
   expect(errors).toEqual([]);

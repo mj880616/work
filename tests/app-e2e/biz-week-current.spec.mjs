@@ -116,10 +116,10 @@ for(const width of [390,884])test(`${width}: 표 위에서 밀어도 화면 전�
   for(let i=1;i<=15;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-i*10}]});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(before+50);
-  // 화면 끝까지 내리면 표 끝이 아래 [목록|달력|사진]에 가리지 않는다.
+  // 화면 끝까지 내리면 표 끝이 아래 탭에 가리지 않는다(UI-보기탭드롭다운 11/10: 아래 떠 있던 [목록|달력|사진] 줄은 없앰).
   await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
   const end=await box.locator('.biz-sum-table').evaluate(el=>el.getBoundingClientRect().bottom);
-  const dock=await page.locator('#reportViewFilter').evaluate(el=>getComputedStyle(el).position==='fixed'?el.getBoundingClientRect().top:Infinity);
+  const dock=await page.locator('.mobile-tabs').evaluate(el=>getComputedStyle(el).display!=='none'?el.getBoundingClientRect().top:Infinity);
   expect(end).toBeLessThanOrEqual(dock);
 });
 });

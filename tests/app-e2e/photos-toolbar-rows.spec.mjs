@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18, 명진 '시안대로 진행'). 지어낸 서버(onedrive-photos·gdrive-photos·app_photo_tags·app_my_features), 네트워크 없음.
-// - 사진·달력·폴더·앨범·휴지통 다섯 탭 모두 위쪽이 두 줄(1줄 칩, 2줄 정렬·크기·출처)이고 높이가 같다. 폭 412(접은 폴드)·1280(PC).
-// - 출처 아이콘은 둘째 줄 오른쪽 끝(사진 탭: [전체 ▾][찍은 날 ▾][－][＋] … 출처). 구글 드라이브 칩의 점(::before ≤10px)·누르는 범위(::after ≥44px) 그대로.
+// - (UI-보기탭드롭다운 11/10) 보기는 [사진 ▾] 고르기 상자 하나. 다섯 보기 모두 위쪽 높이가 같고, 폰 412는 두 줄(제목+출처 / 도구 줄), PC 1280은 한 줄.
+// - 출처 아이콘은 폰 제목 줄 오른쪽·PC 도구 줄 오른쪽 끝. 구글 드라이브 칩의 점(::before ≤10px)·누르는 범위(::after ≥44px) 그대로.
 // - 앨범 탭: 정렬 [－][＋] … 출처 [+ 새 앨범](출처 칩은 모든 탭에서 보임). [－][＋]로 큰 칸 → 작은 그림 목록(이름·장수·기간) → 한 줄 목록, 서버(view_prefs.album_view)에 저장되어 새로고침해도 그대로.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
@@ -55,17 +55,20 @@ async function openPhotos(page, width) {
   await expect(page.locator('#photosView')).toBeVisible();
 }
 const root = page => page.locator('#photosRoot');
-// 위쪽 묶음 높이와 줄 수(보이는 칸의 서로 다른 top 개수), 둘째 줄 칸이 한 줄 안에 있는지.
+// 위쪽 묶음 높이와 줄 수(보이는 칸 가운데 높이가 다른 줄의 개수), 도구 줄 칸 순서, 출처 아이콘·제목 자리.
+// UI-보기탭드롭다운(11/10): 탭 줄 없음 — 폰 = 제목 '사진' + 출처 / 도구 줄([사진 ▾] 맨 앞), PC = 한 줄(출처는 도구 줄 오른쪽 끝).
 const barShape = page => root(page).locator('[data-photos-bar]').evaluate(bar => {
-  const box = bar.getBoundingClientRect();
-  // UI-보기탭한모양(S52-17): 보기 탭은 공용 ⑤ — 누르는 범위 여백(padding)을 뺀 보이는 알약 아래끝으로 잰다.
-  const chipsEl = bar.querySelector('.photos-chips'), chips = {bottom: chipsEl.getBoundingClientRect().bottom - parseFloat(getComputedStyle(chipsEl).paddingBottom)}, tools = bar.querySelector('[data-photos-tools]');
-  const shown = [...tools.children].filter(el => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0);
-  const mids = shown.map(el => el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2);
-  const tb = tools.getBoundingClientRect();
-  return { height: Math.round(box.height), chipsBottom: chips.bottom, toolsTop: tb.top, lines: mids.length && Math.max(...mids) - Math.min(...mids) <= 4 ? 1 : 2, inside: shown.every(el => el.getBoundingClientRect().right <= box.right + 0.5 && el.getBoundingClientRect().left >= box.left - 0.5),
-    order: shown.map(el => el.dataset.photosFilter !== undefined ? 'filter' : el.dataset.photosSort !== undefined ? 'sort' : el.classList.contains('photo-size') ? 'size'
-      : el.classList.contains('photos-sp') ? 'sp' : el.classList.contains('photos-srcs') ? 'srcs' : el.dataset.photosAlNew !== undefined ? 'new' : el.dataset.photosTidyChip !== undefined ? 'tidy' : el.className) };
+  const box = bar.getBoundingClientRect(), tools = bar.querySelector('[data-photos-tools]'), srcs = bar.querySelector('.photos-srcs'), title = bar.querySelector('.photos-title');
+  const visible = el => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 1;
+  const shown = [...tools.children].filter(visible), all = [...shown, ...[...srcs.children].filter(visible)];
+  if (visible(title)) all.push(title);
+  const mids = [...new Set(all.map(el => Math.round((el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2) / 6)))];
+  return { height: Math.round(box.height), lines: mids.length, toolsTop: tools.getBoundingClientRect().top, srcsBottom: srcs.getBoundingClientRect().bottom,
+    srcsLeft: srcs.getBoundingClientRect().left, toolsRight: Math.max(...shown.map(el => el.getBoundingClientRect().right)), titleShown: visible(title),
+    inside: all.every(el => el.getBoundingClientRect().right <= box.right + 0.5 && el.getBoundingClientRect().left >= box.left - 0.5),
+    tabRow: bar.querySelectorAll('.ds-seg, [data-photos-tab]').length,
+    order: shown.map(el => el.dataset.photosView !== undefined ? 'view' : el.dataset.photosFilter !== undefined ? 'filter' : el.dataset.photosSort !== undefined ? 'sort' : el.classList.contains('photo-size') ? 'size'
+      : el.classList.contains('photos-sp') ? 'sp' : el.dataset.photosAlNew !== undefined ? 'new' : el.dataset.photosTidyChip !== undefined ? 'tidy' : el.className) };
 });
 const gdMarks = page => root(page).locator('[data-photos-src="gdrive"]').evaluate(b => {
   const d = getComputedStyle(b, '::before'), a = getComputedStyle(b, '::after');
@@ -73,26 +76,52 @@ const gdMarks = page => root(page).locator('[data-photos-src="gdrive"]').evaluat
 });
 
 for (const width of [412, 1280]) {
-  test(`사진 위쪽: 다섯 탭 모두 두 줄·같은 높이, 출처는 둘째 줄 끝 ${width}`, async ({ page }) => {
+  test(`사진 위쪽: 다섯 보기 모두 [사진 ▾] 고르기 상자·같은 높이, 폰 두 줄(출처는 제목 줄)·PC 한 줄 ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
     await openPhotos(page, width);
     await expect(root(page).locator('[data-photos-src="gdrive"]')).toBeVisible();
+    const view = root(page).locator('[data-photos-view]');
+    await expect(view.locator('option')).toHaveText(['사진', '달력', '폴더', '앨범', '휴지통']);
+    // 폰은 앱 머리 대신 화면 첫 줄이 제목(앱 머리 숨김), PC는 위쪽 경로 줄이 이름을 보인다.
+    await expect(page.locator('#appView > .mobile-shell-header')).toBeHidden();
     const heights = {};
     for (const tab of TABS) {
-      await root(page).locator(`[data-photos-tab="${tab}"]`).click();
-      await expect(root(page).locator(`[data-photos-tab="${tab}"]`)).toHaveAttribute('aria-pressed', 'true');
+      await view.selectOption(tab);
+      await expect(view).toHaveValue(tab);
       const s = await barShape(page);
-      expect(s.lines, `${tab}: 둘째 줄은 한 줄`).toBe(1);
-      expect(s.toolsTop, `${tab}: 둘째 줄은 칩 줄 아래`).toBeGreaterThanOrEqual(s.chipsBottom - 0.5);
+      expect(s.tabRow, `${tab}: 탭 칸 줄 없음`).toBe(0);
+      expect(s.lines, `${tab}: 위쪽 줄 수`).toBe(width <= 760 ? 2 : 1);
+      expect(s.titleShown, `${tab}: 제목 '사진'은 폰만`).toBe(width <= 760);
+      if (width <= 760) expect(s.toolsTop, `${tab}: 도구 줄은 제목·출처 줄 아래`).toBeGreaterThanOrEqual(s.srcsBottom - 0.5);
+      else expect(s.srcsLeft, `${tab}: 출처는 도구 줄 오른쪽 끝`).toBeGreaterThanOrEqual(s.toolsRight - 0.5);
       expect(s.inside, `${tab}: 화면 안`).toBe(true);
       heights[tab] = s.height;
-      if (tab === 'all') expect(s.order).toEqual(['filter', 'sort', 'size', 'sp', 'srcs']);
-      if (tab === 'folders') expect(s.order).toEqual(['sort', 'size', 'sp', 'srcs']);
-      if (tab === 'albums') expect(s.order).toEqual(['sort', 'size', 'sp', 'srcs', 'new']);
+      expect(s.order[0], `${tab}: [사진 ▾]가 도구 줄 맨 앞`).toBe('view');
+      if (tab === 'all') expect(s.order).toEqual(['view', 'filter', 'sort', 'size', 'sp']);
+      if (tab === 'calendar') expect(s.order).toEqual(['view', 'filter', 'sp']);
+      if (tab === 'folders') expect(s.order).toEqual(['view', 'sort', 'size', 'sp']);
+      if (tab === 'albums') expect(s.order).toEqual(['view', 'sort', 'size', 'sp', 'new']);
+      if (tab === 'trash') expect(s.order).toEqual(['view', 'size', 'sp']);
+      // 고른 이름이 상자 글자.
+      expect(await view.evaluate(el => el.selectedOptions[0].textContent)).toBe({ all: '사진', calendar: '달력', folders: '폴더', albums: '앨범', trash: '휴지통' }[tab]);
     }
     expect(new Set(Object.values(heights)).size, JSON.stringify(heights)).toBe(1);
+    // 키보드: [사진 ▾]에서 Enter로 작은 목록(공용 select-menu.js) → ↓ → Enter면 다음 보기, Esc는 닫기만.
+    await view.selectOption('all');
+    await view.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#kptuSelectMenu')).toBeVisible();
+    await expect(page.locator('#kptuSelectMenu')).toContainText('휴지통');
+    await page.keyboard.press('Escape');
+    await expect(view).toHaveValue('all');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(view).toHaveValue('calendar');
+    await expect(root(page).locator('[data-photos-filter]')).toBeVisible();
+    await expect(root(page).locator('[data-photos-sort]')).toBeHidden();
     // 출처 칩을 옮겨도 문제 점(::before)은 작고, 누르는 범위(::after)는 44px.
-    await root(page).locator('[data-photos-tab="all"]').click();
+    await root(page).locator('[data-photos-view]').selectOption('all');
     await expect(root(page).locator('[data-photos-src="gdrive"]')).toHaveAttribute('data-problem', /.*/);
     const m = await gdMarks(page);
     expect(m.dot[0]).not.toBe('none');
@@ -108,7 +137,7 @@ test('앨범 탭: [－][＋]로 큰 칸 → 작은 그림 목록 → 한 줄 목
   const width = 412;
   const f = await fixture(page, width);
   await openPhotos(page, width);
-  await root(page).locator('[data-photos-tab="albums"]').click();
+  await root(page).locator('[data-photos-view]').selectOption('albums');
   const list = root(page).locator('[data-photos-albums]');
   const minus = root(page).locator('[data-photo-size="-1"]'), plus = root(page).locator('[data-photo-size="1"]');
   await expect(list).toHaveAttribute('data-view', 'card');
@@ -142,7 +171,7 @@ test('앨범 탭: [－][＋]로 큰 칸 → 작은 그림 목록 → 한 줄 목
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   if (!(await page.locator('#photosView').isVisible())) await openPhotos(page, width);
-  await root(page).locator('[data-photos-tab="albums"]').click();
+  await root(page).locator('[data-photos-view]').selectOption('albums');
   await expect(root(page).locator('[data-photos-albums]')).toHaveAttribute('data-view', 'line');
   await plus.click();
   await expect(root(page).locator('[data-photos-albums]')).toHaveAttribute('data-view', 'thumb');

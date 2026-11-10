@@ -71,7 +71,7 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
   await enterLogin(page);
   await signInWithSession(page, 'owner@example.org');
   await page.waitForFunction(() => window.KPTUViewLoader?.isLoaded('meetings'));
-  await expect(page.locator('#reportViewFilter [data-filter-value]')).toHaveCount(3);
+  await expect(page.locator('#reportViewSelect option')).toHaveCount(3);
   return prefs;
 }
 
@@ -87,7 +87,7 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   expect(line1.length).toBeGreaterThanOrEqual(2);
   expect(Math.max(...line1.map(x => x.mid)) - Math.min(...line1.map(x => x.mid))).toBeLessThanOrEqual(3);
   if (width < 761) await expect(page.locator('#meetingsView .report-top-title')).toBeVisible();
-  await expect(page.locator('#reportViewFilter [data-filter-value]')).toHaveCount(3);
+  await expect(page.locator('#reportViewSelect option')).toHaveCount(3);
   await expect(page.locator('#meetingsView .report-top-line #newMeetingBtn')).toBeVisible();
   await expect(page.locator('#meetingsView .report-top-line #reportMore')).toBeVisible();
   // ② 둘째 줄: [회의 ▾](모든 폭 상자, 칩 줄 없음)·[사업영역 ▾]·[주 ▾]가 한 줄이고 폰은 첫 줄 아래, PC는 첫 줄과 같은 줄(아이콘 왼쪽).
@@ -131,12 +131,13 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   await expect(week.locator('.biz-week-title')).toContainText(dayOf(after));
   await page.locator('#reportWeekFilter [data-report-week="next"]').click();
   await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
-  // 떠 있는 버튼은 [목록|달력|사진](앞 자리 규칙 그대로 폰 아래)뿐이고, 동그란 [+]는 없다: [+]는 첫 줄 안.
+  // 떠 있는 버튼은 없다(보기는 위 줄 고르기 상자, 동그란 [+]도 없음: [+]는 첫 줄 안).
   const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
   expect(floating).toEqual([]);
   const add = await page.locator('#newMeetingBtn').boundingBox();
   expect(add.y).toBeLessThan(vp.height / 3);
-  if (width < 1200) { const seg = await page.locator('#reportViewFilter').boundingBox(); expect(seg.y).toBeGreaterThan(vp.height / 2); }
+  // UI-보기탭드롭다운(11/10): 보기 [목록 ▾]는 위 줄 고르기 상자(아래 떠 있는 탭 줄 없음).
+  { const sel = await page.locator('#reportViewSelect').boundingBox(); expect(sel.y).toBeLessThan(vp.height / 3); }
   // 옆으로 넘치지 않는다.
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
   expect(errors).toEqual([]);
@@ -146,13 +147,13 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
 test('390: 달력·사진 보기에서는 기간 줄만 빠지고, 보기를 바꿔도 떠 있는 동그란 [+]가 없다', async ({page}) => {
   const state = makeState();
   await open(page, state, 390);
-  await page.locator('#reportViewFilter [data-filter-value="calendar"]').click();
-  await expect(page.locator('#reportViewFilter [data-filter-value="calendar"]')).toHaveAttribute('aria-checked', 'true');
+  await page.locator('#reportViewSelect').selectOption('calendar');
+  await expect(page.locator('#reportViewSelect')).toHaveValue('calendar');
   await expect(page.locator('#meetingsView .report-week-bar')).toBeHidden();
   await expect(page.locator('#meetingsView #reportPeriodPick select')).toHaveCount(0);
   const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
   expect(floating).toEqual([]);
-  await page.locator('#reportViewFilter [data-filter-value="list"]').click();
+  await page.locator('#reportViewSelect').selectOption('list');
   await expect(page.locator('#reportPeriodPick select')).toBeVisible();
 });
 

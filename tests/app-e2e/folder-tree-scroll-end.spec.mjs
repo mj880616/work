@@ -148,7 +148,7 @@ test('사진 폰 412 [폴더]: 폴더 14개, 어느 높이에서도 맨 아래�
   await page.route(u => u.origin === SB && u.pathname === '/functions/v1/onedrive-photos', r => (r.request().postDataJSON()?.action === 'folders-tree'
     ? r.fulfill({ json: { top: { id: 'T', name: '카메라', count: 2, total: 2 }, folders, indexing: false } }) : r.fallback()));
   await openPhotos(page, 412);
-  await page.locator('#photosRoot [data-photos-tab="folders"]').click();
+  await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
   await expect(page.locator('#photosRoot [data-photos-folder="S14"]').first()).toBeVisible();
   const END = '#photosRoot .ft-box, #photosRoot .ft-row';
   await expectEndVisible(page, END, { from: 500, to: 1400, step: 25 });

@@ -161,7 +161,7 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
   await expect.poll(()=>page.locator('#'+view+'View').evaluate(el=>{
    window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'});
    // LIB-토글트리: 접힌 토글(<details>) 안 줄은 상자 크기는 있어도 보이지 않으므로 checkVisibility로 뺀다.
-   const shown=[...el.querySelectorAll('*')].filter(node=>node.getClientRects().length&&node.checkVisibility()&&getComputedStyle(node).position!=='fixed'&&!node.closest('.modal,.schedule-switch,#libraryGroupBy,#reportViewFilter'));// S51-28·S52-22: 자료실 묶기·사업 보고 보기 알약(떠 있는 탭 줄) 안 단추는 목록 줄이 아니다
+   const shown=[...el.querySelectorAll('*')].filter(node=>node.getClientRects().length&&node.checkVisibility()&&getComputedStyle(node).position!=='fixed'&&!node.closest('.modal,.schedule-switch,#libraryGroupBy'));// S51-28: 자료실 묶기 안 단추는 목록 줄이 아니다
    return Math.max(...shown.map(node=>node.getBoundingClientRect().bottom));
   })).toBeLessThanOrEqual(b.top);
   await button.click();await expect(page.locator(modal)).toBeVisible();

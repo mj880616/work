@@ -1,11 +1,21 @@
 /* PHOTO-사진메뉴 1차: '사진' 메뉴(#photosView). 격자·크게 보기·[－][＋]는 일기와 같은 칸(diary.css의 :is(#diaryView,#photosView) 규칙).
    여기는 사진 메뉴에만 있는 칩 줄·날짜 머리줄·달력·선택 줄만. 콤팩트·톤다운, 버튼은 32px(누르는 범위 44px). */
 #appView #photosView .photos{ display:flex; flex-direction:column; gap:4px; min-width:0; }
-/* PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18): 위쪽은 사진·달력·폴더·앨범·휴지통 모든 탭, 모든 폭에서 두 줄 —
-   1줄 보기 칩, 2줄(.photos-tools) [정리][전체 ▾][찍은 날 ↓][－][＋] … 출처 아이콘(앨범 탭은 그 뒤에 [+ 새 앨범]).
-   둘째 줄은 높이가 고정이고 줄바꿈하지 않아, 탭을 옮겨도 위쪽 높이가 같다(좁으면 고르기 칸·정렬 글자가 줄어든다). */
+/* PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18) → UI-보기탭드롭다운(11/10 명진 'ㅇㅋㅇㅋ', 시안 docs/design/mockups/photos-top-dropdown.html):
+   폰(~760px) 두 줄 = 제목 '사진' ……… 출처 아이콘(앱 머리 대신 화면 첫 줄, 사업 보고·자료실과 같은 방식) /
+   도구 줄(.photos-tools) [사진 ▾][정리][전체 ▾][찍은 날 ↓][－][＋](앨범 보기는 끝에 [+ 새 앨범]).
+   PC(761px~)는 한 줄: 위쪽 경로 줄이 화면 이름을 보이므로 제목은 읽기 프로그램용으로만 두고 출처 아이콘은 도구 줄 오른쪽 끝.
+   도구 줄은 높이가 고정이고 줄바꿈하지 않아, 보기를 바꿔도 위쪽 높이가 같다(좁으면 고르기 칸·정렬 글자가 줄어든다). */
 #appView #photosView .photos-bar{ position:sticky; top:0; z-index:2; display:flex; flex-direction:column; align-items:stretch; gap:4px; padding:2px 0; background:var(--kptu-bg); }
-/* UI-보기탭한모양(S52-17): 1줄 보기 탭 [사진|달력|폴더|앨범|휴지통]은 공용 ⑤ 보기 바꾸기(.ds-seg) 한 모양 — 넘치면 옆으로 밀기. */
+#appView #photosView .photos-head{ display:flex; align-items:center; gap:6px; min-width:0; min-height:var(--kptu-touch-target,44px); }
+#appView #photosView .photos-title{ flex:1 1 auto; min-width:0; margin:0; font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; }
+#appView #photosView .photos-head > .photos-srcs{ flex:none; margin-left:auto; }
+@media(min-width:761px){
+  #appView #photosView .photos-bar{ flex-direction:row; align-items:center; gap:6px; }
+  #appView #photosView .photos-tools{ flex:1 1 auto; order:0; }
+  #appView #photosView .photos-head{ flex:none; order:1; min-height:0; }
+  #appView #photosView .photos-title{ position:absolute; width:1px; height:1px; margin:0; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+}
 #appView #photosView .photos-tools{ display:flex; flex-wrap:nowrap; align-items:center; gap:6px; height:var(--ds-compact-height,32px); min-width:0; }
 #appView #photosView .photos-tools > *{ flex:none; }
 #appView #photosView .photos-tools > .photos-sp{ flex:1 1 0; min-width:0; }
@@ -15,7 +25,10 @@
 #appView #photosView button.photos-al-new{ position:relative; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 10px; font-size:var(--ds-compact-text,13px); white-space:nowrap; }
 #appView #photosView button.photos-al-new::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #photosView .photos-sp{ flex:1; }
-#appView #photosView .photos-filter{ min-height:0; height:var(--ds-compact-height,32px); width:auto; padding:0 6px; font-size:var(--ds-compact-text,13px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); }
+/* 고르기 상자 [사진 ▾]·[전체 ▾]: 사업 보고 [주 단위 ▾](.report-top-select)·자료실 [폴더 ▾]와 같은 공용 고르기 상자(▾는 ui-standard.css 공용 그림) — 여기는 작은 높이·글자만큼 폭.
+   바탕은 색만 정해 공용 ▾ 그림을 지우지 않는다(예전 [전체]는 바탕 줄임 표기로 ▾가 안 보였다). */
+#appView #photosView :is(.photos-view-select,.photos-filter){ box-sizing:border-box; field-sizing:content; min-height:0; height:var(--ds-compact-height,32px); width:auto; margin:0; padding:0 8px; font-size:var(--ds-compact-text,13px); color:var(--kptu-ink); background-color:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); text-overflow:ellipsis; white-space:nowrap; }
+#appView #photosView .photos-tools > .photos-view-select{ flex:0 1 auto; min-width:4.5em; }
 #appView #photosView .photos-filter[hidden],#appView #photosView .photo-size[hidden],#appView #photosView .photos-sort[hidden]{ display:none; }
 /* PHOTO-정렬: [찍은 날 ↓ ▾] — 거르기 칸과 같은 작은 높이·톤 */
 /* S53-3: [정리] 칩도 같은 줄 [정렬]과 같은 작은 칸 모양(브라우저 기본 회색 네모가 아니게). */

@@ -154,10 +154,10 @@ test.describe('폰 앱 412 · 모든 칩', () => {
     await openPhotos(page, 412);
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1', 'ph:2', 'O2', 'O3', 'ph:4']);
     const od = page.locator('#photosRoot [data-photos-src="onedrive"]'), phoneBtn = page.locator('#photosRoot [data-photos-src="phone"]');
-    const tab = name => page.locator(`#photosRoot [data-photos-tab="${name}"]`);
+    const tab = name => page.locator('#photosRoot [data-photos-view]').selectOption(name);
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
     // 둘 다 켜짐: [폴더]에 '원드라이브'·'폰' 두 상자(FOLDER-나무새기준 ③: 출처마다 상자, 폴더 줄은 공용 줄).
-    await tab('folders').click();
+    await tab('folders');
     await expect(bodyEl.locator('[data-photos-box="onedrive"] .ft-box-toggle')).toHaveText('원드라이브');
     await expect(bodyEl.locator('[data-photos-box="phone"] .ft-box-toggle')).toHaveText('폰');
     await expect(bodyEl.locator('[data-photos-folder="S1"]')).toBeVisible();
@@ -177,19 +177,19 @@ test.describe('폰 앱 412 · 모든 칩', () => {
     await expect(bodyEl.locator('[data-photos-pf]')).toHaveCount(2);
     // [휴지통]: 원드라이브 휴지통을 읽지 않고 안내 한 줄.
     const trashReads = state.edge.filter(a => a === 'trash-list').length;
-    await tab('trash').click();
+    await tab('trash');
     await expect(bodyEl.locator('[data-photos-phone-trash]')).toHaveText('폰 휴지통은 갤러리 앱에서');
     await expect(bodyEl.locator('[data-photos-open]')).toHaveCount(0);
     expect(state.edge.filter(a => a === 'trash-list').length).toBe(trashReads);
     // 모두 끄기: 모든 칩에서 한 줄.
     await phoneBtn.click();
     for (const name of ['trash', 'folders', 'albums', 'all']) {
-      await tab(name).click();
+      await tab(name);
       await expect(bodyEl.locator('[data-photos-no-source]')).toHaveText('위 출처 아이콘을 켜 주세요.');
     }
     // 원드라이브만 다시 켜기: [폴더]는 원드라이브 상자 하나.
     await od.click();
-    await tab('folders').click();
+    await tab('folders');
     await expect(bodyEl.locator('[data-photos-folder="S1"]')).toBeVisible();
     await expect(bodyEl.locator('[data-photos-pf], [data-photos-box="phone"]')).toHaveCount(0);
     expect(state.errors).toEqual([]);

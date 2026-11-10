@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {EMPTY_STOP, validTab, monthKey, prevMonth, nextMonth, parseMonth, monthItems, groupByDay, dayHead, applyFilter, calendarMonth, starPlan, takePhoto, putPhoto, setFolderOrderLook} from '../app/photos-model.mjs';
+import {EMPTY_STOP, validTab, TABS, TAB_TEXT, monthKey, prevMonth, nextMonth, parseMonth, monthItems, groupByDay, dayHead, applyFilter, calendarMonth, starPlan, takePhoto, putPhoto, setFolderOrderLook} from '../app/photos-model.mjs';
 import {ITEMS, defaultLayout} from '../app/menu-model.mjs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -237,8 +237,10 @@ test('PHOTO-위쪽두줄앨범보기: 앨범 보기 세 단계 [－][＋]·기�
 
 test('화면 연결: [폴더]·[앨범] 칩, 폴더 나무는 공용 줄 모양(folder-tree.css)·위치 줄(folder-path.mjs)·공용 메뉴(anchored-menu.js), 기기 저장 없음', () => {
   const js = read('app/photos.js'), loader = read('app/view-loader.js');
-  assert.match(js, /data-photos-tab="folders"[^>]*>폴더</);
-  assert.match(js, /data-photos-tab="albums"[^>]*>앨범</);
+  // UI-보기탭드롭다운(11/10): 보기는 [사진 ▾] 고르기 상자 하나(이름은 photos-model.mjs TAB_TEXT).
+  assert.match(js, /<select class="photos-view-select" data-photos-view aria-label="사진 보기"[^>]*>\$\{viewOptions\}<\/select>/);
+  assert.match(js, /const viewOptions = TABS\.map\(v => `<option value="\$\{v\}">\$\{TAB_TEXT\[v\]\}<\/option>`\)/);
+  assert.deepEqual(TABS.map(t => TAB_TEXT[t]), ['사진', '달력', '폴더', '앨범', '휴지통']);
   assert.match(js, /from '\.\/folder-path\.mjs'/);
   assert.match(js, /from '\.\/anchored-menu\.js'/);
   assert.match(js, /class="nx-row nx-folder/);
