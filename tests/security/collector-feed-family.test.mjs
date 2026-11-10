@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 // 실제 collector-feed handler를 지어낸 Supabase(migration 20261105100000의 service_role 칸별 grant 흉내)와 지어낸 OpenAI로 돌린다. 네트워크 없음.
 // 사람·방·번호·대화는 모두 지어낸 값이다.
 const {createCollectorFeedHandler,FAMILY_DAILY_AI,familyRoomTag}=await import('../../supabase/functions/collector-feed/handler.ts');
-const {parseFamily,FAMILY_INSTRUCTIONS,FAMILY_SCHEMA,familyTelegramMaterial,familyNamed,familyUnname,familyNameFrom}=await import('../../supabase/functions/collector-feed/family.ts');
+const {parseFamily,FAMILY_INSTRUCTIONS,FAMILY_SCHEMA,familyTelegramMaterial,familyNamed,familyUnname,familyNameFrom,familySpouseNamed,familySpeakerNamed,familyCallBox,hasSpouseWord}=await import('../../supabase/functions/collector-feed/family.ts');
 
 const SB='https://synthetic.supabase.test';
 const FN=`${SB}/functions/v1/collector-feed`;
@@ -288,4 +288,60 @@ test('지시문·재료: 자료는 지시가 아님, 추측·감정 분석 없�
 test('부르는 파일 제한: 잊지 말기 표는 collector-feed handler 밖 Edge 코드에 없다',()=>{
   const fam=readFileSync(new URL('../../supabase/functions/collector-feed/family.ts',import.meta.url),'utf8');
   assert.doesNotMatch(fam,/app_family_notes|fetch\(/);
+});
+
+// CALL-배우자이름통일(명진 11/10): 가족 1명 통화의 '배우자'(아내·와이프·집사람) 표기 → 가족 이름(서버 설정 FAMILY_NAME). 이름은 지어낸 값.
+function spouseMd({title='배우자 · 일상 및 저녁 일정 대화',cp=''}={}){
+  return ['---','analysis_version: "3.5"','status: "개인"','source_type: "통화녹음"','source_txt_id: "SRCFAKE0010zz"','source_txt_name: "통화 가상가족_261024_093000.txt"',
+    'recording_datetime: "2026-10-24 09:30:00"','analysis_model: "gemini-fake"','analysis_at: "2026-10-24 09:45:00"','is_work_related: false',`call_title: "${title}"`,
+    ...(cp?[`counterparty_name: "${cp}"`]:[]),'speaker_labels: \'{"화자1": "나", "화자2": "배우자"}\'','---','',
+    `# ${title}`,'','## 핵심요약','- 배우자가 저녁 메뉴를 물어봄.','- 아내와 주말 산책을 정함.','','## AI 메모','없음'].join('\n');
+}
+const spouseBody=(o={})=>({ref:'SRCFAKE0010zz',analysis_md:spouseMd(o),transcript:`화자1: 저녁 뭐 먹을까 ${RAW_MARK}\n화자2: 우리 와이프가 좋아하는 거`,drive_url:null,family:true});
+
+test('call + family: FAMILY_NAME이 있으면 제목·핵심내용·전문 화자 이름표의 배우자 표기를 이름으로, 상대 칸은 늘 이름(말한 글은 그대로)',async()=>{
+  const NAME='가상하나';
+  const h=harness({env:{FAMILY_NAME:NAME},ai:[aiNotes([{kind:'ask',body:'배우자가 우유 부탁함',said_when:'',firmness:'firm'}])]});
+  const r=await h.send('call',spouseBody());
+  assert.equal(r.status,200);
+  const row=h.db.app_call_personal[0];
+  assert.equal(row.title,`${NAME} · 일상 및 저녁 일정 대화`);
+  assert.deepEqual(row.points.slice(0,2),[`${NAME}가 저녁 메뉴를 물어봄.`,`${NAME}와 주말 산책을 정함.`]);
+  assert.equal(row.counterpart,NAME);
+  assert.equal(row.raw_text,`나: 저녁 뭐 먹을까 ${RAW_MARK}\n${NAME}: 우리 와이프가 좋아하는 거`);
+  assert.equal(h.db.app_family_notes[0].body,`${NAME}가 우유 부탁함`);
+  // AI 재료·로그·응답에 이름이 없다.
+  assert.doesNotMatch(JSON.stringify(h.calls.openai)+h.calls.logs.join('\n')+JSON.stringify(await r.clone().json().catch(()=>({}))),new RegExp(NAME));
+});
+
+test('call + family: 상대 칸이 이미 다른 글이어도 이름 하나로, FAMILY_NAME이 없으면 지금과 같음',async()=>{
+  const h=harness({env:{FAMILY_NAME:'가상민준'}});
+  await h.send('call',spouseBody({title:'가상 · 이동 경로 이야기',cp:'아내'}));
+  assert.equal(h.db.app_call_personal[0].counterpart,'가상민준');
+  assert.equal(h.db.app_call_personal[0].title,'가상 · 이동 경로 이야기');
+  const x=harness();
+  await x.send('call',spouseBody());
+  assert.equal(x.db.app_call_personal[0].title,'배우자 · 일상 및 저녁 일정 대화');
+  assert.equal(x.db.app_call_personal[0].counterpart,null);
+});
+
+test('배우자 이름 바꾸기 규칙: 받침 맞춤, 다른 낱말 속 글자는 그대로, 모르는 꼴은 그대로, 상한 넘으면 원래 글',()=>{
+  assert.equal(familySpouseNamed('배우자 · 주말 계획','가상하나'),'가상하나 · 주말 계획');
+  assert.equal(familySpouseNamed('아내가 부탁함','가상민준'),'가상민준이 부탁함');
+  assert.equal(familySpouseNamed('와이프는 좋아함','가상민준'),'가상민준은 좋아함');
+  assert.equal(familySpouseNamed('집사람을 데리러 감','가상하나'),'가상하나를 데리러 감');
+  assert.equal(familySpouseNamed('집사람이랑 감','가상하늘'),'가상하늘이랑 감');
+  assert.equal(familySpouseNamed('아내로 정함','가상하나'),'가상하나로 정함');
+  assert.equal(familySpouseNamed('아내로 정함','가상민준'),'가상민준으로 정함');
+  assert.equal(familySpouseNamed('아내로 정함','가상달'),'가상달로 정함');
+  assert.equal(familySpouseNamed('배우자의 생일, 아내에게 선물','가상하늘'),'가상하늘의 생일, 가상하늘에게 선물');
+  assert.equal(familySpouseNamed('스와이프 동작을 알아내다','가상하늘'),'스와이프 동작을 알아내다');
+  assert.equal(familySpouseNamed('아내이다','가상하늘'),'아내이다');
+  assert.equal(familySpouseNamed('배우자 · 주제',null),'배우자 · 주제');
+  assert.equal(familySpouseNamed('배우자 · 주제','가상하늘',6),'배우자 · 주제');
+  assert.equal(familySpeakerNamed('나: 아내가 왔어\n배우자: 응\n가상 배우자: 그래','가상하늘'),'나: 아내가 왔어\n가상하늘: 응\n가상하늘: 그래');
+  assert.equal(hasSpouseWord('배우자 · 주제'),true);assert.equal(hasSpouseWord('스와이프'),false);
+  const box={day:TODAY,occurred_at:'x',title:'배우자 · 저녁',points:['배우자가 물음'],counterpart:null,speaker_split:true,raw_text:null,model:null,judged_at:null};
+  assert.deepEqual(familyCallBox(box,'가상하늘'),{...box,title:'가상하늘 · 저녁',points:['가상하늘이 물음'],counterpart:'가상하늘'});
+  assert.equal(familyCallBox(box,null),box);
 });

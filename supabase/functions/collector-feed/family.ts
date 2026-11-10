@@ -7,7 +7,7 @@
 // - S51-26(명진 11/06 08:35 ⑩): 저장하는 줄의 주어 '상대'는 서버 설정 FAMILY_NAME(Edge 비밀값, 저장소·로그에 없음)의 가족 이름으로 바꿔 넣는다.
 //   AI에는 여전히 '상대'만 간다: 이미 넣은 줄을 재료로 붙일 때는 이름을 '상대'로 되돌려 붙인다(familyUnname). 설정이 없거나 모양이 틀리면 '상대' 그대로.
 // - 뽑은 줄은 어디에도 자동으로 이어지지 않는다(할 일·일정·원장·업무일지를 만들지 않는다). 화면에서 명진이 눌러야만 생긴다(4단계).
-import { cleanLine } from "./call-analysis.ts";
+import { type BoxCall, CALL_LIMITS, cleanLine } from "./call-analysis.ts";
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 
 export const FAMILY_KINDS = ["plan", "ask", "like", "dislike", "date", "gift", "remind"] as const;
@@ -130,6 +130,49 @@ export function familyUnname(body: string, name: string | null) {
   const fin = finalOf(name), quoted = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   if (!fin) return body.split(name).join("상대");
   return body.replace(new RegExp(`${quoted}(이랑|으로|이|은|을|과)?`, "gu"), (_m: string, p?: string) => "상대" + (p ? BEFORE_FINAL[p] : ""));
+}
+
+// CALL-배우자이름통일(명진 11/10 "배우자는 그냥 이름으로 통일해"): 가족 1명 통화·잊지 말기 줄의 '배우자'(같은 뜻: 아내·와이프·집사람)를 가족 이름으로.
+// 낱말 앞이 글자·숫자면 다른 낱말의 일부('스와이프'·'알아내다')라 바꾸지 않는다. 뒤에는 조사·빈칸·문장부호·끝만 받는다('아내이다'처럼 모르는 꼴은 그대로).
+// 바뀌는 조사(가/이, 는/은, 를/을, 와/과, 랑/이랑, 로/으로)는 이름 끝 받침에 맞춘다. 길이 상한을 넘으면 원래 글 그대로.
+// '남편'은 넣지 않는다(기록 주인 쪽을 가리킬 수 있다). 이름이 없으면(설정 없음·모양 틀림) 아무것도 바꾸지 않는다.
+export const SPOUSE_WORDS = Object.freeze(["배우자", "와이프", "집사람", "아내"]);
+const SPOUSE = new RegExp(
+  `(?<![\\p{L}\\p{N}])(?:${SPOUSE_WORDS.join("|")})(?:(이랑|으로|가|이|는|은|를|을|와|과|랑|로)(?![\\p{L}\\p{N}])|(?=$|[^\\p{L}\\p{N}]|의|에|도|만|한테|하고|께|부터|까지|처럼|보다))`,
+  "gu",
+);
+const PLAIN_FORM: Record<string, string> = { 이랑: "랑", 으로: "로", 이: "가", 은: "는", 을: "를", 과: "와" };
+export function hasSpouseWord(text: string) {
+  return new RegExp(SPOUSE.source, "u").test(text);
+}
+export function familySpouseNamed(text: string, name: string | null, max = Infinity) {
+  if (!name || typeof text !== "string") return text;
+  const fin = finalOf(name);
+  const out = text.replace(SPOUSE, (_m: string, p?: string) => {
+    if (!p) return name;
+    const plain = PLAIN_FORM[p] ?? p;
+    return name + (!fin || (plain === "로" && fin === 8) ? plain : AFTER_FINAL[plain]);
+  });
+  return [...out].length <= max ? out : text;
+}
+// 전문 줄 머리(`이름표: 글`)의 이름표에 '배우자' 꼴이 있으면 이름표째 가족 이름으로. 말한 글(쌍점 뒤)은 원문이라 건드리지 않는다.
+export function familySpeakerNamed(transcript: string, name: string | null) {
+  if (!name) return transcript;
+  return transcript.split(/\r?\n/).map((line) => {
+    const m = /^(\s*)([^:：\s][^:：]{0,59}?)(\s*[:：]\s*)(.*)$/.exec(line);
+    return m && hasSpouseWord(m[2]) ? `${m[1]}${name}: ${m[4]}` : line;
+  }).join("\n");
+}
+// 가족 1명 통화(family:true)의 개인 통화함 재료: 제목·핵심내용·전문 화자 이름표의 '배우자' 꼴을 이름으로, 상대 칸은 늘 이름(목록 꼬리표).
+export function familyCallBox(box: BoxCall, name: string | null): BoxCall {
+  if (!name) return box;
+  return {
+    ...box,
+    title: familySpouseNamed(box.title, name, CALL_LIMITS.title),
+    points: box.points.map((p) => familySpouseNamed(p, name, CALL_LIMITS.point)),
+    counterpart: name,
+    raw_text: box.raw_text === null ? null : familySpeakerNamed(box.raw_text, name),
+  };
 }
 
 // 링크·주소·HTML 모양은 줄째 버린다(화면은 글자로만 그리지만, 저장 전에 한 번 더 막는다).

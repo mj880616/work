@@ -76,7 +76,7 @@ import {
 } from "./call-analysis.ts";
 import { buildContext, CONTEXT_LIMITS, CONTEXT_PEOPLE_FN, CONTEXT_PEOPLE_ROWS } from "./context.ts";
 import {
-  FAMILY_INSTRUCTIONS, FAMILY_LIMITS, FAMILY_NAME_ENV, FAMILY_SCHEMA, familyCallMaterial, familyNameFrom, familyNamed, familyTelegramMaterial, familyUnname,
+  FAMILY_INSTRUCTIONS, FAMILY_LIMITS, FAMILY_NAME_ENV, FAMILY_SCHEMA, familyCallBox, familyCallMaterial, familyNameFrom, familyNamed, familySpouseNamed, familyTelegramMaterial, familyUnname,
   type FamilyMessage, type FamilyRecent, parseFamily,
 } from "./family.ts";
 import {
@@ -937,7 +937,8 @@ async function familyExtract(db: Db, ws: string, material: string, recent: Famil
   }
   // 주어 '상대' → 가족 이름(설정이 있을 때만, 150자를 넘으면 그 줄은 '상대' 그대로).
   const name = familyName(deps.env);
-  if (name) parsed.notes = parsed.notes.map((n) => ({ ...n, body: familyNamed(n.body, name) }));
+  // CALL-배우자이름통일: 주어 '상대'에 더해 '배우자'(아내·와이프·집사람) 꼴도 이름으로(150자 넘으면 그 단계는 건너뜀).
+  if (name) parsed.notes = parsed.notes.map((n) => ({ ...n, body: familySpouseNamed(familyNamed(n.body, name), name, FAMILY_LIMITS.body) }));
   return { ok: true, notes: parsed, model: config.model };
 }
 
@@ -993,7 +994,8 @@ async function runFamilyCall(db: Db, ws: string, input: CallInput, orgs: OrgRow[
     await addDay(db, ws, day, "call", { total_count: 1, failed_count: 1 }, nowMs);
     return callResult({ failed: 1 });
   }
-  const box = parsed.box;
+  // CALL-배우자이름통일: 제목·핵심내용·전문 화자 이름표의 '배우자' 꼴을 가족 이름(FAMILY_NAME)으로, 상대 칸은 늘 그 이름. 이름은 로그·응답에 쓰지 않는다.
+  const box = parsed.box ? familyCallBox(parsed.box, familyName(deps.env)) : null;
   if (!box || !inRange) {
     await addDay(db, ws, day, "call", { total_count: 1, personal_count: 1 }, nowMs);
     return callResult({ personal: 1 });
