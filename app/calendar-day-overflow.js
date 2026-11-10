@@ -54,7 +54,7 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
       const section=done.dayDoneSection(day,lines,{heading:'h3',id:'calendarDayDone'});if(section)list.append(section);
     }).catch(()=>{});
     const modal=document.querySelector('#calendarDayModal');modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
-    window.KPTUA11y?.dialog.activate?.(modal,{trigger:document.activeElement,initialFocus:'#calendarDayList .cal-event',onRequestClose:()=>{modal.classList.add('hidden');modal.setAttribute('aria-hidden','true')}});
+    window.KPTUA11y?.dialog.activate?.(modal,{trigger:document.activeElement,initialFocus:'#calendarDayList .cal-event',onRequestClose:()=>modal.querySelector('[data-close="calendarDayModal"]')?.click()}); // UI-Esc로창닫기: Esc = ✕ (닫기·포커스 되돌리기 같은 길)
   }
   function apply(){return true}
 

@@ -69,7 +69,11 @@ function wdSaveRetire(){wdBasicSequence++;wdBasicEditor=null;wdAffSequence++;wdA
 
 // Keep the existing session/auth fallback available when a shared boot context is not installed.
 const wdRecordRt={api:wdApi,session:wdRt.session,config:wdRt.config,context:{read:()=>typeof wdRt.context?.read==='function'?(wdRt.context.read()||{}):{user:wdUser,workspace:{id:wdWorkspace}}}};
-function wdModal(id,on=true){if(id==='wdAffModal'&&!on){wdAffSequence++;wdAffEditor=null}const el=document.querySelector('#'+id);if(!el)return;el.classList.toggle('hidden',!on);el.setAttribute('aria-hidden',on?'false':'true')}
+function wdModal(id,on=true){if(id==='wdAffModal'&&!on){wdAffSequence++;wdAffEditor=null}const el=document.querySelector('#'+id);if(!el)return;const fresh=el.classList.contains('hidden');el.classList.toggle('hidden',!on);el.setAttribute('aria-hidden',on?'false':'true');wdDialog(el,on&&!(id==='wdModal'&&wdDocked()),{fresh})}
+// UI-Esc로창닫기: 조직 창(폰·다른 화면 위에 뜬 창)과 소속·타임라인 작은 창은 공용 창 규칙(accessibility-dialog.js)으로 연다 —
+// Esc = 그 창의 ✕(저장 안 한 기록이 있으면 ✕처럼 묻는다). PC 담당조직 화면 오른쪽 칸에 붙은 조직 상세는 창이 아니라 칸이라 Esc로 닫지 않는다.
+const wdActive=new Set();
+function wdDialog(el,want,{restoreFocus=true,fresh=false}={}){const a=window.KPTUA11y?.dialog;if(!a)return;const x=()=>el.querySelector(`[data-wd-close="${el.id}"]`);if(want&&(fresh||!wdActive.has(el))){wdActive.add(el);a.activate(el,{trigger:document.activeElement,initialFocus:x(),onRequestClose:()=>x()?.click()})}else if(!want&&wdActive.has(el)){wdActive.delete(el);a.deactivate(el,{restoreFocus})}}
 function wdToast(s){const t=document.querySelector('#toast');if(!t)return;t.textContent=s;kptuHoldToast(t)}
 async function wdCtx(){const epoch=wdSessionEpoch;if(!wdRt||!(await wdRt.session.ensure())||epoch!==wdSessionEpoch)return false;const shared=wdRt.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id&&shared?.workspace?.id){wdUser=shared.user;wdWorkspace=shared.workspace.id;wdRole=shared.membership?.role||null;return true}const user=await wdApi('/auth/v1/user');if(epoch!==wdSessionEpoch)return false;const m=await wdApi(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id,role&limit=1`);if(epoch!==wdSessionEpoch||!m?.length)return false;wdUser=user;wdWorkspace=m[0].workspace_id;wdRole=m[0].role;return true}
 // MTG-사업보고 6단계: 이 조직에 연결된 사업 보고(모든 종류) 묶음. 연결은 연결 표의 '출처 회의' 줄(report-links.js) 하나라, 사업 보고 쪽에서 연결해도
@@ -428,7 +432,7 @@ function wdPlace(){
   if(!dock&&!wdDocked())return false;
   if(dock){pane.append(m);m.classList.add('wd-docked');m.setAttribute('role','region');m.removeAttribute('aria-modal');m.dataset.wdDocked='1';pane.classList.toggle('has-org',open)}
   else{document.body.append(m);m.classList.remove('wd-docked');m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');delete m.dataset.wdDocked;pane?.classList.remove('has-org')}
-  wdOrder(dock);wdRenderDocs();wdPaintSelection();return dock
+  wdDialog(m,open&&!dock,{restoreFocus:false});wdOrder(dock);wdRenderDocs();wdPaintSelection();return dock
 }
 // ORG-PC상세정리 ⑥: on the PC pane the records come right under the input (input → 기록 → 할 일 → 자료); the dialog keeps
 // input → 할 일 → 자료 → 기록. A real move (not CSS order) so the Tab order follows what is seen.

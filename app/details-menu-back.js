@@ -25,7 +25,17 @@
     const entry = open; open = null;
     entry.layer?.close();
   }
-  window.KPTUMenuLayer = {opened, closed, isOpen:el => open?.el === el};
+  // UI-Esc로창닫기 ②: Esc in a window closes the small menu open inside it first (accessibility-dialog.js asks here).
+  function dismissIn(root) {
+    if (!open || !root?.contains?.(open.el)) return false;
+    const entry = open; open = null;
+    shut(entry);
+    entry.layer?.close();
+    const at = entry.el.matches?.('details') ? entry.el.querySelector('summary') : null;
+    at?.focus?.({preventScroll:true});
+    return true;
+  }
+  window.KPTUMenuLayer = {opened, closed, dismissIn, isOpen:el => open?.el === el};
   document.addEventListener('toggle', event => {
     const el = event.target;
     if (!(el instanceof HTMLDetailsElement) || !el.matches(MENU)) return;
