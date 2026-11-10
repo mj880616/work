@@ -1,12 +1,12 @@
 // UI-고르기줄(S48-54): 공용 고르기 줄(.kptu-actbar)을 재는 도우미. @playwright/test에 의존하지 않는다(검사는 부르는 쪽).
-// 잰 값: 보이는 버튼 칸(.kptu-act)의 폭·줄(같은 y끼리)·칸 사이 간격·줄 양 끝 여백·글자 잘림·지우기 색.
+// 잰 값: 보이는 버튼 칸(.kptu-act)의 폭·줄(같은 세로 가운데끼리. 칸은 세로 가운데 맞춤이라, 한 칸 이름만 두 줄이면 위쪽 끝이 달라도 같은 줄이다)·칸 사이 간격·줄 양 끝 여백·글자 잘림·지우기 색.
 export async function measureActBar(page, selector) {
   return page.evaluate(sel => {
     const bar = document.querySelector(sel); if (!bar) return null;
     const br = bar.getBoundingClientRect(), cs = getComputedStyle(bar);
     const inner = {left: br.left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth), right: br.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth)};
     const buttons = [...bar.querySelectorAll(':scope > .kptu-act')].filter(b => b.getClientRects().length);
-    const cells = buttons.map(b => { const r = b.getBoundingClientRect(); return {label: b.textContent.trim(), x: r.left, right: r.right, y: Math.round(r.top), w: r.width, h: r.height, clipped: b.scrollWidth > b.clientWidth + 1}; });
+    const cells = buttons.map(b => { const r = b.getBoundingClientRect(); return {label: b.textContent.trim(), x: r.left, right: r.right, y: Math.round(r.top + r.height / 2), w: r.width, h: r.height, clipped: b.scrollWidth > b.clientWidth + 1}; });
     const rows = {}; for (const c of cells) (rows[c.y] ||= []).push(c);
     const rowList = Object.values(rows).map(r => r.sort((a, b) => a.x - b.x));
     const spread = list => list.length ? Math.max(...list) - Math.min(...list) : 0;
