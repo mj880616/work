@@ -325,12 +325,13 @@ async function openOriginal(target) {
   const r = window.KPTURouter; if (!r || !target) return;
   try {
     await window.KPTUViewLoader?.load?.(target.view);
-    if (target.view === 'basket') { if (target.note === 'doc') requestNoteDocOpen(target.id); else requestBasketNote(target.id); r.go('basket', { source: 'delegated' }); }
-    else if (target.view === 'journal') { r.go('journal', { source: 'delegated' }); window.KPTUJournal?.show?.(target.day); }
+    // NAV-원문열기나머지(S56-14): 다른 화면은 라우터 openFrom 한 길(그 화면이 처음 여는 상세가 같은 기록 칸 → 뒤로가기 한 번 = 원장 그 자리).
+    if (target.view === 'basket') { if (target.note === 'doc') requestNoteDocOpen(target.id); else requestBasketNote(target.id); await r.openFrom('basket'); }
+    else if (target.view === 'journal') await r.openFrom('journal', () => window.KPTUJournal?.show?.(target.day));
     else if (target.view === 'projects') await window.KPTUAreaWindow?.open?.({ id: target.id }); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     else if (target.view === 'calls') await openCallSource(target.id, { workOnly: true }); // FORGET-원문열기·뒤로가기: 뒤로가기 한 번 = 원장 그 자리
-    else if (target.view === 'team') { r.go('team', { source: 'delegated' }); await window.KPTUWorkplace?.open?.(target.id); }
-    else if (target.view === 'meetings') { r.go('meetings', { source: 'delegated' }); await window.__KPTU_MEETING_ROUND_DETAIL_READY__; await window.KPTUMeetingRoundDetail?.open?.(target.id); }
+    else if (target.view === 'team') await r.openFrom('team', () => window.KPTUWorkplace?.open?.(target.id));
+    else if (target.view === 'meetings') await r.openFrom('meetings', async () => { await window.__KPTU_MEETING_ROUND_DETAIL_READY__; await window.KPTUMeetingRoundDetail?.open?.(target.id); });
   } catch (e) { console.error('ledger original open', e?.name || 'Error'); }
 }
 

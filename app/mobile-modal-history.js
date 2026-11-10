@@ -14,7 +14,9 @@
     const open=isVisible(modal),tracked=modal.dataset.kptuHistoryOpen==='1';
     if(open&&!tracked){
       modal.dataset.kptuHistoryOpen='1';
-      history.pushState({...(history.state||{}),kptuOverlay:modal.id},'',location.href);
+      // NAV-원문열기나머지(S56-14): a window opened first on a screen reached from a line on another screen (KPTURouter.openFrom)
+      // takes that screen's entry, so one Back closes it and returns to the line (the router writes kptuOverlay on it).
+      if(!window.KPTURouter?.adoptSourceWindow?.(modal.id))history.pushState({...(history.state||{}),kptuOverlay:modal.id},'',location.href);
       // NAV-PC앞뒤통일: the entry position of this window. Entries added on top of it (a menu, a detail inside the window) do not
       // carry its name, so going back to one of them must not close it: only a step below its own entry does.
       const index=window.navigation?.currentEntry?.index;

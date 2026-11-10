@@ -407,26 +407,27 @@ async function openView(target) {
   try {
     await loader?.load?.(target.view);
     if (mine !== opening) return;
+    // NAV-원문열기나머지(S56-14): 다른 화면으로 가는 길은 모두 라우터 openFrom 한 길 — 그 화면이 처음 여는 상세(겹·창)가 같은 기록 칸을 써서
+    // 뒤로가기 한 번이면 검색을 연 화면 그 자리로 돌아온다.
     if (target.view === 'basket') {
       if (target.note === 'doc') requestNoteDocOpen(target.id); else requestBasketNote(target.id);
-      r.go('basket', {source: 'delegated'});
-    } else if (target.view === 'library') { requestLibraryDocument(target.id); r.go('library', {source: 'delegated'}); }
-    else if (target.view === 'tasks') { requestTaskOpen(target.id); r.go('tasks', {source: 'delegated'}); }
-    else if (target.view === 'journal') { r.go('journal', {source: 'delegated'}); if (target.day) window.KPTUJournal?.show?.(target.day); }
+      await r.openFrom('basket');
+    } else if (target.view === 'library') { requestLibraryDocument(target.id); await r.openFrom('library'); }
+    else if (target.view === 'tasks') { requestTaskOpen(target.id); await r.openFrom('tasks'); }
+    else if (target.view === 'journal') await r.openFrom('journal', () => { if (target.day) window.KPTUJournal?.show?.(target.day); });
     else if (target.view === 'projects') await window.KPTUAreaWindow?.open?.({id: target.id}); // MTG-프로젝트합치기 ①: 사업영역 관리 창
-    else if (target.view === 'team') { r.go('team', {source: 'delegated'}); await window.KPTUWorkplace?.open?.(target.id); }
-    else if (target.view === 'meetings') {
-      r.go('meetings', {source: 'delegated'});
+    else if (target.view === 'team') await r.openFrom('team', () => window.KPTUWorkplace?.open?.(target.id));
+    else if (target.view === 'meetings') await r.openFrom('meetings', async () => {
       await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
       await window.KPTUMeetingRoundDetail?.open?.(target.id);
-    } else if (target.view === 'calls') await openCallSource(target.id, {workOnly: true}); // FORGET-원문열기·뒤로가기: 뒤로가기 한 번 = 검색 결과
+    });
+    else if (target.view === 'calls') await openCallSource(target.id, {workOnly: true}); // FORGET-원문열기·뒤로가기: 뒤로가기 한 번 = 검색 결과
     else if (target.view === 'telegram') await openTelegramSource(target.room, target.day, target.item);
-    else if (target.view === 'ledger') { window.KPTULedgerBrowse?.show?.({openId: target.id}); r.go('ledger', {source: 'delegated'}); }
-    else if (target.view === 'calendar') {
-      r.go('calendar', {source: 'delegated'});
+    else if (target.view === 'ledger') { window.KPTULedgerBrowse?.show?.({openId: target.id}); await r.openFrom('ledger'); }
+    else if (target.view === 'calendar') await r.openFrom('calendar', async () => {
       await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
       window.KPTUCalendarEvents?.open?.(target.id, target.calendarId);
-    }
+    });
   } catch (e) { console.error('search open', e?.name || 'Error'); }
 }
 
