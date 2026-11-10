@@ -18,9 +18,10 @@ const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // References into third-party bundles (`vendored`) are left as written: the release in the
 // folder name already pins the content, and their internal imports must keep one URL per module.
-// JSON named in a script is data read at run time (press/archive.json, rewritten by every press
-// publication); versioning it would change the script and so the whole Web2 chain on each
-// publication. JSON linked from HTML (the web app manifest) is a static asset like the rest.
+// JSON named in a script is data read at run time (it can change without the script changing);
+// versioning it would change the script and so the whole Web2 chain on each data update. The old
+// Web1 press/archive.json case is gone (WEB1-페이지삭제 C1-b); the rule stays for any such JSON.
+// JSON linked from HTML (the web app manifest) is a static asset like the rest.
 export const versionable = (files, edge) => Object.hasOwn(files, edge.target) && !vendored.test(edge.target)
   && !(edge.target.endsWith('.json') && !edge.parent.endsWith('.html'));
 
