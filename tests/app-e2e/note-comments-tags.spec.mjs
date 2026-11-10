@@ -64,6 +64,11 @@ for (const width of [412, 1440]) {
     // 바다 책: 본문 문장을 고르면 인용으로 붙고, 저장하면 서버에 kind quote + 그 문장.
     await press(page, page.locator('#noteRows [data-note-row="n1"]'), width);
     await expect(page.locator('[data-cm-count]')).toHaveText('댓글 0');
+    // 종류는 제목 줄 오른쪽 [생각|질문](공용 ⑤), 쓰기 칸 아래엔 [저장]만.
+    await expect(page.locator('[data-cm-kind][role="radiogroup"].ds-seg .ds-seg-btn')).toHaveText(['생각', '질문']);
+    await expect(page.locator('[data-cm-kind] [data-filter-value="thought"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('.note-cm-actions button')).toHaveText(['저장']);
+    await expect(page.locator('.note-cm select')).toHaveCount(0);
     await page.locator('[data-basket-read-text]').evaluate(el => {
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let node; while ((node = walker.nextNode()) && !node.textContent.includes('바다는')) {}
       const r = document.createRange(); const i = node.textContent.indexOf('바다는'); r.setStart(node, i); r.setEnd(node, i + '바다는 넓고 깊다.'.length);
@@ -71,15 +76,22 @@ for (const width of [412, 1440]) {
     });
     await expect(page.locator('[data-cm-quote]')).toBeVisible();
     await expect(page.locator('[data-cm-quote-text]')).toHaveText('바다는 넓고 깊다.');
-    await expect(page.locator('[data-cm-kind]')).toHaveValue('quote');
+    await expect(page.locator('[data-cm-kind] .ds-seg-btn')).toHaveText(['생각', '질문', '인용']);
+    await expect(page.locator('[data-cm-kind] [data-filter-value="quote"]')).toHaveAttribute('aria-checked', 'true');
     await page.locator('[data-cm-text]').fill('넓다는 말이 좋다');
     await press(page, page.locator('[data-cm-save]'), width);
     await expect(page.locator('[data-cm-count]')).toHaveText('댓글 1');
     expect(posts).toEqual([{ workspace_id: 'w', note_id: 'n1', kind: 'quote', quote: '바다는 넓고 깊다.', body: '넓다는 말이 좋다' }]);
     await expect(page.locator('.note-cm-row .note-cm-quote')).toHaveText('바다는 넓고 깊다.');
     await expect(page.locator('[data-cm-text]')).toHaveValue('');
-    await expect(page.locator('[data-cm-kind]')).toHaveValue('thought');
-    // 생각 댓글 하나 더 쓰고 지우기.
+    await expect(page.locator('[data-cm-kind] .ds-seg-btn')).toHaveText(['생각', '질문']);
+    await expect(page.locator('[data-cm-kind] [data-filter-value="thought"]')).toHaveAttribute('aria-checked', 'true');
+    // 질문으로 바꿨다가(키보드 →) 다시 생각(←), 생각 댓글 하나 더 쓰고 지우기.
+    await page.locator('[data-cm-kind] [data-filter-value="thought"]').focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('[data-cm-kind] [data-filter-value="question"]')).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('[data-cm-kind] [data-filter-value="thought"]')).toHaveAttribute('aria-checked', 'true');
     await page.locator('[data-cm-text]').fill('삭제할 생각');
     await press(page, page.locator('[data-cm-save]'), width);
     await expect(page.locator('[data-cm-count]')).toHaveText('댓글 2');

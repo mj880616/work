@@ -347,7 +347,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .basket-note-meta .note-meta-tag { position:relative; min-height:0; height:auto; margin:0; padding:0; border:0; background:transparent; box-shadow:none; font:inherit; font-size:12px; color:var(--kptu-primary-ink,var(--kptu-primary)); cursor:pointer; }
 #appView #basketView .basket-note-meta .note-meta-tag::after { content:""; position:absolute; inset:-14px -3px; }
 #basketView .note-cm { margin:10px 0 0; padding:8px 0 0; border-top:var(--ds-line-width,1px) solid var(--ds-line); }
-#basketView .note-cm-head { margin:0 0 4px; font-size:12px; color:var(--kptu-muted); }
+#basketView .note-cm-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 4px; font-size:12px; color:var(--kptu-muted); }
 #basketView .note-cm-wait { margin:0; font-size:12px; color:var(--kptu-muted); }
 #basketView .note-cm-list { margin:0 0 6px; padding:0; list-style:none; }
 #basketView .note-cm-row { display:flex; align-items:baseline; gap:6px; padding:4px 0; border-bottom:var(--ds-line-width,1px) solid var(--ds-line); font-size:var(--ds-text-read,14px); }
@@ -359,10 +359,8 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #basketView .note-cm-write textarea { display:block; box-sizing:border-box; width:100%; min-height:56px; margin:0 0 6px; padding:6px 8px; font:inherit; font-size:var(--ds-text-read,14px); border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:var(--kptu-ink); resize:vertical; }
 #basketView .note-cm-quote-pick:not([hidden]) { display:flex; align-items:baseline; gap:6px; margin:0 0 4px; font-size:12px; }
 #basketView .note-cm-quote-pick q { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-#basketView .note-cm-actions select { width:auto; max-width:8em; }
 #basketView .note-cm-status:not([hidden]) { margin:4px 0 0; font-size:12px; color:var(--kptu-danger); }
 /* 폴드 접은 폭(~380px)에서는 보기 단추 다섯 개가 검색 칸을 밀어내지 않게 둘째 줄로. */
 @media (max-width:380px) { #basketView .note-list-head { flex-wrap:wrap; } #basketView .note-list-head > .nv-switch { order:3; } }
 #appView #basketView .note-cm button.note-cm-del { width:auto; min-width:0; height:auto; min-height:0; padding:0 2px; border:0; background:transparent; box-shadow:none; }
-#appView #basketView .note-cm .note-cm-actions select { height:var(--ds-compact-height,32px); min-height:var(--ds-compact-height,32px); padding-top:0; padding-bottom:0; font-size:var(--ds-compact-text,13px); }
 #appView #basketView [data-note-list] button.nt-cm-open { justify-content:flex-start; width:100%; height:auto; min-height:0; padding:6px 4px; border:0; border-bottom:var(--ds-line-width,1px) solid var(--ds-line); border-radius:0; background:transparent; box-shadow:none; font-weight:400; }

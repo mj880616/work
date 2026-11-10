@@ -144,7 +144,9 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   const baseValue = () => draft ? emptyDoc() : baseline ? JSON.parse(baseline) : emptyDoc();
   const now = () => editor ? editor.getValue() : start;
   const own = () => { try { return !!dirty?.(); } catch { return false; } };
-  const changed = () => (!!editor && isChanged(baseValue(), now())) || own();
+  // STAB-가족노트로시험: 편집기가 아직 실리기 전(now()는 처음 값)에도 같은 답을 낸다. 미리 채운 새 글 창(draft)은 열자마자 ✕를 눌러도 한 번 묻는다
+  // (전에는 편집기 실리기 전 ✕가 묻지 않고 닫아 미리 채운 글이 말없이 사라졌다). 고쳐 여는 창은 처음 값끼리 비교라 그대로 '안 바뀜'.
+  const changed = () => isChanged(baseValue(), now()) || own();
   const say = message => { if (!closed) status.textContent = message || ''; };
 
   // 761px~: the app's own menu stays beside the window (side); the window takes only the rest.
