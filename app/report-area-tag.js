@@ -13,7 +13,7 @@
 //   단추가 값(data-value: 사업영역 id | AREA_NONE | '')을 갖고, 저장 길은 그대로다.
 import {createChoiceSheet} from './choice-sheet.js';
 import {readMeetingBody} from './report-list-read.js';
-import {untaggedInWeek,presetArea,reportDay,AREA_NONE,hasAreaNone,areaBody} from './business-area-model.mjs';
+import {untaggedInWeek,presetArea,reportDay,AREA_NONE,hasAreaNone,areaBody,rememberedAreaRows} from './business-area-model.mjs';
 import {loadReportPlaces,areaNameIn} from './report-places-sheet.js';
 import {openAreaOrgPicker,dismissAreaOrgPicker,usedKeysNow,catalogAreas} from './area-org-picker.js';
 
@@ -95,6 +95,25 @@ async function saveOne(rt,workspace,id,value,withNone){
   const rows=await rt.api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(workspace)}&select=*`,{method:'PATCH',body:{...area,updated_at:new Date().toISOString()},prefer:'return=representation'});
   const row=Array.isArray(rows)&&rows.length===1?rows[0]:null;
   if(!row||String(row.id)!==String(id)||row.workspace_id!==workspace||String(row.business_area_id||'')!==String(area.business_area_id||'')||(withNone&&row.business_area_none!==area.business_area_none))throw new Error('저장 결과를 확인하지 못했어요.');
+  return row;
+}
+
+// BIZ-사업영역기억(11/10): 같은 회의명에서 전에 고른 사업영역·[없음]을 아직 안 단 새 보고에 붙여 저장한다(규칙은 business-area-model.mjs
+// rememberedAreaRows 한 곳). 저장 길은 위 saveOne(app_meetings PATCH, 소유자 RLS·같은 업무공간 조건) 그대로 — 새 DB 칸·기기 저장 없음.
+// 저장된 줄은 화면이 가진 줄(meetings 안의 객체)에 서버 답(사업영역·[없음]·updated_at)을 옮겨 적는다. 돌려주는 것 = 저장한 줄 수.
+// 같은 줄을 두 번 보내지 않게 보내는 중인 줄은 건너뛴다. 하나가 실패해도 나머지는 계속(실패한 줄은 다음 읽기 때 다시, 지금처럼 '안 단 보고'에는 안 뜸).
+const remembering=new Set();
+export async function applyRememberedAreas(meetings,{api,workspace}={}){
+  if(!api||!workspace)return 0;
+  let saved=0;
+  for(const {meeting:m,value} of rememberedAreaRows(meetings)){
+    const id=String(m.id??'');if(!id||remembering.has(id))continue;
+    remembering.add(id);
+    try{const row=await saveOne({api},workspace,id,value,hasAreaNone(m));m.business_area_id=row.business_area_id??null;if(Object.hasOwn(row,'business_area_none'))m.business_area_none=row.business_area_none;if(row.updated_at)m.updated_at=row.updated_at;saved++}
+    catch(err){console.warn('remembered area save failed',err?.message||err)}
+    finally{remembering.delete(id)}
+  }
+  return saved;
 }
 async function save(){
   const a=active;if(!a||a.saving)return;

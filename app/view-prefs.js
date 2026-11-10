@@ -135,7 +135,10 @@ export const ORG_ROW_ORDERS = Object.freeze(['asc', 'desc']);
 export const CATEGORY_ROLES_MAX = 8;
 const categoryRolesOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length <= CATEGORY_ROLES_MAX
   && Object.keys(v).every(k => /^[a-z][a-z0-9_]{0,29}$/.test(k) && textOk(v[k], 20));
-const DEVICE_KEYS = Object.freeze({files_sources: filesFlagsOk, files_two: filesTwoOk, photo_zoom: photoZoomOk, files_look: filesLookOk, files_panes: filesPanesOk, box_shut: boxShutOk, files_tree: filesTreeOk});
+// S56-13 BIZ-주간보고접힘기억(요청함 11/10 10:00 '기기별로 기억'): biz_week_open = 사업 보고 위 '이번 주 주간보고' 칸을 손으로 펼쳤나(참)·접었나(거짓), 기기 종류별(app·phone·pc).
+// 보고 내용·주 날짜는 넣지 않는다. migration 20261110170000. 뜻은 biz-week-fold.js. 쓰기는 'biz_week_open.<기기>' 한 칸씩(box_shut처럼). 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다.
+const bizWeekOpenOk = v => typeof v === 'boolean';
+const DEVICE_KEYS = Object.freeze({files_sources: filesFlagsOk, files_two: filesTwoOk, photo_zoom: photoZoomOk, files_look: filesLookOk, files_panes: filesPanesOk, box_shut: boxShutOk, files_tree: filesTreeOk, biz_week_open: bizWeekOpenOk});
 export const REPORT_PERIOD_MODES = Object.freeze(['all', 'week', 'range']);
 export const PHOTO_LEVELS = Object.freeze(['year', 'month', 'day']);
 export const NOTE_BOARDS_MAX = 12;
@@ -165,7 +168,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -228,6 +231,7 @@ export function validValue(key, value) {
     case 'files_panes':
     case 'box_shut':
     case 'files_tree':
+    case 'biz_week_open':
     case 'files_two':
     case 'files_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(dev => FILES_SOURCE_DEVICES.includes(dev) && DEVICE_KEYS[key](value[dev]));
@@ -301,7 +305,7 @@ export function applyChanges(base, changes) {
   }
   return out;
 }
-const NESTED = ['split_ratio', 'col_widths', 'files_sources', 'files_two', 'photo_zoom', 'files_look', 'files_panes', 'box_shut', 'files_tree'];
+const NESTED = ['split_ratio', 'col_widths', 'files_sources', 'files_two', 'photo_zoom', 'files_look', 'files_panes', 'box_shut', 'files_tree', 'biz_week_open'];
 const colScreen = path => path.slice('col_widths.'.length);
 // 'files_sources.<기기>'·'files_two.<기기>' → 앞 이름(기기 칸 객체가 아니면 '').
 function devKeyOf(path) { const key = String(path).split('.')[0]; return DEVICE_KEYS[key] && String(path).startsWith(key + '.') ? key : ''; }
@@ -499,6 +503,8 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
     setFilesPanes: (device, value) => set('files_panes.' + device, value, {rejectable: true}),
     getBoxShut: device => prefs.box_shut?.[device],
     setBoxShut: (device, value) => set('box_shut.' + device, value, {rejectable: true}),
+    getBizWeekOpen: device => prefs.biz_week_open?.[device],
+    setBizWeekOpen: (device, value) => set('biz_week_open.' + device, value, {rejectable: true}),
     getFilesTree: device => prefs.files_tree?.[device],
     setFilesTree: (device, value) => set('files_tree.' + device, value, {rejectable: true}),
     getFilesPins: () => (Array.isArray(prefs.files_pins) ? prefs.files_pins : []),

@@ -28,3 +28,30 @@ test('followMax: 붙기 전에는 칸이 있는 자리 아래로, 붙은 뒤에�
   assert.equal(followMax({view: 800, top: 12, rectTop: -300}), 776);
   assert.equal(followMax({view: 300, top: 12, rectTop: 280}), 160);
 });
+
+// BIZ-결과칸작음(11/10): 칸 자리가 스크롤 없이 바뀔 때(위쪽 주간보고 접기·펼치기, 목록 다시 그림)도 최대 높이를 다시 잰다.
+// S56-17: 보는 틀은 칸이 든 화면 묶음 하나(body 아님), 크기 변화로 깨어나면 그려져 있고 위쪽 위치가 바뀐 칸만 다시 쓴다.
+import {watchTarget, moved} from '../app/follow-pane.js';
+test('watchTarget: 화면 묶음(.view-panel), 없으면 칸 바로 위 틀 하나만 본다(body 전체는 보지 않음)', () => {
+  const body = {name: 'body'}, view = {name: 'view'}, parent = {name: 'layout'};
+  const pane = {parentElement: parent, ownerDocument: {body}, closest: sel => (sel === '.view-panel' ? view : null)};
+  assert.equal(watchTarget(pane), view);
+  const loose = {parentElement: parent, ownerDocument: {body}, closest: () => null};
+  assert.equal(watchTarget(loose), parent);
+  assert.equal(watchTarget(null), null);
+});
+test('moved: 숨은 칸·자리가 그대로인 칸은 다시 재지 않고, 처음이거나 위쪽 위치가 바뀐 칸만 다시 잰다', () => {
+  assert.equal(moved({shown: false, lastTop: 10, rectTop: 300}), false);
+  assert.equal(moved({shown: true, lastTop: 120, rectTop: 120}), false);
+  assert.equal(moved({shown: true, lastTop: 120, rectTop: 120.3}), false);
+  assert.equal(moved({shown: true, lastTop: 420, rectTop: 120}), true);
+  assert.equal(moved({shown: true, lastTop: null, rectTop: 120}), true);
+});
+test('크기 변화는 ResizeObserver 한 곳에서 한 프레임에 한 번 다시 재고(기다림 시간 없음), 칸이 빠지면 보기를 멈춘다', () => {
+  assert.match(js, /new ResizeObserver\(schedule\)/);
+  assert.match(js, /listen\(\); watch\(el, at\); paint\(el, at\)/);
+  assert.match(js, /sizes\?\.unobserve\(node\)/);
+  assert.match(js, /requestAnimationFrame\(refresh\)/);
+  assert.doesNotMatch(js, /ownerDocument\?\.body/);
+  assert.doesNotMatch(js, /setTimeout/);
+});
