@@ -24,7 +24,7 @@ test('파일 폰 412: 그 폴더만 = 나무와 같은 상자·줄·그림, 위�
   await expect(box(page).locator('.ft-focus-head .ft-focus-name')).toHaveText('가짜 문서함');
   await expect(box(page).locator('.ft-focus-head .ft-ico')).toHaveAttribute('data-ft-shape', 'open');
   await expect(box(page).locator('.ft-focus-head .ft-num')).toHaveText('폴더 1 · 파일 3');
-  await expect(box(page).locator('.ft-focus-anc')).toHaveText('‹원드라이브›');
+  await expect(box(page).locator('.ft-focus-anc')).toHaveText('원드라이브›');
   // 줄: 나무와 같은 ft-row, 폴더는 닫힌 폴더 그림, 줄마다 ⋯. 옛 목록 줄(.fx-row)·위 경로 막대 없음.
   await expect(box(page).locator('.ft-folder [data-fx-row="od:OD!10"]')).toBeVisible();
   expect(await box(page).locator('.ft-folder .ft-ico').first().getAttribute('data-ft-shape')).toBe('closed');
@@ -44,7 +44,7 @@ test('파일 폰 412: 그 폴더만 = 나무와 같은 상자·줄·그림, 위�
   // 하위 폴더 위 벌리기 = 한 단계 더 안(같은 상자 모양), 위치 줄에 위 단계가 더해진다.
   await pinch(page, box(page).locator('.ft-folder').first(), 'out');
   await expect(box(page).locator('.ft-focus-name')).toHaveText('가짜 2026');
-  await expect(box(page).locator('.ft-focus-anc')).toHaveText('‹원드라이브›가짜 문서함›');
+  await expect(box(page).locator('.ft-focus-anc')).toHaveText('원드라이브›가짜 문서함›');
   // 위치 줄 '가짜 문서함' = 그 단계로.
   await box(page).locator('.ft-focus-step', { hasText: '가짜 문서함' }).click();
   await expect(box(page).locator('.ft-focus-name')).toHaveText('가짜 문서함');

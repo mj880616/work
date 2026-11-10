@@ -91,7 +91,8 @@ for (const width of [412, 884, 1440]) {
     await root(page).locator('[data-photos-tab="folders"]').click();
     await expect(root(page).locator('[data-photos-tab="folders"]')).toHaveAttribute('aria-pressed', 'true');
     // S51-24: 폰·폴드 '그 폴더만'은 상자 맨 위 위치 줄(위 단계만, 지금 폴더는 바로 아래 머리 줄). PC는 지금 위치 줄 그대로.
-    const at = (...names) => (wide ? ['사진', ...names].join('›') : `‹${['사진', ...names.slice(0, -1)].join('›')}›`);
+    // FILES-폰폴더위로 ②: 폰 [‹]는 위치 줄이 아니라 그 폴더 줄(이름) 맨 앞.
+    const at = (...names) => (wide ? ['사진', ...names].join('›') : `${['사진', ...names.slice(0, -1)].join('›')}›`);
     if (wide) await expect(path(page)).toHaveText('사진›카메라');
     // 맨 위 폴더 바로 안 사진(서버 library folder_id). 폰·폴드(FOLDER-나무새기준 ③)는 원드라이브 상자 맨 아래 작은 그림 한 줄.
     if (wide) await expect.poll(() => ids(page)).toEqual(['A1', 'A2']);
