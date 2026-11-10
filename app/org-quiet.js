@@ -138,8 +138,8 @@ export function mountOrgQuiet(el, {rt = window.KPTURuntime} = {}) {
     const toggle = event.target.closest('[data-oq-toggle]'), org = event.target.closest('[data-oq-org]');
     if (toggle) { open = !open; paint(); el.querySelector('[data-oq-toggle]')?.focus({preventScroll: true}); return; }
     if (org) {
-      window.KPTURouter?.go('team', {source: 'delegated'});
-      try { await window.KPTUViewLoader?.load?.('team'); await window.KPTUWorkplace?.open?.(org.dataset.oqOrg); } catch (error) { console.error('org quiet open', error); }
+      // NAV-원문열기나머지(S56-14): 라우터 openFrom 한 길(조직 상세가 같은 기록 칸 → 뒤로가기 한 번 = 이 줄 그 자리).
+      try { await window.KPTURouter?.openFrom?.('team', () => window.KPTUWorkplace?.open?.(org.dataset.oqOrg)); } catch (error) { console.error('org quiet open', error); }
     }
   });
   const onPrefs = () => void refresh();
