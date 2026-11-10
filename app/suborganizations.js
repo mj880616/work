@@ -57,11 +57,28 @@ function paintStageTags(){
   const span=document.createElement('span');span.className='so-stage-tag'+(tag.kind==='ended'?' is-end':'');span.dataset.soStage=tag.kind;span.textContent=tag.text;main.querySelector('.kptu-list-chevron')?.before(span);main.classList.add('has-stage')});
 }
 async function refreshStages(){if(!soWorkspace)return;try{await stageModules();await stageMod.loadDisputeState({rt,workspaceId:soWorkspace});paintStageTags()}catch(err){console.error('dispute stages',err)}}
-async function installStageMenu(trigger){
+// UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 고르지 않은 조직 줄을 우클릭하면 같은 화면 메뉴 맨 위에 [열기] 한 줄이 더 붙는다
+// ([열기] ─ [쟁의 단계 관리]). [열기] = 그 줄을 왼쪽 누름과 같은 길로 눌러 오른쪽 상세를 그 조직으로. 메뉴를 띄우는 길은 공용 우클릭(context-menu.js openAt)
+// 그대로이고, 어느 줄에서 열었는지만 이 화면이 기억한다(⋯를 그냥 누르면 [열기] 없이 지금 메뉴).
+let ctxOrg=null,menuOrg=null;
+async function installStageMenu(trigger,org=null){
  await stageModules();const {createAnchoredMenu}=await import('./anchored-menu.js');
- if(!stageMenu)stageMenu=createAnchoredMenu({id:'soTeamMenu',className:'basket-link-menu so-team-menu',label:'조직 보고 메뉴',historyKey:'kptuSoTeamMenu',key:()=>'team',render:()=>'<button type="button" data-so-stage-manage>쟁의 단계 관리</button>',
-  onAction:(button,active)=>{stageMod.openStageManager({workspaceId:soWorkspace,rt,trigger:active.trigger,orgNames:()=>new Map(soOrganizations.map(o=>[o.id,o.name]))})}});
- stageMenu.open(trigger);
+ if(!stageMenu)stageMenu=createAnchoredMenu({id:'soTeamMenu',className:'basket-link-menu so-team-menu',label:'조직 보고 메뉴',historyKey:'kptuSoTeamMenu',key:()=>'team',
+  render:()=>(menuOrg?'<button type="button" data-so-open-org>열기</button><hr class="so-menu-sep" role="separator">':'')+'<button type="button" data-so-stage-manage>쟁의 단계 관리</button>',
+  onAction:(button,active)=>{if(button.matches('[data-so-open-org]')){const id=menuOrg,row=id&&[...document.querySelectorAll('#soOrganizationList [data-so-org]')].find(r=>r.dataset.soOrg===id);row?.click();return}
+   stageMod.openStageManager({workspaceId:soWorkspace,rt,trigger:active.trigger,orgNames:()=>new Map(soOrganizations.map(o=>[o.id,o.name]))})}});
+ menuOrg=org;stageMenu.open(trigger);
+}
+function orgRowContext(e){
+ const row=e.target instanceof Element?e.target.closest('#soOrganizationList [data-so-org]'):null;
+ if(!row||e.defaultPrevented||e.shiftKey||e.ctrlKey||e.altKey||e.metaKey||e.pointerType==='touch'||!window.matchMedia('(min-width:761px)').matches)return;
+ if(row.classList.contains('is-selected')||!window.KPTUContextMenu?.openAt)return; // 고른 줄은 지금처럼 화면 메뉴만(공용 우클릭)
+ const sel=window.getSelection?.();if(sel&&!sel.isCollapsed&&sel.toString().trim()!=='')return;
+ const more=document.querySelector('#soTeamMore');if(!more||!more.getClientRects().length)return;
+ e.preventDefault();
+ const r=row.getBoundingClientRect(),x=e.clientX||Math.round(r.left+r.width/2),y=e.clientY||Math.round(r.bottom),id=row.dataset.soOrg;
+ const go=()=>{ctxOrg=id;window.KPTUContextMenu.openAt(more,x,y);ctxOrg=null};
+ if(stageMenu?.active)stageMenu.close(go);else go();
 }
 // Names render before optional metadata: one batched read of the latest record dates, never one request per organization.
 function summaryCurrent(run,user,workspace){const c=rt.context?.read?.();return run===summaryRun&&soUser?.id===user&&soWorkspace===workspace&&(!rt.context?.read||(c?.user?.id===user&&c?.workspace?.id===workspace))&&(!window.KPTURouter||window.KPTURouter.current==='team')}
@@ -160,7 +177,7 @@ window.__KPTU_SELECTED_GOOGLE_EDIT_ORGS__=()=>[...soGoogleHiddenOrgIds,...soGoog
 window.__KPTU_SELECTED_GOOGLE_EDIT_AREAS__=()=>soGoogleAreasKnown?[...soGoogleAreas]:null;
 function resetCreate(){renderEventCreate([],[])}
 window.__KPTU_RESET_EVENT_PICKS__=resetCreate; // CAL-일정사업영역: 새 일정 창마다(calendar-plus.js cmPrepareNewEvent) 고른 사업영역·담당조직을 비운다
-function bind(){if(soBound)return;soBound=true;window.addEventListener('kptu:workplace-selection',e=>{soSelected=e.detail?.id||null;paintSelection()});window.addEventListener('kptu:basket-links-changed',()=>{void loadSummaries()});window.addEventListener('kptu:dispute-stages-changed',paintStageTags);window.addEventListener('kptu:api-saved',e=>{if(e.detail?.path?.includes('/app_suborganization_updates'))void loadSummaries()});document.querySelector('#soSaveOrg')?.addEventListener('click',saveOrg);document.querySelector('#soSaveAssignees')?.addEventListener('click',saveAssignees);document.addEventListener('keydown',e=>{const card=e.target.closest?.('[data-ps-workplace-org]');if(card&&(e.key==='Enter'||e.key===' ')){e.preventDefault();card.click()}});document.addEventListener('click',e=>{const more=e.target.closest('#soTeamMore');if(more){void installStageMenu(more).catch(err=>console.error('stage menu',err));return}const closeBtn=e.target.closest('[data-so-close]');if(closeBtn){close(closeBtn.dataset.soClose);return}const edit=e.target.closest('[data-so-edit]');if(edit){openEdit(edit.dataset.soEdit);return}const del=e.target.closest('[data-so-delete]');if(del){removeOrg(del.dataset.soDelete);return}const assign=e.target.closest('[data-so-assign]');if(assign){openAssign(assign.dataset.soAssign);return}if(e.target.closest('#newEventBtn,#homeAddEvent,#calendarQuickAdd'))resetCreate();},true);window.addEventListener('kptu:view-changed',e=>{summaryRun++;summaryFlight=null;summaryDirty=false;if(e.detail?.view==='team')load().catch(console.error)});window.addEventListener('kptu:session-changed',()=>{summaryRun++;summaryFlight=null;summaryDirty=false;clearRecency();context().then(ok=>ok&&load()).catch(console.error)})}
+function bind(){if(soBound)return;soBound=true;window.addEventListener('kptu:workplace-selection',e=>{soSelected=e.detail?.id||null;paintSelection()});window.addEventListener('kptu:basket-links-changed',()=>{void loadSummaries()});window.addEventListener('kptu:dispute-stages-changed',paintStageTags);window.addEventListener('kptu:api-saved',e=>{if(e.detail?.path?.includes('/app_suborganization_updates'))void loadSummaries()});document.querySelector('#soSaveOrg')?.addEventListener('click',saveOrg);document.querySelector('#soSaveAssignees')?.addEventListener('click',saveAssignees);document.addEventListener('contextmenu',orgRowContext,true);document.addEventListener('keydown',e=>{const card=e.target.closest?.('[data-ps-workplace-org]');if(card&&(e.key==='Enter'||e.key===' ')){e.preventDefault();card.click()}});document.addEventListener('click',e=>{const more=e.target.closest('#soTeamMore');if(more){void installStageMenu(more,ctxOrg).catch(err=>console.error('stage menu',err));return}const closeBtn=e.target.closest('[data-so-close]');if(closeBtn){close(closeBtn.dataset.soClose);return}const edit=e.target.closest('[data-so-edit]');if(edit){openEdit(edit.dataset.soEdit);return}const del=e.target.closest('[data-so-delete]');if(del){removeOrg(del.dataset.soDelete);return}const assign=e.target.closest('[data-so-assign]');if(assign){openAssign(assign.dataset.soAssign);return}if(e.target.closest('#newEventBtn,#homeAddEvent,#calendarQuickAdd'))resetCreate();},true);window.addEventListener('kptu:view-changed',e=>{summaryRun++;summaryFlight=null;summaryDirty=false;if(e.detail?.view==='team')load().catch(console.error)});window.addEventListener('kptu:session-changed',()=>{summaryRun++;summaryFlight=null;summaryDirty=false;clearRecency();context().then(ok=>ok&&load()).catch(console.error)})}
 async function boot(){if(!rt)return false;if(!(await context()))return false;installTeam();installModals();installEventCreate();installGoogleEditSelector();bind();await load();if(document.querySelector('#ciGoogleModal:not(.hidden)'))window.__KPTU_EDIT_GOOGLE_ORGS__(window.__KPTU_GOOGLE_EDIT_ORGS_PENDING__||[],{areas:window.__KPTU_GOOGLE_EDIT_AREAS_PENDING__});window.__KPTU_RELOAD_SUBORGANIZATIONS__=()=>load();return true}
 // PERF-첫로딩 P5: 조직 상세(workplace-detail.js)와 그 할 일 칸(project-catalog.js·google-tasks.js)은 목록이 보인 뒤 받는다(첫 화면 앞에 받던 JS 약 40개).
 // 순서는 옛 view-loader.js organizations()와 같다. 다 받기 전의 열기 길: KPTUWorkplace.open(다른 화면·검색에서 여는 곳)은 받은 뒤 진짜 open으로 넘기고,
