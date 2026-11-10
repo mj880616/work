@@ -68,7 +68,7 @@ export function rowHtml({id, body, meta = '', prefix = '', busy = false, src = '
   // (data-nbx-open → openFromMeta: 내용 버튼의 click 하나로, 여는 길은 줄마다 하나). 키보드·화면 읽기는 내용 버튼 하나로 충분하므로
   // 이 버튼은 탭 순서·읽기에서 뺀다(같은 이름 두 번 읽지 않게). 원문 없는 줄은 그대로 글.
   const metaHtml = open
-    ? `<button type="button" class="nbx-meta nbx-meta-open" data-nbx-open tabindex="-1" aria-hidden="true">${metaIn}<span class="nbx-open-mark">›</span></button>`
+    ? `<button type="button" class="row-act nbx-meta nbx-meta-open" data-nbx-open tabindex="-1" aria-hidden="true">${metaIn}<span class="nbx-open-mark">›</span></button>`
     : `<span class="nbx-meta">${metaIn}</span>`;
   return `<li class="nbx-item" data-nbx-row="${esc(id)}"${attrs ? ' ' + attrs : ''}><p class="nbx-body">${prefix}${text}</p>${why ? `<p class="nbx-why">${esc(why)}</p>` : ''}`
     + `<div class="nbx-row2">${metaHtml}${right}</div>${below}</li>`;

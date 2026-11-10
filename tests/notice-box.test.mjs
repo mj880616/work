@@ -94,7 +94,7 @@ test('한 목록 줄: 출처 꼬리표 · 버튼 일곱 [할 일로][일정으�
     open: {attrs: 'data-basket-row="1"', label: '<i>가짜</i> 업데이트'}, attrs: 'data-basket-row-item="1"', tail: '<button type="button" class="icon-btn">⋯</button>', below: '<div class="nbx-below"></div>'});
   assert.match(html, /^<li class="nbx-item" data-nbx-row="u:1" data-basket-row-item="1"><p class="nbx-body"><button type="button" class="row-act nbx-body-btn" data-basket-row="1">&lt;i&gt;가짜&lt;\/i&gt; 업데이트<\/button><\/p>/);
   // FORGET-원문열기·뒤로가기: 원문이 있는 줄은 출처 꼬리표 줄 끝에 작은 ›, 그 줄을 눌러도 내용 버튼과 같이 열린다(탭 순서·읽기에서는 뺌).
-  assert.match(html, /<button type="button" class="nbx-meta nbx-meta-open" data-nbx-open tabindex="-1" aria-hidden="true"><span class="nbx-src">업데이트<\/span>11\/7 09:00<span class="nbx-open-mark">›<\/span><\/button>/);
+  assert.match(html, /<button type="button" class="row-act nbx-meta nbx-meta-open" data-nbx-open tabindex="-1" aria-hidden="true"><span class="nbx-src">업데이트<\/span>11\/7 09:00<span class="nbx-open-mark">›<\/span><\/button>/);
   assert.match(nb.rowHtml({id: 'f:1', body: '가족', meta: '11/7', src: '가족'}), /<span class="nbx-meta"><span class="nbx-src">가족<\/span>11\/7<\/span>/, '원문 없는 줄은 › 없음');
   const acts = [...html.matchAll(/data-nbx-act="([a-z]+)"[^>]*>([^<]*)</g)].map(m => [m[1], m[2]]);
   // FORGET-소식바로잡기(시안 forget-news-fix.html): 원래 다섯 그대로 + [조직][사업]만 더함, 순서 고정. 모두 ③ 글자 버튼(×만 ⑥).
