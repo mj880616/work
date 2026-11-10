@@ -371,7 +371,7 @@ async function tidyTrash(b, kind) {
   if (needCopy && !tidy.fresh()) {
     if (tidyWaiting.has(kind)) return;
     tidyWaiting.add(kind);
-    notify('원드라이브에 있는지 다시 확인하는 중이에요. 끝나면 바로 이어서 물을게요.');
+    notify('원드라이브에 있는지 다시 확인할게요. 끝나면 바로 이어서 물을게요.');
     try { await tidy.rescan(); } finally { tidyWaiting.delete(kind); }
     if (!tidy.fresh()) { notify('원드라이브를 확인하지 못했어요. 정리 칸 맨 위 줄을 확인해 주세요.', {error:true}); return; }
     g = tidy.group(kind); if (!g || !g.items.length || !phone.state().trash) { notify('다시 확인해 보니 정리할 사진이 없어요.'); return; }
