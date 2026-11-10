@@ -11,7 +11,7 @@
 import {myFeatures} from './my-features.js';
 import {barHtml, failHtml} from './wait-state.js';
 import {goPlace} from './notice-place.js';
-import {KINDS, FAMILY_KIND, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems} from './phone-push-model.mjs';
+import {KINDS, FAMILY_KIND, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems, noticeClearMessage} from './phone-push-model.mjs';
 
 const ENDPOINT = '/functions/v1/phone-push';
 const BRIDGE = 'KPTUAppShell';
@@ -21,6 +21,19 @@ const encode = encodeURIComponent;
 
 export function callPush(rt, action, body = {}) {
   return rt.api(`${ENDPOINT}?action=${encode(action)}`, {method: 'POST', body, singleFlight: false});
+}
+
+/**
+ * 알림 자리를 열었음: 서버에 '열었음'(opened)을 남기고, 폰 앱이면 알림창의 그 폰 알림도 지운다(APP-알림숫자지우기 ②, 아이콘 숫자도 줄어듦).
+ * PC·폰 브라우저는 다리가 없어 서버 기록만 남긴다(다른 기기의 폰 알림은 지우지 않음 — 새 서버 길을 만들지 않음).
+ * 알림 줄(notice-done.js)·최근 알림 7일이 함께 쓴다. 기다리지 않고, 실패해도 화면은 그대로 간다.
+ */
+export function markNoticeOpened(rt, item, win = window) {
+  const message = noticeClearMessage(item?.kind, item?.ref_key);
+  if (message) {
+    try { bridgeOf(win)?.postMessage(message); } catch { /* 다리가 사라진 화면 */ }
+  }
+  return callPush(rt, 'opened', {kind: item?.kind, ref_key: item?.ref_key}).catch(() => null);
 }
 
 // ---- 이 폰(앱 다리) — 화면 하나에 하나 ------------------------------------------------------------------------------------
@@ -245,7 +258,7 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     if (b.dataset.psPushRecentOpen !== undefined) {
       const item = state.recent[Number(b.dataset.psPushRecentOpen)];
       if (!item) return;
-      if (!item.opened) { item.opened = true; void callPush(rt, 'opened', {kind: item.kind, ref_key: item.ref_key}).catch(() => null); }
+      if (!item.opened) { item.opened = true; void markNoticeOpened(rt, item, win); }
       goPlace(item.open, win);
       return;
     }

@@ -7,7 +7,7 @@
 // - 다시 묻기: 시작할 때 한 번, 화면이 다시 보일 때 10분에 한 번까지. 로그인한 사람이 바뀌면 멈춘다.
 // phone-push를 부르는 곳은 phone-push-settings.js 하나라 그 callPush를 빌려 쓴다('Notification boundary check').
 import {putNotice, removeNotice} from './notice-bar.js';
-import {callPush} from './phone-push-settings.js';
+import {callPush, markNoticeOpened} from './phone-push-settings.js';
 import {NOTICE_TEXT, noticeItems, noticeParam} from './phone-push-model.mjs';
 import {goPlace} from './notice-place.js';
 
@@ -21,7 +21,8 @@ export function startDoneNotices({rt = window.KPTURuntime, win = window} = {}) {
   const lines = new Map(); // key → {item, el}
   let run = 0, lastAsk = 0, stopped = false;
 
-  const opened = item => callPush(rt, 'opened', {kind:item.kind, ref_key:item.ref_key}).catch(() => null);
+  // 서버 '열었음' + 폰 앱이면 그 폰 알림도 지움(APP-알림숫자지우기 ②). 폰 알림을 눌러 들어온 경우(fromLink)도 같은 길.
+  const opened = item => markNoticeOpened(rt, item, win);
   function drop(key) { if (lines.has(key)) { lines.delete(key); removeNotice(key); } }
   function line(item) {
     const el = win.document.createElement('aside');
