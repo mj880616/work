@@ -6,9 +6,6 @@
 // 칸마다 --follow-top(위 자리)과 --follow-max(칸 최대 높이 = 화면 높이 - 칸이 지금 있는 자리 - 12px) 두 값만 정한다.
 // 칸이 아직 제자리 위(자연 위치)로 오르기 전에는 칸 아래쪽 줄([저장] 등)이 화면 밖으로 나가지 않게 최대 높이를 그 자리에 맞춘다.
 // 새 항목을 그려 다시 부르면(reset) 칸 안 스크롤을 맨 위로 되돌린다. 서버·기기 저장 없음.
-// BIZ-결과칸작음(11/10 명진 요청): 칸 자리는 화면 스크롤·창 크기 말고도 바뀐다(위쪽 '이번 주 주간보고'를 접고 펴기, 목록을 새로 그림, 글 길이 바뀜).
-// 그래서 붙인 칸이 든 화면 묶음(.view-panel, 없으면 body)과 칸 바로 위 틀의 크기 변화를 ResizeObserver 한 곳에서 보고 최대 높이를 다시 잰다
-// (스크롤·크기 바뀜과 같은 queue — 기다림 시간·높이 고정 없음). 앞에는 최대 높이를 잰 뒤 위쪽 칸이 접혀 칸이 올라와도 낮은 값이 남아 칸이 잘렸다.
 const GAP = 12;
 // S51-13 TODO-폴드목록상세: 폴드 펼침(600~760px, 폰 틀)에서도 붙일 칸은 narrow로 부른다. 그 폭은 아래에 입력칸·전환 줄·하단바가
 // 떠 있으므로 그 높이(bottom, px를 돌려주는 함수)만큼 칸 최대 높이를 줄인다. 모양은 desktop-ui.css .kptu-follow-narrow 한 곳.
@@ -27,7 +24,6 @@ function paint(el, { top, bottom }) {
 function refresh() {
   queued = false;
   for (const [el, at] of panes) { if (el.isConnected) paint(el, at); else panes.delete(el); }
-  for (const node of watched) if (!node.isConnected) { watched.delete(node); sizes?.unobserve(node); }
 }
 function queue() { if (!queued) { queued = true; requestAnimationFrame(refresh); } }
 let listening = false;
@@ -36,22 +32,6 @@ function listen() {
   listening = true;
   window.addEventListener('scroll', queue, { passive: true });
   window.addEventListener('resize', queue, { passive: true });
-}
-// 칸 위치를 옮길 수 있는 틀(화면 묶음·칸 바로 위 틀)의 크기 변화를 본다. 같은 틀은 한 번만 본다.
-let sizes = null;
-const watched = new Set(); // 화면에서 빠진 틀은 refresh에서 보기를 멈춘다(다시 그린 목록 틀이 쌓이지 않게).
-/** 순수 계산(tests/follow-pane-math.test.mjs): 칸 el의 크기 변화를 볼 틀 목록 — 화면 묶음(.view-panel, 없으면 body)과 칸 바로 위 틀. */
-export function watchTargets(el) {
-  const out = [];
-  const add = node => { if (node && !out.includes(node)) out.push(node); };
-  add(el?.closest?.('.view-panel') || el?.ownerDocument?.body || null);
-  add(el?.parentElement || null);
-  return out;
-}
-function watch(el) {
-  if (typeof ResizeObserver !== 'function') return;
-  sizes ||= new ResizeObserver(queue);
-  for (const node of watchTargets(el)) if (!watched.has(node)) { watched.add(node); sizes.observe(node); }
 }
 
 /** 칸 하나를 화면(위에서 top px)에 붙인다. 같은 칸을 다시 부르면 reset일 때 칸 안 스크롤을 맨 위로. */
@@ -62,7 +42,7 @@ export function followPane(el, { top = GAP, reset = true, narrow = false, bottom
   const v = `${Math.round(top)}px`;
   if (el.style.getPropertyValue('--follow-top') !== v) el.style.setProperty('--follow-top', v);
   const at = { top, bottom: narrow ? bottom : null };
-  panes.set(el, at); listen(); watch(el); paint(el, at);
+  panes.set(el, at); listen(); paint(el, at);
   if (reset) {
     el.scrollTop = 0;
     // 칸 머리가 자기 자리(top) 위로 지나가 있으면(칸을 품은 줄 끝 가까이에서 새 항목을 연 때) 그만큼만 화면을 올려 머리를 보인다.
