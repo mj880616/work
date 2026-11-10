@@ -147,10 +147,8 @@ div.gt-main{cursor:default}
 #gtTaskModal.gt-has-task .gt-due-quick{display:flex;flex-wrap:wrap;gap:var(--kptu-space-1);align-items:center;min-width:0}
 #gtTaskModal.gt-has-task:not(.gt-docked) .gt-due-quick{margin:calc(-1 * var(--kptu-space-1)) 0 var(--kptu-space-2)}
 #gtTaskModal.gt-has-task .gt-due-quick>button{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 10px;margin:0;font-size:var(--ds-text-meta);white-space:nowrap}
-/* PC 틀(761~)에서만: 화면 아래 여백·입력 카드 자리. 폴드 펼침(600~760)은 폰 틀(아래 입력칸·탭·하단바가 떠 있음) 그대로다. */
+/* PC 틀(761~)에서만: 입력 카드 자리(화면 아래 여백 12px은 desktop-ui.css main 공용 규칙, UI-PC스크롤묶음 ④). 폴드 펼침(600~760)은 폰 틀(아래 입력칸·탭·하단바가 떠 있음) 그대로다. */
 @media(min-width:761px){
-  html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) main{padding-bottom:12px}
-  html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) #appView>.app-nav{margin-bottom:0}
   #appView #tasksView:not(.hidden):has(#gtTaskSection.gt-pc){display:flex;flex-direction:column;height:auto;min-height:calc(100vh - 24px - var(--kptu-topline-space,0px));min-height:calc(100dvh - 24px - var(--kptu-topline-space,0px))}
   #appView #tasksView:has(#gtTaskSection.gt-pc)>.home-quick{flex:none;margin:0 0 var(--kptu-space-2);padding:6px}
 }

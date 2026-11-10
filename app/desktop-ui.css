@@ -4,10 +4,12 @@
   body{overflow-y:scroll}
   /* UI-전수디자인점검 F21: 모든 PC 화면이 같은 본문 폭 규칙 하나(최대 1920px, 좌우 여백 24~42px)를 쓴다. 전에는 보통 화면 1600/1720px·넓은 화면
      (달력·업무일지·일기·사진·아스날, 옛 view-wide.css) 1920px로 따로여서 화면을 옮길 때 사이드바·본문 자리가 흔들렸다. */
-  main{--kptu-wide-pad:clamp(24px,2.2vw,42px);max-width:1920px;margin:0 auto;padding:12px var(--kptu-wide-pad) 76px}
+  /* UI-PC스크롤묶음 ④(2026-11-10): 본문 아래 여백은 위와 같은 12px. 전에는 76px이라 화면 높이에 맞춰 그리는 화면(달력 주간·'목록 | 상세' 화면의
+     붙은 칸)이 그 여백만큼 문서가 한 번 더 내려가 '스크롤 두 겹'이 됐다(할 일 화면만 따로 12px로 고쳐 두었던 것을 모든 화면 규칙으로). */
+  main{--kptu-wide-pad:clamp(24px,2.2vw,42px);max-width:1920px;margin:0 auto;padding:12px var(--kptu-wide-pad) 12px}
 
   #appView.app-view{display:grid;grid-template-columns:220px minmax(0,1fr);column-gap:28px;align-items:start}
-  #appView>.app-nav{grid-column:1;grid-row:1 / span 40;position:sticky;top:12px;display:flex;flex-direction:column;align-items:stretch;gap:var(--kptu-space-1);height:calc(100vh - 24px);height:calc(100dvh - 24px);max-height:none;overflow:auto;padding:var(--kptu-space-2);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:none}
+  #appView>.app-nav{grid-column:1;grid-row:1 / span 2;position:sticky;top:12px;margin-bottom:-100vh;display:flex;flex-direction:column;align-items:stretch;gap:var(--kptu-space-1);height:calc(100vh - 24px);height:calc(100dvh - 24px);max-height:none;overflow:auto;padding:var(--kptu-space-2);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:none}
   #appView>.app-nav .sidebar-brand{display:flex;align-items:center;gap:7px;min-height:34px;padding:5px 7px 9px;margin-bottom:2px;border-bottom:1px solid var(--kptu-border);color:var(--kptu-ink);text-decoration:none;font-size:12px;font-weight:800;line-height:1}
   #appView>.app-nav .sidebar-brand img{width:22px;height:22px;display:block;object-fit:cover;border-radius:var(--kptu-radius-sm);flex:0 0 auto}
   #appView>.app-nav .sidebar-spacer{display:block;flex:1 1 auto;min-height:16px}
@@ -72,6 +74,12 @@
      전에는 문서를 내리면 같이 올라가 사라지는 화면(홈·잊지 말기·자료실·공유 페이지·사업 보고 등)과 화면 높이에 맞춰 그려 남는 화면(달력·할 일)이 갈렸다.
      줄 아래 간격(--kptu-topline-gap)은 그림자로 같은 바탕을 칠해 붙은 줄 밑으로 지나가는 글이 비치지 않게 한다.
      화면 안에서 위에 붙는 줄(아스날·사진 위쪽 줄, 파일 위쪽 줄, 따라오는 옆 칸)은 --kptu-stick-top(맨 위 띠 + 줄 + 간격) 아래에 붙는다. 폰(~760px)은 이 줄이 없어 0. */
+  /* UI-PC스크롤묶음 ④(2026-11-10): 사이드바는 줄 두 칸(맨 위 줄 + 화면)만 차지하고, 남는 높이는 화면 칸(1fr)이 받는다.
+     전에는 사이드바가 빈 줄 40칸에 걸쳐 있어(grid-row:1 / span 40) 크롬이 빈 줄마다 높이(약 10px)를 나눠 줘서, 내용이 화면에 다 들어오는
+     화면에서도 문서가 380px쯤 더 내려갔다(사업 보고 결과 칸 등 붙은 칸이 있는 화면은 '스크롤 두 겹'으로 보임).
+     사이드바 높이(화면 높이 - 24px)도 화면 줄 높이를 정하지 않는다(.app-nav margin-bottom:-100vh — 칸 높이 계산에서 빠짐, 보이는 크기·붙는 자리는 그대로).
+     그래야 내용이 화면보다 짧은 화면(빈 화면·달력 주간처럼 화면 높이에 맞춘 화면)이 본문 아래 여백(76px)만큼 괜히 한 번 더 내려가지 않는다. */
+  #appView.app-view{grid-template-rows:auto 1fr}
   #appView>.app-topline{grid-column:-2 / -1;grid-row:1;display:flex;align-items:center;gap:4px;box-sizing:border-box;height:var(--kptu-topline-height);margin:0 0 var(--kptu-topline-gap);min-width:0;position:sticky;top:var(--kptu-fixed-top);z-index:15;background:var(--kptu-bg);box-shadow:0 var(--kptu-topline-gap) 0 var(--kptu-bg)}
   #appView>.view-panel{grid-column:-2 / -1;grid-row:2}
   #appView.app-view.nav-collapsed{grid-template-columns:minmax(0,1fr);column-gap:0}
