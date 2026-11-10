@@ -223,20 +223,20 @@ const ocr=basketOcrFor({rt,isCurrent:()=>window.KPTURouter.current==='basket'&&(
 const recognition={unread:'읽기 전',reading:'읽는 중',done:'읽기 완료',empty:'글자 없음',failed:'읽기 실패'};
 const cleanupLabel={none:'',create_pending:'임시 문서 생성 확인 중',create_unknown:'임시 문서 생성 결과 불명',created:'임시 문서 정리 필요',delete_pending:'임시 문서 정리 중',deleted:'임시 문서 정리 완료',delete_failed:'임시 문서 정리 실패'};
 function ocrNotice(value,action=value.action){
-  if(value.result_unknown)return '글자 읽기 결과를 확인하지 못했습니다. 상태를 확인해 주세요. 다시 읽지는 않습니다.';
-  if(value.code==='OCR_SOURCE_CHANGED')return '원본 사진이 변경되어 이 결과를 반영할 수 없습니다.';
+  if(value.result_unknown)return '글자 읽기 결과를 확인하지 못했어요. 상태를 확인해 주세요. 다시 읽지는 않아요.';
+  if(value.code==='OCR_SOURCE_CHANGED')return '원본 사진이 변경되어 이 결과를 반영할 수 없어요.';
   if(value.code==='NOTE_CHANGED')return '업데이트가 변경되었습니다. 저장된 업데이트를 확인해 주세요.';
   if(value.code==='OCR_ATTEMPT_UNRESOLVED')return '현재 시도의 상태를 먼저 확인해 주세요.';
   if(action==='cleanup'&&value.ok)return '임시 문서를 정리했습니다. 사진 속 글자 상태는 그대로 유지됩니다.';
   if(value.ocr_saved||value.ok&&['done','empty'].includes(value.recognitionState||value.attachment?.ocr?.state))return (value.cleanup_state||value.attachment?.ocr?.cleanup_state)==='delete_failed'?'글자는 저장했습니다. 임시 문서 정리는 다시 확인해 주세요.':'사진 속 글자를 확인했습니다.';
   if(value.ok)return '현재 시도의 상태를 확인했습니다.';
-  return '글자를 읽지 못했습니다. 저장된 사진은 그대로 유지됩니다.';
+  return '글자를 읽지 못했어요. 저장된 사진은 그대로 유지됩니다.';
 }
 function ocrMarkup(file){
   if(!String(file.mime_type||'').startsWith('image/')&&!Object.hasOwn(file,'ocr'))return '';
-  let text;try{text=effectiveOcrText(file);}catch{return '<div data-basket-ocr>사진 속 글자 상태를 확인할 수 없습니다.</div>';}
+  let text;try{text=effectiveOcrText(file);}catch{return '<div data-basket-ocr>사진 속 글자 상태를 확인할 수 없어요.</div>';}
   const saved=file.ocr,outcome=ocr.outcome?.(selected.id,file.drive_file_id)||(ocrViews.get(ocrKey(file.drive_file_id))?.outcome?.result_unknown?null:ocrViews.get(ocrKey(file.drive_file_id))?.outcome);
-  return `<div data-basket-ocr="${esc(file.drive_file_id)}"><details><summary>사진 속 글자</summary><p>${esc(recognition[saved?.state||'unread'])}</p>${text?`<div class="basket-ocr-text">${esc(text)}</div>`:''}${cleanupLabel[saved?.cleanup_state]?`<p class="basket-ocr-cleanup">${esc(cleanupLabel[saved.cleanup_state])}</p>`:''}<p data-basket-ocr-notice role="status">${esc(outcome?ocrNotice(outcome):'')}</p><div class="basket-actions"><button type="button" data-basket-ocr-read="${esc(file.drive_file_id)}" disabled>글자 읽기</button><button type="button" data-basket-ocr-status="${esc(file.drive_file_id)}" disabled>상태 확인</button>${saved?.attempt_id?`<button type="button" data-basket-ocr-reconcile="${esc(file.drive_file_id)}" disabled>읽은 글 반영</button><button type="button" data-basket-ocr-cleanup="${esc(file.drive_file_id)}" disabled>임시 문서 정리</button>`:''}</div>${!['image/jpeg','image/png'].includes(file.mime_type)?'<p>이 파일 형식은 글자 읽기를 지원하지 않습니다.</p>':!ocr.enabled?'<p>새 글자 읽기는 아직 사용할 수 없습니다.</p>':''}</details></div>`;
+  return `<div data-basket-ocr="${esc(file.drive_file_id)}"><details><summary>사진 속 글자</summary><p>${esc(recognition[saved?.state||'unread'])}</p>${text?`<div class="basket-ocr-text">${esc(text)}</div>`:''}${cleanupLabel[saved?.cleanup_state]?`<p class="basket-ocr-cleanup">${esc(cleanupLabel[saved.cleanup_state])}</p>`:''}<p data-basket-ocr-notice role="status">${esc(outcome?ocrNotice(outcome):'')}</p><div class="basket-actions"><button type="button" data-basket-ocr-read="${esc(file.drive_file_id)}" disabled>글자 읽기</button><button type="button" data-basket-ocr-status="${esc(file.drive_file_id)}" disabled>상태 확인</button>${saved?.attempt_id?`<button type="button" data-basket-ocr-reconcile="${esc(file.drive_file_id)}" disabled>읽은 글 반영</button><button type="button" data-basket-ocr-cleanup="${esc(file.drive_file_id)}" disabled>임시 문서 정리</button>`:''}</div>${!['image/jpeg','image/png'].includes(file.mime_type)?'<p>이 파일 형식은 글자 읽기를 지원하지 않아요.</p>':!ocr.enabled?'<p>새 글자 읽기는 아직 사용할 수 없어요.</p>':''}</details></div>`;
 }
 function paintOcrControls(){
   if(!selected||!guardOcrPrivacy())return;
@@ -290,7 +290,7 @@ async function runOcr(action,fileId,anchor=null){
   const status=detail.querySelector('[data-basket-status]');status.textContent='사진 속 글자 확인 중…';
   try{
     const capability=await operation.capabilities();if(!token.current())return;
-    if(!capability.ok){status.textContent='지금은 사진 속 글자 읽기를 사용할 수 없습니다.';return;}
+    if(!capability.ok){status.textContent='지금은 사진 속 글자 읽기를 사용할 수 없어요.';return;}
     {
       const snapshot=await operation.status(id);if(!token.current())return;
       if(!snapshot.ok){status.textContent=ocrNotice(snapshot);return;}
@@ -316,7 +316,7 @@ async function runOcr(action,fileId,anchor=null){
     if(!token.current())return;
     applyOcrSnapshot(operation.state.snapshot);
     applyOcrOutcome(result,action);status.textContent=ocrNotice(result,action);
-  }catch{if(token.current())status.textContent='글자 읽기 결과를 확인하지 못했습니다. 상태를 확인해 주세요.';}
+  }catch{if(token.current())status.textContent='글자 읽기 결과를 확인하지 못했어요. 상태를 확인해 주세요.';}
   finally{if(ocrFlight===token){ocrFlight=null;busy=false;if(currentOcrScope(captured)&&selected?.id===id){detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}else guardOcrPrivacy();}}
 }
 quick=mountQuick({root,esc,basketOnly:true,view:'basket',idPrefix:'basket',onSaved:()=>void refresh()});
@@ -752,7 +752,7 @@ function fileRow(file){
   const id=String(file?.drive_file_id||''),name=attachmentName(file),url=driveFileUrl(id),sent=librarySent(id),doc=sent?.document?.id;
   const inLibrary=['created','exists'].includes(sent?.kind),meta=[fileSize(file.size_bytes),inLibrary?'자료실에 있음 ✓':sent?.kind==='unknown'?'자료실에서 확인해 주세요':''].filter(Boolean).join(' · ');
   const link=(icon,label)=>`${LINK_ICONS[icon]}<span>${label}</span>`;
-  const open=url?`<a class="basket-file-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">${link('drive','Drive에서 열기')}</a>`:'<span class="basket-file-link-off">링크를 확인할 수 없습니다.</span>';
+  const open=url?`<a class="basket-file-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">${link('drive','Drive에서 열기')}</a>`:'<span class="basket-file-link-off">링크를 확인할 수 없어요.</span>';
   const save=driveDownloadUrl(id)?`<button type="button" class="basket-file-link" data-basket-file-download="${esc(id)}" aria-label="${esc(name)} 내려받기">${link('download','내려받기')}</button>`:'';
   const sending=sent?.kind==='sending';
   const library=!id?'':inLibrary?(doc?`<a class="basket-file-link" href="${esc(libraryHref)}" data-basket-library-open="${esc(doc)}" aria-label="${esc(name)} 자료실에서 보기">${link('library','자료실에서 보기')}</a>`:'')
@@ -938,7 +938,7 @@ async function refresh() {
     if (requestedNote) {
       const id = requestedNote; requestedNote = null;
       if (notes.some(note => note.id === id)) openDetail(id);
-      else listStatus.textContent = '업데이트를 찾을 수 없습니다. 접근 권한과 업데이트를 확인해 주세요.';
+      else listStatus.textContent = '업데이트를 찾을 수 없어요. 접근 권한과 업데이트를 확인해 주세요.';
     }
   } catch (e) {
     if (run !== epoch || owner !== scope()) return;
@@ -1174,7 +1174,7 @@ window.addEventListener('kptu:document-categories-changed', () => { if (root.isC
 function openHwpEditor(fileId){
   const file=selected?.attachments?.find(item=>item.drive_file_id===fileId);
   if(!file||editing)return;
-  if(!requestHwpEdit({kind:'basket',noteId:selected.id,fileId,fileName:file.file_name},rt)){detail.querySelector('[data-basket-status]').textContent='로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.';return}
+  if(!requestHwpEdit({kind:'basket',noteId:selected.id,fileId,fileName:file.file_name},rt)){detail.querySelector('[data-basket-status]').textContent='로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.';return}
   window.KPTURouter.go('hwp-lab',{source:'delegated'});
 }
 // [자료실에서 보기] keeps a plain link for new tabs; in place it hands the

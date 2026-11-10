@@ -57,7 +57,7 @@ async function fixture(page, width) {
     const noteId = raw.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1], name = raw.match(/filename="([^"]*)"/)?.[1];
     uploads.push({noteId, name, rawText: /name="raw_text"/.test(raw)});
     const row = notes.find(n => n.id === noteId);
-    if (!row) return r.fulfill({status: 404, json: {error: '첨부를 저장하지 못했습니다.', code: 'note_not_found'}});
+    if (!row) return r.fulfill({status: 404, json: {error: '첨부를 저장하지 못했어요.', code: 'note_not_found'}});
     row.attachments = [...row.attachments, {drive_file_id: 'up_' + uploads.length, file_name: name, mime_type: 'application/pdf', size_bytes: 4}];
     row.updated_at = `2026-10-22T05:00:${String(stamp++).padStart(2, '0')}Z`;
     return r.fulfill({json: {ok: true, note_id: row.id, attachments: row.attachments}});

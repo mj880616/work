@@ -276,11 +276,11 @@ test('trash: before the database is ready nothing is asked or sent and the reaso
   events.length=0;
   const fake=trashApi({state:'missing'});
   const {result,calls:asked}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(fake.api),trash:true}));
-  assert.equal(result.status,'failed');assert.equal(result.message,'노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');
+  assert.equal(result.status,'failed');assert.equal(result.message,'노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없어요.');
   assert.deepEqual(asked,[]);assert.deepEqual(writesOf(fake.calls),[]);assert.deepEqual(events,[]);
   const failing=trashApi({state:'failed'});
   const second=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(failing.api),trash:true}));
-  assert.equal(second.result.status,'failed');assert.match(second.result.message,/확인하지 못해 삭제하지 않았습니다/);
+  assert.equal(second.result.status,'failed');assert.match(second.result.message,/확인하지 못해 삭제하지 않았어요/);
   assert.deepEqual(second.calls,[]);assert.deepEqual(writesOf(failing.calls),[]);
 });
 

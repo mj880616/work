@@ -263,8 +263,8 @@ test('복사·옮기기 거르기: 다른 저장소로 폴더·구글 문서·�
   assert.deepEqual(m.xferPlan([f], {source: 'ph', parent: 'Download'}, 'move').ok, [f]);
   const pf = {source: 'pc', item_id: 'C:\\문서\\가짜', parent_id: 'C:\\문서', name: '가짜', is_folder: true};
   assert.deepEqual(m.xferPlan([pf], {source: 'od', parent: null}, 'move').ok, [pf]);
-  assert.match(m.xferPlan([pf], {source: 'pc', parent: 'C:\\문서\\가짜\\안'}, 'copy').reason, /자기 안으로 복사할 수 없습니다/);
-  assert.match(m.xferPlan([pf], {source: 'pc', parent: 'c:\\문서\\가짜'}, 'move').reason, /자기 안으로 옮길 수 없습니다/);
+  assert.match(m.xferPlan([pf], {source: 'pc', parent: 'C:\\문서\\가짜\\안'}, 'copy').reason, /자기 안으로 복사할 수 없어요/);
+  assert.match(m.xferPlan([pf], {source: 'pc', parent: 'c:\\문서\\가짜'}, 'move').reason, /자기 안으로 옮길 수 없어요/);
   assert.deepEqual(m.xferPlan([pf], {source: 'pc', parent: 'C:\\문서\\가짜2'}, 'copy').ok, [pf], '이름이 앞부분만 같은 옆 폴더는 됨');
   const hf = {source: 'ph', item_id: 'Download/가짜', parent_id: 'Download', name: '가짜', is_folder: true};
   assert.match(m.xferPlan([hf], {source: 'ph', parent: 'Download/가짜/안'}, 'copy').reason, /자기 안으로/);
@@ -283,7 +283,7 @@ test('복사·옮기기 거르기: 다른 저장소로 폴더·구글 문서·�
   assert.equal(toOd.ok.length, 0); assert.match(toOd.reason, /구글 문서/);
   const same = m.xferPlan([f, a], {source: 'od', parent: null}, 'copy');
   assert.deepEqual(same.ok.map(r => r.item_id), ['F1', 'A'], 'same cloud: folder and file both go');
-  assert.match(m.xferPlan([f], {source: 'od', parent: 'F1'}, 'copy').reason, /자기 안으로 복사할 수 없습니다/);
+  assert.match(m.xferPlan([f], {source: 'od', parent: 'F1'}, 'copy').reason, /자기 안으로 복사할 수 없어요/);
   assert.match(m.xferPlan([a], {source: 'od', parent: 'F1'}, 'move').reason, /이미 이 폴더에 있습니다/);
   assert.deepEqual(m.xferPlan([a], {source: 'od', parent: 'F1'}, 'copy').ok, [a], 'copy into the same folder is allowed (gets a number)');
   assert.deepEqual(m.xferPlan([f], {source: 'gd', parent: null}, 'move').ok, [f], 'S52-43 ②: folder move between the two clouds');

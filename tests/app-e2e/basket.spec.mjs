@@ -129,7 +129,7 @@ async function basketUploadFixture(page,f){
  await page.route(SB+'/functions/v1/basket-files',async r=>{
   const raw=r.request().postDataBuffer().toString();calls.push(raw);
   if(release)await release;
-  if(response && calls.length > (response.after || 0))return r.fulfill({status:response.status,json:{error:'첨부를 저장하지 못했습니다.',code:response.code,note_id:'uploaded'}});
+  if(response && calls.length > (response.after || 0))return r.fulfill({status:response.status,json:{error:'첨부를 저장하지 못했어요.',code:response.code,note_id:'uploaded'}});
   const match=raw.match(/name="note_id"\r\n\r\n([^\r]+)/),id=match?.[1]||'uploaded';
   let n=f.notes.find(n=>n.id===id);if(!n){n={id,raw_text:raw.match(/name="raw_text"\r\n\r\n([\s\S]*?)\r\n--/)?.[1]||'',occurred_at:'2026-10-10T10:00:00Z',ai_export_allowed:true,attachments:[]};f.notes.unshift(n);}
   n.attachments||=[];n.attachments.push({drive_file_id:'file_'+calls.length,file_name:raw.match(/filename="([^"]+)"/)?.[1],size_bytes:12});
@@ -157,7 +157,7 @@ for(const width of [390,1280]){
   // UPD-사진여러장: a file is read as soon as it is chosen; one that cannot be read leaves the list with a plain line and sends nothing.
   await page.evaluate(()=>{window.KPTURuntime.copyUploadFile=async()=>{throw Object.assign(Error('read'),{code:'file_read_failed'});};});await q.locator('input[type=file]').setInputFiles(uploadFiles(['bad.txt','later.txt']));await expect(q.locator('[data-quick-status]')).toContainText('사진을 못 받았어요');await expect(q.locator('[data-basket-file]')).toHaveCount(0);await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-hint]')).toContainText('사진을 못 받았어요');expect(u.calls).toHaveLength(1);expect(f.errors).toEqual([]);
  });
- for(const [status,code,message] of [[503,'note_save_result_unknown','저장 결과를 확인하지 못했습니다. 잊지 말기에서 확인 후 다시 시도하세요'],[409,'note_changed','업데이트를 다시 불러'],[401,'unauthorized','로그인'],[413,'file_too_large','100MiB']])test(`basket ${status} keeps completed files stops queue ${width}`,async({page})=>{
+ for(const [status,code,message] of [[503,'note_save_result_unknown','저장 결과를 확인하지 못했어요. 잊지 말기에서 확인 후 다시 시도하세요'],[409,'note_changed','업데이트를 다시 불러'],[401,'unauthorized','로그인'],[413,'file_too_large','100MiB']])test(`basket ${status} keeps completed files stops queue ${width}`,async({page})=>{
   await page.setViewportSize({width,height:1000});const f=await fixture(page),u=await basketUploadFixture(page,f),q=quick(page);await q.locator('[data-quick-input]').fill('중간 실패 시 원문 유지');await q.locator('input[type=file]').setInputFiles(uploadFiles(['done.txt','bad.txt','later.txt']));
   u.setError({status,code,after:1});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText(message);expect(u.calls).toHaveLength(2);await expect(q.locator('.success')).toHaveCount(1);await expect(q.locator('[data-basket-file]')).toHaveCount(3);await expect(q.locator('[data-quick-input]')).toHaveValue('중간 실패 시 원문 유지');await expect(q.locator('[data-quick-new-note]')).toBeVisible();await expect(q.locator('[data-basket-file]').last()).toContainText('대기');
   await q.locator('[data-quick-save]').dispatchEvent('click');if(status===503||status===409){expect(u.calls).toHaveLength(2);await expect(q.locator('input[type=file]')).toBeDisabled();}else {await expect.poll(()=>u.calls.length).toBe(3);}const expectedHTTP=`Failed to load resource: the server responded with a status of ${status} (${({503:'Service Unavailable',409:'Conflict',401:'Unauthorized',413:'Payload Too Large'})[status]})`;await expect.poll(()=>f.errors).toEqual(Array(status===503||status===409?1:2).fill(expectedHTTP));
@@ -219,5 +219,5 @@ for(const width of [390,1280])test(`basket original link opens the exact suggest
  await expect(page.locator('[data-basket-text]')).toHaveValue('제안 원문');await expect(page.locator('[data-basket-state]')).toContainText('정리 제안 있음');
  await page.screenshot({path:info.outputPath(`basket3-suggested-${width}.png`),fullPage:true});
  await page.goto(testOrigin+'/app/?view=basket&note=a');await expect(page.locator('[data-basket-text]')).toHaveValue(' 보관 원문\n ');
- await page.goto(testOrigin+'/app/?view=basket&note=foreign');await expect(page.locator('[data-basket-list-status]')).toContainText('업데이트를 찾을 수 없습니다');expect(f.writes).toHaveLength(0);
+ await page.goto(testOrigin+'/app/?view=basket&note=foreign');await expect(page.locator('[data-basket-list-status]')).toContainText('업데이트를 찾을 수 없어요');expect(f.writes).toHaveLength(0);
 });

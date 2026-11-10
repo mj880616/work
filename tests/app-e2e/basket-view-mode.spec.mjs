@@ -126,7 +126,7 @@ test('basket address restores a note in the read view without a keyboard',async(
 test('basket quick input explains a lock below the input and offers a new memo',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page,{query:'?view=basket'});
  await expect(page.locator('[data-basket-row]')).toHaveCount(1);
- let calls=0;await page.route(SB+'/functions/v1/basket-files',r=>++calls===1?r.fulfill({json:{ok:true,note_id:'n',attachments:[]}}):r.fulfill({status:503,json:{error:'첨부를 저장하지 못했습니다.',code:'note_save_result_unknown',note_id:'n'}}));
+ let calls=0;await page.route(SB+'/functions/v1/basket-files',r=>++calls===1?r.fulfill({json:{ok:true,note_id:'n',attachments:[]}}):r.fulfill({status:503,json:{error:'첨부를 저장하지 못했어요.',code:'note_save_result_unknown',note_id:'n'}}));
  const q=page.locator('#basketView [data-basket-list] [data-home-quick]'),input=q.locator('[data-quick-input]'),lock=q.locator('[data-quick-lock]');
  await expect(lock).toBeHidden();
  await input.fill('첨부와 함께 쓴 글');await q.locator('input[type=file]').setInputFiles(['a.txt','b.txt'].map(name=>({name,mimeType:'text/plain',buffer:Buffer.from(name)})));

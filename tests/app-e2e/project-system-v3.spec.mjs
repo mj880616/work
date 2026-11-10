@@ -1095,7 +1095,7 @@ test('TRASH 2단계: 휴지통 탭에서 되돌리고, ⋯ 안 영구 삭제는 
   await solo.locator('[data-ps3-trash-purge]').click();
   const asked=(await askWithNote(page,false)).join(' ');
   expect(asked).toContain('영구 삭제할까요');
-  expect(asked).toContain('사업영역 연결만 풀립니다');expect(asked).toContain('되돌릴 수 없습니다');
+  expect(asked).toContain('사업영역 연결만 풀립니다');expect(asked).toContain('되돌릴 수 없어요');
   expect(state.trash.items.some(x=>x.id==='solo-1')).toBe(true);
   await solo.locator('summary').click();
   await solo.locator('[data-ps3-trash-purge]').click();await answerAsk(page,true);

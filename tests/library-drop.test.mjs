@@ -16,7 +16,7 @@ test('text: progress and result lines are one short Korean line',()=>{
   assert.equal(m.progressText({index:2,total:3,name:'a.pdf'}),'올리는 중 2/3 · a.pdf');
   assert.equal(m.progressText({index:1,total:1,name:'a.pdf'}),'올리는 중 · a.pdf');
   assert.equal(m.resultText({done:3}),'3개 올렸어요');
-  assert.equal(m.resultText({done:2,failed:[{name:'b',message:'빈 파일은 업로드할 수 없습니다.'}]}),'2개 올렸어요 · 1개 못 올렸어요. 빈 파일은 업로드할 수 없습니다.');
+  assert.equal(m.resultText({done:2,failed:[{name:'b',message:'빈 파일은 업로드할 수 없어요.'}]}),'2개 올렸어요 · 1개 못 올렸어요. 빈 파일은 업로드할 수 없어요.');
   assert.equal(m.resultText({done:0,failed:[],rest:2}),'2개 못 올렸어요');
   // LIB-폴더로올리기: 폴더에 놓으면 폴더 이름이 앞에, 폴더에 못 넣은 것은 따로 한 마디.
   assert.equal(m.folderHint('주간보고'),'놓으면 ‘주간보고’ 폴더로 올려요');

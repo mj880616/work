@@ -214,12 +214,12 @@ test('meeting edit save sends one request on double press and unlocks after fail
   await expect(page.locator('#mrdEditor')).toBeHidden();
   await openMeetingEdit(page);await page.locator('#mrdEditNotes').fill('결과 불명인 제출');state.meetingFailure=500;
   await button.click();await expect.poll(()=>state.writes.meeting).toBe(4);
-  await expect(page.locator('#mrdEditStatus')).toContainText('저장 결과를 확인하지 못했습니다.');
+  await expect(page.locator('#mrdEditStatus')).toContainText('저장 결과를 확인하지 못했어요.');
   await expect(button).toBeEnabled();await expect(button).toHaveText('저장');
   await button.click();expect(state.writes.meeting).toBe(4);
   let reads=state.meetingReads;
   await page.locator('#mrdEditStatus').getByRole('button',{name:'저장 결과 확인',exact:true}).click();
-  await expect(page.locator('#mrdEditStatus')).toContainText('아직 확인하지 못했습니다.');
+  await expect(page.locator('#mrdEditStatus')).toContainText('아직 확인하지 못했어요.');
   expect(state.meetingReads).toBe(reads+1);expect(state.writes.meeting).toBe(4);
   await expect(page.locator('#mrdEditNotes')).toHaveValue('결과 불명인 제출');
   // Model the same accepted request finishing later on the server, without sending it again.

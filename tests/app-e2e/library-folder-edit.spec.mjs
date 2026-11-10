@@ -190,7 +190,7 @@ for(const width of [390,1280])test.describe(`폴더 수정 ${width}`,()=>{
     const {s,errors}=await boot(page,width,{folders:[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024}],trashMode:'failed'});
     let asked=0;page.on('dialog',d=>{asked++;d.dismiss()});await libraryTopMenu(page,'expand');
     await press(page,menuOf(page,'f:fa'),width);await press(page,action(page,'폴더 삭제'),width);
-    await expect(page.locator('#libraryFolderStatusLine')).toContainText('휴지통 상태를 확인하지 못해 삭제하지 않았습니다');
+    await expect(page.locator('#libraryFolderStatusLine')).toContainText('휴지통 상태를 확인하지 못해 삭제하지 않았어요');
     expect(asked).toBe(0);expect(s.writes.filter(w=>w.method==='DELETE')).toEqual([]);
     expect(errors.filter(e=>!/500/.test(e))).toEqual([]);
   });

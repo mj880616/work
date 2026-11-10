@@ -20,7 +20,7 @@ const dayRe = /^\d{4}-\d{2}-\d{2}$/;
 
 function workspace(rt) {
   const id = rt.context.read()?.workspace?.id;
-  if (!id) throw new Error('업무 공간을 확인할 수 없습니다.');
+  if (!id) throw new Error('업무 공간을 확인할 수 없어요.');
   return id;
 }
 const monthParam = (year, month) => `${year}-${String(month + 1).padStart(2, '0')}`;
@@ -66,7 +66,7 @@ export function odErrorText(error) {
   const code = String(error?.message || '');
   if (ERROR_TEXT[code]) return ERROR_TEXT[code];
   if (error?.status === 401) return '로그인이 필요해요.';
-  return '원드라이브 요청이 실패했어요. 잠시 뒤 다시 해 주세요.';
+  return '원드라이브에서 받지 못했어요. 잠시 뒤 다시 해 주세요.';
 }
 
 const statusOf = d => ({

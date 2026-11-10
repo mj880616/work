@@ -861,7 +861,7 @@ function paintTop() {
   paintSrcs();
   const note = $('[data-fx-note]');
   if (note) {
-    const t = state.statusFailed ? errorText(state.statusFailed) : state.status && !anyLinked() ? '연결된 클라우드가 없습니다' : state.hint;
+    const t = state.statusFailed ? errorText(state.statusFailed) : state.status && !anyLinked() ? '연결된 클라우드가 없어요' : state.hint;
     note.textContent = t; note.hidden = !t;
   }
 }

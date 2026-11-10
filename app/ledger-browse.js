@@ -146,7 +146,7 @@ async function search({ quiet = false } = {}) {
   } catch (e) {
     if (mine !== seq) return;
     if (isMissing(e)) { state.phase = 'hidden'; }
-    else state.error = /LEDGER_SEARCH_BAD/.test(String(e?.message || '')) ? '검색 조건을 확인하세요.' : '원장을 읽지 못했습니다. 잠시 뒤 다시 시도하세요.';
+    else state.error = /LEDGER_SEARCH_BAD/.test(String(e?.message || '')) ? '검색 조건을 확인하세요.' : '원장을 읽지 못했어요. 잠시 뒤 다시 시도하세요.';
   }
   state.busy = false; render();
 }
@@ -217,10 +217,10 @@ async function refreshDetail(id) {
   try {
     const d = await readDetail(id);
     if (state.openId !== id) return;
-    if (d) { state.details.set(id, d); state.detailError = ''; } else { state.details.delete(id); state.detailError = '이 기록을 읽을 수 없습니다.'; }
+    if (d) { state.details.set(id, d); state.detailError = ''; } else { state.details.delete(id); state.detailError = '이 기록을 읽을 수 없어요.'; }
   } catch {
     if (state.openId !== id) return;
-    state.details.delete(id); state.detailError = '상세를 읽지 못했습니다. 잠시 뒤 다시 시도하세요.';
+    state.details.delete(id); state.detailError = '상세를 읽지 못했어요. 잠시 뒤 다시 시도하세요.';
   }
   render();
 }
@@ -411,8 +411,8 @@ async function toggleDetail(id) {
     state.detailBusy = id; render();
     try {
       const d = await readDetail(id);
-      if (d) state.details.set(id, d); else state.detailError = '이 기록을 읽을 수 없습니다.';
-    } catch { state.detailError = '상세를 읽지 못했습니다. 잠시 뒤 다시 시도하세요.'; }
+      if (d) state.details.set(id, d); else state.detailError = '이 기록을 읽을 수 없어요.';
+    } catch { state.detailError = '상세를 읽지 못했어요. 잠시 뒤 다시 시도하세요.'; }
     state.detailBusy = '';
   }
   render();
@@ -430,7 +430,7 @@ function render() {
   syncForm(root);
   const box = root.querySelector('#lbResults');
   if (state.phase === 'loading') box.innerHTML = waitHtml({rows:6});
-  else if (state.phase === 'error') box.innerHTML = '<p class="lg-error" role="alert">원장을 읽지 못했습니다.</p><button type="button" class="lg-tool" data-lb-action="reload">다시 읽기</button>';
+  else if (state.phase === 'error') box.innerHTML = '<p class="lg-error" role="alert">원장을 읽지 못했어요.</p><button type="button" class="lg-tool" data-lb-action="reload">다시 읽기</button>';
   else box.innerHTML = state.story ? storyHtml() : isSearching(state.filters) ? resultsHtml() : homeHtml();
   // UI-기다림표시통일 2차: 찾는 동안 건수 자리는 글자 없는 회색 칸(wait-state.js).
   const lbStatus = root.querySelector('#lbStatus');
@@ -565,7 +565,7 @@ function rowHtml(r, extra = '') {
 function detailHtml(id) {
   if (state.detailBusy === id) return waitHtml({rows:3});
   const d = state.details.get(id);
-  if (!d) return `<p class="lg-error" role="alert">${esc(state.detailError || '상세를 읽지 못했습니다.')}</p>`;
+  if (!d) return `<p class="lg-error" role="alert">${esc(state.detailError || '상세를 읽지 못했어요.')}</p>`;
   const summary = d.record.summary ? `<p class="lb-text">${esc(d.record.summary)}</p>` : '';
   const orgs = (allRows().find(r => r.id === id)?.organizations || []).filter(Boolean);
   const fields = fieldsHtml(orgs.length ? [...d.fields, ['조직', orgs.join(', ')]] : d.fields);
@@ -602,7 +602,7 @@ function historyHtml(d) {
     const head = `<span class="lb-hist-day">${esc(l.day)}</span><span class="lb-hist-title">${esc(l.title)}${l.now ? ' <span class="lb-hist-now">지금</span>' : ''}${why}</span>`;
     if (l.now) return `<li class="lb-hist-line is-now" data-lb-hist-now>${head}</li>`;
     const open = state.histRows.has(l.id), got = state.histDetails.get(l.id);
-    const body = !open ? '' : !got || got === 'busy' ? waitHtml({rows:2}) : got === 'error' ? '<p class="lg-error" role="alert">이 기록을 읽지 못했습니다.</p>'
+    const body = !open ? '' : !got || got === 'busy' ? waitHtml({rows:2}) : got === 'error' ? '<p class="lg-error" role="alert">이 기록을 읽지 못했어요.</p>'
       : `<div class="lb-hist-body">${got.record.summary ? `<p class="lb-text">${esc(got.record.summary)}</p>` : ''}${fieldsHtml(got.fields)}<h5>근거·출처</h5>${sourcesHtml(got, null)}</div>`;
     return `<li class="lb-hist-line"><details class="lb-hist-row" data-lb-hist="${esc(l.id)}"${open ? ' open' : ''}><summary>${head}</summary>${body}</details></li>`;
   };

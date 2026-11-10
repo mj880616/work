@@ -18,7 +18,7 @@ const encode = encodeURIComponent;
 const isPhoto = file => /^image\//.test(file?.mime_type || '');
 function workspace(rt) {
   const id = rt.context.read()?.workspace?.id;
-  if (!id) throw new Error('업무 공간을 확인할 수 없습니다.');
+  if (!id) throw new Error('업무 공간을 확인할 수 없어요.');
   return id;
 }
 

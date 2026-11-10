@@ -91,7 +91,7 @@ test('server refuses: short message, button usable again, no reopen', async ({pa
   let reloaded = false;
   page.on('load', () => { reloaded = true; });
   await button.click();
-  await expect(page.locator('.workspace-start-note')).toHaveText('지금은 새 작업공간을 만들 수 없습니다.');
+  await expect(page.locator('.workspace-start-note')).toHaveText('지금은 새 작업공간을 만들 수 없어요.');
   await expect(button).toBeEnabled();
   expect(startCalls(calls)).toHaveLength(1);
   expect(reloaded).toBe(false);

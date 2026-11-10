@@ -45,5 +45,5 @@ test('new error codes have their own text; unknown ones keep the general text', 
   const m = await mod;
   assert.match(m.odErrorText(new Error('onedrive_index_busy')), /이미 받고/);
   assert.match(m.odErrorText(new Error('onedrive_throttled')), /요청이 많다/);
-  assert.match(m.odErrorText(new Error('weird')), /요청이 실패했어요/);
+  assert.match(m.odErrorText(new Error('weird')), /받지 못했어요/);
 });

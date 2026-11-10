@@ -214,7 +214,7 @@ test('older Edge reconnect states still show the reconnect action',async({page})
   await mockBase(page);
   await mockTasks(page,action=>action==='overview'?{status:400,body:{error:'Unknown action'}}:action==='status'?{body:{connected:true,authorized:false,needs_reconnect:true}}:{body:{tasks:[],needs_reconnect:true}});
   await login(page);await openTasks(page);
-  await expect(page.locator('#gtTaskSection')).toContainText('Google Tasks 수정 권한이 없습니다');
+  await expect(page.locator('#gtTaskSection')).toContainText('Google Tasks 수정 권한이 없어요');
   await expect(page.locator('[data-gt-connect]')).toHaveText('Google 할 일 권한 다시 연결');
   expect(await cached(page)).toBeNull();
 });
@@ -286,7 +286,7 @@ test('initial task load failure offers a short accessible retry at mobile width 
   let fail=true;
   const calls=await mockTasks(page,()=>fail?{status:500,body:{error:'upstream unavailable'}}:{body:{connected:true,authorized:true,needs_reconnect:false,tasks:[task('t1','fixture')]}});
   await login(page);await openTasks(page);
-  await expect(page.locator('#gtTaskBody')).toContainText('Google 할 일을 불러오지 못했습니다.');
+  await expect(page.locator('#gtTaskBody')).toContainText('Google 할 일을 불러오지 못했어요.');
   const retry=page.getByRole('button',{name:'다시 시도',exact:true});
   await expect(retry).toBeVisible();
   await expect(page.getByRole('button',{name:'새로고침',exact:true})).toHaveCount(0);

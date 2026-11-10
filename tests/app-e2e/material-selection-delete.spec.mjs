@@ -19,9 +19,9 @@ async function expectMeetingDocs(page,width,count){
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const DELETE_CONFIRM='“first.pdf” 자료 등록을 삭제할까요?\n파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.';
-const DELETE_LEGACY='자료 등록을 삭제했습니다. Drive 파일 처리 결과는 확인하지 못했습니다. 원본 상태를 직접 확인해 주세요.';
-const DELETE_UNKNOWN='삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
-const DELETE_AUTH='로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.';
+const DELETE_LEGACY='자료 등록을 삭제했어요. Drive 파일 처리 결과는 확인하지 못했어요. 원본 상태를 직접 확인해 주세요.';
+const DELETE_UNKNOWN='삭제 결과를 확인하지 못했어요. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
+const DELETE_AUTH='로그인 세션을 확인하지 못했어요. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.';
 const file=name=>({name,mimeType:'application/pdf',buffer:Buffer.from(name)});
 const selectionDraft=page=>page.evaluate(()=>{const detail={otherDraft:false};window.dispatchEvent(new CustomEvent('kptu:before-reload',{detail}));return detail.otherDraft});
 const meeting={id:'meeting-1',workspace_id:'ws',title:'자료 확인 회의',series_name:'자료 확인 회의',meeting_at:'2026-10-10T10:00:00Z',transcript_text:'회의 원문',created_by:'owner'};
@@ -86,7 +86,7 @@ for(const width of [390,1280]){
       await page.locator('[data-lu-menu="doc-0"]').click();
     }
     await page.locator(view==='meetings'?'[data-mrd-delete-document="doc-0"]':'[data-lu-delete="doc-0"]').click();
-    expect(await noticeText(page)).toBe('자료를 삭제하지 못했습니다.');
+    expect(await noticeText(page)).toBe('자료를 삭제하지 못했어요.');
     await expect(page.locator('#kptuNotice .kptu-notice-note')).toHaveText('관리자에게 오류 확인을 요청해 주세요.');
     expect(state.deletes).toEqual([]);expect(state.docs).toHaveLength(2);expect(pageErrors).toEqual([]);
   });
@@ -303,7 +303,7 @@ async function openUploadScreen(page,screen){
   await expect(page.locator('#documentModal')).toBeVisible();
   return {input:'#libraryFileInput',save:'#saveDocumentBtn',rows:'[data-lu-upload-file]',status:'#documentStatus'};
 }
-const READ_ERROR='파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.';
+const READ_ERROR='파일을 읽지 못했어요. 파일을 다시 선택해 주세요.';
 for(const width of [390,1280])for(const screen of ['library','new meeting','meeting detail']){
   test(`memory copy: ${screen} sends metadata-preserving copies sequentially ${width}px`,async({page})=>{
     await observeSelectedFiles(page);

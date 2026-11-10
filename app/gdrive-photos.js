@@ -28,7 +28,7 @@ export const gdFolderTrash = (rt, id) => gdCall(rt, {action:'folder-trash', id, 
 export async function gdReconnect(rt) {
   const d = await rt.api('/functions/v1/public-policy-drive', {method:'POST', body:{action:'drive-start'}, singleFlight:false});
   const url = d?.url || d?.auth_url;
-  if (!url) throw new Error('Google Drive 연결 주소를 받지 못했습니다.');
+  if (!url) throw new Error('Google Drive 연결 주소를 받지 못했어요.');
   location.href = url;
 }
 

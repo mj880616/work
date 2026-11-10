@@ -110,7 +110,7 @@ async function fixture(page,{rows=store(),failUploadAt=0,photoView=true,width=39
    const start=text.indexOf(head[0])+head[0].length,end=text.indexOf('\r\n--',start);
    const bytes=raw.subarray(start,end);
    uploads.push({note_id:id,name:head[1],type:head[2],size:jpegSize(bytes),raw_text:/name="raw_text"/.test(text)});
-   if(failUploadAt&&uploadCount===failUploadAt)return r.fulfill({status:503,json:{error:'첨부를 저장하지 못했습니다.',code:'drive_folder_failed'}});
+   if(failUploadAt&&uploadCount===failUploadAt)return r.fulfill({status:503,json:{error:'첨부를 저장하지 못했어요.',code:'drive_folder_failed'}});
    const row=rows.find(x=>x.id===id);
    if(!row)return r.fulfill({status:404,json:{code:'note_not_found'}});
    if(row.attachments.length>=20)return r.fulfill({status:400,json:{code:'too_many_attachments'}});

@@ -58,7 +58,7 @@ function clickLink(url) {
 
 export function openInDrive(file, {onError = () => {}} = {}) {
   const url = driveOpenUrl(file);
-  if (!url) { onError('열 수 있는 파일 링크가 없습니다.'); return false; }
+  if (!url) { onError('열 수 있는 파일 링크가 없어요.'); return false; }
   clickLink(url);
   return true;
 }
@@ -66,7 +66,7 @@ export function openInDrive(file, {onError = () => {}} = {}) {
 // 내려받기. 자료 번호가 있으면 서버 토큰 길, 없으면 Drive 내려받기 주소. api(path, options)는 호출한 화면의 공용 런타임 호출.
 async function documentTokenUrl(documentId, api) {
   const d = await api('/functions/v1/workspace-drive?action=download-token', {method: 'POST', body: {document_id: documentId}});
-  if (!d?.url) throw new Error('다운로드 주소를 받지 못했습니다.');
+  if (!d?.url) throw new Error('다운로드 주소를 받지 못했어요.');
   return d.url;
 }
 export async function downloadFile(file, {api = (...a) => window.KPTURuntime.api(...a), onError = () => {}} = {}) {
@@ -77,7 +77,7 @@ export async function downloadFile(file, {api = (...a) => window.KPTURuntime.api
     } catch (e) { onError(e?.message || String(e)); return false; }
   }
   const url = driveDownloadUrl(file?.driveId);
-  if (!url) { onError('내려받을 수 있는 파일 링크가 없습니다.'); return false; }
+  if (!url) { onError('내려받을 수 있는 파일 링크가 없어요.'); return false; }
   clickLink(url);
   return true;
 }

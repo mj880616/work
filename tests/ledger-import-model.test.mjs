@@ -175,7 +175,7 @@ test('Claude import file (JSON): same checks; values must already be fixed-list 
  assert.deepEqual(reasons(rb),{bad_value:1,broken_ref:1});
  assert.equal(reasons(rb,'excluded').s3,1);
  assert.equal((await run([{name:'x.json',bytes:enc.encode('{"format":"other"}')}])).summary.error[0].reason,'bad_file');
- await assert.rejects(readInputFiles([{name:'x.json',bytes:enc.encode('{')}]),/읽을 수 없습니다/);
+ await assert.rejects(readInputFiles([{name:'x.json',bytes:enc.encode('{')}]),/읽을 수 없어요/);
  const cand=await run([{name:'후보.json',bytes:enc.encode(JSON.stringify({format:FORMAT,version:1,kind:'candidates',candidates:[{kind:'event',title:'가상 후보',sensitivity:'S1'},{kind:'decision',title:'가상 후보 둘',sensitivity:'S3'},{kind:'x'}]}))}]);
  assert.equal(cand.kind,'candidates');assert.equal(cand.ok,false);
  assert.deepEqual(cand.candidates,{total:3,invalid:1,kinds:{event:1,decision:1},excluded:1});

@@ -263,7 +263,7 @@ test('[파일] 폰 412: [큰 파일]을 못 읽으면 \'불러오지 못했습�
   await openFiles(page, 412).catch(() => {});
   await tree(page).locator('[data-fx-shelf="big"]').click();
   const fail = root(page).locator('[data-fx-list] [data-wait-fail]');
-  await expect(fail).toContainText('불러오지 못했습니다');
+  await expect(fail).toContainText('불러오지 못했어요');
   await expect(fail.locator('[data-wait-reason]')).toHaveText('· 서버 시간 초과');
   expect(await fail.textContent()).not.toContain('canceling');
   // [다시]를 누르면 다시 읽고, 이번엔 된다.

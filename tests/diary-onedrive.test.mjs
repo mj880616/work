@@ -88,7 +88,7 @@ test('error text comes from the Edge error code and never shows raw server text'
   assert.match(m.odErrorText(new Error('onedrive_reconnect_needed')), /다시 연결/);
   assert.match(m.odErrorText(new Error('onedrive_outside_folder')), /폴더 밖/);
   assert.match(m.odErrorText(Object.assign(new Error('x'), {status:401})), /로그인/);
-  assert.match(m.odErrorText(new Error('SELECT secret FROM t')), /실패했어요/);
+  assert.match(m.odErrorText(new Error('SELECT secret FROM t')), /받지 못했어요/);
 });
 
 test('photo bytes: one POST per photo and size; 429 carries retry_after; 404/403 are final', async () => {

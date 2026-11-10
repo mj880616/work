@@ -32,12 +32,12 @@ export function pickReportKind(trigger,{title='칸 선택',current='',onPick,onO
 export async function saveReportKind(id,kind){
   if(!isReportKind(kind))throw new Error('선택할 수 없는 종류입니다.');
   const rt=window.KPTURuntime,workspace=rt?.context?.read?.()?.workspace?.id;
-  if(!rt?.api||!workspace||!id)throw new Error('로그인 상태를 확인하지 못했습니다.');
+  if(!rt?.api||!workspace||!id)throw new Error('로그인 상태를 확인하지 못했어요.');
   // ACT-사진 3단계: 사진의 자료실 종류가 칸을 따라가도록 바꾸기 전 칸을 기억해 둔다(못 읽으면 사진은 그대로 둔다).
   const before=await rt.api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(workspace)}&select=activity_kind`).then(r=>Array.isArray(r)&&r.length===1?reportKindOf(r[0]):null,()=>null);
   const rows=await rt.api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(workspace)}&select=*`,{method:'PATCH',body:{activity_kind:kind,updated_at:new Date().toISOString()},prefer:'return=representation'});
   const row=Array.isArray(rows)&&rows.length===1?rows[0]:null;
-  if(!row||String(row.id)!==String(id)||row.workspace_id!==workspace||row.activity_kind!==kind)throw new Error('종류를 바꾼 결과를 확인하지 못했습니다.');
+  if(!row||String(row.id)!==String(id)||row.workspace_id!==workspace||row.activity_kind!==kind)throw new Error('종류를 바꾼 결과를 확인하지 못했어요.');
   if(before)await followPhotoCategory(rt,id,before,kind);
   await window.__KPTU_RELOAD_MEETINGS__?.();
   window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}}));

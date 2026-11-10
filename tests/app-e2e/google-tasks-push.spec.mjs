@@ -259,7 +259,7 @@ test('Google Tasks missing scope shows an explicit reconnect action',async({page
   await login(page);
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
-  await expect(page.locator('#gtTaskSection')).toContainText('Google Tasks 수정 권한이 없습니다');
+  await expect(page.locator('#gtTaskSection')).toContainText('Google Tasks 수정 권한이 없어요');
   await expect(page.locator('[data-gt-connect]')).toHaveText('Google 할 일 권한 다시 연결');
 });
 

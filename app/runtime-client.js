@@ -31,7 +31,7 @@
       const buffer=await file.arrayBuffer();
       return new File([buffer],file.name,{type:file.type,lastModified:file.lastModified});
     }catch(cause){
-      throw new RuntimeError('파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.',{code:'file_read_failed',retryable:false,cause});
+      throw new RuntimeError('파일을 읽지 못했어요. 파일을 다시 선택해 주세요.',{code:'file_read_failed',retryable:false,cause});
     }
   }
 
@@ -176,7 +176,7 @@
         return next;
       }catch(e){
         if(e instanceof RuntimeError&&e.code==='session_refresh_failed')throw e;
-        throw new RuntimeError('세션 갱신에 일시적으로 실패했습니다. 다시 시도해 주세요.',{
+        throw new RuntimeError('로그인을 잠깐 이어 가지 못했어요. 다시 해 주세요.',{
           status:e?.status||0,
           code:'session_refresh_failed',
           retryable:true,

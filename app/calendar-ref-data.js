@@ -8,7 +8,7 @@ const encode = encodeURIComponent;
 const dayStartIso = day => new Date(`${day}T00:00:00+09:00`).toISOString();
 const userOf = rt => {
   const id = rt.context?.read?.()?.user?.id;
-  if (!id) throw new Error('사용자를 확인할 수 없습니다.');
+  if (!id) throw new Error('사용자를 확인할 수 없어요.');
   return id;
 };
 

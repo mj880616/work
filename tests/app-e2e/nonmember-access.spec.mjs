@@ -28,7 +28,7 @@ for (const width of [390, 1280]) {
     await expect(page.locator('[data-auth-tab="signup"],#inviteNotice')).toHaveCount(0);
     await signInWithSession(page,'nonmember@example.test');
     await expect(page.locator('#accessDeniedView')).toBeVisible();
-    await expect(page.locator('#accessDeniedView')).toHaveText('접근 권한이 없습니다 로그아웃');
+    await expect(page.locator('#accessDeniedView')).toHaveText('접근 권한이 없어요 로그아웃');
     await expect(page.locator('main button:visible')).toHaveText(['로그아웃']);
     await expect(page.locator('main input:visible,main a:visible')).toHaveCount(0);
     await expect(page.locator('#appView')).toBeHidden();

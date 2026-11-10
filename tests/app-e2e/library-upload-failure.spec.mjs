@@ -40,7 +40,7 @@ test('library upload timeout is an unknown outcome, releases busy state and neve
   // release the held request only once it has actually arrived; releasing earlier is a no-op and the request hangs.
   await expect.poll(()=>page.evaluate(()=>typeof window.__releaseLibraryUpload)).toBe('function');
   await page.evaluate(()=>window.__releaseLibraryUpload());
-  await expect(page.locator('#documentStatus')).toContainText('업로드 시간이 오래 걸려 결과를 확인하지 못했습니다',{timeout:3000});
+  await expect(page.locator('#documentStatus')).toContainText('업로드 시간이 오래 걸려 결과를 확인하지 못했어요',{timeout:3000});
   await expect(page.locator('#documentStatus')).not.toContainText('요청 시간이 초과되었습니다');
   await expectFailureSettled(page);
   expect(await states(page)).toEqual(['결과 확인 필요']);
@@ -51,7 +51,7 @@ test('library upload timeout is an unknown outcome, releases busy state and neve
   await save.click();
   await expect(page.locator('.kptu-ask .kptu-ask-note')).toContainText('중복 등록');
   expect(await answerAsk(page,false)).toContain('업로드 결과를 확인하지 못한 파일 1개');
-  await expect(page.locator('#documentStatus')).toContainText('결과를 확인하지 못한 파일은 다시 업로드하지 않았습니다');
+  await expect(page.locator('#documentStatus')).toContainText('결과를 확인하지 못한 파일은 다시 업로드하지 않았어요');
   expect(await calls(page)).toEqual(['test.txt']);
   await expectFailureSettled(page);
 
@@ -85,17 +85,17 @@ test('single file success closes the modal, clears selection and announces the c
 });
 
 const SINGLE_FAILURES=[
-  ['network failure',{code:'network_error',message:'네트워크 연결을 확인한 뒤 다시 시도해 주세요.'},'네트워크 연결이 끊겨 업로드 결과를 확인하지 못했습니다. 네트워크 연결을 확인하고 자료실 목록에서 등록 여부를 확인한 뒤 다시 시도해 주세요.','결과 확인 필요'],
-  ['gateway timeout',{status:504,message:'upstream request timeout'},'업로드 시간이 오래 걸려 결과를 확인하지 못했습니다. 자료실 목록에서 등록 여부를 확인한 뒤 다시 시도해 주세요.','결과 확인 필요'],
+  ['network failure',{code:'network_error',message:'네트워크 연결을 확인한 뒤 다시 시도해 주세요.'},'네트워크 연결이 끊겨 업로드 결과를 확인하지 못했어요. 네트워크 연결을 확인하고 자료실 목록에서 등록 여부를 확인한 뒤 다시 시도해 주세요.','결과 확인 필요'],
+  ['gateway timeout',{status:504,message:'upstream request timeout'},'업로드 시간이 오래 걸려 결과를 확인하지 못했어요. 자료실 목록에서 등록 여부를 확인한 뒤 다시 시도해 주세요.','결과 확인 필요'],
   ['session expiry',{status:401,code:'session_required',message:'로그인이 필요합니다.'},'로그인 세션이 만료됐습니다. 다시 로그인한 뒤 업로드해 주세요.','실패 · 다시 시도'],
   ['file too large',{status:413,message:'현재 자료실 파일은 100MB까지 지원합니다.'},'현재 자료실은 파일당 100MB까지 지원합니다.','100MB 초과'],
-  ['generic 4xx',{status:400,message:'raw server detail'},'파일을 업로드하지 못했습니다. 파일과 입력값을 확인한 뒤 다시 시도해 주세요.','실패 · 다시 시도'],
-  ['retryable 5xx',{status:503,retryable:true,message:'raw server detail'},'파일을 업로드하지 못했습니다. 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
-  ['unexpected 500',{status:500,retryable:true,message:'duplicate key value violates constraint'},'파일을 업로드하지 못했습니다. 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
+  ['generic 4xx',{status:400,message:'raw server detail'},'파일을 업로드하지 못했어요. 파일과 입력값을 확인한 뒤 다시 시도해 주세요.','실패 · 다시 시도'],
+  ['retryable 5xx',{status:503,retryable:true,message:'raw server detail'},'파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
+  ['unexpected 500',{status:500,retryable:true,message:'duplicate key value violates constraint'},'파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
   // LIB-자료등록실패: 서버가 실어 보낸 멈춘 단계(고정 글자)는 짧은 이름으로 붙고, 모르는 값은 붙지 않는다.
-  ['5xx with server stage',{status:503,retryable:true,stage:'drive_token',message:'raw server detail'},'파일을 업로드하지 못했습니다 (멈춘 곳: Drive 연결 확인). 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
-  ['5xx with record stage',{status:500,retryable:true,stage:'db_insert',message:'duplicate key value violates constraint'},'파일을 업로드하지 못했습니다 (멈춘 곳: 자료 기록). 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
-  ['5xx with unknown stage',{status:500,retryable:true,stage:'<b>x</b>',message:'raw server detail'},'파일을 업로드하지 못했습니다. 잠시 후 다시 시도해 주세요.','실패 · 다시 시도']
+  ['5xx with server stage',{status:503,retryable:true,stage:'drive_token',message:'raw server detail'},'파일을 업로드하지 못했어요 (멈춘 곳: Drive 연결 확인). 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
+  ['5xx with record stage',{status:500,retryable:true,stage:'db_insert',message:'duplicate key value violates constraint'},'파일을 업로드하지 못했어요 (멈춘 곳: 자료 기록). 잠시 후 다시 시도해 주세요.','실패 · 다시 시도'],
+  ['5xx with unknown stage',{status:500,retryable:true,stage:'<b>x</b>',message:'raw server detail'},'파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요.','실패 · 다시 시도']
 ];
 for(const [name,error,message,label] of SINGLE_FAILURES){
   test(`single file ${name} shows a normalized message and keeps the form recoverable`,async({page})=>{
@@ -121,7 +121,7 @@ test('non-retryable size failures and empty files are not sent again',async({pag
   expect(await states(page)).toEqual(['100MB 초과','빈 파일']);
   expect(await calls(page)).toEqual(['big.pdf']);
   await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentStatus')).toHaveText('다시 업로드할 수 있는 파일이 없습니다. 파일을 다시 선택해 주세요.');
+  await expect(page.locator('#documentStatus')).toHaveText('다시 업로드할 수 있는 파일이 없어요. 파일을 다시 선택해 주세요.');
   expect(await calls(page)).toEqual(['big.pdf']);
 });
 
@@ -159,7 +159,7 @@ test('partial success retries only the failed file and never re-uploads complete
   await openFixture(page,{'a.pdf':[{ok:true}],'b.pdf':[{status:503,retryable:true},{ok:true}],'c.pdf':[{ok:true}]});
   await page.locator('#libraryFileInput').setInputFiles([file('a.pdf'),file('b.pdf'),file('c.pdf')]);
   await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentStatus')).toContainText('2개 완료 · 1개 미완료. 파일을 업로드하지 못했습니다. 잠시 후 다시 시도해 주세요. 다시 저장하면 완료되지 않은 파일만 업로드합니다.');
+  await expect(page.locator('#documentStatus')).toContainText('2개 완료 · 1개 미완료. 파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요. 다시 저장하면 완료되지 않은 파일만 업로드합니다.');
   await expectFailureSettled(page,{selected:3});
   expect(await states(page)).toEqual(['완료','실패 · 다시 시도','완료']);
   expect(await page.evaluate(()=>window.__documentsChanged)).toBe(1);
@@ -175,7 +175,7 @@ test('timeout in a multi-file batch stops before untried files and keeps the unk
   await openFixture(page,{'a.pdf':[{ok:true}],'b.pdf':[{code:'timeout'}],'c.pdf':[{ok:true}]});
   await page.locator('#libraryFileInput').setInputFiles([file('a.pdf'),file('b.pdf'),file('c.pdf')]);
   await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentStatus')).toContainText('1개 완료 · 2개 미완료. 업로드 시간이 오래 걸려 결과를 확인하지 못했습니다');
+  await expect(page.locator('#documentStatus')).toContainText('1개 완료 · 2개 미완료. 업로드 시간이 오래 걸려 결과를 확인하지 못했어요');
   await expect(page.locator('#documentStatus')).not.toContainText('다시 저장하면');
   await expectFailureSettled(page,{selected:3});
   expect(await states(page)).toEqual(['완료','결과 확인 필요','대기 · 업로드 전']);

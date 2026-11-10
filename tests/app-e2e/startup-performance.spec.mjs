@@ -231,7 +231,7 @@ test('deferred module failure leaves the screen before usable and shows an alert
   // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 사업 보고 ⋯ 안에서 연다(clickView). 그래서 그 앞 화면은 홈이 아니라 사업 보고다.
   await clickView(page,'projects');
   await expect(page.locator('#deferredFeatureError')).toHaveAttribute('role','alert');
-  await expect(page.locator('#deferredFeatureError')).toContainText('불러오지 못했습니다');
+  await expect(page.locator('#deferredFeatureError')).toContainText('불러오지 못했어요');
   await expect(page.locator('#deferredFeatureError .wait-retry')).toHaveText('다시');
   await expect(page.locator('#deferredFeatureError')).not.toHaveClass(/\bnotice\b/);
   await expect(page.locator('#meetingsView')).toBeVisible();await expect(page.locator('#projectsView')).toBeHidden();

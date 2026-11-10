@@ -232,7 +232,7 @@ export function touchesCounts(rows, where, changed = [], removed = []) {
 // F8 옮기기 상한. across = 다른 클라우드로. 결과 {ok, reason}. 화면은 reason 글을 그대로 보인다.
 export function moveCheck(items, {across = false} = {}) {
   const list = Array.isArray(items) ? items.filter(Boolean) : [];
-  if (!list.length) return {ok: false, reason: '선택한 것이 없습니다'};
+  if (!list.length) return {ok: false, reason: '선택한 것이 없어요'};
   if (across) {
     if (list.length > 1) return {ok: false, reason: '다른 클라우드로는 한 번에 1개만 옮깁니다'};
     const it = list[0];
@@ -318,7 +318,7 @@ export function errorText(code) {
   if (c === 'preview_unsupported' || c === 'media_unsupported') return '미리보기가 없는 파일입니다';
   if (c === 'preview_too_large') return '너무 커서 미리보기를 하지 않습니다';
   if (c === 'not_in_index' || c === 'not_found' || c === 'http_404') return '목록에 없는 파일입니다. 잠시 뒤 다시 보세요';
-  return '불러오지 못했습니다';
+  return '불러오지 못했어요';
 }
 
 // 실패 까닭 한 줄(작은 글자, '불러오지 못했습니다' 옆). 서버 글자를 그대로 보이지 않고 정해 둔 말만 쓴다(S49-26).
@@ -383,7 +383,7 @@ export function writeErrorText(code) {
   const c = String(code || '');
   if (c === 'name_taken') return '같은 이름이 이미 있습니다';
   if (c === 'name_invalid') return '쓸 수 없는 이름입니다';
-  if (c === 'move_into_self') return '폴더를 자기 안으로 옮길 수 없습니다';
+  if (c === 'move_into_self') return '폴더를 자기 안으로 옮길 수 없어요';
   if (c === 'dest_invalid') return '옮길 곳이 맞지 않습니다';
   if (c === 'too_large') return '다른 클라우드로는 200MB까지 옮깁니다';
   if (c === 'across_folder') return '다른 클라우드로는 폴더를 옮기지 않습니다';
@@ -391,10 +391,10 @@ export function writeErrorText(code) {
   if (c === 'size_unknown') return '크기를 모르는 파일은 다른 클라우드로 옮기지 않습니다';
   if (c === 'changed_since_index' || c === 'size_mismatch') return '그사이 파일이 바뀌었습니다. 맞춘 뒤 다시 해 보세요';
   if (c === 'verify_failed') return '옮긴 파일이 원본과 달라 원본을 그대로 두었습니다';
-  if (c === 'upload_failed') return '보내지 못했습니다. 원본은 그대로입니다';
-  if (c === 'not_owner') return '내 파일이 아니라 옮길 수 없습니다';
-  if (c === 'copy_into_self') return '폴더를 자기 안으로 복사할 수 없습니다';
-  if (c === 'copy_failed') return '복사하지 못했습니다. 원본은 그대로입니다';
+  if (c === 'upload_failed') return '보내지 못했어요. 원본은 그대로입니다';
+  if (c === 'not_owner') return '내 파일이 아니라 옮길 수 없어요';
+  if (c === 'copy_into_self') return '폴더를 자기 안으로 복사할 수 없어요';
+  if (c === 'copy_failed') return '복사하지 못했어요. 원본은 그대로입니다';
   if (c === 'folder_too_big') return '폴더 안이 200개가 넘어 통째로 복사하지 않습니다. 안을 열어 선택해 주세요';
   // 올리기(2-④)
   if (c === 'file_mismatch') return '같은 파일이 아니에요(이름·크기가 달라요). 처음 올리던 파일을 선택해 주세요';
@@ -464,14 +464,14 @@ export function xferPlan(rows, dest, mode = 'copy') {
     // S52-43 ② FILES-저장소사이: 원드라이브 ↔ 구글 드라이브는 폴더째(화면이 같은 폴더 모양을 만들고 안의 파일을 전송 목록에 펼쳐 넣음, treeAcross).
     //   S53-8: 내 PC·이 폰이 끼어도 폴더째(treeDev·treeUp). 모르는 저장소만 막는다.
     if (across && r.is_folder && !(TREE_SOURCES.includes(r.source) && TREE_SOURCES.includes(dest.source))) blocked.push({row: r, reason: `이 저장소와는 폴더째 ${verb === '옮겨요' ? '옮기지' : '복사하지'} 않아요. 폴더를 열어 파일을 선택해 주세요`});
-    else if (!across && r.is_folder && (r.source === 'pc' || r.source === 'ph') && treeInside(r.source, r.item_id, dest.parent)) blocked.push({row: r, reason: `폴더를 자기 안으로 ${mode === 'move' ? '옮길' : '복사할'} 수 없습니다`});
+    else if (!across && r.is_folder && (r.source === 'pc' || r.source === 'ph') && treeInside(r.source, r.item_id, dest.parent)) blocked.push({row: r, reason: `폴더를 자기 안으로 ${mode === 'move' ? '옮길' : '복사할'} 수 없어요`});
     else if (across && gdDoc(r)) blocked.push({row: r, reason: '구글 문서는 다른 저장소로 보내지 않습니다'});
     else if (across && !r.is_folder && (r.size_bytes === null || r.size_bytes === undefined || !Number.isFinite(Number(r.size_bytes)))) blocked.push({row: r, reason: '크기를 모르는 파일은 다른 저장소로 보내지 않습니다'});
-    else if (!across && r.is_folder && r.item_id === (dest.parent ?? null)) blocked.push({row: r, reason: `폴더를 자기 안으로 ${mode === 'move' ? '옮길' : '복사할'} 수 없습니다`});
+    else if (!across && r.is_folder && r.item_id === (dest.parent ?? null)) blocked.push({row: r, reason: `폴더를 자기 안으로 ${mode === 'move' ? '옮길' : '복사할'} 수 없어요`});
     else if (mode === 'move' && !across && (r.parent_id ?? null) === (dest.parent ?? null)) blocked.push({row: r, reason: '이미 이 폴더에 있습니다'});
     else ok.push(r);
   }
-  const reason = ok.length ? '' : blocked[0]?.reason || '선택한 것이 없습니다';
+  const reason = ok.length ? '' : blocked[0]?.reason || '선택한 것이 없어요';
   return {ok, blocked, reason};
 }
 // 200MB 넘는 클라우드 사이 파일인가(H-4).

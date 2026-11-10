@@ -505,7 +505,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const attBox = detail.querySelector('[data-note-attachments]');
     attBox.innerHTML = (selected.attachments || []).map(file => {
       const url = driveFileUrl(file.drive_file_id), name = attachmentName(file);
-      const link = url ? `<a class="file-line-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">Drive에서 열기</a>` : '<span class="file-line-state">링크를 확인할 수 없습니다.</span>';
+      const link = url ? `<a class="file-line-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">Drive에서 열기</a>` : '<span class="file-line-state">링크를 확인할 수 없어요.</span>';
       const more = `<button type="button" class="basket-icon-button note-file-more" data-note-file-more="${esc(file.drive_file_id)}" aria-label="${esc(name)} 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button>`;
       const edit = renameButtonHtml({target:'note', id:selected.id, driveId:file.drive_file_id, name:String(file.file_name || '')});
       return fileLine({name, meta:fileSize(file.size_bytes), cls:'note-file-line', end:edit + link + more, attrs:` data-note-file="${esc(file.drive_file_id)}" data-fr-row`});

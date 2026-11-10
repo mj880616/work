@@ -246,7 +246,7 @@ test('authenticated workspace initialization failure is explicit and retryable',
   await page.goto(`${APP}login/?return=${encodeURIComponent(APP)}`);
   await signInWithSession(page,'member@example.org');
   await expect(page.locator('#bootView')).toBeVisible({timeout:20000});
-  await expect(page.locator('#bootView')).toContainText('업무 공간을 열 수 없습니다.');
+  await expect(page.locator('#bootView')).toContainText('업무 공간을 열 수 없어요.');
   await expect(page.locator('#bootRetryBtn')).toBeVisible();
   failMembership=false;
   await page.locator('#bootRetryBtn').click();

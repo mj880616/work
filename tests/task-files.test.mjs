@@ -83,7 +83,7 @@ test('attach sends one file as multipart to the Edge; detach sends only ids', as
 import { attachNewTaskFiles, newTaskFilesNotice, pickProblem, taskFilesAvailable } from '../app/task-files.js';
 test('attachNewTaskFiles: one attach per file to the new task; a failed file is listed and the rest still go', async () => {
   const sent = [];
-  const rt = viaUpload({ api: async (path, options) => { const name = options.body.get('file').name; sent.push([path, options.body.get('task_id'), name]); if (name === 'b.txt') throw Error('Drive에 올리지 못했습니다.'); return { ok: true, files: sent.filter(s => s[2] !== 'b.txt').map((s, i) => ({ drive_file_id: 'd' + i, file_name: s[2], size_bytes: 1 })), notes_synced: true }; }, copyUploadFile: async f => f });
+  const rt = viaUpload({ api: async (path, options) => { const name = options.body.get('file').name; sent.push([path, options.body.get('task_id'), name]); if (name === 'b.txt') throw Error('Drive에 올리지 못했어요.'); return { ok: true, files: sent.filter(s => s[2] !== 'b.txt').map((s, i) => ({ drive_file_id: 'd' + i, file_name: s[2], size_bytes: 1 })), notes_synced: true }; }, copyUploadFile: async f => f });
   const files = [new File(['a'], 'a.txt'), new File(['b'], 'b.txt'), new File([''], 'empty.txt'), new File(['c'], 'c.txt')];
   const seen = [];
   const result = await attachNewTaskFiles('t1', files, { rt, onProgress: (i, n, f) => seen.push([i, n, f.name]) });
@@ -93,7 +93,7 @@ test('attachNewTaskFiles: one attach per file to the new task; a failed file is 
   assert.deepEqual(result.failed.map(f => f.name), ['b.txt', 'empty.txt']);
   assert.deepEqual(result.files.map(f => f.file_name), ['a.txt', 'c.txt']);
   const notice = newTaskFilesNotice(result);
-  assert.match(notice, /^할 일은 저장했습니다\. 파일 2개\(b\.txt, empty\.txt\)를 붙이지 못했습니다: Drive에 올리지 못했습니다\./);
+  assert.match(notice, /^할 일은 저장했습니다\. 파일 2개\(b\.txt, empty\.txt\)를 붙이지 못했어요: Drive에 올리지 못했어요\./);
   assert.match(notice, /할 일 ⋯ → 파일 붙이기/);
   assert.equal(newTaskFilesNotice({ done: 1, failed: [] }), '');
 });
@@ -164,14 +164,14 @@ const editRt = ({ failAttach = [], failDetach = [], start = [] } = {}) => {
     api: async (path, options = {}) => {
       if (path.includes('action=attach')) {
         const name = options.body.get('file').name; calls.push(['attach', name]);
-        if (failAttach.includes(name)) throw Object.assign(Error('올리지 못했습니다.'), { status: 502 });
+        if (failAttach.includes(name)) throw Object.assign(Error('올리지 못했어요.'), { status: 502 });
         if (files.length >= MAX_TASK_FILES) throw Object.assign(Error('한 할 일에는 파일을 10개까지 붙일 수 있습니다.'), { status: 400 });
         files.push({ drive_file_id: 'new' + next++, file_name: name, size_bytes: 3 });
         return { ok: true, files: [...files], task: { id: 't1', notes: 'n' }, notes_synced: true };
       }
       if (path.includes('action=detach')) {
         const id = options.body.drive_file_id; calls.push(['detach', id]);
-        if (failDetach.includes(id)) throw Object.assign(Error('빼지 못했습니다.'), { status: 502 });
+        if (failDetach.includes(id)) throw Object.assign(Error('빼지 못했어요.'), { status: 502 });
         if (!files.some(f => f.drive_file_id === id)) throw Object.assign(Error('이미 빠진 파일입니다.'), { status: 404 });
         files = files.filter(f => f.drive_file_id !== id);
         return { ok: true, files: [...files], task: { id: 't1', notes: 'n' }, notes_synced: true };
@@ -224,7 +224,7 @@ test('applyTaskAttachPlan: a failed upload keeps the old file; a full task takes
   assert.deepEqual(one.calls, [['attach', 'a2.pdf']]);
   assert.deepEqual(one.files().map(f => f.drive_file_id), ['a']);
   assert.equal(r1.gone.size, 0);
-  assert.match(taskAttachNotice(r1), /^할 일은 저장했습니다\. 첨부 1건\(a2\.pdf\)을 바꾸지 못했습니다: 올리지 못했습니다\./);
+  assert.match(taskAttachNotice(r1), /^할 일은 저장했습니다\. 첨부 1건\(a2\.pdf\)을 바꾸지 못했어요: 올리지 못했어요\./);
   const ten = Array.from({ length: 10 }, (_, i) => ({ drive_file_id: 'f' + i, file_name: i + '.txt' }));
   const full = editRt({ start: ten });
   const r2 = await applyTaskAttachPlan('t1', { remove: [], swap: [{ from: { drive_file_id: 'f3', file_name: '3.txt', inTable: true }, file: tf('3 new.txt') }], add: [], tableCount: 10 }, { rt: full.rt });

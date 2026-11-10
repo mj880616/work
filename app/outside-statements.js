@@ -353,7 +353,7 @@ function sourcesHtml() {
       return `<div class="os-src-row"><button type="button" class="os-switch" role="switch" data-os-source="${esc(s.key)}" aria-checked="${on}"${busy ? ' disabled' : ''}><span class="os-switch-dot" aria-hidden="true"></span><span class="os-src-name">${esc(s.name)}</span></button>${reading ? `<span class="os-src-note" data-os-reading>${waitInlineHtml()}</span>` : note ? `<span class="os-src-note${bad}">${esc(note)}</span>` : ''}</div>`;
     }).join('')}</section>`;
   }).join('');
-  return head + (state.saveFailed ? failHtml({text: '저장하지 못했습니다', reason: state.saveFailed}) : '') + groups;
+  return head + (state.saveFailed ? failHtml({text: '저장하지 못했어요', reason: state.saveFailed}) : '') + groups;
 }
 
 // 탭 줄과 칸 보이기(단체 켜고 끄기·관심 주제 칸에서는 탭 줄·위 줄을 감춘다).

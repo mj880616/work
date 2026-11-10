@@ -140,7 +140,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       if(!projectChoices.some(x=>x.project.id===project))project='';
       places=keepPlaces(placeChoices(),places);
       paint();picker.render();
-    })().catch(e=>{if(run===choiceEpoch){choicesFlight=null;status.textContent=e.message||'선택 목록을 불러오지 못했습니다.';}});
+    })().catch(e=>{if(run===choiceEpoch){choicesFlight=null;status.textContent=e.message||'선택 목록을 불러오지 못했어요.';}});
     return choicesFlight;
   }
   // The [할 일] options need the lists at once; [업데이트] reads them when its ▾ sheet opens (the sheet waits for choices()).
@@ -210,7 +210,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   const taskScopeCurrent=r=>{const c=taskRuntime.context.read();return box.isConnected&&r.owner===c?.user?.id&&r.workspace===c?.workspace?.id&&r.epoch===taskRuntime.session.epoch();};
   const taskCurrent=r=>taskRequest===r&&r.token===taskSequence&&taskScopeCurrent(r)&&mode==='task';
   const taskLinkKey=link=>link.project_id?'project:'+link.project_id:link.organization_id?'organization:'+link.organization_id:link.meeting_id?'meeting:'+link.meeting_id:'';
-  function taskLinkKeys(result){if(!Array.isArray(result?.links)||!Array.isArray(result?.meeting_links))throw new Error('사업영역 연결의 저장 결과를 확인하지 못했습니다.');return new Set([...result.links,...result.meeting_links].filter(l=>l.status==='confirmed').map(taskLinkKey).filter(Boolean))}
+  function taskLinkKeys(result){if(!Array.isArray(result?.links)||!Array.isArray(result?.meeting_links))throw new Error('사업영역 연결의 저장 결과를 확인하지 못했어요.');return new Set([...result.links,...result.meeting_links].filter(l=>l.status==='confirmed').map(taskLinkKey).filter(Boolean))}
   function taskNotice(message,{confirm=false}={}){status.textContent=message;if(confirm&&mode==='task'){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=taskAttempt?.task?'연결 확인':'할 일 목록에서 확인';b.onclick=()=>recoverQuickTask();status.append(document.createTextNode(' '),b)}}
   function taskControls(busy){box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=busy);pickerFiles.render()}
   function taskToast(r,message){if(!taskScopeCurrent(r))return;const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;kptuHoldToast(toast)}
@@ -219,18 +219,18 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     const a=taskAttempt;if(!a||a.pending||taskRequest||taskReading||mode!=='task'||!taskScopeCurrent(a))return;
     const run=++taskSequence,active=()=>run===taskSequence&&taskAttempt===a&&taskScopeCurrent(a)&&mode==='task';
     const read=async path=>{if(!active())throw new Error('입력창이나 로그인이 바뀌었습니다.');const d=await taskRuntime.api('/functions/v1/google-tasks?action='+path,{singleFlight:false,expectedSessionEpoch:a.epoch});if(!active())throw new Error('입력창이나 로그인이 바뀌었습니다.');return d};
-    const tasks=async()=>{const d=await read('tasks&pending_scope=all');if(!Array.isArray(d?.tasks)||d.needs_reconnect||d.error)throw new Error(d?.warning||d?.error||'Google 할 일 목록을 확인하지 못했습니다.');return d.tasks.filter(taskIdentity)};
-    const accept=async row=>{const exact=(await tasks()).filter(t=>t.id===row.id&&t.taskListId===row.taskListId);if(exact.length!==1)throw new Error('선택한 기존 할 일을 확인하지 못했습니다.');const links=taskLinkKeys(await read('links&task_id='+encodeURIComponent(row.id)));a.task=structuredClone(exact[0]);a.bodyState='confirmed';a.links=links;a.linkState='confirmed';a.needsReview=false;taskNotice('선택한 기존 할 일을 사용합니다. 입력을 확인한 뒤 저장해 주세요.')};
+    const tasks=async()=>{const d=await read('tasks&pending_scope=all');if(!Array.isArray(d?.tasks)||d.needs_reconnect||d.error)throw new Error(d?.warning||d?.error||'Google 할 일 목록을 확인하지 못했어요.');return d.tasks.filter(taskIdentity)};
+    const accept=async row=>{const exact=(await tasks()).filter(t=>t.id===row.id&&t.taskListId===row.taskListId);if(exact.length!==1)throw new Error('선택한 기존 할 일을 확인하지 못했어요.');const links=taskLinkKeys(await read('links&task_id='+encodeURIComponent(row.id)));a.task=structuredClone(exact[0]);a.bodyState='confirmed';a.links=links;a.linkState='confirmed';a.needsReview=false;taskNotice('선택한 기존 할 일을 사용합니다. 입력을 확인한 뒤 저장해 주세요.')};
     taskReading=true;saving=true;taskControls(true);status.innerHTML=waitInlineHtml();
     try{
       if(a.task)await accept(a.task);
-      else{const rows=await tasks();taskNotice(rows.length?'저장된 할 일을 직접 선택해 주세요. 제목만으로 저장을 판단하지 않습니다.':'목록에서 결과를 찾지 못했습니다. 입력은 유지하며 새로 만들지 않습니다.',{confirm:!rows.length});for(const row of rows){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=row.title+' · 이 항목 사용';b.onclick=async()=>{if(!active()||taskReading)return;taskReading=true;saving=true;taskControls(true);try{await accept(row)}catch(error){if(active())taskNotice(error.message||String(error),{confirm:true})}finally{if(active()){taskReading=false;saving=false;taskControls(false);paint()}}};status.append(document.createTextNode(' '),b);const hint=document.createElement('small');hint.textContent=[row.taskListTitle||'Google 할 일',row.due?String(row.due).slice(0,10):'기한 없음',row.notes||''].join(' · ');status.append(hint)}}
-    }catch(error){if(active())taskNotice('저장 결과를 확인하지 못했습니다. '+(error.message||error),{confirm:true})}
+      else{const rows=await tasks();taskNotice(rows.length?'저장된 할 일을 직접 선택해 주세요. 제목만으로 저장을 판단하지 않습니다.':'목록에서 결과를 찾지 못했어요. 입력은 유지하며 새로 만들지 않아요.',{confirm:!rows.length});for(const row of rows){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=row.title+' · 이 항목 사용';b.onclick=async()=>{if(!active()||taskReading)return;taskReading=true;saving=true;taskControls(true);try{await accept(row)}catch(error){if(active())taskNotice(error.message||String(error),{confirm:true})}finally{if(active()){taskReading=false;saving=false;taskControls(false);paint()}}};status.append(document.createTextNode(' '),b);const hint=document.createElement('small');hint.textContent=[row.taskListTitle||'Google 할 일',row.due?String(row.due).slice(0,10):'기한 없음',row.notes||''].join(' · ');status.append(hint)}}
+    }catch(error){if(active())taskNotice('저장 결과를 확인하지 못했어요. '+(error.message||error),{confirm:true})}
     finally{if(active()){taskReading=false;saving=false;taskControls(false);paint()}}
   }
   async function saveTask(){
     if(saving||taskRequest||taskReading)return;const ctx=taskRuntime.context.read();if(!ctx?.user?.id||!ctx?.workspace?.id)return;
-    const a=taskAttempt;if(a?.pending)return;if(a&&(a.needsReview||a.bodyState==='unknown'||a.linkState==='unknown')){taskNotice('앞선 저장 결과를 먼저 확인해 주세요. 새 할 일은 만들지 않았습니다.',{confirm:true});return}
+    const a=taskAttempt;if(a?.pending)return;if(a&&(a.needsReview||a.bodyState==='unknown'||a.linkState==='unknown')){taskNotice('앞선 저장 결과를 먼저 확인해 주세요. 새 할 일은 만들지 않았어요.',{confirm:true});return}
     const title=input.value.trim();if(!title)return;
     const batch=upload,files=takesFiles()?batch.entries.filter(e=>e.kind!=='success').map(e=>e.file):[];
     if(files.length>MAX_TASK_FILES){taskNotice(`한 할 일에는 파일을 ${MAX_TASK_FILES}개까지 붙일 수 있습니다.`);return}
@@ -249,7 +249,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       if(!attempt.task){
         const result=await createGoogleTask({...body,expectedSessionEpoch:r.epoch});if(!taskScopeCurrent(r))return;
         if(result?.ok===true&&taskIdentity(result.task))attempt.task=structuredClone(result.task);
-        if(!attempt.task||!taskBodyMatches(attempt.task,body))throw new Error('Google 할 일의 저장 결과를 확인하지 못했습니다.');attempt.bodyState='confirmed';
+        if(!attempt.task||!taskBodyMatches(attempt.task,body))throw new Error('Google 할 일의 저장 결과를 확인하지 못했어요.');attempt.bodyState='confirmed';
         // TASK-추가창파일: the task exists; the chosen files go up now (once, even if the links need another save).
         await sendFiles();
         if(!taskCurrent(r)){attempt.needsReview=true;return}
@@ -257,18 +257,18 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
         if(result.link_error||body.links.some(l=>!attempt.links.has(taskLinkKey(l)))){attempt.linkState='partial';attempt.needsReview=true;taskNotice('할 일은 저장했습니다. 사업영역 연결을 확인해 주세요.'+(attempt.filesNotice?' '+attempt.filesNotice:''),{confirm:true});taskToast(r,'할 일은 저장했습니다. 사업영역 연결을 확인해 주세요.');return}
       }else if(!taskBodyMatches(attempt.task,body)){
         const result=await call('update',{action:'update',task_id:attempt.task.id,task_list_id:attempt.task.taskListId,title:body.title,notes:body.notes,due:body.due});if(!taskScopeCurrent(r))return;
-        if(result?.ok!==true||!taskIdentity(result.task)||result.task.id!==attempt.task.id||result.task.taskListId!==attempt.task.taskListId||!taskBodyMatches(result.task,body))throw new Error('기존 할 일의 수정 결과를 확인하지 못했습니다.');attempt.task=structuredClone(result.task);attempt.bodyState='confirmed';if(!taskCurrent(r)){attempt.needsReview=true;return}
+        if(result?.ok!==true||!taskIdentity(result.task)||result.task.id!==attempt.task.id||result.task.taskListId!==attempt.task.taskListId||!taskBodyMatches(result.task,body))throw new Error('기존 할 일의 수정 결과를 확인하지 못했어요.');attempt.task=structuredClone(result.task);attempt.bodyState='confirmed';if(!taskCurrent(r)){attempt.needsReview=true;return}
       }
       await sendFiles();if(!taskCurrent(r)){attempt.needsReview=true;return}
       stage='links';const missing=body.links.filter(l=>!attempt.links.has(taskLinkKey(l)));
-      if(missing.length){const result=await call('link',{action:'link',task_id:attempt.task.id,links:missing});if(!taskScopeCurrent(r))return;const confirmed=taskLinkKeys(result);if(result?.ok!==true||missing.some(l=>!confirmed.has(taskLinkKey(l))))throw new Error('사업영역 연결의 저장 결과를 확인하지 못했습니다.');attempt.links=confirmed;if(!taskCurrent(r)){attempt.needsReview=true;return}}
+      if(missing.length){const result=await call('link',{action:'link',task_id:attempt.task.id,links:missing});if(!taskScopeCurrent(r))return;const confirmed=taskLinkKeys(result);if(result?.ok!==true||missing.some(l=>!confirmed.has(taskLinkKey(l))))throw new Error('사업영역 연결의 저장 결과를 확인하지 못했어요.');attempt.links=confirmed;if(!taskCurrent(r)){attempt.needsReview=true;return}}
       attempt.linkState='confirmed';if(!taskCurrent(r))return;taskAttempt=null;r.completed=true;
       
       if(taskSnapshot()===r.draft){input.value='';expanded=false;taskNotice(attempt.filesNotice||'')}else{expanded=true;taskNotice('제출한 할 일은 저장했습니다. 추가 입력은 남겨 두었습니다.'+(attempt.filesNotice?' '+attempt.filesNotice:''))}
       // UI-기록할곳되돌리기 (c): the next task starts with no project (the date choice stays as before).
       project='';paint();taskToast(r,attempt.filesNotice?'할 일은 저장했습니다. 파일을 확인해 주세요.':'할 일을 추가했습니다.');
-      try{void Promise.resolve(refreshTasks()).catch(()=>{if(taskScopeCurrent(r)&&r.token===taskSequence&&mode==='task'&&!input.value)taskNotice('할 일은 저장했습니다. 목록을 다시 불러오지 못했습니다.')})}catch(error){if(taskCurrent(r))taskNotice('할 일은 저장했습니다. 목록을 다시 불러오지 못했습니다.')}
-    }catch(error){if(!taskScopeCurrent(r))return;if(stage==='body')attempt.bodyState='unknown';else attempt.linkState='unknown';attempt.needsReview=true;if(taskCurrent(r))taskNotice((attempt.task?'할 일은 확인했습니다. 연결과 수정 결과를 확인해 주세요. ':'저장 결과를 확인하지 못했습니다. ')+(error.message||error),{confirm:true})}
+      try{void Promise.resolve(refreshTasks()).catch(()=>{if(taskScopeCurrent(r)&&r.token===taskSequence&&mode==='task'&&!input.value)taskNotice('할 일은 저장했어요. 목록을 다시 불러오지 못했어요.')})}catch(error){if(taskCurrent(r))taskNotice('할 일은 저장했어요. 목록을 다시 불러오지 못했어요.')}
+    }catch(error){if(!taskScopeCurrent(r))return;if(stage==='body')attempt.bodyState='unknown';else attempt.linkState='unknown';attempt.needsReview=true;if(taskCurrent(r))taskNotice((attempt.task?'할 일은 확인했습니다. 연결과 수정 결과를 확인해 주세요. ':'저장 결과를 확인하지 못했어요. ')+(error.message||error),{confirm:true})}
     finally{attempt.pending=false;if(taskRequest===r&&taskScopeCurrent(r)&&r.token===taskSequence){taskRequest=null;saving=false;taskControls(false);paint()}}
   }
   // Resolves {ok:true} or {ok:false, message}; the write window's save icon ([크게]) waits for it (same path as [추가]).
@@ -294,7 +294,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     saving=true;status.textContent='';hint.textContent='';
     box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);pickerFiles.render();
     try{
-      const onChange=()=>{if(isCurrent())paint();},onOcrChange=value=>{if(isCurrent()&&token.current()&&!value.ok)status.textContent=value.result_unknown?'사진은 저장했습니다. 글자 읽기 결과는 잊지 말기에서 확인해 주세요.':value.ocr_saved?'사진과 글자는 저장했습니다. 임시 문서 정리는 잊지 말기에서 확인해 주세요.':value.text?'사진은 저장했습니다. 이전 글자는 유지했습니다. 읽기 결과와 임시 문서 정리는 잊지 말기에서 확인해 주세요.':'사진은 저장했습니다. 글자는 읽지 못했습니다.';};
+      const onChange=()=>{if(isCurrent())paint();},onOcrChange=value=>{if(isCurrent()&&token.current()&&!value.ok)status.textContent=value.result_unknown?'사진은 저장했습니다. 글자 읽기 결과는 잊지 말기에서 확인해 주세요.':value.ocr_saved?'사진과 글자는 저장했습니다. 임시 문서 정리는 잊지 말기에서 확인해 주세요.':value.text?'사진은 저장했습니다. 이전 글자는 유지했습니다. 읽기 결과와 임시 문서 정리는 잊지 말기에서 확인해 주세요.':'사진은 저장했어요. 글자는 읽지 못했어요.';};
       const sameOwner=()=>{const c=window.KPTURuntime.context.read();return c?.user?.id===owner&&c?.workspace?.id===workspace;};
       let result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,ocr,onChange,onOcrChange}):await createNote({raw_text:text,...(doc?{doc}:{})})):saveMode==='files'?await saveUpdateWithFiles({places:currentPlaces(),text,batch,doc,isCurrent,sameOwner,ocr,onChange,onOcrChange}):await saveUpdate({places:currentPlaces(),text,owner,doc});
       // ED③ 업데이트: an update with files is made by the upload (letters); its saved form is put on after. A refusal leaves the letters saved.
@@ -313,7 +313,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       const toast=document.querySelector('#toast');const sentCount=batch.entries.filter(e=>e.kind==='success').length;const doneNote=(saveMode==='basket'||saveMode==='files')&&sentCount&&!linkFailed&&!fileFailed&&!docFailed?`업로드 완료 · ${sentCount}개 · `:'';toast.textContent=doneNote+(linkFailed||fileFailed||docFailed||saveMode==='basket'?'잊지 말기에 저장했습니다.':saveMode==='files'?(text.trim()?'기록과 자료를 저장했습니다.':'자료로 넣었습니다.'):'기록을 저장했습니다.');kptuHoldToast(toast);
       choicesFlight=null;
       return linkFailed||fileFailed||docFailed?{ok:true,linkError:result.linkError||'',fileError:fileFailed?(result.filed.message||'FILES'):'',docError:docFailed}:{ok:true};
-    }catch(e){const message=e.message||'저장하지 못했습니다.';if(isCurrent())status.textContent=message;return {ok:false,message};}
+    }catch(e){const message=e.message||'저장하지 못했어요.';if(isCurrent())status.textContent=message;return {ok:false,message};}
     finally{if(pendingOcr===token)pendingOcr=null;saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
   }
   // BASKET-노트입력창: one line (or more) + [추가] → a note titled by its first line, through the same insert as the write window.
@@ -341,7 +341,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       if(warning)status.textContent=warning;
       const toast=document.querySelector('#toast');if(toast){toast.textContent=warning?'노트는 저장했어요. 첨부를 확인해 주세요.':'노트를 추가했습니다.';kptuHoldToast(toast);}
       return {ok:true};
-    }catch(e){const message=e.message||'저장하지 못했습니다.';if(isCurrent())status.textContent=message;return {ok:false,message};}
+    }catch(e){const message=e.message||'저장하지 못했어요.';if(isCurrent())status.textContent=message;return {ok:false,message};}
     finally{saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
   }
   box.querySelector('[data-quick-save]').onclick=()=>void save();

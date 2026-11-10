@@ -215,7 +215,7 @@ test('date list delete failure keeps the row and says so', async ({ page }) => {
   await page.locator('#calendarTaskMenu').getByRole('button', { name: '삭제', exact: true }).click();
   await answerAsk(page, true);
   await expect.poll(() => actions(calls, 'delete').length).toBe(1);
-  await expect(page.locator('#toast')).toContainText('삭제하지 못했습니다');
+  await expect(page.locator('#toast')).toContainText('삭제하지 못했어요');
   await expect(chip(page, 'cell')).toBeVisible();
   await expect(line(page, 'cell')).not.toHaveAttribute('data-busy', '1');
 });

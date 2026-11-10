@@ -16,11 +16,11 @@ export function validateNoteText(raw_text) {
 }
 function workspace(rt) {
   const id = rt.context.read()?.workspace?.id;
-  if (!id) throw new Error('업무 공간을 확인할 수 없습니다.');
+  if (!id) throw new Error('업무 공간을 확인할 수 없어요.');
   return encodeURIComponent(id);
 }
 function savedRow(rows) {
-  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('저장 결과를 확인할 수 없습니다. 접근 권한을 확인해 주세요.');
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('저장 결과를 확인할 수 없어요. 접근 권한을 확인해 주세요.');
   return rows[0];
 }
 // ED③ 업데이트: doc (optional) is the new editor's saved form, written with the letters in the same insert (설계 3.1·11.3).

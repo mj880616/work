@@ -9,7 +9,7 @@ import {barHtml} from './wait-state.js';
 //   ''        — latest shown: the line is hidden
 export function freshnessText(state,checkedAt=0){
   if(state==='stale')return '최신 아님'+(checkedAt?` · 마지막 확인 ${seoulClock(new Date(checkedAt))}`:'');
-  if(state==='failed')return '불러오지 못했습니다';
+  if(state==='failed')return '불러오지 못했어요';
   return '';
 }
 export function paintFreshness(el,{state='',checkedAt=0,onRetry=null}={}){

@@ -13,7 +13,7 @@ export const RHWP='./hwp-lab/rhwp-0.8.7/';
 // Without the port handshake the SDK would fall back to window messages it cannot verify: refuse instead.
 class SandboxTransport extends EditorTransport{
   constructor(iframe,url,options){super(iframe,url,options);this._targetOrigin='*'}
-  _useLegacy(){this._rejectConnect(new Error('HWP 편집 연결을 확인하지 못했습니다.'))}
+  _useLegacy(){this._rejectConnect(new Error('HWP 편집 연결을 확인하지 못했어요.'))}
 }
 
 export async function createSandboxedEditor(host,{loadTimeoutMs=60000,handshakeTimeoutMs=10000}={}){
@@ -28,7 +28,7 @@ export async function createSandboxedEditor(host,{loadTimeoutMs=60000,handshakeT
   let transport;
   try{
     await new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>reject(new Error('HWP 편집을 불러오지 못했습니다.')),loadTimeoutMs);
+      const timer=setTimeout(()=>reject(new Error('HWP 편집을 불러오지 못했어요.')),loadTimeoutMs);
       iframe.addEventListener('load',()=>{clearTimeout(timer);resolve()},{once:true});
     });
     transport=new SandboxTransport(iframe,studioUrl,{handshakeTimeoutMs});

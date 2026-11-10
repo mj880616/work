@@ -39,7 +39,7 @@ test('목록을 읽지 못하면(일시 실패) 삭제하지 않고 다시 시�
   const result = await deleteToTrash({kind: 'report', id: 'x1', name: '합성', rt, ask: () => true, notify: (m) => said.push(m), remove: () => rt.api('/x', {method: 'DELETE'})});
   assert.equal(result.status, 'blocked');
   assert.deepEqual(deletes(rt), []);
-  assert.match(said[0], /확인하지 못해 삭제하지 않았습니다/);
+  assert.match(said[0], /확인하지 못해 삭제하지 않았어요/);
 });
 
 test('확인창에서 취소하면 DELETE 요청이 없다', async () => {
@@ -70,7 +70,7 @@ test('삭제 뒤 목록에 없으면 휴지통에 들어갔다고 말하지 않�
   const said = [];
   const result = await deleteToTrash({kind: 'report', id: 'x1', name: '합성', rt, ask: () => true, notify: (m) => said.push(m), remove: () => rt.api('/x', {method: 'DELETE'})});
   assert.equal(result.status, 'unconfirmed');
-  assert.match(said[0], /휴지통에서 확인하지 못했습니다/);
+  assert.match(said[0], /휴지통에서 확인하지 못했어요/);
   assert.doesNotMatch(said.join(), /옮겼습니다/);
 });
 

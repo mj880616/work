@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {deleteDocument,luDeleteErrorMessage} from '../app/document-delete.js';
 
 const doc={id:'doc-1',file_name:'회의자료.pdf',project_id:'project-1',meeting_id:'meeting-1'};
-const unknown='삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
-const auth='로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.';
+const unknown='삭제 결과를 확인하지 못했어요. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
+const auth='로그인 세션을 확인하지 못했어요. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.';
 const driveAuth='Google Drive 연결을 확인해 주세요. 다시 삭제하기 전에 자료 목록과 원본 상태를 먼저 확인해 주세요.';
-const legacy='자료 등록을 삭제했습니다. Drive 파일 처리 결과는 확인하지 못했습니다. 원본 상태를 직접 확인해 주세요.';
+const legacy='자료 등록을 삭제했어요. Drive 파일 처리 결과는 확인하지 못했어요. 원본 상태를 직접 확인해 주세요.';
 const event={type:'kptu:documents-changed',detail:{project_id:doc.project_id,meeting_id:doc.meeting_id}};
 function harness(t,answers=[]){
   const originals={confirm:globalThis.confirm,alert:globalThis.alert,window:globalThis.window,location:globalThis.location};

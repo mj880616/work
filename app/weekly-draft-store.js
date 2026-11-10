@@ -512,7 +512,7 @@ export const draftBytes = draft => new TextEncoder().encode(JSON.stringify(draft
 // ---- 서버 ----
 const workspaceOf = rt => {
   const id = rt.context.read()?.workspace?.id;
-  if (!id) throw new Error('업무 공간을 확인할 수 없습니다.');
+  if (!id) throw new Error('업무 공간을 확인할 수 없어요.');
   return id;
 };
 const SELECT = 'select=id,draft,draft_saved_at';
