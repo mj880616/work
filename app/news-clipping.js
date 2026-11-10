@@ -11,6 +11,7 @@ import {takeNewsItem} from './news-request.mjs';
 import {signalBody} from './now-model.mjs';
 import {ensureReads, onReads, readState} from './news-reads.js';
 import {dayHtml} from './news-row.mjs';
+import {liftRelated, LIFT_LABEL} from './news-fold.mjs';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, aiCapped, AI_CAP_NOTE, sourceNote, sourceOn, enabledSourceKeys, itemFolderId} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1·C2(설계 docs/design/news-clipping.md) → OUTSIDE-글상세 ③(11/01 23:16) → S51-8 News [언론] 탭 칸(#nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
@@ -118,8 +119,14 @@ function listHtml() {
   const list = state.items.filter(titleOk);
   const more = state.end ? '' : `<button type="button" class="nc-text-btn nc-more-items" data-nc-more-items${state.more ? ' disabled aria-busy="true"' : ''}>더 보기</button>`;
   if (!list.length) return `${emptyHtml(state.items.length ? '제목에서 찾은 글 없음' : '기사 없음', {attrs: 'data-nc-empty'})}${more}`;
-  const days = groupItems(list, Date.now()).map(g => dayHtml(g.label, g.items.map(itemHtml).join(''), g.items.filter(it => readState({type: 'news', id: it.id}) === false).length, esc)).join('');
-  return days + more;
+  // NEWS-도배막기(A + C): 관심 주제에 걸린 최근 기사는 위 칸에 먼저, 같은 매체가 연달아 나오면 '○○ 외 N건'으로 묶는다.
+  // 규칙·펼침 기억은 껍데기 하나(KPTUNow.hitOf·foldedHtml, news-fold.mjs) — [전체]·[사회운동]과 같은 길.
+  const ts = Date.now(), unreadOf = items => items.filter(it => readState({type: 'news', id: it.id}) === false).length;
+  const rows = items => (now()?.foldedHtml ? now().foldedHtml(items.map(row => ({type: 'news', row})), e => itemHtml(e.row)) : items.map(itemHtml).join(''));
+  const {top, rest} = liftRelated(list, it => !!now()?.hitOf?.('news', it), it => Date.parse(it?.created_at || ''), ts);
+  const head = top.length ? dayHtml(LIFT_LABEL, rows(top), unreadOf(top), esc) : '';
+  const days = groupItems(rest, ts).map(g => dayHtml(g.label, rows(g.items), unreadOf(g.items), esc)).join('');
+  return head + days + more;
 }
 
 // 별표 폴더 칸: 폴더 트리(폴더 → 안 폴더·기사 들여쓰기, 맨 아래 '폴더 없음'). 폴더 줄 ⋯ = 안에 폴더·이름 바꾸기·지우기.

@@ -93,6 +93,8 @@ for (const width of [412, 884, 1440]) {
 
     // 다른 글로 갔다 와도 다시 누르면 바로(서버 번역을 다시 부르지 않음).
     if (width <= 760) await page.goBack();
+    // NEWS-도배막기: 같은 매체(Fake Wire)가 연달아 나오면 둘째 기사는 'Fake Wire 외 1건' 묶음 안 → 펼친 뒤 누른다.
+    await page.locator('#newsRoot details[data-nw-fold] > summary', { hasText: 'Fake Wire 외 1건' }).click();
     await item(page, T2).locator('.now-open').click();
     await expect(nd(page).locator('.nd-title')).toHaveText('가짜 외국 기사');
     // 하루 한도: 한 줄 + 원문 그대로.
