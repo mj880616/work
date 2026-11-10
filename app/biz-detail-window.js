@@ -97,7 +97,7 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
   };
   const reportForm = l => {
     const dis = ctl.busy ? ' disabled' : '', d = ctl.draft || {};
-    return `<div class="wl-form" data-bd-form="${esc(l.id)}"><textarea rows="1" class="wl-f-body" data-bd-field="body" data-autogrow aria-label="보고용 글" maxlength="1000" autocomplete="off"${ctl.invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body ?? l.text)}</textarea>`
+    return `<div class="wl-form" data-bd-form="${esc(l.id)}"><textarea rows="1" class="wl-f-body" data-bd-field="body" data-autogrow aria-label="보고용 글" maxlength="1000" autocomplete="off"${ctl.invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body ?? D.editBase(l))}</textarea>`
       + `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-bd-cancel${dis}>취소</button><button type="button" class="row-act wl-btn is-main" data-bd-save${dis}>저장</button></span></div>`;
   };
   const recordForm = space => {
@@ -190,9 +190,9 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
       return;
     }
     const hit = findLine(e.id); if (!hit) return;
-    const v = D.checkReportBody(ctl.draft?.body ?? hit.line.text);
+    const v = D.reportChange(hit.line, ctl.draft?.body);
     if (!v.ok) { ctl.invalid = 'body'; render(); say(TEXT.noBody, true); ctl.focus = '[data-bd-field="body"]'; render(); return; }
-    await mark(hit.line, {report_body: v.value === hit.line.orig ? null : v.value}, TEXT.saved);
+    await mark(hit.line, {report_body: v.value}, TEXT.saved);
   }
   function cancel() { const e = ctl.editing; ctl.editing = null; ctl.draft = null; ctl.invalid = ''; ctl.focus = e?.id === 'new' ? `[data-bd-add="${CSS.escape(e.space || '')}"]` : e ? `[data-bd-more="${CSS.escape(e.id)}"] > summary` : ''; render(); say(''); }
   function openAdd(space) {
@@ -228,7 +228,7 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
       }, 0);
       return;
     }
-    if (d.bdEdit) { ctl.editing = {id}; ctl.draft = {body: l.text}; ctl.invalid = ''; ctl.focus = '[data-bd-field="body"]'; render(); say(''); return; }
+    if (d.bdEdit) { ctl.editing = {id}; ctl.draft = {body: D.editBase(l)}; ctl.invalid = ''; ctl.focus = '[data-bd-field="body"]'; render(); say(''); return; }
     if (d.bdOrig) void mark(l, {report_body: null}, TEXT.orig);
     else if (d.bdOut) void mark(l, {choice: 'out'}, TEXT.out);
     else if (d.bdBack) void mark(l, {choice: null}, TEXT.back);
