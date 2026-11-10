@@ -60,8 +60,8 @@ function section(){
   let sec=document.querySelector('#gtTaskSection');if(sec)return sec;
   const taskList=document.querySelector('#taskList');if(!taskList)return null;
   taskList.replaceChildren();taskList.classList.remove('tl-task-list');
-  sec=document.createElement('section');sec.id='gtTaskSection';sec.className='tl-task-section';
-  sec.innerHTML='<div class="gt-head"><div class="gt-head-left"><span class="gt-count" data-gt-count tabindex="-1">할 일 0개</span><button type="button" class="icon-btn gt-info" data-gt-info aria-label="할 일 목록 안내">ⓘ</button><span class="gt-note gt-sync" data-gt-sync role="status" aria-live="polite"></span><span class="gt-fresh" data-gt-fresh role="status" aria-live="polite" hidden></span></div></div><div id="gtTaskBody" class="gt-status">'+waitHtml({rows:5})+'</div><div id="gtUndoDeletes" role="status" aria-live="polite"></div><aside id="gtDetailPane" class="gt-pane" aria-label="할 일 상세"></aside>';
+  sec=document.createElement('section');sec.id='gtTaskSection';sec.className='tl-task-section gt-wide';
+  sec.innerHTML='<div class="gt-head"><div class="gt-head-left"><span class="gt-count" data-gt-count tabindex="-1">할 일 0개</span><button type="button" class="icon-btn gt-info" data-gt-info aria-label="할 일 목록 안내">ⓘ</button><span class="gt-note gt-sync" data-gt-sync role="status" aria-live="polite"></span><span class="gt-fresh" data-gt-fresh role="status" aria-live="polite" hidden></span></div></div><div id="gtTaskBody" class="gt-status">'+waitHtml({rows:5})+'</div><div id="gtUndoDeletes" role="status" aria-live="polite"></div><aside id="gtDetailPane" class="gt-pane" aria-label="할 일 상세" hidden></aside>';
   taskList.insertAdjacentElement('afterend',sec);
   sec.querySelector('[data-gt-info]').onclick=openScope;
   if(!taskMenu)taskMenu=createAnchoredMenu({id:'gtTaskMenu',className:'gt-task-menu',label:'할 일 관리',historyKey:'kptuTaskMenu',key:trigger=>trigger.dataset.gtMenu,onClose:()=>{if(taskRenderPending){taskRenderPending=false;renderTasks(lastTasks)}},
@@ -93,18 +93,23 @@ function closeEditor(){editorSeq++;editorRequest=null;editorSaving=false;const m
 // changes, and it is not a modal dialog there (no focus trap). Phones keep the popup.
 // S51-13 TODO-폴드목록상세(2026-11-06 명진 'ㅇ', docs/design/mockups/todo-fold-list-detail.html): the unfolded Fold (600px~, phone
 // frame below 761) shows the same '왼쪽 목록 | 오른쪽 상세' as the PC. In the pane every change is saved at once (no [저장]; see
-// autoSave below), ✕·Esc·Back close the pane (one history step, router layer 'task-detail'), and with nothing chosen the pane
-// stays empty (TASK-오른쪽칸비우기, 2026-11-09: no summary or hint). The folded phone keeps the popup and its [저장].
+// autoSave below), ✕·Esc·Back close the pane (one history step, router layer 'task-detail'), and with nothing chosen there is no
+// pane: the list takes the whole width (TASK-넓게쓰기, 2026-11-10; paintPane below). The folded phone keeps the popup and its [저장].
 const PC=window.matchMedia?.(SPLIT_QUERY);
 const FRAME_PC=window.matchMedia?.('(min-width:761px)');
 const pcColumns=()=>!!PC?.matches;
 // UI-칸폭조절: the boundary between the columns and the detail pane can be dragged (split-resize.js, remembered per screen).
-function syncSplit(){const sec=document.querySelector('#gtTaskSection');if(sec)mountSplitResize({container:sec,name:'tasks',query:SPLIT_QUERY,label:'할 일 목록과 상세 칸 폭 조절',list:()=>sec.querySelector('.gt-cols'),pane:()=>sec.querySelector('#gtDetailPane'),active:()=>sec.classList.contains('gt-pc')&&pcColumns()&&tasksViewShown()})}
+function syncSplit(){const sec=document.querySelector('#gtTaskSection');if(sec)mountSplitResize({container:sec,name:'tasks',query:SPLIT_QUERY,label:'할 일 목록과 상세 칸 폭 조절',list:()=>sec.querySelector('.gt-cols'),pane:()=>sec.querySelector('#gtDetailPane'),active:()=>sec.classList.contains('gt-pc')&&!sec.classList.contains('gt-wide')&&pcColumns()&&tasksViewShown()})}
 const isDocked=()=>document.querySelector('#gtTaskModal')?.dataset.gtDocked==='1';
 // UI-저장자리(2026-10-27): [저장]과 상태 글은 팝업이든 PC 상세 칸이든 아래 줄(.modal-action-footer) 오른쪽 아래에 둔다. 예전에는 PC 상세 칸에서 제목 줄로 옮겨 있었다(2026-10-20).
 // UI-칸안스크롤하나로(시안 A): PC 상세 칸은 따로 스크롤 없이 화면에 붙어 따라오고(follow-pane.js), 할 일을 열 때마다 칸 머리부터 보인다.
 // S51-13: the pane is not a window of mobile-modal-history.js (data-kptu-history-off); its Back step is the router layer below.
-function placeEditor(docked){const m=ensureModal(),pane=document.querySelector('#gtDetailPane');if(docked&&pane){m.dataset.kptuHistoryOff='1';if(m.parentElement!==pane)pane.append(m);m.classList.add('gt-docked');m.setAttribute('role','region');m.removeAttribute('aria-modal');m.dataset.gtDocked='1';pane.classList.add('has-task');followPane(pane,FRAME_PC?.matches?{}:{narrow:true,bottom:bottomDock});return}if(m.parentElement!==document.body)document.body.append(m);m.classList.remove('gt-docked');m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');delete m.dataset.gtDocked;delete m.dataset.kptuHistoryOff;pane?.classList.remove('has-task')}
+// TASK-넓게쓰기(2026-11-10 명진 B안, docs/design/mockups/task-wide-list.html): with nothing chosen there is no right pane — the
+// list takes the whole width (every bucket stacked, titles not cut). Choosing a task opens '왼쪽 목록 | 오른쪽 상세' as before and
+// closing it (✕·Esc·Back) widens the list again. This is the one place that decides it: the pane's hidden attribute and the
+// section's gt-wide class follow whether the editor is docked in the pane; the drag boundary shows only with the pane.
+function paintPane(open){const sec=document.querySelector('#gtTaskSection'),pane=document.querySelector('#gtDetailPane');if(pane)pane.hidden=!open;if(sec){sec.classList.toggle('gt-wide',!open);syncSplit()}}
+function placeEditor(docked){const m=ensureModal(),pane=document.querySelector('#gtDetailPane');if(docked&&pane){m.dataset.kptuHistoryOff='1';if(m.parentElement!==pane)pane.append(m);m.classList.add('gt-docked');m.setAttribute('role','region');m.removeAttribute('aria-modal');m.dataset.gtDocked='1';pane.classList.add('has-task');paintPane(true);followPane(pane,FRAME_PC?.matches?{}:{narrow:true,bottom:bottomDock});return}if(m.parentElement!==document.body)document.body.append(m);m.classList.remove('gt-docked');m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');delete m.dataset.gtDocked;delete m.dataset.kptuHistoryOff;pane?.classList.remove('has-task');paintPane(false)}
 // Unfolded Fold (phone frame): the quick input, the [달력|할 일|일기] row and the bottom bar float under the pane (shared height variables).
 function bottomDock(){const cs=getComputedStyle(document.documentElement),v=n=>parseFloat(cs.getPropertyValue(n))||0;return v('--kptu-mobile-tab-height')+v('--kptu-switch-dock')+v('--kptu-quick-dock')}
 // One Back step for the open pane (router layer). Switching to another task keeps the same step; closing by ✕·Esc leaves it.
