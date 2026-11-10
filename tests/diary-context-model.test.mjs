@@ -56,7 +56,7 @@ test('화면 부품: 업무일지 읽기 재사용, 새 저장·브라우저 저
   assert.match(src, /readWeekMeetings/);
   assert.match(src, /createElement\('details'\)/);
   assert.match(src, /className = 'row-act diary-ctx-line'/);
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(src, new RegExp(['local', 'session'].map(w => w + 'Storage').concat(['indexed' + 'DB']).join('|')));
   assert.doesNotMatch(src, /rt\.api\(|method:\s*'(POST|PATCH|DELETE)'/);
   assert.doesNotMatch(src, /functions\/v1\//);
   const diary = readFileSync(new URL('../app/diary.js', import.meta.url), 'utf8');
