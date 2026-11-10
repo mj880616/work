@@ -586,7 +586,21 @@ function renderWeekly_({refreshBox = true} = {}) {
 const flowBase = {start:'', status:'', note:''};
 // 칸 줄 자리만 다시(고치는 줄 열기·줄 제안 도착·제안 재료 도착 등 화면 상태만 바뀐 때). [주간 정리] 전체를 다시 그리면 다른 묶음의 입력 초점이 빠진다.
 let lastWeekModel = null;
-function redrawFlow() { const host = $('[data-journal-weekly]'); if (mode !== 'week' || !lastWeekModel || !host) return; paintFlow(host, lastWeekModel); }
+// only = 늦게 온 칸 재료(제안 재료·지난주 사업영역 줄)를 쓰는 묶음만 다시(STAB-주간정리4장다시그림: 3장·4장 창은 그 재료를 쓰지 않으니 다시 그리지 않는다).
+function redrawFlow({only = null} = {}) {
+  const host = $('[data-journal-weekly]'); if (mode !== 'week' || !lastWeekModel || !host) return;
+  if (!Array.isArray(only)) { paintFlow(host, lastWeekModel); return; }
+  const {row, status} = flowState(), team = hwpx.team(start);
+  for (const section of only) {
+    if (section === 'sites' || (section === 'orgs' && orgsByWindow) || (section === 'summary' && isRecordWeek(start))) continue;
+    paintFlowSection(host, lastWeekModel, section, {row, status, team});
+  }
+}
+let orgsByWindow = false; // 4. 자리를 조직보고 창이 그리는지(paintFlow가 정함)
+function flowState() {
+  const w = materials.weekDraft, status = !w || w.status === 'loading' ? 'loading' : w.status === 'failed' ? 'failed' : w.items?.missing ? 'missing' : 'ok';
+  return {status, row:status === 'ok' ? w.items.row : null};
+}
 function prepareFlow() {
   if (flowBase.start === start) return;
   const week = start;
@@ -603,14 +617,13 @@ function paintFlowSection(host, model, section, {row, status, team}) {
   if (siteBody && slot) { siteWin.bind(slot); siteWin.afterPaint(); }
 }
 function paintFlow(host, model) {
-  const w = materials.weekDraft, status = !w || w.status === 'loading' ? 'loading' : w.status === 'failed' ? 'failed' : w.items?.missing ? 'missing' : 'ok';
-  const row = status === 'ok' ? w.items.row : null;
+  const {status, row} = flowState();
   if (status === 'ok' && !row?.draft?.proposed && flowBase.start !== start) prepareFlow();
   const team = hwpx.team(start);
   // ORG/BIZ-기록하나로 O-4 ②·B-3 ②: 전환 주부터 4. = 조직보고 창, 3. 2) 사업장 칸 안쪽 = 같은 창(section site), 2. 1) = 사업요약 창(paintWindow).
   // O-6: 전환 주 앞(옛 주)도 4.는 같은 창 — 옛 주별 조직보고 표를 읽기 전용으로 보여 준다(설계 3-1). 옛 주 3. 2)·2. 1)은 그 주 임시저장 칸 그대로.
   const fresh = isRecordWeek(start);
-  const weekTable = paintWindow(host, model);
+  const weekTable = orgsByWindow = paintWindow(host, model);
   for (const section of W.FLOW_SECTIONS) {
     if (section === 'orgs' && weekTable) continue;
     if (section === 'summary' && fresh) { paintBizWeekly(host); continue; }
@@ -671,6 +684,8 @@ function paintWindow(host, model) {
 const oldMissing = () => !isRecordWeek(start) && !!weekWin && weekWin.week === start && weekWin.status === 'ready' && !!weekWin.legacyMissing;
 function drawWindow() {
   const slot = winSlot(); if (!slot || !weekWin || !RW) return;
+  // STAB-주간정리4장다시그림: 3장 구성(참고 줄을 고르는 기준)이 정해지기 전에는 자리만 — 정해지면 한 번에 그린다(첫 그림 → 통째 다시 그림 없음).
+  if (!W.siteLayoutSettled(slot, weekRow(), start)) { slot.innerHTML = waitHtml({rows:2}); return; }
   weekWin.bind(slot);
   // S52-25 WEEKLY-투쟁사업장참고: 3장에 들어간 조직은 4장 칸을 '참고' 한 줄로(기록은 3장 칸에 보임).
   const sites = W.shownSiteNames(slot, weekRow()), refIds = new Set(winOrgs.filter(o => W.inSites(sites, o.name)).map(o => o.id));
@@ -694,8 +709,8 @@ function siteWinBody(c) {
 function paintSites() {
   const host = $('[data-journal-weekly]');
   if (mode !== 'week' || !lastWeekModel || !host || !isRecordWeek(start)) return;
-  const w = materials.weekDraft, status = !w || w.status === 'loading' ? 'loading' : w.status === 'failed' ? 'failed' : w.items?.missing ? 'missing' : 'ok';
-  paintFlowSection(host, lastWeekModel, 'sites', {row:status === 'ok' ? w.items.row : null, status, team:hwpx?.team(start)});
+  const {status, row} = flowState();
+  paintFlowSection(host, lastWeekModel, 'sites', {row, status, team:hwpx?.team(start)});
 }
 // 2. 1) 사업요약: 부품 상자 하나를 그 자리에 옮겨 붙인다(다시 읽지 않고 쓰던 칸 그대로). 이 화면이 읽은 그 주 사업 보고를 넘긴다.
 function paintBizWeekly(host) {

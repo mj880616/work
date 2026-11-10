@@ -7,7 +7,7 @@ export {jumpToPrepRef} from './prep-sheet-view.js';
 export {readNextWeekSheet, makeNextWeekSheet} from './next-week-sheet-data.js';
 export {sheetView, shouldAutoMake, isAutoTime, seoulNow, openTarget as nextOpenTarget} from './next-week-sheet-model.mjs';
 export {mountWeeklyHwpx} from './journal-hwpx.js';
-export {paintFlowCells, FLOW_SECTIONS, shownSiteNames} from './weekly-flow-cells.js';
+export {paintFlowCells, FLOW_SECTIONS, shownSiteNames, siteLayoutSettled} from './weekly-flow-cells.js';
 export {inSites} from './weekly-cell-names.mjs';
 export {paintHqSchedule} from './weekly-hq-schedule.js';
 export {paintDiscuss} from './weekly-discuss-table.js';

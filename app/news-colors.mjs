@@ -16,23 +16,34 @@ export function shadeOf(text) {
   return h % SHADES;
 }
 
-// 정당 넷은 당 색 고정(NEWS-정당색): 정의당 노랑·녹색당 녹색·노동당 빨강·진보당 주황. 값은 --ds-news-party-<키> 토큰.
-export const PARTY_FIXED = Object.freeze(['justice', 'kgreens', 'laborparty', 'jinboparty']);
+// 키별 고정 색(NEWS-정당색 → NEWS-고유색, 명진 2026-11-10, 시안 docs/design/mockups/news-identity-colors.html): 매체 키 → 그 단체·언론의 고유색.
+// 값은 theme-tokens.css 토큰 두 개뿐: --ds-news-id-<키>(이름 글자) · --ds-news-id-<키>-bar(막대 — 한 색, 또는 공공운수노조처럼 여러 색 띠 그라데이션).
+// 막대는 고유색 그대로, 흰 바탕에서 안 읽히는 밝은 색(샛노랑 등)만 이름 글자를 같은 계열 진한 색으로(토큰 값에서 정함).
+// 새 매체 색은 이 표에 키를 더하고 토큰 두 개를 밝은·어두운 화면에 넣으면 된다. 표에 없는 매체는 묶음 돌려쓰기 그대로.
+// 고정 키도 같은 묶음 순서 셈에는 남아 있어서, 표에 키를 더해도 다른 매체의 돌려쓰기 칸은 바뀌지 않는다.
+export const FIXED_OUTSIDE = Object.freeze(['justice', 'kgreens', 'laborparty', 'jinboparty', 'kmwu', 'kptu']);
+export const FIXED_NEWS = Object.freeze([]);
+const fixedInk = key => `var(--ds-news-id-${key})`;
+const fixedBar = key => `var(--ds-news-id-${key}-bar)`;
 
-// 사회운동 단체 색: 카탈로그 [{key, group}]에서 같은 묶음 안 순서로 칸을 고른다.
+// 사회운동 단체 이름 글자 색: 고정 표 → 아니면 카탈로그 [{key, group}]에서 같은 묶음 안 순서로 칸을 고른다.
 export function outsideColor(key, catalog = []) {
-  if (PARTY_FIXED.includes(key)) return `var(--ds-news-party-${key})`;
+  if (FIXED_OUTSIDE.includes(key)) return fixedInk(key);
   const src = (catalog || []).find(s => s?.key === key);
   const family = src ? familyOfGroup(src.group) : 'movement';
   const same = (catalog || []).filter(s => s && familyOfGroup(s.group) === family);
   const i = src ? same.indexOf(src) : shadeOf(key);
   return colorVar(family, i);
 }
-// 언론 매체 색: 뉴스 카탈로그 [{key}] 안 순서. 카탈로그에 없으면(키워드 기사) 매체 이름으로 칸을 고른다.
+// 사회운동 단체 막대(와 매체 고르기 점) 색: 고정 표면 막대 토큰, 아니면 글자 색과 같다.
+export const outsideBar = (key, catalog = []) => (FIXED_OUTSIDE.includes(key) ? fixedBar(key) : outsideColor(key, catalog));
+// 언론 매체 색: 고정 표 → 아니면 뉴스 카탈로그 [{key}] 안 순서. 카탈로그에 없으면(키워드 기사) 매체 이름으로 칸을 고른다.
 export function newsColor(item, catalog = []) {
+  if (FIXED_NEWS.includes(item?.source_key)) return fixedInk(item.source_key);
   const i = (catalog || []).findIndex(s => s?.key && s.key === item?.source_key);
   return colorVar('press', i >= 0 ? i : shadeOf(item?.publisher || item?.source_key || ''));
 }
+export const newsBar = (item, catalog = []) => (FIXED_NEWS.includes(item?.source_key) ? fixedBar(item.source_key) : newsColor(item, catalog));
 
 export const TAGS = Object.freeze({
   labor: {label: '노동'},

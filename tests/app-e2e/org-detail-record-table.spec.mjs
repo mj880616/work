@@ -15,11 +15,14 @@ async function fixture(page,{width}){
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await installViewPrefsServer(page,null);
  const f=await openHome(page);
- const db={statusWrites:[],feedReads:0};
+ const db={statusWrites:[],feedReads:0,patches:[]};
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return json(route,q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner})))});
- await page.route(SB+'/rest/v1/app_suborganization_updates?**',route=>json(route,UP));
+ const ups=UP.map(r=>({...r}));db.patches=[];
+ await page.route(SB+'/rest/v1/app_suborganization_updates?**',route=>{const req=route.request(),q=new URL(req.url()).searchParams;
+  if(req.method()==='PATCH'){const b=req.postDataJSON(),id=(q.get('id')||'').replace(/^eq\./,'');db.patches.push({id,...b});const hit=ups.filter(r=>r.id===id);hit.forEach(r=>Object.assign(r,b));return json(route,hit)}
+  return json(route,ups)});
  for(const t of ['app_notes','app_record_links'])await page.route(SB+`/rest/v1/${t}?**`,route=>json(route,[]));
  await page.route(/\/rest\/v1\/app_org_status_rows(\?|$)/,route=>{if(route.request().method()!=='GET')db.statusWrites.push(route.request().method());return json(route,[])});
  await page.route(SB+'/rest/v1/app_feed_items?**',route=>{const q=new URL(route.request().url()).searchParams;db.feedReads++;return json(route,q.get('id')==='eq.'+FEED&&q.get('workspace_id')?[{source:'call',day:'2026-09-21',title:'합성 통화 제목',summary:'합성 통화 요약 글'}]:[])});
@@ -58,7 +61,7 @@ for(const width of [390,884,1440])test(`조직 상세 '날짜 | 기록' 한 표:
  // 직접 쓴 기록 ⋯ 에는 [원래 글 보기]가 없다.
  await row(page,11).locator('[data-wd-up-menu]').click();
  const menu=page.locator('#wdUpMenu');
- await expect(menu.getByRole('button',{name:'수정'})).toBeVisible();
+ await expect(menu.getByRole('button',{name:'수정',exact:true})).toBeVisible();
  await expect(menu.getByRole('button',{name:/^원래/})).toHaveCount(0);
  await page.keyboard.press('Escape');
  // 통화에서 온 기록 ⋯ [원래 통화·글 보기] → 줄 아래 원래 글(읽기만), 다시 누르면 접힘.
@@ -74,5 +77,33 @@ for(const width of [390,884,1440])test(`조직 상세 '날짜 | 기록' 한 표:
  await expect(src).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(db.statusWrites).toEqual([]);
+ expect(errors).toEqual([]);
+});
+
+// ORG-기록날짜고치기(요청함 11/10): 조직 상세 기록 ⋯ [날짜 수정] → 줄 바로 아래 [하루|기간|없음] + 달력(조직보고 표와 같은 칸) → 원래 기록 날짜만.
+for(const width of [412,1280])test(`조직 상세 기록 ⋯ [날짜 수정]: 하루로 바꾸면 날짜 칸이 새 날짜, 없음은 '-', 글 그대로 ${width}px`,async({page})=>{
+ const {db,errors}=await fixture(page,{width});
+ await openOrg(page);
+ const menu=page.locator('#wdUpMenu');
+ await row(page,11).locator('[data-wd-up-menu]').click();
+ await menu.getByRole('button',{name:'날짜 수정'}).click();
+ const form=row(page,11).locator('[data-rde-day-form]');
+ await expect(form).toBeVisible();
+ await expect(form.locator('[data-rde-mode="day"]')).toHaveAttribute('aria-pressed','true');
+ await expect(form.locator('[data-rde-field="day"]')).toHaveValue('2026-09-11');
+ await form.locator('[data-rde-field="day"]').fill('2026-09-12');
+ await form.locator('[data-rde-save]').click();
+ await expect(form).toHaveCount(0);
+ expect(db.patches.at(-1)).toEqual({id:rec(11).id,occurred_at:'2026-09-12T12:00:00+09:00',end_day:null,day_none:false});
+ await expect(row(page,11).locator('.wd-log-day')).toHaveText('9.12.');
+ await expect(row(page,11).locator('.wd-log-main')).toContainText('합성 기록 11');
+ // 없음
+ await row(page,11).locator('[data-wd-up-menu]').click();
+ await menu.getByRole('button',{name:'날짜 수정'}).click();
+ await form.locator('[data-rde-mode="none"]').click();
+ await form.locator('[data-rde-save]').click();
+ await expect(row(page,11).locator('.wd-log-day')).toHaveText('-');
+ expect(db.patches.at(-1)).toMatchObject({end_day:null,day_none:true});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
 });

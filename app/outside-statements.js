@@ -9,7 +9,7 @@ import {mountSplitResize} from './split-resize.js';
 import {hasNewsItem, takeNewsTab} from './news-request.mjs';
 import {itemView, whenOf} from './news-clipping-model.mjs';
 import {NOW_TABS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed} from './now-model.mjs';
-import {outsideColor, newsColor, colorVar, familyOfGroup, postTag, newsTag, tagLabel} from './news-colors.mjs';
+import {outsideColor, outsideBar, newsColor, newsBar, colorVar, familyOfGroup, postTag, newsTag, tagLabel} from './news-colors.mjs';
 import {rowHtml, dayHtml, runsHtml} from './news-row.mjs';
 import {foldRuns, liftRelated, LIFT_LABEL} from './news-fold.mjs';
 import {ensureReads, readState, markRead, onReads} from './news-reads.js';
@@ -125,7 +125,7 @@ const enabledNow = () => enabledKeys([...state.sources.values()]);
 const newsCatalog = () => state.newsMeta.catalog || [];
 const outsideKeys = () => outsideKeysOf(state.media, state.catalog || [], enabledNow());
 const newsKeys = () => newsKeysOf(state.media, newsCatalog());
-const dotOf = (kind, id) => (kind === 's' ? outsideColor(id, state.catalog || []) : kind === 'n' ? newsColor({source_key: id}, newsCatalog()) : kind === 'g' ? colorVar(familyOfGroup(id), 0) : colorVar('press', id === 'foreign' ? 1 : 0));
+const dotOf = (kind, id) => (kind === 's' ? outsideBar(id, state.catalog || []) : kind === 'n' ? newsBar({source_key: id}, newsCatalog()) : kind === 'g' ? colorVar(familyOfGroup(id), 0) : colorVar('press', id === 'foreign' ? 1 : 0));
 const search = createOutsideSearch({box: $('[data-os-search]'), nameOf, workspaceOf, keysOf: () => outsideKeys()});
 let mediaPicker = null;
 const picker = () => (mediaPicker ||= createMovePicker({esc, id: 'nwMediaPicker', label: '매체 선택', findLabel: '매체 찾기', foot: false, currentTag: '선택됨', folderIcons: false}));
@@ -178,10 +178,10 @@ function rowOf(type, row, {openAttr, rowAttr, acts = '', star = false} = {}) {
   const base = {key: itemKey(item), openAttr, openId: row.id, rowAttr, rowId: row.id, read: readState(item), open: !!sel && itemKey(sel) === itemKey(item), acts, star};
   if (type === 'news') {
     const v = itemView(row);
-    return rowHtml({...base, title: v.title, titleLang: v.titleLang, src: v.publisher, color: newsColor(row, newsCatalog()), tag: newsTag(row), time: v.time, star: !!row.starred_at, hit: hitOf(type, row)}, esc);
+    return rowHtml({...base, title: v.title, titleLang: v.titleLang, src: v.publisher, color: newsColor(row, newsCatalog()), bar: newsBar(row, newsCatalog()), tag: newsTag(row), time: v.time, star: !!row.starred_at, hit: hitOf(type, row)}, esc);
   }
   const v = postView(row);
-  return rowHtml({...base, title: v.title, titleLang: row.lang === 'en' && !row.title_ko ? 'en' : '', src: nameOf(row.source_key), badge: v.tag, color: outsideColor(row.source_key, state.catalog || []), tag: postTag(row), time: v.time, hit: hitOf(type, row)}, esc);
+  return rowHtml({...base, title: v.title, titleLang: row.lang === 'en' && !row.title_ko ? 'en' : '', src: nameOf(row.source_key), badge: v.tag, color: outsideColor(row.source_key, state.catalog || []), bar: outsideBar(row.source_key, state.catalog || []), tag: postTag(row), time: v.time, hit: hitOf(type, row)}, esc);
 }
 // 확정 관심 주제에 걸린 주제 이름(줄 끝 작은 표시). NEWS-도배막기 C: 같은 값으로 위 칸 '관심 주제'에 올린다(news-fold.mjs liftRelated).
 function hitOf(type, row) {

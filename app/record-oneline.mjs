@@ -29,6 +29,11 @@ export function oneLine(text, max = ONE_LINE_MAX) {
   const s = firstSentence(lines[0]);
   return chars(s) > max ? `${cut(s, max).trimEnd()}…` : `${s}…`;
 }
+// 서버 AI 한 줄을 부탁할 글인가(RECORD-한줄AI요약): 걷어낸 뒤 줄이 여러 개거나 한 줄이 ONE_LINE_MAX자를 넘으면.
+export function needsOneLine(text) {
+  const lines = plainLines(text);
+  return lines.length > 1 || (lines.length === 1 && chars(lines[0]) > ONE_LINE_MAX);
+}
 // 기록 행의 한 줄: 저장된 한 줄(one_line)이 있으면 그 값, 없으면 원문(field 칸)에서 임시 한 줄.
 export function recordOneLine(row, field = 'raw_text') {
   const saved = plainLines(row?.one_line).join(' ');

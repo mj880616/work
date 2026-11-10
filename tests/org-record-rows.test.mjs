@@ -51,5 +51,8 @@ test('옛 [현황 표] 소탭·표 쓰기 길이 남아 있지 않다(삭제한 
   for (const f of ['app/workplace-detail.css', 'app/ui-standard.css']) assert.doesNotMatch(read(f), /\.wd-subtabs|\.wd-st-(table|day|form|older|ev|tag|bar|edit|actions)\b/, f);
   assert.equal(existsSync(new URL('../tests/app-e2e/org-status-table.spec.mjs', import.meta.url)), false);
   // 기록 읽기에 날짜 칸·원래 줄 열이 들어 있다.
-  assert.equal(wd.match(/select=id,occurred_at,end_day,raw_text,detail_text,doc,source_kind,source_id&order=occurred_at\.desc,id\.desc/g)?.length, 2);
+  // ORG-기록날짜고치기: 읽기는 wdReadUpdates 한 곳(첫 읽기·다시 읽기), 칸은 WD_UP_COLS + day_none(DB 적용 전이면 칸 없이 다시 읽기).
+  assert.match(wd, /const WD_UP_COLS='id,occurred_at,end_day,raw_text,detail_text,doc,source_kind,source_id,created_at'/);
+  assert.match(wd, /select=\$\{c\}&order=occurred_at\.desc,id\.desc/);
+  assert.equal(wd.match(/wdReadUpdates\((id|orgId)\)[,.]/g)?.length, 2); // 부르는 곳 2(정의 1 빼고)
 });

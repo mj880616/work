@@ -20,7 +20,9 @@ function md(day, thisYear) {
 }
 
 // 날짜 칸 글. today = 오늘 서울 날짜(올해 판정용).
+// ORG-기록날짜고치기: 날짜 '없음' 기록(day_none)은 '-'만.
 export function dayCell(row, today = seoulDay(new Date().toISOString())) {
+  if (row?.day_none === true) return '-';
   const start = seoulDay(row?.occurred_at), year = Number(String(today).slice(0, 4));
   const first = md(start, year);
   if (!first) return '';

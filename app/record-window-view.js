@@ -18,11 +18,13 @@ import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {readChoice} from './calendar-ref-data.js';
 import {viewPrefs} from './view-prefs.js';
 import * as M from './record-window-model.mjs';
+import * as DE from './record-day-edit.js';
 
 const UPD = '/rest/v1/app_suborganization_updates';
 const MARKS = '/rest/v1/app_report_line_marks';
 const SNAPS = '/rest/v1/app_report_snapshots';
 const UPD_COLS = 'id,organization_id,raw_text,occurred_at,end_day,source_kind,created_at';
+
 const MARK_COLS = 'id,week_start,section,ref_kind,ref_key,report_body,choice,detail,updated_at';
 const EVENT = 'kptu:record-window-changed';
 const ORDER_EVENT = 'kptu:record-row-order';
@@ -32,7 +34,7 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '
 const dayIso = day => new Date(`${day}T00:00:00+09:00`).toISOString();
 export const TEXT = {
   failed: '조직보고를 불러오지 못했어요.', saveFailed: '저장하지 못했어요. 다시 눌러 주세요.', noBody: '내용을 적어 주세요.', badDay: '날짜를 다시 선택해 주세요.',
-  badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', saved: '저장했어요.', added: '기록을 남겼어요.', out: '이번 주부터 보고에서 뺐어요.', back: '보고에 다시 넣었어요.',
+  badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', saved: '저장했어요.', daySaved: '날짜를 바꿨어요.', added: '기록을 남겼어요.', out: '이번 주부터 보고에서 뺐어요.', back: '보고에 다시 넣었어요.',
   placed: '보고에 넣었어요.', orig: '원래 글로 되돌렸어요.', evFailed: '일정을 못 읽었어요', evPartial: '일정 일부만',
 };
 export const thisWeek = () => M.mondayOf(seoulDateKey(Date.now()));
@@ -69,7 +71,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   if (section !== 'org') { section = 'site'; withEvents = withEvents && M.SITE_EVENTS; }
   const ctl = {
     id: `rw${++seq}`, rt, workspaceId, week, openSource, section, status: 'idle', orgs: [], orgIds: [], records: [], marks: [], marksOn: true, snaps: new Map(), legacy: new Map(),
-    ev: {status: 'idle', items: [], partial: false, run: 0}, foldOpen: new Set(), outOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, run: 0, host: null, focus: '',
+    ev: {status: 'idle', items: [], partial: false, run: 0}, foldOpen: new Set(), outOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, run: 0, host: null, focus: '', cols: {},
   };
   const c = () => ({rt: ctl.rt, ws: ctl.workspaceId});
   const announce = () => window.dispatchEvent(new CustomEvent(EVENT, {detail: {source: ctl.id, week: ctl.week}}));
@@ -82,7 +84,9 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   async function readRecords(ids, range) {
     const out = [];
     for (let i = 0; i < ids.length; i += 50) {
-      const rows = await ctl.rt.api(`${UPD}?organization_id=in.(${ids.slice(i, i + 50).map(enc).join(',')})&occurred_at=gte.${enc(dayIso(range.from))}&occurred_at=lt.${enc(dayIso(range.to))}&select=${UPD_COLS}&order=occurred_at.asc,id.asc&limit=3000`, {singleFlight: false});
+      const path = cols => `${UPD}?organization_id=in.(${ids.slice(i, i + 50).map(enc).join(',')})&occurred_at=gte.${enc(dayIso(range.from))}&occurred_at=lt.${enc(dayIso(range.to))}&select=${cols}&order=occurred_at.asc,id.asc&limit=3000`;
+      // day_none·one_line은 DB 적용 뒤 생기는 칸 — 적용 전이면 그 칸 없이 다시 읽는다('없음'만 감추고, 한 줄은 임시 한 줄).
+      const rows = await DE.readOptional(cols => ctl.rt.api(path(cols), {singleFlight: false}), UPD_COLS, ctl.cols);
       if (!Array.isArray(rows)) throw new Error('records');
       for (const r of rows) { const item = M.recordItem(r); if (item && ids.includes(item.org)) out.push(item); }
     }
@@ -107,7 +111,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     const r = await readWeekLines({rt: ctl.rt, workspaceId: ctl.workspaceId, week: ctl.week, orgIds: ctl.orgIds});
     ctl.legacyMissing = !!r.missing; // 옛 표가 아직 없는(DB 적용 전) 곳: 화면이 그 주 임시저장 칸을 대신 그린다(journal.js)
     const out = new Map();
-    for (const id of ctl.orgIds) out.set(id, (r.rows?.get(id) || []).filter(l => l.state === 'in').map(l => ({id: `old:${l.id}`, kind: 'old', key: l.id, day: l.day || '', end_day: l.end_day || null, text: M.oneLine(l.body), full: String(l.body ?? '')})).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')));
+    for (const id of ctl.orgIds) out.set(id, (r.rows?.get(id) || []).filter(l => l.state === 'in').map(l => ({id: `old:${l.id}`, kind: 'old', key: l.id, day: l.day || '', end_day: l.end_day || null, text: M.reportLine(l.body), full: String(l.body ?? '')})).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')));
     return out;
   }
   // orgs = [{id, name, aliases}] 화면 순서. quiet = 이미 보이는 표를 지우지 않고 다시 읽기.
@@ -157,7 +161,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     if (old()) return {mode: 'old', lines: M.orderLines(ctl.legacy.get(orgId) || [], order)};
     const base = {org: orgId, week: ctl.week, records: ctl.records, events: events(), marks: ctl.marks, order};
     const s = snap();
-    if (s && ctl.section === 'site') return {mode: 'snapshot', lines: M.orderLines(M.snapshotCell(s, orgId, 'site')?.lines || [], order), after: []};
+    if (s && ctl.section === 'site') return {mode: 'snapshot', lines: M.orderLines(M.snapshotCell(s, orgId, 'site', {marks: ctl.marks, week: ctl.week, records: ctl.records})?.lines || [], order), after: []};
     if (s) { const v = M.snapshotView({...base, snapshot: s}); return {mode: 'snapshot', lines: v.lines, after: v.after}; }
     if (ctl.section === 'site') return {mode: 'window', ...M.siteCell(base)};
     const prevWeek = M.shiftWeek(ctl.week, -1);
@@ -192,24 +196,33 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     }
     if (l.kind === 'event') { items.push({text: '기록으로 남기기', data: {rwKeep: l.id}}); items.push({text: '일정 열기', data: {rwEvent: l.id}}); }
     else {
+      if (l.kind === 'org_update') items.push({text: '날짜 수정', data: {rwDay: l.id}, aria: `날짜 수정: ${l.text}`}); // ORG-기록날짜고치기: 날짜 누름과 같은 칸
       if (l.full) items.push({text: '원문 보기', data: {rwRaw: l.id}}); // RECORD-한줄: 표는 한 줄, 원문은 작은 창에 그대로
       if (typeof ctl.openSource === 'function') items.push({text: '기록 열기', data: {rwOpen: l.id}});
     }
     return items.length ? moreSlot({label: `줄 메뉴: ${l.text}`, data: {rwMore: l.id}, items}) : '';
   };
   const lineHtml = (orgId, l, where = 'shown') => {
-    if (ctl.editing?.id === l.id) return reportForm(l);
+    if (ctl.editing?.id === l.id && !ctl.editing.day) return reportForm(l);
     const faint = where !== 'shown' ? ' is-last' : '';
     const ro = ctl.readOnly() || ctl.disabled();
+    const dayOpen = ctl.editing?.id === l.id && ctl.editing.day;
+    // 날짜: 조직 기록 줄은 눌러서 날짜 수정(시안 org-record-day-edit.html ①). 일정·읽기 전용·다른 칸 쓰는 중이면 글자만.
+    const dayLabel = `- ${M.lineDay(l)}`.trimEnd();
+    const dayHtml = l.kind === 'org_update' && where !== 'after' && (dayOpen || !ro)
+      ? `<button type="button" class="row-act wl-day rw-day-btn${dayOpen ? ' is-on' : ''}" data-rw-day="${esc(l.id)}" aria-label="날짜 수정: ${esc(M.lineDay(l) || '날짜 없음')}" aria-expanded="${dayOpen ? 'true' : 'false'}"${dayOpen ? ' disabled' : ''}>${esc(dayLabel)}</button>`
+      : `<span class="wl-day">${esc(dayLabel)}</span>`;
     const act = where === 'shown' ? (ro ? '' : lineMore(l))
       : where === 'folded' ? `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-in="${esc(l.id)}"${ro ? ' disabled' : ''}>넣기</button></span>`
         : where === 'out' ? `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-back="${esc(l.id)}"${ro ? ' disabled' : ''}>되돌리기</button></span>`
           : where === 'after' ? '<span class="rw-after-tag">확정 뒤 추가</span>' : '';
-    return `<div class="wl-line rw-line${faint}${where === 'after' ? ' rw-after' : ''}" data-rw-line="${esc(l.id)}" data-rw-kind="${esc(l.kind)}"><span class="wl-day">- ${esc(M.dayText(l.day, l.end_day))}</span><span class="wl-text">${esc(l.text)}</span>${where === 'shown' || where === 'after' ? tags(l) : l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}${act}</div>`;
+    return `<div class="wl-line rw-line${faint}${where === 'after' ? ' rw-after' : ''}" data-rw-line="${esc(l.id)}" data-rw-kind="${esc(l.kind)}">${dayHtml}<span class="wl-text">${esc(l.text)}</span>${where === 'shown' || where === 'after' ? tags(l) : l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}${dayOpen ? '' : act}</div>${dayOpen ? dayForm(l) : ''}`;
   };
+  // 날짜 수정 칸(시안 ②~④): 줄 바로 아래 [하루|기간|없음] + 달력 + [취소][저장] — 모양은 record-day-edit.js 하나. 없음은 서버에 칸이 있을 때만.
+  const dayForm = l => DE.dayFormHtml(ctl.draft || M.dayDraft(l), {prefix: 'rw', id: l.id, noneOn: ctl.cols.day_none === true, busy: ctl.busy, invalid: ctl.invalid});
   const reportForm = l => {
     const dis = ctl.busy ? ' disabled' : '', d = ctl.draft || {};
-    return `<div class="wl-form" data-rw-form="${esc(l.id)}"><textarea rows="1" class="wl-f-body" data-rw-field="body" data-autogrow data-enter-field="single" aria-label="보고용 글" maxlength="${M.BODY_MAX}" autocomplete="off"${ctl.invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body ?? l.text)}</textarea>`
+    return `<div class="wl-form" data-rw-form="${esc(l.id)}"><textarea rows="1" class="wl-f-body" data-rw-field="body" data-autogrow data-enter-field="single" aria-label="보고용 글" maxlength="${M.BODY_MAX}" autocomplete="off"${ctl.invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body ?? M.editBase(l))}</textarea>`
       + `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-cancel${dis}>취소</button><button type="button" class="row-act wl-btn is-main" data-rw-save${dis}>저장</button></span></div>`;
   };
   const recordForm = orgId => {
@@ -229,7 +242,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     const x = ctl.cell(orgId), adding = ctl.editing?.id === 'new' && ctl.editing.orgId === orgId;
     let html = '';
     if (x.mode === 'old' || x.mode === 'snapshot') {
-      html += x.lines.map(l => `<div class="wl-line rw-line" data-rw-line="${esc(l.id)}"><span class="wl-day">- ${esc(M.dayText(l.day, l.end_day))}</span><span class="wl-text">${esc(l.text)}</span></div>`).join('');
+      html += x.lines.map(l => `<div class="wl-line rw-line" data-rw-line="${esc(l.id)}"><span class="wl-day">${esc(`- ${M.lineDay(l)}`.trimEnd())}</span><span class="wl-text">${esc(l.text)}</span></div>`).join('');
       if (x.mode === 'snapshot') html += x.after.map(l => lineHtml(orgId, l, 'after')).join('');
       if (!html) html = '<span class="wl-empty">—</span>';
       return `<div class="wl-cell" data-wl-cell="${esc(orgId)}">${html}</div>`;
@@ -326,11 +339,25 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       return;
     }
     const hit = findLine(e.id); if (!hit) return;
-    const v = M.checkReportBody(ctl.draft?.body ?? hit.line.text);
+    if (e.day) { await saveDay(hit.line); return; }
+    const v = M.reportChange(hit.line, ctl.draft?.body);
     if (!v.ok) { ctl.invalid = 'body'; say(TEXT.noBody, true); ctl.focus = '[data-rw-field="body"]'; redraw(); return; }
-    await mark(hit.line, {report_body: v.value === hit.line.orig ? null : v.value}, TEXT.saved);
+    await mark(hit.line, {report_body: v.value}, TEXT.saved);
   };
-  ctl.cancel = () => { const e = ctl.editing; ctl.editing = null; ctl.draft = null; ctl.invalid = ''; ctl.focus = e ? (e.id === 'new' ? `[data-rw-add="${e.orgId}"]` : '') : ''; say(''); redraw(); };
+  // 날짜 수정 저장: 원래 조직 기록의 occurred_at(서울 시각 그대로 날짜만)·end_day·day_none만 고친다(기존 owner RLS 길, 글은 그대로).
+  // 보고용 글·빼기 표시는 줄 열쇠(기록 id)에 붙어 있어 그대로 따라간다. 그 주 창 밖으로 가면 그 주에서 빠진다(창 규칙).
+  async function saveDay(l) {
+    const v = M.checkDayEdit(l, ctl.draft || M.dayDraft(l), {noneOn: ctl.cols.day_none === true, today: seoulDateKey(Date.now())});
+    if (!v.ok) { ctl.invalid = v.field; say(v.field === 'end_day' ? TEXT.badEnd : TEXT.badDay, true); ctl.focus = `[data-rw-form="${CSS.escape(l.id)}"] [data-rw-field="${v.field === 'mode' ? 'day' : v.field}"]`; redraw(); return; }
+    if (!v.value) { ctl.cancel(); return; }
+    await work(async () => {
+      const row = await DE.patchRecordDay(ctl.rt, {id: l.key, org: l.org, value: v.value, cols: DE.colsOf(UPD_COLS, ctl.cols)});
+      const item = M.recordItem(row);
+      ctl.records = ctl.records.filter(r => !(r.kind === 'org_update' && r.key === l.key)).concat(item ? [item] : []);
+    }, TEXT.daySaved);
+  }
+  const openDay = (orgId, l) => { ctl.editing = {orgId, id: l.id, day: true}; ctl.draft = M.dayDraft(l); ctl.invalid = ''; ctl.focus = `[data-rw-form="${CSS.escape(l.id)}"] [aria-pressed="true"]`; say(''); redraw(); };
+  ctl.cancel = () => { const e = ctl.editing; ctl.editing = null; ctl.draft = null; ctl.invalid = ''; ctl.focus = e ? (e.id === 'new' ? `[data-rw-add="${e.orgId}"]` : e.day ? `[data-rw-day="${CSS.escape(e.id)}"]` : '') : ''; say(''); redraw(); };
   const openAdd = (orgId, d = null) => {
     const today = seoulDateKey(Date.now());
     ctl.editing = {orgId, id: 'new'}; ctl.draft = d || {day: today, end_day: '', body: ''}; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw();
@@ -354,8 +381,9 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       if (d.rwAdd) { if (!ctl.disabled() && !ctl.readOnly()) openAdd(d.rwAdd); return; }
       if ('rwCancel' in d) { ctl.cancel(); return; }
       if ('rwSave' in d) { void ctl.save(); return; }
+      if (d.rwMode && ctl.editing?.day) { const hit = findLine(ctl.editing.id); ctl.draft = DE.withMode(ctl.draft || (hit ? M.dayDraft(hit.line) : {}), d.rwMode); ctl.invalid = ''; ctl.focus = `[data-rw-mode="${d.rwMode}"]`; redraw(); return; }
       if (d.rwFold) { const set = d.rwFold === 'out' ? ctl.outOpen : ctl.foldOpen, org = d.rwOrg; if (set.has(org)) set.delete(org); else set.add(org); ctl.focus = `[data-rw-fold="${d.rwFold}"][data-rw-org="${CSS.escape(org)}"]`; redraw(); return; }
-      const id = d.rwEdit || d.rwOrig || d.rwOut || d.rwIn || d.rwBack || d.rwOpen || d.rwKeep || d.rwEvent || d.rwRaw;
+      const id = d.rwEdit || d.rwOrig || d.rwOut || d.rwIn || d.rwBack || d.rwOpen || d.rwKeep || d.rwEvent || d.rwRaw || d.rwDay;
       if (!id || ctl.disabled()) return;
       const hit = findLine(id); if (!hit) return;
       const l = hit.line;
@@ -366,13 +394,14 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       // [원문 보기]: 기록 열기와 같은 까닭으로 다음 차례에 연다. 닫으면 초점은 그 줄 ⋯로.
       if (d.rwRaw) {
         const back = box?.querySelector('summary') || b, place = ctl.orgs.find(o => String(o.id) === hit.org)?.name || '';
-        setTimeout(() => void import('./record-raw-view.js').then(m => m.openRawRecord({text: l.full, day: M.dayText(l.day, l.end_day), line: l.text, place, trigger: back})).catch(() => say('원문을 열지 못했어요.', true)), 0);
+        setTimeout(() => void import('./record-raw-view.js').then(m => m.openRawRecord({text: l.full, day: M.lineDay(l), line: l.text, place, trigger: back})).catch(() => say('원문을 열지 못했어요.', true)), 0);
         return;
       }
       if (d.rwEvent) { void import('./event-open.js').then(m => m.openGoogleEvent(l.key, l.cal)).catch(() => say('일정을 열지 못했어요.', true)); return; }
       if (ctl.readOnly()) return;
       if (d.rwKeep) { openAdd(hit.org, {day: l.day, end_day: l.end_day || '', body: l.full || l.orig || l.text}); return; }
-      if (d.rwEdit) { ctl.editing = {orgId: hit.org, id}; ctl.draft = {body: l.text}; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw(); return; }
+      if (d.rwDay) { if (l.kind === 'org_update') openDay(hit.org, l); return; }
+      if (d.rwEdit) { ctl.editing = {orgId: hit.org, id}; ctl.draft = {body: M.editBase(l)}; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw(); return; }
       if (d.rwOrig) void mark(l, {report_body: null}, TEXT.orig);
       else if (d.rwOut) void mark(l, {choice: 'out'}, TEXT.out);
       else if (d.rwIn) void mark(l, {choice: 'in'}, TEXT.placed);
