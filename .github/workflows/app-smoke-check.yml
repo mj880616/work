@@ -31,6 +31,9 @@ on:
       - 'supabase/functions/document-actions/file-rename.ts'
       - 'supabase/functions/_shared/file-rename-name.mjs'
       - 'tests/file-rename.test.mjs'
+      - 'supabase/functions/document-actions/file-trash.ts'
+      - 'app/file-trash.js'
+      - 'tests/file-trash.test.mjs'
       - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
       - 'tests/note-tags-comments.test.mjs'
@@ -230,6 +233,9 @@ on:
       - 'supabase/functions/document-actions/file-rename.ts'
       - 'supabase/functions/_shared/file-rename-name.mjs'
       - 'tests/file-rename.test.mjs'
+      - 'supabase/functions/document-actions/file-trash.ts'
+      - 'app/file-trash.js'
+      - 'tests/file-trash.test.mjs'
       - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
       - 'tests/note-tags-comments.test.mjs'
@@ -431,6 +437,9 @@ jobs:
 
       - name: Check attachment file rename rules (ATT-이름고치기)
         run: node --test tests/file-rename.test.mjs
+
+      - name: Check attachment delete and undo (FILE-첨부삭제)
+        run: node --test tests/file-trash.test.mjs
 
       - name: Check folder look and order model (FOLDER-순서·색 ②)
         run: node --test tests/folder-look-model.test.mjs
