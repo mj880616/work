@@ -16,10 +16,20 @@ const pcOrder=page=>page.evaluate(()=>{
 const sheetOrder=page=>page.evaluate(()=>[...document.querySelector('#mobileMenu nav[aria-label="더 보기"]').children]
   .map(el=>el.matches('[data-menu-tail-line]')?'LINE':el.dataset.view||el.dataset.basketKindNav||''));
 const route=page=>page.evaluate(()=>window.KPTURouter?.current);
+// 상자 위치가 두 번 연달아 같아질 때까지 기다린다: 폰 [메뉴] 창은 아래에서 올라오는 움직임이 있어, 열린 직후 읽은 자리는 움직임 중간 값이다.
+async function steady(page,locator){
+  let before='';
+  for(let i=0;i<40;i++){
+    const box=await locator.boundingBox(),key=JSON.stringify(box);
+    if(key===before)return box;
+    before=key;await page.waitForTimeout(100);
+  }
+  return locator.boundingBox();
+}
 // 마우스로 끌기: 줄 가운데를 누르고 8px 움직여 끌기를 시작한 뒤 (x,y)에서 놓는다.
 async function drag(page,from,x,y){
   await from.scrollIntoViewIfNeeded();
-  const box=await from.boundingBox(),sx=box.x+box.width/2,sy=box.y+box.height/2;
+  const box=await steady(page,from),sx=box.x+box.width/2,sy=box.y+box.height/2;
   await page.mouse.move(sx,sy);await page.mouse.down();
   await page.mouse.move(sx,sy+(y>sy?8:-8),{steps:3});
   await page.mouse.move(x,y,{steps:8});
@@ -214,7 +224,7 @@ test('폰 [메뉴] 창: 줄을 끌어 위 메뉴 순서를 바꾸고 아래 붙�
   expect(await sheetOrder(page)).toEqual(['note','library','files','hwp','pages','ledger','photos','outside','LINE','calls','telegram','arsenal']);
   // [사진]을 [자료실] 위쪽 반으로: 위 메뉴 안 순서만 바뀐다(하단바 칸·숨김 규칙 그대로).
   // 폰 [메뉴] 창은 두 칸 격자라 칸의 왼쪽 반에 놓으면 그 칸 앞에 들어간다.
-  const library=await item('library').boundingBox();
+  const library=await steady(page,item('library'));
   await drag(page,item('photos'),library.x+6,library.y+library.height/2);
   await expect.poll(()=>sheetOrder(page)).toEqual(['note','photos','library','files','hwp','pages','ledger','outside','LINE','calls','telegram','arsenal']);
   // 끌기를 마쳐도 창은 열려 있고 화면도 바뀌지 않는다(따라오는 클릭이 줄을 누른 게 아님).
@@ -224,7 +234,7 @@ test('폰 [메뉴] 창: 줄을 끌어 위 메뉴 순서를 바꾸고 아래 붙�
   await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','photos','library','files','hwp','pages','ledger','outside','bottom','calls','telegram','arsenal']);
   expect(prefs.value.menu_layout.bar).toEqual(['home','basket','calendar','meetings','team']);
   // 선 아래(아래 붙는 메뉴 첫 줄 자리)로 [원장]을 끌면 아래 붙는 메뉴로 옮겨진다.
-  const calls=await item('calls').boundingBox();
+  const calls=await steady(page,item('calls'));
   await drag(page,item('ledger'),calls.x+6,calls.y+calls.height/2);
   await expect.poll(()=>sheetOrder(page)).toEqual(['note','photos','library','files','hwp','pages','outside','LINE','ledger','calls','telegram','arsenal']);
   await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','photos','library','files','hwp','pages','outside','bottom','ledger','calls','telegram','arsenal']);
