@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { start, openFiles, treeGo } from './helpers/files-server.mjs';
+import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { pinch } from './helpers/pinch.mjs';
 // FILES-클라우드탐색기 ④(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files).
 // 색인 목록 · 폴더 들어가기·위치 줄·위 폴더 · 찾기(이름 + 자료실 글자) · 미리보기(사진·PDF·오피스 → PDF·글) · 갱신(바뀐 줄만) · 폰 첫 화면 나무(S50-33).
@@ -63,7 +63,7 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
   await expect.poll(() => new URL(page.url()).searchParams.get('at')).toBe('od:OD:1');
   // FILES-폰폴더위로 ①: 그 안에서 하위 폴더로 내려가면 뒤로가기 한 번 = 한 단계 위(들어온 폴더), 한 번 더 = 펼친 자리 그대로 나무.
-  await row(page, 'od:OD!10').click();
+  await enterRow(page, row(page, 'od:OD!10'));
   await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 2026');
   await page.goBack();
   await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 문서함');
@@ -103,7 +103,7 @@ for (const width of [884, 1440]) {
     await expect(root(page).locator('[data-fx-tab]')).toHaveCount(0);
     await expect(row(page, 'od:OD!1')).toBeVisible();
     await expect(tree.locator('[data-fx-go="od"][data-fx-id="OD!1"] .ft-num')).toHaveCount(0);
-    await row(page, 'od:OD!1').click();
+    await enterRow(page, row(page, 'od:OD!1'));
     await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
     await expect(root(page).locator(':is(.fx-crumb-step, .ft-focus-step)')).toHaveText(['원드라이브']);
     expect(server.calls.find(c => c.what === 'app_cloud_trail').body).toEqual({ p_source: 'od', p_item_id: 'OD!1' });
@@ -153,7 +153,7 @@ test('1440: 사진 미리보기는 공용 그림 칸(큰 썸네일), [열기]는
   const { errors, server } = await start(page, 1440);
   await openFiles(page, 1440);
   await treeGo(page, 'od', '');
-  await row(page, 'od:OD!2').click();
+  await enterRow(page, row(page, 'od:OD!2'));
   await row(page, 'od:OD!20').click();
   const prev = root(page).locator('[data-fx-prev]');
   await expect(prev.locator('.fx-pv-imgbox')).toHaveAttribute('data-img-state', 'shown');
@@ -184,7 +184,7 @@ test('1440: 폴더를 열면 그 폴더만 클라우드에서 바로 읽어 색�
     modified_at: '2026-10-02T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null }];
   await openFiles(page, 1440);
   await treeGo(page, 'od', '');
-  await row(page, 'od:OD!1').click();
+  await enterRow(page, row(page, 'od:OD!1'));
   await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 문서함');
   await expect.poll(() => names(page)).toContain('가짜 직접읽기.docx');
   // 맨 위(id 없음)와 가짜 문서함, 폴더마다 한 번씩만.

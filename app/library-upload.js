@@ -1210,9 +1210,9 @@ function luRevealKeys(keys){const all=new Set(luTreeKeys(luLastTree)),out=[];for
 function luProjectPath(id){const rows=luCatalog()?.projects||[],out=[];let p=rows.find(x=>x.id===id),guard=0;while(p&&guard++<5){out.unshift('p:'+p.id);p=p.parent_id?rows.find(x=>x.id===p.parent_id):null}return out.length?out:['p:'+id]}
 // 토글 머리를 누르면(마우스·터치·키보드 Enter/Space 모두 click) 바뀔 상태를 바로 적는다. toggle 이벤트는 늦게 와서, 그 사이 다시 그리면 잃을 수 있다.
 function luOnHeadClick(e){const head=e.target.closest('summary.lu-node-head');if(!head||e.defaultPrevented||e.target.closest('button,input'))return;const d=head.parentElement;if(!(d instanceof HTMLDetailsElement)||!d.dataset.luNode)return;const key=d.dataset.luNode,next=!d.open;
-  // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 폴더 묶기의 폴더 줄 — 하위 폴더가 없으면 펼치지 않고 한 번에 그 폴더를 연다(공용 판정 folderPressAction, 두 손가락 벌리기와 같은 곳).
-  // 지금 들어가 있는 폴더 자신·고르는 중은 지금처럼 펼치기·접기만.
-  if(luGroupBy==='folder'&&!luPick.items&&key.startsWith('f:')&&key!=='f:'+luInFolder){const n=luNodeOf(key);if(n&&folderPressAction((n.children||[]).filter(c=>c.kind==='folder').length)===FOLDER_PRESS_ENTER){e.preventDefault();luPressEnter(key.slice(2));return}}if(luFilterSignature!=='-')luFilterOpen.set(key,next);else if(next)luOpened.add(key);else luOpened.delete(key);
+  // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 폴더 묶기의 폴더 줄 — 펼쳐 보일 것(하위 폴더·자료)이 없으면 한 번에 그 폴더를 연다(공용 판정 folderPressAction, 두 손가락 벌리기와 같은 곳).
+  // 지금 들어가 있는 폴더 자신·고르는 중·이름 바꾸는 중(줄 안 입력칸)은 지금처럼 펼치기·접기만.
+  if(luGroupBy==='folder'&&!luPick.items&&key.startsWith('f:')&&key!=='f:'+luInFolder&&!head.querySelector('input')){const n=luNodeOf(key);if(n&&folderPressAction((n.children||[]).filter(c=>c.kind==='folder').length,(n.files||[]).length)===FOLDER_PRESS_ENTER){e.preventDefault();luPressEnter(key.slice(2));return}}if(luFilterSignature!=='-')luFilterOpen.set(key,next);else if(next)luOpened.add(key);else luOpened.delete(key);
   // SEARCH-선택옮기기 ⑦: '공공팀 › 회의 › 집행위'로 줄여 보이던 외줄 폴더를 펼치면 이어진 폴더도 함께 펼친다(각 폴더의 toggle을 luOnToggle이 그대로 기록).
   if(next)for(const k of String(d.dataset.luChain||'').split(' ').filter(Boolean)){const x=luNodeEl(k);if(x&&!x.open)x.open=true}}
 // 한 자료가 든 토글을 위 단까지 펼치고 그 토글의 자료를 모두 보인다(다른 화면에서 그 자료로 올 때).

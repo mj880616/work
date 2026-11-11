@@ -2197,8 +2197,14 @@ folderLook.onChange(() => { if (tab === 'folders') renderFolders(); });
 // 폴더를 누르면 화면이 바뀌지 않고 그 자리에서 하위 폴더와 처음 FT_PREVIEW장(작은 그림 한 줄)까지 펼침. 'n장 더 보기'·두 손가락 벌리기 = 그 폴더만(격자),
 // [‹]·뒤로 키·오므리기 = 펼친 자리 그대로 나무. 꺼 둔 폴더는 흐리게 + '끔'(켜기·끄기는 ⋯ 안). 색을 정한 폴더는 그림 색.
 const fxKey = (kind, id) => `${kind}:${id}`;
-// 폰 나무 줄 열쇠(fxKey)의 하위 폴더 수: 원드라이브는 읽어 둔 나무, 폰 저장소 폴더는 하위 폴더가 없다(0). 모르면 null(펼치기).
-const fxSubfolders = key => { const [kind, ...rest] = String(key || '').split(':'), id = rest.join(':'); return kind === 'p' ? 0 : kind === 'o' && tree ? photoSubfolders(tree, id).length : null; };
+// 폰 나무 줄 열쇠(fxKey)의 펼쳐 보일 것 [하위 폴더 수, 그 폴더 사진 장수]: 원드라이브는 읽어 둔 나무, 폰 저장소 폴더는 하위 폴더가 없다(0). 모르면 null(펼치기).
+// 펼친 줄의 사진 한 줄(fxStripHtml)은 장수가 0이 아닐 때만 보이므로 장수를 모르면(null) 있다고 본다(hasContent와 같은 규칙).
+const fxShown = key => {
+  const [kind, ...rest] = String(key || '').split(':'), id = rest.join(':');
+  const f = kind === 'p' ? phoneFolderOf(id) : kind === 'o' && tree ? photoFolderById(tree, id) : null;
+  if (!f) return [null, null];
+  return [kind === 'p' ? 0 : photoSubfolders(tree, id).length, f.count === 0 ? 0 : Number.isInteger(f.count) ? f.count : null];
+};
 const fxCount = n => (Number.isInteger(n) ? String(n) : null);
 // quiet(FOLD-넓은화면 C): 카드 표지만 채우려고 읽은 것 — 그 폴더를 펼치지 않았으면 다시 그리지 않고 표지 칸만 채운다(fxCoverPaint).
 function fxInlineLoad(key, {quiet = false} = {}) {
@@ -2711,9 +2717,9 @@ function folderClick(b) {
   // FOLDER-나무새기준 ③: 폰 나무 — 펼치기·접기(줄 어디든), 상자 접기, 'n장 더 보기'(그 폴더만), [‹](나무로), 펼친 폴더의 작은 그림(크게 보기).
   if (b.matches('[data-photos-fx-inline-retry]')) { const k = b.closest('[data-photos-strip]')?.dataset.photosStrip; if (k) { fxInline.delete(k); renderFolders(); } return true; }
   if (b.matches('[data-photos-ftog]')) {
-    // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 하위 폴더가 없는 폴더(폰 저장소 폴더는 늘 없음)는 한 번 누르면 그 폴더만(두 손가락 벌리기와 같은 곳, 공용 판정 folderPressAction).
+    // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 펼쳐 보일 것(하위 폴더·사진)이 없는 폴더는 한 번 누르면 그 폴더만(두 손가락 벌리기와 같은 곳, 공용 판정 folderPressAction).
     const k = b.dataset.photosFtog;
-    if (folderPressAction(fxSubfolders(k)) === FOLDER_PRESS_ENTER && fxTreeShown()) { fxFocus(k); return true; }
+    if (folderPressAction(...fxShown(k)) === FOLDER_PRESS_ENTER && fxTreeShown()) { fxFocus(k); return true; }
     if (fxOpen.has(k)) fxOpen.delete(k); else fxOpen.add(k); renderFolders(); return true;
   }
   if (b.matches('[data-photos-fxbox]')) { toggleBoxShut('photos', b.dataset.photosFxbox); renderFolders(); return true; } // S52-14: 상자 접힘은 서버 view_prefs.box_shut(box-fold.js)
@@ -2736,7 +2742,7 @@ function folderClick(b) {
   if (b.matches('[data-photos-fx-new]')) { newFolder(treeWide() ? at || tree?.top?.id : at || tree?.top?.id); return true; }
   if (b.matches('[data-photos-fx-retry]')) { treeFailed = ''; renderFolders(); return true; }
   if (b.matches('[data-photos-fx-again]')) { fFailed = ''; paintFolderGrid(); loadFolder(at); return true; }
-  if (b.matches('[data-photos-pf-open]')) { goPhoneFolder(b.dataset.photosPfOpen); return true; } // OPS-빠진일2차 1: 폰 저장소 폴더는 하위 폴더가 없어(folderPressAction 'enter') PC 나무에서도 한 번 누르면 그 폴더
+  if (b.matches('[data-photos-pf-open]')) { goPhoneFolder(b.dataset.photosPfOpen); return true; } // OPS-빠진일2차 1: 폰 저장소 폴더는 하위 폴더가 없어(폴더만 보이는 PC 나무에서 folderPressAction 'enter') 한 번 누르면 그 폴더
   if (b.matches('[data-photos-pf-sw]')) { togglePhoneFolder(b.dataset.photosPfSw.slice(3)); return true; }
   if (b.matches('[data-photos-pf-more]')) { phoneFolderMenu.open(b); return true; }
   if (b.matches('[data-photos-pf-new]')) { newPhoneFolder(); return true; }

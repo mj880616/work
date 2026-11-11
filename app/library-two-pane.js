@@ -3,7 +3,7 @@
 // 칸마다 위치 줄(‹ 자료실 › 궤도 › 회의)·정렬, 폴더 줄 + 자료 줄. 맨 위(자료실)는 맨 위 폴더 + 폴더 밖 자료.
 // LIB-두칸폴더펼치기(S56-40, 명진 11/10 18:25): 폴더 줄을 누르면 들어가지 않고 그 칸 안에서 나무처럼 펼치기·접기(하위 폴더·자료가 들여 보임).
 // 그 폴더만 보기(들어가기)는 PC = 우클릭 [이 폴더로 들어가기](library-folders.js), 손가락 화면 = 펼친 폴더 위 두 손가락 벌리기(folder-pinch.js).
-// OPS-빠진일2차 1: 하위 폴더가 없는 폴더는 한 번 누르면 그 칸에서 연다(folder-tree-press.mjs folderPressAction — 모든 나무·목록 같은 판정).
+// OPS-빠진일2차 1: 펼쳐 보일 것(하위 폴더·자료)이 없는 폴더는 한 번 누르면 그 칸에서 연다(folder-tree-press.mjs folderPressAction — 모든 나무·목록 같은 판정).
 // 펼침 상태는 한 칸 목록과 같은 곳(library-upload.js luOpened·luFilterOpen — h.isOpen/h.toggle)에 적는다.
 // 폰(600px 미만)·다른 묶기는 지금 한 칸 목록 그대로. 두 칸을 끄면 지금 한 칸(나무 | 목록).
 // - 틀(칸 찾기·지금 칸 표시·Tab·F6)은 [파일]과 같은 공용 부품 two-pane.js, 경계 폭은 split-resize.js(split_ratio.library, 서버 저장).
@@ -174,13 +174,15 @@ export function createLibraryTwo(h) {
       if (step) { e.preventDefault(); go(i, step.dataset.luPaneGo || null); focusHead(i); return; }
       if (e.target.closest('[data-lu-pane-up]')) { e.preventDefault(); const f = h.folders().find(x => x.id === where(i)); go(i, f?.parent_id || null); focusHead(i); return; }
       // 폴더 줄 누르기 = 그 칸 안에서 펼치기·접기(들어가지 않음). 들어가기는 우클릭 메뉴·두 손가락.
-      // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 하위 폴더가 없는 폴더는 한 번 누르면 그 칸에서 그 폴더를 연다(공용 판정 folderPressAction).
+      // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 펼쳐 보일 것(하위 폴더·자료)이 없는 폴더는 한 번 누르면 그 칸에서 그 폴더를 연다(공용 판정 folderPressAction).
+      //  자료만 든 폴더는 지금처럼 그 칸 안에 펼친다(펼친 폴더 안 놓기 #2408 그대로).
       const nav = e.target.closest('[data-lu-nav]');
       if (nav && !e.target.closest('input')) {
         e.preventDefault(); e.stopPropagation();
         const fid = nav.dataset.luNav || '';
         if (!fid) return;
-        if (folderPressAction(paneSubfolders(fid)) === FOLDER_PRESS_ENTER) { enter(fid, nav); return; }
+        const c = paneContent(lastTree, fid);
+        if (c.found && folderPressAction(c.folders.length, c.files.length) === FOLDER_PRESS_ENTER) { enter(fid, nav); return; }
         if (!paneHasContent(fid)) return;
         h.toggle('f:' + fid, nav.getAttribute('aria-expanded') !== 'true');
         root()?.querySelector(`[data-lu-pane-i="${i}"] [data-lu-nav="${CSS.escape(fid)}"]`)?.focus({preventScroll: true});
@@ -197,11 +199,6 @@ export function createLibraryTwo(h) {
     list.addEventListener('focusin', e => { if (!h.on()) return; const i = frame.paneOf(e.target); if (i >= 0) setCur(i); });
     // 두 칸 키(Tab 칸 바꾸기 · F6 반대 칸 폴더로 옮기기). F5는 복사가 없어 가로채지 않음.
     document.addEventListener('keydown', e => { if (h.on()) frame.key(e); });
-  }
-  // 그 폴더의 하위 폴더 수(보이는 나무 기준, 폴더가 없어졌으면 null = 모름).
-  function paneSubfolders(fid) {
-    const c = paneContent(lastTree, fid);
-    return c.found ? c.folders.length : null;
   }
   // 펼칠 것이 있는 폴더인가.
   function paneHasContent(fid) {

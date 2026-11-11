@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S52-44 ② FILES-관리자마무리(요청함 11/08 "칸마다 마지막으로 보던 폴더 서버 기억(다시 열면 그 자리)"):
 // 칸마다 마지막으로 보던 원드라이브·구글 드라이브 폴더는 서버 view_prefs.files_last에 두고, 다시 열면 그 폴더로 연다.
@@ -24,7 +24,7 @@ test('PC 1440: 연 폴더를 서버에 기억 → 다시 열면 그 폴더, 맨 
   test.setTimeout(90000);
   const { errors, prefs } = await begin(page, 1440);
   await expect(row(page, 'od:OD!1')).toBeVisible();
-  await row(page, 'od:OD!1').click();
+  await enterRow(page, row(page, 'od:OD!1'));
   await expect(row(page, 'od:OD!11')).toBeVisible();
   await expect.poll(() => prefs.value?.files_last).toEqual([{ od: 'OD!1' }]);
   await reopen(page, 1440);

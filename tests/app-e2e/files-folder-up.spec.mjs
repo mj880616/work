@@ -2,7 +2,7 @@
 // 뒤로 키·[‹]·화면 왼쪽 끝 밀기 어느 것으로도 한 단계씩 나오고, 들어온 폴더에서는 그 폴더를 펼친 나무로(엉뚱한 화면으로 나가지 않음).
 // 위치 줄을 누르면 고른 단계로. [‹]는 지금 폴더 이름과 같은 줄(누르는 자리 44px), 정렬·[새 폴더]·[올리기]는 둘째 줄 오른쪽.
 import { test, expect } from '@playwright/test';
-import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
+import { start, openFiles, phoneFolder, enterRow } from './helpers/files-server.mjs';
 import { swipeAt } from './helpers/pinch.mjs';
 
 test.use({ hasTouch: true });
@@ -23,9 +23,9 @@ async function deep(server) {
 async function threeDown(page) {
   await phoneFolder(page, 'od', 'OD!1');
   await expect(here(page)).toHaveText('가짜 문서함');
-  await box(page).locator('[data-fx-row="od:OD!10"]').tap();
+  await enterRow(page, box(page).locator('[data-fx-row="od:OD!10"]')); // OPS-빠진일2차 1: 안이 찬 하위 폴더 누르기는 그 자리 펼침 — 한 단계 들어가기는 두 손가락 벌리기
   await expect(here(page)).toHaveText('가짜 2026');
-  await box(page).locator('[data-fx-row="od:OD!15"]').tap();
+  await enterRow(page, box(page).locator('[data-fx-row="od:OD!15"]'));
   await expect(here(page)).toHaveText('가짜 3단');
   await expect(box(page).locator('[data-fx-row="od:OD!16"]')).toBeVisible();
 }

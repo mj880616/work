@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S50-27 FILES-내PC드라이브 ②(시안 A, 명진 결정 11/05): 윈도우 PC 브라우저에서 바구니 PC 앱 문(127.0.0.1:47620~47622)이 답하면
 // 나무 맨 끝 뿌리 '내 PC'(원드라이브·구글 드라이브 다음 줄) → 드라이브 → 폴더 목록 → 미리보기 [이 PC에서 열기][탐색기에서 위치].
@@ -164,8 +164,8 @@ test.describe('윈도우 PC 1440', () => {
     await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
     await expect(list(page).locator(at('data-fx-row', 'pc:C:\\'))).toContainText('로컬 디스크 (C:)');
     await expect(list(page).locator(at('data-fx-row', 'pc:D:\\'))).toContainText('자료 (D:)');
-    await list(page).locator(at('data-fx-row', 'pc:C:\\')).click();
-    await list(page).locator(at('data-fx-row', 'pc:C:\\문서')).click();
+    await enterRow(page, list(page).locator(at('data-fx-row', 'pc:C:\\')));
+    await enterRow(page, list(page).locator(at('data-fx-row', 'pc:C:\\문서')));
     await expect(root(page).locator('.fx-top [data-fx-crumb]')).toContainText('내 PC›C:›문서');
     const file = list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 회의자료_연습.hwpx'));
     await expect(file).toBeVisible();
@@ -210,7 +210,7 @@ test.describe('윈도우 PC 1440', () => {
     await pane(page, 0).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
     await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
     await expect(pane(page, 0).locator(at('data-fx-row', 'pc:C:\\'))).toBeVisible();
-    await pane(page, 0).locator(at('data-fx-row', 'pc:C:\\')).click();
+    await enterRow(page, pane(page, 0).locator(at('data-fx-row', 'pc:C:\\')));
     await expect(pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서'))).toBeVisible();
     // 오른쪽 칸으로 바꿔 나무에서 원드라이브.
     await pane(page, 1).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
@@ -266,12 +266,12 @@ async function twoPanes(page) {
   await root(page).locator('[data-fx-tree-tog]').click(); // S52-41 ③: 두 칸이면 나무는 접혀 있다
   await pane(page, 0).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
   await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
-  await pane(page, 0).locator(at('data-fx-row', 'pc:C:\\')).click();
-  await pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서')).click();
+  await enterRow(page, pane(page, 0).locator(at('data-fx-row', 'pc:C:\\')));
+  await enterRow(page, pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서')));
   await expect(pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'))).toBeVisible();
   await pane(page, 1).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
   await tree(page).locator('[data-fx-go="od"][data-fx-id=""]').click();
-  await pane(page, 1).locator('[data-fx-row="od:OD!1"]').click();
+  await enterRow(page, pane(page, 1).locator('[data-fx-row="od:OD!1"]'));
   await expect(pane(page, 1).locator('[data-fx-row="od:OD!13"]')).toBeVisible();
 }
 test.describe('윈도우 PC 1440 · 바구니 0.4.0 문(내 PC ↔ 클라우드)', () => {
@@ -348,8 +348,8 @@ test.describe('윈도우 PC 1440 · 바구니 0.4.0 문(내 PC ↔ 클라우드)
     test.setTimeout(120000);
     const { errors } = await begin(page, { write: true });
     await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
-    await list(page).locator(at('data-fx-row', 'pc:C:\\')).click();
-    await list(page).locator(at('data-fx-row', 'pc:C:\\문서')).click();
+    await enterRow(page, list(page).locator(at('data-fx-row', 'pc:C:\\')));
+    await enterRow(page, list(page).locator(at('data-fx-row', 'pc:C:\\문서')));
     const memo = list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'));
     await memo.click({ modifiers: ['Control'] });
     const bar = root(page).locator('[data-fx-bar]');
@@ -369,7 +369,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.4.0 문(내 PC ↔ 클라우드)
     await dest.locator('[data-fx-dest-close]').click();
     // 클라우드 파일 → 받을 곳 창에 '내 PC'가 있고, 맨 위(드라이브 목록)를 고르면 [여기에 복사]가 흐리다.
     await tree(page).locator('[data-fx-go="od"][data-fx-id=""]').click();
-    await list(page).locator('[data-fx-row="od:OD!1"]').click();
+    await enterRow(page, list(page).locator('[data-fx-row="od:OD!1"]'));
     await list(page).locator('[data-fx-row="od:OD!13"]').click({ modifiers: ['Control'] });
     await bar.locator('[data-fx-copy]').click();
     await dest.locator('[data-fx-dest-pick="pc:"]').click();
@@ -384,7 +384,7 @@ test.describe('윈도우 PC 1440 · 내 PC 폴더 고정(S52-41 ④)', () => {
     test.setTimeout(90000);
     const { errors, server, st } = await begin(page, { write: true });
     await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
-    await list(page).locator(at('data-fx-row', 'pc:C:\\')).click();
+    await enterRow(page, list(page).locator(at('data-fx-row', 'pc:C:\\')));
     const row = tree(page).locator(at('data-fx-fold', 'pc:C:\\문서'));
     await row.locator('[data-fx-tmenu]').click();
     await page.locator('[data-row-item="pin"]').first().click();
@@ -437,8 +437,8 @@ const ask = page => page.locator('.kptu-ask');
 const menu = page => page.locator('#rowMenu');
 async function openDocs(page, i = 0) {
   await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
-  await pane(page, i).locator(at('data-fx-row', 'pc:C:\\')).click();
-  await pane(page, i).locator(at('data-fx-row', 'pc:C:\\문서')).click();
+  await enterRow(page, pane(page, i).locator(at('data-fx-row', 'pc:C:\\')));
+  await enterRow(page, pane(page, i).locator(at('data-fx-row', 'pc:C:\\문서')));
   await expect(pane(page, i).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'))).toBeVisible();
 }
 test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
@@ -531,7 +531,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     await openDocs(page, 0);
     await pane(page, 1).locator('.fx-ptop').click({ position: { x: 300, y: 5 } });
     await tree(page).locator('[data-fx-go="pc"][data-fx-id=""]').click();
-    await pane(page, 1).locator(at('data-fx-row', 'pc:D:\\')).click();
+    await enterRow(page, pane(page, 1).locator(at('data-fx-row', 'pc:D:\\')));
     await expect(pane(page, 1).locator('[data-fx-list]')).toContainText('빈 폴더');
     // 왼쪽 내 PC 파일 → 오른쪽 내 PC D: 끌어 놓기 → [옮기기].
     const memo = pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'));

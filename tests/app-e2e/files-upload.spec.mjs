@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { start, openFiles, UPLOAD_HOST, treeGo } from './helpers/files-server.mjs';
+import { start, openFiles, UPLOAD_HOST, treeGo, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S49-33 FILES-통합 2-④ 올리기(명진 결정 H-3 같은 이름 한 번 묻기·번호, H-4 200MB 묻기, H-6 노트북 '화면 닫으면 일시 정지 → 다시 열면 남은 조각부터') + 별표.
 // 시안 ⑦: PC 바탕화면 파일을 끌어 놓으면 점선 '여기 놓으면 ○○에 올리기'. 폰·폴드는 위 줄 [올리기] → 고르기 창.
@@ -23,7 +23,7 @@ async function begin(page, width) {
 async function intoDocs(page, width, opts) {
   await openFiles(page, width, opts);
   await treeGo(page, 'od', '');
-  await row(page, 'od:OD!1').first().click();
+  await enterRow(page, row(page, 'od:OD!1').first());
   await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)').first()).toHaveText('가짜 문서함');
 }
 // 바탕화면에서 파일을 끌어 오는 것처럼(브라우저 DataTransfer에 파일을 넣어 dragover·drop).

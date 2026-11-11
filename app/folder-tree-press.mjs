@@ -5,7 +5,7 @@
 // UI-폴더누르기한규칙(S57-5, 요청함 11/11 06:23 명진 결정): 앱 전체 한 규칙 — 왼쪽 나무·오른쪽 목록 어디서든 폴더 한 번 누르기 = 그 자리에서 펼치기, 다시 누르기 = 접기.
 //  그 폴더만 보기(들어가기)는 PC 우클릭 [이 폴더로 들어가기](FOLDER_ENTER_LABEL), 폰·폴드 두 손가락 벌리기(folder-pinch.js). 위 ①은 이 규칙이 나무에 닿은 화면에서
 //  ftPressToggle로 바뀐다(이름 누르기 = 아이콘 누르기와 같은 단추).
-// OPS-빠진일2차 1(명진 11/11 14:55 '가'): 하위 폴더가 없는 폴더는 한 번 누르면 그 폴더를 연다(folderPressAction — 모든 나무·목록이 같은 판정).
+// OPS-빠진일2차 1(명진 11/11 14:55 '가'): 하위 폴더가 없는 폴더(펼쳐 보일 것이 없는 폴더)는 한 번 누르면 그 폴더를 연다(folderPressAction — 모든 나무·목록이 같은 판정).
 // 줄 모양은 folder-tree-ui.mjs(toggle을 준 줄 = .ft-has-tog, 들어간 폴더 = .ft-current, 펼침 = .ft-open, 아이콘 단추 = .ft-tog[aria-expanded]).
 // 상태 주인은 각 화면이다. 이 파일은 그 화면의 아이콘 단추를 눌러 줄 뿐 상태를 따로 갖지 않는다.
 
@@ -35,13 +35,17 @@ export function ftFoldIfRepeat(main) {
 export const FOLDER_ENTER_LABEL = '이 폴더로 들어가기';
 
 // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 폴더 한 번 누르기 판정 한 곳 — 자료실·[파일]·노트·사진의 모든 나무·목록(폰·폴드·PC)이 이 함수를 부른다.
-//  하위 폴더가 있으면 'toggle'(그 자리 펼치기·접기, 들어가지 않음), 하위 폴더가 없으면 'enter'(그 폴더 열기 = 우클릭 [이 폴더로 들어가기]·두 손가락 벌리기와 같은 곳).
-//  하위 폴더를 아직 모르면(서버에서 읽기 전) 'toggle' — 펼치며 읽고, 읽어 보니 없으면 그때 연다(createLeafWait).
-//  subfolders: 하위 폴더 수(숫자) · 있나(true/false) · 모름(null/undefined).
+//  그 자리에 펼쳐 보일 것이 있으면 'toggle'(그 자리 펼치기·접기, 들어가지 않음), 없으면 'enter'(그 폴더 열기 = 우클릭 [이 폴더로 들어가기]·두 손가락 벌리기와 같은 곳).
+//  펼쳐 보일 것 = 하위 폴더 + 그 화면이 펼친 폴더 아래 들여 보이는 것(파일·자료·노트·사진). 폴더만 보이는 나무(PC·폴드 왼쪽 나무)는 하위 폴더뿐이라
+//  '하위 폴더가 없는 폴더 = 한 번에 열기'(명진 결정 그대로)이고, 안 자료까지 들여 보이는 목록·폰 나무는 안이 빈 폴더만 열린다
+//  (그 자리 펼침에 보일 것이 있으면 지금처럼 펼침 — 처음 5개 + n개 더 보기, 펼친 폴더 안 놓기 #2408이 그대로).
+//  하위 폴더 수를 아직 모르면(서버에서 읽기 전) 'toggle' — 펼치며 읽고, 읽어 보니 없으면 그때 연다(createLeafWait·[파일] pressFolder).
+//  subfolders: 하위 폴더 수(숫자) · 있나(true/false) · 모름(null/undefined). shown: 펼침에 들여 보일 안 줄 수(폴더만 보이는 나무는 0, 모르면 null = 있다고 봄).
 export const FOLDER_PRESS_TOGGLE = 'toggle', FOLDER_PRESS_ENTER = 'enter';
-export function folderPressAction(subfolders) {
-  if (subfolders === null || subfolders === undefined) return FOLDER_PRESS_TOGGLE;
-  return (typeof subfolders === 'number' ? subfolders > 0 : !!subfolders) ? FOLDER_PRESS_TOGGLE : FOLDER_PRESS_ENTER;
+export function folderPressAction(subfolders, shown = 0) {
+  if (subfolders === null || subfolders === undefined || shown === null || shown === undefined) return FOLDER_PRESS_TOGGLE;
+  const n = (typeof subfolders === 'number' ? subfolders : subfolders ? 1 : 0) + (typeof shown === 'number' ? shown : shown ? 1 : 0);
+  return n > 0 ? FOLDER_PRESS_TOGGLE : FOLDER_PRESS_ENTER;
 }
 
 // 하위 폴더를 몰라 펼치며 읽은 폴더를 기억해 두었다가, 읽기가 끝나 하위 폴더가 없다고 나오면 그때 연다(한 번 누르기 = 열기).
@@ -53,10 +57,10 @@ export function createLeafWait() {
     arm(key) { waiting = key ?? null; },
     clear() { waiting = null; },
     get key() { return waiting; },
-    done(key, subfolders, enter) {
+    done(key, subfolders, enter, shown = 0) {
       if (waiting === null || waiting !== key) return false;
       waiting = null;
-      if (folderPressAction(subfolders) !== FOLDER_PRESS_ENTER) return false;
+      if (folderPressAction(subfolders, shown) !== FOLDER_PRESS_ENTER) return false;
       enter?.();
       return true;
     },

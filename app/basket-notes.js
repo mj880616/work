@@ -1448,9 +1448,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 여기 오는 PC·폴드 줄은 '최근'(오른쪽에 최근 노트)·'폴더 없음'('폴더 없음'도 한 화면)·선택 모드 줄뿐이다. 폴더만 보기는 우클릭·⋯ [이 폴더로 들어가기]·두 손가락.
   function pressFolder(id, e) {
     // FOLDER-나무새기준 ③: 폰 나무(첫 화면·그 폴더만 보기 모두)는 화면을 바꾸지 않고 그 자리에서 펼치기·접기(줄 어디를 눌러도). 그 폴더만 보기는 두 손가락 벌리기.
-    // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 하위 폴더가 없는 폴더는 한 번 누르면 그 폴더를 연다(공용 판정 folderPressAction, 두 손가락 벌리기와 같은 곳).
+    // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 펼쳐 보일 것(하위 폴더·그 폴더 노트)이 없는 폴더는 한 번 누르면 그 폴더를 연다(공용 판정 folderPressAction, 두 손가락 벌리기와 같은 곳).
     if (!wideList.matches && id !== RECENT && id !== OUTSIDE && !pick.active && folderById(id) && id !== at
-      && folderPressAction(folderSiblings(folders, {free:true, parentId:id}).length) === FOLDER_PRESS_ENTER) { pressEnter(id); return; }
+      && folderPressAction(folderSiblings(folders, {free:true, parentId:id}).length, notes.filter(n => folderOf(n) === id).length) === FOLDER_PRESS_ENTER) { pressEnter(id); return; }
     if (!wideList.matches && id !== RECENT && !(pick.active && id !== OUTSIDE)) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderList(); return; }
     if (id === OUTSIDE) { enter(OUTSIDE); return; }
     if (id === RECENT) { enter(null); return; }

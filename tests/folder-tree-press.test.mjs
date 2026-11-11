@@ -33,7 +33,8 @@ test('ftPressToggle: 아이콘 단추가 있는(하위 폴더가 있거나 아�
   assert.deepEqual(log, ['tog']);
 });
 
-test('folderPressAction: 하위 폴더가 있으면 펼치기, 없으면 열기, 모르면 펼치며 읽기 — 모든 나무·목록이 같은 판정', () => {
+test('folderPressAction: 펼쳐 보일 것이 있으면 펼치기, 없으면 열기, 모르면 펼치며 읽기 — 모든 나무·목록이 같은 판정', () => {
+  // 폴더만 보이는 나무(PC·폴드 왼쪽 나무): 하위 폴더가 없는 폴더 = 열기
   assert.equal(folderPressAction(3), FOLDER_PRESS_TOGGLE);
   assert.equal(folderPressAction(1), FOLDER_PRESS_TOGGLE);
   assert.equal(folderPressAction(true), FOLDER_PRESS_TOGGLE);
@@ -41,6 +42,11 @@ test('folderPressAction: 하위 폴더가 있으면 펼치기, 없으면 열기,
   assert.equal(folderPressAction(false), FOLDER_PRESS_ENTER);
   assert.equal(folderPressAction(null), FOLDER_PRESS_TOGGLE);
   assert.equal(folderPressAction(undefined), FOLDER_PRESS_TOGGLE);
+  // 안 자료까지 들여 보이는 목록·폰 나무: 하위 폴더가 없어도 안 자료가 있으면 그 자리 펼치기(처음 5개 + n개 더 보기, 펼친 폴더 안 놓기 그대로), 빈 폴더만 열기
+  assert.equal(folderPressAction(0, 4), FOLDER_PRESS_TOGGLE);
+  assert.equal(folderPressAction(0, 0), FOLDER_PRESS_ENTER);
+  assert.equal(folderPressAction(2, 0), FOLDER_PRESS_TOGGLE);
+  assert.equal(folderPressAction(0, null), FOLDER_PRESS_TOGGLE); // 장수를 모르면 있다고 본다
 });
 
 test('createLeafWait: 읽기 전 폴더를 눌렀다가, 읽어 보니 하위 폴더가 없으면 그때 연다 — 다른 것을 누르면 잊는다', () => {
@@ -53,6 +59,8 @@ test('createLeafWait: 읽기 전 폴더를 눌렀다가, 읽어 보니 하위 �
   assert.equal(w.key, null);
   w.arm('c');
   assert.equal(w.done('c', 2, () => log.push('c')), false); // 하위 폴더가 있으면 열지 않음(펼친 채)
+  w.arm('e');
+  assert.equal(w.done('e', 0, () => log.push('e'), 3), false); // 안 자료가 있으면 열지 않음(펼친 채)
   w.arm('d'); w.clear();
   assert.equal(w.done('d', 0, () => log.push('d')), false); // 그 사이 다른 것을 누름
   assert.deepEqual(log, ['a']);

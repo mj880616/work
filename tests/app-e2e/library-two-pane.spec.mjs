@@ -235,9 +235,11 @@ for(const width of [1440,884])test(`자료실 ${width} 두 칸: 폴더 누르기
   await expect(fa).toHaveAttribute('aria-expanded','false');
   await expect(page.locator(folderIn(0,'fc'))).toHaveCount(0);
   await expect(page.locator(`${pane(0)} [data-lu-document="n-1"]`)).toHaveCount(0);
-  // 빈 폴더는 눌러도 그대로.
+  // OPS-빠진일2차 1(S59-17, 명진 11/11 14:55 '가'): 빈 폴더(펼쳐 보일 것이 없음)는 누르면 그 칸에서 한 번에 열린다(전에는 아무 일 없음). 위치 줄로 돌아온다.
   await page.locator(folderIn(0,'fz')).click();
-  await expect(page.locator(folderIn(0,'fz'))).toHaveAttribute('aria-expanded','false');
+  await expect(page.locator(`${pane(0)} .lu-pane-here`)).not.toHaveText('자료실');
+  await page.locator(`${pane(0)} [data-lu-pane-go=""]`).click();
+  await expect(page.locator(`${pane(0)} .lu-pane-here`)).toHaveText('자료실');
   // 오른쪽 칸은 왼쪽과 상관없이 그대로 맨 위.
   await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('자료실');
   // 펼친 상태로 [이 폴더로 들어가기] → 그 칸만 그 폴더.

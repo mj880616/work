@@ -108,7 +108,12 @@ for (const width of [412, 884, 1440]) {
       await tree.locator('[data-photos-fx-tog="S2"]').click();
       await expect(tree.locator('.nx-name')).toHaveText(['카메라', '2026', '여행', '제주']);
       // UI-폴더누르기한규칙: 이름 누르기 = 펼침만(들어가지 않음), 들어가기 = 우클릭 [이 폴더로 들어가기]
+      // OPS-빠진일2차 1(S59-17): 하위 폴더가 없는 폴더(2026)는 이름을 한 번 누르면 그 폴더를 연다. 하위 폴더가 있는 여행은 펼침만.
+      await tree.locator('[data-photos-fx-open="S2"]').click();
+      await expect(tree.locator('[data-photos-folder="S2"]')).not.toHaveClass(/nx-current/);
       await tree.locator('[data-photos-fx-open="S1"]').click();
+      await expect(tree.locator('[data-photos-folder="S1"]')).toHaveClass(/nx-current/);
+      await path(page).locator('[data-photos-fx-at]').first().click();
       await expect(tree.locator('[data-photos-folder="S1"]')).not.toHaveClass(/nx-current/);
       if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/photos-pc-${width}-1-press.png` });
       await tree.locator('[data-photos-folder="S1"] .nx-name').click({ button: 'right' });

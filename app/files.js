@@ -1432,7 +1432,7 @@ function paintFocus(p, list, drawn = '') {
 }
 // ---------- OPS-빠진일2차 1(명진 11/11 14:55 '가'): 목록 칸 폴더 누르기 = 그 자리 펼치기·접기(왼쪽 나무와 같은 규칙) ----------
 // UI-폴더누르기한규칙 "오른쪽도 왼쪽처럼"이 [파일] 목록 칸만 빠졌던 것(PR 2348 '남김'). 폴더 한 번 누르기 = 그 자리에서 하위 폴더·파일을 들여 보이기, 다시 누르기 = 접기.
-// 하위 폴더가 없는 폴더는 한 번 누르면 그 폴더를 연다(공용 판정 folderPressAction). 그 폴더만 보기(들어가기)는 우클릭 [이 폴더로 들어가기]·펼친 폴더 위 두 손가락 벌리기.
+// 펼쳐 보일 것(하위 폴더·파일)이 없는 폴더는 한 번 누르면 그 폴더를 연다(공용 판정 folderPressAction). 그 폴더만 보기(들어가기)는 우클릭 [이 폴더로 들어가기]·펼친 폴더 위 두 손가락 벌리기.
 // 펼친 폴더 안은 나무와 같은 읽기(state.children·state.files — loadChildren·fillFolder)를 쓰고, 그 칸 정렬 그대로 하위 폴더 → 파일 순서. 펼침은 칸마다 화면 메모리(p.xopen).
 // 찾기 결과·묶음(별표·큰 파일)은 여러 위치가 섞인 목록이라 지금처럼 누르면 들어간다.
 const xable = p => orderable(p);
@@ -1510,24 +1510,25 @@ function pressListFolder(p, r) {
   const enter = () => goFolder(r.source, r.item_id, p, {down: focusBox(p)});
   if (!xable(p) && !focusBox(p)) { enter(); return; }
   const btn = inPane(p, `[data-fx-row="${CSS.escape(rowKey(r))}"]`);
-  pressFolder(r.source, r.item_id, {open: p.xopen.has(folderKey(r.source, r.item_id)), toggle: () => xToggle(p, r), enter, busy: btn});
+  pressFolder(r.source, r.item_id, {open: p.xopen.has(folderKey(r.source, r.item_id)), toggle: () => xToggle(p, r), enter, busy: btn, withFiles: true});
 }
 // [파일]의 폴더 누르기 판정 한 곳(PC·폴드 나무, 폰 나무, 목록 칸 — 한 칸·두 칸·폰 '그 폴더만').
 // 열려 있으면 접기. 하위 폴더 수를 알면 공용 판정(folderPressAction)대로 바로, 모르면 색인에서 먼저 읽고(나무 펼치기와 같은 loadChildren) 정한다 —
 // 하위 폴더가 없는 폴더가 펼쳐졌다가 들어가는 깜빡임 없이 한 번에 연다. 읽는 사이 다른 것을 누르면 이 누르기는 잊는다(pressWait).
 const pressWait = createLeafWait();
-function pressFolder(source, id, {open = false, toggle, enter, busy = null}) {
+// withFiles: 펼침에 파일까지 들여 보이는 곳(목록 칸·폰 나무)이면 파일도 '펼쳐 보일 것'으로 센다(폴더만 보이는 PC·폴드 나무는 하위 폴더만).
+function pressFolder(source, id, {open = false, toggle, enter, busy = null, withFiles = false}) {
   pressWait.clear();
   if (open) { toggle(); return; }
-  const fk = folderKey(source, id);
-  if (state.children.has(fk)) { if (folderPressAction((state.children.get(fk) || []).length) === FOLDER_PRESS_ENTER) enter(); else toggle(); return; }
+  const fk = folderKey(source, id), shown = () => (withFiles ? (state.files.get(fk) || []).length : 0);
+  if (state.children.has(fk)) { if (folderPressAction((state.children.get(fk) || []).length, shown()) === FOLDER_PRESS_ENTER) enter(); else toggle(); return; }
   pressWait.arm(fk);
   busy?.setAttribute('aria-busy', 'true');
   const scope = state.scope;
   void loadChildren(source, id).then(() => {
     busy?.removeAttribute('aria-busy');
     if (pressWait.key !== fk || state.scope !== scope) return;
-    if (!pressWait.done(fk, (state.children.get(fk) || []).length, enter)) toggle();
+    if (!pressWait.done(fk, (state.children.get(fk) || []).length, enter, shown())) toggle();
   });
 }
 // ---------- 미리보기 ----------
@@ -3817,10 +3818,10 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-paste]')) { const d = hereDest(); if (state.clip && d) pasteClip(d, b); return; }
   if (b.matches('[data-fx-uncut]')) { uncut(); return; }
   // FOLDER-나무새기준 ②: 폰 나무(공용 줄) — 펼치기·접기, 상자 접기, n개 더 보기, 최근 더보기, 파일 미리보기, ⋯ 그 자리 메뉴(S51-22).
-  // OPS-빠진일2차 1: 폰 나무 폴더 누르기 = 그 자리 펼치기·접기, 하위 폴더가 없으면 그 폴더만(두 손가락 벌리기와 같은 곳) — 공용 판정.
+  // OPS-빠진일2차 1: 폰 나무 폴더 누르기 = 그 자리 펼치기·접기(하위 폴더·파일까지), 펼쳐 보일 것이 없으면 그 폴더만(두 손가락 벌리기와 같은 곳) — 공용 판정.
   if (b.matches('[data-fx-tog]')) {
     const key = b.dataset.fxTog, box = b.closest('.nx-tree'), [source, ...rest] = key.split(':');
-    pressFolder(source, rest.join(':') || null, {open: state.open.has(key), busy: b,
+    pressFolder(source, rest.join(':') || null, {open: state.open.has(key), busy: b, withFiles: true,
       toggle: () => { toggle(key, box); root?.querySelector(`[data-fx-tog="${CSS.escape(key)}"]`)?.focus({preventScroll: true}); }, enter: () => focusTreeFolder(key)});
     return;
   }
