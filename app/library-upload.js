@@ -442,7 +442,7 @@ async function luDropFiles(files,target=null){
 }
 function luEnhanceDrop(){
   const list=document.querySelector('#documentList'),view=document.querySelector('#libraryView');if(!list||!view||document.querySelector('#libraryDropOverlay'))return;
-  const st=document.createElement('p');st.id='libraryDropStatus';st.className='lu-drop-status';st.hidden=true;st.setAttribute('role','status');st.setAttribute('aria-live','polite');list.before(st);const up=document.createElement('div');up.hidden=true;st.after(up);mountUploadRows(up,{has:job=>luDropSending.has(job.file)});
+  const st=document.createElement('p');st.id='libraryDropStatus';st.className='lu-drop-status';st.hidden=true;st.setAttribute('role','status');st.setAttribute('aria-live','polite');list.before(st);const up=document.createElement('div');up.hidden=true;st.after(up);mountUploadRows(up,{has:job=>luDropSending.has(job.file)||luBackSending.has(job.file)});
   const overlay=document.createElement('div');overlay.id='libraryDropOverlay';overlay.className='lu-drop-overlay';overlay.hidden=true;overlay.setAttribute('aria-hidden','true');overlay.innerHTML='<span class="lu-drop-hint"></span>';overlay.firstChild.textContent=DROP_HINT;document.body.append(overlay);
   // 왼쪽 메뉴를 뺀 화면 전체(자료실 칸의 가로 범위, 세로는 창 전체).
   const place=()=>{const r=view.getBoundingClientRect();overlay.style.left=Math.max(0,Math.round(r.left))+'px';overlay.style.right=Math.max(0,Math.round(window.innerWidth-r.right))+'px'};
@@ -560,8 +560,10 @@ function luCloseUploadWindow(){const close=window.KPTUDocumentModal?.close;if(ty
 const LU_BACK_FAIL_MS=18000;
 const luBackScope=()=>({owner:window.KPTURuntime?.session?.read?.()?.user?.id||'',workspace:luWorkspace||''});
 const luBackGone=scope=>{const now=window.KPTURuntime?.session?.read?.()?.user?.id||'';return !scope||(!!now&&!!scope.owner&&now!==scope.owner)||(luWorkspace||'')!==scope.workspace};
+// 뒤 줄에 선 파일(luBackSending): 자료실 화면에 있으면 목록 위 올리는 줄(끌어 놓기와 같은 자리)에 그 파일의 막대·%·✕(취소)가 보이고, 다른 화면이면 하단바 위 한 줄.
+const luBackSending=new Set();
 let luBackTail=Promise.resolve();
-function luBackUpload(job){const run=luBackTail.then(()=>luRunBackUpload(job)).catch(e=>{console.error('library background upload failed',e);notify('자료를 올리지 못했어요. 잠시 후 다시 올려 주세요.',{error:true})});luBackTail=run;return run}
+function luBackUpload(job){for(const entry of job.entries)luBackSending.add(entry.file);const run=luBackTail.then(()=>luRunBackUpload(job)).catch(e=>{console.error('library background upload failed',e);notify('자료를 올리지 못했어요. 잠시 후 다시 올려 주세요.',{error:true})}).finally(()=>{for(const entry of job.entries)luBackSending.delete(entry.file)});luBackTail=run;return run}
 async function luRunBackUpload(job){const {entries,many,fields,projectId,org,meeting,folder,scope}=job;if(luBackGone(scope))return;let succeeded=0,linkFailed=0,lastProjectId=null,unfiled=0,filedId='',stopped=null;const failures=[],okDocIds=[],okNames=[],retryEntries=[];const putFolder=async id=>{if(!folder||luBackGone(scope))return;if(await luFolders().putUploaded(id,folder.id))filedId=folder.id;else unfiled++};const linkOrg=async id=>{if(org&&!luBackGone(scope)&&!(await linkUploadedDocument(window.KPTURuntime,{documentId:id,workspaceId:scope.workspace,organizationId:org.id})))linkFailed++};const fail=(entry,failure)=>{failures.push({...failure,name:entry.file?.name||''});entry.retry=failure.retry;entry.failure=failure;entry.kind=failure.kind||'error';if(failure.retry!==false&&failure.kind!=='unknown')retryEntries.push(entry)};
 for(let index=0;index<entries.length;index++){const entry=entries[index],file=entry.file;if(stopped){entry.kind='waiting';retryEntries.push(entry);continue}
 if(luBackGone(scope))return; // 계정·작업공간이 바뀌면 남은 파일을 보내지 않는다
