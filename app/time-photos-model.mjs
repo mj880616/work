@@ -154,3 +154,23 @@ export function attachName(name, type) {
 
 export const nearHead = (n, here = 0) => (n ? `그 시각 사진 ${n}장${here ? ` · 그 장소 ${here}장` : ''}` : '그 시각 앞뒤 3시간에 찍은 사진이 없어요');
 export const pickLabel = n => (n ? `붙이기 ${n}` : '붙이기');
+
+// ---- BIZ-보고할일정 PR D(요청 ⑤, 시안 docs/design/mockups/biz-report-plan-link.html ④) 미리 골라 두기 ----
+// 일정에서 연 [보고 쓰기] 창은 그 시각 사진을 처음부터 골라 둔다. 고르기만 한다 — 파일로 만들어 올리는 것은 [저장]을 누른 뒤다.
+// 미리 고르는 범위는 일정 시작 30분 전 ~ 시작 3시간 뒤(일정 중에 찍은 사진). 줄에는 지금처럼 앞뒤 3시간·그 장소 사진이 다 보이고,
+// 범위 밖 사진은 골라 두지 않는다(누르면 더함). 많으면 시작 시각에 가까운 것부터 PICK_MAX장(한 번에 붙이는 장수).
+export const PRESET_BEFORE_MS = 30 * 60 * 1000;
+export const PRESET_AFTER_MS = 3 * 60 * 60 * 1000;
+export function presetPicks(items, atMs, max = PICK_MAX) {
+  if (!Number.isFinite(atMs)) return [];
+  const from = atMs - PRESET_BEFORE_MS, to = atMs + PRESET_AFTER_MS;
+  const inside = (items || []).filter(it => { const t = takenMs(it); return it?.id && Number.isFinite(t) && t >= from && t <= to; });
+  return inside.sort((a, b) => Math.abs(takenMs(a) - atMs) - Math.abs(takenMs(b) - atMs) || String(a.id).localeCompare(String(b.id))).slice(0, max).map(it => it.id);
+}
+// 미리 골라 둔 줄의 머리 글: '그 시각 사진 5장 선택됨' · '그 시각 사진 6장 중 4장 선택됨' · (다 뺌) '그 시각 사진 6장'.
+export function presetHead(total, picked) {
+  if (!total) return nearHead(0);
+  if (!picked) return `그 시각 사진 ${total}장`;
+  return picked >= total ? `그 시각 사진 ${total}장 선택됨` : `그 시각 사진 ${total}장 중 ${picked}장 선택됨`;
+}
+export const PRESET_NOTE = '누르면 빼기·더하기 · 저장하면 붙어요';

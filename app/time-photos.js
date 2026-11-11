@@ -7,6 +7,9 @@
 //   (새 보고 = 저장할 때 차례로 올림, 상세 = 바로 올림 — 둘 다 library-upload.js uploadFileForMeeting, Drive 첨부 app_documents.meeting_id)을 쓴다.
 //   고르지 않은 사진은 어디에도 올리지 않고, 목록·그림·고른 것은 이 창 메모리에만 있다(기기·서버 저장 없음).
 // - 출처는 사진 메뉴 출처 켜기/끄기(view_prefs.photo_sources)와 끈 폰 폴더(view_prefs.phone_folders_off, 새 폰 폴더는 꺼진 채 — phone-folders-sync.js)를 따른다. 쓸 출처가 없으면 줄을 그리지 않는다.
+// - BIZ-보고할일정 PR D(요청 ⑤, 설계 docs/design/biz-report-plan-link.md 10절): preset()이 참이면(일정에서 연 [보고 쓰기] 창) 창을 열 때 줄을 펼치고
+//   그 시각 사진을 미리 골라 둔다(time-photos-model.mjs presetPicks). 고르기만 한다 — 칸을 누르면 빼기·더하기, [붙이기]는 없다.
+//   부르는 쪽이 [저장]을 누른 때 chosen()으로 고른 칸을 받아 창을 닫은 뒤 timePhotoFiles로 파일을 만들어 기존 한 묶음 올리기 길에 넘긴다.
 import {phonePhotos} from './phone-photos.js';
 import {odStatusCached, odStatusIfWarm, odPhotos, odPhotoElement, odMediaUrl, odPhotoBlob, odErrorText} from './diary-onedrive.js';
 import {phoneErrorText} from './photo-sources-model.mjs';
@@ -15,7 +18,7 @@ import {readDeviceSources} from './photo-sources-device.js';
 import {viewPrefs} from './view-prefs.js';
 import {iconSvg} from './tree-icons.js';
 import {waitInlineHtml} from './wait-state.js';
-import {reportAtMs, suggestRange, windowMonths, odMonthItems, suggestPhotos, attachName, nearHead, pickLabel, PICK_MAX} from './time-photos-model.mjs';
+import {reportAtMs, suggestRange, windowMonths, odMonthItems, suggestPhotos, attachName, nearHead, pickLabel, PICK_MAX, presetPicks, presetHead, PRESET_NOTE} from './time-photos-model.mjs';
 import {isPhotoFile} from './activity-photo-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -75,12 +78,26 @@ async function odFile(rt, item) {
   if (!blob) throw new Error('onedrive_media_unavailable');
   return new File([blob], attachName(item.name, blob.type), {type:blob.type || 'image/jpeg'});
 }
+// 고른 칸 → 파일(한 장씩 차례로). 읽지 못한 칸은 failed로 돌려준다(부르는 쪽이 [다시 올리기]로 그 칸만 다시 부른다). onStep(n, total) = 몇 번째를 읽는 중.
+export async function timePhotoFiles(list, {rt = globalThis.window?.KPTURuntime, phone = phonePhotos(), onStep = () => {}} = {}) {
+  const items = Array.isArray(list) ? list : [], files = [], failed = [];
+  for (const [i, it] of items.entries()) {
+    try { onStep(i + 1, items.length); } catch { /* 표시뿐 */ }
+    try {
+      const f = it.kind === 'phone' ? await phoneFile(phone, it) : await odFile(rt, it);
+      if (isPhotoFile(f)) files.push(f); else failed.push(it);
+    } catch (error) { failed.push(it); console.warn('time photo read failed', it.kind, error?.message || error); }
+  }
+  return {files, failed};
+}
 
 // host 안에 한 줄을 그린다. at() = 보고 시각('YYYY-MM-DDTHH:MM' 서울 또는 ISO), onPick(files) = 붙이기(Promise 가능),
-// busy() = 저장·올리는 중이면 참, allowed() = 지금 이 줄을 보여도 되는가(고칠 수 있는 보고), quiet = 창을 열 때 서버에 묻지 않기. 돌려준 함수로 다시 맞춘다(창을 다시 열 때 접기·고른 것 비우기).
-export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed = () => true, quiet = false, rt = globalThis.window?.KPTURuntime, phone = phonePhotos()} = {}) {
-  if (!host) return () => {};
-  let run = 0, items = [], picked = new Set(), open = false, src = {phone:false, onedrive:false}, attaching = false;
+// busy() = 저장·올리는 중이면 참, allowed() = 지금 이 줄을 보여도 되는가(고칠 수 있는 보고), quiet = 창을 열 때 서버에 묻지 않기,
+// preset() = 다시 맞출 때 그 시각 사진을 미리 골라 둘까(일정에서 연 쓰기 창 — 이때는 원드라이브 연결도 바로 묻는다).
+// 돌려준 함수로 다시 맞춘다(창을 다시 열 때 접기·고른 것 비우기). 그 함수의 chosen() = 미리 골라 둔 줄에서 지금 골라 둔 칸(아니면 빈 목록).
+export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed = () => true, quiet = false, preset = () => false, rt = globalThis.window?.KPTURuntime, phone = phonePhotos()} = {}) {
+  if (!host) { const none = () => {}; none.chosen = () => []; return none; }
+  let run = 0, items = [], picked = new Set(), open = false, src = {phone:false, onedrive:false}, attaching = false, pre = false, waiting = false;
   host.classList.add('tp');
   host.hidden = true;
   host.innerHTML = `<div class="tp-line"><span class="tp-head" data-tp-head>그 시각 사진</span><button type="button" class="mini tp-open" data-tp-open aria-expanded="false">선택해 붙이기</button></div>
@@ -91,12 +108,19 @@ export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed =
     const b = $('[data-tp-attach]');
     b.textContent = pickLabel(picked.size);
     b.disabled = attaching || !picked.size || busy();
+    if (pre && !waiting) $('[data-tp-head]').textContent = presetHead(items.length, picked.size);
+  };
+  // 미리 골라 둔 줄: [선택해 붙이기]·[닫기]·[붙이기] 없이 칸만(누르면 빼기·더하기). 사진이 하나도 없으면 머리 글 한 줄만.
+  const setPreset = on => {
+    pre = on;
+    host.classList.toggle('tp-preset', on);
+    for (const s of ['[data-tp-open]', '[data-tp-close]', '[data-tp-attach]']) $(s).hidden = on;
   };
   const setOpen = on => {
     open = on;
     $('[data-tp-pick]').hidden = !on;
     $('[data-tp-open]').setAttribute('aria-expanded', String(on));
-    if (!on) { picked = new Set(); items = []; $('[data-tp-strip]').replaceChildren(); $('[data-tp-head]').textContent = '그 시각 사진'; }
+    if (!on) { picked = new Set(); items = []; $('[data-tp-strip]').replaceChildren(); $('[data-tp-head]').textContent = '그 시각 사진'; setPreset(false); }
   };
   const element = it => (it.kind === 'phone' ? phone.element(it, 'small', {label:''}) : odPhotoElement(it, 'small', {label:'', rt, retry:true}));
   function paintStrip() {
@@ -115,14 +139,15 @@ export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed =
     }));
     paintFoot();
   }
-  async function load() {
+  // ready: 출처를 방금 확인했다(미리 골라 두기 — 다시 묻지 않는다).
+  async function load(ready = false) {
     const mine = ++run, atMs = reportAtMs(at?.());
-    picked = new Set(); items = [];
+    picked = new Set(); items = []; waiting = true;
     $('[data-tp-strip]').replaceChildren(); paintFoot();
-    if (!Number.isFinite(atMs)) { $('[data-tp-head]').textContent = '그 시각 사진'; note('일시를 먼저 넣어 주세요'); return; }
+    if (!Number.isFinite(atMs)) { waiting = false; $('[data-tp-head]').textContent = '그 시각 사진'; note('일시를 먼저 넣어 주세요'); return; }
     note(''); $('[data-tp-strip]').innerHTML = waitInlineHtml();
     // 누른 때 출처를 다시 확인한다(조용히 정한 줄이면 원드라이브 연결을 이때 서버에 묻는다).
-    try { src = await timePhotoSources({rt, phone}); } catch { /* 이전 값 그대로 */ }
+    if (!ready) { try { src = await timePhotoSources({rt, phone}); } catch { /* 이전 값 그대로 */ } }
     if (mine !== run || !open) return;
     const range = suggestRange(atMs), fails = [];
     const [ph, od] = await Promise.all([
@@ -131,24 +156,20 @@ export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed =
     ]);
     if (mine !== run || !open) return;
     const got = suggestPhotos({phone:ph, od, atMs});
-    items = got.items;
-    $('[data-tp-head]').textContent = nearHead(items.length, got.here);
+    items = got.items; waiting = false;
+    if (pre) picked = new Set(presetPicks(items, atMs));
+    $('[data-tp-head]').textContent = pre ? presetHead(items.length, picked.size) : nearHead(items.length, got.here);
     paintStrip();
-    note(fails.join(' · '));
+    note(fails.length ? fails.join(' · ') : pre && items.length ? PRESET_NOTE : '');
+    if (pre && !items.length && !fails.length) $('[data-tp-pick]').hidden = true;
   }
   async function attach() {
     if (attaching || !picked.size || busy()) return;
     const chosen = items.filter(it => picked.has(it.id));
     attaching = true; paintFoot();
-    const files = []; let failed = 0;
     try {
-      for (const [i, it] of chosen.entries()) {
-        note(`사진 준비 중 ${i + 1}/${chosen.length}`);
-        try {
-          const f = it.kind === 'phone' ? await phoneFile(phone, it) : await odFile(rt, it);
-          if (isPhotoFile(f)) files.push(f); else failed++;
-        } catch (error) { failed++; console.warn('time photo read failed', it.kind, error?.message || error); }
-      }
+      const made = await timePhotoFiles(chosen, {rt, phone, onStep:(n, total) => note(`사진 준비 중 ${n}/${total}`)});
+      const files = made.files, failed = made.failed.length;
       if (files.length) await onPick?.(files);
       const fail = failed ? `${failed}장은 읽지 못했어요` : '';
       if (files.length) { setOpen(false); note(''); host.querySelector('[data-tp-open]')?.focus({preventScroll:true}); }
@@ -162,6 +183,7 @@ export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed =
     if (t.matches('[data-tp-close]')) { run++; setOpen(false); note(''); t.closest('.tp')?.querySelector('[data-tp-open]')?.focus({preventScroll:true}); return; }
     if (t.matches('[data-tp-attach]')) { void attach(); return; }
     if (t.matches('[data-tp-item]')) {
+      if (busy()) return;
       const id = t.dataset.tpItem;
       if (picked.has(id)) picked.delete(id);
       else if (picked.size >= PICK_MAX) { note(`한 번에 ${PICK_MAX}장까지 붙여요`); return; }
@@ -170,14 +192,19 @@ export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed =
       paintFoot();
     }
   });
-  // 다시 맞추기: 창을 새로 열 때·일시가 바뀔 때. 출처를 다시 확인하고 접는다.
+  // 다시 맞추기: 창을 새로 열 때·일시가 바뀔 때. 출처를 다시 확인하고 접는다. 미리 골라 두기면 펼쳐서 그 시각 사진을 골라 둔다.
   async function reset() {
-    const mine = ++run;
+    const mine = ++run, want = !!preset();
     setOpen(false); note('');
-    try { src = await timePhotoSources({rt, phone, quiet}); } catch { src = {phone:false, onedrive:false}; }
+    try { src = await timePhotoSources({rt, phone, quiet:quiet && !want}); } catch { src = {phone:false, onedrive:false}; }
     if (mine !== run) return;
     host.hidden = !allowed() || !(src.phone || src.onedrive);
+    if (!want || host.hidden) return;
+    setPreset(true); setOpen(true);
+    await load(true);
   }
+  // 미리 골라 둔 줄에서 지금 골라 둔 칸(찍은 순). 펼친 줄이 아니면 빈 목록 — 보이지 않은 사진은 붙지 않는다.
+  reset.chosen = () => (pre && open ? items.filter(it => picked.has(it.id)).map(it => ({...it})) : []);
   void reset();
   return reset;
 }
