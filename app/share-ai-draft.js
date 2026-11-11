@@ -17,8 +17,8 @@ const PICK_ROWS = 40;
 const TIMEOUT_MS = 90000;
 export const SHARE_AI_TEXT = Object.freeze({
   ...AI_SUMMARY_TEXT,
-  not_ready:'공유 페이지 AI 초안은 아직 준비 중이에요.',
-  invalid_request:'공유 페이지 AI 초안은 아직 준비 중이에요.',
+  not_ready:'공유 페이지 글 초안은 아직 준비 중이에요.',
+  invalid_request:'공유 페이지 글 초안은 아직 준비 중이에요.',
   not_found:'선택한 기록을 찾지 못했어요. 목록을 다시 확인해 주세요.',
   share_no_source:'선택한 기록에 초안에 쓸 글이 없어요.',
   daily_limit:'오늘 AI를 쓸 수 있는 횟수를 다 썼어요.',
@@ -190,7 +190,7 @@ function paint() {
   const focusKey = dialog.contains(document.activeElement) ? [...(document.activeElement?.attributes || [])].find(a => a.name.startsWith('data-sa-')) : null;
   const panes = two ? pickHtml() + previewHtml() : s.step === 'preview' ? previewHtml() : pickHtml();
   dialog.classList.toggle('pd-two', two);
-  dialog.innerHTML = `<header class="pd-head"><h2 id="shareAiDraftTitle">공유 페이지 AI 초안</h2><button type="button" class="pd-icon" data-sa-close aria-label="닫기">×</button></header>
+  dialog.innerHTML = `<header class="pd-head"><h2 id="shareAiDraftTitle">공유 페이지 글 초안</h2><button type="button" class="pd-icon" data-sa-close aria-label="닫기">×</button></header>
 <div class="pd-body">${panes}</div>
 <p class="pd-status" data-sa-status role="status" aria-live="polite" tabindex="-1">${esc(s.message)}</p>`;
   bindPickFold(dialog);

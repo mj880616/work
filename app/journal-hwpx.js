@@ -1160,7 +1160,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!p) return;
     p.hidden = !a?.note && a?.status !== 'done';
     p.replaceChildren(a?.note ?? '');
-    if (a && a.status !== 'running' && a.status !== 'wait') { const again = button('AI 초안 다시 쓰기', 'hwpxAiAgain'); again.setAttribute('aria-label', 'AI 초안 다시 쓰기(손대지 않은 칸만)'); p.append(' ', again); p.hidden = false; }
+    if (a && a.status !== 'running' && a.status !== 'wait') { const again = button('초안 다시 쓰기', 'hwpxAiAgain'); again.setAttribute('aria-label', '초안 다시 쓰기(손대지 않은 칸만)'); p.append(' ', again); p.hidden = false; }
   }
 
   // ---- 환류학습 6: [학습 시험] — 저장하지 않고 이번 주 개인본과 나란히 ----

@@ -77,8 +77,8 @@ async function signIn(page, state) {
 }
 async function openDraft(page, width) {
   const editor = page.locator('[data-sp-editor]');
-  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크·AI 초안', exact:true}).click();
-  await editor.getByRole('button', {name:'AI 초안', exact:true}).click();
+  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크·글 초안 만들기', exact:true}).click();
+  await editor.getByRole('button', {name:'글 초안 만들기', exact:true}).click();
   const d = page.locator('#shareAiDraftDialog');
   await expect(d).toBeVisible();
   return d;
@@ -95,7 +95,7 @@ for (const width of [412, 1440]) test('share AI draft: pick records, preview by 
   await box.click(); await page.keyboard.type('처음 쓴 글');
 
   const d = await openDraft(page, width);
-  await expect(d.locator('h2')).toHaveText('공유 페이지 AI 초안');
+  await expect(d.locator('h2')).toHaveText('공유 페이지 글 초안');
   // NOTE-AI제외정리: 옛 [AI에 보내지 않기] 표시·비밀 모양 노트도 목록에 있다(가림은 서버가 AI로 보낼 때). 읽기는 AI 허용·보관 안 된 노트·업데이트만.
   await expect(d.locator('[data-sa-pick]')).toHaveCount(5);
   await expect(d.locator(`[data-sa-pick="note:${N_OFF}"]`)).toHaveCount(1);
@@ -160,5 +160,29 @@ test('share AI draft: closing without [넣기] leaves the text as it was', async
   await expect(box.locator('.ed-h2')).toHaveCount(0);
   await expect(box).not.toContainText('단체협약');
   expect(state.writes).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+// OPS-빠진일2차 4(S59-22, 명진 11/11 14:55 "제안대로 전부"): 편집 화면 맨 위 ⋯ 안 단추는 [AI 초안]이 아니라 [글 초안 만들기], 창 제목은 '공유 페이지 글 초안'.
+// KPTU_SHOTS=1이면 docs/design/screens/s59-22/에 PC 1280·폰 412 사진을 남긴다(가짜 자료만).
+const SHOTS = process.env.KPTU_SHOTS === '1';
+const shot22 = async (page, name) => { if (SHOTS) { await page.waitForTimeout(250); await page.screenshot({path:`docs/design/screens/s59-22/${name}.png`}); } };
+for (const [width, label] of [[1280, 'pc-1280'], [412, 'phone-412']]) test(`share AI draft button name: ${label}`, async ({page}) => {
+  await page.setViewportSize({width, height:width > 760 ? 860 : 915});
+  const state = {pages:[]};
+  const errors = await signIn(page, state);
+  await pressNewSharePage(page);
+  const editor = page.locator('[data-sp-editor]');
+  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크·글 초안 만들기', exact:true}).click();
+  const open = editor.getByRole('button', {name:'글 초안 만들기', exact:true});
+  await expect(open).toBeVisible();
+  await expect(editor.getByRole('button', {name:'AI 초안', exact:true})).toHaveCount(0);
+  await shot22(page, `${label}-share-draft-button`);
+  await open.click();
+  const d = page.locator('#shareAiDraftDialog');
+  await expect(d).toBeVisible();
+  await expect(d.locator('h2')).toHaveText('공유 페이지 글 초안');
+  await expect(d.locator('[data-sa-make]')).toHaveText('초안 만들기');
+  await shot22(page, `${label}-share-draft-dialog`);
   expect(errors).toEqual([]);
 });

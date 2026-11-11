@@ -173,3 +173,41 @@ test('⑥ 서버가 잇기를 모르면 (라)(다) 모두 묻지 않고 지금 �
   await expect(askBox(page)).toHaveCount(0);
   expect(calls(s,'join_start')).toEqual([]);
 });
+
+// OPS-빠진일2차 4(S59-22, 명진 11/11 14:55 "제안대로 전부"): AI 단추 이름 — 회의 보고 창 [할 일 후보 찾기]·자료 녹음 ⋯ [녹음 글로 옮기고 요약하기],
+// 회의 입력 창 [사업영역 추천]. KPTU_SHOTS=1이면 docs/design/screens/s59-22/에 PC 1280·폰 412 사진을 남긴다(가짜 자료만).
+const shot22=async(page,name)=>{if(SHOTS){await page.waitForTimeout(250);await page.screenshot({path:`docs/design/screens/s59-22/${name}.png`})}};
+for(const [width,label] of [[1280,'pc-1280'],[412,'phone-412']])test(`⑦ ${label}: AI 단추 이름 — 보고 창 [할 일 후보 찾기]·자료 녹음 ⋯ [녹음 글로 옮기고 요약하기]`,async({page})=>{
+  test.setTimeout(120000);
+  const s=makeState();
+  await signIn(page,s,{width});
+  await known(page);
+  await openReport(page,M1);
+  const dlg=page.locator('#meetingRoundDetailModal');
+  await dlg.locator('#mrdAddTask').click();
+  await expect(dlg.locator('#mrdMakeTodos')).toBeVisible();
+  await expect(dlg.locator('#mrdMakeTodos')).toHaveText('할 일 후보 찾기');
+  await shot22(page,`${label}-todo-candidates-button`);
+  await dlg.locator('#mrdAddTask').click();
+  await dlg.locator('#mrdMaterials summary[aria-label^="파일 메뉴"]').first().click();
+  const item=dlg.locator('#mrdMaterials [data-mrd-transcribe]').first();
+  await expect(item).toBeVisible();
+  await expect(item).toHaveText('녹음 글로 옮기고 요약하기');
+  await item.scrollIntoViewIfNeeded();
+  await shot22(page,`${label}-attached-transcribe-menu`);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+// 회의 입력 창의 사업영역 칸: [AI 추천] → [사업영역 추천]
+for(const [width,label] of [[1280,'pc-1280'],[412,'phone-412']])test(`⑧ ${label}: 회의 입력 창 사업영역 칸 [사업영역 추천]`,async({page})=>{
+  test.setTimeout(120000);
+  const s=makeState();
+  await signIn(page,s,{width});
+  await known(page);
+  await page.evaluate(()=>window.KPTUReportEntry.open({kind:'meeting',at:'2026-11-11T11:20'}));
+  const entry=page.locator('#meetingModal');
+  await expect(entry).toBeVisible({timeout:15000});
+  const area=entry.locator('[data-biz-area-ai]');
+  await area.scrollIntoViewIfNeeded();
+  await expect(area).toHaveText('사업영역 추천');
+  await shot22(page,`${label}-area-suggest-button`);
+});

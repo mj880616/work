@@ -22,7 +22,7 @@ async function areaName(id){
 export function mountAreaFields(host,{onMessage=()=>{},material=null}={}){
   if(!host)return null;
   host.classList.add('biz-area-fields');host.hidden=true;
-  host.innerHTML=`<label><span>사업영역 <span class="optional">꼬리표 하나</span></span><button type="button" class="secondary field-btn" data-biz-area-pick aria-haspopup="dialog">꼬리표 없음</button></label>${material?`<div class="biz-area-suggest"><button type="button" class="secondary" data-biz-area-ai>AI 추천</button><span class="biz-area-sugs" data-biz-area-sugs role="status" aria-live="polite"></span></div>`:''}
+  host.innerHTML=`<label><span>사업영역 <span class="optional">꼬리표 하나</span></span><button type="button" class="secondary field-btn" data-biz-area-pick aria-haspopup="dialog">꼬리표 없음</button></label>${material?`<div class="biz-area-suggest"><button type="button" class="secondary" data-biz-area-ai>사업영역 추천</button><span class="biz-area-sugs" data-biz-area-sugs role="status" aria-live="polite"></span></div>`:''}
 <details class="biz-next-plan" data-biz-plan-box><summary>다음 할 일 <span class="optional" data-biz-plan-count></span></summary><textarea rows="3" maxlength="${NEXT_PLAN_MAX}" data-biz-plan aria-label="다음 할 일" placeholder="한 줄에 하나 — 주간보고 '이후 계획'에 들어가요"></textarea></details>`;
   const button=host.querySelector('[data-biz-area-pick]'),box=host.querySelector('[data-biz-plan-box]'),plan=host.querySelector('[data-biz-plan]'),count=host.querySelector('[data-biz-plan-count]');
   let area='',none=false,legacy=false,touched=false,base='',ready=false,noneReady=false,editing=false,run=0;
@@ -33,7 +33,7 @@ export function mountAreaFields(host,{onMessage=()=>{},material=null}={}){
   plan.addEventListener('input',paintCount);
   // ---- AI 추천 ----
   const aiBtn=host.querySelector('[data-biz-area-ai]'),sugs=host.querySelector('[data-biz-area-sugs]');let aiRun=0;
-  const SUGGEST_NOTE={short:'내용을 조금 더 쓰면 추천할 수 있어요.',secret:'비밀번호·키 같은 글이 있어 AI에 보내지 않았어요.',no_areas:'사업영역이 아직 없어요.',monthly_limit:'이번 달 AI 한도에 닿았어요.',daily_limit:'오늘 AI 횟수를 다 썼어요.',not_ready:'AI 추천은 준비 중이에요.',offline:'인터넷 연결이 없어요.'};
+  const SUGGEST_NOTE={short:'내용을 조금 더 쓰면 추천할 수 있어요.',secret:'비밀번호·키 같은 글이 있어 AI에 보내지 않았어요.',no_areas:'사업영역이 아직 없어요.',monthly_limit:'이번 달 AI 한도에 닿았어요.',daily_limit:'오늘 AI 횟수를 다 썼어요.',not_ready:'사업영역 추천은 준비 중이에요.',offline:'인터넷 연결이 없어요.'};
   const clearSugs=()=>{aiRun++;if(sugs)sugs.replaceChildren();if(aiBtn){aiBtn.disabled=false;aiBtn.removeAttribute('aria-busy')}};
   aiBtn?.addEventListener('click',async()=>{
     const mine=++aiRun,m=material?.()||{},title=String(m.title||'').replace(/\s+/g,' ').trim().slice(0,200);

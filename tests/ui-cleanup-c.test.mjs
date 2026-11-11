@@ -92,14 +92,14 @@ test('① 위쪽 빈 띠: 노트 수정·통화·텔레그램 상세, 폰 노트
   assert.match(read('journal.js'), /function syncDayTitle\(\) \{\s*const box = \$\('\[data-journal-day\]'\); if \(!box\) return;\s*box\.querySelector\('\[data-journal-day-title\]'\)\?\.remove\(\);/);
 });
 
-test('③ 사업 보고 후속 할 일: 머리의 추가 단추는 [+] 하나, AI 후보 찾기는 그 입력 줄 안', () => {
+test('③ 사업 보고 후속 할 일: 머리의 추가 단추는 [+] 하나, [할 일 후보 찾기]는 그 입력 줄 안', () => {
   const t = read('meeting-round-detail.js');
   const head = /<div class="mtg-group-head"><h3 id="mrdTasksHead">후속 할 일<\/h3>([\s\S]*?)<\/div>/.exec(t);
   assert.ok(head);
   assert.equal((head[1].match(/<button/g) || []).length, 1);
   assert.match(head[1], /id="mrdAddTask"/);
   const form = /<div id="mrdTaskForm"[\s\S]*?<div id="mrdTaskStatus"/.exec(t);
-  assert.match(form[0], /id="mrdMakeTodos"[^>]*>AI로 후보 찾기</);
+  assert.match(form[0], /id="mrdMakeTodos"[^>]*>할 일 후보 찾기</);
   assert.doesNotMatch(t, /후속 할 일 만들기<\/button>/);
 });
 
