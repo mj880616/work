@@ -44,6 +44,10 @@ for(const width of [1280,1440]){
     await page.mouse.move(sx,to.y+2,{steps:8});
     await expect(library).toHaveClass(/re-drop-before/);
     await expect(photos).toHaveClass(/re-dragging/);
+    // 놓일 자리 줄이 실제로 그려진다(다른 규칙이 줄 배경을 덮어 줄이 안 보이는 일 방지): 줄 안쪽 ::before 2px 막대.
+    const line=await library.evaluate(el=>{const s=getComputedStyle(el,'::before');return {height:s.height,color:s.backgroundColor}});
+    expect(line.height).toBe('2px');
+    expect(line.color).not.toBe('rgba(0, 0, 0, 0)');
     await page.mouse.up();
     // 끌기 뒤 따라오는 클릭은 삼켜서 화면이 열리지 않는다.
     await page.waitForTimeout(250);
