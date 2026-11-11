@@ -36,10 +36,12 @@ export function googleSiteUrl(domain: string): string {
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) throw new Error("news-catalog: bad google site domain");
   return googleSearchUrl(`site:${domain} when:1d`);
 }
-// 매체 단위 구글 뉴스 줄 한 개. 규칙은 다른 국내 매체와 같다: take 'all'·기본 켬·extract:false. 매체 이름은 카탈로그 name으로 통일한다
+// 매체 단위 구글 뉴스 줄 한 개(키만 뺀 나머지). 규칙은 다른 국내 매체와 같다: take 'all'·기본 켬·extract:false. 매체 이름은 카탈로그 name으로 통일한다
 //   (구글 제목 끝 ' - 매체'는 떼어 낸다 — 목록의 매체 이름·도배막기 묶음·색이 RSS 매체와 같은 길로 간다).
-const viaGoogle = (key: string, name: string, domain: string): NewsSource => ({
-  key, name, group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+//   키는 줄마다 `{ key: "news-…", ...googleSite(…) }`로 글자 그대로 적는다(영문 소문자·줄표만): 색 표 시험(tests/news-colors.test.mjs)처럼
+//   이 파일을 글자로 읽어 키를 찾는 검사가 있다 — 함수 인자로 키를 넘기면 그 검사가 키를 못 찾는다(#2365 뒤 main 시험이 그래서 깨졌다).
+const googleSite = (name: string, domain: string): Omit<NewsSource, "key"> => ({
+  name, group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
   extract: false, google: domain, lists: [googleSiteUrl(domain)], hosts: [GOOGLE_NEWS_HOST], kindOf: article });
 export const isGoogleSite = (s: { google?: string } | null | undefined): boolean => typeof s?.google === "string" && s.google.length > 0;
 
@@ -153,7 +155,7 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   //   미디어오늘은 같이 넣었으나 그쪽 robots.txt가 수집기를 막아(수집 결과 'robots', 0건 [사실: 11/11 CC 운영 확인]) RSS 줄을 빼고 아래 5차 구글 뉴스 매체 단위 줄로 옮겼다.
   //   'AI 학습 금지' 문구가 있는 서울경제도 넣는다 — 11/08 명진 결정(개인 용도)과 같은 기준.
   // 미디어오늘(S57-13): 자기 RSS는 그쪽 robots.txt가 막아 구글 뉴스 매체 단위 줄로 옮김(아래 5차). 키와 자리(순서)는 그대로 둔다 — 켬·끔 설정과 다른 매체의 색 칸이 바뀌지 않게.
-  viaGoogle("news-mediatoday", "미디어오늘", "mediatoday.co.kr"),
+  { key: "news-mediatoday", ...googleSite("미디어오늘", "mediatoday.co.kr") },
   { key: "news-newsis", name: "뉴시스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
     // 안내 쪽 www.newsis.com/RSS/ [사실, 11/10]. 사회 피드 열림(RSS 2.0·description 있음·기사 링크 https://www.newsis.com/view/…) [사실].
     // 조건: 하단 '무단 전재·복사·배포 금지', 피드 안 저작권 고지 줄 [사실]. 전체 피드는 없고 속보(sokbo)는 양이 많아 사회·경제·정치만.
@@ -189,24 +191,24 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   //   지금 키워드 찾기(news-google)와 같은 길(검색 RSS 한 경로, robots.txt 먼저) — 새 서버 부품 없음. 키워드와 상관없이 그 매체 글 전부.
   //   한계: 구글 뉴스가 색인한 글만, 늦을 수 있음, 한 번에 많아야 100건, 링크가 구글 경유(본문은 읽지 않음 — 제목·매체·날짜·[원문]만).
   //   같은 글이 키워드 찾기로 먼저 들어와 있으면 주소·제목 겹침 거르기(insertNew)로 한 줄만 남는다.
-  //   자리: 카탈로그 맨 끝에 더한다 — 앞선 매체의 순서(목록 색 칸이 카탈로그 순서로 정해짐, app/news-colors.mjs)가 바뀌지 않게. 매체 고르기 화면은 region으로 묶는다.
+  //   자리: 카탈로그 맨 끝에 더한다 — 앞선 매체의 순서를 바꾸지 않는다(고정 색이 없는 매체는 카탈로그 순서로 색 칸이 정해진다, app/news-colors.mjs). 매체 고르기 화면은 region으로 묶는다.
   //   까닭(설계 3.1f): 미디어오늘 = robots.txt가 막음, 노동과세계 = https가 아님(http로 넘김), 뉴스민 = 봇 확인, 철도경제신문·부산일보 = 공식 RSS 없음.
-  viaGoogle("news-worknworld", "노동과세계", "worknworld.kctu.org"),
-  viaGoogle("news-newsmin", "뉴스민", "newsmin.co.kr"),
-  viaGoogle("news-redaily", "철도경제신문", "redaily.co.kr"),
-  viaGoogle("news-busan", "부산일보", "busan.com"),
+  { key: "news-worknworld", ...googleSite("노동과세계", "worknworld.kctu.org") },
+  { key: "news-newsmin", ...googleSite("뉴스민", "newsmin.co.kr") },
+  { key: "news-redaily", ...googleSite("철도경제신문", "redaily.co.kr") },
+  { key: "news-busan", ...googleSite("부산일보", "busan.com") },
   //   ① 다시 확인(11/11, 이 세션 WebFetch)에서도 RSS로 못 넣은 9곳 — 공식 RSS 링크가 없거나(뉴스1·머니투데이·국제신문·경기일보·경인일보·영남일보·레디앙 [사실]),
   //   있어도 이 세션에서 안내 쪽·피드·robots.txt를 열지 못함(참여와혁신 rssIndex.html, 이데일리 하단 RSS 링크는 http 주소 [사실]).
   //   CC가 크롬으로 피드·robots를 확인하면 그 매체만 자기 RSS 줄로 바꾸는 작은 PR(키는 그대로 두면 켬·끔 설정이 유지된다).
-  viaGoogle("news-laborplus", "참여와혁신", "laborplus.co.kr"),
-  viaGoogle("news-redian", "레디앙", "redian.org"),
-  viaGoogle("news-news1", "뉴스1", "news1.kr"),
-  viaGoogle("news-edaily", "이데일리", "edaily.co.kr"),
-  viaGoogle("news-mt", "머니투데이", "mt.co.kr"),
-  viaGoogle("news-kookje", "국제신문", "kookje.co.kr"),
-  viaGoogle("news-kyeonggi", "경기일보", "kyeonggi.com"),
-  viaGoogle("news-kyeongin", "경인일보", "kyeongin.com"),
-  viaGoogle("news-yeongnam", "영남일보", "yeongnam.com"),
+  { key: "news-laborplus", ...googleSite("참여와혁신", "laborplus.co.kr") },
+  { key: "news-redian", ...googleSite("레디앙", "redian.org") },
+  { key: "news-newsone", ...googleSite("뉴스1", "news1.kr") },
+  { key: "news-edaily", ...googleSite("이데일리", "edaily.co.kr") },
+  { key: "news-mt", ...googleSite("머니투데이", "mt.co.kr") },
+  { key: "news-kookje", ...googleSite("국제신문", "kookje.co.kr") },
+  { key: "news-kyeonggi", ...googleSite("경기일보", "kyeonggi.com") },
+  { key: "news-kyeongin", ...googleSite("경인일보", "kyeongin.com") },
+  { key: "news-yeongnam", ...googleSite("영남일보", "yeongnam.com") },
 ] as NewsSource[]);
 
 export const NEWS_SOURCE_KEYS: readonly string[] = Object.freeze(NEWS_CATALOG.map((s) => s.key));

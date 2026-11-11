@@ -54,7 +54,7 @@ const DEFAULT_ON = ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'n
   'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun',
   'news-newsis', 'news-sedaily', 'news-imaeil',
   'news-mediatoday', 'news-worknworld', 'news-newsmin', 'news-redaily', 'news-busan',
-  'news-laborplus', 'news-redian', 'news-news1', 'news-edaily', 'news-mt', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
+  'news-laborplus', 'news-redian', 'news-newsone', 'news-edaily', 'news-mt', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
 
 test('카탈로그: 종합지는 기본 켬·다 받기(NEWS-다받기 11/09)·수집 때 본문 안 읽음, 주소는 https, 화면 목록에 on이 실림', () => {
   // 기본 켬 매체는 이 목록과 정확히 같아야 한다(카탈로그에 줄을 더하면 여기도 고친다).
@@ -168,7 +168,7 @@ const U = await import('../supabase/functions/_shared/news-url.ts');
 const PG = await import('../supabase/functions/news-feed/page.ts');
 const GOOGLE_SITES = {
   'news-mediatoday': 'mediatoday.co.kr', 'news-worknworld': 'worknworld.kctu.org', 'news-newsmin': 'newsmin.co.kr', 'news-redaily': 'redaily.co.kr',
-  'news-busan': 'busan.com', 'news-laborplus': 'laborplus.co.kr', 'news-redian': 'redian.org', 'news-news1': 'news1.kr', 'news-edaily': 'edaily.co.kr',
+  'news-busan': 'busan.com', 'news-laborplus': 'laborplus.co.kr', 'news-redian': 'redian.org', 'news-newsone': 'news1.kr', 'news-edaily': 'edaily.co.kr',
   'news-mt': 'mt.co.kr', 'news-kookje': 'kookje.co.kr', 'news-kyeonggi': 'kyeonggi.com', 'news-kyeongin': 'kyeongin.com', 'news-yeongnam': 'yeongnam.com',
 };
 const gItem = (n, title, tail = ' - 미디어오늘') => `<item><title>${title}${tail}</title><link>https://news.google.com/rss/articles/SYN${n}?oc=5</link>` +
@@ -177,7 +177,7 @@ const gItem = (n, title, tail = ' - 미디어오늘') => `<item><title>${title}$
 const gSites = (s, items) => ({'https://news.google.com/robots.txt': {body: 'User-agent: *\nAllow: /rss/\n'}, [s.lists[0]]: {body: `<rss><channel>${items.join('')}</channel></rss>`, type: 'application/xml'}});
 const outside = w => w.calls.filter(c => !c.url.startsWith(SB));
 
-test('카탈로그: 구글 뉴스 매체 단위 줄은 검색 RSS 한 경로에 site:도메인만, 기본 켬·다 받기·본문 안 읽음, 자기 사이트 주소는 없음', () => {
+test('카탈로그: 구글 뉴스 매체 단위 줄은 검색 RSS 한 경로에 site:도메인만, 기본 켬·다 받기·본문 안 읽음, 자기 사이트 주소는 없음', async () => {
   assert.deepEqual(C.NEWS_CATALOG.filter(s => C.isGoogleSite(s)).map(s => s.key).sort(), Object.keys(GOOGLE_SITES).sort(), '매체 단위 줄은 이 목록과 정확히 같다');
   for (const [key, domain] of Object.entries(GOOGLE_SITES)) {
     const s = C.newsSourceByKey(key);
@@ -200,6 +200,11 @@ test('카탈로그: 구글 뉴스 매체 단위 줄은 검색 RSS 한 경로에 
     'news-newstapa', 'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun', 'news-mediatoday', 'news-newsis', 'news-sedaily', 'news-imaeil',
     'news-psi', 'news-itf', 'news-labourstart']);
   assert.deepEqual(C.NEWS_SOURCE_KEYS.slice(23).sort(), Object.keys(GOOGLE_SITES).filter(k => k !== 'news-mediatoday').sort());
+  // 키는 카탈로그 파일에 줄마다 글자 그대로(`{ key: "news-…"`, 영문 소문자·줄표만) 적혀 있다 — 색 표 시험(tests/news-colors.test.mjs)이 파일을 글자로 읽어 키를 찾는다.
+  // (#2365에서 키를 함수 인자로 넘겼더니 그 시험이 미디어오늘 키를 못 찾아 main이 깨졌다 → 같은 정규식으로 전부 찾히는지 여기서 고정.)
+  const {readFileSync} = await import('node:fs');
+  const written = [...readFileSync(new URL('../supabase/functions/_shared/news-catalog.ts', import.meta.url), 'utf8').matchAll(/^\s*\{?\s*key: "([a-z-]+)"/gm)].map(m => m[1]);
+  assert.deepEqual(written.filter(k => k !== 'news-google'), [...C.NEWS_SOURCE_KEYS], '카탈로그 키 전부가 파일에서 글자로 읽힌다(같은 순서)');
   // 키·이름은 겹치지 않는다(목록의 매체 이름·도배막기 묶음·색이 키와 이름으로 정해진다).
   assert.equal(new Set(C.NEWS_SOURCE_KEYS).size, C.NEWS_SOURCE_KEYS.length);
   assert.equal(new Set(C.NEWS_CATALOG.map(s => s.name)).size, C.NEWS_CATALOG.length);

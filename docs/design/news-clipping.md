@@ -240,7 +240,7 @@
 | 노동·운동 | 노동과세계(민주노총) | 기사 쪽 `https://worknworld.kctu.org/…`가 **http로 넘김(302)** [사실] | — | — | RSS는 안 넣음 — 사이트가 https를 안 씀. 수집기는 https만 허용(보안 시험) → 구글 뉴스 매체 단위(3.1g, `news-worknworld`) |
 | 노동·운동 | 레디앙 | 기사 쪽 머리·하단에 RSS 링크 없음 [사실] | — | 하단 '무단전재 및 재배포 금지' [사실] | RSS는 안 넣음 — 11/11 다시 확인: 기사 쪽(https, `/news/articleView.html`)에 RSS 링크 없음 [사실], 옛 주소(`/archive/…`)는 http로 넘김(302) [사실] → 구글 뉴스 매체 단위(3.1g, `news-redian`) |
 | 노동·운동 | 뉴스민 | 기사 쪽이 쿠키 확인 후 넘기는 빈 쪽(봇 확인) [사실] | — | — | RSS는 안 넣음 — 자동 읽기 막힘(풀지 않음) → 구글 뉴스 매체 단위(3.1g, `news-newsmin`) |
-| 통신사 | 뉴스1 | 사이트 한정 검색 결과 없음. 11/11 다시 확인: 노동 섹션 쪽(`www.news1.kr/society/labor`)에 RSS 링크 없음 [사실] | — | — | RSS는 안 넣음(공식 RSS 링크 없음) → 구글 뉴스 매체 단위(3.1g, `news-news1`) |
+| 통신사 | 뉴스1 | 사이트 한정 검색 결과 없음. 11/11 다시 확인: 노동 섹션 쪽(`www.news1.kr/society/labor`)에 RSS 링크 없음 [사실] | — | — | RSS는 안 넣음(공식 RSS 링크 없음) → 구글 뉴스 매체 단위(3.1g, `news-newsone`) |
 | 경제·정책 | 이데일리 | 11/11 다시 확인: 섹션 쪽 하단 RSS 링크가 `http://rss.edaily.co.kr/edaily_news.xml` [사실] — **http 주소**. https로 열리는지·robots는 세션에서 못 엶 | — | — | RSS는 안 넣음(수집기는 https만) → 구글 뉴스 매체 단위(3.1g, `news-edaily`). CC가 크롬으로 https 주소가 열리는지 보면 RSS 줄로 바꿀 수 있음 |
 | 경제·정책 | 머니투데이 | 11/11 다시 확인: 연 쪽(`www.mt.co.kr` 기획 쪽 하나)에 RSS 링크 없음 [사실] | — | — | RSS는 안 넣음(공식 RSS 링크 못 찾음) → 구글 뉴스 매체 단위(3.1g, `news-mt`) |
 | 철도·교통 | 철도경제신문(`redaily.co.kr`) | 기사 쪽에 RSS 링크 없음 [사실], '프리미엄' 유료 기사 있음 [사실] | — | 하단 '무단전재 및 재배포 금지' [사실] | RSS는 안 넣음 — 공식 RSS 링크 없음 → 구글 뉴스 매체 단위(3.1g, `news-redaily`). 유료 기사도 제목·링크는 들어온다(11/11 덧붙임) |
@@ -273,7 +273,7 @@
 | 부산일보(`news-busan`) | `busan.com` | 공식 RSS 없음 |
 | 참여와혁신(`news-laborplus`) | `laborplus.co.kr` | RSS 안내 링크는 있으나 세션에서 못 엶(CC 크롬 확인 대기) |
 | 레디앙(`news-redian`) | `redian.org` | 공식 RSS 링크 없음 |
-| 뉴스1(`news-news1`) | `news1.kr` | 공식 RSS 링크 없음 |
+| 뉴스1(`news-newsone`) | `news1.kr` | 공식 RSS 링크 없음 |
 | 이데일리(`news-edaily`) | `edaily.co.kr` | 공식 RSS 링크가 http 주소, https는 세션에서 못 엶(CC 크롬 확인 대기) |
 | 머니투데이(`news-mt`) | `mt.co.kr` | 공식 RSS 링크 못 찾음 |
 | 국제신문(`news-kookje`) | `kookje.co.kr` | 공식 RSS 링크 없음 |
