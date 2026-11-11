@@ -309,6 +309,8 @@ async function holdUploads(page, {fail = () => false} = {}) {
   return {seen, open: () => open()};
 }
 const sent = (noteId, name) => ({noteId, name, rawText: false});
+// What the refresh paths ask first (version-notice.js): false = a screen held the refresh back.
+const reloadAllowed = page => page.evaluate(() => window.dispatchEvent(new CustomEvent('kptu:before-reload', {cancelable: true, detail: {projectDraft: false, otherDraft: false}})));
 for (const width of [412, 1280]) {
   test(`big editor files go up behind the screen: nothing is locked, the window and the note close, another note opens, the file goes to its own note ${width}`, async ({page}) => {
     const f = await fixture(page, width), held = await holdUploads(page);
@@ -329,6 +331,8 @@ for (const width of [412, 1280]) {
     await e.locator('[data-close="edWindow"]').click(); await expect(page.locator('#edWindow')).toHaveCount(0);
     await expect(page.locator('[data-note-detail] [data-note-more]')).toBeEnabled();
     await expect(page.locator('#uploadDock')).toContainText('올리는 중');
+    // A refresh ([최신화], pull to refresh) is held back while the line is going, as the old lock did: the line lives in memory only.
+    expect(await reloadAllowed(page)).toBe(false);
     // The back step leaves the note (it was refused while files went up), and another note opens.
     await page.goBack();
     await press(page, page.locator('[data-note-row="n-empty"]'), width);
@@ -336,6 +340,7 @@ for (const width of [412, 1280]) {
     held.open();
     await expect.poll(() => f.uploads).toEqual([sent('n-text', '뒤에서 올림.pdf')]);
     await expect(page.locator('#kptuNotice')).toContainText('노트에 뒤에서 올림.pdf 올렸어요');
+    expect(await reloadAllowed(page)).toBe(true);
     // The note on the screen is not drawn over; the first note's row has the file.
     await expectNoteTitle(page, '빈 노트');
     await expect(page.locator('[data-note-detail] [data-note-attachments] .file-line')).toHaveCount(0);

@@ -11,6 +11,13 @@ export function swipeKind({dx = 0, dy = 0, dt = 0, fingers = 1, zoomed = false} 
   if (ay < SWIPE_MIN || ay < ax * SWIPE_RATIO) return null;
   return dy < 0 ? 'up' : 'down';
 }
+// PHOTO-크게보기밀기(S57-2): 사진을 한 장씩 갈아 끼우는 크게 보기(photo-view.js)의 좌우 넘기기. [사진] 메뉴는 가로 줄을 브라우저 스크롤이 넘기므로 이 판정이 필요 없다.
+// 새 규칙이 아니다: 위 swipeKind의 축만 바꿔 같은 상수(SWIPE_MIN·SWIPE_RATIO·SWIPE_MAX_MS)와 같은 조건(한 손가락·확대 아님)을 그대로 쓴다.
+// 왼쪽으로 밀면 'next'(다음 사진), 오른쪽으로 밀면 'prev'(이전 사진).
+export function swipeSide({dx = 0, dy = 0, ...rest} = {}) {
+  const k = swipeKind({dx: dy, dy: dx, ...rest});
+  return k === 'up' ? 'next' : k === 'down' ? 'prev' : null;
+}
 // 공유할 사진 파일 이름: 원래 이름이 그림 확장자로 끝나면 그대로, 아니면 '사진-날짜.jpg'. 경로·제어문자는 뺀다.
 export function shareFileName(item, type = 'image/jpeg') {
   const raw = String(item?.name || item?.file?.file_name || '').replace(/[\\/\p{Cc}]/gu, '').trim();
@@ -46,6 +53,23 @@ export function dragEnd(dy = 0) {
   if (dy >= CLOSE_DIST) return 'close';
   return 'back';
 }
+// PHOTO-크게보기밀기(S57-2): 가로로 끌다 놓을 때. 거리는 빠른 손짓과 같은 SWIPE_MIN(dragEnd의 가로판).
+// 앞뒤 사진이 없는 쪽(hasPrev/hasNext가 false)으로 끌었으면 넘기지 않고 제자리('back').
+export const STEP_DIST = SWIPE_MIN;
+export function dragEndX(dx = 0, {hasPrev = true, hasNext = true} = {}) {
+  if (!Number.isFinite(dx)) return 'back';
+  if (-dx >= STEP_DIST) return hasNext ? 'next' : 'back';
+  if (dx >= STEP_DIST) return hasPrev ? 'prev' : 'back';
+  return 'back';
+}
+// 가로로 끌 때 사진이 손가락을 따라가는 거리: 넘길 사진이 없는 쪽은 고무줄처럼 무겁게(dragOffset의 위쪽과 같은 느낌), 있는 쪽은 그대로.
+export function dragOffsetX(dx = 0, {hasPrev = true, hasNext = true} = {}) {
+  if (!Number.isFinite(dx)) return 0;
+  const none = dx < 0 ? !hasNext : !hasPrev;
+  return none ? dx * 0.3 : dx;
+}
+// 세로로 끌 때(별표가 없는 화면): 아래로만 따라가고 위로는 움직이지 않는다.
+export const dragOffsetDown = dy => (Number.isFinite(dy) && dy > 0 ? dy : 0);
 // 위로 민 거리만큼 별이 차오르는 정도(0~1).
 export const starFill = dy => (Number.isFinite(dy) ? Math.max(0, Math.min(1, -dy / STAR_DIST)) : 0);
 // 사진이 손가락을 따라가는 거리: 위로는 별표 거리를 조금 넘어서부터 무겁게(고무줄), 아래로는 그대로.

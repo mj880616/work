@@ -629,6 +629,8 @@ jobs:
         run: node --test tests/note-tree.test.mjs
       - name: FOLDER-나무새기준 공용 폴더 나무 부품(줄·상자·두 손가락) 시험
         run: node --test tests/folder-tree-ui.test.mjs
+      - name: UI-폴더누르기한규칙 폴더 이름 누르기 = 펼침·접힘 공용 부품 시험
+        run: node --test tests/folder-tree-press.test.mjs
       - name: S51-24 UI-빈칸손짓 손짓 칸 높이 계산·'그 폴더만' 상자 시험
         run: node --test tests/gesture-fill.test.mjs
       - name: FILES-폰폴더위로 '그 폴더만' 한 단계 위 길·왼쪽 끝 밀기 판정 시험
@@ -776,6 +778,9 @@ jobs:
 
       - name: Check photo viewer swipe motion, quick large view and app-start prefetch (PHOTO-스와이프안내·크게보기빨리·미리받기앱시작, synthetic)
         run: node --test tests/photo-swipe-fast.test.mjs
+
+      - name: Check large photo view swipe left/right/down shares the photo-strip rules (PHOTO-크게보기밀기, fake stage, synthetic)
+        run: node --test tests/photo-view-swipe.test.mjs
 
       - name: Check large view plays GIF from the original (PHOTO-GIF움직임, synthetic)
         run: node --test tests/photo-gif-motion.test.mjs

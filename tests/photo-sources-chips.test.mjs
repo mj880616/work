@@ -79,7 +79,9 @@ test('사진 메뉴: [폴더]·[휴지통]·[앨범]이 출처 켜기를 따른�
   // 폰 폴더 줄: 끌기 없음, 원드라이브 ⋯·스위치와 섞이지 않음. ⋯·새 폴더는 앱 0.4.1+(phoneOps)만(PHOTO-폴더스위치).
   const row = s.slice(s.indexOf('function phoneFolderRowHtml'), s.indexOf('// 폰 묶음 줄들'));
   assert.doesNotMatch(row, /data-photos-fx-more|draggable/);
-  assert.match(row, /phoneOps\(\) \? `<button type="button" class="nx-more photos-fx-more" data-photos-pf-more=/);
+  // UI-폴더누르기한규칙(S57-5): PC 나무(wide)의 폰 폴더 줄은 앱이 옛 판이어도 ⋯가 있다(메뉴는 [이 폴더로 들어가기] 하나). 폰 나무는 그대로 phoneOps만.
+  assert.match(row, /phoneOps\(\) \|\| wide \? `<button type="button" class="nx-more photos-fx-more" data-photos-pf-more=/);
+  assert.match(s, /const enter = treeWide\(\) && f \? menuBtn\('data-pfm-enter', FOLDER_ENTER_LABEL\) : '';[^\n]*\n\s*if \(!phoneOps\(\)\) return enter;/);
   const grid = s.slice(s.indexOf('function paintPhoneFolderGrid()'), s.indexOf('function goPhoneFolder'));
   assert.doesNotMatch(grid, /draggable/);
   // [앨범]: 켜진 출처로 줄인 카드.

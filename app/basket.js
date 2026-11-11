@@ -470,8 +470,9 @@ async function toDiary(noteId,anchor){
 // S48-28: [노트로 옮기기]는 공용 작은 확인창으로 한 번 묻는다(그 줄의 ⋯ 근처). 기다리는 사이 다른 일이 시작됐거나 줄이 없어졌으면 멈춘다.
 async function rowToNote(note){
   const noteId=note.id,anchor=root.querySelector(`[data-basket-row-more="${CSS.escape(noteId)}"]`);
+  if(attachGoing(noteId))return; // 줄 ⋯ 말고 줄 단추(잊지 말기 [노트로])로 와도 같은 잠금
   const text=`‘${[...suggestNoteTitle(note).replace(/[\r\n]+/g,' ').trim()||'이 업데이트'].slice(0,40).join('')}’을(를) 노트로 옮길까요?`;
-  if(!(await askConfirm(anchor,{text,ok:'옮기기'}))||busy||selected||window.KPTURouter?.current!=='basket'||!notes.some(n=>n.id===noteId))return;
+  if(!(await askConfirm(anchor,{text,ok:'옮기기'}))||busy||selected||window.KPTURouter?.current!=='basket'||!notes.some(n=>n.id===noteId)||attachGoing(noteId))return;
   openDetail(noteId,{edit:false});
   if(selected?.id===noteId)void saveToNote();
 }
@@ -883,7 +884,8 @@ function openDetail(id, {edit = false} = {}) {
 // update changed in another tab or device is refused. It saves and closes, and stays with a message on failure.
 async function openBigWriter() {
   const field = detail.querySelector('[data-basket-text]'), id = selected?.id;
-  if (!selected || !editing || busy || !field || bigOpening) return;
+  // 첨부를 올리는 중에는 열지 않는다: 큰 창은 연 때의 판(updated_at)으로만 저장하는데, 올리기가 끝나면 판이 바뀌어 그 저장이 거절된다.
+  if (!selected || !editing || busy || !field || bigOpening || attachGoing(id)) return;
   const same = () => editing && selected?.id === id && field.isConnected;
   const status = detail.querySelector('[data-basket-status]');
   bigOpening = true;
@@ -1044,7 +1046,10 @@ function sendAttachments(id,batch){
   const count=()=>batch.entries.filter(e=>e.kind==='success').length;
   void attachQueue.add(id,batch,async()=>{
     if(!here()||!batch.entries.some(e=>e.kind!=='success'))return;
-    const before=count(),names=batch.entries.filter(e=>e.kind!=='success').map(e=>e.file?.name||''),originalIds=new Set(batch.attachments.map(file=>file.drive_file_id));
+    // 차례가 왔을 때의 첨부 목록에서 시작한다: 줄 서 있는 동안(또는 [다시]까지 기다리는 동안) 앞 묶음이 붙인 파일이 있다.
+    // 고를 때의 목록으로 그리면 앞서 올라간 파일이 화면에서 사라지고, 그 사진의 글자 읽기도 한 번 더 돈다.
+    {const now=selected?.id===id?selected:notes.find(n=>n.id===id);if(Array.isArray(now?.attachments))batch.attachments=now.attachments;}
+    const before=count(),mine=batch.entries.filter(e=>e.kind!=='success'),sent=()=>mine.filter(e=>e.kind==='success').map(e=>e.file?.name||''),originalIds=new Set(batch.attachments.map(file=>file.drive_file_id));
     // 올라간 만큼 그 업데이트의 줄(목록)과, 보고 있으면 상세를 그린다. 다른 업데이트를 보고 있으면 그 화면은 건드리지 않는다.
     const paint=()=>{
       if(!here())return;
@@ -1061,7 +1066,7 @@ function sendAttachments(id,batch){
     if(!error){
       if(upload===batch){upload=createUploadBatch(id,batch.attachments);if(shown())pickerFiles?.render();} // 되돌려 둔 묶음이 다 올라갔으면 새 묶음으로
       if(shown()){detail.querySelector('[data-basket-status]').textContent='';showToast('첨부를 저장했습니다.');await readSentPhotos(id,batch,originalIds,owner);}
-      else announceUploaded({done,names:names.slice(0,done),where:'업데이트'});
+      else announceUploaded({done,names:sent(),where:'업데이트'});
       return;
     }
     if(error.code==='upload_cancelled')return;
@@ -1075,7 +1080,7 @@ function sendAttachments(id,batch){
       detail.querySelector('[data-basket-reload]').hidden=!batch.blocked;
     }
     const message=`첨부를 올리지 못했어요. ${error.message||''}`.trim();
-    if(done)announceUploaded({done,names:names.slice(0,done),failed:left,where:'업데이트',retry});
+    if(done)announceUploaded({done,names:sent(),failed:left,where:'업데이트',retry});
     else if(!shown()||retry)notify(`업데이트 ${message}`,{error:true,record:false,actions:retry?[{label:'다시',run:({close})=>{close();retry();}}]:[]});
   });
 }
@@ -1266,7 +1271,8 @@ root.addEventListener('click', e => {
 window.addEventListener('storage',()=>guardOcrPrivacy());
 root.addEventListener('keydown', e => { if (noteHost.contains(e.target)) return; guardOcrPrivacy(); if (e.key === 'Escape' && selected && !busy) { e.preventDefault(); if (noteMenu() && !noteMenu().hidden) setNoteMenu(false, {focus:true}); else if (manual.isOpen()) void manual.cancel({anchor:e.target instanceof Element ? e.target : null}); else void askCloseDetail(e.target instanceof Element ? e.target : null); } });
 window.addEventListener('kptu:before-reload', e => {
-  if (busy||quick?.isBusy()||noteDocs.isBusy()) e.preventDefault();
+  // 뒤에서 올리는 중(업데이트·노트 첨부 줄)에도 예전 잠금 때처럼 막는다: 새로 고치면 줄에 선 파일이 알림 없이 사라진다(줄은 메모리뿐).
+  if (busy||quick?.isBusy()||noteDocs.isBusy()||attachQueue.any()||noteDocs.isUploading()) e.preventDefault();
   else if (quick?.hasDraft()||noteDocs.hasDraft()) e.detail.otherDraft=true;
   else if (dirty() || manualDraft()) e.detail.otherDraft = true;
 });

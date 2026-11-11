@@ -25,6 +25,7 @@ export function createAttachQueue() {
   const left = batch => batch.entries.filter(entry => entry.kind !== 'success').map(entry => entry.upFile || entry.file);
   return {
     going: id => (lines.get(id)?.live || 0) > 0,
+    any: () => [...lines.values()].some(line => line.live > 0), // 어느 글이든 올리는 중(최신화 전에 막는 데 쓴다)
     has: (id, file) => !!lines.get(id)?.files.has(file),
     settled: id => lines.get(id)?.tail || Promise.resolve(),
     add(id, batch, work) {
