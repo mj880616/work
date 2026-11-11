@@ -27,14 +27,24 @@ for (const width of [700, 768, 884, 1280]) test(`파일 ${width}: 왼쪽 나무 
   // 저장소마다 둥근 상자(S51-25, 자료실 모양) — 상자 사이가 한눈에 갈린다.
   const rootBox = tree.locator('[data-fx-box="od"]');
   expect(await rootBox.evaluate(e => parseFloat(getComputedStyle(e).borderTopLeftRadius))).toBeGreaterThan(0);
-  // 나무에서 폴더를 두 번 옮겨 다녀도 나무가 그대로, 오른쪽 목록과 위치 줄이 바뀐다.
+  // UI-폴더누르기한규칙(S57-5): 나무에서 폴더 이름을 누르면 들어가지 않고 그 자리 펼침(위치 줄·목록 그대로), 들어가기는 ⋯·우클릭 [이 폴더로 들어가기] — 두 번 옮겨 다녀도 나무가 그대로.
   const go = tree.locator('[data-fx-go][data-fx-id]:not([data-fx-id=""])');
+  const crumb = root(page).locator('[data-fx-crumb] .fx-crumb-now');
+  const enterVia = async btn => { await btn.locator('xpath=..').locator('[data-fx-tmenu]').click(); await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click(); };
+  const crumb0 = await crumb.textContent();
+  const name0 = await go.first().locator('.ft-name').textContent();
   await go.first().click();
   await expect(tree).toBeVisible();
-  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(await go.first().locator('.ft-name').textContent());
-  await go.nth(1).click();
+  await expect(crumb).toHaveText(crumb0);
+  await enterVia(go.first());
   await expect(tree).toBeVisible();
-  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(await go.nth(1).locator('.ft-name').textContent());
+  await expect(crumb).toHaveText(name0);
+  const name1 = await go.nth(1).locator('.ft-name').textContent();
+  await go.nth(1).click();
+  await expect(crumb).toHaveText(name0);
+  await enterVia(go.nth(1));
+  await expect(tree).toBeVisible();
+  await expect(crumb).toHaveText(name1);
   t = await box(tree); l = await box(list);
   expect(l.x).toBeGreaterThanOrEqual(t.x + t.width - 1);
   // 나무 | 목록 경계선이 있다(끌어 폭 조절).

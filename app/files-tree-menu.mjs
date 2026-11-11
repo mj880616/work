@@ -16,7 +16,7 @@
 //   'ph' = 폰에 쓸 수 없음(옛 앱·권한), 'pc' = 바구니 PC 앱이 휴지통을 모르는 판, 'drive' = 내 PC 드라이브 줄(C:\ 등).
 //   이 폰 폴더는 폰에 쓸 수 있으면 [휴지통] = 안 파일을 모두 안드로이드 휴지통으로(폴더는 빈 채로 남음 — files.js trashRows).
 export const TREE_MENU_LABEL = Object.freeze({
-  open: '열기', only: '이 폴더만 보기', mkdir: '새 폴더', upload: '올리기', copy: '복사', move: '옮기기', tocloud: '클라우드에 복사',
+  open: '열기', only: '이 폴더로 들어가기', mkdir: '새 폴더', upload: '올리기', copy: '복사', move: '옮기기', tocloud: '클라우드에 복사',
   rename: '이름 바꾸기', color: '색', up: '위로', down: '아래로', star: '별표', unstar: '별표 빼기', trash: '휴지통',
   tolib: '자료실로 보내기', libview: '자료실에서 보기', pin: '위에 고정', unpin: '고정 풀기', path: '경로 복사', zip: '여러 개 받기'
 });
