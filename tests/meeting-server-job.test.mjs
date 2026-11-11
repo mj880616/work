@@ -273,7 +273,12 @@ test('화면 지켜보기: 옛 서버(모르는 action)·표 없음이면 화면
   await assert.rejects(watchServerJob({call:fail({status:429,code:'monthly_limit'}),sleep:async()=>{}},{start:{}}));
   const r=await watchServerJob({call:async()=>({job:{id:ID,status:'failed',error_code:'draft_failed'}}),sleep:async()=>{}},{jobId:ID,retry:true});
   assert.equal(r.kind,'failed');
-  assert.match(failText('draft_failed'),/요약을 만들지 못했어요/);assert.equal(canRetry('draft_failed'),true);assert.equal(canRetry('empty_transcript'),false);
+  assert.match(failText('draft_failed'),/요약을 만들지 못했어요/);assert.equal(canRetry('draft_failed'),true);
+  // REC-글못찾음: 글 못 찾음도 [다시]가 있다(11/11 전엔 전사 서비스의 빈 답도 이 코드였음). 전사 서비스 빈 답·일부만은 따로 알린다.
+  assert.equal(canRetry('empty_transcript'),true);
+  for(const c of ['gemini_empty','gemini_incomplete']){assert.equal(canRetry(c),true,c);assert.match(failText(c),/^전사 서비스가 /,c);assert.match(failText(c),/소리는 Drive에 남아 있어요/,c);assert.match(failText(c),/\[다시\]/,c);}
+  assert.equal(new Set(['empty_transcript','gemini_empty','gemini_incomplete','gemini_failed','gemini_timeout'].map(failText)).size,5,'원인마다 다른 글');
+  for(const c of ['not_found','bad_type','too_large','too_long'])assert.equal(canRetry(c),false,c);
   assert.match(failText('gemini_failed'),/소리는 Drive에 남아 있어요/);
   assert.equal(unavailable({status:409,code:'busy'}),false);
 });

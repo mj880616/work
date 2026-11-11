@@ -29,6 +29,9 @@ const KEEP='소리는 Drive에 남아 있어요.';
 const AGAIN='[다시]를 누르면 멈춘 곳부터 이어요.';
 const FAIL_TEXT={
   empty_transcript:'녹음에서 글을 찾지 못했어요.',
+  // REC-글못찾음: 전사 서비스 답이 글 없이 옴 · 끝까지 못 만듦(같은 소리도 다시 하면 될 수 있음).
+  gemini_empty:`전사 서비스가 글 없이 답했어요. ${KEEP} ${AGAIN}`,
+  gemini_incomplete:`전사 서비스가 끝까지 옮기지 못했어요. ${KEEP} ${AGAIN}`,
   draft_failed:'전사는 끝났는데 요약을 만들지 못했어요. 전사한 글은 남아 있어요. [다시]를 누르세요.',
   draft_cut:'회의가 길어 요약이 중간에 잘렸어요. 전사한 글은 남아 있어요. [다시]를 누르세요.',
   draft_timeout:'요약이 오래 걸려 멈췄어요. 전사한 글은 남아 있어요. [다시]를 누르면 멈춘 곳부터 이어요.',
@@ -58,8 +61,9 @@ const FAIL_TEXT={
 export function failText(code){
   return FAIL_TEXT[code]||`서버에서 정리하다 멈췄어요. ${KEEP} [다시]를 누르세요.`;
 }
-// 다시 눌러서 될 수 있는 실패인가.
-export const canRetry=code=>!['empty_transcript','not_found','bad_type','too_large','too_long'].includes(code);
+// 다시 눌러서 될 수 있는 실패인가. REC-글못찾음: empty_transcript도 [다시]를 둔다 — 11/11 전엔 전사 서비스의 빈 답도 이 코드였고
+// (같은 41분 구간이 한 번은 실패, 한 번은 빈 답), 구간 없음·말 없음이면 [다시]가 전사를 다시 부르지 않고 바로 같은 이유로 멈춘다.
+export const canRetry=code=>!['not_found','bad_type','too_large','too_long'].includes(code);
 
 /**
  * 서버 정리 하나를 끝까지 지켜본다. 시작(start) 또는 이어 보기(jobId).

@@ -39,9 +39,69 @@ test('transcript reading: speaker lines like the call script, plain text fallbac
  assert.deepEqual(m.readTranscript({steps:[{content:[{type:'text',text:'  a '},{type:'text',text:'b'}]}]}),{text:'a \nb',speakerSplit:false});
  assert.equal(m.readTranscript({interaction:{output_text:'x'}}).text,'x');
  const code=j=>{try{m.readTranscript(j);return 'ok'}catch(e){return e.code}};
- assert.equal(code({status:'in_progress',output_text:'x'}),'gemini_failed');
- assert.equal(code({status:'completed',output_text:'  '}),'empty_transcript');
+ // REC-글못찾음: 완료 아닌 답·빈 답은 원인별 코드(전엔 모두 gemini_failed / '녹음에 글 없음'과 같은 empty_transcript).
+ assert.equal(code({status:'in_progress',output_text:'x'}),'gemini_timeout');
+ assert.equal(code({status:'completed',output_text:'  '}),'gemini_empty');
  assert.equal(code(null),'gemini_failed');
+});
+
+// REC-글못찾음(S59-2): 11/11 41분 구간이 한 번은 gemini_failed(완료 아닌 답·못 읽은 답, 로그 없음), 한 번은 empty_transcript(완료인데 글 못 찾음).
+// 공식 Interactions REST 답 모양(2026-11-11 확인): steps[type model_output].content[type text].text, output_text는 SDK 편의 값,
+// status in_progress·requires_action·completed·failed·cancelled·incomplete. 아래 답은 그 모양을 흉내 낸 것(글은 지어냄).
+test('REC-글못찾음: long-audio answer shapes — many model_output steps/parts, thought steps, wrapped answers, status by cause',()=>{
+ const code=j=>{try{m.readTranscript(j);return 'ok'}catch(e){return e.code}};
+ // 긴 소리: 글이 model_output 단계 여러 개·text 조각 여러 개로 온다(output_text 없음) → 모두 잇는다.
+ const chunk=i=>({type:'text',text:`구간 ${i} 말`});
+ const long={id:'i-1',status:'completed',steps:[
+  {type:'thought',summary:[{type:'text',text:'생각'}],signature:'sig'},
+  {type:'model_output',content:[chunk(1),chunk(2),chunk(3)]},
+  {type:'model_output',content:[chunk(4),{type:'text',text:''},chunk(5)]},
+ ],usage:{total_input_tokens:79456,total_output_tokens:9000}};
+ assert.deepEqual(m.readTranscript(long),{text:'구간 1 말\n구간 2 말\n구간 3 말\n구간 4 말\n\n구간 5 말',speakerSplit:false});
+ // 생각(thought)·입력(user_input) 단계의 글은 전사 글이 아니다.
+ assert.equal(code({status:'completed',steps:[{type:'thought',content:[{type:'text',text:'생각만'}]},{type:'user_input',content:[{type:'text',text:'지시'}]}]}),'gemini_empty');
+ // 감싼 답(interaction 안에 status·steps)도 같은 규칙.
+ assert.equal(m.readTranscript({interaction:{status:'completed',steps:[{type:'model_output',content:[chunk(9)]}]}}).text,'구간 9 말');
+ assert.equal(code({interaction:{status:'incomplete',steps:[{type:'model_output',content:[chunk(9)]}]}}),'gemini_incomplete');
+ // 완료 아님: 진행 중 = 한 번 요청 안에 안 끝남(늦음), 일부만 = 따로, 나머지 = 전사 서비스 실패. 글이 있어도 일부만인 답은 받지 않는다.
+ assert.equal(code({...long,status:'in_progress'}),'gemini_timeout');
+ assert.equal(code({...long,status:'incomplete'}),'gemini_incomplete');
+ for(const s of ['failed','cancelled','requires_action','done','x'])assert.equal(code({...long,status:s}),'gemini_failed',s);
+ // 완료인데 글 없음: 단계 없음 · 빈 text 조각뿐 · 다른 종류 조각뿐 → gemini_empty(소리 탓으로 단정하지 않음, [다시] 가능).
+ assert.equal(code({status:'completed',steps:[]}),'gemini_empty');
+ assert.equal(code({status:'completed'}),'gemini_empty');
+ assert.equal(code({status:'completed',steps:[{type:'model_output',content:[{type:'text',text:' \n '}]}]}),'gemini_empty');
+ assert.equal(code({status:'completed',steps:[{type:'model_output',content:[{type:'audio',uri:'x'}]}]}),'gemini_empty');
+ assert.equal(code([]),'gemini_failed');assert.equal(code('x'),'gemini_failed');
+ // 코드마다 서버 문구·HTTP 상태·화면 갈래(전사 서비스)가 있다.
+ for(const c of ['gemini_empty','gemini_incomplete']){assert.ok(m.MESSAGES[c],c);assert.equal(m.STATUS[c],502,c);assert.equal(m.FAIL_KIND[c],'gemini',c);assert.match(m.MESSAGES[c],/녹음은 그대로 있어요/);}
+ assert.notEqual(m.MESSAGES.gemini_empty,m.MESSAGES.empty_transcript);assert.notEqual(m.MESSAGES.gemini_incomplete,m.MESSAGES.gemini_failed);
+});
+
+test('REC-글못찾음: answer shape log line has names and counts only — never transcript, error text or file address',()=>{
+ const secret='비밀회의내용';
+ const shape=m.answerShape({id:'i-1',status:'completed',steps:[
+  {type:'thought',summary:[{type:'text',text:secret}]},
+  {type:'model_output',content:[{type:'text',text:'  ',annotations:[{type:'word_info',text:secret,speaker:'spk_1'},{type:'word_info',text:secret,speaker:'spk_2'}]},{type:'audio',uri:`files/${secret}`}]},
+  {type:'Weird-Type',content:[{type:'text',text:secret}]},
+ ],errors:[{code:'RESOURCE_EXHAUSTED',message:secret},{code:13,message:secret},{code:secret}],usage:{total_output_tokens:0},[secret]:1});
+ assert.doesNotMatch(shape,new RegExp(secret));assert.doesNotMatch(shape,/files\//);
+ assert.equal(shape,'status=completed wrap=- keys=?,errors,id,status,steps,usage steps=3(thought:1,model_output:1,?:1) parts=text:1,audio:1 chars=0 blank=1 words=2 speakers=2 output_text=- errors=resource_exhausted:1,13:1,?:1 out_tokens=0');
+ assert.match(m.answerShape({interaction:{status:'incomplete',steps:[{type:'model_output',content:[{type:'text',text:'가나다'}]}],usage:{total_output_tokens:32000}}}),/^status=incomplete wrap=interaction keys=status,steps,usage steps=1\(model_output:1\) parts=text:1 chars=3 blank=0 words=0 speakers=0 output_text=- errors=- out_tokens=32000$/);
+ assert.equal(m.answerShape({status:'completed',output_text:' 가나 '}).includes('output_text=2'),true);
+ assert.equal(m.answerShape({status:'설마'}).startsWith('status=? '),true);
+ assert.equal(m.answerShape(null),'type=null');assert.equal(m.answerShape([]),'type=array');assert.equal(m.answerShape('x'),'type=string');
+ // 서버는 답을 못 읽으면(완료 아님·글 없음) 이 모양을 한 줄 남긴다. 사용량은 그 전에 기록(답이 왔으면 쓴 만큼).
+ assert.match(index,/function readAnswer\(d: unknown\) \{\n\s*try \{ return readTranscript\(d\); \} catch \(e\) \{\n\s*if \(e instanceof Fail\) console\.warn\('meeting-transcribe: gemini answer', e\.code, answerShape\(d\)\);\n\s*throw e;/);
+ assert.match(index,/const result = readAnswer\(response\);/);
+ assert.equal((index.match(/readTranscript\(/g)||[]).length,1,'답 읽기는 readAnswer 한 곳');
+ assert.ok(index.indexOf('readUsage(response, job.duration_sec)')<index.indexOf('readAnswer(response)'));
+ // 답 몸통을 받다가 기다림 상한이 지나면 늦음, 끊김·JSON 아님은 실패 — 둘 다 상태·길이만 로그(내용 없음).
+ const gt=index.slice(index.indexOf('async function geminiTranscribe'),index.indexOf('function readAnswer'));
+ assert.match(gt,/try \{ raw = await r\.text\(\); \} catch \(e\) \{/);
+ assert.match(gt,/throw new Fail\(late \? 'gemini_timeout' : 'gemini_failed'\)/);
+ assert.match(gt,/console\.warn\('meeting-transcribe: gemini answer not json', r\.status, raw\.length\);/);
+ assert.doesNotMatch(gt,/console\.warn\([^;]*raw\)/);assert.doesNotMatch(gt,/r\.json\(\)\.catch/);
 });
 
 // REC-발언자구분(S58-6): 녹음 구간을 29분으로 줄여 긴 회의도 구간마다 발언자 구분이 켜진다. 글은 모두 지어낸 것.
