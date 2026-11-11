@@ -293,13 +293,15 @@ object BackUploadRules {
         val total = store.total(batch)
         val target = store.target(batch) ?: return null
         if (total <= 0) return null
-        val left = store.items(batch).size
+        val waiting = store.items(batch).map { it.index }.toSet()
+        val left = waiting.size
         val stop = store.stopped(batch)
         val state = if (left == 0) "done" else if (stop != null) "stopped" else "run"
         val results = store.results(batch).associateBy { it.index }
         val order = store.indexes(batch)
         val docs = order.joinToString(",") { ShellRules.jsonString(results[it]?.doc ?: "") }
-        val errors = order.joinToString(",") { ShellRules.jsonString(results[it]?.error ?: "") }
+        // 임시 파일도 결과도 없는 번호(폰이 임시 파일을 지움)는 '사라짐'으로 알린다(끝났는데 까닭이 빈 채로 보이지 않게).
+        val errors = order.joinToString(",") { i -> ShellRules.jsonString(results[i]?.let { it.error ?: "" } ?: if (i in waiting) "" else MISSING) }
         return "{\"id\":" + ShellRules.jsonString(batch) + ",\"kind\":" + ShellRules.jsonString(target.kind) +
             ",\"target\":" + ShellRules.jsonString(target.meeting) + ",\"total\":$total,\"left\":$left,\"state\":\"$state\"" +
             ",\"reason\":" + ShellRules.jsonString(if (state == "stopped") stop ?: "" else "") +

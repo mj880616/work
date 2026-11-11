@@ -488,6 +488,12 @@ class BackUploadTest {
         val run = BackUploadRules.run(s, batch) { _, _ -> BackUploadRules.One.Saved(doc2) }
         assertEquals(BackUploadRules.Run.Done(1, 1, 2, BackUploadRules.MISSING, true), run)
         assertEquals(listOf(BackUploadStore.Result(0, null, "missing"), BackUploadStore.Result(1, doc2, null)), s.results(batch).sortedBy { it.index })
+        // 작업이 돌기 전에 임시 파일이 모두 사라진 묶음도 '끝남 · 사라짐'으로 보인다(까닭이 빈 채로 끝나지 않게).
+        val gone = sealed(s, "a.jpg" to "image/jpeg")
+        File(File(tmp.root, "back-upload"), "$gone/0").delete()
+        val job = MiniJson.obj(MiniJson.parse(BackUploadRules.jobJson(s, gone)!!))!!
+        assertEquals("done", job["state"])
+        assertEquals(listOf("missing"), job["errors"])
     }
 
     @Test

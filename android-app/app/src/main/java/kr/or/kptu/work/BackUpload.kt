@@ -86,6 +86,8 @@ class BackUploadWorker(context: Context, params: WorkerParameters) : Worker(cont
         if (!store.exists(batch!!) || store.total(batch) <= 0) return Result.success()
         val left = store.items(batch).size
         val total = store.total(batch)
+        // 이미 끝난 묶음(같은 작업이 한 번 더 돈 경우)은 다시 알리지 않는다.
+        if (left <= 0) return Result.success()
         val failed = { reason: String -> BackUploadRules.Run.Stopped(reason, true, left, total) }
         // 다시 도는 묶음은 '멈춤' 표시를 지운다(화면에는 '올리는 중').
         WidgetGuard.run { store.stop(batch, null) }

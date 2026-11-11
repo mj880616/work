@@ -110,6 +110,7 @@ export function createAppUpload(win = globalThis.window, {helloMs = UP_HELLO_MS,
     // 앱이 알려 준 묶음들(올리는 중·끝남·멈춤). target을 주면 그 대상 것만.
     jobs: target => [...jobs.values()].filter(j => !target || j.target === String(target).toLowerCase()),
     // 묶음이 바뀔 때마다 부른다(올리는 중 → 끝). 돌려주는 함수를 부르면 그만 듣는다.
+    // 같은 묶음이 여러 번 올 수 있다(앱에 다시 물을 때마다 다시 알려 준다) → 끝난 묶음은 반영한 뒤 seen(id)으로 지운다.
     onJob(fn) { if (typeof fn !== 'function') return () => {}; listeners.add(fn); return () => listeners.delete(fn); },
     // 끝난 묶음을 화면이 반영했으면(목록 새로 읽음) 앱의 기록을 지운다.
     seen(id) { if (!usable || !BATCH.test(String(id || ''))) return false; jobs.delete(id); return send(`up:seen:${id}`); },
