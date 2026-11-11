@@ -182,17 +182,85 @@ test('첨부 파일 줄이 있는 화면마다 같은 부품을 쓴다', () => {
     'basket-notes.js': /markRenameHost\(line\.querySelector\('\.file-line-main b'\)/,
     'task-files.js': /target: 'task', id: taskId/,
     'meeting-round-detail.js': /markRenameHost\(row\.querySelector\('\.file-line-main b'\)/,
-    'workplace-detail.js': /renameButtonHtml\(rn\)/,
-    'project-system-v3.js': /renameButtonHtml\(rn\)/,
+    // FILE-이름고치기연필먹통: ⋯가 있는 줄은 ✎ 없이 ⋯ 안 [이름 수정](renameMenuAttrs → menuItemsHtml {rename}).
+    'workplace-detail.js': /rename:renameMenuAttrs\(rn\)/,
+    'project-system-v3.js': /rename:renameMenuAttrs\(rn\)/,
+    'meeting-round-detail.js#menu': /mrdTranscribeItem\(d\)\+mrdFileOwnItems\(d\),mrdRename\(d\)\)/,
     // 빠짐12: 자료실 [이름 바꾸기]·F2 — 보이는 이름이 파일 이름인 줄은 같은 부품(target document).
     'library-upload.js': /fileNameShown\(d\)\)\{[^}]*markRenameHost\(title,\{target:'document',id:d\.id,driveId:d\.file_id,name:d\.file_name\}\);openRenameEditor\(title\)/,
   };
-  for (const [file, re] of Object.entries(uses)) {
-    const src = read('../app/' + file);
-    assert.match(src, /from '\.\/file-rename\.js'/, file);
-    assert.match(src, re, file);
+  for (const [key, re] of Object.entries(uses)) {
+    const file = key.split('#')[0], src = read('../app/' + file);
+    assert.match(src, /from '\.\/file-rename\.js'/, key);
+    assert.match(src, re, key);
   }
   assert.match(read('../app/google-tasks.js'), /kptu:file-renamed[\s\S]*attach\?\.renamed\?\.\(d\)/);
   assert.match(read('../app/google-tasks.js'), /taskId:task\?\.id/);
   for (const file of ['basket.js', 'basket-notes.js', 'task-files.js', 'google-tasks.js', 'project-system-v3.js']) assert.match(read('../app/' + file), /kptu:file-renamed/, file);
+});
+
+// ---- FILE-이름고치기연필먹통: ⋯가 있는 파일 줄은 ✎ 없이 ⋯ 안 [이름 수정] ----
+test('⋯ 메뉴 항목: [이름 수정] 속성(줄 정보 담김, 값 이스케이프, 정보 없으면 빈 글자)과 공용 항목 만들기', async () => {
+  const spec = { target: 'document', id: 'd1', driveId: 'F1', name: '216079.jpg' };
+  const attrs = ui.renameMenuAttrs(spec);
+  assert.equal(attrs, ' data-fr-menu-edit data-fr-target="document" data-fr-id="d1" data-fr-drive="F1" data-fr-name="216079.jpg"');
+  assert.doesNotMatch(attrs, /data-fr-edit[ =]/); // ✎ 단추(data-fr-edit)와 겹치지 않는다
+  assert.equal(ui.renameMenuAttrs(null), '');
+  assert.equal(ui.renameMenuAttrs({ ...spec, driveId: '' }), '');
+  assert.match(ui.renameMenuAttrs({ ...spec, name: '"><b>x' }), /data-fr-name="&quot;&gt;&lt;b&gt;x"/);
+  // ⋯ 칸의 공용 항목 만들기(file-actions.js): rename을 넘기면 [내려받기] 뒤 [이름 수정] 하나, 넘기지 않으면 예전 그대로.
+  const {menuItemsHtml} = await import('../app/file-actions.js');
+  const file = {name: '216079.jpg', mime: 'image/jpeg', driveId: 'F1', documentId: 'd1'};
+  const withRename = menuItemsHtml(file, {attrs: ' data-x="1"', attr: 'data-fa-menu', rename: attrs});
+  assert.match(withRename, /내려받기<\/button><button type="button" data-fr-menu-edit data-fr-target="document"[^>]*>이름 수정<\/button>$/);
+  assert.equal((withRename.match(/<button/g) || []).length, 3);
+  assert.equal((menuItemsHtml(file, {attrs: ' data-x="1"', attr: 'data-fa-menu'}).match(/<button/g) || []).length, 2);
+  assert.doesNotMatch(menuItemsHtml(file, {attrs: '', rename: ui.renameMenuAttrs(null)}), /이름 수정/);
+});
+
+test('⋯가 있는 파일 줄 전수: ✎(renameButtonHtml)를 그리지 않고 ⋯ 안에 [이름 수정]을 둔다', () => {
+  // 사업 보고 결과 창 회의자료·조직 창 자료·프로젝트 자료·노트 첨부(⋯ 팝업). 이 줄들은 ✎ 단추를 따로 두지 않는다.
+  for (const file of ['meeting-round-detail.js', 'workplace-detail.js', 'project-system-v3.js', 'basket-notes.js']) {
+    const src = read('../app/' + file);
+    assert.doesNotMatch(src, /renameButtonHtml/, file);
+  }
+  const mrd = read('../app/meeting-round-detail.js');
+  // ⋯ 칸(fileMoreHtml)의 extra 첫머리에 [이름 수정], 덮개(.file-line-open) 앞에는 ✎ 없음.
+  assert.match(mrd, /fileMoreHtml\(d,name,mrdTranscribeItem\(d\)\+mrdFileOwnItems\(d\),mrdRename\(d\)\)/);
+  assert.doesNotMatch(mrd, /\$\{mrdRename\(d\)\}<button class="file-line-open"/);
+  assert.match(read('../app/workplace-detail.js'), /menuItemsHtml\(fa,\{attrs:fileAttrs\(fa\),attr:'data-fa-menu',rename:renameMenuAttrs\(rn\)\}\)\}<button type="button" data-wd-doc-remove/);
+  assert.match(read('../app/project-system-v3.js'), /menuItemsHtml\(fa,\{attrs:fileAttrs\(fa\),attr:'data-fa-menu',rename:renameMenuAttrs\(rn\)\}\)\}<button type="button" data-ps3-edit-doc/);
+  assert.match(read('../app/meeting-columns.js'), /export function fileMoreHtml\(d,name=d\?\.file_name\|\|d\?\.title\|\|'파일',extra='',rename=''\)/);
+  const notes = read('../app/basket-notes.js');
+  assert.match(notes, /\['data-note-file-rename', '이름 수정'\], \['data-note-file-detach', '빼기'\]/);
+  assert.match(notes, /b\.hasAttribute\('data-note-file-rename'\)[^\n]*\[data-fr-host\][^\n]*openRenameEditor\(host\)/);
+  assert.match(notes, /end:link \+ more,/); // 노트 첨부 줄 끝: [Drive에서 열기]·⋯만
+  // ⋯가 없는 줄(바구니 파일 카드·할 일 첨부 편집 줄)은 ✎를 그대로 둔다.
+  assert.match(read('../app/basket.js'), /renameButtonHtml\(renameSpec\)/);
+  assert.match(read('../app/task-files.js'), /renameButtonHtml\(rn\)/);
+});
+
+test('이름 고치기 손짓: 열기 덮개(.file-line-open) 위 이름 글자 자리도 이름 칸이 받고, 한 번 누르기는 덮개 동작', () => {
+  const src = read('../app/file-rename.js');
+  assert.match(src, /const OPEN_COVER = '\.file-line-open';/);
+  assert.match(src, /function hostAt\(e\)/);
+  // 두 번 누르기·꾹 누르기·길게 누르기 메뉴·한 번 누르기 모두 같은 판정(hostAt) — 덮개 밖에서는 예전처럼 이름 칸 안만.
+  const bound = src.slice(src.indexOf('전역 한 번'));
+  assert.equal((bound.match(/hostAt\(e\)/g) || []).length, 4);
+  assert.doesNotMatch(bound, /e\.target\.closest\('\[data-fr-host\]'\)/);
+  // 한 번 누르기: 덮개가 받았으면 지연 뒤 덮개를 다시 눌러 원래 동작(열기)으로 넘긴다.
+  assert.match(bound, /const via = e\.target\.closest\(OPEN_COVER\) \|\| h;/);
+  assert.match(bound, /\(via\?\.isConnected \? via : host\)\.click\(\)/);
+  // ⋯ 메뉴 항목 누르기: 열린 <details>를 닫고 같은 줄의 이름 칸을 연다.
+  assert.match(bound, /closest\('\[data-fr-menu-edit\]'\)[\s\S]*closest\('details\[open\]'\)\?\.removeAttribute\('open'\)[\s\S]*openRenameEditor\(host\)/);
+});
+
+test('공용 CSS: 이름 칸이 열린 덮개 줄은 칸이 눌림을 받고, 상태 글자는 한 글자씩 꺾이지 않는다', () => {
+  const css = read('../app/ui-standard.css');
+  assert.match(css, /\.modal \.file-line:has\(\.file-line-open\) \.fr-box\{pointer-events:auto\}/);
+  assert.match(css, /\.modal \.file-line:has\(\.fr-box\) \.file-line-open\{pointer-events:none\}/);
+  const state = css.match(/\n\.file-line-state\{([^}]*)\}/)?.[1] || '';
+  assert.match(state, /flex:0 0 auto/);
+  assert.match(state, /word-break:keep-all/);
+  assert.doesNotMatch(state, /overflow-wrap:anywhere/);
 });
