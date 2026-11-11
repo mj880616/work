@@ -4,6 +4,8 @@
 // 저장은 보고 수정 창(meeting-round-detail.js mrdSaveEdit)과 같은 길(app_meetings meeting_at PATCH, 내 작업공간·지금 일시 그대로인 한 줄만)이고
 // 놓은 뒤 "옮겼어요 · 되돌리기"(offerUndoNotice)가 뜬다. 회차 번호·Google 일정·사진·자료는 건드리지 않는다(사진·자료는 meeting_id로 따라간다).
 // 이 모듈은 끌기 입력과 저장 호출만 갖고, 그리기는 team.js renderMeetings 하나다(상태 없음 — 부르는 쪽이 reportDay를 맞춘다).
+// BIZ-달력그날창: '+n' 그날 창에 줄을 넣는 showReportDayWindow도 여기 있다. 부르는 길은 team.js showReportDay 하나이고(달력을 다시 그릴 때도 그 길),
+// 여기에 화면 상태는 두지 않는다(열려 있는 날은 창에서 읽고, dayDeps는 부르는 쪽 길을 잇는 연결일 뿐).
 import {offerUndoNotice} from './basket-record-delete.js';
 import {openRowMenu} from './row-menu.js';
 import {moveReportAt, dayKeyOf, dayHeading, REPORT_DAY_MENU_ITEMS, reportsByDay, dayWindowTitle} from './report-views-model.mjs';
