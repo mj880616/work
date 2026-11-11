@@ -81,11 +81,13 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'workspace-1',user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
     if(path==='/rest/v1/app_profiles'){
       // 자료실 보기 기억(LIB-보기기억): 내 프로필 행의 library_view 칸. state.libraryViewMissing이면 칸이 아직 없는 서버(적용 전)처럼 400.
-      // LIB-받는폴더(S59-11): 내 프로필 행의 library_receive_folder 칸. state에 receiveFolder 키가 있을 때만 그 칸이 있는 서버(적용 뒤),
-      // 없으면 칸이 아직 없는 서버처럼 그 칸을 고르거나 쓰면 400(42703). receiveFolderFail이면 쓰기 500. 없는 폴더 id면 외래 키 거절(409·23503).
+      // LIB-받는폴더(S59-11): 내 프로필 행의 library_receive_folder 칸. state에 receiveFolder 키가 있을 때만 그 칸이 있는 서버(적용 뒤).
+      // receiveFolderMissing이면 칸이 아직 없는 서버처럼 그 칸을 고르거나 쓰면 400(42703). 둘 다 없으면(다른 시험) 칸 없는 행을 돌려줘
+      // 화면이 '모름'으로 보고 메뉴 줄을 숨긴다(브라우저 오류 줄 없음). receiveFolderFail이면 쓰기 500. 없는 폴더 id면 외래 키 거절(409·23503).
       const receiveCol=method==='PATCH'?!!body&&'library_receive_folder' in body:(url.searchParams.get('select')||'').includes('library_receive_folder');
       if(receiveCol){
-        if(!('receiveFolder' in state))return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_receive_folder does not exist'})});
+        if(state.receiveFolderMissing)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_receive_folder does not exist'})});
+        if(!('receiveFolder' in state))return ok([{user_id:state.user.id}]);
         if(method==='PATCH'){
           (state.receivePatches||(state.receivePatches=[])).push(body.library_receive_folder);
           if(state.receiveFolderFail)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'fail'})});
