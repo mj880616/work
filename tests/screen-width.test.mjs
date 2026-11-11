@@ -49,3 +49,22 @@ test('홈 하루 카드 두 단: 공용 600px~PC 1200px 앞, 묶음 두 개는 �
   assert.doesNotMatch(css, /\.journal-head \.journal-weekday\{ display:none; \}\n/);
   assert.match(css, /@media\(max-width:399px\)\{ #appView #homeView \.journal-head \.journal-weekday\{ display:none; \} \}/);
 });
+
+// FOLD-넓은화면 2차(S59-19): 조직 보고 '목록 | 상세'·사업 보고 '목록 | 결과' 칸 나누기도 공용 판정(600px~)을 불러 쓴다. 앱 틀 경계(761px)는 칸이 붙는 모양(폰 틀이면 아래 줄만큼 짧게)에만,
+// 사업 보고 [회의] 세 칸은 PC(1200px~, 홈 두 단·잊지 말기와 같은 경계)에서만. CSS 칸 모양도 같은 600px에서 시작한다.
+test('조직 보고·사업 보고 두 칸은 공용 판정을 불러 쓴다(따로 761 칸 판정 없음)', () => {
+  const wd = read('app/workplace-detail.js');
+  assert.match(wd, /import \{SPLIT_QUERY\} from '\.\/screen-width\.mjs'/);
+  assert.match(wd, /const WD_PC=window\.matchMedia\?\.\(SPLIT_QUERY\),WD_FRAME_PC=window\.matchMedia\?\.\('\(min-width:761px\)'\);/);
+  assert.match(wd, /name:'team',query:SPLIT_QUERY,/);
+  const team = read('app/team.js');
+  assert.match(team, /import \{SPLIT_QUERY\} from '\.\/screen-width\.mjs'/);
+  assert.match(team, /meetingPc=window\.matchMedia\?\.\(SPLIT_QUERY\);meetingWide=window\.matchMedia\?\.\('\(min-width:1200px\)'\);/);
+  assert.match(team, /name:'reports',query:SPLIT_QUERY,/);
+  const so = read('app/suborganizations.css'), mt = read('app/meeting-ui.css');
+  assert.match(so, /#wdDetailPane\{display:none\}\n@media\(min-width:600px\)\{/);
+  assert.match(so, /@media\(min-width:600px\) and \(max-width:760px\)\{\n  #appView #teamView>#soTeamSection\{/);
+  assert.match(mt, /#mcolMenu\[hidden\]\{display:none\}\n@media\(min-width:600px\)\{/);
+  // 폰 틀에서 칸에 붙은 창(role=region)은 뒤로가기 창 기록을 쌓지 않는다(조직 상세·사업 보고 결과 칸).
+  assert.match(read('app/mobile-modal-history.js'), /modal\?\.getAttribute\('role'\)!=='region'/);
+});
