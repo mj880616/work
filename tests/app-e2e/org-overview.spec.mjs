@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 // ORG-기록하나로 O-4(설계 docs/design/record-one.md 2-5~2-9·4절): 담당조직 [전체 표] '이번 주 조직보고' = 조직보고 창(record-window-view.js).
 // 조직 칸 = 지난 3주~앞 2주의 조직 기록 줄 + 그 조직과 연결된 구글 캘린더 일정 줄(작은 '일정'), 조직당 7줄·'지난 기록 n' 접기·[넣기],
 // 줄 ⋯ [보고용으로 수정]·[보고에서 빼기](뺀 줄 n·되돌리기, 다음 주에도 빠짐)·[기록 열기], [+ 쓰기] = 그 조직 기록 한 줄.
@@ -22,13 +23,14 @@ async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFai
   const set=page.clock.setFixedTime.bind(page.clock);page.clock.setFixedTime=()=>set(new Date(NOW));
  }
  const f=await openHome(page,{beforeLoad:old?null:()=>page.route(u=>u.origin===SB&&u.pathname==='/auth/v1/token',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({access_token:'home-access',refresh_token:'home-refresh',expires_at:4102444800,user:{id:owner,email:'home@example.org'}})}))});
- const db={records:records.map(r=>({...r})),marks:marks.map(m=>({...m})),posts:[],markWrites:[],cal:[]};
+ const db={records:records.map(r=>({...r})),marks:marks.map(m=>({...m})),posts:[],markWrites:[],cal:[],deletes:[]};
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return json(route,q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner})))});
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',async route=>{
   const req=route.request(),q=new URL(req.url()).searchParams;
   if(req.method()==='POST'){const b=req.postDataJSON();db.posts.push(b);const row={id:uid(),created_at:'2026-11-17T01:00:05Z',detail_text:null,doc:null,end_day:null,source_kind:null,...b};db.records.push(row);return json(route,[row],201)}
+  if(req.method()==='DELETE'){const id=(q.get('id')||'').replace(/^eq\./,''),org=(q.get('organization_id')||'').replace(/^eq\./,'');db.deletes.push({id,org,select:q.get('select'),prefer:req.headers()['prefer']||''});const hit=db.records.filter(r=>r.id===id&&r.organization_id===org);db.records=db.records.filter(r=>!hit.includes(r));return json(route,hit.map(r=>({id:r.id})))}
   if(req.method()==='PATCH'){const b=req.postDataJSON(),id=(q.get('id')||'').replace(/^eq\./,'');db.patches=[...(db.patches||[]),{id,...b}];const hit=db.records.filter(r=>r.id===id);hit.forEach(r=>Object.assign(r,b));return json(route,hit)}
   if(dayNoneOff&&(q.get('select')||'').includes('day_none'))return json(route,{code:'42703',message:'column app_suborganization_updates.day_none does not exist'},400);
   const org=q.get('organization_id')||'',ids=org.startsWith('eq.')?[org.slice(3)]:org.replace(/^in\.\(|\)$/g,'').split(',');
@@ -71,6 +73,12 @@ const oa=page=>page.locator(`#soOverview [data-wl-org-row="${OA}"]`);
 const ob=page=>page.locator(`#soOverview [data-wl-org-row="${OB}"]`);
 const status=page=>page.locator('#soOverview [data-wl-status]');
 const shown=row=>row.locator('.wl-cell > .rw-line');
+// 지난 기록·뺀 줄(펼친 .rw-fold 안) 줄 ⋯ 메뉴 항목 누르기. text가 비면 첫 줄.
+async function foldMenu(row,text,item){
+ const line=row.locator('.rw-fold .rw-line',text?{hasText:text}:{}).first();
+ await line.locator('summary').click();
+ await line.locator('.row-more').getByText(item,{exact:true}).click();
+}
 async function menu(page,row,text,item){
  const line=row.locator('.wl-cell > .rw-line',{hasText:text});
  await line.locator('summary').click();
@@ -108,7 +116,7 @@ for(const width of [390,884,1280])test(`[전체 표] 조직보고 창: 쓰기 �
  const outBtn=oa(page).locator('[data-rw-fold="out"]');
  await expect(outBtn).toContainText('뺀 줄 1');
  await outBtn.click();
- await oa(page).locator('[data-rw-back]').click();
+ await foldMenu(oa(page),'','되돌리기'); // ORG-뺀줄지난줄메뉴: 큰 단추 대신 줄 ⋯ 맨 위 [되돌리기]
  await expect(status(page)).toHaveText('보고에 다시 넣었어요.');
  expect(db.markWrites.at(-1)).toMatchObject({m:'DELETE'});
  await expect(shown(oa(page))).toHaveCount(3);
@@ -136,7 +144,7 @@ test('[전체 표] 7줄 상한: 넘친 지난 줄은 지난 기록 n에서 [넣�
  await expect(more).toContainText('지난 기록 2');
  await expect(shown(oa(page)).filter({hasText:'합성 지난 줄 0'}).locator('.rw-last')).toHaveText('지난주');
  await more.click();
- await oa(page).locator('.rw-fold [data-rw-in]').first().click();
+ await foldMenu(oa(page),'합성 지난 줄','넣기'); // 지난 기록 줄 ⋯ 맨 위 [넣기]
  await expect(status(page)).toHaveText('보고에 넣었어요.');
  expect(db.markWrites.at(-1)).toMatchObject({m:'POST',choice:'in',section:'org'});
  await expect(shown(oa(page))).toHaveCount(8);
@@ -545,5 +553,140 @@ for(const width of [390,412,884,1280])test(`[목록|전체 표] 자리 ${width}p
   expect(await tabs.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
   expect(tb.y+tb.height).toBeLessThanOrEqual(list.y+1);
  }
+ expect(errors).toEqual([]);
+});
+
+// ORG-뺀줄지난줄메뉴(요청함 11/10 23:51, 명진 'ㅇ'): 뺀 줄·지난 기록 줄의 큰 [되돌리기]/[넣기] 단추를 없애고 보이는 줄과 같은 작은 ⋯ 하나로.
+// 메뉴 맨 위가 [되돌리기]/[넣기], 그 아래는 보이는 줄 메뉴와 같다(이미 보고에 없는 줄이라 [보고에서 빼기]만 없음). 모든 조직 기록 줄 ⋯ 맨 아래 [기록 삭제] =
+// 조직 창 삭제와 같은 서버 길(그 조직의 그 기록 한 행 DELETE) + 한 번 묻기. 일정 줄은 삭제 없이 [일정 열기]. PC 우클릭은 공용 context-menu.js가 그 줄 ⋯를 연다.
+// 사진: ORG_ROW_SHOTS 폴더가 있으면 docs/design/screens/s57-10/ 용 사진을 남긴다(가짜 데이터).
+const SHOTS=process.env.ORG_ROW_SHOTS||'';
+const rowsFixture=()=>{
+ const days=['2026-11-13','2026-11-11','2026-11-09','2026-11-05','2026-11-03','2026-10-30','2026-10-28','2026-10-27'];
+ const fold=days.map((d,i)=>U(OA,d,'합성 지난 줄 '+i));
+ const outRec=U(OA,'2026-11-12','합성 뺀 줄 하나');
+ const marks=[{id:'mk-out',week_start:W,section:'org',ref_kind:'org_update',ref_key:outRec.id,report_body:null,choice:'out',detail:null,updated_at:NOW}];
+ return {records:[U(OA,'2026-11-18','합성 이번 주 줄'),...fold,outRec],marks,outRec};
+};
+const menuTexts=line=>line.locator('.row-more-menu button').allTextContents();
+const noWide=page=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1);
+for(const width of [412,1280])test(`[전체 표] 뺀 줄·지난 기록 줄 ⋯ ${width}px: 큰 단추 없이 ⋯ 하나, 맨 위 [되돌리기]/[넣기], 아래는 보이는 줄 메뉴와 같음`,async({page},info)=>{
+ const {records,marks}=rowsFixture();
+ const {errors}=await fixture(page,{width,records,marks});
+ await openTable(page);
+ await expect(shown(oa(page))).toHaveCount(7);
+ await oa(page).locator('[data-rw-fold="folded"]').click();
+ await oa(page).locator('[data-rw-fold="out"]').click();
+ const lines=oa(page).locator('.rw-fold .rw-line');
+ await expect(lines).toHaveCount(3);
+ // 줄 끝 큰 단추([넣기]·[되돌리기])는 없고 줄마다 ⋯ 하나.
+ await expect(oa(page).locator('.rw-fold .wl-btns')).toHaveCount(0);
+ await expect(oa(page).locator('.rw-fold .rw-line > .row-more')).toHaveCount(3);
+ const base=(await menuTexts(shown(oa(page)).first())).filter(t=>t!=='보고에서 빼기');
+ expect(base).toContain('보고용으로 수정');expect(base.at(-1)).toBe('기록 삭제');
+ const fold1=oa(page).locator('[data-rw-fold-box="folded"] .rw-line').first(),out1=oa(page).locator('[data-rw-fold-box="out"] .rw-line').first();
+ await expect(fold1.locator('.row-more')).toHaveCount(1);
+ if(SHOTS)await page.screenshot({path:`${SHOTS}/org-row-more-${width}.png`});
+ await fold1.locator('summary').click();
+ expect(await menuTexts(fold1)).toEqual(['넣기',...base]);
+ await page.keyboard.press('Escape');
+ await out1.locator('summary').click();
+ expect(await menuTexts(out1)).toEqual(['되돌리기',...base]);
+ if(SHOTS)await page.screenshot({path:`${SHOTS}/org-row-more-menu-${width}.png`});
+ await page.screenshot({path:info.outputPath(`org-row-more-menu-${width}.png`)});
+ await page.keyboard.press('Escape');
+ expect(await noWide(page)).toBe(true);
+ // 줄 이름 칸이 ⋯ 때문에 잘리지 않는다(줄 안에 한 줄로 들어감).
+ for(const i of [0,1,2]){const b=await lines.nth(i).boundingBox();expect(b.x+b.width).toBeLessThanOrEqual(width+1)}
+ expect(errors).toEqual([]);
+});
+test('[전체 표] 뺀 줄 ⋯ [되돌리기]·지난 기록 줄 ⋯ [넣기]는 예전 단추와 같은 길(보고 표시 한 행), 뺀 줄에서도 [보고용으로 수정]',async({page})=>{
+ const {records,marks,outRec}=rowsFixture();
+ const {db,errors}=await fixture(page,{width:1280,records,marks});
+ await openTable(page);
+ await oa(page).locator('[data-rw-fold="out"]').click();
+ await foldMenu(oa(page),'합성 뺀 줄 하나','보고용으로 수정');
+ const body=page.locator('#soOverview [data-rw-field="body"]');
+ await expect(body).toBeFocused();
+ await body.fill('합성 뺀 줄(보고용)');await body.press('Enter');
+ await expect(status(page)).toHaveText('저장했어요.');
+ expect(db.markWrites.at(-1)).toMatchObject({m:'PATCH',id:'mk-out',report_body:'합성 뺀 줄(보고용)'});
+ await foldMenu(oa(page),'(보고용)','되돌리기');
+ await expect(status(page)).toHaveText('보고에 다시 넣었어요.');
+ expect(db.markWrites.at(-1)).toMatchObject({m:'PATCH',id:'mk-out',choice:null});
+ await expect(oa(page).locator('[data-rw-fold="out"]')).toHaveCount(0);
+ expect(db.deletes).toEqual([]);
+ expect(errors).toEqual([]);
+});
+for(const width of [412,1280])test(`[전체 표] 줄 ⋯ [기록 삭제] ${width}px: 한 번 묻고(아니오면 요청 없음), 예면 그 조직의 그 기록 한 행 DELETE, 보이는 줄·지난 기록·뺀 줄 모두, 일정 줄은 삭제 없음`,async({page})=>{
+ const {records,marks,outRec}=rowsFixture();
+ const events=[EV('ev9','2026-11-19','합성 가 지부 간담회')];
+ const {db,errors}=await fixture(page,{width,records,marks,events});
+ await openTable(page);
+ await expect(shown(oa(page))).toHaveCount(7); // 조직당 7줄(일정 1줄 포함)
+ const ev=oa(page).locator('.rw-line[data-rw-kind="event"]');
+ await ev.locator('summary').click();
+ expect(await menuTexts(ev)).toContain('일정 열기');
+ expect(await menuTexts(ev)).not.toContain('기록 삭제');
+ await page.keyboard.press('Escape');
+ // 보이는 줄: 아니오 → 요청 없음.
+ const first=oa(page).locator('.wl-cell > .rw-line[data-rw-kind="org_update"]',{hasText:'합성 이번 주 줄'});
+ await first.locator('summary').click();
+ await first.locator('.row-more').getByText('기록 삭제',{exact:true}).click();
+ await page.locator('.kptu-ask').waitFor({state:'visible'});
+ if(SHOTS)await page.screenshot({path:`${SHOTS}/org-row-delete-ask-${width}.png`});
+ expect(await answerAsk(page,false)).toBe('이 기록을 삭제할까요?');
+ expect(db.deletes).toEqual([]);
+ await expect(first).toHaveCount(1);
+ // 예 → DELETE 한 번(조직 창 삭제와 같은 주소 모양), 줄이 사라지고 알림.
+ await first.locator('summary').click();
+ await first.locator('.row-more').getByText('기록 삭제',{exact:true}).click();
+ await answerAsk(page,true);
+ await expect(status(page)).toHaveText('기록을 삭제했어요.');
+ expect(db.deletes).toHaveLength(1);
+ expect(db.deletes[0]).toMatchObject({org:OA,select:'id'});
+ expect(db.deletes[0].prefer).toContain('return=representation');
+ expect(db.records.some(r=>r.raw_text==='합성 이번 주 줄')).toBe(false);
+ await expect(oa(page).locator('.rw-line',{hasText:'합성 이번 주 줄'})).toHaveCount(0);
+ // 지난 기록 줄·뺀 줄도 같은 길.
+ await oa(page).locator('[data-rw-fold="folded"]').click();
+ const gone=oa(page).locator('[data-rw-fold-box="folded"] .rw-line',{hasText:'합성 지난 줄 7'});
+ await gone.locator('summary').click();
+ await gone.locator('.row-more').getByText('기록 삭제',{exact:true}).click();
+ await answerAsk(page,true);
+ await expect(oa(page).locator('.rw-line',{hasText:'합성 지난 줄 7'})).toHaveCount(0);
+ await oa(page).locator('[data-rw-fold="out"]').click();
+ await foldMenu(oa(page),'합성 뺀 줄 하나','기록 삭제');
+ await answerAsk(page,true);
+ await expect(oa(page).locator('[data-rw-fold="out"]')).toHaveCount(0);
+ expect(db.deletes.map(d=>d.id)).toContain(outRec.id);
+ expect(db.deletes).toHaveLength(3);
+ expect(db.deletes.every(d=>d.org===OA)).toBe(true);
+ // 새로 읽어도(다음 주 갔다 오기) 서버에서 지워져 있다. 보고 표시 쪽 DELETE(app_report_line_marks)는 하나도 없다.
+ await page.locator('#soOverview [data-week-step="1"]').click();
+ await expect(page.locator('#soOverview .week-pick-label')).toHaveText('11.23~11.29');
+ await page.locator('#soOverview [data-week-step="0"]').click();
+ await expect(page.locator('#soOverview .week-pick-label')).toHaveText('11.16~11.22');
+ await expect(oa(page).locator('.rw-line',{hasText:/합성 이번 주 줄|합성 지난 줄 7|합성 뺀 줄 하나/})).toHaveCount(0);
+ expect(db.markWrites.filter(w=>w.m==='DELETE')).toEqual([]);
+ expect(await noWide(page)).toBe(true);
+ expect(errors).toEqual([]);
+});
+test('[전체 표] PC 우클릭: 뺀 줄·지난 기록 줄 위에서도 그 줄 ⋯ 메뉴가 열린다(공용 context-menu.js)',async({page})=>{
+ const {records,marks}=rowsFixture();
+ const {errors}=await fixture(page,{width:1280,records,marks});
+ await openTable(page);
+ await oa(page).locator('[data-rw-fold="folded"]').click();
+ await oa(page).locator('[data-rw-fold="out"]').click();
+ const out1=oa(page).locator('[data-rw-fold-box="out"] .rw-line').first();
+ await out1.locator('.wl-text').click({button:'right'});
+ await expect(out1.locator('.row-more')).toHaveJSProperty('open',true);
+ expect((await menuTexts(out1))[0]).toBe('되돌리기');
+ await page.keyboard.press('Escape');
+ const fold1=oa(page).locator('[data-rw-fold-box="folded"] .rw-line').first();
+ await fold1.locator('.wl-text').click({button:'right'});
+ await expect(fold1.locator('.row-more')).toHaveJSProperty('open',true);
+ expect((await menuTexts(fold1))[0]).toBe('넣기');
+ if(SHOTS)await page.screenshot({path:`${SHOTS}/org-row-more-rightclick-1280.png`});
  expect(errors).toEqual([]);
 });

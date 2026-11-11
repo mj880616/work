@@ -79,3 +79,39 @@ test('화면 연결: 표 줄 ⋯·날짜 누름, 조직 상세 ⋯ [날짜 수�
   assert.match(de, /app_suborganization_updates\?id=eq\.\$\{enc\(id\)\}&organization_id=eq\.\$\{enc\(org\)\}/);
   assert.doesNotMatch(read('app/record-window-model.mjs').match(/export function checkDayEdit[\s\S]*?\n}\n/)[0], /raw_text/);
 });
+
+// ORG-뺀줄지난줄메뉴(요청함 11/10 23:51): 뺀 줄·지난 기록 줄은 큰 단추 대신 줄 ⋯, 모든 조직 기록 줄 ⋯에 [기록 삭제] — 조직 창과 같은 서버 길 하나.
+test('조직 한 줄 삭제 서버 길 하나: 조직 창 wdDelRow와 조직보고 창 [기록 삭제]가 org-row-delete.js를 같이 쓴다', async () => {
+  const {orgRowDeletePath, deleteOrgRow, deleteOrgUpdate} = await import('../app/org-row-delete.js');
+  assert.equal(orgRowDeletePath('app_suborganization_updates', 'u 1', ORG), `/rest/v1/app_suborganization_updates?id=eq.u%201&organization_id=eq.${ORG}&select=id`);
+  const calls = [];
+  const ok = async (p, o) => { calls.push([p, o]); return [{id: 'u1'}]; };
+  await deleteOrgUpdate(ok, 'u1', ORG);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0][0], /app_suborganization_updates\?id=eq\.u1&organization_id=eq\./);
+  assert.deepEqual(calls[0][1], {method: 'DELETE', prefer: 'return=representation'});
+  for (const empty of [[], null, undefined, {}]) await assert.rejects(() => deleteOrgRow(async () => empty, 'app_suborganization_status_items', 'm1', ORG), /권한이 없거나 이미 없는 항목입니다/);
+  const wd = read('app/workplace-detail.js'), view = read('app/record-window-view.js');
+  assert.match(wd, /import \{deleteOrgRow\} from '\.\/org-row-delete\.js'/);
+  assert.match(wd, /await deleteOrgRow\(wdApi,table,id,orgId\)/);
+  assert.doesNotMatch(wd, /method:'DELETE',prefer:'return=representation'\}\);if\(!Array\.isArray\(rows\)/, '조직 창이 따로 DELETE 길을 갖지 않음');
+  assert.match(view, /import \{deleteOrgUpdate\} from '\.\/org-row-delete\.js'/);
+  assert.match(view, /deleteOrgUpdate\(\(path, opts\) => ctl\.rt\.api\(path, opts\), l\.key, org\)/);
+  assert.doesNotMatch(view, /\$\{UPD\}\?id=eq/, '조직보고 창이 조직 기록 삭제 주소를 따로 만들지 않음');
+});
+test('뺀 줄·지난 기록 줄 = 줄 ⋯ 맨 위 [되돌리기]/[넣기](큰 단추 없음), 모든 조직 기록 줄 ⋯ 맨 아래 [기록 삭제], 일정 줄은 삭제 없이 [일정 열기]', () => {
+  const view = read('app/record-window-view.js'), biz = read('app/biz-detail-window.js');
+  assert.doesNotMatch(view, /<button[^>]*data-rw-(in|back)=/, '조직보고 창에 큰 [넣기]·[되돌리기] 단추가 없음');
+  assert.doesNotMatch(biz, /<button[^>]*data-bd-back=/, '사업 보고 상세 창에 큰 [되돌리기] 단추가 없음');
+  assert.match(view, /where === 'folded'\) items\.push\(\{text: '넣기', data: \{rwIn: l\.id\}/);
+  assert.match(view, /where === 'out'\) items\.push\(\{text: '되돌리기', data: \{rwBack: l\.id\}/);
+  assert.match(biz, /where === 'out'\) items\.push\(\{text: '되돌리기', data: \{bdBack: l\.id\}/);
+  assert.match(view, /if \(l\.kind === 'org_update'\) items\.push\(\{text: '기록 삭제', data: \{rwDel: l\.id\}, danger: true/);
+  // [기록 삭제]는 일정 줄 가지(else 앞)에 없고, 일정 줄 가지에는 [일정 열기]가 있다
+  const ev = view.match(/if \(l\.kind === 'event'\) \{[^\n]*\}/)[0];
+  assert.match(ev, /일정 열기/);
+  assert.doesNotMatch(ev, /기록 삭제/);
+  // 한 번 묻고(askConfirm) 나서만 지운다
+  assert.match(view, /const yes = await askConfirm\(anchor, \{text: TEXT\.delAsk, ok: '삭제', danger: true\}\);/);
+  assert.match(view, /if \(!yes \|\| week !== ctl\.week/);
+});
