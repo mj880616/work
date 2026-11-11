@@ -218,13 +218,19 @@ test('replace file screen: renamed menu item, file line in the edit dialog, save
   assert.ok(block.length>1500);
   for(const bad of ['local'+'Storage','session'+'Storage','indexed'+'DB'])assert.ok(!block.includes(bad),bad);
   // The request carries the id of the document being edited and the file only; every other field of the row stays on the server.
-  assert.match(block,/fd\.append\('file',file\);fd\.append\('replace_document_id',editor\.id\);/);
+  assert.match(block,/fd\.append\('file',await window\.KPTURuntime\.copyUploadFile\(file\)\);fd\.append\('replace_document_id',id\);/);
   assert.equal((block.match(/fd\.append\(/g)||[]).length,2);
-  // Order on save: file replace, then the info save only when a field changed, then the background re-judgement.
+  // BIZ-저장먼저닫기 3차(S59-18): order on save — the info save first (only when a field changed), the window closes, then the file is replaced
+  // behind on the shared library line (luBackTail), then the background re-judgement. Nothing changed: the window closes at once.
   const save=src.slice(src.indexOf('async function luSaveEdit'),src.indexOf("window.addEventListener('kptu:view-changed'"));
-  assert.ok(save.indexOf('luReplaceStaged(editor,st)')<save.indexOf('luEditAttempts.set(key,request)'));
-  assert.match(save,/if\(!changed\.length\)\{luSetStatus\(st,'파일을 바꿨습니다\.',false\);luClose\('libraryEditModal'\)/);
-  assert.match(save,/if\(replaced\)luReclassify\(editor\.id\)/);
+  assert.match(save,/if\(!changed\.length\)\{editor\.replaceFile=null;luClose\('libraryEditModal'\);luReplaceBehind\(editor,replaceFile\);return\}/);
+  assert.ok(save.indexOf('luEditRow(editor,rows,request.body)')<save.lastIndexOf('luReplaceBehind(editor,replaceFile)'));
+  assert.ok(!save.includes('luReplaceStaged'));
+  const behind=src.slice(src.indexOf('function luReplaceBehind'),src.indexOf('function luReclassify'));
+  assert.match(behind,/luBackTail\.then\(/);
+  assert.match(behind,/luBackTail=go/);
+  assert.match(behind,/luReclassify\(id\)/);
+  assert.match(behind,/announceDock\(/);
   const css=readFileSync(new URL('../app/library-upload.css',import.meta.url),'utf8');
   assert.match(css,/\.library-edit-prev>summary/);
 });

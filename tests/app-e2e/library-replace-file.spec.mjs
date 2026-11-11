@@ -38,6 +38,8 @@ async function mockApp(page,state){
       const field=name=>raw.match(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`))?.[1]??null;
       const fileName=raw.match(/filename="([^"]*)"/)?.[1]||'file';
       state.log.push('replace');state.replaces.push({names,id:field('replace_document_id'),fileName});
+      if(state.hold)await state.hold;
+      if(state.replaceMode==='server'){state.replaceMode='ok';return ok({error:'잠시 후 다시 시도해 주세요.',code:'document_record_failed',stage:'db_update'},500)}
       if(state.replaceMode==='conflict')return ok({error:'자료의 파일이 그 사이 바뀌었습니다. 자료실을 새로 읽은 뒤 다시 시도해 주세요.',message:'자료의 파일이 그 사이 바뀌었습니다. 자료실을 새로 읽은 뒤 다시 시도해 주세요.',code:'document_changed',stage:'db_update',retryable:false},409);
       if(state.replaceMode==='gateway')return ok({error:'timeout'},504);
       const d=state.docs.find(x=>x.id===field('replace_document_id'));
@@ -159,14 +161,15 @@ for(const width of [390,1280]){
   });
 }
 
-test('replacing together with an edited title: file first, then the info save (title marked as the person\'s), then the background re-judgement',async({page})=>{
+// BIZ-저장먼저닫기 3차(S59-18): 정보(글)를 먼저 저장하고 창을 닫은 뒤 파일은 뒤 줄에서 바꾼다(예전: 파일 먼저 → 정보).
+test('replacing together with an edited title: the info save first (title marked as the person\'s), the window closes, then the file and the background re-judgement',async({page})=>{
   const state=await boot(page);
   await openEdit(page);
   await page.locator('#libraryEditReplaceInput').setInputFiles(pdf());
   await page.locator('#libraryEditTitle').fill('다시 수정한 제목');
   await page.locator('#libraryEditSave').click();
   await expect(page.locator('#libraryEditModal')).toBeHidden();
-  await expect.poll(()=>state.log.join(',')).toBe('replace,patch,text,tidy');
+  await expect.poll(()=>state.log.join(',')).toBe('patch,replace,text,tidy');
   const patch=state.patches[0].body;
   expect(patch.title).toBe('다시 수정한 제목');
   expect(patch.field_origin.title).toBe('user');
@@ -194,30 +197,91 @@ test('dropping a file on the dialog stages it (several files: the first one, wit
   expect(state.log).toEqual([]);
 });
 
-test('a refused replace (the file changed meanwhile) keeps the dialog, the chosen file and the typed edits; nothing else is sent',async({page})=>{
+// BIZ-저장먼저닫기 3차(S59-18): 정보가 저장되면 창은 닫히고, 서버가 파일 교체를 거절하면(그사이 파일이 바뀜) 아래 한 줄이 까닭을 알린다.
+// 같은 파일로 다시 보내도 또 거절되거나 겹칠 수 있어 [다시 올리기]는 두지 않는다. 그 밖에는 아무것도 보내지 않는다.
+test('a refused replace (the file changed meanwhile): the typed info is saved and the window closes; the bottom line says why, with no [다시 올리기]',async({page})=>{
   const state=await boot(page);state.replaceMode='conflict';
   await openEdit(page);
   await page.locator('#libraryEditReplaceInput').setInputFiles(pdf());
   await page.locator('#libraryEditTitle').fill('쓰던 제목');
   await page.locator('#libraryEditSave').click();
-  await expect(page.locator('#libraryEditStatus')).toContainText('그 사이 바뀌었습니다');
-  await expect(page.locator('#libraryEditModal')).toBeVisible();
-  await expect(page.locator('#libraryEditTitle')).toHaveValue('쓰던 제목');
-  await expect(page.locator('#libraryEditFileLine')).toContainText('새 파일.pdf');
-  await expect(page.locator('#libraryEditSave')).toBeEnabled();
-  expect(state.log).toEqual(['replace']);
+  await expect(page.locator('#libraryEditModal')).toBeHidden();
+  const dock=page.locator('#uploadDock');
+  await expect(dock).toContainText('파일을 바꾸지 못했어요');
+  await expect(dock).toContainText('그 사이 바뀌었습니다');
+  await expect(dock.getByRole('button',{name:'바꾸지 못한 파일 다시 올리기'})).toHaveCount(0);
+  expect(state.log).toEqual(['patch','replace']);
+  expect(state.docs[0].title).toBe('쓰던 제목');
   expect(state.docs[0].file_name).toBe('옛 파일.hwpx');
+  // 위쪽 작은 알림은 겹쳐 뜨지 않는다(아래 한 줄 하나만).
+  await expect(page.locator('#toast')).not.toContainText('파일');
 });
 
-test('an unknown outcome (gateway timeout) drops the chosen file, asks to check the list, and never resends by itself',async({page})=>{
+test('an unknown outcome (gateway timeout): the window is already closed; the bottom line asks to check the list and nothing is resent',async({page})=>{
   const state=await boot(page);state.replaceMode='gateway';
   await openEdit(page);
   await page.locator('#libraryEditReplaceInput').setInputFiles(pdf());
   await page.locator('#libraryEditSave').click();
-  await expect(page.locator('#libraryEditStatus')).toContainText('확인');
-  await expect(page.locator('#libraryEditFileLine')).not.toContainText('교체 예정');
-  await expect(page.locator('#libraryEditSave')).toBeEnabled();
+  await expect(page.locator('#libraryEditModal')).toBeHidden();
+  const dock=page.locator('#uploadDock');
+  await expect(dock).toContainText('파일을 바꾸지 못했어요');
+  await expect(dock).toContainText('확인');
+  await expect(dock.getByRole('button',{name:'바꾸지 못한 파일 다시 올리기'})).toHaveCount(0);
+  await page.waitForTimeout(400);
   expect(state.log).toEqual(['replace']);
+});
+
+for(const width of [412,1280]){
+  test(`[저장] closes the window at once; the file goes on behind while another screen is open and ends in one bottom line (${width})`,async({page})=>{
+    const state=await boot(page,{width});
+    let release;state.hold=new Promise(r=>{release=r});
+    await openEdit(page);
+    await page.locator('#libraryEditReplaceInput').setInputFiles(pdf());
+    await page.locator('#libraryEditSave').click();
+    await expect(page.locator('#libraryEditModal')).toBeHidden();
+    await expect.poll(()=>state.replaces.length).toBe(1);
+    // 다른 화면으로 옮겨도 멈추지 않는다: 아래 한 줄이 올리는 중을 알린다.
+    await page.evaluate(()=>window.KPTURouter.go('home',{source:'test'}));
+    const dock=page.locator('#uploadDock');
+    await expect(dock).toContainText('올리는 중');
+    release();
+    await expect(dock).toContainText('‘수정한 제목’ 파일을 바꿨어요');
+    await expect.poll(()=>state.docs[0].file_name).toBe('새 파일.pdf');
+    await expect.poll(()=>state.tidies.length).toBe(1);
+    expect(state.patches).toEqual([]);
+  });
+
+  test(`a failed replace offers [다시 올리기] in the bottom line; it sends only that file again (${width})`,async({page})=>{
+    const state=await boot(page,{width});state.replaceMode='server';
+    await openEdit(page);
+    await page.locator('#libraryEditReplaceInput').setInputFiles(pdf());
+    await page.locator('#libraryEditSave').click();
+    await expect(page.locator('#libraryEditModal')).toBeHidden();
+    const dock=page.locator('#uploadDock');
+    await expect(dock).toContainText('파일을 바꾸지 못했어요');
+    // 누를 때까지 남는다.
+    await page.waitForTimeout(6500);
+    await expect(dock).toContainText('파일을 바꾸지 못했어요');
+    await dock.getByRole('button',{name:'바꾸지 못한 파일 다시 올리기'}).click();
+    await expect(dock).toContainText('파일을 바꿨어요');
+    expect(state.replaces.map(r=>r.fileName)).toEqual(['새 파일.pdf','새 파일.pdf']);
+    expect(state.docs[0].file_name).toBe('새 파일.pdf');
+  });
+}
+
+test('an info save that fails keeps the window and the chosen file; no file is sent',async({page})=>{
+  const state=await boot(page);
+  await page.route(`${SB}/rest/v1/app_documents**`,async route=>{if(route.request().method()==='PATCH')return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({message:'denied'})});return route.fallback()});
+  await openEdit(page);
+  await page.locator('#libraryEditReplaceInput').setInputFiles(pdf());
+  await page.locator('#libraryEditTitle').fill('쓰던 제목');
+  await page.locator('#libraryEditSave').click();
+  await expect(page.locator('#libraryEditStatus')).toContainText('권한');
+  await expect(page.locator('#libraryEditModal')).toBeVisible();
+  await expect(page.locator('#libraryEditFileLine')).toContainText('새 파일.pdf');
+  await expect(page.locator('#libraryEditTitle')).toHaveValue('쓰던 제목');
+  await page.waitForTimeout(300);
+  expect(state.replaces).toEqual([]);
 });
 
 test('before the DB columns exist the dialog has no file line and no 이전 파일',async({page})=>{
