@@ -7,7 +7,7 @@ import {REC_PIECE_SECONDS,REC_SEGMENT_SECONDS,REC_MESSAGES} from '../supabase/fu
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 
-test('간격은 서버 규칙과 같다(조각 1분·구간 59분), 32kbps',()=>{
+test('간격은 서버 규칙과 같다(조각 1분·구간 29분), 32kbps',()=>{
   assert.equal(PIECE_SECONDS,REC_PIECE_SECONDS);
   assert.equal(SEGMENT_SECONDS,REC_SEGMENT_SECONDS);
   assert.equal(AUDIO_BITS,32000);
@@ -25,9 +25,10 @@ test('형식: mp4 → ogg → webm 순으로 되는 첫 것, 없으면 빈 글�
   assert.equal(baseMime('video/mp4'),'');
 });
 
-test('구간 넘김: 녹음한 초가 59분이 되면',()=>{
-  assert.equal(shouldRoll(3539),false);
-  assert.equal(shouldRoll(3540),true);
+test('구간 넘김: 녹음한 초가 29분이 되면',()=>{
+  assert.equal(SEGMENT_SECONDS,29*60);
+  assert.equal(shouldRoll(1739),false);
+  assert.equal(shouldRoll(1740),true);
   assert.equal(shouldRoll(10,10),true);
 });
 

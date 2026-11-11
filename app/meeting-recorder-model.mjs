@@ -1,11 +1,11 @@
 // MTG-노트북녹음 2단계: 노트북 [녹음]의 순수 규칙(형식 고르기·구간 넘김·조각 대기열·글 합치기·띠 글자).
 // 화면·마이크·네트워크는 meeting-recorder.js가 맡는다. 여기서는 DOM·네트워크를 쓰지 않는다(단위 시험 대상, app-smoke-check).
-// 설계: docs/design/laptop-recording.md 8절. 서버 규칙(조각 1분·구간 59분)은 supabase/functions/meeting-transcribe/recording.mjs와 같다.
+// 설계: docs/design/laptop-recording.md 8절. 서버 규칙(조각 1분·구간 29분)은 supabase/functions/meeting-transcribe/recording.mjs와 같다.
 
 export const PIECE_SECONDS=60;          // 조각 간격(서버 REC_PIECE_SECONDS). 실제 간격은 rec_start 답의 piece_seconds를 따른다(pieceSecondsOf).
 export const ROLL_PIECES=60;            // 조각이 이만큼 쌓이면 새 구간(서버 REC_ROLL_PIECES, rec_start 답 max_pieces)
-export const SEGMENT_SECONDS=59*60;     // 새 구간으로 넘어가는 길이(서버 REC_SEGMENT_SECONDS, 전사 1시간 상한 안)
-export const AUDIO_BITS=32000;          // 32kbps 안팎: 59분 ≈ 14MB(전사 100MB 상한 안)
+export const SEGMENT_SECONDS=29*60;     // 새 구간으로 넘어가는 길이(서버 REC_SEGMENT_SECONDS). 발언자 구분이 30분까지라 구간마다 '화자n:' 줄이 나오게 29분(REC-발언자구분)
+export const AUDIO_BITS=32000;          // 32kbps 안팎: 29분 ≈ 7MB(전사 100MB 상한 안)
 // Gemini 오디오 지원 목록에 webm이 없어 mp4(AAC)를 먼저, webm은 마지막(설계 6절 위험).
 export const MIME_ORDER=Object.freeze(['audio/mp4','audio/ogg;codecs=opus','audio/webm;codecs=opus','audio/webm']);
 export const RETRY_MS=Object.freeze([3000,10000,30000,60000]);
