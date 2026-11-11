@@ -15,7 +15,7 @@ import {announceRecordSaved} from './record-saved.js';
 import {readTextLater} from './document-text-read.js'; // SEARCH ②: 올린 파일 안 글자를 서버가 한 번 읽어 둠
 import {uploadTimeoutMs} from './upload-budget.mjs'; // UPLOAD-올리기안됨: 올리기 시간 한도 한 곳
 import {sendUploadApi} from './upload-send.mjs';
-import {placeOf} from './meeting-name-sorts.mjs';
+import {regularNames} from './meeting-name-sorts.mjs';
 import {peekSorts} from './meeting-name-sorts.js';
 import {trackUpload,paintUploadLine,watchUploads} from './upload-progress.js';
 
@@ -175,7 +175,8 @@ function paint(){
   const groups=plan();
   // S53-20 MTG-비정기회의접기: 종류 칸 추천 목록에는 정기 회의명만(비정기·지운 회의명은 안 보임, 회의명 창에서 정리를 읽은 뒤). 이미 있는 회의와 맞추기(kinds)는 모두 그대로.
   const sorted=peekSorts()?.status==='ok'?peekSorts().sorts:null; // 이미 읽은 정리만 쓴다(이 창을 연다고 서버에 묻지 않음)
-  const dl=$('#mffKinds');if(dl)dl.innerHTML=kinds().filter(k=>!sorted||placeOf(sorted,k).kind==='regular').map(k=>`<option value="${esc(k)}"></option>`).join('');
+  // S57-14: 정리를 읽었으면 회의명 고르기 창과 같은 이름·같은 순서(조직 순서 → 조직 안 순서, 미리 넣은 회의 포함). 추천 목록이라 머리글은 없다.
+  const dl=$('#mffKinds');if(dl)dl.innerHTML=(sorted?regularNames(meetings().map(m=>({name:String(m.series_name||m.title||'').trim(),at:String(m.meeting_at||'')})),sorted):kinds()).map(k=>`<option value="${esc(k)}"></option>`).join('');
   list.innerHTML=groups.length?`<div class="mff-head" aria-hidden="true"><span>날짜</span><span>종류</span><span>차수</span><span>자료</span><span>결과</span></div>${groups.map(rowHtml).join('')}`:'<p class="mtg-empty">파일을 고르거나 결과 글을 붙여 넣으면 회의별로 묶어 보여 줘요.</p>';
   if(focus)restoreFocus(focus);
   paintMffUploads();
