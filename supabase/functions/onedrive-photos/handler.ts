@@ -595,10 +595,12 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   }
   const passes = (r: MediaRow, filter: Filter, stars: Set<string> | null) =>
     filter === "video" ? r.kind === "video" : filter === "shot" ? r.screenshot === true : filter === "star" ? !!stars?.has(r.item_id) : true;
+  // S59-12 OPS-빠진일2차 6: folder = 사진이 든 원드라이브 폴더 id(색인 parent_id = delta가 이미 주는 parentReference.id, 새 Graph 요청·권한 없음).
+  // gdrive-photos list의 folder(구글 드라이브 폴더 id)와 같은 칸·같은 모양이다. 화면은 folders-tree 나무로 이름을 이어 '있는 곳' 경로를 그린다.
   const itemOut = (r: MediaRow) => ({
     id: r.item_id, name: r.name, taken_at: iso(r.taken_at), approx: r.approx === true, day: String(r.taken_day).slice(0, 10), kind: r.kind === "video" ? "video" : "photo",
     mime: r.mime ?? null, width: r.width ?? null, height: r.height ?? null, duration_ms: r.duration_ms ?? null, screenshot: r.screenshot === true,
-    size_bytes: r.size_bytes ?? null, uploaded_at: r.uploaded_at ? iso(r.uploaded_at) : null,
+    size_bytes: r.size_bytes ?? null, uploaded_at: r.uploaded_at ? iso(r.uploaded_at) : null, folder: validItemId(r.parent_id) ? r.parent_id : null,
   });
   // PHOTO-정렬: 찍은 날 최근 먼저(taken_desc)가 아닌 기준. 화면 photos-model.mjs sortCompare와 같은 규칙이어야 한다(쪽을 이을 때 화면도 같은 순서로 합친다).
   // 값이 없는 칸(옛 줄의 올린 시각·크기, 사진의 길이)은 올린 시각이면 찍은 시각으로 대신하고, 크기·길이는 맨 뒤로 보낸다. 같은 값이면 id로 순서를 정한다.

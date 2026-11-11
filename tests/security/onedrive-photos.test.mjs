@@ -724,9 +724,35 @@ test('library: newest first, visible folders only (off and Web2 trash hidden), l
   const text=await r.text(),out=JSON.parse(text);
   assert.deepEqual(ids(out),['A1','A2','A3','T5','T4','T3','T2','T1','B1']);
   assert.equal(out.next_cursor,null);assert.equal(out.indexing,false);
-  assert.deepEqual(out.items[1],{id:'A2',name:'img-A2.jpg',taken_at:'2026-10-19T01:00:00.000Z',approx:false,day:'2026-10-19',kind:'video',mime:'video/mp4',width:4000,height:3000,duration_ms:42000,screenshot:false,size_bytes:1000,uploaded_at:null});
+  assert.deepEqual(out.items[1],{id:'A2',name:'img-A2.jpg',taken_at:'2026-10-19T01:00:00.000Z',approx:false,day:'2026-10-19',kind:'video',mime:'video/mp4',width:4000,height:3000,duration_ms:42000,screenshot:false,size_bytes:1000,uploaded_at:null,folder:'S1'});
   assert.ok(!/lat|lon|sha1|graph\.microsoft|synthetic-refresh|synthetic-access/.test(text),'no location, hash, Graph link or token');
   assert.equal(ctx.ms.calls.length,0);
+});
+
+// S59-12 OPS-빠진일2차 6: 사진마다 든 폴더 id(folder = 색인 parent_id, delta가 이미 주는 parentReference.id)를 준다. 경로·폴더 이름은 주지 않고
+// (화면이 folders-tree 나무로 잇는다), 새 Graph 요청·권한 범위는 그대로다. gdrive-photos list의 folder와 같은 칸·같은 모양(문자열 id).
+test('library, sorted library, trash-list and kept-list give each photo its folder id only (index parent_id), no Graph call, no wider scope',async()=>{
+  const ctx=lib();
+  const out=await read(await post(ctx.handler,{action:'library'}));
+  assert.deepEqual(out.items.map(i=>[i.id,i.folder]),[['A1','F1!100'],['A2','S1'],['A3','S1'],['T5','F1!100'],['T4','F1!100'],['T3','F1!100'],['T2','F1!100'],['T1','F1!100'],['B1','S1']]);
+  const sorted=await read(await post(ctx.handler,{action:'library',sort:'name_asc'}));
+  assert.deepEqual(Object.fromEntries(sorted.items.map(i=>[i.id,i.folder])),{A1:'F1!100',A2:'S1',A3:'S1',B1:'S1',T1:'F1!100',T2:'F1!100',T3:'F1!100',T4:'F1!100',T5:'F1!100'});
+  const inFolder=await read(await post(ctx.handler,{action:'library',folder_id:'OFF'}));
+  assert.deepEqual(inFolder.items.map(i=>[i.id,i.folder]),[['H1','OFF']],'끈 폴더를 열어 봐도 그 폴더 id');
+  for(const i of [...out.items,...sorted.items])assert.equal(typeof i.folder,'string');
+  assert.ok(!/카메라|숨김|"2026"|\/drive\/root/.test(JSON.stringify(out)),'폴더 이름·경로는 보내지 않는다');
+  assert.equal(ctx.ms.calls.length,0,'no Graph call');
+  const trash=await read(await post(lib().handler,{action:'trash-list'}));
+  assert.deepEqual(trash.items.map(i=>[i.id,i.folder,i.from?.id]),[['X1',TRASH,'S1']]);
+  // 색인 parent_id가 항목 id 모양이 아니면 null(주소·글자를 그대로 내보내지 않음).
+  const index=library();index.app_onedrive_photos.find(p=>p.item_id==='A1').parent_id='F1!100';index.app_onedrive_photos.push(prow('BAD','../x','2026-10-22T01:00:00Z'));
+  index.app_onedrive_folders.push(frow('../x','F1!100','이상한'));
+  const odd=make({admin:fakeAdmin({row:{...fresh},index})});
+  const got=await read(await post(odd.handler,{action:'library'}));
+  assert.equal(got.items.find(i=>i.id==='BAD').folder,null);
+  assert.equal((await post(ctx.handler,{action:'library'},{jwt:'other'})).status,403,'다른 작업공간은 그대로 막힘');
+  assert.equal((await post(ctx.handler,{action:'library'},{jwt:'nope'})).status,401);
+  assert.equal(SCOPE,'Files.ReadWrite offline_access User.Read','권한 범위 그대로');
 });
 
 // PHOTO-정렬: 찍은 날 최근 먼저가 아닌 기준. 보이는 줄만, cursor {v,id}로 빠짐·겹침 없이, 거르기·폴더는 같다. 값이 없는 칸은 맨 뒤(올린 시각은 찍은 시각으로 대신).
@@ -1320,6 +1346,7 @@ test('kept-list: only keep rows not seen gone, whose copy is in the index outsid
   const out=await read(await post(ctx.handler,{action:'kept-list'}));
   assert.deepEqual(out.items.map(x=>[x.log_id,x.phone_id,x.rel_path,x.photo.id]),[[LID(2),'2','DCIM/Screenshots/','K2'],[LID(1),'1','DCIM/Camera/','K1']]);
   assert.equal(out.items[0].photo.kind,'video');assert.equal(out.items[0].taken_at,'2026-09-05T00:00:00.000Z');
+  assert.equal(out.items[0].photo.folder,'F1!100','S59-12: 사본 칸도 든 폴더 id');
   assert.equal(ctx.ms.calls.length,0,'no Graph call');
   assert.equal((await post(ctx.handler,{action:'kept-list'},{jwt:'other'})).status,403);
   assert.deepEqual(await read(await post(make().handler,{action:'kept-list'})),{items:[]});

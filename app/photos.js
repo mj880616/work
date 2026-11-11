@@ -221,7 +221,8 @@ const tidyChip = $('[data-photos-tidy-chip]'), tidyBox = $('[data-photos-tidy]')
 const tidy = createPhotoTidy({phone, odReady:() => ready(), odError:e => odErrorText(e), phoneError:e => phoneErrorText(e), phoneOff:() => phoneOff, onChange:() => paintTidy(), isStarred:it => isStarred(it),
   watchTrash:() => odTrashWatch(rt), seenTrash:() => odTrashSeen(rt),
   hashThumb:(() => { const h = createThumbHasher(document); return it => h(phone.thumbUrl(it, 'small')); })(),
-  readOd:async (cursor, limit) => { const page = await odLibrary(rt, {filter:'all', cursor, limit}); return {items:page.items.map(toItem), next:page.next}; }});
+  readOd:async (cursor, limit) => { const page = await odLibrary(rt, {filter:'all', cursor, limit}); return {items:page.items.map(toItem), next:page.next}; },
+  readOdTree:() => odFolderTree(rt)}); // S59-12: '있는 곳' 원드라이브 경로(칸의 folder → 폴더 나무)
 const TIDY_STEP = 60;
 const tidyShown = new Map(); // 펼친 칸 key → 그린 장수(다시 그려도 같은 만큼, 이 화면 메모리만)
 const tidyGone = new Set(); // 크게 보기에서 지우는 중인 칸(되돌리면 다시 보임)
