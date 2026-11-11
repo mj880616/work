@@ -236,10 +236,10 @@ for(const width of [412,884,1440])test(`UI-돌아가기머리줄 ${width}: 사�
  await page.locator('#basketView [data-basket-return]').click();
  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('meetings');await expect(page.locator('#areaWindow')).toBeVisible();await expectProjectTitle(page,'합성 정책 사업');await expect.poll(()=>top(basketLine(page))).toBe(before);
  if(width<761){await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden()}
- // 정리함 목록에서 열면 '‹ 잊지 말기' 그대로.
+ // 정리함 목록에서 열면 '‹ 잊지 말기' 그대로. FOLD-넓은화면 ④(S57-21): 폴드 펼침(600~1199px)은 목록 옆 오른쪽 칸에 열려 닫기가 ✕(이름 '닫기')다.
  await clickView(page,'basket');await pickBasketView(page,'classified');await page.locator(`[data-basket-row="${note.id}"]`).click();await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
  await expect(page.locator('#basketView [data-basket-detail] [data-basket-return]')).toHaveCount(0);
- await expect(page.locator('#basketView [data-basket-detail] [data-basket-close]')).toHaveText('‹ 잊지 말기');
+ await expect(page.locator('#basketView [data-basket-detail] [data-basket-close]')).toHaveText(width>=600&&width<1200?'✕':'‹ 잊지 말기');
  await page.locator('#basketView [data-basket-close]').click();await expect(page.locator(`[data-basket-row="${note.id}"]`)).toBeVisible();
  // 담당조직.
  await clickView(page,'team');await page.locator('[data-ps-workplace-org="o"]').first().click();

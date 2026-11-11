@@ -47,7 +47,7 @@ for (const [width, height] of [[690, 1000], [750, 1000], [884, 1104], [1199, 900
     expect(m.split).toBe(false);
     expect(m.detail).toBeNull();
     expect(Math.abs(m.rows.right - m.view.right)).toBeLessThanOrEqual(2);
-    const fullWidth = m.rows.w;
+    const fullWidth = m.rows.w, headBefore = m.head;
 
     // 줄을 누르면 목록은 그대로, 오른쪽 칸에 바로 열린다.
     await row(page, 1).click();
@@ -61,8 +61,10 @@ for (const [width, height] of [[690, 1000], [750, 1000], [884, 1104], [1199, 900
     expect(m.detail.x).toBeGreaterThanOrEqual(m.rows.right + 8);
     expect(Math.abs(m.detail.right - m.view.right)).toBeLessThanOrEqual(2);
     expect(m.detail.w).toBeGreaterThanOrEqual(m.rows.w);
-    expect(Math.abs(m.detail.y - m.head.y)).toBeLessThanOrEqual(2); // 오른쪽 칸은 머리 줄 높이에서 시작(왼쪽 줄 사이는 벌어지지 않는다)
-    expect(m.rows.y - m.head.bottom).toBeLessThanOrEqual(width >= 761 ? 130 : 24);
+    // 위쪽 [처리 전 ▾] 줄은 화면 폭 전체 그대로(상세를 열어도 움직이지 않음), 그 아래 한 줄을 목록과 상세가 나눠 쓴다(같은 높이에서 시작).
+    expect(m.head).toEqual(headBefore);
+    expect(Math.abs(m.detail.y - m.list.y)).toBeLessThanOrEqual(2);
+    expect(m.detail.y).toBeGreaterThanOrEqual(m.head.bottom - 1);
     expect(m.sticky).toBe('sticky');
     // 고른 줄 표시(한 줄만) · 닫기는 ✕(‹ 잊지 말기 없음) · 폰 틀이면 앱 머리(화면 이름)는 그대로.
     await expect(root(page).locator('[data-basket-selected]')).toHaveCount(1);

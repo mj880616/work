@@ -386,11 +386,12 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #basketView [data-ni-busy] .basket-title-text { color:var(--kptu-muted); font-weight:var(--ds-weight-regular, 400); }
 /* FOLD-넓은화면 ④(S57-21, 요청함 11/06 01:18 ④): 폴드 펼침(600~1199px)의 잊지 말기 = 왼쪽 목록 | 오른쪽 상세. basket.js가 업데이트 상세가 열린 동안만 .basket-split을 붙인다
    (아무것도 고르지 않았으면 오른쪽 칸이 없고 목록이 화면 폭 전체 — 할 일과 같은 규칙). 접은 폰(600px 미만)·PC(1200px~)에는 이 이름이 붙지 않는다.
-   왼쪽 줄들(머리·거르기·목록)은 차례로 위에서부터, 상세는 오른쪽 칸 전체 높이. 마지막 1fr 줄이 상세의 남는 높이를 받아 왼쪽 줄 사이가 벌어지지 않는다.
+   위쪽 줄들(머리·공유 받기 칸·[처리 전 ▾] 줄·거르기)은 지금처럼 화면 폭 전체이고, 그 아래 한 줄을 목록(왼쪽)과 상세(오른쪽)가 나눠 쓴다 — 상세를 열고 닫아도 위쪽 줄은 움직이지 않는다.
    상세 칸이 화면에 붙어 따라오고 길면 그 칸만 스크롤하는 모양은 공용 .kptu-follow-pane(desktop-ui.css, follow-pane.js). */
-#appView #basketView.basket-split{ display:grid; grid-template-columns:minmax(0,5fr) minmax(0,6fr); grid-template-rows:repeat(6,auto) 1fr; column-gap:var(--kptu-space-3,12px); align-items:start; max-width:none; }
-#appView #basketView.basket-split > *{ grid-column:1; min-width:0; }
-#appView #basketView.basket-split > [data-basket-detail]:not([hidden]){ grid-column:2; grid-row:1 / -1; box-sizing:border-box; }
+#appView #basketView.basket-split{ display:grid; grid-template-columns:minmax(0,5fr) minmax(0,6fr); column-gap:var(--kptu-space-3,12px); align-items:start; max-width:none; }
+#appView #basketView.basket-split > *{ grid-column:1 / -1; min-width:0; }
+#appView #basketView.basket-split > [data-basket-list]{ grid-column:1; }
+#appView #basketView.basket-split > [data-basket-detail]:not([hidden]){ grid-column:2; box-sizing:border-box; }
 #appView #basketView.basket-split > [data-basket-detail] > .basket-detail-head{ justify-content:flex-end; margin-bottom:4px; }
 #appView #basketView.basket-split > [data-basket-detail] > .basket-detail-head > .basket-back-origin{ margin-right:auto; }
 /* 닫기 ✕: 머리 줄 오른쪽 끝(⋯ 다음). 모양은 이 상세의 다른 아이콘([원문]·[복사])과 같은 .basket-icon-button(ui-standard.css) 그대로, 여기는 자리만. */
