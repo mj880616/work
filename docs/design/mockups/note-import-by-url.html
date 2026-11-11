@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안 — 노트 주소로 가져오기</title>
+<style>
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;--kptu-on-primary:#ffffff;
+  --kptu-danger:#b42318;--kptu-danger-soft:#fdecea;--kptu-warning:#8a6218;--kptu-warning-soft:#faf4e7;
+  --kptu-success:#3d6b3a;
+  --ds-text-title:18px;--ds-text-row:13px;--ds-text-meta:12px;--ds-text-section:13px;--ds-text-read:15px;
+  --ds-line-width:0.5px;--ds-line:var(--kptu-border-strong);
+  --ds-radius-box:12px;--ds-radius-control:8px;
+  --ds-control-height:46px;--ds-field-height:28px;--ds-compact-height:32px;--ds-compact-height-sm:28px;
+  --ds-kind-note-soft:#e5eefa;--ds-kind-note-ink:#1d5291;
+  --ds-kind-journal-soft:#e3f1e6;--ds-kind-journal-ink:#2a6537;
+  --ds-kind-other-soft:#efede6;--ds-kind-other-ink:#55534a;
+  --ds-kind-basket-soft:#fdeedb;--ds-kind-basket-ink:#8f4708;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#e4e2da;color:var(--kptu-ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;font-size:14px}
+h1{font-size:17px;margin:18px 18px 4px}
+h2{font-size:15px;margin:22px 18px 6px}
+p.note{margin:0 18px 10px;color:var(--kptu-muted);font-size:13px;line-height:1.6;max-width:1240px}
+.wrap{display:flex;flex-wrap:wrap;gap:18px;padding:6px 18px 12px;align-items:flex-start}
+.cap{font-size:12.5px;font-weight:700;color:#3a3a32;margin:0 0 6px 2px}
+.cap small{font-weight:400;color:var(--kptu-muted)}
+.legend{background:#fffefa;border:var(--ds-line-width) solid var(--ds-line);border-radius:12px;padding:12px 16px;font-size:13px;line-height:1.7;max-width:1240px;margin:4px 18px 22px}
+.legend b{color:var(--kptu-primary-ink)}
+.legend ol,.legend ul{margin:4px 0 4px 18px;padding:0}
+/* 공용 부품 */
+.ds-chip{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 8px;border-radius:999px;font-size:12px;color:var(--kptu-muted);background:var(--ds-kind-other-soft);white-space:nowrap}
+.ds-chip.forget{color:var(--kptu-warning);background:var(--kptu-warning-soft)}
+.badge{background:var(--kptu-danger);color:#fff;border-radius:999px;font-size:11px;line-height:16px;min-width:16px;padding:0 5px;text-align:center;font-weight:700}
+.seg{display:inline-flex;background:var(--ds-kind-other-soft);border-radius:999px;padding:3px;gap:2px}
+.seg span{padding:0 12px;height:26px;line-height:26px;border-radius:999px;font-size:13px;color:var(--kptu-muted)}
+.seg .on{background:var(--kptu-surface);color:var(--kptu-ink);font-weight:600;box-shadow:0 1px 2px rgb(0 0 0/12%)}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;font-size:13px;background:var(--kptu-surface);color:var(--kptu-ink);border:var(--ds-line-width) solid var(--ds-line);white-space:nowrap}
+.btn.pri{background:var(--kptu-primary);color:var(--kptu-on-primary);border-color:var(--kptu-primary);font-weight:600}
+.btn.sm{height:28px;padding:0 10px;font-size:12px}
+.btn.text{border:0;background:transparent;color:var(--kptu-primary-ink);padding:0 6px}
+.field{display:flex;align-items:center;height:36px;padding:0 10px;border:var(--ds-line-width) solid var(--ds-line);border-radius:8px;background:var(--kptu-surface);color:var(--kptu-faint);font-size:13.5px;min-width:0}
+.field.tall{height:auto;min-height:36px;padding:8px 10px}
+.field span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-act{color:var(--kptu-muted);font-size:11.5px}
+.dim{color:var(--kptu-muted)}
+.faint{color:var(--kptu-faint)}
+/* 홈(업무일지) 부품 — app/journal.css 모양 */
+.hh{font-size:15px;font-weight:700;line-height:1.4;margin:0}
+.hcount{font-size:12px;font-weight:400;color:var(--kptu-muted);margin-left:6px}
+.sec{display:flex;flex-direction:column;gap:2px;min-width:0}
+.sec-head{display:flex;align-items:center;justify-content:space-between;min-height:30px}
+.ev{display:flex;align-items:center;gap:8px;min-height:32px;font-size:13px}
+.ev .t{width:44px;color:var(--kptu-muted);font-size:12px;flex:none;font-variant-numeric:tabular-nums}
+.ev .bar{width:3px;align-self:stretch;margin:5px 0;border-radius:2px;background:var(--ds-kind-journal-ink);flex:none}
+.ev .bar.b2{background:var(--ds-kind-note-ink)}
+.ev .bar.b3{background:#8a6218}
+.ev .ti{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tk{display:flex;align-items:flex-start;gap:6px;min-height:34px;font-size:13px}
+.tk i{flex:none;width:28px;height:28px;position:relative}
+.tk i:before{content:"";position:absolute;left:5px;top:5px;width:18px;height:18px;border:1.5px solid var(--kptu-border-strong);border-radius:50%;background:var(--kptu-surface)}
+.tk .tb{padding:5px 0;min-width:0}
+.tk .tm{display:block;font-size:11.5px;color:var(--kptu-muted)}
+.tk .tm.late{color:var(--kptu-danger)}
+.ln{display:flex;align-items:flex-start;gap:8px;min-height:32px;padding:6px 0;font-size:13px;line-height:1.45}
+.ln:before{content:"•";flex:none;width:10px}
+.ln small{color:var(--kptu-faint);font-size:11.5px;margin-left:6px;white-space:nowrap}
+.news{display:flex;flex-direction:column;gap:1px}
+.news .org{font-size:13px;font-weight:500;color:var(--kptu-muted);margin:6px 0 1px}
+.news .it{font-size:13px;line-height:1.45;padding:4px 0 4px 0;border-top:var(--ds-line-width) solid var(--kptu-border)}
+.news .it small{display:block;color:var(--kptu-muted);font-size:11.5px}
+.dday{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dday small{color:var(--kptu-muted);font-size:12px}
+.dd{display:inline-flex;align-items:center;height:26px;padding:0 9px;border-radius:999px;border:var(--ds-line-width) solid var(--ds-line);background:var(--kptu-surface);font-size:12px}
+.dd.soon{background:var(--kptu-warning-soft);color:var(--kptu-warning);border-color:#e6d6ae}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.dayb{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 0 9px;border:var(--ds-line-width) solid var(--ds-line);border-radius:8px;background:var(--kptu-surface);font-size:12px;color:var(--kptu-muted);position:relative;min-height:54px}
+.dayb b{font-weight:400;font-size:13px;color:var(--kptu-ink);width:24px;height:24px;line-height:24px;text-align:center;border-radius:999px}
+.dayb.sun{color:var(--kptu-danger)}
+.dayb.sel{background:#e9e6d9}
+.dayb.today b{outline:1.5px solid var(--kptu-primary);outline-offset:-1.5px}
+.dayb .dot{position:absolute;left:50%;bottom:5px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--ds-kind-journal-ink)}
+.card{background:var(--kptu-surface);border:var(--ds-line-width) solid var(--ds-line);border-radius:12px;padding:10px}
+.stack{display:flex;flex-direction:column;gap:10px;min-width:0}
+/* 기기 틀 */
+.dev{background:var(--kptu-bg);border-radius:16px;box-shadow:0 1px 6px #0003;overflow:hidden;position:relative;display:flex;flex-direction:column;border:1px solid #c9c5b6}
+.topbar{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;background:var(--kptu-surface);border-bottom:var(--ds-line-width) solid var(--ds-line);font-size:14px;font-weight:600;flex:none}
+.topbar .sp{margin-left:auto;color:var(--kptu-muted);font-weight:400;font-size:12px}
+.page{flex:1;overflow:hidden;padding:10px 12px;position:relative;min-height:0}
+.tabs{display:flex;justify-content:space-around;align-items:center;height:44px;border-top:var(--ds-line-width) solid var(--ds-line);background:var(--kptu-surface);font-size:11px;color:var(--kptu-muted);flex:none}
+.tabs b{color:var(--kptu-primary-ink)}
+.fade{position:absolute;left:0;right:0;bottom:0;height:36px;background:linear-gradient(to bottom,rgba(243,241,234,0),var(--kptu-bg));pointer-events:none}
+.side{width:190px;flex:none;background:var(--kptu-surface);border-right:var(--ds-line-width) solid var(--ds-line);padding:12px 10px;font-size:13px;display:flex;flex-direction:column;gap:2px}
+.side div{padding:6px 10px;border-radius:8px;color:var(--kptu-muted)}
+.side .on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-weight:600}
+.pcbar{display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;background:var(--kptu-surface);border-bottom:var(--ds-line-width) solid var(--ds-line);font-size:12px;color:var(--kptu-muted);flex:none}
+.pcbar .f{flex:1;max-width:360px;height:28px;border:var(--ds-line-width) solid var(--ds-line);border-radius:8px;display:flex;align-items:center;padding:0 10px;color:var(--kptu-faint)}
+.shot{margin-left:auto}
+.tagnew{display:inline-block;font-size:11px;color:var(--kptu-primary-ink);background:var(--kptu-primary-soft);border-radius:4px;padding:1px 6px;margin-left:6px;font-weight:600}
+.tagkeep{display:inline-block;font-size:11px;color:var(--kptu-muted);background:var(--ds-kind-other-soft);border-radius:4px;padding:1px 6px;margin-left:6px;font-weight:600}
+
+.nrow{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-bottom:var(--ds-line-width) solid var(--kptu-border);font-size:13px}
+.nrow.on{background:var(--kptu-primary-soft);box-shadow:inset 3px 0 0 var(--kptu-primary)}
+.nrow .d{margin-left:auto;color:var(--kptu-faint);font-size:11.5px;flex:none}
+.nrow .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fold-i{width:14px;height:14px;flex:none}
+.col{border-right:var(--ds-line-width) solid var(--ds-line);background:var(--kptu-surface-subtle);overflow:hidden;flex:none}
+.colh{font-size:12px;color:var(--kptu-muted);padding:8px 10px 4px}
+.ntitle{font-size:18px;font-weight:700;line-height:1.35;margin:0}
+.nmeta{font-size:12px;color:var(--kptu-muted);margin-top:4px}
+.src{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--kptu-muted);min-height:24px;margin:6px 0 10px;min-width:0}
+.src .u{color:var(--kptu-primary-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.src .g{flex:none;color:var(--kptu-faint)}
+.nbody p{margin:0 0 10px;font-size:15px;line-height:1.7}
+.sk{height:12px;border-radius:6px;background:var(--kptu-border);margin:0 0 10px}
+.sk.t{height:20px;width:70%;margin-bottom:8px}
+.prog{display:flex;align-items:center;gap:8px;min-height:30px;padding:0 10px;border-radius:8px;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:12.5px}
+.prog .bar{flex:1;height:4px;border-radius:2px;background:rgba(92,106,53,.2);position:relative;overflow:hidden;min-width:40px}
+.prog .bar:after{content:"";position:absolute;left:0;top:0;bottom:0;width:38%;background:var(--kptu-primary);border-radius:2px}
+.warn{display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 10px;border-radius:8px;background:var(--kptu-warning-soft);color:var(--kptu-warning);font-size:12.5px;line-height:1.45;flex-wrap:wrap}
+.warn .sp{flex:1;min-width:120px}
+.modal-dim{position:absolute;inset:0;background:rgba(40,38,30,.28)}
+.win{position:absolute;background:var(--kptu-surface);border:var(--ds-line-width) solid var(--ds-line);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.18);display:flex;flex-direction:column;overflow:hidden}
+.winh{display:flex;align-items:center;gap:8px;height:42px;padding:0 12px;border-bottom:var(--ds-line-width) solid var(--ds-line);font-size:14px;font-weight:600;flex:none}
+.winh .sp{margin-left:auto;display:flex;gap:6px;align-items:center}
+.winb{padding:10px 14px;display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;overflow:hidden}
+.toolbar{display:flex;gap:4px;align-items:center;height:30px;color:var(--kptu-muted);font-size:12px}
+.toolbar i{font-style:normal;width:28px;height:28px;border-radius:6px;display:grid;place-items:center;background:var(--kptu-surface-subtle)}
+.urlline{display:flex;align-items:center;gap:8px}
+.urlline .field{flex:1;height:32px;color:var(--kptu-ink)}
+.urlline .lab{font-size:12px;color:var(--kptu-muted);flex:none}
+.hint{font-size:11.5px;color:var(--kptu-faint);margin-top:-2px}
+.toast{position:absolute;left:12px;right:12px;top:8px;z-index:5;display:flex;align-items:center;gap:8px;min-height:36px;padding:4px 12px;border-radius:10px;background:#2f2f27;color:#f4f2ea;font-size:12.5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.toast .btn.text{color:#d9e3b8}
+.tabs2{display:flex;gap:6px;padding:6px 10px;border-bottom:var(--ds-line-width) solid var(--kptu-border)}
+.ghost{outline:1.5px dashed var(--kptu-primary);outline-offset:2px;border-radius:8px}
+.lbl{position:absolute;z-index:9;background:var(--kptu-primary);color:#fff;font-size:11px;padding:1px 7px;border-radius:999px;font-weight:600}
+table.why{border-collapse:collapse;font-size:12.5px;line-height:1.55;margin:6px 0 4px;width:100%}
+table.why th,table.why td{border-top:var(--ds-line-width) solid var(--ds-line);padding:5px 8px;text-align:left;vertical-align:top}
+table.why th{color:var(--kptu-muted);font-weight:600;background:var(--kptu-surface-subtle)}
+</style></head><body>
+<!-- S57-12: 요청함 [2026-10-28 01:08] 주소 이전 ③ ④ 주소로 가져오기. 글자·이름·주소는 모두 예시(가짜 자료, example.com). 한 파일, 바깥 주소 없음. -->
+<h1>시안 — 새 노트에서 주소만 넣으면 글을 가져오기</h1>
+<p class="note">명진 결정(11/11 08:53): 주소로 가져오기만 먼저 하고 AI 읽기는 뒤로. 아래는 폰(412)과 PC(1280)에서 ① 주소를 넣는 자리 ② 가져오는 중 ③ 가져온 뒤 ④ 실패했을 때 입니다. 가져오는 중에는 '화면 먼저 → 처리는 뒤에서'(UX-먼저묻고뒤에처리)를 따라, 누르면 노트 줄이 목록에 바로 생기고 창을 닫아도 끝까지 가져옵니다.</p>
+
+<h2>① 주소를 넣는 자리 — 새 노트 창</h2>
+<p class="note">안 A: 제목 칸 바로 아래에 작은 한 줄 [🔗 주소 | 가져오기]. 안 B: 따로 칸 없이 본문에 주소만 붙여 넣으면 아래에 작은 제안 줄이 뜸. (둘 다 두어도 됨)</p>
+<div class="wrap">
+<div><div class="cap">폰 412 · 안 A <small>(주소 칸)</small></div><div class="dev" style="width:412px;height:780px"><div class="page" style="padding:0"><div style="position:absolute;inset:0;background:var(--kptu-surface);display:flex;flex-direction:column"><div class="winh"><span class="btn text" style="padding:0">✕</span>새 노트<span class="sp"><span class="btn sm">폴더 ▾</span><span class="btn pri sm">저장</span></span></div><div class="winb"><div class="field" style="height:36px;color:var(--kptu-faint)"><span>제목</span></div><div class="ghost"><div class="urlline"><span class="lab">🔗</span><div class="field"><span>https://news.example.com/article/2026/11/…</span></div><span class="btn sm pri">가져오기</span></div></div><div class="hint">주소만 넣으면 제목·저자·날짜·본문이 자동으로 들어와요. 원문 링크는 노트 위에 작게 남아요.</div><div class="toolbar"><i>B</i><i>I</i><i>•</i><i>❝</i><i>🖼</i><i>📎</i></div><div class="field tall" style="flex:1;align-items:flex-start;color:var(--kptu-faint);font-size:15px"><span style="white-space:normal">내용을 입력하세요</span></div></div></div></div></div></div>
+<div><div class="cap">폰 412 · 안 B <small>(주소만 붙이면 제안)</small></div><div class="dev" style="width:412px;height:780px"><div class="page" style="padding:0"><div style="position:absolute;inset:0;background:var(--kptu-surface);display:flex;flex-direction:column"><div class="winh"><span class="btn text" style="padding:0">✕</span>새 노트<span class="sp"><span class="btn sm">폴더 ▾</span><span class="btn pri sm">저장</span></span></div><div class="winb"><div class="field" style="height:36px;color:var(--kptu-faint)"><span>제목</span></div><div class="toolbar"><i>B</i><i>I</i><i>•</i><i>❝</i><i>🖼</i><i>📎</i></div><div class="field tall" style="align-items:flex-start;color:var(--kptu-ink);font-size:14px;min-height:60px"><span style="white-space:normal;word-break:break-all">https://news.example.com/article/2026/11/10/1234</span></div><div class="ghost"><div class="warn" style="background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)"><span class="sp">주소 하나만 있어요. 글을 가져올까요?</span><span class="btn sm pri">가져오기</span><span class="btn sm text">그대로 두기</span></div></div></div></div></div></div></div>
+</div>
+<div class="wrap"><div><div class="cap">PC 1280 · 안 A <small>(큰 노트 창)</small></div><div class="dev" style="width:1280px;height:560px;flex-direction:row"><div class="side" style="width:170px"><b style="font-size:14px;margin-bottom:8px;color:var(--kptu-ink)">업무 시스템</b><div>홈</div><div class="on">노트</div><div>일정</div><div>담당조직</div><div>사업 보고</div><div>자료실</div><div>사진</div><div>뉴스</div></div><div style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="pcbar"><span>‹ ›</span><div class="f">전체 검색</div><span class="shot">계정 ▾</span></div><div style="flex:1;display:flex;min-height:0"><div class="col" style="width:150px"><div class="colh">폴더</div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">업무 메모</span><span class="d">4</span></div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">가족</span><span class="d">5</span></div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">개발</span><span class="d">6</span></div><div class="nrow on"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">읽을거리</span><span class="d">21</span></div></div><div class="col" style="width:250px"><div class="tabs2" style="padding:6px 8px"><span class="field" style="flex:1;height:28px;font-size:12px"><span>노트 찾기</span></span><span class="btn sm">+ 추가</span></div><div class="nrow"><span class="tt">읽을 글 모음</span><span class="d">11.04</span></div><div class="nrow"><span class="tt">회의 때 쓸 자료 메모</span><span class="d">10.30</span></div><div class="nrow"><span class="tt">책 읽다가 적은 것</span><span class="d">10.25</span></div><div class="nrow"><span class="tt">나중에 볼 글 목록</span><span class="d">10.21</span></div></div><div style="flex:1;min-width:0;background:var(--kptu-surface);padding:16px 26px;overflow:hidden;position:relative"><div style="color:var(--kptu-faint);font-size:13px;margin-top:6px">노트를 고르세요</div></div></div></div><div class="modal-dim"></div><div class="win" style="left:300px;top:60px;width:680px;height:430px"><div class="winh">새 노트<span class="sp"><span class="btn sm">폴더 ▾ 읽을거리</span><span class="btn sm">취소</span><span class="btn pri sm">저장</span></span></div><div class="winb"><div class="field" style="height:34px;color:var(--kptu-faint)"><span>제목</span></div><div class="ghost"><div class="urlline"><span class="lab">🔗 주소로 가져오기</span><div class="field"><span>https://news.example.com/article/2026/11/10/1234</span></div><span class="btn sm pri">가져오기</span></div></div><div class="hint">주소만 넣으면 제목·저자·날짜·본문이 자동으로 들어와요. 원문 링크는 노트 위에 작게 남아요.</div><div class="toolbar"><i>B</i><i>I</i><i>•</i><i>❝</i><i>🖼</i><i>📎</i></div><div class="field tall" style="flex:1;align-items:flex-start;color:var(--kptu-faint);font-size:15px"><span>내용을 입력하세요</span></div></div></div></div></div></div>
+
+<h2>② 가져오는 중 — 화면 먼저, 처리는 뒤에서</h2>
+<p class="note">[가져오기]를 누르면 창이 잠기지 않고 노트 줄이 목록 맨 위에 바로 생깁니다. 원문 링크는 이미 아니까 먼저 보이고, 제목·본문 자리는 회색 막대로 둡니다. 다른 화면으로 가도 끝까지 가져오고, 끝나면 작은 알림으로 알립니다. 더 가져오기를 눌러도 거절하지 않고 줄 세웁니다.</p>
+<div class="wrap">
+<div><div class="cap">폰 412 · 노트 목록</div><div class="dev" style="width:412px;height:780px"><div class="topbar">노트<span class="sp">🔍 &nbsp; ⋯</span></div><div class="page" style="padding:0"><div class="tabs2"><span class="seg"><span class="on">폴더</span><span>목록</span><span>태그</span></span><span class="btn sm" style="margin-left:auto">📁 읽을거리 ▾</span></div><div class="prog" style="margin:8px 10px"><span>가져오는 중</span><span class="bar"></span><span class="btn text sm" style="color:var(--kptu-primary-ink)">취소</span></div><div class="nrow on"><span style="width:14px;text-align:center;color:var(--kptu-primary)">◌</span><span class="tt">예시일보에서 가져오는 중…</span><span class="d">방금</span></div><div class="nrow"><span class="tt">장보기 목록</span><span class="d">11.05</span></div><div class="nrow"><span class="tt">여행 준비 메모</span><span class="d">11.02</span></div><div class="nrow"><span class="tt">선물 메모</span><span class="d">10.28</span></div><div class="nrow"><span class="tt">읽을 글 모음</span><span class="d">10.25</span></div><div style="position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:var(--kptu-surface);border-top:var(--ds-line-width) solid var(--ds-line);display:flex;gap:6px"><div class="field" style="flex:1;height:36px"><span>노트를 입력하세요</span></div><span class="btn sm" style="height:36px">폴더 ▾</span><span class="btn pri" style="height:36px">추가</span></div></div><div class="tabs"><span>홈</span><span><b>노트</b></span><span>일정</span><span>담당조직</span><span>사업 보고</span><span>메뉴</span></div></div></div>
+<div><div class="cap">폰 412 · 그 노트를 열었을 때</div><div class="dev" style="width:412px;height:780px"><div class="topbar">‹ 노트<span class="sp">🔍 &nbsp; ⋯</span></div><div class="page" style="padding:0"><div style="padding:12px 14px"><div class="prog" style="margin-bottom:8px"><span>가져오는 중 · 이 화면을 나가도 계속해요</span><span class="bar"></span></div><div class="src"><span class="g">🔗</span><span class="u">예시일보 · news.example.com/article/1234</span><span class="g">↗</span></div><div class="sk t"></div><div class="sk" style="width:40%"></div><div style="height:10px"></div><div class="sk"></div><div class="sk"></div><div class="sk" style="width:80%"></div><div style="height:8px"></div><div class="sk"></div><div class="sk" style="width:60%"></div></div></div><div class="tabs"><span>홈</span><span><b>노트</b></span><span>일정</span><span>담당조직</span><span>사업 보고</span><span>메뉴</span></div></div></div>
+</div>
+<div class="wrap"><div><div class="cap">PC 1280 · 세 칸 (폴더 | 목록 | 노트)</div><div class="dev" style="width:1280px;height:560px;flex-direction:row"><div class="side" style="width:170px"><b style="font-size:14px;margin-bottom:8px;color:var(--kptu-ink)">업무 시스템</b><div>홈</div><div class="on">노트</div><div>일정</div><div>담당조직</div><div>사업 보고</div><div>자료실</div><div>사진</div><div>뉴스</div></div><div style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="pcbar"><span>‹ ›</span><div class="f">전체 검색</div><span class="shot">계정 ▾</span></div><div style="flex:1;display:flex;min-height:0"><div class="col" style="width:150px"><div class="colh">폴더</div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">업무 메모</span><span class="d">4</span></div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">가족</span><span class="d">5</span></div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">개발</span><span class="d">6</span></div><div class="nrow on"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">읽을거리</span><span class="d">21</span></div></div><div class="col" style="width:250px"><div class="tabs2" style="padding:6px 8px"><span class="field" style="flex:1;height:28px;font-size:12px"><span>노트 찾기</span></span><span class="btn sm">+ 추가</span></div><div class="nrow on"><span style="width:14px;text-align:center;color:var(--kptu-primary)">◌</span><span class="tt">예시일보에서 가져오는 중…</span><span class="d">방금</span></div><div class="nrow"><span class="tt">읽을 글 모음</span><span class="d">11.04</span></div><div class="nrow"><span class="tt">회의 때 쓸 자료 메모</span><span class="d">10.30</span></div><div class="nrow"><span class="tt">책 읽다가 적은 것</span><span class="d">10.25</span></div><div class="nrow"><span class="tt">나중에 볼 글 목록</span><span class="d">10.21</span></div></div><div style="flex:1;min-width:0;background:var(--kptu-surface);padding:16px 26px;overflow:hidden;position:relative"><div class="prog" style="margin-bottom:6px"><span>가져오는 중 · 창을 닫거나 다른 화면으로 가도 계속해요</span><span class="bar"></span><span class="btn text sm" style="color:var(--kptu-primary-ink)">취소</span></div><div class="src"><span class="g">🔗</span><span class="u">예시일보 · news.example.com/article/1234</span><span class="g">↗</span></div><div class="sk t" style="width:46%"></div><div class="sk" style="width:22%;margin-bottom:16px"></div><div class="sk"></div><div class="sk"></div><div class="sk" style="width:84%"></div><div style="height:8px"></div><div class="sk"></div><div class="sk" style="width:60%"></div></div></div></div></div></div></div>
+
+<h2>③ 가져온 뒤 — 원문 링크는 노트 위에 한 줄, 작게</h2>
+<p class="note">제목은 글 제목, 그 아래 저자·날짜·폴더, 맨 위 작은 줄에 원문 링크(누르면 원문, 가져온 날 오른쪽 끝). 본문은 문단 그대로 들어오고 내가 고쳐 쓸 수 있습니다. 사진은 1단계에서 뺍니다(아래 고를 것 3번).</p>
+<div class="wrap">
+<div><div class="cap">폰 412</div><div class="dev" style="width:412px;height:780px"><div class="topbar">‹ 노트<span class="sp">🔍 &nbsp; ⋯</span></div><div class="page" style="padding:0"><div style="padding:12px 14px"><div class="src"><span class="g">🔗</span><span class="u">예시일보 · news.example.com/article/1234</span><span class="g">↗</span><span class="g" style="margin-left:auto;white-space:nowrap">11. 11. 가져옴</span></div><h2 class="ntitle">예시 지역 교통 계획, 주민 의견 수렴 시작</h2><div class="nmeta">예시 기자 · 2026. 11. 10. · 📁 읽을거리</div><div style="height:12px"></div><div class="nbody"><p>예시 지역의 교통 계획 초안이 공개되고 주민 의견 수렴이 시작됐다. 이 문단은 가져온 글의 본문이 어떻게 보이는지 보여 주기 위한 예시 문장이다.</p><p>두 번째 문단도 예시다. 실제로는 글의 문단이 차례대로 들어오고, 소제목과 인용은 그 모양대로 놓인다.</p><p>세 번째 문단. 가져온 글은 읽는 글이라 내가 고쳐 쓸 수 있고, 아래에 댓글을 달 수 있다.</p></div></div></div><div class="tabs"><span>홈</span><span><b>노트</b></span><span>일정</span><span>담당조직</span><span>사업 보고</span><span>메뉴</span></div></div></div>
+</div>
+<div class="wrap"><div><div class="cap">PC 1280</div><div class="dev" style="width:1280px;height:560px;flex-direction:row"><div class="side" style="width:170px"><b style="font-size:14px;margin-bottom:8px;color:var(--kptu-ink)">업무 시스템</b><div>홈</div><div class="on">노트</div><div>일정</div><div>담당조직</div><div>사업 보고</div><div>자료실</div><div>사진</div><div>뉴스</div></div><div style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="pcbar"><span>‹ ›</span><div class="f">전체 검색</div><span class="shot">계정 ▾</span></div><div style="flex:1;display:flex;min-height:0"><div class="col" style="width:150px"><div class="colh">폴더</div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">업무 메모</span><span class="d">4</span></div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">가족</span><span class="d">5</span></div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">개발</span><span class="d">6</span></div><div class="nrow on"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">읽을거리</span><span class="d">21</span></div></div><div class="col" style="width:250px"><div class="tabs2" style="padding:6px 8px"><span class="field" style="flex:1;height:28px;font-size:12px"><span>노트 찾기</span></span><span class="btn sm">+ 추가</span></div><div class="nrow on"><span class="tt">예시 지역 교통 계획, 주민 의견 수렴 시작</span><span class="d">11.11</span></div><div class="nrow"><span class="tt">읽을 글 모음</span><span class="d">11.04</span></div><div class="nrow"><span class="tt">회의 때 쓸 자료 메모</span><span class="d">10.30</span></div><div class="nrow"><span class="tt">책 읽다가 적은 것</span><span class="d">10.25</span></div><div class="nrow"><span class="tt">나중에 볼 글 목록</span><span class="d">10.21</span></div></div><div style="flex:1;min-width:0;background:var(--kptu-surface);padding:16px 26px;overflow:hidden;position:relative"><div class="src"><span class="g">🔗</span><span class="u">예시일보 · news.example.com/article/1234</span><span class="g">↗</span><span class="g" style="margin-left:auto;white-space:nowrap">11. 11. 가져옴</span></div><h2 class="ntitle">예시 지역 교통 계획, 주민 의견 수렴 시작</h2><div class="nmeta">예시 기자 · 2026. 11. 10. · 📁 읽을거리</div><div style="height:14px"></div><div class="nbody" style="max-width:660px"><p>예시 지역의 교통 계획 초안이 공개되고 주민 의견 수렴이 시작됐다. 이 문단은 가져온 글의 본문이 어떻게 보이는지 보여 주기 위한 예시 문장이다.</p><p>두 번째 문단도 예시다. 실제로는 글의 문단이 차례대로 들어오고, 소제목과 인용은 그 모양대로 놓인다.</p><p>세 번째 문단. 가져온 글은 읽는 글이라 내가 고쳐 쓸 수 있고, 아래에 댓글을 달 수 있다.</p></div></div></div></div></div></div></div>
+
+<h2>④ 실패했을 때 — 노트는 남기고 주소는 지키기</h2>
+<p class="note">가져오지 못해도 쓴 것이 사라지지 않게, 노트는 '주소만' 들어간 채로 남고 위에 안내 한 줄이 뜹니다. [다시 시도]와 [주소만 두기](안내 줄 지우기)만 있고 빨간 큰 오류 창은 없습니다.</p>
+<div class="wrap">
+<div><div class="cap">폰 412</div><div class="dev" style="width:412px;height:780px"><div class="topbar">‹ 노트<span class="sp">🔍 &nbsp; ⋯</span></div><div class="page" style="padding:0"><div style="padding:12px 14px"><div class="warn" style="margin-bottom:8px"><span class="sp">가져오지 못했어요. 이 사이트가 읽기를 막아 두었어요.</span><span class="btn sm">다시 시도</span><span class="btn sm text">주소만 두기</span></div><div class="src"><span class="g">🔗</span><span class="u">예시일보 · news.example.com/article/1234</span><span class="g">↗</span></div><h2 class="ntitle">예시일보</h2><div class="nmeta">2026. 11. 11. · 📁 읽을거리</div><div style="height:12px"></div><div class="nbody"><p style="color:var(--kptu-muted)">https://news.example.com/article/2026/11/10/1234</p></div></div></div><div class="tabs"><span>홈</span><span><b>노트</b></span><span>일정</span><span>담당조직</span><span>사업 보고</span><span>메뉴</span></div></div></div>
+<div style="flex:1;min-width:420px;max-width:780px"><div class="cap">실패 이유별 안내 글 <small>(일상어)</small></div>
+<table class="why">
+<tr><th>이유</th><th>화면에 보이는 한 줄</th><th>다시 시도?</th></tr>
+<tr><td>사이트가 읽기를 막음(로그인 필요·읽기 금지 표시)</td><td>가져오지 못했어요. 이 사이트가 읽기를 막아 두었어요.</td><td>안 함(막힌 곳은 우회하지 않음)</td></tr>
+<tr><td>주소가 안전하지 않음(http 아님·내부 주소·이상한 주소)</td><td>이 주소는 가져올 수 없어요. 주소를 다시 확인해 주세요.</td><td>주소 고친 뒤</td></tr>
+<tr><td>시간이 걸림(10초 초과)·사이트가 응답 안 함</td><td>사이트가 답하지 않아요. 잠시 뒤 다시 시도해 주세요.</td><td>[다시 시도]</td></tr>
+<tr><td>글이 너무 큼(2MB 초과)</td><td>글이 너무 커서 가져오지 못했어요.</td><td>안 함</td></tr>
+<tr><td>글 본문을 못 찾음(사진뿐인 글·앱 화면)</td><td>글을 찾지 못했어요. 주소만 남겨 둘게요.</td><td>안 함</td></tr>
+<tr><td>오늘 가져올 수 있는 횟수를 다 씀</td><td>오늘은 더 가져올 수 없어요. 내일 다시 해 주세요.</td><td>내일</td></tr>
+</table></div>
+</div>
+<div class="wrap"><div><div class="cap">PC 1280</div><div class="dev" style="width:1280px;height:560px;flex-direction:row"><div class="side" style="width:170px"><b style="font-size:14px;margin-bottom:8px;color:var(--kptu-ink)">업무 시스템</b><div>홈</div><div class="on">노트</div><div>일정</div><div>담당조직</div><div>사업 보고</div><div>자료실</div><div>사진</div><div>뉴스</div></div><div style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="pcbar"><span>‹ ›</span><div class="f">전체 검색</div><span class="shot">계정 ▾</span></div><div style="flex:1;display:flex;min-height:0"><div class="col" style="width:150px"><div class="colh">폴더</div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">업무 메모</span><span class="d">4</span></div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">가족</span><span class="d">5</span></div><div class="nrow"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">개발</span><span class="d">6</span></div><div class="nrow on"><svg class="fold-i" viewBox="0 0 24 24"><path fill="#7d8f45" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="tt">읽을거리</span><span class="d">21</span></div></div><div class="col" style="width:250px"><div class="tabs2" style="padding:6px 8px"><span class="field" style="flex:1;height:28px;font-size:12px"><span>노트 찾기</span></span><span class="btn sm">+ 추가</span></div><div class="nrow on"><span class="tt">예시일보</span><span class="d">11.11</span></div><div class="nrow"><span class="tt">읽을 글 모음</span><span class="d">11.04</span></div><div class="nrow"><span class="tt">회의 때 쓸 자료 메모</span><span class="d">10.30</span></div><div class="nrow"><span class="tt">책 읽다가 적은 것</span><span class="d">10.25</span></div><div class="nrow"><span class="tt">나중에 볼 글 목록</span><span class="d">10.21</span></div></div><div style="flex:1;min-width:0;background:var(--kptu-surface);padding:16px 26px;overflow:hidden;position:relative"><div class="warn" style="margin-bottom:6px"><span class="sp">가져오지 못했어요. 이 사이트가 읽기를 막아 두었어요.</span><span class="btn sm">다시 시도</span><span class="btn sm text">주소만 두기</span></div><div class="src"><span class="g">🔗</span><span class="u">예시일보 · news.example.com/article/1234</span><span class="g">↗</span></div><h2 class="ntitle">예시일보</h2><div class="nmeta">2026. 11. 11. · 📁 읽을거리</div><div style="height:14px"></div><div class="nbody" style="max-width:660px"><p style="color:var(--kptu-muted)">https://news.example.com/article/2026/11/10/1234</p></div></div></div></div></div></div></div>
+
+<div class="legend"><b>고를 것</b>
+<ol>
+<li><b>주소 넣는 자리</b>: 안 A(제목 줄 아래 주소 칸) / 안 B(본문에 주소만 붙이면 제안 줄) / 둘 다</li>
+<li><b>가져오는 중</b>: 노트 줄이 바로 생기고 창은 닫아도 됨(추천, 'UX-먼저묻고뒤에처리') / 창이 열린 채 끝날 때까지 기다림</li>
+<li><b>사진</b>: 1단계는 글자만(추천) / 글에 있는 사진도 화면에 함께 띄움(서버가 사진을 받아 두지는 않음)</li>
+<li><b>실패했을 때</b>: 노트는 '주소만' 남김(추천) / 노트를 만들지 않음</li>
+</ol>
+<b>정해져 있는 것(묻지 않음)</b>
+<ul><li>http·https 주소만, 로그인한 나만, 내부 주소·이상한 주소는 막고, 크기·시간 제한이 있음(설계 메모 <code>note-import-by-url.md</code>).</li>
+<li>AI 읽기는 이번에 넣지 않음. 버튼도 만들지 않음.</li>
+<li>버튼은 작고 낮게(UI-버튼기준): 채운 버튼은 [가져오기] 하나, 나머지는 작은 버튼·글자 버튼.</li></ul></div>
+</body></html>
