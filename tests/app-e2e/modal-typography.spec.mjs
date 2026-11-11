@@ -387,6 +387,9 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // FORM-시간입력 added the place field to the event edit window; compare it under both style sets too.
   const placeField=await page.locator('#ciGoogleLocation').evaluate(el=>el.closest('label').outerHTML);
   await original.locator('#ciGoogleEndTime').evaluate((el,html)=>el.closest('.ci-date-grid').insertAdjacentHTML('afterend',html),placeField);
+  // BIZ-보고할일정 PR A(S57-20): Google 일정 수정 창 메모 아래에 '보고할 일정' 한 줄 칸(기존 '종일' 칸과 같은 모양, 새 CSS 없음)이 생겼다.
+  // 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
+  {const html=await page.locator('#ciGooglePlanRow').evaluate(el=>el.outerHTML);await original.locator('#ciGoogleMemo').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),html)}
   // UI-회의결과창정리(2026-10-17 사용자 결정): 회의 결과 창(만들기·수정)의 첨부·후속 묶음과 자료 등록 창 업로드 칸을 작은 묶음으로 바꿨다.
   // 바뀐 부분은 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다. 없어진 두 요소(업로드 상자 글자·회의자료 라벨 설명)의 규칙은 아래에서 뺀다.
   for(const [from,to] of [['#meetingModal fieldset:has(#meetingActionList)','#meetingModal fieldset:has(#meetingActionList)'],['#mrdView .mrd-followup-section','#mrdView .mrd-followup-section'],['#mrdAttach .mrd-material-section','#mrdView .mrd-material-section'],['#mrdView .mrd-result-section','#mrdView .mrd-result-section'],['#documentModal .library-file-block','#documentModal .library-file-block']]){const html=await page.locator(from).evaluate(el=>el.outerHTML);await original.locator(to).evaluate((el,html)=>{el.outerHTML=html},html)}
