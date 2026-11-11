@@ -36,7 +36,9 @@ test('옛 읽기 전용 세 번째 칸과 따로 있던 ⋯ 메뉴는 없다(기
   for(const gone of ['resultHtml(','tasksHtml(','resultText('])assert.ok(!columns.includes(`function ${gone}`)&&!columns.includes(`export function ${gone}`),`meeting-columns.js에 ${gone}`);
   // 후속 할 일·사진·회의자료 추가·삭제는 붙은 요소 안에 그대로 있다.
   for(const id of ['mrdAddTask','mrdTasks','mrdPickPhotos','mrdPhotos','mrdPickFiles','mrdMaterials','mrdMakeTodos'])assert.ok(detail.includes(`id="${id}"`),id);
-  for(const act of ['edit','kind','delete'])assert.ok(detail.includes(`data-mrd-more="${act}"`),act);
+  // ⋯ 메뉴 항목은 한 함수(item)가 data-mrd-more 줄로 그린다(REC-한회의로잇기 PR-4).
+  assert.ok(detail.includes('data-mrd-more="${act}">${label}</button>'),'item');
+  for(const act of ['edit','kind','delete'])assert.ok(detail.includes(`item('${act}'`),act);
 });
 
 test('고친 내용이 있을 때 다른 곳을 누르면 그 자리 한 줄 안내([저장] [저장 안 함])',()=>{
