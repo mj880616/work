@@ -1,6 +1,6 @@
 // S57-8 BIZ-달력우클릭끌기 PR-2: 사업 보고 [달력]에서 보고를 끌어 다른 날 칸에 놓기(PC 마우스만, 폰은 끌기 없음 — 보고를 열어 [수정]으로 날짜 변경).
 // 끌기 손맛은 일정 달력 끌기(calendar-drag.js)와 같다: 4px 넘게 움직여야 끌기, 끄는 줄의 반투명 복제 조각(.cal-drag-ghost)이 커서를 따라가고,
-// 놓을 칸은 옅은 바탕+선(.rv-drop)으로 보이며, Esc·창 밖으로 나가면 취소, 끌기 뒤 따라오는 클릭 한 번은 막는다. 놓으면 날짜만 바뀌고 시각은 그대로,
+// 놓을 칸은 옅은 바탕+선(.rv-drop)으로 보이며, Esc·창 밖으로 나가면 취소, 끌기 뒤(취소한 뒤 손을 뗄 때도) 따라오는 클릭 한 번은 막는다. 놓으면 날짜만 바뀌고 시각은 그대로,
 // 저장은 보고 수정 창(meeting-round-detail.js mrdSaveEdit)과 같은 길(app_meetings meeting_at PATCH, 내 작업공간·지금 일시 그대로인 한 줄만)이고
 // 놓은 뒤 "옮겼어요 · 되돌리기"(offerUndoNotice)가 뜬다. 회차 번호·Google 일정·사진·자료는 건드리지 않는다(사진·자료는 meeting_id로 따라간다).
 // 이 모듈은 끌기 입력과 저장 호출만 갖고, 그리기는 team.js renderMeetings 하나다(상태 없음 — 부르는 쪽이 reportDay를 맞춘다).
@@ -55,7 +55,8 @@ let installed = false;
 export function installReportDrag({move, pc = window.matchMedia('(min-width:761px)')}) {
   if (installed) return;
   installed = true;
-  let g = null, swallow = false;
+  let g = null, swallow = false, swallowUp = false;
+  // 끌기를 마치거나 취소한 뒤 손을 뗄 때 따라오는 클릭(보고 열기)을 막는다. 취소(Esc·창 밖)는 손을 떼기 전이라 swallowUp으로 다음 손 뗌에 이어 막는다(일정 달력 끌기와 같음).
   const swallowNext = () => { swallow = true; setTimeout(() => { swallow = false; }, 0); };
   const cells = () => document.querySelectorAll('#meetingList .rv-cell[data-rv-cell]');
   const cellAt = (x, y) => { for (const c of cells()) { const r = c.getBoundingClientRect(); if (x >= r.left && x < r.right && y >= r.top && y < r.bottom) return c; } return null; };
@@ -71,6 +72,7 @@ export function installReportDrag({move, pc = window.matchMedia('(min-width:761p
     g.ghost = c; g.ox = g.x0 - r.left; g.oy = g.y0 - r.top;
   }
   document.addEventListener('pointerdown', e => {
+    swallowUp = false;
     if (g || e.button !== 0 || e.pointerType !== 'mouse' || !pc.matches || e.ctrlKey || e.metaKey || e.shiftKey) return;
     const el = e.target.closest?.('#meetingList .rv-cal [data-mrd-meeting]');
     if (!el || e.target.closest('button,a,input,select,textarea')) return;
@@ -91,13 +93,20 @@ export function installReportDrag({move, pc = window.matchMedia('(min-width:761p
     mark(cell && cell.dataset.rvCell !== g.from ? cell : null);
   }, {capture: true, passive: false});
   document.addEventListener('pointerup', e => {
+    if (!g && swallowUp) { swallowUp = false; swallowNext(); return; }
     if (!g || e.pointerId !== g.pointer) return;
     if (!g.started) { g = null; return; }
     swallowNext();
     const cell = cellAt(e.clientX, e.clientY), drop = end();
     if (cell && drop && cell.dataset.rvCell !== drop.from) void move(drop.id, cell.dataset.rvCell);
   }, true);
-  document.addEventListener('pointercancel', e => { if (g && e.pointerId === g.pointer) { if (g.started) swallowNext(); end(); } }, true);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && g?.started) { e.preventDefault(); e.stopPropagation(); swallowNext(); end(); } }, true);
-  document.addEventListener('click', e => { if (swallow) { swallow = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  document.addEventListener('pointercancel', e => { swallowUp = false; if (g && e.pointerId === g.pointer) { if (g.started) swallowNext(); end(); } }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && g?.started) { e.preventDefault(); e.stopPropagation(); swallowUp = true; swallowNext(); end(); } }, true);
+  // 끌기 뒤 클릭은 보고 열기(#meetingList 줄 누름)보다 먼저(window capture) 막는다.
+  window.addEventListener('click', e => { if (swallow) { swallow = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  // 끄는 동안 글자 선택을 막고, 창 밖으로 나가거나 창이 포커스를 잃으면 끌기를 취소한다(조각도 지움).
+  document.addEventListener('selectstart', e => { if (g?.started) e.preventDefault(); }, true);
+  document.addEventListener('dragstart', e => { if (g && e.target?.closest?.('#meetingList .rv-cal [data-mrd-meeting]')) e.preventDefault(); }, true);
+  document.documentElement.addEventListener('mouseleave', e => { if (g?.started && !e.relatedTarget) { swallowUp = true; swallowNext(); end(); } });
+  window.addEventListener('blur', () => { if (g?.started) { swallowUp = true; end(); } });
 }

@@ -236,6 +236,13 @@ test('report views still switch when the server cannot remember the choice yet',
 // S57-8 BIZ-달력우클릭끌기 PR-2(요청함 할 일 1·2·3·6·7): PC 사업 보고 [달력]의 우클릭 메뉴와 끌어 옮기기. 모든 이름·번호는 합성 값.
 const cellOf = (cal, n) => cal.locator('.rv-cell[data-rv-cell]:not(.rv-now)').nth(n);
 const emptySpot = async cell => { const b = await cell.boundingBox(); return {x: b.width - 5, y: b.height - 5}; };
+// 1440(PC) 목록 보기는 첫 칸의 첫 보고를 오른쪽 칸에 먼저 붙여 읽는다(달력·끌기와 무관한 읽기, 이 시험에서는 □□ 보고 하나). 끌기 시험은 그 읽기가 끝나 멈춘 뒤의 목록을
+// 기준으로 삼고, 끌기·취소 뒤에 새로 읽은(= 보고가 열린) 것이 없는지 본다.
+async function settledOpens(state) {
+  let last = -1;
+  await expect.poll(async () => { const n = state.meetingOpens.length, same = n > 0 && n === last; last = n; return same; }).toBe(true);
+  return [...state.meetingOpens];
+}
 
 test('report calendar (PC): right click on an empty day gives [add report here]/[show day], add fills the day', async ({page}) => {
   const state = makeState();
@@ -293,6 +300,7 @@ test('report calendar (PC): right click or menu key on a report opens the same r
 test('report calendar (PC): drag a report to another day keeps its time, saves one meeting_at change, undo restores it', async ({page}) => {
   const state = makeState();
   await open(page, state, 1440);
+  const opensBefore = await settledOpens(state);
   await view(page, '달력');
   const cal = page.locator('#meetingList .rv-cal'), today = cal.locator('.rv-cell.rv-now');
   const todayKey = await today.getAttribute('data-rv-cell'), target = cellOf(cal, 5), key = await target.getAttribute('data-rv-cell');
@@ -316,7 +324,8 @@ test('report calendar (PC): drag a report to another day keeps its time, saves o
   await expect(today.locator(`[data-mrd-meeting="${M1}"]`)).toHaveCount(0);
   await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', key);
   await expect(page.locator('.rv-ghost')).toHaveCount(0);
-  expect(state.meetingOpens).toEqual([]);
+  expect(state.meetingOpens).toEqual(opensBefore);
+  await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
   // 옮겼어요 · 되돌리기 → 원래 일시로 같은 길 저장.
   const notice = page.locator('[data-undo-notice]');
   await expect(notice).toContainText('옮겼어요');
@@ -332,6 +341,7 @@ test('report calendar (PC): drag a report to another day keeps its time, saves o
 test('report calendar (PC): Esc cancels a drag and a same-day drop saves nothing', async ({page}) => {
   const state = makeState();
   await open(page, state, 1440);
+  const opensBefore = await settledOpens(state);
   await view(page, '달력');
   const cal = page.locator('#meetingList .rv-cal'), today = cal.locator('.rv-cell.rv-now'), target = cellOf(cal, 5);
   const title = today.locator(`[data-mrd-meeting="${M1}"]`), from = await title.boundingBox(), to = await target.boundingBox();
@@ -345,7 +355,9 @@ test('report calendar (PC): Esc cancels a drag and a same-day drop saves nothing
   // 같은 칸 안에서 끌었다 놓기.
   await page.mouse.move(x0, y0); await page.mouse.down(); await page.mouse.move(x0 + 8, y0 + 12, {steps: 4}); await page.mouse.up();
   expect(state.patches).toEqual([]);
-  expect(state.meetingOpens).toEqual([]);
+  // 취소·같은 칸 놓기 뒤 손을 뗄 때 따라오는 클릭으로 보고가 열리지 않는다(새로 읽은 보고 없음, 보고 창도 닫힌 채).
+  expect(state.meetingOpens).toEqual(opensBefore);
+  await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
 });
 
 test('report calendar (phone): no app right-click menu and no drag, opening the report to edit is the way', async ({page}) => {
