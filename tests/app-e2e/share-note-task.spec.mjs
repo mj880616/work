@@ -173,3 +173,38 @@ test('웹2 노트: [저장]하면 창이 바로 닫히고 사진은 뒤에서, �
   expect(tries).toBe(3);
   expect(errors).toEqual([]);
 });
+
+// BIZ-저장먼저닫기 3차(S59-18): 웹2 할 일도 할 일(글)이 저장되면 창이 바로 닫히고 받은 사진은 그 할 일의 뒤 줄에서 올라간다.
+// 알림은 하단바 위 한 줄 하나(위쪽 '할 일에 넣었어요' 알림과 겹치지 않음). 못 올린 사진은 [다시 올리기]로 그것만, 같은 할 일로.
+test('웹2 할 일: [저장]하면 창이 바로 닫히고 사진은 뒤에서, 못 올리면 [다시 올리기] 412', async ({page}) => {
+  const {state, errors} = await fixture(page, {id:ID, subject:'', text:'현장 사진 정리', target:'task', items:[{i:0, name:'현장1.gif', type:'image/gif', size:6}, {i:1, name:'현장2.gif', type:'image/gif', size:6}]});
+  let open, tries = 0; const gate = new Promise(resolve => { open = resolve; });
+  const sent = [];
+  await page.route(SB + '/functions/v1/google-tasks**', async route => {
+    const req = route.request(), action = new URL(req.url()).searchParams.get('action');
+    if (action !== 'attach') return route.fallback();
+    const body = req.postDataBuffer()?.toString('latin1') || '';
+    sent.push({task:body.match(/name="task_id"\r\n\r\n([^\r]*)/)?.[1], file:Buffer.from(body.match(/filename="([^"]*)"/)?.[1] || '', 'latin1').toString('utf8')});
+    tries++; await gate;
+    // 둘째 사진의 첫 시도만 거절(서버가 받고 거절 — 다시 보내도 겹치지 않음).
+    if (tries === 2) return route.fulfill({status:400, json:{error:'파일 이름이나 형식을 확인해 주세요.', code:'file_metadata_invalid'}});
+    return route.fallback();
+  });
+  await expect(dialog(page)).toBeVisible();
+  await dialog(page).getByRole('button', {name:'저장'}).tap();
+  await expect(dialog(page)).toBeHidden();
+  expect(state.tasks).toHaveLength(1);
+  await expect.poll(() => tries).toBe(1);
+  const line = page.locator('#uploadDock:not([hidden])');
+  await expect(line).toContainText('2개 올리는 중');
+  await expect(notice(page)).toHaveCount(0);
+  if (process.env.CAPTURE_DIR) await page.screenshot({path:`${process.env.CAPTURE_DIR}/task-share-saving-412.png`});
+  open();
+  await expect(line).toContainText('할 일에 사진 1장 못 올렸어요');
+  await expect(line.locator('.up-dock-note')).toContainText('사진 1장 올렸어요');
+  if (process.env.CAPTURE_DIR) await page.screenshot({path:`${process.env.CAPTURE_DIR}/task-share-fail-412.png`});
+  await line.getByRole('button', {name:'못 올린 파일 다시 올리기'}).tap();
+  await expect(line).toContainText('할 일에 사진 1장 올렸어요');
+  expect(sent).toEqual([{task:'task-1', file:'현장1.gif'}, {task:'task-1', file:'현장2.gif'}, {task:'task-1', file:'현장2.gif'}]);
+  expect(errors).toEqual([]);
+});

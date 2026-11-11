@@ -700,14 +700,19 @@ const luMeetingGroups=new WeakMap(),luMeetingNotes=new WeakMap();
 // 묶음의 끝 알림은 하나만: 다시 줄 서면(하단 [다시 올리기]든 상세 줄의 [다시]든) 떠 있던 알림을 닫는다(다 올라간 뒤에도 '못 올렸어요'가 남지 않게).
 const luMeetingNote=(batch,options)=>{luMeetingNotes.get(batch)?.close();if(options)luMeetingNotes.set(batch,announceDock(options));else luMeetingNotes.delete(batch)};
 const luShowReport=id=>{void openReport(id).catch(e=>console.warn('report open failed',e))};
+const luAppHandoff=createAppHandoff(luAppUp,{ids:target=>{const m=normalizeUploadMeeting(target);return {meeting:m?.id||'',project:m?.projectId||''}}});
+const luMeetingHandoff=(target,items,opts)=>typeof target?.send==='function'?Promise.resolve({ok:false,error:'off'}):luAppHandoff(target,items,opts);
 const luMeetingSend=createMeetingSend({
   line:work=>{const run=luBackTail.then(work).catch(e=>{console.error('report background upload failed',e)});luBackTail=run;return run},
-  upload:(target,file,opts)=>luUploadFileForMeeting(target,file,opts),
+  // BIZ-저장먼저닫기 3차(S59-18): 대상이 제 보내기(target.send)를 들고 오면 그것으로 올린다 — [파일·글로 만들기]의 회의자료는 예전 서버 입구 그대로
+  // (meeting-from-files.js가 보냄). 줄·차례·표시·끝 알림·[다시 올리기]는 같은 묶음 길이다.
+  upload:(target,file,opts)=>typeof target?.send==='function'?target.send(file,opts):luUploadFileForMeeting(target,file,opts),
   isPhoto:isPhotoFile,
   track:(file,batch)=>{let group=luMeetingGroups.get(batch);if(!group){group={sent:0};luMeetingGroups.set(batch,group)}return trackUpload({file,waiting:true,group,back:()=>luShowReport(batch.target.id)})},
   classify:luMeetingFailure,
   scope:luBackScope,gone:luBackGone,
-  handoff:createAppHandoff(luAppUp,{ids:target=>{const m=normalizeUploadMeeting(target);return {meeting:m?.id||'',project:m?.projectId||''}}}),
+  // 제 보내기(send)를 들고 온 묶음은 앱에 넘기지 않는다: 앱은 자료실 길로 올리므로 서버 입구가 달라진다 — 화면 안에서 같은 뒤 줄로 올린다.
+  handoff:luMeetingHandoff,
   handedText:uploadReasonText,back:luScreenBack,verify:luMeetingHas,
   fields:(file,target)=>photoUploadFields(file,normalizeUploadMeeting(target)||{},documentCategories()),
   confirmUnknown:count=>askConfirm(null,{text:`올렸는지 확인하지 못한 파일이 ${count}개 있어요.`,note:'이미 사업 보고에 붙었다면 다시 올릴 때 같은 자료가 두 번 붙어요. 사업 보고를 열어 없는 것을 확인했다면 [다시 올리기]를 눌러 주세요.',ok:'다시 올리기'}),
@@ -1291,7 +1296,7 @@ async function luOpenEditById(id){
 }
 // LIB-수정파일교체 (docs/design/library-replace-file.md): [수정] 창에서 파일 자체를 바꾼다. 같은 자료 한 줄의 파일만 새 파일로 바뀌고(제목·날짜·종류·프로젝트·담당조직 연결 그대로),
 // 옛 파일은 Drive에 남아 [이전 파일 ▾]로 본다. 고른 파일은 [수정 저장]을 누를 때 서버(library-files replace_document_id)로 올라간다. DB 칸(previous_files)이 없는 행이면 이 줄을 숨긴다.
-// 저장 순서: 파일 교체 → (고친 칸이 있으면) 정보 저장 → 뒤에서 AI가 빈 칸만 한 번 다시 채움(손으로 고친 칸은 그대로). 브라우저 저장소는 쓰지 않는다.
+// 저장 순서(BIZ-저장먼저닫기 3차): (고친 칸이 있으면) 정보 저장 → 창 닫기 → 뒤 줄에서 파일 교체 → 뒤에서 AI가 빈 칸만 한 번 다시 채움(손으로 고친 칸은 그대로). 브라우저 저장소는 쓰지 않는다.
 function luReplaceReady(d){return !!d&&Object.hasOwn(d,'previous_files')}
 function luReplaceDate(v){const t=Date.parse(v||'');return Number.isFinite(t)?new Date(t+9*3600000).toISOString().slice(0,10):''}
 function luRenderEditFile(){
@@ -1343,25 +1348,49 @@ function luBindReplaceFile(){
   input.addEventListener('change',()=>luStageReplace(input.files));
   bindDropTarget(card,luStageReplace,()=>!!luEditor&&luReplaceReady(luEditor.original)&&!luEditor.replacing&&!document.querySelector('#libraryEditModal').classList.contains('hidden'));
 }
-// 결과: 새 자료 줄(row) 또는 null(실패, 안내를 이미 띄움). 시간 초과·끊김은 서버가 이미 바꿨을 수 있어 고른 파일을 비우고 확인을 부탁한다(다시 보내지 않음).
-async function luReplaceStaged(editor,st){
-  const file=editor.replaceFile,say=(message,error)=>{if(luEditCurrent(editor))luSetStatus(st,message,error)};
-  const pre=luPreflightFailure(file);if(pre){say(pre.message,true);return null}
-  const fd=new FormData();fd.append('file',file);fd.append('replace_document_id',editor.id);
-  editor.replacing=true;luRenderEditFile();say('파일을 바꾸는 중…',false);
-  try{
-    const data=await luUploadRequest(fd,file),row=data?.document;
-    if(data?.ok!==true||row?.id!==editor.id||row.workspace_id!==editor.scope.workspace)throw Object.assign(new Error('replace not confirmed'),{code:'timeout'});
-    luDocuments=luDocuments.map(old=>old.id===row.id?structuredClone(row):old);
-    editor.original=structuredClone(row);editor.replaceFile=null;
-    if(luEditor===editor)luEditOriginal={...row};
-    if(editor.view===luEditView)luRenderLibrary();
-    return row;
-  }catch(e){
-    const f=luUploadFailure(e),msg=/[가-힣]/.test(e?.message||'')&&[404,409,503].includes(e?.status)?e.message:f.message;
-    if(f.kind==='unknown'){editor.replaceFile=null;say(msg.replace('업로드','파일 교체'),true)}else say(msg,true);
-    return null;
-  }finally{editor.replacing=false;if(luEditCurrent(editor))luRenderEditFile()}
+// BIZ-저장먼저닫기 3차(S59-18): [파일 교체] 뒤 [저장]. 정보는 이미 저장됐고 창은 닫혔다. 고른 파일 하나를 자료 등록 창·사업 보고 묶음과 같은
+// 뒤 줄(luBackTail) 끝에 세워 그 자료의 파일로 바꾼다(library-files replace_document_id — 서버 길·요청 모양 그대로). 화면을 옮겨도 끝까지 가고,
+// 멈추는 것은 계정·작업공간이 바뀔 때뿐(그때는 알리지도 않는다). 파일은 탭 메모리에만 둔다. 끝은 하단바 위 한 줄(announceDock) 하나:
+// '‘제목’ 파일을 바꿨어요', 못 바꿨으면 까닭 + [다시 올리기]. [다시 올리기]는 보내기 전에 끊긴 것만 — 결과를 확인하지 못한 것(이미 바뀌었을 수 있음)과
+// 서버가 거절한 것(그사이 파일이 바뀜·자료 없음)은 저절로도, 단추로도 다시 보내지 않는다. 바뀐 뒤 AI가 빈 칸만 다시 채우는 일(luReclassify)은 예전 그대로.
+function luReplaceBehind(editor,file){
+  const id=editor.id,scope=luBackScope(),label=String(editor.original?.title||editor.original?.file_name||'자료');
+  let note=null;const say=options=>{note?.close();note=options?announceDock(options):null};
+  const why=e=>{const f=luUploadFailure(e),server=/[가-힣]/.test(e?.message||'')&&[404,409,503].includes(e?.status);
+    return {message:server?e.message:f.kind==='unknown'?f.message.replace('업로드','파일 교체'):f.message,retry:!server&&f.kind!=='unknown'&&f.retry!==false,type:f.type}};
+  const run=()=>{
+    luBackSending.add(file);
+    const job=trackUpload({file,name:file.name,size:file.size,waiting:true});
+    const again=()=>{say(null);job.cancel();run()};
+    const go=luBackTail.then(async()=>{
+      if(luBackGone(scope)){job.cancel();return}
+      if(job.cancelled()){say({text:'파일 교체를 취소했어요',ms:LU_BACK_FAIL_MS,actions:[{label:'다시 올리기',aria:'취소한 파일 다시 올리기',run:again}]});return}
+      job.start();
+      const fd=new FormData();
+      try{
+        fd.append('file',await window.KPTURuntime.copyUploadFile(file));fd.append('replace_document_id',id);
+        const data=await luUploadRequest(fd,file,{job,gone:()=>luBackGone(scope),why}),row=data?.document;
+        if(data?.ok!==true||row?.id!==id||row.workspace_id!==scope.workspace)throw Object.assign(new Error('replace not confirmed'),{code:'timeout'});
+        if(luBackGone(scope))return;
+        luDocuments=luDocuments.map(old=>old.id===row.id?structuredClone(row):old);
+        if(luEditor?.id===id){luEditor.original=structuredClone(row);if(luEditor===editor)luEditOriginal={...luEditOriginal,...row};if(luEditCurrent(luEditor))luRenderEditFile()}
+        luRenderLibrary();
+        window.dispatchEvent(new CustomEvent('kptu:documents-changed'));
+        luReclassify(id);
+        say({text:`‘${label}’ 파일을 바꿨어요`});
+      }catch(e){
+        if(luBackGone(scope))return;
+        if(e?.code==='upload_cancelled'){say({text:'파일 교체를 취소했어요',ms:LU_BACK_FAIL_MS,actions:[{label:'다시 올리기',aria:'취소한 파일 다시 올리기',run:again}]});return}
+        const w=why(e);
+        if(job.phase!=='failed')job.fail(w.message);
+        if(w.retry)setUploadRetry(file,again);
+        say({text:`‘${label}’ 파일을 바꾸지 못했어요`,note:w.message,error:true,ms:0,actions:w.retry?[{label:'다시 올리기',aria:'바꾸지 못한 파일 다시 올리기',run:again}]:[]});
+        if(w.type==='drive_auth')await luMaybeReconnectDrive(e);
+      }finally{fd.delete('file');luBackSending.delete(file)}
+    }).catch(e=>console.error('library replace failed',e));
+    luBackTail=go;return go;
+  };
+  return run();
 }
 function luReclassify(id){void reclassifyLibraryDocument(id).catch(()=>{})}
 function luEditFields(){return {title:document.querySelector('#libraryEditTitle').value.trim(),category:document.querySelector('#libraryEditCategory').value.trim()||'기타',project_id:document.querySelector('#libraryEditProject').value||null,meeting_id:document.querySelector('#libraryEditMeeting').value||null,source:document.querySelector('#libraryEditSource').value.trim()||null,document_date:document.querySelector('#libraryEditDate').value||null,tags:document.querySelector('#libraryEditTags').value.split(',').map(x=>x.trim()).filter(Boolean),description:document.querySelector('#libraryEditDescription').value.trim()||null}}
@@ -1388,15 +1417,12 @@ async function luSaveEdit(){
   const key=luEditKey(editor),previous=luEditAttempts.get(key);
   if(previous?.pending||previous?.state==='unknown'){luEditNotice(editor,'앞선 저장 결과를 먼저 확인해 주세요.',!previous.pending);return}
   const values=luEditFields(),changed=Object.keys(values).filter(key=>JSON.stringify(values[key])!==JSON.stringify(editor.baseline[key]));
-  let replaced=false;
-  if(editor.replaceFile){
-    const saveButton=document.querySelector('#libraryEditSave');saveButton.disabled=true;
-    const row=await luReplaceStaged(editor,st);
-    if(!luEditCurrent(editor))return;
-    saveButton.disabled=false;
-    if(!row)return;
-    replaced=true;
-    if(!changed.length){luSetStatus(st,'파일을 바꿨습니다.',false);luClose('libraryEditModal');if(luEditSameScope(editor.scope)&&editor.view===luEditView)window.dispatchEvent(new CustomEvent('kptu:documents-changed'));luReclassify(editor.id);return}
+  // BIZ-저장먼저닫기 3차(S59-18): 정보(글) 먼저 저장하고 창을 닫는다. 고른 파일은 그 뒤 자료 등록 창과 같은 뒤 줄(luBackTail)에서 바꾼다(luReplaceBehind).
+  // 정보를 고치지 않았으면 기다릴 글이 없어 창을 바로 닫는다. 보내기 전에 알 수 있는 것(빈 파일·100MB 초과)은 창에서 알리고 아무것도 보내지 않는다.
+  const replaceFile=editor.replaceFile||null;
+  if(replaceFile){
+    const pre=luPreflightFailure(replaceFile);if(pre){luSetStatus(st,pre.message,true);return}
+    if(!changed.length){editor.replaceFile=null;luClose('libraryEditModal');luReplaceBehind(editor,replaceFile);return}
   }
   const body={meeting_id:values.meeting_id,updated_at:new Date().toISOString()};
   if(changed.some(key=>key!=='meeting_id')){for(const [key,value]of Object.entries(values))if(key!=='meeting_id')body[key]=changed.includes(key)?value:editor.original[key];body.auto_classified=false;body.classification_note='사용자 수정';const origin=originAfterEdit(editor.original,changed);if(origin)body.field_origin=origin}
@@ -1413,9 +1439,11 @@ async function luSaveEdit(){
     luDocuments=luDocuments.map(old=>old.id===row.id?structuredClone(row):old);
     const current=luEditor;
     if(current?.scope&&luEditKey(current)===key){current.original=structuredClone(row);current.baseline=structuredClone(request.values)}
+    // 정보가 저장됐다: 고른 파일은 창과 상관없이 뒤에서 바꾼다(그사이 창을 닫았거나 화면을 옮겼어도).
+    if(replaceFile){if(editor.replaceFile===replaceFile)editor.replaceFile=null;luReplaceBehind(editor,replaceFile)}
     if(!luEditCurrent(editor))return;
     luRenderLibrary();
-    if(replaced)luReclassify(editor.id);
+    if(replaceFile)luRenderEditFile();
     if(JSON.stringify(luEditDraft())===request.draft){st.textContent='수정했습니다.';st.className='status ok';luClose('libraryEditModal')}else luEditNotice(editor,'제출한 정보는 저장했습니다. 추가 입력은 남겨두었습니다.');
     if(luEditSameScope(editor.scope)&&editor.view===luEditView)window.dispatchEvent(new CustomEvent('kptu:documents-changed'));
   }catch(error){request.state=[401,403].includes(error?.status)?'rejected':'unknown';if(luEditSameScope(editor.scope)&&request.state==='rejected'&&luEditAttempts.get(key)===request)luEditAttempts.delete(key);luEditNotice(editor,request.state==='rejected'?'자료를 수정할 권한을 확인해 주세요. 입력은 유지했습니다.':'저장 결과를 확인하지 못했어요. 입력을 유지했어요.',request.state==='unknown')}

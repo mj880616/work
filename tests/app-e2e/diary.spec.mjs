@@ -310,7 +310,7 @@ test('같은 날은 하나: [+]는 있는 날을 수정으로, 날짜를 있는 
  expect(f.errors).toEqual([]);
 });
 
-// S52-21 DIARY-사진바로올리기: 사진은 고르자마자 올라가므로 실패도 [저장] 전에 그 사진 칸·상태 줄에 보이고, [저장]이 다시 올린다.
+// S52-21 DIARY-사진바로올리기: 사진은 고르자마자 올라가므로 실패도 [저장] 전에 그 사진 칸·상태 줄에 보이고, [저장]이 다시 올린다(S59-18부터는 창을 먼저 닫고 뒤에서).
 test('21장째는 넣지 않고 안내, 고르자마자 올리다 실패하면 올린 사진은 남고 [저장]으로 이어 올림',async({page})=>{
  const rows=store();rows[1].attachments=Array.from({length:18},(_,i)=>photo('p'+i));
  const f=await fixture(page,{rows,failUploadAt:2});await openDiary(page,390);
@@ -328,7 +328,8 @@ test('21장째는 넣지 않고 안내, 고르자마자 올리다 실패하면 �
  await expect(ed).toBeVisible();await expect(ed.locator('.diary-thumb.pending')).toHaveCount(1);
  expect(f.rows[1].attachments).toHaveLength(19);
  await ed.locator('[data-diary-save]').click();
- await expect(ed).toBeHidden();expect(f.rows[1].attachments).toHaveLength(20);
+ // BIZ-저장먼저닫기 3차(S59-18): [저장]하면 창은 먼저 닫히고 남은 사진은 뒤에서 그 일기로 이어 올라간다.
+ await expect(ed).toBeHidden();await expect.poll(()=>f.rows[1].attachments.length).toBe(20);
  expect(f.uploads.map(u=>u.note_id)).toEqual(['d3','d3','d3']);
  expect(f.errors).toEqual([]);
 });

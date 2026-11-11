@@ -6,7 +6,7 @@ import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
 import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,logSaveDetail} from './calendar-save-notice.js';
 import { createGoogleTask, syncEventAreas } from './quick-save.js';
 import { openAreaOrgPicker, dismissAreaOrgPicker, usedKeysNow, catalogAreas, areaTree, areaChipText } from './area-org-picker.js';
-import { taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, attachNewTaskFiles, newTaskFilesNotice } from './task-files.js';
+import { taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, sendTaskFilesBehind } from './task-files.js';
 import { eventFilesReady, sendEventFilesBehind } from './event-files.js'; // CAL-일정첨부: 새 일정도 같은 고르기 칸, 저장 뒤 뒤에서 올리기
 const CM_GOOGLE_DEFAULT='#4285f4';
 const CM_FALLBACK_EVENT_COLORS=['#a4bdfc','#7ae7bf','#dbadff','#ff887c','#fbd75b','#ffb878','#46d6db','#e1e1e1','#5484ed','#51b749','#dc2127'];
@@ -128,9 +128,10 @@ async function cmSaveTask(){
   const owner=cmOwner(),epoch=cmSession();if(!owner){cmStatus('로그인이 필요합니다.',true);return false}
   const prior=cmAttempts.get('task');if(!cmSaved&&prior?.owner===owner&&prior.epoch===epoch){if(prior.pending)cmStatus('앞선 할 일을 저장 중입니다. 결과를 기다려 주세요.');else cmUnknownNotice('task','앞선 할 일의 저장 결과를 확인해 주세요. 새로 만들지 않았어요.');return false}
   const body={title,due:document.querySelector('#eventStartDate').value||null,links:cmProject?[{project_id:cmProject}]:[],notes:document.querySelector('#eventDescription').value};
-  const r={owner,epoch,seq:cmFormEpoch,snapshot:cmSnapshot(),files:!cmSaved&&cmFilesOn?cmFiles?.files()||[]:[]},rt=cmRuntime();cmRequest=r;cmSavePending=true;cmSetBusy(true);cmPaintMode();cmStatus('할 일 저장 중…');let attempt=null,stage='body',filesNotice='';
-  // TASK-추가창파일: once the task exists, its chosen files go up (one request each). A failure keeps the task and is said.
-  const attachFiles=async task=>{const files=r.files;r.files=[];if(!files.length)return;if(cmActive(r))cmFiles?.clear();const result=await attachNewTaskFiles(task.id,files,{rt,onProgress:(i,n,f)=>{if(cmActive(r))cmStatus(`${f.name} 올리는 중… (${i+1}/${n})`)}});filesNotice=newTaskFilesNotice(result);if(filesNotice)cmToast(cmActive(r)?'할 일은 저장했습니다. 파일을 확인해 주세요.':filesNotice)};
+  const r={owner,epoch,seq:cmFormEpoch,snapshot:cmSnapshot(),files:!cmSaved&&cmFilesOn?cmFiles?.files()||[]:[]},rt=cmRuntime();cmRequest=r;cmSavePending=true;cmSetBusy(true);cmPaintMode();cmStatus('할 일 저장 중…');let attempt=null,stage='body';
+  // BIZ-저장먼저닫기 3차(S59-18): 할 일이 생기면 고른 파일은 그 할 일의 뒤 줄로 넘기고(task-files.js sendTaskFilesBehind) 창은 기다리지 않는다 —
+  // 진행·끝·못 올림·[다시 올리기]는 하단바 위 한 줄 하나(그래서 파일이 있으면 위쪽 '할 일을 추가했습니다' 알림은 띄우지 않는다).
+  const attachFiles=task=>{const files=r.files;r.files=[];if(!files.length)return;if(cmActive(r))cmFiles?.clear();r.handed=true;sendTaskFilesBehind({task,files,count:0,rt})};
   try{
     if(cmSaved?.kind==='task'&&cmSaved.unknown){
       if(cmSaved.unknown==='body'){const d=await cmCall(r,'/functions/v1/google-tasks?action=overview&pending_scope=all',{singleFlight:false});if(!cmActive(r))return false;const t=d?.tasks?.find(t=>t.id===cmSaved.record.id);if(!t)throw new Error('앞선 할 일 저장을 확인하지 못했어요.');cmSaved.body={title:t.title||'',notes:t.notes||'',due:t.due?String(t.due).slice(0,10):null,links:cmSaved.body?.links||[]}}
@@ -142,11 +143,11 @@ async function cmSaveTask(){
       if(!cmSaved){attempt={owner,epoch,body,pending:true};cmAttempts.set('task',attempt)}
       const d=cmSaved?await cmCall(r,'/functions/v1/google-tasks?action=update',{method:'POST',body:{action:'update',task_id:cmSaved.record.id,task_list_id:cmSaved.record.taskListId||'@default',...body}}):await createGoogleTask(body,{api:(path,options)=>cmCall(r,path,options)});
       if(attempt){attempt.pending=false;if(d?.ok===true&&d.task?.id)attempt.record=d.task}
-      if(!cmActive(r)){if(attempt&&cmSameSession(r)&&d?.ok===true&&d.task?.id&&!d.link_error)cmAttempts.delete('task');if(cmSameSession(r)&&d?.ok===true&&d.task?.id&&r.files.length){await attachFiles(d.task);window.KPTUGoogleTasks?.invalidateAfterCreate();window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'))}return false}
+      if(!cmActive(r)){if(attempt&&cmSameSession(r)&&d?.ok===true&&d.task?.id&&!d.link_error)cmAttempts.delete('task');if(cmSameSession(r)&&d?.ok===true&&d.task?.id&&r.files.length){attachFiles(d.task);window.KPTUGoogleTasks?.invalidateAfterCreate();window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'))}return false}
       if(d?.ok!==true||typeof d.task?.id!=='string'||!d.task.id||(cmSaved&&d.task.id!==cmSaved.record.id))throw new Error('할 일 저장 결과를 확인하지 못했어요.');
       if(!cmSaved)cmSaved={kind:'task',record:d.task,body,links:cmTaskLinks(d),managedProject:body.links[0]?.project_id||'',unknown:false};else{cmSaved.record=d.task;cmSaved.body=body}
-      await attachFiles(cmSaved.record);if(!cmActive(r))return false;
-      if(d.link_error){stage='links';const links=await cmCall(r,'/functions/v1/google-tasks?action=links&task_id='+encodeURIComponent(cmSaved.record.id),{singleFlight:false});if(!cmActive(r))return false;cmSaved.links=cmTaskLinks(links);cmStatus('할 일은 저장했습니다. 사업영역 연결을 확인한 뒤 저장해 주세요.'+(filesNotice?' '+filesNotice:''),true);return false}
+      attachFiles(cmSaved.record);if(!cmActive(r))return false;
+      if(d.link_error){stage='links';const links=await cmCall(r,'/functions/v1/google-tasks?action=links&task_id='+encodeURIComponent(cmSaved.record.id),{singleFlight:false});if(!cmActive(r))return false;cmSaved.links=cmTaskLinks(links);cmStatus('할 일은 저장했습니다. 사업영역 연결을 확인한 뒤 저장해 주세요.',true);return false}
     }
     if(!cmActive(r))return false;
     stage='links';const next=body.links[0]?.project_id||'',previous=cmSaved.managedProject;
@@ -155,12 +156,11 @@ async function cmSaveTask(){
     if(next&&!cmSaved.links.some(l=>l.project_id===next)||previous&&previous!==next&&cmSaved.links.some(l=>l.project_id===previous))throw new Error('연결 결과가 선택과 다릅니다.');
     cmSaved.managedProject=next;cmAttempts.delete('task');window.KPTUGoogleTasks?.invalidateAfterCreate();window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
     if(!cmActive(r))return false;
-    if(filesNotice){cmStatus(filesNotice,true);return true}
-    if(r.snapshot===cmSnapshot()){cmCloseModal();cmToast('할 일을 추가했습니다.')}else cmStatus('보낸 내용은 저장했어요. 이후 수정한 내용은 아직 저장하지 않았어요.');return true;
+    if(r.snapshot===cmSnapshot()){cmCloseModal();if(!r.handed)cmToast('할 일을 추가했습니다.')}else cmStatus('보낸 내용은 저장했어요. 이후 수정한 내용은 아직 저장하지 않았어요.');return true;
   }catch(e){
     if(attempt)attempt.pending=false;if(!cmActive(r))return false;
     const scope=/TASKS_SCOPE_REQUIRED|권한/.test(String(e.message||''));
-    if(cmSaved){cmSaved.unknown=stage; if(stage==='links'){try{const d=await cmCall(r,'/functions/v1/google-tasks?action=links&task_id='+encodeURIComponent(cmSaved.record.id),{singleFlight:false});if(!cmActive(r))return false;cmSaved.links=cmTaskLinks(d);cmSaved.unknown=false}catch{}}if(!cmActive(r))return false;cmStatus((stage==='links'?'할 일은 저장했습니다. 연결 결과를 확인해 주세요. ':'저장 결과를 확인하지 못했어요. ')+(e.message||String(e))+(filesNotice?' '+filesNotice:''),true)}
+    if(cmSaved){cmSaved.unknown=stage; if(stage==='links'){try{const d=await cmCall(r,'/functions/v1/google-tasks?action=links&task_id='+encodeURIComponent(cmSaved.record.id),{singleFlight:false});if(!cmActive(r))return false;cmSaved.links=cmTaskLinks(d);cmSaved.unknown=false}catch{}}if(!cmActive(r))return false;cmStatus((stage==='links'?'할 일은 저장했습니다. 연결 결과를 확인해 주세요. ':'저장 결과를 확인하지 못했어요. ')+(e.message||String(e)),true)}
     else if(scope){if(cmAttempts.get('task')===attempt)cmAttempts.delete('task');cmStatus('Google 할 일 권한을 다시 연결해 주세요. 입력은 유지했습니다.',true)}
     else cmUnknownNotice('task','저장 결과를 확인하지 못했어요. 입력은 유지했어요. '+(e.message||String(e)));return false;
   }finally{if(cmRequest===r){cmRequest=null;cmSavePending=false;if(cmSameSession(r)&&r.seq===cmFormEpoch){cmSetBusy(false);cmPaintMode()}}}

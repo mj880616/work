@@ -12,8 +12,7 @@ import {SIZE_BUTTONS, WIDE_QUERY, paintGrid, paintButtons, changeCols, attachPin
 import {putBack} from './photo-viewer-model.mjs';
 import {splitPictures} from './picture-file.mjs';
 // UI-올리기진행표시: 고른 사진 칸 위 막대 + %, 위쪽 합계 줄, 실패 [다시](공용 부품 하나).
-import {mountUploadRows, paintUploadOverlay, watchUploads, setUploadRetry, trackUpload, uploadJobs} from './upload-progress.js';
-import {percent} from './upload-send.mjs';
+import {mountUploadRows, paintUploadOverlay, watchUploads, setUploadRetry, trackUpload, uploadJobs, announceDock} from './upload-progress.js';
 // OD-크게보기: 크게 보기는 공용 부품(사진 메뉴와 같은 것).
 import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh} from './photo-strip.js';
 import {deleteNoteOriginal, offerUndoNotice} from './basket-record-delete.js';
@@ -734,7 +733,6 @@ function paintPendingUploads() {
   // 올라간 사진은 점선(올리기 전 표시)이 빠진다. 날짜는 올리는 동안 잠근다.
   editor.querySelectorAll('[data-diary-pending]').forEach(tile => { const entry = edit.pending[Number(tile.dataset.diaryPending)]; if (!entry) return; tile.classList.toggle('pending', !entry.up); paintUploadOverlay(tile, entry.file); });
   const date = editor.querySelector('[data-diary-date]'); if (date) date.disabled = dateLocked();
-  if (edit.waiting) setEditorStatus(waitText(edit));
 }
 watchUploads(paintPendingUploads);
 function releasePending() { edit?.pending.forEach(entry => URL.revokeObjectURL(entry.url)); }
@@ -752,13 +750,51 @@ const UPLOAD_AHEAD = 2;
 const sessionIds = session => new Set([...session.pending.filter(entry => entry.up).map(entry => entry.up.drive_file_id), ...session.dropped]);
 const keptPhotos = (session = edit) => { const mine = sessionIds(session); return diaryPhotos(session.row).filter(file => !mine.has(file.drive_file_id)); };
 const dateLocked = () => !!edit && (edit.busy || !!edit.pump || (!!edit.row && !edit.createdHere));
-const uploadsLeft = session => !!session.pump || session.pending.some(entry => !entry.up && !entry.failed);
-// [저장]을 누른 뒤 기다리는 줄: '사진 1/2 올리는 중 64%'(다 보낸 뒤 서버 답을 기다리면 '마무리 중…').
-function waitText(session) {
-  const total = session.pending.length, done = session.pending.filter(entry => entry.up).length;
-  const job = session.current ? uploadJobs().find(item => item.file === session.current.file) : null;
-  const state = job?.phase === 'finishing' ? '마무리 중…' : `${job ? percent(job.loaded, job.total) : 0}%`;
-  return `사진 ${Math.min(total, done + 1)}/${total} 올리는 중 ${state}`;
+// ── BIZ-저장먼저닫기 3차(S59-18, 요청함 'BIZ-저장먼저닫기' 할 일 4): [저장] 뒤 남은 사진은 창을 닫은 뒤 그 일기로 뒤에서 ──
+// 줄은 새로 만들지 않는다: 이 창의 사진 줄(pumpUploads·runUploads — 한 장씩, 다음 사진 미리 줄이기)을 창이 닫힌 뒤에도 그대로 돌린다(session.behind).
+// 화면을 옮겨도 끝까지 가고, 멈추는 것은 계정이 바뀔 때뿐(그때는 알리지도 않는다). 사진은 탭 메모리에만 있다. 차례를 기다리는 사진도 처음부터
+// '대기' 표시로 만들어(같은 묶음) 하단바 위 한 줄이 '사진 n장 올리는 중 n%'로 끝까지 한 방향으로 간다. 끝은 그 한 줄 하나(announceDock):
+// '일기에 사진 2장 올렸어요', 못 올렸으면 '일기에 사진 1장 못 올렸어요' + 까닭 + [다시 올리기](못 올린 것만, 누를 때까지 남음).
+// 올라간 사진의 코멘트는 다 올린 뒤 한 번 쓴다(코멘트는 올라간 사진의 Drive ID에 붙으므로). 저장하지 않고 닫은 창과 달리 올린 사진을 다시 빼지 않는다.
+const behindSessions = new Set();
+window.addEventListener('kptu:before-reload', event => { if (event?.detail && [...behindSessions].some(session => session.pump)) event.detail.otherDraft = true; });
+function sendBehind(session, list) {
+  session.behind = true; behindSessions.add(session);
+  session.note?.close(); session.note = null;
+  const group = {sent:0};
+  for (const entry of list) {
+    entry.failed = ''; entry.behind = true;
+    for (const job of uploadJobs()) if (job.file === entry.file && job.phase === 'failed') job.cancel();
+    entry.job = trackUpload({file:entry.file, name:entry.file.name, size:entry.file.size, waiting:true, group});
+  }
+  session.hold = false;
+  pumpUploads(session);
+}
+async function finishBehind(session) {
+  if (session.owner !== ownerScope(rt)) { behindSessions.delete(session); return; }
+  const done = session.pending.filter(entry => entry.behind && entry.up), left = session.pending.filter(entry => entry.behind && !entry.up);
+  let extra = '';
+  // 올라간 사진의 코멘트: 그 날 일기를 다시 읽어 그 사진 것만 더한다(다른 코멘트는 그대로).
+  const comments = {};
+  for (const entry of done) { const line = String(entry.comment ?? '').replace(/\s+/g, ' ').trim(); if (line) comments[entry.up.drive_file_id] = line; }
+  try {
+    let fresh = done.length ? await readDiaryDay(session.day, rt) : null;
+    if (fresh && Object.keys(comments).length) fresh = await saveDiaryComments(fresh, {...photoComments(fresh), ...comments}, rt);
+    if (session.owner !== ownerScope(rt)) { behindSessions.delete(session); return; }
+    if (fresh) { rows.set(fresh.journal_day, fresh); listDirty = true; if (!edit) { renderMonth(); if (selected === fresh.journal_day) renderDetail(); } }
+  } catch { extra = Object.keys(comments).length ? '사진 코멘트는 저장하지 못했어요. 일기를 열어 다시 적어 주세요.' : ''; }
+  for (const entry of done) { entry.behind = false; URL.revokeObjectURL(entry.url); }
+  session.pending = session.pending.filter(entry => !done.includes(entry));
+  const head = `${shortDay(session.day)} 일기에 `;
+  if (left.length) {
+    const retry = () => { if (session.owner !== ownerScope(rt) || session.pump) return; session.note?.close(); session.note = null; sendBehind(session, session.pending.filter(entry => entry.behind && !entry.up)); };
+    for (const entry of left) setUploadRetry(entry.file, retry);
+    session.note = announceDock({text:`${head}사진 ${left.length}장 못 올렸어요`, note:[done.length ? `사진 ${done.length}장 올렸어요` : '', left[0].failed, extra].filter(Boolean).join(' · '), error:true, ms:0,
+      actions:[{label:'다시 올리기', aria:'못 올린 사진 다시 올리기', run:retry}], onClose:why => { if (why === 'closed' && !session.pump) behindSessions.delete(session); }});
+    return;
+  }
+  behindSessions.delete(session);
+  if (done.length) session.note = announceDock(extra ? {text:`${head}사진 ${done.length}장 올렸어요`, note:extra, error:true, ms:0} : {text:`${head}사진 ${done.length}장 올렸어요`});
 }
 function pumpUploads(session = edit) {
   if (!session || session.discarded || session.pump) return session?.pump || null;
@@ -766,6 +802,7 @@ function pumpUploads(session = edit) {
     try { await runUploads(session); } catch { /* 한 장의 실패는 그 칸에 남고, 다른 일은 막지 않는다 */ }
     session.pump = null;
     if (session.discarded) await discardUploads(session);
+    else if (session.behind && !session.hold) await finishBehind(session);
     else if (edit === session) paintPendingUploads();
   })();
   return session.pump;
@@ -773,15 +810,19 @@ function pumpUploads(session = edit) {
 async function runUploads(session) {
   const alive = () => !session.discarded && session.owner === ownerScope(rt);
   while (alive()) {
+    // [저장]이 글을 쓰는 동안은 다음 사진을 보내지 않는다(같은 일기에 두 쓰기가 겹치면 서버가 늦은 쪽을 거절한다). 글이 저장되면 save()가 다시 돌린다.
+    if (session.hold) return;
     const queue = session.pending.filter(entry => !entry.up && !entry.failed), entry = queue[0];
     if (!entry) return;
     // 다음 사진은 미리 줄여 둔다(줄이는 동안 실패는 그 사진 차례에 알린다).
     for (const next of queue.slice(0, UPLOAD_AHEAD)) if (!next.photo) { next.photo = shrinkPhoto(next.file); next.photo.catch(() => {}); }
     if (!session.row && !await makeRow(session)) return;
+    if (session.hold) return;
     if (!alive() || !session.pending.includes(entry)) continue;
     session.current = entry;
-    // 차례가 오면 바로 막대를 보인다(줄이기가 남아 있어도 0%부터).
-    const job = trackUpload({file:entry.file, name:entry.file.name, size:entry.file.size});
+    // 차례가 오면 바로 막대를 보인다(줄이기가 남아 있어도 0%부터). 창을 닫은 뒤 뒤에서 올리는 사진은 미리 만든 '대기' 표시를 쓴다(묶음 %가 끝까지 한 방향).
+    const job = entry.job || trackUpload({file:entry.file, name:entry.file.name, size:entry.file.size});
+    entry.job = null; job.start?.();
     if (edit === session) paintPendingUploads();
     try {
       const sent = await uploadDiaryPhoto(session.row, entry.photo, {rt, isCurrent:alive, source:entry.file, job});
@@ -795,7 +836,7 @@ async function runUploads(session) {
       if (error?.code === 'note_save_result_unknown' && alive() && await recoverUpload(session, entry)) { job.cancel(); continue; }
       entry.failed = diaryUploadText(error);
       setUploadRetry(entry.file, () => { if (edit !== session || !session.pending.includes(entry)) return; entry.failed = ''; pumpUploads(session); });
-      if (edit === session && !session.busy) setEditorStatus(`'${entry.file.name}' 사진을 올리지 못했어요. ${entry.failed} [다시]를 눌러 주세요.`);
+      if (edit === session && !session.busy && !session.behind) setEditorStatus(`'${entry.file.name}' 사진을 올리지 못했어요. ${entry.failed} [다시]를 눌러 주세요.`);
     } finally {
       entry.photo = null;
       if (session.current === entry) session.current = null;
@@ -877,7 +918,7 @@ function closeEditor({fromBack = false, force = false} = {}) {
   if (edit.busy) return false;
   if (!force && dirty() && !window.confirm(CLOSE_TEXT)) return false;
   const session = edit;
-  releasePending(); dropField(); edit = null; discardSession(session); editor.hidden = true; editor.replaceChildren(); listDirty = true;
+  releasePending(); dropField(); edit = null; if (!session.behind) discardSession(session); editor.hidden = true; editor.replaceChildren(); listDirty = true;
   cal.hidden = false; renderList(); renderOdPanel(); $('[data-diary-new]').hidden = false; $('.diary-head').hidden = false; status.hidden = false;
   const opened = editLayer; editLayer = null; if (!fromBack) opened?.close();
   if (selected) renderDetail();
@@ -955,27 +996,22 @@ async function save() {
   if (!text.trim() && !edit.pending.length && !keptPhotos().length) return setEditorStatus('사진이나 글을 넣어 주세요.');
   const session = edit, run = owner, mine = () => run === ownerScope(rt) && edit === session;
   session.busy = true;
-  let failed = [];
   try {
-    // S52-21: 사진은 고를 때 이미 올라가고 있다. 남은 것만 기다린다(못 올린 사진은 한 번 더 올려 본다).
-    for (const entry of session.pending) if (entry.failed) { entry.failed = ''; for (const job of uploadJobs()) if (job.file === entry.file && job.phase === 'failed') job.cancel(); }
-    if (uploadsLeft(session)) {
-      session.waiting = true; renderEditor(waitText(session));
-      while (uploadsLeft(session) && mine()) await (pumpUploads(session) || Promise.resolve());
-      session.waiting = false;
-      if (!mine()) return;
-    }
+    // BIZ-저장먼저닫기 3차(S59-18): 사진은 고를 때 이미 올라가고 있다. [저장]은 남은 사진을 다 기다리지 않는다 — 지금 보내는 한 장만
+    // 끝나기를 기다리고(같은 일기에 두 쓰기가 겹치면 서버가 늦은 쪽을 거절한다) 다음 사진은 멈춘 채 글·코멘트를 저장한다. 저장되면 창을 닫고
+    // 남은 사진(못 올린 것은 한 번 더)은 그 일기로 뒤에서 이어 올린다(sendBehind). 글 저장이 실패하면 창은 그대로이고 사진은 창에서 이어 올린다.
+    session.hold = true;
     renderEditor('저장하는 중…');
+    if (session.pump) { await session.pump; if (!mine()) return; }
     const day = session.day;
-    failed = session.pending.filter(entry => entry.failed);
     let created = session.createdHere;
     if (!session.row) {
       try { session.row = await createDiary({day, text, doc:value}, rt); created = true; }
       catch (error) {
         if (error?.code !== 'diary_exists') throw error;
         const existing = await readDiaryDay(day, rt);
-        session.busy = false;
-        if (existing && mine()) return adoptExisting(existing, error.message);
+        session.busy = false; session.hold = false;
+        if (existing && mine()) { adoptExisting(existing, error.message); pumpUploads(session); return; }
         throw error;
       }
     }
@@ -994,8 +1030,8 @@ async function save() {
     const comments = {...cleanLive()};
     for (const entry of session.pending) { const line = String(entry.comment ?? '').replace(/\s+/g, ' ').trim(); if (entry.up && line) comments[entry.up.drive_file_id] = line; }
     const desired = text.trim() ? text : '';
-    if (fresh && created && !fresh.attachments?.length && !desired) {
-      // Nothing could be attached to a photo-only day: remove the empty row again.
+    if (fresh && created && !fresh.attachments?.length && !desired && !session.pending.some(entry => !entry.up)) {
+      // Nothing could be attached to a photo-only day: remove the empty row again (사진이 아직 뒤에서 올라갈 차례면 그 일기에 붙이므로 남긴다).
       await dropEmptyDiary(fresh, rt).catch(() => {});
       fresh = null; session.row = null;
     } else if (fresh && (created ? fresh.raw_text !== desired : changed) && (desired || fresh.attachments?.length)) {
@@ -1015,18 +1051,18 @@ async function save() {
     if (fresh) { rows.set(day, fresh); session.row = fresh; session.baseRaw = fresh.raw_text; session.baseDoc = fresh.doc ?? null; session.hadRow = true; session.baseJson = JSON.stringify(value); session.comments = photoComments(fresh); session.startComments = photoComments(fresh); } else rows.delete(day);
     session.busy = false;
     if (session.onSaved && text.trim()) { const done = session.onSaved; session.onSaved = null; try { done(); } catch { /* 제안 지우기는 다음에 */ } }
-    if (failed.length) {
-      renderEditor(`글은 저장했어요. 사진 ${failed.length}장은 올리지 못했어요. ${failed[0].failed} [다시]를 누르거나 [저장]을 다시 눌러 주세요.`);
-      for (const entry of failed) setUploadRetry(entry.file, () => { if (edit !== session || !session.pending.includes(entry)) return; entry.failed = ''; pumpUploads(session); });
-      return renderMonth();
-    }
+    // 아직 올라가지 않은 사진(못 올린 것 포함)은 창을 닫은 뒤 그 일기로 뒤에서 이어 올린다.
+    const left = session.pending.filter(entry => !entry.up);
+    if (left.length) sendBehind(session, left); else session.hold = false;
     closeEditor({force:true});
     if (monthOf(day) === monthKey()) { renderMonth(); selectDay(day); }
     else { const [y, m] = day.split('-').map(Number); cursor = {year:y, month:m - 1}; loadedMonth = ''; await loadMonth(); selectDay(day); }
     status.textContent = '일기를 저장했어요.';
   } catch (error) {
+    session.hold = false;
     if (edit !== session) return;
-    session.busy = false; session.waiting = false;
+    session.busy = false;
+    pumpUploads(session);
     renderEditor(error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : error?.message && !error.status ? error.message : '일기를 저장하지 못했어요. 다시 시도해 주세요.');
   }
 }

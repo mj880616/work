@@ -14,7 +14,7 @@ test.setTimeout(90000);
 test.use({hasTouch:true,isMobile:true,viewport:{width:412,height:915}});
 
 function slowServer(onBody){
- const state={pauseMs:40,done:0};
+ const state={pauseMs:40,done:0,fail:null};
  const server=http.createServer((req,res)=>{
   res.setHeader('access-control-allow-origin','*');res.setHeader('access-control-allow-headers','authorization,apikey,content-type');res.setHeader('access-control-allow-methods','POST,OPTIONS');
   if(req.method==='OPTIONS'){res.end();return;}
@@ -30,8 +30,10 @@ async function fixture(page,{rows=[]}={}){
  const errors=[],uploads=[],writes=[],prunes=[],noteDeletes=[];let n=0,stamp=10;
  page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource|net::ERR/.test(m.text()))errors.push(m.text());});
- const srv=await slowServer(raw=>{
+ let srv=null;
+ srv=await slowServer(raw=>{
   const sent=multipart(raw);uploads.push(sent);
+  if(srv?.state.fail?.(sent.name,uploads.filter(u=>u.name===sent.name).length))return {status:400,json:{error:'Drive 저장 실패',code:'drive_upload_failed'}};
   const row=rows.find(x=>x.id===sent.noteId);
   if(!row)return {status:404,json:{code:'note_not_found'}};
   row.attachments=[...row.attachments,{drive_file_id:'up'+uploads.length,file_name:sent.name,mime_type:'image/jpeg',size_bytes:sent.bytes}];
@@ -109,19 +111,84 @@ test('새 일기: 사진 2장을 고르자마자 막대·%가 차오르고, 글�
  expect(f.errors).toEqual([]);
 });
 
-test('올리는 중에 [저장]: "사진 1/2 올리는 중 n%"로 기다리는 것을 보이고, 다 올라가면 저장된다',async({page})=>{
+// BIZ-저장먼저닫기 3차(S59-18): 올리는 중에 [저장]해도 남은 사진을 다 기다리지 않는다. 지금 보내는 한 장만 끝나면 글이 저장되고 창이 닫히며,
+// 남은 사진은 그 일기로 뒤에서 이어 올라간다(아래 한 줄 '사진 n장 올리는 중' → '○월 ○일 일기에 사진 n장 올렸어요'). 예전에는 '사진 1/2 올리는 중'으로 다 기다렸다.
+async function saveWhileUploading(page){
  const f=await fixture(page);f.srv.state.pauseMs=80;
  await page.locator('#diaryRoot #newDiaryBtn').click();
  const ed=editorOf(page);
- await ed.locator('[data-diary-input]').setInputFiles(await photos(page,2));
+ await ed.locator('[data-diary-input]').setInputFiles(await photos(page,3));
  await expect(ed.locator('.diary-thumb .up-tile-over').first()).toBeVisible();
+ await typeInto(page,field(ed),'합성 일기 글');
+ await ed.locator('[data-diary-comment],[data-diary-pending-comment]').nth(2).fill('셋째 사진 코멘트');
  await ed.locator('[data-diary-save]').click();
- await expect(ed.locator('[data-diary-editor-status]')).toHaveText(/^사진 [12]\/2 (올리는 중 \d+%|올리는 중 마무리 중…)$/);
- await expect(ed).toBeHidden({timeout:30000});
+ await expect(ed).toBeHidden({timeout:15000});
+ // 글은 이미 저장됐고 남은 사진은 아직 다 올라가지 않았다.
+ const row=f.rows.find(r=>r.kind==='diary');
+ expect(row.raw_text).toBe('합성 일기 글');
+ expect(f.uploads.length).toBeLessThan(3);
  await expect(page.locator('#diaryRoot [data-diary-status]')).toHaveText('일기를 저장했어요.');
- expect(f.uploads).toHaveLength(2);
- expect(f.rows.find(r=>r.kind==='diary').attachments).toHaveLength(2);
- expect(f.errors).toEqual([]);
+ return {f,row};
+}
+for(const width of [412,1280]){
+ test.describe(`${width}`,()=>{
+  if(width===1280)test.use({hasTouch:false,isMobile:false,viewport:{width:1280,height:900}});
+  test(`올리는 중에 [저장]: 글이 먼저 저장되고 창이 닫히며, 남은 사진은 다른 화면으로 가도 그 일기로 끝까지 올라간다(${width})`,async({page})=>{
+   const {f,row}=await saveWhileUploading(page);
+   await page.evaluate(()=>window.KPTURouter.go('home',{source:'test'}));
+   const dock=page.locator('#uploadDock');
+   await expect(dock).toContainText('올리는 중');
+   await expect(dock).toContainText(/일기에 사진 \d장 올렸어요/,{timeout:45000});
+   expect(f.uploads).toHaveLength(3);
+   expect(f.uploads.map(u=>u.noteId)).toEqual([row.id,row.id,row.id]);
+   expect(row.attachments.map(a=>a.file_name)).toEqual(['IMG_1.jpg','IMG_2.jpg','IMG_3.jpg']);
+   // 뒤에서 올라간 사진의 코멘트도 그 사진에 붙는다.
+   await expect.poll(()=>row.metadata?.photo_comments?.[row.attachments[2].drive_file_id]).toBe('셋째 사진 코멘트');
+   expect(row.raw_text).toBe('합성 일기 글');
+   // 위쪽 작은 알림은 겹쳐 뜨지 않는다.
+   await expect(page.locator('#toast')).not.toContainText('사진');
+   expect(f.errors).toEqual([]);
+  });
+  test(`뒤에서 못 올린 사진은 아래 한 줄에 남고 [다시 올리기]는 그 사진만 같은 일기로 보낸다(${width})`,async({page})=>{
+   const {f,row}=await saveWhileUploadingFail(page);
+   const dock=page.locator('#uploadDock');
+   await expect(dock).toContainText('사진 1장 못 올렸어요',{timeout:45000});
+   await page.waitForTimeout(6500);
+   await expect(dock).toContainText('사진 1장 못 올렸어요');
+   await dock.getByRole('button',{name:'못 올린 사진 다시 올리기'}).click();
+   await expect(dock).toContainText('사진 1장 올렸어요',{timeout:30000});
+   expect(f.uploads.map(u=>u.name)).toEqual(['IMG_1.jpg','IMG_2.jpg','IMG_3.jpg','IMG_3.jpg']);
+   expect(row.attachments.map(a=>a.file_name)).toEqual(['IMG_1.jpg','IMG_2.jpg','IMG_3.jpg']);
+   expect(f.errors).toEqual([]);
+  });
+ });
+}
+async function saveWhileUploadingFail(page){
+ const f=await fixture(page);f.srv.state.pauseMs=120;f.srv.state.fail=(name,n)=>name==='IMG_3.jpg'&&n===1;
+ await page.locator('#diaryRoot #newDiaryBtn').click();
+ const ed=editorOf(page);
+ await ed.locator('[data-diary-input]').setInputFiles(await photos(page,3));
+ await typeInto(page,field(ed),'합성 글');
+ await ed.locator('[data-diary-save]').click();
+ await expect(ed).toBeHidden({timeout:15000});
+ return {f,row:f.rows.find(r=>r.kind==='diary')};
+}
+test('글 저장이 실패하면 창은 그대로이고, 사진은 창에서 이어 올린다(글을 다시 [저장]할 수 있음)',async({page})=>{
+ const rows=[{id:'d5',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-05',raw_text:'합성 글',doc:null,occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[],metadata:{}}];
+ const f=await fixture(page,{rows});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',async r=>{if(r.request().method()==='PATCH'&&r.request().postDataJSON()?.raw_text!==undefined)return r.fulfill({status:500,json:{message:'오류'}});return r.fallback();});
+ await page.locator('#diaryRoot [data-diary-day="2026-10-05"]').first().click();
+ await page.locator('#diaryRoot [data-diary-edit]').click();
+ const ed=editorOf(page);
+ await ed.locator('[data-diary-input]').setInputFiles(await photos(page,1));
+ await typeInto(page,field(ed),' 더함');
+ await ed.locator('[data-diary-save]').click();
+ await expect(ed.locator('[data-diary-editor-status]')).toContainText('저장하지 못했어요');
+ await expect(ed).toBeVisible();
+ await expect.poll(()=>f.uploads.length,{timeout:30000}).toBe(1);
+ expect(rows[0].raw_text).toBe('합성 글');
+ await expect(page.locator('#uploadDock',{hasText:'일기에'})).toHaveCount(0);
+ expect(f.errors.filter(e=>!/500/.test(e))).toEqual([]);
 });
 
 test('저장하지 않고 닫으면 이 창에서 올린 사진을 다시 뺀다: 있던 일기는 그 사진만 빼고 Drive 휴지통, 새 일기는 일기째 지움',async({page})=>{
