@@ -40,10 +40,16 @@ function world({sources, keywords, sites}) {
   return {calls, cron, fetch: doFetch};
 }
 
+// 기본 켬 매체 전부(자기 RSS 17곳 → 미디어오늘이 구글 뉴스 매체 단위로 옮겨 16곳 + 구글 뉴스 매체 단위 줄, S57-13).
+const DEFAULT_ON = ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain', 'news-newstapa',
+  'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun',
+  'news-newsis', 'news-sedaily', 'news-imaeil',
+  'news-mediatoday', 'news-worknworld', 'news-newsmin', 'news-redaily', 'news-busan'];
+
 test('카탈로그: 종합지는 기본 켬·다 받기(NEWS-다받기 11/09)·수집 때 본문 안 읽음, 주소는 https, 화면 목록에 on이 실림', () => {
-  for (const key of ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain', 'news-newstapa',
-    'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun',
-    'news-mediatoday', 'news-newsis', 'news-sedaily', 'news-imaeil']) {
+  // 기본 켬 매체는 이 목록과 정확히 같아야 한다(카탈로그에 줄을 더하면 여기도 고친다).
+  assert.deepEqual(C.NEWS_CATALOG.filter(x => x.on === true).map(x => x.key).sort(), [...DEFAULT_ON].sort());
+  for (const key of DEFAULT_ON) {
     const s = C.newsSourceByKey(key);
     assert.ok(s, key);
     assert.equal(s.on, true); assert.equal(s.take, 'all'); assert.equal(s.extract, false); assert.equal(s.region, 'domestic');
@@ -105,7 +111,7 @@ test('run_plan: 기본 켬 매체는 뉴스 쓰는 작업공간이 있을 때만
     return (await h(new Request(`${FN}?action=run_plan`, {method: 'POST', headers: {[H.CRON_HEADER]: SECRET, 'content-type': 'application/json'}, body: '{}'}))).json();
   };
   const on = await plan([], [{workspace_id: WS1, word: '철도'}]);
-  assert.deepEqual(on.media.sort(), ['news-chosun', 'news-donga', 'news-hani', 'news-hankyung', 'news-imaeil', 'news-jtbc', 'news-khan', 'news-mediatoday', 'news-mk', 'news-newsis', 'news-newstapa', 'news-nocut', 'news-ohmynews', 'news-sbs', 'news-sedaily', 'news-sisain', 'news-yna']);
+  assert.deepEqual(on.media.sort(), [...DEFAULT_ON].sort());
   const off = await plan([], []);
   assert.deepEqual(off.media, [], '뉴스를 안 쓰는 작업공간뿐이면 읽지 않음');
 });

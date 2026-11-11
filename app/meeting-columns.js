@@ -123,7 +123,8 @@ export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whe
 // 결과 창(meeting-round-detail.js)도 이 함수를 쓴다. 두 항목이 다 없으면(열 길·내려받을 길 없음) ⋯를 그리지 않는다.
 export function meetingFileFile(d){return {name:d?.file_name||d?.title||'',mime:d?.mime_type||'',documentId:d?.file_id?d.id:'',driveId:d?.file_id||'',driveUrl:d?.drive_url||''}}
 // extra: 부른 화면이 더하는 메뉴 단추 글(이미 이스케이프된 HTML, 예: 회의 결과 창의 [전사해서 결과에 넣기]).
-export function fileMoreHtml(d,name=d?.file_name||d?.title||'파일',extra=''){
-  const fa=meetingFileFile(d),items=menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu'})+String(extra||'');
+// rename: file-rename.js renameMenuAttrs(spec) 속성 문자열 — 있으면 [내려받기] 뒤 [이름 수정](FILE-이름고치기연필먹통: ⋯가 있는 줄은 ✎를 따로 두지 않는다).
+export function fileMoreHtml(d,name=d?.file_name||d?.title||'파일',extra='',rename=''){
+  const fa=meetingFileFile(d),items=menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu',rename})+String(extra||'');
   return items?`<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: ${esc(name)}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="file-line-more-panel" role="group" aria-label="파일 메뉴">${items}</div></details>`:'';
 }
