@@ -160,7 +160,9 @@ test('412: 서버 정리 결과(폰 앱·노트북 녹음)도 같은 길 — 입
   await expect(actionRows(page)).toHaveCount(0);
   await expect(page.locator('#meetingNotes')).toHaveValue(/합성 전문 한 줄/);
   // 저장하지 않고 닫고 다시 열면 들고 있던 후보는 버린다(다른 보고에 붙지 않게).
-  await page.locator('#meetingModal').getByRole('button',{name:'닫기'}).first().click();
+  // REC-한회의로잇기 PR-0: 쓰던 글이 있으면 닫기 전에 묻는다 → [닫기].
+  await page.locator('#meetingModal [data-close="meetingModal"]').click();
+  await page.locator('.kptu-ask').getByRole('button',{name:'닫기'}).click();
   await expect(page.locator('#meetingModal')).toBeHidden();
   await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeVisible();
   if(await page.locator('#meetingNameSelect').isVisible())await page.locator('#meetingNameSelect').selectOption('__other__');
