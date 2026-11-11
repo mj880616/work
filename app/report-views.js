@@ -27,7 +27,7 @@ export function calendarHtml(ctx) {
     const num = c.inMonth ? `<button type="button" class="rv-num${c.key === todayKey ? ' ds-today-num' : ''}" data-rv-day="${c.key}" aria-pressed="${c.key === selected}" aria-label="${esc(label)}">${c.day}</button>` : `<span class="rv-num rv-num-out" aria-hidden="true">${c.day}</span>`;
     const dots = plan.total ? `<span class="rv-dots" aria-hidden="true">${list.slice(0, 3).map(m => dot(colorOf(m))).join('')}</span>` : '';
     // BIZ-달력그날창: 칸에 4줄까지(cellPlan). 넘는 날만 마지막 줄 자리에 '+n' 단추 — 누르면 그날 창(team.js reportViewClick → calendar-day-overflow.js).
-    const titles = plan.shown.length ? `<ul class="rv-titles">${plan.shown.map(m => `<li><span class="rv-title" ${openAttrs(m.id)} title="${esc(nameOf(m))}">${dot(colorOf(m))}<span>${esc(nameOf(m))}</span></span></li>`).join('')}${plan.more ? `<li><button type="button" class="rv-more" data-rv-more="${c.key}" aria-haspopup="dialog" aria-label="${esc(`${dayHeading(c.key)} 사업 보고 ${plan.total}건 모두 보기`)}">+${plan.more}</button></li>` : ''}</ul>` : '';
+    const titles = plan.shown.length ? `<ul class="rv-titles">${plan.shown.map(m => `<li><span class="rv-title" ${openAttrs(m.id)} title="${esc(nameOf(m))}">${dot(colorOf(m))}<span>${esc(nameOf(m))}</span></span></li>`).join('')}${plan.more ? `<li><button type="button" class="row-act rv-more" data-rv-more="${c.key}" aria-haspopup="dialog" aria-label="${esc(`${dayHeading(c.key)} 사업 보고 ${plan.total}건 모두 보기`)}">+${plan.more}</button></li>` : ''}</ul>` : '';
     // S57-8 BIZ-달력우클릭끌기 ④: 이번 달 칸은 칸 전체가 '그날 고르기'(숫자·점·빈 곳·+n 어디든). 숫자 단추는 키보드·화면 읽기용으로 그대로 둔다.
     return `<td class="${cls}"${c.inMonth ? ` data-rv-cell="${c.key}"` : ''}>${num}${dots}${titles}</td>`;
   }).join('')}</tr>`).join('');
@@ -38,14 +38,14 @@ export function calendarHtml(ctx) {
 }
 
 // BIZ-달력그날창: '+n' 그날 창에 넣을 줄(창 자체는 일정 달력과 같은 calendar-day-overflow.js, 여닫기는 report-calendar-actions.js showReportDayWindow).
-// 줄마다 색 점·이름·시각, 맨 아래 [+ 이날 사업 보고 추가]. 줄은 칸 안 제목과 같은 data-mrd-meeting이라 우클릭 메뉴·끌어 옮기기가 같은 길이고,
+// 줄마다 색 점·이름·시각, 맨 아래 [+ 이날 사업 보고 추가](글자 버튼 row-act — 칸의 '+n'도 같은 글자 버튼). 줄은 칸 안 제목과 같은 data-mrd-meeting이라 우클릭 메뉴·끌어 옮기기가 같은 길이고,
 // data-rv-from은 끌어 옮길 때의 '원래 날'이다. ctx = {day, list(그날 보고, 이른 순), colorOf(m), nameOf(m)}
 export function dayWindowHtml({day, list, colorOf, nameOf}) {
   const rows = (Array.isArray(list) ? list : []).map(m => {
     const name = nameOf(m), time = m?.meeting_at ? seoulClock(m.meeting_at) : '';
     return `<li><div class="rv-pop-row" ${openAttrs(m.id)} data-rv-from="${esc(day)}" title="${esc(name)}" aria-label="${esc([time, name].filter(Boolean).join(' '))}">${dot(colorOf(m))}<span class="rv-pop-name">${esc(name)}</span>${time ? `<time class="rv-pop-time">${esc(time)}</time>` : ''}</div></li>`;
   }).join('');
-  return `<div class="rv-pop" data-rv-pop="${esc(day)}"><ul class="rv-pop-list">${rows}</ul><button type="button" class="rv-pop-add" data-rv-pop-add="${esc(day)}">+ 이날 사업 보고 추가</button></div>`;
+  return `<div class="rv-pop" data-rv-pop="${esc(day)}"><ul class="rv-pop-list">${rows}</ul><div class="rv-pop-foot"><button type="button" class="row-act rv-pop-add" data-rv-pop-add="${esc(day)}">+ 이날 사업 보고 추가</button></div></div>`;
 }
 
 // 사진. ctx = {rows, photos(Map), colorOf, nameOf, kindOf(m)}

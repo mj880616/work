@@ -60,7 +60,7 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
     ensureModal();
     const list=document.querySelector('#calendarDayList'),head=document.querySelector('#calendarDayTitle');
     head.textContent=title;
-    if(note){const small=document.createElement('small');small.className='kptu-day-note';small.textContent=note;head.append(small)}
+    if(note){const small=document.createElement('small');small.className='kptu-day-note';small.textContent=note;head.append(' ',small)}
     list.replaceChildren();fill?.(list);
     reveal(where);
   }

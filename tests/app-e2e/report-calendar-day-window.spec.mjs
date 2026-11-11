@@ -135,7 +135,7 @@ for (const width of [1280, 1440]) {
     expect((await cal.locator('.rv-table').boundingBox()).y).toBe(tableY);
     // 머리: '11.13.(금)' 모양 날짜 + '사업 보고 6', ✕. 줄: 색 점·이름·시각(이른 순). 맨 아래 [+ 이날 사업 보고 추가].
     const weekday = WEEKDAYS[new Date(Date.UTC(state.year, state.month, SIX)).getUTCDay()];
-    await expect(page.locator('#calendarDayTitle')).toHaveText(`${state.month + 1}.${SIX}.(${weekday})사업 보고 6`);
+    await expect(page.locator('#calendarDayTitle')).toHaveText(`${state.month + 1}.${SIX}.(${weekday}) 사업 보고 6`);
     await expect(page.locator('#calendarDayTitle .kptu-day-note')).toHaveText('사업 보고 6');
     await expect(win(page).locator('[data-close="calendarDayModal"]')).toBeVisible();
     await expect(rows(page).locator('.rv-pop-name')).toHaveText([1, 2, 3, 4, 5, 6].map(n => `예시 보고 ${n}`));

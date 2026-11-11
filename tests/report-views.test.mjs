@@ -99,8 +99,8 @@ test('달력 글: 이번 달 칸마다 칸 전체 누르기 표시(data-rv-cell)
   const six = cellOf(6);
   assert.equal((six.match(/class="rv-title"/g) || []).length, 3);
   assert.deepEqual([...six.matchAll(/<span>(보고\d)<\/span>/g)].map(x => x[1]), ['보고1', '보고2', '보고3']);
-  assert.match(six, /<li><button type="button" class="rv-more" data-rv-more="2026-10-12" aria-haspopup="dialog" aria-label="10월 12일 \(월\) 사업 보고 6건 모두 보기">\+3<\/button><\/li><\/ul><\/td>$/);
-  assert.match(cellOf(5), /class="rv-more"[^>]*>\+2<\/button>/);
+  assert.match(six, /<li><button type="button" class="row-act rv-more" data-rv-more="2026-10-12" aria-haspopup="dialog" aria-label="10월 12일 \(월\) 사업 보고 6건 모두 보기">\+3<\/button><\/li><\/ul><\/td>$/);
+  assert.match(cellOf(5), /class="row-act rv-more"[^>]*>\+2<\/button>/);
   // 점(폰 폭)은 그대로 3개까지.
   assert.equal((six.match(/<span class="rv-dots" aria-hidden="true">(.*?)<\/span><ul/)[1].match(/class="rv-dot"/g) || []).length, 3);
 });
@@ -196,7 +196,8 @@ test('그날 창 글: 머리 날짜, 줄마다 색 점·이름·시각(이른 �
   assert.equal((html.match(/<div class="rv-pop-row" role="button" tabindex="0" data-mrd-meeting="[^"]+" data-rv-from="2026-11-13"/g) || []).length, 2);
   assert.equal((html.match(/class="rv-dot" aria-hidden="true" style="--meeting-color:#808080"/g) || []).length, 2);
   assert.match(html, /<span class="rv-pop-name">늦은 &lt;보고&gt;<\/span>/); assert.match(html, /aria-label="19:00 늦은 &lt;보고&gt;"/);
-  assert.match(html, /<button type="button" class="rv-pop-add" data-rv-pop-add="2026-11-13">\+ 이날 사업 보고 추가<\/button><\/div>$/);
+  // '+n'과 추가 단추는 공용 글자 버튼(row-act) — 화면에서 새 버튼 모양을 만들지 않는다(UI-버튼6가지).
+  assert.match(html, /<div class="rv-pop-foot"><button type="button" class="row-act rv-pop-add" data-rv-pop-add="2026-11-13">\+ 이날 사업 보고 추가<\/button><\/div><\/div>$/);
   assert.doesNotMatch(dayWindowHtml({day: '2026-11-13', list: [{id: 'x', meeting_at: null}], colorOf: () => '', nameOf: () => '이름'}), /<time/);
 });
 test('그날 창 연결: 일정 달력과 같은 창 부품, 줄 누름·우클릭·끌기는 칸 안 제목과 같은 길, 다시 그릴 때도 한 길로 채움', () => {
