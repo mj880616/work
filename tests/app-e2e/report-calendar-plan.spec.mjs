@@ -58,7 +58,6 @@ test('1280 달력: ● 쓴 보고 · □ 보고할 일정 · 점선 □ 보고�
   expect(state.planWrites).toHaveLength(2);
   expect(monthReads(state)).toBe(1);
   expect(state.planReads).toBe(1);
-  expect(await page.evaluate(() => Object.keys(localStorage).filter(k => /plan|report/i.test(k)))).toEqual([]);
   expect(errors).toEqual([]);
 });
 

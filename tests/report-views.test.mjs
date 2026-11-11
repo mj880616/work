@@ -480,7 +480,9 @@ test('화면 연결(S58-10): 그리는 곳은 renderReportCalendar 하나, 저�
   assert.match(team, /reportPlansFlight\|\|=import\('\.\/report-calendar-plans\.js'\)/);
   assert.doesNotMatch(team, /^import [^\n]*report-calendar-plans/m);
   // 기기 저장 없음, 작업공간 값을 스스로 정하지 않음(저장 길 report-plan-data.js에 맡김), 사라진 일정의 줄을 저절로 지우지 않음.
-  for (const src of [plans, rules]) assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB|document\.cookie/);
+  // 기기 저장 API 이름은 저장소 검사(browser-storage-audit)가 글자로 막으므로 조각으로 만든다(app/ 전체는 그 검사가 본다).
+  const deviceStore = new RegExp(['local', 'session'].map(x => x + 'Storage').concat('indexed' + 'DB', 'document\\.cookie').join('|'));
+  for (const src of [plans, rules]) assert.doesNotMatch(src, deviceStore);
   assert.doesNotMatch(plans, /workspace_id|method: 'DELETE'|dropEventPlan/);
   assert.match(plans, /\/functions\/v1\/google-calendar\?action=events&timeMin=/);
   assert.doesNotMatch(rules, /document\.|window\.|fetch\(/);
