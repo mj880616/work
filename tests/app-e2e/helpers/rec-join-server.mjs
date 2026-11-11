@@ -8,7 +8,7 @@ import {appOrigin} from './test-origin.mjs';
 export const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 export const NOW='2026-11-11T02:30:00Z'; // 11:30(서울)
 export const id=(p,n)=>`00000000-0000-4000-8000-0000000000${p}${n}`;
-export const M1=id('c',1),M2=id('c',2),M3=id('c',3),M4=id('c',4),JOB1=id('b',1),JJ=n=>id('d',n);
+export const M1=id('c',1),M2=id('c',2),M3=id('c',3),M4=id('c',4),JOB1=id('b',1),JOBA=id('b',7),JJ=n=>id('d',n);
 export const BEFORE_RESULT='결정\n- 예시 앞 녹음 결정';
 export const FIRST_NOTES='예시 첫 녹음 전사 글입니다.';
 export const LATER_RESULT='결정\n- 예시 뒤 회의 결정';
@@ -32,6 +32,8 @@ export function makeState(){
     tasks:{},candidates:[],candidatePosts:[],joinRows:[],calls:[],meetingWrites:[],
     candidatesFor:{[M4]:[{meeting_id:M1,seconds:2280}]},
     joinListJobs:[],unknown:false,applyNow:false,refuse:{},jobId:0,
+    // PR-5: 서버 정리 작업(그 자리 전사 attached 등) id → 행, join_text로 받은 것, 화면 요약 부른 수
+    serverJobs:{},texts:[],draftCalls:0,
   };
 }
 export const joinView=r=>({id:r.id,mode:r.mode,status:r.status,stage:r.stage,step_no:r.step_no||0,step_total:r.step_total||1,error_code:r.error_code||null,target_meeting_id:r.target_meeting_id,
@@ -41,7 +43,7 @@ const meetingOf=(s,mid)=>s.meetings.find(x=>x.id===mid);
 // DB 함수 app_meeting_join_apply 흉내: 두 글 칸 바꾸기(+ 합치기면 자료를 옮기고 없어질 보고를 휴지통으로).
 export function apply(s,row){
   const m=meetingOf(s,row.target_meeting_id),src=row.source_meeting_id?meetingOf(s,row.source_meeting_id):null;
-  const merged=`${m.notes}\n\n― 이어서 · 11:05 녹음 ―\n${src?src.notes:'예시 둘째 전사 글입니다.'}`;
+  const merged=`${m.notes}\n\n― 이어서 · 11:05 녹음 ―\n${src?src.notes:row.source_text||'예시 둘째 전사 글입니다.'}`;
   Object.assign(row,{before_result:m.transcript_text,before_notes:m.notes,result_text:RESULT,draft:DRAFT,transcript_text:merged,status:'done',stage:'done',applied_at:'2026-11-11T02:31:00Z',finished_at:'2026-11-11T02:31:00Z',moved:[]});
   Object.assign(m,{transcript_text:RESULT,notes:merged,updated_at:'2026-11-11T02:31:00.654321+00:00'});
   if(src){
@@ -74,13 +76,14 @@ export async function mock(page,s,extra=null){
       if(method!=='GET'){s.meetingWrites.push({method,search:url.search});return ok([])}
       const ids=(q.get('id')||'').match(/^in\.\((.*)\)$/)?.[1]?.split(',')||(eq('id')?[eq('id')]:null);
       let rows=s.meetings.filter(m=>!m.deleted_at&&(!ids||ids.includes(m.id))); // 휴지통 보고는 보이지 않음
-      if(q.get('notes')==='neq.')rows=rows.filter(m=>String(m.notes||'')!=='');
+      if(q.getAll('notes').includes('neq.'))rows=rows.filter(m=>String(m.notes||'')!==''); // 회의록 전문이 있는 보고만(글은 받지 않음)
       const from=q.getAll('meeting_at').find(v=>v.startsWith('gte.'))?.slice(4),to=q.getAll('meeting_at').find(v=>v.startsWith('lt.'))?.slice(3);
       if(from)rows=rows.filter(m=>Date.parse(m.meeting_at)>=Date.parse(from));
       if(to)rows=rows.filter(m=>Date.parse(m.meeting_at)<Date.parse(to));
       return ok(rows);
     }
     if(path==='/rest/v1/app_documents'){const mid=eq('meeting_id');return ok(method==='GET'?s.docs.filter(d=>!mid||d.meeting_id===mid):[])}
+    if(path==='/rest/v1/app_meeting_server_jobs'){const j=s.serverJobs[eq('id')];return ok(j?[{id:j.id,kind:j.kind}]:[])}
     if(path==='/rest/v1/app_meeting_join_jobs'){
       const jid=eq('id'),target=eq('target_meeting_id');
       let rows=s.joinRows.filter(r=>(!jid||r.id===jid)&&(!target||r.target_meeting_id===target));
@@ -95,6 +98,8 @@ export async function mock(page,s,extra=null){
       const action=q.get('action');
       const body=action==='rec_piece'||action==='join_text'?null:(()=>{try{return JSON.parse(req.postData()||'{}')}catch{return {}}})();
       s.calls.push({action,body});
+      if(action==='job_start'){const j=Object.values(s.serverJobs).find(x=>x.document_id===body.document_id);return ok({ok:true,job:{...j,status:'queued',stage:'combine'}})}
+      if(action==='job_read')return ok({ok:true,job:s.serverJobs[body.job_id]});
       const unknown=()=>ok({ok:false,code:'bad_request',error:'요청을 확인하지 못했어요.'},400); // 옛 Edge: 모르는 action
       if(action==='rec_pending')return ok({ok:true,sessions:[],live:[]});
       if(action==='job_list')return ok({ok:true,jobs:[]});
@@ -107,6 +112,15 @@ export async function mock(page,s,extra=null){
         const report=!!body.source?.meeting_id;
         const row={id:JJ(++s.jobId),mode:report?'report':'job',status:'queued',stage:'summary',step_no:0,step_total:1,target_meeting_id:body.target_meeting_id,
           source_job_id:report?null:body.source.job_id,source_meeting_id:report?body.source.meeting_id:null,created_at:NOW};
+        s.joinRows.push(row);return ok({ok:true,job:joinView(row)});
+      }
+      if(action==='join_text'){
+        // 몸통 = 전사 글 그대로, 머리글 = 고른 보고 id·붙일 녹음 작업 id(작업공간·소유 값은 싣지 않음).
+        const h=req.headers(),target=h['x-target-meeting-id'];
+        s.texts.push({target,records:h['x-record-jobs']||'',type:h['content-type']||'',body:req.postData()||'',workspace:h['x-workspace-id']||''});
+        const refuse=s.refuse[target];
+        if(refuse)return ok({ok:false,code:refuse.code,error:refuse.error},refuse.status);
+        const row={id:JJ(++s.jobId),mode:'text',status:'queued',stage:'summary',step_no:0,step_total:1,target_meeting_id:target,source_text:req.postData()||'',created_at:NOW};
         s.joinRows.push(row);return ok({ok:true,job:joinView(row)});
       }
       if(action==='join_read'){
@@ -127,6 +141,7 @@ export async function mock(page,s,extra=null){
       if(q.get('action')==='linked')return ok({tasks:s.tasks[q.get('meeting_id')]||[],needs_reconnect:false});
       s.calls.push({action:'google-tasks:'+q.get('action')});return ok({tasks:[],needs_reconnect:false});
     }
+    if(path==='/functions/v1/meeting-ai-draft'){s.draftCalls++;return ok({ok:true,draft:{decisions:'화면이 요약한 예시 결정',information:'',actions:[],attendees:[]},warnings:[]})}
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[]});
     if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
