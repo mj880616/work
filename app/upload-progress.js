@@ -34,7 +34,8 @@ function changed() {
 // going: 지금 보내는 중·마무리 중. live: 차례를 기다리는 것(waiting)까지 — 합계 줄·하단 한 줄이 세는 것.
 const going = job => job.phase === 'sending' || job.phase === 'finishing';
 const live = job => going(job) || job.phase === 'waiting';
-// 보낸 양·전체: 살아 있는 것 + 그 묶음이 이미 다 올린 양(묶음의 %가 파일이 끝날 때마다 0으로 돌아가지 않게).
+// 하단 한 줄의 보낸 양·전체: 살아 있는 것 + 그 묶음이 이미 다 올린 양(묶음의 %가 파일이 끝날 때마다 0으로 돌아가지 않게).
+export function uploadTotals(list = uploadJobs().filter(live)) { return sums(list); }
 function sums(list) {
   let total = 0, loaded = 0; const groups = new Set();
   for (const job of list) { total += job.total || 0; loaded += job.phase === 'finishing' ? job.total : job.loaded; if (job.group) groups.add(job.group); }
@@ -178,11 +179,11 @@ function paintRow(row, job) {
   }
   row.title = job.phase === 'failed' && job.message ? job.message : '';
 }
-// 합계 줄: 보내는 중·마무리 중·차례를 기다리는 것만 센다.
+// 합계 줄: 보내는 중·마무리 중·차례를 기다리는 것만 센다(그 칸에 남은 것의 양 — 묶음 전체의 %는 하단 한 줄이 맡는다).
 export function summaryText(list) {
   const open = list.filter(live);
   if (!open.length) return '';
-  const {total, loaded} = sums(open);
+  const total = open.reduce((sum, job) => sum + (job.total || 0), 0), loaded = open.reduce((sum, job) => sum + (job.phase === 'finishing' ? job.total : job.loaded), 0);
   const all = open.every(job => job.phase === 'finishing');
   return `올리는 중 ${open.length}개 · ${amount(loaded)} / ${amount(total)} · ${all ? '마무리 중…' : percent(loaded, total) + '%'}`;
 }
@@ -349,6 +350,8 @@ function paintDock() {
   const away = open.filter(job => !covered(job));
   if (away.length) {
     clearTimeout(dock.endTimer); dock.endTimer = null;
+    // 끝 알림이 떠 있었다면 진행 줄에 자리를 내주는 동안 보이는 시간을 세지 않는다(가려진 채 사라지지 않게 — 다시 보일 때 처음부터 센다).
+    if (dock.painted) { clearTimeout(dock.painted.timer); dock.painted.timer = null; }
     const node = dockNode(); dock.shown = true; dock.painted = null; dock.back = away[0].back || dock.back;
     const {total, loaded} = sums(open);
     const finishing = open.every(job => job.phase === 'finishing'), slow = open.some(job => job.slow);

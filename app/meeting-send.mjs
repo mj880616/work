@@ -4,6 +4,7 @@
 // - 파일은 그 탭 메모리에만 둔다(기기 저장소 없음). 한 번에 하나만 읽어 보낸다(폰 메모리).
 // - 놓은 그 사업 보고 id로 올린다. 화면(메뉴)을 옮겨도 멈추지 않는다. 멈추는 것은 계정·작업공간이 바뀔 때뿐(gone).
 // - 못 올린 파일만 [다시 올리기]. 결과를 확인하지 못한 파일(이미 붙었을 수 있음)은 저절로 다시 보내지 않고, 확인을 받은 것만 보낸다.
+//   ✕로 취소한 파일은 못 올린 파일과 섞어 다시 보내지 않는다(잘못 고른 사진을 뺀 것일 수 있다) — 못 올린 것이 없을 때만 취소한 것을 다시 올릴 수 있다.
 // - 폰 앱 뒤에서 올리기(APP-뒤에서올리기 PR-2)가 끼어드는 자리는 run()의 handoff 한 곳이다: handoff(target, items)가 {ok:true}를 돌려주면
 //   화면 안 올리기를 건너뛴다. items = [{file, fields}] — fields는 사진일 때만(제목·종류·날짜), app-upload.js appUpload().send가 받는 모양 그대로.
 // 화면·서버를 모르는 순수 부품이라 단위 시험으로 본다(deps로 받음).
@@ -113,15 +114,18 @@ export function createMeetingSend({line, upload, isPhoto, track = () => null, cl
       stand(batch);
       return batch;
     },
-    /** [다시 올리기]: 못 올린 파일만(올라간 것은 다시 보내지 않는다). 결과 불명은 확인을 받은 것만. */
+    /** [다시 올리기]: 못 올린 파일만(올라간 것은 다시 보내지 않는다). 결과 불명은 확인을 받은 것만. 못 올린 것이 없으면 ✕로 취소한 것을 다시. */
     async retry(batch) {
       if (!batch || !batches.has(batch) || live(batch) || gone(batch.scope)) return false;
-      const unknown = batch.entries.filter(e => e.state === 'unknown');
-      const include = unknown.length ? await confirmUnknown(unknown.length).catch(() => false) : false;
+      const bad = batch.entries.filter(e => BAD.has(e.state) && !e.fixed);
+      const pool = bad.length ? bad : batch.entries.filter(e => e.state === 'cancelled');
+      const unknown = pool.filter(e => e.state === 'unknown');
+      const include = unknown.length ? await Promise.resolve(confirmUnknown(unknown.length)).catch(() => false) : false;
       if (!batches.has(batch) || live(batch) || gone(batch.scope)) return false;
-      const list = batch.entries.filter(e => again(e) && (e.state !== 'unknown' || include));
+      const list = pool.filter(e => LEFT.has(e.state) && (e.state !== 'unknown' || include));
       if (!list.length) { tell({type: 'kept', batch, ...tally(batch)}); return false; }
-      for (const e of list) { e.state = 'waiting'; e.message = ''; e.job = track(e.file, batch); }
+      // 옛 '실패' 표시는 지우고 새 표시(대기)로 바꾼다(같은 파일 줄이 실패·대기 두 줄로 겹치지 않게).
+      for (const e of list) { try { e.job?.cancel?.(); } catch { /* 표시뿐 */ } e.state = 'waiting'; e.message = ''; e.job = track(e.file, batch); }
       tell({type: 'queued', batch, ...tally(batch), again: true});
       stand(batch);
       return true;

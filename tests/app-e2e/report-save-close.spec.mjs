@@ -219,7 +219,42 @@ test('차례를 기다리는 파일의 ✕: 그 파일만 보내지 않고 나�
   await expect.poll(()=>state.uploads.length).toBe(2);
   expect(state.uploads.map(u=>u.name)).toEqual(['사진1.jpg','자료.hwp']);
   await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 1장·자료 1개 올렸어요 · 1개 취소');
-  await expect(dock(page).getByRole('button',{name:'못 올린 파일 다시 올리기'})).toBeVisible();
+  // 못 올린 것이 없으므로 [다시 올리기]는 취소한 그 파일을 다시 올린다.
+  const again=dock(page).getByRole('button',{name:'취소한 파일 다시 올리기'});
+  await expect(again).toHaveText('다시 올리기');
+  await again.click();
+  await expect.poll(()=>state.uploads.length).toBe(3);
+  expect(state.uploads[2].name).toBe('사진2.jpg');
+  await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 2장·자료 1개 올렸어요');
+  expect(state.errors).toEqual([]);
+});
+
+test('상세 줄의 [다시]로 다시 올려도 하단 못 올림 알림이 남지 않고, 같은 파일 줄이 겹치지 않는다 412px',async({page})=>{
+  const state=await boot(page,412);
+  state.failNames.add('사진2.jpg');
+  await fillReport(page,{photos:2});
+  await page.locator('#saveMeetingBtn').click();
+  await expect(page.locator('#meetingModal')).toBeHidden();
+  await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 1장 못 올렸어요');
+  // 그 보고를 열면 못 올린 사진이 사진 칸에 '실패' 줄로 남아 있다.
+  await openMeetingResult(page,NEW_ID);
+  const rows=page.locator('#mrdPhotoRows .up-row');
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText('사진2.jpg');
+  await expect(rows).toContainText('실패');
+  state.failNames.clear();state.hold=true;
+  await page.getByRole('button',{name:'사진2.jpg 다시 올리기'}).click();
+  await expect.poll(()=>state.uploads.length).toBe(4);
+  // 다시 줄 서면 하단의 '못 올렸어요' 알림은 닫히고, 그 파일 줄은 하나뿐이다(실패 줄 + 올리는 줄로 겹치지 않음).
+  await expect(dock(page).getByRole('button',{name:'못 올린 파일 다시 올리기'})).toHaveCount(0);
+  await expect(page.locator('#uploadDock:not([hidden])[data-state="note"]')).toHaveCount(0);
+  await expect(rows).toHaveCount(1);
+  await expect(rows).not.toContainText('실패');
+  state.releaseAll();
+  await expect(page.locator('#mrdPhotosHead')).toHaveText('사진 2');
+  await expect(rows).toHaveCount(0);
+  await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 2장·자료 1개 올렸어요');
+  expect(state.uploads[3].name).toBe('사진2.jpg');
   expect(state.errors).toEqual([]);
 });
 

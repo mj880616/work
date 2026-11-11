@@ -92,6 +92,8 @@ test('못 올린 파일만 [다시 올리기]: 올라간 것은 다시 보내지
   await batch.settled;
   calls = s.jobs.length - before;
   assert.equal(calls, 1, '못 올린 파일 하나만 다시 표시를 만든다');
+  assert.equal(s.jobs[1].cancelled(), true, "옛 '실패' 표시는 지운다(같은 파일이 실패·대기 두 줄로 겹치지 않게)");
+  assert.deepEqual([s.jobs[0].cancelled(), s.jobs[2].cancelled()], [false, false]);
   const again = s.events.at(-1);
   assert.deepEqual([again.okPhotos, again.okFiles, again.badPhotos, again.sent, again.retry], [2, 1, 0, 1, false]);
   assert.equal(await s.send.retry(batch), false, '다 올라간 묶음은 다시 올리지 않는다');
@@ -152,7 +154,27 @@ test('✕로 취소한 파일(대기·보내는 중)은 건너뛰고 다음 파�
   assert.deepEqual(s.sent, ['p3.jpg']);
   const done = s.events.at(-1);
   assert.deepEqual([done.okPhotos, done.badPhotos, done.cancelled, done.retry], [1, 0, 2, true], '취소한 것은 못 올린 것과 따로 센다');
-  assert.equal(await s.send.retry(batch), true, '취소한 파일도 [다시 올리기]로 다시 보낼 수 있다');
+  assert.equal(await s.send.retry(batch), true, '못 올린 것이 없으면 취소한 파일을 [다시 올리기]로 다시 보낼 수 있다');
+});
+
+test('✕로 취소한 파일은 못 올린 파일과 섞어 다시 보내지 않는다', async () => {
+  let broken = true;
+  const s = setup({upload: async (t, f) => { if (f.name === 'p3.jpg' && broken) throw Object.assign(new Error('x'), {status: 500}); s.sent.push(f.name); return {}; },
+    classify: () => ({kind: 'error', message: '실패'})});
+  const batch = s.send.send(target, [photo(1), photo(2), photo(3)]);
+  s.jobs[1].cancel(); // 잘못 고른 사진을 뺌
+  await batch.settled;
+  assert.deepEqual(s.sent, ['p1.jpg']);
+  assert.deepEqual([s.events.at(-1).badPhotos, s.events.at(-1).cancelled], [1, 1]);
+  broken = false;
+  assert.equal(await s.send.retry(batch), true);
+  await batch.settled;
+  assert.deepEqual(s.sent, ['p1.jpg', 'p3.jpg'], '못 올린 사진만 다시 — 뺀 사진은 보내지 않는다');
+  const done = s.events.at(-1);
+  assert.deepEqual([done.okPhotos, done.badPhotos, done.cancelled, done.retry], [2, 0, 1, true], '뺀 사진은 취소로 남고, 원하면 그것만 다시 올릴 수 있다');
+  assert.equal(await s.send.retry(batch), true);
+  await batch.settled;
+  assert.deepEqual(s.sent, ['p1.jpg', 'p3.jpg', 'p2.jpg']);
 });
 
 test('계정·작업공간이 바뀌면 남은 파일을 보내지 않고 알리지도 않는다', async () => {
@@ -197,7 +219,7 @@ test('폰 앱 다리가 받으면(handoff ok) 화면 안 올리기를 건너뛴�
   assert.deepEqual(broke.sent, ['p1.jpg', 'a.pdf']);
 });
 
-test('파일이 없으면 줄을 세우지 않는다 · 알림을 닫으면 못 올린 파일을 놓는다', async () => {
+test('파일이 없으면 줄을 세우지 않는다 · forget은 못 올린 파일을 놓는다(그 뒤 다시 올리기 없음)', async () => {
   const s = setup({upload: async () => { throw new Error('x'); }, classify: () => ({kind: 'error', message: '실패'})});
   const empty = s.send.send(target, []);
   await empty.settled;

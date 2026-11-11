@@ -613,7 +613,9 @@ luSetUploadOrg(job.org);luSetUploadMeeting(job.meeting);luSetUploadFolder(job.fo
 // 끝까지, 줄은 메모리뿐). 차례를 기다리는 파일도 처음부터 올리는 중 표시에 있어, 다른 화면에서는 하단바 위 한 줄이 묶음 전체의 %로 끝까지 가고 그 보고를 다시 열면
 // 사진·회의자료 칸에 올리는 줄이 보인다(meetingSending이 열쇠). 끝은 그 한 줄에 '사진 n장·자료 n개 올렸어요', 못 올렸으면 까닭 + [다시 올리기](못 올린 파일만).
 // 폰 앱 뒤에서 올리기(APP-뒤에서올리기 PR-2)는 여기 createMeetingSend에 handoff 한 칸(app-upload.js appUpload().send)을 더하면 된다 — fields가 사진 칸을 만든다.
-const luMeetingGroups=new WeakMap();
+const luMeetingGroups=new WeakMap(),luMeetingNotes=new WeakMap();
+// 묶음의 끝 알림은 하나만: 다시 줄 서면(하단 [다시 올리기]든 상세 줄의 [다시]든) 떠 있던 알림을 닫는다(다 올라간 뒤에도 '못 올렸어요'가 남지 않게).
+const luMeetingNote=(batch,options)=>{luMeetingNotes.get(batch)?.close();if(options)luMeetingNotes.set(batch,announceDock(options));else luMeetingNotes.delete(batch)};
 const luShowReport=id=>{void openReport(id).catch(e=>console.warn('report open failed',e))};
 const luMeetingSend=createMeetingSend({
   line:work=>{const run=luBackTail.then(work).catch(e=>{console.error('report background upload failed',e)});luBackTail=run;return run},
@@ -629,16 +631,17 @@ function luMeetingSendReport(ev){
   const {batch}=ev,t=batch.target,back=()=>luShowReport(t.id),retry=()=>{void luMeetingSend.retry(batch)};
   // 올라간 파일 하나: 그 보고를 보고 있으면 사진·회의자료 칸이 바로 채워지게 가볍게 알린다(목록 전체를 다시 읽는 kptu:documents-changed는 묶음이 끝날 때 한 번).
   if(ev.type==='file'){if(ev.entry?.state==='done')window.dispatchEvent(new CustomEvent('kptu:meeting-file-sent',{detail:{meeting_id:t.id}}));return}
-  if(ev.type==='kept'){announceDock({text:'확인하지 못한 파일은 다시 올리지 않았어요',note:'사업 보고를 열어 붙었는지 확인한 뒤 다시 올려 주세요.',error:true,back,ms:0,actions:[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]});return}
+  if(ev.type==='queued'){luMeetingNote(batch,null);return}
+  if(ev.type==='kept'){luMeetingNote(batch,{text:'확인하지 못한 파일은 다시 올리지 않았어요',note:'사업 보고를 열어 붙었는지 확인한 뒤 다시 올려 주세요.',error:true,back,ms:0,actions:[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]});return}
   if(ev.type!=='done')return;
   if(ev.sent){if(t.project_id)window.KPTUDriveSummary?.saved?.();window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:t.project_id||null,meeting_id:t.id}}))}
   // 못 올린 줄의 [다시]도 같은 길(못 올린 것만). 다시 골라야 하는 파일·결과 불명에는 붙이지 않는다.
   if(ev.retry)for(const e of batch.entries)if((e.state==='failed'||e.state==='held')&&!e.fixed)setUploadRetry(e.file,retry);
-  const bad=ev.badPhotos+ev.badFiles,ok=ev.okPhotos+ev.okFiles,again=ev.retry?[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]:[];
+  const bad=ev.badPhotos+ev.badFiles,ok=ev.okPhotos+ev.okFiles,again=ev.retry?[{label:'다시 올리기',aria:bad?'못 올린 파일 다시 올리기':'취소한 파일 다시 올리기',run:retry}]:[];
   // 못 올린 것이 있으면 한 줄은 짧게('사진 2장 못 올렸어요'), 작은 둘째 줄에 올라간 것과 까닭. 누를 때까지 남는다(저절로 사라지면 못 올린 줄 모르고 지나간다).
-  if(bad)announceDock({text:sendFailLine({badPhotos:ev.badPhotos,badFiles:ev.badFiles}),note:[sendDoneLine({photos:ev.okPhotos,files:ev.okFiles}),ev.message].filter(Boolean).join(' · '),error:true,back,ms:0,actions:again});
-  else if(ev.cancelled)announceDock({text:ok?`${sendDoneLine({photos:ev.okPhotos,files:ev.okFiles})} · ${ev.cancelled}개 취소`:'올리기를 취소했어요',back,ms:LU_BACK_FAIL_MS,actions:again});
-  else if(ok)announceDock({text:sendDoneLine({photos:ev.okPhotos,files:ev.okFiles}),back});
+  if(bad)luMeetingNote(batch,{text:sendFailLine({badPhotos:ev.badPhotos,badFiles:ev.badFiles}),note:[sendDoneLine({photos:ev.okPhotos,files:ev.okFiles}),ev.message].filter(Boolean).join(' · '),error:true,back,ms:0,actions:again});
+  else if(ev.cancelled)luMeetingNote(batch,{text:ok?`${sendDoneLine({photos:ev.okPhotos,files:ev.okFiles})} · ${ev.cancelled}개 취소`:'올리기를 취소했어요',back,ms:LU_BACK_FAIL_MS,actions:again});
+  else if(ok)luMeetingNote(batch,{text:sendDoneLine({photos:ev.okPhotos,files:ev.okFiles}),back});
   if(ev.stopped?.type==='drive_auth')void luMaybeReconnectDrive(ev.stopped.error);
 }
 // 새로 고치면 줄에 선 파일이 알림 없이 사라지므로 올리는 동안은 자료 등록 줄과 같이 먼저 묻는다. 계정·작업공간이 바뀌면 못 올린 파일을 놓는다(meeting-send.mjs watch).
